@@ -77,8 +77,11 @@ artifacts/
 models/
 datasets/
 data/
-!frontend/src/**/data/
-!frontend/src/**/data/**
+!server/frontend/src/**/data/
+!server/frontend/src/**/data/**
+!research/models/
+research/models/*
+!research/models/README.md
 
 # Testing
 playwright-report/

@@ -7,23 +7,23 @@ ESB 이상 징후 탐지 대시보드 프론트엔드 목업입니다.
 새 컴퓨터에서 저장소를 받은 뒤 루트 경로에서 bootstrap 스크립트를 실행합니다.
 
 ```bash
-bash scripts/bootstrap.sh
+bash server/infra/scripts/bootstrap.sh
 ```
 
 설치 후 빌드까지 확인하려면 아래처럼 실행합니다.
 
 ```bash
-bash scripts/bootstrap.sh --with-build
+bash server/infra/scripts/bootstrap.sh --with-build
 ```
 
-스크립트는 `frontend/pnpm-lock.yaml`을 기준으로 프론트엔드 의존성을 설치합니다.
+스크립트는 `server/frontend/pnpm-lock.yaml`을 기준으로 프론트엔드 의존성을 설치합니다.
 
 ## 2. 프론트엔드 실행
 
-직접 실행할 때는 `frontend` 폴더로 이동한 뒤 pnpm 명령을 사용합니다.
+직접 실행할 때는 `server/frontend` 폴더로 이동한 뒤 pnpm 명령을 사용합니다.
 
 ```bash
-cd frontend
+cd server/frontend
 pnpm dev
 ```
 

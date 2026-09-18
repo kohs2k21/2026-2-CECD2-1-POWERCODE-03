@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-FRONTEND_DIR="$ROOT_DIR/frontend"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SERVER_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
+FRONTEND_DIR="$SERVER_DIR/frontend"
 PNPM_VERSION="11.1.2"
 
 run_build=false
@@ -14,10 +15,10 @@ for arg in "$@"; do
       ;;
     -h|--help)
       cat <<'USAGE'
-Usage: scripts/bootstrap.sh [--with-build]
+Usage: server/infra/scripts/bootstrap.sh [--with-build]
 
 Install project dependencies for a fresh local checkout.
-The frontend dependency set is resolved from frontend/package.json and pnpm-lock.yaml.
+The frontend dependency set is resolved from frontend/package.json and pnpm-lock.yaml within the server directory.
 
 Options:
   --with-build  Install dependencies and run the frontend build.
@@ -26,13 +27,13 @@ USAGE
       ;;
     *)
       echo "Unknown option: $arg" >&2
-      echo "Run scripts/bootstrap.sh --help for usage." >&2
+      echo "Run server/infra/scripts/bootstrap.sh --help for usage." >&2
       exit 1
       ;;
   esac
 done
 
-echo "==> Project root: $ROOT_DIR"
+echo "==> Server directory: $SERVER_DIR"
 
 if ! command -v node >/dev/null 2>&1; then
   echo "Node.js is required but was not found." >&2
@@ -59,7 +60,7 @@ if [[ ! -d "$FRONTEND_DIR" ]]; then
   exit 1
 fi
 
-echo "==> Installing frontend dependencies from package.json and pnpm-lock.yaml"
+echo "==> Installing frontend dependencies from $FRONTEND_DIR/package.json and pnpm-lock.yaml"
 pnpm --dir "$FRONTEND_DIR" install --frozen-lockfile
 
 if [[ "$run_build" == true ]]; then

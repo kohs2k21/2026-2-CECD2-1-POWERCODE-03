@@ -17,6 +17,7 @@ import "./admin_system.css";
 import { AnimatedPanel } from "../../components/layout/AnimatedPanel";
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
+import { MockDataNotice } from "../../components/ui/MockDataNotice";
 import { Switch } from "../../components/ui/switch";
 import { getStored, setStored, storageKeys } from "../../lib/storage";
 import type { GpuState, SystemConfig } from "../../types/domain";
@@ -149,6 +150,7 @@ export const AdminSystemPlaceholder = () => {
 
   return (
     <AnimatedPanel className={`admin-system-workspace ${isWide ? "admin-system-workspace--wide" : ""}`}>
+      <MockDataNotice feature="시스템 설정" />
       {/* 헤더 섹션 */}
       <header className="admin-system-header">
         <div>

@@ -4,6 +4,7 @@ const apiBaseUrl =
 
 type RequestOptions = RequestInit & {
   params?: Record<string, string | number | boolean | undefined>;
+  includeAuth?: boolean;
 };
 
 const buildUrl = (path: string, params?: RequestOptions["params"]) => {
@@ -15,64 +16,100 @@ const buildUrl = (path: string, params?: RequestOptions["params"]) => {
     }
   });
 
-  return apiBaseUrl ? url.toString() : `${url.pathname}${url.search}`;
+  return apiBaseUrl ? url.toString() : url.pathname + url.search;
+};
+
+const getRequestHeaders = (
+  headers: HeadersInit | undefined,
+  includeAuth: boolean,
+): Headers => {
+  const requestHeaders = new Headers(headers);
+
+  if (includeAuth) {
+    const token = window.localStorage.getItem("token");
+    if (token) {
+      requestHeaders.set("Authorization", "Bearer " + token);
+    }
+  }
+
+  return requestHeaders;
+};
+
+const getErrorMessage = async (
+  response: Response,
+  method: string,
+  path: string,
+): Promise<Error> => {
+  let message = method + " " + path + " failed: " + response.status;
+
+  try {
+    const payload: unknown = await response.json();
+    if (
+      payload &&
+      typeof payload === "object" &&
+      "message" in payload &&
+      typeof payload.message === "string"
+    ) {
+      message = payload.message;
+    }
+  } catch {
+    // Keep the status-based message when the server did not return JSON.
+  }
+
+  return new Error(message);
+};
+
+const request = async <T>(
+  method: string,
+  path: string,
+  options: RequestOptions = {},
+  body?: unknown,
+): Promise<T> => {
+  const {
+    params,
+    includeAuth = true,
+    headers,
+    ...requestInit
+  } = options;
+
+  const requestHeaders = getRequestHeaders(headers, includeAuth);
+  const fetchInit: RequestInit = {
+    ...requestInit,
+    method,
+    headers: requestHeaders,
+  };
+
+  if (body !== undefined) {
+    requestHeaders.set("Content-Type", "application/json");
+    fetchInit.body = JSON.stringify(body);
+  }
+
+  const response = await fetch(buildUrl(path, params), fetchInit);
+  if (!response.ok) {
+    throw await getErrorMessage(response, method, path);
+  }
+
+  return response.json() as Promise<T>;
 };
 
 export const httpClient = {
-  async get<T>(path: string, options: RequestOptions = {}): Promise<T> {
-    const response = await fetch(buildUrl(path, options.params), {
-      ...options,
-      method: "GET",
-    });
-
-    if (!response.ok) {
-      throw new Error(`GET ${path} failed: ${response.status}`);
-    }
-
-    return response.json() as Promise<T>;
+  get<T>(path: string, options: RequestOptions = {}): Promise<T> {
+    return request<T>("GET", path, options);
   },
 
-  async post<T>(
+  post<T>(
     path: string,
     body: unknown,
     options: RequestOptions = {},
   ): Promise<T> {
-    const response = await fetch(buildUrl(path, options.params), {
-      ...options,
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...options.headers,
-      },
-      body: JSON.stringify(body),
-    });
-
-    if (!response.ok) {
-      throw new Error(`POST ${path} failed: ${response.status}`);
-    }
-
-    return response.json() as Promise<T>;
+    return request<T>("POST", path, options, body);
   },
 
-  async patch<T>(
+  patch<T>(
     path: string,
     body: unknown,
     options: RequestOptions = {},
   ): Promise<T> {
-    const response = await fetch(buildUrl(path, options.params), {
-      ...options,
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-        ...options.headers,
-      },
-      body: JSON.stringify(body),
-    });
-
-    if (!response.ok) {
-      throw new Error(`PATCH ${path} failed: ${response.status}`);
-    }
-
-    return response.json() as Promise<T>;
+    return request<T>("PATCH", path, options, body);
   },
 };

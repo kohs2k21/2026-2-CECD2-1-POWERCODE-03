@@ -4,7 +4,6 @@
 @import "./components/ui/ui.css";
 @import "./app/app.css";
 @import "./features/navigation/navigation.css";
-@import "./features/role_select/role_select.css";
 @import "./features/home/home.css";
 @import "./features/analysis/analysis.css";
 @import "./features/settings/settings.css";

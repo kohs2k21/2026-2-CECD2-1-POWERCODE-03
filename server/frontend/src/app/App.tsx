@@ -1,30 +1,95 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AppShell } from "../components/layout/AppShell";
 import { AnalysisMock } from "../features/analysis/AnalysisMock";
 import { AdminModelPlaceholder } from "../features/admin_model/AdminModelPlaceholder";
 import { AdminSystemPlaceholder } from "../features/admin_system/AdminSystemPlaceholder";
+import { AuthPage } from "../features/auth/AuthPage";
 import { HomeMock } from "../features/home/HomeMock";
 import { TopNav } from "../features/navigation/TopNav";
-import { RoleSelector } from "../features/role_select/RoleSelector";
 import { SettingsPlaceholder } from "../features/settings/SettingsPlaceholder";
+import { fetchCurrentUser } from "../services/api/auth.api";
+import {
+  clearStoredToken,
+  getStoredToken,
+  storeToken,
+} from "../services/auth/session";
 import { createInitialAppState } from "../stores/appStore";
-import type { UserRole, ViewId } from "../types/app";
+import type { AuthSession, AuthUser } from "../types/auth";
+import type { ViewId } from "../types/app";
 import { getVisibleNavItems } from "./router";
 
-export const App = () => {
-  const [selectedRole, setSelectedRole] = useState<UserRole | null>(createInitialAppState().selectedRole);
-  const [activeView, setActiveView] = useState<ViewId>(createInitialAppState().activeView);
+type AuthStatus = "checking" | "signedOut" | "signedIn";
 
-  const handleRoleSelect = (role: UserRole) => {
-    setSelectedRole(role);
+export const App = () => {
+  const [authStatus, setAuthStatus] = useState<AuthStatus>("checking");
+  const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
+  const [activeView, setActiveView] = useState<ViewId>(
+    () => createInitialAppState().activeView,
+  );
+
+  useEffect(() => {
+    let isMounted = true;
+    const token = getStoredToken();
+
+    if (!token) {
+      setAuthStatus("signedOut");
+      return () => {
+        isMounted = false;
+      };
+    }
+
+    fetchCurrentUser()
+      .then((user) => {
+        if (!isMounted) {
+          return;
+        }
+
+        setCurrentUser(user);
+        setAuthStatus("signedIn");
+      })
+      .catch(() => {
+        if (!isMounted) {
+          return;
+        }
+
+        clearStoredToken();
+        setCurrentUser(null);
+        setAuthStatus("signedOut");
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const handleLoginSuccess = (session: AuthSession) => {
+    storeToken(session.token);
+    setCurrentUser(session.user);
     setActiveView("home");
+    setAuthStatus("signedIn");
   };
 
-  if (!selectedRole) {
-    return <RoleSelector onSelectRole={handleRoleSelect} />;
+  const handleLogout = () => {
+    clearStoredToken();
+    setCurrentUser(null);
+    setActiveView("home");
+    setAuthStatus("signedOut");
+  };
+
+  if (authStatus === "checking") {
+    return (
+      <main className="auth-loading" aria-live="polite">
+        <span className="auth-loading__spinner" aria-hidden="true" />
+        <p>로그인 상태를 확인하는 중...</p>
+      </main>
+    );
   }
 
-  const visibleNavItems = getVisibleNavItems(selectedRole);
+  if (!currentUser || authStatus !== "signedIn") {
+    return <AuthPage onLoginSuccess={handleLoginSuccess} />;
+  }
+
+  const visibleNavItems = getVisibleNavItems(currentUser.userType);
 
   return (
     <AppShell
@@ -32,20 +97,24 @@ export const App = () => {
         <TopNav
           activeView={activeView}
           navItems={visibleNavItems}
-          role={selectedRole}
-          onChangeRole={() => setSelectedRole(null)}
+          role={currentUser.userType}
+          onChangeRole={handleLogout}
           onSelectView={setActiveView}
         />
       }
     >
-      <ViewPanel activeView={activeView} role={selectedRole} onSelectView={setActiveView} />
+      <ViewPanel
+        activeView={activeView}
+        role={currentUser.userType}
+        onSelectView={setActiveView}
+      />
     </AppShell>
   );
 };
 
 type ViewPanelProps = {
   activeView: ViewId;
-  role: UserRole;
+  role: AuthUser["userType"];
   onSelectView: (view: ViewId) => void;
 };
 

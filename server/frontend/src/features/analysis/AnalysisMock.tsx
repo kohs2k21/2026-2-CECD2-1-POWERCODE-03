@@ -1,5 +1,6 @@
 import { AnimatePresence } from "motion/react";
 import { SidebarNav } from "../../components/layout/SidebarNav";
+import { MockDataNotice } from "../../components/ui/MockDataNotice";
 import { TooltipProvider } from "../../components/ui/tooltip";
 import { AnalysisDetailView } from "./components/AnalysisDetailView";
 import { AnalysisInboxView } from "./components/AnalysisInboxView";
@@ -43,6 +44,7 @@ export const AnalysisMock = () => {
           onSelect={handleCategoryChange}
         />
         <main className="analysis-main">
+          <MockDataNotice feature="상세 분석" />
           <AnimatePresence mode="wait">
             {activeDetail ? (
               <AnalysisDetailView

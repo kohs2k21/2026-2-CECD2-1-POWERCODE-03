@@ -32,6 +32,28 @@ export const httpClient = {
     return response.json() as Promise<T>;
   },
 
+  async post<T>(
+    path: string,
+    body: unknown,
+    options: RequestOptions = {},
+  ): Promise<T> {
+    const response = await fetch(buildUrl(path, options.params), {
+      ...options,
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...options.headers,
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+      throw new Error(`POST ${path} failed: ${response.status}`);
+    }
+
+    return response.json() as Promise<T>;
+  },
+
   async patch<T>(
     path: string,
     body: unknown,

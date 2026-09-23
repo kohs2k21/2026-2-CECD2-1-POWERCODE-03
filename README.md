@@ -4,7 +4,7 @@
 ## Layout
 
 - `server/frontend/` contains the Vite dashboard.
-- `server/backend/` is reserved for the backend integration; the HUJ backend is not part of this structure-only commit.
+- `server/backend/` contains the relocated HUJ backend integration; its auth and API hardening remains a separate C3 task.
 - `server/worker/`, `server/contracts/`, and `server/infra/` reserve runtime boundaries and infrastructure entry points.
 - `research/` contains experiments and evaluation work and is not a server dependency.
 - `automation/`, `docs/`, and `.github/workflows/` contain repository-level scaffolds.

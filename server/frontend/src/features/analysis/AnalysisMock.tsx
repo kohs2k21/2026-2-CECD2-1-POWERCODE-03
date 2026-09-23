@@ -4,6 +4,7 @@ import { MockDataNotice } from "../../components/ui/MockDataNotice";
 import { TooltipProvider } from "../../components/ui/tooltip";
 import { AnalysisDetailView } from "./components/AnalysisDetailView";
 import { AnalysisInboxView } from "./components/AnalysisInboxView";
+import { RealtimeAnomalyPanel } from "./components/RealtimeAnomalyPanel";
 import { useAnalysisWorkspace } from "./hooks/useAnalysisWorkspace";
 import { useLlmAnalysisSimulation } from "./hooks/useLlmAnalysisSimulation";
 
@@ -44,40 +45,43 @@ export const AnalysisMock = () => {
           onSelect={handleCategoryChange}
         />
         <main className="analysis-main">
-          <MockDataNotice feature="상세 분석" />
-          <AnimatePresence mode="wait">
-            {activeDetail ? (
-              <AnalysisDetailView
-                key={activeDetail.log.logId}
-                detail={activeDetail}
-                featureDefinitions={featureDefinitions}
-                theme={activeTheme}
-                onBack={() => setActiveDetailId(null)}
-                onCopyReport={handleCopyReport}
-                onStatusChange={handleStatusChange}
-                isWide={isWide}
-                onToggleWide={handleToggleWide}
-                analyzingLogId={analyzingLogId}
-                analyzingStep={analyzingStep}
-                typingLogId={typingLogId}
-                typingPhase={typingPhase}
-                setTypingPhase={setTypingPhase}
-                handleRequestLLMAnalysis={handleRequestLLMAnalysis}
-              />
-            ) : (
-              <AnalysisInboxView
-                key={activeCategory}
-                activeCategory={activeCategory}
-                categoryCounts={categoryCounts}
-                details={filteredDetails}
-                query={query}
-                onOpenDetail={setActiveDetailId}
-                onQueryChange={setQuery}
-                isWide={isWide}
-                onToggleWide={handleToggleWide}
-              />
-            )}
-          </AnimatePresence>
+          <RealtimeAnomalyPanel />
+          <section className="analysis-mock-surface" aria-label="상세 분석 목업 화면">
+            <MockDataNotice feature="상세 분석" />
+            <AnimatePresence mode="wait">
+              {activeDetail ? (
+                <AnalysisDetailView
+                  key={activeDetail.log.logId}
+                  detail={activeDetail}
+                  featureDefinitions={featureDefinitions}
+                  theme={activeTheme}
+                  onBack={() => setActiveDetailId(null)}
+                  onCopyReport={handleCopyReport}
+                  onStatusChange={handleStatusChange}
+                  isWide={isWide}
+                  onToggleWide={handleToggleWide}
+                  analyzingLogId={analyzingLogId}
+                  analyzingStep={analyzingStep}
+                  typingLogId={typingLogId}
+                  typingPhase={typingPhase}
+                  setTypingPhase={setTypingPhase}
+                  handleRequestLLMAnalysis={handleRequestLLMAnalysis}
+                />
+              ) : (
+                <AnalysisInboxView
+                  key={activeCategory}
+                  activeCategory={activeCategory}
+                  categoryCounts={categoryCounts}
+                  details={filteredDetails}
+                  query={query}
+                  onOpenDetail={setActiveDetailId}
+                  onQueryChange={setQuery}
+                  isWide={isWide}
+                  onToggleWide={handleToggleWide}
+                />
+              )}
+            </AnimatePresence>
+          </section>
         </main>
       </section>
     </TooltipProvider>

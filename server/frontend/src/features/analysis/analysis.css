@@ -1762,3 +1762,167 @@
   color: var(--body);
   font-size: 13px;
 }
+
+.analysis-main {
+  display: grid;
+  align-content: start;
+  gap: var(--space-lg);
+}
+
+.analysis-mock-surface {
+  display: grid;
+  gap: var(--space-md);
+}
+
+.realtime-anomaly-panel {
+  display: grid;
+  gap: var(--space-md);
+  padding: var(--space-md);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-lg);
+  background: var(--canvas);
+}
+
+.realtime-anomaly-panel__header {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: var(--space-md);
+}
+
+.realtime-anomaly-panel__header h2 {
+  margin: 2px 0 var(--space-xs);
+  color: var(--ink);
+  font-size: 18px;
+  line-height: 24px;
+}
+
+.realtime-anomaly-panel__header p:last-child {
+  margin: 0;
+  color: var(--body);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.realtime-anomaly-panel__eyebrow {
+  margin: 0;
+  color: var(--link);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.realtime-anomaly-status {
+  flex: 0 0 auto;
+  padding: 4px 9px;
+  border: 1px solid var(--hairline);
+  border-radius: 9999px;
+  color: var(--body);
+  background: var(--canvas-soft);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.realtime-anomaly-status--open {
+  border-color: color-mix(in srgb, var(--link) 35%, var(--hairline));
+  color: var(--link);
+}
+
+.realtime-anomaly-status--error,
+.realtime-anomaly-status--closed {
+  border-color: color-mix(in srgb, var(--error) 35%, var(--hairline));
+  color: var(--error);
+}
+
+.realtime-anomaly-panel__message,
+.realtime-anomaly-panel__empty {
+  margin: 0;
+  padding: var(--space-sm);
+  border-radius: var(--radius-md);
+  background: var(--canvas-soft);
+  color: var(--body);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.realtime-anomaly-panel__message {
+  border: 1px solid var(--hairline);
+}
+
+.realtime-anomaly-events {
+  display: grid;
+  gap: var(--space-sm);
+  max-height: 440px;
+  overflow: auto;
+}
+
+.realtime-anomaly-event {
+  display: grid;
+  gap: var(--space-sm);
+  padding: var(--space-sm);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-md);
+  background: var(--canvas-soft);
+}
+
+.realtime-anomaly-event__header {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: var(--space-md);
+}
+
+.realtime-anomaly-event__header div {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+}
+
+.realtime-anomaly-event__header strong {
+  color: var(--ink);
+  font-size: 13px;
+}
+
+.realtime-anomaly-event__header span,
+.realtime-anomaly-event__header code {
+  color: var(--mute);
+  font-size: 11px;
+}
+
+.realtime-anomaly-event__header code {
+  overflow-wrap: anywhere;
+  text-align: right;
+}
+
+.realtime-anomaly-event__fields {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-sm);
+  margin: 0;
+}
+
+.realtime-anomaly-event__fields div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.realtime-anomaly-event__fields dt {
+  color: var(--mute);
+  font-size: 11px;
+}
+
+.realtime-anomaly-event__fields dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--ink);
+  font-size: 12px;
+  line-height: 17px;
+}
+
+@media (max-width: 860px) {
+  .realtime-anomaly-event__fields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

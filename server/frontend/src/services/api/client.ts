@@ -7,7 +7,7 @@ type RequestOptions = RequestInit & {
   includeAuth?: boolean;
 };
 
-const buildUrl = (path: string, params?: RequestOptions["params"]) => {
+export const buildApiUrl = (path: string, params?: RequestOptions["params"]) => {
   const url = new URL(path, apiBaseUrl || window.location.origin);
 
   Object.entries(params ?? {}).forEach(([key, value]) => {
@@ -84,7 +84,7 @@ const request = async <T>(
     fetchInit.body = JSON.stringify(body);
   }
 
-  const response = await fetch(buildUrl(path, params), fetchInit);
+  const response = await fetch(buildApiUrl(path, params), fetchInit);
   if (!response.ok) {
     throw await getErrorMessage(response, method, path);
   }

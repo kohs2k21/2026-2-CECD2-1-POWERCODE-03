@@ -38,8 +38,6 @@ The backend is the single owner of the JSON user store. `USER_DATA_PATH` selects
 
 Authentication and the anomaly risk/SSE boundary are implemented under `server/backend`; their stable shapes are documented in [`contracts/auth.md`](contracts/auth.md) and [`contracts/anomaly.md`](contracts/anomaly.md). Public registration and email verification are disabled. Anomaly ingest requires an admin Bearer token, and stream clients require authentication. The C5 realtime panel uses a Bearer `fetch` SSE reader, validates fragmented frames against the contract, cleans up with `AbortController`, retries at most three times, and deduplicates by `eventId`.
 
-The analysis inbox and detail view use authenticated SSE events only (up to 50 events per mounted session); historical queries, workflow status persistence, hierarchy details, and LLM results are not implemented. Home and model/system administration retain mock data. Settings display the authenticated profile and disable unsupported operations. UI source badges have been removed; implementation boundaries remain documented in `docs/mock-inventory.md`. API errors and empty responses are never replaced with mock success.
+The analysis inbox and detail view use authenticated SSE events only (up to 50 events per mounted session); historical queries, workflow status persistence, hierarchy details, and LLM results are not implemented. Home and model/system administration retain mock data. Settings display the authenticated profile and disable unsupported operations. UI source badges have been removed; current implementation boundaries are described above. API errors and empty responses are never replaced with mock success.
 
 `server/worker/` and `server/infra/` remain extension boundaries. Research notebooks and evaluation artifacts stay under `research/` and are not runtime dependencies.
-
-Team quick start: [Korean one-page guide](../docs/team-quickstart.md).

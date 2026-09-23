@@ -1,3 +1,6 @@
-# Documentation
+# 개발 명세
 
-Repository-level architecture and operating notes belong here. Component-specific instructions stay beside their component.
+- 대상: ESB 응답 코드·데이터 사전 등 구현에 필요한 공통 명세
+- API·이벤트 계약: `server/contracts/`
+- 컴포넌트 실행 안내: 해당 컴포넌트 README
+- 개인 작업 기록·검토·계획·팀 공유용 안내: Git 관리 대상 제외

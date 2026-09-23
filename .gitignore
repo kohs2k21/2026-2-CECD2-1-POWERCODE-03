@@ -21,6 +21,12 @@ coverage/
 !.env.example
 !.env.*.example
 
+# Private key material
+*.pem
+*.key
+id_rsa
+id_ed25519
+
 # Logs
 logs/
 *.log
@@ -30,9 +36,6 @@ yarn-error.log*
 pnpm-debug.log*
 
 # Package manager
-package-lock.json
-!server/backend/package-lock.json
-yarn.lock
 .pnpm-store/
 
 # TypeScript
@@ -58,6 +61,30 @@ pip-wheel-metadata/
 
 # Jupyter / ML
 .ipynb_checkpoints/
+
+# Runtime data files. Backend defaults to data/ from its working directory;
+# these exact paths cover its service directory and legacy root launches.
+/data/
+/server/backend/data/
+
+# Legacy root artifact directories; these do not match nested source folders.
+/models/
+/datasets/
+/feature_rule/
+
+# Research-generated datasets and run output; keep research source code visible.
+/research/**/data/
+/research/**/datasets/
+/research/**/output/
+/research/**/outputs/
+/research/**/checkpoints/
+/research/**/artifacts/
+/research/**/mlruns/
+/research/**/wandb/
+/research/**/lightning_logs/
+/research/**/runs/
+
+# Model and notebook artifacts (do not ignore source directories such as research/models).
 *.model
 *.pkl
 *.pickle
@@ -69,21 +96,6 @@ pip-wheel-metadata/
 *.pth
 *.ckpt
 *.onnx
-mlruns/
-wandb/
-lightning_logs/
-runs/
-checkpoints/
-artifacts/
-models/
-datasets/
-data/
-!server/frontend/src/**/data/
-!server/frontend/src/**/data/**
-!research/models/
-research/models/*
-!research/models/README.md
-feature_rule/
 
 # Testing
 playwright-report/
@@ -102,6 +114,7 @@ Thumbs.db
 !.vscode/launch.json
 
 # Local AI tool state / instructions
+/MyDocs/
 .codex/
 AGENTS.md
 .claude/

@@ -1,11 +1,12 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
-import { mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import net from "node:net";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import jwt from "jsonwebtoken";
 
 const testsDirectory = path.dirname(fileURLToPath(import.meta.url));
 const backendDirectory = path.resolve(testsDirectory, "..");
@@ -161,6 +162,65 @@ async function requestJson(baseUrl, route, options = {}) {
   return { status: response.status, headers: response.headers, body };
 }
 
+async function requestJsonMethod(baseUrl, route, { method, token, body }) {
+  const headers = { "content-type": "application/json" };
+  if (token) headers.authorization = `Bearer ${token}`;
+  const result = await requestJson(baseUrl, route, {
+    method,
+    headers,
+    body: JSON.stringify(body ?? {}),
+  });
+  return result;
+}
+
+async function readNextSseEvent(response, timeoutMilliseconds = 1_000) {
+  assert.ok(response.body, "an authenticated SSE response must have a body");
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  const deadline = Date.now() + timeoutMilliseconds;
+
+  try {
+    while (Date.now() < deadline) {
+      const remaining = Math.max(1, deadline - Date.now());
+      let timer;
+      const result = await Promise.race([
+        reader.read(),
+        new Promise((resolve) => {
+          timer = setTimeout(() => resolve({ timeout: true }), remaining);
+        }),
+      ]);
+      clearTimeout(timer);
+
+      if (result?.timeout || result?.done) return null;
+      buffer += decoder.decode(result.value, { stream: true }).replace(/\r\n/g, "\n");
+
+      let delimiterIndex = buffer.indexOf("\n\n");
+      while (delimiterIndex !== -1) {
+        const frame = buffer.slice(0, delimiterIndex);
+        buffer = buffer.slice(delimiterIndex + 2);
+        const dataLines = frame
+          .split("\n")
+          .filter((line) => line.startsWith("data:"))
+          .map((line) => line.slice(5).replace(/^ /, ""));
+        if (dataLines.length > 0) {
+          try {
+            return JSON.parse(dataLines.join("\n"));
+          } catch {
+            // Ignore non-JSON control frames and keep reading for an anomaly.
+          }
+        }
+        delimiterIndex = buffer.indexOf("\n\n");
+      }
+    }
+
+    return null;
+  } finally {
+    await reader.cancel().catch(() => {});
+    reader.releaseLock();
+  }
+}
+
 function jsonOptions({ token, body } = {}) {
   const headers = { "content-type": "application/json" };
   if (token) headers.authorization = `Bearer ${token}`;
@@ -173,6 +233,10 @@ function jsonOptions({ token, body } = {}) {
 
 function expectStatus(result, expected, label) {
   assert.equal(result.status, expected, `${label} returned HTTP ${result.status}`);
+}
+
+function expectCode(result, expected, label) {
+  assert.equal(result.body?.code, expected, `${label} returned code ${result.body?.code}`);
 }
 
 async function waitForHealth(baseUrl, processHandle) {
@@ -255,7 +319,6 @@ async function main() {
     });
     await waitForHealth(baseUrl, serverProcess);
 
-    const firstStoreText = await readFile(dataPath, "utf8");
     const firstUsers = await readUsers(dataPath);
     assert.equal(firstUsers.length, 2, "the first boot must create exactly the configured seed accounts");
     assert.deepEqual(
@@ -282,6 +345,15 @@ async function main() {
       headers: { authorization: "Bearer invalid-token" },
     });
     expectStatus(invalidAuth, 403, "profile with an invalid Bearer token");
+    const expiredToken = jwt.sign(
+      { id: "1", email: ADMIN.email, userType: "admin" },
+      JWT_SECRET,
+      { expiresIn: -1 },
+    );
+    const expiredAuth = await requestJson(baseUrl, "/api/auth/me", {
+      headers: { authorization: `Bearer ${expiredToken}` },
+    });
+    expectStatus(expiredAuth, 403, "profile with an expired Bearer token");
 
     const incompleteLogin = await requestJson(
       baseUrl,
@@ -316,6 +388,27 @@ async function main() {
     expectStatus(usersWithAdminRole, 200, "user list with an admin account");
     assert.ok(Array.isArray(usersWithAdminRole.body));
     assert.ok(usersWithAdminRole.body.every((user) => !Object.hasOwn(user, "password")));
+
+    const validLog = {
+      logId: "qa-valid-ingest-1",
+      detectedAt: "2026-01-01T12:00:00.000Z",
+      processName: "QA Process",
+      channelName: "qa-channel",
+      transactionId: "qa-transaction-1",
+      status: "error",
+      anomalyScore: 0.5,
+      processTimeMs: 1_000,
+      responseCode: "4001",
+    };
+    const evaluatedRisk = await requestJson(
+      baseUrl,
+      "/api/anomaly/evaluate-risk",
+      jsonOptions({ token: userToken, body: { logs: [validLog] } }),
+    );
+    expectStatus(evaluatedRisk, 200, "valid risk evaluation");
+    assert.deepEqual(evaluatedRisk.body?.results, [
+      { logId: validLog.logId, riskScore: 55, riskLevel: 2, severity: "Warning" },
+    ]);
 
     for (const endpoint of ["/send-code", "/verify-code", "/register"]) {
       const registration = await requestJson(
@@ -366,19 +459,185 @@ async function main() {
     expectStatus({ status: sseWithInvalidAuth.status }, 403, "SSE with an invalid token");
     await sseWithInvalidAuth.text();
 
-    const sseController = new AbortController();
-    const sseResponse = await fetchWithTimeout(
-      `${baseUrl}/api/anomaly/realtime-stream`,
-      { headers: { authorization: `Bearer ${adminToken}` }, signal: sseController.signal },
-    );
+    const sseResponse = await fetchWithTimeout(`${baseUrl}/api/anomaly/realtime-stream`, {
+      headers: { authorization: `Bearer ${adminToken}` },
+    });
     expectStatus({ status: sseResponse.status }, 200, "authenticated SSE");
     assert.match(
       sseResponse.headers.get("content-type") || "",
       /text\/event-stream/i,
       "authenticated SSE must use the event-stream content type",
     );
-    await sseResponse.body?.cancel();
-    sseController.abort();
+    const userIngest = await requestJson(
+      baseUrl,
+      "/api/anomaly/logs",
+      jsonOptions({ token: userToken, body: validLog }),
+    );
+    expectStatus(userIngest, 403, "real-time ingest with a non-admin account");
+
+    const validIngest = await requestJson(
+      baseUrl,
+      "/api/anomaly/logs",
+      jsonOptions({ token: adminToken, body: validLog }),
+    );
+    expectStatus(validIngest, 201, "valid admin real-time ingest");
+    const expectedEvent = {
+      schemaVersion: 1,
+      eventId: validLog.logId,
+      provenance: "backend-ingest",
+      detectedAt: validLog.detectedAt,
+      processName: validLog.processName,
+      channelName: validLog.channelName,
+      transactionId: validLog.transactionId,
+      status: validLog.status,
+      responseCode: validLog.responseCode,
+      anomalyScore: validLog.anomalyScore,
+      processTimeMs: validLog.processTimeMs,
+      riskScore: 55,
+      riskLevel: 2,
+      severity: "Warning",
+    };
+    assert.deepEqual(validIngest.body?.log, expectedEvent, "ingest must return the normalized event contract");
+    const deliveredEvent = await readNextSseEvent(sseResponse);
+    assert.deepEqual(deliveredEvent, expectedEvent, "admin ingest must reach a live SSE subscriber");
+
+    for (const [label, body] of [
+      ["malformed email", { email: "not-an-email" }],
+      ["empty password", { password: "" }],
+      ["malformed role", { userType: "superuser" }],
+      ["non-string email", { email: 42 }],
+      ["non-string password", { password: 42 }],
+    ]) {
+      const invalidUpdate = await requestJsonMethod(baseUrl, "/api/users/2", {
+        method: "PUT",
+        token: adminToken,
+        body,
+      });
+      expectStatus(invalidUpdate, 400, `${label} user update`);
+      expectCode(invalidUpdate, "invalid_user_update", `${label} user update`);
+    }
+
+    const promoteUser = await requestJsonMethod(baseUrl, "/api/users/2", {
+      method: "PUT",
+      token: adminToken,
+      body: { userType: "admin" },
+    });
+    expectStatus(promoteUser, 200, "promoting a user account");
+    const staleUserRole = await requestJson(baseUrl, "/api/users", {
+      headers: { authorization: `Bearer ${userToken}` },
+    });
+    expectStatus(staleUserRole, 401, "previous user token after promotion");
+    expectCode(staleUserRole, "token_revoked", "previous user token after promotion");
+
+    const promotedToken = await login(baseUrl, USER);
+    const promotedUsers = await requestJson(baseUrl, "/api/users", {
+      headers: { authorization: `Bearer ${promotedToken}` },
+    });
+    expectStatus(promotedUsers, 200, "new admin token after promotion");
+
+    const promotedStream = await fetchWithTimeout(`${baseUrl}/api/anomaly/realtime-stream`, {
+      headers: { authorization: `Bearer ${promotedToken}` },
+    });
+    expectStatus({ status: promotedStream.status }, 200, "SSE for a promoted account");
+    const demoteUser = await requestJsonMethod(baseUrl, "/api/users/2", {
+      method: "PUT",
+      token: adminToken,
+      body: { userType: "user" },
+    });
+    expectStatus(demoteUser, 200, "demoting a user account");
+    const staleAdminRole = await requestJson(baseUrl, "/api/users", {
+      headers: { authorization: `Bearer ${promotedToken}` },
+    });
+    expectStatus(staleAdminRole, 401, "previous admin token after demotion");
+    expectCode(staleAdminRole, "token_revoked", "previous admin token after demotion");
+    const demotedStreamIngest = await requestJson(
+      baseUrl,
+      "/api/anomaly/logs",
+      jsonOptions({
+        token: adminToken,
+        body: { ...validLog, logId: "qa-demoted-stream-1" },
+      }),
+    );
+    expectStatus(demotedStreamIngest, 201, "ingest after subscriber demotion");
+    assert.equal(
+      await readNextSseEvent(promotedStream, 500),
+      null,
+      "a demoted subscriber must not receive events from its already-open stream",
+    );
+
+    const demotedToken = await login(baseUrl, USER);
+    const demotedUsers = await requestJson(baseUrl, "/api/users", {
+      headers: { authorization: `Bearer ${demotedToken}` },
+    });
+    expectStatus(demotedUsers, 403, "fresh user token after demotion");
+
+    const changedEmail = "qa-renamed-user@example.test";
+    const renameUser = await requestJsonMethod(baseUrl, "/api/users/2", {
+      method: "PUT",
+      token: adminToken,
+      body: { email: changedEmail },
+    });
+    expectStatus(renameUser, 200, "changing an account email");
+    const staleEmailToken = await requestJson(baseUrl, "/api/auth/me", {
+      headers: { authorization: `Bearer ${demotedToken}` },
+    });
+    expectStatus(staleEmailToken, 401, "token after account email change");
+    expectCode(staleEmailToken, "token_revoked", "token after account email change");
+    const restoreEmail = await requestJsonMethod(baseUrl, "/api/users/2", {
+      method: "PUT",
+      token: adminToken,
+      body: { email: USER.email },
+    });
+    expectStatus(restoreEmail, 200, "restoring the test account email");
+
+    const expiryToken = jwt.sign(
+      { id: "2", email: USER.email, userType: "user" },
+      JWT_SECRET,
+      { expiresIn: "3s" },
+    );
+    const expiringStream = await fetchWithTimeout(`${baseUrl}/api/anomaly/realtime-stream`, {
+      headers: { authorization: `Bearer ${expiryToken}` },
+    });
+    expectStatus({ status: expiringStream.status }, 200, "SSE connection before token expiry");
+    await sleep(3_200);
+    const expiredStreamIngest = await requestJson(
+      baseUrl,
+      "/api/anomaly/logs",
+      jsonOptions({
+        token: adminToken,
+        body: { ...validLog, logId: "qa-expired-stream-1" },
+      }),
+    );
+    expectStatus(expiredStreamIngest, 201, "ingest after subscriber token expiry");
+    assert.equal(
+      await readNextSseEvent(expiringStream, 500),
+      null,
+      "an expired subscriber must not receive events from its already-open stream",
+    );
+
+    const raceAccounts = [
+      {
+        id: "3",
+        email: "qa-race-a@example.test",
+        password: "not-used-in-auth-tests",
+        userType: "user",
+        createdAt: "2026-01-01T00:00:00.000Z",
+      },
+      {
+        id: "4",
+        email: "qa-race-b@example.test",
+        password: "not-used-in-auth-tests",
+        userType: "user",
+        createdAt: "2026-01-01T00:00:00.000Z",
+      },
+    ];
+    await writeFile(
+      dataPath,
+      JSON.stringify([...await readUsers(dataPath), ...raceAccounts], null, 2),
+      "utf8",
+    );
+    const raceStoreText = await readFile(dataPath, "utf8");
+    const raceUsers = await readUsers(dataPath);
 
     await stopBackend(serverProcess);
     serverProcess = null;
@@ -395,16 +654,69 @@ async function main() {
       }),
     });
     await waitForHealth(restartUrl, serverProcess);
-    await login(restartUrl, ADMIN);
+    const restartAdminToken = await login(restartUrl, ADMIN);
     const secondStoreText = await readFile(dataPath, "utf8");
-    assert.equal(secondStoreText, firstStoreText, "restarting must preserve the JSON store without duplicate seeds");
-    assert.deepEqual(await readUsers(dataPath), firstUsers);
+    assert.equal(
+      secondStoreText,
+      raceStoreText,
+      "restarting must preserve local account changes without duplicate seeds",
+    );
+    assert.deepEqual(await readUsers(dataPath), raceUsers);
+
+    const duplicateEmail = "qa-parallel-duplicate@example.test";
+    const concurrentUpdates = await Promise.all([
+      requestJsonMethod(restartUrl, "/api/users/3", {
+        method: "PUT",
+        token: restartAdminToken,
+        body: { email: duplicateEmail },
+      }),
+      requestJsonMethod(restartUrl, "/api/users/4", {
+        method: "PUT",
+        token: restartAdminToken,
+        body: { email: duplicateEmail },
+      }),
+    ]);
+    assert.deepEqual(
+      concurrentUpdates.map((result) => result.status).sort(),
+      [200, 400],
+      "parallel updates must permit exactly one account to claim a duplicate email",
+    );
+    const conflict = concurrentUpdates.find((result) => result.status === 400);
+    expectCode(conflict, "email_already_in_use", "parallel duplicate email update");
+    const postRaceUsers = await readUsers(dataPath);
+    assert.equal(
+      postRaceUsers.filter((account) => account.email === duplicateEmail).length,
+      1,
+      "the JSON store must contain only one account with the winning email",
+    );
+
+    const finalStoreText = await readFile(dataPath, "utf8");
+    await stopBackend(serverProcess);
+    serverProcess = null;
+    const finalPort = await getFreePort();
+    const finalUrl = `http://127.0.0.1:${finalPort}`;
+    serverProcess = spawnBackend({
+      runtimeDirectory,
+      environment: makeEnvironment({
+        runtimeDirectory,
+        dataPath,
+        port: finalPort,
+        secret: JWT_SECRET,
+      }),
+    });
+    await waitForHealth(finalUrl, serverProcess);
+    await login(finalUrl, ADMIN);
+    assert.equal(
+      await readFile(dataPath, "utf8"),
+      finalStoreText,
+      "the serialized duplicate-email result must persist across restart",
+    );
   } finally {
     await stopBackend(serverProcess);
     await rm(sandbox, { recursive: true, force: true });
   }
 
-  console.log("backend integration QA passed: config, auth, roles, disabled registration, JSON persistence, malformed payloads, and authenticated SSE");
+  console.log("backend integration QA passed: config, revocable auth, user validation and concurrency, risk evaluation, SSE delivery and revocation, and JSON persistence");
 }
 
 main().catch((error) => {

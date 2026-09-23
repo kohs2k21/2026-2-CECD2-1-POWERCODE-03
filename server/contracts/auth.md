@@ -31,7 +31,9 @@ Missing fields return `400`. Unknown accounts and invalid passwords return the s
 
 ## Current user
 
-`GET /api/auth/me` returns `200` with `{ "user": <public-user> }`. It returns `401` when the header is missing or malformed, `403` when the JWT is invalid or expired, and `404` when the signed user no longer exists.
+`GET /api/auth/me` returns `200` with `{ "user": <public-user> }`. It returns `401` when the header is missing or malformed, `403` when the JWT is invalid or expired, and `401` with `code: "token_revoked"` when the account no longer exists or its stored email or role differs from the token. Every protected request reloads the account and applies this same identity check, so changing a user's email or role invalidates existing tokens, including prior admin tokens.
+
+`PUT /api/users/:id` requires at least one supported field (`email`, `password`, or `userType`). Missing, empty, malformed, or unsupported update fields return `400` with `code: "invalid_user_update"`. An email already assigned to another account after trimming and case normalization returns `400` with `code: "email_already_in_use"`.
 
 ## Disabled account creation
 

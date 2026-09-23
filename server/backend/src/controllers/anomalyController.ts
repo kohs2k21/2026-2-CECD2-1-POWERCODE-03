@@ -7,9 +7,20 @@ import {
   process_log_batch,
   RawLogData,
 } from "../services/anomalyService.js";
+import { AuthenticatedRequest } from "../middleware/auth.js";
+import { UserRepository } from "../repository/userRepository.js";
 
-const streamClients = new Set<Response>();
+interface StreamClient {
+  response: Response;
+  principal: NonNullable<AuthenticatedRequest["user"]>;
+  expiresAt?: number;
+  expiryTimer?: NodeJS.Timeout;
+}
+
+const userRepository = UserRepository.getInstance();
+const streamClients = new Set<StreamClient>();
 const CONTRACT_VERSION = 1 as const;
+const MAX_TIMER_DELAY_MS = 2_147_483_647;
 
 interface AnomalyEvent {
   schemaVersion: typeof CONTRACT_VERSION;
@@ -54,8 +65,59 @@ function toAnomalyEvent(rawLog: RawLogData): AnomalyEvent {
   };
 }
 
-function sendSseEvent(client: Response, event: AnomalyEvent): void {
-  client.write(`id: ${event.eventId}\nevent: anomaly\ndata: ${JSON.stringify(event)}\n\n`);
+function normalizeEmail(email: string): string {
+  return email.trim().toLowerCase();
+}
+
+function unregisterStreamClient(client: StreamClient): void {
+  streamClients.delete(client);
+  if (client.expiryTimer) {
+    clearTimeout(client.expiryTimer);
+    client.expiryTimer = undefined;
+  }
+}
+
+function closeStreamClient(client: StreamClient): void {
+  unregisterStreamClient(client);
+  if (!client.response.writableEnded && !client.response.destroyed) {
+    client.response.end();
+  }
+}
+
+function scheduleStreamExpiry(client: StreamClient): void {
+  if (client.expiresAt === undefined) return;
+
+  const remaining = client.expiresAt - Date.now();
+  if (remaining <= 0) {
+    closeStreamClient(client);
+    return;
+  }
+
+  client.expiryTimer = setTimeout(
+    () => scheduleStreamExpiry(client),
+    Math.min(remaining, MAX_TIMER_DELAY_MS),
+  );
+}
+
+function streamClientIsCurrent(client: StreamClient): boolean {
+  if (
+    client.response.writableEnded ||
+    client.response.destroyed ||
+    (client.expiresAt !== undefined && Date.now() >= client.expiresAt)
+  ) {
+    return false;
+  }
+
+  const currentUser = userRepository.getByIdSync(client.principal.id);
+  return Boolean(
+    currentUser &&
+    normalizeEmail(currentUser.email) === normalizeEmail(client.principal.email) &&
+    currentUser.userType === client.principal.userType
+  );
+}
+
+function sendSseEvent(client: StreamClient, event: AnomalyEvent): void {
+  client.response.write(`id: ${event.eventId}\nevent: anomaly\ndata: ${JSON.stringify(event)}\n\n`);
 }
 
 export function evaluate_logs(req: Request, res: Response): void {
@@ -88,16 +150,28 @@ export function evaluate_logs(req: Request, res: Response): void {
 }
 
 export function register_stream_client(req: Request, res: Response): void {
+  const authenticatedRequest = req as AuthenticatedRequest;
+  if (!authenticatedRequest.user) {
+    res.status(401).json({ message: "Authentication required" });
+    return;
+  }
+
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache, no-transform");
   res.setHeader("Connection", "keep-alive");
   res.setHeader("X-Accel-Buffering", "no");
   res.flushHeaders();
 
-  streamClients.add(res);
-  req.on("close", () => {
-    streamClients.delete(res);
+  const client: StreamClient = {
+    response: res,
+    principal: authenticatedRequest.user,
+    expiresAt: authenticatedRequest.tokenExpiresAt,
+  };
+  streamClients.add(client);
+  res.on("close", () => {
+    unregisterStreamClient(client);
   });
+  scheduleStreamExpiry(client);
 }
 
 export function receive_realtime_log(req: Request, res: Response): void {
@@ -113,7 +187,26 @@ export function receive_realtime_log(req: Request, res: Response): void {
 
     const event = toAnomalyEvent(rawLog);
     for (const client of streamClients) {
-      sendSseEvent(client, event);
+      let isCurrent = false;
+      try {
+        isCurrent = streamClientIsCurrent(client);
+      } catch (error) {
+        console.error(
+          "Error checking real-time stream authorization:",
+          error instanceof Error ? error.message : "unknown error",
+        );
+      }
+
+      if (!isCurrent) {
+        closeStreamClient(client);
+        continue;
+      }
+
+      try {
+        sendSseEvent(client, event);
+      } catch {
+        closeStreamClient(client);
+      }
     }
 
     res.status(201).json({

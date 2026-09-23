@@ -52,6 +52,8 @@ Invalid payloads return `400` with `code: "invalid_log_payload"`.
 
 Optional fields are omitted when the ingest payload does not provide them. The service does not fabricate transaction snapshots, LLM reports, or explanations. Clients should deduplicate by `eventId` and close the stream on logout; the API does not promise replay or URL-token authentication.
 
+The server closes the stream when its token expires. Before each broadcast it rechecks that the account still exists and its email and role still match the token; a deleted account or changed email/role is removed before receiving another event.
+
 ## Admin ingest
 
 `POST /api/anomaly/logs` accepts one raw log and returns `201` with `{ "schemaVersion": 1, "message": "…", "log": <event> }`. It requires an admin token and broadcasts the same event to authenticated subscribers. A missing/invalid token is rejected before a stream is opened or a log is processed.

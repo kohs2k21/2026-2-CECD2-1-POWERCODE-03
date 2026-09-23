@@ -18,6 +18,13 @@ function nextUserId(users: User[]): string {
   return String(nextId);
 }
 
+export class DuplicateEmailError extends Error {
+  constructor() {
+    super("Email already in use");
+    this.name = "DuplicateEmailError";
+  }
+}
+
 export class UserRepository {
   private static instance: UserRepository;
 
@@ -99,6 +106,11 @@ export class UserRepository {
     return users.find((user) => user.id === id) || null;
   }
 
+  public getByIdSync(id: string): User | null {
+    const users = this.readUsers();
+    return users.find((user) => user.id === id) || null;
+  }
+
   public async getByEmail(email: string): Promise<User | null> {
     const normalizedEmail = normalizeEmail(email);
     const users = this.readUsers();
@@ -111,10 +123,15 @@ export class UserRepository {
     userData: Omit<User, "id" | "createdAt">,
   ): Promise<User> {
     const users = this.readUsers();
+    const email = normalizeEmail(userData.email);
+    if (users.some((user) => normalizeEmail(user.email) === email)) {
+      throw new DuplicateEmailError();
+    }
+
     const newUser: User = {
       id: nextUserId(users),
       ...userData,
-      email: normalizeEmail(userData.email),
+      email,
       createdAt: new Date().toISOString(),
     };
 
@@ -134,12 +151,21 @@ export class UserRepository {
       return null;
     }
 
+    const email = updates.email === undefined
+      ? users[userIndex].email
+      : normalizeEmail(updates.email);
+    if (
+      users.some(
+        (user, index) => index !== userIndex && normalizeEmail(user.email) === email,
+      )
+    ) {
+      throw new DuplicateEmailError();
+    }
+
     const updatedUser: User = {
       ...users[userIndex],
       ...updates,
-      email: updates.email
-        ? normalizeEmail(updates.email)
-        : users[userIndex].email,
+      email,
     };
 
     users[userIndex] = updatedUser;

@@ -1,18 +1,23 @@
-# Validation report
+# 검증 결과 — 2026-09-23
 
-Date: 2026-09-23
-Scope: C1 structure relocation through C5 backend, authentication, and realtime frontend work. The checks below were reported by QA; no production services, credentials, email, or raw fixture data were used.
+대상: 이슈 #1 KSJ·HUJ 통합 및 재검수 수정. 제작자와 독립 검수자, 테스트 담당, QA 담당의 결과를 총괄이 대조했다. 결함과 수정 내용은 [integration-review.md](integration-review.md), 역할은 [agent-team.md](agent-team.md)를 참고한다.
 
-## QA checks
+## 실행한 검증
 
-- In a temporary copy containing tracked `server/` files and the two new test harnesses, a fresh backend `npm install` completed, followed by `npm run build` and `node tests/integration.mjs` from `server/backend`. The integration checks passed authentication, role enforcement, seed persistence across restarts, registration/verification disablement, and authenticated SSE behavior.
-- From `server/frontend`, `pnpm install --frozen-lockfile`, `pnpm exec tsc -b`, and `pnpm build` passed.
-- From `server/frontend`, `node ../backend/node_modules/tsx/dist/cli.mjs tests/realtime-stream.mjs` passed Bearer/Accept headers, fragmented frames, optional fields, invalid-frame handling, rejection before fetching when the token is missing, and abort behavior.
-- The frontend build retains Vite's existing large-chunk warning (7,430 modules and about 1.079 MB JavaScript output); it does not fail the build.
-- Direct React hook lifecycle/reconnect/deduplication automation was not run because no renderer was available; those paths received source review. New temporary tests are not recorded as passing unless listed above.
+- 백엔드 `npm test`: 빌드와 통합 테스트 통과. 로그인·역할·seed 영속성·가입 차단·입력 검증·동시 이메일 중복·계정 삭제/권한 변경 후 토큰 차단을 확인했다.
+- SSE는 인증 응답만 확인하던 이전 테스트를 보강했다. 정상 위험도 계산, 관리자 입력 → 실제 이벤트 전달 및 응답 필드, 일반 계정 입력 거부, 이미 열린 스트림의 만료/권한 변경 후 전달 차단을 검증했다.
+- 프론트 `pnpm test`: 스트림 파서와 React 훅 테스트 통과. QA가 독립 재실행했다. 토큰이 없을 때 fetch 미호출, 조각난 이벤트 파싱, 누락/잘못된 이벤트, 이벤트 없는 연결의 open 상태, 3회 재시도 제한, 수동 재연결 시 목록 유지·중복 제거, unmount 시 타이머·요청 정리를 확인했다.
+- 수동 재연결 테스트는 최초 A·B 수신 후 A만 재전송해 최종 A·B 유지 여부를 확인한다. 기록이 지워져도 통과하던 초기 테스트 조건은 수정했다.
+- 총괄이 실제 브라우저에서 임시 일반 계정 로그인, 새로고침 세션 복원, 목업/실제 패널 분리, 로컬 입력 이벤트 도착, 이벤트 없는 연결됨 상태, 서버 중단 후 다시 연결 버튼, 장애 중 새로고침 후 서버 복구·재확인으로 비밀번호 없이 복원, 로그아웃 후 새로고침을 확인했다.
+- 총괄의 로컬 API 재현에서 숫자 이메일 수정은 500 → 400, 강등된 관리자 토큰의 관리자 조회는 200 → 401로 바뀌었다.
+- `git diff --check` 통과. Windows 줄바꿈 안내는 오류가 아니다.
 
-## Scope limits
+- 최종 `npm test` (server/)와 `pnpm build` (server/frontend/) 통과. 프론트 빌드는 TypeScript 검사를 포함한다.
 
-The backend contract covers login, Bearer `/me`, authenticated risk evaluation/SSE, and admin-only ingest. The dashboard uses an authenticated realtime panel alongside explicit mock services for list/detail/status, widget, settings, model, and system surfaces; `docs/mock-inventory.md` records those intentional boundaries and replacement conditions.
+## 범위와 제한
 
-The backend stores users in the JSON path selected by `USER_DATA_PATH` and creates only locally configured seed accounts. Research files are not runtime dependencies, and no external email or production API calls are part of these checks.
+- App 로그인 복원 UI와 스트림 401/403의 로그아웃 버튼은 전체 화면 자동 테스트가 없다. 로그인 복원·로그아웃은 위 브라우저 검증으로 확인했고, 스트림의 terminal 인증 오류 버튼은 코드 검토 범위다.
+- react-test-renderer 사용 시 deprecation 경고가 발생한다. 테스트 실패는 아니며 런타임 의존성은 아니다.
+- 기존 프론트 큰 번들 경고가 남아 있다. 실제 모델·미구현 API·부하 성능·프로덕션 배포 검증은 수행하지 않았다.
+- 앞선 통합 단계에서는 저장소 밖에 server/만 복사해 설치·빌드·테스트가 통과했다. 이번 변경은 두 패키지의 로컬 회귀 테스트와 화면 검수를 수행했으며 그 독립 복사 검증을 다시 했다고 주장하지 않는다.
+- 고객 API·GPU·메일·실제 계정·비밀 파일은 사용하지 않았다. 임시 테스트 서버와 브라우저 탭은 검수 후 종료했다.

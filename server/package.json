@@ -6,9 +6,12 @@
   "scripts": {
     "frontend:dev": "pnpm --dir frontend dev",
     "frontend:build": "pnpm --dir frontend build",
+    "frontend:test": "pnpm --dir frontend test",
     "frontend:preview": "pnpm --dir frontend preview",
     "backend:dev": "pnpm --dir backend dev",
     "backend:build": "pnpm --dir backend build",
-    "backend:start": "pnpm --dir backend start"
+    "backend:test": "npm --prefix backend test",
+    "backend:start": "pnpm --dir backend start",
+    "test": "npm run backend:test && npm run frontend:test"
   }
 }

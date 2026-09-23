@@ -797,6 +797,7 @@
   grid-template-columns: 42px minmax(0, 1fr) 96px;
   gap: var(--space-md);
   align-items: center;
+  min-width: 0;
   padding: var(--space-md);
   border: 0;
   border-bottom: 1px solid var(--hairline);
@@ -835,12 +836,20 @@
 }
 
 .analysis-inbox-row__body strong {
-  overflow: hidden;
   color: var(--ink);
   font-size: 15px;
   line-height: 21px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+}
+
+.analysis-inbox-row__title {
+  min-width: 0;
+  margin-top: 2px;
+  overflow-wrap: anywhere;
+}
+
+.analysis-inbox-row__process {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .analysis-inbox-row__body > span:last-child {
@@ -1769,7 +1778,7 @@
   gap: var(--space-lg);
 }
 
-.analysis-mock-surface {
+.analysis-workspace-surface {
   display: grid;
   gap: var(--space-md);
 }

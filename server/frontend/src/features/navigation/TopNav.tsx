@@ -2,6 +2,7 @@ import { motion } from "motion/react";
 import { IconSun, IconBell } from "@tabler/icons-react";
 import { Button } from "../../components/ui/button";
 import type { NavItem, UserRole, ViewId } from "../../types/app";
+import { appTheme, darkThemeSupported } from "../../lib/theme";
 import inzentLogo from "./inzent_logo.svg";
 
 type TopNavProps = {
@@ -50,7 +51,14 @@ export const TopNav = ({
       <button type="button" className="ghost-button" onClick={onLogout}>
         로그아웃
       </button>
-      <Button variant="ghost" size="icon" className="top-nav-icon-btn">
+      <Button
+        variant="ghost"
+        size="icon"
+        className="top-nav-icon-btn"
+        disabled
+        aria-label={`현재 테마: ${appTheme === "light" ? "라이트" : appTheme}. ${darkThemeSupported ? "테마 설정" : "다크 테마는 지원되지 않습니다."}`}
+        title={`현재 테마: ${appTheme === "light" ? "라이트" : appTheme}`}
+      >
         <IconSun size={20} aria-hidden="true" />
       </Button>
       <Button variant="ghost" size="icon" className="top-nav-icon-btn">

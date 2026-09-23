@@ -5,6 +5,7 @@ import {
   IconUserCog,
 } from "@tabler/icons-react";
 import type { ComponentType } from "react";
+import type { AuthUser } from "../../types/auth";
 import type { SettingsSection, SettingsSectionId } from "./types";
 import { DisplaySettings } from "./sections/DisplaySettings";
 import { IntegrationsSettings } from "./sections/IntegrationsSettings";
@@ -42,9 +43,13 @@ export const settingsSections: SettingsSection[] = [
   },
 ];
 
+export type SettingsSectionProps = {
+  currentUser: AuthUser;
+};
+
 export const settingsSectionComponentMap: Record<
   SettingsSectionId,
-  ComponentType
+  ComponentType<SettingsSectionProps>
 > = {
   notifications: NotificationSettings,
   integrations: IntegrationsSettings,

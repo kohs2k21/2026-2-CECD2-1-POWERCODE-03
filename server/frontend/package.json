@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "build": "tsc -b && vite build",
-    "test": "node --import tsx tests/realtime-stream.mjs && node --import tsx tests/realtime-hooks.mjs",
+    "test": "node --import tsx tests/realtime-stream.mjs && node --import tsx tests/realtime-hooks.mjs && node --import tsx tests/realtime-adapter.mjs && node --import tsx tests/settings-profile.mjs",
     "preview": "vite preview --host 0.0.0.0"
   },
   "dependencies": {

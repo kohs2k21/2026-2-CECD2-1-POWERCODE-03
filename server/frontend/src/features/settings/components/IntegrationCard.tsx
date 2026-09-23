@@ -4,22 +4,24 @@ import { SettingsCard } from "./SettingsCard";
 
 type IntegrationCardProps = {
   children?: ReactNode;
+  disabled?: boolean;
+  disabledReason?: string;
   description: string;
   enabled: boolean;
   icon: ReactNode;
   iconBackground: string;
-  onEnabledChange: (enabled: boolean) => void;
   title: string;
   titleLabel: string;
 };
 
 export const IntegrationCard = ({
   children,
+  disabled = false,
+  disabledReason,
   description,
   enabled,
   icon,
   iconBackground,
-  onEnabledChange,
   title,
   titleLabel,
 }: IntegrationCardProps) => (
@@ -39,10 +41,17 @@ export const IntegrationCard = ({
             </p>
           </div>
         </div>
-        <Switch checked={enabled} onCheckedChange={onEnabledChange} />
+        <Switch
+          checked={enabled}
+          disabled={disabled}
+          aria-label={`${title} ${enabled ? "켜짐" : "꺼짐"}`}
+        />
       </div>
 
-      {enabled && children}
+      {disabledReason ? (
+        <p className="settings-integration__disabled-reason">{disabledReason}</p>
+      ) : null}
+      {children}
     </div>
   </SettingsCard>
 );

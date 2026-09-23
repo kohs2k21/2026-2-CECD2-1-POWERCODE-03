@@ -3,15 +3,15 @@ import { useMemo, useState } from "react";
 import type { SettingsSectionId } from "./types";
 import { AnimatedPanel } from "../../components/layout/AnimatedPanel";
 import { SidebarNav, type SidebarNavGroup } from "../../components/layout/SidebarNav";
-import { MockDataNotice } from "../../components/ui/MockDataNotice";
 import { getStored, setStored, storageKeys } from "../../lib/storage";
 import { SettingsHeader } from "./components/SettingsHeader";
 import {
   settingsSectionComponentMap,
   settingsSections,
 } from "./settingsSections";
+import type { AuthUser } from "../../types/auth";
 
-export const SettingsPlaceholder = () => {
+export const SettingsPlaceholder = ({ currentUser }: { currentUser: AuthUser }) => {
   const [isWide, setIsWide] = useState<boolean>(() => {
     return getStored(storageKeys.layoutWide("settings"), false);
   });
@@ -51,7 +51,6 @@ export const SettingsPlaceholder = () => {
         onSelect={setActiveSection}
       />
       <main className="settings-main">
-        <MockDataNotice feature="설정" />
         <AnimatePresence mode="wait">
           <AnimatedPanel key={activeSection} className={`settings-panel ${isWide ? "settings-panel--wide" : ""}`}>
             <SettingsHeader
@@ -59,7 +58,7 @@ export const SettingsPlaceholder = () => {
               isWide={isWide}
               onToggleWide={handleToggleWide}
             />
-            <ActiveSection />
+            <ActiveSection currentUser={currentUser} />
           </AnimatedPanel>
         </AnimatePresence>
       </main>

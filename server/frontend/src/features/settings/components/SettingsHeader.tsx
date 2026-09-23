@@ -2,7 +2,6 @@ import {
   IconArrowsMaximize,
   IconArrowsMinimize,
 } from "@tabler/icons-react";
-import toast from "react-hot-toast";
 import { Button } from "../../../components/ui/button";
 import type { SettingsSection } from "../types";
 
@@ -41,9 +40,10 @@ export const SettingsHeader = ({
       </Button>
       <Button
         variant="outline"
-        onClick={() => toast.success("설정 변경사항을 저장했습니다.")}
+        disabled
+        title="설정 저장 기능은 현재 서버에서 지원하지 않습니다."
       >
-        변경사항 저장
+        저장 미지원
       </Button>
     </div>
   </header>

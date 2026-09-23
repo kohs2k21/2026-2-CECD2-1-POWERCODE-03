@@ -12,7 +12,6 @@ import { HomeWidgetCard } from "./components/HomeWidgetCard";
 import { HomeWidgetContent } from "./components/HomeWidgetContent";
 import { WidgetCatalogOverlay } from "./components/WidgetCatalogOverlay";
 import { WidgetDragPreview } from "./components/WidgetDragPreview";
-import { MockDataNotice } from "../../components/ui/MockDataNotice";
 import { useWidgetCatalog, useWidgets } from "../../hooks/useWidgets";
 import { useHomeWidgetLayout } from "./hooks/useHomeWidgetLayout";
 import { widgetGridColumns } from "./utils/widgetLayout";
@@ -67,7 +66,6 @@ export const HomeMock = ({ role, onSelectView }: HomeMockProps) => {
         isEditing ? "home-workspace home-workspace--editing" : "home-workspace"
       }
     >
-      <MockDataNotice feature="홈 위젯" />
       <div className="home-toolbar">
         <div className="system-status-indicator">
           <div className="system-status-badge">

@@ -1,15 +1,19 @@
 import { Badge } from "../../../components/ui/badge";
-import type { MockAnomalyDetail } from "../../../types/mock";
-import { categoryThemeMap, severityToneMap, statusLabelMap, statusToneMap } from "../constants";
+import type { AnalysisInboxItem } from "../utils/realtimeAdapter";
+import { categoryThemeMap, severityToneMap } from "../constants";
+
+const displayOptional = (value: string | undefined): string =>
+  value === undefined || value === "" ? "정보 없음" : value;
 
 export const AnalysisInboxRow = ({
   detail,
   onOpen,
 }: {
-  detail: MockAnomalyDetail;
+  detail: AnalysisInboxItem;
   onOpen: () => void;
 }) => {
-  const severityTheme = categoryThemeMap[detail.log.severity];
+  const { log } = detail;
+  const severityTheme = categoryThemeMap[log.severity];
   const SeverityIcon = severityTheme.icon;
 
   return (
@@ -19,21 +23,29 @@ export const AnalysisInboxRow = ({
       </span>
       <span className="analysis-inbox-row__body">
         <span className="analysis-inbox-row__meta">
-          <Badge variant={severityToneMap[detail.log.severity]}>
+          <Badge variant={severityToneMap[log.severity]}>
             {severityTheme.label}
           </Badge>
-          <Badge variant={statusToneMap[detail.log.status]}>
-            {statusLabelMap[detail.log.status]}
+          <Badge variant="default">
+            {displayOptional(log.status)}
           </Badge>
-          <span>{detail.log.detectedAt.slice(5, 16)}</span>
+          <span>{displayOptional(log.detectedAt)}</span>
         </span>
-        <strong>{detail.log.transactionId}</strong>
-        <span>Focus process: {detail.log.processName}</span>
-        <span>{detail.log.summary}</span>
+        <strong className="analysis-inbox-row__title">
+          {displayOptional(log.transactionId) === "정보 없음"
+            ? log.logId
+            : log.transactionId}
+        </strong>
+        <span className="analysis-inbox-row__process">
+          프로세스: {displayOptional(log.processName)}
+        </span>
+        <span>
+          응답 코드: {log.responseCode} · 채널: {displayOptional(log.channelName)}
+        </span>
       </span>
       <span className="analysis-inbox-row__score">
         <span>Score</span>
-        <strong>{detail.log.anomalyScore.toFixed(2)}</strong>
+        <strong>{log.anomalyScore.toFixed(2)}</strong>
       </span>
     </button>
   );

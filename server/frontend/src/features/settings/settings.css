@@ -177,6 +177,25 @@
   line-height: 17px;
 }
 
+.settings-row__disabled-reason {
+  display: block;
+  margin-top: 4px;
+  color: var(--mute);
+  font-size: 11px;
+  line-height: 16px;
+}
+
+.settings-row--disabled {
+  background: var(--canvas-soft);
+}
+
+.settings-integration__disabled-reason {
+  margin: 0;
+  color: var(--mute);
+  font-size: 12px;
+  line-height: 17px;
+}
+
 .settings-channel-row,
 .settings-profile-field {
   display: flex;
@@ -227,16 +246,52 @@
 
 /* 위험도별 알림 채널 행 호버 및 구분선 */
 .severity-channel-row {
+  display: grid;
+  gap: 10px;
+  padding: var(--space-md);
+  background: var(--canvas);
   border-bottom: 1px solid var(--hairline);
-  transition: background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .severity-channel-row:last-child {
   border-bottom: 0;
 }
 
-.severity-channel-row:hover {
-  background-color: var(--canvas-soft) !important;
+.severity-channel-row__header,
+.severity-channel-row__severity {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.severity-channel-row__header {
+  justify-content: space-between;
+  min-width: 0;
+}
+
+.severity-channel-row__sub-label {
+  color: var(--mute);
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+}
+
+.severity-channel-row p {
+  margin: 0;
+  color: var(--body);
+  font-size: 12px;
+  line-height: 17px;
+}
+
+.settings-unavailable-badge {
+  flex: 0 0 auto;
+  padding: 3px 8px;
+  border: 1px solid var(--hairline);
+  border-radius: 9999px;
+  color: var(--mute);
+  background: var(--canvas-soft);
+  font-size: 11px;
+  font-weight: 600;
 }
 
 /* 테마 선택 카드 호버 및 활성화 상태 */

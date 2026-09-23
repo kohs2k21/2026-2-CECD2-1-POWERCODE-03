@@ -17,7 +17,6 @@ import "./admin_system.css";
 import { AnimatedPanel } from "../../components/layout/AnimatedPanel";
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
-import { MockDataNotice } from "../../components/ui/MockDataNotice";
 import { Switch } from "../../components/ui/switch";
 import { getStored, setStored, storageKeys } from "../../lib/storage";
 import type { GpuState, SystemConfig } from "../../types/domain";
@@ -136,7 +135,7 @@ export const AdminSystemPlaceholder = () => {
 
   // 목업 데이터 리셋 핸들러
   const handle_reset_mock_data = () => {
-    if (confirm("대시보드 상의 모든 실시간 목업 데이터와 의심 로그 인박스를 초기 상태로 리셋하시겠습니까?")) {
+    if (confirm("대시보드 데이터와 의심 로그 인박스를 초기 상태로 되돌리시겠습니까?")) {
       toast.success("모든 이상로그 탐지 지표 및 로컬 데이터가 리셋되었습니다.");
     }
   };
@@ -150,7 +149,6 @@ export const AdminSystemPlaceholder = () => {
 
   return (
     <AnimatedPanel className={`admin-system-workspace ${isWide ? "admin-system-workspace--wide" : ""}`}>
-      <MockDataNotice feature="시스템 설정" />
       {/* 헤더 섹션 */}
       <header className="admin-system-header">
         <div>
@@ -170,7 +168,7 @@ export const AdminSystemPlaceholder = () => {
             onClick={handle_reset_mock_data}
           >
             <IconRefresh size={14} className="mr-1.5" />
-            목업 데이터 초기화
+            데이터 초기화
           </Button>
           <Button
             variant="default"
@@ -291,7 +289,7 @@ export const AdminSystemPlaceholder = () => {
               <div className="admin-system-row">
                 <div>
                   <strong>테스트 데이터 실시간 스트림 주입</strong>
-                  <p>AI 분석 서버로 목업 트랜잭션 로그 데이터 스트리밍을 활성화합니다.</p>
+                  <p>AI 분석 서버로 트랜잭션 로그 데이터 스트리밍을 활성화합니다.</p>
                 </div>
                 <Switch
                   checked={config.isStreamingActive}

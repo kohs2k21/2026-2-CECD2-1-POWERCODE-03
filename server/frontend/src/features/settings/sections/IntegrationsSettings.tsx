@@ -1,34 +1,14 @@
 import { Button } from "../../../components/ui/button";
 import { IntegrationCard } from "../components/IntegrationCard";
 import { SettingsTextInput } from "../components/SettingsTextInput";
-import { useIntegrationSettings } from "../hooks/useIntegrationSettings";
 import { integrationMeta } from "../settingsConfig";
 
 export const IntegrationsSettings = () => {
-  const {
-    emailEnabled,
-    emailPort,
-    emailSmtp,
-    emailUser,
-    handleTestEmail,
-    handleTestSlack,
-    handleTestWebhook,
-    setEmailEnabled,
-    setEmailPort,
-    setEmailSmtp,
-    setEmailUser,
-    setSlackEnabled,
-    setSlackUrl,
-    setWebhookEnabled,
-    setWebhookUrl,
-    slackEnabled,
-    slackUrl,
-    webhookEnabled,
-    webhookUrl,
-  } = useIntegrationSettings();
   const SlackIcon = integrationMeta.slack.icon;
   const EmailIcon = integrationMeta.email.icon;
   const WebhookIcon = integrationMeta.webhook.icon;
+  const disabledReason =
+    "서버 연동을 지원하지 않아 URL 입력, 연결 설정, 테스트를 사용할 수 없습니다.";
 
   return (
     <div className="settings-grid">
@@ -36,21 +16,19 @@ export const IntegrationsSettings = () => {
         title={integrationMeta.slack.title}
         titleLabel={integrationMeta.slack.titleLabel}
         description={integrationMeta.slack.description}
-        enabled={slackEnabled}
+        enabled={false}
+        disabled
+        disabledReason={disabledReason}
         icon={<SlackIcon size={24} style={{ color: integrationMeta.slack.iconColor }} />}
         iconBackground={integrationMeta.slack.iconBackground}
-        onEnabledChange={setSlackEnabled}
       >
         <SettingsTextInput
           label="WEBHOOK URL"
           type="password"
-          value={slackUrl}
-          onChange={(event) => setSlackUrl(event.target.value)}
-          action={
-            <Button size="sm" variant="outline" onClick={handleTestSlack}>
-              테스트 전송
-            </Button>
-          }
+          value=""
+          placeholder="서버 지원 후 설정할 수 있습니다."
+          disabled
+          action={<Button size="sm" variant="outline" disabled>테스트 미지원</Button>}
         />
       </IntegrationCard>
 
@@ -58,32 +36,32 @@ export const IntegrationsSettings = () => {
         title={integrationMeta.email.title}
         titleLabel={integrationMeta.email.titleLabel}
         description={integrationMeta.email.description}
-        enabled={emailEnabled}
+        enabled={false}
+        disabled
+        disabledReason={disabledReason}
         icon={<EmailIcon size={24} style={{ color: integrationMeta.email.iconColor }} />}
         iconBackground={integrationMeta.email.iconBackground}
-        onEnabledChange={setEmailEnabled}
       >
         <div className="settings-smtp-grid">
           <SettingsTextInput
             label="SMTP 호스트"
-            value={emailSmtp}
-            onChange={(event) => setEmailSmtp(event.target.value)}
+            value=""
+            placeholder="서버 지원 후 설정할 수 있습니다."
+            disabled
           />
           <SettingsTextInput
             label="포트"
-            value={emailPort}
-            onChange={(event) => setEmailPort(event.target.value)}
+            value=""
+            placeholder="서버 지원 후 설정할 수 있습니다."
+            disabled
           />
           <SettingsTextInput
             gridColumn="span 2"
             label="발신 계정"
-            value={emailUser}
-            onChange={(event) => setEmailUser(event.target.value)}
-            action={
-              <Button size="sm" variant="outline" onClick={handleTestEmail}>
-                연동 테스트
-              </Button>
-            }
+            value=""
+            placeholder="서버 지원 후 설정할 수 있습니다."
+            disabled
+            action={<Button size="sm" variant="outline" disabled>테스트 미지원</Button>}
           />
         </div>
       </IntegrationCard>
@@ -92,20 +70,18 @@ export const IntegrationsSettings = () => {
         title={integrationMeta.webhook.title}
         titleLabel={integrationMeta.webhook.titleLabel}
         description={integrationMeta.webhook.description}
-        enabled={webhookEnabled}
+        enabled={false}
+        disabled
+        disabledReason={disabledReason}
         icon={<WebhookIcon size={24} style={{ color: integrationMeta.webhook.iconColor }} />}
         iconBackground={integrationMeta.webhook.iconBackground}
-        onEnabledChange={setWebhookEnabled}
       >
         <SettingsTextInput
           label="엔드포인트 URL"
-          value={webhookUrl}
-          onChange={(event) => setWebhookUrl(event.target.value)}
-          action={
-            <Button size="sm" variant="outline" onClick={handleTestWebhook}>
-              테스트 호출
-            </Button>
-          }
+          value=""
+          placeholder="서버 지원 후 설정할 수 있습니다."
+          disabled
+          action={<Button size="sm" variant="outline" disabled>테스트 미지원</Button>}
         />
       </IntegrationCard>
     </div>

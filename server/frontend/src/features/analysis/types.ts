@@ -1,14 +1,15 @@
 import type { Icon } from "@tabler/icons-react";
 import type {
+  AnomalyStatus,
   MessageBodyPreview,
   MessageSnapshot,
   ProcessSnapshot,
+  Severity,
   TransactionSnapshot,
 } from "../../types/domain";
-import type { MockAnomalyLog } from "../../types/mock";
 
-export type SeverityFilter = MockAnomalyLog["severity"];
-export type AnalysisStatus = MockAnomalyLog["status"];
+export type SeverityFilter = Severity;
+export type AnalysisStatus = AnomalyStatus;
 export type AnalysisCategory = "All" | SeverityFilter | "Open" | "Resolved";
 export type StatusOverrides = Record<string, AnalysisStatus>;
 

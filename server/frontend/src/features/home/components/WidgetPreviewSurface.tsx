@@ -1,5 +1,5 @@
 import type { MockWidget } from "../../../types/mock";
-import { renderMiniatureChart } from "./HomeWidgetContent";
+import { renderMiniatureChart } from "./home-widgets/WidgetMiniatures";
 
 type WidgetPreviewSurfaceProps = {
   widget: MockWidget;

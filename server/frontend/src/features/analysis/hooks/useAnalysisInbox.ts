@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import type { MockAnomalyDetail } from "../../../types/mock";
+import type { AnalysisInboxItem } from "../utils/realtimeAdapter";
 import type { AnalysisCategory, SortOption } from "../types";
 
 const severityRank: Record<string, number> = {
@@ -11,9 +11,28 @@ const severityRank: Record<string, number> = {
 const getDefaultSortMode = (category: AnalysisCategory): SortOption =>
   category === "All" ? "severity_desc" : "time_desc";
 
+const compareDetectedAt = (
+  left: AnalysisInboxItem,
+  right: AnalysisInboxItem,
+  direction: 1 | -1,
+): number => {
+  const leftTime = left.log.detectedAt ? Date.parse(left.log.detectedAt) : NaN;
+  const rightTime = right.log.detectedAt ? Date.parse(right.log.detectedAt) : NaN;
+  const leftValid = Number.isFinite(leftTime);
+  const rightValid = Number.isFinite(rightTime);
+
+  if (leftValid !== rightValid) {
+    return leftValid ? -1 : 1;
+  }
+  if (!leftValid || !rightValid) {
+    return 0;
+  }
+  return direction * (leftTime - rightTime);
+};
+
 export const useAnalysisInbox = (
   activeCategory: AnalysisCategory,
-  details: MockAnomalyDetail[],
+  items: AnalysisInboxItem[],
 ) => {
   const [sortMode, setSortMode] = useState<SortOption>(
     getDefaultSortMode(activeCategory),
@@ -27,27 +46,28 @@ export const useAnalysisInbox = (
     setCurrentPage(1);
   }, [activeCategory]);
 
-  const sortedDetails = useMemo(() => {
-    return [...details].sort((a, b) => {
-      if (sortMode === "severity_desc" || sortMode === "severity_asc") {
-        const rankA = severityRank[a.log.severity] || 0;
-        const rankB = severityRank[b.log.severity] || 0;
-        if (rankA !== rankB) {
-          return sortMode === "severity_desc" ? rankB - rankA : rankA - rankB;
+  const sortedDetails = useMemo(
+    () =>
+      [...items].sort((left, right) => {
+        if (sortMode === "severity_desc" || sortMode === "severity_asc") {
+          const rankLeft = severityRank[left.log.severity] || 0;
+          const rankRight = severityRank[right.log.severity] || 0;
+          if (rankLeft !== rankRight) {
+            return sortMode === "severity_desc"
+              ? rankRight - rankLeft
+              : rankLeft - rankRight;
+          }
+          return compareDetectedAt(left, right, -1);
         }
-        return (
-          new Date(b.log.detectedAt).getTime() -
-          new Date(a.log.detectedAt).getTime()
+
+        return compareDetectedAt(
+          left,
+          right,
+          sortMode === "time_asc" ? 1 : -1,
         );
-      }
-
-      const timeDiff =
-        new Date(a.log.detectedAt).getTime() -
-        new Date(b.log.detectedAt).getTime();
-
-      return sortMode === "time_asc" ? timeDiff : -timeDiff;
-    });
-  }, [details, sortMode]);
+      }),
+    [items, sortMode],
+  );
 
   const totalPages = Math.max(1, Math.ceil(sortedDetails.length / pageSize));
   const safePage = Math.min(currentPage, totalPages);

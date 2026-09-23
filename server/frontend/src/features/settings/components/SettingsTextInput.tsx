@@ -2,18 +2,22 @@ import type { ChangeEventHandler, HTMLInputTypeAttribute, ReactNode } from "reac
 
 type SettingsTextInputProps = {
   action?: ReactNode;
+  disabled?: boolean;
   gridColumn?: string;
   label: string;
-  onChange: ChangeEventHandler<HTMLInputElement>;
+  onChange?: ChangeEventHandler<HTMLInputElement>;
+  placeholder?: string;
   type?: HTMLInputTypeAttribute;
   value: string;
 };
 
 export const SettingsTextInput = ({
   action,
+  disabled = false,
   gridColumn,
   label,
   onChange,
+  placeholder,
   type = "text",
   value,
 }: SettingsTextInputProps) => (
@@ -26,6 +30,9 @@ export const SettingsTextInput = ({
         type={type}
         value={value}
         onChange={onChange}
+        placeholder={placeholder}
+        disabled={disabled}
+        autoComplete="off"
         style={{
           width: "100%",
           flex: action ? 1 : undefined,
@@ -35,6 +42,7 @@ export const SettingsTextInput = ({
           background: "var(--canvas-soft)",
           color: "var(--ink)",
           fontSize: "12px",
+          opacity: disabled ? 0.7 : undefined,
         }}
       />
       {action}

@@ -29,10 +29,9 @@ export const AnalysisFilterDialog = ({
           title="위험도 (Severity)"
           options={["Critical", "Warning", "Info"]}
         />
-        <FilterOptionGroup
-          title="상태 (Status)"
-          options={["Open", "Detected", "Resolved"]}
-        />
+        <p>
+          이벤트 status는 원천 상태로 표시됩니다. 업무 보류·완료 상태 필터는 지원되지 않습니다.
+        </p>
       </div>
     </Modal>
   );

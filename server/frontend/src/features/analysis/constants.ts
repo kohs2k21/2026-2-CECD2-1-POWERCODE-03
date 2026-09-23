@@ -6,7 +6,7 @@ import {
   IconInbox,
   IconInfoCircle,
 } from "@tabler/icons-react";
-import type { MockAnomalyLog } from "../../types/mock";
+import type { AnomalyStatus, Severity } from "../../types/domain";
 import type { AnalysisCategory, AnalysisStatus, CategoryTheme } from "./types";
 
 export const categoryOrder: AnalysisCategory[] = [
@@ -58,7 +58,7 @@ export const categoryThemeMap: Record<AnalysisCategory, CategoryTheme> = {
 };
 
 export const severityToneMap: Record<
-  MockAnomalyLog["severity"],
+  Severity,
   "critical" | "warning" | "success"
 > = {
   Critical: "critical",
@@ -67,7 +67,7 @@ export const severityToneMap: Record<
 };
 
 export const statusToneMap: Record<
-  MockAnomalyLog["status"],
+  AnomalyStatus,
   "default" | "success" | "warning"
 > = {
   Detected: "warning",

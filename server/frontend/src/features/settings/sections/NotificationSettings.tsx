@@ -8,7 +8,7 @@ import {
 
 export const NotificationSettings = () => (
   <div className="settings-grid">
-    <SettingsCard title="위험도별 알림 채널 설정">
+    <SettingsCard title="위험도별 알림 채널 지원">
       <div className="settings-channel-list">
         {severityChannelSettings.map((setting) => (
           <SeverityChannelRow key={setting.severity} {...setting} />

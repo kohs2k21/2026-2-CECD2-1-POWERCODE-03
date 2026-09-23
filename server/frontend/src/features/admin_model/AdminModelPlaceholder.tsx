@@ -18,7 +18,6 @@ import "./admin_model.css";
 import { AnimatedPanel } from "../../components/layout/AnimatedPanel";
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
-import { MockDataNotice } from "../../components/ui/MockDataNotice";
 import {
   getStored,
   getStoredText,
@@ -233,7 +232,6 @@ export const AdminModelPlaceholder = () => {
 
   return (
     <AnimatedPanel className={`admin-model-workspace ${isWide ? "admin-model-workspace--wide" : ""}`}>
-      <MockDataNotice feature="모델 관리" />
       {/* 헤더 영역 */}
       <header className="admin-model-header">
         <div>

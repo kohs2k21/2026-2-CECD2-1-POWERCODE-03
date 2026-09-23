@@ -122,7 +122,7 @@ const baseMockAnomalyDetailSeeds: AnomalyDetailSeed[] = [
         source: "MESSAGE_BODY",
         recordCount: 50000,
         fieldSummary: ["TX_ID", "USER_NO", "AMOUNT", "CARD_NO", "TRANS_TIME", "SECURE_KEY"],
-        privacyNote: "대규모 테스트를 위한 마스킹된 더미 레코드 바디 요약입니다.",
+        privacyNote: "본문 요약: 레코드 수와 필드명 표시.",
       },
     ],
     llmReport: {
@@ -381,7 +381,7 @@ const baseMockAnomalyDetailSeeds: AnomalyDetailSeed[] = [
         source: "MESSAGE_BODY",
         recordCount: 1,
         fieldSummary: ["USER_NO", "COUNTRY", "CHG_DTTM", "GENDER", "EMAIL", "PHONE_NUMBER"],
-        privacyNote: "원본 body에는 이메일, 전화번호, 주소 형태 필드가 포함되어 UI 목업에서는 값 대신 필드명만 표시함",
+        privacyNote: "본문에는 이메일, 전화번호, 주소 형태 필드가 포함되어 있어 값 대신 필드명만 표시합니다.",
       },
     ],
     llmReport: {
@@ -474,7 +474,7 @@ const baseMockAnomalyDetailSeeds: AnomalyDetailSeed[] = [
         source: "MESSAGE_BODY",
         recordCount: 500,
         fieldSummary: ["USER_NO", "COUNTRY", "CHG_DTTM", "USERNAME", "EMAIL", "STREET_ADDRESS"],
-        privacyNote: "대량 사용자 형태 데이터가 포함되어 값은 표시하지 않고 중복 키 가능성만 목업에 반영함",
+        privacyNote: "대량 사용자 형태 데이터의 값 대신 중복 키 가능성 표시.",
       },
     ],
     llmReport: {

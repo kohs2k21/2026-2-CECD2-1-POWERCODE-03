@@ -1,44 +1,32 @@
 import { AnimatePresence } from "motion/react";
 import { SidebarNav } from "../../components/layout/SidebarNav";
-import { MockDataNotice } from "../../components/ui/MockDataNotice";
 import { TooltipProvider } from "../../components/ui/tooltip";
-import { AnalysisDetailView } from "./components/AnalysisDetailView";
 import { AnalysisInboxView } from "./components/AnalysisInboxView";
-import { RealtimeAnomalyPanel } from "./components/RealtimeAnomalyPanel";
+import { RealtimeAnomalyDetailView } from "./components/RealtimeAnomalyDetailView";
 import { useAnalysisWorkspace } from "./hooks/useAnalysisWorkspace";
-import { useLlmAnalysisSimulation } from "./hooks/useLlmAnalysisSimulation";
+import { useRealtimeAnomalies } from "./hooks/useRealtimeAnomalies";
 
-type AnalysisMockProps = {
+type AnalysisWorkspaceProps = {
   onLogout: () => void;
 };
 
-export const AnalysisMock = ({ onLogout }: AnalysisMockProps) => {
-  const {
-    analyzingLogId,
-    analyzingStep,
-    dynamicReports,
-    handleRequestLLMAnalysis,
-    setTypingPhase,
-    typingLogId,
-    typingPhase,
-  } = useLlmAnalysisSimulation();
+export const AnalysisWorkspace = ({ onLogout }: AnalysisWorkspaceProps) => {
+  const realtime = useRealtimeAnomalies();
   const {
     activeCategory,
-    activeDetail,
+    activeRealtimeEvent,
     activeTheme,
     categoryCounts,
-    featureDefinitions,
     filteredDetails,
     handleCategoryChange,
-    handleCopyReport,
-    handleStatusChange,
     handleToggleWide,
     isWide,
+    latestDetectedAt,
     query,
     setActiveDetailId,
     setQuery,
     sidebarGroups,
-  } = useAnalysisWorkspace(dynamicReports);
+  } = useAnalysisWorkspace(realtime.events);
 
   return (
     <TooltipProvider>
@@ -49,39 +37,35 @@ export const AnalysisMock = ({ onLogout }: AnalysisMockProps) => {
           onSelect={handleCategoryChange}
         />
         <main className="analysis-main">
-          <RealtimeAnomalyPanel onLogout={onLogout} />
-          <section className="analysis-mock-surface" aria-label="상세 분석 목업 화면">
-            <MockDataNotice feature="상세 분석" />
+          <section className="analysis-workspace-surface" aria-label="상세 분석 화면">
             <AnimatePresence mode="wait">
-              {activeDetail ? (
-                <AnalysisDetailView
-                  key={activeDetail.log.logId}
-                  detail={activeDetail}
-                  featureDefinitions={featureDefinitions}
+              {activeRealtimeEvent ? (
+                <RealtimeAnomalyDetailView
+                  key={activeRealtimeEvent.eventId}
+                  event={activeRealtimeEvent}
                   theme={activeTheme}
                   onBack={() => setActiveDetailId(null)}
-                  onCopyReport={handleCopyReport}
-                  onStatusChange={handleStatusChange}
                   isWide={isWide}
                   onToggleWide={handleToggleWide}
-                  analyzingLogId={analyzingLogId}
-                  analyzingStep={analyzingStep}
-                  typingLogId={typingLogId}
-                  typingPhase={typingPhase}
-                  setTypingPhase={setTypingPhase}
-                  handleRequestLLMAnalysis={handleRequestLLMAnalysis}
                 />
               ) : (
                 <AnalysisInboxView
                   key={activeCategory}
                   activeCategory={activeCategory}
-                  categoryCounts={categoryCounts}
                   details={filteredDetails}
+                  eventCount={realtime.events.length}
                   query={query}
                   onOpenDetail={setActiveDetailId}
                   onQueryChange={setQuery}
                   isWide={isWide}
                   onToggleWide={handleToggleWide}
+                  latestDetectedAt={latestDetectedAt}
+                  streamStatus={realtime.status}
+                  streamError={realtime.error}
+                  invalidCount={realtime.invalidCount}
+                  requiresLogout={realtime.requiresLogout}
+                  onRetry={realtime.retry}
+                  onLogout={onLogout}
                 />
               )}
             </AnimatePresence>

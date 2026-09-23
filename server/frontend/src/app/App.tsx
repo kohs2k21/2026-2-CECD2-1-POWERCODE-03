@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { AppShell } from "../components/layout/AppShell";
-import { AnalysisMock } from "../features/analysis/AnalysisMock";
+import { AnalysisWorkspace } from "../features/analysis/AnalysisWorkspace";
 import { AdminModelPlaceholder } from "../features/admin_model/AdminModelPlaceholder";
 import { AdminSystemPlaceholder } from "../features/admin_system/AdminSystemPlaceholder";
 import { AuthPage } from "../features/auth/AuthPage";
@@ -135,6 +135,7 @@ export const App = () => {
     >
       <ViewPanel
         activeView={activeView}
+        currentUser={currentUser}
         role={currentUser.userType}
         onSelectView={setActiveView}
         onLogout={handleLogout}
@@ -145,22 +146,23 @@ export const App = () => {
 
 type ViewPanelProps = {
   activeView: ViewId;
+  currentUser: AuthUser;
   role: AuthUser["userType"];
   onSelectView: (view: ViewId) => void;
   onLogout: () => void;
 };
 
-const ViewPanel = ({ activeView, role, onSelectView, onLogout }: ViewPanelProps) => {
+const ViewPanel = ({ activeView, currentUser, role, onSelectView, onLogout }: ViewPanelProps) => {
   if (activeView === "home") {
     return <HomeMock role={role} onSelectView={onSelectView} />;
   }
 
   if (activeView === "analysis") {
-    return <AnalysisMock onLogout={onLogout} />;
+    return <AnalysisWorkspace onLogout={onLogout} />;
   }
 
   if (activeView === "settings") {
-    return <SettingsPlaceholder />;
+    return <SettingsPlaceholder currentUser={currentUser} />;
   }
 
   if (activeView === "system") {
@@ -171,5 +173,5 @@ const ViewPanel = ({ activeView, role, onSelectView, onLogout }: ViewPanelProps)
     return <AdminModelPlaceholder />;
   }
 
-  return <AnalysisMock onLogout={onLogout} />;
+  return <AnalysisWorkspace onLogout={onLogout} />;
 };

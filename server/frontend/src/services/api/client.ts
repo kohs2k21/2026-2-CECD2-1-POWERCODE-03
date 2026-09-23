@@ -7,6 +7,16 @@ type RequestOptions = RequestInit & {
   includeAuth?: boolean;
 };
 
+export class HttpError extends Error {
+  readonly status: number;
+
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = "HttpError";
+    this.status = status;
+  }
+}
+
 export const buildApiUrl = (path: string, params?: RequestOptions["params"]) => {
   const url = new URL(path, apiBaseUrl || window.location.origin);
 
@@ -39,7 +49,7 @@ const getErrorMessage = async (
   response: Response,
   method: string,
   path: string,
-): Promise<Error> => {
+): Promise<HttpError> => {
   let message = method + " " + path + " failed: " + response.status;
 
   try {
@@ -56,7 +66,7 @@ const getErrorMessage = async (
     // Keep the status-based message when the server did not return JSON.
   }
 
-  return new Error(message);
+  return new HttpError(message, response.status);
 };
 
 const request = async <T>(

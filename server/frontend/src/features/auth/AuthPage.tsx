@@ -5,9 +5,15 @@ import "./auth.css";
 
 type AuthPageProps = {
   onLoginSuccess: (session: AuthSession) => void;
+  authError?: string | null;
+  onRetryAuth?: () => void;
 };
 
-export const AuthPage = ({ onLoginSuccess }: AuthPageProps) => {
+export const AuthPage = ({
+  onLoginSuccess,
+  authError = null,
+  onRetryAuth,
+}: AuthPageProps) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -42,6 +48,17 @@ export const AuthPage = ({ onLoginSuccess }: AuthPageProps) => {
         </p>
 
         <form className="auth-form" onSubmit={handleSubmit}>
+          {authError ? (
+            <div className="auth-form__session-error">
+              <p role="alert">{authError}</p>
+              {onRetryAuth ? (
+                <button type="button" onClick={onRetryAuth}>
+                  로그인 상태 다시 확인
+                </button>
+              ) : null}
+              <span>아래에서 다른 계정으로 로그인할 수 있습니다.</span>
+            </div>
+          ) : null}
           <label className="auth-form__field">
             <span>이메일</span>
             <input
@@ -75,7 +92,11 @@ export const AuthPage = ({ onLoginSuccess }: AuthPageProps) => {
           )}
 
           <button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? "로그인 중..." : "로그인"}
+            {isSubmitting
+              ? "로그인 중..."
+              : authError
+                ? "다른 계정으로 로그인"
+                : "로그인"}
           </button>
         </form>
       </section>

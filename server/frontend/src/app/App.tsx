@@ -8,6 +8,7 @@ import { HomeMock } from "../features/home/HomeMock";
 import { TopNav } from "../features/navigation/TopNav";
 import { SettingsPlaceholder } from "../features/settings/SettingsPlaceholder";
 import { fetchCurrentUser } from "../services/api/auth.api";
+import { HttpError } from "../services/api/client";
 import {
   clearStoredToken,
   getStoredToken,
@@ -18,11 +19,13 @@ import type { AuthSession, AuthUser } from "../types/auth";
 import type { ViewId } from "../types/app";
 import { getVisibleNavItems } from "./router";
 
-type AuthStatus = "checking" | "signedOut" | "signedIn";
+type AuthStatus = "checking" | "signedOut" | "signedIn" | "verificationFailed";
 
 export const App = () => {
   const [authStatus, setAuthStatus] = useState<AuthStatus>("checking");
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [authCheckAttempt, setAuthCheckAttempt] = useState(0);
   const [activeView, setActiveView] = useState<ViewId>(
     () => createInitialAppState().activeView,
   );
@@ -45,26 +48,47 @@ export const App = () => {
         }
 
         setCurrentUser(user);
+        setAuthError(null);
         setAuthStatus("signedIn");
       })
-      .catch(() => {
+      .catch((error: unknown) => {
         if (!isMounted) {
           return;
         }
 
-        clearStoredToken();
         setCurrentUser(null);
-        setAuthStatus("signedOut");
+
+        if (
+          error instanceof HttpError &&
+          (error.status === 401 || error.status === 403 || error.status === 404)
+        ) {
+          clearStoredToken();
+          setAuthError(null);
+          setAuthStatus("signedOut");
+          return;
+        }
+
+        setAuthError(
+          "로그인 상태를 확인하지 못했습니다. 다시 확인하거나 다른 계정으로 로그인해 주세요.",
+        );
+        setAuthStatus("verificationFailed");
       });
 
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [authCheckAttempt]);
+
+  const handleRetryAuthCheck = () => {
+    setAuthError(null);
+    setAuthStatus("checking");
+    setAuthCheckAttempt((current) => current + 1);
+  };
 
   const handleLoginSuccess = (session: AuthSession) => {
     storeToken(session.token);
     setCurrentUser(session.user);
+    setAuthError(null);
     setActiveView("home");
     setAuthStatus("signedIn");
   };
@@ -86,7 +110,13 @@ export const App = () => {
   }
 
   if (!currentUser || authStatus !== "signedIn") {
-    return <AuthPage onLoginSuccess={handleLoginSuccess} />;
+    return (
+      <AuthPage
+        onLoginSuccess={handleLoginSuccess}
+        authError={authStatus === "verificationFailed" ? authError : null}
+        onRetryAuth={handleRetryAuthCheck}
+      />
+    );
   }
 
   const visibleNavItems = getVisibleNavItems(currentUser.userType);
@@ -98,7 +128,7 @@ export const App = () => {
           activeView={activeView}
           navItems={visibleNavItems}
           role={currentUser.userType}
-          onChangeRole={handleLogout}
+          onLogout={handleLogout}
           onSelectView={setActiveView}
         />
       }
@@ -107,6 +137,7 @@ export const App = () => {
         activeView={activeView}
         role={currentUser.userType}
         onSelectView={setActiveView}
+        onLogout={handleLogout}
       />
     </AppShell>
   );
@@ -116,15 +147,16 @@ type ViewPanelProps = {
   activeView: ViewId;
   role: AuthUser["userType"];
   onSelectView: (view: ViewId) => void;
+  onLogout: () => void;
 };
 
-const ViewPanel = ({ activeView, role, onSelectView }: ViewPanelProps) => {
+const ViewPanel = ({ activeView, role, onSelectView, onLogout }: ViewPanelProps) => {
   if (activeView === "home") {
     return <HomeMock role={role} onSelectView={onSelectView} />;
   }
 
   if (activeView === "analysis") {
-    return <AnalysisMock />;
+    return <AnalysisMock onLogout={onLogout} />;
   }
 
   if (activeView === "settings") {
@@ -139,5 +171,5 @@ const ViewPanel = ({ activeView, role, onSelectView }: ViewPanelProps) => {
     return <AdminModelPlaceholder />;
   }
 
-  return <AnalysisMock />;
+  return <AnalysisMock onLogout={onLogout} />;
 };

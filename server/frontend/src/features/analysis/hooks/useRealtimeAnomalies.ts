@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   AnomalyStreamError,
   consumeAnomalyStream,
@@ -19,6 +19,11 @@ export type RealtimeAnomaliesState = {
   status: RealtimeStreamStatus;
   error: string | null;
   invalidCount: number;
+  requiresLogout: boolean;
+};
+
+export type RealtimeAnomaliesResult = RealtimeAnomaliesState & {
+  retry: () => void;
 };
 
 const initialState: RealtimeAnomaliesState = {
@@ -26,12 +31,19 @@ const initialState: RealtimeAnomaliesState = {
   status: "idle",
   error: null,
   invalidCount: 0,
+  requiresLogout: false,
 };
 
 const maxEvents = 50;
 const maxSeenEventIds = 256;
 const maxReconnectAttempts = 3;
 const reconnectDelays = [500, 1000, 2000] as const;
+
+type SeenEventCache = {
+  token: string | null;
+  ids: Set<string>;
+  order: string[];
+};
 
 const isAbortError = (error: unknown): boolean =>
   error instanceof DOMException && error.name === "AbortError";
@@ -41,24 +53,44 @@ const getErrorMessage = (error: unknown): string =>
 
 export const useRealtimeAnomalies = (
   enabled = true,
-): RealtimeAnomaliesState => {
+): RealtimeAnomaliesResult => {
   const token = getStoredToken();
   const [state, setState] = useState<RealtimeAnomaliesState>(initialState);
+  const [retryAttempt, setRetryAttempt] = useState(0);
+  const seenEventCache = useRef<SeenEventCache>({
+    token: null,
+    ids: new Set(),
+    order: [],
+  });
 
   useEffect(() => {
     if (!enabled || !token) {
+      seenEventCache.current = { token: null, ids: new Set(), order: [] };
       setState(initialState);
       return;
     }
+
+    const sessionChanged = seenEventCache.current.token !== token;
+    if (sessionChanged) {
+      seenEventCache.current = { token, ids: new Set(), order: [] };
+    }
+    const { ids: seenEventIds, order: seenEventOrder } = seenEventCache.current;
 
     let stopped = false;
     let retryTimer: number | null = null;
     let reconnectAttempts = 0;
     const controller = new AbortController();
-    const seenEventIds = new Set<string>();
-    const seenEventOrder: string[] = [];
 
-    setState({ ...initialState, status: "connecting" });
+    setState((current) =>
+      sessionChanged
+        ? { ...initialState, status: "connecting" }
+        : {
+            ...current,
+            status: "connecting",
+            error: null,
+            requiresLogout: false,
+          },
+    );
 
     const clearRetryTimer = () => {
       if (retryTimer !== null) {
@@ -103,6 +135,18 @@ export const useRealtimeAnomalies = (
       try {
         await consumeAnomalyStream({
           signal: controller.signal,
+          onOpen: () => {
+            if (stopped) {
+              return;
+            }
+
+            setState((current) => ({
+              ...current,
+              status: "open",
+              error: null,
+              requiresLogout: false,
+            }));
+          },
           onEvent: (event) => {
             if (stopped) {
               return;
@@ -158,6 +202,7 @@ export const useRealtimeAnomalies = (
             ...current,
             status: "error",
             error: "실시간 이벤트 인증이 만료되었거나 권한이 없습니다. 다시 로그인해 주세요.",
+            requiresLogout: true,
           }));
           return;
         }
@@ -178,7 +223,10 @@ export const useRealtimeAnomalies = (
       clearRetryTimer();
       controller.abort();
     };
-  }, [enabled, token]);
+  }, [enabled, retryAttempt, token]);
 
-  return state;
+  return {
+    ...state,
+    retry: () => setRetryAttempt((current) => current + 1),
+  };
 };

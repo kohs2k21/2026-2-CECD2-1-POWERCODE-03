@@ -43,7 +43,9 @@ function chunkedResponse(chunks) {
 }
 
 let request;
+let fetchCount = 0;
 globalThis.fetch = async (url, options) => {
+  fetchCount += 1;
   request = { url, options };
   const validFrame = `id: ${event.eventId}\nevent: anomaly\ndata: ${JSON.stringify(event)}\n\n`;
   const invalidFrame = 'event: anomaly\ndata: {"schemaVersion":1}\n\n';
@@ -70,6 +72,7 @@ assert.equal(received.length, 1, "one valid fragmented frame should be delivered
 assert.equal(received[0].eventId, event.eventId);
 assert.equal(received[0].processName, undefined, "optional fields may be omitted");
 assert.equal(invalidReasons.length, 1, "invalid frames should be reported and ignored");
+assert.equal(fetchCount, 1, "the valid stream should issue one fetch");
 
 tokenStore.delete("token");
 await assert.rejects(
@@ -81,6 +84,7 @@ await assert.rejects(
   (error) => error instanceof AnomalyStreamError && error.status === 401,
   "a missing token must prevent opening the stream",
 );
+assert.equal(fetchCount, 1, "a missing token must not issue another fetch");
 tokenStore.set("token", "qa-frontend-token");
 
 const abortController = new AbortController();

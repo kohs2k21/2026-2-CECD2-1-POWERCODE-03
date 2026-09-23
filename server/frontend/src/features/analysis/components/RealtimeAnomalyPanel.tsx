@@ -60,8 +60,13 @@ const EventCard = ({ event }: { event: RealtimeAnomalyEvent }) => (
   </article>
 );
 
-export const RealtimeAnomalyPanel = () => {
-  const { error, events, invalidCount, status } = useRealtimeAnomalies();
+type RealtimeAnomalyPanelProps = {
+  onLogout: () => void;
+};
+
+export const RealtimeAnomalyPanel = ({ onLogout }: RealtimeAnomalyPanelProps) => {
+  const { error, events, invalidCount, requiresLogout, retry, status } =
+    useRealtimeAnomalies();
 
   return (
     <section className="realtime-anomaly-panel" aria-labelledby="realtime-anomaly-title">
@@ -80,6 +85,16 @@ export const RealtimeAnomalyPanel = () => {
       </header>
 
       {error ? <p className="realtime-anomaly-panel__message">{error}</p> : null}
+      {status === "closed" ? (
+        <button type="button" className="ghost-button" onClick={retry}>
+          다시 연결
+        </button>
+      ) : null}
+      {requiresLogout ? (
+        <button type="button" className="ghost-button" onClick={onLogout}>
+          로그아웃 후 다시 로그인
+        </button>
+      ) : null}
       {invalidCount > 0 ? (
         <p className="realtime-anomaly-panel__message">
           계약 검증에 실패한 이벤트 {invalidCount}건은 표시하지 않았습니다.

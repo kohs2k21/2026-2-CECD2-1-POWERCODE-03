@@ -4,6 +4,7 @@ import { buildApiUrl } from "./client";
 
 export type AnomalyStreamOptions = {
   signal: AbortSignal;
+  onOpen?: () => void;
   onEvent: (event: RealtimeAnomalyEvent) => void;
   onInvalidEvent?: (reason: string) => void;
 };
@@ -80,6 +81,7 @@ const isAbortError = (error: unknown): boolean =>
 
 export const consumeAnomalyStream = async ({
   signal,
+  onOpen,
   onEvent,
   onInvalidEvent,
 }: AnomalyStreamOptions): Promise<void> => {
@@ -106,7 +108,7 @@ export const consumeAnomalyStream = async ({
     throw new AnomalyStreamError("실시간 anomaly 스트림에 연결하지 못했습니다.");
   }
 
-  if (!response.ok) {
+  if (response.status !== 200) {
     throw new AnomalyStreamError(
       `실시간 anomaly 스트림 요청이 거부되었습니다 (${response.status}).`,
       response.status,
@@ -121,6 +123,8 @@ export const consumeAnomalyStream = async ({
   if (!response.body) {
     throw new AnomalyStreamError("실시간 anomaly 스트림 본문을 읽을 수 없습니다.");
   }
+
+  onOpen?.();
 
   const reader = response.body.getReader();
   const decoder = new TextDecoder();

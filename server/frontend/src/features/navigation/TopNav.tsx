@@ -8,7 +8,7 @@ type TopNavProps = {
   activeView: ViewId;
   navItems: NavItem[];
   role: UserRole;
-  onChangeRole: () => void;
+  onLogout: () => void;
   onSelectView: (viewId: ViewId) => void;
 };
 
@@ -16,7 +16,7 @@ export const TopNav = ({
   activeView,
   navItems,
   role,
-  onChangeRole,
+  onLogout,
   onSelectView,
 }: TopNavProps) => (
   <header className="top-nav">
@@ -47,8 +47,8 @@ export const TopNav = ({
       })}
     </nav>
     <div className="top-nav-actions">
-      <button type="button" className="ghost-button" onClick={onChangeRole}>
-        역할 변경
+      <button type="button" className="ghost-button" onClick={onLogout}>
+        로그아웃
       </button>
       <Button variant="ghost" size="icon" className="top-nav-icon-btn">
         <IconSun size={20} aria-hidden="true" />

@@ -8,7 +8,11 @@ import { RealtimeAnomalyPanel } from "./components/RealtimeAnomalyPanel";
 import { useAnalysisWorkspace } from "./hooks/useAnalysisWorkspace";
 import { useLlmAnalysisSimulation } from "./hooks/useLlmAnalysisSimulation";
 
-export const AnalysisMock = () => {
+type AnalysisMockProps = {
+  onLogout: () => void;
+};
+
+export const AnalysisMock = ({ onLogout }: AnalysisMockProps) => {
   const {
     analyzingLogId,
     analyzingStep,
@@ -45,7 +49,7 @@ export const AnalysisMock = () => {
           onSelect={handleCategoryChange}
         />
         <main className="analysis-main">
-          <RealtimeAnomalyPanel />
+          <RealtimeAnomalyPanel onLogout={onLogout} />
           <section className="analysis-mock-surface" aria-label="상세 분석 목업 화면">
             <MockDataNotice feature="상세 분석" />
             <AnimatePresence mode="wait">

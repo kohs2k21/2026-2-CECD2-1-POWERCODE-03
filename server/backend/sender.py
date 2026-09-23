@@ -16,7 +16,8 @@ RESET = "\033[0m"
 BOLD = "\033[1m"
 
 CSV_FILEPATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "mock_logs.csv")
-BACKEND_URL = "http://localhost:5001/api/anomaly/logs"
+BACKEND_URL = os.environ.get("BACKEND_URL", "http://localhost:5001/api/anomaly/logs")
+ANOMALY_API_TOKEN = os.environ.get("ANOMALY_API_TOKEN")
 
 MOCK_CSV_DATA = [
     ["processName", "channelName", "transactionId", "responseCode", "anomalyScore", "processTimeMs", "summary", "suspectedCause", "recommendedAction"],
@@ -145,11 +146,17 @@ def generate_mock_csv():
 
 def send_log_to_server(log_data):
     """HTTP POST를 통해 Express 서버로 이상 로그를 전달합니다. (urllib 표준라이브러리 활용)"""
+    if not ANOMALY_API_TOKEN:
+        return 0, {"message": "ANOMALY_API_TOKEN is required for admin ingest"}
+
     data = json.dumps(log_data).encode("utf-8")
     req = urllib.request.Request(
         BACKEND_URL,
         data=data,
-        headers={"Content-Type": "application/json"}
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {ANOMALY_API_TOKEN}",
+        },
     )
     try:
         with urllib.request.urlopen(req) as res:
@@ -195,9 +202,6 @@ def main():
             "responseCode": row["responseCode"],
             "anomalyScore": float(row["anomalyScore"]),
             "processTimeMs": int(row["processTimeMs"]),
-            "summary": row["summary"],
-            "suspectedCause": row["suspectedCause"],
-            "recommendedAction": row["recommendedAction"]
         }
         
         print(f"\n[{i+1}/{total_logs}] {YELLOW}Sending...{RESET} Process: {BOLD}{log_payload['processName']}{RESET} (Score: {log_payload['anomalyScore']})")

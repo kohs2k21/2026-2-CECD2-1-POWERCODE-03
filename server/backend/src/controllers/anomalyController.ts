@@ -1,145 +1,134 @@
+import crypto from "node:crypto";
 import { Request, Response } from "express";
 import {
-  process_log_batch,
-  RawLogData,
   calculate_single_risk_score,
   classify_risk_level,
+  isRawLogData,
+  process_log_batch,
+  RawLogData,
 } from "../services/anomalyService.js";
 
-// SSE connection pool
 const streamClients = new Set<Response>();
+const CONTRACT_VERSION = 1 as const;
 
-/**
- * 전송된 로그 데이터의 위험 등급과 점수를 평가하여 산출하는 컨트롤러 함수입니다.
- */
+interface AnomalyEvent {
+  schemaVersion: typeof CONTRACT_VERSION;
+  eventId: string;
+  provenance: "backend-ingest";
+  detectedAt: string;
+  processName?: string;
+  channelName?: string;
+  transactionId?: string;
+  status?: string;
+  responseCode: string;
+  anomalyScore: number;
+  processTimeMs: number;
+  riskScore: number;
+  riskLevel: 1 | 2 | 3;
+  severity: "Info" | "Warning" | "Critical";
+}
+
+function toAnomalyEvent(rawLog: RawLogData): AnomalyEvent {
+  const riskScore = calculate_single_risk_score(
+    rawLog.anomalyScore,
+    rawLog.processTimeMs,
+    rawLog.responseCode,
+  );
+  const { riskLevel, severity } = classify_risk_level(riskScore);
+
+  return {
+    schemaVersion: CONTRACT_VERSION,
+    eventId: rawLog.logId?.trim() || crypto.randomUUID(),
+    provenance: "backend-ingest",
+    detectedAt: rawLog.detectedAt?.trim() || new Date().toISOString(),
+    ...(rawLog.processName ? { processName: rawLog.processName } : {}),
+    ...(rawLog.channelName ? { channelName: rawLog.channelName } : {}),
+    ...(rawLog.transactionId ? { transactionId: rawLog.transactionId } : {}),
+    ...(rawLog.status ? { status: rawLog.status } : {}),
+    responseCode: rawLog.responseCode,
+    anomalyScore: rawLog.anomalyScore,
+    processTimeMs: rawLog.processTimeMs,
+    riskScore,
+    riskLevel,
+    severity,
+  };
+}
+
+function sendSseEvent(client: Response, event: AnomalyEvent): void {
+  client.write(`id: ${event.eventId}\nevent: anomaly\ndata: ${JSON.stringify(event)}\n\n`);
+}
+
 export function evaluate_logs(req: Request, res: Response): void {
   try {
-    const { logs } = req.body;
-
-    if (!logs || !Array.isArray(logs)) {
+    const logs: unknown = req.body?.logs;
+    if (!Array.isArray(logs) || !logs.every(isRawLogData)) {
       res.status(400).json({
-        message: "Invalid input: 'logs' must be an array of raw log objects.",
+        code: "invalid_log_payload",
+        message: "logs must be an array of valid raw log objects.",
       });
       return;
     }
 
-    // 필수 필드 유효성 검사
-    const invalidLog = logs.find(
-      (log: any) =>
-        typeof log.anomalyScore !== "number" ||
-        typeof log.processTimeMs !== "number" ||
-        typeof log.responseCode !== "string"
-    );
-
-    if (invalidLog) {
-      res.status(400).json({
-        message:
-          "Invalid log data format. Each log must contain anomalyScore (number), processTimeMs (number), and responseCode (string).",
-      });
-      return;
-    }
-
-    const processedLogs = process_log_batch(logs as RawLogData[]);
-
+    const processedLogs = process_log_batch(logs);
     res.status(200).json({
+      schemaVersion: CONTRACT_VERSION,
       message: "Successfully evaluated anomaly risk levels.",
       results: processedLogs,
     });
-  } catch (error: any) {
-    console.error("Error evaluating logs:", error);
+  } catch (error) {
+    console.error(
+      "Error evaluating logs:",
+      error instanceof Error ? error.message : "unknown error",
+    );
     res.status(500).json({
+      code: "anomaly_evaluation_failed",
       message: "An error occurred while evaluating log anomaly risk levels.",
-      error: error.message,
     });
   }
 }
 
-/**
- * SSE(Server-Sent Events) 클라이언트를 등록하여 실시간 스트림 연결을 엽니다.
- */
 export function register_stream_client(req: Request, res: Response): void {
   res.setHeader("Content-Type", "text/event-stream");
-  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Cache-Control", "no-cache, no-transform");
   res.setHeader("Connection", "keep-alive");
+  res.setHeader("X-Accel-Buffering", "no");
   res.flushHeaders();
 
   streamClients.add(res);
-  console.log(`[SSE] Client connected. Total clients: ${streamClients.size}`);
-
   req.on("close", () => {
     streamClients.delete(res);
-    console.log(`[SSE] Client disconnected. Total clients: ${streamClients.size}`);
   });
 }
 
-/**
- * 외부(sender.py 등)로부터 단일 로그를 전송받아 정규화 및 분석 후 SSE를 통해 전체 클라이언트에 실시간 브로드캐스트합니다.
- */
 export function receive_realtime_log(req: Request, res: Response): void {
   try {
-    const rawLog = req.body;
-
-    if (
-      typeof rawLog.anomalyScore !== "number" ||
-      typeof rawLog.processTimeMs !== "number" ||
-      typeof rawLog.responseCode !== "string"
-    ) {
+    const rawLog: unknown = req.body;
+    if (!isRawLogData(rawLog)) {
       res.status(400).json({
-        message: "Invalid log format. Must contain anomalyScore, processTimeMs, and responseCode.",
+        code: "invalid_log_payload",
+        message: "The request body must be a valid raw log object.",
       });
       return;
     }
 
-    // 1. Calculate risk score & classify level
-    const riskScore = calculate_single_risk_score(
-      rawLog.anomalyScore,
-      rawLog.processTimeMs,
-      rawLog.responseCode
-    );
-    const { riskLevel, severity } = classify_risk_level(riskScore);
-
-    // 2. Enrich log structure
-    const enrichedLog = {
-      logId: rawLog.logId || `log-${Math.random().toString(36).substring(2, 11)}`,
-      detectedAt: rawLog.detectedAt || new Date().toISOString(),
-      severity,
-      status: rawLog.status || "Detected",
-      originalSeverity: rawLog.originalSeverity || severity,
-      processName: rawLog.processName || "UNKNOWN_PROCESS",
-      channelName: rawLog.channelName || "UNKNOWN_CHANNEL",
-      transactionId: rawLog.transactionId || `tr-${Math.random().toString(36).substring(2, 11)}`,
-      responseCode: rawLog.responseCode,
-      anomalyScore: rawLog.anomalyScore,
-      riskScore,
-      riskLevel,
-      summary: rawLog.summary || "Real-time log incoming via sender.py",
-      transaction: {
-        transactionId: rawLog.transactionId || `tr-${Math.random().toString(36).substring(2, 11)}`,
-        processTimeMs: rawLog.processTimeMs,
-        status: rawLog.responseCode === "0000" ? "SUCCESS" : "FAIL",
-      },
-      llmReport: {
-        summary: rawLog.summary || "Real-time anomalous process activity detected.",
-        suspectedCause: rawLog.suspectedCause || "Anomalous score or error response code.",
-        recommendedAction: rawLog.recommendedAction || "Investigate the system log context.",
-      }
-    };
-
-    // 3. Broadcast to all SSE clients
-    const dataString = JSON.stringify(enrichedLog);
+    const event = toAnomalyEvent(rawLog);
     for (const client of streamClients) {
-      client.write(`data: ${dataString}\n\n`);
+      sendSseEvent(client, event);
     }
 
     res.status(201).json({
+      schemaVersion: CONTRACT_VERSION,
       message: "Real-time log received and streamed.",
-      log: enrichedLog,
+      log: event,
     });
-  } catch (error: any) {
-    console.error("Error receiving real-time log:", error);
+  } catch (error) {
+    console.error(
+      "Error receiving real-time log:",
+      error instanceof Error ? error.message : "unknown error",
+    );
     res.status(500).json({
+      code: "anomaly_ingest_failed",
       message: "Failed to process real-time log.",
-      error: error.message,
     });
   }
 }

@@ -1,13 +1,13 @@
 import { Router } from 'express';
-import { register, login, me, sendVerificationCode, verifyCode } from '../controllers/authController.js';
+import { login, me, registrationDisabled } from '../controllers/authController.js';
 import { authenticateToken } from '../middleware/auth.js';
 
 const router = Router();
 
-// Public routes
-router.post('/send-code', sendVerificationCode);
-router.post('/verify-code', verifyCode);
-router.post('/register', register);
+// Public login is the only enabled auth operation. Account creation is local seed configuration.
+router.post('/send-code', registrationDisabled);
+router.post('/verify-code', registrationDisabled);
+router.post('/register', registrationDisabled);
 router.post('/login', login);
 
 // Protected routes

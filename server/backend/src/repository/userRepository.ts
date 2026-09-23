@@ -1,15 +1,22 @@
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
-import bcrypt from 'bcryptjs';
-import { User } from '../models/user.js'; // Use .js extension for NodeNext resolution compatibility
+import fs from "node:fs";
+import path from "node:path";
+import bcrypt from "bcryptjs";
+import { SEEDED_ACCOUNTS, USER_DATA_PATH } from "../config/jwt.js";
+import { User } from "../models/user.js";
 
-// Handle ES modules __dirname equivalent
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const DATA_DIR = path.dirname(USER_DATA_PATH);
 
-const DATA_DIR = path.join(__dirname, '..', 'data');
-const FILE_PATH = path.join(DATA_DIR, 'users.json');
+function normalizeEmail(email: string): string {
+  return email.trim().toLowerCase();
+}
+
+function nextUserId(users: User[]): string {
+  const numericIds = users
+    .map((user) => Number.parseInt(user.id, 10))
+    .filter((id) => Number.isInteger(id));
+  const nextId = numericIds.length > 0 ? Math.max(...numericIds) + 1 : 1;
+  return String(nextId);
+}
 
 export class UserRepository {
   private static instance: UserRepository;
@@ -26,61 +33,61 @@ export class UserRepository {
   }
 
   private initDatabase(): void {
-    try {
-      // Ensure data directory exists
-      if (!fs.existsSync(DATA_DIR)) {
-        fs.mkdirSync(DATA_DIR, { recursive: true });
-      }
+    fs.mkdirSync(DATA_DIR, { recursive: true });
 
-      // Check if users.json exists, if not initialize with default accounts
-      if (!fs.existsSync(FILE_PATH)) {
-        const defaultAdminPassword = bcrypt.hashSync('admin123', 10);
-        const defaultUserPassword = bcrypt.hashSync('user123', 10);
-
-        const defaultUsers: User[] = [
-          {
-            id: '1',
-            email: 'admin@example.com',
-            password: defaultAdminPassword,
-            userType: 'admin',
-            createdAt: new Date().toISOString(),
-          },
-          {
-            id: '2',
-            email: 'user@example.com',
-            password: defaultUserPassword,
-            userType: 'user',
-            createdAt: new Date().toISOString(),
-          },
-        ];
-
-        fs.writeFileSync(FILE_PATH, JSON.stringify(defaultUsers, null, 2), 'utf-8');
-        console.log('Database initialized with default accounts.');
-      }
-    } catch (error) {
-      console.error('Failed to initialize local JSON database:', error);
+    let users: User[];
+    if (fs.existsSync(USER_DATA_PATH)) {
+      users = this.readUsersFromDisk();
+    } else {
+      users = [];
+      this.writeUsersToDisk(users);
     }
+
+    let changed = false;
+    for (const seed of SEEDED_ACCOUNTS) {
+      const existing = users.find(
+        (user) => normalizeEmail(user.email) === normalizeEmail(seed.email),
+      );
+
+      if (!existing) {
+        users.push({
+          id: nextUserId(users),
+          email: normalizeEmail(seed.email),
+          password: bcrypt.hashSync(seed.password, 10),
+          userType: seed.userType,
+          createdAt: new Date().toISOString(),
+        });
+        changed = true;
+      }
+    }
+
+    if (changed) {
+      this.writeUsersToDisk(users);
+    }
+  }
+
+  private readUsersFromDisk(): User[] {
+    const fileData = fs.readFileSync(USER_DATA_PATH, "utf-8").trim();
+    if (!fileData) {
+      return [];
+    }
+
+    const parsed: unknown = JSON.parse(fileData);
+    if (!Array.isArray(parsed)) {
+      throw new Error("User data must be a JSON array");
+    }
+
+    return parsed as User[];
   }
 
   private readUsers(): User[] {
-    try {
-      if (!fs.existsSync(FILE_PATH)) {
-        this.initDatabase();
-      }
-      const fileData = fs.readFileSync(FILE_PATH, 'utf-8');
-      return JSON.parse(fileData) as User[];
-    } catch (error) {
-      console.error('Error reading user data:', error);
-      return [];
-    }
+    return this.readUsersFromDisk();
   }
 
-  private writeUsers(users: User[]): void {
-    try {
-      fs.writeFileSync(FILE_PATH, JSON.stringify(users, null, 2), 'utf-8');
-    } catch (error) {
-      console.error('Error writing user data:', error);
-    }
+  private writeUsersToDisk(users: User[]): void {
+    const temporaryPath = `${USER_DATA_PATH}.tmp`;
+    fs.writeFileSync(temporaryPath, JSON.stringify(users, null, 2), "utf-8");
+    fs.renameSync(temporaryPath, USER_DATA_PATH);
   }
 
   public async getAll(): Promise<User[]> {
@@ -89,32 +96,39 @@ export class UserRepository {
 
   public async getById(id: string): Promise<User | null> {
     const users = this.readUsers();
-    return users.find((u) => u.id === id) || null;
+    return users.find((user) => user.id === id) || null;
   }
 
   public async getByEmail(email: string): Promise<User | null> {
+    const normalizedEmail = normalizeEmail(email);
     const users = this.readUsers();
-    return users.find((u) => u.email.toLowerCase() === email.toLowerCase()) || null;
+    return (
+      users.find((user) => normalizeEmail(user.email) === normalizedEmail) || null
+    );
   }
 
-  public async create(userData: Omit<User, 'id' | 'createdAt'>): Promise<User> {
+  public async create(
+    userData: Omit<User, "id" | "createdAt">,
+  ): Promise<User> {
     const users = this.readUsers();
-    const newId = (users.length > 0 ? Math.max(...users.map((u) => parseInt(u.id) || 0)) + 1 : 1).toString();
-    
     const newUser: User = {
-      id: newId,
+      id: nextUserId(users),
       ...userData,
+      email: normalizeEmail(userData.email),
       createdAt: new Date().toISOString(),
     };
 
     users.push(newUser);
-    this.writeUsers(users);
+    this.writeUsersToDisk(users);
     return newUser;
   }
 
-  public async update(id: string, updates: Partial<Omit<User, 'id' | 'createdAt'>>): Promise<User | null> {
+  public async update(
+    id: string,
+    updates: Partial<Omit<User, "id" | "createdAt">>,
+  ): Promise<User | null> {
     const users = this.readUsers();
-    const userIndex = users.findIndex((u) => u.id === id);
+    const userIndex = users.findIndex((user) => user.id === id);
 
     if (userIndex === -1) {
       return null;
@@ -123,22 +137,25 @@ export class UserRepository {
     const updatedUser: User = {
       ...users[userIndex],
       ...updates,
+      email: updates.email
+        ? normalizeEmail(updates.email)
+        : users[userIndex].email,
     };
 
     users[userIndex] = updatedUser;
-    this.writeUsers(users);
+    this.writeUsersToDisk(users);
     return updatedUser;
   }
 
   public async delete(id: string): Promise<boolean> {
     const users = this.readUsers();
-    const filteredUsers = users.filter((u) => u.id !== id);
+    const filteredUsers = users.filter((user) => user.id !== id);
 
     if (users.length === filteredUsers.length) {
       return false;
     }
 
-    this.writeUsers(filteredUsers);
+    this.writeUsersToDisk(filteredUsers);
     return true;
   }
 }

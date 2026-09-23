@@ -1,5 +1,10 @@
 export interface RawLogData {
   logId?: string;
+  detectedAt?: string;
+  processName?: string;
+  channelName?: string;
+  transactionId?: string;
+  status?: string;
   anomalyScore: number;
   processTimeMs: number;
   responseCode: string;
@@ -10,6 +15,39 @@ export interface ProcessedLogResult {
   riskScore: number;
   riskLevel: 1 | 2 | 3;
   severity: "Info" | "Warning" | "Critical";
+}
+
+export function isRawLogData(value: unknown): value is RawLogData {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+
+  const log = value as Record<string, unknown>;
+  if (
+    typeof log.anomalyScore !== "number" ||
+    !Number.isFinite(log.anomalyScore) ||
+    log.anomalyScore < 0 ||
+    log.anomalyScore > 1 ||
+    typeof log.processTimeMs !== "number" ||
+    !Number.isFinite(log.processTimeMs) ||
+    log.processTimeMs < 0 ||
+    typeof log.responseCode !== "string" ||
+    log.responseCode.trim().length === 0
+  ) {
+    return false;
+  }
+
+  const optionalStringFields = [
+    "logId",
+    "detectedAt",
+    "processName",
+    "channelName",
+    "transactionId",
+    "status",
+  ];
+  return optionalStringFields.every(
+    (field) => log[field] === undefined || typeof log[field] === "string",
+  );
 }
 
 /**

@@ -12,17 +12,27 @@ export function authenticateToken(
   res: Response,
   next: NextFunction
 ): void {
-  const authHeader = req.headers['authorization'];
-  // Token could be "Bearer <token>"
-  const token = authHeader && authHeader.split(' ')[1];
+  const authHeader = req.headers.authorization;
+  const [scheme, token, ...extraParts] = authHeader?.trim().split(/\s+/) ?? [];
 
-  if (!token) {
+  if (scheme?.toLowerCase() !== 'bearer' || !token || extraParts.length > 0) {
     res.status(401).json({ message: 'Access token is missing or invalid' });
     return;
   }
 
   jwt.verify(token, JWT_SECRET, (err, decoded) => {
     if (err) {
+      res.status(403).json({ message: 'Token is invalid or expired' });
+      return;
+    }
+
+    if (
+      typeof decoded !== 'object' ||
+      decoded === null ||
+      typeof decoded.id !== 'string' ||
+      typeof decoded.email !== 'string' ||
+      (decoded.userType !== 'user' && decoded.userType !== 'admin')
+    ) {
       res.status(403).json({ message: 'Token is invalid or expired' });
       return;
     }

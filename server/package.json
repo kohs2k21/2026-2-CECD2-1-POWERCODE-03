@@ -1,0 +1,11 @@
+{
+  "name": "powercode-server",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Server boundary for the Powercode dashboard.",
+  "scripts": {
+    "frontend:dev": "pnpm --dir frontend dev",
+    "frontend:build": "pnpm --dir frontend build",
+    "frontend:preview": "pnpm --dir frontend preview"
+  }
+}

@@ -129,3 +129,6 @@ GEMINI.md
 .roo/
 .openhands/
 .devin/
+
+# Local automation checkpoint (team board only)
+/automation/.runtime/

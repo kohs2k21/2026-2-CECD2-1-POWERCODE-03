@@ -1,0 +1,60 @@
+name: notion-sync
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17,47 * * * *'
+  workflow_run:
+    workflows: [ci]
+    types: [completed]
+
+# Only reviewed main code receives credentials; PR artifacts are never consumed.
+permissions:
+  contents: read
+concurrency:
+  group: notion-sync-team
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    if: >-
+      github.repository == 'kohs2k21/2026-2-CECD2-1-POWERCODE-03' &&
+      github.ref == 'refs/heads/main' &&
+      (github.event_name != 'workflow_run' ||
+       (github.event.workflow_run.head_repository.full_name == github.repository &&
+        github.event.workflow_run.conclusion == 'success'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+    defaults:
+      run:
+        working-directory: automation
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1, node24
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0, node24
+        with:
+          python-version: '3.12'
+      - name: Restore team checkpoint
+        id: checkpoint
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0, node24
+        with:
+          path: automation/.runtime/state.db
+          key: notion-team-4c329ace-v1-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: notion-team-4c329ace-v1-
+      - name: Reconcile team board
+        env:
+          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python -m automation.services.sync.app
+        working-directory: .
+      - name: Save checkpoint after partial failure
+        if: always() && steps.checkpoint.outcome == 'success' && hashFiles('automation/.runtime/state.db') != ''
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0, node24
+        with:
+          path: automation/.runtime/state.db
+          key: notion-team-4c329ace-v1-${{ github.run_id }}-${{ github.run_attempt }}

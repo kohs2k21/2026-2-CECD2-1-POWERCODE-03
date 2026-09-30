@@ -1,0 +1,30 @@
+{
+  "repository": "kohs2k21/2026-2-CECD2-1-POWERCODE-03",
+  "target": "실제 프로젝트",
+  "notion_data_source_id": "4c329ace-6af6-4dc9-869b-6b4d86df31cf",
+  "base_branch": "main",
+  "release_branch": "main",
+  "poll_seconds": 30,
+  "execution": "actions",
+  "auto_draft_pr": true,
+  "assignees": {
+    "f6f3bf35-18e1-4e00-b28b-0345b146c75d": "kohs2k21"
+  },
+  "areas": [
+    "Frontend",
+    "Backend",
+    "Collector",
+    "Detector",
+    "Data",
+    "Lab",
+    "Infra",
+    "Automation",
+    "Docs"
+  ],
+  "milestones": [
+    "M0 협업 기반 정리",
+    "M1 API E2E",
+    "M2 클론·CDC 비교",
+    "M3 평가·발표"
+  ]
+}

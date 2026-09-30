@@ -1,0 +1,131 @@
+# Dependencies
+node_modules/
+.pnp/
+.pnp.cjs
+
+# Build outputs
+dist/
+build/
+.next/
+out/
+coverage/
+
+# Vite / frontend cache
+.vite/
+.turbo/
+.parcel-cache/
+
+# Environment files
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# Private key material
+*.pem
+*.key
+id_rsa
+id_ed25519
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Package manager
+.pnpm-store/
+
+# TypeScript
+*.tsbuildinfo
+
+# Python / FastAPI
+__pycache__/
+*.py[cod]
+*$py.class
+.python-version
+.venv/
+venv/
+env/
+ENV/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+pip-wheel-metadata/
+
+# Jupyter / ML
+.ipynb_checkpoints/
+
+# Runtime data files. Backend defaults to data/ from its working directory;
+# these exact paths cover its service directory and legacy root launches.
+/data/
+/server/backend/data/
+
+# Legacy root artifact directories; these do not match nested source folders.
+/models/
+/datasets/
+/feature_rule/
+
+# Research-generated datasets and run output; keep research source code visible.
+/research/**/data/
+/research/**/datasets/
+/research/**/output/
+/research/**/outputs/
+/research/**/checkpoints/
+/research/**/artifacts/
+/research/**/mlruns/
+/research/**/wandb/
+/research/**/lightning_logs/
+/research/**/runs/
+
+# Model and notebook artifacts (do not ignore source directories such as research/models).
+*.model
+*.pkl
+*.pickle
+*.joblib
+*.h5
+*.hdf5
+*.keras
+*.pt
+*.pth
+*.ckpt
+*.onnx
+
+# Testing
+playwright-report/
+test-results/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE / editor
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+
+# Local AI tool state / instructions
+/MyDocs/
+.codex/
+AGENTS.md
+.claude/
+CLAUDE.md
+.gemini/
+GEMINI.md
+.cursor/
+.cursorrules
+.continue/
+.aider*
+.windsurf/
+.roo/
+.openhands/
+.devin/

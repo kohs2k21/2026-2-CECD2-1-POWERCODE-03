@@ -483,7 +483,7 @@ class SyncTests(unittest.TestCase):
         self.assertIn({"name": "review-needed"}, self.g.data[1]["labels"])
 
     def test_issue_marker_is_only_recognized_on_first_line(self):
-        self.assertIsNone(metadata("preface\\n" + marker({"page_id": self.n.page["id"]})))
+        self.assertIsNone(metadata("preface\n" + marker({"page_id": self.n.page["id"]})))
 
     def test_issue_marker_tampering_refused(self):
         self.run_one()

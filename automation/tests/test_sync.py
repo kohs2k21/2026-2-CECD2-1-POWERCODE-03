@@ -346,6 +346,42 @@ class SyncTests(unittest.TestCase):
         self.run_one()
         self.assertEqual(len(self.g.data), 1)
 
+    def test_unrelated_malformed_marker_does_not_break_create_or_recovery(self):
+        self.g.data[1] = {"number": 1, "body": "<!-- notion-sync {not-json} -->",
+                          "state": "open", "html_url": f"https://github.com/{REPOSITORY}/issues/1",
+                          "labels": []}
+        self.g.lost_response = True
+        first = self.run_one()
+        self.assertEqual(first["result"], "error")
+        self.assertEqual(first["code"], "NETWORK_UNCERTAIN_RETRY_NEXT_RUN")
+        self.assertEqual(self.run_one()["result"], "synced")
+        self.assertEqual(len(self.g.data), 2)
+        self.assertEqual(value(self.n.page, "Issue 번호"), 2)
+        self.assertEqual(len(self.g.branches), 1)
+
+    def test_malformed_marker_with_current_page_id_fails_closed_during_scan(self):
+        page_id = self.n.page["id"]
+        self.g.data[1] = {"number": 1,
+                          "body": f'<!-- notion-sync {{"page_id": "{page_id}", invalid}} -->',
+                          "state": "open", "html_url": f"https://github.com/{REPOSITORY}/issues/1",
+                          "labels": []}
+        result = self.run_one()
+        self.assertEqual(result["code"], "INVALID_ISSUE_MARKER")
+        self.assertEqual(len(self.g.data), 1)
+        self.assertEqual(len(self.g.branches), 0)
+
+    def test_linked_malformed_marker_fails_closed(self):
+        self.n.set(CREATE, "checkbox", False)
+        self.n.set("Issue 번호", "number", 1)
+        self.n.set("GitHub Issue", "url", f"https://github.com/{REPOSITORY}/issues/1")
+        self.g.data[1] = {"number": 1, "body": "<!-- notion-sync {not-json} -->",
+                          "state": "open", "html_url": f"https://github.com/{REPOSITORY}/issues/1",
+                          "labels": []}
+        result = self.run_one()
+        self.assertEqual(result["code"], "INVALID_ISSUE_MARKER")
+        self.assertEqual(len(self.g.data), 1)
+        self.assertEqual(len(self.g.branches), 0)
+
     def test_title_change_preserves_branch_and_body_sync(self):
         self.run_one()
         before = value(self.n.page, "Branch")
@@ -445,6 +481,9 @@ class SyncTests(unittest.TestCase):
         self.n.text += " changed"
         self.run_one()
         self.assertIn({"name": "review-needed"}, self.g.data[1]["labels"])
+
+    def test_issue_marker_is_only_recognized_on_first_line(self):
+        self.assertIsNone(metadata("preface\\n" + marker({"page_id": self.n.page["id"]})))
 
     def test_issue_marker_tampering_refused(self):
         self.run_one()

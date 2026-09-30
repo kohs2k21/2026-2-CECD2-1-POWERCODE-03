@@ -404,14 +404,33 @@ def marker(meta):
     return "<!-- notion-sync " + json.dumps(meta, sort_keys=True) + " -->"
 
 
+def marker_payload(body):
+    found = re.search(r"^<!--\s*notion-sync\b([^\r\n]*)", body or "")
+    return found[1] if found else None
+
+
 def metadata(body):
-    found = re.search(r"^<!-- notion-sync (\{[^\n]+\}) -->", body or "")
-    if not found:
+    raw = marker_payload(body)
+    if raw is None:
         return None
+    raw = raw.rstrip()
+    if not raw.endswith("-->"):
+        raise SyncError("INVALID_ISSUE_MARKER")
     try:
-        return json.loads(found[1])
+        parsed = json.loads(raw[:-3].strip())
     except ValueError:
         raise SyncError("INVALID_ISSUE_MARKER") from None
+    if not isinstance(parsed, dict):
+        raise SyncError("INVALID_ISSUE_MARKER")
+    return parsed
+
+
+def marker_may_belong(body, page_id):
+    raw = marker_payload(body)
+    if raw is None:
+        return False
+    raw = raw.casefold()
+    return page_id.casefold() in raw or page_id.replace("-", "").casefold() in raw
 
 
 def assert_safe_text(text):
@@ -483,7 +502,17 @@ class Engine:
         issue = self.g.issue(saved["number"] if saved else int(number)) if (saved or number) else None
         if issue is None:
             # List REST results, not eventually indexed search. Reconcile lost create responses.
-            matches = [i for i in self.g.issues() if (metadata(i.get("body")) or {}).get("page_id") == page_id]
+            matches = []
+            for candidate in self.g.issues():
+                try:
+                    candidate_meta = metadata(candidate.get("body"))
+                except SyncError as exc:
+                    if (str(exc) != "INVALID_ISSUE_MARKER"
+                            or marker_may_belong(candidate.get("body"), page_id)):
+                        raise
+                    continue
+                if candidate_meta and candidate_meta.get("page_id") == page_id:
+                    matches.append(candidate)
             if len(matches) > 1:
                 raise SyncError("DUPLICATE_MARKERS_REVIEW_REQUIRED")
             issue = matches[0] if matches else None

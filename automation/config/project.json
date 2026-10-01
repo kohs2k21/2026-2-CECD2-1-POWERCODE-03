@@ -20,11 +20,5 @@
     "Infra",
     "Automation",
     "Docs"
-  ],
-  "milestones": [
-    "M0 협업 기반 정리",
-    "M1 API E2E",
-    "M2 클론·CDC 비교",
-    "M3 평가·발표"
   ]
 }

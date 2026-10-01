@@ -26,7 +26,6 @@ BASE_BRANCH = "main"
 RELEASE_BRANCH = "main"
 EXPECTED_ASSIGNEES = {"f6f3bf35-18e1-4e00-b28b-0345b146c75d": "kohs2k21"}
 EXPECTED_AREAS = {"Frontend", "Backend", "Collector", "Detector", "Data", "Lab", "Infra", "Automation", "Docs"}
-EXPECTED_MILESTONES = {"M0 협업 기반 정리", "M1 API E2E", "M2 클론·CDC 비교", "M3 평가·발표"}
 TYPES = set("feat fix hotfix refactor docs style perf test build ci chore".split())
 CREATE = "🚀 이슈 생성 요청"
 UPDATE = "🔄 본문 동기화 요청"
@@ -60,8 +59,6 @@ def validate_config(config):
             or config.get("assignees") != EXPECTED_ASSIGNEES
             or not isinstance(config.get("areas"), list)
             or set(config["areas"]) != EXPECTED_AREAS
-            or not isinstance(config.get("milestones"), list)
-            or set(config["milestones"]) != EXPECTED_MILESTONES
             or not isinstance(config.get("poll_seconds"), int)
             or config["poll_seconds"] < 10):
         raise SyncError("CONFIG_OUTSIDE_APPROVED_SCOPE")
@@ -210,11 +207,13 @@ def now():
 class Notion:
     def __init__(self, token, config):
         self.config = config
+        self.milestones = set()
         self.api = API("https://api.notion.com/v1", {
             "Authorization": "Bearer " + token, "Notion-Version": "2025-09-03",
             "Content-Type": "application/json"})
 
     def verify_data_source(self):
+        self.milestones = set()
         source = self.api.request("GET", "/data_sources/" + self.config["notion_data_source_id"])
         if (not isinstance(source, dict)
                 or source.get("object") != "data_source"
@@ -236,7 +235,6 @@ class Notion:
             "유형": TYPE_OPTIONS,
             "상태": STATUS_OPTIONS,
             "GitHub 동기화": SYNC_STATUS_OPTIONS,
-            "Milestone": set(self.config["milestones"]),
             "영역": set(self.config["areas"]),
         }
         for name, expected in required.items():
@@ -245,6 +243,8 @@ class Notion:
         priority_codes = {name.split()[0] for name in option_names("우선순위", "select")}
         if not PRIORITY_CODES.issubset(priority_codes):
             raise SyncError("NOTION_SCHEMA_OPTIONS_INVALID")
+        # Milestone titles are user-managed metadata, refreshed each run.
+        self.milestones = option_names("Milestone", "select")
         return True
 
     def pages(self):
@@ -467,8 +467,9 @@ class Engine:
         if not areas or set(areas) - set(self.cfg["areas"]):
             raise SyncError("AREA_INVALID")
         milestone = value(page, "Milestone", "")
-        if milestone and milestone not in self.cfg["milestones"]:
-            raise SyncError("MILESTONE_NOT_CONFIGURED")
+        if milestone and milestone not in self.n.milestones:
+            raise SyncError("MILESTONE_NOT_IN_NOTION_OPTIONS")
+        assert_safe_text(milestone)
         people = value(page, "담당자", [])
         if any(p not in self.cfg["assignees"] for p in people):
             raise SyncError("ASSIGNEE_MAPPING_REQUIRED")

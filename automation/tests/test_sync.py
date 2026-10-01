@@ -29,6 +29,7 @@ def task():
 class FakeNotion:
     def __init__(self):
         self.page = task()
+        self.milestones = {"M0 협업 기반 정리", "M1 중간고사", "M2 기말고사", "M3 평가·발표·고도화"}
         self.text = "## 작업\n합성 데이터만 사용\n- [ ] 통과"
         self.edits = 0
         self.fail_patch = False
@@ -60,6 +61,7 @@ class FakeNotion:
 class FakeGitHub:
     def __init__(self):
         self.data, self.branches, self.pulls = {}, {}, []
+        self.milestone_titles = []
         self.lost_response = False
         self.fail_branch = False
         self.deleted = []
@@ -117,6 +119,7 @@ class FakeGitHub:
         pass
 
     def milestone(self, title):
+        self.milestone_titles.append(title)
         return 1 if title else None
 
     def ensure_branch(self, name, base):
@@ -169,7 +172,7 @@ class SyncTests(unittest.TestCase):
             "우선순위": ["P0 긴급", "P1 이번 목표 필수", "P2 일반", "P3 여유 있을 때"],
             "상태": ["백로그", "개발 준비", "개발 중", "리뷰 중", "취소", "완료"],
             "GitHub 동기화": ["생성 중", "완료", "오류"],
-            "Milestone": config["milestones"],
+            "Milestone": ["M0 협업 기반 정리", "M1 중간고사", "M2 기말고사", "M3 평가·발표·고도화"],
             "영역": config["areas"],
         }
         for name, names in options.items():
@@ -180,6 +183,21 @@ class SyncTests(unittest.TestCase):
         with patch.object(notion.api, "request", return_value=source) as request:
             self.assertTrue(notion.verify_data_source())
         request.assert_called_once_with("GET", "/data_sources/" + DATA_SOURCE_ID)
+        self.assertEqual(notion.milestones, set(options["Milestone"]))
+
+        # Renaming, adding, and clearing user milestones must not block the board.
+        for titles in (["사용자 일정", "추가 일정"], []):
+            properties["Milestone"]["select"]["options"] = [{"name": name} for name in titles]
+            with patch.object(notion.api, "request", return_value=source):
+                self.assertTrue(notion.verify_data_source())
+            self.assertEqual(notion.milestones, set(titles))
+
+        properties["상태"]["select"]["options"] = [{"name": "사용자 상태"}]
+        with patch.object(notion.api, "request", return_value=source):
+            with self.assertRaisesRegex(SyncError, "NOTION_SCHEMA_OPTIONS_INVALID"):
+                notion.verify_data_source()
+        self.assertEqual(notion.milestones, set())
+        properties["상태"]["select"]["options"] = [{"name": name} for name in options["상태"]]
 
         properties["Branch"]["type"] = "url"
         with patch.object(notion.api, "request", return_value=source):
@@ -521,12 +539,48 @@ class SyncTests(unittest.TestCase):
         self.assertIn({"name": "review-needed"}, self.g.data[1]["labels"])
 
     def test_select_milestone_is_linked_and_can_be_cleared(self):
-        self.n.set("Milestone", "select", "M1 API E2E")
+        self.n.set("Milestone", "select", "M1 중간고사")
         self.assertEqual(self.run_one()["result"], "synced")
         self.assertEqual(self.g.data[1]["milestone"], 1)
+        self.assertEqual(self.g.milestone_titles, ["M1 중간고사"])
         self.n.set("Milestone", "select", None)
         self.assertEqual(self.run_one()["result"], "synced")
         self.assertIsNone(self.g.data[1]["milestone"])
+
+    def test_user_milestone_rename_updates_same_issue(self):
+        self.n.set("Milestone", "select", "M1 중간고사")
+        self.assertEqual(self.run_one()["result"], "synced")
+        self.n.milestones = {"사용자 새 일정"}
+        self.n.set("Milestone", "select", "사용자 새 일정")
+        self.assertEqual(self.run_one()["result"], "synced")
+        self.assertEqual(self.g.milestone_titles, ["M1 중간고사", "사용자 새 일정"])
+        self.assertEqual(len(self.g.data), 1)
+
+    def test_milestone_outside_current_notion_options_is_rejected_before_github_write(self):
+        self.n.set("Milestone", "select", "M1 API E2E")
+        self.assertEqual(self.run_one()["code"], "MILESTONE_NOT_IN_NOTION_OPTIONS")
+        self.assertEqual(self.g.data, {})
+        self.assertEqual(self.g.milestone_titles, [])
+
+    def test_secret_in_milestone_is_rejected_without_echo(self):
+        title = "ghp_" + "A" * 32
+        self.n.milestones = {title}
+        self.n.set("Milestone", "select", title)
+        result = self.run_one()
+        self.assertEqual(result["code"], "POSSIBLE_SECRET_IN_TASK")
+        self.assertNotIn(title, json.dumps(result))
+        self.assertEqual(self.g.data, {})
+
+    def test_github_milestone_reuses_exact_title_or_creates_once(self):
+        client = GitHub("synthetic-test-token", copy.deepcopy(CFG))
+        with patch.object(client, "all", return_value=[{"title": "사용자 일정", "number": 8}]), \
+                patch.object(client, "call") as call:
+            self.assertEqual(client.milestone("사용자 일정"), 8)
+            call.assert_not_called()
+        with patch.object(client, "all", return_value=[{"title": "이전 일정", "number": 8}]), \
+                patch.object(client, "call", return_value={"number": 9}) as call:
+            self.assertEqual(client.milestone("새 일정"), 9)
+            call.assert_called_once_with("POST", "/milestones", {"title": "새 일정"})
 
     def test_secret_is_rejected_without_value_in_error(self):
         self.n.text = "ntn_" + "A" * 32

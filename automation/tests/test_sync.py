@@ -260,6 +260,44 @@ class SyncTests(unittest.TestCase):
         lines = self.g.pulls[0]["body"].splitlines()
         self.assertTrue(all(line.startswith("- ") for line in lines[1:] if line))
 
+    def test_issue_type_prefix_tracks_notion_title_without_duplicate_pr_prefix(self):
+        self.run_one()
+        self.assertEqual(self.g.data[1]["title"], "[feat] 합성 시험 작업")
+        self.n.set("작업명", "rich_text", "[feat] 새 작업명")
+        self.run_one()
+        self.assertEqual(self.g.data[1]["title"], "[feat] 새 작업명")
+        self.g.changed = True
+        self.run_one()
+        self.assertEqual(self.g.pulls[0]["title"], "feat(automation): ✨ 새 작업명 (#1)")
+        self.assertEqual(value(self.n.page, "작업명"), "[feat] 새 작업명")
+
+    def test_manual_github_issue_title_survives_digest_change_unless_requested(self):
+        self.run_one()
+        self.g.data[1]["title"] = "Human issue title"
+        self.n.text += "\n- 새 본문"
+        self.run_one()
+        self.assertEqual(self.g.data[1]["title"], "Human issue title")
+        self.n.set(UPDATE, "checkbox", True)
+        self.run_one()
+        self.assertEqual(self.g.data[1]["title"], "[feat] 합성 시험 작업")
+
+    def test_unknown_assignee_blocks_linked_issue_without_request_checkbox(self):
+        self.run_one()
+        self.assertFalse(value(self.n.page, CREATE, False))
+        self.assertFalse(value(self.n.page, UPDATE, False))
+        self.n.page["properties"]["담당자"] = {"type": "people", "people": [{"id": "unmapped"}]}
+        self.assertEqual(self.run_one()["code"], "ASSIGNEE_MAPPING_REQUIRED")
+
+    def test_existing_legacy_plain_title_gets_prefix_without_title_checkpoint(self):
+        self.legacy_main_link()
+        key = REPOSITORY + ":" + self.n.page["id"]
+        saved = self.state.get(key)
+        saved.pop("issue_title")
+        self.state.save(key, saved)
+        self.g.data[1]["title"] = value(self.n.page, "작업명")
+        self.assertEqual(self.run_one()["result"], "synced")
+        self.assertEqual(self.g.data[1]["title"], "[feat] 합성 시험 작업")
+
     def test_configuration_is_fixed_to_approved_scope(self):
         validate_config(CFG)
         for key, value_to_reject in (

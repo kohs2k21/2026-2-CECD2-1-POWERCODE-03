@@ -208,6 +208,10 @@ def now():
     return dt.datetime.now(dt.timezone.utc).isoformat()
 
 
+def plain_task_title(title):
+    return re.sub(r"^(?:\[(?:" + "|".join(sorted(TYPES)) + r")\]\s*)+", "", title)
+
+
 class Notion:
     def __init__(self, token, config):
         self.config = config
@@ -564,7 +568,13 @@ class Engine:
             labels.append("priority:" + priority.lower())
         self.g.ensure_labels(labels)
         milestone_number = self.g.milestone(milestone)
-        payload = {"title": title, "body": desired_body, "labels": labels, "assignees": people, "milestone": milestone_number}
+        issue_title = f"[{kind}] {plain_task_title(title)}"
+        if saved and "issue_title" in saved:
+            title_owned = issue is not None and issue.get("title") == saved["issue_title"]
+        else:
+            title_owned = issue is None or issue.get("title") in {title, issue_title}
+        sync_title = title_owned or value(page, UPDATE, False)
+        payload = {"title": issue_title, "body": desired_body, "labels": labels, "assignees": people, "milestone": milestone_number}
         digest = hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()
         if not issue:
             self.n.patch(page_id, {"GitHub 동기화": prop("select", "생성 중")})
@@ -583,7 +593,13 @@ class Engine:
         if migrated_base or saved.get("digest") != digest or value(page, UPDATE, False):
             # Preserve unrelated human-added labels; replace only owned namespaces.
             unmanaged = [l["name"] for l in issue.get("labels", []) if not l["name"].startswith(("type:", "area:", "priority:"))]
-            self.g.edit_issue(number, {**payload, "labels": sorted(set(labels + unmanaged))})
+            edit_payload = {**payload, "labels": sorted(set(labels + unmanaged))}
+            if not sync_title:
+                # A manual GitHub title is not overwritten by unrelated changes.
+                edit_payload.pop("title")
+            self.g.edit_issue(number, edit_payload)
+            if sync_title:
+                saved["issue_title"] = issue_title
             saved["digest"] = digest
             self.state.save(key, saved)
         prs = existing_prs if existing_prs is not None else self.g.prs(branch)
@@ -598,7 +614,7 @@ class Engine:
             if self.g.has_changes(branch, meta["base"]):
                 emojis = dict(zip("feat fix hotfix refactor docs style perf test build ci chore".split(),
                                   "✨ 🐛 🚑 ♻️ 📝 🎨 ⚡ ✅ 📦 👷 🔧".split()))
-                seed_title = f"{kind}({areas[0].lower()}): {emojis[kind]} {title} (#{number})"
+                seed_title = f"{kind}({areas[0].lower()}): {emojis[kind]} {plain_task_title(title)} (#{number})"
                 seed_body = (f"<!-- notion-draft {page_id} -->\n"
                     f"- 목적·작업 범위: {title}\n"
                     f"- 상세 범위: 연결 Issue 및 Notion 작업 본문 기준\n"

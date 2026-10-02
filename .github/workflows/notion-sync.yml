@@ -23,6 +23,8 @@ jobs:
        (github.event.workflow_run.head_repository.full_name == github.repository &&
         github.event.workflow_run.conclusion == 'success'))
     runs-on: ubuntu-latest
+    # Reviewed main only; no triggering PR code/artifacts enter this checkpoint.
+    cache-mode: write
     timeout-minutes: 10
     permissions:
       contents: write

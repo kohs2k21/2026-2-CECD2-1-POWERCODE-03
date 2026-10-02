@@ -534,6 +534,7 @@ class Engine:
             issue = matches[0] if matches else None
         existing_prs = None
         migrated_base = False
+        recovered_base = False
         if issue:
             meta = metadata(issue.get("body"))
             if not meta or meta.get("page_id") != page_id or meta.get("repository") != self.cfg["repository"]:
@@ -546,8 +547,11 @@ class Engine:
                 raise SyncError("INVALID_BRANCH_BASE")
             if kind != meta["kind"]:
                 raise SyncError("TYPE_LOCKED_AFTER_CREATION")
-            if meta["base"] == self.cfg["release_branch"] and issue.get("state") == "open":
-                legacy_branch = f"{meta['kind']}/{issue['number']}-{meta['slug']}"
+            legacy_branch = f"{meta['kind']}/{issue['number']}-{meta['slug']}"
+            stale_base = (saved and saved["branch"] == legacy_branch
+                          and saved["base"] == self.cfg["release_branch"]
+                          and meta["base"] == self.cfg["base_branch"])
+            if (meta["base"] == self.cfg["release_branch"] or stale_base) and issue.get("state") == "open":
                 existing_prs = self.g.prs(legacy_branch)
                 owned_prs = [p for p in existing_prs
                     if p.get("head", {}).get("repo", {}).get("full_name") == self.cfg["repository"]
@@ -556,8 +560,12 @@ class Engine:
                        for p in owned_prs):
                     raise SyncError("LEGACY_ACTIVE_MAIN_PR_REQUIRES_REVIEW")
                 if not owned_prs or any(p["base"]["ref"] == self.cfg["base_branch"] for p in owned_prs):
-                    meta = {**meta, "base": self.cfg["base_branch"]}
-                    migrated_base = True
+                    if stale_base:
+                        # The remote marker survived a lost/read-only cache save.
+                        recovered_base = True
+                    else:
+                        meta = {**meta, "base": self.cfg["base_branch"]}
+                        migrated_base = True
         else:
             slug = value(page, "브랜치 요약", "").strip()
             if not re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", slug) or len(slug) > 60:
@@ -590,7 +598,7 @@ class Engine:
         number = issue["number"]
         branch = f"{meta['kind']}/{number}-{meta['slug']}"
         saved = saved or {"number": number, "branch": branch, "base": meta["base"]}
-        if (migrated_base and saved["branch"] == branch
+        if ((migrated_base or recovered_base) and saved["branch"] == branch
                 and saved["base"] == self.cfg["release_branch"]):
             saved["base"] = meta["base"]
         if saved["branch"] != branch or saved["base"] != meta["base"]:

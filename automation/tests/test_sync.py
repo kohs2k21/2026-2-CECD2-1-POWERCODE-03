@@ -229,6 +229,65 @@ class SyncTests(unittest.TestCase):
         self.assertEqual(metadata(self.g.data[1]["body"])["base"], "dev")
         self.assertEqual(len(self.g.data), 1)
 
+    def test_remote_dev_marker_recovers_restored_main_checkpoint(self):
+        self.legacy_main_link()
+        key = REPOSITORY + ":" + self.n.page["id"]
+        previous = self.state.get(key)
+        branch = value(self.n.page, "Branch")
+        self.g.branches[branch] = "existing-work"
+        self.run_one()
+        remote_body = self.g.data[1]["body"]
+        self.state.save(key, previous)
+        self.assertEqual(self.run_one()["result"], "synced")
+        self.assertEqual(self.state.get(key)["base"], "dev")
+        self.assertEqual(self.g.data[1]["body"], remote_body)
+        self.assertEqual(self.g.branches[branch], "existing-work")
+        self.assertEqual(len(self.g.data), 1)
+        self.assertEqual(self.run_one()["result"], "synced")
+
+    def test_remote_dev_marker_recovers_checkpoint_with_existing_dev_pr(self):
+        self.run_one()
+        self.pr(base="dev", draft=True)
+        key = REPOSITORY + ":" + self.n.page["id"]
+        self.state.save(key, {**self.state.get(key), "base": "main"})
+        self.assertEqual(self.run_one()["result"], "synced")
+        self.assertEqual(self.state.get(key)["base"], "dev")
+        self.assertEqual(value(self.n.page, "Pull Request"), self.g.pulls[0]["html_url"])
+        self.assertEqual(len(self.g.pulls), 1)
+
+    def test_checkpoint_recovery_refuses_unrelated_base_or_branch(self):
+        self.run_one()
+        key = REPOSITORY + ":" + self.n.page["id"]
+        current = self.state.get(key)
+        for change in ({"base": "other"}, {"base": "main", "branch": "feat/1-other-task"}):
+            with self.subTest(change=change):
+                saved = {**current, **change}
+                self.state.save(key, saved)
+                self.assertEqual(self.run_one()["code"], "LOCAL_MAPPING_MISMATCH")
+                self.assertEqual(self.state.get(key), saved)
+
+    def test_checkpoint_recovery_refuses_foreign_marker(self):
+        self.run_one()
+        key = REPOSITORY + ":" + self.n.page["id"]
+        saved = {**self.state.get(key), "base": "main"}
+        self.state.save(key, saved)
+        meta = metadata(self.g.data[1]["body"])
+        for change in ({"repository": "other/repo"}, {"page_id": "other-page"}):
+            with self.subTest(change=change):
+                self.g.data[1]["body"] = marker({**meta, **change})
+                self.assertEqual(self.run_one()["code"], "ISSUE_OWNERSHIP_MISMATCH")
+                self.assertEqual(self.state.get(key), saved)
+
+    def test_checkpoint_recovery_still_refuses_active_main_pr(self):
+        self.run_one()
+        key = REPOSITORY + ":" + self.n.page["id"]
+        saved = {**self.state.get(key), "base": "main"}
+        self.state.save(key, saved)
+        self.pr(base="main")
+        self.assertEqual(self.run_one()["code"], "LEGACY_ACTIVE_MAIN_PR_REQUIRES_REVIEW")
+        self.assertEqual(self.state.get(key), saved)
+        self.assertEqual(self.g.pulls[0]["base"]["ref"], "main")
+
     def test_confirmed_teammates_map_to_assignable_github_accounts(self):
         self.n.page["properties"]["담당자"] = {"type": "people", "people": [
             {"id": "d798e1d8-b088-467a-8fff-726df0ba9011"},

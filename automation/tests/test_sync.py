@@ -143,13 +143,210 @@ class FakeGitHub:
 
 
 class SyncTests(unittest.TestCase):
+    def test_new_task_targets_dev_while_release_stays_main(self):
+        self.run_one()
+        self.assertEqual(metadata(self.g.data[1]["body"])["base"], "dev")
+        self.assertEqual(CFG["release_branch"], "main")
+        self.g.changed = True
+        self.run_one()
+        self.assertEqual(self.g.pulls[0]["base"]["ref"], "dev")
+
+    def legacy_main_link(self):
+        self.run_one()
+        meta = metadata(self.g.data[1]["body"])
+        self.g.data[1]["body"] = self.g.data[1]["body"].replace(
+            marker(meta), marker({**meta, "base": "main"}), 1)
+        key = REPOSITORY + ":" + self.n.page["id"]
+        saved = self.state.get(key)
+        self.state.save(key, {**saved, "base": "main"})
+
+    def test_active_legacy_without_pr_migrates_to_dev_without_resetting_branch(self):
+        self.legacy_main_link()
+        branch = value(self.n.page, "Branch")
+        self.g.branches[branch] = "existing-work"
+        self.assertEqual(self.run_one()["result"], "synced")
+        self.assertEqual(metadata(self.g.data[1]["body"])["base"], "dev")
+        self.assertEqual(self.g.branches[branch], "existing-work")
+        self.assertEqual(len(self.g.data), 1)
+        key = REPOSITORY + ":" + self.n.page["id"]
+        self.assertEqual(self.state.get(key)["base"], "dev")
+        self.g.changed = True
+        self.run_one()
+        self.assertEqual(self.g.pulls[0]["base"]["ref"], "dev")
+
+    def test_active_legacy_main_pr_requires_review_without_metadata_changes(self):
+        self.legacy_main_link()
+        self.pr(base="main")
+        before = self.g.data[1]["body"]
+        self.assertEqual(self.run_one()["code"], "LEGACY_ACTIVE_MAIN_PR_REQUIRES_REVIEW")
+        self.assertEqual(self.g.data[1]["body"], before)
+        self.assertEqual(self.g.pulls[0]["base"]["ref"], "main")
+        self.assertEqual(len(self.g.pulls), 1)
+
+    def test_active_legacy_with_existing_dev_pr_migrates_and_links_without_duplicate(self):
+        self.legacy_main_link()
+        branch = value(self.n.page, "Branch")
+        self.g.branches[branch] = "existing-work"
+        self.pr(base="dev", draft=True)
+        self.g.changed = True
+        self.assertEqual(self.run_one()["result"], "synced")
+        self.assertEqual(metadata(self.g.data[1]["body"])["base"], "dev")
+        self.assertEqual(value(self.n.page, "Pull Request"), self.g.pulls[0]["html_url"])
+        self.assertEqual(len(self.g.pulls), 1)
+        self.assertEqual(self.g.branches[branch], "existing-work")
+
+    def test_closed_legacy_main_history_remains_compatible(self):
+        self.legacy_main_link()
+        self.g.data[1]["state"] = "closed"
+        self.n.set("상태", "select", "취소")
+        self.pr(state="closed", base="main")
+        self.assertEqual(self.run_one()["result"], "synced")
+        self.assertEqual(metadata(self.g.data[1]["body"])["base"], "main")
+        self.assertEqual(len(self.g.pulls), 1)
+
+    def test_merged_legacy_main_history_completes_without_dev_pr(self):
+        self.legacy_main_link()
+        self.pr(merged="2026-09-10T12:00:00Z", state="closed", base="main")
+        self.assertEqual(self.run_one()["result"], "completed")
+        self.assertEqual(metadata(self.g.data[1]["body"])["base"], "main")
+        self.assertEqual(self.g.data[1]["state"], "closed")
+        self.assertEqual(len(self.g.pulls), 1)
+
+    def test_legacy_migration_retries_after_marker_write_failure(self):
+        self.legacy_main_link()
+        with patch.object(self.g, "edit_issue", side_effect=SyncError("HTTP_503")):
+            self.assertEqual(self.run_one()["code"], "HTTP_503")
+        self.assertEqual(metadata(self.g.data[1]["body"])["base"], "main")
+        self.assertEqual(self.run_one()["result"], "synced")
+        self.assertEqual(metadata(self.g.data[1]["body"])["base"], "dev")
+        self.assertEqual(len(self.g.data), 1)
+
+    def test_legacy_migration_recovers_without_local_checkpoint(self):
+        self.legacy_main_link()
+        self.state.db.execute("DELETE FROM mappings")
+        self.state.db.commit()
+        self.assertEqual(self.run_one()["result"], "synced")
+        self.assertEqual(metadata(self.g.data[1]["body"])["base"], "dev")
+        self.assertEqual(len(self.g.data), 1)
+
+    def test_confirmed_teammates_map_to_assignable_github_accounts(self):
+        self.n.page["properties"]["담당자"] = {"type": "people", "people": [
+            {"id": "d798e1d8-b088-467a-8fff-726df0ba9011"},
+            {"id": "ac8cce9d-4260-4fb9-bd8d-27b5cc9df9ef"}]}
+        self.assertEqual(self.run_one()["result"], "synced")
+        self.assertEqual(self.g.data[1]["assignees"], ["juhno1023", "KRMayD"])
+        self.g.changed = True
+        self.run_one()
+        self.assertEqual(self.g.assignments, [(2, ["juhno1023", "KRMayD"])])
+
+    def test_unconfirmed_invitee_is_not_mapped_or_created(self):
+        self.n.page["properties"]["담당자"] = {"type": "people", "people": [
+            {"id": "d34bec6b-2af0-44cb-a462-ff849c3e2d25"}]}
+        self.assertEqual(self.run_one()["code"], "ASSIGNEE_MAPPING_REQUIRED")
+        self.assertFalse(self.g.data)
+        self.assertFalse(self.g.branches)
+        self.assertFalse(self.g.pulls)
+
+    def test_assignee_allowlist_cannot_be_widened_by_config_only(self):
+        cfg = copy.deepcopy(CFG)
+        cfg["assignees"]["unapproved-id"] = "unapproved-login"
+        with self.assertRaisesRegex(SyncError, "CONFIG_OUTSIDE_APPROVED_SCOPE"):
+            validate_config(cfg)
+
+    def test_automatic_draft_description_uses_bullets(self):
+        self.run_one()
+        self.g.changed = True
+        self.run_one()
+        lines = self.g.pulls[0]["body"].splitlines()
+        self.assertTrue(all(line.startswith("- ") for line in lines[1:] if line))
+
+    def test_issue_type_prefix_tracks_notion_title_without_duplicate_pr_prefix(self):
+        self.run_one()
+        self.assertEqual(self.g.data[1]["title"], "feat(automation): ✨ 합성 시험 작업")
+        self.n.set("작업명", "rich_text", "[feat] 새 작업명")
+        self.run_one()
+        self.assertEqual(self.g.data[1]["title"], "feat(automation): ✨ 새 작업명")
+        self.g.changed = True
+        self.run_one()
+        self.assertEqual(self.g.pulls[0]["title"], "feat(automation): ✨ 새 작업명 (#1)")
+        self.assertEqual(value(self.n.page, "작업명"), "[feat] 새 작업명")
+
+    def test_manual_github_issue_title_survives_digest_change_unless_requested(self):
+        self.run_one()
+        self.g.data[1]["title"] = "Human issue title"
+        self.n.text += "\n- 새 본문"
+        self.run_one()
+        self.assertEqual(self.g.data[1]["title"], "Human issue title")
+        self.n.set(UPDATE, "checkbox", True)
+        self.run_one()
+        self.assertEqual(self.g.data[1]["title"], "feat(automation): ✨ 합성 시험 작업")
+
+    def test_unknown_assignee_blocks_linked_issue_without_request_checkbox(self):
+        self.run_one()
+        self.assertFalse(value(self.n.page, CREATE, False))
+        self.assertFalse(value(self.n.page, UPDATE, False))
+        self.n.page["properties"]["담당자"] = {"type": "people", "people": [{"id": "unmapped"}]}
+        self.assertEqual(self.run_one()["code"], "ASSIGNEE_MAPPING_REQUIRED")
+
+    def test_existing_legacy_plain_title_gets_prefix_without_title_checkpoint(self):
+        self.legacy_main_link()
+        key = REPOSITORY + ":" + self.n.page["id"]
+        saved = self.state.get(key)
+        saved.pop("issue_title")
+        self.state.save(key, saved)
+        self.g.data[1]["title"] = value(self.n.page, "작업명")
+        self.assertEqual(self.run_one()["result"], "synced")
+        self.assertEqual(self.g.data[1]["title"], "feat(automation): ✨ 합성 시험 작업")
+
+    def test_conventional_source_title_uses_first_area_without_duplicate_prefix(self):
+        self.n.set("영역", "multi_select", [{"name": "Infra"}, {"name": "Backend"}])
+        source_title = "[feat] feat(infra): ✨ [feat] 새 작업명"
+        self.n.set("작업명", "rich_text", source_title)
+        self.g.changed = True
+        self.run_one()
+        self.assertEqual(self.g.data[1]["title"], "feat(infra): ✨ 새 작업명")
+        self.assertEqual(self.g.pulls[0]["title"], "feat(infra): ✨ 새 작업명 (#1)")
+        self.assertEqual(value(self.n.page, "작업명"), source_title)
+        self.assertTrue({"area:infra", "area:backend"}.issubset(
+            {label["name"] for label in self.g.data[1]["labels"]}))
+
+    def test_previous_bot_bracket_title_migrates_with_or_without_checkpoint(self):
+        for checkpoint in (True, False):
+            with self.subTest(checkpoint=checkpoint):
+                self.run_one()
+                key = REPOSITORY + ":" + self.n.page["id"]
+                saved = self.state.get(key)
+                previous_title = "[feat] 합성 시험 작업"
+                if checkpoint:
+                    saved["issue_title"] = previous_title
+                else:
+                    saved.pop("issue_title", None)
+                saved["digest"] = "previous-format-digest"
+                self.state.save(key, saved)
+                self.g.data[1]["title"] = previous_title
+                self.run_one()
+                self.assertEqual(self.g.data[1]["title"], "feat(automation): ✨ 합성 시험 작업")
+
+    def test_manual_conventional_title_without_checkpoint_is_preserved(self):
+        self.run_one()
+        key = REPOSITORY + ":" + self.n.page["id"]
+        saved = self.state.get(key)
+        saved.pop("issue_title")
+        self.state.save(key, saved)
+        human_title = "feat(infra): ✨ 직접 수정한 작업명"
+        self.g.data[1]["title"] = human_title
+        self.n.text += "\n- 새 본문"
+        self.run_one()
+        self.assertEqual(self.g.data[1]["title"], human_title)
+
     def test_configuration_is_fixed_to_approved_scope(self):
         validate_config(CFG)
         for key, value_to_reject in (
                 ("repository", "someone/another-repo"),
                 ("target", "테스트"),
                 ("notion_data_source_id", "00000000-0000-0000-0000-000000000000"),
-                ("base_branch", "dev")):
+                ("base_branch", "main"),
+                ("release_branch", "dev")):
             config = copy.deepcopy(CFG)
             config[key] = value_to_reject
             with self.assertRaisesRegex(SyncError, "CONFIG_OUTSIDE_APPROVED_SCOPE"):
@@ -208,11 +405,13 @@ class SyncTests(unittest.TestCase):
         client = GitHub("synthetic-test-token", copy.deepcopy(CFG))
         with patch.object(client.api, "request", side_effect=[
                 {"full_name": REPOSITORY},
+                {"ref": "refs/heads/dev"},
                 {"ref": "refs/heads/main"}]) as request:
             self.assertEqual(client.verify_access(), REPOSITORY)
         self.assertEqual(
             [call.args[:2] for call in request.call_args_list],
             [("GET", "/repos/" + REPOSITORY),
+             ("GET", "/repos/" + REPOSITORY + "/git/ref/heads/dev"),
              ("GET", "/repos/" + REPOSITORY + "/git/ref/heads/main")],
         )
 
@@ -221,7 +420,7 @@ class SyncTests(unittest.TestCase):
         before = notion.edits
         report = check_access(CFG, notion, github)
         self.assertEqual(report["repository"], REPOSITORY)
-        self.assertEqual(report["base_branch"], "main")
+        self.assertEqual(report["base_branch"], "dev")
         self.assertEqual(report["release_branch"], "main")
         self.assertEqual(report["schema"], "valid")
         self.assertEqual(report["row_count"], 1)
@@ -244,7 +443,7 @@ class SyncTests(unittest.TestCase):
     def run_one(self):
         return self.engine.run()[0]
 
-    def pr(self, merged=None, state="open", base="main", draft=False, repo=REPOSITORY):
+    def pr(self, merged=None, state="open", base="dev", draft=False, repo=REPOSITORY):
         branch = value(self.n.page, "Branch")
         self.g.pulls = [{"number": 2, "state": state, "draft": draft, "merged_at": merged,
             "head": {"ref": branch, "sha": "head1", "repo": {"full_name": repo}},
@@ -270,7 +469,7 @@ class SyncTests(unittest.TestCase):
         self.assertEqual(self.run_one()["result"], "synced")
         self.assertEqual(value(self.n.page, "상태"), "개발 중")
         self.assertTrue(self.g.pulls[0]["draft"])
-        self.assertEqual(self.g.pulls[0]["base"]["ref"], "main")
+        self.assertEqual(self.g.pulls[0]["base"]["ref"], "dev")
         self.assertIn("Refs #1", self.g.pulls[0]["body"])
         self.assertEqual(self.g.assignments, [(2, ["kohs2k21"])])
 
@@ -306,7 +505,7 @@ class SyncTests(unittest.TestCase):
     def test_auto_draft_no_recreate_closed_unmerged_or_wrong_base(self):
         self.run_one()
         self.g.changed = True
-        for state, base in [("closed", "main"), ("open", "dev"), ("closed", "dev")]:
+        for state, base in [("closed", "dev"), ("open", "main"), ("closed", "main")]:
             self.pr(state=state, base=base)
             self.run_one()
             self.assertEqual(len(self.g.pulls), 1)
@@ -329,13 +528,13 @@ class SyncTests(unittest.TestCase):
         self.run_one()
         self.assertFalse(self.g.pulls)
 
-    def test_auto_draft_hotfix_uses_main_without_priority(self):
+    def test_auto_draft_hotfix_uses_dev_without_priority(self):
         self.n.set("유형", "select", "🚑 hotfix")
         self.n.set("우선순위", "select", None)
         self.run_one()
         self.g.changed = True
         self.run_one()
-        self.assertEqual(self.g.pulls[0]["base"]["ref"], "main")
+        self.assertEqual(self.g.pulls[0]["base"]["ref"], "dev")
 
     def test_compare_requires_actual_diff_not_just_empty_commit(self):
         api = GitHub("synthetic-test-token", CFG)
@@ -466,7 +665,7 @@ class SyncTests(unittest.TestCase):
 
     def test_wrong_base_merged_not_done(self):
         self.run_one()
-        self.pr(merged="2026-09-10T12:00:00Z", state="closed", base="dev")
+        self.pr(merged="2026-09-10T12:00:00Z", state="closed", base="main")
         self.run_one()
         self.assertNotEqual(value(self.n.page, "상태"), "완료")
         self.assertFalse(self.g.deleted)
@@ -513,12 +712,12 @@ class SyncTests(unittest.TestCase):
         self.n.set("유형", "select", "🐛 fix")
         self.assertEqual(self.run_one()["code"], "TYPE_LOCKED_AFTER_CREATION")
 
-    def test_hotfix_allows_non_p0_and_uses_main_without_followup(self):
+    def test_hotfix_allows_non_p0_and_uses_dev_without_followup(self):
         self.n.set("유형", "select", "🚑 hotfix")
         self.n.set("우선순위", "select", "P3 여유 있을 때")
         self.assertEqual(self.run_one()["result"], "synced")
-        self.assertEqual(metadata(self.g.data[1]["body"])["base"], "main")
-        self.pr(merged="2026-09-10T12:00:00Z", state="closed", base="main")
+        self.assertEqual(metadata(self.g.data[1]["body"])["base"], "dev")
+        self.pr(merged="2026-09-10T12:00:00Z", state="closed", base="dev")
         self.run_one()
         self.assertEqual(self.g.followups, 0)
 

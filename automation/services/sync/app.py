@@ -31,6 +31,8 @@ EXPECTED_ASSIGNEES = {
 }
 EXPECTED_AREAS = {"Frontend", "Backend", "Collector", "Detector", "Data", "Lab", "Infra", "Automation", "Docs"}
 TYPES = set("feat fix hotfix refactor docs style perf test build ci chore".split())
+TYPE_EMOJIS = dict(zip("feat fix hotfix refactor docs style perf test build ci chore".split(),
+                       "✨ 🐛 🚑 ♻️ 📝 🎨 ⚡ ✅ 📦 👷 🔧".split()))
 CREATE = "🚀 이슈 생성 요청"
 UPDATE = "🔄 본문 동기화 요청"
 TYPE_OPTIONS = {
@@ -209,7 +211,11 @@ def now():
 
 
 def plain_task_title(title):
-    return re.sub(r"^(?:\[(?:" + "|".join(sorted(TYPES)) + r")\]\s*)+", "", title)
+    kinds = "|".join(sorted(TYPES))
+    scopes = "|".join(sorted(area.lower() for area in EXPECTED_AREAS))
+    emojis = "|".join(re.escape(emoji) for emoji in TYPE_EMOJIS.values())
+    return re.sub(r"^(?:(?:\[(?:" + kinds + r")\]\s*)|(?:(?:" + kinds
+                  + r")\((?:" + scopes + r")\):\s*(?:" + emojis + r")\s*))+", "", title)
 
 
 class Notion:
@@ -568,11 +574,12 @@ class Engine:
             labels.append("priority:" + priority.lower())
         self.g.ensure_labels(labels)
         milestone_number = self.g.milestone(milestone)
-        issue_title = f"[{kind}] {plain_task_title(title)}"
+        plain_title = plain_task_title(title)
+        issue_title = f"{kind}({areas[0].lower()}): {TYPE_EMOJIS[kind]} {plain_title}"
         if saved and "issue_title" in saved:
             title_owned = issue is not None and issue.get("title") == saved["issue_title"]
         else:
-            title_owned = issue is None or issue.get("title") in {title, issue_title}
+            title_owned = issue is None or issue.get("title") in {title, issue_title, f"[{kind}] {plain_title}"}
         sync_title = title_owned or value(page, UPDATE, False)
         payload = {"title": issue_title, "body": desired_body, "labels": labels, "assignees": people, "milestone": milestone_number}
         digest = hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()
@@ -612,9 +619,7 @@ class Engine:
                 and status not in ("취소", "완료") and issue.get("state") == "open"):
             self.g.ensure_branch(branch, meta["base"])
             if self.g.has_changes(branch, meta["base"]):
-                emojis = dict(zip("feat fix hotfix refactor docs style perf test build ci chore".split(),
-                                  "✨ 🐛 🚑 ♻️ 📝 🎨 ⚡ ✅ 📦 👷 🔧".split()))
-                seed_title = f"{kind}({areas[0].lower()}): {emojis[kind]} {plain_task_title(title)} (#{number})"
+                seed_title = f"{issue_title} (#{number})"
                 seed_body = (f"<!-- notion-draft {page_id} -->\n"
                     f"- 목적·작업 범위: {title}\n"
                     f"- 상세 범위: 연결 Issue 및 Notion 작업 본문 기준\n"

@@ -262,10 +262,10 @@ class SyncTests(unittest.TestCase):
 
     def test_issue_type_prefix_tracks_notion_title_without_duplicate_pr_prefix(self):
         self.run_one()
-        self.assertEqual(self.g.data[1]["title"], "[feat] 합성 시험 작업")
+        self.assertEqual(self.g.data[1]["title"], "feat(automation): ✨ 합성 시험 작업")
         self.n.set("작업명", "rich_text", "[feat] 새 작업명")
         self.run_one()
-        self.assertEqual(self.g.data[1]["title"], "[feat] 새 작업명")
+        self.assertEqual(self.g.data[1]["title"], "feat(automation): ✨ 새 작업명")
         self.g.changed = True
         self.run_one()
         self.assertEqual(self.g.pulls[0]["title"], "feat(automation): ✨ 새 작업명 (#1)")
@@ -279,7 +279,7 @@ class SyncTests(unittest.TestCase):
         self.assertEqual(self.g.data[1]["title"], "Human issue title")
         self.n.set(UPDATE, "checkbox", True)
         self.run_one()
-        self.assertEqual(self.g.data[1]["title"], "[feat] 합성 시험 작업")
+        self.assertEqual(self.g.data[1]["title"], "feat(automation): ✨ 합성 시험 작업")
 
     def test_unknown_assignee_blocks_linked_issue_without_request_checkbox(self):
         self.run_one()
@@ -296,7 +296,48 @@ class SyncTests(unittest.TestCase):
         self.state.save(key, saved)
         self.g.data[1]["title"] = value(self.n.page, "작업명")
         self.assertEqual(self.run_one()["result"], "synced")
-        self.assertEqual(self.g.data[1]["title"], "[feat] 합성 시험 작업")
+        self.assertEqual(self.g.data[1]["title"], "feat(automation): ✨ 합성 시험 작업")
+
+    def test_conventional_source_title_uses_first_area_without_duplicate_prefix(self):
+        self.n.set("영역", "multi_select", [{"name": "Infra"}, {"name": "Backend"}])
+        source_title = "[feat] feat(infra): ✨ [feat] 새 작업명"
+        self.n.set("작업명", "rich_text", source_title)
+        self.g.changed = True
+        self.run_one()
+        self.assertEqual(self.g.data[1]["title"], "feat(infra): ✨ 새 작업명")
+        self.assertEqual(self.g.pulls[0]["title"], "feat(infra): ✨ 새 작업명 (#1)")
+        self.assertEqual(value(self.n.page, "작업명"), source_title)
+        self.assertTrue({"area:infra", "area:backend"}.issubset(
+            {label["name"] for label in self.g.data[1]["labels"]}))
+
+    def test_previous_bot_bracket_title_migrates_with_or_without_checkpoint(self):
+        for checkpoint in (True, False):
+            with self.subTest(checkpoint=checkpoint):
+                self.run_one()
+                key = REPOSITORY + ":" + self.n.page["id"]
+                saved = self.state.get(key)
+                previous_title = "[feat] 합성 시험 작업"
+                if checkpoint:
+                    saved["issue_title"] = previous_title
+                else:
+                    saved.pop("issue_title", None)
+                saved["digest"] = "previous-format-digest"
+                self.state.save(key, saved)
+                self.g.data[1]["title"] = previous_title
+                self.run_one()
+                self.assertEqual(self.g.data[1]["title"], "feat(automation): ✨ 합성 시험 작업")
+
+    def test_manual_conventional_title_without_checkpoint_is_preserved(self):
+        self.run_one()
+        key = REPOSITORY + ":" + self.n.page["id"]
+        saved = self.state.get(key)
+        saved.pop("issue_title")
+        self.state.save(key, saved)
+        human_title = "feat(infra): ✨ 직접 수정한 작업명"
+        self.g.data[1]["title"] = human_title
+        self.n.text += "\n- 새 본문"
+        self.run_one()
+        self.assertEqual(self.g.data[1]["title"], human_title)
 
     def test_configuration_is_fixed_to_approved_scope(self):
         validate_config(CFG)

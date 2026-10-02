@@ -1,0 +1,7 @@
+name = "powercode-notion-dispatch"
+main = "worker.mjs"
+compatibility_date = "2026-10-02"
+workers_dev = true
+
+# Set NOTION_RELAY_SECRET and GITHUB_DISPATCH_TOKEN as Worker secrets.
+# No credentials, account IDs, or repository-selected input belong in this file.

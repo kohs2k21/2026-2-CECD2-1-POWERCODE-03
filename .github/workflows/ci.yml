@@ -88,3 +88,11 @@ jobs:
 
       - name: Run automation unit tests
         run: python -m unittest discover -s automation/tests -v
+
+      - name: Set up Node.js for webhook relay tests
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # actions/setup-node v7.0.0
+        with:
+          node-version: 22
+
+      - name: Test webhook relay without external calls
+        run: node --test automation/notion-webhook/worker.test.mjs

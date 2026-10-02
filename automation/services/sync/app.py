@@ -22,9 +22,13 @@ CONFIG_PATH = ROOT / "automation" / "config" / "project.json"
 REPOSITORY = "kohs2k21/2026-2-CECD2-1-POWERCODE-03"
 TARGET = "실제 프로젝트"
 DATA_SOURCE_ID = "4c329ace-6af6-4dc9-869b-6b4d86df31cf"
-BASE_BRANCH = "main"
+BASE_BRANCH = "dev"
 RELEASE_BRANCH = "main"
-EXPECTED_ASSIGNEES = {"f6f3bf35-18e1-4e00-b28b-0345b146c75d": "kohs2k21"}
+EXPECTED_ASSIGNEES = {
+    "f6f3bf35-18e1-4e00-b28b-0345b146c75d": "kohs2k21",
+    "d798e1d8-b088-467a-8fff-726df0ba9011": "juhno1023",
+    "ac8cce9d-4260-4fb9-bd8d-27b5cc9df9ef": "KRMayD",
+}
 EXPECTED_AREAS = {"Frontend", "Backend", "Collector", "Detector", "Data", "Lab", "Infra", "Automation", "Docs"}
 TYPES = set("feat fix hotfix refactor docs style perf test build ci chore".split())
 CREATE = "🚀 이슈 생성 요청"
@@ -299,10 +303,11 @@ class GitHub:
         repository = self.api.request("GET", self.prefix)
         if repository.get("full_name", "").casefold() != self.repo.casefold():
             raise SyncError("GITHUB_REPOSITORY_MISMATCH")
-        branch = urllib.parse.quote(self.config["base_branch"], safe="")
-        ref = self.call("GET", "/git/ref/heads/" + branch)
-        if ref.get("ref") != "refs/heads/" + self.config["base_branch"]:
-            raise SyncError("GITHUB_BASE_BRANCH_MISMATCH")
+        for name in (self.config["base_branch"], self.config["release_branch"]):
+            branch = urllib.parse.quote(name, safe="")
+            ref = self.call("GET", "/git/ref/heads/" + branch)
+            if ref.get("ref") != "refs/heads/" + name:
+                raise SyncError("GITHUB_BASE_BRANCH_MISMATCH")
         return repository["full_name"]
 
     def all(self, path):
@@ -517,17 +522,32 @@ class Engine:
             if len(matches) > 1:
                 raise SyncError("DUPLICATE_MARKERS_REVIEW_REQUIRED")
             issue = matches[0] if matches else None
+        existing_prs = None
+        migrated_base = False
         if issue:
             meta = metadata(issue.get("body"))
             if not meta or meta.get("page_id") != page_id or meta.get("repository") != self.cfg["repository"]:
                 raise SyncError("ISSUE_OWNERSHIP_MISMATCH")
             if meta.get("kind") not in TYPES or not re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", meta.get("slug", "")):
                 raise SyncError("INVALID_IMMUTABLE_BRANCH_METADATA")
-            expected_base = self.cfg["base_branch"]
-            if meta.get("base") != expected_base:
+            # Closed/merged main history keeps its target. Active tasks without
+            # a PR move metadata to dev, preserving the branch and its commits.
+            if meta.get("base") not in {self.cfg["base_branch"], self.cfg["release_branch"]}:
                 raise SyncError("INVALID_BRANCH_BASE")
             if kind != meta["kind"]:
                 raise SyncError("TYPE_LOCKED_AFTER_CREATION")
+            if meta["base"] == self.cfg["release_branch"] and issue.get("state") == "open":
+                legacy_branch = f"{meta['kind']}/{issue['number']}-{meta['slug']}"
+                existing_prs = self.g.prs(legacy_branch)
+                owned_prs = [p for p in existing_prs
+                    if p.get("head", {}).get("repo", {}).get("full_name") == self.cfg["repository"]
+                    and p["head"]["ref"] == legacy_branch]
+                if any(p["state"] == "open" and p["base"]["ref"] != self.cfg["base_branch"]
+                       for p in owned_prs):
+                    raise SyncError("LEGACY_ACTIVE_MAIN_PR_REQUIRES_REVIEW")
+                if not owned_prs or any(p["base"]["ref"] == self.cfg["base_branch"] for p in owned_prs):
+                    meta = {**meta, "base": self.cfg["base_branch"]}
+                    migrated_base = True
         else:
             slug = value(page, "브랜치 요약", "").strip()
             if not re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", slug) or len(slug) > 60:
@@ -553,17 +573,20 @@ class Engine:
         number = issue["number"]
         branch = f"{meta['kind']}/{number}-{meta['slug']}"
         saved = saved or {"number": number, "branch": branch, "base": meta["base"]}
+        if (migrated_base and saved["branch"] == branch
+                and saved["base"] == self.cfg["release_branch"]):
+            saved["base"] = meta["base"]
         if saved["branch"] != branch or saved["base"] != meta["base"]:
             raise SyncError("LOCAL_MAPPING_MISMATCH")
         # Persist immediately, before branch creation / Notion back-write.
         self.state.save(key, saved)
-        if saved.get("digest") != digest or value(page, UPDATE, False):
+        if migrated_base or saved.get("digest") != digest or value(page, UPDATE, False):
             # Preserve unrelated human-added labels; replace only owned namespaces.
             unmanaged = [l["name"] for l in issue.get("labels", []) if not l["name"].startswith(("type:", "area:", "priority:"))]
             self.g.edit_issue(number, {**payload, "labels": sorted(set(labels + unmanaged))})
             saved["digest"] = digest
             self.state.save(key, saved)
-        prs = self.g.prs(branch)
+        prs = existing_prs if existing_prs is not None else self.g.prs(branch)
         owned = [p for p in prs if p.get("head", {}).get("repo", {}).get("full_name") == self.cfg["repository"] and p["head"]["ref"] == branch]
         status = value(page, "상태", "백로그")
         # Opt in only newly linked tasks. Never recreate a closed PR, or create a
@@ -577,11 +600,13 @@ class Engine:
                                   "✨ 🐛 🚑 ♻️ 📝 🎨 ⚡ ✅ 📦 👷 🔧".split()))
                 seed_title = f"{kind}({areas[0].lower()}): {emojis[kind]} {title} (#{number})"
                 seed_body = (f"<!-- notion-draft {page_id} -->\n"
-                    f"## 목적·작업 범위\n{body_text}\n\n"
-                    f"## 연결\nRefs #{number}\nNotion: https://www.notion.so/{page_id.replace('-', '')}\n\n"
-                    "## 검증\n미실행 — 담당자가 실제 검증 결과를 작성하세요.\n\n"
-                    "## 남은 작업\n- [ ] 구현·검증 결과와 제약을 보완한 뒤 Ready for review로 전환\n\n"
-                    "봇이 생성한 초안입니다. 이후 제목·본문은 자동으로 덮어쓰지 않습니다.\n")
+                    f"- 목적·작업 범위: {title}\n"
+                    f"- 상세 범위: 연결 Issue 및 Notion 작업 본문 기준\n"
+                    f"- 연결: Refs #{number}\n"
+                    f"- Notion: https://www.notion.so/{page_id.replace('-', '')}\n"
+                    "- 검증: 미실행, 담당자의 실제 검증 결과 작성 필요\n"
+                    "- 남은 작업: 구현·검증 결과와 제약 보완 후 Ready for review 전환\n"
+                    "- 봇 초안: 이후 제목·본문 자동 덮어쓰기 없음\n")
                 created = self.g.create_draft(branch, meta["base"], seed_title, seed_body, people)
                 owned.append(created)
         correct = [p for p in owned if p["base"]["ref"] == meta["base"]]

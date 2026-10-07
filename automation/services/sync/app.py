@@ -31,6 +31,7 @@ EXPECTED_ASSIGNEES = {
 }
 EXPECTED_AREAS = {"Frontend", "Backend", "Collector", "Detector", "Data", "Lab", "Infra", "Automation", "Docs"}
 TYPES = set("feat fix hotfix refactor docs style perf test build ci chore".split())
+TASK_BRANCH = re.compile(r"(" + "|".join(sorted(TYPES)) + r")/([1-9][0-9]*)-([a-z0-9]+(?:-[a-z0-9]+)*)")
 TYPE_EMOJIS = dict(zip("feat fix hotfix refactor docs style perf test build ci chore".split(),
                        "✨ 🐛 🚑 ♻️ 📝 🎨 ⚡ ✅ 📦 👷 🔧".split()))
 CREATE = "🚀 이슈 생성 요청"
@@ -336,6 +337,16 @@ class GitHub:
     def issue(self, number):
         return self.call("GET", f"/issues/{number}")
 
+    def issue_events(self, number):
+        return self.all(f"/issues/{number}/events")
+
+    def branch_names(self):
+        return [branch["name"] for branch in self.all("/branches")]
+
+    def branch_head(self, branch):
+        ref = self.call("GET", "/git/ref/heads/" + urllib.parse.quote(branch, safe="/"), missing=True)
+        return ref["object"]["sha"] if ref else None
+
     def create_issue(self, payload):
         return self.call("POST", "/issues", payload)
 
@@ -370,6 +381,14 @@ class GitHub:
         diff = self.call("GET", "/compare/" + urllib.parse.quote(base + "..." + branch, safe=""))
         return diff.get("ahead_by", 0) > 0 and bool(diff.get("files"))
 
+    def has_unmerged_commits(self, head_sha, base):
+        # Pin the inspected head; empty commits are still unmerged work.
+        diff = self.call("GET", "/compare/" + urllib.parse.quote(base + "..." + head_sha, safe=""))
+        ahead = diff.get("ahead_by")
+        if not isinstance(ahead, int) or isinstance(ahead, bool) or ahead < 0:
+            raise SyncError("INVALID_BRANCH_COMPARISON")
+        return ahead > 0
+
     def create_draft(self, branch, base, title, body, assignees):
         pr = self.call("POST", "/pulls", {"head": branch, "base": base,
             "title": title, "body": body, "draft": True})
@@ -387,7 +406,7 @@ class GitHub:
         if current["object"]["sha"] != merged_sha:
             raise SyncError("BRANCH_CHANGED_AFTER_MERGE_NOT_DELETED")
         # Atomic expected-SHA deletion: a concurrent push after GET must not be lost.
-        if not re.fullmatch(r"(?:feat|fix|hotfix|refactor|docs|style|perf|test|build|ci|chore)/[1-9][0-9]*-[a-z0-9-]+", branch):
+        if not TASK_BRANCH.fullmatch(branch):
             raise SyncError("REF_DELETE_NOT_ALLOWED")
         env = os.environ.copy()
         env.pop("NOTION_TOKEN", None)
@@ -461,6 +480,82 @@ class Engine:
     def __init__(self, config, notion, github, state):
         validate_config(config)
         self.cfg, self.n, self.g, self.state = config, notion, github, state
+        self.cleanup_attempted = set()
+
+    def owned_prs(self, prs, branch):
+        return [p for p in prs
+            if (p.get("head", {}).get("repo") or {}).get("full_name") == self.cfg["repository"]
+            and p["head"]["ref"] == branch]
+
+    def cleanup_branch(self, issue, branch, base, prs=None):
+        self.cleanup_attempted.add(branch)
+        match = TASK_BRANCH.fullmatch(branch)
+        if (not match or int(match[2]) != issue.get("number")
+                or "pull_request" in issue):
+            raise SyncError("REF_DELETE_NOT_ALLOWED")
+        if base not in {self.cfg["base_branch"], self.cfg["release_branch"]}:
+            raise SyncError("CLEANUP_BASE_REQUIRES_REVIEW")
+        if issue.get("state") != "closed":
+            return "reopened"
+        owned = self.owned_prs(self.g.prs(branch) if prs is None else prs, branch)
+        # Any open PR owns the live branch, including PRs targeting another base.
+        if any(p["state"] == "open" for p in owned):
+            raise SyncError("OPEN_PR_PREVENTS_BRANCH_DELETE")
+        head = self.g.branch_head(branch)
+        if head is None:
+            return "missing"
+        merged = [p for p in owned if p.get("merged_at") and p["base"]["ref"] == base]
+        if merged:
+            if not any(p["head"]["sha"] == head for p in merged):
+                raise SyncError("BRANCH_CHANGED_AFTER_MERGE_NOT_DELETED")
+        else:
+            if any(p["base"]["ref"] != base for p in owned):
+                raise SyncError("CLEANUP_BASE_REQUIRES_REVIEW")
+            if self.g.has_unmerged_commits(head, base):
+                raise SyncError("BRANCH_HAS_UNMERGED_COMMITS_NOT_DELETED")
+        # Reopening during inspection cancels deletion. The ref itself is guarded
+        # atomically by the expected-SHA lease in delete_branch.
+        fresh = self.g.issue(issue["number"])
+        if fresh.get("state") != "closed" or "pull_request" in fresh:
+            return "reopened"
+        if any(p["state"] == "open" for p in self.owned_prs(self.g.prs(branch), branch)):
+            raise SyncError("OPEN_PR_PREVENTS_BRANCH_DELETE")
+        self.g.delete_branch(branch, head)
+        return "deleted"
+
+    def cleanup_closed_branches(self):
+        """Reconcile GitHub independently of live Notion rows and cached completion."""
+        results = []
+        for branch in self.g.branch_names():
+            match = TASK_BRANCH.fullmatch(branch)
+            if not match or branch in self.cleanup_attempted:
+                continue
+            number = int(match[2])
+            try:
+                issue = self.g.issue(number)
+                if issue.get("state") != "closed" or "pull_request" in issue:
+                    continue
+                meta = metadata(issue.get("body"))
+                if meta is not None:
+                    if (meta.get("repository") != self.cfg["repository"]
+                            or meta.get("kind") != match[1] or meta.get("slug") != match[3]):
+                        raise SyncError("ISSUE_OWNERSHIP_MISMATCH")
+                    base = meta.get("base")
+                else:
+                    # Direct GitHub tasks opt in through the repository's exact
+                    # type/<issue-number>-slug naming convention.
+                    owned = self.owned_prs(self.g.prs(branch), branch)
+                    bases = {p["base"]["ref"] for p in owned}
+                    if len(bases) > 1:
+                        raise SyncError("CLEANUP_BASE_REQUIRES_REVIEW")
+                    base = next(iter(bases), self.cfg["base_branch"])
+                outcome = self.cleanup_branch(issue, branch, base)
+                results.append({"issue_number": number, "branch": branch, "result": outcome})
+            except Exception as exc:
+                code = str(exc) if isinstance(exc, SyncError) else "INTERNAL_ERROR"
+                if code != "HTTP_404":
+                    results.append({"issue_number": number, "branch": branch, "result": "error", "code": code})
+        return results
 
     def validate(self, page):
         if value(page, "대상 저장소") != self.cfg["target"]:
@@ -553,9 +648,7 @@ class Engine:
                           and meta["base"] == self.cfg["base_branch"])
             if (meta["base"] == self.cfg["release_branch"] or stale_base) and issue.get("state") == "open":
                 existing_prs = self.g.prs(legacy_branch)
-                owned_prs = [p for p in existing_prs
-                    if p.get("head", {}).get("repo", {}).get("full_name") == self.cfg["repository"]
-                    and p["head"]["ref"] == legacy_branch]
+                owned_prs = self.owned_prs(existing_prs, legacy_branch)
                 if any(p["state"] == "open" and p["base"]["ref"] != self.cfg["base_branch"]
                        for p in owned_prs):
                     raise SyncError("LEGACY_ACTIVE_MAIN_PR_REQUIRES_REVIEW")
@@ -618,7 +711,7 @@ class Engine:
             saved["digest"] = digest
             self.state.save(key, saved)
         prs = existing_prs if existing_prs is not None else self.g.prs(branch)
-        owned = [p for p in prs if p.get("head", {}).get("repo", {}).get("full_name") == self.cfg["repository"] and p["head"]["ref"] == branch]
+        owned = self.owned_prs(prs, branch)
         status = value(page, "상태", "백로그")
         # Opt in only newly linked tasks. Never recreate a closed PR, or create a
         # second PR around a wrong-base PR. Empty commits do not count as work.
@@ -639,10 +732,20 @@ class Engine:
                 created = self.g.create_draft(branch, meta["base"], seed_title, seed_body, people)
                 owned.append(created)
         correct = [p for p in owned if p["base"]["ref"] == meta["base"]]
-        merged = next((p for p in correct if p.get("merged_at")), None)
+        merged = max((p for p in correct if p.get("merged_at")),
+                     key=lambda p: p["merged_at"], default=None)
         opened = next((p for p in correct if p["state"] == "open"), None)
+        # A reused branch with a live PR must not be closed by old merge history.
+        if any(p["state"] == "open" for p in owned):
+            merged = None
+        elif merged and issue.get("state") == "open":
+            # Explicit reopening wins over an earlier merge, even if the local
+            # checkpoint was lost. A later merge can close the issue again.
+            if any(e.get("event") == "reopened" and e.get("created_at", "") >= merged["merged_at"]
+                   for e in self.g.issue_events(number)):
+                merged = None
         # Recover a lost create/assignment response without replacing edited text.
-        if (opened and meta.get("auto_draft") is True
+        if (issue.get("state") == "open" and opened and meta.get("auto_draft") is True
                 and (opened.get("body") or "").startswith(f"<!-- notion-draft {page_id} -->")
                 and not saved.get("draft_assigned")):
             self.g.assign_pr(opened["number"], people)
@@ -652,14 +755,21 @@ class Engine:
             "Branch": prop("rich_text", branch), "GitHub 동기화": prop("select", "완료"),
             "오류 메시지": prop("rich_text", "")}
         if merged:
-            # Only the exact merged head may be deleted. Never remove configured base branches or fresh commits.
-            if issue.get("state") != "closed" or issue.get("state_reason") != "completed":
+            if issue.get("state") != "closed":
                 self.g.edit_issue(number, {"state": "closed", "state_reason": "completed"})
-            if not saved.get("completed"):
-                self.g.delete_branch(branch, merged["head"]["sha"])
-            properties.update({"상태": prop("select", "완료"), "Pull Request": prop("url", merged["html_url"]),
-                "완료일": prop("date", {"start": merged["merged_at"]})})
+                issue = self.g.issue(number)
+            cancelled = issue.get("state_reason") == "not_planned"
+            properties.update({"상태": prop("select", "취소" if cancelled else "완료"),
+                "Pull Request": prop("url", merged["html_url"]),
+                "완료일": prop("date", None if cancelled else {"start": merged["merged_at"]})})
             saved["completed"] = True
+        elif issue.get("state") == "closed":
+            # Closure starts branch cleanup; only a verified PR merge means done.
+            cancelled = issue.get("state_reason") == "not_planned" or status == "취소"
+            properties.update({"상태": prop("select", "취소" if cancelled else "개발 중"),
+                "완료일": prop("date", None)})
+            if correct:
+                properties["Pull Request"] = prop("url", correct[0]["html_url"])
         elif opened:
             properties.update({"상태": prop("select", "개발 중" if opened.get("draft") else "리뷰 중"),
                 "Pull Request": prop("url", opened["html_url"]), "완료일": prop("date", None)})
@@ -682,10 +792,13 @@ class Engine:
             changed["마지막 동기화"] = prop("date", {"start": now()})
             self.n.patch(page_id, changed)
         self.state.save(key, saved)
-        return "completed" if merged else "synced"
+        if issue.get("state") == "closed":
+            self.cleanup_branch(issue, branch, meta["base"], owned)
+        return "completed" if merged and issue.get("state_reason") != "not_planned" else "synced"
 
     def run(self):
         self.n.verify_data_source()
+        self.cleanup_attempted = set()
         results = []
         for page in self.n.pages():
             try:
@@ -699,6 +812,11 @@ class Engine:
                 except Exception:
                     pass
                 results.append({"page_id": page["id"], "result": "error", "code": code})
+        try:
+            results.extend(self.cleanup_closed_branches())
+        except Exception as exc:
+            code = str(exc) if isinstance(exc, SyncError) else "INTERNAL_ERROR"
+            results.append({"result": "error", "code": code})
         return results
 
 

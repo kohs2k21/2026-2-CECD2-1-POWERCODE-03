@@ -70,6 +70,19 @@ class FakeGitHub:
         self.lost_draft_response = False
         self.fail_assignment = False
         self.assignments = []
+        self.events = []
+
+    def issue_events(self, number):
+        return copy.deepcopy(self.events)
+
+    def branch_names(self):
+        return list(self.branches)
+
+    def branch_head(self, branch):
+        return self.branches.get(branch)
+
+    def has_unmerged_commits(self, head_sha, base):
+        return self.changed
 
     def verify_access(self):
         return REPOSITORY

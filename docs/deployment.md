@@ -1,3 +1,8 @@
+Created: 2026-10-08T12:49:25+09:00
+Updated: 2026-10-08T12:49:25+09:00
+Author: root
+Status: draft
+
 # 앱 배포·복구
 
 - 대상: 개인 포크의 `main` → GHCR → 서버 사용자 타이머

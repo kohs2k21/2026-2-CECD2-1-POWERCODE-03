@@ -12,6 +12,7 @@
 @import "./features/admin_model/admin_model.css";
 @import "./features/auth/auth.css";
 @import "./features/detection/detection.css";
+@import "./features/detection/detection-workbench.css";
 
 * {
   box-sizing: border-box;

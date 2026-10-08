@@ -105,7 +105,7 @@ const candidates: CandidateSpec[] = [
     "cos(2πh/24)",
     ["START_TIME"],
     false,
-    "F01과 쌍 사용·시간대 확인",
+    "시간 인코딩 쌍·시간대 기준 필요",
   ],
   [
     "F03",
@@ -121,7 +121,7 @@ const candidates: CandidateSpec[] = [
     "log1p(시간대별 학습 평균 저장행수)",
     ["START_TIME"],
     true,
-    "집계 창·분모·수집 공백·0건 창 정의 미확인",
+    "집계 범위·분모·수집 공백 처리 기준 필요",
   ],
   [
     "F05",
@@ -201,7 +201,7 @@ const candidates: CandidateSpec[] = [
     "검증된 의존 프로세스 없음",
     ["DEPEND_PROCESS_ID"],
     false,
-    "NULL/빈값/sentinel 정의 미확인",
+    "의존관계의 NULL·빈값 처리 기준 필요",
   ],
   [
     "F15",
@@ -209,7 +209,7 @@ const candidates: CandidateSpec[] = [
     "PROCESS_ID 승인된 접미 패턴 추출",
     ["PROCESS_ID"],
     false,
-    "패턴 미확인; 00/01 문자열 보존",
+    "프로세스 단계 추출 기준 필요; 문자열 보존",
   ],
   [
     "F16",
@@ -249,7 +249,7 @@ const candidates: CandidateSpec[] = [
     "median_train,step(log1p(durationMs / 1ms))",
     ["PROCESS_ID", "START_TIME", "END_TIME"],
     true,
-    "log/median 계산 순서 원식 미확인",
+    "로그 변환·중앙값 처리 순서 확인 필요",
   ],
   [
     "F21",
@@ -257,7 +257,7 @@ const candidates: CandidateSpec[] = [
     "durationMs - median_train,step(durationMs)",
     ["PROCESS_ID", "START_TIME", "END_TIME"],
     true,
-    "raw/log 기준 원식 미확인",
+    "처리시간 기준 데이터 정의 필요",
   ],
   [
     "F22",
@@ -265,7 +265,7 @@ const candidates: CandidateSpec[] = [
     "RZ_step(durationMs)",
     ["PROCESS_ID", "START_TIME", "END_TIME"],
     true,
-    "raw/log 공간·MAD 상수 원식 미확인",
+    "처리시간 변환·편차 정규화 기준 필요",
   ],
   [
     "F23",
@@ -297,7 +297,7 @@ const candidates: CandidateSpec[] = [
     "START_TIME의 월",
     ["START_TIME"],
     false,
-    "과거 제외 이력 보존; 기본 선택",
+    "월 기준·시간대 확인 필요",
   ],
   [
     "A02",
@@ -305,7 +305,7 @@ const candidates: CandidateSpec[] = [
     "START_TIME의 요일",
     ["START_TIME"],
     false,
-    "과거 제외 이력 보존; 기본 선택",
+    "요일 기준·시간대 확인 필요",
   ],
   [
     "A03",
@@ -313,7 +313,7 @@ const candidates: CandidateSpec[] = [
     "ISO 주차 및 주차 연도",
     ["START_TIME"],
     false,
-    "원문 ‘주’ 해석·시간대 확인",
+    "주차·주차 연도·시간대 기준 필요",
   ],
   [
     "A04",
@@ -321,7 +321,7 @@ const candidates: CandidateSpec[] = [
     "월내 주차",
     ["START_TIME"],
     false,
-    "주 시작·월내 주차 정의 미확인",
+    "주 시작일·월내 주차 기준 필요",
   ],
   [
     "A05",
@@ -337,7 +337,7 @@ const candidates: CandidateSpec[] = [
     "공휴일 달력 lookup",
     ["START_TIME"],
     false,
-    "국가·지역·달력 버전·지원 기간 미확인",
+    "국가·지역·달력 버전·지원 기간 필요",
   ],
   [
     "A07",
@@ -345,7 +345,7 @@ const candidates: CandidateSpec[] = [
     "의존 ID 존재와 검증된 관계 구분",
     ["DEPEND_PROCESS_ID"],
     false,
-    "F14의 무조건 반대값 아님",
+    "의존 ID와 실제 의존관계 구분 필요",
   ],
   [
     "A08",
@@ -353,7 +353,7 @@ const candidates: CandidateSpec[] = [
     "median_train,adapter(durationMs)",
     ["ADAPTER_TYPE", "START_TIME", "END_TIME"],
     true,
-    "원래 대상·단위 확인 필요",
+    "기준 데이터·단위 확인 필요",
   ],
   [
     "A09",
@@ -361,7 +361,7 @@ const candidates: CandidateSpec[] = [
     "median_train,hub(durationMs)",
     ["PROCESS_HUB_ID", "START_TIME", "END_TIME"],
     true,
-    "원래 대상·단위 확인 필요",
+    "기준 데이터·단위 확인 필요",
   ],
   [
     "A10",
@@ -369,7 +369,7 @@ const candidates: CandidateSpec[] = [
     "median_train,channel(durationMs)",
     ["CHANNEL_ID", "START_TIME", "END_TIME"],
     true,
-    "원래 대상·단위 확인 필요",
+    "기준 데이터·단위 확인 필요",
   ],
   [
     "A11",
@@ -377,7 +377,7 @@ const candidates: CandidateSpec[] = [
     "median_train,step(durationMs)",
     ["PROCESS_ID", "START_TIME", "END_TIME"],
     true,
-    "raw D 제안·F20과 구분",
+    "처리시간 기준 데이터 정의 필요",
   ],
   [
     "A12",
@@ -401,7 +401,7 @@ const candidates: CandidateSpec[] = [
     "log1p(END_TIME - ERROR_TIME)",
     ["END_TIME", "ERROR_TIME"],
     false,
-    "ERROR_TIME 원천 없음·사용자 의미 미확인, 명시 보류",
+    "필수 원천 속성 ERROR_TIME 없음 · 계산 보류",
   ],
 ];
 const aliases: Record<string, string[]> = {

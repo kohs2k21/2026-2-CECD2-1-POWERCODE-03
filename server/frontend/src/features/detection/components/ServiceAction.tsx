@@ -16,6 +16,7 @@ export const ServiceAction = ({
   available,
   payload,
   disabled = false,
+  requestDisabled = false,
   children,
 }: {
   operation: Operation;
@@ -23,6 +24,7 @@ export const ServiceAction = ({
   available: boolean;
   payload: Record<string, unknown>;
   disabled?: boolean;
+  requestDisabled?: boolean;
   children?: ReactNode;
 }) => {
   const [open, setOpen] = useState(false);
@@ -35,7 +37,7 @@ export const ServiceAction = ({
   const controller = useRef<AbortController | null>(null);
   useEffect(() => () => controller.current?.abort(), [user?.id]);
   const submit = async () => {
-    if (pending) return;
+    if (pending || disabled || requestDisabled || receipt) return;
     if (!available) {
       setError(
         "작업 서비스에 연결되지 않아 요청할 수 없습니다. 편집 내용은 유지됩니다.",
@@ -116,7 +118,9 @@ export const ServiceAction = ({
             취소
           </Button>
           <Button
-            disabled={!available || pending || Boolean(receipt)}
+            disabled={
+              !available || requestDisabled || pending || Boolean(receipt)
+            }
             onClick={() => {
               void submit();
             }}

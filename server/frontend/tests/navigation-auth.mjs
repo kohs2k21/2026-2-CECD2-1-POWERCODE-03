@@ -10,6 +10,8 @@ import {
 import { SessionGate, AdminGate } from "../src/app/SessionRoutes.tsx";
 import { httpClient, HttpError } from "../src/services/api/client.ts";
 import { useDraftStore } from "../src/stores/draftStore.ts";
+import { notify } from "../src/lib/notify.ts";
+import { useToasterStore } from "react-hot-toast";
 import { useRealtimeAnomalies } from "../src/features/analysis/hooks/useRealtimeAnomalies.ts";
 import {
   loginReturnPath,
@@ -67,8 +69,10 @@ const json = (body, status = 200) =>
     headers: { "content-type": "application/json" },
   });
 let session;
+let notifications;
 const Probe = () => {
   session = useAuthSession();
+  notifications = useToasterStore().toasts;
   return null;
 };
 const text = (node) =>
@@ -210,7 +214,14 @@ await assert.rejects(
 );
 assert.equal(storage.get("token"), "test-token");
 assert.equal(session.user.id, "admin", "403 must keep current session");
+await act(async () => notify.error("이전 계정 작업 오류", "account-operation"));
+assert.equal(notifications.length, 1);
 await act(async () => session.login({ token: "user-token", user }));
+assert.equal(
+  notifications.length,
+  0,
+  "account change must remove old notifications",
+);
 await act(async () =>
   finishOldRequest(json({ message: "expired", code: "token_expired" }, 401)),
 );
@@ -227,7 +238,15 @@ assert.ok(
   !text(mounted.renderer.toJSON()).includes("protected editor"),
   "role change must close admin content",
 );
+await act(async () =>
+  notify.success("현재 계정 화면 배치 반영", "account-operation"),
+);
 await act(async () => session.logout());
+assert.equal(
+  notifications.length,
+  0,
+  "logout must remove notifications immediately",
+);
 await wait(() => mounted.router.state.location.pathname === "/login");
 assert.equal(
   mounted.router.state.location.state.returnTo,
@@ -297,6 +316,7 @@ globalThis.fetch = (_url, options) =>
   new Promise((resolve) => pendingMe.push({ resolve, signal: options.signal }));
 await act(async () => session.retry());
 assert.equal(pendingMe.length, 1);
+await act(async () => notify.loading("이전 계정 작업 중", "account-operation"));
 await act(async () => {
   storage.set("token", "storage-user");
   storageEvent("token");
@@ -307,6 +327,11 @@ assert.equal(session.checking, true);
 assert.ok(!text(mounted.renderer.toJSON()).includes("protected editor"));
 assert.equal(mounted.cache.getQueryData(["private-records"]), undefined);
 assert.deepEqual(useDraftStore.getState().drafts, {});
+assert.equal(
+  notifications.length,
+  0,
+  "cross-tab account change must remove loading notifications",
+);
 assert.equal(
   pendingMe[0].signal.aborted,
   true,

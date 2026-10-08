@@ -36,6 +36,19 @@ assert.equal(workspace.activeCategory, "Warning");
 await act(async () => workspace.setQuery("timeout"));
 await act(async () => workspace.setActiveDetailId("received-event"));
 const saved = router.state.location.pathname + router.state.location.search;
+const categoryLink = workspace.sidebarGroups
+  .flatMap((group) => group.items)
+  .find((item) => item.id === "Critical").href;
+assert.equal(
+  new URL(categoryLink, "http://localhost").searchParams.get("q"),
+  "timeout",
+  "category link must keep search filter",
+);
+assert.equal(
+  new URL(categoryLink, "http://localhost").searchParams.has("event"),
+  false,
+  "category link must leave current detail",
+);
 await act(async () =>
   router.navigate("/settings?returnTo=" + encodeURIComponent(saved)),
 );

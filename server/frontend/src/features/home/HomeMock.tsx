@@ -95,7 +95,6 @@ export const HomeMock = ({ role, onSelectView }: HomeMockProps) => {
           {isEditing && (
             <Button
               variant="outline"
-              className="home-add-button"
               type="button"
               onClick={() => setIsCatalogOpen(true)}
             >
@@ -103,12 +102,7 @@ export const HomeMock = ({ role, onSelectView }: HomeMockProps) => {
               위젯 추가
             </Button>
           )}
-          <Button
-            variant="outline"
-            className="home-edit-button"
-            type="button"
-            onClick={handleEditToggle}
-          >
+          <Button type="button" onClick={handleEditToggle}>
             {isEditing ? (
               <IconCheck size={16} aria-hidden="true" />
             ) : (

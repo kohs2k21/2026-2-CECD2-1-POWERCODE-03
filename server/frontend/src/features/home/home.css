@@ -61,7 +61,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  background: #ffffff;
+  background: var(--canvas);
   border: 1px solid var(--hairline);
   padding: 6px 12px;
   border-radius: 9999px;
@@ -74,7 +74,7 @@
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #10b981; /* Emerald green */
+  background: var(--color-success); /* Emerald green */
   box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
   animation: status-pulse 2s infinite;
 }
@@ -145,26 +145,6 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-xs);
-}
-
-.home-add-button,
-.home-edit-button {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 36px;
-  padding: 0 var(--space-md);
-  border: 1px solid var(--primary);
-  border-radius: 9999px;
-  background: var(--primary);
-  color: var(--on-primary);
-  cursor: pointer;
-}
-
-.home-add-button {
-  border-color: var(--hairline);
-  background: var(--canvas);
-  color: var(--ink);
 }
 
 .widget-layout-frame {
@@ -486,22 +466,9 @@
   line-height: 20px;
 }
 
-.widget-preview button {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 32px;
-  padding: 0 var(--space-sm);
-  border: 1px solid var(--hairline);
-  border-radius: 9999px;
-  background: var(--canvas);
-  color: var(--ink);
-  cursor: pointer;
-}
-
 .widget-drag-preview {
   position: fixed;
-  z-index: 60;
+  z-index: var(--z-dialog);
   display: grid;
   width: 170px;
   height: 150px;
@@ -641,3 +608,20 @@
   letter-spacing: -0.2px;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .system-status-dot,
+  .system-status-sync-btn--refreshing,
+  .widget-card,
+  .widget-card--editing,
+  .widget-card--ghosting,
+  .widget-remove-button,
+  .widget-layout .react-grid-item,
+  .live-pulse,
+  .live-feed-item {
+    animation: none;
+    transition: none;
+  }
+  .live-feed-item:hover {
+    transform: none;
+  }
+}

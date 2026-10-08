@@ -6,16 +6,6 @@
   text-transform: uppercase;
 }
 
-.ghost-button {
-  height: 36px;
-  padding: 0 var(--space-md);
-  border: 1px solid var(--primary);
-  border-radius: 9999px;
-  background: var(--canvas);
-  color: var(--ink);
-  cursor: pointer;
-}
-
 .placeholder-panel {
   min-height: 420px;
   padding: var(--space-xl);
@@ -74,22 +64,6 @@
   to {
     opacity: 0;
   }
-}
-
-.dialog-overlay {
-  animation: modal-fade-in 300ms cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.dialog-overlay[data-state="closed"] {
-  animation: modal-fade-out 250ms cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.dialog-content {
-  animation: modal-fade-in 300ms cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.dialog-content[data-state="closed"] {
-  animation: modal-fade-out 250ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .ui-button {
@@ -299,8 +273,6 @@ select:focus-visible {
   .ui-nav-link,
   .ui-dialog-overlay,
   .ui-dialog-content,
-  .dialog-overlay,
-  .dialog-content,
   .ui-spinner {
     animation: none;
     transition: none;

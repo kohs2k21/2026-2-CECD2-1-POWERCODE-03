@@ -121,8 +121,8 @@
 }
 
 .settings-theme--profile {
-  --theme-color: #2f9e44;
-  --theme-soft: #e6f7ea;
+  --theme-color: var(--color-success-text);
+  --theme-soft: var(--color-success-soft);
 }
 
 .settings-theme--notifications .section-sidebar-button__icon,
@@ -420,4 +420,10 @@
 
 .theme-preview--dark .theme-preview__line {
   background: #495057;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .settings-panel {
+    transition: none;
+  }
 }

@@ -76,22 +76,11 @@
 .route-state {
   padding: 32px;
 }
-.route-state button {
-  margin: 8px;
-  padding: 10px 14px;
-  border: 1px solid var(--hairline);
-  border-radius: 8px;
-  cursor: pointer;
+.route-state .ui-button {
+  margin: var(--space-xs);
 }
 .settings-return {
-  align-self: start;
-  justify-self: start;
-  padding: 10px 14px;
-  border: 1px solid var(--hairline);
-  border-radius: 8px;
-  background: var(--canvas);
-  cursor: pointer;
-  margin-bottom: 24px;
+  margin-bottom: var(--space-lg);
 }
 .settings-route {
   min-width: 0;
@@ -100,18 +89,13 @@
   position: absolute;
   top: -100px;
   left: 16px;
-  background: white;
+  background: var(--canvas);
   border: 1px solid var(--ink);
   padding: 10px;
-  z-index: 100;
+  z-index: var(--z-tooltip);
 }
 .skip-link:focus {
   top: 8px;
-}
-button:focus-visible,
-a:focus-visible {
-  outline: 2px solid var(--link);
-  outline-offset: 3px;
 }
 .notification-icon {
   display: inline-flex;
@@ -126,32 +110,11 @@ a:focus-visible {
 .settings-button.is-active {
   background: var(--canvas-soft-2);
 }
-.guard-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 100;
-  background: rgb(0 0 0 / 40%);
-}
-.guard-dialog {
-  position: fixed;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  z-index: 101;
-  background: white;
-  border-radius: 12px;
-  padding: 24px;
-  width: min(420px, calc(100vw - 32px));
-}
 .guard-actions {
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 12px;
-}
-.guard-actions button {
-  padding: 10px 14px;
-  cursor: pointer;
 }
 @media (max-width: 1100px) {
   .top-nav {

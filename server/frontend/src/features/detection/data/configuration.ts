@@ -5,6 +5,7 @@ import type {
   RuleVersion,
   VersionBundle,
 } from "./types";
+import { validateRule } from "./createDraft";
 
 export type CompositionInput = {
   name: string;
@@ -68,8 +69,16 @@ export const compositionErrors = (
   );
   if (new Set(ruleIds).size !== ruleIds.length)
     errors.push("같은 룰의 여러 버전은 한 구성에 함께 선택할 수 없습니다.");
-  if (!input.explanationVersion.trim())
-    errors.push("설명 기준 버전을 확인해 주세요.");
+  if (
+    input.ruleVersionIds.some((id) =>
+      data.ruleVersions
+        .find((version) => version.id === id)
+        ?.rules.some(
+          (rule) => validateRule({ ...rule, enabled: false }).length > 0,
+        ),
+    )
+  )
+    errors.push("선택한 룰 버전의 정의가 유효하지 않습니다.");
   return errors;
 };
 export const composePreview = (
@@ -98,7 +107,7 @@ export const composePreview = (
     ruleIds: versions.flatMap((rule) =>
       rule.rules.map((definition) => definition.id),
     ),
-    explanationVersion: input.explanationVersion,
+    explanationVersion: input.explanationVersion.trim() || null,
     trained: true,
     compatible: artifact.compatible,
     artifactAvailable: artifact.available,
@@ -107,7 +116,7 @@ export const composePreview = (
     configurationFingerprint: configurationFingerprint(
       artifact,
       versions,
-      input.explanationVersion,
+      input.explanationVersion.trim() || null,
     ),
   };
 };
@@ -123,7 +132,20 @@ export const currentConfigurationFingerprint = (
       (item) => item.id === id && item.state === "succeeded",
     ),
   );
-  if (!artifact || rules.some((item) => !item)) return null;
+  if (
+    !artifact ||
+    rules.some((item) => !item) ||
+    new Set(bundle.ruleVersionIds).size !== bundle.ruleVersionIds.length
+  )
+    return null;
+  const definitions = rules.flatMap((item) => item!.rules);
+  if (
+    new Set(definitions.map((rule) => rule.id)).size !== definitions.length ||
+    definitions.some(
+      (rule) => validateRule({ ...rule, enabled: false }).length > 0,
+    )
+  )
+    return null;
   if (
     bundle.modelId !== artifact.modelId ||
     JSON.stringify(bundle.featureIds) !== JSON.stringify(artifact.featureIds) ||

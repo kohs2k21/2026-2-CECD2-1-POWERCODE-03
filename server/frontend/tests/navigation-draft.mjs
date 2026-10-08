@@ -1,8 +1,13 @@
 import assert from "node:assert/strict";
 import React from "react";
 import { act, create } from "react-test-renderer";
-import { createMemoryRouter, RouterProvider } from "react-router-dom";
-import { useDraftNavigationGuard } from "../src/components/layout/NavigationGuard.tsx";
+import { createMemoryRouter, RouterProvider, Outlet } from "react-router-dom";
+import {
+  NavigationGuard,
+  useDraftNavigationGuard,
+} from "../src/components/layout/NavigationGuard.tsx";
+import { Dialog } from "../src/components/ui/dialog.tsx";
+import { Button } from "../src/components/ui/button.tsx";
 import { useDraftStore } from "../src/stores/draftStore.ts";
 import { DetectionLayout } from "../src/features/detection/DetectionLayout.tsx";
 
@@ -16,12 +21,23 @@ globalThis.window = {
 let guard;
 const Editor = () => {
   guard = useDraftNavigationGuard();
-  return React.createElement("p", null, "guard probe");
+  return React.createElement(Outlet);
 };
 const router = createMemoryRouter(
   [
-    { path: "/detection/create", element: React.createElement(Editor) },
-    { path: "/settings", element: React.createElement("p", null, "settings") },
+    {
+      element: React.createElement(Editor),
+      children: [
+        {
+          path: "/detection/create",
+          element: React.createElement("p", null, "create"),
+        },
+        {
+          path: "/settings",
+          element: React.createElement("p", null, "settings"),
+        },
+      ],
+    },
   ],
   { initialEntries: ["/detection/create?tab=data-features"] },
 );
@@ -57,6 +73,18 @@ await act(async () => guard.blocker.reset());
 assert.equal(router.state.location.search, "?tab=training");
 assert.equal(useDraftStore.getState().drafts["/detection/create"].dirty, true);
 await act(async () => router.navigate("/settings"));
+await act(async () => guard.blocker.proceed());
+assert.equal(router.state.location.pathname, "/settings");
+assert.equal(useDraftStore.getState().drafts["/detection/create"].dirty, true);
+assert.ok(
+  listeners.has("beforeunload"),
+  "preserved background drafts retain unload protection",
+);
+await act(async () => router.navigate("/detection/create?tab=training"));
+assert.deepEqual(useDraftStore.getState().drafts["/detection/create"].value, {
+  selected: ["duration"],
+});
+await act(async () => router.navigate("/settings"));
 await act(async () => {
   useDraftStore.getState().discard(guard.currentPath);
   guard.blocker.proceed();
@@ -67,6 +95,70 @@ assert.equal(listeners.has("beforeunload"), false);
 await act(async () => renderer.unmount());
 router.dispose();
 
+// Exercise the product dialog's preserve action, rather than only the router primitive.
+const actualRouter = createMemoryRouter(
+  [
+    {
+      element: React.createElement(
+        React.Fragment,
+        null,
+        React.createElement(NavigationGuard, {
+          logoutRequested: false,
+          onCancelLogout() {},
+          onLogout() {},
+        }),
+        React.createElement(Outlet),
+      ),
+      children: [
+        {
+          path: "/detection/create",
+          element: React.createElement("p", null, "create"),
+        },
+        {
+          path: "/detection/evaluation",
+          element: React.createElement("p", null, "evaluation"),
+        },
+      ],
+    },
+  ],
+  { initialEntries: ["/detection/create"] },
+);
+await act(async () => {
+  renderer = create(
+    React.createElement(RouterProvider, { router: actualRouter }),
+  );
+});
+await act(async () =>
+  useDraftStore
+    .getState()
+    .edit("/detection/create", { customFeatureIds: ["custom-1"] }),
+);
+await act(async () => actualRouter.navigate("/detection/evaluation"));
+const childElements = (node) =>
+  Array.isArray(node)
+    ? node.flatMap(childElements)
+    : React.isValidElement(node)
+      ? [node, ...childElements(node.props.children)]
+      : [];
+const preserve = childElements(
+  renderer.root.findByType(Dialog).props.children,
+).find(
+  (node) =>
+    node.type === Button && node.props.children === "초안 보존하고 이동",
+);
+assert.ok(preserve);
+await act(async () => preserve.props.onClick());
+assert.equal(actualRouter.state.location.pathname, "/detection/evaluation");
+assert.deepEqual(
+  useDraftStore.getState().drafts["/detection/create"].value.customFeatureIds,
+  ["custom-1"],
+);
+assert.ok(listeners.has("beforeunload"));
+await act(async () => actualRouter.navigate("/detection/create"));
+assert.equal(useDraftStore.getState().drafts["/detection/create"].dirty, true);
+await act(async () => renderer.unmount());
+actualRouter.dispose();
+useDraftStore.getState().reset();
 // Create tab canonicalization/history is exercised with real auth/query/editor providers in detection-create.mjs.
 // Inline mobile menu: Escape closes it and returns keyboard focus to the toggle.
 const menuRouter = createMemoryRouter(

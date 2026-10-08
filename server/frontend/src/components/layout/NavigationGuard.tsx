@@ -71,12 +71,17 @@ export const NavigationGuard = ({
       <DialogContent showCloseButton={false} className="ui-modal--sm">
         <DialogTitle>저장하지 않은 변경 내용</DialogTitle>
         <DialogDescription>
-          계속 편집하거나 변경 내용을 버리고 이동할 수 있습니다.
+          초안을 유지하거나 변경 내용을 버릴 수 있습니다.
         </DialogDescription>
         <div className="guard-actions">
           <Button variant="outline" onClick={cancel}>
             계속 편집
           </Button>
+          {!logoutRequested && blocker.state === "blocked" && (
+            <Button variant="outline" onClick={() => blocker.proceed()}>
+              초안 보존하고 이동
+            </Button>
+          )}
           <Button onClick={discard}>변경 내용 버리고 이동</Button>
         </div>
       </DialogContent>

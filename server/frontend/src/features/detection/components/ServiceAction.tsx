@@ -35,16 +35,50 @@ export const ServiceAction = ({
   const { user } = useAuthSession();
   const cache = useQueryClient();
   const controller = useRef<AbortController | null>(null);
+  const confirmation = useRef<{
+    signature: string;
+    token: string | null;
+    payload: Record<string, unknown>;
+  } | null>(null);
+  const token = getStoredToken();
+  const signature = JSON.stringify({
+    operation,
+    payload,
+    available,
+    requestDisabled,
+  });
   useEffect(() => () => controller.current?.abort(), [user?.id]);
+  useEffect(() => {
+    controller.current?.abort();
+    confirmation.current = null;
+    setOpen(false);
+    setPending(false);
+    setError(null);
+    setReceipt(null);
+  }, [signature, token]);
+  const close = () => {
+    controller.current?.abort();
+    confirmation.current = null;
+    setPending(false);
+    setOpen(false);
+    setReceipt(null);
+  };
   const submit = async () => {
     if (pending || disabled || requestDisabled || receipt) return;
+    const reviewed = confirmation.current;
+    if (
+      !reviewed ||
+      reviewed.signature !== signature ||
+      reviewed.token !== getStoredToken()
+    )
+      return;
     if (!available) {
       setError(
         "작업 서비스에 연결되지 않아 요청할 수 없습니다. 편집 내용은 유지됩니다.",
       );
       return;
     }
-    const requestToken = getStoredToken();
+    const requestToken = reviewed.token;
     const requestController = new AbortController();
     controller.current = requestController;
     setPending(true);
@@ -52,7 +86,7 @@ export const ServiceAction = ({
     try {
       const result = await gateway.request(
         operation,
-        payload,
+        reviewed.payload,
         requestController.signal,
       );
       if (requestController.signal.aborted || getStoredToken() !== requestToken)
@@ -82,10 +116,15 @@ export const ServiceAction = ({
   return (
     <>
       <Button
-        disabled={disabled}
+        disabled={disabled || pending}
         onClick={() => {
           setError(null);
           setReceipt(null);
+          confirmation.current = {
+            signature,
+            token,
+            payload: structuredClone(payload),
+          };
           setOpen(true);
         }}
       >
@@ -94,7 +133,7 @@ export const ServiceAction = ({
       <Modal
         isOpen={open}
         onOpenChange={(value) => {
-          if (!pending) setOpen(value);
+          if (!value) close();
         }}
         title={`${label} 확인`}
         description="요청 내용과 현재 상태를 확인해 주세요."
@@ -110,11 +149,7 @@ export const ServiceAction = ({
         {error && <ErrorState title={error} />}{" "}
         {receipt && <p role="status">{receipt}</p>}
         <div className="detection-actions">
-          <Button
-            variant="outline"
-            disabled={pending}
-            onClick={() => setOpen(false)}
-          >
+          <Button variant="outline" onClick={close}>
             취소
           </Button>
           <Button

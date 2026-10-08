@@ -1,4 +1,4 @@
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { Button } from "../../../components/ui/button";
 import { EmptyState } from "../../../components/ui/feedback";
 import { ServiceAction } from "../components/ServiceAction";
@@ -25,6 +25,19 @@ export const TrainingTab = ({ data }: { data: DetectionData }) => {
   const jobState = params.get("jobState") ?? "all";
   const jobQuery = params.get("jobQ") ?? "";
   const selectedJob = data.trainingJobs.find((job) => job.id === jobId);
+  const completedCandidate =
+    selectedJob?.state === "succeeded"
+      ? data.versions.find(
+          (item) =>
+            item.id === selectedJob.candidateId &&
+            item.trained &&
+            data.modelArtifacts.some(
+              (artifact) =>
+                artifact.id === item.modelArtifactId &&
+                artifact.state === "succeeded",
+            ),
+        )
+      : undefined;
   const setParam = (key: string, value: string) => {
     const next = new URLSearchParams(params);
     if (value) next.set(key, value);
@@ -335,6 +348,21 @@ export const TrainingTab = ({ data }: { data: DetectionData }) => {
                 <dt>생성 후보</dt>
                 <dd>{valueText(selectedJob.candidateId)}</dd>
               </dl>
+              {completedCandidate && (
+                <div className="detection-actions">
+                  <p>
+                    {completedCandidate.name} · {completedCandidate.id} · 생성
+                    완료
+                  </p>
+                  <Button asChild variant="outline">
+                    <Link
+                      to={`/detection/evaluation?candidate=${encodeURIComponent(completedCandidate.id)}`}
+                    >
+                      이 후보 평가하기
+                    </Link>
+                  </Button>
+                </div>
+              )}
               {selectedJob.failure && (
                 <p className="detection-error" role="alert">
                   {selectedJob.failure}

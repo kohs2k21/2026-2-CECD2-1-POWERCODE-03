@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { Button } from "../../../components/ui/button";
 import { Modal } from "../../../components/ui/Modal";
 import { EmptyState } from "../../../components/ui/feedback";
@@ -318,6 +318,19 @@ export const RulesTab = ({ data }: { data: DetectionData }) => {
           )}
         </section>
       </div>
+      <section className="detection-card">
+        <h2>생성 완료한 룰 버전</h2>
+        {data.ruleVersions
+          .filter((item) => item.state === "succeeded")
+          .map((version) => (
+            <p key={version.id}>
+              {version.name} · {version.version} · 생성 완료
+            </p>
+          ))}
+        <Button asChild variant="outline">
+          <Link to="/detection/evaluation">평가할 모델·룰 구성 선택</Link>
+        </Button>
+      </section>
       <section className="detection-card">
         <div className="detection-page-header">
           <h2>추천 룰 검토</h2>

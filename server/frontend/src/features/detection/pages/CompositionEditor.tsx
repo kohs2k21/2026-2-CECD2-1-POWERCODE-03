@@ -119,25 +119,25 @@ export const CompositionEditor = ({
           </span>
         </div>
       </div>
-      <fieldset>
+      <fieldset className="detection-check-list">
         <legend>
           {mode === "versions" ? "운영할 룰 버전" : "평가할 룰 버전"}
         </legend>
         {rules.length ? (
           rules.map((rule) => (
-            <label key={rule.id} className="detection-field">
+            <label key={rule.id}>
+              <input
+                type="checkbox"
+                checked={input.ruleVersionIds.includes(rule.id)}
+                onChange={(event) =>
+                  change({
+                    ruleVersionIds: event.target.checked
+                      ? [...input.ruleVersionIds, rule.id]
+                      : input.ruleVersionIds.filter((id) => id !== rule.id),
+                  })
+                }
+              />{" "}
               <span>
-                <input
-                  type="checkbox"
-                  checked={input.ruleVersionIds.includes(rule.id)}
-                  onChange={(event) =>
-                    change({
-                      ruleVersionIds: event.target.checked
-                        ? [...input.ruleVersionIds, rule.id]
-                        : input.ruleVersionIds.filter((id) => id !== rule.id),
-                    })
-                  }
-                />{" "}
                 {rule.name} · {rule.version}
               </span>
             </label>

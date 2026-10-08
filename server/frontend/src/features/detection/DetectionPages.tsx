@@ -25,6 +25,14 @@ export const CreatePage = () => {
   const selected = params.get("tab");
   const activeTab =
     createTabs.find((tab) => tab.id === selected) ?? createTabs[0];
+  const modelFeaturePayload = Object.fromEntries(
+    Object.entries(draft).filter(
+      ([key]) =>
+        !["rules", "ruleThresholdInputs", "recommendationDecisions"].includes(
+          key,
+        ),
+    ),
+  );
   const saveErrors = [
     ...validateDataDraft(draft),
     ...validateTrainingConfig(draft.training),
@@ -49,9 +57,9 @@ export const CreatePage = () => {
               {activeTab.id !== "rules" && (
                 <ServiceAction
                   operation="saveDraft"
-                  label="구성 저장"
+                  label="모델·피처 초안 저장"
                   available={data.capabilities.saveDraft}
-                  payload={draft}
+                  payload={modelFeaturePayload}
                   requestDisabled={saveErrors.length > 0}
                 >
                   <p>

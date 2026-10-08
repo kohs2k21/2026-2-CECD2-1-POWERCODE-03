@@ -51,7 +51,14 @@ const GuardProbe = () => {
   guard = useDraftNavigationGuard();
   return null;
 };
-const gateway = createDevelopmentGateway(developmentDetectionData);
+const createFixture = structuredClone(developmentDetectionData);
+createFixture.trainingJobs.push({
+  ...createFixture.trainingJobs[0],
+  id: "training-completed",
+  state: "succeeded",
+  candidateId: "candidate-delay",
+});
+const gateway = createDevelopmentGateway(createFixture);
 let writes = 0;
 const adapter = {
   ...gateway,
@@ -306,6 +313,15 @@ const trainAction = () =>
   renderer.root
     .findAllByType(ServiceAction)
     .find((node) => node.props.operation === "train");
+const modelFeatureSave = renderer.root
+  .findAllByType(ServiceAction)
+  .find((node) => node.props.operation === "saveDraft");
+for (const key of ["rules", "ruleThresholdInputs", "recommendationDecisions"])
+  assert.equal(
+    modelFeatureSave.props.payload[key],
+    undefined,
+    "non-rule saving must not send unvalidated rule edits",
+  );
 await setF05(f05);
 assert.equal(
   trainAction().props.requestDisabled,
@@ -330,6 +346,24 @@ await act(async () =>
 );
 assert.ok(
   renderer.root.findAll((node) => node.props.role === "alert").length > 0,
+);
+await act(async () =>
+  router.navigate("/detection/create?tab=training&job=training-completed"),
+);
+assert.equal(
+  renderer.root
+    .findAllByType("a")
+    .find((node) => node.children.includes("이 후보 평가하기")).props.href,
+  "/detection/evaluation?candidate=candidate-delay",
+);
+await act(async () =>
+  router.navigate("/detection/create?tab=training&job=training-queued"),
+);
+assert.ok(
+  !renderer.root
+    .findAllByType("a")
+    .some((node) => node.children.includes("이 후보 평가하기")),
+  "pending jobs must not claim a generated candidate",
 );
 await act(async () =>
   router.navigate("/detection/create?tab=data-features&feature=A00"),

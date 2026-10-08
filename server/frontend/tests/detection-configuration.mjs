@@ -14,6 +14,11 @@ const input = {
   explanationVersion: "explanation-v1",
 };
 const preview = composePreview(input, data);
+assert.equal(
+  composePreview({ ...input, explanationVersion: "" }, data).explanationVersion,
+  null,
+  "unknown explanation does not prevent honest local preview",
+);
 assert.ok(preview);
 assert.equal(preview.id, "composition-preview");
 assert.equal(preview.state, "draft");
@@ -27,6 +32,29 @@ assert.equal(
 assert.equal(
   currentConfigurationFingerprint(preview, data),
   preview.configurationFingerprint,
+);
+assert.equal(
+  currentConfigurationFingerprint(
+    {
+      ...preview,
+      ruleVersionIds: [...preview.ruleVersionIds, ...preview.ruleVersionIds],
+    },
+    data,
+  ),
+  null,
+  "server-read bundles also reject duplicate versions",
+);
+const duplicateRuleBundle = {
+  ...preview,
+  ruleVersionIds: data.ruleVersions.slice(0, 2).map((rule) => rule.id),
+  ruleIds: data.ruleVersions
+    .slice(0, 2)
+    .flatMap((rule) => rule.rules.map((definition) => definition.id)),
+};
+assert.equal(
+  currentConfigurationFingerprint(duplicateRuleBundle, data),
+  null,
+  "server-read bundles also reject conflicting logical rule versions",
 );
 const result = {
   ...data.evaluations[0],
@@ -42,6 +70,14 @@ assert.equal(
   "same logical rule/revision IDs do not excuse changed definitions",
 );
 changed.ruleVersions[0].rules[0].threshold -= 1;
+changed.ruleVersions[0].rules[0].threshold = NaN;
+assert.equal(
+  composePreview(input, changed),
+  null,
+  "non-finite server rule definitions cannot share a NULL fingerprint",
+);
+changed.ruleVersions[0].rules[0].threshold =
+  data.ruleVersions[0].rules[0].threshold;
 changed.modelArtifacts[0].fitVersion = "fit-changed";
 assert.equal(
   currentConfigurationFingerprint(preview, changed),

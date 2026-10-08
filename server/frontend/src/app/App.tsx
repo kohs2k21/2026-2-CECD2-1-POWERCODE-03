@@ -12,10 +12,10 @@ import {
   NotFoundRoute,
 } from "./WorkspaceRoutes";
 import { DetectionLayout } from "../features/detection/DetectionLayout";
-import {
-  CreatePage,
-  DetectionPage,
-} from "../features/detection/DetectionPages";
+import { CreatePage } from "../features/detection/DetectionPages";
+import { EvaluationPage } from "../features/detection/pages/EvaluationPage";
+import { VersionsPage } from "../features/detection/pages/VersionsPage";
+import { CollectionPage } from "../features/detection/pages/CollectionPage";
 
 const router = createBrowserRouter([
   { path: "/login", element: <LoginRoute /> },
@@ -47,15 +47,15 @@ const router = createBrowserRouter([
                   { path: "/detection/create", element: <CreatePage /> },
                   {
                     path: "/detection/evaluation",
-                    element: <DetectionPage title="성능 평가·비교" />,
+                    element: <EvaluationPage />,
                   },
                   {
                     path: "/detection/versions",
-                    element: <DetectionPage title="운영 버전 관리" />,
+                    element: <VersionsPage />,
                   },
                   {
                     path: "/detection/collection",
-                    element: <DetectionPage title="데이터 수집 현황" />,
+                    element: <CollectionPage />,
                   },
                 ],
               },

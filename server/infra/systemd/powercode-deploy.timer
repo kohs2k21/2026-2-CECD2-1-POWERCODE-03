@@ -1,0 +1,12 @@
+[Unit]
+Description=Check POWERCODE deployment release every five minutes
+
+[Timer]
+OnStartupSec=2min
+OnUnitInactiveSec=5min
+AccuracySec=15s
+Unit=powercode-deploy.service
+
+[Install]
+WantedBy=timers.target
+

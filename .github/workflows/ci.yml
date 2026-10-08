@@ -107,6 +107,9 @@ jobs:
       - name: Test release and deployment safety
         run: python -m unittest discover -s server/infra/tests -p 'test_*.py' -v
 
+      - name: Check deployment installer syntax
+        run: bash -n server/infra/scripts/install-deploy.sh
+
       - name: Build web image
         run: docker build --platform linux/amd64 -f server/frontend/Dockerfile -t powercode-web:test server
 

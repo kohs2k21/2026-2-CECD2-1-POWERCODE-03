@@ -19,6 +19,7 @@
   --z-popover: 40;
   --z-dialog-overlay: 50;
   --z-dialog: 51;
+  --z-drag: 55;
   --z-toast: 60;
   --z-tooltip: 70;
   --shadow-dialog: 0 20px 60px rgb(0 0 0 / 15%);

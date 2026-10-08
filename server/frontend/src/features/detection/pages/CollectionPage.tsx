@@ -17,6 +17,13 @@ import { useDetectionQuery } from "../data/useDetectionQuery";
 import { CollectionObservations } from "./CollectionObservations";
 import { validDateRange } from "./operationPresentation";
 
+const sourceNames: Record<CollectionSource["id"], string> = {
+  T: "TRANSACTION",
+  P: "PROCESS",
+  M: "MESSAGE",
+  B: "BODY",
+};
+
 const sourceLabels = {
   unknown: "수집 상태 미확인",
   collecting: "수집 중",
@@ -41,7 +48,7 @@ const CollectionHistoryDetails = ({ item }: { item: CollectionHistory }) => (
       </div>
       <div>
         <dt>원천</dt>
-        <dd>{item.source}</dd>
+        <dd>{sourceNames[item.source]}</dd>
       </div>
       <div>
         <dt>수집 범위</dt>
@@ -120,7 +127,7 @@ const CollectionWorkbench = ({
     ? data.collectionHistory.filter((item) => {
         if (source !== "all" && item.source !== source) return false;
         if (
-          !`${item.id} ${item.source} ${item.range}`
+          !`${item.id} ${sourceNames[item.source]} ${item.range}`
             .toLocaleLowerCase()
             .includes(search.toLocaleLowerCase())
         )
@@ -170,7 +177,7 @@ const CollectionWorkbench = ({
               <option value="all">전체</option>
               {data.collection.map((item) => (
                 <option key={item.id} value={item.id}>
-                  {item.id} · {item.name}
+                  {sourceNames[item.id]}
                 </option>
               ))}
             </select>
@@ -184,7 +191,7 @@ const CollectionWorkbench = ({
               <option value="">전체 필드</option>
               {availableFields.map((item) => (
                 <option key={item.id} value={item.id}>
-                  {item.source === "transaction" ? "T" : "P"} · {item.name}
+                  {item.source.toUpperCase()} · {item.name}
                 </option>
               ))}
             </select>
@@ -219,9 +226,7 @@ const CollectionWorkbench = ({
           <div className="detection-grid">
             {visibleSources.map((item) => (
               <article key={item.id} className="detection-card">
-                <h3>
-                  {item.id} · {item.name}
-                </h3>
+                <h3>{sourceNames[item.id]}</h3>
                 <p
                   className={
                     item.state === "failed" || item.state === "delayed"
@@ -291,7 +296,7 @@ const CollectionWorkbench = ({
               <tbody>
                 {visibleFields.map((item) => (
                   <tr key={item.id}>
-                    <td>{item.source === "transaction" ? "T" : "P"}</td>
+                    <td>{item.source.toUpperCase()}</td>
                     <th scope="row">{item.name}</th>
                     <td>{item.type}</td>
                     <td>
@@ -341,7 +346,7 @@ const CollectionWorkbench = ({
                     aria-current={historyId === item.id ? "true" : undefined}
                   >
                     <span>
-                      {item.source} · {item.range}
+                      {sourceNames[item.source]} · {item.range}
                     </span>
                     <span>
                       {jobStateLabels[item.state]} ·{" "}

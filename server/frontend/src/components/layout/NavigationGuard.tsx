@@ -1,6 +1,12 @@
 import { useEffect } from "react";
 import { useBlocker, useLocation } from "react-router-dom";
-import * as Dialog from "@radix-ui/react-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from "../ui/dialog";
+import { Button } from "../ui/button";
 import {
   shouldBlockDraftNavigation,
   useDraftStore,
@@ -56,29 +62,24 @@ export const NavigationGuard = ({
     }
   };
   return (
-    <Dialog.Root
+    <Dialog
       open={open}
       onOpenChange={(value) => {
         if (!value) cancel();
       }}
     >
-      <Dialog.Portal>
-        <Dialog.Overlay className="guard-overlay" />
-        <Dialog.Content className="guard-dialog">
-          <Dialog.Title>저장하지 않은 변경 내용</Dialog.Title>
-          <Dialog.Description>
-            계속 편집하거나 변경 내용을 버리고 이동할 수 있습니다.
-          </Dialog.Description>
-          <div className="guard-actions">
-            <button type="button" onClick={cancel}>
-              계속 편집
-            </button>
-            <button type="button" onClick={discard}>
-              변경 내용 버리고 이동
-            </button>
-          </div>
-        </Dialog.Content>
-      </Dialog.Portal>
-    </Dialog.Root>
+      <DialogContent showCloseButton={false} className="ui-modal--sm">
+        <DialogTitle>저장하지 않은 변경 내용</DialogTitle>
+        <DialogDescription>
+          계속 편집하거나 변경 내용을 버리고 이동할 수 있습니다.
+        </DialogDescription>
+        <div className="guard-actions">
+          <Button variant="outline" onClick={cancel}>
+            계속 편집
+          </Button>
+          <Button onClick={discard}>변경 내용 버리고 이동</Button>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 };

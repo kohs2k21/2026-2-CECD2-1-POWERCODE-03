@@ -17,6 +17,7 @@ import {
   subscribeTokenStorage,
 } from "./session";
 import { useDraftStore } from "../../stores/draftStore";
+import { notify } from "../../lib/notify";
 
 type SessionState = {
   user: AuthUser | null;
@@ -54,6 +55,7 @@ export const AuthSessionProvider = ({ children }: PropsWithChildren) => {
     const next = { token, generation: sessionRef.current.generation + 1 };
     sessionRef.current = next;
     cache.clear();
+    notify.clear();
     useDraftStore.getState().reset();
     setExplicitLogout(explicit);
     if (knownUser)

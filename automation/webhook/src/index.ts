@@ -89,6 +89,8 @@ async function retry(message: Message<Work>, env: Env, code: string, delay?: num
   const seconds = delay === undefined ? Math.min(300, 30 * 2 ** (message.attempts - 1)) : Math.max(30, Math.ceil(delay));
   const remaining = isWork(message.body) ? (LIMITS.ageMs - (Date.now() - Date.parse(message.body.acceptedAt))) / 1000 : 0;
   if (seconds >= remaining || seconds > 86400) { await deadLetter(message, env, "retry_after_budget_exhausted"); return; }
+  console.warn(JSON.stringify({ event: "retry", code, attempt: message.attempts,
+    receiptId: message.body.receiptId, delaySeconds: seconds }));
   message.retry({ delaySeconds: seconds });
 }
 async function enqueue(message: Message<Work>, env: Env, work: Work, delaySeconds: number): Promise<void> {
@@ -129,7 +131,11 @@ export async function consume(message: Message<Work>, env: Env): Promise<void> {
   if (!enabled(env)) { await retry(message, env, "disabled"); return; }
   let result: Response;
   try { result = await github(work.runId ? `${BASE}/runs/${work.runId}` : DISPATCH, env, work.runId ? "GET" : "POST"); }
-  catch { await retry(message, env, "github_unavailable"); return; }
+  catch (error) {
+    const code = error instanceof TypeError ? "github_network_error"
+      : error instanceof DOMException && error.name === "TimeoutError" ? "github_timeout" : "github_unavailable";
+    await retry(message, env, code); return;
+  }
   if (transient(result)) { await retry(message, env, "github_transient", retryAfter(result)); return; }
   if (result.status !== 200) { await deadLetter(message, env, "github_rejected"); return; }
   let data: { workflow_run_id?: number; id?: number; status?: string; conclusion?: string | null };
@@ -170,7 +176,10 @@ export default {
   async queue(batch: MessageBatch<Work>, env: Env): Promise<void> {
     for (const message of batch.messages) {
       try { await consume(message, env); }
-      catch { message.retry({ delaySeconds: 60 }); }
+      catch {
+        console.warn(JSON.stringify({ event: "queue_processing_error", attempt: message.attempts }));
+        message.retry({ delaySeconds: 60 });
+      }
     }
   }
 } satisfies ExportedHandler<Env, Work>;

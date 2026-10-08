@@ -4,9 +4,10 @@ import { timingSafeEqual } from 'node:crypto';
 import worker, { receive, consume, LIMITS } from '../dist/index.js';
 
 const originalFetch = globalThis.fetch;
+const originalWarn = console.warn;
 // Cloudflare's native extension; only the Node test environment needs this adapter.
 crypto.subtle.timingSafeEqual = (a, b) => timingSafeEqual(Buffer.from(a), Buffer.from(b));
-afterEach(() => { globalThis.fetch = originalFetch; });
+afterEach(() => { globalThis.fetch = originalFetch; console.warn = originalWarn; });
 const receiptId = 'aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa';
 function setup() {
   const sent = [], dead = [];
@@ -150,4 +151,30 @@ test('invalid envelopes and mismatched/unsupported run result stop safely', asyn
   for (const data of [{ id: 456, status: 'completed', conclusion: 'success' }, { id: 123, status: 'unknown' }, { id: 123, status: 'completed', conclusion: 'skipped' }]) {
     const { env, dead } = setup(); mockFetch(json(data)); await consume(message({ runId: 123 }), env); assert.equal(dead.length, 1);
   }
+});
+test('retry diagnostics use fixed cause codes without raw errors, body, secrets or headers', async () => {
+  const logs = []; console.warn = entry => logs.push(JSON.parse(entry));
+  for (const [failure, expectedCode] of [
+    [new TypeError('private-body test-only-token test-only-key Authorization'), 'github_network_error'],
+    [new DOMException('private-body test-only-token', 'TimeoutError'), 'github_timeout'],
+    [new Error('private-body test-only-key'), 'github_unavailable'],
+    [json({ private: 'private-body' }, 503), 'github_transient']
+  ]) {
+    const { env } = setup(); const msg = message({ private: 'private-body' }, 2);
+    mockFetch(failure); await consume(msg, env);
+    assert.deepEqual(logs.at(-1), { event: 'retry', code: expectedCode, attempt: 2, receiptId, delaySeconds: 60 });
+  }
+  const { env } = setup(); const disabled = message();
+  await consume(disabled, { ...env, WEBHOOK_ENABLED: 'false' });
+  assert.equal(logs.at(-1).code, 'disabled');
+  const output = JSON.stringify(logs);
+  for (const secret of ['private-body', 'test-only-token', 'test-only-key', 'Authorization']) assert.ok(!output.includes(secret));
+});
+test('queue processing catch logs only fixed event and attempt without raw queue errors', async () => {
+  const logs = []; console.warn = entry => logs.push(JSON.parse(entry));
+  const { env } = setup(); env.REQUESTS.send = async () => { throw Error('private-body test-only-token test-only-key'); };
+  mockFetch(json({ workflow_run_id: 123 })); const msg = message({ private: 'private-body' }, 3);
+  await worker.queue({ messages: [msg] }, env);
+  assert.deepEqual(logs, [{ event: 'queue_processing_error', attempt: 3 }]);
+  assert.equal(msg.acked, false); assert.deepEqual(msg.retries, [{ delaySeconds: 60 }]);
 });

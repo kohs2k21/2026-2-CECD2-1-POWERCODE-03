@@ -79,7 +79,10 @@ export const RulesTab = ({ data }: { data: DetectionData }) => {
         },
         rules: {
           ...draft.rules,
-          [recommendation.rule.id]: { ...recommendation.rule },
+          [recommendation.rule.id]: {
+            ...(draft.rules[recommendation.rule.id] ?? recommendation.rule),
+            enabled: true,
+          },
         },
       });
   };
@@ -386,6 +389,17 @@ export const RulesTab = ({ data }: { data: DetectionData }) => {
                         ...draft.recommendationDecisions,
                         [recommendation.id]: "rejected",
                       },
+                      ...(draft.rules[recommendation.rule.id]
+                        ? {
+                            rules: {
+                              ...draft.rules,
+                              [recommendation.rule.id]: {
+                                ...draft.rules[recommendation.rule.id],
+                                enabled: false,
+                              },
+                            },
+                          }
+                        : {}),
                     })
                   }
                 >

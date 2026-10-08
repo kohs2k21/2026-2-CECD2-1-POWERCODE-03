@@ -10,6 +10,9 @@ import { createDevelopmentGateway } from "../src/features/detection/data/gateway
 import { CreatePage } from "../src/features/detection/DetectionPages.tsx";
 import { useDraftNavigationGuard } from "../src/components/layout/NavigationGuard.tsx";
 import { useDraftStore } from "../src/stores/draftStore.ts";
+import { ServiceAction } from "../src/features/detection/components/ServiceAction.tsx";
+import { defaultFeatureEditor } from "../src/features/detection/data/featureBuilder.ts";
+import { featureCatalog } from "../src/features/detection/data/catalog.ts";
 
 globalThis.React = React;
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
@@ -145,6 +148,18 @@ assert.equal(
   "T/P duplicate raw names need qualified accessible labels",
 );
 await act(async () =>
+  router.navigate("/detection/create?tab=data-features&feature=F07"),
+);
+assert.equal(
+  byLabel("파생변수 이름"),
+  undefined,
+  "unsupported canonical expressions must remain read-only",
+);
+assert.equal(
+  useDraftStore.getState().drafts["/detection/create"].value.featureEdits.F07,
+  undefined,
+);
+await act(async () =>
   router.navigate("/detection/create?tab=data-features&feature=A00"),
 );
 await act(async () =>
@@ -187,7 +202,93 @@ await act(async () =>
 );
 assert.equal(byLabel("룰 이름").props.value, "새 임계 룰");
 assert.equal(byLabel("임계값").props.value, "abc");
+await act(async () =>
+  router.navigate(
+    "/detection/create?tab=rules&recommendation=recommendation-count",
+  ),
+);
+const clickButton = async (label) =>
+  act(async () =>
+    renderer.root
+      .findAllByType("button")
+      .find((node) => node.children.includes(label))
+      .props.onClick(),
+  );
+await clickButton("초안에 선택");
+assert.equal(
+  useDraftStore.getState().drafts["/detection/create"].value.rules[
+    "error-count-limit"
+  ].enabled,
+  true,
+);
+await act(async () =>
+  router.navigate(
+    "/detection/create?tab=rules&rule=error-count-limit&recommendation=recommendation-count",
+  ),
+);
+await act(async () =>
+  byLabel("룰 이름").props.onChange({
+    target: { value: "직접 수정한 추천 룰" },
+  }),
+);
+await clickButton("선택 제외");
+let linked =
+  useDraftStore.getState().drafts["/detection/create"].value.rules[
+    "error-count-limit"
+  ];
+assert.equal(linked.enabled, false);
+assert.equal(linked.name, "직접 수정한 추천 룰");
+await clickButton("초안에 선택");
+linked =
+  useDraftStore.getState().drafts["/detection/create"].value.rules[
+    "error-count-limit"
+  ];
+assert.equal(linked.enabled, true);
+assert.equal(linked.name, "직접 수정한 추천 룰");
 await act(async () => router.navigate("/detection/create?tab=training"));
+const beforeValidation =
+  useDraftStore.getState().drafts["/detection/create"].value;
+const f05 = defaultFeatureEditor(
+  featureCatalog.find((item) => item.id === "F05"),
+);
+const setF05 = async (edit) =>
+  act(async () =>
+    useDraftStore.getState().edit("/detection/create", {
+      ...beforeValidation,
+      snapshotId: "snapshot-september",
+      start: "2026-09-01",
+      end: "2026-09-30",
+      training: {
+        ...beforeValidation.training,
+        featureIds: ["F05"],
+        trees: "100",
+      },
+      featureEdits: { ...beforeValidation.featureEdits, F05: edit },
+    }),
+  );
+const trainAction = () =>
+  renderer.root
+    .findAllByType(ServiceAction)
+    .find((node) => node.props.operation === "train");
+await setF05(f05);
+assert.equal(
+  trainAction().props.requestDisabled,
+  false,
+  "valid catalog edit should remain usable",
+);
+for (const edit of [
+  { ...f05, name: " " },
+  { ...f05, operation: "trainMedian" },
+  { ...f05, right: "F22" },
+]) {
+  await setF05(edit);
+  assert.equal(
+    trainAction().props.requestDisabled,
+    true,
+    "known ID edits must validate definition and both fit dependencies",
+  );
+}
+await setF05(f05);
 await act(async () =>
   byLabel("트리 수").props.onChange({ target: { value: "0" } }),
 );

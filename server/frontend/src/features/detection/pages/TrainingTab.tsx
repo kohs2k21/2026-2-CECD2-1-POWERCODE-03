@@ -13,7 +13,10 @@ import {
   validateDataDraft,
   validateTrainingConfig,
 } from "../data/createDraft";
-import { validateFeatureEditor } from "../data/featureBuilder";
+import {
+  validateFeatureEditor,
+  unavailableInput,
+} from "../data/featureBuilder";
 import type { DetectionData } from "../data/types";
 export const TrainingTab = ({ data }: { data: DetectionData }) => {
   const { draft, update } = useCreateDraft();
@@ -49,13 +52,24 @@ export const TrainingTab = ({ data }: { data: DetectionData }) => {
   const notReady = config.featureIds.filter((id) => {
     const feature = featureCatalog.find((item) => item.id === id);
     const edit = draft.featureEdits[id];
-    return feature
-      ? feature.readiness !== "ready" ||
-          feature.source === "transaction" ||
-          !model?.supportedTypes.includes(feature.type)
-      : !edit ||
-          edit.operation === "trainMedian" ||
-          validateFeatureEditor(edit).length > 0;
+    if (edit)
+      return (
+        validateFeatureEditor(edit).length > 0 ||
+        edit.operation === "trainMedian" ||
+        Boolean(unavailableInput(edit)) ||
+        edit.left === id ||
+        edit.right === id ||
+        !model?.supportedTypes.includes("number") ||
+        [edit.left, edit.right].some((input) =>
+          input.startsWith("transaction."),
+        )
+      );
+    return (
+      !feature ||
+      feature.readiness !== "ready" ||
+      feature.source === "transaction" ||
+      !model?.supportedTypes.includes(feature.type)
+    );
   });
   if (notReady.length)
     errors.push(

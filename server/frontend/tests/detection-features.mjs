@@ -9,6 +9,7 @@ import {
   defaultFeatureEditor,
   previewFeature,
   validateFeatureEditor,
+  canEditCanonicalFeature,
 } from "../src/features/detection/data/featureBuilder.ts";
 import { featureCatalog } from "../src/features/detection/data/catalog.ts";
 const duration = {
@@ -17,6 +18,24 @@ const duration = {
   ),
   timezone: "Asia/Seoul",
 };
+assert.equal(duration.left, "process.END_TIME");
+assert.equal(duration.right, "process.START_TIME");
+for (const [id, operation] of [
+  ["F03", "weekend"],
+  ["F23", "log1p"],
+  ["A01", "month"],
+  ["A02", "weekday"],
+  ["F05", "ratio"],
+]) {
+  const feature = featureCatalog.find((item) => item.id === id);
+  assert.equal(canEditCanonicalFeature(feature), true);
+  assert.equal(defaultFeatureEditor(feature).operation, operation);
+}
+for (const id of ["F07", "F22", "A06", "A14"])
+  assert.equal(
+    canEditCanonicalFeature(featureCatalog.find((item) => item.id === id)),
+    false,
+  );
 assert.equal(
   previewFeature(duration, "2026-10-08T00:00:01Z", "2026-10-08T00:00:00Z")
     .value,
@@ -57,6 +76,12 @@ const ratio = {
   unit: "unitless",
 };
 assert.equal(previewFeature(ratio, "7", "10").value, 0.7);
+for (const operation of ["ratio", "subtract"])
+  assert.equal(
+    previewFeature({ ...ratio, operation, right: "F22" }, "7", "2").value,
+    null,
+    "right dependency must also require fit before preview",
+  );
 assert.equal(previewFeature(ratio, "7", "0").value, null);
 assert.equal(
   previewFeature(ratio, "", "10").value,

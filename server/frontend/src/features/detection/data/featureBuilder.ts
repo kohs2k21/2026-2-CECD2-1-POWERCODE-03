@@ -23,19 +23,50 @@ export const allowedOperations = (
     : feature?.type === "number"
       ? ["subtract", "ratio", "log1p", "isMissing", "trainMedian"]
       : ["isMissing"];
+const canonicalOperations: Partial<Record<string, DerivedOperation>> = {
+  F03: "weekend",
+  F05: "ratio",
+  F06: "ratio",
+  F12: "log1p",
+  F13: "isMissing",
+  F23: "log1p",
+  F24: "log1p",
+  A00: "duration",
+  A01: "month",
+  A02: "weekday",
+  A05: "hour",
+  A12: "log1p",
+};
+export const canEditCanonicalFeature = (feature: FeatureDefinition) =>
+  feature.source === "derived" && Boolean(canonicalOperations[feature.id]);
+export const unavailableInput = (editor: FeatureEditorValue) => {
+  const ids = [
+    editor.left,
+    ...(requiresRightInput(editor.operation) ? [editor.right] : []),
+  ];
+  return featureCatalog.find(
+    (feature) =>
+      ids.includes(feature.id) &&
+      (feature.fitRequired ||
+        feature.readiness === "unconfirmed" ||
+        feature.readiness === "deferred"),
+  );
+};
 export const defaultFeatureEditor = (
   feature?: FeatureDefinition,
 ): FeatureEditorValue => ({
   name: feature?.name ?? "",
-  operation: feature?.fitRequired
-    ? "trainMedian"
-    : feature?.id === "A00"
-      ? "duration"
-      : feature?.id === "F05" || feature?.id === "F06"
-        ? "ratio"
-        : "isMissing",
-  left: feature?.inputs[0] ?? "process.END_TIME",
-  right: feature?.inputs[1] ?? "process.START_TIME",
+  operation: (feature && canonicalOperations[feature.id]) ?? "isMissing",
+  left:
+    feature?.id === "A00"
+      ? "process.END_TIME"
+      : feature?.id === "F12"
+        ? "A00"
+        : (feature?.inputs[0] ?? "process.END_TIME"),
+  right:
+    feature?.id === "A00"
+      ? "process.START_TIME"
+      : (feature?.inputs[1] ?? "process.START_TIME"),
   unit: feature?.id === "A00" ? "ms" : "unitless",
   missingPolicy: "preserve",
   timezone: "",
@@ -77,13 +108,7 @@ export const previewFeature = (
   leftSample: string,
   rightSample: string,
 ): PreviewResult => {
-  const dependency = featureCatalog.find(
-    (feature) =>
-      feature.id === editor.left &&
-      (feature.fitRequired ||
-        feature.readiness === "unconfirmed" ||
-        feature.readiness === "deferred"),
-  );
+  const dependency = unavailableInput(editor);
   if (dependency)
     return {
       value: null,

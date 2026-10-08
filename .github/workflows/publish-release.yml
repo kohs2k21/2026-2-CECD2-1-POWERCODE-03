@@ -1,0 +1,70 @@
+name: publish deployment release
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+# Runs stay serialized; the publisher also checks main and release numbers because
+# GitHub does not guarantee the order of pending concurrency jobs.
+concurrency:
+  group: publish-deployment-main-${{ github.repository }}
+  cancel-in-progress: false
+
+jobs:
+  ci:
+    if: github.repository == 'kohs2k21/2026-2-CECD2-1-POWERCODE-03' && vars.CD_ENABLED == 'true'
+    uses: ./.github/workflows/ci.yml
+    permissions:
+      contents: read
+
+  publish:
+    needs: ci
+    if: github.repository == 'kohs2k21/2026-2-CECD2-1-POWERCODE-03' && github.ref == 'refs/heads/main' && vars.CD_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      CD_ENABLED: ${{ vars.CD_ENABLED }}
+    steps:
+      - name: Check out the commit tested by reusable CI
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # actions/checkout v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # actions/setup-python v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Refuse outdated main before image publication
+        run: python server/infra/scripts/publish_release.py --check-current
+
+      - name: Log in to GHCR with the workflow token
+        run: printf '%s' "$GITHUB_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+
+      - name: Publish web image
+        run: >-
+          docker buildx build --platform linux/amd64
+          -f server/frontend/Dockerfile
+          --label "org.opencontainers.image.source=https://github.com/$GITHUB_REPOSITORY"
+          --label "org.opencontainers.image.revision=$GITHUB_SHA"
+          -t "ghcr.io/kohs2k21/powercode-web:deploy-$GITHUB_RUN_NUMBER-$GITHUB_SHA"
+          --push --metadata-file web-image.json server
+
+      - name: Publish API image
+        run: >-
+          docker buildx build --platform linux/amd64
+          -f server/backend/Dockerfile
+          --label "org.opencontainers.image.source=https://github.com/$GITHUB_REPOSITORY"
+          --label "org.opencontainers.image.revision=$GITHUB_SHA"
+          -t "ghcr.io/kohs2k21/powercode-api:deploy-$GITHUB_RUN_NUMBER-$GITHUB_SHA"
+          --push --metadata-file api-image.json server
+
+      - name: Publish release only after both digest references are available
+        run: python server/infra/scripts/publish_release.py --web-metadata web-image.json --api-metadata api-image.json

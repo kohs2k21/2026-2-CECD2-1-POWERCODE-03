@@ -9,11 +9,20 @@
 @import "./features/settings/settings.css";
 @import "./features/admin_system/admin_system.css";
 @import "./features/admin_model/admin_model.css";
+@import "./features/auth/auth.css";
+@import "./features/detection/detection.css";
 
 :root {
   color: #171717;
   background: #ffffff;
-  font-family: Pretendard, system-ui, -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Segoe UI", sans-serif;
+  font-family:
+    Pretendard,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Apple SD Gothic Neo",
+    "Segoe UI",
+    sans-serif;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -50,7 +59,7 @@
 
 body {
   margin: 0;
-  min-width: 1280px;
+  min-width: 320px;
   background: var(--canvas-soft);
 }
 

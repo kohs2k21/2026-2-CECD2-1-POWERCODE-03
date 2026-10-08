@@ -1,26 +1,26 @@
-import { motion } from "motion/react";
-import { IconSun, IconBell } from "@tabler/icons-react";
-import { Button } from "../../components/ui/button";
+import { IconBell, IconSettings } from "@tabler/icons-react";
 import type { NavItem, UserRole, ViewId } from "../../types/app";
-import { appTheme, darkThemeSupported } from "../../lib/theme";
 import inzentLogo from "./inzent_logo.svg";
-
 type TopNavProps = {
   activeView: ViewId;
   navItems: NavItem[];
   role: UserRole;
   onLogout: () => void;
   onSelectView: (viewId: ViewId) => void;
+  onOpenSettings: () => void;
 };
-
 export const TopNav = ({
   activeView,
   navItems,
   role,
   onLogout,
   onSelectView,
+  onOpenSettings,
 }: TopNavProps) => (
   <header className="top-nav">
+    <a className="skip-link" href="#workspace-content">
+      본문으로 이동
+    </a>
     <div className="brand">
       <img src={inzentLogo} alt="INZENT" className="brand-logo" />
       <div>
@@ -29,43 +29,40 @@ export const TopNav = ({
       </div>
     </div>
     <nav className="tab-list" aria-label="주요 화면">
-      {navItems.map(({ id, label, Icon }) => {
-        const isActive = activeView === id;
-        return (
-          <motion.button
-            key={id}
-            type="button"
-            className={isActive ? "tab-item tab-item--active" : "tab-item"}
-            onClick={() => onSelectView(id)}
-            initial={false}
-            animate={{ opacity: isActive ? 1 : 1 }}
-            transition={{ duration: 1.2, ease: "easeOut" }}
-          >
-            <Icon size={16} aria-hidden="true" />
-            {label}
-          </motion.button>
-        );
-      })}
+      {navItems.map(({ id, label, Icon }) => (
+        <button
+          key={id}
+          type="button"
+          className={
+            activeView === id ? "tab-item tab-item--active" : "tab-item"
+          }
+          aria-current={activeView === id ? "page" : undefined}
+          onClick={() => onSelectView(id)}
+        >
+          <Icon size={16} aria-hidden="true" />
+          {label}
+        </button>
+      ))}
     </nav>
     <div className="top-nav-actions">
       <button type="button" className="ghost-button" onClick={onLogout}>
         로그아웃
       </button>
-      <Button
-        variant="ghost"
-        size="icon"
-        className="top-nav-icon-btn"
-        disabled
-        aria-label={`현재 테마: ${appTheme === "light" ? "라이트" : appTheme}. ${darkThemeSupported ? "테마 설정" : "다크 테마는 지원되지 않습니다."}`}
-        title={`현재 테마: ${appTheme === "light" ? "라이트" : appTheme}`}
-      >
-        <IconSun size={20} aria-hidden="true" />
-      </Button>
-      <Button variant="ghost" size="icon" className="top-nav-icon-btn">
+      <span className="top-nav-icon-btn notification-icon" aria-label="알림">
         <IconBell size={20} aria-hidden="true" />
-      </Button>
-      <button type="button" className="top-nav-profile-btn">
-        AD
+      </span>
+      <button
+        type="button"
+        className={
+          activeView === "settings"
+            ? "ghost-button settings-button is-active"
+            : "ghost-button settings-button"
+        }
+        aria-label="설정"
+        aria-current={activeView === "settings" ? "page" : undefined}
+        onClick={onOpenSettings}
+      >
+        <IconSettings size={20} aria-hidden="true" />
       </button>
     </div>
   </header>

@@ -1,10 +1,21 @@
 import type { PropsWithChildren } from "react";
 import { Toaster } from "react-hot-toast";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { useState } from "react";
+import { AuthSessionProvider } from "../services/auth/AuthSessionProvider";
 
 export const AppProvider = ({ children }: PropsWithChildren) => {
+  const [queryClient] = useState(
+    () =>
+      new QueryClient({
+        defaultOptions: {
+          queries: { retry: false, refetchOnWindowFocus: false },
+        },
+      }),
+  );
   return (
-    <>
-      {children}
+    <QueryClientProvider client={queryClient}>
+      <AuthSessionProvider>{children}</AuthSessionProvider>
       <Toaster
         position="bottom-right"
         toastOptions={{
@@ -18,6 +29,6 @@ export const AppProvider = ({ children }: PropsWithChildren) => {
           },
         }}
       />
-    </>
+    </QueryClientProvider>
   );
 };

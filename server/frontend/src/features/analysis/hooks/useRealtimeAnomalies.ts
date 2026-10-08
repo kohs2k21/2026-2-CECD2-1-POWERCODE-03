@@ -7,12 +7,7 @@ import { getStoredToken } from "../../../services/auth/session";
 import type { RealtimeAnomalyEvent } from "../../../types/realtime";
 
 export type RealtimeStreamStatus =
-  | "idle"
-  | "connecting"
-  | "open"
-  | "retrying"
-  | "closed"
-  | "error";
+  "idle" | "connecting" | "open" | "retrying" | "closed" | "error";
 
 export type RealtimeAnomaliesState = {
   events: RealtimeAnomalyEvent[];
@@ -49,7 +44,9 @@ const isAbortError = (error: unknown): boolean =>
   error instanceof DOMException && error.name === "AbortError";
 
 const getErrorMessage = (error: unknown): string =>
-  error instanceof Error ? error.message : "실시간 anomaly 스트림을 사용할 수 없습니다.";
+  error instanceof Error
+    ? error.message
+    : "실시간 anomaly 스트림을 사용할 수 없습니다.";
 
 export const useRealtimeAnomalies = (
   enabled = true,
@@ -201,8 +198,11 @@ export const useRealtimeAnomalies = (
           setState((current) => ({
             ...current,
             status: "error",
-            error: "실시간 이벤트 인증이 만료되었거나 권한이 없습니다. 다시 로그인해 주세요.",
-            requiresLogout: true,
+            error:
+              error.status === 401
+                ? "실시간 이벤트 인증이 만료되었습니다. 다시 로그인해 주세요."
+                : "실시간 이벤트 조회 권한이 없습니다.",
+            requiresLogout: error.status === 401,
           }));
           return;
         }

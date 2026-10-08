@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import type { SidebarNavGroup } from "../../../components/layout/SidebarNav";
 import { getStored, setStored, storageKeys } from "../../../lib/storage";
 import type { RealtimeAnomalyEvent } from "../../../types/realtime";
@@ -20,7 +21,8 @@ const getSidebarGroups = (
     items: categoryOrder
       .filter(
         (category) =>
-          (categoryThemeMap[category].group === "workflow") === (groupIndex === 1),
+          (categoryThemeMap[category].group === "workflow") ===
+          (groupIndex === 1),
       )
       .map((category) => {
         const theme = categoryThemeMap[category];
@@ -40,11 +42,32 @@ export const useAnalysisWorkspace = (events: RealtimeAnomalyEvent[]) => {
   const [isWide, setIsWide] = useState<boolean>(() =>
     getStored(storageKeys.layoutWide("analysis"), false),
   );
-  const [activeCategory, setActiveCategory] = useState<AnalysisCategory>("All");
-  const [activeDetailId, setActiveDetailId] = useState<string | null>(null);
-  const [query, setQuery] = useState("");
+  const [params, setParams] = useSearchParams();
+  const category = params.get("category");
+  const activeCategory: AnalysisCategory = categoryOrder.includes(
+    category as AnalysisCategory,
+  )
+    ? (category as AnalysisCategory)
+    : "All";
+  const activeDetailId = params.get("event");
+  const query = params.get("q") ?? "";
+  const setActiveDetailId = (id: string | null) => {
+    const next = new URLSearchParams(params);
+    if (id) next.set("event", id);
+    else next.delete("event");
+    setParams(next);
+  };
+  const setQuery = (value: string) => {
+    const next = new URLSearchParams(params);
+    if (value) next.set("q", value);
+    else next.delete("q");
+    setParams(next, { replace: true });
+  };
 
-  const inboxItems = useMemo(() => adaptRealtimeAnomalyEvents(events), [events]);
+  const inboxItems = useMemo(
+    () => adaptRealtimeAnomalyEvents(events),
+    [events],
+  );
   const categoryCounts = useMemo(
     () => getRealtimeCategoryCounts(inboxItems),
     [inboxItems],
@@ -53,7 +76,10 @@ export const useAnalysisWorkspace = (events: RealtimeAnomalyEvent[]) => {
     () => filterRealtimeAnalysisItems(inboxItems, activeCategory, query),
     [activeCategory, inboxItems, query],
   );
-  const activeRealtimeEvent = getRealtimeDetailByEventId(events, activeDetailId);
+  const activeRealtimeEvent = getRealtimeDetailByEventId(
+    events,
+    activeDetailId,
+  );
   const activeTheme: CategoryTheme = activeRealtimeEvent
     ? categoryThemeMap[activeRealtimeEvent.severity]
     : categoryThemeMap[activeCategory];
@@ -68,8 +94,10 @@ export const useAnalysisWorkspace = (events: RealtimeAnomalyEvent[]) => {
   };
 
   const handleCategoryChange = (category: AnalysisCategory) => {
-    setActiveCategory(category);
-    setActiveDetailId(null);
+    const next = new URLSearchParams(params);
+    next.set("category", category);
+    next.delete("event");
+    setParams(next);
   };
 
   return {

@@ -19,7 +19,11 @@ type SidebarNavProps<TId extends string> = {
   onSelect: (id: TId) => void;
 };
 
-export const SidebarNav = <TId extends string>({ activeId, groups, onSelect }: SidebarNavProps<TId>) => (
+export const SidebarNav = <TId extends string>({
+  activeId,
+  groups,
+  onSelect,
+}: SidebarNavProps<TId>) => (
   <aside className="section-sidebar">
     {groups.map((group) => (
       <section key={group.title} className="section-sidebar__group">
@@ -29,6 +33,7 @@ export const SidebarNav = <TId extends string>({ activeId, groups, onSelect }: S
             key={item.id}
             className={`section-sidebar-button ${item.className ?? ""} ${activeId === item.id ? "section-sidebar-button--active" : ""}`}
             type="button"
+            aria-current={activeId === item.id ? "page" : undefined}
             onClick={() => onSelect(item.id)}
           >
             <span className="section-sidebar-button__icon">{item.icon}</span>

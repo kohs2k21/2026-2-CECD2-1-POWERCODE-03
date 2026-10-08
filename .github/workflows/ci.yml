@@ -1,6 +1,7 @@
 name: ci
 
 on:
+  workflow_call:
   push:
   pull_request:
     types:
@@ -88,3 +89,32 @@ jobs:
 
       - name: Run automation unit tests
         run: python -m unittest discover -s automation/tests -v
+
+  infra:
+    name: infra
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # actions/checkout v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # actions/setup-python v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Test release and deployment safety
+        run: python -m unittest discover -s server/infra/tests -p 'test_*.py' -v
+
+      - name: Check deployment installer syntax
+        run: bash -n server/infra/scripts/install-deploy.sh
+
+      - name: Build web image
+        run: docker build --platform linux/amd64 -f server/frontend/Dockerfile -t powercode-web:test server
+
+      - name: Build API image
+        run: docker build --platform linux/amd64 -f server/backend/Dockerfile -t powercode-api:test server
+
+      - name: Smoke test login, API and SSE
+        run: python server/infra/tests/smoke.py --compose-file server/infra/compose.yaml --web-image powercode-web:test --api-image powercode-api:test

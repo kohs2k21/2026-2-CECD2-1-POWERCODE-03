@@ -13,6 +13,7 @@
   "overrides": { "sharp": "0.35.5" },
   "devDependencies": {
     "@cloudflare/workers-types": "5.20261008.1",
+    "miniflare": "5.20261006.0-alpha",
     "typescript": "7.0.2",
     "wrangler": "4.148.0"
   }

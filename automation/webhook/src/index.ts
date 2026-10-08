@@ -99,7 +99,7 @@ async function enqueue(message: Message<Work>, env: Env, work: Work, delaySecond
 }
 async function github(url: string, env: Env, method: "POST" | "GET"): Promise<Response> {
   return fetch(url, {
-    method, redirect: "error", signal: AbortSignal.timeout(LIMITS.timeoutMs),
+    method, redirect: "manual", signal: AbortSignal.timeout(LIMITS.timeoutMs),
     headers: { "Authorization": `Bearer ${env.GITHUB_DISPATCH_TOKEN}`, "Accept": "application/vnd.github+json",
       "X-GitHub-Api-Version": "2026-03-10", "User-Agent": "powercode-notion-webhook", "Content-Type": "application/json" },
     ...(method === "POST" ? { body: JSON.stringify({ ref: "main" }) } : {})

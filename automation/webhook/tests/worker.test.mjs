@@ -78,7 +78,7 @@ test('fixed dispatch target and API version; run ID survives queued polling', as
   assert.equal(calls[0].url, 'https://api.github.com/repos/kohs2k21/2026-2-CECD2-1-POWERCODE-03/actions/workflows/notion-sync.yml/dispatches');
   assert.deepEqual(JSON.parse(calls[0].options.body), { ref: 'main' });
   assert.equal(calls[0].options.headers['X-GitHub-Api-Version'], '2026-03-10');
-  assert.equal(calls[0].options.redirect, 'error');
+  assert.equal(calls[0].options.redirect, 'manual');
   assert.equal(sent[0].body.runId, 123);
   assert.deepEqual(Object.keys(sent[0].body).sort(), ['acceptedAt', 'receiptId', 'runId']);
 });
@@ -91,6 +91,13 @@ test('network, rate limit and 5xx retry with bounded delay; permanent errors dea
     const { env, dead } = setup(); const msg = message(); mockFetch(json({}, status)); await consume(msg, env);
     assert.equal(msg.acked, true); assert.equal(dead.length, 1); assert.equal(msg.retries.length, 0);
   }
+});
+test('redirect response never follows another destination and dead-letters', async () => {
+  const { env, dead } = setup();
+  const calls = mockFetch(new Response(null, { status: 302, headers: { location: 'https://attacker.example/collect' } }));
+  const msg = message(); await consume(msg, env);
+  assert.equal(calls.length, 1); assert.equal(calls[0].options.redirect, 'manual');
+  assert.equal(msg.acked, true); assert.equal(dead.length, 1); assert.equal(msg.retries.length, 0);
 });
 test('server Retry-After is respected within age budget and excessive wait dead-letters', async () => {
   const { env, dead } = setup();

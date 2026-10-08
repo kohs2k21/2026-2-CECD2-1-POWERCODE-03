@@ -1,5 +1,5 @@
 Created: 2026-10-08T14:03:47+09:00
-Updated: 2026-10-08T14:04:37+09:00
+Updated: 2026-10-08T15:15:30+09:00
 Author: backend_lead, root
 Status: current
 
@@ -34,6 +34,7 @@ npm run bundle
 ```
 
 - Node22 이상, 패키지 lock 포함; 번들 `dist/worker/index.js`, dry-run만 수행
+- `npm test`: 단위 시험 및 native workerd의 dispatch·poll·리다이렉트 차단 회귀 시험; 실제 네트워크 없는 fixture 사용
 - `.dev.vars*`·`.wrangler/`·`dist/` Git 제외; 로컬 파일/환경/인증 헤더 출력 금지
 - 배포 시 Secrets 유지·Queue 바인딩·consumer·로그 invocation 비활성/query redaction 확인
 
@@ -69,6 +70,8 @@ npx wrangler deploy --var WEBHOOK_ENABLED:true
 - Free Queue10k operations/day·보존24시간, 재시도/poll도 연산 소비; DLQ 영구 보존 아님
 - 기존 schedule 유지; Runner 자원 지연·Notion action pause·장애 때문에 즉시 완료 보장 없음
 - 수신 원문·인증값 로그 없음; Queue 최소 메타와 sanitized 오류 코드만 사용
+- 오류 조회: Cloudflare Logs → Workers → Script Name `powercode-notion-webhook`; 구조 로그의 `code`·`attempt` 확인
+- GitHub fetch: `redirect: manual`, 모든 3xx 영구 오류 처리; 외부 리다이렉트에 인증 헤더 전송 금지
 
 ## 공식 계약
 

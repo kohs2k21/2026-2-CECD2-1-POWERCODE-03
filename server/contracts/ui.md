@@ -1,5 +1,5 @@
 Created: 2026-10-08T12:53:45+09:00
-Updated: 2026-10-08T13:40:32+09:00
+Updated: 2026-10-09T00:27:39+09:00
 Author: frontend_lead
 Status: current
 
@@ -9,6 +9,7 @@ Status: current
 - 공통 부품 재사용; 화면별 중복 구현·동일 색상/크기 하드코딩 복제 금지
 - 기본 부품: `frontend/src/components/ui/button.tsx`, `dialog.tsx`, `Modal.tsx`, `tooltip.tsx`, `feedback.tsx`
 - 공통 토큰: `frontend/src/lib/tokens.css`; 기존 `--ink`, `--canvas` 등의 별칭 호환 유지
+- 탐지 관리 타이포그래피: 이상 분석 기준; 사이드바 실폭 264px·메뉴 최소 높이 48px·그룹 13px/600/18px·메뉴 글자 14px/600/21px·페이지 제목 28px/600/36px, 공통 Pretendard 상속
 - 버튼: `variant="default|outline|ghost"`, `size="default|sm|icon|icon-sm"`; 기본 `type="button"`, 제출은 `type="submit"` 명시
 - URL 탐색: `Button asChild` + React Router `Link/NavLink`; URL 탭에 로컬 Tabs ARIA 적용 금지
 - 모달: `Modal`의 `isOpen/onOpenChange/title/description/size`; 확인창은 `Dialog`·`DialogContent`·`DialogTitle`·`DialogDescription` 조합. Radix 직접 import는 ui 내부만

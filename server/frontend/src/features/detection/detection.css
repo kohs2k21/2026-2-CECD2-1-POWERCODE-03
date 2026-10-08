@@ -1,31 +1,43 @@
 .detection-layout {
   display: grid;
-  grid-template-columns: 224px minmax(0, 1fr);
+  grid-template-columns: var(--section-sidebar-width) minmax(0, 1fr);
   min-height: calc(100vh - 160px);
-  gap: 24px;
+  gap: var(--space-lg);
 }
 .detection-sidebar {
   background: var(--canvas);
   border: 1px solid var(--hairline);
-  border-radius: var(--radius-lg);
-  padding: 20px 12px;
+  border-radius: var(--radius-xl);
+  padding: var(--space-lg) var(--space-md);
   align-self: start;
 }
-.detection-menu h2 {
-  font-size: 12px;
-  color: var(--mute);
-  margin: 4px 12px 12px;
+.detection-menu {
+  display: grid;
+  gap: var(--space-lg);
 }
-.detection-menu section + section {
-  margin-top: 28px;
+.detection-menu section {
+  display: grid;
+  gap: var(--section-menu-gap);
+}
+.detection-menu h2 {
+  font-size: var(--font-size-group);
+  font-weight: 600;
+  line-height: var(--line-height-group);
+  color: var(--mute);
+  margin: 0 0 var(--space-sm);
 }
 .detection-menu a {
-  display: block;
-  border-radius: var(--radius-md);
-  padding: 12px;
+  display: flex;
+  align-items: center;
+  min-height: var(--section-menu-height);
+  border: 1px solid transparent;
+  border-radius: var(--radius-lg);
+  padding: 8px 10px;
   color: var(--body);
   text-decoration: none;
-  font-size: 14px;
+  font-size: var(--font-size-menu);
+  font-weight: 600;
+  line-height: var(--line-height-menu);
 }
 .detection-menu a.active {
   background: var(--canvas-soft-2);
@@ -34,6 +46,8 @@
 }
 .detection-content {
   min-width: 0;
+  font-size: var(--font-size-body);
+  line-height: var(--line-height-body);
 }
 .detection-page {
   background: var(--canvas);
@@ -43,7 +57,11 @@
   min-height: 360px;
 }
 .detection-page h1 {
-  font-size: 22px;
+  font-size: var(--font-size-page-title);
+  font-weight: 600;
+  line-height: var(--line-height-page-title);
+  letter-spacing: var(--letter-spacing-page-title);
+  color: var(--ink);
   margin: 0 0 24px;
 }
 .create-tabs {
@@ -67,7 +85,8 @@
   padding-top: 28px;
 }
 .creation-section h2 {
-  font-size: 16px;
+  font-size: var(--font-size-section-title);
+  line-height: var(--line-height-section-title);
   margin: 0;
 }
 .detection-menu-toggle {
@@ -188,7 +207,7 @@
     display: none;
   }
   .detection-menu.is-expanded {
-    display: block;
+    display: grid;
     padding-top: 16px;
   }
   .detection-page {

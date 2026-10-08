@@ -62,4 +62,18 @@
   --space-md: 16px;
   --space-lg: 24px;
   --space-xl: 32px;
+  --section-sidebar-width: 264px;
+  --section-menu-height: 48px;
+  --section-menu-gap: 6px;
+  --font-size-group: 13px;
+  --line-height-group: 18px;
+  --font-size-menu: 14px;
+  --line-height-menu: 21px;
+  --font-size-page-title: 28px;
+  --line-height-page-title: 36px;
+  --letter-spacing-page-title: -1.1px;
+  --font-size-section-title: 15px;
+  --line-height-section-title: 22px;
+  --font-size-body: 13px;
+  --line-height-body: 19px;
 }

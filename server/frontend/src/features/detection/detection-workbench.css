@@ -23,7 +23,8 @@
 .detection-card h2,
 .detection-card h3 {
   margin: 0 0 var(--space-md);
-  font-size: 16px;
+  font-size: var(--font-size-section-title);
+  line-height: var(--line-height-section-title);
 }
 .detection-card > * + *,
 .detection-card .detection-grid > section > * + *,
@@ -125,8 +126,8 @@
 }
 .detection-note {
   color: var(--body);
-  font-size: 13px;
-  line-height: 1.6;
+  font-size: var(--font-size-body);
+  line-height: var(--line-height-body);
   overflow-wrap: anywhere;
 }
 .detection-error {

@@ -79,7 +79,7 @@ const router = createMemoryRouter(
       element: React.createElement("p", null, "operations"),
     },
   ],
-  { initialEntries: ["/detection/create?tab=data-features"] },
+  { initialEntries: ["/detection/create?tab=invalid&filter=retained"] },
 );
 let renderer;
 await act(async () => {
@@ -120,6 +120,18 @@ const bySelect = (label) =>
     .find((node) => node.children[0] === label)
     ?.findByType("select");
 const nameInput = byLabel("구성 이름");
+assert.equal(
+  router.state.location.search,
+  "?tab=data-features&filter=retained",
+);
+await act(async () =>
+  router.navigate("/detection/create?tab=rules&filter=retained"),
+);
+await act(async () => router.navigate(-1));
+assert.equal(
+  router.state.location.search,
+  "?tab=data-features&filter=retained",
+);
 assert.ok(nameInput);
 await act(async () =>
   nameInput.props.onChange({ target: { value: "실제 초안 이름" } }),

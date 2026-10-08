@@ -4,7 +4,6 @@ import { act, create } from "react-test-renderer";
 import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import { useDraftNavigationGuard } from "../src/components/layout/NavigationGuard.tsx";
 import { useDraftStore } from "../src/stores/draftStore.ts";
-import { CreatePage } from "../src/features/detection/DetectionPages.tsx";
 import { DetectionLayout } from "../src/features/detection/DetectionLayout.tsx";
 
 globalThis.React = React;
@@ -17,7 +16,7 @@ globalThis.window = {
 let guard;
 const Editor = () => {
   guard = useDraftNavigationGuard();
-  return React.createElement(CreatePage);
+  return React.createElement("p", null, "guard probe");
 };
 const router = createMemoryRouter(
   [
@@ -68,30 +67,7 @@ assert.equal(listeners.has("beforeunload"), false);
 await act(async () => renderer.unmount());
 router.dispose();
 
-// Invalid tab canonicalizes without losing other URL filters; history restores the previous tab.
-const tabsRouter = createMemoryRouter(
-  [{ path: "/detection/create", element: React.createElement(CreatePage) }],
-  { initialEntries: ["/detection/create?tab=invalid&filter=retained"] },
-);
-await act(async () => {
-  renderer = create(
-    React.createElement(RouterProvider, { router: tabsRouter }),
-  );
-});
-assert.equal(
-  tabsRouter.state.location.search,
-  "?tab=data-features&filter=retained",
-);
-await act(async () =>
-  tabsRouter.navigate("/detection/create?tab=rules&filter=retained"),
-);
-await act(async () => tabsRouter.navigate(-1));
-assert.equal(
-  tabsRouter.state.location.search,
-  "?tab=data-features&filter=retained",
-);
-await act(async () => renderer.unmount());
-tabsRouter.dispose();
+// Create tab canonicalization/history is exercised with real auth/query/editor providers in detection-create.mjs.
 // Inline mobile menu: Escape closes it and returns keyboard focus to the toggle.
 const menuRouter = createMemoryRouter(
   [
@@ -160,5 +136,5 @@ assert.equal(
 await act(async () => renderer.unmount());
 menuRouter.dispose();
 console.log(
-  "draft/navigation QA passed: internal tabs preserve draft, cancel/discard leave, beforeunload registration/cleanup, invalid tab and browser history",
+  "draft/navigation QA passed: internal query navigation preserves draft, cancel/discard leave, beforeunload registration/cleanup and mobile keyboard focus",
 );

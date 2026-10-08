@@ -98,7 +98,7 @@ const gateway = {
     throw new Error("unavailable");
   },
 };
-const mount = async (url) => {
+const mount = async (url, adapter = gateway, waitReady = true) => {
   storage.clear();
   useDraftStore.getState().reset();
   const cache = new QueryClient({
@@ -133,7 +133,7 @@ const mount = async (url) => {
           React.createElement(Probe),
           React.createElement(
             DetectionGatewayProvider,
-            { gateway },
+            { gateway: adapter },
             React.createElement(RouterProvider, { router }),
           ),
         ),
@@ -153,12 +153,12 @@ const mount = async (url) => {
   );
   for (
     let i = 0;
-    i < 20 && text(renderer.toJSON()).includes("불러오는 중");
+    waitReady && i < 20 && text(renderer.toJSON()).includes("불러오는 중");
     i++
   ) {
     await act(async () => new Promise((resolve) => setTimeout(resolve, 8)));
   }
-  assert.ok(!text(renderer.toJSON()).includes("불러오는 중"));
+  if (waitReady) assert.ok(!text(renderer.toJSON()).includes("불러오는 중"));
   return {
     renderer,
     router,
@@ -314,6 +314,19 @@ assert.equal(
 );
 failRead = false;
 await act(async () =>
+  view.renderer.root
+    .findAllByType("button")
+    .find((node) => text(node) === "다시 시도")
+    .props.onClick(),
+);
+await act(async () => new Promise((resolve) => setTimeout(resolve, 12)));
+assert.ok(!text(view.renderer.toJSON()).includes("상태 조회 실패"));
+assert.equal(
+  labeledControl(view.renderer, "평가 프로토콜").props.value,
+  "edited-protocol",
+  "retry keeps actual editor dirty state",
+);
+await act(async () =>
   view.router.navigate(
     "/detection/evaluation?candidate=missing&result=missing",
   ),
@@ -348,6 +361,79 @@ assert.equal(
   true,
 );
 assert.equal(requests, 0);
+const updateReviewedContent = async (change) =>
+  act(async () => {
+    view.cache.setQueryData(["detection-workbench", "admin"], (previous) =>
+      change(structuredClone(previous)),
+    );
+    await new Promise((resolve) => setTimeout(resolve, 12));
+  });
+for (const changedId of [
+  "candidate-delay",
+  "version-current",
+  "version-previous",
+]) {
+  await act(async () =>
+    labeledControl(view.renderer, "관리자로서").props.onChange({
+      target: { checked: true },
+    }),
+  );
+  await act(async () =>
+    labeledControl(view.renderer, "롤백 대상의").props.onChange({
+      target: { checked: true },
+    }),
+  );
+  for (const action of view.renderer.root.findAllByType(ServiceAction))
+    await act(async () => action.findByType("button").props.onClick());
+  await updateReviewedContent((data) => {
+    data.versions = data.versions.map((version) =>
+      version.id === changedId
+        ? { ...version, featureVersion: `${version.featureVersion}-updated` }
+        : version,
+    );
+    return data;
+  });
+  if (changedId !== "version-previous") {
+    assert.equal(
+      labeledControl(view.renderer, "관리자로서").props.checked,
+      false,
+    );
+    assert.equal(
+      view.renderer.root
+        .findAllByType(ServiceAction)
+        .find((node) => node.props.operation === "apply")
+        .findByType(Modal).props.isOpen,
+      false,
+    );
+  }
+  if (changedId !== "candidate-delay") {
+    assert.equal(
+      labeledControl(view.renderer, "롤백 대상의").props.checked,
+      false,
+    );
+    assert.equal(
+      view.renderer.root
+        .findAllByType(ServiceAction)
+        .find((node) => node.props.operation === "rollback")
+        .findByType(Modal).props.isOpen,
+      false,
+    );
+  }
+}
+await act(async () =>
+  labeledControl(view.renderer, "관리자로서").props.onChange({
+    target: { checked: true },
+  }),
+);
+await updateReviewedContent((data) => {
+  data.evaluations[0].condition.protocolId = "new-evidence";
+  return data;
+});
+assert.equal(
+  labeledControl(view.renderer, "관리자로서").props.checked,
+  false,
+  "same ID evaluation evidence changes require renewed approval",
+);
 await act(async () =>
   view.router.navigate(
     "/detection/versions?candidate=candidate-other&retained=yes",
@@ -421,4 +507,55 @@ assert.match(text(view.renderer.toJSON()), /유효한 날짜/);
 assert.match(text(view.renderer.toJSON()), /선택한 항목을 찾을 수 없습니다/);
 assert.equal(requests, 0);
 await view.close();
-console.log("detection operation pages tests passed");
+let releaseRead;
+view = await mount(
+  "/detection/versions",
+  {
+    ...gateway,
+    read: () =>
+      new Promise((resolve) => {
+        releaseRead = resolve;
+      }),
+  },
+  false,
+);
+assert.match(text(view.renderer.toJSON()), /불러오는 중/);
+assert.ok(!text(view.renderer.toJSON()).includes("운영 구성 변경 확인"));
+await act(async () => releaseRead(structuredClone(fixture)));
+await act(async () => new Promise((resolve) => setTimeout(resolve, 12)));
+assert.ok(!text(view.renderer.toJSON()).includes("불러오는 중"));
+await view.close();
+failRead = true;
+view = await mount("/detection/versions");
+assert.match(text(view.renderer.toJSON()), /상태 조회 실패/);
+assert.ok(!text(view.renderer.toJSON()).includes("현재 운영 구성"));
+failRead = false;
+await act(async () =>
+  view.renderer.root
+    .findAllByType("button")
+    .find((node) => text(node) === "다시 시도")
+    .props.onClick(),
+);
+await act(async () => new Promise((resolve) => setTimeout(resolve, 12)));
+assert.ok(!text(view.renderer.toJSON()).includes("상태 조회 실패"));
+await view.close();
+view = await mount("/detection/versions", {
+  ...gateway,
+  read: async () => ({
+    ...structuredClone(fixture),
+    versions: [],
+    activeVersionId: null,
+    applications: [],
+  }),
+});
+assert.match(
+  text(view.renderer.toJSON()),
+  /현재 운영 버전이 확인되지 않았습니다/,
+);
+assert.match(text(view.renderer.toJSON()), /적용 후보가 없습니다/);
+assert.match(text(view.renderer.toJSON()), /적용·롤백 이력이 없습니다/);
+assert.equal(requests, 0);
+await view.close();
+console.log(
+  "detection operation pages tests passed: workflow, pending, fresh error/retry, stale error/retry preserving editor, empty data and zero writes",
+);

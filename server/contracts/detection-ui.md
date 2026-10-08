@@ -1,5 +1,5 @@
 Created: 2026-10-08T14:00:47+09:00
-Updated: 2026-10-08T14:00:47+09:00
+Updated: 2026-10-08T14:23:56+09:00
 Author: frontend_lead
 Status: current
 
@@ -23,3 +23,22 @@ Status: current
 - 외부 작업 제안(현재 미구현): 초안 저장/snapshot/학습/평가/적용/복원/룰 추천 각각 관리자 POST API → ActionReceipt
 - 요청 공통: snapshot/version/feature 정의·fit/평가 조건 명시; 적용/복원 expectedActiveVersionId로 경쟁 검사, 승인 요청과 active 상태 별개
 - 실제 미연결: detection 조회 API·영속 초안·snapshot 생성·피처 서버 preview/fit·학습/평가 worker·추천 sLLM·적용/복원·수집/용량 관측. 기존 Express auth 및 이상 SSE만 별도 실제 연결
+
+## 화면·편집 계약
+
+| 화면 | 목록·상세·입력 | URL 선택·필터 |
+|---|---|---|
+| 만들기: 데이터·피처 | 고정 데이터셋/기간, T/P 원천·파생 목록, 정의 상세, 허용 연산/결측/시간/단위 입력·검증 미리보기 | tab, kind, featureQ, feature |
+| 만들기: 모델 학습 | 모델별 피처/설정, 학습 요청 확인, 작업 상태·실패 사유 상세 | tab, jobState, jobQ, job |
+| 만들기: 룰 설정 | 룰 생성·편집·기본값 복원, 추천 상세·선택/제외 | tab, ruleQ, rule, recommendation |
+| 평가 | 후보·공통 snapshot/규약/분할 조건, 비교·결과 상세 | candidate, q, state, result |
+| 운영 버전 | 현행/선택 후보 구성 차이·준비 조건, 관리자 승인·적용/복원 확인, 이력 상세 | candidate, rollback, history |
+| 수집 | T/P/M/B 상태, 기간·원천·속성 조회, 저장소·지연 관측, 수집 이력 상세 | from, to, source, field, q, history |
+
+- 기존 파생변수 편집: 원래 수식을 지원하는 연산만 정확한 기본 입력으로 편집. 복합/미확인/fit 수식은 정의 상세 보존; 새 파생변수 빌더와 구분
+- 검증 미리보기: 사용자가 입력한 값의 계산 결과; 원천 실측·fit 결과 아님. 양측 의존성의 fit/미확인 상태 검사, 시간 offset·음수·분모 0·NULL 검증
+- 학습: 기본 전체 선택과 유효성 별개. 기존 ID의 편집 정의도 이름·허용 연산·입력 타입·fit 조건 검사; 잘못된 입력은 요청 차단
+- 추천 룰: 초안 선택 시 활성화, 제외 시 비활성화. 재선택은 수동 변경 내용 보존. 운영 버전에는 영향 없음
+- 조회 갱신: 실패 시 이전 내용·오류 함께 표시, 초안 유지. 서버 정상 판정·서비스 성공으로 대체 금지
+- 확인창: 변경 대상/현재 버전/평가 근거 표시, ID가 같아도 구성·연결 평가·Rule·모델·snapshot 내용 변경 시 승인/확인창 초기화. 미연결 capability=false는 실행 버튼 비활성
+- 시험 어댑터: pending/empty/failed/retry/stale 경로·잘못된 입력·초안 이탈·미연결 요청 0회 검증. 제품 화면에 시험 제어 입력 없음

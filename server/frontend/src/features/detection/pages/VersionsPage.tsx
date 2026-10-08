@@ -45,11 +45,20 @@ const VersionsWorkbench = ({ data }: { data: DetectionData }) => {
   const history = data.applications.find((item) => item.id === historyId);
   const [applyApproved, setApplyApproved] = useState(false);
   const [rollbackApproved, setRollbackApproved] = useState(false);
-  useEffect(() => setApplyApproved(false), [candidateId, data.activeVersionId]);
-  useEffect(
-    () => setRollbackApproved(false),
-    [rollbackId, data.activeVersionId],
-  );
+  // Approval belongs to the reviewed content and evidence, not only its ID.
+  const reviewSignature = (target: typeof candidate) =>
+    JSON.stringify({
+      active,
+      target,
+      evaluations: data.evaluations,
+      rules: data.rules,
+      models: data.models,
+      snapshots: data.snapshots,
+    });
+  const applySignature = reviewSignature(candidate);
+  const rollbackSignature = reviewSignature(rollback);
+  useEffect(() => setApplyApproved(false), [applySignature]);
+  useEffect(() => setRollbackApproved(false), [rollbackSignature]);
   const reasons = candidate ? versionReadiness(candidate, data) : [];
   const rollbackReasons = rollback ? versionReadiness(rollback, data) : [];
 
@@ -139,7 +148,7 @@ const VersionsWorkbench = ({ data }: { data: DetectionData }) => {
             </label>
             <div className="detection-actions">
               <ServiceAction
-                key={`apply:${candidate.id}:${data.activeVersionId}`}
+                key={`apply:${applySignature}`}
                 operation="apply"
                 label="운영 적용"
                 available={data.capabilities.apply}
@@ -218,7 +227,7 @@ const VersionsWorkbench = ({ data }: { data: DetectionData }) => {
             </label>
             <div className="detection-actions">
               <ServiceAction
-                key={`rollback:${rollback.id}:${data.activeVersionId}`}
+                key={`rollback:${rollbackSignature}`}
                 operation="rollback"
                 label="롤백"
                 available={data.capabilities.rollback}

@@ -17,11 +17,6 @@ import { DataFeaturesTab } from "./pages/DataFeaturesTab";
 import { TrainingTab } from "./pages/TrainingTab";
 import { RulesTab } from "./pages/RulesTab";
 
-export const DetectionPage = ({ title }: { title: string }) => (
-  <section className="detection-page">
-    <h1>{title}</h1>
-  </section>
-);
 export const CreatePage = () => {
   const query = useDetectionQuery();
   const { draft, dirty, update, reset } = useCreateDraft();

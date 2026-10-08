@@ -15,6 +15,7 @@ import { WidgetDragPreview } from "./components/WidgetDragPreview";
 import { useWidgetCatalog, useWidgets } from "../../hooks/useWidgets";
 import { useHomeWidgetLayout } from "./hooks/useHomeWidgetLayout";
 import { widgetGridColumns } from "./utils/widgetLayout";
+import { Button } from "../../components/ui/button";
 
 type HomeMockProps = {
   role: UserRole;
@@ -76,7 +77,9 @@ export const HomeMock = ({ role, onSelectView }: HomeMockProps) => {
           <span className="system-status-sync">
             최근 동기화: {syncTime === 0 ? "방금 전" : `${syncTime}분 전`}
           </span>
-          <button
+          <Button
+            variant="ghost"
+            size="icon-sm"
             type="button"
             className={`system-status-sync-btn ${
               isRefreshing ? "system-status-sync-btn--refreshing" : ""
@@ -86,20 +89,22 @@ export const HomeMock = ({ role, onSelectView }: HomeMockProps) => {
             aria-label="데이터 새로고침"
           >
             <IconRefresh size={14} aria-hidden="true" />
-          </button>
+          </Button>
         </div>
         <div className="home-toolbar__actions">
           {isEditing && (
-            <button
+            <Button
+              variant="outline"
               className="home-add-button"
               type="button"
               onClick={() => setIsCatalogOpen(true)}
             >
               <IconLayoutGridAdd size={16} aria-hidden="true" />
               위젯 추가
-            </button>
+            </Button>
           )}
-          <button
+          <Button
+            variant="outline"
             className="home-edit-button"
             type="button"
             onClick={handleEditToggle}
@@ -110,7 +115,7 @@ export const HomeMock = ({ role, onSelectView }: HomeMockProps) => {
               <IconPencil size={16} aria-hidden="true" />
             )}
             {isEditing ? "완료" : "편집"}
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -182,7 +187,7 @@ export const HomeMock = ({ role, onSelectView }: HomeMockProps) => {
             top: ghost.y,
             width: ghost.width,
             height: ghost.height,
-            zIndex: 9999,
+            zIndex: "var(--z-popover)",
             pointerEvents: "none",
           }}
         >

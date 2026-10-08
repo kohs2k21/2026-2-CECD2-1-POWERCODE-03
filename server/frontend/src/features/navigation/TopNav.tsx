@@ -1,21 +1,22 @@
 import { IconBell, IconSettings } from "@tabler/icons-react";
 import type { NavItem, UserRole, ViewId } from "../../types/app";
 import inzentLogo from "./inzent_logo.svg";
+import { Link } from "react-router-dom";
+import { Button } from "../../components/ui/button";
+import { viewPaths } from "../../app/routePaths";
 type TopNavProps = {
   activeView: ViewId;
   navItems: NavItem[];
   role: UserRole;
   onLogout: () => void;
-  onSelectView: (viewId: ViewId) => void;
-  onOpenSettings: () => void;
+  settingsPath: string;
 };
 export const TopNav = ({
   activeView,
   navItems,
   role,
   onLogout,
-  onSelectView,
-  onOpenSettings,
+  settingsPath,
 }: TopNavProps) => (
   <header className="top-nav">
     <a className="skip-link" href="#workspace-content">
@@ -30,40 +31,49 @@ export const TopNav = ({
     </div>
     <nav className="tab-list" aria-label="주요 화면">
       {navItems.map(({ id, label, Icon }) => (
-        <button
+        <Button
+          asChild
+          variant="ghost"
           key={id}
-          type="button"
           className={
             activeView === id ? "tab-item tab-item--active" : "tab-item"
           }
-          aria-current={activeView === id ? "page" : undefined}
-          onClick={() => onSelectView(id)}
         >
-          <Icon size={16} aria-hidden="true" />
-          {label}
-        </button>
+          <Link
+            to={viewPaths[id]}
+            aria-current={activeView === id ? "page" : undefined}
+          >
+            <Icon size={16} aria-hidden="true" />
+            {label}
+          </Link>
+        </Button>
       ))}
     </nav>
     <div className="top-nav-actions">
-      <button type="button" className="ghost-button" onClick={onLogout}>
+      <Button variant="outline" onClick={onLogout}>
         로그아웃
-      </button>
+      </Button>
       <span className="top-nav-icon-btn notification-icon" aria-label="알림">
         <IconBell size={20} aria-hidden="true" />
       </span>
-      <button
-        type="button"
+      <Button
+        asChild
+        variant="ghost"
+        size="icon"
         className={
           activeView === "settings"
-            ? "ghost-button settings-button is-active"
-            : "ghost-button settings-button"
+            ? "settings-button is-active"
+            : "settings-button"
         }
-        aria-label="설정"
-        aria-current={activeView === "settings" ? "page" : undefined}
-        onClick={onOpenSettings}
       >
-        <IconSettings size={20} aria-hidden="true" />
-      </button>
+        <Link
+          to={settingsPath}
+          aria-label="설정"
+          aria-current={activeView === "settings" ? "page" : undefined}
+        >
+          <IconSettings size={20} aria-hidden="true" />
+        </Link>
+      </Button>
     </div>
   </header>
 );

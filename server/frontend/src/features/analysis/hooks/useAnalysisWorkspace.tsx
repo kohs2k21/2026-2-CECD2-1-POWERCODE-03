@@ -84,8 +84,17 @@ export const useAnalysisWorkspace = (events: RealtimeAnomalyEvent[]) => {
     ? categoryThemeMap[activeRealtimeEvent.severity]
     : categoryThemeMap[activeCategory];
   const sidebarGroups = useMemo(
-    () => getSidebarGroups(categoryCounts),
-    [categoryCounts],
+    () =>
+      getSidebarGroups(categoryCounts).map((group) => ({
+        ...group,
+        items: group.items.map((item) => {
+          const next = new URLSearchParams(params);
+          next.set("category", item.id);
+          next.delete("event");
+          return { ...item, href: "/analysis?" + next.toString() };
+        }),
+      })),
+    [categoryCounts, params],
   );
 
   const handleToggleWide = (value: boolean) => {

@@ -7,7 +7,7 @@
 .detection-sidebar {
   background: var(--canvas);
   border: 1px solid var(--hairline);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   padding: 20px 12px;
   align-self: start;
 }
@@ -21,7 +21,7 @@
 }
 .detection-menu a {
   display: block;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   padding: 12px;
   color: var(--body);
   text-decoration: none;
@@ -38,7 +38,7 @@
 .detection-page {
   background: var(--canvas);
   border: 1px solid var(--hairline);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   padding: 28px;
   min-height: 360px;
 }
@@ -190,7 +190,7 @@ a:focus-visible {
   .top-nav-actions {
     gap: 0;
   }
-  .top-nav-actions .ghost-button {
+  .top-nav-actions .ui-button {
     font-size: 12px;
   }
   .tab-list {

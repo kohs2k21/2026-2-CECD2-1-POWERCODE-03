@@ -28,6 +28,7 @@ export const CreatePage = () => {
           next.set("tab", tab.id);
           return (
             <Link
+              className="ui-nav-link"
               key={tab.id}
               to={{ search: "?" + next.toString() }}
               aria-current={activeTab.id === tab.id ? "page" : undefined}

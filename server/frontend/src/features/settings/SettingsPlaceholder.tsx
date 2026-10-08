@@ -52,10 +52,15 @@ export const SettingsPlaceholder = ({
           label: section.label,
           icon: section.icon,
           className: section.className,
+          href: (() => {
+            const next = new URLSearchParams(params);
+            next.set("section", section.id);
+            return "/settings?" + next.toString();
+          })(),
         })),
       },
     ],
-    [],
+    [params],
   );
 
   return (

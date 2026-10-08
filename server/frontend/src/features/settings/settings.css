@@ -3,7 +3,9 @@
   grid-template-columns: 280px minmax(0, 1fr);
   gap: 0;
   align-items: stretch;
-  height: calc(100vh - 89px); /* 탑 네비게이션 바(89px)를 차감한 전체 고정 높이 */
+  height: calc(
+    100vh - 89px
+  ); /* 탑 네비게이션 바(89px)를 차감한 전체 고정 높이 */
   margin: calc(var(--space-lg) * -1);
   background: var(--canvas-soft);
   overflow: hidden; /* 페이지 전체 스크롤을 막고 내부 스크롤 처리 */
@@ -38,6 +40,46 @@
   justify-content: space-between;
   gap: var(--space-lg);
   margin-bottom: 8px;
+}
+.settings-header__actions {
+  display: flex;
+  gap: var(--space-xs);
+  align-items: center;
+}
+.settings-integration__body {
+  padding: var(--space-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+.settings-integration__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-sm);
+}
+.settings-integration__identity {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+.settings-integration__icon {
+  display: grid;
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-md);
+  place-items: center;
+}
+.settings-integration__title {
+  font-size: 13px;
+  color: var(--ink);
+  display: block;
+}
+.settings-integration__description {
+  margin: 2px 0 0;
+  color: var(--body);
+  font-size: 12px;
 }
 
 .settings-header h2 {

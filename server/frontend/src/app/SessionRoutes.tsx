@@ -3,13 +3,15 @@ import { AuthPage } from "../features/auth/AuthPage";
 import { useAuthSession } from "../services/auth/AuthSessionProvider";
 import { HttpError } from "../services/api/client";
 import { loginReturnPath } from "./routePaths";
+import { Button } from "../components/ui/button";
+import { LoadingState } from "../components/ui/feedback";
 export const SessionGate = () => {
   const session = useAuthSession();
   const location = useLocation();
   if (session.checking)
     return (
       <main className="auth-loading" aria-live="polite">
-        <p>로그인 상태를 확인하는 중...</p>
+        <LoadingState>로그인 상태를 확인하는 중...</LoadingState>
       </main>
     );
   if (!session.hasToken)
@@ -32,12 +34,12 @@ export const SessionGate = () => {
             ? "접근 권한을 확인할 수 없습니다"
             : "로그인 상태를 확인하지 못했습니다"}
         </h1>
-        <button type="button" onClick={session.retry}>
+        <Button variant="outline" onClick={session.retry}>
           다시 확인
-        </button>
-        <button type="button" onClick={session.logout}>
+        </Button>
+        <Button variant="ghost" onClick={session.logout}>
           로그아웃
-        </button>
+        </Button>
       </main>
     );
   return <Outlet />;
@@ -59,7 +61,7 @@ export const LoginRoute = () => {
   if (session.checking)
     return (
       <main className="auth-loading" aria-live="polite">
-        <p>로그인 상태를 확인하는 중...</p>
+        <LoadingState>로그인 상태를 확인하는 중...</LoadingState>
       </main>
     );
   if (session.user)

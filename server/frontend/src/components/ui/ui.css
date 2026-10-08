@@ -253,6 +253,26 @@ select:focus-visible {
   color: var(--body);
   justify-content: center;
   text-align: center;
+  flex-direction: column;
+}
+.ui-nav-link {
+  text-decoration: none;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
+}
+.ui-nav-link:hover {
+  background: var(--canvas-soft-2);
+}
+.ui-tooltip {
+  z-index: var(--z-tooltip);
+  padding: 6px 10px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-sm);
+  background: var(--canvas);
+  color: var(--ink);
+  font-size: 12px;
+  box-shadow: var(--shadow-toast);
 }
 .ui-feedback-description {
   margin-top: 6px;
@@ -276,6 +296,7 @@ select:focus-visible {
 }
 @media (prefers-reduced-motion: reduce) {
   .ui-button,
+  .ui-nav-link,
   .ui-dialog-overlay,
   .ui-dialog-content,
   .dialog-overlay,

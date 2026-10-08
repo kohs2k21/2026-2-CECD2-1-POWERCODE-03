@@ -1,4 +1,6 @@
 import type { ReactNode } from "react";
+import { Link } from "react-router-dom";
+import { Button } from "../ui/button";
 
 export type SidebarNavItem<TId extends string> = {
   id: TId;
@@ -6,6 +8,7 @@ export type SidebarNavItem<TId extends string> = {
   count?: number;
   icon: ReactNode;
   className?: string;
+  href?: string;
 };
 
 export type SidebarNavGroup<TId extends string> = {
@@ -29,17 +32,37 @@ export const SidebarNav = <TId extends string>({
       <section key={group.title} className="section-sidebar__group">
         <h2>{group.title}</h2>
         {group.items.map((item) => (
-          <button
+          <Button
+            variant="ghost"
+            asChild={Boolean(item.href)}
             key={item.id}
             className={`section-sidebar-button ${item.className ?? ""} ${activeId === item.id ? "section-sidebar-button--active" : ""}`}
             type="button"
             aria-current={activeId === item.id ? "page" : undefined}
-            onClick={() => onSelect(item.id)}
+            onClick={item.href ? undefined : () => onSelect(item.id)}
           >
-            <span className="section-sidebar-button__icon">{item.icon}</span>
-            <span>{item.label}</span>
-            {typeof item.count === "number" && <strong>{item.count}</strong>}
-          </button>
+            {item.href ? (
+              <Link to={item.href}>
+                <span className="section-sidebar-button__icon">
+                  {item.icon}
+                </span>
+                <span>{item.label}</span>
+                {typeof item.count === "number" && (
+                  <strong>{item.count}</strong>
+                )}
+              </Link>
+            ) : (
+              <>
+                <span className="section-sidebar-button__icon">
+                  {item.icon}
+                </span>
+                <span>{item.label}</span>
+                {typeof item.count === "number" && (
+                  <strong>{item.count}</strong>
+                )}
+              </>
+            )}
+          </Button>
         ))}
       </section>
     ))}

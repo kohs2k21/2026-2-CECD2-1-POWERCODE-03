@@ -7,6 +7,11 @@ import {
 } from "@tabler/icons-react";
 import { AnimatedPanel } from "../../../components/layout/AnimatedPanel";
 import { Button } from "../../../components/ui/button";
+import {
+  EmptyState,
+  ErrorState,
+  LoadingState,
+} from "../../../components/ui/feedback";
 import type { RealtimeStreamStatus } from "../hooks/useRealtimeAnomalies";
 import type { AnalysisInboxItem } from "../utils/realtimeAdapter";
 import { CustomPageSizeSelect, CustomSortSelect } from "./AnalysisSelects";
@@ -76,7 +81,9 @@ export const AnalysisInboxView = ({
   } = useAnalysisInbox(activeCategory, details);
 
   return (
-    <AnimatedPanel className={`analysis-inbox ${isWide ? "analysis-inbox--wide" : ""}`}>
+    <AnimatedPanel
+      className={`analysis-inbox ${isWide ? "analysis-inbox--wide" : ""}`}
+    >
       <header className="analysis-inbox__header">
         <div>
           <h2>
@@ -93,7 +100,11 @@ export const AnalysisInboxView = ({
             onClick={() => onToggleWide(!isWide)}
             aria-label={isWide ? "콤팩트 화면으로 보기" : "넓은 화면으로 보기"}
           >
-            {isWide ? <IconArrowsMinimize size={16} /> : <IconArrowsMaximize size={16} />}
+            {isWide ? (
+              <IconArrowsMinimize size={16} />
+            ) : (
+              <IconArrowsMaximize size={16} />
+            )}
           </Button>
         </div>
       </header>
@@ -114,7 +125,10 @@ export const AnalysisInboxView = ({
           />
           <div className="analysis-sort-group">
             <span className="analysis-sort-label">정렬</span>
-            <CustomSortSelect value={sortMode} onChange={handleSortModeChange} />
+            <CustomSortSelect
+              value={sortMode}
+              onChange={handleSortModeChange}
+            />
           </div>
         </div>
       </div>
@@ -127,7 +141,8 @@ export const AnalysisInboxView = ({
         >
           {statusLabels[streamStatus]}
         </span>
-        {!requiresLogout && (streamStatus === "closed" || streamStatus === "error") ? (
+        {!requiresLogout &&
+        (streamStatus === "closed" || streamStatus === "error") ? (
           <Button variant="ghost" size="sm" onClick={onRetry}>
             다시 연결
           </Button>
@@ -139,9 +154,13 @@ export const AnalysisInboxView = ({
         ) : null}
       </div>
       {streamError ? (
-        <p className="realtime-anomaly-panel__message" role="status">
-          {streamError}
-        </p>
+        streamStatus === "error" || streamStatus === "closed" ? (
+          <ErrorState title={streamError} />
+        ) : (
+          <p className="realtime-anomaly-panel__message" role="status">
+            {streamError}
+          </p>
+        )
       ) : null}
       {invalidCount > 0 ? (
         <p className="realtime-anomaly-panel__message" role="status">
@@ -149,7 +168,10 @@ export const AnalysisInboxView = ({
         </p>
       ) : null}
 
-      <section className="analysis-inbox-list" aria-label="실시간 이상 로그 목록">
+      <section
+        className="analysis-inbox-list"
+        aria-label="실시간 이상 로그 목록"
+      >
         {paginatedDetails.length > 0 ? (
           paginatedDetails.map((detail) => (
             <AnalysisInboxRow
@@ -158,24 +180,34 @@ export const AnalysisInboxView = ({
               onOpen={() => onOpenDetail(detail.log.logId)}
             />
           ))
+        ) : eventCount === 0 &&
+          (streamStatus === "connecting" || streamStatus === "retrying") &&
+          activeCategory !== "Open" &&
+          activeCategory !== "Resolved" ? (
+          <LoadingState>
+            {streamStatus === "retrying"
+              ? "실시간 연결을 다시 기다리는 중..."
+              : "실시간 이상 이벤트에 연결하는 중..."}
+          </LoadingState>
         ) : (
-          <div className="analysis-empty-text">
+          <EmptyState className="analysis-empty-text">
             {activeCategory === "Open" || activeCategory === "Resolved" ? (
               <p>
-                백엔드 이벤트에는 원천 상태만 있어 업무 보류·완료 분류를 지원하지 않습니다.
+                백엔드 이벤트에는 원천 상태만 있어 업무 보류·완료 분류를
+                지원하지 않습니다.
               </p>
             ) : eventCount === 0 ? (
               <>
                 <p>현재 세션에서 수신한 실시간 이상 이벤트가 없습니다.</p>
                 <p>
-                  목록은 현재 세션에서 받은 최근 50건만 보관합니다. 새로고침하면 초기화되며
-                  과거 이벤트는 조회할 수 없습니다.
+                  목록은 현재 세션에서 받은 최근 50건만 보관합니다. 새로고침하면
+                  초기화되며 과거 이벤트는 조회할 수 없습니다.
                 </p>
               </>
             ) : (
               <p>검색 또는 분류 조건에 맞는 실시간 이상 로그가 없습니다.</p>
             )}
-          </div>
+          </EmptyState>
         )}
       </section>
       <footer className="analysis-inbox-footer">
@@ -189,6 +221,7 @@ export const AnalysisInboxView = ({
             variant="ghost"
             size="icon"
             disabled={safePage <= 1}
+            aria-label="이전 페이지"
             onClick={goToPreviousPage}
           >
             <IconChevronLeft size={16} aria-hidden="true" />
@@ -211,13 +244,17 @@ export const AnalysisInboxView = ({
             variant="ghost"
             size="icon"
             disabled={safePage >= totalPages}
+            aria-label="다음 페이지"
             onClick={goToNextPage}
           >
             <IconChevronRight size={16} aria-hidden="true" />
           </Button>
         </div>
         <div className="analysis-inbox-footer__right">
-          <CustomPageSizeSelect value={pageSize} onChange={handlePageSizeChange} />
+          <CustomPageSizeSelect
+            value={pageSize}
+            onChange={handlePageSizeChange}
+          />
         </div>
       </footer>
     </AnimatedPanel>

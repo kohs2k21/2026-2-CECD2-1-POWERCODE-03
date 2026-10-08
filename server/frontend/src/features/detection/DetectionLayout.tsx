@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import { detectionPages } from "../../app/routePaths";
+import { Button } from "../../components/ui/button";
 
 export const DetectionLayout = () => {
   const [expanded, setExpanded] = useState(false);
@@ -18,7 +19,8 @@ export const DetectionLayout = () => {
           }
         }}
       >
-        <button
+        <Button
+          variant="ghost"
           ref={toggleRef}
           className="detection-menu-toggle"
           type="button"
@@ -27,7 +29,7 @@ export const DetectionLayout = () => {
           onClick={() => setExpanded((value) => !value)}
         >
           탐지 관리 메뉴
-        </button>
+        </Button>
         <nav
           id="detection-menu"
           className={expanded ? "detection-menu is-expanded" : "detection-menu"}
@@ -39,6 +41,7 @@ export const DetectionLayout = () => {
                 .filter((page) => page.group === group)
                 .map((page) => (
                   <NavLink
+                    className="ui-nav-link"
                     key={page.path}
                     to={
                       page.path === "/detection/create"

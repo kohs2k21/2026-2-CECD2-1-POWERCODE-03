@@ -34,5 +34,5 @@
 **/*.log
 **/node_modules
 **/dist
-**/data
+backend/data/
 **/coverage

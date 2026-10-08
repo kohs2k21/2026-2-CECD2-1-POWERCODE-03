@@ -106,7 +106,7 @@ const VersionsWorkbench = ({ data }: { data: DetectionData }) => {
         {!candidate ? (
           <DetailMissing />
         ) : (
-          <>
+          <section className="detection-section">
             <h3>{candidate.name}</h3>
             <BundleDiff active={active} candidate={candidate} data={data} />
             <div className="detection-grid">
@@ -187,7 +187,7 @@ const VersionsWorkbench = ({ data }: { data: DetectionData }) => {
                 </p>
               </ServiceAction>
             </div>
-          </>
+          </section>
         )}
       </section>
       <section className="detection-card" aria-labelledby="rollback-title">

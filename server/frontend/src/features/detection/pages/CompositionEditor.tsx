@@ -154,7 +154,7 @@ export const CompositionEditor = ({
         </ul>
       )}
       {preview && (
-        <>
+        <section className="detection-section">
           <h3>구성 미리보기</h3>
           <p className="detection-note">
             아직 생성된 후보가 아닙니다. 새 후보 생성 후 이 구성으로 평가할 수
@@ -196,7 +196,7 @@ export const CompositionEditor = ({
               </Button>
             )}
           </div>
-        </>
+        </section>
       )}
     </section>
   );

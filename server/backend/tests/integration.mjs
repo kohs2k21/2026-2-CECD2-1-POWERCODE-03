@@ -337,14 +337,46 @@ async function main() {
 
     const missingAuth = await requestJson(baseUrl, "/api/auth/me");
     expectStatus(missingAuth, 401, "profile without authentication");
+    expectCode(missingAuth, "authentication_required", "profile without authentication");
     const basicAuth = await requestJson(baseUrl, "/api/auth/me", {
       headers: { authorization: "Basic qa-token" },
     });
     expectStatus(basicAuth, 401, "profile with a non-Bearer authorization scheme");
+    expectCode(basicAuth, "authentication_required", "profile with a non-Bearer authorization scheme");
+    for (const authorization of ["Bearer", "Bearer token extra"]) {
+      const malformedHeader = await requestJson(baseUrl, "/api/auth/me", {
+        headers: { authorization },
+      });
+      expectStatus(malformedHeader, 401, "profile with a malformed authorization header");
+      expectCode(malformedHeader, "authentication_required", "profile with a malformed authorization header");
+    }
     const invalidAuth = await requestJson(baseUrl, "/api/auth/me", {
       headers: { authorization: "Bearer invalid-token" },
     });
-    expectStatus(invalidAuth, 403, "profile with an invalid Bearer token");
+    expectStatus(invalidAuth, 401, "profile with an invalid Bearer token");
+    expectCode(invalidAuth, "invalid_token", "profile with an invalid Bearer token");
+    for (const payload of [
+      "invalid-payload",
+      { id: 1, email: ADMIN.email, userType: "admin" },
+      { id: "1", userType: "admin" },
+      { id: "1", email: ADMIN.email, userType: "superuser" },
+    ]) {
+      const invalidPayload = await requestJson(baseUrl, "/api/auth/me", {
+        headers: { authorization: `Bearer ${jwt.sign(payload, JWT_SECRET)}` },
+      });
+      expectStatus(invalidPayload, 401, "profile with a signed but invalid identity payload");
+      expectCode(invalidPayload, "invalid_token", "profile with a signed but invalid identity payload");
+    }
+    const tamperedParts = jwt.sign(
+      { id: "1", email: ADMIN.email, userType: "admin" },
+      JWT_SECRET,
+    ).split(".");
+    tamperedParts[2] = (tamperedParts[2].startsWith("A") ? "B" : "A") + tamperedParts[2].slice(1);
+    const tamperedAuth = await requestJson(baseUrl, "/api/auth/me", {
+      headers: { authorization: `Bearer ${tamperedParts.join(".")}` },
+    });
+    expectStatus(tamperedAuth, 401, "profile with a tampered signature");
+    expectCode(tamperedAuth, "invalid_token", "profile with a tampered signature");
     const expiredToken = jwt.sign(
       { id: "1", email: ADMIN.email, userType: "admin" },
       JWT_SECRET,
@@ -353,7 +385,18 @@ async function main() {
     const expiredAuth = await requestJson(baseUrl, "/api/auth/me", {
       headers: { authorization: `Bearer ${expiredToken}` },
     });
-    expectStatus(expiredAuth, 403, "profile with an expired Bearer token");
+    expectStatus(expiredAuth, 401, "profile with an expired Bearer token");
+    expectCode(expiredAuth, "token_expired", "profile with an expired Bearer token");
+    const absentAccount = await requestJson(baseUrl, "/api/auth/me", {
+      headers: {
+        authorization: `Bearer ${jwt.sign(
+          { id: "missing-local-user", email: USER.email, userType: "user" },
+          JWT_SECRET,
+        )}`,
+      },
+    });
+    expectStatus(absentAccount, 401, "profile when the token account does not exist");
+    expectCode(absentAccount, "token_revoked", "profile when the token account does not exist");
 
     const incompleteLogin = await requestJson(
       baseUrl,
@@ -382,6 +425,7 @@ async function main() {
       headers: { authorization: `Bearer ${userToken}` },
     });
     expectStatus(usersWithUserRole, 403, "user list with a non-admin account");
+    expectCode(usersWithUserRole, "admin_required", "user list with a non-admin account");
     const usersWithAdminRole = await requestJson(baseUrl, "/api/users", {
       headers: { authorization: `Bearer ${adminToken}` },
     });
@@ -452,12 +496,17 @@ async function main() {
 
     const sseWithoutAuth = await fetchWithTimeout(`${baseUrl}/api/anomaly/realtime-stream`);
     expectStatus({ status: sseWithoutAuth.status }, 401, "SSE without authentication");
-    await sseWithoutAuth.text();
+    expectCode({ body: await sseWithoutAuth.json() }, "authentication_required", "SSE without authentication");
     const sseWithInvalidAuth = await fetchWithTimeout(`${baseUrl}/api/anomaly/realtime-stream`, {
       headers: { authorization: "Bearer invalid-token" },
     });
-    expectStatus({ status: sseWithInvalidAuth.status }, 403, "SSE with an invalid token");
-    await sseWithInvalidAuth.text();
+    expectStatus({ status: sseWithInvalidAuth.status }, 401, "SSE with an invalid token");
+    expectCode({ body: await sseWithInvalidAuth.json() }, "invalid_token", "SSE with an invalid token");
+    const sseWithExpiredAuth = await fetchWithTimeout(`${baseUrl}/api/anomaly/realtime-stream`, {
+      headers: { authorization: `Bearer ${expiredToken}` },
+    });
+    expectStatus({ status: sseWithExpiredAuth.status }, 401, "SSE with an expired token");
+    expectCode({ body: await sseWithExpiredAuth.json() }, "token_expired", "SSE with an expired token");
 
     const sseResponse = await fetchWithTimeout(`${baseUrl}/api/anomaly/realtime-stream`, {
       headers: { authorization: `Bearer ${adminToken}` },
@@ -474,6 +523,7 @@ async function main() {
       jsonOptions({ token: userToken, body: validLog }),
     );
     expectStatus(userIngest, 403, "real-time ingest with a non-admin account");
+    expectCode(userIngest, "admin_required", "real-time ingest with a non-admin account");
 
     const validIngest = await requestJson(
       baseUrl,
@@ -570,6 +620,7 @@ async function main() {
       headers: { authorization: `Bearer ${demotedToken}` },
     });
     expectStatus(demotedUsers, 403, "fresh user token after demotion");
+    expectCode(demotedUsers, "admin_required", "fresh user token after demotion");
 
     const changedEmail = "qa-renamed-user@example.test";
     const renameUser = await requestJsonMethod(baseUrl, "/api/users/2", {

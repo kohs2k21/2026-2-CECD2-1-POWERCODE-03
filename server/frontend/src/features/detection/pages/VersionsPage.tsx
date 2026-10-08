@@ -12,6 +12,7 @@ import { ServiceAction } from "../components/ServiceAction";
 import type { DetectionData } from "../data/types";
 import { useDetectionQuery } from "../data/useDetectionQuery";
 import { versionReadiness, versionLabels } from "./operationPresentation";
+import { CompositionEditor } from "./CompositionEditor";
 import {
   ApplicationDetails,
   BundleDetails,
@@ -51,7 +52,8 @@ const VersionsWorkbench = ({ data }: { data: DetectionData }) => {
       active,
       target,
       evaluations: data.evaluations,
-      rules: data.rules,
+      modelArtifacts: data.modelArtifacts,
+      ruleVersions: data.ruleVersions,
       models: data.models,
       snapshots: data.snapshots,
     });
@@ -79,6 +81,7 @@ const VersionsWorkbench = ({ data }: { data: DetectionData }) => {
           열기로 바뀌지 않습니다.
         </p>
       </section>
+      <CompositionEditor data={data} mode="versions" />
       <section
         className="detection-card"
         aria-labelledby="candidate-version-title"

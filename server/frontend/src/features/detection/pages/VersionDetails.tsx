@@ -1,7 +1,9 @@
 import { featureCatalog } from "../data/catalog";
+import { evaluationMatchesConfiguration } from "../data/configuration";
 import type {
   ApplicationEvent,
   DetectionData,
+  RuleVersion,
   VersionBundle,
 } from "../data/types";
 import {
@@ -15,7 +17,24 @@ import {
   versionLabels,
 } from "./operationPresentation";
 
+const ruleText = (rule: RuleVersion["rules"][number]) => {
+  const operators = {
+    gt: ">",
+    gte: "≥",
+    isMissing: "결측",
+    mismatch: "합계 불일치",
+  };
+  const condition =
+    rule.operator === "gt" || rule.operator === "gte"
+      ? `${rule.field} ${operators[rule.operator]} ${valueText(rule.threshold)} ${rule.unit}`
+      : `${rule.field} ${operators[rule.operator]}`;
+  return `${rule.name} · ${condition} · ${rule.description}`;
+};
+
 const configurationRows = (bundle: VersionBundle, data: DetectionData) => ({
+  artifact:
+    data.modelArtifacts.find((item) => item.id === bundle.modelArtifactId)
+      ?.name ?? bundle.modelArtifactId,
   model:
     data.models.find((item) => item.id === bundle.modelId)?.name ??
     bundle.modelId,
@@ -27,8 +46,13 @@ const configurationRows = (bundle: VersionBundle, data: DetectionData) => ({
   fit: bundle.fitVersion,
   preprocessing: bundle.preprocessingVersion,
   rules:
-    bundle.ruleIds
-      .map((id) => data.rules.find((item) => item.id === id)?.name ?? id)
+    bundle.ruleVersionIds
+      .map((id) => {
+        const version = data.ruleVersions.find((item) => item.id === id);
+        return version
+          ? `${version.name} (${version.version}): ${version.rules.map(ruleText).join("; ")}`
+          : `${id} · 미확인`;
+      })
       .join(", ") || "선택 없음",
   explanation: bundle.explanationVersion,
   snapshot:
@@ -36,6 +60,7 @@ const configurationRows = (bundle: VersionBundle, data: DetectionData) => ({
     bundle.snapshotId,
 });
 const configurationLabels = {
+  artifact: "모델 산출물",
   model: "모델",
   features: "피처",
   featureVersion: "피처 버전",
@@ -46,13 +71,24 @@ const configurationLabels = {
   snapshot: "학습 데이터셋",
 } as const;
 
-const configurationIdentity = (bundle: VersionBundle) => ({
+const configurationIdentity = (bundle: VersionBundle, data: DetectionData) => ({
+  artifact: JSON.stringify(
+    data.modelArtifacts.find((item) => item.id === bundle.modelArtifactId) ??
+      null,
+  ),
   model: bundle.modelId,
   features: JSON.stringify(bundle.featureIds),
   featureVersion: bundle.featureVersion,
   fit: bundle.fitVersion,
   preprocessing: bundle.preprocessingVersion,
-  rules: JSON.stringify(bundle.ruleIds),
+  rules: JSON.stringify(
+    bundle.ruleVersionIds.map((id) => {
+      const version = data.ruleVersions.find((item) => item.id === id);
+      return version
+        ? { id: version.id, version: version.version, rules: version.rules }
+        : { id, missing: true };
+    }),
+  ),
   explanation: bundle.explanationVersion,
   snapshot: bundle.snapshotId,
 });
@@ -66,14 +102,19 @@ export const BundleDetails = ({
 }) => (
   <dl className="detection-summary">
     <div>
-      <dt>버전</dt>
+      <dt>{bundle.id === "composition-preview" ? "구성" : "버전"}</dt>
       <dd>
-        {bundle.name} · {bundle.id}
+        {bundle.name}
+        {bundle.id !== "composition-preview" && ` · ${bundle.id}`}
       </dd>
     </div>
     <div>
       <dt>상태</dt>
-      <dd>{versionLabels[bundle.state]}</dd>
+      <dd>
+        {bundle.id === "composition-preview"
+          ? "로컬 미리보기"
+          : versionLabels[bundle.state]}
+      </dd>
     </div>
     {Object.entries(configurationRows(bundle, data)).map(([key, value]) => (
       <div key={key}>
@@ -119,8 +160,8 @@ export const BundleDiff = ({
 }) => {
   const left = active ? configurationRows(active, data) : null;
   const right = configurationRows(candidate, data);
-  const previousIdentity = active ? configurationIdentity(active) : null;
-  const nextIdentity = configurationIdentity(candidate);
+  const previousIdentity = active ? configurationIdentity(active, data) : null;
+  const nextIdentity = configurationIdentity(candidate, data);
   return (
     <div className="detection-table-wrap">
       <table className="detection-table">
@@ -172,6 +213,18 @@ export const BundleEvidence = ({
     return <p className="detection-note">연결된 평가 근거가 없습니다.</p>;
   return (
     <>
+      <p
+        className={
+          evaluationMatchesConfiguration(result, bundle, data)
+            ? "detection-status"
+            : "detection-error"
+        }
+        role="status"
+      >
+        {evaluationMatchesConfiguration(result, bundle, data)
+          ? "기록된 평가와 현재 구성 일치"
+          : "재평가 필요: 기록된 평가와 현재 모델·룰 구성 불일치"}
+      </p>
       <dl className="detection-summary">
         <div>
           <dt>평가 ID</dt>
@@ -180,6 +233,10 @@ export const BundleEvidence = ({
         <div>
           <dt>평가 상태</dt>
           <dd>{jobStateLabels[result.state]}</dd>
+        </div>
+        <div>
+          <dt>기록된 평가 완료 시각</dt>
+          <dd>{valueText(result.completedAt)}</dd>
         </div>
         <div>
           <dt>데이터셋</dt>

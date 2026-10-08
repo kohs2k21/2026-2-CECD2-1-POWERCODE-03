@@ -1,4 +1,8 @@
 import { featureCatalog } from "../data/catalog";
+import {
+  currentConfigurationFingerprint,
+  evaluationMatchesConfiguration,
+} from "../data/configuration";
 import type {
   DetectionData,
   EvaluationCondition,
@@ -90,6 +94,25 @@ export const versionReadiness = (
     featureCatalog.find((item) => item.id === id),
   );
   const evaluation = evaluationFor(bundle, data);
+  const artifact = data.modelArtifacts.find(
+    (item) => item.id === bundle.modelArtifactId,
+  );
+  if (!artifact || artifact.state !== "succeeded")
+    reasons.push("생성 완료한 모델 산출물을 확인할 수 없습니다.");
+  else {
+    if (artifact.available !== true)
+      reasons.push("모델 산출물의 현재 가용성 확인이 필요합니다.");
+    if (artifact.compatible !== true)
+      reasons.push("모델 산출물의 현재 호환성 확인이 필요합니다.");
+  }
+  if (
+    !currentConfigurationFingerprint(bundle, data) ||
+    bundle.configurationFingerprint !==
+      currentConfigurationFingerprint(bundle, data)
+  )
+    reasons.push(
+      "구성 내용이 변경되었거나 확인되지 않았습니다. 새 후보와 재평가가 필요합니다.",
+    );
   if (!bundle.trained) reasons.push("모델 학습이 완료되지 않았습니다.");
   if (!bundle.featureVersion.trim() || !bundle.preprocessingVersion.trim())
     reasons.push("피처·전처리 버전이 누락되었습니다.");
@@ -126,6 +149,10 @@ export const versionReadiness = (
   if (!evaluation || evaluation.state !== "succeeded")
     reasons.push("성공한 평가 근거가 필요합니다.");
   else {
+    if (!evaluationMatchesConfiguration(evaluation, bundle, data))
+      reasons.push(
+        "재평가 필요: 기록된 평가의 모델·룰 구성이 현재 구성과 일치하지 않습니다.",
+      );
     if (evaluationErrors(evaluation.condition, data).length)
       reasons.push("평가 데이터셋과 평가 조건의 유효성을 확인해야 합니다.");
     if (
@@ -140,8 +167,15 @@ export const versionReadiness = (
     )
       reasons.push("평가 지표가 모두 측정되지 않았습니다.");
   }
-  if (bundle.ruleIds.some((id) => !data.rules.some((rule) => rule.id === id)))
-    reasons.push("연결된 룰을 확인할 수 없습니다.");
+  if (
+    bundle.ruleVersionIds.some(
+      (id) =>
+        !data.ruleVersions.some(
+          (rule) => rule.id === id && rule.state === "succeeded",
+        ),
+    )
+  )
+    reasons.push("완료한 룰 버전을 확인할 수 없습니다.");
   if (!bundle.explanationVersion)
     reasons.push("설명 구성 버전이 확인되지 않았습니다.");
   return reasons;

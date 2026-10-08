@@ -1,4 +1,5 @@
 import type { DetectionData } from "./types";
+import { configurationFingerprint } from "./configuration";
 // Development-only read fixtures. No production fallback and no write simulation.
 export const developmentDetectionData: DetectionData = {
   capabilities: {
@@ -9,7 +10,11 @@ export const developmentDetectionData: DetectionData = {
     apply: false,
     rollback: false,
     recommendRules: false,
+    createRule: false,
+    createCandidate: false,
   },
+  modelArtifacts: [],
+  ruleVersions: [],
   snapshots: [
     {
       id: "snapshot-september",
@@ -127,6 +132,9 @@ export const developmentDetectionData: DetectionData = {
   versions: [
     {
       id: "version-current",
+      modelArtifactId: null,
+      ruleVersionIds: [],
+      configurationFingerprint: null,
       name: "현재 탐지 구성",
       state: "active",
       modelId: "isolation-forest",
@@ -145,6 +153,9 @@ export const developmentDetectionData: DetectionData = {
     },
     {
       id: "candidate-delay",
+      modelArtifactId: null,
+      ruleVersionIds: [],
+      configurationFingerprint: null,
       name: "처리시간 후보",
       state: "candidate",
       modelId: "isolation-forest",
@@ -163,6 +174,9 @@ export const developmentDetectionData: DetectionData = {
     },
     {
       id: "version-previous",
+      modelArtifactId: null,
+      ruleVersionIds: [],
+      configurationFingerprint: null,
       name: "이전 탐지 구성",
       state: "archived",
       modelId: "isolation-forest",
@@ -183,6 +197,7 @@ export const developmentDetectionData: DetectionData = {
   evaluations: [
     {
       id: "evaluation-delay",
+      configurationFingerprint: null,
       candidateId: "candidate-delay",
       state: "succeeded",
       condition: {
@@ -288,3 +303,46 @@ export const developmentDetectionData: DetectionData = {
     xaiMs: null,
   },
 };
+for (const bundle of developmentDetectionData.versions) {
+  const artifact = {
+    id: `artifact-${bundle.id}`,
+    version: bundle.featureVersion,
+    name: `${bundle.name} 모델`,
+    modelId: bundle.modelId!,
+    featureIds: [...bundle.featureIds],
+    featureVersion: bundle.featureVersion,
+    preprocessingVersion: bundle.preprocessingVersion,
+    fitVersion: bundle.fitVersion,
+    snapshotId: bundle.snapshotId,
+    state: "succeeded" as const,
+    completedAt: null,
+    available: bundle.artifactAvailable,
+    compatible: bundle.compatible,
+  };
+  const rules = {
+    id: `rules-${bundle.id}`,
+    version: "rule-v1",
+    name: `${bundle.name} 룰`,
+    state: "succeeded" as const,
+    completedAt: null,
+    rules: bundle.ruleIds.map((id) => {
+      const { enabled: _enabled, ...definition } =
+        developmentDetectionData.rules.find((rule) => rule.id === id)!;
+      return definition;
+    }),
+  };
+  developmentDetectionData.modelArtifacts.push(artifact);
+  developmentDetectionData.ruleVersions.push(rules);
+  bundle.modelArtifactId = artifact.id;
+  bundle.ruleVersionIds = [rules.id];
+  bundle.configurationFingerprint = configurationFingerprint(
+    artifact,
+    [rules],
+    bundle.explanationVersion,
+  );
+}
+for (const evaluation of developmentDetectionData.evaluations)
+  evaluation.configurationFingerprint =
+    developmentDetectionData.versions.find(
+      (bundle) => bundle.id === evaluation.candidateId,
+    )?.configurationFingerprint ?? null;

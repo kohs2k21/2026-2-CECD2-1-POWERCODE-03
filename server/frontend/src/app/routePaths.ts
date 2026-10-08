@@ -9,7 +9,7 @@ export const viewPaths: Record<ViewId, string> = {
 export const createTabs = [
   { id: "data-features", label: "데이터·피처" },
   { id: "training", label: "모델 학습" },
-  { id: "rules", label: "룰 설정" },
+  { id: "rules", label: "룰 생성·편집" },
 ] as const;
 export const detectionPages = [
   { path: "/detection/create", label: "모델·룰 만들기", group: "실험" },

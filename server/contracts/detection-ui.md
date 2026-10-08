@@ -24,6 +24,16 @@ Status: current
 - 요청 공통: snapshot/version/feature 정의·fit/평가 조건 명시; 적용/복원 expectedActiveVersionId로 경쟁 검사, 승인 요청과 active 상태 별개
 - 실제 미연결: detection 조회 API·영속 초안·snapshot 생성·피처 서버 preview/fit·학습/평가 worker·추천 sLLM·적용/복원·수집/용량 관측. 기존 Express auth 및 이상 SSE만 별도 실제 연결
 
+## 생성물·평가 식별 계약
+
+- 룰 생성: 선택한 룰 정의만 검증·요청. 학습 데이터셋·기간·모델 설정과 독립; 활성 선택 없이 초안 생성/검토
+- createRule/createCandidate: 요청 receipt는 accepted 접수이며 생성 완료 아님. 미연결 기본 capability=false, 로컬 편집/구성 미리보기는 서버 생성 성공으로 표시 금지
+- 모델 산출물: ModelArtifact의 불변 id/version 및 피처·전처리·fit·학습 snapshot 묶음. 알고리즘 목록이나 실행 대기 작업을 완료 산출물로 선택 금지
+- 룰 버전: RuleVersion의 불변 id/version·정의 묶음; 동일 논리 rule.id의 여러 버전 중복 조합 금지
+- 구성 fingerprint: artifact와 룰 버전 정의·설명 기준의 정확 JSON 내용 식별값, 보안 서명 아님. VersionBundle 및 EvaluationResult 바인딩 필드 사용
+- 동일 ID의 수식/임계값/fit/전처리 내용이 변경된 응답도 과거 평가를 새 구성 근거로 재사용 금지. API의 불변 revision 보장 및 서버 최종 재검증 필요
+- 생성/저장 receipt만으로 다른 데이터·피처·학습 초안의 dirty 상태 해제 금지
+
 ## 화면·편집 계약
 
 | 화면 | 목록·상세·입력 | URL 선택·필터 |

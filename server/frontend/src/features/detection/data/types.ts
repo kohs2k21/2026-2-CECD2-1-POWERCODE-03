@@ -73,6 +73,30 @@ export type RuleRecommendation = {
   evidence: string;
   state: "review-required" | "accepted" | "rejected";
 };
+// Completed artifacts own their feature/fit/preprocessing bundle. UI composition cannot edit these independently.
+export type ModelArtifact = {
+  id: string;
+  version: string;
+  name: string;
+  modelId: string;
+  featureIds: string[];
+  featureVersion: string;
+  preprocessingVersion: string;
+  fitVersion: string | null;
+  snapshotId: string;
+  state: JobState;
+  completedAt: string | null;
+  available: boolean | null;
+  compatible: boolean | null;
+};
+export type RuleVersion = {
+  id: string;
+  version: string;
+  name: string;
+  rules: Omit<RuleDefinition, "enabled">[];
+  state: JobState;
+  completedAt: string | null;
+};
 export type EvaluationCondition = {
   snapshotId: string;
   protocolId: string;
@@ -95,6 +119,7 @@ export type EvaluationResult = {
   requestedAt: string | null;
   completedAt: string | null;
   failure: string | null;
+  configurationFingerprint: string | null;
 };
 export type VersionBundle = {
   id: string;
@@ -113,6 +138,9 @@ export type VersionBundle = {
   compatible: boolean | null;
   artifactAvailable: boolean | null;
   appliedAt: string | null;
+  modelArtifactId: string | null;
+  ruleVersionIds: string[];
+  configurationFingerprint: string | null;
 };
 export type ApplicationEvent = {
   id: string;
@@ -166,8 +194,13 @@ export type Operation =
   | "apply"
   | "rollback"
   | "recommendRules";
+// Creation receipt is distinct from completion of a rule version or candidate.
+export type CreationOperation = "createRule" | "createCandidate";
+export type DetectionOperation = Operation | CreationOperation;
 export type DetectionData = {
-  capabilities: Record<Operation, boolean>;
+  capabilities: Record<DetectionOperation, boolean>;
+  modelArtifacts: ModelArtifact[];
+  ruleVersions: RuleVersion[];
   snapshots: Snapshot[];
   models: ModelDefinition[];
   trainingJobs: TrainingJob[];
@@ -196,7 +229,7 @@ export type ActionReceipt = {
 export type DetectionGateway = {
   read: (signal?: AbortSignal) => Promise<DetectionData>;
   request: (
-    operation: Operation,
+    operation: DetectionOperation,
     payload: Record<string, unknown>,
     signal?: AbortSignal,
   ) => Promise<ActionReceipt>;

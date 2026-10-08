@@ -34,6 +34,12 @@ export const RulesTab = ({ data }: { data: DetectionData }) => {
     ...draft.rules,
   };
   const selected = ruleId ? allRules[ruleId] : undefined;
+  const ruleErrors = selected ? validateRule(selected) : [];
+  const rulePayload = selected
+    ? Object.fromEntries(
+        Object.entries(selected).filter(([key]) => key !== "enabled"),
+      )
+    : {};
   const change = (patch: Partial<RuleDefinition>) => {
     if (selected) {
       update({
@@ -81,7 +87,6 @@ export const RulesTab = ({ data }: { data: DetectionData }) => {
           ...draft.rules,
           [recommendation.rule.id]: {
             ...(draft.rules[recommendation.rule.id] ?? recommendation.rule),
-            enabled: true,
           },
         },
       });
@@ -108,7 +113,6 @@ export const RulesTab = ({ data }: { data: DetectionData }) => {
               <thead>
                 <tr>
                   <th>룰</th>
-                  <th>선택</th>
                   <th>조건</th>
                 </tr>
               </thead>
@@ -129,7 +133,6 @@ export const RulesTab = ({ data }: { data: DetectionData }) => {
                         {rule.name}
                       </Button>
                     </td>
-                    <td>{rule.enabled ? "활성 선택" : "선택 해제"}</td>
                     <td>
                       {operatorLabels[rule.operator]} {rule.threshold ?? "—"}{" "}
                       {rule.unit}
@@ -263,16 +266,6 @@ export const RulesTab = ({ data }: { data: DetectionData }) => {
                   />
                 </label>
               </div>
-              <label className="detection-note">
-                <input
-                  type="checkbox"
-                  checked={selected.enabled}
-                  onChange={(event) =>
-                    change({ enabled: event.target.checked })
-                  }
-                />{" "}
-                이 룰 선택
-              </label>
               {errors.length > 0 && (
                 <ul className="detection-error" role="alert">
                   {errors.map((error) => (
@@ -287,17 +280,33 @@ export const RulesTab = ({ data }: { data: DetectionData }) => {
                     const invalid = validateRule(selected);
                     setErrors(invalid);
                     if (!invalid.length) {
-                      change({});
                       setRetained(true);
                     }
                   }}
                 >
-                  편집 내용 유지
+                  룰 입력 확인
                 </Button>
+                <ServiceAction
+                  operation="createRule"
+                  label="룰 생성"
+                  available={data.capabilities.createRule}
+                  payload={{ rule: rulePayload }}
+                  requestDisabled={ruleErrors.length > 0}
+                >
+                  <p>
+                    {selected.name} · {operatorLabels[selected.operator]}{" "}
+                    {selected.threshold ?? "—"} {selected.unit}
+                  </p>
+                  {ruleErrors.map((error) => (
+                    <p className="detection-error" key={error}>
+                      {error}
+                    </p>
+                  ))}
+                </ServiceAction>
               </div>
               {retained && (
                 <p role="status" className="detection-note">
-                  편집 내용 유지 중
+                  룰 입력 확인 완료 · 편집 내용 유지 중
                 </p>
               )}
               <p className="detection-note">
@@ -351,9 +360,9 @@ export const RulesTab = ({ data }: { data: DetectionData }) => {
                   </td>
                   <td>
                     {draft.recommendationDecisions[item.id] === "accepted"
-                      ? "초안 선택"
+                      ? "초안으로 가져옴"
                       : draft.recommendationDecisions[item.id] === "rejected"
-                        ? "선택 제외"
+                        ? "검토 제외"
                         : "검토 필요"}
                   </td>
                   <td>{item.evidence}</td>
@@ -379,7 +388,7 @@ export const RulesTab = ({ data }: { data: DetectionData }) => {
               </p>
               <div className="detection-actions">
                 <Button variant="outline" onClick={selectRecommendation}>
-                  초안에 선택
+                  룰 초안으로 가져오기
                 </Button>
                 <Button
                   variant="ghost"
@@ -389,21 +398,10 @@ export const RulesTab = ({ data }: { data: DetectionData }) => {
                         ...draft.recommendationDecisions,
                         [recommendation.id]: "rejected",
                       },
-                      ...(draft.rules[recommendation.rule.id]
-                        ? {
-                            rules: {
-                              ...draft.rules,
-                              [recommendation.rule.id]: {
-                                ...draft.rules[recommendation.rule.id],
-                                enabled: false,
-                              },
-                            },
-                          }
-                        : {}),
                     })
                   }
                 >
-                  선택 제외
+                  추천 검토 제외
                 </Button>
                 <Button
                   variant="ghost"
@@ -421,7 +419,7 @@ export const RulesTab = ({ data }: { data: DetectionData }) => {
         isOpen={resetOpen}
         onOpenChange={setResetOpen}
         title="룰 기본값 복원"
-        description="이 구성의 룰 편집 및 추천 선택을 버립니다. 현재 운영 버전은 유지됩니다."
+        description="룰 편집과 추천 검토 내용을 버립니다. 모델·피처 초안과 운영 버전은 유지됩니다."
         size="sm"
       >
         <div className="detection-actions">

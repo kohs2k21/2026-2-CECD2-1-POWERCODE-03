@@ -134,7 +134,7 @@ assert.equal(
 );
 assert.ok(nameInput);
 await act(async () =>
-  nameInput.props.onChange({ target: { value: "실제 초안 이름" } }),
+  byLabel("구성 이름").props.onChange({ target: { value: "실제 초안 이름" } }),
 );
 assert.equal(useDraftStore.getState().drafts["/detection/create"].dirty, true);
 assert.equal(
@@ -182,6 +182,25 @@ await act(async () =>
 await act(async () =>
   router.navigate("/detection/create?tab=rules&rule=duration-limit"),
 );
+const ruleCreation = () =>
+  renderer.root
+    .findAllByType(ServiceAction)
+    .find((node) => node.props.operation === "createRule");
+assert.equal(
+  ruleCreation().props.requestDisabled,
+  false,
+  "rule creation must not require a dataset or training configuration",
+);
+assert.equal(
+  ruleCreation().props.payload.rule.enabled,
+  undefined,
+  "experiment creation must not carry activation selection",
+);
+assert.ok(
+  !renderer.root
+    .findAllByType("label")
+    .some((node) => node.children.includes("이 룰 선택")),
+);
 await act(async () =>
   byLabel("룰 이름").props.onChange({ target: { value: "새 임계 룰" } }),
 );
@@ -193,9 +212,10 @@ assert.equal(
   "abc",
   "invalid numeric text must remain editable",
 );
+assert.equal(ruleCreation().props.requestDisabled, true);
 const maintain = renderer.root
   .findAllByType("button")
-  .find((node) => node.children.includes("편집 내용 유지"));
+  .find((node) => node.children.includes("룰 입력 확인"));
 await act(async () => maintain.props.onClick());
 assert.ok(
   renderer.root.findAll((node) => node.props.role === "alert").length > 0,
@@ -226,7 +246,7 @@ const clickButton = async (label) =>
       .find((node) => node.children.includes(label))
       .props.onClick(),
   );
-await clickButton("초안에 선택");
+await clickButton("룰 초안으로 가져오기");
 assert.equal(
   useDraftStore.getState().drafts["/detection/create"].value.rules[
     "error-count-limit"
@@ -243,14 +263,18 @@ await act(async () =>
     target: { value: "직접 수정한 추천 룰" },
   }),
 );
-await clickButton("선택 제외");
+await clickButton("추천 검토 제외");
 let linked =
   useDraftStore.getState().drafts["/detection/create"].value.rules[
     "error-count-limit"
   ];
-assert.equal(linked.enabled, false);
+assert.equal(
+  linked.enabled,
+  true,
+  "recommendation review does not set experiment activation",
+);
 assert.equal(linked.name, "직접 수정한 추천 룰");
-await clickButton("초안에 선택");
+await clickButton("룰 초안으로 가져오기");
 linked =
   useDraftStore.getState().drafts["/detection/create"].value.rules[
     "error-count-limit"

@@ -9,7 +9,7 @@ import {
   detectionQueryKey,
   useDetectionGateway,
 } from "../data/useDetectionQuery";
-import type { Operation } from "../data/types";
+import type { DetectionOperation } from "../data/types";
 export const ServiceAction = ({
   operation,
   label,
@@ -19,7 +19,7 @@ export const ServiceAction = ({
   requestDisabled = false,
   children,
 }: {
-  operation: Operation;
+  operation: DetectionOperation;
   label: string;
   available: boolean;
   payload: Record<string, unknown>;

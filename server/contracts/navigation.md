@@ -21,7 +21,7 @@
 - 기본 경로 `/`: 운영 현황
 - 탐지 관리 첫 진입: 모델·룰 생성
 - 생성 `tab`: `dataset` 데이터셋 / `features` 피처 / `training` 모델 학습 / `rules` 룰 생성·편집
-- 평가 `tab`: `candidates` 생성된 후보 평가 / `composition` 모델·룰 조합 검토
+- 평가 `tab`: `preparation` 평가 세트 준비 / `candidates` 후보 평가·비교 / `composition` 모델·룰 조합 검토
 - 운영 버전 `tab`: `configuration` 운영 구성 / `application` 적용·복원 / `history` 버전 이력
 - 수집 `tab`: `status` 수집 상태 / `fields` 원본 필드 / `history` 수집 이력 / `storage` 저장 공간
 - 알림 `filter`: all / operations / tasks; 권한·데이터 경계: [notifications.md](notifications.md)
@@ -50,6 +50,8 @@
 - 로그아웃·계정 변경: 초안 보존 이동과 별도. 로그아웃 확인에는 보존 선택 없음, 세션 종료 시 전체 초안/캐시 정리
 - 운영 조합 미리보기→평가: Link state의 CompositionInput 전달, 평가 화면에서 조회 산출물/룰 버전과 재검증. 기존 평가 초안이 있으면 명시적 전달 구성 사용으로 기존 편집 보호
 - 초안 보호: 실제 데이터·피처·학습·룰 및 평가 설정 편집에 pathname별 초안 적용, 내부 선택 ID별 편집 값 구분
+- 평가 준비·조건·비교·조합: 같은 pathname의 서로 다른 초안 필드 병합; 내부 탭 이동·기존 상세 URL에서 다른 편집 내용 덮어쓰기 금지
+- 고정 평가 세트: 서버 ID·revision 기준 선택; 로컬 준비 초안과 실행 가능 세트 구분, 조건 자유 입력으로 서버 세트 대체 금지
 - 브라우저 재실행 후 편집 초안 복원: 현재 범위 제외
 
 ## 웹 서버 연결

@@ -363,6 +363,26 @@
 .formula-preview h3 {
   margin: 0 0 16px;
 }
+.evaluation-recipe {
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-lg);
+  padding: var(--space-md);
+}
+.evaluation-recipe + .evaluation-recipe {
+  margin-top: var(--space-md);
+}
+.detection-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  border: 0;
+  padding: 0;
+}
+.detection-options label.detection-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
 @media (max-width: 1200px) {
   .feature-workspace {
     grid-template-columns: minmax(0, 1fr);

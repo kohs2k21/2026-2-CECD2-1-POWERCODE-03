@@ -98,9 +98,14 @@ let view = await mount(
 assert.match(text(view.renderer.toJSON()), /비교 불가/);
 assert.match(text(view.renderer.toJSON()), /미측정값은 —/);
 await act(async () =>
-  labeledControl(view.renderer, "평가 프로토콜").props.onChange({
-    target: { value: "edited-protocol" },
-  }),
+  useDraftStore
+    .getState()
+    .edit("/detection/evaluation", {
+      editor: "evaluation",
+      conditionsByCandidate: {
+        "candidate-delay": { ...condition, protocolId: "edited-protocol" },
+      },
+    }),
 );
 assert.equal(
   useDraftStore.getState().drafts["/detection/evaluation"].dirty,
@@ -111,14 +116,15 @@ await act(async () =>
     "/detection/evaluation?candidate=candidate-other&retained=yes",
   ),
 );
-assert.equal(labeledControl(view.renderer, "평가 프로토콜").props.value, "");
+assert.ok(!text(view.renderer.toJSON()).includes("edited-protocol"));
 await act(async () =>
   view.router.navigate(
     "/detection/evaluation?candidate=candidate-delay&retained=yes",
   ),
 );
 assert.equal(
-  labeledControl(view.renderer, "평가 프로토콜").props.value,
+  useDraftStore.getState().drafts["/detection/evaluation"].value
+    .conditionsByCandidate["candidate-delay"].protocolId,
   "edited-protocol",
 );
 await act(async () =>
@@ -136,7 +142,11 @@ assert.equal(
 );
 const evaluate = view.renderer.root.findByType(ServiceAction);
 assert.equal(evaluate.props.available, false);
-assert.equal(evaluate.props.disabled, false);
+assert.equal(
+  evaluate.props.disabled,
+  true,
+  "historical free conditions are not a fixed evaluation set",
+);
 await act(async () => evaluate.findByType("button").props.onClick());
 assert.equal(evaluate.findByType(Modal).props.isOpen, true);
 assert.match(text(evaluate.findByType(Modal).props.children), /작업 서비스/);
@@ -155,7 +165,8 @@ await act(async () => new Promise((resolve) => setTimeout(resolve, 12)));
 assert.match(text(view.renderer.toJSON()), /상태 조회 실패/);
 assert.match(text(view.renderer.toJSON()), /이전 조회 내용/);
 assert.equal(
-  labeledControl(view.renderer, "평가 프로토콜").props.value,
+  useDraftStore.getState().drafts["/detection/evaluation"].value
+    .conditionsByCandidate["candidate-delay"].protocolId,
   "edited-protocol",
 );
 setReadFailure(false);
@@ -168,7 +179,8 @@ await act(async () =>
 await act(async () => new Promise((resolve) => setTimeout(resolve, 12)));
 assert.ok(!text(view.renderer.toJSON()).includes("상태 조회 실패"));
 assert.equal(
-  labeledControl(view.renderer, "평가 프로토콜").props.value,
+  useDraftStore.getState().drafts["/detection/evaluation"].value
+    .conditionsByCandidate["candidate-delay"].protocolId,
   "edited-protocol",
   "retry keeps actual editor dirty state",
 );

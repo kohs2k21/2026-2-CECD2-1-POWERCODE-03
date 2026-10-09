@@ -2,6 +2,10 @@ import type { DetectionData } from "./types";
 import { configurationFingerprint } from "./configuration";
 // Development-only read fixtures. No production fallback and no write simulation.
 export const developmentDetectionData: DetectionData = {
+  preparationCapabilities: { createEvaluationSet: false },
+  evaluationSets: [],
+  evaluationSpecs: [],
+  evaluationSplits: [],
   capabilities: {
     saveDraft: false,
     createSnapshot: false,

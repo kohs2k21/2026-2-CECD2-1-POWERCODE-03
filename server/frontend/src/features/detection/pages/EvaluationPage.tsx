@@ -17,6 +17,7 @@ import { useEvaluationConditions } from "./useEvaluationConditions";
 import { CompositionEditor } from "./CompositionEditor";
 import { EvaluationConditionForm } from "./EvaluationConditionForm";
 import { EvaluationRecords } from "./EvaluationRecords";
+import { EvaluationPreparation } from "./EvaluationPreparation";
 import {
   DetectionTabs,
   detectionTabHref,
@@ -24,7 +25,8 @@ import {
 } from "../components/DetectionTabs";
 
 const evaluationTabs = [
-  { id: "candidates", label: "생성된 후보 평가" },
+  { id: "preparation", label: "평가 세트 준비" },
+  { id: "candidates", label: "후보 평가·비교" },
   { id: "composition", label: "모델·룰 조합 검토" },
 ] as const;
 
@@ -68,7 +70,7 @@ const EvaluationWorkbench = ({
     scenario: "",
     purpose: "",
   };
-  const { condition, change } = useEvaluationConditions(targetKey, initial);
+  const { condition, replace } = useEvaluationConditions(targetKey, initial);
   const search = params.get("q") ?? "";
   const state = params.get("state") ?? "all";
   const visible = candidates.filter(
@@ -88,99 +90,102 @@ const EvaluationWorkbench = ({
           interactive={localPreview}
         />
       </div>
-      <div className={localPreview ? undefined : "detection-grid"}>
-        {!localPreview && (
+      {activeTab === "preparation" && <EvaluationPreparation data={data} />}
+      {activeTab !== "preparation" && (
+        <div className={localPreview ? undefined : "detection-grid"}>
+          {!localPreview && (
+            <section
+              className="detection-card"
+              aria-labelledby="evaluation-candidate-title"
+            >
+              <h2 id="evaluation-candidate-title">생성된 평가 후보</h2>
+              <div className="detection-form-grid">
+                <label className="detection-field">
+                  후보 검색
+                  <input
+                    value={search}
+                    onChange={(event) => patch({ q: event.target.value })}
+                    placeholder="이름·ID"
+                  />
+                </label>
+                <label className="detection-field">
+                  후보 상태
+                  <select
+                    value={state}
+                    onChange={(event) => patch({ state: event.target.value })}
+                  >
+                    <option value="all">전체</option>
+                    <option value="candidate">평가 후보</option>
+                    <option value="draft">편집 중</option>
+                  </select>
+                </label>
+              </div>
+              {visible.length ? (
+                <ul className="detection-check-list">
+                  {visible.map((item) => (
+                    <li key={item.id}>
+                      <Button
+                        asChild
+                        variant="ghost"
+                        className="detection-list-button"
+                      >
+                        <Link
+                          to={href({
+                            tab: "candidates",
+                            candidate: item.id,
+                            result: null,
+                            selection: null,
+                          })}
+                          state={location.state}
+                          aria-current={
+                            item.id === candidateId && !localPreview
+                              ? "true"
+                              : undefined
+                          }
+                        >
+                          <span>{item.name}</span>
+                          <span className="detection-status">
+                            {versionLabels[item.state]}
+                          </span>
+                        </Link>
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <EmptyState>
+                  {candidates.length
+                    ? "검색 조건에 맞는 후보가 없습니다."
+                    : "평가 후보가 없습니다."}
+                </EmptyState>
+              )}
+            </section>
+          )}
           <section
             className="detection-card"
-            aria-labelledby="evaluation-candidate-title"
+            aria-labelledby="evaluation-condition-title"
           >
-            <h2 id="evaluation-candidate-title">생성된 평가 후보</h2>
-            <div className="detection-form-grid">
-              <label className="detection-field">
-                후보 검색
-                <input
-                  value={search}
-                  onChange={(event) => patch({ q: event.target.value })}
-                  placeholder="이름·ID"
-                />
-              </label>
-              <label className="detection-field">
-                후보 상태
-                <select
-                  value={state}
-                  onChange={(event) => patch({ state: event.target.value })}
-                >
-                  <option value="all">전체</option>
-                  <option value="candidate">평가 후보</option>
-                  <option value="draft">편집 중</option>
-                </select>
-              </label>
-            </div>
-            {visible.length ? (
-              <ul className="detection-check-list">
-                {visible.map((item) => (
-                  <li key={item.id}>
-                    <Button
-                      asChild
-                      variant="ghost"
-                      className="detection-list-button"
-                    >
-                      <Link
-                        to={href({
-                          tab: "candidates",
-                          candidate: item.id,
-                          result: null,
-                          selection: null,
-                        })}
-                        state={location.state}
-                        aria-current={
-                          item.id === candidateId && !localPreview
-                            ? "true"
-                            : undefined
-                        }
-                      >
-                        <span>{item.name}</span>
-                        <span className="detection-status">
-                          {versionLabels[item.state]}
-                        </span>
-                      </Link>
-                    </Button>
-                  </li>
-                ))}
-              </ul>
-            ) : (
+            <h2 id="evaluation-condition-title">다음 평가 조건</h2>
+            {target ? (
+              <EvaluationConditionForm
+                key={activeTab}
+                data={data}
+                target={target}
+                localPreview={localPreview}
+                condition={condition}
+                replace={replace}
+              />
+            ) : localPreview ? (
               <EmptyState>
-                {candidates.length
-                  ? "검색 조건에 맞는 후보가 없습니다."
-                  : "평가 후보가 없습니다."}
+                모델·룰 조합을 확인해 구성 미리보기를 준비해 주세요.
               </EmptyState>
+            ) : (
+              <DetailMissing />
             )}
           </section>
-        )}
-        <section
-          className="detection-card"
-          aria-labelledby="evaluation-condition-title"
-        >
-          <h2 id="evaluation-condition-title">다음 평가 조건</h2>
-          {target ? (
-            <EvaluationConditionForm
-              key={activeTab}
-              data={data}
-              target={target}
-              localPreview={localPreview}
-              condition={condition}
-              change={change}
-            />
-          ) : localPreview ? (
-            <EmptyState>
-              모델·룰 조합을 확인해 구성 미리보기를 준비해 주세요.
-            </EmptyState>
-          ) : (
-            <DetailMissing />
-          )}
-        </section>
-      </div>
-      {!localPreview && (
+        </div>
+      )}
+      {activeTab === "candidates" && (
         <EvaluationRecords
           data={data}
           candidate={candidate}
@@ -198,7 +203,9 @@ export const EvaluationPage = () => {
     evaluationTabs.map((item) => item.id),
     !params.has("result") && params.get("selection") === "composition"
       ? "composition"
-      : "candidates",
+      : params.has("result") || params.has("candidate")
+        ? "candidates"
+        : "preparation",
   );
   return (
     <section className="detection-page">

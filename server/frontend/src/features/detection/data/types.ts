@@ -1,3 +1,15 @@
+import type {
+  EvaluationSet,
+  EvaluationSpec,
+  EvaluationSplitManifest,
+  ScenarioOutcome,
+} from "./evaluationTypes";
+export type {
+  EvaluationSet,
+  EvaluationSpec,
+  EvaluationSplitManifest,
+  ScenarioOutcome,
+} from "./evaluationTypes";
 export type RawSource = "transaction" | "process";
 export type ValueType =
   "timestamp" | "number" | "category" | "identifier" | "text";
@@ -103,6 +115,8 @@ export type EvaluationCondition = {
   splitVersion: string;
   scenario: string;
   purpose: string;
+  evaluationSetId?: string;
+  evaluationSetRevision?: string;
 };
 export type EvaluationResult = {
   id: string;
@@ -120,6 +134,9 @@ export type EvaluationResult = {
   completedAt: string | null;
   failure: string | null;
   configurationFingerprint: string | null;
+  evaluationSetId?: string | null;
+  evaluationSetRevision?: string | null;
+  scenarioOutcomes?: ScenarioOutcome[] | null;
 };
 export type VersionBundle = {
   id: string;
@@ -196,9 +213,14 @@ export type Operation =
   | "recommendRules";
 // Creation receipt is distinct from completion of a rule version or candidate.
 export type CreationOperation = "createRule" | "createCandidate";
-export type DetectionOperation = Operation | CreationOperation;
+export type DetectionOperation =
+  Operation | CreationOperation | "createEvaluationSet";
 export type DetectionData = {
-  capabilities: Record<DetectionOperation, boolean>;
+  capabilities: Record<Operation | CreationOperation, boolean>;
+  preparationCapabilities?: { createEvaluationSet: boolean };
+  evaluationSets?: EvaluationSet[];
+  evaluationSpecs?: EvaluationSpec[];
+  evaluationSplits?: EvaluationSplitManifest[];
   modelArtifacts: ModelArtifact[];
   ruleVersions: RuleVersion[];
   snapshots: Snapshot[];
@@ -225,6 +247,11 @@ export type ActionReceipt = {
   requestId: string;
   state: "accepted";
   message: string;
+  job?: {
+    id: string;
+    type: "training" | "evaluation";
+    candidateId?: string;
+  } | null;
 };
 export type DetectionGateway = {
   read: (signal?: AbortSignal) => Promise<DetectionData>;

@@ -26,6 +26,8 @@ export const conditionLabels = {
   splitVersion: "분할 버전",
   scenario: "시나리오",
   purpose: "평가 목적",
+  evaluationSetId: "고정 평가 세트",
+  evaluationSetRevision: "평가 세트 revision",
 } as const;
 export const ConditionDetails = ({
   condition,
@@ -42,7 +44,7 @@ export const ConditionDetails = ({
   </dl>
 );
 
-const EvaluationDetails = ({ result }: { result: EvaluationResult }) => (
+export const EvaluationDetails = ({ result }: { result: EvaluationResult }) => (
   <section className="detection-card" aria-labelledby="evaluation-detail-title">
     <h2 id="evaluation-detail-title">기록된 평가 결과 상세</h2>
     <dl className="detection-summary">

@@ -2,36 +2,44 @@ import { Link } from "react-router-dom";
 import { Button } from "../../../components/ui/button";
 import { ServiceAction } from "../components/ServiceAction";
 import { currentConfigurationFingerprint } from "../data/configuration";
+import {
+  conditionFromEvaluationSet,
+  evaluationSetErrors,
+} from "../data/evaluationPreparation";
 import type {
   DetectionData,
   EvaluationCondition,
   VersionBundle,
 } from "../data/types";
-import { ConditionDetails, conditionLabels } from "./EvaluationRecords";
-import { evaluationErrors } from "./operationPresentation";
+import { ConditionDetails } from "./EvaluationRecords";
 
 export const EvaluationConditionForm = ({
   data,
   target,
   localPreview,
   condition,
-  change,
+  replace,
 }: {
   data: DetectionData;
   target: VersionBundle;
   localPreview: boolean;
   condition: EvaluationCondition;
-  change: (key: keyof EvaluationCondition, value: string) => void;
+  replace: (condition: EvaluationCondition) => void;
 }) => {
-  const errors = evaluationErrors(condition, data);
+  const set = data.evaluationSets?.find(
+    (item) =>
+      item.id === condition.evaluationSetId &&
+      item.revision === condition.evaluationSetRevision,
+  );
+  const authoritative = set ? conditionFromEvaluationSet(set) : condition;
+  const errors = evaluationSetErrors(set, data);
   const fingerprint = currentConfigurationFingerprint(target, data);
   const fixedConfiguration =
     fingerprint != null && fingerprint === target.configurationFingerprint;
   return (
     <form onSubmit={(event) => event.preventDefault()}>
       <p>
-        {target.name} ·{" "}
-        {localPreview ? "로컬 구성 미리보기" : "생성된 평가 후보"}
+        {target.name} · {localPreview ? "로컬 구성 미리보기" : "평가 대상"}
       </p>
       {localPreview && (
         <p className="detection-note">
@@ -45,39 +53,43 @@ export const EvaluationConditionForm = ({
           평가해 주세요.
         </p>
       )}
-      <div className="detection-form-grid">
-        <label className="detection-field">
-          데이터셋
-          <select
-            value={condition.snapshotId}
-            onChange={(event) => change("snapshotId", event.target.value)}
-          >
-            <option value="">선택해 주세요</option>
-            {data.snapshots.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.name} ·{" "}
-                {item.state === "ready"
-                  ? "준비됨"
-                  : item.state === "failed"
-                    ? "준비 실패"
-                    : "준비 중"}
-              </option>
-            ))}
-          </select>
-        </label>
-        {(["protocolId", "splitVersion", "scenario", "purpose"] as const).map(
-          (key) => (
-            <label key={key} className="detection-field">
-              {conditionLabels[key]}
-              <input
-                value={condition[key]}
-                onChange={(event) => change(key, event.target.value)}
-                required
-              />
-            </label>
-          ),
-        )}
-      </div>
+      <label className="detection-field">
+        고정 평가 세트
+        <select
+          value={set ? `${set.id}@${set.revision}` : ""}
+          onChange={(event) => {
+            const selected = data.evaluationSets?.find(
+              (item) => `${item.id}@${item.revision}` === event.target.value,
+            );
+            replace(
+              selected
+                ? conditionFromEvaluationSet(selected)
+                : {
+                    snapshotId: "",
+                    protocolId: "",
+                    splitVersion: "",
+                    scenario: "",
+                    purpose: "",
+                  },
+            );
+          }}
+        >
+          <option value="">선택해 주세요</option>
+          {data.evaluationSets?.map((item) => (
+            <option
+              key={`${item.id}@${item.revision}`}
+              value={`${item.id}@${item.revision}`}
+            >
+              {item.name} · {item.revision} · {item.purpose}
+            </option>
+          ))}
+        </select>
+      </label>
+      <ConditionDetails condition={authoritative} />
+      <p className="detection-note">
+        선택한 고정 세트의 데이터셋·기준·분할·시나리오·목적을 함께 사용합니다.
+        validation은 후보 비교, test는 최종 확인입니다.
+      </p>
       {errors.length > 0 && (
         <ul className="detection-error" role="status">
           {errors.map((error) => (
@@ -94,17 +106,19 @@ export const EvaluationConditionForm = ({
           disabled={errors.length > 0 || localPreview || !fixedConfiguration}
           payload={{
             candidateId: target.id,
-            condition,
+            condition: authoritative,
+            evaluationSetId: set?.id,
+            evaluationSetRevision: set?.revision,
             configurationFingerprint: fingerprint,
           }}
         >
-          <p>선택 후보: {target.name}</p>
-          <ConditionDetails condition={condition} />
-          <p className="detection-note">
-            평가 요청은 운영 버전을 변경하지 않습니다. 결과는 평가 이력에서
-            확인합니다.
-          </p>
+          <p>평가 대상: {target.name}</p>
+          <ConditionDetails condition={authoritative} />
+          <p>평가 요청은 운영 버전을 변경하지 않습니다.</p>
         </ServiceAction>
+        <Button asChild variant="outline">
+          <Link to="/detection/evaluation?tab=preparation">평가 세트 준비</Link>
+        </Button>
         {!localPreview && (
           <Button asChild variant="outline">
             <Link

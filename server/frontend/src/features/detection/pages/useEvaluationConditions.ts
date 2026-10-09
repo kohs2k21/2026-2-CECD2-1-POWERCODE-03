@@ -20,17 +20,25 @@ export const useEvaluationConditions = (
       ? (stored as EvaluationDraft)
       : undefined;
   const condition = draft?.conditionsByCandidate?.[candidateId] ?? initial;
-  const change = (key: keyof EvaluationCondition, value: string) => {
+  const replace = (next: EvaluationCondition) => {
     const current = useDraftStore.getState().drafts[draftPath]?.value;
     const preserved = current && typeof current === "object" ? current : {};
     useDraftStore.getState().edit(draftPath, {
       ...preserved,
       editor: "evaluation",
       conditionsByCandidate: {
-        ...draft?.conditionsByCandidate,
-        [candidateId]: { ...condition, [key]: value },
+        ...(preserved as Partial<EvaluationDraft>).conditionsByCandidate,
+        [candidateId]: next,
       },
     } satisfies EvaluationDraft);
   };
-  return { condition, change };
+  const change = (key: keyof EvaluationCondition, value: string) => {
+    const current = useDraftStore.getState().drafts[draftPath]?.value as
+      Partial<EvaluationDraft> | undefined;
+    replace({
+      ...(current?.conditionsByCandidate?.[candidateId] ?? initial),
+      [key]: value,
+    });
+  };
+  return { condition, change, replace };
 };

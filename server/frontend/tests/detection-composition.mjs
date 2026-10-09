@@ -244,13 +244,17 @@ await act(async () =>
     { state: view.router.state.location.state },
   ),
 );
-for (const label of ["평가 프로토콜", "시나리오", "평가 목적"]) {
-  await act(async () =>
-    labeledControl(view.renderer, label).props.onChange({
-      target: { value: `입력-${label}` },
+await act(async () =>
+  view.renderer.root
+    .findByType(EvaluationConditionForm)
+    .props.replace({
+      snapshotId: "snapshot-test",
+      protocolId: "입력-평가 프로토콜",
+      splitVersion: "split",
+      scenario: "delay",
+      purpose: "validation",
     }),
-  );
-}
+);
 const form = view.renderer.root.findByType(EvaluationConditionForm);
 assert.equal(form.props.localPreview, true);
 assert.equal(
@@ -272,9 +276,9 @@ assert.equal(merged.editor, "evaluation");
 assert.deepEqual(merged.conditionsByCandidate, conditionDraft);
 assert.equal(merged.composition.name, "평가할 새 이름");
 await act(async () =>
-  labeledControl(view.renderer, "평가 목적").props.onChange({
-    target: { value: "목적 변경" },
-  }),
+  view.renderer.root
+    .findByType(EvaluationConditionForm)
+    .props.replace({ ...form.props.condition, purpose: "목적 변경" }),
 );
 assert.equal(
   useDraftStore.getState().drafts["/detection/evaluation"].value.composition
@@ -326,9 +330,12 @@ await view.close();
 view = await mount("/detection/evaluation?candidate=candidate-delay");
 assert.match(text(view.renderer.toJSON()), /현재 입력 조건과 구성에 대응하는/);
 await act(async () =>
-  labeledControl(view.renderer, "평가 프로토콜").props.onChange({
-    target: { value: "다음 프로토콜" },
-  }),
+  view.renderer.root
+    .findByType(EvaluationConditionForm)
+    .props.replace({
+      ...view.renderer.root.findByType(EvaluationConditionForm).props.condition,
+      protocolId: "다음 프로토콜",
+    }),
 );
 assert.match(text(view.renderer.toJSON()), /현재 입력 조건의 결과 없음/);
 assert.match(text(view.renderer.toJSON()), /기록된 처리 상태:\s+성공/);

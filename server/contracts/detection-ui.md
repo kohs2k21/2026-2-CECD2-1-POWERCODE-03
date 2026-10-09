@@ -48,7 +48,7 @@ Status: current
 | 생성: 피처 | TRANSACTION/PROCESS 원본·파생 목록, 정의 상세·검색·수식 입력·미리보기 | tab, kind, featureQ, feature |
 | 생성: 모델 학습 | 모델별 피처/설정, 학습 요청 확인, 작업 상태·실패 사유 상세 | tab, jobState, jobQ, job |
 | 생성: 룰 생성·편집 | 룰 단독 생성/입력 확인·기본값 복원, 추천 초안 가져오기·완료 룰 버전 | tab, ruleQ, rule, recommendation |
-| 평가 | 후보·모델/룰 조합 검토·다음 평가 조건, 기록 조건/결과 비교·상세 | candidate, q, state, result, selection |
+| 평가 | 평가 세트 준비·후보 평가/비교·모델/룰 조합 검토, 기록 조건/결과 상세 | tab, candidate, q, state, result, selection |
 | 운영 버전 | 현행/선택 후보 구성 차이·준비 조건, 관리자 승인·적용/복원 확인, 이력 상세 | candidate, rollback, history |
 | 수집 | T/P/M/B 상태, 기간·원본·속성 조회, 저장소·지연 관측, 수집 이력 상세 | from, to, source, field, q, history |
 
@@ -77,3 +77,16 @@ Status: current
 - payload: 기존 featureEdits 보존 + expression + compiled(version=formula-v1, AST, outputType, unit, inputIds, fitRequired); 실제 서버 연결 전 제안 계약
 - 서버 구현 시 수식 원문 재검증·AST 재컴파일 필수; 브라우저 전달 AST/유효성만 신뢰 금지
 - 삭제: 수식 안의 삭제 참조는 그대로 보존하여 오류 표시·재선택 요구; 다른 수식의 자동 재작성 금지
+
+## 평가 세트 준비·고정 조건
+
+- 준비 초안: 고정 원본 snapshot 선택, 서버 분할 manifest·train/validation/test 요약, 지표/산식·라벨 근거·시나리오 레시피·CSV 구조 확인. 초안 자체는 불변 세트가 아니며 평가 요청 근거로 사용 금지
+- 분할: snapshotId+manifest id/revision, 거래/실행 중복 검사·train-only fit·fitLineage. 미제공 값은 미확인, 임의 구간·횟수 생성 금지
+- 평가기준: spec id/revision 및 지표 산식·라벨 출처. 팀원 합의 근거 없는 합격선은 미확정; validation 후보 비교와 test 최종 확인 구분, testRunCount 미제공은 미확인
+- 고정 평가 세트: EvaluationSet id/revision, immutable=true/state=ready 및 snapshot/분할/기준 revision 검증. 선택 시 모든 조건 읽기 전용·원본 세트에서 요청 조건 재구성; 자유 문자열 조건이나 로컬 레시피로 실행 금지
+- 새 세트 생성: createEvaluationSet 제안 operation, preparationCapabilities.createEvaluationSet 기본 false. 요청 접수·고정 세트 생성 완료 구분; 조회 API와 생성 엔진은 미연결
+- CSV 브라우저 검사 제안: 최대 5 MiB/10000행, scenario(delay/stall/burst/normal)·label(anomaly/normal/unknown) 헤더. 따옴표/열 개수/값 검증, 서버 합의 포맷·서버 검증·주입 성공 아님
+- CSV 보존: 헤더/행 수/라벨·시나리오 집계/최대 5개 라벨 metadata만 현재 세션 초안. BODY·인증 관련 헤더 제외, 원문/임의 원본 열 값은 draft·URL·저장·기록·서버 payload에 포함 금지. 늦은 파일 읽기 응답은 계정 변경·재선택·이탈 시 무효화
+- 평가 초안: preparation/conditionsByCandidate/composition 및 후속 comparison은 형제 필드. 편집 직전 현재 store 기준 병합, 내부 탭 숨김/재조회로 다른 초안 소실 금지
+- 과거 결과: evaluationSet metadata가 없는 기존 기록의 열람 보존. 고정 세트가 확인되지 않은 과거 조건을 새 평가 실행 근거로 재사용 금지
+- CSV metadata는 입력 검토 정보이며 서버 시험 원본/asset reference가 아님. 원문 등록 기능 없는 현재 생성 요청에는 시나리오 필수; metadata만 있는 초안은 고정 세트 생성 차단. 요청 payload에서도 csv는 metadata 역할만 유지

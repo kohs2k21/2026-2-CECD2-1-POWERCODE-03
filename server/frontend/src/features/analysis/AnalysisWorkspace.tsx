@@ -62,6 +62,7 @@ export const AnalysisWorkspace = ({ onLogout }: AnalysisWorkspaceProps) => {
                   query={query}
                   onOpenDetail={setActiveDetailId}
                   onQueryChange={setQuery}
+                  onCategoryChange={handleCategoryChange}
                   isWide={isWide}
                   onToggleWide={handleToggleWide}
                   latestDetectedAt={latestDetectedAt}

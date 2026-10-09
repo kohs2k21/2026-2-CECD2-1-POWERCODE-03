@@ -38,6 +38,7 @@ export const AnalysisInboxView = ({
   query,
   onOpenDetail,
   onQueryChange,
+  onCategoryChange,
   isWide,
   onToggleWide,
   latestDetectedAt,
@@ -55,6 +56,7 @@ export const AnalysisInboxView = ({
   query: string;
   onOpenDetail: (logId: string) => void;
   onQueryChange: (query: string) => void;
+  onCategoryChange: (category: AnalysisCategory) => void;
   isWide: boolean;
   onToggleWide: (val: boolean) => void;
   latestDetectedAt: string | null;
@@ -127,6 +129,8 @@ export const AnalysisInboxView = ({
           <AnalysisFilterDialog
             isOpen={isFilterOpen}
             onOpenChange={setIsFilterOpen}
+            activeCategory={activeCategory}
+            onCategoryChange={onCategoryChange}
           />
           <div className="analysis-sort-group">
             <span className="analysis-sort-label">정렬</span>

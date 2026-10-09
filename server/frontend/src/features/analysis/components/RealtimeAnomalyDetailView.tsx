@@ -182,7 +182,7 @@ export const RealtimeAnomalyDetailView = ({
             <dd>{displayOptional(event.channelName)}</dd>
           </div>
           <div>
-            <dt>원천 상태</dt>
+            <dt>로그 상태</dt>
             <dd>{displayOptional(event.status)}</dd>
           </div>
           <div>

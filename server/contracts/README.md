@@ -4,3 +4,4 @@ Reserved for versioned request, response, event, and worker contracts shared by 
 
 - `auth.md` defines login, Bearer `/me`, and disabled registration responses.
 - `anomaly.md` defines authenticated risk evaluation, admin ingest, and SSE events.
+- `queues.md` defines separate PostgreSQL detection-log and training-job queues and their versioned message contracts.

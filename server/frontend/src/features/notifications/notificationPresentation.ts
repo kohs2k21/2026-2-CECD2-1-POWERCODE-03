@@ -1,6 +1,7 @@
 import type { UserRole } from "../../types/app";
 import type { RealtimeAnomalyEvent } from "../../types/realtime";
 import type { DetectionData, JobState } from "../detection/data/types";
+import { taskDetailHref } from "../detection/data/actionReceipt";
 
 export const notificationFilters = [
   { id: "all", label: "전체" },
@@ -66,9 +67,7 @@ export const taskNotifications = (data: DetectionData): TaskNotification[] =>
       requestedAt: job.requestedAt,
       progress: measuredProgress(job.progress),
       failure: job.failure,
-      href:
-        "/detection/create?" +
-        new URLSearchParams({ tab: "training", job: job.id }),
+      href: taskDetailHref({ type: "training", id: job.id }),
     })),
     ...data.evaluations.map((result) => ({
       id: result.id,
@@ -80,13 +79,12 @@ export const taskNotifications = (data: DetectionData): TaskNotification[] =>
       requestedAt: result.requestedAt,
       progress: null,
       failure: result.failure,
-      href:
-        "/detection/evaluation?" +
-        new URLSearchParams({
-          tab: "candidates",
-          candidate: result.candidateId,
-          result: result.id,
-        }),
+      href: taskDetailHref({
+        type: "evaluation",
+        id: result.id,
+        candidateId: result.candidateId,
+        resultId: result.id,
+      }),
     })),
   ].sort((left, right) => {
     const pendingOrder =

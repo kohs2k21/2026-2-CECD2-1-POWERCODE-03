@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import React from "react";
 import { act, create } from "react-test-renderer";
+import { MemoryRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   AuthSessionProvider,
@@ -46,7 +47,7 @@ const cache = new QueryClient({
   defaultOptions: { queries: { retry: false } },
 });
 let payload = { rule: { name: "룰", threshold: 3000 } };
-const tree = () =>
+const serviceTree = () =>
   React.createElement(
     QueryClientProvider,
     { client: cache },
@@ -66,6 +67,7 @@ const tree = () =>
       ),
     ),
   );
+const tree = () => React.createElement(MemoryRouter, null, serviceTree());
 let renderer;
 await act(async () => {
   renderer = create(tree());

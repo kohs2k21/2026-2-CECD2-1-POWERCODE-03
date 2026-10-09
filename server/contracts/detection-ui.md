@@ -90,3 +90,14 @@ Status: current
 - 평가 초안: preparation/conditionsByCandidate/composition 및 후속 comparison은 형제 필드. 편집 직전 현재 store 기준 병합, 내부 탭 숨김/재조회로 다른 초안 소실 금지
 - 과거 결과: evaluationSet metadata가 없는 기존 기록의 열람 보존. 고정 세트가 확인되지 않은 과거 조건을 새 평가 실행 근거로 재사용 금지
 - CSV metadata는 입력 검토 정보이며 서버 시험 원본/asset reference가 아님. 원문 등록 기능 없는 현재 생성 요청에는 시나리오 필수; metadata만 있는 초안은 고정 세트 생성 차단. 요청 payload에서도 csv는 metadata 역할만 유지
+
+## 동일 조건 후보 비교·작업 연결
+
+- 비교: 현행 운영 버전 필수 + 여러 고정 후보/과거 버전 선택. 선택은 compare URL 및 현재 세션 comparison 초안; preparation/conditionsByCandidate/composition 형제 필드 보존
+- 결과 검색: bundle.evaluationId 단일 연결에 한정하지 않고 전체 evaluations 검색. 대상 ID·현재 구성 fingerprint·평가 세트 id/revision·목적 및 원본 고정 조건 exact 일치 성공 결과 중 최신 기록만 비교표에 표시; 최근 실패/진행 작업으로 이전 성공 근거를 덮지 않음
+- 서로 다른 세트 revision/목적/구성의 기록, 조건 metadata 없는 과거 기록은 동일 조건 비교 근거 제외. 과거 이력과 상세 열람은 보존
+- 비교 요청 제안: evaluate payload targets=[candidateId,configurationFingerprint] + evaluationSetId/revision + 원본 세트 condition. 각 대상의 고정 구성 재검증·동일 세트 실행은 서버 책임, 기본 capability=false
+- 지표: 성공 결과의 유효 실측만 표시, 진행/실패/미제공 지표는 —. optional scenarioOutcomes의 주입/탐지/미탐/판정 불가/제외·라벨 근거/사유만 표시; 제공되지 않은 판정 내역·오탐/합격선 생성 금지
+- 결과 딥링크: tab=candidates&result=ID 단독 또는 candidate=ID와 함께 진입. result.candidateId로 현행/보관 버전 포함 대상 조회; 없는 결과/대상은 미존재 표시
+- receipt 확장 제안: optional job={id,type:training|evaluation,candidateId?,resultId?}. requestId는 작업 ID 아님. 학습은 실제 job.id/type으로 작업 상세 연결. 평가 queue job.id는 결과 ID와 별개: 실제 resultId 제공 시만 결과 상세 연결, 미제공은 /notifications?filter=tasks. evaluations 레코드 알림은 실제 record.id를 resultId로 전달
+- 생성/학습/평가 접수 후 작업 조회로 상태 추적. receipt만으로 완료/초안 저장/운영 변경 성공 처리 금지; 이전 계정·닫힌 확인창·변경된 요청의 늦은 receipt 폐기 유지

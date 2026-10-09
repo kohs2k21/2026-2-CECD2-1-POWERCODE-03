@@ -22,7 +22,9 @@ export const conditionsMatch = (
     left.protocolId === right.protocolId &&
     left.splitVersion === right.splitVersion &&
     left.scenario === right.scenario &&
-    left.purpose === right.purpose,
+    left.purpose === right.purpose &&
+    left.evaluationSetId === right.evaluationSetId &&
+    left.evaluationSetRevision === right.evaluationSetRevision,
   );
 
 export const evaluationErrors = (

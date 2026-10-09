@@ -251,6 +251,7 @@ export type ActionReceipt = {
     id: string;
     type: "training" | "evaluation";
     candidateId?: string;
+    resultId?: string;
   } | null;
 };
 export type DetectionGateway = {

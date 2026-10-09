@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { Link } from "react-router-dom";
 import { Button } from "../../../components/ui/button";
 import { Modal } from "../../../components/ui/Modal";
 import { DialogFooter } from "../../../components/ui/dialog";
@@ -10,7 +11,8 @@ import {
   detectionQueryKey,
   useDetectionGateway,
 } from "../data/useDetectionQuery";
-import type { DetectionOperation } from "../data/types";
+import type { ActionReceipt, DetectionOperation } from "../data/types";
+import { receiptTaskHref } from "../data/actionReceipt";
 export const ServiceAction = ({
   operation,
   label,
@@ -31,7 +33,7 @@ export const ServiceAction = ({
   const [open, setOpen] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [receipt, setReceipt] = useState<string | null>(null);
+  const [receipt, setReceipt] = useState<ActionReceipt | null>(null);
   const gateway = useDetectionGateway();
   const { user } = useAuthSession();
   const cache = useQueryClient();
@@ -92,9 +94,7 @@ export const ServiceAction = ({
       );
       if (requestController.signal.aborted || getStoredToken() !== requestToken)
         return;
-      setReceipt(
-        `요청 접수: ${result.requestId}. 최종 처리 결과는 작업 상태에서 확인합니다.`,
-      );
+      setReceipt(result);
       await cache.invalidateQueries({ queryKey: detectionQueryKey(user!.id) });
     } catch (failure) {
       if (
@@ -148,7 +148,16 @@ export const ServiceAction = ({
           </p>
         )}
         {error && <ErrorState title={error} />}{" "}
-        {receipt && <p role="status">{receipt}</p>}
+        {receipt && (
+          <>
+            <p role="status">{`요청 접수: ${receipt.requestId}. 최종 처리 결과는 작업 상태에서 확인합니다.`}</p>
+            <Button asChild variant="outline">
+              <Link to={receiptTaskHref(receipt)} onClick={close}>
+                작업 상태 보기
+              </Link>
+            </Button>
+          </>
+        )}
         <DialogFooter>
           <Button variant="outline" onClick={close}>
             취소

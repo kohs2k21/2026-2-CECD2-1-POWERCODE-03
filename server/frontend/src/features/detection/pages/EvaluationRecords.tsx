@@ -6,6 +6,7 @@ import {
   jobStateLabels,
   valueText,
 } from "../components/DetectionQueryBoundary";
+import { comparisonResult } from "../data/evaluationComparison";
 import { evaluationMatchesConfiguration } from "../data/configuration";
 import type {
   DetectionData,
@@ -77,6 +78,55 @@ export const EvaluationDetails = ({ result }: { result: EvaluationResult }) => (
     </dl>
     <h3>기록된 평가 조건</h3>
     <ConditionDetails condition={result.condition} />
+    <div className="detection-table-wrap">
+      <table className="detection-table">
+        <caption>시나리오별 판정 결과 · 미제공값은 —</caption>
+        <thead>
+          <tr>
+            <th>시나리오</th>
+            <th>주입</th>
+            <th>탐지</th>
+            <th>미탐</th>
+            <th>판정 불가</th>
+            <th>제외</th>
+            <th>라벨 출처</th>
+            <th>사유</th>
+          </tr>
+        </thead>
+        <tbody>
+          {result.scenarioOutcomes?.length ? (
+            result.scenarioOutcomes.map((row) => (
+              <tr key={row.kind}>
+                <th scope="row">{row.kind}</th>
+                {(
+                  [
+                    "injected",
+                    "detected",
+                    "missed",
+                    "unavailable",
+                    "excluded",
+                  ] as const
+                ).map((key) => (
+                  <td key={key}>
+                    {typeof row[key] === "number" &&
+                    Number.isSafeInteger(row[key]) &&
+                    row[key]! >= 0
+                      ? row[key]
+                      : "—"}
+                  </td>
+                ))}
+                <td>{valueText(row.labelSource)}</td>
+                <td>{valueText(row.reason)}</td>
+              </tr>
+            ))
+          ) : (
+            <tr>
+              <td colSpan={8}>시나리오별 판정 내역이 제공되지 않았습니다.</td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+    </div>
     {result.failure && (
       <p className="detection-error" role="alert">
         {result.failure}
@@ -105,22 +155,19 @@ export const EvaluationRecords = ({
     else next.delete("result");
     return `?${next.toString()}`;
   };
-  const candidateResult = evaluationFor(candidate, data);
-  const active = data.versions.find((item) => item.id === data.activeVersionId);
-  const activeResult = evaluationFor(active, data);
+  const set = data.evaluationSets?.find(
+    (item) =>
+      item.id === condition.evaluationSetId &&
+      item.revision === condition.evaluationSetRevision,
+  );
+  const candidateResult =
+    candidate && set
+      ? comparisonResult(candidate, set, data)
+      : evaluationFor(candidate, data);
   const matches = Boolean(
     candidate &&
     candidateResult?.state === "succeeded" &&
     conditionsMatch(candidateResult.condition, condition) &&
-    evaluationMatchesConfiguration(candidateResult, candidate, data),
-  );
-  const comparable = Boolean(
-    active &&
-    candidate &&
-    activeResult?.state === "succeeded" &&
-    candidateResult?.state === "succeeded" &&
-    conditionsMatch(activeResult.condition, candidateResult.condition) &&
-    evaluationMatchesConfiguration(activeResult, active, data) &&
     evaluationMatchesConfiguration(candidateResult, candidate, data),
   );
   const resultId = params.get("result");
@@ -162,37 +209,6 @@ export const EvaluationRecords = ({
               )}
           </>
         )}
-        <h3>기록된 운영 구성과 후보 비교</h3>
-        <p className="detection-note" role="status">
-          {comparable
-            ? "같은 평가 조건이며 각 기록의 구성 내용이 확인되었습니다."
-            : "비교 불가: 양쪽의 성공한 평가 결과, 동일한 평가 조건, 현재 구성과 일치하는 평가 근거가 필요합니다."}
-        </p>
-        <div className="detection-table-wrap">
-          <table className="detection-table">
-            <caption>기록된 평가 지표 · 미측정값은 —</caption>
-            <thead>
-              <tr>
-                <th scope="col">지표</th>
-                <th scope="col">현재 · {active?.name ?? "—"}</th>
-                <th scope="col">후보 · {candidate?.name ?? "—"}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {metricRows.map(({ key, label, unit }) => (
-                <tr key={key}>
-                  <th scope="row">{label}</th>
-                  <td>{metricText(activeResult?.metrics[key], unit)}</td>
-                  <td>{metricText(candidateResult?.metrics[key], unit)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <p className="detection-note">
-          다음 평가 조건의 실행 결과가 아닙니다. 조건이나 구성의 일치가 확인되지
-          않은 수치로 성능의 우열을 판단할 수 없습니다.
-        </p>
       </section>
       <section
         className="detection-card"

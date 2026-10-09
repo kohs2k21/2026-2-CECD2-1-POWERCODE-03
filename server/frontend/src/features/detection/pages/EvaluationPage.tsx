@@ -17,6 +17,8 @@ import { useEvaluationConditions } from "./useEvaluationConditions";
 import { CompositionEditor } from "./CompositionEditor";
 import { EvaluationConditionForm } from "./EvaluationConditionForm";
 import { EvaluationRecords } from "./EvaluationRecords";
+import { EvaluationComparison } from "./EvaluationComparison";
+import { conditionFromEvaluationSet } from "../data/evaluationPreparation";
 import { EvaluationPreparation } from "./EvaluationPreparation";
 import {
   DetectionTabs,
@@ -49,17 +51,26 @@ const EvaluationWorkbench = ({
   };
   const patch = (values: Record<string, string | null>) =>
     setParams(href(values).slice(1), { state: location.state });
-  const candidates = data.versions.filter(
-    (item) => item.state === "candidate" || item.state === "draft",
+  const candidates = data.versions;
+  const detailResult = data.evaluations.find(
+    (item) => item.id === params.get("result"),
   );
-  const candidateId = params.get("candidate") ?? candidates[0]?.id ?? "";
+  const candidateId =
+    params.get("candidate") ??
+    detailResult?.candidateId ??
+    candidates.find((item) => item.state === "candidate")?.id ??
+    candidates[0]?.id ??
+    "";
   const candidate = candidates.find((item) => item.id === candidateId);
   const localPreview = activeTab === "composition";
   const target = localPreview ? (preview ?? undefined) : candidate;
   const targetKey = localPreview
     ? `preview:${preview?.configurationFingerprint ?? "unselected"}`
     : candidateId;
-  const result = evaluationFor(target, data);
+  const result =
+    detailResult?.candidateId === target?.id
+      ? detailResult
+      : evaluationFor(target, data);
   const snapshot =
     data.snapshots.find((item) => item.id === target?.snapshotId) ??
     data.snapshots.find((item) => item.state === "ready");
@@ -71,6 +82,14 @@ const EvaluationWorkbench = ({
     purpose: "",
   };
   const { condition, replace } = useEvaluationConditions(targetKey, initial);
+  const set = data.evaluationSets?.find(
+    (item) =>
+      item.id === condition.evaluationSetId &&
+      item.revision === condition.evaluationSetRevision,
+  );
+  const authoritativeCondition = set
+    ? conditionFromEvaluationSet(set)
+    : condition;
   const search = params.get("q") ?? "";
   const state = params.get("state") ?? "all";
   const visible = candidates.filter(
@@ -117,6 +136,8 @@ const EvaluationWorkbench = ({
                     <option value="all">전체</option>
                     <option value="candidate">평가 후보</option>
                     <option value="draft">편집 중</option>
+                    <option value="active">운영 중</option>
+                    <option value="archived">이전 버전</option>
                   </select>
                 </label>
               </div>
@@ -172,7 +193,7 @@ const EvaluationWorkbench = ({
                 data={data}
                 target={target}
                 localPreview={localPreview}
-                condition={condition}
+                condition={authoritativeCondition}
                 replace={replace}
               />
             ) : localPreview ? (
@@ -186,10 +207,17 @@ const EvaluationWorkbench = ({
         </div>
       )}
       {activeTab === "candidates" && (
+        <EvaluationComparison
+          data={data}
+          condition={authoritativeCondition}
+          primaryId={candidateId}
+        />
+      )}
+      {activeTab === "candidates" && (
         <EvaluationRecords
           data={data}
           candidate={candidate}
-          condition={condition}
+          condition={authoritativeCondition}
         />
       )}
     </div>

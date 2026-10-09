@@ -95,17 +95,15 @@ assert.equal(storageAssessment(fixture.storage[0]).usedPercent, null);
 let view = await mount(
   "/detection/evaluation?candidate=candidate-delay&retained=yes",
 );
-assert.match(text(view.renderer.toJSON()), /비교 불가/);
+assert.match(text(view.renderer.toJSON()), /조건·구성 일치 결과 없음/);
 assert.match(text(view.renderer.toJSON()), /미측정값은 —/);
 await act(async () =>
-  useDraftStore
-    .getState()
-    .edit("/detection/evaluation", {
-      editor: "evaluation",
-      conditionsByCandidate: {
-        "candidate-delay": { ...condition, protocolId: "edited-protocol" },
-      },
-    }),
+  useDraftStore.getState().edit("/detection/evaluation", {
+    editor: "evaluation",
+    conditionsByCandidate: {
+      "candidate-delay": { ...condition, protocolId: "edited-protocol" },
+    },
+  }),
 );
 assert.equal(
   useDraftStore.getState().drafts["/detection/evaluation"].dirty,
@@ -140,7 +138,9 @@ assert.equal(
   new URLSearchParams(view.router.state.location.search).get("candidate"),
   "candidate-delay",
 );
-const evaluate = view.renderer.root.findByType(ServiceAction);
+const evaluate = view.renderer.root
+  .findAllByType(ServiceAction)
+  .find((item) => item.props.label === "평가 실행");
 assert.equal(evaluate.props.available, false);
 assert.equal(
   evaluate.props.disabled,

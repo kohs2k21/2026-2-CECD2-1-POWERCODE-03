@@ -103,7 +103,12 @@ export const EvaluationConditionForm = ({
           operation="evaluate"
           label="평가 실행"
           available={data.capabilities.evaluate}
-          disabled={errors.length > 0 || localPreview || !fixedConfiguration}
+          disabled={
+            errors.length > 0 ||
+            localPreview ||
+            target.state === "draft" ||
+            !fixedConfiguration
+          }
           payload={{
             candidateId: target.id,
             condition: authoritative,

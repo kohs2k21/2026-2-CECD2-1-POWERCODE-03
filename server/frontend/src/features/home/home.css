@@ -625,3 +625,21 @@
     transform: none;
   }
 }
+.operations-observation { border: 1px solid var(--hairline); border-radius: var(--radius-md); padding: 16px; margin-bottom: 24px; background: var(--canvas); }
+.operations-observation__summary { display: flex; flex-wrap: wrap; gap: 12px 24px; font-size: 13px; margin-bottom: 16px; }
+.operations-observation__summary span { color: var(--mute); }
+.operations-observation__stages { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; }
+.operations-observation__stages article { display: flex; flex-direction: column; gap: 8px; border: 1px solid var(--hairline); border-radius: var(--radius-md); padding: 12px; min-width: 0; font-size: 12px; }
+.operations-observation__stages article > span { color: var(--mute); }
+.operations-observation dl, .operations-widget-metrics dl { margin: 0; }
+.operations-observation dl div, .operations-widget-metrics dl div { display: flex; justify-content: space-between; gap: 8px; padding: 4px 0; }
+.operations-observation dd, .operations-widget-metrics dd { margin: 0; overflow-wrap: anywhere; text-align: right; }
+.operations-observation dt { flex-shrink: 0; color: var(--mute); }
+.operations-observation > p, .operations-widget-metrics p { font-size: 12px; color: var(--mute); }
+.operations-widget-metrics { padding: 8px; font-size: 13px; }
+.operations-live-feed { display: flex; flex-direction: column; gap: 8px; height: 100%; overflow: hidden; font-size: 12px; }
+.operations-live-feed__items { display: flex; flex-direction: column; gap: 6px; overflow-y: auto; }
+.operations-live-feed .live-feed-item { display: flex; flex-direction: column; padding: 8px; color: var(--ink); text-decoration: none; border: 1px solid var(--hairline); border-radius: var(--radius-md); overflow-wrap: anywhere; }
+.operations-live-feed p { margin: 4px 0; }
+@media (max-width: 1100px) { .operations-observation__stages { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 640px) { .operations-observation__stages { grid-template-columns: minmax(0, 1fr); } }

@@ -83,7 +83,7 @@ export const WidgetCatalogOverlay = ({
                 </div>
               </div>
               <strong>{widget.title}</strong>
-              <p>{widget.description}</p>
+              <p>{widget.title} 위젯 배치</p>
               <Button
                 variant="outline"
                 size="sm"

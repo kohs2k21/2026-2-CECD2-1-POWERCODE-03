@@ -26,6 +26,7 @@ export const AnalysisWorkspace = ({ onLogout }: AnalysisWorkspaceProps) => {
     setActiveDetailId,
     setQuery,
     sidebarGroups,
+    workflowKnownCount,
   } = useAnalysisWorkspace(realtime.events);
 
   return (
@@ -57,6 +58,7 @@ export const AnalysisWorkspace = ({ onLogout }: AnalysisWorkspaceProps) => {
                   activeCategory={activeCategory}
                   details={filteredDetails}
                   eventCount={realtime.events.length}
+                  workflowKnownCount={workflowKnownCount}
                   query={query}
                   onOpenDetail={setActiveDetailId}
                   onQueryChange={setQuery}

@@ -34,6 +34,7 @@ export const AnalysisInboxView = ({
   activeCategory,
   details,
   eventCount,
+  workflowKnownCount,
   query,
   onOpenDetail,
   onQueryChange,
@@ -50,6 +51,7 @@ export const AnalysisInboxView = ({
   activeCategory: AnalysisCategory;
   details: AnalysisInboxItem[];
   eventCount: number;
+  workflowKnownCount: number;
   query: string;
   onOpenDetail: (logId: string) => void;
   onQueryChange: (query: string) => void;
@@ -63,6 +65,9 @@ export const AnalysisInboxView = ({
   onRetry: () => void;
   onLogout: () => void;
 }) => {
+  const workflowCategory =
+    activeCategory === "Open" || activeCategory === "Resolved";
+  const workflowUnavailable = workflowCategory && workflowKnownCount === 0;
   const theme = categoryThemeMap[activeCategory];
   const Icon = theme.icon;
   const {
@@ -134,7 +139,14 @@ export const AnalysisInboxView = ({
       </div>
 
       <div className="analysis-simple-summary" aria-live="polite">
-        <strong>검색결과 {details.length}건</strong>
+        <strong>
+          {workflowUnavailable
+            ? "업무 분류 확인 불가"
+            : `검색결과 ${details.length}건`}
+        </strong>
+        {workflowCategory && workflowKnownCount > 0 && (
+          <span>상태 제공 {workflowKnownCount}건 기준</span>
+        )}
         <span>최근 감지: {latestDetectedAt ?? "정보 없음"}</span>
         <span
           className={`realtime-anomaly-status realtime-anomaly-status--${streamStatus}`}
@@ -191,10 +203,10 @@ export const AnalysisInboxView = ({
           </LoadingState>
         ) : (
           <EmptyState className="analysis-empty-text">
-            {activeCategory === "Open" || activeCategory === "Resolved" ? (
+            {workflowUnavailable ? (
               <p>
-                백엔드 이벤트에는 원천 상태만 있어 업무 보류·완료 분류를
-                지원하지 않습니다.
+                업무 분류 상태가 제공되지 않아 보류·완료 건수를 확인할 수
+                없습니다.
               </p>
             ) : eventCount === 0 ? (
               <>
@@ -213,7 +225,10 @@ export const AnalysisInboxView = ({
       <footer className="analysis-inbox-footer">
         <div className="analysis-inbox-footer__left">
           <span className="analysis-inbox-footer__total">
-            전체 {details.length}건 · 수신 {eventCount}건
+            {workflowUnavailable
+              ? "업무 분류 확인 불가"
+              : `전체 ${details.length}건`}{" "}
+            · 수신 {eventCount}건
           </span>
         </div>
         <div className="analysis-pagination-controls">

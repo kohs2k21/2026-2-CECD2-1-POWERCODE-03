@@ -1958,3 +1958,72 @@
     transition: none;
   }
 }
+.anomaly-evidence-section h3,
+.anomaly-feedback h3 {
+  margin: 0 0 12px;
+  font-size: 16px;
+}
+.anomaly-evidence-section p,
+.anomaly-feedback p {
+  font-size: 13px;
+  color: var(--body);
+  line-height: 1.6;
+}
+.anomaly-evidence-table {
+  overflow-x: auto;
+}
+.anomaly-evidence-table table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  text-align: left;
+}
+.anomaly-evidence-table th,
+.anomaly-evidence-table td {
+  border-bottom: 1px solid var(--hairline);
+  padding: 12px 8px;
+  overflow-wrap: anywhere;
+}
+.anomaly-evidence-table thead th {
+  color: var(--mute);
+}
+.anomaly-feedback label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+  font-size: 13px;
+}
+.anomaly-feedback select,
+.anomaly-feedback textarea {
+  padding: 10px 12px;
+  background: var(--canvas);
+  color: var(--ink);
+  border: 1px solid var(--hairline-strong);
+  border-radius: var(--radius-md);
+  font: inherit;
+}
+.anomaly-feedback textarea {
+  resize: vertical;
+  width: 100%;
+  box-sizing: border-box;
+}
+.anomaly-evidence-read-error {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-size: 13px;
+}
+.analysis-detail-breadcrumb strong,
+.realtime-anomaly-event__fields dd {
+  overflow-wrap: anywhere;
+}
+@media (max-width: 700px) {
+  .analysis-detail-columns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .analysis-detail-breadcrumb {
+    flex-wrap: wrap;
+  }
+}

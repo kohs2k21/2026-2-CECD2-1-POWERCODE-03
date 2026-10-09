@@ -6,6 +6,7 @@ export type AnalysisInboxItem = {
     logId: string;
     severity: RealtimeAnomalyEvent["severity"];
     status?: string;
+    workflowStatus?: "Open" | "Resolved";
     detectedAt?: string;
     processName?: string;
     channelName?: string;
@@ -25,6 +26,9 @@ export const adaptRealtimeAnomalyEvent = (
     logId: event.eventId,
     severity: event.severity,
     status: event.status,
+    ...(event.workflowStatus === "Open" || event.workflowStatus === "Resolved"
+      ? { workflowStatus: event.workflowStatus }
+      : {}),
     detectedAt: event.detectedAt,
     processName: event.processName,
     channelName: event.channelName,
@@ -45,9 +49,7 @@ export const getRealtimeDetailByEventId = (
   events: RealtimeAnomalyEvent[],
   eventId: string | null,
 ): RealtimeAnomalyEvent | null =>
-  eventId
-    ? events.find((event) => event.eventId === eventId) ?? null
-    : null;
+  eventId ? (events.find((event) => event.eventId === eventId) ?? null) : null;
 
 export const matchesRealtimeCategory = (
   item: AnalysisInboxItem,
@@ -58,7 +60,7 @@ export const matchesRealtimeCategory = (
   }
 
   if (category === "Open" || category === "Resolved") {
-    return false;
+    return item.log.workflowStatus === category;
   }
 
   return item.log.severity === category;

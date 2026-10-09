@@ -15,8 +15,14 @@ import {
 
 const getSidebarGroups = (
   categoryCounts: Record<AnalysisCategory, number>,
+  workflowKnownCount: number,
 ): SidebarNavGroup<AnalysisCategory>[] =>
-  ["이상 로그", "분류함"].map((title, groupIndex) => ({
+  [
+    "이상 로그",
+    workflowKnownCount
+      ? `분류함 (상태 제공 ${workflowKnownCount}건)`
+      : "분류함 (확인 불가)",
+  ].map((title, groupIndex) => ({
     title,
     items: categoryOrder
       .filter(
@@ -31,7 +37,10 @@ const getSidebarGroups = (
         return {
           id: category,
           label: theme.label,
-          count: categoryCounts[category],
+          count:
+            theme.group === "workflow" && !workflowKnownCount
+              ? undefined
+              : categoryCounts[category],
           icon: <Icon size={17} aria-hidden="true" />,
           className: theme.className,
         };
@@ -83,9 +92,12 @@ export const useAnalysisWorkspace = (events: RealtimeAnomalyEvent[]) => {
   const activeTheme: CategoryTheme = activeRealtimeEvent
     ? categoryThemeMap[activeRealtimeEvent.severity]
     : categoryThemeMap[activeCategory];
+  const workflowKnownCount = inboxItems.filter(
+    (item) => item.log.workflowStatus !== undefined,
+  ).length;
   const sidebarGroups = useMemo(
     () =>
-      getSidebarGroups(categoryCounts).map((group) => ({
+      getSidebarGroups(categoryCounts, workflowKnownCount).map((group) => ({
         ...group,
         items: group.items.map((item) => {
           const next = new URLSearchParams(params);
@@ -94,7 +106,7 @@ export const useAnalysisWorkspace = (events: RealtimeAnomalyEvent[]) => {
           return { ...item, href: "/analysis?" + next.toString() };
         }),
       })),
-    [categoryCounts, params],
+    [categoryCounts, params, workflowKnownCount],
   );
 
   const handleToggleWide = (value: boolean) => {
@@ -123,5 +135,6 @@ export const useAnalysisWorkspace = (events: RealtimeAnomalyEvent[]) => {
     setActiveDetailId,
     setQuery,
     sidebarGroups,
+    workflowKnownCount,
   };
 };

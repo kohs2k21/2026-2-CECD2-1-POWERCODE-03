@@ -74,7 +74,13 @@ const StorageCard = ({ observation }: { observation: StorageObservation }) => {
   );
 };
 
-export const CollectionObservations = ({ data }: { data: DetectionData }) => {
+export const CollectionObservations = ({
+  data,
+  view = "both",
+}: {
+  data: DetectionData;
+  view?: "both" | "storage" | "latency";
+}) => {
   const { latency } = data;
   const measured =
     latency.sourceTimestampAvailable &&
@@ -88,64 +94,68 @@ export const CollectionObservations = ({ data }: { data: DetectionData }) => {
       : "—";
   return (
     <>
-      <section aria-labelledby="storage-title">
-        <h2 id="storage-title">저장소 용량</h2>
-        {data.storage.length ? (
-          <div className="detection-grid">
-            {data.storage.map((observation) => (
-              <StorageCard key={observation.id} observation={observation} />
-            ))}
-          </div>
-        ) : (
-          <EmptyState>저장소 관측 정보가 없습니다.</EmptyState>
-        )}
-      </section>
-      <section className="detection-card" aria-labelledby="latency-title">
-        <h2 id="latency-title">발생 기준 탐지 지연</h2>
-        <p className="detection-note">
-          목표 2–3초 · ESB 로그 발생부터 이상 판정까지
-        </p>
-        <p
-          className={
-            measured && latency.endToEndMs! > 3000
-              ? "detection-error"
-              : "detection-status"
-          }
-          role="status"
-        >
-          {measured
-            ? latency.endToEndMs! > 3000
-              ? "목표 지연 초과"
-              : "발생 기준 실측값"
-            : "발생 기준 전체 지연 미측정"}
-        </p>
-        <dl className="detection-summary">
-          <div>
-            <dt>발생 → 이상 판정</dt>
-            <dd>{measured ? latencyText(latency.endToEndMs) : "—"}</dd>
-          </div>
-          <div>
-            <dt>화면 전달 지연</dt>
-            <dd>{latencyText(latency.uiDeliveryMs)}</dd>
-          </div>
-          <div>
-            <dt>XAI 설명 지연</dt>
-            <dd>{latencyText(latency.xaiMs)}</dd>
-          </div>
-          <div>
-            <dt>발생 시각 가용성</dt>
-            <dd>{latency.sourceTimestampAvailable ? "확인됨" : "미확인"}</dd>
-          </div>
-          <div>
-            <dt>시계 동기화</dt>
-            <dd>{latency.clockSynchronized ? "확인됨" : "미확인"}</dd>
-          </div>
-        </dl>
-        <p className="detection-note">
-          API 응답 수신 시각을 발생 시각으로 대체하지 않습니다. 화면 전달·XAI
-          지연은 전체 판정 지연과 구분합니다.
-        </p>
-      </section>
+      {view !== "latency" && (
+        <section aria-labelledby="storage-title">
+          <h2 id="storage-title">저장소 용량</h2>
+          {data.storage.length ? (
+            <div className="detection-grid">
+              {data.storage.map((observation) => (
+                <StorageCard key={observation.id} observation={observation} />
+              ))}
+            </div>
+          ) : (
+            <EmptyState>저장소 관측 정보가 없습니다.</EmptyState>
+          )}
+        </section>
+      )}
+      {view !== "storage" && (
+        <section className="detection-card" aria-labelledby="latency-title">
+          <h2 id="latency-title">발생 기준 탐지 지연</h2>
+          <p className="detection-note">
+            목표 2–3초 · ESB 로그 발생부터 이상 판정까지
+          </p>
+          <p
+            className={
+              measured && latency.endToEndMs! > 3000
+                ? "detection-error"
+                : "detection-status"
+            }
+            role="status"
+          >
+            {measured
+              ? latency.endToEndMs! > 3000
+                ? "목표 지연 초과"
+                : "발생 기준 실측값"
+              : "발생 기준 전체 지연 미측정"}
+          </p>
+          <dl className="detection-summary">
+            <div>
+              <dt>발생 → 이상 판정</dt>
+              <dd>{measured ? latencyText(latency.endToEndMs) : "—"}</dd>
+            </div>
+            <div>
+              <dt>화면 전달 지연</dt>
+              <dd>{latencyText(latency.uiDeliveryMs)}</dd>
+            </div>
+            <div>
+              <dt>XAI 설명 지연</dt>
+              <dd>{latencyText(latency.xaiMs)}</dd>
+            </div>
+            <div>
+              <dt>발생 시각 가용성</dt>
+              <dd>{latency.sourceTimestampAvailable ? "확인됨" : "미확인"}</dd>
+            </div>
+            <div>
+              <dt>시계 동기화</dt>
+              <dd>{latency.clockSynchronized ? "확인됨" : "미확인"}</dd>
+            </div>
+          </dl>
+          <p className="detection-note">
+            API 응답 수신 시각을 발생 시각으로 대체하지 않습니다. 화면 전달·XAI
+            지연은 전체 판정 지연과 구분합니다.
+          </p>
+        </section>
+      )}
     </>
   );
 };

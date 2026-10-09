@@ -179,9 +179,10 @@ select:focus-visible {
   font-weight: 600;
 }
 .ui-dialog-description {
-  margin: 0;
+  margin: var(--space-xs) 0 0;
   font-size: 14px;
   color: var(--body);
+  line-height: 1.6;
 }
 .ui-dialog-close {
   position: absolute;
@@ -190,6 +191,19 @@ select:focus-visible {
 }
 .ui-dialog-body {
   margin-top: var(--space-md);
+}
+.ui-dialog-footer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-sm);
+  margin-top: var(--space-lg);
+  padding-top: var(--space-md);
+  border-top: 1px solid var(--hairline);
+}
+.ui-dialog-body > .ui-dialog-footer,
+.ui-dialog-content > .ui-dialog-footer {
+  margin-top: var(--space-lg);
 }
 .ui-modal--sm {
   width: min(400px, calc(100vw - 32px));

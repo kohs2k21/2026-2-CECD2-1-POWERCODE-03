@@ -226,7 +226,10 @@ export const useRealtimeAnomalies = (
   }, [enabled, retryAttempt, token]);
 
   return {
-    ...state,
+    // Do not expose a previous session's events before effect cleanup runs.
+    ...(enabled && token && seenEventCache.current.token === token
+      ? state
+      : initialState),
     retry: () => setRetryAttempt((current) => current + 1),
   };
 };

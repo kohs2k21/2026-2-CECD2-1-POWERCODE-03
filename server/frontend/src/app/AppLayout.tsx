@@ -7,6 +7,8 @@ import type { ViewId } from "../types/app";
 import { useState } from "react";
 import { NavigationGuard } from "../components/layout/NavigationGuard";
 import { useDraftStore } from "../stores/draftStore";
+import { RealtimeAnomalyProvider } from "../features/analysis/RealtimeAnomalyProvider";
+import { NotificationsProvider } from "../features/notifications/NotificationsProvider";
 
 export const AppLayout = () => {
   const session = useAuthSession();
@@ -21,37 +23,45 @@ export const AppLayout = () => {
       setLogoutRequested(true);
     else session.logout();
   };
-  const activeView: ViewId =
-    location.pathname === "/settings"
-      ? "settings"
-      : location.pathname.startsWith("/analysis")
-        ? "analysis"
-        : location.pathname.startsWith("/detection")
-          ? "model"
-          : "home";
+  const activeView: ViewId | null =
+    location.pathname === "/notifications"
+      ? null
+      : location.pathname === "/settings"
+        ? "settings"
+        : location.pathname.startsWith("/analysis")
+          ? "analysis"
+          : location.pathname.startsWith("/detection")
+            ? "model"
+            : "home";
   return (
-    <AppShell
-      topNav={
-        <TopNav
-          activeView={activeView}
-          role={session.user!.userType}
-          navItems={getVisibleNavItems(session.user!.userType)}
-          settingsPath={
-            location.pathname === "/settings"
-              ? location.pathname + location.search
-              : "/settings?returnTo=" +
-                encodeURIComponent(location.pathname + location.search)
-          }
-          onLogout={requestLogout}
-        />
-      }
+    <RealtimeAnomalyProvider
+      key={`${session.user!.id}:${session.user!.userType}`}
     >
-      <Outlet context={{ requestLogout }} />
-      <NavigationGuard
-        logoutRequested={logoutRequested}
-        onCancelLogout={() => setLogoutRequested(false)}
-        onLogout={session.logout}
-      />
-    </AppShell>
+      <NotificationsProvider>
+        <AppShell
+          topNav={
+            <TopNav
+              activeView={activeView}
+              role={session.user!.userType}
+              navItems={getVisibleNavItems(session.user!.userType)}
+              settingsPath={
+                location.pathname === "/settings"
+                  ? location.pathname + location.search
+                  : "/settings?returnTo=" +
+                    encodeURIComponent(location.pathname + location.search)
+              }
+              onLogout={requestLogout}
+            />
+          }
+        >
+          <Outlet context={{ requestLogout }} />
+          <NavigationGuard
+            logoutRequested={logoutRequested}
+            onCancelLogout={() => setLogoutRequested(false)}
+            onLogout={session.logout}
+          />
+        </AppShell>
+      </NotificationsProvider>
+    </RealtimeAnomalyProvider>
   );
 };

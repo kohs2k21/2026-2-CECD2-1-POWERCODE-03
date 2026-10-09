@@ -13,10 +13,12 @@ import {
   validateDataDraft,
   validateTrainingConfig,
 } from "../data/createDraft";
+import { validateFeatureEditor } from "../data/featureBuilder";
 import {
-  validateFeatureEditor,
-  unavailableInput,
-} from "../data/featureBuilder";
+  compileFormula,
+  featureOptions,
+  featureDefinitionPayload,
+} from "../data/formula";
 import type { DetectionData } from "../data/types";
 export const TrainingTab = ({ data }: { data: DetectionData }) => {
   const { draft, update } = useCreateDraft();
@@ -47,6 +49,7 @@ export const TrainingTab = ({ data }: { data: DetectionData }) => {
   const config = draft.training;
   const model = data.models.find((item) => item.id === config.modelId);
   const snapshot = data.snapshots.find((item) => item.id === draft.snapshotId);
+  const features = featureOptions(draft);
   const setConfig = (patch: Partial<typeof config>) => {
     const next = { ...config, ...patch };
     update({
@@ -63,25 +66,17 @@ export const TrainingTab = ({ data }: { data: DetectionData }) => {
   if (snapshot && (draft.start < snapshot.start || draft.end > snapshot.end))
     errors.push("학습 기간은 고정 데이터셋 범위 안에 있어야 합니다.");
   const notReady = config.featureIds.filter((id) => {
-    const feature = featureCatalog.find((item) => item.id === id);
+    const feature = features.find((item) => item.id === id);
     const edit = draft.featureEdits[id];
-    if (edit)
-      return (
-        validateFeatureEditor(edit).length > 0 ||
-        edit.operation === "trainMedian" ||
-        Boolean(unavailableInput(edit)) ||
-        edit.left === id ||
-        edit.right === id ||
-        !model?.supportedTypes.includes("number") ||
-        [edit.left, edit.right].some((input) =>
-          input.startsWith("transaction."),
-        )
-      );
+    const compiled = compileFormula(`[${id}]`, features);
     return (
       !feature ||
+      Boolean(edit && validateFeatureEditor(edit, features).length) ||
+      compiled.errors.length > 0 ||
+      compiled.fitRequired ||
       feature.readiness !== "ready" ||
-      feature.source === "transaction" ||
-      !model?.supportedTypes.includes(feature.type)
+      compiled.inputIds.some((input) => input.startsWith("transaction.")) ||
+      !model?.supportedTypes.some((type) => type === compiled.outputType)
     );
   });
   if (notReady.length)
@@ -162,7 +157,7 @@ export const TrainingTab = ({ data }: { data: DetectionData }) => {
         </div>
         <h3 className="detection-feedback">이 모델의 입력 피처</h3>
         <p className="detection-note">
-          선택 {config.featureIds.length}개 · 원천 ID/텍스트 및 fit 준비 상태를
+          선택 {config.featureIds.length}개 · 원본 ID/텍스트 및 fit 준비 상태를
           확인한 뒤 입력을 확정합니다.
         </p>
         <div className="detection-check-list">
@@ -223,7 +218,7 @@ export const TrainingTab = ({ data }: { data: DetectionData }) => {
               snapshotId: draft.snapshotId,
               start: draft.start,
               end: draft.end,
-              featureDefinitions: draft.featureEdits,
+              featureDefinitions: featureDefinitionPayload(draft),
             }}
             requestDisabled={errors.length > 0}
           >

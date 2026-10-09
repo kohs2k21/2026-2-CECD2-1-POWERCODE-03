@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "../../../components/ui/button";
 import { Modal } from "../../../components/ui/Modal";
+import { DialogFooter } from "../../../components/ui/dialog";
 import { ErrorState } from "../../../components/ui/feedback";
 import { useAuthSession } from "../../../services/auth/AuthSessionProvider";
 import { getStoredToken } from "../../../services/auth/session";
@@ -148,7 +149,7 @@ export const ServiceAction = ({
         )}
         {error && <ErrorState title={error} />}{" "}
         {receipt && <p role="status">{receipt}</p>}
-        <div className="detection-actions">
+        <DialogFooter>
           <Button variant="outline" onClick={close}>
             취소
           </Button>
@@ -162,7 +163,7 @@ export const ServiceAction = ({
           >
             {pending ? "요청 중..." : label}
           </Button>
-        </div>
+        </DialogFooter>
       </Modal>
     </>
   );

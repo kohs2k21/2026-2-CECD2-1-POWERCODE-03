@@ -1,11 +1,12 @@
-import { IconBell, IconSettings } from "@tabler/icons-react";
+import { IconSettings } from "@tabler/icons-react";
 import type { NavItem, UserRole, ViewId } from "../../types/app";
 import inzentLogo from "./inzent_logo.svg";
 import { Link } from "react-router-dom";
 import { Button } from "../../components/ui/button";
 import { viewPaths } from "../../app/routePaths";
+import { NotificationsBell } from "../notifications/NotificationsBell";
 type TopNavProps = {
-  activeView: ViewId;
+  activeView: ViewId | null;
   navItems: NavItem[];
   role: UserRole;
   onLogout: () => void;
@@ -53,9 +54,7 @@ export const TopNav = ({
       <Button variant="outline" onClick={onLogout}>
         로그아웃
       </Button>
-      <span className="top-nav-icon-btn notification-icon" aria-label="알림">
-        <IconBell size={20} aria-hidden="true" />
-      </span>
+      <NotificationsBell />
       <Button
         asChild
         variant="ghost"

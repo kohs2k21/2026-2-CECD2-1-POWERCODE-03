@@ -60,7 +60,7 @@ export const rawFeatures: FeatureDefinition[] = Object.entries(
         type === "timestamp"
           ? "시간대 확인 필요"
           : name === "PROCESS_TIME"
-            ? "원천 단위 확인 필요"
+            ? "원본 단위 확인 필요"
             : type === "number"
               ? "건"
               : "—",
@@ -145,7 +145,7 @@ const candidates: CandidateSpec[] = [
     "TOTAL_COUNT - (SUCCESS_COUNT + ERROR_COUNT)",
     ["TOTAL_COUNT", "SUCCESS_COUNT", "ERROR_COUNT"],
     false,
-    "합계 계약·음수 원천값 검증 필요",
+    "합계 계약·음수 원본값 검증 필요",
   ],
   [
     "F08",
@@ -166,15 +166,15 @@ const candidates: CandidateSpec[] = [
   [
     "F10",
     "successCountIsZeroOrMissing",
-    "SUCCESS_COUNT가 0 또는 원천 NULL",
+    "SUCCESS_COUNT가 0 또는 원본 NULL",
     ["SUCCESS_COUNT"],
     false,
-    "컬럼 미수집과 원천 NULL 구분",
+    "컬럼 미수집과 원본 NULL 구분",
   ],
   [
     "F11",
     "totalCountIsZeroOrMissing",
-    "TOTAL_COUNT가 0 또는 원천 NULL",
+    "TOTAL_COUNT가 0 또는 원본 NULL",
     ["TOTAL_COUNT"],
     false,
     "0/NULL/미수집 구분",
@@ -190,7 +190,7 @@ const candidates: CandidateSpec[] = [
   [
     "F13",
     "endTimeIsMissing",
-    "END_TIME의 원천 NULL 여부",
+    "END_TIME의 원본 NULL 여부",
     ["END_TIME"],
     false,
     "판정 시점·수집 누락 구분",
@@ -401,7 +401,7 @@ const candidates: CandidateSpec[] = [
     "log1p(END_TIME - ERROR_TIME)",
     ["END_TIME", "ERROR_TIME"],
     false,
-    "필수 원천 속성 ERROR_TIME 없음 · 계산 보류",
+    "필수 원본 속성 ERROR_TIME 없음 · 계산 보류",
   ],
 ];
 const aliases: Record<string, string[]> = {
@@ -441,7 +441,7 @@ export const derivedFeatures: FeatureDefinition[] = candidates.map(
     collected: null,
     missingRate: null,
     distinctCount: null,
-    availableAt: "의존 원천값 가용 시점 검증 필요",
+    availableAt: "의존 원본값 가용 시점 검증 필요",
   }),
 );
 export const featureCatalog = [...rawFeatures, ...derivedFeatures];

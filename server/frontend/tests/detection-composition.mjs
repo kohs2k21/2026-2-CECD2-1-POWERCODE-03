@@ -125,10 +125,13 @@ viewData.ruleVersions.push({
   name: "미완료 룰",
   state: "queued",
 });
-let view = await mount("/detection/versions?candidate=candidate-delay", {
-  ...gateway,
-  read: async () => structuredClone(viewData),
-});
+let view = await mount(
+  "/detection/versions?tab=configuration&candidate=candidate-delay",
+  {
+    ...gateway,
+    read: async () => structuredClone(viewData),
+  },
+);
 await act(async () =>
   useDraftStore.getState().edit("/detection/create", {
     editor: "create",
@@ -220,16 +223,26 @@ assert.equal(
 );
 assert.match(text(view.renderer.toJSON()), /다음 평가 조건/);
 assert.match(text(view.renderer.toJSON()), /로컬 구성 미리보기/);
-assert.match(text(view.renderer.toJSON()), /현재 입력 조건의 결과 없음/);
+assert.ok(
+  !text(view.renderer.toJSON()).includes("기록된 처리 상태"),
+  "composition preview has no recorded candidate results",
+);
 await act(async () =>
-  labeledControl(view.renderer, "후보 검색").props.onChange({
-    target: { value: "처리시간" },
-  }),
+  view.router.navigate(
+    "/detection/evaluation?tab=candidates&candidate=candidate-delay&q=처리시간",
+    { state: view.router.state.location.state },
+  ),
 );
 assert.deepEqual(
   view.router.state.location.state.detectionComposition,
   transferred,
   "URL filtering preserves handoff state",
+);
+await act(async () =>
+  view.router.navigate(
+    "/detection/evaluation?tab=composition&candidate=candidate-delay&q=처리시간",
+    { state: view.router.state.location.state },
+  ),
 );
 for (const label of ["평가 프로토콜", "시나리오", "평가 목적"]) {
   await act(async () =>
@@ -287,15 +300,13 @@ await act(async () =>
   }),
 );
 await act(async () =>
-  useDraftStore
-    .getState()
-    .edit("/detection/versions", {
-      editor: "versions-composition",
-      composition: {
-        ...composition,
-        explanationVersion: "untrusted-draft-version",
-      },
-    }),
+  useDraftStore.getState().edit("/detection/versions", {
+    editor: "versions-composition",
+    composition: {
+      ...composition,
+      explanationVersion: "untrusted-draft-version",
+    },
+  }),
 );
 const inheritedEditor = view.renderer.root.findByType(CompositionEditor);
 assert.match(text(inheritedEditor), /explanation-recorded/);

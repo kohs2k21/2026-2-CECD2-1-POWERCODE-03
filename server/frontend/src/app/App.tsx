@@ -16,6 +16,7 @@ import { CreatePage } from "../features/detection/DetectionPages";
 import { EvaluationPage } from "../features/detection/pages/EvaluationPage";
 import { VersionsPage } from "../features/detection/pages/VersionsPage";
 import { CollectionPage } from "../features/detection/pages/CollectionPage";
+import { NotificationsPage } from "../features/notifications/NotificationsPage";
 
 const router = createBrowserRouter([
   { path: "/login", element: <LoginRoute /> },
@@ -29,6 +30,7 @@ const router = createBrowserRouter([
           { path: "/operations", element: <OperationsRoute /> },
           { path: "/analysis", element: <AnalysisRoute /> },
           { path: "/settings", element: <SettingsRoute /> },
+          { path: "/notifications", element: <NotificationsPage /> },
           {
             element: <AdminGate />,
             children: [

@@ -2,7 +2,7 @@ import { createContext, useContext, type PropsWithChildren } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuthSession } from "../../../services/auth/AuthSessionProvider";
 import { getDefaultGateway } from "./gateway";
-import type { DetectionGateway } from "./types";
+import type { DetectionData, DetectionGateway } from "./types";
 const GatewayContext = createContext<DetectionGateway | null>(null);
 export const DetectionGatewayProvider = ({
   gateway,
@@ -23,14 +23,28 @@ export const useDetectionGateway = () => {
 };
 export const detectionQueryKey = (userId: string) =>
   ["detection-workbench", userId] as const;
-export const useDetectionQuery = () => {
+export const detectionPollingInterval = (data: DetectionData | undefined) =>
+  data &&
+  [...data.trainingJobs, ...data.evaluations].some((job) =>
+    ["accepted", "queued", "running"].includes(job.state),
+  )
+    ? 5_000
+    : false;
+
+export const useDetectionQuery = ({
+  enabled = true,
+  pollWhilePending = false,
+}: { enabled?: boolean; pollWhilePending?: boolean } = {}) => {
   const { user } = useAuthSession();
   const gateway = useDetectionGateway();
   return useQuery({
     queryKey: detectionQueryKey(user?.id ?? "anonymous"),
     queryFn: ({ signal }) => gateway.read(signal),
-    enabled: user?.userType === "admin",
+    enabled: enabled && user?.userType === "admin",
     staleTime: 30_000,
     retry: false,
+    refetchInterval: pollWhilePending
+      ? (query) => detectionPollingInterval(query.state.data)
+      : false,
   });
 };

@@ -75,6 +75,12 @@ export const DialogHeader = ({
 }: ComponentProps<"div">) => (
   <div className={cn("ui-dialog-header", className)} {...props} />
 );
+export const DialogFooter = ({
+  className,
+  ...props
+}: ComponentProps<"div">) => (
+  <div className={cn("ui-dialog-footer", className)} {...props} />
+);
 export const DialogTitle = ({
   className,
   ...props

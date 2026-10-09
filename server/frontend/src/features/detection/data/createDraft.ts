@@ -13,6 +13,7 @@ export type DerivedOperation =
   | "weekend"
   | "trainMedian";
 export type FeatureEditorValue = {
+  expression?: string;
   name: string;
   operation: DerivedOperation;
   left: string;
@@ -37,6 +38,7 @@ export type CreateDraft = {
   selectedFeatureIds: string[];
   featureEdits: Record<string, FeatureEditorValue>;
   customFeatureIds: string[];
+  customFeatureSequence?: number;
   training: TrainingConfig;
   trainingByModel: Record<string, TrainingConfig>;
   rules: Record<string, RuleDefinition>;
@@ -84,6 +86,76 @@ export const useCreateDraft = () => {
     edit,
     update: (patch: Partial<CreateDraft>) => edit({ ...draft, ...patch }),
     reset: () => useDraftStore.getState().discard("/detection/create"),
+  };
+};
+export const appendCustomFeature = (
+  draft: CreateDraft,
+  value: FeatureEditorValue,
+) => {
+  const sequence =
+    Math.max(
+      draft.customFeatureSequence ?? 0,
+      ...[...draft.customFeatureIds, ...Object.keys(draft.featureEdits)].map(
+        (id) => Number(/^custom-(\d+)$/.exec(id)?.[1] ?? 0),
+      ),
+    ) + 1;
+  const id = `custom-${sequence}`;
+  return {
+    id,
+    draft: {
+      ...draft,
+      customFeatureSequence: sequence,
+      customFeatureIds: [...draft.customFeatureIds, id],
+      selectedFeatureIds: [...draft.selectedFeatureIds, id],
+      featureEdits: { ...draft.featureEdits, [id]: { ...value } },
+    },
+  };
+};
+export const removeCustomFeature = (
+  draft: CreateDraft,
+  id: string,
+): CreateDraft => {
+  if (!draft.customFeatureIds.includes(id)) return draft;
+  const featureEdits = Object.fromEntries(
+    Object.entries(draft.featureEdits)
+      .filter(([key]) => key !== id)
+      .map(([key, value]) => [
+        key,
+        {
+          ...value,
+          left: value.left === id ? "" : value.left,
+          right: value.right === id ? "" : value.right,
+        },
+      ]),
+  );
+  const removeInput = (config: TrainingConfig) => ({
+    ...config,
+    featureIds: config.featureIds.filter((key) => key !== id),
+  });
+  return {
+    ...draft,
+    customFeatureSequence: Math.max(
+      draft.customFeatureSequence ?? 0,
+      ...draft.customFeatureIds.map((key) =>
+        Number(/^custom-(\d+)$/.exec(key)?.[1] ?? 0),
+      ),
+    ),
+    customFeatureIds: draft.customFeatureIds.filter((key) => key !== id),
+    selectedFeatureIds: draft.selectedFeatureIds.filter((key) => key !== id),
+    featureEdits,
+    training: removeInput(draft.training),
+    trainingByModel: Object.fromEntries(
+      Object.entries(draft.trainingByModel).map(([key, value]) => [
+        key,
+        removeInput(value),
+      ]),
+    ),
+    rules: Object.fromEntries(
+      Object.entries(draft.rules).map(([key, value]) => [
+        key,
+        value.field === id ? { ...value, field: "" } : value,
+      ]),
+    ),
   };
 };
 export const validateDataDraft = (draft: CreateDraft) => {

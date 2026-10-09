@@ -4,6 +4,7 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogTitle,
 } from "../ui/dialog";
 import { Button } from "../ui/button";
@@ -71,19 +72,25 @@ export const NavigationGuard = ({
       <DialogContent showCloseButton={false} className="ui-modal--sm">
         <DialogTitle>저장하지 않은 변경 내용</DialogTitle>
         <DialogDescription>
-          초안을 유지하거나 변경 내용을 버릴 수 있습니다.
+          {logoutRequested
+            ? "로그아웃하면 현재 세션의 편집 내용이 삭제됩니다."
+            : "저장 후 이동하면 현재 세션에 초안을 보관합니다. 서버에 저장하거나 운영에 적용하지 않습니다."}
         </DialogDescription>
-        <div className="guard-actions">
-          <Button variant="outline" onClick={cancel}>
-            계속 편집
-          </Button>
-          {!logoutRequested && blocker.state === "blocked" && (
-            <Button variant="outline" onClick={() => blocker.proceed()}>
-              초안 보존하고 이동
+        <DialogFooter className="guard-actions">
+          {logoutRequested && (
+            <Button variant="outline" onClick={cancel}>
+              계속 편집
             </Button>
           )}
-          <Button onClick={discard}>변경 내용 버리고 이동</Button>
-        </div>
+          {!logoutRequested && blocker.state === "blocked" && (
+            <Button onClick={() => blocker.proceed()}>
+              변경 사항 저장 후 이동
+            </Button>
+          )}
+          <Button variant="outline" onClick={discard}>
+            버리고 이동
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

@@ -4,14 +4,14 @@ import { TooltipProvider } from "../../components/ui/tooltip";
 import { AnalysisInboxView } from "./components/AnalysisInboxView";
 import { RealtimeAnomalyDetailView } from "./components/RealtimeAnomalyDetailView";
 import { useAnalysisWorkspace } from "./hooks/useAnalysisWorkspace";
-import { useRealtimeAnomalies } from "./hooks/useRealtimeAnomalies";
+import { useSharedRealtimeAnomalies } from "./RealtimeAnomalyProvider";
 
 type AnalysisWorkspaceProps = {
   onLogout: () => void;
 };
 
 export const AnalysisWorkspace = ({ onLogout }: AnalysisWorkspaceProps) => {
-  const realtime = useRealtimeAnomalies();
+  const realtime = useSharedRealtimeAnomalies();
   const {
     activeCategory,
     activeRealtimeEvent,
@@ -37,7 +37,10 @@ export const AnalysisWorkspace = ({ onLogout }: AnalysisWorkspaceProps) => {
           onSelect={handleCategoryChange}
         />
         <main className="analysis-main">
-          <section className="analysis-workspace-surface" aria-label="상세 분석 화면">
+          <section
+            className="analysis-workspace-surface"
+            aria-label="상세 분석 화면"
+          >
             <AnimatePresence mode="wait">
               {activeRealtimeEvent ? (
                 <RealtimeAnomalyDetailView

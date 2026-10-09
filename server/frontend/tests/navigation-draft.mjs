@@ -144,9 +144,29 @@ const preserve = childElements(
   renderer.root.findByType(Dialog).props.children,
 ).find(
   (node) =>
-    node.type === Button && node.props.children === "초안 보존하고 이동",
+    node.type === Button && node.props.children === "변경 사항 저장 후 이동",
 );
 assert.ok(preserve);
+assert.equal(
+  preserve.props.variant ?? "default",
+  "default",
+  "preserve action is the primary highlighted button",
+);
+const dialogButtons = () =>
+  childElements(renderer.root.findByType(Dialog).props.children).filter(
+    (node) => node.type === Button,
+  );
+assert.deepEqual(
+  dialogButtons().map((node) => node.props.children),
+  ["변경 사항 저장 후 이동", "버리고 이동"],
+);
+// Escape/outside-close cancels navigation without adding a third action button.
+await act(async () =>
+  renderer.root.findByType(Dialog).props.onOpenChange(false),
+);
+assert.equal(actualRouter.state.location.pathname, "/detection/create");
+assert.equal(useDraftStore.getState().drafts["/detection/create"].dirty, true);
+await act(async () => actualRouter.navigate("/detection/evaluation"));
 await act(async () => preserve.props.onClick());
 assert.equal(actualRouter.state.location.pathname, "/detection/evaluation");
 assert.deepEqual(
@@ -156,6 +176,19 @@ assert.deepEqual(
 assert.ok(listeners.has("beforeunload"));
 await act(async () => actualRouter.navigate("/detection/create"));
 assert.equal(useDraftStore.getState().drafts["/detection/create"].dirty, true);
+await act(async () => actualRouter.navigate("/detection/evaluation"));
+const discard = dialogButtons().find(
+  (node) => node.props.children === "버리고 이동",
+);
+assert.equal(
+  discard.props.variant,
+  "outline",
+  "discard action is visually secondary",
+);
+await act(async () => discard.props.onClick());
+assert.equal(actualRouter.state.location.pathname, "/detection/evaluation");
+assert.equal(useDraftStore.getState().drafts["/detection/create"], undefined);
+assert.equal(listeners.has("beforeunload"), false);
 await act(async () => renderer.unmount());
 actualRouter.dispose();
 useDraftStore.getState().reset();

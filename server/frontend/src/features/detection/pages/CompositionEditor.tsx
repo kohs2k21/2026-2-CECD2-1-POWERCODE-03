@@ -18,10 +18,12 @@ export const CompositionEditor = ({
   data,
   mode,
   onPreview,
+  interactive = true,
 }: {
   data: DetectionData;
   mode: "versions" | "evaluation";
   onPreview?: (preview: VersionBundle | null) => void;
+  interactive?: boolean;
 }) => {
   const location = useLocation();
   const active = data.versions.find((item) => item.id === data.activeVersionId);
@@ -161,41 +163,43 @@ export const CompositionEditor = ({
             있습니다.
           </p>
           <BundleDetails bundle={preview} data={data} />
-          <div className="detection-actions">
-            <ServiceAction
-              key={preview.configurationFingerprint}
-              operation="createCandidate"
-              label="새 후보 생성"
-              available={data.capabilities.createCandidate}
-              requestDisabled={!preview.explanationVersion}
-              payload={{
-                composition: input,
-                configurationFingerprint: preview.configurationFingerprint,
-              }}
-            >
-              <p>생성할 후보 구성: {preview.name}</p>
-              <BundleDetails bundle={preview} data={data} />
-              <p className="detection-note">
-                요청 접수는 후보 생성 완료가 아닙니다. 완료한 후보를 목록에서
-                선택한 뒤 평가해야 합니다.
-              </p>
-              {!preview.explanationVersion && (
-                <p className="detection-error">
-                  설명 기준이 미확인이라 후보 생성 요청을 실행할 수 없습니다.
+          {interactive && (
+            <div className="detection-actions">
+              <ServiceAction
+                key={preview.configurationFingerprint}
+                operation="createCandidate"
+                label="새 후보 생성"
+                available={data.capabilities.createCandidate}
+                requestDisabled={!preview.explanationVersion}
+                payload={{
+                  composition: input,
+                  configurationFingerprint: preview.configurationFingerprint,
+                }}
+              >
+                <p>생성할 후보 구성: {preview.name}</p>
+                <BundleDetails bundle={preview} data={data} />
+                <p className="detection-note">
+                  요청 접수는 후보 생성 완료가 아닙니다. 완료한 후보를 목록에서
+                  선택한 뒤 평가해야 합니다.
                 </p>
+                {!preview.explanationVersion && (
+                  <p className="detection-error">
+                    설명 기준이 미확인이라 후보 생성 요청을 실행할 수 없습니다.
+                  </p>
+                )}
+              </ServiceAction>
+              {mode === "versions" && (
+                <Button asChild variant="outline">
+                  <Link
+                    to="/detection/evaluation?selection=composition"
+                    state={{ detectionComposition: input }}
+                  >
+                    이 구성 평가하기
+                  </Link>
+                </Button>
               )}
-            </ServiceAction>
-            {mode === "versions" && (
-              <Button asChild variant="outline">
-                <Link
-                  to="/detection/evaluation?selection=composition"
-                  state={{ detectionComposition: input }}
-                >
-                  이 구성 평가하기
-                </Link>
-              </Button>
-            )}
-          </div>
+            </div>
+          )}
         </section>
       )}
     </section>

@@ -17,8 +17,24 @@ import { useEvaluationConditions } from "./useEvaluationConditions";
 import { CompositionEditor } from "./CompositionEditor";
 import { EvaluationConditionForm } from "./EvaluationConditionForm";
 import { EvaluationRecords } from "./EvaluationRecords";
+import {
+  DetectionTabs,
+  detectionTabHref,
+  useDetectionTab,
+} from "../components/DetectionTabs";
 
-const EvaluationWorkbench = ({ data }: { data: DetectionData }) => {
+const evaluationTabs = [
+  { id: "candidates", label: "생성된 후보 평가" },
+  { id: "composition", label: "모델·룰 조합 검토" },
+] as const;
+
+const EvaluationWorkbench = ({
+  data,
+  activeTab,
+}: {
+  data: DetectionData;
+  activeTab: string;
+}) => {
   const [params, setParams] = useSearchParams();
   const location = useLocation();
   const [preview, setPreview] = useState<VersionBundle | null>(null);
@@ -36,7 +52,7 @@ const EvaluationWorkbench = ({ data }: { data: DetectionData }) => {
   );
   const candidateId = params.get("candidate") ?? candidates[0]?.id ?? "";
   const candidate = candidates.find((item) => item.id === candidateId);
-  const localPreview = params.get("selection") === "composition";
+  const localPreview = activeTab === "composition";
   const target = localPreview ? (preview ?? undefined) : candidate;
   const targetKey = localPreview
     ? `preview:${preview?.configurationFingerprint ?? "unselected"}`
@@ -63,100 +79,84 @@ const EvaluationWorkbench = ({ data }: { data: DetectionData }) => {
         .includes(search.toLocaleLowerCase()),
   );
   return (
-    <>
-      <div className="detection-actions">
-        <Button asChild variant="outline">
-          <Link
-            to={href({ selection: null })}
-            state={location.state}
-            aria-current={!localPreview ? "true" : undefined}
-          >
-            생성된 후보 평가
-          </Link>
-        </Button>
-        <Button asChild variant="outline">
-          <Link
-            to={href({ selection: "composition", result: null })}
-            state={location.state}
-            aria-current={localPreview ? "true" : undefined}
-          >
-            모델·룰 조합 검토
-          </Link>
-        </Button>
-      </div>
-      {localPreview && (
+    <div className="detection-stack">
+      <div hidden={!localPreview}>
         <CompositionEditor
           data={data}
           mode="evaluation"
           onPreview={setPreview}
+          interactive={localPreview}
         />
-      )}
-      <div className="detection-grid">
-        <section
-          className="detection-card"
-          aria-labelledby="evaluation-candidate-title"
-        >
-          <h2 id="evaluation-candidate-title">생성된 평가 후보</h2>
-          <div className="detection-form-grid">
-            <label className="detection-field">
-              후보 검색
-              <input
-                value={search}
-                onChange={(event) => patch({ q: event.target.value })}
-                placeholder="이름·ID"
-              />
-            </label>
-            <label className="detection-field">
-              후보 상태
-              <select
-                value={state}
-                onChange={(event) => patch({ state: event.target.value })}
-              >
-                <option value="all">전체</option>
-                <option value="candidate">평가 후보</option>
-                <option value="draft">편집 중</option>
-              </select>
-            </label>
-          </div>
-          {visible.length ? (
-            <ul className="detection-check-list">
-              {visible.map((item) => (
-                <li key={item.id}>
-                  <Button
-                    asChild
-                    variant="ghost"
-                    className="detection-list-button"
-                  >
-                    <Link
-                      to={href({
-                        candidate: item.id,
-                        result: null,
-                        selection: null,
-                      })}
-                      state={location.state}
-                      aria-current={
-                        item.id === candidateId && !localPreview
-                          ? "true"
-                          : undefined
-                      }
+      </div>
+      <div className={localPreview ? undefined : "detection-grid"}>
+        {!localPreview && (
+          <section
+            className="detection-card"
+            aria-labelledby="evaluation-candidate-title"
+          >
+            <h2 id="evaluation-candidate-title">생성된 평가 후보</h2>
+            <div className="detection-form-grid">
+              <label className="detection-field">
+                후보 검색
+                <input
+                  value={search}
+                  onChange={(event) => patch({ q: event.target.value })}
+                  placeholder="이름·ID"
+                />
+              </label>
+              <label className="detection-field">
+                후보 상태
+                <select
+                  value={state}
+                  onChange={(event) => patch({ state: event.target.value })}
+                >
+                  <option value="all">전체</option>
+                  <option value="candidate">평가 후보</option>
+                  <option value="draft">편집 중</option>
+                </select>
+              </label>
+            </div>
+            {visible.length ? (
+              <ul className="detection-check-list">
+                {visible.map((item) => (
+                  <li key={item.id}>
+                    <Button
+                      asChild
+                      variant="ghost"
+                      className="detection-list-button"
                     >
-                      <span>{item.name}</span>
-                      <span className="detection-status">
-                        {versionLabels[item.state]}
-                      </span>
-                    </Link>
-                  </Button>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <EmptyState>
-              {candidates.length
-                ? "검색 조건에 맞는 후보가 없습니다."
-                : "평가 후보가 없습니다."}
-            </EmptyState>
-          )}
-        </section>
+                      <Link
+                        to={href({
+                          tab: "candidates",
+                          candidate: item.id,
+                          result: null,
+                          selection: null,
+                        })}
+                        state={location.state}
+                        aria-current={
+                          item.id === candidateId && !localPreview
+                            ? "true"
+                            : undefined
+                        }
+                      >
+                        <span>{item.name}</span>
+                        <span className="detection-status">
+                          {versionLabels[item.state]}
+                        </span>
+                      </Link>
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <EmptyState>
+                {candidates.length
+                  ? "검색 조건에 맞는 후보가 없습니다."
+                  : "평가 후보가 없습니다."}
+              </EmptyState>
+            )}
+          </section>
+        )}
         <section
           className="detection-card"
           aria-labelledby="evaluation-condition-title"
@@ -164,6 +164,7 @@ const EvaluationWorkbench = ({ data }: { data: DetectionData }) => {
           <h2 id="evaluation-condition-title">다음 평가 조건</h2>
           {target ? (
             <EvaluationConditionForm
+              key={activeTab}
               data={data}
               target={target}
               localPreview={localPreview}
@@ -179,19 +180,28 @@ const EvaluationWorkbench = ({ data }: { data: DetectionData }) => {
           )}
         </section>
       </div>
-      <EvaluationRecords
-        data={data}
-        candidate={localPreview ? undefined : candidate}
-        condition={condition}
-      />
-    </>
+      {!localPreview && (
+        <EvaluationRecords
+          data={data}
+          candidate={candidate}
+          condition={condition}
+        />
+      )}
+    </div>
   );
 };
 
 export const EvaluationPage = () => {
   const query = useDetectionQuery();
+  const [params] = useSearchParams();
+  const activeTab = useDetectionTab(
+    evaluationTabs.map((item) => item.id),
+    !params.has("result") && params.get("selection") === "composition"
+      ? "composition"
+      : "candidates",
+  );
   return (
-    <section className="detection-page detection-stack">
+    <section className="detection-page">
       <header className="detection-page-header">
         <h1>성능 평가·비교</h1>
         <Button
@@ -202,8 +212,16 @@ export const EvaluationPage = () => {
           상태 새로고침
         </Button>
       </header>
+      <DetectionTabs
+        items={evaluationTabs.map((item) => ({
+          ...item,
+          to: detectionTabHref(params, item.id),
+        }))}
+        activeId={activeTab}
+        ariaLabel="평가 내용"
+      />
       <DetectionQueryBoundary query={query}>
-        {(data) => <EvaluationWorkbench data={data} />}
+        {(data) => <EvaluationWorkbench data={data} activeTab={activeTab} />}
       </DetectionQueryBoundary>
     </section>
   );

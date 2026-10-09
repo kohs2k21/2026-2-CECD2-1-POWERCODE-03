@@ -11,11 +11,14 @@ import { CreatePage } from "../src/features/detection/DetectionPages.tsx";
 import { useDraftNavigationGuard } from "../src/components/layout/NavigationGuard.tsx";
 import { useDraftStore } from "../src/stores/draftStore.ts";
 import { ServiceAction } from "../src/features/detection/components/ServiceAction.tsx";
+import { Modal } from "../src/components/ui/Modal.tsx";
+import { DialogFooter } from "../src/components/ui/dialog.tsx";
 import { defaultFeatureEditor } from "../src/features/detection/data/featureBuilder.ts";
 import { featureCatalog } from "../src/features/detection/data/catalog.ts";
 
 globalThis.React = React;
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+globalThis.requestAnimationFrame = (callback) => callback();
 const storage = new Map([["token", "test-session"]]);
 const listeners = new Map();
 globalThis.window = {
@@ -121,24 +124,50 @@ const byLabel = (label) =>
     .findAllByType("label")
     .find((node) => node.children[0] === label)
     ?.findByType("input");
+const byTextarea = (label) =>
+  renderer.root
+    .findAllByType("label")
+    .find((node) => node.children[0] === label)
+    ?.findByType("textarea");
 const bySelect = (label) =>
   renderer.root
     .findAllByType("label")
     .find((node) => node.children[0] === label)
     ?.findByType("select");
+const clickButton = async (label) =>
+  act(async () =>
+    renderer.root
+      .findAllByType("button")
+      .find((node) => node.children.includes(label))
+      .props.onClick(),
+  );
 const nameInput = byLabel("구성 이름");
-assert.equal(
-  router.state.location.search,
-  "?tab=data-features&filter=retained",
+assert.deepEqual(renderer.root.findByType("h1").children, ["모델·룰 생성"]);
+const layoutOrder = renderer.root
+  .findAll((node) =>
+    [
+      "detection-page-header",
+      "create-tabs",
+      "detection-form-grid detection-feedback",
+    ].includes(node.props.className),
+  )
+  .slice(0, 3)
+  .map((node) => node.props.className);
+assert.deepEqual(
+  layoutOrder,
+  [
+    "detection-page-header",
+    "create-tabs",
+    "detection-form-grid detection-feedback",
+  ],
+  "heading then tabs then composition name must precede feature content",
 );
+assert.equal(router.state.location.search, "?tab=dataset&filter=retained");
 await act(async () =>
   router.navigate("/detection/create?tab=rules&filter=retained"),
 );
 await act(async () => router.navigate(-1));
-assert.equal(
-  router.state.location.search,
-  "?tab=data-features&filter=retained",
-);
+assert.equal(router.state.location.search, "?tab=dataset&filter=retained");
 assert.ok(nameInput);
 await act(async () =>
   byLabel("구성 이름").props.onChange({ target: { value: "실제 초안 이름" } }),
@@ -157,6 +186,9 @@ const unload = {
 listeners.get("beforeunload").forEach((listener) => listener(unload));
 assert.equal(prevented, true);
 assert.equal(unload.returnValue, "");
+await act(async () =>
+  router.navigate("/detection/create?tab=features&filter=retained"),
+);
 const rawLabels = renderer.root
   .findAllByType("input")
   .map((node) => node.props["aria-label"])
@@ -181,10 +213,147 @@ assert.equal(
 await act(async () =>
   router.navigate("/detection/create?tab=data-features&feature=A00"),
 );
+assert.equal(
+  byLabel("파생변수 이름"),
+  undefined,
+  "catalog templates must stay unchanged",
+);
+await clickButton("복제하여 편집");
+const clonedId = new URLSearchParams(router.state.location.search).get(
+  "feature",
+);
+assert.equal(clonedId, "custom-1");
+assert.equal(
+  useDraftStore.getState().drafts["/detection/create"].value.featureEdits.A00,
+  undefined,
+);
+assert.ok(
+  renderer.root
+    .findAllByType("th")
+    .some((node) => node.children.includes("유형")),
+);
+assert.ok(
+  renderer.root
+    .findAllByType("td")
+    .some((node) => node.children.includes("원본")),
+);
+assert.ok(
+  renderer.root
+    .findAllByType("td")
+    .some((node) => node.children.includes("파생")),
+);
+await act(async () =>
+  byLabel("파생변수 이름").props.onChange({ target: { value: " " } }),
+);
+await clickButton("편집 내용 유지");
+assert.equal(
+  byLabel("파생변수 이름").props.value,
+  " ",
+  "validation failure preserves actual input",
+);
+assert.ok(renderer.root.findAll((node) => node.props.role === "alert").length);
 await act(async () =>
   byLabel("파생변수 이름").props.onChange({
     target: { value: "처리시간 사용자 정의" },
   }),
+);
+const setExpression = async (expression) =>
+  act(async () =>
+    byTextarea("수식").props.onChange({
+      target: { value: expression, selectionStart: expression.length },
+    }),
+  );
+await setExpression("if([process.ERROR_COUNT] > 0, 1, 0)");
+await act(async () =>
+  byLabel("process.ERROR_COUNT 검증 입력").props.onChange({
+    target: { value: "2" },
+  }),
+);
+await clickButton("미리보기");
+assert.ok(
+  renderer.root
+    .findAll((node) => node.props.role === "status")
+    .some((node) => node.children.join("").includes("결과: 1")),
+  "direct formula preview uses typed sample values",
+);
+await setExpression("[deleted-feature] + 1");
+assert.ok(
+  renderer.root.findAll((node) => node.props.role === "alert").length,
+  "missing references show inline error",
+);
+await setExpression("[process.ERROR_");
+let preventedAutocomplete = false;
+await act(async () =>
+  byTextarea("수식").props.onKeyDown({
+    key: "Enter",
+    preventDefault: () => (preventedAutocomplete = true),
+  }),
+);
+assert.equal(preventedAutocomplete, true);
+assert.equal(
+  byTextarea("수식").props.value,
+  "[process.ERROR_COUNT]",
+  "keyboard autocomplete inserts canonical reference",
+);
+await setExpression("[process.TOTAL_COUNT]");
+await act(async () => {
+  byTextarea("수식").props.onClick({ currentTarget: { selectionStart: 17 } });
+});
+await act(async () =>
+  byTextarea("수식").props.onKeyDown({
+    key: "Enter",
+    preventDefault: () => {},
+  }),
+);
+assert.equal(
+  byTextarea("수식").props.value,
+  "[process.TOTAL_COUNT]",
+  "autocomplete replaces the entire bracket reference at an interior cursor",
+);
+await setExpression("log1p([process.TOTAL_COUNT])");
+await act(async () =>
+  byTextarea("수식").props.onClick({ currentTarget: { selectionStart: 2 } }),
+);
+await act(async () =>
+  byTextarea("수식").props.onKeyDown({
+    key: "Enter",
+    preventDefault: () => {},
+  }),
+);
+assert.equal(
+  byTextarea("수식").props.value,
+  "log1p([process.TOTAL_COUNT])",
+  "function autocomplete preserves existing argument list",
+);
+await setExpression("[process.ERROR_COUNT] / [process.TOTAL_COUNT]");
+await act(async () =>
+  router.navigate("/detection/create?tab=dataset&filter=retained"),
+);
+assert.ok(bySelect("고정 데이터셋"));
+assert.equal(
+  byTextarea("수식"),
+  undefined,
+  "dataset tab excludes feature editing",
+);
+await act(async () =>
+  bySelect("고정 데이터셋").props.onChange({
+    target: { value: "snapshot-september" },
+  }),
+);
+await act(async () =>
+  router.navigate(
+    `/detection/create?tab=features&feature=${clonedId}&filter=retained`,
+  ),
+);
+assert.equal(byLabel("파생변수 이름").props.value, "처리시간 사용자 정의");
+assert.equal(
+  byTextarea("수식").props.value,
+  "[process.ERROR_COUNT] / [process.TOTAL_COUNT]",
+);
+assert.equal(
+  useDraftStore.getState().drafts["/detection/create"].value.snapshotId,
+  "snapshot-september",
+  "tab changes preserve shared dataset and feature drafts",
 );
 await act(async () =>
   router.navigate("/detection/create?tab=rules&rule=duration-limit"),
@@ -246,13 +415,6 @@ await act(async () =>
     "/detection/create?tab=rules&recommendation=recommendation-count",
   ),
 );
-const clickButton = async (label) =>
-  act(async () =>
-    renderer.root
-      .findAllByType("button")
-      .find((node) => node.children.includes(label))
-      .props.onClick(),
-  );
 await clickButton("룰 초안으로 가져오기");
 assert.equal(
   useDraftStore.getState().drafts["/detection/create"].value.rules[
@@ -366,10 +528,63 @@ assert.ok(
   "pending jobs must not claim a generated candidate",
 );
 await act(async () =>
-  router.navigate("/detection/create?tab=data-features&feature=A00"),
+  router.navigate(`/detection/create?tab=data-features&feature=${clonedId}`),
 );
 assert.equal(byLabel("구성 이름").props.value, "실제 초안 이름");
 assert.equal(byLabel("파생변수 이름").props.value, "처리시간 사용자 정의");
+await clickButton("파생변수 삭제");
+const deletion = () =>
+  renderer.root
+    .findAllByType(Modal)
+    .find((node) => node.props.title === "파생변수 삭제");
+assert.equal(deletion().props.isOpen, true);
+await act(async () => deletion().props.onOpenChange(false));
+assert.equal(
+  byLabel("파생변수 이름").props.value,
+  "처리시간 사용자 정의",
+  "cancel preserves edits",
+);
+await clickButton("파생변수 추가");
+const addedId = new URLSearchParams(router.state.location.search).get(
+  "feature",
+);
+await clickButton("파생변수 삭제");
+const deletionButtons = React.Children.toArray(deletion().props.children).find(
+  (child) => child.type === DialogFooter,
+).props.children;
+await act(async () =>
+  React.Children.toArray(deletionButtons)
+    .find((child) => child.props.children === "삭제")
+    .props.onClick(),
+);
+const afterDeletion =
+  useDraftStore.getState().drafts["/detection/create"].value;
+assert.equal(afterDeletion.customFeatureIds.includes(addedId), false);
+assert.equal(afterDeletion.selectedFeatureIds.includes(addedId), false);
+assert.equal(afterDeletion.featureEdits[clonedId].name, "처리시간 사용자 정의");
+assert.equal(
+  new URLSearchParams(router.state.location.search).has("feature"),
+  false,
+);
+await act(async () =>
+  byLabel("속성 검색").props.onChange({
+    target: { value: "no-such-feature-filter" },
+  }),
+);
+assert.ok(
+  renderer.root
+    .findAllByType("div")
+    .some((node) =>
+      node.children.includes("검색 조건에 맞는 속성이 없습니다."),
+    ),
+  "filtered custom entries must allow a truthful empty state",
+);
+assert.equal(
+  useDraftStore.getState().drafts["/detection/create"].value.featureEdits[
+    clonedId
+  ].name,
+  "처리시간 사용자 정의",
+);
 await act(async () => router.navigate("/operations"));
 assert.equal(guard.blocker.state, "blocked");
 await act(async () => guard.blocker.reset());

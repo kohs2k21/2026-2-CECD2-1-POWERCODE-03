@@ -3,16 +3,17 @@ export const viewPaths: Record<ViewId, string> = {
   home: "/operations",
   analysis: "/analysis",
   settings: "/settings",
-  model: "/detection/create?tab=data-features",
+  model: "/detection/create?tab=dataset",
   system: "/detection/collection",
 };
 export const createTabs = [
-  { id: "data-features", label: "데이터·피처" },
+  { id: "dataset", label: "데이터셋" },
+  { id: "features", label: "피처" },
   { id: "training", label: "모델 학습" },
   { id: "rules", label: "룰 생성·편집" },
 ] as const;
 export const detectionPages = [
-  { path: "/detection/create", label: "모델·룰 만들기", group: "실험" },
+  { path: "/detection/create", label: "모델·룰 생성", group: "실험" },
   { path: "/detection/evaluation", label: "성능 평가·비교", group: "실험" },
   { path: "/detection/versions", label: "운영 버전 관리", group: "운영" },
   { path: "/detection/collection", label: "데이터 수집 현황", group: "운영" },
@@ -21,6 +22,7 @@ const knownPaths: string[] = [
   "/operations",
   "/analysis",
   "/settings",
+  "/notifications",
   ...detectionPages.map((page) => page.path),
 ];
 export const safeReturnPath = (value: unknown, fallback = "/operations") => {

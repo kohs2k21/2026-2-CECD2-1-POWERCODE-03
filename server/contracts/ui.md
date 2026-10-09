@@ -1,5 +1,5 @@
 Created: 2026-10-08T12:53:45+09:00
-Updated: 2026-10-09T00:27:39+09:00
+Updated: 2026-10-09T18:52:50+09:00
 Author: frontend_lead
 Status: current
 
@@ -13,6 +13,7 @@ Status: current
 - 버튼: `variant="default|outline|ghost"`, `size="default|sm|icon|icon-sm"`; 기본 `type="button"`, 제출은 `type="submit"` 명시
 - URL 탐색: `Button asChild` + React Router `Link/NavLink`; URL 탭에 로컬 Tabs ARIA 적용 금지
 - 모달: `Modal`의 `isOpen/onOpenChange/title/description/size`; 확인창은 `Dialog`·`DialogContent`·`DialogTitle`·`DialogDescription` 조합. Radix 직접 import는 ui 내부만
+- 모달 하단 확인·취소 버튼: 공통 `DialogFooter`; 본문과 24px 여백·16px 상단 패딩·구분선, 버튼 사이 12px 이상
 - 닫기: Escape·외부 클릭은 기본 닫기; `onOpenChange(false)`를 취소로 처리. 기본 포커스 복귀, 미저장 보호의 폐기는 명시 버튼에서만 수행
 - 조회 상태: `LoadingState`, `EmptyState`, `ErrorState title/onRetry/retryLabel`; 재조회 실패 시 이전 데이터 유지. 조회 오류는 인라인 표시·재시도, 중복 토스트 금지
 - 아이콘 버튼: 접근 가능한 이름 필수. 전환: 앱 `MotionConfig` 및 개별 `useReducedMotion`; CSS는 reduced-motion 미디어쿼리

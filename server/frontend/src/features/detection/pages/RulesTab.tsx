@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { Button } from "../../../components/ui/button";
 import { Modal } from "../../../components/ui/Modal";
+import { DialogFooter } from "../../../components/ui/dialog";
 import { EmptyState } from "../../../components/ui/feedback";
 import { ServiceAction } from "../components/ServiceAction";
 import { useCreateDraft, validateRule } from "../data/createDraft";
@@ -435,7 +436,7 @@ export const RulesTab = ({ data }: { data: DetectionData }) => {
         description="룰 편집과 추천 검토 내용을 버립니다. 모델·피처 초안과 운영 버전은 유지됩니다."
         size="sm"
       >
-        <div className="detection-actions">
+        <DialogFooter>
           <Button variant="outline" onClick={() => setResetOpen(false)}>
             취소
           </Button>
@@ -453,7 +454,7 @@ export const RulesTab = ({ data }: { data: DetectionData }) => {
           >
             기본값 복원
           </Button>
-        </div>
+        </DialogFooter>
       </Modal>
     </div>
   );

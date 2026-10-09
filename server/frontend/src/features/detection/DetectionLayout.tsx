@@ -45,7 +45,7 @@ export const DetectionLayout = () => {
                     key={page.path}
                     to={
                       page.path === "/detection/create"
-                        ? page.path + "?tab=data-features"
+                        ? page.path + "?tab=dataset"
                         : page.path
                     }
                     onClick={() => {

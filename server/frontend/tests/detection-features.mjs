@@ -4,6 +4,8 @@ import {
   validateDataDraft,
   validateTrainingConfig,
   validateRule,
+  appendCustomFeature,
+  removeCustomFeature,
 } from "../src/features/detection/data/createDraft.ts";
 import {
   defaultFeatureEditor,
@@ -142,6 +144,71 @@ for (const threshold of [null, NaN, -1])
       description: "",
     }).length > 0,
   );
+const original = createDefaultDraft();
+const created = appendCustomFeature(original, ratio);
+assert.equal(created.id, "custom-1");
+assert.deepEqual(
+  original.customFeatureIds,
+  [],
+  "addition must preserve its input snapshot",
+);
+const linkedDraft = {
+  ...created.draft,
+  training: { ...created.draft.training, featureIds: [created.id, "F05"] },
+  trainingByModel: {
+    other: { ...created.draft.training, featureIds: [created.id, "F06"] },
+  },
+  featureEdits: {
+    ...created.draft.featureEdits,
+    dependent: { ...ratio, left: created.id, right: created.id },
+  },
+  rules: {
+    linked: {
+      id: "linked",
+      name: "keep rule text",
+      field: created.id,
+      operator: "gt",
+      threshold: 10,
+      unit: "ms",
+      enabled: true,
+      description: "keep",
+    },
+  },
+};
+const removed = removeCustomFeature(linkedDraft, created.id);
+assert.equal(removed.customFeatureIds.includes(created.id), false);
+assert.equal(removed.selectedFeatureIds.includes(created.id), false);
+assert.equal(removed.featureEdits[created.id], undefined);
+assert.deepEqual(removed.training.featureIds, ["F05"]);
+assert.deepEqual(removed.trainingByModel.other.featureIds, ["F06"]);
+assert.equal(removed.featureEdits.dependent.left, "");
+assert.equal(removed.featureEdits.dependent.right, "");
+assert.equal(removed.rules.linked.field, "");
+assert.equal(removed.rules.linked.name, "keep rule text");
+assert.equal(
+  linkedDraft.featureEdits.dependent.left,
+  created.id,
+  "removal must not mutate previous draft",
+);
+assert.equal(
+  appendCustomFeature(removed, ratio).id,
+  "custom-2",
+  "deleted ID cannot be reused by browser history",
+);
+assert.equal(
+  removeCustomFeature(removed, "A00"),
+  removed,
+  "catalog definitions cannot be removed",
+);
+const legacy = {
+  ...createDefaultDraft(),
+  customFeatureIds: ["custom-2", "custom-4"],
+};
+assert.equal(
+  appendCustomFeature(legacy, ratio).id,
+  "custom-5",
+  "legacy drafts allocate beyond existing IDs",
+);
 console.log(
   "feature builder QA passed: time units/timezone/negative duration, zero denominator, NULL preservation, fit dependency blocking, typed allowed operations and form bounds",
 );

@@ -214,6 +214,31 @@ const updateReviewedContent = async (change) =>
     );
     await new Promise((resolve) => setTimeout(resolve, 12));
   });
+await act(async () =>
+  view.router.navigate(
+    "/detection/versions?tab=configuration&candidate=candidate-delay&retained=yes",
+  ),
+);
+assert.equal(
+  view.renderer.root
+    .findAllByType(ServiceAction)
+    .some((node) => node.props.operation === "apply"),
+  false,
+);
+await act(async () => view.router.navigate(-1));
+assert.equal(
+  labeledControl(view.renderer, "관리자로서").props.checked,
+  false,
+  "leaving the application tab invalidates approval",
+);
+assert.equal(
+  view.renderer.root
+    .findAllByType(ServiceAction)
+    .find((node) => node.props.operation === "apply")
+    .findByType(Modal).props.isOpen,
+  false,
+  "leaving application closes its confirmation",
+);
 for (const changedId of [
   "candidate-delay",
   "version-current",
@@ -315,12 +340,43 @@ view = await mount(
   "/detection/collection?from=2026-10-01&to=2026-10-07&source=P&retained=yes",
 );
 assert.match(text(view.renderer.toJSON()), /발생 기준 전체 지연 미측정/);
+await act(async () =>
+  view.router.navigate(
+    "/detection/collection?tab=storage&from=2026-10-01&to=2026-10-07&source=P&retained=yes",
+  ),
+);
 assert.match(text(view.renderer.toJSON()), /관측 미확인/);
+assert.equal(
+  view.renderer.root
+    .findAllByType("button")
+    .filter((node) => text(node) === "상태 다시 조회").length,
+  1,
+  "storage can refresh without changing tabs",
+);
+await act(async () =>
+  view.renderer.root
+    .findAllByType("button")
+    .find((node) => text(node) === "상태 다시 조회")
+    .props.onClick(),
+);
+await act(async () => new Promise((resolve) => setTimeout(resolve, 12)));
+assert.ok(!text(view.renderer.toJSON()).includes("원본별 최근 수집 상태"));
+await act(async () => view.router.navigate(-1));
 assert.match(text(view.renderer.toJSON()), /미확인 건수는 0건/);
+await act(async () =>
+  view.router.navigate(
+    "/detection/collection?tab=history&from=2026-10-01&to=2026-10-07&source=P&retained=yes",
+  ),
+);
 assert.match(text(view.renderer.toJSON()), /10월 첫째 주/);
 assert.ok(!text(view.renderer.toJSON()).includes("9월 마지막 주"));
 await act(async () =>
-  labeledControl(view.renderer, "원천", "select").props.onChange({
+  view.router.navigate(
+    "/detection/collection?tab=status&from=2026-10-01&to=2026-10-07&source=P&retained=yes",
+  ),
+);
+await act(async () =>
+  labeledControl(view.renderer, "원본", "select").props.onChange({
     target: { value: "B" },
   }),
 );
@@ -398,7 +454,11 @@ assert.match(
   text(view.renderer.toJSON()),
   /현재 운영 버전이 확인되지 않았습니다/,
 );
+await act(async () =>
+  view.router.navigate("/detection/versions?tab=application"),
+);
 assert.match(text(view.renderer.toJSON()), /적용 후보가 없습니다/);
+await act(async () => view.router.navigate("/detection/versions?tab=history"));
 assert.match(text(view.renderer.toJSON()), /적용·롤백 이력이 없습니다/);
 assert.equal(getRequestCount(), 0);
 await view.close();

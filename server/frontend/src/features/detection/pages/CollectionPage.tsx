@@ -16,6 +16,18 @@ import type {
 import { useDetectionQuery } from "../data/useDetectionQuery";
 import { CollectionObservations } from "./CollectionObservations";
 import { validDateRange } from "./operationPresentation";
+import {
+  DetectionTabs,
+  detectionTabHref,
+  useDetectionTab,
+} from "../components/DetectionTabs";
+
+const collectionTabs = [
+  { id: "status", label: "수집 상태" },
+  { id: "fields", label: "원본 필드" },
+  { id: "history", label: "수집 이력" },
+  { id: "storage", label: "저장 공간" },
+] as const;
 
 const sourceNames: Record<CollectionSource["id"], string> = {
   T: "TRANSACTION",
@@ -47,7 +59,7 @@ const CollectionHistoryDetails = ({ item }: { item: CollectionHistory }) => (
         <dd>{item.id}</dd>
       </div>
       <div>
-        <dt>원천</dt>
+        <dt>원본</dt>
         <dd>{sourceNames[item.source]}</dd>
       </div>
       <div>
@@ -77,10 +89,10 @@ const CollectionHistoryDetails = ({ item }: { item: CollectionHistory }) => (
 
 const CollectionWorkbench = ({
   data,
-  refetch,
+  activeTab,
 }: {
   data: DetectionData;
-  refetch: () => void;
+  activeTab: string;
 }) => {
   const [params, setParams] = useSearchParams();
   const href = (values: Record<string, string | null>) => {
@@ -141,264 +153,296 @@ const CollectionWorkbench = ({
     : [];
 
   return (
-    <>
-      <section
-        className="detection-card"
-        aria-labelledby="collection-filter-title"
-      >
-        <h2 id="collection-filter-title">수집 조회 조건</h2>
-        <div className="detection-form-grid">
-          <label className="detection-field">
-            시작일
-            <input
-              type="date"
-              value={start}
-              onChange={(event) => patch({ from: event.target.value })}
-              aria-invalid={!rangeValid}
-            />
-          </label>
-          <label className="detection-field">
-            종료일
-            <input
-              type="date"
-              value={end}
-              onChange={(event) => patch({ to: event.target.value })}
-              aria-invalid={!rangeValid}
-            />
-          </label>
-          <label className="detection-field">
-            원천
-            <select
-              value={source}
-              onChange={(event) =>
-                patch({ source: event.target.value, field: null })
-              }
-            >
-              <option value="all">전체</option>
-              {data.collection.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {sourceNames[item.id]}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="detection-field">
-            필드
-            <select
-              value={field}
-              onChange={(event) => patch({ field: event.target.value })}
-            >
-              <option value="">전체 필드</option>
-              {availableFields.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.source.toUpperCase()} · {item.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="detection-field">
-            검색
-            <input
-              value={search}
-              onChange={(event) => patch({ q: event.target.value })}
-              placeholder="원천·필드·이력"
-            />
-          </label>
-        </div>
-        {!rangeValid && (
-          <p className="detection-error" role="alert">
-            유효한 날짜와 시작일 이후의 종료일을 선택해 주세요.
-          </p>
-        )}
-        <p className="detection-note">
-          기간은 요청 시각이 기록된 수집 이력에 적용됩니다. 시각이 없는 이력은
-          기간 미확인으로 표시됩니다. 현재 상태의 건수는 최근 관측값입니다.
-        </p>
-        <div className="detection-actions">
-          <Button variant="outline" onClick={refetch}>
-            상태 다시 조회
-          </Button>
-        </div>
-      </section>
-      <section aria-labelledby="collection-source-title">
-        <h2 id="collection-source-title">원천별 최근 수집 상태</h2>
-        {visibleSources.length ? (
-          <div className="detection-grid">
-            {visibleSources.map((item) => (
-              <article key={item.id} className="detection-card">
-                <h3>{sourceNames[item.id]}</h3>
-                <p
-                  className={
-                    item.state === "failed" || item.state === "delayed"
-                      ? "detection-error"
-                      : "detection-status"
-                  }
-                >
-                  {sourceLabels[item.state]}
-                </p>
-                <dl className="detection-summary">
-                  <div>
-                    <dt>저장 건수</dt>
-                    <dd>{valueText(item.count)}</dd>
-                  </div>
-                  <div>
-                    <dt>대기 건수</dt>
-                    <dd>{valueText(item.pending)}</dd>
-                  </div>
-                  <div>
-                    <dt>수집 공백</dt>
-                    <dd>{valueText(item.gapCount)}</dd>
-                  </div>
-                  <div>
-                    <dt>최근 성공 시각</dt>
-                    <dd>{valueText(item.lastSuccessAt)}</dd>
-                  </div>
-                </dl>
-                <p className="detection-note">{item.description}</p>
-                {item.error && (
-                  <p className="detection-error" role="alert">
-                    {item.error}
-                  </p>
-                )}
-              </article>
-            ))}
-          </div>
-        ) : (
-          <EmptyState>
-            {data.collection.length
-              ? "조회 조건에 맞는 원천이 없습니다."
-              : "원천 수집 상태가 없습니다."}
-          </EmptyState>
-        )}
-        <p className="detection-note">
-          BODY는 별도 저장·재시도합니다. 기본 PROCESS 판정은 BODY 수집을
-          기다리지 않습니다. 미확인 건수는 0건으로 간주하지 않습니다.
-        </p>
-      </section>
-      <section
-        className="detection-card"
-        aria-labelledby="collection-fields-title"
-      >
-        <h2 id="collection-fields-title">원천 필드</h2>
-        {visibleFields.length ? (
-          <div className="detection-table-wrap">
-            <table className="detection-table">
-              <caption>TRANSACTION·PROCESS 원천 필드 정의</caption>
-              <thead>
-                <tr>
-                  <th scope="col">원천</th>
-                  <th scope="col">필드</th>
-                  <th scope="col">유형</th>
-                  <th scope="col">수집 확인</th>
-                  <th scope="col">결측률</th>
-                </tr>
-              </thead>
-              <tbody>
-                {visibleFields.map((item) => (
-                  <tr key={item.id}>
-                    <td>{item.source.toUpperCase()}</td>
-                    <th scope="row">{item.name}</th>
-                    <td>{item.type}</td>
-                    <td>
-                      {item.collected == null
-                        ? "—"
-                        : item.collected
-                          ? "확인됨"
-                          : "미수집"}
-                    </td>
-                    <td>
-                      {item.missingRate == null
-                        ? "—"
-                        : `${(item.missingRate * 100).toFixed(1)}%`}
-                    </td>
-                  </tr>
+    <div className="detection-stack">
+      {activeTab !== "storage" && (
+        <section
+          className="detection-card"
+          aria-labelledby="collection-filter-title"
+        >
+          <h2 id="collection-filter-title">수집 조회 조건</h2>
+          <div className="detection-form-grid">
+            <label className="detection-field">
+              시작일
+              <input
+                type="date"
+                value={start}
+                onChange={(event) => patch({ from: event.target.value })}
+                aria-invalid={!rangeValid}
+              />
+            </label>
+            <label className="detection-field">
+              종료일
+              <input
+                type="date"
+                value={end}
+                onChange={(event) => patch({ to: event.target.value })}
+                aria-invalid={!rangeValid}
+              />
+            </label>
+            <label className="detection-field">
+              원본
+              <select
+                value={source}
+                onChange={(event) =>
+                  patch({ source: event.target.value, field: null })
+                }
+              >
+                <option value="all">전체</option>
+                {data.collection.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {sourceNames[item.id]}
+                  </option>
                 ))}
-              </tbody>
-            </table>
+              </select>
+            </label>
+            <label className="detection-field">
+              필드
+              <select
+                value={field}
+                onChange={(event) => patch({ field: event.target.value })}
+              >
+                <option value="">전체 필드</option>
+                {availableFields.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.source.toUpperCase()} · {item.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="detection-field">
+              검색
+              <input
+                value={search}
+                onChange={(event) => patch({ q: event.target.value })}
+                placeholder="원본·필드·이력"
+              />
+            </label>
           </div>
-        ) : (
-          <EmptyState>
-            {source === "M" || source === "B"
-              ? "원천 필드의 수집·스키마 관측 정보가 없습니다."
-              : "조회 조건에 맞는 필드가 없습니다."}
-          </EmptyState>
-        )}
-      </section>
-      <CollectionObservations data={data} />
-      <section
-        className="detection-card"
-        aria-labelledby="collection-history-title"
-      >
-        <h2 id="collection-history-title">수집 이력</h2>
-        {!rangeValid ? (
-          <p className="detection-error">조회 기간을 먼저 확인해 주세요.</p>
-        ) : history.length ? (
-          <ul className="detection-check-list">
-            {history.map((item) => (
-              <li key={item.id}>
-                <Button
-                  asChild
-                  variant="ghost"
-                  className="detection-list-button"
-                >
-                  <Link
-                    to={href({ history: item.id })}
-                    aria-current={historyId === item.id ? "true" : undefined}
-                  >
-                    <span>
-                      {sourceNames[item.source]} · {item.range}
-                    </span>
-                    <span>
-                      {jobStateLabels[item.state]} ·{" "}
-                      {item.requestedAt ? item.requestedAt : "기간 미확인"}
-                    </span>
-                  </Link>
-                </Button>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <EmptyState>
-            {data.collectionHistory.length
-              ? "조건에 맞는 수집 이력이 없습니다."
-              : "수집 이력이 없습니다."}
-          </EmptyState>
-        )}
-      </section>
-      {historyId && (
-        <>
-          {detail ? (
-            <CollectionHistoryDetails item={detail} />
-          ) : (
-            <DetailMissing />
+          {!rangeValid && (
+            <p className="detection-error" role="alert">
+              유효한 날짜와 시작일 이후의 종료일을 선택해 주세요.
+            </p>
           )}
-          <div className="detection-actions">
-            <Button asChild variant="outline">
-              <Link to={href({ history: null })}>수집 목록으로 돌아가기</Link>
-            </Button>
-          </div>
+          <p className="detection-note">
+            기간은 요청 시각이 기록된 수집 이력에 적용됩니다. 시각이 없는 이력은
+            기간 미확인으로 표시됩니다. 현재 상태의 건수는 최근 관측값입니다.
+          </p>
+        </section>
+      )}
+      {activeTab === "status" && (
+        <>
+          <section aria-labelledby="collection-source-title">
+            <h2 id="collection-source-title">원본별 최근 수집 상태</h2>
+            {visibleSources.length ? (
+              <div className="detection-grid">
+                {visibleSources.map((item) => (
+                  <article key={item.id} className="detection-card">
+                    <h3>{sourceNames[item.id]}</h3>
+                    <p
+                      className={
+                        item.state === "failed" || item.state === "delayed"
+                          ? "detection-error"
+                          : "detection-status"
+                      }
+                    >
+                      {sourceLabels[item.state]}
+                    </p>
+                    <dl className="detection-summary">
+                      <div>
+                        <dt>저장 건수</dt>
+                        <dd>{valueText(item.count)}</dd>
+                      </div>
+                      <div>
+                        <dt>대기 건수</dt>
+                        <dd>{valueText(item.pending)}</dd>
+                      </div>
+                      <div>
+                        <dt>수집 공백</dt>
+                        <dd>{valueText(item.gapCount)}</dd>
+                      </div>
+                      <div>
+                        <dt>최근 성공 시각</dt>
+                        <dd>{valueText(item.lastSuccessAt)}</dd>
+                      </div>
+                    </dl>
+                    <p className="detection-note">{item.description}</p>
+                    {item.error && (
+                      <p className="detection-error" role="alert">
+                        {item.error}
+                      </p>
+                    )}
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <EmptyState>
+                {data.collection.length
+                  ? "조회 조건에 맞는 원본이 없습니다."
+                  : "원본 수집 상태가 없습니다."}
+              </EmptyState>
+            )}
+            <p className="detection-note">
+              BODY는 별도 저장·재시도합니다. 기본 PROCESS 판정은 BODY 수집을
+              기다리지 않습니다. 미확인 건수는 0건으로 간주하지 않습니다.
+            </p>
+          </section>
+          <CollectionObservations data={data} view="latency" />
         </>
       )}
-    </>
+      {activeTab === "fields" && (
+        <section
+          className="detection-card"
+          aria-labelledby="collection-fields-title"
+        >
+          <h2 id="collection-fields-title">원본 필드</h2>
+          {visibleFields.length ? (
+            <div className="detection-table-wrap">
+              <table className="detection-table">
+                <caption>TRANSACTION·PROCESS 원본 필드 정의</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">원본</th>
+                    <th scope="col">필드</th>
+                    <th scope="col">유형</th>
+                    <th scope="col">수집 확인</th>
+                    <th scope="col">결측률</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {visibleFields.map((item) => (
+                    <tr key={item.id}>
+                      <td>{item.source.toUpperCase()}</td>
+                      <th scope="row">{item.name}</th>
+                      <td>{item.type}</td>
+                      <td>
+                        {item.collected == null
+                          ? "—"
+                          : item.collected
+                            ? "확인됨"
+                            : "미수집"}
+                      </td>
+                      <td>
+                        {item.missingRate == null
+                          ? "—"
+                          : `${(item.missingRate * 100).toFixed(1)}%`}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <EmptyState>
+              {source === "M" || source === "B"
+                ? "원본 필드의 수집·스키마 관측 정보가 없습니다."
+                : "조회 조건에 맞는 필드가 없습니다."}
+            </EmptyState>
+          )}
+        </section>
+      )}
+      {activeTab === "storage" && (
+        <CollectionObservations data={data} view="storage" />
+      )}
+      {activeTab === "history" && (
+        <>
+          <section
+            className="detection-card"
+            aria-labelledby="collection-history-title"
+          >
+            <h2 id="collection-history-title">수집 이력</h2>
+            {!rangeValid ? (
+              <p className="detection-error">조회 기간을 먼저 확인해 주세요.</p>
+            ) : history.length ? (
+              <ul className="detection-check-list">
+                {history.map((item) => (
+                  <li key={item.id}>
+                    <Button
+                      asChild
+                      variant="ghost"
+                      className="detection-list-button"
+                    >
+                      <Link
+                        to={href({ tab: "history", history: item.id })}
+                        aria-current={
+                          historyId === item.id ? "true" : undefined
+                        }
+                      >
+                        <span>
+                          {sourceNames[item.source]} · {item.range}
+                        </span>
+                        <span>
+                          {jobStateLabels[item.state]} ·{" "}
+                          {item.requestedAt ? item.requestedAt : "기간 미확인"}
+                        </span>
+                      </Link>
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <EmptyState>
+                {data.collectionHistory.length
+                  ? "조건에 맞는 수집 이력이 없습니다."
+                  : "수집 이력이 없습니다."}
+              </EmptyState>
+            )}
+          </section>
+          {historyId && (
+            <>
+              {detail ? (
+                <CollectionHistoryDetails item={detail} />
+              ) : (
+                <DetailMissing />
+              )}
+              <div className="detection-actions">
+                <Button asChild variant="outline">
+                  <Link to={href({ tab: "history", history: null })}>
+                    수집 목록으로 돌아가기
+                  </Link>
+                </Button>
+              </div>
+            </>
+          )}
+        </>
+      )}
+    </div>
   );
 };
 
 export const CollectionPage = () => {
   const query = useDetectionQuery();
+  const [params] = useSearchParams();
+  const fallback = params.has("history")
+    ? "history"
+    : params.has("field")
+      ? "fields"
+      : "status";
+  const activeTab = useDetectionTab(
+    collectionTabs.map((item) => item.id),
+    fallback,
+  );
   return (
-    <section className="detection-page detection-stack">
+    <section className="detection-page">
       <header className="detection-page-header">
         <h1>데이터 수집 현황</h1>
+        <Button
+          variant="outline"
+          disabled={query.isFetching}
+          onClick={() => void query.refetch()}
+        >
+          상태 다시 조회
+        </Button>
       </header>
+      <DetectionTabs
+        items={collectionTabs.map((item) => ({
+          ...item,
+          to: detectionTabHref(params, item.id),
+        }))}
+        activeId={activeTab}
+        ariaLabel="수집 현황 내용"
+      />
       <DetectionQueryBoundary query={query}>
-        {(data) => (
-          <CollectionWorkbench
-            data={data}
-            refetch={() => {
-              void query.refetch();
-            }}
-          />
-        )}
+        {(data) => <CollectionWorkbench data={data} activeTab={activeTab} />}
       </DetectionQueryBoundary>
     </section>
   );

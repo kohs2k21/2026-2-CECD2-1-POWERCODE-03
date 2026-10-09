@@ -3,16 +3,20 @@ import { Link, useSearchParams } from "react-router-dom";
 import { createTabs } from "../../app/routePaths";
 import { Button } from "../../components/ui/button";
 import { Modal } from "../../components/ui/Modal";
+import { DialogFooter } from "../../components/ui/dialog";
 import { useDetectionQuery } from "./data/useDetectionQuery";
 import {
   useCreateDraft,
   validateDataDraft,
   validateTrainingConfig,
 } from "./data/createDraft";
+import { featureOptions, featureDefinitionPayload } from "./data/formula";
 import { validateFeatureEditor } from "./data/featureBuilder";
 import { DetectionQueryBoundary } from "./components/DetectionQueryBoundary";
+import { DetectionTabs } from "./components/DetectionTabs";
 import { ServiceAction } from "./components/ServiceAction";
-import { DataFeaturesTab } from "./pages/DataFeaturesTab";
+import { DatasetTab } from "./pages/DatasetTab";
+import { FeaturesTab } from "./pages/FeaturesTab";
 import { TrainingTab } from "./pages/TrainingTab";
 import { RulesTab } from "./pages/RulesTab";
 
@@ -23,37 +27,55 @@ export const CreatePage = () => {
   const [resetOpen, setResetOpen] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
   const selected = params.get("tab");
+  const canonicalTab =
+    selected === "data-features"
+      ? ["feature", "kind", "featureQ"].some((key) => params.has(key))
+        ? "features"
+        : "dataset"
+      : selected;
   const activeTab =
-    createTabs.find((tab) => tab.id === selected) ?? createTabs[0];
-  const modelFeaturePayload = Object.fromEntries(
-    Object.entries(draft).filter(
-      ([key]) =>
-        !["rules", "ruleThresholdInputs", "recommendationDecisions"].includes(
-          key,
-        ),
+    createTabs.find((tab) => tab.id === canonicalTab) ?? createTabs[0];
+  const definitions = featureOptions(draft);
+  const modelFeaturePayload = {
+    ...Object.fromEntries(
+      Object.entries(draft).filter(
+        ([key]) =>
+          !["rules", "ruleThresholdInputs", "recommendationDecisions"].includes(
+            key,
+          ),
+      ),
     ),
-  );
+    featureEdits: featureDefinitionPayload(draft),
+  };
   const saveErrors = [
     ...validateDataDraft(draft),
     ...validateTrainingConfig(draft.training),
     ...Object.values(draft.featureEdits).flatMap((value) =>
-      validateFeatureEditor(value),
+      validateFeatureEditor(value, definitions),
     ),
   ];
   useEffect(() => {
-    if (!createTabs.some((tab) => tab.id === selected)) {
+    if (
+      selected === "data-features" ||
+      !createTabs.some((tab) => tab.id === selected)
+    ) {
       const next = new URLSearchParams(params);
-      next.set("tab", "data-features");
+      next.set(
+        "tab",
+        canonicalTab === "features" || params.has("feature")
+          ? "features"
+          : "dataset",
+      );
       setParams(next, { replace: true });
     }
-  }, [selected, params, setParams]);
+  }, [selected, canonicalTab, params, setParams]);
   return (
     <section className="detection-page">
       <DetectionQueryBoundary query={query}>
         {(data) => (
           <>
             <div className="detection-page-header">
-              <h1>모델·룰 만들기</h1>
+              <h1>모델·룰 생성</h1>
               {activeTab.id !== "rules" && (
                 <ServiceAction
                   operation="saveDraft"
@@ -74,6 +96,15 @@ export const CreatePage = () => {
                 </ServiceAction>
               )}
             </div>
+            <DetectionTabs
+              ariaLabel="탐지 구성 편집 영역"
+              activeId={activeTab.id}
+              items={createTabs.map((tab) => {
+                const next = new URLSearchParams(params);
+                next.set("tab", tab.id);
+                return { ...tab, to: "?" + next.toString() };
+              })}
+            />
             <div className="detection-form-grid detection-feedback">
               {activeTab.id !== "rules" && (
                 <label className="detection-field">
@@ -89,29 +120,15 @@ export const CreatePage = () => {
                 {dirty ? "편집 내용 유지 중" : "새 구성"}
               </div>
             </div>
-            <nav className="create-tabs" aria-label="탐지 구성 편집 영역">
-              {createTabs.map((tab) => {
-                const next = new URLSearchParams(params);
-                next.set("tab", tab.id);
-                return (
-                  <Link
-                    className="ui-nav-link"
-                    key={tab.id}
-                    to={{ search: "?" + next.toString() }}
-                    aria-current={activeTab.id === tab.id ? "page" : undefined}
-                  >
-                    {tab.label}
-                  </Link>
-                );
-              })}
-            </nav>
             <section
               className="creation-section"
               aria-labelledby="creation-section-title"
             >
               <h2 id="creation-section-title">{activeTab.label}</h2>
-              {activeTab.id === "data-features" ? (
-                <DataFeaturesTab data={data} />
+              {activeTab.id === "dataset" ? (
+                <DatasetTab data={data} />
+              ) : activeTab.id === "features" ? (
+                <FeaturesTab />
               ) : activeTab.id === "training" ? (
                 <TrainingTab data={data} />
               ) : (
@@ -136,7 +153,7 @@ export const CreatePage = () => {
                 >
                   구성 입력 확인
                 </Button>
-                {activeTab.id === "data-features" && (
+                {activeTab.id === "features" && (
                   <Button asChild>
                     <Link
                       to={{
@@ -161,7 +178,7 @@ export const CreatePage = () => {
               description="현재 구성의 편집 내용을 버리고 기본 선택으로 돌아갑니다."
               size="sm"
             >
-              <div className="detection-actions">
+              <DialogFooter>
                 <Button variant="outline" onClick={() => setResetOpen(false)}>
                   취소
                 </Button>
@@ -174,7 +191,7 @@ export const CreatePage = () => {
                 >
                   기본값 복원
                 </Button>
-              </div>
+              </DialogFooter>
             </Modal>
           </>
         )}

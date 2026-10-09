@@ -1,6 +1,11 @@
 import { featureCatalog } from "./catalog";
 import type { FeatureEditorValue, DerivedOperation } from "./createDraft";
-import type { FeatureDefinition } from "./types";
+import {
+  compileFormula,
+  evaluateFormula,
+  type FormulaFeature,
+} from "./formula";
+export { canEditCanonicalFeature, defaultFeatureEditor } from "./formulaLegacy";
 export const operationLabels: Record<DerivedOperation, string> = {
   duration: "시간 차이",
   subtract: "수치 차이",
@@ -16,29 +21,13 @@ export const operationLabels: Record<DerivedOperation, string> = {
 export const requiresRightInput = (operation: DerivedOperation) =>
   ["duration", "subtract", "ratio"].includes(operation);
 export const allowedOperations = (
-  feature: FeatureDefinition | undefined,
+  feature: Pick<FormulaFeature, "type"> | undefined,
 ): DerivedOperation[] =>
   feature?.type === "timestamp"
     ? ["duration", "isMissing", "hour", "month", "weekday", "weekend"]
     : feature?.type === "number"
       ? ["subtract", "ratio", "log1p", "isMissing", "trainMedian"]
       : ["isMissing"];
-const canonicalOperations: Partial<Record<string, DerivedOperation>> = {
-  F03: "weekend",
-  F05: "ratio",
-  F06: "ratio",
-  F12: "log1p",
-  F13: "isMissing",
-  F23: "log1p",
-  F24: "log1p",
-  A00: "duration",
-  A01: "month",
-  A02: "weekday",
-  A05: "hour",
-  A12: "log1p",
-};
-export const canEditCanonicalFeature = (feature: FeatureDefinition) =>
-  feature.source === "derived" && Boolean(canonicalOperations[feature.id]);
 export const unavailableInput = (editor: FeatureEditorValue) => {
   const ids = [
     editor.left,
@@ -52,35 +41,26 @@ export const unavailableInput = (editor: FeatureEditorValue) => {
         feature.readiness === "deferred"),
   );
 };
-export const defaultFeatureEditor = (
-  feature?: FeatureDefinition,
-): FeatureEditorValue => ({
-  name: feature?.name ?? "",
-  operation: (feature && canonicalOperations[feature.id]) ?? "isMissing",
-  left:
-    feature?.id === "A00"
-      ? "process.END_TIME"
-      : feature?.id === "F12"
-        ? "A00"
-        : (feature?.inputs[0] ?? "process.END_TIME"),
-  right:
-    feature?.id === "A00"
-      ? "process.START_TIME"
-      : (feature?.inputs[1] ?? "process.START_TIME"),
-  unit: feature?.id === "A00" ? "ms" : "unitless",
-  missingPolicy: "preserve",
-  timezone: "",
-});
 export const validateFeatureEditor = (
   editor: FeatureEditorValue,
-  features: FeatureDefinition[] = featureCatalog,
+  features: readonly FormulaFeature[] = featureCatalog,
 ) => {
   const errors: string[] = [];
   const left = features.find((feature) => feature.id === editor.left);
   const right = features.find((feature) => feature.id === editor.right);
   if (!editor.name.trim() || editor.name.trim().length > 80)
     errors.push("파생변수 이름은 1~80자로 입력해 주세요.");
-  if (!left) errors.push("원천 속성을 선택해 주세요.");
+  if (editor.expression !== undefined) {
+    const compiled = compileFormula(editor.expression, features);
+    errors.push(...compiled.errors);
+    if (
+      compiled.requiresTimezone &&
+      !["UTC", "Asia/Seoul"].includes(editor.timezone)
+    )
+      errors.push("원본 시각의 기준 시간대를 선택해 주세요.");
+    return errors;
+  }
+  if (!left) errors.push("원본 속성을 선택해 주세요.");
   else if (!allowedOperations(left).includes(editor.operation))
     errors.push("선택한 속성 타입에서 허용되지 않는 연산입니다.");
   if (
@@ -95,11 +75,11 @@ export const validateFeatureEditor = (
     editor.operation !== "isMissing" &&
     !editor.timezone
   )
-    errors.push("원천 시각의 기준 시간대를 선택해 주세요.");
+    errors.push("원본 시각의 기준 시간대를 선택해 주세요.");
   return errors;
 };
 export type PreviewResult = {
-  value: number | null;
+  value: number | string | boolean | null;
   reason: string;
   unit: string;
 };
@@ -108,6 +88,12 @@ export const previewFeature = (
   leftSample: string,
   rightSample: string,
 ): PreviewResult => {
+  if (editor.expression !== undefined)
+    return evaluateFormula(
+      compileFormula(editor.expression, featureCatalog),
+      { [editor.left]: leftSample, [editor.right]: rightSample },
+      { timezone: editor.timezone, missingPolicy: editor.missingPolicy },
+    );
   const dependency = unavailableInput(editor);
   if (dependency)
     return {
@@ -142,7 +128,7 @@ export const previewFeature = (
       reason:
         editor.missingPolicy === "reject"
           ? "필수 입력 결측으로 계산 보류"
-          : "원천 NULL은 NULL로 유지",
+          : "원본 NULL은 NULL로 유지",
       unit: editor.unit,
     };
   if (
@@ -165,7 +151,7 @@ export const previewFeature = (
     )
       return {
         value: null,
-        reason: "유효하지 않은 원천 시각",
+        reason: "유효하지 않은 원본 시각",
         unit: editor.unit,
       };
     if (editor.operation === "duration")

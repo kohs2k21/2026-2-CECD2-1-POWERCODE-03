@@ -65,6 +65,7 @@
   margin: 0 0 24px;
 }
 .create-tabs {
+  margin-top: var(--space-xl, 32px);
   display: flex;
   border-bottom: 1px solid var(--hairline);
   gap: 8px;
@@ -270,5 +271,100 @@
   }
   .auth-card {
     padding: 24px;
+  }
+}
+
+.feature-workspace {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr);
+  align-items: start;
+}
+.formula-input {
+  position: relative;
+  min-width: 0;
+}
+.formula-input textarea {
+  width: 100%;
+  resize: vertical;
+  min-height: 112px;
+  padding: 12px;
+  border: 1px solid var(--color-border, #d5d7da);
+  border-radius: 8px;
+  background: var(--color-surface, #fff);
+  color: inherit;
+  font:
+    13px/1.6 ui-monospace,
+    monospace;
+}
+.formula-suggestions {
+  margin: 4px 0;
+  padding: 4px;
+  list-style: none;
+  border: 1px solid var(--color-border, #d5d7da);
+  border-radius: 8px;
+  background: var(--color-surface, #fff);
+  max-height: 240px;
+  overflow: auto;
+}
+.formula-suggestions li {
+  padding: 8px;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+.formula-suggestions li[aria-selected="true"] {
+  background: var(--color-bg-secondary, #f1f4f8);
+}
+.formula-reference {
+  border-top: 1px solid var(--color-border, #d5d7da);
+  padding-top: 16px;
+}
+.formula-reference summary {
+  cursor: pointer;
+  margin-bottom: 12px;
+}
+.formula-reference-list {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  max-height: 220px;
+  overflow: auto;
+  margin-top: 8px;
+}
+.formula-reference-list button {
+  justify-content: flex-start;
+  text-align: left;
+  white-space: normal;
+  height: auto;
+  min-height: 32px;
+  overflow-wrap: anywhere;
+}
+.formula-options {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.formula-options legend {
+  padding: 0;
+  margin-bottom: 8px;
+  font-size: 13px;
+}
+.formula-options label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+}
+.formula-preview {
+  border-top: 1px solid var(--color-border, #d5d7da);
+  padding-top: 20px;
+}
+.formula-preview h3 {
+  margin: 0 0 16px;
+}
+@media (max-width: 1200px) {
+  .feature-workspace {
+    grid-template-columns: minmax(0, 1fr);
   }
 }

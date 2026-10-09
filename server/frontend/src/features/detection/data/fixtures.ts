@@ -114,7 +114,7 @@ export const developmentDetectionData: DetectionData = {
     {
       id: "recommendation-count",
       name: "오류 건수 조건 검토",
-      rationale: "원천 오류 건수와 기존 합계 룰의 중복 여부 검토",
+      rationale: "원본 오류 건수와 기존 합계 룰의 중복 여부 검토",
       rule: {
         id: "error-count-limit",
         name: "오류 건수 한도",
@@ -242,7 +242,7 @@ export const developmentDetectionData: DetectionData = {
       count: null,
       pending: null,
       gapCount: null,
-      description: "거래 원천 · PROCESS 부모 관계 확인",
+      description: "거래 원본 · PROCESS 부모 관계 확인",
       error: null,
     },
     {
@@ -264,7 +264,7 @@ export const developmentDetectionData: DetectionData = {
       count: null,
       pending: null,
       gapCount: null,
-      description: "메시지 원천 별도 보관",
+      description: "메시지 원본 별도 보관",
       error: null,
     },
     {

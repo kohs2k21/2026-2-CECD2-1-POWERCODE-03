@@ -10,8 +10,10 @@ import {
 } from "../components/DetectionQueryBoundary";
 import { ServiceAction } from "../components/ServiceAction";
 import type { DetectionData } from "../data/types";
+import { expectedVersionReview } from "../data/performanceCriteria";
 import { useDetectionQuery } from "../data/useDetectionQuery";
 import { versionReadiness, versionLabels } from "./operationPresentation";
+import { VersionReviewSummary } from "./VersionReviewSummary";
 import { CompositionEditor } from "./CompositionEditor";
 import {
   ApplicationDetails,
@@ -49,6 +51,11 @@ const VersionsWorkbench = ({
   const patch = (values: Record<string, string | null>) =>
     setParams(href(values).slice(1));
   const active = data.versions.find((item) => item.id === data.activeVersionId);
+  const viewedId = params.get("version");
+  const viewed =
+    viewedId !== null
+      ? data.versions.find((item) => item.id === viewedId)
+      : active;
   const candidates = data.versions.filter(
     (item) => item.state === "candidate" || item.state === "draft",
   );
@@ -73,6 +80,9 @@ const VersionsWorkbench = ({
       ruleVersions: data.ruleVersions,
       models: data.models,
       snapshots: data.snapshots,
+      evaluationSets: data.evaluationSets,
+      evaluationSpecs: data.evaluationSpecs,
+      evaluationSplits: data.evaluationSplits,
     });
   const applySignature = reviewSignature(candidate);
   const rollbackSignature = reviewSignature(rollback);
@@ -80,6 +90,10 @@ const VersionsWorkbench = ({
   useEffect(() => setRollbackApproved(false), [rollbackSignature, activeTab]);
   const reasons = candidate ? versionReadiness(candidate, data) : [];
   const rollbackReasons = rollback ? versionReadiness(rollback, data) : [];
+  const applyReview = candidate ? expectedVersionReview(candidate, data) : null;
+  const rollbackReview = rollback
+    ? expectedVersionReview(rollback, data)
+    : null;
 
   return (
     <div className="detection-stack">
@@ -89,9 +103,13 @@ const VersionsWorkbench = ({
             className="detection-card"
             aria-labelledby="active-version-title"
           >
-            <h2 id="active-version-title">현재 운영 버전</h2>
-            {active ? (
-              <BundleDetails bundle={active} data={data} />
+            <h2 id="active-version-title">
+              {viewedId !== null ? "선택한 버전 구성" : "현재 운영 버전"}
+            </h2>
+            {viewed ? (
+              <BundleDetails bundle={viewed} data={data} />
+            ) : viewedId !== null ? (
+              <DetailMissing />
             ) : (
               <EmptyState>현재 운영 버전이 확인되지 않았습니다.</EmptyState>
             )}
@@ -133,6 +151,12 @@ const VersionsWorkbench = ({
             ) : (
               <section className="detection-section">
                 <h3>{candidate.name}</h3>
+                <VersionReviewSummary
+                  active={active}
+                  target={candidate}
+                  data={data}
+                  approved={applyApproved}
+                />
                 <BundleDiff active={active} candidate={candidate} data={data} />
                 <div className="detection-grid">
                   <section>
@@ -184,12 +208,16 @@ const VersionsWorkbench = ({
                     available={data.capabilities.apply}
                     disabled={!applyApproved}
                     requestDisabled={
-                      !applyApproved || reasons.length > 0 || !active
+                      !applyApproved ||
+                      reasons.length > 0 ||
+                      !active ||
+                      !applyReview
                     }
                     payload={{
                       versionId: candidate.id,
                       expectedActiveVersionId: data.activeVersionId,
                       approved: applyApproved,
+                      expectedReview: applyReview,
                     }}
                   >
                     <p>
@@ -235,6 +263,12 @@ const VersionsWorkbench = ({
             </label>
             {rollback ? (
               <>
+                <VersionReviewSummary
+                  active={active}
+                  target={rollback}
+                  data={data}
+                  approved={rollbackApproved}
+                />
                 <BundleDetails bundle={rollback} data={data} />
                 {rollbackReasons.length > 0 && (
                   <ul className="detection-check-list">
@@ -263,17 +297,27 @@ const VersionsWorkbench = ({
                     available={data.capabilities.rollback}
                     disabled={!rollbackApproved}
                     requestDisabled={
-                      !rollbackApproved || rollbackReasons.length > 0 || !active
+                      !rollbackApproved ||
+                      rollbackReasons.length > 0 ||
+                      !active ||
+                      !rollbackReview
                     }
                     payload={{
                       versionId: rollback.id,
                       expectedActiveVersionId: data.activeVersionId,
                       approved: rollbackApproved,
+                      expectedReview: rollbackReview,
                     }}
                   >
                     <p>
                       현재 {active?.name ?? "—"} → {rollback.name}
                     </p>
+                    <VersionReviewSummary
+                      active={active}
+                      target={rollback}
+                      data={data}
+                      approved={rollbackApproved}
+                    />
                     <BundleDetails bundle={rollback} data={data} />
                     {rollbackReasons.length > 0 && (
                       <>

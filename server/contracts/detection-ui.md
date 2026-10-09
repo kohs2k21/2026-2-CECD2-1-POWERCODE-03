@@ -101,3 +101,15 @@ Status: current
 - 결과 딥링크: tab=candidates&result=ID 단독 또는 candidate=ID와 함께 진입. result.candidateId로 현행/보관 버전 포함 대상 조회; 없는 결과/대상은 미존재 표시
 - receipt 확장 제안: optional job={id,type:training|evaluation,candidateId?,resultId?}. requestId는 작업 ID 아님. 학습은 실제 job.id/type으로 작업 상세 연결. 평가 queue job.id는 결과 ID와 별개: 실제 resultId 제공 시만 결과 상세 연결, 미제공은 /notifications?filter=tasks. evaluations 레코드 알림은 실제 record.id를 resultId로 전달
 - 생성/학습/평가 접수 후 작업 조회로 상태 추적. receipt만으로 완료/초안 저장/운영 변경 성공 처리 금지; 이전 계정·닫힌 확인창·변경된 요청의 늦은 receipt 폐기 유지
+
+## 운영 적용 검토·성능기준
+
+- 상단 검토 요약: 구성 변경 항목 수, 평가 처리 상태, 성능기준 확정/충족, 현재 산출물 가용성/입력 호환성, 관리자 로컬 검토 확인 분리
+- 평가 succeeded는 성능 합격 아님. 실제 spec revision의 acceptanceCriteria(지표/연산/합의 값/출처)가 유효하고 해당 실측값이 확인될 때만 기준 판단; 기준/라벨/측정값 누락은 미확정·판단 불가
+- 적용/복원 최종 요청 정책: 기존 기술 준비·현재 구성 exact 평가 근거 + 고정 test 최종 확인 + 확정 성능기준 충족 필수. validation은 후보 비교이며 test 최종 확인 대체 금지; 임의 합격선·unknown 정상화 없음
+- 기준 판단은 지정한 spec 지표와 합격선만 사용. 미지정 지표를 임의 필수화하거나 제공되지 않은 수치를 보완하지 않음; 최종 적용의 서버 재검증 필수
+- 승인 재사용 방지: active/대상/구성·평가 근거뿐 아니라 evaluationSets/Specs/Splits 실제 내용 변경도 승인·열린 확인창 초기화. expectedActiveVersionId·현재 계정·탭 이탈 가드 유지
+- 구성 검토: 변경 항목만 보기, 긴 피처/룰 상세 접기. 표시 조작은 구성/초안/실제 운영 상태를 수정하지 않음
+- 과거 구성 URL: /detection/versions?tab=configuration&version=실제ID. 해당 VersionBundle만 조회, 미존재/빈 ID는 미존재 상태; 현행 버전으로 조용히 대체 금지
+- 적용/복원 요청 제안: expectedActiveVersionId와 expectedReview={evaluationId,configurationFingerprint,evaluationSetId/revision,specId/revision,splitManifestId/revision,reviewFingerprint}. 조회한 평가/세트/기준/분할 원본으로 생성; 충분한 근거 없으면 null 및 finalrequest 차단
+- reviewFingerprint는 검토 내용의 JSON 식별값이며 보안 서명 아님. revision 동일한 응답 내용 변경도 새 검토/다른 payload 필요. 서버는 승인된 근거와 실제 최신 상태를 원자적으로 대조하고 불일치 시 409 conflict→재조회/재검토 처리 제안; 실제 적용 API 미구현

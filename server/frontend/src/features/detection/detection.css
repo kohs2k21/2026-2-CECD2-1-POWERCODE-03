@@ -383,6 +383,19 @@
   align-items: center;
   gap: var(--space-xs);
 }
+.version-review-summary {
+  padding: var(--space-md);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-lg);
+  background: var(--canvas-soft-2);
+}
+.version-long-content summary {
+  cursor: pointer;
+}
+.version-long-content p {
+  margin-top: var(--space-sm);
+  overflow-wrap: anywhere;
+}
 @media (max-width: 1200px) {
   .feature-workspace {
     grid-template-columns: minmax(0, 1fr);

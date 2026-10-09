@@ -1,3 +1,8 @@
+import { performanceAssessment } from "../data/performanceCriteria";
+import {
+  conditionFromEvaluationSet,
+  evaluationSetErrors,
+} from "../data/evaluationPreparation";
 import { featureCatalog } from "../data/catalog";
 import {
   currentConfigurationFingerprint,
@@ -31,6 +36,19 @@ export const evaluationErrors = (
   condition: EvaluationCondition,
   data: DetectionData,
 ) => {
+  if (condition.evaluationSetId) {
+    const set = data.evaluationSets?.find(
+      (item) =>
+        item.id === condition.evaluationSetId &&
+        item.revision === condition.evaluationSetRevision,
+    );
+    return [
+      ...evaluationSetErrors(set, data),
+      ...(set && !conditionsMatch(condition, conditionFromEvaluationSet(set))
+        ? ["평가 조건이 고정 세트와 일치하지 않습니다."]
+        : []),
+    ];
+  }
   const errors: string[] = [];
   const snapshot = data.snapshots.find(
     (item) => item.id === condition.snapshotId,
@@ -159,13 +177,19 @@ export const versionReadiness = (
       reasons.push("평가 데이터셋과 평가 조건의 유효성을 확인해야 합니다.");
     if (
       evaluation.candidateId !== bundle.id ||
-      evaluation.condition.snapshotId !== bundle.snapshotId
+      (!evaluation.condition.evaluationSetId &&
+        evaluation.condition.snapshotId !== bundle.snapshotId)
     )
       reasons.push("평가 근거가 선택한 구성·데이터셋과 일치하지 않습니다.");
+    const assessment = performanceAssessment(bundle, data);
+    const requiredMetrics =
+      assessment.spec?.metrics ?? metricRows.map((item) => item.key);
     if (
-      metricRows.some(
-        ({ key, unit }) => metricText(evaluation.metrics[key], unit) === "—",
-      )
+      metricRows
+        .filter(({ key }) => requiredMetrics.includes(key))
+        .some(
+          ({ key, unit }) => metricText(evaluation.metrics[key], unit) === "—",
+        )
     )
       reasons.push("평가 지표가 모두 측정되지 않았습니다.");
   }
@@ -180,7 +204,9 @@ export const versionReadiness = (
     reasons.push("완료한 룰 버전을 확인할 수 없습니다.");
   if (!bundle.explanationVersion)
     reasons.push("설명 구성 버전이 확인되지 않았습니다.");
-  return reasons;
+  return [
+    ...new Set([...reasons, ...performanceAssessment(bundle, data).reasons]),
+  ];
 };
 
 export const bytesText = (value: number | null) => {

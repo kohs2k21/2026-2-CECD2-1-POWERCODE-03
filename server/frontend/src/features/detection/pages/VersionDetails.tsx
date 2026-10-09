@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { featureCatalog } from "../data/catalog";
 import { evaluationMatchesConfiguration } from "../data/configuration";
 import type {
@@ -31,7 +32,10 @@ const ruleText = (rule: RuleVersion["rules"][number]) => {
   return `${rule.name} · ${condition} · ${rule.description}`;
 };
 
-const configurationRows = (bundle: VersionBundle, data: DetectionData) => ({
+export const configurationRows = (
+  bundle: VersionBundle,
+  data: DetectionData,
+) => ({
   artifact:
     data.modelArtifacts.find((item) => item.id === bundle.modelArtifactId)
       ?.name ?? bundle.modelArtifactId,
@@ -72,10 +76,12 @@ const configurationLabels = {
 } as const;
 
 const configurationIdentity = (bundle: VersionBundle, data: DetectionData) => ({
-  artifact: JSON.stringify(
-    data.modelArtifacts.find((item) => item.id === bundle.modelArtifactId) ??
+  artifact: JSON.stringify({
+    id: bundle.modelArtifactId,
+    metadata:
+      data.modelArtifacts.find((item) => item.id === bundle.modelArtifactId) ??
       null,
-  ),
+  }),
   model: bundle.modelId,
   features: JSON.stringify(bundle.featureIds),
   featureVersion: bundle.featureVersion,
@@ -92,6 +98,29 @@ const configurationIdentity = (bundle: VersionBundle, data: DetectionData) => ({
   explanation: bundle.explanationVersion,
   snapshot: bundle.snapshotId,
 });
+
+export const configurationChangeCount = (
+  active: VersionBundle | undefined,
+  target: VersionBundle,
+  data: DetectionData,
+) => {
+  if (!active) return null;
+  const left = configurationIdentity(active, data),
+    right = configurationIdentity(target, data);
+  return Object.keys(right).filter(
+    (key) =>
+      left[key as keyof typeof left] !== right[key as keyof typeof right],
+  ).length;
+};
+const configurationValue = (key: string, value: unknown) =>
+  key === "features" || key === "rules" ? (
+    <details className="version-long-content">
+      <summary>{key === "features" ? "피처 상세" : "룰 상세"}</summary>
+      <p>{valueText(typeof value === "string" ? value : null)}</p>
+    </details>
+  ) : (
+    valueText(typeof value === "string" ? value : null)
+  );
 
 export const BundleDetails = ({
   bundle,
@@ -119,7 +148,7 @@ export const BundleDetails = ({
     {Object.entries(configurationRows(bundle, data)).map(([key, value]) => (
       <div key={key}>
         <dt>{configurationLabels[key as keyof typeof configurationLabels]}</dt>
-        <dd>{valueText(value)}</dd>
+        <dd>{configurationValue(key, value)}</dd>
       </div>
     ))}
     <div>
@@ -158,45 +187,68 @@ export const BundleDiff = ({
   candidate: VersionBundle;
   data: DetectionData;
 }) => {
+  const [changedOnly, setChangedOnly] = useState(false);
   const left = active ? configurationRows(active, data) : null;
   const right = configurationRows(candidate, data);
   const previousIdentity = active ? configurationIdentity(active, data) : null;
   const nextIdentity = configurationIdentity(candidate, data);
   return (
-    <div className="detection-table-wrap">
-      <table className="detection-table">
-        <caption>운영 구성과 선택한 후보의 구성 차이</caption>
-        <thead>
-          <tr>
-            <th scope="col">구성</th>
-            <th scope="col">운영</th>
-            <th scope="col">후보</th>
-            <th scope="col">차이</th>
-          </tr>
-        </thead>
-        <tbody>
-          {Object.entries(right).map(([key, value]) => {
-            const previous = left?.[key as keyof typeof right];
-            return (
-              <tr key={key}>
-                <th scope="row">
-                  {configurationLabels[key as keyof typeof configurationLabels]}
-                </th>
-                <td>{valueText(previous)}</td>
-                <td>{valueText(value)}</td>
-                <td>
-                  {previous == null || value == null
-                    ? "미확인"
-                    : previousIdentity?.[key as keyof typeof nextIdentity] ===
-                        nextIdentity[key as keyof typeof nextIdentity]
-                      ? "동일"
-                      : "변경"}
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+    <div>
+      <label className="detection-checkbox">
+        <input
+          type="checkbox"
+          checked={changedOnly}
+          onChange={(event) => setChangedOnly(event.target.checked)}
+        />
+        변경 항목만 보기
+      </label>
+      <div className="detection-table-wrap">
+        <table className="detection-table">
+          <caption>운영 구성과 선택한 후보의 구성 차이</caption>
+          <thead>
+            <tr>
+              <th scope="col">구성</th>
+              <th scope="col">운영</th>
+              <th scope="col">후보</th>
+              <th scope="col">차이</th>
+            </tr>
+          </thead>
+          <tbody>
+            {Object.entries(right)
+              .filter(
+                ([key]) =>
+                  !changedOnly ||
+                  previousIdentity?.[key as keyof typeof nextIdentity] !==
+                    nextIdentity[key as keyof typeof nextIdentity],
+              )
+              .map(([key, value]) => {
+                const previous = left?.[key as keyof typeof right];
+                return (
+                  <tr key={key}>
+                    <th scope="row">
+                      {
+                        configurationLabels[
+                          key as keyof typeof configurationLabels
+                        ]
+                      }
+                    </th>
+                    <td>{configurationValue(key, previous)}</td>
+                    <td>{configurationValue(key, value)}</td>
+                    <td>
+                      {previous == null || value == null
+                        ? "미확인"
+                        : previousIdentity?.[
+                              key as keyof typeof nextIdentity
+                            ] === nextIdentity[key as keyof typeof nextIdentity]
+                          ? "동일"
+                          : "변경"}
+                    </td>
+                  </tr>
+                );
+              })}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 };

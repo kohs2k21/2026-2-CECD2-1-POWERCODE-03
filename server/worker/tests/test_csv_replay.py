@@ -23,6 +23,16 @@ class CsvReplayTests(unittest.TestCase):
         self.assertEqual(rows[0].allowed, {"message_id": "m-1"})
         self.assertIsNone(rows[0].identity)
 
+    def test_large_body_field_is_read_but_not_retained(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "body.csv"
+            path.write_text(
+                "MESSAGE_ID,MESSAGE_BODY\n"
+                f"m-1,{'x' * (256 * 1024)}\n", encoding="utf-8"
+            )
+            rows = list(iter_csv_rows(CsvInput("BODY", path)))
+        self.assertEqual(rows[0].allowed, {"message_id": "m-1"})
+
     def test_process_requires_transaction_process_and_retry(self):
         self.assertEqual(
             execution_identity("P", {"transaction_id": "t", "process_id": "p", "retry_count": "0"}),

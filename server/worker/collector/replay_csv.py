@@ -22,6 +22,10 @@ from dotenv import load_dotenv
 from collector.storage import IngestResult, Layer, ingest_observation, project_observation
 
 PROFILE = "csv-replay-v1"
+# BODY 값은 저장하지 않지만 CSV 판독 중에는 필드 전체를 읽어야 한다.
+# 큰 메시지 필드가 Python 기본 한도(보통 128 KiB)에 걸리지 않도록 한다.
+CSV_FIELD_LIMIT_BYTES = 32 * 1024 * 1024
+csv.field_size_limit(max(csv.field_size_limit(), CSV_FIELD_LIMIT_BYTES))
 InputKind = Literal["T", "P", "BODY"]
 INPUT_ORDER: tuple[InputKind, ...] = ("T", "P", "BODY")
 FIELD_ALIASES = {
@@ -118,13 +122,18 @@ def iter_csv_rows(source: CsvInput) -> Iterator[ReplayRow]:
     with source.path.open("r", encoding="utf-8-sig", newline="") as stream:
         reader = csv.DictReader(stream, strict=True)
         mapping = _header_mapping(source.kind, reader.fieldnames)
-        for row_number, raw in enumerate(reader, start=1):
-            if None in raw or any(value is None for value in raw.values()):
-                raise ReplayError(f"{source.kind} CSV {row_number}번째 행의 열 개수가 헤더와 다르다")
-            selected = {canonical: raw[header] for header, canonical in mapping.items()}
-            allowed, _ = project_observation(source.layer, selected)
-            yield ReplayRow(source.kind, source.layer, row_number, allowed,
-                            execution_identity(source.kind, allowed))
+        try:
+            for row_number, raw in enumerate(reader, start=1):
+                if None in raw or any(value is None for value in raw.values()):
+                    raise ReplayError(f"{source.kind} CSV {row_number}번째 행의 열 개수가 헤더와 다르다")
+                selected = {canonical: raw[header] for header, canonical in mapping.items()}
+                allowed, _ = project_observation(source.layer, selected)
+                yield ReplayRow(source.kind, source.layer, row_number, allowed,
+                                execution_identity(source.kind, allowed))
+        except csv.Error as exc:
+            reason = ("필드 크기 제한 초과" if "field larger than field limit" in str(exc).lower()
+                      else "CSV 형식 오류")
+            raise ReplayError(f"{source.kind} CSV 물리적 {reader.line_num}번째 줄: {reason}") from None
 
 
 def _check_headers(inputs: list[CsvInput]) -> None:

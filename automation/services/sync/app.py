@@ -758,30 +758,19 @@ class Engine:
             if issue.get("state") != "closed":
                 self.g.edit_issue(number, {"state": "closed", "state_reason": "completed"})
                 issue = self.g.issue(number)
-            cancelled = issue.get("state_reason") == "not_planned"
-            properties.update({"상태": prop("select", "취소" if cancelled else "완료"),
-                "Pull Request": prop("url", merged["html_url"]),
-                "완료일": prop("date", None if cancelled else {"start": merged["merged_at"]})})
+            properties["Pull Request"] = prop("url", merged["html_url"])
             saved["completed"] = True
         elif issue.get("state") == "closed":
-            # Closure starts branch cleanup; only a verified PR merge means done.
-            cancelled = issue.get("state_reason") == "not_planned" or status == "취소"
-            properties.update({"상태": prop("select", "취소" if cancelled else "개발 중"),
-                "완료일": prop("date", None)})
+            # Issue closure still starts cleanup. Notion owns task status and completion date.
             if correct:
                 properties["Pull Request"] = prop("url", correct[0]["html_url"])
         elif opened:
-            properties.update({"상태": prop("select", "개발 중" if opened.get("draft") else "리뷰 중"),
-                "Pull Request": prop("url", opened["html_url"]), "완료일": prop("date", None)})
+            properties["Pull Request"] = prop("url", opened["html_url"])
         elif correct:
-            # Closed without merge is explicitly not done. Preserve cancellation.
-            properties.update({"상태": prop("select", "취소" if status == "취소" else "개발 중"),
-                "Pull Request": prop("url", correct[0]["html_url"]), "완료일": prop("date", None)})
+            properties["Pull Request"] = prop("url", correct[0]["html_url"])
         else:
             if not saved.get("completed"):
                 self.g.ensure_branch(branch, meta["base"])
-            if status in ("백로그", "리뷰 중", "완료") and not saved.get("completed"):
-                properties["상태"] = prop("select", "개발 준비")
         # Don't clear a new request or overwrite metadata when page changed during network I/O.
         fresh = self.n.get(page_id)
         if fresh.get("last_edited_time") == page.get("last_edited_time"):

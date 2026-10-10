@@ -10,7 +10,7 @@ Queue acknowledgement and retry now reject expired leases even before another co
 
 For an isolated development database, install `requirements.txt`, apply `server/infra/migrations/001_postgres_queues.sql`, then set `DATABASE_URL` locally without printing it. Run `python benchmark_queue.py --queue detection --count 1000 --consumers 4` and repeat for `training`. This benchmark sends synthetic references directly, measures PostgreSQL queue transport only, and leaves completed rows for inspection. Do not run it against a database carrying operational messages. Compare Redis Streams and Kafka later using the same payload counts, consumer counts, hardware, producer rate, and latency/throughput measurements; include database write and model processing in a separate end-to-end benchmark.
 
-The benchmark reads `DATABASE_URL` from the process environment or a local `server/worker/.env` file. The process environment takes precedence. Do not commit the `.env` file. Python Collector, Trainer, and Detector runtime entry points are not implemented yet; their eventual connection settings should use this same convention.
+The benchmark and CSV replay read `DATABASE_URL` from the process environment or a local `server/worker/.env` file. The process environment takes precedence. Do not commit the `.env` file. The actual ESB API Collector, Trainer, and Detector runtime entry points are not implemented yet; their eventual connection settings should use this same convention.
 
 The benchmark scopes both expired-message cleanup and claims to its own `benchmarkRunId`; it cannot lease a message from another run or operational traffic. Still use an isolated database for representative measurements and to avoid load on production tables.
 

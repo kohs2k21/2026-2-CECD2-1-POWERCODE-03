@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "build": "tsc -b && vite build",
-    "test": "node --import tsx tests/realtime-stream.mjs && node --import tsx tests/realtime-hooks.mjs && node --import tsx tests/realtime-adapter.mjs && node --import tsx tests/settings-profile.mjs",
+    "test": "node --import tsx tests/realtime-stream.mjs && node --import tsx tests/realtime-hooks.mjs && node --import tsx tests/realtime-adapter.mjs && node --import tsx tests/settings-profile.mjs && node --import tsx tests/navigation-auth.mjs && node --import tsx tests/navigation-draft.mjs && node --import tsx tests/navigation-filters.mjs && node --import tsx tests/common-ui.mjs && node --import tsx tests/detection-data.mjs && node --import tsx tests/detection-formula.mjs && node --import tsx tests/detection-features.mjs && node --import tsx tests/detection-create.mjs && node --import tsx tests/detection-operation-pages.mjs && node --import tsx tests/detection-configuration.mjs && node --import tsx tests/detection-service-action.mjs && node --import tsx tests/detection-composition.mjs && node --import tsx tests/notifications.mjs && node --import tsx tests/operations-observation.mjs && node --import tsx tests/detection-evaluation-preparation.mjs && node --import tsx tests/anomaly-evidence.mjs && node --import tsx tests/anomaly-feedback.mjs && node --import tsx tests/anomaly-workflow.mjs && node --import tsx tests/detection-evaluation-comparison.mjs && node --import tsx tests/anomaly-filter.mjs && node --import tsx tests/detection-version-review.mjs",
     "preview": "vite preview --host 0.0.0.0"
   },
   "dependencies": {
@@ -16,6 +16,7 @@
     "@radix-ui/react-switch": "^1.2.6",
     "@radix-ui/react-tooltip": "^1.2.8",
     "@tabler/icons-react": "^3.44.0",
+    "@tanstack/react-query": "^5.104.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "motion": "^12.38.0",
@@ -24,9 +25,11 @@
     "react-grid-layout": "^2.2.3",
     "react-hot-toast": "^2.6.0",
     "react-resizable": "^3.2.0",
+    "react-router-dom": "^7.18.4",
     "recharts": "^3.8.1",
     "tailwind-merge": "^3.6.0",
-    "tw-animate-css": "^1.4.0"
+    "tw-animate-css": "^1.4.0",
+    "zustand": "^5.0.15"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.0",

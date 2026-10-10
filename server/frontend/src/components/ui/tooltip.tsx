@@ -8,14 +8,15 @@ export const TooltipTrigger = TooltipPrimitive.Trigger;
 
 type TooltipContentProps = ComponentProps<typeof TooltipPrimitive.Content>;
 
-export const TooltipContent = ({ className, sideOffset = 6, ...props }: TooltipContentProps) => {
+export const TooltipContent = ({
+  className,
+  sideOffset = 6,
+  ...props
+}: TooltipContentProps) => {
   return (
     <TooltipPrimitive.Portal>
       <TooltipPrimitive.Content
-        className={cn(
-          "z-50 rounded-md border border-neutral-200 bg-white px-2.5 py-1.5 text-xs text-neutral-900 shadow-md",
-          className,
-        )}
+        className={cn("ui-tooltip", className)}
         sideOffset={sideOffset}
         {...props}
       />

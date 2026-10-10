@@ -1,7 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { login } from "../../services/api/auth.api";
 import type { AuthSession } from "../../types/auth";
-import "./auth.css";
 
 type AuthPageProps = {
   onLoginSuccess: (session: AuthSession) => void;

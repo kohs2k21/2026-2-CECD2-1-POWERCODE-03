@@ -21,16 +21,5 @@ export const HomeWidgetContent = ({ widget, isEditing, onSelectView }: HomeWidge
     return <div style={chartWrapperStyle}>{chart}</div>;
   }
 
-  return (
-    <>
-      <strong>{widget.value}</strong>
-      <p>{widget.meta}</p>
-      <p className="widget-card__description">{widget.description}</p>
-      <ul className="widget-card__supporting-list">
-        {widget.supportingItems.map((item) => (
-          <li key={item}>{item}</li>
-        ))}
-      </ul>
-    </>
-  );
+  return <p className="operations-widget-metrics">관측값: — 확인 불가</p>;
 };

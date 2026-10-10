@@ -2,10 +2,7 @@ import type { AuthUser } from "../../../types/auth";
 import { ProfileField } from "../components/ProfileField";
 import { SettingsCard } from "../components/SettingsCard";
 import { SettingRow } from "../components/SettingRow";
-import {
-  feedbackSettings,
-  permissionSettings,
-} from "../settingsConfig";
+import { feedbackSettings, permissionSettings } from "../settingsConfig";
 
 const formatCreatedAt = (createdAt: string) => {
   const date = new Date(createdAt);
@@ -28,13 +25,16 @@ export const ProfileSettings = ({ currentUser }: { currentUser: AuthUser }) => (
         value={currentUser.userType === "admin" ? "관리자" : "일반 사용자"}
       />
       <ProfileField label="계정 ID" value={currentUser.id} />
-      <ProfileField label="계정 생성일" value={formatCreatedAt(currentUser.createdAt)} />
+      <ProfileField
+        label="계정 생성일"
+        value={formatCreatedAt(currentUser.createdAt)}
+      />
     </SettingsCard>
 
     <SettingsCard title="권한 표시">
       <SettingRow
         label="관리자 메뉴"
-        description="시스템 설정과 모델 관리 메뉴는 계정 역할에 따라 표시됩니다."
+        description="탐지 관리 메뉴는 계정 역할에 따라 표시됩니다."
         enabled={currentUser.userType === "admin"}
         disabled
         disabledReason="계정 역할에 따라 자동 적용됩니다."

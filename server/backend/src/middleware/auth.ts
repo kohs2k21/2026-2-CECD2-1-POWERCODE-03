@@ -31,13 +31,19 @@ export function authenticateToken(
   const [scheme, token, ...extraParts] = authHeader?.trim().split(/\s+/) ?? [];
 
   if (scheme?.toLowerCase() !== 'bearer' || !token || extraParts.length > 0) {
-    res.status(401).json({ message: 'Access token is missing or invalid' });
+    res.status(401).json({
+      code: 'authentication_required',
+      message: 'Access token is missing or invalid',
+    });
     return;
   }
 
   jwt.verify(token, JWT_SECRET, (err, decoded) => {
     if (err) {
-      res.status(403).json({ message: 'Token is invalid or expired' });
+      res.status(401).json({
+        code: err.name === 'TokenExpiredError' ? 'token_expired' : 'invalid_token',
+        message: 'Token is invalid or expired',
+      });
       return;
     }
 
@@ -48,7 +54,10 @@ export function authenticateToken(
       typeof decoded.email !== 'string' ||
       (decoded.userType !== 'user' && decoded.userType !== 'admin')
     ) {
-      res.status(403).json({ message: 'Token is invalid or expired' });
+      res.status(401).json({
+        code: 'invalid_token',
+        message: 'Token is invalid or expired',
+      });
       return;
     }
 
@@ -80,12 +89,12 @@ export function requireAdmin(
   next: NextFunction
 ): void {
   if (!req.user) {
-    res.status(401).json({ message: 'Authentication required' });
+    res.status(401).json({ code: 'authentication_required', message: 'Authentication required' });
     return;
   }
 
   if (req.user.userType !== 'admin') {
-    res.status(403).json({ message: 'Admin privileges required' });
+    res.status(403).json({ code: 'admin_required', message: 'Admin privileges required' });
     return;
   }
 

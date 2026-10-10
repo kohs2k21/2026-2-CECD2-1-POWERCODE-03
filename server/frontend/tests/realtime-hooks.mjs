@@ -55,10 +55,13 @@ function eventResponse(events) {
 }
 
 function closedResponse() {
-  return new Response(new ReadableStream({ start: (controller) => controller.close() }), {
-    status: 200,
-    headers: responseHeaders,
-  });
+  return new Response(
+    new ReadableStream({ start: (controller) => controller.close() }),
+    {
+      status: 200,
+      headers: responseHeaders,
+    },
+  );
 }
 
 function pendingResponse(signal, onController) {
@@ -127,11 +130,24 @@ globalThis.fetch = async (_url, options) => {
 };
 latestState = undefined;
 renderer = await mountProbe();
-await act(async () => flushUntil(() => latestState.status === "open", "idle stream open"));
-assert.equal(latestState.events.length, 0, "the idle stream should have no events yet");
+await act(async () =>
+  flushUntil(() => latestState.status === "open", "idle stream open"),
+);
+assert.equal(
+  latestState.events.length,
+  0,
+  "the idle stream should have no events yet",
+);
 await act(async () => renderer.unmount());
-assert.equal(idleStreamSignal.aborted, true, "unmount must abort the active stream request");
-assert.ok(idleStreamController, "the stream body should be pending before unmount");
+assert.equal(
+  idleStreamSignal.aborted,
+  true,
+  "unmount must abort the active stream request",
+);
+assert.ok(
+  idleStreamController,
+  "the stream body should be pending before unmount",
+);
 
 // A delivered event survives automatic retry exhaustion and a manual retry;
 // replaying its ID must not add a duplicate card.
@@ -153,32 +169,59 @@ globalThis.fetch = async () => {
 latestState = undefined;
 renderer = await mountProbe();
 await act(async () =>
-  flushUntil(() => latestState.status === "retrying" && requestCount === 1, "first retry"),
+  flushUntil(
+    () => latestState.status === "retrying" && requestCount === 1,
+    "first retry",
+  ),
 );
-assert.deepEqual(latestState.events.map(({ eventId }) => eventId), [originalEvent.eventId, secondEvent.eventId]);
+assert.deepEqual(
+  latestState.events.map(({ eventId }) => eventId),
+  [originalEvent.eventId, secondEvent.eventId],
+);
 
 async function runRetry(delay, expectedStatus, expectedRequests) {
-  const timerEntry = [...timers.entries()].find(([, timer]) => timer.delay === delay);
+  const timerEntry = [...timers.entries()].find(
+    ([, timer]) => timer.delay === delay,
+  );
   assert.ok(timerEntry, `a ${delay}ms reconnect should be scheduled`);
   timers.delete(timerEntry[0]);
   await act(async () => {
     timerEntry[1].callback();
-    await flushUntil(() => requestCount === expectedRequests, `${delay}ms request`);
+    await flushUntil(
+      () => requestCount === expectedRequests,
+      `${delay}ms request`,
+    );
   });
   await act(async () =>
-    flushUntil(() => latestState.status === expectedStatus, `${delay}ms status`),
+    flushUntil(
+      () => latestState.status === expectedStatus,
+      `${delay}ms status`,
+    ),
   );
 }
 
 await runRetry(500, "retrying", 2);
 await runRetry(1_000, "retrying", 3);
 await runRetry(2_000, "closed", 4);
-assert.equal(requestCount, 4, "automatic reconnects must stop after the configured budget");
-assert.deepEqual(latestState.events.map(({ eventId }) => eventId), [originalEvent.eventId, secondEvent.eventId]);
-assert.equal(timers.size, 0, "the retry budget should leave no scheduled reconnect");
+assert.equal(
+  requestCount,
+  4,
+  "automatic reconnects must stop after the configured budget",
+);
+assert.deepEqual(
+  latestState.events.map(({ eventId }) => eventId),
+  [originalEvent.eventId, secondEvent.eventId],
+);
+assert.equal(
+  timers.size,
+  0,
+  "the retry budget should leave no scheduled reconnect",
+);
 
 await act(async () => latestState.retry());
-await act(async () => flushUntil(() => requestCount === 5, "manual reconnect request"));
+await act(async () =>
+  flushUntil(() => requestCount === 5, "manual reconnect request"),
+);
 await act(async () =>
   flushUntil(
     () => latestState.status === "retrying",
@@ -202,10 +245,46 @@ globalThis.fetch = async (_url, options) => {
 };
 latestState = undefined;
 renderer = await mountProbe(delayedProbeElement());
-await act(async () => flushUntil(() => latestState.status === "open", "pending stream open"));
+await act(async () =>
+  flushUntil(() => latestState.status === "open", "pending stream open"),
+);
 await act(async () => renderer.unmount());
-assert.equal(unmountSignal.aborted, true, "unmount must abort an open fetch body");
-assert.equal(timers.size, 0, "an aborted stream must not schedule another reconnect");
+assert.equal(
+  unmountSignal.aborted,
+  true,
+  "unmount must abort an open fetch body",
+);
+assert.equal(
+  timers.size,
+  0,
+  "an aborted stream must not schedule another reconnect",
+);
+
+// Permission denial is terminal for this connection, but only 401 ends the session.
+for (const status of [403, 401]) {
+  tokenStore.set("token", "qa-status-token");
+  globalThis.fetch = async () => new Response(null, { status });
+  latestState = undefined;
+  renderer = await mountProbe();
+  await act(async () =>
+    flushUntil(
+      () => latestState.status === (status === 401 ? "idle" : "error"),
+      `${status} stream state`,
+    ),
+  );
+  assert.equal(
+    latestState.requiresLogout,
+    false,
+    "401 clears the token and returns the hook to signed-out idle state",
+  );
+  assert.equal(tokenStore.has("token"), status === 403);
+  assert.equal(
+    timers.size,
+    0,
+    "authentication/permission denial must not auto reconnect",
+  );
+  await act(async () => renderer.unmount());
+}
 
 console.log(
   "frontend realtime hook QA passed: missing-token fetch guard, idle open state, dedupe across manual retry, reconnect budget, retry cleanup, and abort on unmount",

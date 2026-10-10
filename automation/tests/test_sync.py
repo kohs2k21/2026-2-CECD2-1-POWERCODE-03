@@ -527,19 +527,19 @@ class SyncTests(unittest.TestCase):
             self.assertEqual(self.run_one()["result"], "synced")
         self.assertEqual(len(self.g.data), 1)
         self.assertEqual(len(self.g.branches), 1)
-        self.assertEqual(value(self.n.page, "상태"), "개발 준비")
+        self.assertEqual(value(self.n.page, "상태"), "백로그")
 
     def test_no_draft_before_file_changes(self):
         self.run_one()
         self.assertFalse(self.g.pulls)
 
-    def test_auto_draft_assigns_notion_owner_and_reflects_status(self):
+    def test_auto_draft_assigns_notion_owner_and_preserves_status(self):
         self.n.page["properties"]["담당자"] = {"type": "people", "people": [
             {"id": next(iter(CFG["assignees"]))}]}
         self.run_one()
         self.g.changed = True
         self.assertEqual(self.run_one()["result"], "synced")
-        self.assertEqual(value(self.n.page, "상태"), "개발 중")
+        self.assertEqual(value(self.n.page, "상태"), "백로그")
         self.assertTrue(self.g.pulls[0]["draft"])
         self.assertEqual(self.g.pulls[0]["base"]["ref"], "dev")
         self.assertIn("Refs #1", self.g.pulls[0]["body"])
@@ -556,7 +556,7 @@ class SyncTests(unittest.TestCase):
         self.assertEqual(self.g.pulls[0]["title"], "Human title")
         self.assertEqual(self.g.pulls[0]["body"], "Human body")
         self.assertFalse(self.g.pulls[0]["draft"])
-        self.assertEqual(value(self.n.page, "상태"), "리뷰 중")
+        self.assertEqual(value(self.n.page, "상태"), "백로그")
 
     def test_auto_draft_lost_response_recovers_one_pr(self):
         self.run_one()
@@ -718,20 +718,20 @@ class SyncTests(unittest.TestCase):
         self.n.page["properties"]["담당자"] = {"type": "people", "people": [{"id": "missing"}]}
         self.assertEqual(self.run_one()["code"], "ASSIGNEE_MAPPING_REQUIRED")
 
-    def test_draft_and_open_pr_status(self):
+    def test_draft_and_open_pr_preserve_notion_status(self):
         self.run_one()
         self.pr(draft=True)
         self.run_one()
-        self.assertEqual(value(self.n.page, "상태"), "개발 중")
+        self.assertEqual(value(self.n.page, "상태"), "백로그")
         self.pr()
         self.run_one()
-        self.assertEqual(value(self.n.page, "상태"), "리뷰 중")
+        self.assertEqual(value(self.n.page, "상태"), "백로그")
 
     def test_closed_unmerged_not_done_or_deleted(self):
         self.run_one()
         self.pr(state="closed")
         self.run_one()
-        self.assertEqual(value(self.n.page, "상태"), "개발 중")
+        self.assertEqual(value(self.n.page, "상태"), "백로그")
         self.assertEqual(self.g.data[1]["state"], "open")
         self.assertFalse(self.g.deleted)
 
@@ -753,7 +753,7 @@ class SyncTests(unittest.TestCase):
         self.pr(merged="2026-09-10T12:00:00Z", state="closed")
         self.run_one()
         self.run_one()
-        self.assertEqual(value(self.n.page, "상태"), "완료")
+        self.assertEqual(value(self.n.page, "상태"), "백로그")
         self.assertEqual(self.g.data[1]["state"], "closed")
         self.assertFalse(self.g.branches)
 

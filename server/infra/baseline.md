@@ -104,3 +104,26 @@ docker compose --env-file /absolute/baseline.env \
 - GPU 필요 시에만 `-f server/infra/compose.gpu.yaml` 추가
 - Worker profile 시험: 종료 코드 2 정상 확인; 운영 업무 실행 성공과 구분
 - `down -v`·전체 Docker prune·기존 운영 데이터 폴더 재사용 금지
+
+## 격리 검증
+
+- CI: 기존 5개 job 유지; infra job에서 앱 6종 이미지 빌드·다중 컨테이너 smoke 실행
+- 시험 경로: 임의 프로젝트 이름·임시 계정/파일·빈 PostgreSQL·명시 Compose 파일만 사용
+- DB 검사: `SELECT 1` 연결·앱 테이블 0개 확인; migration·init SQL 적용 없음
+- Worker 검사: 라이브러리 import·미구현 종료 코드 2·합성 CSV 검증·파일 권한 확인
+- 재기동 검사: API 계정·파일 산출물 보존, PostgreSQL 컨테이너 미변경
+- 정리: 시험에서 만든 프로젝트만 제거; 기존 컨테이너·이미지·볼륨 prune 없음
+- 제외: 실제 고객 수집·모델 추론/학습·LLM 응답·GPU·운영 DB·기존 서버 연결
+
+```bash
+python -m unittest discover -s server/infra/tests -p 'test_*.py' -v
+python -m unittest discover -s server/worker/tests -p 'test_*.py' -v
+python server/infra/tests/smoke.py --baseline \
+  --compose-file server/infra/compose.baseline.yaml \
+  --web-image powercode-web:baseline --api-image powercode-api:baseline
+```
+
+- Worker 시험: `server/worker/requirements.txt` 의존 설치 선행
+- smoke Worker 이미지 태그: 기본 `baseline`, CI는 `--worker-tag test`; 앞의 빌드 명령과 일치하는 태그 사용
+- Compose 계약 시험: Docker CLI 필요, daemon 불필요; CLI 부재 시 skip 표시
+- 이미지 빌드·smoke: 실행 가능한 Linux Docker daemon 필요

@@ -141,11 +141,30 @@ jobs:
       - name: Check deployment installer syntax
         run: bash -n server/infra/scripts/install-deploy.sh
 
+      - name: Install worker test dependencies
+        run: python -m pip install -r server/worker/requirements.txt
+
+      - name: Test worker libraries and unavailable runtime boundaries
+        run: python -m unittest discover -s server/worker/tests -p 'test_*.py' -v
+
       - name: Build web image
         run: docker build --platform linux/amd64 -f server/frontend/Dockerfile -t powercode-web:test server
 
       - name: Build API image
         run: docker build --platform linux/amd64 -f server/backend/Dockerfile -t powercode-api:test server
 
+      - name: Build worker baseline images
+        run: |
+          for service in collector detector trainer llm; do
+            docker build --platform linux/amd64 -f server/worker/Dockerfile \
+              --build-arg SERVICE="$service" -t "powercode-$service:test" server
+          done
+
       - name: Smoke test login, API and SSE
         run: python server/infra/tests/smoke.py --compose-file server/infra/compose.yaml --web-image powercode-web:test --api-image powercode-api:test
+
+      - name: Smoke test isolated multi-container baseline
+        run: >-
+          python server/infra/tests/smoke.py --baseline
+          --compose-file server/infra/compose.baseline.yaml
+          --web-image powercode-web:test --api-image powercode-api:test --worker-tag test

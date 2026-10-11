@@ -6,16 +6,6 @@
   text-transform: uppercase;
 }
 
-.ghost-button {
-  height: 36px;
-  padding: 0 var(--space-md);
-  border: 1px solid var(--primary);
-  border-radius: 9999px;
-  background: var(--canvas);
-  color: var(--ink);
-  cursor: pointer;
-}
-
 .placeholder-panel {
   min-height: 420px;
   padding: var(--space-xl);
@@ -50,8 +40,8 @@
 }
 
 .status-pill--info {
-  background: #d3e5ff;
-  color: #0761d1;
+  background: var(--color-info-soft);
+  color: var(--color-info-text);
 }
 
 /* ==========================================================================
@@ -59,28 +49,246 @@
    ========================================================================== */
 
 @keyframes modal-fade-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 @keyframes modal-fade-out {
-  from { opacity: 1; }
-  to { opacity: 0; }
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
 }
 
-.dialog-overlay {
-  animation: modal-fade-in 300ms cubic-bezier(0.16, 1, 0.3, 1);
+.ui-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-xs);
+  flex-shrink: 0;
+  height: 36px;
+  border: 1px solid transparent;
+  border-radius: 9999px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    color 0.15s ease,
+    background-color 0.15s ease,
+    border-color 0.15s ease;
 }
-
-.dialog-overlay[data-state="closed"] {
-  animation: modal-fade-out 250ms cubic-bezier(0.16, 1, 0.3, 1);
+.ui-button:disabled {
+  opacity: 0.5;
+  pointer-events: none;
 }
-
-.dialog-content {
-  animation: modal-fade-in 300ms cubic-bezier(0.16, 1, 0.3, 1);
+.ui-button svg {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  pointer-events: none;
 }
-
-.dialog-content[data-state="closed"] {
-  animation: modal-fade-out 250ms cubic-bezier(0.16, 1, 0.3, 1);
+.ui-button--primary {
+  background: var(--primary);
+  color: var(--on-primary);
+  border-color: var(--primary);
 }
-
+.ui-button--primary:hover {
+  background: var(--body);
+}
+.ui-button--outline {
+  background: var(--canvas);
+  border-color: var(--hairline);
+  color: var(--ink);
+}
+.ui-button--outline:hover,
+.ui-button--ghost:hover {
+  background: var(--canvas-soft-2);
+}
+.ui-button--ghost {
+  background: transparent;
+  color: var(--body);
+}
+.ui-button--default {
+  padding-inline: var(--space-md);
+}
+.ui-button--sm {
+  height: 32px;
+  padding-inline: 12px;
+  font-size: 12px;
+}
+.ui-button--icon {
+  width: 36px;
+  padding: 0;
+}
+.ui-button--icon-sm {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+}
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: var(--focus-width) solid var(--focus-color);
+  outline-offset: var(--focus-offset);
+}
+.ui-dialog-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-dialog-overlay);
+  background: var(--color-overlay);
+  animation: modal-fade-in 0.2s ease;
+}
+.ui-dialog-overlay[data-state="closed"] {
+  animation: modal-fade-out 0.15s ease;
+}
+.ui-dialog-content {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  z-index: var(--z-dialog);
+  transform: translate(-50%, -50%);
+  width: min(520px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-xl);
+  background: var(--canvas);
+  color: var(--ink);
+  padding: var(--space-lg);
+  box-shadow: var(--shadow-dialog);
+  animation: modal-fade-in 0.2s ease;
+}
+.ui-dialog-content[data-state="closed"] {
+  animation: modal-fade-out 0.15s ease;
+}
+.ui-dialog-header {
+  display: grid;
+  gap: 6px;
+  padding-right: 32px;
+}
+.ui-dialog-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+.ui-dialog-description {
+  margin: var(--space-xs) 0 0;
+  font-size: 14px;
+  color: var(--body);
+  line-height: 1.6;
+}
+.ui-dialog-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+}
+.ui-dialog-body {
+  margin-top: var(--space-md);
+}
+.ui-dialog-footer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-sm);
+  margin-top: var(--space-lg);
+  padding-top: var(--space-md);
+  border-top: 1px solid var(--hairline);
+}
+.ui-dialog-body > .ui-dialog-footer,
+.ui-dialog-content > .ui-dialog-footer {
+  margin-top: var(--space-lg);
+}
+.ui-modal--sm {
+  width: min(400px, calc(100vw - 32px));
+}
+.ui-modal--lg {
+  width: min(720px, calc(100vw - 32px));
+}
+.ui-modal--xl {
+  width: min(920px, calc(100vw - 32px));
+}
+.ui-modal--full {
+  width: calc(100vw - 32px);
+  max-width: 1280px;
+}
+.ui-feedback {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  padding: var(--space-md);
+  border-radius: var(--radius-md);
+  font-size: 14px;
+}
+.ui-feedback--loading {
+  justify-content: flex-start;
+  color: var(--body);
+}
+.ui-feedback--error {
+  color: var(--error);
+  border: 1px solid color-mix(in srgb, var(--error) 30%, var(--hairline));
+  background: var(--canvas);
+}
+.ui-feedback--empty {
+  color: var(--body);
+  justify-content: center;
+  text-align: center;
+  flex-direction: column;
+}
+.ui-nav-link {
+  text-decoration: none;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
+}
+.ui-nav-link:hover {
+  background: var(--canvas-soft-2);
+}
+.ui-tooltip {
+  z-index: var(--z-tooltip);
+  padding: 6px 10px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-sm);
+  background: var(--canvas);
+  color: var(--ink);
+  font-size: 12px;
+  box-shadow: var(--shadow-toast);
+}
+.ui-feedback-description {
+  margin-top: 6px;
+  font-size: 13px;
+}
+.ui-spinner {
+  animation: ui-spin 1s linear infinite;
+}
+@keyframes ui-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.ui-toast {
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-toast);
+  color: var(--ink);
+  background: var(--canvas);
+  font-size: 13px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ui-button,
+  .ui-nav-link,
+  .ui-dialog-overlay,
+  .ui-dialog-content,
+  .ui-spinner {
+    animation: none;
+    transition: none;
+  }
+}

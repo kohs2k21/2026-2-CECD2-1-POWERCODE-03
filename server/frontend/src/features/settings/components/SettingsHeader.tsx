@@ -1,7 +1,4 @@
-import {
-  IconArrowsMaximize,
-  IconArrowsMinimize,
-} from "@tabler/icons-react";
+import { IconArrowsMaximize, IconArrowsMinimize } from "@tabler/icons-react";
 import { Button } from "../../../components/ui/button";
 import type { SettingsSection } from "../types";
 
@@ -25,7 +22,7 @@ export const SettingsHeader = ({
         {config.label}
       </h2>
     </div>
-    <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+    <div className="settings-header__actions">
       <Button
         variant="outline"
         size="icon"

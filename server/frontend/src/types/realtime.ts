@@ -9,6 +9,7 @@ export type RealtimeAnomalyEvent = {
   channelName?: string;
   transactionId?: string;
   status?: string;
+  workflowStatus?: "Open" | "Resolved";
   responseCode: string;
   anomalyScore: number;
   processTimeMs: number;
@@ -34,9 +35,7 @@ const optionalStringFields = [
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null;
 
-const isOptionalStringFieldsValid = (
-  value: Record<string, unknown>,
-): boolean =>
+const isOptionalStringFieldsValid = (value: Record<string, unknown>): boolean =>
   optionalStringFields.every(
     (field) => value[field] === undefined || typeof value[field] === "string",
   );

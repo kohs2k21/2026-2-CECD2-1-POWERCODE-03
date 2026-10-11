@@ -1,10 +1,8 @@
-import {
-  IconGridDots,
-  IconPlus,
-  IconSearch,
-} from "@tabler/icons-react";
+import { IconGridDots, IconPlus, IconSearch } from "@tabler/icons-react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import { Modal } from "../../../components/ui/Modal";
+import { Button } from "../../../components/ui/button";
+import { EmptyState } from "../../../components/ui/feedback";
 import { StatusDot } from "../../../components/ui/StatusDot";
 import type { MockWidget } from "../../../types/mock";
 import { WidgetPreviewSurface } from "./WidgetPreviewSurface";
@@ -68,23 +66,38 @@ export const WidgetCatalogOverlay = ({
                 <div className="widget-preview__surface">
                   <div
                     className="widget-preview__drag-source"
-                    onPointerDown={(event) => onWidgetPointerDown(widget, event)}
-                    style={{ position: "relative", width: "100%", height: "100%" }}
+                    onPointerDown={(event) =>
+                      onWidgetPointerDown(widget, event)
+                    }
+                    style={{
+                      position: "relative",
+                      width: "100%",
+                      height: "100%",
+                    }}
                   >
-                    <WidgetPreviewSurface widget={widget} fallbackLabel={widget.meta ?? ""} />
+                    <WidgetPreviewSurface
+                      widget={widget}
+                      fallbackLabel={widget.meta ?? ""}
+                    />
                   </div>
                 </div>
               </div>
               <strong>{widget.title}</strong>
-              <p>{widget.description}</p>
-              <button type="button" onClick={() => onAddWidget(widget)}>
+              <p>{widget.title} 위젯 배치</p>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onAddWidget(widget)}
+              >
                 <IconPlus size={16} aria-hidden="true" />
                 추가
-              </button>
+              </Button>
             </article>
           ))}
           {widgets.length === 0 && (
-            <div className="widget-catalog__empty">추가 가능한 위젯이 없습니다.</div>
+            <EmptyState className="widget-catalog__empty">
+              추가 가능한 위젯이 없습니다.
+            </EmptyState>
           )}
         </div>
       </div>

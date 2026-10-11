@@ -2,7 +2,10 @@ import { AnimatePresence } from "motion/react";
 import { useMemo, useState } from "react";
 import type { SettingsSectionId } from "./types";
 import { AnimatedPanel } from "../../components/layout/AnimatedPanel";
-import { SidebarNav, type SidebarNavGroup } from "../../components/layout/SidebarNav";
+import {
+  SidebarNav,
+  type SidebarNavGroup,
+} from "../../components/layout/SidebarNav";
 import { getStored, setStored, storageKeys } from "../../lib/storage";
 import { SettingsHeader } from "./components/SettingsHeader";
 import {
@@ -10,8 +13,13 @@ import {
   settingsSections,
 } from "./settingsSections";
 import type { AuthUser } from "../../types/auth";
+import { useSearchParams } from "react-router-dom";
 
-export const SettingsPlaceholder = ({ currentUser }: { currentUser: AuthUser }) => {
+export const SettingsPlaceholder = ({
+  currentUser,
+}: {
+  currentUser: AuthUser;
+}) => {
   const [isWide, setIsWide] = useState<boolean>(() => {
     return getStored(storageKeys.layoutWide("settings"), false);
   });
@@ -21,8 +29,15 @@ export const SettingsPlaceholder = ({ currentUser }: { currentUser: AuthUser }) 
     setStored(storageKeys.layoutWide("settings"), val);
   };
 
-  const [activeSection, setActiveSection] =
-    useState<SettingsSectionId>("notifications");
+  const [params, setParams] = useSearchParams();
+  const activeSection =
+    settingsSections.find((section) => section.id === params.get("section"))
+      ?.id ?? "notifications";
+  const setActiveSection = (id: SettingsSectionId) => {
+    const next = new URLSearchParams(params);
+    next.set("section", id);
+    setParams(next);
+  };
   const activeConfig =
     settingsSections.find((section) => section.id === activeSection) ??
     settingsSections[0];
@@ -37,10 +52,15 @@ export const SettingsPlaceholder = ({ currentUser }: { currentUser: AuthUser }) 
           label: section.label,
           icon: section.icon,
           className: section.className,
+          href: (() => {
+            const next = new URLSearchParams(params);
+            next.set("section", section.id);
+            return "/settings?" + next.toString();
+          })(),
         })),
       },
     ],
-    [],
+    [params],
   );
 
   return (
@@ -52,7 +72,10 @@ export const SettingsPlaceholder = ({ currentUser }: { currentUser: AuthUser }) 
       />
       <main className="settings-main">
         <AnimatePresence mode="wait">
-          <AnimatedPanel key={activeSection} className={`settings-panel ${isWide ? "settings-panel--wide" : ""}`}>
+          <AnimatedPanel
+            key={activeSection}
+            className={`settings-panel ${isWide ? "settings-panel--wide" : ""}`}
+          >
             <SettingsHeader
               config={activeConfig}
               isWide={isWide}

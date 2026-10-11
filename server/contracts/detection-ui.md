@@ -1,0 +1,115 @@
+Created: 2026-10-08T14:00:47+09:00
+Updated: 2026-10-09T17:29:43+09:00
+Author: frontend_lead
+Status: current
+
+# 탐지 관리 상세 UI 계약
+
+- 현재: 관리자 4페이지의 조회·선택·입력·검증·확인 UI, 인증·권한은 auth.md 유지
+- 원본: T15/P15 metadata, F01~F24·A00~A14 후보 보존. 새 구성 기본선택 68개, ErrorTime A14 보류; 선택과 계산/모델 입력 준비 상태 분리
+- 개발 조회: `import.meta.env.DEV`에서만 명시 read fixtures, Query 비동기 어댑터. 프로덕션 조회는 service_unavailable; API 실패 뒤 fixture fallback 없음
+- 작업 기능: 개발/프로덕션 기본 capabilities=false. 저장·snapshot 생성·학습·평가·운영 적용·복원·추천 요청 성공 시뮬레이션 없음
+- 로컬 초안: Zustand pathname별 실제 editor 값, 내부 feature/rule/candidate ID별 map. URL에는 탭·필터·선택 ID만, 편집 내용은 제외. 새로고침/닫기 경고, 경로 이탈 유지/폐기, 세션 변경 reset
+- 미연결: 확인창에서 실제 기능 사용 불가 표시·실행 버튼 비활성. 로컬 편집 내용 유지, 서버 영속 저장/학습 완료/적용 완료로 표시 금지
+- 요청 접수와 완료: 서버 연결 이후 receipt.requestId/state=accepted만 접수, 작업 조회의 succeeded만 해당 작업 완료. 적용 성공은 activeVersionId 재조회 확인 필요
+- 조회 실패: 영역 오류+retry, 기존 데이터 있는 재조회 실패는 이전 내용과 오류 함께 표시. null 측정값은 —, fit 통계 없으면 정상 실측 미리보기 금지
+- 측정: 저장소 실제 volume·권한/quota 기준, used% OR absolute available 경고, unknown/stale/failed 구분. ESB 로그 발생부터 전체 지연, 원본 시각/시계동기화 없으면 미측정, 화면전달/XAI 별도
+
+## 코드·외부 API 제안
+
+- 코드 단일 read model: `frontend/src/features/detection/data/types.ts`의 DetectionData, 정적 후보 metadata: catalog.ts
+- Query key: `[detection-workbench, userId]`; signal 취소·계정 변경 cache/draft 정리
+- 외부 조회 제안(현재 미구현): `GET /api/detection/workbench` → DetectionData (capabilities 포함)
+- 외부 작업 제안(현재 미구현): 초안 저장/snapshot/학습/평가/적용/복원/룰 추천 각각 관리자 POST API → ActionReceipt
+- 요청 공통: snapshot/version/feature 정의·fit/평가 조건 명시; 적용/복원 expectedActiveVersionId로 경쟁 검사, 승인 요청과 active 상태 별개
+- 실제 미연결: detection 조회 API·영속 초안·snapshot 생성·피처 서버 preview/fit·학습/평가 worker·추천 sLLM·적용/복원·수집/용량 관측. 기존 Express auth 및 이상 SSE만 별도 실제 연결
+
+## 생성물·평가 식별 계약
+
+- 룰 생성: 선택한 룰 정의만 검증·요청. 학습 데이터셋·기간·모델 설정과 독립; 활성 선택 없이 초안 생성/검토
+- createRule/createCandidate: 요청 receipt는 accepted 접수이며 생성 완료 아님. 미연결 기본 capability=false, 로컬 편집/구성 미리보기는 서버 생성 성공으로 표시 금지
+- 모델 산출물: ModelArtifact의 불변 id/version 및 피처·전처리·fit·학습 snapshot 묶음. 알고리즘 목록이나 실행 대기 작업을 완료 산출물로 선택 금지
+- 룰 버전: RuleVersion의 불변 id/version·정의 묶음; 동일 논리 rule.id의 여러 버전 중복 조합 금지
+- 구성 fingerprint: artifact와 룰 버전 정의·설명 기준의 정확 JSON 내용 식별값, 보안 서명 아님. VersionBundle 및 EvaluationResult 바인딩 필드 사용
+- 동일 ID의 수식/임계값/fit/전처리 내용이 변경된 응답도 과거 평가를 새 구성 근거로 재사용 금지. API의 불변 revision 보장 및 서버 최종 재검증 필요
+- 생성/저장 receipt만으로 다른 데이터·피처·학습 초안의 dirty 상태 해제 금지
+- 모델·피처 초안 저장 payload: rules/ruleThresholdInputs/recommendationDecisions 제외. 룰 생성 payload는 선택한 유효 룰 정의만 사용
+- 운영 조합: 완료 모델 산출물과 완료 룰 버전 선택 → 로컬 구성 미리보기 → 실제 새 후보 생성 요청 → 완료 후보 선택·평가. 로컬 미리보기를 생성 완료 후보나 운영 버전으로 추가 금지
+- 설명 기준: 조회한 버전 상속·읽기 표시, 임의 ID 입력 없음. 미확인이어도 로컬 구성 검토 허용; 실제 생성/적용에 필요한 근거 확인은 별도
+- 다음 평가 조건: 입력 중 조건, 평가 요청 payload만 변경. 기록된 평가 결과·조건·완료 시각은 보존; 구성 또는 입력 조건 불일치 시 현재 조건의 결과 없음/재평가 필요 표시
+- 평가 근거: 결과 fingerprint와 후보의 현재 내용·고정 fingerprint 모두 exact 일치해야 적용 근거. ID 동일한 정의 변경도 비교 불가·승인/확인 초기화·적용 차단
+- 확인 요청: 열 때 payload snapshot 캡처. 입력·capability/검증·계정 변경 시 이전 요청 수신 취소와 확인 상태 초기화; Dialog 닫기는 서버 작업 취소 성공을 뜻하지 않음
+
+## 화면·편집 계약
+
+| 화면 | 목록·상세·입력 | URL 선택·필터 |
+|---|---|---|
+| 생성: 데이터셋 | 고정 데이터셋·학습 기간 선택·추출 기준·스키마 버전 | tab |
+| 생성: 피처 | TRANSACTION/PROCESS 원본·파생 목록, 정의 상세·검색·수식 입력·미리보기 | tab, kind, featureQ, feature |
+| 생성: 모델 학습 | 모델별 피처/설정, 학습 요청 확인, 작업 상태·실패 사유 상세 | tab, jobState, jobQ, job |
+| 생성: 룰 생성·편집 | 룰 단독 생성/입력 확인·기본값 복원, 추천 초안 가져오기·완료 룰 버전 | tab, ruleQ, rule, recommendation |
+| 평가 | 평가 세트 준비·후보 평가/비교·모델/룰 조합 검토, 기록 조건/결과 상세 | tab, candidate, q, state, result, selection |
+| 운영 버전 | 현행/선택 후보 구성 차이·준비 조건, 관리자 승인·적용/복원 확인, 이력 상세 | candidate, rollback, history |
+| 수집 | T/P/M/B 상태, 기간·원본·속성 조회, 저장소·지연 관측, 수집 이력 상세 | from, to, source, field, q, history |
+
+- 피처 목록: 원본/파생 유형 열; 필터·검색은 사용자 파생변수 포함, 선택과 계산 준비 상태 분리
+- 카탈로그 파생변수: 고정 원본 상세 읽기 전용·삭제 없음. 정확한 수식을 지원하는 항목은 사용자 파생변수로 복제 후 편집; 복합/미확인/fit 수식 임의 변환 없음. 기존 ID의 과거 편집 초안은 자동 삭제 없음
+- 사용자 파생변수: 상세 수정·입력 검증·삭제 확인/취소. 삭제 시 목록·전체 선택·현재/모델별 featureIds에서 제외, 의존 입력/룰 속성은 재선택 상태로 유지. 삭제 ID 재사용 금지·검증 실패/취소 시 초안 보존; 서버 저장 성공과 구분
+- 검증 미리보기: 사용자가 입력한 값의 계산 결과; 원본 실측·fit 결과 아님. 양측 의존성의 fit/미확인 상태 검사, 시간 offset·음수·분모 0·NULL 검증
+- 학습: 기본 전체 선택과 유효성 별개. 기존 ID의 편집 정의도 이름·허용 연산·입력 타입·fit 조건 검사; 잘못된 입력은 요청 차단
+- 추천 룰: 생성 초안으로 가져오기·추천 검토 제외. 가져온 정의의 수동 편집 보존, 실험 화면에서 활성 선택 없음. 생성 요청에는 legacy enabled 값 제외; 운영 버전에는 영향 없음
+- 조회 갱신: 실패 시 이전 내용·오류 함께 표시, 초안 유지. 서버 정상 판정·서비스 성공으로 대체 금지
+- 확인창: 변경 대상/현재 버전/평가 근거 표시, ID가 같아도 구성·연결 평가·Rule·모델·snapshot 내용 변경 시 승인/확인창 초기화. 미연결 capability=false는 실행 버튼 비활성
+- 시험 어댑터: pending/empty/failed/retry/stale 경로·잘못된 입력·초안 이탈·미연결 요청 0회 검증. 제품 화면에 시험 제어 입력 없음
+
+
+## 파생변수 수식 계약
+
+- 입력: 검색한 속성·함수 삽입 또는 직접 수식 입력; 키보드 자동완성·기존 괄호/입력 보존
+- 참조: `[process.END_TIME]`, `[transaction.STATUS]`, `[F05]`, `[custom-1]`; ID 대소문자 정규화, 표시명과 식별자 분리
+- 문법: 숫자·문자열·boolean·NULL 상수, 사칙연산·비교·괄호·허용 함수; 임의 JavaScript/Python 실행 금지
+- 함수: if / log1p / is_missing / duration_ms / duration_s / hour / month / weekday / weekend / train_median / frequency_encode / robust_z
+- 타입·단위: 수식으로 자동 추론; 시각 차이는 duration_ms/s 함수, boolean 결과의 모델 지원 별도 검사
+- 검증: 알 수 없는 속성·삭제 참조·타입/단위 불일치·순환·32단계 중첩·2048자/512토큰 제한; 오류 시 초안 보존·요청 차단
+- 시각: offset/Z 포함 ISO 입력; 시간·월·요일 추출의 UTC/Asia/Seoul 선택, 유효 달력·음수 처리시간 검사
+- 미리보기: 사용자 입력만 사용, 분모 0/비유한 수치/음수 log1p 계산 보류, NULL 유지/필수 입력 결측 보류
+- 학습 통계 함수 및 전이 의존성: fitRequired 표시·fit 미제공 시 계산/학습 보류; 검증 입력을 학습 통계로 간주 금지
+- payload: 기존 featureEdits 보존 + expression + compiled(version=formula-v1, AST, outputType, unit, inputIds, fitRequired); 실제 서버 연결 전 제안 계약
+- 서버 구현 시 수식 원문 재검증·AST 재컴파일 필수; 브라우저 전달 AST/유효성만 신뢰 금지
+- 삭제: 수식 안의 삭제 참조는 그대로 보존하여 오류 표시·재선택 요구; 다른 수식의 자동 재작성 금지
+
+## 평가 세트 준비·고정 조건
+
+- 준비 초안: 고정 원본 snapshot 선택, 서버 분할 manifest·train/validation/test 요약, 지표/산식·라벨 근거·시나리오 레시피·CSV 구조 확인. 초안 자체는 불변 세트가 아니며 평가 요청 근거로 사용 금지
+- 분할: snapshotId+manifest id/revision, 거래/실행 중복 검사·train-only fit·fitLineage. 미제공 값은 미확인, 임의 구간·횟수 생성 금지
+- 평가기준: spec id/revision 및 지표 산식·라벨 출처. 팀원 합의 근거 없는 합격선은 미확정; validation 후보 비교와 test 최종 확인 구분, testRunCount 미제공은 미확인
+- 고정 평가 세트: EvaluationSet id/revision, immutable=true/state=ready 및 snapshot/분할/기준 revision 검증. 선택 시 모든 조건 읽기 전용·원본 세트에서 요청 조건 재구성; 자유 문자열 조건이나 로컬 레시피로 실행 금지
+- 새 세트 생성: createEvaluationSet 제안 operation, preparationCapabilities.createEvaluationSet 기본 false. 요청 접수·고정 세트 생성 완료 구분; 조회 API와 생성 엔진은 미연결
+- CSV 브라우저 검사 제안: 최대 5 MiB/10000행, scenario(delay/stall/burst/normal)·label(anomaly/normal/unknown) 헤더. 따옴표/열 개수/값 검증, 서버 합의 포맷·서버 검증·주입 성공 아님
+- CSV 보존: 헤더/행 수/라벨·시나리오 집계/최대 5개 라벨 metadata만 현재 세션 초안. BODY·인증 관련 헤더 제외, 원문/임의 원본 열 값은 draft·URL·저장·기록·서버 payload에 포함 금지. 늦은 파일 읽기 응답은 계정 변경·재선택·이탈 시 무효화
+- 평가 초안: preparation/conditionsByCandidate/composition 및 후속 comparison은 형제 필드. 편집 직전 현재 store 기준 병합, 내부 탭 숨김/재조회로 다른 초안 소실 금지
+- 과거 결과: evaluationSet metadata가 없는 기존 기록의 열람 보존. 고정 세트가 확인되지 않은 과거 조건을 새 평가 실행 근거로 재사용 금지
+- CSV metadata는 입력 검토 정보이며 서버 시험 원본/asset reference가 아님. 원문 등록 기능 없는 현재 생성 요청에는 시나리오 필수; metadata만 있는 초안은 고정 세트 생성 차단. 요청 payload에서도 csv는 metadata 역할만 유지
+
+## 동일 조건 후보 비교·작업 연결
+
+- 비교: 현행 운영 버전 필수 + 여러 고정 후보/과거 버전 선택. 선택은 compare URL 및 현재 세션 comparison 초안; preparation/conditionsByCandidate/composition 형제 필드 보존
+- 결과 검색: bundle.evaluationId 단일 연결에 한정하지 않고 전체 evaluations 검색. 대상 ID·현재 구성 fingerprint·평가 세트 id/revision·목적 및 원본 고정 조건 exact 일치 성공 결과 중 최신 기록만 비교표에 표시; 최근 실패/진행 작업으로 이전 성공 근거를 덮지 않음
+- 서로 다른 세트 revision/목적/구성의 기록, 조건 metadata 없는 과거 기록은 동일 조건 비교 근거 제외. 과거 이력과 상세 열람은 보존
+- 비교 요청 제안: evaluate payload targets=[candidateId,configurationFingerprint] + evaluationSetId/revision + 원본 세트 condition. 각 대상의 고정 구성 재검증·동일 세트 실행은 서버 책임, 기본 capability=false
+- 지표: 성공 결과의 유효 실측만 표시, 진행/실패/미제공 지표는 —. optional scenarioOutcomes의 주입/탐지/미탐/판정 불가/제외·라벨 근거/사유만 표시; 제공되지 않은 판정 내역·오탐/합격선 생성 금지
+- 결과 딥링크: tab=candidates&result=ID 단독 또는 candidate=ID와 함께 진입. result.candidateId로 현행/보관 버전 포함 대상 조회; 없는 결과/대상은 미존재 표시
+- receipt 확장 제안: optional job={id,type:training|evaluation,candidateId?,resultId?}. requestId는 작업 ID 아님. 학습은 실제 job.id/type으로 작업 상세 연결. 평가 queue job.id는 결과 ID와 별개: 실제 resultId 제공 시만 결과 상세 연결, 미제공은 /notifications?filter=tasks. evaluations 레코드 알림은 실제 record.id를 resultId로 전달
+- 생성/학습/평가 접수 후 작업 조회로 상태 추적. receipt만으로 완료/초안 저장/운영 변경 성공 처리 금지; 이전 계정·닫힌 확인창·변경된 요청의 늦은 receipt 폐기 유지
+
+## 운영 적용 검토·성능기준
+
+- 상단 검토 요약: 구성 변경 항목 수, 평가 처리 상태, 성능기준 확정/충족, 현재 산출물 가용성/입력 호환성, 관리자 로컬 검토 확인 분리
+- 평가 succeeded는 성능 합격 아님. 실제 spec revision의 acceptanceCriteria(지표/연산/합의 값/출처)가 유효하고 해당 실측값이 확인될 때만 기준 판단; 기준/라벨/측정값 누락은 미확정·판단 불가
+- 적용/복원 최종 요청 정책: 기존 기술 준비·현재 구성 exact 평가 근거 + 고정 test 최종 확인 + 확정 성능기준 충족 필수. validation은 후보 비교이며 test 최종 확인 대체 금지; 임의 합격선·unknown 정상화 없음
+- 기준 판단은 지정한 spec 지표와 합격선만 사용. 미지정 지표를 임의 필수화하거나 제공되지 않은 수치를 보완하지 않음; 최종 적용의 서버 재검증 필수
+- 승인 재사용 방지: active/대상/구성·평가 근거뿐 아니라 evaluationSets/Specs/Splits 실제 내용 변경도 승인·열린 확인창 초기화. expectedActiveVersionId·현재 계정·탭 이탈 가드 유지
+- 구성 검토: 변경 항목만 보기, 긴 피처/룰 상세 접기. 표시 조작은 구성/초안/실제 운영 상태를 수정하지 않음
+- 과거 구성 URL: /detection/versions?tab=configuration&version=실제ID. 해당 VersionBundle만 조회, 미존재/빈 ID는 미존재 상태; 현행 버전으로 조용히 대체 금지
+- 적용/복원 요청 제안: expectedActiveVersionId와 expectedReview={evaluationId,configurationFingerprint,evaluationSetId/revision,specId/revision,splitManifestId/revision,reviewFingerprint}. 조회한 평가/세트/기준/분할 원본으로 생성; 충분한 근거 없으면 null 및 finalrequest 차단
+- reviewFingerprint는 검토 내용의 JSON 식별값이며 보안 서명 아님. revision 동일한 응답 내용 변경도 새 검토/다른 payload 필요. 서버는 승인된 근거와 실제 최신 상태를 원자적으로 대조하고 불일치 시 409 conflict→재조회/재검토 처리 제안; 실제 적용 API 미구현

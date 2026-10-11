@@ -31,7 +31,9 @@ const parseMeResponse = (response: MeResponse): AuthUser => {
   return response.user;
 };
 
-export async function login(credentials: LoginCredentials): Promise<AuthSession> {
+export async function login(
+  credentials: LoginCredentials,
+): Promise<AuthSession> {
   const response = await httpClient.post<LoginResponse>(
     "/api/auth/login",
     credentials,
@@ -41,7 +43,9 @@ export async function login(credentials: LoginCredentials): Promise<AuthSession>
   return parseLoginResponse(response);
 }
 
-export async function fetchCurrentUser(): Promise<AuthUser> {
-  const response = await httpClient.get<MeResponse>("/api/auth/me");
+export async function fetchCurrentUser(
+  signal?: AbortSignal,
+): Promise<AuthUser> {
+  const response = await httpClient.get<MeResponse>("/api/auth/me", { signal });
   return parseMeResponse(response);
 }

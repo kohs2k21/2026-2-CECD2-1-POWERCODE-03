@@ -1,5 +1,8 @@
-import { getStoredToken } from "../auth/session";
-import { isRealtimeAnomalyEvent, type RealtimeAnomalyEvent } from "../../types/realtime";
+import { getStoredToken, expireSession } from "../auth/session";
+import {
+  isRealtimeAnomalyEvent,
+  type RealtimeAnomalyEvent,
+} from "../../types/realtime";
 import { buildApiUrl } from "./client";
 
 export type AnomalyStreamOptions = {
@@ -41,7 +44,8 @@ const createFrameDispatcher = ({
 
       const separator = line.indexOf(":");
       const field = separator === -1 ? line : line.slice(0, separator);
-      const value = separator === -1 ? "" : line.slice(separator + 1).replace(/^ /, "");
+      const value =
+        separator === -1 ? "" : line.slice(separator + 1).replace(/^ /, "");
 
       if (field === "event") {
         eventName = value;
@@ -55,7 +59,10 @@ const createFrameDispatcher = ({
     }
 
     if (eventName !== "anomaly") {
-      reportInvalidEvent(onInvalidEvent, "지원하지 않는 SSE 이벤트 형식입니다.");
+      reportInvalidEvent(
+        onInvalidEvent,
+        "지원하지 않는 SSE 이벤트 형식입니다.",
+      );
       return;
     }
 
@@ -63,12 +70,18 @@ const createFrameDispatcher = ({
     try {
       payload = JSON.parse(dataLines.join("\n")) as unknown;
     } catch {
-      reportInvalidEvent(onInvalidEvent, "SSE anomaly 이벤트의 JSON 형식이 올바르지 않습니다.");
+      reportInvalidEvent(
+        onInvalidEvent,
+        "SSE anomaly 이벤트의 JSON 형식이 올바르지 않습니다.",
+      );
       return;
     }
 
     if (!isRealtimeAnomalyEvent(payload)) {
-      reportInvalidEvent(onInvalidEvent, "SSE anomaly 이벤트가 계약 검증을 통과하지 못했습니다.");
+      reportInvalidEvent(
+        onInvalidEvent,
+        "SSE anomaly 이벤트가 계약 검증을 통과하지 못했습니다.",
+      );
       return;
     }
 
@@ -87,7 +100,10 @@ export const consumeAnomalyStream = async ({
 }: AnomalyStreamOptions): Promise<void> => {
   const token = getStoredToken();
   if (!token) {
-    throw new AnomalyStreamError("로그인 토큰이 없어 실시간 스트림을 열 수 없습니다.", 401);
+    throw new AnomalyStreamError(
+      "로그인 토큰이 없어 실시간 스트림을 열 수 없습니다.",
+      401,
+    );
   }
 
   let response: Response;
@@ -105,10 +121,13 @@ export const consumeAnomalyStream = async ({
       throw error;
     }
 
-    throw new AnomalyStreamError("실시간 anomaly 스트림에 연결하지 못했습니다.");
+    throw new AnomalyStreamError(
+      "실시간 anomaly 스트림에 연결하지 못했습니다.",
+    );
   }
 
   if (response.status !== 200) {
+    if (response.status === 401 && token === getStoredToken()) expireSession();
     throw new AnomalyStreamError(
       `실시간 anomaly 스트림 요청이 거부되었습니다 (${response.status}).`,
       response.status,
@@ -117,11 +136,15 @@ export const consumeAnomalyStream = async ({
 
   const contentType = response.headers.get("content-type") ?? "";
   if (!contentType.toLowerCase().includes("text/event-stream")) {
-    throw new AnomalyStreamError("실시간 anomaly 스트림 응답 형식이 올바르지 않습니다.");
+    throw new AnomalyStreamError(
+      "실시간 anomaly 스트림 응답 형식이 올바르지 않습니다.",
+    );
   }
 
   if (!response.body) {
-    throw new AnomalyStreamError("실시간 anomaly 스트림 본문을 읽을 수 없습니다.");
+    throw new AnomalyStreamError(
+      "실시간 anomaly 스트림 본문을 읽을 수 없습니다.",
+    );
   }
 
   onOpen?.();

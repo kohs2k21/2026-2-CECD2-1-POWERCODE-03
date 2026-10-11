@@ -7,6 +7,8 @@ type AppShellProps = PropsWithChildren<{
 export const AppShell = ({ topNav, children }: AppShellProps) => (
   <main className="app-shell">
     {topNav}
-    <section className="workspace">{children}</section>
+    <section className="workspace" id="workspace-content" tabIndex={-1}>
+      {children}
+    </section>
   </main>
 );

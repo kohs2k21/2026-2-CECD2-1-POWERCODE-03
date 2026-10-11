@@ -1,26 +1,28 @@
-import { motion } from "motion/react";
-import { IconSun, IconBell } from "@tabler/icons-react";
-import { Button } from "../../components/ui/button";
+import { IconSettings } from "@tabler/icons-react";
 import type { NavItem, UserRole, ViewId } from "../../types/app";
-import { appTheme, darkThemeSupported } from "../../lib/theme";
 import inzentLogo from "./inzent_logo.svg";
-
+import { Link } from "react-router-dom";
+import { Button } from "../../components/ui/button";
+import { viewPaths } from "../../app/routePaths";
+import { NotificationsBell } from "../notifications/NotificationsBell";
 type TopNavProps = {
-  activeView: ViewId;
+  activeView: ViewId | null;
   navItems: NavItem[];
   role: UserRole;
   onLogout: () => void;
-  onSelectView: (viewId: ViewId) => void;
+  settingsPath: string;
 };
-
 export const TopNav = ({
   activeView,
   navItems,
   role,
   onLogout,
-  onSelectView,
+  settingsPath,
 }: TopNavProps) => (
   <header className="top-nav">
+    <a className="skip-link" href="#workspace-content">
+      본문으로 이동
+    </a>
     <div className="brand">
       <img src={inzentLogo} alt="INZENT" className="brand-logo" />
       <div>
@@ -29,44 +31,48 @@ export const TopNav = ({
       </div>
     </div>
     <nav className="tab-list" aria-label="주요 화면">
-      {navItems.map(({ id, label, Icon }) => {
-        const isActive = activeView === id;
-        return (
-          <motion.button
-            key={id}
-            type="button"
-            className={isActive ? "tab-item tab-item--active" : "tab-item"}
-            onClick={() => onSelectView(id)}
-            initial={false}
-            animate={{ opacity: isActive ? 1 : 1 }}
-            transition={{ duration: 1.2, ease: "easeOut" }}
+      {navItems.map(({ id, label, Icon }) => (
+        <Button
+          asChild
+          variant="ghost"
+          key={id}
+          className={
+            activeView === id ? "tab-item tab-item--active" : "tab-item"
+          }
+        >
+          <Link
+            to={viewPaths[id]}
+            aria-current={activeView === id ? "page" : undefined}
           >
             <Icon size={16} aria-hidden="true" />
             {label}
-          </motion.button>
-        );
-      })}
+          </Link>
+        </Button>
+      ))}
     </nav>
     <div className="top-nav-actions">
-      <button type="button" className="ghost-button" onClick={onLogout}>
+      <Button variant="outline" onClick={onLogout}>
         로그아웃
-      </button>
+      </Button>
+      <NotificationsBell />
       <Button
+        asChild
         variant="ghost"
         size="icon"
-        className="top-nav-icon-btn"
-        disabled
-        aria-label={`현재 테마: ${appTheme === "light" ? "라이트" : appTheme}. ${darkThemeSupported ? "테마 설정" : "다크 테마는 지원되지 않습니다."}`}
-        title={`현재 테마: ${appTheme === "light" ? "라이트" : appTheme}`}
+        className={
+          activeView === "settings"
+            ? "settings-button is-active"
+            : "settings-button"
+        }
       >
-        <IconSun size={20} aria-hidden="true" />
+        <Link
+          to={settingsPath}
+          aria-label="설정"
+          aria-current={activeView === "settings" ? "page" : undefined}
+        >
+          <IconSettings size={20} aria-hidden="true" />
+        </Link>
       </Button>
-      <Button variant="ghost" size="icon" className="top-nav-icon-btn">
-        <IconBell size={20} aria-hidden="true" />
-      </Button>
-      <button type="button" className="top-nav-profile-btn">
-        AD
-      </button>
     </div>
   </header>
 );

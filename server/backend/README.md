@@ -6,6 +6,8 @@ This Node.js and Express service owns login, role checks, JSON user persistence,
 
 `JWT_SECRET` is required. The process exits during startup when it is missing; the secret is never logged. `PORT` defaults to `5001`, `JWT_EXPIRES_IN` defaults to `24h`, and `USER_DATA_PATH` defaults to `data/users.json` relative to the backend working directory. Set an absolute path when the data directory is mounted separately.
 
+For PostgreSQL operations, put `DATABASE_URL` in the backend process environment or a local `server/backend/.env` file. The existing Express auth and anomaly endpoints do not yet use PostgreSQL; `GET /health/database` checks connectivity and returns only `OK` or `UNAVAILABLE`. Keep the URL and password out of Git and logs. When Express runs on the host, use a host-reachable database address; the Docker name `anomaly-postgres` resolves only inside `anomaly-net`.
+
 Accounts are seeded only from local environment inputs. Provide both values in each pair to enable a seed; existing users with the same email are preserved on later starts.
 
 | Role | Environment pair |

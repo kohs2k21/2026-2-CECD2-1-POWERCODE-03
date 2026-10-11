@@ -1,0 +1,24 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "powercode-notion-webhook",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-08",
+  "workers_dev": true,
+  "vars": { "WEBHOOK_ENABLED": "false" },
+  "observability": {
+    "enabled": true, "head_sampling_rate": 1, "redact_query_string": true,
+    "logs": { "enabled": true, "invocation_logs": false }
+  },
+  "queues": {
+    "producers": [
+      { "binding": "REQUESTS", "queue": "powercode-notion-requests" },
+      { "binding": "DEAD_LETTER", "queue": "powercode-notion-dead-letter" }
+    ],
+    "consumers": [{
+      "queue": "powercode-notion-requests", "max_batch_size": 1,
+      "max_batch_timeout": 1, "max_retries": 4,
+      "retry_delay": 30, "max_concurrency": 1,
+      "dead_letter_queue": "powercode-notion-dead-letter"
+    }]
+  }
+}

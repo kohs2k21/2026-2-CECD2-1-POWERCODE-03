@@ -1,0 +1,97 @@
+.notifications-page {
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-lg);
+  background: var(--canvas);
+  padding: 28px;
+  min-width: 0;
+}
+.notifications-page h1 {
+  margin: 0;
+  font-size: var(--font-size-page-title);
+  line-height: var(--line-height-page-title);
+  letter-spacing: var(--letter-spacing-page-title);
+  font-weight: 600;
+}
+.notification-panels {
+  display: grid;
+  gap: var(--space-lg);
+}
+.notification-popup-list {
+  max-height: min(48dvh, 360px);
+  overflow-y: auto;
+}
+.notifications-page > .notification-panels {
+  margin-top: var(--space-lg);
+}
+.notification-section {
+  min-width: 0;
+}
+.notification-section + .notification-section {
+  border-top: 1px solid var(--hairline);
+  padding-top: var(--space-lg);
+}
+.notification-section > * + * {
+  margin-top: var(--space-sm);
+}
+.notification-section h2 {
+  margin: 0;
+  font-size: var(--font-size-section-title);
+  line-height: var(--line-height-section-title);
+  font-weight: 600;
+}
+.notification-section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+.notification-list {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  gap: var(--space-sm);
+}
+.notification-list a {
+  display: grid;
+  gap: var(--space-xs);
+  padding: var(--space-sm);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-md);
+  color: var(--body);
+  text-decoration: none;
+  font-size: 14px;
+  line-height: 21px;
+  overflow-wrap: anywhere;
+}
+.notification-list a:hover {
+  background: var(--canvas-soft);
+}
+.notification-row-title {
+  color: var(--ink);
+  font-weight: 600;
+}
+.notification-meta {
+  color: var(--mute);
+  font-size: 13px;
+  line-height: 20px;
+  overflow-wrap: anywhere;
+}
+.notification-error {
+  color: var(--error);
+  overflow-wrap: anywhere;
+}
+.notification-progress {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}
+.notification-progress progress {
+  width: min(100%, 180px);
+  accent-color: var(--ink);
+}
+@media (max-width: 600px) {
+  .notifications-page {
+    padding: var(--space-md);
+  }
+}

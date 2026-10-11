@@ -1,3 +1,5 @@
+import { expireSession, getStoredToken } from "../auth/session";
+
 const apiBaseUrl =
   (import.meta as ImportMeta & { env?: { VITE_API_BASE_URL?: string } }).env
     ?.VITE_API_BASE_URL ?? "";
@@ -9,15 +11,20 @@ type RequestOptions = RequestInit & {
 
 export class HttpError extends Error {
   readonly status: number;
+  readonly code?: string;
 
-  constructor(message: string, status: number) {
+  constructor(message: string, status: number, code?: string) {
     super(message);
     this.name = "HttpError";
     this.status = status;
+    this.code = code;
   }
 }
 
-export const buildApiUrl = (path: string, params?: RequestOptions["params"]) => {
+export const buildApiUrl = (
+  path: string,
+  params?: RequestOptions["params"],
+) => {
   const url = new URL(path, apiBaseUrl || window.location.origin);
 
   Object.entries(params ?? {}).forEach(([key, value]) => {
@@ -51,9 +58,17 @@ const getErrorMessage = async (
   path: string,
 ): Promise<HttpError> => {
   let message = method + " " + path + " failed: " + response.status;
+  let code: string | undefined;
 
   try {
     const payload: unknown = await response.json();
+    if (
+      payload &&
+      typeof payload === "object" &&
+      "code" in payload &&
+      typeof payload.code === "string"
+    )
+      code = payload.code;
     if (
       payload &&
       typeof payload === "object" &&
@@ -66,7 +81,7 @@ const getErrorMessage = async (
     // Keep the status-based message when the server did not return JSON.
   }
 
-  return new HttpError(message, response.status);
+  return new HttpError(message, response.status, code);
 };
 
 const request = async <T>(
@@ -75,14 +90,10 @@ const request = async <T>(
   options: RequestOptions = {},
   body?: unknown,
 ): Promise<T> => {
-  const {
-    params,
-    includeAuth = true,
-    headers,
-    ...requestInit
-  } = options;
+  const { params, includeAuth = true, headers, ...requestInit } = options;
 
   const requestHeaders = getRequestHeaders(headers, includeAuth);
+  const requestToken = includeAuth ? getStoredToken() : null;
   const fetchInit: RequestInit = {
     ...requestInit,
     method,
@@ -96,6 +107,12 @@ const request = async <T>(
 
   const response = await fetch(buildApiUrl(path, params), fetchInit);
   if (!response.ok) {
+    if (
+      response.status === 401 &&
+      requestToken &&
+      requestToken === getStoredToken()
+    )
+      expireSession();
     throw await getErrorMessage(response, method, path);
   }
 

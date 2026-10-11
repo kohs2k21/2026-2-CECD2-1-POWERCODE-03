@@ -5,7 +5,7 @@ import {
 } from "react-grid-layout";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { MouseEvent, PointerEvent as ReactPointerEvent } from "react";
-import toast from "react-hot-toast";
+import { notify } from "../../../lib/notify";
 import type { UserRole } from "../../../types/app";
 import type { MockWidget } from "../../../types/mock";
 import {
@@ -76,11 +76,15 @@ export const useHomeWidgetLayout = ({
   );
 
   const visibleWidgets = useMemo(
-    () => homeWidgets.filter((widget) => activeWidgetIds.includes(widget.widgetId)),
+    () =>
+      homeWidgets.filter((widget) => activeWidgetIds.includes(widget.widgetId)),
     [activeWidgetIds, homeWidgets],
   );
   const availableWidgets = useMemo(
-    () => homeWidgets.filter((widget) => !activeWidgetIds.includes(widget.widgetId)),
+    () =>
+      homeWidgets.filter(
+        (widget) => !activeWidgetIds.includes(widget.widgetId),
+      ),
     [activeWidgetIds, homeWidgets],
   );
   const initialLayout = useMemo(
@@ -110,7 +114,10 @@ export const useHomeWidgetLayout = ({
           : [...currentIds, widget.widgetId],
       );
       setIsCatalogOpen(false);
-      toast.success(`${widget.title} 위젯을 추가했습니다.`);
+      notify.success(
+        `${widget.title} 위젯을 추가했습니다.`,
+        `widget:${widget.widgetId}`,
+      );
     },
     [],
   );
@@ -202,7 +209,7 @@ export const useHomeWidgetLayout = ({
 
   const handleEditToggle = useCallback(() => {
     if (isEditing) {
-      toast.success("홈 위젯 배치를 반영했습니다.");
+      notify.success("홈 위젯 배치를 반영했습니다.", "widget:layout");
       setIsCatalogOpen(false);
     }
 
@@ -247,7 +254,10 @@ export const useHomeWidgetLayout = ({
       setLayout((currentLayout) =>
         currentLayout.filter((item) => item.i !== widget.widgetId),
       );
-      toast.success(`${widget.title} 위젯을 숨겼습니다.`);
+      notify.success(
+        `${widget.title} 위젯을 숨겼습니다.`,
+        `widget:${widget.widgetId}`,
+      );
     },
     [],
   );

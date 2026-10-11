@@ -21,12 +21,13 @@ python -m automation.services.sync.app
 - 정리 검증: Notion 표식이 있으면 저장소·유형·요약·기준 브랜치 검증, 표식이 없으면 네이밍 규칙 및 기존 PR 기준 확인. 여러 기준 PR·잘못된 기준은 검토 필요. 삭제 직전 Issue·PR 재조회, SHA lease로 동시 push 보호. 완료 캐시와 무관하게 다음 실행에서 재검사
 - 정리 보류: `OPEN_PR_PREVENTS_BRANCH_DELETE` / `BRANCH_HAS_UNMERGED_COMMITS_NOT_DELETED` / `BRANCH_CHANGED_AFTER_MERGE_NOT_DELETED` / `CLEANUP_BASE_REQUIRES_REVIEW`. 고정 오류 코드 출력·해당 브랜치 보존, 다른 작업 계속 처리. 삭제·이미 없음·재열기 결과는 전역 정리 로그에 기록
 - 종료 작업 재생성 금지: 닫힌 Issue에는 브랜치·Draft PR 생성 없음. 명시적 Issue 재열기는 원격 이벤트 이력으로 확인, 과거 병합에 의한 재종료 방지. 같은 브랜치의 새 열린 PR도 과거 병합보다 우선
-- Notion 완료 기준: 올바른 기준 PR 병합 확인. Issue만 닫힌 경우 완료·완료일로 처리하지 않음. `not_planned` 종료 또는 기존 취소는 취소 유지. 설명·일정·분류·계정 매핑 계약은 기존 규칙 유지
+- 작업 상태 소유권: 모든 작업의 Notion `상태`·`완료일`은 Notion에서 관리. 신규 연결·Draft/open/closed/merged PR·Issue 종료/재열기와 무관하게 실행기에서 쓰거나 지우지 않음. PR 병합에 따른 기존 GitHub Issue 종료·브랜치 정리는 유지하며, Notion 상태 변경으로 Issue를 열거나 닫는 기능 없음
+- 동기화 소유 필드: Issue 번호·GitHub Issue·Branch·Pull Request 링크, GitHub 동기화 결과·오류·마지막 동기화·처리한 생성/본문 요청 해제. `GitHub 동기화=완료`·실행 결과 `completed`는 작업 상태 변경 의미 아님. 설명·일정·분류·계정 매핑 계약은 기존 규칙 유지
 - 기존 `main` 연결: 종료·병합 이력 유지. 열린 Issue에 PR이 없거나 같은 브랜치의 `dev` PR이 있으면 브랜치·커밋 보존 후 기준 메타데이터만 `dev`로 이관·연결. 열린 기존 `main` PR은 `LEGACY_ACTIVE_MAIN_PR_REQUIRES_REVIEW`로 중단하고 담당자 검토 필요
 - 담당자: 확인된 Notion 사용자 ID와 GitHub 계정만 명시적 매핑, 미확인 사용자는 `ASSIGNEE_MAPPING_REQUIRED`. config와 실행기 승인 목록 동시 갱신 필요
 - Issue 제목: `<type>(<scope>): <emoji> 작업명`, Issue 번호 접미사 없음. scope는 첫 번째 Notion 영역 소문자, 복수 영역은 모두 라벨 유지. 알려진 선행 `[type]`·완성된 conventional 접두사 중복 제거·Notion 원문 유지
 - 제목 동기화: 마지막 자동 제목과 같은 경우 Notion 제목 변경·이전 봇 `[type]` 제목의 새 형식 이관, GitHub 직접 편집 제목은 보존; 명시적 본문 동기화 요청 시 Notion 제목 재적용. 제목 기억값 없는 연결은 현재 Notion 원문/자동 제목/동일 작업명의 이전 `[type]` 제목만 이관, 다른 제목은 보존. PR 제목은 같은 Issue 제목 뒤 `(#Issue)` 추가
 - 버튼: Notion 생성/본문 요청 체크박스 설정, 다음 실행기 처리 성공 후 해제. 클릭 즉시 Actions 호출 없음
 - 실행 시점: `2-59/5 * * * *`(UTC 매시2·7·12…57분, 5분 간격) 예약·CI 성공 후·수동 `workflow_dispatch`. 0분 회피, 예약 지연·누락 가능·5분 내 완료 보장 없음. `poll_seconds`는 Actions 예약 간격에 영향 없음
-- 활성화: 실행기·설정 수정은 기능 PR → `dev` 통합 → `main` 승격 병합 후 적용. 자격증명 사용 실행기는 항상 검토된 `main` checkout, PR/기능 브랜치 코드 실행 금지
-- 운영 적용: 이번 종료 작업 정리 보완은 기능 PR의 `dev` 통합 및 `dev` → `main` 승격 후 활성화. 기능 브랜치에서 운영 인증 동기화 실행 금지
+- 활성화: 자격증명 사용 실행기는 검토된 `main` checkout만 사용. 일반 기능은 작업 브랜치 → `dev` 통합 → 검토한 `main` 승격. `dev`에 미승인 변경이 있으면 `main` 기준 수정 전용 PR로 적용하고 `dev`에도 동일 수정 반영. PR/기능 브랜치 코드의 운영 인증 실행 금지
+- 운영 적용: 수정 코드의 `main` 병합 후 활성화; `dev` 대상 PR 병합만으로 운영 반영되지 않음. 미승인 변경을 포함한 `dev` 전체 승격 금지

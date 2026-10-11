@@ -1,0 +1,24 @@
+# Explicitly opt in to a disposable, empty database; never mounts SQL or host data.
+services:
+  postgres:
+    image: postgres:17.11-bookworm
+    profiles: [test-db]
+    restart: "no"
+    environment:
+      POSTGRES_DB: baseline_test
+      POSTGRES_USER: baseline_test
+      POSTGRES_PASSWORD_FILE: /run/secrets/test_db_password
+    secrets:
+      - test_db_password
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "baseline_test", "-d", "baseline_test"]
+      interval: 5s
+      timeout: 5s
+      start_period: 10s
+      retries: 12
+
+secrets:
+  test_db_password:
+    file: ${TEST_DB_PASSWORD_FILE:?TEST_DB_PASSWORD_FILE must reference a temporary test password file}

@@ -42,6 +42,9 @@ class BaselineConfigTests(unittest.TestCase):
         return json.loads(result.stdout)
 
     def test_app_has_six_services_without_db_lifecycle(self):
+        source = (self.infra / 'compose.baseline.yaml').read_text(encoding='utf-8')
+        self.assertGreater(source.count('type: bind'), 0)
+        self.assertEqual(source.count('create_host_path: false'), source.count('type: bind'))
         services = self.render()['services']
         self.assertEqual(set(services), {'web', 'api', 'collector', 'detector', 'trainer', 'llm'})
         for role in ('collector', 'detector', 'trainer', 'llm'):
@@ -51,7 +54,7 @@ class BaselineConfigTests(unittest.TestCase):
             self.assertNotIn('healthcheck', services[role])
             mount = services[role]['volumes'][0]
             self.assertEqual(mount.get('read_only', False), role != 'trainer')
-            self.assertFalse(mount['bind']['create_host_path'])
+            self.assertFalse(mount['bind'].get('create_host_path', False))
         self.assertEqual(services['web']['depends_on'],
                          {'api': {'condition': 'service_healthy', 'required': True}})
         self.assertNotIn('profiles', services['web'])

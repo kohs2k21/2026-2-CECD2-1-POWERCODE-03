@@ -1,0 +1,782 @@
+// ERD v0.3 target schema: migrations 001 + 002 + committed 003 + 004.
+// 28 public tables + 2 unchanged legacy physical queues. Not deployed.
+// Native CHECK predicates, partial/GIN indexes and triggers: canonical SQL; DBML is visualization.
+Project powercode_erd_v03 {
+  database_type: 'PostgreSQL'
+  Note: 'Additive target schema; old data preserved. Runtime worker/API switching and server migration are separate.'
+}
+
+Enum source_layer {
+  T
+  P
+  M
+  B
+}
+
+Enum audit_role {
+  user
+  admin
+}
+
+Enum job_kind {
+  preview
+  train
+  evaluate
+  recommend_rule
+  detect
+  recommend_feature
+  explain
+}
+
+Enum job_status {
+  queued
+  running
+  succeeded
+  failed
+  blocked
+}
+
+Enum attempt_status {
+  running
+  succeeded
+  failed
+  expired
+}
+
+Enum snapshot_status {
+  building
+  ready
+  failed
+}
+
+Enum split_role {
+  train
+  validation
+  test
+  context
+}
+
+Enum artifact_kind {
+  snapshot
+  model
+  fit
+  model_input
+}
+
+Enum application_kind {
+  apply
+  restore
+}
+
+Enum application_status {
+  queued
+  applying
+  succeeded
+  failed
+}
+
+Enum decision_status {
+  complete
+  partial
+  unavailable
+}
+
+Enum component_status {
+  succeeded
+  not_ready
+  failed
+  skipped
+}
+
+Enum measurement_status {
+  measured
+  unavailable
+}
+
+Enum queue_kind {
+  detection
+  training
+  llm_recommendation
+  llm_explanation
+}
+
+Enum producer_kind {
+  user
+  system
+}
+
+Enum body_collection_status {
+  not_collected
+  not_found
+  collected
+  failed
+}
+
+Enum body_link_status {
+  not_checked
+  unmatched
+  verified
+  ambiguous
+  failed
+}
+
+Enum body_representation {
+  unknown
+  raw
+  masked
+}
+
+Table ops_sources {
+  id uuid [pk]
+  dataset_key text [not null, unique]
+  display_name text [not null]
+  ingestion_method text [not null]
+  schema_version text [not null]
+  clock_basis jsonb [not null]
+  field_catalog jsonb [not null]
+  created_at timestamptz [not null]
+  Note: '환경/tenant가 아니라 데이터 출처 namespace. endpoint 주소·토큰·계정은 저장 안 함.'
+}
+
+Table ops_collection_checkpoints {
+  id uuid [pk]
+  source_id uuid [not null]
+  layer source_layer [not null]
+  partition_key text [not null]
+  query_from timestamptz
+  query_until timestamptz
+  cursor_state jsonb [not null]
+  completed_until timestamptz
+  last_attempt_at timestamptz
+  last_success_at timestamptz
+  error_code text
+  lease_token uuid
+  lease_until timestamptz
+  revision bigint [not null]
+  indexes {
+    (source_id, layer, partition_key) [unique]
+  }
+  Note: '계층별 진행/실패 분리. 저장 commit 후 검증 완료 범위 갱신. BODY(B)는 별도 I/O예산·재개, 탐지 critical path 비의존. 데이터/탐지job/checkpoint는 가능한 동일 PG 트랜잭션. P 준비와 전체 수집 완료는 별개.'
+}
+
+Table data_executions {
+  id uuid [pk]
+  source_id uuid [not null]
+  layer source_layer [not null]
+  execution_key text [not null]
+  key_parts jsonb [not null]
+  key_contract_version text [not null]
+  first_observed_at timestamptz [not null]
+  indexes {
+    (source_id, layer, execution_key) [unique]
+    (id, source_id, layer) [unique]
+  }
+  Note: '검증된 식별만 등록. Oracle T=transaction_id, P=transaction+process+retry, M=transaction+process+message, B=message_id. B 식별은 BODY 행 namespace이며 M 실행과 다름. 누락 retry=0 복원·process_id 단독키 금지. revision 별도.'
+}
+
+Table data_observations {
+  id uuid [pk]
+  source_id uuid [not null]
+  layer source_layer [not null]
+  execution_id uuid
+  revision_no bigint
+  checkpoint_id uuid
+  dedup_key text [not null]
+  content_hash text [not null]
+  source_revision_token text
+  source_log_time_raw text
+  source_log_occurred_at timestamptz
+  source_updated_time_raw text
+  source_updated_at timestamptz
+  api_received_at timestamptz [not null]
+  persisted_at timestamptz [not null]
+  clock_status text [not null]
+  parsed_times jsonb [not null]
+  allowed_values jsonb [not null]
+  quality_flags jsonb [not null]
+  missing_fields jsonb [not null]
+  indexes {
+    (source_id, layer, dedup_key) [unique]
+    (execution_id, revision_no) [unique]
+    (id, source_id) [unique]
+    (id, execution_id) [unique]
+  }
+  Note: 'append-only 관측. 실행키 검증 불가 행은 execution_id/revision_no NULL로 품질 보존. source revision이 없으면 재등장/지연 순서의 완전 복원 보장 안 함; dedup 정책 버전 검증 필요. 수집시각으로 원천 수정 순서 확정 금지.'
+}
+
+Table data_transactions {
+  observation_id uuid [pk]
+  transaction_id text
+  interface_id text
+  process_hub_id text
+  start_channel_id text
+  end_channel_id text
+  process_count numeric
+  status text
+  response_code text
+  response_message text
+  interface_type text
+  category_name text
+  start_time_raw text
+  end_time_raw text
+  reported_process_time_ms numeric
+  retry_count numeric
+  Note: '원천 15필드 대응. 원천시각 원문 보존, NUMBER는 무제한정밀 numeric 제안·float/int64 일괄 강제 금지. 검증 실패 값은 NULL+관측 raw/flags. 현재 자료의 저장 복합키를 Oracle PK로 주장하지 않음.'
+}
+
+Table data_processes {
+  observation_id uuid [pk]
+  transaction_observation_id uuid
+  transaction_id text
+  process_id text
+  depend_process_id text
+  process_hub_id text
+  adapter_type text
+  channel_id text
+  status text
+  start_time_raw text
+  end_time_raw text
+  success_count numeric
+  error_count numeric
+  response_code text
+  response_message text
+  total_count numeric
+  retry_count numeric
+  Note: '원천 15필드 대응. parent FK는 같은 source·실행 관계·관측 시점 검증 후에만 채움; 미연결/모호는 NULL+flags. 미래 T 최종값 사용 금지. P interface_id/PROCESS_TIME은 원천 속성으로 생성 안 함.'
+}
+
+Table data_messages {
+  observation_id uuid [pk]
+  process_observation_id uuid
+  transaction_id text
+  process_id text
+  message_id text
+  process_channel_id text
+  data_type text
+  data_name text
+  status text
+  response_code text
+  response_message text
+  success_count numeric
+  error_count numeric
+  start_time_raw text
+  end_time_raw text
+  direction text
+  data_size numeric
+  process_datetime_raw text
+  message_index numeric
+  retry_count numeric
+  Note: '원천 18필드 대응. API 미제공은 NULL+missing_fields. M-P는 source PK와 별도 association; 미수집 retry/hub/채널로 임의 부모 생성 금지. messageBody 중복 저장 없음; 별도 BODY revision/검증 연결 참조.'
+}
+
+Table data_snapshots {
+  id uuid [pk]
+  source_id uuid [not null]
+  status snapshot_status [not null]
+  observation_cutoff_at timestamptz [not null]
+  selection_spec jsonb [not null]
+  split_spec jsonb [not null]
+  schema_version text [not null]
+  manifest_artifact_id uuid
+  manifest_hash text
+  created_by_actor_id text [not null]
+  created_at timestamptz [not null]
+  ready_at timestamptz
+  indexes {
+    (id, source_id) [unique]
+  }
+  Note: 'building→ready 후 정확한 행/revision·멤버/분할/manifest 불변. 출처별 고정본, 새 로그/BODY 자동 혼입 없음. source cutoff와 피처 가용 시점 확인. 기본 T/P/M metadata snapshot, BODY 포함/가공은 별도 명시 정책·선택·접근 검증 필요.'
+}
+
+Table data_snapshot_members {
+  snapshot_id uuid [not null]
+  source_id uuid [not null]
+  observation_id uuid [not null]
+  parent_transaction_observation_id uuid
+  split split_role [not null]
+  input_as_of timestamptz
+  label_evidence jsonb
+  indexes {
+    (snapshot_id, observation_id) [pk]
+  }
+  Note: '선택 PROCESS와 당시 유일 부모 revision 고정; 부모도 context 멤버 또는 동일 고정manifest로 추적. source/as_of·train/test 거래 중복·유효 관계는 저장 서비스/후속 migration 검증. 모든 멤버를 모델행으로 사용 금지.'
+}
+
+Table ml_feature_versions {
+  id uuid [pk]
+  definition_key text [not null]
+  version integer [not null]
+  display_name text [not null]
+  definition_kind text [not null]
+  expression jsonb [not null]
+  output_type text [not null]
+  output_unit text
+  value_policy jsonb [not null]
+  availability_spec jsonb [not null]
+  requires_fit boolean [not null]
+  content_hash text [not null]
+  created_by_actor_id text [not null]
+  created_at timestamptz [not null]
+  indexes {
+    (definition_key, version) [unique]
+  }
+  Note: '불변 정의. 업무 미확정/미지원도 상태·사유를 명시. DSL 안의 의존 참조 존재/순환/깊이는 별도 검증, 모든 transitive dependency를 FeatureSet 멤버로 고정.'
+}
+
+Table ml_feature_sets {
+  id uuid [pk]
+  schema_version text [not null]
+  transform_version text [not null]
+  output_schema jsonb [not null]
+  content_hash text [not null]
+  created_by_actor_id text [not null]
+  created_at timestamptz [not null]
+  Note: '선택·의존성·출력 순서/타입/전처리 설정의 불변 묶음. 모델마다 다른 FeatureSet 허용, 새 카탈로그 자동 편입 없음.'
+}
+
+Table ml_feature_set_members {
+  feature_set_id uuid [not null]
+  feature_version_id uuid [not null]
+  model_input boolean [not null]
+  output_position integer
+  output_name text [not null]
+  transform_settings jsonb [not null]
+  indexes {
+    (feature_set_id, feature_version_id) [pk]
+    (feature_set_id, output_name) [unique]
+    (feature_set_id, output_position) [unique]
+  }
+  Note: 'model_input=false는 계산 중간 의존성, position=NULL. 선택 입력은 position 필수·연속/순서 고정; SQL CHECK/서비스 검증 추가. 정의 자체의 이름과 출력 열 이름 구분.'
+}
+
+Table ml_rule_versions {
+  id uuid [pk]
+  rule_key text [not null]
+  version integer [not null]
+  rule_spec jsonb [not null]
+  input_spec jsonb [not null]
+  evidence_spec jsonb [not null]
+  content_hash text [not null]
+  created_by_actor_id text [not null]
+  created_at timestamptz [not null]
+  indexes {
+    (rule_key, version) [unique]
+  }
+  Note: '불변 Rule. 정의 저장과 운영 승인 구분. ML 불가 시 독립 입력으로 실행 가능한 승인 Rule만 계속, no-hit를 전체 정상으로 해석 금지.'
+}
+
+Table ml_config_versions {
+  id uuid [pk]
+  base_version_id uuid
+  source_id uuid [not null]
+  configuration_spec jsonb [not null]
+  explanation_spec jsonb [not null]
+  content_hash text [not null]
+  created_by_actor_id text [not null]
+  created_at timestamptz [not null]
+  Note: '저장마다 새 불변 버전. 모델/fit/Rule/threshold/설명 기준 묶음, 임의 child UPDATE 금지. 학습 성공은 artifact참조를 포함한 새 후보 버전, 활성화 아님. 학습범위와 환경 운영범위 별도.'
+}
+
+Table ml_config_models {
+  config_version_id uuid [not null]
+  model_key text [not null]
+  feature_set_id uuid [not null]
+  model_artifact_id uuid
+  fit_artifact_id uuid
+  adapter_spec jsonb [not null]
+  training_settings jsonb [not null]
+  threshold_spec jsonb [not null]
+  indexes {
+    (config_version_id, model_key) [pk]
+  }
+  Note: '미학습 후보는 artifact NULL 허용. 운영 로드 전 artifact kind/FeatureSet/fit/runtime 참조 일치 검사. 여러 모델 비교/묶음은 가능하나 업무별 자동 모델 분리 없음.'
+}
+
+Table ml_config_rules {
+  config_version_id uuid [not null]
+  rule_version_id uuid [not null]
+  evaluation_order integer [not null]
+  indexes {
+    (config_version_id, rule_version_id) [pk]
+    (config_version_id, evaluation_order) [unique]
+  }
+  Note: '구성의 불변 Rule 선택/순서. 적용된 구성 묶음에서 승인된 실행 범위 판별.'
+}
+
+Table run_jobs {
+  id uuid [pk]
+  kind job_kind [not null]
+  status job_status [not null]
+  requested_by_actor_id text
+  requester_role audit_role
+  idempotency_key text
+  request_hash text [not null]
+  input_config_version_id uuid
+  input_snapshot_id uuid
+  input_spec jsonb [not null]
+  max_attempts integer [not null]
+  attempt_count integer [not null]
+  current_attempt_id uuid
+  next_run_at timestamptz [not null]
+  result_config_version_id uuid
+  result_artifact_id uuid
+  result_summary jsonb
+  error_code text
+  created_at timestamptz [not null]
+  finished_at timestamptz
+  contract_version text
+  queue queue_kind
+  producer_kind producer_kind
+  producer_key text
+  input_manifest_id uuid
+  input_decision_id uuid
+  blocked_reason_code text
+  llm_spec jsonb
+  indexes {
+    (requested_by_actor_id, kind, idempotency_key) [unique]
+  }
+  Note: 'contract_version NULL=legacy; v03=logical run_jobs ownership only. Explain user/admin; recommendation admin. New input immutable; llm_spec requires evidence/model/prompt/output-schema/reuse versions. Physical queues must not mirror v03 jobs. Lease state engine is runtime responsibility.'
+}
+
+Table run_job_attempts {
+  id uuid [pk]
+  job_id uuid [not null]
+  attempt_no integer [not null]
+  status attempt_status [not null]
+  worker_id text [not null]
+  lease_token uuid [not null, unique]
+  lease_until timestamptz [not null]
+  started_at timestamptz [not null]
+  heartbeat_at timestamptz
+  finished_at timestamptz
+  error_code text
+  indexes {
+    (job_id, attempt_no) [unique]
+    (id, job_id) [unique]
+  }
+  Note: '짧은 SKIP LOCKED atomic claim 후 commit·lock 해제, 계산은 밖에서 수행. heartbeat/renew·완료는 current_attempt/token/유효 lease 조건; reclaim은 새 attempt/token. 판정/완성 artifact참조와 job 성공 같은 PG 트랜잭션, 이전 worker commit 거절. backoff/시도한도·실패 보존; exactly-once 실행 보장 아님.'
+}
+
+Table ml_artifacts {
+  id uuid [pk]
+  kind artifact_kind [not null]
+  relative_path text [not null, unique]
+  content_hash text [not null]
+  byte_size bigint [not null]
+  snapshot_id uuid
+  feature_set_id uuid
+  fit_artifact_id uuid
+  created_job_id uuid
+  created_attempt_id uuid
+  format_version text [not null]
+  runtime_version text [not null]
+  metadata jsonb [not null]
+  created_at timestamptz [not null]
+  model_input_artifact_id uuid
+  Note: 'Finalized file/hash verified before registration; no staged files. model_input cache optional. Fit training snapshot may differ from target snapshot, but source/FeatureSet must match. Training model/model_input snapshot and fit lineage match. Existing artifact columns and FKs preserved.'
+}
+
+Table run_evaluations {
+  id uuid [pk]
+  job_id uuid [not null, unique]
+  config_version_id uuid [not null]
+  snapshot_id uuid [not null]
+  purpose split_role [not null]
+  evaluation_spec_version text [not null]
+  evaluation_spec_hash text [not null]
+  evaluation_spec jsonb [not null]
+  applicability text [not null]
+  population_count bigint [not null]
+  scored_count bigint [not null]
+  unavailable_count bigint [not null]
+  metrics jsonb [not null]
+  reason_codes jsonb [not null]
+  completed_at timestamptz [not null]
+  indexes {
+    (id, config_version_id) [unique]
+  }
+  Note: '불변 결과. 모델별 FeatureSet은 달라도 같은 평가 모집단/조건으로 비교; 미판정분모와 Rule/ML결과 명시. metric per-model manifest 참조 포함. 정책/feature변경시 다른 config 버전 평가 필요; 단순 신규 로그 도착으로 기존 평가 자동 무효화 없음.'
+}
+
+Table run_applications {
+  id uuid [pk]
+  operation application_kind [not null]
+  target_config_version_id uuid [not null]
+  previous_config_version_id uuid
+  expected_active_version_id uuid
+  expected_system_revision bigint [not null]
+  evaluation_id uuid
+  requested_by_actor_id text [not null]
+  requester_role audit_role [not null]
+  approved_at timestamptz [not null]
+  idempotency_key text
+  request_hash text [not null]
+  status application_status [not null]
+  lease_token uuid
+  lease_until timestamptz
+  worker_id text
+  gate_evidence jsonb [not null]
+  transition_audit jsonb [not null]
+  error_code text
+  created_at timestamptz [not null]
+  activated_at timestamptz
+  indexes {
+    (requested_by_actor_id, idempotency_key) [unique]
+  }
+  Note: '관리자 단일 승인/적용 요청, 서버 실제전환 성공 별도. restore도 같은 호환성/gate. evaluation NULL은 명시된 Rule-only/초기운영 등 허용 정책 근거 필요; 미평가 자동승인 아님. expected active/revision CAS·직렬화·fencing 필요.'
+}
+
+Table ops_system_state {
+  id smallint [pk]
+  active_config_version_id uuid
+  active_application_id uuid
+  revision bigint [not null]
+  detector_state jsonb [not null]
+  changed_at timestamptz [not null]
+  Note: '환경 한 개·기본 활성 묶음 한 세트. 준비 중에는 이전 actual active 유지; 실제 전환 확인 후 application 성공·pointer를 원자적 갱신. artifact 로드 실패를 활성 완료로 표시 금지. process 메모리와 DB 불일치 복구 검증 필요.'
+}
+
+Table run_process_decisions {
+  id uuid [pk]
+  event_sequence bigint [not null, unique, increment]
+  execution_id uuid [not null]
+  process_observation_id uuid [not null]
+  transaction_observation_id uuid
+  config_version_id uuid [not null]
+  input_manifest_hash text [not null]
+  input_as_of timestamptz
+  status decision_status [not null]
+  rule_status component_status [not null]
+  ml_status component_status [not null]
+  decision_code text
+  anomaly_score numeric
+  evidence jsonb [not null]
+  source_log_occurred_at timestamptz
+  decided_at timestamptz [not null]
+  decision_committed_at timestamptz
+  source_latency_ms numeric
+  latency_status measurement_status [not null]
+  published_at timestamptz
+  job_id uuid [unique]
+  input_manifest_id uuid
+  result_attempt_id uuid
+  result_lease_token uuid
+  indexes {
+    (execution_id, process_observation_id, config_version_id, input_manifest_hash) [unique]
+  }
+  Note: 'Existing job/manifest/attempt NULL rows remain legacy. v03 result checks current attempt/token/lease and fixed config/input/hash/as-of; content immutable after insert, published_at may update. Job success and result insert must share one transaction.'
+}
+
+Table ops_storage_measurements {
+  id uuid [pk]
+  storage_key text [not null]
+  filesystem_key text
+  target_kind text [not null]
+  status measurement_status [not null]
+  capacity_bytes bigint
+  used_bytes bigint
+  available_bytes bigint
+  database_bytes bigint
+  writer_access_verified boolean [not null]
+  warning_spec_version text [not null]
+  warning_state text [not null]
+  reason_code text
+  measured_at timestamptz [not null]
+  Note: 'PG/모델/snapshot 실제 저장소 측정, 같은 filesystem여유 중복 합산 안 함. writer UID/quota 확인·unknown/stale 상태, API writable layer 수치를 호스트 여유로 주장 금지. 경고값은 제안·자동삭제 없음.'
+}
+
+Table data_message_bodies {
+  observation_id uuid [pk]
+  source_id uuid [not null]
+  message_id text [not null]
+  collection_status body_collection_status [not null]
+  message_in text
+  message_out text
+  message_body text
+  field_states jsonb [not null]
+  representation body_representation [not null]
+  masking_policy_version text
+  access_policy_version text [not null]
+  retention_policy_version text [not null]
+  payload_hash text
+  payload_bytes bigint
+  error_code text
+  indexes {
+    (observation_id, source_id) [unique]
+  }
+  Note: 'B 관측/revision으로 append-only. 원천 EC_MESSAGE_BODY는 MESSAGE_ID PK·CLOB3개; PG text 제안. parent dedup/hash에 payload_hash·field_states·수집/표현 상태 반영하여 본문 변경 revision 구분. not_found는 조회 시점 결과, collected의 NULL/empty/present는 field_states로 구별. raw/masked 미확정 unknown. 미수집/실패는 source 행 확보 증거 아님. 본문 기본 API/로그/큐/XAI 자동 전달 없음.'
+}
+
+Table data_message_body_links {
+  id uuid [pk]
+  source_id uuid [not null]
+  body_observation_id uuid [not null]
+  message_observation_id uuid
+  assessment_revision bigint [not null]
+  status body_link_status [not null]
+  candidate_execution_count integer
+  input_as_of timestamptz [not null]
+  relation_contract_version text [not null]
+  evidence jsonb [not null]
+  assessed_at timestamptz [not null]
+  indexes {
+    (body_observation_id, assessment_revision) [unique]
+  }
+  Note: 'append-only 연결검사. 같은 source/batch·message_id·as_of에서 각 M 실행의 유효 revision 후보 검사. 0=unmatched, 복수 실행=ambiguous·M FK NULL. verified는 후보1·키/시점 검증 성공만, 첫/마지막 M 임의 연결 금지. 늦은 M/B는 새 검사 이력, 기존 M revision UPDATE 없음.'
+}
+
+Table run_input_manifests {
+  id uuid [pk]
+  source_id uuid [not null]
+  execution_id uuid [not null]
+  process_observation_id uuid [not null]
+  transaction_observation_id uuid
+  message_observation_refs jsonb [not null]
+  readiness jsonb [not null]
+  input_as_of timestamptz [not null]
+  contract_version text [not null]
+  content_hash text [not null]
+  created_at timestamptz [not null]
+  indexes {
+    (source_id, content_hash) [unique]
+    (id, process_observation_id, execution_id) [unique]
+    (id, content_hash) [unique]
+    (message_observation_refs) [note: 'run_input_manifests_messages_idx; USING gin']
+  }
+  Note: 'v03 immutable PROCESS/T/M exact observation revisions; persisted_at <= input_as_of. BODY excluded. Hash/schema verification is runtime-owned. JSON M references protected by observation guard.'
+}
+
+Table run_llm_results {
+  id uuid [pk]
+  job_id uuid [not null, unique]
+  kind job_kind [not null]
+  decision_id uuid
+  config_version_id uuid
+  evidence_version text [not null]
+  input_evidence_hash text [not null]
+  model_version text [not null]
+  prompt_version text [not null]
+  output_schema_version text [not null]
+  reuse_key text [not null, unique]
+  output jsonb [not null]
+  created_attempt_id uuid [not null]
+  lease_token uuid [not null]
+  completed_at timestamptz [not null]
+  Note: 'Only finalized validated LLM outputs. Kind/job/decision/config/version/reuse lineage checked, current owner/token required. Immutable successful result; runtime output validation and authorization remain required.'
+}
+
+Table powercode_queue.detection_logs {
+  id uuid [pk]
+  payload jsonb [not null]
+  status text [not null, default: 'pending']
+  attempts integer [not null, default: 0]
+  available_at timestamptz [not null, default: `now()`]
+  lease_until timestamptz
+  lease_token uuid
+  created_at timestamptz [not null, default: `now()`]
+  completed_at timestamptz
+  last_error text
+  indexes {
+    (available_at, created_at) [note: 'detection_logs_ready_idx; WHERE status IN (pending, leased)']
+    (lease_until) [note: 'detection_logs_lease_idx; WHERE status = leased']
+  }
+  Note: '001 legacy physical queue unchanged; helper owns physical lease. New v03 detection jobs use run_jobs ownership, not mirrored here.'
+}
+
+Table powercode_queue.training_jobs {
+  id uuid [pk]
+  payload jsonb [not null]
+  status text [not null, default: 'pending']
+  attempts integer [not null, default: 0]
+  available_at timestamptz [not null, default: `now()`]
+  lease_until timestamptz
+  lease_token uuid
+  created_at timestamptz [not null, default: `now()`]
+  completed_at timestamptz
+  last_error text
+  indexes {
+    (available_at, created_at) [note: 'training_jobs_ready_idx; WHERE status IN (pending, leased)']
+    (lease_until) [note: 'training_jobs_lease_idx; WHERE status = leased']
+  }
+  Note: '001 legacy physical queue unchanged; existing trainer uses coordinated physical/job leases. It cannot consume v03 jobs unchanged.'
+}
+
+Ref: ops_collection_checkpoints.source_id > ops_sources.id
+Ref: data_executions.source_id > ops_sources.id
+Ref: data_observations.source_id > ops_sources.id
+Ref: data_observations.checkpoint_id >? ops_collection_checkpoints.id
+Ref: data_observations.(execution_id, source_id, layer) >? data_executions.(id, source_id, layer)
+Ref: data_observations.id - data_transactions.observation_id
+Ref: data_observations.id - data_processes.observation_id
+Ref: data_processes.transaction_observation_id >? data_transactions.observation_id
+Ref: data_observations.id - data_messages.observation_id
+Ref: data_messages.process_observation_id >? data_processes.observation_id
+Ref: data_snapshots.source_id > ops_sources.id
+Ref: data_snapshot_members.parent_transaction_observation_id >? data_transactions.observation_id
+Ref: data_snapshot_members.(snapshot_id, source_id) > data_snapshots.(id, source_id)
+Ref: data_snapshot_members.(observation_id, source_id) > data_observations.(id, source_id)
+Ref: ml_feature_set_members.feature_set_id > ml_feature_sets.id
+Ref: ml_feature_set_members.feature_version_id > ml_feature_versions.id
+Ref: ml_config_versions.base_version_id >? ml_config_versions.id
+Ref: ml_config_versions.source_id > ops_sources.id
+Ref: ml_config_models.config_version_id > ml_config_versions.id
+Ref: ml_config_models.feature_set_id > ml_feature_sets.id
+Ref: ml_config_rules.config_version_id > ml_config_versions.id
+Ref: ml_config_rules.rule_version_id > ml_rule_versions.id
+Ref: run_jobs.input_config_version_id >? ml_config_versions.id
+Ref: run_jobs.input_snapshot_id >? data_snapshots.id
+Ref: run_jobs.result_config_version_id >? ml_config_versions.id
+Ref: run_job_attempts.job_id > run_jobs.id
+Ref: ml_artifacts.snapshot_id >? data_snapshots.id
+Ref: ml_artifacts.feature_set_id >? ml_feature_sets.id
+Ref: ml_artifacts.fit_artifact_id >? ml_artifacts.id
+Ref: ml_artifacts.created_job_id >? run_jobs.id
+Ref: run_jobs.id - run_evaluations.job_id
+Ref: run_evaluations.config_version_id > ml_config_versions.id
+Ref: run_evaluations.snapshot_id > data_snapshots.id
+Ref: run_applications.target_config_version_id > ml_config_versions.id
+Ref: run_applications.previous_config_version_id >? ml_config_versions.id
+Ref: run_applications.expected_active_version_id >? ml_config_versions.id
+Ref: run_applications.(evaluation_id, target_config_version_id) >? run_evaluations.(id, config_version_id)
+Ref: ops_system_state.active_config_version_id >? ml_config_versions.id
+Ref: ops_system_state.active_application_id >? run_applications.id
+Ref: run_process_decisions.execution_id > data_executions.id
+Ref: run_process_decisions.process_observation_id > data_processes.observation_id
+Ref: run_process_decisions.transaction_observation_id >? data_transactions.observation_id
+Ref: run_process_decisions.config_version_id > ml_config_versions.id
+Ref: run_process_decisions.(process_observation_id, execution_id) > data_observations.(id, execution_id)
+Ref: data_observations.id - data_message_bodies.observation_id
+Ref: data_message_bodies.source_id > ops_sources.id
+Ref: data_observations.(id, source_id) - data_message_bodies.(observation_id, source_id)
+Ref: data_message_body_links.source_id > ops_sources.id
+Ref: data_message_body_links.body_observation_id > data_message_bodies.observation_id
+Ref: data_message_body_links.message_observation_id >? data_messages.observation_id
+Ref: data_message_body_links.(body_observation_id, source_id) > data_message_bodies.(observation_id, source_id)
+Ref: data_message_body_links.(message_observation_id, source_id) >? data_observations.(id, source_id)
+Ref: run_input_manifests.source_id > ops_sources.id
+Ref: run_input_manifests.execution_id > data_executions.id
+Ref: run_input_manifests.process_observation_id > data_processes.observation_id
+Ref: run_input_manifests.transaction_observation_id >? data_transactions.observation_id
+Ref: run_input_manifests.(process_observation_id, execution_id) > data_observations.(id, execution_id)
+Ref: run_input_manifests.(process_observation_id, source_id) > data_observations.(id, source_id)
+Ref: run_input_manifests.(transaction_observation_id, source_id) >? data_observations.(id, source_id)
+Ref: run_jobs.id - run_llm_results.job_id
+Ref: run_llm_results.decision_id >? run_process_decisions.id
+Ref: run_llm_results.config_version_id >? ml_config_versions.id
+// Composite FK display: child job_id is individually UNIQUE; no redundant composite index.
+Ref: run_llm_results.(created_attempt_id, job_id) > run_job_attempts.(id, job_id)
+Ref: run_jobs.input_manifest_id >? run_input_manifests.id
+Ref: run_jobs.input_decision_id >? run_process_decisions.id
+Ref: run_jobs.id ?- run_process_decisions.job_id
+Ref: ml_artifacts.model_input_artifact_id >? ml_artifacts.id
+Ref: data_snapshots.manifest_artifact_id >? ml_artifacts.id
+Ref: ml_config_models.model_artifact_id >? ml_artifacts.id
+Ref: ml_config_models.fit_artifact_id >? ml_artifacts.id
+Ref: run_jobs.result_artifact_id >? ml_artifacts.id
+// Composite FK display: child id is its PK; optional current attempt, no redundant composite index.
+Ref: run_jobs.(current_attempt_id, id) >? run_job_attempts.(id, job_id)
+Ref: ml_artifacts.(created_attempt_id, created_job_id) >? run_job_attempts.(id, job_id)
+Ref: run_process_decisions.(input_manifest_id, process_observation_id, execution_id) >? run_input_manifests.(id, process_observation_id, execution_id)
+Ref: run_process_decisions.(input_manifest_id, input_manifest_hash) >? run_input_manifests.(id, content_hash)
+// Composite FK display: child job_id is individually UNIQUE; legacy NULL is allowed.
+Ref: run_process_decisions.(result_attempt_id, job_id) >? run_job_attempts.(id, job_id)

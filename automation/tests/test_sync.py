@@ -304,16 +304,17 @@ class SyncTests(unittest.TestCase):
     def test_confirmed_teammates_map_to_assignable_github_accounts(self):
         self.n.page["properties"]["담당자"] = {"type": "people", "people": [
             {"id": "d798e1d8-b088-467a-8fff-726df0ba9011"},
-            {"id": "ac8cce9d-4260-4fb9-bd8d-27b5cc9df9ef"}]}
+            {"id": "ac8cce9d-4260-4fb9-bd8d-27b5cc9df9ef"},
+            {"id": "d34bec6b-2af0-44cb-a462-ff849c3e2d25"}]}
         self.assertEqual(self.run_one()["result"], "synced")
-        self.assertEqual(self.g.data[1]["assignees"], ["juhno1023", "KRMayD"])
+        self.assertEqual(self.g.data[1]["assignees"], ["juhno1023", "KRMayD", "aaa0342"])
         self.g.changed = True
-        self.run_one()
-        self.assertEqual(self.g.assignments, [(2, ["juhno1023", "KRMayD"])])
+        self.assertEqual(self.run_one()["result"], "synced")
+        self.assertEqual(self.g.assignments, [(2, ["juhno1023", "KRMayD", "aaa0342"])])
 
     def test_unconfirmed_invitee_is_not_mapped_or_created(self):
         self.n.page["properties"]["담당자"] = {"type": "people", "people": [
-            {"id": "d34bec6b-2af0-44cb-a462-ff849c3e2d25"}]}
+            {"id": "unconfirmed-invitee"}]}
         self.assertEqual(self.run_one()["code"], "ASSIGNEE_MAPPING_REQUIRED")
         self.assertFalse(self.g.data)
         self.assertFalse(self.g.branches)

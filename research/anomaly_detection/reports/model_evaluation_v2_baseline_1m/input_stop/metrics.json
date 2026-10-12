@@ -1,0 +1,288 @@
+{
+  "dataset": "input_stop",
+  "cases": 5000,
+  "normal_cases": 5000,
+  "row": {
+    "status": "not_applicable",
+    "reason": "Collective/time anomaly: no positive point labels; not a row-classification task"
+  },
+  "window": {
+    "metrics": [
+      {
+        "method": "if_global",
+        "n": 502488,
+        "normal": 444163,
+        "anomaly": 58325,
+        "tn": 441960,
+        "fp": 2203,
+        "fn": 55604,
+        "tp": 2721,
+        "accuracy": 0.884958446768878,
+        "precision": 0.5525995125913891,
+        "recall": 0.04665237891127304,
+        "f1": 0.08604088602191338,
+        "normal_false_positive_rate": 0.004959890850881321,
+        "always_normal_accuracy": 0.8839275763799335
+      },
+      {
+        "method": "if_adapter",
+        "n": 502488,
+        "normal": 444163,
+        "anomaly": 58325,
+        "tn": 441249,
+        "fp": 2914,
+        "fn": 54552,
+        "tp": 3773,
+        "accuracy": 0.8856370699399787,
+        "precision": 0.5642291012412143,
+        "recall": 0.06468924132018859,
+        "f1": 0.11607087922229742,
+        "normal_false_positive_rate": 0.006560654534483962,
+        "always_normal_accuracy": 0.8839275763799335
+      },
+      {
+        "method": "if_ensemble",
+        "n": 502488,
+        "normal": 444163,
+        "anomaly": 58325,
+        "tn": 442075,
+        "fp": 2088,
+        "fn": 54841,
+        "tp": 3484,
+        "accuracy": 0.8867057521771664,
+        "precision": 0.6252692031586504,
+        "recall": 0.059734247749678525,
+        "f1": 0.10905050315351268,
+        "normal_false_positive_rate": 0.004700976893617884,
+        "always_normal_accuracy": 0.8839275763799335
+      },
+      {
+        "method": "kmeans_global",
+        "n": 502488,
+        "normal": 444163,
+        "anomaly": 58325,
+        "tn": 442463,
+        "fp": 1700,
+        "fn": 58325,
+        "tp": 0,
+        "accuracy": 0.8805444110108102,
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "normal_false_positive_rate": 0.0038274237160682003,
+        "always_normal_accuracy": 0.8839275763799335
+      },
+      {
+        "method": "kmeans_adapter",
+        "n": 502488,
+        "normal": 444163,
+        "anomaly": 58325,
+        "tn": 439353,
+        "fp": 4810,
+        "fn": 58325,
+        "tp": 0,
+        "accuracy": 0.8743552084825906,
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "normal_false_positive_rate": 0.010829357690757673,
+        "always_normal_accuracy": 0.8839275763799335
+      },
+      {
+        "method": "kmeans_ensemble",
+        "n": 502488,
+        "normal": 444163,
+        "anomaly": 58325,
+        "tn": 439512,
+        "fp": 4651,
+        "fn": 58325,
+        "tp": 0,
+        "accuracy": 0.8746716339494675,
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "normal_false_positive_rate": 0.010471381002019529,
+        "always_normal_accuracy": 0.8839275763799335
+      }
+    ],
+    "supported_only_metrics": [
+      {
+        "method": "if_global",
+        "n": 119552,
+        "normal": 104082,
+        "anomaly": 15470,
+        "tn": 103533,
+        "fp": 549,
+        "fn": 14180,
+        "tp": 1290,
+        "accuracy": 0.876798380620985,
+        "precision": 0.7014681892332789,
+        "recall": 0.08338720103425985,
+        "f1": 0.1490554047027558,
+        "normal_false_positive_rate": 0.0052746872658096505,
+        "always_normal_accuracy": 0.8706002408993576
+      },
+      {
+        "method": "if_adapter",
+        "n": 119552,
+        "normal": 104082,
+        "anomaly": 15470,
+        "tn": 102822,
+        "fp": 1260,
+        "fn": 13128,
+        "tp": 2342,
+        "accuracy": 0.8796506959314775,
+        "precision": 0.6501943364797335,
+        "recall": 0.15138978668390432,
+        "f1": 0.2455956375838926,
+        "normal_false_positive_rate": 0.012105839626448378,
+        "always_normal_accuracy": 0.8706002408993576
+      },
+      {
+        "method": "if_ensemble",
+        "n": 119552,
+        "normal": 104082,
+        "anomaly": 15470,
+        "tn": 103648,
+        "fp": 434,
+        "fn": 13417,
+        "tp": 2053,
+        "accuracy": 0.8841424652034261,
+        "precision": 0.8254925613188581,
+        "recall": 0.13270846800258565,
+        "f1": 0.22865734810937238,
+        "normal_false_positive_rate": 0.004169789204665552,
+        "always_normal_accuracy": 0.8706002408993576
+      },
+      {
+        "method": "kmeans_global",
+        "n": 119552,
+        "normal": 104082,
+        "anomaly": 15470,
+        "tn": 103584,
+        "fp": 498,
+        "fn": 15470,
+        "tp": 0,
+        "accuracy": 0.8664346895074947,
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "normal_false_positive_rate": 0.004784688995215311,
+        "always_normal_accuracy": 0.8706002408993576
+      },
+      {
+        "method": "kmeans_adapter",
+        "n": 119552,
+        "normal": 104082,
+        "anomaly": 15470,
+        "tn": 100474,
+        "fp": 3608,
+        "fn": 15470,
+        "tp": 0,
+        "accuracy": 0.8404209047109208,
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "normal_false_positive_rate": 0.03466497569224265,
+        "always_normal_accuracy": 0.8706002408993576
+      },
+      {
+        "method": "kmeans_ensemble",
+        "n": 119552,
+        "normal": 104082,
+        "anomaly": 15470,
+        "tn": 100633,
+        "fp": 3449,
+        "fn": 15470,
+        "tp": 0,
+        "accuracy": 0.8417508699143469,
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "normal_false_positive_rate": 0.0331373340250956,
+        "always_normal_accuracy": 0.8706002408993576
+      }
+    ],
+    "assessed": 502488,
+    "fallback": 382936,
+    "fallback_rate": 0.762079890465046,
+    "status": "assessed",
+    "events": {
+      "per_type": [
+        {
+          "scenario": "input_stop",
+          "method": "if_global",
+          "events": 5000,
+          "detected": 343,
+          "event_recall": 0.0686,
+          "median_delay_seconds": 300.0
+        },
+        {
+          "scenario": "input_stop",
+          "method": "if_adapter",
+          "events": 5000,
+          "detected": 554,
+          "event_recall": 0.1108,
+          "median_delay_seconds": 300.0
+        },
+        {
+          "scenario": "input_stop",
+          "method": "if_ensemble",
+          "events": 5000,
+          "detected": 445,
+          "event_recall": 0.089,
+          "median_delay_seconds": 300.0
+        },
+        {
+          "scenario": "input_stop",
+          "method": "kmeans_global",
+          "events": 5000,
+          "detected": 0,
+          "event_recall": 0.0,
+          "median_delay_seconds": null
+        },
+        {
+          "scenario": "input_stop",
+          "method": "kmeans_adapter",
+          "events": 5000,
+          "detected": 0,
+          "event_recall": 0.0,
+          "median_delay_seconds": null
+        },
+        {
+          "scenario": "input_stop",
+          "method": "kmeans_ensemble",
+          "events": 5000,
+          "detected": 0,
+          "event_recall": 0.0,
+          "median_delay_seconds": null
+        }
+      ],
+      "normal_case_false_alarm_rate": {
+        "if_global": 0.0962,
+        "if_adapter": 0.1356,
+        "if_ensemble": 0.1046,
+        "kmeans_global": 0.0052,
+        "kmeans_adapter": 0.017,
+        "kmeans_ensemble": 0.0158
+      },
+      "all_six_recall": {
+        "if_global": null,
+        "if_adapter": null,
+        "if_ensemble": null,
+        "kmeans_global": null,
+        "kmeans_adapter": null,
+        "kmeans_ensemble": null
+      }
+    },
+    "files": [
+      "window_observed.npz",
+      "window_normal.npz"
+    ]
+  },
+  "elapsed_seconds": 45.60899999993853,
+  "output_hashes": {
+    "window_observed.npz": "5c7feffddf5ea6a14572d51adf97043a211797c61e6104bbb889f73e761f05e1",
+    "window_normal.npz": "64fd1f2919ac787fcd7cb24010c5fdefaab548dd08606fae52cf7bdb8c7ffdbd"
+  }
+}

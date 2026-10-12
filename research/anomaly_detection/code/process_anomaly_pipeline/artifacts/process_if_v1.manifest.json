@@ -1,0 +1,509 @@
+{
+  "created_utc": "2026-10-08T08:19:39.551339+00:00",
+  "config": {
+    "version": "process-if-v1",
+    "n_estimators": 128,
+    "max_samples": 512,
+    "max_features": 1.0,
+    "bootstrap": false,
+    "n_jobs": 2,
+    "random_state": 42,
+    "max_train_rows": 100000,
+    "max_calibration_rows": 100000,
+    "score_batch_rows": 50000,
+    "train_fraction": 0.6,
+    "validation_fraction": 0.2,
+    "score_quantile": 0.99,
+    "global_weight": 0.5,
+    "min_global_train": 200,
+    "min_global_calibration": 200,
+    "min_global_threshold": 200,
+    "min_adapter_train": 500,
+    "min_adapter_calibration": 100,
+    "min_adapter_threshold": 100,
+    "min_adapter_days": 3,
+    "quantiles": [
+      0.99,
+      0.999
+    ],
+    "quantile_columns": [
+      "duration_ms",
+      "totalCount",
+      "retryCount"
+    ],
+    "min_p99_support": 1000,
+    "min_p999_support": 10000,
+    "time_tolerance_ms": 0.0,
+    "exclude_statistical_from_training": true
+  },
+  "input_unit": "one Process execution",
+  "rows": 3714199,
+  "reference_train_before_tail_filter": 2608452,
+  "splits": [
+    {
+      "split": "calibration",
+      "rows": 213556,
+      "reference_rows": 183514,
+      "first": "2026-03-23T08:15:23.871000",
+      "last": "2026-08-19T23:59:55.042000"
+    },
+    {
+      "split": "excluded_boundary_transaction",
+      "rows": 4,
+      "reference_rows": 1,
+      "first": "2026-01-12T10:28:56.989000",
+      "last": "2026-04-02T11:14:00.511000"
+    },
+    {
+      "split": "excluded_missing_time_or_id",
+      "rows": 325,
+      "reference_rows": 0,
+      "first": null,
+      "last": null
+    },
+    {
+      "split": "test",
+      "rows": 111549,
+      "reference_rows": 35700,
+      "first": "2026-08-20T00:00:00.295000",
+      "last": "2026-10-02T15:36:59.559000"
+    },
+    {
+      "split": "threshold",
+      "rows": 213113,
+      "reference_rows": 183239,
+      "first": "2026-03-23T08:12:59.703000",
+      "last": "2026-08-19T23:59:50.045000"
+    },
+    {
+      "split": "train",
+      "rows": 3175652,
+      "reference_rows": 2582379,
+      "first": "2025-12-24T10:25:31.689000",
+      "last": "2026-03-20T17:04:27.315000"
+    }
+  ],
+  "adapter_models": [
+    "DB.READER",
+    "DB.WRITER",
+    "SERVICE.EXECUTOR"
+  ],
+  "skipped_adapters": [
+    {
+      "adapter": "CLIENT_STUB",
+      "train_rows": 10,
+      "calibration_rows": 0,
+      "threshold_rows": 0,
+      "train_days": 5,
+      "reasons": [
+        "insufficient_train",
+        "insufficient_calibration",
+        "insufficient_threshold"
+      ]
+    },
+    {
+      "adapter": "COMPONENT",
+      "train_rows": 0,
+      "calibration_rows": 0,
+      "threshold_rows": 0,
+      "train_days": 0,
+      "reasons": [
+        "insufficient_train",
+        "insufficient_calibration",
+        "insufficient_threshold",
+        "insufficient_days"
+      ]
+    },
+    {
+      "adapter": "DATA.DECRYPTOR",
+      "train_rows": 0,
+      "calibration_rows": 1,
+      "threshold_rows": 1,
+      "train_days": 0,
+      "reasons": [
+        "insufficient_train",
+        "insufficient_calibration",
+        "insufficient_threshold",
+        "insufficient_days"
+      ]
+    },
+    {
+      "adapter": "DATA.ENCRYPTOR",
+      "train_rows": 0,
+      "calibration_rows": 4,
+      "threshold_rows": 3,
+      "train_days": 0,
+      "reasons": [
+        "insufficient_train",
+        "insufficient_calibration",
+        "insufficient_threshold",
+        "insufficient_days"
+      ]
+    },
+    {
+      "adapter": "DATA.MAPPER",
+      "train_rows": 7,
+      "calibration_rows": 13,
+      "threshold_rows": 21,
+      "train_days": 3,
+      "reasons": [
+        "insufficient_train",
+        "insufficient_calibration",
+        "insufficient_threshold"
+      ]
+    },
+    {
+      "adapter": "DATA.TRANSFORMER",
+      "train_rows": 11,
+      "calibration_rows": 19,
+      "threshold_rows": 27,
+      "train_days": 4,
+      "reasons": [
+        "insufficient_train",
+        "insufficient_calibration",
+        "insufficient_threshold"
+      ]
+    },
+    {
+      "adapter": "DB.DELETER",
+      "train_rows": 1,
+      "calibration_rows": 0,
+      "threshold_rows": 1,
+      "train_days": 1,
+      "reasons": [
+        "insufficient_train",
+        "insufficient_calibration",
+        "insufficient_threshold",
+        "insufficient_days"
+      ]
+    },
+    {
+      "adapter": "DB.EXECUTOR",
+      "train_rows": 2,
+      "calibration_rows": 2285,
+      "threshold_rows": 2188,
+      "train_days": 2,
+      "reasons": [
+        "insufficient_train",
+        "insufficient_days"
+      ]
+    },
+    {
+      "adapter": "DB.UPDATER",
+      "train_rows": 8,
+      "calibration_rows": 17,
+      "threshold_rows": 18,
+      "train_days": 4,
+      "reasons": [
+        "insufficient_train",
+        "insufficient_calibration",
+        "insufficient_threshold"
+      ]
+    },
+    {
+      "adapter": "FILE.EXECUTOR",
+      "train_rows": 0,
+      "calibration_rows": 3,
+      "threshold_rows": 5,
+      "train_days": 0,
+      "reasons": [
+        "insufficient_train",
+        "insufficient_calibration",
+        "insufficient_threshold",
+        "insufficient_days"
+      ]
+    },
+    {
+      "adapter": "FILE.READER",
+      "train_rows": 24151,
+      "calibration_rows": 45,
+      "threshold_rows": 45,
+      "train_days": 14,
+      "reasons": [
+        "insufficient_calibration",
+        "insufficient_threshold"
+      ]
+    },
+    {
+      "adapter": "FILE.WRITER",
+      "train_rows": 22136,
+      "calibration_rows": 35,
+      "threshold_rows": 41,
+      "train_days": 10,
+      "reasons": [
+        "insufficient_calibration",
+        "insufficient_threshold"
+      ]
+    },
+    {
+      "adapter": "GATEWAY",
+      "train_rows": 0,
+      "calibration_rows": 2,
+      "threshold_rows": 0,
+      "train_days": 0,
+      "reasons": [
+        "insufficient_train",
+        "insufficient_calibration",
+        "insufficient_threshold",
+        "insufficient_days"
+      ]
+    },
+    {
+      "adapter": "GATEWAY.INVOKER",
+      "train_rows": 3,
+      "calibration_rows": 3,
+      "threshold_rows": 10,
+      "train_days": 2,
+      "reasons": [
+        "insufficient_train",
+        "insufficient_calibration",
+        "insufficient_threshold",
+        "insufficient_days"
+      ]
+    },
+    {
+      "adapter": "GATEWAY.RECEIVER",
+      "train_rows": 0,
+      "calibration_rows": 0,
+      "threshold_rows": 0,
+      "train_days": 0,
+      "reasons": [
+        "insufficient_train",
+        "insufficient_calibration",
+        "insufficient_threshold",
+        "insufficient_days"
+      ]
+    },
+    {
+      "adapter": "OBJECT.READER",
+      "train_rows": 0,
+      "calibration_rows": 3,
+      "threshold_rows": 4,
+      "train_days": 0,
+      "reasons": [
+        "insufficient_train",
+        "insufficient_calibration",
+        "insufficient_threshold",
+        "insufficient_days"
+      ]
+    },
+    {
+      "adapter": "OBJECT.WRITER",
+      "train_rows": 0,
+      "calibration_rows": 2,
+      "threshold_rows": 4,
+      "train_days": 0,
+      "reasons": [
+        "insufficient_train",
+        "insufficient_calibration",
+        "insufficient_threshold",
+        "insufficient_days"
+      ]
+    },
+    {
+      "adapter": "QUEUE.EXECUTOR",
+      "train_rows": 2,
+      "calibration_rows": 3,
+      "threshold_rows": 6,
+      "train_days": 1,
+      "reasons": [
+        "insufficient_train",
+        "insufficient_calibration",
+        "insufficient_threshold",
+        "insufficient_days"
+      ]
+    },
+    {
+      "adapter": "QUEUE.PUBLISHER",
+      "train_rows": 2,
+      "calibration_rows": 1,
+      "threshold_rows": 1,
+      "train_days": 2,
+      "reasons": [
+        "insufficient_train",
+        "insufficient_calibration",
+        "insufficient_threshold",
+        "insufficient_days"
+      ]
+    },
+    {
+      "adapter": "QUEUE.SUBSCRIBER",
+      "train_rows": 1,
+      "calibration_rows": 1,
+      "threshold_rows": 3,
+      "train_days": 1,
+      "reasons": [
+        "insufficient_train",
+        "insufficient_calibration",
+        "insufficient_threshold",
+        "insufficient_days"
+      ]
+    },
+    {
+      "adapter": "SERVICE.INVOKER",
+      "train_rows": 3,
+      "calibration_rows": 3,
+      "threshold_rows": 4,
+      "train_days": 1,
+      "reasons": [
+        "insufficient_train",
+        "insufficient_calibration",
+        "insufficient_threshold",
+        "insufficient_days"
+      ]
+    }
+  ],
+  "observed_adapters": [
+    "CLIENT_STUB",
+    "COMPONENT",
+    "DATA.MAPPER",
+    "DATA.TRANSFORMER",
+    "DB.DELETER",
+    "DB.EXECUTOR",
+    "DB.READER",
+    "DB.UPDATER",
+    "DB.WRITER",
+    "FILE.EXECUTOR",
+    "FILE.READER",
+    "FILE.WRITER",
+    "GATEWAY.INVOKER",
+    "QUEUE.EXECUTOR",
+    "QUEUE.PUBLISHER",
+    "QUEUE.SUBSCRIBER",
+    "SERVICE.EXECUTOR",
+    "SERVICE.INVOKER"
+  ],
+  "export_adapters_for_post_analysis": [
+    "CLIENT_STUB",
+    "COMPONENT",
+    "DATA.DECRYPTOR",
+    "DATA.ENCRYPTOR",
+    "DATA.MAPPER",
+    "DATA.TRANSFORMER",
+    "DB.DELETER",
+    "DB.EXECUTOR",
+    "DB.READER",
+    "DB.UPDATER",
+    "DB.WRITER",
+    "FILE.EXECUTOR",
+    "FILE.READER",
+    "FILE.WRITER",
+    "GATEWAY",
+    "GATEWAY.INVOKER",
+    "GATEWAY.RECEIVER",
+    "OBJECT.READER",
+    "OBJECT.WRITER",
+    "QUEUE.EXECUTOR",
+    "QUEUE.PUBLISHER",
+    "QUEUE.SUBSCRIBER",
+    "SERVICE.EXECUTOR",
+    "SERVICE.INVOKER"
+  ],
+  "complete_context_declared": true,
+  "global_support": {
+    "train_rows": 2582379,
+    "train_sample_rows": 100000,
+    "train_days": 45,
+    "calibration_rows": 183514,
+    "calibration_sample_rows": 100000,
+    "threshold_rows": 183239,
+    "first_train": "2025-12-24T11:50:33.413000",
+    "last_train": "2026-03-20T17:04:21.559000",
+    "effective_max_samples": 512,
+    "sample_adapter_counts": {
+      "DB.READER": 25521,
+      "DB.WRITER": 25521,
+      "FILE.READER": 24151,
+      "FILE.WRITER": 22136,
+      "SERVICE.EXECUTOR": 2621,
+      "DATA.TRANSFORMER": 11,
+      "CLIENT_STUB": 10,
+      "DB.UPDATER": 8,
+      "DATA.MAPPER": 7,
+      "GATEWAY.INVOKER": 3,
+      "SERVICE.INVOKER": 3,
+      "DB.EXECUTOR": 2,
+      "QUEUE.EXECUTOR": 2,
+      "QUEUE.PUBLISHER": 2,
+      "DB.DELETER": 1,
+      "QUEUE.SUBSCRIBER": 1,
+      "COMPONENT": 0,
+      "DATA.DECRYPTOR": 0,
+      "DATA.ENCRYPTOR": 0,
+      "FILE.EXECUTOR": 0,
+      "GATEWAY": 0,
+      "GATEWAY.RECEIVER": 0,
+      "OBJECT.READER": 0,
+      "OBJECT.WRITER": 0
+    },
+    "sampling": "adapter_balanced"
+  },
+  "route_thresholds": {
+    "GLOBAL": 1.27485096962073,
+    "DB.READER": 0.6971316772232549,
+    "DB.WRITER": 0.7047824076508543,
+    "SERVICE.EXECUTOR": 1.0551003288949303
+  },
+  "feature_columns": [
+    "log_duration_ms",
+    "missing_duration_ms",
+    "log_totalCount",
+    "missing_totalCount",
+    "log_retryCount",
+    "missing_retryCount",
+    "hour_sin",
+    "hour_cos",
+    "weekday_sin",
+    "weekday_cos"
+  ],
+  "versions": {
+    "python": "3.12.14",
+    "numpy": "2.5.3",
+    "pandas": "3.0.6",
+    "sklearn": "1.9.1"
+  },
+  "sources": [
+    {
+      "kind": "process",
+      "period": "25년12월24일-26년4월6일",
+      "source": "..\\data\\25년12월24일-26년4월6일\\EC_PROCESS_MONITORING.csv",
+      "rows": 3473285,
+      "format": "csv"
+    },
+    {
+      "kind": "process",
+      "period": "26년8월15일-26년9월14일",
+      "source": "..\\data\\26년8월15일-26년9월14일\\processes.csv",
+      "rows": 213509,
+      "format": "csv"
+    },
+    {
+      "kind": "process",
+      "period": "26년9월30일-26년10월2일",
+      "source": "..\\data\\26년9월30일-26년10월2일\\EC_TRANSACTION_MONITORING.csv",
+      "rows": 27405,
+      "format": "csv"
+    },
+    {
+      "kind": "transaction",
+      "period": "25년12월24일-26년4월6일",
+      "source": "..\\data\\25년12월24일-26년4월6일\\EC_TRANSACTION_MONITORING.csv",
+      "rows": 1768054,
+      "format": "csv"
+    },
+    {
+      "kind": "transaction",
+      "period": "26년8월15일-26년9월14일",
+      "source": "..\\data\\26년8월15일-26년9월14일\\transactions.csv",
+      "rows": 213381,
+      "format": "csv"
+    },
+    {
+      "kind": "transaction",
+      "period": "26년9월30일-26년10월2일",
+      "source": "..\\data\\26년9월30일-26년10월2일\\EC_MESSAGE_BODY.csv",
+      "rows": 27268,
+      "format": "sql"
+    }
+  ]
+}

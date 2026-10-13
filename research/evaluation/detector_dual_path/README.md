@@ -1,6 +1,7 @@
 # Detector 병행 실험 (#45)
 
-- [실험 결과](RESULTS.md)·[운영 이식 전 합의](HANDOFF.md)·[기존 프리셋 재현 범위](REPRODUCTION.md)
+- [실험 결과](docs/RESULTS.md)·[운영 이식 전 합의](docs/HANDOFF.md)·[기존 프리셋 재현 범위](docs/REPRODUCTION.md)
+- 독립 재검수: 합성 입력 경로 탐색용 pilot. 운영 모델 우위·최적 창/주기·두 ML 모델 필수성의 검증과 구분
 - 범위: PROCESS 실시간 경로·TIME_WINDOW 추세 경로의 단독/병행 비교; 운영 배포 제외
 - 알고리즘: global Isolation Forest / MiniBatch KMeans 각각 두 입력 경로; 기존 연구 encoder·점수 계산 재사용
 - 자료: 초 단위 신규 합성 정상/이상·짝정상; 원본 고객 로그·기존 평가 정답 미제공
@@ -13,6 +14,28 @@
 - 시간창 정답: 창 종료시점이 주입 활성구간인지 여부; 복구 뒤 창에 남은 이상 이력의 경보는 사건 탐지 성공으로 미집계
 - 단위별 F1/FPR 직접 비교·PROCESS FPR의 운영 오경보 추정 금지
 - 실행: 저장소 루트, Python 3.12, 기존 연구 모델의 동일 패키지 버전
+
+## 폴더 구성
+
+```text
+research/evaluation/detector_dual_path/
+├── README.md             # 목적·실행법·문서 진입점
+├── *.py                  # 모델·재생·시나리오·평가·부하·실패 상태
+├── config.json           # seed·창/주기 후보·반복 시험 설정
+├── requirements.txt      # 기존 연구 의존성·측정 패키지
+├── tests/                # 구현 회귀·독립 검수 시험
+├── docs/                 # 결과·재현 범위·운영 이식 계약
+│   ├── RESULTS.md
+│   ├── REPRODUCTION.md
+│   └── HANDOFF.md
+└── runs/                 # manifest·CSV/JSON·생성 모델, Git 제외
+```
+
+- 새 실험 코드·설정·문서·산출물: 이 평가 패키지 안에 배치
+- 기존 계산 재사용: `research/anomaly_detection/code/`; 배포 코드에서 연구 패키지 직접 import 금지
+- 패키지 모듈명·기존 모델·과거 실행 manifest/산출물 보존
+
+## 실행
 
 ```powershell
 .venv/Scripts/python.exe -m pip install -r research/evaluation/detector_dual_path/requirements.txt

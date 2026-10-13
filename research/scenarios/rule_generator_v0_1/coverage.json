@@ -1,0 +1,229 @@
+{
+  "scope": "development scenario index, not raw transaction rows or independent benchmark",
+  "cases": [
+    {
+      "id": "real_01_f004",
+      "feature": "f004",
+      "request": "confirmed_HR_review",
+      "dtype": "boolean",
+      "valid_count": 128
+    },
+    {
+      "id": "real_02_f005",
+      "feature": "f005",
+      "request": "confirmed_HR_review",
+      "dtype": "boolean",
+      "valid_count": 254
+    },
+    {
+      "id": "real_03_f047",
+      "feature": "f047",
+      "request": "confirmed_HR_review",
+      "dtype": "boolean",
+      "valid_count": 128
+    },
+    {
+      "id": "real_04_f049",
+      "feature": "f049",
+      "request": "confirmed_HR_review",
+      "dtype": "boolean",
+      "valid_count": 128
+    },
+    {
+      "id": "real_05_f051",
+      "feature": "f051",
+      "request": "confirmed_HR_review",
+      "dtype": "boolean",
+      "valid_count": 254
+    },
+    {
+      "id": "real_06_f001",
+      "feature": "f001",
+      "request": "confirmed_HR_review",
+      "dtype": "integer",
+      "valid_count": 128
+    },
+    {
+      "id": "real_07_f015",
+      "feature": "f015",
+      "request": "confirmed_HR_review",
+      "dtype": "number",
+      "valid_count": 128
+    },
+    {
+      "id": "real_08_f039",
+      "feature": "f039",
+      "request": "confirmed_HR_review",
+      "dtype": "boolean",
+      "valid_count": 128
+    },
+    {
+      "id": "real_09_f058",
+      "feature": "f058",
+      "request": "confirmed_HR_review",
+      "dtype": "number",
+      "valid_count": 128
+    },
+    {
+      "id": "real_10_f061",
+      "feature": "f061",
+      "request": "confirmed_HR_review",
+      "dtype": "number",
+      "valid_count": 128
+    },
+    {
+      "id": "real_11_f005",
+      "feature": "f005",
+      "request": "observational_diagnostic",
+      "dtype": "boolean",
+      "valid_count": 254
+    },
+    {
+      "id": "real_12_f039",
+      "feature": "f039",
+      "request": "observational_diagnostic",
+      "dtype": "boolean",
+      "valid_count": 128
+    },
+    {
+      "id": "real_13_f046",
+      "feature": "f046",
+      "request": "observational_diagnostic",
+      "dtype": "boolean",
+      "valid_count": 254
+    },
+    {
+      "id": "real_14_f052",
+      "feature": "f052",
+      "request": "observational_diagnostic",
+      "dtype": "boolean",
+      "valid_count": 254
+    },
+    {
+      "id": "real_15_f054",
+      "feature": "f054",
+      "request": "observational_diagnostic",
+      "dtype": "boolean",
+      "valid_count": 254
+    },
+    {
+      "id": "real_16_f058",
+      "feature": "f058",
+      "request": "observational_diagnostic",
+      "dtype": "number",
+      "valid_count": 128
+    },
+    {
+      "id": "real_17_f059",
+      "feature": "f059",
+      "request": "observational_diagnostic",
+      "dtype": "number",
+      "valid_count": 127
+    },
+    {
+      "id": "real_18_f036",
+      "feature": "f036",
+      "request": "observational_diagnostic",
+      "dtype": "number",
+      "valid_count": 1
+    },
+    {
+      "id": "real_19_f002",
+      "feature": "f002",
+      "request": "observational_diagnostic",
+      "dtype": "integer",
+      "valid_count": 128
+    },
+    {
+      "id": "real_20_f001",
+      "feature": "f001",
+      "request": "numeric_reference_comparison",
+      "dtype": "integer",
+      "valid_count": 128
+    },
+    {
+      "id": "real_21_f002",
+      "feature": "f002",
+      "request": "numeric_reference_comparison",
+      "dtype": "integer",
+      "valid_count": 128
+    },
+    {
+      "id": "real_22_f003",
+      "feature": "f003",
+      "request": "numeric_reference_comparison",
+      "dtype": "integer",
+      "valid_count": 128
+    },
+    {
+      "id": "real_23_f015",
+      "feature": "f015",
+      "request": "numeric_reference_comparison",
+      "dtype": "number",
+      "valid_count": 128
+    },
+    {
+      "id": "real_24_f017",
+      "feature": "f017",
+      "request": "numeric_reference_comparison",
+      "dtype": "number",
+      "valid_count": 128
+    },
+    {
+      "id": "real_25_f006",
+      "feature": "f006",
+      "request": "numeric_reference_comparison",
+      "dtype": "integer",
+      "valid_count": 128
+    },
+    {
+      "id": "real_26_f058",
+      "feature": "f058",
+      "request": "numeric_reference_comparison",
+      "dtype": "number",
+      "valid_count": 128
+    },
+    {
+      "id": "real_27_f060",
+      "feature": "f060",
+      "request": "observational_diagnostic",
+      "dtype": "number",
+      "valid_count": 0
+    },
+    {
+      "id": "real_28_f032",
+      "feature": "f032",
+      "request": "numeric_reference_comparison",
+      "dtype": "number",
+      "valid_count": 128
+    },
+    {
+      "id": "real_29_f035",
+      "feature": "f035",
+      "request": "numeric_reference_comparison",
+      "dtype": "number",
+      "valid_count": 128
+    },
+    {
+      "id": "real_30_f061",
+      "feature": "f061",
+      "request": "numeric_reference_comparison",
+      "dtype": "number",
+      "valid_count": 128
+    },
+    {
+      "id": "real_31_f062",
+      "feature": "f062",
+      "request": "numeric_reference_comparison",
+      "dtype": "number",
+      "valid_count": 127
+    },
+    {
+      "id": "real_32_f060",
+      "feature": "f060",
+      "request": "numeric_reference_comparison",
+      "dtype": "number",
+      "valid_count": 0
+    }
+  ]
+}

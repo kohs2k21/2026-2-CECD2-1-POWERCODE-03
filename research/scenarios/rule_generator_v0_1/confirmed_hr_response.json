@@ -1,0 +1,17 @@
+{
+  "v": "1",
+  "feature": "f004",
+  "sha": "cda47c8ce8180c5dd225e6ec378159b1fbeb885c887715701c6569019d7c7b04",
+  "role": "HR",
+  "state": "proposed",
+  "basis": "ddl_not_null",
+  "condition": {
+    "op": "eq",
+    "value": true
+  },
+  "evidence": [
+    "ddl_f004"
+  ],
+  "needed": [],
+  "reason": "The supplied confirmed NOT NULL declaration applies to this exact missing-value indicator. True means violation; zero observed violations does not remove the contract."
+}

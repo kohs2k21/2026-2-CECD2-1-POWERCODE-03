@@ -1,0 +1,455 @@
+[
+  {
+    "id": "real_01_f004",
+    "origin": "model_generated",
+    "decision": {
+      "v": "1",
+      "feature": "f004",
+      "sha": "cda47c8ce8180c5dd225e6ec378159b1fbeb885c887715701c6569019d7c7b04",
+      "role": "HR",
+      "state": "proposed",
+      "basis": "ddl_not_null",
+      "condition": {
+        "op": "eq",
+        "value": true
+      },
+      "evidence": [
+        "ddl_f004"
+      ],
+      "needed": [],
+      "reason": "The supplied confirmed NOT NULL declaration applies to this exact missing-value indicator. True means violation; zero observed violations does not remove the contract."
+    },
+    "feature_expression": {
+      "op": "is_missing",
+      "args": [
+        {
+          "op": "column",
+          "table": "EC_PROCESS_MONITORING",
+          "column": "TRANSACTION_ID"
+        }
+      ]
+    },
+    "measurement": {
+      "row_count": 128,
+      "valid_count": 128,
+      "missing_count": 0,
+      "true_count": 0,
+      "false_count": 128,
+      "ratio": 0,
+      "numerator": 0,
+      "denominator": 128,
+      "min": null,
+      "max": null,
+      "p95": null,
+      "p99": null,
+      "variation": "constant",
+      "quantile_method": "linear_(n-1)*p",
+      "exact_decimal": {
+        "ratio": "0",
+        "p95": null,
+        "p99": null
+      },
+      "population_rows_before_selection": 128,
+      "selection_unavailable_count": 0,
+      "source_rows_preserved": true
+    },
+    "constraints": [
+      {
+        "id": "ddl_f004",
+        "kind": "confirmed_schema_NOT_NULL",
+        "target": {
+          "op": "column",
+          "table": "EC_PROCESS_MONITORING",
+          "column": "TRANSACTION_ID"
+        },
+        "schema_evidence_ids": [
+          "schema_column_138911fef2caf99cbf8b"
+        ],
+        "condition_direction": "feature true means source missing under declared CSV token policy; not live database enforcement"
+      }
+    ],
+    "baseline": {
+      "state": "insufficient",
+      "needed": [
+        "numeric_variable"
+      ]
+    },
+    "source_version": {
+      "schema": "b1150a4494d505d45437c4ac594b95024b61e8021f6f9f06aaf6c8b3f7374d12",
+      "source": "39b50ee36ae57e0206978d8581e6fac04b9f3d23f4ac2ac8d958855436b58a53",
+      "calculation": "metadata-calculation-3.0.1"
+    },
+    "reviewed": true
+  },
+  {
+    "id": "real_02_f005",
+    "origin": "model_generated",
+    "decision": {
+      "v": "1",
+      "feature": "f005",
+      "sha": "939b6749f4d30ce92122f9bc17fc50bb7e6c9daa410ff8ba1fcac29203362821",
+      "role": "HR",
+      "state": "proposed",
+      "basis": "ddl_not_null",
+      "condition": {
+        "op": "eq",
+        "value": true
+      },
+      "evidence": [
+        "ddl_f005"
+      ],
+      "needed": [],
+      "reason": "The supplied confirmed NOT NULL declaration applies to this exact missing-value indicator. True means violation; zero observed violations does not remove the contract."
+    },
+    "feature_expression": {
+      "op": "is_missing",
+      "args": [
+        {
+          "op": "column",
+          "table": "EC_MESSAGE_MONITORING",
+          "column": "TRANSACTION_ID"
+        }
+      ]
+    },
+    "measurement": {
+      "row_count": 254,
+      "valid_count": 254,
+      "missing_count": 0,
+      "true_count": 0,
+      "false_count": 254,
+      "ratio": 0,
+      "numerator": 0,
+      "denominator": 254,
+      "min": null,
+      "max": null,
+      "p95": null,
+      "p99": null,
+      "variation": "constant",
+      "quantile_method": "linear_(n-1)*p",
+      "exact_decimal": {
+        "ratio": "0",
+        "p95": null,
+        "p99": null
+      },
+      "population_rows_before_selection": 254,
+      "selection_unavailable_count": 0,
+      "source_rows_preserved": true
+    },
+    "constraints": [
+      {
+        "id": "ddl_f005",
+        "kind": "confirmed_schema_NOT_NULL",
+        "target": {
+          "op": "column",
+          "table": "EC_MESSAGE_MONITORING",
+          "column": "TRANSACTION_ID"
+        },
+        "schema_evidence_ids": [
+          "schema_column_517e64f2057e1a03ed17"
+        ],
+        "condition_direction": "feature true means source missing under declared CSV token policy; not live database enforcement"
+      }
+    ],
+    "baseline": {
+      "state": "insufficient",
+      "needed": [
+        "numeric_variable"
+      ]
+    },
+    "source_version": {
+      "schema": "b1150a4494d505d45437c4ac594b95024b61e8021f6f9f06aaf6c8b3f7374d12",
+      "source": "39b50ee36ae57e0206978d8581e6fac04b9f3d23f4ac2ac8d958855436b58a53",
+      "calculation": "metadata-calculation-3.0.1"
+    },
+    "reviewed": true
+  },
+  {
+    "id": "real_11_f005",
+    "origin": "model_generated",
+    "decision": {
+      "v": "1",
+      "feature": "f005",
+      "sha": "939b6749f4d30ce92122f9bc17fc50bb7e6c9daa410ff8ba1fcac29203362821",
+      "role": "SR",
+      "state": "proposed",
+      "basis": "observed_diagnostic",
+      "condition": {
+        "op": "eq",
+        "value": true
+      },
+      "evidence": [
+        "m_f005"
+      ],
+      "needed": [],
+      "reason": "Usable calculated observations support this diagnostic in the supplied sample. Zero true activations with missing-value arithmetic is an observed result, not absence of data."
+    },
+    "feature_expression": {
+      "op": "is_missing",
+      "args": [
+        {
+          "op": "column",
+          "table": "EC_MESSAGE_MONITORING",
+          "column": "TRANSACTION_ID"
+        }
+      ]
+    },
+    "measurement": {
+      "row_count": 254,
+      "valid_count": 254,
+      "missing_count": 0,
+      "true_count": 0,
+      "false_count": 254,
+      "ratio": 0,
+      "numerator": 0,
+      "denominator": 254,
+      "min": null,
+      "max": null,
+      "p95": null,
+      "p99": null,
+      "variation": "constant",
+      "quantile_method": "linear_(n-1)*p",
+      "exact_decimal": {
+        "ratio": "0",
+        "p95": null,
+        "p99": null
+      },
+      "population_rows_before_selection": 254,
+      "selection_unavailable_count": 0,
+      "source_rows_preserved": true
+    },
+    "constraints": [
+      {
+        "id": "ddl_f005",
+        "kind": "confirmed_schema_NOT_NULL",
+        "target": {
+          "op": "column",
+          "table": "EC_MESSAGE_MONITORING",
+          "column": "TRANSACTION_ID"
+        },
+        "schema_evidence_ids": [
+          "schema_column_517e64f2057e1a03ed17"
+        ],
+        "condition_direction": "feature true means source missing under declared CSV token policy; not live database enforcement"
+      }
+    ],
+    "baseline": {
+      "state": "insufficient",
+      "needed": [
+        "numeric_variable"
+      ]
+    },
+    "source_version": {
+      "schema": "b1150a4494d505d45437c4ac594b95024b61e8021f6f9f06aaf6c8b3f7374d12",
+      "source": "39b50ee36ae57e0206978d8581e6fac04b9f3d23f4ac2ac8d958855436b58a53",
+      "calculation": "metadata-calculation-3.0.1"
+    },
+    "reviewed": true
+  },
+  {
+    "id": "real_17_f059",
+    "origin": "model_generated",
+    "decision": {
+      "v": "1",
+      "feature": "f059",
+      "sha": "f3abacf8a7e9c69f819411e744f8e45fae1b286f12e4918c2b05c91d1a699ce3",
+      "role": "SR",
+      "state": "proposed",
+      "basis": "observed_diagnostic",
+      "condition": {
+        "op": "lt",
+        "value": 0
+      },
+      "evidence": [
+        "m_f059"
+      ],
+      "needed": [],
+      "reason": "Usable calculated observations support this diagnostic in the captured sample. No independence, normality, common-clock, business-duration, or live-enforcement assumption is required."
+    },
+    "feature_expression": {
+      "op": "datetime_diff",
+      "args": [
+        {
+          "op": "column",
+          "table": "EC_PROCESS_MONITORING",
+          "column": "END_TIME"
+        },
+        {
+          "op": "column",
+          "table": "EC_PROCESS_MONITORING",
+          "column": "START_TIME"
+        }
+      ],
+      "unit": "ms"
+    },
+    "measurement": {
+      "row_count": 128,
+      "valid_count": 127,
+      "missing_count": 1,
+      "true_count": null,
+      "false_count": null,
+      "ratio": null,
+      "numerator": null,
+      "denominator": null,
+      "min": 12,
+      "max": 1102,
+      "p95": 113,
+      "p99": 1048.18,
+      "variation": "variable",
+      "quantile_method": "linear_(n-1)*p",
+      "exact_decimal": {
+        "ratio": null,
+        "p95": "113.00",
+        "p99": "1048.18"
+      },
+      "population_rows_before_selection": 128,
+      "selection_unavailable_count": 0,
+      "source_rows_preserved": true,
+      "datetime_limitations": {
+        "calculation": "parsed_timestamp_coordinate_difference",
+        "business_duration_contract": "unknown",
+        "common_producer_clock": "unknown"
+      }
+    },
+    "constraints": [],
+    "baseline": {
+      "state": "verified",
+      "id": "b_f059",
+      "definition_sha256": "f3abacf8a7e9c69f819411e744f8e45fae1b286f12e4918c2b05c91d1a699ce3",
+      "source_version": "39b50ee36ae57e0206978d8581e6fac04b9f3d23f4ac2ac8d958855436b58a53",
+      "unit": "ms",
+      "reference_period": {
+        "start_inclusive": "2026-08-10T00:00:00",
+        "end_exclusive": "2026-09-09T00:00:00",
+        "timezone": "unknown"
+      },
+      "population": {
+        "table": "EC_PROCESS_MONITORING",
+        "filter": null
+      },
+      "group": "all captured output rows, not per-category thresholds",
+      "feature_grouping": [],
+      "sample_condition": "finite nonmissing calculated values; captured snapshot only",
+      "n": 127,
+      "minimum_n": 20,
+      "quantile": 0.95,
+      "method": "linear_(n-1)*p",
+      "value": 113,
+      "value_exact": "113.00",
+      "operator": "gt",
+      "missing": "exclude from reference and propagate unavailable at comparison",
+      "refresh": "manual rebuild with new source/definition version; no stale reuse",
+      "fault_interpretation": false,
+      "sha": "77158384c82eee4c04495e0acb7d67ec53b15c6718282d7d5645d84bc879a19f"
+    },
+    "source_version": {
+      "schema": "b1150a4494d505d45437c4ac594b95024b61e8021f6f9f06aaf6c8b3f7374d12",
+      "source": "39b50ee36ae57e0206978d8581e6fac04b9f3d23f4ac2ac8d958855436b58a53",
+      "calculation": "metadata-calculation-3.0.4"
+    },
+    "reviewed": true
+  },
+  {
+    "id": "real_26_f058",
+    "origin": "model_generated",
+    "decision": {
+      "v": "1",
+      "feature": "f058",
+      "sha": "f6cf64fb0b18f05cc5803384a68ad4f932a0428eba543e06a7eb7f076f1ff295",
+      "role": "SR",
+      "state": "proposed",
+      "basis": "reference_p95",
+      "condition": {
+        "op": "gt",
+        "baseline": "b_f058"
+      },
+      "evidence": [
+        "m_f058",
+        "b_f058"
+      ],
+      "needed": [],
+      "reason": "Use the supplied verified p95 baseline with gt. This arithmetic reference needs neither independence nor normality. The minimum finite-row count is an evaluation policy, not a business contract."
+    },
+    "feature_expression": {
+      "op": "datetime_diff",
+      "args": [
+        {
+          "op": "column",
+          "table": "EC_TRANSACTION_MONITORING",
+          "column": "END_TIME"
+        },
+        {
+          "op": "column",
+          "table": "EC_TRANSACTION_MONITORING",
+          "column": "START_TIME"
+        }
+      ],
+      "unit": "ms"
+    },
+    "measurement": {
+      "row_count": 128,
+      "valid_count": 128,
+      "missing_count": 0,
+      "true_count": null,
+      "false_count": null,
+      "ratio": null,
+      "numerator": null,
+      "denominator": null,
+      "min": 11,
+      "max": 1133,
+      "p95": 141,
+      "p99": 1075.19,
+      "variation": "variable",
+      "quantile_method": "linear_(n-1)*p",
+      "exact_decimal": {
+        "ratio": null,
+        "p95": "141.00",
+        "p99": "1075.19"
+      },
+      "population_rows_before_selection": 128,
+      "selection_unavailable_count": 0,
+      "source_rows_preserved": true,
+      "datetime_limitations": {
+        "calculation": "parsed_timestamp_coordinate_difference",
+        "business_duration_contract": "unknown",
+        "common_producer_clock": "unknown"
+      }
+    },
+    "constraints": [],
+    "baseline": {
+      "state": "verified",
+      "id": "b_f058",
+      "definition_sha256": "f6cf64fb0b18f05cc5803384a68ad4f932a0428eba543e06a7eb7f076f1ff295",
+      "source_version": "39b50ee36ae57e0206978d8581e6fac04b9f3d23f4ac2ac8d958855436b58a53",
+      "unit": "ms",
+      "reference_period": {
+        "start_inclusive": "2026-08-10T00:00:00",
+        "end_exclusive": "2026-09-09T00:00:00",
+        "timezone": "unknown"
+      },
+      "population": {
+        "table": "EC_TRANSACTION_MONITORING",
+        "filter": null
+      },
+      "group": "all captured output rows, not per-category thresholds",
+      "feature_grouping": [],
+      "sample_condition": "finite nonmissing calculated values; captured snapshot only",
+      "n": 128,
+      "minimum_n": 20,
+      "quantile": 0.95,
+      "method": "linear_(n-1)*p",
+      "value": 141,
+      "value_exact": "141.00",
+      "operator": "gt",
+      "missing": "exclude from reference and propagate unavailable at comparison",
+      "refresh": "manual rebuild with new source/definition version; no stale reuse",
+      "fault_interpretation": false,
+      "sha": "1aa3836f7cdd77db28db8c52949b5c7b95af5932fd07073bdb422a34b71ebf2a"
+    },
+    "source_version": {
+      "schema": "b1150a4494d505d45437c4ac594b95024b61e8021f6f9f06aaf6c8b3f7374d12",
+      "source": "39b50ee36ae57e0206978d8581e6fac04b9f3d23f4ac2ac8d958855436b58a53",
+      "calculation": "metadata-calculation-3.0.4"
+    },
+    "reviewed": true
+  }
+]

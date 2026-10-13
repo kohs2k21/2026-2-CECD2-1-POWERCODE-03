@@ -1,0 +1,17 @@
+{
+  "scope": "publication_cpu_and_artifact_checks_only",
+  "cpu_unittest_passed": 17,
+  "cpu_unittest_failed": 0,
+  "GPU_generation_during_publication": false,
+  "new_training_steps": 0,
+  "raw_data_files_included": 0,
+  "original_model_raw_outputs_unchanged": true,
+  "validators_byte_identical_to_original": true,
+  "adapter_weights_byte_identical_to_original": true,
+  "HTML_embedded_features": 64,
+  "HTML_embedded_results": 32,
+  "HTML_embedded_responses": 36,
+  "browser_screenshot_test_performed": false,
+  "original_tracked_workspace_changes_preserved": true,
+  "note": "CPU and artifact verification report; remote commit/push/PR status is reported separately."
+}

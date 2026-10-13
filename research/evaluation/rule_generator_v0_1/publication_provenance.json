@@ -1,0 +1,16 @@
+{
+  "source_run": "20261013T104415+0900",
+  "recorded_generation_count": 36,
+  "model_raw_outputs_rewritten": false,
+  "numeric_measurements_rewritten": false,
+  "metadata_redaction": "Source artifact path keys removed; local workspace strings replaced; customer raw rows never copied",
+  "redacted_inputs_are_not_byte_identical_to_original_prompts": true,
+  "new_GPU_generation_performed_during_publication": false,
+  "original_validator_sha256": {
+    "v1_validator.py": "41cf7b93b949ec8d78a90529443436d1aa56764b82752e8a07848551773077dc",
+    "teacher_semantics.py": "bf078532990f07fa29b478aba3dc4453ea5078407ba94ce9fe1862549be09812"
+  },
+  "original_input_file_sha256": "5d8c543418f55c3bd961c46d6e388d277f0a57c2b677ec5f6514507b4b4ee116",
+  "published_input_file_sha256": "dca95a90d66e9eb19d585742b701eb9daec7354a8163cd01f1ef023154ac44de",
+  "original_adapter_weight_sha256": "700e6fd4f7fc8baae6b9d643c7abe78f8cd14c26a1c0d844df0eccda76eed9ee"
+}

@@ -9,6 +9,7 @@ from __future__ import annotations
 from collections import defaultdict
 from copy import deepcopy
 from dataclasses import asdict, dataclass, field
+from functools import lru_cache
 import math
 from pathlib import Path
 import sys
@@ -29,9 +30,19 @@ def iso(seconds: float) -> str:
     return pd.Timestamp(seconds, unit="s", tz="UTC").isoformat()
 
 
+@lru_cache(maxsize=32768)
+def _string_seconds(value: str) -> float:
+    stamp = pd.Timestamp(value)
+    if stamp.tzinfo is None:
+        raise ValueError("Replay timestamps require an explicit timezone")
+    return stamp.timestamp()
+
+
 def seconds(value: Any) -> float:
     if isinstance(value, (int, float)) and not isinstance(value, bool):
         result = float(value)
+    elif isinstance(value, str):
+        result = _string_seconds(value)
     else:
         stamp = pd.Timestamp(value)
         if stamp.tzinfo is None:
@@ -213,7 +224,8 @@ class ReplayState:
                       retryCount=event.retry, source_period=event.source,
                       observed_at=event.observed_at, event_at=event.event_at,
                       revision=event.revision, scope=event.scope)
-        values.setdefault("startTime", iso(event.event_at))
+        if "startTime" not in values:
+            values["startTime"] = iso(event.event_at)
         return values
 
     def process_frame(self):
@@ -229,8 +241,9 @@ class ReplayState:
     def pending(self):
         result = []
         for event in self.latest.values():
-            record = self._record(event)
-            if (record.get("endTime") is None or pd.isna(record.get("endTime"))) and self.clock - event.event_at >= self.sla_seconds:
+            end = event.fields.get("endTime")
+            unfinished = end is None or pd.isna(end) or seconds(end) > self.clock
+            if unfinished and self.clock - event.event_at >= self.sla_seconds:
                 result.append(event.revision_key)
         return result
 

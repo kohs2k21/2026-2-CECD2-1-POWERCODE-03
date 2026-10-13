@@ -115,5 +115,3 @@ class RunnerTests(unittest.TestCase):
         for model in result['models'].values():
             self.assertEqual(model['evaluation']['totalRows'], 300)
             self.assertTrue(model['roundtrip']['decisionsEqual'])
-
-

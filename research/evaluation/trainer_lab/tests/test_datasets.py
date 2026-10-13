@@ -128,5 +128,3 @@ class DatasetTests(unittest.TestCase):
         self.assertEqual(set(frame.source_template_id), {'template'})
         self.assertEqual(set(frame.source_period), {'s'})
         self.assertEqual(datasets.split_and_audit(frame)[1]['lineage']['status'], 'failed')
-
-

@@ -109,5 +109,3 @@ class ArtifactTests(unittest.TestCase):
         pd.testing.assert_series_equal(before_medians, detector.encoder.medians)
         np.testing.assert_array_equal(before_center, detector.encoder.scaler.center_)
         pd.testing.assert_series_equal(raw_features(self.train).median().fillna(0), detector.encoder.medians)
-
-

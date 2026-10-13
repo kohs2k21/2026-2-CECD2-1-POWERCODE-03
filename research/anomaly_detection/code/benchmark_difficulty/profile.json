@@ -1,0 +1,9 @@
+{
+  "version": "esb-process-synthetic-mild-v1",
+  "excess_multiplier": 1.2,
+  "stop_duration_multiplier": 1.2,
+  "mixed_hard": "unchanged",
+  "normal_controls": "byte-identical copies",
+  "selection": "all original cases, independent of model scores",
+  "interpretation": "benchmark sensitivity, not improved model performance"
+}

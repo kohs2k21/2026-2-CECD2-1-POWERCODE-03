@@ -1,0 +1,30 @@
+{
+  "methods": [
+    "if_global",
+    "if_adapter",
+    "if_ensemble",
+    "kmeans_global",
+    "kmeans_adapter",
+    "kmeans_ensemble"
+  ],
+  "margin_cutoffs": [
+    0.07202899985455369,
+    0.1816961322187723,
+    0.12340851819193911,
+    -0.1520407331948221,
+    17.289955059468962,
+    13.14044806240759
+  ],
+  "normal_reference": "Fresh confirmation paired normal controls ONLY; pooled over six scenarios",
+  "target_normal_fpr": 0.01,
+  "normal_windows": 11948,
+  "purpose": "Post-hoc equal-budget role comparison, NOT model selection or deployment threshold",
+  "confirmation_realized_fpr": [
+    0.010043521928356211,
+    0.010043521928356211,
+    0.010043521928356211,
+    0.010043521928356211,
+    0.010043521928356211,
+    0.010043521928356211
+  ]
+}

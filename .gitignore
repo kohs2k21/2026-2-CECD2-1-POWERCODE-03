@@ -133,10 +133,12 @@ GEMINI.md
 # Local automation checkpoint (team board only)
 /automation/.runtime/
 
-# Issue #38: explicitly reviewed trained-model snapshots, not dataset caches.
+# Issue #38: final v12 models and explicitly requested reference-data caches.
+# Period source datasets and benchmark CSV/labels remain excluded.
 !/research/anomaly_detection/code/process_anomaly_pipeline/artifacts/
 /research/anomaly_detection/code/process_anomaly_pipeline/artifacts/*
-!/research/anomaly_detection/code/process_anomaly_pipeline/artifacts/process_if_v1.joblib
 !/research/anomaly_detection/code/process_anomaly_pipeline/artifacts/process_if_v1.manifest.json
-!/research/anomaly_detection/reports/model_evaluation_v2/comparison_models.joblib
-!/research/anomaly_detection/reports/model_evaluation_v2_baseline_1m/comparison_models.joblib
+!/research/anomaly_detection/reports/model_research_v12/handoff/if_v12_candidate.joblib
+!/research/anomaly_detection/reports/model_research_v12/handoff/kmeans_v12_candidate.joblib
+!/research/anomaly_detection/reports/window_search_v2/training_inputs.joblib
+!/research/anomaly_detection/reports/window_search_v2/validation_inputs.joblib

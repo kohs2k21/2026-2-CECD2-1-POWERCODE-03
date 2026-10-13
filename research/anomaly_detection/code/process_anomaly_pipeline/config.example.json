@@ -17,15 +17,8 @@
   "min_adapter_calibration": 100,
   "min_adapter_threshold": 100,
   "min_adapter_days": 3,
-  "quantiles": [
-    0.99,
-    0.999
-  ],
-  "quantile_columns": [
-    "duration_ms",
-    "totalCount",
-    "retryCount"
-  ],
+  "quantiles": [0.99, 0.999],
+  "quantile_columns": ["duration_ms", "totalCount", "retryCount"],
   "min_p99_support": 1000,
   "min_p999_support": 10000,
   "time_tolerance_ms": 0.0,

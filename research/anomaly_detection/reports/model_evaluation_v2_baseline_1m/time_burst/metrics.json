@@ -1,0 +1,288 @@
+{
+  "dataset": "time_burst",
+  "cases": 5000,
+  "normal_cases": 5000,
+  "row": {
+    "status": "not_applicable",
+    "reason": "Collective/time anomaly: no positive point labels; not a row-classification task"
+  },
+  "window": {
+    "metrics": [
+      {
+        "method": "if_global",
+        "n": 398856,
+        "normal": 357193,
+        "anomaly": 41663,
+        "tn": 355150,
+        "fp": 2043,
+        "fn": 36130,
+        "tp": 5533,
+        "accuracy": 0.9042937802114046,
+        "precision": 0.7303326293558606,
+        "recall": 0.13280368672443174,
+        "f1": 0.22474055118909808,
+        "normal_false_positive_rate": 0.0057195969685856106,
+        "always_normal_accuracy": 0.8955437551396995
+      },
+      {
+        "method": "if_adapter",
+        "n": 398856,
+        "normal": 357193,
+        "anomaly": 41663,
+        "tn": 354123,
+        "fp": 3070,
+        "fn": 34305,
+        "tp": 7358,
+        "accuracy": 0.9062945022765109,
+        "precision": 0.7056003068661296,
+        "recall": 0.1766075414636488,
+        "f1": 0.28250561517344647,
+        "normal_false_positive_rate": 0.00859479329102194,
+        "always_normal_accuracy": 0.8955437551396995
+      },
+      {
+        "method": "if_ensemble",
+        "n": 398856,
+        "normal": 357193,
+        "anomaly": 41663,
+        "tn": 355073,
+        "fp": 2120,
+        "fn": 35080,
+        "tp": 6583,
+        "accuracy": 0.9067332571153499,
+        "precision": 0.7564058370676778,
+        "recall": 0.15800590451959773,
+        "f1": 0.2614065043878807,
+        "normal_false_positive_rate": 0.005935166702594956,
+        "always_normal_accuracy": 0.8955437551396995
+      },
+      {
+        "method": "kmeans_global",
+        "n": 398856,
+        "normal": 357193,
+        "anomaly": 41663,
+        "tn": 356135,
+        "fp": 1058,
+        "fn": 41507,
+        "tp": 156,
+        "accuracy": 0.8932822873417975,
+        "precision": 0.128500823723229,
+        "recall": 0.0037443295009960877,
+        "f1": 0.007276628495463768,
+        "normal_false_positive_rate": 0.0029619841374271053,
+        "always_normal_accuracy": 0.8955437551396995
+      },
+      {
+        "method": "kmeans_adapter",
+        "n": 398856,
+        "normal": 357193,
+        "anomaly": 41663,
+        "tn": 354299,
+        "fp": 2894,
+        "fn": 40705,
+        "tp": 958,
+        "accuracy": 0.8906898730368855,
+        "precision": 0.2487019730010384,
+        "recall": 0.022994023474065716,
+        "f1": 0.04209601230363617,
+        "normal_false_positive_rate": 0.008102062470429152,
+        "always_normal_accuracy": 0.8955437551396995
+      },
+      {
+        "method": "kmeans_ensemble",
+        "n": 398856,
+        "normal": 357193,
+        "anomaly": 41663,
+        "tn": 354368,
+        "fp": 2825,
+        "fn": 40965,
+        "tp": 698,
+        "accuracy": 0.890211003469924,
+        "precision": 0.19812659665058188,
+        "recall": 0.016753474305738904,
+        "f1": 0.03089452485283052,
+        "normal_false_positive_rate": 0.007908889591901298,
+        "always_normal_accuracy": 0.8955437551396995
+      }
+    ],
+    "supported_only_metrics": [
+      {
+        "method": "if_global",
+        "n": 95048,
+        "normal": 84338,
+        "anomaly": 10710,
+        "tn": 83899,
+        "fp": 439,
+        "fn": 9781,
+        "tp": 929,
+        "accuracy": 0.892475380860197,
+        "precision": 0.679093567251462,
+        "recall": 0.08674136321195144,
+        "f1": 0.1538334161284981,
+        "normal_false_positive_rate": 0.005205245559534255,
+        "always_normal_accuracy": 0.8873200909014393
+      },
+      {
+        "method": "if_adapter",
+        "n": 95048,
+        "normal": 84338,
+        "anomaly": 10710,
+        "tn": 82872,
+        "fp": 1466,
+        "fn": 7956,
+        "tp": 2754,
+        "accuracy": 0.9008711387930309,
+        "precision": 0.6526066350710901,
+        "recall": 0.2571428571428571,
+        "f1": 0.36892163429336905,
+        "normal_false_positive_rate": 0.017382437335483412,
+        "always_normal_accuracy": 0.8873200909014393
+      },
+      {
+        "method": "if_ensemble",
+        "n": 95048,
+        "normal": 84338,
+        "anomaly": 10710,
+        "tn": 83822,
+        "fp": 516,
+        "fn": 8731,
+        "tp": 1979,
+        "accuracy": 0.9027123137783015,
+        "precision": 0.793186372745491,
+        "recall": 0.18478057889822597,
+        "f1": 0.29973494888299884,
+        "normal_false_positive_rate": 0.006118238516445731,
+        "always_normal_accuracy": 0.8873200909014393
+      },
+      {
+        "method": "kmeans_global",
+        "n": 95048,
+        "normal": 84338,
+        "anomaly": 10710,
+        "tn": 83797,
+        "fp": 541,
+        "fn": 10601,
+        "tp": 109,
+        "accuracy": 0.8827750189377999,
+        "precision": 0.1676923076923077,
+        "recall": 0.010177404295051354,
+        "f1": 0.01919014084507042,
+        "normal_false_positive_rate": 0.006414664801157248,
+        "always_normal_accuracy": 0.8873200909014393
+      },
+      {
+        "method": "kmeans_adapter",
+        "n": 95048,
+        "normal": 84338,
+        "anomaly": 10710,
+        "tn": 81961,
+        "fp": 2377,
+        "fn": 9799,
+        "tp": 911,
+        "accuracy": 0.8718963050248295,
+        "precision": 0.27706812652068125,
+        "recall": 0.08506069094304389,
+        "f1": 0.130161451635948,
+        "normal_false_positive_rate": 0.028184211150371126,
+        "always_normal_accuracy": 0.8873200909014393
+      },
+      {
+        "method": "kmeans_ensemble",
+        "n": 95048,
+        "normal": 84338,
+        "anomaly": 10710,
+        "tn": 82030,
+        "fp": 2308,
+        "fn": 10059,
+        "tp": 651,
+        "accuracy": 0.8698867940409056,
+        "precision": 0.2200067590402163,
+        "recall": 0.060784313725490195,
+        "f1": 0.0952520301411954,
+        "normal_false_positive_rate": 0.027366074604567338,
+        "always_normal_accuracy": 0.8873200909014393
+      }
+    ],
+    "assessed": 398856,
+    "fallback": 303808,
+    "fallback_rate": 0.7616984575887037,
+    "status": "assessed",
+    "events": {
+      "per_type": [
+        {
+          "scenario": "time_burst",
+          "method": "if_global",
+          "events": 5000,
+          "detected": 1585,
+          "event_recall": 0.317,
+          "median_delay_seconds": 120.0
+        },
+        {
+          "scenario": "time_burst",
+          "method": "if_adapter",
+          "events": 5000,
+          "detected": 2118,
+          "event_recall": 0.4236,
+          "median_delay_seconds": 120.0
+        },
+        {
+          "scenario": "time_burst",
+          "method": "if_ensemble",
+          "events": 5000,
+          "detected": 1911,
+          "event_recall": 0.3822,
+          "median_delay_seconds": 120.0
+        },
+        {
+          "scenario": "time_burst",
+          "method": "kmeans_global",
+          "events": 5000,
+          "detected": 24,
+          "event_recall": 0.0048,
+          "median_delay_seconds": 60.0
+        },
+        {
+          "scenario": "time_burst",
+          "method": "kmeans_adapter",
+          "events": 5000,
+          "detected": 238,
+          "event_recall": 0.0476,
+          "median_delay_seconds": 120.0
+        },
+        {
+          "scenario": "time_burst",
+          "method": "kmeans_ensemble",
+          "events": 5000,
+          "detected": 163,
+          "event_recall": 0.0326,
+          "median_delay_seconds": 120.0
+        }
+      ],
+      "normal_case_false_alarm_rate": {
+        "if_global": 0.095,
+        "if_adapter": 0.1498,
+        "if_ensemble": 0.1108,
+        "kmeans_global": 0.0048,
+        "kmeans_adapter": 0.0174,
+        "kmeans_ensemble": 0.0156
+      },
+      "all_six_recall": {
+        "if_global": null,
+        "if_adapter": null,
+        "if_ensemble": null,
+        "kmeans_global": null,
+        "kmeans_adapter": null,
+        "kmeans_ensemble": null
+      }
+    },
+    "files": [
+      "window_observed.npz",
+      "window_normal.npz"
+    ]
+  },
+  "elapsed_seconds": 36.03100000019185,
+  "output_hashes": {
+    "window_observed.npz": "bc2a8e617f92692bc5e0835a9d1439fb8c1c8f4c5239b0cadaea7a041ff510bb",
+    "window_normal.npz": "238c612ad4c237a021405cf84f77bc9b9c27ae1f987dea21240bf56807982fca"
+  }
+}

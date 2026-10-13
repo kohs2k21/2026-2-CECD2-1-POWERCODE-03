@@ -1,0 +1,10 @@
+pandas>=2.0
+numpy>=1.24
+matplotlib>=3.7
+seaborn>=0.12
+scikit-learn>=1.2
+
+# Optional: notebook validation runner
+nbformat>=5.7
+nbclient>=0.8
+ipykernel>=6.0

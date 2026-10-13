@@ -1,0 +1,21 @@
+{
+  "publication_checks_passed": true,
+  "unit_tests_passed": 111,
+  "test_suites": {"analysis": 47, "process_pipeline": 54, "model_evaluation": 10},
+  "external_data_test_classes_skipped": 1,
+  "skip_reason": "Benchmark generation tests require the excluded original workflow archive inputs.json",
+  "trusted_models_loaded_and_smoke_checked": 3,
+  "model_bytes_identical_to_original_workspace": true,
+  "notebooks_schema_validated": 7,
+  "result_notebook_executed_without_dataset": true,
+  "result_notebook_cells": 36,
+  "result_notebook_executed_code_cells": 18,
+  "result_notebook_error_outputs": 0,
+  "dataset_and_private_cache_files_staged": 0,
+  "publication_scope": "research/anomaly_detection, research index link, exact model .gitignore exceptions",
+  "server_or_automation_changes": false,
+  "full_external_data_evaluation_rerun_in_publication_copy": false,
+  "github_ci_status": "not_asserted_here; inspect pull-request checks",
+  "integration_target": "dev",
+  "main_integration_requested": false
+}

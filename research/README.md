@@ -2,6 +2,8 @@
 
 `research/` contains exploratory notebooks, scenarios, model experiments, and evaluation notes. It is not a runtime dependency of `server/`.
 
+- [이상 탐지 연구 (#38)](anomaly_detection/README.md): 분석 노트북·규칙/IF·K-means·시간창 선택·평가 결과 및 학습 모델 포함, 데이터셋 제외
+
 ## 파생 변수·Rule 생성 모델 v0.1 (#40)
 
 - [모델 코드·실제 SFT v2 LoRA 어댑터·모델 카드](models/rule_generator_v0_1/README.md)

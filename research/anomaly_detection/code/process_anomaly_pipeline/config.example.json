@@ -1,0 +1,33 @@
+{
+  "version": "process-if-v1",
+  "n_estimators": 128,
+  "max_samples": 512,
+  "max_features": 1.0,
+  "bootstrap": false,
+  "n_jobs": 2,
+  "random_state": 42,
+  "max_train_rows": 100000,
+  "max_calibration_rows": 100000,
+  "score_batch_rows": 50000,
+  "train_fraction": 0.6,
+  "validation_fraction": 0.2,
+  "score_quantile": 0.99,
+  "global_weight": 0.5,
+  "min_adapter_train": 500,
+  "min_adapter_calibration": 100,
+  "min_adapter_threshold": 100,
+  "min_adapter_days": 3,
+  "quantiles": [
+    0.99,
+    0.999
+  ],
+  "quantile_columns": [
+    "duration_ms",
+    "totalCount",
+    "retryCount"
+  ],
+  "min_p99_support": 1000,
+  "min_p999_support": 10000,
+  "time_tolerance_ms": 0.0,
+  "exclude_statistical_from_training": true
+}

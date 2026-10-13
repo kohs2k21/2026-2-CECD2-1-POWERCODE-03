@@ -1,0 +1,288 @@
+{
+  "dataset": "gradual_degradation",
+  "cases": 5000,
+  "normal_cases": 5000,
+  "row": {
+    "status": "not_applicable",
+    "reason": "Collective/time anomaly: no positive point labels; not a row-classification task"
+  },
+  "window": {
+    "metrics": [
+      {
+        "method": "if_global",
+        "n": 602814,
+        "normal": 452824,
+        "anomaly": 149990,
+        "tn": 449727,
+        "fp": 3097,
+        "fn": 149426,
+        "tp": 564,
+        "accuracy": 0.7469816560332043,
+        "precision": 0.15405626877902212,
+        "recall": 0.003760250683378892,
+        "f1": 0.007341312454848976,
+        "normal_false_positive_rate": 0.006839301803791318,
+        "always_normal_accuracy": 0.7511836155099251
+      },
+      {
+        "method": "if_adapter",
+        "n": 602814,
+        "normal": 452824,
+        "anomaly": 149990,
+        "tn": 450218,
+        "fp": 2606,
+        "fn": 149256,
+        "tp": 734,
+        "accuracy": 0.7480781800024552,
+        "precision": 0.21976047904191617,
+        "recall": 0.004893659577305154,
+        "f1": 0.009574121176547316,
+        "normal_false_positive_rate": 0.00575499531826935,
+        "always_normal_accuracy": 0.7511836155099251
+      },
+      {
+        "method": "if_ensemble",
+        "n": 602814,
+        "normal": 452824,
+        "anomaly": 149990,
+        "tn": 450392,
+        "fp": 2432,
+        "fn": 149372,
+        "tp": 618,
+        "accuracy": 0.748174395418819,
+        "precision": 0.20262295081967213,
+        "recall": 0.004120274684978999,
+        "f1": 0.008076319916361735,
+        "normal_false_positive_rate": 0.005370740066780913,
+        "always_normal_accuracy": 0.7511836155099251
+      },
+      {
+        "method": "kmeans_global",
+        "n": 602814,
+        "normal": 452824,
+        "anomaly": 149990,
+        "tn": 446115,
+        "fp": 6709,
+        "fn": 146680,
+        "tp": 3310,
+        "accuracy": 0.7455450603337016,
+        "precision": 0.33037229264397644,
+        "recall": 0.02206813787585839,
+        "f1": 0.04137267278715572,
+        "normal_false_positive_rate": 0.014815910817447838,
+        "always_normal_accuracy": 0.7511836155099251
+      },
+      {
+        "method": "kmeans_adapter",
+        "n": 602814,
+        "normal": 452824,
+        "anomaly": 149990,
+        "tn": 432544,
+        "fp": 20280,
+        "fn": 137697,
+        "tp": 12293,
+        "accuracy": 0.7379340891220177,
+        "precision": 0.37739845884628376,
+        "recall": 0.08195879725315021,
+        "f1": 0.13467131894195428,
+        "normal_false_positive_rate": 0.04478561207003162,
+        "always_normal_accuracy": 0.7511836155099251
+      },
+      {
+        "method": "kmeans_ensemble",
+        "n": 602814,
+        "normal": 452824,
+        "anomaly": 149990,
+        "tn": 432671,
+        "fp": 20153,
+        "fn": 137845,
+        "tp": 12145,
+        "accuracy": 0.7378992525057481,
+        "precision": 0.3760294755093195,
+        "recall": 0.08097206480432029,
+        "f1": 0.133250680242254,
+        "normal_false_positive_rate": 0.04450514990371535,
+        "always_normal_accuracy": 0.7511836155099251
+      }
+    ],
+    "supported_only_metrics": [
+      {
+        "method": "if_global",
+        "n": 376702,
+        "normal": 282942,
+        "anomaly": 93760,
+        "tn": 280524,
+        "fp": 2418,
+        "fn": 93367,
+        "tp": 393,
+        "accuracy": 0.7457273919437646,
+        "precision": 0.13980789754535752,
+        "recall": 0.004191552901023891,
+        "f1": 0.008139089374656988,
+        "normal_false_positive_rate": 0.008545921072163199,
+        "always_normal_accuracy": 0.7511029938784504
+      },
+      {
+        "method": "if_adapter",
+        "n": 376702,
+        "normal": 282942,
+        "anomaly": 93760,
+        "tn": 281015,
+        "fp": 1927,
+        "fn": 93197,
+        "tp": 563,
+        "accuracy": 0.7474820945999756,
+        "precision": 0.22610441767068273,
+        "recall": 0.006004692832764505,
+        "f1": 0.011698701298701299,
+        "normal_false_positive_rate": 0.006810583087699953,
+        "always_normal_accuracy": 0.7511029938784504
+      },
+      {
+        "method": "if_ensemble",
+        "n": 376702,
+        "normal": 282942,
+        "anomaly": 93760,
+        "tn": 281189,
+        "fp": 1753,
+        "fn": 93313,
+        "tp": 447,
+        "accuracy": 0.747636062457858,
+        "precision": 0.20318181818181819,
+        "recall": 0.004767491467576792,
+        "f1": 0.009316381825760734,
+        "normal_false_positive_rate": 0.006195616062655951,
+        "always_normal_accuracy": 0.7511029938784504
+      },
+      {
+        "method": "kmeans_global",
+        "n": 376702,
+        "normal": 282942,
+        "anomaly": 93760,
+        "tn": 276233,
+        "fp": 6709,
+        "fn": 90450,
+        "tp": 3310,
+        "accuracy": 0.7420799464828963,
+        "precision": 0.33037229264397644,
+        "recall": 0.03530290102389078,
+        "f1": 0.06378939862592625,
+        "normal_false_positive_rate": 0.02371157339666787,
+        "always_normal_accuracy": 0.7511029938784504
+      },
+      {
+        "method": "kmeans_adapter",
+        "n": 376702,
+        "normal": 282942,
+        "anomaly": 93760,
+        "tn": 262662,
+        "fp": 20280,
+        "fn": 81467,
+        "tp": 12293,
+        "accuracy": 0.7299005580007539,
+        "precision": 0.37739845884628376,
+        "recall": 0.1311113481228669,
+        "f1": 0.19461265069300973,
+        "normal_false_positive_rate": 0.07167546705685264,
+        "always_normal_accuracy": 0.7511029938784504
+      },
+      {
+        "method": "kmeans_ensemble",
+        "n": 376702,
+        "normal": 282942,
+        "anomaly": 93760,
+        "tn": 262789,
+        "fp": 20153,
+        "fn": 81615,
+        "tp": 12145,
+        "accuracy": 0.7298448110177276,
+        "precision": 0.3760294755093195,
+        "recall": 0.12953284982935154,
+        "f1": 0.19268907963001158,
+        "normal_false_positive_rate": 0.07122661181443547,
+        "always_normal_accuracy": 0.7511029938784504
+      }
+    ],
+    "assessed": 602814,
+    "fallback": 226112,
+    "fallback_rate": 0.3750941418082526,
+    "status": "assessed",
+    "events": {
+      "per_type": [
+        {
+          "scenario": "gradual_degradation",
+          "method": "if_global",
+          "events": 5000,
+          "detected": 350,
+          "event_recall": 0.07,
+          "median_delay_seconds": 720.0
+        },
+        {
+          "scenario": "gradual_degradation",
+          "method": "if_adapter",
+          "events": 5000,
+          "detected": 420,
+          "event_recall": 0.084,
+          "median_delay_seconds": 720.0
+        },
+        {
+          "scenario": "gradual_degradation",
+          "method": "if_ensemble",
+          "events": 5000,
+          "detected": 364,
+          "event_recall": 0.0728,
+          "median_delay_seconds": 720.0
+        },
+        {
+          "scenario": "gradual_degradation",
+          "method": "kmeans_global",
+          "events": 5000,
+          "detected": 495,
+          "event_recall": 0.099,
+          "median_delay_seconds": 780.0
+        },
+        {
+          "scenario": "gradual_degradation",
+          "method": "kmeans_adapter",
+          "events": 5000,
+          "detected": 606,
+          "event_recall": 0.1212,
+          "median_delay_seconds": 420.0
+        },
+        {
+          "scenario": "gradual_degradation",
+          "method": "kmeans_ensemble",
+          "events": 5000,
+          "detected": 583,
+          "event_recall": 0.1166,
+          "median_delay_seconds": 420.0
+        }
+      ],
+      "normal_case_false_alarm_rate": {
+        "if_global": 0.1786,
+        "if_adapter": 0.1752,
+        "if_ensemble": 0.1642,
+        "kmeans_global": 0.0276,
+        "kmeans_adapter": 0.066,
+        "kmeans_ensemble": 0.0578
+      },
+      "all_six_recall": {
+        "if_global": null,
+        "if_adapter": null,
+        "if_ensemble": null,
+        "kmeans_global": null,
+        "kmeans_adapter": null,
+        "kmeans_ensemble": null
+      }
+    },
+    "files": [
+      "window_observed.npz",
+      "window_normal.npz"
+    ]
+  },
+  "elapsed_seconds": 99.35900000017136,
+  "output_hashes": {
+    "window_observed.npz": "2ebf3d3119c5c2385abf2c2e479d2c5f39deb7da6f7c6c6fe406763a0658a73b",
+    "window_normal.npz": "d98da1b7cb2a934f390865a587a06259bde761a256be7ca5442d7cf4596ab80e"
+  }
+}

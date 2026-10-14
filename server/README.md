@@ -40,4 +40,4 @@ Authentication and the anomaly risk/SSE boundary are implemented under `server/b
 
 The analysis inbox and detail view use authenticated SSE events only (up to 50 events per mounted session); historical queries, workflow status persistence, hierarchy details, and LLM results are not implemented. Home and model/system administration retain mock data. Settings display the authenticated profile and disable unsupported operations. UI source badges have been removed; current implementation boundaries are described above. API errors and empty responses are never replaced with mock success.
 
-`server/worker/` and `server/infra/` remain extension boundaries. Research notebooks and evaluation artifacts stay under `research/` and are not runtime dependencies.
+`server/worker/`에는 CSV Collector, 변수·학습·탐지 워커와 모니터의 DB 경로가 구현되어 있다. 최신 ERD와 `005_research_runtime.sql`까지 필요하다. P 수치 변수 추천과 Process 행 Isolation Forest 학습·실시간 점수 계산은 `server/worker/model_adapters.py`에 연결되어 있다. 피처 v5·Rule v2 생성 서비스와 최신 v12 1분 시간창 탐지를 연결했다. 정확한 마이그레이션·서버 설정은 `server/worker/DEPLOYMENT.md`를 따른다. 관리자 화면의 학습·탐지 운영 탭은 실데이터 작업·평가·판정 조회를 사용하고 기존 모델 시뮬레이션 탭은 예시 화면으로 남아 있다. Research 노트북은 런타임 의존성이 아니다.

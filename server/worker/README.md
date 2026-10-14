@@ -1,21 +1,19 @@
-# Worker boundary
+# Python 워커 운영 경계
 
-Worker 단계는 수집, 탐지, 학습, 평가로 분리한다. Collector는 허용된 T·P·M 관측값을 PostgreSQL에 먼저 기록하고, 실행 식별과 revision이 검증된 P 관측값만 같은 트랜잭션에서 탐지 큐에 등록한다. 큐 메시지에는 원천 로그 대신 관측 ID를 넣는다. 커밋 후 Detector가 그 ID로 DB 행을 조회한다. Express가 등록하는 학습 작업은 별도 학습 큐를 사용한다. 큐 계약은 `server/contracts/queues.md`를 참고한다.
+현재 경로는 `Collector → 원천 관측 저장 + 변수 큐 → Feature worker → 탐지 큐 → Detector → 판정 저장`이다. 변수 생성·Rule 추천·학습·평가는 별도 학습 큐와 Trainer가 담당한다. 큐에는 원문 대신 관측/작업 ID와 버전만 넣는다. PostgreSQL 큐는 at-least-once로 동작하므로 처리와 ack를 같은 DB 트랜잭션으로 묶는다.
 
-## PostgreSQL queue prototype
+실제 모델 연결 지점은 [`model_adapters.py`](model_adapters.py)이다. 피처 v5·Rule v2는 GPU 생성 서비스로 호출하며 Process 행 계산 AST·측정·조건 근거를 검증한다. 해당 고정 변수셋으로 Process IF를 새로 학습한다. 최신 v12 IF/K-means는 `window_worker.py`에서 연속 1분 이력으로 별도 실행한다. 설정·번들·GPU 배치·DB 적용 순서는 [DEPLOYMENT.md](DEPLOYMENT.md)를 따른다. 생성 서비스가 없으면 모델 추천 성공을 만들지 않는다.
 
-`pg_queue.py` implements enqueue, leased claim (`FOR UPDATE SKIP LOCKED`), acknowledge and bounded retry/dead-letter transitions over separate PostgreSQL tables. Each call participates in the caller's transaction. Consumers must commit the claim before processing, commit their domain result and acknowledgement together, and use an appropriate lease duration or renewal strategy for long work. Trainer execution and model inference are not wired yet.
+`DATABASE_URL`과 `ARTIFACT_ROOT`는 프로세스 환경 또는 Git에서 제외한 `server/worker/.env`에서 읽는다. 환경 변수가 우선한다. 최신 ERD와 005 연구 연결까지 필요하며 정확한 migration 순서는 DEPLOYMENT.md를 따른다. `server/worker`에서 의존성 설치 후 다음 실행 진입점을 각각 별도 프로세스로 실행한다.
 
-Queue acknowledgement and retry now reject expired leases even before another consumer reclaims the row. `renew_lease` extends only a still-valid lease with the matching token. `claim` moves leases that reached `max_attempts` to `dead` after expiration. Long training must also renew the ERD's job-attempt lease; see `trainer/lease.py`.
+```text
+python -m collector.replay_csv ... --apply
+python -m feature_worker
+python -m trainer.runner
+python -m detector.runner
+python -m monitor
+```
 
-For an isolated development database, install `requirements.txt`, apply `server/infra/migrations/001_postgres_queues.sql`, then set `DATABASE_URL` locally without printing it. Run `python benchmark_queue.py --queue detection --count 1000 --consumers 4` and repeat for `training`. This benchmark sends synthetic references directly, measures PostgreSQL queue transport only, and leaves completed rows for inspection. Do not run it against a database carrying operational messages. Compare Redis Streams and Kafka later using the same payload counts, consumer counts, hardware, producer rate, and latency/throughput measurements; include database write and model processing in a separate end-to-end benchmark.
+승인 구성이 없으면 변수 큐 메시지는 대기한다. 실제 ESB API 계약, 운영 데이터에서의 탐지 품질과 전체 판정 지연은 별도 검증 대상이다. scikit-learn Isolation Forest는 CPU 구현이다.
 
-The benchmark and CSV replay read `DATABASE_URL` from the process environment or a local `server/worker/.env` file. The process environment takes precedence. Do not commit the `.env` file. The actual ESB API Collector, Trainer, and Detector runtime entry points are not implemented yet; their eventual connection settings should use this same convention.
-
-The benchmark scopes both expired-message cleanup and claims to its own `benchmarkRunId`; it cannot lease a message from another run or operational traffic. Still use an isolated database for representative measurements and to avoid load on production tables.
-
-## PostgreSQL 경유 지연 측정
-
-두 migration을 적용한 격리 DB에서 `python benchmark_db_path.py --count 1000 --consumers 4 --rate 100`을 실행하면 합성 PROCESS 관측값을 PostgreSQL에 저장하고 같은 트랜잭션에서 탐지 큐에 ID를 등록한다. 별도 소비자가 큐에서 ID를 임대해 관측값을 조회하고 완료 처리한다. `--rate 0`은 최대 속도 입력이다. p50/p95/p99는 입력 트랜잭션부터 조회·완료까지의 경과 시간이다. 실행 결과는 시험 DB에 남으므로 매번 격리 DB를 사용한다.
-
-이 측정은 `collector/storage.py`의 허용 필드 투영·계층별 저장·탐지 큐 등록과 `detector/input_reader.py`의 P 조회를 사용한다. 고객 ESB API 공개 지연, GPU 모델 추론, 판정 결과 저장, SSE는 포함되지 않는다. 2~3초 전체 목표의 한 구간만 측정한다.
+격리 DB의 큐 비교는 `benchmark_queue.py --queue feature|detection|training`을 사용한다. Redis Streams/Kafka와 비교할 때는 동일한 입력·소비자 수·하드웨어·측정 범위를 사용한다. `benchmark_db_path.py`는 실제 모델/외부 API 지연을 포함하지 않는다.

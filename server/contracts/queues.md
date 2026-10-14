@@ -1,36 +1,13 @@
-# Worker queue contract (draft v1)
+# PostgreSQL 큐 계약 v1
 
-Detection and training use separate logical queues and separate consumers/workers. PostgreSQL tables are the first implementation; Redis Streams and Kafka remain candidates for a later comparison under equivalent load. Names below are logical identifiers.
-
-| Queue | Producer | Consumer | Payload | Priority |
+| 논리 큐 | 실제 테이블 | 생산자 | 소비자 | 메시지 참조 |
 |---|---|---|---|---|
-| `detection.logs.v1` (`powercode_queue.detection_logs`) | Collector | long-running Detector | projected log reference | latency-sensitive |
-| `training.jobs.v1` (`powercode_queue.training_jobs`) | Express job API | Trainer | persisted training job ID | throughput-oriented |
+| `feature.observations.v1` | `powercode_queue.feature_observations` | Collector | Feature worker | `observationId`, `sourceId` |
+| `detection.logs.v1` | `powercode_queue.detection_logs` | Feature worker | Detector | `observationId`, `sourceId`, `configVersionId`, `inputManifestHash` |
+| `training.jobs.v1` | `powercode_queue.training_jobs` | Express API | Trainer | `jobId` |
 
-Neither worker consumes from the other queue. Deploy and scale them independently; training must not occupy detection consumers or their GPU capacity reservation. A shared broker is allowed, but each queue needs its own consumer group, lag metric, retry policy, and dead-letter destination.
+Collector는 BODY/인증정보를 제외한 관측을 DB에 저장한 같은 트랜잭션에서 검증된 P의 변수 큐 메시지를 등록한다. Feature worker는 승인된 구성의 변수를 저장하고 탐지 메시지를 등록한 뒤 변수 메시지를 완료한다. Trainer 작업도 DB 작업 행과 큐 메시지를 한 트랜잭션으로 기록한다. 큐에는 원천 JSON이나 민감 필드를 넣지 않는다.
 
-## Detection message
+메시지 전달은 at-least-once다. 소비자는 짧은 임대로 claim하고, 결과와 ack를 같은 트랜잭션으로 확정한다. ack/fail은 현재 토큰과 유효한 임대를 확인한다. 긴 학습은 큐와 `run_job_attempts`의 임대를 함께 갱신한다. 만료/실패는 제한 횟수 후 dead로 전환한다. 각 큐의 대기 수·최고 지연·실패 수를 별도로 관찰한다.
 
-```json
-{"schemaVersion":1,"eventId":"uuid","observationId":"uuid","enqueuedAt":"ISO-8601 UTC"}
-```
-
-The Collector projects sensitive fields out **before** persisting or publishing. The message points to a persisted, sanitized observation; it contains no BODY, messageBody, credentials, or raw source payload. The final identity and revision rules for `observationId` remain pending the ERD decision. Detector writes a result idempotently for the observation and model version, then acknowledges the message. On failure it retries with bounded attempts and moves exhausted messages to a detection-only dead-letter destination.
-
-## Training message
-
-```json
-{"schemaVersion":1,"jobId":"uuid","enqueuedAt":"ISO-8601 UTC"}
-```
-
-Express first persists a training job and returns its ID; it publishes only the ID after the job is durable. Trainer atomically claims the job before starting work. Duplicate delivery must not start a second training run. Job state, progress, failure reason, artifact reference, and selected input snapshot live in the database, not in queue messages. The job's model cannot become the active Detector model without an explicit approval and replacement step. Failed jobs have a separate retry/dead-letter policy from detection.
-
-With the core ERD, `jobId` refers to `run_jobs.id`. The physical queue table intentionally has no FK so an isolated transport benchmark can use synthetic IDs; production publishers must validate the job and publish in the same transaction or through a durable outbox.
-
-## Delivery and recovery
-
-- Assume at-least-once delivery. Acknowledge only after the corresponding database state is committed.
-- Assign independent concurrency limits and retry/dead-letter destinations. Detection backlog must not be blocked by long training runs.
-- Track queue depth/oldest age, attempts, processing time, dead-letter count, and worker health separately for each queue.
-- Define durable publish/outbox behavior with the PostgreSQL job/observation migrations; a successful DB commit must not silently lose its queue message.
-- The initial PostgreSQL queue schema is isolated from the draft domain ERD. Do not publish production messages until domain tables and identity rules are finalized.
+현재 PostgreSQL 구현으로 먼저 전체 경로를 측정한다. Redis Streams/Kafka 도입 여부는 동일 입력 부하에서 지연·운영 부담을 비교한 뒤 결정한다. 과거 Collector가 탐지 큐에 직접 넣은 레거시 메시지는 Detector가 처리할 수 있지만 새 생산자는 변수 큐를 사용한다.

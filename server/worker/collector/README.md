@@ -1,8 +1,8 @@
 # Collector worker
 
-`storage.py`는 Collector가 받은 T·P·M 원천값에서 허용된 필드만 골라 PostgreSQL에 기록하는 저장 경로다. 실제 ESB API를 호출하는 수집 실행기는 아직 없다.
+`storage.py`는 Collector가 받은 T·P·M 원천값에서 허용된 필드만 골라 PostgreSQL에 기록하는 저장 경로다. 실제 ESB API를 호출하는 수집 실행기는 아직 없다. 검증된 P는 같은 트랜잭션에서 **변수 큐**에 등록하고, Feature worker가 승인 변수 계산 후 탐지 큐로 넘긴다.
 
-`storage.py`는 정규화된 T·P·M 입력의 허용 필드만 투영해 `data_observations`와 계층별 테이블에 저장한다. 검증된 PROCESS 실행 ID와 revision을 받은 경우에만 같은 트랜잭션에서 탐지 큐에 관측 ID를 넣는다. 동일 dedup_key·동일 허용 필드 재입력은 기존 행을 반환하고, 같은 키의 다른 내용은 오류로 보류한다. 실제 ESB API 조회, 원천 키 구성·revision 계약, 부모 T/P/M 연결은 아직 별도 구현이 필요하다.
+동일 dedup_key·동일 허용 필드 재입력은 기존 행을 반환하고, 같은 키의 다른 내용은 오류로 보류한다. 실제 ESB API 조회, 원천 키 구성·revision 계약, 부모 T/P/M 연결은 아직 별도 구현이 필요하다.
 
 ## CSV 실시간 재생 프로토타입
 
@@ -21,4 +21,4 @@ python -m collector.replay_csv \
 
 서버의 PostgreSQL 주소가 `anomaly-postgres`이면 재생 프로세스도 Docker의 `anomaly-net` 안에서 실행해야 한다. 호스트 Python에서 그 컨테이너 이름이 해석된다고 가정하지 않는다. Worker 전용 `.env`에는 DB URL만 넣고 비밀번호를 명령행 인자로 넘기지 않는다. 실제 DB에 적용하면 합성 관측과 탐지 큐 메시지가 남으므로 `dataset-key`와 `replay-key`를 시험용으로 명확히 지정한다.
 
-동일 `dataset-key`와 `replay-key` 및 동일한 파일·행 순서로 다시 실행하면 중복 저장하지 않는다. 파일을 수정하거나 다른 파일을 재생할 때는 새 `replay-key`를 쓴다. 이 모드의 `revision_no`는 **CSV 안의 행 번호**이고 실행 키는 `replay-key`로 분리된다. 원천 ESB의 실제 수정 순서나 시간대가 검증됐다는 뜻이 아니다. PROCESS는 `TRANSACTION_ID`·`PROCESS_ID`·유효한 `RETRY_COUNT`가 모두 있을 때만 큐에 등록한다. BODY는 현재 제공된 컬럼만으로 부모 P와 연결할 수 없어 미연결 M 관측값으로 저장한다. 큐에 등록된 메시지를 실제 판정하는 Detector 실행기는 아직 없다.
+동일 `dataset-key`와 `replay-key` 및 동일한 파일·행 순서로 다시 실행하면 중복 저장하지 않는다. 파일을 수정하거나 다른 파일을 재생할 때는 새 `replay-key`를 쓴다. 이 모드의 `revision_no`는 **CSV 안의 행 번호**이고 실행 키는 `replay-key`로 분리된다. 원천 ESB의 실제 수정 순서나 시간대가 검증됐다는 뜻이 아니다. PROCESS는 `TRANSACTION_ID`·`PROCESS_ID`·유효한 `RETRY_COUNT`가 모두 있을 때만 변수 큐에 등록한다. BODY는 현재 제공된 컬럼만으로 부모 P와 연결할 수 없어 미연결 M 관측값으로 저장한다. 실제 모델이 연결되고 구성이 승인되기 전에는 탐지 판정이 진행되지 않는다.

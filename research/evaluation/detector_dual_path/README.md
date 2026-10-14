@@ -1,5 +1,16 @@
 # Detector 병행 실험 (#45)
 
+## 최신 공정 비교 v4
+
+- 진입점: [v4 비교 결과](docs/V4_RESULTS.md)·[환경/소스 복원/실행 규약](docs/REPRODUCTION.md#최신-업로드v4-재현-범위)·[봉인된 품질 실험 규약](docs/V4_PROTOCOL.md)
+- A 실시간 / B 시간창 통계 Rule 추가 / C 시간창 ML 추가 / D 둘 추가; 실시간 경로 동일·전체 경보 예산 공통
+- 정상 요일/시간 균형·5 seed·정상112h/주요630사건·논리 count 계약105사건 별도. 원본 v12 전체 모델/고객 정확도 재현과 구분
+- 부하: 군당1논리CPU·RT1/trend1·10/100건/초·60/5초 주기·각4회. 공유 Windows 호스트이며 실제 서버/ESB SLA와 구분
+- 코드: `v4.py`·`v4_core.py`·`v4_load.py`·`v4_config.json`, 회귀 `tests/test_v4.py`; 원시/생성 모델 `runs/` Git 제외
+- 실행 조건과 중단/IO 보완 이력: 재현 문서의 최신 v4 절 기준. 아래 v3와 기존 `RESULTS.md`는 과거 탐색 이력 보존
+
+## v3 탐색 실험
+
 - [실험 결과](docs/RESULTS.md)·[운영 이식 전 합의](docs/HANDOFF.md)·[기존 프리셋 재현 범위](docs/REPRODUCTION.md)
 - 독립 재검수: 합성 입력 경로 탐색용 pilot. 운영 모델 우위·최적 창/주기·두 ML 모델 필수성의 검증과 구분
 - 범위: PROCESS 실시간 경로·TIME_WINDOW 추세 경로의 단독/병행 비교; 운영 배포 제외

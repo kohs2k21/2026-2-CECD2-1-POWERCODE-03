@@ -6,11 +6,13 @@ import base64
 import contextlib
 import datetime as dt
 import hashlib
+import html
 import json
 import os
 from pathlib import Path
 import re
 import sqlite3
+import string
 import subprocess
 import time
 import urllib.error
@@ -124,20 +126,31 @@ class API:
         raise SyncError("REQUEST_FAILED")
 
 
-def rich(items):
+def rich(items, table_cell=False):
     parts = []
     for item in items:
         if item.get("type") != "text":
             raise SyncError("UNSUPPORTED_MENTION_USE_PLAIN_TEXT")
         text = item.get("text", {}).get("content", "")
+        ann = item.get("annotations", {})
+        if table_cell:
+            if ann.get("code"):
+                # Inline HTML alone does not stop GFM from parsing code punctuation.
+                text = "<code>" + "".join(f"&#{ord(char)};" if char in string.punctuation
+                                          else char for char in text) + "</code>"
+            else:
+                text = html.escape(text, quote=False)
+                text = text.replace("\\", "\\\\").replace("|", "\\|")
+            text = text.replace("\r\n", "\n").replace("\r", "\n").replace("\n", "<br>")
         link = item.get("text", {}).get("link")
         if link:
             url = link.get("url", "")
             if not url.startswith("https://") or "\n" in url:
                 raise SyncError("UNSUPPORTED_LINK")
+            if table_cell:
+                url = url.replace("|", "%7C")
             text = f"[{text}]({url})"
-        ann = item.get("annotations", {})
-        if ann.get("code"):
+        if ann.get("code") and not table_cell:
             text = "`" + text + "`"
         if ann.get("bold"):
             text = "**" + text + "**"
@@ -149,12 +162,43 @@ def rich(items):
     return "".join(parts)
 
 
+def render_table(block, children):
+    data = block.get("table", {})
+    width = data.get("table_width")
+    if type(width) is not int or width < 1:
+        raise SyncError("INVALID_TABLE")
+    rows = []
+    for row in children(block["id"]):
+        cells = row.get("table_row", {}).get("cells")
+        if (row.get("type") != "table_row" or row.get("has_children")
+                or not isinstance(cells, list) or len(cells) != width
+                or any(not isinstance(cell, list) for cell in cells)):
+            raise SyncError("INVALID_TABLE")
+        rendered = []
+        for index, cell in enumerate(cells):
+            assert_safe_text(rich(cell))
+            text = rich(cell, table_cell=True)
+            if data.get("has_row_header") and index == 0 and text:
+                text = "<strong>" + text + "</strong>"
+            rendered.append(text)
+        rows.append(rendered)
+    if not rows:
+        raise SyncError("INVALID_TABLE")
+    # GFM requires a header; an empty one preserves every headerless data row.
+    header = rows.pop(0) if data.get("has_column_header") else [""] * width
+    return "\n".join("| " + " | ".join(row) + " |"
+                     for row in [header, ["---"] * width, *rows])
+
+
 def render_blocks(blocks, children, depth=0):
     if depth > 8:
         raise SyncError("BODY_TOO_DEEP")
     output = []
     for block in blocks:
         kind = block["type"]
+        if kind == "table":
+            output.append(render_table(block, children))
+            continue
         data = block.get(kind, {})
         text = rich(data.get("rich_text", []))
         if kind == "paragraph":
@@ -181,7 +225,9 @@ def render_blocks(blocks, children, depth=0):
         output.append(line)
         if block.get("has_children"):
             nested = render_blocks(children(block["id"]), children, depth + 1)
-            output.append("\n".join("    " + x for x in nested.splitlines()))
+            prefix = "> " if kind == "quote" else "    " if kind in (
+                "to_do", "bulleted_list_item", "numbered_list_item") else ""
+            output.append("\n".join(prefix + x for x in nested.splitlines()))
     return "\n\n".join(output)
 
 

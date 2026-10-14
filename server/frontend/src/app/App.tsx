@@ -17,6 +17,7 @@ import { EvaluationPage } from "../features/detection/pages/EvaluationPage";
 import { VersionsPage } from "../features/detection/pages/VersionsPage";
 import { CollectionPage } from "../features/detection/pages/CollectionPage";
 import { NotificationsPage } from "../features/notifications/NotificationsPage";
+import { PipelineOperations } from "../features/pipeline/PipelineOperations";
 
 const router = createBrowserRouter([
   { path: "/login", element: <LoginRoute /> },
@@ -58,6 +59,10 @@ const router = createBrowserRouter([
                   {
                     path: "/detection/collection",
                     element: <CollectionPage />,
+                  },
+                  {
+                    path: "/detection/pipeline",
+                    element: <PipelineOperations />,
                   },
                 ],
               },

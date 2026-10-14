@@ -1,5 +1,12 @@
 # Detector 병행 실험 (#45)
 
+## 최신 PROCESS Rule·ML 실행 비교
+
+- [순서/동시 실행 결과](docs/PROCESS_PAIR_RESULTS.md)·[실행 규약](docs/PROCESS_PAIR_PROTOCOL.md); 같은 PROCESS에서 둘 다 판정, Rule 위반 시 ML 생략 없음
+- 최신 팀원 v12 모델은 연속1분 집계·완료 관측 입력으로 원시 PROCESS 한 건에 직접 적용 불가. 이번 비용 비교는 기존 봉인 합성 PROCESS IF 사용·새 학습 없음
+- 동일 CPU1·PROCESS 작업1·시간창 Rule 배경·10/100건/초·조건별4짝. 초당10건 P95 평균21.014/22.932ms(순서/동시), 초당100건 모두 큐 포화; 조건부 지연·누락 전체 분모·자원 범위는 결과표 참조
+- 동시 실행의 일관된 이득 확인 불가; 탐지 정책과 물리적 실행 방식 구분. 운영 fallback·실제 고객 효과·ESB SLA 미검증, 기획 변경은 결과 검토 후 결정
+
 ## 최신 공정 비교 v4
 
 - 진입점: [v4 비교 결과·용어 설명](docs/V4_RESULTS.md)·[환경/소스 복원/실행 규약](docs/REPRODUCTION.md#최신-업로드v4-재현-범위)·[품질 실험 규약·봉인 원문 링크](docs/V4_PROTOCOL.md)

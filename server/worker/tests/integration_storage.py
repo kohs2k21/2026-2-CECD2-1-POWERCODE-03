@@ -75,7 +75,7 @@ def main() -> None:
             assert all("must-not-persist" not in str(row) for row in rows)
             assert any("invalid_numeric:retry_count" in row[2] for row in rows)
             cur.execute(
-                """SELECT count(*) FROM powercode_queue.detection_logs
+                """SELECT count(*) FROM powercode_queue.feature_observations
                      WHERE payload->>'observationId' = %s""",
                 (str(results["P"].observation_id),),
             )
@@ -121,15 +121,15 @@ def main() -> None:
             assert cur.fetchone()[0] == 0
         conn.commit()
 
-        message = claim(conn, "detection", benchmark_run_id=test_run_id)
+        message = claim(conn, "feature", benchmark_run_id=test_run_id)
         assert message is not None
         conn.commit()
         observation = load_process_observation(conn, message)
         assert observation.observation_id == results["P"].observation_id
         assert observation.allowed_values["process_id"] == "proc-1"
-        assert acknowledge(conn, "detection", message)
+        assert acknowledge(conn, "feature", message)
         conn.commit()
-    print("storage integration passed: T/P/M projection, atomic P enqueue, duplicate handling, detector read")
+    print("storage integration passed: T/P/M projection, atomic feature enqueue, duplicate handling, P read")
 
 
 if __name__ == "__main__":

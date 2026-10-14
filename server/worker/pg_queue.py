@@ -7,8 +7,9 @@ import uuid
 from dataclasses import dataclass
 from typing import Any, Literal
 
-QueueName = Literal["detection", "training"]
+QueueName = Literal["feature", "detection", "training"]
 TABLES = {
+    "feature": "powercode_queue.feature_observations",
     "detection": "powercode_queue.detection_logs",
     "training": "powercode_queue.training_jobs",
 }
@@ -44,14 +45,32 @@ def enqueue(conn: Any, queue: QueueName, payload: dict[str, Any], *, message_id:
 
 
 def claim(conn: Any, queue: QueueName, *, lease_seconds: int = 60,
-          max_attempts: int = 3, benchmark_run_id: str | None = None) -> ClaimedMessage | None:
+          max_attempts: int = 3, benchmark_run_id: str | None = None,
+          source_id: str | None = None) -> ClaimedMessage | None:
     """메시지 하나를 임대하고 다른 소비자가 잠근 행은 건너뛴다."""
     if lease_seconds < 1 or max_attempts < 1:
         raise ValueError("lease_seconds and max_attempts must be positive")
     if benchmark_run_id is not None and not benchmark_run_id:
         raise ValueError("benchmark_run_id must not be empty")
-    scope_sql = " AND payload->>'benchmarkRunId' = %s" if benchmark_run_id is not None else ""
-    scope_params = (benchmark_run_id,) if benchmark_run_id is not None else ()
+    if source_id is not None and (queue not in ("feature", "detection") or not source_id):
+        raise ValueError("source_id scope is only valid for observation queues")
+    scope_sql = ""
+    scope_params: tuple[str, ...] = ()
+    if benchmark_run_id is not None:
+        scope_sql += " AND payload->>'benchmarkRunId' = %s"
+        scope_params += (benchmark_run_id,)
+    if source_id is not None:
+        if queue == "feature":
+            scope_sql += " AND payload->>'sourceId' = %s"
+            scope_params += (source_id,)
+        else:
+            # 이전 CSV 재생 메시지에는 sourceId가 없으므로 관측 참조로 범위를 확인한다.
+            scope_sql += """ AND (payload->>'sourceId' = %s OR
+                (NOT (payload ? 'sourceId') AND EXISTS (
+                    SELECT 1 FROM data_observations AS scoped_observation
+                     WHERE scoped_observation.id::text = payload->>'observationId'
+                       AND scoped_observation.source_id::text = %s)))"""
+            scope_params += (source_id, source_id)
     token = uuid.uuid4()
     with conn.cursor() as cur:
         cur.execute(

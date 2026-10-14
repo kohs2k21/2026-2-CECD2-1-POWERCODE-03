@@ -1,0 +1,33 @@
+{
+  "models": [
+    {
+      "algorithm": "if",
+      "file": "if_v12_candidate.joblib",
+      "bytes": 11773977,
+      "sha256": "8f5e743813758fe4fcb06107228380f82c4cf5fc01c044fb83733d23395f9bd0",
+      "status": "Research candidate, not production deployment",
+      "synthetic_traffic_history": true,
+      "reference_calibration_dataframe_removed": true
+    },
+    {
+      "algorithm": "kmeans",
+      "file": "kmeans_v12_candidate.joblib",
+      "bytes": 605016,
+      "sha256": "12b347486e910b6b9be2a2429004c8779d64ac57b33c63627ac8208547515a63",
+      "status": "Research candidate, not production deployment",
+      "synthetic_traffic_history": true,
+      "reference_calibration_dataframe_removed": false
+    }
+  ],
+  "dependencies": {
+    "numpy": "2.5.3",
+    "pandas": "3.0.6",
+    "scikit-learn": "1.9.1",
+    "scipy": "1.18.1",
+    "joblib": "1.6.0"
+  },
+  "requires_module": "model_research_v8.inference",
+  "operating_model_unchanged": true,
+  "input": "Process-derived minute grid and completed rows; no Transaction table",
+  "caution": "Synthetic prior traffic history must be replaced/validated against real operating history before production."
+}

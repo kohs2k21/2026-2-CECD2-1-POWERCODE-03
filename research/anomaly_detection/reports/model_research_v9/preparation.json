@@ -1,0 +1,15 @@
+{
+  "inputs": {
+    "data/evaluation/manifest.json": "71fb8115dc2b9ddcac6408167a8e0f89939e060bbdd5c516339ffe88b9473ce4",
+    "reports/evaluation_v2_work/inputs.json": "438d64008d831d7417e72023abd2ab9fc00ac6b24eb480d2f7db0a35c55e31d7",
+    "reports/model_research_v7/selection.json": "ff6a584a72aa3cb35432ad9b2c2568f3e1d2b9c1f75a02f3a835c7f24d2c5e41"
+  },
+  "data_sha256": "9d443dc9143a50dc8c99e598e70d42145ad9f49f448305342617f76e5bc5ad89",
+  "code_sha256": "bc7cdf21cc4d07b8a4cd085a8dc14bb5ac395b85268d998a23db1cb546bac60c",
+  "v8_preparation_sha256": "c35f728fdd02a21f5395951fcb072a946d44911f53e9cc2cfa34b8c319dc9646",
+  "search_cases": 1080,
+  "confirmation_cases": 1080,
+  "fresh_seed": 11170042,
+  "normal_fit_unchanged_from_v8": true,
+  "change": "Compact latency views and max of normal calibration/threshold domain quantiles."
+}

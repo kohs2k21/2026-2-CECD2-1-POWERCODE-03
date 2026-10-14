@@ -1,4 +1,4 @@
-"""Hash-check exact published models; pickle loading needs explicit --trusted."""
+"""Verify published v12 hashes; optional data-free, explicitly trusted smoke."""
 import argparse
 import hashlib
 import json
@@ -9,55 +9,71 @@ ROOT = Path(__file__).resolve().parent
 
 
 def sha256(path):
-    value = hashlib.sha256()
-    with path.open('rb') as handle:
-        for part in iter(lambda:handle.read(1024*1024),b''): value.update(part)
-    return value.hexdigest()
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for block in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def demo_inputs(adapter="DB.READER"):
+    """Small synthetic stream, including an empty minute; no benchmark reads."""
+    import numpy as np
+    import pandas as pd
+    from model_evaluation.data import unix_seconds
+    starts = pd.date_range("2026-10-14T12:00:00", periods=8, freq="min")
+    arrivals = np.array([1, 1, 1, 1, 1, 0, 1, 1])
+    native = pd.DataFrame({"case_id": "DEMO", "adapterType": adapter,
+                           "processId": "DEMO-P", "window_start": starts,
+                           "window_end": starts + pd.Timedelta(minutes=1),
+                           "execution_arrivals": arrivals})
+    ends = starts[arrivals > 0] + pd.Timedelta(seconds=1)
+    completions = pd.DataFrame({"case_id": "DEMO", "adapterType": adapter,
+                               "processId": "DEMO-P", "totalCount": 1,
+                               "duration": 100.0, "end_seconds": unix_seconds(ends)})
+    return native, completions
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--trusted',action='store_true',help='Explicitly trust repository model files as executable pickle input')
-    parser.add_argument('--smoke',action='store_true',help='Check synthetic prediction shapes, not accuracy')
+    parser.add_argument("--trusted", action="store_true")
+    parser.add_argument("--smoke", action="store_true")
     args = parser.parse_args()
-    if args.smoke and not args.trusted: parser.error('--smoke requires --trusted')
-    inventory = json.loads((ROOT/'model_inventory.json').read_text(encoding='utf-8'))
-    sys.path.insert(0,str(ROOT/'code'))
-    for entry in inventory['models']:
-        path = ROOT/entry['path']
-        if not path.resolve().is_relative_to(ROOT) or sha256(path)!=entry['sha256']:
-            raise ValueError('Model target/hash mismatch')
-        print(f"SHA-256 PASS: {entry['path']} ({entry['bytes']:,} bytes)",flush=True)
-        if not args.trusted: continue
-        import joblib
-        import numpy as np
-        import pandas as pd
-        from process_anomaly_pipeline.data import prepare
-        import process_anomaly_pipeline.pipeline as local_pipeline
-        assert Path(local_pipeline.__file__).resolve().is_relative_to(ROOT)
-        model = joblib.load(path)
-        demo = [{'transactionId':'DEMO-1','processId':'DEMO-P','dependProcessId':None,
-                 'processHubId':'DEMO-H','adapterType':'DB.READER','channelId':'DEMO-C',
-                 'status':'S','startTime':'2026-10-13T12:00:00.000','endTime':'2026-10-13T12:00:00.100',
-                 'successCount':1,'errorCount':0,'totalCount':1,'retryCount':0,'responseCode':'0000'}]
-        if isinstance(model,local_pipeline.ProcessAnomalyPipeline):
-            model = local_pipeline.ProcessAnomalyPipeline.load(path,trusted=True)
-            if args.smoke: assert len(model.predict(demo))==1
-            print('LOAD PASS: existing Process IF',flush=True)
-        elif isinstance(model,dict) and set(model)=={'row','window','baselines'}:
-            if args.smoke:
-                values = model['row'].score(prepare(pd.DataFrame(demo)))
-                assert values[0].shape==(1,6) and np.isfinite(values[0]).all()
-                from model_evaluation.data import window_features
-                native = pd.DataFrame({'case_id':['DEMO'],'adapterType':['DB.READER'],'processId':['DEMO-P'],
-                    'window_start':['2026-10-13T12:00:00'],'window_end':['2026-10-13T12:01:00'],
-                    'execution_arrivals':[1],'history_median_arrivals':[1],'history_p95_arrivals':[3],
-                    'duration_p50_ms':[100],'duration_p95_ms':[100]})
-                values = model['window'].score(window_features(native,model['baselines']))
-                assert values[0].shape==(1,6) and np.isfinite(values[0]).all()
-            print(f"LOAD PASS: row + {model['window'].config.window_minutes}m window, six strategies each",flush=True)
-        else: raise ValueError('Unexpected model artifact')
-    if not args.trusted: print('No pickle loaded. Use --trusted only for files you trust.')
+    if args.smoke and not args.trusted:
+        parser.error("--smoke requires --trusted; do not load unknown pickle files")
+    inventory = json.loads((ROOT / "model_inventory.json").read_text(encoding="utf-8"))
+    sys.path.insert(0, str(ROOT / "code"))
+    for entry in [*inventory["models"], *inventory["data_caches"]]:
+        path = ROOT / entry["path"]
+        if not path.resolve().is_relative_to(ROOT) or sha256(path) != entry["sha256"]:
+            raise ValueError(f"Hash/path mismatch: {entry['path']}")
+        print(f"SHA-256 PASS: {entry['path']} ({entry['bytes']:,} bytes)", flush=True)
+    if not args.trusted:
+        print("No pickle loaded. --trusted --smoke checks inference, not accuracy.")
+        return
+    import numpy as np
+    from model_research_v8.inference import load, ProcessResearchMonitor
+    for entry in inventory["models"]:
+        model = load(ROOT / entry["path"], entry["sha256"])
+        if not isinstance(model, ProcessResearchMonitor):
+            raise ValueError("Unexpected portable model type")
+        if args.smoke:
+            for adapter in ("DB.READER", "DEMO.NEW.ADAPTER"):
+                native, completions = demo_inputs(adapter)
+                result = model.predict(native, completions)
+                assert len(result) == len(native)
+                assert np.isfinite(result[[n + "_margin" for n in ("global", "adapter", "ensemble")]]).all().all()
+                for name in ("global", "adapter", "ensemble"):
+                    np.testing.assert_array_equal(result[name + "_anomaly"], result[name + "_margin"] > 0)
+                if adapter == "DEMO.NEW.ADAPTER":
+                    assert not result.expert_available.any()
+                    for name in ("adapter", "ensemble"):
+                        np.testing.assert_array_equal(result[name + "_margin"], result.global_margin)
+                assert not result.traffic_assessed.iloc[:3].any()
+                assert result.traffic_assessed.iloc[3:].all()
+        print(f"LOAD PASS: v12 {model.algorithm}, three routes, hash checked", flush=True)
+    print("SMOKE PASS: no benchmark CSV, source archive or training cache read by prediction." if args.smoke else "Trusted models loaded.")
 
 
-if __name__=='__main__': main()
+if __name__ == "__main__":
+    main()

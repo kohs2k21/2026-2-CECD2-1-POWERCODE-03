@@ -1,77 +1,68 @@
-# 포함된 학습 모델
+# 최종 v12 모델 카드
 
-모델의 경로·정확한 바이트 수·SHA-256은 `model_inventory.json`에 기록한다.
-모델 파일은 수치가 들어 있는 실제 학습 산출물이며 다운로드 링크나 LFS 포인터가 아니다.
+## 파일과 선택 기준
 
-| 파일 | 크기 | 역할 |
+| 파일 | 바이트 | 역할 |
 | --- | ---: | --- |
-| `code/process_anomaly_pipeline/artifacts/process_if_v1.joblib` | 약 4.39 MiB | 기존 하드룰 + Process IF 파이프라인 |
-| `reports/model_evaluation_v2/comparison_models.joblib` | 약 8.50 MiB | 새 행 비교 모델 + 선택 5분 시간창 모델 |
-| `reports/model_evaluation_v2_baseline_1m/comparison_models.joblib` | 약 10.17 MiB | 같은 새 정상 참조의 고정 1분 대조 모델 |
+| `reports/model_research_v12/handoff/if_v12_candidate.joblib` | 11,773,977 | v12 IF 전체·Adapter·앙상블 |
+| `reports/model_research_v12/handoff/kmeans_v12_candidate.joblib` | 605,016 | v12 K-means 전체·Adapter·앙상블 |
 
-`training_inputs.joblib`·`validation_inputs.joblib`은 모델이 아니라 데이터를 담은 캐시이므로 제외했다.
-이전 v1 비교 모델·개발용 smoke 모델·오류 수정 전 백업도 최신 산출물과 혼동하지 않도록 제외했다.
+최종 대표 후보 v12만 포함한다. 전체 연구 묶음 안의 실패한 후보나 과거 비교 모델은 올리지 않는다.
+`training_inputs.joblib`·`validation_inputs.joblib`은 학습/검증 **데이터 캐시**이며 모델 개수에 포함하지 않는다.
+정확한 hash는 handoff `manifest.json`과 패키지 `model_inventory.json`에 있다.
 
-## 기존 Process IF
+## 내부 경로와 피처
 
-`ProcessAnomalyPipeline.load(path, trusted=True)`로 로드한다. 입력은 Process 레코드이며
-Transaction 문맥은 두 연결 정합성 룰의 선택 입력이다. 문맥이 없으면 미평가 상태를 반환하며
-정상으로 단정하지 않는다. IF 지원 Adapter는 DB.READER·DB.WRITER·SERVICE.EXECUTOR다.
-미지원 Adapter는 전체 모델을 사용한다. 이 모델은 최근 시간창 비교 실험 모델과 다르다.
+- 각 알고리즘의 전체 모델, Adapter 전문가, 전체+Adapter 점수 앙상블 세 경로 포함
+- 미지원 Adapter는 전체 모델로 fallback; 지원 전문가: DB.READER, DB.WRITER, FILE.READER, FILE.WRITER, SERVICE.EXECUTOR
+- 직전 비어 있지 않은 실행 분 3개 미만: 조건부 지연에 강한 v8 분기
+- 실행 이력이 쌓인 이후: IF v10 분기 / 보존된 강한 K-means v4 분기
+- 경로 선택에 정답·시나리오·미래·전체 사례 길이 사용 제외
+- 1분 판단, 과거 1·5·15분 요청 수·0건 연속 구간·완료 소요시간·변화·추세 등 사용
+- 정상 학습의 Adapter+ProcessID+처리량 조건부 duration CDF 사용; 부족하면 넓은 집단으로 fallback
+- IDs는 집단 기준 조회와 라우팅에 사용하며 숫자 ID·정답·STATUS를 피처로 넣지 않음
+- IF는 고립 기반 점수, K-means는 정상 군집 중심에서 벗어난 정도 사용
 
-## 비교 모델 파일의 내부 구성
+두 알고리즘을 서로 혼합한 앙상블이 아니다. 과거 분기와 조건부 분기의 결합·정상 점수 보정·
+임계값은 모델에 저장돼 있다. 재학습 시도나 평가셋에서 임계값을 다시 맞추지 않는다.
+`margin > 0`이 이상 후보다. margin은 확률이나 확정 장애 판정이 아니다.
 
-`joblib.load(path)` 결과는 `row`, `window`, `baselines` dict다.
+## 저장된 원본 벤치마크 결과
 
-- `row`: 같은 정상 표본으로 학습한 IF와 MiniBatch K-means의 Process 행 비교
-- `window`: 최근 W분 집계를 매 1분 판단하는 IF/K-means 비교
-- `baselines`: 학습 정상 원본에서 구한 Process·Adapter·전체 처리시간 기준
+출처: `reports/model_research_v12/summary.json`. 2,167,766개 1분 판단, 정상/이상 구간 포함.
 
-각 `SixModels`는 다음 6개 전략의 margin·판정·공통 Adapter 지원 여부를 반환한다.
+| 경로 | Accuracy | Precision | Recall | F1 | 정상 오탐률 |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| IF 전체 | 85.35% | 74.30% | 18.00% | 28.98% | 1.24% |
+| IF Adapter | 84.73% | 73.29% | 12.72% | 21.68% | 0.92% |
+| IF 앙상블 | 85.11% | 69.13% | 18.74% | 29.49% | 1.67% |
+| K-means 전체 | 85.09% | 62.59% | 25.41% | 36.15% | 3.02% |
+| K-means Adapter | 84.06% | 54.66% | 23.47% | 32.84% | 3.88% |
+| K-means 앙상블 | 84.63% | 57.59% | 28.20% | 37.86% | 4.14% |
 
-1. IF 전체
-2. IF Adapter별, 미지원이면 전체 fallback
-3. IF 전체+Adapter 정규화 점수 50:50
-4. K-means 전체
-5. K-means Adapter별, 미지원이면 전체 fallback
-6. K-means 전체+Adapter 정규화 점수 50:50
+## 같은 모델의 현재 완화 벤치마크 결과
 
-앙상블은 별도 학습된 분류기가 아니라 점수 결합과 별도로 보정한 임계값이다.
-IF와 K-means를 서로 섞은 앙상블은 아니다. 행 전문가 3종, 시간창 전문가는 위 3종과
-FILE.READER·FILE.WRITER의 총 5종이다. 기본 IF 128 trees/max_samples=512,
-K-means K=6, seed=42이며 데이터의 고유 벡터 수가 적으면 실제 K는 줄어든다.
+출처: `reports/benchmark_mild_v1/summary.json`. 모델·임계값은 위와 동일하고 데이터 난이도만 변경했다.
 
-행 입력은 처리시간·처리량·재시도 log1p와 결측·시간대/요일 sin/cos 10개 피처다.
-시간창은 요청 수·과거 대비 편차·별도 5분 요청 수·완료 시간 P50/P95·평소 대비 지연·
-결측·시간대/요일의 12개다. `prepare`/`window_features` 등의 동일 전처리가 필요하다.
-CSV 한 행을 시간창 모델에 직접 넣을 수 없으며 감시 대상의 이력과 0건 구간 집계가 필요하다.
+| 경로 | Accuracy | Precision | Recall | F1 | 정상 오탐률 |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| IF 전체 | 85.54% | 77.50% | 22.13% | 34.43% | 1.33% |
+| IF Adapter | 84.66% | 76.14% | 15.42% | 25.65% | 1.00% |
+| IF 앙상블 | 85.16% | 72.16% | 21.96% | 33.67% | 1.75% |
+| K-means 전체 | 85.13% | 64.62% | 29.43% | 40.44% | 3.34% |
+| K-means Adapter | 84.03% | 57.29% | 27.12% | 36.81% | 4.19% |
+| K-means 앙상블 | 84.69% | 59.95% | 32.27% | 41.96% | 4.46% |
 
-IF 점수는 `-score_samples`, K-means는 표준화 공간의 최근접 중심 거리다.
-calibration으로 규모를 조정하고 별도 정상 threshold 집단의 P99를 판정선으로 사용한다.
-`margin > 0`이 이상 후보이며 margin은 확률·확정 장애·원인 기여도가 아니다.
+IF는 이 결과에서 정밀도·오탐률이 더 보수적이고 K-means는 Recall/F1이 높지만 정상 경보가 더 많다.
+Adapter/앙상블이 전체 모델보다 항상 우수하지 않다. 같은 데이터와 지표에 한정한 해석이다.
 
-## 최종 시간창 성능
+## 사용 제한
 
-같은 새 정상 참조의 1분 대조와 5분 선택 모델을 동일한 정답·판단 시점에서 비교했다.
-
-| 전략 | 1분 F1 | 5분 F1 | 5분 Recall | 5분 정상 오탐률 |
-| --- | ---: | ---: | ---: | ---: |
-| IF 전체 | 4.78% | 22.01% | 14.22% | 2.99% |
-| IF Adapter | 7.08% | 19.29% | 12.17% | 2.79% |
-| IF 앙상블 | 6.22% | 22.54% | 14.79% | 3.28% |
-| K-means 전체 | 11.41% | 14.95% | 9.48% | 3.46% |
-| K-means Adapter | 14.52% | 17.52% | 11.77% | 4.50% |
-| K-means 앙상블 | 14.30% | 17.44% | 11.61% | 4.29% |
-
-모두 정상으로 예측해도 Accuracy는 83.39%다. 이 표는 연구 평가이며 배포 승인 기준이 아니다.
-Hard의 6종을 모두 탐지한 사례는 0%다. 데이터·시나리오 분포·임계값·오경보 비용이 바뀌면
-결과도 달라질 수 있다. 실제 운영에서는 수집 정상 여부, 요청 도착 이벤트, 지연 도착 정책,
-업무별 이력, 시간창 상태 초기화, 모델/룰 버전 연결 및 경보 처리 계약을 추가로 정해야 한다.
-
-## 보안과 호환성
-
-- 신뢰할 수 없는 joblib/pickle 파일 로드 금지, 사용 전 해시 확인
-- 모델 학습 환경의 scikit-learn 1.9.1 사용, 나머지 기록 버전은 `requirements.txt` 참고
-- 외부 저장소에서 모델만 내려받지 말고 같은 모듈 코드와 모델 카드를 함께 사용
-- 원본 실행 행·정상 참조 아카이브·평가 정답·행별 예측 배열은 미포함
-- 운영 서버 자동 로드·기존 모델 교체·API/worker 연동 미수행
+- 실제 운영 장애의 독립 정답셋 평가가 아닌 반합성 연구 결과
+- 모델에 포함된 과거 traffic prior는 합성이며 운영 이력으로 검증/교체 필요
+- 입력: Process-derived 연속 1분 grid + 완료 Process 관측; Transaction 테이블 사용 제외
+- 상시 상태 유지·빈 창·늦은 로그·수집 장애·API 점수 계약은 별도 구현 대상
+- 하드룰 코드는 별도 실행 대상; 기존 v1 파이프라인 API와 최신 모델 API 혼동 금지
+- 현재 벤치마크 CSV·정답은 보류돼 이번 저장소만으로 전체 성능 재평가 불가
+- Python 3.12, scikit-learn 1.9.1 및 기록 의존성 버전 사용; 신뢰된 hash 검사 후 로드
+- 연구 후보 공유이며 backend 연결·운영 자동 배포·기존 운영 모델 교체는 미수행

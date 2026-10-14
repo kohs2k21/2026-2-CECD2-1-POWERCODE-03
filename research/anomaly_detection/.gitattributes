@@ -6,3 +6,4 @@
 *.mjs text eol=lf
 *.joblib binary
 *.png binary
+reports/evaluation_v2_work/inputs.json -text

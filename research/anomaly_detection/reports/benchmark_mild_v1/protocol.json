@@ -1,0 +1,24 @@
+{
+  "difficulty_profile": {
+    "version": "esb-process-synthetic-mild-v1",
+    "excess_multiplier": 1.2,
+    "stop_duration_multiplier": 1.2,
+    "mixed_hard": "unchanged",
+    "normal_controls": "byte-identical copies",
+    "selection": "all original cases, independent of model scores",
+    "interpretation": "benchmark sensitivity, not improved model performance"
+  },
+  "model_sha256": {
+    "reports\\model_research_v12\\handoff\\if_v12_candidate.joblib": "8f5e743813758fe4fcb06107228380f82c4cf5fc01c044fb83733d23395f9bd0",
+    "reports\\model_research_v12\\handoff\\kmeans_v12_candidate.joblib": "12b347486e910b6b9be2a2429004c8779d64ac57b33c63627ac8208547515a63"
+  },
+  "benchmark_manifest_sha256": "7f2dc4351af6166416f7694df97fb2050cab8d348e5b29d8451fcc36031f3b36",
+  "model_refit": false,
+  "threshold_refit": false,
+  "case_selection_by_score": false,
+  "point_adjustment": false,
+  "mixed_hard_byte_identical": true,
+  "full_validation_required_before_summary": true,
+  "feature_precision": "float32 round-trip matching original v12 NPZ evaluation; model/threshold unchanged",
+  "interpretation": "Benchmark difficulty sensitivity; NOT improved detector performance or blind evaluation."
+}

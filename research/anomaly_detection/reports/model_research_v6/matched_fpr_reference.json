@@ -1,0 +1,13 @@
+{
+  "target": 0.01,
+  "normal_windows": 23887,
+  "margin_cutoffs": [
+    -0.5119226159691275,
+    0.0,
+    -0.016244760632300403,
+    1.2444885608085956,
+    0.9026022279268704,
+    1.4717766686529505
+  ],
+  "note": "Diagnostic only; confirmation normal controls, no final labels."
+}

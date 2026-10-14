@@ -1,0 +1,105 @@
+{
+  "inputs": {
+    "data/evaluation/manifest.json": "71fb8115dc2b9ddcac6408167a8e0f89939e060bbdd5c516339ffe88b9473ce4",
+    "reports/evaluation_v2_work/inputs.json": "438d64008d831d7417e72023abd2ab9fc00ac6b24eb480d2f7db0a35c55e31d7",
+    "reports/model_improvement_v4/selection.json": "40c589a09392d1f197b0ea434156575a6d763ef116b88b79760ede9174d22d4f"
+  },
+  "data_sha256": "e2eb4af42258a4c7f7ec746959162e7b881fd8e1c52fc653b716d1adceb4b921",
+  "code_sha256": {
+    "features.py": "d480b78b21d9f263747c15534b83a78be5a259a28ba2a63f31a24e4a439b3659",
+    "models.py": "2ddddbd10c56f93ad3d14d11ed111e1f9f9f3e12866fc9af85d2e5505b21e529",
+    "run.py": "1900eaa1fb4b19b2b782ab42822a7beb36faacf9fade1c07297db8d9c3904852"
+  },
+  "validation_seed": 7170042,
+  "search_cases": 720,
+  "confirmation_cases": 720,
+  "validation_cases_per_scenario": 240,
+  "normal_augmented_windows": {
+    "train": 32475,
+    "calibration": 38961,
+    "threshold": 34716
+  },
+  "original_reference_windows": {
+    "train": 10825,
+    "calibration": 12987,
+    "threshold": 11572
+  },
+  "independent_source_reference_rows": {
+    "train": 7510,
+    "calibration": 2468,
+    "threshold": 2452
+  },
+  "held_out_source_templates": 3344,
+  "replay_reset_views": [
+    {
+      "partition": "train",
+      "reset_minutes": 6,
+      "windows": 10825,
+      "reset_streams": 1859,
+      "original_streams": 120
+    },
+    {
+      "partition": "train",
+      "reset_minutes": 15,
+      "windows": 10825,
+      "reset_streams": 779,
+      "original_streams": 120
+    },
+    {
+      "partition": "train",
+      "reset_minutes": 90,
+      "windows": 10825,
+      "reset_streams": 179,
+      "original_streams": 120
+    },
+    {
+      "partition": "calibration",
+      "reset_minutes": 6,
+      "windows": 12987,
+      "reset_streams": 2231,
+      "original_streams": 144
+    },
+    {
+      "partition": "calibration",
+      "reset_minutes": 15,
+      "windows": 12987,
+      "reset_streams": 935,
+      "original_streams": 144
+    },
+    {
+      "partition": "calibration",
+      "reset_minutes": 90,
+      "windows": 12987,
+      "reset_streams": 215,
+      "original_streams": 144
+    },
+    {
+      "partition": "threshold",
+      "reset_minutes": 6,
+      "windows": 11572,
+      "reset_streams": 1999,
+      "original_streams": 128
+    },
+    {
+      "partition": "threshold",
+      "reset_minutes": 15,
+      "windows": 11572,
+      "reset_streams": 847,
+      "original_streams": 128
+    },
+    {
+      "partition": "threshold",
+      "reset_minutes": 90,
+      "windows": 11572,
+      "reset_streams": 207,
+      "original_streams": 128
+    }
+  ],
+  "augmentation_not_new_independent_data": true,
+  "limitations": [
+    "Fresh episodes share the generator and held-out source pool used in previous experiments.",
+    "Reset augmentation repeats normal observations; does not triple independent source support.",
+    "Validation is a source-template hash holdout, not chronological future validation.",
+    "Synthetic traffic prior; genuine operating-history validation remains necessary."
+  ]
+}

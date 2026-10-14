@@ -1,0 +1,16 @@
+# Optional device reservation only; requires a configured container GPU runtime.
+x-gpu: &gpu
+  resources:
+    reservations:
+      devices:
+        - driver: nvidia
+          count: 1
+          capabilities: [gpu]
+
+services:
+  detector:
+    deploy: *gpu
+  trainer:
+    deploy: *gpu
+  llm:
+    deploy: *gpu

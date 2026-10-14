@@ -1,0 +1,119 @@
+name: powercode-baseline
+
+x-worker: &worker
+  platform: linux/amd64
+  init: true
+  restart: "no"
+  environment:
+    DATABASE_URL: ${DATABASE_URL:-}
+  volumes:
+    - type: bind
+      source: ${FILE_STORAGE_DIR:?FILE_STORAGE_DIR must be an existing absolute path}
+      target: /app/files
+      read_only: true
+      bind:
+        create_host_path: false
+
+services:
+  web:
+    image: ${WEB_IMAGE:-powercode-web:baseline}
+    build:
+      context: ..
+      dockerfile: frontend/Dockerfile
+    platform: linux/amd64
+    init: true
+    restart: "no"
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "${WEB_BIND_ADDRESS:-127.0.0.1}:${WEB_PORT:-18080}:8080"
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--spider", "http://127.0.0.1:8080/healthz"]
+      interval: 10s
+      timeout: 5s
+      start_period: 10s
+      retries: 6
+
+  api:
+    image: ${API_IMAGE:-powercode-api:baseline}
+    build:
+      context: ..
+      dockerfile: backend/Dockerfile
+    platform: linux/amd64
+    init: true
+    restart: "no"
+    user: "0:0"
+    env_file:
+      - ${API_ENV_FILE:?API_ENV_FILE must be an existing absolute path}
+    environment:
+      NODE_ENV: production
+      PORT: "5001"
+      USER_DATA_PATH: /app/data/users.json
+      DATABASE_URL: ${DATABASE_URL:-}
+    expose:
+      - "5001"
+    volumes:
+      - type: bind
+        source: ${AUTH_DATA_DIR:?AUTH_DATA_DIR must be an existing absolute path}
+        target: /app/data
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${FILE_STORAGE_DIR:?FILE_STORAGE_DIR must be an existing absolute path}
+        target: /app/files
+        read_only: true
+        bind:
+          create_host_path: false
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:5001/health').then(r => { if (!r.ok) process.exit(1); }).catch(() => process.exit(1));"]
+      interval: 10s
+      timeout: 5s
+      start_period: 20s
+      retries: 6
+
+  collector:
+    <<: *worker
+    image: ${COLLECTOR_IMAGE:-powercode-collector:baseline}
+    build:
+      context: ..
+      dockerfile: worker/Dockerfile
+      args:
+        SERVICE: collector
+    profiles: [collector]
+
+  detector:
+    <<: *worker
+    image: ${DETECTOR_IMAGE:-powercode-detector:baseline}
+    build:
+      context: ..
+      dockerfile: worker/Dockerfile
+      args:
+        SERVICE: detector
+    profiles: [detector]
+
+  trainer:
+    <<: *worker
+    image: ${TRAINER_IMAGE:-powercode-trainer:baseline}
+    build:
+      context: ..
+      dockerfile: worker/Dockerfile
+      args:
+        SERVICE: trainer
+    profiles: [trainer]
+    volumes:
+      - type: bind
+        source: ${FILE_STORAGE_DIR:?FILE_STORAGE_DIR must be an existing absolute path}
+        target: /app/files
+        bind:
+          create_host_path: false
+
+  llm:
+    <<: *worker
+    image: ${LLM_IMAGE:-powercode-llm:baseline}
+    build:
+      context: ..
+      dockerfile: worker/Dockerfile
+      args:
+        SERVICE: llm
+    profiles: [llm]

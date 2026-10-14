@@ -1,0 +1,15 @@
+[Unit]
+Description=POWERCODE approved release deployment
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/powercode-deploy
+Environment=PYTHONDONTWRITEBYTECODE=1
+Environment=COMPOSE_DISABLE_ENV_FILE=true
+EnvironmentFile=%h/.config/powercode-deploy/deploy.env
+ExecStart=/usr/bin/python3 %h/powercode-deploy/server/infra/scripts/deploy.py --state-dir %h/.local/state/powercode-deploy --compose-file %h/powercode-deploy/server/infra/compose.yaml
+TimeoutStartSec=35min
+UMask=0077
+NoNewPrivileges=true

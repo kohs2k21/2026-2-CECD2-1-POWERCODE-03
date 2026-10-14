@@ -1,5 +1,8 @@
 # Server infrastructure
 
+- 현재 실행 안내: [다중 컨테이너 베이스라인](baseline.md)
+- E2E 전 운영 자동 배포 보류·DB 자동 변경 제외; 기존 CD 코드는 후속 재개용
+
 Infrastructure entry points and deployment configuration belong here. `scripts/bootstrap.sh` is a local frontend dependency helper; it does not provision services or contact production systems.
 
 `migrations/001_postgres_queues.sql`은 탐지·학습 큐를 만든다. 변수 큐는 `004_feature_pipeline.sql`에서 추가된다. 큐 부하 도구는 `server/worker/README.md`에 설명한다.

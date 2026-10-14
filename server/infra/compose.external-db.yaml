@@ -1,0 +1,17 @@
+# Connect applications to a pre-existing DB network without managing the DB.
+services:
+  api:
+    networks: [default, database]
+  collector:
+    networks: [default, database]
+  detector:
+    networks: [default, database]
+  trainer:
+    networks: [default, database]
+  llm:
+    networks: [default, database]
+
+networks:
+  database:
+    external: true
+    name: ${DATABASE_NETWORK:?DATABASE_NETWORK must be the existing shared DB network}

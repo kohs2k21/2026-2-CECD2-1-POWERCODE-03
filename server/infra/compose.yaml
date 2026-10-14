@@ -1,0 +1,47 @@
+name: powercode-app
+
+services:
+  api:
+    image: ${API_IMAGE:?API_IMAGE is required}
+    platform: linux/amd64
+    restart: unless-stopped
+    init: true
+    # UID 0 inside rootless Docker maps to the unprivileged host owner.
+    # Production requires rootless Docker; isolated CI uses temporary data only.
+    user: "0:0"
+    env_file:
+      - ${API_ENV_FILE:?API_ENV_FILE must be an absolute path to the server-only environment file}
+    environment:
+      NODE_ENV: production
+      PORT: "5001"
+      USER_DATA_PATH: /app/data/users.json
+    expose:
+      - "5001"
+    volumes:
+      - type: bind
+        source: ${AUTH_DATA_DIR:?AUTH_DATA_DIR must be an absolute path to the existing auth directory}
+        target: /app/data
+        bind:
+          create_host_path: false
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:5001/health').then(r => { if (!r.ok) process.exit(1); }).catch(() => process.exit(1));"]
+      interval: 10s
+      timeout: 5s
+      start_period: 20s
+      retries: 6
+
+  web:
+    image: ${WEB_IMAGE:?WEB_IMAGE is required}
+    platform: linux/amd64
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "${WEB_BIND_ADDRESS:-127.0.0.1}:${WEB_PORT:-18080}:8080"
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--spider", "http://127.0.0.1:8080/health"]
+      interval: 10s
+      timeout: 5s
+      start_period: 10s
+      retries: 6

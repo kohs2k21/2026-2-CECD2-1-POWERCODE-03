@@ -1,0 +1,151 @@
+{
+  "id": "eval_B_synthetic_3",
+  "task_kind": "discovery",
+  "source_kind": "controlled_synthetic",
+  "input": {
+    "contract": "feature-request-discovery-2.0",
+    "schema_version": "c7b6d6176a02e21e1a5fc52833b2ef870fd9eec5dc16dabda50cb1cfe958f892",
+    "source_version": "ec632721d59360e88d25480b89d77d97a81f39967cf7d3cdbf45ff24a4be44d0",
+    "task": "Explore the supplied physical metadata, profiles and verified evidence for up to two nonduplicate diagnostic variables. No analysis formula, target column or method is prescribed. Use narrow arithmetic meaning and identify unverified units/business interpretation.",
+    "tables": [
+      {
+        "table": "child_v5_eval_B_3",
+        "primary_key": [
+          "row_804"
+        ],
+        "rows": 49,
+        "columns": [
+          {
+            "name": "row_804",
+            "type": "string",
+            "nullable": false,
+            "unit": {
+              "name": null,
+              "status": "unknown",
+              "evidence_ids": []
+            },
+            "statistics": {
+              "row_count": 49,
+              "missing_count": 0,
+              "distinct_nonmissing": 49,
+              "invalid_type_count": 0,
+              "numeric_summary": null
+            },
+            "description": "Synthetic physical declaration; no operational/business interpretation"
+          },
+          {
+            "name": "code_804",
+            "type": "string",
+            "nullable": true,
+            "unit": {
+              "name": null,
+              "status": "unknown",
+              "evidence_ids": []
+            },
+            "statistics": {
+              "row_count": 49,
+              "missing_count": 0,
+              "distinct_nonmissing": 2,
+              "invalid_type_count": 0,
+              "numeric_summary": null
+            },
+            "observed_literal_codes": {
+              "B": 32,
+              "A": 17
+            },
+            "description": "Synthetic physical declaration; no operational/business interpretation"
+          },
+          {
+            "name": "tag_804",
+            "type": "string",
+            "nullable": true,
+            "unit": {
+              "name": null,
+              "status": "unknown",
+              "evidence_ids": []
+            },
+            "statistics": {
+              "row_count": 49,
+              "missing_count": 10,
+              "distinct_nonmissing": 3,
+              "invalid_type_count": 0,
+              "numeric_summary": null
+            },
+            "observed_literal_codes": {
+              "tag1": 13,
+              "tag2": 13,
+              "tag0": 13,
+              "": 10
+            },
+            "description": "Synthetic physical declaration; no operational/business interpretation"
+          },
+          {
+            "name": "portion_804",
+            "type": "number",
+            "nullable": true,
+            "unit": {
+              "name": null,
+              "status": "unknown",
+              "evidence_ids": []
+            },
+            "statistics": {
+              "row_count": 49,
+              "missing_count": 4,
+              "distinct_nonmissing": 5,
+              "invalid_type_count": 0,
+              "numeric_summary": {
+                "min": 0,
+                "max": 4,
+                "mean": null
+              }
+            },
+            "description": "Synthetic physical declaration; no operational/business interpretation"
+          }
+        ]
+      }
+    ],
+    "relationships": [],
+    "capture": {},
+    "source_context": {
+      "source_kind": "controlled_synthetic",
+      "family": "v5_eval_B_3",
+      "period": {
+        "start_inclusive": "2026-08-12",
+        "end_exclusive": "2026-08-13",
+        "timezone": "synthetic coordinate only"
+      },
+      "table_rows": {
+        "parent_v5_eval_B_3": 32,
+        "child_v5_eval_B_3": 49
+      }
+    },
+    "unknown": [
+      "business meaning of literal codes",
+      "business duration or common clock",
+      "online availability, leakage and operational usefulness"
+    ],
+    "existing_definitions": [],
+    "supported_ops": [
+      "column",
+      "literal",
+      "is_missing",
+      "subtract",
+      "divide",
+      "eq",
+      "lt",
+      "lte",
+      "gt",
+      "gte",
+      "and",
+      "datetime_diff",
+      "convert_unit",
+      "child_count",
+      "parent_match_count",
+      "conditional_count",
+      "child_sum",
+      "group_count"
+    ],
+    "confirmed_evidence": [],
+    "task_kind": "discovery"
+  }
+}

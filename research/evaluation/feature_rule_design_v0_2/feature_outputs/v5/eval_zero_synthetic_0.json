@@ -1,0 +1,15 @@
+{
+  "id": "eval_zero_synthetic_0",
+  "phase": "v5",
+  "raw_output": "{\"candidates\":[],\"stop_reason\":\"Physical count ratio requires confirmed units for parent_v5_eval_zero_0.portion_901 and parent_v5_eval_zero_0.quantity_901; both units are unknown and no raw-number substitute was requested.\"}",
+  "raw_sha": "d06c030351aa87833d50ac32a8a54b13f11803a1e9d48e26448f835ef3f42f0b",
+  "original_input_sha": "b332577751de1cf9debbd8b3cd8e88b83415b5ae62aaa7ce9e7cde9295b8591e",
+  "generated_tokens": 55,
+  "length_limit_reached": false,
+  "checks": {
+    "JSON_contract": true,
+    "candidates": [],
+    "zero": true,
+    "errors": []
+  }
+}

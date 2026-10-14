@@ -1,0 +1,696 @@
+{
+  "id": "eval_B_synthetic_2",
+  "phase": "v5",
+  "raw_output": "{\"candidates\":[{\"id\":\"train_B_02_04_c0\",\"purpose\":\"Verified count difference; no business interpretation.\",\"meaning\":\"Verified count difference; no business interpretation.\",\"sources\":{\"columns\":[[\"parent_v5_eval_B_2\",\"portion_803\"],[\"parent_v5_eval_B_2\",\"quantity_803\"]],\"relationships\":[]},\"expected_type\":\"number\",\"expected_unit\":\"count\",\"availability\":\"offline_captured_scope\",\"required_evidence\":[\"online availability and leakage policy; operational usefulness unconfirmed\"],\"plan\":{\"id\":\"train_B_02_04_c0\",\"description\":\"Verified count difference; no business interpretation.\",\"expression\":{\"op\":\"subtract\",\"args\":[{\"op\":\"column\",\"table\":\"parent_v5_eval_B_2\",\"column\":\"quantity_803\"},{\"op\":\"column\",\"table\":\"parent_v5_eval_B_2\",\"column\":\"portion_803\"}]},\"grain\":{\"table\":\"parent_v5_eval_B_2\",\"keys\":[\"row_803\"]},\"population\":{\"table\":\"parent_v5_eval_B_2\",\"filter\":null},\"group_by\":[],\"schema_version\":\"4eefb0e0ef38fff31aea3395a1dbf5e19de5a6b1905c42e344e5cfe7927f3492\",\"source_version\":\"6f5827817bdc850a1c1abdf148b1465986f2a642828fee10673bb0841203544a\",\"missing_policy\":{\"input\":\"propagate\",\"empty_group\":null,\"denominator_zero\":null,\"child_missing\":\"propagate\",\"unknown_predicate\":\"defer\"}}},{\"id\":\"train_B_02_04_c1\",\"purpose\":\"Signed coordinate difference in ms; not a verified business duration.\",\"meaning\":\"Signed coordinate difference in ms; not a verified business duration.\",\"sources\":{\"columns\":[[\"parent_v5_eval_B_2\",\"coord_ms_803\"],[\"parent_v5_eval_B_2\",\"coord_s_803\"]],\"relationships\":[]},\"expected_type\":\"number\",\"expected_unit\":\"ms\",\"availability\":\"offline_captured_scope\",\"required_evidence\":[\"online availability and leakage policy; operational usefulness unconfirmed\"],\"plan\":{\"id\":\"train_B_02_04_c1\",\"description\":\"Signed coordinate difference in ms; not a verified business duration.\",\"expression\":{\"op\":\"subtract\",\"args\":[{\"op\":\"column\",\"table\":\"parent_v5_eval_B_2\",\"column\":\"coord_ms_803\"},{\"op\":\"convert_unit\",\"args\":[{\"op\":\"column\",\"table\":\"parent_v5_eval_B_2\",\"column\":\"coord_s_803\"}],\"from_unit\":\"s\",\"to_unit\":\"ms\"}]},\"grain\":{\"table\":\"parent_v5_eval_B_2\",\"keys\":[\"row_803\"]},\"population\":{\"table\":\"parent_v5_eval_B_2\",\"filter\":null},\"group_by\":[],\"schema_version\":\"4eefb0e0ef38fff31aea3395a1dbf5e19de5a6b1905c42e344e5cfe7927f3492\",\"source_version\":\"6f5827817bdc850a1c1abdf148b1465986f2a642828fee10673bb0841203544a\",\"missing_policy\":{\"input\":\"propagate\",\"empty_group\":null,\"denominator_zero\":null,\"child_missing\":\"propagate\",\"unknown_predicate\":\"defer\"}}}],\"stop_reason\":\"Narrow computed metadata candidates; business and online usefulness remain unconfirmed.\"}",
+  "raw_sha": "8e6c8fb42ae14b6b3dd3449838a49edda9f2fc3b4b4fc4c590f6aabe3d76a8bd",
+  "original_input_sha": "37fc3ce3bcc8306e14fe033cd424f4f5e7654a03e2b93c571eee5b2b15f7cc90",
+  "generated_tokens": 809,
+  "length_limit_reached": false,
+  "checks": {
+    "JSON_contract": true,
+    "candidates": [
+      {
+        "index": 0,
+        "contract": true,
+        "source_exists": true,
+        "definition_valid": true,
+        "measurement_completed": true,
+        "independent": true,
+        "duplicate": false,
+        "errors": [],
+        "candidate": {
+          "id": "train_B_02_04_c0",
+          "purpose": "Verified count difference; no business interpretation.",
+          "meaning": "Verified count difference; no business interpretation.",
+          "sources": {
+            "columns": [
+              [
+                "parent_v5_eval_B_2",
+                "portion_803"
+              ],
+              [
+                "parent_v5_eval_B_2",
+                "quantity_803"
+              ]
+            ],
+            "relationships": []
+          },
+          "expected_type": "number",
+          "expected_unit": "count",
+          "availability": "offline_captured_scope",
+          "required_evidence": [
+            "online availability and leakage policy; operational usefulness unconfirmed"
+          ],
+          "plan": {
+            "id": "train_B_02_04_c0",
+            "description": "Verified count difference; no business interpretation.",
+            "expression": {
+              "op": "subtract",
+              "args": [
+                {
+                  "op": "column",
+                  "table": "parent_v5_eval_B_2",
+                  "column": "quantity_803"
+                },
+                {
+                  "op": "column",
+                  "table": "parent_v5_eval_B_2",
+                  "column": "portion_803"
+                }
+              ]
+            },
+            "grain": {
+              "table": "parent_v5_eval_B_2",
+              "keys": [
+                "row_803"
+              ]
+            },
+            "population": {
+              "table": "parent_v5_eval_B_2",
+              "filter": null
+            },
+            "group_by": [],
+            "schema_version": "4eefb0e0ef38fff31aea3395a1dbf5e19de5a6b1905c42e344e5cfe7927f3492",
+            "source_version": "6f5827817bdc850a1c1abdf148b1465986f2a642828fee10673bb0841203544a",
+            "missing_policy": {
+              "input": "propagate",
+              "empty_group": null,
+              "denominator_zero": null,
+              "child_missing": "propagate",
+              "unknown_predicate": "defer"
+            }
+          }
+        },
+        "validation": {
+          "passed": true,
+          "definition_status": "valid",
+          "definition_sha256": "22d73adbdaa1117f1a2f67d85446af700cdb1a8a14f99ddf83a4a83bfb1e4909",
+          "proposal_sha256": "06a979ff9e95a3f274d0a178b9400fc89c5466686efb9d0a67c983f354f0a38c",
+          "inferred_type": "number",
+          "unit": "count",
+          "identity": {
+            "population": {
+              "table": "parent_v5_eval_B_2",
+              "filter": null
+            },
+            "group_by": [],
+            "schema_version": "4eefb0e0ef38fff31aea3395a1dbf5e19de5a6b1905c42e344e5cfe7927f3492",
+            "missing_policy": {
+              "input": "propagate",
+              "empty_group": null,
+              "denominator_zero": null,
+              "child_missing": "propagate",
+              "unknown_predicate": "defer"
+            },
+            "source_version": "6f5827817bdc850a1c1abdf148b1465986f2a642828fee10673bb0841203544a",
+            "grain": {
+              "table": "parent_v5_eval_B_2",
+              "keys": [
+                "row_803"
+              ]
+            },
+            "expression": {
+              "op": "subtract",
+              "args": [
+                {
+                  "op": "column",
+                  "table": "parent_v5_eval_B_2",
+                  "column": "quantity_803"
+                },
+                {
+                  "op": "column",
+                  "table": "parent_v5_eval_B_2",
+                  "column": "portion_803"
+                }
+              ]
+            },
+            "calculation_policy": "metadata-calculation-3.0.4",
+            "inferred_type": "number",
+            "unit": "count",
+            "source_columns": [
+              [
+                "parent_v5_eval_B_2",
+                "portion_803"
+              ],
+              [
+                "parent_v5_eval_B_2",
+                "quantity_803"
+              ]
+            ],
+            "relationships": []
+          },
+          "capture_missing": [],
+          "aggregate_relationships": [],
+          "errors": []
+        },
+        "calculation_signature": "c8ea11088c776925f4d6c28364aa3fa0e54d938cee407c4f9f339a87139cc6eb",
+        "raw_reexpression": false,
+        "feature": {
+          "id": "fv5_31a9172610ed3b2c03c7db44",
+          "origin": "feature_model_proposal",
+          "meaning": "Verified count difference; no business interpretation.",
+          "plan": {
+            "id": "fv5_31a9172610ed3b2c03c7db44",
+            "description": "Verified count difference; no business interpretation.",
+            "expression": {
+              "op": "subtract",
+              "args": [
+                {
+                  "op": "column",
+                  "table": "parent_v5_eval_B_2",
+                  "column": "quantity_803"
+                },
+                {
+                  "op": "column",
+                  "table": "parent_v5_eval_B_2",
+                  "column": "portion_803"
+                }
+              ]
+            },
+            "grain": {
+              "table": "parent_v5_eval_B_2",
+              "keys": [
+                "row_803"
+              ]
+            },
+            "population": {
+              "table": "parent_v5_eval_B_2",
+              "filter": null
+            },
+            "group_by": [],
+            "schema_version": "4eefb0e0ef38fff31aea3395a1dbf5e19de5a6b1905c42e344e5cfe7927f3492",
+            "source_version": "6f5827817bdc850a1c1abdf148b1465986f2a642828fee10673bb0841203544a",
+            "missing_policy": {
+              "input": "propagate",
+              "empty_group": null,
+              "denominator_zero": null,
+              "child_missing": "propagate",
+              "unknown_predicate": "defer"
+            }
+          },
+          "dtype": "number",
+          "unit": "count",
+          "definition_sha256": "22d73adbdaa1117f1a2f67d85446af700cdb1a8a14f99ddf83a4a83bfb1e4909",
+          "schema_version": "4eefb0e0ef38fff31aea3395a1dbf5e19de5a6b1905c42e344e5cfe7927f3492",
+          "source_version": "6f5827817bdc850a1c1abdf148b1465986f2a642828fee10673bb0841203544a",
+          "calculation_policy": "metadata-calculation-3.0.4",
+          "source_columns": [
+            [
+              "parent_v5_eval_B_2",
+              "portion_803"
+            ],
+            [
+              "parent_v5_eval_B_2",
+              "quantity_803"
+            ]
+          ],
+          "relationships": [],
+          "measurement": {
+            "version": "metadata-calculation-3.0.4",
+            "candidate_id": "fv5_31a9172610ed3b2c03c7db44",
+            "proposal_sha256": "f54ce94434bb99d4c4d44eac1930c30dcef130c36be45e6d48a63f3b0fa08b8d",
+            "definition_status": "valid",
+            "definition_sha256": "22d73adbdaa1117f1a2f67d85446af700cdb1a8a14f99ddf83a4a83bfb1e4909",
+            "validation": {
+              "passed": true,
+              "definition_status": "valid",
+              "definition_sha256": "22d73adbdaa1117f1a2f67d85446af700cdb1a8a14f99ddf83a4a83bfb1e4909",
+              "proposal_sha256": "f54ce94434bb99d4c4d44eac1930c30dcef130c36be45e6d48a63f3b0fa08b8d",
+              "inferred_type": "number",
+              "unit": "count",
+              "identity": {
+                "population": {
+                  "table": "parent_v5_eval_B_2",
+                  "filter": null
+                },
+                "group_by": [],
+                "schema_version": "4eefb0e0ef38fff31aea3395a1dbf5e19de5a6b1905c42e344e5cfe7927f3492",
+                "missing_policy": {
+                  "input": "propagate",
+                  "empty_group": null,
+                  "denominator_zero": null,
+                  "child_missing": "propagate",
+                  "unknown_predicate": "defer"
+                },
+                "source_version": "6f5827817bdc850a1c1abdf148b1465986f2a642828fee10673bb0841203544a",
+                "grain": {
+                  "table": "parent_v5_eval_B_2",
+                  "keys": [
+                    "row_803"
+                  ]
+                },
+                "expression": {
+                  "op": "subtract",
+                  "args": [
+                    {
+                      "op": "column",
+                      "table": "parent_v5_eval_B_2",
+                      "column": "quantity_803"
+                    },
+                    {
+                      "op": "column",
+                      "table": "parent_v5_eval_B_2",
+                      "column": "portion_803"
+                    }
+                  ]
+                },
+                "calculation_policy": "metadata-calculation-3.0.4",
+                "inferred_type": "number",
+                "unit": "count",
+                "source_columns": [
+                  [
+                    "parent_v5_eval_B_2",
+                    "portion_803"
+                  ],
+                  [
+                    "parent_v5_eval_B_2",
+                    "quantity_803"
+                  ]
+                ],
+                "relationships": []
+              },
+              "capture_missing": [],
+              "aggregate_relationships": [],
+              "errors": []
+            },
+            "measurement_status": "measured",
+            "summary": {
+              "row_count": 32,
+              "valid_count": 32,
+              "missing_count": 0,
+              "true_count": null,
+              "false_count": null,
+              "ratio": null,
+              "numerator": null,
+              "denominator": null,
+              "min": 0,
+              "max": 17,
+              "p95": 14.45,
+              "p99": 16.38,
+              "variation": "variable",
+              "quantile_method": "linear_(n-1)*p",
+              "exact_decimal": {
+                "ratio": null,
+                "p95": "14.45",
+                "p99": "16.38"
+              },
+              "population_rows_before_selection": 32,
+              "selection_unavailable_count": 0,
+              "source_rows_preserved": true
+            },
+            "errors": [],
+            "anomaly_execution": "not_run",
+            "groups": [],
+            "measurement_sha256": "3f40782e03f7b782134637ac0322f98808016c5cc628f015a1ea2edb92b9d6b2"
+          },
+          "model_proposal_id": "train_B_02_04_c0",
+          "identity_mapping": {
+            "call_id": "v5|eval_B_synthetic_2",
+            "model_proposal_id": "train_B_02_04_c0",
+            "registry_id": "fv5_31a9172610ed3b2c03c7db44",
+            "raw_candidate_sha256": "edc6be0f6898da8c53184ff8a33336c412164e324666124c6f3d9e32e483035d",
+            "definition_sha256": "22d73adbdaa1117f1a2f67d85446af700cdb1a8a14f99ddf83a4a83bfb1e4909",
+            "source_version": "6f5827817bdc850a1c1abdf148b1465986f2a642828fee10673bb0841203544a",
+            "raw_id_preserved": true
+          }
+        },
+        "independent_checks": [
+          {
+            "id": "train_B_02_04_c0",
+            "row_values": 32,
+            "passed": true,
+            "definition_sha": "22d73adbdaa1117f1a2f67d85446af700cdb1a8a14f99ddf83a4a83bfb1e4909",
+            "source_version": "6f5827817bdc850a1c1abdf148b1465986f2a642828fee10673bb0841203544a",
+            "method": "Independent AST interpreter on guarded actual rows; no Engine.evaluate call"
+          }
+        ],
+        "identity_mapping": {
+          "call_id": "v5|eval_B_synthetic_2",
+          "model_proposal_id": "train_B_02_04_c0",
+          "registry_id": "fv5_31a9172610ed3b2c03c7db44",
+          "raw_candidate_sha256": "edc6be0f6898da8c53184ff8a33336c412164e324666124c6f3d9e32e483035d",
+          "definition_sha256": "22d73adbdaa1117f1a2f67d85446af700cdb1a8a14f99ddf83a4a83bfb1e4909",
+          "source_version": "6f5827817bdc850a1c1abdf148b1465986f2a642828fee10673bb0841203544a",
+          "raw_id_preserved": true
+        },
+        "visible_sources": true
+      },
+      {
+        "index": 1,
+        "contract": true,
+        "source_exists": true,
+        "definition_valid": true,
+        "measurement_completed": true,
+        "independent": true,
+        "duplicate": false,
+        "errors": [],
+        "candidate": {
+          "id": "train_B_02_04_c1",
+          "purpose": "Signed coordinate difference in ms; not a verified business duration.",
+          "meaning": "Signed coordinate difference in ms; not a verified business duration.",
+          "sources": {
+            "columns": [
+              [
+                "parent_v5_eval_B_2",
+                "coord_ms_803"
+              ],
+              [
+                "parent_v5_eval_B_2",
+                "coord_s_803"
+              ]
+            ],
+            "relationships": []
+          },
+          "expected_type": "number",
+          "expected_unit": "ms",
+          "availability": "offline_captured_scope",
+          "required_evidence": [
+            "online availability and leakage policy; operational usefulness unconfirmed"
+          ],
+          "plan": {
+            "id": "train_B_02_04_c1",
+            "description": "Signed coordinate difference in ms; not a verified business duration.",
+            "expression": {
+              "op": "subtract",
+              "args": [
+                {
+                  "op": "column",
+                  "table": "parent_v5_eval_B_2",
+                  "column": "coord_ms_803"
+                },
+                {
+                  "op": "convert_unit",
+                  "args": [
+                    {
+                      "op": "column",
+                      "table": "parent_v5_eval_B_2",
+                      "column": "coord_s_803"
+                    }
+                  ],
+                  "from_unit": "s",
+                  "to_unit": "ms"
+                }
+              ]
+            },
+            "grain": {
+              "table": "parent_v5_eval_B_2",
+              "keys": [
+                "row_803"
+              ]
+            },
+            "population": {
+              "table": "parent_v5_eval_B_2",
+              "filter": null
+            },
+            "group_by": [],
+            "schema_version": "4eefb0e0ef38fff31aea3395a1dbf5e19de5a6b1905c42e344e5cfe7927f3492",
+            "source_version": "6f5827817bdc850a1c1abdf148b1465986f2a642828fee10673bb0841203544a",
+            "missing_policy": {
+              "input": "propagate",
+              "empty_group": null,
+              "denominator_zero": null,
+              "child_missing": "propagate",
+              "unknown_predicate": "defer"
+            }
+          }
+        },
+        "validation": {
+          "passed": true,
+          "definition_status": "valid",
+          "definition_sha256": "772b6a3964c961da668872781a3c4f971a1f7fe4924f233a8c47eb34f6a61431",
+          "proposal_sha256": "3d90154c89462c217ae1e7121c559d0115acba1815a96f20758e9809bc9a0582",
+          "inferred_type": "number",
+          "unit": "ms",
+          "identity": {
+            "population": {
+              "table": "parent_v5_eval_B_2",
+              "filter": null
+            },
+            "group_by": [],
+            "schema_version": "4eefb0e0ef38fff31aea3395a1dbf5e19de5a6b1905c42e344e5cfe7927f3492",
+            "missing_policy": {
+              "input": "propagate",
+              "empty_group": null,
+              "denominator_zero": null,
+              "child_missing": "propagate",
+              "unknown_predicate": "defer"
+            },
+            "source_version": "6f5827817bdc850a1c1abdf148b1465986f2a642828fee10673bb0841203544a",
+            "grain": {
+              "table": "parent_v5_eval_B_2",
+              "keys": [
+                "row_803"
+              ]
+            },
+            "expression": {
+              "op": "subtract",
+              "args": [
+                {
+                  "op": "column",
+                  "table": "parent_v5_eval_B_2",
+                  "column": "coord_ms_803"
+                },
+                {
+                  "op": "convert_unit",
+                  "args": [
+                    {
+                      "op": "column",
+                      "table": "parent_v5_eval_B_2",
+                      "column": "coord_s_803"
+                    }
+                  ],
+                  "from_unit": "s",
+                  "to_unit": "ms"
+                }
+              ]
+            },
+            "calculation_policy": "metadata-calculation-3.0.4",
+            "inferred_type": "number",
+            "unit": "ms",
+            "source_columns": [
+              [
+                "parent_v5_eval_B_2",
+                "coord_ms_803"
+              ],
+              [
+                "parent_v5_eval_B_2",
+                "coord_s_803"
+              ]
+            ],
+            "relationships": []
+          },
+          "capture_missing": [],
+          "aggregate_relationships": [],
+          "errors": []
+        },
+        "calculation_signature": "5e1d33c3d713dc93d9233ead82eaea90ea3c55f1b54e8d91a08ccd1dc3c81022",
+        "raw_reexpression": false,
+        "feature": {
+          "id": "fv5_4121bccc75618496c29fac9a",
+          "origin": "feature_model_proposal",
+          "meaning": "Signed coordinate difference in ms; not a verified business duration.",
+          "plan": {
+            "id": "fv5_4121bccc75618496c29fac9a",
+            "description": "Signed coordinate difference in ms; not a verified business duration.",
+            "expression": {
+              "op": "subtract",
+              "args": [
+                {
+                  "op": "column",
+                  "table": "parent_v5_eval_B_2",
+                  "column": "coord_ms_803"
+                },
+                {
+                  "op": "convert_unit",
+                  "args": [
+                    {
+                      "op": "column",
+                      "table": "parent_v5_eval_B_2",
+                      "column": "coord_s_803"
+                    }
+                  ],
+                  "from_unit": "s",
+                  "to_unit": "ms"
+                }
+              ]
+            },
+            "grain": {
+              "table": "parent_v5_eval_B_2",
+              "keys": [
+                "row_803"
+              ]
+            },
+            "population": {
+              "table": "parent_v5_eval_B_2",
+              "filter": null
+            },
+            "group_by": [],
+            "schema_version": "4eefb0e0ef38fff31aea3395a1dbf5e19de5a6b1905c42e344e5cfe7927f3492",
+            "source_version": "6f5827817bdc850a1c1abdf148b1465986f2a642828fee10673bb0841203544a",
+            "missing_policy": {
+              "input": "propagate",
+              "empty_group": null,
+              "denominator_zero": null,
+              "child_missing": "propagate",
+              "unknown_predicate": "defer"
+            }
+          },
+          "dtype": "number",
+          "unit": "ms",
+          "definition_sha256": "772b6a3964c961da668872781a3c4f971a1f7fe4924f233a8c47eb34f6a61431",
+          "schema_version": "4eefb0e0ef38fff31aea3395a1dbf5e19de5a6b1905c42e344e5cfe7927f3492",
+          "source_version": "6f5827817bdc850a1c1abdf148b1465986f2a642828fee10673bb0841203544a",
+          "calculation_policy": "metadata-calculation-3.0.4",
+          "source_columns": [
+            [
+              "parent_v5_eval_B_2",
+              "coord_ms_803"
+            ],
+            [
+              "parent_v5_eval_B_2",
+              "coord_s_803"
+            ]
+          ],
+          "relationships": [],
+          "measurement": {
+            "version": "metadata-calculation-3.0.4",
+            "candidate_id": "fv5_4121bccc75618496c29fac9a",
+            "proposal_sha256": "707e05b621c5a9b1bd7d168add04559188ac2648c3332336486789148c92aa15",
+            "definition_status": "valid",
+            "definition_sha256": "772b6a3964c961da668872781a3c4f971a1f7fe4924f233a8c47eb34f6a61431",
+            "validation": {
+              "passed": true,
+              "definition_status": "valid",
+              "definition_sha256": "772b6a3964c961da668872781a3c4f971a1f7fe4924f233a8c47eb34f6a61431",
+              "proposal_sha256": "707e05b621c5a9b1bd7d168add04559188ac2648c3332336486789148c92aa15",
+              "inferred_type": "number",
+              "unit": "ms",
+              "identity": {
+                "population": {
+                  "table": "parent_v5_eval_B_2",
+                  "filter": null
+                },
+                "group_by": [],
+                "schema_version": "4eefb0e0ef38fff31aea3395a1dbf5e19de5a6b1905c42e344e5cfe7927f3492",
+                "missing_policy": {
+                  "input": "propagate",
+                  "empty_group": null,
+                  "denominator_zero": null,
+                  "child_missing": "propagate",
+                  "unknown_predicate": "defer"
+                },
+                "source_version": "6f5827817bdc850a1c1abdf148b1465986f2a642828fee10673bb0841203544a",
+                "grain": {
+                  "table": "parent_v5_eval_B_2",
+                  "keys": [
+                    "row_803"
+                  ]
+                },
+                "expression": {
+                  "op": "subtract",
+                  "args": [
+                    {
+                      "op": "column",
+                      "table": "parent_v5_eval_B_2",
+                      "column": "coord_ms_803"
+                    },
+                    {
+                      "op": "convert_unit",
+                      "args": [
+                        {
+                          "op": "column",
+                          "table": "parent_v5_eval_B_2",
+                          "column": "coord_s_803"
+                        }
+                      ],
+                      "from_unit": "s",
+                      "to_unit": "ms"
+                    }
+                  ]
+                },
+                "calculation_policy": "metadata-calculation-3.0.4",
+                "inferred_type": "number",
+                "unit": "ms",
+                "source_columns": [
+                  [
+                    "parent_v5_eval_B_2",
+                    "coord_ms_803"
+                  ],
+                  [
+                    "parent_v5_eval_B_2",
+                    "coord_s_803"
+                  ]
+                ],
+                "relationships": []
+              },
+              "capture_missing": [],
+              "aggregate_relationships": [],
+              "errors": []
+            },
+            "measurement_status": "measured",
+            "summary": {
+              "row_count": 32,
+              "valid_count": 32,
+              "missing_count": 0,
+              "true_count": null,
+              "false_count": null,
+              "ratio": null,
+              "numerator": null,
+              "denominator": null,
+              "min": 0,
+              "max": 21793,
+              "p95": 20703.35,
+              "p99": 21575.07,
+              "variation": "variable",
+              "quantile_method": "linear_(n-1)*p",
+              "exact_decimal": {
+                "ratio": null,
+                "p95": "20703.350",
+                "p99": "21575.070"
+              },
+              "population_rows_before_selection": 32,
+              "selection_unavailable_count": 0,
+              "source_rows_preserved": true
+            },
+            "errors": [],
+            "anomaly_execution": "not_run",
+            "groups": [],
+            "measurement_sha256": "cb58037b601034cea401ec1db4cb7af7fe27759a86b0ac607b6b8930714fa6bd"
+          },
+          "model_proposal_id": "train_B_02_04_c1",
+          "identity_mapping": {
+            "call_id": "v5|eval_B_synthetic_2",
+            "model_proposal_id": "train_B_02_04_c1",
+            "registry_id": "fv5_4121bccc75618496c29fac9a",
+            "raw_candidate_sha256": "4f23803991c747c194103bca68bfa25b5a5756479cbbcbad4200b96712770611",
+            "definition_sha256": "772b6a3964c961da668872781a3c4f971a1f7fe4924f233a8c47eb34f6a61431",
+            "source_version": "6f5827817bdc850a1c1abdf148b1465986f2a642828fee10673bb0841203544a",
+            "raw_id_preserved": true
+          }
+        },
+        "independent_checks": [
+          {
+            "id": "train_B_02_04_c1",
+            "row_values": 32,
+            "passed": true,
+            "definition_sha": "772b6a3964c961da668872781a3c4f971a1f7fe4924f233a8c47eb34f6a61431",
+            "source_version": "6f5827817bdc850a1c1abdf148b1465986f2a642828fee10673bb0841203544a",
+            "method": "Independent AST interpreter on guarded actual rows; no Engine.evaluate call"
+          }
+        ],
+        "identity_mapping": {
+          "call_id": "v5|eval_B_synthetic_2",
+          "model_proposal_id": "train_B_02_04_c1",
+          "registry_id": "fv5_4121bccc75618496c29fac9a",
+          "raw_candidate_sha256": "4f23803991c747c194103bca68bfa25b5a5756479cbbcbad4200b96712770611",
+          "definition_sha256": "772b6a3964c961da668872781a3c4f971a1f7fe4924f233a8c47eb34f6a61431",
+          "source_version": "6f5827817bdc850a1c1abdf148b1465986f2a642828fee10673bb0841203544a",
+          "raw_id_preserved": true
+        },
+        "visible_sources": true
+      }
+    ],
+    "zero": false,
+    "errors": []
+  }
+}

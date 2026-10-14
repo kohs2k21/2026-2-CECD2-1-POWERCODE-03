@@ -1,0 +1,15 @@
+{
+  "id": "eval_A_actual_0",
+  "phase": "v4",
+  "raw_output": "{\"candidates\":[],\"stop_reason\":\"Required unit or operation cannot be established from the current contract; no candidate.\"}",
+  "raw_sha": "14d21931261f12378dad9c07ddcf27bdd11f842929e3647befae6c46db4b70e1",
+  "original_input_sha": "bf498f9b00004a3bfe3f6eca65ee7e6d9d3b098a4c38fd43d1a5008dc55e30f0",
+  "generated_tokens": 24,
+  "length_limit_reached": false,
+  "checks": {
+    "JSON_contract": true,
+    "candidates": [],
+    "zero": true,
+    "errors": []
+  }
+}

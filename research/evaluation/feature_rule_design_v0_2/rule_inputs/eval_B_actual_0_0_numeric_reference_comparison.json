@@ -1,0 +1,205 @@
+{
+  "id": "eval_B_actual_0_0_numeric_reference_comparison",
+  "task_kind": "no_applicable",
+  "source_kind": "same_company_new_capture_development",
+  "input": {
+    "input_contract": "feature-evidence-bundle-4.0.0",
+    "feature": {
+      "id": "fv5_819edb723e9822da01012602",
+      "sha": "18dcda01ea112b106523a0957cb37420f3dd469f7591e8414679605f3c2deb2c",
+      "meaning": "Boolean conjunction of unavailable process dependency identifier and unavailable process start timestamp; both are available in this capture.",
+      "dtype": "boolean",
+      "unit": "boolean",
+      "expression": {
+        "op": "and",
+        "args": [
+          {
+            "op": "is_missing",
+            "args": [
+              {
+                "op": "column",
+                "table": "EC_PROCESS_MONITORING",
+                "column": "DEPEND_PROCESS_ID"
+              }
+            ]
+          },
+          {
+            "op": "is_missing",
+            "args": [
+              {
+                "op": "column",
+                "table": "EC_PROCESS_MONITORING",
+                "column": "START_TIME"
+              }
+            ]
+          }
+        ]
+      },
+      "grain": {
+        "table": "EC_PROCESS_MONITORING",
+        "keys": [
+          "__V23_SAMPLE_ROW_ID"
+        ]
+      },
+      "population": {
+        "table": "EC_PROCESS_MONITORING",
+        "filter": null
+      },
+      "group_by": [],
+      "missing_policy": {
+        "input": "count_missing",
+        "empty_group": null,
+        "denominator_zero": null,
+        "child_missing": "propagate",
+        "unknown_predicate": "defer"
+      }
+    },
+    "calculation_semantics_sha": "8790154a43754d175221eff0d87ada8451cdfa6af78ffb83c9e42525b04180a1",
+    "measurement_id": "m_fv5_819edb723e9822da01012602",
+    "measurement": {
+      "row_count": 128,
+      "valid_count": 128,
+      "missing_count": 0,
+      "true_count": 0,
+      "false_count": 128,
+      "variation": "constant",
+      "min": null,
+      "max": null,
+      "p95": null,
+      "quantile_method": "linear_(n-1)*p"
+    },
+    "measurement_sha": "62e1eeb6c45edce00abb1e7a2429f161346fc2a625332deb37496702ea5467c1",
+    "scope": {
+      "period": {
+        "start_inclusive": "2026-08-24",
+        "end_exclusive": "2026-09-09",
+        "timezone": "unknown"
+      },
+      "selection": "128 original-key distinct transaction families;all linked P/M within approved original-file scope;no truncated children",
+      "rows": 128,
+      "filter": null,
+      "table_rows": {
+        "EC_PROCESS_MONITORING": 128
+      },
+      "transaction_families": 128,
+      "capture_table_rows": {
+        "EC_TRANSACTION_MONITORING": 128,
+        "EC_PROCESS_MONITORING": 128,
+        "EC_MESSAGE_MONITORING": 256
+      },
+      "selection_windows": [
+        [
+          "2026-08-24",
+          "2026-09-09"
+        ]
+      ]
+    },
+    "source_scope_sha": "1bed7666b90793481cb57b5e9125626f51293678456cb7e6f8a50d09dee1811f",
+    "sources": {
+      "columns": [
+        {
+          "table": "EC_PROCESS_MONITORING",
+          "column": "DEPEND_PROCESS_ID",
+          "type": "string",
+          "nullable": true,
+          "evidence_ids": [
+            "schema_column_7b8b4dc1af1ae1515e9e"
+          ],
+          "missing_tokens": [
+            ""
+          ]
+        },
+        {
+          "table": "EC_PROCESS_MONITORING",
+          "column": "START_TIME",
+          "type": "datetime",
+          "nullable": true,
+          "evidence_ids": [
+            "schema_column_666441ddba2a73f11459"
+          ],
+          "missing_tokens": [
+            ""
+          ]
+        }
+      ],
+      "relationships": []
+    },
+    "constraints": [],
+    "baseline": {
+      "state": "insufficient",
+      "needed": [
+        "numeric_variable"
+      ]
+    },
+    "version": {
+      "source": "82affdd810628f8fc880c884c83bf02e10f594db8ae821c25118c80ec5793309",
+      "schema": "b1150a4494d505d45437c4ac594b95024b61e8021f6f9f06aaf6c8b3f7374d12",
+      "calculation": "metadata-calculation-3.0.4",
+      "validation": "rule-grounding-4.1.0"
+    },
+    "availability": {
+      "mode": "offline_completed_capture",
+      "online_window_defined": false,
+      "capture_completeness": "all selected-family original file rows;not verified business lifecycle completion"
+    },
+    "unknown": [
+      "business meaning of stored codes and quantities",
+      "business duration/common clock",
+      "online availability"
+    ],
+    "request": "numeric_reference_comparison",
+    "reference_policy": {
+      "minimum_n": 20,
+      "independence_or_normality_requirement": false,
+      "operator": "gt"
+    },
+    "range_proof": {
+      "kind": "boolean",
+      "lower": false,
+      "upper": true
+    },
+    "output_contract_version": "bounded-rule-1.2.0",
+    "needed_evidence_catalog": {
+      "usable_calculated_observations": "Current application feature has zero usable outputs; admit an already known observed condition only after usable outputs exist.",
+      "valid_reference_values": "Reference numeric feature has zero eligible outputs; obtain reference outputs for the requested numeric baseline, not current observations.",
+      "minimum_reference_sample": "Reference has some eligible numeric outputs but fewer than the supplied minimum_n=20.",
+      "physical_or_comparable_calculation_unit": "Physical or comparable calculation unit is unconfirmed; do not assume a raw NUMBER field is count or ms."
+    },
+    "allowed_missing_evidence_ids": [],
+    "reason_guidance": {
+      "fact_scope": "Original feature valid/missing counts; condition result Boolean is separate",
+      "style": "Brief case-specific measured fact, decision, relevant limitation only"
+    },
+    "evidence_contract": {
+      "ddl_not_null": "exact constraint.id",
+      "observed_diagnostic": "measurement_id, including deferred",
+      "reference_p95": "BOTH measurement_id AND verified baseline.id",
+      "request_evidence_or_no_applicable": "no unsupported IDs"
+    },
+    "capture_context": {
+      "policy": "capture-context-4.0.0",
+      "sha": "052fdf271d74f96eb32a904a5de8119ae81e47667a7e98c2de3858f72e6fc4be",
+      "transaction_families": 128,
+      "table_rows": {
+        "EC_TRANSACTION_MONITORING": 128,
+        "EC_PROCESS_MONITORING": 128,
+        "EC_MESSAGE_MONITORING": 256
+      },
+      "selection_windows": [
+        [
+          "2026-08-24",
+          "2026-09-09"
+        ]
+      ],
+      "manifest": {
+        "sha256": "ee96cfea32020502902c97180daff6a53964421564b2e804fb35eaa6e6fdb0bb"
+      },
+      "complete_for_selected_original_file_families": true,
+      "business_lifecycle_completion_verified": false
+    },
+    "bundle_reference": {
+      "sha": "d8162d6e9728de724b23aa1b400b527bb6d77eaf51ec91c19569cb45f920e051",
+      "reference_sha": "17fe2c2ce7d163dbb3635893f0f4a2ae2263f2b396fca77bc438bbc632a9b584"
+    }
+  }
+}

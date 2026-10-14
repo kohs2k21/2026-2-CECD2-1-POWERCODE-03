@@ -1,0 +1,31 @@
+{
+  "id": "eval_A_actual_3_0_numeric_reference_comparison",
+  "raw_output": "{\"v\":\"1\",\"feature\":\"fv5_26a81708b085fd6ae4c4ddd4\",\"sha\":\"90cc85718b15fd9f6cda9393ae418617d9e109379d7a4a9132f8230b514bfd4a\",\"role\":\"SR\",\"state\":\"proposed\",\"basis\":\"reference_p95\",\"condition\":{\"op\":\"gt\",\"baseline\":\"b_fv5_26a81708b085fd6ae4c4ddd4\"},\"evidence\":[\"m_fv5_26a81708b085fd6ae4c4ddd4\",\"b_fv5_26a81708b085fd6ae4c4ddd4\"],\"needed\":[],\"reason\":\"Compare this integer count feature with the code-measured reference p95 0.00 count, n=52, minimum=20; strictly greater activates.\"}",
+  "raw_sha": "58a6ffd0898aa408e76e8f338bf084b22d78920248a5c946b2db11c27ad83122",
+  "original_input_sha": "26535acd3f8492117e1232b46f8cfb166bdc664b03c423271c46271ba5a30ced",
+  "prediction": {
+    "v": "1",
+    "feature": "fv5_26a81708b085fd6ae4c4ddd4",
+    "sha": "90cc85718b15fd9f6cda9393ae418617d9e109379d7a4a9132f8230b514bfd4a",
+    "role": "SR",
+    "state": "proposed",
+    "basis": "reference_p95",
+    "condition": {
+      "op": "gt",
+      "baseline": "b_fv5_26a81708b085fd6ae4c4ddd4"
+    },
+    "evidence": [
+      "m_fv5_26a81708b085fd6ae4c4ddd4",
+      "b_fv5_26a81708b085fd6ae4c4ddd4"
+    ],
+    "needed": [],
+    "reason": "Compare this integer count feature with the code-measured reference p95 0.00 count, n=52, minimum=20; strictly greater activates."
+  },
+  "validation": {
+    "passed": true,
+    "schema_passed": true,
+    "errors": [],
+    "policy": "rule-grounding-4.1.0",
+    "direct_meaning_review_required": true
+  }
+}

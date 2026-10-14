@@ -1,0 +1,25 @@
+{
+  "id": "eval_B_actual_0_0_numeric_reference_comparison",
+  "raw_output": "{\"v\":\"1\",\"feature\":\"fv5_819edb723e9822da01012602\",\"sha\":\"18dcda01ea112b106523a0957cb37420f3dd469f7591e8414679605f3c2deb2c\",\"role\":\"SR\",\"state\":\"no_applicable\",\"basis\":\"none\",\"condition\":null,\"evidence\":[],\"needed\":[],\"reason\":\"The verified feature type is Boolean, so the requested numeric p95 comparison does not apply. Known unavailable or missing feature outputs do not establish a numerical unit.\"}",
+  "raw_sha": "6249f3b5eafde237844a70f4eeac4a5937e8bb4c2d0ce6e045e163b959b9f7cd",
+  "original_input_sha": "7151169d7d56f03a260e18c7a3d356c441ae4ee482cd6a5c4167829e77b38640",
+  "prediction": {
+    "v": "1",
+    "feature": "fv5_819edb723e9822da01012602",
+    "sha": "18dcda01ea112b106523a0957cb37420f3dd469f7591e8414679605f3c2deb2c",
+    "role": "SR",
+    "state": "no_applicable",
+    "basis": "none",
+    "condition": null,
+    "evidence": [],
+    "needed": [],
+    "reason": "The verified feature type is Boolean, so the requested numeric p95 comparison does not apply. Known unavailable or missing feature outputs do not establish a numerical unit."
+  },
+  "validation": {
+    "passed": true,
+    "schema_passed": true,
+    "errors": [],
+    "policy": "rule-grounding-4.1.0",
+    "direct_meaning_review_required": true
+  }
+}

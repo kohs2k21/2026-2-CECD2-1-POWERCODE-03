@@ -11,3 +11,12 @@
 - [개발 사례 구성](scenarios/rule_generator_v0_1/README.md)
 
 피처64개·모델 생성 HR5/SR15와 보류·근거 요청·실패를 공유하는 개발 데모다. 고객 원본 로그·Base 가중치·환경은 포함하지 않는다. 임의 새 스키마 자동 설계, 실제 이상탐지와 운영 배포는 별도 작업이다.
+
+## 피처·규칙 자동 명세 연구 v0.2 (#40)
+
+- [피처 v5·규칙 v2 코드와 실제 어댑터](models/feature_rule_design_v0_2/README.md)
+- [20개 평가와12개 규칙 판단 기록](evaluation/feature_rule_design_v0_2/README.md)
+- [지정 분석·자유 발굴·지원 한계 시나리오](scenarios/feature_rule_design_v0_2/README.md)
+- [기존 IF 연구와 입력·역할 연결 관계](models/feature_rule_design_v0_2/CONNECTIONS.md)
+
+최신 완료 연구 v5를 보관한다. 동일 입력에서 피처 v4 3/20→v5 14/20, 자유 발굴0/8→6/8을 기록하며 기존 v0.1과 이상탐지 연구를 보존한다. 신규 IF 연결·서버 변경·실시간 탐지·운영 승인은 포함하지 않는다.

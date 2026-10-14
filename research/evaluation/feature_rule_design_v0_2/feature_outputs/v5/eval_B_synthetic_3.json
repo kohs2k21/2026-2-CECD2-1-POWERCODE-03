@@ -1,0 +1,596 @@
+{
+  "id": "eval_B_synthetic_3",
+  "phase": "v5",
+  "raw_output": "{\"candidates\":[{\"id\":\"train_B_03_01_c0\",\"purpose\":\"Boolean missingness of raw numeric portion; no business contract.\",\"meaning\":\"Boolean missingness of raw numeric portion; no business contract.\",\"sources\":{\"columns\":[[\"child_v5_eval_B_3\",\"portion_804\"]],\"relationships\":[]},\"expected_type\":\"boolean\",\"expected_unit\":\"boolean\",\"availability\":\"offline_captured_scope\",\"required_evidence\":[\"online availability and leakage policy; operational usefulness unconfirmed\"],\"plan\":{\"id\":\"train_B_03_01_c0\",\"description\":\"Boolean missingness of raw numeric portion; no business contract.\",\"expression\":{\"op\":\"is_missing\",\"args\":[{\"op\":\"column\",\"table\":\"child_v5_eval_B_3\",\"column\":\"portion_804\"}]},\"grain\":{\"table\":\"child_v5_eval_B_3\",\"keys\":[\"row_804\"]},\"population\":{\"table\":\"child_v5_eval_B_3\",\"filter\":null},\"group_by\":[],\"schema_version\":\"c7b6d6176a02e21e1a5fc52833b2ef870fd9eec5dc16dabda50cb1cfe958f892\",\"source_version\":\"ec632721d59360e88d25480b89d77d97a81f39967cf7d3cdbf45ff24a4be44d0\",\"missing_policy\":{\"input\":\"count_missing\",\"empty_group\":null,\"denominator_zero\":null,\"child_missing\":\"propagate\",\"unknown_predicate\":\"defer\"}}},{\"id\":\"train_B_03_01_c1\",\"purpose\":\"Boolean missingness of raw categorical tag; no business contract.\",\"meaning\":\"Boolean missingness of raw categorical tag; no business contract.\",\"sources\":{\"columns\":[[\"child_v5_eval_B_3\",\"tag_804\"]],\"relationships\":[]},\"expected_type\":\"boolean\",\"expected_unit\":\"boolean\",\"availability\":\"offline_captured_scope\",\"required_evidence\":[\"online availability and leakage policy; operational usefulness unconfirmed\"],\"plan\":{\"id\":\"train_B_03_01_c1\",\"description\":\"Boolean missingness of raw categorical tag; no business contract.\",\"expression\":{\"op\":\"is_missing\",\"args\":[{\"op\":\"column\",\"table\":\"child_v5_eval_B_3\",\"column\":\"tag_804\"}]},\"grain\":{\"table\":\"child_v5_eval_B_3\",\"keys\":[\"row_804\"]},\"population\":{\"table\":\"child_v5_eval_B_3\",\"filter\":null},\"group_by\":[],\"schema_version\":\"c7b6d6176a02e21e1a5fc52833b2ef870fd9eec5dc16dabda50cb1cfe958f892\",\"source_version\":\"ec632721d59360e88d25480b89d77d97a81f39967cf7d3cdbf45ff24a4be44d0\",\"missing_policy\":{\"input\":\"count_missing\",\"empty_group\":null,\"denominator_zero\":null,\"child_missing\":\"propagate\",\"unknown_predicate\":\"defer\"}}}],\"stop_reason\":\"Narrow computed metadata candidates; business and online usefulness remain unverified.\"}",
+  "raw_sha": "a489c3b720610d6e826d500e13265f0fb7591ffeb475d94f4727c8e5f7de0752",
+  "original_input_sha": "f9f2c2eae5885be9fe65a3941591acaa6defc1ccae4b4ec93571ad01dcee588c",
+  "generated_tokens": 725,
+  "length_limit_reached": false,
+  "checks": {
+    "JSON_contract": true,
+    "candidates": [
+      {
+        "index": 0,
+        "contract": true,
+        "source_exists": true,
+        "definition_valid": true,
+        "measurement_completed": true,
+        "independent": true,
+        "duplicate": false,
+        "errors": [],
+        "candidate": {
+          "id": "train_B_03_01_c0",
+          "purpose": "Boolean missingness of raw numeric portion; no business contract.",
+          "meaning": "Boolean missingness of raw numeric portion; no business contract.",
+          "sources": {
+            "columns": [
+              [
+                "child_v5_eval_B_3",
+                "portion_804"
+              ]
+            ],
+            "relationships": []
+          },
+          "expected_type": "boolean",
+          "expected_unit": "boolean",
+          "availability": "offline_captured_scope",
+          "required_evidence": [
+            "online availability and leakage policy; operational usefulness unconfirmed"
+          ],
+          "plan": {
+            "id": "train_B_03_01_c0",
+            "description": "Boolean missingness of raw numeric portion; no business contract.",
+            "expression": {
+              "op": "is_missing",
+              "args": [
+                {
+                  "op": "column",
+                  "table": "child_v5_eval_B_3",
+                  "column": "portion_804"
+                }
+              ]
+            },
+            "grain": {
+              "table": "child_v5_eval_B_3",
+              "keys": [
+                "row_804"
+              ]
+            },
+            "population": {
+              "table": "child_v5_eval_B_3",
+              "filter": null
+            },
+            "group_by": [],
+            "schema_version": "c7b6d6176a02e21e1a5fc52833b2ef870fd9eec5dc16dabda50cb1cfe958f892",
+            "source_version": "ec632721d59360e88d25480b89d77d97a81f39967cf7d3cdbf45ff24a4be44d0",
+            "missing_policy": {
+              "input": "count_missing",
+              "empty_group": null,
+              "denominator_zero": null,
+              "child_missing": "propagate",
+              "unknown_predicate": "defer"
+            }
+          }
+        },
+        "validation": {
+          "passed": true,
+          "definition_status": "valid",
+          "definition_sha256": "6adbf72b421c8209369abb4109a6baf0d86bc2e72ab80364c19d288d76ef97d2",
+          "proposal_sha256": "1e18cf2472792c2040e7c2331e6806f7ed62a0d2d5bfd1ec92878d65cece784a",
+          "inferred_type": "boolean",
+          "unit": "boolean",
+          "identity": {
+            "population": {
+              "table": "child_v5_eval_B_3",
+              "filter": null
+            },
+            "group_by": [],
+            "schema_version": "c7b6d6176a02e21e1a5fc52833b2ef870fd9eec5dc16dabda50cb1cfe958f892",
+            "missing_policy": {
+              "input": "count_missing",
+              "empty_group": null,
+              "denominator_zero": null,
+              "child_missing": "propagate",
+              "unknown_predicate": "defer"
+            },
+            "source_version": "ec632721d59360e88d25480b89d77d97a81f39967cf7d3cdbf45ff24a4be44d0",
+            "grain": {
+              "table": "child_v5_eval_B_3",
+              "keys": [
+                "row_804"
+              ]
+            },
+            "expression": {
+              "op": "is_missing",
+              "args": [
+                {
+                  "op": "column",
+                  "table": "child_v5_eval_B_3",
+                  "column": "portion_804"
+                }
+              ]
+            },
+            "calculation_policy": "metadata-calculation-3.0.4",
+            "inferred_type": "boolean",
+            "unit": "boolean",
+            "source_columns": [
+              [
+                "child_v5_eval_B_3",
+                "portion_804"
+              ]
+            ],
+            "relationships": []
+          },
+          "capture_missing": [],
+          "aggregate_relationships": [],
+          "errors": []
+        },
+        "calculation_signature": "f5efc1fc411419fa39481ad8e5d5013ffeb9e427450d445ce51457e64727822d",
+        "raw_reexpression": false,
+        "feature": {
+          "id": "fv5_246f05bf851b795eb53d24e6",
+          "origin": "feature_model_proposal",
+          "meaning": "Boolean missingness of raw numeric portion; no business contract.",
+          "plan": {
+            "id": "fv5_246f05bf851b795eb53d24e6",
+            "description": "Boolean missingness of raw numeric portion; no business contract.",
+            "expression": {
+              "op": "is_missing",
+              "args": [
+                {
+                  "op": "column",
+                  "table": "child_v5_eval_B_3",
+                  "column": "portion_804"
+                }
+              ]
+            },
+            "grain": {
+              "table": "child_v5_eval_B_3",
+              "keys": [
+                "row_804"
+              ]
+            },
+            "population": {
+              "table": "child_v5_eval_B_3",
+              "filter": null
+            },
+            "group_by": [],
+            "schema_version": "c7b6d6176a02e21e1a5fc52833b2ef870fd9eec5dc16dabda50cb1cfe958f892",
+            "source_version": "ec632721d59360e88d25480b89d77d97a81f39967cf7d3cdbf45ff24a4be44d0",
+            "missing_policy": {
+              "input": "count_missing",
+              "empty_group": null,
+              "denominator_zero": null,
+              "child_missing": "propagate",
+              "unknown_predicate": "defer"
+            }
+          },
+          "dtype": "boolean",
+          "unit": "boolean",
+          "definition_sha256": "6adbf72b421c8209369abb4109a6baf0d86bc2e72ab80364c19d288d76ef97d2",
+          "schema_version": "c7b6d6176a02e21e1a5fc52833b2ef870fd9eec5dc16dabda50cb1cfe958f892",
+          "source_version": "ec632721d59360e88d25480b89d77d97a81f39967cf7d3cdbf45ff24a4be44d0",
+          "calculation_policy": "metadata-calculation-3.0.4",
+          "source_columns": [
+            [
+              "child_v5_eval_B_3",
+              "portion_804"
+            ]
+          ],
+          "relationships": [],
+          "measurement": {
+            "version": "metadata-calculation-3.0.4",
+            "candidate_id": "fv5_246f05bf851b795eb53d24e6",
+            "proposal_sha256": "f074bdd1aab4246bbc5bbc966c938a11c1bd7c68a52f7f78642338b1fb3d53ec",
+            "definition_status": "valid",
+            "definition_sha256": "6adbf72b421c8209369abb4109a6baf0d86bc2e72ab80364c19d288d76ef97d2",
+            "validation": {
+              "passed": true,
+              "definition_status": "valid",
+              "definition_sha256": "6adbf72b421c8209369abb4109a6baf0d86bc2e72ab80364c19d288d76ef97d2",
+              "proposal_sha256": "f074bdd1aab4246bbc5bbc966c938a11c1bd7c68a52f7f78642338b1fb3d53ec",
+              "inferred_type": "boolean",
+              "unit": "boolean",
+              "identity": {
+                "population": {
+                  "table": "child_v5_eval_B_3",
+                  "filter": null
+                },
+                "group_by": [],
+                "schema_version": "c7b6d6176a02e21e1a5fc52833b2ef870fd9eec5dc16dabda50cb1cfe958f892",
+                "missing_policy": {
+                  "input": "count_missing",
+                  "empty_group": null,
+                  "denominator_zero": null,
+                  "child_missing": "propagate",
+                  "unknown_predicate": "defer"
+                },
+                "source_version": "ec632721d59360e88d25480b89d77d97a81f39967cf7d3cdbf45ff24a4be44d0",
+                "grain": {
+                  "table": "child_v5_eval_B_3",
+                  "keys": [
+                    "row_804"
+                  ]
+                },
+                "expression": {
+                  "op": "is_missing",
+                  "args": [
+                    {
+                      "op": "column",
+                      "table": "child_v5_eval_B_3",
+                      "column": "portion_804"
+                    }
+                  ]
+                },
+                "calculation_policy": "metadata-calculation-3.0.4",
+                "inferred_type": "boolean",
+                "unit": "boolean",
+                "source_columns": [
+                  [
+                    "child_v5_eval_B_3",
+                    "portion_804"
+                  ]
+                ],
+                "relationships": []
+              },
+              "capture_missing": [],
+              "aggregate_relationships": [],
+              "errors": []
+            },
+            "measurement_status": "measured",
+            "summary": {
+              "row_count": 49,
+              "valid_count": 49,
+              "missing_count": 0,
+              "true_count": 4,
+              "false_count": 45,
+              "ratio": 0.08163265306122448,
+              "numerator": 4,
+              "denominator": 49,
+              "min": null,
+              "max": null,
+              "p95": null,
+              "p99": null,
+              "variation": "variable",
+              "quantile_method": "linear_(n-1)*p",
+              "exact_decimal": {
+                "ratio": "0.08163265306122448979591836735",
+                "p95": null,
+                "p99": null
+              },
+              "population_rows_before_selection": 49,
+              "selection_unavailable_count": 0,
+              "source_rows_preserved": true
+            },
+            "errors": [],
+            "anomaly_execution": "not_run",
+            "groups": [],
+            "measurement_sha256": "4678268e45497612631a2b7d5cc3067f694bb2c8143d10d4e38e0e665c760467"
+          },
+          "model_proposal_id": "train_B_03_01_c0",
+          "identity_mapping": {
+            "call_id": "v5|eval_B_synthetic_3",
+            "model_proposal_id": "train_B_03_01_c0",
+            "registry_id": "fv5_246f05bf851b795eb53d24e6",
+            "raw_candidate_sha256": "aa77e8e9e0763f40f71704d456fb1c7d041d0c56542a112bf4614c67cfeee167",
+            "definition_sha256": "6adbf72b421c8209369abb4109a6baf0d86bc2e72ab80364c19d288d76ef97d2",
+            "source_version": "ec632721d59360e88d25480b89d77d97a81f39967cf7d3cdbf45ff24a4be44d0",
+            "raw_id_preserved": true
+          }
+        },
+        "independent_checks": [
+          {
+            "id": "train_B_03_01_c0",
+            "row_values": 49,
+            "passed": true,
+            "definition_sha": "6adbf72b421c8209369abb4109a6baf0d86bc2e72ab80364c19d288d76ef97d2",
+            "source_version": "ec632721d59360e88d25480b89d77d97a81f39967cf7d3cdbf45ff24a4be44d0",
+            "method": "Independent AST interpreter on guarded actual rows; no Engine.evaluate call"
+          }
+        ],
+        "identity_mapping": {
+          "call_id": "v5|eval_B_synthetic_3",
+          "model_proposal_id": "train_B_03_01_c0",
+          "registry_id": "fv5_246f05bf851b795eb53d24e6",
+          "raw_candidate_sha256": "aa77e8e9e0763f40f71704d456fb1c7d041d0c56542a112bf4614c67cfeee167",
+          "definition_sha256": "6adbf72b421c8209369abb4109a6baf0d86bc2e72ab80364c19d288d76ef97d2",
+          "source_version": "ec632721d59360e88d25480b89d77d97a81f39967cf7d3cdbf45ff24a4be44d0",
+          "raw_id_preserved": true
+        },
+        "visible_sources": true
+      },
+      {
+        "index": 1,
+        "contract": true,
+        "source_exists": true,
+        "definition_valid": true,
+        "measurement_completed": true,
+        "independent": true,
+        "duplicate": false,
+        "errors": [],
+        "candidate": {
+          "id": "train_B_03_01_c1",
+          "purpose": "Boolean missingness of raw categorical tag; no business contract.",
+          "meaning": "Boolean missingness of raw categorical tag; no business contract.",
+          "sources": {
+            "columns": [
+              [
+                "child_v5_eval_B_3",
+                "tag_804"
+              ]
+            ],
+            "relationships": []
+          },
+          "expected_type": "boolean",
+          "expected_unit": "boolean",
+          "availability": "offline_captured_scope",
+          "required_evidence": [
+            "online availability and leakage policy; operational usefulness unconfirmed"
+          ],
+          "plan": {
+            "id": "train_B_03_01_c1",
+            "description": "Boolean missingness of raw categorical tag; no business contract.",
+            "expression": {
+              "op": "is_missing",
+              "args": [
+                {
+                  "op": "column",
+                  "table": "child_v5_eval_B_3",
+                  "column": "tag_804"
+                }
+              ]
+            },
+            "grain": {
+              "table": "child_v5_eval_B_3",
+              "keys": [
+                "row_804"
+              ]
+            },
+            "population": {
+              "table": "child_v5_eval_B_3",
+              "filter": null
+            },
+            "group_by": [],
+            "schema_version": "c7b6d6176a02e21e1a5fc52833b2ef870fd9eec5dc16dabda50cb1cfe958f892",
+            "source_version": "ec632721d59360e88d25480b89d77d97a81f39967cf7d3cdbf45ff24a4be44d0",
+            "missing_policy": {
+              "input": "count_missing",
+              "empty_group": null,
+              "denominator_zero": null,
+              "child_missing": "propagate",
+              "unknown_predicate": "defer"
+            }
+          }
+        },
+        "validation": {
+          "passed": true,
+          "definition_status": "valid",
+          "definition_sha256": "7a0d95523620d0ff52757cd5061bc19e0dc38f097109382f3bd16069229fdb52",
+          "proposal_sha256": "7b2e4fa75f4c4d0b6dab538c43ebafa1a21a96d97b50a50bc132b8956f278fbd",
+          "inferred_type": "boolean",
+          "unit": "boolean",
+          "identity": {
+            "population": {
+              "table": "child_v5_eval_B_3",
+              "filter": null
+            },
+            "group_by": [],
+            "schema_version": "c7b6d6176a02e21e1a5fc52833b2ef870fd9eec5dc16dabda50cb1cfe958f892",
+            "missing_policy": {
+              "input": "count_missing",
+              "empty_group": null,
+              "denominator_zero": null,
+              "child_missing": "propagate",
+              "unknown_predicate": "defer"
+            },
+            "source_version": "ec632721d59360e88d25480b89d77d97a81f39967cf7d3cdbf45ff24a4be44d0",
+            "grain": {
+              "table": "child_v5_eval_B_3",
+              "keys": [
+                "row_804"
+              ]
+            },
+            "expression": {
+              "op": "is_missing",
+              "args": [
+                {
+                  "op": "column",
+                  "table": "child_v5_eval_B_3",
+                  "column": "tag_804"
+                }
+              ]
+            },
+            "calculation_policy": "metadata-calculation-3.0.4",
+            "inferred_type": "boolean",
+            "unit": "boolean",
+            "source_columns": [
+              [
+                "child_v5_eval_B_3",
+                "tag_804"
+              ]
+            ],
+            "relationships": []
+          },
+          "capture_missing": [],
+          "aggregate_relationships": [],
+          "errors": []
+        },
+        "calculation_signature": "9de6cc4fca6d1e5b188c051536233edefc123abc0dea18f93f9a7e2c0d38b151",
+        "raw_reexpression": false,
+        "feature": {
+          "id": "fv5_1ef405db68cd311e8f5b8623",
+          "origin": "feature_model_proposal",
+          "meaning": "Boolean missingness of raw categorical tag; no business contract.",
+          "plan": {
+            "id": "fv5_1ef405db68cd311e8f5b8623",
+            "description": "Boolean missingness of raw categorical tag; no business contract.",
+            "expression": {
+              "op": "is_missing",
+              "args": [
+                {
+                  "op": "column",
+                  "table": "child_v5_eval_B_3",
+                  "column": "tag_804"
+                }
+              ]
+            },
+            "grain": {
+              "table": "child_v5_eval_B_3",
+              "keys": [
+                "row_804"
+              ]
+            },
+            "population": {
+              "table": "child_v5_eval_B_3",
+              "filter": null
+            },
+            "group_by": [],
+            "schema_version": "c7b6d6176a02e21e1a5fc52833b2ef870fd9eec5dc16dabda50cb1cfe958f892",
+            "source_version": "ec632721d59360e88d25480b89d77d97a81f39967cf7d3cdbf45ff24a4be44d0",
+            "missing_policy": {
+              "input": "count_missing",
+              "empty_group": null,
+              "denominator_zero": null,
+              "child_missing": "propagate",
+              "unknown_predicate": "defer"
+            }
+          },
+          "dtype": "boolean",
+          "unit": "boolean",
+          "definition_sha256": "7a0d95523620d0ff52757cd5061bc19e0dc38f097109382f3bd16069229fdb52",
+          "schema_version": "c7b6d6176a02e21e1a5fc52833b2ef870fd9eec5dc16dabda50cb1cfe958f892",
+          "source_version": "ec632721d59360e88d25480b89d77d97a81f39967cf7d3cdbf45ff24a4be44d0",
+          "calculation_policy": "metadata-calculation-3.0.4",
+          "source_columns": [
+            [
+              "child_v5_eval_B_3",
+              "tag_804"
+            ]
+          ],
+          "relationships": [],
+          "measurement": {
+            "version": "metadata-calculation-3.0.4",
+            "candidate_id": "fv5_1ef405db68cd311e8f5b8623",
+            "proposal_sha256": "986c4dd96d2e6b47fb767251515d1ff0dd967ad026283fd8e0128f2a8ea77881",
+            "definition_status": "valid",
+            "definition_sha256": "7a0d95523620d0ff52757cd5061bc19e0dc38f097109382f3bd16069229fdb52",
+            "validation": {
+              "passed": true,
+              "definition_status": "valid",
+              "definition_sha256": "7a0d95523620d0ff52757cd5061bc19e0dc38f097109382f3bd16069229fdb52",
+              "proposal_sha256": "986c4dd96d2e6b47fb767251515d1ff0dd967ad026283fd8e0128f2a8ea77881",
+              "inferred_type": "boolean",
+              "unit": "boolean",
+              "identity": {
+                "population": {
+                  "table": "child_v5_eval_B_3",
+                  "filter": null
+                },
+                "group_by": [],
+                "schema_version": "c7b6d6176a02e21e1a5fc52833b2ef870fd9eec5dc16dabda50cb1cfe958f892",
+                "missing_policy": {
+                  "input": "count_missing",
+                  "empty_group": null,
+                  "denominator_zero": null,
+                  "child_missing": "propagate",
+                  "unknown_predicate": "defer"
+                },
+                "source_version": "ec632721d59360e88d25480b89d77d97a81f39967cf7d3cdbf45ff24a4be44d0",
+                "grain": {
+                  "table": "child_v5_eval_B_3",
+                  "keys": [
+                    "row_804"
+                  ]
+                },
+                "expression": {
+                  "op": "is_missing",
+                  "args": [
+                    {
+                      "op": "column",
+                      "table": "child_v5_eval_B_3",
+                      "column": "tag_804"
+                    }
+                  ]
+                },
+                "calculation_policy": "metadata-calculation-3.0.4",
+                "inferred_type": "boolean",
+                "unit": "boolean",
+                "source_columns": [
+                  [
+                    "child_v5_eval_B_3",
+                    "tag_804"
+                  ]
+                ],
+                "relationships": []
+              },
+              "capture_missing": [],
+              "aggregate_relationships": [],
+              "errors": []
+            },
+            "measurement_status": "measured",
+            "summary": {
+              "row_count": 49,
+              "valid_count": 49,
+              "missing_count": 0,
+              "true_count": 10,
+              "false_count": 39,
+              "ratio": 0.20408163265306123,
+              "numerator": 10,
+              "denominator": 49,
+              "min": null,
+              "max": null,
+              "p95": null,
+              "p99": null,
+              "variation": "variable",
+              "quantile_method": "linear_(n-1)*p",
+              "exact_decimal": {
+                "ratio": "0.2040816326530612244897959184",
+                "p95": null,
+                "p99": null
+              },
+              "population_rows_before_selection": 49,
+              "selection_unavailable_count": 0,
+              "source_rows_preserved": true
+            },
+            "errors": [],
+            "anomaly_execution": "not_run",
+            "groups": [],
+            "measurement_sha256": "497a620b6ba9ee57863cce3a8db6bb0e764d47863d99a5b8cba49aff4fdf595f"
+          },
+          "model_proposal_id": "train_B_03_01_c1",
+          "identity_mapping": {
+            "call_id": "v5|eval_B_synthetic_3",
+            "model_proposal_id": "train_B_03_01_c1",
+            "registry_id": "fv5_1ef405db68cd311e8f5b8623",
+            "raw_candidate_sha256": "fb49ce31d67af046cd32b1d76b7bcd5998405b1fa355a61a752b16e51f8fe2c4",
+            "definition_sha256": "7a0d95523620d0ff52757cd5061bc19e0dc38f097109382f3bd16069229fdb52",
+            "source_version": "ec632721d59360e88d25480b89d77d97a81f39967cf7d3cdbf45ff24a4be44d0",
+            "raw_id_preserved": true
+          }
+        },
+        "independent_checks": [
+          {
+            "id": "train_B_03_01_c1",
+            "row_values": 49,
+            "passed": true,
+            "definition_sha": "7a0d95523620d0ff52757cd5061bc19e0dc38f097109382f3bd16069229fdb52",
+            "source_version": "ec632721d59360e88d25480b89d77d97a81f39967cf7d3cdbf45ff24a4be44d0",
+            "method": "Independent AST interpreter on guarded actual rows; no Engine.evaluate call"
+          }
+        ],
+        "identity_mapping": {
+          "call_id": "v5|eval_B_synthetic_3",
+          "model_proposal_id": "train_B_03_01_c1",
+          "registry_id": "fv5_1ef405db68cd311e8f5b8623",
+          "raw_candidate_sha256": "fb49ce31d67af046cd32b1d76b7bcd5998405b1fa355a61a752b16e51f8fe2c4",
+          "definition_sha256": "7a0d95523620d0ff52757cd5061bc19e0dc38f097109382f3bd16069229fdb52",
+          "source_version": "ec632721d59360e88d25480b89d77d97a81f39967cf7d3cdbf45ff24a4be44d0",
+          "raw_id_preserved": true
+        },
+        "visible_sources": true
+      }
+    ],
+    "zero": false,
+    "errors": []
+  }
+}

@@ -1,9 +1,13 @@
 Created: 2026-10-14T11:56:57.9068268+09:00
-Updated: 2026-10-14T12:01:07.7505357+09:00
-Author: research_experiment_builder
-Status: draft
+Updated: 2026-10-14T16:50:39.6119383+09:00
+Author: research_experiment_builder; terminology update: root
+Status: current
 
 # v4 재현·해석 계약
+
+- 현재 문서: 실행 후 설명 용어만 정리한 판본. 실험 당시 봉인 규약과 설정·수식·측정 조건 동일
+- 실험 당시 hash 대조 원문: [cc02d23의 V4_PROTOCOL.md](https://github.com/kohs2k21/2026-2-CECD2-1-POWERCODE-03/blob/cc02d23dbe2b80e932e7fae792f806c003aebceb/research/evaluation/detector_dual_path/docs/V4_PROTOCOL.md). 현재 문서의 byte hash로 원 실험 선언을 다시 검증하지 않음
+- 주요 용어: [결과 문서의 표현·판정 기준](V4_RESULTS.md#표현판정-기준). 코드 식별자·명령·수식은 재현을 위해 원래 표기 유지
 
 - 범위: 새 합성 공정 비교·동일 자원 부하; 기존 v3 코드/config/model/runs 보존
 - 작성자: 코드 작성만; 시험/재학습/실험 실행은 별도 검증 담당자
@@ -23,10 +27,10 @@ python -m research.evaluation.detector_dual_path.v4 --output research/evaluation
 - 새 출력 폴더 필수; 기존 sealed test 덮어쓰기 금지
 - seed451~455, 역할별 시간 순서/블록 ID 독립; 월~일·각24시간대 2날짜 이상
 - 정상 역할마다 336블록, 블록 준비900초+적격240초=22.4h/seed; 최종 독립 정상112h. 비연속 표본 공백 미집계
-- validation/test: 시나리오당7요일×3시간대21주입+짝정상, 별도 관측 대조. 순수 유입 폭주와 개별 count 증가 분리
+- validation/test: 시나리오당7요일×3시간대21주입+짝정상, 별도 관측 대조. 순수 로그 수신 건수 급증과 개별 count 증가 분리
 - fit: train encoder/history/model, calibration normalizer/cluster radius, threshold 정상 한도; validation만 후보 선택
 - PROCESS A: nextafter(threshold 정상 최대 정규화 점수,+inf) 고정; 모든 군/budget/algorithm/cadence에 동일
-- 단순 Rule: cohort99분위 관측 신규 간격·300초 유입량·duration·count 상대비 최대값, 배율1/2/4/off 사전 후보
+- 단순 Rule: 같은 정상 요일/시간대(cohort)의99분위 기준 대비 새 로그 수신 간격·300초 로그 수신 건수·PROCESS 처리시간(duration)·count 상대비 최대값, 배율1/2/4/off 사전 후보
 - ML: threshold 정상 최대 정규화 점수+0/1/3/off 후보; IF/KMeans 각각 독립 비교
 - A/B/C/D: 공통 PROCESS/논리 Rule + 선택 추세 경로; 최종 합집합60초 억제 경보/h 예산0.1/0.5/1
 - A 예산 초과 시 해당 전체 군 부적격; D 공동 임계값. test 예산 초과 실패 공개, 후보 재선정 금지
@@ -49,7 +53,7 @@ python -m research.evaluation.detector_dual_path.v4_load --run-dir research/eval
 - 공통 warmup60초→큐 drain/ready.flag 확인→measurement barrier. drain 완료가 공통 barrier보다 늦으면 해당 군 실패 중단
 - measurement barrier는 warmup 종료+최대60초 drain+준비 여유보다 뒤로 지정; 준비 대기는 실측600초 분모 밖
 - 실행 설정: rate10/100×stride60/5×4회, 각 군1logical CPU, [4],[6],[8],[10] 서로 다른 물리 코어에 cyclic 배정; 실제 topology 검증은 실행 담당자
-- 슬롯: RT1+trend1, 별도 executor/큐 각1000; A 추세 슬롯 idle·실시간 재배정 없음
+- 동시에 처리할 작업 수(실행 슬롯): 실시간1+시간창1(RT1+trend1), 별도 executor/큐 각1000; A의 시간창 실행 슬롯은 미사용·실시간 재배정 없음
 - `--smoke`: 실측60초만으로 스케줄/입출력 확인; 본 부하 통계와 혼합 금지
 - 타이머: producer에서 대기, executor 점유 금지; model/feature preparation 계산만 worker 제출
 - ready: 과거900초 정상 prefix; warmup60초와 실측600초 별도. future/truth 미포함; 예정 trace에서 창 시각 이후 도착/완료 항상 제외

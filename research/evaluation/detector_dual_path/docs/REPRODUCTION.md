@@ -53,6 +53,9 @@ py -3.12 -m venv .venv
 
 ### 실제 부하 — 품질 실험 완료 후 별도
 
+- 용어: 준비 연산(warmup)은 측정 전 모델·연산을 예열하는 단계, 잔여 작업 처리(drain)는 입력 종료 뒤 이미 제출한 작업을 마무리하는 단계. 처리 불가로 버린 작업(drop)·측정 끝에도 미완료인 작업(pending) 별도 기록
+- 두 snapshot 구분: 고정 연구 source snapshot은 특정 Git 커밋의 코드 사본, PROCESS snapshot은 특정 시점까지 확인된 로그 관측값
+
 - 이번 반복 조건: IF·seed451·RT1/trend1·군당1논리CPU·BLAS/OMP1·추론 n_jobs1·큐1,000
 - 준비900초·연산 warmup10Hz600건·측정10/100Hz600초·추세60/5초·고정 종료 후drain최대60초
 - Windows 물리코어/SMT topology 확인 후 군별 서로 다른 물리코어의 논리CPU 배정; `[4,6,8,10]`은 이번 PC값·다른 PC에 무조건 복사 금지

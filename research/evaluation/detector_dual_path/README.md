@@ -2,10 +2,10 @@
 
 ## 최신 공정 비교 v4
 
-- 진입점: [v4 비교 결과](docs/V4_RESULTS.md)·[환경/소스 복원/실행 규약](docs/REPRODUCTION.md#최신-업로드v4-재현-범위)·[봉인된 품질 실험 규약](docs/V4_PROTOCOL.md)
+- 진입점: [v4 비교 결과·용어 설명](docs/V4_RESULTS.md)·[환경/소스 복원/실행 규약](docs/REPRODUCTION.md#최신-업로드v4-재현-범위)·[품질 실험 규약·봉인 원문 링크](docs/V4_PROTOCOL.md)
 - A 실시간 / B 시간창 통계 Rule 추가 / C 시간창 ML 추가 / D 둘 추가; 실시간 경로 동일·전체 경보 예산 공통
 - 정상 요일/시간 균형·5 seed·정상112h/주요630사건·논리 count 계약105사건 별도. 원본 v12 전체 모델/고객 정확도 재현과 구분
-- 부하: 군당1논리CPU·RT1/trend1·10/100건/초·60/5초 주기·각4회. 공유 Windows 호스트이며 실제 서버/ESB SLA와 구분
+- 부하: 군당1논리CPU·실시간1/시간창1 작업 동시 처리(RT1/trend1)·10/100건/초·60/5초 주기·각4회. 공유 Windows 호스트이며 실제 서버/ESB SLA와 구분
 - 코드: `v4.py`·`v4_core.py`·`v4_load.py`·`v4_config.json`, 회귀 `tests/test_v4.py`; 원시/생성 모델 `runs/` Git 제외
 - 실행 조건과 중단/IO 보완 이력: 재현 문서의 최신 v4 절 기준. 아래 v3와 기존 `RESULTS.md`는 과거 탐색 이력 보존
 

@@ -192,4 +192,3 @@ def main():
     print(json.dumps(result, ensure_ascii=False, indent=2))
     if args.command == 'validate-rule' and not result['code_validation']['passed']:
         raise SystemExit(2)
-

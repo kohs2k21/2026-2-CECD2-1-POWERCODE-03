@@ -77,7 +77,7 @@
   "anomaly_execution": false,
   "server_connected": false,
   "publication_assets": {
-    "research/models/feature_rule_design_v0_2/.gitattributes": "42412fb5bfb6250c69794fc14cc01c6a24b79f98ff33a2b58be60542a6037da5",
+    "research/models/feature_rule_design_v0_2/.gitattributes": "9cb7cb72610319430bf0d2f451abe017aa3e36883889e20fb4912fa04928d71b",
     "research/models/feature_rule_design_v0_2/.gitignore": "26029d620d2d97401e000db34d97c2278791979dc966998417316e35b7bdca9f",
     "research/models/feature_rule_design_v0_2/CONNECTIONS.md": "03453b3906fc2d425115634aafeacdc8b3e880ff61d56bbbf60ca4c9a9a707ad",
     "research/models/feature_rule_design_v0_2/MODEL_CARD.md": "5348886872c9ded69093223db62fcf87651e4463a9b61a19fc548788b125d7b5",
@@ -88,7 +88,7 @@
     "research/models/feature_rule_design_v0_2/adapters/rule_v2/adapter_config.json": "9b0e17052d0da19b48b2b1c02cb530359f3cad493d80c50f89f88f51449e90e8",
     "research/models/feature_rule_design_v0_2/design_cli.py": "2f56a5ba9686a966ea56a5f67bfe51c73d5d3c0889192f66a02c342debb83cb9",
     "research/models/feature_rule_design_v0_2/feature_system.txt": "146cec67fb3618c21c8598333783cd08810c1d56e78499fcc259fdc500fe25df",
-    "research/models/feature_rule_design_v0_2/implementation/package_runtime.py": "1834e7a6e985399cc9f94d5d04f12cf8370d6f63b1a9d18556169773970bb48a",
+    "research/models/feature_rule_design_v0_2/implementation/package_runtime.py": "d3651401f9460a121330b5fcbe2dd0a76bbc4843dffca1bc92bed3566d66700c",
     "research/models/feature_rule_design_v0_2/implementation/rule_policy.py": "6b59f0148a31afd77ce5634c4edc7c6cd658cba386f584d70efda58236c193af",
     "research/models/feature_rule_design_v0_2/implementation/v1_validator.py": "41cf7b93b949ec8d78a90529443436d1aa56764b82752e8a07848551773077dc",
     "research/models/feature_rule_design_v0_2/requirements-cpu.txt": "756cc9e506ae4ee1a6f6c0507088b5cfc0dc8ba350fb2d2d46f1ffa72033adb6",

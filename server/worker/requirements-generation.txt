@@ -1,0 +1,7 @@
+# 별도 GPU 환경. CPU 탐지 워커와 가상환경을 분리한다.
+torch==2.11.0
+transformers==5.19.0
+peft==0.21.2
+bitsandbytes==0.50.2
+accelerate==1.15.0
+python-dotenv>=1.0,<2

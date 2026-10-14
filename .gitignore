@@ -132,6 +132,7 @@ GEMINI.md
 
 # Local automation checkpoint (team board only)
 /automation/.runtime/
+/server/worker/.research-runtime/
 
 # Issue #38: final v12 models and explicitly requested reference-data caches.
 # Period source datasets and benchmark CSV/labels remain excluded.

@@ -1,0 +1,6 @@
+-r requirements-cpu.txt
+transformers==5.19.0
+peft==0.21.2
+bitsandbytes==0.50.2
+accelerate==1.15.0
+# Tested separately: torch==2.11.0+cu129. Install a matching CUDA build explicitly.

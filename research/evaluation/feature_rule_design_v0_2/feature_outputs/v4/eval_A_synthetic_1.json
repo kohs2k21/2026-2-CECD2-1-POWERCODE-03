@@ -1,0 +1,130 @@
+{
+  "id": "eval_A_synthetic_1",
+  "phase": "v4",
+  "raw_output": "{\"candidates\":[{\"id\":\"v5_eval_A_1_0_c0\",\"purpose\":\"Sum of verified child count quantities for code A; empty selected child set gives empty result, missing selected value propagates.\",\"meaning\":\"Sum of verified child count quantities for code A; empty selected child set gives empty result, missing selected value propagates.\",\"sources\":{\"columns\":[[\"child_v5_eval_A_1\",\"code_702\"],[\"child_v5_eval_A_1\",\"portion_702\"],[\"child_v5_eval_A_1\",\"ref_702\"],[\"child_v5_eval_A_1\",\"tenant_702\"],[\"parent_v5_eval_A_1\",\"ref_702\"],[\"parent_v5_eval_A_1\",\"tenant_702\"]],\"relationships\":[\"link_v5_eval_A_1\"]},\"expected_type\":\"number\",\"expected_unit\":\"count\",\"availability\":\"offline_captured_scope\",\"required_evidence\":[\"online availability and leakage policy; operational usefulness unconfirmed\"],\"plan\":{\"id\":\"v5_eval_A_1_0_c0\",\"description\":\"Sum of verified child count quantities for code A; empty selected child set gives empty result, missing selected value propagates.\",\"expression\":{\"op\":\"child_sum\",\"relationship_id\":\"link_v5_eval_A_1\",\"where\":{\"op\":\"eq\",\"args\":[{\"op\":\"column\",\"table\":\"child_v5_eval_A_1\",\"column\":\"code_702\"},{\"op\":\"literal\",\"value\":\"A\"}]},\"value\":{\"op\":\"column\",\"table\":\"child_v5_eval_A_1\",\"column\":\"portion_702\"}},\"grain\":{\"table\":\"parent_v5_eval_A_1\",\"keys\":[\"row_702\"]},\"population\":{\"table\":\"parent_v5_eval_A_1\",\"filter\":null},\"group_by\":[],\"schema_version\":\"e2cc03bd464dc1ad7a37e25281115081765457a0c7a334e94e16dfbdfcd9fa34\",\"source_version\":\"cd6f6aa47efbbd1140ac0039da740a75b783f08de716490dc201a1145e1ee0fb\",\"missing_policy\":{\"input\":\"propagate\",\"empty_group\":\"zero\",\"denominator_zero\":null,\"child_missing\":\"propagate\",\"unknown_predicate\":\"defer\"}}}],\"stop_reason\":\"Bounded requested analysis covered; operational usefulness and online availability remain unconfirmed.\"}",
+  "raw_sha": "4224c28c645f99e1f42d6e448f037bf6e07b0009afa9aa1dfe9f3b7dca0fc3c7",
+  "original_input_sha": "ef273135c413e7747f27c7eb5f9051619f5f6eb43f014d8a424f441ac79ddc43",
+  "generated_tokens": 537,
+  "length_limit_reached": false,
+  "checks": {
+    "JSON_contract": true,
+    "candidates": [
+      {
+        "index": 0,
+        "contract": true,
+        "source_exists": true,
+        "definition_valid": false,
+        "measurement_completed": false,
+        "independent": false,
+        "duplicate": false,
+        "errors": [
+          "[{'code': 'source_version', 'path': '/source_version', 'message': 'Stale schema/source version'}]"
+        ],
+        "candidate": {
+          "id": "v5_eval_A_1_0_c0",
+          "purpose": "Sum of verified child count quantities for code A; empty selected child set gives empty result, missing selected value propagates.",
+          "meaning": "Sum of verified child count quantities for code A; empty selected child set gives empty result, missing selected value propagates.",
+          "sources": {
+            "columns": [
+              [
+                "child_v5_eval_A_1",
+                "code_702"
+              ],
+              [
+                "child_v5_eval_A_1",
+                "portion_702"
+              ],
+              [
+                "child_v5_eval_A_1",
+                "ref_702"
+              ],
+              [
+                "child_v5_eval_A_1",
+                "tenant_702"
+              ],
+              [
+                "parent_v5_eval_A_1",
+                "ref_702"
+              ],
+              [
+                "parent_v5_eval_A_1",
+                "tenant_702"
+              ]
+            ],
+            "relationships": [
+              "link_v5_eval_A_1"
+            ]
+          },
+          "expected_type": "number",
+          "expected_unit": "count",
+          "availability": "offline_captured_scope",
+          "required_evidence": [
+            "online availability and leakage policy; operational usefulness unconfirmed"
+          ],
+          "plan": {
+            "id": "v5_eval_A_1_0_c0",
+            "description": "Sum of verified child count quantities for code A; empty selected child set gives empty result, missing selected value propagates.",
+            "expression": {
+              "op": "child_sum",
+              "relationship_id": "link_v5_eval_A_1",
+              "where": {
+                "op": "eq",
+                "args": [
+                  {
+                    "op": "column",
+                    "table": "child_v5_eval_A_1",
+                    "column": "code_702"
+                  },
+                  {
+                    "op": "literal",
+                    "value": "A"
+                  }
+                ]
+              },
+              "value": {
+                "op": "column",
+                "table": "child_v5_eval_A_1",
+                "column": "portion_702"
+              }
+            },
+            "grain": {
+              "table": "parent_v5_eval_A_1",
+              "keys": [
+                "row_702"
+              ]
+            },
+            "population": {
+              "table": "parent_v5_eval_A_1",
+              "filter": null
+            },
+            "group_by": [],
+            "schema_version": "e2cc03bd464dc1ad7a37e25281115081765457a0c7a334e94e16dfbdfcd9fa34",
+            "source_version": "cd6f6aa47efbbd1140ac0039da740a75b783f08de716490dc201a1145e1ee0fb",
+            "missing_policy": {
+              "input": "propagate",
+              "empty_group": "zero",
+              "denominator_zero": null,
+              "child_missing": "propagate",
+              "unknown_predicate": "defer"
+            }
+          }
+        },
+        "validation": {
+          "passed": false,
+          "definition_status": "invalid",
+          "definition_sha256": null,
+          "proposal_sha256": "e91ddcb6759c26d8f4b7acee196b40e0fb06ac09d810d1a5997c42a7e3227afb",
+          "errors": [
+            {
+              "code": "source_version",
+              "message": "Stale schema/source version"
+            }
+          ]
+        },
+        "visible_sources": true
+      }
+    ],
+    "zero": false,
+    "errors": []
+  }
+}

@@ -1,0 +1,434 @@
+{
+  "id": "eval_A_actual_3",
+  "phase": "v5",
+  "raw_output": "{\"candidates\":[{\"id\":\"train_A_actual_0_c0\",\"purpose\":\"Count of captured message children with unavailable DATA_NAME for literal STATUS=S; missingness only.\",\"meaning\":\"Count of captured message children with unavailable DATA_NAME for literal STATUS=S; missingness only.\",\"sources\":{\"columns\":[[\"EC_MESSAGE_MONITORING\",\"DATA_NAME\"],[\"EC_MESSAGE_MONITORING\",\"__V23_PARENT_1_ROW_ID\"],[\"EC_TRANSACTION_MONITORING\",\"STATUS\"],[\"EC_TRANSACTION_MONITORING\",\"__V23_SAMPLE_ROW_ID\"]],\"relationships\":[\"physical_M_to_T\"]},\"expected_type\":\"integer\",\"expected_unit\":\"count\",\"availability\":\"offline_captured_scope\",\"required_evidence\":[\"online availability and leakage policy; operational usefulness unconfirmed\"],\"plan\":{\"id\":\"train_A_actual_0_c0\",\"description\":\"Count of captured message children with unavailable DATA_NAME for literal STATUS=S; missingness only.\",\"expression\":{\"op\":\"conditional_count\",\"relationship_id\":\"physical_M_to_T\",\"where\":{\"op\":\"is_missing\",\"args\":[{\"op\":\"column\",\"table\":\"EC_MESSAGE_MONITORING\",\"column\":\"DATA_NAME\"}]}},\"grain\":{\"table\":\"EC_TRANSACTION_MONITORING\",\"keys\":[\"__V23_SAMPLE_ROW_ID\"]},\"population\":{\"table\":\"EC_TRANSACTION_MONITORING\",\"filter\":{\"op\":\"eq\",\"args\":[{\"op\":\"column\",\"table\":\"EC_TRANSACTION_MONITORING\",\"column\":\"STATUS\"},{\"op\":\"literal\",\"value\":\"S\"}]}},\"group_by\":[],\"schema_version\":\"b1150a4494d505d45437c4ac594b95024b61e8021f6f9f06aaf6c8b3f7374d12\",\"source_version\":\"82affdd810628f8fc880c884c83bf02e10f594db8ae821c25118c80ec5793309\",\"missing_policy\":{\"input\":\"count_missing\",\"empty_group\":\"zero\",\"denominator_zero\":null,\"child_missing\":\"propagate\",\"unknown_predicate\":\"defer\"}}}],\"stop_reason\":\"Requested narrow calculation only; no business interpretation.\"}",
+  "raw_sha": "843778ce16ac4d03eeacc014756d76014202ce44f04c8424c5a2f8ce707bf438",
+  "original_input_sha": "2328e81582f1209eb468bdae9c43adc929df706cec12c74806f1bc77254b0965",
+  "generated_tokens": 457,
+  "length_limit_reached": false,
+  "checks": {
+    "JSON_contract": true,
+    "candidates": [
+      {
+        "index": 0,
+        "contract": true,
+        "source_exists": true,
+        "definition_valid": true,
+        "measurement_completed": true,
+        "independent": true,
+        "duplicate": false,
+        "errors": [],
+        "candidate": {
+          "id": "train_A_actual_0_c0",
+          "purpose": "Count of captured message children with unavailable DATA_NAME for literal STATUS=S; missingness only.",
+          "meaning": "Count of captured message children with unavailable DATA_NAME for literal STATUS=S; missingness only.",
+          "sources": {
+            "columns": [
+              [
+                "EC_MESSAGE_MONITORING",
+                "DATA_NAME"
+              ],
+              [
+                "EC_MESSAGE_MONITORING",
+                "__V23_PARENT_1_ROW_ID"
+              ],
+              [
+                "EC_TRANSACTION_MONITORING",
+                "STATUS"
+              ],
+              [
+                "EC_TRANSACTION_MONITORING",
+                "__V23_SAMPLE_ROW_ID"
+              ]
+            ],
+            "relationships": [
+              "physical_M_to_T"
+            ]
+          },
+          "expected_type": "integer",
+          "expected_unit": "count",
+          "availability": "offline_captured_scope",
+          "required_evidence": [
+            "online availability and leakage policy; operational usefulness unconfirmed"
+          ],
+          "plan": {
+            "id": "train_A_actual_0_c0",
+            "description": "Count of captured message children with unavailable DATA_NAME for literal STATUS=S; missingness only.",
+            "expression": {
+              "op": "conditional_count",
+              "relationship_id": "physical_M_to_T",
+              "where": {
+                "op": "is_missing",
+                "args": [
+                  {
+                    "op": "column",
+                    "table": "EC_MESSAGE_MONITORING",
+                    "column": "DATA_NAME"
+                  }
+                ]
+              }
+            },
+            "grain": {
+              "table": "EC_TRANSACTION_MONITORING",
+              "keys": [
+                "__V23_SAMPLE_ROW_ID"
+              ]
+            },
+            "population": {
+              "table": "EC_TRANSACTION_MONITORING",
+              "filter": {
+                "op": "eq",
+                "args": [
+                  {
+                    "op": "column",
+                    "table": "EC_TRANSACTION_MONITORING",
+                    "column": "STATUS"
+                  },
+                  {
+                    "op": "literal",
+                    "value": "S"
+                  }
+                ]
+              }
+            },
+            "group_by": [],
+            "schema_version": "b1150a4494d505d45437c4ac594b95024b61e8021f6f9f06aaf6c8b3f7374d12",
+            "source_version": "82affdd810628f8fc880c884c83bf02e10f594db8ae821c25118c80ec5793309",
+            "missing_policy": {
+              "input": "count_missing",
+              "empty_group": "zero",
+              "denominator_zero": null,
+              "child_missing": "propagate",
+              "unknown_predicate": "defer"
+            }
+          }
+        },
+        "validation": {
+          "passed": true,
+          "definition_status": "valid",
+          "definition_sha256": "90cc85718b15fd9f6cda9393ae418617d9e109379d7a4a9132f8230b514bfd4a",
+          "proposal_sha256": "c57170b4403e7d3aa1834aff8ab416f6ad9ce3a789fb0ff41d858373e2eecf88",
+          "inferred_type": "integer",
+          "unit": "count",
+          "identity": {
+            "population": {
+              "table": "EC_TRANSACTION_MONITORING",
+              "filter": {
+                "op": "eq",
+                "args": [
+                  {
+                    "op": "column",
+                    "table": "EC_TRANSACTION_MONITORING",
+                    "column": "STATUS"
+                  },
+                  {
+                    "op": "literal",
+                    "value": "S"
+                  }
+                ]
+              }
+            },
+            "group_by": [],
+            "schema_version": "b1150a4494d505d45437c4ac594b95024b61e8021f6f9f06aaf6c8b3f7374d12",
+            "missing_policy": {
+              "input": "count_missing",
+              "empty_group": "zero",
+              "denominator_zero": null,
+              "child_missing": "propagate",
+              "unknown_predicate": "defer"
+            },
+            "source_version": "82affdd810628f8fc880c884c83bf02e10f594db8ae821c25118c80ec5793309",
+            "grain": {
+              "table": "EC_TRANSACTION_MONITORING",
+              "keys": [
+                "__V23_SAMPLE_ROW_ID"
+              ]
+            },
+            "expression": {
+              "op": "conditional_count",
+              "relationship_id": "physical_M_to_T",
+              "where": {
+                "op": "is_missing",
+                "args": [
+                  {
+                    "op": "column",
+                    "table": "EC_MESSAGE_MONITORING",
+                    "column": "DATA_NAME"
+                  }
+                ]
+              }
+            },
+            "calculation_policy": "metadata-calculation-3.0.4",
+            "inferred_type": "integer",
+            "unit": "count",
+            "source_columns": [
+              [
+                "EC_MESSAGE_MONITORING",
+                "DATA_NAME"
+              ],
+              [
+                "EC_MESSAGE_MONITORING",
+                "__V23_PARENT_1_ROW_ID"
+              ],
+              [
+                "EC_TRANSACTION_MONITORING",
+                "STATUS"
+              ],
+              [
+                "EC_TRANSACTION_MONITORING",
+                "__V23_SAMPLE_ROW_ID"
+              ]
+            ],
+            "relationships": [
+              "physical_M_to_T"
+            ]
+          },
+          "capture_missing": [],
+          "aggregate_relationships": [
+            "physical_M_to_T"
+          ],
+          "errors": []
+        },
+        "calculation_signature": "b52ee2046b5025612a1e1fdfdf7bc2121dadf038b1341e7efd8b53d4cab58d09",
+        "raw_reexpression": false,
+        "feature": {
+          "id": "fv5_26a81708b085fd6ae4c4ddd4",
+          "origin": "feature_model_proposal",
+          "meaning": "Count of captured message children with unavailable DATA_NAME for literal STATUS=S; missingness only.",
+          "plan": {
+            "id": "fv5_26a81708b085fd6ae4c4ddd4",
+            "description": "Count of captured message children with unavailable DATA_NAME for literal STATUS=S; missingness only.",
+            "expression": {
+              "op": "conditional_count",
+              "relationship_id": "physical_M_to_T",
+              "where": {
+                "op": "is_missing",
+                "args": [
+                  {
+                    "op": "column",
+                    "table": "EC_MESSAGE_MONITORING",
+                    "column": "DATA_NAME"
+                  }
+                ]
+              }
+            },
+            "grain": {
+              "table": "EC_TRANSACTION_MONITORING",
+              "keys": [
+                "__V23_SAMPLE_ROW_ID"
+              ]
+            },
+            "population": {
+              "table": "EC_TRANSACTION_MONITORING",
+              "filter": {
+                "op": "eq",
+                "args": [
+                  {
+                    "op": "column",
+                    "table": "EC_TRANSACTION_MONITORING",
+                    "column": "STATUS"
+                  },
+                  {
+                    "op": "literal",
+                    "value": "S"
+                  }
+                ]
+              }
+            },
+            "group_by": [],
+            "schema_version": "b1150a4494d505d45437c4ac594b95024b61e8021f6f9f06aaf6c8b3f7374d12",
+            "source_version": "82affdd810628f8fc880c884c83bf02e10f594db8ae821c25118c80ec5793309",
+            "missing_policy": {
+              "input": "count_missing",
+              "empty_group": "zero",
+              "denominator_zero": null,
+              "child_missing": "propagate",
+              "unknown_predicate": "defer"
+            }
+          },
+          "dtype": "integer",
+          "unit": "count",
+          "definition_sha256": "90cc85718b15fd9f6cda9393ae418617d9e109379d7a4a9132f8230b514bfd4a",
+          "schema_version": "b1150a4494d505d45437c4ac594b95024b61e8021f6f9f06aaf6c8b3f7374d12",
+          "source_version": "82affdd810628f8fc880c884c83bf02e10f594db8ae821c25118c80ec5793309",
+          "calculation_policy": "metadata-calculation-3.0.4",
+          "source_columns": [
+            [
+              "EC_MESSAGE_MONITORING",
+              "DATA_NAME"
+            ],
+            [
+              "EC_MESSAGE_MONITORING",
+              "__V23_PARENT_1_ROW_ID"
+            ],
+            [
+              "EC_TRANSACTION_MONITORING",
+              "STATUS"
+            ],
+            [
+              "EC_TRANSACTION_MONITORING",
+              "__V23_SAMPLE_ROW_ID"
+            ]
+          ],
+          "relationships": [
+            "physical_M_to_T"
+          ],
+          "measurement": {
+            "version": "metadata-calculation-3.0.4",
+            "candidate_id": "fv5_26a81708b085fd6ae4c4ddd4",
+            "proposal_sha256": "21db113a31d4a64ca174f2a80ac4e35ec64444c337cec290ca65a5580096be30",
+            "definition_status": "valid",
+            "definition_sha256": "90cc85718b15fd9f6cda9393ae418617d9e109379d7a4a9132f8230b514bfd4a",
+            "validation": {
+              "passed": true,
+              "definition_status": "valid",
+              "definition_sha256": "90cc85718b15fd9f6cda9393ae418617d9e109379d7a4a9132f8230b514bfd4a",
+              "proposal_sha256": "21db113a31d4a64ca174f2a80ac4e35ec64444c337cec290ca65a5580096be30",
+              "inferred_type": "integer",
+              "unit": "count",
+              "identity": {
+                "population": {
+                  "table": "EC_TRANSACTION_MONITORING",
+                  "filter": {
+                    "op": "eq",
+                    "args": [
+                      {
+                        "op": "column",
+                        "table": "EC_TRANSACTION_MONITORING",
+                        "column": "STATUS"
+                      },
+                      {
+                        "op": "literal",
+                        "value": "S"
+                      }
+                    ]
+                  }
+                },
+                "group_by": [],
+                "schema_version": "b1150a4494d505d45437c4ac594b95024b61e8021f6f9f06aaf6c8b3f7374d12",
+                "missing_policy": {
+                  "input": "count_missing",
+                  "empty_group": "zero",
+                  "denominator_zero": null,
+                  "child_missing": "propagate",
+                  "unknown_predicate": "defer"
+                },
+                "source_version": "82affdd810628f8fc880c884c83bf02e10f594db8ae821c25118c80ec5793309",
+                "grain": {
+                  "table": "EC_TRANSACTION_MONITORING",
+                  "keys": [
+                    "__V23_SAMPLE_ROW_ID"
+                  ]
+                },
+                "expression": {
+                  "op": "conditional_count",
+                  "relationship_id": "physical_M_to_T",
+                  "where": {
+                    "op": "is_missing",
+                    "args": [
+                      {
+                        "op": "column",
+                        "table": "EC_MESSAGE_MONITORING",
+                        "column": "DATA_NAME"
+                      }
+                    ]
+                  }
+                },
+                "calculation_policy": "metadata-calculation-3.0.4",
+                "inferred_type": "integer",
+                "unit": "count",
+                "source_columns": [
+                  [
+                    "EC_MESSAGE_MONITORING",
+                    "DATA_NAME"
+                  ],
+                  [
+                    "EC_MESSAGE_MONITORING",
+                    "__V23_PARENT_1_ROW_ID"
+                  ],
+                  [
+                    "EC_TRANSACTION_MONITORING",
+                    "STATUS"
+                  ],
+                  [
+                    "EC_TRANSACTION_MONITORING",
+                    "__V23_SAMPLE_ROW_ID"
+                  ]
+                ],
+                "relationships": [
+                  "physical_M_to_T"
+                ]
+              },
+              "capture_missing": [],
+              "aggregate_relationships": [
+                "physical_M_to_T"
+              ],
+              "errors": []
+            },
+            "measurement_status": "measured",
+            "summary": {
+              "row_count": 12,
+              "valid_count": 12,
+              "missing_count": 0,
+              "true_count": null,
+              "false_count": null,
+              "ratio": null,
+              "numerator": null,
+              "denominator": null,
+              "min": 0,
+              "max": 0,
+              "p95": 0,
+              "p99": 0,
+              "variation": "constant",
+              "quantile_method": "linear_(n-1)*p",
+              "exact_decimal": {
+                "ratio": null,
+                "p95": "0.00",
+                "p99": "0.00"
+              },
+              "population_rows_before_selection": 128,
+              "selection_unavailable_count": 0,
+              "source_rows_preserved": true
+            },
+            "errors": [],
+            "anomaly_execution": "not_run",
+            "groups": [],
+            "measurement_sha256": "9e80932410a57c6b3c409e63f1a0628070f5b7b886c09b339c41ac09b3d0833e"
+          },
+          "model_proposal_id": "train_A_actual_0_c0",
+          "identity_mapping": {
+            "call_id": "v5|eval_A_actual_3",
+            "model_proposal_id": "train_A_actual_0_c0",
+            "registry_id": "fv5_26a81708b085fd6ae4c4ddd4",
+            "raw_candidate_sha256": "aea8b0b8f21752376dcf30308eca0aee82364b995877d2ca22c99465fc34a81f",
+            "definition_sha256": "90cc85718b15fd9f6cda9393ae418617d9e109379d7a4a9132f8230b514bfd4a",
+            "source_version": "82affdd810628f8fc880c884c83bf02e10f594db8ae821c25118c80ec5793309",
+            "raw_id_preserved": true
+          }
+        },
+        "independent_checks": [
+          {
+            "id": "train_A_actual_0_c0",
+            "row_values": 12,
+            "passed": true,
+            "definition_sha": "90cc85718b15fd9f6cda9393ae418617d9e109379d7a4a9132f8230b514bfd4a",
+            "source_version": "82affdd810628f8fc880c884c83bf02e10f594db8ae821c25118c80ec5793309",
+            "method": "Independent AST interpreter on guarded actual rows; no Engine.evaluate call"
+          }
+        ],
+        "identity_mapping": {
+          "call_id": "v5|eval_A_actual_3",
+          "model_proposal_id": "train_A_actual_0_c0",
+          "registry_id": "fv5_26a81708b085fd6ae4c4ddd4",
+          "raw_candidate_sha256": "aea8b0b8f21752376dcf30308eca0aee82364b995877d2ca22c99465fc34a81f",
+          "definition_sha256": "90cc85718b15fd9f6cda9393ae418617d9e109379d7a4a9132f8230b514bfd4a",
+          "source_version": "82affdd810628f8fc880c884c83bf02e10f594db8ae821c25118c80ec5793309",
+          "raw_id_preserved": true
+        },
+        "visible_sources": true
+      }
+    ],
+    "zero": false,
+    "errors": []
+  }
+}

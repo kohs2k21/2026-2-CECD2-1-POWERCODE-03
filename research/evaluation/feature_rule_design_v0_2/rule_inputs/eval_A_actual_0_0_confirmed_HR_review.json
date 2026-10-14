@@ -1,0 +1,258 @@
+{
+  "id": "eval_A_actual_0_0_confirmed_HR_review",
+  "task_kind": "no_applicable",
+  "source_kind": "same_company_new_capture_development",
+  "input": {
+    "input_contract": "feature-evidence-bundle-4.0.0",
+    "feature": {
+      "id": "fv5_780b4b24367499347adf9902",
+      "sha": "884b1247fd781f1eac454860e5fc361f616c9b30a926d7535f0faaebac8247b9",
+      "meaning": "Sum of signed process END_TIME minus START_TIME coordinates in ms for captured child processes; not business elapsed time.",
+      "dtype": "number",
+      "unit": "ms",
+      "expression": {
+        "op": "child_sum",
+        "relationship_id": "physical_P_to_T",
+        "where": null,
+        "value": {
+          "op": "datetime_diff",
+          "args": [
+            {
+              "op": "column",
+              "table": "EC_PROCESS_MONITORING",
+              "column": "END_TIME"
+            },
+            {
+              "op": "column",
+              "table": "EC_PROCESS_MONITORING",
+              "column": "START_TIME"
+            }
+          ],
+          "unit": "ms"
+        }
+      },
+      "grain": {
+        "table": "EC_TRANSACTION_MONITORING",
+        "keys": [
+          "__V23_SAMPLE_ROW_ID"
+        ]
+      },
+      "population": {
+        "table": "EC_TRANSACTION_MONITORING",
+        "filter": null
+      },
+      "group_by": [],
+      "missing_policy": {
+        "input": "propagate",
+        "empty_group": "zero",
+        "denominator_zero": null,
+        "child_missing": "propagate",
+        "unknown_predicate": "defer"
+      }
+    },
+    "calculation_semantics_sha": "185a5f1ecc0c49b8d83394f3f54577d6965757ab5e67ef9a48abf9b9d88fe372",
+    "measurement_id": "m_fv5_780b4b24367499347adf9902",
+    "measurement": {
+      "row_count": 128,
+      "valid_count": 128,
+      "missing_count": 0,
+      "true_count": null,
+      "false_count": null,
+      "variation": "variable",
+      "min": 12,
+      "max": 120,
+      "p95": 46.3,
+      "quantile_method": "linear_(n-1)*p"
+    },
+    "measurement_sha": "22171e25a76b56283a0ea685be94a1bb55077ef6ad5a55575bd177044da16a8e",
+    "scope": {
+      "period": {
+        "start_inclusive": "2026-08-24",
+        "end_exclusive": "2026-09-09",
+        "timezone": "unknown"
+      },
+      "selection": "128 original-key distinct transaction families;all linked P/M within approved original-file scope;no truncated children",
+      "rows": 128,
+      "filter": null,
+      "table_rows": {
+        "EC_PROCESS_MONITORING": 128,
+        "EC_TRANSACTION_MONITORING": 128
+      },
+      "transaction_families": 128,
+      "capture_table_rows": {
+        "EC_TRANSACTION_MONITORING": 128,
+        "EC_PROCESS_MONITORING": 128,
+        "EC_MESSAGE_MONITORING": 256
+      },
+      "selection_windows": [
+        [
+          "2026-08-24",
+          "2026-09-09"
+        ]
+      ]
+    },
+    "source_scope_sha": "4ed4e49155f2f024dc6ac860b83d427c816d7b1d12cab4b210ac53554490a599",
+    "sources": {
+      "columns": [
+        {
+          "table": "EC_PROCESS_MONITORING",
+          "column": "END_TIME",
+          "type": "datetime",
+          "nullable": true,
+          "evidence_ids": [
+            "schema_column_6633b11d5f9698ffd176"
+          ],
+          "missing_tokens": [
+            ""
+          ]
+        },
+        {
+          "table": "EC_PROCESS_MONITORING",
+          "column": "START_TIME",
+          "type": "datetime",
+          "nullable": true,
+          "evidence_ids": [
+            "schema_column_666441ddba2a73f11459"
+          ],
+          "missing_tokens": [
+            ""
+          ]
+        },
+        {
+          "table": "EC_PROCESS_MONITORING",
+          "column": "__V23_PARENT_0_ROW_ID",
+          "type": "string",
+          "nullable": null,
+          "evidence_ids": [
+            "schema_column_6b4e4b638661188aca91"
+          ],
+          "missing_tokens": [
+            ""
+          ]
+        },
+        {
+          "table": "EC_TRANSACTION_MONITORING",
+          "column": "__V23_SAMPLE_ROW_ID",
+          "type": "string",
+          "nullable": null,
+          "evidence_ids": [
+            "schema_column_1058c6bf805ba7e8209a"
+          ],
+          "missing_tokens": [
+            ""
+          ]
+        }
+      ],
+      "relationships": [
+        {
+          "id": "physical_P_to_T",
+          "from_table": "EC_PROCESS_MONITORING",
+          "to_table": "EC_TRANSACTION_MONITORING",
+          "from_columns": [
+            "__V23_PARENT_0_ROW_ID"
+          ],
+          "to_columns": [
+            "__V23_SAMPLE_ROW_ID"
+          ]
+        }
+      ]
+    },
+    "constraints": [],
+    "baseline": {
+      "state": "verified",
+      "id": "b_fv5_780b4b24367499347adf9902",
+      "sha": "40739253ddaa16ccd30e93307b4b1e66ee6a2f79ac961701dd6b31b4840116b1",
+      "source_version": "9fb3ba0c2a859f1290c6019aa8758a9a42c3e22da773ae556bbb8786af358f03",
+      "unit": "ms",
+      "reference_period": {
+        "start_inclusive": "2026-08-17",
+        "end_exclusive": "2026-08-24",
+        "timezone": "unknown"
+      },
+      "application_period": {
+        "start_inclusive": "2026-08-24",
+        "end_exclusive": "2026-09-09",
+        "timezone": "unknown"
+      },
+      "n": 128,
+      "minimum_n": 20,
+      "quantile": 0.95,
+      "method": "linear_(n-1)*p",
+      "value": 107.1,
+      "value_exact": "107.10",
+      "operator": "gt",
+      "missing": "exclude from reference and propagate unavailable at comparison",
+      "expires_at": "2026-09-09"
+    },
+    "version": {
+      "source": "82affdd810628f8fc880c884c83bf02e10f594db8ae821c25118c80ec5793309",
+      "schema": "b1150a4494d505d45437c4ac594b95024b61e8021f6f9f06aaf6c8b3f7374d12",
+      "calculation": "metadata-calculation-3.0.4",
+      "validation": "rule-grounding-4.1.0"
+    },
+    "availability": {
+      "mode": "offline_completed_capture",
+      "online_window_defined": false,
+      "capture_completeness": "all selected-family original file rows;not verified business lifecycle completion"
+    },
+    "unknown": [
+      "business meaning of stored codes and quantities",
+      "business duration/common clock",
+      "online availability"
+    ],
+    "request": "confirmed_HR_review",
+    "reference_policy": {
+      "minimum_n": 20,
+      "independence_or_normality_requirement": false,
+      "operator": "gt"
+    },
+    "range_proof": {
+      "kind": "number",
+      "lower": null,
+      "upper": null
+    },
+    "output_contract_version": "bounded-rule-1.2.0",
+    "needed_evidence_catalog": {
+      "usable_calculated_observations": "Current application feature has zero usable outputs; admit an already known observed condition only after usable outputs exist.",
+      "valid_reference_values": "Reference numeric feature has zero eligible outputs; obtain reference outputs for the requested numeric baseline, not current observations.",
+      "minimum_reference_sample": "Reference has some eligible numeric outputs but fewer than the supplied minimum_n=20.",
+      "physical_or_comparable_calculation_unit": "Physical or comparable calculation unit is unconfirmed; do not assume a raw NUMBER field is count or ms."
+    },
+    "allowed_missing_evidence_ids": [],
+    "reason_guidance": {
+      "fact_scope": "Original feature valid/missing counts; condition result Boolean is separate",
+      "style": "Brief case-specific measured fact, decision, relevant limitation only"
+    },
+    "evidence_contract": {
+      "ddl_not_null": "exact constraint.id",
+      "observed_diagnostic": "measurement_id, including deferred",
+      "reference_p95": "BOTH measurement_id AND verified baseline.id",
+      "request_evidence_or_no_applicable": "no unsupported IDs"
+    },
+    "capture_context": {
+      "policy": "capture-context-4.0.0",
+      "sha": "052fdf271d74f96eb32a904a5de8119ae81e47667a7e98c2de3858f72e6fc4be",
+      "transaction_families": 128,
+      "table_rows": {
+        "EC_TRANSACTION_MONITORING": 128,
+        "EC_PROCESS_MONITORING": 128,
+        "EC_MESSAGE_MONITORING": 256
+      },
+      "selection_windows": [
+        [
+          "2026-08-24",
+          "2026-09-09"
+        ]
+      ],
+      "manifest": {
+        "sha256": "ee96cfea32020502902c97180daff6a53964421564b2e804fb35eaa6e6fdb0bb"
+      },
+      "complete_for_selected_original_file_families": true,
+      "business_lifecycle_completion_verified": false
+    },
+    "bundle_reference": {
+      "sha": "36aca0e17b375b3f784deb511f2b6fcc39c3a1f5d346691f8592676ec9c710f0",
+      "reference_sha": "366c0375f2ae1383c2cf40d3ca335b9816bb8847117e77a80de71bff892892fc"
+    }
+  }
+}

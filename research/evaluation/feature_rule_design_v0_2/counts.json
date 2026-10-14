@@ -1,0 +1,268 @@
+{
+  "teachers": {
+    "prepared": 160,
+    "approved_silver": 160,
+    "specified": 112,
+    "discovery": 48,
+    "used_unique": 160,
+    "effective_presentations": 232,
+    "authorship": "assistant_authored_silver"
+  },
+  "training": {
+    "physical_optimizer_steps": 60,
+    "retained_updates": 58,
+    "lost_unsaved_updates": 2,
+    "continuation_steps": 53,
+    "trainable_parameters": 23760896,
+    "last_loss": 0.028144787764176726,
+    "seconds": 3070.8947862079367,
+    "one_SFT_experiment": true,
+    "truncation": 0
+  },
+  "comparison": {
+    "v4": {
+      "inputs": 20,
+      "candidate_count": 5,
+      "zero_count": 15,
+      "JSON": 20,
+      "definition_valid_candidates": 2,
+      "measured_candidates": 2,
+      "code_measurement_inputs": 17,
+      "meaning_inputs": 5,
+      "full_pass": 3,
+      "by_group": {
+        "specified": {
+          "inputs": 8,
+          "full_pass": 2,
+          "request_satisfied": 5,
+          "candidate_count": 5,
+          "correct_zero": 0,
+          "supported_analysis_abandoned": 3,
+          "wrong_or_vague_zero_reasons": 3
+        },
+        "discovery": {
+          "inputs": 8,
+          "full_pass": 0,
+          "request_satisfied": 0,
+          "candidate_count": 0,
+          "correct_zero": 0,
+          "supported_analysis_abandoned": 8,
+          "wrong_or_vague_zero_reasons": 8
+        },
+        "limits": {
+          "inputs": 4,
+          "full_pass": 1,
+          "request_satisfied": 1,
+          "candidate_count": 0,
+          "correct_zero": 1,
+          "supported_analysis_abandoned": 0,
+          "wrong_or_vague_zero_reasons": 3
+        }
+      },
+      "loss": 0.23586789350949017
+    },
+    "v5": {
+      "inputs": 20,
+      "candidate_count": 21,
+      "zero_count": 3,
+      "JSON": 20,
+      "definition_valid_candidates": 17,
+      "measured_candidates": 17,
+      "code_measurement_inputs": 16,
+      "meaning_inputs": 19,
+      "full_pass": 14,
+      "by_group": {
+        "specified": {
+          "inputs": 8,
+          "full_pass": 5,
+          "request_satisfied": 7,
+          "candidate_count": 8,
+          "correct_zero": 0,
+          "supported_analysis_abandoned": 0,
+          "wrong_or_vague_zero_reasons": 0
+        },
+        "discovery": {
+          "inputs": 8,
+          "full_pass": 6,
+          "request_satisfied": 7,
+          "candidate_count": 12,
+          "correct_zero": 0,
+          "supported_analysis_abandoned": 0,
+          "wrong_or_vague_zero_reasons": 0
+        },
+        "limits": {
+          "inputs": 4,
+          "full_pass": 3,
+          "request_satisfied": 3,
+          "candidate_count": 1,
+          "correct_zero": 3,
+          "supported_analysis_abandoned": 0,
+          "wrong_or_vague_zero_reasons": 0
+        }
+      },
+      "loss": 0.1879768116650195
+    }
+  },
+  "new_definitions": {
+    "actual": 4,
+    "synthetic": 10,
+    "operational_usefulness_approved": 0,
+    "IF_approved": 0,
+    "existing71_v4actual4_not_summed": true
+  },
+  "Rule": {
+    "responses": 12,
+    "code_and_meaning_pass": 12,
+    "states": [
+      {
+        "role": "HR",
+        "state": "no_applicable",
+        "basis": "none",
+        "count": 4
+      },
+      {
+        "role": "SR",
+        "state": "proposed",
+        "basis": "observed_diagnostic",
+        "count": 4
+      },
+      {
+        "role": "SR",
+        "state": "proposed",
+        "basis": "reference_p95",
+        "count": 2
+      },
+      {
+        "role": "SR",
+        "state": "no_applicable",
+        "basis": "none",
+        "count": 2
+      }
+    ],
+    "retrained": false
+  },
+  "generation": {
+    "global_cap": 120,
+    "calls_started": 53,
+    "calls_completed": 53,
+    "responses_reserved": 53,
+    "responses_returned": 53,
+    "groups": {
+      "v4_frozen": {
+        "calls": 20,
+        "reserved": 20,
+        "returned": 20
+      },
+      "v5_frozen": {
+        "calls": 20,
+        "reserved": 20,
+        "returned": 20
+      },
+      "adapter_reload": {
+        "calls": 1,
+        "reserved": 1,
+        "returned": 1
+      },
+      "development_repairs": {
+        "calls": 0,
+        "reserved": 0,
+        "returned": 0
+      },
+      "rule_link": {
+        "calls": 12,
+        "reserved": 12,
+        "returned": 12
+      },
+      "representative_replay": {
+        "calls": 0,
+        "reserved": 0,
+        "returned": 0
+      }
+    },
+    "failed_or_interrupted_reservations_not_reused": true
+  },
+  "evaluation_limits": {
+    "family_overlap": [],
+    "training_families": [
+      "discovery_train_0",
+      "discovery_train_1",
+      "discovery_train_2",
+      "discovery_train_3",
+      "discovery_train_4",
+      "discovery_train_5",
+      "known_actual_v2_128",
+      "negative_0",
+      "negative_1",
+      "negative_10",
+      "negative_11",
+      "negative_12",
+      "negative_13",
+      "negative_14",
+      "negative_15",
+      "negative_2",
+      "negative_3",
+      "negative_4",
+      "negative_5",
+      "negative_6",
+      "negative_7",
+      "negative_8",
+      "negative_9",
+      "train_synthetic_0",
+      "train_synthetic_1",
+      "train_synthetic_2",
+      "train_synthetic_3",
+      "train_synthetic_4",
+      "train_synthetic_5",
+      "train_synthetic_6",
+      "train_synthetic_7",
+      "train_synthetic_8",
+      "train_synthetic_9"
+    ],
+    "evaluation_families": [
+      "fresh_v5_actual_128",
+      "v5_eval_A_0",
+      "v5_eval_A_1",
+      "v5_eval_A_2",
+      "v5_eval_A_3",
+      "v5_eval_B_0",
+      "v5_eval_B_1",
+      "v5_eval_B_2",
+      "v5_eval_B_3",
+      "v5_eval_zero_0",
+      "v5_eval_zero_1"
+    ],
+    "actual_family_source_row_overlap": 0,
+    "actual_proof": {
+      "sha256": "ab24525779c57031249c873fdeca11ba3b8737f066f7884a407e38da33ab8461"
+    },
+    "judgment_fact_normalized_equal_cases": [
+      "eval_A_actual_0",
+      "eval_A_synthetic_1",
+      "eval_A_synthetic_2",
+      "eval_A_synthetic_3",
+      "eval_B_synthetic_0",
+      "eval_B_synthetic_1",
+      "eval_zero_actual_1"
+    ],
+    "same_operator_set_cases": [
+      "eval_A_actual_0",
+      "eval_A_actual_2",
+      "eval_A_actual_3",
+      "eval_A_synthetic_0",
+      "eval_A_synthetic_1",
+      "eval_B_actual_0",
+      "eval_B_actual_1",
+      "eval_B_actual_2",
+      "eval_B_actual_3",
+      "eval_B_synthetic_0",
+      "eval_B_synthetic_1",
+      "eval_B_synthetic_3"
+    ],
+    "same_method_patterns_are_not_independent_discovery": true,
+    "same_company_original_sources_schema_period_context": true,
+    "all_historical_full_source_reads_cannot_be_proven_unused": true,
+    "FRESH23_2_3_not_in_train": true,
+    "evaluation_gold_not_in_train": true,
+    "no_random_blind_enterprise_claim": true
+  }
+}

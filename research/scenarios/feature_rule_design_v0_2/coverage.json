@@ -1,0 +1,102 @@
+[
+  {
+    "id": "eval_A_actual_0",
+    "task_kind": "specified",
+    "source_kind": "approved_actual_capture"
+  },
+  {
+    "id": "eval_A_actual_1",
+    "task_kind": "specified",
+    "source_kind": "approved_actual_capture"
+  },
+  {
+    "id": "eval_A_actual_2",
+    "task_kind": "specified",
+    "source_kind": "approved_actual_capture"
+  },
+  {
+    "id": "eval_A_actual_3",
+    "task_kind": "specified",
+    "source_kind": "approved_actual_capture"
+  },
+  {
+    "id": "eval_A_synthetic_0",
+    "task_kind": "specified",
+    "source_kind": "controlled_synthetic"
+  },
+  {
+    "id": "eval_A_synthetic_1",
+    "task_kind": "specified",
+    "source_kind": "controlled_synthetic"
+  },
+  {
+    "id": "eval_A_synthetic_2",
+    "task_kind": "specified",
+    "source_kind": "controlled_synthetic"
+  },
+  {
+    "id": "eval_A_synthetic_3",
+    "task_kind": "specified",
+    "source_kind": "controlled_synthetic"
+  },
+  {
+    "id": "eval_B_actual_0",
+    "task_kind": "discovery",
+    "source_kind": "approved_actual_capture"
+  },
+  {
+    "id": "eval_B_actual_1",
+    "task_kind": "discovery",
+    "source_kind": "approved_actual_capture"
+  },
+  {
+    "id": "eval_B_actual_2",
+    "task_kind": "discovery",
+    "source_kind": "approved_actual_capture"
+  },
+  {
+    "id": "eval_B_actual_3",
+    "task_kind": "discovery",
+    "source_kind": "approved_actual_capture"
+  },
+  {
+    "id": "eval_B_synthetic_0",
+    "task_kind": "discovery",
+    "source_kind": "controlled_synthetic"
+  },
+  {
+    "id": "eval_B_synthetic_1",
+    "task_kind": "discovery",
+    "source_kind": "controlled_synthetic"
+  },
+  {
+    "id": "eval_B_synthetic_2",
+    "task_kind": "discovery",
+    "source_kind": "controlled_synthetic"
+  },
+  {
+    "id": "eval_B_synthetic_3",
+    "task_kind": "discovery",
+    "source_kind": "controlled_synthetic"
+  },
+  {
+    "id": "eval_zero_actual_0",
+    "task_kind": "specified",
+    "source_kind": "approved_actual_capture"
+  },
+  {
+    "id": "eval_zero_actual_1",
+    "task_kind": "specified",
+    "source_kind": "approved_actual_capture"
+  },
+  {
+    "id": "eval_zero_synthetic_0",
+    "task_kind": "specified",
+    "source_kind": "controlled_synthetic"
+  },
+  {
+    "id": "eval_zero_synthetic_1",
+    "task_kind": "specified",
+    "source_kind": "controlled_synthetic"
+  }
+]

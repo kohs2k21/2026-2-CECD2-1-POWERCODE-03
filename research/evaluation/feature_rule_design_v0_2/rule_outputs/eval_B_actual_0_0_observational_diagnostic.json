@@ -1,0 +1,30 @@
+{
+  "id": "eval_B_actual_0_0_observational_diagnostic",
+  "raw_output": "{\"v\":\"1\",\"feature\":\"fv5_819edb723e9822da01012602\",\"sha\":\"18dcda01ea112b106523a0957cb37420f3dd469f7591e8414679605f3c2deb2c\",\"role\":\"SR\",\"state\":\"proposed\",\"basis\":\"observed_diagnostic\",\"condition\":{\"op\":\"eq\",\"value\":true},\"evidence\":[\"m_fv5_819edb723e9822da01012602\"],\"needed\":[],\"reason\":\"Boolean feature activation: 128 valid and 0 unavailable feature outputs. Propose this observed diagnostic; no reference minimum applies.\"}",
+  "raw_sha": "16958ad6798773f2b28ad14b1f61a04ad004169dcbd2a603c647e5f68ea05921",
+  "original_input_sha": "bd425fc2fa06e0da2e160a629c62d96a0c905ca93edf0fa35b6b0bb48da5b849",
+  "prediction": {
+    "v": "1",
+    "feature": "fv5_819edb723e9822da01012602",
+    "sha": "18dcda01ea112b106523a0957cb37420f3dd469f7591e8414679605f3c2deb2c",
+    "role": "SR",
+    "state": "proposed",
+    "basis": "observed_diagnostic",
+    "condition": {
+      "op": "eq",
+      "value": true
+    },
+    "evidence": [
+      "m_fv5_819edb723e9822da01012602"
+    ],
+    "needed": [],
+    "reason": "Boolean feature activation: 128 valid and 0 unavailable feature outputs. Propose this observed diagnostic; no reference minimum applies."
+  },
+  "validation": {
+    "passed": true,
+    "schema_passed": true,
+    "errors": [],
+    "policy": "rule-grounding-4.1.0",
+    "direct_meaning_review_required": true
+  }
+}

@@ -1,0 +1,174 @@
+{
+  "id": "eval_A_synthetic_0",
+  "task_kind": "specified",
+  "source_kind": "controlled_synthetic",
+  "input": {
+    "contract": "feature-request-discovery-2.0",
+    "schema_version": "b2786da3f7026ca72fa96710cee335654bc0bb0f362b589240e6c6cdb9239396",
+    "source_version": "c4935142b8f5376a4242543ec6490d93ac8a88059e12e4744db25b5ca7c07cc8",
+    "task": "At each parent row subtract explicitly converted seconds coordinate from millisecond coordinate; preserve ms output and do not infer a business duration.",
+    "tables": [
+      {
+        "table": "parent_v5_eval_A_0",
+        "primary_key": [
+          "row_701"
+        ],
+        "rows": 32,
+        "columns": [
+          {
+            "name": "row_701",
+            "type": "string",
+            "nullable": false,
+            "unit": {
+              "name": null,
+              "status": "unknown",
+              "evidence_ids": []
+            },
+            "statistics": {
+              "row_count": 32,
+              "missing_count": 0,
+              "distinct_nonmissing": 32,
+              "invalid_type_count": 0,
+              "numeric_summary": null
+            },
+            "description": "Synthetic physical declaration; no operational/business interpretation"
+          },
+          {
+            "name": "coord_ms_701",
+            "type": "number",
+            "nullable": true,
+            "unit": {
+              "name": "ms",
+              "status": "verified",
+              "evidence_ids": [
+                "unit_v5_eval_A_0_2"
+              ]
+            },
+            "statistics": {
+              "row_count": 32,
+              "missing_count": 0,
+              "distinct_nonmissing": 32,
+              "invalid_type_count": 0,
+              "numeric_summary": {
+                "min": 1000,
+                "max": 22731,
+                "mean": null
+              }
+            },
+            "description": "Synthetic physical declaration; no operational/business interpretation"
+          },
+          {
+            "name": "coord_s_701",
+            "type": "number",
+            "nullable": true,
+            "unit": {
+              "name": "s",
+              "status": "verified",
+              "evidence_ids": [
+                "unit_v5_eval_A_0_3"
+              ]
+            },
+            "statistics": {
+              "row_count": 32,
+              "missing_count": 0,
+              "distinct_nonmissing": 32,
+              "invalid_type_count": 0,
+              "numeric_summary": {
+                "min": 1,
+                "max": 4.1,
+                "mean": null
+              }
+            },
+            "description": "Synthetic physical declaration; no operational/business interpretation"
+          }
+        ]
+      }
+    ],
+    "relationships": [],
+    "capture": {},
+    "source_context": {
+      "source_kind": "controlled_synthetic",
+      "family": "v5_eval_A_0",
+      "period": {
+        "start_inclusive": "2026-08-12",
+        "end_exclusive": "2026-08-13",
+        "timezone": "synthetic coordinate only"
+      },
+      "table_rows": {
+        "parent_v5_eval_A_0": 32,
+        "child_v5_eval_A_0": 49
+      }
+    },
+    "unknown": [
+      "business meaning of literal codes",
+      "business duration or common clock",
+      "online availability, leakage and operational usefulness"
+    ],
+    "existing_definitions": [],
+    "supported_ops": [
+      "column",
+      "literal",
+      "is_missing",
+      "subtract",
+      "divide",
+      "eq",
+      "lt",
+      "lte",
+      "gt",
+      "gte",
+      "and",
+      "datetime_diff",
+      "convert_unit",
+      "child_count",
+      "parent_match_count",
+      "conditional_count",
+      "child_sum",
+      "group_count"
+    ],
+    "confirmed_evidence": [
+      {
+        "id": "unit_v5_eval_A_0_2",
+        "kind": "unit_contract",
+        "target": {
+          "table": "parent_v5_eval_A_0",
+          "column": "coord_ms_701"
+        },
+        "value": {
+          "table": "parent_v5_eval_A_0",
+          "column": "coord_ms_701",
+          "unit": "ms"
+        },
+        "source": {
+          "sha256": "859bcf078d385392a4663323c78701cb78c47fa50a578257268b927b1faeddde",
+          "pointer": "/facts/2"
+        }
+      },
+      {
+        "id": "unit_v5_eval_A_0_3",
+        "kind": "unit_contract",
+        "target": {
+          "table": "parent_v5_eval_A_0",
+          "column": "coord_s_701"
+        },
+        "value": {
+          "table": "parent_v5_eval_A_0",
+          "column": "coord_s_701",
+          "unit": "s"
+        },
+        "source": {
+          "sha256": "859bcf078d385392a4663323c78701cb78c47fa50a578257268b927b1faeddde",
+          "pointer": "/facts/3"
+        }
+      }
+    ],
+    "task_kind": "specified",
+    "analysis_request": {
+      "kind": "specified",
+      "grain_table": "parent_v5_eval_A_0",
+      "required_operations": [
+        "subtract",
+        "convert_unit"
+      ]
+    }
+  }
+}

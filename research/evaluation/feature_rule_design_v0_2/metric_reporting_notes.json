@@ -1,0 +1,13 @@
+{
+  "formal_score_policy_changed": false,
+  "comparison_r02_authoritative": true,
+  "comparison_json_preliminary_preserved": true,
+  "correction": "vague zero reasons on genuinely unsupported requests are not supported-analysis abandonment; this corrects reporting labels only. Scores unchanged.",
+  "cross_independent_input_repetition": "recorded for unique catalog count, not treated as prior knowledge supplied to the model",
+  "code_measurement_inputs_includes_zero_candidate_contracts": true,
+  "actual_measured_candidate_count": {
+    "v4": 2,
+    "v5": 17
+  },
+  "fresh_definitions_model_proposals_only": true
+}

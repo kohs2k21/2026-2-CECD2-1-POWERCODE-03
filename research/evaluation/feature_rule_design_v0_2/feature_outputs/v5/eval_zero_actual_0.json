@@ -1,0 +1,15 @@
+{
+  "id": "eval_zero_actual_0",
+  "phase": "v5",
+  "raw_output": "{\"candidates\":[],\"stop_reason\":\"EC_TRANSACTION_MONITORING.PROCESS_TIME has unknown physical unit and unverified business duration meaning; the requested millisecond latency cannot be established. Raw numeric values do not confirm the requested unit.\"}",
+  "raw_sha": "9c27b7cdfbbe1a41f8ed7f35b5f77c56cf17f135bc6ace8f6268facf9e3b3e2b",
+  "original_input_sha": "d4a1bc412fbee7c0954539cc8afc7d432bf00f2abe9f00670a0951d8a1c10693",
+  "generated_tokens": 46,
+  "length_limit_reached": false,
+  "checks": {
+    "JSON_contract": true,
+    "candidates": [],
+    "zero": true,
+    "errors": []
+  }
+}

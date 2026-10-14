@@ -2,4 +2,22 @@
 
 `research/` contains exploratory notebooks, scenarios, model experiments, and evaluation notes. It is not a runtime dependency of `server/`.
 
-- [이상 탐지 연구 (#38)](anomaly_detection/README.md): 전체 연구 코드·노트북·최종 v12 IF/K-means·원본 참조 아카이브·학습/검증 캐시 포함, 기간별 원본 및 벤치마크 CSV·정답은 제외
+- [이상 탐지 연구 (#38)](anomaly_detection/README.md): 전체 연구 코드·노트북·최종 v12 IF/K-means·원본 참조 아카이브·학습/검증 캐시 포함, 기간별 원본 및 벤치마크 CSV·정답은 제외 (박준서)
+- [이상 탐지 연구 (#38)](anomaly_detection/README.md): 분석 노트북·규칙/IF·K-means·시간창 선택·평가 결과 및 학습 모델 포함, 데이터셋 제외 (고민성)
+
+## 파생 변수·Rule 생성 모델 v0.1 (#40)
+
+- [모델 코드·실제 SFT v2 LoRA 어댑터·모델 카드](models/rule_generator_v0_1/README.md)
+- [집계 입력·HR/SR 결과·브라우저 데모](evaluation/rule_generator_v0_1/README.md)
+- [개발 사례 구성](scenarios/rule_generator_v0_1/README.md)
+
+피처64개·모델 생성 HR5/SR15와 보류·근거 요청·실패를 공유하는 개발 데모다. 고객 원본 로그·Base 가중치·환경은 포함하지 않는다. 임의 새 스키마 자동 설계, 실제 이상탐지와 운영 배포는 별도 작업이다.
+
+## 피처·규칙 자동 명세 연구 v0.2 (#40)
+
+- [피처 v5·규칙 v2 코드와 실제 어댑터](models/feature_rule_design_v0_2/README.md)
+- [20개 평가와12개 규칙 판단 기록](evaluation/feature_rule_design_v0_2/README.md)
+- [지정 분석·자유 발굴·지원 한계 시나리오](scenarios/feature_rule_design_v0_2/README.md)
+- [기존 IF 연구와 입력·역할 연결 관계](models/feature_rule_design_v0_2/CONNECTIONS.md)
+
+최신 완료 연구 v5를 보관한다. 동일 입력에서 피처 v4 3/20→v5 14/20, 자유 발굴0/8→6/8을 기록하며 기존 v0.1과 이상탐지 연구를 보존한다. 신규 IF 연결·서버 변경·실시간 탐지·운영 승인은 포함하지 않는다.

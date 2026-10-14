@@ -1,0 +1,29 @@
+{
+  "version": "published-aggregate-source-context-1.0.0",
+  "source_version": "39b50ee36ae57e0206978d8581e6fac04b9f3d23f4ac2ac8d958855436b58a53",
+  "scope": "Previously evaluated 128-family capture, reused as development demo",
+  "raw_records_included": false,
+  "body_excluded": true,
+  "held_lineage_excluded": true,
+  "excluded_body_columns": [
+    "T.RESPONSE_MESSAGE",
+    "P.RESPONSE_MESSAGE",
+    "M.RESPONSE_MESSAGE"
+  ],
+  "excluded_held_period": {
+    "start_inclusive": "2026-09-30",
+    "end_exclusive": "2026-10-03"
+  },
+  "approved_period": {
+    "start_inclusive": "2026-08-10T00:00:00",
+    "end_exclusive": "2026-09-09T00:00:00",
+    "timezone": "unknown"
+  },
+  "table_rows": {
+    "EC_TRANSACTION_MONITORING": 128,
+    "EC_PROCESS_MONITORING": 128,
+    "EC_MESSAGE_MONITORING": 254
+  },
+  "source_raw_files_not_distributed": true,
+  "source_revalidation": "Original raw-source admission occurred in preserved research run; publication only verifies frozen aggregate snapshots"
+}

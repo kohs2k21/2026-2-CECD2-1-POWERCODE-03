@@ -1,0 +1,122 @@
+{
+  "id": "eval_zero_synthetic_1",
+  "phase": "v5",
+  "raw_output": "{\"candidates\":[{\"id\":\"train_A_syn_00_0500_c0\",\"purpose\":\"On each child row compute its parent parent_v5_eval_zero_1.quantity_902 value minus child child_v5_eval_zero_1.portion_902; no aggregation or alternative target allowed.\",\"meaning\":\"On each child row compute its parent parent_v5_eval_zero_1.quantity_902 value minus child child_v5_eval_zero_1.portion_902; no aggregation or alternative target allowed.\",\"sources\":{\"columns\":[[\"child_v5_eval_zero_1\",\"portion_902\"],[\"child_v5_eval_zero_1\",\"ref_902\"],[\"child_v5_eval_zero_1\",\"tenant_902\"],[\"parent_v5_eval_zero_1\",\"quantity_902\"],[\"parent_v5_eval_zero_1\",\"ref_902\"],[\"parent_v5_eval_zero_1\",\"tenant_902\"]],\"relationships\":[\"link_v5_eval_zero_1\"]},\"expected_type\":\"number\",\"expected_unit\":null,\"availability\":\"offline_captured_scope\",\"required_evidence\":[\"online availability and leakage policy; operational usefulness unconfirmed\"],\"plan\":{\"id\":\"train_A_syn_00_0500_c0\",\"description\":\"On each child row compute its parent parent_v5_eval_zero_1.quantity_902 value minus child child_v5_eval_zero_1.portion_902; no aggregation or alternative target allowed.\",\"expression\":{\"op\":\"subtract\",\"args\":[{\"op\":\"column\",\"table\":\"parent_v5_eval_zero_1\",\"column\":\"quantity_902\"},{\"op\":\"column\",\"table\":\"child_v5_eval_zero_1\",\"column\":\"portion_902\"}]},\"grain\":{\"table\":\"child_v5_eval_zero_1\",\"keys\":[\"row_902\"]},\"population\":{\"table\":\"child_v5_eval_zero_1\",\"filter\":null},\"group_by\":[],\"schema_version\":\"0a47d1cac175a41f80e36e6bfa292bbf601ad25c7db69fcd47913325e72bfb9a\",\"source_version\":\"5b43810afd6ff5f60edeba7f1e01e7c0c8dcef78567f55cad4e86cf7853fbfa8\",\"missing_policy\":{\"input\":\"propagate\",\"empty_group\":null,\"denominator_zero\":null,\"child_missing\":\"propagate\",\"unknown_predicate\":\"defer\"}}}],\"stop_reason\":\"Requested narrow calculation only; operational usefulness unconfirmed.\"}",
+  "raw_sha": "219fcc363e3d72d0c90259cb31c7d89f3b1ef0840660033cf5c321a699c832a4",
+  "original_input_sha": "5564badd392ffe54ecc384b55928be42c0b1c2ea3195e4ad48a98fdabde54349",
+  "generated_tokens": 563,
+  "length_limit_reached": false,
+  "checks": {
+    "JSON_contract": true,
+    "candidates": [
+      {
+        "index": 0,
+        "contract": true,
+        "source_exists": true,
+        "definition_valid": false,
+        "measurement_completed": false,
+        "independent": false,
+        "duplicate": false,
+        "errors": [
+          "[{'code': 'column_scope', 'path': '/expression/args/0', 'message': 'Use an admitted column from the current analysis table'}]"
+        ],
+        "candidate": {
+          "id": "train_A_syn_00_0500_c0",
+          "purpose": "On each child row compute its parent parent_v5_eval_zero_1.quantity_902 value minus child child_v5_eval_zero_1.portion_902; no aggregation or alternative target allowed.",
+          "meaning": "On each child row compute its parent parent_v5_eval_zero_1.quantity_902 value minus child child_v5_eval_zero_1.portion_902; no aggregation or alternative target allowed.",
+          "sources": {
+            "columns": [
+              [
+                "child_v5_eval_zero_1",
+                "portion_902"
+              ],
+              [
+                "child_v5_eval_zero_1",
+                "ref_902"
+              ],
+              [
+                "child_v5_eval_zero_1",
+                "tenant_902"
+              ],
+              [
+                "parent_v5_eval_zero_1",
+                "quantity_902"
+              ],
+              [
+                "parent_v5_eval_zero_1",
+                "ref_902"
+              ],
+              [
+                "parent_v5_eval_zero_1",
+                "tenant_902"
+              ]
+            ],
+            "relationships": [
+              "link_v5_eval_zero_1"
+            ]
+          },
+          "expected_type": "number",
+          "expected_unit": null,
+          "availability": "offline_captured_scope",
+          "required_evidence": [
+            "online availability and leakage policy; operational usefulness unconfirmed"
+          ],
+          "plan": {
+            "id": "train_A_syn_00_0500_c0",
+            "description": "On each child row compute its parent parent_v5_eval_zero_1.quantity_902 value minus child child_v5_eval_zero_1.portion_902; no aggregation or alternative target allowed.",
+            "expression": {
+              "op": "subtract",
+              "args": [
+                {
+                  "op": "column",
+                  "table": "parent_v5_eval_zero_1",
+                  "column": "quantity_902"
+                },
+                {
+                  "op": "column",
+                  "table": "child_v5_eval_zero_1",
+                  "column": "portion_902"
+                }
+              ]
+            },
+            "grain": {
+              "table": "child_v5_eval_zero_1",
+              "keys": [
+                "row_902"
+              ]
+            },
+            "population": {
+              "table": "child_v5_eval_zero_1",
+              "filter": null
+            },
+            "group_by": [],
+            "schema_version": "0a47d1cac175a41f80e36e6bfa292bbf601ad25c7db69fcd47913325e72bfb9a",
+            "source_version": "5b43810afd6ff5f60edeba7f1e01e7c0c8dcef78567f55cad4e86cf7853fbfa8",
+            "missing_policy": {
+              "input": "propagate",
+              "empty_group": null,
+              "denominator_zero": null,
+              "child_missing": "propagate",
+              "unknown_predicate": "defer"
+            }
+          }
+        },
+        "validation": {
+          "passed": false,
+          "definition_status": "invalid",
+          "definition_sha256": null,
+          "proposal_sha256": "1d9de1bac9cddd79567bcb7a99cfe22ed84208a19dcfc1399a94cedddc23ef07",
+          "errors": [
+            {
+              "code": "column_scope",
+              "message": "Use an admitted column from the current analysis table"
+            }
+          ]
+        },
+        "visible_sources": true
+      }
+    ],
+    "zero": false,
+    "errors": []
+  }
+}

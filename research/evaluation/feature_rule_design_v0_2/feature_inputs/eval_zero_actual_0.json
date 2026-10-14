@@ -1,0 +1,114 @@
+{
+  "id": "eval_zero_actual_0",
+  "task_kind": "specified",
+  "source_kind": "approved_actual_capture",
+  "input": {
+    "contract": "feature-request-discovery-2.0",
+    "schema_version": "b1150a4494d505d45437c4ac594b95024b61e8021f6f9f06aaf6c8b3f7374d12",
+    "source_version": "82affdd810628f8fc880c884c83bf02e10f594db8ae821c25118c80ec5793309",
+    "task": "Requested purpose: derive physical millisecond latency from PROCESS_TIME numeric metadata. Its raw unit and business duration contract are unconfirmed; do not substitute a different task.",
+    "tables": [
+      {
+        "table": "EC_TRANSACTION_MONITORING",
+        "primary_key": [
+          "__V23_SAMPLE_ROW_ID"
+        ],
+        "rows": 128,
+        "columns": [
+          {
+            "name": "PROCESS_TIME",
+            "type": "number",
+            "nullable": true,
+            "unit": {
+              "name": null,
+              "status": "unknown",
+              "evidence_ids": []
+            },
+            "statistics": {
+              "row_count": 128,
+              "missing_count": 0,
+              "distinct_nonmissing": 44,
+              "invalid_type_count": 0,
+              "numeric_summary": {
+                "min": 33,
+                "max": 197,
+                "mean": null
+              }
+            },
+            "description": "Preserved Oracle dictionary declaration; CSV empty tokens do not prove SQL NULL identity"
+          },
+          {
+            "name": "__V23_SAMPLE_ROW_ID",
+            "type": "string",
+            "nullable": null,
+            "unit": {
+              "name": null,
+              "status": "unknown",
+              "evidence_ids": []
+            },
+            "statistics": {
+              "row_count": 128,
+              "missing_count": 0,
+              "distinct_nonmissing": 128,
+              "invalid_type_count": 0,
+              "numeric_summary": null
+            },
+            "description": "Code-generated approved sample row identity; no original enterprise PK or business constraint"
+          }
+        ]
+      }
+    ],
+    "relationships": [],
+    "capture": {},
+    "source_context": {
+      "source_kind": "approved_actual_capture",
+      "transaction_families": 128,
+      "table_rows": {
+        "EC_TRANSACTION_MONITORING": 128,
+        "EC_PROCESS_MONITORING": 128,
+        "EC_MESSAGE_MONITORING": 256
+      },
+      "selection_windows": [
+        [
+          "2026-08-24",
+          "2026-09-09"
+        ]
+      ],
+      "manifest": {
+        "sha256": "ee96cfea32020502902c97180daff6a53964421564b2e804fb35eaa6e6fdb0bb"
+      },
+      "source_version": "82affdd810628f8fc880c884c83bf02e10f594db8ae821c25118c80ec5793309"
+    },
+    "unknown": [
+      "business meaning of literal codes",
+      "business duration or common clock",
+      "online availability, leakage and operational usefulness"
+    ],
+    "existing_definitions": [],
+    "supported_ops": [
+      "column",
+      "literal",
+      "is_missing",
+      "subtract",
+      "divide",
+      "eq",
+      "lt",
+      "lte",
+      "gt",
+      "gte",
+      "and",
+      "datetime_diff",
+      "convert_unit",
+      "child_count",
+      "parent_match_count",
+      "conditional_count",
+      "child_sum",
+      "group_count"
+    ],
+    "confirmed_evidence": [],
+    "task_kind": "specified",
+    "analysis_request": {
+      "kind": "specified"
+    }
+  }
+}

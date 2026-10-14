@@ -1,0 +1,15 @@
+{
+  "id": "eval_zero_synthetic_1",
+  "phase": "v4",
+  "raw_output": "{\"candidates\":[],\"stop_reason\":\"Required unit contract for the requested arithmetic operation is missing; the requested calculation can be legitimate but is not justified here.\"}",
+  "raw_sha": "3092d626dccdbf24075fb736d48bb0458d56799746008b7dae7716dbe3d6a2f5",
+  "original_input_sha": "5564badd392ffe54ecc384b55928be42c0b1c2ea3195e4ad48a98fdabde54349",
+  "generated_tokens": 32,
+  "length_limit_reached": false,
+  "checks": {
+    "JSON_contract": true,
+    "candidates": [],
+    "zero": true,
+    "errors": []
+  }
+}

@@ -1,0 +1,466 @@
+{
+  "id": "eval_A_synthetic_2",
+  "phase": "v4",
+  "raw_output": "{\"candidates\":[{\"id\":\"v5_eval_A_2_c0\",\"purpose\":\"Count captured child rows with literal code_703=A per parent, only parents with tenant_703=site1.\",\"meaning\":\"Count captured child rows with literal code_703=A per parent, only parents with tenant_703=site1.\",\"sources\":{\"columns\":[[\"child_v5_eval_A_2\",\"code_703\"],[\"child_v5_eval_A_2\",\"ref_703\"],[\"child_v5_eval_A_2\",\"tenant_703\"],[\"parent_v5_eval_A_2\",\"ref_703\"],[\"parent_v5_eval_A_2\",\"tenant_703\"]],\"relationships\":[\"link_v5_eval_A_2\"]},\"expected_type\":\"integer\",\"expected_unit\":\"count\",\"availability\":\"offline_captured_scope\",\"required_evidence\":[\"online availability and leakage policy; operational usefulness unconfirmed\"],\"plan\":{\"id\":\"v5_eval_A_2_c0\",\"description\":\"Count captured child rows with literal code_703=A per parent, only parents with tenant_703=site1.\",\"expression\":{\"op\":\"conditional_count\",\"relationship_id\":\"link_v5_eval_A_2\",\"where\":{\"op\":\"eq\",\"args\":[{\"op\":\"column\",\"table\":\"child_v5_eval_A_2\",\"column\":\"code_703\"},{\"op\":\"literal\",\"value\":\"A\"}]}},\"grain\":{\"table\":\"parent_v5_eval_A_2\",\"keys\":[\"row_703\"]},\"population\":{\"table\":\"parent_v5_eval_A_2\",\"filter\":{\"op\":\"eq\",\"args\":[{\"op\":\"column\",\"table\":\"parent_v5_eval_A_2\",\"column\":\"tenant_703\"},{\"op\":\"literal\",\"value\":\"site1\"}]}},\"group_by\":[],\"schema_version\":\"85cca3b6cb0ec6f081956536a8323e174fcab70a4483cc2260a60c0ae493613c\",\"source_version\":\"8711e97bc6ee89b77401f482a4466d98898b099327ec30b83fa68f4f2e30f613\",\"missing_policy\":{\"input\":\"propagate\",\"empty_group\":\"zero\",\"denominator_zero\":null,\"child_missing\":\"propagate\",\"unknown_predicate\":\"defer\"}}}],\"stop_reason\":\"Bounded requested analysis covered; operational usefulness and online availability remain unconfirmed.\"}",
+  "raw_sha": "289580f40f627a7000ff8d41ca3e9b40529070ccf9fc6738d5dbf94e8fbd15f2",
+  "original_input_sha": "adc385caa2d80c4c4e2b564546bb1d9e9e8f54c6ae5b7a82463a0ed231974770",
+  "generated_tokens": 548,
+  "length_limit_reached": false,
+  "checks": {
+    "JSON_contract": true,
+    "candidates": [
+      {
+        "index": 0,
+        "contract": true,
+        "source_exists": true,
+        "definition_valid": true,
+        "measurement_completed": true,
+        "independent": true,
+        "duplicate": false,
+        "errors": [],
+        "candidate": {
+          "id": "v5_eval_A_2_c0",
+          "purpose": "Count captured child rows with literal code_703=A per parent, only parents with tenant_703=site1.",
+          "meaning": "Count captured child rows with literal code_703=A per parent, only parents with tenant_703=site1.",
+          "sources": {
+            "columns": [
+              [
+                "child_v5_eval_A_2",
+                "code_703"
+              ],
+              [
+                "child_v5_eval_A_2",
+                "ref_703"
+              ],
+              [
+                "child_v5_eval_A_2",
+                "tenant_703"
+              ],
+              [
+                "parent_v5_eval_A_2",
+                "ref_703"
+              ],
+              [
+                "parent_v5_eval_A_2",
+                "tenant_703"
+              ]
+            ],
+            "relationships": [
+              "link_v5_eval_A_2"
+            ]
+          },
+          "expected_type": "integer",
+          "expected_unit": "count",
+          "availability": "offline_captured_scope",
+          "required_evidence": [
+            "online availability and leakage policy; operational usefulness unconfirmed"
+          ],
+          "plan": {
+            "id": "v5_eval_A_2_c0",
+            "description": "Count captured child rows with literal code_703=A per parent, only parents with tenant_703=site1.",
+            "expression": {
+              "op": "conditional_count",
+              "relationship_id": "link_v5_eval_A_2",
+              "where": {
+                "op": "eq",
+                "args": [
+                  {
+                    "op": "column",
+                    "table": "child_v5_eval_A_2",
+                    "column": "code_703"
+                  },
+                  {
+                    "op": "literal",
+                    "value": "A"
+                  }
+                ]
+              }
+            },
+            "grain": {
+              "table": "parent_v5_eval_A_2",
+              "keys": [
+                "row_703"
+              ]
+            },
+            "population": {
+              "table": "parent_v5_eval_A_2",
+              "filter": {
+                "op": "eq",
+                "args": [
+                  {
+                    "op": "column",
+                    "table": "parent_v5_eval_A_2",
+                    "column": "tenant_703"
+                  },
+                  {
+                    "op": "literal",
+                    "value": "site1"
+                  }
+                ]
+              }
+            },
+            "group_by": [],
+            "schema_version": "85cca3b6cb0ec6f081956536a8323e174fcab70a4483cc2260a60c0ae493613c",
+            "source_version": "8711e97bc6ee89b77401f482a4466d98898b099327ec30b83fa68f4f2e30f613",
+            "missing_policy": {
+              "input": "propagate",
+              "empty_group": "zero",
+              "denominator_zero": null,
+              "child_missing": "propagate",
+              "unknown_predicate": "defer"
+            }
+          }
+        },
+        "validation": {
+          "passed": true,
+          "definition_status": "valid",
+          "definition_sha256": "590a735ada68a2dcd2be86c448b26b0de3526bb5afbb7c5c806461bfc844e1b0",
+          "proposal_sha256": "cbd64c14ecb27bab387426538e1361f589a577aa3578eca0b3c51a2367b6d61a",
+          "inferred_type": "integer",
+          "unit": "count",
+          "identity": {
+            "expression": {
+              "op": "conditional_count",
+              "relationship_id": "link_v5_eval_A_2",
+              "where": {
+                "op": "eq",
+                "args": [
+                  {
+                    "op": "column",
+                    "table": "child_v5_eval_A_2",
+                    "column": "code_703"
+                  },
+                  {
+                    "op": "literal",
+                    "value": "A"
+                  }
+                ]
+              }
+            },
+            "group_by": [],
+            "missing_policy": {
+              "input": "propagate",
+              "empty_group": "zero",
+              "denominator_zero": null,
+              "child_missing": "propagate",
+              "unknown_predicate": "defer"
+            },
+            "source_version": "8711e97bc6ee89b77401f482a4466d98898b099327ec30b83fa68f4f2e30f613",
+            "schema_version": "85cca3b6cb0ec6f081956536a8323e174fcab70a4483cc2260a60c0ae493613c",
+            "population": {
+              "table": "parent_v5_eval_A_2",
+              "filter": {
+                "op": "eq",
+                "args": [
+                  {
+                    "op": "column",
+                    "table": "parent_v5_eval_A_2",
+                    "column": "tenant_703"
+                  },
+                  {
+                    "op": "literal",
+                    "value": "site1"
+                  }
+                ]
+              }
+            },
+            "grain": {
+              "table": "parent_v5_eval_A_2",
+              "keys": [
+                "row_703"
+              ]
+            },
+            "calculation_policy": "metadata-calculation-3.0.4",
+            "inferred_type": "integer",
+            "unit": "count",
+            "source_columns": [
+              [
+                "child_v5_eval_A_2",
+                "code_703"
+              ],
+              [
+                "child_v5_eval_A_2",
+                "ref_703"
+              ],
+              [
+                "child_v5_eval_A_2",
+                "tenant_703"
+              ],
+              [
+                "parent_v5_eval_A_2",
+                "ref_703"
+              ],
+              [
+                "parent_v5_eval_A_2",
+                "tenant_703"
+              ]
+            ],
+            "relationships": [
+              "link_v5_eval_A_2"
+            ]
+          },
+          "capture_missing": [],
+          "aggregate_relationships": [
+            "link_v5_eval_A_2"
+          ],
+          "errors": []
+        },
+        "calculation_signature": "401b7ddd8653b3407562f9de90a0fabda1be2d92f297a816bcd3dfbb1e434287",
+        "raw_reexpression": false,
+        "feature": {
+          "id": "fv5_b18755b59961b3f9246a5848",
+          "origin": "feature_model_proposal",
+          "meaning": "Count captured child rows with literal code_703=A per parent, only parents with tenant_703=site1.",
+          "plan": {
+            "id": "fv5_b18755b59961b3f9246a5848",
+            "description": "Count captured child rows with literal code_703=A per parent, only parents with tenant_703=site1.",
+            "expression": {
+              "op": "conditional_count",
+              "relationship_id": "link_v5_eval_A_2",
+              "where": {
+                "op": "eq",
+                "args": [
+                  {
+                    "op": "column",
+                    "table": "child_v5_eval_A_2",
+                    "column": "code_703"
+                  },
+                  {
+                    "op": "literal",
+                    "value": "A"
+                  }
+                ]
+              }
+            },
+            "grain": {
+              "table": "parent_v5_eval_A_2",
+              "keys": [
+                "row_703"
+              ]
+            },
+            "population": {
+              "table": "parent_v5_eval_A_2",
+              "filter": {
+                "op": "eq",
+                "args": [
+                  {
+                    "op": "column",
+                    "table": "parent_v5_eval_A_2",
+                    "column": "tenant_703"
+                  },
+                  {
+                    "op": "literal",
+                    "value": "site1"
+                  }
+                ]
+              }
+            },
+            "group_by": [],
+            "schema_version": "85cca3b6cb0ec6f081956536a8323e174fcab70a4483cc2260a60c0ae493613c",
+            "source_version": "8711e97bc6ee89b77401f482a4466d98898b099327ec30b83fa68f4f2e30f613",
+            "missing_policy": {
+              "input": "propagate",
+              "empty_group": "zero",
+              "denominator_zero": null,
+              "child_missing": "propagate",
+              "unknown_predicate": "defer"
+            }
+          },
+          "dtype": "integer",
+          "unit": "count",
+          "definition_sha256": "590a735ada68a2dcd2be86c448b26b0de3526bb5afbb7c5c806461bfc844e1b0",
+          "schema_version": "85cca3b6cb0ec6f081956536a8323e174fcab70a4483cc2260a60c0ae493613c",
+          "source_version": "8711e97bc6ee89b77401f482a4466d98898b099327ec30b83fa68f4f2e30f613",
+          "calculation_policy": "metadata-calculation-3.0.4",
+          "source_columns": [
+            [
+              "child_v5_eval_A_2",
+              "code_703"
+            ],
+            [
+              "child_v5_eval_A_2",
+              "ref_703"
+            ],
+            [
+              "child_v5_eval_A_2",
+              "tenant_703"
+            ],
+            [
+              "parent_v5_eval_A_2",
+              "ref_703"
+            ],
+            [
+              "parent_v5_eval_A_2",
+              "tenant_703"
+            ]
+          ],
+          "relationships": [
+            "link_v5_eval_A_2"
+          ],
+          "measurement": {
+            "version": "metadata-calculation-3.0.4",
+            "candidate_id": "fv5_b18755b59961b3f9246a5848",
+            "proposal_sha256": "81a98bfbf0f84554910c0d4e4cd12d3f74992e302ed597c869ca6156410821bc",
+            "definition_status": "valid",
+            "definition_sha256": "590a735ada68a2dcd2be86c448b26b0de3526bb5afbb7c5c806461bfc844e1b0",
+            "validation": {
+              "passed": true,
+              "definition_status": "valid",
+              "definition_sha256": "590a735ada68a2dcd2be86c448b26b0de3526bb5afbb7c5c806461bfc844e1b0",
+              "proposal_sha256": "81a98bfbf0f84554910c0d4e4cd12d3f74992e302ed597c869ca6156410821bc",
+              "inferred_type": "integer",
+              "unit": "count",
+              "identity": {
+                "expression": {
+                  "op": "conditional_count",
+                  "relationship_id": "link_v5_eval_A_2",
+                  "where": {
+                    "op": "eq",
+                    "args": [
+                      {
+                        "op": "column",
+                        "table": "child_v5_eval_A_2",
+                        "column": "code_703"
+                      },
+                      {
+                        "op": "literal",
+                        "value": "A"
+                      }
+                    ]
+                  }
+                },
+                "group_by": [],
+                "missing_policy": {
+                  "input": "propagate",
+                  "empty_group": "zero",
+                  "denominator_zero": null,
+                  "child_missing": "propagate",
+                  "unknown_predicate": "defer"
+                },
+                "source_version": "8711e97bc6ee89b77401f482a4466d98898b099327ec30b83fa68f4f2e30f613",
+                "schema_version": "85cca3b6cb0ec6f081956536a8323e174fcab70a4483cc2260a60c0ae493613c",
+                "population": {
+                  "table": "parent_v5_eval_A_2",
+                  "filter": {
+                    "op": "eq",
+                    "args": [
+                      {
+                        "op": "column",
+                        "table": "parent_v5_eval_A_2",
+                        "column": "tenant_703"
+                      },
+                      {
+                        "op": "literal",
+                        "value": "site1"
+                      }
+                    ]
+                  }
+                },
+                "grain": {
+                  "table": "parent_v5_eval_A_2",
+                  "keys": [
+                    "row_703"
+                  ]
+                },
+                "calculation_policy": "metadata-calculation-3.0.4",
+                "inferred_type": "integer",
+                "unit": "count",
+                "source_columns": [
+                  [
+                    "child_v5_eval_A_2",
+                    "code_703"
+                  ],
+                  [
+                    "child_v5_eval_A_2",
+                    "ref_703"
+                  ],
+                  [
+                    "child_v5_eval_A_2",
+                    "tenant_703"
+                  ],
+                  [
+                    "parent_v5_eval_A_2",
+                    "ref_703"
+                  ],
+                  [
+                    "parent_v5_eval_A_2",
+                    "tenant_703"
+                  ]
+                ],
+                "relationships": [
+                  "link_v5_eval_A_2"
+                ]
+              },
+              "capture_missing": [],
+              "aggregate_relationships": [
+                "link_v5_eval_A_2"
+              ],
+              "errors": []
+            },
+            "measurement_status": "measured",
+            "summary": {
+              "row_count": 16,
+              "valid_count": 16,
+              "missing_count": 0,
+              "true_count": null,
+              "false_count": null,
+              "ratio": null,
+              "numerator": null,
+              "denominator": null,
+              "min": 0,
+              "max": 1,
+              "p95": 1,
+              "p99": 1,
+              "variation": "variable",
+              "quantile_method": "linear_(n-1)*p",
+              "exact_decimal": {
+                "ratio": null,
+                "p95": "1.00",
+                "p99": "1.00"
+              },
+              "population_rows_before_selection": 32,
+              "selection_unavailable_count": 0,
+              "source_rows_preserved": true
+            },
+            "errors": [],
+            "anomaly_execution": "not_run",
+            "groups": [],
+            "measurement_sha256": "e1e72f770edb563be2030b94ba33d53c8ec7136f155a46d0d740121fe0a8d18a"
+          },
+          "model_proposal_id": "v5_eval_A_2_c0",
+          "identity_mapping": {
+            "call_id": "v4|eval_A_synthetic_2",
+            "model_proposal_id": "v5_eval_A_2_c0",
+            "registry_id": "fv5_b18755b59961b3f9246a5848",
+            "raw_candidate_sha256": "86b0cd0b64c76ef491f14b887eb8391565cad69704ce0213aebfd9602168137e",
+            "definition_sha256": "590a735ada68a2dcd2be86c448b26b0de3526bb5afbb7c5c806461bfc844e1b0",
+            "source_version": "8711e97bc6ee89b77401f482a4466d98898b099327ec30b83fa68f4f2e30f613",
+            "raw_id_preserved": true
+          }
+        },
+        "independent_checks": [
+          {
+            "id": "v5_eval_A_2_c0",
+            "row_values": 16,
+            "passed": true,
+            "definition_sha": "590a735ada68a2dcd2be86c448b26b0de3526bb5afbb7c5c806461bfc844e1b0",
+            "source_version": "8711e97bc6ee89b77401f482a4466d98898b099327ec30b83fa68f4f2e30f613",
+            "method": "Independent AST interpreter on guarded actual rows; no Engine.evaluate call"
+          }
+        ],
+        "identity_mapping": {
+          "call_id": "v4|eval_A_synthetic_2",
+          "model_proposal_id": "v5_eval_A_2_c0",
+          "registry_id": "fv5_b18755b59961b3f9246a5848",
+          "raw_candidate_sha256": "86b0cd0b64c76ef491f14b887eb8391565cad69704ce0213aebfd9602168137e",
+          "definition_sha256": "590a735ada68a2dcd2be86c448b26b0de3526bb5afbb7c5c806461bfc844e1b0",
+          "source_version": "8711e97bc6ee89b77401f482a4466d98898b099327ec30b83fa68f4f2e30f613",
+          "raw_id_preserved": true
+        },
+        "visible_sources": true
+      }
+    ],
+    "zero": false,
+    "errors": []
+  }
+}

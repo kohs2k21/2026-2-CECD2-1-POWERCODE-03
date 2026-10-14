@@ -1,0 +1,174 @@
+{
+  "id": "real_25_f006",
+  "input": {
+    "feature": {
+      "id": "f006",
+      "sha": "50ec74284113bf1ef5b0420a05d0a3a1635ea2be3e499634cfbc426b8744b638",
+      "meaning": "Frequency of each observed STATUS code within EC_PROCESS_MONITORING rows, grouped by STATUS. Identifies dominant status codes without assuming business success/failure labels.",
+      "dtype": "integer",
+      "unit": "count",
+      "expression": {
+        "op": "group_count",
+        "where": null,
+        "keys": [
+          "STATUS"
+        ]
+      },
+      "grain": {
+        "table": "EC_PROCESS_MONITORING",
+        "keys": [
+          "__V23_SAMPLE_ROW_ID"
+        ]
+      },
+      "group_by": [
+        {
+          "table": "EC_PROCESS_MONITORING",
+          "column": "STATUS"
+        }
+      ],
+      "missing_policy": {
+        "input": "propagate",
+        "empty_group": "zero",
+        "denominator_zero": null,
+        "child_missing": "propagate",
+        "unknown_predicate": "defer"
+      }
+    },
+    "sources": {
+      "columns": [
+        {
+          "table": "EC_PROCESS_MONITORING",
+          "column": "STATUS",
+          "type": "string",
+          "nullable": true,
+          "evidence_ids": [
+            "schema_column_265ada2dc8a38d798b22"
+          ],
+          "missing_tokens": [
+            ""
+          ]
+        }
+      ],
+      "relations": [],
+      "tables": {
+        "EC_PROCESS_MONITORING": 128
+      },
+      "relationship_capture": "complete within selected original file transaction families;not confirmed business lifecycle"
+    },
+    "scope": {
+      "period": {
+        "start_inclusive": "2026-08-10T00:00:00",
+        "end_exclusive": "2026-09-09T00:00:00",
+        "timezone": "unknown"
+      },
+      "selected_T_windows": [
+        [
+          "2026-08-10",
+          "2026-08-17"
+        ],
+        [
+          "2026-08-24",
+          "2026-09-01"
+        ]
+      ],
+      "filter": null,
+      "rows": 128,
+      "selection": "128 prior-unused transaction families;64 per declared T-coordinate window;canonical key SHA order;all linked P/M;not population random",
+      "scope_record_id": "real_eval_capture_128_v1",
+      "source_pins": {
+        "EC_PROCESS_MONITORING": {
+          "sha256": "35a94460f5274c8660be034c6f7da30118c6d9da274f5541f097ab8e562278ec"
+        }
+      },
+      "row_proof_pins": {
+        "EC_PROCESS_MONITORING": {
+          "sha256": "02ddb1e9af6fd34e5cda33c454e22f22be4e0a4c544894853ad66deb22e26ad6"
+        }
+      }
+    },
+    "measurement_id": "m_f006",
+    "measurement": {
+      "row_count": 128,
+      "valid_count": 128,
+      "missing_count": 0,
+      "true_count": null,
+      "false_count": null,
+      "ratio": null,
+      "numerator": null,
+      "denominator": null,
+      "min": 1,
+      "max": 93,
+      "p95": 93,
+      "p99": 93,
+      "variation": "variable",
+      "quantile_method": "linear_(n-1)*p",
+      "exact_decimal": {
+        "ratio": null,
+        "p95": "93.00",
+        "p99": "93.00"
+      },
+      "population_rows_before_selection": 128,
+      "selection_unavailable_count": 0,
+      "source_rows_preserved": true
+    },
+    "measurement_sha": "9703db64e7756d08e6c5d22191d074eb4f45c571452d3c49206422482ebe0614",
+    "constraints": [],
+    "baseline": {
+      "state": "verified",
+      "id": "b_f006",
+      "definition_sha256": "50ec74284113bf1ef5b0420a05d0a3a1635ea2be3e499634cfbc426b8744b638",
+      "source_version": "39b50ee36ae57e0206978d8581e6fac04b9f3d23f4ac2ac8d958855436b58a53",
+      "unit": "count",
+      "reference_period": {
+        "start_inclusive": "2026-08-10T00:00:00",
+        "end_exclusive": "2026-09-09T00:00:00",
+        "timezone": "unknown"
+      },
+      "population": {
+        "table": "EC_PROCESS_MONITORING",
+        "filter": null
+      },
+      "group": "all captured output rows, not per-category thresholds",
+      "feature_grouping": [
+        {
+          "table": "EC_PROCESS_MONITORING",
+          "column": "STATUS"
+        }
+      ],
+      "sample_condition": "finite nonmissing calculated values; captured snapshot only",
+      "n": 128,
+      "minimum_n": 20,
+      "quantile": 0.95,
+      "method": "linear_(n-1)*p",
+      "value": 93,
+      "value_exact": "93.00",
+      "operator": "gt",
+      "missing": "exclude from reference and propagate unavailable at comparison",
+      "refresh": "manual rebuild with new source/definition version; no stale reuse",
+      "fault_interpretation": false,
+      "sha": "306e9e05a7fd6213ac484bdf496382bd9b338b0839fd4541414f98fd0586a300"
+    },
+    "version": {
+      "schema": "b1150a4494d505d45437c4ac594b95024b61e8021f6f9f06aaf6c8b3f7374d12",
+      "source": "39b50ee36ae57e0206978d8581e6fac04b9f3d23f4ac2ac8d958855436b58a53",
+      "calculation": "metadata-calculation-3.0.1"
+    },
+    "limitations": "Raw stored codes/numbers or parsed coordinates only;unknown business contract/physical units/common clock. Captured category frequencies refer to this offline sample, never future or live lookup.",
+    "request": "numeric_reference_comparison",
+    "reference_policy": {
+      "minimum_finite_nonmissing_rows": 20,
+      "quantile": 0.95,
+      "method": "linear interpolation on sorted eligible output rows",
+      "independence_or_normality_requirement": false,
+      "minimum_is_given_evaluation_policy_not_business_contract": true
+    },
+    "rule_evidence_contract": "Only measurement_id, supplied constraint IDs, and verified baseline IDs are valid output evidence references; basis is its enum kind."
+  },
+  "provenance": {
+    "source_file": {
+      "sha256": "d289ddf39d9cc02a89206c338e2e7d4061eb9bdb5503c847b959420ece043753"
+    },
+    "line": 25,
+    "usage": "development_demo_existing_evaluation_input"
+  }
+}

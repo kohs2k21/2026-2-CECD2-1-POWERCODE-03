@@ -1,0 +1,103 @@
+{
+  "id": "eval_A_synthetic_3",
+  "phase": "v5",
+  "raw_output": "{\"candidates\":[{\"id\":\"train_A_v5_03_0001_c0\",\"purpose\":\"Number of distinct physical parents matched by composite key for each child; unavailable reference gives missing, not zero.\",\"meaning\":\"Number of distinct physical parents matched by composite key for each child; unavailable reference gives missing, not zero.\",\"sources\":{\"columns\":[[\"child_v5_eval_A_3\",\"ref_704\"],[\"child_v5_eval_A_3\",\"tenant_704\"],[\"parent_v5_eval_A_3\",\"ref_704\"],[\"parent_v5_eval_A_3\",\"tenant_704\"]],\"relationships\":[\"link_v5_eval_A_3\"]},\"expected_type\":\"integer\",\"expected_unit\":\"count\",\"availability\":\"offline_captured_scope\",\"required_evidence\":[\"online availability and leakage policy; operational usefulness unconfirmed\"],\"plan\":{\"id\":\"train_A_v5_03_0001_c0\",\"description\":\"Number of distinct physical parents matched by composite key for each child; unavailable reference gives missing, not zero.\",\"expression\":{\"op\":\"parent_match_count\",\"relationship_id\":\"link_v5_eval_A_3\"},\"grain\":{\"table\":\"child_v5_eval_A_3\",\"keys\":[\"row_704\"]},\"population\":{\"table\":\"child_v5_eval_A_3\",\"filter\":null},\"group_by\":[],\"schema_version\":\"7dc0ecc19e821b07c2832f8db8deb62fa1f491bc00b832a3c042a2ca34c815e0\",\"source_version\":\"593bba32505abcecce7767cbf7cac772799f78aa3fc8badb6c657105955965d4\",\"missing_policy\":{\"input\":\"propagate\",\"empty_group\":\"zero\",\"denominator_zero\":null,\"child_missing\":\"propagate\",\"unknown_predicate\":\"defer\"}}}],\"stop_reason\":\"Requested narrow calculation only; operational usefulness unconfirmed.\"}",
+  "raw_sha": "adf08a7dec18e62bff5a44d30e07d812d25af7a18bb1804222ac8200b00fc198",
+  "original_input_sha": "fcbf16687532023cd7282a8162219762ab6319dc1a07ce5d81db7b1cb945570f",
+  "generated_tokens": 436,
+  "length_limit_reached": false,
+  "checks": {
+    "JSON_contract": true,
+    "candidates": [
+      {
+        "index": 0,
+        "contract": true,
+        "source_exists": true,
+        "definition_valid": false,
+        "measurement_completed": false,
+        "independent": false,
+        "duplicate": false,
+        "errors": [
+          "[{'code': 'empty_group', 'path': '/missing_policy/empty_group', 'message': 'Only actual aggregates use zero; column reads use null'}]"
+        ],
+        "candidate": {
+          "id": "train_A_v5_03_0001_c0",
+          "purpose": "Number of distinct physical parents matched by composite key for each child; unavailable reference gives missing, not zero.",
+          "meaning": "Number of distinct physical parents matched by composite key for each child; unavailable reference gives missing, not zero.",
+          "sources": {
+            "columns": [
+              [
+                "child_v5_eval_A_3",
+                "ref_704"
+              ],
+              [
+                "child_v5_eval_A_3",
+                "tenant_704"
+              ],
+              [
+                "parent_v5_eval_A_3",
+                "ref_704"
+              ],
+              [
+                "parent_v5_eval_A_3",
+                "tenant_704"
+              ]
+            ],
+            "relationships": [
+              "link_v5_eval_A_3"
+            ]
+          },
+          "expected_type": "integer",
+          "expected_unit": "count",
+          "availability": "offline_captured_scope",
+          "required_evidence": [
+            "online availability and leakage policy; operational usefulness unconfirmed"
+          ],
+          "plan": {
+            "id": "train_A_v5_03_0001_c0",
+            "description": "Number of distinct physical parents matched by composite key for each child; unavailable reference gives missing, not zero.",
+            "expression": {
+              "op": "parent_match_count",
+              "relationship_id": "link_v5_eval_A_3"
+            },
+            "grain": {
+              "table": "child_v5_eval_A_3",
+              "keys": [
+                "row_704"
+              ]
+            },
+            "population": {
+              "table": "child_v5_eval_A_3",
+              "filter": null
+            },
+            "group_by": [],
+            "schema_version": "7dc0ecc19e821b07c2832f8db8deb62fa1f491bc00b832a3c042a2ca34c815e0",
+            "source_version": "593bba32505abcecce7767cbf7cac772799f78aa3fc8badb6c657105955965d4",
+            "missing_policy": {
+              "input": "propagate",
+              "empty_group": "zero",
+              "denominator_zero": null,
+              "child_missing": "propagate",
+              "unknown_predicate": "defer"
+            }
+          }
+        },
+        "validation": {
+          "passed": false,
+          "definition_status": "invalid",
+          "definition_sha256": null,
+          "proposal_sha256": "2adc099f6d30127e0c1aead42ca3591d9c2671226dc0018e0ce1610f53338734",
+          "errors": [
+            {
+              "code": "empty_group",
+              "message": "Only actual aggregates use zero; column reads use null"
+            }
+          ]
+        },
+        "visible_sources": true
+      }
+    ],
+    "zero": false,
+    "errors": []
+  }
+}

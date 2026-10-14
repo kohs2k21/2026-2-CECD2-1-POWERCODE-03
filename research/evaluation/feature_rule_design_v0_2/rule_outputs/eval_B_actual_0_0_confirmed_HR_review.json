@@ -1,0 +1,25 @@
+{
+  "id": "eval_B_actual_0_0_confirmed_HR_review",
+  "raw_output": "{\"v\":\"1\",\"feature\":\"fv5_819edb723e9822da01012602\",\"sha\":\"18dcda01ea112b106523a0957cb37420f3dd469f7591e8414679605f3c2deb2c\",\"role\":\"HR\",\"state\":\"no_applicable\",\"basis\":\"none\",\"condition\":null,\"evidence\":[],\"needed\":[],\"reason\":\"This exact calculation has no supplied confirmed DDL or business contract. Its observations do not establish mandatory child presence, count conservation, or business duration.\"}",
+  "raw_sha": "01c7b29bb257bc23eee43b8dc2b40c7f62886e8067741d2be0d95418a7cf2867",
+  "original_input_sha": "f44572681e697b5cd7474e86e0530b2b9bc7a98bd8f45c8ca0faae9ad5fb5cd4",
+  "prediction": {
+    "v": "1",
+    "feature": "fv5_819edb723e9822da01012602",
+    "sha": "18dcda01ea112b106523a0957cb37420f3dd469f7591e8414679605f3c2deb2c",
+    "role": "HR",
+    "state": "no_applicable",
+    "basis": "none",
+    "condition": null,
+    "evidence": [],
+    "needed": [],
+    "reason": "This exact calculation has no supplied confirmed DDL or business contract. Its observations do not establish mandatory child presence, count conservation, or business duration."
+  },
+  "validation": {
+    "passed": true,
+    "schema_passed": true,
+    "errors": [],
+    "policy": "rule-grounding-4.1.0",
+    "direct_meaning_review_required": true
+  }
+}

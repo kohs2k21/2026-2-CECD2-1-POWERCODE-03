@@ -59,6 +59,11 @@ def materialize(conn: Any, observation_id: uuid.UUID, config_id: uuid.UUID) -> l
         )
         feature_sets = cur.fetchall()
         if not feature_sets:
+            cur.execute("""SELECT fs.id,fs.content_hash FROM ml_feature_sets fs
+                JOIN ml_config_versions c ON c.configuration_spec->>'featureSetId'=fs.id::text
+                WHERE c.id=%s""", (config_id,))
+            feature_sets = cur.fetchall()
+        if not feature_sets:
             raise ValueError("config_has_no_feature_set")
     return [(feature_set_id, materialize_set(conn, observation_id, feature_set_id))
             for feature_set_id, _ in feature_sets]

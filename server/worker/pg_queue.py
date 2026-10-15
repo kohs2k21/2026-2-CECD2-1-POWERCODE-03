@@ -7,11 +7,13 @@ import uuid
 from dataclasses import dataclass
 from typing import Any, Literal
 
-QueueName = Literal["feature", "detection", "training"]
+QueueName = Literal["feature", "detection", "training", "llm_recommendation", "llm_explanation"]
 TABLES = {
     "feature": "powercode_queue.feature_observations",
     "detection": "powercode_queue.detection_logs",
     "training": "powercode_queue.training_jobs",
+    "llm_recommendation": "powercode_queue.llm_recommendation_jobs",
+    "llm_explanation": "powercode_queue.llm_explanation_jobs",
 }
 
 
@@ -22,6 +24,7 @@ class ClaimedMessage:
     attempts: int
     lease_token: uuid.UUID
     created_at: Any
+    queue: QueueName = "training"
 
 
 def _table(queue: QueueName) -> str:
@@ -46,7 +49,8 @@ def enqueue(conn: Any, queue: QueueName, payload: dict[str, Any], *, message_id:
 
 def claim(conn: Any, queue: QueueName, *, lease_seconds: int = 60,
           max_attempts: int = 3, benchmark_run_id: str | None = None,
-          source_id: str | None = None) -> ClaimedMessage | None:
+          source_id: str | None = None, job_kinds: tuple[str, ...] | None = None,
+          message_id: uuid.UUID | None = None) -> ClaimedMessage | None:
     """메시지 하나를 임대하고 다른 소비자가 잠근 행은 건너뛴다."""
     if lease_seconds < 1 or max_attempts < 1:
         raise ValueError("lease_seconds and max_attempts must be positive")
@@ -71,6 +75,14 @@ def claim(conn: Any, queue: QueueName, *, lease_seconds: int = 60,
                      WHERE scoped_observation.id::text = payload->>'observationId'
                        AND scoped_observation.source_id::text = %s)))"""
             scope_params += (source_id, source_id)
+    if job_kinds is not None:
+        if not job_kinds:
+            raise ValueError("job_kinds must not be empty")
+        scope_sql += " AND EXISTS (SELECT 1 FROM run_jobs j WHERE j.id::text = payload->>'jobId' AND j.kind::text = ANY(%s))"
+        scope_params += (list(job_kinds),)
+    if message_id is not None:
+        scope_sql += " AND id = %s"
+        scope_params += (message_id,)
     token = uuid.uuid4()
     with conn.cursor() as cur:
         cur.execute(
@@ -100,7 +112,7 @@ def claim(conn: Any, queue: QueueName, *, lease_seconds: int = 60,
             (max_attempts, *scope_params, token, lease_seconds),
         )
         row = cur.fetchone()
-    return ClaimedMessage(*row) if row else None
+    return ClaimedMessage(*row, queue=queue) if row else None
 
 
 def renew_lease(conn: Any, queue: QueueName, message: ClaimedMessage, *, lease_seconds: int = 60) -> bool:
@@ -145,3 +157,19 @@ def fail(conn: Any, queue: QueueName, message: ClaimedMessage, *, max_attempts: 
             ("dead" if dead else "pending", retry_seconds, reason[:200], message.id, message.lease_token),
         )
         return cur.rowcount == 1
+
+
+def reconcile_dead_jobs(conn: Any, queue: QueueName) -> None:
+    """Expire exhausted crashed attempts; a dead queue item must not look running forever."""
+    if queue == "feature":
+        return
+    with conn.cursor() as cur:
+        cur.execute(f"""UPDATE run_job_attempts a SET status='expired',finished_at=clock_timestamp(),error_code='queue_exhausted'
+            FROM run_jobs j WHERE a.id=j.current_attempt_id AND a.job_id=j.id AND a.status='running'
+              AND a.lease_until<=clock_timestamp() AND EXISTS(SELECT 1 FROM {_table(queue)} q
+              WHERE q.status='dead' AND q.payload->>'jobId'=j.id::text)""")
+        cur.execute(f"""UPDATE run_jobs j SET status='failed',error_code='queue_exhausted',finished_at=clock_timestamp()
+            WHERE j.status IN ('queued','running') AND EXISTS(SELECT 1 FROM {_table(queue)} q
+              WHERE q.status='dead' AND q.payload->>'jobId'=j.id::text)
+              AND NOT EXISTS(SELECT 1 FROM run_job_attempts a WHERE a.id=j.current_attempt_id
+                AND a.status='running' AND a.lease_until>clock_timestamp())""")

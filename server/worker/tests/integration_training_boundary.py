@@ -73,7 +73,7 @@ def main() -> None:
             enqueue(conn, "training", {"schemaVersion": 1, "jobId": str(job_id),
                                         "enqueuedAt": now.isoformat()})
         conn.commit()
-    run(once=True)
+    run(once=True,role="llm")
     with psycopg.connect(dsn) as conn:
         with conn.cursor() as cur:
             cur.execute(

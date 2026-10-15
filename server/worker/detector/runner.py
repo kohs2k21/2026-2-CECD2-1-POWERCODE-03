@@ -3,9 +3,7 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
-import math
 import os
 import time
 import uuid
@@ -17,145 +15,103 @@ from dotenv import load_dotenv
 
 import model_adapters
 from detector.input_reader import load_process_observation
-from detector.artifacts import verified_artifact_path
-from detector.rules import evaluate_rules
-from feature_worker import active_config, active_source, materialize
+from feature_worker import active_config, active_source
 from pg_queue import ClaimedMessage, acknowledge, claim, fail
 
 
-def _score(conn: Any, config_id: uuid.UUID, observation_id: uuid.UUID,
-           root: Path | None) -> tuple[str, float | None, bool | None, list[dict[str, Any]]]:
-    with conn.cursor() as cur:
-        cur.execute(
-            """SELECT cm.model_key, cm.feature_set_id, cm.threshold_spec,
-                      m.relative_path, m.content_hash, f.relative_path, f.content_hash,
-                      cm.training_settings
-                 FROM ml_config_models AS cm
-                 LEFT JOIN ml_artifacts AS m ON m.id = cm.model_artifact_id AND m.kind = 'model'
-                 LEFT JOIN ml_artifacts AS f ON f.id = cm.fit_artifact_id AND f.kind = 'fit'
-                WHERE cm.config_version_id = %s ORDER BY cm.model_key""",
-            (config_id,),
-        )
-        models = cur.fetchall()
-    if len(models) != 1 or models[0][0] != "iforest":
-        return "not_ready", None, None, [{"reason": "iforest_config_unavailable"}]
-    key, feature_set_id, threshold, model_relative, model_hash, fit_relative, fit_hash, settings = models[0]
-    model_path = verified_artifact_path(root, model_relative, model_hash)
-    fit_path = verified_artifact_path(root, fit_relative, fit_hash)
-    if model_path is None or fit_path is None:
-        return "not_ready", None, None, [{"modelKey": key, "reason": "artifact_unavailable"}]
-    with conn.cursor() as cur:
-        cur.execute(
-            """SELECT values_json, missing_names FROM data_feature_materializations
-                WHERE observation_id = %s AND feature_set_id = %s
-                ORDER BY calculated_at DESC LIMIT 1""",
-            (observation_id, feature_set_id),
-        )
-        feature_row = cur.fetchone()
-    if feature_row is None or feature_row[1]:
-        return "not_ready", None, None, [{"modelKey": key, "reason": "features_unavailable"}]
-    names = settings.get("featureNames") if isinstance(settings, dict) else None
-    if not isinstance(names, list) or not names or set(names) != set(feature_row[0]):
-        return "not_ready", None, None, [{"modelKey": key, "reason": "feature_schema_mismatch"}]
-    try:
-        score = model_adapters.score_iforest(
-            {"modelPath": model_path, "fitPath": fit_path, "featureNames": names}, feature_row[0])
-    except model_adapters.ModelNotConfigured:
-        return "not_ready", None, None, [{"modelKey": key, "reason": "iforest_adapter_not_configured"}]
-    if not isinstance(score, (int, float)) or not math.isfinite(score):
-        return "failed", None, None, [{"modelKey": key, "reason": "invalid_score"}]
-    if not isinstance(threshold, dict) or threshold.get("direction") not in {
-        "higher_is_anomaly", "lower_is_anomaly"
-    }:
-        return "not_ready", None, None, [{"modelKey": key, "reason": "threshold_unavailable"}]
-    try:
-        boundary = float(threshold["value"])
-    except (KeyError, ValueError, TypeError):
-        return "not_ready", None, None, [{"modelKey": key, "reason": "threshold_unavailable"}]
-    if not math.isfinite(boundary):
-        return "not_ready", None, None, [{"modelKey": key, "reason": "threshold_unavailable"}]
-    anomalous = score >= boundary if threshold["direction"] == "higher_is_anomaly" else score <= boundary
-    return "succeeded", float(score), anomalous, [{"modelKey": key, "featureSetId": str(feature_set_id),
-                                                     "anomalous": anomalous}]
-
-
 def process_detection_message(conn: Any, message: ClaimedMessage, root: Path | None) -> None:
-    started = time.perf_counter()
-    payload = message.payload
+    from detector.computation import load_context, compute, legacy_feature_hash
+    from detector.jobs import enqueue_observation,input_config
+    from trainer.runner import _claim_job, _finish
+    from trainer.lease import TrainingLeaseHeartbeat, lock_training_ownership
+    started = time.monotonic()
     observation = load_process_observation(conn, message)
-    pinned = payload.get("configVersionId")
-    config_id = uuid.UUID(pinned) if isinstance(pinned, str) else active_config(conn)
-    if config_id is None:
-        raise ValueError("active_config_unavailable")
-    with conn.transaction():
+    payload = message.payload
+    if not payload.get("jobId"):
+        # Bridge old feature/detection backlog to the immutable job protocol.
+        with conn.transaction():
+            pinned = payload.get("configVersionId") or input_config(conn,observation.source_id)
+            if pinned is None:
+                raise ValueError("active_config_unavailable")
+            context = load_context(conn, pinned, observation.source_id)
+            with conn.cursor() as cur:
+                cur.execute("SELECT content_hash FROM data_observations WHERE id=%s", (observation.observation_id,))
+                content_hash = cur.fetchone()[0]
+                previous_hash = legacy_feature_hash(context, observation.observation_id, content_hash)
+                if payload.get("inputManifestHash") not in (None, previous_hash):
+                    raise ValueError("input_manifest_mismatch")
+                cur.execute("SELECT 1 FROM run_process_decisions WHERE process_observation_id=%s AND config_version_id=%s", (observation.observation_id,pinned))
+                if cur.fetchone() is None:
+                    enqueue_observation(conn, observation.observation_id, config_id=pinned)
+            if not acknowledge(conn, "detection", message):
+                raise RuntimeError("detection_lease_lost")
+        return
+    claimed = _claim_job(conn, message, "detector")
+    conn.commit()
+    if claimed is None:
+        return
+    job, attempt_id, attempt_token = claimed
+    heartbeat = TrainingLeaseHeartbeat(lambda: psycopg.connect(os.environ["DATABASE_URL"]),
+        message,job["id"],attempt_id,attempt_token)
+    heartbeat.start()
+    try:
         with conn.cursor() as cur:
-            cur.execute("SELECT source_id FROM ml_config_versions WHERE id = %s", (config_id,))
-            config = cur.fetchone()
-            if config is None or config[0] != observation.source_id:
-                raise ValueError("config_source_mismatch")
-        feature_sets = materialize(conn, observation.observation_id, config_id)
-        combined = hashlib.sha256(json.dumps(sorted((str(item[0]), item[1]) for item in feature_sets)).encode()).hexdigest()
-        if payload.get("inputManifestHash") is not None and payload["inputManifestHash"] != combined:
-            raise ValueError("input_manifest_mismatch")
+            cur.execute("""SELECT j.input_spec,j.input_config_version_id,j.input_manifest_id,m.content_hash,m.input_as_of
+                FROM run_jobs j JOIN run_input_manifests m ON m.id=j.input_manifest_id WHERE j.id=%s""", (job["id"],))
+            fixed = cur.fetchone()
+            if fixed is None or any(payload.get(key) != fixed[0].get(key) for key in
+                    ("sourceId","observationId","configVersionId","inputManifestHash","inputManifestId")):
+                raise ValueError("input_manifest_mismatch")
+        config_id = fixed[1]
+        context = load_context(conn, config_id, observation.source_id)
         with conn.cursor() as cur:
-            cur.execute(
-                """SELECT rv.rule_key, rv.version, rv.rule_spec, rv.input_spec
-                     FROM ml_config_rules AS cr
-                     JOIN ml_rule_versions AS rv ON rv.id = cr.rule_version_id
-                    WHERE cr.config_version_id = %s ORDER BY cr.evaluation_order""",
-                (config_id,),
-            )
-            rules = cur.fetchall()
-            # Rule의 F.* 참조는 현재 구성의 고정 변수셋에서만 읽는다.
-            if len(feature_sets) != 1:
-                raise ValueError("ambiguous_rule_feature_set")
-            feature_set_id, feature_manifest = feature_sets[0]
-            cur.execute(
-                """SELECT values_json FROM data_feature_materializations
-                    WHERE observation_id = %s AND feature_set_id = %s AND input_manifest_hash = %s""",
-                (observation.observation_id, feature_set_id, feature_manifest),
-            )
-            feature_row = cur.fetchone()
-            if feature_row is None:
-                raise ValueError("rule_features_unavailable")
-            feature_values = feature_row[0]
-            if any(item[3].get("featureSetId") not in (None, str(feature_set_id)) for item in rules):
-                raise ValueError("rule_feature_set_mismatch")
-        if rules:
-            rule_status, rule_code, rule_evidence = evaluate_rules(
-                [(item[0], item[1], item[2]) for item in rules],
-                observation.allowed_values, feature_values)
-        else:
-            rule_status, rule_code, rule_evidence = "skipped", None, []
-        ml_status, score, ml_anomaly, ml_evidence = _score(conn, config_id, observation.observation_id, root)
-        ready_rule = rule_status in {"succeeded", "skipped"}
-        ready_ml = ml_status == "succeeded"
-        status = "complete" if ready_rule and ready_ml else "partial" if rule_status == "succeeded" or ready_ml else "unavailable"
-        code = rule_code or "IF_ANOMALY" if ml_anomaly else rule_code
-        evidence = {"schemaVersion": 1, "rules": rule_evidence, "models": ml_evidence,
-                    "inputManifestHash": combined}
-        with conn.cursor() as cur:
-            cur.execute(
-                """INSERT INTO run_process_decisions
-                     (id, execution_id, process_observation_id, config_version_id,
-                      input_manifest_hash, status, rule_status, ml_status,
-                      decision_code, anomaly_score, evidence, decided_at, latency_status)
-                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
-                           %s::jsonb, clock_timestamp(), 'unavailable')
-                   ON CONFLICT (execution_id, process_observation_id, config_version_id, input_manifest_hash)
-                   DO NOTHING""",
-                (uuid.uuid4(), observation.execution_id, observation.observation_id, config_id,
-                 combined, status, rule_status, ml_status, code, score, json.dumps(evidence)),
-            )
-            cur.execute(
-                """INSERT INTO ops_pipeline_measurements
-                     (id, observation_id, stage, config_version_id, duration_ms)
-                   VALUES (%s, %s, 'detector', %s, %s)""",
-                (uuid.uuid4(), observation.observation_id, config_id,
-                 (time.perf_counter() - started) * 1000),
-            )
-        if not acknowledge(conn, "detection", message):
+            cur.execute("SELECT content_hash FROM data_observations WHERE id=%s",(observation.observation_id,))
+            source_hash=cur.fetchone()[0]
+            cur.execute('SELECT ingestion_method,dataset_key FROM ops_sources WHERE id=%s',(observation.source_id,))
+            source_mode=cur.fetchone()
+        conn.commit()
+        result = compute(context, observation.allowed_values, root, started_at=started)
+        if heartbeat.lost:
             raise RuntimeError("detection_lease_lost")
+        evidence = {"schemaVersion": 2,"rules":result["rule"]["evidence"],"models":result["ml"]["evidence"],
+                    "inputManifestHash":fixed[3],"anomalous":result["anomalous"],
+                    "requestedMode":result["requestedMode"],"actualPaths":result["actualPaths"],
+                    "detectionPolicy":result["policy"],"ruleSeverities":result["rule"].get("severity",[])}
+        if source_mode and source_mode[0]=='demo-replay':
+            evidence['demo']={'historicalReplay':True,'runKey':source_mode[1].removeprefix('demo-replay:'),'scope':'Process replay; source occurrence latency unavailable'}
+        if fixed[0].get('inputOrigin'):
+            evidence['input']=fixed[0]['inputOrigin']
+        code = result["rule"].get("code") or ("IF_ANOMALY" if result["ml"].get("anomalous") else None)
+        with conn.transaction():
+            if not lock_training_ownership(conn,message,job["id"],attempt_id,attempt_token):
+                raise RuntimeError("detection_lease_lost")
+            with conn.cursor() as cur:
+                feature_result=next((result[path] for path in ("rule","ml") if "featureValues" in result[path]),None)
+                if feature_result is not None and context["featureSetId"]:
+                    from feature_runtime import input_manifest_hash
+                    cur.execute("""INSERT INTO data_feature_materializations(observation_id,feature_set_id,
+                        input_manifest_hash,values_json,missing_names) VALUES(%s,%s,%s,%s::jsonb,%s::jsonb)
+                        ON CONFLICT DO NOTHING""", (observation.observation_id,context["featureSetId"],
+                        input_manifest_hash(str(observation.observation_id),source_hash,context["featureHash"]),
+                        json.dumps(feature_result["featureValues"]),json.dumps(feature_result["missingFeatures"])))
+                cur.execute("""INSERT INTO run_process_decisions
+                    (id,execution_id,process_observation_id,config_version_id,input_manifest_hash,input_as_of,
+                    status,rule_status,ml_status,decision_code,anomaly_score,evidence,decided_at,latency_status,
+                    job_id,input_manifest_id,result_attempt_id,result_lease_token)
+                    VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s::jsonb,clock_timestamp(),'unavailable',%s,%s,%s,%s)""",
+                    (uuid.uuid4(),observation.execution_id,observation.observation_id,config_id,fixed[3],fixed[4],
+                    result["status"],result["rule"]["status"],result["ml"]["status"],code,result["ml"].get("score"),
+                    json.dumps(evidence),job["id"],fixed[2],attempt_id,attempt_token))
+                cur.execute("""INSERT INTO ops_pipeline_measurements(id,observation_id,stage,config_version_id,duration_ms)
+                    VALUES(%s,%s,'detector',%s,%s)""",(uuid.uuid4(),observation.observation_id,config_id,(time.monotonic()-started)*1000))
+            _finish(conn,message,job,attempt_id,attempt_token,{"status":result["status"]},None,True)
+    except Exception:
+        conn.rollback()
+        _finish(conn,message,job,attempt_id,attempt_token,None,"detection_processing_failed",False)
+        conn.commit()
+        raise
+    finally:
+        heartbeat.stop()
 
 
 def run(*, once: bool = False, poll_seconds: float = 1.0) -> None:
@@ -170,23 +126,41 @@ def run(*, once: bool = False, poll_seconds: float = 1.0) -> None:
         try:
             prepare_active(conn, root)
             conn.commit()
-        except model_adapters.ModelNotConfigured:
+        except (model_adapters.ModelNotConfigured, ValueError):
             conn.rollback()
-            raise SystemExit("활성 모델 로더가 구성되지 않아 Detector를 시작할 수 없다")
+            # Rule path remains available when model preparation fails.
         while True:
             process_application_once(conn, root, worker_id)
             conn.commit()
-            if active_config(conn) is None:
-                conn.commit()
-                if once:
-                    return
-                time.sleep(poll_seconds)
-                continue
-            conn.commit()
             config_id = active_config(conn)
-            source_id = active_source(conn, config_id)
             conn.commit()
-            message = claim(conn, "detection", source_id=str(source_id))
+            source_id = active_source(conn, config_id) if config_id else None
+            conn.commit()
+            # Keep a bounded recovery step so historical waiting inputs also make progress.
+            if source_id:
+                from feature_worker import process_feature_message
+                legacy = claim(conn, "feature", source_id=str(source_id))
+                conn.commit()
+                if legacy:
+                    try:
+                        process_feature_message(conn, legacy, config_id)
+                        conn.commit()
+                    except Exception:
+                        conn.rollback()
+                        fail(conn, "feature", legacy, reason="feature_bridge_failed")
+                        conn.commit()
+            # Fixed jobs keep their pinned config even if the active source changes.
+            message = claim(conn, "detection", job_kinds=("detect",))
+            conn.commit()
+            if message is None and source_id:
+                message = claim(conn, "detection", source_id=str(source_id))
+                conn.commit()
+            if message is None:
+                from detector.jobs import claim_waiting_input
+                message=claim_waiting_input(conn)
+                conn.commit()
+            from pg_queue import reconcile_dead_jobs
+            reconcile_dead_jobs(conn,"detection")
             conn.commit()
             if message is None:
                 if once:

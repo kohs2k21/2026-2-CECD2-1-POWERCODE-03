@@ -20,7 +20,7 @@ from feature_runtime import calculate_features
 from detector.artifacts import verified_artifact_path
 from detector.rules import evaluate_rules
 from feature_worker import materialize_set
-from pg_queue import ClaimedMessage, acknowledge, claim, fail
+from pg_queue import ClaimedMessage, acknowledge, claim, fail, _table, reconcile_dead_jobs
 from trainer.catalog import register_feature_set
 from trainer.rule_candidates import validate_suggestions
 from trainer.lease import TrainingLeaseHeartbeat, lock_training_ownership
@@ -49,10 +49,14 @@ def _claim_job(conn: Any, message: ClaimedMessage, worker_id: str) -> tuple[dict
             row = cur.fetchone()
             if row is None:
                 raise ValueError("job_not_found")
+            cur.execute(f"""SELECT 1 FROM {_table(message.queue)} WHERE id=%s AND status='leased'
+                AND lease_token=%s AND lease_until>clock_timestamp() FOR UPDATE""", (message.id,message.lease_token))
+            if cur.fetchone() is None:
+                raise RuntimeError("job_queue_ownership_lost")
             if row[1] in ("recommend_feature", "recommend_rule", "train", "evaluate") and row[8] != "admin":
                 raise ValueError("job_role_not_authorized")
             if row[2] in ("succeeded", "failed"):
-                if not acknowledge(conn, "training", message):
+                if not acknowledge(conn, message.queue, message):
                     raise RuntimeError("training_lease_lost")
                 return None
             if row[7] is not None:
@@ -68,7 +72,7 @@ def _claim_job(conn: Any, message: ClaimedMessage, worker_id: str) -> tuple[dict
                     raise RuntimeError("job_already_running")
             if row[5] >= row[6]:
                 cur.execute("UPDATE run_jobs SET status = 'failed', error_code = 'max_attempts', finished_at = clock_timestamp() WHERE id = %s", (job_id,))
-                if not acknowledge(conn, "training", message):
+                if not acknowledge(conn, message.queue, message):
                     raise RuntimeError("training_lease_lost")
                 return None
             attempt_id = uuid.uuid4()
@@ -91,7 +95,7 @@ def _claim_job(conn: Any, message: ClaimedMessage, worker_id: str) -> tuple[dict
 
 
 def _snapshot_rows(conn: Any, snapshot_id: uuid.UUID, split: str | None = None,
-                   limit: int = 1000000) -> list[tuple[uuid.UUID, dict[str, Any], str, dict[str, Any] | None]]:
+                   limit: int = 1000000, *, allow_sample: bool = False) -> list[tuple[uuid.UUID, dict[str, Any], str, dict[str, Any] | None]]:
     with conn.cursor() as cur:
         cur.execute(
             """SELECT m.observation_id, o.allowed_values, m.split, m.label_evidence
@@ -103,6 +107,8 @@ def _snapshot_rows(conn: Any, snapshot_id: uuid.UUID, split: str | None = None,
         )
         rows = cur.fetchall()
     if len(rows) > limit:
+        if allow_sample:
+            return rows[:limit]
         raise ValueError("snapshot_row_limit_exceeded")
     return rows
 
@@ -201,16 +207,48 @@ def _execute(conn: Any, job: dict[str, Any], attempt_id: uuid.UUID,
              attempt_token: uuid.UUID) -> dict[str, Any]:
     spec = job["input"]
     kind = job["kind"]
+    if kind == "explain":
+        from explanation import explain
+        return explain(job)
     if kind == "evaluate":
         return _evaluate(conn, job, artifact_root, message, attempt_id, attempt_token)
     source_id = uuid.UUID(spec["sourceId"])
-    snapshot = build_snapshot(conn, source_id=source_id, from_time=spec["from"],
-                              until_time=spec["until"], actor_id=job["actor"])
-    with conn.transaction():
+    with conn.cursor() as cur:
+        cur.execute("SELECT snapshot_id FROM run_job_snapshots WHERE job_id=%s", (job["id"],))
+        fixed_snapshot = cur.fetchone()
+    if fixed_snapshot is None and spec.get("snapshotId"):
         with conn.cursor() as cur:
-            cur.execute("UPDATE run_jobs SET input_snapshot_id = %s WHERE id = %s AND contract_version IS NULL", (snapshot.id, job["id"]))
+            cur.execute("""SELECT id FROM data_snapshots WHERE id=%s AND source_id=%s AND status='ready'
+                AND (selection_spec->>'from')::timestamptz=%s::timestamptz AND (selection_spec->>'until')::timestamptz=%s::timestamptz""", (spec["snapshotId"],source_id,spec["from"],spec["until"]))
+            fixed_snapshot = cur.fetchone()
+        if fixed_snapshot is None:
+            raise ValueError("snapshot_conditions_mismatch")
+        conn.commit()
+        with conn.transaction():
+            if not lock_training_ownership(conn,message,job["id"],attempt_id,attempt_token):
+                raise RuntimeError("snapshot_ownership_lost")
+            with conn.cursor() as cur:
+                cur.execute("INSERT INTO run_job_snapshots(job_id,snapshot_id) VALUES(%s,%s)", (job["id"],fixed_snapshot[0]))
+    if fixed_snapshot:
+        from trainer.snapshot import SnapshotResult
+        with conn.cursor() as cur:
+            cur.execute("SELECT split::text,count(*) FROM data_snapshot_members WHERE snapshot_id=%s GROUP BY split", (fixed_snapshot[0],))
+            counts = dict(cur.fetchall())
+            cur.execute("SELECT manifest_hash FROM data_snapshots WHERE id=%s", (fixed_snapshot[0],))
+            manifest = cur.fetchone()[0]
+        snapshot = SnapshotResult(fixed_snapshot[0], manifest, counts)
+    else:
+        snapshot = build_snapshot(conn, source_id=source_id, from_time=spec["from"],
+                                  until_time=spec["until"], actor_id=job["actor"])
+        conn.commit()
+        with conn.transaction():
+            if not lock_training_ownership(conn,message,job["id"],attempt_id,attempt_token):
+                raise RuntimeError("snapshot_ownership_lost")
+            with conn.cursor() as cur:
+                cur.execute("INSERT INTO run_job_snapshots(job_id,snapshot_id) VALUES(%s,%s)", (job["id"],snapshot.id))
+                cur.execute("UPDATE run_jobs SET input_snapshot_id=%s WHERE id=%s AND contract_version IS NULL", (snapshot.id,job["id"]))
     if kind == "recommend_feature":
-        rows = _snapshot_rows(conn, snapshot.id, "train", 10000)
+        rows = _snapshot_rows(conn, snapshot.id, "train", 10000, allow_sample=True)
         conn.commit()
         safe_rows = [{key: value for key, value in raw.items() if key in SAFE_MODEL_FIELDS}
                      for _, raw, _, _ in rows]
@@ -230,7 +268,9 @@ def _execute(conn: Any, job: dict[str, Any], attempt_id: uuid.UUID,
             materialized += 1
         return {"snapshotId": str(snapshot.id), "featureSetId": str(feature_set_id),
                 "featureNames": [item["name"] for item in definitions],
-                "materializedCount": materialized, **details}
+                "materializedCount": materialized, **details,
+                "referenceSampleCount": len(safe_rows), "referenceTrainPopulationCount": snapshot.counts["train"],
+                "referenceSampling": "observation_id_order_train_prefix_max_10000"}
     feature_set_id = uuid.UUID(spec["featureSetId"])
     if kind == "train" and spec.get("ruleVersionIds"):
         with conn.cursor() as cur:
@@ -257,6 +297,28 @@ def _execute(conn: Any, job: dict[str, Any], attempt_id: uuid.UUID,
                 **({key: value for key, value in recommendation.items() if key != "suggestions"}
                    if isinstance(recommendation, dict) else {})}
     if kind == "train":
+        from detector.policy import parse_policy
+        policy = parse_policy(spec, required=spec.get("detectionPolicy") is not None)
+        if policy.mode == "rule_only":
+            if not spec.get("ruleVersionIds"):
+                raise ValueError("rules_required")
+            config_id = uuid.uuid4()
+            config_spec = {"schemaVersion": 2, "sourceId": str(source_id), "featureSetId": str(feature_set_id),
+                "trainingSnapshotId": str(snapshot.id), "ruleVersionIds": spec["ruleVersionIds"],
+                "detectionPolicy": spec["detectionPolicy"]}
+            with conn.transaction():
+                if not lock_training_ownership(conn,message,job["id"],attempt_id,attempt_token):
+                    raise RuntimeError("training_ownership_lost")
+                with conn.cursor() as cur:
+                    cur.execute("""INSERT INTO ml_config_versions(id,source_id,configuration_spec,explanation_spec,
+                        content_hash,created_by_actor_id,created_at) VALUES(%s,%s,%s::jsonb,'{}'::jsonb,%s,%s,clock_timestamp())""",
+                        (config_id,source_id,json.dumps(config_spec),hashlib.sha256(json.dumps(config_spec,sort_keys=True).encode()).hexdigest(),job["actor"]))
+                    for order, rule_id in enumerate(spec["ruleVersionIds"]):
+                        cur.execute("INSERT INTO ml_config_rules(config_version_id,rule_version_id,evaluation_order) VALUES(%s,%s,%s)", (config_id,rule_id,order))
+                completed = {"snapshotId": str(snapshot.id), "featureSetId": str(feature_set_id),
+                             "configVersionId": str(config_id),"splitCounts": snapshot.counts}
+                _finish(conn,message,job,attempt_id,attempt_token,completed,None,True)
+            return {**completed,"_finalized": True}
         if artifact_root is None:
             raise model_adapters.ModelNotConfigured("artifact_root_not_configured")
         prepared, names = _feature_rows(conn, snapshot.id, feature_set_id, "train")
@@ -283,6 +345,9 @@ def _execute(conn: Any, job: dict[str, Any], attempt_id: uuid.UUID,
             rule_ids = [uuid.UUID(value) for value in spec.get("ruleVersionIds", [])]
             config_spec = {"schemaVersion": 1, "featureSetId": str(feature_set_id),
                            "trainingSnapshotId": str(snapshot.id), "ruleVersionIds": [str(value) for value in rule_ids]}
+            config_spec["sourceId"] = str(source_id)
+            if spec.get("detectionPolicy"):
+                config_spec["detectionPolicy"] = spec["detectionPolicy"]
             content_hash = hashlib.sha256(json.dumps(config_spec, sort_keys=True).encode()).hexdigest()
             config_id = uuid.uuid4()
             with conn.cursor() as cur:
@@ -324,51 +389,14 @@ def _evaluate(conn: Any, job: dict[str, Any], root: Path | None,
     spec = job["input"]
     config_id = uuid.UUID(spec["configVersionId"])
     snapshot_id = uuid.UUID(spec["snapshotId"])
-    with conn.cursor() as cur:
-        cur.execute(
-            """SELECT cm.feature_set_id, m.relative_path, m.content_hash,
-                      f.relative_path, f.content_hash, cm.training_settings,
-                      cm.threshold_spec
-                 FROM ml_config_models AS cm
-                 JOIN ml_artifacts AS m ON m.id = cm.model_artifact_id AND m.kind = 'model'
-                 JOIN ml_artifacts AS f ON f.id = cm.fit_artifact_id AND f.kind = 'fit'
-                WHERE cm.config_version_id = %s AND cm.model_key = 'iforest'""",
-            (config_id,),
-        )
-        model = cur.fetchone()
-    if model is None:
-        raise ValueError("evaluation_model_unavailable")
-    model_path = verified_artifact_path(root, model[1], model[2])
-    fit_path = verified_artifact_path(root, model[3], model[4])
-    if model_path is None or fit_path is None:
-        raise ValueError("evaluation_artifact_unavailable")
-    definitions = _definitions(conn, model[0])
-    names = [item["name"] for item in definitions]
-    with conn.cursor() as cur:
-        cur.execute(
-            """SELECT rv.rule_key, rv.version, rv.rule_spec, rv.input_spec
-                 FROM ml_config_rules AS cr
-                 JOIN ml_rule_versions AS rv ON rv.id = cr.rule_version_id
-                WHERE cr.config_version_id = %s ORDER BY cr.evaluation_order""",
-            (config_id,),
-        )
-        rule_rows = cur.fetchall()
-    if any(row[3].get("featureSetId") not in (None, str(model[0])) for row in rule_rows):
-        raise ValueError("evaluation_rule_feature_set_mismatch")
-    rules = [(row[0], row[1], row[2]) for row in rule_rows]
+    from detector.computation import load_context, compute
+    context = load_context(conn, config_id, uuid.UUID(spec["sourceId"]))
+    rules = context["rules"]
     rows = _snapshot_rows(conn, snapshot_id, spec["purpose"])
     conn.commit()
     if not rows:
         raise ValueError("evaluation_empty_population")
-    threshold = model[6]
-    if not isinstance(threshold, dict) or threshold.get("direction") not in {"higher_is_anomaly", "lower_is_anomaly"}:
-        raise ValueError("evaluation_threshold_unavailable")
-    try:
-        boundary = float(threshold["value"])
-    except (KeyError, ValueError, TypeError) as exc:
-        raise ValueError("evaluation_threshold_unavailable") from exc
-    if not math.isfinite(boundary):
-        raise ValueError("evaluation_threshold_unavailable")
+    threshold = context["models"][0][6] if context["models"] else None
     scores: list[float] = []
     unavailable = 0
     unlabeled = 0
@@ -388,56 +416,52 @@ def _evaluate(conn: Any, job: dict[str, Any], root: Path | None,
                 "recall": target["tp"] / max(1, target["tp"] + target["fn"]),
                 "falsePositiveRate": target["fp"] / max(1, target["fp"] + target["tn"])}
 
+    complete_count = 0
     for _, raw, _, label_evidence in rows:
-        values, missing = calculate_features(definitions, raw)
-        if rules:
-            rule_status, rule_code, _ = evaluate_rules(rules, raw, values)
-            if rule_status != "succeeded":
-                rule_unavailable += 1
-            rule_prediction = rule_code is not None
-        else:
-            rule_status, rule_prediction = "skipped", False
-        model_prediction: bool | None = None
-        if not missing:
-            score = model_adapters.score_iforest(
-                {"modelPath": model_path, "fitPath": fit_path, "featureNames": names}, values)
-            if not isinstance(score, (float, int)) or not math.isfinite(score):
-                raise ValueError("invalid_model_score")
-            scores.append(float(score))
-            model_prediction = score >= boundary if threshold["direction"] == "higher_is_anomaly" else score <= boundary
-        if model_prediction is None or rule_status not in {"succeeded", "skipped"}:
+        result = compute(context, raw, root)
+        rule_status = result["rule"]["status"]
+        rule_prediction = result["rule"].get("anomalous")
+        model_prediction = result["ml"].get("anomalous")
+        score = result["ml"].get("score")
+        if score is not None:
+            scores.append(score)
+        if result["status"] != "complete":
             unavailable += 1
+        else:
+            complete_count += 1
+        if rule_status not in {"succeeded","skipped"}:
+            rule_unavailable += 1
         label = label_evidence.get("label") if isinstance(label_evidence, dict) else None
         if label not in {"normal", "anomaly"}:
             unlabeled += 1
             continue
         if model_prediction is not None:
             record(model_confusion, model_prediction, label)
-        if rule_status in {"succeeded", "skipped"}:
+        if rule_prediction is not None:
             record(rule_confusion, rule_prediction, label)
-        if model_prediction is not None and rule_status in {"succeeded", "skipped"}:
-            record(confusion, model_prediction or rule_prediction, label)
+        if result["status"] == "complete":
+            record(confusion, result["anomalous"], label)
     reasons = []
     if len(rows) < 20 or confusion["tp"] + confusion["fn"] == 0 or confusion["fp"] + confusion["tn"] == 0:
         reasons.append("insufficient_labeled_population")
     if unlabeled:
         reasons.append("labels_unavailable")
-    if len(scores) != len(rows):
-        reasons.append("scores_unavailable")
+    if complete_count != len(rows):
+        reasons.append("selected_paths_unavailable")
     if rule_unavailable:
         reasons.append("rule_inputs_unavailable")
     applicability = "valid" if not reasons else "unmeasured"
     metrics = {**classification_metrics(confusion),
                "model": classification_metrics(model_confusion),
                "rule": classification_metrics(rule_confusion) if rules else None,
-               "combination": "rule_or_iforest", "ruleCount": len(rules),
+               "combination": context["policy"].combination, "detectionPolicy": context["policy"].document(), "ruleCount": len(rules),
                "scoreMin": min(scores) if scores else None,
                "scoreMax": max(scores) if scores else None}
-    summary = {"populationCount": len(rows), "scoredCount": len(scores),
+    summary = {"populationCount": len(rows), "scoredCount": complete_count,
                "unavailableCount": unavailable, "unlabeledCount": unlabeled,
                "applicability": applicability, "metrics": metrics, "reasonCodes": reasons}
     evaluation_id = uuid.uuid4()
-    evaluation_spec = {"schemaVersion": 1, "metricVersion": "combined-or-v1",
+    evaluation_spec = {"schemaVersion": 1, "metricVersion": "selected-paths-v2", "detectionPolicy": context["policy"].document(),
                        "threshold": threshold, "labelSource": "manual_snapshot_evidence",
                        "purpose": spec["purpose"]}
     with conn.transaction():
@@ -450,12 +474,12 @@ def _evaluate(conn: Any, job: dict[str, Any], root: Path | None,
                       evaluation_spec_version, evaluation_spec_hash, evaluation_spec,
                       applicability, population_count, scored_count, unavailable_count,
                       metrics, reason_codes, completed_at)
-                     VALUES (%s, %s, %s, %s, %s, 'combined-or-v1', %s, %s::jsonb,
+                     VALUES (%s, %s, %s, %s, %s, 'selected-paths-v2', %s, %s::jsonb,
                            %s, %s, %s, %s, %s::jsonb, %s::jsonb, clock_timestamp())""",
                 (evaluation_id, job["id"], config_id, snapshot_id, spec["purpose"],
                  hashlib.sha256(json.dumps(evaluation_spec, sort_keys=True).encode()).hexdigest(),
                  json.dumps(evaluation_spec), applicability,
-                 len(rows), len(scores), unavailable,
+                 len(rows), complete_count, unavailable,
                  json.dumps(metrics), json.dumps(reasons)),
             )
         completed = {**summary, "evaluationId": str(evaluation_id)}
@@ -471,13 +495,13 @@ def _finish(conn: Any, message: ClaimedMessage, job: dict[str, Any],
         if not lock_training_ownership(conn, message, job["id"], attempt_id, attempt_token):
             raise RuntimeError("training_ownership_lost")
         with conn.cursor() as cur:
-            if result is not None and job.get("contractVersion") == "v03" and job["kind"] in {"recommend_feature", "recommend_rule"}:
+            if result is not None and job.get("contractVersion") == "v03" and job["kind"] in {"recommend_feature", "recommend_rule", "explain"}:
                 spec = job["llmSpec"]
                 cur.execute("""INSERT INTO run_llm_results
-                    (id,job_id,kind,evidence_version,input_evidence_hash,model_version,prompt_version,
+                    (id,job_id,kind,decision_id,config_version_id,evidence_version,input_evidence_hash,model_version,prompt_version,
                      output_schema_version,reuse_key,output,created_attempt_id,lease_token,completed_at)
-                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s::jsonb,%s,%s,clock_timestamp())""",
-                    (uuid.uuid4(), job["id"], job["kind"], spec["evidence_version"], spec["input_evidence_hash"],
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s::jsonb,%s,%s,clock_timestamp())""",
+                    (uuid.uuid4(), job["id"], job["kind"], job["input"].get("decisionId"), job["input"].get("configVersionId"), spec["evidence_version"], spec["input_evidence_hash"],
                      spec["model_version"], spec["prompt_version"], spec["output_schema_version"],
                      spec["reuse_key"], json.dumps(result), attempt_id, attempt_token))
             cur.execute(
@@ -505,22 +529,41 @@ def _finish(conn: Any, message: ClaimedMessage, job: dict[str, Any],
                         WHERE id = %s""",
                     (error_code, job["id"]),
                 )
-        done = acknowledge(conn, "training", message) if result is not None or terminal else \
-            fail(conn, "training", message, reason=error_code or "job_failed")
+        done = acknowledge(conn, message.queue, message) if result is not None or terminal else \
+            fail(conn, message.queue, message, reason=error_code or "job_failed")
         if not done:
             raise RuntimeError("training_queue_lease_lost")
 
 
-def run(*, once: bool = False, poll_seconds: float = 1.0) -> None:
+def run(*, once: bool = False, poll_seconds: float = 1.0, role: str = "trainer") -> None:
     load_dotenv(Path(__file__).resolve().parents[1] / ".env")
     database_url = os.environ.get("DATABASE_URL")
     if not database_url:
         raise SystemExit("DATABASE_URL이 필요하다")
     root = Path(os.environ["ARTIFACT_ROOT"]) if os.environ.get("ARTIFACT_ROOT") else None
-    worker_id = f"trainer-{uuid.uuid4()}"
+    worker_id = f"{role}-{uuid.uuid4()}"
+    priority = True
     with psycopg.connect(database_url) as conn:
         while True:
-            message = claim(conn, "training", lease_seconds=60)
+            if role == "trainer":
+                message = claim(conn, "training", lease_seconds=60, job_kinds=("train", "evaluate"))
+            elif role == "llm":
+                message = None
+                # A bounded rotation prevents explanation starvation under recommendation load.
+                rotation = ("llm_recommendation", "llm_explanation") if priority else ("llm_explanation", "llm_recommendation")
+                priority = not priority
+                for queue in rotation:
+                    message = claim(conn, queue, lease_seconds=60)
+                    if message:
+                        break
+                if message is None:
+                    # Drain earlier releases after leases expire without rewriting their history.
+                    message = claim(conn, "training", lease_seconds=60,
+                                    job_kinds=("recommend_feature", "recommend_rule", "explain"))
+            else:
+                raise ValueError("invalid_worker_role")
+            for queue in (("training",) if role == "trainer" else ("training","llm_recommendation","llm_explanation")):
+                reconcile_dead_jobs(conn,queue)
             conn.commit()
             if message is None:
                 if once:
@@ -565,7 +608,7 @@ def run(*, once: bool = False, poll_seconds: float = 1.0) -> None:
                     except Exception:
                         conn.rollback()
                 else:
-                    fail(conn, "training", message, reason="job_claim_failed")
+                    fail(conn, message.queue, message, reason="job_claim_failed")
                     conn.commit()
             finally:
                 if 'job' in locals():

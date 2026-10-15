@@ -97,11 +97,6 @@ def main() -> None:
             execution_id=execution_id, revision_no=1, detection_eligible=True,
         )
         conn.commit()
-        feature_message = claim(conn, "feature", source_id=str(source_id))
-        assert feature_message is not None
-        conn.commit()
-        process_feature_message(conn, feature_message, config_id)
-        conn.commit()
         detection_message = claim(conn, "detection", source_id=str(source_id))
         assert detection_message is not None
         conn.commit()

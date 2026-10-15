@@ -64,7 +64,7 @@ def main() -> None:
             assert all("private-" not in str(row) for row in rows)
             assert any(row[0] == "M" and row[1] == {"message_id": "msg-1"} for row in rows)
             cur.execute(
-                """SELECT count(*) FROM powercode_queue.feature_observations AS q
+                """SELECT count(*) FROM powercode_queue.detection_logs AS q
                      JOIN data_observations AS o
                        ON q.payload->>'observationId' = o.id::text
                     WHERE o.source_id = %s""",

@@ -43,9 +43,9 @@ def job(conn, spec):
              "v03" if recommendation else None, "llm_recommendation" if recommendation else None,
              "user" if recommendation else None, "integration-admin" if recommendation else None,
              str(identifier), json.dumps(llm) if recommendation else None))
-    enqueue(conn, "training", {"schemaVersion": 1, "jobId": str(identifier)})
+    enqueue(conn, "llm_recommendation" if recommendation else "training", {"schemaVersion": 1, "jobId": str(identifier)})
     conn.commit()
-    run(once=True)
+    run(once=True,role="llm" if recommendation else "trainer")
     with conn.cursor() as cur:
         cur.execute("SELECT status,result_summary,error_code FROM run_jobs WHERE id=%s", (identifier,))
         status, result, error = cur.fetchone()
@@ -103,7 +103,7 @@ def main():
                       "until": (now + timedelta(hours=1)).isoformat()}
             features = job(conn, {**period, "kind": "recommend_feature"})
             assert features["provider"] == "feature_v5" and features["materializedCount"] == 1000
-            rules = job(conn, {**period, "kind": "recommend_rule", "featureSetId": features["featureSetId"]})
+            rules = job(conn, {**period, "kind": "recommend_rule", "featureSetId": features["featureSetId"], "snapshotId":features["snapshotId"]})
             assert rules["provider"] == "rule_v2" and len(rules["suggestions"]) == 1
             selected = rules["suggestions"][0]
             rule_id = uuid.uuid4()
@@ -115,7 +115,8 @@ def main():
                     (rule_id, selected["ruleKey"], json.dumps(rule), json.dumps({"featureSetId": features["featureSetId"]}),
                      json.dumps(selected["evidenceSpec"]), hashlib.sha256(json.dumps(rule).encode()).hexdigest()))
             conn.commit()
-            trained = job(conn, {**period, "kind": "train", "featureSetId": features["featureSetId"], "ruleVersionIds": [str(rule_id)]})
+            trained = job(conn, {**period, "kind": "train", "featureSetId": features["featureSetId"], "ruleVersionIds": [str(rule_id)],
+                "snapshotId":features["snapshotId"],"detectionPolicy":{"mode":"parallel","deadlineMs":3000,"combination":"any_anomaly"}})
             evaluated = job(conn, {"sourceId": str(sid), "kind": "evaluate", "configVersionId": trained["configVersionId"],
                                   "snapshotId": trained["snapshotId"], "purpose": "validation"})
             assert evaluated["applicability"] == "valid"
@@ -130,9 +131,6 @@ def main():
             assert process_application_once(conn, root, "fixture-detector")
             conn.commit()
             live = observe(conn, sid, "live", {"error_count": "90", "total_count": "100"}, live=True)
-            message = claim(conn, "feature", source_id=str(sid)); conn.commit()
-            assert message is not None
-            process_feature_message(conn, message, uuid.UUID(trained["configVersionId"])); conn.commit()
             message = claim(conn, "detection", source_id=str(sid)); conn.commit()
             assert message is not None
             process_detection_message(conn, message, root); conn.commit()

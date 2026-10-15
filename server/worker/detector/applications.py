@@ -32,13 +32,27 @@ def _model_reference(conn: Any, config_id: uuid.UUID, root: Path | None) -> dict
     return {"modelPath": model_path, "fitPath": fit_path}
 
 
+def prepare_config(conn, config_id, root):
+    from detector.computation import load_context
+    with conn.cursor() as cur:
+        cur.execute("SELECT source_id FROM ml_config_versions WHERE id=%s", (config_id,))
+        row = cur.fetchone()
+    if row is None:
+        raise ValueError("config_missing")
+    context = load_context(conn, config_id, row[0])
+    if context["policy"].mode != "ml_only" and not context["rules"] and not context["policy"].legacy:
+        raise ValueError("rules_unavailable")
+    if context["policy"].mode != "rule_only":
+        model_adapters.prepare_iforest(_model_reference(conn, config_id, root))
+
+
 def prepare_active(conn: Any, root: Path | None) -> None:
     """재시작 시 DB의 활성 구성과 프로세스 메모리를 다시 맞춘다."""
     with conn.cursor() as cur:
         cur.execute("SELECT active_config_version_id FROM ops_system_state WHERE id = 1")
         row = cur.fetchone()
     if row and row[0]:
-        model_adapters.prepare_iforest(_model_reference(conn, row[0], root))
+        prepare_config(conn, row[0], root)
 
 
 def process_application_once(conn: Any, root: Path | None, worker_id: str) -> bool:
@@ -65,8 +79,7 @@ def process_application_once(conn: Any, root: Path | None, worker_id: str) -> bo
         return False
     application_id, config_id, expected_active, expected_revision, evaluation_id = application
     try:
-        reference = _model_reference(conn, config_id, root)
-        model_adapters.prepare_iforest(reference)
+        prepare_config(conn, config_id, root)
         with conn.transaction():
             with conn.cursor() as cur:
                 cur.execute(

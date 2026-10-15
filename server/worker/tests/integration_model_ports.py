@@ -128,7 +128,7 @@ def main() -> None:
                 )
                 enqueue(conn, "training", {"schemaVersion": 1, "jobId": str(recommendation_id)})
             conn.commit()
-        run(once=True)
+        run(once=True,role="llm")
         with psycopg.connect(dsn) as conn:
             with conn.cursor() as cur:
                 cur.execute("SELECT status, result_summary FROM run_jobs WHERE id = %s", (recommendation_id,))
@@ -154,7 +154,7 @@ def main() -> None:
                 )
                 enqueue(conn, "training", {"schemaVersion": 1, "jobId": str(rule_job_id)})
             conn.commit()
-        run(once=True)
+        run(once=True,role="llm")
         with psycopg.connect(dsn) as conn:
             with conn.cursor() as cur:
                 cur.execute("SELECT status, result_summary FROM run_jobs WHERE id = %s", (rule_job_id,))
@@ -268,11 +268,6 @@ def main() -> None:
                 raw={"process_id": "live", "error_count": "1"},
                 execution_id=execution_id, revision_no=1, detection_eligible=True,
             )
-            conn.commit()
-            feature_message = claim(conn, "feature", source_id=str(source_id))
-            assert feature_message is not None
-            conn.commit()
-            process_feature_message(conn, feature_message, config_id)
             conn.commit()
             detection_message = claim(conn, "detection", source_id=str(source_id))
             assert detection_message is not None

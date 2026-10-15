@@ -7,11 +7,9 @@ import json
 import math
 import uuid
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
 from typing import Any, Literal, Mapping
 
-from pg_queue import enqueue
 
 Layer = Literal["T", "P", "M"]
 
@@ -170,14 +168,6 @@ def ingest_observation(
                 (observation_id, *(typed[field] for field in columns)),
             )
         if detection_eligible:
-            message = {
-                "schemaVersion": 1,
-                "eventId": str(uuid.uuid4()),
-                "observationId": str(observation_id),
-                "sourceId": str(source_id),
-                "enqueuedAt": datetime.now(timezone.utc).isoformat(),
-            }
-            if benchmark_run_id is not None:
-                message["benchmarkRunId"] = benchmark_run_id
-            enqueue(conn, "feature", message)
+            from detector.jobs import enqueue_observation
+            enqueue_observation(conn, observation_id, benchmark_run_id=benchmark_run_id)
     return IngestResult(observation_id, True, detection_eligible)

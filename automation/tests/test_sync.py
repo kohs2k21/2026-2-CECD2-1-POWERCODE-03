@@ -754,7 +754,7 @@ class SyncTests(unittest.TestCase):
         self.pr(merged="2026-09-10T12:00:00Z", state="closed")
         self.run_one()
         self.run_one()
-        self.assertEqual(value(self.n.page, "상태"), "백로그")
+        self.assertEqual(value(self.n.page, "상태"), "완료")
         self.assertEqual(self.g.data[1]["state"], "closed")
         self.assertFalse(self.g.branches)
 

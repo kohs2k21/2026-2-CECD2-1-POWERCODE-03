@@ -279,13 +279,13 @@ class BranchCleanupTests(unittest.TestCase):
         self.assertEqual(self.g.branches[branch], "new-head")
         self.assertEqual(self.g.deleted, [])
 
-    def test_unmerged_closed_issue_preserves_notion_task_status(self):
+    def test_unmerged_closed_issue_marks_notion_completed_and_cleans_branch(self):
         branch = self.linked_task()
         self.g.data[1].update({"state": "closed", "state_reason": "completed",
                                "closed_at": "2026-10-07T01:00:00Z"})
         self.g.unmerged[("head1", "dev")] = False
         self.assertEqual(self.engine.run()[0]["result"], "synced")
-        self.assertEqual(value(self.n.page, "상태"), "백로그")
+        self.assertEqual(value(self.n.page, "상태"), "완료")
         self.assertIsNone(value(self.n.page, "완료일"))
         self.assertEqual(self.g.deleted, [branch])
 

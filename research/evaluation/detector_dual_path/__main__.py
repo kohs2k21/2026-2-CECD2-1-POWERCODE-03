@@ -2,7 +2,7 @@
 import argparse
 from pathlib import Path
 
-from .manifest import create_manifest, file_digest, load_config, write_json
+from .manifest import create_manifest, file_digest, load_config, require_legacy_reference, write_json
 
 
 def main():
@@ -13,6 +13,12 @@ def main():
     args = parser.parse_args()
     if not args.trust_published_models:
         parser.error("Explicit --trust-published-models required for repository-owned pickle artifacts")
+    if args.output.exists():
+        raise FileExistsError(f"Output already exists: {args.output}")
+    try:
+        require_legacy_reference()
+    except FileNotFoundError as error:
+        parser.error(str(error))
     config = load_config(args.config)
     manifest = create_manifest(config)
     args.output.mkdir(parents=True, exist_ok=False)

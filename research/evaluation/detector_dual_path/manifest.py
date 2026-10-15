@@ -9,6 +9,26 @@ import platform
 import subprocess
 
 ROOT = Path(__file__).resolve().parents[3]
+LEGACY_REFERENCE = "reports/model_evaluation_v2/comparison_models.joblib"
+
+
+def require_legacy_reference():
+    """Preflight only: never deserialize or substitute a newer model."""
+    research = ROOT / "research/anomaly_detection"
+    inventory_path = research / "model_inventory.json"
+    entries = []
+    if inventory_path.is_file():
+        inventory = json.loads(inventory_path.read_text(encoding="utf-8"))
+        entries = inventory if isinstance(inventory, list) else inventory["models"]
+    if not (research / LEGACY_REFERENCE).is_file() or not any(
+        entry["path"] == LEGACY_REFERENCE for entry in entries
+    ):
+        raise FileNotFoundError(
+            "Legacy v3 requires the published comparison_models.joblib and its inventory entry. "
+            "For exact reproduction, use a separate checkout of commit "
+            "82031a2921cc19020dd836a58ad3dc8b91c0c142 with its pinned environment. "
+            "Do not substitute v12 artifacts; v4 uses its separate documented entry point."
+        )
 
 
 def digest(value):

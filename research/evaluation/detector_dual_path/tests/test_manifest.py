@@ -2,14 +2,17 @@
 from copy import deepcopy
 from dataclasses import asdict
 import json
+from importlib.metadata import version
 from pathlib import Path
+import platform
 import subprocess
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from research.evaluation.detector_dual_path.manifest import (
-    ROOT, create_manifest, digest, file_digest, load_config,
+    ROOT, LEGACY_REFERENCE, create_manifest, digest, file_digest, load_config,
 )
 
 CONFIG_PATH = ROOT / "research/evaluation/detector_dual_path/config.json"
@@ -76,11 +79,22 @@ class ManifestTests(unittest.TestCase):
         self.assertEqual(receipt["seed"], config["seed"])
         self.assertEqual(receipt["status"], "prepared")
         self.assertFalse(receipt["original_customer_benchmark_available"])
-        self.assertEqual(receipt["git"]["branch"], "feat/45-detector-lab")
-        self.assertEqual(len(receipt["git"]["head"]), 40)
-        self.assertEqual(receipt["environment"]["python"], "3.12.14")
-        self.assertEqual(len(receipt["environment"]["packages"]), 6)
-        self.assertEqual(len(receipt["published_models"]), 3)
+        def git(*args):
+            return subprocess.check_output(["git", *args], cwd=ROOT, text=True).strip()
+        self.assertEqual(receipt["git"], {
+            "branch": git("branch", "--show-current"),
+            "head": git("rev-parse", "HEAD"),
+            "dirty": bool(git("status", "--porcelain")),
+        })
+        self.assertEqual(receipt["environment"]["python"], platform.python_version())
+        packages = ("numpy", "pandas", "scikit-learn", "joblib", "threadpoolctl", "psutil")
+        self.assertEqual(receipt["environment"]["packages"], {name: version(name) for name in packages})
+        inventory = json.loads((ROOT / "research/anomaly_detection/model_inventory.json").read_text(encoding="utf-8"))
+        entries = inventory if isinstance(inventory, list) else inventory["models"]
+        self.assertTrue(entries)
+        expected_models = [{"path": f"research/anomaly_detection/{entry['path']}",
+                            "sha256": entry["sha256"]} for entry in entries]
+        self.assertEqual(receipt["published_models"], expected_models)
         for model in receipt["published_models"]:
             self.assertEqual(model["sha256"], file_digest(ROOT / model["path"]))
         self.assertEqual(receipt["source_sha256"], digest(receipt["sources"]))
@@ -94,6 +108,32 @@ class ManifestTests(unittest.TestCase):
             self.assertEqual(completed.returncode, 2)
             self.assertIn("Explicit --trust-published-models required", completed.stderr)
             self.assertFalse(output.exists())
+
+    def test_cli_missing_legacy_reference_no_output(self):
+        from research.evaluation.detector_dual_path.__main__ import main
+        for missing in ("file", "inventory_entry"):
+            with self.subTest(missing=missing), tempfile.TemporaryDirectory() as temporary:
+                root = Path(temporary)
+                research = root / "research/anomaly_detection"
+                research.mkdir(parents=True)
+                entry = {"path": LEGACY_REFERENCE, "sha256": "unused"}
+                (research / "model_inventory.json").write_text(
+                    json.dumps({"models": [entry] if missing == "file" else []}), encoding="utf-8")
+                if missing == "inventory_entry":
+                    artifact = research / LEGACY_REFERENCE
+                    artifact.parent.mkdir(parents=True)
+                    artifact.write_bytes(b"not an executable model")
+                output = root / "new-run"
+                with patch("research.evaluation.detector_dual_path.manifest.ROOT", root), \
+                     patch("sys.argv", ["detector", "--output", str(output), "--trust-published-models"]), \
+                     patch("argparse.ArgumentParser.error", side_effect=SystemExit(2)) as error, \
+                     patch("research.evaluation.detector_dual_path.__main__.create_manifest") as manifest:
+                    with self.assertRaises(SystemExit) as raised:
+                        main()
+                    self.assertEqual(raised.exception.code, 2)
+                    self.assertIn("82031a2", error.call_args.args[0])
+                    manifest.assert_not_called()
+                self.assertFalse(output.exists())
 
     def test_cli_existing_output_preserved(self):
         with tempfile.TemporaryDirectory() as temporary:

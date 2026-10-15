@@ -13,11 +13,13 @@ export type RuleSuggestion = {
 };
 export type PipelineJob = {
   id: string;
-  kind: "recommend_feature" | "recommend_rule" | "train" | "evaluate";
+  kind: "recommend_feature" | "recommend_rule" | "train" | "evaluate" | "explain";
   status: "queued" | "running" | "succeeded" | "failed";
   inputSpec: Record<string, unknown>;
   attemptCount?: number;
   resultSummary?: {
+    facts?: {id: string; name: string; value: unknown}[];
+    nextChecks?: {code: string; text: string}[];
     featureSetId?: string;
     featureNames?: string[];
     materializedCount?: number;
@@ -81,10 +83,14 @@ export type ReviewObservation = {
   reasonCode: string | null;
 };
 export type ProcessDecision = {
-  id: string; processObservationId: string; configVersionId: string;
+  id: string; sourceId: string; processObservationId: string; configVersionId: string;
   status: "complete" | "partial" | "unavailable";
   ruleStatus: string; mlStatus: string; decisionCode: string | null;
   anomalyScore: string | null; decidedAt: string;
+  evidence?: {anomalous?: boolean | null; requestedMode?: string; actualPaths?: string[];
+    input?: {mode: "api" | "csv"; runId: string; configurationScope: string};
+    demo?: {historicalReplay: boolean; runKey: string; scope: string};
+    ruleSeverities?: string[]; detectionPolicy?: {mode: string; deadlineMs: number; combination: string}};
 };
 
 export async function fetchSources(): Promise<Source[]> {
@@ -150,4 +156,13 @@ export function submitObservationLabel(observationId: string, input: {
 
 export async function fetchProcessDecisions(): Promise<ProcessDecision[]> {
   return (await httpClient.get<{ items: ProcessDecision[] }>("/api/pipeline/decisions")).items;
+}
+
+export type CollectorMetric = {endpoint:string;requests:number;failures:number;emptyResponses:number;
+  nonemptyResponses:number;p95Ms:number|null;p99Ms:number|null;persistP95Ms:number|null;pollGapP95Seconds:number|null;lastSampleAt:string};
+export async function fetchCollectorMetrics(sourceId:string): Promise<CollectorMetric[]> {
+  return (await httpClient.get<{items:CollectorMetric[]}>("/api/pipeline/collector/metrics",{params:{sourceId}})).items;
+}
+export async function fetchCollectorState(): Promise<{sourceId:string;endpoint:string;errorCode:string|null}[]> {
+  return (await httpClient.get<{items:{sourceId:string;endpoint:string;errorCode:string|null}[]}>("/api/pipeline/collector")).items;
 }

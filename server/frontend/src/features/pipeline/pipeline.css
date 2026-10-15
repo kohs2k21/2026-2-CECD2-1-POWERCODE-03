@@ -21,3 +21,7 @@
 .pipeline-review-row > div:last-child { display: flex; gap: 6px; flex-shrink: 0; }
 @media (max-width: 600px) { .pipeline-review-row { flex-direction: column; align-items: start; } }
 @media (max-width: 800px) { .pipeline-grid, .pipeline-fields { grid-template-columns: 1fr; } .pipeline-header { flex-direction: column; } }
+
+.pipeline-card label.pipeline-policy-choice { display: flex; align-items: start; gap: 8px; line-height: 1.5; }
+.pipeline-card input[type="checkbox"] { width: auto; padding: 0; flex: 0 0 auto; margin-top: 3px; }
+.pipeline-review-row > div:first-child { display: block; min-width: 0; flex-shrink: 1; }

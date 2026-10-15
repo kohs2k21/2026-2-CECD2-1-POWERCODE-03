@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  adoptSuggestedRule, createPipelineJob, fetchActiveConfiguration, fetchAppliedConfigurations,
+  fetchCollectorMetrics, fetchCollectorState, type CollectorMetric, adoptSuggestedRule, createPipelineJob, fetchActiveConfiguration, fetchAppliedConfigurations,
   fetchApplication, fetchDriftMetrics, fetchPipelineJob, fetchPipelineJobs,
   fetchPipelineMetrics, fetchProcessDecisions, fetchReviewObservations, fetchSources,
   requestApplication, submitObservationLabel,
@@ -9,6 +9,9 @@ import {
   type PipelineJob, type ProcessDecision, type QueueMetric, type ReviewObservation, type Source, type StageMetric,
 } from "../../services/api/pipeline.api";
 import "./pipeline.css";
+import { consumeDecisionStream } from "../../services/api/decision-stream.api";
+
+import { InputControls } from "./InputControls";
 
 type JobKind = PipelineJob["kind"];
 type JobMap = Partial<Record<JobKind, PipelineJob>>;
@@ -28,6 +31,12 @@ export function PipelineOperations() {
   const [from, setFrom] = useState(() => localInput(new Date(Date.now() - 30 * 86400_000)));
   const [until, setUntil] = useState(() => localInput(new Date()));
   const [history, setHistory] = useState<PipelineJob[]>([]);
+  const [collectorMetrics,setCollectorMetrics] = useState<CollectorMetric[]>([]);
+  const [collectorState,setCollectorState] = useState<{sourceId:string;endpoint:string;errorCode:string|null}[]>([]);
+  const [mode, setMode] = useState("parallel");
+  const [deadlineMs, setDeadlineMs] = useState(3000);
+  const [combinationApproved, setCombinationApproved] = useState(false);
+  const [explanations, setExplanations] = useState<Record<string, PipelineJob>>({});
   const [ruleIds, setRuleIds] = useState<string[]>([]);
   const [application, setApplication] = useState<Application | null>(null);
   const [applied, setApplied] = useState<Application[]>([]);
@@ -81,7 +90,14 @@ export function PipelineOperations() {
 
   useEffect(() => {
     if (!sourceId) return;
+    const refreshCollection = () => {
+      void fetchCollectorMetrics(sourceId).then(setCollectorMetrics).catch(reason => setError(errorText(reason)));
+      void fetchCollectorState().then(setCollectorState).catch(reason => setError(errorText(reason)));
+    };
+    refreshCollection();
+    const timer = setInterval(refreshCollection,5000);
     void fetchReviewObservations(sourceId).then(setReviewRows).catch((reason) => setError(errorText(reason)));
+    return () => clearInterval(timer);
   }, [sourceId]);
 
   useEffect(() => {
@@ -103,12 +119,49 @@ export function PipelineOperations() {
           }
         }).catch((reason) => setError(errorText(reason)));
       }
-      void fetchProcessDecisions().then(setDecisions).catch((reason) => setError(errorText(reason)));
+
       void fetchWindowDecisions().then(setWindowDecisions).catch((reason) => setError(errorText(reason)));
       void fetchWindowMonitors().then(setWindowMonitors).catch((reason) => setError(errorText(reason)));
     }, 3000);
     return () => window.clearInterval(timer);
   }, [jobs, application]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    let after = "0";
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const connect = async () => {
+      try {
+        await consumeDecisionStream(controller.signal, after, (value,id) => {
+          after = id;
+          setDecisions(previous => [value,...previous.filter(item => item.id !== value.id)].slice(0,50));
+        });
+      } catch (reason) {
+        if (!controller.signal.aborted) setError(errorText(reason));
+      }
+      if (!controller.signal.aborted) timer = setTimeout(() => {void connect();},3000);
+    };
+    void connect();
+    return () => {controller.abort();if (timer) clearTimeout(timer);};
+  }, []);
+
+  useEffect(() => {
+    const pending = Object.entries(explanations).filter(([,job]) => ['queued','running'].includes(job.status));
+    if (!pending.length) return;
+    const timer = setInterval(() => {
+      for (const [id,job] of pending) void fetchPipelineJob(job.id).then(updated => {
+        setExplanations(previous => ({...previous,[id]:updated}));
+      }).catch(reason => setError(errorText(reason)));
+    },3000);
+    return () => clearInterval(timer);
+  }, [explanations]);
+
+  async function explain(decision: ProcessDecision) {
+    try {
+      const job = await createPipelineJob({kind:'explain',sourceId:decision.sourceId,decisionId:decision.id});
+      setExplanations(previous => ({...previous,[decision.id]:job}));
+    } catch (reason) {setError(errorText(reason));}
+  }
 
   const featureSetId = jobs.recommend_feature?.resultSummary?.featureSetId;
   const ruleSuggestions = jobs.recommend_rule?.resultSummary?.suggestions ?? [];
@@ -133,7 +186,15 @@ export function PipelineOperations() {
         input.from = new Date(from).toISOString();
         input.until = new Date(until).toISOString();
         if (kind !== "recommend_feature") input.featureSetId = featureSetId;
-        if (kind === "train") input.ruleVersionIds = ruleIds;
+        const reusedSnapshot = jobs.recommend_feature?.resultSummary?.snapshotId;
+        if (kind !== "recommend_feature" && reusedSnapshot &&
+            jobs.recommend_feature?.inputSpec.from === input.from && jobs.recommend_feature?.inputSpec.until === input.until) {
+          input.snapshotId = reusedSnapshot;
+        }
+        if (kind === "train") {
+          input.ruleVersionIds = mode === 'ml_only' ? [] : ruleIds;
+          input.detectionPolicy = {mode,deadlineMs,combination:mode === 'parallel' ? 'any_anomaly' : 'selected_path'};
+        }
       }
       const job = await createPipelineJob(input);
       setHistory((previous) => [job, ...previous.filter((item) => item.id !== job.id)]);
@@ -236,6 +297,7 @@ export function PipelineOperations() {
         {!selectedSource && <p>저장된 데이터 출처가 없습니다. 먼저 Collector로 로그를 저장하세요.</p>}
       </section>
 
+      <InputControls key={sourceId} sourceId={sourceId} />
       <section className="pipeline-grid">
         <div className="pipeline-card">
           <h3>1. 파생변수 생성</h3>
@@ -275,8 +337,17 @@ export function PipelineOperations() {
           </label>
         </div>
         <div className="pipeline-card">
-          <h3>3. IF 학습</h3>
-          <button disabled={busy || !featureSetId} onClick={() => void submit("train")}>선택 기간 학습 실행</button>
+          <h3>3. 탐지 구성 생성·학습</h3>
+          <label>탐지 모드<select value={mode} onChange={event => {setMode(event.target.value);setCombinationApproved(false);}}>
+            <option value="parallel">Rule + ML 병렬</option><option value="rule_only">Rule 전용</option><option value="ml_only">ML 전용</option>
+          </select></label>
+          <label>판정 마감 시간 (ms)<input type="number" min={100} max={30000} value={deadlineMs}
+            onChange={event => setDeadlineMs(Number(event.target.value))} /></label>
+          {mode === 'parallel' && <label className="pipeline-policy-choice"><input type="checkbox" checked={combinationApproved}
+            onChange={event => setCombinationApproved(event.target.checked)} />이 구성에서는 한 경로라도 이상이면 이상으로 결합하도록 선택합니다.</label>}
+          <p>마감 시간은 운영 설정입니다. Rule 전용은 IF 학습 없이 후보 구성을 만듭니다.</p>
+          <button disabled={busy || !featureSetId || !Number.isInteger(deadlineMs) || deadlineMs < 100 || deadlineMs > 30000 ||
+            (mode !== 'ml_only' && !ruleIds.length) || (mode === 'parallel' && !combinationApproved)} onClick={() => void submit("train")}>선택 기간 학습 실행</button>
           <JobState job={jobs.train} />
           {configId && <p>후보 구성: <code>{configId}</code></p>}
         </div>
@@ -342,7 +413,13 @@ export function PipelineOperations() {
           {decisions.map((decision) => (
             <div className="pipeline-review-row" key={decision.id}>
               <div><strong>{decision.decisionCode ?? "판정 코드 없음"}</strong> · {decision.status}
+                <small>모드 {decision.evidence?.requestedMode ?? '이전 구성'} · 실제 완료 경로 {decision.evidence?.actualPaths?.join(', ') ?? '기록 없음'} ·
+                  {decision.evidence?.anomalous === true ? '이상 확인' : decision.evidence?.anomalous === false ? '선택 경로 정상' : '최종 정상 여부 미확인'}</small>
                 <small>Rule {decision.ruleStatus} · IF {decision.mlStatus} · 점수 {decision.anomalyScore ?? "미측정"}</small>
+                <button onClick={() => void explain(decision)}>저장된 근거 설명 요청</button>
+                {explanations[decision.id] && <><JobState job={explanations[decision.id]} />
+                  {explanations[decision.id].resultSummary?.facts?.map(fact => <p key={fact.id}>{fact.name}: {JSON.stringify(fact.value)}</p>)}
+                  {explanations[decision.id].resultSummary?.nextChecks?.map(check => <p key={check.code}>{check.text}</p>)}</>}
                 <small>{decision.processObservationId} · {new Date(decision.decidedAt).toLocaleString()}</small>
               </div>
             </div>
@@ -352,6 +429,15 @@ export function PipelineOperations() {
       </section>
 
       <section className="pipeline-card">
+        <h3>Collector API 실시간성 측정</h3>
+        <p>최근 10분 · 응답 시간과 DB 저장 시간을 측정합니다. 원천 발생→수집 지연은 원천 시각 미검증으로 미측정입니다.</p>
+        {collectorMetrics.length === 0 && <p>해당 원천의 API 수집 측정값이 없습니다.</p>}
+        {collectorMetrics.map(row => <p key={row.endpoint}>{row.endpoint}: {row.requests}회 · 오류 {row.failures}회 ·
+          빈 응답 {row.emptyResponses}회 · 비어 있지 않은 응답 {row.nonemptyResponses}회 ·
+          p95 {row.p95Ms?.toFixed(1) ?? '미측정'} ms · p99 {row.p99Ms?.toFixed(1) ?? '미측정'} ms ·
+          DB 저장 p95 {row.persistP95Ms?.toFixed(1) ?? '미측정'} ms · 조회 간격 p95 {row.pollGapP95Seconds?.toFixed(2) ?? '미측정'}초</p>)}
+        {collectorState.filter(row => row.sourceId===sourceId).map(row => <p key={row.endpoint}>{row.endpoint} 수집 상태: {row.errorCode === 'monitoring_log_contract_required' ? '응답 축적 중 · 탐지용 로그 변환 명세 확인 필요' :
+          row.errorCode === 'source_auth_rejected' ? '원천 API 토큰 확인 필요' : row.errorCode === 'source_unavailable' ? '원천 API 연결 실패' : row.errorCode ?? '조회 성공'}</p>)}
         <h3>운영 상태</h3>
         <div className="pipeline-metrics">
           {queues.map((row) => <p key={`${row.queue}-${row.status}`}>{row.queue} · {row.status}: {row.count}건</p>)}

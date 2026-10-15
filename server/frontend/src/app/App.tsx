@@ -17,6 +17,7 @@ import { EvaluationPage } from "../features/detection/pages/EvaluationPage";
 import { VersionsPage } from "../features/detection/pages/VersionsPage";
 import { CollectionPage } from "../features/detection/pages/CollectionPage";
 import { NotificationsPage } from "../features/notifications/NotificationsPage";
+import { SavedDecisions } from "../features/pipeline/SavedDecisions";
 import { PipelineOperations } from "../features/pipeline/PipelineOperations";
 
 const router = createBrowserRouter([
@@ -30,6 +31,7 @@ const router = createBrowserRouter([
           { path: "/", element: <Navigate to="/operations" replace /> },
           { path: "/operations", element: <OperationsRoute /> },
           { path: "/analysis", element: <AnalysisRoute /> },
+          { path: "/analysis/process-decisions", element: <SavedDecisions /> },
           { path: "/settings", element: <SettingsRoute /> },
           { path: "/notifications", element: <NotificationsPage /> },
           {

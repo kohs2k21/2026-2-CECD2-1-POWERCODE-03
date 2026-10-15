@@ -1,0 +1,24 @@
+{
+  "inputs": {
+    "data/evaluation/manifest.json": "71fb8115dc2b9ddcac6408167a8e0f89939e060bbdd5c516339ffe88b9473ce4",
+    "reports/evaluation_v2_work/inputs.json": "438d64008d831d7417e72023abd2ab9fc00ac6b24eb480d2f7db0a35c55e31d7",
+    "reports/model_improvement_v4/selection.json": "40c589a09392d1f197b0ea434156575a6d763ef116b88b79760ede9174d22d4f"
+  },
+  "data_sha256": "80dac3520244ecece01b27a91fabd5b29f56cd0ab4dbdbc89e38aa71a0bcf0df",
+  "code_sha256": {
+    "features.py": "d480b78b21d9f263747c15534b83a78be5a259a28ba2a63f31a24e4a439b3659",
+    "models.py": "2ddddbd10c56f93ad3d14d11ed111e1f9f9f3e12866fc9af85d2e5505b21e529",
+    "channels.py": "b12ca27146785d661bb9a6588d4ede4977f5f9934fb9ade859ed7530f8e04f65",
+    "run_channels.py": "6e05b80ea41b35317ac828728d65858e948c212fa08cfee2cfc05930b3275cad"
+  },
+  "search_cases": 720,
+  "confirmation_cases": 720,
+  "validation_seed": 8170042,
+  "normal_augmented_windows": {
+    "train": 32475,
+    "calibration": 38961,
+    "threshold": 34716
+  },
+  "augmentation_not_independent_source_growth": true,
+  "previous_v5_inputs_sha256": "e2eb4af42258a4c7f7ec746959162e7b881fd8e1c52fc653b716d1adceb4b921"
+}

@@ -17,10 +17,7 @@ from process_anomaly_pipeline.rules import evaluate_rules
 class BenchmarkTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        archive = ROOT/"reports/evaluation_v2_work/inputs.json"
-        if not archive.is_file():
-            raise unittest.SkipTest("External original workflow archive is excluded from the public research snapshot")
-        cls.bundle = json.loads(archive.read_text(encoding="utf-8"))
+        cls.bundle = json.loads((ROOT/"reports/evaluation_v2_work/inputs.json").read_text(encoding="utf-8"))
         cls.catalog = Catalog(cls.bundle)
         _,cls.history = make_history(20261010)
         cls.config = PipelineConfig.from_dict(cls.bundle["policy"]["config"])

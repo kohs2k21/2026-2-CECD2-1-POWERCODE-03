@@ -1,0 +1,22 @@
+{
+  "passed": true,
+  "anomaly_cases": 31000,
+  "normal_cases": 31000,
+  "decisions": 2167766,
+  "rule_hits": 0,
+  "unknown_rule_flags": 0,
+  "all_status_S": true,
+  "previous_version_backup_unchanged": true,
+  "active_dataset_inplace_updated": true,
+  "active_dataset_path": "data/evaluation",
+  "backup_path": "reports/benchmark_before_mild_20261014",
+  "frozen_models_unchanged": true,
+  "normal_control_files_byte_identical": 12,
+  "normal_shared_predictions_identical": 993986,
+  "hard_all_files_byte_identical": true,
+  "metrics_independently_recounted": true,
+  "trend_cap_limited_cases": 495,
+  "profile_fixed_before_scoring": true,
+  "case_selection_by_score": false,
+  "interpretation": "benchmark sensitivity only; no model or threshold improvement claim"
+}

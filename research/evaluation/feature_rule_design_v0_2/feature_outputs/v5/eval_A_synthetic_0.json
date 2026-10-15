@@ -1,0 +1,370 @@
+{
+  "id": "eval_A_synthetic_0",
+  "phase": "v5",
+  "raw_output": "{\"candidates\":[{\"id\":\"train_A_0_01_c0\",\"purpose\":\"Explicitly converted seconds coordinate minus millisecond coordinate; signed ms difference, not business duration.\",\"meaning\":\"Explicitly converted seconds coordinate minus millisecond coordinate; signed ms difference, not business duration.\",\"sources\":{\"columns\":[[\"parent_v5_eval_A_0\",\"coord_ms_701\"],[\"parent_v5_eval_A_0\",\"coord_s_701\"]],\"relationships\":[]},\"expected_type\":\"number\",\"expected_unit\":\"ms\",\"availability\":\"offline_captured_scope\",\"required_evidence\":[\"online availability and leakage policy; operational usefulness unconfirmed\"],\"plan\":{\"id\":\"train_A_0_01_c0\",\"description\":\"Explicitly converted seconds coordinate minus millisecond coordinate; signed ms difference, not business duration.\",\"expression\":{\"op\":\"subtract\",\"args\":[{\"op\":\"convert_unit\",\"args\":[{\"op\":\"column\",\"table\":\"parent_v5_eval_A_0\",\"column\":\"coord_s_701\"}],\"from_unit\":\"s\",\"to_unit\":\"ms\"},{\"op\":\"column\",\"table\":\"parent_v5_eval_A_0\",\"column\":\"coord_ms_701\"}]},\"grain\":{\"table\":\"parent_v5_eval_A_0\",\"keys\":[\"row_701\"]},\"population\":{\"table\":\"parent_v5_eval_A_0\",\"filter\":null},\"group_by\":[],\"schema_version\":\"b2786da3f7026ca72fa96710cee335654bc0bb0f362b589240e6c6cdb9239396\",\"source_version\":\"c4935142b8f5376a4242543ec6490d93ac8a88059e12e4744db25b5ca7c07cc8\",\"missing_policy\":{\"input\":\"propagate\",\"empty_group\":null,\"denominator_zero\":null,\"child_missing\":\"propagate\",\"unknown_predicate\":\"defer\"}}}],\"stop_reason\":\"Requested narrow calculation only; operational usefulness unconfirmed.\"}",
+  "raw_sha": "66d5823be32ad733ca3cc29edfacf49b6f0ad0a49ec56e61be60a1305883a7d3",
+  "original_input_sha": "ad6d873e7316e5961fc92fbce61f0bd6063a9410333fa35566c2d2d1e4444011",
+  "generated_tokens": 446,
+  "length_limit_reached": false,
+  "checks": {
+    "JSON_contract": true,
+    "candidates": [
+      {
+        "index": 0,
+        "contract": true,
+        "source_exists": true,
+        "definition_valid": true,
+        "measurement_completed": true,
+        "independent": true,
+        "duplicate": false,
+        "errors": [],
+        "candidate": {
+          "id": "train_A_0_01_c0",
+          "purpose": "Explicitly converted seconds coordinate minus millisecond coordinate; signed ms difference, not business duration.",
+          "meaning": "Explicitly converted seconds coordinate minus millisecond coordinate; signed ms difference, not business duration.",
+          "sources": {
+            "columns": [
+              [
+                "parent_v5_eval_A_0",
+                "coord_ms_701"
+              ],
+              [
+                "parent_v5_eval_A_0",
+                "coord_s_701"
+              ]
+            ],
+            "relationships": []
+          },
+          "expected_type": "number",
+          "expected_unit": "ms",
+          "availability": "offline_captured_scope",
+          "required_evidence": [
+            "online availability and leakage policy; operational usefulness unconfirmed"
+          ],
+          "plan": {
+            "id": "train_A_0_01_c0",
+            "description": "Explicitly converted seconds coordinate minus millisecond coordinate; signed ms difference, not business duration.",
+            "expression": {
+              "op": "subtract",
+              "args": [
+                {
+                  "op": "convert_unit",
+                  "args": [
+                    {
+                      "op": "column",
+                      "table": "parent_v5_eval_A_0",
+                      "column": "coord_s_701"
+                    }
+                  ],
+                  "from_unit": "s",
+                  "to_unit": "ms"
+                },
+                {
+                  "op": "column",
+                  "table": "parent_v5_eval_A_0",
+                  "column": "coord_ms_701"
+                }
+              ]
+            },
+            "grain": {
+              "table": "parent_v5_eval_A_0",
+              "keys": [
+                "row_701"
+              ]
+            },
+            "population": {
+              "table": "parent_v5_eval_A_0",
+              "filter": null
+            },
+            "group_by": [],
+            "schema_version": "b2786da3f7026ca72fa96710cee335654bc0bb0f362b589240e6c6cdb9239396",
+            "source_version": "c4935142b8f5376a4242543ec6490d93ac8a88059e12e4744db25b5ca7c07cc8",
+            "missing_policy": {
+              "input": "propagate",
+              "empty_group": null,
+              "denominator_zero": null,
+              "child_missing": "propagate",
+              "unknown_predicate": "defer"
+            }
+          }
+        },
+        "validation": {
+          "passed": true,
+          "definition_status": "valid",
+          "definition_sha256": "7628d159724e67c4e695870ca6cc609fac0c3c1c13e23d09fd33de7125f2bcad",
+          "proposal_sha256": "5962a151506d603a1e80c94520df0f156400aaef27736a28f6383e08fcccb403",
+          "inferred_type": "number",
+          "unit": "ms",
+          "identity": {
+            "population": {
+              "table": "parent_v5_eval_A_0",
+              "filter": null
+            },
+            "group_by": [],
+            "schema_version": "b2786da3f7026ca72fa96710cee335654bc0bb0f362b589240e6c6cdb9239396",
+            "missing_policy": {
+              "input": "propagate",
+              "empty_group": null,
+              "denominator_zero": null,
+              "child_missing": "propagate",
+              "unknown_predicate": "defer"
+            },
+            "source_version": "c4935142b8f5376a4242543ec6490d93ac8a88059e12e4744db25b5ca7c07cc8",
+            "grain": {
+              "table": "parent_v5_eval_A_0",
+              "keys": [
+                "row_701"
+              ]
+            },
+            "expression": {
+              "op": "subtract",
+              "args": [
+                {
+                  "op": "convert_unit",
+                  "args": [
+                    {
+                      "op": "column",
+                      "table": "parent_v5_eval_A_0",
+                      "column": "coord_s_701"
+                    }
+                  ],
+                  "from_unit": "s",
+                  "to_unit": "ms"
+                },
+                {
+                  "op": "column",
+                  "table": "parent_v5_eval_A_0",
+                  "column": "coord_ms_701"
+                }
+              ]
+            },
+            "calculation_policy": "metadata-calculation-3.0.4",
+            "inferred_type": "number",
+            "unit": "ms",
+            "source_columns": [
+              [
+                "parent_v5_eval_A_0",
+                "coord_ms_701"
+              ],
+              [
+                "parent_v5_eval_A_0",
+                "coord_s_701"
+              ]
+            ],
+            "relationships": []
+          },
+          "capture_missing": [],
+          "aggregate_relationships": [],
+          "errors": []
+        },
+        "calculation_signature": "426d3f3d037aefcf75435f238114cf219f77d548f6ea1b161631829aaa172543",
+        "raw_reexpression": false,
+        "feature": {
+          "id": "fv5_d93b362067fb5ed542cc47f4",
+          "origin": "feature_model_proposal",
+          "meaning": "Explicitly converted seconds coordinate minus millisecond coordinate; signed ms difference, not business duration.",
+          "plan": {
+            "id": "fv5_d93b362067fb5ed542cc47f4",
+            "description": "Explicitly converted seconds coordinate minus millisecond coordinate; signed ms difference, not business duration.",
+            "expression": {
+              "op": "subtract",
+              "args": [
+                {
+                  "op": "convert_unit",
+                  "args": [
+                    {
+                      "op": "column",
+                      "table": "parent_v5_eval_A_0",
+                      "column": "coord_s_701"
+                    }
+                  ],
+                  "from_unit": "s",
+                  "to_unit": "ms"
+                },
+                {
+                  "op": "column",
+                  "table": "parent_v5_eval_A_0",
+                  "column": "coord_ms_701"
+                }
+              ]
+            },
+            "grain": {
+              "table": "parent_v5_eval_A_0",
+              "keys": [
+                "row_701"
+              ]
+            },
+            "population": {
+              "table": "parent_v5_eval_A_0",
+              "filter": null
+            },
+            "group_by": [],
+            "schema_version": "b2786da3f7026ca72fa96710cee335654bc0bb0f362b589240e6c6cdb9239396",
+            "source_version": "c4935142b8f5376a4242543ec6490d93ac8a88059e12e4744db25b5ca7c07cc8",
+            "missing_policy": {
+              "input": "propagate",
+              "empty_group": null,
+              "denominator_zero": null,
+              "child_missing": "propagate",
+              "unknown_predicate": "defer"
+            }
+          },
+          "dtype": "number",
+          "unit": "ms",
+          "definition_sha256": "7628d159724e67c4e695870ca6cc609fac0c3c1c13e23d09fd33de7125f2bcad",
+          "schema_version": "b2786da3f7026ca72fa96710cee335654bc0bb0f362b589240e6c6cdb9239396",
+          "source_version": "c4935142b8f5376a4242543ec6490d93ac8a88059e12e4744db25b5ca7c07cc8",
+          "calculation_policy": "metadata-calculation-3.0.4",
+          "source_columns": [
+            [
+              "parent_v5_eval_A_0",
+              "coord_ms_701"
+            ],
+            [
+              "parent_v5_eval_A_0",
+              "coord_s_701"
+            ]
+          ],
+          "relationships": [],
+          "measurement": {
+            "version": "metadata-calculation-3.0.4",
+            "candidate_id": "fv5_d93b362067fb5ed542cc47f4",
+            "proposal_sha256": "a4385ce36e15c08cce75f2beb9e0aa9d5012a4e0fe210c700c1005daa329fc7d",
+            "definition_status": "valid",
+            "definition_sha256": "7628d159724e67c4e695870ca6cc609fac0c3c1c13e23d09fd33de7125f2bcad",
+            "validation": {
+              "passed": true,
+              "definition_status": "valid",
+              "definition_sha256": "7628d159724e67c4e695870ca6cc609fac0c3c1c13e23d09fd33de7125f2bcad",
+              "proposal_sha256": "a4385ce36e15c08cce75f2beb9e0aa9d5012a4e0fe210c700c1005daa329fc7d",
+              "inferred_type": "number",
+              "unit": "ms",
+              "identity": {
+                "population": {
+                  "table": "parent_v5_eval_A_0",
+                  "filter": null
+                },
+                "group_by": [],
+                "schema_version": "b2786da3f7026ca72fa96710cee335654bc0bb0f362b589240e6c6cdb9239396",
+                "missing_policy": {
+                  "input": "propagate",
+                  "empty_group": null,
+                  "denominator_zero": null,
+                  "child_missing": "propagate",
+                  "unknown_predicate": "defer"
+                },
+                "source_version": "c4935142b8f5376a4242543ec6490d93ac8a88059e12e4744db25b5ca7c07cc8",
+                "grain": {
+                  "table": "parent_v5_eval_A_0",
+                  "keys": [
+                    "row_701"
+                  ]
+                },
+                "expression": {
+                  "op": "subtract",
+                  "args": [
+                    {
+                      "op": "convert_unit",
+                      "args": [
+                        {
+                          "op": "column",
+                          "table": "parent_v5_eval_A_0",
+                          "column": "coord_s_701"
+                        }
+                      ],
+                      "from_unit": "s",
+                      "to_unit": "ms"
+                    },
+                    {
+                      "op": "column",
+                      "table": "parent_v5_eval_A_0",
+                      "column": "coord_ms_701"
+                    }
+                  ]
+                },
+                "calculation_policy": "metadata-calculation-3.0.4",
+                "inferred_type": "number",
+                "unit": "ms",
+                "source_columns": [
+                  [
+                    "parent_v5_eval_A_0",
+                    "coord_ms_701"
+                  ],
+                  [
+                    "parent_v5_eval_A_0",
+                    "coord_s_701"
+                  ]
+                ],
+                "relationships": []
+              },
+              "capture_missing": [],
+              "aggregate_relationships": [],
+              "errors": []
+            },
+            "measurement_status": "measured",
+            "summary": {
+              "row_count": 32,
+              "valid_count": 32,
+              "missing_count": 0,
+              "true_count": null,
+              "false_count": null,
+              "ratio": null,
+              "numerator": null,
+              "denominator": null,
+              "min": -18631,
+              "max": 0,
+              "p95": -931.55,
+              "p99": -186.31,
+              "variation": "variable",
+              "quantile_method": "linear_(n-1)*p",
+              "exact_decimal": {
+                "ratio": null,
+                "p95": "-931.550",
+                "p99": "-186.310"
+              },
+              "population_rows_before_selection": 32,
+              "selection_unavailable_count": 0,
+              "source_rows_preserved": true
+            },
+            "errors": [],
+            "anomaly_execution": "not_run",
+            "groups": [],
+            "measurement_sha256": "a2652f188bf3b12612b4c8b03c7dc5a63b1a1bd57bf4cb5f45c0b93e6771d146"
+          },
+          "model_proposal_id": "train_A_0_01_c0",
+          "identity_mapping": {
+            "call_id": "v5|eval_A_synthetic_0",
+            "model_proposal_id": "train_A_0_01_c0",
+            "registry_id": "fv5_d93b362067fb5ed542cc47f4",
+            "raw_candidate_sha256": "06945765c561137743ccf6d1f0e7dbbf02f316be94e878d5b956c998c211b7ca",
+            "definition_sha256": "7628d159724e67c4e695870ca6cc609fac0c3c1c13e23d09fd33de7125f2bcad",
+            "source_version": "c4935142b8f5376a4242543ec6490d93ac8a88059e12e4744db25b5ca7c07cc8",
+            "raw_id_preserved": true
+          }
+        },
+        "independent_checks": [
+          {
+            "id": "train_A_0_01_c0",
+            "row_values": 32,
+            "passed": true,
+            "definition_sha": "7628d159724e67c4e695870ca6cc609fac0c3c1c13e23d09fd33de7125f2bcad",
+            "source_version": "c4935142b8f5376a4242543ec6490d93ac8a88059e12e4744db25b5ca7c07cc8",
+            "method": "Independent AST interpreter on guarded actual rows; no Engine.evaluate call"
+          }
+        ],
+        "identity_mapping": {
+          "call_id": "v5|eval_A_synthetic_0",
+          "model_proposal_id": "train_A_0_01_c0",
+          "registry_id": "fv5_d93b362067fb5ed542cc47f4",
+          "raw_candidate_sha256": "06945765c561137743ccf6d1f0e7dbbf02f316be94e878d5b956c998c211b7ca",
+          "definition_sha256": "7628d159724e67c4e695870ca6cc609fac0c3c1c13e23d09fd33de7125f2bcad",
+          "source_version": "c4935142b8f5376a4242543ec6490d93ac8a88059e12e4744db25b5ca7c07cc8",
+          "raw_id_preserved": true
+        },
+        "visible_sources": true
+      }
+    ],
+    "zero": false,
+    "errors": []
+  }
+}

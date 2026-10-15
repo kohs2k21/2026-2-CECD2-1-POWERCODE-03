@@ -1,0 +1,26 @@
+{
+  "operational_approval": false,
+  "findings": [
+    {
+      "features": [
+        "f015",
+        "f017"
+      ],
+      "problem": "p95=1 and gt1 cannot activate for a valid count/count ratio bounded by 0..1",
+      "contract_validation_preserved": true,
+      "deployment_status": "do_not_adopt_without_utility_review"
+    },
+    {
+      "features": [
+        "f006"
+      ],
+      "problem": "Captured snapshot STATUS frequency; no online aggregation window established",
+      "deployment_status": "offline_scope_only"
+    },
+    {
+      "case": "real_18_f036",
+      "problem": "Model reason conflates one usable numeric value with a Boolean missing indicator",
+      "deployment_status": "failed"
+    }
+  ]
+}

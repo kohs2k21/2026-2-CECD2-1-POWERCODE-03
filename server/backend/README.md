@@ -32,6 +32,10 @@ Seed passwords are hashed with `bcryptjs` before they are written to the JSON fi
 
 Bearer tokens are accepted through request headers. Tokens in query strings are not supported. The mock sender and its CSV remain development fixtures under this directory and are not read or transmitted by the service at startup.
 
+## 작업·구성 API
+
+`/api/jobs`는 변수 생성·Rule 추천·수동 학습·평가 작업을 영속 큐에 등록하고 상태를 조회한다. 추천 Rule의 채택은 불변 Rule 초안 버전을 생성한다. `/api/configurations`는 활성 구성과 적용·복원 요청을 관리한다. `/api/pipeline`은 출처·PROCESS 관측 검토·수동 라벨·판정·큐 지연·변수 결측률 변화를 조회한다. 기존 JWT/JSON 계정 권한을 그대로 사용한다. `DATABASE_URL`이 필요하고 migration 001~004가 선행되어야 한다. 실제 모델이 없는 상태에서는 모델 작업이 성공하지 않는다.
+
 ## Local commands
 
 From `server/`:
@@ -43,3 +47,5 @@ pnpm backend:start
 ```
 
 Set the local environment variables in the shell or an ignored local environment file before starting the process. Never commit that file.
+
+피처·Rule 추천도 관리자 전용이다. 최신 ERD v03 LLM 요청/결과 감사 계약과 `005_research_runtime.sql`이 필요하다. v12 시간창 판정은 `/api/pipeline/windows`, 감시 설정·오류는 `/api/pipeline/window-monitors`에서 조회한다. 서버 실행 설정은 `../worker/DEPLOYMENT.md`를 따른다.

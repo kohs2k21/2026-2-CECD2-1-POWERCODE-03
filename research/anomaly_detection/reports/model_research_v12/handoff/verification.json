@@ -1,0 +1,19 @@
+{
+  "results": [
+    {
+      "algorithm": "if",
+      "decisions": 600,
+      "saved_predictions_equal": true,
+      "portable_class": "model_research_v8.inference",
+      "calibration_dataframes_absent": true
+    },
+    {
+      "algorithm": "kmeans",
+      "decisions": 600,
+      "saved_predictions_equal": true,
+      "portable_class": "model_research_v8.inference",
+      "calibration_dataframes_absent": true
+    }
+  ],
+  "loaded_without_legacy_alias": true
+}

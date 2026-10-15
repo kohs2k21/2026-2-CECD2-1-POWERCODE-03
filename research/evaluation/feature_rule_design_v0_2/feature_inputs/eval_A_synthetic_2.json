@@ -1,0 +1,266 @@
+{
+  "id": "eval_A_synthetic_2",
+  "task_kind": "specified",
+  "source_kind": "controlled_synthetic",
+  "input": {
+    "contract": "feature-request-discovery-2.0",
+    "schema_version": "85cca3b6cb0ec6f081956536a8323e174fcab70a4483cc2260a60c0ae493613c",
+    "source_version": "8711e97bc6ee89b77401f482a4466d98898b099327ec30b83fa68f4f2e30f613",
+    "task": "Count captured child rows with literal code_703=A per parent, only parents with tenant_703=site1.",
+    "tables": [
+      {
+        "table": "parent_v5_eval_A_2",
+        "primary_key": [
+          "row_703"
+        ],
+        "rows": 32,
+        "columns": [
+          {
+            "name": "row_703",
+            "type": "string",
+            "nullable": false,
+            "unit": {
+              "name": null,
+              "status": "unknown",
+              "evidence_ids": []
+            },
+            "statistics": {
+              "row_count": 32,
+              "missing_count": 0,
+              "distinct_nonmissing": 32,
+              "invalid_type_count": 0,
+              "numeric_summary": null
+            },
+            "description": "Synthetic physical declaration; no operational/business interpretation"
+          },
+          {
+            "name": "ref_703",
+            "type": "string",
+            "nullable": true,
+            "unit": {
+              "name": null,
+              "status": "unknown",
+              "evidence_ids": []
+            },
+            "statistics": {
+              "row_count": 32,
+              "missing_count": 0,
+              "distinct_nonmissing": 32,
+              "invalid_type_count": 0,
+              "numeric_summary": null
+            },
+            "observed_literal_codes": {
+              "distinct": 32
+            },
+            "description": "Synthetic physical declaration; no operational/business interpretation"
+          },
+          {
+            "name": "tenant_703",
+            "type": "string",
+            "nullable": true,
+            "unit": {
+              "name": null,
+              "status": "unknown",
+              "evidence_ids": []
+            },
+            "statistics": {
+              "row_count": 32,
+              "missing_count": 0,
+              "distinct_nonmissing": 2,
+              "invalid_type_count": 0,
+              "numeric_summary": null
+            },
+            "observed_literal_codes": {
+              "site0": 16,
+              "site1": 16
+            },
+            "description": "Synthetic physical declaration; no operational/business interpretation"
+          }
+        ]
+      },
+      {
+        "table": "child_v5_eval_A_2",
+        "primary_key": [
+          "row_703"
+        ],
+        "rows": 49,
+        "columns": [
+          {
+            "name": "row_703",
+            "type": "string",
+            "nullable": false,
+            "unit": {
+              "name": null,
+              "status": "unknown",
+              "evidence_ids": []
+            },
+            "statistics": {
+              "row_count": 49,
+              "missing_count": 0,
+              "distinct_nonmissing": 49,
+              "invalid_type_count": 0,
+              "numeric_summary": null
+            },
+            "description": "Synthetic physical declaration; no operational/business interpretation"
+          },
+          {
+            "name": "ref_703",
+            "type": "string",
+            "nullable": true,
+            "unit": {
+              "name": null,
+              "status": "unknown",
+              "evidence_ids": []
+            },
+            "statistics": {
+              "row_count": 49,
+              "missing_count": 0,
+              "distinct_nonmissing": 25,
+              "invalid_type_count": 0,
+              "numeric_summary": null
+            },
+            "observed_literal_codes": {
+              "distinct": 25
+            },
+            "description": "Synthetic physical declaration; no operational/business interpretation"
+          },
+          {
+            "name": "tenant_703",
+            "type": "string",
+            "nullable": true,
+            "unit": {
+              "name": null,
+              "status": "unknown",
+              "evidence_ids": []
+            },
+            "statistics": {
+              "row_count": 49,
+              "missing_count": 0,
+              "distinct_nonmissing": 2,
+              "invalid_type_count": 0,
+              "numeric_summary": null
+            },
+            "observed_literal_codes": {
+              "site0": 33,
+              "site1": 16
+            },
+            "description": "Synthetic physical declaration; no operational/business interpretation"
+          },
+          {
+            "name": "code_703",
+            "type": "string",
+            "nullable": true,
+            "unit": {
+              "name": null,
+              "status": "unknown",
+              "evidence_ids": []
+            },
+            "statistics": {
+              "row_count": 49,
+              "missing_count": 0,
+              "distinct_nonmissing": 2,
+              "invalid_type_count": 0,
+              "numeric_summary": null
+            },
+            "observed_literal_codes": {
+              "A": 33,
+              "B": 16
+            },
+            "description": "Synthetic physical declaration; no operational/business interpretation"
+          }
+        ]
+      }
+    ],
+    "relationships": [
+      {
+        "id": "link_v5_eval_A_2",
+        "from_table": "child_v5_eval_A_2",
+        "from_columns": [
+          "tenant_703",
+          "ref_703"
+        ],
+        "to_table": "parent_v5_eval_A_2",
+        "to_columns": [
+          "tenant_703",
+          "ref_703"
+        ],
+        "statistics": {
+          "from_rows": 49,
+          "to_rows": 32,
+          "active_reference_rows": 49,
+          "missing_reference_rows": 0,
+          "no_reference_rows": 0,
+          "missing_parent_rows": 1,
+          "ambiguous_parent_rows": 0,
+          "matched_parent_rows": 48,
+          "left_join_rows": 49,
+          "comparison": "exact_lexical_composite_equality",
+          "semantic_parent_verified": false
+        }
+      }
+    ],
+    "capture": {
+      "link_v5_eval_A_2": {
+        "status": "complete_for_selected_parents",
+        "child_count_allowed": true,
+        "relationship_definition_sha": "3de32b1d787b2057971710f8989af02bac31187c4aa401eeef1648d11d20f6e7"
+      }
+    },
+    "source_context": {
+      "source_kind": "controlled_synthetic",
+      "family": "v5_eval_A_2",
+      "period": {
+        "start_inclusive": "2026-08-12",
+        "end_exclusive": "2026-08-13",
+        "timezone": "synthetic coordinate only"
+      },
+      "table_rows": {
+        "parent_v5_eval_A_2": 32,
+        "child_v5_eval_A_2": 49
+      }
+    },
+    "unknown": [
+      "business meaning of literal codes",
+      "business duration or common clock",
+      "online availability, leakage and operational usefulness"
+    ],
+    "existing_definitions": [],
+    "supported_ops": [
+      "column",
+      "literal",
+      "is_missing",
+      "subtract",
+      "divide",
+      "eq",
+      "lt",
+      "lte",
+      "gt",
+      "gte",
+      "and",
+      "datetime_diff",
+      "convert_unit",
+      "child_count",
+      "parent_match_count",
+      "conditional_count",
+      "child_sum",
+      "group_count"
+    ],
+    "confirmed_evidence": [],
+    "task_kind": "specified",
+    "analysis_request": {
+      "kind": "specified",
+      "grain_table": "parent_v5_eval_A_2",
+      "relationship": "link_v5_eval_A_2",
+      "required_operations": [
+        "conditional_count"
+      ],
+      "population_filters": [
+        {
+          "table": "parent_v5_eval_A_2",
+          "column": "tenant_703",
+          "value": "site1"
+        }
+      ]
+    }
+  }
+}

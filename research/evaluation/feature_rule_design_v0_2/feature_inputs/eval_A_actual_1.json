@@ -1,0 +1,176 @@
+{
+  "id": "eval_A_actual_1",
+  "task_kind": "specified",
+  "source_kind": "approved_actual_capture",
+  "input": {
+    "contract": "feature-request-discovery-2.0",
+    "schema_version": "b1150a4494d505d45437c4ac594b95024b61e8021f6f9f06aaf6c8b3f7374d12",
+    "source_version": "82affdd810628f8fc880c884c83bf02e10f594db8ae821c25118c80ec5793309",
+    "task": "For every captured message row, calculate lexical composite-key process parent match count on physical_M_to_P_retry; do not replace by process child volume.",
+    "tables": [
+      {
+        "table": "EC_PROCESS_MONITORING",
+        "primary_key": [
+          "__V23_SAMPLE_ROW_ID"
+        ],
+        "rows": 128,
+        "columns": [
+          {
+            "name": "__V23_SAMPLE_ROW_ID",
+            "type": "string",
+            "nullable": null,
+            "unit": {
+              "name": null,
+              "status": "unknown",
+              "evidence_ids": []
+            },
+            "statistics": {
+              "row_count": 128,
+              "missing_count": 0,
+              "distinct_nonmissing": 128,
+              "invalid_type_count": 0,
+              "numeric_summary": null
+            },
+            "description": "Code-generated approved sample row identity; no original enterprise PK or business constraint"
+          }
+        ]
+      },
+      {
+        "table": "EC_MESSAGE_MONITORING",
+        "primary_key": [
+          "__V23_SAMPLE_ROW_ID"
+        ],
+        "rows": 256,
+        "columns": [
+          {
+            "name": "__V23_SAMPLE_ROW_ID",
+            "type": "string",
+            "nullable": null,
+            "unit": {
+              "name": null,
+              "status": "unknown",
+              "evidence_ids": []
+            },
+            "statistics": {
+              "row_count": 256,
+              "missing_count": 0,
+              "distinct_nonmissing": 256,
+              "invalid_type_count": 0,
+              "numeric_summary": null
+            },
+            "description": "Code-generated approved sample row identity; no original enterprise PK or business constraint"
+          },
+          {
+            "name": "__V23_PARENT_2_ROW_ID",
+            "type": "string",
+            "nullable": null,
+            "unit": {
+              "name": null,
+              "status": "unknown",
+              "evidence_ids": []
+            },
+            "statistics": {
+              "row_count": 256,
+              "missing_count": 0,
+              "distinct_nonmissing": 128,
+              "invalid_type_count": 0,
+              "numeric_summary": null
+            },
+            "observed_literal_codes": {
+              "distinct": 128
+            },
+            "description": "Exact original composite-key match in approved file capture; blank means unresolved; no enterprise FK contract"
+          }
+        ]
+      }
+    ],
+    "relationships": [
+      {
+        "id": "physical_M_to_P_retry",
+        "from_table": "EC_MESSAGE_MONITORING",
+        "from_columns": [
+          "__V23_PARENT_2_ROW_ID"
+        ],
+        "to_table": "EC_PROCESS_MONITORING",
+        "to_columns": [
+          "__V23_SAMPLE_ROW_ID"
+        ],
+        "statistics": {
+          "from_rows": 256,
+          "to_rows": 128,
+          "active_reference_rows": 256,
+          "missing_reference_rows": 0,
+          "no_reference_rows": 0,
+          "missing_parent_rows": 0,
+          "ambiguous_parent_rows": 0,
+          "matched_parent_rows": 256,
+          "left_join_rows": 256,
+          "comparison": "exact_lexical_composite_equality",
+          "semantic_parent_verified": false
+        }
+      }
+    ],
+    "capture": {
+      "physical_M_to_P_retry": {
+        "status": "complete_for_selected_parents",
+        "child_count_allowed": true,
+        "relationship_definition_sha": "f8aae680e592e6e6848b7cf4f6fa675d9aaef6bd2399fc452edcc07b7f85959e"
+      }
+    },
+    "source_context": {
+      "source_kind": "approved_actual_capture",
+      "transaction_families": 128,
+      "table_rows": {
+        "EC_TRANSACTION_MONITORING": 128,
+        "EC_PROCESS_MONITORING": 128,
+        "EC_MESSAGE_MONITORING": 256
+      },
+      "selection_windows": [
+        [
+          "2026-08-24",
+          "2026-09-09"
+        ]
+      ],
+      "manifest": {
+        "sha256": "ee96cfea32020502902c97180daff6a53964421564b2e804fb35eaa6e6fdb0bb"
+      },
+      "source_version": "82affdd810628f8fc880c884c83bf02e10f594db8ae821c25118c80ec5793309"
+    },
+    "unknown": [
+      "business meaning of literal codes",
+      "business duration or common clock",
+      "online availability, leakage and operational usefulness"
+    ],
+    "existing_definitions": [],
+    "supported_ops": [
+      "column",
+      "literal",
+      "is_missing",
+      "subtract",
+      "divide",
+      "eq",
+      "lt",
+      "lte",
+      "gt",
+      "gte",
+      "and",
+      "datetime_diff",
+      "convert_unit",
+      "child_count",
+      "parent_match_count",
+      "conditional_count",
+      "child_sum",
+      "group_count"
+    ],
+    "confirmed_evidence": [],
+    "task_kind": "specified",
+    "analysis_request": {
+      "kind": "specified",
+      "grain_table": "EC_MESSAGE_MONITORING",
+      "relationship": "physical_M_to_P_retry",
+      "required_operations": [
+        "parent_match_count"
+      ]
+    }
+  }
+}

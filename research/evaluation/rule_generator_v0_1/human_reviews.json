@@ -1,0 +1,431 @@
+[
+  {
+    "id": "real_01_f004",
+    "stage": "initial",
+    "raw_sha256": "09bc755e9d7934dd2ba9d92ba290d64691826ef997f2f15a1c98f733926c3e29",
+    "passed": true,
+    "errors": [],
+    "notes": "확인된 NOT NULL과 Boolean 결측 지표의 eq true 방향을 유지한다. 측정 true0을 제약 부재로 바꾸지 않는다.",
+    "reviewer": "root_direct_review",
+    "code_criteria_unchanged": true,
+    "output_not_modified": true
+  },
+  {
+    "id": "real_02_f005",
+    "stage": "initial",
+    "raw_sha256": "1d0168feaee16d85c848e13501ae98980aff145ede45527d4852dda69e14de5f",
+    "passed": true,
+    "errors": [],
+    "notes": "확인된 NOT NULL과 Boolean 결측 지표의 eq true 방향을 유지한다. 측정 true0을 제약 부재로 바꾸지 않는다.",
+    "reviewer": "root_direct_review",
+    "code_criteria_unchanged": true,
+    "output_not_modified": true
+  },
+  {
+    "id": "real_03_f047",
+    "stage": "initial",
+    "raw_sha256": "b3ee3ef77c4714e84b66f91307ee0b681775878e3c406eedf9bfc9c4f6fc5853",
+    "passed": true,
+    "errors": [],
+    "notes": "확인된 NOT NULL과 Boolean 결측 지표의 eq true 방향을 유지한다. 측정 true0을 제약 부재로 바꾸지 않는다.",
+    "reviewer": "root_direct_review",
+    "code_criteria_unchanged": true,
+    "output_not_modified": true
+  },
+  {
+    "id": "real_04_f049",
+    "stage": "initial",
+    "raw_sha256": "c9dd8cad0dd9701af1ea5d855ed6ba430de1917a799093bb94afb2c7c6946f4c",
+    "passed": true,
+    "errors": [],
+    "notes": "확인된 NOT NULL과 Boolean 결측 지표의 eq true 방향을 유지한다. 측정 true0을 제약 부재로 바꾸지 않는다.",
+    "reviewer": "root_direct_review",
+    "code_criteria_unchanged": true,
+    "output_not_modified": true
+  },
+  {
+    "id": "real_05_f051",
+    "stage": "initial",
+    "raw_sha256": "9d27c403067d159874c3da3d746a53d0e10874b6ae9c70daa5f4a6d6681846a1",
+    "passed": true,
+    "errors": [],
+    "notes": "확인된 NOT NULL과 Boolean 결측 지표의 eq true 방향을 유지한다. 측정 true0을 제약 부재로 바꾸지 않는다.",
+    "reviewer": "root_direct_review",
+    "code_criteria_unchanged": true,
+    "output_not_modified": true
+  },
+  {
+    "id": "real_06_f001",
+    "stage": "initial",
+    "raw_sha256": "cc2aeac548ad031305519a5696042dbec59b3fd117a8d2e3771921761d34a0ab",
+    "passed": true,
+    "errors": [],
+    "notes": "확인된 계약 없음에 no_applicable을 기록하고 관측 변동/기준선으로 업무 HR을 만들지 않는다.",
+    "reviewer": "root_direct_review",
+    "code_criteria_unchanged": true,
+    "output_not_modified": true
+  },
+  {
+    "id": "real_07_f015",
+    "stage": "initial",
+    "raw_sha256": "7d47aa17a00c3c5a114c0cdf81f6529c5669e55f009fd5e8b7b89d073f050939",
+    "passed": true,
+    "errors": [],
+    "notes": "확인된 계약 없음에 no_applicable을 기록하고 관측 변동/기준선으로 업무 HR을 만들지 않는다.",
+    "reviewer": "root_direct_review",
+    "code_criteria_unchanged": true,
+    "output_not_modified": true
+  },
+  {
+    "id": "real_08_f039",
+    "stage": "initial",
+    "raw_sha256": "0806358ba9ecb413f5718cfb159822b5c4d209d28453aff97f4eb3ce010099f2",
+    "passed": true,
+    "errors": [],
+    "notes": "확인된 계약 없음에 no_applicable을 기록하고 관측 변동/기준선으로 업무 HR을 만들지 않는다.",
+    "reviewer": "root_direct_review",
+    "code_criteria_unchanged": true,
+    "output_not_modified": true
+  },
+  {
+    "id": "real_09_f058",
+    "stage": "initial",
+    "raw_sha256": "653532e6707408c9c61ce72bf830e53d988ff1c1afbd2c07c2850abb9b4d4c62",
+    "passed": true,
+    "errors": [],
+    "notes": "확인된 계약 없음에 no_applicable을 기록하고 관측 변동/기준선으로 업무 HR을 만들지 않는다.",
+    "reviewer": "root_direct_review",
+    "code_criteria_unchanged": true,
+    "output_not_modified": true
+  },
+  {
+    "id": "real_10_f061",
+    "stage": "initial",
+    "raw_sha256": "48df2331fd2746c184960eebed3028c69ef5b649c57bd5195d747b011d645d58",
+    "passed": true,
+    "errors": [],
+    "notes": "확인된 계약 없음에 no_applicable을 기록하고 관측 변동/기준선으로 업무 HR을 만들지 않는다.",
+    "reviewer": "root_direct_review",
+    "code_criteria_unchanged": true,
+    "output_not_modified": true
+  },
+  {
+    "id": "real_11_f005",
+    "stage": "initial",
+    "raw_sha256": "132dedfd735d42430e943ad25eab1e25f69ac1b3dfd5e75bfa2c40c8f21441be",
+    "passed": true,
+    "errors": [],
+    "notes": "유효 관측이 있고 Boolean true0인 진단 조건을 유지한다. 관측 없음/업무 장애로 해석하지 않는다.",
+    "reviewer": "root_direct_review",
+    "code_criteria_unchanged": true,
+    "output_not_modified": true
+  },
+  {
+    "id": "real_12_f039",
+    "stage": "initial",
+    "raw_sha256": "1866fbc991d969235055516626419011ab1e5a61be2f4aeaa304dc7138af5271",
+    "passed": true,
+    "errors": [],
+    "notes": "유효 관측이 있고 Boolean true0인 진단 조건을 유지한다. 관측 없음/업무 장애로 해석하지 않는다.",
+    "reviewer": "root_direct_review",
+    "code_criteria_unchanged": true,
+    "output_not_modified": true
+  },
+  {
+    "id": "real_13_f046",
+    "stage": "initial",
+    "raw_sha256": "ef9471e1b9f94d089651c7f5b5975af3e308da63c206f2735ad525877962c7c5",
+    "passed": true,
+    "errors": [],
+    "notes": "유효 관측이 있고 Boolean true0인 진단 조건을 유지한다. 관측 없음/업무 장애로 해석하지 않는다.",
+    "reviewer": "root_direct_review",
+    "code_criteria_unchanged": true,
+    "output_not_modified": true
+  },
+  {
+    "id": "real_14_f052",
+    "stage": "initial",
+    "raw_sha256": "cc320af06bc00fa512403017c79ebb881c84151adaae146c08240ad76b691eb9",
+    "passed": true,
+    "errors": [],
+    "notes": "유효 관측이 있고 Boolean true0인 진단 조건을 유지한다. 관측 없음/업무 장애로 해석하지 않는다.",
+    "reviewer": "root_direct_review",
+    "code_criteria_unchanged": true,
+    "output_not_modified": true
+  },
+  {
+    "id": "real_15_f054",
+    "stage": "initial",
+    "raw_sha256": "29f63012adf7609f35dd55ed8e38073ae971bc4d8b4e2b0344fa781462fa3908",
+    "passed": true,
+    "errors": [],
+    "notes": "유효 관측이 있고 Boolean true0인 진단 조건을 유지한다. 관측 없음/업무 장애로 해석하지 않는다.",
+    "reviewer": "root_direct_review",
+    "code_criteria_unchanged": true,
+    "output_not_modified": true
+  },
+  {
+    "id": "real_16_f058",
+    "stage": "initial",
+    "raw_sha256": "96e2995af81e8ec50f7fabf58e8570a930eb6159d24a212869f0c98e8bf25a2d",
+    "passed": true,
+    "errors": [],
+    "notes": "부호 있는 시각 좌표 lt0 진단을 유지한다. 미확인 업무 처리시간/공통 시계/과거 기준선 필수를 덧붙이지 않는다.",
+    "reviewer": "root_direct_review",
+    "code_criteria_unchanged": true,
+    "output_not_modified": true
+  },
+  {
+    "id": "real_17_f059",
+    "stage": "initial",
+    "raw_sha256": "2635f06978ea275add9b098a4eb8e5b266277cc03a3643b8f567f038cded9e34",
+    "passed": true,
+    "errors": [],
+    "notes": "부호 있는 시각 좌표 lt0 진단을 유지한다. 미확인 업무 처리시간/공통 시계/과거 기준선 필수를 덧붙이지 않는다.",
+    "reviewer": "root_direct_review",
+    "code_criteria_unchanged": true,
+    "output_not_modified": true
+  },
+  {
+    "id": "real_18_f036",
+    "stage": "initial",
+    "raw_sha256": "752a41eefdf340d68a09732fe1eb2da3d7a4342fdef9984e68e6a32094aa5209",
+    "passed": false,
+    "errors": [
+      {
+        "code": "actual_observation_count_contradiction",
+        "error": "Submitted zero usable observations conflicts with supplied valid_count=1 and missing_count=127. There is one usable empty-child aggregate value0;0 is an observation,not absence."
+      }
+    ],
+    "notes": "실제 valid_count=1, missing_count=127인데 zero usable이라고 설명하고 보류했다. 빈 자식 집단의 유효0 합계를 관측 없음으로 오인했다.",
+    "reviewer": "root_direct_review",
+    "code_criteria_unchanged": true,
+    "output_not_modified": true
+  },
+  {
+    "id": "real_19_f002",
+    "stage": "initial",
+    "raw_sha256": "efefd02c83678d548e4a433ae154958d927bc29e87175aa7a2ac8d14c6d34bd2",
+    "passed": true,
+    "errors": [],
+    "notes": "계산 결과 is_missing 진단이며 원천 NULL 원인이라고 단정하지 않는다. 유효 관측128을 보존한다.",
+    "reviewer": "root_direct_review",
+    "code_criteria_unchanged": true,
+    "output_not_modified": true
+  },
+  {
+    "id": "real_20_f001",
+    "stage": "initial",
+    "raw_sha256": "eed98d211e94424245bc3beb21b620425256a7f9c4ca3f2d0681aa33d91a5928",
+    "passed": true,
+    "errors": [],
+    "notes": "실제 검증된 p95 기준선 ID/SHA/모집단/단위와 gt 비교를 사용한다. 독립성/정상성 요건을 추가하지 않는다.",
+    "reviewer": "root_direct_review",
+    "code_criteria_unchanged": true,
+    "output_not_modified": true
+  },
+  {
+    "id": "real_21_f002",
+    "stage": "initial",
+    "raw_sha256": "d2e194eaea7bca258269d609a18612158da2aa074633debc32e576f2d6cf4049",
+    "passed": true,
+    "errors": [],
+    "notes": "실제 검증된 p95 기준선 ID/SHA/모집단/단위와 gt 비교를 사용한다. 독립성/정상성 요건을 추가하지 않는다.",
+    "reviewer": "root_direct_review",
+    "code_criteria_unchanged": true,
+    "output_not_modified": true
+  },
+  {
+    "id": "real_22_f003",
+    "stage": "initial",
+    "raw_sha256": "4c1e20346cd32f511a9b20e954b78201bb33f90cde3ba6386070880ff5e8a952",
+    "passed": true,
+    "errors": [],
+    "notes": "실제 검증된 p95 기준선 ID/SHA/모집단/단위와 gt 비교를 사용한다. 독립성/정상성 요건을 추가하지 않는다.",
+    "reviewer": "root_direct_review",
+    "code_criteria_unchanged": true,
+    "output_not_modified": true
+  },
+  {
+    "id": "real_23_f015",
+    "stage": "initial",
+    "raw_sha256": "4a7d1929a7e9cd82b0d446ad246eebbe5632aa763233919538194179e6f598df",
+    "passed": true,
+    "errors": [],
+    "notes": "실제 검증된 p95 기준선 ID/SHA/모집단/단위와 gt 비교를 사용한다. 독립성/정상성 요건을 추가하지 않는다.",
+    "reviewer": "root_direct_review",
+    "code_criteria_unchanged": true,
+    "output_not_modified": true
+  },
+  {
+    "id": "real_24_f017",
+    "stage": "initial",
+    "raw_sha256": "70edea0bf084de6a070e374f5e6ddab633f5cedfd1973614832aecbc6ae0972a",
+    "passed": true,
+    "errors": [],
+    "notes": "실제 검증된 p95 기준선 ID/SHA/모집단/단위와 gt 비교를 사용한다. 독립성/정상성 요건을 추가하지 않는다.",
+    "reviewer": "root_direct_review",
+    "code_criteria_unchanged": true,
+    "output_not_modified": true
+  },
+  {
+    "id": "real_25_f006",
+    "stage": "initial",
+    "raw_sha256": "99f58609b73ac8dcd67e1ca59519355d54d3363b8a5b726363e03c0e2a54e65f",
+    "passed": true,
+    "errors": [],
+    "notes": "실제 검증된 p95 기준선 ID/SHA/모집단/단위와 gt 비교를 사용한다. 독립성/정상성 요건을 추가하지 않는다.",
+    "reviewer": "root_direct_review",
+    "code_criteria_unchanged": true,
+    "output_not_modified": true
+  },
+  {
+    "id": "real_26_f058",
+    "stage": "initial",
+    "raw_sha256": "88193e10a4436c9c831865cd3207eb3e50d616ae8f1992f5f6a31412a8334151",
+    "passed": true,
+    "errors": [],
+    "notes": "실제 검증된 p95 기준선 ID/SHA/모집단/단위와 gt 비교를 사용한다. 독립성/정상성 요건을 추가하지 않는다.",
+    "reviewer": "root_direct_review",
+    "code_criteria_unchanged": true,
+    "output_not_modified": true
+  },
+  {
+    "id": "real_27_f060",
+    "stage": "initial",
+    "raw_sha256": "963dd306bdd4aad091ea070ae842a987f7a33e4b28ec0f4aa2789c0c5bac647f",
+    "passed": true,
+    "errors": [],
+    "notes": "유효 관측0인 수치 시각 진단의 lt0 조건과 deferred를 유지한다. 결과 불가를 false/0으로 대체하지 않는다.",
+    "reviewer": "root_direct_review",
+    "code_criteria_unchanged": true,
+    "output_not_modified": true
+  },
+  {
+    "id": "real_28_f032",
+    "stage": "initial",
+    "raw_sha256": "293c2f4073befdac790ba75018c211381e1bdb1084271a672fb001094dca5881",
+    "passed": true,
+    "errors": [],
+    "notes": "알려진 계산과 미확인 원시 물리 단위를 구분해 실제 부족한 단위 근거만 요청한다. 기준선/수치를 만들지 않는다.",
+    "reviewer": "root_direct_review",
+    "code_criteria_unchanged": true,
+    "output_not_modified": true
+  },
+  {
+    "id": "real_29_f035",
+    "stage": "initial",
+    "raw_sha256": "e6cf43e245d65f773e30c779e32ecda2deb09e9d83d44b8653c33d9a45ef9938",
+    "passed": true,
+    "errors": [],
+    "notes": "알려진 계산과 미확인 원시 물리 단위를 구분해 실제 부족한 단위 근거만 요청한다. 기준선/수치를 만들지 않는다.",
+    "reviewer": "root_direct_review",
+    "code_criteria_unchanged": true,
+    "output_not_modified": true
+  },
+  {
+    "id": "real_30_f061",
+    "stage": "initial",
+    "raw_sha256": "3cf573e96ec1e8ccc5e138afc6dd5d4964669f2ee4b708749ac144241a46a74f",
+    "passed": false,
+    "errors": [
+      {
+        "code": "unprovided_verified_reference_claim",
+        "error": "The supplied baseline state is insufficient and no verified baseline ID exists. Do not call it a supplied verified baseline/reference. Explain only the actual missing fact from the input."
+      }
+    ],
+    "notes": "입력 baseline.state=insufficient이며 검증된 baseline ID가 없는데 이유에서 supplied verified reference/baseline이라고 주장한다.",
+    "reviewer": "root_direct_review",
+    "code_criteria_unchanged": true,
+    "output_not_modified": true
+  },
+  {
+    "id": "real_31_f062",
+    "stage": "initial",
+    "raw_sha256": "5d38e2ce993a451a8579f2be40afaf76afb002bfc4423f39fc5b0471dfa4790b",
+    "passed": false,
+    "errors": [
+      {
+        "code": "unprovided_verified_reference_claim",
+        "error": "The supplied baseline state is insufficient and no verified baseline ID exists. Do not call it a supplied verified baseline/reference. Explain only the actual missing fact from the input."
+      }
+    ],
+    "notes": "입력 baseline.state=insufficient이며 검증된 baseline ID가 없는데 이유에서 supplied verified reference/baseline이라고 주장한다.",
+    "reviewer": "root_direct_review",
+    "code_criteria_unchanged": true,
+    "output_not_modified": true
+  },
+  {
+    "id": "real_32_f060",
+    "stage": "initial",
+    "raw_sha256": "73c2eac931dc810e701c4451e9bba75e0436b25fb2d03dcdefd07695919d77e8",
+    "passed": false,
+    "errors": [
+      {
+        "code": "unprovided_verified_reference_claim",
+        "error": "The supplied baseline state is insufficient and no verified baseline ID exists. Do not call it a supplied verified baseline/reference. Explain only the actual missing fact from the input."
+      },
+      {
+        "code": "known_unit_must_not_be_recast_as_missing",
+        "error": "The signed coordinate calculation unit ms is verified. The actual gap is valid reference values (valid_count=0),not raw-unit evidence."
+      }
+    ],
+    "notes": "입력 baseline.state=insufficient이며 검증된 baseline ID가 없는데 이유에서 supplied verified reference/baseline이라고 주장한다.",
+    "reviewer": "root_direct_review",
+    "code_criteria_unchanged": true,
+    "output_not_modified": true
+  },
+  {
+    "id": "real_18_f036",
+    "stage": "repair",
+    "raw_sha256": "762c671c245766d2265d59822494851378b3fd35a6a3783e4e00b3a5b39004c3",
+    "passed": false,
+    "errors": [
+      {
+        "code": "numeric_feature_and_boolean_diagnostic_description_mixed",
+        "error": "The bound feature is numeric child_sum(SUCCESS_COUNT),not a Boolean missing indicator. valid_count=1 counts numeric feature outputs;the explanation calls it a calculated missing-indicator observation. Keep the feature definition and Boolean rule condition distinct. No second repair is permitted."
+      }
+    ],
+    "notes": "형식/조건/상태는 수정됐으나 수치 합계 피처의 유효값1개와 Boolean 결측 진단의 관측을 설명에서 혼동하므로 의미 승인은 실패한다.",
+    "reviewer": "root_direct_review",
+    "code_criteria_unchanged": true,
+    "output_not_modified": true,
+    "severity": "explanation"
+  },
+  {
+    "id": "real_30_f061",
+    "stage": "repair",
+    "raw_sha256": "9725ddd8f72f38c345d4eb83522b347be36674392754216993dd89b7cd140a6a",
+    "passed": true,
+    "errors": [],
+    "notes": "부족한 기준선을 verified라고 부르지 않고 실제 부족한 단위/유효 참조값만 요청한다. 출력·측정·근거·이유를 대조했다.",
+    "reviewer": "root_direct_review",
+    "code_criteria_unchanged": true,
+    "output_not_modified": true,
+    "severity": null
+  },
+  {
+    "id": "real_31_f062",
+    "stage": "repair",
+    "raw_sha256": "379b715da2ec1747f3140bf518b32de8833cf5f9144a12ee127a84b3f1d13504",
+    "passed": true,
+    "errors": [],
+    "notes": "부족한 기준선을 verified라고 부르지 않고 실제 부족한 단위/유효 참조값만 요청한다. 출력·측정·근거·이유를 대조했다.",
+    "reviewer": "root_direct_review",
+    "code_criteria_unchanged": true,
+    "output_not_modified": true,
+    "severity": null
+  },
+  {
+    "id": "real_32_f060",
+    "stage": "repair",
+    "raw_sha256": "393b0d246bae0070dc9f1f0ac8602bed5a741c53d60e3a4443cb28cc02d7535b",
+    "passed": true,
+    "errors": [],
+    "notes": "부족한 기준선을 verified라고 부르지 않고 실제 부족한 단위/유효 참조값만 요청한다. 출력·측정·근거·이유를 대조했다. 원시 단위 일반 문장은 불필요하지만 이 변수의 단위를 미확인이라고 주장하거나 추가 단위 근거를 요구하지는 않는다. ms는 입력 그대로 유지했고 needed는 valid_reference_values만이다.",
+    "reviewer": "root_direct_review",
+    "code_criteria_unchanged": true,
+    "output_not_modified": true,
+    "severity": null
+  }
+]

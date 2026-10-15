@@ -1,0 +1,242 @@
+name: powercode
+
+x-worker: &worker
+  image: powercode-worker:local
+  build:
+    context: ..
+    dockerfile: worker/Dockerfile
+  init: true
+  restart: unless-stopped
+  environment: &worker-environment
+    DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL in server/infra/.env}
+    ARTIFACT_ROOT: /artifacts
+    RESEARCH_BUNDLE_ROOT: /research-runtime
+  user: "${PWC_CONTAINER_UID:-10001}:${PWC_CONTAINER_GID:-10001}"
+  networks: [runtime, database]
+
+services:
+  api:
+    build:
+      context: ..
+      dockerfile: backend/Dockerfile
+    init: true
+    restart: unless-stopped
+    user: "${PWC_CONTAINER_UID:-10001}:${PWC_CONTAINER_GID:-10001}"
+    environment:
+      DATABASE_URL: ${API_DATABASE_URL:-${DATABASE_URL:?Set DATABASE_URL}}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-24h}
+      PORT: "5001"
+      USER_DATA_PATH: /app/data/users.json
+      SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-}
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-}
+    volumes:
+      - type: bind
+        source: ${AUTH_DATA_DIR:?Set the existing user data directory}
+        target: /app/data
+        bind: {create_host_path: false}
+    networks: [runtime, database]
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://127.0.0.1:5001/health/database').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  web:
+    build:
+      context: ..
+      dockerfile: frontend/Dockerfile
+    restart: unless-stopped
+    ports: ["${WEB_BIND:-0.0.0.0}:${WEB_PORT:-8080}:80"]
+    networks: [runtime]
+    depends_on:
+      api:
+        condition: service_healthy
+
+  llm:
+    build:
+      context: ..
+      dockerfile: worker/Dockerfile.generation
+    platform: linux/amd64
+    init: true
+    restart: unless-stopped
+    user: "${PWC_CONTAINER_UID:-10001}:${PWC_CONTAINER_GID:-10001}"
+    environment:
+      <<: *worker-environment
+      DATABASE_URL: ${LLM_DATABASE_URL:-${DATABASE_URL:?Set DATABASE_URL}}
+      FEATURE_DESIGN_PROVIDER: research
+      RESEARCH_BUNDLE_ROOT: /research-runtime
+      RULE_MODEL_BASE_PATH: /qwen-base
+      DESIGN_MODEL_TOKEN: ${DESIGN_MODEL_TOKEN:?Set a token of at least 32 characters}
+      DESIGN_MODEL_HOST: 0.0.0.0
+      CUDA_VISIBLE_DEVICES: "0"
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility
+      HF_HUB_OFFLINE: "1"
+    volumes:
+      - type: bind
+        source: ${RESEARCH_BUNDLE_PATH:?Set the exported bundle path}
+        target: /research-runtime
+        read_only: true
+        bind: {create_host_path: false}
+      - type: bind
+        source: ${QWEN_BASE_PATH:?Set the pinned Base path}
+        target: /qwen-base
+        read_only: true
+        bind: {create_host_path: false}
+      - type: bind
+        source: ${ARTIFACT_ROOT_PATH:?Set existing artifact directory}
+        target: /artifacts
+        read_only: true
+        bind: {create_host_path: false}
+    networks: [runtime, database]
+    shm_size: 1gb
+    cpus: ${LLM_CPUS:-4}
+    mem_limit: ${LLM_MEMORY:-48g}
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ["${GENERATION_GPU_ID:-0}"]
+              capabilities: [gpu]
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8010/health',timeout=3)"]
+      interval: 20s
+      timeout: 5s
+      retries: 3
+      start_period: 20m
+
+  trainer:
+    <<: *worker
+    command: [python, -m, trainer.runner]
+    cpus: ${TRAINER_CPUS:-4}
+    mem_limit: ${TRAINER_MEMORY:-8g}
+    environment:
+      <<: *worker-environment
+      DATABASE_URL: ${TRAINER_DATABASE_URL:-${DATABASE_URL:?Set DATABASE_URL}}
+    volumes:
+      - type: bind
+        source: ${ARTIFACT_ROOT_PATH:?Set existing artifact directory}
+        target: /artifacts
+        bind: {create_host_path: false}
+
+  collector:
+    <<: *worker
+    command: [python, -m, collector.input_runner]
+    cpus: ${COLLECTOR_CPUS:-1}
+    mem_limit: ${COLLECTOR_MEMORY:-512m}
+    environment:
+      <<: *worker-environment
+      DATABASE_URL: ${COLLECTOR_DATABASE_URL:-${DATABASE_URL:?Set DATABASE_URL}}
+      COLLECTOR_SOURCE_KEY: ${COLLECTOR_SOURCE_KEY:?Set a stable customer source key}
+      COLLECTOR_CONFIGURATION_URL: ${COLLECTOR_CONFIGURATION_URL:?Set the configuration base URL}
+      COLLECTOR_MONITORING_URL: ${COLLECTOR_MONITORING_URL:?Set the monitoring base URL}
+      COLLECTOR_HTTP_HOST: ${COLLECTOR_HTTP_HOST:-}
+      COLLECTOR_ACCESS_TOKEN: ${COLLECTOR_ACCESS_TOKEN:-${ACCESS_TOKEN:-${TOKEN:-}}}
+      COLLECTOR_POLL_SECONDS: ${COLLECTOR_POLL_SECONDS:-2}
+      COLLECTOR_LOG_MAPPING_FILE: ${COLLECTOR_LOG_MAPPING_FILE:-}
+      DETECTOR_DELIVERY_URL: http://detector:8011
+      DETECTOR_DELIVERY_TOKEN: ${DETECTOR_DELIVERY_TOKEN:?Set a separate internal token of 32+ characters}
+
+    volumes:
+      - type: bind
+        source: ${INPUT_CONTRACT_DIR:-./input-contracts}
+        target: /input-contracts
+        read_only: true
+        bind: {create_host_path: false}
+
+  input:
+    <<: *worker
+    profiles: [tools]
+    restart: "no"
+    entrypoint: [python, -m, collector.input_cli]
+    command: [--help]
+    environment:
+      <<: *worker-environment
+      DATABASE_URL: ${COLLECTOR_DATABASE_URL:-${DATABASE_URL:?Set DATABASE_URL}}
+      COLLECTOR_SOURCE_KEY: ${COLLECTOR_SOURCE_KEY:-customer-esb}
+      INPUT_TRANSACTION_CSV: /inputs/${INPUT_TRANSACTION_FILE:-EC_TRANSACTION_MONITORING.csv}
+      INPUT_PROCESS_CSV: /inputs/${INPUT_PROCESS_FILE:-EC_PROCESS_MONITORING.csv}
+      INPUT_MESSAGE_CSV: /inputs/${INPUT_MESSAGE_FILE:-EC_MESSAGE_MONITORING.csv}
+      INPUT_BODY_CSV: /inputs/${INPUT_BODY_FILE:-EC_MESSAGE_BODY.csv}
+    volumes:
+      - type: bind
+        source: ${CSV_INPUT_DIR:-/data/gst-dongguk/powercode-esb/tmp}
+        target: /inputs
+        read_only: true
+        bind: {create_host_path: false}
+
+  detector:
+    <<: *worker
+    command: [python, -m, detector.service]
+    cpus: ${DETECTOR_CPUS:-2}
+    mem_limit: ${DETECTOR_MEMORY:-4g}
+    environment:
+      <<: *worker-environment
+      DATABASE_URL: ${DETECTOR_DATABASE_URL:-${DATABASE_URL:?Set DATABASE_URL}}
+      DETECTOR_HOST: 0.0.0.0
+      DETECTOR_DELIVERY_TOKEN: ${DETECTOR_DELIVERY_TOKEN:?Set DETECTOR_DELIVERY_TOKEN}
+    volumes:
+      - type: bind
+        source: ${ARTIFACT_ROOT_PATH:?Set existing artifact directory}
+        target: /artifacts
+        read_only: true
+        bind: {create_host_path: false}
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8011/health',timeout=3)"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+  monitor:
+    <<: *worker
+    profiles: [monitoring]
+    command: [python, -m, monitor]
+    environment:
+      <<: *worker-environment
+      DRIFT_WINDOW_HOURS: ${DRIFT_WINDOW_HOURS:-24}
+      DRIFT_MISSING_DELTA: ${DRIFT_MISSING_DELTA:-0.10}
+
+  window:
+    <<: *worker
+    profiles: [windows]
+    command: [python, -m, window_worker]
+    volumes:
+      - type: bind
+        source: ${RESEARCH_BUNDLE_PATH:?Set RESEARCH_BUNDLE_PATH}
+        target: /research-runtime
+        read_only: true
+        bind: {create_host_path: false}
+
+  bundle:
+    <<: *worker
+    profiles: [tools]
+    restart: "no"
+    networks: [runtime]
+    environment: {}
+    user: "${PWC_UID:-1000}:${PWC_GID:-1000}"
+    command: [python, research_bundle.py, --repository, /repository, --output, /bundles/research-runtime]
+    volumes:
+      - ../../research:/repository/research:ro
+      - type: bind
+        source: ${BUNDLE_PARENT_PATH:?Set the existing bundle parent directory}
+        target: /bundles
+        bind: {create_host_path: false}
+
+  migrate:
+    image: postgres:17-alpine
+    profiles: [tools]
+    restart: "no"
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL}
+    networks: [database]
+    volumes: ["./migrations:/migrations:ro"]
+    entrypoint: [sh, -c, 'exec psql "$$DATABASE_URL" -v ON_ERROR_STOP=1 "$$@"', psql]
+    command: [--help]
+
+networks:
+  runtime: {}
+  database:
+    external: true
+    name: ${PWC_DB_NETWORK:-anomaly-net}

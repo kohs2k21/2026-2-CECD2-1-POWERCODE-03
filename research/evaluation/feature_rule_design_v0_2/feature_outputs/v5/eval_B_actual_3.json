@@ -1,0 +1,382 @@
+{
+  "id": "eval_B_actual_3",
+  "phase": "v5",
+  "raw_output": "{\"candidates\":[{\"id\":\"train_A_actual_0_c0\",\"purpose\":\"Boolean conjunction of unavailable message direction and unavailable data name; both are currently available.\",\"meaning\":\"Boolean conjunction of unavailable message direction and unavailable data name; both are currently available.\",\"sources\":{\"columns\":[[\"EC_MESSAGE_MONITORING\",\"DATA_NAME\"],[\"EC_MESSAGE_MONITORING\",\"DIRECTION\"]],\"relationships\":[]},\"expected_type\":\"boolean\",\"expected_unit\":\"boolean\",\"availability\":\"offline_captured_scope\",\"required_evidence\":[\"online availability and leakage policy; operational usefulness unconfirmed\"],\"plan\":{\"id\":\"train_A_actual_0_c0\",\"description\":\"Boolean conjunction of unavailable message direction and unavailable data name; both are currently available.\",\"expression\":{\"op\":\"and\",\"args\":[{\"op\":\"is_missing\",\"args\":[{\"op\":\"column\",\"table\":\"EC_MESSAGE_MONITORING\",\"column\":\"DIRECTION\"}]},{\"op\":\"is_missing\",\"args\":[{\"op\":\"column\",\"table\":\"EC_MESSAGE_MONITORING\",\"column\":\"DATA_NAME\"}]}]},\"grain\":{\"table\":\"EC_MESSAGE_MONITORING\",\"keys\":[\"__V23_SAMPLE_ROW_ID\"]},\"population\":{\"table\":\"EC_MESSAGE_MONITORING\",\"filter\":null},\"group_by\":[],\"schema_version\":\"b1150a4494d505d45437c4ac594b95024b61e8021f6f9f06aaf6c8b3f7374d12\",\"source_version\":\"82affdd810628f8fc880c884c83bf02e10f594db8ae821c25118c80ec5793309\",\"missing_policy\":{\"input\":\"propagate\",\"empty_group\":null,\"denominator_zero\":null,\"child_missing\":\"propagate\",\"unknown_predicate\":\"defer\"}}}],\"stop_reason\":\"Narrow computed metadata candidates; business and online usefulness remain unconfirmed.\"}",
+  "raw_sha": "75a3954e93c5804de7b6cbe634ebc7ba2641c0660f374e8c4d24b6c624e01545",
+  "original_input_sha": "ab6466dc2a6c5d97bf6c2789ffa44c8bb7830c91a5d377c9ac1777303aa352f7",
+  "generated_tokens": 411,
+  "length_limit_reached": false,
+  "checks": {
+    "JSON_contract": true,
+    "candidates": [
+      {
+        "index": 0,
+        "contract": true,
+        "source_exists": true,
+        "definition_valid": true,
+        "measurement_completed": true,
+        "independent": true,
+        "duplicate": false,
+        "errors": [],
+        "candidate": {
+          "id": "train_A_actual_0_c0",
+          "purpose": "Boolean conjunction of unavailable message direction and unavailable data name; both are currently available.",
+          "meaning": "Boolean conjunction of unavailable message direction and unavailable data name; both are currently available.",
+          "sources": {
+            "columns": [
+              [
+                "EC_MESSAGE_MONITORING",
+                "DATA_NAME"
+              ],
+              [
+                "EC_MESSAGE_MONITORING",
+                "DIRECTION"
+              ]
+            ],
+            "relationships": []
+          },
+          "expected_type": "boolean",
+          "expected_unit": "boolean",
+          "availability": "offline_captured_scope",
+          "required_evidence": [
+            "online availability and leakage policy; operational usefulness unconfirmed"
+          ],
+          "plan": {
+            "id": "train_A_actual_0_c0",
+            "description": "Boolean conjunction of unavailable message direction and unavailable data name; both are currently available.",
+            "expression": {
+              "op": "and",
+              "args": [
+                {
+                  "op": "is_missing",
+                  "args": [
+                    {
+                      "op": "column",
+                      "table": "EC_MESSAGE_MONITORING",
+                      "column": "DIRECTION"
+                    }
+                  ]
+                },
+                {
+                  "op": "is_missing",
+                  "args": [
+                    {
+                      "op": "column",
+                      "table": "EC_MESSAGE_MONITORING",
+                      "column": "DATA_NAME"
+                    }
+                  ]
+                }
+              ]
+            },
+            "grain": {
+              "table": "EC_MESSAGE_MONITORING",
+              "keys": [
+                "__V23_SAMPLE_ROW_ID"
+              ]
+            },
+            "population": {
+              "table": "EC_MESSAGE_MONITORING",
+              "filter": null
+            },
+            "group_by": [],
+            "schema_version": "b1150a4494d505d45437c4ac594b95024b61e8021f6f9f06aaf6c8b3f7374d12",
+            "source_version": "82affdd810628f8fc880c884c83bf02e10f594db8ae821c25118c80ec5793309",
+            "missing_policy": {
+              "input": "propagate",
+              "empty_group": null,
+              "denominator_zero": null,
+              "child_missing": "propagate",
+              "unknown_predicate": "defer"
+            }
+          }
+        },
+        "validation": {
+          "passed": true,
+          "definition_status": "valid",
+          "definition_sha256": "a44189b8760a3aa856123710854f59c49434231256d62828f89d8e664b1cb3e5",
+          "proposal_sha256": "fb06a76b40309a1b968d0288b8ac76ce49b6b3e4b4ce644a0ae0eb6871b9197d",
+          "inferred_type": "boolean",
+          "unit": "boolean",
+          "identity": {
+            "population": {
+              "table": "EC_MESSAGE_MONITORING",
+              "filter": null
+            },
+            "group_by": [],
+            "schema_version": "b1150a4494d505d45437c4ac594b95024b61e8021f6f9f06aaf6c8b3f7374d12",
+            "missing_policy": {
+              "input": "propagate",
+              "empty_group": null,
+              "denominator_zero": null,
+              "child_missing": "propagate",
+              "unknown_predicate": "defer"
+            },
+            "source_version": "82affdd810628f8fc880c884c83bf02e10f594db8ae821c25118c80ec5793309",
+            "grain": {
+              "table": "EC_MESSAGE_MONITORING",
+              "keys": [
+                "__V23_SAMPLE_ROW_ID"
+              ]
+            },
+            "expression": {
+              "op": "and",
+              "args": [
+                {
+                  "op": "is_missing",
+                  "args": [
+                    {
+                      "op": "column",
+                      "table": "EC_MESSAGE_MONITORING",
+                      "column": "DIRECTION"
+                    }
+                  ]
+                },
+                {
+                  "op": "is_missing",
+                  "args": [
+                    {
+                      "op": "column",
+                      "table": "EC_MESSAGE_MONITORING",
+                      "column": "DATA_NAME"
+                    }
+                  ]
+                }
+              ]
+            },
+            "calculation_policy": "metadata-calculation-3.0.4",
+            "inferred_type": "boolean",
+            "unit": "boolean",
+            "source_columns": [
+              [
+                "EC_MESSAGE_MONITORING",
+                "DATA_NAME"
+              ],
+              [
+                "EC_MESSAGE_MONITORING",
+                "DIRECTION"
+              ]
+            ],
+            "relationships": []
+          },
+          "capture_missing": [],
+          "aggregate_relationships": [],
+          "errors": []
+        },
+        "calculation_signature": "33c0405be8ba5db3f7797b265d78455689656479551edf2f4ea3861422f324e2",
+        "raw_reexpression": false,
+        "feature": {
+          "id": "fv5_ba480735d6a9db345d80d30a",
+          "origin": "feature_model_proposal",
+          "meaning": "Boolean conjunction of unavailable message direction and unavailable data name; both are currently available.",
+          "plan": {
+            "id": "fv5_ba480735d6a9db345d80d30a",
+            "description": "Boolean conjunction of unavailable message direction and unavailable data name; both are currently available.",
+            "expression": {
+              "op": "and",
+              "args": [
+                {
+                  "op": "is_missing",
+                  "args": [
+                    {
+                      "op": "column",
+                      "table": "EC_MESSAGE_MONITORING",
+                      "column": "DIRECTION"
+                    }
+                  ]
+                },
+                {
+                  "op": "is_missing",
+                  "args": [
+                    {
+                      "op": "column",
+                      "table": "EC_MESSAGE_MONITORING",
+                      "column": "DATA_NAME"
+                    }
+                  ]
+                }
+              ]
+            },
+            "grain": {
+              "table": "EC_MESSAGE_MONITORING",
+              "keys": [
+                "__V23_SAMPLE_ROW_ID"
+              ]
+            },
+            "population": {
+              "table": "EC_MESSAGE_MONITORING",
+              "filter": null
+            },
+            "group_by": [],
+            "schema_version": "b1150a4494d505d45437c4ac594b95024b61e8021f6f9f06aaf6c8b3f7374d12",
+            "source_version": "82affdd810628f8fc880c884c83bf02e10f594db8ae821c25118c80ec5793309",
+            "missing_policy": {
+              "input": "propagate",
+              "empty_group": null,
+              "denominator_zero": null,
+              "child_missing": "propagate",
+              "unknown_predicate": "defer"
+            }
+          },
+          "dtype": "boolean",
+          "unit": "boolean",
+          "definition_sha256": "a44189b8760a3aa856123710854f59c49434231256d62828f89d8e664b1cb3e5",
+          "schema_version": "b1150a4494d505d45437c4ac594b95024b61e8021f6f9f06aaf6c8b3f7374d12",
+          "source_version": "82affdd810628f8fc880c884c83bf02e10f594db8ae821c25118c80ec5793309",
+          "calculation_policy": "metadata-calculation-3.0.4",
+          "source_columns": [
+            [
+              "EC_MESSAGE_MONITORING",
+              "DATA_NAME"
+            ],
+            [
+              "EC_MESSAGE_MONITORING",
+              "DIRECTION"
+            ]
+          ],
+          "relationships": [],
+          "measurement": {
+            "version": "metadata-calculation-3.0.4",
+            "candidate_id": "fv5_ba480735d6a9db345d80d30a",
+            "proposal_sha256": "a0186f7318947a7e2792cddba802b5d53b8802954eb5b377a57e7ef727d684a4",
+            "definition_status": "valid",
+            "definition_sha256": "a44189b8760a3aa856123710854f59c49434231256d62828f89d8e664b1cb3e5",
+            "validation": {
+              "passed": true,
+              "definition_status": "valid",
+              "definition_sha256": "a44189b8760a3aa856123710854f59c49434231256d62828f89d8e664b1cb3e5",
+              "proposal_sha256": "a0186f7318947a7e2792cddba802b5d53b8802954eb5b377a57e7ef727d684a4",
+              "inferred_type": "boolean",
+              "unit": "boolean",
+              "identity": {
+                "population": {
+                  "table": "EC_MESSAGE_MONITORING",
+                  "filter": null
+                },
+                "group_by": [],
+                "schema_version": "b1150a4494d505d45437c4ac594b95024b61e8021f6f9f06aaf6c8b3f7374d12",
+                "missing_policy": {
+                  "input": "propagate",
+                  "empty_group": null,
+                  "denominator_zero": null,
+                  "child_missing": "propagate",
+                  "unknown_predicate": "defer"
+                },
+                "source_version": "82affdd810628f8fc880c884c83bf02e10f594db8ae821c25118c80ec5793309",
+                "grain": {
+                  "table": "EC_MESSAGE_MONITORING",
+                  "keys": [
+                    "__V23_SAMPLE_ROW_ID"
+                  ]
+                },
+                "expression": {
+                  "op": "and",
+                  "args": [
+                    {
+                      "op": "is_missing",
+                      "args": [
+                        {
+                          "op": "column",
+                          "table": "EC_MESSAGE_MONITORING",
+                          "column": "DIRECTION"
+                        }
+                      ]
+                    },
+                    {
+                      "op": "is_missing",
+                      "args": [
+                        {
+                          "op": "column",
+                          "table": "EC_MESSAGE_MONITORING",
+                          "column": "DATA_NAME"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                "calculation_policy": "metadata-calculation-3.0.4",
+                "inferred_type": "boolean",
+                "unit": "boolean",
+                "source_columns": [
+                  [
+                    "EC_MESSAGE_MONITORING",
+                    "DATA_NAME"
+                  ],
+                  [
+                    "EC_MESSAGE_MONITORING",
+                    "DIRECTION"
+                  ]
+                ],
+                "relationships": []
+              },
+              "capture_missing": [],
+              "aggregate_relationships": [],
+              "errors": []
+            },
+            "measurement_status": "measured",
+            "summary": {
+              "row_count": 256,
+              "valid_count": 256,
+              "missing_count": 0,
+              "true_count": 0,
+              "false_count": 256,
+              "ratio": 0,
+              "numerator": 0,
+              "denominator": 256,
+              "min": null,
+              "max": null,
+              "p95": null,
+              "p99": null,
+              "variation": "constant",
+              "quantile_method": "linear_(n-1)*p",
+              "exact_decimal": {
+                "ratio": "0",
+                "p95": null,
+                "p99": null
+              },
+              "population_rows_before_selection": 256,
+              "selection_unavailable_count": 0,
+              "source_rows_preserved": true
+            },
+            "errors": [],
+            "anomaly_execution": "not_run",
+            "groups": [],
+            "measurement_sha256": "4291ef58b789c7519f310099290b8f8f6daddb15fe194c389f0d84620a78d165"
+          },
+          "model_proposal_id": "train_A_actual_0_c0",
+          "identity_mapping": {
+            "call_id": "v5|eval_B_actual_3",
+            "model_proposal_id": "train_A_actual_0_c0",
+            "registry_id": "fv5_ba480735d6a9db345d80d30a",
+            "raw_candidate_sha256": "a5c75fa7e3254a573172f209fe0132568975882f863bb75cd43474d2e57c47d3",
+            "definition_sha256": "a44189b8760a3aa856123710854f59c49434231256d62828f89d8e664b1cb3e5",
+            "source_version": "82affdd810628f8fc880c884c83bf02e10f594db8ae821c25118c80ec5793309",
+            "raw_id_preserved": true
+          }
+        },
+        "independent_checks": [
+          {
+            "id": "train_A_actual_0_c0",
+            "row_values": 256,
+            "passed": true,
+            "definition_sha": "a44189b8760a3aa856123710854f59c49434231256d62828f89d8e664b1cb3e5",
+            "source_version": "82affdd810628f8fc880c884c83bf02e10f594db8ae821c25118c80ec5793309",
+            "method": "Independent AST interpreter on guarded actual rows; no Engine.evaluate call"
+          }
+        ],
+        "identity_mapping": {
+          "call_id": "v5|eval_B_actual_3",
+          "model_proposal_id": "train_A_actual_0_c0",
+          "registry_id": "fv5_ba480735d6a9db345d80d30a",
+          "raw_candidate_sha256": "a5c75fa7e3254a573172f209fe0132568975882f863bb75cd43474d2e57c47d3",
+          "definition_sha256": "a44189b8760a3aa856123710854f59c49434231256d62828f89d8e664b1cb3e5",
+          "source_version": "82affdd810628f8fc880c884c83bf02e10f594db8ae821c25118c80ec5793309",
+          "raw_id_preserved": true
+        },
+        "visible_sources": true
+      }
+    ],
+    "zero": false,
+    "errors": []
+  }
+}

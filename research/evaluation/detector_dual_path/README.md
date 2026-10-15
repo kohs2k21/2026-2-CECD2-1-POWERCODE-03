@@ -53,7 +53,12 @@ research/evaluation/detector_dual_path/
 - 기존 계산 재사용: `research/anomaly_detection/code/`; 배포 코드에서 연구 패키지 직접 import 금지
 - 패키지 모듈명·기존 모델·과거 실행 manifest/산출물 보존
 
-## 실행
+## 과거 v3 재현 실행
+
+- 아래 기본 CLI는 구형 comparison_models.joblib 필요; 최신 dev의 v12 모델로 대체 불가
+- 정확한 과거 재현: 별도 checkout의 커밋 `82031a2921cc19020dd836a58ad3dc8b91c0c142` 및 해당 환경 사용
+- 최신 v4·PROCESS 비교: 상단 결과·실행 규약의 각 전용 진입점 사용
+- 구형 파일 또는 inventory 등록 누락 시 결과 폴더 생성 전 중단
 
 ```powershell
 .venv/Scripts/python.exe -m pip install -r research/evaluation/detector_dual_path/requirements.txt

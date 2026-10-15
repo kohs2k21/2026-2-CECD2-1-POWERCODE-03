@@ -1,0 +1,101 @@
+# Standalone CPU demo; no customer API credentials, Qwen Base or GPU required.
+name: powercode-demo
+x-worker: &worker
+  image: powercode-worker:demo
+  build:
+    context: ..
+    dockerfile: worker/Dockerfile
+  init: true
+  user: "${PWC_CONTAINER_UID:-10001}:${PWC_CONTAINER_GID:-10001}"
+  networks: [database]
+  environment: &environment
+    DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL in .env.demo}
+    ARTIFACT_ROOT: /artifacts
+services:
+  sender:
+    <<: *worker
+    profiles: [tools]
+    restart: "no"
+    entrypoint: [python, -m, demo.cli]
+    command: [--help]
+    cpus: ${DEMO_PREPARE_CPUS:-4}
+    mem_limit: ${DEMO_PREPARE_MEMORY:-8g}
+    environment:
+      <<: *environment
+      DEMO_SOURCE_DATABASE_URL: ${DEMO_SOURCE_DATABASE_URL:-}
+      DEMO_TRANSACTION_CSV: /inputs/${DEMO_TRANSACTION_FILE:-EC_TRANSACTION_MONITORING.csv}
+      DEMO_PROCESS_CSV: /inputs/${DEMO_PROCESS_FILE:-EC_PROCESS_MONITORING.csv}
+      DEMO_BODY_CSV: /inputs/${DEMO_BODY_FILE:-EC_MESSAGE_BODY.csv}
+    volumes:
+      - type: bind
+        source: ${DEMO_CSV_DIR:-/data/gst-dongguk/powercode-esb/tmp}
+        target: /inputs
+        read_only: true
+        bind: {create_host_path: false}
+      - type: bind
+        source: ${ARTIFACT_ROOT_PATH:?Set the existing artifact directory}
+        target: /artifacts
+        bind: {create_host_path: false}
+  detector:
+    <<: *worker
+    command: [python, -m, detector.runner]
+    restart: unless-stopped
+    cpus: ${DETECTOR_CPUS:-2}
+    mem_limit: ${DETECTOR_MEMORY:-4g}
+    volumes:
+      - type: bind
+        source: ${ARTIFACT_ROOT_PATH:?Set ARTIFACT_ROOT_PATH}
+        target: /artifacts
+        read_only: true
+        bind: {create_host_path: false}
+  api:
+    profiles: [ui]
+    build:
+      context: ..
+      dockerfile: backend/Dockerfile
+    init: true
+    restart: unless-stopped
+    user: "${PWC_CONTAINER_UID:-10001}:${PWC_CONTAINER_GID:-10001}"
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL}
+      JWT_SECRET: ${JWT_SECRET:-}
+      PORT: "5001"
+      USER_DATA_PATH: /app/data/users.json
+      SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-}
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-}
+    volumes:
+      - type: bind
+        source: ${AUTH_DATA_DIR:?Set existing auth data directory}
+        target: /app/data
+        bind: {create_host_path: false}
+    networks: [runtime, database]
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://127.0.0.1:5001/health/database').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+  web:
+    profiles: [ui]
+    build:
+      context: ..
+      dockerfile: frontend/Dockerfile
+    restart: unless-stopped
+    ports: ["${WEB_BIND:-0.0.0.0}:${WEB_PORT:-8081}:80"]
+    networks: [runtime]
+    depends_on:
+      api: {condition: service_healthy}
+  migrate:
+    image: postgres:17-alpine
+    profiles: [tools]
+    restart: "no"
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL}
+    networks: [database]
+    volumes: ["./migrations:/migrations:ro"]
+    entrypoint: [sh, -c, 'exec psql "$$DATABASE_URL" -v ON_ERROR_STOP=1 "$$@"', psql]
+    command: [--help]
+networks:
+  runtime: {}
+  database:
+    external: true
+    name: ${PWC_DB_NETWORK:-anomaly-net}

@@ -1,0 +1,15 @@
+{
+  "id": "eval_zero_actual_1",
+  "phase": "v5",
+  "raw_output": "{\"candidates\":[],\"stop_reason\":\"abs is not supported by this engine; signed END_TIME minus START_TIME on EC_PROCESS_MONITORING would not preserve the requested all-row absolute value.\"}",
+  "raw_sha": "091a21264fe2fb8665183a617d06d7775c83e113a5ea2f2e1c6163eebdc22c52",
+  "original_input_sha": "c227a4e5480a04794bc4e0e181bd3a841c150907c0ee2892340fae98004fb618",
+  "generated_tokens": 38,
+  "length_limit_reached": false,
+  "checks": {
+    "JSON_contract": true,
+    "candidates": [],
+    "zero": true,
+    "errors": []
+  }
+}

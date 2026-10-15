@@ -1,0 +1,12 @@
+# Read the operator's existing token file without copying it into an image.
+services:
+  collector:
+    environment:
+      COLLECTOR_ACCESS_TOKEN: ""
+      COLLECTOR_ACCESS_TOKEN_FILE: /run/secrets/customer_api_token
+    volumes:
+      - type: bind
+        source: ${COLLECTOR_ACCESS_TOKEN_FILE_PATH:?Set the existing token file absolute path}
+        target: /run/secrets/customer_api_token
+        read_only: true
+        bind: {create_host_path: false}

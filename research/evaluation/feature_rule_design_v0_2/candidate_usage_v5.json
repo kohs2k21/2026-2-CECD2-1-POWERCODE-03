@@ -1,0 +1,1114 @@
+{
+  "new_adopted_definitions": [
+    {
+      "key": "eval_A_actual_0_0",
+      "code_id": "fv5_780b4b24367499347adf9902",
+      "model_alias": "train_A_actual_0_c0",
+      "source_kind": "approved_actual_capture",
+      "task": "specified",
+      "meaning": "Sum of signed process END_TIME minus START_TIME coordinates in ms for captured child processes; not business elapsed time.",
+      "expression": {
+        "op": "child_sum",
+        "relationship_id": "physical_P_to_T",
+        "where": null,
+        "value": {
+          "op": "datetime_diff",
+          "args": [
+            {
+              "op": "column",
+              "table": "EC_PROCESS_MONITORING",
+              "column": "END_TIME"
+            },
+            {
+              "op": "column",
+              "table": "EC_PROCESS_MONITORING",
+              "column": "START_TIME"
+            }
+          ],
+          "unit": "ms"
+        }
+      },
+      "grain": {
+        "table": "EC_TRANSACTION_MONITORING",
+        "keys": [
+          "__V23_SAMPLE_ROW_ID"
+        ]
+      },
+      "population": {
+        "table": "EC_TRANSACTION_MONITORING",
+        "filter": null
+      },
+      "type": "number",
+      "unit": "ms",
+      "definition_SHA": "884b1247fd781f1eac454860e5fc361f616c9b30a926d7535f0faaebac8247b9",
+      "source_version": "82affdd810628f8fc880c884c83bf02e10f594db8ae821c25118c80ec5793309",
+      "summary": {
+        "row_count": 128,
+        "valid_count": 128,
+        "missing_count": 0,
+        "true_count": null,
+        "false_count": null,
+        "ratio": null,
+        "numerator": null,
+        "denominator": null,
+        "min": 12,
+        "max": 120,
+        "p95": 46.3,
+        "p99": 89.74,
+        "variation": "variable",
+        "quantile_method": "linear_(n-1)*p",
+        "exact_decimal": {
+          "ratio": null,
+          "p95": "46.30",
+          "p99": "89.74"
+        },
+        "population_rows_before_selection": 128,
+        "selection_unavailable_count": 0,
+        "source_rows_preserved": true,
+        "datetime_limitations": {
+          "calculation": "parsed_timestamp_coordinate_difference",
+          "business_duration_contract": "unknown",
+          "common_producer_clock": "unknown"
+        }
+      },
+      "definition_duplicate": false,
+      "sample_value_digest": "56b16c210d2e542fafa1b8406b810662d0c7c1d45f6fa46bd0cc40721c716d6b",
+      "availability": "offline_captured_scope",
+      "IF_status": "deferred",
+      "IF_approved": false,
+      "operational_usefulness_approved": false,
+      "unconfirmed": [
+        "online observation availability",
+        "missingness/leakage handling in production",
+        "business meaning and any duration/common clock interpretation",
+        "actual anomaly discrimination"
+      ]
+    },
+    {
+      "key": "eval_A_actual_2_0",
+      "code_id": "fv5_bff9b1b7ac29197142e5078d",
+      "model_alias": "train_A_actual_0_c0",
+      "source_kind": "approved_actual_capture",
+      "task": "specified",
+      "meaning": "Boolean TRUE when both DATA_NAME and DIRECTION are unavailable; FALSE otherwise.",
+      "expression": {
+        "op": "and",
+        "args": [
+          {
+            "op": "is_missing",
+            "args": [
+              {
+                "op": "column",
+                "table": "EC_MESSAGE_MONITORING",
+                "column": "DATA_NAME"
+              }
+            ]
+          },
+          {
+            "op": "is_missing",
+            "args": [
+              {
+                "op": "column",
+                "table": "EC_MESSAGE_MONITORING",
+                "column": "DIRECTION"
+              }
+            ]
+          }
+        ]
+      },
+      "grain": {
+        "table": "EC_MESSAGE_MONITORING",
+        "keys": [
+          "__V23_SAMPLE_ROW_ID"
+        ]
+      },
+      "population": {
+        "table": "EC_MESSAGE_MONITORING",
+        "filter": null
+      },
+      "type": "boolean",
+      "unit": "boolean",
+      "definition_SHA": "bf17b3de4423aa30707d14ad66804553c75a07c26773afd999a4825739372169",
+      "source_version": "82affdd810628f8fc880c884c83bf02e10f594db8ae821c25118c80ec5793309",
+      "summary": {
+        "row_count": 256,
+        "valid_count": 256,
+        "missing_count": 0,
+        "true_count": 0,
+        "false_count": 256,
+        "ratio": 0,
+        "numerator": 0,
+        "denominator": 256,
+        "min": null,
+        "max": null,
+        "p95": null,
+        "p99": null,
+        "variation": "constant",
+        "quantile_method": "linear_(n-1)*p",
+        "exact_decimal": {
+          "ratio": "0",
+          "p95": null,
+          "p99": null
+        },
+        "population_rows_before_selection": 256,
+        "selection_unavailable_count": 0,
+        "source_rows_preserved": true
+      },
+      "definition_duplicate": false,
+      "sample_value_digest": "4afaedbc0b76efa7977774b95a6865fec964fd9c9b00e0129be164581ed4f2e0",
+      "availability": "offline_captured_scope",
+      "IF_status": "excluded_current_constant",
+      "IF_approved": false,
+      "operational_usefulness_approved": false,
+      "unconfirmed": [
+        "online observation availability",
+        "missingness/leakage handling in production",
+        "business meaning and any duration/common clock interpretation",
+        "actual anomaly discrimination"
+      ]
+    },
+    {
+      "key": "eval_A_actual_3_0",
+      "code_id": "fv5_26a81708b085fd6ae4c4ddd4",
+      "model_alias": "train_A_actual_0_c0",
+      "source_kind": "approved_actual_capture",
+      "task": "specified",
+      "meaning": "Count of captured message children with unavailable DATA_NAME for literal STATUS=S; missingness only.",
+      "expression": {
+        "op": "conditional_count",
+        "relationship_id": "physical_M_to_T",
+        "where": {
+          "op": "is_missing",
+          "args": [
+            {
+              "op": "column",
+              "table": "EC_MESSAGE_MONITORING",
+              "column": "DATA_NAME"
+            }
+          ]
+        }
+      },
+      "grain": {
+        "table": "EC_TRANSACTION_MONITORING",
+        "keys": [
+          "__V23_SAMPLE_ROW_ID"
+        ]
+      },
+      "population": {
+        "table": "EC_TRANSACTION_MONITORING",
+        "filter": {
+          "op": "eq",
+          "args": [
+            {
+              "op": "column",
+              "table": "EC_TRANSACTION_MONITORING",
+              "column": "STATUS"
+            },
+            {
+              "op": "literal",
+              "value": "S"
+            }
+          ]
+        }
+      },
+      "type": "integer",
+      "unit": "count",
+      "definition_SHA": "90cc85718b15fd9f6cda9393ae418617d9e109379d7a4a9132f8230b514bfd4a",
+      "source_version": "82affdd810628f8fc880c884c83bf02e10f594db8ae821c25118c80ec5793309",
+      "summary": {
+        "row_count": 12,
+        "valid_count": 12,
+        "missing_count": 0,
+        "true_count": null,
+        "false_count": null,
+        "ratio": null,
+        "numerator": null,
+        "denominator": null,
+        "min": 0,
+        "max": 0,
+        "p95": 0,
+        "p99": 0,
+        "variation": "constant",
+        "quantile_method": "linear_(n-1)*p",
+        "exact_decimal": {
+          "ratio": null,
+          "p95": "0.00",
+          "p99": "0.00"
+        },
+        "population_rows_before_selection": 128,
+        "selection_unavailable_count": 0,
+        "source_rows_preserved": true
+      },
+      "definition_duplicate": false,
+      "sample_value_digest": "cd79eeffca944140f1d20a23f6fe5423a8423bccdf1901850ec7c34e61806f09",
+      "availability": "offline_captured_scope",
+      "IF_status": "excluded_current_constant",
+      "IF_approved": false,
+      "operational_usefulness_approved": false,
+      "unconfirmed": [
+        "online observation availability",
+        "missingness/leakage handling in production",
+        "business meaning and any duration/common clock interpretation",
+        "actual anomaly discrimination"
+      ]
+    },
+    {
+      "key": "eval_A_synthetic_1_0",
+      "code_id": "fv5_b18439a540015a332a3cad73",
+      "model_alias": "train_A_v5_0501_c0",
+      "source_kind": "controlled_synthetic",
+      "task": "specified",
+      "meaning": "Sum of verified child count quantities for literal code A; missing selected child quantity propagates, empty selected child set gives zero.",
+      "expression": {
+        "op": "child_sum",
+        "relationship_id": "link_v5_eval_A_1",
+        "where": {
+          "op": "eq",
+          "args": [
+            {
+              "op": "column",
+              "table": "child_v5_eval_A_1",
+              "column": "code_702"
+            },
+            {
+              "op": "literal",
+              "value": "A"
+            }
+          ]
+        },
+        "value": {
+          "op": "column",
+          "table": "child_v5_eval_A_1",
+          "column": "portion_702"
+        }
+      },
+      "grain": {
+        "table": "parent_v5_eval_A_1",
+        "keys": [
+          "row_702"
+        ]
+      },
+      "population": {
+        "table": "parent_v5_eval_A_1",
+        "filter": null
+      },
+      "type": "number",
+      "unit": "count",
+      "definition_SHA": "0b708990371e3e579b9c77eed8e06df46cdfa939fbce6d2eecbcad3f4c758992",
+      "source_version": "cd6f6aa47efbbd1340ac0039da740a75b783f08de716490dc201a1145e1ee0fb",
+      "summary": {
+        "row_count": 32,
+        "valid_count": 30,
+        "missing_count": 2,
+        "true_count": null,
+        "false_count": null,
+        "ratio": null,
+        "numerator": null,
+        "denominator": null,
+        "min": 0,
+        "max": 4,
+        "p95": 3.55,
+        "p99": 4,
+        "variation": "variable",
+        "quantile_method": "linear_(n-1)*p",
+        "exact_decimal": {
+          "ratio": null,
+          "p95": "3.55",
+          "p99": "4.00"
+        },
+        "population_rows_before_selection": 32,
+        "selection_unavailable_count": 0,
+        "source_rows_preserved": true
+      },
+      "definition_duplicate": false,
+      "sample_value_digest": "0d1c75dce46c154c7e1c16aa348d7c947e7c8e121194a91ff6f0c8115e017075",
+      "availability": "offline_captured_scope",
+      "IF_status": "deferred",
+      "IF_approved": false,
+      "operational_usefulness_approved": false,
+      "unconfirmed": [
+        "online observation availability",
+        "missingness/leakage handling in production",
+        "business meaning and any duration/common clock interpretation",
+        "actual anomaly discrimination"
+      ]
+    },
+    {
+      "key": "eval_A_synthetic_2_0",
+      "code_id": "fv5_774a76192bb0d09e9198c3a1",
+      "model_alias": "train_A_v5_00_c0",
+      "source_kind": "controlled_synthetic",
+      "task": "specified",
+      "meaning": "Count of captured child rows with literal code A per parent; only parents with literal site1.",
+      "expression": {
+        "op": "conditional_count",
+        "relationship_id": "link_v5_eval_A_2",
+        "where": {
+          "op": "eq",
+          "args": [
+            {
+              "op": "column",
+              "table": "child_v5_eval_A_2",
+              "column": "code_703"
+            },
+            {
+              "op": "literal",
+              "value": "A"
+            }
+          ]
+        }
+      },
+      "grain": {
+        "table": "parent_v5_eval_A_2",
+        "keys": [
+          "row_703"
+        ]
+      },
+      "population": {
+        "table": "parent_v5_eval_A_2",
+        "filter": {
+          "op": "eq",
+          "args": [
+            {
+              "op": "column",
+              "table": "parent_v5_eval_A_2",
+              "column": "tenant_703"
+            },
+            {
+              "op": "literal",
+              "value": "site1"
+            }
+          ]
+        }
+      },
+      "type": "integer",
+      "unit": "count",
+      "definition_SHA": "590a735ada68a2dcd2be86c448b26b0de3526bb5afbb7c5c806461bfc844e1b0",
+      "source_version": "8711e97bc6ee89b77401f482a4466d98898b099327ec30b83fa68f4f2e30f613",
+      "summary": {
+        "row_count": 16,
+        "valid_count": 16,
+        "missing_count": 0,
+        "true_count": null,
+        "false_count": null,
+        "ratio": null,
+        "numerator": null,
+        "denominator": null,
+        "min": 0,
+        "max": 1,
+        "p95": 1,
+        "p99": 1,
+        "variation": "variable",
+        "quantile_method": "linear_(n-1)*p",
+        "exact_decimal": {
+          "ratio": null,
+          "p95": "1.00",
+          "p99": "1.00"
+        },
+        "population_rows_before_selection": 32,
+        "selection_unavailable_count": 0,
+        "source_rows_preserved": true
+      },
+      "definition_duplicate": false,
+      "sample_value_digest": "1aa720300773eedf68407353cf3363a818a41757552b69c5d697c886f7193aa6",
+      "availability": "offline_captured_scope",
+      "IF_status": "deferred",
+      "IF_approved": false,
+      "operational_usefulness_approved": false,
+      "unconfirmed": [
+        "online observation availability",
+        "missingness/leakage handling in production",
+        "business meaning and any duration/common clock interpretation",
+        "actual anomaly discrimination"
+      ]
+    },
+    {
+      "key": "eval_B_actual_0_0",
+      "code_id": "fv5_819edb723e9822da01012602",
+      "model_alias": "train_A_actual_0_c0",
+      "source_kind": "approved_actual_capture",
+      "task": "discovery",
+      "meaning": "Boolean conjunction of unavailable process dependency identifier and unavailable process start timestamp; both are available in this capture.",
+      "expression": {
+        "op": "and",
+        "args": [
+          {
+            "op": "is_missing",
+            "args": [
+              {
+                "op": "column",
+                "table": "EC_PROCESS_MONITORING",
+                "column": "DEPEND_PROCESS_ID"
+              }
+            ]
+          },
+          {
+            "op": "is_missing",
+            "args": [
+              {
+                "op": "column",
+                "table": "EC_PROCESS_MONITORING",
+                "column": "START_TIME"
+              }
+            ]
+          }
+        ]
+      },
+      "grain": {
+        "table": "EC_PROCESS_MONITORING",
+        "keys": [
+          "__V23_SAMPLE_ROW_ID"
+        ]
+      },
+      "population": {
+        "table": "EC_PROCESS_MONITORING",
+        "filter": null
+      },
+      "type": "boolean",
+      "unit": "boolean",
+      "definition_SHA": "18dcda01ea112b106523a0957cb37420f3dd469f7591e8414679605f3c2deb2c",
+      "source_version": "82affdd810628f8fc880c884c83bf02e10f594db8ae821c25118c80ec5793309",
+      "summary": {
+        "row_count": 128,
+        "valid_count": 128,
+        "missing_count": 0,
+        "true_count": 0,
+        "false_count": 128,
+        "ratio": 0,
+        "numerator": 0,
+        "denominator": 128,
+        "min": null,
+        "max": null,
+        "p95": null,
+        "p99": null,
+        "variation": "constant",
+        "quantile_method": "linear_(n-1)*p",
+        "exact_decimal": {
+          "ratio": "0",
+          "p95": null,
+          "p99": null
+        },
+        "population_rows_before_selection": 128,
+        "selection_unavailable_count": 0,
+        "source_rows_preserved": true
+      },
+      "definition_duplicate": false,
+      "sample_value_digest": "6810e47fd40ad37c999c37ee51e33cf2a2b5699fabe51ff71cdf6f1cb4fc6508",
+      "availability": "offline_captured_scope",
+      "IF_status": "excluded_current_constant",
+      "IF_approved": false,
+      "operational_usefulness_approved": false,
+      "unconfirmed": [
+        "online observation availability",
+        "missingness/leakage handling in production",
+        "business meaning and any duration/common clock interpretation",
+        "actual anomaly discrimination"
+      ]
+    },
+    {
+      "key": "eval_B_synthetic_0_0",
+      "code_id": "fv5_3afb11e9a967bf3875add6a4",
+      "model_alias": "train_B_0_c0",
+      "source_kind": "controlled_synthetic",
+      "task": "discovery",
+      "meaning": "Signed finish minus begin timestamp difference in milliseconds; unavailable inputs or parsing/timezone incompatibility propagate, not business duration.",
+      "expression": {
+        "op": "datetime_diff",
+        "args": [
+          {
+            "op": "column",
+            "table": "parent_v5_eval_B_0",
+            "column": "finish_801"
+          },
+          {
+            "op": "column",
+            "table": "parent_v5_eval_B_0",
+            "column": "begin_801"
+          }
+        ],
+        "unit": "ms"
+      },
+      "grain": {
+        "table": "parent_v5_eval_B_0",
+        "keys": [
+          "row_801"
+        ]
+      },
+      "population": {
+        "table": "parent_v5_eval_B_0",
+        "filter": null
+      },
+      "type": "number",
+      "unit": "ms",
+      "definition_SHA": "ab037875ae80d4e04dab5d8e40e1dc5b57c3de21e7edd0eb701a184ae838b19f",
+      "source_version": "be376f36403f615651d533634b721e40d46b89bbb8d210478f402b5cd577a41a",
+      "summary": {
+        "row_count": 32,
+        "valid_count": 27,
+        "missing_count": 5,
+        "true_count": null,
+        "false_count": null,
+        "ratio": null,
+        "numerator": null,
+        "denominator": null,
+        "min": -60000,
+        "max": 60000,
+        "p95": 60000,
+        "p99": 60000,
+        "variation": "variable",
+        "quantile_method": "linear_(n-1)*p",
+        "exact_decimal": {
+          "ratio": null,
+          "p95": "60000.00",
+          "p99": "60000.00"
+        },
+        "population_rows_before_selection": 32,
+        "selection_unavailable_count": 0,
+        "source_rows_preserved": true,
+        "datetime_limitations": {
+          "calculation": "parsed_timestamp_coordinate_difference",
+          "business_duration_contract": "unknown",
+          "common_producer_clock": "unknown"
+        }
+      },
+      "definition_duplicate": false,
+      "sample_value_digest": "49edd6f6de9f6d444898e4c495c046455ec824273326de8f2e519417ae394870",
+      "availability": "offline_captured_scope",
+      "IF_status": "deferred",
+      "IF_approved": false,
+      "operational_usefulness_approved": false,
+      "unconfirmed": [
+        "online observation availability",
+        "missingness/leakage handling in production",
+        "business meaning and any duration/common clock interpretation",
+        "actual anomaly discrimination"
+      ]
+    },
+    {
+      "key": "eval_B_synthetic_0_1",
+      "code_id": "fv5_21cf26e055b8c3c502510322",
+      "model_alias": "train_B_0_c1",
+      "source_kind": "controlled_synthetic",
+      "task": "discovery",
+      "meaning": "Boolean indicating unavailable finish timestamp; raw type missingness only, not business completeness.",
+      "expression": {
+        "op": "is_missing",
+        "args": [
+          {
+            "op": "column",
+            "table": "parent_v5_eval_B_0",
+            "column": "finish_801"
+          }
+        ]
+      },
+      "grain": {
+        "table": "parent_v5_eval_B_0",
+        "keys": [
+          "row_801"
+        ]
+      },
+      "population": {
+        "table": "parent_v5_eval_B_0",
+        "filter": null
+      },
+      "type": "boolean",
+      "unit": "boolean",
+      "definition_SHA": "1305bfd89df60e775b2a1f3d9454fb749cb3bb964164cc7a38ab523a3c9d9fa4",
+      "source_version": "be376f36403f615651d533634b721e40d46b89bbb8d210478f402b5cd577a41a",
+      "summary": {
+        "row_count": 32,
+        "valid_count": 32,
+        "missing_count": 0,
+        "true_count": 4,
+        "false_count": 28,
+        "ratio": 0.125,
+        "numerator": 4,
+        "denominator": 32,
+        "min": null,
+        "max": null,
+        "p95": null,
+        "p99": null,
+        "variation": "variable",
+        "quantile_method": "linear_(n-1)*p",
+        "exact_decimal": {
+          "ratio": "0.125",
+          "p95": null,
+          "p99": null
+        },
+        "population_rows_before_selection": 32,
+        "selection_unavailable_count": 0,
+        "source_rows_preserved": true
+      },
+      "definition_duplicate": false,
+      "sample_value_digest": "6877d84a818e588468d2e5d48e5f327fce324278a4f559f772b815eb74e9be50",
+      "availability": "offline_captured_scope",
+      "IF_status": "deferred",
+      "IF_approved": false,
+      "operational_usefulness_approved": false,
+      "unconfirmed": [
+        "online observation availability",
+        "missingness/leakage handling in production",
+        "business meaning and any duration/common clock interpretation",
+        "actual anomaly discrimination"
+      ]
+    },
+    {
+      "key": "eval_B_synthetic_1_0",
+      "code_id": "fv5_849dd0823496d69b2f334010",
+      "model_alias": "train_B_v5_00_c0",
+      "source_kind": "controlled_synthetic",
+      "task": "discovery",
+      "meaning": "Number of captured child rows per parent; no children gives zero, not unavailable.",
+      "expression": {
+        "op": "child_count",
+        "relationship_id": "link_v5_eval_B_1"
+      },
+      "grain": {
+        "table": "parent_v5_eval_B_1",
+        "keys": [
+          "row_802"
+        ]
+      },
+      "population": {
+        "table": "parent_v5_eval_B_1",
+        "filter": null
+      },
+      "type": "integer",
+      "unit": "count",
+      "definition_SHA": "46fb05074f58d5813a661970f71be7274cb2e9c3a11fca9b928ddaf35a212365",
+      "source_version": "ff7a605d62b0bc802f43da39ad6d87159faf21609dc75eb1de139efb93c02dac",
+      "summary": {
+        "row_count": 32,
+        "valid_count": 32,
+        "missing_count": 0,
+        "true_count": null,
+        "false_count": null,
+        "ratio": null,
+        "numerator": null,
+        "denominator": null,
+        "min": 0,
+        "max": 3,
+        "p95": 3,
+        "p99": 3,
+        "variation": "variable",
+        "quantile_method": "linear_(n-1)*p",
+        "exact_decimal": {
+          "ratio": null,
+          "p95": "3.00",
+          "p99": "3.00"
+        },
+        "population_rows_before_selection": 32,
+        "selection_unavailable_count": 0,
+        "source_rows_preserved": true
+      },
+      "definition_duplicate": false,
+      "sample_value_digest": "acc8c23cdf3d22f51abc042c5690ee425e44c0284b4f757148780742bd1829f3",
+      "availability": "offline_captured_scope",
+      "IF_status": "deferred",
+      "IF_approved": false,
+      "operational_usefulness_approved": false,
+      "unconfirmed": [
+        "online observation availability",
+        "missingness/leakage handling in production",
+        "business meaning and any duration/common clock interpretation",
+        "actual anomaly discrimination"
+      ]
+    },
+    {
+      "key": "eval_B_synthetic_1_1",
+      "code_id": "fv5_7a60c0f0ef3b78037d9038fd",
+      "model_alias": "train_B_v5_00_c1",
+      "source_kind": "controlled_synthetic",
+      "task": "discovery",
+      "meaning": "Number of captured child rows with literal code A; no children gives zero.",
+      "expression": {
+        "op": "conditional_count",
+        "relationship_id": "link_v5_eval_B_1",
+        "where": {
+          "op": "eq",
+          "args": [
+            {
+              "op": "column",
+              "table": "child_v5_eval_B_1",
+              "column": "code_802"
+            },
+            {
+              "op": "literal",
+              "value": "A"
+            }
+          ]
+        }
+      },
+      "grain": {
+        "table": "parent_v5_eval_B_1",
+        "keys": [
+          "row_802"
+        ]
+      },
+      "population": {
+        "table": "parent_v5_eval_B_1",
+        "filter": null
+      },
+      "type": "integer",
+      "unit": "count",
+      "definition_SHA": "cf45946ef3f8da0fa6d799504a9783c7f87df2d8a0387087c73d5e7f5f727392",
+      "source_version": "ff7a605d62b0bc802f43da39ad6d87159faf21609dc75eb1de139efb93c02dac",
+      "summary": {
+        "row_count": 32,
+        "valid_count": 32,
+        "missing_count": 0,
+        "true_count": null,
+        "false_count": null,
+        "ratio": null,
+        "numerator": null,
+        "denominator": null,
+        "min": 0,
+        "max": 1,
+        "p95": 1,
+        "p99": 1,
+        "variation": "variable",
+        "quantile_method": "linear_(n-1)*p",
+        "exact_decimal": {
+          "ratio": null,
+          "p95": "1.00",
+          "p99": "1.00"
+        },
+        "population_rows_before_selection": 32,
+        "selection_unavailable_count": 0,
+        "source_rows_preserved": true
+      },
+      "definition_duplicate": false,
+      "sample_value_digest": "2fe4c4fb8ac19f1eb3f7f55e8029d86e624d825371e783c9f610960c4df96f45",
+      "availability": "offline_captured_scope",
+      "IF_status": "deferred",
+      "IF_approved": false,
+      "operational_usefulness_approved": false,
+      "unconfirmed": [
+        "online observation availability",
+        "missingness/leakage handling in production",
+        "business meaning and any duration/common clock interpretation",
+        "actual anomaly discrimination"
+      ]
+    },
+    {
+      "key": "eval_B_synthetic_2_0",
+      "code_id": "fv5_31a9172610ed3b2c03c7db44",
+      "model_alias": "train_B_02_04_c0",
+      "source_kind": "controlled_synthetic",
+      "task": "discovery",
+      "meaning": "Verified count difference; no business interpretation.",
+      "expression": {
+        "op": "subtract",
+        "args": [
+          {
+            "op": "column",
+            "table": "parent_v5_eval_B_2",
+            "column": "quantity_803"
+          },
+          {
+            "op": "column",
+            "table": "parent_v5_eval_B_2",
+            "column": "portion_803"
+          }
+        ]
+      },
+      "grain": {
+        "table": "parent_v5_eval_B_2",
+        "keys": [
+          "row_803"
+        ]
+      },
+      "population": {
+        "table": "parent_v5_eval_B_2",
+        "filter": null
+      },
+      "type": "number",
+      "unit": "count",
+      "definition_SHA": "22d73adbdaa1117f1a2f67d85446af700cdb1a8a14f99ddf83a4a83bfb1e4909",
+      "source_version": "6f5827817bdc850a1c1abdf148b1465986f2a642828fee10673bb0841203544a",
+      "summary": {
+        "row_count": 32,
+        "valid_count": 32,
+        "missing_count": 0,
+        "true_count": null,
+        "false_count": null,
+        "ratio": null,
+        "numerator": null,
+        "denominator": null,
+        "min": 0,
+        "max": 17,
+        "p95": 14.45,
+        "p99": 16.38,
+        "variation": "variable",
+        "quantile_method": "linear_(n-1)*p",
+        "exact_decimal": {
+          "ratio": null,
+          "p95": "14.45",
+          "p99": "16.38"
+        },
+        "population_rows_before_selection": 32,
+        "selection_unavailable_count": 0,
+        "source_rows_preserved": true
+      },
+      "definition_duplicate": false,
+      "sample_value_digest": "313982d1bd2c9a4e7b9ff4da94bf86470b34973f15f2a528c1348bd306fcc8be",
+      "availability": "offline_captured_scope",
+      "IF_status": "deferred",
+      "IF_approved": false,
+      "operational_usefulness_approved": false,
+      "unconfirmed": [
+        "online observation availability",
+        "missingness/leakage handling in production",
+        "business meaning and any duration/common clock interpretation",
+        "actual anomaly discrimination"
+      ]
+    },
+    {
+      "key": "eval_B_synthetic_2_1",
+      "code_id": "fv5_4121bccc75618496c29fac9a",
+      "model_alias": "train_B_02_04_c1",
+      "source_kind": "controlled_synthetic",
+      "task": "discovery",
+      "meaning": "Signed coordinate difference in ms; not a verified business duration.",
+      "expression": {
+        "op": "subtract",
+        "args": [
+          {
+            "op": "column",
+            "table": "parent_v5_eval_B_2",
+            "column": "coord_ms_803"
+          },
+          {
+            "op": "convert_unit",
+            "args": [
+              {
+                "op": "column",
+                "table": "parent_v5_eval_B_2",
+                "column": "coord_s_803"
+              }
+            ],
+            "from_unit": "s",
+            "to_unit": "ms"
+          }
+        ]
+      },
+      "grain": {
+        "table": "parent_v5_eval_B_2",
+        "keys": [
+          "row_803"
+        ]
+      },
+      "population": {
+        "table": "parent_v5_eval_B_2",
+        "filter": null
+      },
+      "type": "number",
+      "unit": "ms",
+      "definition_SHA": "772b6a3964c961da668872781a3c4f971a1f7fe4924f233a8c47eb34f6a61431",
+      "source_version": "6f5827817bdc850a1c1abdf148b1465986f2a642828fee10673bb0841203544a",
+      "summary": {
+        "row_count": 32,
+        "valid_count": 32,
+        "missing_count": 0,
+        "true_count": null,
+        "false_count": null,
+        "ratio": null,
+        "numerator": null,
+        "denominator": null,
+        "min": 0,
+        "max": 21793,
+        "p95": 20703.35,
+        "p99": 21575.07,
+        "variation": "variable",
+        "quantile_method": "linear_(n-1)*p",
+        "exact_decimal": {
+          "ratio": null,
+          "p95": "20703.350",
+          "p99": "21575.070"
+        },
+        "population_rows_before_selection": 32,
+        "selection_unavailable_count": 0,
+        "source_rows_preserved": true
+      },
+      "definition_duplicate": false,
+      "sample_value_digest": "3ece69e82ce5f6e151970eb810cb4086256276fac8b9c7b6681f167459e1a957",
+      "availability": "offline_captured_scope",
+      "IF_status": "deferred",
+      "IF_approved": false,
+      "operational_usefulness_approved": false,
+      "unconfirmed": [
+        "online observation availability",
+        "missingness/leakage handling in production",
+        "business meaning and any duration/common clock interpretation",
+        "actual anomaly discrimination"
+      ]
+    },
+    {
+      "key": "eval_B_synthetic_3_0",
+      "code_id": "fv5_246f05bf851b795eb53d24e6",
+      "model_alias": "train_B_03_01_c0",
+      "source_kind": "controlled_synthetic",
+      "task": "discovery",
+      "meaning": "Boolean missingness of raw numeric portion; no business contract.",
+      "expression": {
+        "op": "is_missing",
+        "args": [
+          {
+            "op": "column",
+            "table": "child_v5_eval_B_3",
+            "column": "portion_804"
+          }
+        ]
+      },
+      "grain": {
+        "table": "child_v5_eval_B_3",
+        "keys": [
+          "row_804"
+        ]
+      },
+      "population": {
+        "table": "child_v5_eval_B_3",
+        "filter": null
+      },
+      "type": "boolean",
+      "unit": "boolean",
+      "definition_SHA": "6adbf72b421c8209369abb4109a6baf0d86bc2e72ab80364c19d288d76ef97d2",
+      "source_version": "ec632721d59360e88d25480b89d77d97a81f39967cf7d3cdbf45ff24a4be44d0",
+      "summary": {
+        "row_count": 49,
+        "valid_count": 49,
+        "missing_count": 0,
+        "true_count": 4,
+        "false_count": 45,
+        "ratio": 0.08163265306122448,
+        "numerator": 4,
+        "denominator": 49,
+        "min": null,
+        "max": null,
+        "p95": null,
+        "p99": null,
+        "variation": "variable",
+        "quantile_method": "linear_(n-1)*p",
+        "exact_decimal": {
+          "ratio": "0.08163265306122448979591836735",
+          "p95": null,
+          "p99": null
+        },
+        "population_rows_before_selection": 49,
+        "selection_unavailable_count": 0,
+        "source_rows_preserved": true
+      },
+      "definition_duplicate": false,
+      "sample_value_digest": "34d2b68b685fe5dc3dbc48de618c042aa66e4ff72d714f27f0e74a7c2a39775a",
+      "availability": "offline_captured_scope",
+      "IF_status": "deferred",
+      "IF_approved": false,
+      "operational_usefulness_approved": false,
+      "unconfirmed": [
+        "online observation availability",
+        "missingness/leakage handling in production",
+        "business meaning and any duration/common clock interpretation",
+        "actual anomaly discrimination"
+      ]
+    },
+    {
+      "key": "eval_B_synthetic_3_1",
+      "code_id": "fv5_1ef405db68cd311e8f5b8623",
+      "model_alias": "train_B_03_01_c1",
+      "source_kind": "controlled_synthetic",
+      "task": "discovery",
+      "meaning": "Boolean missingness of raw categorical tag; no business contract.",
+      "expression": {
+        "op": "is_missing",
+        "args": [
+          {
+            "op": "column",
+            "table": "child_v5_eval_B_3",
+            "column": "tag_804"
+          }
+        ]
+      },
+      "grain": {
+        "table": "child_v5_eval_B_3",
+        "keys": [
+          "row_804"
+        ]
+      },
+      "population": {
+        "table": "child_v5_eval_B_3",
+        "filter": null
+      },
+      "type": "boolean",
+      "unit": "boolean",
+      "definition_SHA": "7a0d95523620d0ff52757cd5061bc19e0dc38f097109382f3bd16069229fdb52",
+      "source_version": "ec632721d59360e88d25480b89d77d97a81f39967cf7d3cdbf45ff24a4be44d0",
+      "summary": {
+        "row_count": 49,
+        "valid_count": 49,
+        "missing_count": 0,
+        "true_count": 10,
+        "false_count": 39,
+        "ratio": 0.20408163265306123,
+        "numerator": 10,
+        "denominator": 49,
+        "min": null,
+        "max": null,
+        "p95": null,
+        "p99": null,
+        "variation": "variable",
+        "quantile_method": "linear_(n-1)*p",
+        "exact_decimal": {
+          "ratio": "0.2040816326530612244897959184",
+          "p95": null,
+          "p99": null
+        },
+        "population_rows_before_selection": 49,
+        "selection_unavailable_count": 0,
+        "source_rows_preserved": true
+      },
+      "definition_duplicate": false,
+      "sample_value_digest": "980a69f0be36b135c2733573cd659509a09d3d25d02bc16798a73fa1b407fe54",
+      "availability": "offline_captured_scope",
+      "IF_status": "deferred",
+      "IF_approved": false,
+      "operational_usefulness_approved": false,
+      "unconfirmed": [
+        "online observation availability",
+        "missingness/leakage handling in production",
+        "business meaning and any duration/common clock interpretation",
+        "actual anomaly discrimination"
+      ]
+    }
+  ],
+  "sample_value_equal_groups": [],
+  "same_values_do_not_imply_same_definition": true,
+  "existing71": {
+    "source": {
+      "sha256": "c6686aa55ac4ba75513e434298f39b3c6d2b527cc2df7369ddd9d0f6c06417d2"
+    },
+    "counts": {
+      "total": 71,
+      "original64": 64,
+      "HR_code5": 5,
+      "new_narrow2": 2,
+      "constant": 48,
+      "variable": 20,
+      "no_valid_observation": 3,
+      "measured": 71,
+      "with_any_valid_observations": 68,
+      "operational_usefulness_approved": 0,
+      "IF_approved": 0,
+      "IF_excluded_current_constant": 48,
+      "IF_deferred": 23
+    },
+    "measured_on_prior_scope_not_this_v5_capture": true
+  },
+  "v4_actual4": {
+    "source": {
+      "sha256": "99550bb82ed63fa00a41cc4128723256f4e21895e6a5ad49e2f50df85a8385b3"
+    },
+    "actual_definitions": 4,
+    "measured_on_v4_fresh128_scope": true
+  },
+  "datasets_versions_not_summed": true
+}

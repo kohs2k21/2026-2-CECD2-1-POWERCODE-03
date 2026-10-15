@@ -1,0 +1,677 @@
+{
+  "responses": [
+    {
+      "id": "eval_A_actual_0_0_confirmed_HR_review",
+      "feature_key": "eval_A_actual_0_0",
+      "input_sha": "f24723c85abd93b6e9bcc829075e18a9f380ed1b21a3eaa416302bd9650029de",
+      "raw_output": "{\"v\":\"1\",\"feature\":\"fv5_780b4b24367499347adf9902\",\"sha\":\"884b1247fd781f1eac454860e5fc361f616c9b30a926d7535f0faaebac8247b9\",\"role\":\"HR\",\"state\":\"no_applicable\",\"basis\":\"none\",\"condition\":null,\"evidence\":[],\"needed\":[],\"reason\":\"This exact calculation has no supplied confirmed DDL or business contract. Its observations do not establish mandatory child presence, count conservation, or business duration.\"}",
+      "raw_sha": "c25c7f9305d9e5333e699e5b6186f18d306e0d7a8e4b65b0dc48e658765673f6",
+      "input_tokens": 2786,
+      "generated_tokens": 152,
+      "length_limit_reached": false,
+      "batch_seconds": 25.16408601682633,
+      "prediction": {
+        "v": "1",
+        "feature": "fv5_780b4b24367499347adf9902",
+        "sha": "884b1247fd781f1eac454860e5fc361f616c9b30a926d7535f0faaebac8247b9",
+        "role": "HR",
+        "state": "no_applicable",
+        "basis": "none",
+        "condition": null,
+        "evidence": [],
+        "needed": [],
+        "reason": "This exact calculation has no supplied confirmed DDL or business contract. Its observations do not establish mandatory child presence, count conservation, or business duration."
+      },
+      "JSON_valid": true,
+      "validation": {
+        "passed": true,
+        "schema_passed": true,
+        "errors": [],
+        "policy": "rule-grounding-4.1.0",
+        "direct_meaning_review_required": true
+      },
+      "fact_review": {
+        "passed": true,
+        "errors": [],
+        "full_meaning_approval": false,
+        "method": "Limited measured-fact contradictions; separate case-specific direct review required"
+      },
+      "utility": {
+        "condition_evaluation": "not_evaluated",
+        "operational_adoption": false
+      },
+      "direct_meaning": "pending_root_review",
+      "meaning_pass": true,
+      "Root_meaning_review": "Input definition, measurement validity, role/status/condition and both baseline references reviewed; no unsupported business contract, time-clock or min20 extra independence/normality assumption.",
+      "severity_notes": []
+    },
+    {
+      "id": "eval_A_actual_0_0_observational_diagnostic",
+      "feature_key": "eval_A_actual_0_0",
+      "input_sha": "3d65e548f8999e850ff28e75f126b9c6d0df5d9fe28e1933e04a701d344c7c87",
+      "raw_output": "{\"v\":\"1\",\"feature\":\"fv5_780b4b24367499347adf9902\",\"sha\":\"884b1247fd781f1eac454860e5fc361f616c9b30a926d7535f0faaebac8247b9\",\"role\":\"SR\",\"state\":\"proposed\",\"basis\":\"observed_diagnostic\",\"condition\":{\"op\":\"is_missing\"},\"evidence\":[\"m_fv5_780b4b24367499347adf9902\"],\"needed\":[],\"reason\":\"numeric calculated output ms: 128 valid and 0 unavailable feature outputs. Propose this observed diagnostic; no reference minimum applies. It checks calculated unavailability, without asserting a source-null cause.\"}",
+      "raw_sha": "246b6cf19c7c0dbd0a20efbd48d388fe26e096e04c9367c2a97cb55f71cb80a1",
+      "input_tokens": 2796,
+      "generated_tokens": 196,
+      "length_limit_reached": false,
+      "batch_seconds": 31.032218063250184,
+      "prediction": {
+        "v": "1",
+        "feature": "fv5_780b4b24367499347adf9902",
+        "sha": "884b1247fd781f1eac454860e5fc361f616c9b30a926d7535f0faaebac8247b9",
+        "role": "SR",
+        "state": "proposed",
+        "basis": "observed_diagnostic",
+        "condition": {
+          "op": "is_missing"
+        },
+        "evidence": [
+          "m_fv5_780b4b24367499347adf9902"
+        ],
+        "needed": [],
+        "reason": "numeric calculated output ms: 128 valid and 0 unavailable feature outputs. Propose this observed diagnostic; no reference minimum applies. It checks calculated unavailability, without asserting a source-null cause."
+      },
+      "JSON_valid": true,
+      "validation": {
+        "passed": true,
+        "schema_passed": true,
+        "errors": [],
+        "policy": "rule-grounding-4.1.0",
+        "direct_meaning_review_required": true
+      },
+      "fact_review": {
+        "passed": true,
+        "errors": [],
+        "full_meaning_approval": false,
+        "method": "Limited measured-fact contradictions; separate case-specific direct review required"
+      },
+      "utility": {
+        "version": "diagnostic-utility-1.0.0",
+        "definition_sha": "884b1247fd781f1eac454860e5fc361f616c9b30a926d7535f0faaebac8247b9",
+        "rule_sha": "ca3cc241a29cde0c0b9091fb643be29d09dd4887c2c041c75d4b5093592ebdc2",
+        "condition_signature": "8479c4e64e28a637026ca2eb3c0fb322555d0e7f6fd56b38fd4696796e178024",
+        "static_range": {
+          "kind": "number",
+          "lower": null,
+          "upper": null
+        },
+        "definition_impossible": false,
+        "current_condition_counts": {
+          "false": 128
+        },
+        "current_zero_true_is_not_static_impossible": true,
+        "offline_diagnostic_utility": "eligible",
+        "operational_conditions_unknown": true,
+        "operational_adoption": false,
+        "capture_frequency_not_online": false
+      },
+      "direct_meaning": "pending_root_review",
+      "meaning_pass": true,
+      "Root_meaning_review": "Input definition, measurement validity, role/status/condition and both baseline references reviewed; no unsupported business contract, time-clock or min20 extra independence/normality assumption.",
+      "severity_notes": []
+    },
+    {
+      "id": "eval_A_actual_0_0_numeric_reference_comparison",
+      "feature_key": "eval_A_actual_0_0",
+      "input_sha": "decf585281f1734e0d2e5ee29a7c792bc5e82c4ed639ff9e5c884d89cddd9be2",
+      "raw_output": "{\"v\":\"1\",\"feature\":\"fv5_780b4b24367499347adf9902\",\"sha\":\"884b1247fd781f1eac454860e5fc361f616c9b30a926d7535f0faaebac8247b9\",\"role\":\"SR\",\"state\":\"proposed\",\"basis\":\"reference_p95\",\"condition\":{\"op\":\"gt\",\"baseline\":\"b_fv5_780b4b24367499347adf9902\"},\"evidence\":[\"m_fv5_780b4b24367499347adf9902\",\"b_fv5_780b4b24367499347adf9902\"],\"needed\":[],\"reason\":\"Compare this number ms feature with the code-measured reference p95 107.10 ms, n=128, minimum=20.\"}",
+      "raw_sha": "8b186c1039d5516f4d7d362772c0457d9efa24cbc982439ec283ddbd5b96efd0",
+      "input_tokens": 2785,
+      "generated_tokens": 246,
+      "length_limit_reached": false,
+      "batch_seconds": 38.25087605789304,
+      "prediction": {
+        "v": "1",
+        "feature": "fv5_780b4b24367499347adf9902",
+        "sha": "884b1247fd781f1eac454860e5fc361f616c9b30a926d7535f0faaebac8247b9",
+        "role": "SR",
+        "state": "proposed",
+        "basis": "reference_p95",
+        "condition": {
+          "op": "gt",
+          "baseline": "b_fv5_780b4b24367499347adf9902"
+        },
+        "evidence": [
+          "m_fv5_780b4b24367499347adf9902",
+          "b_fv5_780b4b24367499347adf9902"
+        ],
+        "needed": [],
+        "reason": "Compare this number ms feature with the code-measured reference p95 107.10 ms, n=128, minimum=20."
+      },
+      "JSON_valid": true,
+      "validation": {
+        "passed": true,
+        "schema_passed": true,
+        "errors": [],
+        "policy": "rule-grounding-4.1.0",
+        "direct_meaning_review_required": true
+      },
+      "fact_review": {
+        "passed": true,
+        "errors": [],
+        "full_meaning_approval": false,
+        "method": "Limited measured-fact contradictions; separate case-specific direct review required"
+      },
+      "utility": {
+        "version": "diagnostic-utility-1.0.0",
+        "definition_sha": "884b1247fd781f1eac454860e5fc361f616c9b30a926d7535f0faaebac8247b9",
+        "rule_sha": "da3476ed82c09e9b9e823fcd9560ebd07f72ff221255c9d9eb25627b51f32478",
+        "condition_signature": "4a6b8bdab6e33e6c021b8031ef8e34fd16ac8bbab0a0d7aec06a6acaa3d455a6",
+        "static_range": {
+          "kind": "number",
+          "lower": null,
+          "upper": null
+        },
+        "definition_impossible": false,
+        "current_condition_counts": {
+          "false": 127,
+          "true": 1
+        },
+        "current_zero_true_is_not_static_impossible": false,
+        "offline_diagnostic_utility": "eligible",
+        "operational_conditions_unknown": true,
+        "operational_adoption": false,
+        "capture_frequency_not_online": false
+      },
+      "direct_meaning": "pending_root_review",
+      "meaning_pass": true,
+      "Root_meaning_review": "Input definition, measurement validity, role/status/condition and both baseline references reviewed; no unsupported business contract, time-clock or min20 extra independence/normality assumption.",
+      "severity_notes": []
+    },
+    {
+      "id": "eval_A_actual_2_0_confirmed_HR_review",
+      "feature_key": "eval_A_actual_2_0",
+      "input_sha": "57d55e4f7778e764aab33cc688de3c3746dca6af58b18e8d49d6f7e7ab833348",
+      "raw_output": "{\"v\":\"1\",\"feature\":\"fv5_bff9b1b7ac29197142e5078d\",\"sha\":\"bf17b3de4423aa30707d14ad66804553c75a07c26773afd999a4825739372169\",\"role\":\"HR\",\"state\":\"no_applicable\",\"basis\":\"none\",\"condition\":null,\"evidence\":[],\"needed\":[],\"reason\":\"This exact calculation has no supplied confirmed DDL or business contract. Its observations do not establish mandatory child presence, count conservation, or business duration.\"}",
+      "raw_sha": "b1fd9678c1bdec925bc9f98c79ca4f489f6ab6caac849eab6d42c51f38f79523",
+      "input_tokens": 2296,
+      "generated_tokens": 151,
+      "length_limit_reached": false,
+      "batch_seconds": 24.151704497635365,
+      "prediction": {
+        "v": "1",
+        "feature": "fv5_bff9b1b7ac29197142e5078d",
+        "sha": "bf17b3de4423aa30707d14ad66804553c75a07c26773afd999a4825739372169",
+        "role": "HR",
+        "state": "no_applicable",
+        "basis": "none",
+        "condition": null,
+        "evidence": [],
+        "needed": [],
+        "reason": "This exact calculation has no supplied confirmed DDL or business contract. Its observations do not establish mandatory child presence, count conservation, or business duration."
+      },
+      "JSON_valid": true,
+      "validation": {
+        "passed": true,
+        "schema_passed": true,
+        "errors": [],
+        "policy": "rule-grounding-4.1.0",
+        "direct_meaning_review_required": true
+      },
+      "fact_review": {
+        "passed": true,
+        "errors": [],
+        "full_meaning_approval": false,
+        "method": "Limited measured-fact contradictions; separate case-specific direct review required"
+      },
+      "utility": {
+        "condition_evaluation": "not_evaluated",
+        "operational_adoption": false
+      },
+      "direct_meaning": "pending_root_review",
+      "meaning_pass": true,
+      "Root_meaning_review": "Input definition, measurement validity, role/status/condition and both baseline references reviewed; no unsupported business contract, time-clock or min20 extra independence/normality assumption.",
+      "severity_notes": []
+    },
+    {
+      "id": "eval_A_actual_2_0_observational_diagnostic",
+      "feature_key": "eval_A_actual_2_0",
+      "input_sha": "235802bdc3cac66188db0d6ee4ea2f0720ab8c76806dbe396b5e2600f887a25e",
+      "raw_output": "{\"v\":\"1\",\"feature\":\"fv5_bff9b1b7ac29197142e5078d\",\"sha\":\"bf17b3de4423aa30707d14ad66804553c75a07c26773afd999a4825739372169\",\"role\":\"SR\",\"state\":\"proposed\",\"basis\":\"observed_diagnostic\",\"condition\":{\"op\":\"eq\",\"value\":true},\"evidence\":[\"m_fv5_bff9b1b7ac29197142e5078d\"],\"needed\":[],\"reason\":\"Boolean feature activation: 256 valid and 0 unavailable feature outputs. Propose this observed diagnostic; no reference minimum applies.\"}",
+      "raw_sha": "5a66c3140321e2eb3ad427f7b79fbcac0a7e8f32802206c223f26540e37e9b4c",
+      "input_tokens": 2303,
+      "generated_tokens": 183,
+      "length_limit_reached": false,
+      "batch_seconds": 28.778467439115047,
+      "prediction": {
+        "v": "1",
+        "feature": "fv5_bff9b1b7ac29197142e5078d",
+        "sha": "bf17b3de4423aa30707d14ad66804553c75a07c26773afd999a4825739372169",
+        "role": "SR",
+        "state": "proposed",
+        "basis": "observed_diagnostic",
+        "condition": {
+          "op": "eq",
+          "value": true
+        },
+        "evidence": [
+          "m_fv5_bff9b1b7ac29197142e5078d"
+        ],
+        "needed": [],
+        "reason": "Boolean feature activation: 256 valid and 0 unavailable feature outputs. Propose this observed diagnostic; no reference minimum applies."
+      },
+      "JSON_valid": true,
+      "validation": {
+        "passed": true,
+        "schema_passed": true,
+        "errors": [],
+        "policy": "rule-grounding-4.1.0",
+        "direct_meaning_review_required": true
+      },
+      "fact_review": {
+        "passed": true,
+        "errors": [],
+        "full_meaning_approval": false,
+        "method": "Limited measured-fact contradictions; separate case-specific direct review required"
+      },
+      "utility": {
+        "version": "diagnostic-utility-1.0.0",
+        "definition_sha": "bf17b3de4423aa30707d14ad66804553c75a07c26773afd999a4825739372169",
+        "rule_sha": "7f022d42de67bebc0c8603abe9607ccd12650f083a2bbcbae14047838b048e9c",
+        "condition_signature": "258634383367ff14dd2c92adba49db68ef8bc73371bcd94e78c79f257cdf6143",
+        "static_range": {
+          "kind": "boolean",
+          "lower": false,
+          "upper": true
+        },
+        "definition_impossible": false,
+        "current_condition_counts": {
+          "false": 256
+        },
+        "current_zero_true_is_not_static_impossible": true,
+        "offline_diagnostic_utility": "eligible",
+        "operational_conditions_unknown": true,
+        "operational_adoption": false,
+        "capture_frequency_not_online": false
+      },
+      "direct_meaning": "pending_root_review",
+      "meaning_pass": true,
+      "Root_meaning_review": "Input definition, measurement validity, role/status/condition and both baseline references reviewed; no unsupported business contract, time-clock or min20 extra independence/normality assumption.",
+      "severity_notes": []
+    },
+    {
+      "id": "eval_A_actual_2_0_numeric_reference_comparison",
+      "feature_key": "eval_A_actual_2_0",
+      "input_sha": "1806cee44427968431229d5d0d9402a710ff91b1ffc0c5af1cf43709170bdff5",
+      "raw_output": "{\"v\":\"1\",\"feature\":\"fv5_bff9b1b7ac29197142e5078d\",\"sha\":\"bf17b3de4423aa30707d14ad66804553c75a07c26773afd999a4825739372169\",\"role\":\"SR\",\"state\":\"no_applicable\",\"basis\":\"none\",\"condition\":null,\"evidence\":[],\"needed\":[],\"reason\":\"The verified feature type is Boolean, so the requested numeric p95 comparison does not apply. Known range [False, True]. No extra reference evidence is required.\"}",
+      "raw_sha": "0156efc9e76a0f30a0ceefb60697cf2519cfaf628b69ee3bd564111717565840",
+      "input_tokens": 2295,
+      "generated_tokens": 155,
+      "length_limit_reached": false,
+      "batch_seconds": 24.81122775375843,
+      "prediction": {
+        "v": "1",
+        "feature": "fv5_bff9b1b7ac29197142e5078d",
+        "sha": "bf17b3de4423aa30707d14ad66804553c75a07c26773afd999a4825739372169",
+        "role": "SR",
+        "state": "no_applicable",
+        "basis": "none",
+        "condition": null,
+        "evidence": [],
+        "needed": [],
+        "reason": "The verified feature type is Boolean, so the requested numeric p95 comparison does not apply. Known range [False, True]. No extra reference evidence is required."
+      },
+      "JSON_valid": true,
+      "validation": {
+        "passed": true,
+        "schema_passed": true,
+        "errors": [],
+        "policy": "rule-grounding-4.1.0",
+        "direct_meaning_review_required": true
+      },
+      "fact_review": {
+        "passed": true,
+        "errors": [],
+        "full_meaning_approval": false,
+        "method": "Limited measured-fact contradictions; separate case-specific direct review required"
+      },
+      "utility": {
+        "condition_evaluation": "not_evaluated",
+        "operational_adoption": false
+      },
+      "direct_meaning": "pending_root_review",
+      "meaning_pass": true,
+      "Root_meaning_review": "Input definition, measurement validity, role/status/condition and both baseline references reviewed; no unsupported business contract, time-clock or min20 extra independence/normality assumption.",
+      "severity_notes": []
+    },
+    {
+      "id": "eval_A_actual_3_0_confirmed_HR_review",
+      "feature_key": "eval_A_actual_3_0",
+      "input_sha": "661dac1b4021aadcd8b0d37aceef794a4a270d2d9c6daa7e9cd25a83502af8b5",
+      "raw_output": "{\"v\":\"1\",\"feature\":\"fv5_26a81708b085fd6ae4c4ddd4\",\"sha\":\"90cc85718b15fd9f6cda9393ae418617d9e109379d7a4a9132f8230b514bfd4a\",\"role\":\"HR\",\"state\":\"no_applicable\",\"basis\":\"none\",\"condition\":null,\"evidence\":[],\"needed\":[],\"reason\":\"This exact calculation has no supplied confirmed DDL or business contract. Its observations do not establish mandatory child presence, count conservation, or business duration.\"}",
+      "raw_sha": "b97b8f014a6c43b05f4688d29bb3f2a8691d308b736a3c9b24744c01812eebb9",
+      "input_tokens": 2789,
+      "generated_tokens": 150,
+      "length_limit_reached": false,
+      "batch_seconds": 24.475257256999612,
+      "prediction": {
+        "v": "1",
+        "feature": "fv5_26a81708b085fd6ae4c4ddd4",
+        "sha": "90cc85718b15fd9f6cda9393ae418617d9e109379d7a4a9132f8230b514bfd4a",
+        "role": "HR",
+        "state": "no_applicable",
+        "basis": "none",
+        "condition": null,
+        "evidence": [],
+        "needed": [],
+        "reason": "This exact calculation has no supplied confirmed DDL or business contract. Its observations do not establish mandatory child presence, count conservation, or business duration."
+      },
+      "JSON_valid": true,
+      "validation": {
+        "passed": true,
+        "schema_passed": true,
+        "errors": [],
+        "policy": "rule-grounding-4.1.0",
+        "direct_meaning_review_required": true
+      },
+      "fact_review": {
+        "passed": true,
+        "errors": [],
+        "full_meaning_approval": false,
+        "method": "Limited measured-fact contradictions; separate case-specific direct review required"
+      },
+      "utility": {
+        "condition_evaluation": "not_evaluated",
+        "operational_adoption": false
+      },
+      "direct_meaning": "pending_root_review",
+      "meaning_pass": true,
+      "Root_meaning_review": "Input definition, measurement validity, role/status/condition and both baseline references reviewed; no unsupported business contract, time-clock or min20 extra independence/normality assumption.",
+      "severity_notes": []
+    },
+    {
+      "id": "eval_A_actual_3_0_observational_diagnostic",
+      "feature_key": "eval_A_actual_3_0",
+      "input_sha": "f231be4191b305801b62c0b867d8442c562b1464dfae07e09d5d366d4056a521",
+      "raw_output": "{\"v\":\"1\",\"feature\":\"fv5_26a81708b085fd6ae4c4ddd4\",\"sha\":\"90cc85718b15fd9f6cda9393ae418617d9e109379d7a4a9132f8230b514bfd4a\",\"role\":\"SR\",\"state\":\"proposed\",\"basis\":\"observed_diagnostic\",\"condition\":{\"op\":\"is_missing\"},\"evidence\":[\"m_fv5_26a81708b085fd6ae4c4ddd4\"],\"needed\":[],\"reason\":\"numeric calculated output count: 12 valid and 0 unavailable feature outputs. Propose this observed diagnostic; no reference minimum applies. It checks calculated unavailability, without asserting a source-null cause.\"}",
+      "raw_sha": "85ed44261551701551447e3324bd2c8a46079cdfab0ca4d21b8c8e9809631849",
+      "input_tokens": 2799,
+      "generated_tokens": 191,
+      "length_limit_reached": false,
+      "batch_seconds": 30.408926786854863,
+      "prediction": {
+        "v": "1",
+        "feature": "fv5_26a81708b085fd6ae4c4ddd4",
+        "sha": "90cc85718b15fd9f6cda9393ae418617d9e109379d7a4a9132f8230b514bfd4a",
+        "role": "SR",
+        "state": "proposed",
+        "basis": "observed_diagnostic",
+        "condition": {
+          "op": "is_missing"
+        },
+        "evidence": [
+          "m_fv5_26a81708b085fd6ae4c4ddd4"
+        ],
+        "needed": [],
+        "reason": "numeric calculated output count: 12 valid and 0 unavailable feature outputs. Propose this observed diagnostic; no reference minimum applies. It checks calculated unavailability, without asserting a source-null cause."
+      },
+      "JSON_valid": true,
+      "validation": {
+        "passed": true,
+        "schema_passed": true,
+        "errors": [],
+        "policy": "rule-grounding-4.1.0",
+        "direct_meaning_review_required": true
+      },
+      "fact_review": {
+        "passed": true,
+        "errors": [],
+        "full_meaning_approval": false,
+        "method": "Limited measured-fact contradictions; separate case-specific direct review required"
+      },
+      "utility": {
+        "version": "diagnostic-utility-1.0.0",
+        "definition_sha": "90cc85718b15fd9f6cda9393ae418617d9e109379d7a4a9132f8230b514bfd4a",
+        "rule_sha": "0081b803f27a35ed936475bc69649f92d7ffda3b51f41dbda2e40ee768db8bbd",
+        "condition_signature": "f80ec4862f0472854e08d936f69063a29932425fd0984cbd6aa4b8bd6ab1fbce",
+        "static_range": {
+          "kind": "number",
+          "lower": 0,
+          "upper": null
+        },
+        "definition_impossible": false,
+        "current_condition_counts": {
+          "false": 12
+        },
+        "current_zero_true_is_not_static_impossible": true,
+        "offline_diagnostic_utility": "eligible",
+        "operational_conditions_unknown": true,
+        "operational_adoption": false,
+        "capture_frequency_not_online": false
+      },
+      "direct_meaning": "pending_root_review",
+      "meaning_pass": true,
+      "Root_meaning_review": "Input definition, measurement validity, role/status/condition and both baseline references reviewed; no unsupported business contract, time-clock or min20 extra independence/normality assumption.",
+      "severity_notes": []
+    },
+    {
+      "id": "eval_A_actual_3_0_numeric_reference_comparison",
+      "feature_key": "eval_A_actual_3_0",
+      "input_sha": "26535acd3f8492117e1232b46f8cfb166bdc664b03c423271c46271ba5a30ced",
+      "raw_output": "{\"v\":\"1\",\"feature\":\"fv5_26a81708b085fd6ae4c4ddd4\",\"sha\":\"90cc85718b15fd9f6cda9393ae418617d9e109379d7a4a9132f8230b514bfd4a\",\"role\":\"SR\",\"state\":\"proposed\",\"basis\":\"reference_p95\",\"condition\":{\"op\":\"gt\",\"baseline\":\"b_fv5_26a81708b085fd6ae4c4ddd4\"},\"evidence\":[\"m_fv5_26a81708b085fd6ae4c4ddd4\",\"b_fv5_26a81708b085fd6ae4c4ddd4\"],\"needed\":[],\"reason\":\"Compare this integer count feature with the code-measured reference p95 0.00 count, n=52, minimum=20; strictly greater activates.\"}",
+      "raw_sha": "58a6ffd0898aa408e76e8f338bf084b22d78920248a5c946b2db11c27ad83122",
+      "input_tokens": 2788,
+      "generated_tokens": 239,
+      "length_limit_reached": false,
+      "batch_seconds": 37.2623451994732,
+      "prediction": {
+        "v": "1",
+        "feature": "fv5_26a81708b085fd6ae4c4ddd4",
+        "sha": "90cc85718b15fd9f6cda9393ae418617d9e109379d7a4a9132f8230b514bfd4a",
+        "role": "SR",
+        "state": "proposed",
+        "basis": "reference_p95",
+        "condition": {
+          "op": "gt",
+          "baseline": "b_fv5_26a81708b085fd6ae4c4ddd4"
+        },
+        "evidence": [
+          "m_fv5_26a81708b085fd6ae4c4ddd4",
+          "b_fv5_26a81708b085fd6ae4c4ddd4"
+        ],
+        "needed": [],
+        "reason": "Compare this integer count feature with the code-measured reference p95 0.00 count, n=52, minimum=20; strictly greater activates."
+      },
+      "JSON_valid": true,
+      "validation": {
+        "passed": true,
+        "schema_passed": true,
+        "errors": [],
+        "policy": "rule-grounding-4.1.0",
+        "direct_meaning_review_required": true
+      },
+      "fact_review": {
+        "passed": true,
+        "errors": [],
+        "full_meaning_approval": false,
+        "method": "Limited measured-fact contradictions; separate case-specific direct review required"
+      },
+      "utility": {
+        "version": "diagnostic-utility-1.0.0",
+        "definition_sha": "90cc85718b15fd9f6cda9393ae418617d9e109379d7a4a9132f8230b514bfd4a",
+        "rule_sha": "d7c55e20a334b9cea48e792a02eefb35342e73b92615671fc447b05efb932b6c",
+        "condition_signature": "8a746f638b9205da8feb7489a50a72f45bfc148e14f54e45db2b2b4d140b792b",
+        "static_range": {
+          "kind": "number",
+          "lower": 0,
+          "upper": null
+        },
+        "definition_impossible": false,
+        "current_condition_counts": {
+          "false": 12
+        },
+        "current_zero_true_is_not_static_impossible": true,
+        "offline_diagnostic_utility": "eligible",
+        "operational_conditions_unknown": true,
+        "operational_adoption": false,
+        "capture_frequency_not_online": false
+      },
+      "direct_meaning": "pending_root_review",
+      "meaning_pass": true,
+      "Root_meaning_review": "Input definition, measurement validity, role/status/condition and both baseline references reviewed; no unsupported business contract, time-clock or min20 extra independence/normality assumption.",
+      "severity_notes": []
+    },
+    {
+      "id": "eval_B_actual_0_0_confirmed_HR_review",
+      "feature_key": "eval_B_actual_0_0",
+      "input_sha": "f44572681e697b5cd7474e86e0530b2b9bc7a98bd8f45c8ca0faae9ad5fb5cd4",
+      "raw_output": "{\"v\":\"1\",\"feature\":\"fv5_819edb723e9822da01012602\",\"sha\":\"18dcda01ea112b106523a0957cb37420f3dd469f7591e8414679605f3c2deb2c\",\"role\":\"HR\",\"state\":\"no_applicable\",\"basis\":\"none\",\"condition\":null,\"evidence\":[],\"needed\":[],\"reason\":\"This exact calculation has no supplied confirmed DDL or business contract. Its observations do not establish mandatory child presence, count conservation, or business duration.\"}",
+      "raw_sha": "01c7b29bb257bc23eee43b8dc2b40c7f62886e8067741d2be0d95418a7cf2867",
+      "input_tokens": 2299,
+      "generated_tokens": 150,
+      "length_limit_reached": false,
+      "batch_seconds": 24.272788581438363,
+      "prediction": {
+        "v": "1",
+        "feature": "fv5_819edb723e9822da01012602",
+        "sha": "18dcda01ea112b106523a0957cb37420f3dd469f7591e8414679605f3c2deb2c",
+        "role": "HR",
+        "state": "no_applicable",
+        "basis": "none",
+        "condition": null,
+        "evidence": [],
+        "needed": [],
+        "reason": "This exact calculation has no supplied confirmed DDL or business contract. Its observations do not establish mandatory child presence, count conservation, or business duration."
+      },
+      "JSON_valid": true,
+      "validation": {
+        "passed": true,
+        "schema_passed": true,
+        "errors": [],
+        "policy": "rule-grounding-4.1.0",
+        "direct_meaning_review_required": true
+      },
+      "fact_review": {
+        "passed": true,
+        "errors": [],
+        "full_meaning_approval": false,
+        "method": "Limited measured-fact contradictions; separate case-specific direct review required"
+      },
+      "utility": {
+        "condition_evaluation": "not_evaluated",
+        "operational_adoption": false
+      },
+      "direct_meaning": "pending_root_review",
+      "meaning_pass": true,
+      "Root_meaning_review": "Input definition, measurement validity, role/status/condition and both baseline references reviewed; no unsupported business contract, time-clock or min20 extra independence/normality assumption.",
+      "severity_notes": []
+    },
+    {
+      "id": "eval_B_actual_0_0_observational_diagnostic",
+      "feature_key": "eval_B_actual_0_0",
+      "input_sha": "bd425fc2fa06e0da2e160a629c62d96a0c905ca93edf0fa35b6b0bb48da5b849",
+      "raw_output": "{\"v\":\"1\",\"feature\":\"fv5_819edb723e9822da01012602\",\"sha\":\"18dcda01ea112b106523a0957cb37420f3dd469f7591e8414679605f3c2deb2c\",\"role\":\"SR\",\"state\":\"proposed\",\"basis\":\"observed_diagnostic\",\"condition\":{\"op\":\"eq\",\"value\":true},\"evidence\":[\"m_fv5_819edb723e9822da01012602\"],\"needed\":[],\"reason\":\"Boolean feature activation: 128 valid and 0 unavailable feature outputs. Propose this observed diagnostic; no reference minimum applies.\"}",
+      "raw_sha": "16958ad6798773f2b28ad14b1f61a04ad004169dcbd2a603c647e5f68ea05921",
+      "input_tokens": 2306,
+      "generated_tokens": 182,
+      "length_limit_reached": false,
+      "batch_seconds": 28.747753924690187,
+      "prediction": {
+        "v": "1",
+        "feature": "fv5_819edb723e9822da01012602",
+        "sha": "18dcda01ea112b106523a0957cb37420f3dd469f7591e8414679605f3c2deb2c",
+        "role": "SR",
+        "state": "proposed",
+        "basis": "observed_diagnostic",
+        "condition": {
+          "op": "eq",
+          "value": true
+        },
+        "evidence": [
+          "m_fv5_819edb723e9822da01012602"
+        ],
+        "needed": [],
+        "reason": "Boolean feature activation: 128 valid and 0 unavailable feature outputs. Propose this observed diagnostic; no reference minimum applies."
+      },
+      "JSON_valid": true,
+      "validation": {
+        "passed": true,
+        "schema_passed": true,
+        "errors": [],
+        "policy": "rule-grounding-4.1.0",
+        "direct_meaning_review_required": true
+      },
+      "fact_review": {
+        "passed": true,
+        "errors": [],
+        "full_meaning_approval": false,
+        "method": "Limited measured-fact contradictions; separate case-specific direct review required"
+      },
+      "utility": {
+        "version": "diagnostic-utility-1.0.0",
+        "definition_sha": "18dcda01ea112b106523a0957cb37420f3dd469f7591e8414679605f3c2deb2c",
+        "rule_sha": "f2d700b0890958d774516a40775943484152933d72cbbe3650cee829f71b8593",
+        "condition_signature": "3fbbccca910ae72d8716d96c46ade02e9fd5e0e492b11ae87d6d00ef41942a2a",
+        "static_range": {
+          "kind": "boolean",
+          "lower": false,
+          "upper": true
+        },
+        "definition_impossible": false,
+        "current_condition_counts": {
+          "false": 128
+        },
+        "current_zero_true_is_not_static_impossible": true,
+        "offline_diagnostic_utility": "eligible",
+        "operational_conditions_unknown": true,
+        "operational_adoption": false,
+        "capture_frequency_not_online": false
+      },
+      "direct_meaning": "pending_root_review",
+      "meaning_pass": true,
+      "Root_meaning_review": "Input definition, measurement validity, role/status/condition and both baseline references reviewed; no unsupported business contract, time-clock or min20 extra independence/normality assumption.",
+      "severity_notes": []
+    },
+    {
+      "id": "eval_B_actual_0_0_numeric_reference_comparison",
+      "feature_key": "eval_B_actual_0_0",
+      "input_sha": "7151169d7d56f03a260e18c7a3d356c441ae4ee482cd6a5c4167829e77b38640",
+      "raw_output": "{\"v\":\"1\",\"feature\":\"fv5_819edb723e9822da01012602\",\"sha\":\"18dcda01ea112b106523a0957cb37420f3dd469f7591e8414679605f3c2deb2c\",\"role\":\"SR\",\"state\":\"no_applicable\",\"basis\":\"none\",\"condition\":null,\"evidence\":[],\"needed\":[],\"reason\":\"The verified feature type is Boolean, so the requested numeric p95 comparison does not apply. Known unavailable or missing feature outputs do not establish a numerical unit.\"}",
+      "raw_sha": "6249f3b5eafde237844a70f4eeac4a5937e8bb4c2d0ce6e045e163b959b9f7cd",
+      "input_tokens": 2298,
+      "generated_tokens": 153,
+      "length_limit_reached": false,
+      "batch_seconds": 24.513399792835116,
+      "prediction": {
+        "v": "1",
+        "feature": "fv5_819edb723e9822da01012602",
+        "sha": "18dcda01ea112b106523a0957cb37420f3dd469f7591e8414679605f3c2deb2c",
+        "role": "SR",
+        "state": "no_applicable",
+        "basis": "none",
+        "condition": null,
+        "evidence": [],
+        "needed": [],
+        "reason": "The verified feature type is Boolean, so the requested numeric p95 comparison does not apply. Known unavailable or missing feature outputs do not establish a numerical unit."
+      },
+      "JSON_valid": true,
+      "validation": {
+        "passed": true,
+        "schema_passed": true,
+        "errors": [],
+        "policy": "rule-grounding-4.1.0",
+        "direct_meaning_review_required": true
+      },
+      "fact_review": {
+        "passed": true,
+        "errors": [],
+        "full_meaning_approval": false,
+        "method": "Limited measured-fact contradictions; separate case-specific direct review required"
+      },
+      "utility": {
+        "condition_evaluation": "not_evaluated",
+        "operational_adoption": false
+      },
+      "direct_meaning": "pending_root_review",
+      "meaning_pass": true,
+      "Root_meaning_review": "Input definition, measurement validity, role/status/condition and both baseline references reviewed; no unsupported business contract, time-clock or min20 extra independence/normality assumption.",
+      "severity_notes": [
+        "Generic unavailable-output wording in Boolean no_applicable is unnecessary, but does not state actual unavailable count."
+      ]
+    }
+  ],
+  "direct_review_by": "Root",
+  "all12_input_contexts_read_and_role_conditions_checked": true,
+  "code_pass_alone_not_meaning_approval": true,
+  "no_model_text_postcorrection": true
+}

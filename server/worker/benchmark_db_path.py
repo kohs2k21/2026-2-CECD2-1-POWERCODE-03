@@ -1,4 +1,4 @@
-"""Collector 저장 → PostgreSQL 큐 → Detector 조회 구간의 합성 부하 측정."""
+"""Collector 저장 → 변수 큐 → PROCESS 조회 구간의 합성 부하 측정."""
 
 from __future__ import annotations
 
@@ -64,7 +64,7 @@ def run(dsn: str, *, count: int, consumers: int, rate: float, timeout: float) ->
                 with progress_lock:
                     if completed >= count:
                         return
-                message = claim(conn, "detection", benchmark_run_id=run_id)
+                message = claim(conn, "feature", benchmark_run_id=run_id)
                 if message is not None and message.payload.get("benchmarkRunId") != run_id:
                     conn.rollback()
                     raise RuntimeError("benchmark scope mismatch")
@@ -81,7 +81,7 @@ def run(dsn: str, *, count: int, consumers: int, rate: float, timeout: float) ->
                 if observation.source_id != source_id or observation.allowed_values.get("process_id") != "benchmark":
                     conn.rollback()
                     raise RuntimeError("queued observation is missing or invalid")
-                if not acknowledge(conn, "detection", message):
+                if not acknowledge(conn, "feature", message):
                     conn.rollback()
                     raise RuntimeError("queue lease expired before acknowledgement")
                 conn.commit()
@@ -121,7 +121,7 @@ def run(dsn: str, *, count: int, consumers: int, rate: float, timeout: float) ->
 
     elapsed = time.monotonic() - start
     latencies.sort()
-    print(f"path=observation+postgres-queue+read+ack sent={count} completed={completed} consumers={consumers} rate={rate}")
+    print(f"path=observation+feature-queue+read+ack sent={count} completed={completed} consumers={consumers} rate={rate}")
     print(f"elapsed_seconds={elapsed:.3f} throughput_per_second={completed / max(elapsed, 0.001):.1f}")
     print(f"latency_ms_p50={statistics.median(latencies) if latencies else 0:.1f} latency_ms_p95={percentile(latencies, .95):.1f} latency_ms_p99={percentile(latencies, .99):.1f}")
     if completed != count:

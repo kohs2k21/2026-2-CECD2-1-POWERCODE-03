@@ -1,0 +1,15 @@
+{
+  "id": "eval_B_synthetic_2",
+  "phase": "v4",
+  "raw_output": "{\"candidates\":[],\"stop_reason\":\"Required child table and relationship are declared but not physically present in this inventory; no online capture contract. The requested purpose cannot be established from the current evidence.\"}",
+  "raw_sha": "19075f106d99ebb4ba735679733e6115737659cf114d741db9e236e4aa4c2e34",
+  "original_input_sha": "37fc3ce3bcc8306e14fe033cd424f4f5e7654a03e2b93c571eee5b2b15f7cc90",
+  "generated_tokens": 40,
+  "length_limit_reached": false,
+  "checks": {
+    "JSON_contract": true,
+    "candidates": [],
+    "zero": true,
+    "errors": []
+  }
+}

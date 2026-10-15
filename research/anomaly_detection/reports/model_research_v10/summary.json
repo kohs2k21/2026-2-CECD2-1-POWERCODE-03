@@ -1,0 +1,3045 @@
+{
+  "pooled": [
+    {
+      "method": "if_global",
+      "n": 2167766,
+      "normal": 1807717,
+      "anomaly": 360049,
+      "tn": 1789350,
+      "fp": 18367,
+      "fn": 300751,
+      "tp": 59298,
+      "accuracy": 0.8527894615931794,
+      "precision": 0.763509946565377,
+      "recall": 0.16469424994931245,
+      "f1": 0.2709440410861887,
+      "normal_false_positive_rate": 0.0101603292993317,
+      "always_normal_accuracy": 0.8339078110829306
+    },
+    {
+      "method": "if_adapter",
+      "n": 2167766,
+      "normal": 1807717,
+      "anomaly": 360049,
+      "tn": 1792986,
+      "fp": 14731,
+      "fn": 316672,
+      "tp": 43377,
+      "accuracy": 0.8471223370050088,
+      "precision": 0.7464892957940387,
+      "recall": 0.12047526864399012,
+      "f1": 0.20746753013820168,
+      "normal_false_positive_rate": 0.00814895251856347,
+      "always_normal_accuracy": 0.8339078110829306
+    },
+    {
+      "method": "if_ensemble",
+      "n": 2167766,
+      "normal": 1807717,
+      "anomaly": 360049,
+      "tn": 1778081,
+      "fp": 29636,
+      "fn": 293703,
+      "tp": 66346,
+      "accuracy": 0.8508422957090387,
+      "precision": 0.691233772999104,
+      "recall": 0.18426936333665694,
+      "f1": 0.2909714471165337,
+      "normal_false_positive_rate": 0.016394159041487135,
+      "always_normal_accuracy": 0.8339078110829306
+    },
+    {
+      "method": "kmeans_global",
+      "n": 2167766,
+      "normal": 1807717,
+      "anomaly": 360049,
+      "tn": 1773991,
+      "fp": 33726,
+      "fn": 332407,
+      "tp": 27642,
+      "accuracy": 0.831101235096408,
+      "precision": 0.4504301916308174,
+      "recall": 0.07677288369083098,
+      "f1": 0.13118597493693895,
+      "normal_false_positive_rate": 0.01865668132788484,
+      "always_normal_accuracy": 0.8339078110829306
+    },
+    {
+      "method": "kmeans_adapter",
+      "n": 2167766,
+      "normal": 1807717,
+      "anomaly": 360049,
+      "tn": 1749251,
+      "fp": 58466,
+      "fn": 316153,
+      "tp": 43896,
+      "accuracy": 0.8271866059344044,
+      "precision": 0.4288310115081769,
+      "recall": 0.12191673911050996,
+      "f1": 0.18985707519933565,
+      "normal_false_positive_rate": 0.032342451832891986,
+      "always_normal_accuracy": 0.8339078110829306
+    },
+    {
+      "method": "kmeans_ensemble",
+      "n": 2167766,
+      "normal": 1807717,
+      "anomaly": 360049,
+      "tn": 1737946,
+      "fp": 69771,
+      "fn": 308374,
+      "tp": 51675,
+      "accuracy": 0.8255600466101969,
+      "precision": 0.42549775208734747,
+      "recall": 0.1435221317098506,
+      "f1": 0.2146439734576683,
+      "normal_false_positive_rate": 0.03859619619663918,
+      "always_normal_accuracy": 0.8339078110829306
+    }
+  ],
+  "supported_only": [
+    {
+      "method": "if_global",
+      "n": 1096068,
+      "normal": 888557,
+      "anomaly": 207511,
+      "tn": 879510,
+      "fp": 9047,
+      "fn": 188134,
+      "tp": 19377,
+      "accuracy": 0.8201014900535368,
+      "precision": 0.6817126372079932,
+      "recall": 0.09337818236141698,
+      "f1": 0.1642571047110433,
+      "normal_false_positive_rate": 0.010181676583494363,
+      "always_normal_accuracy": 0.8106768923096013
+    },
+    {
+      "method": "if_adapter",
+      "n": 1096068,
+      "normal": 888557,
+      "anomaly": 207511,
+      "tn": 883146,
+      "fp": 5411,
+      "fn": 204055,
+      "tp": 3456,
+      "accuracy": 0.8088932438498342,
+      "precision": 0.38975978346678697,
+      "recall": 0.01665453879553373,
+      "f1": 0.0319440978287996,
+      "normal_false_positive_rate": 0.006089648722591798,
+      "always_normal_accuracy": 0.8106768923096013
+    },
+    {
+      "method": "if_ensemble",
+      "n": 1096068,
+      "normal": 888557,
+      "anomaly": 207511,
+      "tn": 868241,
+      "fp": 20316,
+      "fn": 181086,
+      "tp": 26425,
+      "accuracy": 0.8162504516143159,
+      "precision": 0.565349479044094,
+      "recall": 0.12734264689582722,
+      "f1": 0.20786463823293425,
+      "normal_false_positive_rate": 0.022864036859762515,
+      "always_normal_accuracy": 0.8106768923096013
+    },
+    {
+      "method": "kmeans_global",
+      "n": 1096068,
+      "normal": 888557,
+      "anomaly": 207511,
+      "tn": 856477,
+      "fp": 32080,
+      "fn": 182553,
+      "tp": 24958,
+      "accuracy": 0.8041791202735596,
+      "precision": 0.4375679371646972,
+      "recall": 0.12027314214668137,
+      "f1": 0.1886833819065655,
+      "normal_false_positive_rate": 0.03610348013689611,
+      "always_normal_accuracy": 0.8106768923096013
+    },
+    {
+      "method": "kmeans_adapter",
+      "n": 1096068,
+      "normal": 888557,
+      "anomaly": 207511,
+      "tn": 831737,
+      "fp": 56820,
+      "fn": 166299,
+      "tp": 41212,
+      "accuracy": 0.7964368999003711,
+      "precision": 0.4203933409498939,
+      "recall": 0.19860151991942596,
+      "f1": 0.2697623575077812,
+      "normal_false_positive_rate": 0.06394637597813084,
+      "always_normal_accuracy": 0.8106768923096013
+    },
+    {
+      "method": "kmeans_ensemble",
+      "n": 1096068,
+      "normal": 888557,
+      "anomaly": 207511,
+      "tn": 820432,
+      "fp": 68125,
+      "fn": 158520,
+      "tp": 48991,
+      "accuracy": 0.7932199462077171,
+      "precision": 0.41831175928139624,
+      "recall": 0.23608868927430354,
+      "f1": 0.30182948430044326,
+      "normal_false_positive_rate": 0.07666925138173465,
+      "always_normal_accuracy": 0.8106768923096013
+    }
+  ],
+  "datasets": [
+    {
+      "dataset": "individual_delay",
+      "case_count": 5000,
+      "metrics": [
+        {
+          "method": "if_global",
+          "n": 59984,
+          "normal": 54957,
+          "anomaly": 5027,
+          "tn": 54957,
+          "fp": 0,
+          "fn": 5027,
+          "tp": 0,
+          "accuracy": 0.9161943184849293,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0,
+          "normal_false_positive_rate": 0.0,
+          "always_normal_accuracy": 0.9161943184849293
+        },
+        {
+          "method": "if_adapter",
+          "n": 59984,
+          "normal": 54957,
+          "anomaly": 5027,
+          "tn": 54957,
+          "fp": 0,
+          "fn": 5027,
+          "tp": 0,
+          "accuracy": 0.9161943184849293,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0,
+          "normal_false_positive_rate": 0.0,
+          "always_normal_accuracy": 0.9161943184849293
+        },
+        {
+          "method": "if_ensemble",
+          "n": 59984,
+          "normal": 54957,
+          "anomaly": 5027,
+          "tn": 54908,
+          "fp": 49,
+          "fn": 3886,
+          "tp": 1141,
+          "accuracy": 0.93439917311283,
+          "precision": 0.9588235294117647,
+          "recall": 0.22697433857171276,
+          "f1": 0.36705806659160367,
+          "normal_false_positive_rate": 0.0008916061648197682,
+          "always_normal_accuracy": 0.9161943184849293
+        },
+        {
+          "method": "kmeans_global",
+          "n": 59984,
+          "normal": 54957,
+          "anomaly": 5027,
+          "tn": 54922,
+          "fp": 35,
+          "fn": 5021,
+          "tp": 6,
+          "accuracy": 0.9157108562283276,
+          "precision": 0.14634146341463414,
+          "recall": 0.0011935548040580863,
+          "f1": 0.0023677979479084454,
+          "normal_false_positive_rate": 0.0006368615462998344,
+          "always_normal_accuracy": 0.9161943184849293
+        },
+        {
+          "method": "kmeans_adapter",
+          "n": 59984,
+          "normal": 54957,
+          "anomaly": 5027,
+          "tn": 54842,
+          "fp": 115,
+          "fn": 3318,
+          "tp": 1709,
+          "accuracy": 0.9427680714857295,
+          "precision": 0.9369517543859649,
+          "recall": 0.33996419335587824,
+          "f1": 0.4989052693037513,
+          "normal_false_positive_rate": 0.002092545080699456,
+          "always_normal_accuracy": 0.9161943184849293
+        },
+        {
+          "method": "kmeans_ensemble",
+          "n": 59984,
+          "normal": 54957,
+          "anomaly": 5027,
+          "tn": 54800,
+          "fp": 157,
+          "fn": 3355,
+          "tp": 1672,
+          "accuracy": 0.9414510536142972,
+          "precision": 0.9141607435757244,
+          "recall": 0.33260393873085337,
+          "f1": 0.48774795799299886,
+          "normal_false_positive_rate": 0.002856778936259257,
+          "always_normal_accuracy": 0.9161943184849293
+        }
+      ],
+      "supported_only_metrics": [
+        {
+          "method": "if_global",
+          "n": 37484,
+          "normal": 34332,
+          "anomaly": 3152,
+          "tn": 34332,
+          "fp": 0,
+          "fn": 3152,
+          "tp": 0,
+          "accuracy": 0.9159107886031373,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0,
+          "normal_false_positive_rate": 0.0,
+          "always_normal_accuracy": 0.9159107886031373
+        },
+        {
+          "method": "if_adapter",
+          "n": 37484,
+          "normal": 34332,
+          "anomaly": 3152,
+          "tn": 34332,
+          "fp": 0,
+          "fn": 3152,
+          "tp": 0,
+          "accuracy": 0.9159107886031373,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0,
+          "normal_false_positive_rate": 0.0,
+          "always_normal_accuracy": 0.9159107886031373
+        },
+        {
+          "method": "if_ensemble",
+          "n": 37484,
+          "normal": 34332,
+          "anomaly": 3152,
+          "tn": 34283,
+          "fp": 49,
+          "fn": 2011,
+          "tp": 1141,
+          "accuracy": 0.9450432184398677,
+          "precision": 0.9588235294117647,
+          "recall": 0.36199238578680204,
+          "f1": 0.5255642561031783,
+          "normal_false_positive_rate": 0.0014272398928113713,
+          "always_normal_accuracy": 0.9159107886031373
+        },
+        {
+          "method": "kmeans_global",
+          "n": 37484,
+          "normal": 34332,
+          "anomaly": 3152,
+          "tn": 34297,
+          "fp": 35,
+          "fn": 3146,
+          "tp": 6,
+          "accuracy": 0.9151371251734073,
+          "precision": 0.14634146341463414,
+          "recall": 0.0019035532994923859,
+          "f1": 0.003758221108675227,
+          "normal_false_positive_rate": 0.0010194570662938366,
+          "always_normal_accuracy": 0.9159107886031373
+        },
+        {
+          "method": "kmeans_adapter",
+          "n": 37484,
+          "normal": 34332,
+          "anomaly": 3152,
+          "tn": 34217,
+          "fp": 115,
+          "fn": 1443,
+          "tp": 1709,
+          "accuracy": 0.9584355991889874,
+          "precision": 0.9369517543859649,
+          "recall": 0.5421954314720813,
+          "f1": 0.6868971061093248,
+          "normal_false_positive_rate": 0.003349644646394035,
+          "always_normal_accuracy": 0.9159107886031373
+        },
+        {
+          "method": "kmeans_ensemble",
+          "n": 37484,
+          "normal": 34332,
+          "anomaly": 3152,
+          "tn": 34175,
+          "fp": 157,
+          "fn": 1480,
+          "tp": 1672,
+          "accuracy": 0.9563280332942056,
+          "precision": 0.9141607435757244,
+          "recall": 0.5304568527918782,
+          "f1": 0.6713511343103794,
+          "normal_false_positive_rate": 0.0045729931259466386,
+          "always_normal_accuracy": 0.9159107886031373
+        }
+      ],
+      "events": {
+        "per_type": [
+          {
+            "scenario": "individual_delay",
+            "method": "if_global",
+            "events": 5000,
+            "detected": 0,
+            "event_recall": 0.0,
+            "median_delay_seconds": null
+          },
+          {
+            "scenario": "individual_delay",
+            "method": "if_adapter",
+            "events": 5000,
+            "detected": 0,
+            "event_recall": 0.0,
+            "median_delay_seconds": null
+          },
+          {
+            "scenario": "individual_delay",
+            "method": "if_ensemble",
+            "events": 5000,
+            "detected": 1141,
+            "event_recall": 0.2282,
+            "median_delay_seconds": 60.0
+          },
+          {
+            "scenario": "individual_delay",
+            "method": "kmeans_global",
+            "events": 5000,
+            "detected": 6,
+            "event_recall": 0.0012,
+            "median_delay_seconds": 60.0
+          },
+          {
+            "scenario": "individual_delay",
+            "method": "kmeans_adapter",
+            "events": 5000,
+            "detected": 1709,
+            "event_recall": 0.3418,
+            "median_delay_seconds": 60.0
+          },
+          {
+            "scenario": "individual_delay",
+            "method": "kmeans_ensemble",
+            "events": 5000,
+            "detected": 1672,
+            "event_recall": 0.3344,
+            "median_delay_seconds": 60.0
+          }
+        ],
+        "normal_case_false_alarm_rate": {
+          "if_global": 0.0,
+          "if_adapter": 0.0,
+          "if_ensemble": 0.0098,
+          "kmeans_global": 0.007,
+          "kmeans_adapter": 0.023,
+          "kmeans_ensemble": 0.0314
+        },
+        "all_six_recall": {
+          "if_global": null,
+          "if_adapter": null,
+          "if_ensemble": null,
+          "kmeans_global": null,
+          "kmeans_adapter": null,
+          "kmeans_ensemble": null
+        }
+      },
+      "coverage": 0.6248999733262203,
+      "traffic_assessed_fraction": 0.0,
+      "latency_assessed_fraction": 0.1667111229661243,
+      "model_sha256": "de73ceccaaeb19e563c94da172105feb36405cb80f243fd1a0651432aa8d6e9d",
+      "arrays_sha256": {
+        "observed": "a89780523760281ec04f1c2cae1fd7d3773e931576c7e5f63fb5327861a30098",
+        "normal": "f45e30277387756f91aff6c3f0992d6d962e9fa3ff91e99a389eff1c858eabb2"
+      }
+    },
+    {
+      "dataset": "group_delay",
+      "case_count": 5000,
+      "metrics": [
+        {
+          "method": "if_global",
+          "n": 363830,
+          "normal": 308783,
+          "anomaly": 55047,
+          "tn": 302786,
+          "fp": 5997,
+          "fn": 49162,
+          "tp": 5885,
+          "accuracy": 0.8483934804716489,
+          "precision": 0.4952869887224373,
+          "recall": 0.10690864170617835,
+          "f1": 0.17585799877482108,
+          "normal_false_positive_rate": 0.019421405971183647,
+          "always_normal_accuracy": 0.8487013165489377
+        },
+        {
+          "method": "if_adapter",
+          "n": 363830,
+          "normal": 308783,
+          "anomaly": 55047,
+          "tn": 305433,
+          "fp": 3350,
+          "fn": 53577,
+          "tp": 1470,
+          "accuracy": 0.8435340681087321,
+          "precision": 0.3049792531120332,
+          "recall": 0.026704452558722547,
+          "f1": 0.04910885796849684,
+          "normal_false_positive_rate": 0.01084904285533854,
+          "always_normal_accuracy": 0.8487013165489377
+        },
+        {
+          "method": "if_ensemble",
+          "n": 363830,
+          "normal": 308783,
+          "anomaly": 55047,
+          "tn": 301308,
+          "fp": 7475,
+          "fn": 42993,
+          "tp": 12054,
+          "accuracy": 0.8612868647445235,
+          "precision": 0.6172359055763224,
+          "recall": 0.21897651098152487,
+          "f1": 0.3232675391546878,
+          "normal_false_positive_rate": 0.024207938908553904,
+          "always_normal_accuracy": 0.8487013165489377
+        },
+        {
+          "method": "kmeans_global",
+          "n": 363830,
+          "normal": 308783,
+          "anomaly": 55047,
+          "tn": 288612,
+          "fp": 20171,
+          "fn": 35240,
+          "tp": 19807,
+          "accuracy": 0.8477008492977489,
+          "precision": 0.4954474961228676,
+          "recall": 0.3598197903609643,
+          "f1": 0.41687976848197844,
+          "normal_false_positive_rate": 0.0653241920701593,
+          "always_normal_accuracy": 0.8487013165489377
+        },
+        {
+          "method": "kmeans_adapter",
+          "n": 363830,
+          "normal": 308783,
+          "anomaly": 55047,
+          "tn": 279695,
+          "fp": 29088,
+          "fn": 30064,
+          "tp": 24983,
+          "accuracy": 0.8374185746090207,
+          "precision": 0.4620406502561447,
+          "recall": 0.45384852943847986,
+          "f1": 0.4579079528583735,
+          "normal_false_positive_rate": 0.09420207718689176,
+          "always_normal_accuracy": 0.8487013165489377
+        },
+        {
+          "method": "kmeans_ensemble",
+          "n": 363830,
+          "normal": 308783,
+          "anomaly": 55047,
+          "tn": 276165,
+          "fp": 32618,
+          "fn": 28425,
+          "tp": 26622,
+          "accuracy": 0.832221092268367,
+          "precision": 0.44939230249831197,
+          "recall": 0.4836230857267426,
+          "f1": 0.46587975885271293,
+          "normal_false_positive_rate": 0.10563405368818879,
+          "always_normal_accuracy": 0.8487013165489377
+        }
+      ],
+      "supported_only_metrics": [
+        {
+          "method": "if_global",
+          "n": 227488,
+          "normal": 193066,
+          "anomaly": 34422,
+          "tn": 188718,
+          "fp": 4348,
+          "fn": 29955,
+          "tp": 4467,
+          "accuracy": 0.8492096286397525,
+          "precision": 0.5067498581962564,
+          "recall": 0.12977165766079832,
+          "f1": 0.20662858200152648,
+          "normal_false_positive_rate": 0.022520795997223748,
+          "always_normal_accuracy": 0.8486865241243494
+        },
+        {
+          "method": "if_adapter",
+          "n": 227488,
+          "normal": 193066,
+          "anomaly": 34422,
+          "tn": 191365,
+          "fp": 1701,
+          "fn": 34370,
+          "tp": 52,
+          "accuracy": 0.8414377901251934,
+          "precision": 0.02966343411294923,
+          "recall": 0.0015106617860670502,
+          "f1": 0.002874913614374568,
+          "normal_false_positive_rate": 0.008810458599649861,
+          "always_normal_accuracy": 0.8486865241243494
+        },
+        {
+          "method": "if_ensemble",
+          "n": 227488,
+          "normal": 193066,
+          "anomaly": 34422,
+          "tn": 187240,
+          "fp": 5826,
+          "fn": 23786,
+          "tp": 10636,
+          "accuracy": 0.8698304965536644,
+          "precision": 0.6460940347466894,
+          "recall": 0.30898843762709893,
+          "f1": 0.4180488955270812,
+          "normal_false_positive_rate": 0.030176209171993,
+          "always_normal_accuracy": 0.8486865241243494
+        },
+        {
+          "method": "kmeans_global",
+          "n": 227488,
+          "normal": 193066,
+          "anomaly": 34422,
+          "tn": 172921,
+          "fp": 20145,
+          "fn": 15427,
+          "tp": 18995,
+          "accuracy": 0.843631312420875,
+          "precision": 0.48530914665304037,
+          "recall": 0.5518273197373773,
+          "f1": 0.5164351159566081,
+          "normal_false_positive_rate": 0.1043425564314794,
+          "always_normal_accuracy": 0.8486865241243494
+        },
+        {
+          "method": "kmeans_adapter",
+          "n": 227488,
+          "normal": 193066,
+          "anomaly": 34422,
+          "tn": 164004,
+          "fp": 29062,
+          "fn": 10251,
+          "tp": 24171,
+          "accuracy": 0.8271864889576593,
+          "precision": 0.4540604512238649,
+          "recall": 0.702196269827436,
+          "f1": 0.5515030517369232,
+          "normal_false_positive_rate": 0.15052883469901485,
+          "always_normal_accuracy": 0.8486865241243494
+        },
+        {
+          "method": "kmeans_ensemble",
+          "n": 227488,
+          "normal": 193066,
+          "anomaly": 34422,
+          "tn": 160474,
+          "fp": 32592,
+          "fn": 8612,
+          "tp": 25810,
+          "accuracy": 0.8188739625826417,
+          "precision": 0.4419369199684942,
+          "recall": 0.7498111672767416,
+          "f1": 0.5561061794363527,
+          "normal_false_positive_rate": 0.16881273761304424,
+          "always_normal_accuracy": 0.8486865241243494
+        }
+      ],
+      "events": {
+        "per_type": [
+          {
+            "scenario": "group_delay",
+            "method": "if_global",
+            "events": 5000,
+            "detected": 2746,
+            "event_recall": 0.5492,
+            "median_delay_seconds": 60.0
+          },
+          {
+            "scenario": "group_delay",
+            "method": "if_adapter",
+            "events": 5000,
+            "detected": 760,
+            "event_recall": 0.152,
+            "median_delay_seconds": 60.0
+          },
+          {
+            "scenario": "group_delay",
+            "method": "if_ensemble",
+            "events": 5000,
+            "detected": 2622,
+            "event_recall": 0.5244,
+            "median_delay_seconds": 60.0
+          },
+          {
+            "scenario": "group_delay",
+            "method": "kmeans_global",
+            "events": 5000,
+            "detected": 2966,
+            "event_recall": 0.5932,
+            "median_delay_seconds": 180.0
+          },
+          {
+            "scenario": "group_delay",
+            "method": "kmeans_adapter",
+            "events": 5000,
+            "detected": 3072,
+            "event_recall": 0.6144,
+            "median_delay_seconds": 120.0
+          },
+          {
+            "scenario": "group_delay",
+            "method": "kmeans_ensemble",
+            "events": 5000,
+            "detected": 3217,
+            "event_recall": 0.6434,
+            "median_delay_seconds": 120.0
+          }
+        ],
+        "normal_case_false_alarm_rate": {
+          "if_global": 0.0802,
+          "if_adapter": 0.0738,
+          "if_ensemble": 0.0878,
+          "kmeans_global": 0.1194,
+          "kmeans_adapter": 0.0928,
+          "kmeans_ensemble": 0.1412
+        },
+        "all_six_recall": {
+          "if_global": null,
+          "if_adapter": null,
+          "if_ensemble": null,
+          "kmeans_global": null,
+          "kmeans_adapter": null,
+          "kmeans_ensemble": null
+        }
+      },
+      "coverage": 0.6252590495561113,
+      "traffic_assessed_fraction": 0.8972432179864223,
+      "latency_assessed_fraction": 0.7333095126844955,
+      "model_sha256": "de73ceccaaeb19e563c94da172105feb36405cb80f243fd1a0651432aa8d6e9d",
+      "arrays_sha256": {
+        "observed": "90dc89b91222d56c0d10cd7698155ecc7c48c2f04cfa457c15b5b5cc5b65d2d9",
+        "normal": "bf1def91cbdcc62d1c64997b92260be814092a4c3d95db4b7ac1e5a301df2e92"
+      }
+    },
+    {
+      "dataset": "column_relation",
+      "case_count": 5000,
+      "metrics": [
+        {
+          "method": "if_global",
+          "n": 60000,
+          "normal": 50000,
+          "anomaly": 10000,
+          "tn": 50000,
+          "fp": 0,
+          "fn": 10000,
+          "tp": 0,
+          "accuracy": 0.8333333333333334,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0,
+          "normal_false_positive_rate": 0.0,
+          "always_normal_accuracy": 0.8333333333333334
+        },
+        {
+          "method": "if_adapter",
+          "n": 60000,
+          "normal": 50000,
+          "anomaly": 10000,
+          "tn": 50000,
+          "fp": 0,
+          "fn": 10000,
+          "tp": 0,
+          "accuracy": 0.8333333333333334,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0,
+          "normal_false_positive_rate": 0.0,
+          "always_normal_accuracy": 0.8333333333333334
+        },
+        {
+          "method": "if_ensemble",
+          "n": 60000,
+          "normal": 50000,
+          "anomaly": 10000,
+          "tn": 49913,
+          "fp": 87,
+          "fn": 9560,
+          "tp": 440,
+          "accuracy": 0.8392166666666667,
+          "precision": 0.8349146110056926,
+          "recall": 0.044,
+          "f1": 0.08359456635318704,
+          "normal_false_positive_rate": 0.00174,
+          "always_normal_accuracy": 0.8333333333333334
+        },
+        {
+          "method": "kmeans_global",
+          "n": 60000,
+          "normal": 50000,
+          "anomaly": 10000,
+          "tn": 49985,
+          "fp": 15,
+          "fn": 10000,
+          "tp": 0,
+          "accuracy": 0.8330833333333333,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0,
+          "normal_false_positive_rate": 0.0003,
+          "always_normal_accuracy": 0.8333333333333334
+        },
+        {
+          "method": "kmeans_adapter",
+          "n": 60000,
+          "normal": 50000,
+          "anomaly": 10000,
+          "tn": 49992,
+          "fp": 8,
+          "fn": 9148,
+          "tp": 852,
+          "accuracy": 0.8474,
+          "precision": 0.9906976744186047,
+          "recall": 0.0852,
+          "f1": 0.1569060773480663,
+          "normal_false_positive_rate": 0.00016,
+          "always_normal_accuracy": 0.8333333333333334
+        },
+        {
+          "method": "kmeans_ensemble",
+          "n": 60000,
+          "normal": 50000,
+          "anomaly": 10000,
+          "tn": 50000,
+          "fp": 0,
+          "fn": 9148,
+          "tp": 852,
+          "accuracy": 0.8475333333333334,
+          "precision": 1.0,
+          "recall": 0.0852,
+          "f1": 0.1570217471433837,
+          "normal_false_positive_rate": 0.0,
+          "always_normal_accuracy": 0.8333333333333334
+        }
+      ],
+      "supported_only_metrics": [
+        {
+          "method": "if_global",
+          "n": 60000,
+          "normal": 50000,
+          "anomaly": 10000,
+          "tn": 50000,
+          "fp": 0,
+          "fn": 10000,
+          "tp": 0,
+          "accuracy": 0.8333333333333334,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0,
+          "normal_false_positive_rate": 0.0,
+          "always_normal_accuracy": 0.8333333333333334
+        },
+        {
+          "method": "if_adapter",
+          "n": 60000,
+          "normal": 50000,
+          "anomaly": 10000,
+          "tn": 50000,
+          "fp": 0,
+          "fn": 10000,
+          "tp": 0,
+          "accuracy": 0.8333333333333334,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0,
+          "normal_false_positive_rate": 0.0,
+          "always_normal_accuracy": 0.8333333333333334
+        },
+        {
+          "method": "if_ensemble",
+          "n": 60000,
+          "normal": 50000,
+          "anomaly": 10000,
+          "tn": 49913,
+          "fp": 87,
+          "fn": 9560,
+          "tp": 440,
+          "accuracy": 0.8392166666666667,
+          "precision": 0.8349146110056926,
+          "recall": 0.044,
+          "f1": 0.08359456635318704,
+          "normal_false_positive_rate": 0.00174,
+          "always_normal_accuracy": 0.8333333333333334
+        },
+        {
+          "method": "kmeans_global",
+          "n": 60000,
+          "normal": 50000,
+          "anomaly": 10000,
+          "tn": 49985,
+          "fp": 15,
+          "fn": 10000,
+          "tp": 0,
+          "accuracy": 0.8330833333333333,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0,
+          "normal_false_positive_rate": 0.0003,
+          "always_normal_accuracy": 0.8333333333333334
+        },
+        {
+          "method": "kmeans_adapter",
+          "n": 60000,
+          "normal": 50000,
+          "anomaly": 10000,
+          "tn": 49992,
+          "fp": 8,
+          "fn": 9148,
+          "tp": 852,
+          "accuracy": 0.8474,
+          "precision": 0.9906976744186047,
+          "recall": 0.0852,
+          "f1": 0.1569060773480663,
+          "normal_false_positive_rate": 0.00016,
+          "always_normal_accuracy": 0.8333333333333334
+        },
+        {
+          "method": "kmeans_ensemble",
+          "n": 60000,
+          "normal": 50000,
+          "anomaly": 10000,
+          "tn": 50000,
+          "fp": 0,
+          "fn": 9148,
+          "tp": 852,
+          "accuracy": 0.8475333333333334,
+          "precision": 1.0,
+          "recall": 0.0852,
+          "f1": 0.1570217471433837,
+          "normal_false_positive_rate": 0.0,
+          "always_normal_accuracy": 0.8333333333333334
+        }
+      ],
+      "events": {
+        "per_type": [
+          {
+            "scenario": "column_relation",
+            "method": "if_global",
+            "events": 5000,
+            "detected": 0,
+            "event_recall": 0.0,
+            "median_delay_seconds": null
+          },
+          {
+            "scenario": "column_relation",
+            "method": "if_adapter",
+            "events": 5000,
+            "detected": 0,
+            "event_recall": 0.0,
+            "median_delay_seconds": null
+          },
+          {
+            "scenario": "column_relation",
+            "method": "if_ensemble",
+            "events": 5000,
+            "detected": 440,
+            "event_recall": 0.088,
+            "median_delay_seconds": 60.0
+          },
+          {
+            "scenario": "column_relation",
+            "method": "kmeans_global",
+            "events": 5000,
+            "detected": 0,
+            "event_recall": 0.0,
+            "median_delay_seconds": null
+          },
+          {
+            "scenario": "column_relation",
+            "method": "kmeans_adapter",
+            "events": 5000,
+            "detected": 852,
+            "event_recall": 0.1704,
+            "median_delay_seconds": 60.0
+          },
+          {
+            "scenario": "column_relation",
+            "method": "kmeans_ensemble",
+            "events": 5000,
+            "detected": 852,
+            "event_recall": 0.1704,
+            "median_delay_seconds": 60.0
+          }
+        ],
+        "normal_case_false_alarm_rate": {
+          "if_global": 0.0,
+          "if_adapter": 0.0,
+          "if_ensemble": 0.0174,
+          "kmeans_global": 0.003,
+          "kmeans_adapter": 0.0016,
+          "kmeans_ensemble": 0.0
+        },
+        "all_six_recall": {
+          "if_global": null,
+          "if_adapter": null,
+          "if_ensemble": null,
+          "kmeans_global": null,
+          "kmeans_adapter": null,
+          "kmeans_ensemble": null
+        }
+      },
+      "coverage": 1.0,
+      "traffic_assessed_fraction": 0.0,
+      "latency_assessed_fraction": 0.16666666666666666,
+      "model_sha256": "de73ceccaaeb19e563c94da172105feb36405cb80f243fd1a0651432aa8d6e9d",
+      "arrays_sha256": {
+        "observed": "644a7d5bb869f2ce48950661e04619b7aca6fcc31edd40b06885c4a2b0700b2b",
+        "normal": "daeb229db0ab8d6a5b56a905c9313f810b814600d14040061120a3fc25c1df2f"
+      }
+    },
+    {
+      "dataset": "time_burst",
+      "case_count": 5000,
+      "metrics": [
+        {
+          "method": "if_global",
+          "n": 398856,
+          "normal": 357193,
+          "anomaly": 41663,
+          "tn": 351444,
+          "fp": 5749,
+          "fn": 28782,
+          "tp": 12881,
+          "accuracy": 0.9134248952002728,
+          "precision": 0.6914117015566291,
+          "recall": 0.3091712070662218,
+          "f1": 0.42728011543628613,
+          "normal_false_positive_rate": 0.01609494027038604,
+          "always_normal_accuracy": 0.8955437551396995
+        },
+        {
+          "method": "if_adapter",
+          "n": 398856,
+          "normal": 357193,
+          "anomaly": 41663,
+          "tn": 351644,
+          "fp": 5549,
+          "fn": 29390,
+          "tp": 12273,
+          "accuracy": 0.9124019696331508,
+          "precision": 0.6886432499158344,
+          "recall": 0.29457792285721146,
+          "f1": 0.4126418424812978,
+          "normal_false_positive_rate": 0.015535018883348777,
+          "always_normal_accuracy": 0.8955437551396995
+        },
+        {
+          "method": "if_ensemble",
+          "n": 398856,
+          "normal": 357193,
+          "anomaly": 41663,
+          "tn": 348467,
+          "fp": 8726,
+          "fn": 28722,
+          "tp": 12941,
+          "accuracy": 0.9061114788294522,
+          "precision": 0.5972677343425485,
+          "recall": 0.31061133379737416,
+          "f1": 0.40868466761408495,
+          "normal_false_positive_rate": 0.02442937011643565,
+          "always_normal_accuracy": 0.8955437551396995
+        },
+        {
+          "method": "kmeans_global",
+          "n": 398856,
+          "normal": 357193,
+          "anomaly": 41663,
+          "tn": 355639,
+          "fp": 1554,
+          "fn": 39565,
+          "tp": 2098,
+          "accuracy": 0.8969076558958622,
+          "precision": 0.5744797371303395,
+          "recall": 0.05035643136596021,
+          "f1": 0.09259627055059032,
+          "normal_false_positive_rate": 0.00435058917727951,
+          "always_normal_accuracy": 0.8955437551396995
+        },
+        {
+          "method": "kmeans_adapter",
+          "n": 398856,
+          "normal": 357193,
+          "anomaly": 41663,
+          "tn": 353619,
+          "fp": 3574,
+          "fn": 38435,
+          "tp": 3228,
+          "accuracy": 0.894676274144052,
+          "precision": 0.47456630402822697,
+          "recall": 0.07747881813599597,
+          "f1": 0.1332095326524296,
+          "normal_false_positive_rate": 0.010005795186355835,
+          "always_normal_accuracy": 0.8955437551396995
+        },
+        {
+          "method": "kmeans_ensemble",
+          "n": 398856,
+          "normal": 357193,
+          "anomaly": 41663,
+          "tn": 352185,
+          "fp": 5008,
+          "fn": 37961,
+          "tp": 3702,
+          "accuracy": 0.8922693904567062,
+          "precision": 0.42502870264064296,
+          "recall": 0.08885581931209946,
+          "f1": 0.1469835030671193,
+          "normal_false_positive_rate": 0.01402043153141299,
+          "always_normal_accuracy": 0.8955437551396995
+        }
+      ],
+      "supported_only_metrics": [
+        {
+          "method": "if_global",
+          "n": 95048,
+          "normal": 84338,
+          "anomaly": 10710,
+          "tn": 83421,
+          "fp": 917,
+          "fn": 8399,
+          "tp": 2311,
+          "accuracy": 0.9019863647841091,
+          "precision": 0.7159231722428748,
+          "recall": 0.2157796451914099,
+          "f1": 0.3316114220117664,
+          "normal_false_positive_rate": 0.010872916123218479,
+          "always_normal_accuracy": 0.8873200909014393
+        },
+        {
+          "method": "if_adapter",
+          "n": 95048,
+          "normal": 84338,
+          "anomaly": 10710,
+          "tn": 83621,
+          "fp": 717,
+          "fn": 9007,
+          "tp": 1703,
+          "accuracy": 0.8976937968184496,
+          "precision": 0.7037190082644628,
+          "recall": 0.15901027077497665,
+          "f1": 0.2594059405940594,
+          "normal_false_positive_rate": 0.008501505845526334,
+          "always_normal_accuracy": 0.8873200909014393
+        },
+        {
+          "method": "if_ensemble",
+          "n": 95048,
+          "normal": 84338,
+          "anomaly": 10710,
+          "tn": 80444,
+          "fp": 3894,
+          "fn": 8339,
+          "tp": 2371,
+          "accuracy": 0.8712966080296272,
+          "precision": 0.3784517158818835,
+          "recall": 0.22138188608776843,
+          "f1": 0.2793519882179676,
+          "normal_false_positive_rate": 0.04617135810666603,
+          "always_normal_accuracy": 0.8873200909014393
+        },
+        {
+          "method": "kmeans_global",
+          "n": 95048,
+          "normal": 84338,
+          "anomaly": 10710,
+          "tn": 83790,
+          "fp": 548,
+          "fn": 10179,
+          "tp": 531,
+          "accuracy": 0.8871412339028701,
+          "precision": 0.49212233549582945,
+          "recall": 0.04957983193277311,
+          "f1": 0.09008397658834506,
+          "normal_false_positive_rate": 0.006497664160876473,
+          "always_normal_accuracy": 0.8873200909014393
+        },
+        {
+          "method": "kmeans_adapter",
+          "n": 95048,
+          "normal": 84338,
+          "anomaly": 10710,
+          "tn": 81770,
+          "fp": 2568,
+          "fn": 9049,
+          "tp": 1661,
+          "accuracy": 0.8777775439777796,
+          "precision": 0.3927642468668716,
+          "recall": 0.15508870214752568,
+          "f1": 0.22237097529955152,
+          "normal_false_positive_rate": 0.030448907965567124,
+          "always_normal_accuracy": 0.8873200909014393
+        },
+        {
+          "method": "kmeans_ensemble",
+          "n": 95048,
+          "normal": 84338,
+          "anomaly": 10710,
+          "tn": 80336,
+          "fp": 4002,
+          "fn": 8575,
+          "tp": 2135,
+          "accuracy": 0.867677384058581,
+          "precision": 0.3478898484601597,
+          "recall": 0.19934640522875818,
+          "f1": 0.25345758888822933,
+          "normal_false_positive_rate": 0.04745191965661979,
+          "always_normal_accuracy": 0.8873200909014393
+        }
+      ],
+      "events": {
+        "per_type": [
+          {
+            "scenario": "time_burst",
+            "method": "if_global",
+            "events": 5000,
+            "detected": 3335,
+            "event_recall": 0.667,
+            "median_delay_seconds": 120.0
+          },
+          {
+            "scenario": "time_burst",
+            "method": "if_adapter",
+            "events": 5000,
+            "detected": 3087,
+            "event_recall": 0.6174,
+            "median_delay_seconds": 120.0
+          },
+          {
+            "scenario": "time_burst",
+            "method": "if_ensemble",
+            "events": 5000,
+            "detected": 3245,
+            "event_recall": 0.649,
+            "median_delay_seconds": 120.0
+          },
+          {
+            "scenario": "time_burst",
+            "method": "kmeans_global",
+            "events": 5000,
+            "detected": 935,
+            "event_recall": 0.187,
+            "median_delay_seconds": 360.0
+          },
+          {
+            "scenario": "time_burst",
+            "method": "kmeans_adapter",
+            "events": 5000,
+            "detected": 1138,
+            "event_recall": 0.2276,
+            "median_delay_seconds": 240.0
+          },
+          {
+            "scenario": "time_burst",
+            "method": "kmeans_ensemble",
+            "events": 5000,
+            "detected": 1223,
+            "event_recall": 0.2446,
+            "median_delay_seconds": 240.0
+          }
+        ],
+        "normal_case_false_alarm_rate": {
+          "if_global": 0.115,
+          "if_adapter": 0.0976,
+          "if_ensemble": 0.1126,
+          "kmeans_global": 0.0096,
+          "kmeans_adapter": 0.0258,
+          "kmeans_ensemble": 0.0336
+        },
+        "all_six_recall": {
+          "if_global": null,
+          "if_adapter": null,
+          "if_ensemble": null,
+          "kmeans_global": null,
+          "kmeans_adapter": null,
+          "kmeans_ensemble": null
+        }
+      },
+      "coverage": 0.2383015424112963,
+      "traffic_assessed_fraction": 0.8958496299416331,
+      "latency_assessed_fraction": 0.6618478849509597,
+      "model_sha256": "de73ceccaaeb19e563c94da172105feb36405cb80f243fd1a0651432aa8d6e9d",
+      "arrays_sha256": {
+        "observed": "abd8c4433e045d1efa8ca56bd356fa190f14dd97566e2966dfc0bf3cabee2ed9",
+        "normal": "ee3af534e4da407ba588a374d5b562d03ec9f53f5ac2dfed6d28c14c0c726448"
+      }
+    },
+    {
+      "dataset": "input_stop",
+      "case_count": 5000,
+      "metrics": [
+        {
+          "method": "if_global",
+          "n": 502488,
+          "normal": 444163,
+          "anomaly": 58325,
+          "tn": 441099,
+          "fp": 3064,
+          "fn": 19879,
+          "tp": 38446,
+          "accuracy": 0.9543411981977679,
+          "precision": 0.9261864610937124,
+          "recall": 0.6591684526360909,
+          "f1": 0.7701908148444934,
+          "normal_false_positive_rate": 0.0068983683917840976,
+          "always_normal_accuracy": 0.8839275763799335
+        },
+        {
+          "method": "if_adapter",
+          "n": 502488,
+          "normal": 444163,
+          "anomaly": 58325,
+          "tn": 441558,
+          "fp": 2605,
+          "fn": 30531,
+          "tp": 27794,
+          "accuracy": 0.9340561366639601,
+          "precision": 0.9143063916576203,
+          "recall": 0.47653664809258467,
+          "f1": 0.6265272079707858,
+          "normal_false_positive_rate": 0.005864963988445683,
+          "always_normal_accuracy": 0.8839275763799335
+        },
+        {
+          "method": "if_ensemble",
+          "n": 502488,
+          "normal": 444163,
+          "anomaly": 58325,
+          "tn": 437670,
+          "fp": 6493,
+          "fn": 25241,
+          "tp": 33084,
+          "accuracy": 0.9368462530448488,
+          "precision": 0.8359400662000657,
+          "recall": 0.5672353193313331,
+          "f1": 0.6758595330023901,
+          "normal_false_positive_rate": 0.014618507169665191,
+          "always_normal_accuracy": 0.8839275763799335
+        },
+        {
+          "method": "kmeans_global",
+          "n": 502488,
+          "normal": 444163,
+          "anomaly": 58325,
+          "tn": 442730,
+          "fp": 1433,
+          "fn": 58325,
+          "tp": 0,
+          "accuracy": 0.8810757669834901,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0,
+          "normal_false_positive_rate": 0.003226293050073959,
+          "always_normal_accuracy": 0.8839275763799335
+        },
+        {
+          "method": "kmeans_adapter",
+          "n": 502488,
+          "normal": 444163,
+          "anomaly": 58325,
+          "tn": 441935,
+          "fp": 2228,
+          "fn": 56070,
+          "tp": 2255,
+          "accuracy": 0.8839813090063843,
+          "precision": 0.5030113763105064,
+          "recall": 0.03866266609515645,
+          "f1": 0.07180613934530633,
+          "normal_false_positive_rate": 0.0050161764937646765,
+          "always_normal_accuracy": 0.8839275763799335
+        },
+        {
+          "method": "kmeans_ensemble",
+          "n": 502488,
+          "normal": 444163,
+          "anomaly": 58325,
+          "tn": 440505,
+          "fp": 3658,
+          "fn": 51585,
+          "tp": 6740,
+          "accuracy": 0.8900610561844263,
+          "precision": 0.6482015772263897,
+          "recall": 0.11555936562366052,
+          "f1": 0.1961497606332669,
+          "normal_false_positive_rate": 0.008235715266692633,
+          "always_normal_accuracy": 0.8839275763799335
+        }
+      ],
+      "supported_only_metrics": [
+        {
+          "method": "if_global",
+          "n": 119552,
+          "normal": 104082,
+          "anomaly": 15470,
+          "tn": 103388,
+          "fp": 694,
+          "fn": 4807,
+          "tp": 10663,
+          "accuracy": 0.9539865497858673,
+          "precision": 0.9388923131108567,
+          "recall": 0.6892695539754363,
+          "f1": 0.794945390837589,
+          "normal_false_positive_rate": 0.006667819603773948,
+          "always_normal_accuracy": 0.8706002408993576
+        },
+        {
+          "method": "if_adapter",
+          "n": 119552,
+          "normal": 104082,
+          "anomaly": 15470,
+          "tn": 103847,
+          "fp": 235,
+          "fn": 15459,
+          "tp": 11,
+          "accuracy": 0.8687265792291221,
+          "precision": 0.044715447154471545,
+          "recall": 0.0007110536522301228,
+          "f1": 0.0013998472893866124,
+          "normal_false_positive_rate": 0.0022578351684248957,
+          "always_normal_accuracy": 0.8706002408993576
+        },
+        {
+          "method": "if_ensemble",
+          "n": 119552,
+          "normal": 104082,
+          "anomaly": 15470,
+          "tn": 99959,
+          "fp": 4123,
+          "fn": 10169,
+          "tp": 5301,
+          "accuracy": 0.8804536937901499,
+          "precision": 0.5625,
+          "recall": 0.3426632191338074,
+          "f1": 0.42588575560375996,
+          "normal_false_positive_rate": 0.03961299744432274,
+          "always_normal_accuracy": 0.8706002408993576
+        },
+        {
+          "method": "kmeans_global",
+          "n": 119552,
+          "normal": 104082,
+          "anomaly": 15470,
+          "tn": 103263,
+          "fp": 819,
+          "fn": 15470,
+          "tp": 0,
+          "accuracy": 0.8637496654175589,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0,
+          "normal_false_positive_rate": 0.007868795757191445,
+          "always_normal_accuracy": 0.8706002408993576
+        },
+        {
+          "method": "kmeans_adapter",
+          "n": 119552,
+          "normal": 104082,
+          "anomaly": 15470,
+          "tn": 102468,
+          "fp": 1614,
+          "fn": 13215,
+          "tp": 2255,
+          "accuracy": 0.8759619245182013,
+          "precision": 0.5828379426208322,
+          "recall": 0.1457659987071752,
+          "f1": 0.23320750814416463,
+          "normal_false_positive_rate": 0.01550700409292673,
+          "always_normal_accuracy": 0.8706002408993576
+        },
+        {
+          "method": "kmeans_ensemble",
+          "n": 119552,
+          "normal": 104082,
+          "anomaly": 15470,
+          "tn": 101038,
+          "fp": 3044,
+          "fn": 8730,
+          "tp": 6740,
+          "accuracy": 0.9015156584582441,
+          "precision": 0.6888798037612428,
+          "recall": 0.4356819650937298,
+          "f1": 0.5337768274332779,
+          "normal_false_positive_rate": 0.029246171288022905,
+          "always_normal_accuracy": 0.8706002408993576
+        }
+      ],
+      "events": {
+        "per_type": [
+          {
+            "scenario": "input_stop",
+            "method": "if_global",
+            "events": 5000,
+            "detected": 4716,
+            "event_recall": 0.9432,
+            "median_delay_seconds": 300.0
+          },
+          {
+            "scenario": "input_stop",
+            "method": "if_adapter",
+            "events": 5000,
+            "detected": 3607,
+            "event_recall": 0.7214,
+            "median_delay_seconds": 300.0
+          },
+          {
+            "scenario": "input_stop",
+            "method": "if_ensemble",
+            "events": 5000,
+            "detected": 4117,
+            "event_recall": 0.8234,
+            "median_delay_seconds": 300.0
+          },
+          {
+            "scenario": "input_stop",
+            "method": "kmeans_global",
+            "events": 5000,
+            "detected": 0,
+            "event_recall": 0.0,
+            "median_delay_seconds": null
+          },
+          {
+            "scenario": "input_stop",
+            "method": "kmeans_adapter",
+            "events": 5000,
+            "detected": 537,
+            "event_recall": 0.1074,
+            "median_delay_seconds": 300.0
+          },
+          {
+            "scenario": "input_stop",
+            "method": "kmeans_ensemble",
+            "events": 5000,
+            "detected": 714,
+            "event_recall": 0.1428,
+            "median_delay_seconds": 300.0
+          }
+        ],
+        "normal_case_false_alarm_rate": {
+          "if_global": 0.0926,
+          "if_adapter": 0.083,
+          "if_ensemble": 0.0956,
+          "kmeans_global": 0.0104,
+          "kmeans_adapter": 0.0192,
+          "kmeans_ensemble": 0.023
+        },
+        "all_six_recall": {
+          "if_global": null,
+          "if_adapter": null,
+          "if_ensemble": null,
+          "kmeans_global": null,
+          "kmeans_adapter": null,
+          "kmeans_ensemble": null
+        }
+      },
+      "coverage": 0.23792010953495407,
+      "traffic_assessed_fraction": 0.9256459855757749,
+      "latency_assessed_fraction": 0.6492294343347503,
+      "model_sha256": "de73ceccaaeb19e563c94da172105feb36405cb80f243fd1a0651432aa8d6e9d",
+      "arrays_sha256": {
+        "observed": "4844bcdd61367c370040b7f95e94bdea533b19049589fb8bd784cd6436523fa2",
+        "normal": "990700e1a2c90aa1b54f70507caabc3c5eb5ab8c81aba418d5687d1409b86bf0"
+      }
+    },
+    {
+      "dataset": "gradual_degradation",
+      "case_count": 5000,
+      "metrics": [
+        {
+          "method": "if_global",
+          "n": 602814,
+          "normal": 452824,
+          "anomaly": 149990,
+          "tn": 450638,
+          "fp": 2186,
+          "fn": 149324,
+          "tp": 666,
+          "accuracy": 0.7486621080465948,
+          "precision": 0.2335203366058906,
+          "recall": 0.004440296019734649,
+          "f1": 0.008714882035042724,
+          "normal_false_positive_rate": 0.004827482642262778,
+          "always_normal_accuracy": 0.7511836155099251
+        },
+        {
+          "method": "if_adapter",
+          "n": 602814,
+          "normal": 452824,
+          "anomaly": 149990,
+          "tn": 450832,
+          "fp": 1992,
+          "fn": 149472,
+          "tp": 518,
+          "accuracy": 0.7487384168250903,
+          "precision": 0.20637450199203186,
+          "recall": 0.003453563570904727,
+          "f1": 0.00679344262295082,
+          "normal_false_positive_rate": 0.0043990601204883135,
+          "always_normal_accuracy": 0.7511836155099251
+        },
+        {
+          "method": "if_ensemble",
+          "n": 602814,
+          "normal": 452824,
+          "anomaly": 149990,
+          "tn": 447366,
+          "fp": 5458,
+          "fn": 145048,
+          "tp": 4942,
+          "accuracy": 0.750327630081584,
+          "precision": 0.4751923076923077,
+          "recall": 0.032948863257550504,
+          "f1": 0.06162478957540994,
+          "normal_false_positive_rate": 0.012053248061056834,
+          "always_normal_accuracy": 0.7511836155099251
+        },
+        {
+          "method": "kmeans_global",
+          "n": 602814,
+          "normal": 452824,
+          "anomaly": 149990,
+          "tn": 446533,
+          "fp": 6291,
+          "fn": 148060,
+          "tp": 1930,
+          "accuracy": 0.7439492115312517,
+          "precision": 0.23476462717430968,
+          "recall": 0.012867524501633443,
+          "f1": 0.024397797877517998,
+          "normal_false_positive_rate": 0.013892814868469869,
+          "always_normal_accuracy": 0.7511836155099251
+        },
+        {
+          "method": "kmeans_adapter",
+          "n": 602814,
+          "normal": 452824,
+          "anomaly": 149990,
+          "tn": 433628,
+          "fp": 19196,
+          "fn": 143273,
+          "tp": 6717,
+          "accuracy": 0.7304823710132811,
+          "precision": 0.2592135221703392,
+          "recall": 0.04478298553236883,
+          "f1": 0.07637163664064854,
+          "normal_false_positive_rate": 0.04239174602052895,
+          "always_normal_accuracy": 0.7511836155099251
+        },
+        {
+          "method": "kmeans_ensemble",
+          "n": 602814,
+          "normal": 452824,
+          "anomaly": 149990,
+          "tn": 430192,
+          "fp": 22632,
+          "fn": 142796,
+          "tp": 7194,
+          "accuracy": 0.7255737258922321,
+          "precision": 0.2411989539328103,
+          "recall": 0.0479631975465031,
+          "f1": 0.08001512657383103,
+          "normal_false_positive_rate": 0.049979683055668425,
+          "always_normal_accuracy": 0.7511836155099251
+        }
+      ],
+      "supported_only_metrics": [
+        {
+          "method": "if_global",
+          "n": 376702,
+          "normal": 282942,
+          "anomaly": 93760,
+          "tn": 281225,
+          "fp": 1717,
+          "fn": 93244,
+          "tp": 516,
+          "accuracy": 0.7479147973729898,
+          "precision": 0.23107926556202418,
+          "recall": 0.005503412969283276,
+          "f1": 0.010750783911326868,
+          "normal_false_positive_rate": 0.006068381505750295,
+          "always_normal_accuracy": 0.7511029938784504
+        },
+        {
+          "method": "if_adapter",
+          "n": 376702,
+          "normal": 282942,
+          "anomaly": 93760,
+          "tn": 281419,
+          "fp": 1523,
+          "fn": 93392,
+          "tp": 368,
+          "accuracy": 0.7480369098119999,
+          "precision": 0.19460602855631942,
+          "recall": 0.003924914675767918,
+          "f1": 0.007694639888762271,
+          "normal_false_positive_rate": 0.005382728615758707,
+          "always_normal_accuracy": 0.7511029938784504
+        },
+        {
+          "method": "if_ensemble",
+          "n": 376702,
+          "normal": 282942,
+          "anomaly": 93760,
+          "tn": 277953,
+          "fp": 4989,
+          "fn": 88968,
+          "tp": 4792,
+          "accuracy": 0.7505800340852982,
+          "precision": 0.48992945506594415,
+          "recall": 0.05110921501706485,
+          "f1": 0.09256236659873866,
+          "normal_false_positive_rate": 0.017632589011175436,
+          "always_normal_accuracy": 0.7511029938784504
+        },
+        {
+          "method": "kmeans_global",
+          "n": 376702,
+          "normal": 282942,
+          "anomaly": 93760,
+          "tn": 276651,
+          "fp": 6291,
+          "fn": 92135,
+          "tp": 1625,
+          "accuracy": 0.7387165451736386,
+          "precision": 0.20528044466902476,
+          "recall": 0.017331484641638226,
+          "f1": 0.03196427868916952,
+          "normal_false_positive_rate": 0.022234238819263313,
+          "always_normal_accuracy": 0.7511029938784504
+        },
+        {
+          "method": "kmeans_adapter",
+          "n": 376702,
+          "normal": 282942,
+          "anomaly": 93760,
+          "tn": 263746,
+          "fp": 19196,
+          "fn": 87348,
+          "tp": 6412,
+          "accuracy": 0.7171663543065872,
+          "precision": 0.25039050296782256,
+          "recall": 0.06838737201365187,
+          "f1": 0.10743247771597078,
+          "normal_false_positive_rate": 0.06784429317669345,
+          "always_normal_accuracy": 0.7511029938784504
+        },
+        {
+          "method": "kmeans_ensemble",
+          "n": 376702,
+          "normal": 282942,
+          "anomaly": 93760,
+          "tn": 260310,
+          "fp": 22632,
+          "fn": 86871,
+          "tp": 6889,
+          "accuracy": 0.7093113389363476,
+          "precision": 0.23335930354662782,
+          "recall": 0.07347482935153583,
+          "f1": 0.11176093639733617,
+          "normal_false_positive_rate": 0.0799881247746888,
+          "always_normal_accuracy": 0.7511029938784504
+        }
+      ],
+      "events": {
+        "per_type": [
+          {
+            "scenario": "gradual_degradation",
+            "method": "if_global",
+            "events": 5000,
+            "detected": 386,
+            "event_recall": 0.0772,
+            "median_delay_seconds": 780.0
+          },
+          {
+            "scenario": "gradual_degradation",
+            "method": "if_adapter",
+            "events": 5000,
+            "detected": 278,
+            "event_recall": 0.0556,
+            "median_delay_seconds": 660.0
+          },
+          {
+            "scenario": "gradual_degradation",
+            "method": "if_ensemble",
+            "events": 5000,
+            "detected": 654,
+            "event_recall": 0.1308,
+            "median_delay_seconds": 780.0
+          },
+          {
+            "scenario": "gradual_degradation",
+            "method": "kmeans_global",
+            "events": 5000,
+            "detected": 958,
+            "event_recall": 0.1916,
+            "median_delay_seconds": 840.0
+          },
+          {
+            "scenario": "gradual_degradation",
+            "method": "kmeans_adapter",
+            "events": 5000,
+            "detected": 1046,
+            "event_recall": 0.2092,
+            "median_delay_seconds": 660.0
+          },
+          {
+            "scenario": "gradual_degradation",
+            "method": "kmeans_ensemble",
+            "events": 5000,
+            "detected": 1341,
+            "event_recall": 0.2682,
+            "median_delay_seconds": 660.0
+          }
+        ],
+        "normal_case_false_alarm_rate": {
+          "if_global": 0.1318,
+          "if_adapter": 0.1072,
+          "if_ensemble": 0.13,
+          "kmeans_global": 0.1424,
+          "kmeans_adapter": 0.1222,
+          "kmeans_ensemble": 0.1736
+        },
+        "all_six_recall": {
+          "if_global": null,
+          "if_adapter": null,
+          "if_ensemble": null,
+          "kmeans_global": null,
+          "kmeans_adapter": null,
+          "kmeans_ensemble": null
+        }
+      },
+      "coverage": 0.6249058581917474,
+      "traffic_assessed_fraction": 0.9381932071916047,
+      "latency_assessed_fraction": 0.73669490091471,
+      "model_sha256": "de73ceccaaeb19e563c94da172105feb36405cb80f243fd1a0651432aa8d6e9d",
+      "arrays_sha256": {
+        "observed": "7ad20850c084c619ebd311008a8c1a30067ba3db9dbfbfeee9d6219622582141",
+        "normal": "1b63c3a20b742714107af0072801e1aabb5e08adc37985414c5d307c7809477a"
+      }
+    },
+    {
+      "dataset": "mixed_hard",
+      "case_count": 1000,
+      "metrics": [
+        {
+          "method": "if_global",
+          "n": 179794,
+          "normal": 139797,
+          "anomaly": 39997,
+          "tn": 138426,
+          "fp": 1371,
+          "fn": 38577,
+          "tp": 1420,
+          "accuracy": 0.7778123852853822,
+          "precision": 0.5087782156932998,
+          "recall": 0.03550266269970248,
+          "f1": 0.06637374964943442,
+          "normal_false_positive_rate": 0.00980707740509453,
+          "always_normal_accuracy": 0.7775398511629976
+        },
+        {
+          "method": "if_adapter",
+          "n": 179794,
+          "normal": 139797,
+          "anomaly": 39997,
+          "tn": 138562,
+          "fp": 1235,
+          "fn": 38675,
+          "tp": 1322,
+          "accuracy": 0.7780237382782518,
+          "precision": 0.5170121235823231,
+          "recall": 0.03305247893592019,
+          "f1": 0.06213281947642995,
+          "normal_false_positive_rate": 0.008834238216842994,
+          "always_normal_accuracy": 0.7775398511629976
+        },
+        {
+          "method": "if_ensemble",
+          "n": 179794,
+          "normal": 139797,
+          "anomaly": 39997,
+          "tn": 138449,
+          "fp": 1348,
+          "fn": 38253,
+          "tp": 1744,
+          "accuracy": 0.7797423718255336,
+          "precision": 0.5640362225097024,
+          "recall": 0.043603270245268395,
+          "f1": 0.08094873401564204,
+          "normal_false_positive_rate": 0.009642553130610814,
+          "always_normal_accuracy": 0.7775398511629976
+        },
+        {
+          "method": "kmeans_global",
+          "n": 179794,
+          "normal": 139797,
+          "anomaly": 39997,
+          "tn": 135570,
+          "fp": 4227,
+          "fn": 36196,
+          "tp": 3801,
+          "accuracy": 0.7751704728745119,
+          "precision": 0.4734678624813154,
+          "recall": 0.09503212740955572,
+          "f1": 0.15829255596043726,
+          "normal_false_positive_rate": 0.03023670035837679,
+          "always_normal_accuracy": 0.7775398511629976
+        },
+        {
+          "method": "kmeans_adapter",
+          "n": 179794,
+          "normal": 139797,
+          "anomaly": 39997,
+          "tn": 135540,
+          "fp": 4257,
+          "fn": 35845,
+          "tp": 4152,
+          "accuracy": 0.7769558494721737,
+          "precision": 0.4937566892615055,
+          "recall": 0.10380778558391879,
+          "f1": 0.17154898153121514,
+          "normal_false_positive_rate": 0.030451297238138157,
+          "always_normal_accuracy": 0.7775398511629976
+        },
+        {
+          "method": "kmeans_ensemble",
+          "n": 179794,
+          "normal": 139797,
+          "anomaly": 39997,
+          "tn": 134099,
+          "fp": 5698,
+          "fn": 35104,
+          "tp": 4893,
+          "accuracy": 0.7730625048666807,
+          "precision": 0.4619960343688037,
+          "recall": 0.12233417506312974,
+          "f1": 0.1934450857910967,
+          "normal_false_positive_rate": 0.040759100696009215,
+          "always_normal_accuracy": 0.7775398511629976
+        }
+      ],
+      "supported_only_metrics": [
+        {
+          "method": "if_global",
+          "n": 179794,
+          "normal": 139797,
+          "anomaly": 39997,
+          "tn": 138426,
+          "fp": 1371,
+          "fn": 38577,
+          "tp": 1420,
+          "accuracy": 0.7778123852853822,
+          "precision": 0.5087782156932998,
+          "recall": 0.03550266269970248,
+          "f1": 0.06637374964943442,
+          "normal_false_positive_rate": 0.00980707740509453,
+          "always_normal_accuracy": 0.7775398511629976
+        },
+        {
+          "method": "if_adapter",
+          "n": 179794,
+          "normal": 139797,
+          "anomaly": 39997,
+          "tn": 138562,
+          "fp": 1235,
+          "fn": 38675,
+          "tp": 1322,
+          "accuracy": 0.7780237382782518,
+          "precision": 0.5170121235823231,
+          "recall": 0.03305247893592019,
+          "f1": 0.06213281947642995,
+          "normal_false_positive_rate": 0.008834238216842994,
+          "always_normal_accuracy": 0.7775398511629976
+        },
+        {
+          "method": "if_ensemble",
+          "n": 179794,
+          "normal": 139797,
+          "anomaly": 39997,
+          "tn": 138449,
+          "fp": 1348,
+          "fn": 38253,
+          "tp": 1744,
+          "accuracy": 0.7797423718255336,
+          "precision": 0.5640362225097024,
+          "recall": 0.043603270245268395,
+          "f1": 0.08094873401564204,
+          "normal_false_positive_rate": 0.009642553130610814,
+          "always_normal_accuracy": 0.7775398511629976
+        },
+        {
+          "method": "kmeans_global",
+          "n": 179794,
+          "normal": 139797,
+          "anomaly": 39997,
+          "tn": 135570,
+          "fp": 4227,
+          "fn": 36196,
+          "tp": 3801,
+          "accuracy": 0.7751704728745119,
+          "precision": 0.4734678624813154,
+          "recall": 0.09503212740955572,
+          "f1": 0.15829255596043726,
+          "normal_false_positive_rate": 0.03023670035837679,
+          "always_normal_accuracy": 0.7775398511629976
+        },
+        {
+          "method": "kmeans_adapter",
+          "n": 179794,
+          "normal": 139797,
+          "anomaly": 39997,
+          "tn": 135540,
+          "fp": 4257,
+          "fn": 35845,
+          "tp": 4152,
+          "accuracy": 0.7769558494721737,
+          "precision": 0.4937566892615055,
+          "recall": 0.10380778558391879,
+          "f1": 0.17154898153121514,
+          "normal_false_positive_rate": 0.030451297238138157,
+          "always_normal_accuracy": 0.7775398511629976
+        },
+        {
+          "method": "kmeans_ensemble",
+          "n": 179794,
+          "normal": 139797,
+          "anomaly": 39997,
+          "tn": 134099,
+          "fp": 5698,
+          "fn": 35104,
+          "tp": 4893,
+          "accuracy": 0.7730625048666807,
+          "precision": 0.4619960343688037,
+          "recall": 0.12233417506312974,
+          "f1": 0.1934450857910967,
+          "normal_false_positive_rate": 0.040759100696009215,
+          "always_normal_accuracy": 0.7775398511629976
+        }
+      ],
+      "events": {
+        "per_type": [
+          {
+            "scenario": "individual_delay",
+            "method": "if_global",
+            "events": 1000,
+            "detected": 68,
+            "event_recall": 0.068,
+            "median_delay_seconds": 120.0
+          },
+          {
+            "scenario": "individual_delay",
+            "method": "if_adapter",
+            "events": 1000,
+            "detected": 13,
+            "event_recall": 0.013,
+            "median_delay_seconds": 60.0
+          },
+          {
+            "scenario": "individual_delay",
+            "method": "if_ensemble",
+            "events": 1000,
+            "detected": 109,
+            "event_recall": 0.109,
+            "median_delay_seconds": 60.0
+          },
+          {
+            "scenario": "individual_delay",
+            "method": "kmeans_global",
+            "events": 1000,
+            "detected": 123,
+            "event_recall": 0.123,
+            "median_delay_seconds": 120.0
+          },
+          {
+            "scenario": "individual_delay",
+            "method": "kmeans_adapter",
+            "events": 1000,
+            "detected": 243,
+            "event_recall": 0.243,
+            "median_delay_seconds": 120.0
+          },
+          {
+            "scenario": "individual_delay",
+            "method": "kmeans_ensemble",
+            "events": 1000,
+            "detected": 301,
+            "event_recall": 0.301,
+            "median_delay_seconds": 60.0
+          },
+          {
+            "scenario": "group_delay",
+            "method": "if_global",
+            "events": 1000,
+            "detected": 132,
+            "event_recall": 0.132,
+            "median_delay_seconds": 60.0
+          },
+          {
+            "scenario": "group_delay",
+            "method": "if_adapter",
+            "events": 1000,
+            "detected": 31,
+            "event_recall": 0.031,
+            "median_delay_seconds": 180.0
+          },
+          {
+            "scenario": "group_delay",
+            "method": "if_ensemble",
+            "events": 1000,
+            "detected": 161,
+            "event_recall": 0.161,
+            "median_delay_seconds": 60.0
+          },
+          {
+            "scenario": "group_delay",
+            "method": "kmeans_global",
+            "events": 1000,
+            "detected": 562,
+            "event_recall": 0.562,
+            "median_delay_seconds": 180.0
+          },
+          {
+            "scenario": "group_delay",
+            "method": "kmeans_adapter",
+            "events": 1000,
+            "detected": 639,
+            "event_recall": 0.639,
+            "median_delay_seconds": 180.0
+          },
+          {
+            "scenario": "group_delay",
+            "method": "kmeans_ensemble",
+            "events": 1000,
+            "detected": 591,
+            "event_recall": 0.591,
+            "median_delay_seconds": 120.0
+          },
+          {
+            "scenario": "column_relation",
+            "method": "if_global",
+            "events": 1000,
+            "detected": 77,
+            "event_recall": 0.077,
+            "median_delay_seconds": 60.0
+          },
+          {
+            "scenario": "column_relation",
+            "method": "if_adapter",
+            "events": 1000,
+            "detected": 54,
+            "event_recall": 0.054,
+            "median_delay_seconds": 60.0
+          },
+          {
+            "scenario": "column_relation",
+            "method": "if_ensemble",
+            "events": 1000,
+            "detected": 102,
+            "event_recall": 0.102,
+            "median_delay_seconds": 60.0
+          },
+          {
+            "scenario": "column_relation",
+            "method": "kmeans_global",
+            "events": 1000,
+            "detected": 430,
+            "event_recall": 0.43,
+            "median_delay_seconds": 60.0
+          },
+          {
+            "scenario": "column_relation",
+            "method": "kmeans_adapter",
+            "events": 1000,
+            "detected": 483,
+            "event_recall": 0.483,
+            "median_delay_seconds": 60.0
+          },
+          {
+            "scenario": "column_relation",
+            "method": "kmeans_ensemble",
+            "events": 1000,
+            "detected": 495,
+            "event_recall": 0.495,
+            "median_delay_seconds": 60.0
+          },
+          {
+            "scenario": "time_burst",
+            "method": "if_global",
+            "events": 1000,
+            "detected": 335,
+            "event_recall": 0.335,
+            "median_delay_seconds": 180.0
+          },
+          {
+            "scenario": "time_burst",
+            "method": "if_adapter",
+            "events": 1000,
+            "detected": 402,
+            "event_recall": 0.402,
+            "median_delay_seconds": 180.0
+          },
+          {
+            "scenario": "time_burst",
+            "method": "if_ensemble",
+            "events": 1000,
+            "detected": 363,
+            "event_recall": 0.363,
+            "median_delay_seconds": 180.0
+          },
+          {
+            "scenario": "time_burst",
+            "method": "kmeans_global",
+            "events": 1000,
+            "detected": 87,
+            "event_recall": 0.087,
+            "median_delay_seconds": 60.0
+          },
+          {
+            "scenario": "time_burst",
+            "method": "kmeans_adapter",
+            "events": 1000,
+            "detected": 90,
+            "event_recall": 0.09,
+            "median_delay_seconds": 60.0
+          },
+          {
+            "scenario": "time_burst",
+            "method": "kmeans_ensemble",
+            "events": 1000,
+            "detected": 211,
+            "event_recall": 0.211,
+            "median_delay_seconds": 60.0
+          },
+          {
+            "scenario": "input_stop",
+            "method": "if_global",
+            "events": 1000,
+            "detected": 48,
+            "event_recall": 0.048,
+            "median_delay_seconds": 120.0
+          },
+          {
+            "scenario": "input_stop",
+            "method": "if_adapter",
+            "events": 1000,
+            "detected": 20,
+            "event_recall": 0.02,
+            "median_delay_seconds": 120.0
+          },
+          {
+            "scenario": "input_stop",
+            "method": "if_ensemble",
+            "events": 1000,
+            "detected": 18,
+            "event_recall": 0.018,
+            "median_delay_seconds": 120.0
+          },
+          {
+            "scenario": "input_stop",
+            "method": "kmeans_global",
+            "events": 1000,
+            "detected": 0,
+            "event_recall": 0.0,
+            "median_delay_seconds": null
+          },
+          {
+            "scenario": "input_stop",
+            "method": "kmeans_adapter",
+            "events": 1000,
+            "detected": 24,
+            "event_recall": 0.024,
+            "median_delay_seconds": 120.0
+          },
+          {
+            "scenario": "input_stop",
+            "method": "kmeans_ensemble",
+            "events": 1000,
+            "detected": 17,
+            "event_recall": 0.017,
+            "median_delay_seconds": 120.0
+          },
+          {
+            "scenario": "gradual_degradation",
+            "method": "if_global",
+            "events": 1000,
+            "detected": 116,
+            "event_recall": 0.116,
+            "median_delay_seconds": 540.0
+          },
+          {
+            "scenario": "gradual_degradation",
+            "method": "if_adapter",
+            "events": 1000,
+            "detected": 79,
+            "event_recall": 0.079,
+            "median_delay_seconds": 600.0
+          },
+          {
+            "scenario": "gradual_degradation",
+            "method": "if_ensemble",
+            "events": 1000,
+            "detected": 151,
+            "event_recall": 0.151,
+            "median_delay_seconds": 660.0
+          },
+          {
+            "scenario": "gradual_degradation",
+            "method": "kmeans_global",
+            "events": 1000,
+            "detected": 98,
+            "event_recall": 0.098,
+            "median_delay_seconds": 540.0
+          },
+          {
+            "scenario": "gradual_degradation",
+            "method": "kmeans_adapter",
+            "events": 1000,
+            "detected": 28,
+            "event_recall": 0.028,
+            "median_delay_seconds": 390.0
+          },
+          {
+            "scenario": "gradual_degradation",
+            "method": "kmeans_ensemble",
+            "events": 1000,
+            "detected": 54,
+            "event_recall": 0.054,
+            "median_delay_seconds": 540.0
+          }
+        ],
+        "normal_case_false_alarm_rate": {
+          "if_global": 0.364,
+          "if_adapter": 0.312,
+          "if_ensemble": 0.339,
+          "kmeans_global": 0.271,
+          "kmeans_adapter": 0.119,
+          "kmeans_ensemble": 0.199
+        },
+        "all_six_recall": {
+          "if_global": 0.0,
+          "if_adapter": 0.0,
+          "if_ensemble": 0.0,
+          "kmeans_global": 0.0,
+          "kmeans_adapter": 0.0,
+          "kmeans_ensemble": 0.0
+        }
+      },
+      "coverage": 1.0,
+      "traffic_assessed_fraction": 0.9543255058567026,
+      "latency_assessed_fraction": 0.6476467512820228,
+      "model_sha256": "de73ceccaaeb19e563c94da172105feb36405cb80f243fd1a0651432aa8d6e9d",
+      "arrays_sha256": {
+        "observed": "1513b9900cf14d982f823716c2333f786d99f43ad8c9fe3f70e6c234178c06d9",
+        "normal": "7677f8270e7388450755e28722a1ec6060f4633719a38a195af3ab627b155f6f"
+      }
+    }
+  ],
+  "basic_macro": [
+    {
+      "method": "if_global",
+      "accuracy": 0.8690582222890911,
+      "precision": 0.3910675813297782,
+      "recall": 0.17994809957137095,
+      "f1": 0.23034063518177386,
+      "normal_false_positive_rate": 0.007873699545936095
+    },
+    {
+      "method": "if_adapter",
+      "accuracy": 0.8647097071748661,
+      "precision": 0.3523838994462533,
+      "recall": 0.13354543117990392,
+      "f1": 0.18251189184058855,
+      "normal_false_positive_rate": 0.006108014307936886
+    },
+    {
+      "method": "if_ensemble",
+      "accuracy": 0.8713646777466509,
+      "precision": 0.7198956923714502,
+      "recall": 0.23345772765658257,
+      "f1": 0.3200148603818939,
+      "normal_false_positive_rate": 0.012990111736755223
+    },
+    {
+      "method": "kmeans_global",
+      "accuracy": 0.8530712788783358,
+      "precision": 0.2418388873070251,
+      "recall": 0.07070621683876933,
+      "f1": 0.08937360580966586,
+      "normal_false_positive_rate": 0.014621791785380414
+    },
+    {
+      "method": "kmeans_adapter",
+      "accuracy": 0.8561211000430778,
+      "precision": 0.6044135469282977,
+      "recall": 0.17332286542631323,
+      "f1": 0.23251776802476262,
+      "normal_false_positive_rate": 0.025644723328040114
+    },
+    {
+      "method": "kmeans_ensemble",
+      "accuracy": 0.8548516086248937,
+      "precision": 0.6129970466456466,
+      "recall": 0.19230090115664314,
+      "f1": 0.25563297571055216,
+      "normal_false_positive_rate": 0.030121110413037017
+    }
+  ],
+  "thresholds": [
+    {
+      "algorithm": "if",
+      "settings": {
+        "algorithm": "if",
+        "samples": 256,
+        "rotations": 1,
+        "k": 6,
+        "shape_distance": false,
+        "neighbors": 50,
+        "seed": 42,
+        "covariance": "radius"
+      },
+      "latency_features": [
+        "duration_upper_max_1m",
+        "duration_lower_max_1m",
+        "duration_upper_mean_5m",
+        "duration_lower_mean_5m"
+      ],
+      "route": "GLOBAL",
+      "latency_quantile": 0.99,
+      "joint_quantile": 0.995,
+      "global_weight": 0.25,
+      "latency_weight": 0.5,
+      "combination": "mean",
+      "latency_raw_threshold": 0.6349547329559747,
+      "joint_thresholds": [
+        0.16880228596487798,
+        0.16880228596487798,
+        0.16880228596487798
+      ]
+    },
+    {
+      "algorithm": "if",
+      "settings": {
+        "algorithm": "if",
+        "samples": 256,
+        "rotations": 1,
+        "k": 6,
+        "shape_distance": false,
+        "neighbors": 50,
+        "seed": 42,
+        "covariance": "radius"
+      },
+      "latency_features": [
+        "duration_upper_max_1m",
+        "duration_lower_max_1m",
+        "duration_upper_mean_5m",
+        "duration_lower_mean_5m"
+      ],
+      "route": "DB.READER",
+      "latency_quantile": 0.99,
+      "joint_quantile": 0.995,
+      "global_weight": 0.25,
+      "latency_weight": 0.5,
+      "combination": "mean",
+      "latency_raw_threshold": 0.728405770447402,
+      "joint_thresholds": [
+        0.005475423342467449,
+        0.06874134313811137,
+        0.0
+      ]
+    },
+    {
+      "algorithm": "if",
+      "settings": {
+        "algorithm": "if",
+        "samples": 256,
+        "rotations": 1,
+        "k": 6,
+        "shape_distance": false,
+        "neighbors": 50,
+        "seed": 42,
+        "covariance": "radius"
+      },
+      "latency_features": [
+        "duration_upper_max_1m",
+        "duration_lower_max_1m",
+        "duration_upper_mean_5m",
+        "duration_lower_mean_5m"
+      ],
+      "route": "DB.WRITER",
+      "latency_quantile": 0.99,
+      "joint_quantile": 0.995,
+      "global_weight": 0.25,
+      "latency_weight": 0.5,
+      "combination": "mean",
+      "latency_raw_threshold": 0.7667944536516845,
+      "joint_thresholds": [
+        0.16880228596487798,
+        0.0,
+        0.042200571491219495
+      ]
+    },
+    {
+      "algorithm": "if",
+      "settings": {
+        "algorithm": "if",
+        "samples": 256,
+        "rotations": 1,
+        "k": 6,
+        "shape_distance": false,
+        "neighbors": 50,
+        "seed": 42,
+        "covariance": "radius"
+      },
+      "latency_features": [
+        "duration_upper_max_1m",
+        "duration_lower_max_1m",
+        "duration_upper_mean_5m",
+        "duration_lower_mean_5m"
+      ],
+      "route": "FILE.READER",
+      "latency_quantile": 0.99,
+      "joint_quantile": 0.995,
+      "global_weight": 0.25,
+      "latency_weight": 0.5,
+      "combination": "mean",
+      "latency_raw_threshold": 0.8023069043295866,
+      "joint_thresholds": [
+        0.16880228596487798,
+        0.1101282071672671,
+        0.042200571491219495
+      ]
+    },
+    {
+      "algorithm": "if",
+      "settings": {
+        "algorithm": "if",
+        "samples": 256,
+        "rotations": 1,
+        "k": 6,
+        "shape_distance": false,
+        "neighbors": 50,
+        "seed": 42,
+        "covariance": "radius"
+      },
+      "latency_features": [
+        "duration_upper_max_1m",
+        "duration_lower_max_1m",
+        "duration_upper_mean_5m",
+        "duration_lower_mean_5m"
+      ],
+      "route": "FILE.WRITER",
+      "latency_quantile": 0.99,
+      "joint_quantile": 0.995,
+      "global_weight": 0.25,
+      "latency_weight": 0.5,
+      "combination": "mean",
+      "latency_raw_threshold": 0.7237501926353682,
+      "joint_thresholds": [
+        0.5920345367046942,
+        0.639943988819422,
+        0.4349343295119365
+      ]
+    },
+    {
+      "algorithm": "if",
+      "settings": {
+        "algorithm": "if",
+        "samples": 256,
+        "rotations": 1,
+        "k": 6,
+        "shape_distance": false,
+        "neighbors": 50,
+        "seed": 42,
+        "covariance": "radius"
+      },
+      "latency_features": [
+        "duration_upper_max_1m",
+        "duration_lower_max_1m",
+        "duration_upper_mean_5m",
+        "duration_lower_mean_5m"
+      ],
+      "route": "SERVICE.EXECUTOR",
+      "latency_quantile": 0.99,
+      "joint_quantile": 0.995,
+      "global_weight": 0.25,
+      "latency_weight": 0.5,
+      "combination": "mean",
+      "latency_raw_threshold": 0.717919046901428,
+      "joint_thresholds": [
+        0.14303430843718432,
+        0.18164381455830308,
+        0.03469479661433486
+      ]
+    },
+    {
+      "algorithm": "kmeans",
+      "settings": {
+        "algorithm": "kmeans",
+        "samples": 512,
+        "rotations": 1,
+        "k": 12,
+        "shape_distance": false,
+        "neighbors": 50,
+        "seed": 42,
+        "covariance": "radius"
+      },
+      "latency_features": [
+        "duration_upper_max_1m",
+        "duration_lower_max_1m"
+      ],
+      "route": "GLOBAL",
+      "latency_quantile": 0.975,
+      "joint_quantile": 0.995,
+      "global_weight": 0.25,
+      "latency_weight": 2.0,
+      "combination": "mean",
+      "latency_raw_threshold": 1.0079757759564394,
+      "joint_thresholds": [
+        1.4568887305369027,
+        1.4568887305369027,
+        1.4568887305369027
+      ]
+    },
+    {
+      "algorithm": "kmeans",
+      "settings": {
+        "algorithm": "kmeans",
+        "samples": 512,
+        "rotations": 1,
+        "k": 12,
+        "shape_distance": false,
+        "neighbors": 50,
+        "seed": 42,
+        "covariance": "radius"
+      },
+      "latency_features": [
+        "duration_upper_max_1m",
+        "duration_lower_max_1m"
+      ],
+      "route": "DB.READER",
+      "latency_quantile": 0.975,
+      "joint_quantile": 0.995,
+      "global_weight": 0.25,
+      "latency_weight": 2.0,
+      "combination": "mean",
+      "latency_raw_threshold": 1.134843621038993,
+      "joint_thresholds": [
+        2.0607418714847614,
+        0.005916180983369507,
+        0.5151854678711904
+      ]
+    },
+    {
+      "algorithm": "kmeans",
+      "settings": {
+        "algorithm": "kmeans",
+        "samples": 512,
+        "rotations": 1,
+        "k": 12,
+        "shape_distance": false,
+        "neighbors": 50,
+        "seed": 42,
+        "covariance": "radius"
+      },
+      "latency_features": [
+        "duration_upper_max_1m",
+        "duration_lower_max_1m"
+      ],
+      "route": "DB.WRITER",
+      "latency_quantile": 0.975,
+      "joint_quantile": 0.995,
+      "global_weight": 0.25,
+      "latency_weight": 2.0,
+      "combination": "mean",
+      "latency_raw_threshold": 2.933286803211804,
+      "joint_thresholds": [
+        1.4568887305369027,
+        5.127952228949765,
+        3.8459641717123243
+      ]
+    },
+    {
+      "algorithm": "kmeans",
+      "settings": {
+        "algorithm": "kmeans",
+        "samples": 512,
+        "rotations": 1,
+        "k": 12,
+        "shape_distance": false,
+        "neighbors": 50,
+        "seed": 42,
+        "covariance": "radius"
+      },
+      "latency_features": [
+        "duration_upper_max_1m",
+        "duration_lower_max_1m"
+      ],
+      "route": "FILE.READER",
+      "latency_quantile": 0.975,
+      "joint_quantile": 0.995,
+      "global_weight": 0.25,
+      "latency_weight": 2.0,
+      "combination": "mean",
+      "latency_raw_threshold": 1.0,
+      "joint_thresholds": [
+        0.0,
+        0.17792957620069663,
+        0.0
+      ]
+    },
+    {
+      "algorithm": "kmeans",
+      "settings": {
+        "algorithm": "kmeans",
+        "samples": 512,
+        "rotations": 1,
+        "k": 12,
+        "shape_distance": false,
+        "neighbors": 50,
+        "seed": 42,
+        "covariance": "radius"
+      },
+      "latency_features": [
+        "duration_upper_max_1m",
+        "duration_lower_max_1m"
+      ],
+      "route": "FILE.WRITER",
+      "latency_quantile": 0.975,
+      "joint_quantile": 0.995,
+      "global_weight": 0.25,
+      "latency_weight": 2.0,
+      "combination": "mean",
+      "latency_raw_threshold": 1.0,
+      "joint_thresholds": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "algorithm": "kmeans",
+      "settings": {
+        "algorithm": "kmeans",
+        "samples": 512,
+        "rotations": 1,
+        "k": 12,
+        "shape_distance": false,
+        "neighbors": 50,
+        "seed": 42,
+        "covariance": "radius"
+      },
+      "latency_features": [
+        "duration_upper_max_1m",
+        "duration_lower_max_1m"
+      ],
+      "route": "SERVICE.EXECUTOR",
+      "latency_quantile": 0.975,
+      "joint_quantile": 0.995,
+      "global_weight": 0.25,
+      "latency_weight": 2.0,
+      "combination": "mean",
+      "latency_raw_threshold": 1.0,
+      "joint_thresholds": [
+        1.0742745152701143,
+        0.8377696658016224,
+        0.443604349700998
+      ]
+    }
+  ],
+  "support": [
+    {
+      "adapter": "DATA.DECRYPTOR",
+      "train": 0,
+      "calibration": 607,
+      "threshold": 0,
+      "source_workflows": {
+        "calibration": 1
+      },
+      "expert_available": false,
+      "reason": "train<500; threshold<100; train_source_workflows<20; calibration_source_workflows<20; threshold_source_workflows<20"
+    },
+    {
+      "adapter": "DATA.ENCRYPTOR",
+      "train": 0,
+      "calibration": 626,
+      "threshold": 0,
+      "source_workflows": {
+        "calibration": 1
+      },
+      "expert_available": false,
+      "reason": "train<500; threshold<100; train_source_workflows<20; calibration_source_workflows<20; threshold_source_workflows<20"
+    },
+    {
+      "adapter": "DATA.MAPPER",
+      "train": 628,
+      "calibration": 656,
+      "threshold": 650,
+      "source_workflows": {
+        "train": 2,
+        "calibration": 4,
+        "threshold": 6
+      },
+      "expert_available": false,
+      "reason": "train_source_workflows<20; calibration_source_workflows<20; threshold_source_workflows<20"
+    },
+    {
+      "adapter": "DATA.TRANSFORMER",
+      "train": 657,
+      "calibration": 654,
+      "threshold": 646,
+      "source_workflows": {
+        "train": 5,
+        "calibration": 8,
+        "threshold": 19
+      },
+      "expert_available": false,
+      "reason": "train_source_workflows<20; calibration_source_workflows<20; threshold_source_workflows<20"
+    },
+    {
+      "adapter": "DB.DELETER",
+      "train": 627,
+      "calibration": 0,
+      "threshold": 625,
+      "source_workflows": {
+        "train": 1,
+        "threshold": 1
+      },
+      "expert_available": false,
+      "reason": "calibration<100; train_source_workflows<20; calibration_source_workflows<20; threshold_source_workflows<20"
+    },
+    {
+      "adapter": "DB.EXECUTOR",
+      "train": 631,
+      "calibration": 654,
+      "threshold": 644,
+      "source_workflows": {
+        "train": 1,
+        "calibration": 764,
+        "threshold": 735
+      },
+      "expert_available": false,
+      "reason": "train_source_workflows<20"
+    },
+    {
+      "adapter": "DB.READER",
+      "train": 656,
+      "calibration": 649,
+      "threshold": 652,
+      "source_workflows": {
+        "train": 1536,
+        "calibration": 469,
+        "threshold": 475
+      },
+      "expert_available": true,
+      "reason": "supported"
+    },
+    {
+      "adapter": "DB.UPDATER",
+      "train": 654,
+      "calibration": 655,
+      "threshold": 651,
+      "source_workflows": {
+        "train": 7,
+        "calibration": 13,
+        "threshold": 12
+      },
+      "expert_available": false,
+      "reason": "train_source_workflows<20; calibration_source_workflows<20; threshold_source_workflows<20"
+    },
+    {
+      "adapter": "DB.WRITER",
+      "train": 651,
+      "calibration": 653,
+      "threshold": 654,
+      "source_workflows": {
+        "train": 1537,
+        "calibration": 461,
+        "threshold": 464
+      },
+      "expert_available": true,
+      "reason": "supported"
+    },
+    {
+      "adapter": "FILE.EXECUTOR",
+      "train": 0,
+      "calibration": 652,
+      "threshold": 653,
+      "source_workflows": {
+        "calibration": 3,
+        "threshold": 4
+      },
+      "expert_available": false,
+      "reason": "train<500; train_source_workflows<20; calibration_source_workflows<20; threshold_source_workflows<20"
+    },
+    {
+      "adapter": "FILE.READER",
+      "train": 651,
+      "calibration": 654,
+      "threshold": 649,
+      "source_workflows": {
+        "train": 1501,
+        "calibration": 23,
+        "threshold": 23
+      },
+      "expert_available": true,
+      "reason": "supported"
+    },
+    {
+      "adapter": "FILE.WRITER",
+      "train": 655,
+      "calibration": 653,
+      "threshold": 657,
+      "source_workflows": {
+        "train": 1501,
+        "calibration": 26,
+        "threshold": 30
+      },
+      "expert_available": true,
+      "reason": "supported"
+    },
+    {
+      "adapter": "GATEWAY.INVOKER",
+      "train": 629,
+      "calibration": 629,
+      "threshold": 654,
+      "source_workflows": {
+        "train": 1,
+        "calibration": 1,
+        "threshold": 7
+      },
+      "expert_available": false,
+      "reason": "train_source_workflows<20; calibration_source_workflows<20; threshold_source_workflows<20"
+    },
+    {
+      "adapter": "OBJECT.READER",
+      "train": 0,
+      "calibration": 629,
+      "threshold": 651,
+      "source_workflows": {
+        "calibration": 1,
+        "threshold": 3
+      },
+      "expert_available": false,
+      "reason": "train<500; train_source_workflows<20; calibration_source_workflows<20; threshold_source_workflows<20"
+    },
+    {
+      "adapter": "OBJECT.WRITER",
+      "train": 0,
+      "calibration": 0,
+      "threshold": 657,
+      "source_workflows": {
+        "threshold": 4
+      },
+      "expert_available": false,
+      "reason": "train<500; calibration<100; train_source_workflows<20; calibration_source_workflows<20; threshold_source_workflows<20"
+    },
+    {
+      "adapter": "QUEUE.EXECUTOR",
+      "train": 623,
+      "calibration": 629,
+      "threshold": 0,
+      "source_workflows": {
+        "train": 2,
+        "calibration": 1
+      },
+      "expert_available": false,
+      "reason": "threshold<100; train_source_workflows<20; calibration_source_workflows<20; threshold_source_workflows<20"
+    },
+    {
+      "adapter": "QUEUE.PUBLISHER",
+      "train": 624,
+      "calibration": 630,
+      "threshold": 633,
+      "source_workflows": {
+        "train": 1,
+        "calibration": 1,
+        "threshold": 1
+      },
+      "expert_available": false,
+      "reason": "train_source_workflows<20; calibration_source_workflows<20; threshold_source_workflows<20"
+    },
+    {
+      "adapter": "QUEUE.SUBSCRIBER",
+      "train": 628,
+      "calibration": 624,
+      "threshold": 0,
+      "source_workflows": {
+        "train": 2,
+        "calibration": 1
+      },
+      "expert_available": false,
+      "reason": "threshold<100; train_source_workflows<20; calibration_source_workflows<20; threshold_source_workflows<20"
+    },
+    {
+      "adapter": "SERVICE.EXECUTOR",
+      "train": 650,
+      "calibration": 653,
+      "threshold": 652,
+      "source_workflows": {
+        "train": 1403,
+        "calibration": 688,
+        "threshold": 666
+      },
+      "expert_available": true,
+      "reason": "supported"
+    },
+    {
+      "adapter": "SERVICE.INVOKER",
+      "train": 629,
+      "calibration": 651,
+      "threshold": 630,
+      "source_workflows": {
+        "train": 3,
+        "calibration": 2,
+        "threshold": 1
+      },
+      "expert_available": false,
+      "reason": "train_source_workflows<20; calibration_source_workflows<20; threshold_source_workflows<20"
+    }
+  ],
+  "model_sha256": "de73ceccaaeb19e563c94da172105feb36405cb80f243fd1a0651432aa8d6e9d",
+  "protocol": {
+    "original_labels_times_unchanged": true,
+    "point_adjustment": false,
+    "not_blind_original_test": true,
+    "normal_only_fit": true,
+    "base_branches_not_refit": true,
+    "previous_test_scores_not_features": true,
+    "no_automatic_deployment": true
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "id": "eval_zero_synthetic_0",
+  "phase": "v4",
+  "raw_output": "{\"candidates\":[],\"stop_reason\":\"Required unit contracts for the raw numeric columns are missing; the requested calculation can be written but has no justified physical interpretation here.\"}",
+  "raw_sha": "e0fc62d9d24e64fbbeb6088a17641e6b2bf1e1859913fc8d2e84a49706a27b43",
+  "original_input_sha": "b332577751de1cf9debbd8b3cd8e88b83415b5ae62aaa7ce9e7cde9295b8591e",
+  "generated_tokens": 34,
+  "length_limit_reached": false,
+  "checks": {
+    "JSON_contract": true,
+    "candidates": [],
+    "zero": true,
+    "errors": []
+  }
+}

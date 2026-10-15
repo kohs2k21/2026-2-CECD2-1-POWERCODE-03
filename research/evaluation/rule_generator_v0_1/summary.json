@@ -1,0 +1,22 @@
+{
+  "features": 64,
+  "demo_inputs": 32,
+  "initial_responses": 32,
+  "repair_responses": 4,
+  "validated_model_HR": 5,
+  "validated_model_SR": 15,
+  "deferred": 1,
+  "request_evidence": 5,
+  "no_applicable": 5,
+  "failed": 1,
+  "awaiting_meaning_review": 0,
+  "reviewed_manual": 0,
+  "model_success_excludes_manual": true,
+  "training_steps": 0,
+  "independent_evaluation": false,
+  "limits": [
+    "Existing32 evaluation cases reused as development demo",
+    "Offline captured sample;not real-time anomaly detection",
+    "Same original features/measurements; no new discovery or SFT"
+  ]
+}

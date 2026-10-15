@@ -1,0 +1,13 @@
+{
+  "target": 0.01,
+  "normal_windows": 23854,
+  "margin_cutoffs": [
+    -0.08215239127061744,
+    -0.19195649024189088,
+    -0.17341542816685127,
+    7.162583291930806,
+    182.87194992511195,
+    139.0016961179038
+  ],
+  "note": "Confirmation normal controls ONLY. Diagnostic operating point, not selection/deployment."
+}

@@ -1,0 +1,50 @@
+{
+  "development_inputs_sha256": "a59a7b98ddbdd90a92cb90d85a5c9084bf2839175ec56a9e7b244ad298f3280c",
+  "benchmark_manifest_sha256": "71fb8115dc2b9ddcac6408167a8e0f89939e060bbdd5c516339ffe88b9473ce4",
+  "code_sha256": {
+    "features.py": "3fd8633efdd3cec40dac38ca04c7e5d7b2ef56500299307d06d6c893471cd64b",
+    "data.py": "dd08bc234b587f1771ebba92a7e63778f3a95864132000e495af54f1c270886b",
+    "refine.py": "5238b3a6d8c52565a6a1543dba686a3cfe41eb89cc74755db5023f06c42457b9"
+  },
+  "search_cases": 720,
+  "confirmation_cases": 720,
+  "validation_seed": 2370042,
+  "validation_cases_per_scenario": 240,
+  "fresh_vs_v3": true,
+  "previous_experiment": "v3 retained separately, not promoted; motivated retaining legacy features",
+  "normal_reference_counts": {
+    "train": 10825,
+    "calibration": 12987,
+    "threshold": 11572
+  },
+  "normal_reference_source_counts": {
+    "train": 7510,
+    "calibration": 2468,
+    "threshold": 2452
+  },
+  "independent_source_holdout": 3344,
+  "normal_reference_episodes": [
+    {
+      "split": "train",
+      "normal_episodes": 120,
+      "windows": 10825,
+      "independent_source_templates": 4448,
+      "adapters": 15
+    },
+    {
+      "split": "calibration",
+      "normal_episodes": 144,
+      "windows": 12987,
+      "independent_source_templates": 1952,
+      "adapters": 18
+    },
+    {
+      "split": "threshold",
+      "normal_episodes": 128,
+      "windows": 11572,
+      "independent_source_templates": 1917,
+      "adapters": 16
+    }
+  ],
+  "fpr_budget": "EACH strategy pooled normal FPR<=5%; different from v3's 2.5% scenario-macro cap. Both FPR and F1 reported, NOT a directly equivalent selection experiment."
+}

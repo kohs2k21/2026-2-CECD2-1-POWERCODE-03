@@ -1,0 +1,613 @@
+{
+  "reviewer": "Root",
+  "frozen_criteria_unchanged": true,
+  "inputs": [
+    {
+      "phase": "v4",
+      "id": "eval_A_actual_0",
+      "request_satisfied": false,
+      "zero_reason_correct": false,
+      "candidates": [],
+      "reasons": [
+        "Supported narrow calculation/discovery abandoned; generic unit/operation claim does not establish an actual blocker."
+      ]
+    },
+    {
+      "phase": "v4",
+      "id": "eval_A_actual_1",
+      "request_satisfied": true,
+      "zero_reason_correct": false,
+      "candidates": [
+        {
+          "meaning": true,
+          "unknown_information": true,
+          "reasons": [
+            "Narrow literal mathematical meaning is consistent; code errors, where present, are scored separately."
+          ]
+        }
+      ],
+      "reasons": [
+        "Requested direction/filter/calculation inspected separately from compiler failures."
+      ]
+    },
+    {
+      "phase": "v4",
+      "id": "eval_A_actual_2",
+      "request_satisfied": false,
+      "zero_reason_correct": false,
+      "candidates": [],
+      "reasons": [
+        "Supported narrow calculation/discovery abandoned; generic unit/operation claim does not establish an actual blocker."
+      ]
+    },
+    {
+      "phase": "v4",
+      "id": "eval_A_actual_3",
+      "request_satisfied": false,
+      "zero_reason_correct": false,
+      "candidates": [],
+      "reasons": [
+        "Supported narrow calculation/discovery abandoned; generic unit/operation claim does not establish an actual blocker."
+      ]
+    },
+    {
+      "phase": "v4",
+      "id": "eval_A_synthetic_0",
+      "request_satisfied": true,
+      "zero_reason_correct": false,
+      "candidates": [
+        {
+          "meaning": true,
+          "unknown_information": true,
+          "reasons": [
+            "Narrow literal mathematical meaning is consistent; code errors, where present, are scored separately."
+          ]
+        }
+      ],
+      "reasons": [
+        "Requested direction/filter/calculation inspected separately from compiler failures."
+      ]
+    },
+    {
+      "phase": "v4",
+      "id": "eval_A_synthetic_1",
+      "request_satisfied": true,
+      "zero_reason_correct": false,
+      "candidates": [
+        {
+          "meaning": false,
+          "unknown_information": true,
+          "reasons": [
+            "Empty selected child result described ambiguously as empty rather than the declared zero; source version also malformed."
+          ]
+        }
+      ],
+      "reasons": [
+        "Requested direction/filter/calculation inspected separately from compiler failures."
+      ]
+    },
+    {
+      "phase": "v4",
+      "id": "eval_A_synthetic_2",
+      "request_satisfied": true,
+      "zero_reason_correct": false,
+      "candidates": [
+        {
+          "meaning": true,
+          "unknown_information": true,
+          "reasons": [
+            "Narrow literal mathematical meaning is consistent; code errors, where present, are scored separately."
+          ]
+        }
+      ],
+      "reasons": [
+        "Requested direction/filter/calculation inspected separately from compiler failures."
+      ]
+    },
+    {
+      "phase": "v4",
+      "id": "eval_A_synthetic_3",
+      "request_satisfied": true,
+      "zero_reason_correct": false,
+      "candidates": [
+        {
+          "meaning": true,
+          "unknown_information": true,
+          "reasons": [
+            "Narrow literal mathematical meaning is consistent; code errors, where present, are scored separately."
+          ]
+        }
+      ],
+      "reasons": [
+        "Requested direction/filter/calculation inspected separately from compiler failures."
+      ]
+    },
+    {
+      "phase": "v4",
+      "id": "eval_B_actual_0",
+      "request_satisfied": false,
+      "zero_reason_correct": false,
+      "candidates": [],
+      "reasons": [
+        "Supported narrow calculation/discovery abandoned; generic unit/operation claim does not establish an actual blocker."
+      ]
+    },
+    {
+      "phase": "v4",
+      "id": "eval_B_actual_1",
+      "request_satisfied": false,
+      "zero_reason_correct": false,
+      "candidates": [],
+      "reasons": [
+        "Supported narrow calculation/discovery abandoned; generic unit/operation claim does not establish an actual blocker."
+      ]
+    },
+    {
+      "phase": "v4",
+      "id": "eval_B_actual_2",
+      "request_satisfied": false,
+      "zero_reason_correct": false,
+      "candidates": [],
+      "reasons": [
+        "Supported narrow calculation/discovery abandoned; generic unit/operation claim does not establish an actual blocker."
+      ]
+    },
+    {
+      "phase": "v4",
+      "id": "eval_B_actual_3",
+      "request_satisfied": false,
+      "zero_reason_correct": false,
+      "candidates": [],
+      "reasons": [
+        "Supported narrow calculation/discovery abandoned; generic unit/operation claim does not establish an actual blocker."
+      ]
+    },
+    {
+      "phase": "v4",
+      "id": "eval_B_synthetic_0",
+      "request_satisfied": false,
+      "zero_reason_correct": false,
+      "candidates": [],
+      "reasons": [
+        "Supported narrow calculation/discovery abandoned; generic unit/operation claim does not establish an actual blocker."
+      ]
+    },
+    {
+      "phase": "v4",
+      "id": "eval_B_synthetic_1",
+      "request_satisfied": false,
+      "zero_reason_correct": false,
+      "candidates": [],
+      "reasons": [
+        "Supported narrow calculation/discovery abandoned; generic unit/operation claim does not establish an actual blocker."
+      ]
+    },
+    {
+      "phase": "v4",
+      "id": "eval_B_synthetic_2",
+      "request_satisfied": false,
+      "zero_reason_correct": false,
+      "candidates": [],
+      "reasons": [
+        "Supported narrow calculation/discovery abandoned; generic unit/operation claim does not establish an actual blocker."
+      ]
+    },
+    {
+      "phase": "v4",
+      "id": "eval_B_synthetic_3",
+      "request_satisfied": false,
+      "zero_reason_correct": false,
+      "candidates": [],
+      "reasons": [
+        "Supported narrow calculation/discovery abandoned; generic unit/operation claim does not establish an actual blocker."
+      ]
+    },
+    {
+      "phase": "v4",
+      "id": "eval_zero_actual_0",
+      "request_satisfied": false,
+      "zero_reason_correct": false,
+      "candidates": [],
+      "reasons": [
+        "Zero can be justified for this specific request, but reason omits the actual column/operator/parent lookup limit or attributes the limitation to the wrong cause."
+      ]
+    },
+    {
+      "phase": "v4",
+      "id": "eval_zero_actual_1",
+      "request_satisfied": false,
+      "zero_reason_correct": false,
+      "candidates": [],
+      "reasons": [
+        "Zero can be justified for this specific request, but reason omits the actual column/operator/parent lookup limit or attributes the limitation to the wrong cause."
+      ]
+    },
+    {
+      "phase": "v4",
+      "id": "eval_zero_synthetic_0",
+      "request_satisfied": true,
+      "zero_reason_correct": true,
+      "candidates": [],
+      "reasons": [
+        "Correct unknown physical unit limitation with specific reason."
+      ]
+    },
+    {
+      "phase": "v4",
+      "id": "eval_zero_synthetic_1",
+      "request_satisfied": false,
+      "zero_reason_correct": false,
+      "candidates": [],
+      "reasons": [
+        "Zero can be justified for this specific request, but reason omits the actual column/operator/parent lookup limit or attributes the limitation to the wrong cause."
+      ]
+    },
+    {
+      "phase": "v5",
+      "id": "eval_A_actual_0",
+      "request_satisfied": true,
+      "zero_reason_correct": false,
+      "candidates": [
+        {
+          "meaning": true,
+          "unknown_information": true,
+          "reasons": [
+            "Requested transaction-level sum of signed child timestamp coordinates recovered; source and independent arithmetic pass."
+          ]
+        }
+      ],
+      "reasons": [
+        "Requested transaction-level sum of signed child timestamp coordinates recovered; source and independent arithmetic pass."
+      ]
+    },
+    {
+      "phase": "v5",
+      "id": "eval_A_actual_1",
+      "request_satisfied": true,
+      "zero_reason_correct": false,
+      "candidates": [
+        {
+          "meaning": true,
+          "unknown_information": true,
+          "reasons": [
+            "Engine.evaluate lines195-197 returns unavailable for missing/no-reference keys; this prose is supported. empty_group=zero remains a separate code failure."
+          ]
+        }
+      ],
+      "reasons": [
+        "Requested child-row parent matching retained; invalid empty_group policy blocks calculation, without changing the narrow purpose."
+      ]
+    },
+    {
+      "phase": "v5",
+      "id": "eval_A_actual_2",
+      "request_satisfied": true,
+      "zero_reason_correct": false,
+      "candidates": [
+        {
+          "meaning": true,
+          "unknown_information": true,
+          "reasons": [
+            "Supported Boolean missingness conjunction preserved. valid256/true0 is not no observations."
+          ]
+        }
+      ],
+      "reasons": [
+        "Supported Boolean missingness conjunction preserved. valid256/true0 is not no observations."
+      ]
+    },
+    {
+      "phase": "v5",
+      "id": "eval_A_actual_3",
+      "request_satisfied": true,
+      "zero_reason_correct": false,
+      "candidates": [
+        {
+          "meaning": true,
+          "unknown_information": true,
+          "reasons": [
+            "Parent STATUS=S filter and transaction grain preserved; selected12 of128 parents, all0 valid observations."
+          ]
+        }
+      ],
+      "reasons": [
+        "Parent STATUS=S filter and transaction grain preserved; selected12 of128 parents, all0 valid observations."
+      ]
+    },
+    {
+      "phase": "v5",
+      "id": "eval_A_synthetic_0",
+      "request_satisfied": false,
+      "zero_reason_correct": false,
+      "candidates": [
+        {
+          "meaning": true,
+          "unknown_information": true,
+          "reasons": [
+            "Valid narrowly described signed calculation, but subtraction order is reversed from the explicit request; not approved for this task."
+          ]
+        }
+      ],
+      "reasons": [
+        "Valid narrowly described signed calculation, but subtraction order is reversed from the explicit request; not approved for this task."
+      ]
+    },
+    {
+      "phase": "v5",
+      "id": "eval_A_synthetic_1",
+      "request_satisfied": true,
+      "zero_reason_correct": false,
+      "candidates": [
+        {
+          "meaning": true,
+          "unknown_information": true,
+          "reasons": [
+            "Conditional child quantity sum and literal A filter retained; empty group zero and selected missing value propagation described correctly."
+          ]
+        }
+      ],
+      "reasons": [
+        "Conditional child quantity sum and literal A filter retained; empty group zero and selected missing value propagation described correctly."
+      ]
+    },
+    {
+      "phase": "v5",
+      "id": "eval_A_synthetic_2",
+      "request_satisfied": true,
+      "zero_reason_correct": false,
+      "candidates": [
+        {
+          "meaning": true,
+          "unknown_information": true,
+          "reasons": [
+            "Parent tenant=site1 population and code A child filter retained."
+          ]
+        }
+      ],
+      "reasons": [
+        "Parent tenant=site1 population and code A child filter retained."
+      ]
+    },
+    {
+      "phase": "v5",
+      "id": "eval_A_synthetic_3",
+      "request_satisfied": true,
+      "zero_reason_correct": false,
+      "candidates": [
+        {
+          "meaning": true,
+          "unknown_information": true,
+          "reasons": [
+            "Child grain and physical parent matching purpose preserved. Missing/no-reference propagation agrees with Engine; invalid empty_group blocks execution."
+          ]
+        }
+      ],
+      "reasons": [
+        "Child grain and physical parent matching purpose preserved. Missing/no-reference propagation agrees with Engine; invalid empty_group blocks execution."
+      ]
+    },
+    {
+      "phase": "v5",
+      "id": "eval_B_actual_0",
+      "request_satisfied": true,
+      "zero_reason_correct": false,
+      "candidates": [
+        {
+          "meaning": true,
+          "unknown_information": true,
+          "reasons": [
+            "Open discovery of dependency/start typed-value unavailability conjunction. Both columns currently nonmissing128; no business contract invented."
+          ]
+        }
+      ],
+      "reasons": [
+        "Open discovery of dependency/start typed-value unavailability conjunction. Both columns currently nonmissing128; no business contract invented."
+      ]
+    },
+    {
+      "phase": "v5",
+      "id": "eval_B_actual_1",
+      "request_satisfied": false,
+      "zero_reason_correct": false,
+      "candidates": [
+        {
+          "meaning": true,
+          "unknown_information": true,
+          "reasons": [
+            "Mathematically valid but repeats supplied registered f057 adapter/channel missingness conjunction. Not a new discovery."
+          ]
+        }
+      ],
+      "reasons": [
+        "Mathematically valid but repeats supplied registered f057 adapter/channel missingness conjunction. Not a new discovery."
+      ]
+    },
+    {
+      "phase": "v5",
+      "id": "eval_B_actual_2",
+      "request_satisfied": true,
+      "zero_reason_correct": false,
+      "candidates": [
+        {
+          "meaning": true,
+          "unknown_information": true,
+          "reasons": [
+            "Open process-level count of missing message names is narrow and legitimate; metadata sources list fails exact dependency validation, so not adopted."
+          ]
+        }
+      ],
+      "reasons": [
+        "Open process-level count of missing message names is narrow and legitimate; metadata sources list fails exact dependency validation, so not adopted."
+      ]
+    },
+    {
+      "phase": "v5",
+      "id": "eval_B_actual_3",
+      "request_satisfied": true,
+      "zero_reason_correct": false,
+      "candidates": [
+        {
+          "meaning": true,
+          "unknown_information": true,
+          "reasons": [
+            "Open simultaneous direction/name unavailability is valid. Same calculation was independently returned for A2; catalog counts it once without treating unseen cross-input output as supplied prior coverage."
+          ]
+        }
+      ],
+      "reasons": [
+        "Open simultaneous direction/name unavailability is valid. Same calculation was independently returned for A2; catalog counts it once without treating unseen cross-input output as supplied prior coverage."
+      ]
+    },
+    {
+      "phase": "v5",
+      "id": "eval_B_synthetic_0",
+      "request_satisfied": true,
+      "zero_reason_correct": false,
+      "candidates": [
+        {
+          "meaning": true,
+          "unknown_information": true,
+          "reasons": [
+            "Signed timestamp coordinates and typed finish timestamp unavailability are supported. Typed timestamp unavailability includes parser failures; raw type terminology is ambiguous but does not explicitly claim raw-empty-only causation."
+          ]
+        },
+        {
+          "meaning": true,
+          "unknown_information": true,
+          "reasons": [
+            "Signed timestamp coordinates and typed finish timestamp unavailability are supported. Typed timestamp unavailability includes parser failures; raw type terminology is ambiguous but does not explicitly claim raw-empty-only causation."
+          ]
+        }
+      ],
+      "reasons": [
+        "Signed timestamp coordinates and typed finish timestamp unavailability are supported. Typed timestamp unavailability includes parser failures; raw type terminology is ambiguous but does not explicitly claim raw-empty-only causation."
+      ]
+    },
+    {
+      "phase": "v5",
+      "id": "eval_B_synthetic_1",
+      "request_satisfied": true,
+      "zero_reason_correct": false,
+      "candidates": [
+        {
+          "meaning": true,
+          "unknown_information": true,
+          "reasons": [
+            "Open complete physical child volume and literal A child subset counts; no child gives zero and no mandatory-child contract inferred."
+          ]
+        },
+        {
+          "meaning": true,
+          "unknown_information": true,
+          "reasons": [
+            "Open complete physical child volume and literal A child subset counts; no child gives zero and no mandatory-child contract inferred."
+          ]
+        }
+      ],
+      "reasons": [
+        "Open complete physical child volume and literal A child subset counts; no child gives zero and no mandatory-child contract inferred."
+      ]
+    },
+    {
+      "phase": "v5",
+      "id": "eval_B_synthetic_2",
+      "request_satisfied": true,
+      "zero_reason_correct": false,
+      "candidates": [
+        {
+          "meaning": true,
+          "unknown_information": true,
+          "reasons": [
+            "Open verified count difference and explicitly converted signed time-coordinate difference. Acceptable alternatives to private ratio witness; no business duration or conservation claim."
+          ]
+        },
+        {
+          "meaning": true,
+          "unknown_information": true,
+          "reasons": [
+            "Open verified count difference and explicitly converted signed time-coordinate difference. Acceptable alternatives to private ratio witness; no business duration or conservation claim."
+          ]
+        }
+      ],
+      "reasons": [
+        "Open verified count difference and explicitly converted signed time-coordinate difference. Acceptable alternatives to private ratio witness; no business duration or conservation claim."
+      ]
+    },
+    {
+      "phase": "v5",
+      "id": "eval_B_synthetic_3",
+      "request_satisfied": true,
+      "zero_reason_correct": false,
+      "candidates": [
+        {
+          "meaning": true,
+          "unknown_information": true,
+          "reasons": [
+            "Unknown physical numeric unit does not block typed numeric/tag unavailability Boolean diagnoses."
+          ]
+        },
+        {
+          "meaning": true,
+          "unknown_information": true,
+          "reasons": [
+            "Unknown physical numeric unit does not block typed numeric/tag unavailability Boolean diagnoses."
+          ]
+        }
+      ],
+      "reasons": [
+        "Unknown physical numeric unit does not block typed numeric/tag unavailability Boolean diagnoses."
+      ]
+    },
+    {
+      "phase": "v5",
+      "id": "eval_zero_actual_0",
+      "request_satisfied": true,
+      "zero_reason_correct": true,
+      "candidates": [],
+      "reasons": [
+        "Precisely names PROCESS_TIME unknown physical unit/duration contract; raw arithmetic is not physical ms latency."
+      ]
+    },
+    {
+      "phase": "v5",
+      "id": "eval_zero_actual_1",
+      "request_satisfied": true,
+      "zero_reason_correct": true,
+      "candidates": [],
+      "reasons": [
+        "Precisely identifies unsupported abs without changing requested all-row absolute calculation."
+      ]
+    },
+    {
+      "phase": "v5",
+      "id": "eval_zero_synthetic_0",
+      "request_satisfied": true,
+      "zero_reason_correct": true,
+      "candidates": [],
+      "reasons": [
+        "Names the unknown-unit count quantities and preserves no-raw-substitute request."
+      ]
+    },
+    {
+      "phase": "v5",
+      "id": "eval_zero_synthetic_1",
+      "request_satisfied": false,
+      "zero_reason_correct": false,
+      "candidates": [
+        {
+          "meaning": false,
+          "unknown_information": true,
+          "reasons": [
+            "Legitimate requested parent-attribute analysis, but proposed cross-table column reading at child grain has no supported parent lookup. Candidate should be zero with exact engine limit; purpose itself is not invalid."
+          ]
+        }
+      ],
+      "reasons": [
+        "Legitimate requested parent-attribute analysis, but proposed cross-table column reading at child grain has no supported parent lookup. Candidate should be zero with exact engine limit; purpose itself is not invalid."
+      ]
+    }
+  ],
+  "partial_A1_prose_review_corrected_by_actual_Engine_missing_reference_semantics": true,
+  "exact_gold_AST_not_required_in_open_discovery": true,
+  "current_input_cross_call_repetition_recorded_but_not_as_model_prior_knowledge": true
+}

@@ -1,0 +1,463 @@
+{
+  "research_run": "data/eda/feature_rule_refinement_v5/20261014T014811+0900",
+  "sources": [
+    {
+      "original": "data/eda/feature_rule_refinement_v5/20261014T014811+0900/implementation/aggregate_review.py",
+      "original_sha256": "7c09418ddb2ab1e6a75c1c9e25599816434c32db682a54a0989f7c51d93d9b50",
+      "published": "research/models/feature_rule_design_v0_2/source_snapshots/v5/aggregate_review.py",
+      "published_sha256": "7c09418ddb2ab1e6a75c1c9e25599816434c32db682a54a0989f7c51d93d9b50",
+      "purpose": "archived research source; private inputs and original layout required"
+    },
+    {
+      "original": "data/eda/feature_rule_refinement_v5/20261014T014811+0900/implementation/budget.py",
+      "original_sha256": "78e22aeb5374f41d6c27d2ed3017deee21bbab0ab291838e15d0845d06161d31",
+      "published": "research/models/feature_rule_design_v0_2/source_snapshots/v5/budget.py",
+      "published_sha256": "78e22aeb5374f41d6c27d2ed3017deee21bbab0ab291838e15d0845d06161d31",
+      "purpose": "archived research source; private inputs and original layout required"
+    },
+    {
+      "original": "data/eda/feature_rule_refinement_v5/20261014T014811+0900/implementation/checkpoint_integrity_v5.py",
+      "original_sha256": "b294d87efab19f6200c54fe15a6452213e4d18dd66dd092e7f2750eb5d3532cb",
+      "published": "research/models/feature_rule_design_v0_2/source_snapshots/v5/checkpoint_integrity_v5.py",
+      "published_sha256": "b294d87efab19f6200c54fe15a6452213e4d18dd66dd092e7f2750eb5d3532cb",
+      "purpose": "archived research source; private inputs and original layout required"
+    },
+    {
+      "original": "data/eda/feature_rule_refinement_v5/20261014T014811+0900/implementation/consumption_audit_v5.py",
+      "original_sha256": "f4dd87bbc455eb8ada2d2179a686df379122f85aab755fae46ebce48dca75932",
+      "published": "research/models/feature_rule_design_v0_2/source_snapshots/v5/consumption_audit_v5.py",
+      "published_sha256": "f4dd87bbc455eb8ada2d2179a686df379122f85aab755fae46ebce48dca75932",
+      "purpose": "archived research source; private inputs and original layout required"
+    },
+    {
+      "original": "data/eda/feature_rule_refinement_v5/20261014T014811+0900/implementation/contracts.py",
+      "original_sha256": "7a0a4422f7101e6f361608324afb60df7bc7778f1f8f7282e4d540b5086f7b0f",
+      "published": "research/models/feature_rule_design_v0_2/source_snapshots/v5/contracts.py",
+      "published_sha256": "7a0a4422f7101e6f361608324afb60df7bc7778f1f8f7282e4d540b5086f7b0f",
+      "purpose": "archived research source; private inputs and original layout required"
+    },
+    {
+      "original": "data/eda/feature_rule_refinement_v5/20261014T014811+0900/implementation/development_regression_v5.py",
+      "original_sha256": "101ac1fcc3b576ae65a2890fab30ab71a75f9c5877f402b984e00ad2a417008b",
+      "published": "research/models/feature_rule_design_v0_2/source_snapshots/v5/development_regression_v5.py",
+      "published_sha256": "101ac1fcc3b576ae65a2890fab30ab71a75f9c5877f402b984e00ad2a417008b",
+      "purpose": "archived research source; private inputs and original layout required"
+    },
+    {
+      "original": "data/eda/feature_rule_refinement_v5/20261014T014811+0900/implementation/evidence_gateway_v2.py",
+      "original_sha256": "57724b72b0a4c53bd41b1c376029e8b2487b95e1f1c55fcd90f0ce99913bf6de",
+      "published": "research/models/feature_rule_design_v0_2/source_snapshots/v5/evidence_gateway_v2.py",
+      "published_sha256": "57724b72b0a4c53bd41b1c376029e8b2487b95e1f1c55fcd90f0ce99913bf6de",
+      "purpose": "archived research source; private inputs and original layout required"
+    },
+    {
+      "original": "data/eda/feature_rule_refinement_v5/20261014T014811+0900/implementation/feature_contract.py",
+      "original_sha256": "0cb4e3e7423e3d26336070464f659d91d7f7e849cb59837627005460dc78cdda",
+      "published": "research/models/feature_rule_design_v0_2/source_snapshots/v5/feature_contract.py",
+      "published_sha256": "0cb4e3e7423e3d26336070464f659d91d7f7e849cb59837627005460dc78cdda",
+      "purpose": "archived research source; private inputs and original layout required"
+    },
+    {
+      "original": "data/eda/feature_rule_refinement_v5/20261014T014811+0900/implementation/feature_repair.py",
+      "original_sha256": "25b652caa5ef232bf1e05d582ac989b74384501f12f69306da4d4c58cd766d67",
+      "published": "research/models/feature_rule_design_v0_2/source_snapshots/v5/feature_repair.py",
+      "published_sha256": "25b652caa5ef232bf1e05d582ac989b74384501f12f69306da4d4c58cd766d67",
+      "purpose": "archived research source; private inputs and original layout required"
+    },
+    {
+      "original": "data/eda/feature_rule_refinement_v5/20261014T014811+0900/implementation/finalize_v5.py",
+      "original_sha256": "8ab857e3caa424ff98a1a8804a4d2b74fca16541315942a0959829769b2e87b7",
+      "published": "research/models/feature_rule_design_v0_2/source_snapshots/v5/finalize_v5.py",
+      "published_sha256": "ffbe94a4ee3e6aef3f4d3def7a02805904cbf87b47adc21c7ae2a87f54589d88",
+      "purpose": "archived research source; private inputs and original layout required"
+    },
+    {
+      "original": "data/eda/feature_rule_refinement_v5/20261014T014811+0900/implementation/fresh_actual_v4.py",
+      "original_sha256": "a8c41428452dcd5861c3d4b350c61c828636fb8aa9dc124735d45bb36e3d4b15",
+      "published": "research/models/feature_rule_design_v0_2/source_snapshots/v5/fresh_actual_v4.py",
+      "published_sha256": "a8c41428452dcd5861c3d4b350c61c828636fb8aa9dc124735d45bb36e3d4b15",
+      "purpose": "archived research source; private inputs and original layout required"
+    },
+    {
+      "original": "data/eda/feature_rule_refinement_v5/20261014T014811+0900/implementation/full_checkpoint.py",
+      "original_sha256": "47a0e0adbdbfadbe2bcd2d9026c8fb65c7cbd1ada064ddc9908469dc579ba029",
+      "published": "research/models/feature_rule_design_v0_2/source_snapshots/v5/full_checkpoint.py",
+      "published_sha256": "47a0e0adbdbfadbe2bcd2d9026c8fb65c7cbd1ada064ddc9908469dc579ba029",
+      "purpose": "archived research source; private inputs and original layout required"
+    },
+    {
+      "original": "data/eda/feature_rule_refinement_v5/20261014T014811+0900/implementation/identity_scope_v5.py",
+      "original_sha256": "5b75eb7b72307ca8e54e3e9aa10c230c83ccfbb9a9e999a839b9aaa30e68127d",
+      "published": "research/models/feature_rule_design_v0_2/source_snapshots/v5/identity_scope_v5.py",
+      "published_sha256": "5b75eb7b72307ca8e54e3e9aa10c230c83ccfbb9a9e999a839b9aaa30e68127d",
+      "purpose": "archived research source; private inputs and original layout required"
+    },
+    {
+      "original": "data/eda/feature_rule_refinement_v5/20261014T014811+0900/implementation/independent_candidates.py",
+      "original_sha256": "b988bb83cf2e2dc3b4c734ff61b52e73181326f6d466d037945a1c402a1a7fb0",
+      "published": "research/models/feature_rule_design_v0_2/source_snapshots/v5/independent_candidates.py",
+      "published_sha256": "b988bb83cf2e2dc3b4c734ff61b52e73181326f6d466d037945a1c402a1a7fb0",
+      "purpose": "archived research source; private inputs and original layout required"
+    },
+    {
+      "original": "data/eda/feature_rule_refinement_v5/20261014T014811+0900/implementation/inference_v3.py",
+      "original_sha256": "0f7e25be07eea5ba0a5c5db8a1e737d091da15f7bedf06f98f8a14204f397b4d",
+      "published": "research/models/feature_rule_design_v0_2/source_snapshots/v5/inference_v3.py",
+      "published_sha256": "0f7e25be07eea5ba0a5c5db8a1e737d091da15f7bedf06f98f8a14204f397b4d",
+      "purpose": "archived research source; private inputs and original layout required"
+    },
+    {
+      "original": "data/eda/feature_rule_refinement_v5/20261014T014811+0900/implementation/link_fixed_rule.py",
+      "original_sha256": "8ffe88f6ad42bc229b4e94c173b3d947b16b06e74ad06bd393195fc5f30307d4",
+      "published": "research/models/feature_rule_design_v0_2/source_snapshots/v5/link_fixed_rule.py",
+      "published_sha256": "8ffe88f6ad42bc229b4e94c173b3d947b16b06e74ad06bd393195fc5f30307d4",
+      "purpose": "archived research source; private inputs and original layout required"
+    },
+    {
+      "original": "data/eda/feature_rule_refinement_v5/20261014T014811+0900/implementation/pilot_io.py",
+      "original_sha256": "d38f49a35050237b2ef1fabb1ac9341948aeaf70b60800f4295c8bafd8b5d6d2",
+      "published": "research/models/feature_rule_design_v0_2/source_snapshots/v5/pilot_io.py",
+      "published_sha256": "d38f49a35050237b2ef1fabb1ac9341948aeaf70b60800f4295c8bafd8b5d6d2",
+      "purpose": "archived research source; private inputs and original layout required"
+    },
+    {
+      "original": "data/eda/feature_rule_refinement_v5/20261014T014811+0900/implementation/policy_v2.py",
+      "original_sha256": "04092691d134019cf8c0e29d015dfd47d392964ad3a718e020c5b05c4a5828fc",
+      "published": "research/models/feature_rule_design_v0_2/source_snapshots/v5/policy_v2.py",
+      "published_sha256": "04092691d134019cf8c0e29d015dfd47d392964ad3a718e020c5b05c4a5828fc",
+      "purpose": "archived research source; private inputs and original layout required"
+    },
+    {
+      "original": "data/eda/feature_rule_refinement_v5/20261014T014811+0900/implementation/policy_v3.py",
+      "original_sha256": "d4c88734c753ac24b0b14022b1c7d35a949be6b5c1c37c33f9b2b7a495a35124",
+      "published": "research/models/feature_rule_design_v0_2/source_snapshots/v5/policy_v3.py",
+      "published_sha256": "d4c88734c753ac24b0b14022b1c7d35a949be6b5c1c37c33f9b2b7a495a35124",
+      "purpose": "archived research source; private inputs and original layout required"
+    },
+    {
+      "original": "data/eda/feature_rule_refinement_v5/20261014T014811+0900/implementation/prepare_features.py",
+      "original_sha256": "a0addbee34962082acae10fcc82f11b9e824be55e9a84b20280071fc04328339",
+      "published": "research/models/feature_rule_design_v0_2/source_snapshots/v5/prepare_features.py",
+      "published_sha256": "a0addbee34962082acae10fcc82f11b9e824be55e9a84b20280071fc04328339",
+      "purpose": "archived research source; private inputs and original layout required"
+    },
+    {
+      "original": "data/eda/feature_rule_refinement_v5/20261014T014811+0900/implementation/prepare_v5.py",
+      "original_sha256": "16a6db0fc45bdca33aaf068807f7b65018d5f3d5ac7ef046493acf8573b5d5bf",
+      "published": "research/models/feature_rule_design_v0_2/source_snapshots/v5/prepare_v5.py",
+      "published_sha256": "16a6db0fc45bdca33aaf068807f7b65018d5f3d5ac7ef046493acf8573b5d5bf",
+      "purpose": "archived research source; private inputs and original layout required"
+    },
+    {
+      "original": "data/eda/feature_rule_refinement_v5/20261014T014811+0900/implementation/pretraining_audit.py",
+      "original_sha256": "7a4a1515d4fc5564ca35002f5a04c94c61b2e5dce39bfb21f9b9645228c415f3",
+      "published": "research/models/feature_rule_design_v0_2/source_snapshots/v5/pretraining_audit.py",
+      "published_sha256": "7a4a1515d4fc5564ca35002f5a04c94c61b2e5dce39bfb21f9b9645228c415f3",
+      "purpose": "archived research source; private inputs and original layout required"
+    },
+    {
+      "original": "data/eda/feature_rule_refinement_v5/20261014T014811+0900/implementation/pretraining_gate_v5.py",
+      "original_sha256": "7e3231f3c40fd7bcac69e30d1186df84c0c4dca10c74c9bd2ce819f790d0f90e",
+      "published": "research/models/feature_rule_design_v0_2/source_snapshots/v5/pretraining_gate_v5.py",
+      "published_sha256": "7e3231f3c40fd7bcac69e30d1186df84c0c4dca10c74c9bd2ce819f790d0f90e",
+      "purpose": "archived research source; private inputs and original layout required"
+    },
+    {
+      "original": "data/eda/feature_rule_refinement_v5/20261014T014811+0900/implementation/render_results.py",
+      "original_sha256": "ae31aa6539c0260cc38f73cdda912146c547a3a2f1a65db2b96721488e9dce39",
+      "published": "research/models/feature_rule_design_v0_2/source_snapshots/v5/render_results.py",
+      "published_sha256": "079af937c114e11bdd9939af578d942f8cf40d15644bd0c864163416d4d5e8a6",
+      "purpose": "archived research source; private inputs and original layout required"
+    },
+    {
+      "original": "data/eda/feature_rule_refinement_v5/20261014T014811+0900/implementation/render_v5.py",
+      "original_sha256": "f0ab0097d1e2ebd2075af51a99c74304373b12ffe86ad33d115341fa818076ee",
+      "published": "research/models/feature_rule_design_v0_2/source_snapshots/v5/render_v5.py",
+      "published_sha256": "f0ab0097d1e2ebd2075af51a99c74304373b12ffe86ad33d115341fa818076ee",
+      "purpose": "archived research source; private inputs and original layout required"
+    },
+    {
+      "original": "data/eda/feature_rule_refinement_v5/20261014T014811+0900/implementation/replay_pipeline.py",
+      "original_sha256": "f69969a2a8fb7e97ca1dfeafc13ab591732358ed81332e0cf189cb7ce69d1d1a",
+      "published": "research/models/feature_rule_design_v0_2/source_snapshots/v5/replay_pipeline.py",
+      "published_sha256": "f69969a2a8fb7e97ca1dfeafc13ab591732358ed81332e0cf189cb7ce69d1d1a",
+      "purpose": "archived research source; private inputs and original layout required"
+    },
+    {
+      "original": "data/eda/feature_rule_refinement_v5/20261014T014811+0900/implementation/reproduce_v5.py",
+      "original_sha256": "21f88220a272963d137d5da146c46707a3c631ca8bd392efc45272e9b54b1ece",
+      "published": "research/models/feature_rule_design_v0_2/source_snapshots/v5/reproduce_v5.py",
+      "published_sha256": "21f88220a272963d137d5da146c46707a3c631ca8bd392efc45272e9b54b1ece",
+      "purpose": "archived research source; private inputs and original layout required"
+    },
+    {
+      "original": "data/eda/feature_rule_refinement_v5/20261014T014811+0900/implementation/resume_complete_v5.py",
+      "original_sha256": "e1ab0d02be34294dddaaf3ca71158b0a381af34269f2c1b5d995994c9daaac17",
+      "published": "research/models/feature_rule_design_v0_2/source_snapshots/v5/resume_complete_v5.py",
+      "published_sha256": "e1ab0d02be34294dddaaf3ca71158b0a381af34269f2c1b5d995994c9daaac17",
+      "purpose": "archived research source; private inputs and original layout required"
+    },
+    {
+      "original": "data/eda/feature_rule_refinement_v5/20261014T014811+0900/implementation/resume_interrupted_feature.py",
+      "original_sha256": "0a5b410001e85a3aebbf8ee680070282aa74359e446a8f89abef60a4ac10626d",
+      "published": "research/models/feature_rule_design_v0_2/source_snapshots/v5/resume_interrupted_feature.py",
+      "published_sha256": "0a5b410001e85a3aebbf8ee680070282aa74359e446a8f89abef60a4ac10626d",
+      "purpose": "archived research source; private inputs and original layout required"
+    },
+    {
+      "original": "data/eda/feature_rule_refinement_v5/20261014T014811+0900/implementation/review_v5.py",
+      "original_sha256": "3610d3ad29395b4062644afa818a6264c9d59047939591f54adf57bdcad3090b",
+      "published": "research/models/feature_rule_design_v0_2/source_snapshots/v5/review_v5.py",
+      "published_sha256": "3610d3ad29395b4062644afa818a6264c9d59047939591f54adf57bdcad3090b",
+      "purpose": "archived research source; private inputs and original layout required"
+    },
+    {
+      "original": "data/eda/feature_rule_refinement_v5/20261014T014811+0900/implementation/run_one_pipeline.py",
+      "original_sha256": "224b35715fdd5d6ff0ee002c6fbb96b865765421fc48a4799f4fe3170c99f5c4",
+      "published": "research/models/feature_rule_design_v0_2/source_snapshots/v5/run_one_pipeline.py",
+      "published_sha256": "224b35715fdd5d6ff0ee002c6fbb96b865765421fc48a4799f4fe3170c99f5c4",
+      "purpose": "archived research source; private inputs and original layout required"
+    },
+    {
+      "original": "data/eda/feature_rule_refinement_v5/20261014T014811+0900/implementation/semantic_identity_v5.py",
+      "original_sha256": "a07fe096bb55c019b573b2b5165211fed2641cd0d7cd1b4414770f17e326a38e",
+      "published": "research/models/feature_rule_design_v0_2/source_snapshots/v5/semantic_identity_v5.py",
+      "published_sha256": "a07fe096bb55c019b573b2b5165211fed2641cd0d7cd1b4414770f17e326a38e",
+      "purpose": "archived research source; private inputs and original layout required"
+    },
+    {
+      "original": "data/eda/feature_rule_refinement_v5/20261014T014811+0900/implementation/source_hash_cache.py",
+      "original_sha256": "f9698b58fd641e09171f03c93abf9ec2416fba38de664729785a1cabeff77686",
+      "published": "research/models/feature_rule_design_v0_2/source_snapshots/v5/source_hash_cache.py",
+      "published_sha256": "f9698b58fd641e09171f03c93abf9ec2416fba38de664729785a1cabeff77686",
+      "purpose": "archived research source; private inputs and original layout required"
+    },
+    {
+      "original": "data/eda/feature_rule_refinement_v5/20261014T014811+0900/implementation/train_feature_once.py",
+      "original_sha256": "8b9e52df463fee0a0333eac25c5ab8c637b20ecd2f1393620b49d43e717bccab",
+      "published": "research/models/feature_rule_design_v0_2/source_snapshots/v5/train_feature_once.py",
+      "published_sha256": "8b9e52df463fee0a0333eac25c5ab8c637b20ecd2f1393620b49d43e717bccab",
+      "purpose": "archived research source; private inputs and original layout required"
+    },
+    {
+      "original": "data/eda/feature_rule_refinement_v5/20261014T014811+0900/implementation/train_once_v5.py",
+      "original_sha256": "fa55665f59fdb420c2e50c692147e420289c4d9f077023ec79474c51b0233e0a",
+      "published": "research/models/feature_rule_design_v0_2/source_snapshots/v5/train_once_v5.py",
+      "published_sha256": "fa55665f59fdb420c2e50c692147e420289c4d9f077023ec79474c51b0233e0a",
+      "purpose": "archived research source; private inputs and original layout required"
+    },
+    {
+      "original": "data/eda/feature_rule_refinement_v5/20261014T014811+0900/implementation/usage_review.py",
+      "original_sha256": "88e0c6e6127ce45702d973b5eecd48393cecd5d021ecb9776596c0b8a51bc8c6",
+      "published": "research/models/feature_rule_design_v0_2/source_snapshots/v5/usage_review.py",
+      "published_sha256": "88e0c6e6127ce45702d973b5eecd48393cecd5d021ecb9776596c0b8a51bc8c6",
+      "purpose": "archived research source; private inputs and original layout required"
+    },
+    {
+      "original": "data/eda/feature_rule_refinement_v5/20261014T014811+0900/implementation/v1_validator.py",
+      "original_sha256": "41cf7b93b949ec8d78a90529443436d1aa56764b82752e8a07848551773077dc",
+      "published": "research/models/feature_rule_design_v0_2/source_snapshots/v5/v1_validator.py",
+      "published_sha256": "41cf7b93b949ec8d78a90529443436d1aa56764b82752e8a07848551773077dc",
+      "purpose": "archived research source; private inputs and original layout required"
+    },
+    {
+      "original": "data/eda/feature_rule_refinement_v5/20261014T014811+0900/implementation/verify_preservation_v5.py",
+      "original_sha256": "d80437aaf5b1f0b367d79c6ac40b087609750a012b44d1b9559c910b4c11040b",
+      "published": "research/models/feature_rule_design_v0_2/source_snapshots/v5/verify_preservation_v5.py",
+      "published_sha256": "d80437aaf5b1f0b367d79c6ac40b087609750a012b44d1b9559c910b4c11040b",
+      "purpose": "archived research source; private inputs and original layout required"
+    },
+    {
+      "original": "data/eda/schema_generalization_v25/20261012_sr_review_feature_scope/implementation/common_io.py",
+      "original_sha256": "fa773e1a51bb298038de4eecb199938877167225e10ea0f52c09520096dff96b",
+      "published": "research/models/feature_rule_design_v0_2/source_snapshots/calculation/common_io.py",
+      "published_sha256": "fa773e1a51bb298038de4eecb199938877167225e10ea0f52c09520096dff96b",
+      "purpose": "archived calculation dependency"
+    },
+    {
+      "original": "data/eda/schema_generalization_v25/20261012_sr_review_feature_scope/implementation/source_gate.py",
+      "original_sha256": "8345dcda0fe145ef2c956b515f7b8ffdfcced30fc6db45bab90990f10c32b107",
+      "published": "research/models/feature_rule_design_v0_2/source_snapshots/calculation/source_gate.py",
+      "published_sha256": "8345dcda0fe145ef2c956b515f7b8ffdfcced30fc6db45bab90990f10c32b107",
+      "purpose": "archived calculation dependency"
+    },
+    {
+      "original": "generalized_content_policy_v16.py",
+      "original_sha256": "797754fc88c764f9b8b0e741f8cfb1c62ef600dd55e20eeadbb1ac2a6d7f15c7",
+      "published": "research/models/feature_rule_design_v0_2/source_snapshots/calculation/generalized_content_policy_v16.py",
+      "published_sha256": "797754fc88c764f9b8b0e741f8cfb1c62ef600dd55e20eeadbb1ac2a6d7f15c7",
+      "purpose": "archived calculation dependency"
+    },
+    {
+      "original": "generalized_profile_v16.py",
+      "original_sha256": "8314b50778964897dbb8714294fb0548aebc3ecf7b1f2fa012e2ed0711edfeda",
+      "published": "research/models/feature_rule_design_v0_2/source_snapshots/calculation/generalized_profile_v16.py",
+      "published_sha256": "8314b50778964897dbb8714294fb0548aebc3ecf7b1f2fa012e2ed0711edfeda",
+      "purpose": "archived calculation dependency"
+    },
+    {
+      "original": "generalized_source_policy_v21.py",
+      "original_sha256": "e976126d92d70c768e8c9d7b3e73fc2f20cb4298bacb424aef787905d774ad87",
+      "published": "research/models/feature_rule_design_v0_2/source_snapshots/calculation/generalized_source_policy_v21.py",
+      "published_sha256": "e976126d92d70c768e8c9d7b3e73fc2f20cb4298bacb424aef787905d774ad87",
+      "purpose": "archived calculation dependency"
+    },
+    {
+      "original": "data/eda/schema_generalization_v25/20261012_sr_review_feature_scope/implementation/analysis_engine.py",
+      "original_sha256": "a5b186fa3fd76e4157aee02efc10c205528661609488fedaa214d18edbebcba7",
+      "published": "research/models/feature_rule_design_v0_2/source_snapshots/calculation/analysis_engine.py",
+      "published_sha256": "a5b186fa3fd76e4157aee02efc10c205528661609488fedaa214d18edbebcba7",
+      "purpose": "archived calculation dependency"
+    },
+    {
+      "original": "generalized_runtime_context_v21.py",
+      "original_sha256": "ca3a2593ab749fee54945cc81c2791d0dc5de52c2b98cdac53991ec24336150c",
+      "published": "research/models/feature_rule_design_v0_2/source_snapshots/calculation/generalized_runtime_context_v21.py",
+      "published_sha256": "ca3a2593ab749fee54945cc81c2791d0dc5de52c2b98cdac53991ec24336150c",
+      "purpose": "archived calculation dependency"
+    },
+    {
+      "original": "generalized_measurement_v21.py",
+      "original_sha256": "cd9531a9c4ce8cbcd201f2c4b67e468c038f9f96dae6a0066a18645c12b9ca1d",
+      "published": "research/models/feature_rule_design_v0_2/source_snapshots/calculation/generalized_measurement_v21.py",
+      "published_sha256": "cd9531a9c4ce8cbcd201f2c4b67e468c038f9f96dae6a0066a18645c12b9ca1d",
+      "purpose": "archived calculation dependency"
+    },
+    {
+      "original": "generalized_rules_v21.py",
+      "original_sha256": "7a357cb9742aacdd03614fc401568d8baaa2a9a7a9938de38a7a1207e9b14a76",
+      "published": "research/models/feature_rule_design_v0_2/source_snapshots/calculation/generalized_rules_v21.py",
+      "published_sha256": "7a357cb9742aacdd03614fc401568d8baaa2a9a7a9938de38a7a1207e9b14a76",
+      "purpose": "archived calculation dependency"
+    },
+    {
+      "original": "generalized_trigger_semantics_v19.py",
+      "original_sha256": "50408fb017f73b80f2fec3b3aeb2c63a28a6d209b60bcea3630ebf79486d914c",
+      "published": "research/models/feature_rule_design_v0_2/source_snapshots/calculation/generalized_trigger_semantics_v19.py",
+      "published_sha256": "50408fb017f73b80f2fec3b3aeb2c63a28a6d209b60bcea3630ebf79486d914c",
+      "purpose": "archived calculation dependency"
+    },
+    {
+      "original": "generalized_rule_subjects_v19.py",
+      "original_sha256": "4d1c640d6c94e8bb48bd0b7d9f4a224bf72adda68b51306941b8d45c5d2a96cf",
+      "published": "research/models/feature_rule_design_v0_2/source_snapshots/calculation/generalized_rule_subjects_v19.py",
+      "published_sha256": "4d1c640d6c94e8bb48bd0b7d9f4a224bf72adda68b51306941b8d45c5d2a96cf",
+      "purpose": "archived calculation dependency"
+    },
+    {
+      "original": "generalized_protocol_v16.py",
+      "original_sha256": "1c6bad140b4b92b1fc7ca6af75e174bfd80f1cbcfdcdf2ad39ed7c461111462d",
+      "published": "research/models/feature_rule_design_v0_2/source_snapshots/calculation/generalized_protocol_v16.py",
+      "published_sha256": "1c6bad140b4b92b1fc7ca6af75e174bfd80f1cbcfdcdf2ad39ed7c461111462d",
+      "purpose": "archived calculation dependency"
+    },
+    {
+      "original": "generalized_measurement_v16.py",
+      "original_sha256": "2a2a8e2c0b534478dc0d45821ad2b97b016913dbe7a73a4a74dacafa460fa7fd",
+      "published": "research/models/feature_rule_design_v0_2/source_snapshots/calculation/generalized_measurement_v16.py",
+      "published_sha256": "2a2a8e2c0b534478dc0d45821ad2b97b016913dbe7a73a4a74dacafa460fa7fd",
+      "purpose": "archived calculation dependency"
+    },
+    {
+      "original": "generalized_rules_v16.py",
+      "original_sha256": "e86b3f2a12f800b1023f26ef1bd27c25f19c570fb81639f4c1cd319590de404f",
+      "published": "research/models/feature_rule_design_v0_2/source_snapshots/calculation/generalized_rules_v16.py",
+      "published_sha256": "e86b3f2a12f800b1023f26ef1bd27c25f19c570fb81639f4c1cd319590de404f",
+      "purpose": "archived calculation dependency"
+    },
+    {
+      "original": "generalized_roles_v16.py",
+      "original_sha256": "958e55664897bd956b9d0621719637452918740c74c79957a120d24a0439fdac",
+      "published": "research/models/feature_rule_design_v0_2/source_snapshots/calculation/generalized_roles_v16.py",
+      "published_sha256": "958e55664897bd956b9d0621719637452918740c74c79957a120d24a0439fdac",
+      "purpose": "archived calculation dependency"
+    },
+    {
+      "original": "generalized_roles_v19.py",
+      "original_sha256": "a4bf1346132941e23327afd7c27cb15d8829aa82d3f641f9e2178f6117b198e1",
+      "published": "research/models/feature_rule_design_v0_2/source_snapshots/calculation/generalized_roles_v19.py",
+      "published_sha256": "a4bf1346132941e23327afd7c27cb15d8829aa82d3f641f9e2178f6117b198e1",
+      "purpose": "archived calculation dependency"
+    },
+    {
+      "original": "generalized_measurement_v19.py",
+      "original_sha256": "d4000763a3f5634eb19ccaf34ee0b81cd4c277c8b7c9bafc23172204e696d623",
+      "published": "research/models/feature_rule_design_v0_2/source_snapshots/calculation/generalized_measurement_v19.py",
+      "published_sha256": "d4000763a3f5634eb19ccaf34ee0b81cd4c277c8b7c9bafc23172204e696d623",
+      "purpose": "archived calculation dependency"
+    },
+    {
+      "original": "generalized_sr_evidence_v19.py",
+      "original_sha256": "1c071aed5006f218b6cfbcf1009bcf74ac7071244a1369912674c389efa1835b",
+      "published": "research/models/feature_rule_design_v0_2/source_snapshots/calculation/generalized_sr_evidence_v19.py",
+      "published_sha256": "1c071aed5006f218b6cfbcf1009bcf74ac7071244a1369912674c389efa1835b",
+      "purpose": "archived calculation dependency"
+    },
+    {
+      "original": "generalized_rules_v19.py",
+      "original_sha256": "a1a35172e22a161ea178d3a672685498692ad873fdda7278cd00dac109cad89f",
+      "published": "research/models/feature_rule_design_v0_2/source_snapshots/calculation/generalized_rules_v19.py",
+      "published_sha256": "a1a35172e22a161ea178d3a672685498692ad873fdda7278cd00dac109cad89f",
+      "purpose": "archived calculation dependency"
+    },
+    {
+      "original": "generalized_protocol_v17.py",
+      "original_sha256": "ea5da2e7a1c745141217dfda01d074e075e4d542094598b53062e2e76311ffd2",
+      "published": "research/models/feature_rule_design_v0_2/source_snapshots/calculation/generalized_protocol_v17.py",
+      "published_sha256": "ea5da2e7a1c745141217dfda01d074e075e4d542094598b53062e2e76311ffd2",
+      "purpose": "archived calculation dependency"
+    },
+    {
+      "original": "generalized_rules_v17.py",
+      "original_sha256": "875aa0f3dedf8a2622f13b58be7cd3a4e04125c4adf2e2ce205a404004b6aa12",
+      "published": "research/models/feature_rule_design_v0_2/source_snapshots/calculation/generalized_rules_v17.py",
+      "published_sha256": "875aa0f3dedf8a2622f13b58be7cd3a4e04125c4adf2e2ce205a404004b6aa12",
+      "purpose": "archived calculation dependency"
+    },
+    {
+      "original": "generalized_trigger_semantics_v17.py",
+      "original_sha256": "2cdc0cd27bc85ac3f776ffac2ac778ca7dfff0cb7f42ce4e9fd99fa9d8fac156",
+      "published": "research/models/feature_rule_design_v0_2/source_snapshots/calculation/generalized_trigger_semantics_v17.py",
+      "published_sha256": "2cdc0cd27bc85ac3f776ffac2ac778ca7dfff0cb7f42ce4e9fd99fa9d8fac156",
+      "purpose": "archived calculation dependency"
+    },
+    {
+      "original": "generalized_rules_v16_1.py",
+      "original_sha256": "89275f7ce3c954de1dcf34b8401b8f718667c96f54cf6a28a1b1c47725710ee9",
+      "published": "research/models/feature_rule_design_v0_2/source_snapshots/calculation/generalized_rules_v16_1.py",
+      "published_sha256": "89275f7ce3c954de1dcf34b8401b8f718667c96f54cf6a28a1b1c47725710ee9",
+      "purpose": "archived calculation dependency"
+    },
+    {
+      "original": "generalized_variables_v17.py",
+      "original_sha256": "d345045152d455fb8c27e3f4289b934c6694efeaabfcdad406f7a13c191ec00c",
+      "published": "research/models/feature_rule_design_v0_2/source_snapshots/calculation/generalized_variables_v17.py",
+      "published_sha256": "d345045152d455fb8c27e3f4289b934c6694efeaabfcdad406f7a13c191ec00c",
+      "purpose": "archived calculation dependency"
+    },
+    {
+      "original": "generalized_protocol_v16_2.py",
+      "original_sha256": "e7c1a569512611246619861328bca3aeaa8f9296e69e5398186294ff7152f9b8",
+      "published": "research/models/feature_rule_design_v0_2/source_snapshots/calculation/generalized_protocol_v16_2.py",
+      "published_sha256": "e7c1a569512611246619861328bca3aeaa8f9296e69e5398186294ff7152f9b8",
+      "purpose": "archived calculation dependency"
+    },
+    {
+      "original": "generalized_protocol_v16_1.py",
+      "original_sha256": "60d5e809896f1e32386260d7bb81f38620692a43dbaf3d2a1dc33eb600efb518",
+      "published": "research/models/feature_rule_design_v0_2/source_snapshots/calculation/generalized_protocol_v16_1.py",
+      "published_sha256": "60d5e809896f1e32386260d7bb81f38620692a43dbaf3d2a1dc33eb600efb518",
+      "purpose": "archived calculation dependency"
+    }
+  ],
+  "publication_transformations": [
+    "remove workstation/source paths",
+    "exclude row-level vectors",
+    "relocate adapter base config"
+  ],
+  "raw_model_outputs_unchanged": true,
+  "weights_unchanged": true,
+  "private_source_remeasurement_available": false,
+  "published_prompt_GPU_evaluation_performed": false,
+  "input_provenance": "../../evaluation/feature_rule_design_v0_2/input_provenance.json"
+}

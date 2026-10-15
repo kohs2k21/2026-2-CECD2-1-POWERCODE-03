@@ -1,0 +1,2457 @@
+[
+  {
+    "id": "real_06_f001",
+    "origin": "model_generated",
+    "stage": "initial",
+    "status": "no_applicable",
+    "decision": {
+      "v": "1",
+      "feature": "f001",
+      "sha": "9363ff2420025159eb5d03ff1fecdd25bafb27be8dcedf8ab659e9da65e96bc4",
+      "role": "HR",
+      "state": "no_applicable",
+      "basis": "none",
+      "condition": null,
+      "evidence": [],
+      "needed": [],
+      "reason": "No supplied confirmed arithmetic business contract applies. Observed variation or p95 reference cannot create a business rule."
+    },
+    "input": {
+      "feature": {
+        "id": "f001",
+        "sha": "9363ff2420025159eb5d03ff1fecdd25bafb27be8dcedf8ab659e9da65e96bc4",
+        "meaning": "Previously model-defined variable preserved for deduplication",
+        "dtype": "integer",
+        "unit": "count",
+        "expression": {
+          "op": "child_count",
+          "relationship_id": "physical_P_to_T"
+        },
+        "grain": {
+          "table": "EC_TRANSACTION_MONITORING",
+          "keys": [
+            "__V23_SAMPLE_ROW_ID"
+          ]
+        },
+        "group_by": [],
+        "missing_policy": {
+          "input": "propagate",
+          "empty_group": "zero",
+          "denominator_zero": null,
+          "child_missing": "propagate",
+          "unknown_predicate": "defer"
+        }
+      },
+      "sources": {
+        "columns": [
+          {
+            "table": "EC_PROCESS_MONITORING",
+            "column": "__V23_PARENT_0_ROW_ID",
+            "type": "string",
+            "nullable": null,
+            "evidence_ids": [
+              "schema_column_6b4e4b638661188aca91"
+            ],
+            "missing_tokens": [
+              ""
+            ]
+          },
+          {
+            "table": "EC_TRANSACTION_MONITORING",
+            "column": "__V23_SAMPLE_ROW_ID",
+            "type": "string",
+            "nullable": null,
+            "evidence_ids": [
+              "schema_column_1058c6bf805ba7e8209a"
+            ],
+            "missing_tokens": [
+              ""
+            ]
+          }
+        ],
+        "relations": [
+          {
+            "id": "physical_P_to_T",
+            "from_table": "EC_PROCESS_MONITORING",
+            "from_columns": [
+              "__V23_PARENT_0_ROW_ID"
+            ],
+            "to_table": "EC_TRANSACTION_MONITORING",
+            "to_columns": [
+              "__V23_SAMPLE_ROW_ID"
+            ],
+            "status": "measured",
+            "evidence_ids": [
+              "schema_relation_73cc8566d4b0fec78c6f",
+              "relation_measurement_854c5440ad276b14318a"
+            ],
+            "original_child_key_columns": [
+              "TRANSACTION_ID"
+            ],
+            "original_parent_key_columns": [
+              "TRANSACTION_ID"
+            ],
+            "mapping": "exact original composite lexical key; unique parent surrogate; unresolved is blank, never arbitrary parent",
+            "capture_reference": {
+              "sha256": "0ad595d3880740a7cfddb5c4384826fce21bfa88d9f105ee68e6661467c98a06",
+              "pointer": "/relationship_coverage/0"
+            },
+            "complete_for_selected_transaction_file_scope": true,
+            "business_mandatory_child_contract_verified": false
+          }
+        ],
+        "tables": {
+          "EC_PROCESS_MONITORING": 128,
+          "EC_TRANSACTION_MONITORING": 128
+        },
+        "relationship_capture": "complete within selected original file transaction families;not confirmed business lifecycle"
+      },
+      "scope": {
+        "period": {
+          "start_inclusive": "2026-08-10T00:00:00",
+          "end_exclusive": "2026-09-09T00:00:00",
+          "timezone": "unknown"
+        },
+        "selected_T_windows": [
+          [
+            "2026-08-10",
+            "2026-08-17"
+          ],
+          [
+            "2026-08-24",
+            "2026-09-01"
+          ]
+        ],
+        "filter": null,
+        "rows": 128,
+        "selection": "128 prior-unused transaction families;64 per declared T-coordinate window;canonical key SHA order;all linked P/M;not population random",
+        "scope_record_id": "real_eval_capture_128_v1",
+        "source_pins": {
+          "EC_PROCESS_MONITORING": {
+            "sha256": "35a94460f5274c8660be034c6f7da30118c6d9da274f5541f097ab8e562278ec"
+          },
+          "EC_TRANSACTION_MONITORING": {
+            "sha256": "36c795bce0d15d1c6f9db0ca5e6482c5d7b441efcefaa1852fc1d6e4462d3977"
+          }
+        },
+        "row_proof_pins": {
+          "EC_PROCESS_MONITORING": {
+            "sha256": "02ddb1e9af6fd34e5cda33c454e22f22be4e0a4c544894853ad66deb22e26ad6"
+          },
+          "EC_TRANSACTION_MONITORING": {
+            "sha256": "c9b709a7fda06c901de2f40ff5cb0ee23f64023d52c9397f71071fb6788d328c"
+          }
+        }
+      },
+      "measurement_id": "m_f001",
+      "measurement": {
+        "row_count": 128,
+        "valid_count": 128,
+        "missing_count": 0,
+        "true_count": null,
+        "false_count": null,
+        "ratio": null,
+        "numerator": null,
+        "denominator": null,
+        "min": 1,
+        "max": 1,
+        "p95": 1,
+        "p99": 1,
+        "variation": "constant",
+        "quantile_method": "linear_(n-1)*p",
+        "exact_decimal": {
+          "ratio": null,
+          "p95": "1.00",
+          "p99": "1.00"
+        },
+        "population_rows_before_selection": 128,
+        "selection_unavailable_count": 0,
+        "source_rows_preserved": true
+      },
+      "measurement_sha": "00520913eec221aa564f5462ee587b757a8cb55a7782d0951f3dcaf6bb00ca88",
+      "constraints": [],
+      "baseline": {
+        "state": "verified",
+        "id": "b_f001",
+        "definition_sha256": "9363ff2420025159eb5d03ff1fecdd25bafb27be8dcedf8ab659e9da65e96bc4",
+        "source_version": "39b50ee36ae57e0206978d8581e6fac04b9f3d23f4ac2ac8d958855436b58a53",
+        "unit": "count",
+        "reference_period": {
+          "start_inclusive": "2026-08-10T00:00:00",
+          "end_exclusive": "2026-09-09T00:00:00",
+          "timezone": "unknown"
+        },
+        "population": {
+          "table": "EC_TRANSACTION_MONITORING",
+          "filter": null
+        },
+        "group": "all captured output rows, not per-category thresholds",
+        "feature_grouping": [],
+        "sample_condition": "finite nonmissing calculated values; captured snapshot only",
+        "n": 128,
+        "minimum_n": 20,
+        "quantile": 0.95,
+        "method": "linear_(n-1)*p",
+        "value": 1,
+        "value_exact": "1.00",
+        "operator": "gt",
+        "missing": "exclude from reference and propagate unavailable at comparison",
+        "refresh": "manual rebuild with new source/definition version; no stale reuse",
+        "fault_interpretation": false,
+        "sha": "d8bba42a2e0063f3a91e9d4fc5849f938cc71eb67161153d8079dde0564a3704"
+      },
+      "version": {
+        "schema": "b1150a4494d505d45437c4ac594b95024b61e8021f6f9f06aaf6c8b3f7374d12",
+        "source": "39b50ee36ae57e0206978d8581e6fac04b9f3d23f4ac2ac8d958855436b58a53",
+        "calculation": "metadata-calculation-3.0.1"
+      },
+      "limitations": "Raw stored codes/numbers or parsed coordinates only;unknown business contract/physical units/common clock. Captured category frequencies refer to this offline sample, never future or live lookup.",
+      "request": "confirmed_HR_review",
+      "reference_policy": {
+        "minimum_finite_nonmissing_rows": 20,
+        "quantile": 0.95,
+        "method": "linear interpolation on sorted eligible output rows",
+        "independence_or_normality_requirement": false,
+        "minimum_is_given_evaluation_policy_not_business_contract": true
+      },
+      "rule_evidence_contract": "Only measurement_id, supplied constraint IDs, and verified baseline IDs are valid output evidence references; basis is its enum kind."
+    },
+    "code_validation": {
+      "passed": true,
+      "format_passed": true,
+      "semantic_policy_passed": true,
+      "errors": [],
+      "validator_policy": "pilot-teacher-semantic-2.0.0"
+    },
+    "human_review": {
+      "id": "real_06_f001",
+      "stage": "initial",
+      "raw_sha256": "cc2aeac548ad031305519a5696042dbec59b3fd117a8d2e3771921761d34a0ab",
+      "passed": true,
+      "errors": [],
+      "notes": "확인된 계약 없음에 no_applicable을 기록하고 관측 변동/기준선으로 업무 HR을 만들지 않는다.",
+      "reviewer": "root_direct_review",
+      "code_criteria_unchanged": true,
+      "output_not_modified": true
+    },
+    "raw_output": "{\"v\":\"1\",\"feature\":\"f001\",\"sha\":\"9363ff2420025159eb5d03ff1fecdd25bafb27be8dcedf8ab659e9da65e96bc4\",\"role\":\"HR\",\"state\":\"no_applicable\",\"basis\":\"none\",\"condition\":null,\"evidence\":[],\"needed\":[],\"reason\":\"No supplied confirmed arithmetic business contract applies. Observed variation or p95 reference cannot create a business rule.\"}",
+    "readable_summary": "real_06_f001 · HR · no_applicable · 유효 관측 128/128 · 단위 count",
+    "model_reason_original": "No supplied confirmed arithmetic business contract applies. Observed variation or p95 reference cannot create a business rule.",
+    "output_semantically_rewritten": false
+  },
+  {
+    "id": "real_07_f015",
+    "origin": "model_generated",
+    "stage": "initial",
+    "status": "no_applicable",
+    "decision": {
+      "v": "1",
+      "feature": "f015",
+      "sha": "ee9ce4170491aa2268f7f8b94db7476a058f5cacaed0741992e9e95ed11ea3fe",
+      "role": "HR",
+      "state": "no_applicable",
+      "basis": "none",
+      "condition": null,
+      "evidence": [],
+      "needed": [],
+      "reason": "No supplied confirmed arithmetic business contract applies. Observed variation, p95 reference, or missing-value behavior cannot create an HR rule."
+    },
+    "input": {
+      "feature": {
+        "id": "f015",
+        "sha": "ee9ce4170491aa2268f7f8b94db7476a058f5cacaed0741992e9e95ed11ea3fe",
+        "meaning": "Conditional captured-child count divided by captured total children; zero denominator is unavailable",
+        "dtype": "number",
+        "unit": "ratio",
+        "expression": {
+          "op": "divide",
+          "args": [
+            {
+              "op": "conditional_count",
+              "relationship_id": "physical_P_to_T",
+              "where": {
+                "op": "eq",
+                "args": [
+                  {
+                    "op": "column",
+                    "table": "EC_PROCESS_MONITORING",
+                    "column": "STATUS"
+                  },
+                  {
+                    "op": "literal",
+                    "value": "F"
+                  }
+                ]
+              }
+            },
+            {
+              "op": "child_count",
+              "relationship_id": "physical_P_to_T"
+            }
+          ]
+        },
+        "grain": {
+          "table": "EC_TRANSACTION_MONITORING",
+          "keys": [
+            "__V23_SAMPLE_ROW_ID"
+          ]
+        },
+        "group_by": [],
+        "missing_policy": {
+          "input": "propagate",
+          "empty_group": "zero",
+          "denominator_zero": "missing",
+          "child_missing": "propagate",
+          "unknown_predicate": "defer"
+        }
+      },
+      "sources": {
+        "columns": [
+          {
+            "table": "EC_PROCESS_MONITORING",
+            "column": "STATUS",
+            "type": "string",
+            "nullable": true,
+            "evidence_ids": [
+              "schema_column_265ada2dc8a38d798b22"
+            ],
+            "missing_tokens": [
+              ""
+            ]
+          },
+          {
+            "table": "EC_PROCESS_MONITORING",
+            "column": "__V23_PARENT_0_ROW_ID",
+            "type": "string",
+            "nullable": null,
+            "evidence_ids": [
+              "schema_column_6b4e4b638661188aca91"
+            ],
+            "missing_tokens": [
+              ""
+            ]
+          },
+          {
+            "table": "EC_TRANSACTION_MONITORING",
+            "column": "__V23_SAMPLE_ROW_ID",
+            "type": "string",
+            "nullable": null,
+            "evidence_ids": [
+              "schema_column_1058c6bf805ba7e8209a"
+            ],
+            "missing_tokens": [
+              ""
+            ]
+          }
+        ],
+        "relations": [
+          {
+            "id": "physical_P_to_T",
+            "from_table": "EC_PROCESS_MONITORING",
+            "from_columns": [
+              "__V23_PARENT_0_ROW_ID"
+            ],
+            "to_table": "EC_TRANSACTION_MONITORING",
+            "to_columns": [
+              "__V23_SAMPLE_ROW_ID"
+            ],
+            "status": "measured",
+            "evidence_ids": [
+              "schema_relation_73cc8566d4b0fec78c6f",
+              "relation_measurement_854c5440ad276b14318a"
+            ],
+            "original_child_key_columns": [
+              "TRANSACTION_ID"
+            ],
+            "original_parent_key_columns": [
+              "TRANSACTION_ID"
+            ],
+            "mapping": "exact original composite lexical key; unique parent surrogate; unresolved is blank, never arbitrary parent",
+            "capture_reference": {
+              "sha256": "0ad595d3880740a7cfddb5c4384826fce21bfa88d9f105ee68e6661467c98a06",
+              "pointer": "/relationship_coverage/0"
+            },
+            "complete_for_selected_transaction_file_scope": true,
+            "business_mandatory_child_contract_verified": false
+          }
+        ],
+        "tables": {
+          "EC_PROCESS_MONITORING": 128,
+          "EC_TRANSACTION_MONITORING": 128
+        },
+        "relationship_capture": "complete within selected original file transaction families;not confirmed business lifecycle"
+      },
+      "scope": {
+        "period": {
+          "start_inclusive": "2026-08-10T00:00:00",
+          "end_exclusive": "2026-09-09T00:00:00",
+          "timezone": "unknown"
+        },
+        "selected_T_windows": [
+          [
+            "2026-08-10",
+            "2026-08-17"
+          ],
+          [
+            "2026-08-24",
+            "2026-09-01"
+          ]
+        ],
+        "filter": null,
+        "rows": 128,
+        "selection": "128 prior-unused transaction families;64 per declared T-coordinate window;canonical key SHA order;all linked P/M;not population random",
+        "scope_record_id": "real_eval_capture_128_v1",
+        "source_pins": {
+          "EC_PROCESS_MONITORING": {
+            "sha256": "35a94460f5274c8660be034c6f7da30118c6d9da274f5541f097ab8e562278ec"
+          },
+          "EC_TRANSACTION_MONITORING": {
+            "sha256": "36c795bce0d15d1c6f9db0ca5e6482c5d7b441efcefaa1852fc1d6e4462d3977"
+          }
+        },
+        "row_proof_pins": {
+          "EC_PROCESS_MONITORING": {
+            "sha256": "02ddb1e9af6fd34e5cda33c454e22f22be4e0a4c544894853ad66deb22e26ad6"
+          },
+          "EC_TRANSACTION_MONITORING": {
+            "sha256": "c9b709a7fda06c901de2f40ff5cb0ee23f64023d52c9397f71071fb6788d328c"
+          }
+        }
+      },
+      "measurement_id": "m_f015",
+      "measurement": {
+        "row_count": 128,
+        "valid_count": 128,
+        "missing_count": 0,
+        "true_count": null,
+        "false_count": null,
+        "ratio": null,
+        "numerator": null,
+        "denominator": null,
+        "min": 0,
+        "max": 1,
+        "p95": 1,
+        "p99": 1,
+        "variation": "variable",
+        "quantile_method": "linear_(n-1)*p",
+        "exact_decimal": {
+          "ratio": null,
+          "p95": "1.000",
+          "p99": "1.000"
+        },
+        "population_rows_before_selection": 128,
+        "selection_unavailable_count": 0,
+        "source_rows_preserved": true
+      },
+      "measurement_sha": "c13cd376abefb2d0509f0904300460db0fda691d0417ab2a5d756a9b6d032219",
+      "constraints": [],
+      "baseline": {
+        "state": "verified",
+        "id": "b_f015",
+        "definition_sha256": "ee9ce4170491aa2268f7f8b94db7476a058f5cacaed0741992e9e95ed11ea3fe",
+        "source_version": "39b50ee36ae57e0206978d8581e6fac04b9f3d23f4ac2ac8d958855436b58a53",
+        "unit": "ratio",
+        "reference_period": {
+          "start_inclusive": "2026-08-10T00:00:00",
+          "end_exclusive": "2026-09-09T00:00:00",
+          "timezone": "unknown"
+        },
+        "population": {
+          "table": "EC_TRANSACTION_MONITORING",
+          "filter": null
+        },
+        "group": "all captured output rows, not per-category thresholds",
+        "feature_grouping": [],
+        "sample_condition": "finite nonmissing calculated values; captured snapshot only",
+        "n": 128,
+        "minimum_n": 20,
+        "quantile": 0.95,
+        "method": "linear_(n-1)*p",
+        "value": 1,
+        "value_exact": "1.000",
+        "operator": "gt",
+        "missing": "exclude from reference and propagate unavailable at comparison",
+        "refresh": "manual rebuild with new source/definition version; no stale reuse",
+        "fault_interpretation": false,
+        "sha": "0152234ea28d3d5ef1e0fd224d5a0edfd0af776764dc9d5be1f842ea3ddb64ea"
+      },
+      "version": {
+        "schema": "b1150a4494d505d45437c4ac594b95024b61e8021f6f9f06aaf6c8b3f7374d12",
+        "source": "39b50ee36ae57e0206978d8581e6fac04b9f3d23f4ac2ac8d958855436b58a53",
+        "calculation": "metadata-calculation-3.0.4"
+      },
+      "limitations": "Raw stored codes/numbers or parsed coordinates only;unknown business contract/physical units/common clock. Captured category frequencies refer to this offline sample, never future or live lookup.",
+      "request": "confirmed_HR_review",
+      "reference_policy": {
+        "minimum_finite_nonmissing_rows": 20,
+        "quantile": 0.95,
+        "method": "linear interpolation on sorted eligible output rows",
+        "independence_or_normality_requirement": false,
+        "minimum_is_given_evaluation_policy_not_business_contract": true
+      },
+      "rule_evidence_contract": "Only measurement_id, supplied constraint IDs, and verified baseline IDs are valid output evidence references; basis is its enum kind."
+    },
+    "code_validation": {
+      "passed": true,
+      "format_passed": true,
+      "semantic_policy_passed": true,
+      "errors": [],
+      "validator_policy": "pilot-teacher-semantic-2.0.0"
+    },
+    "human_review": {
+      "id": "real_07_f015",
+      "stage": "initial",
+      "raw_sha256": "7d47aa17a00c3c5a114c0cdf81f6529c5669e55f009fd5e8b7b89d073f050939",
+      "passed": true,
+      "errors": [],
+      "notes": "확인된 계약 없음에 no_applicable을 기록하고 관측 변동/기준선으로 업무 HR을 만들지 않는다.",
+      "reviewer": "root_direct_review",
+      "code_criteria_unchanged": true,
+      "output_not_modified": true
+    },
+    "raw_output": "{\"v\":\"1\",\"feature\":\"f015\",\"sha\":\"ee9ce4170491aa2268f7f8b94db7476a058f5cacaed0741992e9e95ed11ea3fe\",\"role\":\"HR\",\"state\":\"no_applicable\",\"basis\":\"none\",\"condition\":null,\"evidence\":[],\"needed\":[],\"reason\":\"No supplied confirmed arithmetic business contract applies. Observed variation, p95 reference, or missing-value behavior cannot create an HR rule.\"}",
+    "readable_summary": "real_07_f015 · HR · no_applicable · 유효 관측 128/128 · 단위 ratio",
+    "model_reason_original": "No supplied confirmed arithmetic business contract applies. Observed variation, p95 reference, or missing-value behavior cannot create an HR rule.",
+    "output_semantically_rewritten": false
+  },
+  {
+    "id": "real_08_f039",
+    "origin": "model_generated",
+    "stage": "initial",
+    "status": "no_applicable",
+    "decision": {
+      "v": "1",
+      "feature": "f039",
+      "sha": "3030838d7d18e9dae9e79d179a9b6133cb560a191710438b7670d490be8c7c69",
+      "role": "HR",
+      "state": "no_applicable",
+      "basis": "none",
+      "condition": null,
+      "evidence": [],
+      "needed": [],
+      "reason": "No supplied confirmed arithmetic business constraint applies to this exact derived expression. Observed variation cannot create a business rule."
+    },
+    "input": {
+      "feature": {
+        "id": "f039",
+        "sha": "3030838d7d18e9dae9e79d179a9b6133cb560a191710438b7670d490be8c7c69",
+        "meaning": "Physical captured parent matches/absence/multiplicity, not a required-parent business contract",
+        "dtype": "boolean",
+        "unit": "boolean",
+        "expression": {
+          "op": "eq",
+          "args": [
+            {
+              "op": "parent_match_count",
+              "relationship_id": "physical_P_to_T"
+            },
+            {
+              "op": "literal",
+              "value": 0
+            }
+          ]
+        },
+        "grain": {
+          "table": "EC_PROCESS_MONITORING",
+          "keys": [
+            "__V23_SAMPLE_ROW_ID"
+          ]
+        },
+        "group_by": [],
+        "missing_policy": {
+          "input": "propagate",
+          "empty_group": null,
+          "denominator_zero": null,
+          "child_missing": "propagate",
+          "unknown_predicate": "defer"
+        }
+      },
+      "sources": {
+        "columns": [
+          {
+            "table": "EC_PROCESS_MONITORING",
+            "column": "__V23_PARENT_0_ROW_ID",
+            "type": "string",
+            "nullable": null,
+            "evidence_ids": [
+              "schema_column_6b4e4b638661188aca91"
+            ],
+            "missing_tokens": [
+              ""
+            ]
+          },
+          {
+            "table": "EC_TRANSACTION_MONITORING",
+            "column": "__V23_SAMPLE_ROW_ID",
+            "type": "string",
+            "nullable": null,
+            "evidence_ids": [
+              "schema_column_1058c6bf805ba7e8209a"
+            ],
+            "missing_tokens": [
+              ""
+            ]
+          }
+        ],
+        "relations": [
+          {
+            "id": "physical_P_to_T",
+            "from_table": "EC_PROCESS_MONITORING",
+            "from_columns": [
+              "__V23_PARENT_0_ROW_ID"
+            ],
+            "to_table": "EC_TRANSACTION_MONITORING",
+            "to_columns": [
+              "__V23_SAMPLE_ROW_ID"
+            ],
+            "status": "measured",
+            "evidence_ids": [
+              "schema_relation_73cc8566d4b0fec78c6f",
+              "relation_measurement_854c5440ad276b14318a"
+            ],
+            "original_child_key_columns": [
+              "TRANSACTION_ID"
+            ],
+            "original_parent_key_columns": [
+              "TRANSACTION_ID"
+            ],
+            "mapping": "exact original composite lexical key; unique parent surrogate; unresolved is blank, never arbitrary parent",
+            "capture_reference": {
+              "sha256": "0ad595d3880740a7cfddb5c4384826fce21bfa88d9f105ee68e6661467c98a06",
+              "pointer": "/relationship_coverage/0"
+            },
+            "complete_for_selected_transaction_file_scope": true,
+            "business_mandatory_child_contract_verified": false
+          }
+        ],
+        "tables": {
+          "EC_PROCESS_MONITORING": 128,
+          "EC_TRANSACTION_MONITORING": 128
+        },
+        "relationship_capture": "complete within selected original file transaction families;not confirmed business lifecycle"
+      },
+      "scope": {
+        "period": {
+          "start_inclusive": "2026-08-10T00:00:00",
+          "end_exclusive": "2026-09-09T00:00:00",
+          "timezone": "unknown"
+        },
+        "selected_T_windows": [
+          [
+            "2026-08-10",
+            "2026-08-17"
+          ],
+          [
+            "2026-08-24",
+            "2026-09-01"
+          ]
+        ],
+        "filter": null,
+        "rows": 128,
+        "selection": "128 prior-unused transaction families;64 per declared T-coordinate window;canonical key SHA order;all linked P/M;not population random",
+        "scope_record_id": "real_eval_capture_128_v1",
+        "source_pins": {
+          "EC_PROCESS_MONITORING": {
+            "sha256": "35a94460f5274c8660be034c6f7da30118c6d9da274f5541f097ab8e562278ec"
+          },
+          "EC_TRANSACTION_MONITORING": {
+            "sha256": "36c795bce0d15d1c6f9db0ca5e6482c5d7b441efcefaa1852fc1d6e4462d3977"
+          }
+        },
+        "row_proof_pins": {
+          "EC_PROCESS_MONITORING": {
+            "sha256": "02ddb1e9af6fd34e5cda33c454e22f22be4e0a4c544894853ad66deb22e26ad6"
+          },
+          "EC_TRANSACTION_MONITORING": {
+            "sha256": "c9b709a7fda06c901de2f40ff5cb0ee23f64023d52c9397f71071fb6788d328c"
+          }
+        }
+      },
+      "measurement_id": "m_f039",
+      "measurement": {
+        "row_count": 128,
+        "valid_count": 128,
+        "missing_count": 0,
+        "true_count": 0,
+        "false_count": 128,
+        "ratio": 0,
+        "numerator": 0,
+        "denominator": 128,
+        "min": null,
+        "max": null,
+        "p95": null,
+        "p99": null,
+        "variation": "constant",
+        "quantile_method": "linear_(n-1)*p",
+        "exact_decimal": {
+          "ratio": "0",
+          "p95": null,
+          "p99": null
+        },
+        "population_rows_before_selection": 128,
+        "selection_unavailable_count": 0,
+        "source_rows_preserved": true
+      },
+      "measurement_sha": "077d1cf3f930182d239c1496450cd416f5263e67adb2eac8cce047b4c3b7317e",
+      "constraints": [],
+      "baseline": {
+        "state": "insufficient",
+        "needed": [
+          "numeric_variable"
+        ]
+      },
+      "version": {
+        "schema": "b1150a4494d505d45437c4ac594b95024b61e8021f6f9f06aaf6c8b3f7374d12",
+        "source": "39b50ee36ae57e0206978d8581e6fac04b9f3d23f4ac2ac8d958855436b58a53",
+        "calculation": "metadata-calculation-3.0.4"
+      },
+      "limitations": "Raw stored codes/numbers or parsed coordinates only;unknown business contract/physical units/common clock. Captured category frequencies refer to this offline sample, never future or live lookup.",
+      "request": "confirmed_HR_review",
+      "reference_policy": {
+        "minimum_finite_nonmissing_rows": 20,
+        "quantile": 0.95,
+        "method": "linear interpolation on sorted eligible output rows",
+        "independence_or_normality_requirement": false,
+        "minimum_is_given_evaluation_policy_not_business_contract": true
+      },
+      "rule_evidence_contract": "Only measurement_id, supplied constraint IDs, and verified baseline IDs are valid output evidence references; basis is its enum kind."
+    },
+    "code_validation": {
+      "passed": true,
+      "format_passed": true,
+      "semantic_policy_passed": true,
+      "errors": [],
+      "validator_policy": "pilot-teacher-semantic-2.0.0"
+    },
+    "human_review": {
+      "id": "real_08_f039",
+      "stage": "initial",
+      "raw_sha256": "0806358ba9ecb413f5718cfb159822b5c4d209d28453aff97f4eb3ce010099f2",
+      "passed": true,
+      "errors": [],
+      "notes": "확인된 계약 없음에 no_applicable을 기록하고 관측 변동/기준선으로 업무 HR을 만들지 않는다.",
+      "reviewer": "root_direct_review",
+      "code_criteria_unchanged": true,
+      "output_not_modified": true
+    },
+    "raw_output": "{\"v\":\"1\",\"feature\":\"f039\",\"sha\":\"3030838d7d18e9dae9e79d179a9b6133cb560a191710438b7670d490be8c7c69\",\"role\":\"HR\",\"state\":\"no_applicable\",\"basis\":\"none\",\"condition\":null,\"evidence\":[],\"needed\":[],\"reason\":\"No supplied confirmed arithmetic business constraint applies to this exact derived expression. Observed variation cannot create a business rule.\"}",
+    "readable_summary": "real_08_f039 · HR · no_applicable · 유효 관측 128/128 · 단위 boolean",
+    "model_reason_original": "No supplied confirmed arithmetic business constraint applies to this exact derived expression. Observed variation cannot create a business rule.",
+    "output_semantically_rewritten": false
+  },
+  {
+    "id": "real_09_f058",
+    "origin": "model_generated",
+    "stage": "initial",
+    "status": "no_applicable",
+    "decision": {
+      "v": "1",
+      "feature": "f058",
+      "sha": "f6cf64fb0b18f05cc5803384a68ad4f932a0428eba543e06a7eb7f076f1ff295",
+      "role": "HR",
+      "state": "no_applicable",
+      "basis": "none",
+      "condition": null,
+      "evidence": [],
+      "needed": [],
+      "reason": "No supplied confirmed arithmetic HR constraint applies. Observed variation cannot create a business rule."
+    },
+    "input": {
+      "feature": {
+        "id": "f058",
+        "sha": "f6cf64fb0b18f05cc5803384a68ad4f932a0428eba543e06a7eb7f076f1ff295",
+        "meaning": "Signed parsed end-start coordinates in ms, no business duration/shared-clock claim",
+        "dtype": "number",
+        "unit": "ms",
+        "expression": {
+          "op": "datetime_diff",
+          "args": [
+            {
+              "op": "column",
+              "table": "EC_TRANSACTION_MONITORING",
+              "column": "END_TIME"
+            },
+            {
+              "op": "column",
+              "table": "EC_TRANSACTION_MONITORING",
+              "column": "START_TIME"
+            }
+          ],
+          "unit": "ms"
+        },
+        "grain": {
+          "table": "EC_TRANSACTION_MONITORING",
+          "keys": [
+            "__V23_SAMPLE_ROW_ID"
+          ]
+        },
+        "group_by": [],
+        "missing_policy": {
+          "input": "propagate",
+          "empty_group": null,
+          "denominator_zero": null,
+          "child_missing": "propagate",
+          "unknown_predicate": "defer"
+        }
+      },
+      "sources": {
+        "columns": [
+          {
+            "table": "EC_TRANSACTION_MONITORING",
+            "column": "END_TIME",
+            "type": "datetime",
+            "nullable": true,
+            "evidence_ids": [
+              "schema_column_9bf12b94ed8917f7fb86"
+            ],
+            "missing_tokens": [
+              ""
+            ]
+          },
+          {
+            "table": "EC_TRANSACTION_MONITORING",
+            "column": "START_TIME",
+            "type": "datetime",
+            "nullable": true,
+            "evidence_ids": [
+              "schema_column_ee05abcef85b6819d599"
+            ],
+            "missing_tokens": [
+              ""
+            ]
+          }
+        ],
+        "relations": [],
+        "tables": {
+          "EC_TRANSACTION_MONITORING": 128
+        },
+        "relationship_capture": "complete within selected original file transaction families;not confirmed business lifecycle"
+      },
+      "scope": {
+        "period": {
+          "start_inclusive": "2026-08-10T00:00:00",
+          "end_exclusive": "2026-09-09T00:00:00",
+          "timezone": "unknown"
+        },
+        "selected_T_windows": [
+          [
+            "2026-08-10",
+            "2026-08-17"
+          ],
+          [
+            "2026-08-24",
+            "2026-09-01"
+          ]
+        ],
+        "filter": null,
+        "rows": 128,
+        "selection": "128 prior-unused transaction families;64 per declared T-coordinate window;canonical key SHA order;all linked P/M;not population random",
+        "scope_record_id": "real_eval_capture_128_v1",
+        "source_pins": {
+          "EC_TRANSACTION_MONITORING": {
+            "sha256": "36c795bce0d15d1c6f9db0ca5e6482c5d7b441efcefaa1852fc1d6e4462d3977"
+          }
+        },
+        "row_proof_pins": {
+          "EC_TRANSACTION_MONITORING": {
+            "sha256": "c9b709a7fda06c901de2f40ff5cb0ee23f64023d52c9397f71071fb6788d328c"
+          }
+        }
+      },
+      "measurement_id": "m_f058",
+      "measurement": {
+        "row_count": 128,
+        "valid_count": 128,
+        "missing_count": 0,
+        "true_count": null,
+        "false_count": null,
+        "ratio": null,
+        "numerator": null,
+        "denominator": null,
+        "min": 11,
+        "max": 1133,
+        "p95": 141,
+        "p99": 1075.19,
+        "variation": "variable",
+        "quantile_method": "linear_(n-1)*p",
+        "exact_decimal": {
+          "ratio": null,
+          "p95": "141.00",
+          "p99": "1075.19"
+        },
+        "population_rows_before_selection": 128,
+        "selection_unavailable_count": 0,
+        "source_rows_preserved": true,
+        "datetime_limitations": {
+          "calculation": "parsed_timestamp_coordinate_difference",
+          "business_duration_contract": "unknown",
+          "common_producer_clock": "unknown"
+        }
+      },
+      "measurement_sha": "eaa2f3a6eeddf4ca332ac6dea6034023d9202003ea15f767da207fa2f694e40d",
+      "constraints": [],
+      "baseline": {
+        "state": "verified",
+        "id": "b_f058",
+        "definition_sha256": "f6cf64fb0b18f05cc5803384a68ad4f932a0428eba543e06a7eb7f076f1ff295",
+        "source_version": "39b50ee36ae57e0206978d8581e6fac04b9f3d23f4ac2ac8d958855436b58a53",
+        "unit": "ms",
+        "reference_period": {
+          "start_inclusive": "2026-08-10T00:00:00",
+          "end_exclusive": "2026-09-09T00:00:00",
+          "timezone": "unknown"
+        },
+        "population": {
+          "table": "EC_TRANSACTION_MONITORING",
+          "filter": null
+        },
+        "group": "all captured output rows, not per-category thresholds",
+        "feature_grouping": [],
+        "sample_condition": "finite nonmissing calculated values; captured snapshot only",
+        "n": 128,
+        "minimum_n": 20,
+        "quantile": 0.95,
+        "method": "linear_(n-1)*p",
+        "value": 141,
+        "value_exact": "141.00",
+        "operator": "gt",
+        "missing": "exclude from reference and propagate unavailable at comparison",
+        "refresh": "manual rebuild with new source/definition version; no stale reuse",
+        "fault_interpretation": false,
+        "sha": "1aa3836f7cdd77db28db8c52949b5c7b95af5932fd07073bdb422a34b71ebf2a"
+      },
+      "version": {
+        "schema": "b1150a4494d505d45437c4ac594b95024b61e8021f6f9f06aaf6c8b3f7374d12",
+        "source": "39b50ee36ae57e0206978d8581e6fac04b9f3d23f4ac2ac8d958855436b58a53",
+        "calculation": "metadata-calculation-3.0.4"
+      },
+      "limitations": "Raw stored codes/numbers or parsed coordinates only;unknown business contract/physical units/common clock. Captured category frequencies refer to this offline sample, never future or live lookup.",
+      "request": "confirmed_HR_review",
+      "reference_policy": {
+        "minimum_finite_nonmissing_rows": 20,
+        "quantile": 0.95,
+        "method": "linear interpolation on sorted eligible output rows",
+        "independence_or_normality_requirement": false,
+        "minimum_is_given_evaluation_policy_not_business_contract": true
+      },
+      "rule_evidence_contract": "Only measurement_id, supplied constraint IDs, and verified baseline IDs are valid output evidence references; basis is its enum kind."
+    },
+    "code_validation": {
+      "passed": true,
+      "format_passed": true,
+      "semantic_policy_passed": true,
+      "errors": [],
+      "validator_policy": "pilot-teacher-semantic-2.0.0"
+    },
+    "human_review": {
+      "id": "real_09_f058",
+      "stage": "initial",
+      "raw_sha256": "653532e6707408c9c61ce72bf830e53d988ff1c1afbd2c07c2850abb9b4d4c62",
+      "passed": true,
+      "errors": [],
+      "notes": "확인된 계약 없음에 no_applicable을 기록하고 관측 변동/기준선으로 업무 HR을 만들지 않는다.",
+      "reviewer": "root_direct_review",
+      "code_criteria_unchanged": true,
+      "output_not_modified": true
+    },
+    "raw_output": "{\"v\":\"1\",\"feature\":\"f058\",\"sha\":\"f6cf64fb0b18f05cc5803384a68ad4f932a0428eba543e06a7eb7f076f1ff295\",\"role\":\"HR\",\"state\":\"no_applicable\",\"basis\":\"none\",\"condition\":null,\"evidence\":[],\"needed\":[],\"reason\":\"No supplied confirmed arithmetic HR constraint applies. Observed variation cannot create a business rule.\"}",
+    "readable_summary": "real_09_f058 · HR · no_applicable · 유효 관측 128/128 · 단위 ms",
+    "model_reason_original": "No supplied confirmed arithmetic HR constraint applies. Observed variation cannot create a business rule.",
+    "output_semantically_rewritten": false
+  },
+  {
+    "id": "real_10_f061",
+    "origin": "model_generated",
+    "stage": "initial",
+    "status": "no_applicable",
+    "decision": {
+      "v": "1",
+      "feature": "f061",
+      "sha": "e52f20d2a108c6fa6aa8505af4292e10677f6c9feb15c77b181646a833cf6a87",
+      "role": "HR",
+      "state": "no_applicable",
+      "basis": "none",
+      "condition": null,
+      "evidence": [],
+      "needed": [],
+      "reason": "No supplied confirmed arithmetic conservation constraint applies. Observed variation cannot create a business rule."
+    },
+    "input": {
+      "feature": {
+        "id": "f061",
+        "sha": "e52f20d2a108c6fa6aa8505af4292e10677f6c9feb15c77b181646a833cf6a87",
+        "meaning": "Stored TOTAL-SUCCESS-ERROR arithmetic; no conservation contract or verified item unit",
+        "dtype": "number",
+        "unit": null,
+        "expression": {
+          "op": "subtract",
+          "args": [
+            {
+              "op": "subtract",
+              "args": [
+                {
+                  "op": "column",
+                  "table": "EC_PROCESS_MONITORING",
+                  "column": "TOTAL_COUNT"
+                },
+                {
+                  "op": "column",
+                  "table": "EC_PROCESS_MONITORING",
+                  "column": "SUCCESS_COUNT"
+                }
+              ]
+            },
+            {
+              "op": "column",
+              "table": "EC_PROCESS_MONITORING",
+              "column": "ERROR_COUNT"
+            }
+          ]
+        },
+        "grain": {
+          "table": "EC_PROCESS_MONITORING",
+          "keys": [
+            "__V23_SAMPLE_ROW_ID"
+          ]
+        },
+        "group_by": [],
+        "missing_policy": {
+          "input": "propagate",
+          "empty_group": null,
+          "denominator_zero": null,
+          "child_missing": "propagate",
+          "unknown_predicate": "defer"
+        }
+      },
+      "sources": {
+        "columns": [
+          {
+            "table": "EC_PROCESS_MONITORING",
+            "column": "ERROR_COUNT",
+            "type": "number",
+            "nullable": true,
+            "evidence_ids": [
+              "schema_column_295806d6e96e012b1d89"
+            ],
+            "missing_tokens": [
+              ""
+            ]
+          },
+          {
+            "table": "EC_PROCESS_MONITORING",
+            "column": "SUCCESS_COUNT",
+            "type": "number",
+            "nullable": true,
+            "evidence_ids": [
+              "schema_column_df196120a80fe878cb79"
+            ],
+            "missing_tokens": [
+              ""
+            ]
+          },
+          {
+            "table": "EC_PROCESS_MONITORING",
+            "column": "TOTAL_COUNT",
+            "type": "number",
+            "nullable": true,
+            "evidence_ids": [
+              "schema_column_29475825b545b7e798d3"
+            ],
+            "missing_tokens": [
+              ""
+            ]
+          }
+        ],
+        "relations": [],
+        "tables": {
+          "EC_PROCESS_MONITORING": 128
+        },
+        "relationship_capture": "complete within selected original file transaction families;not confirmed business lifecycle"
+      },
+      "scope": {
+        "period": {
+          "start_inclusive": "2026-08-10T00:00:00",
+          "end_exclusive": "2026-09-09T00:00:00",
+          "timezone": "unknown"
+        },
+        "selected_T_windows": [
+          [
+            "2026-08-10",
+            "2026-08-17"
+          ],
+          [
+            "2026-08-24",
+            "2026-09-01"
+          ]
+        ],
+        "filter": null,
+        "rows": 128,
+        "selection": "128 prior-unused transaction families;64 per declared T-coordinate window;canonical key SHA order;all linked P/M;not population random",
+        "scope_record_id": "real_eval_capture_128_v1",
+        "source_pins": {
+          "EC_PROCESS_MONITORING": {
+            "sha256": "35a94460f5274c8660be034c6f7da30118c6d9da274f5541f097ab8e562278ec"
+          }
+        },
+        "row_proof_pins": {
+          "EC_PROCESS_MONITORING": {
+            "sha256": "02ddb1e9af6fd34e5cda33c454e22f22be4e0a4c544894853ad66deb22e26ad6"
+          }
+        }
+      },
+      "measurement_id": "m_f061",
+      "measurement": {
+        "row_count": 128,
+        "valid_count": 128,
+        "missing_count": 0,
+        "true_count": null,
+        "false_count": null,
+        "ratio": null,
+        "numerator": null,
+        "denominator": null,
+        "min": 0,
+        "max": 0,
+        "p95": 0,
+        "p99": 0,
+        "variation": "constant",
+        "quantile_method": "linear_(n-1)*p",
+        "exact_decimal": {
+          "ratio": null,
+          "p95": "0.00",
+          "p99": "0.00"
+        },
+        "population_rows_before_selection": 128,
+        "selection_unavailable_count": 0,
+        "source_rows_preserved": true
+      },
+      "measurement_sha": "5316b81308928cd500057ddf830158b6a46028534e15912d20a5939423253d59",
+      "constraints": [],
+      "baseline": {
+        "state": "insufficient",
+        "needed": [
+          "physical_or_comparable_calculation_unit"
+        ]
+      },
+      "version": {
+        "schema": "b1150a4494d505d45437c4ac594b95024b61e8021f6f9f06aaf6c8b3f7374d12",
+        "source": "39b50ee36ae57e0206978d8581e6fac04b9f3d23f4ac2ac8d958855436b58a53",
+        "calculation": "metadata-calculation-3.0.4"
+      },
+      "limitations": "Raw stored codes/numbers or parsed coordinates only;unknown business contract/physical units/common clock. Captured category frequencies refer to this offline sample, never future or live lookup.",
+      "request": "confirmed_HR_review",
+      "reference_policy": {
+        "minimum_finite_nonmissing_rows": 20,
+        "quantile": 0.95,
+        "method": "linear interpolation on sorted eligible output rows",
+        "independence_or_normality_requirement": false,
+        "minimum_is_given_evaluation_policy_not_business_contract": true
+      },
+      "rule_evidence_contract": "Only measurement_id, supplied constraint IDs, and verified baseline IDs are valid output evidence references; basis is its enum kind."
+    },
+    "code_validation": {
+      "passed": true,
+      "format_passed": true,
+      "semantic_policy_passed": true,
+      "errors": [],
+      "validator_policy": "pilot-teacher-semantic-2.0.0"
+    },
+    "human_review": {
+      "id": "real_10_f061",
+      "stage": "initial",
+      "raw_sha256": "48df2331fd2746c184960eebed3028c69ef5b649c57bd5195d747b011d645d58",
+      "passed": true,
+      "errors": [],
+      "notes": "확인된 계약 없음에 no_applicable을 기록하고 관측 변동/기준선으로 업무 HR을 만들지 않는다.",
+      "reviewer": "root_direct_review",
+      "code_criteria_unchanged": true,
+      "output_not_modified": true
+    },
+    "raw_output": "{\"v\":\"1\",\"feature\":\"f061\",\"sha\":\"e52f20d2a108c6fa6aa8505af4292e10677f6c9feb15c77b181646a833cf6a87\",\"role\":\"HR\",\"state\":\"no_applicable\",\"basis\":\"none\",\"condition\":null,\"evidence\":[],\"needed\":[],\"reason\":\"No supplied confirmed arithmetic conservation constraint applies. Observed variation cannot create a business rule.\"}",
+    "readable_summary": "real_10_f061 · HR · no_applicable · 유효 관측 128/128 · 단위 None",
+    "model_reason_original": "No supplied confirmed arithmetic conservation constraint applies. Observed variation cannot create a business rule.",
+    "output_semantically_rewritten": false
+  },
+  {
+    "id": "real_27_f060",
+    "origin": "model_generated",
+    "stage": "initial",
+    "status": "deferred",
+    "decision": {
+      "v": "1",
+      "feature": "f060",
+      "sha": "73856b503b82bd63f2490eeb78b8bda29d1b88c20cfb0e75019da6e4b98ba560",
+      "role": "SR",
+      "state": "deferred",
+      "basis": "observed_diagnostic",
+      "condition": {
+        "op": "lt",
+        "value": 0
+      },
+      "evidence": [
+        "m_f060"
+      ],
+      "needed": [
+        "usable_calculated_observations"
+      ],
+      "reason": "The known typed diagnostic condition is retained, but there are zero usable calculated observations. Unavailable results are deferred, not assumed false or zero."
+    },
+    "input": {
+      "feature": {
+        "id": "f060",
+        "sha": "73856b503b82bd63f2490eeb78b8bda29d1b88c20cfb0e75019da6e4b98ba560",
+        "meaning": "Signed parsed end-start coordinates in ms, no business duration/shared-clock claim",
+        "dtype": "number",
+        "unit": "ms",
+        "expression": {
+          "op": "datetime_diff",
+          "args": [
+            {
+              "op": "column",
+              "table": "EC_MESSAGE_MONITORING",
+              "column": "END_TIME"
+            },
+            {
+              "op": "column",
+              "table": "EC_MESSAGE_MONITORING",
+              "column": "START_TIME"
+            }
+          ],
+          "unit": "ms"
+        },
+        "grain": {
+          "table": "EC_MESSAGE_MONITORING",
+          "keys": [
+            "__V23_SAMPLE_ROW_ID"
+          ]
+        },
+        "group_by": [],
+        "missing_policy": {
+          "input": "propagate",
+          "empty_group": null,
+          "denominator_zero": null,
+          "child_missing": "propagate",
+          "unknown_predicate": "defer"
+        }
+      },
+      "sources": {
+        "columns": [
+          {
+            "table": "EC_MESSAGE_MONITORING",
+            "column": "END_TIME",
+            "type": "datetime",
+            "nullable": true,
+            "evidence_ids": [
+              "schema_column_6865db52588ea0cd5d62"
+            ],
+            "missing_tokens": [
+              ""
+            ]
+          },
+          {
+            "table": "EC_MESSAGE_MONITORING",
+            "column": "START_TIME",
+            "type": "datetime",
+            "nullable": true,
+            "evidence_ids": [
+              "schema_column_09414285aa6bba351083"
+            ],
+            "missing_tokens": [
+              ""
+            ]
+          }
+        ],
+        "relations": [],
+        "tables": {
+          "EC_MESSAGE_MONITORING": 254
+        },
+        "relationship_capture": "complete within selected original file transaction families;not confirmed business lifecycle"
+      },
+      "scope": {
+        "period": {
+          "start_inclusive": "2026-08-10T00:00:00",
+          "end_exclusive": "2026-09-09T00:00:00",
+          "timezone": "unknown"
+        },
+        "selected_T_windows": [
+          [
+            "2026-08-10",
+            "2026-08-17"
+          ],
+          [
+            "2026-08-24",
+            "2026-09-01"
+          ]
+        ],
+        "filter": null,
+        "rows": 254,
+        "selection": "128 prior-unused transaction families;64 per declared T-coordinate window;canonical key SHA order;all linked P/M;not population random",
+        "scope_record_id": "real_eval_capture_128_v1",
+        "source_pins": {
+          "EC_MESSAGE_MONITORING": {
+            "sha256": "c1782f132306c8c8fa80c42991a2876ed2035da190baa21de7b206391a026c61"
+          }
+        },
+        "row_proof_pins": {
+          "EC_MESSAGE_MONITORING": {
+            "sha256": "bd5136dbec751ea1345824a7feeabd999ab4ec958a5b2238f78a8520e80dba0b"
+          }
+        }
+      },
+      "measurement_id": "m_f060",
+      "measurement": {
+        "row_count": 254,
+        "valid_count": 0,
+        "missing_count": 254,
+        "true_count": null,
+        "false_count": null,
+        "ratio": null,
+        "numerator": null,
+        "denominator": null,
+        "min": null,
+        "max": null,
+        "p95": null,
+        "p99": null,
+        "variation": "unknown",
+        "quantile_method": "linear_(n-1)*p",
+        "exact_decimal": {
+          "ratio": null,
+          "p95": null,
+          "p99": null
+        },
+        "population_rows_before_selection": 254,
+        "selection_unavailable_count": 0,
+        "source_rows_preserved": true,
+        "datetime_limitations": {
+          "calculation": "parsed_timestamp_coordinate_difference",
+          "business_duration_contract": "unknown",
+          "common_producer_clock": "unknown"
+        }
+      },
+      "measurement_sha": "b77adb62dd196617d087cbbc917803f3316e9d9b07d7321b665e6a49a8810319",
+      "constraints": [],
+      "baseline": {
+        "state": "insufficient",
+        "needed": [
+          "valid_reference_values"
+        ]
+      },
+      "version": {
+        "schema": "b1150a4494d505d45437c4ac594b95024b61e8021f6f9f06aaf6c8b3f7374d12",
+        "source": "39b50ee36ae57e0206978d8581e6fac04b9f3d23f4ac2ac8d958855436b58a53",
+        "calculation": "metadata-calculation-3.0.4"
+      },
+      "limitations": "Raw stored codes/numbers or parsed coordinates only;unknown business contract/physical units/common clock. Captured category frequencies refer to this offline sample, never future or live lookup.",
+      "request": "observational_diagnostic",
+      "reference_policy": {
+        "minimum_finite_nonmissing_rows": 20,
+        "quantile": 0.95,
+        "method": "linear interpolation on sorted eligible output rows",
+        "independence_or_normality_requirement": false,
+        "minimum_is_given_evaluation_policy_not_business_contract": true
+      },
+      "rule_evidence_contract": "Only measurement_id, supplied constraint IDs, and verified baseline IDs are valid output evidence references; basis is its enum kind.",
+      "diagnostic_focus": "negative_coordinate"
+    },
+    "code_validation": {
+      "passed": true,
+      "format_passed": true,
+      "semantic_policy_passed": true,
+      "errors": [],
+      "validator_policy": "pilot-teacher-semantic-2.0.0"
+    },
+    "human_review": {
+      "id": "real_27_f060",
+      "stage": "initial",
+      "raw_sha256": "963dd306bdd4aad091ea070ae842a987f7a33e4b28ec0f4aa2789c0c5bac647f",
+      "passed": true,
+      "errors": [],
+      "notes": "유효 관측0인 수치 시각 진단의 lt0 조건과 deferred를 유지한다. 결과 불가를 false/0으로 대체하지 않는다.",
+      "reviewer": "root_direct_review",
+      "code_criteria_unchanged": true,
+      "output_not_modified": true
+    },
+    "raw_output": "{\"v\":\"1\",\"feature\":\"f060\",\"sha\":\"73856b503b82bd63f2490eeb78b8bda29d1b88c20cfb0e75019da6e4b98ba560\",\"role\":\"SR\",\"state\":\"deferred\",\"basis\":\"observed_diagnostic\",\"condition\":{\"op\":\"lt\",\"value\":0},\"evidence\":[\"m_f060\"],\"needed\":[\"usable_calculated_observations\"],\"reason\":\"The known typed diagnostic condition is retained, but there are zero usable calculated observations. Unavailable results are deferred, not assumed false or zero.\"}",
+    "readable_summary": "real_27_f060 · SR · deferred · 유효 관측 0/254 · 단위 ms",
+    "model_reason_original": "The known typed diagnostic condition is retained, but there are zero usable calculated observations. Unavailable results are deferred, not assumed false or zero.",
+    "output_semantically_rewritten": false
+  },
+  {
+    "id": "real_28_f032",
+    "origin": "model_generated",
+    "stage": "initial",
+    "status": "request_evidence",
+    "decision": {
+      "v": "1",
+      "feature": "f032",
+      "sha": "01444197b173e1920516c8fa7148ff090aa7d687cfc9c418430823b355631281",
+      "role": "SR",
+      "state": "request_evidence",
+      "basis": "insufficient",
+      "condition": null,
+      "evidence": [],
+      "needed": [
+        "physical_or_comparable_calculation_unit"
+      ],
+      "reason": "The arithmetic definition is known, but physical-unit compatibility remains unconfirmed. A comparable numeric reference needs that evidence; no arbitrary cutoff is created."
+    },
+    "input": {
+      "feature": {
+        "id": "f032",
+        "sha": "01444197b173e1920516c8fa7148ff090aa7d687cfc9c418430823b355631281",
+        "meaning": "Sum of raw stored numerical child values; physical business/count unit unconfirmed",
+        "dtype": "number",
+        "unit": null,
+        "expression": {
+          "op": "child_sum",
+          "relationship_id": "physical_P_to_T",
+          "where": null,
+          "value": {
+            "op": "column",
+            "table": "EC_PROCESS_MONITORING",
+            "column": "TOTAL_COUNT"
+          }
+        },
+        "grain": {
+          "table": "EC_TRANSACTION_MONITORING",
+          "keys": [
+            "__V23_SAMPLE_ROW_ID"
+          ]
+        },
+        "group_by": [],
+        "missing_policy": {
+          "input": "propagate",
+          "empty_group": "zero",
+          "denominator_zero": null,
+          "child_missing": "propagate",
+          "unknown_predicate": "defer"
+        }
+      },
+      "sources": {
+        "columns": [
+          {
+            "table": "EC_PROCESS_MONITORING",
+            "column": "TOTAL_COUNT",
+            "type": "number",
+            "nullable": true,
+            "evidence_ids": [
+              "schema_column_29475825b545b7e798d3"
+            ],
+            "missing_tokens": [
+              ""
+            ]
+          },
+          {
+            "table": "EC_PROCESS_MONITORING",
+            "column": "__V23_PARENT_0_ROW_ID",
+            "type": "string",
+            "nullable": null,
+            "evidence_ids": [
+              "schema_column_6b4e4b638661188aca91"
+            ],
+            "missing_tokens": [
+              ""
+            ]
+          },
+          {
+            "table": "EC_TRANSACTION_MONITORING",
+            "column": "__V23_SAMPLE_ROW_ID",
+            "type": "string",
+            "nullable": null,
+            "evidence_ids": [
+              "schema_column_1058c6bf805ba7e8209a"
+            ],
+            "missing_tokens": [
+              ""
+            ]
+          }
+        ],
+        "relations": [
+          {
+            "id": "physical_P_to_T",
+            "from_table": "EC_PROCESS_MONITORING",
+            "from_columns": [
+              "__V23_PARENT_0_ROW_ID"
+            ],
+            "to_table": "EC_TRANSACTION_MONITORING",
+            "to_columns": [
+              "__V23_SAMPLE_ROW_ID"
+            ],
+            "status": "measured",
+            "evidence_ids": [
+              "schema_relation_73cc8566d4b0fec78c6f",
+              "relation_measurement_854c5440ad276b14318a"
+            ],
+            "original_child_key_columns": [
+              "TRANSACTION_ID"
+            ],
+            "original_parent_key_columns": [
+              "TRANSACTION_ID"
+            ],
+            "mapping": "exact original composite lexical key; unique parent surrogate; unresolved is blank, never arbitrary parent",
+            "capture_reference": {
+              "sha256": "0ad595d3880740a7cfddb5c4384826fce21bfa88d9f105ee68e6661467c98a06",
+              "pointer": "/relationship_coverage/0"
+            },
+            "complete_for_selected_transaction_file_scope": true,
+            "business_mandatory_child_contract_verified": false
+          }
+        ],
+        "tables": {
+          "EC_PROCESS_MONITORING": 128,
+          "EC_TRANSACTION_MONITORING": 128
+        },
+        "relationship_capture": "complete within selected original file transaction families;not confirmed business lifecycle"
+      },
+      "scope": {
+        "period": {
+          "start_inclusive": "2026-08-10T00:00:00",
+          "end_exclusive": "2026-09-09T00:00:00",
+          "timezone": "unknown"
+        },
+        "selected_T_windows": [
+          [
+            "2026-08-10",
+            "2026-08-17"
+          ],
+          [
+            "2026-08-24",
+            "2026-09-01"
+          ]
+        ],
+        "filter": null,
+        "rows": 128,
+        "selection": "128 prior-unused transaction families;64 per declared T-coordinate window;canonical key SHA order;all linked P/M;not population random",
+        "scope_record_id": "real_eval_capture_128_v1",
+        "source_pins": {
+          "EC_PROCESS_MONITORING": {
+            "sha256": "35a94460f5274c8660be034c6f7da30118c6d9da274f5541f097ab8e562278ec"
+          },
+          "EC_TRANSACTION_MONITORING": {
+            "sha256": "36c795bce0d15d1c6f9db0ca5e6482c5d7b441efcefaa1852fc1d6e4462d3977"
+          }
+        },
+        "row_proof_pins": {
+          "EC_PROCESS_MONITORING": {
+            "sha256": "02ddb1e9af6fd34e5cda33c454e22f22be4e0a4c544894853ad66deb22e26ad6"
+          },
+          "EC_TRANSACTION_MONITORING": {
+            "sha256": "c9b709a7fda06c901de2f40ff5cb0ee23f64023d52c9397f71071fb6788d328c"
+          }
+        }
+      },
+      "measurement_id": "m_f032",
+      "measurement": {
+        "row_count": 128,
+        "valid_count": 128,
+        "missing_count": 0,
+        "true_count": null,
+        "false_count": null,
+        "ratio": null,
+        "numerator": null,
+        "denominator": null,
+        "min": 0,
+        "max": 1,
+        "p95": 1,
+        "p99": 1,
+        "variation": "variable",
+        "quantile_method": "linear_(n-1)*p",
+        "exact_decimal": {
+          "ratio": null,
+          "p95": "1.00",
+          "p99": "1.00"
+        },
+        "population_rows_before_selection": 128,
+        "selection_unavailable_count": 0,
+        "source_rows_preserved": true
+      },
+      "measurement_sha": "39c9e9eb55983826ab80d8e9f3e51a852ea9b8df8dd6341069d7be6c5cbbf269",
+      "constraints": [],
+      "baseline": {
+        "state": "insufficient",
+        "needed": [
+          "physical_or_comparable_calculation_unit"
+        ]
+      },
+      "version": {
+        "schema": "b1150a4494d505d45437c4ac594b95024b61e8021f6f9f06aaf6c8b3f7374d12",
+        "source": "39b50ee36ae57e0206978d8581e6fac04b9f3d23f4ac2ac8d958855436b58a53",
+        "calculation": "metadata-calculation-3.0.4"
+      },
+      "limitations": "Raw stored codes/numbers or parsed coordinates only;unknown business contract/physical units/common clock. Captured category frequencies refer to this offline sample, never future or live lookup.",
+      "request": "numeric_reference_comparison",
+      "reference_policy": {
+        "minimum_finite_nonmissing_rows": 20,
+        "quantile": 0.95,
+        "method": "linear interpolation on sorted eligible output rows",
+        "independence_or_normality_requirement": false,
+        "minimum_is_given_evaluation_policy_not_business_contract": true
+      },
+      "rule_evidence_contract": "Only measurement_id, supplied constraint IDs, and verified baseline IDs are valid output evidence references; basis is its enum kind."
+    },
+    "code_validation": {
+      "passed": true,
+      "format_passed": true,
+      "semantic_policy_passed": true,
+      "errors": [],
+      "validator_policy": "pilot-teacher-semantic-2.0.0"
+    },
+    "human_review": {
+      "id": "real_28_f032",
+      "stage": "initial",
+      "raw_sha256": "293c2f4073befdac790ba75018c211381e1bdb1084271a672fb001094dca5881",
+      "passed": true,
+      "errors": [],
+      "notes": "알려진 계산과 미확인 원시 물리 단위를 구분해 실제 부족한 단위 근거만 요청한다. 기준선/수치를 만들지 않는다.",
+      "reviewer": "root_direct_review",
+      "code_criteria_unchanged": true,
+      "output_not_modified": true
+    },
+    "raw_output": "{\"v\":\"1\",\"feature\":\"f032\",\"sha\":\"01444197b173e1920516c8fa7148ff090aa7d687cfc9c418430823b355631281\",\"role\":\"SR\",\"state\":\"request_evidence\",\"basis\":\"insufficient\",\"condition\":null,\"evidence\":[],\"needed\":[\"physical_or_comparable_calculation_unit\"],\"reason\":\"The arithmetic definition is known, but physical-unit compatibility remains unconfirmed. A comparable numeric reference needs that evidence; no arbitrary cutoff is created.\"}",
+    "readable_summary": "real_28_f032 · SR · request_evidence · 유효 관측 128/128 · 단위 None",
+    "model_reason_original": "The arithmetic definition is known, but physical-unit compatibility remains unconfirmed. A comparable numeric reference needs that evidence; no arbitrary cutoff is created.",
+    "output_semantically_rewritten": false
+  },
+  {
+    "id": "real_29_f035",
+    "origin": "model_generated",
+    "stage": "initial",
+    "status": "request_evidence",
+    "decision": {
+      "v": "1",
+      "feature": "f035",
+      "sha": "9ed2da0b085fd5b92aef336276f0115d07e08a11e63f2fd341078634e4ee6380",
+      "role": "SR",
+      "state": "request_evidence",
+      "basis": "insufficient",
+      "condition": null,
+      "evidence": [],
+      "needed": [
+        "physical_or_comparable_calculation_unit"
+      ],
+      "reason": "The arithmetic definition is known, but physical-unit compatibility remains unconfirmed. A comparable numeric reference needs that evidence; no arbitrary cutoff is created."
+    },
+    "input": {
+      "feature": {
+        "id": "f035",
+        "sha": "9ed2da0b085fd5b92aef336276f0115d07e08a11e63f2fd341078634e4ee6380",
+        "meaning": "Sum of raw stored numerical child values; physical business/count unit unconfirmed",
+        "dtype": "number",
+        "unit": null,
+        "expression": {
+          "op": "child_sum",
+          "relationship_id": "physical_M_to_T",
+          "where": null,
+          "value": {
+            "op": "column",
+            "table": "EC_MESSAGE_MONITORING",
+            "column": "DATA_SIZE"
+          }
+        },
+        "grain": {
+          "table": "EC_TRANSACTION_MONITORING",
+          "keys": [
+            "__V23_SAMPLE_ROW_ID"
+          ]
+        },
+        "group_by": [],
+        "missing_policy": {
+          "input": "propagate",
+          "empty_group": "zero",
+          "denominator_zero": null,
+          "child_missing": "propagate",
+          "unknown_predicate": "defer"
+        }
+      },
+      "sources": {
+        "columns": [
+          {
+            "table": "EC_MESSAGE_MONITORING",
+            "column": "DATA_SIZE",
+            "type": "number",
+            "nullable": true,
+            "evidence_ids": [
+              "schema_column_8511a07c3f639982ffad"
+            ],
+            "missing_tokens": [
+              ""
+            ]
+          },
+          {
+            "table": "EC_MESSAGE_MONITORING",
+            "column": "__V23_PARENT_1_ROW_ID",
+            "type": "string",
+            "nullable": null,
+            "evidence_ids": [
+              "schema_column_8a6a9da2124749a030ab"
+            ],
+            "missing_tokens": [
+              ""
+            ]
+          },
+          {
+            "table": "EC_TRANSACTION_MONITORING",
+            "column": "__V23_SAMPLE_ROW_ID",
+            "type": "string",
+            "nullable": null,
+            "evidence_ids": [
+              "schema_column_1058c6bf805ba7e8209a"
+            ],
+            "missing_tokens": [
+              ""
+            ]
+          }
+        ],
+        "relations": [
+          {
+            "id": "physical_M_to_T",
+            "from_table": "EC_MESSAGE_MONITORING",
+            "from_columns": [
+              "__V23_PARENT_1_ROW_ID"
+            ],
+            "to_table": "EC_TRANSACTION_MONITORING",
+            "to_columns": [
+              "__V23_SAMPLE_ROW_ID"
+            ],
+            "status": "measured",
+            "evidence_ids": [
+              "schema_relation_888f6feb8bb4f52308d5",
+              "relation_measurement_0eae6cba3e7c434c77bf"
+            ],
+            "original_child_key_columns": [
+              "TRANSACTION_ID"
+            ],
+            "original_parent_key_columns": [
+              "TRANSACTION_ID"
+            ],
+            "mapping": "exact original composite lexical key; unique parent surrogate; unresolved is blank, never arbitrary parent",
+            "capture_reference": {
+              "sha256": "0ad595d3880740a7cfddb5c4384826fce21bfa88d9f105ee68e6661467c98a06",
+              "pointer": "/relationship_coverage/1"
+            },
+            "complete_for_selected_transaction_file_scope": true,
+            "business_mandatory_child_contract_verified": false
+          }
+        ],
+        "tables": {
+          "EC_MESSAGE_MONITORING": 254,
+          "EC_TRANSACTION_MONITORING": 128
+        },
+        "relationship_capture": "complete within selected original file transaction families;not confirmed business lifecycle"
+      },
+      "scope": {
+        "period": {
+          "start_inclusive": "2026-08-10T00:00:00",
+          "end_exclusive": "2026-09-09T00:00:00",
+          "timezone": "unknown"
+        },
+        "selected_T_windows": [
+          [
+            "2026-08-10",
+            "2026-08-17"
+          ],
+          [
+            "2026-08-24",
+            "2026-09-01"
+          ]
+        ],
+        "filter": null,
+        "rows": 128,
+        "selection": "128 prior-unused transaction families;64 per declared T-coordinate window;canonical key SHA order;all linked P/M;not population random",
+        "scope_record_id": "real_eval_capture_128_v1",
+        "source_pins": {
+          "EC_MESSAGE_MONITORING": {
+            "sha256": "c1782f132306c8c8fa80c42991a2876ed2035da190baa21de7b206391a026c61"
+          },
+          "EC_TRANSACTION_MONITORING": {
+            "sha256": "36c795bce0d15d1c6f9db0ca5e6482c5d7b441efcefaa1852fc1d6e4462d3977"
+          }
+        },
+        "row_proof_pins": {
+          "EC_MESSAGE_MONITORING": {
+            "sha256": "bd5136dbec751ea1345824a7feeabd999ab4ec958a5b2238f78a8520e80dba0b"
+          },
+          "EC_TRANSACTION_MONITORING": {
+            "sha256": "c9b709a7fda06c901de2f40ff5cb0ee23f64023d52c9397f71071fb6788d328c"
+          }
+        }
+      },
+      "measurement_id": "m_f035",
+      "measurement": {
+        "row_count": 128,
+        "valid_count": 128,
+        "missing_count": 0,
+        "true_count": null,
+        "false_count": null,
+        "ratio": null,
+        "numerator": null,
+        "denominator": null,
+        "min": 0,
+        "max": 217,
+        "p95": 217,
+        "p99": 217,
+        "variation": "variable",
+        "quantile_method": "linear_(n-1)*p",
+        "exact_decimal": {
+          "ratio": null,
+          "p95": "217.00",
+          "p99": "217.00"
+        },
+        "population_rows_before_selection": 128,
+        "selection_unavailable_count": 0,
+        "source_rows_preserved": true
+      },
+      "measurement_sha": "63d93c638fdcec36ce4693feeba53723393a40b21cb94d6f9d839aa23dbee13d",
+      "constraints": [],
+      "baseline": {
+        "state": "insufficient",
+        "needed": [
+          "physical_or_comparable_calculation_unit"
+        ]
+      },
+      "version": {
+        "schema": "b1150a4494d505d45437c4ac594b95024b61e8021f6f9f06aaf6c8b3f7374d12",
+        "source": "39b50ee36ae57e0206978d8581e6fac04b9f3d23f4ac2ac8d958855436b58a53",
+        "calculation": "metadata-calculation-3.0.4"
+      },
+      "limitations": "Raw stored codes/numbers or parsed coordinates only;unknown business contract/physical units/common clock. Captured category frequencies refer to this offline sample, never future or live lookup.",
+      "request": "numeric_reference_comparison",
+      "reference_policy": {
+        "minimum_finite_nonmissing_rows": 20,
+        "quantile": 0.95,
+        "method": "linear interpolation on sorted eligible output rows",
+        "independence_or_normality_requirement": false,
+        "minimum_is_given_evaluation_policy_not_business_contract": true
+      },
+      "rule_evidence_contract": "Only measurement_id, supplied constraint IDs, and verified baseline IDs are valid output evidence references; basis is its enum kind."
+    },
+    "code_validation": {
+      "passed": true,
+      "format_passed": true,
+      "semantic_policy_passed": true,
+      "errors": [],
+      "validator_policy": "pilot-teacher-semantic-2.0.0"
+    },
+    "human_review": {
+      "id": "real_29_f035",
+      "stage": "initial",
+      "raw_sha256": "e6cf43e245d65f773e30c779e32ecda2deb09e9d83d44b8653c33d9a45ef9938",
+      "passed": true,
+      "errors": [],
+      "notes": "알려진 계산과 미확인 원시 물리 단위를 구분해 실제 부족한 단위 근거만 요청한다. 기준선/수치를 만들지 않는다.",
+      "reviewer": "root_direct_review",
+      "code_criteria_unchanged": true,
+      "output_not_modified": true
+    },
+    "raw_output": "{\"v\":\"1\",\"feature\":\"f035\",\"sha\":\"9ed2da0b085fd5b92aef336276f0115d07e08a11e63f2fd341078634e4ee6380\",\"role\":\"SR\",\"state\":\"request_evidence\",\"basis\":\"insufficient\",\"condition\":null,\"evidence\":[],\"needed\":[\"physical_or_comparable_calculation_unit\"],\"reason\":\"The arithmetic definition is known, but physical-unit compatibility remains unconfirmed. A comparable numeric reference needs that evidence; no arbitrary cutoff is created.\"}",
+    "readable_summary": "real_29_f035 · SR · request_evidence · 유효 관측 128/128 · 단위 None",
+    "model_reason_original": "The arithmetic definition is known, but physical-unit compatibility remains unconfirmed. A comparable numeric reference needs that evidence; no arbitrary cutoff is created.",
+    "output_semantically_rewritten": false
+  },
+  {
+    "id": "real_30_f061",
+    "origin": "model_generated",
+    "stage": "repair",
+    "status": "request_evidence",
+    "decision": {
+      "v": "1",
+      "feature": "f061",
+      "sha": "e52f20d2a108c6fa6aa8505af4292e10677f6c9feb15c77b181646a833cf6a87",
+      "role": "SR",
+      "state": "request_evidence",
+      "basis": "insufficient",
+      "condition": null,
+      "evidence": [],
+      "needed": [
+        "physical_or_comparable_calculation_unit"
+      ],
+      "reason": "The arithmetic definition is known, but physical-unit-or-comparable-calculation compatibility is missing. That specific fact is needed; no arbitrary numeric cutoff can be invented."
+    },
+    "input": {
+      "feature": {
+        "id": "f061",
+        "sha": "e52f20d2a108c6fa6aa8505af4292e10677f6c9feb15c77b181646a833cf6a87",
+        "meaning": "Stored TOTAL-SUCCESS-ERROR arithmetic; no conservation contract or verified item unit",
+        "dtype": "number",
+        "unit": null,
+        "expression": {
+          "op": "subtract",
+          "args": [
+            {
+              "op": "subtract",
+              "args": [
+                {
+                  "op": "column",
+                  "table": "EC_PROCESS_MONITORING",
+                  "column": "TOTAL_COUNT"
+                },
+                {
+                  "op": "column",
+                  "table": "EC_PROCESS_MONITORING",
+                  "column": "SUCCESS_COUNT"
+                }
+              ]
+            },
+            {
+              "op": "column",
+              "table": "EC_PROCESS_MONITORING",
+              "column": "ERROR_COUNT"
+            }
+          ]
+        },
+        "grain": {
+          "table": "EC_PROCESS_MONITORING",
+          "keys": [
+            "__V23_SAMPLE_ROW_ID"
+          ]
+        },
+        "group_by": [],
+        "missing_policy": {
+          "input": "propagate",
+          "empty_group": null,
+          "denominator_zero": null,
+          "child_missing": "propagate",
+          "unknown_predicate": "defer"
+        }
+      },
+      "sources": {
+        "columns": [
+          {
+            "table": "EC_PROCESS_MONITORING",
+            "column": "ERROR_COUNT",
+            "type": "number",
+            "nullable": true,
+            "evidence_ids": [
+              "schema_column_295806d6e96e012b1d89"
+            ],
+            "missing_tokens": [
+              ""
+            ]
+          },
+          {
+            "table": "EC_PROCESS_MONITORING",
+            "column": "SUCCESS_COUNT",
+            "type": "number",
+            "nullable": true,
+            "evidence_ids": [
+              "schema_column_df196120a80fe878cb79"
+            ],
+            "missing_tokens": [
+              ""
+            ]
+          },
+          {
+            "table": "EC_PROCESS_MONITORING",
+            "column": "TOTAL_COUNT",
+            "type": "number",
+            "nullable": true,
+            "evidence_ids": [
+              "schema_column_29475825b545b7e798d3"
+            ],
+            "missing_tokens": [
+              ""
+            ]
+          }
+        ],
+        "relations": [],
+        "tables": {
+          "EC_PROCESS_MONITORING": 128
+        },
+        "relationship_capture": "complete within selected original file transaction families;not confirmed business lifecycle"
+      },
+      "scope": {
+        "period": {
+          "start_inclusive": "2026-08-10T00:00:00",
+          "end_exclusive": "2026-09-09T00:00:00",
+          "timezone": "unknown"
+        },
+        "selected_T_windows": [
+          [
+            "2026-08-10",
+            "2026-08-17"
+          ],
+          [
+            "2026-08-24",
+            "2026-09-01"
+          ]
+        ],
+        "filter": null,
+        "rows": 128,
+        "selection": "128 prior-unused transaction families;64 per declared T-coordinate window;canonical key SHA order;all linked P/M;not population random",
+        "scope_record_id": "real_eval_capture_128_v1",
+        "source_pins": {
+          "EC_PROCESS_MONITORING": {
+            "sha256": "35a94460f5274c8660be034c6f7da30118c6d9da274f5541f097ab8e562278ec"
+          }
+        },
+        "row_proof_pins": {
+          "EC_PROCESS_MONITORING": {
+            "sha256": "02ddb1e9af6fd34e5cda33c454e22f22be4e0a4c544894853ad66deb22e26ad6"
+          }
+        }
+      },
+      "measurement_id": "m_f061",
+      "measurement": {
+        "row_count": 128,
+        "valid_count": 128,
+        "missing_count": 0,
+        "true_count": null,
+        "false_count": null,
+        "ratio": null,
+        "numerator": null,
+        "denominator": null,
+        "min": 0,
+        "max": 0,
+        "p95": 0,
+        "p99": 0,
+        "variation": "constant",
+        "quantile_method": "linear_(n-1)*p",
+        "exact_decimal": {
+          "ratio": null,
+          "p95": "0.00",
+          "p99": "0.00"
+        },
+        "population_rows_before_selection": 128,
+        "selection_unavailable_count": 0,
+        "source_rows_preserved": true
+      },
+      "measurement_sha": "5316b81308928cd500057ddf830158b6a46028534e15912d20a5939423253d59",
+      "constraints": [],
+      "baseline": {
+        "state": "insufficient",
+        "needed": [
+          "physical_or_comparable_calculation_unit"
+        ]
+      },
+      "version": {
+        "schema": "b1150a4494d505d45437c4ac594b95024b61e8021f6f9f06aaf6c8b3f7374d12",
+        "source": "39b50ee36ae57e0206978d8581e6fac04b9f3d23f4ac2ac8d958855436b58a53",
+        "calculation": "metadata-calculation-3.0.4"
+      },
+      "limitations": "Raw stored codes/numbers or parsed coordinates only;unknown business contract/physical units/common clock. Captured category frequencies refer to this offline sample, never future or live lookup.",
+      "request": "numeric_reference_comparison",
+      "reference_policy": {
+        "minimum_finite_nonmissing_rows": 20,
+        "quantile": 0.95,
+        "method": "linear interpolation on sorted eligible output rows",
+        "independence_or_normality_requirement": false,
+        "minimum_is_given_evaluation_policy_not_business_contract": true
+      },
+      "rule_evidence_contract": "Only measurement_id, supplied constraint IDs, and verified baseline IDs are valid output evidence references; basis is its enum kind."
+    },
+    "code_validation": {
+      "passed": true,
+      "format_passed": true,
+      "semantic_policy_passed": true,
+      "errors": [],
+      "validator_policy": "pilot-teacher-semantic-2.0.0"
+    },
+    "human_review": {
+      "id": "real_30_f061",
+      "stage": "repair",
+      "raw_sha256": "9725ddd8f72f38c345d4eb83522b347be36674392754216993dd89b7cd140a6a",
+      "passed": true,
+      "errors": [],
+      "notes": "부족한 기준선을 verified라고 부르지 않고 실제 부족한 단위/유효 참조값만 요청한다. 출력·측정·근거·이유를 대조했다.",
+      "reviewer": "root_direct_review",
+      "code_criteria_unchanged": true,
+      "output_not_modified": true,
+      "severity": null
+    },
+    "raw_output": "{\"v\":\"1\",\"feature\":\"f061\",\"sha\":\"e52f20d2a108c6fa6aa8505af4292e10677f6c9feb15c77b181646a833cf6a87\",\"role\":\"SR\",\"state\":\"request_evidence\",\"basis\":\"insufficient\",\"condition\":null,\"evidence\":[],\"needed\":[\"physical_or_comparable_calculation_unit\"],\"reason\":\"The arithmetic definition is known, but physical-unit-or-comparable-calculation compatibility is missing. That specific fact is needed; no arbitrary numeric cutoff can be invented.\"}",
+    "readable_summary": "real_30_f061 · SR · request_evidence · 유효 관측 128/128 · 단위 None",
+    "model_reason_original": "The arithmetic definition is known, but physical-unit-or-comparable-calculation compatibility is missing. That specific fact is needed; no arbitrary numeric cutoff can be invented.",
+    "output_semantically_rewritten": false
+  },
+  {
+    "id": "real_31_f062",
+    "origin": "model_generated",
+    "stage": "repair",
+    "status": "request_evidence",
+    "decision": {
+      "v": "1",
+      "feature": "f062",
+      "sha": "c5e76f4b72627d186f59e4c672734cfd2edee5377e40f4be4300d32862c58f93",
+      "role": "SR",
+      "state": "request_evidence",
+      "basis": "insufficient",
+      "condition": null,
+      "evidence": [],
+      "needed": [
+        "physical_or_comparable_calculation_unit"
+      ],
+      "reason": "The arithmetic definition is known, but physical-unit or comparable-calculated-unit compatibility is missing. That specific fact is needed; no arbitrary numeric cutoff can substitute."
+    },
+    "input": {
+      "feature": {
+        "id": "f062",
+        "sha": "c5e76f4b72627d186f59e4c672734cfd2edee5377e40f4be4300d32862c58f93",
+        "meaning": "Stored ERROR_COUNT/TOTAL_COUNT coordinate quotient, not a verified error rate; denominator0 unavailable and physical units unconfirmed",
+        "dtype": "number",
+        "unit": null,
+        "expression": {
+          "op": "divide",
+          "args": [
+            {
+              "op": "column",
+              "table": "EC_PROCESS_MONITORING",
+              "column": "ERROR_COUNT"
+            },
+            {
+              "op": "column",
+              "table": "EC_PROCESS_MONITORING",
+              "column": "TOTAL_COUNT"
+            }
+          ]
+        },
+        "grain": {
+          "table": "EC_PROCESS_MONITORING",
+          "keys": [
+            "__V23_SAMPLE_ROW_ID"
+          ]
+        },
+        "group_by": [],
+        "missing_policy": {
+          "input": "propagate",
+          "empty_group": null,
+          "denominator_zero": "missing",
+          "child_missing": "propagate",
+          "unknown_predicate": "defer"
+        }
+      },
+      "sources": {
+        "columns": [
+          {
+            "table": "EC_PROCESS_MONITORING",
+            "column": "ERROR_COUNT",
+            "type": "number",
+            "nullable": true,
+            "evidence_ids": [
+              "schema_column_295806d6e96e012b1d89"
+            ],
+            "missing_tokens": [
+              ""
+            ]
+          },
+          {
+            "table": "EC_PROCESS_MONITORING",
+            "column": "TOTAL_COUNT",
+            "type": "number",
+            "nullable": true,
+            "evidence_ids": [
+              "schema_column_29475825b545b7e798d3"
+            ],
+            "missing_tokens": [
+              ""
+            ]
+          }
+        ],
+        "relations": [],
+        "tables": {
+          "EC_PROCESS_MONITORING": 128
+        },
+        "relationship_capture": "complete within selected original file transaction families;not confirmed business lifecycle"
+      },
+      "scope": {
+        "period": {
+          "start_inclusive": "2026-08-10T00:00:00",
+          "end_exclusive": "2026-09-09T00:00:00",
+          "timezone": "unknown"
+        },
+        "selected_T_windows": [
+          [
+            "2026-08-10",
+            "2026-08-17"
+          ],
+          [
+            "2026-08-24",
+            "2026-09-01"
+          ]
+        ],
+        "filter": null,
+        "rows": 128,
+        "selection": "128 prior-unused transaction families;64 per declared T-coordinate window;canonical key SHA order;all linked P/M;not population random",
+        "scope_record_id": "real_eval_capture_128_v1",
+        "source_pins": {
+          "EC_PROCESS_MONITORING": {
+            "sha256": "35a94460f5274c8660be034c6f7da30118c6d9da274f5541f097ab8e562278ec"
+          }
+        },
+        "row_proof_pins": {
+          "EC_PROCESS_MONITORING": {
+            "sha256": "02ddb1e9af6fd34e5cda33c454e22f22be4e0a4c544894853ad66deb22e26ad6"
+          }
+        }
+      },
+      "measurement_id": "m_f062",
+      "measurement": {
+        "row_count": 128,
+        "valid_count": 127,
+        "missing_count": 1,
+        "true_count": null,
+        "false_count": null,
+        "ratio": null,
+        "numerator": null,
+        "denominator": null,
+        "min": 0,
+        "max": 1,
+        "p95": 1,
+        "p99": 1,
+        "variation": "variable",
+        "quantile_method": "linear_(n-1)*p",
+        "exact_decimal": {
+          "ratio": null,
+          "p95": "1.00",
+          "p99": "1.00"
+        },
+        "population_rows_before_selection": 128,
+        "selection_unavailable_count": 0,
+        "source_rows_preserved": true
+      },
+      "measurement_sha": "348b9d8a6581108179a02f7bf6648ddd838cb8c20c520e704e4a1629f4df9e77",
+      "constraints": [],
+      "baseline": {
+        "state": "insufficient",
+        "needed": [
+          "physical_or_comparable_calculation_unit"
+        ]
+      },
+      "version": {
+        "schema": "b1150a4494d505d45437c4ac594b95024b61e8021f6f9f06aaf6c8b3f7374d12",
+        "source": "39b50ee36ae57e0206978d8581e6fac04b9f3d23f4ac2ac8d958855436b58a53",
+        "calculation": "metadata-calculation-3.0.4"
+      },
+      "limitations": "Raw stored codes/numbers or parsed coordinates only;unknown business contract/physical units/common clock. Captured category frequencies refer to this offline sample, never future or live lookup.",
+      "request": "numeric_reference_comparison",
+      "reference_policy": {
+        "minimum_finite_nonmissing_rows": 20,
+        "quantile": 0.95,
+        "method": "linear interpolation on sorted eligible output rows",
+        "independence_or_normality_requirement": false,
+        "minimum_is_given_evaluation_policy_not_business_contract": true
+      },
+      "rule_evidence_contract": "Only measurement_id, supplied constraint IDs, and verified baseline IDs are valid output evidence references; basis is its enum kind."
+    },
+    "code_validation": {
+      "passed": true,
+      "format_passed": true,
+      "semantic_policy_passed": true,
+      "errors": [],
+      "validator_policy": "pilot-teacher-semantic-2.0.0"
+    },
+    "human_review": {
+      "id": "real_31_f062",
+      "stage": "repair",
+      "raw_sha256": "379b715da2ec1747f3140bf518b32de8833cf5f9144a12ee127a84b3f1d13504",
+      "passed": true,
+      "errors": [],
+      "notes": "부족한 기준선을 verified라고 부르지 않고 실제 부족한 단위/유효 참조값만 요청한다. 출력·측정·근거·이유를 대조했다.",
+      "reviewer": "root_direct_review",
+      "code_criteria_unchanged": true,
+      "output_not_modified": true,
+      "severity": null
+    },
+    "raw_output": "{\"v\":\"1\",\"feature\":\"f062\",\"sha\":\"c5e76f4b72627d186f59e4c672734cfd2edee5377e40f4be4300d32862c58f93\",\"role\":\"SR\",\"state\":\"request_evidence\",\"basis\":\"insufficient\",\"condition\":null,\"evidence\":[],\"needed\":[\"physical_or_comparable_calculation_unit\"],\"reason\":\"The arithmetic definition is known, but physical-unit or comparable-calculated-unit compatibility is missing. That specific fact is needed; no arbitrary numeric cutoff can substitute.\"}",
+    "readable_summary": "real_31_f062 · SR · request_evidence · 유효 관측 127/128 · 단위 None",
+    "model_reason_original": "The arithmetic definition is known, but physical-unit or comparable-calculated-unit compatibility is missing. That specific fact is needed; no arbitrary numeric cutoff can substitute.",
+    "output_semantically_rewritten": false
+  },
+  {
+    "id": "real_32_f060",
+    "origin": "model_generated",
+    "stage": "repair",
+    "status": "request_evidence",
+    "decision": {
+      "v": "1",
+      "feature": "f060",
+      "sha": "73856b503b82bd63f2490eeb78b8bda29d1b88c20cfb0e75019da6e4b98ba560",
+      "role": "SR",
+      "state": "request_evidence",
+      "basis": "insufficient",
+      "condition": null,
+      "evidence": [],
+      "needed": [
+        "valid_reference_values"
+      ],
+      "reason": "The arithmetic definition supports a numeric p95 comparison, but there are no usable calculated reference values. Unconfirmed raw-unit compatibility cannot create a reference. Provide the missing valid p95 reference values."
+    },
+    "input": {
+      "feature": {
+        "id": "f060",
+        "sha": "73856b503b82bd63f2490eeb78b8bda29d1b88c20cfb0e75019da6e4b98ba560",
+        "meaning": "Signed parsed end-start coordinates in ms, no business duration/shared-clock claim",
+        "dtype": "number",
+        "unit": "ms",
+        "expression": {
+          "op": "datetime_diff",
+          "args": [
+            {
+              "op": "column",
+              "table": "EC_MESSAGE_MONITORING",
+              "column": "END_TIME"
+            },
+            {
+              "op": "column",
+              "table": "EC_MESSAGE_MONITORING",
+              "column": "START_TIME"
+            }
+          ],
+          "unit": "ms"
+        },
+        "grain": {
+          "table": "EC_MESSAGE_MONITORING",
+          "keys": [
+            "__V23_SAMPLE_ROW_ID"
+          ]
+        },
+        "group_by": [],
+        "missing_policy": {
+          "input": "propagate",
+          "empty_group": null,
+          "denominator_zero": null,
+          "child_missing": "propagate",
+          "unknown_predicate": "defer"
+        }
+      },
+      "sources": {
+        "columns": [
+          {
+            "table": "EC_MESSAGE_MONITORING",
+            "column": "END_TIME",
+            "type": "datetime",
+            "nullable": true,
+            "evidence_ids": [
+              "schema_column_6865db52588ea0cd5d62"
+            ],
+            "missing_tokens": [
+              ""
+            ]
+          },
+          {
+            "table": "EC_MESSAGE_MONITORING",
+            "column": "START_TIME",
+            "type": "datetime",
+            "nullable": true,
+            "evidence_ids": [
+              "schema_column_09414285aa6bba351083"
+            ],
+            "missing_tokens": [
+              ""
+            ]
+          }
+        ],
+        "relations": [],
+        "tables": {
+          "EC_MESSAGE_MONITORING": 254
+        },
+        "relationship_capture": "complete within selected original file transaction families;not confirmed business lifecycle"
+      },
+      "scope": {
+        "period": {
+          "start_inclusive": "2026-08-10T00:00:00",
+          "end_exclusive": "2026-09-09T00:00:00",
+          "timezone": "unknown"
+        },
+        "selected_T_windows": [
+          [
+            "2026-08-10",
+            "2026-08-17"
+          ],
+          [
+            "2026-08-24",
+            "2026-09-01"
+          ]
+        ],
+        "filter": null,
+        "rows": 254,
+        "selection": "128 prior-unused transaction families;64 per declared T-coordinate window;canonical key SHA order;all linked P/M;not population random",
+        "scope_record_id": "real_eval_capture_128_v1",
+        "source_pins": {
+          "EC_MESSAGE_MONITORING": {
+            "sha256": "c1782f132306c8c8fa80c42991a2876ed2035da190baa21de7b206391a026c61"
+          }
+        },
+        "row_proof_pins": {
+          "EC_MESSAGE_MONITORING": {
+            "sha256": "bd5136dbec751ea1345824a7feeabd999ab4ec958a5b2238f78a8520e80dba0b"
+          }
+        }
+      },
+      "measurement_id": "m_f060",
+      "measurement": {
+        "row_count": 254,
+        "valid_count": 0,
+        "missing_count": 254,
+        "true_count": null,
+        "false_count": null,
+        "ratio": null,
+        "numerator": null,
+        "denominator": null,
+        "min": null,
+        "max": null,
+        "p95": null,
+        "p99": null,
+        "variation": "unknown",
+        "quantile_method": "linear_(n-1)*p",
+        "exact_decimal": {
+          "ratio": null,
+          "p95": null,
+          "p99": null
+        },
+        "population_rows_before_selection": 254,
+        "selection_unavailable_count": 0,
+        "source_rows_preserved": true,
+        "datetime_limitations": {
+          "calculation": "parsed_timestamp_coordinate_difference",
+          "business_duration_contract": "unknown",
+          "common_producer_clock": "unknown"
+        }
+      },
+      "measurement_sha": "b77adb62dd196617d087cbbc917803f3316e9d9b07d7321b665e6a49a8810319",
+      "constraints": [],
+      "baseline": {
+        "state": "insufficient",
+        "needed": [
+          "valid_reference_values"
+        ]
+      },
+      "version": {
+        "schema": "b1150a4494d505d45437c4ac594b95024b61e8021f6f9f06aaf6c8b3f7374d12",
+        "source": "39b50ee36ae57e0206978d8581e6fac04b9f3d23f4ac2ac8d958855436b58a53",
+        "calculation": "metadata-calculation-3.0.4"
+      },
+      "limitations": "Raw stored codes/numbers or parsed coordinates only;unknown business contract/physical units/common clock. Captured category frequencies refer to this offline sample, never future or live lookup.",
+      "request": "numeric_reference_comparison",
+      "reference_policy": {
+        "minimum_finite_nonmissing_rows": 20,
+        "quantile": 0.95,
+        "method": "linear interpolation on sorted eligible output rows",
+        "independence_or_normality_requirement": false,
+        "minimum_is_given_evaluation_policy_not_business_contract": true
+      },
+      "rule_evidence_contract": "Only measurement_id, supplied constraint IDs, and verified baseline IDs are valid output evidence references; basis is its enum kind."
+    },
+    "code_validation": {
+      "passed": true,
+      "format_passed": true,
+      "semantic_policy_passed": true,
+      "errors": [],
+      "validator_policy": "pilot-teacher-semantic-2.0.0"
+    },
+    "human_review": {
+      "id": "real_32_f060",
+      "stage": "repair",
+      "raw_sha256": "393b0d246bae0070dc9f1f0ac8602bed5a741c53d60e3a4443cb28cc02d7535b",
+      "passed": true,
+      "errors": [],
+      "notes": "부족한 기준선을 verified라고 부르지 않고 실제 부족한 단위/유효 참조값만 요청한다. 출력·측정·근거·이유를 대조했다. 원시 단위 일반 문장은 불필요하지만 이 변수의 단위를 미확인이라고 주장하거나 추가 단위 근거를 요구하지는 않는다. ms는 입력 그대로 유지했고 needed는 valid_reference_values만이다.",
+      "reviewer": "root_direct_review",
+      "code_criteria_unchanged": true,
+      "output_not_modified": true,
+      "severity": null
+    },
+    "raw_output": "{\"v\":\"1\",\"feature\":\"f060\",\"sha\":\"73856b503b82bd63f2490eeb78b8bda29d1b88c20cfb0e75019da6e4b98ba560\",\"role\":\"SR\",\"state\":\"request_evidence\",\"basis\":\"insufficient\",\"condition\":null,\"evidence\":[],\"needed\":[\"valid_reference_values\"],\"reason\":\"The arithmetic definition supports a numeric p95 comparison, but there are no usable calculated reference values. Unconfirmed raw-unit compatibility cannot create a reference. Provide the missing valid p95 reference values.\"}",
+    "readable_summary": "real_32_f060 · SR · request_evidence · 유효 관측 0/254 · 단위 ms",
+    "model_reason_original": "The arithmetic definition supports a numeric p95 comparison, but there are no usable calculated reference values. Unconfirmed raw-unit compatibility cannot create a reference. Provide the missing valid p95 reference values.",
+    "output_semantically_rewritten": false
+  }
+]

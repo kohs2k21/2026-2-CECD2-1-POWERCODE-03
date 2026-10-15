@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { AnimatePresence } from "motion/react";
 import { SidebarNav } from "../../components/layout/SidebarNav";
 import { TooltipProvider } from "../../components/ui/tooltip";
@@ -38,6 +39,7 @@ export const AnalysisWorkspace = ({ onLogout }: AnalysisWorkspaceProps) => {
           onSelect={handleCategoryChange}
         />
         <main className="analysis-main">
+          <Link to="/analysis/process-decisions">저장된 탐지 판정·근거 설명</Link>
           <section
             className="analysis-workspace-surface"
             aria-label="상세 분석 화면"

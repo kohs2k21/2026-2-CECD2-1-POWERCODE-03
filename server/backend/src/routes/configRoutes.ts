@@ -95,6 +95,12 @@ router.post('/:id/applications', requireAdmin as any, route(async (req, res) => 
       [body.evaluationId, req.params.id],
     );
     if (!gate.rowCount) throw new ConfigError('evaluation_gate_not_met', 409);
+    const config = await client.query('SELECT configuration_spec FROM ml_config_versions WHERE id=$1',[req.params.id]);
+    const mode = config.rows[0]?.configuration_spec?.detectionPolicy?.mode ?? 'parallel';
+    const ruleCount = await client.query('SELECT count(*)::integer AS count FROM ml_config_rules WHERE config_version_id=$1',[req.params.id]);
+    if (mode !== 'ml_only' && !ruleCount.rows[0].count && config.rows[0]?.configuration_spec?.detectionPolicy) {
+      throw new ConfigError('rules_unavailable',409);
+    }
     const model = await client.query(
       `SELECT 1 FROM ml_config_models AS cm
          JOIN ml_artifacts AS m ON m.id = cm.model_artifact_id AND m.kind = 'model'
@@ -104,14 +110,14 @@ router.post('/:id/applications', requireAdmin as any, route(async (req, res) => 
           AND m.fit_artifact_id = f.id AND m.snapshot_id = f.snapshot_id`,
       [req.params.id],
     );
-    if (model.rowCount !== 1) throw new ConfigError('model_artifacts_not_ready', 409);
+    if (mode !== 'rule_only' && model.rowCount !== 1) throw new ConfigError('model_artifacts_not_ready', 409);
     const mismatchedRule = await client.query(
       `SELECT 1 FROM ml_config_rules AS cr
          JOIN ml_rule_versions AS rv ON rv.id = cr.rule_version_id
-         JOIN ml_config_models AS cm ON cm.config_version_id = cr.config_version_id
-        WHERE cr.config_version_id = $1 AND cm.model_key = 'iforest'
+         JOIN ml_config_versions AS c ON c.id = cr.config_version_id
+        WHERE cr.config_version_id = $1
           AND rv.input_spec->>'featureSetId' IS NOT NULL
-          AND rv.input_spec->>'featureSetId' <> cm.feature_set_id::text LIMIT 1`,
+          AND rv.input_spec->>'featureSetId' <> c.configuration_spec->>'featureSetId' LIMIT 1`,
       [req.params.id],
     );
     if (mismatchedRule.rowCount) throw new ConfigError('rule_feature_set_mismatch', 409);

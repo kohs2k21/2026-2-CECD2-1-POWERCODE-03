@@ -2,6 +2,7 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { getDatabasePool } from '../config/database.js';
 import { authenticateToken, AuthenticatedRequest, requireAdmin } from '../middleware/auth.js';
 import crypto from 'node:crypto';
+import { UserRepository } from '../repository/userRepository.js';
 
 const router = Router();
 router.use(authenticateToken as any);
@@ -13,6 +14,74 @@ function route(handler: (req: AuthenticatedRequest, res: Response) => Promise<vo
   };
 }
 
+router.get('/events', route(async (req, res) => {
+  const cursor = req.headers['last-event-id'] ?? req.query.after ?? '0';
+  if (typeof cursor !== 'string' || !/^(0|[1-9]\d{0,18})$/.test(cursor) || BigInt(cursor) > 9223372036854775807n) {
+    res.status(400).json({code:'invalid_event_cursor'});return;
+  }
+  let after = cursor;
+  let closed = false;
+  let busy = false;
+  res.setHeader('Content-Type','text/event-stream');
+  res.setHeader('Cache-Control','no-cache');
+  res.setHeader('X-Accel-Buffering','no');
+  res.flushHeaders();
+  const poll = async () => {
+    if (closed || busy) return;
+    busy = true;
+    try {
+      const user = await UserRepository.getInstance().getById(req.user!.id);
+      if (!user || user.userType !== req.user!.userType || user.email !== req.user!.email ||
+          (req.tokenExpiresAt !== undefined && Date.now() >= req.tokenExpiresAt)) {
+        res.end();return;
+      }
+      const result = await getDatabasePool().query(`SELECT e.id::text AS "eventId",d.id,d.status,
+          d.config_version_id AS "configVersionId",d.rule_status AS "ruleStatus",d.ml_status AS "mlStatus",
+          d.decision_code AS "decisionCode",d.anomaly_score AS "anomalyScore",d.evidence,
+          o.source_id AS "sourceId",d.decided_at AS "decidedAt",d.process_observation_id AS "processObservationId"
+          FROM run_decision_events e JOIN run_process_decisions d ON d.id=e.decision_id
+          JOIN data_observations o ON o.id=d.process_observation_id
+          WHERE e.id>$1::bigint ORDER BY e.id LIMIT 100`,[after]);
+      for (const event of result.rows) {
+        if (closed) break;
+        const writable = res.write(`id: ${event.eventId}\nevent: decision\ndata: ${JSON.stringify(event)}\n\n`);
+        after = event.eventId;
+        if (!writable) {res.end();break;}
+      }
+      if (!closed) res.write(': keepalive\n\n');
+    } catch {
+      res.end();
+    } finally {busy = false;}
+  };
+  const timer = setInterval(() => {void poll();},1000);
+  res.on('close',()=>{closed=true;clearInterval(timer);});
+  await poll();
+}));
+
+router.get('/collector/metrics', requireAdmin as any, route(async (req,res) => {
+  const sourceId = req.query.sourceId;
+  if (typeof sourceId !== 'string' || !UUID.test(sourceId)) {res.status(400).json({code:'invalid_source_id'});return;}
+  const result = await getDatabasePool().query(`WITH samples AS (
+      SELECT p.*,extract(epoch FROM started_at-lag(started_at) OVER (PARTITION BY endpoint ORDER BY started_at)) AS gap
+      FROM ops_api_poll_samples p WHERE source_id=$1 AND started_at>=clock_timestamp()-interval '10 minutes')
+    SELECT endpoint,count(*)::integer AS requests,count(*) FILTER(WHERE error_code IS NOT NULL)::integer AS failures,
+      count(*) FILTER(WHERE item_count=0)::integer AS "emptyResponses",
+      count(*) FILTER(WHERE item_count>0)::integer AS "nonemptyResponses",
+      percentile_cont(.95) WITHIN GROUP(ORDER BY duration_ms) AS "p95Ms",
+      percentile_cont(.99) WITHIN GROUP(ORDER BY duration_ms) AS "p99Ms",
+      percentile_cont(.95) WITHIN GROUP(ORDER BY db_commit_ms) AS "persistP95Ms",
+      percentile_cont(.95) WITHIN GROUP(ORDER BY gap) AS "pollGapP95Seconds",
+      max(started_at) AS "lastSampleAt" FROM samples GROUP BY endpoint ORDER BY endpoint`,[sourceId]);
+  res.json({items:result.rows,window:'10m',sourceLatencyMs:null,sourceClockStatus:'unknown'});
+}));
+
+router.get('/collector', requireAdmin as any, route(async (_req,res) => {
+  const result = await getDatabasePool().query(`SELECT source_id AS "sourceId",endpoint,checkpoint,
+      last_attempt_at AS "lastAttemptAt",last_success_at AS "lastSuccessAt",error_code AS "errorCode"
+      FROM ops_api_poll_state ORDER BY source_id,endpoint`);
+  res.json({items:result.rows});
+}));
+
 router.get('/decisions', route(async (req, res) => {
   const value = req.query.limit;
   if (value !== undefined && (typeof value !== 'string' || !/^[1-9]\d?$|^100$/.test(value))) {
@@ -21,12 +90,13 @@ router.get('/decisions', route(async (req, res) => {
   }
   const limit = value ? Number(value) : 50;
   const result = await getDatabasePool().query(
-    `SELECT id, process_observation_id AS "processObservationId",
+    `SELECT d.id, o.source_id AS "sourceId", process_observation_id AS "processObservationId",
             config_version_id AS "configVersionId", status,
             rule_status AS "ruleStatus", ml_status AS "mlStatus",
             decision_code AS "decisionCode", anomaly_score AS "anomalyScore",
             evidence, decided_at AS "decidedAt"
-       FROM run_process_decisions ORDER BY decided_at DESC, id DESC LIMIT $1`,
+       FROM run_process_decisions d JOIN data_observations o ON o.id=d.process_observation_id
+       ORDER BY decided_at DESC, d.id DESC LIMIT $1`,
     [limit],
   );
   res.json({ items: result.rows });
@@ -147,7 +217,13 @@ router.get('/metrics', requireAdmin as any, route(async (_req, res) => {
      UNION ALL
      SELECT 'training', status, count(*)::integer,
             EXTRACT(EPOCH FROM clock_timestamp() - min(created_at))::numeric
-       FROM powercode_queue.training_jobs GROUP BY status`,
+       FROM powercode_queue.training_jobs GROUP BY status
+     UNION ALL SELECT 'llm_recommendation', status, count(*)::integer,
+       EXTRACT(EPOCH FROM clock_timestamp() - min(created_at))::numeric
+       FROM powercode_queue.llm_recommendation_jobs GROUP BY status
+     UNION ALL SELECT 'llm_explanation', status, count(*)::integer,
+       EXTRACT(EPOCH FROM clock_timestamp() - min(created_at))::numeric
+       FROM powercode_queue.llm_explanation_jobs GROUP BY status`,
   );
   const stages = await pool.query(
     `SELECT stage, count(*)::integer AS count,

@@ -8,6 +8,7 @@ import ruleRouter from './routes/ruleRoutes.js';
 import jobRouter from './routes/jobRoutes.js';
 import configRouter from './routes/configRoutes.js';
 import pipelineRouter from './routes/pipelineRoutes.js';
+import inputRouter from './routes/inputRoutes.js';
 import { checkDatabaseConnection } from './config/database.js';
 
 const app = express();
@@ -39,6 +40,7 @@ app.use('/api/rules', ruleRouter);
 app.use('/api/jobs', jobRouter);
 app.use('/api/configurations', configRouter);
 app.use('/api/pipeline', pipelineRouter);
+app.use('/api/inputs', inputRouter);
 
 // 공통 오류 처리
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {

@@ -95,7 +95,7 @@ try {
   assert.equal((await request(base, '/api/jobs', 'POST', userToken,
     { ...input, kind: 'train', featureSetId: crypto.randomUUID() })).status, 403);
   const queued = await pool.query(
-    `SELECT count(*)::integer AS count FROM powercode_queue.training_jobs
+    `SELECT count(*)::integer AS count FROM powercode_queue.llm_recommendation_jobs
       WHERE payload->>'jobId' = $1`, [first.body.id],
   );
   assert.equal(queued.rows[0].count, 1);

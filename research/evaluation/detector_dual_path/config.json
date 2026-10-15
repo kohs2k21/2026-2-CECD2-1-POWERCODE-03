@@ -1,0 +1,16 @@
+{
+  "seed": 45,
+  "cases_per_scenario": 3,
+  "n_estimators": 32,
+  "max_samples": 256,
+  "k": 6,
+  "reference_resolution_seconds": 60,
+  "baseline_lookback_seconds": 300,
+  "baseline_stride_seconds": 60,
+  "candidate_strides": [60, 15, 5],
+  "candidate_windows": [60, 300, 900],
+  "performance_repeats": 3,
+  "warmup": 10,
+  "performance_jobs": 120,
+  "input_rate_hz": 100
+}

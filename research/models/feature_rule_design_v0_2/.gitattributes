@@ -1,0 +1,2 @@
+adapters/**/adapter_model.safetensors binary
+source_snapshots/** -whitespace

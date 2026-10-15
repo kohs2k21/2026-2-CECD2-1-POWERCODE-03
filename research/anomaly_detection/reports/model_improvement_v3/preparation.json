@@ -1,0 +1,330 @@
+{
+  "benchmark_manifest_sha256": "71fb8115dc2b9ddcac6408167a8e0f89939e060bbdd5c516339ffe88b9473ce4",
+  "source_cache_sha256": "438d64008d831d7417e72023abd2ab9fc00ac6b24eb480d2f7db0a35c55e31d7",
+  "development_inputs_sha256": "89787026d107e28d2fd9b596e9e8500f5d2fae88795601ca2f10895219ff1b67",
+  "feature_code_sha256": {
+    "features.py": "3fd8633efdd3cec40dac38ca04c7e5d7b2ef56500299307d06d6c893471cd64b",
+    "data.py": "dd08bc234b587f1771ebba92a7e63778f3a95864132000e495af54f1c270886b"
+  },
+  "case_counts": {
+    "search": 360,
+    "confirmation": 360
+  },
+  "normal_reference_counts": {
+    "train": 10825,
+    "calibration": 12987,
+    "threshold": 11572
+  },
+  "source_template_counts": {
+    "train": 7510,
+    "calibration": 2468,
+    "threshold": 2452
+  },
+  "normal_reference_episodes": [
+    {
+      "split": "train",
+      "normal_episodes": 120,
+      "windows": 10825,
+      "independent_source_templates": 4448,
+      "adapters": 15
+    },
+    {
+      "split": "calibration",
+      "normal_episodes": 144,
+      "windows": 12987,
+      "independent_source_templates": 1952,
+      "adapters": 18
+    },
+    {
+      "split": "threshold",
+      "normal_episodes": 128,
+      "windows": 11572,
+      "independent_source_templates": 1917,
+      "adapters": 16
+    }
+  ],
+  "validation_seed": 1910042,
+  "validation_cases_per_scenario": 120,
+  "validation_source_templates": 3344,
+  "validation_source_overlaps_window_reference": 0,
+  "status_all_s_and_original_hard_rules_pass": {
+    "artifact_sha256": "f1a5e52875517039984f407090766537bc665b51461e65803945f1ac9e212dbc",
+    "artifact_path": "code\\process_anomaly_pipeline\\artifacts\\process_if_v1.joblib",
+    "config": {
+      "version": "process-if-v1",
+      "n_estimators": 128,
+      "max_samples": 512,
+      "max_features": 1,
+      "bootstrap": false,
+      "n_jobs": 2,
+      "random_state": 42,
+      "max_train_rows": 100000,
+      "max_calibration_rows": 100000,
+      "score_batch_rows": 50000,
+      "train_fraction": 0.6,
+      "validation_fraction": 0.2,
+      "score_quantile": 0.99,
+      "global_weight": 0.5,
+      "min_global_train": 200,
+      "min_global_calibration": 200,
+      "min_global_threshold": 200,
+      "min_adapter_train": 500,
+      "min_adapter_calibration": 100,
+      "min_adapter_threshold": 100,
+      "min_adapter_days": 3,
+      "quantiles": [
+        0.99,
+        0.999
+      ],
+      "quantile_columns": [
+        "duration_ms",
+        "totalCount",
+        "retryCount"
+      ],
+      "min_p99_support": 1000,
+      "min_p999_support": 10000,
+      "time_tolerance_ms": 0,
+      "exclude_statistical_from_training": true
+    },
+    "thresholds": [
+      {
+        "group": "GLOBAL",
+        "metric": "duration_ms",
+        "quantile": 0.99,
+        "threshold": 9728,
+        "reference_rows": 2608452
+      },
+      {
+        "group": "GLOBAL",
+        "metric": "duration_ms",
+        "quantile": 0.999,
+        "threshold": 18385.549000000115,
+        "reference_rows": 2608452
+      },
+      {
+        "group": "GLOBAL",
+        "metric": "totalCount",
+        "quantile": 0.99,
+        "threshold": 10485760,
+        "reference_rows": 2608452
+      },
+      {
+        "group": "GLOBAL",
+        "metric": "totalCount",
+        "quantile": 0.999,
+        "threshold": 10485760,
+        "reference_rows": 2608452
+      },
+      {
+        "group": "GLOBAL",
+        "metric": "retryCount",
+        "quantile": 0.99,
+        "threshold": 0,
+        "reference_rows": 2608452
+      },
+      {
+        "group": "GLOBAL",
+        "metric": "retryCount",
+        "quantile": 0.999,
+        "threshold": 0,
+        "reference_rows": 2608452
+      },
+      {
+        "group": "DB.READER",
+        "metric": "duration_ms",
+        "quantile": 0.99,
+        "threshold": 1127,
+        "reference_rows": 1279550
+      },
+      {
+        "group": "DB.READER",
+        "metric": "duration_ms",
+        "quantile": 0.999,
+        "threshold": 2385,
+        "reference_rows": 1279550
+      },
+      {
+        "group": "DB.READER",
+        "metric": "totalCount",
+        "quantile": 0.99,
+        "threshold": 10000,
+        "reference_rows": 1279550
+      },
+      {
+        "group": "DB.READER",
+        "metric": "totalCount",
+        "quantile": 0.999,
+        "threshold": 10000,
+        "reference_rows": 1279550
+      },
+      {
+        "group": "DB.READER",
+        "metric": "retryCount",
+        "quantile": 0.99,
+        "threshold": 0,
+        "reference_rows": 1279550
+      },
+      {
+        "group": "DB.READER",
+        "metric": "retryCount",
+        "quantile": 0.999,
+        "threshold": 0,
+        "reference_rows": 1279550
+      },
+      {
+        "group": "DB.WRITER",
+        "metric": "duration_ms",
+        "quantile": 0.99,
+        "threshold": 10402,
+        "reference_rows": 1279442
+      },
+      {
+        "group": "DB.WRITER",
+        "metric": "duration_ms",
+        "quantile": 0.999,
+        "threshold": 20644.030999999028,
+        "reference_rows": 1279442
+      },
+      {
+        "group": "DB.WRITER",
+        "metric": "totalCount",
+        "quantile": 0.99,
+        "threshold": 10000,
+        "reference_rows": 1279442
+      },
+      {
+        "group": "DB.WRITER",
+        "metric": "totalCount",
+        "quantile": 0.999,
+        "threshold": 10000,
+        "reference_rows": 1279442
+      },
+      {
+        "group": "DB.WRITER",
+        "metric": "retryCount",
+        "quantile": 0.99,
+        "threshold": 0,
+        "reference_rows": 1279442
+      },
+      {
+        "group": "DB.WRITER",
+        "metric": "retryCount",
+        "quantile": 0.999,
+        "threshold": 0,
+        "reference_rows": 1279442
+      },
+      {
+        "group": "FILE.READER",
+        "metric": "duration_ms",
+        "quantile": 0.99,
+        "threshold": 24217.54000000001,
+        "reference_rows": 24395
+      },
+      {
+        "group": "FILE.READER",
+        "metric": "duration_ms",
+        "quantile": 0.999,
+        "threshold": 27357.907999999996,
+        "reference_rows": 24395
+      },
+      {
+        "group": "FILE.READER",
+        "metric": "totalCount",
+        "quantile": 0.99,
+        "threshold": 168588859,
+        "reference_rows": 24395
+      },
+      {
+        "group": "FILE.READER",
+        "metric": "totalCount",
+        "quantile": 0.999,
+        "threshold": 168588859,
+        "reference_rows": 24395
+      },
+      {
+        "group": "FILE.READER",
+        "metric": "retryCount",
+        "quantile": 0.99,
+        "threshold": 0,
+        "reference_rows": 24395
+      },
+      {
+        "group": "FILE.READER",
+        "metric": "retryCount",
+        "quantile": 0.999,
+        "threshold": 0,
+        "reference_rows": 24395
+      },
+      {
+        "group": "FILE.WRITER",
+        "metric": "duration_ms",
+        "quantile": 0.99,
+        "threshold": 1555.8199999999997,
+        "reference_rows": 22360
+      },
+      {
+        "group": "FILE.WRITER",
+        "metric": "duration_ms",
+        "quantile": 0.999,
+        "threshold": 3792.25099999992,
+        "reference_rows": 22360
+      },
+      {
+        "group": "FILE.WRITER",
+        "metric": "totalCount",
+        "quantile": 0.99,
+        "threshold": 10485760,
+        "reference_rows": 22360
+      },
+      {
+        "group": "FILE.WRITER",
+        "metric": "totalCount",
+        "quantile": 0.999,
+        "threshold": 10485760,
+        "reference_rows": 22360
+      },
+      {
+        "group": "FILE.WRITER",
+        "metric": "retryCount",
+        "quantile": 0.99,
+        "threshold": 0,
+        "reference_rows": 22360
+      },
+      {
+        "group": "FILE.WRITER",
+        "metric": "retryCount",
+        "quantile": 0.999,
+        "threshold": 0,
+        "reference_rows": 22360
+      },
+      {
+        "group": "SERVICE.EXECUTOR",
+        "metric": "duration_ms",
+        "quantile": 0.99,
+        "threshold": 7111.770000000002,
+        "reference_rows": 2648
+      },
+      {
+        "group": "SERVICE.EXECUTOR",
+        "metric": "totalCount",
+        "quantile": 0.99,
+        "threshold": 1,
+        "reference_rows": 2648
+      },
+      {
+        "group": "SERVICE.EXECUTOR",
+        "metric": "retryCount",
+        "quantile": 0.99,
+        "threshold": 0,
+        "reference_rows": 2648
+      }
+    ],
+    "expert_adapters": [
+      "DB.READER",
+      "DB.WRITER",
+      "SERVICE.EXECUTOR"
+    ],
+    "semantics": "adapter threshold when available, else GLOBAL, separately for each metric/quantile; strict >"
+  },
+  "note": "Fresh episodes on held-out source templates; hash holdout, NOT chronological future holdout. Normal paired controls never fit models."
+}

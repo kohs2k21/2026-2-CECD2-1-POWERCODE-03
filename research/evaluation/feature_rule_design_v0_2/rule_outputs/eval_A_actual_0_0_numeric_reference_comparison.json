@@ -1,0 +1,31 @@
+{
+  "id": "eval_A_actual_0_0_numeric_reference_comparison",
+  "raw_output": "{\"v\":\"1\",\"feature\":\"fv5_780b4b24367499347adf9902\",\"sha\":\"884b1247fd781f1eac454860e5fc361f616c9b30a926d7535f0faaebac8247b9\",\"role\":\"SR\",\"state\":\"proposed\",\"basis\":\"reference_p95\",\"condition\":{\"op\":\"gt\",\"baseline\":\"b_fv5_780b4b24367499347adf9902\"},\"evidence\":[\"m_fv5_780b4b24367499347adf9902\",\"b_fv5_780b4b24367499347adf9902\"],\"needed\":[],\"reason\":\"Compare this number ms feature with the code-measured reference p95 107.10 ms, n=128, minimum=20.\"}",
+  "raw_sha": "8b186c1039d5516f4d7d362772c0457d9efa24cbc982439ec283ddbd5b96efd0",
+  "original_input_sha": "decf585281f1734e0d2e5ee29a7c792bc5e82c4ed639ff9e5c884d89cddd9be2",
+  "prediction": {
+    "v": "1",
+    "feature": "fv5_780b4b24367499347adf9902",
+    "sha": "884b1247fd781f1eac454860e5fc361f616c9b30a926d7535f0faaebac8247b9",
+    "role": "SR",
+    "state": "proposed",
+    "basis": "reference_p95",
+    "condition": {
+      "op": "gt",
+      "baseline": "b_fv5_780b4b24367499347adf9902"
+    },
+    "evidence": [
+      "m_fv5_780b4b24367499347adf9902",
+      "b_fv5_780b4b24367499347adf9902"
+    ],
+    "needed": [],
+    "reason": "Compare this number ms feature with the code-measured reference p95 107.10 ms, n=128, minimum=20."
+  },
+  "validation": {
+    "passed": true,
+    "schema_passed": true,
+    "errors": [],
+    "policy": "rule-grounding-4.1.0",
+    "direct_meaning_review_required": true
+  }
+}

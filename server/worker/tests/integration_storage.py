@@ -129,7 +129,7 @@ def main() -> None:
         assert observation.allowed_values["process_id"] == "proc-1"
         assert acknowledge(conn, "detection", message)
         conn.commit()
-    print("storage integration passed: T/P/M projection, atomic P enqueue, duplicate handling, detector read")
+    print("storage integration passed: T/P/M projection, atomic detection enqueue, duplicate handling, P read")
 
 
 if __name__ == "__main__":

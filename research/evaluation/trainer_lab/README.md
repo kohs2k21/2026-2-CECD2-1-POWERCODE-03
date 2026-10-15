@@ -2,7 +2,8 @@
 
 - 목적: 기존 IF·MiniBatchKMeans 코드 재사용 가능성 및 데이터·산출물 검증
 - 범위: 오프라인 연구, `server/` 연결·ERD/API 변경 없음
-- 기준: PR #39의 `research/anomaly_detection/`; 기존 모델·결과 덮어쓰기 금지
+- 학습 도구 기준: PR #39의 PROCESS 전처리·IF/MiniBatchKMeans 코드; 기존 모델·결과 덮어쓰기 금지
+- 최신 공개 모델: PR #47의 v12 시간 구간 모델. 아래 inspect_models 명령은 공개 모델 검사이며 이 도구의 PROCESS 학습 결과 재현과 별개
 - 피처 수식·가용 시점·보류 사유: [FEATURE_CATALOG.md](FEATURE_CATALOG.md)
 - 독립 검증 결과: [RESULTS.md](RESULTS.md)
 
@@ -71,7 +72,8 @@ uv pip install --python .venv/Scripts/python.exe -r research/anomaly_detection/r
 
 ## 기존 전체 평가 재현 제한
 
-- 미확보: `inputs.json`, 67개 평가 CSV·정답·manifest, `training_inputs.joblib`, `validation_inputs.joblib`
+- 최신 dev 제공: `reports/evaluation_v2_work/inputs.json`, `reports/window_search_v2/training_inputs.joblib`, `validation_inputs.joblib` (research/anomaly_detection 기준)
+- 미확보: 기존 전체 평가에 필요한 평가 CSV·정답·벤치마크 manifest; 제공 캐시와 원래 평가 데이터의 대응 확인 필요
 - 원래 31,000 사례·6전략·시간창 선택 결과의 완전 재현 미완료
 - 원본으로 새로 학습한 global PROCESS 결과와 기존 시간창 F1의 직접 비교 금지
 - 원래 재현 명령: [기존 연구 안내](../../anomaly_detection/README.md), [모델 평가 안내](../../anomaly_detection/code/model_evaluation/README.md)
@@ -81,7 +83,7 @@ uv pip install --python .venv/Scripts/python.exe -r research/anomaly_detection/r
 
 - 재사용 후보: 입력 검증, 분할 감사, 피처 카탈로그, 산출물 묶음 검증
 - 이식 전: 운영 PROCESS/시간창 공통 규약·이벤트 수정/지연 처리·피처 선택 계약 확정
-- Detector 실험 대기: 실시간/주기 추론 역할, 최종 창 크기·판정 주기, 미완료 PROCESS 정책
+- Detector 비교 실험 완료: 결과는 Issue #45 참조. 운영 적용 전 실시간/주기 추론 역할·최종 창/주기·미완료 PROCESS 정책 및 공통 입력 계약 확정 필요
 - 별도 실험: SHAP·모델별 설명, 모델/임계값 선택, 합성 평가셋 타당성
 - 계측: 프로세스 생애 최대 RSS; 두 모델 순차 실행 시 누적 최대치, 모델별 증가분 아님
 - 이 도구의 학습 시간·메모리는 운영 부하·ESB 발생→판정 지연 보장 아님

@@ -1,0 +1,382 @@
+{
+  "id": "eval_B_actual_0",
+  "phase": "v5",
+  "raw_output": "{\"candidates\":[{\"id\":\"train_A_actual_0_c0\",\"purpose\":\"Boolean conjunction of unavailable process dependency identifier and unavailable process start timestamp; both are available in this capture.\",\"meaning\":\"Boolean conjunction of unavailable process dependency identifier and unavailable process start timestamp; both are available in this capture.\",\"sources\":{\"columns\":[[\"EC_PROCESS_MONITORING\",\"DEPEND_PROCESS_ID\"],[\"EC_PROCESS_MONITORING\",\"START_TIME\"]],\"relationships\":[]},\"expected_type\":\"boolean\",\"expected_unit\":\"boolean\",\"availability\":\"offline_captured_scope\",\"required_evidence\":[\"online availability and leakage policy; operational usefulness unconfirmed\"],\"plan\":{\"id\":\"train_A_actual_0_c0\",\"description\":\"Boolean conjunction of unavailable process dependency identifier and unavailable process start timestamp; both are available in this capture.\",\"expression\":{\"op\":\"and\",\"args\":[{\"op\":\"is_missing\",\"args\":[{\"op\":\"column\",\"table\":\"EC_PROCESS_MONITORING\",\"column\":\"DEPEND_PROCESS_ID\"}]},{\"op\":\"is_missing\",\"args\":[{\"op\":\"column\",\"table\":\"EC_PROCESS_MONITORING\",\"column\":\"START_TIME\"}]}]},\"grain\":{\"table\":\"EC_PROCESS_MONITORING\",\"keys\":[\"__V23_SAMPLE_ROW_ID\"]},\"population\":{\"table\":\"EC_PROCESS_MONITORING\",\"filter\":null},\"group_by\":[],\"schema_version\":\"b1150a4494d505d45437c4ac594b95024b61e8021f6f9f06aaf6c8b3f7374d12\",\"source_version\":\"82affdd810628f8fc880c884c83bf02e10f594db8ae821c25118c80ec5793309\",\"missing_policy\":{\"input\":\"count_missing\",\"empty_group\":null,\"denominator_zero\":null,\"child_missing\":\"propagate\",\"unknown_predicate\":\"defer\"}}}],\"stop_reason\":\"Narrow computed metadata candidates; business and online usefulness remain unconfirmed.\"}",
+  "raw_sha": "56a3af98e977510a94388d35b6b4e7e99c22f98ed3876165222a12f4ff6b3580",
+  "original_input_sha": "d52eca4e3febca6ef72e5ee2812458b73a9873e4af07300df7b2fe5474ed12f7",
+  "generated_tokens": 425,
+  "length_limit_reached": false,
+  "checks": {
+    "JSON_contract": true,
+    "candidates": [
+      {
+        "index": 0,
+        "contract": true,
+        "source_exists": true,
+        "definition_valid": true,
+        "measurement_completed": true,
+        "independent": true,
+        "duplicate": false,
+        "errors": [],
+        "candidate": {
+          "id": "train_A_actual_0_c0",
+          "purpose": "Boolean conjunction of unavailable process dependency identifier and unavailable process start timestamp; both are available in this capture.",
+          "meaning": "Boolean conjunction of unavailable process dependency identifier and unavailable process start timestamp; both are available in this capture.",
+          "sources": {
+            "columns": [
+              [
+                "EC_PROCESS_MONITORING",
+                "DEPEND_PROCESS_ID"
+              ],
+              [
+                "EC_PROCESS_MONITORING",
+                "START_TIME"
+              ]
+            ],
+            "relationships": []
+          },
+          "expected_type": "boolean",
+          "expected_unit": "boolean",
+          "availability": "offline_captured_scope",
+          "required_evidence": [
+            "online availability and leakage policy; operational usefulness unconfirmed"
+          ],
+          "plan": {
+            "id": "train_A_actual_0_c0",
+            "description": "Boolean conjunction of unavailable process dependency identifier and unavailable process start timestamp; both are available in this capture.",
+            "expression": {
+              "op": "and",
+              "args": [
+                {
+                  "op": "is_missing",
+                  "args": [
+                    {
+                      "op": "column",
+                      "table": "EC_PROCESS_MONITORING",
+                      "column": "DEPEND_PROCESS_ID"
+                    }
+                  ]
+                },
+                {
+                  "op": "is_missing",
+                  "args": [
+                    {
+                      "op": "column",
+                      "table": "EC_PROCESS_MONITORING",
+                      "column": "START_TIME"
+                    }
+                  ]
+                }
+              ]
+            },
+            "grain": {
+              "table": "EC_PROCESS_MONITORING",
+              "keys": [
+                "__V23_SAMPLE_ROW_ID"
+              ]
+            },
+            "population": {
+              "table": "EC_PROCESS_MONITORING",
+              "filter": null
+            },
+            "group_by": [],
+            "schema_version": "b1150a4494d505d45437c4ac594b95024b61e8021f6f9f06aaf6c8b3f7374d12",
+            "source_version": "82affdd810628f8fc880c884c83bf02e10f594db8ae821c25118c80ec5793309",
+            "missing_policy": {
+              "input": "count_missing",
+              "empty_group": null,
+              "denominator_zero": null,
+              "child_missing": "propagate",
+              "unknown_predicate": "defer"
+            }
+          }
+        },
+        "validation": {
+          "passed": true,
+          "definition_status": "valid",
+          "definition_sha256": "18dcda01ea112b106523a0957cb37420f3dd469f7591e8414679605f3c2deb2c",
+          "proposal_sha256": "06f03097fd2ac1b63701c199e4acb95e81c6cae28fb29afc15cf88205e536ac1",
+          "inferred_type": "boolean",
+          "unit": "boolean",
+          "identity": {
+            "population": {
+              "table": "EC_PROCESS_MONITORING",
+              "filter": null
+            },
+            "group_by": [],
+            "schema_version": "b1150a4494d505d45437c4ac594b95024b61e8021f6f9f06aaf6c8b3f7374d12",
+            "missing_policy": {
+              "input": "count_missing",
+              "empty_group": null,
+              "denominator_zero": null,
+              "child_missing": "propagate",
+              "unknown_predicate": "defer"
+            },
+            "source_version": "82affdd810628f8fc880c884c83bf02e10f594db8ae821c25118c80ec5793309",
+            "grain": {
+              "table": "EC_PROCESS_MONITORING",
+              "keys": [
+                "__V23_SAMPLE_ROW_ID"
+              ]
+            },
+            "expression": {
+              "op": "and",
+              "args": [
+                {
+                  "op": "is_missing",
+                  "args": [
+                    {
+                      "op": "column",
+                      "table": "EC_PROCESS_MONITORING",
+                      "column": "DEPEND_PROCESS_ID"
+                    }
+                  ]
+                },
+                {
+                  "op": "is_missing",
+                  "args": [
+                    {
+                      "op": "column",
+                      "table": "EC_PROCESS_MONITORING",
+                      "column": "START_TIME"
+                    }
+                  ]
+                }
+              ]
+            },
+            "calculation_policy": "metadata-calculation-3.0.4",
+            "inferred_type": "boolean",
+            "unit": "boolean",
+            "source_columns": [
+              [
+                "EC_PROCESS_MONITORING",
+                "DEPEND_PROCESS_ID"
+              ],
+              [
+                "EC_PROCESS_MONITORING",
+                "START_TIME"
+              ]
+            ],
+            "relationships": []
+          },
+          "capture_missing": [],
+          "aggregate_relationships": [],
+          "errors": []
+        },
+        "calculation_signature": "0a1b85c0647abb56c81354065b27e5f1ae1706b436a5b23c0925267759dbeb6e",
+        "raw_reexpression": false,
+        "feature": {
+          "id": "fv5_819edb723e9822da01012602",
+          "origin": "feature_model_proposal",
+          "meaning": "Boolean conjunction of unavailable process dependency identifier and unavailable process start timestamp; both are available in this capture.",
+          "plan": {
+            "id": "fv5_819edb723e9822da01012602",
+            "description": "Boolean conjunction of unavailable process dependency identifier and unavailable process start timestamp; both are available in this capture.",
+            "expression": {
+              "op": "and",
+              "args": [
+                {
+                  "op": "is_missing",
+                  "args": [
+                    {
+                      "op": "column",
+                      "table": "EC_PROCESS_MONITORING",
+                      "column": "DEPEND_PROCESS_ID"
+                    }
+                  ]
+                },
+                {
+                  "op": "is_missing",
+                  "args": [
+                    {
+                      "op": "column",
+                      "table": "EC_PROCESS_MONITORING",
+                      "column": "START_TIME"
+                    }
+                  ]
+                }
+              ]
+            },
+            "grain": {
+              "table": "EC_PROCESS_MONITORING",
+              "keys": [
+                "__V23_SAMPLE_ROW_ID"
+              ]
+            },
+            "population": {
+              "table": "EC_PROCESS_MONITORING",
+              "filter": null
+            },
+            "group_by": [],
+            "schema_version": "b1150a4494d505d45437c4ac594b95024b61e8021f6f9f06aaf6c8b3f7374d12",
+            "source_version": "82affdd810628f8fc880c884c83bf02e10f594db8ae821c25118c80ec5793309",
+            "missing_policy": {
+              "input": "count_missing",
+              "empty_group": null,
+              "denominator_zero": null,
+              "child_missing": "propagate",
+              "unknown_predicate": "defer"
+            }
+          },
+          "dtype": "boolean",
+          "unit": "boolean",
+          "definition_sha256": "18dcda01ea112b106523a0957cb37420f3dd469f7591e8414679605f3c2deb2c",
+          "schema_version": "b1150a4494d505d45437c4ac594b95024b61e8021f6f9f06aaf6c8b3f7374d12",
+          "source_version": "82affdd810628f8fc880c884c83bf02e10f594db8ae821c25118c80ec5793309",
+          "calculation_policy": "metadata-calculation-3.0.4",
+          "source_columns": [
+            [
+              "EC_PROCESS_MONITORING",
+              "DEPEND_PROCESS_ID"
+            ],
+            [
+              "EC_PROCESS_MONITORING",
+              "START_TIME"
+            ]
+          ],
+          "relationships": [],
+          "measurement": {
+            "version": "metadata-calculation-3.0.4",
+            "candidate_id": "fv5_819edb723e9822da01012602",
+            "proposal_sha256": "af4bca8b9b32b9142586037022e3a6ce856174e2cc19facae92e4c02b8516a3c",
+            "definition_status": "valid",
+            "definition_sha256": "18dcda01ea112b106523a0957cb37420f3dd469f7591e8414679605f3c2deb2c",
+            "validation": {
+              "passed": true,
+              "definition_status": "valid",
+              "definition_sha256": "18dcda01ea112b106523a0957cb37420f3dd469f7591e8414679605f3c2deb2c",
+              "proposal_sha256": "af4bca8b9b32b9142586037022e3a6ce856174e2cc19facae92e4c02b8516a3c",
+              "inferred_type": "boolean",
+              "unit": "boolean",
+              "identity": {
+                "population": {
+                  "table": "EC_PROCESS_MONITORING",
+                  "filter": null
+                },
+                "group_by": [],
+                "schema_version": "b1150a4494d505d45437c4ac594b95024b61e8021f6f9f06aaf6c8b3f7374d12",
+                "missing_policy": {
+                  "input": "count_missing",
+                  "empty_group": null,
+                  "denominator_zero": null,
+                  "child_missing": "propagate",
+                  "unknown_predicate": "defer"
+                },
+                "source_version": "82affdd810628f8fc880c884c83bf02e10f594db8ae821c25118c80ec5793309",
+                "grain": {
+                  "table": "EC_PROCESS_MONITORING",
+                  "keys": [
+                    "__V23_SAMPLE_ROW_ID"
+                  ]
+                },
+                "expression": {
+                  "op": "and",
+                  "args": [
+                    {
+                      "op": "is_missing",
+                      "args": [
+                        {
+                          "op": "column",
+                          "table": "EC_PROCESS_MONITORING",
+                          "column": "DEPEND_PROCESS_ID"
+                        }
+                      ]
+                    },
+                    {
+                      "op": "is_missing",
+                      "args": [
+                        {
+                          "op": "column",
+                          "table": "EC_PROCESS_MONITORING",
+                          "column": "START_TIME"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                "calculation_policy": "metadata-calculation-3.0.4",
+                "inferred_type": "boolean",
+                "unit": "boolean",
+                "source_columns": [
+                  [
+                    "EC_PROCESS_MONITORING",
+                    "DEPEND_PROCESS_ID"
+                  ],
+                  [
+                    "EC_PROCESS_MONITORING",
+                    "START_TIME"
+                  ]
+                ],
+                "relationships": []
+              },
+              "capture_missing": [],
+              "aggregate_relationships": [],
+              "errors": []
+            },
+            "measurement_status": "measured",
+            "summary": {
+              "row_count": 128,
+              "valid_count": 128,
+              "missing_count": 0,
+              "true_count": 0,
+              "false_count": 128,
+              "ratio": 0,
+              "numerator": 0,
+              "denominator": 128,
+              "min": null,
+              "max": null,
+              "p95": null,
+              "p99": null,
+              "variation": "constant",
+              "quantile_method": "linear_(n-1)*p",
+              "exact_decimal": {
+                "ratio": "0",
+                "p95": null,
+                "p99": null
+              },
+              "population_rows_before_selection": 128,
+              "selection_unavailable_count": 0,
+              "source_rows_preserved": true
+            },
+            "errors": [],
+            "anomaly_execution": "not_run",
+            "groups": [],
+            "measurement_sha256": "6f7c063aeb08f2393a88379ef5d652413737ce15f38af3d4e6492e10e9bbd0af"
+          },
+          "model_proposal_id": "train_A_actual_0_c0",
+          "identity_mapping": {
+            "call_id": "v5|eval_B_actual_0",
+            "model_proposal_id": "train_A_actual_0_c0",
+            "registry_id": "fv5_819edb723e9822da01012602",
+            "raw_candidate_sha256": "49562c8dda159eb5798e303475484f14b28d51258c66de4c8948b21cc59fd4f0",
+            "definition_sha256": "18dcda01ea112b106523a0957cb37420f3dd469f7591e8414679605f3c2deb2c",
+            "source_version": "82affdd810628f8fc880c884c83bf02e10f594db8ae821c25118c80ec5793309",
+            "raw_id_preserved": true
+          }
+        },
+        "independent_checks": [
+          {
+            "id": "train_A_actual_0_c0",
+            "row_values": 128,
+            "passed": true,
+            "definition_sha": "18dcda01ea112b106523a0957cb37420f3dd469f7591e8414679605f3c2deb2c",
+            "source_version": "82affdd810628f8fc880c884c83bf02e10f594db8ae821c25118c80ec5793309",
+            "method": "Independent AST interpreter on guarded actual rows; no Engine.evaluate call"
+          }
+        ],
+        "identity_mapping": {
+          "call_id": "v5|eval_B_actual_0",
+          "model_proposal_id": "train_A_actual_0_c0",
+          "registry_id": "fv5_819edb723e9822da01012602",
+          "raw_candidate_sha256": "49562c8dda159eb5798e303475484f14b28d51258c66de4c8948b21cc59fd4f0",
+          "definition_sha256": "18dcda01ea112b106523a0957cb37420f3dd469f7591e8414679605f3c2deb2c",
+          "source_version": "82affdd810628f8fc880c884c83bf02e10f594db8ae821c25118c80ec5793309",
+          "raw_id_preserved": true
+        },
+        "visible_sources": true
+      }
+    ],
+    "zero": false,
+    "errors": []
+  }
+}

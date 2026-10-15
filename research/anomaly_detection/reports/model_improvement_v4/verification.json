@@ -1,0 +1,15 @@
+{
+  "passed": true,
+  "input_csv_and_original_policy_immutable": true,
+  "original_v1_model_sha256": "f1a5e52875517039984f407090766537bc665b51461e65803945f1ac9e212dbc",
+  "model_sha256": "56a8e30a2ac4bf64fa94c389f4bc09aff708bc06bd6426f6e6278012a93aa860",
+  "decision_and_labels_exactly_same_as_v2": true,
+  "confusion_matrices_independently_recounted": true,
+  "strict_margin_greater_than_zero": true,
+  "fallback_decisions_exactly_match_global": 1071698,
+  "decision_rows": 2167766,
+  "notebook_cells": 39,
+  "executed_code_cells": 18,
+  "figures": 10,
+  "notebook_errors": 0
+}

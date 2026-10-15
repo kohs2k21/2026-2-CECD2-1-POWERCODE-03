@@ -4,6 +4,11 @@ import { PORT } from './config/jwt.js';
 import authRoutes from './routes/authRoutes.js';
 import userRoutes from './routes/userRoutes.js';
 import anomalyRouter from './routes/anomalyRoutes.js';
+import ruleRouter from './routes/ruleRoutes.js';
+import jobRouter from './routes/jobRoutes.js';
+import configRouter from './routes/configRoutes.js';
+import pipelineRouter from './routes/pipelineRoutes.js';
+import inputRouter from './routes/inputRoutes.js';
 import { checkDatabaseConnection } from './config/database.js';
 
 const app = express();
@@ -12,7 +17,8 @@ const app = express();
 app.use(cors({
   origin: '*', // 개발·테스트용 전체 출처 허용. 운영 환경에서는 허용 출처를 제한한다.
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization', 'If-Match'],
+  exposedHeaders: ['ETag', 'Location']
 }));
 app.use(express.json());
 
@@ -30,6 +36,11 @@ app.get('/health/database', async (_req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/anomaly', anomalyRouter);
+app.use('/api/rules', ruleRouter);
+app.use('/api/jobs', jobRouter);
+app.use('/api/configurations', configRouter);
+app.use('/api/pipeline', pipelineRouter);
+app.use('/api/inputs', inputRouter);
 
 // 공통 오류 처리
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {

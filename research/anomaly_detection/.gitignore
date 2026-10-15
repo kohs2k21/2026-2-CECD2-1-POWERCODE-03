@@ -10,9 +10,8 @@ __pycache__/
 *.db
 *.npz
 *.ndjson
-inputs.json
-training_inputs.joblib
-validation_inputs.joblib
+# inputs.json and the two window-search data caches are intentionally included.
+# Root .gitignore allows only the exact requested joblib paths.
 *.log
 *.env
 *.env.*

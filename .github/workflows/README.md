@@ -8,3 +8,9 @@
 - 기능 PR → `dev` → `main` 승인·병합 후 자동화 변경 활성화. 기본 브랜치 변경·자동 병합·배포 없음
 - main 반영 전 기존30분 예약·main 대상 자동 PR 유지. 새5분 예약도 클릭 후5분 내 완료를 보장하지 않음
 - 예약 최소 간격: [GitHub 공식 schedule](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule)의 5분 제한
+
+`ci.yml`의 worker-runtime gate는 새 로컬 PostgreSQL DB에 001~007의 정확한 순서를 적용하고, CPU 단위 시험·실제 IF/v12 연결·3모드/임대/큐 분리·모형 고객 API 반복 수집·API/SSE/설명 요청 계약을 검증한다. 생성은 명시적 fixture이며 GPU 생성 품질 시험이 아니다. GitHub Actions 자체 실행은 로컬 검증과 별도로 확인해야 한다. 기존 CD 브랜치의 GHCR release 배포와는 별도이며 이미지 발행/서버 배포를 자동으로 추가하지 않았다.
+
+CPU 데모 검증은 `008_demo_replay.sql`까지 적용한 격리 DB에서 CSV/SQL 입력 학습, 재개/반복 전송, 실제 판정 및 DB 역할 경계를 확인한다. 초기 `001/002`만 적용된 별도 QA DB도 생성해 읽기 호환성을 확인한다. 실제 서버 CSV나 고객 API 호출은 사용하지 않는다.
+
+009 이후 공통 입력 시험은 API/CSV/일시정지 전환부터 피처·Rule 생성, 사용자 채택 API, 실제 CPU 모델 판정까지 검증한다. 생성 모델은 명시적 계약 fixture이며 실제 GPU 추론 품질 검증은 아니다. 제한된 Collector 역할의 네 스트림 입고/원문 조회 거부도 검사한다.

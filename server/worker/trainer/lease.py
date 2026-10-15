@@ -6,7 +6,7 @@ import threading
 import uuid
 from typing import Any, Callable
 
-from pg_queue import ClaimedMessage, renew_lease
+from pg_queue import ClaimedMessage, renew_lease, _table
 
 
 class _OwnershipLost(Exception):
@@ -44,7 +44,7 @@ def renew_training_ownership(
                           AND status = 'running' AND lease_until > clock_timestamp()""",
                     (lease_seconds, attempt_id, job_id, attempt_token),
                 )
-                if cur.rowcount != 1 or not renew_lease(conn, "training", message, lease_seconds=lease_seconds):
+                if cur.rowcount != 1 or not renew_lease(conn, message.queue, message, lease_seconds=lease_seconds):
                     raise _OwnershipLost()
     except _OwnershipLost:
         return False
@@ -61,10 +61,10 @@ def lock_training_ownership(
     """최종 결과 저장 트랜잭션에서 현재 소유권을 행 잠금으로 확인한다."""
     with conn.cursor() as cur:
         cur.execute(
-            """SELECT 1
+            f"""SELECT 1
                  FROM run_jobs AS j
                  JOIN run_job_attempts AS a ON a.id = j.current_attempt_id AND a.job_id = j.id
-                 JOIN powercode_queue.training_jobs AS q ON q.id = %s
+                 JOIN {_table(message.queue)} AS q ON q.id = %s
                 WHERE j.id = %s AND j.status = 'running'
                   AND a.id = %s AND a.status = 'running' AND a.lease_token = %s
                   AND a.lease_until > clock_timestamp()

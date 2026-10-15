@@ -1,0 +1,1302 @@
+{
+  "cases": [
+    {
+      "id": "eval_A_actual_1",
+      "group": "specified",
+      "root_reasons": [
+        "Requested child-row parent matching retained; invalid empty_group policy blocks calculation, without changing the narrow purpose."
+      ],
+      "candidates": [
+        {
+          "index": 0,
+          "definition": false,
+          "measurement": false,
+          "visible_source": true,
+          "meaning": true,
+          "unknown_information": true,
+          "duplicate": false,
+          "duplicate_of": null,
+          "same_calculation_in_another_frozen_input": false,
+          "new_meaning_accepted": false,
+          "review_reasons": [
+            "Engine.evaluate lines195-197 returns unavailable for missing/no-reference keys; this prose is supported. empty_group=zero remains a separate code failure."
+          ],
+          "checks": {
+            "index": 0,
+            "contract": true,
+            "source_exists": true,
+            "definition_valid": false,
+            "measurement_completed": false,
+            "independent": false,
+            "duplicate": false,
+            "errors": [
+              "[{'code': 'empty_group', 'path': '/missing_policy/empty_group', 'message': 'Only actual aggregates use zero; column reads use null'}]"
+            ],
+            "candidate": {
+              "id": "train_A_actual_0_c0",
+              "purpose": "Number of distinct captured lexical composite-key process parents for each message; unavailable reference stays unavailable, not zero or false.",
+              "meaning": "Number of distinct captured lexical composite-key process parents for each message; unavailable reference stays unavailable, not zero or false.",
+              "sources": {
+                "columns": [
+                  [
+                    "EC_MESSAGE_MONITORING",
+                    "__V23_PARENT_2_ROW_ID"
+                  ],
+                  [
+                    "EC_PROCESS_MONITORING",
+                    "__V23_SAMPLE_ROW_ID"
+                  ]
+                ],
+                "relationships": [
+                  "physical_M_to_P_retry"
+                ]
+              },
+              "expected_type": "integer",
+              "expected_unit": "count",
+              "availability": "offline_captured_scope",
+              "required_evidence": [
+                "online availability and leakage policy; operational usefulness unconfirmed"
+              ],
+              "plan": {
+                "id": "train_A_actual_0_c0",
+                "description": "Number of distinct captured lexical composite-key process parents for each message; unavailable reference stays unavailable, not zero or false.",
+                "expression": {
+                  "op": "parent_match_count",
+                  "relationship_id": "physical_M_to_P_retry"
+                },
+                "grain": {
+                  "table": "EC_MESSAGE_MONITORING",
+                  "keys": [
+                    "__V23_SAMPLE_ROW_ID"
+                  ]
+                },
+                "population": {
+                  "table": "EC_MESSAGE_MONITORING",
+                  "filter": null
+                },
+                "group_by": [],
+                "schema_version": "b1150a4494d505d45437c4ac594b95024b61e8021f6f9f06aaf6c8b3f7374d12",
+                "source_version": "82affdd810628f8fc880c884c83bf02e10f594db8ae821c25118c80ec5793309",
+                "missing_policy": {
+                  "input": "propagate",
+                  "empty_group": "zero",
+                  "denominator_zero": null,
+                  "child_missing": "propagate",
+                  "unknown_predicate": "defer"
+                }
+              }
+            },
+            "validation": {
+              "passed": false,
+              "definition_status": "invalid",
+              "definition_sha256": null,
+              "proposal_sha256": "16c292544c29d614ad65fc84f5fb72ec973b24b5e29533f0374b500b850108dd",
+              "errors": [
+                {
+                  "code": "empty_group",
+                  "message": "Only actual aggregates use zero; column reads use null"
+                }
+              ]
+            },
+            "visible_sources": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "eval_A_synthetic_0",
+      "group": "specified",
+      "root_reasons": [
+        "Valid narrowly described signed calculation, but subtraction order is reversed from the explicit request; not approved for this task."
+      ],
+      "candidates": [
+        {
+          "index": 0,
+          "definition": true,
+          "measurement": true,
+          "visible_source": true,
+          "meaning": true,
+          "unknown_information": true,
+          "duplicate": false,
+          "duplicate_of": null,
+          "same_calculation_in_another_frozen_input": false,
+          "new_meaning_accepted": false,
+          "review_reasons": [
+            "Valid narrowly described signed calculation, but subtraction order is reversed from the explicit request; not approved for this task."
+          ],
+          "checks": {
+            "index": 0,
+            "contract": true,
+            "source_exists": true,
+            "definition_valid": true,
+            "measurement_completed": true,
+            "independent": true,
+            "duplicate": false,
+            "errors": [],
+            "candidate": {
+              "id": "train_A_0_01_c0",
+              "purpose": "Explicitly converted seconds coordinate minus millisecond coordinate; signed ms difference, not business duration.",
+              "meaning": "Explicitly converted seconds coordinate minus millisecond coordinate; signed ms difference, not business duration.",
+              "sources": {
+                "columns": [
+                  [
+                    "parent_v5_eval_A_0",
+                    "coord_ms_701"
+                  ],
+                  [
+                    "parent_v5_eval_A_0",
+                    "coord_s_701"
+                  ]
+                ],
+                "relationships": []
+              },
+              "expected_type": "number",
+              "expected_unit": "ms",
+              "availability": "offline_captured_scope",
+              "required_evidence": [
+                "online availability and leakage policy; operational usefulness unconfirmed"
+              ],
+              "plan": {
+                "id": "train_A_0_01_c0",
+                "description": "Explicitly converted seconds coordinate minus millisecond coordinate; signed ms difference, not business duration.",
+                "expression": {
+                  "op": "subtract",
+                  "args": [
+                    {
+                      "op": "convert_unit",
+                      "args": [
+                        {
+                          "op": "column",
+                          "table": "parent_v5_eval_A_0",
+                          "column": "coord_s_701"
+                        }
+                      ],
+                      "from_unit": "s",
+                      "to_unit": "ms"
+                    },
+                    {
+                      "op": "column",
+                      "table": "parent_v5_eval_A_0",
+                      "column": "coord_ms_701"
+                    }
+                  ]
+                },
+                "grain": {
+                  "table": "parent_v5_eval_A_0",
+                  "keys": [
+                    "row_701"
+                  ]
+                },
+                "population": {
+                  "table": "parent_v5_eval_A_0",
+                  "filter": null
+                },
+                "group_by": [],
+                "schema_version": "b2786da3f7026ca72fa96710cee335654bc0bb0f362b589240e6c6cdb9239396",
+                "source_version": "c4935142b8f5376a4242543ec6490d93ac8a88059e12e4744db25b5ca7c07cc8",
+                "missing_policy": {
+                  "input": "propagate",
+                  "empty_group": null,
+                  "denominator_zero": null,
+                  "child_missing": "propagate",
+                  "unknown_predicate": "defer"
+                }
+              }
+            },
+            "validation": {
+              "passed": true,
+              "definition_status": "valid",
+              "definition_sha256": "7628d159724e67c4e695870ca6cc609fac0c3c1c13e23d09fd33de7125f2bcad",
+              "proposal_sha256": "5962a151506d603a1e80c94520df0f156400aaef27736a28f6383e08fcccb403",
+              "inferred_type": "number",
+              "unit": "ms",
+              "identity": {
+                "population": {
+                  "table": "parent_v5_eval_A_0",
+                  "filter": null
+                },
+                "group_by": [],
+                "schema_version": "b2786da3f7026ca72fa96710cee335654bc0bb0f362b589240e6c6cdb9239396",
+                "missing_policy": {
+                  "input": "propagate",
+                  "empty_group": null,
+                  "denominator_zero": null,
+                  "child_missing": "propagate",
+                  "unknown_predicate": "defer"
+                },
+                "source_version": "c4935142b8f5376a4242543ec6490d93ac8a88059e12e4744db25b5ca7c07cc8",
+                "grain": {
+                  "table": "parent_v5_eval_A_0",
+                  "keys": [
+                    "row_701"
+                  ]
+                },
+                "expression": {
+                  "op": "subtract",
+                  "args": [
+                    {
+                      "op": "convert_unit",
+                      "args": [
+                        {
+                          "op": "column",
+                          "table": "parent_v5_eval_A_0",
+                          "column": "coord_s_701"
+                        }
+                      ],
+                      "from_unit": "s",
+                      "to_unit": "ms"
+                    },
+                    {
+                      "op": "column",
+                      "table": "parent_v5_eval_A_0",
+                      "column": "coord_ms_701"
+                    }
+                  ]
+                },
+                "calculation_policy": "metadata-calculation-3.0.4",
+                "inferred_type": "number",
+                "unit": "ms",
+                "source_columns": [
+                  [
+                    "parent_v5_eval_A_0",
+                    "coord_ms_701"
+                  ],
+                  [
+                    "parent_v5_eval_A_0",
+                    "coord_s_701"
+                  ]
+                ],
+                "relationships": []
+              },
+              "capture_missing": [],
+              "aggregate_relationships": [],
+              "errors": []
+            },
+            "calculation_signature": "426d3f3d037aefcf75435f238114cf219f77d548f6ea1b161631829aaa172543",
+            "raw_reexpression": false,
+            "feature": {
+              "id": "fv5_d93b362067fb5ed542cc47f4",
+              "origin": "feature_model_proposal",
+              "meaning": "Explicitly converted seconds coordinate minus millisecond coordinate; signed ms difference, not business duration.",
+              "plan": {
+                "id": "fv5_d93b362067fb5ed542cc47f4",
+                "description": "Explicitly converted seconds coordinate minus millisecond coordinate; signed ms difference, not business duration.",
+                "expression": {
+                  "op": "subtract",
+                  "args": [
+                    {
+                      "op": "convert_unit",
+                      "args": [
+                        {
+                          "op": "column",
+                          "table": "parent_v5_eval_A_0",
+                          "column": "coord_s_701"
+                        }
+                      ],
+                      "from_unit": "s",
+                      "to_unit": "ms"
+                    },
+                    {
+                      "op": "column",
+                      "table": "parent_v5_eval_A_0",
+                      "column": "coord_ms_701"
+                    }
+                  ]
+                },
+                "grain": {
+                  "table": "parent_v5_eval_A_0",
+                  "keys": [
+                    "row_701"
+                  ]
+                },
+                "population": {
+                  "table": "parent_v5_eval_A_0",
+                  "filter": null
+                },
+                "group_by": [],
+                "schema_version": "b2786da3f7026ca72fa96710cee335654bc0bb0f362b589240e6c6cdb9239396",
+                "source_version": "c4935142b8f5376a4242543ec6490d93ac8a88059e12e4744db25b5ca7c07cc8",
+                "missing_policy": {
+                  "input": "propagate",
+                  "empty_group": null,
+                  "denominator_zero": null,
+                  "child_missing": "propagate",
+                  "unknown_predicate": "defer"
+                }
+              },
+              "dtype": "number",
+              "unit": "ms",
+              "definition_sha256": "7628d159724e67c4e695870ca6cc609fac0c3c1c13e23d09fd33de7125f2bcad",
+              "schema_version": "b2786da3f7026ca72fa96710cee335654bc0bb0f362b589240e6c6cdb9239396",
+              "source_version": "c4935142b8f5376a4242543ec6490d93ac8a88059e12e4744db25b5ca7c07cc8",
+              "calculation_policy": "metadata-calculation-3.0.4",
+              "source_columns": [
+                [
+                  "parent_v5_eval_A_0",
+                  "coord_ms_701"
+                ],
+                [
+                  "parent_v5_eval_A_0",
+                  "coord_s_701"
+                ]
+              ],
+              "relationships": [],
+              "measurement": {
+                "version": "metadata-calculation-3.0.4",
+                "candidate_id": "fv5_d93b362067fb5ed542cc47f4",
+                "proposal_sha256": "a4385ce36e15c08cce75f2beb9e0aa9d5012a4e0fe210c700c1005daa329fc7d",
+                "definition_status": "valid",
+                "definition_sha256": "7628d159724e67c4e695870ca6cc609fac0c3c1c13e23d09fd33de7125f2bcad",
+                "validation": {
+                  "passed": true,
+                  "definition_status": "valid",
+                  "definition_sha256": "7628d159724e67c4e695870ca6cc609fac0c3c1c13e23d09fd33de7125f2bcad",
+                  "proposal_sha256": "a4385ce36e15c08cce75f2beb9e0aa9d5012a4e0fe210c700c1005daa329fc7d",
+                  "inferred_type": "number",
+                  "unit": "ms",
+                  "identity": {
+                    "population": {
+                      "table": "parent_v5_eval_A_0",
+                      "filter": null
+                    },
+                    "group_by": [],
+                    "schema_version": "b2786da3f7026ca72fa96710cee335654bc0bb0f362b589240e6c6cdb9239396",
+                    "missing_policy": {
+                      "input": "propagate",
+                      "empty_group": null,
+                      "denominator_zero": null,
+                      "child_missing": "propagate",
+                      "unknown_predicate": "defer"
+                    },
+                    "source_version": "c4935142b8f5376a4242543ec6490d93ac8a88059e12e4744db25b5ca7c07cc8",
+                    "grain": {
+                      "table": "parent_v5_eval_A_0",
+                      "keys": [
+                        "row_701"
+                      ]
+                    },
+                    "expression": {
+                      "op": "subtract",
+                      "args": [
+                        {
+                          "op": "convert_unit",
+                          "args": [
+                            {
+                              "op": "column",
+                              "table": "parent_v5_eval_A_0",
+                              "column": "coord_s_701"
+                            }
+                          ],
+                          "from_unit": "s",
+                          "to_unit": "ms"
+                        },
+                        {
+                          "op": "column",
+                          "table": "parent_v5_eval_A_0",
+                          "column": "coord_ms_701"
+                        }
+                      ]
+                    },
+                    "calculation_policy": "metadata-calculation-3.0.4",
+                    "inferred_type": "number",
+                    "unit": "ms",
+                    "source_columns": [
+                      [
+                        "parent_v5_eval_A_0",
+                        "coord_ms_701"
+                      ],
+                      [
+                        "parent_v5_eval_A_0",
+                        "coord_s_701"
+                      ]
+                    ],
+                    "relationships": []
+                  },
+                  "capture_missing": [],
+                  "aggregate_relationships": [],
+                  "errors": []
+                },
+                "measurement_status": "measured",
+                "summary": {
+                  "row_count": 32,
+                  "valid_count": 32,
+                  "missing_count": 0,
+                  "true_count": null,
+                  "false_count": null,
+                  "ratio": null,
+                  "numerator": null,
+                  "denominator": null,
+                  "min": -18631,
+                  "max": 0,
+                  "p95": -931.55,
+                  "p99": -186.31,
+                  "variation": "variable",
+                  "quantile_method": "linear_(n-1)*p",
+                  "exact_decimal": {
+                    "ratio": null,
+                    "p95": "-931.550",
+                    "p99": "-186.310"
+                  },
+                  "population_rows_before_selection": 32,
+                  "selection_unavailable_count": 0,
+                  "source_rows_preserved": true
+                },
+                "errors": [],
+                "anomaly_execution": "not_run",
+                "groups": [],
+                "measurement_sha256": "a2652f188bf3b12612b4c8b03c7dc5a63b1a1bd57bf4cb5f45c0b93e6771d146"
+              },
+              "model_proposal_id": "train_A_0_01_c0",
+              "identity_mapping": {
+                "call_id": "v5|eval_A_synthetic_0",
+                "model_proposal_id": "train_A_0_01_c0",
+                "registry_id": "fv5_d93b362067fb5ed542cc47f4",
+                "raw_candidate_sha256": "06945765c561137743ccf6d1f0e7dbbf02f316be94e878d5b956c998c211b7ca",
+                "definition_sha256": "7628d159724e67c4e695870ca6cc609fac0c3c1c13e23d09fd33de7125f2bcad",
+                "source_version": "c4935142b8f5376a4242543ec6490d93ac8a88059e12e4744db25b5ca7c07cc8",
+                "raw_id_preserved": true
+              }
+            },
+            "independent_checks": [
+              {
+                "id": "train_A_0_01_c0",
+                "row_values": 32,
+                "passed": true,
+                "definition_sha": "7628d159724e67c4e695870ca6cc609fac0c3c1c13e23d09fd33de7125f2bcad",
+                "source_version": "c4935142b8f5376a4242543ec6490d93ac8a88059e12e4744db25b5ca7c07cc8",
+                "method": "Independent AST interpreter on guarded actual rows; no Engine.evaluate call"
+              }
+            ],
+            "identity_mapping": {
+              "call_id": "v5|eval_A_synthetic_0",
+              "model_proposal_id": "train_A_0_01_c0",
+              "registry_id": "fv5_d93b362067fb5ed542cc47f4",
+              "raw_candidate_sha256": "06945765c561137743ccf6d1f0e7dbbf02f316be94e878d5b956c998c211b7ca",
+              "definition_sha256": "7628d159724e67c4e695870ca6cc609fac0c3c1c13e23d09fd33de7125f2bcad",
+              "source_version": "c4935142b8f5376a4242543ec6490d93ac8a88059e12e4744db25b5ca7c07cc8",
+              "raw_id_preserved": true
+            },
+            "visible_sources": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "eval_A_synthetic_3",
+      "group": "specified",
+      "root_reasons": [
+        "Child grain and physical parent matching purpose preserved. Missing/no-reference propagation agrees with Engine; invalid empty_group blocks execution."
+      ],
+      "candidates": [
+        {
+          "index": 0,
+          "definition": false,
+          "measurement": false,
+          "visible_source": true,
+          "meaning": true,
+          "unknown_information": true,
+          "duplicate": false,
+          "duplicate_of": null,
+          "same_calculation_in_another_frozen_input": false,
+          "new_meaning_accepted": false,
+          "review_reasons": [
+            "Child grain and physical parent matching purpose preserved. Missing/no-reference propagation agrees with Engine; invalid empty_group blocks execution."
+          ],
+          "checks": {
+            "index": 0,
+            "contract": true,
+            "source_exists": true,
+            "definition_valid": false,
+            "measurement_completed": false,
+            "independent": false,
+            "duplicate": false,
+            "errors": [
+              "[{'code': 'empty_group', 'path': '/missing_policy/empty_group', 'message': 'Only actual aggregates use zero; column reads use null'}]"
+            ],
+            "candidate": {
+              "id": "train_A_v5_03_0001_c0",
+              "purpose": "Number of distinct physical parents matched by composite key for each child; unavailable reference gives missing, not zero.",
+              "meaning": "Number of distinct physical parents matched by composite key for each child; unavailable reference gives missing, not zero.",
+              "sources": {
+                "columns": [
+                  [
+                    "child_v5_eval_A_3",
+                    "ref_704"
+                  ],
+                  [
+                    "child_v5_eval_A_3",
+                    "tenant_704"
+                  ],
+                  [
+                    "parent_v5_eval_A_3",
+                    "ref_704"
+                  ],
+                  [
+                    "parent_v5_eval_A_3",
+                    "tenant_704"
+                  ]
+                ],
+                "relationships": [
+                  "link_v5_eval_A_3"
+                ]
+              },
+              "expected_type": "integer",
+              "expected_unit": "count",
+              "availability": "offline_captured_scope",
+              "required_evidence": [
+                "online availability and leakage policy; operational usefulness unconfirmed"
+              ],
+              "plan": {
+                "id": "train_A_v5_03_0001_c0",
+                "description": "Number of distinct physical parents matched by composite key for each child; unavailable reference gives missing, not zero.",
+                "expression": {
+                  "op": "parent_match_count",
+                  "relationship_id": "link_v5_eval_A_3"
+                },
+                "grain": {
+                  "table": "child_v5_eval_A_3",
+                  "keys": [
+                    "row_704"
+                  ]
+                },
+                "population": {
+                  "table": "child_v5_eval_A_3",
+                  "filter": null
+                },
+                "group_by": [],
+                "schema_version": "7dc0ecc19e821b07c2832f8db8deb62fa1f491bc00b832a3c042a2ca34c815e0",
+                "source_version": "593bba32505abcecce7767cbf7cac772799f78aa3fc8badb6c657105955965d4",
+                "missing_policy": {
+                  "input": "propagate",
+                  "empty_group": "zero",
+                  "denominator_zero": null,
+                  "child_missing": "propagate",
+                  "unknown_predicate": "defer"
+                }
+              }
+            },
+            "validation": {
+              "passed": false,
+              "definition_status": "invalid",
+              "definition_sha256": null,
+              "proposal_sha256": "2adc099f6d30127e0c1aead42ca3591d9c2671226dc0018e0ce1610f53338734",
+              "errors": [
+                {
+                  "code": "empty_group",
+                  "message": "Only actual aggregates use zero; column reads use null"
+                }
+              ]
+            },
+            "visible_sources": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "eval_B_actual_1",
+      "group": "discovery",
+      "root_reasons": [
+        "Mathematically valid but repeats supplied registered f057 adapter/channel missingness conjunction. Not a new discovery."
+      ],
+      "candidates": [
+        {
+          "index": 0,
+          "definition": true,
+          "measurement": true,
+          "visible_source": true,
+          "meaning": true,
+          "unknown_information": true,
+          "duplicate": true,
+          "duplicate_of": "f057",
+          "same_calculation_in_another_frozen_input": false,
+          "new_meaning_accepted": false,
+          "review_reasons": [
+            "Mathematically valid but repeats supplied registered f057 adapter/channel missingness conjunction. Not a new discovery."
+          ],
+          "checks": {
+            "index": 0,
+            "contract": true,
+            "source_exists": true,
+            "definition_valid": true,
+            "measurement_completed": true,
+            "independent": true,
+            "duplicate": false,
+            "errors": [],
+            "candidate": {
+              "id": "train_A_actual_0101_c0",
+              "purpose": "Boolean conjunction of unavailable process adapter type and unavailable process channel; raw missingness does not require business contract.",
+              "meaning": "Boolean conjunction of unavailable process adapter type and unavailable process channel; raw missingness does not require business contract.",
+              "sources": {
+                "columns": [
+                  [
+                    "EC_PROCESS_MONITORING",
+                    "ADAPTER_TYPE"
+                  ],
+                  [
+                    "EC_PROCESS_MONITORING",
+                    "CHANNEL_ID"
+                  ]
+                ],
+                "relationships": []
+              },
+              "expected_type": "boolean",
+              "expected_unit": "boolean",
+              "availability": "offline_captured_scope",
+              "required_evidence": [
+                "online availability and leakage policy; operational usefulness unconfirmed"
+              ],
+              "plan": {
+                "id": "train_A_actual_0101_c0",
+                "description": "Boolean conjunction of unavailable process adapter type and unavailable process channel; raw missingness does not require business contract.",
+                "expression": {
+                  "op": "and",
+                  "args": [
+                    {
+                      "op": "is_missing",
+                      "args": [
+                        {
+                          "op": "column",
+                          "table": "EC_PROCESS_MONITORING",
+                          "column": "ADAPTER_TYPE"
+                        }
+                      ]
+                    },
+                    {
+                      "op": "is_missing",
+                      "args": [
+                        {
+                          "op": "column",
+                          "table": "EC_PROCESS_MONITORING",
+                          "column": "CHANNEL_ID"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                "grain": {
+                  "table": "EC_PROCESS_MONITORING",
+                  "keys": [
+                    "__V23_SAMPLE_ROW_ID"
+                  ]
+                },
+                "population": {
+                  "table": "EC_PROCESS_MONITORING",
+                  "filter": null
+                },
+                "group_by": [],
+                "schema_version": "b1150a4494d505d45437c4ac594b95024b61e8021f6f9f06aaf6c8b3f7374d12",
+                "source_version": "82affdd810628f8fc880c884c83bf02e10f594db8ae821c25118c80ec5793309",
+                "missing_policy": {
+                  "input": "propagate",
+                  "empty_group": null,
+                  "denominator_zero": null,
+                  "child_missing": "propagate",
+                  "unknown_predicate": "defer"
+                }
+              }
+            },
+            "validation": {
+              "passed": true,
+              "definition_status": "valid",
+              "definition_sha256": "57a01b054dd8786be2d5b1c653e7ed08a4c4cc60f64007fcd0e837dab3c6f179",
+              "proposal_sha256": "e85fcce184a63660de76d982799b15ae3b47c83df09c6de75f66fad29789a66c",
+              "inferred_type": "boolean",
+              "unit": "boolean",
+              "identity": {
+                "population": {
+                  "table": "EC_PROCESS_MONITORING",
+                  "filter": null
+                },
+                "group_by": [],
+                "schema_version": "b1150a4494d505d45437c4ac594b95024b61e8021f6f9f06aaf6c8b3f7374d12",
+                "missing_policy": {
+                  "input": "propagate",
+                  "empty_group": null,
+                  "denominator_zero": null,
+                  "child_missing": "propagate",
+                  "unknown_predicate": "defer"
+                },
+                "source_version": "82affdd810628f8fc880c884c83bf02e10f594db8ae821c25118c80ec5793309",
+                "grain": {
+                  "table": "EC_PROCESS_MONITORING",
+                  "keys": [
+                    "__V23_SAMPLE_ROW_ID"
+                  ]
+                },
+                "expression": {
+                  "op": "and",
+                  "args": [
+                    {
+                      "op": "is_missing",
+                      "args": [
+                        {
+                          "op": "column",
+                          "table": "EC_PROCESS_MONITORING",
+                          "column": "ADAPTER_TYPE"
+                        }
+                      ]
+                    },
+                    {
+                      "op": "is_missing",
+                      "args": [
+                        {
+                          "op": "column",
+                          "table": "EC_PROCESS_MONITORING",
+                          "column": "CHANNEL_ID"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                "calculation_policy": "metadata-calculation-3.0.4",
+                "inferred_type": "boolean",
+                "unit": "boolean",
+                "source_columns": [
+                  [
+                    "EC_PROCESS_MONITORING",
+                    "ADAPTER_TYPE"
+                  ],
+                  [
+                    "EC_PROCESS_MONITORING",
+                    "CHANNEL_ID"
+                  ]
+                ],
+                "relationships": []
+              },
+              "capture_missing": [],
+              "aggregate_relationships": [],
+              "errors": []
+            },
+            "calculation_signature": "97f79e0592b0eeee34c331eb5bc3e35a1df1f876f1f4eb06bce57bae40207ae3",
+            "raw_reexpression": false,
+            "feature": {
+              "id": "fv5_f780b67501ad9b791020ff17",
+              "origin": "feature_model_proposal",
+              "meaning": "Boolean conjunction of unavailable process adapter type and unavailable process channel; raw missingness does not require business contract.",
+              "plan": {
+                "id": "fv5_f780b67501ad9b791020ff17",
+                "description": "Boolean conjunction of unavailable process adapter type and unavailable process channel; raw missingness does not require business contract.",
+                "expression": {
+                  "op": "and",
+                  "args": [
+                    {
+                      "op": "is_missing",
+                      "args": [
+                        {
+                          "op": "column",
+                          "table": "EC_PROCESS_MONITORING",
+                          "column": "ADAPTER_TYPE"
+                        }
+                      ]
+                    },
+                    {
+                      "op": "is_missing",
+                      "args": [
+                        {
+                          "op": "column",
+                          "table": "EC_PROCESS_MONITORING",
+                          "column": "CHANNEL_ID"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                "grain": {
+                  "table": "EC_PROCESS_MONITORING",
+                  "keys": [
+                    "__V23_SAMPLE_ROW_ID"
+                  ]
+                },
+                "population": {
+                  "table": "EC_PROCESS_MONITORING",
+                  "filter": null
+                },
+                "group_by": [],
+                "schema_version": "b1150a4494d505d45437c4ac594b95024b61e8021f6f9f06aaf6c8b3f7374d12",
+                "source_version": "82affdd810628f8fc880c884c83bf02e10f594db8ae821c25118c80ec5793309",
+                "missing_policy": {
+                  "input": "propagate",
+                  "empty_group": null,
+                  "denominator_zero": null,
+                  "child_missing": "propagate",
+                  "unknown_predicate": "defer"
+                }
+              },
+              "dtype": "boolean",
+              "unit": "boolean",
+              "definition_sha256": "57a01b054dd8786be2d5b1c653e7ed08a4c4cc60f64007fcd0e837dab3c6f179",
+              "schema_version": "b1150a4494d505d45437c4ac594b95024b61e8021f6f9f06aaf6c8b3f7374d12",
+              "source_version": "82affdd810628f8fc880c884c83bf02e10f594db8ae821c25118c80ec5793309",
+              "calculation_policy": "metadata-calculation-3.0.4",
+              "source_columns": [
+                [
+                  "EC_PROCESS_MONITORING",
+                  "ADAPTER_TYPE"
+                ],
+                [
+                  "EC_PROCESS_MONITORING",
+                  "CHANNEL_ID"
+                ]
+              ],
+              "relationships": [],
+              "measurement": {
+                "version": "metadata-calculation-3.0.4",
+                "candidate_id": "fv5_f780b67501ad9b791020ff17",
+                "proposal_sha256": "97ab26eefe6ef94bf76f86a6eb1e3904885a9e5cd74c7839a80312a9e85bff3c",
+                "definition_status": "valid",
+                "definition_sha256": "57a01b054dd8786be2d5b1c653e7ed08a4c4cc60f64007fcd0e837dab3c6f179",
+                "validation": {
+                  "passed": true,
+                  "definition_status": "valid",
+                  "definition_sha256": "57a01b054dd8786be2d5b1c653e7ed08a4c4cc60f64007fcd0e837dab3c6f179",
+                  "proposal_sha256": "97ab26eefe6ef94bf76f86a6eb1e3904885a9e5cd74c7839a80312a9e85bff3c",
+                  "inferred_type": "boolean",
+                  "unit": "boolean",
+                  "identity": {
+                    "population": {
+                      "table": "EC_PROCESS_MONITORING",
+                      "filter": null
+                    },
+                    "group_by": [],
+                    "schema_version": "b1150a4494d505d45437c4ac594b95024b61e8021f6f9f06aaf6c8b3f7374d12",
+                    "missing_policy": {
+                      "input": "propagate",
+                      "empty_group": null,
+                      "denominator_zero": null,
+                      "child_missing": "propagate",
+                      "unknown_predicate": "defer"
+                    },
+                    "source_version": "82affdd810628f8fc880c884c83bf02e10f594db8ae821c25118c80ec5793309",
+                    "grain": {
+                      "table": "EC_PROCESS_MONITORING",
+                      "keys": [
+                        "__V23_SAMPLE_ROW_ID"
+                      ]
+                    },
+                    "expression": {
+                      "op": "and",
+                      "args": [
+                        {
+                          "op": "is_missing",
+                          "args": [
+                            {
+                              "op": "column",
+                              "table": "EC_PROCESS_MONITORING",
+                              "column": "ADAPTER_TYPE"
+                            }
+                          ]
+                        },
+                        {
+                          "op": "is_missing",
+                          "args": [
+                            {
+                              "op": "column",
+                              "table": "EC_PROCESS_MONITORING",
+                              "column": "CHANNEL_ID"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    "calculation_policy": "metadata-calculation-3.0.4",
+                    "inferred_type": "boolean",
+                    "unit": "boolean",
+                    "source_columns": [
+                      [
+                        "EC_PROCESS_MONITORING",
+                        "ADAPTER_TYPE"
+                      ],
+                      [
+                        "EC_PROCESS_MONITORING",
+                        "CHANNEL_ID"
+                      ]
+                    ],
+                    "relationships": []
+                  },
+                  "capture_missing": [],
+                  "aggregate_relationships": [],
+                  "errors": []
+                },
+                "measurement_status": "measured",
+                "summary": {
+                  "row_count": 128,
+                  "valid_count": 128,
+                  "missing_count": 0,
+                  "true_count": 0,
+                  "false_count": 128,
+                  "ratio": 0,
+                  "numerator": 0,
+                  "denominator": 128,
+                  "min": null,
+                  "max": null,
+                  "p95": null,
+                  "p99": null,
+                  "variation": "constant",
+                  "quantile_method": "linear_(n-1)*p",
+                  "exact_decimal": {
+                    "ratio": "0",
+                    "p95": null,
+                    "p99": null
+                  },
+                  "population_rows_before_selection": 128,
+                  "selection_unavailable_count": 0,
+                  "source_rows_preserved": true
+                },
+                "errors": [],
+                "anomaly_execution": "not_run",
+                "groups": [],
+                "measurement_sha256": "5baad3200117e2285d186c64b1cf41d6fdc25f271549d0f5ec38fa792e74597a"
+              },
+              "model_proposal_id": "train_A_actual_0101_c0",
+              "identity_mapping": {
+                "call_id": "v5|eval_B_actual_1",
+                "model_proposal_id": "train_A_actual_0101_c0",
+                "registry_id": "fv5_f780b67501ad9b791020ff17",
+                "raw_candidate_sha256": "91a086bb737fc9bef9edb6fb24379c35c31b4f65aab0952d7abfd58c96b10b8f",
+                "definition_sha256": "57a01b054dd8786be2d5b1c653e7ed08a4c4cc60f64007fcd0e837dab3c6f179",
+                "source_version": "82affdd810628f8fc880c884c83bf02e10f594db8ae821c25118c80ec5793309",
+                "raw_id_preserved": true
+              }
+            },
+            "independent_checks": [
+              {
+                "id": "train_A_actual_0101_c0",
+                "row_values": 128,
+                "passed": true,
+                "definition_sha": "57a01b054dd8786be2d5b1c653e7ed08a4c4cc60f64007fcd0e837dab3c6f179",
+                "source_version": "82affdd810628f8fc880c884c83bf02e10f594db8ae821c25118c80ec5793309",
+                "method": "Independent AST interpreter on guarded actual rows; no Engine.evaluate call"
+              }
+            ],
+            "identity_mapping": {
+              "call_id": "v5|eval_B_actual_1",
+              "model_proposal_id": "train_A_actual_0101_c0",
+              "registry_id": "fv5_f780b67501ad9b791020ff17",
+              "raw_candidate_sha256": "91a086bb737fc9bef9edb6fb24379c35c31b4f65aab0952d7abfd58c96b10b8f",
+              "definition_sha256": "57a01b054dd8786be2d5b1c653e7ed08a4c4cc60f64007fcd0e837dab3c6f179",
+              "source_version": "82affdd810628f8fc880c884c83bf02e10f594db8ae821c25118c80ec5793309",
+              "raw_id_preserved": true
+            },
+            "visible_sources": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "eval_B_actual_2",
+      "group": "discovery",
+      "root_reasons": [
+        "Open process-level count of missing message names is narrow and legitimate; metadata sources list fails exact dependency validation, so not adopted."
+      ],
+      "candidates": [
+        {
+          "index": 0,
+          "definition": false,
+          "measurement": false,
+          "visible_source": true,
+          "meaning": true,
+          "unknown_information": true,
+          "duplicate": false,
+          "duplicate_of": null,
+          "same_calculation_in_another_frozen_input": false,
+          "new_meaning_accepted": false,
+          "review_reasons": [
+            "Open process-level count of missing message names is narrow and legitimate; metadata sources list fails exact dependency validation, so not adopted."
+          ],
+          "checks": {
+            "index": 0,
+            "contract": true,
+            "source_exists": true,
+            "definition_valid": false,
+            "measurement_completed": false,
+            "independent": false,
+            "duplicate": false,
+            "errors": [
+              "sources dependency mismatch"
+            ],
+            "candidate": {
+              "id": "train_B_actual_04_c0",
+              "purpose": "Count of captured child messages whose DATA_NAME is missing, regardless of DIRECTION or DATA_TYPE; raw physical missingness, not business payload absence.",
+              "meaning": "Count of captured child messages whose DATA_NAME is missing, regardless of DIRECTION or DATA_TYPE; raw physical missingness, not business payload absence.",
+              "sources": {
+                "columns": [
+                  [
+                    "EC_MESSAGE_MONITORING",
+                    "DATA_NAME"
+                  ],
+                  [
+                    "EC_MESSAGE_MONITORING",
+                    "__V23_PARENT_2_ROW_ID"
+                  ],
+                  [
+                    "EC_MESSAGE_MONITORING",
+                    "__V23_SAMPLE_ROW_ID"
+                  ],
+                  [
+                    "EC_PROCESS_MONITORING",
+                    "__V23_SAMPLE_ROW_ID"
+                  ]
+                ],
+                "relationships": [
+                  "physical_M_to_P_retry"
+                ]
+              },
+              "expected_type": "integer",
+              "expected_unit": "count",
+              "availability": "offline_captured_scope",
+              "required_evidence": [
+                "online availability and leakage policy; operational usefulness unconfirmed"
+              ],
+              "plan": {
+                "id": "train_B_actual_04_c0",
+                "description": "Count of captured child messages whose DATA_NAME is missing, regardless of DIRECTION or DATA_TYPE; raw physical missingness, not business payload absence.",
+                "expression": {
+                  "op": "conditional_count",
+                  "relationship_id": "physical_M_to_P_retry",
+                  "where": {
+                    "op": "is_missing",
+                    "args": [
+                      {
+                        "op": "column",
+                        "table": "EC_MESSAGE_MONITORING",
+                        "column": "DATA_NAME"
+                      }
+                    ]
+                  }
+                },
+                "grain": {
+                  "table": "EC_PROCESS_MONITORING",
+                  "keys": [
+                    "__V23_SAMPLE_ROW_ID"
+                  ]
+                },
+                "population": {
+                  "table": "EC_PROCESS_MONITORING",
+                  "filter": null
+                },
+                "group_by": [],
+                "schema_version": "b1150a4494d505d45437c4ac594b95024b61e8021f6f9f06aaf6c8b3f7374d12",
+                "source_version": "82affdd810628f8fc880c884c83bf02e10f594db8ae821c25118c80ec5793309",
+                "missing_policy": {
+                  "input": "propagate",
+                  "empty_group": "zero",
+                  "denominator_zero": null,
+                  "child_missing": "propagate",
+                  "unknown_predicate": "defer"
+                }
+              }
+            },
+            "validation": {
+              "passed": true,
+              "definition_status": "valid",
+              "definition_sha256": "3de5bff52ae430c2dcad855fde4ff6f0edd04af6b290c7da758e0eccbd7b590f",
+              "proposal_sha256": "907346d5fe97630c7ca1a5d6e5d562961a5ddccb13cfd5ca44f547176541932f",
+              "inferred_type": "integer",
+              "unit": "count",
+              "identity": {
+                "population": {
+                  "table": "EC_PROCESS_MONITORING",
+                  "filter": null
+                },
+                "group_by": [],
+                "schema_version": "b1150a4494d505d45437c4ac594b95024b61e8021f6f9f06aaf6c8b3f7374d12",
+                "missing_policy": {
+                  "input": "propagate",
+                  "empty_group": "zero",
+                  "denominator_zero": null,
+                  "child_missing": "propagate",
+                  "unknown_predicate": "defer"
+                },
+                "source_version": "82affdd810628f8fc880c884c83bf02e10f594db8ae821c25118c80ec5793309",
+                "grain": {
+                  "table": "EC_PROCESS_MONITORING",
+                  "keys": [
+                    "__V23_SAMPLE_ROW_ID"
+                  ]
+                },
+                "expression": {
+                  "op": "conditional_count",
+                  "relationship_id": "physical_M_to_P_retry",
+                  "where": {
+                    "op": "is_missing",
+                    "args": [
+                      {
+                        "op": "column",
+                        "table": "EC_MESSAGE_MONITORING",
+                        "column": "DATA_NAME"
+                      }
+                    ]
+                  }
+                },
+                "calculation_policy": "metadata-calculation-3.0.4",
+                "inferred_type": "integer",
+                "unit": "count",
+                "source_columns": [
+                  [
+                    "EC_MESSAGE_MONITORING",
+                    "DATA_NAME"
+                  ],
+                  [
+                    "EC_MESSAGE_MONITORING",
+                    "__V23_PARENT_2_ROW_ID"
+                  ],
+                  [
+                    "EC_PROCESS_MONITORING",
+                    "__V23_SAMPLE_ROW_ID"
+                  ]
+                ],
+                "relationships": [
+                  "physical_M_to_P_retry"
+                ]
+              },
+              "capture_missing": [],
+              "aggregate_relationships": [
+                "physical_M_to_P_retry"
+              ],
+              "errors": []
+            },
+            "visible_sources": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "eval_zero_synthetic_1",
+      "group": "limits",
+      "root_reasons": [
+        "Legitimate requested parent-attribute analysis, but proposed cross-table column reading at child grain has no supported parent lookup. Candidate should be zero with exact engine limit; purpose itself is not invalid."
+      ],
+      "candidates": [
+        {
+          "index": 0,
+          "definition": false,
+          "measurement": false,
+          "visible_source": true,
+          "meaning": false,
+          "unknown_information": true,
+          "duplicate": false,
+          "duplicate_of": null,
+          "same_calculation_in_another_frozen_input": false,
+          "new_meaning_accepted": false,
+          "review_reasons": [
+            "Legitimate requested parent-attribute analysis, but proposed cross-table column reading at child grain has no supported parent lookup. Candidate should be zero with exact engine limit; purpose itself is not invalid."
+          ],
+          "checks": {
+            "index": 0,
+            "contract": true,
+            "source_exists": true,
+            "definition_valid": false,
+            "measurement_completed": false,
+            "independent": false,
+            "duplicate": false,
+            "errors": [
+              "[{'code': 'column_scope', 'path': '/expression/args/0', 'message': 'Use an admitted column from the current analysis table'}]"
+            ],
+            "candidate": {
+              "id": "train_A_syn_00_0500_c0",
+              "purpose": "On each child row compute its parent parent_v5_eval_zero_1.quantity_902 value minus child child_v5_eval_zero_1.portion_902; no aggregation or alternative target allowed.",
+              "meaning": "On each child row compute its parent parent_v5_eval_zero_1.quantity_902 value minus child child_v5_eval_zero_1.portion_902; no aggregation or alternative target allowed.",
+              "sources": {
+                "columns": [
+                  [
+                    "child_v5_eval_zero_1",
+                    "portion_902"
+                  ],
+                  [
+                    "child_v5_eval_zero_1",
+                    "ref_902"
+                  ],
+                  [
+                    "child_v5_eval_zero_1",
+                    "tenant_902"
+                  ],
+                  [
+                    "parent_v5_eval_zero_1",
+                    "quantity_902"
+                  ],
+                  [
+                    "parent_v5_eval_zero_1",
+                    "ref_902"
+                  ],
+                  [
+                    "parent_v5_eval_zero_1",
+                    "tenant_902"
+                  ]
+                ],
+                "relationships": [
+                  "link_v5_eval_zero_1"
+                ]
+              },
+              "expected_type": "number",
+              "expected_unit": null,
+              "availability": "offline_captured_scope",
+              "required_evidence": [
+                "online availability and leakage policy; operational usefulness unconfirmed"
+              ],
+              "plan": {
+                "id": "train_A_syn_00_0500_c0",
+                "description": "On each child row compute its parent parent_v5_eval_zero_1.quantity_902 value minus child child_v5_eval_zero_1.portion_902; no aggregation or alternative target allowed.",
+                "expression": {
+                  "op": "subtract",
+                  "args": [
+                    {
+                      "op": "column",
+                      "table": "parent_v5_eval_zero_1",
+                      "column": "quantity_902"
+                    },
+                    {
+                      "op": "column",
+                      "table": "child_v5_eval_zero_1",
+                      "column": "portion_902"
+                    }
+                  ]
+                },
+                "grain": {
+                  "table": "child_v5_eval_zero_1",
+                  "keys": [
+                    "row_902"
+                  ]
+                },
+                "population": {
+                  "table": "child_v5_eval_zero_1",
+                  "filter": null
+                },
+                "group_by": [],
+                "schema_version": "0a47d1cac175a41f80e36e6bfa292bbf601ad25c7db69fcd47913325e72bfb9a",
+                "source_version": "5b43810afd6ff5f60edeba7f1e01e7c0c8dcef78567f55cad4e86cf7853fbfa8",
+                "missing_policy": {
+                  "input": "propagate",
+                  "empty_group": null,
+                  "denominator_zero": null,
+                  "child_missing": "propagate",
+                  "unknown_predicate": "defer"
+                }
+              }
+            },
+            "validation": {
+              "passed": false,
+              "definition_status": "invalid",
+              "definition_sha256": null,
+              "proposal_sha256": "1d9de1bac9cddd79567bcb7a99cfe22ed84208a19dcfc1399a94cedddc23ef07",
+              "errors": [
+                {
+                  "code": "column_scope",
+                  "message": "Use an admitted column from the current analysis table"
+                }
+              ]
+            },
+            "visible_sources": true
+          }
+        }
+      ]
+    }
+  ],
+  "frozen_repairs_performed": 0,
+  "development_repairs_performed": 0,
+  "next_teacher_targets": [
+    "parent_match_count empty_group must be null; direct counter vs child aggregate distinction",
+    "explicit subtraction direction and grain/filter preservation including parent lookup unsupported",
+    "declared dependency list and known-definition deduplication in open discovery"
+  ],
+  "no_additional_SFT_started": true
+}

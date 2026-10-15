@@ -1,0 +1,248 @@
+{
+  "id": "eval_B_synthetic_2",
+  "task_kind": "discovery",
+  "source_kind": "controlled_synthetic",
+  "input": {
+    "contract": "feature-request-discovery-2.0",
+    "schema_version": "4eefb0e0ef38fff31aea3395a1dbf5e19de5a6b1905c42e344e5cfe7927f3492",
+    "source_version": "6f5827817bdc850a1c1abdf148b1465986f2a642828fee10673bb0841203544a",
+    "task": "Explore the supplied physical metadata, profiles and verified evidence for up to two nonduplicate diagnostic variables. No analysis formula, target column or method is prescribed. Use narrow arithmetic meaning and identify unverified units/business interpretation.",
+    "tables": [
+      {
+        "table": "parent_v5_eval_B_2",
+        "primary_key": [
+          "row_803"
+        ],
+        "rows": 32,
+        "columns": [
+          {
+            "name": "row_803",
+            "type": "string",
+            "nullable": false,
+            "unit": {
+              "name": null,
+              "status": "unknown",
+              "evidence_ids": []
+            },
+            "statistics": {
+              "row_count": 32,
+              "missing_count": 0,
+              "distinct_nonmissing": 32,
+              "invalid_type_count": 0,
+              "numeric_summary": null
+            },
+            "description": "Synthetic physical declaration; no operational/business interpretation"
+          },
+          {
+            "name": "quantity_803",
+            "type": "number",
+            "nullable": true,
+            "unit": {
+              "name": "count",
+              "status": "verified",
+              "evidence_ids": [
+                "unit_v5_eval_B_2_0"
+              ]
+            },
+            "statistics": {
+              "row_count": 32,
+              "missing_count": 0,
+              "distinct_nonmissing": 16,
+              "invalid_type_count": 0,
+              "numeric_summary": {
+                "min": 0,
+                "max": 19,
+                "mean": null
+              }
+            },
+            "description": "Synthetic physical declaration; no operational/business interpretation"
+          },
+          {
+            "name": "portion_803",
+            "type": "number",
+            "nullable": true,
+            "unit": {
+              "name": "count",
+              "status": "verified",
+              "evidence_ids": [
+                "unit_v5_eval_B_2_1"
+              ]
+            },
+            "statistics": {
+              "row_count": 32,
+              "missing_count": 0,
+              "distinct_nonmissing": 12,
+              "invalid_type_count": 0,
+              "numeric_summary": {
+                "min": 0,
+                "max": 13,
+                "mean": null
+              }
+            },
+            "description": "Synthetic physical declaration; no operational/business interpretation"
+          },
+          {
+            "name": "coord_ms_803",
+            "type": "number",
+            "nullable": true,
+            "unit": {
+              "name": "ms",
+              "status": "verified",
+              "evidence_ids": [
+                "unit_v5_eval_B_2_2"
+              ]
+            },
+            "statistics": {
+              "row_count": 32,
+              "missing_count": 0,
+              "distinct_nonmissing": 32,
+              "invalid_type_count": 0,
+              "numeric_summary": {
+                "min": 1000,
+                "max": 25893,
+                "mean": null
+              }
+            },
+            "description": "Synthetic physical declaration; no operational/business interpretation"
+          },
+          {
+            "name": "coord_s_803",
+            "type": "number",
+            "nullable": true,
+            "unit": {
+              "name": "s",
+              "status": "verified",
+              "evidence_ids": [
+                "unit_v5_eval_B_2_3"
+              ]
+            },
+            "statistics": {
+              "row_count": 32,
+              "missing_count": 0,
+              "distinct_nonmissing": 32,
+              "invalid_type_count": 0,
+              "numeric_summary": {
+                "min": 1,
+                "max": 4.1,
+                "mean": null
+              }
+            },
+            "description": "Synthetic physical declaration; no operational/business interpretation"
+          }
+        ]
+      }
+    ],
+    "relationships": [],
+    "capture": {},
+    "source_context": {
+      "source_kind": "controlled_synthetic",
+      "family": "v5_eval_B_2",
+      "period": {
+        "start_inclusive": "2026-08-12",
+        "end_exclusive": "2026-08-13",
+        "timezone": "synthetic coordinate only"
+      },
+      "table_rows": {
+        "parent_v5_eval_B_2": 32,
+        "child_v5_eval_B_2": 49
+      }
+    },
+    "unknown": [
+      "business meaning of literal codes",
+      "business duration or common clock",
+      "online availability, leakage and operational usefulness"
+    ],
+    "existing_definitions": [],
+    "supported_ops": [
+      "column",
+      "literal",
+      "is_missing",
+      "subtract",
+      "divide",
+      "eq",
+      "lt",
+      "lte",
+      "gt",
+      "gte",
+      "and",
+      "datetime_diff",
+      "convert_unit",
+      "child_count",
+      "parent_match_count",
+      "conditional_count",
+      "child_sum",
+      "group_count"
+    ],
+    "confirmed_evidence": [
+      {
+        "id": "unit_v5_eval_B_2_0",
+        "kind": "unit_contract",
+        "target": {
+          "table": "parent_v5_eval_B_2",
+          "column": "quantity_803"
+        },
+        "value": {
+          "table": "parent_v5_eval_B_2",
+          "column": "quantity_803",
+          "unit": "count"
+        },
+        "source": {
+          "sha256": "f0c6e990792fe800b978a891d6f485a46b6bc32b15d6abb8c7156f25e58f382c",
+          "pointer": "/facts/0"
+        }
+      },
+      {
+        "id": "unit_v5_eval_B_2_1",
+        "kind": "unit_contract",
+        "target": {
+          "table": "parent_v5_eval_B_2",
+          "column": "portion_803"
+        },
+        "value": {
+          "table": "parent_v5_eval_B_2",
+          "column": "portion_803",
+          "unit": "count"
+        },
+        "source": {
+          "sha256": "f0c6e990792fe800b978a891d6f485a46b6bc32b15d6abb8c7156f25e58f382c",
+          "pointer": "/facts/1"
+        }
+      },
+      {
+        "id": "unit_v5_eval_B_2_2",
+        "kind": "unit_contract",
+        "target": {
+          "table": "parent_v5_eval_B_2",
+          "column": "coord_ms_803"
+        },
+        "value": {
+          "table": "parent_v5_eval_B_2",
+          "column": "coord_ms_803",
+          "unit": "ms"
+        },
+        "source": {
+          "sha256": "f0c6e990792fe800b978a891d6f485a46b6bc32b15d6abb8c7156f25e58f382c",
+          "pointer": "/facts/2"
+        }
+      },
+      {
+        "id": "unit_v5_eval_B_2_3",
+        "kind": "unit_contract",
+        "target": {
+          "table": "parent_v5_eval_B_2",
+          "column": "coord_s_803"
+        },
+        "value": {
+          "table": "parent_v5_eval_B_2",
+          "column": "coord_s_803",
+          "unit": "s"
+        },
+        "source": {
+          "sha256": "f0c6e990792fe800b978a891d6f485a46b6bc32b15d6abb8c7156f25e58f382c",
+          "pointer": "/facts/3"
+        }
+      }
+    ],
+    "task_kind": "discovery"
+  }
+}

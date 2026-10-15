@@ -52,7 +52,7 @@ export const AdminModelPlaceholder = () => {
     return getStoredText(storageKeys.activeModel, "iforest") as ModelType;
   });
 
-  // 실제로 서버에서 동작 중인 핵심 분석 엔진 모델
+  // 화면 예시에서 선택한 모델이며 서버의 실제 활성 구성과 무관하다.
   const [runningModel, setRunningModel] = useState<ModelType>(() => {
     return getStoredText(storageKeys.runningEngine, "ensemble") as ModelType;
   });
@@ -180,7 +180,7 @@ export const AdminModelPlaceholder = () => {
   const handle_apply_engine = () => {
     setRunningModel(activeModel);
     setStoredText(storageKeys.runningEngine, activeModel);
-    toast.success(`${activeModel === "iforest" ? "Isolation Forest" : activeModel === "autoencoder" ? "Autoencoder" : "Ensemble"} 모델이 실시간 분석 엔진으로 적용되었습니다.`);
+    toast.success(`${activeModel === "iforest" ? "Isolation Forest" : activeModel === "autoencoder" ? "Autoencoder" : "Ensemble"} 화면 시뮬레이션에 적용되었습니다.`);
   };
 
   // 모의 하이퍼파라미터 초기화
@@ -235,7 +235,7 @@ export const AdminModelPlaceholder = () => {
       {/* 헤더 영역 */}
       <header className="admin-model-header">
         <div>
-          <h2>모델 관리</h2>
+          <h2>모델 설정 시뮬레이션</h2>
         </div>
         <div className="admin-model-header-actions">
           <Button
@@ -258,7 +258,7 @@ export const AdminModelPlaceholder = () => {
             onClick={handle_apply_engine}
           >
             <IconCheck size={14} className="mr-1.5" />
-            엔진 적용
+            모의 엔진 적용
           </Button>
         </div>
       </header>
@@ -276,7 +276,7 @@ export const AdminModelPlaceholder = () => {
             {runningModel === activeModel ? (
               <span className="model-active-badge model-active-badge--running">
                 <span className="gpu-status-dot gpu-status-dot--healthy" style={{ width: 6, height: 6 }} />
-                실시간 구동 중
+                화면 예시 실행 중
               </span>
             ) : (
               <span className="model-active-badge model-active-badge--standby">

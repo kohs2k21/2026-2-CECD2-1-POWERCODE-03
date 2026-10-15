@@ -1,0 +1,23 @@
+{
+  "inputs": {
+    "data/evaluation/manifest.json": "71fb8115dc2b9ddcac6408167a8e0f89939e060bbdd5c516339ffe88b9473ce4",
+    "reports/evaluation_v2_work/inputs.json": "438d64008d831d7417e72023abd2ab9fc00ac6b24eb480d2f7db0a35c55e31d7",
+    "reports/model_research_v7/selection.json": "ff6a584a72aa3cb35432ad9b2c2568f3e1d2b9c1f75a02f3a835c7f24d2c5e41"
+  },
+  "code_sha256": "ebaf8b5a6c72f96c7857cdcb67196b7fe1c63cf975653d527dd47f71bf837bd3",
+  "model_sha256": "a55b74542d04ae893831c530652f58ed49fc202ecbf1565f0e9059e036e132ba",
+  "branch_model_sha256": {
+    "v8": "8c8c4d6090a38ea3d0ce0cdca417ec2681b805173f7f465263f19ad66aa36dbe",
+    "v10": "de73ceccaaeb19e563c94da172105feb36405cb80f243fd1a0651432aa8d6e9d",
+    "v4": "56a8e30a2ac4bf64fa94c389f4bc09aff708bc06bd6426f6e6278012a93aa860"
+  },
+  "routing": "3 prior nonempty arrival minutes; uses observed past, not scenario/severity/episode length.",
+  "new_hyperparameter_search": false,
+  "confirmation_used_for_selection": false,
+  "final_used_for_selection": false,
+  "frozen_before_new_validation": true,
+  "normal_source_reference_template_holdout_preserved": true,
+  "not_blind_original_benchmark": true,
+  "fresh_confirmation_seed": 15170042,
+  "completed_utc": "2026-10-13T06:27:31.853185+00:00"
+}

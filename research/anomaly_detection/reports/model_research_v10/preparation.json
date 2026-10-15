@@ -1,0 +1,24 @@
+{
+  "inputs": {
+    "data/evaluation/manifest.json": "71fb8115dc2b9ddcac6408167a8e0f89939e060bbdd5c516339ffe88b9473ce4",
+    "reports/evaluation_v2_work/inputs.json": "438d64008d831d7417e72023abd2ab9fc00ac6b24eb480d2f7db0a35c55e31d7",
+    "reports/model_research_v7/selection.json": "ff6a584a72aa3cb35432ad9b2c2568f3e1d2b9c1f75a02f3a835c7f24d2c5e41"
+  },
+  "data_sha256": "9c358c99c7e46aa58aa45d3dd933f150742ca420286654ef78fce0a306941fc6",
+  "code_sha256": "7b85a9b787d1c2eff24e5fba483e61f240db95aff5c43cdd5488127ed65416d8",
+  "preselection_bugfix": {
+    "previous_code_sha256": "627a23537dd5ca91d0cfa6a7373c191cf308bc7061d1377184f1f78361ba42d4",
+    "change": "Copy pandas read-only boolean mask before in-place intersection; no data/equation change",
+    "selection_existed": false,
+    "development_data_unchanged": true
+  },
+  "fresh_seed": 12170042,
+  "search_cases": 1080,
+  "confirmation_cases": 1080,
+  "normal_sources_same_as_v8": true,
+  "fixed_base_branches": {
+    "if": "v7",
+    "kmeans": "v4"
+  },
+  "not_blind_original_test": true
+}

@@ -1,0 +1,29 @@
+{
+  "id": "eval_A_actual_0_0_observational_diagnostic",
+  "raw_output": "{\"v\":\"1\",\"feature\":\"fv5_780b4b24367499347adf9902\",\"sha\":\"884b1247fd781f1eac454860e5fc361f616c9b30a926d7535f0faaebac8247b9\",\"role\":\"SR\",\"state\":\"proposed\",\"basis\":\"observed_diagnostic\",\"condition\":{\"op\":\"is_missing\"},\"evidence\":[\"m_fv5_780b4b24367499347adf9902\"],\"needed\":[],\"reason\":\"numeric calculated output ms: 128 valid and 0 unavailable feature outputs. Propose this observed diagnostic; no reference minimum applies. It checks calculated unavailability, without asserting a source-null cause.\"}",
+  "raw_sha": "246b6cf19c7c0dbd0a20efbd48d388fe26e096e04c9367c2a97cb55f71cb80a1",
+  "original_input_sha": "3d65e548f8999e850ff28e75f126b9c6d0df5d9fe28e1933e04a701d344c7c87",
+  "prediction": {
+    "v": "1",
+    "feature": "fv5_780b4b24367499347adf9902",
+    "sha": "884b1247fd781f1eac454860e5fc361f616c9b30a926d7535f0faaebac8247b9",
+    "role": "SR",
+    "state": "proposed",
+    "basis": "observed_diagnostic",
+    "condition": {
+      "op": "is_missing"
+    },
+    "evidence": [
+      "m_fv5_780b4b24367499347adf9902"
+    ],
+    "needed": [],
+    "reason": "numeric calculated output ms: 128 valid and 0 unavailable feature outputs. Propose this observed diagnostic; no reference minimum applies. It checks calculated unavailability, without asserting a source-null cause."
+  },
+  "validation": {
+    "passed": true,
+    "schema_passed": true,
+    "errors": [],
+    "policy": "rule-grounding-4.1.0",
+    "direct_meaning_review_required": true
+  }
+}

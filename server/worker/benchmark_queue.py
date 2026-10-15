@@ -25,7 +25,7 @@ def run(queue: str, count: int, consumers: int, dsn: str, timeout: float) -> Non
             ref = str(uuid.uuid4())
             payload = (
                 {"schemaVersion": 1, "eventId": ref, "observationId": ref, "benchmarkRunId": run_id}
-                if queue == "detection" else
+                if queue in ("feature", "detection") else
                 {"schemaVersion": 1, "jobId": ref, "benchmarkRunId": run_id}
             )
             enqueue(conn, queue, payload)
@@ -77,7 +77,7 @@ def run(queue: str, count: int, consumers: int, dsn: str, timeout: float) -> Non
 if __name__ == "__main__":
     load_dotenv(Path(__file__).resolve().parent / ".env")
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--queue", choices=("detection", "training"), required=True)
+    parser.add_argument("--queue", choices=("feature", "detection", "training"), required=True)
     parser.add_argument("--count", type=int, default=1000)
     parser.add_argument("--consumers", type=int, default=4)
     parser.add_argument("--timeout", type=float, default=30)

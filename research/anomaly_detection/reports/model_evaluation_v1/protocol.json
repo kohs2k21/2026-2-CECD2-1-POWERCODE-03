@@ -1,0 +1,874 @@
+{
+  "identity": {
+    "config": {
+      "seed": 42,
+      "quantile": 0.99,
+      "global_weight": 0.5,
+      "n_estimators": 128,
+      "max_samples": 512,
+      "k": 6,
+      "kmeans_batch_size": 2048,
+      "kmeans_n_init": 5,
+      "kmeans_max_iter": 100,
+      "min_train": 500,
+      "min_calibration": 100,
+      "min_threshold": 100,
+      "min_source_workflows": 20,
+      "min_row_train_days": 3,
+      "replay_cases_per_adapter": 8,
+      "replay_minutes": 90,
+      "chunk_rows": 50000
+    },
+    "benchmark_manifest_sha256": "71fb8115dc2b9ddcac6408167a8e0f89939e060bbdd5c516339ffe88b9473ce4",
+    "source_cache_sha256": "438d64008d831d7417e72023abd2ab9fc00ac6b24eb480d2f7db0a35c55e31d7",
+    "max_cases": null,
+    "include_windows": true,
+    "implementation_sha256": {
+      "data.py": "8782b0fbf397fb80078c39d68ba84acef144595b16fc38b172ea8e0211d85dc6",
+      "evaluate.py": "9f86326b7584562adbf0b5a507aa7068c2f3d02f47b7a798e86819bd139471b7",
+      "execute_notebook.py": "64a2cbeb86a07fd8e163b54326458f4d70f76d67be7d778ddfc43ef34f7cae44",
+      "metrics.py": "9d2bb4ee212483a2c986bcd8d637250bb131aee30e08d256f901267fd43f4ce9",
+      "models.py": "9e78eefcaf8ff621aadb8bd52749310c00d6187a9a8bb7bf1db7fe9144423efb",
+      "plots.py": "a861707d977fc7c8f5c0381d45fe2e542ebab92c5f2edbd5b9f0993decc44727",
+      "test_evaluation.py": "b2a853ba97c1a85aaccb7aa72bc9f71ce12fe825d91085b73692c316d2a4b3ae",
+      "__init__.py": "327d50b3a37699b9e8c4bcd4593d3d3258e7adb10b8be395dad0690a707a3c59"
+    }
+  },
+  "new_models_sha256": "b931810f00a7cf26ea8b695b164cbf9a7406823af4c9cd62fed7386c1f441d7f",
+  "methods": [
+    "if_global",
+    "if_adapter",
+    "if_ensemble",
+    "kmeans_global",
+    "kmeans_adapter",
+    "kmeans_ensemble"
+  ],
+  "versions": {
+    "python": "3.12.14",
+    "sklearn": "1.9.1",
+    "numpy": "2.5.3",
+    "pandas": "3.0.6"
+  },
+  "row_reference": [
+    {
+      "split": "train",
+      "rows": 10023,
+      "workflows": 5951,
+      "first": "2025-12-24T13:28:35.077000",
+      "last": "2026-03-23T10:06:02.739000"
+    },
+    {
+      "split": "calibration",
+      "rows": 3312,
+      "workflows": 2621,
+      "first": "2026-03-24T10:17:52.698000",
+      "last": "2026-08-19T23:48:15.036000"
+    },
+    {
+      "split": "threshold",
+      "rows": 3215,
+      "workflows": 2522,
+      "first": "2026-03-24T14:32:15.174000",
+      "last": "2026-08-19T23:49:00.045000"
+    }
+  ],
+  "window_reference": [
+    {
+      "split": "train",
+      "normal_episodes": 120,
+      "windows": 10820,
+      "independent_source_templates": 5951,
+      "adapters": 15
+    },
+    {
+      "split": "calibration",
+      "normal_episodes": 152,
+      "windows": 13702,
+      "independent_source_templates": 2621,
+      "adapters": 19
+    },
+    {
+      "split": "threshold",
+      "normal_episodes": 160,
+      "windows": 14448,
+      "independent_source_templates": 2522,
+      "adapters": 20
+    }
+  ],
+  "support": [
+    {
+      "unit": "row",
+      "adapter": "DATA.DECRYPTOR",
+      "train": 0,
+      "calibration": 1,
+      "threshold": 1,
+      "train_days": 0,
+      "source_workflows": {},
+      "expert_available": false,
+      "reason": "train<500; calibration<100; threshold<100; train_days<3"
+    },
+    {
+      "unit": "row",
+      "adapter": "DATA.ENCRYPTOR",
+      "train": 0,
+      "calibration": 1,
+      "threshold": 1,
+      "train_days": 0,
+      "source_workflows": {},
+      "expert_available": false,
+      "reason": "train<500; calibration<100; threshold<100; train_days<3"
+    },
+    {
+      "unit": "row",
+      "adapter": "DATA.MAPPER",
+      "train": 2,
+      "calibration": 5,
+      "threshold": 8,
+      "train_days": 1,
+      "source_workflows": {},
+      "expert_available": false,
+      "reason": "train<500; calibration<100; threshold<100; train_days<3"
+    },
+    {
+      "unit": "row",
+      "adapter": "DATA.TRANSFORMER",
+      "train": 8,
+      "calibration": 15,
+      "threshold": 21,
+      "train_days": 3,
+      "source_workflows": {},
+      "expert_available": false,
+      "reason": "train<500; calibration<100; threshold<100"
+    },
+    {
+      "unit": "row",
+      "adapter": "DB.DELETER",
+      "train": 1,
+      "calibration": 0,
+      "threshold": 1,
+      "train_days": 1,
+      "source_workflows": {},
+      "expert_available": false,
+      "reason": "train<500; calibration<100; threshold<100; train_days<3"
+    },
+    {
+      "unit": "row",
+      "adapter": "DB.EXECUTOR",
+      "train": 1,
+      "calibration": 1022,
+      "threshold": 979,
+      "train_days": 1,
+      "source_workflows": {},
+      "expert_available": false,
+      "reason": "train<500; train_days<3"
+    },
+    {
+      "unit": "row",
+      "adapter": "DB.READER",
+      "train": 2039,
+      "calibration": 624,
+      "threshold": 608,
+      "train_days": 24,
+      "source_workflows": {},
+      "expert_available": true,
+      "reason": "supported"
+    },
+    {
+      "unit": "row",
+      "adapter": "DB.UPDATER",
+      "train": 8,
+      "calibration": 17,
+      "threshold": 18,
+      "train_days": 4,
+      "source_workflows": {},
+      "expert_available": false,
+      "reason": "train<500; calibration<100; threshold<100"
+    },
+    {
+      "unit": "row",
+      "adapter": "DB.WRITER",
+      "train": 2051,
+      "calibration": 615,
+      "threshold": 598,
+      "train_days": 24,
+      "source_workflows": {},
+      "expert_available": true,
+      "reason": "supported"
+    },
+    {
+      "unit": "row",
+      "adapter": "FILE.EXECUTOR",
+      "train": 0,
+      "calibration": 3,
+      "threshold": 5,
+      "train_days": 0,
+      "source_workflows": {},
+      "expert_available": false,
+      "reason": "train<500; calibration<100; threshold<100; train_days<3"
+    },
+    {
+      "unit": "row",
+      "adapter": "FILE.READER",
+      "train": 1998,
+      "calibration": 31,
+      "threshold": 32,
+      "train_days": 10,
+      "source_workflows": {},
+      "expert_available": false,
+      "reason": "calibration<100; threshold<100"
+    },
+    {
+      "unit": "row",
+      "adapter": "FILE.WRITER",
+      "train": 1999,
+      "calibration": 35,
+      "threshold": 41,
+      "train_days": 10,
+      "source_workflows": {},
+      "expert_available": false,
+      "reason": "calibration<100; threshold<100"
+    },
+    {
+      "unit": "row",
+      "adapter": "GATEWAY.INVOKER",
+      "train": 2,
+      "calibration": 2,
+      "threshold": 7,
+      "train_days": 1,
+      "source_workflows": {},
+      "expert_available": false,
+      "reason": "train<500; calibration<100; threshold<100; train_days<3"
+    },
+    {
+      "unit": "row",
+      "adapter": "OBJECT.READER",
+      "train": 0,
+      "calibration": 3,
+      "threshold": 4,
+      "train_days": 0,
+      "source_workflows": {},
+      "expert_available": false,
+      "reason": "train<500; calibration<100; threshold<100; train_days<3"
+    },
+    {
+      "unit": "row",
+      "adapter": "OBJECT.WRITER",
+      "train": 0,
+      "calibration": 2,
+      "threshold": 4,
+      "train_days": 0,
+      "source_workflows": {},
+      "expert_available": false,
+      "reason": "train<500; calibration<100; threshold<100; train_days<3"
+    },
+    {
+      "unit": "row",
+      "adapter": "QUEUE.EXECUTOR",
+      "train": 2,
+      "calibration": 1,
+      "threshold": 2,
+      "train_days": 2,
+      "source_workflows": {},
+      "expert_available": false,
+      "reason": "train<500; calibration<100; threshold<100; train_days<3"
+    },
+    {
+      "unit": "row",
+      "adapter": "QUEUE.PUBLISHER",
+      "train": 1,
+      "calibration": 1,
+      "threshold": 1,
+      "train_days": 1,
+      "source_workflows": {},
+      "expert_available": false,
+      "reason": "train<500; calibration<100; threshold<100; train_days<3"
+    },
+    {
+      "unit": "row",
+      "adapter": "QUEUE.SUBSCRIBER",
+      "train": 2,
+      "calibration": 1,
+      "threshold": 2,
+      "train_days": 2,
+      "source_workflows": {},
+      "expert_available": false,
+      "reason": "train<500; calibration<100; threshold<100; train_days<3"
+    },
+    {
+      "unit": "row",
+      "adapter": "SERVICE.EXECUTOR",
+      "train": 1906,
+      "calibration": 930,
+      "threshold": 878,
+      "train_days": 14,
+      "source_workflows": {},
+      "expert_available": true,
+      "reason": "supported"
+    },
+    {
+      "unit": "row",
+      "adapter": "SERVICE.INVOKER",
+      "train": 3,
+      "calibration": 3,
+      "threshold": 4,
+      "train_days": 1,
+      "source_workflows": {},
+      "expert_available": false,
+      "reason": "train<500; calibration<100; threshold<100; train_days<3"
+    },
+    {
+      "unit": "window",
+      "adapter": "DATA.DECRYPTOR",
+      "train": 0,
+      "calibration": 722,
+      "threshold": 724,
+      "train_days": null,
+      "source_workflows": {
+        "calibration": 1,
+        "threshold": 1
+      },
+      "expert_available": false,
+      "reason": "train<500; train_source_workflows<20; calibration_source_workflows<20; threshold_source_workflows<20"
+    },
+    {
+      "unit": "window",
+      "adapter": "DATA.ENCRYPTOR",
+      "train": 0,
+      "calibration": 718,
+      "threshold": 727,
+      "train_days": null,
+      "source_workflows": {
+        "calibration": 1,
+        "threshold": 1
+      },
+      "expert_available": false,
+      "reason": "train<500; train_source_workflows<20; calibration_source_workflows<20; threshold_source_workflows<20"
+    },
+    {
+      "unit": "window",
+      "adapter": "DATA.MAPPER",
+      "train": 725,
+      "calibration": 721,
+      "threshold": 722,
+      "train_days": null,
+      "source_workflows": {
+        "train": 2,
+        "calibration": 5,
+        "threshold": 8
+      },
+      "expert_available": false,
+      "reason": "train_source_workflows<20; calibration_source_workflows<20; threshold_source_workflows<20"
+    },
+    {
+      "unit": "window",
+      "adapter": "DATA.TRANSFORMER",
+      "train": 726,
+      "calibration": 720,
+      "threshold": 716,
+      "train_days": null,
+      "source_workflows": {
+        "train": 8,
+        "calibration": 15,
+        "threshold": 21
+      },
+      "expert_available": false,
+      "reason": "train_source_workflows<20; calibration_source_workflows<20"
+    },
+    {
+      "unit": "window",
+      "adapter": "DB.DELETER",
+      "train": 719,
+      "calibration": 0,
+      "threshold": 718,
+      "train_days": null,
+      "source_workflows": {
+        "train": 1,
+        "threshold": 1
+      },
+      "expert_available": false,
+      "reason": "calibration<100; train_source_workflows<20; calibration_source_workflows<20; threshold_source_workflows<20"
+    },
+    {
+      "unit": "window",
+      "adapter": "DB.EXECUTOR",
+      "train": 723,
+      "calibration": 718,
+      "threshold": 721,
+      "train_days": null,
+      "source_workflows": {
+        "train": 1,
+        "calibration": 1022,
+        "threshold": 979
+      },
+      "expert_available": false,
+      "reason": "train_source_workflows<20"
+    },
+    {
+      "unit": "window",
+      "adapter": "DB.READER",
+      "train": 721,
+      "calibration": 711,
+      "threshold": 727,
+      "train_days": null,
+      "source_workflows": {
+        "train": 2039,
+        "calibration": 624,
+        "threshold": 608
+      },
+      "expert_available": true,
+      "reason": "supported"
+    },
+    {
+      "unit": "window",
+      "adapter": "DB.UPDATER",
+      "train": 724,
+      "calibration": 723,
+      "threshold": 722,
+      "train_days": null,
+      "source_workflows": {
+        "train": 8,
+        "calibration": 17,
+        "threshold": 18
+      },
+      "expert_available": false,
+      "reason": "train_source_workflows<20; calibration_source_workflows<20; threshold_source_workflows<20"
+    },
+    {
+      "unit": "window",
+      "adapter": "DB.WRITER",
+      "train": 723,
+      "calibration": 724,
+      "threshold": 724,
+      "train_days": null,
+      "source_workflows": {
+        "train": 2040,
+        "calibration": 615,
+        "threshold": 598
+      },
+      "expert_available": true,
+      "reason": "supported"
+    },
+    {
+      "unit": "window",
+      "adapter": "FILE.EXECUTOR",
+      "train": 0,
+      "calibration": 718,
+      "threshold": 721,
+      "train_days": null,
+      "source_workflows": {
+        "calibration": 3,
+        "threshold": 5
+      },
+      "expert_available": false,
+      "reason": "train<500; train_source_workflows<20; calibration_source_workflows<20; threshold_source_workflows<20"
+    },
+    {
+      "unit": "window",
+      "adapter": "FILE.READER",
+      "train": 722,
+      "calibration": 723,
+      "threshold": 725,
+      "train_days": null,
+      "source_workflows": {
+        "train": 1998,
+        "calibration": 31,
+        "threshold": 32
+      },
+      "expert_available": true,
+      "reason": "supported"
+    },
+    {
+      "unit": "window",
+      "adapter": "FILE.WRITER",
+      "train": 718,
+      "calibration": 723,
+      "threshold": 723,
+      "train_days": null,
+      "source_workflows": {
+        "train": 1999,
+        "calibration": 35,
+        "threshold": 41
+      },
+      "expert_available": true,
+      "reason": "supported"
+    },
+    {
+      "unit": "window",
+      "adapter": "GATEWAY.INVOKER",
+      "train": 715,
+      "calibration": 725,
+      "threshold": 722,
+      "train_days": null,
+      "source_workflows": {
+        "train": 2,
+        "calibration": 2,
+        "threshold": 7
+      },
+      "expert_available": false,
+      "reason": "train_source_workflows<20; calibration_source_workflows<20; threshold_source_workflows<20"
+    },
+    {
+      "unit": "window",
+      "adapter": "OBJECT.READER",
+      "train": 0,
+      "calibration": 726,
+      "threshold": 727,
+      "train_days": null,
+      "source_workflows": {
+        "calibration": 3,
+        "threshold": 4
+      },
+      "expert_available": false,
+      "reason": "train<500; train_source_workflows<20; calibration_source_workflows<20; threshold_source_workflows<20"
+    },
+    {
+      "unit": "window",
+      "adapter": "OBJECT.WRITER",
+      "train": 0,
+      "calibration": 725,
+      "threshold": 725,
+      "train_days": null,
+      "source_workflows": {
+        "calibration": 2,
+        "threshold": 4
+      },
+      "expert_available": false,
+      "reason": "train<500; train_source_workflows<20; calibration_source_workflows<20; threshold_source_workflows<20"
+    },
+    {
+      "unit": "window",
+      "adapter": "QUEUE.EXECUTOR",
+      "train": 725,
+      "calibration": 716,
+      "threshold": 726,
+      "train_days": null,
+      "source_workflows": {
+        "train": 2,
+        "calibration": 1,
+        "threshold": 2
+      },
+      "expert_available": false,
+      "reason": "train_source_workflows<20; calibration_source_workflows<20; threshold_source_workflows<20"
+    },
+    {
+      "unit": "window",
+      "adapter": "QUEUE.PUBLISHER",
+      "train": 721,
+      "calibration": 717,
+      "threshold": 720,
+      "train_days": null,
+      "source_workflows": {
+        "train": 1,
+        "calibration": 1,
+        "threshold": 1
+      },
+      "expert_available": false,
+      "reason": "train_source_workflows<20; calibration_source_workflows<20; threshold_source_workflows<20"
+    },
+    {
+      "unit": "window",
+      "adapter": "QUEUE.SUBSCRIBER",
+      "train": 720,
+      "calibration": 727,
+      "threshold": 717,
+      "train_days": null,
+      "source_workflows": {
+        "train": 2,
+        "calibration": 1,
+        "threshold": 2
+      },
+      "expert_available": false,
+      "reason": "train_source_workflows<20; calibration_source_workflows<20; threshold_source_workflows<20"
+    },
+    {
+      "unit": "window",
+      "adapter": "SERVICE.EXECUTOR",
+      "train": 718,
+      "calibration": 723,
+      "threshold": 717,
+      "train_days": null,
+      "source_workflows": {
+        "train": 1906,
+        "calibration": 930,
+        "threshold": 877
+      },
+      "expert_available": true,
+      "reason": "supported"
+    },
+    {
+      "unit": "window",
+      "adapter": "SERVICE.INVOKER",
+      "train": 720,
+      "calibration": 722,
+      "threshold": 724,
+      "train_days": null,
+      "source_workflows": {
+        "train": 3,
+        "calibration": 3,
+        "threshold": 3
+      },
+      "expert_available": false,
+      "reason": "train_source_workflows<20; calibration_source_workflows<20; threshold_source_workflows<20"
+    }
+  ],
+  "features": {
+    "row": [
+      "log_duration_ms",
+      "missing_duration_ms",
+      "log_totalCount",
+      "missing_totalCount",
+      "log_retryCount",
+      "missing_retryCount",
+      "hour_sin",
+      "hour_cos",
+      "weekday_sin",
+      "weekday_cos"
+    ],
+    "window": [
+      "log_arrivals",
+      "arrival_deviation",
+      "log_arrivals_5m",
+      "arrival_deviation_5m",
+      "log_p50_duration",
+      "log_p95_duration",
+      "p95_duration_relative",
+      "missing_duration",
+      "hour_sin",
+      "hour_cos",
+      "weekday_sin",
+      "weekday_cos"
+    ]
+  },
+  "thresholds": [
+    {
+      "unit": "row",
+      "algorithm": "if",
+      "route": "GLOBAL",
+      "raw_threshold": 0.6956692251316409,
+      "normalized_threshold": 1.270162014870356,
+      "ensemble_threshold": 1.270162014870356,
+      "normalizer_median": 0.639357434006275,
+      "normalizer_spread": 0.04433433724682245,
+      "effective_k": null
+    },
+    {
+      "unit": "row",
+      "algorithm": "if",
+      "route": "DB.READER",
+      "raw_threshold": 0.7025851823247624,
+      "normalized_threshold": 1.3769543725688038,
+      "ensemble_threshold": 0.894053789139189,
+      "normalizer_median": 0.6574302990970078,
+      "normalizer_spread": 0.032793303923001504,
+      "effective_k": null
+    },
+    {
+      "unit": "row",
+      "algorithm": "if",
+      "route": "DB.WRITER",
+      "raw_threshold": 0.7173049022081565,
+      "normalized_threshold": 2.552275128469234,
+      "ensemble_threshold": 1.2716927497951387,
+      "normalizer_median": 0.6583971660278374,
+      "normalizer_spread": 0.023080480440073048,
+      "effective_k": null
+    },
+    {
+      "unit": "row",
+      "algorithm": "if",
+      "route": "SERVICE.EXECUTOR",
+      "raw_threshold": 0.7772960937767738,
+      "normalized_threshold": 1.0819725294749627,
+      "ensemble_threshold": 1.1705036443061054,
+      "normalizer_median": 0.7328114111348862,
+      "normalizer_spread": 0.041114428906502964,
+      "effective_k": null
+    },
+    {
+      "unit": "row",
+      "algorithm": "kmeans",
+      "route": "GLOBAL",
+      "raw_threshold": 2.0517749786376953,
+      "normalized_threshold": 1.3049208207194167,
+      "ensemble_threshold": 1.3049208207194167,
+      "normalizer_median": 1.4799182415008545,
+      "normalizer_spread": 0.4382309854030608,
+      "effective_k": 6
+    },
+    {
+      "unit": "row",
+      "algorithm": "kmeans",
+      "route": "DB.READER",
+      "raw_threshold": 2.97957685947417,
+      "normalized_threshold": 1.5073756404333727,
+      "ensemble_threshold": 0.9338536866951381,
+      "normalizer_median": 1.7936468720436096,
+      "normalizer_spread": 0.7867514610290529,
+      "effective_k": 6
+    },
+    {
+      "unit": "row",
+      "algorithm": "kmeans",
+      "route": "DB.WRITER",
+      "raw_threshold": 3.065665090084076,
+      "normalized_threshold": 1.0551271906807014,
+      "ensemble_threshold": 0.6556190200800245,
+      "normalizer_median": 2.6668953895568848,
+      "normalizer_spread": 0.37793519496917716,
+      "effective_k": 6
+    },
+    {
+      "unit": "row",
+      "algorithm": "kmeans",
+      "route": "SERVICE.EXECUTOR",
+      "raw_threshold": 13.865576906204224,
+      "normalized_threshold": 1.0067568103809788,
+      "ensemble_threshold": 1.1883804731493675,
+      "normalizer_median": 7.101766347885132,
+      "normalizer_spread": 6.7184154987335205,
+      "effective_k": 6
+    },
+    {
+      "unit": "window",
+      "algorithm": "if",
+      "route": "GLOBAL",
+      "raw_threshold": 0.6283433499576702,
+      "normalized_threshold": 1.5046675432367738,
+      "ensemble_threshold": 1.5046675432367738,
+      "normalizer_median": 0.5248044396353291,
+      "normalizer_spread": 0.06881181878862941,
+      "effective_k": null
+    },
+    {
+      "unit": "window",
+      "algorithm": "if",
+      "route": "DB.READER",
+      "raw_threshold": 0.6399127391993643,
+      "normalized_threshold": 1.2318295422465813,
+      "ensemble_threshold": 1.1740629963967417,
+      "normalizer_median": 0.5556897914428678,
+      "normalizer_spread": 0.06837224215526827,
+      "effective_k": null
+    },
+    {
+      "unit": "window",
+      "algorithm": "if",
+      "route": "DB.WRITER",
+      "raw_threshold": 0.6515627125897606,
+      "normalized_threshold": 1.555482583452858,
+      "ensemble_threshold": 1.398810298778166,
+      "normalizer_median": 0.5642976596759409,
+      "normalizer_spread": 0.0561015943490083,
+      "effective_k": null
+    },
+    {
+      "unit": "window",
+      "algorithm": "if",
+      "route": "FILE.READER",
+      "raw_threshold": 0.6451660298410239,
+      "normalized_threshold": 1.6640486976100393,
+      "ensemble_threshold": 1.1003821245840433,
+      "normalizer_median": 0.5409653035036049,
+      "normalizer_spread": 0.06261879624501099,
+      "effective_k": null
+    },
+    {
+      "unit": "window",
+      "algorithm": "if",
+      "route": "FILE.WRITER",
+      "raw_threshold": 0.6247607457989269,
+      "normalized_threshold": 1.5832413791029765,
+      "ensemble_threshold": 1.3233723215225541,
+      "normalizer_median": 0.5439381808723873,
+      "normalizer_spread": 0.05104879520792438,
+      "effective_k": null
+    },
+    {
+      "unit": "window",
+      "algorithm": "if",
+      "route": "SERVICE.EXECUTOR",
+      "raw_threshold": 0.6505998862624403,
+      "normalized_threshold": 1.5282765824534412,
+      "ensemble_threshold": 1.7499164537838345,
+      "normalizer_median": 0.5634636490262813,
+      "normalizer_spread": 0.05701601283209712,
+      "effective_k": null
+    },
+    {
+      "unit": "window",
+      "algorithm": "kmeans",
+      "route": "GLOBAL",
+      "raw_threshold": 5.21907377243042,
+      "normalized_threshold": 2.842529251398169,
+      "ensemble_threshold": 2.842529251398169,
+      "normalizer_median": 1.6570258140563965,
+      "normalizer_spread": 1.2531262278556823,
+      "effective_k": 6
+    },
+    {
+      "unit": "window",
+      "algorithm": "kmeans",
+      "route": "DB.READER",
+      "raw_threshold": 5.636064186096192,
+      "normalized_threshold": 1.6150233430930152,
+      "ensemble_threshold": 1.2959984736522108,
+      "normalizer_median": 2.854212522506714,
+      "normalizer_spread": 1.7224838733673096,
+      "effective_k": 6
+    },
+    {
+      "unit": "window",
+      "algorithm": "kmeans",
+      "route": "DB.WRITER",
+      "raw_threshold": 29.491694316864013,
+      "normalized_threshold": 2.346683067812293,
+      "ensemble_threshold": 1.682322476415231,
+      "normalizer_median": 5.520874500274658,
+      "normalizer_spread": 10.214766597747802,
+      "effective_k": 6
+    },
+    {
+      "unit": "window",
+      "algorithm": "kmeans",
+      "route": "FILE.READER",
+      "raw_threshold": 22.591580810546876,
+      "normalized_threshold": 1.1845186250801072,
+      "ensemble_threshold": 0.9706613197481865,
+      "normalizer_median": 18.901851654052734,
+      "normalizer_spread": 3.114960861206054,
+      "effective_k": 6
+    },
+    {
+      "unit": "window",
+      "algorithm": "kmeans",
+      "route": "FILE.WRITER",
+      "raw_threshold": 19.279085159301758,
+      "normalized_threshold": 0.4973880925865094,
+      "ensemble_threshold": 0.7239616894262825,
+      "normalizer_median": 17.147720336914062,
+      "normalizer_spread": 4.285114288330078,
+      "effective_k": 6
+    },
+    {
+      "unit": "window",
+      "algorithm": "kmeans",
+      "route": "SERVICE.EXECUTOR",
+      "raw_threshold": 32.42251022338867,
+      "normalized_threshold": 1.3861854178841444,
+      "ensemble_threshold": 1.9564011052466976,
+      "normalizer_median": 2.0940237045288086,
+      "normalizer_spread": 21.879097938537598,
+      "effective_k": 6
+    }
+  ],
+  "limitations": [
+    "Semi-synthetic stress test; original normal patterns overlap with evaluation generation.",
+    "New comparable research models, NOT the previously saved serving IF.",
+    "Window references are independently seeded normal replays with disjoint source workflows; virtual dates overlap across reference/test episodes.",
+    "TARGET windows assume a predefined monitored business group; production must monitor all groups, not select them using incident labels.",
+    "Event-time offline evaluation; delayed completed logs require an arrival stream or watermark policy for live traffic features.",
+    "Row evaluation excludes collective-only labels and cannot classify a zero-row input-stop event.",
+    "Precision uses zero_division=0; no positive ground truth makes Recall/F1 unavailable.",
+    "Hard all-six recall is reported separately; one event hit is not full case success."
+  ]
+}

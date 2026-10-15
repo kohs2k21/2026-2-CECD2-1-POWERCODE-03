@@ -1,0 +1,275 @@
+{
+  "id": "eval_B_synthetic_1",
+  "task_kind": "discovery",
+  "source_kind": "controlled_synthetic",
+  "input": {
+    "contract": "feature-request-discovery-2.0",
+    "schema_version": "15b8f05fb2065e6c378ad154ae419cecbfabc65ecd47f3255b97d1a15845e6a6",
+    "source_version": "ff7a605d62b0bc802f43da39ad6d87159faf21609dc75eb1de139efb93c02dac",
+    "task": "Explore the supplied physical metadata, profiles and verified evidence for up to two nonduplicate diagnostic variables. No analysis formula, target column or method is prescribed. Use narrow arithmetic meaning and identify unverified units/business interpretation.",
+    "tables": [
+      {
+        "table": "parent_v5_eval_B_1",
+        "primary_key": [
+          "row_802"
+        ],
+        "rows": 32,
+        "columns": [
+          {
+            "name": "row_802",
+            "type": "string",
+            "nullable": false,
+            "unit": {
+              "name": null,
+              "status": "unknown",
+              "evidence_ids": []
+            },
+            "statistics": {
+              "row_count": 32,
+              "missing_count": 0,
+              "distinct_nonmissing": 32,
+              "invalid_type_count": 0,
+              "numeric_summary": null
+            },
+            "description": "Synthetic physical declaration; no operational/business interpretation"
+          },
+          {
+            "name": "ref_802",
+            "type": "string",
+            "nullable": true,
+            "unit": {
+              "name": null,
+              "status": "unknown",
+              "evidence_ids": []
+            },
+            "statistics": {
+              "row_count": 32,
+              "missing_count": 0,
+              "distinct_nonmissing": 32,
+              "invalid_type_count": 0,
+              "numeric_summary": null
+            },
+            "observed_literal_codes": {
+              "distinct": 32
+            },
+            "description": "Synthetic physical declaration; no operational/business interpretation"
+          },
+          {
+            "name": "tenant_802",
+            "type": "string",
+            "nullable": true,
+            "unit": {
+              "name": null,
+              "status": "unknown",
+              "evidence_ids": []
+            },
+            "statistics": {
+              "row_count": 32,
+              "missing_count": 0,
+              "distinct_nonmissing": 2,
+              "invalid_type_count": 0,
+              "numeric_summary": null
+            },
+            "observed_literal_codes": {
+              "site0": 16,
+              "site1": 16
+            },
+            "description": "Synthetic physical declaration; no operational/business interpretation"
+          }
+        ]
+      },
+      {
+        "table": "child_v5_eval_B_1",
+        "primary_key": [
+          "row_802"
+        ],
+        "rows": 49,
+        "columns": [
+          {
+            "name": "row_802",
+            "type": "string",
+            "nullable": false,
+            "unit": {
+              "name": null,
+              "status": "unknown",
+              "evidence_ids": []
+            },
+            "statistics": {
+              "row_count": 49,
+              "missing_count": 0,
+              "distinct_nonmissing": 49,
+              "invalid_type_count": 0,
+              "numeric_summary": null
+            },
+            "description": "Synthetic physical declaration; no operational/business interpretation"
+          },
+          {
+            "name": "ref_802",
+            "type": "string",
+            "nullable": true,
+            "unit": {
+              "name": null,
+              "status": "unknown",
+              "evidence_ids": []
+            },
+            "statistics": {
+              "row_count": 49,
+              "missing_count": 0,
+              "distinct_nonmissing": 25,
+              "invalid_type_count": 0,
+              "numeric_summary": null
+            },
+            "observed_literal_codes": {
+              "distinct": 25
+            },
+            "description": "Synthetic physical declaration; no operational/business interpretation"
+          },
+          {
+            "name": "tenant_802",
+            "type": "string",
+            "nullable": true,
+            "unit": {
+              "name": null,
+              "status": "unknown",
+              "evidence_ids": []
+            },
+            "statistics": {
+              "row_count": 49,
+              "missing_count": 0,
+              "distinct_nonmissing": 2,
+              "invalid_type_count": 0,
+              "numeric_summary": null
+            },
+            "observed_literal_codes": {
+              "site0": 17,
+              "site1": 32
+            },
+            "description": "Synthetic physical declaration; no operational/business interpretation"
+          },
+          {
+            "name": "code_802",
+            "type": "string",
+            "nullable": true,
+            "unit": {
+              "name": null,
+              "status": "unknown",
+              "evidence_ids": []
+            },
+            "statistics": {
+              "row_count": 49,
+              "missing_count": 0,
+              "distinct_nonmissing": 2,
+              "invalid_type_count": 0,
+              "numeric_summary": null
+            },
+            "observed_literal_codes": {
+              "A": 17,
+              "B": 32
+            },
+            "description": "Synthetic physical declaration; no operational/business interpretation"
+          },
+          {
+            "name": "tag_802",
+            "type": "string",
+            "nullable": true,
+            "unit": {
+              "name": null,
+              "status": "unknown",
+              "evidence_ids": []
+            },
+            "statistics": {
+              "row_count": 49,
+              "missing_count": 11,
+              "distinct_nonmissing": 3,
+              "invalid_type_count": 0,
+              "numeric_summary": null
+            },
+            "observed_literal_codes": {
+              "": 11,
+              "tag1": 14,
+              "tag2": 12,
+              "tag0": 12
+            },
+            "description": "Synthetic physical declaration; no operational/business interpretation"
+          }
+        ]
+      }
+    ],
+    "relationships": [
+      {
+        "id": "link_v5_eval_B_1",
+        "from_table": "child_v5_eval_B_1",
+        "from_columns": [
+          "tenant_802",
+          "ref_802"
+        ],
+        "to_table": "parent_v5_eval_B_1",
+        "to_columns": [
+          "tenant_802",
+          "ref_802"
+        ],
+        "statistics": {
+          "from_rows": 49,
+          "to_rows": 32,
+          "active_reference_rows": 49,
+          "missing_reference_rows": 0,
+          "no_reference_rows": 0,
+          "missing_parent_rows": 1,
+          "ambiguous_parent_rows": 0,
+          "matched_parent_rows": 48,
+          "left_join_rows": 49,
+          "comparison": "exact_lexical_composite_equality",
+          "semantic_parent_verified": false
+        }
+      }
+    ],
+    "capture": {
+      "link_v5_eval_B_1": {
+        "status": "complete_for_selected_parents",
+        "child_count_allowed": true,
+        "relationship_definition_sha": "123bff46a82df955cd370d58792fd0e7d7130e4516b44e22c21901c740162ddb"
+      }
+    },
+    "source_context": {
+      "source_kind": "controlled_synthetic",
+      "family": "v5_eval_B_1",
+      "period": {
+        "start_inclusive": "2026-08-12",
+        "end_exclusive": "2026-08-13",
+        "timezone": "synthetic coordinate only"
+      },
+      "table_rows": {
+        "parent_v5_eval_B_1": 32,
+        "child_v5_eval_B_1": 49
+      }
+    },
+    "unknown": [
+      "business meaning of literal codes",
+      "business duration or common clock",
+      "online availability, leakage and operational usefulness"
+    ],
+    "existing_definitions": [],
+    "supported_ops": [
+      "column",
+      "literal",
+      "is_missing",
+      "subtract",
+      "divide",
+      "eq",
+      "lt",
+      "lte",
+      "gt",
+      "gte",
+      "and",
+      "datetime_diff",
+      "convert_unit",
+      "child_count",
+      "parent_match_count",
+      "conditional_count",
+      "child_sum",
+      "group_count"
+    ],
+    "confirmed_evidence": [],
+    "task_kind": "discovery"
+  }
+}

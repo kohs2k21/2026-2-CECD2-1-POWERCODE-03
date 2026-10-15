@@ -1,0 +1,25 @@
+{
+  "id": "eval_A_actual_2_0_numeric_reference_comparison",
+  "raw_output": "{\"v\":\"1\",\"feature\":\"fv5_bff9b1b7ac29197142e5078d\",\"sha\":\"bf17b3de4423aa30707d14ad66804553c75a07c26773afd999a4825739372169\",\"role\":\"SR\",\"state\":\"no_applicable\",\"basis\":\"none\",\"condition\":null,\"evidence\":[],\"needed\":[],\"reason\":\"The verified feature type is Boolean, so the requested numeric p95 comparison does not apply. Known range [False, True]. No extra reference evidence is required.\"}",
+  "raw_sha": "0156efc9e76a0f30a0ceefb60697cf2519cfaf628b69ee3bd564111717565840",
+  "original_input_sha": "1806cee44427968431229d5d0d9402a710ff91b1ffc0c5af1cf43709170bdff5",
+  "prediction": {
+    "v": "1",
+    "feature": "fv5_bff9b1b7ac29197142e5078d",
+    "sha": "bf17b3de4423aa30707d14ad66804553c75a07c26773afd999a4825739372169",
+    "role": "SR",
+    "state": "no_applicable",
+    "basis": "none",
+    "condition": null,
+    "evidence": [],
+    "needed": [],
+    "reason": "The verified feature type is Boolean, so the requested numeric p95 comparison does not apply. Known range [False, True]. No extra reference evidence is required."
+  },
+  "validation": {
+    "passed": true,
+    "schema_passed": true,
+    "errors": [],
+    "policy": "rule-grounding-4.1.0",
+    "direct_meaning_review_required": true
+  }
+}

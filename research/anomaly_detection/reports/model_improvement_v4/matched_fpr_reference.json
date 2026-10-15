@@ -1,0 +1,30 @@
+{
+  "methods": [
+    "if_global",
+    "if_adapter",
+    "if_ensemble",
+    "kmeans_global",
+    "kmeans_adapter",
+    "kmeans_ensemble"
+  ],
+  "margin_cutoffs": [
+    0.45819758912457775,
+    0.5599464536473442,
+    0.46497549700578134,
+    0.02623812218867215,
+    18.54062467690738,
+    5.0491473010381345
+  ],
+  "normal_reference": "v4 fresh confirmation normal controls only",
+  "target_normal_fpr": 0.01,
+  "normal_windows": 23816,
+  "confirmation_realized_fpr": [
+    0.009993281827342963,
+    0.009993281827342963,
+    0.009867316090023514,
+    0.010035270406449446,
+    0.010035270406449446,
+    0.010035270406449446
+  ],
+  "purpose": "Equal-budget diagnosis, not production threshold or reselection"
+}

@@ -1,0 +1,35 @@
+{
+  "inputs": {
+    "data/evaluation/manifest.json": "71fb8115dc2b9ddcac6408167a8e0f89939e060bbdd5c516339ffe88b9473ce4",
+    "reports/evaluation_v2_work/inputs.json": "438d64008d831d7417e72023abd2ab9fc00ac6b24eb480d2f7db0a35c55e31d7",
+    "reports/model_research_v7/selection.json": "ff6a584a72aa3cb35432ad9b2c2568f3e1d2b9c1f75a02f3a835c7f24d2c5e41"
+  },
+  "data_sha256": "8147e9e279ae10e39c1b63f72bd6b0b4b6ed1bbfc693515e4ecc59624d4857ef",
+  "code_sha256": {
+    "features.py": "b7747c15b8a3d675b5707f8a740ab4ed6ad66cebb459ef84ea882241b0ec5c24",
+    "models.py": "e1753344e3e0ac9e225d419b5d941fb2e18bd4514a0dfdf7403d39376feb9455",
+    "data.py": "c668d6d6a382bc7b28eb21bf62cb0724bd931a7862ffaba3a892225d4bb304f0",
+    "run.py": "2be67f1b8ec4ea47a67cabaf6fc6c6fab1b2085cde74bfe96a7ac23d8b5e0b55"
+  },
+  "normal_reference_windows": {
+    "train": 9593,
+    "calibration": 11558,
+    "threshold": 10358
+  },
+  "normal_source_rows": {
+    "train": 7510,
+    "calibration": 2468,
+    "threshold": 2452
+  },
+  "normal_source_templates": {
+    "train": 4448,
+    "calibration": 1952,
+    "threshold": 1917
+  },
+  "fresh_validation_seed": 10170042,
+  "search_cases": 1080,
+  "confirmation_cases": 1080,
+  "conditional_reference_fit_only_on_normal_train": true,
+  "normal_replay_identical_to_v7": true,
+  "original_benchmark_not_blind": true
+}

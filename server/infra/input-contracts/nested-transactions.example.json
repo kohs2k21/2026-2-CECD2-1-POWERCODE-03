@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "streams": [
+    {"layer": "T", "path": ["transaction"]},
+    {"layer": "P", "path": ["processes"], "inherit": {"TRANSACTION_ID": ["transaction", "TRANSACTION_ID"]}},
+    {"layer": "M", "path": ["messages"], "inherit": {"TRANSACTION_ID": ["transaction", "TRANSACTION_ID"]}},
+    {"layer": "B", "path": ["bodies"]}
+  ]
+}

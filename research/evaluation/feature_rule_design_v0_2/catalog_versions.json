@@ -1,0 +1,28 @@
+{
+  "existing71": {
+    "definitions": 71,
+    "source": "data/eda/feature_rule_refinement_v4/20261013T191647+0900/definition_usage71_review.json",
+    "current_v5_remeasurement": false
+  },
+  "v4_actual4": {
+    "definitions": 4,
+    "source": "data/eda/feature_rule_refinement_v4/20261013T191647+0900/review/adopted_new_features.json",
+    "current_v5_remeasurement": false
+  },
+  "v5_actual4": {
+    "definitions": 4,
+    "source": "data/eda/feature_rule_refinement_v5/20261014T014811+0900/review/adopted_new_features.json",
+    "code_registry_ids": [
+      "fv5_780b4b24367499347adf9902",
+      "fv5_bff9b1b7ac29197142e5078d",
+      "fv5_26a81708b085fd6ae4c4ddd4",
+      "fv5_819edb723e9822da01012602"
+    ],
+    "current_v5_remeasurement": true
+  },
+  "v5_synthetic10": {
+    "definitions": 10,
+    "not_counted_as_real": true
+  },
+  "all_catalogs_separate_source_versions_not_added": true
+}

@@ -1,0 +1,27 @@
+{
+  "inputs": {
+    "data/evaluation/manifest.json": "71fb8115dc2b9ddcac6408167a8e0f89939e060bbdd5c516339ffe88b9473ce4",
+    "reports/evaluation_v2_work/inputs.json": "438d64008d831d7417e72023abd2ab9fc00ac6b24eb480d2f7db0a35c55e31d7",
+    "reports/model_research_v7/selection.json": "ff6a584a72aa3cb35432ad9b2c2568f3e1d2b9c1f75a02f3a835c7f24d2c5e41"
+  },
+  "code_sha256": "ebaf841556eb8fd9963f62a0e82739d7e816b9faa8051a18a336c6d27017f4f9",
+  "preselection_bugfix": {
+    "previous_code_sha256": "ca9a540f62eddc17eec9e02d513845fce96b2cb38d06a325a78cdd5e3bc4934c",
+    "change": "Trusted legacy __main__ class aliases only during loading; canonical classes in new export; no data/scoring change",
+    "selection_existed": false,
+    "development_data_unchanged": true
+  },
+  "data_sha256": "9f235f8c74299b5cd75a1336c448e97db11b8ee9f558a5abe3724acc17795e1e",
+  "fresh_seed": 14170042,
+  "search_cases": 1080,
+  "confirmation_cases": 1080,
+  "normal_calibration_windows": 71573,
+  "normal_threshold_windows": 71636,
+  "normal_calibration_cases": 2160,
+  "normal_threshold_cases": 2160,
+  "known_normal_reference": "Earlier v8/v9 synthetic normal controls, now training calibration inputs, not held-out validation.",
+  "tree_center_fit_source_holdout_unchanged": true,
+  "threshold_calibration_source_template_overlap_with_test": true,
+  "normal_controls_not_original_final_normal_csv": true,
+  "not_blind_original_test": true
+}

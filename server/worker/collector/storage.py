@@ -7,11 +7,9 @@ import json
 import math
 import uuid
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
 from typing import Any, Literal, Mapping
 
-from pg_queue import enqueue
 
 Layer = Literal["T", "P", "M"]
 
@@ -105,10 +103,10 @@ def ingest_observation(
     source_revision_token: str | None = None,
     benchmark_run_id: str | None = None,
 ) -> IngestResult:
-    """투영 관측값·계층별 행·탐지 메시지를 하나의 트랜잭션에 기록한다.
+    """투영 관측값·계층별 행·변수 계산 메시지를 하나의 트랜잭션에 기록한다.
 
     호출자는 검증된 source, 버전이 반영된 dedup_key, 실행 식별과 revision을 제공한다.
-    실행 식별이 불명확하면 관측값은 보존하되 탐지 큐에는 넣지 않는다.
+    실행 식별이 불명확하면 관측값은 보존하되 변수 계산 큐에는 넣지 않는다.
     """
     if not isinstance(source_id, uuid.UUID) or not isinstance(dedup_key, str) or not dedup_key.strip():
         raise ValueError("source_id와 비어 있지 않은 dedup_key가 필요하다")
@@ -170,13 +168,6 @@ def ingest_observation(
                 (observation_id, *(typed[field] for field in columns)),
             )
         if detection_eligible:
-            message = {
-                "schemaVersion": 1,
-                "eventId": str(uuid.uuid4()),
-                "observationId": str(observation_id),
-                "enqueuedAt": datetime.now(timezone.utc).isoformat(),
-            }
-            if benchmark_run_id is not None:
-                message["benchmarkRunId"] = benchmark_run_id
-            enqueue(conn, "detection", message)
+            from detector.jobs import enqueue_observation
+            enqueue_observation(conn, observation_id, benchmark_run_id=benchmark_run_id)
     return IngestResult(observation_id, True, detection_eligible)

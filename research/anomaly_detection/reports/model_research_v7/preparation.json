@@ -1,0 +1,42 @@
+{
+  "inputs": {
+    "data/evaluation/manifest.json": "71fb8115dc2b9ddcac6408167a8e0f89939e060bbdd5c516339ffe88b9473ce4",
+    "reports/evaluation_v2_work/inputs.json": "438d64008d831d7417e72023abd2ab9fc00ac6b24eb480d2f7db0a35c55e31d7",
+    "reports/model_improvement_v4/selection.json": "40c589a09392d1f197b0ea434156575a6d763ef116b88b79760ede9174d22d4f"
+  },
+  "data_sha256": "6827a8574912c349da2e4d4f262682e3fc21c2f2a5ed5b143c3685fa8689be50",
+  "code_sha256": {
+    "features.py": "d480b78b21d9f263747c15534b83a78be5a259a28ba2a63f31a24e4a439b3659",
+    "models.py": "2ddddbd10c56f93ad3d14d11ed111e1f9f9f3e12866fc9af85d2e5505b21e529",
+    "run_matched.py": "2e00a75b54917856c04307e15232e29feb68745604378e56409d228b8abac909"
+  },
+  "normal_references": [
+    {
+      "partition": "train",
+      "episodes": 360,
+      "windows": 9593,
+      "source_templates": 4448,
+      "central_sampling": true
+    },
+    {
+      "partition": "calibration",
+      "episodes": 432,
+      "windows": 11558,
+      "source_templates": 1952,
+      "central_sampling": true
+    },
+    {
+      "partition": "threshold",
+      "episodes": 384,
+      "windows": 10358,
+      "source_templates": 1917,
+      "central_sampling": true
+    }
+  ],
+  "search_cases": 720,
+  "confirmation_cases": 720,
+  "validation_seed": 9170042,
+  "reference_source_pool_disjoint_from_reserved_validation_test_templates": true,
+  "normal_source_support_not_inflated_by_replay": true,
+  "change": "Central-duration and sparse/dense normal replay matching; generator-domain adaptation only."
+}

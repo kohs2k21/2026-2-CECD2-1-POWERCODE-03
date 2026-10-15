@@ -1,0 +1,64 @@
+{
+  "package_version": "0.1",
+  "issue": 40,
+  "purpose": "feature_and_rule_design_research_demo",
+  "base": {
+    "model_name": "Qwen/Qwen3.6-27B",
+    "revision": "6a9e13bd6fc8f0983b9b99948120bc37f49c13e9",
+    "actual_model_class": "Qwen3_5ForConditionalGeneration",
+    "local_path_environment_variable": "RULE_MODEL_BASE_PATH",
+    "metadata_sha256": {
+      "config.json": "69db4eb7196bc8190813231b3018ca05d8c2e3abc7b1af19d55c157af44a9d9c",
+      "model.safetensors.index.json": "a8ad2c26fb707ff8c245806315b03e3b4b74595528492423af5dae0ce39b4d9b",
+      "tokenizer_config.json": "5186f0defcd7f232382c7f0aebcd2252d073bb921ab240e407b7ae8745d2b29b",
+      "chat_template.jinja": "e84f32a23fdda27689f868aa4a1a5621f41133e51a48d7f3efcbea2839574259"
+    },
+    "weights_included": false,
+    "full_base_weight_rehash_performed": false
+  },
+  "adapter": {
+    "path": "research/models/rule_generator_v0_1/adapter",
+    "weights": {
+      "path": "research/models/rule_generator_v0_1/adapter/adapter_model.safetensors",
+      "sha256": "700e6fd4f7fc8baae6b9d643c7abe78f8cd14c26a1c0d844df0eccda76eed9ee",
+      "bytes": 95136344
+    },
+    "config": {
+      "path": "research/models/rule_generator_v0_1/adapter/adapter_config.json",
+      "sha256": "e92f7ed9146bc87777dc8775888374919d43554e69334e50bf6552bc525e0df5"
+    },
+    "fixed": true,
+    "config_path_relocated": true,
+    "original_config_sha256": "190174b9bcdb6e5964e302189dcbc57e678c5aa4c2188a366ca34529e27b83c0"
+  },
+  "evaluation_path": "research/evaluation/rule_generator_v0_1",
+  "publication_source_context": {
+    "path": "research/models/rule_generator_v0_1/source_snapshot.json",
+    "sha256": "594c0c3c113febc78d03091dbeeed9d389f519eeb74045ff4aa0c7b9ed84acf3"
+  },
+  "generation": {
+    "NF4_double_quant": true,
+    "compute_dtype": "bf16",
+    "thinking": false,
+    "greedy": true,
+    "max_new_tokens": 512,
+    "grammar_forcing": false,
+    "maximum_input_tokens": 6144
+  },
+  "initial_response_cap": 32,
+  "repair_response_cap": 16,
+  "maximum_repairs_per_input": 1,
+  "new_training": false,
+  "new_feature_discovery": false,
+  "anomaly_execution": false,
+  "scope": "32 frozen aggregate development inputs; arbitrary new sources rejected",
+  "pinned_package_assets": {
+    "research/models/rule_generator_v0_1/v2_system.txt": "c4aa564f83165b4903832eea63b1dc85c501759c648bada9ce5bcd7483556211",
+    "research/models/rule_generator_v0_1/output_contract.json": "3b79733247b624b4287036735dd662917e9553e6ac969eda9c8f52b98dc0cf8b",
+    "research/models/rule_generator_v0_1/implementation/v1_validator.py": "41cf7b93b949ec8d78a90529443436d1aa56764b82752e8a07848551773077dc",
+    "research/models/rule_generator_v0_1/implementation/teacher_semantics.py": "bf078532990f07fa29b478aba3dc4453ea5078407ba94ce9fe1862549be09812",
+    "research/models/rule_generator_v0_1/source_snapshot.json": "594c0c3c113febc78d03091dbeeed9d389f519eeb74045ff4aa0c7b9ed84acf3",
+    "research/evaluation/rule_generator_v0_1/feature_catalog.json": "6ee55ee1539b21335d01c18401fce89ca51828d85f83443be3641423505bf2c2",
+    "research/evaluation/rule_generator_v0_1/example_inputs.jsonl": "dca95a90d66e9eb19d585742b701eb9daec7354a8163cd01f1ef023154ac44de"
+  }
+}

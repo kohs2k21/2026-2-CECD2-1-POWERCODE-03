@@ -17,6 +17,7 @@ export const detectionPages = [
   { path: "/detection/evaluation", label: "성능 평가·비교", group: "실험" },
   { path: "/detection/versions", label: "운영 버전 관리", group: "운영" },
   { path: "/detection/collection", label: "데이터 수집 현황", group: "운영" },
+  { path: "/detection/pipeline", label: "학습·탐지 운영", group: "운영" },
 ] as const;
 const knownPaths: string[] = [
   "/operations",

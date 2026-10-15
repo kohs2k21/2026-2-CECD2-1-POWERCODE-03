@@ -778,6 +778,8 @@ class Engine:
                     "- 봇 초안: 이후 제목·본문 자동 덮어쓰기 없음\n")
                 created = self.g.create_draft(branch, meta["base"], seed_title, seed_body, people)
                 owned.append(created)
+        # PR lookup may race with cancellation or explicit reopening; do not overwrite it.
+        issue = self.g.issue(number)
         correct = [p for p in owned if p["base"]["ref"] == meta["base"]]
         merged = max((p for p in correct if p.get("merged_at")),
                      key=lambda p: p["merged_at"], default=None)
@@ -808,7 +810,7 @@ class Engine:
             properties["Pull Request"] = prop("url", merged["html_url"])
             saved["completed"] = True
         elif issue.get("state") == "closed":
-            # Issue closure still starts cleanup. Notion owns task status and completion date.
+            # Issue closure still starts cleanup; completion date remains Notion-owned.
             if correct:
                 properties["Pull Request"] = prop("url", correct[0]["html_url"])
         elif opened:
@@ -818,6 +820,10 @@ class Engine:
         else:
             if not saved.get("completed"):
                 self.g.ensure_branch(branch, meta["base"])
+        # Reopening or cancellation during reconciliation must win over the earlier snapshot.
+        issue = self.g.issue(number)
+        if issue.get("state") == "closed" and issue.get("state_reason") != "not_planned":
+            properties["상태"] = prop("select", "완료")
         # Don't clear a new request or overwrite metadata when page changed during network I/O.
         fresh = self.n.get(page_id)
         if fresh.get("last_edited_time") == page.get("last_edited_time"):

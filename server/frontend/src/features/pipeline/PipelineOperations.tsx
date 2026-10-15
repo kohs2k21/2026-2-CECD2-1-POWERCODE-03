@@ -12,6 +12,7 @@ import "./pipeline.css";
 import { consumeDecisionStream } from "../../services/api/decision-stream.api";
 
 import { InputControls } from "./InputControls";
+import { DecisionDiagnostics } from "./DecisionDiagnostics";
 
 type JobKind = PipelineJob["kind"];
 type JobMap = Partial<Record<JobKind, PipelineJob>>;
@@ -416,6 +417,7 @@ export function PipelineOperations() {
                 <small>모드 {decision.evidence?.requestedMode ?? '이전 구성'} · 실제 완료 경로 {decision.evidence?.actualPaths?.join(', ') ?? '기록 없음'} ·
                   {decision.evidence?.anomalous === true ? '이상 확인' : decision.evidence?.anomalous === false ? '선택 경로 정상' : '최종 정상 여부 미확인'}</small>
                 <small>Rule {decision.ruleStatus} · IF {decision.mlStatus} · 점수 {decision.anomalyScore ?? "미측정"}</small>
+                <DecisionDiagnostics decision={decision} />
                 <button onClick={() => void explain(decision)}>저장된 근거 설명 요청</button>
                 {explanations[decision.id] && <><JobState job={explanations[decision.id]} />
                   {explanations[decision.id].resultSummary?.facts?.map(fact => <p key={fact.id}>{fact.name}: {JSON.stringify(fact.value)}</p>)}

@@ -88,6 +88,8 @@ export type ProcessDecision = {
   ruleStatus: string; mlStatus: string; decisionCode: string | null;
   anomalyScore: string | null; decidedAt: string;
   evidence?: {anomalous?: boolean | null; requestedMode?: string; actualPaths?: string[];
+    rules?: {reason?: string; result?: string}[];
+    models?: {reason?: string}[];
     input?: {mode: "api" | "csv"; runId: string; configurationScope: string};
     demo?: {historicalReplay: boolean; runKey: string; scope: string};
     ruleSeverities?: string[]; detectionPolicy?: {mode: string; deadlineMs: number; combination: string}};

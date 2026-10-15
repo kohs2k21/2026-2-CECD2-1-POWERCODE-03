@@ -137,3 +137,19 @@ docker compose exec collector python -m collector.report \
 ## API 미사용 실시간 데모
 
 CSV/SQL 입력을 초당 N개 P로 실제 Detector에 전달하는 CPU 구성과 서버의 확정 CSV 파일명은 [DEMO_REPLAY.md](DEMO_REPLAY.md)를 따른다. `compose.demo.yaml`은 별도 실행 파일이며 GPU/Base/고객 API 토큰 없이 사용할 수 있다.
+
+## 502와 판정 unavailable 확인
+
+`502`가 계속되면 `docker compose ps`와 `docker compose logs --since 10m --tail 80 web api`를 확인한다. API 중지·재시작·연결 실패를 구분해야 하며 HTTP 상태만으로 원인을 확정하지 않는다. 컨테이너 재생성으로 API IP가 바뀌는 경우를 위해 Nginx는 Docker DNS를 5초 간격의 유효 기간으로 다시 조회한다. 주소 전환 중에는 일시적인 실패가 가능하다.
+
+```bash
+# API 직접 연결과 프록시를 통한 연결을 각각 확인한다.
+docker compose exec web wget -qO- http://api:5001/health/database
+docker compose exec web wget -qO- http://127.0.0.1/health/database
+```
+
+프록시 수정은 `docker compose build web` 후 `docker compose up -d --no-deps web`으로 반영한다. API/Worker/LLM 재시작이나 DB 마이그레이션은 필요하지 않다.
+
+`unavailable`은 판정에 필요한 경로가 완료되지 않았음을 뜻한다. 운영 화면과 저장 판정 화면은 기존 evidence의 `deadline_exceeded`, `worker_busy`, 피처 부족·모델 파일 검증 실패 등의 사유를 표시한다. 과거 사유가 없는 결과는 추정하지 않으며, 이미 확정된 판정은 수정하지 않는다. 502와 unavailable이 같은 원인이라고 가정하지 않는다.
+
+로컬 Docker 회귀 검증은 `python3 server/infra/tests/integration-proxy-recreation.py`로 실행한다. 사전에 로컬 `powercode-web:latest`, `powercode-worker:local` 이미지를 준비한다. `PROXY_TEST_WEB_IMAGE`, `PROXY_TEST_API_IMAGE`로 다른 로컬 이미지를 지정할 수 있다. 격리된 네트워크·임시 HTTP 서버를 만들고, API 주소를 강제로 바꾼 뒤 프록시 자동 복구와 경로·쿼리·인증·POST·SSE 전달을 확인하고 정리한다. 실제 DB/GPU/서버에는 연결하지 않는다.

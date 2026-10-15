@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { createPipelineJob, fetchPipelineJob, fetchProcessDecisions, type PipelineJob, type ProcessDecision } from '../../services/api/pipeline.api';
 import { consumeDecisionStream } from '../../services/api/decision-stream.api';
 import './pipeline.css';
+import { DecisionDiagnostics } from './DecisionDiagnostics';
 
 export function SavedDecisions() {
   const [decisions,setDecisions] = useState<ProcessDecision[]>([]);
@@ -48,6 +49,7 @@ export function SavedDecisions() {
       {decision.evidence?.demo && <p>과거 데이터 재생 데모 · {decision.evidence.demo.runKey}</p>}
       <h3>{decision.decisionCode ?? '판정 코드 없음'}</h3>
       <p>{decision.status} · Rule {decision.ruleStatus} · ML {decision.mlStatus}</p>
+      <DecisionDiagnostics decision={decision} />
       <p>{decision.evidence?.anomalous===true ? '이상 확인' : decision.evidence?.anomalous===false ? '선택 경로 정상' : '정상 여부 미확인'} ·
         모드 {decision.evidence?.requestedMode ?? '이전 구성'}</p>
       <p>{new Date(decision.decidedAt).toLocaleString()}</p>

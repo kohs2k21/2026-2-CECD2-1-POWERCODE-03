@@ -1,0 +1,13 @@
+**/node_modules
+**/dist
+/backend/data
+**/.env
+**/.env.*
+**/__pycache__
+**/*.pyc
+**/*.tsbuildinfo
+**/.venv
+**/venv
+**/.research-runtime
+**/*.log
+**/.DS_Store

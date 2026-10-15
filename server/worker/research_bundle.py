@@ -92,10 +92,22 @@ def policy(root: Path):
     return rule_policy
 
 
-if __name__ == "__main__":
+def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--repository", type=Path, default=Path(__file__).resolve().parents[2])
+    parser.add_argument("--repository", type=Path)
     parser.add_argument("--output", type=Path, required=True)
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
+    if args.repository is None:
+        args.repository = next(
+            (parent for parent in Path(__file__).resolve().parents
+             if (parent / "research/models/feature_rule_design_v0_2/model_manifest.json").is_file()),
+            None,
+        )
+        if args.repository is None:
+            parser.error("--repository is required when the repository cannot be found beside this script")
     build(args.repository, args.output)
     print("research runtime bundle created")
+
+
+if __name__ == "__main__":
+    main()

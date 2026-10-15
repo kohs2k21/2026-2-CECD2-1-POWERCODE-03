@@ -3,6 +3,7 @@ import { getDatabasePool } from '../config/database.js';
 import { authenticateToken, AuthenticatedRequest, requireAdmin } from '../middleware/auth.js';
 import crypto from 'node:crypto';
 import { UserRepository } from '../repository/userRepository.js';
+import { streamDecisionEvents } from '../services/decisionStream.js';
 
 const router = Router();
 router.use(authenticateToken as any);
@@ -19,22 +20,14 @@ router.get('/events', route(async (req, res) => {
   if (typeof cursor !== 'string' || !/^(0|[1-9]\d{0,18})$/.test(cursor) || BigInt(cursor) > 9223372036854775807n) {
     res.status(400).json({code:'invalid_event_cursor'});return;
   }
-  let after = cursor;
-  let closed = false;
-  let busy = false;
-  res.setHeader('Content-Type','text/event-stream');
-  res.setHeader('Cache-Control','no-cache');
-  res.setHeader('X-Accel-Buffering','no');
-  res.flushHeaders();
-  const poll = async () => {
-    if (closed || busy) return;
-    busy = true;
-    try {
+  await streamDecisionEvents(res, {
+    after: cursor,
+    authorize: async () => {
       const user = await UserRepository.getInstance().getById(req.user!.id);
-      if (!user || user.userType !== req.user!.userType || user.email !== req.user!.email ||
-          (req.tokenExpiresAt !== undefined && Date.now() >= req.tokenExpiresAt)) {
-        res.end();return;
-      }
+      return !!user && user.userType === req.user!.userType && user.email === req.user!.email &&
+        (req.tokenExpiresAt === undefined || Date.now() < req.tokenExpiresAt);
+    },
+    readEvents: async (after) => {
       const result = await getDatabasePool().query(`SELECT e.id::text AS "eventId",d.id,d.status,
           d.config_version_id AS "configVersionId",d.rule_status AS "ruleStatus",d.ml_status AS "mlStatus",
           d.decision_code AS "decisionCode",d.anomaly_score AS "anomalyScore",d.evidence,
@@ -42,20 +35,9 @@ router.get('/events', route(async (req, res) => {
           FROM run_decision_events e JOIN run_process_decisions d ON d.id=e.decision_id
           JOIN data_observations o ON o.id=d.process_observation_id
           WHERE e.id>$1::bigint ORDER BY e.id LIMIT 100`,[after]);
-      for (const event of result.rows) {
-        if (closed) break;
-        const writable = res.write(`id: ${event.eventId}\nevent: decision\ndata: ${JSON.stringify(event)}\n\n`);
-        after = event.eventId;
-        if (!writable) {res.end();break;}
-      }
-      if (!closed) res.write(': keepalive\n\n');
-    } catch {
-      res.end();
-    } finally {busy = false;}
-  };
-  const timer = setInterval(() => {void poll();},1000);
-  res.on('close',()=>{closed=true;clearInterval(timer);});
-  await poll();
+      return result.rows;
+    },
+  });
 }));
 
 router.get('/collector/metrics', requireAdmin as any, route(async (req,res) => {

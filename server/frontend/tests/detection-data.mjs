@@ -77,7 +77,7 @@ await assert.rejects(pending, (error) => error.name === "AbortError");
 const production = await getDefaultGateway();
 await assert.rejects(
   production.read(),
-  (error) => error.status === 503,
+  (error) => error.status === 503 && error.code === "detection_gateway_unavailable" && error.message.includes("아직 구현되지"),
   "outside DEV no fixture fallback",
 );
 console.log(

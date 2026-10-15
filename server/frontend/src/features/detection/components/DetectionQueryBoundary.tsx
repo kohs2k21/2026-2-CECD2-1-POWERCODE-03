@@ -1,5 +1,7 @@
 import type { UseQueryResult } from "@tanstack/react-query";
 import type { ReactNode } from "react";
+import { Link } from "react-router-dom";
+import { HttpError } from "../../../services/api/client";
 import {
   EmptyState,
   ErrorState,
@@ -15,6 +17,11 @@ export const DetectionQueryBoundary = ({
 }) => {
   if (query.isPending)
     return <LoadingState>탐지 관리 데이터를 불러오는 중...</LoadingState>;
+  if (!query.data && query.error instanceof HttpError && query.error.code === "detection_gateway_unavailable")
+    return <ErrorState title={query.error.message}>
+      <p>실제 데이터의 피처 생성·Rule 추천·학습·평가·입력 전환은 학습·탐지 운영 화면에서 진행할 수 있습니다.</p>
+      <Link to="/detection/pipeline">학습·탐지 운영으로 이동</Link>
+    </ErrorState>;
   if (!query.data)
     return (
       <ErrorState

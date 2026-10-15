@@ -142,6 +142,8 @@ CSV/SQL 입력을 초당 N개 P로 실제 Detector에 전달하는 CPU 구성과
 
 `502`가 계속되면 `docker compose ps`와 `docker compose logs --since 10m --tail 80 web api`를 확인한다. API 중지·재시작·연결 실패를 구분해야 하며 HTTP 상태만으로 원인을 확정하지 않는다. 컨테이너 재생성으로 API IP가 바뀌는 경우를 위해 Nginx는 Docker DNS를 5초 간격의 유효 기간으로 다시 조회한다. 주소 전환 중에는 일시적인 실패가 가능하다.
 
+`api` 로그의 `ERR_STREAM_WRITE_AFTER_END`와 `Restarting`은 종료된 SSE 응답에 다시 쓰면서 API가 반복 종료된 상황이다. 판정 스트림은 응답 버퍼가 차면 `drain`을 기다리고, 연결 종료·권한 철회·응답 오류 시 타이머와 대기를 정리한다. 소비자가 10초간 버퍼를 비우지 못하면 해당 연결만 닫는다. 이 수정은 `docker compose build api web`과 `docker compose up -d api web`으로 반영한다. DB 마이그레이션이나 학습 재실행은 필요하지 않다. `npm test`에 대량 판정 전송·조회 중 연결 종료·권한 철회·느린 소비자·비동기 응답 오류 HTTP 회귀 시험이 포함된다.
+
 ```bash
 # API 직접 연결과 프록시를 통한 연결을 각각 확인한다.
 docker compose exec web wget -qO- http://api:5001/health/database
@@ -149,6 +151,8 @@ docker compose exec web wget -qO- http://127.0.0.1/health/database
 ```
 
 프록시 수정은 `docker compose build web` 후 `docker compose up -d --no-deps web`으로 반영한다. API/Worker/LLM 재시작이나 DB 마이그레이션은 필요하지 않다.
+
+기존 탐지 관리 세부 화면의 `detection_gateway_unavailable` 안내는 아직 서버 조회가 연결되지 않은 화면을 뜻하며 API 장애를 뜻하지 않는다. 실제 공통 파이프라인의 피처·Rule·학습·평가·입력 전환은 `/detection/pipeline`, 저장 판정은 `/analysis/process-decisions`에서 진행한다. 미연동 화면은 해당 운영 화면으로 이동하는 링크를 제공하고 개발용 데이터를 운영 응답으로 대체하지 않는다.
 
 `unavailable`은 판정에 필요한 경로가 완료되지 않았음을 뜻한다. 운영 화면과 저장 판정 화면은 기존 evidence의 `deadline_exceeded`, `worker_busy`, 피처 부족·모델 파일 검증 실패 등의 사유를 표시한다. 과거 사유가 없는 결과는 추정하지 않으며, 이미 확정된 판정은 수정하지 않는다. 502와 unavailable이 같은 원인이라고 가정하지 않는다.
 

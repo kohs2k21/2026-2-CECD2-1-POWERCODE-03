@@ -23,9 +23,9 @@ export const createDevelopmentGateway = (
 export const unavailableGateway: DetectionGateway = {
   async read() {
     throw new HttpError(
-      "탐지 관리 조회 서비스에 연결되지 않았습니다.",
+      "이 탐지 관리 화면의 서버 연동은 아직 구현되지 않았습니다.",
       503,
-      "service_unavailable",
+      "detection_gateway_unavailable",
     );
   },
   async request() {

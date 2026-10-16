@@ -14,7 +14,8 @@ export const TRAINER_CAPABILITIES = {
 type Member = { name: string; position: number; expression: Record<string, unknown>; requiresFit: boolean };
 export function featureSetCapability(members: Member[]): { supported: boolean; reason: string | null } {
   if (!members.length || members.length > 32 || new Set(members.map(x => x.name)).size !== members.length ||
-      members.some((m, i) => m.position !== i || !/^[a-z][a-z0-9_]{1,63}$/.test(m.name))) return { supported: false, reason: 'invalid_feature_set' };
+      members.some((m, i) => m.position !== i || typeof m.name !== 'string' || m.name.trim() !== m.name ||
+        !/^[a-z][a-z0-9_]{1,63}$/.test(m.name))) return { supported: false, reason: 'invalid_feature_set' };
   for (const member of members) {
     const expression = member.expression;
     try { validateFeatureExpression(expression); } catch { return { supported: false, reason: 'unsupported_feature_definition' }; }

@@ -87,7 +87,7 @@ def _vector(features: Mapping[str, Any], names: Sequence[str]) -> list[float]:
 
 
 def train_iforest(rows: Sequence[Mapping[str, Any]], feature_names: Sequence[str],
-                  output_directory: str) -> dict[str, Any]:
+                  output_directory: str, *, preprocessing: dict | None = None) -> dict[str, Any]:
     """Train 분할 안의 별도 기준 행으로 P99 판정선을 보정한다."""
     names = list(feature_names)
     if not names or len(names) > 32 or len(set(names)) != len(names) or not all(
@@ -133,8 +133,11 @@ def train_iforest(rows: Sequence[Mapping[str, Any]], feature_names: Sequence[str
     fit_path = directory / "fit.joblib"
     metadata = {"formatVersion": FORMAT_VERSION, "sklearnVersion": sklearn.__version__,
                 "featureNames": names}
+    if preprocessing is not None:
+        from feature_fit import state_hash
+        metadata['preprocessingHash'] = state_hash(preprocessing)
     joblib.dump({**metadata, "forest": forest}, model_path)
-    joblib.dump({**metadata, "scaler": scaler}, fit_path)
+    joblib.dump({**metadata, "scaler": scaler, **({'preprocessing': preprocessing} if preprocessing is not None else {})}, fit_path)
     return {"modelPath": str(model_path), "fitPath": str(fit_path),
             "formatVersion": FORMAT_VERSION, "runtimeVersion": sklearn.__version__,
             "thresholdSpec": {"direction": "higher_is_anomaly", "value": str(boundary),
@@ -151,6 +154,12 @@ def _load_pair(model_path: str, fit_path: str, model_mtime: int, fit_mtime: int)
     for item in (model, fit):
         if item.get("formatVersion") != FORMAT_VERSION or item.get("sklearnVersion") != sklearn.__version__:
             raise ValueError("incompatible_model_runtime")
+    from feature_fit import state_hash
+    preprocessing = fit.get('preprocessing')
+    if model.get('preprocessingHash') != fit.get('preprocessingHash') or \
+            (preprocessing is not None and state_hash(preprocessing) != fit.get('preprocessingHash')) or \
+            (preprocessing is None and fit.get('preprocessingHash') is not None):
+        raise ValueError('preprocessing_hash_mismatch')
     names = model.get("featureNames")
     if not isinstance(names, list) or not names or names != fit.get("featureNames"):
         raise ValueError("model_feature_schema_mismatch")
@@ -181,6 +190,28 @@ def _prepared(model_reference: Mapping[str, Any]) -> tuple[Any, Any, tuple[str, 
 def prepare_iforest(model_reference: Mapping[str, Any]) -> None:
     """활성 구성의 파일을 메모리에 적재하고 포맷·버전·열 순서를 검사한다."""
     _prepared(model_reference)
+
+
+@lru_cache(maxsize=4)
+def _preprocessing(path: str, modified: int):
+    return joblib.load(path).get('preprocessing')
+
+
+def transform_iforest_features(model_reference, definitions, raw):
+    """Only called with artifact paths whose DB content hashes were verified."""
+    from feature_fit import transform, requires_fit, definitions_hash
+    from feature_runtime import calculate_features
+    _prepared(model_reference)
+    path = Path(model_reference['fitPath']).resolve(strict=True)
+    state = _preprocessing(str(path), path.stat().st_mtime_ns)
+    expected = model_reference.get('definitionsHash')
+    if expected is not None and expected != definitions_hash(definitions):
+        raise ValueError('preprocessing_definition_mismatch')
+    if state is not None:
+        return transform(definitions, raw, state)
+    if any(requires_fit(item['expression']) for item in definitions):
+        raise ValueError('preprocessing_state_required')
+    return calculate_features(definitions, raw)
 
 
 def score_iforest(model_reference: Mapping[str, Any], features: Mapping[str, Any]) -> float:

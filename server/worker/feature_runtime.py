@@ -39,6 +39,12 @@ def _validate_expression(expression: Any, depth: int) -> None:
     if not isinstance(expression, dict) or depth > 2:
         raise InvalidFeatureDefinition("invalid_expression")
     op = expression.get("op")
+    if op in {"group_median", "group_centered"} and depth == 0 and set(expression) == {"op", "groupBy", "value"}:
+        if expression["groupBy"] != "P.adapter_type" or not isinstance(expression["value"], dict) or \
+                expression["value"].get("op") in {"group_median", "group_centered"}:
+            raise InvalidFeatureDefinition("unsupported_fitted_feature")
+        _validate_expression(expression["value"], 0)
+        return
     if op == "derived" and depth == 0 and set(expression) == {"op", "ast", "outputType", "unit", "provenance"}:
         kind = validate_derived(expression["ast"])
         if kind not in {"number", "boolean"} or expression["outputType"] != kind or expression["unit"] not in {None, "count", "ratio", "boolean", "ms", "s", "us"}:
@@ -70,6 +76,8 @@ def _number(raw: Any) -> Decimal | None:
 
 
 def _evaluate(expression: dict[str, Any], row: Mapping[str, Any]) -> Decimal | None:
+    if expression["op"] in {"group_median", "group_centered"}:
+        raise InvalidFeatureDefinition("preprocessing_state_required")
     if expression["op"] == "derived":
         value = evaluate_derived(expression["ast"], row)
         return Decimal(int(value)) if isinstance(value, bool) else value

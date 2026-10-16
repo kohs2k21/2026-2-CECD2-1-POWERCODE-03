@@ -1,0 +1,21 @@
+{
+  "source_files_preserved_byte_for_byte": true,
+  "optional_imports_omitted_by_loader": [
+    "net_torch: import torch_geometric",
+    "dif: from torch_geometric.loader import DataLoader as pyGDataLoader",
+    "dif: from algorithms import net_torch (injected original net module)"
+  ],
+  "DeepIF-I_overrides": [
+    "representation StandardScaler.fit on train only; transform on inference",
+    "remove same-row-count train-cache shortcut",
+    "convert NumPy int seed to Python int (same seed value)"
+  ],
+  "unchanged": [
+    "official MLPnet/CERE",
+    "official DEAS scoring",
+    "official forest fitting and hyperparameter meaning",
+    "official random initialization"
+  ],
+  "EIF_adapter": "Official iForest tree constructor; same branch predicate/c_factor/128-tree addition order; vectorized sample traversal; exact leaf/path/score evidence in model-smoke.json",
+  "cost_scope": "local research implementations, not library or production benchmarks"
+}

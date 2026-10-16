@@ -1,0 +1,13 @@
+{
+  "version": "issue53-independent-propagated-v1",
+  "seeds": [11, 23, 47],
+  "delay_multipliers": [1.5, 2.0, 3.0],
+  "target_rows": 10,
+  "train_fraction": 0.7,
+  "validation_fraction": 0.15,
+  "failure_status": "F",
+  "failure_response_code": null,
+  "failure_semantics_evidence": "research/anomaly_detection/code/process_anomaly_pipeline/README.md:55; STATUS=F user-provided definition in existing research; not a customer outage label",
+  "parent_policy": "propagate_parent_end",
+  "run_adbench": true
+}

@@ -1,0 +1,13 @@
+{
+  "version": "process-synthetic-lab-v1",
+  "seeds": [11, 23, 47],
+  "delay_multipliers": [1.5, 2.0, 3.0],
+  "target_rows": 10,
+  "train_fraction": 0.7,
+  "validation_fraction": 0.15,
+  "failure_status": null,
+  "failure_response_code": null,
+  "failure_semantics_evidence": null,
+  "parent_policy": "strict_parent",
+  "run_adbench": true
+}

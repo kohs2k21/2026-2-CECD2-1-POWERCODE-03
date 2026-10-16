@@ -185,6 +185,10 @@ jobs:
         env:
           DATABASE_URL: postgresql://postgres:local-ci-only@127.0.0.1:5432/qa_pipeline
         run: python server/worker/tests/integration_switchable_inputs.py
+      - name: Trainer service fit, API and failure recovery contract
+        env:
+          PIPELINE_TEST_DATABASE_URL: postgresql://postgres:local-ci-only@127.0.0.1:5432/qa_trainer_service
+        run: python server/worker/tests/integration_trainer_service_contract.py
       - name: Shared input Collector role boundaries
         env:
           DATABASE_URL: postgresql://postgres:local-ci-only@127.0.0.1:5432/qa_pipeline

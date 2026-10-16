@@ -14,6 +14,7 @@ import psycopg
 from dotenv import load_dotenv
 
 import model_adapters
+from feature_fit import requires_fit
 from detector.input_reader import load_process_observation
 from feature_worker import active_config, active_source
 from pg_queue import ClaimedMessage, acknowledge, claim, fail
@@ -87,7 +88,10 @@ def process_detection_message(conn: Any, message: ClaimedMessage, root: Path | N
                 raise RuntimeError("detection_lease_lost")
             with conn.cursor() as cur:
                 feature_result=next((result[path] for path in ("rule","ml") if "featureValues" in result[path]),None)
-                if feature_result is not None and context["featureSetId"]:
+                # This cache key has no model/fit identity. Fitted values must remain
+                # local to the pinned configuration rather than pollute global rows.
+                fitted = any(requires_fit(item['expression']) for item in context['definitions'])
+                if feature_result is not None and context["featureSetId"] and not fitted:
                     from feature_runtime import input_manifest_hash
                     cur.execute("""INSERT INTO data_feature_materializations(observation_id,feature_set_id,
                         input_manifest_hash,values_json,missing_names) VALUES(%s,%s,%s,%s::jsonb,%s::jsonb)

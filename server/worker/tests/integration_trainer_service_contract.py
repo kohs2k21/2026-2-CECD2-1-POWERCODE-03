@@ -168,12 +168,32 @@ def verify(service, conn, spec):
     live=observe(conn,source_id,'trainer56-live-contract',live_raw)
     payload=enqueue_observation(conn,live.observation_id,config_id=config_id);conn.commit()
     message=claim(conn,'detection',message_id=uuid.UUID(payload['eventId']));conn.commit()
-    with patch.dict(os.environ,service.env):
+    computed_live=[]
+    def capture_compute(*args, **kwargs):
+        verdict=compute(*args, **kwargs)
+        computed_live.append(copy.deepcopy(verdict))
+        return verdict
+    with patch.dict(os.environ,service.env), patch('detector.computation.compute',side_effect=capture_compute):
         process_detection_message(conn,message,service.artifacts);conn.commit()
     expected_live=compute(context,live_raw,service.artifacts)
     stored=conn.execute('SELECT status,ml_status,anomaly_score FROM run_process_decisions WHERE process_observation_id=%s AND config_version_id=%s',
                         (live.observation_id,config_id)).fetchone()
-    assert stored[:2]==('complete','succeeded') and float(stored[2])==expected_live['ml']['score']
+    assert len(computed_live)==1, {'durable_compute_count':len(computed_live)}
+    actual_live=computed_live[0]
+    assert stored is not None, 'durable decision was not persisted'
+    assert stored[:2]==('complete','succeeded'), {'stored_status':stored[:2], 'durable_result':actual_live}
+    assert expected_live['status']=='complete' and expected_live['ml']['status']=='succeeded', {'direct_result':expected_live}
+    assert actual_live['ml']['score']==expected_live['ml']['score'], {
+        'durable_score':repr(actual_live['ml']['score']), 'direct_score':repr(expected_live['ml']['score'])}
+    assert actual_live['anomalous']==expected_live['anomalous'], {
+        'durable_anomalous':actual_live['anomalous'], 'direct_anomalous':expected_live['anomalous']}
+    # INSERT adapts a Python float as float8, then PostgreSQL casts to NUMERIC.
+    # Compare exact server-cast values, not a rounded stored value to the raw float.
+    expected_numeric=conn.execute('SELECT %s::double precision::numeric',
+                                  (expected_live['ml']['score'],)).fetchone()[0]
+    assert stored[2]==expected_numeric, {
+        'stored_numeric':str(stored[2]), 'expected_numeric':str(expected_numeric),
+        'raw_score':repr(expected_live['ml']['score'])}
     assert conn.execute('SELECT count(*) FROM data_feature_materializations WHERE feature_set_id=%s',(spec['featureSetId'],)).fetchone()[0]==0;conn.commit()
     for artifact in ['fitPath','modelPath']:
         original=Path(ref[artifact]).read_bytes()

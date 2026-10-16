@@ -1,3 +1,5 @@
+import { clearJobRequestKeys } from "../api/job-idempotency";
+
 const tokenStorageKey = "token";
 const expiredListeners = new Set<() => void>();
 export const subscribeSessionExpiry = (listener: () => void) => {
@@ -20,10 +22,12 @@ export const getStoredToken = (): string | null => {
 };
 
 export const storeToken = (token: string): void => {
+  if (getStoredToken() !== token) clearJobRequestKeys();
   window.localStorage.setItem(tokenStorageKey, token);
 };
 
 export const clearStoredToken = (): void => {
+  clearJobRequestKeys();
   window.localStorage.removeItem(tokenStorageKey);
 };
 

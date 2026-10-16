@@ -25,3 +25,10 @@
 .pipeline-card label.pipeline-policy-choice { display: flex; align-items: start; gap: 8px; line-height: 1.5; }
 .pipeline-card input[type="checkbox"] { width: auto; padding: 0; flex: 0 0 auto; margin-top: 3px; }
 .pipeline-review-row > div:first-child { display: block; min-width: 0; flex-shrink: 1; }
+.pipeline-job-result { border-top: 1px solid var(--hairline, #d9dfe7); padding: 12px 0; }
+.pipeline-job-result summary { cursor: pointer; overflow-wrap: anywhere; }
+.pipeline-job-result button + button { margin-left: 8px; }
+.pipeline-evaluation-status { display: grid; gap: 8px; font-size: 13px; }
+.pipeline-evaluation-status > div { display: flex; flex-wrap: wrap; gap: 6px 12px; }
+.pipeline-evaluation-status dt { font-weight: 600; }
+.pipeline-evaluation-status dd { margin: 0; overflow-wrap: anywhere; }

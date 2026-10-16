@@ -1,0 +1,17 @@
+{
+  "version": "process-synthetic-method-validation-v2",
+  "seeds": [11, 23, 47],
+  "delay_multipliers": [1.5, 2.0, 3.0],
+  "target_rows": 10,
+  "train_fraction": 0.7,
+  "validation_fraction": 0.15,
+  "scenarios": ["P01", "P02", "P03", "P04"],
+  "count_increments": [1, 2, 3],
+  "count_conservation_contract": true,
+  "run_noop_control": true,
+  "failure_status": "F",
+  "failure_response_code": null,
+  "failure_semantics_evidence": "Existing research README: user-provided STATUS F means explicit failure; response-code semantics unconfirmed, P01 response-bearing rows remain rejected",
+  "parent_policy": "propagate_parent_end",
+  "run_adbench": true
+}

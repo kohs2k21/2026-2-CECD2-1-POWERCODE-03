@@ -20,6 +20,10 @@ class ExperimentConfig:
     failure_response_code: str | None = None
     failure_semantics_evidence: str | None = None
     parent_policy: str = "strict_parent"
+    scenarios: tuple = ("P01", "P02", "P03")
+    count_increments: tuple = (1, 2, 3)
+    count_conservation_contract: bool = False
+    run_noop_control: bool = False
     run_adbench: bool = True
 
     def __post_init__(self):
@@ -49,11 +53,18 @@ class ExperimentConfig:
             raise ValueError("run_adbench must be bool")
         if self.parent_policy not in ("strict_parent", "propagate_parent_end"):
             raise ValueError("parent_policy must be strict_parent or propagate_parent_end")
+        if (not self.scenarios or len(set(self.scenarios)) != len(self.scenarios)
+                or not set(self.scenarios).issubset({"P01", "P02", "P03", "P04"})):
+            raise ValueError("scenarios must be unique supported scenario IDs")
+        if not self.count_increments or any(type(v) is not int or not 1 <= v < 2**53 for v in self.count_increments):
+            raise ValueError("count_increments must be positive exactly representable integers")
+        if type(self.count_conservation_contract) is not bool or type(self.run_noop_control) is not bool:
+            raise ValueError("count_conservation_contract and run_noop_control must be bool")
 
     @classmethod
     def from_dict(cls, value):
         value = dict(value)
-        for name in ("seeds", "delay_multipliers"):
+        for name in ("seeds", "delay_multipliers", "scenarios", "count_increments"):
             if name in value:
                 value[name] = tuple(value[name])
         return cls(**value)

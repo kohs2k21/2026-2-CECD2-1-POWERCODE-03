@@ -13,6 +13,7 @@ import numpy as np
 import pandas as pd
 
 from .config import ExperimentConfig
+from .controls import noop_report
 from .data import frame_hash, load_dataset, reference_mask, sha256
 from .evaluate import control_report, paired_score_rows, score_rows
 from .model import FrozenModel
@@ -81,9 +82,17 @@ def run(process_path, transaction_path, output_dir, config, *, source_commit):
         controls.to_csv(output / "base-predictions.csv", index=False)
         write_json(output / "control-report.json", control_report(test, controls))
         control_digest = frame_hash(controls)
+        noop = {"status": "disabled_by_config"}
+        if config.run_noop_control:
+            noop, noop_predictions = noop_report(output / "test-base.csv", controls, model, expected_frame=test)
+            write_json(output / "noop-control.json", noop)
+            noop_predictions.to_csv(output / "noop-predictions.csv", index=False)
+            if noop["status"] != "passed":
+                raise ValueError("C00 unchanged roundtrip changed predictions or scores")
         results, paired_results, trials, trial_digests = [], [], [], []
-        for scenario in ("P01", "P02", "P03"):
-            for severity in range(len(config.delay_multipliers)):
+        for scenario in config.scenarios:
+            levels = config.count_increments if scenario == "P04" else config.delay_multipliers
+            for severity in range(len(levels)):
                 for seed in config.seeds:
                     name = f"{scenario}-severity{severity + 1}-seed{seed}"
                     folder = output / name
@@ -138,6 +147,7 @@ def run(process_path, transaction_path, output_dir, config, *, source_commit):
         semantic = {"inputs": before, "config": config.to_dict(), "source_hashes": manifest["source_hashes"],
                     "partition_hashes": {key: frame_hash(value) for key, value in parts.items()},
                     "model_manifest": model.manifest, "control_prediction_hash": control_digest,
+                    "noop_control": noop,
                     "trials": trial_digests}
         write_json(output / "reproducibility.json", {"semantic_digest": digest_json(semantic),
                    "excludes": ["wall_clock_timing", "absolute_paths", "ADBench_network_probe"], "evidence": semantic})
@@ -146,6 +156,7 @@ def run(process_path, transaction_path, output_dir, config, *, source_commit):
                         semantic_digest=digest_json(semantic), model_status=model.manifest["model_status"],
                         final_teammate_model_validated=False, verified_normal_FPR_available=False,
                         production_HR_SR_composite_validated=False)
+        manifest["noop_control_status"] = noop["status"]
     except Exception as exc:
         manifest.update(status="failed", error_type=type(exc).__name__, error=str(exc), elapsed_seconds=time.perf_counter() - started)
         raise

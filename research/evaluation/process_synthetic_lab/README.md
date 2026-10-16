@@ -5,6 +5,7 @@
 - 실행 환경: `research/anomaly_detection/requirements.txt` 고정 의존성
 - 출력: 이 패키지의 Git 제외 `runs/` 아래 새 디렉터리; 원본·실행 결과·모델의 Git 추가 금지
 - 운영 API·DB·화면·CD·장기 추세/캐시 경로 변경 없음
+- 방법 검증 확장: `--config research/evaluation/process_synthetic_lab/config.method-validation.example.json`; 기존 설정/실험 보존
 
 ```powershell
 python -m research.evaluation.process_synthetic_lab.run `
@@ -33,10 +34,12 @@ python -m research.evaluation.process_synthetic_lab.run `
 | P01 명시적 실패 | 확인된 F 상태·정합성 유지한 error/success count, 확인된 응답코드 | 상태 의미 미확인, 비어 있지 않은 응답코드의 실패 대응값 미확인 |
 | P02 개별 처리 지연 | 기존 종료시각 + train 어댑터 중앙값 × (강도−1), 최소 기준값 1ms | 선택한 부모 정책·의존 PROCESS 시작시각 위반 |
 | P03 연속 PROCESS 지연 | 같은 출처/어댑터/인터페이스의 시간순 연속 구간에 P02 적용 | 완전한 연속 구간 없음·한 행이라도 관계 검사 실패 |
+| P04 연구 건수 보존 계약 위반 | 기존 totalCount=successCount+errorCount 행의 totalCount만 +1/+2/+3 | 연구 계약 미동의·기존 품질/관계 위반·정확한 정수 증분 불가 |
 
 - 강도 1.5/2/3 × seed 11/23/47; 시도당 최대 10행, 결과 확인 후 강도 조정 금지
 - 모델/SR 점수 기반 주입 행 선별 금지; 부모·의존 관계 안전성에 따른 생성 거부 수 보존
 - P01 기본값 미지원; 실제 의미 근거를 `failure_semantics_evidence`에 지정한 경우만 활성화
+- P01 보류 유지: F 상태여도 errorCount=0인 원본 존재; 모든 실패를 errorCount>0 또는 임의 응답코드로 치환 금지
 - 주입 정답: 설정한 인위적 변화의 정답; 실제 고객 장애·운영 SLA의 정답 아님
 - `parent_policy=strict_parent` 기본값: 부모 종료시각 고정, 여유 시간 부족 시 거부
 - `parent_policy=propagate_parent_end` 별도 실험: PROCESS 지연에 따른 부모 완료시각 파급 포함; 부모 종료=max(원래 종료, 변경한 자식 종료), 같은 부모의 복사본 행 전체에 동일 적용
@@ -44,6 +47,13 @@ python -m research.evaluation.process_synthetic_lab.run `
 - 두 조건의 결과 분리; strict 실패 결과 보존, 모델 점수에 맞춘 강도 변경 없음
 - 확인된 의존 PROCESS의 시작시각 결측: 선행 PROCESS 변형 거부; 추출에 없는 하위 로그의 존재/완전성은 검증 불가
 - 상태/응답코드의 회사별 의미·부분 실패 전파 정책: 별도 확인 필요
+- P04: 연구에서 명시적으로 채택한 건수 보존 계약의 양성 대조; 실제 고객 장애를 무조건 의미하지 않음
+- P04 허용 변경 필드: totalCount 하나; status·응답코드·성공/실패건수·시각·관계·부모 불변, 기대 위반=count_conservation만 별도 기록/검사
+- P04 범위: 기존 실험에서 사용한 시험 데이터 재사용 → 방법 개선용 탐색 실험, 미사용 holdout의 모델 성능 검증 아님
+- `scenarios`: 실행할 P01/P02/P03/P04 선택; 기본값은 기존 P01/P02/P03
+- C00(`run_noop_control`): 미변형 시험 CSV 저장→기존 canonical parser로 복구→같은 모델 재판정, 모든 행의 판정·미판정·점수 정확 일치 요구
+- C00 parser 진단: 정규화된 결측값에서 원래 파싱 오류 복원 불가; 기록된 `_invalid_*` bool을 엄격하게 복원·원본 필드와 함께 대조
+- C00 실패: 전체 실행 실패 처리; 정상 라벨 생성·오탐률 계산 없음
 
 ## 판정과 결과
 
@@ -66,6 +76,7 @@ python -m research.evaluation.process_synthetic_lab.run `
 - `data-audit.json`, `*-membership.csv`: 분할·부모 조인·표본/계보
 - `frozen-model.joblib`, `model-manifest.json`, `generator-fit.json`: 고정 모델·규칙·생성 통계
 - `test-base.csv`, `base-predictions.csv`, `control-report.json`: 미변형 시험 기준선
+- `noop-control.json`, `noop-predictions.csv`: 선택한 C00 무변형 왕복 결과·원본 필드/진단 보존 검사
 - 시도별 `process.csv`, `truth.csv`, `changes.csv`, `parent-overlay.csv`, `rejects.csv`, `predictions.csv`, `generation.json`
 - 부모 복원: 원본 TRANSACTION SHA 확인 → canonical JOIN_KEYS(source_period/transactionId/processHubId/retryCount)로 overlay 결합 → before 일치 확인 → endTime만 after로 교체; 나머지 부모/필드 보존
 - 부모 변경은 PROCESS 정답에 추가하지 않음; 원본 SHA·정확한 부모 overlay와 SHA로 평가 부모 데이터 재구성

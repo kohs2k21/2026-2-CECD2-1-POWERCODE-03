@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:powercode:trainer:evaluation-envelope:v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["rule_ml", "synthetic", "execution_cost", "operational"],
+  "properties": {
+    "rule_ml": {"$ref": "#/$defs/item"},
+    "synthetic": {"$ref": "#/$defs/item"},
+    "execution_cost": {"$ref": "#/$defs/item"},
+    "operational": {"$ref": "#/$defs/item"}
+  },
+  "$defs": {"item": {
+    "type": "object", "additionalProperties": false,
+    "required": ["status", "reason", "metrics", "metricVersion"],
+    "properties": {
+      "status": {"enum": ["measured", "unavailable", "not_applicable", "failed"]},
+      "reason": {"type": ["string", "null"]},
+      "metrics": {"type": ["object", "null"], "additionalProperties": {"$ref": "#/$defs/measurement"}},
+      "metricVersion": {"type": "string", "minLength": 1}
+    },
+    "allOf": [{"if": {"properties": {"status": {"const": "measured"}}},
+      "then": {"properties": {"metrics": {"type": "object"}, "reason": {"type": "null"}}},
+      "else": {"properties": {"metrics": {"type": "null"}, "reason": {"type": "string", "minLength": 1}}}}]
+  }, "measurement": {
+    "type": "object", "additionalProperties": false,
+    "required": ["value", "unit", "numerator", "denominator", "coverage", "reason"],
+    "properties": {
+      "value": {"type": ["number", "null"]},
+      "unit": {"type": "string", "minLength": 1},
+      "numerator": {"type": ["number", "null"], "minimum": 0},
+      "denominator": {"type": ["number", "null"], "minimum": 0},
+      "coverage": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
+      "reason": {"type": ["string", "null"]}
+    },
+    "allOf": [{"if": {"properties": {"value": {"type": "null"}}},
+      "then": {"properties": {"reason": {"type": "string", "minLength": 1}}},
+      "else": {"properties": {"reason": {"type": "null"}}}},
+      {"if": {"properties": {"denominator": {"const": 0}}},
+       "then": {"properties": {"value": {"type": "null"}}}}]
+  }}
+}

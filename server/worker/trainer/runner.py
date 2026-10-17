@@ -16,7 +16,8 @@ import psycopg
 from dotenv import load_dotenv
 
 import model_adapters
-from feature_runtime import calculate_features
+from feature_runtime import calculate_features, validate_definitions
+from feature_fit import requires_fit, fit_features, transform, definitions_hash
 from detector.artifacts import verified_artifact_path
 from detector.rules import evaluate_rules
 from feature_worker import materialize_set
@@ -123,9 +124,27 @@ def _definitions(conn: Any, feature_set_id: uuid.UUID) -> list[dict[str, Any]]:
             (feature_set_id,),
         )
         rows = cur.fetchall()
-    if not rows or [row[1] for row in rows] != list(range(len(rows))) or any(row[3] for row in rows):
+    if not rows or [row[1] for row in rows] != list(range(len(rows))) or \
+            any(bool(row[3]) != requires_fit(row[2]) for row in rows):
         raise ValueError("invalid_feature_set")
-    return [{"name": row[0], "expression": row[2]} for row in rows]
+    return validate_definitions([{"name": row[0], "expression": row[2]} for row in rows])
+
+
+def _training_inputs(conn, snapshot_id, feature_set_id):
+    definitions = _definitions(conn, feature_set_id)
+    if not any(requires_fit(item['expression']) for item in definitions):
+        rows, names = _feature_rows(conn, snapshot_id, feature_set_id, 'train')
+        return rows, names, None, definitions_hash(definitions)
+    observations = _snapshot_rows(conn, snapshot_id, 'train')
+    conn.commit()
+    references = [{'raw': raw, 'label': labels.get('label') if isinstance(labels, dict) else None}
+                  for _, raw, _, labels in observations]
+    state = fit_features(definitions, references, snapshot_id=snapshot_id)
+    prepared = []
+    for row in references:
+        values, missing = transform(definitions, row['raw'], state)
+        prepared.append({'features': values, 'missing': missing, 'label': row['label']})
+    return prepared, [item['name'] for item in definitions], state, definitions_hash(definitions)
 
 
 def _feature_rows(conn: Any, snapshot_id: uuid.UUID, feature_set_id: uuid.UUID,
@@ -207,6 +226,11 @@ def _execute(conn: Any, job: dict[str, Any], attempt_id: uuid.UUID,
              attempt_token: uuid.UUID) -> dict[str, Any]:
     spec = job["input"]
     kind = job["kind"]
+    if kind == 'train':
+        if spec.get('modelKey', 'iforest') != 'iforest':
+            raise ValueError('unsupported_model')
+        if spec.get('detectionPolicy', {}).get('mode') == 'rule_only' and 'modelKey' in spec:
+            raise ValueError('model_not_selected')
     if kind == "explain":
         from explanation import explain
         return explain(job)
@@ -300,6 +324,8 @@ def _execute(conn: Any, job: dict[str, Any], attempt_id: uuid.UUID,
         from detector.policy import parse_policy
         policy = parse_policy(spec, required=spec.get("detectionPolicy") is not None)
         if policy.mode == "rule_only":
+            if any(requires_fit(item['expression']) for item in _definitions(conn, feature_set_id)):
+                raise ValueError('rule_only_fitted_features_unsupported')
             if not spec.get("ruleVersionIds"):
                 raise ValueError("rules_required")
             config_id = uuid.uuid4()
@@ -321,10 +347,11 @@ def _execute(conn: Any, job: dict[str, Any], attempt_id: uuid.UUID,
             return {**completed,"_finalized": True}
         if artifact_root is None:
             raise model_adapters.ModelNotConfigured("artifact_root_not_configured")
-        prepared, names = _feature_rows(conn, snapshot.id, feature_set_id, "train")
+        prepared, names, preprocessing, definition_digest = _training_inputs(conn, snapshot.id, feature_set_id)
         output = artifact_root / "tmp" / str(attempt_id)
         output.mkdir(parents=True, exist_ok=True)
-        result = model_adapters.train_iforest(prepared, names, str(output))
+        result = model_adapters.train_iforest(prepared, names, str(output), preprocessing=preprocessing) if preprocessing is not None else \
+            model_adapters.train_iforest(prepared, names, str(output))
         required = {"modelPath", "fitPath", "formatVersion", "runtimeVersion", "thresholdSpec"}
         if not isinstance(result, dict) or not required.issubset(result) or not isinstance(result["thresholdSpec"], dict):
             raise ValueError("invalid_training_artifacts")
@@ -365,7 +392,9 @@ def _execute(conn: Any, job: dict[str, Any], attempt_id: uuid.UUID,
                        VALUES (%s, 'iforest', %s, %s, %s, %s::jsonb, %s::jsonb, %s::jsonb)""",
                     (config_id, feature_set_id, model_id, fit_id,
                      json.dumps({"name": "sklearn-iforest", "formatVersion": result["formatVersion"]}),
-                     json.dumps({"snapshotId": str(snapshot.id), "split": "train", "featureNames": names}),
+                     json.dumps({"snapshotId": str(snapshot.id), "split": "train", "featureNames": names,
+                                 "definitionsHash": definition_digest, "splitVersion": "execution-block-v1",
+                                 "thresholdPolicy": "train-internal-p99-v1"}),
                      json.dumps(result["thresholdSpec"])),
                 )
                 for order, rule_id in enumerate(rule_ids):
@@ -494,6 +523,9 @@ def _finish(conn: Any, message: ClaimedMessage, job: dict[str, Any],
     with conn.transaction():
         if not lock_training_ownership(conn, message, job["id"], attempt_id, attempt_token):
             raise RuntimeError("training_ownership_lost")
+        if result is not None and job['kind'] in {'train', 'evaluate'}:
+            from trainer.service_contract import enrich_result
+            enrich_result(conn, job, result)
         with conn.cursor() as cur:
             if result is not None and job.get("contractVersion") == "v03" and job["kind"] in {"recommend_feature", "recommend_rule", "explain"}:
                 spec = job["llmSpec"]
@@ -598,6 +630,17 @@ def run(*, once: bool = False, poll_seconds: float = 1.0, role: str = "trainer")
                 conn.rollback()
                 if 'job' in locals() and 'attempt_id' in locals():
                     _finish(conn, message, job, attempt_id, attempt_token, None, str(exc), True)
+                    conn.commit()
+            except ValueError as exc:
+                conn.rollback()
+                # Validation failures are terminal; never expose arbitrary exception text.
+                import re
+                code = str(exc) if re.fullmatch(r'[a-z][a-z0-9_]{0,99}', str(exc)) else 'invalid_job_input'
+                if 'job' in locals() and 'attempt_id' in locals():
+                    _finish(conn, message, job, attempt_id, attempt_token, None, code, True)
+                    conn.commit()
+                else:
+                    fail(conn, message.queue, message, reason='job_claim_failed')
                     conn.commit()
             except Exception:
                 conn.rollback()

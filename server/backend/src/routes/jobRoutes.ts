@@ -4,6 +4,7 @@ import { getDatabasePool } from '../config/database.js';
 import { authenticateToken, AuthenticatedRequest } from '../middleware/auth.js';
 import { parseRuleDraft, parseRuleKey, InvalidRuleError, bindRecommendationEvidence } from '../rules/ruleContract.js';
 import { writeRule, RuleConflictError } from '../rules/ruleRepository.js';
+import { TRAINER_CAPABILITIES, featureSetCapability } from './trainerContract.js';
 
 const router = Router();
 router.use(authenticateToken as any);
@@ -30,6 +31,7 @@ type JobInput = {
   featureSetId?: string; configVersionId?: string; snapshotId?: string;
   purpose?: string; ruleVersionIds?: string[]; decisionId?: string; savedEvidence?: Record<string, unknown>; savedEvidenceJson?: string;
   detectionPolicy?: { mode: string; deadlineMs: number; combination: string };
+  modelKey?: string;
 };
 
 function parseRequest(value: unknown): JobInput {
@@ -38,7 +40,7 @@ function parseRequest(value: unknown): JobInput {
   if (typeof body.kind !== 'string' || !KINDS.has(body.kind) || !uuid(body.sourceId)) {
     throw new JobRequestError('invalid_job_request');
   }
-  const permitted = ['kind', 'sourceId', 'from', 'until', 'featureSetId', 'configVersionId', 'snapshotId', 'purpose', 'ruleVersionIds', 'decisionId', 'detectionPolicy'];
+  const permitted = ['kind', 'sourceId', 'from', 'until', 'featureSetId', 'configVersionId', 'snapshotId', 'purpose', 'ruleVersionIds', 'decisionId', 'detectionPolicy', 'modelKey'];
   if (Object.keys(body).some((key) => !permitted.includes(key))) throw new JobRequestError('invalid_job_request');
   const input: JobInput = { kind: body.kind, sourceId: body.sourceId };
   if (body.kind === 'explain') {
@@ -81,6 +83,10 @@ function parseRequest(value: unknown): JobInput {
         throw new JobRequestError('detection_policy_required');
       }
       input.detectionPolicy = policy;
+      if (policy.mode === 'rule_only' && body.modelKey !== undefined) throw new JobRequestError('model_not_selected', 422);
+      if (body.modelKey !== undefined && body.modelKey !== 'iforest') throw new JobRequestError('unsupported_model', 422);
+      // Omission keeps the historical request hash and default IF recipe.
+      if (body.modelKey !== undefined) input.modelKey = 'iforest';
       const rules = body.ruleVersionIds ?? [];
       if (!Array.isArray(rules) || rules.length > 32 || !rules.every(uuid) || new Set(rules).size !== rules.length) {
         throw new JobRequestError('invalid_rule_versions');
@@ -100,6 +106,7 @@ function parseRequest(value: unknown): JobInput {
     }
   }
   if (body.kind !== 'train' && body.detectionPolicy !== undefined) throw new JobRequestError('invalid_job_request');
+  if (body.kind !== 'train' && body.modelKey !== undefined) throw new JobRequestError('invalid_job_request');
   if (body.kind !== 'explain' && body.decisionId !== undefined) throw new JobRequestError('invalid_job_request');
   return input;
 }
@@ -133,6 +140,15 @@ router.post('/', route(async (req, res) => {
       if (!snapshot.rowCount) throw new JobRequestError('snapshot_conditions_mismatch',409);
     }
     if (input.kind === 'train') {
+      const members = await client.query(`SELECT m.output_name AS name,m.output_position AS position,
+        v.expression,v.requires_fit AS "requiresFit" FROM ml_feature_set_members m
+        JOIN ml_feature_versions v ON v.id=m.feature_version_id
+        WHERE m.feature_set_id=$1 AND m.model_input ORDER BY m.output_position`, [input.featureSetId]);
+      const support = featureSetCapability(members.rows);
+      if (!support.supported) throw new JobRequestError(support.reason ?? 'unsupported_feature_set', 422);
+      if (input.detectionPolicy?.mode === 'rule_only' && members.rows.some(member => member.requiresFit)) {
+        throw new JobRequestError('rule_only_fitted_features_unsupported', 422);
+      }
       const rules = input.ruleVersionIds ?? [];
       if (rules.length) {
         const found = await client.query(
@@ -237,9 +253,33 @@ router.post('/', route(async (req, res) => {
   }
 }));
 
+router.get('/capabilities', route(async (_req, res) => {
+  res.json(TRAINER_CAPABILITIES);
+}));
+
+router.get('/feature-sets', route(async (req, res) => {
+  if (!uuid(req.query.sourceId)) throw new JobRequestError('invalid_source_id');
+  const pool = getDatabasePool();
+  const source = await pool.query('SELECT 1 FROM ops_sources WHERE id=$1', [req.query.sourceId]);
+  if (!source.rowCount) throw new JobRequestError('source_not_found', 404);
+  const result = await pool.query(`SELECT f.id, f.content_hash AS "contentHash",
+    COALESCE(jsonb_agg(jsonb_build_object('name',m.output_name,'position',m.output_position,
+      'expression',v.expression,'requiresFit',v.requires_fit) ORDER BY m.output_position)
+      FILTER (WHERE m.feature_version_id IS NOT NULL),'[]'::jsonb) AS members
+    FROM ml_feature_sets f LEFT JOIN ml_feature_set_members m ON m.feature_set_id=f.id AND m.model_input
+    LEFT JOIN ml_feature_versions v ON v.id=m.feature_version_id
+    GROUP BY f.id ORDER BY f.created_at DESC,f.id LIMIT 201`);
+  res.json({ scope: 'global_registered_catalog', sourceId: req.query.sourceId,
+    hasMore: result.rows.length > 200,
+    items: result.rows.slice(0, 200).map(row => ({ id: row.id, contentHash: row.contentHash,
+      featureNames: row.members.map((m: { name: string }) => m.name),
+      ...featureSetCapability(row.members) })) });
+}));
+
 router.get('/', route(async (req, res) => {
   const result = await getDatabasePool().query(
     `SELECT id, kind, status, input_spec AS "inputSpec", attempt_count AS "attemptCount",
+            max_attempts AS "maxAttempts", next_run_at AS "nextRunAt",
             result_summary AS "resultSummary", error_code AS "errorCode",
             created_at AS "createdAt", finished_at AS "finishedAt"
        FROM run_jobs WHERE requested_by_actor_id = $1 OR $2::boolean
@@ -253,6 +293,7 @@ router.get('/:id', route(async (req, res) => {
   if (!uuid(req.params.id)) throw new JobRequestError('invalid_job_id');
   const result = await getDatabasePool().query(
     `SELECT id, kind, status, input_spec AS "inputSpec", attempt_count AS "attemptCount",
+            max_attempts AS "maxAttempts", next_run_at AS "nextRunAt",
             result_summary AS "resultSummary", error_code AS "errorCode",
             created_at AS "createdAt", finished_at AS "finishedAt"
        FROM run_jobs WHERE id = $1 AND (requested_by_actor_id = $2 OR $3::boolean)`,

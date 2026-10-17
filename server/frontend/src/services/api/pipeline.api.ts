@@ -1,6 +1,18 @@
 import { httpClient } from "./client";
 
 export type Source = { id: string; datasetKey: string; displayName: string; createdAt: string };
+export type FeatureSet = { id: string; featureNames: string[]; contentHash: string; supported: boolean; reason: string | null };
+export type TrainerCapabilities = {
+  contractVersion: string;
+  models: { key: string; displayName: string; supported: boolean; reason?: string }[];
+  evaluationFamilies: string[];
+};
+export type EvaluationItem = {
+  status: "measured" | "unavailable" | "not_applicable" | "failed";
+  reason: string | null;
+  metrics: Record<string, { value: number | null; unit: string; numerator: number | null; denominator: number | null; coverage: number | null; reason: string | null }> | null;
+  metricVersion: string;
+};
 export type RuleSuggestion = {
   ruleKey: string;
   displayName: string;
@@ -17,7 +29,15 @@ export type PipelineJob = {
   status: "queued" | "running" | "succeeded" | "failed";
   inputSpec: Record<string, unknown>;
   attemptCount?: number;
+  maxAttempts?: number;
+  nextRunAt?: string | null;
+  createdAt?: string;
+  finishedAt?: string | null;
   resultSummary?: {
+    serviceContractVersion?: string;
+    dataContract?: Record<string, unknown>;
+    modelManifest?: Record<string, unknown> | null;
+    evaluationEnvelope?: Record<string, EvaluationItem>;
     facts?: {id: string; name: string; value: unknown}[];
     nextChecks?: {code: string; text: string}[];
     featureSetId?: string;
@@ -28,7 +48,11 @@ export type PipelineJob = {
     snapshotId?: string;
     evaluationId?: string;
     applicability?: string;
-    metrics?: Record<string, number>;
+    populationCount?: number;
+    scoredCount?: number;
+    unavailableCount?: number;
+    unlabeledCount?: number;
+    metrics?: Record<string, unknown>;
     reasonCodes?: string[];
     stopReason?: string;
     provider?: string;
@@ -99,8 +123,16 @@ export async function fetchSources(): Promise<Source[]> {
   return (await httpClient.get<{ items: Source[] }>("/api/pipeline/sources")).items;
 }
 
-export function createPipelineJob(input: Record<string, unknown>): Promise<PipelineJob> {
-  return httpClient.post("/api/jobs", input);
+export function createPipelineJob(input: Record<string, unknown>, idempotencyKey?: string): Promise<PipelineJob> {
+  return httpClient.post("/api/jobs", input, idempotencyKey ? { headers: { "Idempotency-Key": idempotencyKey } } : {});
+}
+
+export function fetchTrainerCapabilities(): Promise<TrainerCapabilities> {
+  return httpClient.get("/api/jobs/capabilities");
+}
+
+export function fetchFeatureSets(sourceId: string): Promise<{ items: FeatureSet[]; hasMore: boolean }> {
+  return httpClient.get("/api/jobs/feature-sets", { params: { sourceId } });
 }
 
 export function fetchPipelineJob(id: string): Promise<PipelineJob> {

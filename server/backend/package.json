@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
-    "test": "npm run build && node --test tests/decision-stream.integration.mjs && node tests/integration.mjs",
+    "test": "npm run build && node --test tests/trainer-contract.test.mjs tests/decision-stream.integration.mjs && node tests/integration.mjs",
     "test:rules": "npm run build && node tests/rules.integration.mjs",
     "start": "node dist/index.js"
   },

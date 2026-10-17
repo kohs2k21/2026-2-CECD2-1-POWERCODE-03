@@ -69,7 +69,7 @@ def build_snapshot(conn: Any, *, source_id: uuid.UUID, from_time: str, until_tim
                            %s, clock_timestamp())""",
                 (snapshot_id, source_id, cutoff,
                  json.dumps({"from": from_time, "until": until_time, "timeBasis": "persisted_at", "maxRows": 1000000}),
-                 json.dumps({"method": "chronological_nonoverlapping_execution_block", "train": .7, "validation": .15,
+                 json.dumps({"version": "execution-block-v1", "method": "chronological_nonoverlapping_execution_block", "train": .7, "validation": .15,
                              "test": .15, "labelSource": "unknown"}), actor_id),
             )
             for index, (_, block) in enumerate(blocks):

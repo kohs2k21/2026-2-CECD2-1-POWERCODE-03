@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   fetchCollectorMetrics, fetchCollectorState, type CollectorMetric, adoptSuggestedRule, createPipelineJob, fetchActiveConfiguration, fetchAppliedConfigurations,
-  fetchApplication, fetchDriftMetrics, fetchPipelineJob, fetchPipelineJobs,
+  fetchApplication, fetchDriftMetrics, fetchPipelineJob, fetchPipelineJobs, fetchFeatureSets, fetchTrainerCapabilities,
   fetchPipelineMetrics, fetchProcessDecisions, fetchReviewObservations, fetchSources,
   requestApplication, submitObservationLabel,
   fetchWindowDecisions, fetchWindowMonitors, type WindowDecision, type WindowMonitor,
-  type ActiveConfiguration, type Application, type DriftMetric,
+  type ActiveConfiguration, type Application, type DriftMetric, type FeatureSet, type TrainerCapabilities,
   type PipelineJob, type ProcessDecision, type QueueMetric, type ReviewObservation, type Source, type StageMetric,
 } from "../../services/api/pipeline.api";
 import "./pipeline.css";
@@ -13,6 +13,10 @@ import { consumeDecisionStream } from "../../services/api/decision-stream.api";
 
 import { InputControls } from "./InputControls";
 import { DecisionDiagnostics } from "./DecisionDiagnostics";
+import { useAuthSession } from "../../services/auth/AuthSessionProvider";
+import { forgetJobRequestKey, jobRequestKey } from "../../services/api/job-idempotency";
+import { HttpError } from "../../services/api/client";
+import { TrainerJobResult } from "./TrainerJobResult";
 
 type JobKind = PipelineJob["kind"];
 type JobMap = Partial<Record<JobKind, PipelineJob>>;
@@ -23,15 +27,23 @@ function localInput(value: Date): string {
 }
 
 function errorText(error: unknown): string {
+  if (error instanceof HttpError && error.code) return error.code;
   return error instanceof Error ? error.message : "요청을 완료하지 못했습니다.";
 }
 
 export function PipelineOperations() {
+  const { user } = useAuthSession();
   const [sources, setSources] = useState<Source[]>([]);
   const [sourceId, setSourceId] = useState("");
   const [from, setFrom] = useState(() => localInput(new Date(Date.now() - 30 * 86400_000)));
   const [until, setUntil] = useState(() => localInput(new Date()));
   const [history, setHistory] = useState<PipelineJob[]>([]);
+  const [featureSets, setFeatureSets] = useState<FeatureSet[]>([]);
+  const [featureSetsTruncated, setFeatureSetsTruncated] = useState(false);
+  const [featureSetId, setFeatureSetId] = useState("");
+  const [capabilities, setCapabilities] = useState<TrainerCapabilities | null>(null);
+  const [catalogRevision, setCatalogRevision] = useState(0);
+  const [modelKey, setModelKey] = useState("");
   const [collectorMetrics,setCollectorMetrics] = useState<CollectorMetric[]>([]);
   const [collectorState,setCollectorState] = useState<{sourceId:string;endpoint:string;errorCode:string|null}[]>([]);
   const [mode, setMode] = useState("parallel");
@@ -74,16 +86,52 @@ export function PipelineOperations() {
   }, []);
 
   const jobs = useMemo(() => {
+    const start = Date.parse(from);
+    const end = Date.parse(until);
     const sourceJobs = history.filter((job) => job.inputSpec.sourceId === sourceId);
+    const periodJobs = sourceJobs.filter((job) => Date.parse(String(job.inputSpec.from)) === start &&
+      Date.parse(String(job.inputSpec.until)) === end);
     const latest: JobMap = {};
-    latest.recommend_feature = sourceJobs.find((job) => job.kind === "recommend_feature");
-    const setId = latest.recommend_feature?.resultSummary?.featureSetId;
-    latest.recommend_rule = sourceJobs.find((job) => job.kind === "recommend_rule" && job.inputSpec.featureSetId === setId);
-    latest.train = sourceJobs.find((job) => job.kind === "train" && job.inputSpec.featureSetId === setId);
+    latest.recommend_feature = periodJobs.find((job) => job.kind === "recommend_feature");
+    latest.recommend_rule = periodJobs.find((job) => job.kind === "recommend_rule" && job.inputSpec.featureSetId === featureSetId);
+    latest.train = periodJobs.find((job) => {
+      const policy = job.inputSpec.detectionPolicy as { mode?: string; deadlineMs?: number } | undefined;
+      return job.kind === "train" && job.inputSpec.featureSetId === featureSetId &&
+        policy?.mode === mode && policy.deadlineMs === deadlineMs &&
+        (mode === "rule_only" || (job.inputSpec.modelKey ?? "iforest") === modelKey) &&
+        JSON.stringify(job.inputSpec.ruleVersionIds ?? []) === JSON.stringify(mode === "ml_only" ? [] : ruleIds);
+    });
     latest.evaluate = sourceJobs.find((job) => job.kind === "evaluate" &&
       job.inputSpec.configVersionId === latest.train?.resultSummary?.configVersionId);
     return latest;
-  }, [history, sourceId]);
+  }, [history, sourceId, from, until, featureSetId, mode, deadlineMs, modelKey, ruleIds]);
+
+  const recommendedFeatureSetId = jobs.recommend_feature?.resultSummary?.featureSetId;
+  useEffect(() => {
+    let current = true;
+    void fetchTrainerCapabilities().then((value) => {
+      if (!current) return;
+      setCapabilities(value);
+      setModelKey((previous) => value.models.some((model) => model.key === previous && model.supported)
+        ? previous : value.models.find((model) => model.supported)?.key ?? "");
+    }).catch((reason) => { if (current) setError(errorText(reason)); });
+    return () => { current = false; };
+  }, [catalogRevision]);
+
+  useEffect(() => {
+    if (!sourceId) return;
+    let current = true;
+    void fetchFeatureSets(sourceId).then(({items, hasMore}) => {
+      if (!current) return;
+      setFeatureSets(items);
+      setFeatureSetsTruncated(hasMore);
+      setFeatureSetId((previous) => {
+        if (recommendedFeatureSetId && items.some((item) => item.id === recommendedFeatureSetId && item.supported)) return recommendedFeatureSetId;
+        return items.some((item) => item.id === previous && item.supported) ? previous : items.find((item) => item.supported)?.id ?? "";
+      });
+    }).catch((reason) => { if (current) setError(errorText(reason)); });
+    return () => { current = false; };
+  }, [sourceId, recommendedFeatureSetId, catalogRevision]);
 
   useEffect(() => {
     void refresh().catch((reason) => setError(errorText(reason)));
@@ -91,19 +139,20 @@ export function PipelineOperations() {
 
   useEffect(() => {
     if (!sourceId) return;
+    let current = true;
     const refreshCollection = () => {
-      void fetchCollectorMetrics(sourceId).then(setCollectorMetrics).catch(reason => setError(errorText(reason)));
-      void fetchCollectorState().then(setCollectorState).catch(reason => setError(errorText(reason)));
+      void fetchCollectorMetrics(sourceId).then((items) => { if (current) setCollectorMetrics(items); }).catch(reason => { if (current) setError(errorText(reason)); });
+      void fetchCollectorState().then((items) => { if (current) setCollectorState(items); }).catch(reason => { if (current) setError(errorText(reason)); });
     };
     refreshCollection();
     const timer = setInterval(refreshCollection,5000);
-    void fetchReviewObservations(sourceId).then(setReviewRows).catch((reason) => setError(errorText(reason)));
-    return () => clearInterval(timer);
+    void fetchReviewObservations(sourceId).then((items) => { if (current) setReviewRows(items); }).catch((reason) => { if (current) setError(errorText(reason)); });
+    return () => { current = false; clearInterval(timer); };
   }, [sourceId]);
 
   useEffect(() => {
     const timer = window.setInterval(() => {
-      const pending = Object.values(jobs).filter(
+      const pending = history.filter(
         (job): job is PipelineJob => Boolean(job && ["queued", "running"].includes(job.status)),
       );
       for (const job of pending) {
@@ -125,7 +174,7 @@ export function PipelineOperations() {
       void fetchWindowMonitors().then(setWindowMonitors).catch((reason) => setError(errorText(reason)));
     }, 3000);
     return () => window.clearInterval(timer);
-  }, [jobs, application]);
+  }, [history, application]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -164,16 +213,34 @@ export function PipelineOperations() {
     } catch (reason) {setError(errorText(reason));}
   }
 
-  const featureSetId = jobs.recommend_feature?.resultSummary?.featureSetId;
   const ruleSuggestions = jobs.recommend_rule?.resultSummary?.suggestions ?? [];
   const configId = jobs.train?.resultSummary?.configVersionId;
   const snapshotId = jobs.train?.resultSummary?.snapshotId;
   const evaluationId = jobs.evaluate?.resultSummary?.evaluationId;
-  const canApply = jobs.evaluate?.resultSummary?.applicability === "valid" && Boolean(configId && evaluationId);
+  const canApply = jobs.evaluate?.status === "succeeded" && jobs.evaluate.resultSummary?.applicability === "valid" && Boolean(configId && evaluationId);
   const selectedSource = useMemo(() => sources.find((source) => source.id === sourceId), [sources, sourceId]);
+  const selectedFeatureSet = featureSets.find((item) => item.id === featureSetId);
+  const selectedModel = capabilities?.models.find((item) => item.key === modelKey);
+  const validPeriod = Number.isFinite(Date.parse(from)) && Number.isFinite(Date.parse(until)) &&
+    Date.parse(from) < Date.parse(until) && Date.parse(until) - Date.parse(from) <= 366 * 86400_000;
+  const sourceHistory = history.filter((job) => job.inputSpec.sourceId === sourceId && ["train", "evaluate"].includes(job.kind));
+
+  function changeSource(id: string) {
+    setSourceId(id);
+    setFeatureSets([]);
+    setFeatureSetsTruncated(false);
+    setFeatureSetId("");
+    setRuleIds([]);
+    setCombinationApproved(false);
+    setApplication(null);
+    setReviewRows([]);
+    setCollectorMetrics([]);
+    setCollectorState([]);
+    setError(null);
+  }
 
   async function submit(kind: JobKind) {
-    if (!sourceId || !from || !until) return;
+    if (!user || !sourceId || !validPeriod) return;
     setBusy(true);
     setError(null);
     try {
@@ -193,12 +260,48 @@ export function PipelineOperations() {
           input.snapshotId = reusedSnapshot;
         }
         if (kind === "train") {
+          if (!selectedFeatureSet?.supported || (mode !== "rule_only" && !selectedModel?.supported)) return;
+          if (mode !== "rule_only") input.modelKey = modelKey;
           input.ruleVersionIds = mode === 'ml_only' ? [] : ruleIds;
           input.detectionPolicy = {mode,deadlineMs,combination:mode === 'parallel' ? 'any_anomaly' : 'selected_path'};
         }
       }
-      const job = await createPipelineJob(input);
+      const job = await createPipelineJob(input, jobRequestKey(user.id, input));
       setHistory((previous) => [job, ...previous.filter((item) => item.id !== job.id)]);
+    } catch (reason) {
+      setError(errorText(reason));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function rerun(previous: PipelineJob) {
+    if (!user || !["failed", "succeeded"].includes(previous.status)) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const action = { ...previous.inputSpec, newExecutionOf: previous.id };
+      const key = jobRequestKey(user.id, action);
+      const job = await createPipelineJob(previous.inputSpec, key);
+      setHistory((items) => [job, ...items.filter((item) => item.id !== job.id)]);
+      forgetJobRequestKey(user.id, action);
+    } catch (reason) {
+      setError(errorText(reason));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function evaluateCandidate(training: PipelineJob) {
+    const candidate = training.resultSummary;
+    if (!user || training.status !== "succeeded" || !candidate?.configVersionId || !candidate.snapshotId) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const input = { kind: "evaluate", sourceId: training.inputSpec.sourceId,
+        configVersionId: candidate.configVersionId, snapshotId: candidate.snapshotId, purpose: "validation" };
+      const job = await createPipelineJob(input, jobRequestKey(user.id, input));
+      setHistory((items) => [job, ...items.filter((item) => item.id !== job.id)]);
     } catch (reason) {
       setError(errorText(reason));
     } finally {
@@ -279,7 +382,10 @@ export function PipelineOperations() {
           <h2>학습·탐지 운영</h2>
           <p>저장된 로그로 후보를 만들고 평가한 뒤 승인된 구성만 실시간 탐지에 적용합니다.</p>
         </div>
-        <button type="button" onClick={() => void refresh().catch((reason) => setError(errorText(reason)))}>새로고침</button>
+        <button type="button" onClick={() => {
+          setCatalogRevision((revision) => revision + 1);
+          void refresh().catch((reason) => setError(errorText(reason)));
+        }}>새로고침</button>
       </header>
 
       {error && <p className="pipeline-error" role="alert">{error}</p>}
@@ -287,7 +393,7 @@ export function PipelineOperations() {
         <h3>대상 데이터</h3>
         <div className="pipeline-fields">
           <label>출처
-            <select value={sourceId} onChange={(event) => { setSourceId(event.target.value); setRuleIds([]); }}>
+            <select value={sourceId} disabled={busy} onChange={(event) => changeSource(event.target.value)}>
               {sources.map((source) => <option key={source.id} value={source.id}>{source.displayName} ({source.datasetKey})</option>)}
             </select>
           </label>
@@ -302,15 +408,15 @@ export function PipelineOperations() {
       <section className="pipeline-grid">
         <div className="pipeline-card">
           <h3>1. 파생변수 생성</h3>
-          <button disabled={busy || !sourceId} onClick={() => void submit("recommend_feature")}>변수 생성 작업 등록</button>
+          <button disabled={busy || !sourceId || !validPeriod} onClick={() => void submit("recommend_feature")}>변수 생성 작업 등록</button>
           <JobState job={jobs.recommend_feature} />
           {jobs.recommend_feature?.resultSummary?.stopReason && <p>{jobs.recommend_feature.resultSummary.stopReason}</p>}
           {jobs.recommend_feature?.resultSummary?.reviews?.map((review, index) => <p key={index}>{review.state}: {review.reason}</p>)}
-          {featureSetId && <p>고정 변수 구성: <code>{featureSetId}</code><br />정제 행: {jobs.recommend_feature?.resultSummary?.materializedCount ?? 0}</p>}
+          {recommendedFeatureSetId && <p>생성된 피처셋: <code>{recommendedFeatureSetId}</code><br />정제 행: {jobs.recommend_feature?.resultSummary?.materializedCount ?? "미측정"}</p>}
         </div>
         <div className="pipeline-card">
           <h3>2. Rule 추천·채택</h3>
-          <button disabled={busy || !featureSetId} onClick={() => void submit("recommend_rule")}>Rule 추천 작업 등록</button>
+          <button disabled={busy || !validPeriod || !selectedFeatureSet?.supported} onClick={() => void submit("recommend_rule")}>Rule 추천 작업 등록</button>
           <JobState job={jobs.recommend_rule} />
           {ruleSuggestions.map((suggestion, index) => (
             <div className="pipeline-suggestion" key={`${suggestion.ruleKey}-${index}`}>
@@ -339,15 +445,29 @@ export function PipelineOperations() {
         </div>
         <div className="pipeline-card">
           <h3>3. 탐지 구성 생성·학습</h3>
+          <label>고정 피처셋<select value={featureSetId} onChange={(event) => {setFeatureSetId(event.target.value);setRuleIds([]);}}>
+            <option value="">피처셋 선택</option>
+            {featureSets.map((item) => <option key={item.id} value={item.id} disabled={!item.supported}>
+              {item.id.slice(0, 8)} · {item.featureNames.length}개{item.supported ? "" : ` · ${item.reason ?? "지원하지 않음"}`}
+            </option>)}
+          </select></label>
+          {featureSetsTruncated && <p>최근 등록 피처셋 200개를 표시합니다.</p>}
+          {selectedFeatureSet && <p>입력 순서: {selectedFeatureSet.featureNames.join(", ")}</p>}
           <label>탐지 모드<select value={mode} onChange={event => {setMode(event.target.value);setCombinationApproved(false);}}>
             <option value="parallel">Rule + ML 병렬</option><option value="rule_only">Rule 전용</option><option value="ml_only">ML 전용</option>
           </select></label>
+          {mode !== "rule_only" && <label>모델<select value={modelKey} onChange={(event) => setModelKey(event.target.value)}>
+            <option value="">모델 선택</option>
+            {capabilities?.models.map((model) => <option key={model.key} value={model.key} disabled={!model.supported}>
+              {model.displayName}{model.supported ? "" : ` · ${model.reason ?? "지원하지 않음"}`}
+            </option>)}
+          </select></label>}
           <label>판정 마감 시간 (ms)<input type="number" min={100} max={30000} value={deadlineMs}
             onChange={event => setDeadlineMs(Number(event.target.value))} /></label>
           {mode === 'parallel' && <label className="pipeline-policy-choice"><input type="checkbox" checked={combinationApproved}
             onChange={event => setCombinationApproved(event.target.checked)} />이 구성에서는 한 경로라도 이상이면 이상으로 결합하도록 선택합니다.</label>}
           <p>마감 시간은 운영 설정입니다. Rule 전용은 IF 학습 없이 후보 구성을 만듭니다.</p>
-          <button disabled={busy || !featureSetId || !Number.isInteger(deadlineMs) || deadlineMs < 100 || deadlineMs > 30000 ||
+          <button disabled={busy || !user || !validPeriod || !selectedFeatureSet?.supported || (mode !== 'rule_only' && !selectedModel?.supported) || !Number.isInteger(deadlineMs) || deadlineMs < 100 || deadlineMs > 30000 ||
             (mode !== 'ml_only' && !ruleIds.length) || (mode === 'parallel' && !combinationApproved)} onClick={() => void submit("train")}>선택 기간 학습 실행</button>
           <JobState job={jobs.train} />
           {configId && <p>후보 구성: <code>{configId}</code></p>}
@@ -370,6 +490,25 @@ export function PipelineOperations() {
           </label>
           <button disabled={busy || !restoreId} onClick={() => void restore()}>복원 요청</button>
         </div>
+      </section>
+
+      <section className="pipeline-card">
+        <h3>학습·평가 작업 이력</h3>
+        {sourceHistory.length === 0 && <p>등록된 작업이 없습니다.</p>}
+        {sourceHistory.map((job) => <details key={job.id} className="pipeline-job-result">
+          <summary>{job.kind === "train" ? "학습" : "평가"} · {job.id.slice(0, 8)} · {job.status}</summary>
+          <JobState job={job} />
+          <p>작업 ID: <code>{job.id}</code></p>
+          <p>피처셋: <code>{String(job.inputSpec.featureSetId ?? job.resultSummary?.featureSetId ?? "미제공")}</code></p>
+          <p>기간: {String(job.inputSpec.from ?? "고정 스냅샷")} ~ {String(job.inputSpec.until ?? "")}</p>
+          <TrainerJobResult job={job} />
+          {job.kind === "train" && job.status === "succeeded" && job.resultSummary?.configVersionId && job.resultSummary.snapshotId &&
+            <button disabled={busy || !user} onClick={() => void evaluateCandidate(job)}>이 후보 검증 평가</button>}
+          <button disabled={busy} onClick={() => void fetchPipelineJob(job.id).then((updated) => {
+            setHistory((items) => items.map((item) => item.id === updated.id ? updated : item));
+          }).catch((reason) => setError(errorText(reason)))}>작업 조회</button>
+          {["failed", "succeeded"].includes(job.status) && <button disabled={busy || !user} onClick={() => void rerun(job)}>새로 실행</button>}
+        </details>)}
       </section>
 
       <section className="pipeline-card">
@@ -459,5 +598,7 @@ export function PipelineOperations() {
 
 function JobState({ job }: { job?: PipelineJob }) {
   if (!job) return <p>등록된 작업이 없습니다.</p>;
-  return <p>작업 {job.id.slice(0, 8)} · {job.status}{job.errorCode ? ` · ${job.errorCode}` : ""}</p>;
+  return <p>작업 {job.id.slice(0, 8)} · {job.status}{job.errorCode ? ` · ${job.errorCode}` : ""}
+    {job.attemptCount !== undefined && ` · 시도 ${job.attemptCount}${job.maxAttempts !== undefined ? `/${job.maxAttempts}` : ""}`}
+    {job.status === "queued" && job.nextRunAt && ` · 다음 실행 ${new Date(job.nextRunAt).toLocaleString()}`}</p>;
 }

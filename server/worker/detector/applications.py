@@ -33,7 +33,8 @@ def _model_reference(conn: Any, config_id: uuid.UUID, root: Path | None) -> dict
 
 
 def prepare_config(conn, config_id, root):
-    from detector.computation import load_context
+    from detector.computation import load_context, model_reference
+    from feature_fit import requires_fit
     with conn.cursor() as cur:
         cur.execute("SELECT source_id FROM ml_config_versions WHERE id=%s", (config_id,))
         row = cur.fetchone()
@@ -43,7 +44,12 @@ def prepare_config(conn, config_id, root):
     if context["policy"].mode != "ml_only" and not context["rules"] and not context["policy"].legacy:
         raise ValueError("rules_unavailable")
     if context["policy"].mode != "rule_only":
-        model_adapters.prepare_iforest(_model_reference(conn, config_id, root))
+        # Keep relational model/fit binding checks in addition to definition/order checks.
+        _model_reference(conn, config_id, root)
+        reference = model_reference(context, root)
+        model_adapters.prepare_iforest(reference)
+        if any(requires_fit(item['expression']) for item in context['definitions']):
+            model_adapters.transform_iforest_features(reference, context['definitions'], {})
 
 
 def prepare_active(conn: Any, root: Path | None) -> None:

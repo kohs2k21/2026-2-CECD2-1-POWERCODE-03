@@ -8,6 +8,7 @@ import uuid
 from typing import Any
 
 from feature_runtime import validate_definitions
+from feature_fit import requires_fit
 
 
 def register_feature_set(conn: Any, definitions: list[dict[str, Any]], actor_id: str, *, definition_kind: str = 'model_generated') -> uuid.UUID:
@@ -58,11 +59,11 @@ def register_feature_set(conn: Any, definitions: list[dict[str, Any]], actor_id:
                               availability_spec, requires_fit, content_hash,
                               created_by_actor_id, created_at)
                            VALUES (%s, %s, %s, %s, %s, %s::jsonb, %s,
-                                   %s, %s::jsonb, %s::jsonb, false, %s, %s, clock_timestamp())""",
+                                   %s, %s::jsonb, %s::jsonb, %s, %s, %s, clock_timestamp())""",
                         (version_id, key, version, key, definition_kind, expression_json,
                          expression.get("outputType", "decimal"), expression.get("unit"),
                          json.dumps({"missing": "null", "zeroDivision": "null"}),
-                         json.dumps({"layer": "P", "asOf": "observation"}), expression_hash, actor_id),
+                         json.dumps({"layer": "P", "asOf": "observation"}), requires_fit(expression), expression_hash, actor_id),
                     )
                 cur.execute(
                     """INSERT INTO ml_feature_set_members

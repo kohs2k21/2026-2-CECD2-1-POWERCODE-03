@@ -10,7 +10,7 @@ def default_policy(source_id):
 def evaluate_status(policy, raw):
     if policy is None:
         return {'status': 'not_ready', 'anomalous': None, 'evidence': [{'reason': 'status_policy_unavailable'}]}
-    if not isinstance(policy, dict) or policy.get('version') != VERSION or \
+    if not isinstance(policy, dict) or set(policy) != {'version', 'sourceId', 'mapping'} or policy.get('version') != VERSION or \
             not isinstance(policy.get('sourceId'), str) or not policy['sourceId'] or \
             policy.get('mapping') != default_policy(policy['sourceId'])['mapping']:
         raise ValueError('unsupported_status_policy')

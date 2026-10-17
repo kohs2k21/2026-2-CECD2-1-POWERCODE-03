@@ -41,7 +41,8 @@ def prepare_config(conn, config_id, root):
     if row is None:
         raise ValueError("config_missing")
     context = load_context(conn, config_id, row[0])
-    if context["policy"].mode != "ml_only" and not context["rules"] and not context["policy"].legacy:
+    if context["policy"].mode != "ml_only" and not context["rules"] and not context["policy"].legacy and \
+            context.get('statusRulePolicy') is None:
         raise ValueError("rules_unavailable")
     if context["policy"].mode != "rule_only":
         # Keep relational model/fit binding checks in addition to definition/order checks.

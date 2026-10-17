@@ -45,7 +45,7 @@ def conditions(batch_size, *, concurrency=1):
             'concurrencyScope': 'job', 'platform': platform.system(), 'processCpuCount': os.cpu_count(),
             'warmCold': 'mixed_unclassified', 'samplingPeriod': 'per_batch_completion',
             'memoryScope': 'process_current_rss_sample', 'resourceLimits': 'not_observed',
-            'containerPeakMeasured': False}
+            'containerPeakMeasured': False, 'totalTiming': 'handler_execution_before_atomic_publication'}
 
 
 def cost_family(durations, *, batch_size, samples=(), queue_wait=None):

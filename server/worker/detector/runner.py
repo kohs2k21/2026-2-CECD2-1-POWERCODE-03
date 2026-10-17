@@ -18,6 +18,7 @@ from feature_fit import requires_fit
 from detector.input_reader import load_process_observation
 from feature_worker import active_config, active_source
 from pg_queue import ClaimedMessage, acknowledge, claim, fail
+from telemetry import cost_family, queue_wait_ms
 
 
 def process_detection_message(conn: Any, message: ClaimedMessage, root: Path | None) -> None:
@@ -52,6 +53,7 @@ def process_detection_message(conn: Any, message: ClaimedMessage, root: Path | N
     if claimed is None:
         return
     job, attempt_id, attempt_token = claimed
+    queue_wait = queue_wait_ms(conn, message, attempt_id)
     heartbeat = TrainingLeaseHeartbeat(lambda: psycopg.connect(os.environ["DATABASE_URL"]),
         message,job["id"],attempt_id,attempt_token)
     heartbeat.start()
@@ -74,7 +76,22 @@ def process_detection_message(conn: Any, message: ClaimedMessage, root: Path | N
         result = compute(context, observation.allowed_values, root, started_at=started)
         if heartbeat.lost:
             raise RuntimeError("detection_lease_lost")
-        evidence = {"schemaVersion": 2,"rules":result["rule"]["evidence"],"models":result["ml"]["evidence"],
+        elapsed_ms = (time.monotonic()-started)*1000
+        durations = {'totalMs': elapsed_ms}
+        durations.update({key: result['ml'][key] for key in ('preprocessMs', 'inferenceMs') if key in result['ml']})
+        if 'ruleMs' in result['rule']:
+            durations['ruleMs'] = result['rule']['ruleMs']
+        telemetry = cost_family(durations, batch_size=1, samples=[elapsed_ms], queue_wait=queue_wait)
+        telemetry['details'].update(scope='detector_process_revision', sourceClockStatus=observation.clock_status,
+                                    concurrency=2 if result['requestedMode']=='parallel' else 1,
+                                    concurrencyScope='checker_callbacks', modelNJobs=2 if context['models'] else None)
+        checkers = {key: {name: result[path].get(name) for name in ('status', 'anomalous', 'evidence')}
+                    for key, path in (('hr', 'hr'), ('ml', 'ml'), ('sr', 'sr'))}
+        evidence = {"schemaVersion": 3,"rules":result["rule"]["evidence"],"models":result["ml"]["evidence"],
+                    'checkers': checkers, 'telemetry': telemetry,
+                    'statusRulePolicy': context.get('statusRulePolicy'),
+                    'observation': {'id': str(observation.observation_id), 'revisionNo': observation.revision_no,
+                                    'inputAsOf': fixed[4].isoformat()},
                     "inputManifestHash":fixed[3],"anomalous":result["anomalous"],
                     "requestedMode":result["requestedMode"],"actualPaths":result["actualPaths"],
                     "detectionPolicy":result["policy"],"ruleSeverities":result["rule"].get("severity",[])}
@@ -108,7 +125,8 @@ def process_detection_message(conn: Any, message: ClaimedMessage, root: Path | N
                     json.dumps(evidence),job["id"],fixed[2],attempt_id,attempt_token))
                 cur.execute("""INSERT INTO ops_pipeline_measurements(id,observation_id,stage,config_version_id,duration_ms)
                     VALUES(%s,%s,'detector',%s,%s)""",(uuid.uuid4(),observation.observation_id,config_id,(time.monotonic()-started)*1000))
-            _finish(conn,message,job,attempt_id,attempt_token,{"status":result["status"]},None,True)
+            _finish(conn,message,job,attempt_id,attempt_token,{"status":result["status"],
+                    'executionCost': telemetry, 'checkers': checkers},None,True)
     except Exception:
         conn.rollback()
         _finish(conn,message,job,attempt_id,attempt_token,None,"detection_processing_failed",False)

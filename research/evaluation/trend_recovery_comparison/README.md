@@ -1,10 +1,11 @@
 Created: 2026-10-17T15:16:31+09:00
-Updated: 2026-10-17T15:16:31+09:00
+Updated: 2026-10-17T15:48:29.9467747+09:00
 Author: research_model_diagnostics
-Status: implementation-review
+Status: accepted
 
 # 고정 모델의 회복 반영·경보 해제 비교
 
+- 고정 정책의 새 합성 자료 결과: [RESULTS.md](RESULTS.md).
 - 범위: 연구용 알림 후처리. 기존 W1 점수·판정선·모델·원평가 불변, 새 모델 fit·원판정선 보정 0.
 - 고정 3군: 결합용 유형별 SR 각 1/6 예산의 SR-only, 동일 SR+IF 관계2, 동일 SR+EIF 관계2. 기존 단독 SR 1/3의 seed137 부적격을 구제하는 비교 아님.
 - 정책: 무해제 / 빠른 5·5·30분 / 보수 15·15·45분(발생량·지연·관계). 후보 및 성공 기준은 protocol.json 고정.

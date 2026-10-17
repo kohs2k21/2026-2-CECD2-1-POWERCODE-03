@@ -47,6 +47,18 @@ function parseRequest(value: unknown): JobInput {
   const permitted = ['kind', 'sourceId', 'from', 'until', 'featureSetId', 'configVersionId', 'snapshotId', 'purpose', 'ruleVersionIds', 'decisionId', 'detectionPolicy', 'modelKey', 'syntheticEvaluation'];
   if (Object.keys(body).some((key) => !permitted.includes(key))) throw new JobRequestError('invalid_job_request');
   const input: JobInput = { kind: body.kind, sourceId: body.sourceId };
+  if (body.kind === 'train' && uuid(body.snapshotId) && body.from === undefined && body.until === undefined) {
+    if (Object.keys(body).some(key => !['kind','sourceId','snapshotId','detectionPolicy','modelKey'].includes(key))) throw new JobRequestError('invalid_prepared_training_request');
+    const policy = body.detectionPolicy as JobInput['detectionPolicy'];
+    if (!policy || typeof policy !== 'object' || Array.isArray(policy) ||
+        Object.keys(policy).some(key => !['mode','deadlineMs','combination'].includes(key)) || policy.mode !== 'ml_only' ||
+        policy.combination !== 'selected_path' || !Number.isInteger(policy.deadlineMs) || policy.deadlineMs < 100 || policy.deadlineMs > 30000) throw new JobRequestError('prepared_ml_only_required',422);
+    if (body.modelKey !== undefined && body.modelKey !== 'iforest') throw new JobRequestError('unsupported_model',422);
+    input.snapshotId = body.snapshotId;
+    input.detectionPolicy = policy;
+    if (body.modelKey !== undefined) input.modelKey = 'iforest';
+    return input;
+  }
   if (body.kind === 'explain') {
     if (!uuid(body.decisionId) || Object.keys(body).some(key => !['kind','sourceId','decisionId'].includes(key))) {
       throw new JobRequestError('invalid_explanation_request');
@@ -141,14 +153,21 @@ router.post('/', route(async (req, res) => {
       const set = await client.query('SELECT 1 FROM ml_feature_sets WHERE id = $1', [input.featureSetId]);
       if (!set.rowCount) throw new JobRequestError('feature_set_not_found', 404);
     }
-    if (input.snapshotId && input.kind !== 'evaluate') {
+    const preparedTrain = input.kind === 'train' && input.from === undefined;
+    if (preparedTrain) {
+      const dataset = await client.query(`SELECT 1 FROM data_prepared_datasets d JOIN data_snapshots s ON s.id=d.snapshot_id
+        WHERE d.snapshot_id=$1 AND d.source_id=$2 AND d.status='ready' AND s.status='ready' AND s.schema_version='prepared-features-v1'`,
+        [input.snapshotId,input.sourceId]);
+      if (!dataset.rowCount) throw new JobRequestError('prepared_dataset_not_ready',409);
+    }
+    if (input.snapshotId && input.kind !== 'evaluate' && !preparedTrain) {
       const snapshot = await client.query(`SELECT 1 FROM data_snapshots WHERE id=$1 AND source_id=$2
         AND status='ready' AND (selection_spec->>'from')::timestamptz=$3::timestamptz
         AND (selection_spec->>'until')::timestamptz=$4::timestamptz`,
         [input.snapshotId,input.sourceId,input.from,input.until]);
       if (!snapshot.rowCount) throw new JobRequestError('snapshot_conditions_mismatch',409);
     }
-    if (input.kind === 'train') {
+    if (input.kind === 'train' && !preparedTrain) {
       const members = await client.query(`SELECT m.output_name AS name,m.output_position AS position,
         v.expression,v.requires_fit AS "requiresFit" FROM ml_feature_set_members m
         JOIN ml_feature_versions v ON v.id=m.feature_version_id

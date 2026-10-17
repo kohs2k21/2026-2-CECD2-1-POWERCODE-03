@@ -9,6 +9,7 @@ import jobRouter from './routes/jobRoutes.js';
 import configRouter from './routes/configRoutes.js';
 import pipelineRouter from './routes/pipelineRoutes.js';
 import inputRouter from './routes/inputRoutes.js';
+import preparedDatasetRouter from './routes/preparedDatasetRoutes.js';
 import { checkDatabaseConnection } from './config/database.js';
 
 const app = express();
@@ -17,9 +18,10 @@ const app = express();
 app.use(cors({
   origin: '*', // 개발·테스트용 전체 출처 허용. 운영 환경에서는 허용 출처를 제한한다.
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'If-Match'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'If-Match', 'Idempotency-Key'],
   exposedHeaders: ['ETag', 'Location']
 }));
+app.use('/api/prepared-datasets', preparedDatasetRouter);
 app.use(express.json());
 
 // 상태 확인 API

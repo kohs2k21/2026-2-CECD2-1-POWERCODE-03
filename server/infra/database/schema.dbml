@@ -19,6 +19,7 @@ Enum audit_role {
 }
 
 Enum job_kind {
+  import_csv
   preview
   train
   evaluate
@@ -286,6 +287,28 @@ Table data_snapshots {
     (id, source_id) [unique]
   }
   Note: 'building→ready 후 정확한 행/revision·멤버/분할/manifest 불변. 출처별 고정본, 새 로그/BODY 자동 혼입 없음. source cutoff와 피처 가용 시점 확인. 기본 T/P/M metadata snapshot, BODY 포함/가공은 별도 명시 정책·선택·접근 검증 필요.'
+}
+
+Table data_prepared_datasets {
+  id uuid [pk]
+  source_id uuid [not null]
+  status text [not null, default: 'queued']
+  manifest jsonb [not null]
+  manifest_hash text [not null]
+  original_relative_path text [not null, unique]
+  original_hash text [not null]
+  original_byte_size bigint [not null]
+  normalized_relative_path text [unique]
+  normalized_hash text
+  row_count integer
+  row_metadata jsonb [not null, default: `'[]'::jsonb`]
+  validation_result jsonb [not null, default: `'{}'::jsonb`]
+  snapshot_id uuid [unique]
+  created_job_id uuid [not null, unique]
+  requested_by_actor_id text [not null]
+  created_at timestamptz [not null]
+  ready_at timestamptz
+  Note: 'prepared-csv-v1 isolated file import. Raw CSV and normalized JSONL hashes; row_metadata stores lineage/labels/splits without feature values. queued→ready/failed; immutable input and terminal state. ready snapshot is prepared-features-v1 header only; external reader, no operational observations or fake PROCESS. Validation and operational eligibility distinct; Detector reproduction unverified blocks application.'
 }
 
 Table data_snapshot_members {
@@ -712,6 +735,9 @@ Ref: data_processes.transaction_observation_id >? data_transactions.observation_
 Ref: data_observations.id - data_messages.observation_id
 Ref: data_messages.process_observation_id >? data_processes.observation_id
 Ref: data_snapshots.source_id > ops_sources.id
+Ref: data_prepared_datasets.source_id > ops_sources.id
+Ref: data_prepared_datasets.(snapshot_id, source_id) > data_snapshots.(id, source_id)
+Ref: data_prepared_datasets.created_job_id > run_jobs.id
 Ref: data_snapshot_members.parent_transaction_observation_id >? data_transactions.observation_id
 Ref: data_snapshot_members.(snapshot_id, source_id) > data_snapshots.(id, source_id)
 Ref: data_snapshot_members.(observation_id, source_id) > data_observations.(id, source_id)

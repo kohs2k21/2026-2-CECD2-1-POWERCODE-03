@@ -92,11 +92,18 @@ router.post('/:id/applications', requireAdmin as any, route(async (req, res) => 
          JOIN ml_config_versions AS c ON c.id = e.config_version_id
         WHERE e.id = $1 AND e.config_version_id = $2 AND e.applicability = 'valid'
           AND e.purpose = 'validation' AND e.scored_count > 0
-          AND e.unavailable_count = 0`,
+          AND e.unavailable_count = 0
+          AND NOT EXISTS (SELECT 1 FROM data_prepared_datasets d WHERE d.snapshot_id=e.snapshot_id)`,
       [body.evaluationId, req.params.id],
     );
     if (!gate.rowCount) throw new ConfigError('evaluation_gate_not_met', 409);
     const config = await client.query('SELECT configuration_spec,source_id FROM ml_config_versions WHERE id=$1',[req.params.id]);
+    if (config.rows[0]?.configuration_spec?.operationalEligibility?.eligible === false ||
+        config.rows[0]?.configuration_spec?.preparedDatasetId ||
+        (await client.query(`SELECT 1 FROM ml_config_models cm JOIN ml_artifacts a ON a.id=cm.model_artifact_id
+          JOIN data_prepared_datasets d ON d.snapshot_id=a.snapshot_id WHERE cm.config_version_id=$1 LIMIT 1`,[req.params.id])).rowCount) {
+      throw new ConfigError('prepared_detector_reproduction_unverified',409);
+    }
     const mode = config.rows[0]?.configuration_spec?.detectionPolicy?.mode ?? 'parallel';
     if (config.rows[0]?.configuration_spec?.statusRulePolicy !== undefined &&
         !hasStatusRulePolicy(config.rows[0].configuration_spec, config.rows[0].source_id)) {

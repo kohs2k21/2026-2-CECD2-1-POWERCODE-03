@@ -52,5 +52,7 @@ def enrich_result(conn, job, result):
         result['evaluationEnvelope']['rule_ml'] = result['ruleMlComparison']
     if result.get('executionCost'):
         result['evaluationEnvelope']['execution_cost'] = result['executionCost']
+    if result.get('syntheticEvaluation'):
+        result['evaluationEnvelope']['synthetic'] = result['syntheticEvaluation']
     result['dataContract']['statusRulePolicy'] = config[0].get('statusRulePolicy')
     result['dataContract']['trainingSelection'] = config[0].get('trainingSelection')

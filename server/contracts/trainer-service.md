@@ -35,7 +35,8 @@
 - 시간은 monotonic 실측. item 분위수는 실제 평가 행/Detector 1행 샘플, batch 분위수는 해당 작업의 배치 1회(totalMs) 분포이며 sampleCount 명시. throughput=전체 대상 행/totalMs; 처리 성공 건수와 별도
 - 메모리는 완료 시점 현재 워커 프로세스 RSS 1회 샘플, 컨테이너 peak 아님. 지원하지 않는 OS/관측 실패 null. queueWaitMs는 DB 시계 기준 enqueue→attempt 시작(재시도 대기 포함). 큐 적체는 운영 API 별도
 - `details`: batchSize/concurrency/warmCold(mixed_unclassified)/samplingPeriod(per_batch_completion)/memoryScope(process_current_rss_sample)/resourceLimits(not_observed)/clock/표본 수. 실제 준비 상태·컨테이너 제한을 추정값으로 대체하지 않음
-- `synthetic`: 기존 unavailable/not_implemented 유지. `operational`: unavailable/operational_report_separate_time_scoped; 운영 실적은 source/config/기간/보고 시간대를 명시한 별도 API에서 조회. 과거 오프라인 결과에 현재 실적을 덮어쓰지 않음
+- `synthetic`: 선택 `syntheticEvaluation` 요청의 실제 생성·고정 모델 평가 결과; 미요청은 unavailable/not_implemented 유지. 프로필 등록·요청·결과·재현 규약은 [합성 평가 계약](synthetic-evaluation.md)
+- `operational`: unavailable/operational_report_separate_time_scoped; 운영 실적은 source/config/기간/보고 시간대를 명시한 별도 API에서 조회. 과거 오프라인 결과에 현재 실적을 덮어쓰지 않음
 - ESB 발생→판정 지연은 추론 시간과 별도. 신뢰할 발생 시각·시계 정합성 미확인 시 esbLatencyMs=null/source_clock_unverified
 - 기존 라벨 평가는 metrics/reasonCodes/evaluationId로 유지. 새 selected-paths-v3의 applicability는 선택 경로 기술적 완전성만 반영; 정답 라벨 부족은 정보성 사유·정의 불가 precision/recall/falsePositiveRate=null. 성능 점수 자동 합격·승인 없음, validation 전체 선택 경로 성공 및 파일/hash/모델·fit·스키마 검사 유지. 과거 v2 결과 재해석·재작성 없음
 - 기존 결과 변경 금지; 이전 작업은 새 확장 필드가 없을 수 있음

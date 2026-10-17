@@ -203,6 +203,12 @@ jobs:
         env:
           PIPELINE_TEST_DATABASE_URL: postgresql://postgres:local-ci-only@127.0.0.1:5432/qa_pipeline
         run: node server/backend/tests/jobs.integration.mjs
+      - name: Synthetic profiles, fixed-model evaluation and recovery
+        env:
+          PIPELINE_TEST_DATABASE_URL: postgresql://postgres:local-ci-only@127.0.0.1:5432/qa_synthetic_service
+        run: |
+          node server/backend/tests/synthetic-catalog-parity.mjs
+          python server/worker/tests/integration_synthetic_service.py
       - name: Saved decision SSE and requested explanation contract
         env:
           PIPELINE_TEST_DATABASE_URL: postgresql://postgres:local-ci-only@127.0.0.1:5432/qa_research_pipeline

@@ -17,7 +17,8 @@
       "status": {"enum": ["measured", "unavailable", "not_applicable", "failed"]},
       "reason": {"type": ["string", "null"]},
       "metrics": {"type": ["object", "null"], "additionalProperties": {"$ref": "#/$defs/measurement"}},
-      "metricVersion": {"type": "string", "minLength": 1}
+      "metricVersion": {"type": "string", "minLength": 1},
+      "details": {"type": "object"}
     },
     "allOf": [{"if": {"properties": {"status": {"const": "measured"}}},
       "then": {"properties": {"metrics": {"type": "object"}, "reason": {"type": "null"}}},

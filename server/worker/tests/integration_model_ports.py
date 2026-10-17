@@ -92,7 +92,7 @@ def main() -> None:
                 observation = ingest_observation(
                     conn, source_id=source_id, layer="P",
                     dedup_key=f"model-port:{source_id}:{index}",
-                    raw={"process_id": f"p{index}",
+                    raw={"status":"S", "process_id": f"p{index}",
                          "error_count": str(index % 100 if real_iforest else index % 2)},
                     execution_id=execution_id, revision_no=1,
                 )
@@ -265,7 +265,7 @@ def main() -> None:
                 )
             live = ingest_observation(
                 conn, source_id=source_id, layer="P", dedup_key=f"live:{source_id}",
-                raw={"process_id": "live", "error_count": "1"},
+                raw={"status":"S", "process_id": "live", "error_count": "1"},
                 execution_id=execution_id, revision_no=1, detection_eligible=True,
             )
             conn.commit()

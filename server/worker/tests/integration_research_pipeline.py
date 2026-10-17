@@ -96,7 +96,7 @@ def main():
             os.environ["ARTIFACT_ROOT"] = directory
             sid = source(conn, "Research pipeline fixture")
             for index in range(1000):
-                observe(conn, sid, f"reference-{index}", {"error_count": str(index % 7), "total_count": "100"},
+                observe(conn, sid, f"reference-{index}", {"status":"S", "error_count": str(index % 7), "total_count": "100"},
                         "normal" if index < 700 else "anomaly" if index % 2 else "normal")
             now = datetime.now(timezone.utc)
             period = {"sourceId": str(sid), "from": (now - timedelta(hours=1)).isoformat(),
@@ -130,7 +130,7 @@ def main():
             conn.commit()
             assert process_application_once(conn, root, "fixture-detector")
             conn.commit()
-            live = observe(conn, sid, "live", {"error_count": "90", "total_count": "100"}, live=True)
+            live = observe(conn, sid, "live", {"status":"S", "error_count": "90", "total_count": "100"}, live=True)
             message = claim(conn, "detection", source_id=str(sid)); conn.commit()
             assert message is not None
             process_detection_message(conn, message, root); conn.commit()

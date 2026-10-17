@@ -478,7 +478,8 @@ def _evaluate(conn: Any, job: dict[str, Any], root: Path | None,
         item_started = time.monotonic()
         result = compute(context, raw, root)
         samples.append((time.monotonic()-item_started)*1000)
-        checker_results.append(result)
+        checker_results.append({checker: {key: result[checker].get(key) for key in ('status', 'anomalous')}
+                                for checker in ('hr', 'sr', 'ml')})
         if 'preprocessMs' in result['ml']:
             preprocess_samples.append(result['ml']['preprocessMs'])
         if 'inferenceMs' in result['ml']:

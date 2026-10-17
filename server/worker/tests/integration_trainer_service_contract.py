@@ -148,7 +148,8 @@ def verify(service, conn, spec):
     assert request('/api/jobs',spec,key)[1]['id']==identifier
     assert request('/api/jobs/'+identifier)[1]['resultSummary']==result
     assert conn.execute('SELECT * FROM ops_system_state').fetchall()==before;conn.commit()
-    assert all(x['status']=='unavailable' and x['metrics'] is None for x in result['evaluationEnvelope'].values())
+    assert result['evaluationEnvelope']['execution_cost']['status']=='measured'
+    assert all(result['evaluationEnvelope'][key]['status']=='unavailable' for key in ('rule_ml','synthetic','operational'))
     config_id=uuid.UUID(result['configVersionId']); source_id=uuid.UUID(spec['sourceId'])
     context=load_context(conn,config_id,source_id);conn.commit()
     ref=model_reference(context,service.artifacts)

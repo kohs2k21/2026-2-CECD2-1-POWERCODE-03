@@ -13,7 +13,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from detector.status_rule import default_policy, evaluate_status
 from detector.policy import Policy
 from trainer.selection import select_training
-from trainer.metrics import compare
+from trainer.metrics import compare, comparison_family
 from trainer import runner
 from telemetry import cost_family, percentile
 
@@ -63,10 +63,15 @@ class EvaluationMetricsTests(unittest.TestCase):
              patch('detector.computation.model_reference',return_value={}), \
              patch('detector.computation.verified_artifact_path',return_value=Path('fixture')), \
              patch('model_adapters.score_iforest',side_effect=lambda ref,values:float(values['count_raw'])), \
-             patch.object(runner,'lock_training_ownership',return_value=True), patch.object(runner,'_finish'):
+             patch.object(runner,'lock_training_ownership',return_value=True), patch.object(runner,'_finish'), \
+             patch('trainer.metrics.comparison_family',wraps=comparison_family) as aggregate:
             result = runner._evaluate(conn,job,Path('.'),type('Message',(),{'created_at':None})(),uuid.uuid4(),uuid.uuid4())
             with patch.object(runner,'_snapshot_rows',return_value=rows[:-1]):
                 complete = runner._evaluate(conn,job,Path('.'),type('Message',(),{'created_at':None})(),uuid.uuid4(),uuid.uuid4())
+        for call in aggregate.call_args_list:
+            for row in call.args[0]:
+                self.assertEqual(set(row), {'hr', 'sr', 'ml'})
+                self.assertTrue(all(set(checker) == {'status', 'anomalous'} for checker in row.values()))
         metrics = result['ruleMlComparison']['metrics']
         self.assertEqual(result['populationCount'],6)
         self.assertEqual([metrics['hr'+key]['numerator'] for key in ('Both','RuleOnly','MlOnly','Neither')],[2,1,1,1])

@@ -1,9 +1,11 @@
 Created: 2026-10-17T14:29:35.9678950+09:00
-Updated: 2026-10-17T14:35:55.9994574+09:00
+Updated: 2026-10-17T14:51:50.7962461+09:00
 Author: research_model_diagnostics
-Status: draft
+Status: accepted
 
 # 유형별 SR·raw flag OR 독립 비교
+
+- [새 시험 결과·관계 대조·정상 부담](RESULTS.md): main12fit·동결actual/CF·독립 검수 수용. 관계 포착 증가와 정상 양성시간/가용성의 교환을 함께 확인
 
 - 범위: 연구 전용 통제 합성 집계. 기존 장기추세 소스·모델·실험 결과·운영 변경 없음
 - 고정 비교: 공통 W1, primary C5, 추가 C1 진단. seed101/137/173 정상 train7/cal7일 → 정상자료로 모델·cut·적격 잠금 → 새 blind14일·관계 개입 제거 CF

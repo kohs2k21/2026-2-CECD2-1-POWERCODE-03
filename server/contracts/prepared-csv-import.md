@@ -52,7 +52,8 @@
 - 원본 행 번호: header 제외 record 순서의 2부터 시작; quote 내부 개행은 별도 행으로 계산하지 않음
 - PG `row_metadata`: 같은 행에서 features 제외한 배열; `validation_result`: counts·split·누수/계보·학습 자격·미측정 사유
 - 원본/fit/split/time 증거 미제공·검증 불가: leakage 검증 unverified 명시; 전체 데이터 fit은 재분할로 정상화 금지
-- 학습: train split 중 status=S·label≠anomaly·isSynthetic=false·합성 scenario/선언 없음만 허용; 자격 정보 누락/적격 0행은 학습 오류. validation/test는 학습 필터 제외
+- 학습: train split 중 status=S·label≠anomaly·isSynthetic=false·행의 합성 scenario 표시 없음만 허용; 자격 정보 누락/적격 0행은 학습 오류. validation/test는 학습 필터 제외
+- manifest.synthetic는 합성 방법 정보; 원본+주입 혼합 CSV의 모든 원본 행을 합성으로 취급하지 않고 행별 자격 검사
 - split 미제공 반입은 허용·검증 미확인; 명시된 대상 split 부재 시 학습/평가 불가 사유 반환
 - 피처 행 평가와 PROCESS 평가 분리; v1 숫자 행 HR/SR 미측정·정적 ESB 지연 미측정·미라벨 정확도 미측정
 

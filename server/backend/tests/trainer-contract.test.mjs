@@ -18,6 +18,15 @@ test('plain, arithmetic, fitted, and typed derived expressions are discoverable'
   accepted(member({ op: 'derived', outputType: 'boolean', unit: 'boolean', provenance: {},
     ast: { op: 'is_missing', args: [{ op: 'column', table: 'EC_PROCESS_MONITORING', column: 'END_TIME' }] } }));
 });
+test('prepared columns remain unavailable to raw training and identify the dedicated dataset path', () => {
+  for (const name of ['prepared_value', 'startTimeHourSin']) {
+    assert.deepEqual(featureSetCapability([{ name, position: 0, requiresFit: false,
+      expression: { op: 'prepared_column', column: name, inputStage: 'model_input' } }]),
+    { supported: false, reason: 'prepared_dataset_path_required' });
+  }
+  assert.deepEqual(featureSetCapability([member({ op: 'unregistered_operation' })]),
+    { supported: false, reason: 'unsupported_feature_definition' });
+});
 test('invalid source, AST, group, and requiresFit never claim support', () => {
   for (const expression of [
     { op: 'field', field: 'P.password' },

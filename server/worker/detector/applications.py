@@ -36,10 +36,12 @@ def prepare_config(conn, config_id, root):
     from detector.computation import load_context, model_reference
     from feature_fit import requires_fit
     with conn.cursor() as cur:
-        cur.execute("SELECT source_id FROM ml_config_versions WHERE id=%s", (config_id,))
+        cur.execute("SELECT source_id,configuration_spec FROM ml_config_versions WHERE id=%s", (config_id,))
         row = cur.fetchone()
     if row is None:
         raise ValueError("config_missing")
+    if row[1].get('preparedInputContract') is not None or row[1].get('preparedDatasetId') is not None:
+        raise ValueError('prepared_detector_reproduction_unverified')
     context = load_context(conn, config_id, row[0])
     if context["policy"].mode != "ml_only" and not context["rules"] and not context["policy"].legacy and \
             context.get('statusRulePolicy') is None:

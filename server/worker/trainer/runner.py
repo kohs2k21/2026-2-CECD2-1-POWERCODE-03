@@ -236,6 +236,10 @@ def _execute(conn: Any, job: dict[str, Any], attempt_id: uuid.UUID,
     if kind == 'import_csv':
         from trainer.prepared_import import execute as execute_import
         return execute_import(conn,job,artifact_root,message,attempt_id,attempt_token)
+    if kind in ('train','evaluate') and spec.get('snapshotId'):
+        from trainer.prepared_execution import maybe_execute
+        prepared_result = maybe_execute(conn,job,artifact_root,message,attempt_id,attempt_token)
+        if prepared_result is not None: return prepared_result
     if kind == 'train':
         if spec.get('modelKey', 'iforest') != 'iforest':
             raise ValueError('unsupported_model')

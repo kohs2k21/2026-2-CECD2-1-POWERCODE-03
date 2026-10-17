@@ -1,0 +1,366 @@
+{
+  "version": "trend54-family-v1",
+  "data_nature": "independent_controlled_minute_aggregate_simulation",
+  "real_source_used": false,
+  "seeds": [
+    101,
+    137,
+    173
+  ],
+  "split_days": {
+    "train": 7,
+    "calibration": 7,
+    "blind": 14
+  },
+  "scored_starts_utc": {
+    "train": "2026-05-04T00:00:00Z",
+    "calibration": "2026-05-18T00:00:00Z",
+    "blind": "2026-07-06T00:00:00Z"
+  },
+  "groups": [
+    "continuous",
+    "business"
+  ],
+  "base_bin_minutes": 1,
+  "cadence_minutes": 5,
+  "cadence_candidates": [
+    1,
+    5,
+    15
+  ],
+  "window_hours": [
+    1
+  ],
+  "max_window_minutes": 720,
+  "watermark_lag_minutes": 2,
+  "prefix_minutes": 722,
+  "bin_semantics": "source bin [bin_start,endpoint); endpoint is bin end; endpoints in (window_end-W,window_end]; window_end=decision_tick-2min; available_at=endpoint+delay; first changed bin_start=event.start",
+  "training_cap": 4096,
+  "variants": [
+    "trend"
+  ],
+  "dimensions": {
+    "base": 31,
+    "trend": 43
+  },
+  "reference_minimum": 20,
+  "minimum_relation_pairs": 30,
+  "reference_quantiles": [
+    0.05,
+    0.95
+  ],
+  "feature_floor": 0.05,
+  "sr_score": "maximum over valid features of abs(X[j]-train_median[j]) / max(train_q90[j]-train_q10[j],0.05), train statistics use valid rows; validity bits excluded; no empirical-CDF-only proxy",
+  "sr_neutral_feature_names": [
+    "duration_observed",
+    "relation_valid",
+    "relation_pair_fraction"
+  ],
+  "calibration_alarm_budget_per_group_hour": 0.05,
+  "calibration_positive_tick_fraction_per_group": 0.01,
+  "calibration_quantile_grid": [
+    0.99,
+    0.9925,
+    0.995,
+    0.9975,
+    0.999,
+    0.9995,
+    1.0
+  ],
+  "calibration_quantile_method": "higher",
+  "calibration_policy": "Allocated branch budget: one envelope cut per branch/seed from normal calibration only; all group x C1/5/15 guards simultaneously. Fixed quantile grid union maximum per-group/C higher quantile at 1-allocated-positive-time-budget, at most8; cut>=this floor; strict score>cut; evaluate bounded candidates in order and take first passing candidate; no later recalibration. Standalone fraction1, family-only each1/3, joint SR families each1/6 and ML1/2. Actual ternary-OR union must additionally pass the full original normal budget.",
+  "event_types": [
+    "burst",
+    "inflow_stop",
+    "level_shift",
+    "gradual_increase",
+    "relation_change"
+  ],
+  "event_durations_minutes": [
+    120,
+    240,
+    360
+  ],
+  "count_multipliers": [
+    1.6,
+    2.4,
+    3.5
+  ],
+  "duration_multipliers": [
+    1.4,
+    1.8,
+    2.4
+  ],
+  "event_onset_minutes_of_day": 570,
+  "confirmed_relative_increase": 0.25,
+  "confirmed_minimum_bins": 3,
+  "suite": "A:60 intended events per evaluation split, predetermined source_unknown/late/unseen-category crosses retained in denominator",
+  "suite_crosses": {
+    "continuous:level_shift:1": "source_unknown",
+    "business:gradual_increase:1": "observation_late",
+    "business:burst:1": "category_unseen"
+  },
+  "event_cohort_values": [
+    "core",
+    "source_unknown",
+    "source_late",
+    "new_category"
+  ],
+  "normal_controls": [
+    "diurnal",
+    "weekly",
+    "legal_peak",
+    "legal_volume_plateau",
+    "scheduled_weekend_inactivity",
+    "known_category_alias"
+  ],
+  "primary_event_metric": "new episode onset in [actual event.start,event.end), one-to-one; confirmed_start only marks early subset, early is included in actual-onset primary",
+  "alarm_merge_gap_minutes": 10,
+  "late_grace_minutes": 30,
+  "bounded_delay_minutes": 360,
+  "cadence_policy": "One-minute causal feature trace with unchanged 2min watermark and common720min source/category readiness. Primary holdout C5; predeclared secondary descriptive C1; C15 is calibration guard only. Same frozen reference/model/cut/input/raw/pred at common ticks. No cadence-based holdout reselection or recalibration.",
+  "selection_policy": "No holdout selection: all ten predeclared arms at common W1/C5; normal calibration eligibility is frozen before main blind opens.",
+  "fit_budget": {
+    "main_forest_fits": 12,
+    "main_seeds": 3,
+    "forests_per_seed": 4,
+    "algorithms": [
+      "if",
+      "eif"
+    ],
+    "feature_views": [
+      "full43",
+      "relation2"
+    ],
+    "fixture_forest_fits": 4,
+    "trees": 128,
+    "max_samples": 256,
+    "cpu_threads": 1
+  },
+  "scope_limit": "Independent controlled synthetic follow-up to earlier diagnosed benchmark; all W1; new seeds/dates; no production/model/DB changes; improvement and actual business validity must be evaluated separately",
+  "run_kind": "main",
+  "allowed_splits": [
+    "train",
+    "calibration",
+    "blind"
+  ],
+  "family_feature_names": {
+    "count": [
+      "count_upper_tail_1m",
+      "count_lower_tail_1m",
+      "count_tail_mean_5m",
+      "count_tail_mean_15m",
+      "count_zero_run",
+      "count_tail_ewma",
+      "count_tail_change",
+      "count_tail_mean_W",
+      "count_above_q95_ratio",
+      "count_below_q05_ratio",
+      "count_excess_max_W",
+      "count_above_q95_run_minutes",
+      "count_below_q05_run_minutes",
+      "count_exceed_fraction_W",
+      "count_slope_per_hour",
+      "count_front_back_difference",
+      "count_short_long_ratio",
+      "count_volatility"
+    ],
+    "latency": [
+      "latency_upper_tail_1m",
+      "latency_lower_tail_1m",
+      "latency_upper_mean_5m",
+      "latency_lower_mean_5m",
+      "latency_upper_max_5m",
+      "latency_upper_change",
+      "latency_upper_ewma",
+      "latency_upper_anchor",
+      "latency_tail_mean_W",
+      "latency_above_q95_ratio",
+      "latency_excess_max_W",
+      "latency_above_q95_run_minutes",
+      "latency_exceed_fraction_W",
+      "duration_slope_per_hour",
+      "duration_front_back_difference",
+      "duration_short_long_ratio",
+      "duration_volatility"
+    ],
+    "relation": [
+      "count_duration_correlation",
+      "relation_absolute_residual"
+    ]
+  },
+  "excluded_family_feature_names": [
+    "duration_observed",
+    "hour_sin",
+    "hour_cos",
+    "weekend",
+    "relation_valid",
+    "relation_pair_fraction"
+  ],
+  "arms": [
+    "old_sr",
+    "family_sr",
+    "if43",
+    "eif43",
+    "ifrel2",
+    "eifrel2",
+    "family_sr+if43",
+    "family_sr+eif43",
+    "family_sr+ifrel2",
+    "family_sr+eifrel2"
+  ],
+  "legacy_source_sha256": {
+    "research/evaluation/long_term_trend/dataset.py": "c2db1cec29916d1d9d227a9c35a1c8879f3fab866ecf7cc822a3e7d08c7f64ba",
+    "research/evaluation/long_term_trend/features.py": "61c18437bf82888f99ebbbba22246cef5b2196f77d909e2a47da937d791940d6",
+    "research/evaluation/long_term_trend/models.py": "ce42cbf22c5194aa451a14be63e9de281f7b83169e6e8a94c45d41d370a99d1c",
+    "research/evaluation/long_term_trend/evaluation.py": "6c3adebc4fe40b88b3a78fe2718b01ee1a645b2cb2df16ecc0c3f4e88bf8d981",
+    "research/evaluation/long_term_trend/protocol.json": "01ed3d36f0abf42287526a30d6735e0dd6c35edaad6a2e4f639e8d07415e6a7c"
+  },
+  "fixture": {
+    "seed": 9102,
+    "forbidden_main_or_prior_seeds": [
+      11,
+      29,
+      47,
+      101,
+      137,
+      173,
+      9101
+    ],
+    "normal_days": 2,
+    "blind_days": 14,
+    "purpose": "isolated integration only; no performance claim or selection"
+  },
+  "feature_contract": {
+    "names": [
+      "count_upper_tail_1m",
+      "count_lower_tail_1m",
+      "count_tail_mean_5m",
+      "count_tail_mean_15m",
+      "count_zero_run",
+      "count_tail_ewma",
+      "count_tail_change",
+      "latency_upper_tail_1m",
+      "latency_lower_tail_1m",
+      "latency_upper_mean_5m",
+      "latency_lower_mean_5m",
+      "latency_upper_max_5m",
+      "latency_upper_change",
+      "latency_upper_ewma",
+      "latency_upper_anchor",
+      "count_tail_mean_W",
+      "latency_tail_mean_W",
+      "duration_observed",
+      "hour_sin",
+      "hour_cos",
+      "weekend",
+      "count_above_q95_ratio",
+      "count_below_q05_ratio",
+      "latency_above_q95_ratio",
+      "count_excess_max_W",
+      "latency_excess_max_W",
+      "count_above_q95_run_minutes",
+      "count_below_q05_run_minutes",
+      "latency_above_q95_run_minutes",
+      "count_exceed_fraction_W",
+      "latency_exceed_fraction_W",
+      "count_slope_per_hour",
+      "duration_slope_per_hour",
+      "count_front_back_difference",
+      "duration_front_back_difference",
+      "count_short_long_ratio",
+      "duration_short_long_ratio",
+      "count_volatility",
+      "duration_volatility",
+      "count_duration_correlation",
+      "relation_absolute_residual",
+      "relation_valid",
+      "relation_pair_fraction"
+    ],
+    "full43_dimension": 43,
+    "relation_dimension": 2,
+    "family_dimensions": {
+      "count": 18,
+      "latency": 17,
+      "relation": 2
+    },
+    "source_bin_minutes": 1,
+    "window_hours": 1,
+    "common_max_window_minutes": 720,
+    "lag_minutes": 2,
+    "prefix_minutes": 722,
+    "labels_in_X": false,
+    "relation_ready": "common source/category ready AND both relation feature validity bits true; otherwise not_ready, never zero score",
+    "family_ready": "at least one valid physical feature in family; relation additionally requires both relation validity bits",
+    "score_excludes": "family SR excludes clock3 and neutral3; old_sr retains legacy40 active candidates; full43 forests retain original43 numeric values",
+    "view_comparison": "full43 uses original common train cohort and own train-only encoder; relation2 uses both-valid-only train cohort and own train-only encoder; this is a package comparison, not a pure dimensionality ablation",
+    "train_sampling": "common sourceeligible & train_mask C5 indices, deterministic seed cap4096 first; full43 uses all sampled finite rows, relation2 uses both-valid subset of these rows and its own encoder; store row counts/ticks/hash per view"
+  },
+  "score_contract": {
+    "old_sr": "max over legacy SR active valid features abs(X-train_median)/max(train_q90-train_q10,0.05)",
+    "family_raw": "same frozen train SR per-feature statistics; max only within predefined physical family; no test fit",
+    "forest_raw": "same pinned StandardIF/ExtendedIF anomaly score; train-only RobustEncoder for each43/2 feature view",
+    "typed_value": "raw_score is dimensionless model/family-specific anomaly score; raw_cut same score unit; prediction strict raw_score>raw_cut; any display margin is labelled separately and is not severity/probability",
+    "or_ternary": "positive if any ready branch positive; negative only if every required branch ready and negative; otherwise unknown",
+    "validity_bits": "metadata gates only for relation2/family; never injected as labels; original full43 numeric flags remain original43 view"
+  },
+  "budget_policy": {
+    "normal_only": true,
+    "per_group_alarm_episodes_per_hour": 0.05,
+    "per_group_positive_time_fraction": 0.01,
+    "standalone_fraction": 1.0,
+    "family_sr_branch_fraction": {
+      "count": 0.3333333333333333,
+      "latency": 0.3333333333333333,
+      "relation": 0.3333333333333333
+    },
+    "joint_branch_fraction": {
+      "count": 0.16666666666666666,
+      "latency": 0.16666666666666666,
+      "relation": 0.16666666666666666,
+      "ml": 0.5
+    },
+    "cut_candidate_policy": "legacy fixed quantile grid plus maximum group/cadence higher quantile floor at 1-allocated-positive-budget; first passing candidate; strict >; all candidates bounded; no holdout recalibration",
+    "cadence_guards": [
+      1,
+      5,
+      15
+    ],
+    "primary_holdout_cadence": 5,
+    "eligibility": "each required group has finite calibration score; training rows>=256 for forest; branch cuts pass allocated guards; actual OR union passes full group/cadence budget; otherwise whole arm ineligible with reason and holdout score NaN",
+    "forest_cut_requirement": "finite raw_cut < 1 AND raw_cut < U, where U<=1 is a conservative frozen-forest score upper bound from the mean of each tree minimum depth+leaf-size-correction. raw_cut>=U proves strict crossing impossible and makes the arm ineligible; raw_cut<U does not guarantee simultaneous attainable paths.",
+    "normal_denominators": "prediction-available group hours as legacy evaluation; also report full timeline unknown/coverage and shared-eligible comparisons so relation absence cannot masquerade as lower false alarms",
+    "holdout_cadences": [
+      1,
+      5
+    ]
+  },
+  "counterfactual_policy": {
+    "command": "separate locked evaluation command; same seed/protocol/RNG; only relation duration reassignment disabled in memory",
+    "retained_other_interventions": true,
+    "service_events": "actual original20/seed; counterfactual removes only four relation rows =>16/seed",
+    "control_windows": "four original relation target windows/seed kept separately under same event_id; counterfactual windows are normal for false-alarm/occupancy evaluation",
+    "paired_denominators": "actual60 service events vs counterfactual48 service events; paired12 relationship controls reported separately; never combine denominators",
+    "assertions": [
+      "other source columns exact equal",
+      "duration outside relation targets exact equal",
+      "each target hour duration multiset exact equal",
+      "event schedule exact equal excluding postintervention marginal hash"
+    ],
+    "normality": "controlled synthetic counterfactual, not a fully normal split and not real incident truth",
+    "normal_truth_authority": "service events passed to normal_statistics; original source normal_confirmed target labels remain untouched and must not filter CF normal evaluation"
+  },
+  "freeze_policy": {
+    "main_blind_default_blocked": true,
+    "main_blind_open": "root GO only after code/protocol/train references/models/calibration cuts/eligibility artifact SHA frozen; runner must validate lock then explicitly allow_main_blind",
+    "fixture_only_before_main_go": 9102,
+    "no_post_blind_refit_or_recalibration": true,
+    "source_manifest": "store source SHA, protocol SHA, seeds, scored start/end, source rows, event/control counts, pinned legacy source SHA; declare source synthetic and real_source_used false"
+  },
+  "holdout_cadences": [
+    1,
+    5
+  ],
+  "primary_holdout_cadence": 5,
+  "secondary_holdout_cadence": 1
+}

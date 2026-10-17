@@ -65,7 +65,7 @@ def main():
         evaluated=job(conn,{'kind':'evaluate','sourceId':str(sid),'configVersionId':trained['configVersionId'],
             'snapshotId':trained['snapshotId'],'purpose':'validation'})
         assert evaluated['applicability']=='valid' and evaluated['scoredCount']>0
-        live=observe(conn,sid,test_key+'-rule-only-live',{'error_count':'90','total_count':'100'})
+        live=observe(conn,sid,test_key+'-rule-only-live',{'status':'S','error_count':'90','total_count':'100'})
         payload=enqueue_observation(conn,live.observation_id,config_id=trained['configVersionId']);conn.commit()
         conn.execute("SET TIME ZONE 'Asia/Seoul'")
         same=enqueue_observation(conn,live.observation_id,config_id=trained['configVersionId']);conn.commit()
@@ -83,7 +83,7 @@ def main():
             decision_id=row[0]
         conn.commit()
         # Missing artifacts in parallel leaves confirmed Rule results intact.
-        other=observe(conn,sid,test_key+'-parallel-missing-artifact',{'error_count':'90','total_count':'100'})
+        other=observe(conn,sid,test_key+'-parallel-missing-artifact',{'status':'S','error_count':'90','total_count':'100'})
         partial=enqueue_observation(conn,other.observation_id,config_id=old_config);conn.commit()
         message=claim(conn,'detection',message_id=uuid.UUID(partial['jobId']));conn.commit()
         process_detection_message(conn,message,None);conn.commit()
@@ -122,7 +122,7 @@ def main():
             assert output[0]['causeStatus']=='unconfirmed' and output[1]==decision_id
         conn.commit()
         # Reclaimed attempt fences the old owner; direct delivery and poll share exact queue id.
-        new=observe(conn,sid,test_key+'-direct-fenced',{'error_count':'90','total_count':'100'})
+        new=observe(conn,sid,test_key+'-direct-fenced',{'status':'S','error_count':'90','total_count':'100'})
         incoming=enqueue_observation(conn,new.observation_id,config_id=trained['configVersionId']);conn.commit()
         stale=claim(conn,'detection',message_id=uuid.UUID(incoming['jobId']));conn.commit()
         with conn.cursor() as cur:
@@ -145,7 +145,7 @@ def main():
         with conn.cursor() as cur:
             cur.execute('SELECT active_config_version_id FROM ops_system_state WHERE id=1')
             previous_active=cur.fetchone()[0]
-        waiting=observe(conn,sid,test_key+'-pinned',{'error_count':'90','total_count':'100'})
+        waiting=observe(conn,sid,test_key+'-pinned',{'status':'S','error_count':'90','total_count':'100'})
         pinned=enqueue_observation(conn,waiting.observation_id,config_id=trained['configVersionId']);conn.commit()
         try:
             conn.execute('UPDATE ops_system_state SET active_config_version_id=NULL WHERE id=1');conn.commit()
@@ -155,7 +155,7 @@ def main():
             conn.commit()
         finally:
             conn.execute('UPDATE ops_system_state SET active_config_version_id=%s WHERE id=1',(previous_active,));conn.commit()
-        exhausted=observe(conn,sid,test_key+'-exhausted',{'error_count':'90','total_count':'100'})
+        exhausted=observe(conn,sid,test_key+'-exhausted',{'status':'S','error_count':'90','total_count':'100'})
         item=enqueue_observation(conn,exhausted.observation_id,config_id=trained['configVersionId']);conn.commit()
         msg=claim(conn,'detection',message_id=uuid.UUID(item['jobId']),max_attempts=1);conn.commit()
         owned,attempt,token=_claim_job(conn,msg,'crashed-test');conn.commit()

@@ -26,6 +26,9 @@ from trainer.catalog import register_feature_set
 from trainer.rule_candidates import validate_suggestions
 from trainer.lease import TrainingLeaseHeartbeat, lock_training_ownership
 from trainer.snapshot import build_snapshot
+from trainer.selection import select_training
+from detector.status_rule import default_policy
+from telemetry import cost_family, queue_wait_ms
 
 SAFE_MODEL_FIELDS = frozenset({
     "success_count", "error_count", "total_count", "retry_count", "status",
@@ -132,19 +135,21 @@ def _definitions(conn: Any, feature_set_id: uuid.UUID) -> list[dict[str, Any]]:
 
 def _training_inputs(conn, snapshot_id, feature_set_id):
     definitions = _definitions(conn, feature_set_id)
-    if not any(requires_fit(item['expression']) for item in definitions):
-        rows, names = _feature_rows(conn, snapshot_id, feature_set_id, 'train')
-        return rows, names, None, definitions_hash(definitions)
-    observations = _snapshot_rows(conn, snapshot_id, 'train')
+    observations, selection = select_training(_snapshot_rows(conn, snapshot_id, 'train'))
     conn.commit()
     references = [{'raw': raw, 'label': labels.get('label') if isinstance(labels, dict) else None}
                   for _, raw, _, labels in observations]
-    state = fit_features(definitions, references, snapshot_id=snapshot_id)
+    state = fit_features(definitions, references, snapshot_id=snapshot_id) if any(
+        requires_fit(item['expression']) for item in definitions) else None
+    if state is not None:
+        state['reference']['trainingSelection'] = selection
     prepared = []
     for row in references:
-        values, missing = transform(definitions, row['raw'], state)
+        values, missing = transform(definitions, row['raw'], state) if state is not None else calculate_features(definitions, row['raw'])
         prepared.append({'features': values, 'missing': missing, 'label': row['label']})
-    return prepared, [item['name'] for item in definitions], state, definitions_hash(definitions)
+    selection['featureCompleteCount'] = sum(not row['missing'] for row in prepared)
+    selection['featureMissingCount'] = len(prepared) - selection['featureCompleteCount']
+    return prepared, [item['name'] for item in definitions], state, definitions_hash(definitions), selection
 
 
 def _feature_rows(conn: Any, snapshot_id: uuid.UUID, feature_set_id: uuid.UUID,
@@ -224,6 +229,8 @@ def _promote_output(root: Path, output: Path, path_value: Any, kind: str) -> str
 def _execute(conn: Any, job: dict[str, Any], attempt_id: uuid.UUID,
              artifact_root: Path | None, message: ClaimedMessage,
              attempt_token: uuid.UUID) -> dict[str, Any]:
+    started = time.monotonic()
+    queue_wait = queue_wait_ms(conn, message, attempt_id)
     spec = job["input"]
     kind = job["kind"]
     if kind == 'train':
@@ -326,12 +333,14 @@ def _execute(conn: Any, job: dict[str, Any], attempt_id: uuid.UUID,
         if policy.mode == "rule_only":
             if any(requires_fit(item['expression']) for item in _definitions(conn, feature_set_id)):
                 raise ValueError('rule_only_fitted_features_unsupported')
-            if not spec.get("ruleVersionIds"):
-                raise ValueError("rules_required")
             config_id = uuid.uuid4()
+            _, selection = select_training(_snapshot_rows(conn, snapshot.id, 'train'))
+            selection['modelFitted'] = False
+            conn.commit()
             config_spec = {"schemaVersion": 2, "sourceId": str(source_id), "featureSetId": str(feature_set_id),
                 "trainingSnapshotId": str(snapshot.id), "ruleVersionIds": spec["ruleVersionIds"],
-                "detectionPolicy": spec["detectionPolicy"]}
+                "detectionPolicy": spec["detectionPolicy"], "statusRulePolicy": default_policy(source_id),
+                'trainingSelection': selection}
             with conn.transaction():
                 if not lock_training_ownership(conn,message,job["id"],attempt_id,attempt_token):
                     raise RuntimeError("training_ownership_lost")
@@ -342,16 +351,24 @@ def _execute(conn: Any, job: dict[str, Any], attempt_id: uuid.UUID,
                     for order, rule_id in enumerate(spec["ruleVersionIds"]):
                         cur.execute("INSERT INTO ml_config_rules(config_version_id,rule_version_id,evaluation_order) VALUES(%s,%s,%s)", (config_id,rule_id,order))
                 completed = {"snapshotId": str(snapshot.id), "featureSetId": str(feature_set_id),
-                             "configVersionId": str(config_id),"splitCounts": snapshot.counts}
+                             "configVersionId": str(config_id),"splitCounts": snapshot.counts,
+                             'trainingSelection': selection,
+                             "executionCost": cost_family({'totalMs': (time.monotonic()-started)*1000},
+                                                          batch_size=0, queue_wait=queue_wait)}
+                completed['executionCost']['details']['scope'] = 'offline_training'
                 _finish(conn,message,job,attempt_id,attempt_token,completed,None,True)
             return {**completed,"_finalized": True}
         if artifact_root is None:
             raise model_adapters.ModelNotConfigured("artifact_root_not_configured")
-        prepared, names, preprocessing, definition_digest = _training_inputs(conn, snapshot.id, feature_set_id)
+        preprocessing_started = time.monotonic()
+        prepared, names, preprocessing, definition_digest, selection = _training_inputs(conn, snapshot.id, feature_set_id)
+        preprocessing_ms = (time.monotonic()-preprocessing_started)*1000
         output = artifact_root / "tmp" / str(attempt_id)
         output.mkdir(parents=True, exist_ok=True)
+        training_started = time.monotonic()
         result = model_adapters.train_iforest(prepared, names, str(output), preprocessing=preprocessing) if preprocessing is not None else \
             model_adapters.train_iforest(prepared, names, str(output))
+        training_ms = (time.monotonic()-training_started)*1000
         required = {"modelPath", "fitPath", "formatVersion", "runtimeVersion", "thresholdSpec"}
         if not isinstance(result, dict) or not required.issubset(result) or not isinstance(result["thresholdSpec"], dict):
             raise ValueError("invalid_training_artifacts")
@@ -371,7 +388,8 @@ def _execute(conn: Any, job: dict[str, Any], attempt_id: uuid.UUID,
                                           fit_artifact_id=fit_id)
             rule_ids = [uuid.UUID(value) for value in spec.get("ruleVersionIds", [])]
             config_spec = {"schemaVersion": 1, "featureSetId": str(feature_set_id),
-                           "trainingSnapshotId": str(snapshot.id), "ruleVersionIds": [str(value) for value in rule_ids]}
+                           "trainingSnapshotId": str(snapshot.id), "ruleVersionIds": [str(value) for value in rule_ids],
+                           "statusRulePolicy": default_policy(source_id), "trainingSelection": selection}
             config_spec["sourceId"] = str(source_id)
             if spec.get("detectionPolicy"):
                 config_spec["detectionPolicy"] = spec["detectionPolicy"]
@@ -394,7 +412,7 @@ def _execute(conn: Any, job: dict[str, Any], attempt_id: uuid.UUID,
                      json.dumps({"name": "sklearn-iforest", "formatVersion": result["formatVersion"]}),
                      json.dumps({"snapshotId": str(snapshot.id), "split": "train", "featureNames": names,
                                  "definitionsHash": definition_digest, "splitVersion": "execution-block-v1",
-                                 "thresholdPolicy": "train-internal-p99-v1"}),
+                                 "thresholdPolicy": "train-internal-p99-v1", "trainingSelection": selection}),
                      json.dumps(result["thresholdSpec"])),
                 )
                 for order, rule_id in enumerate(rule_ids):
@@ -406,7 +424,12 @@ def _execute(conn: Any, job: dict[str, Any], attempt_id: uuid.UUID,
                     )
             completed = {"snapshotId": str(snapshot.id), "featureSetId": str(feature_set_id),
                          "configVersionId": str(config_id), "artifactId": str(model_id),
-                         "splitCounts": snapshot.counts}
+                         "splitCounts": snapshot.counts, "trainingSelection": selection,
+                         "executionCost": cost_family({'totalMs': (time.monotonic()-started)*1000,
+                            'preprocessMs': preprocessing_ms, 'trainMs': training_ms},
+                            batch_size=len(prepared), queue_wait=queue_wait)}
+            completed['executionCost']['details']['modelNJobs'] = 2
+            completed['executionCost']['details']['scope'] = 'offline_training'
             _finish(conn, message, job, attempt_id, attempt_token, completed, None, True)
         return {**completed, "_finalized": True}
     raise ValueError("unsupported_job_kind")
@@ -415,6 +438,8 @@ def _execute(conn: Any, job: dict[str, Any], attempt_id: uuid.UUID,
 def _evaluate(conn: Any, job: dict[str, Any], root: Path | None,
               message: ClaimedMessage, attempt_id: uuid.UUID,
               attempt_token: uuid.UUID) -> dict[str, Any]:
+    started = time.monotonic()
+    queue_wait = queue_wait_ms(conn, message, attempt_id)
     spec = job["input"]
     config_id = uuid.UUID(spec["configVersionId"])
     snapshot_id = uuid.UUID(spec["snapshotId"])
@@ -441,13 +466,24 @@ def _evaluate(conn: Any, job: dict[str, Any], root: Path | None,
 
     def classification_metrics(target: dict[str, int]) -> dict[str, int | float]:
         return {**target,
-                "precision": target["tp"] / max(1, target["tp"] + target["fp"]),
-                "recall": target["tp"] / max(1, target["tp"] + target["fn"]),
-                "falsePositiveRate": target["fp"] / max(1, target["fp"] + target["tn"])}
+                "precision": target["tp"] / (target["tp"] + target["fp"]) if target["tp"] + target["fp"] else None,
+                "recall": target["tp"] / (target["tp"] + target["fn"]) if target["tp"] + target["fn"] else None,
+                "falsePositiveRate": target["fp"] / (target["fp"] + target["tn"]) if target["fp"] + target["tn"] else None,
+                "reason": None if sum(target.values()) else 'labels_unavailable'}
 
     complete_count = 0
+    checker_results, samples = [], []
+    preprocess_samples, inference_samples = [], []
     for _, raw, _, label_evidence in rows:
+        item_started = time.monotonic()
         result = compute(context, raw, root)
+        samples.append((time.monotonic()-item_started)*1000)
+        checker_results.append({checker: {key: result[checker].get(key) for key in ('status', 'anomalous')}
+                                for checker in ('hr', 'sr', 'ml')})
+        if 'preprocessMs' in result['ml']:
+            preprocess_samples.append(result['ml']['preprocessMs'])
+        if 'inferenceMs' in result['ml']:
+            inference_samples.append(result['ml']['inferenceMs'])
         rule_status = result["rule"]["status"]
         rule_prediction = result["rule"].get("anomalous")
         model_prediction = result["ml"].get("anomalous")
@@ -479,18 +515,29 @@ def _evaluate(conn: Any, job: dict[str, Any], root: Path | None,
         reasons.append("selected_paths_unavailable")
     if rule_unavailable:
         reasons.append("rule_inputs_unavailable")
-    applicability = "valid" if not reasons else "unmeasured"
+    applicability = "valid" if complete_count == len(rows) else "unmeasured"
     metrics = {**classification_metrics(confusion),
                "model": classification_metrics(model_confusion),
-               "rule": classification_metrics(rule_confusion) if rules else None,
+               "rule": classification_metrics(rule_confusion) if rules or context.get('statusRulePolicy') else None,
                "combination": context["policy"].combination, "detectionPolicy": context["policy"].document(), "ruleCount": len(rules),
                "scoreMin": min(scores) if scores else None,
                "scoreMax": max(scores) if scores else None}
     summary = {"populationCount": len(rows), "scoredCount": complete_count,
                "unavailableCount": unavailable, "unlabeledCount": unlabeled,
                "applicability": applicability, "metrics": metrics, "reasonCodes": reasons}
+    from trainer.metrics import comparison_family
+    comparison = comparison_family(checker_results, {'sourceId': spec['sourceId'],
+        'snapshotId': str(snapshot_id), 'configVersionId': str(config_id), 'purpose': spec['purpose'],
+        'population': 'immutable_snapshot_process_revisions', 'scope': 'offline_snapshot',
+        'statusRulePolicy': context.get('statusRulePolicy'), 'detectionPolicy': context['policy'].document()})
+    execution_cost = cost_family({'totalMs': (time.monotonic()-started)*1000,
+        'evaluationMs': sum(samples), 'preprocessMs': sum(preprocess_samples) if preprocess_samples else None,
+        'inferenceMs': sum(inference_samples) if inference_samples else None},
+        batch_size=len(rows), samples=samples, queue_wait=queue_wait)
+    execution_cost['details'].update(scope='offline_snapshot', modelNJobs=2 if context['models'] else None)
+    metrics['ruleMlComparison'] = comparison
     evaluation_id = uuid.uuid4()
-    evaluation_spec = {"schemaVersion": 1, "metricVersion": "selected-paths-v2", "detectionPolicy": context["policy"].document(),
+    evaluation_spec = {"schemaVersion": 2, "metricVersion": "selected-paths-v3", "detectionPolicy": context["policy"].document(),
                        "threshold": threshold, "labelSource": "manual_snapshot_evidence",
                        "purpose": spec["purpose"]}
     with conn.transaction():
@@ -503,7 +550,7 @@ def _evaluate(conn: Any, job: dict[str, Any], root: Path | None,
                       evaluation_spec_version, evaluation_spec_hash, evaluation_spec,
                       applicability, population_count, scored_count, unavailable_count,
                       metrics, reason_codes, completed_at)
-                     VALUES (%s, %s, %s, %s, %s, 'selected-paths-v2', %s, %s::jsonb,
+                     VALUES (%s, %s, %s, %s, %s, 'selected-paths-v3', %s, %s::jsonb,
                            %s, %s, %s, %s, %s::jsonb, %s::jsonb, clock_timestamp())""",
                 (evaluation_id, job["id"], config_id, snapshot_id, spec["purpose"],
                  hashlib.sha256(json.dumps(evaluation_spec, sort_keys=True).encode()).hexdigest(),
@@ -511,7 +558,8 @@ def _evaluate(conn: Any, job: dict[str, Any], root: Path | None,
                  len(rows), complete_count, unavailable,
                  json.dumps(metrics), json.dumps(reasons)),
             )
-        completed = {**summary, "evaluationId": str(evaluation_id)}
+        completed = {**summary, "evaluationId": str(evaluation_id),
+                     "ruleMlComparison": comparison, "executionCost": execution_cost}
         _finish(conn, message, job, attempt_id, attempt_token, completed, None, True)
     return {**completed, "_finalized": True}
 

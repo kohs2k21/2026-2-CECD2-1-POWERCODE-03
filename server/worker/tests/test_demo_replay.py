@@ -10,6 +10,11 @@ from demo.sources import csv_rows,numeric_features,project_process
 
 
 class DemoContracts(unittest.TestCase):
+    def test_status_projection_preserves_source_values_and_missing_status(self):
+        self.assertNotIn('status',project_process({'SUCCESS_COUNT':'3'}))
+        for status in ('S','F','P','N','UNKNOWN'):
+            self.assertEqual(project_process({'STATUS':status}),{'status':status})
+
     def test_rate_bound_and_no_catchup_after_slow_write(self):
         now=[0.0]
         def sleep(delay):now[0]+=delay

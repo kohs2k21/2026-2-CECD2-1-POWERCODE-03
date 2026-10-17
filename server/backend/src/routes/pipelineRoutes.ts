@@ -4,9 +4,11 @@ import { authenticateToken, AuthenticatedRequest, requireAdmin } from '../middle
 import crypto from 'node:crypto';
 import { UserRepository } from '../repository/userRepository.js';
 import { streamDecisionEvents } from '../services/decisionStream.js';
+import reportRoutes from './reportRoutes.js';
 
 const router = Router();
 router.use(authenticateToken as any);
+router.use('/reports', reportRoutes);
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function route(handler: (req: AuthenticatedRequest, res: Response) => Promise<void>) {

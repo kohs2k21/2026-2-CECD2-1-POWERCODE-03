@@ -28,7 +28,7 @@ with psycopg.connect(legacy) as c:
     for i in range(1000):
         eid=uuid.uuid4()
         c.execute("INSERT INTO data_executions(id,source_id,layer,execution_key,key_parts,key_contract_version,first_observed_at) VALUES(%s,%s,'P',%s,'{}','legacy',clock_timestamp())",(eid,sid,str(i)))
-        ingest_observation(c,source_id=sid,layer='P',dedup_key=str(i),raw={'success_count':10+i%50,'error_count':i%3,'total_count':100+i%50},execution_id=eid,revision_no=1)
+        ingest_observation(c,source_id=sid,layer='P',dedup_key=str(i),raw={'status':'S','success_count':10+i%50,'error_count':i%3,'total_count':100+i%50},execution_id=eid,revision_no=1)
 assert len(list(postgres_rows(legacy,sid,10000)))==1000
 with psycopg.connect(dsn) as c:
     c.execute((infra/'scripts/demo-role.sql').read_text())

@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import { Router, Request, Response, NextFunction } from 'express';
 import { getDatabasePool } from '../config/database.js';
 import { authenticateToken, AuthenticatedRequest, requireAdmin } from '../middleware/auth.js';
+import { hasStatusRulePolicy } from '../services/statusRulePolicy.js';
 
 const router = Router();
 router.use(authenticateToken as any);
@@ -95,10 +96,15 @@ router.post('/:id/applications', requireAdmin as any, route(async (req, res) => 
       [body.evaluationId, req.params.id],
     );
     if (!gate.rowCount) throw new ConfigError('evaluation_gate_not_met', 409);
-    const config = await client.query('SELECT configuration_spec FROM ml_config_versions WHERE id=$1',[req.params.id]);
+    const config = await client.query('SELECT configuration_spec,source_id FROM ml_config_versions WHERE id=$1',[req.params.id]);
     const mode = config.rows[0]?.configuration_spec?.detectionPolicy?.mode ?? 'parallel';
+    if (config.rows[0]?.configuration_spec?.statusRulePolicy !== undefined &&
+        !hasStatusRulePolicy(config.rows[0].configuration_spec, config.rows[0].source_id)) {
+      throw new ConfigError('status_rule_policy_invalid',409);
+    }
     const ruleCount = await client.query('SELECT count(*)::integer AS count FROM ml_config_rules WHERE config_version_id=$1',[req.params.id]);
-    if (mode !== 'ml_only' && !ruleCount.rows[0].count && config.rows[0]?.configuration_spec?.detectionPolicy) {
+    if (mode !== 'ml_only' && !ruleCount.rows[0].count && config.rows[0]?.configuration_spec?.detectionPolicy &&
+        !hasStatusRulePolicy(config.rows[0]?.configuration_spec, config.rows[0]?.source_id)) {
       throw new ConfigError('rules_unavailable',409);
     }
     const model = await client.query(

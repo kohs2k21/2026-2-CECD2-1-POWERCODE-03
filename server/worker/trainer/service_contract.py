@@ -47,3 +47,10 @@ def enrich_result(conn, job, result):
                                     'featureSetHash': config[1],
                                     'ruleVersionIds': config[0].get('ruleVersionIds', [])},
                    'evaluationEnvelope': evaluation_envelope()})
+    result['evaluationEnvelope']['operational']['reason'] = 'operational_report_separate_time_scoped'
+    if result.get('ruleMlComparison'):
+        result['evaluationEnvelope']['rule_ml'] = result['ruleMlComparison']
+    if result.get('executionCost'):
+        result['evaluationEnvelope']['execution_cost'] = result['executionCost']
+    result['dataContract']['statusRulePolicy'] = config[0].get('statusRulePolicy')
+    result['dataContract']['trainingSelection'] = config[0].get('trainingSelection')

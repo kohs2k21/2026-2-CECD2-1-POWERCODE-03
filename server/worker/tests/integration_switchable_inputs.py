@@ -51,7 +51,7 @@ def main():
             sid=ensure_source(conn,'shared-input-'+uuid.uuid4().hex[:10]);conn.commit()
             files={}
             specs=[('T','EC_TRANSACTION_MONITORING.csv',['TRANSACTION_ID','PROCESS_COUNT'],[['t0',1]]),
-                ('P','EC_PROCESS_MONITORING.csv',['TRANSACTION_ID','PROCESS_ID','RETRY_COUNT','ERROR_COUNT','TOTAL_COUNT'],[[f't{i}','p',0,i%7,100] for i in range(1000)]),
+                ('P','EC_PROCESS_MONITORING.csv',['TRANSACTION_ID','PROCESS_ID','RETRY_COUNT','ERROR_COUNT','TOTAL_COUNT','STATUS'],[[f't{i}','p',0,i%7,100,'S'] for i in range(1000)]),
                 ('M','EC_MESSAGE_MONITORING.csv',['TRANSACTION_ID','PROCESS_ID','MESSAGE_ID','PROCESS_DT','SUCCESS_COUNT'],[['t0','p','m0','2026-10-01 10:00:00','\\N']]),
                 ('B','EC_MESSAGE_BODY.csv',['MESSAGE_ID','MESSAGE_IN','MESSAGE_OUT','MESSAGE_BODY'],[['m0','BODY_SECRET','BODY_SECRET','BODY_SECRET']])]
             for layer,name,headers,rows in specs:
@@ -116,7 +116,10 @@ def main():
             _,trained=job({**period,'kind':'train','snapshotId':features['snapshotId'],'featureSetId':features['featureSetId'],
                 'ruleVersionIds':[selected['id']],'detectionPolicy':{'mode':'parallel','deadlineMs':3000,'combination':'any_anomaly'}})
             _,evaluated=job({'kind':'evaluate','sourceId':str(sid),'configVersionId':trained['configVersionId'],'snapshotId':trained['snapshotId'],'purpose':'validation'})
-            assert evaluated['applicability']=='unmeasured' # No invented normal labels or accuracy approval.
+            assert evaluated['applicability']=='valid' # Technical readiness is independent of label availability.
+            assert evaluated['scoredCount']==evaluated['populationCount']>0 and evaluated['unavailableCount']==0
+            assert all(evaluated['metrics'][key] is None for key in ('precision','recall','falsePositiveRate'))
+            assert evaluated['metrics']['reason']=='labels_unavailable' and 'labels_unavailable' in evaluated['reasonCodes']
             config=trained['configVersionId']
             second=change('csv',replayId=str(replay),rate=10000,repeat=1,restart=True,configVersionId=config)
             send_csv(5)
@@ -127,7 +130,7 @@ def main():
                     msg=claim(conn,'detection',message_id=qid);conn.commit();process_detection_message(conn,msg,root);conn.commit()
                 return len(identifiers)
             csv_decisions=decide_run(second['runId']);assert csv_decisions>0
-            state['records']=[{'layer':'P','values':{'TRANSACTION_ID':'api-live','PROCESS_ID':'p','RETRY_COUNT':0,'ERROR_COUNT':90,'TOTAL_COUNT':100}}]
+            state['records']=[{'layer':'P','values':{'TRANSACTION_ID':'api-live','PROCESS_ID':'p','RETRY_COUNT':0,'ERROR_COUNT':90,'TOTAL_COUNT':100,'STATUS':'S'}}]
             api_run=change('api',pollSeconds=.1)
             api_result=tick(conn,sid,api_factory=factory);assert api_result['accepted']==1,api_result
             time.sleep(.11);dup=tick(conn,sid,api_factory=factory,collect_catalog=False);assert dup['duplicates']==1,dup
@@ -155,7 +158,7 @@ def main():
             print('PASS: four CSV streams -> shared DB -> feature generation/materialization -> Rule recommendation -> explicit adoption -> real CPU IF -> evaluation')
             print('PASS: same selected feature/Rule/model config produces successful Rule+ML decisions for CSV and API, saved origin evidence')
             print('PASS: API duplicates, in-flight response fence, actual Bearer HTTP/auth failure, manual fallback, waiting-input recovery')
-            print('PASS: missing labels remain unmeasured; validation candidate does not change the production active pointer')
+            print('PASS: missing label metrics remain null; technically valid candidate does not change the production active pointer')
     finally:
         if child:
             child.terminate();child.wait(timeout=10)

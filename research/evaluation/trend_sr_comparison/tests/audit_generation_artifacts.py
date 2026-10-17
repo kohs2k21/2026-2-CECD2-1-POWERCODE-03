@@ -21,7 +21,7 @@ def read_arrays(path, columns):
     return frame, positions
 
 
-def audit(root):
+def audit(root, *, development=False):
     root = Path(root).resolve()
     code_root = Path(__file__).resolve().parents[1]
     hashes, records = {}, []
@@ -54,7 +54,11 @@ def audit(root):
             frame.iloc[positions, frame.columns.get_loc(column)] = patch[column].to_numpy()
         source_hash = hashlib.sha256(pd.util.hash_pandas_object(frame, index=True).to_numpy().tobytes()).hexdigest()
         assert source_hash == definition["source_hash"], str(directory)
-        assert len(frame) == definition["source_rows"] == 123844
+        days = {"train": 42, "cal": 28, "selection": 42}
+        split = definition["split"]
+        assert split in days
+        expected_rows = 2 * (days[split] * 1440 + (1442 if split == "selection" else 0))
+        assert len(frame) == definition["source_rows"] == expected_rows
         truth = pd.read_csv(directory / "truth-events.csv")
         assert len(truth) == definition["generated_events"]
         assert truth["event_id"].nunique() == len(truth)
@@ -63,11 +67,24 @@ def audit(root):
             assert (pd.to_datetime(truth["end"], utc=True) > pd.to_datetime(truth["start"], utc=True)).all()
         check = json.loads((directory / "generation-check.json").read_text(encoding="utf-8"))
         assert check["generation_valid"] is True
-        assert definition["seed"] == 9501 and definition["split"] == "selection"
+        allowed_seeds = {3101, 3137, 3173, 3209, 3247} if development else {9501}
+        assert definition["seed"] in allowed_seeds
+        if not development:
+            assert split == "selection"
         assert not definition["final_authorized"]
         records.append({"directory": str(directory.relative_to(root)), "source_hash": source_hash,
-                        "rows": len(frame), "events": len(truth), "hash_entries": len(manifest_hashes)})
-    assert len(records) == 83, len(records)
+                        "rows": len(frame), "events": len(truth), "hash_entries": len(manifest_hashes),
+                        "seed": definition["seed"], "split": split, "suite": definition["suite"],
+                        "cases": definition["intended_cases"], "case_id": definition.get("case_id"),
+                        "arm": definition.get("arm")})
+    assert len(records) == (425 if development else 83), len(records)
+    if development:
+        main = [r for r in records if r["suite"] == "main"]
+        error = [r for r in records if r["suite"] == "error"]
+        compound = [r for r in records if r["suite"] == "composite"]
+        assert (sum(r["cases"] for r in main), sum(r["events"] for r in main)) == (150, 200)
+        assert (sum(r["cases"] for r in error), sum(r["events"] for r in error)) == (30, 60)
+        assert (len({r["case_id"] for r in compound}), len(compound)) == (80, 360)
     coverage = pd.read_csv(root / "coverage18.csv")
     assert len(coverage) == 18
     compatibility = json.loads((root / "compatibility153.json").read_text(encoding="utf-8"))
@@ -81,7 +98,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("root", type=Path)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--development", action="store_true")
     args = parser.parse_args()
-    result = audit(args.root)
+    result = audit(args.root, development=args.development)
     args.output.write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(json.dumps({k: v for k, v in result.items() if k != "records"}))

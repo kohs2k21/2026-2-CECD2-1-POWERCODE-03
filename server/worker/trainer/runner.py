@@ -57,7 +57,7 @@ def _claim_job(conn: Any, message: ClaimedMessage, worker_id: str) -> tuple[dict
                 AND lease_token=%s AND lease_until>clock_timestamp() FOR UPDATE""", (message.id,message.lease_token))
             if cur.fetchone() is None:
                 raise RuntimeError("job_queue_ownership_lost")
-            if row[1] in ("recommend_feature", "recommend_rule", "train", "evaluate") and row[8] != "admin":
+            if row[1] in ("recommend_feature", "recommend_rule", "train", "evaluate", "import_csv") and row[8] != "admin":
                 raise ValueError("job_role_not_authorized")
             if row[2] in ("succeeded", "failed"):
                 if not acknowledge(conn, message.queue, message):
@@ -233,6 +233,9 @@ def _execute(conn: Any, job: dict[str, Any], attempt_id: uuid.UUID,
     queue_wait = queue_wait_ms(conn, message, attempt_id)
     spec = job["input"]
     kind = job["kind"]
+    if kind == 'import_csv':
+        from trainer.prepared_import import execute as execute_import
+        return execute_import(conn,job,artifact_root,message,attempt_id,attempt_token)
     if kind == 'train':
         if spec.get('modelKey', 'iforest') != 'iforest':
             raise ValueError('unsupported_model')
@@ -655,7 +658,7 @@ def run(*, once: bool = False, poll_seconds: float = 1.0, role: str = "trainer")
     with psycopg.connect(database_url) as conn:
         while True:
             if role == "trainer":
-                message = claim(conn, "training", lease_seconds=60, job_kinds=("train", "evaluate"))
+                message = claim(conn, "training", lease_seconds=60, job_kinds=("train", "evaluate", "import_csv"))
             elif role == "llm":
                 message = None
                 # A bounded rotation prevents explanation starvation under recommendation load.

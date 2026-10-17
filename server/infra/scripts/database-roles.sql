@@ -58,3 +58,8 @@ GRANT INSERT ON data_input_replay_rows,data_input_origins TO powercode_collector
 GRANT INSERT(observation_id,source_id,message_id,collection_status,field_states,representation,access_policy_version,retention_policy_version)
  ON data_message_bodies TO powercode_collector;
 GRANT SELECT(observation_id) ON data_message_bodies TO powercode_collector,powercode_detector;
+
+-- 010: isolated prepared CSV metadata. Detector/collector have no access.
+GRANT SELECT,INSERT ON data_prepared_datasets TO powercode_api;
+GRANT SELECT,UPDATE ON data_prepared_datasets TO powercode_trainer;
+GRANT INSERT ON ml_feature_versions,ml_feature_sets,ml_feature_set_members TO powercode_trainer;

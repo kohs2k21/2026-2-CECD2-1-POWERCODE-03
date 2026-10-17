@@ -44,7 +44,7 @@ DEFINITIONS = [
 class Service:
     def __init__(self, directory, dsn):
         parsed = urlsplit(dsn)
-        assert parsed.hostname in {'localhost', '127.0.0.1'} and parsed.path in {'/qa_pipeline', '/qa_trainer_service'}
+        assert parsed.hostname in {'localhost', '127.0.0.1'} and parsed.path in {'/qa_pipeline', '/qa_trainer_service', '/qa_synthetic_service'}
         self.root = Path(directory)
         self.dsn = dsn
         self.artifacts = self.root / 'artifacts'

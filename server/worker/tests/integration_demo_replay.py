@@ -31,9 +31,9 @@ def main():
         with paths[2].open('w',newline='') as stream:
             writer=csv.writer(stream);writer.writerow(['TRANSACTION_ID','PROCESS_ID','MESSAGE_ID','DATA_SIZE','BODY','RESPONSE_MESSAGE']);writer.writerow(['t','p','m',123,'BODY_SECRET','RESPONSE_SECRET'])
         with paths[1].open('w',newline='') as stream:
-            writer=csv.writer(stream);writer.writerow(['TRANSACTION_ID','PROCESS_ID','RETRY_COUNT','SUCCESS_COUNT','ERROR_COUNT','TOTAL_COUNT','BODY'])
+            writer=csv.writer(stream);writer.writerow(['TRANSACTION_ID','PROCESS_ID','RETRY_COUNT','SUCCESS_COUNT','ERROR_COUNT','TOTAL_COUNT','STATUS','BODY'])
             for i in range(1012):
-                writer.writerow([f't{i}',f'p{i}',0,10+i%50,i%3 if i<1000 else 100000,100+i%50,'BODY_SECRET'])
+                writer.writerow([f't{i}',f'p{i}',0,10+i%50,i%3 if i<1000 else 100000,100+i%50,'S','BODY_SECRET'])
         kwargs=dict(key=key,kind='csv',process_csv=str(paths[1]),transaction_csv=str(paths[0]),body_csv=str(paths[2]),baseline_limit=1000)
         result=prepare(dsn,root,**kwargs)
         assert result['status']=='ready' and result['inputCount']==1012 and result['contextCounts']=={'T':1,'M':1},result
@@ -78,7 +78,7 @@ def main():
         # PostgreSQL input is copied through READ ONLY transactions; originals stay unchanged.
         original=source(conn,'demo-origin-'+suffix)
         for i in range(1000):
-            observe(conn,original,f'o{i}',{'success_count':str(10+i%50),'error_count':str(i%3),'total_count':str(100+i%50),'BODY':'BODY_SECRET'})
+            observe(conn,original,f'o{i}',{'status':'S','success_count':str(10+i%50),'error_count':str(i%3),'total_count':str(100+i%50),'BODY':'BODY_SECRET'})
         before=conn.execute('SELECT id,content_hash,allowed_values FROM data_observations WHERE source_id=%s ORDER BY id',(original,)).fetchall();conn.commit()
         assert any(r['sourceId']==str(original) and r['processCount']==1000 for r in postgres_sources(dsn))
         assert len(list(postgres_rows(dsn,original,2000)))==1000

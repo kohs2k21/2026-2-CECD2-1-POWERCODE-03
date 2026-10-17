@@ -91,7 +91,6 @@ function parseRequest(value: unknown): JobInput {
       if (!Array.isArray(rules) || rules.length > 32 || !rules.every(uuid) || new Set(rules).size !== rules.length) {
         throw new JobRequestError('invalid_rule_versions');
       }
-      if (policy.mode !== 'ml_only' && !rules.length) throw new JobRequestError('rules_required');
       if (policy.mode === 'ml_only' && rules.length) throw new JobRequestError('ml_only_rules_not_selected');
       input.ruleVersionIds = rules;
     } else if (body.ruleVersionIds !== undefined) {

@@ -31,11 +31,27 @@ class SyntheticRuntimeTests(unittest.TestCase):
              patch.object(synthetic_execution, '_model_manifest', return_value=({}, {'trainingSnapshotId': 'fixture'})), \
              patch.object(synthetic_execution, '_train_rows', return_value=[]), \
              patch.object(synthetic_execution, '_esb', return_value=({}, {'generated': measurement(0, 'count')}, [], Counter({'generation_failed': 1}))), \
-             patch.object(synthetic_execution, 'model_reference'), patch.object(synthetic_execution, 'store', return_value={}):
+             patch.object(synthetic_execution, '_adbench', return_value=({}, {'generated': measurement(0, 'count')}, [], Counter({'generation_failed': 1}))), \
+             patch.object(synthetic_execution, 'model_reference'), \
+             patch.object(synthetic_execution, 'store', return_value={}) as saved, \
+             patch.object(synthetic_execution.time, 'monotonic', side_effect=[10, 12, 13, 20, 22, 23]):
             family = synthetic_execution.evaluate(connection, spec, {}, rows, Path('.'), uuid.uuid4())
+            numeric_spec = copy.deepcopy(spec)
+            numeric_spec['syntheticEvaluation'].update(profileId='adbench-numeric-v1', scenarios=[{'scenario': 'local', 'severity': 1}])
+            numeric_family = synthetic_execution.evaluate(connection, numeric_spec, {}, rows, Path('.'), uuid.uuid4())
+        self.assertEqual(family['details']['rowIdentity'], 'PROCESS_observation_revision')
+        self.assertEqual(numeric_family['details']['rowIdentity'], 'generator_numeric_feature_row')
+        self.assertEqual(numeric_family['details']['syntheticProcessingCost']['rowUnit'], 'numeric_feature_row')
         self.assertEqual(family['status'], 'unavailable')
         self.assertEqual(family['reason'], 'synthetic_generation_failed')
         self.assertIsNone(family['metrics'])
+        cost = family['details']['syntheticProcessingCost']
+        self.assertEqual(cost['totalMs'], 3000)
+        self.assertEqual(cost['validationGenerationScoringMs'], 2000)
+        self.assertEqual(cost['storageMs'], 1000)
+        self.assertEqual(cost['rowUnit'], 'PROCESS')
+        self.assertFalse(cost['originalBaselineIncluded'])
+        self.assertNotIn('syntheticProcessingCost', json.dumps(saved.call_args.args[2]))
         envelope = evaluation_envelope(); envelope['synthetic'] = family
         schema = json.loads((Path(__file__).resolve().parents[2] / 'contracts/trainer-evaluation-envelope.schema.json').read_text())
         jsonschema.validate(envelope, schema)

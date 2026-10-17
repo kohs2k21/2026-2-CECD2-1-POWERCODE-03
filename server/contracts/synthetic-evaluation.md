@@ -26,6 +26,7 @@
 | `adbench-numeric-v1` | 생성 수치 피처 행 | 고정된 ADBench local/cluster/global; 분포 소속 라벨, ESB 정상/장애 라벨 아님 |
 
 - P02/P03: train 전용 어댑터 기준선·관측된 부모/의존 시간 제약 필요, 원본 종료시각 외 임의 필드 변경 없음
+- P03: 부모의 `interface_id`가 비어 있지 않은 문자열인 경우에만 동일 어댑터/인터페이스의 연속 구간 확인; 미제공·잘못된 타입은 생성 거부
 - P04: `total_count=success_count+error_count`가 성립하는 행의 total_count만 변경하는 연구 계약 대조
 - 실제 상태 HR·등록 Rule·ML 결과 사용. 연구 count 검사와 운영 상태 HR의 별칭 처리 금지
 - 미지원·의미 미확정·생성 불가능을 정상/성공 데이터로 대체하지 않음
@@ -64,10 +65,15 @@
 - 스칼라 지표: 기존 [평가 봉투](trainer-evaluation-envelope.schema.json)의 value/unit/분자/분모/coverage/reason 규약
 - 상세표·측정 범위·manifest 참조: `details`; ESB와 ADBench 결과·분모 합산 금지
 - ESB: HR/SR/ML/종합의 시나리오·반복별 주입/탐지/미판정·탐지율·주입 전후 신규/기존 경보
+- ESB `rowIdentity=PROCESS_observation_revision`: snapshot에 고정된 PROCESS 관측 revision 행 기준, `uniqueInjectedProcessCount`도 고유 observation_id 수. 논리 execution 수와 구분
+- ADBench `rowIdentity=generator_numeric_feature_row`: 생성된 수치 피처 행, PROCESS observation_id를 요구하거나 만들어 붙이지 않음
 - 주입 미판정도 주입 PROCESS 분모에 포함, 반복 합계와 고유 원본 수 구분
 - 비주입 원본·S를 정상 정답으로 생성하지 않음; 정상 정답 없는 Precision/FPR은 null+사유
 - SR 실제 미연결은 null+사유, HR·사용자 Rule로 대체 금지
 - 정적 합성 시험의 실제 ESB 발생→판정 지연은 null+사유. 실제 계산 비용과 별도
+- 합성 요청의 기존 `execution_cost.details.scope=offline_original_snapshot_only`, `syntheticProcessingIncluded=false`: 원본 평가 비용만 포함
+- `synthetic.details.syntheticProcessingCost`: 원본 baseline을 제외한 검증·학습 참조 조회·생성·채점·저장의 monotonic 실측 totalMs/validationGenerationScoringMs/storageMs, rowUnit 별도
+- 위 비용은 전체 job 시간과 구분, PROCESS/numeric 행의 처리량 합산 없음. 비결정적 계측값은 DB 결과에만 저장해 동일 seed의 내용 hash 재현 유지
 - manifest: source/snapshot/hash·분할·프로필/정의 hash·seed/반복·생성/피처 버전·모델/fit/hash·행 정답·변경/부모 계보·파일 hash 고정
 - 합성 산출물은 `evaluations/<job UUID>/<content SHA>.json`으로 저장, 임시 파일은 임의 UUID로 격리·완성 후 원자 이동
 - 같은 내용의 재시도는 hash 검증 후 재사용, 실패·lease 상실의 미게시 파일을 성공 결과로 공개하지 않음

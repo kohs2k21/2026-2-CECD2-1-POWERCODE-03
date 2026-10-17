@@ -450,6 +450,14 @@ def _evaluate(conn: Any, job: dict[str, Any], root: Path | None,
     conn.commit()
     if not rows:
         raise ValueError("evaluation_empty_population")
+    synthetic_baseline = None
+    if spec.get('syntheticEvaluation') is not None:
+        from trainer.synthetic_profiles import validate_request
+        from trainer.synthetic_snapshot import MAX_COHORT_ROWS
+        validate_request(spec['syntheticEvaluation'])
+        if len(rows) > MAX_COHORT_ROWS:
+            raise ValueError('synthetic_cohort_limit_exceeded')
+        synthetic_baseline = {}
     threshold = context["models"][0][6] if context["models"] else None
     scores: list[float] = []
     unavailable = 0
@@ -474,9 +482,12 @@ def _evaluate(conn: Any, job: dict[str, Any], root: Path | None,
     complete_count = 0
     checker_results, samples = [], []
     preprocess_samples, inference_samples = [], []
-    for _, raw, _, label_evidence in rows:
+    for observation_id, raw, _, label_evidence in rows:
         item_started = time.monotonic()
         result = compute(context, raw, root)
+        if synthetic_baseline is not None:
+            from trainer.synthetic_metrics import prediction
+            synthetic_baseline[str(observation_id)] = prediction(result)
         samples.append((time.monotonic()-item_started)*1000)
         checker_results.append({checker: {key: result[checker].get(key) for key in ('status', 'anomalous')}
                                 for checker in ('hr', 'sr', 'ml')})
@@ -536,10 +547,26 @@ def _evaluate(conn: Any, job: dict[str, Any], root: Path | None,
         batch_size=len(rows), samples=samples, queue_wait=queue_wait)
     execution_cost['details'].update(scope='offline_snapshot', modelNJobs=2 if context['models'] else None)
     metrics['ruleMlComparison'] = comparison
+    synthetic = None
+    metric_version = 'selected-paths-v3'
+    if synthetic_baseline is not None:
+        from trainer.synthetic_execution import evaluate as evaluate_synthetic
+        synthetic = evaluate_synthetic(conn, spec, context, rows, root, job['id'], baseline=synthetic_baseline)
+        if synthetic['status'] != 'measured':
+            raise ValueError(synthetic['reason'])
+        execution_cost['details'].update(scope='offline_original_snapshot_only', syntheticProcessingIncluded=False)
+        metrics['syntheticEvaluation'] = synthetic
+        # Synthetic method success cannot authorize an operational model switch.
+        applicability = summary['applicability'] = 'unmeasured'
+        reasons.append('synthetic_not_operational_validation')
+        metric_version = 'synthetic-method-v1'
     evaluation_id = uuid.uuid4()
-    evaluation_spec = {"schemaVersion": 2, "metricVersion": "selected-paths-v3", "detectionPolicy": context["policy"].document(),
+    evaluation_spec = {"schemaVersion": 2, "metricVersion": metric_version, "detectionPolicy": context["policy"].document(),
                        "threshold": threshold, "labelSource": "manual_snapshot_evidence",
                        "purpose": spec["purpose"]}
+    if synthetic is not None:
+        evaluation_spec['syntheticEvaluation'] = spec['syntheticEvaluation']
+        evaluation_spec['syntheticProfileBinding'] = spec['syntheticProfileBinding']
     with conn.transaction():
         if not lock_training_ownership(conn, message, job["id"], attempt_id, attempt_token):
             raise RuntimeError("training_ownership_lost")
@@ -550,9 +577,9 @@ def _evaluate(conn: Any, job: dict[str, Any], root: Path | None,
                       evaluation_spec_version, evaluation_spec_hash, evaluation_spec,
                       applicability, population_count, scored_count, unavailable_count,
                       metrics, reason_codes, completed_at)
-                     VALUES (%s, %s, %s, %s, %s, 'selected-paths-v3', %s, %s::jsonb,
+                     VALUES (%s, %s, %s, %s, %s, %s, %s, %s::jsonb,
                            %s, %s, %s, %s, %s::jsonb, %s::jsonb, clock_timestamp())""",
-                (evaluation_id, job["id"], config_id, snapshot_id, spec["purpose"],
+                (evaluation_id, job["id"], config_id, snapshot_id, spec["purpose"], metric_version,
                  hashlib.sha256(json.dumps(evaluation_spec, sort_keys=True).encode()).hexdigest(),
                  json.dumps(evaluation_spec), applicability,
                  len(rows), complete_count, unavailable,
@@ -560,6 +587,8 @@ def _evaluate(conn: Any, job: dict[str, Any], root: Path | None,
             )
         completed = {**summary, "evaluationId": str(evaluation_id),
                      "ruleMlComparison": comparison, "executionCost": execution_cost}
+        if synthetic is not None:
+            completed['syntheticEvaluation'] = synthetic
         _finish(conn, message, job, attempt_id, attempt_token, completed, None, True)
     return {**completed, "_finalized": True}
 

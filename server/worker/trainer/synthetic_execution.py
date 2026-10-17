@@ -1,6 +1,7 @@
 """Same-model synthetic method evaluation on immutable PostgreSQL snapshots."""
 from collections import Counter
 import math
+import time
 import uuid
 
 import numpy as np
@@ -159,6 +160,7 @@ def _adbench(spec, context, rows, train, root, reference):
 
 
 def evaluate(conn, spec, context, rows, root, job_id, *, baseline=None):
+    started = time.monotonic()
     request = spec['syntheticEvaluation']
     profile = validate_request(request)
     if not rows or len(rows) > MAX_COHORT_ROWS:
@@ -192,13 +194,23 @@ def evaluate(conn, spec, context, rows, root, job_id, *, baseline=None):
                 'originalRowsHash': original_hash,
                 'featureVersion': 'server-frozen-feature-runtime-v1', 'result': artifact,
                 'latency': {'value': None, 'reason': 'static_evaluation_not_ESB_latency_measurement'}}
+    storage_started = time.monotonic()
     artifact_ref = store(root, job_id, document)
+    storage_completed = time.monotonic()
     generated = statuses['generated']
     family = {'status': 'measured' if generated else 'unavailable',
               'reason': None if generated else 'synthetic_unsupported' if statuses['unsupported'] else 'synthetic_generation_failed',
               'metricVersion': VERSION, 'metrics': metrics if generated else None,
               'details': {'profileId': profile['profileId'], 'profileVersion': profile['profileVersion'],
                           'profileHash': digest(profile), 'unit': profile['unit'], 'manifestRef': artifact_ref,
+                          'rowIdentity': 'PROCESS_observation_revision' if profile['unit'] == 'PROCESS' else 'generator_numeric_feature_row',
+                          'syntheticProcessingCost': {
+                              'totalMs': (storage_completed-started)*1000,
+                              'validationGenerationScoringMs': (storage_started-started)*1000,
+                              'storageMs': (storage_completed-storage_started)*1000,
+                              'unit': 'ms', 'rowUnit': profile['unit'],
+                              'scope': 'synthetic_validation_generation_scoring_storage',
+                              'originalBaselineIncluded': False},
                           'trials': trials, 'trialStatuses': dict(statuses),
                           'totalTrialCount': len(trials),
                           'uniqueInjectedProcessCount': artifact.get('uniqueInjectedProcessCount'),

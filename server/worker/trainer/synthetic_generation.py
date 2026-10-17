@@ -41,6 +41,9 @@ def reference_reason(row):
     raw = row['raw']
     if any(raw.get(key) in (None, '') for key in (*KEYS, 'process_id', 'adapter_type', 'channel_id', 'status')):
         return 'missing_required_process_field'
+    if any(not isinstance(raw.get(key), str) or not raw[key].strip()
+           for key in ('transaction_id', 'process_id', 'process_hub_id', 'adapter_type', 'channel_id', 'status')):
+        return 'invalid_process_text_field'
     if raw['status'] != 'S':
         return 'not_successful_quality_reference'
     start, end = timestamp(raw.get('start_time_raw')), timestamp(raw.get('end_time_raw'))
@@ -115,8 +118,17 @@ def generate(rows, fit, profile, *, scenario, severity, seed, target_rows, conte
             reason = 'duplicate_process_identity'
         if not reason and raw['adapter_type'] not in fit['adapterDurationMs']:
             reason = 'unseen_adapter_train_reference'
-        if not reason and (not parent or parent_key(raw) != parent_key(parent['raw'])):
-            reason = 'missing_or_ambiguous_parent'
+        if not reason:
+            if not parent:
+                reason = 'missing_or_ambiguous_parent'
+            elif any(not isinstance(parent['raw'].get(key), str) or not parent['raw'][key].strip()
+                     for key in ('transaction_id', 'process_hub_id')) or count(parent['raw'].get('retry_count')) is None:
+                reason = 'invalid_parent_identity'
+            elif parent_key(raw) != parent_key(parent['raw']):
+                reason = 'missing_or_ambiguous_parent'
+            elif scenario == 'P03' and (not isinstance(parent['raw'].get('interface_id'), str)
+                                       or not parent['raw']['interface_id'].strip()):
+                reason = 'missing_or_invalid_parent_interface'
         if not reason:
             start, end = timestamp(raw['start_time_raw']), timestamp(raw['end_time_raw'])
             pstart, pend = timestamp(parent['raw'].get('start_time_raw')), timestamp(parent['raw'].get('end_time_raw'))
@@ -144,7 +156,10 @@ def generate(rows, fit, profile, *, scenario, severity, seed, target_rows, conte
         groups = defaultdict(list)
         for index, row in enumerate(base):
             raw = row['raw']
-            groups[(raw.get('adapter_type'), (row.get('parent') or {}).get('raw', {}).get('interface_id'))].append(index)
+            interface = (row.get('parent') or {}).get('raw', {}).get('interface_id')
+            if not isinstance(interface, str) or not interface.strip():
+                continue
+            groups[(raw.get('adapter_type'), interface)].append(index)
         blocks = []
         for group in groups.values():
             times = {index: timestamp(base[index]['raw'].get('start_time_raw')) for index in group}

@@ -21,6 +21,7 @@ PROFILES = {
                                   'adapter_type', 'channel_id', 'status', 'start_time_raw', 'end_time_raw',
                                   'total_count', 'success_count', 'error_count'],
         'requiredParentFields': ['transaction_id', 'process_hub_id', 'retry_count', 'start_time_raw', 'end_time_raw'],
+        'scenarioRequiredParentFields': {'P03': ['interface_id']},
         'provenance': 'research/evaluation/process_synthetic_lab/scenarios.py (Issue53/PR55)',
     },
     'adbench-numeric-v1': {

@@ -145,6 +145,40 @@ class SyntheticEvaluationTests(unittest.TestCase):
         train[1]['label'] = 'anomaly'
         self.assertEqual(fit_generator(train)['adapterDurationMs'], {'A': 100})
 
+    def test_only_p03_requires_a_known_nonblank_parent_interface(self):
+        self.assertEqual(self.profile['scenarioRequiredParentFields'], {'P03': ['interface_id']})
+        for interface in (None, 123, True, '', '   ', [], {}):
+            self.rows = fixture(3)
+            for row in self.rows: row['parent']['raw']['interface_id'] = interface
+            original = copy.deepcopy(self.rows)
+            result = self.generation(scenario='P03')
+            self.assertEqual(result['generatedCount'], 0)
+            self.assertEqual(result['status'], 'generation_failed')
+            self.assertEqual({item['reason'] for item in result['rejects']}, {'missing_or_invalid_parent_interface'})
+            self.assertEqual(self.rows, original)
+            for scenario in ('P02', 'P04'):
+                self.assertEqual(self.generation(scenario=scenario)['generatedCount'], 3)
+        for row in self.rows: row['parent']['raw']['interface_id'] = 'interface'
+        self.assertEqual(self.generation(scenario='P03')['generatedCount'], 3)
+
+    def test_normalized_identity_and_categories_do_not_coerce_numbers_or_bools(self):
+        for field in ('transaction_id', 'process_id', 'process_hub_id', 'adapter_type', 'channel_id', 'status'):
+            for value in (99, True, False, '   '):
+                self.rows = fixture(1)
+                self.rows[0]['raw'][field] = value
+                original = copy.deepcopy(self.rows)
+                result = self.generation()
+                self.assertEqual(result['generatedCount'], 0, (field, value))
+                self.assertEqual(result['rejects'][0]['reason'], 'invalid_process_text_field')
+                self.assertEqual(self.rows, original)
+        for field, value in [('transaction_id', 99), ('process_hub_id', True), ('retry_count', False)]:
+            self.rows = fixture(1)
+            if field != 'retry_count': self.rows[0]['raw'][field] = str(value)
+            self.rows[0]['parent']['raw'][field] = value
+            result = self.generation()
+            self.assertEqual(result['generatedCount'], 0)
+            self.assertEqual(result['rejects'][0]['reason'], 'invalid_parent_identity')
+
     def test_source_registration_and_request_bounds(self):
         profile = validate_request(request())
         registered = binding(profile, 'api-transcript-v1')

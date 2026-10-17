@@ -23,9 +23,10 @@ def score(truth, before, after):
     for path in PATHS:
         pairs = [(before[key].get(path), after.get(key, {}).get(path)) for key in ids]
         detected = sum(post is True for _, post in pairs)
+        sr_unavailable = path == 'sr' and all(post is None for _, post in pairs)
         reports[path] = {'injectedCount': len(ids), 'detectedCount': detected,
                          'unjudgedCount': sum(post is None for _, post in pairs),
-                         'detectionRate': detected / len(ids) if ids else None,
+                         'detectionRate': detected / len(ids) if ids and not sr_unavailable else None,
                          'baselineAlertCount': sum(pre is True for pre, _ in pairs),
                          'newlyDetectedCount': sum(pre is False and post is True for pre, post in pairs),
                          'persistentAlertCount': sum(pre is True and post is True for pre, post in pairs),
@@ -34,5 +35,5 @@ def score(truth, before, after):
                          'pairedUnjudgedCount': sum(pre is None or post is None for pre, post in pairs),
                          'precision': None, 'falsePositiveRate': None,
                          'normalLabelReason': 'verified_normal_labels_unavailable',
-                         'reason': 'sr_experiment_pending' if path == 'sr' else 'no_generated_rows' if not ids else None}
+                         'reason': 'sr_experiment_pending' if sr_unavailable else 'no_generated_rows' if not ids else None}
     return reports

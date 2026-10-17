@@ -306,8 +306,8 @@ def run_stress(development, output, *, split="selection", gate_path=None):
 
 def _run_auxiliary(seed, split, bundles, runner, output, records):
     quality = _quality_arms(seed, split, split == "final")
-    potential = quality["SQ"].events
-    anchor, last_end = potential.start.min(), potential.end.max()
+    quality_potential = quality["SQ"].events
+    anchor, last_end = quality_potential.start.min(), quality_potential.end.max()
     context_cases = relation_contexts.case_specs(seed, split)
     context_checks = {}
     for case in context_cases:
@@ -324,10 +324,10 @@ def _run_auxiliary(seed, split, bundles, runner, output, records):
         for arm, source in quality.items():
             item = crop(source, anchor, last_end)
             prediction = runner.score_candidate_bundle(bundle, item)
-            response = _save_response(root / "quality-cross" / arm, item, prediction, bundle["calibration"].get("thresholds"), potential)
+            response = _save_response(root / "quality-cross" / arm, item, prediction, bundle["calibration"].get("thresholds"), quality_potential)
             predictions[arm] = prediction
             records.extend(dict(seed=seed, candidate=number, suite="quality-cross", arm=arm, **s) for s in response["evaluation"]["summary"])
-        _csv(root / "quality-cross" / "paired-differences.csv", paired_differences(predictions, potential, item.manifest["evaluation_start"], item.manifest["evaluation_end"]))
+        _csv(root / "quality-cross" / "paired-differences.csv", paired_differences(predictions, quality_potential, item.manifest["evaluation_start"], item.manifest["evaluation_end"]))
         for case in context_cases:
             case_id = case["context_case_id"]
             predictions = {}

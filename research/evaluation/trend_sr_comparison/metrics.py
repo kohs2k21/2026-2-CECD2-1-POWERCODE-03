@@ -14,6 +14,12 @@ MINUTE_NS = 60_000_000_000
 
 
 def _ticks(values):
+    if isinstance(values, pd.DatetimeIndex):
+        return values.as_unit("ns").asi8
+    if isinstance(values, pd.Series) and pd.api.types.is_datetime64_any_dtype(values.dtype):
+        return pd.DatetimeIndex(values).as_unit("ns").asi8
+    if isinstance(values, (list, tuple)) and all(isinstance(v, pd.Timestamp) for v in values):
+        return np.fromiter((v.value for v in values), dtype=np.int64, count=len(values))
     return pd.DatetimeIndex(pd.to_datetime(values, utc=True)).as_unit("ns").asi8
 
 
@@ -46,23 +52,29 @@ def apply_thresholds(frame, thresholds):
 
 def _groups(frame):
     for group, part in frame.groupby("group", sort=True, observed=True):
-        part = part.sort_values("decision_tick", kind="stable")
         tick = _ticks(part.decision_tick)
         if len(tick) > 1 and np.any(np.diff(tick) != MINUTE_NS):
-            raise ValueError("Expected dense, unique one-minute rows per group")
+            part = part.sort_values("decision_tick", kind="stable")
+            tick = _ticks(part.decision_tick)
+            if np.any(np.diff(tick) != MINUTE_NS):
+                raise ValueError("Expected dense, unique one-minute rows per group")
         yield str(group), part, tick
 
 
-def _episodes(positive, available, merge_gap):
+def _episodes(positive, available, merge_gap, weights=None):
     indices = np.flatnonzero(positive)
     if not len(indices):
         return np.empty(0, int), np.empty(0, int), np.empty(0, int)
-    unavailable = np.r_[0, np.cumsum(~available)]
+    weights = np.ones(len(available), int) if weights is None else weights
+    edges = np.r_[0, np.cumsum(weights)]
+    unavailable = np.r_[0, np.cumsum((~available) * weights)]
     unknown_gap = unavailable[indices[1:]] - unavailable[indices[:-1] + 1]
-    split = np.r_[True, (np.diff(indices) - 1 > merge_gap) | (unknown_gap > 0)]
+    gaps = edges[indices[1:]] - edges[indices[:-1] + 1]
+    split = np.r_[True, (gaps > merge_gap) | (unknown_gap > 0)]
     boundaries = np.flatnonzero(split)
     last = np.r_[boundaries[1:] - 1, len(indices) - 1]
-    return indices[boundaries], indices[last] + 1, np.diff(np.r_[boundaries, len(indices)])
+    counts = np.add.reduceat(weights[indices], boundaries)
+    return indices[boundaries], indices[last] + 1, counts
 
 
 def _normal_stats(part, tick, inside, merge_gap):
@@ -80,21 +92,22 @@ def _normal_stats(part, tick, inside, merge_gap):
     return _array_stats(positive, available, source, common, planned, supported, inside, merge_gap)
 
 
-def _array_stats(positive, available, source, common, planned, supported, inside, merge_gap):
-    first, last, counts = _episodes(positive, available, merge_gap)
+def _array_stats(positive, available, source, common, planned, supported, inside, merge_gap, weights=None):
+    first, last, counts = _episodes(positive, available, merge_gap, weights)
+    total = lambda mask: int(mask.sum()) if weights is None else int(weights[mask].sum())
     normal = ~inside & planned
     source_normal = normal & source
     common_normal = source_normal & common
     strict_normal = common_normal & supported
     conditional_normal = normal & available
     false = int(np.sum(normal[first] & source[first] & common[first]))
-    normal_positive = int(np.sum(normal & positive))
+    normal_positive = total(normal & positive)
     div = lambda n, d: float(n / d) if d else None
-    conditional_minutes = int(conditional_normal.sum())
-    source_minutes = int(source_normal.sum())
-    common_minutes = int(common_normal.sum())
-    strict_minutes = int(strict_normal.sum())
-    planned_minutes = int(normal.sum())
+    conditional_minutes = total(conditional_normal)
+    source_minutes = total(source_normal)
+    common_minutes = total(common_normal)
+    strict_minutes = total(strict_normal)
+    planned_minutes = total(normal)
     stats = {
         "normal_planned_minutes": planned_minutes,
         "normal_source_minutes": source_minutes,
@@ -109,12 +122,24 @@ def _array_stats(positive, available, source, common, planned, supported, inside
         "positive_time_fraction": div(normal_positive, conditional_minutes),
         "positive_fraction_source": div(normal_positive, source_minutes),
         "positive_fraction_common": div(normal_positive, common_minutes),
-        "positive_fraction_all_branch_supported": div(int(np.sum(strict_normal & positive)), strict_minutes),
+        "positive_fraction_all_branch_supported": div(total(strict_normal & positive), strict_minutes),
         "positive_fraction_planned": div(normal_positive, planned_minutes),
         "normal_availability": div(conditional_minutes, source_minutes),
-        "unknown_minutes": int(np.sum(planned & ~available)),
+        "unknown_minutes": total(planned & ~available),
     }
     return stats, available, positive, first, last, counts
+
+
+def _compress(values, finite, source, common, planned):
+    """Identical held snapshots have exactly the same decision for every cut."""
+    if not len(values):
+        return values, finite, source, common, planned, np.empty(0, int)
+    same = ((values[1:] == values[:-1]) | (~finite[1:] & ~finite[:-1])).all(axis=1)
+    same &= ((source[1:] == source[:-1]) & (common[1:] == common[:-1]) &
+             (planned[1:] == planned[:-1]))
+    starts = np.r_[0, np.flatnonzero(~same) + 1]
+    weights = np.diff(np.r_[starts, len(values)])
+    return values[starts], finite[starts], source[starts], common[starts], planned[starts], weights
 
 
 def evaluate(frame, events=None, merge_gap=10):
@@ -268,8 +293,7 @@ def calibrate(published, score_columns=("score",), quantiles=QUANTILES,
             common = _flag(part, "common_eligible")
             planned = _flag(part, "in_evaluation")
             cadence_contract[group] = (tick, source, common, planned)
-            payloads.append((int(cadence), group, values, finite,
-                             source, common, planned, np.zeros(len(part), bool)))
+            payloads.append((int(cadence), group, *_compress(values, finite, source, common, planned)))
         if group_contract is None:
             group_contract = cadence_contract
         elif set(group_contract) != set(cadence_contract):
@@ -285,12 +309,12 @@ def calibrate(published, score_columns=("score",), quantiles=QUANTILES,
         guard_rows = []
         okay = True
         cut_array = np.array([cuts[column] for column in score_columns])
-        for cadence, group, values, finite, source, common, planned, inside in payloads:
+        for cadence, group, values, finite, source, common, planned, weights in payloads:
             supported = finite.all(axis=1)
             positive = (finite & (values > cut_array)).any(axis=1) & source & common
             available = (supported | positive) & source & common
             stats = _array_stats(positive, available, source, common, planned,
-                                 supported, inside, merge_gap)[0]
+                                 supported, np.zeros(len(values), bool), merge_gap, weights)[0]
             passed = (stats["normal_prediction_available_minutes"] > 0 and
                       stats["false_alarm_episodes_per_hour"] <= budgets[0] + 1e-12 and
                       stats["positive_time_fraction"] <= budgets[1] + 1e-12)

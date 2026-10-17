@@ -1,5 +1,6 @@
 /** Versioned Trainer discovery; capabilities are not training/evaluation results. */
 import { validateFeatureExpression } from './trainerFeatureValidation.js';
+import { SYNTHETIC_PROFILES, SYNTHETIC_CATALOG_VERSION, staticSpecHash } from './syntheticEvaluationContract.js';
 export const TRAINER_CONTRACT = 'trainer-service-v1';
 export const EVALUATION_FAMILIES = ['rule_ml', 'synthetic', 'execution_cost', 'operational'] as const;
 export const TRAINER_CAPABILITIES = {
@@ -9,6 +10,11 @@ export const TRAINER_CAPABILITIES = {
   fittedFeatures: { operations: ['group_median', 'group_centered'], groupBy: ['P.adapter_type'],
     unknownGroup: 'missing', fitSplit: 'train' },
   snapshot: { timeBasis: 'persisted_at', splitVersion: 'execution-block-v1' },
+  syntheticProfiles: { catalogVersion: SYNTHETIC_CATALOG_VERSION,
+    limits: { seedMax: 2147483647, targetRowsMax: 100, repetitionsMax: 5, scenariosMax: 4, attemptsMax: 20 },
+    items: Object.values(SYNTHETIC_PROFILES).map(profile => ({ ...profile, staticSpecHash: staticSpecHash(profile),
+      unsupportedScenarios: profile.profileId === 'esb-process-research-v1'
+        ? [{ scenario: 'P01', reason: 'synthetic_P01_semantics_unconfirmed' }] : [] })) },
 };
 
 type Member = { name: string; position: number; expression: Record<string, unknown>; requiresFit: boolean };

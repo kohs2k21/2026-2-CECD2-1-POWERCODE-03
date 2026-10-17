@@ -5,6 +5,8 @@ import { authenticateToken, AuthenticatedRequest } from '../middleware/auth.js';
 import { parseRuleDraft, parseRuleKey, InvalidRuleError, bindRecommendationEvidence } from '../rules/ruleContract.js';
 import { writeRule, RuleConflictError } from '../rules/ruleRepository.js';
 import { TRAINER_CAPABILITIES, featureSetCapability } from './trainerContract.js';
+import { parseSyntheticEvaluation, parseSyntheticRegistration, verifySyntheticBinding, staticSpecHash,
+  SyntheticRequestError, type SyntheticEvaluation, type SyntheticBinding } from './syntheticEvaluationContract.js';
 
 const router = Router();
 router.use(authenticateToken as any);
@@ -32,6 +34,8 @@ type JobInput = {
   purpose?: string; ruleVersionIds?: string[]; decisionId?: string; savedEvidence?: Record<string, unknown>; savedEvidenceJson?: string;
   detectionPolicy?: { mode: string; deadlineMs: number; combination: string };
   modelKey?: string;
+  syntheticEvaluation?: SyntheticEvaluation;
+  syntheticProfileBinding?: SyntheticBinding;
 };
 
 function parseRequest(value: unknown): JobInput {
@@ -40,7 +44,7 @@ function parseRequest(value: unknown): JobInput {
   if (typeof body.kind !== 'string' || !KINDS.has(body.kind) || !uuid(body.sourceId)) {
     throw new JobRequestError('invalid_job_request');
   }
-  const permitted = ['kind', 'sourceId', 'from', 'until', 'featureSetId', 'configVersionId', 'snapshotId', 'purpose', 'ruleVersionIds', 'decisionId', 'detectionPolicy', 'modelKey'];
+  const permitted = ['kind', 'sourceId', 'from', 'until', 'featureSetId', 'configVersionId', 'snapshotId', 'purpose', 'ruleVersionIds', 'decisionId', 'detectionPolicy', 'modelKey', 'syntheticEvaluation'];
   if (Object.keys(body).some((key) => !permitted.includes(key))) throw new JobRequestError('invalid_job_request');
   const input: JobInput = { kind: body.kind, sourceId: body.sourceId };
   if (body.kind === 'explain') {
@@ -56,6 +60,7 @@ function parseRequest(value: unknown): JobInput {
     input.configVersionId = body.configVersionId;
     input.snapshotId = body.snapshotId;
     input.purpose = String(body.purpose);
+    if (body.syntheticEvaluation !== undefined) input.syntheticEvaluation = parseSyntheticEvaluation(body.syntheticEvaluation);
     if (body.from !== undefined || body.until !== undefined || body.featureSetId !== undefined || body.ruleVersionIds !== undefined) {
       throw new JobRequestError('invalid_evaluation_request');
     }
@@ -107,6 +112,7 @@ function parseRequest(value: unknown): JobInput {
   if (body.kind !== 'train' && body.detectionPolicy !== undefined) throw new JobRequestError('invalid_job_request');
   if (body.kind !== 'train' && body.modelKey !== undefined) throw new JobRequestError('invalid_job_request');
   if (body.kind !== 'explain' && body.decisionId !== undefined) throw new JobRequestError('invalid_job_request');
+  if (body.kind !== 'evaluate' && body.syntheticEvaluation !== undefined) throw new JobRequestError('invalid_job_request');
   return input;
 }
 
@@ -125,8 +131,12 @@ router.post('/', route(async (req, res) => {
   const client = await getDatabasePool().connect();
   try {
     await client.query('BEGIN');
-    const source = await client.query('SELECT 1 FROM ops_sources WHERE id = $1', [input.sourceId]);
+    const source = await client.query('SELECT schema_version,field_catalog FROM ops_sources WHERE id = $1', [input.sourceId]);
     if (!source.rowCount) throw new JobRequestError('source_not_found', 404);
+    if (input.syntheticEvaluation) {
+      input.syntheticProfileBinding = verifySyntheticBinding(input.syntheticEvaluation, source.rows[0].schema_version, source.rows[0].field_catalog);
+      requestHash = crypto.createHash('sha256').update(JSON.stringify(input)).digest('hex');
+    }
     if (input.featureSetId) {
       const set = await client.query('SELECT 1 FROM ml_feature_sets WHERE id = $1', [input.featureSetId]);
       if (!set.rowCount) throw new JobRequestError('feature_set_not_found', 404);
@@ -161,11 +171,14 @@ router.post('/', route(async (req, res) => {
     }
     if (input.kind === 'evaluate') {
       const refs = await client.query(
-        `SELECT 1 FROM ml_config_versions AS c JOIN data_snapshots AS s ON s.id = $2
+        `SELECT s.schema_version FROM ml_config_versions AS c JOIN data_snapshots AS s ON s.id = $2
           WHERE c.id = $1 AND c.source_id = $3 AND s.source_id = $3 AND s.status = 'ready'`,
         [input.configVersionId, input.snapshotId, input.sourceId],
       );
       if (!refs.rowCount) throw new JobRequestError('evaluation_inputs_not_ready', 409);
+      if (input.syntheticEvaluation && refs.rows[0].schema_version !== 'process-v1') {
+        throw new JobRequestError('synthetic_snapshot_schema_unsupported', 422);
+      }
     }
     if (input.kind === 'explain') {
       const saved = await client.query(`SELECT d.id,d.config_version_id,d.status,d.rule_status,d.ml_status,
@@ -252,6 +265,38 @@ router.post('/', route(async (req, res) => {
   }
 }));
 
+router.put('/sources/:sourceId/synthetic-profiles', route(async (req, res) => {
+  if (req.user!.userType !== 'admin') throw new JobRequestError('admin_required', 403);
+  if (!uuid(req.params.sourceId)) throw new JobRequestError('invalid_source_id');
+  const registration = parseSyntheticRegistration(req.body);
+  const client = await getDatabasePool().connect();
+  try {
+    await client.query('BEGIN');
+    const source = await client.query('SELECT schema_version,field_catalog FROM ops_sources WHERE id=$1 FOR UPDATE', [req.params.sourceId]);
+    if (!source.rowCount) throw new JobRequestError('source_not_found', 404);
+    if (source.rows[0].schema_version !== registration.binding.sourceSchemaVersion) {
+      throw new JobRequestError('synthetic_source_schema_mismatch', 409);
+    }
+    const catalog = source.rows[0].field_catalog;
+    if (!catalog || typeof catalog !== 'object' || Array.isArray(catalog) ||
+        (catalog.syntheticProfiles !== undefined && (!catalog.syntheticProfiles || typeof catalog.syntheticProfiles !== 'object' || Array.isArray(catalog.syntheticProfiles)))) {
+      throw new JobRequestError('synthetic_invalid_source_catalog', 409);
+    }
+    const bindings = catalog.syntheticProfiles ?? {};
+    const existing = bindings[registration.profileId];
+    if (existing !== undefined && staticSpecHash(existing) !== staticSpecHash(registration.binding)) {
+      throw new JobRequestError('synthetic_profile_binding_conflict', 409);
+    }
+    if (existing === undefined) await client.query('UPDATE ops_sources SET field_catalog=$2::jsonb WHERE id=$1',
+      [req.params.sourceId, JSON.stringify({ ...catalog, syntheticProfiles: { ...bindings, [registration.profileId]: registration.binding } })]);
+    await client.query('COMMIT');
+    res.status(existing === undefined ? 201 : 200).json({ sourceId: req.params.sourceId, ...registration });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally { client.release(); }
+}));
+
 router.get('/capabilities', route(async (_req, res) => {
   res.json(TRAINER_CAPABILITIES);
 }));
@@ -334,7 +379,7 @@ router.post('/:id/recommendations/:index/adopt', route(async (req, res) => {
 }));
 
 router.use((error: unknown, _req: Request, res: Response, _next: NextFunction) => {
-  if (error instanceof JobRequestError) {
+  if (error instanceof JobRequestError || error instanceof SyntheticRequestError) {
     res.status(error.status).json({ code: error.code });
     return;
   }

@@ -75,9 +75,57 @@ try {
      (id, dataset_key, display_name, ingestion_method, schema_version,
       clock_basis, field_catalog, created_at)
      VALUES ($1, $2, 'Job API test', 'synthetic-test', 'v1',
-             '{}'::jsonb, '{}'::jsonb, clock_timestamp())`,
+             '{}'::jsonb, '{"existing":"preserved"}'::jsonb, clock_timestamp())`,
     [sourceId, `job-api-${sourceId}`],
   );
+  const profilesPath = `/api/jobs/sources/${sourceId}/synthetic-profiles`;
+  const registration = { profileId: 'esb-process-research-v1', profileVersion: '1', sourceSchemaVersion: 'v1' };
+  assert.equal((await request(base, profilesPath, 'PUT', userToken, registration)).status, 403);
+  assert.equal((await request(base, profilesPath, 'PUT', token, { ...registration, ignored: true })).status, 400);
+  assert.equal((await request(base, profilesPath, 'PUT', token, { ...registration, profileVersion: '2' })).status, 422);
+  assert.equal((await request(base, profilesPath, 'PUT', token, { ...registration, sourceSchemaVersion: 'wrong' })).status, 409);
+  const registered = await request(base, profilesPath, 'PUT', token, registration);
+  assert.equal(registered.status, 201);
+  assert.equal((await request(base, profilesPath, 'PUT', token, registration)).status, 200);
+  assert.equal((await request(base, profilesPath, 'PUT', token, { ...registration, profileId: 'adbench-numeric-v1' })).status, 201);
+  const bindingCatalog = (await pool.query('SELECT field_catalog FROM ops_sources WHERE id=$1', [sourceId])).rows[0].field_catalog;
+  assert.equal(bindingCatalog.existing, 'preserved');
+  assert.deepEqual(Object.keys(bindingCatalog.syntheticProfiles).sort(), ['adbench-numeric-v1', 'esb-process-research-v1']);
+  const discovery = await request(base, '/api/jobs/capabilities', 'GET', token);
+  assert.equal(discovery.status, 200);
+  const esbProfile = discovery.body.syntheticProfiles.items.find(item => item.profileId === registration.profileId);
+  assert.equal(esbProfile.staticSpecHash, registered.body.binding.staticSpecHash);
+  assert.equal(esbProfile.unsupportedScenarios[0].scenario, 'P01');
+  const snapshotId = crypto.randomUUID(), configVersionId = crypto.randomUUID();
+  await pool.query(`INSERT INTO data_snapshots(id,source_id,status,observation_cutoff_at,selection_spec,split_spec,
+    schema_version,created_by_actor_id,created_at) VALUES($1,$2,'ready',clock_timestamp(),'{}','{}','process-v1',$3,clock_timestamp())`,
+    [snapshotId, sourceId, actorId]);
+  await pool.query(`INSERT INTO ml_config_versions(id,source_id,configuration_spec,explanation_spec,content_hash,
+    created_by_actor_id,created_at) VALUES($1,$2,'{}','{}','qa-not-a-trained-config',$3,clock_timestamp())`,
+    [configVersionId, sourceId, actorId]);
+  const synthetic = { kind: 'evaluate', sourceId, snapshotId, configVersionId, purpose: 'test',
+    syntheticEvaluation: { profileId: registration.profileId, profileVersion: '1', scenarios: [{ scenario: 'P04', severity: 1 }],
+      seed: 11, repetitions: 1, targetRows: 10 } };
+  const syntheticKey = crypto.randomUUID();
+  const syntheticJob = await request(base, '/api/jobs', 'POST', token, synthetic, syntheticKey);
+  assert.equal(syntheticJob.status, 201);
+  assert.deepEqual(syntheticJob.body.inputSpec.syntheticProfileBinding, registered.body.binding);
+  assert.equal((await request(base, '/api/jobs', 'POST', token, synthetic, syntheticKey)).body.id, syntheticJob.body.id);
+  assert.equal((await request(base, '/api/jobs', 'POST', token,
+    { ...synthetic, syntheticEvaluation: { ...synthetic.syntheticEvaluation, seed: 12 } }, syntheticKey)).status, 409);
+  assert.equal((await request(base, '/api/jobs', 'POST', userToken, synthetic)).status, 403);
+  assert.equal((await request(base, '/api/jobs', 'POST', token, { ...synthetic, purpose: 'train' })).status, 400);
+  assert.equal((await request(base, '/api/jobs', 'POST', token, { ...synthetic, syntheticProfileBinding: registered.body.binding })).status, 400);
+  assert.equal((await request(base, '/api/jobs', 'POST', token, { ...synthetic,
+    syntheticEvaluation: { ...synthetic.syntheticEvaluation, scenarios: [{ scenario: 'P01', severity: 1 }] } })).status, 422);
+  assert.deepEqual((await request(base, `/api/jobs/${syntheticJob.body.id}`, 'GET', token)).body.inputSpec.syntheticEvaluation, synthetic.syntheticEvaluation);
+  assert.equal((await pool.query(`SELECT count(*)::int AS count FROM powercode_queue.training_jobs WHERE payload->>'jobId'=$1`,
+    [syntheticJob.body.id])).rows[0].count, 1);
+  await pool.query(`UPDATE ops_sources SET field_catalog=jsonb_set(field_catalog,
+    '{syntheticProfiles,esb-process-research-v1,staticSpecHash}','"modified"'::jsonb) WHERE id=$1`, [sourceId]);
+  assert.equal((await request(base, profilesPath, 'PUT', token, registration)).status, 409);
+  assert.equal((await request(base, '/api/jobs', 'POST', token, synthetic)).status, 409);
+  await pool.query('UPDATE ops_sources SET field_catalog=$2::jsonb WHERE id=$1', [sourceId, JSON.stringify(bindingCatalog)]);
   const from = new Date(Date.now() - 3600000).toISOString();
   const until = new Date(Date.now() + 3600000).toISOString();
   const input = { kind: 'recommend_feature', sourceId, from, until };

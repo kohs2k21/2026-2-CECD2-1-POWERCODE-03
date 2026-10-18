@@ -56,3 +56,11 @@ def enrich_result(conn, job, result):
         result['evaluationEnvelope']['synthetic'] = result['syntheticEvaluation']
     result['dataContract']['statusRulePolicy'] = config[0].get('statusRulePolicy')
     result['dataContract']['trainingSelection'] = config[0].get('trainingSelection')
+    if snapshot[2] == 'prepared-features-v1':
+        descriptor = config[0].get('preparedInputContract')
+        if descriptor is None: raise ValueError('prepared_result_input_descriptor_missing')
+        result['dataContract'].update(preparedDatasetId=result.get('preparedDatasetId'),inputStage='model_input',
+                                     rowIdentity='prepared_numeric_feature_row',operationalObservationMembership=False,
+                                     preparedInputContract=descriptor)
+        result['evaluationEnvelope']['rule_ml']['reason'] = 'raw_rule_inputs_unavailable'
+        if manifest is not None: manifest['preparedInputContract'] = descriptor

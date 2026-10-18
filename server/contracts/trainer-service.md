@@ -2,6 +2,7 @@
 
 - 계약 버전: `trainer-service-v1`; 기존 `/api/jobs` 요청·상태·결과 필드 유지
 - 실행: API → PostgreSQL training queue → Trainer → 불변 후보/평가 → API 조회
+- 외부 완성 가공 CSV·합성 주입 CSV: [prepared-csv-v1](prepared-csv-import.md)의 관리자 반입·model_input·snapshotId 계약 적용; SQL/SQLite·raw 모델 호환 추정·운영 적용 제외
 - 학습 성공: 후보 생성만; 활성 버전 변경은 기존 관리자 승인·Detector 적용 경로
 - 실행 상태: queued/running/succeeded/failed; 자동 재시도는 같은 job, 최대 3회·attempt 이력
 - terminal failed 재실행: 새 idempotency key로 명시적 새 요청; 같은 key·같은 본문은 기존 job 반환, 다른 본문은 409

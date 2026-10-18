@@ -28,12 +28,17 @@ services:
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-24h}
       PORT: "5001"
       USER_DATA_PATH: /app/data/users.json
+      ARTIFACT_ROOT: /artifacts
       SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-}
       SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-}
     volumes:
       - type: bind
         source: ${AUTH_DATA_DIR:?Set the existing user data directory}
         target: /app/data
+        bind: {create_host_path: false}
+      - type: bind
+        source: ${ARTIFACT_ROOT_PATH:?Set existing artifact directory}
+        target: /artifacts
         bind: {create_host_path: false}
     networks: [runtime, database]
     healthcheck:

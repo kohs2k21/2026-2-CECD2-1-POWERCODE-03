@@ -22,6 +22,7 @@ export const detectionPages = [
 const knownPaths: string[] = [
   "/operations",
   "/analysis",
+  "/analysis/process-decisions",
   "/settings",
   "/notifications",
   ...detectionPages.map((page) => page.path),

@@ -106,7 +106,8 @@ export const OPERATIONAL_SQL = `${SCOPED_OBSERVATIONS}, days AS (
  count(*) FILTER(WHERE comparable AND rule_hit AND ml_hit)::integer AS both_count,
  count(*) FILTER(WHERE comparable AND rule_hit AND NOT ml_hit)::integer AS rule_only,
  count(*) FILTER(WHERE comparable AND NOT rule_hit AND ml_hit)::integer AS ml_only,
- count(*) FILTER(WHERE comparable AND NOT rule_hit AND NOT ml_hit)::integer AS neither
+ count(*) FILTER(WHERE comparable AND NOT rule_hit AND NOT ml_hit)::integer AS neither,
+ count(*) FILTER(WHERE path='sr' AND c.evidence#>'{checkers,sr,evidence}' @> '[{"reason":"sr_experiment_pending"}]'::jsonb)::integer AS sr_pending
  FROM cohort c CROSS JOIN (VALUES ('hr'),('sr')) p(path)
  CROSS JOIN LATERAL (SELECT
   c.evidence#>ARRAY['checkers',path,'status']='"succeeded"'::jsonb AND
@@ -121,7 +122,7 @@ SELECT days.day,coalesce(c.total,0) AS total,coalesce(c.decidable,0) AS decidabl
  coalesce(c.alarms,0) AS alarms,coalesce(c.failed,0) AS failed,c.last_processed_at AS "lastProcessedAt",
  coalesce(p.pending,0) AS pending,
  (SELECT jsonb_object_agg(path,jsonb_build_object('comparable',comparable,'both',both_count,'ruleOnly',rule_only,
-  'mlOnly',ml_only,'neither',neither)) FROM pairs WHERE pairs.day=days.day) AS comparisons,
+  'mlOnly',ml_only,'neither',neither,'srPending',sr_pending)) FROM pairs WHERE pairs.day=days.day) AS comparisons,
  (SELECT count(*)::integer FROM days) AS "totalDays"
  FROM days LEFT JOIN counts c USING(day) LEFT JOIN pending p USING(day)
  ORDER BY days.day LIMIT $7 OFFSET $8`;
@@ -144,6 +145,24 @@ SELECT count(*)::integer AS targets,
  extract(epoch FROM clock_timestamp()-min(j.created_at) FILTER(WHERE j.status IN ('queued','running'))) AS "oldestWaitSeconds"
  FROM run_jobs j JOIN scoped o ON j.input_spec->>'observationId'=o.id::text
  WHERE j.kind='detect' AND j.input_config_version_id=$2 AND o.report_scope=$6`;
+
+// Reconstructs open detect jobs at min(cutoff, now) from job and attempt intervals.
+// Queued and blocked are not distinguishable historically, so both count as waiting.
+// An attempt ends at its finish or lease expiry, whichever is first: a crashed worker's
+// unreaped 'running' attempt stops counting once its lease lapsed (live leases exceed now).
+export const BACKLOG_AT_CUTOFF_SQL = `${SCOPED_OBSERVATIONS}, as_of AS (SELECT least($4::timestamptz, clock_timestamp()) AS at),
+open_jobs AS (
+ SELECT j.created_at, EXISTS(SELECT 1 FROM run_job_attempts a WHERE a.job_id=j.id AND a.started_at<=t.at AND
+   least(coalesce(a.finished_at,'infinity'::timestamptz),a.lease_until) > t.at) AS running
+ FROM run_jobs j JOIN scoped o ON j.input_spec->>'observationId'=o.id::text CROSS JOIN as_of t
+ WHERE j.kind='detect' AND j.input_config_version_id=$2 AND o.report_scope=$6
+   AND j.created_at<=t.at AND (j.finished_at IS NULL OR j.finished_at>t.at)
+)
+SELECT (SELECT at FROM as_of) AS "asOf",
+ count(*) FILTER(WHERE NOT running)::integer AS waiting,
+ count(*) FILTER(WHERE running)::integer AS running,
+ extract(epoch FROM (SELECT at FROM as_of)-min(created_at)) AS "oldestWaitSeconds"
+ FROM open_jobs`;
 
 export const COST_KEYS = ['totalMs','preprocessMs','trainMs','evaluationMs','inferenceMs','ruleMs','queueWaitMs','processRssBytes','throughput'];
 export const COST_VALUE_SQL = `CASE WHEN jsonb_typeof(m.value->'value')='number' THEN
@@ -170,7 +189,9 @@ export function dailyReport(row: Record<string, any>) {
   const count = (n: number) => measurement(total ? n : null, 'process', total ? n : null, total, total ? 1 : null, total ? null : 'no_targets');
   const comparison = (path: string) => {
     const pair = row.comparisons?.[path], available = pair?.comparable ?? 0;
-    const reason = !total ? 'no_targets' : !available ? 'checker_evidence_unavailable' : null;
+    // Same code as the offline evaluation when every SR checker reports the pending experiment.
+    const missing = path === 'sr' && total && pair?.srPending === total ? 'sr_experiment_pending' : 'checker_evidence_unavailable';
+    const reason = !total ? 'no_targets' : !available ? missing : null;
     return {total, comparable: available, unavailable: total - available, coverage: total ? available / total : null,
       both: measurement(available ? pair.both : null, 'process', available ? pair.both : null, available, total ? available / total : null, reason),
       ruleOnly: measurement(available ? pair.ruleOnly : null, 'process', available ? pair.ruleOnly : null, available, total ? available / total : null, reason),
@@ -183,8 +204,9 @@ export function dailyReport(row: Record<string, any>) {
     unavailableRate: measurement(total ? (total - decidable) / total : null, 'ratio', total ? total - decidable : null, total,
       total ? 1 : null, total ? null : 'no_targets'),
     failedProcessCount: count(row.failed), lastProcessedAt: row.lastProcessedAt,
-    pendingArrivalCount: measurement(row.pending || null, 'process', row.pending || null, row.pending, row.pending ? 1 : null,
-      row.pending ? null : 'no_pending_targets'),
+    // The pending query always counts its population, so zero is an observed value.
+    pendingArrivalCount: typeof row.pending === 'number' ? measurement(row.pending, 'process', row.pending, null, 1)
+      : measurement(null, 'process', null, null, null, 'pending_count_unavailable'),
     comparisons: {hrMl: comparison('hr'), srMl: comparison('sr')}};
 }
 export function costReport(rows: Record<string, any>[], total: number, keys = COST_KEYS) {

@@ -1,0 +1,653 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>POWERCODE · MLOps 흐름</title>
+  <style>
+    :root { color-scheme: light; font: 15px/1.6 system-ui, sans-serif; color: #20252b; background: #f5f6f7; }
+    * { box-sizing: border-box; }
+    body { margin: 0; }
+    header, .toolbar, nav, .actions { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
+    body > header { padding: 16px 24px; background: white; border-bottom: 1px solid #c8cdd2; }
+    .brand { font-weight: 700; margin-right: 20px; }
+    a { color: #234b72; text-underline-offset: 5px; }
+    button, input, select, textarea { font: inherit; }
+    button, .button { border: 1px solid #98a2ac; border-radius: 4px; padding: 7px 12px; background: white; cursor: pointer; }
+    button:hover, .button:hover { background: #edf1f4; }
+    button:disabled { cursor: default; opacity: .55; }
+    #keepMove { color: white; background: #20252b; border-color: #20252b; }
+    a[aria-current="page"] { font-weight: 700; color: #172c41; }
+    :focus-visible { outline: 3px solid #467da9; outline-offset: 3px; }
+    .account { margin-left: auto; }
+    .toolbar { padding: 12px 24px; border-bottom: 1px solid #d8dce0; font-size: 13px; }
+    .layout { display: grid; grid-template-columns: 264px minmax(0, 1fr); gap: 24px; padding: 24px; align-items: start; }
+    .layout.wide { grid-template-columns: minmax(0, 1fr); }
+    aside, main { background: white; border: 1px solid #c8cdd2; border-radius: 8px; padding: 24px 16px; min-width: 0; }
+    aside nav { display: grid; gap: 8px; }
+    aside a { padding: 8px 10px; min-height: 48px; text-decoration: none; }
+    aside h2 { font-size: 13px; margin: 0 0 8px; }
+    aside section + section { margin-top: 24px; }
+    main { padding: 24px; }
+    h1 { font-size: 28px; line-height: 1.3; margin: 0; }
+    h2 { font-size: 19px; margin: 0 0 16px; }
+    h3 { font-size: 16px; margin: 0 0 12px; }
+    p { margin: 8px 0 16px; }
+    .tabs { margin: 32px 0 24px; border-bottom: 1px solid #c8cdd2; gap: 0; }
+    .tabs a { padding: 12px 16px; text-decoration: none; border-bottom: 2px solid transparent; }
+    .tabs a[aria-current] { border-bottom-color: #20252b; }
+    .card, fieldset { border: 1px solid #c8cdd2; padding: 16px; margin: 0 0 20px; min-width: 0; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr)); gap: 16px; }
+    .field { display: grid; gap: 6px; margin-bottom: 14px; }
+    input:not([type="checkbox"]), select, textarea { border: 1px solid #a9b1b9; padding: 8px; width: 100%; min-width: 0; background: white; }
+    input[type="checkbox"] { width: auto; margin-right: 6px; }
+    input[type="number"] { max-width: 240px; }
+    .check { display: inline-flex; align-items: center; gap: 6px; margin: 4px 16px 4px 0; }
+    .actions { margin-top: 20px; padding-top: 16px; border-top: 1px solid #d8dce0; }
+    .table { overflow-x: auto; margin: 12px 0; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th, td { border: 1px solid #c8cdd2; padding: 10px; text-align: left; vertical-align: top; }
+    th { background: #f1f3f5; }
+    caption { text-align: left; margin-bottom: 8px; font-weight: 600; }
+    .muted, small { color: #59636d; }
+    .notice, [role="alert"] { padding: 12px; border: 1px solid #a9b1b9; background: #f5f6f7; }
+    .error { border-color: #a44545; color: #792a2a; }
+    details { margin: 12px 0; }
+    summary { cursor: pointer; }
+    dl { margin: 0; }
+    dl > div { display: grid; grid-template-columns: minmax(120px, 1fr) 2fr; gap: 12px; padding: 8px 0; border-bottom: 1px solid #e2e5e8; }
+    dt { font-weight: 600; } dd { margin: 0; overflow-wrap: anywhere; }
+    dialog { width: min(560px, calc(100% - 32px)); max-height: calc(100dvh - 32px); overflow: auto; border: 1px solid #8d98a3; padding: 24px; }
+    dialog::backdrop { background: #18233066; }
+    .close { float: right; }
+    #notificationDialog { margin: 76px 24px 0 auto; }
+    [hidden] { display: none !important; }
+    .skip { position: absolute; left: 16px; top: -80px; background: white; padding: 8px; }
+    .skip:focus { top: 8px; }
+    .actions-inline { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
+    .context { margin-bottom: 16px; }
+    [data-page="rules"] h1 { margin-bottom: 24px; }
+    .context select { max-width: 240px; }
+    .filters { grid-template-columns: repeat(auto-fit, minmax(min(170px, 100%), 1fr)); gap: 0 16px; }
+    .select-layout { display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start; }
+    .select-layout > div { flex: 999 1 520px; min-width: 0; }
+    .summary { flex: 1 1 260px; border: 1px solid #c8cdd2; padding: 16px; }
+    .feature-table th, .feature-table button, .summary button { white-space: nowrap; }
+    .summary ul { margin: 0 0 12px; padding: 0; list-style: none; max-height: 320px; overflow: auto; }
+    .summary li { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 4px 0; border-bottom: 1px solid #e2e5e8; font-size: 14px; }
+    .summary li button { padding: 2px 8px; font-size: 13px; }
+    .pager { margin-top: 8px; }
+    .key { display: block; font-size: 12px; color: #59636d; font-family: ui-monospace, monospace; }
+    .warn { color: #792a2a; }
+    #readiness { margin: 0; padding-left: 20px; }
+    #readiness li { margin: 4px 0; }
+    @media (max-width: 760px) { .layout { grid-template-columns: minmax(0, 1fr); padding: 12px; gap: 12px; } main { padding: 16px; } body > header, .toolbar { padding: 12px; } .account { margin-left: 0; } .tabs a { padding: 10px; } dl > div { grid-template-columns: 1fr; gap: 4px; } }
+  </style>
+</head>
+<body>
+  <a class="skip" href="#main">본문으로 이동</a>
+  <header>
+    <span class="brand">POWERCODE</span>
+    <nav aria-label="주 메뉴"><a href="#operations">운영 현황</a><a href="#analysis/list">이상 분석</a><a href="#model/dataset" data-admin>탐지 관리</a></nav>
+    <div class="account actions-inline"><button id="bell" aria-haspopup="dialog">알림</button> <a href="#settings" aria-label="설정">⚙ 설정</a></div>
+  </header>
+  <div class="toolbar" aria-label="화면 검토 조건">
+    <label>역할 <select id="role"><option value="admin">관리자</option><option value="user">일반 사용자</option></select></label>
+    <label>표시 상태 <select id="state"><option value="normal">정상 흐름</option><option value="empty">빈 데이터</option><option value="error">조회 실패</option><option value="partial">부분 판정</option></select></label>
+    <span id="draftState" role="status">편집 내용 없음</span>
+  </div>
+  <div class="layout wide" id="layout">
+    <aside id="sidebar" hidden aria-label="탐지 관리">
+      <section><h2>실험</h2><nav><a href="#model/dataset">모델 생성</a><a href="#rules/edit">룰 생성</a><a href="#evaluation/prepare">성능 평가·비교</a></nav></section>
+      <section><h2>운영</h2><nav><a href="#versions/current">운영 버전 관리</a><a href="#collection/status">데이터 수집 현황</a></nav></section>
+    </aside>
+    <main id="main" tabindex="-1">
+      <section id="denied" hidden><h1>접근 권한 확인</h1><p>관리자만 접근할 수 있습니다.</p><a href="#operations">운영 현황으로</a></section>
+      <section data-page="operations">
+        <h1>운영 현황</h1><p>현재 운영 구성: <strong data-active>운영 V1</strong></p>
+        <div class="grid"><div class="card"><h2>탐지 상태</h2><p data-service>관측 미확인</p><a href="#analysis/list">저장된 판정 확인</a></div><div class="card"><h2>수집·판정 지연</h2><p>ESB 발생 → 판정: —</p><p class="muted">원본 시각·수집·큐·검사 관측 필요</p><a href="#collection/status" data-admin>수집 상태 확인</a></div><div class="card"><h2>진행 작업</h2><p data-job-summary>진행 작업 없음</p><a href="#notifications/tasks" data-admin>작업 목록</a></div></div>
+        <p data-empty hidden>표시할 운영 관측이 없습니다.</p><p data-error hidden role="alert">운영 상태 조회에 실패했습니다. <button data-action="retry">다시 조회</button></p>
+      </section>
+      <section data-page="model" data-admin>
+        <h1>모델 생성</h1>
+        <nav class="tabs" aria-label="모델 생성 단계"><a href="#model/dataset">1. 데이터셋</a><a href="#model/features">2. 입력 변수 선택</a><a href="#model/training">3. 모델 학습</a></nav>
+        <section data-panel="model/dataset">
+          <form id="datasetForm"><div class="card"><h2>데이터 선택·고정</h2><div class="grid">
+            <label class="field">이름<input name="datasetName" value="학습 데이터셋 초안" required maxlength="80"></label>
+            <label class="field">출처<select name="dataSource"><option>수집 API 저장 관측</option><option>등록된 시험 CSV</option></select></label>
+            <label class="field">기간 기준<select><option>저장 시각 persisted_at</option><option>ESB 발생 시각</option></select></label>
+            <label class="field">업무 범위<select><option>전체 업무</option><option>선택 인터페이스</option></select></label>
+            <label class="field">시작<input name="from" type="datetime-local" required></label><label class="field">종료<input name="to" type="datetime-local" required></label>
+          </div><p>관측 수 — · 결측 — · 실행 계보 미확인 · BODY 자동 입력 제외</p>
+          <details><summary>고정 분할·품질 확인</summary><p>train / calibration / validation / test: 기간·거래/실행 중복 검사 필요</p><p>fit은 train 참조만 사용 · 발생 시각과 실제 관측 가능 시각 분리</p></details>
+          <div class="actions"><button type="submit">입력 확인·데이터 고정</button><a href="#model/features">입력 변수 선택으로</a></div></div></form>
+          <div class="card" id="datasetResult" hidden><h2>고정할 데이터셋</h2><p data-dataset-name></p><p>생성 상태: 입력 검토 완료 · 생성 결과 확인 대기</p><a href="#model/features">이 데이터로 입력 변수 선택</a></div>
+        </section>
+        <section data-panel="model/features">
+          <div class="card"><h2>입력 변수 선택</h2>
+            <dl class="context"><div><dt>데이터셋</dt><dd data-dataset-label>데이터 고정 대기</dd></div><div><dt>기간</dt><dd data-dataset-period>—</dd></div><div><dt>카탈로그 버전</dt><dd><select id="catalogVersion" aria-label="카탈로그 버전"><option value="C1">카탈로그 C1</option></select></dd></div></dl>
+            <div class="grid"><label class="field">분석 단위<select id="inputUnit"><option value="PROCESS">PROCESS · 완료 관측</option><option value="WINDOW">시간 집계 · WINDOW</option></select></label></div>
+            <div id="windowFields" hidden class="grid"><label class="field">집계 간격<input placeholder="값·단위 선택"></label><label class="field">관측창 길이<input placeholder="값·단위 선택"></label><label class="field">판정 주기<input placeholder="값·단위 선택"></label></div>
+            <p id="datasetRecheck" class="notice" hidden role="status">데이터셋이 바뀌었습니다. 선택은 유지되며, 학습 전 준비 검사를 다시 확인합니다.</p>
+            <div class="grid filters"><label class="field">검색<input id="featureSearch" type="search" placeholder="변수명·영문 키"></label><label class="field">출처<select id="featureOrigin"><option value="all">전체</option><option>원본</option><option>파생</option><option>출처 확인 중</option></select></label><label class="field">분류<select id="featureGroup"><option value="all">전체</option></select></label><label class="field">사용 가능 여부<select id="featureStatus"><option value="all">전체</option><option value="ready">사용 가능</option><option value="fit">train fit 후 사용</option><option value="unsupported">실행기 미지원</option><option value="pending">정의 확정 전</option></select></label></div>
+            <div class="select-layout">
+              <div>
+                <div class="actions-inline"><span id="featureCount" role="status"></span><button type="button" data-action="select-filtered">검색 결과 전체 선택</button></div>
+                <div class="table"><table class="feature-table"><caption>등록 입력 변수 · 정의 변경은 카탈로그 새 버전</caption><thead><tr><th>선택</th><th>변수명</th><th>원본·파생</th><th>전처리</th><th>사용 가능 상태</th><th>상세</th></tr></thead><tbody id="featureRows"></tbody></table></div>
+                <p id="featureEmpty" hidden>검색 조건의 입력 변수가 없습니다.</p>
+                <nav class="pager actions-inline" aria-label="입력 변수 페이지"><button type="button" data-action="page-prev">이전</button><span id="featurePage"></span><button type="button" data-action="page-next">다음</button></nav>
+              </div>
+              <section class="summary" aria-labelledby="selectionTitle"><h3 id="selectionTitle">선택 요약</h3><p id="selectionCount"></p><ul id="selectionList"></ul><div class="actions-inline"><button type="button" data-action="clear-selection">전체 해제</button></div>
+                <p class="muted">선택 변수 수와 변환 후 입력 차원은 다릅니다. 범주 인코딩 차원은 train 데이터 fit 후 확정됩니다.</p>
+                <button type="button" data-action="save-bundle">선택 묶음 저장</button><p id="bundleStatus" role="status">저장한 선택 묶음 없음</p></section>
+            </div>
+            <div class="actions"><a href="#model/dataset">데이터셋 확인</a><a class="button" href="#model/training">모델 학습 설정</a></div>
+          </div>
+        </section>
+        <section data-panel="model/training">
+          <div class="card"><h2>학습 입력</h2><dl><div><dt>데이터셋·기간</dt><dd><span data-dataset-label>데이터 고정 대기</span> · <span data-dataset-period>—</span></dd></div><div><dt>분석 단위</dt><dd id="trainingUnit">PROCESS</dd></div><div><dt>카탈로그·선택 묶음</dt><dd id="trainingBundle">카탈로그 C1 · 선택 묶음 미저장</dd></div><div><dt>선택 변수</dt><dd id="trainingFeatures">0개</dd></div><div><dt>변환 후 입력 차원</dt><dd>train 데이터 fit 후 확정</dd></div></dl>
+            <h3 class="readiness-title">준비 검사</h3><ul id="readiness"></ul><a href="#model/features">입력 변수 선택 수정</a></div>
+          <form id="trainingForm"><div class="card"><h2>학습 구성</h2><div class="grid"><label class="field">모델 이름<input name="modelName" value="모델 후보 초안" required maxlength="80"></label><label class="field">알고리즘<select id="algorithm"><option value="IF">Isolation Forest</option><option value="KMeans">KMeans</option></select></label><label class="field">전처리<select><option>recipe 권장 묶음</option><option>승인된 전처리 버전</option></select></label></div>
+            <div id="ifSettings" class="grid"><label class="field">트리 수<input type="number" min="1" step="1" placeholder="설정값 선택"></label><label class="field">경계 정책<select><option>recipe 버전에서 확인</option><option>train 내 별도 기준 행</option></select></label></div>
+            <div id="kmeansSettings" class="grid" hidden><label class="field">군집 수<input type="number" min="2" step="1" placeholder="설정값 선택"></label><label class="field">거리·스케일 계약<select><option>recipe 선택 필요</option><option>승인된 거리 기준</option></select></label></div>
+            <p>데이터셋·피처·fit·모델·점수 방향·판정선은 모델 산출물에 함께 고정합니다.</p><div class="actions"><button type="submit">학습 요청 검토</button></div><p id="trainingBlocked" class="notice error" role="alert" hidden></p>
+          </div></form>
+          <div class="card"><h2>학습 작업</h2><p id="trainingStatus">요청 없음</p><div id="trainingDetail" hidden><p id="trainingRequest"></p><p>접수 → 대기 → 실행 → 학습 결과</p><div class="actions"><button data-action="training-result">학습 결과 보기</button><a href="#notifications/tasks">진행 작업에서 확인</a></div></div></div>
+          <div id="modelResult" class="card" hidden><h2>모델 산출물 검토</h2><p>모델 후보 M1 · 피처 F1 / 전처리 P1 / fit T1</p><p>생성·학습 처리 결과: 확인 대상 · 측정값 —</p><a class="button" href="#evaluation/prepare">평가 데이터 준비</a></div>
+        </section>
+      </section>
+      <section data-page="rules" data-admin>
+        <h1>룰 생성</h1>
+        <section data-panel="rules/edit">
+          <div class="grid"><div class="card"><h2>룰 목록·추천</h2><button data-action="rule-detail">건수 정합 룰 상세</button><div class="actions"><button data-action="recommendation">추천 근거 검토</button></div><section id="recommendation" hidden><h3>추천 검토</h3><p>필수 속성·업무 계약과 관측 근거를 확인한 후 초안으로 가져옵니다.</p><button data-action="adopt-rule">초안에 채택</button></section></div>
+          <form id="ruleForm" class="card"><h2>룰 생성·편집</h2><label class="field">이름<input id="ruleName" value="건수 정합 룰" required maxlength="80"></label><label class="field">종류<select id="ruleKind"><option value="HR">HR · 논리적 룰</option><option value="SR">SR · 통계적 룰</option></select></label>
+            <div id="hrFields"><label class="field">업무 계약<select><option>계약 선택 대기</option><option>완료 건수 관계 계약</option><option>필수 추적 속성 계약</option></select></label><label class="field">적용 조건·예외<input placeholder="종료 관측·예외 상태"></label><label class="field">기대값<input placeholder="합의된 계약 관계"></label></div>
+            <div id="srFields" hidden><label class="field">지표<select><option>PROCESS 처리시간</option><option>WINDOW 오류율</option><option>WINDOW 유입 건수</option></select></label><label class="field">비교 집단<input placeholder="인터페이스·단계·업무 일정"></label><label class="field">승인 기준선<select><option>기준선 선택 대기</option><option>기준선 초안 B1</option></select></label><label class="field">단위·최소 표본·유효 기간<input placeholder="기준선 계약에서 확인"></label></div>
+            <div class="actions"><button type="submit">룰 생성 검토</button><button type="button" data-action="restore-rule">기본 정의 복원</button></div><p id="ruleStatus" role="status"></p>
+          </form></div><a href="#evaluation/compare">룰 버전 평가로</a>
+        </section>
+      </section>
+      <section data-page="evaluation" data-admin>
+        <h1>성능 평가·비교</h1><nav class="tabs" aria-label="평가 단계"><a href="#evaluation/prepare">1. 평가 데이터 준비</a><a href="#evaluation/compare">2. 비교 구성</a><a href="#evaluation/results">3. 실행·결과</a></nav>
+        <section data-panel="evaluation/prepare">
+          <div class="card"><h2>평가 데이터 선택</h2><label class="field">준비 방식<select id="setSource"><option value="existing">기존 고정 세트 선택</option><option value="new">새 평가 세트 생성</option></select></label>
+            <div id="existingSet"><label class="field">고정 세트<select id="existingSetId"><option value="ESB">ESB 사건 세트 E1</option><option value="ADBench">ADBench 샘플 세트 A1</option></select></label><p>같은 세트·분할·정답·생성 버전을 후보 간 재사용합니다.</p><button data-action="choose-set">이 세트로 비교 구성</button></div>
+          </div>
+          <form id="generationForm" class="card" hidden><h2>새 평가 세트 생성</h2><div class="grid"><label class="field">세트 이름<input name="setName" value="평가 세트 초안" required maxlength="80"></label><label class="field">생성 방식<select id="generator"><option value="ESB">ESB 시나리오</option><option value="ADBench">ADBench 통계 합성</option></select></label><label class="field">유형<select id="scenarioType"></select></label><label class="field">참조 데이터<select><option>고정 학습 참조 데이터</option><option>정상성 확인 구간</option></select></label></div>
+            <div class="grid"><label class="field"><span id="targetLabel">대상 업무·구간</span><input name="target" required placeholder="대상 선택"></label><label class="field"><span id="intensityLabel">강도·단위</span><input name="intensity" required placeholder="값과 해석 단위"></label><label class="field"><span id="quantityLabel">생성 사건 수</span><input name="quantity" type="number" min="1" step="1" required></label><label class="field" id="durationField">지속시간·단위<input name="duration" placeholder="시나리오 기간"></label></div>
+            <details><summary>고급 설정</summary><label class="field">seed<input name="seed" type="number" min="0" step="1"></label><label class="field">생성기·제약 버전<select><option>선택 대기</option></select></label><p>원본 계보·fit/sample 분리·허용 값·재생성 이력·hash를 세트에 고정합니다.</p></details>
+            <p id="generatorNote" class="notice"></p><div class="actions"><button type="submit">설정 미리보기</button></div>
+          </form>
+          <div id="generationPreview" class="card" hidden><h2>생성 설정 미리보기</h2><dl id="generationSummary"></dl><p>실제 변경 값·생성량·검사 결과: —</p><div class="actions"><button data-action="generate-set">평가 세트 생성</button><button data-action="edit-generation">설정 수정</button></div></div>
+          <div id="generationResult" class="card" hidden><h2>평가 세트 생성 결과</h2><p>생성 G1 · 검토할 세트 E2 · 생성·검사·고정 상태 확인</p><p>요청량 대비 생성량 — · 부적합/실패 — · 파일 hash —</p><a class="button" href="#evaluation/compare">고정 세트로 비교 구성</a></div>
+        </section>
+        <section data-panel="evaluation/compare">
+          <form id="comparisonForm" class="card"><h2>같은 조건의 비교 구성</h2><p>선택 세트: <strong data-selected-set>ESB 사건 세트 E1</strong></p><div class="grid"><label class="field">평가 목적<select><option>validation · 후보 비교</option><option>test · 최종 확인</option></select></label><label class="field">판정 단위<select><option>세트 고정 입력 단위</option></select></label></div>
+            <fieldset><legend>비교 대상</legend><label class="check"><input type="checkbox" checked disabled>현재 운영 V1</label><label class="check"><input type="checkbox" name="candidate" value="M1" checked>모델 후보 M1 + 룰 R1</label><label class="check"><input type="checkbox" name="candidate" value="R2">룰 전용 R2</label></fieldset>
+            <details><summary>고정 비교 규약</summary><p>세트 hash / 분할 / 정답 / 모델·fit / HR·SR·기준선 / 점수·판정선 / 실행 자원을 동일 조건으로 확인합니다.</p><p>ESB 사건·구간 분모와 ADBench 샘플 분모를 섞지 않습니다.</p></details>
+            <div class="actions"><button type="submit">평가 요청 검토</button><a href="#evaluation/prepare">평가 데이터 변경</a></div>
+          </form>
+        </section>
+        <section data-panel="evaluation/results">
+          <div class="card"><h2>평가 작업·실행 결과</h2><p id="evaluationStatus">평가 요청 없음</p><p>선택 세트: <strong data-selected-set>ESB 사건 세트 E1</strong></p>
+            <div class="table" data-esb><table><caption>ESB 사건·기간 지표</caption><thead><tr><th>구성</th><th>사건 탐지율</th><th>최초 지연</th><th>미탐지·검열</th><th>미판정</th><th>정상 확인 구간 경보/시간</th></tr></thead><tbody><tr><th>현재 운영 V1</th><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td></tr><tr><th>선택 후보</th><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td></tr></tbody></table></div>
+            <div class="table" data-adbench hidden><table><caption>ADBench 합성 샘플 지표</caption><thead><tr><th>구성</th><th>합성 precision</th><th>합성 recall</th><th>합성 F1</th><th>미판정·실패</th><th>비용</th></tr></thead><tbody><tr><th>현재 운영 V1</th><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td></tr><tr><th>선택 후보</th><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td></tr></tbody></table></div>
+            <p>측정·합의 기준 미확인 · 처리 완료와 성능 합격은 별도</p><details><summary>실행 manifest·실패 내역</summary><p>선택 입력·생성기·분할·정답 버전 고정 · 단계 시간/실패/제외 사유 —</p></details>
+            <p data-empty hidden>평가 결과가 없습니다.</p><p data-error hidden role="alert">평가 결과 조회 실패 <button data-action="retry">다시 조회</button></p><div class="actions"><a href="#evaluation/compare">같은 세트로 다시 비교</a><a class="button" href="#versions/candidate">운영 적용 검토</a></div>
+          </div>
+        </section>
+      </section>
+      <section data-page="versions" data-admin>
+        <h1>운영 버전 관리</h1><nav class="tabs" aria-label="운영 버전 단계"><a href="#versions/current">현재 구성</a><a href="#versions/candidate">후보 비교·승인</a><a href="#versions/result">적용 결과·이력</a></nav>
+        <section data-panel="versions/current"><div class="card"><h2>현재 운영 구성</h2><p><strong data-active>운영 V1</strong> · 적용 상태는 적용 결과에서 확인</p><dl><div><dt>입력·구성</dt><dd>PROCESS / HR·SR·ML 구성</dd></div><div><dt>피처·전처리·fit</dt><dd>모델 산출물에 고정</dd></div><div><dt>통합·등급·기한 정책</dt><dd>승인 버전 확인 필요 · 임의 수치 확정 없음</dd></div></dl><div class="actions"><a href="#versions/candidate">후보와 비교</a><button data-action="rollback-review">이전 버전 복원 검토</button></div></div></section>
+        <section data-panel="versions/candidate"><form id="versionForm" class="card"><h2>후보 구성·평가 근거</h2><div class="grid"><label class="field">후보<select><option>운영 후보 V2</option></select></label><label class="field">탐지 모드<select id="mode"><option value="hybrid">혼합 · HR + SR + ML</option><option value="rule">Rule only · HR + SR</option><option value="ml">ML only</option></select></label><label class="field">모델 산출물<select id="versionModel" required><option value="">선택해 주세요</option><option value="M1">완료 모델 M1 · 피처/fit 고정</option></select></label><label class="field">룰 버전<select id="versionRule"><option value="R1">룰 R1 · HR 계약 / SR 기준선</option><option value="R2">룰 R2</option></select></label></div>
+          <p id="modeNote">혼합 모드는 완료 모델과 HR/SR 룰 버전이 필요합니다.</p><div class="table"><table><caption>현재 구성 → 후보</caption><thead><tr><th>항목</th><th>현재</th><th>후보</th></tr></thead><tbody><tr><th>모드·버전</th><td data-active>운영 V1</td><td id="candidateMode">혼합 / V2</td></tr><tr><th>모델·피처·전처리·fit</th><td>M0 / F0 / P0 / T0</td><td id="candidateArtifact">선택 대기</td></tr><tr><th>HR/SR·기준선·판정 정책</th><td>승인 구성</td><td>차이·호환성 검토 필요</td></tr></tbody></table></div>
+          <details><summary>연결 평가 근거</summary><p data-selected-set>ESB 사건 세트 E1</p><p>평가 처리 결과 / 고정 구성 일치 / 합의 성능기준 충족은 각각 확인합니다. 수치·합격 여부 —</p><a href="#evaluation/results">평가 결과 확인</a></details><label class="check"><input id="approval" type="checkbox" required>구성 차이·평가 근거·가용성·호환성 검토</label><p id="approvalStatus">승인 대기</p><div class="actions"><button type="submit">검토 승인</button><button type="button" data-action="apply-review">운영에 적용</button></div>
+        </form></section>
+        <section data-panel="versions/result"><div class="card"><h2>적용 결과</h2><p id="applicationStatus">적용 요청 없음</p><p>현재 활성 구성: <strong data-active>운영 V1</strong></p><p data-error hidden role="alert">적용 결과 확인 실패 · 이전 활성 구성 유지</p><div class="actions"><a href="#versions/current">현재 구성 확인</a><button data-action="rollback-review">이전 버전 복원 검토</button></div></div><div class="table"><table><caption>적용·복원 이력</caption><thead><tr><th>버전</th><th>작업</th><th>승인</th><th>적용 상태</th></tr></thead><tbody id="applicationHistory"><tr><td>운영 V1</td><td>현재 구성</td><td>기록 확인</td><td>현재</td></tr></tbody></table></div></section>
+      </section>
+      <section data-page="collection" data-admin>
+        <h1>데이터 수집 현황</h1><nav class="tabs" aria-label="수집 정보"><a href="#collection/status">수집 상태</a><a href="#collection/fields">원본 필드</a><a href="#collection/history">수집 이력</a><a href="#collection/storage">저장 공간</a></nav>
+        <section data-panel="collection/status"><div class="card"><h2>운영 입력·시험 재생</h2><p>운영 입력: 수집 API · 시험 입력: 등록 CSV 재생</p><p>시험 후보 선택은 운영 수집 설정을 바꾸지 않습니다.</p><div class="table"><table><caption>원본별 관측</caption><thead><tr><th>원본</th><th>최근 수집</th><th>미수집·대기</th><th>상태</th></tr></thead><tbody data-rows><tr><th>TRANSACTION</th><td>—</td><td>—</td><td>관측 미확인</td></tr><tr><th>PROCESS</th><td>—</td><td>—</td><td>관측 미확인</td></tr><tr><th>MESSAGE</th><td>—</td><td>—</td><td>관측 미확인</td></tr><tr><th>BODY</th><td>—</td><td>—</td><td>기본 PROCESS 판정 대기와 분리</td></tr></tbody></table></div><p data-empty hidden>수집 관측이 없습니다.</p><p data-error hidden role="alert">수집 상태 조회 실패 <button data-action="retry">다시 조회</button></p><p>발생 → API 공개 → 수집 → 큐 → 판정 시각: — · PROCESS/WINDOW 준비 상태: 미확인</p></div></section>
+        <section data-panel="collection/fields"><div class="card"><h2>원본 필드</h2><label class="field">원본<select id="rawSource"><option>TRANSACTION</option><option>PROCESS</option><option>MESSAGE</option><option>BODY</option></select></label><div class="table"><table><thead><tr><th>원본</th><th>필드·지원 여부</th><th>결측·품질</th></tr></thead><tbody><tr><td id="rawSourceLabel">TRANSACTION</td><td>스키마 확인 필요</td><td>—</td></tr></tbody></table></div></div></section>
+        <section data-panel="collection/history"><div class="card"><h2>수집 이력</h2><div class="grid"><label class="field">시작<input type="date"></label><label class="field">종료<input type="date"></label></div><p>API 운영 수집 / CSV 시험 재생 이력 분리</p><p data-empty>조회한 수집 이력이 없습니다.</p><button data-action="retry">이력 조회</button></div></section>
+        <section data-panel="collection/storage"><div class="card"><h2>실제 저장소 관측</h2><dl><div><dt>관측 대상</dt><dd>PostgreSQL 실제 volume / 권한·quota 확인 필요</dd></div><div><dt>사용률 / 절대 여유</dt><dd>— / —</dd></div><div><dt>최근 관측·상태</dt><dd>— · 미측정</dd></div></dl><p>사용률 또는 절대 여유 부족 시 경고 · 오래된 관측과 조회 실패 구분</p><p data-error hidden role="alert">저장소 관측 실패 · 이전 관측의 최신성 확인 필요</p><button data-action="retry">저장 공간 다시 조회</button></div></section>
+      </section>
+      <section data-page="analysis">
+        <h1>이상 분석</h1><nav class="tabs" aria-label="분석 보기"><a href="#analysis/list">판정 목록</a><a href="#analysis/detail">판정 상세</a></nav>
+        <section data-panel="analysis/list"><div class="card"><h2>저장 판정</h2><div class="grid"><label class="field">판정 단위<select id="analysisUnit"><option value="all">전체</option><option>PROCESS</option><option>WINDOW</option></select></label><label class="field">검색<input id="analysisSearch" placeholder="판정 ID·업무"></label></div><div class="table"><table><thead><tr><th>단위·ID</th><th>이상 신호</th><th>완전성</th><th>대응 등급</th><th>근거</th></tr></thead><tbody data-rows><tr data-event="PROCESS"><th>PROCESS / D1</th><td>detected</td><td>partial</td><td>정책 미확정</td><td><a href="#analysis/detail">HR hit · ML timeout</a></td></tr><tr data-event="WINDOW"><th>WINDOW / W1</th><td>undetermined</td><td>partial</td><td>—</td><td><a href="#analysis/window">관측 구간·기준선 준비</a></td></tr></tbody></table></div><p id="analysisFilterEmpty" hidden>검색 조건의 판정이 없습니다.</p><p data-empty hidden>선택 조건의 판정이 없습니다.</p><p data-error hidden role="alert">판정 조회 실패 <button data-action="retry">다시 조회</button></p></div></section>
+        <section data-panel="analysis/detail"><div class="card"><h2>PROCESS 판정 D1</h2><div class="grid"><p>이상 신호: <strong>detected</strong></p><p>완전성: <strong>partial</strong></p><p>대응 등급: <strong>정책 미확정</strong></p></div><div class="table"><table><caption>독립 검사 근거</caption><thead><tr><th>경로</th><th>상태·결과</th><th>관측·기대·판정 근거</th></tr></thead><tbody><tr><th>HR</th><td>completed / hit</td><td>계약 검사의 위반 근거 유지 · 계약 버전·기대/관측값 확인</td></tr><tr><th>SR</th><td>not_ready / unknown</td><td>승인 기준선·표본·분모 확인 필요</td></tr><tr><th>ML</th><td>timeout / unknown</td><td>모델/fit 버전·기한 사유 확인 · HR 근거 삭제 없음</td></tr></tbody></table></div><p>검사 신호 수만으로 등급 승격 없음 · no_signal도 서비스 정상 확정이 아닙니다.</p><div class="actions"><button data-action="explain">저장 근거 설명 요청</button><a href="#analysis/list">목록으로</a></div><section id="explanation" hidden><h3>설명 요청 상태</h3><p>요청 검토 · 저장된 HR/SR 근거, ML 기여, 원인 가설, 확인사항을 구분합니다.</p><p>설명 요청은 이상 신호·완전성·등급을 변경하지 않습니다.</p></section></div></section>
+        <section data-panel="analysis/window"><div class="card"><h2>WINDOW 판정 W1</h2><p>대상 기간·집계 집단·관측 cutoff: 확인 필요</p><p>신호 undetermined / 완전성 partial / 등급 —</p><p>시간창 신호를 구간 내 모든 PROCESS의 개별 장애로 복제하지 않습니다.</p><a href="#analysis/list">판정 목록으로</a></div></section>
+      </section>
+      <section data-page="notifications"><h1>알림</h1><nav class="tabs" aria-label="알림 종류"><a href="#notifications/all">전체</a><a href="#notifications/operations">이상 알림</a><a href="#notifications/tasks" data-admin>진행 작업</a></nav><div class="card" data-notice-operations><h2>이상 알림</h2><div data-rows><p>저장 판정 D1 · 신호 있음 / 부분 판정 / 등급 미확정</p><a href="#analysis/detail">판정 근거 보기</a></div><p data-empty hidden>수신한 이상 알림이 없습니다.</p></div><div class="card" data-notice-tasks data-admin><h2>진행 작업</h2><p data-job-summary>진행 작업 없음</p><div class="actions"><a href="#model/training">학습 작업</a><a href="#evaluation/results">평가 작업</a></div></div></section>
+      <section data-page="settings"><h1>설정</h1><form id="settingsForm" class="card"><label class="field">화면 표시<select><option>시스템 기본</option><option>조밀하게</option></select></label><label class="check"><input type="checkbox" checked>화면 내 알림 표시</label><div class="actions"><button type="submit">설정 내용 유지</button><button type="button" id="settingsBack">이전 화면으로</button></div><p id="settingsStatus" role="status"></p></form></section>
+    </main>
+  </div>
+  <dialog id="leaveDialog" aria-labelledby="leaveTitle"><button class="close" aria-label="닫기" data-close>×</button><h2 id="leaveTitle">편집한 내용이 있습니다</h2><p>저장 후 이동하면 현재 세션의 초안을 유지합니다. 서버 영구 저장과는 별개입니다.</p><div class="actions"><button id="keepMove">저장 후 이동</button><button id="discardMove">버리고 이동</button></div></dialog>
+  <dialog id="featureDialog" aria-labelledby="featureTitle"><button class="close" aria-label="닫기" data-close>×</button><h2 id="featureTitle">입력 변수 상세</h2><dl id="featureDetail"></dl><p class="muted">읽기 전용 · 정의 변경은 카탈로그 새 버전으로 등록됩니다.</p><div class="actions"><button id="featureToggle" type="button"></button><button data-close>닫기</button></div></dialog>
+  <dialog id="confirmDialog" aria-labelledby="confirmTitle"><button class="close" aria-label="닫기" data-close>×</button><h2 id="confirmTitle">요청 검토</h2><p id="confirmText"></p><div class="actions"><button data-close>돌아가기</button><button id="confirmAction">계속</button></div></dialog>
+  <dialog id="notificationDialog" aria-labelledby="notificationTitle"><button class="close" aria-label="알림 닫기" data-close>×</button><h2 id="notificationTitle">알림</h2><h3>이상 알림</h3><p>PROCESS D1 · HR hit / ML timeout</p><a href="#analysis/detail">근거 보기</a><section data-admin><h3>진행 작업</h3><p data-job-summary>진행 작업 없음</p><a href="#notifications/tasks">진행 작업 보기</a></section><div class="actions"><a class="button" href="#notifications/all">전체 보기</a></div></dialog>
+  <script>
+    // Local view transitions only: no network, model execution, or persistent storage.
+    const $ = (id) => document.getElementById(id);
+    const all = (selector) => [...document.querySelectorAll(selector)];
+    const adminPages = ['model', 'rules', 'evaluation', 'versions', 'collection'];
+    const defaults = { operations: '', analysis: 'list', model: 'dataset', rules: 'edit', evaluation: 'prepare', versions: 'current', collection: 'status', notifications: 'all', settings: '' };
+    let route = '', settingsReturn = 'operations', dirty = false, approved = false;
+    let active = '운영 V1', previous = '', currentRole = 'admin', afterLeave = null, confirmCallback = null;
+    let baseline = new Map();
+    // Registered input-variable catalog: definitions are read-only; users only select.
+    const statusLabel = { ready: '사용 가능', fit: 'train fit 후 사용', unsupported: '실행기 미지원', pending: '정의 확정 전' };
+    const catalog = [
+      ['process.log_duration_ms', 'PROCESS 처리시간(로그)', '파생', '처리시간', 'PROCESS', '결측 중앙값 대체 · 스케일링', 'fit', 'IF KMeans', '완료 PROCESS 처리시간의 로그 변환', 'startTime, endTime', 'log1p(endTime − startTime), 음수 제외', '실수 · ms 로그', 'train 중앙값 대체 · 결측 지표 별도', 'endTime 관측 후'],
+      ['process.missing_duration_ms', '처리시간 결측 지표', '파생', '결측 지표', 'PROCESS', '없음', 'ready', 'IF KMeans', '처리시간 계산 불가 여부', 'startTime, endTime', '결측이면 1, 아니면 0', '정수 0/1', '해당 없음', '입력 시점'],
+      ['process.log_totalCount', '처리 건수(로그)', '파생', '건수', 'PROCESS', '결측 중앙값 대체 · 스케일링', 'fit', 'IF KMeans', 'PROCESS 처리 건수의 로그 변환', 'totalCount', 'log1p(totalCount), 음수 제외', '실수 · 건 로그', 'train 중앙값 대체 · 결측 지표 별도', '관측 snapshot 기준'],
+      ['process.missing_totalCount', '처리 건수 결측 지표', '파생', '결측 지표', 'PROCESS', '없음', 'ready', 'IF KMeans', '처리 건수 결측 여부', 'totalCount', '결측이면 1, 아니면 0', '정수 0/1', '해당 없음', '입력 시점'],
+      ['process.log_retryCount', '재시도 건수(로그)', '파생', '건수', 'PROCESS', '결측 중앙값 대체 · 스케일링', 'fit', 'IF KMeans', '재시도 건수의 로그 변환', 'retryCount', 'log1p(retryCount), 음수 제외', '실수 · 건 로그', 'train 중앙값 대체 · 결측 지표 별도', '입력 시점'],
+      ['process.missing_retryCount', '재시도 건수 결측 지표', '파생', '결측 지표', 'PROCESS', '없음', 'ready', 'IF KMeans', '재시도 건수 결측 여부', 'retryCount', '결측이면 1, 아니면 0', '정수 0/1', '해당 없음', '입력 시점'],
+      ['process.hour_sin', '시작 시간대 주기(sin)', '파생', '시간·달력', 'PROCESS', '스케일링', 'fit', 'IF KMeans', '하루 중 시작 시각의 주기 표현', 'startTime', 'sin(2π × 시/24)', '실수 −1~1', '시작 시각 결측 시 계산 불가', 'startTime 관측 후'],
+      ['process.hour_cos', '시작 시간대 주기(cos)', '파생', '시간·달력', 'PROCESS', '스케일링', 'fit', 'IF KMeans', '하루 중 시작 시각의 주기 표현', 'startTime', 'cos(2π × 시/24)', '실수 −1~1', '시작 시각 결측 시 계산 불가', 'startTime 관측 후'],
+      ['process.weekday_sin', '요일 주기(sin)', '파생', '시간·달력', 'PROCESS', '스케일링', 'fit', 'IF KMeans', '시작 요일의 주기 표현, 월요일 0', 'startTime', 'sin(2π × 요일/7)', '실수 −1~1', '시작 시각 결측 시 계산 불가', 'startTime 관측 후'],
+      ['process.weekday_cos', '요일 주기(cos)', '파생', '시간·달력', 'PROCESS', '스케일링', 'fit', 'IF KMeans', '시작 요일의 주기 표현, 월요일 0', 'startTime', 'cos(2π × 요일/7)', '실수 −1~1', '시작 시각 결측 시 계산 불가', 'startTime 관측 후'],
+      ['process.month', '월', '파생', '시간·달력', 'PROCESS', '원핫 인코딩', 'unsupported', 'IF KMeans', '시작 시각의 월', 'startTime', '월(1–12)', '범주 · 출력 열 수 데이터 의존', '미지 범주 정책 필요', 'startTime 관측 후'],
+      ['process.is_holiday', '공휴일 여부', '파생', '시간·달력', 'PROCESS', '없음', 'pending', 'IF KMeans', '시작일의 공휴일 여부', 'startTime, 공휴일 달력', '달력 기준 확정 필요', '정수 0/1', '달력 미등록일 정책 필요', 'startTime 관측 후'],
+      ['process.interface_id', '인터페이스', '원본', '식별·범주', 'PROCESS', '원핫 인코딩', 'unsupported', 'IF KMeans', 'PROCESS가 속한 인터페이스', 'interfaceId', '원본 값', '범주 · 출력 열 수 데이터 의존', '미지 범주 정책 필요', '입력 시점'],
+      ['process.process_duration', 'PROCESS 처리시간', '출처 확인 중', '처리시간', 'PROCESS', '결측 대체 · 스케일링', 'pending', 'IF KMeans', 'PROCESS 처리시간 원값', '원본 열 또는 startTime, endTime', '원본 제공 열인지 END−START 계산인지 확인 필요', '실수 · ms', '정의 확정 후 결정', 'endTime 관측 후'],
+      ['process.end_minus_error_ms', '종료−오류 시각 차', '파생', '처리시간', 'PROCESS', '결측 대체 · 스케일링', 'pending', 'IF KMeans', '오류 발생부터 종료까지 시간', 'endTime, errorTime', '정의 확정 전 실행 보류', '실수 · ms', '오류 없음 정책 필요', 'endTime 관측 후'],
+      ['window.log_arrivals', '유입 건수(로그)', '파생', '유입', 'WINDOW', '스케일링', 'fit', 'IF KMeans', '관측창 내 실행 유입 건수', 'PROCESS 시작 시각', 'log1p(관측창 유입 건수)', '실수 · 건 로그', '0건 구간 타이머 필요', '관측창 종료 후'],
+      ['window.arrival_deviation', '유입 편차(과거 대비)', '파생', '유입', 'WINDOW', '과거 이력 통계 · 스케일링', 'fit', 'IF KMeans', '같은 시간대 과거 유입 대비 편차', 'PROCESS 시작 시각, 과거 이력', '(A − H50) / (H95 + 1)', '실수', '과거 이력 부족 시 가용 폭 사용', '관측창 종료 후'],
+      ['window.log_arrivals_5m', '5분 유입 건수(로그)', '파생', '유입', 'WINDOW', '스케일링', 'fit', 'IF KMeans', '최근 5분 유입 건수', 'PROCESS 시작 시각', 'log1p(5분 유입 건수)', '실수 · 건 로그', '0건 구간 타이머 필요', '관측창 종료 후'],
+      ['window.arrival_deviation_5m', '5분 유입 편차', '파생', '유입', 'WINDOW', '과거 이력 통계 · 스케일링', 'fit', 'IF KMeans', '최근 5분 유입의 과거 대비 편차', 'PROCESS 시작 시각, 과거 이력', '(A5 − H50_5) / (H95_5 + 1)', '실수', '과거 이력 부족 시 가용 폭 사용', '관측창 종료 후'],
+      ['window.log_p50_duration', '처리시간 P50(로그)', '파생', '처리시간', 'WINDOW', '스케일링', 'fit', 'IF KMeans', '관측창 완료 PROCESS 처리시간 중앙값', 'startTime, endTime', 'log1p(관측창 처리시간 P50)', '실수 · ms 로그', '완료 0건이면 결측 지표', '관측창 종료 후'],
+      ['window.log_p95_duration', '처리시간 P95(로그)', '파생', '처리시간', 'WINDOW', '스케일링', 'fit', 'IF KMeans', '관측창 완료 PROCESS 처리시간 P95', 'startTime, endTime', 'log1p(관측창 처리시간 P95)', '실수 · ms 로그', '완료 0건이면 결측 지표', '관측창 종료 후'],
+      ['window.p95_duration_relative', 'P95 처리시간 상대값', '파생', '처리시간', 'WINDOW', 'train 기준선 · 스케일링', 'fit', 'IF KMeans', 'train 처리시간 기준선 대비 P95', 'startTime, endTime', 'log1p(D95) − log1p(train 기준선)', '실수', '기준선 없음 시 상위 집단 사용', '관측창 종료 후'],
+      ['window.missing_duration', '완료 처리시간 없음 지표', '파생', '결측 지표', 'WINDOW', '없음', 'ready', 'IF KMeans', '관측창에 완료 처리시간 없음', 'endTime', 'P95 결측이면 1', '정수 0/1', '해당 없음', '관측창 종료 후'],
+      ['window.hour_sin', '관측창 시간대 주기(sin)', '파생', '시간·달력', 'WINDOW', '스케일링', 'fit', 'IF KMeans', '관측창 시작 시각의 주기 표현', '관측창 시작 시각', 'sin(2π × 시/24)', '실수 −1~1', '해당 없음', '관측창 시작 시'],
+      ['window.weekday_sin', '관측창 요일 주기(sin)', '파생', '시간·달력', 'WINDOW', '스케일링', 'fit', 'IF KMeans', '관측창 시작 요일의 주기 표현', '관측창 시작 시각', 'sin(2π × 요일/7)', '실수 −1~1', '해당 없음', '관측창 시작 시']
+    ].map(([key, name, origin, group, unit, prep, status, models, meaning, sources, calc, type, missing, timing]) => ({ key, name, origin, group, unit, prep, status, models: models.split(' '), meaning, sources, calc, type, missing, timing }));
+    const byKey = new Map(catalog.map((item) => [item.key, item]));
+    const pageSize = 8;
+    let selected = new Set(catalog.filter((item) => item.unit === 'PROCESS' && ['ready', 'fit'].includes(item.status)).map((item) => item.key));
+    let selectedBaseline = new Set(selected), featurePage = 0, detailKey = '';
+    let bundle = null, bundleCount = 0, datasetFixed = false, datasetChanged = false;
+    const filterIds = ['featureSearch', 'featureOrigin', 'featureGroup', 'featureStatus'];
+    const fields = () => all('main input, main select, main textarea').filter((node) => !['analysisUnit', 'analysisSearch', 'rawSource', 'setSource', 'existingSetId', ...filterIds].includes(node.id) && !node.classList.contains('feature-pick'));
+    function capture() {
+      baseline = new Map(fields().map((node) => [node, node.type === 'checkbox' ? node.checked : node.value]));
+      selectedBaseline = new Set(selected);
+    }
+    const selectionKey = () => [...selected].sort().join('|');
+    function filteredFeatures() {
+      const unit = $('inputUnit').value, query = $('featureSearch').value.trim().toLowerCase();
+      const origin = $('featureOrigin').value, group = $('featureGroup').value, status = $('featureStatus').value;
+      return catalog.filter((item) => item.unit === unit && (origin === 'all' || item.origin === origin) && (group === 'all' || item.group === group) && (status === 'all' || item.status === status) && (!query || (item.name + ' ' + item.key).toLowerCase().includes(query)));
+    }
+    function renderFeatures() {
+      const rows = filteredFeatures(), pages = Math.max(1, Math.ceil(rows.length / pageSize));
+      featurePage = Math.min(featurePage, pages - 1);
+      $('featureRows').replaceChildren(...rows.slice(featurePage * pageSize, (featurePage + 1) * pageSize).map((item) => {
+        const row = document.createElement('tr');
+        const pick = document.createElement('input');
+        pick.type = 'checkbox'; pick.className = 'feature-pick'; pick.dataset.key = item.key; pick.checked = selected.has(item.key);
+        pick.setAttribute('aria-label', item.name + ' 선택');
+        const name = document.createElement('td'), key = document.createElement('span');
+        key.className = 'key'; key.textContent = item.key; name.append(item.name, key);
+        const detail = document.createElement('button');
+        detail.type = 'button'; detail.dataset.action = 'feature-detail'; detail.dataset.key = item.key; detail.textContent = '상세';
+        detail.setAttribute('aria-label', item.name + ' 상세');
+        const cell = (content) => { const td = document.createElement('td'); td.append(content); return td; };
+        row.append(cell(pick), name, cell(item.origin), cell(item.prep), cell(statusLabel[item.status]), cell(detail));
+        return row;
+      }));
+      $('featureEmpty').hidden = rows.length > 0;
+      $('featureCount').textContent = '검색 결과 ' + rows.length + '개';
+      $('featurePage').textContent = (featurePage + 1) + ' / ' + pages;
+      document.querySelector('[data-action="page-prev"]').disabled = featurePage === 0;
+      document.querySelector('[data-action="page-next"]').disabled = featurePage >= pages - 1;
+      document.querySelector('[data-action="select-filtered"]').textContent = '검색 결과 ' + rows.length + '개 모두 선택';
+      document.querySelector('[data-action="select-filtered"]').disabled = rows.length === 0 || rows.every((item) => selected.has(item.key));
+      renderSelection();
+    }
+    function renderSelection() {
+      const unit = $('inputUnit').value;
+      $('selectionCount').textContent = '선택 ' + selected.size + '개';
+      $('selectionList').replaceChildren(...[...selected].map((key) => {
+        const item = byKey.get(key), li = document.createElement('li'), label = document.createElement('span'), remove = document.createElement('button');
+        label.textContent = item.name + (item.unit !== unit ? ' · 단위 불일치' : '');
+        if (item.unit !== unit) label.className = 'warn';
+        remove.type = 'button'; remove.dataset.action = 'remove-feature'; remove.dataset.key = key; remove.textContent = '제거';
+        remove.setAttribute('aria-label', item.name + ' 선택 제거');
+        li.append(label, remove); return li;
+      }));
+      document.querySelector('[data-action="clear-selection"]').disabled = selected.size === 0;
+      $('bundleStatus').textContent = !bundle ? '저장한 선택 묶음 없음' : bundle.selection === selectionKey() ? bundle.id + ' 저장됨 · 카탈로그 ' + bundle.catalog + ' · ' + bundle.size + '개' : bundle.id + ' 이후 선택 변경 · 새 묶음으로 저장 필요';
+      $('datasetRecheck').hidden = !datasetChanged;
+      renderReadiness();
+    }
+    function readinessIssues() {
+      const unit = $('inputUnit').value, algorithm = $('algorithm').value, issues = [], notes = [];
+      if (!datasetFixed) issues.push('데이터셋 고정 필요');
+      if (!selected.size) issues.push('입력 변수 1개 이상 선택 필요');
+      if (!bundle || bundle.selection !== selectionKey()) issues.push('현재 선택을 선택 묶음으로 저장 필요');
+      if (datasetChanged) issues.push('데이터셋 변경 후 선택 묶음 재저장 필요');
+      [...selected].map((key) => byKey.get(key)).forEach((item) => {
+        if (item.unit !== unit) issues.push(item.name + ': ' + item.unit + ' 변수 · 현재 분석 단위 ' + unit + '와 불일치');
+        else if (item.status === 'unsupported') issues.push(item.name + ': ' + item.prep + ' 실행기 미지원');
+        else if (item.status === 'pending') issues.push(item.name + ': 정의 확정 전');
+        else if (!item.models.includes(algorithm)) issues.push(item.name + ': ' + algorithm + ' 미지원');
+      });
+      const fitCount = [...selected].filter((key) => byKey.get(key).status === 'fit').length;
+      if (fitCount) notes.push('train fit 대상 ' + fitCount + '개 · 학습 시 train 데이터에서만 생성');
+      return { issues, notes };
+    }
+    function renderReadiness() {
+      const { issues, notes } = readinessIssues();
+      $('trainingUnit').textContent = $('inputUnit').value;
+      $('trainingFeatures').textContent = selected.size + '개';
+      $('trainingBundle').textContent = '카탈로그 ' + $('catalogVersion').value + ' · ' + (bundle && bundle.selection === selectionKey() ? '선택 묶음 ' + bundle.id : '선택 묶음 미저장');
+      const items = issues.length ? issues.map((text) => ['확인 필요', text]) : [['통과', '선택 변수·분석 단위·알고리즘 호환']];
+      $('readiness').replaceChildren(...[...items, ...notes.map((text) => ['안내', text])].map(([kind, text]) => {
+        const li = document.createElement('li'); li.textContent = kind + ' · ' + text; if (kind === '확인 필요') li.className = 'warn'; return li;
+      }));
+      if (!issues.length) $('trainingBlocked').hidden = true;
+    }
+    function toggleFeature(key, on) {
+      if (on) selected.add(key); else selected.delete(key);
+      mark(true); renderFeatures();
+    }
+    function showFeature(key) {
+      const item = byKey.get(key); detailKey = key;
+      $('featureTitle').textContent = item.name;
+      $('featureDetail').replaceChildren(...[['영문 키', item.key], ['뜻', item.meaning], ['출처', item.origin + ' · ' + item.sources], ['계산 정의', item.calc], ['타입·단위', item.type], ['분석 단위', item.unit], ['결측 정책', item.missing], ['전처리', item.prep], ['판정 시점 가용성', item.timing], ['사용 가능 상태', statusLabel[item.status]], ['지원 모델', item.models.join(', ')], ['카탈로그 버전', $('catalogVersion').value]].map(([label, value]) => {
+        const row = document.createElement('div'), dt = document.createElement('dt'), dd = document.createElement('dd');
+        dt.textContent = label; dd.textContent = value; row.append(dt, dd); return row;
+      }));
+      $('featureToggle').textContent = selected.has(key) ? '선택 해제' : '선택';
+      $('featureDialog').showModal();
+    }
+    function mark(value) {
+      dirty = value;
+      $('draftState').textContent = value ? '편집 중 · 현재 세션 초안' : '편집 내용 유지';
+    }
+    function canonical(hash) {
+      const [page, requested] = hash.replace(/^#/, '').split('/');
+      if (!Object.hasOwn(defaults, page)) return 'operations';
+      if (!defaults[page]) return page;
+      const allowed = page === 'notifications' ? ['all', 'operations', 'tasks'] : all('[data-panel]').map((node) => node.dataset.panel).filter((value) => value.startsWith(page + '/')).map((value) => value.split('/')[1]);
+      return page + '/' + (allowed.includes(requested) ? requested : defaults[page]);
+    }
+    function askLeave(callback) {
+      afterLeave = callback;
+      $('leaveDialog').showModal();
+    }
+    function navigate(next, forced = false) {
+      next = canonical(next);
+      if (!forced && dirty && next.split('/')[0] !== route.split('/')[0]) {
+        askLeave(() => navigate(next, true));
+        return;
+      }
+      if (next === 'settings' && route !== 'settings') settingsReturn = route;
+      if (location.hash !== '#' + next) {
+        location.hash = next;
+        // Embedded previews (data:/sandboxed frames) may ignore hash updates; render directly then.
+        if (location.hash !== '#' + next) render(next);
+      } else render(next);
+    }
+    function render(next) {
+      const [page, tab] = next.split('/'), admin = currentRole === 'admin';
+      const denied = adminPages.includes(page) && !admin;
+      route = next;
+      all('dialog[open]').forEach((dialog) => dialog.close());
+      all('[data-page]').forEach((node) => node.hidden = node.dataset.page !== page || denied);
+      all('[data-panel]').forEach((node) => node.hidden = node.dataset.panel !== next);
+      all('[data-admin]').forEach((node) => node.hidden = !admin || Boolean(node.dataset.page && node.dataset.page !== page));
+      $('denied').hidden = !denied;
+      $('sidebar').hidden = !admin || !adminPages.includes(page);
+      $('layout').classList.toggle('wide', $('sidebar').hidden);
+      all('a[href^="#"]').forEach((link) => {
+        link.removeAttribute('aria-current');
+        if (link.hash.slice(1) === next || ((link.closest('aside') || link.closest('header')) && link.hash.split('/')[0] === '#' + page) || (link.closest('header') && link.hash === '#model/dataset' && adminPages.includes(page))) link.setAttribute('aria-current', 'page');
+      });
+      all('[data-notice-operations]').forEach((node) => node.hidden = tab === 'tasks' && admin);
+      all('[data-notice-tasks]').forEach((node) => node.hidden = !admin || tab === 'operations');
+      if (!admin && page === 'notifications' && tab === 'tasks') {
+        history.replaceState(null, '', '#notifications/operations');
+        render('notifications/operations');
+        return;
+      }
+      if (page !== 'versions' || tab !== 'candidate') resetApproval();
+      paintState();
+      $('main').focus({ preventScroll: true });
+    }
+    function paintState() {
+      const state = $('state').value;
+      all('[data-empty]').forEach((node) => node.hidden = state !== 'empty');
+      all('[data-error]').forEach((node) => node.hidden = state !== 'error');
+      all('[data-rows]').forEach((node) => node.hidden = state === 'empty' || state === 'error');
+      all('[data-service]').forEach((node) => node.textContent = state === 'partial' ? '부분 판정 · 완료 근거와 미완료 범위 확인' : '관측 미확인');
+    }
+    function filterAnalysis() {
+      const unit = $('analysisUnit').value, query = $('analysisSearch').value.trim().toLowerCase();
+      const rows = all('[data-event]');
+      rows.forEach((node) => node.hidden = (unit !== 'all' && node.dataset.event !== unit) || !node.textContent.toLowerCase().includes(query));
+      $('analysisFilterEmpty').hidden = rows.some((node) => !node.hidden);
+    }
+    function confirm(title, message, callback) {
+      $('confirmTitle').textContent = title;
+      $('confirmText').textContent = message;
+      confirmCallback = callback;
+      $('confirmDialog').showModal();
+    }
+    function jobs(message) { all('[data-job-summary]').forEach((node) => node.textContent = message); }
+    function selectedSet(kind, label) {
+      all('[data-selected-set]').forEach((node) => node.textContent = label);
+      all('[data-esb]').forEach((node) => node.hidden = kind !== 'ESB');
+      all('[data-adbench]').forEach((node) => node.hidden = kind !== 'ADBench');
+    }
+    function scenarioFields() {
+      const type = $('scenarioType').value;
+      const labels = {
+        '로그 유입 중단': ['대상 업무·중단 구간', '중단 범위·비율'],
+        'PROCESS 지연': ['대상 PROCESS·관측 구간', '지연 배수·최소 변화량'],
+        '로그 유입 급증': ['대상 업무·급증 구간', '유입 증가 배수'],
+        global: ['대상 수치 피처', '전역 이탈 크기·허용 범위'],
+        local: ['대상 피처·국소 집단', '국소 밀도 이탈 강도'],
+        dependency: ['대상 피처 쌍·의존 집단', '의존관계 변화 강도'],
+        cluster: ['대상 군집·피처 집단', '군집 이동·분리 강도']
+      };
+      $('targetLabel').textContent = labels[type][0];
+      $('intensityLabel').textContent = labels[type][1];
+    }
+    function generatorFields(invalidate = true) {
+      const esb = $('generator').value === 'ESB', selected = $('scenarioType').value;
+      const options = esb ? ['로그 유입 중단', 'PROCESS 지연', '로그 유입 급증'] : ['global', 'local', 'dependency', 'cluster'];
+      $('scenarioType').replaceChildren(...options.map((text) => new Option(text, text)));
+      if (options.includes(selected)) $('scenarioType').value = selected;
+      $('quantityLabel').textContent = esb ? '생성 사건 수' : '합성 샘플 수';
+      $('durationField').hidden = !esb;
+      $('generationForm').elements.duration.required = esb;
+      $('generationForm').elements.duration.disabled = !esb;
+      $('generatorNote').textContent = esb ? '원본 복사본·관계·시각 일관성 유지, 독립 재생 시계·사건/구간 정답. 로그 유입 중단은 고객 장애 확정이 아닙니다.' : 'train 참조만 fit, fit/sample 분리·허용 피처 제약. 합성 정상/이상 샘플 라벨이며 실제 ESB 장애 정답과 구분합니다.';
+      scenarioFields();
+      if (invalidate) { $('generationPreview').hidden = true; $('generationResult').hidden = true; }
+    }
+    function resetApproval() {
+      approved = false;
+      $('approval').checked = false;
+      $('approvalStatus').textContent = '승인 대기';
+    }
+    function modeFields() {
+      const mode = $('mode').value;
+      $('versionModel').disabled = mode === 'rule';
+      $('versionModel').required = mode !== 'rule';
+      $('versionRule').disabled = mode === 'ml';
+      $('modeNote').textContent = mode === 'rule' ? 'Rule only: HR/SR 룰 버전 필요 · 모델 선택 불필요' : mode === 'ml' ? 'ML only: 완료 모델 산출물 필요 · HR/SR 비활성' : '혼합: 완료 모델과 HR/SR 룰 버전 필요';
+      $('candidateMode').textContent = $('mode').selectedOptions[0].textContent + ' / V2';
+      $('candidateArtifact').textContent = mode === 'rule' ? 'ML 사용 안 함' : $('versionModel').value ? 'M1 / F1 / P1 / T1' : '선택 대기';
+      resetApproval();
+    }
+    function synchronize() {
+      $('windowFields').hidden = $('inputUnit').value !== 'WINDOW';
+      $('ifSettings').hidden = $('algorithm').value !== 'IF';
+      $('kmeansSettings').hidden = $('algorithm').value !== 'KMeans';
+      all('#ifSettings input, #ifSettings select').forEach((node) => node.disabled = $('ifSettings').hidden);
+      all('#kmeansSettings input, #kmeansSettings select').forEach((node) => node.disabled = $('kmeansSettings').hidden);
+      $('hrFields').hidden = $('ruleKind').value !== 'HR';
+      $('srFields').hidden = $('ruleKind').value !== 'SR';
+      $('existingSet').hidden = $('setSource').value !== 'existing';
+      $('generationForm').hidden = $('setSource').value !== 'new';
+      generatorFields(false);
+      modeFields();
+      renderFeatures();
+    }
+    function applyVersion(target, action) {
+      if ($('state').value === 'error') $('applicationStatus').textContent = action + ' 실패 · 이전 활성 구성 유지';
+      else {
+        const old = active;
+        active = target;
+        previous = old;
+        all('[data-active]').forEach((node) => node.textContent = active);
+        $('applicationStatus').textContent = action + ' 결과 · 활성 구성 ' + active;
+        const row = $('applicationHistory').insertRow(0);
+        [active, action, '검토 승인', '적용 결과 확인'].forEach((text) => row.insertCell().textContent = text);
+      }
+      navigate('versions/result', true);
+    }
+    document.addEventListener('click', (event) => {
+      const link = event.target.closest('a[href^="#"]');
+      if (link && link.hash !== '#main') {
+        event.preventDefault();
+        if (link.closest('dialog')) link.closest('dialog').close();
+        navigate(link.hash);
+      }
+      const close = event.target.closest('[data-close]');
+      if (close) close.closest('dialog').close();
+      const action = event.target.closest('[data-action]')?.dataset.action;
+      if (action === 'retry') { $('state').value = 'normal'; paintState(); }
+      if (action === 'training-result') $('modelResult').hidden = false;
+      if (action === 'recommendation') $('recommendation').hidden = false;
+      if (action === 'rule-detail') $('ruleName').focus();
+      if (action === 'adopt-rule') { $('ruleName').value = '추천 룰 초안'; mark(true); $('ruleName').focus(); }
+      if (action === 'restore-rule') { $('ruleForm').reset(); synchronize(); mark(true); }
+      if (action === 'choose-set') { selectedSet($('existingSetId').value, $('existingSetId').selectedOptions[0].textContent); navigate('evaluation/compare'); }
+      if (action === 'edit-generation') { $('generationPreview').hidden = true; $('generationForm').hidden = false; }
+      if (action === 'generate-set') {
+        $('generationResult').hidden = false;
+        selectedSet($('generator').value, $('generationForm').elements.setName.value.trim() + ' · 고정 세트');
+        jobs('평가 세트 생성 · 결과 검토');
+        $('generationResult').scrollIntoView({ block: 'nearest' });
+      }
+      if (action === 'explain') $('explanation').hidden = false;
+      const key = event.target.closest('[data-key]')?.dataset.key;
+      if (action === 'feature-detail') showFeature(key);
+      if (action === 'remove-feature') toggleFeature(key, false);
+      if (action === 'select-filtered') { filteredFeatures().forEach((item) => selected.add(item.key)); mark(true); renderFeatures(); }
+      if (action === 'clear-selection') { selected.clear(); mark(true); renderFeatures(); }
+      if (action === 'page-prev') { featurePage -= 1; renderFeatures(); }
+      if (action === 'page-next') { featurePage += 1; renderFeatures(); }
+      if (action === 'save-bundle') {
+        if (!selected.size) { $('bundleStatus').textContent = '선택한 입력 변수가 없습니다.'; return; }
+        if (!bundle || bundle.selection !== selectionKey() || datasetChanged) { bundleCount += 1; bundle = { id: 'S' + bundleCount, catalog: $('catalogVersion').value, size: selected.size, selection: selectionKey() }; }
+        datasetChanged = false; renderSelection();
+      }
+      if (action === 'apply-review') {
+        if (!approved) { $('approvalStatus').textContent = '구성 검토·승인이 먼저 필요합니다.'; return; }
+        confirm('운영 적용 확인', active + ' → 운영 V2. 승인 구성·평가 근거·실제 적용 결과를 구분합니다.', () => applyVersion('운영 V2', '적용'));
+      }
+      if (action === 'rollback-review') confirm('이전 버전 복원', previous ? active + ' → ' + previous + '. 이전 구성의 가용성과 평가 근거를 검토합니다.' : '복원할 이전 적용 버전이 없습니다.', () => { if (previous) applyVersion(previous, '복원'); });
+    });
+    document.addEventListener('input', (event) => {
+      if (event.target.id === 'analysisSearch') filterAnalysis();
+      if (filterIds.includes(event.target.id)) { featurePage = 0; renderFeatures(); return; }
+      if (event.target.classList.contains('feature-pick')) return;
+      if (event.target.closest('main form') || event.target.closest('[data-panel="model/features"]')) mark(true);
+      if (event.target.closest('#generationForm')) { $('generationPreview').hidden = true; $('generationResult').hidden = true; }
+      if (event.target.closest('#versionForm') && event.target.id !== 'approval') resetApproval();
+    });
+    document.addEventListener('change', (event) => {
+      const id = event.target.id;
+      if (id === 'role') {
+        const requested = event.target.value;
+        const changeRole = () => { currentRole = requested; $('role').value = requested; navigate(adminPages.includes(route.split('/')[0]) && requested === 'user' ? 'operations' : route, true); };
+        if (dirty) { $('role').value = currentRole; askLeave(changeRole); } else changeRole();
+      }
+      if (id === 'state') paintState();
+      if (filterIds.includes(id)) { featurePage = 0; renderFeatures(); return; }
+      if (event.target.classList.contains('feature-pick')) toggleFeature(event.target.dataset.key, event.target.checked);
+      if (id === 'inputUnit') { featurePage = 0; $('featureSearch').value = ''; }
+      if (['algorithm', 'catalogVersion'].includes(id)) renderReadiness();
+      if (['inputUnit', 'algorithm', 'ruleKind', 'setSource'].includes(id)) synchronize();
+      if (id === 'generator') generatorFields();
+      if (id === 'scenarioType') scenarioFields();
+      if (id === 'rawSource') $('rawSourceLabel').textContent = event.target.value;
+      if (id === 'analysisUnit') filterAnalysis();
+      if (event.target.closest('#versionForm') && id !== 'approval') modeFields();
+    });
+    document.addEventListener('submit', (event) => {
+      event.preventDefault();
+      const form = event.target;
+      for (const node of form.querySelectorAll('input[required]')) node.setCustomValidity(node.type === 'text' && !node.value.trim() ? '내용을 입력해 주세요.' : '');
+      if (!form.reportValidity()) return;
+      if (form.id === 'datasetForm') {
+        if (form.elements.from.value >= form.elements.to.value) {
+          form.elements.to.setCustomValidity('종료는 시작 이후여야 합니다.');
+          form.elements.to.reportValidity(); form.elements.to.setCustomValidity(''); return;
+        }
+        all('[data-dataset-name]').forEach((node) => node.textContent = form.elements.datasetName.value.trim());
+        all('[data-dataset-label]').forEach((node) => node.textContent = form.elements.datasetName.value.trim());
+        all('[data-dataset-period]').forEach((node) => node.textContent = form.elements.from.value.replace('T', ' ') + ' ~ ' + form.elements.to.value.replace('T', ' '));
+        if (datasetFixed && bundle) datasetChanged = true;
+        datasetFixed = true; renderSelection();
+        $('datasetResult').hidden = false;
+      }
+      if (form.id === 'trainingForm') {
+        const { issues } = readinessIssues();
+        if (issues.length) { $('trainingBlocked').textContent = '준비 검사 확인 필요 ' + issues.length + '건 · 선택은 자동으로 제거하지 않습니다. 입력 변수 선택에서 수정해 주세요.'; $('trainingBlocked').hidden = false; renderReadiness(); return; }
+        $('trainingStatus').textContent = '학습 입력 검토 · 요청/접수/실행/완료 별도';
+        $('trainingRequest').textContent = form.elements.modelName.value.trim() + ' / ' + $('inputUnit').value + ' / ' + $('algorithm').value + ' / 선택 묶음 ' + bundle.id + ' · ' + bundle.size + '개';
+        $('trainingDetail').hidden = false; jobs('학습 요청 · 입력 검토');
+      }
+      if (form.id === 'ruleForm') $('ruleStatus').textContent = $('ruleName').value.trim() + ' · 룰 생성 검토. 운영 활성 구성은 변경되지 않습니다.';
+      if (form.id === 'generationForm') {
+        const values = [['방식·유형', $('generator').value + ' / ' + $('scenarioType').value], ['이름', form.elements.setName.value.trim()], ['대상', form.elements.target.value.trim()], ['강도', form.elements.intensity.value.trim()], ['요청량', form.elements.quantity.value], ['지속시간', $('generator').value === 'ESB' ? form.elements.duration.value : '해당 없음'], ['seed', form.elements.seed.value || '선택 대기']];
+        $('generationSummary').replaceChildren(...values.map(([label, value]) => {
+          const row = document.createElement('div'), dt = document.createElement('dt'), dd = document.createElement('dd');
+          dt.textContent = label; dd.textContent = value; row.append(dt, dd); return row;
+        }));
+        $('generationPreview').hidden = false;
+      }
+      if (form.id === 'comparisonForm') {
+        if (!form.querySelector('input[name="candidate"]:checked')) { confirm('비교 대상 확인', '현재 구성과 비교할 후보를 하나 이상 선택해 주세요.', null); return; }
+        $('evaluationStatus').textContent = '평가 요청 검토 · 세트/구성 고정 · 결과 측정값 —';
+        jobs('평가 요청 · 결과 확인'); navigate('evaluation/results');
+      }
+      if (form.id === 'versionForm') { approved = true; $('approvalStatus').textContent = '검토 승인됨 · 아직 운영에 적용하지 않았습니다.'; }
+      if (form.id === 'settingsForm') { $('settingsStatus').textContent = '현재 세션의 설정 내용 유지'; mark(false); capture(); }
+    });
+    function finishLeave(discard) {
+      if (discard) {
+        baseline.forEach((value, node) => { if (node.type === 'checkbox') node.checked = value; else node.value = value; });
+        selected = new Set(selectedBaseline);
+        synchronize(); $('generationPreview').hidden = true; $('generationResult').hidden = true;
+      }
+      mark(false); capture(); $('leaveDialog').close();
+      const callback = afterLeave; afterLeave = null; if (callback) callback();
+    }
+    $('keepMove').onclick = () => finishLeave(false);
+    $('discardMove').onclick = () => finishLeave(true);
+    $('confirmAction').onclick = () => { const callback = confirmCallback; confirmCallback = null; $('confirmDialog').close(); if (callback) callback(); };
+    $('bell').onclick = () => $('notificationDialog').showModal();
+    $('settingsBack').onclick = () => navigate(settingsReturn);
+    window.addEventListener('hashchange', () => {
+      const next = canonical(location.hash);
+      if (dirty && next.split('/')[0] !== route.split('/')[0]) { history.replaceState(null, '', '#' + route); navigate(next); }
+      else { if (location.hash !== '#' + next) history.replaceState(null, '', '#' + next); render(next); }
+    });
+    window.addEventListener('beforeunload', (event) => { if (dirty) { event.preventDefault(); event.returnValue = ''; } });
+    $('featureGroup').append(...[...new Set(catalog.map((item) => item.group))].map((group) => new Option(group, group)));
+    $('featureToggle').onclick = () => { toggleFeature(detailKey, !selected.has(detailKey)); $('featureDialog').close(); };
+    synchronize(); capture(); render(canonical(location.hash));
+    history.replaceState(null, '', '#' + route);
+  </script>
+</body>
+</html>

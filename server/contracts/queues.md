@@ -3,7 +3,7 @@
 | 논리 큐 | 실제 테이블 | 생산자 | 소비자 | 메시지 참조 |
 |---|---|---|---|---|
 | detection | powercode_queue.detection_logs | 검증된 관측 Collector / legacy 복구 | Detector | jobId·observationId·sourceId·configVersionId·inputManifestId/hash |
-| training | powercode_queue.training_jobs | API | Trainer | jobId (train/evaluate) |
+| training | powercode_queue.training_jobs | API | Trainer | jobId (train/evaluate/import_csv) |
 | llm_recommendation | powercode_queue.llm_recommendation_jobs | API | LLM | jobId (recommend_feature/rule) |
 | llm_explanation | powercode_queue.llm_explanation_jobs | API | LLM | jobId (explain) |
 | 과거 feature 큐 | powercode_queue.feature_observations | 이전 버전 | Detector의 복구 경로 | observationId·sourceId |
@@ -14,4 +14,4 @@
 
 전달은 at-least-once다. 짧은 claim TX → DB 밖 계산 → current attempt/queue token/유효 임대를 잠금 확인한 최종 TX로 판정·event·ack를 확정한다. 긴 작업은 큐와 attempt 임대를 함께 갱신한다. 이전 attempt나 만료 token은 결과를 채택할 수 없다. 실패 재시도·최대 시도 제한을 적용한다.
 
-이전 training 테이블의 추천 backlog는 LLM이 종류별 필터로 복구한다. Trainer는 train/evaluate만 가져간다. 새 LLM 큐는 독립 물리 테이블이고 Redis/Kafka를 필수로 추가하지 않았다. 이전 worker를 멈춘 뒤 006 migration과 새 worker를 적용한다. 과거 처리 이력을 삭제하거나 v03 입력을 다시 쓰지 않는다.
+이전 training 테이블의 추천 backlog는 LLM이 종류별 필터로 복구한다. Trainer는 train/evaluate/import_csv(외부 가공 CSV 반입, [prepared-csv-import](prepared-csv-import.md))만 가져간다. 새 LLM 큐는 독립 물리 테이블이고 Redis/Kafka를 필수로 추가하지 않았다. 이전 worker를 멈춘 뒤 006 migration과 새 worker를 적용한다. 과거 처리 이력을 삭제하거나 v03 입력을 다시 쓰지 않는다.

@@ -103,6 +103,23 @@ class SyntheticRuntimeTests(unittest.TestCase):
             with patch('trainer.synthetic_storage.MAX_BYTES', 5):
                 with self.assertRaisesRegex(ValueError, 'size_exceeded'): store(directory, uuid.uuid4(), {'data': 'too-big'})
 
+    def test_esb_generation_counts_do_not_repeat_cohort_ineligible_rows_per_trial(self):
+        # 코호트 사전 부적격 행은 반복·시나리오마다 같은 행이므로 trial별 합산하지 않고 고유 행 수로만 보고한다.
+        def reject(row_id, selected, reason):
+            return {'rowId': row_id, 'reason': reason, 'selected': selected}
+        ineligible = [reject('a', False, 'unseen_adapter_train_reference'), reject('b', False, 'missing_or_ambiguous_parent'),
+                      reject('c', False, 'not_successful_quality_reference')]
+        trials = [{'status': 'generated', 'generatedCount': 2, 'rejectedCount': 1, 'ineligibleCount': 3,
+                   'rejects': ineligible + [reject('d', True, 'insufficient_parent_or_dependency_headroom')]},
+                  {'status': 'generated', 'generatedCount': 3, 'rejectedCount': 0, 'ineligibleCount': 3, 'rejects': list(ineligible)},
+                  {'status': 'unsupported', 'generatedCount': 0, 'rejectedCount': 0, 'ineligibleCount': 0, 'rejects': []}]
+        counts = synthetic_execution.generation_counts(trials)
+        self.assertEqual(counts['generated'], measurement(5, 'count'))
+        self.assertEqual(counts['rejected'], measurement(1, 'count'))
+        self.assertEqual(counts['ineligibleRows'], measurement(3, 'count'))
+        self.assertEqual(counts['unsupportedTrials']['value'], 1)
+        self.assertEqual(counts['failedGenerationTrials']['value'], 0)
+
     def test_storage_checks_symlink_before_creating_outside_job_directory(self):
         with tempfile.TemporaryDirectory() as directory, tempfile.TemporaryDirectory() as outside:
             try: (Path(directory) / 'evaluations').symlink_to(outside, target_is_directory=True)

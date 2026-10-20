@@ -45,7 +45,7 @@
 
 ## 학습·전처리
 
-- snapshot 기준 시각: `persisted_at`; 동일 execution의 겹치는 기간을 블록으로 묶어 시간순 70/15/15
+- snapshot 기준 시각: `persisted_at`; 기간·cutoff 안 P 관측 중 execution별 최신 revision 1개만 멤버(`revision_no`·`persisted_at`·`id` 내림차순, Backend 보고 규칙과 동일; `selection_spec.revisionRule=latest-per-execution-v1`). 최소 행·그룹 검사는 선택 후 기준. 멤버를 같은 시각 블록으로 묶어 시간순 70/15/15
 - 연구 startTime 분할과 별도 규약; train 내부 모델 fit/판정선 보정 기존 방식 유지
 - 새 fit 연산: group_median / group_centered; groupBy=`P.adapter_type`, value=기존 허용 숫자 표현식
 - 예: `{"name":"adapter_total_centered","expression":{"op":"group_centered","groupBy":"P.adapter_type","value":{"op":"field","field":"P.total_count"}}}`

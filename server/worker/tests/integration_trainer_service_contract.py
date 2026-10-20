@@ -24,6 +24,7 @@ import joblib
 import psycopg
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from integration_research_pipeline import source, observe
+from collector.storage import ingest_observation
 from trainer.catalog import register_feature_set
 from trainer import runner
 from detector.computation import load_context, compute, model_reference
@@ -91,16 +92,43 @@ class Service:
         self.log.close()
 
 
+REVISIONS = {'superseded': [], 'latest': [], 'outside_kept': None, 'outside_ignored': None}
+
+
+def revise(conn, sid, key, previous_id, raw, persisted, label='normal'):
+    """같은 execution의 revision 2 관측(다른 dedup_key·내용)을 Collector 재도착처럼 추가한다."""
+    execution_id = conn.execute('SELECT execution_id FROM data_observations WHERE id=%s', (previous_id,)).fetchone()[0]
+    result = ingest_observation(conn, source_id=sid, layer='P', dedup_key=key, raw=raw,
+                                execution_id=execution_id, revision_no=2)
+    conn.execute("""INSERT INTO data_label_evidence(id,observation_id,revision_no,label,reason_code,created_by_actor_id)
+                    VALUES (%s,%s,1,%s,'TEST_SCENARIO','integration-admin')""", (uuid.uuid4(), result.observation_id, label))
+    conn.execute('UPDATE data_observations SET persisted_at=%s WHERE id=%s', (persisted, result.observation_id))
+    conn.commit()
+    return result.observation_id
+
+
 def seed(conn):
     sid = source(conn, 'Trainer56 controlled process fixture')
     start = datetime.now(timezone.utc)-timedelta(hours=2)
+    first = {}
     for index in range(1000):
         raw = {'adapter_type': 'A' if index % 2 else 'B', 'total_count': str(50+index%13),
                'success_count': str(50+index%13), 'error_count': '0', 'status': 'S'}
         if index >= 700: raw['total_count'] = str(10000+index)
         if index >= 850: raw['adapter_type'] = 'UNSEEN'
-        observe(conn, sid, f'trainer56-{index}', raw, 'normal' if index%2 else 'anomaly' if index>=700 else 'normal',
-                persisted=start+timedelta(seconds=index))
+        first[index] = (raw, observe(conn, sid, f'trainer56-{index}', raw, 'normal' if index%2 else 'anomaly' if index>=700 else 'normal',
+                                     persisted=start+timedelta(seconds=index)).observation_id)
+    # Issue69: 같은 execution의 revision 2가 기간 안에 재도착하면 snapshot 멤버는 최신 1개뿐이다(분모 1000 유지).
+    for index in range(5):
+        raw, previous = first[index]
+        REVISIONS['superseded'].append(previous)
+        REVISIONS['latest'].append(revise(conn, sid, f'trainer56-{index}-rev2', previous, {**raw, 'success_count': str(49+index%13)},
+                                          start+timedelta(seconds=index, milliseconds=500)))
+    # 기간(until) 뒤에 저장된 revision 2는 선택 후보가 아니므로 기간 안의 revision 1이 멤버로 남는다.
+    raw, previous = first[5]
+    REVISIONS['outside_kept'] = previous
+    REVISIONS['outside_ignored'] = revise(conn, sid, 'trainer56-5-rev2-late', previous, {**raw, 'success_count': '1'},
+                                          start+timedelta(seconds=1200))
     features = register_feature_set(conn, DEFINITIONS, 'fixture-admin', definition_kind='operator_defined')
     conn.commit()
     return {'kind': 'train', 'sourceId': str(sid), 'featureSetId': str(features),
@@ -145,6 +173,28 @@ def verify(service, conn, spec):
     status,result,error,attempt=state(conn,identifier)
     assert status=='succeeded',(status,error)
     assert attempt==1 and result['splitCounts']=={'train':700,'validation':150,'test':150}
+    # Issue69: execution별 최신 revision 1개만 멤버. 1,006 후보 행 중 superseded 5·기간 밖 1은 제외되고 분모는 1,000이다.
+    snapshot_id=uuid.UUID(result['snapshotId'])
+    members={row[0] for row in conn.execute('SELECT observation_id FROM data_snapshot_members WHERE snapshot_id=%s',(snapshot_id,)).fetchall()}
+    selection=conn.execute('SELECT selection_spec FROM data_snapshots WHERE id=%s',(snapshot_id,)).fetchone()[0];conn.commit()
+    assert len(members)==1000,len(members)
+    assert set(REVISIONS['latest'])<=members and not (set(REVISIONS['superseded'])&members),'superseded revision kept as member'
+    assert REVISIONS['outside_kept'] in members and REVISIONS['outside_ignored'] not in members,'revision outside the period affected membership'
+    assert selection['revisionRule']=='latest-per-execution-v1' and selection['supersededRevisionCount']==5 and selection['candidateRows']==1005,selection
+    assert result['dataContract']['selectionSpec']['revisionRule']=='latest-per-execution-v1'
+    assert {split for _,split in conn.execute('SELECT observation_id,split::text FROM data_snapshot_members WHERE snapshot_id=%s AND observation_id=ANY(%s)',
+                                              (snapshot_id,REVISIONS['latest'])).fetchall()}=={'train'};conn.commit()
+    # Issue69: 학습 임시 폴더 tmp/<attempt>는 성공 후 남지 않고, 승격 파일 수는 등록된 산출물 수와 같다.
+    def attempt_dirs():
+        temporary=service.artifacts/'tmp'
+        return sorted(path.name for path in temporary.iterdir()) if temporary.is_dir() else []
+    def published_matches_registry():
+        for kind,directory in (('model','models'),('fit','fit')):
+            files=len(list((service.artifacts/directory).glob('*.joblib'))) if (service.artifacts/directory).is_dir() else 0
+            registered=conn.execute('SELECT count(*) FROM ml_artifacts WHERE kind=%s',(kind,)).fetchone()[0];conn.commit()
+            assert files==registered,(kind,files,registered)
+    assert attempt_dirs()==[],attempt_dirs()
+    published_matches_registry()
     assert request('/api/jobs',spec,key)[1]['id']==identifier
     assert request('/api/jobs/'+identifier)[1]['resultSummary']==result
     assert conn.execute('SELECT * FROM ops_system_state').fetchall()==before;conn.commit()
@@ -239,10 +289,19 @@ def verify(service, conn, spec):
         runner.run(once=True)
     assert state(conn,failed_id)[0]=='queued'
     assert conn.execute('SELECT count(*) FROM ml_artifacts WHERE created_job_id=%s',(failed_id,)).fetchone()[0]==0;conn.commit()
+    # Issue69: 롤백된 attempt의 임시 폴더·부분 파일과 승격됐지만 미등록인 model/fit 파일이 남지 않는다.
+    assert attempt_dirs()==[],attempt_dirs()
+    published_matches_registry()
+    # Issue69: 이전 실행이 남긴 고아 tmp/<attempt>는 다음 worker 기동 시 정리된다.
+    orphan=service.artifacts/'tmp'/str(uuid.uuid4());orphan.mkdir(parents=True)
+    (orphan/'model.joblib').write_bytes(b'partial');(orphan/'fit.joblib').write_bytes(b'partial')
     retry_now(conn,failed_id);service.worker()
+    assert not orphan.exists(),'orphan training workspace survived restart'
+    assert attempt_dirs()==[],attempt_dirs()
     recovered=state(conn,failed_id)
     assert recovered[0]=='succeeded' and recovered[3]==2,recovered[:4]
     assert conn.execute('SELECT count(*) FROM ml_artifacts WHERE created_job_id=%s',(failed_id,)).fetchone()[0]==2;conn.commit()
+    published_matches_registry()
     enqueue(conn,'training',{'schemaVersion':1,'jobId':failed_id});conn.commit();service.worker()
     assert state(conn,failed_id)[3]==2
 
@@ -251,6 +310,10 @@ def verify(service, conn, spec):
     message=claim(conn,'training',lease_seconds=60,job_kinds=('train','evaluate'));conn.commit()
     claimed=runner._claim_job(conn,message,'fixture-crashed');conn.commit()
     oldjob,oldattempt,oldtoken=claimed
+    # Issue69: 임대가 살아 있는 running attempt의 작업 폴더는 다른 worker 기동이 지우지 않는다.
+    live=service.artifacts/'tmp'/str(oldattempt);live.mkdir(parents=True);(live/'model.joblib').write_bytes(b'in progress')
+    service.worker()
+    assert (live/'model.joblib').exists(),'live attempt workspace was removed while its lease was valid'
     conn.execute("UPDATE powercode_queue.training_jobs SET lease_until=clock_timestamp()-interval '1 second' WHERE id=%s",(message.id,))
     conn.execute("UPDATE run_job_attempts SET lease_until=clock_timestamp()-interval '1 second' WHERE id=%s",(oldattempt,));conn.commit()
     try:
@@ -260,6 +323,10 @@ def verify(service, conn, spec):
     conn.rollback();service.worker()
     restarted=state(conn,restart_id)
     assert restarted[0]=='succeeded' and restarted[3]==2,restarted[:4]
+    # Issue69: 임대가 만료된 옛 attempt 폴더는 재기동 시 제거되고, 새 attempt도 임시 폴더를 남기지 않는다.
+    assert not live.exists(),'expired attempt workspace survived restart'
+    assert attempt_dirs()==[],attempt_dirs()
+    published_matches_registry()
     assert conn.execute('SELECT * FROM ops_system_state').fetchall()==before;conn.commit()
     print('PASS artifact/evaluation rollback+retry, duplicate finalization blocked, expired owner/restart, active unchanged',flush=True)
     return {'sourceId':spec['sourceId'],'trainJobId':identifier,'configVersionId':str(config_id),'snapshotId':result['snapshotId'],'evaluationJobId':evaluation_id}

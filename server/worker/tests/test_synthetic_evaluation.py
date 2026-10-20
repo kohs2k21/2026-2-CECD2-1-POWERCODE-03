@@ -72,6 +72,32 @@ class SyntheticEvaluationTests(unittest.TestCase):
         result = self.generation(scenario='P03')
         self.assertEqual(result['generatedCount'], 0)
         self.assertEqual(result['rows'], self.rows)
+        # 블록 단위 거부는 선택된 주입 시도의 거부이므로 rejectedCount에 들어가고, 사전 부적격은 없다.
+        self.assertEqual((result['selectedCount'], result['rejectedCount'], result['ineligibleCount']), (3, 3, 0))
+
+    def test_rejected_count_excludes_cohort_ineligible_rows(self):
+        # 코호트 사전 부적격(미학습 어댑터·비정상 status)은 주입 시도가 아니므로 rejectedCount가 아니다.
+        self.rows[4]['raw']['adapter_type'] = 'unseen'
+        self.rows[5]['raw']['status'] = 'F'
+        result = self.generation()
+        self.assertEqual(result['status'], 'generated')
+        self.assertEqual((result['generatedCount'], result['selectedCount'], result['rejectedCount'], result['ineligibleCount']),
+                         (3, 3, 0, 2))
+        self.assertEqual({item['rowId']: item['selected'] for item in result['rejects']}, {'4': False, '5': False})
+        self.assertEqual(len(result['rejects']), result['rejectedCount'] + result['ineligibleCount'])
+
+    def test_rejected_count_counts_selected_rows_rejected_after_planning(self):
+        # 의존 프로세스 시작 시각 때문에 지연을 넣을 수 없는 행은 선택된 뒤 거부된다.
+        self.rows = fixture(2)
+        self.rows[1]['raw'].update(self.rows[0]['raw'], process_id='child', depend_process_id='process')
+        self.rows[1]['raw']['start_time_raw'] = '2026-01-01T00:00:00.110+09:00'
+        self.rows[1]['raw']['end_time_raw'] = '2026-01-01T00:00:00.200+09:00'
+        self.rows[1]['parent'] = copy.deepcopy(self.rows[0]['parent'])
+        result = self.generation(scenario='P02')
+        rejected = [item for item in result['rejects'] if item['selected']]
+        self.assertEqual([item['reason'] for item in rejected], ['insufficient_parent_or_dependency_headroom'])
+        self.assertEqual((result['generatedCount'], result['selectedCount'], result['rejectedCount'], result['ineligibleCount']),
+                         (1, 2, 1, 0))
 
     def test_p03_orders_instants_with_different_offsets_and_rejects_mixed_basis(self):
         rows = fixture(3)

@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import logging
 import math
 import os
 import time
@@ -27,6 +28,7 @@ from trainer.rule_candidates import validate_suggestions
 from trainer.lease import TrainingLeaseHeartbeat, lock_training_ownership
 from trainer.snapshot import build_snapshot
 from trainer.selection import select_training
+from trainer.workspace import cleanup_orphan_workspaces, training_workspace
 from detector.status_rule import default_policy
 from telemetry import cost_family, queue_wait_ms
 
@@ -370,74 +372,77 @@ def _execute(conn: Any, job: dict[str, Any], attempt_id: uuid.UUID,
         preprocessing_started = time.monotonic()
         prepared, names, preprocessing, definition_digest, selection = _training_inputs(conn, snapshot.id, feature_set_id)
         preprocessing_ms = (time.monotonic()-preprocessing_started)*1000
-        output = artifact_root / "tmp" / str(attempt_id)
-        output.mkdir(parents=True, exist_ok=True)
-        training_started = time.monotonic()
-        result = model_adapters.train_iforest(prepared, names, str(output), preprocessing=preprocessing) if preprocessing is not None else \
-            model_adapters.train_iforest(prepared, names, str(output))
-        training_ms = (time.monotonic()-training_started)*1000
-        required = {"modelPath", "fitPath", "formatVersion", "runtimeVersion", "thresholdSpec"}
-        if not isinstance(result, dict) or not required.issubset(result) or not isinstance(result["thresholdSpec"], dict):
-            raise ValueError("invalid_training_artifacts")
-        fit_path = _promote_output(artifact_root, output, result["fitPath"], "fit")
-        model_path = _promote_output(artifact_root, output, result["modelPath"], "model")
-        with conn.transaction():
-            if not lock_training_ownership(conn, message, job["id"], attempt_id, attempt_token):
-                raise RuntimeError("training_ownership_lost")
-            fit_id = _register_artifact(conn, root=artifact_root, path_value=fit_path, kind="fit",
-                                        snapshot_id=snapshot.id, feature_set_id=feature_set_id,
-                                        job_id=job["id"], attempt_id=attempt_id,
-                                        runtime_version=result["runtimeVersion"], format_version=result["formatVersion"])
-            model_id = _register_artifact(conn, root=artifact_root, path_value=model_path, kind="model",
-                                          snapshot_id=snapshot.id, feature_set_id=feature_set_id,
-                                          job_id=job["id"], attempt_id=attempt_id,
-                                          runtime_version=result["runtimeVersion"], format_version=result["formatVersion"],
-                                          fit_artifact_id=fit_id)
-            rule_ids = [uuid.UUID(value) for value in spec.get("ruleVersionIds", [])]
-            config_spec = {"schemaVersion": 1, "featureSetId": str(feature_set_id),
-                           "trainingSnapshotId": str(snapshot.id), "ruleVersionIds": [str(value) for value in rule_ids],
-                           "statusRulePolicy": default_policy(source_id), "trainingSelection": selection}
-            config_spec["sourceId"] = str(source_id)
-            if spec.get("detectionPolicy"):
-                config_spec["detectionPolicy"] = spec["detectionPolicy"]
-            content_hash = hashlib.sha256(json.dumps(config_spec, sort_keys=True).encode()).hexdigest()
-            config_id = uuid.uuid4()
-            with conn.cursor() as cur:
-                cur.execute(
-                    """INSERT INTO ml_config_versions
-                         (id, source_id, configuration_spec, explanation_spec, content_hash,
-                          created_by_actor_id, created_at)
-                       VALUES (%s, %s, %s::jsonb, '{}'::jsonb, %s, %s, clock_timestamp())""",
-                    (config_id, source_id, json.dumps(config_spec), content_hash, job["actor"]),
-                )
-                cur.execute(
-                    """INSERT INTO ml_config_models
-                         (config_version_id, model_key, feature_set_id, model_artifact_id,
-                          fit_artifact_id, adapter_spec, training_settings, threshold_spec)
-                       VALUES (%s, 'iforest', %s, %s, %s, %s::jsonb, %s::jsonb, %s::jsonb)""",
-                    (config_id, feature_set_id, model_id, fit_id,
-                     json.dumps({"name": "sklearn-iforest", "formatVersion": result["formatVersion"]}),
-                     json.dumps({"snapshotId": str(snapshot.id), "split": "train", "featureNames": names,
-                                 "definitionsHash": definition_digest, "splitVersion": "execution-block-v1",
-                                 "thresholdPolicy": "train-internal-p99-v1", "trainingSelection": selection}),
-                     json.dumps(result["thresholdSpec"])),
-                )
-                for order, rule_id in enumerate(rule_ids):
+        # tmp/<attempt>는 성공·실패 모두 블록 종료 시 제거된다. 승격(models/·fit/)된 파일은 등록 TX가
+        # 정상 확정되면 남고, 블록이 예외로 끝나 TX가 롤백되면 미등록 파일로서 함께 제거된다.
+        with training_workspace(artifact_root, attempt_id) as (output, promoted):
+            training_started = time.monotonic()
+            result = model_adapters.train_iforest(prepared, names, str(output), preprocessing=preprocessing) if preprocessing is not None else \
+                model_adapters.train_iforest(prepared, names, str(output))
+            training_ms = (time.monotonic()-training_started)*1000
+            required = {"modelPath", "fitPath", "formatVersion", "runtimeVersion", "thresholdSpec"}
+            if not isinstance(result, dict) or not required.issubset(result) or not isinstance(result["thresholdSpec"], dict):
+                raise ValueError("invalid_training_artifacts")
+            fit_path = _promote_output(artifact_root, output, result["fitPath"], "fit")
+            promoted.append(fit_path)
+            model_path = _promote_output(artifact_root, output, result["modelPath"], "model")
+            promoted.append(model_path)
+            with conn.transaction():
+                if not lock_training_ownership(conn, message, job["id"], attempt_id, attempt_token):
+                    raise RuntimeError("training_ownership_lost")
+                fit_id = _register_artifact(conn, root=artifact_root, path_value=fit_path, kind="fit",
+                                            snapshot_id=snapshot.id, feature_set_id=feature_set_id,
+                                            job_id=job["id"], attempt_id=attempt_id,
+                                            runtime_version=result["runtimeVersion"], format_version=result["formatVersion"])
+                model_id = _register_artifact(conn, root=artifact_root, path_value=model_path, kind="model",
+                                              snapshot_id=snapshot.id, feature_set_id=feature_set_id,
+                                              job_id=job["id"], attempt_id=attempt_id,
+                                              runtime_version=result["runtimeVersion"], format_version=result["formatVersion"],
+                                              fit_artifact_id=fit_id)
+                rule_ids = [uuid.UUID(value) for value in spec.get("ruleVersionIds", [])]
+                config_spec = {"schemaVersion": 1, "featureSetId": str(feature_set_id),
+                               "trainingSnapshotId": str(snapshot.id), "ruleVersionIds": [str(value) for value in rule_ids],
+                               "statusRulePolicy": default_policy(source_id), "trainingSelection": selection}
+                config_spec["sourceId"] = str(source_id)
+                if spec.get("detectionPolicy"):
+                    config_spec["detectionPolicy"] = spec["detectionPolicy"]
+                content_hash = hashlib.sha256(json.dumps(config_spec, sort_keys=True).encode()).hexdigest()
+                config_id = uuid.uuid4()
+                with conn.cursor() as cur:
                     cur.execute(
-                        """INSERT INTO ml_config_rules
-                             (config_version_id, rule_version_id, evaluation_order)
-                           VALUES (%s, %s, %s)""",
-                        (config_id, rule_id, order),
+                        """INSERT INTO ml_config_versions
+                             (id, source_id, configuration_spec, explanation_spec, content_hash,
+                              created_by_actor_id, created_at)
+                           VALUES (%s, %s, %s::jsonb, '{}'::jsonb, %s, %s, clock_timestamp())""",
+                        (config_id, source_id, json.dumps(config_spec), content_hash, job["actor"]),
                     )
-            completed = {"snapshotId": str(snapshot.id), "featureSetId": str(feature_set_id),
-                         "configVersionId": str(config_id), "artifactId": str(model_id),
-                         "splitCounts": snapshot.counts, "trainingSelection": selection,
-                         "executionCost": cost_family({'totalMs': (time.monotonic()-started)*1000,
-                            'preprocessMs': preprocessing_ms, 'trainMs': training_ms},
-                            batch_size=len(prepared), queue_wait=queue_wait)}
-            completed['executionCost']['details']['modelNJobs'] = 2
-            completed['executionCost']['details']['scope'] = 'offline_training'
-            _finish(conn, message, job, attempt_id, attempt_token, completed, None, True)
+                    cur.execute(
+                        """INSERT INTO ml_config_models
+                             (config_version_id, model_key, feature_set_id, model_artifact_id,
+                              fit_artifact_id, adapter_spec, training_settings, threshold_spec)
+                           VALUES (%s, 'iforest', %s, %s, %s, %s::jsonb, %s::jsonb, %s::jsonb)""",
+                        (config_id, feature_set_id, model_id, fit_id,
+                         json.dumps({"name": "sklearn-iforest", "formatVersion": result["formatVersion"]}),
+                         json.dumps({"snapshotId": str(snapshot.id), "split": "train", "featureNames": names,
+                                     "definitionsHash": definition_digest, "splitVersion": "execution-block-v1",
+                                     "thresholdPolicy": "train-internal-p99-v1", "trainingSelection": selection}),
+                         json.dumps(result["thresholdSpec"])),
+                    )
+                    for order, rule_id in enumerate(rule_ids):
+                        cur.execute(
+                            """INSERT INTO ml_config_rules
+                                 (config_version_id, rule_version_id, evaluation_order)
+                               VALUES (%s, %s, %s)""",
+                            (config_id, rule_id, order),
+                        )
+                completed = {"snapshotId": str(snapshot.id), "featureSetId": str(feature_set_id),
+                             "configVersionId": str(config_id), "artifactId": str(model_id),
+                             "splitCounts": snapshot.counts, "trainingSelection": selection,
+                             "executionCost": cost_family({'totalMs': (time.monotonic()-started)*1000,
+                                'preprocessMs': preprocessing_ms, 'trainMs': training_ms},
+                                batch_size=len(prepared), queue_wait=queue_wait)}
+                completed['executionCost']['details']['modelNJobs'] = 2
+                completed['executionCost']['details']['scope'] = 'offline_training'
+                _finish(conn, message, job, attempt_id, attempt_token, completed, None, True)
         return {**completed, "_finalized": True}
     raise ValueError("unsupported_job_kind")
 
@@ -660,6 +665,14 @@ def run(*, once: bool = False, poll_seconds: float = 1.0, role: str = "trainer")
     worker_id = f"{role}-{uuid.uuid4()}"
     priority = True
     with psycopg.connect(database_url) as conn:
+        if role == "trainer" and root is not None:
+            # 이전 실행(크래시·중단)이 남긴 tmp/<attempt> 고아 폴더 정리. 임대가 살아 있는 attempt는 남긴다.
+            try:
+                cleanup_orphan_workspaces(conn, root)
+                conn.commit()
+            except Exception as exc:
+                conn.rollback()
+                logging.getLogger(__name__).warning("orphan training workspace cleanup skipped: %s", exc)
         while True:
             if role == "trainer":
                 message = claim(conn, "training", lease_seconds=60, job_kinds=("train", "evaluate", "import_csv"))

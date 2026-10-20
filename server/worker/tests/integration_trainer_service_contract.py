@@ -145,6 +145,17 @@ def verify(service, conn, spec):
     status,result,error,attempt=state(conn,identifier)
     assert status=='succeeded',(status,error)
     assert attempt==1 and result['splitCounts']=={'train':700,'validation':150,'test':150}
+    # Issue69: 학습 임시 폴더 tmp/<attempt>는 성공 후 남지 않고, 승격 파일 수는 등록된 산출물 수와 같다.
+    def attempt_dirs():
+        temporary=service.artifacts/'tmp'
+        return sorted(path.name for path in temporary.iterdir()) if temporary.is_dir() else []
+    def published_matches_registry():
+        for kind,directory in (('model','models'),('fit','fit')):
+            files=len(list((service.artifacts/directory).glob('*.joblib'))) if (service.artifacts/directory).is_dir() else 0
+            registered=conn.execute('SELECT count(*) FROM ml_artifacts WHERE kind=%s',(kind,)).fetchone()[0];conn.commit()
+            assert files==registered,(kind,files,registered)
+    assert attempt_dirs()==[],attempt_dirs()
+    published_matches_registry()
     assert request('/api/jobs',spec,key)[1]['id']==identifier
     assert request('/api/jobs/'+identifier)[1]['resultSummary']==result
     assert conn.execute('SELECT * FROM ops_system_state').fetchall()==before;conn.commit()
@@ -239,10 +250,19 @@ def verify(service, conn, spec):
         runner.run(once=True)
     assert state(conn,failed_id)[0]=='queued'
     assert conn.execute('SELECT count(*) FROM ml_artifacts WHERE created_job_id=%s',(failed_id,)).fetchone()[0]==0;conn.commit()
+    # Issue69: 롤백된 attempt의 임시 폴더·부분 파일과 승격됐지만 미등록인 model/fit 파일이 남지 않는다.
+    assert attempt_dirs()==[],attempt_dirs()
+    published_matches_registry()
+    # Issue69: 이전 실행이 남긴 고아 tmp/<attempt>는 다음 worker 기동 시 정리된다.
+    orphan=service.artifacts/'tmp'/str(uuid.uuid4());orphan.mkdir(parents=True)
+    (orphan/'model.joblib').write_bytes(b'partial');(orphan/'fit.joblib').write_bytes(b'partial')
     retry_now(conn,failed_id);service.worker()
+    assert not orphan.exists(),'orphan training workspace survived restart'
+    assert attempt_dirs()==[],attempt_dirs()
     recovered=state(conn,failed_id)
     assert recovered[0]=='succeeded' and recovered[3]==2,recovered[:4]
     assert conn.execute('SELECT count(*) FROM ml_artifacts WHERE created_job_id=%s',(failed_id,)).fetchone()[0]==2;conn.commit()
+    published_matches_registry()
     enqueue(conn,'training',{'schemaVersion':1,'jobId':failed_id});conn.commit();service.worker()
     assert state(conn,failed_id)[3]==2
 
@@ -251,6 +271,10 @@ def verify(service, conn, spec):
     message=claim(conn,'training',lease_seconds=60,job_kinds=('train','evaluate'));conn.commit()
     claimed=runner._claim_job(conn,message,'fixture-crashed');conn.commit()
     oldjob,oldattempt,oldtoken=claimed
+    # Issue69: 임대가 살아 있는 running attempt의 작업 폴더는 다른 worker 기동이 지우지 않는다.
+    live=service.artifacts/'tmp'/str(oldattempt);live.mkdir(parents=True);(live/'model.joblib').write_bytes(b'in progress')
+    service.worker()
+    assert (live/'model.joblib').exists(),'live attempt workspace was removed while its lease was valid'
     conn.execute("UPDATE powercode_queue.training_jobs SET lease_until=clock_timestamp()-interval '1 second' WHERE id=%s",(message.id,))
     conn.execute("UPDATE run_job_attempts SET lease_until=clock_timestamp()-interval '1 second' WHERE id=%s",(oldattempt,));conn.commit()
     try:
@@ -260,6 +284,10 @@ def verify(service, conn, spec):
     conn.rollback();service.worker()
     restarted=state(conn,restart_id)
     assert restarted[0]=='succeeded' and restarted[3]==2,restarted[:4]
+    # Issue69: 임대가 만료된 옛 attempt 폴더는 재기동 시 제거되고, 새 attempt도 임시 폴더를 남기지 않는다.
+    assert not live.exists(),'expired attempt workspace survived restart'
+    assert attempt_dirs()==[],attempt_dirs()
+    published_matches_registry()
     assert conn.execute('SELECT * FROM ops_system_state').fetchall()==before;conn.commit()
     print('PASS artifact/evaluation rollback+retry, duplicate finalization blocked, expired owner/restart, active unchanged',flush=True)
     return {'sourceId':spec['sourceId'],'trainJobId':identifier,'configVersionId':str(config_id),'snapshotId':result['snapshotId'],'evaluationJobId':evaluation_id}

@@ -499,11 +499,22 @@ def model_recovery_and_isolation(service,conn,context):
     job_result(service,identifier,status='queued')
     assert conn.execute('SELECT count(*) FROM ml_artifacts WHERE created_job_id=%s',(identifier,)).fetchone()[0]==0
     conn.commit()
+    # Issue69: prepared 학습도 롤백 뒤 tmp/<attempt>·승격 미등록 model/fit 파일을 남기지 않는다.
+    def workspace_clean():
+        temporary=service.artifacts/'tmp'
+        leftovers=sorted(path.name for path in temporary.iterdir()) if temporary.is_dir() else []
+        assert leftovers==[],leftovers
+        for kind,directory in (('model','models'),('fit','fit')):
+            files=len(list((service.artifacts/directory).glob('*.joblib'))) if (service.artifacts/directory).is_dir() else 0
+            registered=conn.execute('SELECT count(*) FROM ml_artifacts WHERE kind=%s',(kind,)).fetchone()[0];conn.commit()
+            assert files==registered,(kind,files,registered)
+    workspace_clean()
     conn.execute("UPDATE powercode_queue.training_jobs SET available_at=clock_timestamp() WHERE payload->>'jobId'=%s",(identifier,))
     conn.commit();worker_in_process(service)
     recovered=job_result(service,identifier)['resultSummary']
     assert conn.execute('SELECT count(*) FROM ml_artifacts WHERE created_job_id=%s',(identifier,)).fetchone()[0]==2
     conn.commit()
+    workspace_clean()
 
     evalspec=context['evaluations']['validation'][0]
     original_finish=runner._finish

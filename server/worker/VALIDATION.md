@@ -139,3 +139,59 @@ DATABASE_URL=postgresql://postgres:local-ci-only@127.0.0.1:55469/qa_research_pip
 - `integration_feature_pipeline.py`(ML `not_ready` 기대 vs 현재 `failed/component_failed`)와 `integration_model_ports.py`(학습 행 수가 현재 최소 fit 500+보정 125 미만)는 서비스 전환 이전 fixture라 격리 DB에서도 실패한다. CI 비포함 상태 그대로이며 이번 범위에서 수정하지 않았다.
 
 결과(2026-10-21, 위 절차·변경 후): 단위 113개 통과. CI `worker-runtime` 동등 15단계 전부 통과(research_pipeline, service_transition, api_collection, demo_replay, demo_permissions, switchable_inputs, trainer_service_contract, input_roles, metrics_service --utilities/본체, jobs.integration.mjs, synthetic-catalog-parity.mjs, synthetic_service, prepared_csv_service, service-transition.integration.mjs). CI 비포함 5종은 storage·csv_replay·training_boundary 통과, feature_pipeline·model_ports는 위 사유로 실패. 변경 전 기준 실행에서도 같은 두 시험만 실패했고 `switchable_inputs`는 SYSTEMROOT 미전달로 Windows에서만 실패하던 것을 시험 측에서 보완했다.
+
+### 2단계: snapshot revision 방어 규칙 (Issue #69)
+
+- `trainer/snapshot.py`: PROCESS(`execution_id`)마다 기간·cutoff 안 최신 revision 1개만 멤버(`revision_no DESC, persisted_at DESC, id DESC`, Backend 운영 보고 규칙과 동일). 기간 필터를 먼저 적용한 뒤 선택하며, 최소 행 20·그룹 10·블록 3 검사는 선택 후 기준. `selection_spec`에 `revisionRule=latest-per-execution-v1`·`revisionOrder`·`candidateRows`·`supersededRevisionCount`를 기록한다(기존 키는 유지, 소비자는 `from`/`until`만 읽음).
+- 단위 `tests/test_snapshot_selection.py` 9개: 단일 revision 불변, 늦게 저장된 낮은 revision보다 높은 revision 우선, 동률 시 `persisted_at`→`id`, 입력 순서 무관, 블록 70/15/15·같은 시각 한 블록·3블록 미만 거부.
+- 통합 `integration_trainer_service_contract.py` fixture: 1,000 execution 중 5개에 기간 안 revision 2(멤버·train 분할), 1개에 `until` 뒤 revision 2(revision 1이 멤버로 유지). 후보 1,005행 → 멤버 1,000·`supersededRevisionCount=5`, splitCounts 700/150/150·평가 분모 150·fit referenceCounts 700 불변.
+
+### 2단계: 실제 worker 이미지 E2E (Issue #69, 2026-10-21)
+
+compose 없이 로컬 빌드 이미지와 격리 PG로 train→evaluate(일반·ESB P02~P04·ADBench)를 컨테이너 trainer가 처리하는지 확인했다. 공용 `pwc-local-*`·`pwc-postgres`(55432)·compose 프로젝트는 접촉하지 않았고, 데이터는 `integration_synthetic_service.seed`의 통제 fixture만 사용했다.
+
+```bash
+# 0. Git Bash에서는 MSYS 경로 변환이 `-e ARTIFACT_ROOT=/artifacts`를 `C:/Program Files/Git/artifacts`로 바꿔
+#    컨테이너의 tmp 정리·학습이 조용히 건너뛰어진다. docker 명령 전 반드시 설정한다(PowerShell은 불필요).
+export MSYS_NO_PATHCONV=1
+# 1. 이미지(컨텍스트 server/, compose와 같은 Dockerfile) — 코드 수정 후에는 반드시 재빌드
+docker build -f server/worker/Dockerfile -t pwc69-worker:local server/
+# 2. 격리 PG(새 이름·포트 55471·새 볼륨·전용 네트워크) + 허용 QA DB
+docker network create pwc69-e2e-net
+docker run -d --name pwc69-e2e-pg --network pwc69-e2e-net -p 127.0.0.1:55471:5432 \
+  -e POSTGRES_PASSWORD=local-ci-only -v pwc69-e2e-pg-data:/var/lib/postgresql/data postgres:17-alpine
+RUNTIME_TEST_ADMIN_URL=postgresql://postgres:local-ci-only@127.0.0.1:55471/postgres .venv/Scripts/python.exe server/infra/tests/prepare-runtime-db.py
+# 3. 산출물 named volume(이미지의 /artifacts 소유권 uid 10001이 복사됨) + 고아 tmp/<uuid> 사전 생성(uid 10001)
+docker volume create pwc69-e2e-artifacts
+docker run --rm -v pwc69-e2e-artifacts:/artifacts pwc69-worker:local sh -c 'mkdir -p /artifacts/tmp/<uuid> && printf partial > /artifacts/tmp/<uuid>/model.joblib'
+# 4. trainer 컨테이너(상주 루프, compose trainer 서비스와 같은 command·env 이름; 값은 시험용)
+docker run -d --name pwc69-e2e-trainer --network pwc69-e2e-net --init \
+  -e DATABASE_URL=postgresql://postgres:local-ci-only@pwc69-e2e-pg:5432/qa_synthetic_service \
+  -e ARTIFACT_ROOT=/artifacts -e PYTHONUTF8=1 -e PYTHON_DOTENV_DISABLED=1 \
+  -v pwc69-e2e-artifacts:/artifacts pwc69-worker:local python -m trainer.runner
+docker exec pwc69-e2e-trainer ls -lnR /artifacts   # tmp/ 비어 있음 = 기동 시 고아 정리
+# 5. 호스트에서 임시 backend API(통합 시험의 Service helper) + fixture seed + API로 작업 제출, 컨테이너가 소비
+#    (scratch 드라이버: Service/seed/registration 재사용, train → evaluate validation → ESB P02/P03/P04 seed 11 ×2 → ADBench global)
+#    드라이버 핵심(저장소 미포함, 직접 작성): tests 경로를 sys.path에 추가 → integration_trainer_service_contract.Service(tempdir, dsn)로 임시 API 기동,
+#    integration_synthetic_service.seed(conn)/submit(service, spec)으로 작업 제출 → state(conn, job) 폴링. Service.worker()는 호출하지 않음(컨테이너가 소비)
+PIPELINE_TEST_DATABASE_URL=postgresql://postgres:local-ci-only@127.0.0.1:55471/qa_synthetic_service .venv/Scripts/python.exe <scratch>/e2e_driver.py
+# 6. 정리
+docker rm -f pwc69-e2e-trainer pwc69-e2e-pg && docker volume rm pwc69-e2e-artifacts pwc69-e2e-pg-data && docker network rm pwc69-e2e-net && docker rmi pwc69-worker:local
+```
+
+결과(두 번 실행, 2회차 기준; 1회차도 4개 작업 모두 succeeded):
+
+| 단계 | 증거 |
+|---|---|
+| 기동 고아 정리 | 사전 생성한 `tmp/<uuid>/model.joblib`(uid 10001)이 컨테이너 기동 직후 제거, `tmp/` 비어 있음. `ARTIFACT_ROOT=/artifacts`, 프로세스 uid 10001 확인 |
+| train | run_jobs succeeded attempt 1, 1.0초, worker_id `trainer-<uuid>`; splitCounts 700/150/150, 멤버 1,000, `selection_spec.revisionRule=latest-per-execution-v1`·`candidateRows=1000`·`supersededRevisionCount=0`(단일 revision fixture라 수치 불변), trainingSelection.selectedCount 692 |
+| 후보 저장 | ml_config_versions 1행, ml_artifacts model(1,461,358B)·fit(1,435B); 볼륨의 `models/*.joblib`·`fit/*.joblib` sha256이 `content_hash`와 일치, 소유 uid 10001, `tmp/` 비어 있음 |
+| evaluate validation | succeeded 3초, run_evaluations population 150·scored 130·unavailable 20, synthetic `unavailable`, execution_cost `measured` |
+| evaluate ESB P02~P04 | succeeded 3초, synthetic `measured`, `evaluations/<job>/<sha256>.json`(281,006B) 파일 sha256 = manifestRef.sha256 |
+| evaluate ADBench global | succeeded 7초, synthetic `measured`, manifest 81,100B sha256 일치 |
+| 큐·활성 포인터 | training 큐 미완료 0, ops_system_state 0행(활성 구성 변경 없음) |
+| 호스트 bind 변형 | Windows Docker Desktop bind는 root:root 0777로 마운트돼 uid 10001 쓰기·`--once` 기동 고아 정리 통과. Linux 호스트의 chown 10001 bind 권한은 이 로컬에서 재현되지 않음(DEPLOYMENT.md 운영 절차로 확인) |
+
+- 컨테이너 로그는 성공 경로에서 비어 있다(runner는 성공 시 출력 없음). 이미지에 `.env`는 포함되지 않는다(`.dockerignore`).
+- 처음 빌드한 이미지는 코드 수정 전 컨텍스트를 담고 있어(`/app/trainer/snapshot.py`에 revisionRule 없음) 재빌드 후 실행했다. 이미지 E2E는 항상 최종 코드로 재빌드한 뒤 수행한다.
+- 시험 컨테이너·이미지·볼륨·네트워크는 종료 후 제거했고 공용 `pwc-local-*`·`pwc-postgres`·`powercode-worker:local`·`pwc-pg-data`는 접촉하지 않았다.

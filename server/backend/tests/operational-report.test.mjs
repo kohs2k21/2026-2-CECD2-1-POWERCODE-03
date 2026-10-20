@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import express from 'express';
 import {parseReportFilter,parseCandidateFilter,dailyReport,costReport,OPERATIONAL_SQL,COVERAGE_SQL,
-  DETECTOR_COST_SQL,COHORT_SUMMARY_SQL,BACKLOG_SQL} from '../dist/services/operationalReport.js';
+  DETECTOR_COST_SQL,COHORT_SUMMARY_SQL,BACKLOG_SQL,BACKLOG_AT_CUTOFF_SQL} from '../dist/services/operationalReport.js';
 import {hasStatusRulePolicy} from '../dist/services/statusRulePolicy.js';
 import {JOB_COST_SQL,JOB_COST_SUMMARY_SQL} from '../dist/services/executionCostReport.js';
 
@@ -55,6 +55,19 @@ test('daily serializer uses decidable alarm denominator and distinct comparison 
   assert.equal(result.comparisons.hrMl.coverage,2/5);assert.equal(result.comparisons.hrMl.mlOnly.value,0);
   assert.equal(result.comparisons.srMl.both.value,null);assert.equal(result.comparisons.srMl.both.reason,'checker_evidence_unavailable');
   assert.equal(result.failedProcessCount.value,1);assert.equal(result.pendingArrivalCount.value,2);
+});
+test('pending zero is measured and SR pending experiment keeps the offline reason code',()=>{
+  const base={day:'2026-10-01',total:3,decidable:3,alarms:0,failed:0,pending:0,lastProcessedAt:null};
+  const zero=dailyReport({...base,comparisons:{sr:{comparable:0,both:0,ruleOnly:0,mlOnly:0,neither:0,srPending:3}}});
+  assert.equal(zero.pendingArrivalCount.status,'measured');assert.equal(zero.pendingArrivalCount.value,0);
+  assert.equal(zero.pendingArrivalCount.reason,null);
+  assert.equal(zero.comparisons.srMl.both.reason,'sr_experiment_pending');
+  // Only part of the SR evidence names the pending experiment: generic missing-evidence code stays.
+  const mixed=dailyReport({...base,comparisons:{sr:{comparable:0,both:0,ruleOnly:0,mlOnly:0,neither:0,srPending:2}}});
+  assert.equal(mixed.comparisons.srMl.both.reason,'checker_evidence_unavailable');
+  assert.equal(mixed.comparisons.hrMl.both.reason,'checker_evidence_unavailable');
+  const missing=dailyReport({...base,pending:undefined,comparisons:null});
+  assert.equal(missing.pendingArrivalCount.value,null);assert.equal(missing.pendingArrivalCount.reason,'pending_count_unavailable');
 });
 test('empty cohort and missing historical telemetry are unavailable; measured zero survives',()=>{
   const empty=dailyReport({day:'2026-10-01',total:0,decidable:0,alarms:0,failed:0,pending:0,lastProcessedAt:null,comparisons:null});
@@ -109,6 +122,7 @@ test('operational HTTP response keeps missing values, query parameters, snapshot
       sql===COVERAGE_SQL ? [{unknownScopeObservations:1,missingIdentityObservations:0}] :
       sql===COHORT_SUMMARY_SQL ? [{decisionCount:2,totalDays:3}] :
       sql===BACKLOG_SQL ? [{targets:2,queued:0,running:0,failed:0,oldestWaitSeconds:null}] :
+      sql===BACKLOG_AT_CUTOFF_SQL ? [{asOf:query.until,waiting:1,running:0,oldestWaitSeconds:'30.5'}] :
       sql===DETECTOR_COST_SQL ? [] : sql.includes('clock_timestamp() AS') ? [{generatedAt:'2026-10-03T00:00:01Z'}] : [{id:configVersionId}];
     return {rowCount:rows.length,rows};
   });
@@ -119,6 +133,11 @@ test('operational HTTP response keeps missing values, query parameters, snapshot
     assert.equal(body.executionCost.metrics.inferenceMs.p95.reason,'telemetry_unavailable');
     assert.equal(body.externalNotificationCount.value,null);assert.equal(body.esbOccurrenceToDecisionLatency.value,null);
     assert.equal(body.queue.queued.value,0);assert.equal(body.pagination.total,3);
+    // Current snapshot keys stay; the cutoff reconstruction is reported separately.
+    assert.equal(body.queue.atCutoff.asOf,query.until);assert.equal(body.queue.atCutoff.waiting.value,1);
+    assert.equal(body.queue.atCutoff.running.status,'measured');assert.equal(body.queue.atCutoff.running.value,0);
+    assert.equal(body.queue.atCutoff.oldestWaitSeconds.value,30.5);
+    assert.deepEqual(h.calls.find(call=>call.sql===BACKLOG_AT_CUTOFF_SQL).args,[sourceId,configVersionId,query.from,query.until,query.timezone,'live']);
     assert.deepEqual(h.calls.find(call=>call.sql===OPERATIONAL_SQL).args,[sourceId,configVersionId,query.from,query.until,query.timezone,'live',31,0]);
     assert.equal(h.calls[0].sql,'BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY');assert.equal(h.calls.at(-1).sql,'COMMIT');
     assert.equal(h.releases(),1);

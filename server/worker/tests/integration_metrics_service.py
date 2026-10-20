@@ -297,7 +297,7 @@ def verify_detector(conn, api, spec, result):
 
 
 def fixed_decision(conn, source_id, config, *, at, status='complete', anomaly=False,
-                   hr=False, ml=False, failed=False, missing_metadata=False):
+                   hr=False, ml=False, failed=False, missing_metadata=False, sr_reason=None):
     observation = observe(conn, source_id, f'report-{uuid.uuid4()}',
         {'adapter_type': 'A', 'total_count': '55', 'status': 'S'}, persisted=at - timedelta(seconds=10))
     execution = conn.execute('SELECT execution_id FROM data_observations WHERE id=%s',
@@ -308,6 +308,8 @@ def fixed_decision(conn, source_id, config, *, at, status='complete', anomaly=Fa
             'hr': {'status': 'succeeded' if hr is not None else 'not_ready', 'anomalous': hr},
             'ml': {'status': 'failed' if failed else 'succeeded' if ml is not None else 'not_ready', 'anomalous': ml},
             'sr': {'status': 'not_ready', 'anomalous': None}}
+        if sr_reason:
+            evidence['checkers']['sr']['evidence'] = [{'reason': sr_reason}]
         # Malformed historical telemetry must be ignored rather than cast/SQL errors.
         evidence['telemetry'] = {'metricVersion': 'execution-cost-v1', 'status': 'measured', 'metrics': {
             'totalMs': {'value': 'not-a-number', 'unit': 'ms'},
@@ -412,6 +414,65 @@ def verify_operational_reports(conn, api, spec, result):
         'until': '2026-11-03T00:00:00Z', 'timezone': 'America/New_York'}), token=api.admin)
     assert code == 200 and next(item for item in dst['items'] if item['day'] == '2026-11-01')['processCount']['value'] == 2
     print('PASS real HTTP/PG operational hand table, KST midnight/DST, no older-revision fallback, pending isolation, null/zero, malformed telemetry, auth/filters/pagination', flush=True)
+
+
+def verify_queue_at_cutoff(conn, api, spec, result):
+    """Past-period queue figures come from job/attempt intervals, not the query-time queue."""
+    from detector.jobs import enqueue_observation
+    sid, config = uuid.UUID(spec['sourceId']), uuid.UUID(result['configVersionId'])
+    start = datetime(2026, 9, 10, tzinfo=timezone.utc)
+    hour = lambda value: start + timedelta(hours=value)
+    # name: (created h, attempt (start h, end h | None, status, lease h) | None, job status, finished h | None)
+    cases = {
+        'waiting': (1, None, 'queued', None),
+        'running': (2, (3, None, 'running', 48), 'running', None),
+        'retry_gap': (3, (4, 5, 'failed', 5), 'queued', None),
+        # Reaped after the cutoff: finished_at is the reap time, the lease lapsed earlier.
+        'expired_lease': (4, (5, 30, 'expired', 6), 'queued', None),
+        # Worker crashed and nothing reaped it yet: still 'running' with a lapsed lease.
+        'crashed_unreaped': (4, (5, None, 'running', 6), 'running', None),
+        'finished_before': (5, (6, 7, 'failed', 7), 'failed', 8),
+        'finished_after': (6, (7, 30, 'failed', 30), 'failed', 31),
+        'created_after': (26, None, 'queued', None),
+    }
+    for name, (created, attempt, status, finished) in cases.items():
+        observation = observe(conn, sid, f'queue-{name}-{uuid.uuid4()}', {'adapter_type': 'A', 'status': 'S'},
+                              persisted=hour(created) - timedelta(minutes=1))
+        job = uuid.UUID(enqueue_observation(conn, observation.observation_id, config_id=config)['jobId'])
+        conn.execute('UPDATE run_jobs SET created_at=%s,status=%s,finished_at=%s WHERE id=%s',
+                     (hour(created), status, hour(finished) if finished is not None else None, job))
+        if attempt is not None:
+            began, ended, attempt_status, lease = attempt
+            conn.execute('''INSERT INTO run_job_attempts(id,job_id,attempt_no,status,worker_id,lease_token,lease_until,
+                started_at,finished_at) VALUES(%s,%s,1,%s,'queue-qa',%s,%s,%s,%s)''',
+                (uuid.uuid4(), job, attempt_status, uuid.uuid4(), hour(lease), hour(began),
+                 hour(ended) if ended is not None else None))
+    # One decided PROCESS whose SR checker carries the Detector's real pending-experiment evidence.
+    fixed_decision(conn, sid, config, at=hour(10), sr_reason='sr_experiment_pending')
+    conn.commit()
+    query = {'sourceId': str(sid), 'configVersionId': str(config), 'from': start.isoformat().replace('+00:00', 'Z'),
+             'until': hour(24).isoformat().replace('+00:00', 'Z'), 'timezone': 'Asia/Seoul', 'scope': 'live'}
+    code, report = api.request('/api/pipeline/reports/operational?' + urlencode(query), token=api.admin)
+    assert code == 200, (code, report)
+    at_cutoff = report['queue']['atCutoff']
+    assert at_cutoff['asOf'].startswith('2026-09-11T00:00:00'), at_cutoff
+    # waiting: never started + retry gap + reaped expiry + unreaped crash;
+    # running: live attempt + attempt ending after cutoff.
+    assert at_cutoff['waiting']['value'] == 4 and at_cutoff['waiting']['status'] == 'measured', at_cutoff
+    assert at_cutoff['running']['value'] == 2, at_cutoff
+    assert at_cutoff['oldestWaitSeconds']['value'] == 23 * 3600, at_cutoff
+    # The current snapshot keys keep their documented meaning (query-time status, cutoff-scoped inputs).
+    assert report['queue']['scope'] == 'current_snapshot_for_scoped_observations_before_cutoff'
+    assert report['queue']['queued']['value'] == 3 and report['queue']['running']['value'] == 2, report['queue']
+    rows = {item['day']: item for item in report['items']}
+    # Seven undecided arrivals persisted on 09-10 KST; the 09-11 KST part of the period has none.
+    assert rows['2026-09-10']['pendingArrivalCount']['value'] == 7, rows['2026-09-10']
+    sr = rows['2026-09-10']['comparisons']['srMl']
+    assert sr['comparable'] == 0 and sr['both']['reason'] == 'sr_experiment_pending', sr
+    assert rows['2026-09-11']['pendingArrivalCount'] == {'status': 'measured', 'value': 0, 'unit': 'process',
+        'numerator': 0, 'denominator': None, 'coverage': 1, 'reason': None}, rows['2026-09-11']
+    print('PASS real PG queue reconstruction at cutoff (waiting/retry gap/expired lease/running across cutoff), '
+          'current snapshot unchanged, measured pending zero', flush=True)
 
 
 def verify_cost_and_history(conn, api, spec, train):
@@ -610,6 +671,7 @@ def main():
                 verify_detector(conn, api, spec, train['resultSummary'])
                 evaluations = verify_evaluation(conn, api, spec, train)
                 verify_operational_reports(conn, api, spec, train['resultSummary'])
+                verify_queue_at_cutoff(conn, api, spec, train['resultSummary'])
                 assert conn.execute('SELECT * FROM ops_system_state').fetchall() == before
                 conn.commit()
                 verify_cost_and_history(conn, api, spec, train)

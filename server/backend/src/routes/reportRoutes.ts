@@ -3,7 +3,8 @@ import type { Pool } from 'pg';
 import { getDatabasePool } from '../config/database.js';
 import { requireAdmin } from '../middleware/auth.js';
 import { parseReportFilter, parseCandidateFilter, reportParameters, ReportRequestError, OPERATIONAL_SQL, COVERAGE_SQL,
-  DETECTOR_COST_SQL, DETECTOR_COST_KEYS, COST_KEYS, COHORT_SUMMARY_SQL, BACKLOG_SQL, costReport, dailyReport, measurement } from '../services/operationalReport.js';
+  DETECTOR_COST_SQL, DETECTOR_COST_KEYS, COST_KEYS, COHORT_SUMMARY_SQL, BACKLOG_SQL, BACKLOG_AT_CUTOFF_SQL, costReport, dailyReport,
+  measurement } from '../services/operationalReport.js';
 import {JOB_COST_SQL,JOB_COST_SUMMARY_SQL} from '../services/executionCostReport.js';
 
 function route(handler: (req: Request, res: Response) => Promise<void>) {
@@ -32,6 +33,7 @@ export function createReportRouter(database: () => Pick<Pool, 'connect'> = getDa
       const costs = await client.query(DETECTOR_COST_SQL, [...parameters.slice(0,6), DETECTOR_COST_KEYS]);
       const total = await client.query(COHORT_SUMMARY_SQL, parameters.slice(0,6));
       const backlog = await client.query(BACKLOG_SQL, parameters.slice(0,6));
+      const atCutoff = (await client.query(BACKLOG_AT_CUTOFF_SQL, parameters.slice(0,6))).rows[0];
       const generated = await client.query('SELECT clock_timestamp() AS "generatedAt"');
       await client.query('COMMIT');
       // Cost coverage uses the full period, independently of the daily page.
@@ -52,7 +54,13 @@ export function createReportRouter(database: () => Pick<Pool, 'connect'> = getDa
             backlog.rows[0].targets ? 1 : null,backlog.rows[0].targets ? null : 'no_targets'),
           failedJobsInPeriod:measurement(backlog.rows[0].targets ? backlog.rows[0].failed : null,'job',backlog.rows[0].failed,backlog.rows[0].targets,
             backlog.rows[0].targets ? 1 : null,backlog.rows[0].targets ? null : 'no_targets'),
-          oldestWaitSeconds:backlog.rows[0].oldestWaitSeconds === null ? null : Number(backlog.rows[0].oldestWaitSeconds)},
+          oldestWaitSeconds:backlog.rows[0].oldestWaitSeconds === null ? null : Number(backlog.rows[0].oldestWaitSeconds),
+          atCutoff:{scope:'reconstructed_at_min_cutoff_and_now',asOf:atCutoff.asOf,
+            method:'job_created_finished_and_attempt_intervals; queued_and_blocked_not_distinguished',
+            waiting:measurement(atCutoff.waiting,'job',atCutoff.waiting,null,1),
+            running:measurement(atCutoff.running,'job',atCutoff.running,null,1),
+            oldestWaitSeconds:measurement(atCutoff.oldestWaitSeconds === null ? null : Number(atCutoff.oldestWaitSeconds),'seconds',null,null,
+              atCutoff.oldestWaitSeconds === null ? null : 1,atCutoff.oldestWaitSeconds === null ? 'no_open_jobs_at_cutoff' : null)}},
         executionCost:{scope:'selected_unique_process_decisions',metrics:costReport(costs.rows,costTargets,DETECTOR_COST_KEYS),
           conditions:{clock:'worker_monotonic',memoryScope:'process_current_rss_sample',warmCold:'mixed_unclassified',
             concurrency:'see_saved_decision_telemetry',resourceLimits:'not_observed',samplingPeriod:'per_decision_completion'}},

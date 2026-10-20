@@ -162,6 +162,27 @@ assert.equal(
   safeReturnPath("/settings?section=profile"),
   "/settings?section=profile",
 );
+assert.equal(
+  safeReturnPath("/analysis/process-decisions"),
+  "/analysis/process-decisions",
+);
+assert.equal(
+  safeReturnPath("/analysis/process-decisions?decision=d-1#latest"),
+  "/analysis/process-decisions?decision=d-1#latest",
+);
+assert.equal(
+  settingsReturnPath("/analysis/process-decisions"),
+  "/analysis/process-decisions",
+);
+assert.equal(
+  loginReturnPath("/analysis/process-decisions", "user"),
+  "/analysis/process-decisions",
+);
+assert.equal(
+  loginReturnPath("/analysis/process-decisions", "admin"),
+  "/analysis/process-decisions",
+);
+assert.equal(safeReturnPath("/analysis/process-decisions/x"), "/operations");
 assert.equal(settingsReturnPath("/settings?section=profile"), "/operations");
 assert.equal(
   settingsReturnPath("/analysis?category=Critical&q=abc"),

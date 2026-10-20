@@ -17,6 +17,10 @@ import { useAuthSession } from "../../services/auth/AuthSessionProvider";
 import { forgetJobRequestKey, jobRequestKey } from "../../services/api/job-idempotency";
 import { HttpError } from "../../services/api/client";
 import { TrainerJobResult } from "./TrainerJobResult";
+import {
+  emptyResultVisible, initialRefreshStatus, mergeRefreshStatus, refreshAlertText, rows, trackRefresh,
+  type RefreshKey, type RefreshStatus,
+} from "./pipelineRefresh";
 
 type JobKind = PipelineJob["kind"];
 type JobMap = Partial<Record<JobKind, PipelineJob>>;
@@ -65,25 +69,26 @@ export function PipelineOperations() {
   const [labelReason, setLabelReason] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [refreshStatus, setRefreshStatus] = useState<RefreshStatus>(initialRefreshStatus);
 
-  const refresh = useCallback(async () => {
-    const [sourceRows, jobRows, activeRow, metrics, driftRows, appliedRows, decisionRows, windows, monitors] = await Promise.all([
-      fetchSources(), fetchPipelineJobs(), fetchActiveConfiguration(),
-      fetchPipelineMetrics(), fetchDriftMetrics(), fetchAppliedConfigurations(), fetchProcessDecisions(),
-      fetchWindowDecisions(), fetchWindowMonitors(),
-    ]);
-    setSources(sourceRows);
-    setSourceId((current) => current || sourceRows[0]?.id || "");
-    setActive(activeRow);
-    setQueues(metrics.queues);
-    setStages(metrics.stages);
-    setDrift(driftRows);
-    setApplied(appliedRows);
-    setHistory(jobRows);
-    setDecisions(decisionRows);
-    setWindowDecisions(windows);
-    setWindowMonitors(monitors);
-  }, []);
+  // 조회별로 끝나는 즉시 성공 값만 반영하고 실패는 식별자별로 기록한다. 사용자 동작 오류(error)와 분리한다. reject하지 않는다.
+  const track = useCallback(<V extends Partial<Record<RefreshKey, unknown>>>(
+    loaders: { [K in keyof V]: () => Promise<V[K]> }, appliers: { [K in keyof V]: (value: V[K]) => void },
+  ) => trackRefresh(loaders, appliers, errorText, (outcome) => {
+    setRefreshStatus((previous) => mergeRefreshStatus(previous, outcome));
+  }), []);
+
+  const refresh = useCallback(() => track({
+    sources: fetchSources, jobs: fetchPipelineJobs, active: fetchActiveConfiguration,
+    metrics: fetchPipelineMetrics, drift: fetchDriftMetrics, applied: fetchAppliedConfigurations, decisions: fetchProcessDecisions,
+    windows: fetchWindowDecisions, monitors: fetchWindowMonitors,
+  }, {
+    sources: (value) => { const items = rows(value); setSources(items); setSourceId((current) => current || items[0]?.id || ""); },
+    jobs: (value) => setHistory(rows(value)), active: setActive,
+    metrics: (metrics) => { const queueRows = rows(metrics.queues), stageRows = rows(metrics.stages); setQueues(queueRows); setStages(stageRows); },
+    drift: (value) => setDrift(rows(value)), applied: (value) => setApplied(rows(value)), decisions: (value) => setDecisions(rows(value)),
+    windows: (value) => setWindowDecisions(rows(value)), monitors: (value) => setWindowMonitors(rows(value)),
+  }), [track]);
 
   const jobs = useMemo(() => {
     const start = Date.parse(from);
@@ -164,17 +169,16 @@ export function PipelineOperations() {
         void fetchApplication(application.id).then((updated) => {
           setApplication(updated);
           if (updated.status === "succeeded") {
-            void fetchActiveConfiguration().then(setActive);
-            void fetchAppliedConfigurations().then(setApplied);
+            void track({ active: fetchActiveConfiguration, applied: fetchAppliedConfigurations }, { active: setActive, applied: (value) => setApplied(rows(value)) });
           }
         }).catch((reason) => setError(errorText(reason)));
       }
 
-      void fetchWindowDecisions().then(setWindowDecisions).catch((reason) => setError(errorText(reason)));
-      void fetchWindowMonitors().then(setWindowMonitors).catch((reason) => setError(errorText(reason)));
+      void track({ windows: fetchWindowDecisions, monitors: fetchWindowMonitors },
+        { windows: (value) => setWindowDecisions(rows(value)), monitors: (value) => setWindowMonitors(rows(value)) });
     }, 3000);
     return () => window.clearInterval(timer);
-  }, [history, application]);
+  }, [history, application, track]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -224,6 +228,8 @@ export function PipelineOperations() {
   const validPeriod = Number.isFinite(Date.parse(from)) && Number.isFinite(Date.parse(until)) &&
     Date.parse(from) < Date.parse(until) && Date.parse(until) - Date.parse(from) <= 366 * 86400_000;
   const sourceHistory = history.filter((job) => job.inputSpec.sourceId === sourceId && ["train", "evaluate"].includes(job.kind));
+  const jobsKnown = emptyResultVisible(refreshStatus, "jobs");
+  const alertText = refreshAlertText(refreshStatus, error);
 
   function changeSource(id: string) {
     setSourceId(id);
@@ -388,7 +394,7 @@ export function PipelineOperations() {
         }}>새로고침</button>
       </header>
 
-      {error && <p className="pipeline-error" role="alert">{error}</p>}
+      {alertText && <p className="pipeline-error" role="alert">{alertText}</p>}
       <section className="pipeline-card">
         <h3>대상 데이터</h3>
         <div className="pipeline-fields">
@@ -401,7 +407,7 @@ export function PipelineOperations() {
           <label>종료 시각<input type="datetime-local" value={until} onChange={(event) => setUntil(event.target.value)} /></label>
         </div>
         <p>기간은 저장 시각 기준입니다. 출처 시각의 시간대가 확인되기 전에는 발생 시각으로 해석하지 않습니다.</p>
-        {!selectedSource && <p>저장된 데이터 출처가 없습니다. 먼저 Collector로 로그를 저장하세요.</p>}
+        {!selectedSource && emptyResultVisible(refreshStatus, "sources") && <p>저장된 데이터 출처가 없습니다. 먼저 Collector로 로그를 저장하세요.</p>}
       </section>
 
       <InputControls key={sourceId} sourceId={sourceId} />
@@ -409,7 +415,7 @@ export function PipelineOperations() {
         <div className="pipeline-card">
           <h3>1. 파생변수 생성</h3>
           <button disabled={busy || !sourceId || !validPeriod} onClick={() => void submit("recommend_feature")}>변수 생성 작업 등록</button>
-          <JobState job={jobs.recommend_feature} />
+          <JobState job={jobs.recommend_feature} known={jobsKnown} />
           {jobs.recommend_feature?.resultSummary?.stopReason && <p>{jobs.recommend_feature.resultSummary.stopReason}</p>}
           {jobs.recommend_feature?.resultSummary?.reviews?.map((review, index) => <p key={index}>{review.state}: {review.reason}</p>)}
           {recommendedFeatureSetId && <p>생성된 피처셋: <code>{recommendedFeatureSetId}</code><br />정제 행: {jobs.recommend_feature?.resultSummary?.materializedCount ?? "미측정"}</p>}
@@ -417,7 +423,7 @@ export function PipelineOperations() {
         <div className="pipeline-card">
           <h3>2. Rule 추천·채택</h3>
           <button disabled={busy || !validPeriod || !selectedFeatureSet?.supported} onClick={() => void submit("recommend_rule")}>Rule 추천 작업 등록</button>
-          <JobState job={jobs.recommend_rule} />
+          <JobState job={jobs.recommend_rule} known={jobsKnown} />
           {ruleSuggestions.map((suggestion, index) => (
             <div className="pipeline-suggestion" key={`${suggestion.ruleKey}-${index}`}>
               <span>{suggestion.displayName} · {suggestion.outcome.decisionCode}</span>
@@ -469,17 +475,18 @@ export function PipelineOperations() {
           <p>마감 시간은 운영 설정입니다. Rule 전용은 IF 학습 없이 후보 구성을 만듭니다.</p>
           <button disabled={busy || !user || !validPeriod || !selectedFeatureSet?.supported || (mode !== 'rule_only' && !selectedModel?.supported) || !Number.isInteger(deadlineMs) || deadlineMs < 100 || deadlineMs > 30000 ||
             (mode !== 'ml_only' && !ruleIds.length) || (mode === 'parallel' && !combinationApproved)} onClick={() => void submit("train")}>선택 기간 학습 실행</button>
-          <JobState job={jobs.train} />
+          <JobState job={jobs.train} known={jobsKnown} />
           {configId && <p>후보 구성: <code>{configId}</code></p>}
         </div>
         <div className="pipeline-card">
           <h3>4. 평가·승인</h3>
           <button disabled={busy || !configId || !snapshotId} onClick={() => void submit("evaluate")}>검증 분할 평가</button>
-          <JobState job={jobs.evaluate} />
-          <p>평가 적합성: {jobs.evaluate?.resultSummary?.applicability ?? "미평가"}</p>
+          <JobState job={jobs.evaluate} known={jobsKnown} />
+          {(jobs.evaluate || jobsKnown) && <p>평가 적합성: {jobs.evaluate?.resultSummary?.applicability ?? "미평가"}</p>}
           <button disabled={busy || !canApply} onClick={() => void apply()}>평가된 구성 적용 요청</button>
           {application && <p>적용 상태: {application.status}{application.errorCode ? ` · ${application.errorCode}` : ""}</p>}
-          <p>현재 활성 구성: <code>{active?.configVersionId ?? "없음"}</code></p>
+          {/* 구성 없음 응답도 객체이므로 configVersionId로 판단한다. 구성이 있으면 직전 성공값을 계속 표시한다. */}
+          {(active?.configVersionId || emptyResultVisible(refreshStatus, "active")) && <p>현재 활성 구성: <code>{active?.configVersionId ?? "없음"}</code></p>}
           <label>이전 승인 구성으로 복원
             <select value={restoreId} onChange={(event) => setRestoreId(event.target.value)}>
               <option value="">복원 대상을 선택하세요</option>
@@ -494,7 +501,7 @@ export function PipelineOperations() {
 
       <section className="pipeline-card">
         <h3>학습·평가 작업 이력</h3>
-        {sourceHistory.length === 0 && <p>등록된 작업이 없습니다.</p>}
+        {sourceHistory.length === 0 && jobsKnown && <p>등록된 작업이 없습니다.</p>}
         {sourceHistory.map((job) => <details key={job.id} className="pipeline-job-result">
           <summary>{job.kind === "train" ? "학습" : "평가"} · {job.id.slice(0, 8)} · {job.status}</summary>
           <JobState job={job} />
@@ -513,7 +520,7 @@ export function PipelineOperations() {
 
       <section className="pipeline-card">
         <h3>1분 시간창 탐지</h3>
-        {windowMonitors.length === 0 && <p>등록된 시간창 감시가 없습니다.</p>}
+        {windowMonitors.length === 0 && emptyResultVisible(refreshStatus, "monitors") && <p>등록된 시간창 감시가 없습니다.</p>}
         {windowMonitors.map((monitor) => <p key={monitor.id}>{monitor.algorithm} · {monitor.lastError ?? (monitor.enabled ? "감시 활성" : "중지")}</p>)}
         {windowDecisions.slice(0, 10).map((decision) => <p key={decision.id}>
           {decision.adapterType} / {decision.processId} · {decision.windowStart} · {decision.evidence.algorithm} ·
@@ -565,7 +572,7 @@ export function PipelineOperations() {
               </div>
             </div>
           ))}
-          {decisions.length === 0 && <p>저장된 판정이 없습니다.</p>}
+          {decisions.length === 0 && emptyResultVisible(refreshStatus, "decisions") && <p>저장된 판정이 없습니다.</p>}
         </div>
       </section>
 
@@ -585,7 +592,7 @@ export function PipelineOperations() {
           {stages.map((row) => <p key={row.stage}>{row.stage}: p95 {Number(row.p95_ms).toFixed(1)} ms ({row.count}건)</p>)}
         </div>
         <h4>변수 결측률 변화</h4>
-        {drift.length === 0 ? <p>측정 결과가 없습니다.</p> : drift.map((row) => (
+        {drift.length === 0 ? emptyResultVisible(refreshStatus, "drift") && <p>측정 결과가 없습니다.</p> : drift.map((row) => (
           <p key={`${row.featureName}-${row.measuredAt}`}>
             {row.featureName}: 기준 {row.baselineMissingRate ?? "미확인"} → 최근 {row.recentMissingRate ?? "미확인"}
             {row.reviewRequired ? " · 재학습 검토 필요" : row.reasonCode ? ` · ${row.reasonCode}` : ""}
@@ -596,8 +603,9 @@ export function PipelineOperations() {
   );
 }
 
-function JobState({ job }: { job?: PipelineJob }) {
-  if (!job) return <p>등록된 작업이 없습니다.</p>;
+// known=false: 작업 이력 조회가 아직 성공하지 않았거나 실패 중이므로 '없음'을 표시하지 않는다.
+function JobState({ job, known = true }: { job?: PipelineJob; known?: boolean }) {
+  if (!job) return known ? <p>등록된 작업이 없습니다.</p> : null;
   return <p>작업 {job.id.slice(0, 8)} · {job.status}{job.errorCode ? ` · ${job.errorCode}` : ""}
     {job.attemptCount !== undefined && ` · 시도 ${job.attemptCount}${job.maxAttempts !== undefined ? `/${job.maxAttempts}` : ""}`}
     {job.status === "queued" && job.nextRunAt && ` · 다음 실행 ${new Date(job.nextRunAt).toLocaleString()}`}</p>;

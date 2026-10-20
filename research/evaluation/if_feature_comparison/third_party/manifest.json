@@ -1,0 +1,58 @@
+[
+  {
+    "repository": "sahandha/eif",
+    "commit": "5363acde955e43b5728151443b900585c363fafe",
+    "path": "eif/eif_old.py",
+    "upstream_path": "eif_old.py",
+    "sha256": "a8a6f853f3b300da042dc6b5e4e3fdd4b0b17395a61631cc89ff6bbf79039e98"
+  },
+  {
+    "repository": "sahandha/eif",
+    "commit": "5363acde955e43b5728151443b900585c363fafe",
+    "path": "eif/License.txt",
+    "upstream_path": "License.txt",
+    "sha256": "d6020b0c17cc60a30b405845da6a46ca5be00843ca3c08d615ddbf8a1833f3ab"
+  },
+  {
+    "repository": "xuhongzuo/deep-iforest",
+    "commit": "e77692bbb39c851a580c37154c0a7d0c3a460bdf",
+    "path": "deep_iforest/algorithms/__init__.py",
+    "upstream_path": "algorithms/__init__.py",
+    "sha256": "aea2e9404c5232f61e29bb95bc37fb055fd1457a4809fc42e43ef3987efdfa3d"
+  },
+  {
+    "repository": "xuhongzuo/deep-iforest",
+    "commit": "e77692bbb39c851a580c37154c0a7d0c3a460bdf",
+    "path": "deep_iforest/algorithms/dif.py",
+    "upstream_path": "algorithms/dif.py",
+    "sha256": "cf18d170fd48b9f67a8398cfe9bda2e3e569fcdff6bdb292e6a1bdc8df9e9d67"
+  },
+  {
+    "repository": "xuhongzuo/deep-iforest",
+    "commit": "e77692bbb39c851a580c37154c0a7d0c3a460bdf",
+    "path": "deep_iforest/algorithms/net_torch.py",
+    "upstream_path": "algorithms/net_torch.py",
+    "sha256": "ccfe7c62874df8f3b42c5236e6e547ecfe9a2f148406ac55ce02d565e96e328c"
+  },
+  {
+    "repository": "xuhongzuo/deep-iforest",
+    "commit": "e77692bbb39c851a580c37154c0a7d0c3a460bdf",
+    "path": "deep_iforest/LICENCE",
+    "upstream_path": "LICENCE",
+    "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+  },
+  {
+    "repository": "xuhongzuo/deep-iforest",
+    "commit": "e77692bbb39c851a580c37154c0a7d0c3a460bdf",
+    "path": "deep_iforest/requirements.txt",
+    "upstream_path": "requirements.txt",
+    "sha256": "a8f2ec81770ffed6bdc736800cfd5197e6d21b874a4e14a7d4f6cf8b36a52def"
+  },
+  {
+    "repository": "sahandha/eif",
+    "commit": "5363acde955e43b5728151443b900585c363fafe",
+    "path": "eif/version.py",
+    "upstream_path": "version.py",
+    "sha256": "e35aac51fedf02e514a3bf9b9f0a3f3bd167fc3c64a034f7ce88ad09315d57c4"
+  }
+]

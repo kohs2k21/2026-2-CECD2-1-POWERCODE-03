@@ -1,0 +1,10 @@
+# Install dependencies in an isolated environment; reuse existing scientific packages without modifying them.
+numpy==2.5.3
+pandas==3.0.6
+scikit-learn==1.9.1
+scipy==1.18.1
+joblib==1.6.0
+torch==2.8.0+cpu
+tqdm==4.67.1
+psutil==7.2.2
+# Source implementations and licenses: third_party/manifest.json, pinned upstream commits.

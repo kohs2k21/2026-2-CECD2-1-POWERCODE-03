@@ -1,0 +1,57 @@
+--- official/deep_transfer_batch_ensemble
++++ DeepIF-I/deep_transfer_batch_ensemble
+@@ -1,22 +1,9 @@
+-def deep_transfer_batch_ensemble(self, X, net):
+-        x_reduced = []
+-
+-        with torch.no_grad():
+-            loader = DataLoader(X, batch_size=self.batch_size, drop_last=False, pin_memory=True, shuffle=False)
+-            for batch_x in loader:
+-                batch_x = batch_x.float().to(self.device)
+-                batch_x_reduced = net(batch_x)
+-
+-                batch_x_reduced = batch_x_reduced.reshape([self.n_ensemble, batch_x.shape[0], -1])
+-                x_reduced.append(batch_x_reduced)
+-
+-        x_reduced_lst = [torch.cat([x_reduced[i][j] for i in range(len(x_reduced))]).data.cpu().numpy()
+-                         for j in range(x_reduced[0].shape[0])]
+-
+-        for i in range(len(x_reduced_lst)):
+-            xx = x_reduced_lst[i]
+-            xx = StandardScaler().fit_transform(xx)
+-            xx = np.tanh(xx)
+-            x_reduced_lst[i] = xx
+-
+-        return x_reduced_lst+def deep_transfer_batch_ensemble(this,X,net):
++                outputs=[]
++                with torch.no_grad():
++                    for batch in torch.utils.data.DataLoader(X,batch_size=this.batch_size,drop_last=False,shuffle=False):
++                        outputs.append(net(batch.float().to(this.device)).reshape([this.n_ensemble,len(batch),-1]))
++                reduced=[torch.cat([chunk[j] for chunk in outputs]).cpu().numpy() for j in range(this.n_ensemble)]
++                if this._fit_representation:
++                    this.frozen_scalers=[StandardScaler().fit(z) for z in reduced]
++                return [np.tanh(s.transform(z)) for s,z in zip(this.frozen_scalers,reduced)]--- official/_inference_transfer
++++ DeepIF-I/_inference_transfer
+@@ -1,12 +1,2 @@
+-def _inference_transfer(self, X):
+-        if self.data_type == 'tabular' and X.shape[0] == self.x_reduced_lst[0].shape[0]:
+-            return self.x_reduced_lst
+-
+-        test_reduced_lst = []
+-        if self.new_ensemble_method:
+-            test_reduced_lst = self.deep_transfer_batch_ensemble(X, self.net_lst[0])
+-        else:
+-            for i in tqdm(range(self.n_ensemble), desc='testing ensemble process', ncols=100, leave=None):
+-                x_reduced = self.deep_transfer(X, self.net_lst[i])
+-                test_reduced_lst.append(x_reduced)
+-        return test_reduced_lst+def _inference_transfer(this,X):
++                return this.deep_transfer_batch_ensemble(X,this.net_lst[0])--- official/set_seed
++++ DeepIF-I/set_seed
+@@ -1,6 +1,3 @@
+ def set_seed(seed):
+-        torch.manual_seed(seed)
+-        torch.cuda.manual_seed(seed)
+-        torch.cuda.manual_seed_all(seed)
+-        np.random.seed(seed)
+-        random.seed(seed)+                # Python 3.12 random.seed rejects NumPy integer scalars.
++                official.DIF.set_seed(int(seed))

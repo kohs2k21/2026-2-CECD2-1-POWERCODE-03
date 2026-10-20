@@ -84,7 +84,8 @@ def generate(rows, fit, profile, *, scenario, severity, seed, target_rows, conte
               'seed': seed, 'requestedRows': target_rows, 'selection': 'before_scores_no_detector_output',
               'generatorVersion': VERSION, 'parentPolicy': profile['parentPolicy']}
     if scenario == 'P01':
-        result.update(status='unsupported', reason='failure_semantics_unconfirmed', generatedCount=0, rejectedCount=0)
+        result.update(status='unsupported', reason='failure_semantics_unconfirmed', generatedCount=0, rejectedCount=0,
+                      ineligibleCount=0)
         return result
     reasons, limits = {}, {}
     keys = [(*parent_key(row['raw']), str(row['raw'].get('process_id'))) for row in base]
@@ -206,8 +207,12 @@ def generate(rows, fit, profile, *, scenario, severity, seed, target_rows, conte
                                 'parentId': row['parent']['rowId']})
     result['rejects'] = [{'rowId': base[index]['rowId'], 'reason': reason, 'selected': index in selected}
                          for index, reason in sorted(reasons.items())]
-    result.update(generatedCount=len(planned), rejectedCount=len(reasons), selectedCount=len(selected),
-                  unfilledRequestedRows=target_rows - len(planned))
+    # rejectedCount는 주입 대상으로 선택된 뒤 거부된 행(주입 시도의 실패)만 센다. 코호트 사전 부적격
+    # (미학습 어댑터·부모/시간 불일치 등)은 시도가 아니므로 ineligibleCount로 분리한다. 두 수의 합은 rejects 길이다.
+    selected_indices = set(selected)
+    rejected = sum(1 for index in reasons if index in selected_indices)
+    result.update(generatedCount=len(planned), rejectedCount=rejected, ineligibleCount=len(reasons) - rejected,
+                  selectedCount=len(selected), unfilledRequestedRows=target_rows - len(planned))
     if not planned:
         result.update(status='generation_failed', reason='no_valid_injection')
     return result

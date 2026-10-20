@@ -66,6 +66,21 @@ def _train_rows(conn, snapshot_id):
     return rows
 
 
+def generation_counts(trials):
+    """ESB trial 합계. generated/rejected는 주입 시도(선택된 행) 기준으로 trial마다 합산한다.
+
+    코호트 사전 부적격 행은 반복·시나리오마다 같은 행이 다시 걸러지므로 trial별 합산하지 않고,
+    고유 rowId 수(`ineligibleRows`)로만 보고한다.
+    """
+    counts = Counter(trial['status'] for trial in trials)
+    ineligible = {reject['rowId'] for trial in trials for reject in trial.get('rejects', []) if not reject.get('selected')}
+    return {'generated': measurement(sum(trial['generatedCount'] for trial in trials), 'count'),
+            'rejected': measurement(sum(trial['rejectedCount'] for trial in trials), 'count'),
+            'ineligibleRows': measurement(len(ineligible), 'count'),
+            'unsupportedTrials': measurement(counts['unsupported'], 'count'),
+            'failedGenerationTrials': measurement(counts['generation_failed'], 'count')}
+
+
 def _esb(conn, spec, context, rows, train, root, snapshot, baseline):
     base, parent_context = rows_for_generation(conn, rows, spec, snapshot)
     fit = fit_generator([{'rowId': str(row_id), 'raw': raw, 'split': split,
@@ -97,10 +112,7 @@ def _esb(conn, spec, context, rows, train, root, snapshot, baseline):
                       for trial in trials]
     counts = Counter(trial['status'] for trial in trials)
     artifact['uniqueInjectedProcessCount'] = len({truth['rowId'] for trial in trials for truth in trial['truth']})
-    metrics = {'generated': measurement(sum(trial['generatedCount'] for trial in trials), 'count'),
-               'rejected': measurement(sum(trial['rejectedCount'] for trial in trials), 'count'),
-               'unsupportedTrials': measurement(counts['unsupported'], 'count'),
-               'failedGenerationTrials': measurement(counts['generation_failed'], 'count')}
+    metrics = generation_counts(trials)
     for path in PATHS:
         denominator = sum(trial['metrics'][path]['injectedCount'] for trial in trials)
         numerator = sum(trial['metrics'][path]['detectedCount'] for trial in trials)

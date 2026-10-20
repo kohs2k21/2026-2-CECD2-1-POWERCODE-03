@@ -107,3 +107,35 @@ DB 전용 역할 검증 중 파생변수 저장 권한 및 manifest 검증의 `F
 - 정답 없는 평가는 unmeasured를 유지한다. 검증용 후보 선택은 운영 활성 포인터나 승인 이력을 변경하지 않는다.
 
 실제 API 문서의 세 응답은 설정 목록, 설정 상세, 진행 중 빈 목록이다. 실행 로그의 비어 있지 않은 실제 shape는 미확인이다. 공통 tagged 입력과 설정 가능한 필드 매핑으로 API 입고 경로를 구현/시험했으며, 실제 서버에서는 비어 있지 않은 로그에 맞춰 매핑을 확정해야 한다. GPU 추천 모델 실제 실행과 서버 배포 검증은 수행하지 않았다. GitHub CI 단계는 추가했으나 원격 실행 결과는 아직 없다. 운영 절차: `../infra/SWITCHABLE_INPUTS.md`.
+
+## 2026-10-21: Trainer PG 통합 시험 로컬 재현 기반 (Issue #69)
+
+CI `worker-runtime` 작업과 같은 순서를 Windows 로컬에서 재현했다. 운영 DB·공용 `pwc-postgres`(55432)·고객 API·GPU는 사용하지 않는다.
+
+```bash
+# 1. 격리 PostgreSQL 17 (loopback, 임시 named volume; 55432/5432 회피)
+docker run -d --name pwc69-pg -p 127.0.0.1:55469:5432 -e POSTGRES_PASSWORD=local-ci-only \
+  -v pwc69-pg-data:/var/lib/postgresql/data postgres:17-alpine
+# 2. Python 3.12 venv (워크트리 안 .venv, Git ignore) + 워커 의존성
+uv venv --python 3.12 .venv && uv pip install --python .venv/Scripts/python.exe -r server/worker/requirements.txt
+# 3. 허용 QA DB 6개를 새로 만든다(기존 DB가 있으면 실패하므로 재실행 전 수동 DROP)
+RUNTIME_TEST_ADMIN_URL=postgresql://postgres:local-ci-only@127.0.0.1:55469/postgres \
+  .venv/Scripts/python.exe server/infra/tests/prepare-runtime-db.py
+# 4. 연구 번들: core.autocrlf=true 체크아웃은 adapter_config.json이 CRLF로 바뀌어 hash 검증에 실패하므로 LF 사본에서 내보낸다
+git -c core.autocrlf=false archive HEAD research server/worker | tar -x -C <scratch>/lf-export
+.venv/Scripts/python.exe server/worker/research_bundle.py --repository <scratch>/lf-export --output <scratch>/research-runtime
+# 5. backend 빌드(Node 22): cd server/backend && npm ci && npm run build
+# 6. 단위 → 통합(ci.yml worker-runtime 단계와 같은 DB·환경변수·순서)
+PYTHONUTF8=1 PYTHON_DOTENV_DISABLED=1 .venv/Scripts/python.exe -m unittest discover -s server/worker/tests -p 'test_*.py'
+DATABASE_URL=postgresql://postgres:local-ci-only@127.0.0.1:55469/qa_research_pipeline RESEARCH_BUNDLE_ROOT=<scratch>/research-runtime \
+  .venv/Scripts/python.exe server/worker/tests/integration_research_pipeline.py
+# ... 이하 ci.yml의 DATABASE_URL / PIPELINE_TEST_DATABASE_URL 짝을 그대로 사용
+# 7. 종료: docker rm -f pwc69-pg && docker volume rm pwc69-pg-data
+```
+
+- 포트는 CI와 달리 임의(55469)이며 공용 `pwc-postgres` 55432와 로컬 5432를 피한다.
+- `PYTHON_DOTENV_DISABLED=1`로 저장소 `.env`를 읽지 않는다. 시험 자격증명은 위 임시 컨테이너 전용 값이다.
+- CI에 없는 `integration_storage/csv_replay/feature_pipeline/training_boundary/model_ports`는 training 큐를 공유하면 서로 작업을 가로채므로 각각 새 DB에서 실행한다.
+- `integration_feature_pipeline.py`(ML `not_ready` 기대 vs 현재 `failed/component_failed`)와 `integration_model_ports.py`(학습 행 수가 현재 최소 fit 500+보정 125 미만)는 서비스 전환 이전 fixture라 격리 DB에서도 실패한다. CI 비포함 상태 그대로이며 이번 범위에서 수정하지 않았다.
+
+결과(2026-10-21, 위 절차·변경 후): 단위 113개 통과. CI `worker-runtime` 동등 15단계 전부 통과(research_pipeline, service_transition, api_collection, demo_replay, demo_permissions, switchable_inputs, trainer_service_contract, input_roles, metrics_service --utilities/본체, jobs.integration.mjs, synthetic-catalog-parity.mjs, synthetic_service, prepared_csv_service, service-transition.integration.mjs). CI 비포함 5종은 storage·csv_replay·training_boundary 통과, feature_pipeline·model_ports는 위 사유로 실패. 변경 전 기준 실행에서도 같은 두 시험만 실패했고 `switchable_inputs`는 SYSTEMROOT 미전달로 Windows에서만 실패하던 것을 시험 측에서 보완했다.

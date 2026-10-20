@@ -60,7 +60,9 @@ def main():
             replay=stage_csv(conn,sid,'reference',files);conn.commit()
             assert stage_csv(conn,sid,'reference',files)==replay;conn.commit()
             sock=socket.socket();sock.bind(('127.0.0.1',0));port=sock.getsockname()[1];sock.close()
-            env={'PATH':os.environ['PATH'],'DATABASE_URL':dsn,'JWT_SECRET':'input-local-api-secret','PORT':str(port),
+            # Windows Node는 SYSTEMROOT 없이 소켓을 열지 못한다(listen UNKNOWN -4094). 비밀값 없는 OS 변수만 전달한다.
+            env={**{key:os.environ[key] for key in ('SYSTEMROOT','TEMP','TMP') if key in os.environ},
+                'PATH':os.environ['PATH'],'DATABASE_URL':dsn,'JWT_SECRET':'input-local-api-secret','PORT':str(port),
                 'USER_DATA_PATH':str(temp/'users.json'),'SEED_ADMIN_EMAIL':'admin@example.test','SEED_ADMIN_PASSWORD':'test-password',
                 'SEED_USER_EMAIL':'user@example.test','SEED_USER_PASSWORD':'test-password'}
             child=subprocess.Popen([shutil.which('node'),str(backend/'dist/index.js')],env=env,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)

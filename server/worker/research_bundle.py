@@ -38,7 +38,7 @@ def build(repository: Path, destination: Path) -> None:
         shutil.copy2(design / "model_manifest.json", destination / "design/manifest.json")
         for name in ("feature_system.txt", "rule_system.txt"):
             source = design / name
-            relative = str(source.relative_to(repository))
+            relative = source.relative_to(repository).as_posix()
             if sha(source) != manifest["publication_assets"][relative]:
                 raise ValueError("research_prompt_hash_mismatch")
             shutil.copy2(source, destination / "design" / name)
@@ -62,7 +62,7 @@ def build(repository: Path, destination: Path) -> None:
                 raise ValueError("research_detector_hash_mismatch")
             shutil.copy2(source, models / item["file"])
         shutil.copy2(handoff / "manifest.json", models / "manifest.json")
-        assets = {str(p.relative_to(destination)): sha(p) for p in destination.rglob("*") if p.is_file()}
+        assets = {p.relative_to(destination).as_posix(): sha(p) for p in destination.rglob("*") if p.is_file()}
         (destination / "bundle.json").write_text(json.dumps(
             {"schemaVersion": 1, "assets": assets}, indent=2), encoding="utf-8")
     except Exception:

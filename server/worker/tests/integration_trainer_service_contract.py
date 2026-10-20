@@ -24,6 +24,7 @@ import joblib
 import psycopg
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from integration_research_pipeline import source, observe
+from collector.storage import ingest_observation
 from trainer.catalog import register_feature_set
 from trainer import runner
 from detector.computation import load_context, compute, model_reference
@@ -91,16 +92,43 @@ class Service:
         self.log.close()
 
 
+REVISIONS = {'superseded': [], 'latest': [], 'outside_kept': None, 'outside_ignored': None}
+
+
+def revise(conn, sid, key, previous_id, raw, persisted, label='normal'):
+    """같은 execution의 revision 2 관측(다른 dedup_key·내용)을 Collector 재도착처럼 추가한다."""
+    execution_id = conn.execute('SELECT execution_id FROM data_observations WHERE id=%s', (previous_id,)).fetchone()[0]
+    result = ingest_observation(conn, source_id=sid, layer='P', dedup_key=key, raw=raw,
+                                execution_id=execution_id, revision_no=2)
+    conn.execute("""INSERT INTO data_label_evidence(id,observation_id,revision_no,label,reason_code,created_by_actor_id)
+                    VALUES (%s,%s,1,%s,'TEST_SCENARIO','integration-admin')""", (uuid.uuid4(), result.observation_id, label))
+    conn.execute('UPDATE data_observations SET persisted_at=%s WHERE id=%s', (persisted, result.observation_id))
+    conn.commit()
+    return result.observation_id
+
+
 def seed(conn):
     sid = source(conn, 'Trainer56 controlled process fixture')
     start = datetime.now(timezone.utc)-timedelta(hours=2)
+    first = {}
     for index in range(1000):
         raw = {'adapter_type': 'A' if index % 2 else 'B', 'total_count': str(50+index%13),
                'success_count': str(50+index%13), 'error_count': '0', 'status': 'S'}
         if index >= 700: raw['total_count'] = str(10000+index)
         if index >= 850: raw['adapter_type'] = 'UNSEEN'
-        observe(conn, sid, f'trainer56-{index}', raw, 'normal' if index%2 else 'anomaly' if index>=700 else 'normal',
-                persisted=start+timedelta(seconds=index))
+        first[index] = (raw, observe(conn, sid, f'trainer56-{index}', raw, 'normal' if index%2 else 'anomaly' if index>=700 else 'normal',
+                                     persisted=start+timedelta(seconds=index)).observation_id)
+    # Issue69: 같은 execution의 revision 2가 기간 안에 재도착하면 snapshot 멤버는 최신 1개뿐이다(분모 1000 유지).
+    for index in range(5):
+        raw, previous = first[index]
+        REVISIONS['superseded'].append(previous)
+        REVISIONS['latest'].append(revise(conn, sid, f'trainer56-{index}-rev2', previous, {**raw, 'success_count': str(49+index%13)},
+                                          start+timedelta(seconds=index, milliseconds=500)))
+    # 기간(until) 뒤에 저장된 revision 2는 선택 후보가 아니므로 기간 안의 revision 1이 멤버로 남는다.
+    raw, previous = first[5]
+    REVISIONS['outside_kept'] = previous
+    REVISIONS['outside_ignored'] = revise(conn, sid, 'trainer56-5-rev2-late', previous, {**raw, 'success_count': '1'},
+                                          start+timedelta(seconds=1200))
     features = register_feature_set(conn, DEFINITIONS, 'fixture-admin', definition_kind='operator_defined')
     conn.commit()
     return {'kind': 'train', 'sourceId': str(sid), 'featureSetId': str(features),
@@ -145,6 +173,17 @@ def verify(service, conn, spec):
     status,result,error,attempt=state(conn,identifier)
     assert status=='succeeded',(status,error)
     assert attempt==1 and result['splitCounts']=={'train':700,'validation':150,'test':150}
+    # Issue69: execution별 최신 revision 1개만 멤버. 1,006 후보 행 중 superseded 5·기간 밖 1은 제외되고 분모는 1,000이다.
+    snapshot_id=uuid.UUID(result['snapshotId'])
+    members={row[0] for row in conn.execute('SELECT observation_id FROM data_snapshot_members WHERE snapshot_id=%s',(snapshot_id,)).fetchall()}
+    selection=conn.execute('SELECT selection_spec FROM data_snapshots WHERE id=%s',(snapshot_id,)).fetchone()[0];conn.commit()
+    assert len(members)==1000,len(members)
+    assert set(REVISIONS['latest'])<=members and not (set(REVISIONS['superseded'])&members),'superseded revision kept as member'
+    assert REVISIONS['outside_kept'] in members and REVISIONS['outside_ignored'] not in members,'revision outside the period affected membership'
+    assert selection['revisionRule']=='latest-per-execution-v1' and selection['supersededRevisionCount']==5 and selection['candidateRows']==1005,selection
+    assert result['dataContract']['selectionSpec']['revisionRule']=='latest-per-execution-v1'
+    assert {split for _,split in conn.execute('SELECT observation_id,split::text FROM data_snapshot_members WHERE snapshot_id=%s AND observation_id=ANY(%s)',
+                                              (snapshot_id,REVISIONS['latest'])).fetchall()}=={'train'};conn.commit()
     # Issue69: 학습 임시 폴더 tmp/<attempt>는 성공 후 남지 않고, 승격 파일 수는 등록된 산출물 수와 같다.
     def attempt_dirs():
         temporary=service.artifacts/'tmp'

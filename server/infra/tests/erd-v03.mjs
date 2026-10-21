@@ -9,6 +9,7 @@ import { fileURLToPath } from 'node:url';
 import { tmpdir } from 'node:os';
 import { randomUUID } from 'node:crypto';
 import { createServer } from 'node:net';
+import { interim012 } from './erd-v03-interim.mjs';
 
 const toolRoot = process.argv[2];
 assert(toolRoot, 'Pass an isolated temporary workspace containing the test dependencies');
@@ -209,6 +210,7 @@ try {
   }
   await rollback011('erd_rollback_011');
   await searchPath011('erd_search_path_011');
+  await interim012({ Client, port, connection, check, failures, migrations, migrationNames, rolesSql, parity, infra });
   assert.equal(failures.length,0,failures.join('; '));
   console.log(`PASS ${checkCount} integration checks; no project runtime or customer data used`);
 } finally { await cluster.stop(); }
@@ -702,6 +704,14 @@ async function searchPath011(database) {
   try {
     for (const sql of migrations) await c.query(sql);
     await c.query(rolesSql);
+    // database-roles.sql revokes TEMP from PUBLIC (#78-Q10 defense in depth), so every attack below would already stop
+    // at CREATE TEMP TABLE. Assert that layer, then restore TEMP so the attacks exercise the 011 search_path pinning alone.
+    const temp=connection(database); await temp.connect();
+    try {
+      await temp.query('BEGIN'); await temp.query('SET ROLE powercode_trainer');
+      await rejected(temp,'database-roles.sql REVOKE TEMP: runtime role cannot create a temp table',()=>temp.query('CREATE TEMP TABLE run_job_attempts(id uuid)'),['42501']);
+    } finally { await temp.query('ROLLBACK'); await temp.end(); }
+    await c.query(`GRANT TEMPORARY ON DATABASE ${database} TO PUBLIC`);
     const { source, snapshot, job, setFields, queuedSet, readySet } = await fixture011(c);
     const configA=await insert(c,'ml_config_versions',{source_id:source.id});
     const configB=await insert(c,'ml_config_versions',{source_id:source.id});

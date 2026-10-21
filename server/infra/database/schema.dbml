@@ -1,5 +1,5 @@
-// Target schema after migrations 001 through 011 (file-name order, enum additions committed first).
-// 53 public tables + 5 powercode_queue physical queues. Server application state is tracked separately.
+// Target schema after migrations 001 through 012 (file-name order, enum additions committed first).
+// 54 public tables + 5 powercode_queue physical queues. Server application state is tracked separately.
 // Native CHECK predicates, partial/GIN indexes and triggers: canonical SQL; DBML is visualization.
 Project powercode_erd_v03 {
   database_type: 'PostgreSQL'
@@ -915,9 +915,11 @@ Table ops_api_poll_state {
 
 Table run_decision_events {
   id bigint [pk, increment]
-  decision_id uuid [not null, unique]
+  decision_id uuid [unique]
   created_at timestamptz [not null, default: `clock_timestamp()`]
-  Note: '006. 최종 판정 1건당 1이벤트(advisory lock 직렬화, GENERATED ALWAYS identity 순번). SSE 커서 원본, 불변.'
+  event_kind text [not null]
+  interim_id uuid [unique]
+  Note: '006, 012 확장. 최종 판정 1건당 final 1이벤트, 중간 판정 기록 1건당 1이벤트(event_kind = 기록 kind). final ⇔ decision_id 있음·interim_id 없음, 그 외 반대(CHECK). (interim_id, event_kind) → run_decision_interims(id, kind)로 종류 일치. advisory lock(81736,0) 직렬화, GENERATED ALWAYS identity 순번 1개가 SSE 커서 원본, 불변. 012 이전 행은 event_kind final.'
 }
 
 Table run_job_snapshots {
@@ -1148,6 +1150,29 @@ Table run_config_comparisons {
   Note: 'config-comparison-v1. compare job 완료 트랜잭션에서 1회 INSERT(status succeeded|failed, summary에 replacementRecommendation), 이후 UPDATE·DELETE 금지. ready 세트·같은 source·baseline source 일치 trigger. stale은 저장하지 않고 조회 시 파생.'
 }
 
+// 012_decision_interims: Detector interim decision records (#78 B).
+Table run_decision_interims {
+  id uuid [pk]
+  job_id uuid [not null]
+  attempt_id uuid [not null]
+  seq integer [not null]
+  kind text [not null]
+  lease_token uuid
+  evidence_version text
+  superseded_by_attempt_id uuid
+  reason_code text
+  payload jsonb [not null]
+  created_at timestamptz [not null, default: `clock_timestamp()`]
+  indexes {
+    (attempt_id, seq) [unique]
+    (id, kind) [unique]
+    (attempt_id) [unique, name: 'run_decision_interims_first_idx', note: 'partial: WHERE kind = first_anomaly']
+    (attempt_id) [unique, name: 'run_decision_interims_closed_idx', note: 'partial: WHERE kind IN (superseded, no_final)']
+    (job_id, created_at) [name: 'run_decision_interims_job_idx']
+  }
+  Note: '최종 판정 행 이전의 append-only 기록. kind first_anomaly|evidence_added(Detector, 현재 시도·유효 lease·token, lease_token·evidence_version 필수)|superseded(새 시도의 첫 이상 또는 판정 행과 같은 TX)|no_final(detect 작업 failed 전환과 같은 TX). 대체됨·최종 없음은 소유자 SECURITY DEFINER 트리거만 기록. seq·created_at은 DB 부여, 판정 행 뒤 기록 금지, 닫힌 시도 기록 금지, 불변. 같은 작업에 no_final이 있으면 판정 행 INSERT 거부. payload object(내용은 Detector evidence 계약).'
+}
+
 Table run_config_comparison_items {
   comparison_id uuid [not null]
   config_version_id uuid [not null]
@@ -1258,7 +1283,7 @@ Ref: run_window_decisions.monitor_id > ops_window_monitors.id
 Ref: run_window_decisions.source_id > ops_sources.id
 Ref: ops_api_catalog.source_id > ops_sources.id
 Ref: ops_api_poll_state.source_id > ops_sources.id
-Ref: run_process_decisions.id - run_decision_events.decision_id
+Ref: run_process_decisions.id ?- run_decision_events.decision_id
 Ref: run_jobs.id - run_job_snapshots.job_id
 Ref: run_job_snapshots.snapshot_id > data_snapshots.id
 Ref: data_api_snapshots.source_id > ops_sources.id
@@ -1296,3 +1321,10 @@ Ref: run_config_comparison_items.config_version_id > ml_config_versions.id
 Ref: run_config_comparison_items.(evaluation_id, config_version_id) >? run_evaluations.(id, config_version_id)
 Ref: run_evaluations.comparison_id >? run_config_comparisons.id
 Ref: run_evaluations.evaluation_set_id >? data_evaluation_sets.id
+// 012 refs
+Ref: run_decision_interims.job_id > run_jobs.id
+// Composite FK display: the attempt must belong to the same job (unique (id, job_id)).
+Ref: run_decision_interims.(attempt_id, job_id) > run_job_attempts.(id, job_id)
+Ref: run_decision_interims.(superseded_by_attempt_id, job_id) >? run_job_attempts.(id, job_id)
+// Composite FK display: child interim_id is individually UNIQUE; event kind must equal the record kind.
+Ref: run_decision_events.(interim_id, event_kind) >? run_decision_interims.(id, kind)

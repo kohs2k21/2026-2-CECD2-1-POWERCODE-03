@@ -1,0 +1,512 @@
+{
+  "robust_z[duration_ms]": {
+    "methodId": "sr:robust_z",
+    "version": "sr-prototype-v0",
+    "params": {
+      "field": "duration_ms",
+      "groupBy": "adapter_type",
+      "k": 3.5,
+      "side": "upper",
+      "minGroupRows": 30,
+      "fallback": "none",
+      "madZeroPolicy": "unjudged"
+    },
+    "fitSplit": "train",
+    "train": {
+      "rows": 2100,
+      "statusCounts": {
+        "S": 2100
+      },
+      "usedRows": 2100
+    },
+    "groups": {
+      "A": {
+        "n": 1050,
+        "sufficient": true,
+        "median": 109.0,
+        "mad": 5.0,
+        "meanad": 4.738095238095238
+      },
+      "B": {
+        "n": 1050,
+        "sufficient": true,
+        "median": 109.0,
+        "mad": 5.0,
+        "meanad": 4.733333333333333
+      }
+    },
+    "global": {
+      "n": 2100,
+      "sufficient": true,
+      "median": 109.0,
+      "mad": 5.0,
+      "meanad": 4.735714285714286
+    }
+  },
+  "robust_z[total_count]": {
+    "methodId": "sr:robust_z",
+    "version": "sr-prototype-v0",
+    "params": {
+      "field": "total_count",
+      "groupBy": "adapter_type",
+      "k": 3.5,
+      "side": "upper",
+      "minGroupRows": 30,
+      "fallback": "none",
+      "madZeroPolicy": "unjudged"
+    },
+    "fitSplit": "train",
+    "train": {
+      "rows": 2100,
+      "statusCounts": {
+        "S": 2100
+      },
+      "usedRows": 2100
+    },
+    "groups": {
+      "A": {
+        "n": 1050,
+        "sufficient": true,
+        "median": 13.0,
+        "mad": 2.0,
+        "meanad": 1.7142857142857142
+      },
+      "B": {
+        "n": 1050,
+        "sufficient": true,
+        "median": 13.0,
+        "mad": 2.0,
+        "meanad": 1.7142857142857142
+      }
+    },
+    "global": {
+      "n": 2100,
+      "sufficient": true,
+      "median": 13.0,
+      "mad": 2.0,
+      "meanad": 1.7142857142857142
+    }
+  },
+  "robust_z[total_count,meanad]": {
+    "methodId": "sr:robust_z",
+    "version": "sr-prototype-v0",
+    "params": {
+      "field": "total_count",
+      "groupBy": "adapter_type",
+      "k": 3.5,
+      "side": "upper",
+      "minGroupRows": 30,
+      "fallback": "none",
+      "madZeroPolicy": "meanad"
+    },
+    "fitSplit": "train",
+    "train": {
+      "rows": 2100,
+      "statusCounts": {
+        "S": 2100
+      },
+      "usedRows": 2100
+    },
+    "groups": {
+      "A": {
+        "n": 1050,
+        "sufficient": true,
+        "median": 13.0,
+        "mad": 2.0,
+        "meanad": 1.7142857142857142
+      },
+      "B": {
+        "n": 1050,
+        "sufficient": true,
+        "median": 13.0,
+        "mad": 2.0,
+        "meanad": 1.7142857142857142
+      }
+    },
+    "global": {
+      "n": 2100,
+      "sufficient": true,
+      "median": 13.0,
+      "mad": 2.0,
+      "meanad": 1.7142857142857142
+    }
+  },
+  "iqr_fence[duration_ms]": {
+    "methodId": "sr:iqr_fence",
+    "version": "sr-prototype-v0",
+    "params": {
+      "field": "duration_ms",
+      "groupBy": "adapter_type",
+      "k": 1.5,
+      "side": "upper",
+      "minGroupRows": 30,
+      "fallback": "none"
+    },
+    "fitSplit": "train",
+    "train": {
+      "rows": 2100,
+      "statusCounts": {
+        "S": 2100
+      },
+      "usedRows": 2100
+    },
+    "groups": {
+      "A": {
+        "n": 1050,
+        "sufficient": true,
+        "q1": 104.0,
+        "q3": 114.0,
+        "iqr": 10.0
+      },
+      "B": {
+        "n": 1050,
+        "sufficient": true,
+        "q1": 104.0,
+        "q3": 114.0,
+        "iqr": 10.0
+      }
+    },
+    "global": {
+      "n": 2100,
+      "sufficient": true,
+      "q1": 104.0,
+      "q3": 114.0,
+      "iqr": 10.0
+    }
+  },
+  "iqr_fence[duration_ms,k=3]": {
+    "methodId": "sr:iqr_fence",
+    "version": "sr-prototype-v0",
+    "params": {
+      "field": "duration_ms",
+      "groupBy": "adapter_type",
+      "k": 3.0,
+      "side": "upper",
+      "minGroupRows": 30,
+      "fallback": "none"
+    },
+    "fitSplit": "train",
+    "train": {
+      "rows": 2100,
+      "statusCounts": {
+        "S": 2100
+      },
+      "usedRows": 2100
+    },
+    "groups": {
+      "A": {
+        "n": 1050,
+        "sufficient": true,
+        "q1": 104.0,
+        "q3": 114.0,
+        "iqr": 10.0
+      },
+      "B": {
+        "n": 1050,
+        "sufficient": true,
+        "q1": 104.0,
+        "q3": 114.0,
+        "iqr": 10.0
+      }
+    },
+    "global": {
+      "n": 2100,
+      "sufficient": true,
+      "q1": 104.0,
+      "q3": 114.0,
+      "iqr": 10.0
+    }
+  },
+  "iqr_fence[total_count]": {
+    "methodId": "sr:iqr_fence",
+    "version": "sr-prototype-v0",
+    "params": {
+      "field": "total_count",
+      "groupBy": "adapter_type",
+      "k": 1.5,
+      "side": "upper",
+      "minGroupRows": 30,
+      "fallback": "none"
+    },
+    "fitSplit": "train",
+    "train": {
+      "rows": 2100,
+      "statusCounts": {
+        "S": 2100
+      },
+      "usedRows": 2100
+    },
+    "groups": {
+      "A": {
+        "n": 1050,
+        "sufficient": true,
+        "q1": 11.0,
+        "q3": 15.0,
+        "iqr": 4.0
+      },
+      "B": {
+        "n": 1050,
+        "sufficient": true,
+        "q1": 11.0,
+        "q3": 15.0,
+        "iqr": 4.0
+      }
+    },
+    "global": {
+      "n": 2100,
+      "sufficient": true,
+      "q1": 11.0,
+      "q3": 15.0,
+      "iqr": 4.0
+    }
+  },
+  "quantile_tail[duration_ms]": {
+    "methodId": "sr:quantile_tail",
+    "version": "sr-prototype-v0",
+    "params": {
+      "field": "duration_ms",
+      "groupBy": "adapter_type",
+      "quantile": 0.99,
+      "minGroupRows": 1000,
+      "fallback": "global"
+    },
+    "fitSplit": "train",
+    "train": {
+      "rows": 2100,
+      "statusCounts": {
+        "S": 2100
+      },
+      "usedRows": 2100
+    },
+    "groups": {
+      "A": {
+        "n": 1050,
+        "sufficient": true,
+        "threshold": 118.0
+      },
+      "B": {
+        "n": 1050,
+        "sufficient": true,
+        "threshold": 118.0
+      }
+    },
+    "global": {
+      "n": 2100,
+      "sufficient": true,
+      "threshold": 118.0
+    }
+  },
+  "quantile_tail[duration_ms,min30,nofallback]": {
+    "methodId": "sr:quantile_tail",
+    "version": "sr-prototype-v0",
+    "params": {
+      "field": "duration_ms",
+      "groupBy": "adapter_type",
+      "quantile": 0.99,
+      "minGroupRows": 30,
+      "fallback": "none"
+    },
+    "fitSplit": "train",
+    "train": {
+      "rows": 2100,
+      "statusCounts": {
+        "S": 2100
+      },
+      "usedRows": 2100
+    },
+    "groups": {
+      "A": {
+        "n": 1050,
+        "sufficient": true,
+        "threshold": 118.0
+      },
+      "B": {
+        "n": 1050,
+        "sufficient": true,
+        "threshold": 118.0
+      }
+    },
+    "global": {
+      "n": 2100,
+      "sufficient": true,
+      "threshold": 118.0
+    }
+  },
+  "quantile_tail[total_count]": {
+    "methodId": "sr:quantile_tail",
+    "version": "sr-prototype-v0",
+    "params": {
+      "field": "total_count",
+      "groupBy": "adapter_type",
+      "quantile": 0.99,
+      "minGroupRows": 1000,
+      "fallback": "global"
+    },
+    "fitSplit": "train",
+    "train": {
+      "rows": 2100,
+      "statusCounts": {
+        "S": 2100
+      },
+      "usedRows": 2100
+    },
+    "groups": {
+      "A": {
+        "n": 1050,
+        "sufficient": true,
+        "threshold": 16.0
+      },
+      "B": {
+        "n": 1050,
+        "sufficient": true,
+        "threshold": 16.0
+      }
+    },
+    "global": {
+      "n": 2100,
+      "sufficient": true,
+      "threshold": 16.0
+    }
+  },
+  "centered_tail[duration_ms]": {
+    "methodId": "sr:centered_tail",
+    "version": "sr-prototype-v0",
+    "params": {
+      "field": "duration_ms",
+      "groupBy": "adapter_type",
+      "quantile": 0.99,
+      "minGroupRows": 30,
+      "minPooledRows": 200,
+      "fallback": "none"
+    },
+    "fitSplit": "train",
+    "train": {
+      "rows": 2100,
+      "statusCounts": {
+        "S": 2100
+      },
+      "usedRows": 2100
+    },
+    "groups": {
+      "A": {
+        "n": 1050,
+        "sufficient": true,
+        "median": 109.0
+      },
+      "B": {
+        "n": 1050,
+        "sufficient": true,
+        "median": 109.0
+      }
+    },
+    "global": {
+      "n": 2100,
+      "sufficient": false
+    },
+    "pooled": {
+      "n": 2100,
+      "sufficient": true,
+      "threshold": 9.0,
+      "mad": 5.0
+    }
+  },
+  "centered_tail[total_count]": {
+    "methodId": "sr:centered_tail",
+    "version": "sr-prototype-v0",
+    "params": {
+      "field": "total_count",
+      "groupBy": "adapter_type",
+      "quantile": 0.99,
+      "minGroupRows": 30,
+      "minPooledRows": 200,
+      "fallback": "none"
+    },
+    "fitSplit": "train",
+    "train": {
+      "rows": 2100,
+      "statusCounts": {
+        "S": 2100
+      },
+      "usedRows": 2100
+    },
+    "groups": {
+      "A": {
+        "n": 1050,
+        "sufficient": true,
+        "median": 13.0
+      },
+      "B": {
+        "n": 1050,
+        "sufficient": true,
+        "median": 13.0
+      }
+    },
+    "global": {
+      "n": 2100,
+      "sufficient": false
+    },
+    "pooled": {
+      "n": 2100,
+      "sufficient": true,
+      "threshold": 3.0,
+      "mad": 2.0
+    }
+  },
+  "ratio_rule": {
+    "methodId": "sr:ratio_rule",
+    "version": "sr-prototype-v0",
+    "params": {
+      "errorRatioMax": 0.0,
+      "retryRatioMax": null,
+      "fitQuantile": 0.99,
+      "minTrainRows": 200
+    },
+    "fitSplit": "train",
+    "train": {
+      "rows": 2100,
+      "statusCounts": {
+        "S": 2100
+      }
+    },
+    "trainRatios": {
+      "errorRatio": {
+        "n": 2100,
+        "sufficient": true,
+        "quantile": 0.0,
+        "max": 0.0
+      },
+      "retryRatio": {
+        "n": 2100,
+        "sufficient": true,
+        "quantile": 0.0,
+        "max": 0.0
+      }
+    },
+    "thresholds": {
+      "errorRatioMax": {
+        "value": 0.0,
+        "basis": "parameter"
+      },
+      "retryRatioMax": {
+        "value": 0.0,
+        "basis": "train_quantile_0.99"
+      }
+    }
+  },
+  "count_conservation": {
+    "methodId": "sr:count_conservation",
+    "version": "sr-prototype-v0",
+    "params": {
+      "tolerance": 0
+    },
+    "fitSplit": "none",
+    "train": {
+      "rows": 2100,
+      "statusCounts": {
+        "S": 2100
+      },
+      "checkedRows": 2100,
+      "violations": 0
+    }
+  }
+}

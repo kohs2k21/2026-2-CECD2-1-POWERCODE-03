@@ -4,6 +4,7 @@
 
 - [이상 탐지 연구 (#38)](anomaly_detection/README.md): 전체 연구 코드·노트북·최종 v12 IF/K-means·원본 참조 아카이브·학습/검증 캐시 포함, 기간별 원본 및 벤치마크 CSV·정답은 제외 (박준서)
 - [이상 탐지 연구 (#38)](anomaly_detection/README.md): 분석 노트북·규칙/IF·K-means·시간창 선택·평가 결과 및 학습 모델 포함, 데이터셋 제외 (고민성)
+- [PROCESS 행 단위 Soft Rule 프로토타입 (#75)](evaluation/process_sr_prototype/README.md): 행 1개+어댑터 train 기준선으로 판정하는 SR 후보 6종(robust_z·iqr_fence·quantile_tail·centered_tail·ratio_rule·count_conservation) 조사·fixture 실행·카탈로그 메타, 데이터셋 제외(지어낸 lab fixture만, 고객 데이터 없음)
 
 ## 파생 변수·Rule 생성 모델 v0.1 (#40)
 

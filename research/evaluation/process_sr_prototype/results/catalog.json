@@ -1,0 +1,460 @@
+{
+  "catalogVersion": "sr-prototype-v0",
+  "unit": "PROCESS_row",
+  "identifierScheme": "sr:<key>",
+  "interface": {
+    "fit": "fit(train_df, params) -> fitted",
+    "score": "score(df, fitted) -> flag/score/reason/basis/fallback_reason",
+    "scoreRow": "score_row(key, row_dict, fitted) -> dict"
+  },
+  "reasonCodes": [
+    "above_threshold",
+    "conservation_violated",
+    "conserved",
+    "error_and_retry_ratio_exceeded",
+    "error_ratio_exceeded",
+    "group_missing",
+    "group_support_insufficient",
+    "group_unseen",
+    "pooled_support_insufficient",
+    "retry_ratio_exceeded",
+    "scale_zero",
+    "threshold_unavailable",
+    "total_zero_or_missing",
+    "value_missing",
+    "value_negative",
+    "within_threshold"
+  ],
+  "reasonSuffix": {
+    "pattern": ";<side>_unjudged:<cause>",
+    "side": [
+      "error",
+      "retry"
+    ],
+    "cause": [
+      "threshold_unavailable",
+      "value_missing"
+    ]
+  },
+  "basisValues": [
+    "group",
+    "global",
+    "group+pooled",
+    "formula",
+    "unavailable",
+    "error:<parameter|train_quantile_<q>|unavailable>,retry:<same> (ratio_rule)"
+  ],
+  "fallbackReasonCodes": [
+    "group_missing",
+    "group_support_insufficient",
+    "group_unseen"
+  ],
+  "items": [
+    {
+      "methodId": "sr:robust_z",
+      "key": "robust_z",
+      "displayName": "Group robust z-score (median/MAD)",
+      "kind": "sr",
+      "status": "prototype",
+      "unit": "PROCESS_row",
+      "parameterSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "field": {
+            "type": "string",
+            "enum": [
+              "duration_ms",
+              "total_count",
+              "success_count",
+              "error_count",
+              "retry_count"
+            ]
+          },
+          "groupBy": {
+            "type": "string",
+            "enum": [
+              "adapter_type"
+            ]
+          },
+          "k": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "side": {
+            "type": "string",
+            "enum": [
+              "upper",
+              "both"
+            ]
+          },
+          "minGroupRows": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "fallback": {
+            "type": "string",
+            "enum": [
+              "none",
+              "global"
+            ]
+          },
+          "madZeroPolicy": {
+            "type": "string",
+            "enum": [
+              "unjudged",
+              "meanad"
+            ]
+          }
+        }
+      },
+      "defaults": {
+        "field": "duration_ms",
+        "groupBy": "adapter_type",
+        "k": 3.5,
+        "side": "upper",
+        "minGroupRows": 30,
+        "fallback": "none",
+        "madZeroPolicy": "unjudged"
+      },
+      "defaultsSource": "k=3.5: Iglewicz & Hoaglin (1993) modified z-score convention, not tuned on project data; fallback=none mirrors Trainer feature_fit group_median (unseen group -> missing, no global substitute); minGroupRows=30 is a prototype guess, undecided",
+      "inputRequirements": {
+        "fields": [
+          "<field>",
+          "adapter_type"
+        ],
+        "fitSplit": "train",
+        "trainFilter": "status==S reference rows supplied by caller",
+        "minTrainRows": "minGroupRows per group"
+      },
+      "fitStatistics": [
+        "per-group n, median, MAD, meanAD",
+        "global n, median, MAD, meanAD"
+      ],
+      "limitations": [
+        "MAD=0 (discrete/constant groups) leaves rows unjudged unless madZeroPolicy=meanad",
+        "one-sided upper by default: short durations / low counts are never flagged",
+        "per-row group lookup; unseen adapter has no verdict when fallback=none"
+      ]
+    },
+    {
+      "methodId": "sr:iqr_fence",
+      "key": "iqr_fence",
+      "displayName": "Group Tukey IQR fence",
+      "kind": "sr",
+      "status": "prototype",
+      "unit": "PROCESS_row",
+      "parameterSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "field": {
+            "type": "string",
+            "enum": [
+              "duration_ms",
+              "total_count",
+              "success_count",
+              "error_count",
+              "retry_count"
+            ]
+          },
+          "groupBy": {
+            "type": "string",
+            "enum": [
+              "adapter_type"
+            ]
+          },
+          "k": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "side": {
+            "type": "string",
+            "enum": [
+              "upper",
+              "both"
+            ]
+          },
+          "minGroupRows": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "fallback": {
+            "type": "string",
+            "enum": [
+              "none",
+              "global"
+            ]
+          }
+        }
+      },
+      "defaults": {
+        "field": "duration_ms",
+        "groupBy": "adapter_type",
+        "k": 1.5,
+        "side": "upper",
+        "minGroupRows": 30,
+        "fallback": "none"
+      },
+      "defaultsSource": "k=1.5 inner fence (Tukey 1977); 3.0 = far-out fence. Same as trend_sr_comparison R03 variants {1.5, 3.0}. Not tuned on project data",
+      "inputRequirements": {
+        "fields": [
+          "<field>",
+          "adapter_type"
+        ],
+        "fitSplit": "train",
+        "trainFilter": "status==S reference rows supplied by caller",
+        "minTrainRows": "minGroupRows per group"
+      },
+      "fitStatistics": [
+        "per-group n, q1, q3, iqr",
+        "global n, q1, q3, iqr"
+      ],
+      "limitations": [
+        "IQR=0 (discrete counts with narrow spread) leaves rows unjudged",
+        "fence is linear in IQR: heavy-tailed durations produce many hits at k=1.5"
+      ]
+    },
+    {
+      "methodId": "sr:quantile_tail",
+      "key": "quantile_tail",
+      "displayName": "Group empirical quantile threshold (P99)",
+      "kind": "sr",
+      "status": "prototype",
+      "unit": "PROCESS_row",
+      "parameterSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "field": {
+            "type": "string",
+            "enum": [
+              "duration_ms",
+              "total_count",
+              "success_count",
+              "error_count",
+              "retry_count"
+            ]
+          },
+          "groupBy": {
+            "type": "string",
+            "enum": [
+              "adapter_type"
+            ]
+          },
+          "quantile": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "exclusiveMaximum": 1
+          },
+          "minGroupRows": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "fallback": {
+            "type": "string",
+            "enum": [
+              "none",
+              "global"
+            ]
+          }
+        }
+      },
+      "defaults": {
+        "field": "duration_ms",
+        "groupBy": "adapter_type",
+        "quantile": 0.99,
+        "minGroupRows": 1000,
+        "fallback": "global"
+      },
+      "defaultsSource": "research process_anomaly_pipeline QuantileBook: p99 with min_p99_support=1000 per group, GLOBAL fallback, values >= 0 only (config.py, quantiles.py). Research choice, not validated as operating value",
+      "inputRequirements": {
+        "fields": [
+          "<field>",
+          "adapter_type"
+        ],
+        "fitSplit": "train",
+        "trainFilter": "status==S reference rows supplied by caller; negative values dropped",
+        "minTrainRows": "minGroupRows per group (1000 by research default)"
+      },
+      "fitStatistics": [
+        "per-group n, threshold (quantile)",
+        "global n, threshold"
+      ],
+      "limitations": [
+        "expected hit rate on in-distribution rows ~ (1 - quantile) by construction: this is the design false-alarm budget, not an error",
+        "min support 1000 leaves small adapters on global fallback or unjudged",
+        "discrete counts: threshold often equals the maximum train value, so +1 shifts are only partly visible"
+      ]
+    },
+    {
+      "methodId": "sr:centered_tail",
+      "key": "centered_tail",
+      "displayName": "Group-centered deviation vs pooled train quantile",
+      "kind": "sr",
+      "status": "prototype",
+      "unit": "PROCESS_row",
+      "parameterSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "field": {
+            "type": "string",
+            "enum": [
+              "duration_ms",
+              "total_count",
+              "success_count",
+              "error_count",
+              "retry_count"
+            ]
+          },
+          "groupBy": {
+            "type": "string",
+            "enum": [
+              "adapter_type"
+            ]
+          },
+          "quantile": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "exclusiveMaximum": 1
+          },
+          "minGroupRows": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "minPooledRows": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
+      "defaults": {
+        "field": "duration_ms",
+        "groupBy": "adapter_type",
+        "quantile": 0.99,
+        "minGroupRows": 30,
+        "minPooledRows": 200
+      },
+      "defaultsSource": "centering = Trainer feature DSL group_centered (value - train group median; unseen group -> missing). Pooled P99 of centered values is a prototype proposal so small adapters share one threshold; quantile 0.99 copied from research QuantileBook. minGroupRows/minPooledRows are prototype guesses",
+      "inputRequirements": {
+        "fields": [
+          "<field>",
+          "adapter_type"
+        ],
+        "fitSplit": "train",
+        "trainFilter": "status==S reference rows supplied by caller",
+        "minTrainRows": "minPooledRows overall; minGroupRows per group for the median"
+      },
+      "fitStatistics": [
+        "per-group n, median",
+        "pooled n, threshold = quantile of (x - group median)"
+      ],
+      "limitations": [
+        "assumes deviations are comparable across groups in absolute field units (ms or count); adapters with very different scales dominate the pooled quantile",
+        "no global fallback for the median (Trainer contract), so unseen adapters are unjudged"
+      ]
+    },
+    {
+      "methodId": "sr:ratio_rule",
+      "key": "ratio_rule",
+      "displayName": "Count ratio thresholds (error/total, retry/total)",
+      "kind": "sr",
+      "status": "prototype",
+      "unit": "PROCESS_row",
+      "parameterSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "errorRatioMax": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "retryRatioMax": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "fitQuantile": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "exclusiveMaximum": 1
+          },
+          "minTrainRows": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
+      "defaults": {
+        "errorRatioMax": 0.0,
+        "retryRatioMax": null,
+        "fitQuantile": 0.99,
+        "minTrainRows": 200
+      },
+      "defaultsSource": "errorRatioMax=0: Trainer synthetic reference requires error_count==0 for S rows (synthetic_generation.reference_reason) and research rule success_with_error; retryRatioMax=null means fit = train quantile of retry/total (prototype proposal). Thresholds undecided",
+      "inputRequirements": {
+        "fields": [
+          "total_count",
+          "error_count",
+          "retry_count"
+        ],
+        "fitSplit": "train",
+        "trainFilter": "status==S reference rows supplied by caller",
+        "minTrainRows": "minTrainRows for fitted ratios"
+      },
+      "fitStatistics": [
+        "train quantile and max of error/total and retry/total (rows with total>0)"
+      ],
+      "limitations": [
+        "rows with total_count==0 or missing counts are unjudged (ratio undefined)",
+        "partial verdict: when only one threshold (error or retry) is available the row is judged on that side alone and the reason carries a \";<side>_unjudged:<cause>\" suffix (decision D)",
+        "overlaps HR status semantics for status=F rows; intended as an S-row soft check, HR/SR boundary undecided",
+        "retry_count is per-execution in the ESB extract; ratio to total_count may not be meaningful for every adapter"
+      ]
+    },
+    {
+      "methodId": "sr:count_conservation",
+      "key": "count_conservation",
+      "displayName": "Count conservation total = success + error",
+      "kind": "sr",
+      "status": "prototype",
+      "unit": "PROCESS_row",
+      "parameterSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "tolerance": {
+            "type": "number",
+            "minimum": 0
+          }
+        }
+      },
+      "defaults": {
+        "tolerance": 0
+      },
+      "defaultsSource": "research-only contract total_count = success_count + error_count (process_anomaly_pipeline rules count_conservation; synthetic lab P04). Not confirmed as a customer fault semantic",
+      "inputRequirements": {
+        "fields": [
+          "total_count",
+          "success_count",
+          "error_count"
+        ],
+        "fitSplit": "none",
+        "trainFilter": "not applicable (formula rule); fit only records train violation count"
+      },
+      "fitStatistics": [
+        "train rows checked, train violations (diagnostic only)"
+      ],
+      "limitations": [
+        "formula rule with no learned statistic: belongs to HR as much as SR; placement is a decision for the catalogue owner",
+        "any missing count leaves the row unjudged"
+      ]
+    }
+  ]
+}

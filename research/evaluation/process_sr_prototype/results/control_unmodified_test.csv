@@ -1,0 +1,14 @@
+instance,method,rows,judged_rows,unjudged_rows,unlabeled_alert_rows,unlabeled_alert_rate,false_positive_rate,verified_normal_rows
+robust_z[duration_ms],robust_z,450,450,0,0,0.0,,0
+robust_z[total_count],robust_z,450,450,0,0,0.0,,0
+"robust_z[total_count,meanad]",robust_z,450,450,0,0,0.0,,0
+iqr_fence[duration_ms],iqr_fence,450,450,0,0,0.0,,0
+"iqr_fence[duration_ms,k=3]",iqr_fence,450,450,0,0,0.0,,0
+iqr_fence[total_count],iqr_fence,450,450,0,0,0.0,,0
+quantile_tail[duration_ms],quantile_tail,450,450,0,0,0.0,,0
+"quantile_tail[duration_ms,min30,nofallback]",quantile_tail,450,450,0,0,0.0,,0
+quantile_tail[total_count],quantile_tail,450,450,0,0,0.0,,0
+centered_tail[duration_ms],centered_tail,450,450,0,0,0.0,,0
+centered_tail[total_count],centered_tail,450,450,0,0,0.0,,0
+ratio_rule,ratio_rule,450,450,0,0,0.0,,0
+count_conservation,count_conservation,450,450,0,0,0.0,,0

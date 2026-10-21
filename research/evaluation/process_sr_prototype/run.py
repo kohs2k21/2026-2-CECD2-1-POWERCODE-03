@@ -189,7 +189,11 @@ def main():
     print('\n## timing')
     print(evaluate.markdown_table(timing_df, ['instance', 'fit_rows', 'fit_ms', 'batch_rows', 'batch_score_ms',
                                               'row_latency_mean_ms', 'row_latency_p99_ms', 'row_latency_max_ms']))
-    print(f"\nelapsed {manifest['elapsedSeconds']:.1f}s -> {out.relative_to(ROOT.parents[2])}")
+    try:
+        shown = out.relative_to(ROOT.parents[2])
+    except ValueError:  # --out outside the repository
+        shown = out
+    print(f"\nelapsed {manifest['elapsedSeconds']:.1f}s -> {shown}")
 
 
 if __name__ == '__main__':

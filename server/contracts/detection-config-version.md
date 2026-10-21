@@ -25,6 +25,7 @@
 {
   "schemaVersion": 3,
   "contractVersion": "detection-config-v1",
+  "contentHashVersion": 2,
   "sourceId": "<source UUID>",
   "baseVersionId": "<config UUID|null>",
   "displayName": "실험 7 — HR + IF(v1 기본값) + EWMA",
@@ -59,9 +60,10 @@
 |---|---|
 | `schemaVersion` | 정수 3 고정 |
 | `contractVersion` | `detection-config-v1` |
+| `contentHashVersion` | 정수 2 ★(spec 키로 저장). hash 입력 규칙 버전(아래 hash 절). 목록·`GET /:id` 응답에 그대로 노출. v1·v2 행은 키가 없으므로 응답에서 `contentHashVersion: 1`로 투영 |
 | `sourceId` | 구성이 속한 source; 모든 참조(후보·Rule·피처셋)의 source와 일치 |
 | `baseVersionId` | 출발점 구성(복제·수정 전 버전) 또는 null; `ml_config_versions.base_version_id`에 같은 값 |
-| `displayName` | 1~120자, 표시용. 내용 hash 계산에 포함 ★(같은 조합·다른 이름 = 다른 버전) |
+| `displayName` | 1~120자, 표시용. 내용 hash 계산에서 **제외** ★(WebUI 검토 의견 5) |
 | `catalogVersion` | 저장 시점 카탈로그 버전. 실행 가능 여부(`executable`)는 **저장하지 않고** 목록·실행 시 현재 카탈로그로 다시 계산 |
 | `featureSetId` | 등록 Rule `F.*`가 묶이는 피처셋(Rule `input_spec.featureSetId`와 일치, `configRoutes.ts:127-136` 검사 유지). Rule·ML 모두 없으면 null |
 | `trainingSnapshotId` | 활성 ML 방법이 1개면 그 후보의 학습 스냅샷; 여러 개면 null, 각 `ml:*`의 후보가 보유 |
@@ -77,8 +79,9 @@
 | `createdFrom` | `{kind: "train"|"compose", trainJobId?, recommendationJobId?}`; LLM 추천 결과에서 시작한 저장은 `recommendationJobId` 기록 |
 | `operationalEligibility`·`preparedDatasetId`·`preparedInputContract` | 기존 키 유지([prepared-csv-v1](prepared-csv-import.md)). 활성 `ml:*` 후보 중 하나라도 prepared 계보면 구성 전체에 `operationalEligibility.eligible=false` 전파 ★ |
 
-- 내용 hash(`content_hash`): `configuration_spec` 전체를 key 정렬 compact JSON으로 SHA-256(`trainer/runner.py:408`와 같은 방식)
-- 같은 source·같은 hash가 이미 있으면 새 행을 만들지 않고 기존 ID 반환(200) ★
+- 내용 hash(`content_hash`) ★(WebUI 검토 의견 5): **실제 구성 요소만** key 정렬 compact JSON으로 SHA-256(`trainer/runner.py:408`와 같은 직렬화) — `sourceId`, `featureSetId`, `methods[]`의 `methodId`·`enabled`·`parameters`·`ruleVersionId`·`artifacts.modelArtifactId/fitArtifactId`·`featureSetId`, `combinationPolicy`. `displayName`·`baseVersionId`·`createdFrom`·`catalogVersion`·`trainingSnapshotId`·파생 복사본(`statusRulePolicy`·`ruleVersionIds`·`trainingSelection`)은 제외. `schemaVersion`·`contractVersion`·`contentHashVersion`도 hash 입력에서 제외(버전 구분은 아래 중복 판정 범위로 처리); `requestedMode`는 파생값이라 spec에 저장하지 않고 응답에서만 계산하므로 hash와 무관. **충돌**: 현행 v1·v2는 spec 전체 hash이므로 v3는 hash 입력 규칙이 다름을 `contentHashVersion: 2` 키로 표기 ★
+- 중복 판정 범위: 같은 `sourceId` **이고 `contentHashVersion=2`인 행끼리만** hash 비교. v1·v2 행(전체 hash)과는 비교하지 않음
+- 같은 구성 재저장 **[확정 — 사용자 10/21, 설계 방향 4.4절]**: 막지 않고 기존 버전으로 안내. 형식 ★: 새 행을 만들지 않고 `200 {id: "<기존 config UUID>", duplicateOf: "<기존 config UUID>", ...}`로 기존 버전을 반환(`displayName`이 달라도 hash 제외 항목이므로 같은 구성). 중복이 아니면 `201`·`duplicateOf: null`
 
 ## 생성 경로
 
@@ -109,7 +112,7 @@
 ```
 
 - 헤더 `Idempotency-Key`(1~128자 `[a-zA-Z0-9_.:-]`) 선택; 같은 키·같은 본문 200, 다른 본문 409 `idempotency_payload_conflict`(기존 applications 규약 재사용)
-- 응답 `201 {id, sourceId, schemaVersion: 3, contentHash, requestedMode, createdAt}`; 같은 hash 재저장은 200
+- 응답 `201 {id, sourceId, schemaVersion: 3, contentHash, contentHashVersion: 2, requestedMode, executable, createdAt, duplicateOf: null}`; 같은 구성이 이미 있으면 `200` + 기존 버전·`duplicateOf`(위 hash 절, [확정] 차단 없음)
 - 학습 없음. 서버가 `ml:*`의 `parameters`·`featureSetId`·`methodVersion`·artifact ID를 후보의 `ml_config_models` 행에서 채움(`candidateConfigVersionId`만 받음)
 - 검증(순서대로, 첫 실패에서 중단)
 
@@ -133,32 +136,38 @@
 
 ## 조회
 
-- `GET /api/configurations?sourceId=<uuid>&limit=<1..100>&cursor=<base64url>` [신규]: 최신순 커서 페이지(`reports/candidates`와 같은 커서 형식 `reportRoutes.ts:115-121`)
+- `GET /api/configurations?sourceId=<uuid>&limit=<1..100>&cursor=<base64url>&createdFrom=<train|compose>&modelKey=<model_key>&executable=<true|false>` [신규]: 최신순 커서 페이지(`reports/candidates`와 같은 커서 형식 `reportRoutes.ts:115-121`). 필터(WebUI 검토 의견 2·10): `createdFrom` = train 후보 vs compose 조합본, `modelKey` = 활성 `ml:<model_key>` 포함 구성, `executable` = 버전 단위 실행 가능 여부. v1·v2 행은 `createdFrom=train`으로 투영
 
 ```json
-{"items": [{"id": "<config UUID>", "sourceId": "…", "schemaVersion": 3, "displayName": "…", "contentHash": "…",
+{"items": [{"id": "<config UUID>", "sourceId": "…", "schemaVersion": 3, "displayName": "…", "contentHash": "…", "contentHashVersion": 2,
             "createdAt": "…", "requestedMode": "parallel", "active": true,
+            "createdFrom": {"kind": "compose", "trainJobId": null, "recommendationJobId": null},
+            "executable": true,
             "methods": [{"methodId": "ml:iforest", "kind": "ml", "enabled": true, "status": "supported",
                          "executable": {"process": true, "window": true}, "executableReason": null}],
             "operationalEligibility": {"eligible": true, "reason": null},
+            "applicationEligibility": {"eligible": true, "evaluationId": "<run_evaluations UUID>", "reason": null},
             "latestEvaluation": {"evaluationId": "…", "snapshotId": "…", "purpose": "validation", "metricVersion": "…",
                                  "applicability": "valid", "completedAt": "…"},
             "latestComparison": {"comparisonJobId": "…", "evaluationSetId": "…", "status": "succeeded", "completedAt": "…"}}],
  "pagination": {"limit": 50, "hasMore": false, "nextCursor": null}}
 ```
 
+- 버전 단위 `executable`(WebUI 검토 의견 10): 활성 방법 전부 `executable.process=true`일 때만 true — 응답 시점 카탈로그로 재계산(저장값 아님). 실행 불가 버전은 교체 후보에서 제외(WebUI 2.2절)
+- `applicationEligibility`(WebUI 검토 의견 3): 서버가 기술 무결성 gate(`purpose=validation ∧ applicability=valid ∧ scored_count>0 ∧ unavailable_count=0 ∧ prepared 아님`, `configRoutes.ts:90-99`; 비교 작업이 만든 행·기존 `evaluate` 행 모두 대상, 합성 세트 비교 행 포함 — [확정 10/21])을 만족하는 **가장 최근 적격 평가** 1건과 버전 `executable=true`를 확인해 `{eligible: true, evaluationId, reason: null}`; 없으면 `{eligible: false, evaluationId: null, reason}`(`no_eligible_evaluation` / `method_results_unavailable` / `operational_ineligible` / `not_executable`). `latestEvaluation`(최신 1건, 적격 무관)과 별개. 적격이어도 적용은 사람 요청으로만
 - `methods[].status`·`executable`은 응답 시점 카탈로그로 계산. schemaVersion 1·2 행은 **읽기 전용 투영** ★: `statusRulePolicy` 유무 → `hr:process-status`, `ml_config_rules` → `rule:*`, `ml_config_models` → `ml:iforest`, `detectionPolicy.mode` → `requestedMode`. 저장 내용은 바꾸지 않음
 - `GET /api/configurations/:id` [기존 확장]: 기존 `{id, sourceId, configurationSpec, contentHash, createdAt}`(`configRoutes.ts:46-56`) 유지 + `schemaVersion`, `displayName`, `requestedMode`, `active`, `methods[]`(위 형식 + `parameters`·`artifacts`), `models[]`(`ml_config_models` 행: `modelKey, featureSetId, modelArtifactId, fitArtifactId, adapterSpec, trainingSettings, thresholdSpec`), `rules[]`(`ml_config_rules` 조인: `ruleVersionId, ruleKey, version, evaluationOrder`)
-- `GET /api/pipeline/reports/candidates`는 그대로 둠(학습 후보 이력). 목록 API와 역할이 겹치나 기존 소비처 보존 ★
+- `GET /api/pipeline/reports/candidates`는 그대로 둠(학습 후보 이력). 목록 API와 역할이 겹치나 기존 소비처 보존 ★. 관계(WebUI 검토 의견 2): `candidates` = train 후보(구성당 최신 평가 1건) 전용 보고, 새 목록 = train 후보 + compose 조합본 전체이며 `createdFrom=train` 필터가 `candidates`와 같은 집합
 
 ## 운영 교체·복원
 
 - `POST /api/configurations/:id/applications` 요청·응답·멱등키 그대로(`configRoutes.ts:58-170`). `operation` apply/restore, `evaluationId`, `expectedRevision`, `expectedActiveVersionId`
-- gate 조건 불변: 해당 구성 ID의 `purpose=validation` 평가가 `applicability='valid' AND scored_count>0 AND unavailable_count=0` + prepared 아님(`configRoutes.ts:90-99`, `applications.py:102-109`)
-- `evaluationId`에 **비교 평가가 만든 구성별 `run_evaluations` 행** 허용 ★ Q-E=A([comparison](config-comparison-evaluation.md) 적용 gate 절). 합성 행을 포함한 세트로 만든 행은 현행대로 `unmeasured`라 gate 불통
+- gate = **기술 무결성만** [확정 — 사용자 10/21, 설계 방향 4.4절]: 해당 구성 ID의 `purpose=validation` 평가가 `applicability='valid' AND scored_count>0 AND unavailable_count=0`(모든 행 complete·방법 결과 unavailable 0) + prepared 아님(`configRoutes.ts:90-99`, `applications.py:102-109`, SQL 형식 불변) + 버전 `executable=true` + 산출물 경로·hash 검증(`prepare_config`). 최종 관문은 사람 수락
+- `evaluationId`에 **비교 평가가 만든 구성별 `run_evaluations` 행** 허용 — 합성 행 포함 세트의 비교 행도 기술 무결성을 만족하면 적격 [확정 10/21]([comparison](config-comparison-evaluation.md) 적용 gate 절). "원본 validation 평가 필수"는 "평가 세트 비교 + 사람 수락"으로 대체. 기존 `evaluate` 원본 validation 행도 계속 유효
+- 요청 본문 선택 필드 `acceptedRecommendation: {comparisonJobId, targetVersionId}` ★: 비교 결과 `replacementRecommendation`을 수락해 요청했음을 기록. 서버는 `targetVersionId == :id`·그 비교 작업에 그 추천이 실제로 있었는지 검증(불일치 400 `accepted_recommendation_mismatch`). 추천 없이 사람이 직접 고른 교체 요청은 이 필드 없이 그대로 허용. 기존 키 집합 검사(`configRoutes.ts:62`)에 키 추가
 - v3 구성의 준비 검사(Detector 소유, 여기서는 요구만): mode 분기 대신 `methods[]` 기준 — 활성 방법 0개 거부, 활성 `ml:*`마다 artifact·fit·feature set 일치(현행 `model_key='iforest'` 정확히 1행 `configRoutes.ts:117-126`·`applications.py:13-32`을 N행으로), 활성 방법 중 `executable.process=false`가 있으면 `method_not_executable:<id>`(D13 A), `rule_feature_set_mismatch` 유지
-- `gate_evidence`에 `comparisonJobId`·`evaluationSetId`를 추가 기록 ★(`gateVersion: 2`); 기존 `{evaluationId, gateVersion: 1}` 형식 유지
-- 자동 교체 없음. 관리자 명시 요청만
+- `gate_evidence`에 `comparisonJobId`·`evaluationSetId`·`acceptedRecommendation`을 추가 기록 ★(`gateVersion: 2`); 기존 `{evaluationId, gateVersion: 1}` 형식 유지
+- **자동 교체 금지** [확정]. 시스템은 추천(`replacementRecommendation`)만 하고 운영 변경은 관리자의 명시 요청(수락)으로만
 
 ## 기존 저장소·계약과의 호환 — 마이그레이션 필요 여부
 
@@ -185,6 +194,9 @@
 | `trainer-service.md:27` | `modelManifest` 단일 | `modelManifests[]`(활성 ML마다 1개) 추가, 기존 `modelManifest`는 활성 ML이 정확히 1개일 때 그 값·아니면 null ★ |
 | `trainer-service.md:71` | "병렬/rule_only/ml_only 선택 모드·기한·수동 승인 보존" | "v1 구성에 한함; v3는 방법 목록·조합 정책 보존"으로 보완. SR 별칭 금지 조항은 유지 |
 | `queues.md:6` | Trainer jobId (train/evaluate/import_csv) | 비교 평가 계약의 새 kind 추가 시 함께 갱신 |
+| `GET /api/jobs`(`jobRoutes.ts:342-353`, 최근 50건 고정) | 필터 없음 | `kind` 필터·`since`·커서 페이지 추가 제안(WebUI 검토 의견 9, 기존 응답 키 유지) |
+| `GET /api/configurations/applications`(`configRoutes.ts:35-44`, `status='succeeded'`만 50건) | 성공 이력만 | 실패·진행 중(`queued/applying/failed`) 포함 + `createdAt`·`errorCode` 추가 제안(WebUI 검토 의견 9) |
+| 작업 상태 표시 | queued/running/succeeded/failed만 | WebUI가 쓰려는 `blocked`(선행 조건 미충족: 실행 불가 방법·적격 평가 없음·활성 구성 변경)는 **DB 상태값이 아니라** 접수 시 4xx 오류 코드 또는 목록의 `applicationEligibility`/`executable`로 표현 — 상태값 추가 없음 ★(WebUI 검토 의견 9) |
 
 ## 코드 충돌 목록(구현 Issue 대상, 사실)
 
@@ -197,7 +209,7 @@
 
 1. `combinationPolicy` 키 이름 — Detector 계약(`detectionPolicy` v2) 확정 시 따름
 2. Q-D 조합 저장 주체: ★A 동기 API
-3. Q-E 적용 gate 증거: ★A 비교 평가 구성별 행 인정 + 합성만이면 unmeasured 유지
+3. Q-E 적용 gate 증거: **[확정 10/21]** 기술 무결성 gate + 평가 세트 비교(합성 포함) + 사람 수락, 자동 교체 금지. 남은 것: `acceptedRecommendation` 형식 ★
 4. train 요청의 v3 생성 시점: ★ 구현 단계 2(레지스트리·어댑터 디스패치)부터
-5. `displayName` hash 포함, `enabled:false` 기록 보존, 같은 hash 200 반환, 불변 트리거 추가 여부
+5. hash 입력 = 실제 구성 요소만(`contentHashVersion: 2`) ★, `enabled:false` 기록 보존, 불변 트리거 추가 여부. 같은 구성 재저장은 **[확정 10/21]** 차단 없이 `duplicateOf` 안내(응답 형식 200+기존 버전은 ★)
 6. Detector Q2(등록 Rule=HR 재확인)·Q3-1(실행 불가 오류 시점 ★A)·Q5(식별자, Q-A로 확정)

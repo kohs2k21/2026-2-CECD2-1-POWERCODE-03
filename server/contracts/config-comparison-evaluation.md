@@ -5,7 +5,7 @@
 - 표기: **[확정]** / **★** 제안(결정 대기) / **충돌**
 - 범위: 평가 세트 엔티티(생성·고정·조회), 비교 작업(요청·검증·상태·결과), 적용 gate와의 관계, 기존 [합성 평가 계약](synthetic-evaluation.md) 변경 제안
 - 제외: 종합 판정 조합 규칙(Detector 계약 — 비교 결과의 `composite`는 Detector 순수 함수 호출 결과를 집계만 함), 자동 교체·자동 승인, WebUI 화면, 새 합성 생성기 설계(기존 ESB P02~P04·ADBench 프로필만 재사용)
-- 기존 규약 유지: 4종 평가 가족 봉투([JSON Schema](trainer-evaluation-envelope.schema.json))·measurement 규약·"미측정은 null+사유"·"합성만으로 운영 적용 검증 대체 금지"(`synthetic-evaluation.md` 결과·재현 절 마지막 항목)
+- 기존 규약 유지: 4종 평가 가족 봉투([JSON Schema](trainer-evaluation-envelope.schema.json))·measurement 규약·"미측정은 null+사유". `synthetic-evaluation.md`의 "합성만으로 운영 적용 검증 대체 금지"는 **[확정 10/21]** "평가 세트 비교 + 사람 수락"으로 대체 — 변경 제안 표 참조
 
 ## 평가 세트 `evaluation-set-v1`
 
@@ -96,44 +96,75 @@
                     "originalRowCount": 1180, "syntheticRowCount": 20, "synthetic": true},
   "baseline": {"configVersionId": "<active config UUID>", "role": "active", "activeRevision": 12},
   "manualApprovalRequired": true,
+  "replacementRecommendation": {
+    "targetVersionId": "<config B UUID>",
+    "basis": [{"metric": "composite.completeOnly.recall", "target": 0.65, "baseline": 0.556, "comparedTo": "<active config UUID>"}],
+    "checks": {"executable": true, "methodUnavailableCount": 0, "itemStatus": "succeeded"},
+    "reason": "better_than_active_on_all_basis_metrics",
+    "noRecommendationReason": null,
+    "generatedAt": "<UTC>"
+  },
   "items": [
-    {"configVersionId": "<config UUID>", "role": "active", "status": "succeeded", "errorCode": null,
+    {"configVersionId": "<active config UUID>", "role": "active", "status": "succeeded", "errorCode": null,
      "evaluationId": "<run_evaluations UUID>", "metricVersion": "comparison-methods-v1",
-     "applicability": "unmeasured", "reasonCodes": ["synthetic_not_operational_validation"],
+     "applicability": "unmeasured", "reasonCodes": ["selected_paths_unavailable", "synthetic_set_evaluation"],
      "counts": {"populationCount": 1200, "scoredCount": 1188, "unavailableCount": 12, "unlabeledCount": 1180},
      "composite": {
        "combinationPolicy": {"policyKey": "<Detector 정책 키>"},
-       "completeOnly": {"basis": "complete_only", "confusion": {"tp": 10, "fp": 3, "tn": 0, "fn": 7},
+       "labelCounts": {"anomalyLabelCount": 20, "normalLabelCount": 0, "unlabeledCount": 1180},
+       "completeOnly": {"basis": "complete_only", "confusion": {"tp": 10, "fp": null, "tn": null, "fn": 8},
                         "precision": {"value": null, "unit": "ratio", "numerator": null, "denominator": null, "coverage": null, "reason": "verified_normal_labels_unavailable"},
-                        "recall": {"value": 0.588, "unit": "ratio", "numerator": 10, "denominator": 17, "coverage": 0.99, "reason": null},
+                        "recall": {"value": 0.556, "unit": "ratio", "numerator": 10, "denominator": 18, "coverage": 0.9, "reason": null},
                         "falsePositiveRate": {"value": null, "unit": "ratio", "numerator": null, "denominator": null, "coverage": null, "reason": "verified_normal_labels_unavailable"},
                         "coverage": 0.99, "unavailableCount": 12},
-       "decidable": {"basis": "decidable", "confusion": {"tp": 11, "fp": 3, "tn": 0, "fn": 6}, "coverage": 0.995, "unavailableCount": 6,
+       "decidable": {"basis": "decidable", "confusion": {"tp": 11, "fp": null, "tn": null, "fn": 8}, "coverage": 0.995, "unavailableCount": 6,
                      "biasNote": "partial_true_included_none_excluded"}},
      "categoryResults": {
-       "hr": {"status": "measured", "methodCount": 2, "confusion": {"tp": 7, "fp": 0, "tn": 0, "fn": 10}, "unavailableCount": 0},
+       "hr": {"status": "measured", "methodCount": 2, "confusion": {"tp": 7, "fp": null, "tn": null, "fn": 13}, "unavailableCount": 0},
        "sr": {"status": "skipped", "reason": "no_enabled_methods", "methodCount": 0},
-       "ml": {"status": "measured", "methodCount": 1, "confusion": {"tp": 9, "fp": 3, "tn": 0, "fn": 8}, "unavailableCount": 12}},
+       "ml": {"status": "measured", "methodCount": 1, "confusion": {"tp": 9, "fp": null, "tn": null, "fn": 11}, "unavailableCount": 12}},
      "methodResults": [
        {"methodId": "hr:process-status", "kind": "hr", "methodVersion": "process-status-hr-v1", "status": "measured",
-        "confusion": {"tp": 7, "fp": 0, "tn": 0, "fn": 10}, "hitCount": 7, "unavailableCount": 0, "unavailableReasons": {}},
-       {"methodId": "rule:process_errors", "kind": "rule", "status": "measured", "confusion": {"tp": 2, "fp": 0, "tn": 0, "fn": 15}, "hitCount": 2},
+        "confusion": {"tp": 7, "fp": null, "tn": null, "fn": 13}, "hitCount": 7, "unavailableCount": 0, "unavailableReasons": {}},
+       {"methodId": "rule:process_errors", "kind": "rule", "status": "measured", "confusion": {"tp": 2, "fp": null, "tn": null, "fn": 18}, "hitCount": 2},
        {"methodId": "ml:iforest", "kind": "ml", "methodVersion": "process-iforest-v1", "status": "measured",
-        "confusion": {"tp": 9, "fp": 3, "tn": 0, "fn": 8}, "scoreMin": 0.31, "scoreMax": 0.92,
+        "confusion": {"tp": 9, "fp": null, "tn": null, "fn": 11}, "scoreMin": 0.31, "scoreMax": 0.92,
         "threshold": {"direction": "higher_is_anomaly", "value": "0.61", "quantile": 0.99},
         "unavailableCount": 12, "unavailableReasons": {"model_features_unavailable": 12}}],
      "evaluationEnvelope": {"rule_ml": {}, "synthetic": {}, "execution_cost": {}, "operational": {}}},
-    {"configVersionId": "<config UUID>", "role": "candidate", "status": "failed",
+    {"configVersionId": "<config B UUID>", "role": "candidate", "status": "succeeded", "errorCode": null,
+     "evaluationId": "<run_evaluations UUID>", "metricVersion": "comparison-methods-v1",
+     "applicability": "valid", "reasonCodes": ["synthetic_set_evaluation"],
+     "counts": {"populationCount": 1200, "scoredCount": 1200, "unavailableCount": 0, "unlabeledCount": 1180},
+     "composite": {
+       "combinationPolicy": {"policyKey": "<Detector 정책 키>"},
+       "labelCounts": {"anomalyLabelCount": 20, "normalLabelCount": 0, "unlabeledCount": 1180},
+       "completeOnly": {"basis": "complete_only", "confusion": {"tp": 13, "fp": null, "tn": null, "fn": 7},
+                        "precision": {"value": null, "unit": "ratio", "numerator": null, "denominator": null, "coverage": null, "reason": "verified_normal_labels_unavailable"},
+                        "recall": {"value": 0.65, "unit": "ratio", "numerator": 13, "denominator": 20, "coverage": 1, "reason": null},
+                        "falsePositiveRate": {"value": null, "unit": "ratio", "numerator": null, "denominator": null, "coverage": null, "reason": "verified_normal_labels_unavailable"},
+                        "coverage": 1, "unavailableCount": 0},
+       "decidable": {"basis": "decidable", "confusion": {"tp": 13, "fp": null, "tn": null, "fn": 7}, "coverage": 1, "unavailableCount": 0,
+                     "biasNote": "partial_true_included_none_excluded"}},
+     "categoryResults": "<active 항목과 같은 형식, 생략>",
+     "methodResults": "<active 항목과 같은 형식, 생략>",
+     "evaluationEnvelope": {"rule_ml": {}, "synthetic": {}, "execution_cost": {}, "operational": {}}},
+    {"configVersionId": "<config C UUID>", "role": "candidate", "status": "failed",
      "errorCode": "method_not_executable:sr:ewma", "evaluationId": null}
   ]
 }
 ```
 
-- `composite`: Detector 순수 함수(종합 판정)의 행별 결과를 집계만 함. `completeOnly`(현행 기준, `trainer/runner.py:530-531`)와 `decidable`(None만 제외) **병기** ★ Detector Q7 C 대기 — Detector가 B(현행만)를 고르면 `decidable` 생략. 편향 방향은 `biasNote`로 표기
+- 혼동행렬 칸별 null 규칙(WebUI 검토 의견 8): `fp`·`tn`은 `normal` 라벨 행에서만 세므로(`trainer/runner.py:482-485, 522-531`) `labelCounts.normalLabelCount=0`이면 `fp`·`tn`은 0이 아니라 **null**, `precision`·`falsePositiveRate`도 null+`verified_normal_labels_unavailable`. 같은 식으로 `anomalyLabelCount=0`이면 `tp`·`fn`·`recall` null. **충돌**: 현행 `classification_metrics`(`runner.py:487-492`)는 fp=0으로 두고 `precision=tp/tp`를 계산하므로 `comparison-methods-v1`은 이 null 규칙을 새로 적용(기존 `selected-paths-v3` 결과 재해석 없음). `hitCount`는 라벨 무관 hit 수
+- `composite`: Detector 순수 함수(종합 판정)의 행별 결과를 집계만 함. `completeOnly`(현행 기준, `trainer/runner.py:530-531`)와 `decidable`(None만 제외) **병기** — 예시 active 항목: 라벨 20행 중 complete 18행(tp 10·fn 8), partial+True 1행(decidable에서 tp 11), partial+None 1행(둘 다 제외) ★ Detector Q7 C 대기 — Detector가 B(현행만)를 고르면 `decidable` 생략. 편향 방향은 `biasNote`로 표기
 - `categoryResults{hr,sr,ml}`: 대분류 결과(Detector 1단계 결과) 기준 혼동행렬. 방법 0개는 `skipped`
 - `methodResults[]`: 활성 방법마다 1개, [method-result-v1](method-catalog.md) 상태 집계. 실행 불가 방법이 활성인 구성은 항목 자체가 `failed`(실행 절 사유 표)이므로 성공 항목의 `methodResults`에 `method_not_executable` 결과는 생기지 않음(예시 2번째 항목). 라벨 있는 행만 혼동행렬, `unavailableReasons`는 사유별 건수. ML `score` 척도는 방법마다 다르므로 비교·합산하지 않음(표시만)
 - `evaluationEnvelope`: 구성별 4가족 봉투 그대로. `synthetic`은 세트 합성 행 기준 측정(`synthetic-process-metrics-v1` 재사용, 구성별 분모 동일), `rule_ml`은 세트 원본 행 교차표(`rule-ml-comparison-v1`), `execution_cost`는 구성별 실측, `operational`은 `unavailable/operational_report_separate_time_scoped`. ESB와 ADBench 분모 합산 금지 유지
-- 묶음 수준 요약은 두지 않음(구성별 봉투를 하나로 합치지 않음) [확정 3절]. 순위·추천 표시 없음, `manualApprovalRequired: true`
+- 묶음 수준 지표 요약은 두지 않음(구성별 봉투를 하나로 합치지 않음) [확정 3절]. 순위 표시 없음, `manualApprovalRequired: true`
+- `replacementRecommendation` [확정 — 사용자 10/21, 설계 방향 4.4절·WebUI 화면흐름 2.4절]: **교체는 시스템 '추천'만 자동, 운영 변경은 사람 '수락'으로만. 자동 교체 금지**. 비교 작업마다 추천 1건(또는 없음)을 계산해 결과에 포함
+  - `targetVersionId` 추천 대상(활성 구성 자체는 추천하지 않음) 또는 null; `basis[]` 근거 지표(규칙 (d)의 `composite.*` 지표만)·대상 값·비교 대상 값·비교 대상 구성; `checks` 규칙 (a)~(c)의 통과 결과(`itemStatus`·`executable`·`methodUnavailableCount`); `reason` 추천 사유 코드; `noRecommendationReason`(`no_candidate_better_than_active` / `active_missing` / `all_candidates_failed` / `basis_metrics_unavailable`); `generatedAt`
+  - 추천 규칙 ★(초안, 결정 대기): 후보 항목 중 (a) `status=succeeded` (b) 버전 `executable=true` (c) 모든 `methodResults[].unavailableCount=0` (d) 활성 구성 대비 `composite.completeOnly`의 정의된 지표(recall·precision·falsePositiveRate 중 null 아닌 것) 전부 같거나 우위이고 하나 이상 엄격 우위. 여러 개면 `basis` 지표 우위 폭이 큰 1개. 활성 구성이 없으면 추천 없음(`active_missing`). 점수 척도가 다른 ML 점수는 근거로 쓰지 않음
+  - 수락 경로: 사람이 [교체 요청] → `POST /api/configurations/:id/applications`에 `acceptedRecommendation{comparisonJobId, targetVersionId}`([detection-config](detection-config-version.md) 교체 절). 추천을 따르지 않는 교체 요청도 허용(수락 없이 다른 버전 선택)
 - 같은 세트 위 구성별 행은 `run_evaluations.evaluation_spec_hash`가 같으므로 기존 비교 인덱스 `(snapshot_id, evaluation_spec_hash, purpose)`(`002_core_erd.sql:183`)로 조회 가능
 
 ### 조회 API
@@ -155,12 +186,15 @@
 
 - 기존 `evaluate` 작업·`run_evaluations` 행·`metrics` 형식은 변경 없음(새 열은 NULL)
 
-## 적용 gate와의 관계 ★ Q-E=A
+## 적용 gate와의 관계 [확정 — 사용자 10/21, 설계 방향 4.4절]
 
-- 적용 요청 `evaluationId`에 비교 작업이 만든 **구성별 `run_evaluations` 행** 허용. gate 조건은 불변: `purpose='validation' AND applicability='valid' AND scored_count>0 AND unavailable_count=0` + prepared 아님
-- 세트에 합성 행이 있으면 그 행의 `applicability`는 현행대로 `unmeasured`(`trainer/runner.py:571-574`, "합성만으로 운영 적용 검증 대체 금지") → gate 불통. 즉 **비교는 사람의 선택 근거**이고, 교체에는 **합성 없는 validation 세트**(또는 기존 `evaluate`)의 `valid` 행이 필요
-- 운영 흐름(제안): 합성 세트 비교로 후보를 고름 → 같은 후보를 원본 validation 세트로 비교(1회, 운영 구성 포함) → `valid` 행으로 교체 요청. WebUI "평가 완료된 버전만 교체 후보"는 이 `valid` 행 유무로 판단
-- 대안 B(합성 세트 평가도 gate 인정)는 `synthetic-evaluation.md` 마지막 결과 항목·`runner.py:571-573` 변경이 필요한 사용자 결정
+- 최종 관문은 **사람의 수락**. gate는 **기술 무결성만** 검사: 버전 `executable=true`(실행 불가 방법 없음), 산출물 경로·hash 검증(`applications.prepare_config`), 평가 행의 `scored_count>0 AND unavailable_count=0`(모든 행 complete·방법 결과 unavailable 0), prepared 계보 아님
+- "원본 validation 평가 필수"는 **"평가 세트 비교(합성 행 포함 허용) + 사람 수락"으로 대체** [확정]. 적용 요청 `evaluationId`에는 비교 작업이 만든 구성별 `run_evaluations` 행(세트 `purpose=validation`)을 허용하며, 세트에 합성 행이 있어도 기술 무결성을 만족하면 `applicability='valid'`
+  - **충돌(구현 Issue)**: 현행은 합성 평가를 `applicability='unmeasured'`·`synthetic_not_operational_validation`으로 강제(`trainer/runner.py:571-574`). `comparison-methods-v1`에서는 합성 행 포함 여부를 `reasonCodes`에 `synthetic_set_evaluation`(정보성)으로만 남기고 applicability는 기술 무결성으로 판단. 기존 `evaluate`(`synthetic-method-v1`) 결과는 재해석하지 않음
+  - `synthetic-evaluation.md` "합성 측정 완료만으로 운영 적용의 원본 validation 검증을 대체하지 않음"은 변경 제안 표에 [확정 근거] 표기(아래)
+- gate 조건 SQL(`configRoutes.ts:90-99`, `applications.py:102-109`)은 형식상 불변(`purpose='validation' AND applicability='valid' AND scored_count>0 AND unavailable_count=0`); 바뀌는 것은 Trainer가 비교 행의 applicability를 정하는 규칙과 `executable` 검사 추가
+- `purpose=test` 세트의 행은 gate 증거로 쓰지 않음(현행 유지). 기존 `evaluate` 원본 validation 행도 계속 유효
+- 자동 교체 금지. 추천(`replacementRecommendation`)은 화면 표시·수락 입력일 뿐 적용을 일으키지 않음
 
 ## `synthetic-evaluation.md` 변경 제안(수정하지 않음, 문장 목록)
 
@@ -173,7 +207,7 @@
 | 평가 요청 절 "snapshot 분할·회원/원본 행·선정 정책 불변; 생성 통계는 train만, 변형은 선택 validation/test 복사본만" | 구성 학습 스냅샷 기준 | "생성 통계는 **세트 스냅샷** train만" 으로 명시 |
 | 결과·재현 절 "합성 산출물은 `evaluations/<job UUID>/<content SHA>.json`" | 작업별 저장 | "세트 산출물은 `evaluation-sets/<setId>/<content SHA>.json`, 작업별 평가 산출물은 기존 경로" 추가 |
 | 결과·재현 절 "SR 실제 미연결은 null+사유" | SR 자리 고정 | "SR 방법 0개는 skipped, 실행 불가 방법은 `method_not_executable`" 보완 |
-| 결과·재현 절 마지막 "합성 측정 완료만으로 운영 적용의 원본 validation 검증을 대체하지 않음" | 유지 | 유지(Q-E A). 비교 작업 결과에도 같은 문장이 적용됨을 명시 |
+| 결과·재현 절 마지막 "합성 측정 완료만으로 운영 적용의 원본 validation 검증을 대체하지 않음" | 합성 평가는 gate 불통 | **[확정 근거: 사용자 10/21, 설계 방향 4.4절]** "평가 세트 비교(합성 행 포함 허용)의 기술 무결성 검사 + 사람 수락이 운영 적용 관문이며, 자동 교체는 금지"로 교체. `runner.py:571-574` 강제 unmeasured는 `evaluate` 경로에만 남김 |
 | 제외 절 "최종 시나리오/모델 선정" | 유지 | "비교 결과의 자동 순위·자동 선정" 추가 |
 
 - `trainer-service.md` 영향: 완료 결과 절에 `kind=compare`의 `resultSummary` 형식 링크 추가, `queues.md` Trainer 행에 `evaluation_set`·`compare` 추가
@@ -181,7 +215,7 @@
 ## 결정 대기
 
 1. Q-C 생성 기준 [확정 A]; 합성 없는 세트 허용 ★
-2. Q-E gate 증거: ★A(비교 행 인정 + 합성만이면 unmeasured 유지)
+2. Q-E gate 증거: **[확정 10/21]** 기술 무결성 gate + 평가 세트 비교(합성 포함 허용) + 사람 수락, 자동 교체 금지(설계 방향 4.4절). 남은 결정: `replacementRecommendation` 추천 규칙 ★(위 결과 절)
 3. Q-F 운영 구성 겹침: ★A 항목 failed·나머지 진행
 4. Q-L 상한: ★ 구성 ≤8(활성 포함), 세트 상한·삭제 없음
 5. `run_evaluations.job_id` UNIQUE 완화 vs 자식 작업 — PostgreSQL 세션

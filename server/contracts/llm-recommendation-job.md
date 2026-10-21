@@ -10,7 +10,7 @@
 
 - 현행 `recommend_rule`(`jobRoutes.ts:15`, `trainer/runner.py:325-338`, `research_design.py:202-234`)은 변수별 p95 기준선으로 **새 Rule 초안**(`sr_<hash>`, `SR_DIAGNOSTIC`, severity warning)을 만들고 관리자가 `adopt`로 등록. 등록 목록 중 고르는 작업이 아님
 - 새 작업 `recommend_methods` ★ Q-N=A: 별도 `job_kind`. 기존 `recommend_rule`·`recommend_feature`·`adopt` 경로 불변
-- WebUI AND 규칙 [확정]: 추천 결과 ∩ 시스템 등록 목록(카탈로그 + 등록 Rule) → 교집합만 자동 선택, 목록 밖 추천은 선택 불가로 표시. 이 계약은 서버가 `registered`를 미리 계산해 제공하고 WebUI는 그 값을 표시만 함
+- WebUI AND 규칙 [확정]: 추천 결과 ∩ 시스템 등록 목록(카탈로그 + 등록 Rule) → 교집합만 자동 선택, 목록 밖 추천은 선택 불가로 표시. 이 계약은 서버가 항목마다 `registered`와 `selectable`(등록 ∧ 실행 가능 ∧ ML이면 학습 후보 있음 ∧ action=enable)을 미리 계산해 제공하고, WebUI는 `selectable=true`만 자동 체크·나머지는 표시만 함
 
 ## 작업 — `POST /api/jobs kind=recommend_methods` [신규, 관리자]
 
@@ -32,9 +32,9 @@
 - 권한·멱등키·재시도·상태(queued/running/succeeded/failed, `attemptCount`·`maxAttempts`·`nextRunAt`) 기존 `/api/jobs` 그대로. 큐 `llm_recommendation`(`queues.md` 7행, `jobRoutes.ts:257, 272`)
 - `snapshotId`: 데이터 집계 출처(ready). 생략 시 `from/until`로 스냅샷 생성하는 현행 추천 경로 재사용 ★
 - `draft.methods[]`: 현재 화면 선택(식별자·enabled만, 파라미터는 선택). 카탈로그에 없는 식별자는 422 `method_unknown:<id>`([detection-config](detection-config-version.md) 조합 저장 검증과 같은 코드·상태 — 본문 형식은 맞고 카탈로그 검증 실패이므로 현행 `unsupported_model` 422와 같은 분류)
-- `scope`: 추천 대상 kind 부분집합(기본 `["hr","rule","sr","ml"]`). 같은 draft·scope·스냅샷·카탈로그 버전은 `reuse_key`로 재사용(진행/완료 작업 200 반환, `jobRoutes.ts:229-244` 규약)
+- `scope`: 추천 대상 kind 부분집합(기본 `["hr","rule","sr","ml"]`). **같은 멱등키 + 같은 본문**(draft·scope·스냅샷·카탈로그 버전)이면 `reuse_key`로 기존 진행/완료 작업을 200 반환(`jobRoutes.ts:229-244` 규약); 같은 멱등키·다른 본문은 409
 - `llm_spec` ★: `evidence_version: 'config-draft-catalog-v1'`, `input_evidence_hash: sha256(입력 집계 JSON)`, `model_version: '<어댑터 식별자>'`(연구 산출물 결정, 예 `methods_v1`), `prompt_version: 'method-selection-v0.1'`, `output_schema_version: 'method-recommendation-v1'`, `reuse_key: sha256([actor, input, idempotencyKey, prompt_version])`
-- 동일 구성 초안에 대한 중복 요청 방지는 `reuse_key` 재사용으로 충족(WebUI 3절 "실행 중 중복 요청 방지")
+- `reuse_key`에 `idempotencyKey`가 들어가므로 서버의 재사용은 **같은 멱등키일 때만** 성립. 다른 멱등키로 같은 초안을 다시 보내면 새 작업이 생김 → "실행 중 중복 요청 방지"(WebUI 3절)는 화면이 실행 중 버튼을 비활성 처리하는 것을 전제(WebUI 검토 의견 7)
 
 ## 입력 범위 — GPU에 넘기는 것 ★ Q-M=A
 
@@ -59,15 +59,18 @@
   "recommendations": [
     {"methodId": "sr:ewma", "kind": "sr", "registered": true,
      "executable": {"process": false, "window": false}, "executableReason": {"process": "input_unit_mismatch"},
+     "selectable": false, "selectableReason": "not_executable",
      "action": "enable",
      "parameters": {"window": 120, "aggregation": 1, "baseline": "B1"},
      "parameterStatus": "proposed", "parameterValidation": "valid",
      "rationale": {"factIds": ["m_…", "b_…"], "text": "처리시간 분산이 어댑터별로 커서 지수가중 추세 감시가 적합"},
      "confidence": null},
     {"methodId": "ml:iforest", "kind": "ml", "registered": true, "executable": {"process": true, "window": true},
+     "trainedCandidateCount": 3, "selectable": false, "selectableReason": "action_not_enable",
      "action": "keep", "parameters": null, "parameterStatus": "not_proposed", "parameterValidation": "not_provided",
      "rationale": {"factIds": ["m_…"], "text": "…"}, "confidence": null},
     {"methodId": "rule:process_errors", "kind": "rule", "registered": true, "ruleVersionId": "<rule version UUID>",
+     "executable": {"process": true, "window": false}, "selectable": true, "selectableReason": null,
      "action": "enable", "parameters": null, "parameterStatus": "not_proposed", "parameterValidation": "not_provided",
      "rationale": {"factIds": [], "text": "…"}, "confidence": null}
   ],
@@ -82,7 +85,9 @@
 |---|---|
 | `recommendations[].methodId` | 카탈로그 식별자 체계와 동일(`<kind>:<key>`). 서버가 카탈로그·등록 Rule과 대조해 `registered=true`인 것만 이 배열에 둠 |
 | `unregistered[]` | 모델 출력 중 목록에 없는 식별자. 선택 불가 표시용. 자동 등록·Rule 초안 생성 없음 |
-| `action` | `enable` / `disable` / `keep`(초안 상태 유지) ★ — draft에 없는 방법에 `disable`은 허용하지 않음 |
+| `action` | `enable` / `disable` / `keep`(초안 상태 유지) ★ — draft에 없는 방법에 `disable`은 허용하지 않음. `disable`·`keep`은 **제안 표시만**이며 자동 체크 대상이 아님(WebUI 검토 의견 1) |
+| `selectable`·`selectableReason` | 서버가 항목마다 계산(WebUI 검토 의견 1): `registered ∧ executable.process ∧ (kind=ml이면 학습 후보 ≥1, `trainedCandidateCount`) ∧ action=enable` → `true`. 아니면 `false` + 사유 `not_executable` / `no_trained_candidate` / `action_not_enable`. 화면은 `selectable=true`만 자동 체크. `constraints.executableOnly:false`와의 관계: 추천 자체는 실행 불가 방법도 포함(표시·근거 제공)하되 `selectable=false`로 구분 |
+| `trainedCandidateCount` | `kind=ml`만. 같은 source의 성공한 train 후보 중 그 `model_key` 행 수(응답 시점 계산) |
 | `parameters`·`parameterStatus` | `proposed`(모델 제안) / `not_proposed`. `proposed`여도 **자동 적용 없음** [확정]; 사람이 적용을 누르면 구성 초안의 `parameterSource=llm_proposed`로 들어가고 저장해야 버전이 됨 |
 | `parameterValidation` | 서버 대조 결과 `valid`(카탈로그 `parameterSchema` 통과) / `invalid`(위반, 값은 보존하되 WebUI가 적용 불가 표시) / `not_provided`. `ml:*` 파라미터 제안은 재학습이 필요함을 WebUI가 안내(구성 저장 시 `ml_parameters_require_training`) |
 | `executable` | 응답 시점 카탈로그 값 병기. 실행 불가 방법 추천은 허용하되 그대로 표시 |
@@ -100,9 +105,10 @@
 |---|---|
 | 대기 | 작업 없음 |
 | 실행 중 | `status` queued/running(`GET /api/jobs/:id`), 같은 초안 재요청은 `reuse_key`로 기존 작업 반환 |
-| 완료 | `succeeded`, `resultSummary` 위 JSON. WebUI는 `registered=true`를 자동 체크(AND 결과를 서버가 이미 계산) |
+| 완료 | `succeeded`, `resultSummary` 위 JSON. WebUI는 `selectable=true`만 자동 체크(AND·실행 가능·후보 유무·action을 서버가 이미 계산, WebUI 검토 의견 1); `registered=true`이나 `selectable=false`인 항목은 비활성으로 표시 |
 | 적용 선택 | 서버 호출 없음. 적용 = 화면 초안 반영, 저장 시 `createdFrom.recommendationJobId` 기록([detection-config](detection-config-version.md)) |
-| 실패·시간 초과 | `failed` + `errorCode`(`generation_service_unavailable`, `invalid_method_recommendation` 등). 재시도는 새 멱등키로 새 요청 |
+| 실패 | `failed` + `errorCode`(`generation_service_unavailable`, `invalid_method_recommendation`, `recommendations_empty`). 재시도는 새 멱등키로 새 요청 |
+| 시간 초과 | `failed` + `errorCode: generation_timeout` **[확정 — 사용자 10/21, 설계 방향 4.4절: 시간 초과는 실패와 별도 표시]**. 현행 `generation_client.py:54-55`는 `TimeoutError`를 `generation_service_unavailable`로 묶으므로 변경 제안(아래 표). 재시도 규칙은 실패와 같음 |
 
 ## 마이그레이션·코드 영향 ★
 
@@ -114,6 +120,7 @@
 | `jobRoutes.ts` | `KINDS`(`:15`)·허용 키(`:47`)에 `recommend_methods`·`draft`·`scope`, `llmSpec` 분기(`:221-228`), 큐 선택(`:257, 272`) |
 | `trainer/runner.py` | `role='llm'` claim은 큐 기준이라 변경 없음(`:682-691`); `_execute`에 `recommend_methods` 분기(입력 집계 → `generation_client.generate("methods", payload)` → 검증·대조); `_finish`의 `run_llm_results` 저장 kind 집합(`:619`)에 추가 |
 | `generation_client.py` | 허용 kind `{"feature","rule","explain"}`(`:39`)에 `"methods"` 추가. 원격 서비스·로컬 `DesignModel` 모두 같은 kind |
+| `generation_client.py:54-55` | `except (URLError, TimeoutError, OSError)` → `GenerationUnavailable("generation_service_unavailable")` 단일 | `TimeoutError`(및 `socket.timeout`·`URLError.reason`이 timeout인 경우)를 분리해 `GenerationUnavailable("generation_timeout")` — 기존 `recommend_rule`·`explain`에도 같은 코드가 적용되므로 LLM 세션 조율 [확정 근거: 설계 방향 4.4절] |
 | `llm_worker.py`·`generation_service.py` | `DesignModel.generate("methods", …)` 어댑터(프롬프트·출력 스키마)는 **연구 산출물 연결 필요**(미존재). 없으면 `GenerationUnavailable` → 작업 `failed`(목업 금지) |
 | `queues.md` 7행 | `jobId (recommend_feature/rule)` → `recommend_methods` 추가 |
 
@@ -132,3 +139,4 @@
 3. Detector Q2 (나) LLM Rule 생성 유지(P1) 여부 — 유지 시 `registeredRules` 범위와 D9-3 이름 정리 동반
 4. 어댑터·프롬프트 출처(연구 산출물), `model_version` 값
 5. `action`·`constraints`·상한 값
+6. `generation_timeout` 오류 코드 분리 — **[확정 10/21]** 분리(설계 방향 4.4절). 남은 것: `generation_client.py` 변경 시 기존 kind 영향 범위(LLM 세션)

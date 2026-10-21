@@ -1,12 +1,13 @@
 Created: 2026-10-12T02:06:03+09:00
-Updated: 2026-10-12T02:17:46+09:00
+Updated: 2026-10-21T19:40:00+09:00
 Author: contracts_page_reviewer
 Status: current
 
 # ERD v0.3와 호환 migration
 
 - Issue #32 기준: 최신 PostgreSQL·공통 규약·LLM 기획 반영. `schema.dbml`은 최종 목표 구조의 시각화, 실행 원본은 migration SQL
-- 목표 구조: public 28테이블 + `powercode_queue` 기존 물리 큐 2테이블. 기존 public 24테이블 보존, BODY·BODY 연결·불변 입력·LLM 결과 4테이블만 추가
+- 목표 구조(Issue #32 당시): public 28테이블 + `powercode_queue` 기존 물리 큐 2테이블. 기존 public 24테이블 보존, BODY·BODY 연결·불변 입력·LLM 결과 4테이블만 추가
+- 현재 `schema.dbml`(Issue #78): 001~011 전체 반영, public 53테이블 + `powercode_queue` 5테이블. 004_feature_pipeline·005~009 추가분 24테이블 보강, 011 3테이블 추가
 - 기존 001/002 불변. 003/004는 서버 미적용; ERD 등록·SQL 검수와 실제 운영 적용 구분
 - PostgreSQL 17.11 실제 public24+queue2 존재 확인 기록과 정합. 서버 schema/version 이력 및 완전 DDL 일치는 별도 사전 확인 필요
 
@@ -25,6 +26,23 @@ Status: current
 - 기존 판정의 `job_id/input_manifest_id/result_attempt_id/result_lease_token`은 모두 NULL 유지 가능. 새 참조를 쓰는 판정은 모두 명시
 - 기존 파일 참조는 보존. `model_input_artifact_id`는 선택적 캐시 계보, 모든 모델 입력을 영구 파일로 저장하는 요구 아님
 - 신규 enum 제거·기존 테이블 삭제·전체 DB 재생성·자동 down migration 없음
+
+## 011 평가 세트·구성 비교·LLM 방법 추천 (#78, 계약 #74)
+
+- 파일 `011_config_comparison_recommendation.sql`, 010 이후 한 번 실행. 001~010은 수정하지 않음, 자동 down migration 없음
+- enum 커밋 분리(010 `import_csv` 방식): `job_kind`에 `evaluation_set`·`compare`·`recommend_methods`를 트랜잭션 밖 `ADD VALUE IF NOT EXISTS`로 먼저 추가. 같은 파일 안에서는 새 값을 `kind::text` 비교로만 사용하므로 한 문자열 실행(CI `prepare-runtime-db.py`)에서도 미커밋 enum 사용 오류 없음
+- `psql -v ON_ERROR_STOP=1 -f`로 실행하면 BEGIN..COMMIT 중간 오류 시 구조 변경 전체 ROLLBACK, 이미 커밋된 enum 3값만 남음. 같은 파일 재실행 가능(enum은 IF NOT EXISTS). 재시험은 격리 DB를 새로 만들어 수행
+- 운영 적용은 worker·API 쓰기 정지 또는 짧은 유지보수 창에서 실행 권고. `run_jobs`·`run_evaluations`·`run_llm_results` ACCESS EXCLUSIVE 잠금, `run_jobs` 제약 전체 재검증
+- 파일 전체를 한 문자열로 실행(`prepare-runtime-db.py` 등)하면 BEGIN이 앞선 enum 추가를 같은 트랜잭션으로 흡수하므로, 실패 시 psql 파일별 실행과 달리 enum 추가분까지 함께 ROLLBACK
+- `run_jobs_v03_contract` 재정의: `evaluation_set`·`compare`는 `training` 큐·user producer·admin, `recommend_methods`는 `llm_recommendation` 큐·admin·`llm_spec` 필수. 새 kind 3개는 legacy(`contract_version IS NULL`) 분기 사용 금지. 제약 재생성은 `run_jobs` 전체 검증·ACCESS EXCLUSIVE 잠금
+- `erd_v03_validate_job()` 재정의: `llm_spec` 필수 문자열·"LLM completion requires result" kind 목록에 `recommend_methods`. 결과 존재 검사는 중첩 IF로 LLM kind에만 실행(`kind::text`는 상수 접힘이 없어 비LLM 완료에 `run_llm_results` 권한을 요구하게 되는 회귀 방지). evaluate 전용 완료 조건은 원래 없어 `compare` 분기 추가 없음
+- `run_llm_results`: kind CHECK에 `recommend_methods`, `decision_id IS NULL` 분기에 포함
+- `data_evaluation_sets`: INSERT는 `queued`·미정 열 NULL·`evaluation_set` 작업·ready non-prepared 같은 source snapshot만. `queued→ready|failed` 1회 전환만, 그 뒤 UPDATE 금지, DELETE는 상태 무관 금지. ready는 `generation`·`content_hash`·`ready_at`, failed는 `error_code` 필수. 산출물 경로 `evaluation-sets/<id>/<content_hash>.json`
+- 작업 실패 동기화: `evaluation_set` 작업이 `failed`가 되면 같은 트랜잭션 AFTER trigger가 `queued` 세트를 `failed`(작업 `error_code`, 없으면 `evaluation_set_failed`)로 바꿈. Trainer 종료·시도 초과·dead 큐 정리 3경로 코드 수정 불필요. ready 세트는 바꾸지 않음
+- `run_config_comparisons`: compare 작업 완료 트랜잭션에서 1회 INSERT(ready 세트·같은 source·baseline source 일치), 이후 UPDATE·DELETE 금지. `run_config_comparison_items`: active는 baseline 구성과 일치·비교당 1개, succeeded는 같은 비교·같은 구성의 평가 행 필수, failed는 `error_code` 필수·평가 없음. 불변
+- `run_evaluations`: `comparison_id`·`evaluation_set_id` nullable 열 추가, `UNIQUE(job_id)` → `UNIQUE(job_id, config_version_id)`. 비교 밖 작업은 partial unique로 job당 1행 유지. 비교 행은 세트 snapshot·purpose·source와 비교 job·세트 일치 trigger. 같은 트랜잭션 INSERT 순서는 comparison → run_evaluations → items
+- `ml_config_versions`는 004_feature_pipeline `pipeline_immutable`로 이미 UPDATE·DELETE 금지, 011은 신규 trigger 없음
+- 권한(`scripts/database-roles.sql`): API 세트 SELECT·INSERT, Trainer 세트 SELECT·UPDATE·비교 2테이블 SELECT·INSERT, LLM은 dead training 큐 정리 trigger용 세트 `SELECT(job_id,status)`·`UPDATE(status,error_code)`만, API 비교 SELECT
 
 ## 큐와 소유권
 
@@ -74,7 +92,7 @@ Status: current
 
 ## DBML과 SQL 대응
 
-- DBML은 001/002 + 003 enum + 004 additive 컬럼·nullability·unique·FK의 최종 구조. 물리 큐 2개도 명시
+- DBML은 001~011 적용 후 최종 구조(컬럼·nullability·unique·FK·enum 순서). 물리 큐 5개도 명시. enum 순서는 PostgreSQL 추가 순서(`job_kind`의 `import_csv`는 explain 뒤)
 - nullable FK는 `>?`, unique FK는 부모 `-` 자식 방향, nullable unique FK는 부모 `?-` 자식 방향으로 표시. 실제 FK 방향은 SQL/파싱 대응 시험으로 확인
 - attempt의 복합 FK 3개는 DBML의 exact-composite index 판정 한계로 `>`/`>?` 표시. 자식의 개별 PK/unique가 실제 1:1 제약을 보장한다는 주석 유지; 그림 경고를 없애려고 SQL 중복 인덱스를 추가하지 않음
 - `@dbml/core`는 현재 문법의 `dbmlv2` parser 사용. deprecated `dbml` parser는 optional 관계 문법을 지원하지 않음
@@ -91,3 +109,5 @@ Status: current
 - 운영 서버·고객 데이터·.env·인증파일 사용 없음. 임시 DB/의존성만 사용, 완료 시 시험 프로세스 종료
 - 최종 검수: native PostgreSQL 17.10 fresh/legacy-upgrade 147 checks 통과. 원문 dbmlv2 파싱, 30테이블·양방향 nullable·18 enum·76 FK, 읽기 점검 서버 metadata와 기존 001/002 대조, 두 연결 claim·manifest typed-row 경합 시험 포함
 - 이 결과는 격리 schema 시험이며 프로젝트 worker 실행·실제 서버 003/004 적용·운영 배포·백업 복원 완료를 뜻하지 않음
+- Issue #78(011) 시험: fresh(001~011)·upgrade(001~010 + evaluate/import_csv/LLM 기존 행 + 011)·011 중간 오류 ROLLBACK 3개 DB. 새 kind 큐·요청자·legacy 분기, `recommend_methods` 결과·완료, 평가 세트 상태·불변·작업 실패 동기화(종료·시도 초과·dead 큐 정리), 비교 2테이블 FK·CHECK·불변, `run_evaluations` 다중 행·중복 거부, `ml_config_versions` 불변, `database-roles.sql`·`demo-role.sql` 권한(SET ROLE) 포함. 2026-10-21 native PostgreSQL 17.10(embedded) 368 checks 통과, DBML 58테이블 parity
+- dev(011 이전) `erd-v03.mjs`는 DBML 누락 24테이블·`job_kind` 순서 때문에 parity에서 실패했음(#78에서 보강)

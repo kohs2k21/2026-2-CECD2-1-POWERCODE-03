@@ -63,3 +63,11 @@ GRANT SELECT(observation_id) ON data_message_bodies TO powercode_collector,power
 GRANT SELECT,INSERT ON data_prepared_datasets TO powercode_api;
 GRANT SELECT,UPDATE ON data_prepared_datasets TO powercode_trainer;
 GRANT INSERT ON ml_feature_versions,ml_feature_sets,ml_feature_set_members TO powercode_trainer;
+
+-- 011: evaluation sets and configuration comparisons. API registers queued sets; Trainer completes sets/comparisons.
+GRANT SELECT,INSERT ON data_evaluation_sets TO powercode_api;
+GRANT SELECT,UPDATE ON data_evaluation_sets TO powercode_trainer;
+-- LLM workers also reconcile dead training-queue jobs; the 011 job-failure trigger then fails the queued set.
+GRANT SELECT(job_id,status),UPDATE(status,error_code) ON data_evaluation_sets TO powercode_llm;
+GRANT SELECT ON run_config_comparisons,run_config_comparison_items TO powercode_api,powercode_trainer;
+GRANT INSERT ON run_config_comparisons,run_config_comparison_items TO powercode_trainer;

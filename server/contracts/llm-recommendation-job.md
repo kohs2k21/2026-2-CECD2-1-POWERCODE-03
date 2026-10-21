@@ -1,15 +1,16 @@
 # LLM 방법 추천 작업 계약 v1 (초안, Issue #74)
 
 - 계약 버전: `method-recommendation-v1`. 근거 코드 origin/dev `872f540`
-- 상위 결정: 플러그형 설계 방향 1절(SR은 LLM 추천 입력 가능), WebUI 화면 흐름 3절(버튼 → 로딩 → JSON → 등록 목록과 AND 자동 선택 → 사람이 적용 여부만 선택)·2.3절(탐지 버전 화면 내부 탭), Q-M=★A(집계값만·파라미터 제안 허용), Q-N=★A(기존 `recommend_rule`과 별도 kind)
+- 상위 결정: 플러그형 설계 방향 1절(SR은 LLM 추천 입력 가능), WebUI 화면 흐름 3절(버튼 → 로딩 → JSON → 등록 목록과 AND 자동 선택 → 사람이 적용 여부만 선택)·2.3절(탐지 버전 화면 내부 탭), Q-M=★A(집계값만·파라미터 제안 허용), Q-N → Q2 [확정 10/21, 설계 방향 4.5절](`recommend_rule` 폐지 경로, `recommend_methods`만 유지)
 - 표기: **[확정]** / **★** 제안(결정 대기) / **충돌**
 - 범위: 구성 초안·카탈로그·데이터 집계를 입력으로 **카탈로그 등록 방법 중** 추천하는 비동기 작업. 상태·입력 범위·결과 JSON·서버 대조·`llm_worker` 영향
-- 제외: 새 방법 생성(기존 `recommend_rule`은 Rule DSL 초안 생성 경로로 별도 유지, Detector Q2 (나) 사용자 결정 대기), 프롬프트·어댑터 연구, GPU 배포, 자동 적용
+- 제외: 새 방법 생성(`recommend_rule` Rule DSL 초안 생성은 **[확정] 폐지 대상** — 기존 결과·adopt Rule은 읽기 보존 ★, 관계 절 참조), 프롬프트·어댑터 연구, GPU 배포, 자동 적용
 
-## 기존 추천과의 관계 [사실]
+## 기존 추천과의 관계
 
-- 현행 `recommend_rule`(`jobRoutes.ts:15`, `trainer/runner.py:325-338`, `research_design.py:202-234`)은 변수별 p95 기준선으로 **새 Rule 초안**(`sr_<hash>`, `SR_DIAGNOSTIC`, severity warning)을 만들고 관리자가 `adopt`로 등록. 등록 목록 중 고르는 작업이 아님
-- 새 작업 `recommend_methods` ★ Q-N=A: 별도 `job_kind`. 기존 `recommend_rule`·`recommend_feature`·`adopt` 경로 불변
+- 현행 `recommend_rule`(`jobRoutes.ts:15`, `trainer/runner.py:325-338`, `research_design.py:202-234`)은 변수별 p95 기준선으로 **새 Rule 초안**(`sr_<hash>`, `SR_DIAGNOSTIC`, severity warning)을 만들고 관리자가 `adopt`로 등록. 등록 목록 중 고르는 작업이 아님 [사실]
+- **[확정 — 사용자 10/21, Detector Q2·설계 방향 4.5절] LLM 신규 Rule·파생변수 생성 기능은 제거 예정**: `recommend_rule`(및 `recommend_feature`)은 **폐지 대상**, LLM 추천은 `recommend_methods`(등록 목록 안 선택)만 유지. 기존 `recommend_rule` 결과·`run_llm_results` 행·`adopt`로 등록된 Rule은 **읽기 보존** ★(삭제·재해석 없음); 신규 `recommend_rule` 요청 차단 시점·방식(422 코드, `job_kind` enum 값 유지)은 LLM 담당 세션 결정
+- 등록 Rule(`rule:<rule_key>`)은 HR 세부 방법으로 그대로 유지(변경 없음). 새 `recommend_methods`는 별도 `job_kind`
 - WebUI AND 규칙 [확정]: 추천 결과 ∩ 시스템 등록 목록(카탈로그 + 등록 Rule) → 교집합만 자동 선택, 목록 밖 추천은 선택 불가로 표시. 이 계약은 서버가 항목마다 `registered`와 `selectable`(등록 ∧ 실행 가능 ∧ ML이면 학습 후보 있음 ∧ action=enable)을 미리 계산해 제공하고, WebUI는 `selectable=true`만 자동 체크·나머지는 표시만 함
 
 ## 작업 — `POST /api/jobs kind=recommend_methods` [신규, 관리자]
@@ -130,13 +131,13 @@
 
 - 현행 LLM Rule 초안 키 `sr_<hash>`·코드 `SR_DIAGNOSTIC`(`research_design.py:228, 231`)은 `rule:sr_<hash>` 인스턴스이며 `sr:*` 통계 방법이 아님 — Detector D12 예약 접두(`SR_*`) 도입 시 이름 정리 필요(Detector D9-3 후속, LLM·Trainer 세션)
 - 등록 Rule에 승인 상태가 없어(`rules.md`) `registeredRules`는 draft 전체가 후보. HR 등록 목록 경계(승인 상태)는 별도 결정
-- `recommend_rule`과 `recommend_methods`를 통합 kind로 두는 대안 B는 기존 결과·`adopt` 경로를 바꾸므로 채택하지 않음 ★
+- `recommend_rule`은 폐지 경로(위 관계 절 [확정])이므로 통합 kind 대안 B는 소멸. 기존 결과 읽기 보존만 남음
 
 ## 결정 대기
 
 1. Q-M 입력 범위: ★A 집계값만·파라미터 제안 허용
-2. Q-N kind 분리: ★A 별도 kind
-3. Detector Q2 (나) LLM Rule 생성 유지(P1) 여부 — 유지 시 `registeredRules` 범위와 D9-3 이름 정리 동반
+2. Q-N kind 분리: **[확정 10/21]** `recommend_rule` 폐지 경로, `recommend_methods`만 유지(차단 시점은 LLM 세션)
+3. Detector Q2 (나) — **[확정 10/21]** LLM Rule 생성 폐지 예정. 남은 것: `recommend_rule` 신규 요청 차단 시점·기존 결과 읽기 보존 방식(LLM 세션)
 4. 어댑터·프롬프트 출처(연구 산출물), `model_version` 값
 5. `action`·`constraints`·상한 값
 6. `generation_timeout` 오류 코드 분리 — **[확정 10/21]** 분리(설계 방향 4.4절). 남은 것: `generation_client.py` 변경 시 기존 kind 영향 범위(LLM 세션)

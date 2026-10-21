@@ -10,7 +10,7 @@
 ## 방법 식별자 [확정 Q-A=A]
 
 - 형식 `<kind>:<key>`; kind ∈ `hr`·`rule`·`sr`·`ml`; key ★ `^[a-z][a-z0-9_-]{1,63}$`
-- `hr:process-status` 상태 HR(시스템 제공, `status_rule.py:2`), `rule:<rule_key>` 등록 Rule DSL(HR 대분류 소속 — Detector 문서 D9 사용자 선택 A, 재확인 대기 Q2), `sr:<method_key>` 통계 SR, `ml:<model_key>` ML 모델
+- `hr:process-status` 상태 HR(시스템 제공, `status_rule.py:2`), `rule:<rule_key>` 등록 Rule DSL(HR 대분류 소속 — **[확정 10/21]** Detector Q2 A, 설계 방향 4.5절), `sr:<method_key>` 통계 SR, `ml:<model_key>` ML 모델
 - 대분류 매핑: hr·rule → HR, sr → SR, ml → ML. 대분류별 결과 조합은 Detector 계약
 - 구성 안에서 식별자 유일: 같은 방법은 구성당 1개. 같은 모델을 파라미터만 바꿔 2개 넣는 것은 불가(`ml_config_models` PK `(config_version_id, model_key)` 그대로, `schema.dbml:413`)
 - `rule:<rule_key>`는 버전 1개만; 같은 `rule_key`의 다른 버전 2개 동시 포함 거부 ★(현행 API는 UUID 중복만 검사 `jobRoutes.ts:108`, DB 유일성은 `(rule_key, version)`)
@@ -67,12 +67,12 @@
 | `catalogVersion` | 저장 시점 카탈로그 버전. 실행 가능 여부(`executable`)는 **저장하지 않고** 목록·실행 시 현재 카탈로그로 다시 계산 |
 | `featureSetId` | 등록 Rule `F.*`가 묶이는 피처셋(Rule `input_spec.featureSetId`와 일치, `configRoutes.ts:127-136` 검사 유지). Rule·ML 모두 없으면 null |
 | `trainingSnapshotId` | 활성 ML 방법이 1개면 그 후보의 학습 스냅샷; 여러 개면 null, 각 `ml:*`의 후보가 보유 |
-| `methods[]` | 1개 이상. 식별자 유일. 순서 = Detector 대표 코드·evidence 순서(D15), `rule:*` 순서 = `evaluation_order` |
-| `methods[].enabled` | boolean. `false` 항목은 기록용 ★(실행·DB 자식 행·hash 계산에서 제외하지 않고 보존, Detector는 skipped). 활성 방법 0개 구성은 거부 |
+| `methods[]` | 1개 이상. 식별자 유일. 순서 = Detector 대표 코드·evidence 순서(D15), `rule:*` 순서 = `evaluation_order`. 단 상태 HR(`hr:process-status`)은 배열 위치와 무관하게 대표 코드 최우선(Detector D12) |
+| `methods[].enabled` | boolean. `false` 항목은 **spec·hash에는 보존**, **실행·DB 자식 행(`ml_config_models`·`ml_config_rules`)에서는 제외**, Detector는 skipped ★. 활성 방법 0개 구성은 거부 |
 | `methods[].parameters` | 카탈로그 `parameterSchema`로 검증. `ml:*`는 학습된 후보의 실제 값(`training_settings.parameters`)을 서버가 채움 — 요청이 다른 값을 주면 422 `ml_parameters_require_training`(파라미터 변경 = 재학습) |
 | `methods[].parameterSource` | `system` / `catalog_default` / `user` / `llm_proposed` ★. `llm_proposed`는 사람이 저장을 눌렀다는 뜻이며 자동 적용 아님 |
 | `methods[].artifacts` (`ml:*`) | 학습 후보(`kind=train` 성공 결과)의 `ml_config_models` 행을 가리킴. 파일 복사 없음, artifact ID 재사용. 후보 없는 모델은 선택 불가(WebUI 10/21 선택 제한) |
-| `combinationPolicy` | **Detector 계약(detectionPolicy v2) 객체를 그대로 포함**, 이 문서는 정의하지 않음. `deadlineMs`는 기존 `detectionPolicy.deadlineMs`(100~30000) 승계. **충돌**: Detector 문서 D6는 같은 객체를 `detectionPolicy` v2 키에 둘 것을 제안 → 키 이름은 Detector 계약 확정 시 따름(결정 대기 1) |
+| `combinationPolicy` | **Detector 계약(detectionPolicy v2) 객체를 그대로 포함**, 이 문서는 정의하지 않음. 위 예시의 `{policyKey, deadlineMs}`는 **자리 표시**이며 실제 키는 Detector 계약이 정함. `deadlineMs`는 기존 `detectionPolicy.deadlineMs`(100~30000) 승계. 주의: v2 객체를 기존 `detectionPolicy` 키에 넣으면 현행 `parse_policy`가 키 집합 불일치로 예외(`policy.py:30-31`), TS 검증(`jobRoutes.ts:94-101`)도 별도 분기 필요. **충돌**: Detector 문서 D6는 같은 객체를 `detectionPolicy` v2 키에 둘 것을 제안 → 키 이름은 Detector 계약 확정 시 따름(결정 대기 1) |
 | `statusRulePolicy` | `hr:process-status`가 enabled일 때만 존재하는 **파생 복사본**(`detector/computation.py:24-28`, `applications.py:46-48`, `service_contract.py:57` 호환). 값은 `status_rule.default_policy`와 정확히 일치(`status_rule.py:13-16`) |
 | `ruleVersionIds` | 활성 `rule:*`의 `ruleVersionId` 순서대로 — 파생 복사본(`service_contract.py:48` 호환) |
 | `trainingSelection` | 활성 ML 1개면 그 후보의 값 복사, 여러 개면 null(각 후보가 보유), ML 0개면 null |
@@ -120,6 +120,7 @@
 |---|---|
 | 본문 키 집합·타입·UUID 형식, `methods` 1개 이상 | 400 `invalid_configuration_request` |
 | `methodId` 카탈로그에 없음 | 422 `method_unknown:<id>` |
+| 활성 방법에 `executable.process=false`(연구 폴더 항목) **[확정 Q3-1, 10/21]** | 422 `method_not_executable:<id>` — 저장 자체 거부 |
 | 같은 `methodId` 2개 | 422 `method_duplicate:<id>` |
 | 활성 방법 0개 | 422 `detection_methods_empty` |
 | `rule:*`에 `ruleVersionId` 없음·존재하지 않음·retired·`rule_key` 불일치 | 422 `rule_version_invalid:<id>` |
@@ -131,7 +132,7 @@
 | `combinationPolicy` 검증(Detector 계약 규칙: 활성 대분류 1개 이상·1 ≤ k ≤ n 등) | 422 Detector 계약이 정한 코드(예 `combination_k_out_of_range`) |
 | `hr:process-status` `parameters`가 비어 있지 않음(매핑 고정) | 422 `method_parameters_invalid:hr:process-status` |
 
-- 실행 불가 방법(`executable.process=false`)은 **저장 허용**(Detector D13 A, 사용자 Q3-1 ★A 대기). 응답과 목록에 `executable=false`·사유를 표시하고, 학습·평가·적용 요청 시 `method_not_executable:<id>`로 실패
+- 실행 불가 방법(`executable.process=false`)은 **선택 자체 불가 — 저장 거부** 422 `method_not_executable:<id>` **[확정 — 사용자 10/21, Detector Q3-1·설계 방향 4.5절]**. 이전 초안의 "저장 허용 ★"은 폐기. 연구 폴더 항목은 개발 병행 중 화면에 비활성으로 보일 뿐이며 최종 버전 목록에는 없음. 학습(A)·평가·적용 요청도 같은 코드로 거부. Detector 런타임은 적용 뒤 어댑터가 사라진 예외 상황에서만 방법 결과 `failed`+`method_not_executable`(D13 B 방어 경로)
 - 파일 hash 재검증은 하지 않음(적용 단계 `applications.prepare_config`가 수행). 사전 조사 Q-D B(Trainer 작업 `kind=compose`)는 채택하지 않음 ★
 
 ## 조회
@@ -153,8 +154,8 @@
  "pagination": {"limit": 50, "hasMore": false, "nextCursor": null}}
 ```
 
-- 버전 단위 `executable`(WebUI 검토 의견 10): 활성 방법 전부 `executable.process=true`일 때만 true — 응답 시점 카탈로그로 재계산(저장값 아님). 실행 불가 버전은 교체 후보에서 제외(WebUI 2.2절)
-- `applicationEligibility`(WebUI 검토 의견 3): 서버가 기술 무결성 gate(`purpose=validation ∧ applicability=valid ∧ scored_count>0 ∧ unavailable_count=0 ∧ prepared 아님`, `configRoutes.ts:90-99`; 비교 작업이 만든 행·기존 `evaluate` 행 모두 대상, 합성 세트 비교 행 포함 — [확정 10/21])을 만족하는 **가장 최근 적격 평가** 1건과 버전 `executable=true`를 확인해 `{eligible: true, evaluationId, reason: null}`; 없으면 `{eligible: false, evaluationId: null, reason}`(`no_eligible_evaluation` / `method_results_unavailable` / `operational_ineligible` / `not_executable`). `latestEvaluation`(최신 1건, 적격 무관)과 별개. 적격이어도 적용은 사람 요청으로만
+- 버전 단위 `executable`(WebUI 검토 의견 10): 활성 방법 전부 `executable.process=true`일 때만 true — 응답 시점 카탈로그로 재계산(저장값 아님). 저장 시 실행 불가 방법이 거부되므로(Q3-1 [확정]) **false는 저장 뒤 카탈로그가 바뀌어 사후 실행 불가가 된 경우(어댑터 소실·deprecated)에만** 생김. 그 버전은 교체 후보에서 제외(WebUI 2.2절)
+- `applicationEligibility`(WebUI 검토 의견 3): 서버가 기술 무결성 gate(`purpose=validation ∧ applicability=valid ∧ scored_count>0 ∧ unavailable_count=0 ∧ prepared 아님`, `configRoutes.ts:90-99`; 비교 작업이 만든 행·기존 `evaluate` 행 모두 대상, 합성 세트 비교 행 포함 — [확정 10/21])을 만족하는 **가장 최근 적격 평가** 1건과 버전 `executable=true`를 확인해 `{eligible: true, evaluationId, reason: null}`; 없으면 `{eligible: false, evaluationId: null, reason}`(`no_eligible_evaluation` / `method_results_unavailable` / `operational_ineligible` / `not_executable` — 마지막 것은 사후 어댑터 소실 경우만). `latestEvaluation`(최신 1건, 적격 무관)과 별개. 적격이어도 적용은 사람 요청으로만
 - `methods[].status`·`executable`은 응답 시점 카탈로그로 계산. schemaVersion 1·2 행은 **읽기 전용 투영** ★: `statusRulePolicy` 유무 → `hr:process-status`, `ml_config_rules` → `rule:*`, `ml_config_models` → `ml:iforest`, `detectionPolicy.mode` → `requestedMode`. 저장 내용은 바꾸지 않음
 - `GET /api/configurations/:id` [기존 확장]: 기존 `{id, sourceId, configurationSpec, contentHash, createdAt}`(`configRoutes.ts:46-56`) 유지 + `schemaVersion`, `displayName`, `requestedMode`, `active`, `methods[]`(위 형식 + `parameters`·`artifacts`), `models[]`(`ml_config_models` 행: `modelKey, featureSetId, modelArtifactId, fitArtifactId, adapterSpec, trainingSettings, thresholdSpec`), `rules[]`(`ml_config_rules` 조인: `ruleVersionId, ruleKey, version, evaluationOrder`)
 - `GET /api/pipeline/reports/candidates`는 그대로 둠(학습 후보 이력). 목록 API와 역할이 겹치나 기존 소비처 보존 ★. 관계(WebUI 검토 의견 2): `candidates` = train 후보(구성당 최신 평가 1건) 전용 보고, 새 목록 = train 후보 + compose 조합본 전체이며 `createdFrom=train` 필터가 `candidates`와 같은 집합
@@ -165,7 +166,7 @@
 - gate = **기술 무결성만** [확정 — 사용자 10/21, 설계 방향 4.4절]: 해당 구성 ID의 `purpose=validation` 평가가 `applicability='valid' AND scored_count>0 AND unavailable_count=0`(모든 행 complete·방법 결과 unavailable 0) + prepared 아님(`configRoutes.ts:90-99`, `applications.py:102-109`, SQL 형식 불변) + 버전 `executable=true` + 산출물 경로·hash 검증(`prepare_config`). 최종 관문은 사람 수락
 - `evaluationId`에 **비교 평가가 만든 구성별 `run_evaluations` 행** 허용 — 합성 행 포함 세트의 비교 행도 기술 무결성을 만족하면 적격 [확정 10/21]([comparison](config-comparison-evaluation.md) 적용 gate 절). "원본 validation 평가 필수"는 "평가 세트 비교 + 사람 수락"으로 대체. 기존 `evaluate` 원본 validation 행도 계속 유효
 - 요청 본문 선택 필드 `acceptedRecommendation: {comparisonJobId, targetVersionId}` ★: 비교 결과 `replacementRecommendation`을 수락해 요청했음을 기록. 서버는 `targetVersionId == :id`·그 비교 작업에 그 추천이 실제로 있었는지 검증(불일치 400 `accepted_recommendation_mismatch`). 추천 없이 사람이 직접 고른 교체 요청은 이 필드 없이 그대로 허용. 기존 키 집합 검사(`configRoutes.ts:62`)에 키 추가
-- v3 구성의 준비 검사(Detector 소유, 여기서는 요구만): mode 분기 대신 `methods[]` 기준 — 활성 방법 0개 거부, 활성 `ml:*`마다 artifact·fit·feature set 일치(현행 `model_key='iforest'` 정확히 1행 `configRoutes.ts:117-126`·`applications.py:13-32`을 N행으로), 활성 방법 중 `executable.process=false`가 있으면 `method_not_executable:<id>`(D13 A), `rule_feature_set_mismatch` 유지
+- v3 구성의 준비 검사(Detector 소유, 여기서는 요구만): mode 분기 대신 `methods[]` 기준 — 활성 방법 0개 거부, 활성 `ml:*`마다 artifact·fit·feature set 일치(현행 `model_key='iforest'` 정확히 1행 `configRoutes.ts:117-126`·`applications.py:13-32`을 N행으로), 활성 방법 중 사후 어댑터 소실로 `executable.process=false`가 된 것이 있으면 `method_not_executable:<id>`(D13 B 방어 경로; 저장 시 거부되므로 드묾), `rule_feature_set_mismatch` 유지
 - `gate_evidence`에 `comparisonJobId`·`evaluationSetId`·`acceptedRecommendation`을 추가 기록 ★(`gateVersion: 2`); 기존 `{evaluationId, gateVersion: 1}` 형식 유지
 - **자동 교체 금지** [확정]. 시스템은 추천(`replacementRecommendation`)만 하고 운영 변경은 관리자의 명시 요청(수락)으로만
 
@@ -182,6 +183,26 @@
 | schemaVersion 1·2 구성 | 변환하지 않음. Detector·Trainer·gate는 기존 경로로 실행, 목록 API는 투영만 | 코드: Detector v3 분기 신설(`policy.parse_policy`는 키 집합 정확 일치 검사 `policy.py:30-31`라 v3는 별도 파서) |
 
 - 결론: 이 계약만으로는 **DB 마이그레이션 불필요**. 비교 평가·LLM 추천 계약이 요구하는 마이그레이션은 각 문서 참조
+
+## schemaVersion 3 판독 규칙 — fail-closed (Detector 차단 요청 B1)
+
+- 규칙: `configuration_spec.schemaVersion`을 모르는 판독기(3을 지원하지 않는 Detector·Trainer·API 코드)는 그 구성을 **읽지 않고 실패**해야 함 — 오류 코드 `unsupported_config_schema`. v3 구성을 v1 규칙(IF 1개·mode 분기)으로 조용히 해석하는 것을 금지
+- **충돌(현행)**: `detector/policy.py:26-29`는 `detectionPolicy`가 없으면 legacy `parallel/3000/any_anomaly`로 **조용히** 읽음 → v3 spec(`detectionPolicy` 없음)을 현행 Detector가 받으면 v1 legacy로 오해석하고 `computation.py:35-36`(iforest 외 `unsupported_model`)·`:65-66`(모델 1개)에서만 걸림. 따라서 모든 판독기에 `schemaVersion` 검사가 먼저 와야 함
+- 소비처 목록(워크트리 872f540 기준, 모두 `schemaVersion` 검사 추가 대상)
+
+| 소비처 | 현행 | 필요 변경 |
+|---|---|---|
+| `server/worker/detector/computation.py:17-60` (`load_context`) | `statusRulePolicy`·`parse_policy`·`ml_config_models` 읽기, schemaVersion 미검사 | v3 분기 전까지 `schemaVersion ∉ {None,1,2}` → `unsupported_config_schema` |
+| `server/worker/detector/policy.py:26-29` (`parse_policy`) | `detectionPolicy` 없음 → legacy | v3는 별도 파서, legacy 분기는 schemaVersion 1·2(또는 없음)에만 |
+| `server/worker/detector/applications.py:35-55` (`prepare_config`) | mode 분기 | 적용 준비 전 schemaVersion 검사 |
+| `server/worker/trainer/runner.py:340-341` (train: `parse_policy(spec, required=…)`) | 요청 spec의 `detectionPolicy` 기준 | v3 요청(`combinationPolicy`)은 별도 검증 |
+| `server/worker/trainer/runner.py:459` (`_evaluate` → `load_context`) | 위와 동일 | 위와 동일 |
+| `server/worker/trainer/service_contract.py:21-33` | `ml_config_models` >1 예외 | schemaVersion 검사 + N행 |
+| `server/backend/src/routes/configRoutes.ts:107` | `detectionPolicy.mode ?? 'parallel'` 기본값 | v3면 mode 파생, 미지 schemaVersion은 409 `unsupported_config_schema` |
+| `server/backend/src/routes/inputRoutes.ts:22` | `configuration_spec->'detectionPolicy'->>'mode'`를 목록에 표시 | v3는 `requestedMode` 파생값 표시(null 금지) |
+| `server/backend/src/routes/reportRoutes.ts:97-123` (`candidates`) | spec 그대로 반환 | 투영 규칙(조회 절) 적용 |
+
+- 허용 시점: **v3 구성의 생성(train·compose)과 적용은 Detector v3 로더 Issue가 병합된 뒤에만 허용** — 그 전에는 API가 v3 생성 요청을 422 `config_schema_not_supported_yet`로 거부(구현분할안 Issue 3↔6 의존)
 
 ## 기존 계약 문구 — 변경 제안(이 초안에서 수정하지 않음)
 
@@ -212,4 +233,4 @@
 3. Q-E 적용 gate 증거: **[확정 10/21]** 기술 무결성 gate + 평가 세트 비교(합성 포함) + 사람 수락, 자동 교체 금지. 남은 것: `acceptedRecommendation` 형식 ★
 4. train 요청의 v3 생성 시점: ★ 구현 단계 2(레지스트리·어댑터 디스패치)부터
 5. hash 입력 = 실제 구성 요소만(`contentHashVersion: 2`) ★, `enabled:false` 기록 보존, 불변 트리거 추가 여부. 같은 구성 재저장은 **[확정 10/21]** 차단 없이 `duplicateOf` 안내(응답 형식 200+기존 버전은 ★)
-6. Detector Q2(등록 Rule=HR 재확인)·Q3-1(실행 불가 오류 시점 ★A)·Q5(식별자, Q-A로 확정)
+6. Detector Q2(등록 Rule=HR **[확정]**, LLM 신규 Rule 생성은 폐지 예정)·Q3-1(실행 불가 방법 선택 불가·저장 거부 **[확정]**)·Q5(식별자, Q-A로 확정) — 설계 방향 4.5절

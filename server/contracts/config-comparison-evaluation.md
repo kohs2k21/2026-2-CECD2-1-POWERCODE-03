@@ -76,7 +76,7 @@
 
 | 사유 코드 | 조건 |
 |---|---|
-| `method_not_executable:<methodId>` | 활성 방법에 `executable.process=false`(Detector D13 A) |
+| `method_not_executable:<methodId>` | 활성 방법이 저장 뒤 카탈로그 변경으로 사후 실행 불가가 됨 — 어댑터 소실(Detector D13 B 방어 경로). 저장 시에는 이미 거부되므로 드묾 |
 | `training_evaluation_overlap` | 그 구성의 활성 ML 후보 학습 train과 세트 행이 observation 또는 execution 단위로 겹침(현행 `synthetic_execution.py:183-193` 검사 재사용) |
 | `prepared_not_comparable` | 구성이 prepared 계보(`operationalEligibility.eligible=false`) |
 | `config_source_mismatch` / `config_not_found` | 접수 뒤 삭제·불일치 |
@@ -120,14 +120,14 @@
        "decidable": {"basis": "decidable", "confusion": {"tp": 11, "fp": null, "tn": null, "fn": 8}, "coverage": 0.995, "unavailableCount": 6,
                      "biasNote": "partial_true_included_none_excluded"}},
      "categoryResults": {
-       "hr": {"status": "measured", "methodCount": 2, "confusion": {"tp": 7, "fp": null, "tn": null, "fn": 13}, "unavailableCount": 0},
-       "sr": {"status": "skipped", "reason": "no_enabled_methods", "methodCount": 0},
-       "ml": {"status": "measured", "methodCount": 1, "confusion": {"tp": 9, "fp": null, "tn": null, "fn": 11}, "unavailableCount": 12}},
+       "hr": {"measurementStatus": "measured", "methodCount": 2, "confusion": {"tp": 7, "fp": null, "tn": null, "fn": 13}, "unavailableCount": 0},
+       "sr": {"measurementStatus": "skipped", "reason": "no_enabled_methods", "methodCount": 0},
+       "ml": {"measurementStatus": "measured", "methodCount": 1, "confusion": {"tp": 9, "fp": null, "tn": null, "fn": 11}, "unavailableCount": 12}},
      "methodResults": [
-       {"methodId": "hr:process-status", "kind": "hr", "methodVersion": "process-status-hr-v1", "status": "measured",
+       {"methodId": "hr:process-status", "kind": "hr", "methodVersion": "process-status-hr-v1", "measurementStatus": "measured",
         "confusion": {"tp": 7, "fp": null, "tn": null, "fn": 13}, "hitCount": 7, "unavailableCount": 0, "unavailableReasons": {}},
-       {"methodId": "rule:process_errors", "kind": "rule", "status": "measured", "confusion": {"tp": 2, "fp": null, "tn": null, "fn": 18}, "hitCount": 2},
-       {"methodId": "ml:iforest", "kind": "ml", "methodVersion": "process-iforest-v1", "status": "measured",
+       {"methodId": "rule:process_errors", "kind": "rule", "measurementStatus": "measured", "confusion": {"tp": 2, "fp": null, "tn": null, "fn": 18}, "hitCount": 2},
+       {"methodId": "ml:iforest", "kind": "ml", "methodVersion": "process-iforest-v1", "measurementStatus": "measured",
         "confusion": {"tp": 9, "fp": null, "tn": null, "fn": 11}, "scoreMin": 0.31, "scoreMax": 0.92,
         "threshold": {"direction": "higher_is_anomaly", "value": "0.61", "quantile": 0.99},
         "unavailableCount": 12, "unavailableReasons": {"model_features_unavailable": 12}}],
@@ -156,9 +156,10 @@
 ```
 
 - 혼동행렬 칸별 null 규칙(WebUI 검토 의견 8): `fp`·`tn`은 `normal` 라벨 행에서만 세므로(`trainer/runner.py:482-485, 522-531`) `labelCounts.normalLabelCount=0`이면 `fp`·`tn`은 0이 아니라 **null**, `precision`·`falsePositiveRate`도 null+`verified_normal_labels_unavailable`. 같은 식으로 `anomalyLabelCount=0`이면 `tp`·`fn`·`recall` null. **충돌**: 현행 `classification_metrics`(`runner.py:487-492`)는 fp=0으로 두고 `precision=tp/tp`를 계산하므로 `comparison-methods-v1`은 이 null 규칙을 새로 적용(기존 `selected-paths-v3` 결과 재해석 없음). `hitCount`는 라벨 무관 hit 수
-- `composite`: Detector 순수 함수(종합 판정)의 행별 결과를 집계만 함. `completeOnly`(현행 기준, `trainer/runner.py:530-531`)와 `decidable`(None만 제외) **병기** — 예시 active 항목: 라벨 20행 중 complete 18행(tp 10·fn 8), partial+True 1행(decidable에서 tp 11), partial+None 1행(둘 다 제외) ★ Detector Q7 C 대기 — Detector가 B(현행만)를 고르면 `decidable` 생략. 편향 방향은 `biasNote`로 표기
-- `categoryResults{hr,sr,ml}`: 대분류 결과(Detector 1단계 결과) 기준 혼동행렬. 방법 0개는 `skipped`
-- `methodResults[]`: 활성 방법마다 1개, [method-result-v1](method-catalog.md) 상태 집계. 실행 불가 방법이 활성인 구성은 항목 자체가 `failed`(실행 절 사유 표)이므로 성공 항목의 `methodResults`에 `method_not_executable` 결과는 생기지 않음(예시 2번째 항목). 라벨 있는 행만 혼동행렬, `unavailableReasons`는 사유별 건수. ML `score` 척도는 방법마다 다르므로 비교·합산하지 않음(표시만)
+- `composite`: Detector 순수 함수(종합 판정)의 행별 결과를 집계만 함. `completeOnly`(현행 기준, `trainer/runner.py:530-531`)와 `decidable`(None만 제외) **병기** — 예시 active 항목: 라벨 20행 중 complete 18행(tp 10·fn 8), partial+True 1행(decidable에서 tp 11), partial+None 1행(둘 다 제외). **[확정 Q7 C, 10/21]** `completeOnly`·`decidable` 두 기준을 각각 `coverage`(분모/전체)·`unavailableCount`와 함께 **항상 병기**(생략 분기 없음). 편향 방향은 `biasNote`로 표기
+- `categoryResults{hr,sr,ml}`: 대분류 결과(Detector 1단계 결과) 기준 혼동행렬. 방법 0개는 `measurementStatus: skipped`. U(정상 여부 미확인, 대분류 결과 None) 행의 집계 기준은 composite와 같은 Q7 C: `completeOnly`(대분류 방법 전부 succeeded인 행만)·`decidable`(대분류 결과 None만 제외, T는 partial이어도 포함) 두 기준을 병기하고 각각 `coverage`·`unavailableCount`를 붙임
+- v1 운영 구성과 v3 후보를 같은 세트로 비교할 때 Detector 행동 변경 2(방법 단위 실행 후 등록 Rule 예외가 상태 HR 이상을 지우지 않음, Detector 문서 D4-1)로 드물게 v1·v3의 `composite`가 같은 입력에서 달라질 수 있음 — 차이는 `items[].metricVersion`·`combinationPolicy`로 구분하고 결과를 재해석하지 않음
+- `methodResults[]`: 활성 방법마다 1개, [method-result-v1](method-catalog.md) 상태 집계. `measurementStatus`(`measured` / `unavailable` / `skipped`)는 **집계 측정 상태**이며 방법 결과 상태 enum(`succeeded/not_ready/failed/skipped`)과 다른 필드(이름 충돌 방지, Detector 의견 9). 실행 불가 방법이 활성인 구성은 항목 자체가 `failed`(실행 절 사유 표)이므로 성공 항목의 `methodResults`에 `method_not_executable` 결과는 생기지 않음(예시 2번째 항목). 라벨 있는 행만 혼동행렬, `unavailableReasons`는 사유별 건수. ML `score` 척도는 방법마다 다르므로 비교·합산하지 않음(표시만)
 - `evaluationEnvelope`: 구성별 4가족 봉투 그대로. `synthetic`은 세트 합성 행 기준 측정(`synthetic-process-metrics-v1` 재사용, 구성별 분모 동일), `rule_ml`은 세트 원본 행 교차표(`rule-ml-comparison-v1`), `execution_cost`는 구성별 실측, `operational`은 `unavailable/operational_report_separate_time_scoped`. ESB와 ADBench 분모 합산 금지 유지
 - 묶음 수준 지표 요약은 두지 않음(구성별 봉투를 하나로 합치지 않음) [확정 3절]. 순위 표시 없음, `manualApprovalRequired: true`
 - `replacementRecommendation` [확정 — 사용자 10/21, 설계 방향 4.4절·WebUI 화면흐름 2.4절]: **교체는 시스템 '추천'만 자동, 운영 변경은 사람 '수락'으로만. 자동 교체 금지**. 비교 작업마다 추천 1건(또는 없음)을 계산해 결과에 포함
@@ -219,6 +220,6 @@
 3. Q-F 운영 구성 겹침: ★A 항목 failed·나머지 진행
 4. Q-L 상한: ★ 구성 ≤8(활성 포함), 세트 상한·삭제 없음
 5. `run_evaluations.job_id` UNIQUE 완화 vs 자식 작업 — PostgreSQL 세션
-6. Detector Q7(종합 지표 기준 병기 ★C)·Detector 순수 함수 제공 시점(구현 순서 의존)
+6. Detector Q7 **[확정 10/21]** C 병기 — 남은 것은 Detector 순수 함수 제공 시점(구현 순서 의존)
 7. 활성 구성 없을 때 비교 허용(`baseline: null`) ★
 8. 작업 kind 이름 `evaluation_set`·`compare` ★, 조회 경로 `/api/comparisons` ★

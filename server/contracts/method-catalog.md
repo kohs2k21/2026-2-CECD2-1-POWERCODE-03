@@ -10,7 +10,7 @@
 
 - **UI 제작 대상 = Git에 올라온 방법**(`server/` + `research/`) [확정]. 팀원 논의 수준(Git 없음)은 등재하지 않음
 - **실행 가능 = `server/`에 해당 경로 어댑터가 존재** [확정]. `status`와 `executable`은 별개 필드. research이면서 실행 가능(없음)·supported이면서 특정 경로 실행 불가(KMeans의 PROCESS)가 모두 표현 가능
-- 실행 불가 방법의 취급을 셋으로 구분: ① 목록·UI 제작 대상 ✓ [확정 Git 기준] ② 화면 선택은 WebUI 2.2·2.3절대로 **비활성(사유 문구 미표시)** — 사용자 확인 10/21 ③ 서버는 저장 허용(★ Detector D13 A, Q3-1 대기), 실행(학습·평가·적용) 요청 시 `method_not_executable:<methodId>` 오류를 그대로 반환. 목업 성공·빈 결과 대체 금지 [확정]
+- 실행 불가 방법의 취급을 셋으로 구분: ① 목록·UI 제작 대상 ✓ [확정 Git 기준] ② 화면 선택은 WebUI 2.2·2.3절대로 **비활성(사유 문구 미표시)** — 사용자 확인 10/21 ③ 서버는 **저장 거부** 422 `method_not_executable:<methodId>` **[확정 — 사용자 10/21, Detector Q3-1·설계 방향 4.5절]**: 실행 불가 방법은 선택 자체 불가. 연구 폴더 항목은 개발 병행 중 화면 표시(비활성)일 뿐, 최종 버전 목록에는 없음. 학습·평가·적용 요청도 같은 코드로 거부. 목업 성공·빈 결과 대체 금지 [확정]
 - 항목 추가는 `catalogVersion` 증가. 제거는 하지 않고 `status=deprecated`로 전환(기존 구성이 참조하므로)
 - 기본값은 출처를 함께 기록(`defaultsSource`). 연구 보고서 미확인 값은 `defaults=null`로 두고 채우지 않음
 
@@ -20,7 +20,7 @@
 |---|---|
 | `methodId` | `<kind>:<key>` ([detection-config](detection-config-version.md) 식별자 절) |
 | `kind` | `hr` / `sr` / `ml` (`methods[]` 항목). `rule`은 `instanceTemplates[]`에만 있고 `methods[]`에는 오지 않음(schema `$defs.method.kind` enum에서 제외) |
-| `category` | 대분류 `HR` / `SR` / `ML`(rule은 HR — Detector Q2 재확인 대기) |
+| `category` | 대분류 `HR` / `SR` / `ML`(rule은 HR — **[확정 10/21]** Detector Q2 A) |
 | `displayName` | 표시 이름(한글 가능) |
 | `status` | `supported`(운영 코드·시험 있음) / `research`(연구 코드만 또는 연구 결론 미확정) / `deprecated` |
 | `methodVersion` | 실행 코드·산출물 형식 버전 문자열(ML은 `ml_artifacts.format_version`과 동일 값) |
@@ -40,11 +40,12 @@
 | `instanceSource` | `instanceTemplates[]` 항목만: `ml_rule_versions`(인스턴스는 등록 Rule 버전). `methods[]` 항목에는 없음 |
 | `notes` | 제약·주의 |
 
-## 세부 방법별 결과 형식 `method-result-v1` ★
+## 세부 방법별 결과 형식 `method-result-v1` — Detector evidence v4에 정렬 [확정 Q8 A, 10/21]
 
+- 계측(#66)·종합 판정·방법별 결과는 **Detector evidence v4 한 계약**으로 묶임(사용자 Q8 A). 아래 필드는 v4 확정 전의 **자리 초안**이며, 확정 시 v4 필드 정의를 그대로 따름(이 문서는 참조만)
 - Trainer 평가·Detector evidence가 공통으로 쓰는 **방법 1개의 결과**. 조합은 Detector 계약
 - `{methodId, kind, methodVersion, status: "succeeded"|"not_ready"|"failed"|"skipped", anomalous: true|false|null, score: number|null, code: string|null, severity: string|null, reason: string|null, evidence: object[]}`
-- `score`는 ML·통계 SR만(점수 척도는 방법마다 다름, 비교·합산 금지). `code`는 Detector D12 형식(`PROCESS_STATUS_*`, Rule `outcome.decisionCode`, `SR_<KEY>`, `<KEY>_ANOMALY`)
+- `score`는 ML·통계 SR만(점수 척도는 방법마다 다름, 비교·합산 금지). `code` 형식(`PROCESS_STATUS_*`, Rule `outcome.decisionCode`, `SR_<KEY>`, `<KEY>_ANOMALY`)은 **Detector D12 제안이며 Q4(등급) 보류에 묶여 미확정**
 - 현행 `checkers.{hr,sr,ml}{status,anomalous,evidence}`(`detector/runner.py:88-89`)는 대분류 결과로 유지, 방법별 배열은 evidence v4에서 추가(Detector)
 
 ## 레지스트리 인터페이스 ★ Q-K=A

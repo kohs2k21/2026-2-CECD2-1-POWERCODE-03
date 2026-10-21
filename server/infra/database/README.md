@@ -42,6 +42,7 @@ Status: current
 - `run_config_comparisons`: compare 작업 완료 트랜잭션에서 1회 INSERT(ready 세트·같은 source·baseline source 일치), 이후 UPDATE·DELETE 금지. `run_config_comparison_items`: active는 baseline 구성과 일치·비교당 1개, succeeded는 같은 비교·같은 구성의 평가 행 필수, failed는 `error_code` 필수·평가 없음. 불변
 - `run_evaluations`: `comparison_id`·`evaluation_set_id` nullable 열 추가, `UNIQUE(job_id)` → `UNIQUE(job_id, config_version_id)`. 비교 밖 작업은 partial unique로 job당 1행 유지. 비교 행은 세트 snapshot·purpose·source와 비교 job·세트 일치 trigger. 같은 트랜잭션 INSERT 순서는 comparison → run_evaluations → items
 - `ml_config_versions`는 004_feature_pipeline `pipeline_immutable`로 이미 UPDATE·DELETE 금지, 011은 신규 trigger 없음
+- 011이 만들거나 재정의한 함수 4개(`erd_v03_validate_job`·`protect_evaluation_set`·`fail_evaluation_set_with_job`·`validate_comparison_lineage`)는 `SET search_path = public, pg_temp`로 고정, SECURITY INVOKER 유지. 세션 임시 테이블의 같은 이름 가리기로 검증·동기화를 우회하지 못함. 001~010 함수는 미적용(후속 조치 대상)
 - 권한(`scripts/database-roles.sql`): API 세트 SELECT·INSERT, Trainer 세트 SELECT·UPDATE·비교 2테이블 SELECT·INSERT, LLM은 dead training 큐 정리 trigger용 세트 `SELECT(job_id,status)`·`UPDATE(status,error_code)`만, API 비교 SELECT
 
 ## 큐와 소유권
@@ -109,5 +110,5 @@ Status: current
 - 운영 서버·고객 데이터·.env·인증파일 사용 없음. 임시 DB/의존성만 사용, 완료 시 시험 프로세스 종료
 - 최종 검수: native PostgreSQL 17.10 fresh/legacy-upgrade 147 checks 통과. 원문 dbmlv2 파싱, 30테이블·양방향 nullable·18 enum·76 FK, 읽기 점검 서버 metadata와 기존 001/002 대조, 두 연결 claim·manifest typed-row 경합 시험 포함
 - 이 결과는 격리 schema 시험이며 프로젝트 worker 실행·실제 서버 003/004 적용·운영 배포·백업 복원 완료를 뜻하지 않음
-- Issue #78(011) 시험: fresh(001~011)·upgrade(001~010 + evaluate/import_csv/LLM 기존 행 + 011)·011 중간 오류 ROLLBACK 3개 DB. 새 kind 큐·요청자·legacy 분기, `recommend_methods` 결과·완료, 평가 세트 상태·불변·작업 실패 동기화(종료·시도 초과·dead 큐 정리), 비교 2테이블 FK·CHECK·불변, `run_evaluations` 다중 행·중복 거부, `ml_config_versions` 불변, `database-roles.sql`·`demo-role.sql` 권한(SET ROLE) 포함. 2026-10-21 native PostgreSQL 17.10(embedded) 368 checks 통과, DBML 58테이블 parity
+- Issue #78(011) 시험: fresh(001~011)·upgrade(001~010 + evaluate/import_csv/LLM 기존 행 + 011)·011 중간 오류 ROLLBACK·search_path 가리기 4개 DB. 새 kind 큐·요청자·legacy 분기, `recommend_methods` 결과·완료, 평가 세트 상태·불변·작업 실패 동기화(종료·시도 초과·dead 큐 정리), 비교 2테이블 FK·CHECK·불변, `run_evaluations` 다중 행·중복 거부, `ml_config_versions` 불변, `database-roles.sql`·`demo-role.sql` 권한(SET ROLE), 런타임 역할 새 연결의 임시 테이블 가리기 6종 거부 포함. 2026-10-21 native PostgreSQL 17.10(embedded) 375 checks 통과, DBML 58테이블 parity
 - dev(011 이전) `erd-v03.mjs`는 DBML 누락 24테이블·`job_kind` 순서 때문에 parity에서 실패했음(#78에서 보강)

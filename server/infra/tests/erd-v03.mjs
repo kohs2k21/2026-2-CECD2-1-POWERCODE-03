@@ -170,7 +170,7 @@ try {
   await cluster.initialise(); await cluster.start();
   const admin=connection('postgres'); await admin.connect();
   console.log((await admin.query('SELECT version() AS version')).rows[0].version);
-  for (const name of ['erd_fresh','erd_upgrade','erd_rollback_011']) await admin.query(`CREATE DATABASE ${name}`);
+  for (const name of ['erd_fresh','erd_upgrade','erd_rollback_011','erd_search_path_011']) await admin.query(`CREATE DATABASE ${name}`);
   await admin.end();
   for (const name of ['erd_fresh','erd_upgrade']) {
     const c=connection(name); await c.connect();
@@ -208,6 +208,7 @@ try {
     } finally { await c.end(); }
   }
   await rollback011('erd_rollback_011');
+  await searchPath011('erd_search_path_011');
   assert.equal(failures.length,0,failures.join('; '));
   console.log(`PASS ${checkCount} integration checks; no project runtime or customer data used`);
 } finally { await cluster.stop(); }
@@ -691,4 +692,84 @@ async function rollback011(database) {
     await parity(c);
     check('011 applies cleanly after the rolled-back attempt (enum ADD VALUE IF NOT EXISTS)');
   } finally { await c.end(); }
+}
+
+// Temp-table name shadowing against the 011 validators. Each attack uses a NEW connection whose first
+// reference to the shadowed name is the attacker's temp table (a warmed plan cache would hide the hole).
+async function searchPath011(database) {
+  const c=connection(database); await c.connect();
+  let f;
+  try {
+    for (const sql of migrations) await c.query(sql);
+    await c.query(rolesSql);
+    const { source, snapshot, job, setFields, queuedSet, readySet } = await fixture011(c);
+    const configA=await insert(c,'ml_config_versions',{source_id:source.id});
+    const configB=await insert(c,'ml_config_versions',{source_id:source.id});
+    const [,readyFixture]=await readySet();
+    const [queuedJob,queuedFixture]=await queuedSet();
+    const compareJob=await job('compare');
+    const cmp=await insert(c,'run_config_comparisons',{job_id:compareJob.id,evaluation_set_id:readyFixture.id,source_id:source.id,
+      baseline_config_version_id:configA.id,active_revision:0,status:'succeeded',summary:{},completed_at:new Date()});
+    const evalA=await insert(c,'run_evaluations',{job_id:compareJob.id,comparison_id:cmp.id,evaluation_set_id:readyFixture.id,
+      config_version_id:configA.id,snapshot_id:snapshot.id,purpose:'validation',population_count:1,scored_count:1,unavailable_count:0});
+    const spareCompare=await job('compare');
+    const evaluateJob=await job('evaluate');
+    const expired=await job('compare');
+    const attempt=await insert(c,'run_job_attempts',{job_id:expired.id,attempt_no:1,status:'running',lease_until:new Date(Date.now()+600000)});
+    await c.query("UPDATE run_jobs SET status='running',current_attempt_id=$1,attempt_count=1 WHERE id=$2",[attempt.id,expired.id]);
+    await c.query("UPDATE run_job_attempts SET lease_until=clock_timestamp()-interval '1 minute' WHERE id=$1",[attempt.id]);
+    f={ source, snapshot, setFields, configA, configB, readyFixture, queuedJob, queuedFixture, cmp, evalA, spareCompare, evaluateJob, expired };
+  } finally { await c.end(); }
+
+  async function attack(label, role, shadow, action, verify) {
+    const a=connection(database); await a.connect();
+    try {
+      await a.query('BEGIN');
+      await a.query(`SET ROLE ${role}`);
+      for (const [sql,params] of shadow) await a.query(sql,params);
+      let error=null;
+      try { await a.query('SAVEPOINT attack'); await action(a); } catch (e) { error=e; await a.query('ROLLBACK TO SAVEPOINT attack'); }
+      const blocked=verify ? await verify(a,error) : Boolean(error && ['P0001','P0002'].includes(error.code));
+      if (blocked) check(`${label} (${error ? error.code+' '+error.message : 'validator used public table'})`);
+      else { failures.push(label); console.log(`FAIL search_path bypass: ${label}${error ? ' ('+error.code+' '+error.message+')' : ''}`); }
+    } finally { await a.query('ROLLBACK').catch(()=>{}); await a.end(); }
+  }
+  const later="clock_timestamp()+interval '1 hour'";
+  await attack('validate_job: trainer temp run_job_attempts cannot fake an unexpired lease for completion','powercode_trainer',
+    [['CREATE TEMP TABLE run_job_attempts AS SELECT * FROM public.run_job_attempts WHERE job_id=$1',[f.expired.id]],
+     [`UPDATE pg_temp.run_job_attempts SET lease_until=${later}`]],
+    a=>a.query("UPDATE public.run_jobs SET status='succeeded' WHERE id=$1",[f.expired.id]));
+  await attack('protect_evaluation_set: API temp run_jobs cannot relabel a compare job as evaluation_set','powercode_api',
+    [["CREATE TEMP TABLE run_jobs AS SELECT id,'evaluation_set'::text AS kind FROM public.run_jobs WHERE id=$1",[f.spareCompare.id]]],
+    a=>a.query(`INSERT INTO public.data_evaluation_sets(id,job_id,source_id,snapshot_id,purpose,display_name,created_by_actor_id)
+      VALUES($1,$2,$3,$4,'validation','shadow','admin78')`,[randomUUID(),f.spareCompare.id,f.source.id,f.snapshot.id]));
+  await attack('fail_evaluation_set_with_job: trainer temp data_evaluation_sets cannot swallow the failure sync','powercode_trainer',
+    [['CREATE TEMP TABLE data_evaluation_sets(job_id uuid,status text,error_code text)']],
+    a=>a.query("UPDATE public.run_jobs SET status='failed',error_code='shadowed' WHERE id=$1",[f.queuedJob.id]),
+    async(a,error)=>!error && (await a.query('SELECT status FROM public.data_evaluation_sets WHERE id=$1',[f.queuedFixture.id])).rows[0].status==='failed');
+  await attack('comparison lineage: trainer temp run_jobs cannot relabel an evaluate job as compare','powercode_trainer',
+    [["CREATE TEMP TABLE run_jobs AS SELECT id,'compare'::text AS kind FROM public.run_jobs WHERE id=$1",[f.evaluateJob.id]]],
+    a=>a.query(`INSERT INTO public.run_config_comparisons(id,job_id,evaluation_set_id,source_id,baseline_config_version_id,active_revision,status,summary,completed_at)
+      VALUES($1,$2,$3,$4,$5,0,'succeeded','{}',clock_timestamp())`,[randomUUID(),f.evaluateJob.id,f.readyFixture.id,f.source.id,f.configA.id]));
+  await attack('evaluation lineage: trainer temp data_evaluation_sets cannot change the set purpose','powercode_trainer',
+    [['CREATE TEMP TABLE data_evaluation_sets AS SELECT * FROM public.data_evaluation_sets WHERE id=$1',[f.readyFixture.id]],
+     ["UPDATE pg_temp.data_evaluation_sets SET purpose='test'"]],
+    a=>a.query(`INSERT INTO public.run_evaluations(id,job_id,config_version_id,snapshot_id,purpose,evaluation_spec_version,evaluation_spec_hash,
+      evaluation_spec,applicability,population_count,scored_count,unavailable_count,metrics,reason_codes,completed_at,comparison_id,evaluation_set_id)
+      VALUES($1,$2,$3,$4,'test','v','h','{}','valid',1,1,0,'{}','[]',clock_timestamp(),$5,$6)`,
+      [randomUUID(),f.cmp.job_id,f.configB.id,f.snapshot.id,f.cmp.id,f.readyFixture.id]));
+  await attack('item lineage: trainer temp run_config_comparisons cannot move the baseline','powercode_trainer',
+    [['CREATE TEMP TABLE run_config_comparisons AS SELECT * FROM public.run_config_comparisons WHERE id=$1',[f.cmp.id]],
+     ['UPDATE pg_temp.run_config_comparisons SET baseline_config_version_id=$1',[f.configB.id]]],
+    a=>a.query(`INSERT INTO public.run_config_comparison_items(comparison_id,config_version_id,role,status,evaluation_id)
+      VALUES($1,$2,'candidate','succeeded',$3)`,[f.cmp.id,f.configA.id,f.evalA.id]));
+  const c2=connection(database); await c2.connect();
+  try {
+    const pinned=(await c2.query(`SELECT array_agg(proname::text ORDER BY proname) AS names FROM pg_catalog.pg_proc
+      WHERE proname IN ('erd_v03_validate_job','protect_evaluation_set','fail_evaluation_set_with_job','validate_comparison_lineage')
+        AND proconfig @> ARRAY['search_path=public, pg_temp'] AND NOT prosecdef`)).rows[0].names;
+    assert.deepEqual(pinned,['erd_v03_validate_job','fail_evaluation_set_with_job','protect_evaluation_set','validate_comparison_lineage'],
+      '011 functions pin search_path and stay SECURITY INVOKER');
+    check('011 functions pin search_path=public, pg_temp and stay SECURITY INVOKER');
+  } finally { await c2.end(); }
 }

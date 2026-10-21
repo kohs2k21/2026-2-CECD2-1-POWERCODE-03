@@ -2,6 +2,8 @@
 -- Run once with psql -v ON_ERROR_STOP=1 -f. The enum values below are committed before the
 -- transaction (010 import_csv pattern); new labels are only compared as kind::text in this file.
 -- A failure inside BEGIN..COMMIT rolls back every structural change except these enum values.
+-- Every function defined here pins search_path to public, pg_temp (SECURITY INVOKER kept) so a
+-- session temp table cannot shadow the tables these validators read or write.
 ALTER TYPE job_kind ADD VALUE IF NOT EXISTS 'evaluation_set';
 ALTER TYPE job_kind ADD VALUE IF NOT EXISTS 'compare';
 ALTER TYPE job_kind ADD VALUE IF NOT EXISTS 'recommend_methods';
@@ -40,7 +42,8 @@ ALTER TABLE run_llm_results ADD CONSTRAINT run_llm_results_check
 
 -- Same behavior as 004 except that recommend_methods joins the llm_spec and LLM completion kind lists.
 -- No evaluate-only completion rule exists, so compare needs no extra completion branch.
-CREATE OR REPLACE FUNCTION erd_v03_validate_job() RETURNS trigger LANGUAGE plpgsql AS $$
+CREATE OR REPLACE FUNCTION erd_v03_validate_job() RETURNS trigger LANGUAGE plpgsql
+ SET search_path = public, pg_temp AS $$
 DECLARE d run_process_decisions; s text; a run_job_attempts;
 BEGIN
  IF TG_OP = 'UPDATE' AND OLD.contract_version IS DISTINCT FROM NEW.contract_version THEN RAISE EXCEPTION 'job contract version is fixed; create a new job'; END IF;
@@ -104,7 +107,8 @@ CREATE TABLE data_evaluation_sets (
 );
 CREATE INDEX data_evaluation_sets_source_idx ON data_evaluation_sets(source_id,created_at DESC);
 
-CREATE FUNCTION protect_evaluation_set() RETURNS trigger LANGUAGE plpgsql AS $$
+CREATE FUNCTION protect_evaluation_set() RETURNS trigger LANGUAGE plpgsql
+ SET search_path = public, pg_temp AS $$
 BEGIN
  IF TG_OP = 'INSERT' THEN
    IF NEW.status <> 'queued' OR NEW.generation IS NOT NULL OR NEW.content_hash IS NOT NULL
@@ -140,7 +144,8 @@ CREATE TRIGGER evaluation_set_immutable BEFORE INSERT OR UPDATE OR DELETE ON dat
  FOR EACH ROW EXECUTE FUNCTION protect_evaluation_set();
 
 -- Reclaimed/dead/max-attempt jobs can fail without running the set handler (010 import_csv pattern).
-CREATE FUNCTION fail_evaluation_set_with_job() RETURNS trigger LANGUAGE plpgsql AS $$
+CREATE FUNCTION fail_evaluation_set_with_job() RETURNS trigger LANGUAGE plpgsql
+ SET search_path = public, pg_temp AS $$
 BEGIN
  IF NEW.kind::text = 'evaluation_set' AND NEW.status = 'failed' THEN
    UPDATE data_evaluation_sets SET status='failed', error_code=COALESCE(NEW.error_code,'evaluation_set_failed')
@@ -193,7 +198,8 @@ CREATE UNIQUE INDEX run_evaluations_single_job_idx ON run_evaluations(job_id) WH
 ALTER TABLE run_evaluations ADD CONSTRAINT run_evaluations_comparison_set_check CHECK (comparison_id IS NULL OR evaluation_set_id IS NOT NULL);
 CREATE INDEX run_evaluations_comparison_ref_idx ON run_evaluations(comparison_id) WHERE comparison_id IS NOT NULL;
 
-CREATE FUNCTION validate_comparison_lineage() RETURNS trigger LANGUAGE plpgsql AS $$
+CREATE FUNCTION validate_comparison_lineage() RETURNS trigger LANGUAGE plpgsql
+ SET search_path = public, pg_temp AS $$
 DECLARE s data_evaluation_sets; cmp run_config_comparisons; e run_evaluations;
 BEGIN
  IF TG_TABLE_NAME = 'run_config_comparisons' THEN

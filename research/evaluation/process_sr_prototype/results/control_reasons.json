@@ -1,0 +1,41 @@
+{
+  "robust_z[duration_ms]": {
+    "within_threshold": 450
+  },
+  "robust_z[total_count]": {
+    "within_threshold": 450
+  },
+  "robust_z[total_count,meanad]": {
+    "within_threshold": 450
+  },
+  "iqr_fence[duration_ms]": {
+    "within_threshold": 450
+  },
+  "iqr_fence[duration_ms,k=3]": {
+    "within_threshold": 450
+  },
+  "iqr_fence[total_count]": {
+    "within_threshold": 450
+  },
+  "quantile_tail[duration_ms]": {
+    "within_threshold": 450
+  },
+  "quantile_tail[duration_ms,min30,nofallback]": {
+    "within_threshold": 450
+  },
+  "quantile_tail[total_count]": {
+    "within_threshold": 450
+  },
+  "centered_tail[duration_ms]": {
+    "within_threshold": 450
+  },
+  "centered_tail[total_count]": {
+    "within_threshold": 450
+  },
+  "ratio_rule": {
+    "within_threshold": 450
+  },
+  "count_conservation": {
+    "conserved": 450
+  }
+}

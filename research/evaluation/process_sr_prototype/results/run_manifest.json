@@ -1,0 +1,184 @@
+{
+  "prototype": "sr-prototype-v0",
+  "issue": 75,
+  "originCommit": "872f540f2a90af2ab44640e6b518617e5901f8cf",
+  "sourceCommit": "872f540f2a90af2ab44640e6b518617e5901f8cf",
+  "fixtureSource": "research/evaluation/process_synthetic_lab/tests/test_core.py::fixture (origin/dev 872f540), verbatim",
+  "researchImports": {
+    "pipelineDir": "research/anomaly_detection/code/process_anomaly_pipeline",
+    "labDir": "research/evaluation/process_synthetic_lab",
+    "shims": [
+      "process_anomaly_pipeline.__init__ (sklearn pipeline import bypassed; submodules loaded from the original files)"
+    ],
+    "copies": []
+  },
+  "python": "3.11.2 (tags/v3.11.2:878ead1, Feb  7 2023, 16:38:35) [MSC v.1934 64 bit (AMD64)]",
+  "platform": "Windows-10-10.0.26200-SP0",
+  "packages": {
+    "numpy": "2.4.6",
+    "pandas": "3.0.6",
+    "scikit-learn": null,
+    "scipy": null
+  },
+  "packagesNote": "methods use numpy/pandas only; scikit-learn/scipy versions are recorded if installed, never imported",
+  "args": {
+    "rows": 3000,
+    "target_rows": 10,
+    "seeds": [
+      11,
+      23,
+      47
+    ],
+    "latency_rows": 200,
+    "out": "results"
+  },
+  "splitRows": {
+    "train": 2100,
+    "threshold": 450,
+    "test": 450
+  },
+  "trainReference": {
+    "trainRows": 2100,
+    "referenceRows": 2100,
+    "statusCounts": {
+      "S": 2100
+    }
+  },
+  "adapterBaselinesMs": {
+    "A": 109.0,
+    "B": 109.0
+  },
+  "experimentConfig": {
+    "version": "process-synthetic-lab-v1",
+    "seeds": [
+      11,
+      23,
+      47
+    ],
+    "delay_multipliers": [
+      1.5,
+      2.0,
+      3.0
+    ],
+    "target_rows": 10,
+    "min_train_rows": 20,
+    "min_threshold_rows": 10,
+    "min_adapter_rows": 5,
+    "train_fraction": 0.7,
+    "validation_fraction": 0.15,
+    "model_seed": 42,
+    "threshold_quantile": 0.99,
+    "failure_status": "F",
+    "failure_response_code": null,
+    "failure_semantics_evidence": "PROTOTYPE FIXTURE ONLY: invented rows; not customer failure semantics (lab README keeps P01 on hold)",
+    "parent_policy": "strict_parent",
+    "scenarios": [
+      "P01",
+      "P02",
+      "P03",
+      "P04"
+    ],
+    "count_increments": [
+      1,
+      2,
+      3
+    ],
+    "count_conservation_contract": true,
+    "run_noop_control": false,
+    "run_adbench": true
+  },
+  "instances": {
+    "robust_z[duration_ms]": {
+      "method": "robust_z",
+      "params": {}
+    },
+    "robust_z[total_count]": {
+      "method": "robust_z",
+      "params": {
+        "field": "total_count"
+      }
+    },
+    "robust_z[total_count,meanad]": {
+      "method": "robust_z",
+      "params": {
+        "field": "total_count",
+        "madZeroPolicy": "meanad"
+      }
+    },
+    "iqr_fence[duration_ms]": {
+      "method": "iqr_fence",
+      "params": {}
+    },
+    "iqr_fence[duration_ms,k=3]": {
+      "method": "iqr_fence",
+      "params": {
+        "k": 3.0
+      }
+    },
+    "iqr_fence[total_count]": {
+      "method": "iqr_fence",
+      "params": {
+        "field": "total_count"
+      }
+    },
+    "quantile_tail[duration_ms]": {
+      "method": "quantile_tail",
+      "params": {}
+    },
+    "quantile_tail[duration_ms,min30,nofallback]": {
+      "method": "quantile_tail",
+      "params": {
+        "minGroupRows": 30,
+        "fallback": "none"
+      }
+    },
+    "quantile_tail[total_count]": {
+      "method": "quantile_tail",
+      "params": {
+        "field": "total_count"
+      }
+    },
+    "centered_tail[duration_ms]": {
+      "method": "centered_tail",
+      "params": {}
+    },
+    "centered_tail[total_count]": {
+      "method": "centered_tail",
+      "params": {
+        "field": "total_count"
+      }
+    },
+    "ratio_rule": {
+      "method": "ratio_rule",
+      "params": {}
+    },
+    "count_conservation": {
+      "method": "count_conservation",
+      "params": {}
+    }
+  },
+  "generationStatus": [
+    {
+      "scenario": "P01",
+      "status": "completed",
+      "0": 9
+    },
+    {
+      "scenario": "P02",
+      "status": "completed",
+      "0": 9
+    },
+    {
+      "scenario": "P03",
+      "status": "completed",
+      "0": 9
+    },
+    {
+      "scenario": "P04",
+      "status": "completed",
+      "0": 9
+    }
+  ],
+  "labels": "injected rows label=1 (controlled deviation, not proven incident); other rows unlabelled, not normal",
+  "elapsedSeconds": 14.593675500000245
+}

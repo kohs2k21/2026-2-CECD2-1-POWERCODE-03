@@ -1,0 +1,14 @@
+instance,P01,P02,P03,P04
+robust_z[duration_ms],0.0,1.0,1.0,0.0
+robust_z[total_count],0.0,0.0,0.0,0.0
+"robust_z[total_count,meanad]",0.0,0.0,0.0,0.0
+iqr_fence[duration_ms],0.0,1.0,1.0,0.0
+"iqr_fence[duration_ms,k=3]",0.0,1.0,1.0,0.0
+iqr_fence[total_count],0.0,0.0,0.0,0.0
+quantile_tail[duration_ms],0.0,1.0,1.0,0.0
+"quantile_tail[duration_ms,min30,nofallback]",0.0,1.0,1.0,0.0
+quantile_tail[total_count],0.0,0.0,0.0,0.36666666666666664
+centered_tail[duration_ms],0.0,1.0,1.0,0.0
+centered_tail[total_count],0.0,0.0,0.0,0.36666666666666664
+ratio_rule,1.0,0.0,0.0,0.0
+count_conservation,0.0,0.0,0.0,1.0

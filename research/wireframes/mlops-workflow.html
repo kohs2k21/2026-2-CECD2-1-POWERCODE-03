@@ -197,6 +197,16 @@
     .inbox-row .side { font-size: 12px; text-align: right; color: #4a535c; }
     .inbox-row .lead { padding-top: 4px; }
     .inbox-row .side > span { display: block; margin-bottom: 2px; }
+    .inbox-row .side > span.meta-top { display: flex; flex-wrap: wrap; gap: 4px; justify-content: flex-end; }
+    .inbox-row .side { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; min-width: 0; }
+    .inbox-row .main { min-width: 0; }
+    #settingsNav { display: grid; gap: 2px; }
+    .side-box { margin-top: 12px; padding-top: 8px; border-top: 1px solid var(--line); }
+    .settings-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--soft); }
+    .settings-row:last-child { border-bottom: 0; }
+    .settings-row p { margin: 4px 0; font-size: 14px; }
+    .settings-row.disabled strong { color: #4a535c; }
+    .settings-row input[role="switch"] { margin-top: 4px; }
     .inbox-foot { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; margin-top: 12px; font-size: 13px; }
     .inbox-foot select { width: auto; }
     .breadcrumb { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; font-size: 14px; }
@@ -226,7 +236,8 @@
       .analysis-workspace { grid-template-columns: minmax(0, 1fr); }
       .detail-columns { grid-template-columns: minmax(0, 1fr); }
       .inbox-row { grid-template-columns: 14px minmax(0, 1fr); }
-      .inbox-row .side { grid-column: 2; text-align: left; }
+      .inbox-row .side { grid-column: 2; text-align: left; align-items: flex-start; }
+      .inbox-row .side > span.meta-top { justify-content: flex-start; }
     }
   </style>
 </head>
@@ -551,15 +562,64 @@
         </section>
       </section>
 
-      <!-- 설정 -->
-      <section data-view="settings"><h1>설정</h1><form id="settingsForm" class="card" data-track style="margin-top:16px"><label class="field">화면 표시<select><option>시스템 기본</option><option>조밀하게</option></select></label><label class="check"><input type="checkbox" checked>화면 내 알림 표시</label><div class="actions"><button type="submit">설정 내용 유지</button><button type="button" id="settingsBack">이전 화면으로</button></div><p id="settingsReturnNote" class="muted"></p><p id="settingsStatus" role="status"></p></form>
-        <section class="card" id="notifSettings" style="margin-top:16px"><h2>알림 설정</h2>
-          <fieldset><legend>알릴 판정 기준</legend><label class="check"><input type="radio" name="notifBasis" value="interim">중간 판정부터</label><label class="check"><input type="radio" name="notifBasis" value="final_any">최종(부분 포함)</label><label class="check"><input type="radio" name="notifBasis" value="final_complete">최종 완료만</label></fieldset>
-          <div class="grid"><label class="field">위험도 하한<select id="notifMin"><option value="critical">위험</option><option value="warning">주의 이상</option><option value="info">참고 이상</option></select></label></div>
-          <label class="check"><input type="checkbox" id="notifUnrated">위험도 미정 포함</label>
-          <label class="check" data-admin><input type="checkbox" id="notifJobs" checked>작업 알림(학습·비교 평가·AI 추천·교체)</label>
-          <p id="notifStatus" class="muted" role="status"></p>
-        </section></section>
+      <!-- 설정: 기존 프론트 SettingsPlaceholder 구조(사이드바 항목 분리 · 알림 설정/연동 관리/화면/위젯/사용자 환경) -->
+      <section data-view="settings">
+        <div class="back-row"><button type="button" id="settingsBack">이전 화면으로 돌아가기</button> <span id="settingsReturnNote" class="muted"></span></div>
+        <div class="analysis-workspace settings-workspace">
+          <aside class="analysis-side" aria-label="설정 항목"><h2>설정</h2><nav id="settingsNav"><a href="#settings/notifications" data-set="notifications">알림 설정</a><a href="#settings/integrations" data-set="integrations">연동 관리</a><a href="#settings/display" data-set="display">화면/위젯</a><a href="#settings/profile" data-set="profile">사용자 환경</a></nav></aside>
+          <div style="min-width:0">
+            <div class="page-head"><h1 id="settingsTitle">알림 설정</h1><button type="button" id="settingsSaveNA" disabled title="설정 저장 기능은 현재 서버에서 지원하지 않습니다.">저장 미지원</button></div>
+            <section data-set-panel="notifications">
+              <section class="card" id="notifSettings"><h2>알림 대상</h2>
+                <fieldset><legend>알릴 판정 기준</legend><label class="check"><input type="radio" name="notifBasis" value="interim">중간 판정부터</label><label class="check"><input type="radio" name="notifBasis" value="final_any">최종(부분 포함)</label><label class="check"><input type="radio" name="notifBasis" value="final_complete">최종 완료만</label></fieldset>
+                <div class="grid"><label class="field">위험도 하한<select id="notifMin"><option value="critical">위험</option><option value="warning">주의 이상</option><option value="info">참고 이상</option></select></label></div>
+                <label class="check"><input type="checkbox" id="notifUnrated">위험도 미정 포함</label>
+                <label class="check" data-admin><input type="checkbox" id="notifJobs" checked>작업 알림(학습·비교 평가·AI 추천·교체)</label>
+                <p id="notifStatus" class="muted" role="status"></p>
+              </section>
+              <section class="card"><h2>위험도별 알림 채널 지원</h2>
+                <div class="settings-row"><div><strong><span class="pill bad">위험</span> <span class="muted">Critical</span></strong><p>위험도별 알림 채널과 외부 전송은 현재 서버에서 지원하지 않습니다.</p></div><span class="pill gray">미지원</span></div>
+                <div class="settings-row"><div><strong><span class="pill mid">주의</span> <span class="muted">Warning</span></strong><p>위험도별 알림 채널과 외부 전송은 현재 서버에서 지원하지 않습니다.</p></div><span class="pill gray">미지원</span></div>
+                <div class="settings-row"><div><strong><span class="pill busy">참고</span> <span class="muted">Info</span></strong><p>위험도별 알림 채널과 외부 전송은 현재 서버에서 지원하지 않습니다.</p></div><span class="pill gray">미지원</span></div>
+              </section>
+              <section class="card"><h2>알림 시간</h2>
+                <div class="settings-row disabled"><div><strong>운영 시간 우선</strong><p>알림 예약과 운영 시간 정책은 서버에서 지원하지 않습니다.</p><small>서버 알림 정책과 연결되지 않습니다.</small></div><input type="checkbox" role="switch" disabled aria-label="운영 시간 우선 꺼짐"></div>
+                <div class="settings-row disabled"><div><strong>야간 알림 축소</strong><p>야간 알림 필터링과 외부 발송은 서버에서 지원하지 않습니다.</p><small>서버 알림 정책과 연결되지 않습니다.</small></div><input type="checkbox" role="switch" disabled aria-label="야간 알림 축소 꺼짐"></div>
+              </section>
+            </section>
+            <section data-set-panel="integrations">
+              <section class="card"><div class="page-head"><h2 style="margin:0">Slack 알림 연동</h2><input type="checkbox" role="switch" disabled aria-label="Slack 알림 연동 꺼짐"></div><p class="key">Slack Incoming Webhook</p><p>Slack 알림 연동은 현재 서버에서 지원하지 않습니다.</p><small>서버 연동을 지원하지 않아 URL 입력, 연결 설정, 테스트를 사용할 수 없습니다.</small><div class="actions-inline" style="margin-top:8px"><label class="field" style="flex:1 1 220px;margin:0">WEBHOOK URL<input type="password" disabled placeholder="서버 지원 후 설정할 수 있습니다."></label><button type="button" disabled>테스트 미지원</button></div></section>
+              <section class="card"><div class="page-head"><h2 style="margin:0">이메일 (SMTP) 연동</h2><input type="checkbox" role="switch" disabled aria-label="이메일 (SMTP) 연동 꺼짐"></div><p class="key">SMTP 아웃바운드 서버</p><p>이메일 알림 연동은 현재 서버에서 지원하지 않습니다.</p><small>서버 연동을 지원하지 않아 URL 입력, 연결 설정, 테스트를 사용할 수 없습니다.</small><div class="grid" style="margin-top:8px"><label class="field">SMTP 호스트<input disabled placeholder="서버 지원 후 설정할 수 있습니다."></label><label class="field">포트<input disabled placeholder="서버 지원 후 설정할 수 있습니다."></label></div><div class="actions-inline"><label class="field" style="flex:1 1 220px;margin:0">발신 계정<input disabled placeholder="서버 지원 후 설정할 수 있습니다."></label><button type="button" disabled>테스트 미지원</button></div></section>
+              <section class="card"><div class="page-head"><h2 style="margin:0">커스텀 Webhook 연동</h2><input type="checkbox" role="switch" disabled aria-label="커스텀 Webhook 연동 꺼짐"></div><p class="key">Webhook (JSON POST)</p><p>Webhook 연동은 현재 서버에서 지원하지 않습니다.</p><small>서버 연동을 지원하지 않아 URL 입력, 연결 설정, 테스트를 사용할 수 없습니다.</small><div class="actions-inline" style="margin-top:8px"><label class="field" style="flex:1 1 220px;margin:0">엔드포인트 URL<input disabled placeholder="서버 지원 후 설정할 수 있습니다."></label><button type="button" disabled>테스트 미지원</button></div></section>
+            </section>
+            <section data-set-panel="display">
+              <section class="card"><h2>대시보드 표시</h2>
+                <div class="settings-row disabled"><div><strong>밀도 높은 레이아웃</strong><p>운영 모니터링에 맞춰 카드 간격을 좁게 유지합니다.</p><small>아직 대시보드 화면에 적용되지 않는 설정입니다.</small></div><input type="checkbox" role="switch" disabled aria-label="밀도 높은 레이아웃 꺼짐"></div>
+                <div class="settings-row disabled"><div><strong>상단 헤더 축소</strong><p>분석 화면에서 콘텐츠 영역을 더 크게 사용합니다.</p><small>아직 대시보드 화면에 적용되지 않는 설정입니다.</small></div><input type="checkbox" role="switch" disabled aria-label="상단 헤더 축소 꺼짐"></div>
+                <div class="settings-row disabled"><div><strong>숫자 강조</strong><p>위험도 점수와 처리시간 수치를 더 크게 표시합니다.</p><small>아직 대시보드 화면에 적용되지 않는 설정입니다.</small></div><input type="checkbox" role="switch" disabled aria-label="숫자 강조 꺼짐"></div>
+              </section>
+              <section class="card"><h2>테마 선택</h2>
+                <div class="actions-inline"><button type="button" aria-pressed="true" title="현재 적용 중인 테마" aria-label="화이트 (라이트 테마), 현재 적용 중">화이트 (라이트 테마)</button><button type="button" disabled aria-pressed="false" title="다크 테마는 아직 지원되지 않습니다." aria-describedby="darkThemeNote">블랙 (다크 테마, 준비 중)</button></div>
+                <p id="darkThemeNote" class="muted">현재 화면은 라이트 테마입니다. 다크 테마는 아직 지원되지 않아 선택할 수 없습니다.</p>
+              </section>
+              <section class="card"><h2>홈 위젯</h2>
+                <div class="settings-row disabled"><div><strong>빈 위젯 catalog 표시</strong><p>숨긴 위젯과 추가 가능한 위젯을 갤러리에서 관리합니다.</p><small>아직 홈 화면에 적용되지 않는 설정입니다.</small></div><input type="checkbox" role="switch" disabled aria-label="빈 위젯 catalog 표시 꺼짐"></div>
+              </section>
+            </section>
+            <section data-set-panel="profile">
+              <section class="card"><h2>로그인 계정</h2><dl id="profileFields"></dl></section>
+              <section class="card"><h2>권한 표시</h2>
+                <div class="settings-row disabled"><div><strong>관리자 메뉴</strong><p>탐지 설정 메뉴는 계정 역할에 따라 표시됩니다.</p><small>계정 역할에 따라 자동 적용됩니다.</small></div><input type="checkbox" role="switch" id="adminMenuSwitch" disabled aria-label="관리자 메뉴"></div>
+                <div class="settings-row disabled"><div><strong>상태 변경 확인</strong><p>상태 변경은 현재 서버에 저장되지 않습니다.</p><small>서버 지원 후 사용할 수 있습니다.</small></div><input type="checkbox" role="switch" disabled aria-label="상태 변경 확인 꺼짐"></div>
+              </section>
+              <section class="card"><h2>피드백</h2>
+                <div class="settings-row disabled"><div><strong>Toast 알림</strong><p>작업 결과 안내로 사용하며 끄기 설정은 제공하지 않습니다.</p><small>화면 안내는 앱에서 계속 표시됩니다.</small></div><input type="checkbox" role="switch" checked disabled aria-label="Toast 알림 켜짐"></div>
+                <div class="settings-row disabled"><div><strong>효과음</strong><p>효과음 알림은 현재 지원하지 않습니다.</p><small>지원 예정인 설정입니다.</small></div><input type="checkbox" role="switch" disabled aria-label="효과음 꺼짐"></div>
+              </section>
+            </section>
+          </div>
+        </div>
+      </section>
     </main>
   </div>
   <dialog id="leaveDialog" aria-labelledby="leaveTitle"><button class="close" aria-label="닫기" data-close>×</button><h2 id="leaveTitle">편집한 내용이 있습니다</h2><p>유지 후 이동하면 현재 세션의 초안을 그대로 둡니다. 서버 저장과는 별개입니다.</p><div class="actions"><button id="keepMove">초안 유지 후 이동</button><button id="discardMove">버리고 이동</button></div></dialog>
@@ -1086,7 +1146,7 @@
     const freshTrain = () => ({ ai: { status: 'idle', picks: new Set(), result: null }, datasetFixed: false, datasetName: '', period: '', selected: new Set(catalog.filter((item) => item.unit === 'PROCESS' && ['ready', 'fit'].includes(item.status) && !/hour|weekday/.test(item.key)).map((item) => item.key)), model: 'iforest', params: Object.fromEntries(Object.keys(MODELS).map((k) => [k, defaultParams(k)])), page: 0, retryOf: '' });
     const draftFromVersion = (id) => { const v = versionById(id); return { base: id, hr: [...v.hr], sr: [...v.sr].filter(executable), srParams: JSON.parse(JSON.stringify(v.srParams)), ml: JSON.parse(JSON.stringify(v.ml)), name: '', fromAi: null, duplicate: '' }; };
     let trainDraft = freshTrain(), composeDraft = draftFromVersion(active), compareDraft = { set: 'E1', versions: new Set() }, replaceDraft = { target: '', accepted: null }, aiDraft = { base: active };
-    let analysisView = 'result', detailKey = '', jobTab = 'all', analysisCat = 'all', analysisPage = 1, wideMode = false, activeNode = 'focus', bellOpen = false;
+    let analysisView = 'risk', detailKey = '', jobTab = 'all', analysisCat = 'risk:all', analysisPage = 1, wideMode = false, activeNode = 'focus', bellOpen = false;
     const explainState = {};
 
     // ---------- 공통 조각 ----------
@@ -1224,7 +1284,7 @@
     const CATS = [['all', '전체', () => true], ['yes', '이상 신호 있음', (d, s) => s.signal === 'yes'], ['progress', '판정 중·중간 판정', (d) => ['pending', 'provisional', 'updated'].includes(d.stage)], ['unknown', '정상 여부 미확인', (d, s) => s.signal === 'unknown'], ['void', '판정 실패·대체', (d) => ['failed', 'replaced'].includes(d.stage)]];
     const WORKFLOW = [['Open', '보류'], ['Resolved', '완료']];
     // 위험도별 보기: 이상 판정만 위험/주의/참고 + (약하게) 위험도 미정. 정상·미확인·실패는 나오지 않음.
-    const RISK_CATS = [['risk:critical', '위험', (d) => riskOf(d).level === 'critical'], ['risk:warning', '주의', (d) => riskOf(d).level === 'warning'], ['risk:info', '참고', (d) => riskOf(d).level === 'info'], ['risk:unrated', '위험도 미정', (d) => riskOf(d).status === 'unrated']];
+    const RISK_CATS = [['risk:all', '전체', (d) => riskOf(d).status !== 'none'], ['risk:critical', '위험', (d) => riskOf(d).level === 'critical'], ['risk:warning', '주의', (d) => riskOf(d).level === 'warning'], ['risk:info', '참고', (d) => riskOf(d).level === 'info'], ['risk:unrated', '위험도 미정', (d) => riskOf(d).status === 'unrated']];
     const catDef = (key) => RISK_CATS.find((r) => r[0] === key) || CATS.find((c) => c[0] === key) || ['wf:' + key, (WORKFLOW.find((w) => 'wf:' + w[0] === key) || ['', '분류함'])[1], (d) => 'wf:' + d.workflow === key];
     const isUnread = (d) => notices.some((n) => n.kind === 'decision' && n.ref === d.id && !n.read);
     let liveCount = 0;
@@ -1232,11 +1292,12 @@
       $('analysisWs').classList.toggle('wide-mode', wideMode);
       all('.wide-btn').forEach((b) => { b.textContent = wideMode ? '콤팩트' : '넓게'; b.setAttribute('aria-label', wideMode ? '콤팩트 화면으로 보기' : '넓은 화면으로 보기'); });
       const rows = decisions.map((d) => [d, summarize(d)]);
-      const views = h('div', { class: 'side-views', role: 'group', 'aria-label': '분류 보기' }, h('button', { type: 'button', 'data-action': 'analysis-view', 'data-view-mode': 'result', 'aria-pressed': String(analysisView === 'result'), text: '판정 결과별' }), h('button', { type: 'button', 'data-action': 'analysis-view', 'data-view-mode': 'risk', 'aria-pressed': String(analysisView === 'risk'), text: '위험도별' }));
-      const riskSide = h('div', {}, h('h2', { text: '위험도' }), RISK_CATS.map(([key, label, fn], i) => h('a', { href: '#analysis', 'data-cat': key, 'aria-current': analysisCat === key ? 'true' : null, class: i > 2 ? 'muted' : null, style: i > 2 ? 'font-size:13px' : null }, h('span', { text: label }), h('span', { text: String(decisions.filter(fn).length) }))));
-      const side = analysisView === 'risk' ? riskSide : h('div', {}, h('h2', { text: '판정' }), CATS.map(([key, label, fn]) => h('a', { href: '#analysis', 'data-cat': key, 'aria-current': analysisCat === key ? 'true' : null }, h('span', { text: label }), h('span', { text: String(rows.filter(([d, s]) => fn(d, s)).length) }))),
-        h('h2', { text: '분류함' }), WORKFLOW.map(([key, label]) => h('a', { href: '#analysis', 'data-cat': 'wf:' + key, 'aria-current': analysisCat === 'wf:' + key ? 'true' : null }, h('span', { text: label }), h('span', { text: String(decisions.filter((d) => d.workflow === key).length) }))));
-      fill($('analysisSide'), views, side);
+      const views = h('div', { class: 'side-views', role: 'group', 'aria-label': '분류 보기' }, h('button', { type: 'button', 'data-action': 'analysis-view', 'data-view-mode': 'risk', 'aria-pressed': String(analysisView === 'risk'), text: '위험도별' }), h('button', { type: 'button', 'data-action': 'analysis-view', 'data-view-mode': 'result', 'aria-pressed': String(analysisView === 'result'), text: '판정 결과별' }));
+      const riskSide = h('div', {}, h('h2', { text: '위험도' }), RISK_CATS.map(([key, label, fn]) => h('a', { href: '#analysis', 'data-cat': key, 'aria-current': analysisCat === key ? 'true' : null, class: key === 'risk:unrated' ? 'muted' : null, style: key === 'risk:unrated' ? 'font-size:13px' : null }, h('span', { text: label }), h('span', { text: String(decisions.filter(fn).length) }))));
+      const side = analysisView === 'risk' ? riskSide : h('div', {}, h('h2', { text: '판정' }), CATS.map(([key, label, fn]) => h('a', { href: '#analysis', 'data-cat': key, 'aria-current': analysisCat === key ? 'true' : null }, h('span', { text: label }), h('span', { text: String(rows.filter(([d, s]) => fn(d, s)).length) }))));
+      // 분류함(처리 보류/처리 완료): 두 보기 모두에서 아래 별도 구역으로 항상 표시
+      const wfBox = h('div', { class: 'side-box', id: 'workflowBox' }, h('h2', { text: '분류함' }), WORKFLOW.map(([key, label]) => h('a', { href: '#analysis', 'data-cat': 'wf:' + key, 'aria-current': analysisCat === 'wf:' + key ? 'true' : null }, h('span', { text: label }), h('span', { text: String(decisions.filter((d) => d.workflow === key).length) }))));
+      fill($('analysisSide'), views, side, wfBox);
       all('[data-panel^="analysis/"]').forEach((n) => { n.hidden = n.dataset.panel !== 'analysis/' + r.panel; });
       if (r.panel === 'inbox') renderInbox(rows);
       if (r.panel === 'd') renderDetail(decisionById(r.id));
@@ -1257,11 +1318,14 @@
         const doneCount = d.methods ? d.methods.filter((m) => m[2] !== 'running').length + '/' + d.methods.length : '';
         return h('a', { class: 'inbox-row', href, 'data-decision': d.id, style: 'text-decoration:none;color:inherit' },
           h('span', { class: 'lead' }, isUnread(d) ? h('span', { class: 'dot', title: '미확인' }) : null),
-          h('span', {}, h('span', { class: 'meta' }, pill(signalLabel[s.signal], tone), d.stage && !['final', 'failed'].includes(d.stage) ? pill(stageLabel[d.stage], 'busy') : null, pill(d.unit, 'gray'), h('span', { text: d.at })),
-            h('strong', { text: d.unit === 'WINDOW' ? d.id + ' · ' + d.target : d.tx }),
-            d.unit === 'WINDOW' ? h('span', { class: 'sub', text: d.note }) : h('span', { class: 'sub', text: '프로세스: ' + d.process + ' · 인터페이스 ' + d.iface + ' · ' + d.id }),
-            h('span', { class: 'sub', text: '운영 버전 ' + d.version + (d.input ? ' · ' + d.input : '') })),
-          h('span', { class: 'side' }, h('span', { text: '검사 ' + completeLabel[s.completeness] }), h('span', { class: 'risk-cell' }, riskOf(d).status === 'none' ? h('span', { class: 'key', text: '위험도 —' }) : riskPill(riskOf(d))), doneCount ? h('span', { class: 'key', text: '방법 ' + doneCount + ' 종료' }) : null));
+          // 좌측 = 주요 내용(거래·인터페이스·운영 버전), 우측 = 메타(판정 결과·위험도·검사 완료와 시각·판정 ID와 프로세스) — 기존 AnalysisInboxRow 배치 참고
+          h('span', { class: 'main' }, h('strong', { text: d.unit === 'WINDOW' ? d.target : d.tx }),
+            d.unit === 'WINDOW' ? h('span', { class: 'sub', text: d.note }) : h('span', { class: 'sub', text: '인터페이스 ' + d.iface + ' · 채널 ' + d.channel }),
+            h('span', { class: 'sub', text: '운영 버전 ' + d.version + (d.input ? ' · ' + d.input : '') + (doneCount ? ' · 방법 ' + doneCount + ' 종료' : '') })),
+          h('span', { class: 'side' }, h('span', { class: 'meta-top' }, pill(signalLabel[s.signal], tone), d.stage && !['final', 'failed'].includes(d.stage) ? pill(stageLabel[d.stage], 'busy') : null, pill(d.unit, 'gray')),
+            h('span', { class: 'risk-cell' }, riskOf(d).status === 'none' ? h('span', { class: 'key', text: '위험도 —' }) : riskPill(riskOf(d))),
+            h('span', { class: 'side-time', text: '검사 ' + completeLabel[s.completeness] + ' · ' + d.at }),
+            h('span', { class: 'side-id key', text: d.unit === 'WINDOW' ? d.id : d.id + ' · ' + d.process })));
       }), ...(partial && unit !== 'PROCESS' ? [h('p', { class: 'state-msg bad' }, 'WINDOW 판정 조회 실패 · PROCESS 판정만 표시 중 · 마지막 성공 ' + lastSuccess + ' ', h('button', { type: 'button', 'data-action': 'retry', text: '다시 조회' }))] : []));
       $('inboxEmpty').hidden = list.length > 0 || partial;
       $('inboxTotal').textContent = '전체 ' + list.length + '건 · 이번 세션 실시간 수신 ' + liveCount + '건';
@@ -1847,9 +1911,10 @@
         return D('detect-ops', 'ops', 'ops');
       }
       if (p === 'cmd' && has(CMD_STEPS, a)) { const step = Math.min(CMD_STEPS[a], Math.max(1, Number(b) || 1)); return { view: 'cmd-' + a, kind: a, step, path: 'cmd/' + a + '/' + step, top: 'detect' }; }
-      if (p === 'settings') return { view: 'settings', path: 'settings', top: '' };
+      if (p === 'settings') { const sec = SET_LABEL[a] ? a : 'notifications'; return { view: 'settings', section: sec, path: 'settings/' + sec, top: '' }; }
       return { view: 'ops', tab: 'overview', path: 'ops/overview', top: 'ops' };
     }
+    const SET_LABEL = { notifications: '알림 설정', integrations: '연동 관리', display: '화면/위젯', profile: '사용자 환경' };
     const CMD_SIDE = { train: 'models', compose: 'versions', ai: 'versions', compare: 'evals', replace: 'ops' };
     const CMD_HOME = { train: 'detect/models', compose: 'detect/versions', ai: 'detect/versions/ai', compare: 'detect/evals', replace: 'detect/ops' };
     const cmdReturn = {};
@@ -1861,9 +1926,15 @@
       'detect-versions': renderVersions, 'detect-version': (r) => renderVersion(r.id), 'detect-ai-result': (r) => renderAiResult(r.id),
       'detect-evals': renderEvals, 'detect-eval': (r) => renderEval(r.id),
       'cmd-train': renderCmdTrain, 'cmd-compose': renderCmdCompose, 'cmd-compare': renderCmdCompare, 'cmd-replace': renderCmdReplace, 'cmd-ai': renderCmdAi,
-      settings: () => {
+      settings: (r) => {
         const back = settingsReturn && !(/^(detect|cmd)/.test(settingsReturn) && currentRole !== 'admin') ? settingsReturn : '';
-        $('settingsBack').textContent = back ? '이전 화면으로 · ' + viewTitle(back) : '운영 현황으로';
+        $('settingsBack').textContent = back ? '이전 화면으로 돌아가기 · ' + viewTitle(back) : '운영 현황으로 돌아가기';
+        all('[data-set-panel]').forEach((n) => { n.hidden = n.dataset.setPanel !== r.section; });
+        all('[data-set]').forEach((a) => a.setAttribute('aria-current', String(a.dataset.set === r.section)));
+        $('settingsTitle').textContent = SET_LABEL[r.section];
+        $('settingsSaveNA').hidden = r.section === 'notifications';
+        dl('profileFields', [['이메일', currentRole === 'admin' ? 'admin@example.com' : 'user@example.com'], ['계정 역할', currentRole === 'admin' ? '관리자' : '일반 사용자'], ['계정 ID', currentRole === 'admin' ? 'u-0001' : 'u-0002'], ['계정 생성일', '2026. 9. 1.']]);
+        $('adminMenuSwitch').checked = currentRole === 'admin';
         $('settingsReturnNote').textContent = back ? '' : '직접 진입했거나 이전 화면 기록이 없어 운영 현황으로 돌아갑니다.';
         const st = notifSettings[currentRole]; all('input[name="notifBasis"]').forEach((n) => { n.checked = n.value === st.basis; }); $('notifMin').value = st.min; $('notifUnrated').checked = st.unrated; $('notifJobs').checked = st.jobs;
       }
@@ -2008,7 +2079,7 @@
       if (action === 'tree-node') { activeNode = trigger.dataset.node; $('dNodeBox').open = true; refresh(); }
       if (action === 'workflow') { const d = decisionById(trigger.dataset.decision); d.workflow = trigger.dataset.to; refresh(); }
       if (action === 'csv-reapply') askInputMode('csv');
-      if (action === 'analysis-view') { analysisView = trigger.dataset.viewMode; analysisCat = analysisView === 'risk' ? 'risk:critical' : 'all'; analysisPage = 1; refresh(); }
+      if (action === 'analysis-view') { analysisView = trigger.dataset.viewMode; analysisCat = analysisView === 'risk' ? 'risk:all' : 'all'; analysisPage = 1; refresh(); }
       if (action === 'explain') { const id = trigger.dataset.decision; explainState[id] = { status: 'running' }; refresh(); later(900, () => { explainState[id] = { status: $('state').value === 'error' ? 'failed' : 'done' }; refresh(); }); }
       if (action === 'feedback') { const reason = $('feedbackReason').value.trim(); $('feedbackStatus').textContent = reason ? current.id + ' · ' + $('feedbackKind').selectedOptions[0].textContent + ' · 현재 세션 기록(저장 위치·평가 반영 범위 결정 대기)' : '조사·조치 사유를 입력하세요.'; }
       // 운영 설정

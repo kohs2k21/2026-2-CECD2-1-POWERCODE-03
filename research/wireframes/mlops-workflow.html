@@ -161,6 +161,13 @@
     .rec-card.quiet { background: #eef1f4; color: #20252b; border: 1px solid #98a2ac; }
     .rec-card.quiet button { background: white; color: #20252b; border-color: #98a2ac; font-weight: 400; }
     .back-row { margin-bottom: 8px; }
+    #backBtn { font-size: 18px; line-height: 1; padding: 6px 12px; }
+    .seg-modes { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 12px; }
+    .mode-opt { display: inline-flex; align-items: center; gap: 6px; border: 1px solid #98a2ac; border-radius: 6px; padding: 8px 12px; cursor: pointer; }
+    .mode-opt.on { border-color: #20252b; background: #20252b; color: white; }
+    .side-views { display: flex; margin-bottom: 8px; }
+    .side-views button { flex: 1; padding: 4px 6px; font-size: 13px; }
+    .side-views button[aria-pressed="true"] { background: #20252b; color: white; border-color: #20252b; }
     .rec-none { border: 1px dashed #98a2ac; padding: 12px 16px; margin: 0 0 18px; color: #4a535c; font-size: 14px; }
     .stepper { list-style: none; display: flex; flex-wrap: wrap; gap: 6px; padding: 0; margin: 12px 0 18px; font-size: 13px; }
     .stepper li { border: 1px solid var(--line); border-radius: 4px; padding: 4px 10px; }
@@ -260,6 +267,7 @@
       <nav><a href="#detect/ops" data-side="ops">운영 설정</a><a href="#detect/models" data-side="models">모델</a><a href="#detect/versions" data-side="versions">탐지 버전</a><a href="#detect/evals" data-side="evals">평가 결과</a></nav>
     </aside>
     <main id="main" tabindex="-1">
+      <div id="backBar" class="back-row" hidden><a class="button" id="backBtn" href="#detect" aria-label="뒤로">←</a></div>
       <div id="pageStatus" class="page-status" role="status"></div>
       <section id="denied" data-view="denied" hidden><h1>접근 권한 확인</h1><p>관리자만 접근할 수 있습니다.</p><a href="#ops">운영 현황으로</a></section>
 
@@ -276,7 +284,7 @@
         </section>
         <section data-panel="ops/collect">
           <div class="card"><h2>시간별 트랜잭션 양</h2><div data-rows="시간별 트랜잭션 양" data-partial-fail><div id="txChart"></div></div></div>
-          <div class="card"><h2>입력별 상태</h2><div class="table" data-rows="입력별 상태"><table id="inputTable"></table></div><p id="inputError" class="notice error" role="alert" hidden></p></div>
+          <div class="card"><h2>입력 모드</h2><div data-rows="입력 모드"><p style="margin:0">현재: <strong id="inputModeNow"></strong> <span id="inputModeMeta" class="muted"></span></p><div id="inputModeChoices" class="seg-modes" role="radiogroup" aria-label="입력 모드"></div><div id="csvBox"></div></div><p id="inputError" class="notice error" role="alert" hidden></p></div>
           <div class="card"><h2>원본별 저장 건수</h2><div class="table" data-rows="원본별 저장 건수"><table id="storeTable"></table></div></div>
           <div class="card"><h2>단계별 지연</h2><div class="table" data-rows="단계별 지연" data-partial-fail><table id="stageTable"></table></div><p>원천 발생 → 판정: <strong>측정 불가</strong></p></div>
           <div class="card"><h2>원본 필드</h2><label class="field">원본<select id="rawSource"><option>TRANSACTION</option><option>PROCESS</option><option>MESSAGE</option><option>BODY</option></select></label><div class="table" data-rows="원본 필드"><table><thead><tr><th>원본</th><th>필드·지원 여부</th><th>결측·품질</th></tr></thead><tbody><tr><td id="rawSourceLabel">TRANSACTION</td><td>스키마 확인 필요</td><td>—</td></tr></tbody></table></div></div>
@@ -299,23 +307,21 @@
               <div class="inbox-foot"><span id="inboxTotal"></span><div class="actions-inline" id="inboxPager"></div><label class="actions-inline">페이지당 <select id="analysisPageSize"><option value="5">5</option><option value="10" selected>10</option><option value="20">20</option></select></label></div>
             </section>
             <section data-panel="analysis/d">
-              <div class="breadcrumb"><div class="actions-inline"><a href="#analysis">← 목록</a><span>판정 상세</span><span>/</span><strong id="dCrumb"></strong></div><button type="button" data-action="toggle-wide" class="wide-btn" aria-label="넓은 화면으로 보기">넓게</button></div>
+              <div class="breadcrumb"><div class="actions-inline"><a href="#analysis">← 목록</a><span>판정 상세</span><span>/</span><strong id="dCrumb"></strong></div><div class="actions-inline"><span id="dWorkflow" class="actions-inline"></span><button type="button" data-action="toggle-wide" class="wide-btn" aria-label="넓은 화면으로 보기">넓게</button></div></div>
+              <div class="detail-columns">
+                <section class="card"><div class="inbox-head"><h3 style="margin:0">Process Flow</h3><span class="muted" id="dFlowStats"></span></div><div data-rows="Process Flow"><div class="tree" id="dTree" style="margin-top:8px"></div><details id="dNodeBox" style="margin-top:12px"><summary>선택 노드 원본 정보</summary><div id="dNode"></div></details></div></section>
+                <section class="card"><h3>AI 설명</h3><div id="dExplain"></div></section>
+              </div>
+              <section class="card"><h3>판정 기록</h3><div data-rows="판정 기록"><ol id="dTimeline" class="timeline"></ol></div></section>
               <section class="card" aria-label="판정 요약">
                 <div class="inbox-head"><h3 style="margin:0">판정 요약</h3><div id="dBadges" class="actions-inline"></div></div>
                 <p id="dSummary"></p>
                 <div data-rows="판정 상세"><dl id="dFields"></dl></div>
                 <div class="actions-inline" id="dAdminLinks" style="margin-top:12px"></div>
+                <h4 style="margin-top:18px">종합 근거</h4><p class="muted">세부 방법 → 대분류 → 종합. 대분류 하나라도 이상이면 이상 신호 있음, 켠 방법이 모두 정상 확인일 때만 이상 신호 없음, 그 밖은 정상 여부 미확인.</p><div class="table"><table id="dCats"></table></div>
+                <h4 style="margin-top:18px">세부 방법별 결과</h4><div class="table" data-rows="세부 방법별 결과" data-partial-fail><table id="dMethods"></table></div>
               </section>
-              <section class="card"><h3>판정 기록</h3><div data-rows="판정 기록"><ol id="dTimeline" class="timeline"></ol></div></section>
-              <section class="card"><h3>종합 근거</h3><p class="muted">세부 방법 → 대분류 → 종합. 대분류 하나라도 이상이면 이상 신호 있음, 켠 방법이 모두 정상 확인일 때만 이상 신호 없음, 그 밖은 정상 여부 미확인.</p><div class="table"><table id="dCats"></table></div></section>
-              <section class="card"><h3>세부 방법별 결과</h3><div class="table" data-rows="세부 방법별 결과" data-partial-fail><table id="dMethods"></table></div></section>
-              <div class="detail-columns">
-                <section class="card"><div class="inbox-head"><h3 style="margin:0">Process Flow</h3><span class="muted" id="dFlowStats"></span></div><div data-rows="Process Flow"><div class="tree" id="dTree" style="margin-top:8px"></div><div id="dNode" style="margin-top:12px"></div></div></section>
-                <div style="min-width:0">
-                  <section class="card"><h3>AI 설명</h3><div id="dExplain"></div></section>
-                  <section class="card" id="feedbackBox"><h3>조사·조치 기록</h3><label class="field">기록 유형<select id="feedbackKind"><option value="action">조치 기록</option><option value="suspected-false-positive">오탐 의심</option><option value="insufficient-evidence">근거 부족</option></select></label><label class="field">조사·조치 사유<textarea id="feedbackReason" rows="3" maxlength="2000" placeholder="확인한 사실과 조치 사유를 입력하세요."></textarea></label><p class="muted">선택은 확정 라벨이나 자동 학습으로 반영되지 않습니다.</p><button type="button" data-action="feedback">피드백 저장</button><p id="feedbackStatus" role="status" class="muted"></p></section>
-                </div>
-              </div>
+              <section class="card" id="feedbackBox"><h3>조사·조치 기록</h3><label class="field">기록 유형<select id="feedbackKind"><option value="action">조치 기록</option><option value="suspected-false-positive">오탐 의심</option><option value="insufficient-evidence">근거 부족</option></select></label><label class="field">조사·조치 사유<textarea id="feedbackReason" rows="3" maxlength="2000" placeholder="확인한 사실과 조치 사유를 입력하세요."></textarea></label><p class="muted">선택은 확정 라벨이나 자동 학습으로 반영되지 않습니다.</p><button type="button" data-action="feedback">피드백 저장</button><p id="feedbackStatus" role="status" class="muted"></p></section>
             </section>
             <section data-panel="analysis/w">
               <div class="breadcrumb"><div class="actions-inline"><a href="#analysis">← 목록</a><span>WINDOW 판정</span><span>/</span><strong id="wCrumb"></strong></div></div>
@@ -388,7 +394,7 @@
 
       <!-- 명령 흐름: 결과 페이지 [+ 새 …] 버튼에서만 시작, 전체 페이지 단계 흐름 -->
       <section data-view="cmd-train" data-track>
-        <div class="back-row"><a class="button" href="#detect/models" data-back="train">← 뒤로</a></div><h1>새 학습</h1>
+        <h1>새 학습</h1>
         <ol class="stepper" data-stepper="train"><li data-s="1">1. 데이터</li><li data-s="2">2. 입력 변수</li><li data-s="3">3. 모델·파라미터</li></ol>
         <section data-step="train/1">
           <form id="datasetForm"><div class="card"><h2>데이터 선택·고정</h2><div class="grid">
@@ -436,7 +442,7 @@
       </section>
 
       <section data-view="cmd-compose" data-track>
-        <div class="back-row"><a class="button" href="#detect/versions" data-back="compose">← 뒤로</a></div><h1>새 버전 구성</h1>
+        <h1>새 버전 구성</h1>
         <ol class="stepper" data-stepper="compose"><li data-s="1">1. 방법 선택</li><li data-s="2">2. 확인·저장</li></ol>
         <p id="composeFrom" class="notice" hidden></p>
         <section data-step="compose/1">
@@ -475,7 +481,7 @@
       </section>
 
       <section data-view="cmd-compare" data-track>
-        <div class="back-row"><a class="button" href="#detect/evals" data-back="compare">← 뒤로</a></div><h1>새 비교 평가</h1>
+        <h1>새 비교 평가</h1>
         <ol class="stepper" data-stepper="compare"><li data-s="1">1. 평가 세트</li><li data-s="2">2. 비교 버전</li><li data-s="3">3. 요청</li></ol>
         <section data-step="compare/1">
           <div class="card"><h2>평가 세트 선택</h2>
@@ -507,7 +513,7 @@
       </section>
 
       <section data-view="cmd-replace" data-track>
-        <div class="back-row"><a class="button" href="#detect/ops" data-back="replace">← 뒤로</a></div><h1>교체 요청</h1>
+        <h1>교체 요청</h1>
         <ol class="stepper" data-stepper="replace"><li data-s="1">1. 버전 선택</li><li data-s="2">2. 비교 확인</li><li data-s="3">3. 승인·요청</li></ol>
         <p id="replaceFrom" class="notice" hidden></p>
         <p id="replaceStale" class="notice error" role="alert" hidden></p>
@@ -532,7 +538,7 @@
       </section>
 
       <section data-view="cmd-ai" data-track>
-        <div class="back-row"><a class="button" href="#detect/versions/ai" data-back="ai">← 뒤로</a></div><h1>새 AI 추천</h1>
+        <h1>새 AI 추천</h1>
         <section data-step="ai/1">
           <div class="card"><h2>추천 기준</h2>
             <div class="grid"><label class="field">기반 버전<select id="aiBase"></select></label><label class="field">분석 단위<select id="aiUnit"><option>PROCESS</option></select></label><label class="field">저장 데이터셋<select><option>저장 데이터셋 D-3</option></select></label></div>
@@ -544,7 +550,13 @@
       </section>
 
       <!-- 설정 -->
-      <section data-view="settings"><h1>설정</h1><form id="settingsForm" class="card" data-track style="margin-top:16px"><label class="field">화면 표시<select><option>시스템 기본</option><option>조밀하게</option></select></label><label class="check"><input type="checkbox" checked>화면 내 알림 표시</label><div class="actions"><button type="submit">설정 내용 유지</button><button type="button" id="settingsBack">이전 화면으로</button></div><p id="settingsReturnNote" class="muted"></p><p id="settingsStatus" role="status"></p></form></section>
+      <section data-view="settings"><h1>설정</h1><form id="settingsForm" class="card" data-track style="margin-top:16px"><label class="field">화면 표시<select><option>시스템 기본</option><option>조밀하게</option></select></label><label class="check"><input type="checkbox" checked>화면 내 알림 표시</label><div class="actions"><button type="submit">설정 내용 유지</button><button type="button" id="settingsBack">이전 화면으로</button></div><p id="settingsReturnNote" class="muted"></p><p id="settingsStatus" role="status"></p></form>
+        <section class="card" id="notifSettings" style="margin-top:16px"><h2>알림 설정</h2>
+          <fieldset><legend>알릴 판정 기준</legend><label class="check"><input type="checkbox" data-notif="anomaly" checked>이상 신호 있음(최종)</label><label class="check"><input type="checkbox" data-notif="interim" checked>중간 판정</label><label class="check"><input type="checkbox" data-notif="void" checked>판정 실패·대체(철회)</label></fieldset>
+          <label class="field" style="max-width:320px">위험도 범위<select id="notifRisk" disabled><option>전체</option><option>주의 이상</option><option>위험만</option></select></label><p><span class="pill gray">기준 결정 대기</span></p>
+          <label class="check" data-admin><input type="checkbox" id="notifJobs" checked>작업 알림(학습·비교 평가·AI 추천·교체)</label>
+          <p id="notifStatus" class="muted" role="status"></p>
+        </section></section>
     </main>
   </div>
   <dialog id="leaveDialog" aria-labelledby="leaveTitle"><button class="close" aria-label="닫기" data-close>×</button><h2 id="leaveTitle">편집한 내용이 있습니다</h2><p>유지 후 이동하면 현재 세션의 초안을 그대로 둡니다. 서버 저장과는 별개입니다.</p><div class="actions"><button id="keepMove">초안 유지 후 이동</button><button id="discardMove">버리고 이동</button></div></dialog>
@@ -627,7 +639,7 @@
           { key: 'max_samples', label: '트리당 표본', meaning: '트리 하나가 보는 행 수', def: 512, min: 64, max: 4096, step: 1 },
           { key: 'contamination', label: 'contamination', meaning: '이상 비율 가정', fixed: 'auto' },
           { key: 'random_state', label: 'seed', meaning: '재현용 난수 seed', def: 42, min: 0, step: 1 },
-          { key: 'thresholdPolicy', label: '판정선 정책', meaning: 'train 내부 점수 P99 초과', fixed: 'train-internal-p99-v1' }
+          { key: 'thresholdPolicy', label: '판정선 정책', meaning: 'train 분할 내부 기준 P99 초과', fixed: 'train-internal-p99-v1' }
         ],
         esb: { P02: 0.81, P03: 0.77, P04: 0.55, fp: 0.01 }, adb: { local: 0.62, global: 0.93, cluster: 0.48, fp: 0.03 } },
       kmeans: { methodId: 'ml:minibatch_kmeans', name: 'MiniBatchKMeans', desc: '정상 관측을 K개 군집으로 묶고, 가장 가까운 군집 중심에서 멀리 떨어진 관측을 이상으로 봅니다.', state: 'research', units: 'PROCESS · WINDOW', code: 'KMeans', cost: 2.4, rss: 36, thresholdText: 'quantile 0.99',
@@ -893,35 +905,35 @@
     const M_HR = '상태 코드 규칙', M_RULE = '등록 Rule · 프로세스 오류 수', M_ML = 'M1 · Isolation Forest';
     let decisions = [
       { id: 'D-1042', unit: 'PROCESS', at: '10:41:58', tx: 'TX-1021-104158-0007', process: 'P02 결제 승인', iface: 'IF-ORD-01', channel: 'CH-WEB', logStatus: 'F', resp: 'E500', ms: 41, version: 'V2', input: 'CSV 재생', stage: 'final', workflow: 'Open',
-        methods: [['HR', M_HR, 'succeeded', 'T', '상태 F', 'S만 정상', '1 ms', ''], ['HR', M_RULE, 'succeeded', 'N', 'error_count 0', '> 0이면 이상', '1 ms', ''], ['ML', M_ML, 'succeeded', 'N', '점수 0.42', '판정선 P99 = 1.20', '28 ms', '']],
-        history: [['10:41:58.031', 'provisional', '잠정 이상 · 근거 HR(상태 코드 규칙)'], ['10:41:58.072', 'final', '최종 · 모든 방법 종료']] },
+        methods: [['HR', M_HR, 'succeeded', 'T', '상태 F', 'S만 정상', '1 ms', ''], ['HR', M_RULE, 'succeeded', 'N', 'error_count 0', '> 0이면 이상', '1 ms', ''], ['ML', M_ML, 'succeeded', 'N', '—', '판정선 train-internal-p99-v1', '28 ms', '']],
+        history: [['10:41:58.031', 'provisional', '중간 판정 · 근거 HR(상태 코드 규칙)'], ['10:41:58.072', 'final', '최종 · 모든 방법 종료']] },
       { id: 'D-1041', unit: 'PROCESS', at: '10:41:31', tx: 'TX-1021-104131-0003', process: 'P01 송금 요청', iface: 'IF-PAY-03', channel: 'CH-APP', logStatus: 'P', resp: '—', ms: 3004, version: 'V2', input: 'CSV 재생', stage: 'final',
-        methods: [['HR', M_HR, 'succeeded', 'T', '상태 P', 'S만 정상', '1 ms', ''], ['HR', M_RULE, 'succeeded', 'N', 'error_count 0', '> 0이면 이상', '1 ms', ''], ['ML', M_ML, 'not_ready', 'U', '—', '판정선 P99 = 1.20', '3000 ms', 'deadline_exceeded · 기한 3,000 ms 초과']],
-        history: [['10:41:28.004', 'provisional', '잠정 이상 · 근거 HR(상태 코드 규칙)'], ['10:41:31.004', 'final', '최종 · 기한 도달(ML 미판정)']] },
+        methods: [['HR', M_HR, 'succeeded', 'T', '상태 P', 'S만 정상', '1 ms', ''], ['HR', M_RULE, 'succeeded', 'N', 'error_count 0', '> 0이면 이상', '1 ms', ''], ['ML', M_ML, 'not_ready', 'U', '—', '판정선 train-internal-p99-v1', '3000 ms', 'deadline_exceeded · 기한 3,000 ms 초과']],
+        history: [['10:41:28.004', 'provisional', '중간 판정 · 근거 HR(상태 코드 규칙)'], ['10:41:31.004', 'final', '최종 · 기한 도달(ML 미판정)']] },
       { id: 'D-1040', unit: 'PROCESS', at: '10:40:12', tx: 'TX-1021-104012-0011', process: 'P03 재고 확인', iface: 'IF-ORD-02', channel: 'CH-WEB', logStatus: 'S', resp: '0000', ms: 52, version: 'V2', input: 'CSV 재생', stage: 'final',
-        methods: [['HR', M_HR, 'succeeded', 'N', '상태 S', 'S만 정상', '1 ms', ''], ['HR', M_RULE, 'succeeded', 'T', 'error_count 2', '> 0이면 이상', '1 ms', ''], ['ML', M_ML, 'succeeded', 'T', '점수 1.84', '판정선 P99 = 1.20', '30 ms', '']],
-        history: [['10:40:12.009', 'provisional', '잠정 이상 · 근거 HR(등록 Rule)'], ['10:40:12.041', 'updated', '근거 추가 · ML(M1)'], ['10:40:12.052', 'final', '최종 · 모든 방법 종료']] },
+        methods: [['HR', M_HR, 'succeeded', 'N', '상태 S', 'S만 정상', '1 ms', ''], ['HR', M_RULE, 'succeeded', 'T', 'error_count 2', '> 0이면 이상', '1 ms', ''], ['ML', M_ML, 'succeeded', 'T', '—', '판정선 train-internal-p99-v1', '30 ms', '']],
+        history: [['10:40:12.009', 'provisional', '중간 판정 · 근거 HR(등록 Rule)'], ['10:40:12.041', 'updated', '근거 추가 · ML(M1)'], ['10:40:12.052', 'final', '최종 · 모든 방법 종료']] },
       { id: 'D-1039', unit: 'PROCESS', at: '10:39:47', tx: 'TX-1021-103947-0002', process: 'P02 고객 조회', iface: 'IF-CUS-01', channel: 'CH-APP', logStatus: 'S', resp: '0000', ms: 19, version: 'V2', input: 'CSV 재생', stage: 'final',
-        methods: [['HR', M_HR, 'succeeded', 'N', '상태 S', 'S만 정상', '1 ms', ''], ['HR', M_RULE, 'not_ready', 'U', '—', '> 0이면 이상', '—', '입력값 누락 · error_count 미제공'], ['ML', M_ML, 'succeeded', 'N', '점수 0.31', '판정선 P99 = 1.20', '15 ms', '']],
+        methods: [['HR', M_HR, 'succeeded', 'N', '상태 S', 'S만 정상', '1 ms', ''], ['HR', M_RULE, 'not_ready', 'U', '—', '> 0이면 이상', '—', '입력값 누락 · error_count 미제공'], ['ML', M_ML, 'succeeded', 'N', '—', '판정선 train-internal-p99-v1', '15 ms', '']],
         history: [['10:39:47.019', 'final', '최종 · 모든 방법 종료']] },
       { id: 'D-1038', unit: 'PROCESS', at: '10:39:02', tx: 'TX-1021-103902-0005', process: 'P01 주문 접수', iface: 'IF-ORD-01', channel: 'CH-WEB', logStatus: 'S', resp: '0000', ms: 33, version: 'V2', input: 'CSV 재생', stage: 'final',
-        methods: [['HR', M_HR, 'succeeded', 'N', '상태 S', 'S만 정상', '1 ms', ''], ['HR', M_RULE, 'succeeded', 'N', 'error_count 0', '> 0이면 이상', '1 ms', ''], ['ML', M_ML, 'succeeded', 'N', '점수 0.27', '판정선 P99 = 1.20', '26 ms', '']],
+        methods: [['HR', M_HR, 'succeeded', 'N', '상태 S', 'S만 정상', '1 ms', ''], ['HR', M_RULE, 'succeeded', 'N', 'error_count 0', '> 0이면 이상', '1 ms', ''], ['ML', M_ML, 'succeeded', 'N', '—', '판정선 train-internal-p99-v1', '26 ms', '']],
         history: [['10:39:02.033', 'final', '최종 · 모든 방법 종료']] },
       { id: 'D-1037', unit: 'PROCESS', at: '10:38:40', tx: 'TX-1021-103840-0009', process: 'P04 정산 집계', iface: 'IF-PAY-01', channel: 'CH-BATCH', logStatus: 'S', resp: '0000', ms: 37, version: 'V2', input: 'API 수집', stage: 'final',
-        methods: [['HR', M_HR, 'succeeded', 'N', '상태 S', 'S만 정상', '1 ms', ''], ['HR', M_RULE, 'succeeded', 'T', 'error_count 1', '> 0이면 이상', '1 ms', ''], ['ML', M_ML, 'succeeded', 'N', '점수 0.66', '판정선 P99 = 1.20', '29 ms', '']],
-        history: [['10:38:40.006', 'provisional', '잠정 이상 · 근거 HR(등록 Rule)'], ['10:38:40.037', 'final', '최종 · 모든 방법 종료']] },
+        methods: [['HR', M_HR, 'succeeded', 'N', '상태 S', 'S만 정상', '1 ms', ''], ['HR', M_RULE, 'succeeded', 'T', 'error_count 1', '> 0이면 이상', '1 ms', ''], ['ML', M_ML, 'succeeded', 'N', '—', '판정선 train-internal-p99-v1', '29 ms', '']],
+        history: [['10:38:40.006', 'provisional', '중간 판정 · 근거 HR(등록 Rule)'], ['10:38:40.037', 'final', '최종 · 모든 방법 종료']] },
       { id: 'D-1036', unit: 'PROCESS', at: '10:38:10', tx: 'TX-1021-103810-0001', process: 'P02 결제 승인', iface: 'IF-ORD-01', channel: 'CH-WEB', logStatus: '—', resp: '—', ms: 3001, version: 'V2', input: 'API 수집', stage: 'final',
-        methods: [['HR', M_HR, 'not_ready', 'U', '—', 'S만 정상', '—', '입력값 누락 · status 미제공'], ['HR', M_RULE, 'not_ready', 'U', '—', '> 0이면 이상', '—', '입력값 누락 · error_count 미제공'], ['ML', M_ML, 'failed', 'U', '—', '판정선 P99 = 1.20', '—', 'component_failed · 판정 계산 중 오류']],
+        methods: [['HR', M_HR, 'not_ready', 'U', '—', 'S만 정상', '—', '입력값 누락 · status 미제공'], ['HR', M_RULE, 'not_ready', 'U', '—', '> 0이면 이상', '—', '입력값 누락 · error_count 미제공'], ['ML', M_ML, 'failed', 'U', '—', '판정선 train-internal-p99-v1', '—', 'component_failed · 판정 계산 중 오류']],
         history: [['10:38:13.011', 'final', '최종 · 기한 도달(모든 방법 미판정)']] },
       { id: 'D-1035', unit: 'PROCESS', at: '10:37:30', tx: 'TX-1021-103730-0004', process: 'P03 재고 확인', iface: 'IF-ORD-02', channel: 'CH-WEB', logStatus: 'F', resp: 'E504', ms: 0, version: 'V2', input: 'API 수집', stage: 'failed',
-        methods: [['HR', M_HR, 'succeeded', 'T', '상태 F', 'S만 정상', '1 ms', ''], ['HR', M_RULE, 'running', '·', '—', '> 0이면 이상', '—', ''], ['ML', M_ML, 'running', '·', '—', '판정선 P99 = 1.20', '—', '']],
-        history: [['10:37:30.012', 'provisional', '시도 1 · 잠정 이상 · 근거 HR(상태 코드 규칙)'], ['10:37:41.500', 'info', '시도 2 · 처리 예외'], ['10:37:52.900', 'void', '시도 3 실패 · 최종 없음(판정 실패)']] },
+        methods: [['HR', M_HR, 'succeeded', 'T', '상태 F', 'S만 정상', '1 ms', ''], ['HR', M_RULE, 'running', '·', '—', '> 0이면 이상', '—', ''], ['ML', M_ML, 'running', '·', '—', '판정선 train-internal-p99-v1', '—', '']],
+        history: [['10:37:30.012', 'provisional', '시도 1 · 중간 판정 · 근거 HR(상태 코드 규칙)'], ['10:37:41.500', 'info', '시도 2 · 처리 예외'], ['10:37:52.900', 'void', '시도 3 실패 · 최종 없음(판정 실패)']] },
       { id: 'D-1034', unit: 'PROCESS', at: '10:36:55', tx: 'TX-1021-103655-0006', process: 'P01 송금 요청', iface: 'IF-PAY-03', channel: 'CH-APP', logStatus: 'S', resp: '0000', ms: 3002, version: 'V2', input: 'API 수집', stage: 'replaced',
-        methods: [['HR', M_HR, 'succeeded', 'N', '상태 S', 'S만 정상', '1 ms', ''], ['HR', M_RULE, 'succeeded', 'N', 'error_count 0', '> 0이면 이상', '1 ms', ''], ['ML', M_ML, 'not_ready', 'U', '—', '판정선 P99 = 1.20', '3000 ms', 'deadline_exceeded · 기한 3,000 ms 초과']],
-        history: [['10:36:52.020', 'provisional', '시도 1 · 잠정 이상 · 근거 ML(M1)'], ['10:36:55.002', 'void', '시도 1 결과 · 대체됨'], ['10:36:55.002', 'final', '시도 2 · 최종 · 기한 도달(ML 미판정)']] },
+        methods: [['HR', M_HR, 'succeeded', 'N', '상태 S', 'S만 정상', '1 ms', ''], ['HR', M_RULE, 'succeeded', 'N', 'error_count 0', '> 0이면 이상', '1 ms', ''], ['ML', M_ML, 'not_ready', 'U', '—', '판정선 train-internal-p99-v1', '3000 ms', 'deadline_exceeded · 기한 3,000 ms 초과']],
+        history: [['10:36:52.020', 'provisional', '시도 1 · 중간 판정 · 근거 ML(M1)'], ['10:36:55.002', 'void', '시도 1 결과 · 대체됨'], ['10:36:55.002', 'final', '시도 2 · 최종 · 기한 도달(ML 미판정)']] },
       { id: 'D-0990', unit: 'PROCESS', at: '10/19 22:10', tx: 'TX-1019-221000-0001', process: 'P02 결제 승인', iface: 'IF-ORD-01', channel: 'CH-WEB', logStatus: 'F', resp: 'E500', ms: 3, version: 'V1', input: 'CSV 재생', stage: 'final', workflow: 'Resolved',
         methods: [['HR', M_HR, 'succeeded', 'T', '상태 F', 'S만 정상', '1 ms', '']],
-        history: [['10/19 22:10:00.001', 'provisional', '잠정 이상 · 근거 HR(상태 코드 규칙)'], ['10/19 22:10:00.003', 'final', '최종 · 모든 방법 종료']] },
+        history: [['10/19 22:10:00.001', 'provisional', '중간 판정 · 근거 HR(상태 코드 규칙)'], ['10/19 22:10:00.003', 'final', '최종 · 모든 방법 종료']] },
       { id: 'W-0311', unit: 'WINDOW', at: '10:41:00', target: 'IF-ORD-01 · 1분 구간', version: 'V2', signal: 'unknown', completeness: 'partial', note: '관측 구간 10:36~10:41 · 기준선 준비 중(과거 이력 부족)' },
       { id: 'W-0310', unit: 'WINDOW', at: '10:40:00', target: 'IF-ORD-01 · 1분 구간', version: 'V2', signal: 'no', completeness: 'complete', note: '관측 구간 10:35~10:40 · 유입 편차·처리시간 P95 기준 이내' }
     ];
@@ -929,7 +941,7 @@
     const decisionById = (id) => decisions.find((d) => d.id === id);
     const signalLabel = { yes: '이상 신호 있음', no: '이상 신호 없음', unknown: '정상 여부 미확인', pending: '판정 중', failed: '판정 실패' };
     const completeLabel = { complete: '완료', partial: '부분', unavailable: '판정불가', pending: '판정 중', failed: '최종 없음' };
-    const stageLabel = { pending: '판정 중', provisional: '잠정 이상', updated: '근거 추가', final: '최종', replaced: '최종 · 이전 잠정 대체됨', failed: '판정 실패(최종 없음)' };
+    const stageLabel = { pending: '판정 중', provisional: '중간 판정', updated: '근거 추가', final: '최종', replaced: '최종 · 이전 중간 판정 대체됨', failed: '판정 실패(최종 없음)' };
     const resultLabel = { T: '이상', N: '정상 확인', U: '미판정', '·': '—' };
     const runLabel = { succeeded: '완료 · succeeded', failed: '실패 · failed', not_ready: '미완료 · not_ready', skipped: '꺼짐 · skipped', running: '실행 중' };
     // Detector 조합 규칙(사용자 10/21 확정 4.0): 대분류 k=1 OR, 정상은 켠 방법 모두 성공일 때만. 일부만 끝난 상태는 '판정 중'.
@@ -964,7 +976,10 @@
     ];
     let noticeSeq = 10, bellFilter = 'unread';
     const noticeHref = (n) => n.kind === 'decision' ? '#analysis/d/' + n.ref : '#detect/ops/job/' + n.ref;
-    const visibleNotices = () => notices.filter((n) => n.kind === 'decision' || currentRole === 'admin');
+    // 알림 설정(계정별, 와이어프레임은 화면 메모리): 알릴 판정 기준·작업 알림. 위험도 범위는 기준 결정 대기.
+    const notifSettings = { admin: { anomaly: true, interim: true, void: true, jobs: true }, user: { anomaly: true, interim: true, void: true, jobs: false } };
+    const noticeCategory = (n) => { if (n.withdrawn) return 'void'; const d = decisionById(n.ref); return d && ['pending', 'provisional', 'updated'].includes(d.stage) ? 'interim' : 'anomaly'; };
+    const visibleNotices = () => { const st = notifSettings[currentRole]; return notices.filter((n) => n.kind === 'decision' ? st[noticeCategory(n)] : currentRole === 'admin' && st.jobs); };
     function pushNotice(kind, ref, text) { noticeSeq += 1; const n = { id: 'N-' + noticeSeq, kind, ref, text, at: stamp(), read: false }; notices.unshift(n); renderBadges(); return n; }
     function readNoticesFor(ref) { notices.filter((n) => n.ref === ref).forEach((n) => { n.read = true; }); renderBadges(); }
 
@@ -975,7 +990,10 @@
     let layouts = { admin: [...defaultLayout], user: [...defaultLayout] }, editLayout = null, dragging = '';
 
     // ---------- 데이터 수집 ----------
-    let inputs = { api: { label: '수집 API · 운영 입력', state: 'playing', pending: false, detail: '고객 ESB 수집 엔드포인트' }, csv: { label: 'CSV 재생 · 시험 입력', state: 'paused', pending: false, detail: '합성 CSV S1 · 30,000행 · 10배' } };
+    // 입력 모드는 하나만 선택(실서버 API / CSV 재생 / 일시정지). revision은 다른 화면 변경 충돌 확인용.
+    const MODE_LABEL = { api: '실서버 API(실제)', csv: 'CSV 재생(시뮬레이션)', paused: '일시정지(입력 중단)' };
+    let inputMode = 'api', inputRevision = 7, inputPending = false;
+    const csvCfg = { target: '합성 CSV S1 · 30,000행', total: 30000, speed: '10배', position: 12480 };
     const store = { TRANSACTION: 9840, PROCESS: 30000, MESSAGE: 30000, BODY: 0 };
     const storeRate = { TRANSACTION: 3, PROCESS: 12, MESSAGE: 12, BODY: 0 };
     let storeLast = '10/21 10:41:07', recentMinute = { TRANSACTION: 180, PROCESS: 720, MESSAGE: 720, BODY: 0 }, revisionCount = 3, inputTicker = null;
@@ -1029,13 +1047,13 @@
     const freshTrain = () => ({ ai: { status: 'idle', picks: new Set(), result: null }, datasetFixed: false, datasetName: '', period: '', selected: new Set(catalog.filter((item) => item.unit === 'PROCESS' && ['ready', 'fit'].includes(item.status) && !/hour|weekday/.test(item.key)).map((item) => item.key)), model: 'iforest', params: Object.fromEntries(Object.keys(MODELS).map((k) => [k, defaultParams(k)])), page: 0, retryOf: '' });
     const draftFromVersion = (id) => { const v = versionById(id); return { base: id, hr: [...v.hr], sr: [...v.sr].filter(executable), srParams: JSON.parse(JSON.stringify(v.srParams)), ml: JSON.parse(JSON.stringify(v.ml)), name: '', fromAi: null, duplicate: '' }; };
     let trainDraft = freshTrain(), composeDraft = draftFromVersion(active), compareDraft = { set: 'E1', versions: new Set() }, replaceDraft = { target: '', accepted: null }, aiDraft = { base: active };
-    let detailKey = '', jobTab = 'all', analysisCat = 'all', analysisPage = 1, wideMode = false, activeNode = 'focus', bellOpen = false;
+    let analysisView = 'result', detailKey = '', jobTab = 'all', analysisCat = 'all', analysisPage = 1, wideMode = false, activeNode = 'focus', bellOpen = false;
     const explainState = {};
 
     // ---------- 공통 조각 ----------
     const setBadge = (id, n) => { const b = $(id); b.hidden = !n; b.textContent = n > 99 ? '99+' : String(n); };
     function renderBadges() {
-      const dec = notices.filter((n) => n.kind === 'decision' && !n.read).length, job = currentRole === 'admin' ? notices.filter((n) => n.kind === 'job' && !n.read).length : 0;
+      const vis = visibleNotices(), dec = vis.filter((n) => n.kind === 'decision' && !n.read).length, job = vis.filter((n) => n.kind === 'job' && !n.read).length;
       setBadge('badgeAnalysis', dec); setBadge('badgeDetect', job); setBadge('badgeBell', dec + job);
       $('bell').setAttribute('aria-label', '알림 · 읽지 않음 ' + (dec + job) + '건');
       $('navAnalysis').setAttribute('aria-label', '이상 분석' + (dec ? ' · 미확인 ' + dec + '건' : ''));
@@ -1090,7 +1108,7 @@
       if (key === 'trend') return h('table', {}, h('thead', {}, h('tr', {}, ['날짜', '판정', '이상 신호', '정상 여부 미확인'].map((t) => h('th', { text: t })))), h('tbody', {}, [['10/19', '28,410', '0.31%', '0.8%'], ['10/20', '30,002', '0.28%', '0.6%'], ['10/21', '6,113', '0.35%', '1.1%']].map((r) => h('tr', {}, r.map((t) => h('td', { text: t }))))));
       if (key === 'active') { const v = versionById(active); return h('div', {}, h('p', {}, h('strong', { text: versionLabel(active) })), h('p', { text: versionType(v) + ' · HR ' + v.hr.length + ' · SR ' + v.sr.length + ' · ML ' + mlKeys(v).length }), admin ? h('a', { href: '#detect/ops', text: '운영 설정' }) : null); }
       if (key === 'queue') return h('table', {}, h('tbody', {}, [['판정 큐 대기', '4건'], ['가장 오래된 대기', '1.8초'], ['큐 → Detector p95', '420 ms']].map((r) => h('tr', {}, h('th', { text: r[0] }), h('td', { text: r[1] })))));
-      if (key === 'collect') return h('div', {}, h('p', { text: '수집 API ' + (inputs.api.state === 'playing' ? '수집 중' : '일시정지') + ' · CSV ' + (inputs.csv.state === 'playing' ? '재생 중' : '일시정지') }), h('p', { class: 'muted', text: 'PROCESS 누적 ' + num(store.PROCESS) + ' · 마지막 저장 ' + storeLast }), h('a', { href: '#ops/collect', text: '수집 탭' }));
+      if (key === 'collect') return h('div', {}, h('p', { text: '입력 모드 · ' + MODE_LABEL[inputMode] }), h('p', { class: 'muted', text: 'PROCESS 누적 ' + num(store.PROCESS) + ' · 마지막 저장 ' + storeLast }), h('a', { href: '#ops/collect', text: '수집 탭' }));
       if (key === 'storage') return h('div', {}, h('p', { text: '데이터 마운트 62% 사용 · 임시 기준 80%' }), h('span', { class: 'bar' }, h('span', { style: 'width:62%' })), h('p', { class: 'muted', text: 'PostgreSQL 41.2 GB · 여유 188 GB' }));
       return h('p', { text: '—' });
     }
@@ -1121,46 +1139,63 @@
     function renderCollect() {
       const admin = currentRole === 'admin';
       fill($('txChart'), chartSvg());
-      const stateText = (x) => x.pending ? pill('요청 처리 중', 'busy') : x.state === 'playing' ? pill('수집 중', 'good') : pill('일시정지', 'gray');
-      table('inputTable', ['입력', '상태', '대상', ...(admin ? ['동작'] : [])], Object.entries(inputs).map(([key, x]) => [x.label, stateText(x), x.detail, ...(admin ? [h('div', { class: 'actions-inline' }, h('button', { type: 'button', 'data-action': 'input-play', 'data-input': key, disabled: x.pending || x.state === 'playing', text: '재생' }), h('button', { type: 'button', 'data-action': 'input-pause', 'data-input': key, disabled: x.pending || x.state !== 'playing', text: '일시정지' }))] : [])]));
+      $('inputModeNow').textContent = inputPending ? '요청 처리 중' : MODE_LABEL[inputMode];
+      $('inputModeMeta').textContent = 'revision ' + inputRevision;
+      fill($('inputModeChoices'), ...(admin ? Object.keys(MODE_LABEL).map((m) => h('label', { class: 'mode-opt' + (m === inputMode ? ' on' : '') }, h('input', { type: 'radio', name: 'inputMode', value: m, checked: m === inputMode, disabled: inputPending }), MODE_LABEL[m])) : []));
+      const pctDone = csvCfg.position / csvCfg.total;
+      fill($('csvBox'), ...(inputMode === 'csv' ? [dl(h('dl'), [['재생 대상', csvCfg.target], ['재생 속도', csvCfg.speed], ['진행률', h('span', {}, num(csvCfg.position) + ' / ' + num(csvCfg.total) + '행 (' + pct(pctDone) + ')', h('span', { class: 'bar', role: 'progressbar', 'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-valuenow': String(Math.round(pctDone * 100)) }, h('span', { style: 'width:' + (pctDone * 100).toFixed(1) + '%' })))]])] : []));
       table('storeTable', ['원본', '누적 저장', '최근 1분', '마지막 저장', 'revision 재도착'], Object.keys(store).map((k) => [k + ' (' + k[0] + ')', num(store[k]), k === 'BODY' ? '수집 안 함 · 판정 입력 아님' : '+' + num(recentMinute[k]), k === 'BODY' ? '—' : storeLast, k === 'PROCESS' ? num(revisionCount) + '건' : '—']));
       table('stageTable', ['단계', 'p50', 'p95', '대기·적체', '최근 실패'], [['Collector 수집', '35 ms', '120 ms', '—', '0건'], ['정제·저장', '8 ms', '22 ms', '—', '0건'], ['판정 큐 대기', '0.2 s', '1.8 s', '4건', '—'], ['Detector 판정', '28 ms', '3,000 ms(기한 초과 포함)', '—', '기한 초과 2건'], ['판정 저장', '4 ms', '11 ms', '—', '0건']]);
       fill($('inputHistoryRows'), ...inputHistory.map((x) => h('tr', {}, h('td', { text: x.at }), h('td', { text: x.mode }), h('td', { text: x.action }), h('td', {}, x.result === '성공' ? pill('성공', 'good') : pill('실패', 'bad')))));
     }
-    function inputRequest(key, next) {
-      const x = inputs[key], mode = key === 'api' ? '수집 API' : 'CSV 재생', label = next === 'playing' ? '재생' : '일시정지';
-      x.pending = true; $('inputError').hidden = true; refresh();
+    // 입력 모드는 하나만(실서버 API / CSV 재생 / 일시정지). 변경은 expectedRevision과 함께 요청하고, 다른 화면에서 바뀌었으면 충돌로 거절(제품 InputControls와 같은 개념).
+    function requestInputMode(next, expectedRevision, csvChoice) {
+      inputPending = true; $('inputError').hidden = true; refresh();
       later(600, () => {
-        x.pending = false;
-        if ($('state').value === 'error') { $('inputError').hidden = false; $('inputError').textContent = '입력 제어 요청 실패 · 입력 상태는 바뀌지 않았습니다(현재: ' + (x.state === 'playing' ? '수집 중' : '일시정지') + ').'; inputHistory.unshift({ at: stamp(), mode, action: label, result: '실패' }); refresh(); return; }
-        x.state = next; inputHistory.unshift({ at: stamp(), mode, action: label, result: '성공' });
+        inputPending = false;
+        const fail = (text) => { $('inputError').hidden = false; $('inputError').textContent = text; inputHistory.unshift({ at: stamp(), mode: MODE_LABEL[next], action: '모드 변경', result: '실패' }); refresh(); };
+        if (expectedRevision !== inputRevision) { fail('입력 모드 변경 실패 · input_revision_conflict · 다른 화면에서 입력 설정이 변경되었습니다. 최신 상태를 불러온 뒤 다시 선택하세요.'); return; }
+        if ($('state').value === 'error') { fail('입력 모드 변경 실패 · 입력 모드는 바뀌지 않았습니다(현재: ' + MODE_LABEL[inputMode] + ').'); return; }
+        if (csvChoice) { if (csvChoice.target !== csvCfg.target) { csvCfg.position = 0; csvCfg.total = csvChoice.target.startsWith('시험') ? 2000 : 30000; } csvCfg.target = csvChoice.target; csvCfg.speed = csvChoice.speed; }
+        inputMode = next; inputRevision += 1; inputHistory.unshift({ at: stamp(), mode: MODE_LABEL[next], action: '모드 변경' + (next === 'csv' ? ' · ' + csvCfg.target + ' · ' + csvCfg.speed : ''), result: '성공' });
         syncTicker(); refresh();
       });
     }
+    function askInputMode(next) {
+      const expected = inputRevision;
+      if (next === 'paused') { confirmBox('입력을 일시정지할까요', '정지하는 동안 새 판정이 생기지 않습니다', () => requestInputMode('paused', expected), '', null, '일시정지'); return; }
+      if (next === 'api') { confirmBox('실서버 API 입력으로 바꿀까요', '입력은 하나만 받습니다. CSV 재생은 멈추고 실서버 API 입력을 받습니다.', () => requestInputMode('api', expected), '', null, '실서버 API로 전환'); return; }
+      const extra = h('div', { class: 'grid' }, h('label', { class: 'field' }, '재생 대상', h('select', { id: 'csvTargetPick' }, ['합성 CSV S1 · 30,000행', '시험 CSV T2 · 2,000행'].map((o) => h('option', { selected: o === csvCfg.target, text: o })))), h('label', { class: 'field' }, '재생 속도', h('select', { id: 'csvSpeedPick' }, ['원래 간격 1배', '10배', '60배'].map((o) => h('option', { selected: o === csvCfg.speed, text: o })))));
+      confirmBox('CSV 재생으로 바꿀까요', '입력은 하나만 받습니다. 실서버 API 입력은 멈추고 선택한 CSV를 재생합니다.', () => requestInputMode('csv', expected, { target: $('csvTargetPick').value, speed: $('csvSpeedPick').value }), '', extra, 'CSV 재생으로 전환');
+    }
     function syncTicker() {
-      const playing = Object.values(inputs).some((x) => x.state === 'playing');
       clearInterval(inputTicker); inputTicker = null;
-      if (!playing) { Object.keys(recentMinute).forEach((k) => { recentMinute[k] = 0; }); return; }
+      if (inputMode === 'paused') { Object.keys(recentMinute).forEach((k) => { recentMinute[k] = 0; }); return; }
       inputTicker = setInterval(() => {
         Object.keys(store).forEach((k) => { store[k] += storeRate[k]; recentMinute[k] = storeRate[k] * 60; });
+        if (inputMode === 'csv') { csvCfg.total = csvCfg.target.startsWith('시험') ? 2000 : 30000; csvCfg.position = Math.min(csvCfg.total, csvCfg.position + 120); }
         hourly[23] += storeRate.TRANSACTION; if (Math.random() < 0.05) revisionCount += 1; storeLast = stamp() + ':' + clock().slice(6);
         if (route === 'ops/collect') { renderCollect(); paintState(); }
       }, 1000);
     }
 
     // ---------- 이상 분석(현재 프론트 구조 기반) ----------
-    const CATS = [['all', '전체', () => true], ['yes', '이상 신호 있음', (d, s) => s.signal === 'yes'], ['progress', '판정 중·잠정', (d) => ['pending', 'provisional', 'updated'].includes(d.stage)], ['unknown', '정상 여부 미확인', (d, s) => s.signal === 'unknown'], ['void', '판정 실패·대체', (d) => ['failed', 'replaced'].includes(d.stage)]];
+    const CATS = [['all', '전체', () => true], ['yes', '이상 신호 있음', (d, s) => s.signal === 'yes'], ['progress', '판정 중·중간 판정', (d) => ['pending', 'provisional', 'updated'].includes(d.stage)], ['unknown', '정상 여부 미확인', (d, s) => s.signal === 'unknown'], ['void', '판정 실패·대체', (d) => ['failed', 'replaced'].includes(d.stage)]];
     const WORKFLOW = [['Open', '보류'], ['Resolved', '완료']];
-    const catDef = (key) => CATS.find((c) => c[0] === key) || ['wf:' + key, (WORKFLOW.find((w) => 'wf:' + w[0] === key) || ['', '분류함'])[1], (d) => 'wf:' + d.workflow === key];
+    // 위험도별 보기: 기존 제품의 위험/주의/참고 구조만 자리표시. 기준은 Detector 확정 대기라 어떤 판정도 분류하지 않음.
+    const RISK = [['risk:critical', '위험'], ['risk:warning', '주의'], ['risk:info', '참고']];
+    const catDef = (key) => key === 'risk:pending' ? [key, '위험도 미분류(기준 대기)', () => true] : RISK.find((r) => r[0] === key) ? [key, RISK.find((r) => r[0] === key)[1], () => false] : CATS.find((c) => c[0] === key) || ['wf:' + key, (WORKFLOW.find((w) => 'wf:' + w[0] === key) || ['', '분류함'])[1], (d) => 'wf:' + d.workflow === key];
     const isUnread = (d) => notices.some((n) => n.kind === 'decision' && n.ref === d.id && !n.read);
     let liveCount = 0;
     function renderAnalysis(r) {
       $('analysisWs').classList.toggle('wide-mode', wideMode);
       all('.wide-btn').forEach((b) => { b.textContent = wideMode ? '콤팩트' : '넓게'; b.setAttribute('aria-label', wideMode ? '콤팩트 화면으로 보기' : '넓은 화면으로 보기'); });
       const rows = decisions.map((d) => [d, summarize(d)]);
-      const side = h('div', {}, h('h2', { text: '판정' }), CATS.map(([key, label, fn]) => h('a', { href: '#analysis', 'data-cat': key, 'aria-current': analysisCat === key ? 'true' : null }, h('span', { text: label }), h('span', { text: String(rows.filter(([d, s]) => fn(d, s)).length) }))),
+      const views = h('div', { class: 'side-views', role: 'group', 'aria-label': '분류 보기' }, h('button', { type: 'button', 'data-action': 'analysis-view', 'data-view-mode': 'result', 'aria-pressed': String(analysisView === 'result'), text: '판정 결과별' }), h('button', { type: 'button', 'data-action': 'analysis-view', 'data-view-mode': 'risk', 'aria-pressed': String(analysisView === 'risk'), text: '위험도별' }));
+      const riskSide = h('div', {}, h('h2', { text: '위험도' }), RISK.map(([key, label]) => h('a', { href: '#analysis', 'data-cat': key, 'aria-current': analysisCat === key ? 'true' : null }, h('span', { text: label }), h('span', { text: '—' }))), h('a', { href: '#analysis', 'data-cat': 'risk:pending', 'aria-current': analysisCat === 'risk:pending' ? 'true' : null }, h('span', { text: '미분류' }), h('span', { text: String(rows.length) })), h('p', { class: 'muted', style: 'font-size:12px', text: '위험도 기준 결정 대기' }));
+      const side = analysisView === 'risk' ? riskSide : h('div', {}, h('h2', { text: '판정' }), CATS.map(([key, label, fn]) => h('a', { href: '#analysis', 'data-cat': key, 'aria-current': analysisCat === key ? 'true' : null }, h('span', { text: label }), h('span', { text: String(rows.filter(([d, s]) => fn(d, s)).length) }))),
         h('h2', { text: '분류함' }), WORKFLOW.map(([key, label]) => h('a', { href: '#analysis', 'data-cat': 'wf:' + key, 'aria-current': analysisCat === 'wf:' + key ? 'true' : null }, h('span', { text: label }), h('span', { text: String(decisions.filter((d) => d.workflow === key).length) }))));
-      fill($('analysisSide'), side);
+      fill($('analysisSide'), views, side);
       all('[data-panel^="analysis/"]').forEach((n) => { n.hidden = n.dataset.panel !== 'analysis/' + r.panel; });
       if (r.panel === 'inbox') renderInbox(rows);
       if (r.panel === 'd') renderDetail(decisionById(r.id));
@@ -1185,9 +1220,10 @@
             h('strong', { text: d.unit === 'WINDOW' ? d.id + ' · ' + d.target : d.tx }),
             d.unit === 'WINDOW' ? h('span', { class: 'sub', text: d.note }) : h('span', { class: 'sub', text: '프로세스: ' + d.process + ' · 인터페이스 ' + d.iface + ' · ' + d.id }),
             h('span', { class: 'sub', text: '운영 버전 ' + d.version + (d.input ? ' · ' + d.input : '') })),
-          h('span', { class: 'side' }, h('span', { text: '검사 ' + completeLabel[s.completeness] }), doneCount ? h('span', { class: 'key', text: '방법 ' + doneCount + ' 종료' }) : null));
+          h('span', { class: 'side' }, h('span', { text: '검사 ' + completeLabel[s.completeness] }), h('span', { class: 'key', text: '위험도 —' }), doneCount ? h('span', { class: 'key', text: '방법 ' + doneCount + ' 종료' }) : null));
       }), ...(partial && unit !== 'PROCESS' ? [h('p', { class: 'state-msg bad' }, 'WINDOW 판정 조회 실패 · PROCESS 판정만 표시 중 · 마지막 성공 ' + lastSuccess + ' ', h('button', { type: 'button', 'data-action': 'retry', text: '다시 조회' }))] : []));
       $('inboxEmpty').hidden = list.length > 0 || partial;
+      $('inboxEmpty').textContent = RISK.some((x) => x[0] === analysisCat) ? '위험도 기준 결정 대기 · 이 위험도로 분류된 판정이 없습니다.' : '검색 또는 분류 조건에 맞는 판정이 없습니다.';
       $('inboxTotal').textContent = '전체 ' + list.length + '건 · 이번 세션 실시간 수신 ' + liveCount + '건';
       fill($('inboxPager'), h('button', { type: 'button', 'data-action': 'inbox-page', 'data-page': String(analysisPage - 1), disabled: analysisPage <= 1, 'aria-label': '이전 페이지', text: '‹' }), ...Array.from({ length: pages }, (_, i) => h('button', { type: 'button', 'data-action': 'inbox-page', 'data-page': String(i + 1), 'aria-current': i + 1 === analysisPage ? 'page' : null, class: i + 1 === analysisPage ? 'primary' : '', text: String(i + 1) })), h('button', { type: 'button', 'data-action': 'inbox-page', 'data-page': String(analysisPage + 1), disabled: analysisPage >= pages, 'aria-label': '다음 페이지', text: '›' }));
     }
@@ -1199,17 +1235,19 @@
       const s = summarize(d), t = d.methods.filter((m) => m[3] === 'T'), u = d.methods.filter((m) => m[3] === 'U'), checks = [];
       if (t.some((m) => m[1] === M_HR)) checks.push('같은 인터페이스 ' + d.iface + '의 최근 상태 ' + d.logStatus + ' 건수');
       if (t.some((m) => m[1] === M_RULE)) checks.push('PROCESS 원본의 error_count 기록');
-      if (t.some((m) => m[0] === 'ML')) checks.push(t.find((m) => m[0] === 'ML')[1].split(' ')[0] + ' 점수에 크게 기여한 입력 변수 값');
+      if (t.some((m) => m[0] === 'ML')) checks.push(t.find((m) => m[0] === 'ML')[1].split(' ')[0] + '이 이상으로 본 PROCESS의 입력 변수 원본 값');
       if (u.some((m) => m[7].startsWith('deadline'))) checks.push('같은 시간대 Detector 기한 초과 건수');
       if (u.some((m) => m[7].startsWith('입력값'))) checks.push('수집 원본의 누락 필드');
       if (u.some((m) => m[7].startsWith('component'))) checks.push('판정 계산 오류 로그');
-      return { summary: d.process + ' 판정은 ' + signalLabel[s.signal] + '(검사 ' + completeLabel[s.completeness] + ')입니다.', lines: [t.length ? '이상 근거: ' + t.map((m) => m[1] + ' — ' + m[4] + ', 기준 ' + m[5]).join(' / ') : '이상 근거: 없음', u.length ? '미판정: ' + u.map((m) => m[1] + ' — ' + m[7]).join(' / ') : '미판정: 없음'], checks };
+      return { summary: d.process + ' 판정은 ' + signalLabel[s.signal] + '(검사 ' + completeLabel[s.completeness] + ')입니다.', lines: [t.length ? '이상 근거: ' + t.map((m) => m[1] + ' — ' + (m[0] === 'ML' ? '이상(' + m[5] + ')' : m[4] + ', 기준 ' + m[5])).join(' / ') : '이상 근거: 없음', u.length ? '미판정: ' + u.map((m) => m[1] + ' — ' + m[7]).join(' / ') : '미판정: 없음'], checks };
     }
     let lastDetailId = '';
     function renderDetail(d) {
-      if (lastDetailId !== d.id) { lastDetailId = d.id; activeNode = 'focus'; $('feedbackStatus').textContent = ''; $('feedbackReason').value = ''; }
+      if (lastDetailId !== d.id) { lastDetailId = d.id; activeNode = 'focus'; $('dNodeBox').open = false; $('feedbackStatus').textContent = ''; $('feedbackReason').value = ''; }
       const s = summarize(d), v = versionById(d.version), admin = currentRole === 'admin';
       $('dCrumb').textContent = d.tx;
+      const wfBtn = (to, label, primary) => h('button', { type: 'button', class: primary ? 'primary' : '', 'data-action': 'workflow', 'data-to': to, 'data-decision': d.id, text: label });
+      fill($('dWorkflow'), ...(d.workflow === 'Resolved' ? [wfBtn('Detected', '원래 상태로 복원')] : d.workflow === 'Open' ? [wfBtn('Detected', '원래 상태로 복원'), wfBtn('Resolved', '처리 완료', true)] : [wfBtn('Open', '처리 보류'), wfBtn('Resolved', '처리 완료', true)]));
       fill($('dBadges'), pill(signalLabel[s.signal], s.signal === 'yes' || s.signal === 'failed' ? 'bad' : s.signal === 'no' ? 'good' : 'mid'), pill(stageLabel[d.stage], d.stage === 'final' ? 'gray' : d.stage === 'failed' ? 'bad' : 'busy'), pill(d.unit, 'gray'));
       $('dSummary').textContent = d.process + ' · 로그 상태 ' + d.logStatus + ' · 응답 코드 ' + d.resp + ' · 처리 시간 ' + num(d.ms) + ' ms';
       dl('dFields', [['판정 ID', d.id], ['판정 시각', d.at], ['당시 구성 버전', v ? versionLabel(v.id) : d.version], ['판정 단계', stageLabel[d.stage]], ['이상 신호', signalLabel[s.signal]], ['검사 완료', completeLabel[s.completeness]], ['입력 출처', d.input || '— 확인 불가'], ['업무 분류', d.workflow === 'Open' ? '보류' : d.workflow === 'Resolved' ? '완료' : '— 확인 불가'], ['거래 ID', d.tx], ['프로세스', d.process], ['인터페이스 · 채널', d.iface + ' · ' + d.channel], ['로그 상태 · 응답 코드', d.logStatus + ' · ' + d.resp], ['처리 시간', num(d.ms) + ' ms']]);
@@ -1223,7 +1261,7 @@
       const nodeBtn = (id, cls, label, st) => h('button', { type: 'button', class: cls, 'data-action': 'tree-node', 'data-node': id, 'aria-pressed': String(activeNode === id) }, h('span', { class: 'st ' + st, text: st }), h('span', { text: label }));
       fill($('dTree'), nodeBtn('tx', '', 'Transaction: ' + f.tx.id, f.tx.status), ...f.processes.flatMap((p) => [nodeBtn(p.focus ? 'focus' : p.id, 'lv1', (p.focus ? 'Focus Process: ' : 'Process: ') + p.id + ' ' + p.name, p.status), ...f.messages.filter((m) => m.process === p.id).map((m) => nodeBtn(m.id, 'lv2', 'Message: ' + m.dir + ' · ' + m.id, m.status))]));
       const node = activeNode === 'tx' ? [['TRANSACTION_ID', f.tx.id], ['INTERFACE_ID', f.tx.iface], ['CHANNEL', f.tx.channel], ['STATUS', f.tx.status], ['DURATION_TIME', num(f.tx.ms) + ' ms']] : activeNode === 'focus' || f.processes.some((p) => p.id === activeNode) ? (() => { const p = f.processes.find((x) => (activeNode === 'focus' ? x.focus : x.id === activeNode)); return [['PROCESS_ID', p.id], ['DEPENDS_ON', p.dependsOn], ['STATUS', p.status + (p.resp ? ' · Code ' + p.resp : '')], ['DURATION_TIME', num(p.ms) + ' ms'], ['TOTAL_RECORD_COUNT', '— 확인 불가']]; })() : (() => { const m = f.messages.find((x) => x.id === activeNode) || f.messages[0]; return [['MESSAGE_ID', m.id], ['PROCESS_ID', m.process], ['DIRECTION', m.dir], ['STATUS', m.status], ['DATA_SIZE', num(m.size) + ' bytes'], ['BODY', '수집하지 않음']]; })();
-      fill($('dNode'), h('h4', { text: '선택 노드 원본 정보' }), h('div', { class: 'table' }, table(h('table'), ['필드', '값'], node)));
+      fill($('dNode'), h('div', { class: 'table' }, table(h('table'), ['필드', '값'], node)));
       const ex = explainState[d.id] || { status: 'idle' }, finalReady = ['final', 'replaced'].includes(d.stage);
       fill($('dExplain'), ...(ex.status === 'done' ? (() => { const e = explainOf(d); return [h('div', { class: 'actions-inline' }, pill('완료', 'good'), pill('예시 문장', 'gray')), h('p', { style: 'font-weight:600', text: e.summary }), h('ul', { class: 'checks' }, e.lines.map((t) => h('li', { text: t }))), h('h4', { text: '확인할 것(원인 후보)' }), h('ul', { class: 'checks' }, e.checks.map((t) => h('li', { text: t })))]; })()
         : ex.status === 'running' ? [pill('요청 중', 'busy'), h('div', { class: 'progress', 'aria-hidden': 'true' }, h('span'))]
@@ -1675,17 +1713,17 @@
       later(450, tick);
       return j;
     }
-    // 점진 판정 시연: 판정 중 → 잠정 이상(첫 이상 즉시) → 근거 추가 → 최종 / 재처리 대체 / 3회 실패
+    // 점진 판정 시연: 판정 중 → 중간 판정(첫 이상 즉시) → 근거 추가 → 최종 / 재처리 대체 / 3회 실패
     function liveDecision() {
       const scenario = $('liveScenario').value, v = versionById(active); liveSeq += 1; liveCount += 1;
       const methods = [...v.hr.map((k) => ['HR', methodByKey(k).name, 'running', '·', '—', k === 'hr:process-status' ? 'S만 정상' : '> 0이면 이상', '—', '']), ...v.sr.map((k) => ['SR', methodByKey(k).name, 'running', '·', '—', '—', '—', '']), ...mlKeys(v).map((mk) => ['ML', v.ml[mk].cand + ' · ' + MODELS[mk].name, 'running', '·', '—', '판정선 ' + MODELS[mk].thresholdText, '—', ''])];
-      const d = { id: 'D-' + liveSeq, unit: 'PROCESS', at: clock(), tx: 'TX-LIVE-' + liveSeq, process: 'P02 결제 승인', iface: 'IF-ORD-01', channel: 'CH-WEB', logStatus: 'S', resp: '0000', ms: 0, version: active, input: inputs.csv.state === 'playing' ? 'CSV 재생' : 'API 수집', stage: 'pending', methods, history: [] };
+      const d = { id: 'D-' + liveSeq, unit: 'PROCESS', at: clock(), tx: 'TX-LIVE-' + liveSeq, process: 'P02 결제 승인', iface: 'IF-ORD-01', channel: 'CH-WEB', logStatus: 'S', resp: '0000', ms: 0, version: active, input: inputMode === 'csv' ? 'CSV 재생' : 'API 수집', stage: 'pending', methods, history: [] };
       decisions.unshift(d);
       const t = () => clock() + '.' + String(Date.now() % 1000).padStart(3, '0');
-      const obs = (m, hitOn) => m[0] === 'ML' ? (hitOn ? '점수 1.71' : '점수 0.33') : m[1] === M_HR ? (hitOn ? '상태 F' : '상태 S') : m[1] === M_RULE ? (hitOn ? 'error_count 3' : 'error_count 0') : (hitOn ? '편차 4.2' : '편차 0.8');
+      const obs = (m, hitOn) => m[0] === 'ML' ? '—' : m[1] === M_HR ? (hitOn ? '상태 F' : '상태 S') : m[1] === M_RULE ? (hitOn ? 'error_count 3' : 'error_count 0') : (hitOn ? '편차 4.2' : '편차 0.8');
       const setM = (i, status, result, reason) => { const m = d.methods[i]; if (!m) return; d.methods[i] = [m[0], m[1], status, result, status === 'succeeded' ? obs(m, result === 'T') : '—', m[5], status === 'succeeded' ? (m[0] === 'ML' ? '26 ms' : '1 ms') : status === 'not_ready' ? '3000 ms' : '—', reason || '']; if (m[1] === M_HR && result === 'T') { d.logStatus = 'F'; d.resp = 'E500'; } };
       const last = d.methods.length - 1, notice = { n: null };
-      const provisional = (prefix) => { const s = summarize(Object.assign({}, d, { stage: 'provisional' })); if (s.signal !== 'yes') return; d.stage = 'provisional'; d.history.push([t(), 'provisional', prefix + '잠정 이상 · 근거 ' + s.basis.join(', ')]); notice.n = pushNotice('decision', d.id, d.id + ' · 이상 신호 있음 · 근거 ' + s.basis.join(', ')); };
+      const provisional = (prefix) => { const s = summarize(Object.assign({}, d, { stage: 'provisional' })); if (s.signal !== 'yes') return; d.stage = 'provisional'; d.history.push([t(), 'provisional', prefix + '중간 판정 · 근거 ' + s.basis.join(', ')]); notice.n = pushNotice('decision', d.id, d.id + ' · 이상 신호 있음 · 근거 ' + s.basis.join(', ')); };
       const withdraw = (text) => { if (notice.n) { notice.n.text = d.id + ' · 철회 · ' + text; notice.n.withdrawn = true; notice.n.at = stamp(); } };
       refresh();
       later(700, () => {
@@ -1781,6 +1819,7 @@
         const back = settingsReturn && !(/^(detect|cmd)/.test(settingsReturn) && currentRole !== 'admin') ? settingsReturn : '';
         $('settingsBack').textContent = back ? '이전 화면으로 · ' + viewTitle(back) : '운영 현황으로';
         $('settingsReturnNote').textContent = back ? '' : '직접 진입했거나 이전 화면 기록이 없어 운영 현황으로 돌아갑니다.';
+        const st = notifSettings[currentRole]; all('[data-notif]').forEach((n) => { n.checked = st[n.dataset.notif]; }); $('notifJobs').checked = st.jobs;
       }
     };
     function mark(value) { dirty = value; $('draftState').textContent = value ? '편집 중 · 현재 세션 초안' : '편집 내용 없음'; }
@@ -1802,7 +1841,8 @@
       if (!soft) { all('dialog[open]').forEach((dialog) => dialog.close()); setBell(false); }
       all('[data-view]').forEach((node) => { node.hidden = denied ? node.dataset.view !== 'denied' : node.dataset.view !== r.view; });
       all('[data-admin]').forEach((node) => { node.hidden = !admin; });
-      if (r.view.startsWith('cmd')) { if (!prevRoute.startsWith('cmd/') && prevRoute.startsWith('detect')) cmdReturn[r.kind] = prevRoute; r.side = CMD_SIDE[r.kind]; const back = cmdReturn[r.kind] || CMD_HOME[r.kind]; all('[data-back="' + r.kind + '"]').forEach((a) => { a.setAttribute('href', '#' + back); a.textContent = '← 뒤로 · ' + viewTitle(back).replace('탐지 설정 · ', ''); }); }
+      $('backBar').hidden = !r.view.startsWith('cmd') || denied;
+      if (r.view.startsWith('cmd')) { if (!prevRoute.startsWith('cmd/') && prevRoute.startsWith('detect')) cmdReturn[r.kind] = prevRoute; r.side = CMD_SIDE[r.kind]; const back = cmdReturn[r.kind] || CMD_HOME[r.kind]; $('backBtn').setAttribute('href', '#' + back); $('backBtn').setAttribute('aria-label', '뒤로 · ' + viewTitle(back).replace('탐지 설정 · ', '')); $('backBtn').setAttribute('title', '뒤로 · ' + viewTitle(back).replace('탐지 설정 · ', '')); }
       $('sidebar').hidden = denied || !(r.view.startsWith('detect') || r.view.startsWith('cmd'));
       $('layout').classList.toggle('wide', $('sidebar').hidden);
       all('[data-nav]').forEach((a) => { if (a.dataset.nav === r.top) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
@@ -1914,14 +1954,14 @@
       if (action === 'widgets-save') { layouts[currentRole] = [...editLayout]; editLayout = null; mark(false); $('widgetStatus').textContent = '배치 저장됨 · ' + (currentRole === 'admin' ? '관리자' : '일반 사용자') + ' 계정 · 위젯 ' + layouts[currentRole].length + '개'; refresh(); }
       if (action === 'widgets-reset') { editLayout = [...defaultLayout]; refresh(); }
       if (action === 'widgets-cancel') { editLayout = null; mark(false); $('widgetStatus').textContent = '편집 취소 · 이전 배치 유지'; refresh(); }
-      if (action === 'input-play') inputRequest(trigger.dataset.input, 'playing');
-      if (action === 'input-pause') { const k = trigger.dataset.input; confirmBox(k === 'api' ? 'API 수집을 일시정지할까요' : 'CSV 재생을 일시정지할까요', '정지하는 동안 새 판정이 생기지 않습니다', () => inputRequest(k, 'paused'), '', null, '일시정지'); }
       // 이상 분석
       if (action === 'open-filter') $('filterDialog').showModal();
       if (action === 'filter-reset') { ['fUnit', 'fSignal', 'fComplete'].forEach((id) => { $(id).value = 'all'; }); analysisPage = 1; refresh(); }
       if (action === 'toggle-wide') { wideMode = !wideMode; refresh(); }
       if (action === 'inbox-page') { analysisPage = Number(trigger.dataset.page); refresh(); }
-      if (action === 'tree-node') { activeNode = trigger.dataset.node; refresh(); }
+      if (action === 'tree-node') { activeNode = trigger.dataset.node; $('dNodeBox').open = true; refresh(); }
+      if (action === 'workflow') { const d = decisionById(trigger.dataset.decision); d.workflow = trigger.dataset.to === 'Detected' ? undefined : trigger.dataset.to; refresh(); }
+      if (action === 'analysis-view') { analysisView = trigger.dataset.viewMode; analysisCat = analysisView === 'risk' ? 'risk:pending' : 'all'; analysisPage = 1; refresh(); }
       if (action === 'explain') { const id = trigger.dataset.decision; explainState[id] = { status: 'running' }; refresh(); later(900, () => { explainState[id] = { status: $('state').value === 'error' ? 'failed' : 'done' }; refresh(); }); }
       if (action === 'feedback') { const reason = $('feedbackReason').value.trim(); $('feedbackStatus').textContent = reason ? current.id + ' · ' + $('feedbackKind').selectedOptions[0].textContent + ' · 현재 세션 기록(저장 위치·평가 반영 범위 결정 대기)' : '조사·조치 사유를 입력하세요.'; }
       // 운영 설정
@@ -2007,6 +2047,8 @@
       if (id === 'state') { if (t.value === 'normal') lastSuccess = clock(); refresh(); return; }
       if (id === 'execMode') { execMode = t.value; cleanDrafts(); refresh(); return; }
       if (id === 'aiScenario' || id === 'liveScenario') return;
+      if (t.name === 'inputMode') { const next = t.value; renderCollect(); if (next !== inputMode) askInputMode(next); return; }
+      if (t.dataset.notif || id === 'notifJobs') { const st = notifSettings[currentRole]; if (t.dataset.notif) st[t.dataset.notif] = t.checked; else st.jobs = t.checked; $('notifStatus').textContent = (currentRole === 'admin' ? '관리자' : '일반 사용자') + ' 계정 알림 설정 반영 · 알림 목록·배지에 바로 적용'; renderBadges(); return; }
       if (['fUnit', 'fSignal', 'fComplete', 'analysisSort', 'analysisPageSize'].includes(id)) { analysisPage = 1; refresh(); return; }
       if (['featureOrigin', 'featureGroup', 'featureStatus'].includes(id)) { trainDraft.page = 0; renderFeatures(); return; }
       if (t.classList.contains('feature-pick')) { toggleFeature(t.dataset.key, t.checked); return; }

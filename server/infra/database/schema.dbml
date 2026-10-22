@@ -1,5 +1,5 @@
-// ERD v0.3 target schema: migrations 001 + 002 + committed 003 + 004.
-// 28 public tables + 2 unchanged legacy physical queues. Not deployed.
+// Target schema after migrations 001 through 012 (file-name order, enum additions committed first).
+// 54 public tables + 5 powercode_queue physical queues. Server application state is tracked separately.
 // Native CHECK predicates, partial/GIN indexes and triggers: canonical SQL; DBML is visualization.
 Project powercode_erd_v03 {
   database_type: 'PostgreSQL'
@@ -19,7 +19,6 @@ Enum audit_role {
 }
 
 Enum job_kind {
-  import_csv
   preview
   train
   evaluate
@@ -27,6 +26,10 @@ Enum job_kind {
   detect
   recommend_feature
   explain
+  import_csv
+  evaluation_set
+  compare
+  recommend_methods
 }
 
 Enum job_status {
@@ -501,7 +504,7 @@ Table ml_artifacts {
 
 Table run_evaluations {
   id uuid [pk]
-  job_id uuid [not null, unique]
+  job_id uuid [not null]
   config_version_id uuid [not null]
   snapshot_id uuid [not null]
   purpose split_role [not null]
@@ -515,10 +518,15 @@ Table run_evaluations {
   metrics jsonb [not null]
   reason_codes jsonb [not null]
   completed_at timestamptz [not null]
+  comparison_id uuid
+  evaluation_set_id uuid
   indexes {
     (id, config_version_id) [unique]
+    (job_id, config_version_id) [unique, name: 'run_evaluations_job_config_key']
+    (job_id) [unique, name: 'run_evaluations_single_job_idx', note: 'partial: WHERE comparison_id IS NULL']
+    (comparison_id) [note: 'run_evaluations_comparison_ref_idx; WHERE comparison_id IS NOT NULL']
   }
-  Note: '불변 결과. 모델별 FeatureSet은 달라도 같은 평가 모집단/조건으로 비교; 미판정분모와 Rule/ML결과 명시. metric per-model manifest 참조 포함. 정책/feature변경시 다른 config 버전 평가 필요; 단순 신규 로그 도착으로 기존 평가 자동 무효화 없음.'
+  Note: '011: compare 작업은 구성마다 1행(job_id, config_version_id 유일), 비교 밖 작업(evaluate 등)은 job당 1행 유지(partial unique), comparison_id가 있으면 evaluation_set_id 필수, 세트 snapshot/purpose/source·비교 job/세트 일치 trigger. 기존 evaluate 행은 두 열 NULL. 불변 결과. 모델별 FeatureSet은 달라도 같은 평가 모집단/조건으로 비교; 미판정분모와 Rule/ML결과 명시. metric per-model manifest 참조 포함. 정책/feature변경시 다른 config 버전 평가 필요; 단순 신규 로그 도착으로 기존 평가 자동 무효화 없음.'
 }
 
 Table run_applications {
@@ -724,6 +732,462 @@ Table powercode_queue.training_jobs {
   Note: '001 legacy physical queue unchanged; existing trainer uses coordinated physical/job leases. It cannot consume v03 jobs unchanged.'
 }
 
+// 004_feature_pipeline: versioned feature calculation, measurements, labels and drift.
+Table powercode_queue.feature_observations {
+  id uuid [pk]
+  payload jsonb [not null]
+  status text [not null, default: 'pending']
+  attempts integer [not null, default: 0]
+  available_at timestamptz [not null, default: `clock_timestamp()`]
+  lease_until timestamptz
+  lease_token uuid
+  created_at timestamptz [not null, default: `clock_timestamp()`]
+  completed_at timestamptz
+  last_error text
+  indexes {
+    (available_at, created_at) [note: 'feature_observations_ready_idx; WHERE status IN (pending, leased)']
+  }
+  Note: '004_feature_pipeline physical queue between collection and detection feature calculation.'
+}
+
+Table data_feature_materializations {
+  observation_id uuid [not null]
+  feature_set_id uuid [not null]
+  input_manifest_hash text [not null]
+  values_json jsonb [not null]
+  missing_names jsonb [not null]
+  calculated_at timestamptz [not null, default: `clock_timestamp()`]
+  indexes {
+    (observation_id, feature_set_id, input_manifest_hash) [pk]
+    (feature_set_id, calculated_at) [name: 'data_feature_materializations_set_idx']
+  }
+  Note: '004_feature_pipeline. 관측 1개를 여러 승인 구성 FeatureSet으로 재계산한 불변 값(pipeline_immutable).'
+}
+
+Table ops_pipeline_measurements {
+  id uuid [pk]
+  observation_id uuid [not null]
+  stage text [not null]
+  config_version_id uuid [not null]
+  duration_ms numeric [not null]
+  measured_at timestamptz [not null, default: `clock_timestamp()`]
+  indexes {
+    (stage, measured_at) [name: 'ops_pipeline_measurements_stage_time_idx']
+  }
+  Note: '004_feature_pipeline. stage feature|detector 처리 시간 측정.'
+}
+
+Table data_label_evidence {
+  id uuid [pk]
+  observation_id uuid [not null]
+  revision_no integer [not null]
+  label text [not null]
+  reason_code text [not null]
+  created_by_actor_id text [not null]
+  created_at timestamptz [not null, default: `clock_timestamp()`]
+  indexes {
+    (observation_id, revision_no) [unique]
+  }
+  Note: '004_feature_pipeline. 담당자가 근거 코드와 함께 입력한 정답 revision(normal|anomaly), 수집 상태로 추정하지 않음. 불변. 최신 조회 인덱스 data_label_evidence_latest_idx(observation_id, revision_no DESC).'
+}
+
+Table ops_feature_drift_measurements {
+  id uuid [pk]
+  config_version_id uuid [not null]
+  feature_set_id uuid [not null]
+  feature_name text [not null]
+  baseline_count bigint [not null]
+  recent_count bigint [not null]
+  baseline_missing_rate numeric
+  recent_missing_rate numeric
+  review_required boolean [not null]
+  reason_code text
+  measured_at timestamptz [not null, default: `clock_timestamp()`]
+  indexes {
+    (config_version_id, measured_at) [name: 'ops_feature_drift_latest_idx', note: 'measured_at DESC']
+  }
+  Note: '004_feature_pipeline. 구성·변수별 결측 drift 측정.'
+}
+
+// 005_research_runtime: optional window monitors.
+Table ops_window_monitors {
+  id uuid [pk]
+  source_id uuid [not null]
+  algorithm text [not null]
+  model_hash text [not null]
+  history_start timestamptz [not null]
+  lateness_seconds integer [not null]
+  synthetic_prior_accepted boolean [not null, default: false]
+  enabled boolean [not null, default: true]
+  last_error text
+  created_at timestamptz [not null, default: `clock_timestamp()`]
+  indexes {
+    (source_id, algorithm, model_hash, history_start) [unique]
+  }
+  Note: '005_research_runtime. algorithm if|kmeans 구간 감시 설정.'
+}
+
+Table run_window_decisions {
+  id uuid [pk]
+  monitor_id uuid [not null]
+  source_id uuid [not null]
+  stream_key text [not null]
+  adapter_type text [not null]
+  process_id text [not null]
+  window_start timestamptz [not null]
+  window_end timestamptz [not null]
+  model_hash text [not null]
+  input_hash text [not null]
+  margins jsonb [not null]
+  anomalies jsonb [not null]
+  evidence jsonb [not null]
+  decided_at timestamptz [not null, default: `clock_timestamp()`]
+  indexes {
+    (monitor_id, stream_key, window_start) [unique]
+    (decided_at) [name: 'window_decisions_latest_idx', note: 'decided_at DESC']
+  }
+  Note: '005_research_runtime. 구간 판정 결과.'
+}
+
+// 006_service_transition: LLM queues, API catalog/poll state, durable decision events.
+Table powercode_queue.llm_recommendation_jobs {
+  id uuid [pk]
+  payload jsonb [not null]
+  status text [not null, default: 'pending']
+  attempts integer [not null, default: 0]
+  available_at timestamptz [not null, default: `now()`]
+  lease_until timestamptz
+  lease_token uuid
+  created_at timestamptz [not null, default: `now()`]
+  completed_at timestamptz
+  last_error text
+  indexes {
+    (available_at, created_at) [note: 'LIKE training_jobs INCLUDING ALL; WHERE status IN (pending, leased)']
+    (lease_until) [note: 'LIKE training_jobs INCLUDING ALL; WHERE status = leased']
+  }
+  Note: '006 physical queue copied from training_jobs. recommend_feature/recommend_rule/recommend_methods job IDs.'
+}
+
+Table powercode_queue.llm_explanation_jobs {
+  id uuid [pk]
+  payload jsonb [not null]
+  status text [not null, default: 'pending']
+  attempts integer [not null, default: 0]
+  available_at timestamptz [not null, default: `now()`]
+  lease_until timestamptz
+  lease_token uuid
+  created_at timestamptz [not null, default: `now()`]
+  completed_at timestamptz
+  last_error text
+  indexes {
+    (available_at, created_at) [note: 'LIKE training_jobs INCLUDING ALL; WHERE status IN (pending, leased)']
+    (lease_until) [note: 'LIKE training_jobs INCLUDING ALL; WHERE status = leased']
+  }
+  Note: '006 physical queue copied from training_jobs. explain job IDs.'
+}
+
+Table ops_api_catalog {
+  source_id uuid [not null]
+  interface_id text [not null]
+  revision bigint [not null]
+  content_hash text [not null]
+  configuration jsonb [not null]
+  collected_at timestamptz [not null, default: `clock_timestamp()`]
+  indexes {
+    (source_id, interface_id, revision) [pk]
+    (source_id, interface_id, content_hash) [unique]
+  }
+  Note: '006. 제한된 인터페이스 카탈로그 revision, 연결 파라미터·SQL·payload·자격증명 없음. 불변.'
+}
+
+Table ops_api_poll_state {
+  source_id uuid [not null]
+  endpoint text [not null]
+  checkpoint jsonb [not null, default: `'{}'::jsonb`]
+  last_success_at timestamptz
+  last_attempt_at timestamptz
+  error_code text
+  indexes {
+    (source_id, endpoint) [pk]
+  }
+  Note: '006. 원천 API endpoint별 polling checkpoint.'
+}
+
+Table run_decision_events {
+  id bigint [pk, increment]
+  decision_id uuid [unique]
+  created_at timestamptz [not null, default: `clock_timestamp()`]
+  event_kind text [not null]
+  interim_id uuid [unique]
+  Note: '006, 012 확장. 최종 판정 1건당 final 1이벤트, 중간 판정 기록 1건당 1이벤트(event_kind = 기록 kind). final ⇔ decision_id 있음·interim_id 없음, 그 외 반대(CHECK). (interim_id, event_kind) → run_decision_interims(id, kind)로 종류 일치. advisory lock(81736,0) 직렬화, GENERATED ALWAYS identity 순번 1개가 SSE 커서 원본, 불변. 012 이전 행은 event_kind final.'
+}
+
+Table run_job_snapshots {
+  job_id uuid [pk]
+  snapshot_id uuid [not null]
+  Note: '006. 작업이 만든/고정한 snapshot 연결. 불변.'
+}
+
+// 007_api_collection_metrics.
+Table data_api_snapshots {
+  id uuid [pk]
+  source_id uuid [not null]
+  endpoint text [not null]
+  content_hash text [not null]
+  values_json jsonb [not null]
+  mapping_status text [not null]
+  item_count integer [not null]
+  received_at timestamptz [not null]
+  stored_at timestamptz [not null, default: `clock_timestamp()`]
+  indexes {
+    (source_id, endpoint, content_hash) [unique]
+  }
+  Note: '007/009. 원천 API 응답 snapshot(검증된 실행/관측 아님). mapping_status catalog|monitoring_contract_required|mapped-arrival-snapshot-v1. 불변.'
+}
+
+Table ops_api_poll_samples {
+  id uuid [pk]
+  source_id uuid [not null]
+  endpoint text [not null]
+  started_at timestamptz [not null]
+  finished_at timestamptz [not null]
+  duration_ms float8 [not null]
+  db_commit_ms float8
+  http_status integer
+  response_code text
+  error_code text
+  response_bytes integer [not null]
+  item_count integer
+  snapshot_id uuid
+  snapshot_created boolean
+  poll_interval_seconds float8 [not null]
+  source_latency_ms float8
+  recorded_at timestamptz [not null, default: `clock_timestamp()`]
+  indexes {
+    (source_id, endpoint, started_at) [name: 'api_poll_samples_time_idx', note: 'started_at DESC']
+  }
+  Note: '007. polling 지연 표본. source_latency_ms는 원천 시각 검증 전 NULL 고정. 불변.'
+}
+
+// 008_demo_replay.
+Table ops_demo_runs {
+  id uuid [pk]
+  run_key text [not null, unique]
+  source_id uuid [not null, unique]
+  input_kind text [not null]
+  origin_source_id uuid
+  status text [not null]
+  record_count integer [not null, default: 0]
+  baseline_count integer [not null, default: 0]
+  input_hash text
+  feature_set_id uuid
+  train_job_id uuid
+  config_version_id uuid
+  preparation_spec jsonb [not null]
+  error_code text
+  created_at timestamptz [not null, default: `clock_timestamp()`]
+  ready_at timestamptz
+  Note: '008. 데모 재생 입력 준비(postgres|csv), loading|preparing|ready|failed. ready 후 고정.'
+}
+
+Table data_demo_inputs {
+  run_id uuid [not null]
+  sequence integer [not null]
+  execution_group text [not null]
+  origin_observation_id uuid
+  values_json jsonb [not null]
+  label text
+  content_hash text [not null]
+  indexes {
+    (run_id, sequence) [pk]
+  }
+  Note: '008. 데모 입력 행. 불변.'
+}
+
+Table ops_demo_passes {
+  id uuid [pk]
+  run_id uuid [not null]
+  pass_key text [not null]
+  rate float8 [not null]
+  repeat_count integer [not null]
+  total_count bigint [not null]
+  next_sequence bigint [not null, default: 0]
+  status text [not null]
+  started_at timestamptz [not null, default: `clock_timestamp()`]
+  finished_at timestamptz
+  error_code text
+  indexes {
+    (run_id, pass_key) [unique]
+  }
+  Note: '008. 재생 회차, 설정 고정·진행 위치만 갱신.'
+}
+
+Table data_demo_deliveries {
+  pass_id uuid [not null]
+  sequence bigint [not null]
+  input_sequence integer [not null]
+  observation_id uuid [not null, unique]
+  job_id uuid [not null, unique]
+  sent_at timestamptz [not null, default: `clock_timestamp()`]
+  indexes {
+    (pass_id, sequence) [pk]
+  }
+  Note: '008. 재생으로 만든 관측·탐지 작업 연결. 불변.'
+}
+
+// 009_switchable_inputs: manual API/CSV input switching.
+Table data_input_replays {
+  id uuid [pk]
+  source_id uuid [not null]
+  replay_key text [not null]
+  status text [not null]
+  record_count bigint [not null, default: 0]
+  layer_counts jsonb [not null, default: `'{}'::jsonb`]
+  manifest_hash text
+  created_at timestamptz [not null, default: `clock_timestamp()`]
+  indexes {
+    (source_id, replay_key) [unique]
+  }
+  Note: '009. CSV 재생 입력 묶음 loading|ready|failed, ready 후 고정.'
+}
+
+Table data_input_replay_rows {
+  replay_id uuid [not null]
+  position bigint [not null]
+  layer source_layer [not null]
+  values_json jsonb [not null]
+  content_hash text [not null]
+  indexes {
+    (replay_id, position) [pk]
+  }
+  Note: '009. CSV 재생 행. 불변.'
+}
+
+Table ops_input_runs {
+  id uuid [pk]
+  source_id uuid [not null]
+  mode text [not null]
+  replay_id uuid
+  settings jsonb [not null]
+  status text [not null]
+  next_position bigint [not null, default: 0]
+  accepted_count bigint [not null, default: 0]
+  duplicate_count bigint [not null, default: 0]
+  unidentified_count bigint [not null, default: 0]
+  last_error text
+  last_attempt_at timestamptz
+  last_success_at timestamptz
+  created_at timestamptz [not null, default: `clock_timestamp()`]
+  indexes {
+    (source_id, created_at) [name: 'input_runs_source_idx', note: 'created_at DESC']
+  }
+  Note: '009. api|csv 입력 실행, 해석 고정·checkpoint 후퇴 금지. csv면 replay_id 필수.'
+}
+
+Table ops_input_controls {
+  source_id uuid [pk]
+  mode text [not null, default: 'paused']
+  revision bigint [not null, default: 0]
+  run_id uuid
+  config_version_id uuid
+  updated_by_actor_id text [not null]
+  updated_at timestamptz [not null, default: `clock_timestamp()`]
+  worker_heartbeat_at timestamptz
+  Note: '009. source별 수동 입력 전환 상태 paused|api|csv.'
+}
+
+Table data_input_origins {
+  observation_id uuid [pk]
+  run_id uuid [not null]
+  mode text [not null]
+  position bigint
+  namespace text [not null]
+  created_at timestamptz [not null, default: `clock_timestamp()`]
+  indexes {
+    (run_id) [name: 'input_origins_run_idx']
+  }
+  Note: '009. 관측의 입력 출처(api|csv). 불변.'
+}
+
+// 011_config_comparison_recommendation: evaluation sets and configuration comparisons (#74/#78).
+Table data_evaluation_sets {
+  id uuid [pk]
+  job_id uuid [not null, unique]
+  source_id uuid [not null]
+  snapshot_id uuid [not null]
+  purpose split_role [not null]
+  display_name text [not null]
+  synthetic_request jsonb
+  synthetic_profile_binding jsonb
+  generation jsonb
+  content_hash text
+  artifact_relative_path text [unique]
+  status text [not null, default: 'queued']
+  error_code text
+  created_by_actor_id text [not null]
+  created_at timestamptz [not null, default: `clock_timestamp()`]
+  ready_at timestamptz
+  indexes {
+    (source_id, created_at) [name: 'data_evaluation_sets_source_idx', note: 'created_at DESC']
+  }
+  Note: 'evaluation-set-v1. evaluation_set job이 만드는 불변 평가 모집단. INSERT는 queued·미정 열 NULL만, queued→ready|failed 1회 전환, 이후 UPDATE 금지·DELETE는 상태 무관 금지. ready는 generation/content_hash/ready_at 필수, failed는 error_code 필수. purpose validation|test, ready non-prepared snapshot만. 작업 failed 전환 시 queued 세트 failed 동기화 trigger. artifact 경로 evaluation-sets/<id>/<content_hash>.json.'
+}
+
+Table run_config_comparisons {
+  id uuid [pk]
+  job_id uuid [not null, unique]
+  evaluation_set_id uuid [not null]
+  source_id uuid [not null]
+  baseline_config_version_id uuid
+  active_revision bigint [not null]
+  status text [not null]
+  summary jsonb [not null]
+  completed_at timestamptz [not null]
+  indexes {
+    (evaluation_set_id, completed_at) [name: 'run_config_comparisons_set_idx', note: 'completed_at DESC']
+    (source_id, completed_at) [name: 'run_config_comparisons_source_idx', note: 'completed_at DESC']
+  }
+  Note: 'config-comparison-v1. compare job 완료 트랜잭션에서 1회 INSERT(status succeeded|failed, summary에 replacementRecommendation), 이후 UPDATE·DELETE 금지. ready 세트·같은 source·baseline source 일치 trigger. stale은 저장하지 않고 조회 시 파생.'
+}
+
+// 012_decision_interims: Detector interim decision records (#78 B).
+Table run_decision_interims {
+  id uuid [pk]
+  job_id uuid [not null]
+  attempt_id uuid [not null]
+  seq integer [not null]
+  kind text [not null]
+  lease_token uuid
+  evidence_version text
+  superseded_by_attempt_id uuid
+  reason_code text
+  payload jsonb [not null]
+  created_at timestamptz [not null, default: `clock_timestamp()`]
+  indexes {
+    (attempt_id, seq) [unique]
+    (id, kind) [unique]
+    (attempt_id) [unique, name: 'run_decision_interims_first_idx', note: 'partial: WHERE kind = first_anomaly']
+    (attempt_id) [unique, name: 'run_decision_interims_closed_idx', note: 'partial: WHERE kind IN (superseded, no_final)']
+    (job_id, created_at) [name: 'run_decision_interims_job_idx']
+  }
+  Note: '최종 판정 행 이전의 append-only 기록. kind first_anomaly|evidence_added(Detector, 현재 시도·유효 lease·token, lease_token·evidence_version 필수)|superseded(새 시도의 첫 이상 또는 판정 행과 같은 TX)|no_final(detect 작업 failed 전환과 같은 TX). 대체됨·최종 없음은 소유자 SECURITY DEFINER 트리거만 기록. seq·created_at은 DB 부여, 판정 행 뒤 기록 금지, 닫힌 시도 기록 금지, 불변. 같은 작업에 no_final이 있으면 판정 행 INSERT 거부. payload object(내용은 Detector evidence 계약).'
+}
+
+Table run_config_comparison_items {
+  comparison_id uuid [not null]
+  config_version_id uuid [not null]
+  role text [not null]
+  status text [not null]
+  error_code text
+  evaluation_id uuid
+  indexes {
+    (comparison_id, config_version_id) [pk]
+    (comparison_id) [unique, name: 'run_config_comparison_items_active_idx', note: 'partial: WHERE role = active']
+    (evaluation_id) [unique, name: 'run_config_comparison_items_evaluation_idx', note: 'partial: WHERE evaluation_id IS NOT NULL']
+  }
+  Note: '구성별 비교 항목 role active|candidate, status succeeded(evaluation 필수·error 없음)|failed(evaluation 없음·error 필수). active는 baseline 구성과 일치, 비교당 최대 1개(partial unique). evaluation은 같은 comparison 행. 불변.'
+}
+
 Ref: ops_collection_checkpoints.source_id > ops_sources.id
 Ref: data_executions.source_id > ops_sources.id
 Ref: data_observations.source_id > ops_sources.id
@@ -757,7 +1221,7 @@ Ref: ml_artifacts.snapshot_id >? data_snapshots.id
 Ref: ml_artifacts.feature_set_id >? ml_feature_sets.id
 Ref: ml_artifacts.fit_artifact_id >? ml_artifacts.id
 Ref: ml_artifacts.created_job_id >? run_jobs.id
-Ref: run_jobs.id - run_evaluations.job_id
+Ref: run_evaluations.job_id > run_jobs.id
 Ref: run_evaluations.config_version_id > ml_config_versions.id
 Ref: run_evaluations.snapshot_id > data_snapshots.id
 Ref: run_applications.target_config_version_id > ml_config_versions.id
@@ -806,3 +1270,61 @@ Ref: run_process_decisions.(input_manifest_id, process_observation_id, execution
 Ref: run_process_decisions.(input_manifest_id, input_manifest_hash) >? run_input_manifests.(id, content_hash)
 // Composite FK display: child job_id is individually UNIQUE; legacy NULL is allowed.
 Ref: run_process_decisions.(result_attempt_id, job_id) >? run_job_attempts.(id, job_id)
+// 004_feature_pipeline .. 009 refs
+Ref: data_feature_materializations.observation_id > data_observations.id
+Ref: data_feature_materializations.feature_set_id > ml_feature_sets.id
+Ref: ops_pipeline_measurements.observation_id > data_observations.id
+Ref: ops_pipeline_measurements.config_version_id > ml_config_versions.id
+Ref: data_label_evidence.observation_id > data_observations.id
+Ref: ops_feature_drift_measurements.config_version_id > ml_config_versions.id
+Ref: ops_feature_drift_measurements.feature_set_id > ml_feature_sets.id
+Ref: ops_window_monitors.source_id > ops_sources.id
+Ref: run_window_decisions.monitor_id > ops_window_monitors.id
+Ref: run_window_decisions.source_id > ops_sources.id
+Ref: ops_api_catalog.source_id > ops_sources.id
+Ref: ops_api_poll_state.source_id > ops_sources.id
+Ref: run_process_decisions.id ?- run_decision_events.decision_id
+Ref: run_jobs.id - run_job_snapshots.job_id
+Ref: run_job_snapshots.snapshot_id > data_snapshots.id
+Ref: data_api_snapshots.source_id > ops_sources.id
+Ref: ops_api_poll_samples.source_id > ops_sources.id
+Ref: ops_api_poll_samples.snapshot_id >? data_api_snapshots.id
+Ref: ops_sources.id - ops_demo_runs.source_id
+Ref: ops_demo_runs.feature_set_id >? ml_feature_sets.id
+Ref: ops_demo_runs.train_job_id >? run_jobs.id
+Ref: ops_demo_runs.config_version_id >? ml_config_versions.id
+Ref: data_demo_inputs.run_id > ops_demo_runs.id
+Ref: ops_demo_passes.run_id > ops_demo_runs.id
+Ref: data_demo_deliveries.pass_id > ops_demo_passes.id
+Ref: data_observations.id - data_demo_deliveries.observation_id
+Ref: run_jobs.id - data_demo_deliveries.job_id
+Ref: data_input_replays.source_id > ops_sources.id
+Ref: data_input_replay_rows.replay_id > data_input_replays.id
+Ref: ops_input_runs.source_id > ops_sources.id
+Ref: ops_input_runs.replay_id >? data_input_replays.id
+Ref: ops_sources.id - ops_input_controls.source_id
+Ref: ops_input_controls.run_id >? ops_input_runs.id
+Ref: ops_input_controls.config_version_id >? ml_config_versions.id
+Ref: data_observations.id - data_input_origins.observation_id
+Ref: data_input_origins.run_id > ops_input_runs.id
+// 011 refs
+Ref: run_jobs.id - data_evaluation_sets.job_id
+Ref: data_evaluation_sets.source_id > ops_sources.id
+Ref: data_evaluation_sets.(snapshot_id, source_id) > data_snapshots.(id, source_id)
+Ref: run_jobs.id - run_config_comparisons.job_id
+Ref: run_config_comparisons.evaluation_set_id > data_evaluation_sets.id
+Ref: run_config_comparisons.source_id > ops_sources.id
+Ref: run_config_comparisons.baseline_config_version_id >? ml_config_versions.id
+Ref: run_config_comparison_items.comparison_id > run_config_comparisons.id
+Ref: run_config_comparison_items.config_version_id > ml_config_versions.id
+// Composite FK display: the evaluation must belong to the same configuration (002 unique (id, config_version_id)).
+Ref: run_config_comparison_items.(evaluation_id, config_version_id) >? run_evaluations.(id, config_version_id)
+Ref: run_evaluations.comparison_id >? run_config_comparisons.id
+Ref: run_evaluations.evaluation_set_id >? data_evaluation_sets.id
+// 012 refs
+Ref: run_decision_interims.job_id > run_jobs.id
+// Composite FK display: the attempt must belong to the same job (unique (id, job_id)).
+Ref: run_decision_interims.(attempt_id, job_id) > run_job_attempts.(id, job_id)
+Ref: run_decision_interims.(superseded_by_attempt_id, job_id) >? run_job_attempts.(id, job_id)
+// Composite FK display: child interim_id is individually UNIQUE; event kind must equal the record kind.
+Ref: run_decision_events.(interim_id, event_kind) >? run_decision_interims.(id, kind)

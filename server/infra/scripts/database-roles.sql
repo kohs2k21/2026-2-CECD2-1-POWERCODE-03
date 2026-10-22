@@ -63,3 +63,23 @@ GRANT SELECT(observation_id) ON data_message_bodies TO powercode_collector,power
 GRANT SELECT,INSERT ON data_prepared_datasets TO powercode_api;
 GRANT SELECT,UPDATE ON data_prepared_datasets TO powercode_trainer;
 GRANT INSERT ON ml_feature_versions,ml_feature_sets,ml_feature_set_members TO powercode_trainer;
+
+-- 011: evaluation sets and configuration comparisons. API registers queued sets; Trainer completes sets/comparisons.
+GRANT SELECT,INSERT ON data_evaluation_sets TO powercode_api;
+GRANT SELECT,UPDATE ON data_evaluation_sets TO powercode_trainer;
+-- LLM workers also reconcile dead training-queue jobs; the 011 job-failure trigger then fails the queued set.
+GRANT SELECT(job_id,status),UPDATE(status,error_code) ON data_evaluation_sets TO powercode_llm;
+GRANT SELECT ON run_config_comparisons,run_config_comparison_items TO powercode_api,powercode_trainer;
+GRANT INSERT ON run_config_comparisons,run_config_comparison_items TO powercode_trainer;
+
+-- 012: Detector interim decision records. Detector writes first_anomaly/evidence_added (caller rights);
+-- superseded/no_final and their events are written by owner-defined SECURITY DEFINER triggers, so roles that
+-- fail detect jobs need no extra grant. Event ids are identity columns (no sequence grant needed).
+-- The #78-Q11 decision guard reads run_decision_interims with caller rights (Detector SELECT below).
+GRANT SELECT ON run_decision_interims TO powercode_api,powercode_collector,powercode_detector,powercode_trainer,powercode_llm;
+GRANT INSERT ON run_decision_interims TO powercode_detector;
+-- #78-Q10 defense in depth: no session temp tables through PUBLIC in the database this script runs in
+-- (runtime code uses none). The database owner, superusers and explicit TEMP grantees keep TEMP.
+DO $$ BEGIN
+ EXECUTE format('REVOKE TEMPORARY ON DATABASE %I FROM PUBLIC', current_database());
+END $$;

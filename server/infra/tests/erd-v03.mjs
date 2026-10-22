@@ -9,6 +9,7 @@ import { fileURLToPath } from 'node:url';
 import { tmpdir } from 'node:os';
 import { randomUUID } from 'node:crypto';
 import { createServer } from 'node:net';
+import { interim012 } from './erd-v03-interim.mjs';
 
 const toolRoot = process.argv[2];
 assert(toolRoot, 'Pass an isolated temporary workspace containing the test dependencies');
@@ -21,6 +22,21 @@ const infra = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const migrationNames = (await readdir(join(infra, 'migrations'))).filter(n => /^\d+.*\.sql$/.test(n)).sort();
 assert(migrationNames.length >= 3, 'v03 migration must be present before running');
 const migrations = await Promise.all(migrationNames.map(n => readFile(join(infra, 'migrations', n), 'utf8')));
+const idx011 = migrationNames.findIndex(n => n.startsWith('011_'));
+assert(idx011 > 0, '011 migration must be present');
+const rolesSql = await readFile(join(infra, 'scripts/database-roles.sql'), 'utf8');
+const demoRoleSql = await readFile(join(infra, 'scripts/demo-role.sql'), 'utf8');
+const v03Admin = {contract_version:'v03',status:'queued',producer_kind:'user',producer_key:'admin78',requested_by_actor_id:'admin78',
+  requester_role:'admin',max_attempts:3,attempt_count:0};
+const queueFor = kind => kind==='recommend_methods' ? 'llm_recommendation' : 'training';
+const methodSpec = () => ({evidence_version:'config-draft-catalog-v1',input_evidence_hash:'a'.repeat(64),model_version:'methods_v1',
+  prompt_version:'method-selection-v0.1',output_schema_version:'method-recommendation-v1',reuse_key:randomUUID()});
+// Same statement shape as pg_queue.reconcile_dead_jobs for the training queue.
+const reconcileTrainingQueue = `UPDATE run_jobs j SET status='failed',error_code='queue_exhausted',finished_at=clock_timestamp()
+  WHERE j.status IN ('queued','running') AND EXISTS(SELECT 1 FROM powercode_queue.training_jobs q
+    WHERE q.status='dead' AND q.payload->>'jobId'=j.id::text)
+    AND NOT EXISTS(SELECT 1 FROM run_job_attempts a WHERE a.id=j.current_attempt_id
+      AND a.status='running' AND a.lease_until>clock_timestamp())`;
 const model = Parser.parse(await readFile(join(infra, 'database/schema.dbml'), 'utf8'), 'dbmlv2').export();
 console.log('PASS DBML parses without source normalization');
 const port = await new Promise((ok, fail) => {
@@ -81,6 +97,41 @@ async function oldFixture(c) {
   return saved;
 }
 
+async function assertRetained(c, before) {
+  for (const [table,oldRows] of Object.entries(before)) {
+    const now=(await c.query(`SELECT row_to_json(t) AS row FROM ${table} t`)).rows.map(r=>r.row);
+    for (const old of oldRows) assert(now.some(n=>Object.entries(old).every(([k,v])=>JSON.stringify(n[k])===JSON.stringify(v))),`${table} legacy row preserved`);
+  }
+}
+
+// Rows that 001-010 writers can create (legacy/v03 evaluate, import_csv, finished LLM recommendation).
+async function preV011Fixture(c) {
+  const source=await insert(c,'ops_sources');
+  const config=await insert(c,'ml_config_versions',{source_id:source.id});
+  const snapshot=await insert(c,'data_snapshots',{source_id:source.id,status:'ready'});
+  const evaluation={config_version_id:config.id,snapshot_id:snapshot.id,purpose:'validation',applicability:'valid',
+    population_count:10,scored_count:9,unavailable_count:1,metrics:{recall:0.5},reason_codes:[]};
+  const legacy=await insert(c,'run_jobs',{kind:'evaluate',status:'succeeded',requested_by_actor_id:'legacy-admin',requester_role:'admin',
+    input_config_version_id:config.id,input_snapshot_id:snapshot.id,attempt_count:1,max_attempts:3});
+  await insert(c,'run_evaluations',{...evaluation,job_id:legacy.id});
+  const v03={contract_version:'v03',queue:'training',producer_kind:'user',producer_key:'admin-pre011',requested_by_actor_id:'admin-pre011',
+    requester_role:'admin',max_attempts:3,attempt_count:0,status:'queued'};
+  const evaluate=await insert(c,'run_jobs',{...v03,kind:'evaluate',idempotency_key:randomUUID(),input_config_version_id:config.id});
+  await insert(c,'run_evaluations',{...evaluation,job_id:evaluate.id});
+  await insert(c,'run_jobs',{...v03,kind:'import_csv',idempotency_key:randomUUID()});
+  const spec={evidence_version:'ev-pre011',input_evidence_hash:'h',model_version:'m',prompt_version:'p',output_schema_version:'s',reuse_key:randomUUID()};
+  const llm=await insert(c,'run_jobs',{...v03,kind:'recommend_rule',queue:'llm_recommendation',idempotency_key:randomUUID(),llm_spec:spec});
+  const attempt=await insert(c,'run_job_attempts',{job_id:llm.id,attempt_no:1,status:'running',lease_until:new Date(Date.now()+600000)});
+  await c.query("UPDATE run_jobs SET status='running',current_attempt_id=$1,attempt_count=1 WHERE id=$2",[attempt.id,llm.id]);
+  await insert(c,'run_llm_results',{job_id:llm.id,kind:'recommend_rule',...spec,output:{rules:[]},created_attempt_id:attempt.id,lease_token:attempt.lease_token});
+  await c.query("UPDATE run_jobs SET status='succeeded' WHERE id=$1",[llm.id]);
+  const saved={};
+  for (const table of ['run_jobs','run_job_attempts','run_evaluations','run_llm_results','ml_config_versions','data_snapshots']) {
+    saved[table]=(await c.query(`SELECT row_to_json(t) AS row FROM ${table} t`)).rows.map(r=>r.row);
+  }
+  return saved;
+}
+
 async function parity(c) {
   const rows = (await c.query(`SELECT table_schema,table_name,column_name,udt_name,is_nullable FROM information_schema.columns
     WHERE table_schema IN ('public','powercode_queue') ORDER BY table_schema,table_name,ordinal_position`)).rows;
@@ -120,31 +171,46 @@ try {
   await cluster.initialise(); await cluster.start();
   const admin=connection('postgres'); await admin.connect();
   console.log((await admin.query('SELECT version() AS version')).rows[0].version);
-  for (const name of ['erd_fresh','erd_upgrade']) await admin.query(`CREATE DATABASE ${name}`);
+  for (const name of ['erd_fresh','erd_upgrade','erd_rollback_011','erd_search_path_011']) await admin.query(`CREATE DATABASE ${name}`);
   await admin.end();
   for (const name of ['erd_fresh','erd_upgrade']) {
     const c=connection(name); await c.connect();
     try {
-      let before;
+      let before, before011;
       for (let i=0;i<migrations.length;i++) {
+        // Upgrade path: rows written by 001-010 era writers exist before 011 runs.
+        if (name==='erd_upgrade' && i===idx011) before011=await preV011Fixture(c);
         await c.query(migrations[i]);
         if (i===1 && baselineMetadata) await baselineParity(c);
         if (name==='erd_upgrade' && i===1) before=await oldFixture(c);
       }
       check(`${name}: 001 through ${migrationNames.at(-1)} apply`);
-      if (before) for (const [table,oldRows] of Object.entries(before)) {
-        const now=(await c.query(`SELECT row_to_json(t) AS row FROM ${table} t`)).rows.map(r=>r.row);
-        for (const old of oldRows) assert(now.some(n=>Object.entries(old).every(([k,v])=>JSON.stringify(n[k])===JSON.stringify(v))),`${table} legacy row preserved`);
+      if (before) { await assertRetained(c,before); check('upgrade retains legacy rows and original field values'); }
+      if (before011) {
+        await assertRetained(c,before011);
+        const lineage=(await c.query('SELECT count(*)::int AS n FROM run_evaluations WHERE comparison_id IS NOT NULL OR evaluation_set_id IS NOT NULL')).rows[0].n;
+        assert.equal(lineage,0,'pre-011 evaluations keep NULL comparison lineage');
+        check('upgrade: evaluate/import_csv/LLM rows written before 011 retained with NULL comparison lineage');
+        await c.query('BEGIN');
+        const old=(await c.query("SELECT e.job_id,e.snapshot_id FROM run_evaluations e JOIN run_jobs j ON j.id=e.job_id WHERE j.contract_version='v03' AND j.kind='evaluate'")).rows[0];
+        const otherConfig=await insert(c,'ml_config_versions',{source_id:(await c.query('SELECT source_id FROM data_snapshots WHERE id=$1',[old.snapshot_id])).rows[0].source_id});
+        await rejected(c,'pre-011 evaluate job still owns exactly one evaluation row',()=>insert(c,'run_evaluations',{job_id:old.job_id,config_version_id:otherConfig.id,
+          snapshot_id:old.snapshot_id,purpose:'validation',population_count:1,scored_count:1,unavailable_count:0}));
+        await c.query('ROLLBACK');
       }
-      if (before) check('upgrade retains legacy rows and original field values');
       await parity(c);
       // Behavioral scenarios run in a rollback-only transaction.
       await c.query('BEGIN');
       await behavioral(c, name);
+      await behavioral011(c, name);
+      await roles011(c, name);
       await c.query('ROLLBACK');
       await concurrency(c, name);
     } finally { await c.end(); }
   }
+  await rollback011('erd_rollback_011');
+  await searchPath011('erd_search_path_011');
+  await interim012({ Client, port, connection, check, failures, migrations, migrationNames, rolesSql, parity, infra });
   assert.equal(failures.length,0,failures.join('; '));
   console.log(`PASS ${checkCount} integration checks; no project runtime or customer data used`);
 } finally { await cluster.stop(); }
@@ -354,4 +420,366 @@ async function baselineParity(c) {
     assert.deepEqual(normalized(value),normalized(baselineMetadata[key]),`001/002 live metadata ${key} parity`);
   }
   check(`001/002 captured server metadata parity (${columns.length} columns/${constraints.length} constraints/${indexes.length} indexes/${enums.length} enums)`);
+}
+
+// 011 (#78 A): evaluation sets, configuration comparisons and LLM method recommendation.
+async function fixture011(c) {
+  const source=await insert(c,'ops_sources');
+  const otherSource=await insert(c,'ops_sources');
+  const snapshot=await insert(c,'data_snapshots',{source_id:source.id,status:'ready'});
+  const job=(kind,extra={})=>insert(c,'run_jobs',{...v03Admin,kind,queue:queueFor(kind),idempotency_key:randomUUID(),...extra});
+  const setFields={source_id:source.id,snapshot_id:snapshot.id,purpose:'validation',display_name:'validation set P04 sev1',
+    created_by_actor_id:'admin78',synthetic_request:{seed:42,repetitions:2},synthetic_profile_binding:{profileId:'esb-process-research-v1'}};
+  const queuedSet=async()=>{ const j=await job('evaluation_set'); return [j,await insert(c,'data_evaluation_sets',{...setFields,job_id:j.id})]; };
+  const readySet=async()=>{
+    const [j,s]=await queuedSet(); const hash=randomUUID().replaceAll('-','').padEnd(64,'0');
+    await c.query(`UPDATE data_evaluation_sets SET status='ready',generation=$2,content_hash=$3,artifact_relative_path=$4,ready_at=clock_timestamp() WHERE id=$1`,
+      [s.id,JSON.stringify({rowCount:10,syntheticRowCount:2}),hash,`evaluation-sets/${s.id}/${hash}.json`]);
+    return [j,s];
+  };
+  return { source, otherSource, snapshot, job, setFields, queuedSet, readySet };
+}
+
+async function behavioral011(c, database) {
+  const { source, otherSource, snapshot, job, setFields, queuedSet } = await fixture011(c);
+  const otherSnapshot=await insert(c,'data_snapshots',{source_id:otherSource.id,status:'ready'});
+  const preparedSnapshot=await insert(c,'data_snapshots',{source_id:source.id,status:'ready',schema_version:'prepared-features-v1'});
+  const buildingSnapshot=await insert(c,'data_snapshots',{source_id:source.id,status:'building'});
+  const [configA,configB,configC]=[await insert(c,'ml_config_versions',{source_id:source.id}),
+    await insert(c,'ml_config_versions',{source_id:source.id}),await insert(c,'ml_config_versions',{source_id:source.id})];
+  const foreignConfig=await insert(c,'ml_config_versions',{source_id:otherSource.id});
+  const legacy={contract_version:null,queue:null,producer_kind:null,producer_key:null,idempotency_key:null};
+
+  // Job kind contract: queue, requester and legacy branch.
+  for (const kind of ['evaluation_set','compare']) {
+    await job(kind);
+    check(`${database}: ${kind} accepted on training queue for administrator`);
+    await rejected(c,`${kind} rejected on LLM recommendation queue`,()=>job(kind,{queue:'llm_recommendation'}));
+    await rejected(c,`${kind} rejected for ordinary user`,()=>job(kind,{requester_role:'user'}));
+    await rejected(c,`${kind} rejected for system producer`,()=>job(kind,{producer_kind:'system',producer_key:'system',requested_by_actor_id:null,requester_role:null}));
+    await rejected(c,`${kind} rejects llm_spec`,()=>job(kind,{llm_spec:methodSpec()}));
+    await rejected(c,`${kind} cannot use legacy NULL contract branch`,()=>job(kind,legacy));
+  }
+  const methods=await job('recommend_methods',{llm_spec:methodSpec()});
+  check(`${database}: recommend_methods accepted on llm_recommendation queue for administrator`);
+  await rejected(c,'recommend_methods rejected on training queue',()=>job('recommend_methods',{queue:'training',llm_spec:methodSpec()}));
+  await rejected(c,'recommend_methods rejected on explanation queue',()=>job('recommend_methods',{queue:'llm_explanation',llm_spec:methodSpec()}));
+  await rejected(c,'recommend_methods rejected for ordinary user',()=>job('recommend_methods',{requester_role:'user',llm_spec:methodSpec()}));
+  await rejected(c,'recommend_methods requires llm_spec',()=>job('recommend_methods'));
+  await rejected(c,'recommend_methods cannot use legacy NULL contract branch',()=>job('recommend_methods',legacy));
+  for (const field of Object.keys(methodSpec())) {
+    await rejected(c,`recommend_methods llm_spec.${field} required`,()=>job('recommend_methods',{llm_spec:{...methodSpec(),[field]:undefined}}));
+  }
+  await rejected(c,'recommend_methods llm_spec empty string rejected',()=>job('recommend_methods',{llm_spec:{...methodSpec(),model_version:''}}));
+  await rejected(c,'recommend_methods llm_spec numeric version rejected',()=>job('recommend_methods',{llm_spec:{...methodSpec(),prompt_version:1}}));
+
+  // recommend_methods result: decision-free, owner-checked, required before success.
+  const attempt=await insert(c,'run_job_attempts',{job_id:methods.id,attempt_no:1,status:'running',lease_until:new Date(Date.now()+600000)});
+  await c.query("UPDATE run_jobs SET status='running',current_attempt_id=$1,attempt_count=1 WHERE id=$2",[attempt.id,methods.id]);
+  await rejected(c,'recommend_methods completion without stored result rejected',()=>c.query("UPDATE run_jobs SET status='succeeded' WHERE id=$1",[methods.id]));
+  const result={job_id:methods.id,kind:'recommend_methods',...methods.llm_spec,created_attempt_id:attempt.id,lease_token:attempt.lease_token,
+    output:{recommendationContractVersion:'method-recommendation-v1',recommendations:[],unregistered:[],reviews:[]}};
+  await rejected(c,'recommend_methods result cannot reference a decision',()=>insert(c,'run_llm_results',{...result,decision_id:randomUUID()}));
+  await rejected(c,'recommend_methods result must match requested prompt version',()=>insert(c,'run_llm_results',{...result,prompt_version:'other'}));
+  await rejected(c,'recommend_methods result requires current lease token',()=>insert(c,'run_llm_results',{...result,lease_token:randomUUID()}));
+  await insert(c,'run_llm_results',result);
+  await c.query("UPDATE run_jobs SET status='succeeded' WHERE id=$1",[methods.id]);
+  check(`${database}: recommend_methods result stored by current owner, then job succeeds`);
+
+  // Evaluation set insert rules.
+  const setJob=await job('evaluation_set');
+  const fields={...setFields,job_id:setJob.id};
+  await rejected(c,'evaluation set INSERT must be queued',()=>insert(c,'data_evaluation_sets',{...fields,status:'ready',generation:{},content_hash:'a'.repeat(64),ready_at:new Date()}));
+  await rejected(c,'evaluation set INSERT cannot carry generation result',()=>insert(c,'data_evaluation_sets',{...fields,content_hash:'b'.repeat(64)}));
+  await rejected(c,'evaluation set INSERT cannot carry error code',()=>insert(c,'data_evaluation_sets',{...fields,error_code:'x'}));
+  await rejected(c,'evaluation set requires evaluation_set job',async()=>insert(c,'data_evaluation_sets',{...fields,job_id:(await job('compare')).id}));
+  await rejected(c,'evaluation set rejects prepared snapshot',()=>insert(c,'data_evaluation_sets',{...fields,snapshot_id:preparedSnapshot.id}));
+  await rejected(c,'evaluation set rejects non-ready snapshot',()=>insert(c,'data_evaluation_sets',{...fields,snapshot_id:buildingSnapshot.id}));
+  await rejected(c,'evaluation set snapshot must share source',()=>insert(c,'data_evaluation_sets',{...fields,snapshot_id:otherSnapshot.id}));
+  await rejected(c,'evaluation set purpose limited to validation/test',()=>insert(c,'data_evaluation_sets',{...fields,purpose:'train'}));
+  const set=await insert(c,'data_evaluation_sets',fields);
+  check(`${database}: queued evaluation set registered for evaluation_set job`);
+  await rejected(c,'one evaluation set per job',()=>insert(c,'data_evaluation_sets',fields));
+  await rejected(c,'queued evaluation set cannot be edited in place',()=>c.query("UPDATE data_evaluation_sets SET display_name='changed' WHERE id=$1",[set.id]));
+  await rejected(c,'queued evaluation set cannot be deleted',()=>c.query('DELETE FROM data_evaluation_sets WHERE id=$1',[set.id]));
+  await rejected(c,'ready requires generation/content hash/ready time',()=>c.query("UPDATE data_evaluation_sets SET status='ready' WHERE id=$1",[set.id]));
+  const hash='c'.repeat(64);
+  const ready=`UPDATE data_evaluation_sets SET status='ready',generation='{"rowCount":10}',content_hash=$2,ready_at=clock_timestamp()`;
+  await rejected(c,'ready transition cannot change set input',()=>c.query(`${ready},display_name='changed' WHERE id=$1`,[set.id,hash]));
+  await rejected(c,'ready artifact path must be evaluation-sets/<id>/<hash>.json',()=>c.query(`${ready},artifact_relative_path='evaluation-sets/other.json' WHERE id=$1`,[set.id,hash]));
+  await rejected(c,'ready set cannot carry error code',()=>c.query(`${ready},error_code='x' WHERE id=$1`,[set.id,hash]));
+  await c.query(`${ready},artifact_relative_path=$3 WHERE id=$1`,[set.id,hash,`evaluation-sets/${set.id}/${hash}.json`]);
+  check(`${database}: queued evaluation set becomes ready once with generation result`);
+  await rejected(c,'ready evaluation set cannot become failed',()=>c.query("UPDATE data_evaluation_sets SET status='failed',error_code='x',ready_at=NULL WHERE id=$1",[set.id]));
+  await rejected(c,'ready evaluation set no-op UPDATE rejected',()=>c.query('UPDATE data_evaluation_sets SET display_name=display_name WHERE id=$1',[set.id]));
+  await rejected(c,'ready evaluation set DELETE rejected',()=>c.query('DELETE FROM data_evaluation_sets WHERE id=$1',[set.id]));
+  const [,failing]=await queuedSet();
+  await rejected(c,'failed evaluation set requires error code',()=>c.query("UPDATE data_evaluation_sets SET status='failed' WHERE id=$1",[failing.id]));
+  await c.query("UPDATE data_evaluation_sets SET status='failed',error_code='synthetic_generation_rejected' WHERE id=$1",[failing.id]);
+  check(`${database}: queued evaluation set becomes failed with reason`);
+  await rejected(c,'failed evaluation set cannot become ready',()=>c.query(`${ready},error_code=NULL WHERE id=$1`,[failing.id,hash]));
+  await rejected(c,'failed evaluation set cannot return to queued',()=>c.query("UPDATE data_evaluation_sets SET status='queued',error_code=NULL WHERE id=$1",[failing.id]));
+  await rejected(c,'failed evaluation set DELETE rejected',()=>c.query('DELETE FROM data_evaluation_sets WHERE id=$1',[failing.id]));
+
+  // Job failure synchronisation (Trainer finish, max attempts, dead queue reconcile).
+  const stateOf=async id=>(await c.query('SELECT status,error_code FROM data_evaluation_sets WHERE id=$1',[id])).rows[0];
+  const [finishJob,finishSet]=await queuedSet();
+  const finishAttempt=await insert(c,'run_job_attempts',{job_id:finishJob.id,attempt_no:1,status:'running',lease_until:new Date(Date.now()+600000)});
+  await c.query("UPDATE run_jobs SET status='running',current_attempt_id=$1,attempt_count=1 WHERE id=$2",[finishAttempt.id,finishJob.id]);
+  await c.query("UPDATE run_jobs SET status='queued',error_code='retryable_error' WHERE id=$1",[finishJob.id]);
+  assert.deepEqual(await stateOf(finishSet.id),{status:'queued',error_code:null},'retry keeps evaluation set queued');
+  await c.query("UPDATE run_jobs SET status='running' WHERE id=$1",[finishJob.id]);
+  await c.query("UPDATE run_jobs SET status='failed',error_code='synthetic_profile_unsupported',finished_at=clock_timestamp() WHERE id=$1",[finishJob.id]);
+  assert.deepEqual(await stateOf(finishSet.id),{status:'failed',error_code:'synthetic_profile_unsupported'},'finish failure synchronised');
+  check(`${database}: worker finish failure fails queued evaluation set with job error; retry keeps it queued`);
+  const [maxJob,maxSet]=await queuedSet();
+  await c.query("UPDATE run_jobs SET status='failed',error_code='max_attempts',finished_at=clock_timestamp() WHERE id=$1",[maxJob.id]);
+  assert.deepEqual(await stateOf(maxSet.id),{status:'failed',error_code:'max_attempts'},'max attempts synchronised');
+  const [nullJob,nullSet]=await queuedSet();
+  await c.query("UPDATE run_jobs SET status='failed',error_code=NULL WHERE id=$1",[nullJob.id]);
+  assert.deepEqual(await stateOf(nullSet.id),{status:'failed',error_code:'evaluation_set_failed'},'missing job error gets default');
+  const [deadJob,deadSet]=await queuedSet();
+  await c.query(`INSERT INTO powercode_queue.training_jobs(id,payload,status) VALUES($1,$2,'dead')`,[randomUUID(),JSON.stringify({jobId:deadJob.id})]);
+  await c.query(reconcileTrainingQueue);
+  assert.deepEqual(await stateOf(deadSet.id),{status:'failed',error_code:'queue_exhausted'},'dead queue reconcile synchronised');
+  await c.query("UPDATE run_jobs SET status='failed',error_code='late_failure' WHERE id=$1",[setJob.id]);
+  assert.equal((await stateOf(set.id)).status,'ready','later job failure does not rewrite a ready set');
+  check(`${database}: max-attempt, NULL-error and dead-queue job failures fail queued sets; ready set untouched`);
+
+  // Comparison header.
+  const cmpJob=await job('compare');
+  const evalJob=await job('evaluate');
+  const cmpFields={job_id:cmpJob.id,evaluation_set_id:set.id,source_id:source.id,baseline_config_version_id:configA.id,active_revision:3,
+    status:'succeeded',summary:{comparisonContractVersion:'config-comparison-v1',replacementRecommendation:{ruleVersion:'replacement-recommendation-v1'}},completed_at:new Date()};
+  await rejected(c,'comparison requires compare job',()=>insert(c,'run_config_comparisons',{...cmpFields,job_id:evalJob.id}));
+  await rejected(c,'comparison requires ready evaluation set',()=>insert(c,'run_config_comparisons',{...cmpFields,evaluation_set_id:failing.id}));
+  await rejected(c,'comparison source must match evaluation set',()=>insert(c,'run_config_comparisons',{...cmpFields,source_id:otherSource.id}));
+  await rejected(c,'comparison baseline must belong to the same source',()=>insert(c,'run_config_comparisons',{...cmpFields,baseline_config_version_id:foreignConfig.id}));
+  await rejected(c,'comparison evaluation set must exist',()=>insert(c,'run_config_comparisons',{...cmpFields,evaluation_set_id:randomUUID()}));
+  await rejected(c,'comparison status limited to succeeded/failed',()=>insert(c,'run_config_comparisons',{...cmpFields,status:'running'}));
+  await rejected(c,'comparison summary must be an object',()=>insert(c,'run_config_comparisons',{...cmpFields,summary:[]}));
+  await rejected(c,'comparison active revision non-negative',()=>insert(c,'run_config_comparisons',{...cmpFields,active_revision:-1}));
+  const cmp=await insert(c,'run_config_comparisons',cmpFields);
+  check(`${database}: comparison header stored for compare job on ready set`);
+  await rejected(c,'one comparison per compare job',()=>insert(c,'run_config_comparisons',cmpFields));
+
+  // Comparison evaluations: one row per configuration of the same compare job.
+  const evalFields={job_id:cmpJob.id,comparison_id:cmp.id,evaluation_set_id:set.id,snapshot_id:snapshot.id,purpose:'validation',
+    evaluation_spec_version:'comparison-methods-v1',evaluation_spec_hash:'d'.repeat(64),applicability:'valid',
+    population_count:10,scored_count:10,unavailable_count:0,metrics:{composite:{}},reason_codes:['synthetic_set_evaluation']};
+  const evalA=await insert(c,'run_evaluations',{...evalFields,config_version_id:configA.id});
+  const evalB=await insert(c,'run_evaluations',{...evalFields,config_version_id:configB.id});
+  check(`${database}: one compare job stores several evaluation rows, one per configuration`);
+  await rejected(c,'same compare job and configuration evaluation duplicate rejected',()=>insert(c,'run_evaluations',{...evalFields,config_version_id:configA.id}));
+  await rejected(c,'comparison evaluation requires evaluation set',()=>insert(c,'run_evaluations',{...evalFields,config_version_id:configC.id,evaluation_set_id:null}));
+  await rejected(c,'set evaluation snapshot must equal set snapshot',()=>insert(c,'run_evaluations',{...evalFields,config_version_id:configC.id,snapshot_id:buildingSnapshot.id}));
+  await rejected(c,'set evaluation purpose must equal set purpose',()=>insert(c,'run_evaluations',{...evalFields,config_version_id:configC.id,purpose:'test'}));
+  await rejected(c,'set evaluation configuration must share set source',()=>insert(c,'run_evaluations',{...evalFields,config_version_id:foreignConfig.id}));
+  await rejected(c,'comparison evaluation job must be the comparison job',()=>insert(c,'run_evaluations',{...evalFields,config_version_id:configC.id,job_id:evalJob.id}));
+  await rejected(c,'set evaluation requires ready set',()=>insert(c,'run_evaluations',{...evalFields,config_version_id:configC.id,comparison_id:null,evaluation_set_id:failing.id}));
+
+  // Comparison items.
+  const item=(extra)=>insert(c,'run_config_comparison_items',{comparison_id:cmp.id,status:'succeeded',...extra});
+  await rejected(c,'baseline configuration cannot be a candidate item',()=>item({config_version_id:configA.id,role:'candidate',evaluation_id:evalA.id}));
+  await rejected(c,'non-baseline configuration cannot be the active item',()=>item({config_version_id:configB.id,role:'active',evaluation_id:evalB.id}));
+  await rejected(c,'item role limited to active/candidate',()=>item({config_version_id:configB.id,role:'baseline',evaluation_id:evalB.id}));
+  await rejected(c,'item evaluation must be for the same configuration',()=>item({config_version_id:configB.id,role:'candidate',evaluation_id:evalA.id}));
+  await rejected(c,'succeeded item requires evaluation',()=>item({config_version_id:configB.id,role:'candidate'}));
+  await rejected(c,'succeeded item cannot carry error code',()=>item({config_version_id:configB.id,role:'candidate',evaluation_id:evalB.id,error_code:'x'}));
+  await rejected(c,'failed item cannot carry evaluation',()=>item({config_version_id:configB.id,role:'candidate',status:'failed',error_code:'x',evaluation_id:evalB.id}));
+  await rejected(c,'failed item requires error code',()=>item({config_version_id:configC.id,role:'candidate',status:'failed'}));
+  await rejected(c,'item status limited to succeeded/failed',()=>item({config_version_id:configC.id,role:'candidate',status:'skipped',error_code:'x'}));
+  await rejected(c,'item comparison must exist',()=>item({comparison_id:randomUUID(),config_version_id:configC.id,role:'candidate',status:'failed',error_code:'x'}));
+  await item({config_version_id:configA.id,role:'active',evaluation_id:evalA.id});
+  await item({config_version_id:configB.id,role:'candidate',evaluation_id:evalB.id});
+  await item({config_version_id:configC.id,role:'candidate',status:'failed',error_code:'method_not_executable:sr:ewma'});
+  check(`${database}: comparison items store active baseline, succeeded and failed candidates`);
+  await rejected(c,'same comparison/configuration item duplicate rejected',()=>item({config_version_id:configC.id,role:'candidate',status:'failed',error_code:'y'}));
+  const cmpJob2=await job('compare');
+  const cmp2=await insert(c,'run_config_comparisons',{...cmpFields,job_id:cmpJob2.id,baseline_config_version_id:null});
+  check(`${database}: comparison without active configuration stored with NULL baseline`);
+  await rejected(c,'no active item when comparison has no baseline',()=>item({comparison_id:cmp2.id,config_version_id:configA.id,role:'active',evaluation_id:evalA.id}));
+  await rejected(c,'item cannot reuse an evaluation of another comparison',()=>item({comparison_id:cmp2.id,config_version_id:configB.id,role:'candidate',evaluation_id:evalB.id}));
+
+  // Immutability of 011 results and existing catalog rows.
+  await rejected(c,'comparison summary immutable',()=>c.query(`UPDATE run_config_comparisons SET summary='{"rewritten":true}' WHERE id=$1`,[cmp.id]));
+  await rejected(c,'comparison DELETE rejected',()=>c.query('DELETE FROM run_config_comparisons WHERE id=$1',[cmp2.id]));
+  await rejected(c,'comparison item UPDATE rejected',()=>c.query("UPDATE run_config_comparison_items SET error_code='z' WHERE comparison_id=$1 AND config_version_id=$2",[cmp.id,configC.id]));
+  await rejected(c,'comparison item DELETE rejected',()=>c.query('DELETE FROM run_config_comparison_items WHERE comparison_id=$1',[cmp.id]));
+  await rejected(c,'comparison evaluation row UPDATE rejected',()=>c.query("UPDATE run_evaluations SET applicability='unmeasured' WHERE id=$1",[evalA.id]));
+  await rejected(c,'comparison evaluation row DELETE rejected',()=>c.query('DELETE FROM run_evaluations WHERE id=$1',[evalB.id]));
+  await rejected(c,'ml_config_versions UPDATE rejected',()=>c.query(`UPDATE ml_config_versions SET configuration_spec='{"schemaVersion":3}' WHERE id=$1`,[configA.id]));
+  await rejected(c,'ml_config_versions DELETE rejected',()=>c.query('DELETE FROM ml_config_versions WHERE id=$1',[configC.id]));
+
+  // Existing evaluate path keeps its single row and NULL comparison lineage.
+  const plain={...evalFields,job_id:evalJob.id,comparison_id:null,evaluation_set_id:null};
+  await insert(c,'run_evaluations',{...plain,config_version_id:configA.id});
+  check(`${database}: evaluate job evaluation accepted without comparison lineage`);
+  await rejected(c,'evaluate job still owns exactly one evaluation row',()=>insert(c,'run_evaluations',{...plain,config_version_id:configB.id}));
+}
+
+// database-roles.sql grants for the 011 tables, exercised with SET ROLE inside the rollback-only transaction.
+async function roles011(c, database) {
+  await c.query(rolesSql);
+  const { source, job, setFields, queuedSet, readySet } = await fixture011(c);
+  const config=await insert(c,'ml_config_versions',{source_id:source.id});
+  const [,readyFixture]=await readySet();
+  // An unexpected error aborts the transaction; surface it instead of a RESET ROLE failure.
+  const asRole=async(role,action)=>{ await c.query(`SET ROLE ${role}`); const result=await action(); await c.query('RESET ROLE'); return result; };
+  // API registers a queued set for its evaluation_set job.
+  const apiJob=await job('evaluation_set');
+  const apiSet=await asRole('powercode_api',()=>insert(c,'data_evaluation_sets',{...setFields,job_id:apiJob.id}));
+  await asRole('powercode_api',()=>rejected(c,'API cannot complete an evaluation set',()=>c.query("UPDATE data_evaluation_sets SET status='failed',error_code='x' WHERE id=$1",[apiSet.id]),['42501']));
+  // Trainer completes the set and writes the comparison bundle.
+  const hash='e'.repeat(64);
+  await asRole('powercode_trainer',()=>c.query(`UPDATE data_evaluation_sets SET status='ready',generation='{"rowCount":3}',content_hash=$2,ready_at=clock_timestamp() WHERE id=$1`,[apiSet.id,hash]));
+  const cmpJob=await job('compare');
+  await asRole('powercode_trainer',async()=>{
+    const cmp=await insert(c,'run_config_comparisons',{job_id:cmpJob.id,evaluation_set_id:readyFixture.id,source_id:source.id,baseline_config_version_id:config.id,
+      active_revision:0,status:'succeeded',summary:{},completed_at:new Date()});
+    const evaluation=await insert(c,'run_evaluations',{job_id:cmpJob.id,comparison_id:cmp.id,evaluation_set_id:readyFixture.id,config_version_id:config.id,
+      snapshot_id:readyFixture.snapshot_id,purpose:'validation',population_count:1,scored_count:1,unavailable_count:0});
+    await insert(c,'run_config_comparison_items',{comparison_id:cmp.id,config_version_id:config.id,role:'active',status:'succeeded',evaluation_id:evaluation.id});
+  });
+  check(`${database}: roles - API registers set, Trainer completes set and comparison bundle`);
+  // LLM worker reconciles dead training-queue jobs; the trigger needs its narrow column grant.
+  const [deadJob,deadSet]=await queuedSet();
+  await c.query(`INSERT INTO powercode_queue.training_jobs(id,payload,status) VALUES($1,$2,'dead')`,[randomUUID(),JSON.stringify({jobId:deadJob.id})]);
+  await asRole('powercode_llm',()=>c.query(reconcileTrainingQueue));
+  assert.equal((await c.query('SELECT status FROM data_evaluation_sets WHERE id=$1',[deadSet.id])).rows[0].status,'failed');
+  check(`${database}: roles - LLM dead-queue reconcile fails the queued set through the trigger`);
+  await asRole('powercode_llm',()=>rejected(c,'LLM role cannot edit set content',()=>c.query("UPDATE data_evaluation_sets SET display_name='x' WHERE id=$1",[deadSet.id]),['42501']));
+  await asRole('powercode_detector',()=>rejected(c,'Detector role cannot read evaluation sets',()=>c.query('SELECT id FROM data_evaluation_sets'),['42501']));
+  await asRole('powercode_detector',()=>rejected(c,'Detector role cannot read comparisons',()=>c.query('SELECT id FROM run_config_comparisons'),['42501']));
+  await asRole('powercode_api',()=>rejected(c,'API cannot write comparisons',()=>c.query('DELETE FROM run_config_comparison_items'),['42501']));
+  // The redefined completion check must not demand run_llm_results access for non-LLM jobs (demo role has none).
+  await c.query(demoRoleSql);
+  const trainJob=await job('train');
+  const trainAttempt=await insert(c,'run_job_attempts',{job_id:trainJob.id,attempt_no:1,status:'running',lease_until:new Date(Date.now()+600000)});
+  await c.query("UPDATE run_jobs SET status='running',current_attempt_id=$1,attempt_count=1 WHERE id=$2",[trainAttempt.id,trainJob.id]);
+  await asRole('powercode_demo',()=>c.query("UPDATE run_jobs SET status='succeeded' WHERE id=$1",[trainJob.id]));
+  check(`${database}: roles - demo role without run_llm_results access still completes a v03 train job`);
+}
+
+// psql -v ON_ERROR_STOP=1 -f semantics: the enum statements commit first, then BEGIN..COMMIT fails midway.
+async function rollback011(database) {
+  const c=connection(database); await c.connect();
+  try {
+    for (let i=0;i<idx011;i++) await c.query(migrations[i]);
+    const text=migrations[idx011].replaceAll('\r\n','\n');
+    const begin=text.indexOf('\nBEGIN;\n');
+    assert(begin>0,'011 has a BEGIN block after its enum statements');
+    const anchor=text.indexOf('\n',text.indexOf('CREATE INDEX data_evaluation_sets_source_idx'));
+    assert(anchor>begin,'fault injection point is inside the 011 transaction');
+    const faulty=text.slice(begin,anchor+1)+'SELECT 1/0; -- injected failure after constraint, function and table changes\n'+text.slice(anchor+1);
+    const structure=async()=>(await c.query(`SELECT
+      (SELECT array_agg(table_schema||'.'||table_name ORDER BY 1) FROM information_schema.tables WHERE table_schema IN ('public','powercode_queue')) AS tables,
+      (SELECT array_agg(column_name::text ORDER BY ordinal_position) FROM information_schema.columns WHERE table_name='run_evaluations') AS evaluation_columns,
+      (SELECT array_agg(conrelid::regclass::text||':'||conname||':'||pg_get_constraintdef(oid) ORDER BY 1)
+         FROM pg_constraint WHERE conrelid IN ('run_jobs'::regclass,'run_llm_results'::regclass,'run_evaluations'::regclass)) AS constraints,
+      (SELECT array_agg(indexdef ORDER BY 1) FROM pg_indexes WHERE tablename='run_evaluations') AS evaluation_indexes,
+      (SELECT array_agg(tgrelid::regclass::text||':'||tgname ORDER BY 1) FROM pg_trigger WHERE NOT tgisinternal) AS triggers,
+      (SELECT array_agg(proname::text||':'||md5(prosrc) ORDER BY 1) FROM pg_proc WHERE pronamespace='public'::regnamespace) AS functions`)).rows[0];
+    const before=await structure();
+    await c.query(text.slice(0,begin));
+    let error=null;
+    try { await c.query(faulty); } catch (e) { error=e; }
+    await c.query('ROLLBACK');
+    assert(error && error.code==='22012',`injected 011 failure must abort the migration (${error?.message})`);
+    assert.deepEqual(await structure(),before,'011 structural changes rolled back');
+    const labels=(await c.query("SELECT array_agg(e.enumlabel::text ORDER BY e.enumsortorder) AS l FROM pg_enum e JOIN pg_type t ON t.oid=e.enumtypid WHERE t.typname='job_kind'")).rows[0].l;
+    for (const label of ['evaluation_set','compare','recommend_methods']) assert(labels.includes(label),`committed enum ${label} remains`);
+    check('011 mid-transaction failure rolls back constraints, function, tables and triggers; committed enum values remain');
+    for (let i=idx011;i<migrations.length;i++) await c.query(migrations[i]);
+    await parity(c);
+    check('011 applies cleanly after the rolled-back attempt (enum ADD VALUE IF NOT EXISTS)');
+  } finally { await c.end(); }
+}
+
+// Temp-table name shadowing against the 011 validators. Each attack uses a NEW connection whose first
+// reference to the shadowed name is the attacker's temp table (a warmed plan cache would hide the hole).
+async function searchPath011(database) {
+  const c=connection(database); await c.connect();
+  let f;
+  try {
+    for (const sql of migrations) await c.query(sql);
+    await c.query(rolesSql);
+    // database-roles.sql revokes TEMP from PUBLIC (#78-Q10 defense in depth), so every attack below would already stop
+    // at CREATE TEMP TABLE. Assert that layer, then restore TEMP so the attacks exercise the 011 search_path pinning alone.
+    const temp=connection(database); await temp.connect();
+    try {
+      await temp.query('BEGIN'); await temp.query('SET ROLE powercode_trainer');
+      await rejected(temp,'database-roles.sql REVOKE TEMP: runtime role cannot create a temp table',()=>temp.query('CREATE TEMP TABLE run_job_attempts(id uuid)'),['42501']);
+    } finally { await temp.query('ROLLBACK'); await temp.end(); }
+    await c.query(`GRANT TEMPORARY ON DATABASE ${database} TO PUBLIC`);
+    const { source, snapshot, job, setFields, queuedSet, readySet } = await fixture011(c);
+    const configA=await insert(c,'ml_config_versions',{source_id:source.id});
+    const configB=await insert(c,'ml_config_versions',{source_id:source.id});
+    const [,readyFixture]=await readySet();
+    const [queuedJob,queuedFixture]=await queuedSet();
+    const compareJob=await job('compare');
+    const cmp=await insert(c,'run_config_comparisons',{job_id:compareJob.id,evaluation_set_id:readyFixture.id,source_id:source.id,
+      baseline_config_version_id:configA.id,active_revision:0,status:'succeeded',summary:{},completed_at:new Date()});
+    const evalA=await insert(c,'run_evaluations',{job_id:compareJob.id,comparison_id:cmp.id,evaluation_set_id:readyFixture.id,
+      config_version_id:configA.id,snapshot_id:snapshot.id,purpose:'validation',population_count:1,scored_count:1,unavailable_count:0});
+    const spareCompare=await job('compare');
+    const evaluateJob=await job('evaluate');
+    const expired=await job('compare');
+    const attempt=await insert(c,'run_job_attempts',{job_id:expired.id,attempt_no:1,status:'running',lease_until:new Date(Date.now()+600000)});
+    await c.query("UPDATE run_jobs SET status='running',current_attempt_id=$1,attempt_count=1 WHERE id=$2",[attempt.id,expired.id]);
+    await c.query("UPDATE run_job_attempts SET lease_until=clock_timestamp()-interval '1 minute' WHERE id=$1",[attempt.id]);
+    f={ source, snapshot, setFields, configA, configB, readyFixture, queuedJob, queuedFixture, cmp, evalA, spareCompare, evaluateJob, expired };
+  } finally { await c.end(); }
+
+  async function attack(label, role, shadow, action, verify) {
+    const a=connection(database); await a.connect();
+    try {
+      await a.query('BEGIN');
+      await a.query(`SET ROLE ${role}`);
+      for (const [sql,params] of shadow) await a.query(sql,params);
+      let error=null;
+      try { await a.query('SAVEPOINT attack'); await action(a); } catch (e) { error=e; await a.query('ROLLBACK TO SAVEPOINT attack'); }
+      const blocked=verify ? await verify(a,error) : Boolean(error && ['P0001','P0002'].includes(error.code));
+      if (blocked) check(`${label} (${error ? error.code+' '+error.message : 'validator used public table'})`);
+      else { failures.push(label); console.log(`FAIL search_path bypass: ${label}${error ? ' ('+error.code+' '+error.message+')' : ''}`); }
+    } finally { await a.query('ROLLBACK').catch(()=>{}); await a.end(); }
+  }
+  const later="clock_timestamp()+interval '1 hour'";
+  await attack('validate_job: trainer temp run_job_attempts cannot fake an unexpired lease for completion','powercode_trainer',
+    [['CREATE TEMP TABLE run_job_attempts AS SELECT * FROM public.run_job_attempts WHERE job_id=$1',[f.expired.id]],
+     [`UPDATE pg_temp.run_job_attempts SET lease_until=${later}`]],
+    a=>a.query("UPDATE public.run_jobs SET status='succeeded' WHERE id=$1",[f.expired.id]));
+  await attack('protect_evaluation_set: API temp run_jobs cannot relabel a compare job as evaluation_set','powercode_api',
+    [["CREATE TEMP TABLE run_jobs AS SELECT id,'evaluation_set'::text AS kind FROM public.run_jobs WHERE id=$1",[f.spareCompare.id]]],
+    a=>a.query(`INSERT INTO public.data_evaluation_sets(id,job_id,source_id,snapshot_id,purpose,display_name,created_by_actor_id)
+      VALUES($1,$2,$3,$4,'validation','shadow','admin78')`,[randomUUID(),f.spareCompare.id,f.source.id,f.snapshot.id]));
+  await attack('fail_evaluation_set_with_job: trainer temp data_evaluation_sets cannot swallow the failure sync','powercode_trainer',
+    [['CREATE TEMP TABLE data_evaluation_sets(job_id uuid,status text,error_code text)']],
+    a=>a.query("UPDATE public.run_jobs SET status='failed',error_code='shadowed' WHERE id=$1",[f.queuedJob.id]),
+    async(a,error)=>!error && (await a.query('SELECT status FROM public.data_evaluation_sets WHERE id=$1',[f.queuedFixture.id])).rows[0].status==='failed');
+  await attack('comparison lineage: trainer temp run_jobs cannot relabel an evaluate job as compare','powercode_trainer',
+    [["CREATE TEMP TABLE run_jobs AS SELECT id,'compare'::text AS kind FROM public.run_jobs WHERE id=$1",[f.evaluateJob.id]]],
+    a=>a.query(`INSERT INTO public.run_config_comparisons(id,job_id,evaluation_set_id,source_id,baseline_config_version_id,active_revision,status,summary,completed_at)
+      VALUES($1,$2,$3,$4,$5,0,'succeeded','{}',clock_timestamp())`,[randomUUID(),f.evaluateJob.id,f.readyFixture.id,f.source.id,f.configA.id]));
+  await attack('evaluation lineage: trainer temp data_evaluation_sets cannot change the set purpose','powercode_trainer',
+    [['CREATE TEMP TABLE data_evaluation_sets AS SELECT * FROM public.data_evaluation_sets WHERE id=$1',[f.readyFixture.id]],
+     ["UPDATE pg_temp.data_evaluation_sets SET purpose='test'"]],
+    a=>a.query(`INSERT INTO public.run_evaluations(id,job_id,config_version_id,snapshot_id,purpose,evaluation_spec_version,evaluation_spec_hash,
+      evaluation_spec,applicability,population_count,scored_count,unavailable_count,metrics,reason_codes,completed_at,comparison_id,evaluation_set_id)
+      VALUES($1,$2,$3,$4,'test','v','h','{}','valid',1,1,0,'{}','[]',clock_timestamp(),$5,$6)`,
+      [randomUUID(),f.cmp.job_id,f.configB.id,f.snapshot.id,f.cmp.id,f.readyFixture.id]));
+  await attack('item lineage: trainer temp run_config_comparisons cannot move the baseline','powercode_trainer',
+    [['CREATE TEMP TABLE run_config_comparisons AS SELECT * FROM public.run_config_comparisons WHERE id=$1',[f.cmp.id]],
+     ['UPDATE pg_temp.run_config_comparisons SET baseline_config_version_id=$1',[f.configB.id]]],
+    a=>a.query(`INSERT INTO public.run_config_comparison_items(comparison_id,config_version_id,role,status,evaluation_id)
+      VALUES($1,$2,'candidate','succeeded',$3)`,[f.cmp.id,f.configA.id,f.evalA.id]));
+  const c2=connection(database); await c2.connect();
+  try {
+    const pinned=(await c2.query(`SELECT array_agg(proname::text ORDER BY proname) AS names FROM pg_catalog.pg_proc
+      WHERE proname IN ('erd_v03_validate_job','protect_evaluation_set','fail_evaluation_set_with_job','validate_comparison_lineage')
+        AND proconfig @> ARRAY['search_path=public, pg_temp'] AND NOT prosecdef`)).rows[0].names;
+    assert.deepEqual(pinned,['erd_v03_validate_job','fail_evaluation_set_with_job','protect_evaluation_set','validate_comparison_lineage'],
+      '011 functions pin search_path and stay SECURITY INVOKER');
+    check('011 functions pin search_path=public, pg_temp and stay SECURITY INVOKER');
+  } finally { await c2.end(); }
 }

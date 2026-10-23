@@ -610,7 +610,6 @@
               <section class="card"><h2>로그인 계정</h2><dl id="profileFields"></dl></section>
               <section class="card"><h2>권한 표시</h2>
                 <div class="settings-row disabled"><div><strong>관리자 메뉴</strong><p>탐지 설정 메뉴는 계정 역할에 따라 표시됩니다.</p><small>계정 역할에 따라 자동 적용됩니다.</small></div><input type="checkbox" role="switch" id="adminMenuSwitch" disabled aria-label="관리자 메뉴"></div>
-                <div class="settings-row disabled"><div><strong>상태 변경 확인</strong><p>상태 변경은 현재 서버에 저장되지 않습니다.</p><small>서버 지원 후 사용할 수 있습니다.</small></div><input type="checkbox" role="switch" disabled aria-label="상태 변경 확인 꺼짐"></div>
               </section>
               <section class="card"><h2>피드백</h2>
                 <div class="settings-row disabled"><div><strong>Toast 알림</strong><p>작업 결과 안내로 사용하며 끄기 설정은 제공하지 않습니다.</p><small>화면 안내는 앱에서 계속 표시됩니다.</small></div><input type="checkbox" role="switch" checked disabled aria-label="Toast 알림 켜짐"></div>
@@ -2207,7 +2206,6 @@
         mark(false); trainDraft = freshTrain(); resetTrainForm(); navigate('detect/ops/job/' + j.id, true);
       }
       if (form.id === 'generationForm') { if (generationLimit()) return; generateSet(); }
-      if (form.id === 'settingsForm') { $('settingsStatus').textContent = '현재 세션의 설정 내용 유지'; mark(false); }
     });
     function finishLeave(discard) {
       if (discard) {

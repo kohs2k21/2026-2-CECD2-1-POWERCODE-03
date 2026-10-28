@@ -14,6 +14,7 @@ import re
 import sqlite3
 import string
 import subprocess
+import sys
 import time
 import urllib.error
 import urllib.parse
@@ -46,6 +47,7 @@ TYPE_OPTIONS = {
 PRIORITY_CODES = {"P0", "P1", "P2", "P3"}
 STATUS_OPTIONS = {"백로그", "개발 준비", "개발 중", "리뷰 중", "취소", "완료"}
 SYNC_STATUS_OPTIONS = {"생성 중", "완료", "오류"}
+SYNC_MARK_FIELDS = ("GitHub 동기화", "오류 메시지")
 EXPECTED_SCHEMA = {
     "작업명": "title", "유형": "select", "우선순위": "select", "영역": "multi_select",
     "대상 저장소": "select", "브랜치 요약": "rich_text", "상태": "select",
@@ -471,6 +473,7 @@ class State:
     def __init__(self, path):
         self.db = sqlite3.connect(path)
         self.db.execute("CREATE TABLE IF NOT EXISTS mappings (key TEXT PRIMARY KEY, data TEXT NOT NULL)")
+        self.db.execute("CREATE TABLE IF NOT EXISTS alerts (key TEXT PRIMARY KEY, data TEXT NOT NULL)")
 
     def get(self, key):
         row = self.db.execute("SELECT data FROM mappings WHERE key=?", (key,)).fetchone()
@@ -478,6 +481,22 @@ class State:
 
     def save(self, key, data):
         self.db.execute("INSERT INTO mappings VALUES (?,?) ON CONFLICT(key) DO UPDATE SET data=excluded.data", (key, json.dumps(data)))
+        self.db.commit()
+
+    def get_alert(self, key):
+        row = self.db.execute("SELECT data FROM alerts WHERE key=?", (key,)).fetchone()
+        try:
+            data = json.loads(row[0]) if row else None
+        except (TypeError, ValueError):
+            return None
+        return data if isinstance(data, dict) else None
+
+    def save_alert(self, key, data):
+        self.db.execute("INSERT INTO alerts VALUES (?,?) ON CONFLICT(key) DO UPDATE SET data=excluded.data", (key, json.dumps(data)))
+        self.db.commit()
+
+    def clear_alert(self, key):
+        self.db.execute("DELETE FROM alerts WHERE key=?", (key,))
         self.db.commit()
 
 
@@ -528,6 +547,21 @@ class Engine:
         validate_config(config)
         self.cfg, self.n, self.g, self.state = config, notion, github, state
         self.cleanup_attempted = set()
+        self.sync_marks = {}
+
+    def patch_page(self, page_id, properties):
+        # Track sync result fields written this run; None means the write is uncertain.
+        marks = self.sync_marks.setdefault(page_id, {})
+        written = [k for k in SYNC_MARK_FIELDS if k in properties]
+        marks.update(dict.fromkeys(written))
+        result = self.n.patch(page_id, properties)
+        marks.update({k: value({"properties": {k: {"type": next(iter(properties[k])), **properties[k]}}}, k)
+                      for k in written})
+        return result
+
+    def sync_mark(self, page):
+        marks = self.sync_marks.get(page["id"], {})
+        return [marks[k] if k in marks else value(page, k) for k in SYNC_MARK_FIELDS]
 
     def owned_prs(self, prs, branch):
         return [p for p in prs
@@ -732,7 +766,7 @@ class Engine:
         payload = {"title": issue_title, "body": desired_body, "labels": labels, "assignees": people, "milestone": milestone_number}
         digest = hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()
         if not issue:
-            self.n.patch(page_id, {"GitHub 동기화": prop("select", "생성 중")})
+            self.patch_page(page_id, {"GitHub 동기화": prop("select", "생성 중")})
             page = self.n.get(page_id)
             issue = self.g.create_issue(payload)
         number = issue["number"]
@@ -824,23 +858,34 @@ class Engine:
         issue = self.g.issue(number)
         if issue.get("state") == "closed" and issue.get("state_reason") != "not_planned":
             properties["상태"] = prop("select", "완료")
+        cleanup_error = None
+        if issue.get("state") == "closed":
+            try:
+                self.cleanup_branch(issue, branch, meta["base"], owned)
+            except Exception as exc:
+                # Record a held cleanup in the same single write instead of 완료 then 오류.
+                cleanup_error = exc
+                properties["GitHub 동기화"] = prop("select", "오류")
+                properties["오류 메시지"] = prop("rich_text", str(exc) if isinstance(exc, SyncError) else "INTERNAL_ERROR")
         # Don't clear a new request or overwrite metadata when page changed during network I/O.
         fresh = self.n.get(page_id)
         if fresh.get("last_edited_time") == page.get("last_edited_time"):
             properties[CREATE] = prop("checkbox", False)
             properties[UPDATE] = prop("checkbox", False)
         changed = {k: v for k, v in properties.items() if value(fresh, k) != value({"properties": {k: {"type": next(iter(v)), **v}}}, k)}
+        self.sync_marks[page_id] = {k: value(fresh, k) for k in SYNC_MARK_FIELDS}
         if changed:
             changed["마지막 동기화"] = prop("date", {"start": now()})
-            self.n.patch(page_id, changed)
+            self.patch_page(page_id, changed)
         self.state.save(key, saved)
-        if issue.get("state") == "closed":
-            self.cleanup_branch(issue, branch, meta["base"], owned)
+        if cleanup_error is not None:
+            raise cleanup_error
         return "completed" if merged and issue.get("state_reason") != "not_planned" else "synced"
 
     def run(self):
         self.n.verify_data_source()
         self.cleanup_attempted = set()
+        self.sync_marks = {}
         results = []
         for page in self.n.pages():
             try:
@@ -849,8 +894,10 @@ class Engine:
             except Exception as exc:
                 code = str(exc) if isinstance(exc, SyncError) else "INTERNAL_ERROR"
                 try:
-                    self.n.patch(page["id"], {"GitHub 동기화": prop("select", "오류"),
-                        "오류 메시지": prop("rich_text", code)})
+                    # Already showing this error: keep last_edited_time stable.
+                    if self.sync_mark(page) != ["오류", code]:
+                        self.n.patch(page["id"], {"GitHub 동기화": prop("select", "오류"),
+                            "오류 메시지": prop("rich_text", code)})
                 except Exception:
                     pass
                 results.append({"page_id": page["id"], "result": "error", "code": code})
@@ -912,6 +959,126 @@ def check_access(config, notion, github):
     }
 
 
+PAGE_INPUT_CODES = frozenset({
+    "UNSUPPORTED_MENTION_USE_PLAIN_TEXT", "UNSUPPORTED_LINK", "INVALID_TABLE", "BODY_TOO_DEEP",
+    "BODY_TOO_LARGE", "TITLE_OR_TYPE_REQUIRED", "AREA_INVALID", "MILESTONE_NOT_IN_NOTION_OPTIONS",
+    "ENGLISH_BRANCH_SLUG_REQUIRED", "TYPE_LOCKED_AFTER_CREATION",
+})
+PAGE_INPUT_PREFIXES = ("UNSUPPORTED_BLOCK_",)
+CLEANUP_HOLD_CODES = frozenset({
+    "OPEN_PR_PREVENTS_BRANCH_DELETE", "BRANCH_HAS_UNMERGED_COMMITS_NOT_DELETED",
+    "BRANCH_CHANGED_AFTER_MERGE_NOT_DELETED", "CLEANUP_BASE_REQUIRES_REVIEW",
+})
+TRANSIENT_CODES = frozenset({"NETWORK_UNCERTAIN_RETRY_NEXT_RUN", "HTTP_429"})
+# Any other code, and every run-level error, fails closed.
+ALERT_KEY = "failure_fingerprint"
+ALERT_REPEAT_SECONDS = 24 * 60 * 60
+RUN_TARGET = "run"
+SUMMARY_ROWS = 50
+
+
+def classify_code(code):
+    code = str(code)
+    if code in PAGE_INPUT_CODES or code.startswith(PAGE_INPUT_PREFIXES):
+        return "input"
+    if code in CLEANUP_HOLD_CODES:
+        return "hold"
+    http = re.fullmatch(r"HTTP_([0-9]{3})", code)
+    if code in TRANSIENT_CODES or (http and 500 <= int(http[1]) <= 599):
+        return "transient"
+    return "failure"
+
+
+def alert_target(entry):
+    if entry.get("page_id"):
+        return "page:" + str(entry["page_id"])
+    if entry.get("issue_number") is not None:
+        return f"issue:{entry['issue_number']}:{entry.get('branch', '')}"
+    return RUN_TARGET
+
+
+def classify_result(entry):
+    if entry.get("result") != "error":
+        return None
+    if alert_target(entry) == RUN_TARGET:
+        return "failure"
+    return classify_code(entry.get("code"))
+
+
+def alert_outcome(results, state, at=None):
+    """Exit 1 only for new/changed failures, or the same ones after 24 hours."""
+    at = at or dt.datetime.now(dt.timezone.utc)
+    warnings, failures = [], []
+    for entry in results:
+        category = classify_result(entry)
+        if category:
+            (failures if category == "failure" else warnings).append({**entry, "category": category})
+    outcome = {"exit_code": 0, "warnings": warnings, "failures": [], "suppressed": []}
+    fingerprint = [list(x) for x in sorted({(alert_target(e), str(e.get("code"))) for e in failures})]
+    if not fingerprint:
+        state.clear_alert(ALERT_KEY)
+        return outcome
+    previous = state.get_alert(ALERT_KEY) or {}
+    try:
+        elapsed = (at - dt.datetime.fromisoformat(previous["alerted_at"])).total_seconds()
+        repeated = previous.get("fingerprint") == fingerprint and 0 <= elapsed < ALERT_REPEAT_SECONDS
+    except (KeyError, TypeError, ValueError):
+        repeated = False
+    if repeated:
+        return {**outcome, "suppressed": failures}
+    state.save_alert(ALERT_KEY, {"fingerprint": fingerprint, "alerted_at": at.isoformat()})
+    return {**outcome, "exit_code": 1, "failures": failures}
+
+
+def alert_label(entry):
+    label = re.sub(r"[^A-Za-z0-9_]", "", str(entry.get("code", "")))[:100] or "UNKNOWN"
+    if entry.get("page_id"):
+        label += " page=" + re.sub(r"[^0-9A-Fa-f-]", "", str(entry["page_id"]))[:36]
+    elif entry.get("issue_number") is not None:
+        label += " issue=#" + re.sub(r"[^0-9]", "", str(entry["issue_number"]))[:10]
+    return label
+
+
+def report_alerts(outcome, env=None, out=None):
+    """Fixed codes and ids only; never raw page text, URLs or credentials."""
+    env = os.environ if env is None else env
+    out = sys.stdout if out is None else out
+    rows = ([("error", "failure", e) for e in outcome["failures"]]
+            + [("warning", "repeated-failure", e) for e in outcome["suppressed"]]
+            + [("warning", e["category"], e) for e in outcome["warnings"]])
+    if env.get("GITHUB_ACTIONS") == "true":
+        for level, category, entry in rows:
+            print(f"::{level} title=notion-sync {category}::{alert_label(entry)}", file=out, flush=True)
+    summary = env.get("GITHUB_STEP_SUMMARY")
+    if summary:
+        verdict = ("실패 알림" if outcome["exit_code"] else
+                   "반복 실패, 24시간 내 재알림 생략" if outcome["suppressed"] else
+                   "경고만 있음" if outcome["warnings"] else "정상")
+        lines = ["### Notion sync", "",
+                 f"- 결과: {verdict} (종료 코드 {outcome['exit_code']})",
+                 f"- 실패 {len(outcome['failures'])} · 반복 실패 {len(outcome['suppressed'])}"
+                 f" · 경고 {len(outcome['warnings'])}", ""]
+        if rows:
+            lines += ["| 분류 | 코드·대상 |", "|---|---|"]
+            lines += [f"| {category} | `{alert_label(entry)}` |" for _, category, entry in rows[:SUMMARY_ROWS]]
+            if len(rows) > SUMMARY_ROWS:
+                lines.append(f"| ... | {len(rows) - SUMMARY_ROWS}건 생략 |")
+        with open(summary, "a", encoding="utf-8") as f:
+            f.write("\n".join(lines) + "\n")
+
+
+def run_once(engine, state, at=None, env=None, out=None):
+    out = sys.stdout if out is None else out
+    try:
+        results = engine.run()
+    except Exception as exc:
+        results = [{"result": "error", "code": str(exc) if isinstance(exc, SyncError) else "INTERNAL_ERROR"}]
+    print(json.dumps({"at": now(), "results": results}, ensure_ascii=True), file=out, flush=True)
+    outcome = alert_outcome(results, state, at)
+    report_alerts(outcome, env, out)
+    return outcome["exit_code"]
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--watch", action="store_true")
@@ -936,15 +1103,16 @@ def main():
         print(json.dumps(check_access(cfg, notion, github), ensure_ascii=True))
         return 0
     with single_writer(ROOT / "automation/.runtime/worker.lock"):
-        engine = Engine(cfg, notion, github, State(ROOT / "automation/.runtime/state.db"))
+        state = State(ROOT / "automation/.runtime/state.db")
+        engine = Engine(cfg, notion, github, state)
+        if not args.watch:
+            return run_once(engine, state)
         while True:
             try:
                 results = engine.run()
             except SyncError as exc:
                 results = [{"result": "error", "code": str(exc)}]
             print(json.dumps({"at": now(), "results": results}, ensure_ascii=True), flush=True)
-            if not args.watch:
-                return 1 if any(r["result"] == "error" for r in results) else 0
             time.sleep(max(10, cfg["poll_seconds"]))
 
 

@@ -1,0 +1,68 @@
+{
+  "contract": "spec-suite1.0",
+  "cases": [
+    {
+      "id": "ratio_value",
+      "input_manifest": "../capture.json",
+      "request": "ratio_value.request.json",
+      "rule_plan": "ratio_value.rule-plan.json",
+      "data_class": "controlled",
+      "no_independent_generalization_claim": true
+    },
+    {
+      "id": "ratio_unavailable",
+      "input_manifest": "../capture.json",
+      "request": "ratio_unavailable.request.json",
+      "rule_plan": "ratio_unavailable.rule-plan.json",
+      "data_class": "controlled",
+      "no_independent_generalization_claim": true
+    },
+    {
+      "id": "nested_comparison_unavailable",
+      "input_manifest": "../E05_comparison_result_state/capture.json",
+      "request": "nested_comparison_unavailable.request.json",
+      "rule_plan": "nested_comparison_unavailable.rule-plan.json",
+      "data_class": "controlled",
+      "no_independent_generalization_claim": true
+    },
+    {
+      "id": "parent_match_state",
+      "input_manifest": "../F01_new_parent_domain/capture.json",
+      "request": "parent_match_state.request.json",
+      "rule_plan": "parent_match_state.rule-plan.json",
+      "data_class": "controlled",
+      "no_independent_generalization_claim": true
+    },
+    {
+      "id": "child_average",
+      "input_manifest": "../E02_average_captured_quantity/capture.json",
+      "request": "child_average.request.json",
+      "rule_plan": "child_average.rule-plan.json",
+      "data_class": "controlled"
+    },
+    {
+      "id": "relation_set_exclusion",
+      "input_manifest": "../E04_filtered_child_sum/capture.json",
+      "request": "relation_set_exclusion.request.json",
+      "rule_plan": "relation_set_exclusion.rule-plan.json",
+      "data_class": "controlled"
+    },
+    {
+      "id": "confirmed_HR",
+      "input_manifest": "../F03_confirmed_A_HR/capture.json",
+      "request": "confirmed_HR.request.json",
+      "rule_plan": "confirmed_HR.rule-plan.json",
+      "data_class": "controlled",
+      "no_independent_generalization_claim": true
+    },
+    {
+      "id": "unsupported_parent_lookup",
+      "input_manifest": "../E06_unsupported_ancestor_attribute/capture.json",
+      "request": "unsupported_parent_lookup.request.json",
+      "rule_plan": "unsupported_parent_lookup.rule-plan.json",
+      "data_class": "controlled"
+    }
+  ],
+  "scope": "Public functional reproduction on artificial metadata, not customer logs, not anomaly labels, not independent Model evaluation.",
+  "real_TRAIN_reference_baseline": "Verified separately on private approved reference/application captures. Supply your own approved --suite reference_manifest for numerical SR; no fake historical baseline is made from these application rows."
+}

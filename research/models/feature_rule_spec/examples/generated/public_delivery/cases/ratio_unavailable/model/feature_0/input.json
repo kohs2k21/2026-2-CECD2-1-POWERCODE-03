@@ -1,0 +1,1289 @@
+{
+  "messages": [
+    {
+      "role": "system",
+      "content": "Propose one executable offline metadata feature for the PUBLIC request. Return feature5.2 JSON only. Every plan explicitly chooses result_use: value / unavailable / unavailable_or_zero. Preserve source, requested filters, output rows and population. Do not replace an unsupported analysis with an easier calculation. You choose purpose, narrow meaning, calculation expression and result_use. For a calculation-result availability request, expression computes the requested value/comparison and result_use=unavailable checks that result. Do not enumerate missing causes with nullable OR. For unavailable-or-known-zero of a numeric result, select result_use=unavailable_or_zero. Result views are typed common compiler operations; they are not hidden fixes. Describe the selected final output, with no invented empty-case values; code infers types/units/missing policies/IDs/SHA. Never guess operational meaning from raw codes or unknown units. Physical parent existence is not a mandatory-parent business contract. A valid calculation may be constant or have no selected observations. If source, relation or an exact supported expression is unavailable, return candidates=[] with a precise complete stop_reason.\nSupported expression nodes: column(op,table,column), literal(op,value), is_missing(args1), subtract/divide/eq/lt/lte/gt/gte/and/or(args2), not(args1), in/not_in(args1,values homogeneous1..32 literals), if(args3), datetime_diff(args2,unit=ms/s/us), convert_unit(args1,from_unit,to_unit), child_count/parent_match_count(relationship_id), conditional_count(relationship_id,where), child_sum(relationship_id,value,where), group_count(keys,where). No add/abs or parent attribute lookup. Use JSON null, not string null.\nRelations are child/from -> parent/to. child_count, conditional_count, child_sum output PARENT rows; parent_match_count outputs CHILD rows. All nonliteral operands share output rows, including if's condition and branches. Grain keys identify output rows, not all source columns. group_by lists only actual group_count keys. A known empty child aggregate is0, missing relationship/key/predicate propagates unavailable. Division by0 is unavailable, never numeric0. is_missing tests any nested result and returns complete true/false on retained rows. and/or strictly propagate any unavailable operand; true OR unavailable is unavailable. if validates both branches, then lazily evaluates only the selected branch; unavailable condition stays unavailable. Filter-excluded or unknown-selection rows produce no output, not false or unavailable values. Do not hide invalid sources, types or execution errors as missingness.\nThe calculation component and final inspected output are distinct: never wrap the expression in a missingness test merely because result_use already requests unavailable. A public calculation_type constrains the inner value/comparison, not the final view. Keep one concise complete meaning sentence about the final view; detailed branch/empty-group behavior is recorded by compiler facts. Write purpose and meaning in English; quote original literal tokens when needed, but do not switch languages in explanatory prose. needed_evidence must not list unrelated supplied unit IDs. Write short COMPLETE purpose<=200, meaning<=320, stop_reason<=320. Prefer one concise meaning sentence around150–220 characters; do not repeat the whole plan or append a long branch-by-branch narrative. Explain calculation, filters, output row and result states. True0 differs from no evaluable rows. Raw IN/OUT/MAP/VOID/UNKNOWN have no business meaning beyond supplied authority. No fault/normality/SLA/online claim follows from offline metadata."
+    },
+    {
+      "role": "user",
+      "content": "{\"contract\":\"offline-specification-final1.0\",\"task\":\"Compute A/B per CASE_LOG row and inspect its result availability. Return a complete Boolean true for unavailable, false for an available numerical result including0. Use the explicit result view.\",\"analysis_request\":{\"output_table\":\"CASE_LOG\",\"result_use\":\"unavailable\",\"calculation_type\":\"number\",\"required_columns\":[[\"CASE_LOG\",\"A\"],[\"CASE_LOG\",\"B\"]],\"required_relationship_ids\":[],\"complete_boolean\":true},\"schema_inventory\":[{\"table\":\"CASE_HDR\",\"primary_key\":[\"ROW_ID\"],\"columns\":[{\"name\":\"ROW_ID\",\"type\":\"string\",\"unit\":{\"name\":null,\"status\":\"unknown\"},\"description\":\"Controlled metadata, no operational meaning.\"},{\"name\":\"REGION\",\"type\":\"string\",\"unit\":{\"name\":null,\"status\":\"unknown\"},\"description\":\"Controlled metadata, no operational meaning.\"},{\"name\":\"LINK_CODE\",\"type\":\"string\",\"unit\":{\"name\":null,\"status\":\"unknown\"},\"description\":\"Controlled metadata, no operational meaning.\"}]},{\"table\":\"CASE_LOG\",\"primary_key\":[\"ROW_ID\"],\"columns\":[{\"name\":\"ROW_ID\",\"type\":\"string\",\"unit\":{\"name\":null,\"status\":\"unknown\"},\"description\":\"Controlled metadata, no operational meaning.\"},{\"name\":\"REGION\",\"type\":\"string\",\"unit\":{\"name\":null,\"status\":\"unknown\"},\"description\":\"Controlled metadata, no operational meaning.\"},{\"name\":\"LINK_CODE\",\"type\":\"string\",\"unit\":{\"name\":null,\"status\":\"unknown\"},\"description\":\"Controlled metadata, no operational meaning.\"},{\"name\":\"A\",\"type\":\"number\",\"unit\":{\"name\":\"coordinate_unit\",\"status\":\"verified\"},\"description\":\"Controlled metadata, no operational meaning.\"},{\"name\":\"B\",\"type\":\"number\",\"unit\":{\"name\":\"coordinate_unit\",\"status\":\"verified\"},\"description\":\"Controlled metadata, no operational meaning.\"},{\"name\":\"QTY\",\"type\":\"number\",\"unit\":{\"name\":\"items\",\"status\":\"verified\"},\"description\":\"Controlled metadata, no operational meaning.\"},{\"name\":\"CLASS\",\"type\":\"string\",\"unit\":{\"name\":null,\"status\":\"unknown\"},\"description\":\"Controlled metadata, no operational meaning.\"}]}],\"relationships\":[{\"id\":\"declared_log_header\",\"from_table\":\"CASE_LOG\",\"from_columns\":[\"REGION\",\"LINK_CODE\"],\"to_table\":\"CASE_HDR\",\"to_columns\":[\"REGION\",\"LINK_CODE\"],\"no_reference_values\":[]}],\"relationship_operator_domains\":[{\"relationship_id\":\"declared_log_header\",\"child_row_table\":\"CASE_LOG\",\"parent_row_table\":\"CASE_HDR\",\"child_count_conditional_count_child_sum_output\":\"CASE_HDR\",\"parent_match_count_output\":\"CASE_LOG\",\"no_implicit_row_conversion\":true}],\"profile\":{\"period\":{\"controlled_domain\":\"No operational dates\"},\"table_rows\":{\"CASE_HDR\":3,\"CASE_LOG\":7},\"transaction_families\":0,\"metadata\":{\"CASE_HDR\":[{\"column\":\"ROW_ID\",\"logical_type\":\"string\",\"rows\":3,\"missing\":0,\"distinct\":3},{\"column\":\"REGION\",\"logical_type\":\"string\",\"rows\":3,\"missing\":0,\"distinct\":1},{\"column\":\"LINK_CODE\",\"logical_type\":\"string\",\"rows\":3,\"missing\":0,\"distinct\":2}],\"CASE_LOG\":[{\"column\":\"ROW_ID\",\"logical_type\":\"string\",\"rows\":7,\"missing\":0,\"distinct\":7,\"unit\":{\"name\":null,\"status\":\"unknown\"},\"description\":\"Controlled metadata, no operational meaning.\"},{\"column\":\"REGION\",\"logical_type\":\"string\",\"rows\":7,\"missing\":2,\"distinct\":1,\"unit\":{\"name\":null,\"status\":\"unknown\"},\"description\":\"Controlled metadata, no operational meaning.\"},{\"column\":\"LINK_CODE\",\"logical_type\":\"string\",\"rows\":7,\"missing\":1,\"distinct\":3,\"unit\":{\"name\":null,\"status\":\"unknown\"},\"description\":\"Controlled metadata, no operational meaning.\"},{\"column\":\"A\",\"logical_type\":\"number\",\"rows\":7,\"missing\":2,\"distinct\":5,\"unit\":{\"name\":\"coordinate_unit\",\"status\":\"verified\"},\"description\":\"Controlled metadata, no operational meaning.\",\"observed_raw_values\":[[\"0\",1],[\"1\",1],[\"2\",1],[\"-1.5\",1],[\"2.5\",1]],\"observed_min\":\"-1.5\",\"observed_max\":\"2.5\"},{\"column\":\"B\",\"logical_type\":\"number\",\"rows\":7,\"missing\":2,\"distinct\":4,\"unit\":{\"name\":\"coordinate_unit\",\"status\":\"verified\"},\"description\":\"Controlled metadata, no operational meaning.\",\"observed_raw_values\":[[\"2\",2],[\"0\",1],[\"0.5\",1],[\"-1\",1]],\"observed_min\":\"-1\",\"observed_max\":\"2\"},{\"column\":\"QTY\",\"logical_type\":\"number\",\"rows\":7,\"missing\":1,\"distinct\":6,\"unit\":{\"name\":\"items\",\"status\":\"verified\"},\"description\":\"Controlled metadata, no operational meaning.\",\"observed_raw_values\":[[\"1\",1],[\"2\",1],[\"3\",1],[\"4\",1],[\"5\",1]],\"observed_min\":\"0\",\"observed_max\":\"5\"},{\"column\":\"CLASS\",\"logical_type\":\"string\",\"rows\":7,\"missing\":1,\"distinct\":3,\"unit\":{\"name\":null,\"status\":\"unknown\"},\"description\":\"Controlled metadata, no operational meaning.\",\"observed_raw_values\":[[\"raw_a\",3],[\"raw_b\",2],[\"raw_c\",1]]}]},\"observed_extrema_not_proven_bounds\":true,\"full_source_pins\":[{\"table\":\"CASE_HDR\",\"sha256\":\"1ff947d540c7db2b34d9f0b0d2a1b6260656d1c04d5c7bf297a115383728b9b3\",\"bytes\":57},{\"table\":\"CASE_LOG\",\"sha256\":\"2df1eba81e5fda016254246442a126b56b0ffe625946806fba7716060da68766\",\"bytes\":190}],\"coverage\":[{\"table\":\"CASE_HDR\",\"column\":\"ROW_ID\",\"detailed_observation\":false},{\"table\":\"CASE_HDR\",\"column\":\"REGION\",\"detailed_observation\":false},{\"table\":\"CASE_HDR\",\"column\":\"LINK_CODE\",\"detailed_observation\":false},{\"table\":\"CASE_LOG\",\"column\":\"ROW_ID\",\"detailed_observation\":true},{\"table\":\"CASE_LOG\",\"column\":\"REGION\",\"detailed_observation\":true},{\"table\":\"CASE_LOG\",\"column\":\"LINK_CODE\",\"detailed_observation\":true},{\"table\":\"CASE_LOG\",\"column\":\"A\",\"detailed_observation\":true},{\"table\":\"CASE_LOG\",\"column\":\"B\",\"detailed_observation\":true},{\"table\":\"CASE_LOG\",\"column\":\"QTY\",\"detailed_observation\":true},{\"table\":\"CASE_LOG\",\"column\":\"CLASS\",\"detailed_observation\":true}],\"full_profile_sha\":\"59dcd6c9841c4bd448fd9730af45d67f1143c7753b5592e87f43029af047554a\",\"selection_policy\":\"Full schema/type/unit/relation inventory and rows/missing/distinct for every column; detailed values for public output table and required operands. Full profile is archived; no row sampling or token truncation.\"},\"source\":{\"source_version\":\"a317bc6e578b38c0d55ce0cf75d58476fee5e277599e67d1e67e5feab2d7d28a\",\"manifest_sha\":\"2b7b09542beb91d5ce5f3311e24de2962dbbb34fe04f38be42570378bc2c80df\",\"data_class\":\"controlled\",\"period\":{\"controlled_domain\":\"No operational dates\"}},\"confirmed_constraints\":[{\"id\":\"ddl_controlled_log_row_id\",\"kind\":\"ddl_not_null\",\"table\":\"CASE_LOG\",\"column\":\"ROW_ID\",\"confirmation\":\"controlled_contract\",\"statement\":\"Controlled schema declaration: CASE_LOG.ROW_ID NOT NULL. This is not operational DDL.\"}],\"confirmed_authority\":[{\"id\":\"unit_CASE_LOG_A\",\"table\":\"CASE_LOG\",\"column\":\"A\",\"kind\":\"unit\",\"confirmation\":\"controlled_contract\",\"value\":{\"name\":\"coordinate_unit\",\"meaning\":\"Controlled signed numerical coordinate, not a business counter.\"}},{\"id\":\"unit_CASE_LOG_B\",\"table\":\"CASE_LOG\",\"column\":\"B\",\"kind\":\"unit\",\"confirmation\":\"controlled_contract\",\"value\":{\"name\":\"coordinate_unit\",\"meaning\":\"Controlled signed numerical coordinate, not a business counter.\"}}],\"unknown\":[\"No incident labels, mandatory-parent contract, or online availability.\"],\"guarded_conditional_contract\":{\"version\":\"guarded-conditional1.1-null-branches\",\"AST\":{\"op\":\"if\",\"args\":[\"Boolean condition\",\"value if true\",\"value if false\"]},\"condition\":\"Boolean; unavailable condition yields unavailable, never the false branch\",\"branches\":\"Both branches validated statically; same type/unit and output row, literal scalar broadcast only. At runtime evaluate only the chosen branch.\",\"result\":\"Chosen branch value, including unavailable; no exception-to-null conversion\",\"legacy\":\"All old operators and old definition hashes retain their original policy. Only plans containing if add conditional_extension to identity.\",\"errors\":\"Invalid source/type/unit/relationship rejected before execution, even if branch not selected. Runtime exceptions in the chosen branch propagate.\",\"no_AST_rewrite\":true},\"result_view_contract\":{\"version\":\"result-view1.0\",\"value\":\"Use expression value, preserving unavailable.\",\"unavailable\":\"Complete Boolean: true when expression result unavailable, false when it is available, including numeric0 and Booleanfalse.\",\"unavailable_or_zero\":\"Complete Boolean for numeric expression: true if unavailable or known0, false for a known nonzero value.\",\"scope\":\"All views apply only to retained output rows; invalid sources/types/software failures are errors. Explicit null branch adopts only the other concrete branch type/unit.\"},\"supported_operators_from_schema\":true,\"existing_definitions_for_dedup_only\":[]}"
+    }
+  ],
+  "messages_sha": "10b20ab8752ab09f50c0f56cabbb182dd0431dc5cf5760a066a0299ec61fb9d2",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "schema": {
+        "const": "feature5.2"
+      },
+      "candidates": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "proposal_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 40
+            },
+            "plan": {
+              "type": "object",
+              "properties": {
+                "expression": {
+                  "$ref": "#/$defs/expression"
+                },
+                "grain": {
+                  "type": "object",
+                  "properties": {
+                    "table": {
+                      "const": "CASE_LOG"
+                    },
+                    "keys": {
+                      "const": [
+                        "ROW_ID"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "table",
+                    "keys"
+                  ],
+                  "additionalProperties": false
+                },
+                "population": {
+                  "type": "object",
+                  "properties": {
+                    "table": {
+                      "const": "CASE_LOG"
+                    },
+                    "filter": {
+                      "anyOf": [
+                        {
+                          "$ref": "#/$defs/expression"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "table",
+                    "filter"
+                  ],
+                  "additionalProperties": false
+                },
+                "group_by": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "table": {
+                        "type": "string"
+                      },
+                      "column": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "table",
+                      "column"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "maxItems": 4
+                },
+                "result_use": {
+                  "enum": [
+                    "value",
+                    "unavailable",
+                    "unavailable_or_zero"
+                  ]
+                }
+              },
+              "required": [
+                "expression",
+                "grain",
+                "population",
+                "group_by",
+                "result_use"
+              ],
+              "additionalProperties": false
+            },
+            "purpose": {
+              "type": "string",
+              "maxLength": 200,
+              "minLength": 1
+            },
+            "meaning": {
+              "type": "string",
+              "maxLength": 320,
+              "minLength": 1
+            },
+            "needed_evidence": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "maxItems": 8
+            }
+          },
+          "required": [
+            "proposal_id",
+            "purpose",
+            "meaning",
+            "plan",
+            "needed_evidence"
+          ],
+          "additionalProperties": false
+        },
+        "maxItems": 1
+      },
+      "stop_reason": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "maxLength": 320
+      }
+    },
+    "required": [
+      "schema",
+      "candidates",
+      "stop_reason"
+    ],
+    "additionalProperties": false,
+    "$defs": {
+      "expression": {
+        "$ref": "#/$defs/expr_1"
+      },
+      "expr_0": {
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "op": {
+                "const": "column"
+              },
+              "table": {
+                "const": "CASE_HDR"
+              },
+              "column": {
+                "enum": [
+                  "ROW_ID",
+                  "REGION",
+                  "LINK_CODE"
+                ]
+              }
+            },
+            "required": [
+              "op",
+              "table",
+              "column"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": {
+                "const": "literal"
+              },
+              "value": {
+                "type": [
+                  "string",
+                  "number",
+                  "boolean",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "op",
+              "value"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": {
+                "const": "is_missing"
+              },
+              "args": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/expr_0"
+                },
+                "minItems": 1,
+                "maxItems": 1
+              }
+            },
+            "required": [
+              "op",
+              "args"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": {
+                "const": "child_count"
+              },
+              "relationship_id": {
+                "const": "declared_log_header"
+              }
+            },
+            "required": [
+              "op",
+              "relationship_id"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": {
+                "const": "conditional_count"
+              },
+              "relationship_id": {
+                "const": "declared_log_header"
+              },
+              "where": {
+                "$ref": "#/$defs/expr_1"
+              }
+            },
+            "required": [
+              "op",
+              "relationship_id",
+              "where"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": {
+                "const": "child_sum"
+              },
+              "relationship_id": {
+                "const": "declared_log_header"
+              },
+              "value": {
+                "$ref": "#/$defs/expr_1"
+              },
+              "where": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/expr_1"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "op",
+              "relationship_id",
+              "value",
+              "where"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": {
+                "const": "group_count"
+              },
+              "keys": {
+                "type": "array",
+                "items": {
+                  "enum": [
+                    "ROW_ID",
+                    "REGION",
+                    "LINK_CODE"
+                  ]
+                },
+                "minItems": 1,
+                "maxItems": 4
+              },
+              "where": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/expr_0"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "op",
+              "keys",
+              "where"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": {
+                "const": "datetime_diff"
+              },
+              "args": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/expr_0"
+                },
+                "minItems": 2,
+                "maxItems": 2
+              },
+              "unit": {
+                "enum": [
+                  "ms",
+                  "s",
+                  "us"
+                ]
+              }
+            },
+            "required": [
+              "op",
+              "args",
+              "unit"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": {
+                "const": "convert_unit"
+              },
+              "args": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/expr_0"
+                },
+                "minItems": 1,
+                "maxItems": 1
+              },
+              "from_unit": {
+                "enum": [
+                  "ms",
+                  "s",
+                  "us"
+                ]
+              },
+              "to_unit": {
+                "enum": [
+                  "ms",
+                  "s",
+                  "us"
+                ]
+              }
+            },
+            "required": [
+              "op",
+              "args",
+              "from_unit",
+              "to_unit"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": {
+                "const": "subtract"
+              },
+              "args": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/expr_0"
+                },
+                "minItems": 2,
+                "maxItems": 2
+              }
+            },
+            "required": [
+              "op",
+              "args"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": {
+                "const": "divide"
+              },
+              "args": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/expr_0"
+                },
+                "minItems": 2,
+                "maxItems": 2
+              }
+            },
+            "required": [
+              "op",
+              "args"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": {
+                "const": "eq"
+              },
+              "args": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/expr_0"
+                },
+                "minItems": 2,
+                "maxItems": 2
+              }
+            },
+            "required": [
+              "op",
+              "args"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": {
+                "const": "lt"
+              },
+              "args": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/expr_0"
+                },
+                "minItems": 2,
+                "maxItems": 2
+              }
+            },
+            "required": [
+              "op",
+              "args"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": {
+                "const": "lte"
+              },
+              "args": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/expr_0"
+                },
+                "minItems": 2,
+                "maxItems": 2
+              }
+            },
+            "required": [
+              "op",
+              "args"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": {
+                "const": "gt"
+              },
+              "args": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/expr_0"
+                },
+                "minItems": 2,
+                "maxItems": 2
+              }
+            },
+            "required": [
+              "op",
+              "args"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": {
+                "const": "gte"
+              },
+              "args": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/expr_0"
+                },
+                "minItems": 2,
+                "maxItems": 2
+              }
+            },
+            "required": [
+              "op",
+              "args"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": {
+                "const": "and"
+              },
+              "args": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/expr_0"
+                },
+                "minItems": 2,
+                "maxItems": 2
+              }
+            },
+            "required": [
+              "op",
+              "args"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": {
+                "const": "not"
+              },
+              "args": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/expr_0"
+                },
+                "minItems": 1,
+                "maxItems": 1
+              }
+            },
+            "required": [
+              "op",
+              "args"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": {
+                "const": "or"
+              },
+              "args": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/expr_0"
+                },
+                "minItems": 2,
+                "maxItems": 2
+              }
+            },
+            "required": [
+              "op",
+              "args"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": {
+                "const": "in"
+              },
+              "args": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/expr_0"
+                },
+                "minItems": 1,
+                "maxItems": 1
+              },
+              "values": {
+                "anyOf": [
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "minItems": 1,
+                    "maxItems": 32,
+                    "uniqueItems": true
+                  },
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "number"
+                    },
+                    "minItems": 1,
+                    "maxItems": 32,
+                    "uniqueItems": true
+                  },
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "boolean"
+                    },
+                    "minItems": 1,
+                    "maxItems": 32,
+                    "uniqueItems": true
+                  }
+                ]
+              }
+            },
+            "required": [
+              "op",
+              "args",
+              "values"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": {
+                "const": "not_in"
+              },
+              "args": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/expr_0"
+                },
+                "minItems": 1,
+                "maxItems": 1
+              },
+              "values": {
+                "anyOf": [
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "minItems": 1,
+                    "maxItems": 32,
+                    "uniqueItems": true
+                  },
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "number"
+                    },
+                    "minItems": 1,
+                    "maxItems": 32,
+                    "uniqueItems": true
+                  },
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "boolean"
+                    },
+                    "minItems": 1,
+                    "maxItems": 32,
+                    "uniqueItems": true
+                  }
+                ]
+              }
+            },
+            "required": [
+              "op",
+              "args",
+              "values"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": {
+                "const": "if"
+              },
+              "args": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/expr_0"
+                },
+                "minItems": 3,
+                "maxItems": 3
+              }
+            },
+            "required": [
+              "op",
+              "args"
+            ],
+            "additionalProperties": false
+          }
+        ]
+      },
+      "expr_1": {
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "op": {
+                "const": "column"
+              },
+              "table": {
+                "const": "CASE_LOG"
+              },
+              "column": {
+                "enum": [
+                  "ROW_ID",
+                  "REGION",
+                  "LINK_CODE",
+                  "A",
+                  "B",
+                  "QTY",
+                  "CLASS"
+                ]
+              }
+            },
+            "required": [
+              "op",
+              "table",
+              "column"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": {
+                "const": "literal"
+              },
+              "value": {
+                "type": [
+                  "string",
+                  "number",
+                  "boolean",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "op",
+              "value"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": {
+                "const": "is_missing"
+              },
+              "args": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/expr_1"
+                },
+                "minItems": 1,
+                "maxItems": 1
+              }
+            },
+            "required": [
+              "op",
+              "args"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": {
+                "const": "parent_match_count"
+              },
+              "relationship_id": {
+                "const": "declared_log_header"
+              }
+            },
+            "required": [
+              "op",
+              "relationship_id"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": {
+                "const": "group_count"
+              },
+              "keys": {
+                "type": "array",
+                "items": {
+                  "enum": [
+                    "ROW_ID",
+                    "REGION",
+                    "LINK_CODE",
+                    "A",
+                    "B",
+                    "QTY",
+                    "CLASS"
+                  ]
+                },
+                "minItems": 1,
+                "maxItems": 4
+              },
+              "where": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/expr_1"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "op",
+              "keys",
+              "where"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": {
+                "const": "datetime_diff"
+              },
+              "args": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/expr_1"
+                },
+                "minItems": 2,
+                "maxItems": 2
+              },
+              "unit": {
+                "enum": [
+                  "ms",
+                  "s",
+                  "us"
+                ]
+              }
+            },
+            "required": [
+              "op",
+              "args",
+              "unit"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": {
+                "const": "convert_unit"
+              },
+              "args": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/expr_1"
+                },
+                "minItems": 1,
+                "maxItems": 1
+              },
+              "from_unit": {
+                "enum": [
+                  "ms",
+                  "s",
+                  "us"
+                ]
+              },
+              "to_unit": {
+                "enum": [
+                  "ms",
+                  "s",
+                  "us"
+                ]
+              }
+            },
+            "required": [
+              "op",
+              "args",
+              "from_unit",
+              "to_unit"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": {
+                "const": "subtract"
+              },
+              "args": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/expr_1"
+                },
+                "minItems": 2,
+                "maxItems": 2
+              }
+            },
+            "required": [
+              "op",
+              "args"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": {
+                "const": "divide"
+              },
+              "args": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/expr_1"
+                },
+                "minItems": 2,
+                "maxItems": 2
+              }
+            },
+            "required": [
+              "op",
+              "args"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": {
+                "const": "eq"
+              },
+              "args": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/expr_1"
+                },
+                "minItems": 2,
+                "maxItems": 2
+              }
+            },
+            "required": [
+              "op",
+              "args"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": {
+                "const": "lt"
+              },
+              "args": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/expr_1"
+                },
+                "minItems": 2,
+                "maxItems": 2
+              }
+            },
+            "required": [
+              "op",
+              "args"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": {
+                "const": "lte"
+              },
+              "args": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/expr_1"
+                },
+                "minItems": 2,
+                "maxItems": 2
+              }
+            },
+            "required": [
+              "op",
+              "args"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": {
+                "const": "gt"
+              },
+              "args": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/expr_1"
+                },
+                "minItems": 2,
+                "maxItems": 2
+              }
+            },
+            "required": [
+              "op",
+              "args"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": {
+                "const": "gte"
+              },
+              "args": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/expr_1"
+                },
+                "minItems": 2,
+                "maxItems": 2
+              }
+            },
+            "required": [
+              "op",
+              "args"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": {
+                "const": "and"
+              },
+              "args": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/expr_1"
+                },
+                "minItems": 2,
+                "maxItems": 2
+              }
+            },
+            "required": [
+              "op",
+              "args"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": {
+                "const": "not"
+              },
+              "args": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/expr_1"
+                },
+                "minItems": 1,
+                "maxItems": 1
+              }
+            },
+            "required": [
+              "op",
+              "args"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": {
+                "const": "or"
+              },
+              "args": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/expr_1"
+                },
+                "minItems": 2,
+                "maxItems": 2
+              }
+            },
+            "required": [
+              "op",
+              "args"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": {
+                "const": "in"
+              },
+              "args": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/expr_1"
+                },
+                "minItems": 1,
+                "maxItems": 1
+              },
+              "values": {
+                "anyOf": [
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "minItems": 1,
+                    "maxItems": 32,
+                    "uniqueItems": true
+                  },
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "number"
+                    },
+                    "minItems": 1,
+                    "maxItems": 32,
+                    "uniqueItems": true
+                  },
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "boolean"
+                    },
+                    "minItems": 1,
+                    "maxItems": 32,
+                    "uniqueItems": true
+                  }
+                ]
+              }
+            },
+            "required": [
+              "op",
+              "args",
+              "values"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": {
+                "const": "not_in"
+              },
+              "args": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/expr_1"
+                },
+                "minItems": 1,
+                "maxItems": 1
+              },
+              "values": {
+                "anyOf": [
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "minItems": 1,
+                    "maxItems": 32,
+                    "uniqueItems": true
+                  },
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "number"
+                    },
+                    "minItems": 1,
+                    "maxItems": 32,
+                    "uniqueItems": true
+                  },
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "boolean"
+                    },
+                    "minItems": 1,
+                    "maxItems": 32,
+                    "uniqueItems": true
+                  }
+                ]
+              }
+            },
+            "required": [
+              "op",
+              "args",
+              "values"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": {
+                "const": "if"
+              },
+              "args": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/expr_1"
+                },
+                "minItems": 3,
+                "maxItems": 3
+              }
+            },
+            "required": [
+              "op",
+              "args"
+            ],
+            "additionalProperties": false
+          }
+        ]
+      }
+    }
+  },
+  "tokens": {
+    "input_tokens": 2850,
+    "input_token_sha": "a5c5159a0f5014e11540807c6297e0243a6c2c6d14d2fdd2054ef92032822d5a",
+    "output_reserved": 1536,
+    "repair_reserved": 3072,
+    "truncated": false,
+    "schema_sha": "005a3d9d204a6e098a601368ab359b9604de18358ec98aaf28d532a646b31507",
+    "chat_template_sha": "5c5c2567af60e8b6a5cb02dcdcb19775bbe046ee909fca1a04beed873078be7c"
+  },
+  "budget": {
+    "sequence": 1,
+    "kind": "feature",
+    "call": "feature_0",
+    "phase": "frozen_final_final_public_delivery_ratio_unavailable",
+    "at": 1793097329.4955988,
+    "failed_or_interrupted_calls_consume_budget": true,
+    "shared_sequence": 94
+  }
+}

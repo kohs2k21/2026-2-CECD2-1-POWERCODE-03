@@ -1,0 +1,20 @@
+{
+  "question": "Compute A/B per CASE_LOG row and inspect its result availability. Return a complete Boolean true for unavailable, false for an available numerical result including0. Use the explicit result view.",
+  "analysis_request": {
+    "output_table": "CASE_LOG",
+    "result_use": "unavailable",
+    "calculation_type": "number",
+    "required_columns": [
+      [
+        "CASE_LOG",
+        "A"
+      ],
+      [
+        "CASE_LOG",
+        "B"
+      ]
+    ],
+    "required_relationship_ids": [],
+    "complete_boolean": true
+  }
+}

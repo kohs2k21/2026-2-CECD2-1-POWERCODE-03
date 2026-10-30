@@ -1,0 +1,725 @@
+{
+  "type": "object",
+  "properties": {
+    "schema": {
+      "const": "feature5.1"
+    },
+    "candidates": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "proposal_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 40
+          },
+          "plan": {
+            "type": "object",
+            "properties": {
+              "expression": {
+                "$ref": "#/$defs/expression"
+              },
+              "grain": {
+                "type": "object",
+                "properties": {
+                  "table": {
+                    "type": "string"
+                  },
+                  "keys": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "minItems": 1,
+                    "maxItems": 4
+                  }
+                },
+                "required": [
+                  "table",
+                  "keys"
+                ],
+                "additionalProperties": false
+              },
+              "population": {
+                "type": "object",
+                "properties": {
+                  "table": {
+                    "type": "string"
+                  },
+                  "filter": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/expression"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "table",
+                  "filter"
+                ],
+                "additionalProperties": false
+              },
+              "group_by": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "table": {
+                      "type": "string"
+                    },
+                    "column": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "table",
+                    "column"
+                  ],
+                  "additionalProperties": false
+                },
+                "maxItems": 4
+              }
+            },
+            "required": [
+              "expression",
+              "grain",
+              "population",
+              "group_by"
+            ],
+            "additionalProperties": false
+          },
+          "purpose": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1
+          },
+          "meaning": {
+            "type": "string",
+            "maxLength": 320,
+            "minLength": 1
+          },
+          "needed_evidence": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 8
+          }
+        },
+        "required": [
+          "proposal_id",
+          "purpose",
+          "meaning",
+          "plan",
+          "needed_evidence"
+        ],
+        "additionalProperties": false
+      },
+      "maxItems": 1
+    },
+    "stop_reason": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 320
+    }
+  },
+  "required": [
+    "schema",
+    "candidates",
+    "stop_reason"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "expression": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "op": {
+              "const": "column"
+            },
+            "table": {
+              "type": "string"
+            },
+            "column": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "op",
+            "table",
+            "column"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op": {
+              "const": "literal"
+            },
+            "value": {
+              "type": [
+                "string",
+                "number",
+                "boolean",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "op",
+            "value"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op": {
+              "const": "is_missing"
+            },
+            "args": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/expression"
+              },
+              "minItems": 1,
+              "maxItems": 1
+            }
+          },
+          "required": [
+            "op",
+            "args"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op": {
+              "const": "child_count"
+            },
+            "relationship_id": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "op",
+            "relationship_id"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op": {
+              "const": "parent_match_count"
+            },
+            "relationship_id": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "op",
+            "relationship_id"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op": {
+              "const": "conditional_count"
+            },
+            "relationship_id": {
+              "type": "string"
+            },
+            "where": {
+              "$ref": "#/$defs/expression"
+            }
+          },
+          "required": [
+            "op",
+            "relationship_id",
+            "where"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op": {
+              "const": "child_sum"
+            },
+            "relationship_id": {
+              "type": "string"
+            },
+            "value": {
+              "$ref": "#/$defs/expression"
+            },
+            "where": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/expression"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "op",
+            "relationship_id",
+            "value",
+            "where"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op": {
+              "const": "group_count"
+            },
+            "keys": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "minItems": 1,
+              "maxItems": 4
+            },
+            "where": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/expression"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "op",
+            "keys",
+            "where"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op": {
+              "const": "datetime_diff"
+            },
+            "args": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/expression"
+              },
+              "minItems": 2,
+              "maxItems": 2
+            },
+            "unit": {
+              "enum": [
+                "ms",
+                "s",
+                "us"
+              ]
+            }
+          },
+          "required": [
+            "op",
+            "args",
+            "unit"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op": {
+              "const": "convert_unit"
+            },
+            "args": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/expression"
+              },
+              "minItems": 1,
+              "maxItems": 1
+            },
+            "from_unit": {
+              "enum": [
+                "ms",
+                "s",
+                "us"
+              ]
+            },
+            "to_unit": {
+              "enum": [
+                "ms",
+                "s",
+                "us"
+              ]
+            }
+          },
+          "required": [
+            "op",
+            "args",
+            "from_unit",
+            "to_unit"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op": {
+              "const": "subtract"
+            },
+            "args": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/expression"
+              },
+              "minItems": 2,
+              "maxItems": 2
+            }
+          },
+          "required": [
+            "op",
+            "args"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op": {
+              "const": "divide"
+            },
+            "args": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/expression"
+              },
+              "minItems": 2,
+              "maxItems": 2
+            }
+          },
+          "required": [
+            "op",
+            "args"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op": {
+              "const": "eq"
+            },
+            "args": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/expression"
+              },
+              "minItems": 2,
+              "maxItems": 2
+            }
+          },
+          "required": [
+            "op",
+            "args"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op": {
+              "const": "lt"
+            },
+            "args": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/expression"
+              },
+              "minItems": 2,
+              "maxItems": 2
+            }
+          },
+          "required": [
+            "op",
+            "args"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op": {
+              "const": "lte"
+            },
+            "args": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/expression"
+              },
+              "minItems": 2,
+              "maxItems": 2
+            }
+          },
+          "required": [
+            "op",
+            "args"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op": {
+              "const": "gt"
+            },
+            "args": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/expression"
+              },
+              "minItems": 2,
+              "maxItems": 2
+            }
+          },
+          "required": [
+            "op",
+            "args"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op": {
+              "const": "gte"
+            },
+            "args": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/expression"
+              },
+              "minItems": 2,
+              "maxItems": 2
+            }
+          },
+          "required": [
+            "op",
+            "args"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op": {
+              "const": "and"
+            },
+            "args": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/expression"
+              },
+              "minItems": 2,
+              "maxItems": 2
+            }
+          },
+          "required": [
+            "op",
+            "args"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op": {
+              "const": "not"
+            },
+            "args": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/expression"
+              },
+              "minItems": 1,
+              "maxItems": 1
+            }
+          },
+          "required": [
+            "op",
+            "args"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op": {
+              "const": "or"
+            },
+            "args": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/expression"
+              },
+              "minItems": 2,
+              "maxItems": 2
+            }
+          },
+          "required": [
+            "op",
+            "args"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op": {
+              "const": "in"
+            },
+            "args": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/expression"
+              },
+              "minItems": 1,
+              "maxItems": 1
+            },
+            "values": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "minItems": 1,
+                  "maxItems": 32,
+                  "uniqueItems": true
+                },
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "number"
+                  },
+                  "minItems": 1,
+                  "maxItems": 32,
+                  "uniqueItems": true
+                },
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "boolean"
+                  },
+                  "minItems": 1,
+                  "maxItems": 32,
+                  "uniqueItems": true
+                }
+              ]
+            }
+          },
+          "required": [
+            "op",
+            "args",
+            "values"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op": {
+              "const": "not_in"
+            },
+            "args": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/expression"
+              },
+              "minItems": 1,
+              "maxItems": 1
+            },
+            "values": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "minItems": 1,
+                  "maxItems": 32,
+                  "uniqueItems": true
+                },
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "number"
+                  },
+                  "minItems": 1,
+                  "maxItems": 32,
+                  "uniqueItems": true
+                },
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "boolean"
+                  },
+                  "minItems": 1,
+                  "maxItems": 32,
+                  "uniqueItems": true
+                }
+              ]
+            }
+          },
+          "required": [
+            "op",
+            "args",
+            "values"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op": {
+              "const": "if"
+            },
+            "args": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/expression"
+              },
+              "minItems": 3,
+              "maxItems": 3
+            }
+          },
+          "required": [
+            "op",
+            "args"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    }
+  }
+}

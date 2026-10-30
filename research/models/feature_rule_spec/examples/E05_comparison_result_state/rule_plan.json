@@ -1,0 +1,10 @@
+{
+  "requests": [
+    "observed"
+  ],
+  "question": "Assess the exact true calculated Boolean event as a metadata diagnostic; no incident or mandatory business relationship meaning.",
+  "observed_condition": {
+    "op": "eq",
+    "value": true
+  }
+}

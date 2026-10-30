@@ -1,0 +1,29 @@
+{
+  "feature_id": "fd_40505a4d9e830b70f61fdcbd",
+  "definition_sha": "1f523c56c914ac1b959a41c0b6c57ba2398ac0374d3eec2463286660a7b7e87c",
+  "source_version": "c7fdeaacb68ac6ef68b01f651707e6aad95f42e6bc0726106a38f1cd49077ea1",
+  "row_keys": [
+    "TRACE_ROW"
+  ],
+  "source_row_keys": [
+    [
+      "h1"
+    ],
+    [
+      "h2"
+    ],
+    [
+      "h3"
+    ],
+    [
+      "h4"
+    ]
+  ],
+  "values": [
+    false,
+    true,
+    true,
+    true
+  ],
+  "measurement_sha": "035bacbf2931f7a8db07f99da04dabf6fbea350607cf949c007e3b6117ccd3d2"
+}

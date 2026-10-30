@@ -1,0 +1,17 @@
+{
+  "Feature_status": "no_candidate_review",
+  "Rule_status": "not_run",
+  "definition_proposed_and_validated": false,
+  "definition_kind": null,
+  "selected_rows": null,
+  "valid_observations": null,
+  "positive_feature_generated": false,
+  "rules": 0,
+  "by_role": {
+    "HR": 0,
+    "observed_SR": 0,
+    "baseline_SR": 0
+  },
+  "pending": 0,
+  "no_candidate_is_not_positive_generation": true
+}

@@ -1,0 +1,145 @@
+{
+  "contract": "approved-metadata-capture1.0",
+  "dataset_id": "final_confirmation_E01_count_ratio_state",
+  "data_class": "controlled",
+  "split": "application",
+  "period": {
+    "controlled_domain": "Artificial rows; no operational dates"
+  },
+  "admission": {
+    "approved": true,
+    "Body_excluded": true,
+    "held_lineage_excluded": true,
+    "complete_family_capture": true
+  },
+  "lineage_tags": [
+    "controlled_not_operational"
+  ],
+  "tables": [
+    {
+      "name": "PARENT_SAMPLE",
+      "file": "PARENT_SAMPLE.csv",
+      "format": "csv",
+      "sha256": "2d02dee6d5932965cfa98b16b3d762688a0eb6d7031c9096300ba52f9ce72c2a",
+      "row_count": 4,
+      "primary_key": [
+        "PARENT_ROW"
+      ],
+      "columns": [
+        {
+          "name": "PARENT_ROW",
+          "logical_type": "string",
+          "nullable": false,
+          "excluded": false,
+          "unit": {
+            "name": null,
+            "status": "unknown"
+          },
+          "missing_tokens": [
+            ""
+          ]
+        },
+        {
+          "name": "JOIN_CODE",
+          "logical_type": "string",
+          "nullable": true,
+          "excluded": false,
+          "unit": {
+            "name": null,
+            "status": "unknown"
+          },
+          "missing_tokens": [
+            ""
+          ]
+        }
+      ]
+    },
+    {
+      "name": "CHILD_EVENT",
+      "file": "CHILD_EVENT.csv",
+      "format": "csv",
+      "sha256": "adeeabbb8207f859bd833efbfc0df103d4350944fa90637f13316cf2fdc26ceb",
+      "row_count": 4,
+      "primary_key": [
+        "CHILD_ROW"
+      ],
+      "columns": [
+        {
+          "name": "CHILD_ROW",
+          "logical_type": "string",
+          "nullable": false,
+          "excluded": false,
+          "unit": {
+            "name": null,
+            "status": "unknown"
+          },
+          "missing_tokens": [
+            ""
+          ]
+        },
+        {
+          "name": "OWNER_KEY",
+          "logical_type": "string",
+          "nullable": true,
+          "excluded": false,
+          "unit": {
+            "name": null,
+            "status": "unknown"
+          },
+          "missing_tokens": [
+            ""
+          ]
+        },
+        {
+          "name": "RAW_TAG",
+          "logical_type": "string",
+          "nullable": true,
+          "excluded": false,
+          "unit": {
+            "name": null,
+            "status": "unknown"
+          },
+          "missing_tokens": [
+            ""
+          ]
+        },
+        {
+          "name": "RAW_QTY",
+          "logical_type": "number",
+          "nullable": true,
+          "excluded": false,
+          "unit": {
+            "name": null,
+            "status": "unknown"
+          },
+          "missing_tokens": [
+            ""
+          ]
+        }
+      ]
+    }
+  ],
+  "relationships": [
+    {
+      "id": "sample_event_parent",
+      "from_table": "CHILD_EVENT",
+      "from_columns": [
+        "OWNER_KEY"
+      ],
+      "to_table": "PARENT_SAMPLE",
+      "to_columns": [
+        "JOIN_CODE"
+      ],
+      "no_reference_values": []
+    }
+  ],
+  "evidence": [],
+  "source_identity": {
+    "family": "related_method_new_physical_names",
+    "not_independent_business_or_method": true
+  },
+  "transaction_families": 0,
+  "unknown": [
+    "No mandatory parent, fault label, or online contract."
+  ]
+}

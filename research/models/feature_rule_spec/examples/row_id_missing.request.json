@@ -1,0 +1,13 @@
+{
+  "question": "Per CASE_LOG row diagnose whether raw ROW_ID is missing. This is a source availability screen, not an incident label.",
+  "analysis_request": {
+    "output_table": "CASE_LOG",
+    "required_columns": [
+      [
+        "CASE_LOG",
+        "ROW_ID"
+      ]
+    ],
+    "complete_boolean": true
+  }
+}

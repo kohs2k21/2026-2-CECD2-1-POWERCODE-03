@@ -1,0 +1,17 @@
+{
+  "version": "guarded-conditional1.0",
+  "AST": {
+    "op": "if",
+    "args": [
+      "Boolean condition",
+      "value if true",
+      "value if false"
+    ]
+  },
+  "condition": "Boolean; unavailable condition yields unavailable, never the false branch",
+  "branches": "Both branches validated statically; same type/unit and output row, literal scalar broadcast only. At runtime evaluate only the chosen branch.",
+  "result": "Chosen branch value, including unavailable; no exception-to-null conversion",
+  "legacy": "All old operators and old definition hashes retain their original policy. Only plans containing if add conditional_extension to identity.",
+  "errors": "Invalid source/type/unit/relationship rejected before execution, even if branch not selected. Runtime exceptions in the chosen branch propagate.",
+  "no_AST_rewrite": true
+}

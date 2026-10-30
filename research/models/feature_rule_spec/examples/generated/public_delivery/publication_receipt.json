@@ -1,0 +1,75 @@
+{
+  "origin_batch_manifest_sha": "b7cd2ccb5f10a991fb7f7f0d80c928851bed04ff2f58eb57b6517aebca7f8f93",
+  "cases": [
+    {
+      "case": "child_average",
+      "original_run_manifest_sha": "2be647347f42da1421124e94e1aaa9d8e547019cb2c795589a378967e1f0347c",
+      "removed_server_diagnostics": [],
+      "all_Model_input_output_bytes_unchanged": true,
+      "controlled_only": true,
+      "new_Model_generation_in_publication": 0
+    },
+    {
+      "case": "confirmed_HR",
+      "original_run_manifest_sha": "257fabc8dd40a25c9ab8de4d446bbd946ee3f0c06ff564aee60f2324a606381c",
+      "removed_server_diagnostics": [],
+      "all_Model_input_output_bytes_unchanged": true,
+      "controlled_only": true,
+      "new_Model_generation_in_publication": 0
+    },
+    {
+      "case": "nested_comparison_unavailable",
+      "original_run_manifest_sha": "ae52827f17c0e8057ddd2ab9bf2bc986e2c3b384476656bd36b37f45217cf804",
+      "removed_server_diagnostics": [],
+      "all_Model_input_output_bytes_unchanged": true,
+      "controlled_only": true,
+      "new_Model_generation_in_publication": 0
+    },
+    {
+      "case": "parent_match_state",
+      "original_run_manifest_sha": "06454469c19a11042e134ff92519771e9353b79d7146d9d953d2e5a93b0fe5b1",
+      "removed_server_diagnostics": [],
+      "all_Model_input_output_bytes_unchanged": true,
+      "controlled_only": true,
+      "new_Model_generation_in_publication": 0
+    },
+    {
+      "case": "ratio_unavailable",
+      "original_run_manifest_sha": "19209402dbfb0b0d96b9b06b0c00bf34d02e23e3718e266a280e0a09c00f37cf",
+      "removed_server_diagnostics": [],
+      "all_Model_input_output_bytes_unchanged": true,
+      "controlled_only": true,
+      "new_Model_generation_in_publication": 0
+    },
+    {
+      "case": "ratio_value",
+      "original_run_manifest_sha": "4b38c3b13e05b64b7f0198cfa44944dfbd61e7d724844a0d18f171469264db4b",
+      "removed_server_diagnostics": [
+        {
+          "path": "model/feature_0/GPU_before_load.json",
+          "sha256": "8f390f473c6399d79b0d3704dd3b2246375f45a30ca73d0868c6f24e86f1f461"
+        }
+      ],
+      "all_Model_input_output_bytes_unchanged": true,
+      "controlled_only": true,
+      "new_Model_generation_in_publication": 0
+    },
+    {
+      "case": "relation_set_exclusion",
+      "original_run_manifest_sha": "40ec6069f2db54b099b55554edccb4be24b7d895d13deefe7ac00d6e23bbaee1",
+      "removed_server_diagnostics": [],
+      "all_Model_input_output_bytes_unchanged": true,
+      "controlled_only": true,
+      "new_Model_generation_in_publication": 0
+    },
+    {
+      "case": "unsupported_parent_lookup",
+      "original_run_manifest_sha": "851c799bbd666d3fcc0350eea1380b85d61dd04adbc688a8d7824769dc8f3a78",
+      "removed_server_diagnostics": [],
+      "all_Model_input_output_bytes_unchanged": true,
+      "controlled_only": true,
+      "new_Model_generation_in_publication": 0
+    }
+  ],
+  "purpose": "Omit only server diagnostics, retain exact controlled Model raw data and reissue publication manifests transparently."
+}

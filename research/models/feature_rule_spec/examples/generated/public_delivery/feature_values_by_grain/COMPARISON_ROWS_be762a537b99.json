@@ -1,0 +1,76 @@
+{
+  "source_version": "be762a537b99c8c61c06cf9dadd73e3ba8436a031dda587a47079cc2567ef8b3",
+  "table": "COMPARISON_ROWS",
+  "row_keys": [
+    "ROW_KEY"
+  ],
+  "column_definitions": [
+    {
+      "feature_id": "fd_5e578d65107d15146961096b",
+      "definition_sha": "e273ca8bb5125779b0890179e05335906ba6d598d6ea9459fd19660f8f8ccfad",
+      "population": {
+        "table": "COMPARISON_ROWS",
+        "filter": null
+      },
+      "case": "nested_comparison_unavailable"
+    }
+  ],
+  "rows": [
+    {
+      "source_row_key": [
+        "r0"
+      ],
+      "features": {
+        "fd_5e578d65107d15146961096b": {
+          "state": "value",
+          "value": false
+        }
+      }
+    },
+    {
+      "source_row_key": [
+        "r1"
+      ],
+      "features": {
+        "fd_5e578d65107d15146961096b": {
+          "state": "value",
+          "value": false
+        }
+      }
+    },
+    {
+      "source_row_key": [
+        "r2"
+      ],
+      "features": {
+        "fd_5e578d65107d15146961096b": {
+          "state": "value",
+          "value": true
+        }
+      }
+    },
+    {
+      "source_row_key": [
+        "r3"
+      ],
+      "features": {
+        "fd_5e578d65107d15146961096b": {
+          "state": "value",
+          "value": true
+        }
+      }
+    },
+    {
+      "source_row_key": [
+        "r4"
+      ],
+      "features": {
+        "fd_5e578d65107d15146961096b": {
+          "state": "value",
+          "value": true
+        }
+      }
+    }
+  ],
+  "not_selected_is_not_unavailable_or_false": true
+}

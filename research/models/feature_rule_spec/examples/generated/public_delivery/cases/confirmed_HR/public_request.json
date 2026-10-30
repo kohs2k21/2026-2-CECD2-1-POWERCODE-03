@@ -1,0 +1,15 @@
+{
+  "question": "For each CASE_LOG row, compute whether source A is missing. Preserve valid numeric0; this is a complete Boolean under the artificial declared NOT NULL contract.",
+  "analysis_request": {
+    "output_table": "CASE_LOG",
+    "result_use": "value",
+    "calculation_type": "boolean",
+    "required_columns": [
+      [
+        "CASE_LOG",
+        "A"
+      ]
+    ],
+    "required_relationship_ids": []
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "question": "Compute physical FRAME_REGISTER match count for each HOP_TRACE row. Return true for unavailable or known0, false for known nonzero count. Use the explicit result view, not a parent child-count analysis.",
+  "analysis_request": {
+    "output_table": "HOP_TRACE",
+    "result_use": "unavailable_or_zero",
+    "calculation_type": "number",
+    "required_columns": [],
+    "required_relationship_ids": [
+      "hop_frame_link"
+    ],
+    "complete_boolean": true
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "question": "Per COMPARISON_ROWS row return a complete Boolean indicating whether the comparison of NUM/DEN greater than CUT cannot be evaluated. False means that comparison is evaluable, regardless of whether it evaluates true or false. Keep missing inputs and denominator0 rows.",
+  "analysis_request": {
+    "output_table": "COMPARISON_ROWS",
+    "required_columns": [
+      [
+        "COMPARISON_ROWS",
+        "NUM"
+      ],
+      [
+        "COMPARISON_ROWS",
+        "DEN"
+      ],
+      [
+        "COMPARISON_ROWS",
+        "CUT"
+      ]
+    ],
+    "required_relationship_ids": [],
+    "complete_boolean": true
+  }
+}

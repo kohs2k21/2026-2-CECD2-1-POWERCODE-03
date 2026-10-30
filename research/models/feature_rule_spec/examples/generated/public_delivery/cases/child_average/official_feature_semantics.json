@@ -1,0 +1,148 @@
+{
+  "version": "calculation-facts2.0-guarded-availability",
+  "definition_sha": "a287939334fdde19737438d5fa9d89b4133ab63df73f94aa3472c29f4bda0316",
+  "source_version": "63365b2e2fc31603007544b35c675781cfdd75e95b2e255ce6f69991a85401be",
+  "measurement_id": "m_da5e258cc6fc85c9e48328c8",
+  "measurement_sha": "da5e258cc6fc85c9e48328c87dc173ae21e98e3d3e7dece85b3e7bd6b9f5efca",
+  "output_grain": {
+    "table": "PARENT_SAMPLE",
+    "keys": [
+      "PARENT_ROW"
+    ]
+  },
+  "population": {
+    "table": "PARENT_SAMPLE",
+    "filter": null
+  },
+  "dtype": "number",
+  "unit": null,
+  "operator_contract_possible_states": [
+    "value",
+    "unavailable"
+  ],
+  "operator_state_proof": {
+    "operator": "divide",
+    "unavailable_possible": true,
+    "proof_scope": "Supported operator contract on retained selected rows",
+    "children": [
+      {
+        "operator": "child_sum",
+        "unavailable_possible": true,
+        "proof_scope": "Supported operator contract on retained selected rows",
+        "children": []
+      },
+      {
+        "operator": "child_count",
+        "unavailable_possible": true,
+        "proof_scope": "Supported operator contract on retained selected rows",
+        "children": []
+      }
+    ]
+  },
+  "missing_policy": {
+    "input": "propagate",
+    "empty_group": "zero",
+    "denominator_zero": "missing",
+    "child_missing": "propagate",
+    "unknown_predicate": "defer"
+  },
+  "current": {
+    "selected_rows": 4,
+    "population_rows_before_selection": 4,
+    "selection_unavailable": 0,
+    "numeric_or_boolean_nonnull": 1,
+    "result_unavailable": 3,
+    "true": null,
+    "false": null
+  },
+  "interpretation": {
+    "null_result": "Does not alone identify source null, parsing, join, denominator or fault cause.",
+    "empty_child_group": "Zero only under the aggregate empty-group contract; unknown relationship/filter is different.",
+    "sample_extrema": "Observed min/max are not proven bounds.",
+    "total_missing_test": "is_missing evaluates retained null results to true; it is not an unavailable numerical comparison."
+  },
+  "row_nodes": [
+    {
+      "path": "/plan/expression/args/0/value",
+      "op": "column",
+      "evaluation_table": "CHILD_EVENT",
+      "output_table": "CHILD_EVENT",
+      "row_keys": [
+        "CHILD_ROW"
+      ],
+      "scalar": false,
+      "dtype": "number",
+      "unit": null
+    },
+    {
+      "path": "/plan/expression/args/0",
+      "op": "child_sum",
+      "evaluation_table": "PARENT_SAMPLE",
+      "output_table": "PARENT_SAMPLE",
+      "row_keys": [
+        "PARENT_ROW"
+      ],
+      "scalar": false,
+      "dtype": "number",
+      "unit": null
+    },
+    {
+      "path": "/plan/expression/args/1",
+      "op": "child_count",
+      "evaluation_table": "PARENT_SAMPLE",
+      "output_table": "PARENT_SAMPLE",
+      "row_keys": [
+        "PARENT_ROW"
+      ],
+      "scalar": false,
+      "dtype": "integer",
+      "unit": "count"
+    },
+    {
+      "path": "/plan/expression",
+      "op": "divide",
+      "evaluation_table": "PARENT_SAMPLE",
+      "output_table": "PARENT_SAMPLE",
+      "row_keys": [
+        "PARENT_ROW"
+      ],
+      "scalar": false,
+      "dtype": "number",
+      "unit": null
+    }
+  ],
+  "sha256": "d2a79956e7f804cb346d84e065a2c1123b043b806a8685de5cf710a8f9382b02",
+  "author": "compiler",
+  "contract": "official-computation-facts1.0",
+  "not_AI_generated": true,
+  "expression": {
+    "op": "divide",
+    "args": [
+      {
+        "op": "child_sum",
+        "relationship_id": "sample_event_parent",
+        "value": {
+          "op": "column",
+          "table": "CHILD_EVENT",
+          "column": "RAW_QTY"
+        },
+        "where": null
+      },
+      {
+        "op": "child_count",
+        "relationship_id": "sample_event_parent"
+      }
+    ]
+  },
+  "selected_result_use": "value",
+  "output_excludes_filtered_rows": true,
+  "exceptions": "Invalid sources/types/execution failures are errors, not unavailable values.",
+  "complete_natural_language_proof": false,
+  "known_empty_child_group": {
+    "result": null,
+    "result_state": "unavailable",
+    "hypothetical_not_measured_count": true,
+    "assumption": "Admitted output row, nonmissing parent keys, complete known-empty linked child set. Each child count/sum is0; the full expression may differ."
+  },
+  "facts_sha": "b5b00627448f7a583b4d720be4766428494e08d81ca6a614ed824604172d47c5"
+}

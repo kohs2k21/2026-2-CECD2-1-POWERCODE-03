@@ -1,0 +1,9 @@
+{
+  "requests": [
+    "observed"
+  ],
+  "question": "Only assess a supported calculated value. Do not substitute another analysis.",
+  "observed_condition": {
+    "op": "is_missing"
+  }
+}

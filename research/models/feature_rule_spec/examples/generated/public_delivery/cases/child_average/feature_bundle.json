@@ -1,0 +1,678 @@
+{
+  "status": "feature_verified",
+  "preserved_seed_prediction": null,
+  "seed_source_pin": null,
+  "origin": "actual_Model_response",
+  "proposal": {
+    "proposal_id": "local",
+    "plan": {
+      "expression": {
+        "op": "divide",
+        "args": [
+          {
+            "op": "child_sum",
+            "relationship_id": "sample_event_parent",
+            "value": {
+              "op": "column",
+              "table": "CHILD_EVENT",
+              "column": "RAW_QTY"
+            },
+            "where": null
+          },
+          {
+            "op": "child_count",
+            "relationship_id": "sample_event_parent"
+          }
+        ]
+      },
+      "grain": {
+        "table": "PARENT_SAMPLE",
+        "keys": [
+          "PARENT_ROW"
+        ]
+      },
+      "population": {
+        "table": "PARENT_SAMPLE",
+        "filter": null
+      },
+      "group_by": [],
+      "result_use": "value"
+    },
+    "purpose": "Compute the sum of linked CHILD_EVENT RAW_QTY values divided by the number of linked CHILD_EVENT rows.",
+    "meaning": "For each PARENT_SAMPLE row, compute the sum of linked CHILD_EVENT RAW_QTY values divided by the number of linked CHILD_EVENT rows; an unknown child quantity or unavailable relation yields unavailable, and no child rows means denominator0.",
+    "needed_evidence": []
+  },
+  "compilation": {
+    "passed": true,
+    "errors": [],
+    "compiled_feature": {
+      "Model_plan": {
+        "expression": {
+          "op": "divide",
+          "args": [
+            {
+              "op": "child_sum",
+              "relationship_id": "sample_event_parent",
+              "value": {
+                "op": "column",
+                "table": "CHILD_EVENT",
+                "column": "RAW_QTY"
+              },
+              "where": null
+            },
+            {
+              "op": "child_count",
+              "relationship_id": "sample_event_parent"
+            }
+          ]
+        },
+        "grain": {
+          "table": "PARENT_SAMPLE",
+          "keys": [
+            "PARENT_ROW"
+          ]
+        },
+        "population": {
+          "table": "PARENT_SAMPLE",
+          "filter": null
+        },
+        "group_by": [],
+        "result_use": "value"
+      },
+      "result_view_compilation": {
+        "policy": "result-view1.0",
+        "selected_by": "explicit_plan_field",
+        "result_use": "value",
+        "Model_expression": {
+          "op": "divide",
+          "args": [
+            {
+              "op": "child_sum",
+              "relationship_id": "sample_event_parent",
+              "value": {
+                "op": "column",
+                "table": "CHILD_EVENT",
+                "column": "RAW_QTY"
+              },
+              "where": null
+            },
+            {
+              "op": "child_count",
+              "relationship_id": "sample_event_parent"
+            }
+          ]
+        },
+        "compiled_expression": {
+          "op": "divide",
+          "args": [
+            {
+              "op": "child_sum",
+              "relationship_id": "sample_event_parent",
+              "value": {
+                "op": "column",
+                "table": "CHILD_EVENT",
+                "column": "RAW_QTY"
+              },
+              "where": null
+            },
+            {
+              "op": "child_count",
+              "relationship_id": "sample_event_parent"
+            }
+          ]
+        },
+        "not_intent_repair": true,
+        "meaning": "unavailable tests a computed result; unavailable_or_zero tests a numeric result for unavailable or known zero; filtered-out rows have no output; execution errors are not caught"
+      },
+      "id": "fd_b1978eafbd02d79b5014b908",
+      "definition_sha": "a287939334fdde19737438d5fa9d89b4133ab63df73f94aa3472c29f4bda0316",
+      "semantic_definition_sha": "496aff35a6ab0ad20d4dd6e41304100f5e2ee17b03072bda5b2597c9d263a5dc",
+      "source_version": "63365b2e2fc31603007544b35c675781cfdd75e95b2e255ce6f69991a85401be",
+      "schema_version": "570de75f84deb58d3057ad5a16c48449214483bf7c87d0b320324fa6ff7b7652",
+      "plan": {
+        "id": "local_e9bdec112444225b6ddc34",
+        "description": "(sum of CHILD_EVENT.RAW_QTY through sample_event_parent per parent divided by count of captured child rows through sample_event_parent per parent)",
+        "expression": {
+          "op": "divide",
+          "args": [
+            {
+              "op": "child_sum",
+              "relationship_id": "sample_event_parent",
+              "value": {
+                "op": "column",
+                "table": "CHILD_EVENT",
+                "column": "RAW_QTY"
+              },
+              "where": null
+            },
+            {
+              "op": "child_count",
+              "relationship_id": "sample_event_parent"
+            }
+          ]
+        },
+        "grain": {
+          "table": "PARENT_SAMPLE",
+          "keys": [
+            "PARENT_ROW"
+          ]
+        },
+        "population": {
+          "table": "PARENT_SAMPLE",
+          "filter": null
+        },
+        "group_by": [],
+        "missing_policy": {
+          "input": "propagate",
+          "empty_group": "zero",
+          "denominator_zero": "missing",
+          "child_missing": "propagate",
+          "unknown_predicate": "defer"
+        },
+        "schema_version": "570de75f84deb58d3057ad5a16c48449214483bf7c87d0b320324fa6ff7b7652",
+        "source_version": "63365b2e2fc31603007544b35c675781cfdd75e95b2e255ce6f69991a85401be"
+      },
+      "dtype": "number",
+      "unit": null,
+      "meaning": "For each PARENT_SAMPLE row, compute the sum of linked CHILD_EVENT RAW_QTY values divided by the number of linked CHILD_EVENT rows; an unknown child quantity or unavailable relation yields unavailable, and no child rows means denominator0.",
+      "purpose": "Compute the sum of linked CHILD_EVENT RAW_QTY values divided by the number of linked CHILD_EVENT rows.",
+      "source_columns": [
+        [
+          "CHILD_EVENT",
+          "OWNER_KEY"
+        ],
+        [
+          "CHILD_EVENT",
+          "RAW_QTY"
+        ],
+        [
+          "PARENT_SAMPLE",
+          "JOIN_CODE"
+        ]
+      ],
+      "relationships": [
+        "sample_event_parent"
+      ],
+      "measurement": {
+        "version": "metadata-calculation-3.0.4",
+        "runtime": "full-approved-scope-1.1",
+        "summary_decimal_precision": 50,
+        "definition_status": "valid",
+        "measurement_status": "measured",
+        "definition_sha256": "a287939334fdde19737438d5fa9d89b4133ab63df73f94aa3472c29f4bda0316",
+        "proposal_sha256": "4bd0e5af509f3de63105e904c75759527c0a0a4f4e548aab9a6ab4aaab94fd87",
+        "source_version": "63365b2e2fc31603007544b35c675781cfdd75e95b2e255ce6f69991a85401be",
+        "summary": {
+          "row_count": 4,
+          "valid_count": 1,
+          "missing_count": 3,
+          "true_count": null,
+          "false_count": null,
+          "ratio": null,
+          "numerator": null,
+          "denominator": null,
+          "min": 3,
+          "max": 3,
+          "p95": 3,
+          "p99": 3,
+          "variation": "constant",
+          "quantile_method": "linear_(n-1)*p",
+          "exact_decimal": {
+            "ratio": null,
+            "p95": "3.00",
+            "p99": "3.00"
+          },
+          "population_rows_before_selection": 4,
+          "selection_unavailable_count": 0
+        },
+        "validation": {
+          "passed": true,
+          "definition_status": "valid",
+          "definition_sha256": "a287939334fdde19737438d5fa9d89b4133ab63df73f94aa3472c29f4bda0316",
+          "proposal_sha256": "4bd0e5af509f3de63105e904c75759527c0a0a4f4e548aab9a6ab4aaab94fd87",
+          "inferred_type": "number",
+          "unit": null,
+          "identity": {
+            "schema_version": "570de75f84deb58d3057ad5a16c48449214483bf7c87d0b320324fa6ff7b7652",
+            "missing_policy": {
+              "input": "propagate",
+              "empty_group": "zero",
+              "denominator_zero": "missing",
+              "child_missing": "propagate",
+              "unknown_predicate": "defer"
+            },
+            "population": {
+              "table": "PARENT_SAMPLE",
+              "filter": null
+            },
+            "expression": {
+              "op": "divide",
+              "args": [
+                {
+                  "op": "child_sum",
+                  "relationship_id": "sample_event_parent",
+                  "value": {
+                    "op": "column",
+                    "table": "CHILD_EVENT",
+                    "column": "RAW_QTY"
+                  },
+                  "where": null
+                },
+                {
+                  "op": "child_count",
+                  "relationship_id": "sample_event_parent"
+                }
+              ]
+            },
+            "group_by": [],
+            "source_version": "63365b2e2fc31603007544b35c675781cfdd75e95b2e255ce6f69991a85401be",
+            "grain": {
+              "table": "PARENT_SAMPLE",
+              "keys": [
+                "PARENT_ROW"
+              ]
+            },
+            "calculation_policy": "metadata-calculation-3.0.4",
+            "inferred_type": "number",
+            "unit": null,
+            "source_columns": [
+              [
+                "CHILD_EVENT",
+                "OWNER_KEY"
+              ],
+              [
+                "CHILD_EVENT",
+                "RAW_QTY"
+              ],
+              [
+                "PARENT_SAMPLE",
+                "JOIN_CODE"
+              ]
+            ],
+            "relationships": [
+              "sample_event_parent"
+            ]
+          },
+          "capture_missing": [],
+          "aggregate_relationships": [
+            "sample_event_parent"
+          ],
+          "errors": []
+        },
+        "anomaly_execution": "not_run",
+        "measurement_sha256": "da5e258cc6fc85c9e48328c87dc173ae21e98e3d3e7dece85b3e7bd6b9f5efca"
+      },
+      "measurement_id": "m_da5e258cc6fc85c9e48328c8",
+      "independent_calculation": {
+        "passed": true,
+        "method": "separate recursive lexical evaluator; distinct relation/group indices; exact Decimal50",
+        "values_compared": 4,
+        "selection_unavailable": 0,
+        "vector_sha": "d58c3298b7921cc6a4099514d3571acad191165980e158b3c189e1b3162bc828",
+        "business_truth_label": false
+      },
+      "description_revision": {
+        "sha": "c35732c41d54f595d1a18cb52030fb3d1fb546d180231d9fab08c5ede009225e",
+        "calculation_definition_sha": "a287939334fdde19737438d5fa9d89b4133ab63df73f94aa3472c29f4bda0316",
+        "measurement_sha": "da5e258cc6fc85c9e48328c87dc173ae21e98e3d3e7dece85b3e7bd6b9f5efca",
+        "measurement_reuse_requires": "Same expression/grain/population/group/missing/type/unit/schema/source. This compilation always verifies its own source.",
+        "Model_origin": {
+          "file": "model/feature_0/output.json",
+          "raw_sha": "33bf0c7ad6c2132a66c4aede17c4791c307d4fe540937821b3c1dfbdde941645",
+          "parsed_sha": "1c3e681a61afc555e84f52c685fd7b0378199c774f43c430de10d4335554db0b",
+          "messages_sha": "6150c9fe643ae2021c32a817effdb3a51d5fe55e7b7162483488e8d8a0d3fa98",
+          "budget": {
+            "sequence": 1,
+            "kind": "feature",
+            "call": "feature_0",
+            "phase": "frozen_final_final_public_delivery_child_average",
+            "at": 1793097621.6294205,
+            "failed_or_interrupted_calls_consume_budget": true,
+            "shared_sequence": 100
+          }
+        },
+        "assembled_preserved_parent": null
+      },
+      "registration": {
+        "call_id": "feature_0",
+        "Model_alias": "local",
+        "Model_proposal_sha": "492bbccf478b48013768c64bf79d49c50c37d6f4b4010b093de72fbce2ff7105"
+      },
+      "possible_states": {
+        "operator": "divide",
+        "unavailable_possible": true,
+        "proof_scope": "Supported operator contract on retained selected rows",
+        "children": [
+          {
+            "operator": "child_sum",
+            "unavailable_possible": true,
+            "proof_scope": "Supported operator contract on retained selected rows",
+            "children": []
+          },
+          {
+            "operator": "child_count",
+            "unavailable_possible": true,
+            "proof_scope": "Supported operator contract on retained selected rows",
+            "children": []
+          }
+        ]
+      },
+      "availability": "offline complete capture; prospective availability and IF not approved"
+    },
+    "row_grain": {
+      "policy": "row-grain1.0+immutable-AST3-types",
+      "passed": true,
+      "errors": [],
+      "nodes": [
+        {
+          "path": "/plan/expression/args/0/value",
+          "op": "column",
+          "evaluation_table": "CHILD_EVENT",
+          "output_table": "CHILD_EVENT",
+          "row_keys": [
+            "CHILD_ROW"
+          ],
+          "scalar": false,
+          "dtype": "number",
+          "unit": null
+        },
+        {
+          "path": "/plan/expression/args/0",
+          "op": "child_sum",
+          "evaluation_table": "PARENT_SAMPLE",
+          "output_table": "PARENT_SAMPLE",
+          "row_keys": [
+            "PARENT_ROW"
+          ],
+          "scalar": false,
+          "dtype": "number",
+          "unit": null
+        },
+        {
+          "path": "/plan/expression/args/1",
+          "op": "child_count",
+          "evaluation_table": "PARENT_SAMPLE",
+          "output_table": "PARENT_SAMPLE",
+          "row_keys": [
+            "PARENT_ROW"
+          ],
+          "scalar": false,
+          "dtype": "integer",
+          "unit": "count"
+        },
+        {
+          "path": "/plan/expression",
+          "op": "divide",
+          "evaluation_table": "PARENT_SAMPLE",
+          "output_table": "PARENT_SAMPLE",
+          "row_keys": [
+            "PARENT_ROW"
+          ],
+          "scalar": false,
+          "dtype": "number",
+          "unit": null
+        }
+      ],
+      "root": {
+        "path": "/plan/expression",
+        "op": "divide",
+        "evaluation_table": "PARENT_SAMPLE",
+        "output_table": "PARENT_SAMPLE",
+        "row_keys": [
+          "PARENT_ROW"
+        ],
+        "scalar": false,
+        "dtype": "number",
+        "unit": null
+      },
+      "proposal_unchanged_sha": "e9bdec112444225b6ddc343a3757e7b1c44357a005483f7d6e5d595d173cde85"
+    },
+    "proposal_sha": "492bbccf478b48013768c64bf79d49c50c37d6f4b4010b093de72fbce2ff7105",
+    "row_ids": [
+      [
+        "p0"
+      ],
+      [
+        "p1"
+      ],
+      [
+        "p2"
+      ],
+      [
+        "p3"
+      ]
+    ]
+  },
+  "attempts": [
+    {
+      "attempt": 0,
+      "prediction": {
+        "schema": "feature5.2",
+        "candidates": [
+          {
+            "proposal_id": "local",
+            "plan": {
+              "expression": {
+                "op": "divide",
+                "args": [
+                  {
+                    "op": "child_sum",
+                    "relationship_id": "sample_event_parent",
+                    "value": {
+                      "op": "column",
+                      "table": "CHILD_EVENT",
+                      "column": "RAW_QTY"
+                    },
+                    "where": null
+                  },
+                  {
+                    "op": "child_count",
+                    "relationship_id": "sample_event_parent"
+                  }
+                ]
+              },
+              "grain": {
+                "table": "PARENT_SAMPLE",
+                "keys": [
+                  "PARENT_ROW"
+                ]
+              },
+              "population": {
+                "table": "PARENT_SAMPLE",
+                "filter": null
+              },
+              "group_by": [],
+              "result_use": "value"
+            },
+            "purpose": "Compute the sum of linked CHILD_EVENT RAW_QTY values divided by the number of linked CHILD_EVENT rows.",
+            "meaning": "For each PARENT_SAMPLE row, compute the sum of linked CHILD_EVENT RAW_QTY values divided by the number of linked CHILD_EVENT rows; an unknown child quantity or unavailable relation yields unavailable, and no child rows means denominator0.",
+            "needed_evidence": []
+          }
+        ],
+        "stop_reason": null
+      },
+      "passed": true,
+      "errors": [],
+      "actual_model_origin": {
+        "file": "model/feature_0/output.json",
+        "raw_sha": "33bf0c7ad6c2132a66c4aede17c4791c307d4fe540937821b3c1dfbdde941645",
+        "parsed_sha": "1c3e681a61afc555e84f52c685fd7b0378199c774f43c430de10d4335554db0b",
+        "messages_sha": "6150c9fe643ae2021c32a817effdb3a51d5fe55e7b7162483488e8d8a0d3fa98",
+        "budget": {
+          "sequence": 1,
+          "kind": "feature",
+          "call": "feature_0",
+          "phase": "frozen_final_final_public_delivery_child_average",
+          "at": 1793097621.6294205,
+          "failed_or_interrupted_calls_consume_budget": true,
+          "shared_sequence": 100
+        }
+      },
+      "partial_Model_prose_fields": null,
+      "partial_Model_expression_and_prose": false,
+      "partial_stop_reason": false,
+      "assembly_over_preserved_candidate": false,
+      "not_code_authored_answer": true
+    }
+  ],
+  "source_manifest": {
+    "sha256": "c0fa97e085ac28afbb21f16af9437220eaecb68a5518c9dce746bef17315fe5b",
+    "source_version": "63365b2e2fc31603007544b35c675781cfdd75e95b2e255ce6f69991a85401be"
+  },
+  "official_semantics": {
+    "version": "calculation-facts2.0-guarded-availability",
+    "definition_sha": "a287939334fdde19737438d5fa9d89b4133ab63df73f94aa3472c29f4bda0316",
+    "source_version": "63365b2e2fc31603007544b35c675781cfdd75e95b2e255ce6f69991a85401be",
+    "measurement_id": "m_da5e258cc6fc85c9e48328c8",
+    "measurement_sha": "da5e258cc6fc85c9e48328c87dc173ae21e98e3d3e7dece85b3e7bd6b9f5efca",
+    "output_grain": {
+      "table": "PARENT_SAMPLE",
+      "keys": [
+        "PARENT_ROW"
+      ]
+    },
+    "population": {
+      "table": "PARENT_SAMPLE",
+      "filter": null
+    },
+    "dtype": "number",
+    "unit": null,
+    "operator_contract_possible_states": [
+      "value",
+      "unavailable"
+    ],
+    "operator_state_proof": {
+      "operator": "divide",
+      "unavailable_possible": true,
+      "proof_scope": "Supported operator contract on retained selected rows",
+      "children": [
+        {
+          "operator": "child_sum",
+          "unavailable_possible": true,
+          "proof_scope": "Supported operator contract on retained selected rows",
+          "children": []
+        },
+        {
+          "operator": "child_count",
+          "unavailable_possible": true,
+          "proof_scope": "Supported operator contract on retained selected rows",
+          "children": []
+        }
+      ]
+    },
+    "missing_policy": {
+      "input": "propagate",
+      "empty_group": "zero",
+      "denominator_zero": "missing",
+      "child_missing": "propagate",
+      "unknown_predicate": "defer"
+    },
+    "current": {
+      "selected_rows": 4,
+      "population_rows_before_selection": 4,
+      "selection_unavailable": 0,
+      "numeric_or_boolean_nonnull": 1,
+      "result_unavailable": 3,
+      "true": null,
+      "false": null
+    },
+    "interpretation": {
+      "null_result": "Does not alone identify source null, parsing, join, denominator or fault cause.",
+      "empty_child_group": "Zero only under the aggregate empty-group contract; unknown relationship/filter is different.",
+      "sample_extrema": "Observed min/max are not proven bounds.",
+      "total_missing_test": "is_missing evaluates retained null results to true; it is not an unavailable numerical comparison."
+    },
+    "row_nodes": [
+      {
+        "path": "/plan/expression/args/0/value",
+        "op": "column",
+        "evaluation_table": "CHILD_EVENT",
+        "output_table": "CHILD_EVENT",
+        "row_keys": [
+          "CHILD_ROW"
+        ],
+        "scalar": false,
+        "dtype": "number",
+        "unit": null
+      },
+      {
+        "path": "/plan/expression/args/0",
+        "op": "child_sum",
+        "evaluation_table": "PARENT_SAMPLE",
+        "output_table": "PARENT_SAMPLE",
+        "row_keys": [
+          "PARENT_ROW"
+        ],
+        "scalar": false,
+        "dtype": "number",
+        "unit": null
+      },
+      {
+        "path": "/plan/expression/args/1",
+        "op": "child_count",
+        "evaluation_table": "PARENT_SAMPLE",
+        "output_table": "PARENT_SAMPLE",
+        "row_keys": [
+          "PARENT_ROW"
+        ],
+        "scalar": false,
+        "dtype": "integer",
+        "unit": "count"
+      },
+      {
+        "path": "/plan/expression",
+        "op": "divide",
+        "evaluation_table": "PARENT_SAMPLE",
+        "output_table": "PARENT_SAMPLE",
+        "row_keys": [
+          "PARENT_ROW"
+        ],
+        "scalar": false,
+        "dtype": "number",
+        "unit": null
+      }
+    ],
+    "sha256": "d2a79956e7f804cb346d84e065a2c1123b043b806a8685de5cf710a8f9382b02",
+    "author": "compiler",
+    "contract": "official-computation-facts1.0",
+    "not_AI_generated": true,
+    "expression": {
+      "op": "divide",
+      "args": [
+        {
+          "op": "child_sum",
+          "relationship_id": "sample_event_parent",
+          "value": {
+            "op": "column",
+            "table": "CHILD_EVENT",
+            "column": "RAW_QTY"
+          },
+          "where": null
+        },
+        {
+          "op": "child_count",
+          "relationship_id": "sample_event_parent"
+        }
+      ]
+    },
+    "selected_result_use": "value",
+    "output_excludes_filtered_rows": true,
+    "exceptions": "Invalid sources/types/execution failures are errors, not unavailable values.",
+    "complete_natural_language_proof": false,
+    "known_empty_child_group": {
+      "result": null,
+      "result_state": "unavailable",
+      "hypothetical_not_measured_count": true,
+      "assumption": "Admitted output row, nonmissing parent keys, complete known-empty linked child set. Each child count/sum is0; the full expression may differ."
+    },
+    "facts_sha": "b5b00627448f7a583b4d720be4766428494e08d81ca6a614ed824604172d47c5"
+  },
+  "description_validation": {
+    "status": "supported_claims_checked",
+    "complete_NL_proof": false,
+    "free_prose_approval": "not_granted_by_program_supported_claims_only",
+    "actual_Model_repair": false,
+    "errors": []
+  },
+  "admin_semantic_review": "Structured compiler facts define calculation behavior; AI prose has only the separately stated review scope."
+}

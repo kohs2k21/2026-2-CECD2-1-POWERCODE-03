@@ -1,0 +1,27 @@
+{
+  "dtype": "number",
+  "row_keys": [
+    "PARENT_ROW"
+  ],
+  "source_row_keys": [
+    [
+      "p0"
+    ],
+    [
+      "p1"
+    ],
+    [
+      "p2"
+    ],
+    [
+      "p3"
+    ]
+  ],
+  "values": [
+    "3",
+    null,
+    null,
+    null
+  ],
+  "measurement_sha": "da5e258cc6fc85c9e48328c87dc173ae21e98e3d3e7dece85b3e7bd6b9f5efca"
+}

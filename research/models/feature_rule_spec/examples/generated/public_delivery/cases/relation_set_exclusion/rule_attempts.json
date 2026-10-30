@@ -1,0 +1,144 @@
+[
+  {
+    "attempt": 0,
+    "prediction": {
+      "v": "3",
+      "feature": "fd_b38018dfb6ed816862e4eeba",
+      "sha": "c8ceb852d296d559ab67ed8fdc412ce6023058285cb4c9c321bd3dd0e4a63ab3",
+      "decisions": [
+        {
+          "request": "observed",
+          "role": "SR",
+          "state": "proposed",
+          "basis": "observed_diagnostic",
+          "condition": {
+            "op": "is_missing"
+          },
+          "evidence": [
+            "m_78077306df2abc3d1b96a974"
+          ],
+          "needed": [],
+          "reason": "Supplied calculated-value diagnostic has 2 usable observations. It is evaluable even with zero activations; no historical baseline or application minimum is required.",
+          "purpose": "data_quality",
+          "warning_meaning": "Current calculated-value availability under the supplied relationship and population inputs, not an incident or source-fault label.",
+          "population_ref": "population_35c3a77b7afdcd781d75",
+          "precondition_refs": [
+            "source_63365b2e2fc316030075",
+            "availability_05b082541348bba0e00d",
+            "mapping_580ac8812398bc41e100"
+          ],
+          "required_evaluation_basis": [
+            "source_63365b2e2fc316030075",
+            "availability_05b082541348bba0e00d",
+            "mapping_580ac8812398bc41e100",
+            "m_78077306df2abc3d1b96a974"
+          ],
+          "unavailable_action": "preserve_unassessed",
+          "unavailable_reason": "The condition is computable from supplied inputs; it may be unassessed when those inputs are unavailable. No operational usefulness is claimed.",
+          "business_scope": "Offline calculated-value availability under the supplied controlled relation and population; no fault, online necessity, or broader business meaning is inferred.",
+          "baseline_use_ref": null
+        }
+      ]
+    },
+    "passed": false,
+    "errors": [
+      {
+        "path": "/decisions/0/reason",
+        "code": "quoted_count_scope",
+        "actual": "Supplied calculated-value diagnostic has 2 usable observations. It is evaluable even with zero activations; no historical baseline or application minimum is required.",
+        "allowed": {
+          "expected": 4,
+          "reference": null,
+          "numeric": 2,
+          "retained": 4
+        }
+      }
+    ],
+    "actual_model_origin": {
+      "file": "model/rule_0/output.json",
+      "raw_sha": "a1b8f33731c622501ae109eb0aff717d5df2d5df84bd93de634275538a96fd1f",
+      "parsed_sha": "634a6009e682e841a00bd43237fcfd4474547861f4b35a70492002bc464a1beb",
+      "messages_sha": "9549e8d7f42e6c4d85ef439845233f94e6a832833bcf49a0168cdcc2b43ec0a1",
+      "budget": {
+        "sequence": 2,
+        "kind": "rule",
+        "call": "rule_0",
+        "phase": "frozen_final_final_public_delivery_relation_set_exclusion",
+        "at": 1793097744.3122404,
+        "failed_or_interrupted_calls_consume_budget": true,
+        "shared_sequence": 103
+      }
+    },
+    "partial_roles": null,
+    "partial_Rule_prose_fields": null,
+    "normal_roles_preserved": false
+  },
+  {
+    "attempt": 1,
+    "prediction": {
+      "v": "3",
+      "feature": "fd_b38018dfb6ed816862e4eeba",
+      "sha": "c8ceb852d296d559ab67ed8fdc412ce6023058285cb4c9c321bd3dd0e4a63ab3",
+      "decisions": [
+        {
+          "request": "observed",
+          "role": "SR",
+          "state": "proposed",
+          "basis": "observed_diagnostic",
+          "condition": {
+            "op": "is_missing"
+          },
+          "evidence": [
+            "m_78077306df2abc3d1b96a974"
+          ],
+          "needed": [],
+          "reason": "The supplied calculated-value diagnostic has 4 evaluable observations. It is evaluable even with zero activations; no historical baseline or application minimum is required.",
+          "purpose": "data_quality",
+          "warning_meaning": "Current calculated-value availability under the supplied relationship and population inputs, not an incident or source-fault label.",
+          "population_ref": "population_35c3a77b7afdcd781d75",
+          "precondition_refs": [
+            "source_63365b2e2fc316030075",
+            "availability_05b082541348bba0e00d",
+            "mapping_580ac8812398bc41e100"
+          ],
+          "required_evaluation_basis": [
+            "source_63365b2e2fc316030075",
+            "availability_05b082541348bba0e00d",
+            "mapping_580ac8812398bc41e100",
+            "m_78077306df2abc3d1b96a974"
+          ],
+          "unavailable_action": "preserve_unassessed",
+          "unavailable_reason": "The condition is computable from supplied inputs; it may be unassessed when those inputs are unavailable. No operational usefulness is claimed.",
+          "business_scope": "Offline calculated-value availability under the supplied controlled relation and population; no fault, online necessity, or broader business meaning is inferred.",
+          "baseline_use_ref": null
+        }
+      ]
+    },
+    "passed": true,
+    "errors": [],
+    "actual_model_origin": {
+      "file": "model/rule_1/output.json",
+      "raw_sha": "494cf86d3cce228b1ad9dd9b34c0e2dfc3ec92455997fae0a8c55170f2f235bd",
+      "parsed_sha": "9bb3cf1286ed2421ad95644c05658e370eacf094b734a4100617c1735e664760",
+      "messages_sha": "dbfe333616c3a1375882e1ed791f13789916404609e633f89ef5eae36a4d0608",
+      "budget": {
+        "sequence": 3,
+        "kind": "rule",
+        "call": "rule_1",
+        "phase": "frozen_final_final_public_delivery_relation_set_exclusion",
+        "at": 1793097811.8813481,
+        "failed_or_interrupted_calls_consume_budget": true,
+        "shared_sequence": 104
+      }
+    },
+    "partial_roles": [
+      "observed"
+    ],
+    "partial_Rule_prose_fields": {
+      "observed": [
+        "reason"
+      ]
+    },
+    "normal_roles_preserved": true
+  }
+]

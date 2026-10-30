@@ -1,0 +1,76 @@
+[
+  {
+    "attempt": 0,
+    "prediction": {
+      "schema": "feature5.2",
+      "candidates": [
+        {
+          "proposal_id": "local",
+          "plan": {
+            "expression": {
+              "op": "child_sum",
+              "relationship_id": "sample_event_parent",
+              "value": {
+                "op": "column",
+                "table": "CHILD_EVENT",
+                "column": "RAW_QTY"
+              },
+              "where": {
+                "op": "not_in",
+                "args": [
+                  {
+                    "op": "column",
+                    "table": "CHILD_EVENT",
+                    "column": "RAW_TAG"
+                  }
+                ],
+                "values": [
+                  "L",
+                  "R"
+                ]
+              }
+            },
+            "grain": {
+              "table": "PARENT_SAMPLE",
+              "keys": [
+                "PARENT_ROW"
+              ]
+            },
+            "population": {
+              "table": "PARENT_SAMPLE",
+              "filter": null
+            },
+            "group_by": [],
+            "result_use": "value"
+          },
+          "purpose": "Sum linked child RAW_QTY values whose raw RAW_TAG is neither L nor R.",
+          "meaning": "Sum of linked child RAW_QTY values whose raw RAW_TAG is neither L nor R.",
+          "needed_evidence": []
+        }
+      ],
+      "stop_reason": null
+    },
+    "passed": true,
+    "errors": [],
+    "actual_model_origin": {
+      "file": "model/feature_0/output.json",
+      "raw_sha": "bbbd17c0effda1721e4ac7be8a86de0cf58ec7a64ad745f90f941ad4672e72f3",
+      "parsed_sha": "fe3435684a97922b58e32f28cf7cf3e5ea04d1fce299e4927a14bc0ae29f146f",
+      "messages_sha": "87f3186396dea67d9a92c088c084bcf91d52d7b579ad1b92a16d80fac4affae7",
+      "budget": {
+        "sequence": 1,
+        "kind": "feature",
+        "call": "feature_0",
+        "phase": "frozen_final_final_public_delivery_relation_set_exclusion",
+        "at": 1793097718.9664345,
+        "failed_or_interrupted_calls_consume_budget": true,
+        "shared_sequence": 102
+      }
+    },
+    "partial_Model_prose_fields": null,
+    "partial_Model_expression_and_prose": false,
+    "partial_stop_reason": false,
+    "assembly_over_preserved_candidate": false,
+    "not_code_authored_answer": true
+  }
+]

@@ -1,0 +1,149 @@
+[
+  {
+    "feature": {
+      "id": "fd_b1978eafbd02d79b5014b908",
+      "definition_sha": "a287939334fdde19737438d5fa9d89b4133ab63df73f94aa3472c29f4bda0316",
+      "source_version": "63365b2e2fc31603007544b35c675781cfdd75e95b2e255ce6f69991a85401be",
+      "measurement_sha": "da5e258cc6fc85c9e48328c87dc173ae21e98e3d3e7dece85b3e7bd6b9f5efca"
+    },
+    "decision": {
+      "request": "observed",
+      "role": "SR",
+      "state": "proposed",
+      "basis": "observed_diagnostic",
+      "condition": {
+        "op": "is_missing"
+      },
+      "evidence": [
+        "m_da5e258cc6fc85c9e48328c8"
+      ],
+      "needed": [],
+      "reason": "The supplied calculated-value diagnostic has 4 usable observations. It is evaluable even with 0 activations; no historical baseline or application minimum is required.",
+      "purpose": "data_quality",
+      "warning_meaning": "Current calculated-value availability under the supplied definition and population; no operational incident or completeness claim.",
+      "population_ref": "population_35c3a77b7afdcd781d75",
+      "precondition_refs": [
+        "source_63365b2e2fc316030075",
+        "availability_59b20842112a3da22ace",
+        "mapping_5dca4e229e04b5adcd45"
+      ],
+      "required_evaluation_basis": [
+        "source_63365b2e2fc316030075",
+        "availability_59b20842112a3da22ace",
+        "mapping_5dca4e229e04b5adcd45",
+        "population_35c3a77b7afdcd781d75",
+        "m_da5e258cc6fc85c9e48328c8"
+      ],
+      "unavailable_action": "preserve_unassessed",
+      "unavailable_reason": "Under is_missing, current values are evaluable even if 0; the condition is not unavailable.",
+      "business_scope": "Offline calculated-value availability under the supplied controlled relation and population; no fault label or online necessity is inferred.",
+      "baseline_use_ref": null
+    },
+    "condition_statistics": {
+      "rows": 4,
+      "evaluable": 4,
+      "satisfied": 3,
+      "not_satisfied": 1,
+      "unassessed": 0
+    },
+    "actual_Model_attempts": [
+      {
+        "attempt": 0,
+        "prediction": {
+          "v": "3",
+          "feature": "fd_b1978eafbd02d79b5014b908",
+          "sha": "a287939334fdde19737438d5fa9d89b4133ab63df73f94aa3472c29f4bda0316",
+          "decisions": [
+            {
+              "request": "observed",
+              "role": "SR",
+              "state": "proposed",
+              "basis": "observed_diagnostic",
+              "condition": {
+                "op": "is_missing"
+              },
+              "evidence": [
+                "m_da5e258cc6fc85c9e48328c8"
+              ],
+              "needed": [],
+              "reason": "The supplied calculated-value diagnostic has 4 usable observations. It is evaluable even with 0 activations; no historical baseline or application minimum is required.",
+              "purpose": "data_quality",
+              "warning_meaning": "Current calculated-value availability under the supplied definition and population; no operational incident or completeness claim.",
+              "population_ref": "population_35c3a77b7afdcd781d75",
+              "precondition_refs": [
+                "source_63365b2e2fc316030075",
+                "availability_59b20842112a3da22ace",
+                "mapping_5dca4e229e04b5adcd45"
+              ],
+              "required_evaluation_basis": [
+                "source_63365b2e2fc316030075",
+                "availability_59b20842112a3da22ace",
+                "mapping_5dca4e229e04b5adcd45",
+                "population_35c3a77b7afdcd781d75",
+                "m_da5e258cc6fc85c9e48328c8"
+              ],
+              "unavailable_action": "preserve_unassessed",
+              "unavailable_reason": "Under is_missing, current values are evaluable even if 0; the condition is not unavailable.",
+              "business_scope": "Offline calculated-value availability under the supplied controlled relation and population; no fault label or online necessity is inferred.",
+              "baseline_use_ref": null
+            }
+          ]
+        },
+        "passed": true,
+        "errors": [],
+        "actual_model_origin": {
+          "file": "model/rule_0/output.json",
+          "raw_sha": "b941fab7cd1dc2ca89154d2c5e986d9a173390f8053184b5fc31e55919df0f6a",
+          "parsed_sha": "997e8917c9eea3affd47673ddade332dcd3f5bc40159eb862a983ce31618dea8",
+          "messages_sha": "892eb580e65fe8de2334b886a33f93404a6912a94a00426ecc6545e92c7340c4",
+          "budget": {
+            "sequence": 2,
+            "kind": "rule",
+            "call": "rule_0",
+            "phase": "frozen_final_final_public_delivery_child_average",
+            "at": 1793097650.403373,
+            "failed_or_interrupted_calls_consume_budget": true,
+            "shared_sequence": 101
+          }
+        },
+        "partial_roles": null,
+        "partial_Rule_prose_fields": null,
+        "normal_roles_preserved": false
+      }
+    ],
+    "official_semantics": {
+      "author": "compiler",
+      "contract": "official-condition-facts1.0",
+      "not_AI_generated": true,
+      "condition": {
+        "op": "is_missing"
+      },
+      "condition_valid": true,
+      "condition_error": null,
+      "statistics": {
+        "rows": 4,
+        "evaluable": 4,
+        "satisfied": 3,
+        "not_satisfied": 1,
+        "unassessed": 0
+      },
+      "valid_feature_observations": 1,
+      "numeric_current": 1,
+      "retained_current": 4,
+      "reference_valid_n": null,
+      "is_missing_checks_retained_unavailable_values": true,
+      "result_unavailable_is_not_itself_condition_unassessed": true,
+      "source_or_incident_cause_not_inferred": true,
+      "full_natural_language_proof": false
+    },
+    "AI_explanation_status": {
+      "status": "supported_claims_checked",
+      "complete_NL_proof": false,
+      "free_prose_approval": "not_granted_by_program_supported_claims_only",
+      "actual_Model_repair": false,
+      "errors": []
+    },
+    "operational_approval": false,
+    "anomaly_execution": "not_run"
+  }
+]

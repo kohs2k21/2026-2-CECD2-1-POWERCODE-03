@@ -1,0 +1,150 @@
+{
+  "version": "calculation-facts2.0-guarded-availability",
+  "definition_sha": "9faeebff599c1c2c31eafcd48f41d066bf1a960b1d258ba38b54b72fa0611bda",
+  "source_version": "a317bc6e578b38c0d55ce0cf75d58476fee5e277599e67d1e67e5feab2d7d28a",
+  "measurement_id": "m_c02c7c1747ed90088453348b",
+  "measurement_sha": "c02c7c1747ed90088453348ba7296abc5a309328f20c8ff2812b9fe6ab8e8463",
+  "output_grain": {
+    "table": "CASE_LOG",
+    "keys": [
+      "ROW_ID"
+    ]
+  },
+  "population": {
+    "table": "CASE_LOG",
+    "filter": null
+  },
+  "dtype": "boolean",
+  "unit": "boolean",
+  "operator_contract_possible_states": [
+    "true",
+    "false"
+  ],
+  "operator_state_proof": {
+    "operator": "is_missing",
+    "unavailable_possible": false,
+    "proof_scope": "Supported operator contract on retained selected rows",
+    "children": [
+      {
+        "operator": "divide",
+        "unavailable_possible": true,
+        "proof_scope": "Supported operator contract on retained selected rows",
+        "children": [
+          {
+            "operator": "column",
+            "unavailable_possible": true,
+            "proof_scope": "Supported operator contract on retained selected rows",
+            "children": []
+          },
+          {
+            "operator": "column",
+            "unavailable_possible": true,
+            "proof_scope": "Supported operator contract on retained selected rows",
+            "children": []
+          }
+        ]
+      }
+    ]
+  },
+  "missing_policy": {
+    "input": "propagate",
+    "empty_group": null,
+    "denominator_zero": "missing",
+    "child_missing": "propagate",
+    "unknown_predicate": "defer"
+  },
+  "current": {
+    "selected_rows": 7,
+    "population_rows_before_selection": 7,
+    "selection_unavailable": 0,
+    "numeric_or_boolean_nonnull": 7,
+    "result_unavailable": 0,
+    "true": 4,
+    "false": 3
+  },
+  "interpretation": {
+    "null_result": "Does not alone identify source null, parsing, join, denominator or fault cause.",
+    "empty_child_group": "Zero only under the aggregate empty-group contract; unknown relationship/filter is different.",
+    "sample_extrema": "Observed min/max are not proven bounds.",
+    "total_missing_test": "is_missing evaluates retained null results to true; it is not an unavailable numerical comparison."
+  },
+  "row_nodes": [
+    {
+      "path": "/plan/expression/args/0/args/0",
+      "op": "column",
+      "evaluation_table": "CASE_LOG",
+      "output_table": "CASE_LOG",
+      "row_keys": [
+        "ROW_ID"
+      ],
+      "scalar": false,
+      "dtype": "number",
+      "unit": "coordinate_unit"
+    },
+    {
+      "path": "/plan/expression/args/0/args/1",
+      "op": "column",
+      "evaluation_table": "CASE_LOG",
+      "output_table": "CASE_LOG",
+      "row_keys": [
+        "ROW_ID"
+      ],
+      "scalar": false,
+      "dtype": "number",
+      "unit": "coordinate_unit"
+    },
+    {
+      "path": "/plan/expression/args/0",
+      "op": "divide",
+      "evaluation_table": "CASE_LOG",
+      "output_table": "CASE_LOG",
+      "row_keys": [
+        "ROW_ID"
+      ],
+      "scalar": false,
+      "dtype": "number",
+      "unit": "ratio"
+    },
+    {
+      "path": "/plan/expression",
+      "op": "is_missing",
+      "evaluation_table": "CASE_LOG",
+      "output_table": "CASE_LOG",
+      "row_keys": [
+        "ROW_ID"
+      ],
+      "scalar": false,
+      "dtype": "boolean",
+      "unit": "boolean"
+    }
+  ],
+  "sha256": "b04b824186384979c135966a9147848cb094d18e9662b87810919ddb6531d43c",
+  "author": "compiler",
+  "contract": "official-computation-facts1.0",
+  "not_AI_generated": true,
+  "expression": {
+    "op": "is_missing",
+    "args": [
+      {
+        "op": "divide",
+        "args": [
+          {
+            "op": "column",
+            "table": "CASE_LOG",
+            "column": "A"
+          },
+          {
+            "op": "column",
+            "table": "CASE_LOG",
+            "column": "B"
+          }
+        ]
+      }
+    ]
+  },
+  "selected_result_use": "unavailable",
+  "output_excludes_filtered_rows": true,
+  "exceptions": "Invalid sources/types/execution failures are errors, not unavailable values.",
+  "complete_natural_language_proof": false,
+  "facts_sha": "7466499ac4412effaa7314a1437b35410eefd071337e6a06362f35cd828669d9"
+}

@@ -1,0 +1,26 @@
+{
+  "question": "On VALUE_GRID rows where ZONE equals kept, define a complete Boolean indicating whether NUM_FIELD/DEN_FIELD is unavailable. Keep valid numerical numerator0 distinct from missing or denominator0. Excluded rows have no output.",
+  "analysis_request": {
+    "output_table": "VALUE_GRID",
+    "complete_boolean": true,
+    "required_columns": [
+      [
+        "VALUE_GRID",
+        "NUM_FIELD"
+      ],
+      [
+        "VALUE_GRID",
+        "DEN_FIELD"
+      ],
+      [
+        "VALUE_GRID",
+        "ZONE"
+      ]
+    ],
+    "selected_equals": {
+      "table": "VALUE_GRID",
+      "column": "ZONE",
+      "value": "kept"
+    }
+  }
+}

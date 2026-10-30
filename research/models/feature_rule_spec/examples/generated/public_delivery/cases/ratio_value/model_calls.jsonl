@@ -1,0 +1,2 @@
+{"sequence": 1, "kind": "feature", "call": "feature_0", "phase": "frozen_final_final_public_delivery_ratio_value", "at": 1793097223.502662, "failed_or_interrupted_calls_consume_budget": true, "shared_sequence": 92}
+{"sequence": 2, "kind": "rule", "call": "rule_0", "phase": "frozen_final_final_public_delivery_ratio_value", "at": 1793097263.2795343, "failed_or_interrupted_calls_consume_budget": true, "shared_sequence": 93}

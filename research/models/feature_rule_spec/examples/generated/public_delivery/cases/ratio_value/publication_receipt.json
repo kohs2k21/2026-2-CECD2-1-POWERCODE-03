@@ -1,0 +1,12 @@
+{
+  "original_run_manifest_sha": "4b38c3b13e05b64b7f0198cfa44944dfbd61e7d724844a0d18f171469264db4b",
+  "removed_server_diagnostics": [
+    {
+      "path": "model/feature_0/GPU_before_load.json",
+      "sha256": "8f390f473c6399d79b0d3704dd3b2246375f45a30ca73d0868c6f24e86f1f461"
+    }
+  ],
+  "all_Model_input_output_bytes_unchanged": true,
+  "controlled_only": true,
+  "new_Model_generation_in_publication": 0
+}

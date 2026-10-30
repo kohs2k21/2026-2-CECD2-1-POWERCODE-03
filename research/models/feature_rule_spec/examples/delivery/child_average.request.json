@@ -1,0 +1,17 @@
+{
+  "question": "Per PARENT_SAMPLE row compute the sum of linked CHILD_EVENT RAW_QTY values divided by the number of linked CHILD_EVENT rows. An unknown child quantity or unavailable relation yields unavailable, and no child rows means denominator0. Use only raw numeric-coordinate meaning; no physical unit is confirmed.",
+  "analysis_request": {
+    "output_table": "PARENT_SAMPLE",
+    "required_columns": [
+      [
+        "CHILD_EVENT",
+        "RAW_QTY"
+      ]
+    ],
+    "required_relationship_ids": [
+      "sample_event_parent"
+    ],
+    "result_use": "value",
+    "calculation_type": "number"
+  }
+}

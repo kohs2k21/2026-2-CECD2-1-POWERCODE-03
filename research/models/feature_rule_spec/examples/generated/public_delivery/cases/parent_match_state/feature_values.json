@@ -1,0 +1,27 @@
+{
+  "dtype": "boolean",
+  "row_keys": [
+    "TRACE_ROW"
+  ],
+  "source_row_keys": [
+    [
+      "h1"
+    ],
+    [
+      "h2"
+    ],
+    [
+      "h3"
+    ],
+    [
+      "h4"
+    ]
+  ],
+  "values": [
+    false,
+    true,
+    true,
+    true
+  ],
+  "measurement_sha": "035bacbf2931f7a8db07f99da04dabf6fbea350607cf949c007e3b6117ccd3d2"
+}

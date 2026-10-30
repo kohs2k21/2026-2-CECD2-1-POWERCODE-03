@@ -1,0 +1,8 @@
+ROW_ID,REGION,LINK_CODE,A,B,QTY,CLASS
+l0,x,one,0,2,1,raw_a
+l1,x,many,1,0,2,raw_b
+l2,x,absent,,2,3,raw_c
+l3,,one,2,,,raw_a
+l4,x,one,-1.5,0.5,4,raw_b
+l5,,,,,5,
+l6,x,one,2.5,-1,0,raw_a

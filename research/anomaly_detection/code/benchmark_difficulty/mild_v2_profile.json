@@ -1,0 +1,11 @@
+{
+  "version": "esb-process-synthetic-mild-v2",
+  "excess_multiplier": 1.1,
+  "stop_duration_multiplier": 1.1,
+  "parent": "esb-process-synthetic-mild-v1",
+  "parent_excess_multiplier": 1.2,
+  "mixed_hard": "unchanged",
+  "normal_controls": "byte-identical copies",
+  "selection": "all existing cases, independent of model scores",
+  "interpretation": "approximately 10% stronger injected excess than current mild-v1; integer rounding/caps apply; not a detector improvement"
+}

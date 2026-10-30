@@ -1,0 +1,13 @@
+{
+  "current_release": "reports\\shared_model_v7\\release",
+  "notebook": "code\\shared_model_v7\\result.ipynb",
+  "all_targets_met": true,
+  "each_model_task_Recall_at_least_55": true,
+  "FPR_limit": 0.06,
+  "all_task_accuracy_precision_F1_nonregression": true,
+  "requested_roles_observed": true,
+  "local_research_only": true,
+  "external_blind_test": false,
+  "ADBench_unchanged": true,
+  "production_deployed": false
+}

@@ -1,0 +1,90 @@
+{
+  "results": [
+    {
+      "method": "kmeans",
+      "n": 1000,
+      "normal": 800,
+      "anomaly": 200,
+      "tn": 793,
+      "fp": 7,
+      "fn": 91,
+      "tp": 109,
+      "accuracy": 0.902,
+      "precision": 0.9396551724137931,
+      "recall": 0.545,
+      "f1": 0.689873417721519,
+      "normal_false_positive_rate": 0.00875,
+      "always_normal_accuracy": 0.8,
+      "F1_target_met": true,
+      "FP_cap": 6,
+      "FP_cap_met": false,
+      "threshold": 8.007051467895508,
+      "by_mode": {
+        "global": {
+          "n": 250,
+          "normal": 200,
+          "anomaly": 50,
+          "tn": 199,
+          "fp": 1,
+          "fn": 0,
+          "tp": 50,
+          "accuracy": 0.996,
+          "precision": 0.9803921568627451,
+          "recall": 1.0,
+          "f1": 0.9900990099009901,
+          "normal_false_positive_rate": 0.005,
+          "always_normal_accuracy": 0.8
+        },
+        "local": {
+          "n": 250,
+          "normal": 200,
+          "anomaly": 50,
+          "tn": 199,
+          "fp": 1,
+          "fn": 41,
+          "tp": 9,
+          "accuracy": 0.832,
+          "precision": 0.9,
+          "recall": 0.18,
+          "f1": 0.3,
+          "normal_false_positive_rate": 0.005,
+          "always_normal_accuracy": 0.8
+        },
+        "cluster": {
+          "n": 250,
+          "normal": 200,
+          "anomaly": 50,
+          "tn": 199,
+          "fp": 1,
+          "fn": 46,
+          "tp": 4,
+          "accuracy": 0.812,
+          "precision": 0.8,
+          "recall": 0.08,
+          "f1": 0.14545454545454545,
+          "normal_false_positive_rate": 0.005,
+          "always_normal_accuracy": 0.8
+        },
+        "dependency": {
+          "n": 250,
+          "normal": 200,
+          "anomaly": 50,
+          "tn": 196,
+          "fp": 4,
+          "fn": 4,
+          "tp": 46,
+          "accuracy": 0.968,
+          "precision": 0.92,
+          "recall": 0.92,
+          "f1": 0.92,
+          "normal_false_positive_rate": 0.02,
+          "always_normal_accuracy": 0.8
+        }
+      }
+    }
+  ],
+  "ADBench_specific_retrained": true,
+  "same_service_model_transfer": false,
+  "test_points_fit": 0,
+  "fixed_npz_sha256": "9f168a006c9015762ad8e4bfaac5352acebe84a65ef27ae99342c868b855edb5"
+}

@@ -1,0 +1,34 @@
+{
+  "data_sha256": "ef515572b5633420d4e3ee92c2bd16997a380acbce93e1a453097f6a26ec464d",
+  "validation_seed": 16270042,
+  "cases_per_scenario": 360,
+  "calibration_cases_per_scenario": 90,
+  "search_cases_per_scenario": 90,
+  "confirmation_cases_per_scenario": 180,
+  "calibration_observed_and_normal_search_cases_disjoint": true,
+  "model_fit_original_source_partition_holdout": true,
+  "final_controls_used_in_fit": false,
+  "normal_replay": {
+    "train": {
+      "windows": 19793,
+      "added_streams": 360,
+      "source_templates": 4448,
+      "original_source_partition": true
+    },
+    "calibration": {
+      "windows": 17685,
+      "added_streams": 216,
+      "source_templates": 1952,
+      "original_source_partition": true
+    },
+    "threshold": {
+      "windows": 15791,
+      "added_streams": 192,
+      "source_templates": 1917,
+      "original_source_partition": true
+    }
+  },
+  "original_benchmark_already_inspected": true,
+  "benchmark_before_change_sha256": "7f2dc4351af6166416f7694df97fb2050cab8d348e5b29d8451fcc36031f3b36",
+  "limitation": "Fresh cases, same generator/source pool; adaptive synthetic research, not external blind operating testing"
+}

@@ -1,0 +1,28 @@
+{
+  "analysis_hours": [1, 4, 8, 12, 24],
+  "input_frequency_hours": 1,
+  "normal_reference_hours": 672,
+  "tested_reference_forecast_hours": 336,
+  "normal_calibration_quantile_floor": 0.97,
+  "development_normal_fpr_cap": 0.045,
+  "base_model": {
+    "method": "stl_pelt",
+    "period": 24,
+    "local_window_hours": 12,
+    "energy_window_hours": 24,
+    "penalty_factor": 2.0,
+    "min_segment_hours": 12,
+    "jump_hours": 3,
+    "energy_weight": 1.0,
+    "local_weight": 1.0
+  },
+  "window_adaptation": "min(original local/energy window, analysis_hours)",
+  "pelt_policy": "Keep 12h minimum segment; no split is possible below 24h. No invented history.",
+  "comparison": "Non-overlapping blocks of the same 336-hour monitor sequences; all original hourly labels retained",
+  "calibration": "Normal train statistics; normal calibration floor plus maximum normal-development per-scenario quantile; no test threshold selection",
+  "test_status": "Reuse of the previously reported long-series test set; this is a horizon ablation, NOT a new independent blind test",
+  "missingness": "Interpolate short missing runs within each batch only; split at >6h gaps; never inspect another batch",
+  "reference_updates": "Fixed reviewed normal reference; monitoring data are never silently added to normal history",
+  "evaluation_unit": "assessable hour, not any-anomaly-per-batch; no point adjustment",
+  "benchmark_modified": false
+}

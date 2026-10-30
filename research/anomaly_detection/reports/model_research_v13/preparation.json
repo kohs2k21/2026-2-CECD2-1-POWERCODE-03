@@ -1,0 +1,21 @@
+{
+  "data_sha256": "df699097ba3a652e7898333a14b938471bdce2f2a29bc57a019c627498da109f",
+  "normal_cache_sha256": "8147e9e279ae10e39c1b63f72bd6b0b4b6ed1bbfc693515e4ecc59624d4857ef",
+  "normal_cache_original_manifest_sha256": "71fb8115dc2b9ddcac6408167a8e0f89939e060bbdd5c516339ffe88b9473ce4",
+  "current_benchmark_manifest_sha256": "7f2dc4351af6166416f7694df97fb2050cab8d348e5b29d8451fcc36031f3b36",
+  "source_archive_sha256": "438d64008d831d7417e72023abd2ab9fc00ac6b24eb480d2f7db0a35c55e31d7",
+  "validation_seed": 16170042,
+  "fresh_cases_per_scenario": 180,
+  "search_cases_per_scenario": 90,
+  "confirmation_cases_per_scenario": 90,
+  "normal_windows": {
+    "train": 9593,
+    "calibration": 11558,
+    "threshold": 10358
+  },
+  "train_only_anchor": true,
+  "final_controls_used_in_fit": false,
+  "source_template_holdout_preserved": true,
+  "original_final_benchmark_already_inspected": true,
+  "limitation": "Adaptive research; fresh cases share generator/held-out source pool. No blind production generalization claim."
+}

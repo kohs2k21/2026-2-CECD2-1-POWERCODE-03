@@ -1,0 +1,42 @@
+{
+  "issue": 80,
+  "short_release": "shared_model_v7/release",
+  "models": [
+    {
+      "algorithm": "if",
+      "path": "reports/shared_model_v7/release/handoff/if_shared.joblib",
+      "bytes": 1128182,
+      "sha256": "e673edb10cb86632eff437e4ea0864707375d4a96f128a6a873f198c4836a290"
+    },
+    {
+      "algorithm": "kmeans",
+      "path": "reports/shared_model_v7/release/handoff/kmeans_shared.joblib",
+      "bytes": 836205,
+      "sha256": "9293ea4bd6ff85589e3ed20d6aeb01b4bbb4b610ce3d19e79c15daef7fdd5689"
+    },
+    {
+      "algorithm": "lof",
+      "path": "reports/shared_model_v7/release/handoff/lof_shared.joblib",
+      "bytes": 12182476,
+      "sha256": "53f104b27674260b0b9dec51dcbde351a1eb4d2e3c894c2b831214c734fa22ba"
+    },
+    {
+      "algorithm": "long_term",
+      "path": "reports/long_term_anomaly/five_minute_localized/models_portable.joblib",
+      "bytes": 2336908,
+      "sha256": "0b9e40efa7297676d70dc7691c20999f9720dec8f54b997138f76fc1eda526bc"
+    }
+  ],
+  "short_threshold": 1.0,
+  "long_analysis_hours": [
+    1,
+    4,
+    8,
+    12,
+    24
+  ],
+  "original_model_bytes_unchanged": true,
+  "existing_legacy_artifacts_preserved": true,
+  "datasets_added": false,
+  "production_deployed": false
+}

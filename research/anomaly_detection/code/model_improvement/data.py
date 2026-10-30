@@ -9,6 +9,7 @@ from evaluation_benchmark.generate import Case, Catalog, generate_case
 from model_evaluation.data import (ReplayCatalog, SCENARIOS, history_lookup,
                                   source_references, unix_seconds)
 from model_evaluation.models import ComparisonConfig
+from model_evaluation.scope import ACTIVE_TASKS
 from model_evaluation.windowing import window_reference_split
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -62,10 +63,10 @@ def validation_inputs(bundle, state, count=120, seed=1_910_042):
                                              if t["template_id"] in set(state["reserved_template_ids"])]})
     history = history_lookup(BENCHMARK)
     final_ids = set().union(*(set(pd.read_csv(BENCHMARK/name/"cases.csv", usecols=["case_id"]).case_id)
-                              for name in (*SCENARIOS, "mixed_hard")))
+                              for name in json.loads((BENCHMARK/"manifest.json").read_text(encoding="utf-8"))["datasets"]))
     old_ids = set().union(*json.loads((SEARCH/"selection.json").read_text(encoding="utf-8"))["validation_case_ids"].values())
     bank = {}
-    for name in SCENARIOS:
+    for name in ACTIVE_TASKS:
         observed, normal, rows, normal_rows = [], [], [], []
         for index in range(count):
             case = generate_case(catalog, name, index, seed, history)

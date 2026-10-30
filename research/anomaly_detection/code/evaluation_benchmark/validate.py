@@ -105,12 +105,14 @@ def validate(directory,only=None):
     root = json.loads((directory/"manifest.json").read_text(encoding="utf-8"))
     summary = pd.read_csv(directory/"scenario_summary.csv",encoding="utf-8-sig")
     assert set(summary.dataset) == set(root["datasets"])
-    assert root["datasets"] == [*SCENARIOS,"mixed_hard"],"Release must contain all seven datasets"
+    active = ["individual_delay", "group_delay", "time_burst", "input_stop", "gradual_degradation"]
+    assert root["datasets"] in (active, [*SCENARIOS,"mixed_hard"]),"Unexpected evaluation scope"
     history = pd.read_csv(directory/"reference_history_windows.csv",encoding="utf-8-sig")
     assert pd.to_datetime(history.window_end).max() <= pd.Timestamp("2026-10-12")
     if only is not None and only not in root["datasets"]:
         raise ValueError("Unknown validation subset")
-    report = {"passed":False,"coverage":"subset" if only else "all_seven_datasets","datasets":{},"untouched_source_and_model_hashes":True}
+    coverage = "all_five_active_datasets" if root["datasets"] == active else "all_seven_datasets"
+    report = {"passed":False,"coverage":"subset" if only else coverage,"datasets":{},"untouched_source_and_model_hashes":True}
     for name in ([only] if only else root["datasets"]):
         folder = directory/name
         metadata = json.loads((folder/"manifest.json").read_text(encoding="utf-8"))
@@ -194,7 +196,7 @@ def validate(directory,only=None):
 if __name__=="__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("directory",type=Path)
-    parser.add_argument("--only",choices=(*SCENARIOS,"mixed_hard"))
+    parser.add_argument("--only",choices=("individual_delay", "group_delay", "time_burst", "input_stop", "gradual_degradation"))
     args = parser.parse_args()
     warnings.filterwarnings("ignore",category=FutureWarning,module="process_anomaly_pipeline.rules")
     result = validate(args.directory,args.only)

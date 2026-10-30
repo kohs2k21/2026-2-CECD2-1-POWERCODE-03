@@ -1,0 +1,10 @@
+{
+  "original_frozen_model_sha256": "a154238f57f8c7b7b0b6d0130579ec6f9d5954831316467c7536b048fbe1003b",
+  "portable_model_sha256": "0b9e40efa7297676d70dc7691c20999f9720dec8f54b997138f76fc1eda526bc",
+  "numerical_state_hash_before": "a7fa26db74c82b8481f7ab10b2c565d0",
+  "numerical_state_hash_after": "a7fa26db74c82b8481f7ab10b2c565d0",
+  "numeric_state_identical": true,
+  "importable_class_module": "long_term_anomaly.five_minute.localized",
+  "serialization_only_no_retraining_or_parameter_change": true,
+  "runtime_sha256": "05f7a851809dc5fd1e59a26743b19d113e742dfa4975cd944a1990138063a479"
+}

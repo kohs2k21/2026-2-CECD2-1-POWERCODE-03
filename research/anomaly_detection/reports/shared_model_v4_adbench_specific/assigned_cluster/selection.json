@@ -1,0 +1,36 @@
+{
+  "selected": {
+    "method": "kmeans",
+    "encoder_source": "reports\\shared_model_v4_adbench_specific\\quantile\\kmeans_candidate_0.joblib",
+    "candidate_file": "rank_128_nearest_0.0.joblib",
+    "settings": {
+      "clusters": 128,
+      "score_mode": "nearest",
+      "radius_power": 0.0,
+      "covariance_floor": 0.1,
+      "seed": 42
+    },
+    "threshold_quantile": 0.995,
+    "threshold_margin": 1.0,
+    "threshold": 8.007051467895508,
+    "n": 2240,
+    "normal": 840,
+    "anomaly": 1400,
+    "tn": 838,
+    "fp": 2,
+    "fn": 628,
+    "tp": 772,
+    "accuracy": 0.71875,
+    "precision": 0.9974160206718347,
+    "recall": 0.5514285714285714,
+    "f1": 0.7102115915363385,
+    "normal_false_positive_rate": 0.002380952380952381,
+    "always_normal_accuracy": 0.375,
+    "normal_FPR_UCB95": 0.007475850570663547,
+    "eligible": true
+  },
+  "model_sha256": "e3e46aa2809a25bf4755dffd9c39b4665ae54e306d86e2153137655a4f3e06af",
+  "test_quantile_inversion": false,
+  "adaptive_not_blind": true,
+  "policy": "95% exact normal FPR upper bound <= 0.75%; 20%-prevalence standardized F1; normal cal quantiles/margins"
+}

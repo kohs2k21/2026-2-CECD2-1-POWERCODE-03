@@ -1,0 +1,7 @@
+{
+  "sha256": "b1240e4653d29f25292e2b4404ac09ba1e94f70a6b9aab9ef6a6305c0b54355c",
+  "parent_model_sha256": "e518f221c3727147a43708b5fe3de8493a9961b717b96ca634c09fe8e9ca4949",
+  "parent_development_sha256": "ea4f3402350aff13c5cfacac85fcf779c87b2202e49d0a0253be2f6793643273",
+  "feature_source_sha256": "22e2f7c60db1822b10fd392e19db8f3b59a4f5b32495acb37f1e7c3cd3593dbf",
+  "train_reference_only": true
+}

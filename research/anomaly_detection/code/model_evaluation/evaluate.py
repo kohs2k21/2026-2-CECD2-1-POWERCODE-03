@@ -301,7 +301,7 @@ def run(args):
     summary = summarize(output,manifest,protocol)
     # Original policy and every benchmark CSV remain byte-identical after evaluation.
     verify_benchmark(benchmark,cache)
-    print("ALL COMPLETE: seven datasets; original data/model hashes unchanged",flush=True)
+    print("ALL COMPLETE: active manifest datasets; original data/model hashes unchanged",flush=True)
     for record in summary["pooled"]["window" if window_suite else "row"]:
         print(record["method"],{k:record[k] for k in ("accuracy","precision","recall","f1")},flush=True)
     return summary

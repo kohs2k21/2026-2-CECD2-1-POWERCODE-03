@@ -1,0 +1,25 @@
+{
+  "populations": {
+    "native_test_reused_for_architecture_diagnosis": {
+      "independent_confusion_matrices": 35,
+      "public_backend_replays": 2880,
+      "all_original_hour_positions_preserved": true,
+      "label_expansion_or_point_adjustment": false,
+      "all_horizons_goal_pass": true
+    },
+    "fresh_frozen_model_confirmation": {
+      "independent_confusion_matrices": 35,
+      "public_backend_replays": 2880,
+      "all_original_hour_positions_preserved": true,
+      "label_expansion_or_point_adjustment": false,
+      "all_horizons_goal_pass": true
+    }
+  },
+  "original_period_sources_unchanged": true,
+  "original_hourly_benchmark_and_model_preserved": true,
+  "runtime_and_prediction_seals_valid": true,
+  "portable_numerical_model_unchanged": true,
+  "no_model_file_io_during_backend_replay": true,
+  "independent_real_fault_validation": false,
+  "goal_verified": true
+}

@@ -1,0 +1,17 @@
+{
+  "question": "For each ARITHMETIC_ROWS row, test whether LEFT_VALUE minus RIGHT_VALUE is outside the numeric set {0,2}. Unknown input values propagate to unavailable; numeric0 is a valid comparison value. Preserve the subtraction direction.",
+  "analysis_request": {
+    "output_table": "ARITHMETIC_ROWS",
+    "required_columns": [
+      [
+        "ARITHMETIC_ROWS",
+        "LEFT_VALUE"
+      ],
+      [
+        "ARITHMETIC_ROWS",
+        "RIGHT_VALUE"
+      ]
+    ],
+    "required_relationship_ids": []
+  }
+}

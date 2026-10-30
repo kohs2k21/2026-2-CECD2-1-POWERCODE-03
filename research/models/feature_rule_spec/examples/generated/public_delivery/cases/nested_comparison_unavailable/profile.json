@@ -1,0 +1,105 @@
+{
+  "period": {
+    "controlled_domain": "Artificial rows; no operational dates"
+  },
+  "table_rows": {
+    "COMPARISON_ROWS": 5
+  },
+  "transaction_families": 0,
+  "metadata": {
+    "COMPARISON_ROWS": [
+      {
+        "column": "ROW_KEY",
+        "logical_type": "string",
+        "rows": 5,
+        "missing": 0,
+        "distinct": 5,
+        "unit": {
+          "name": null,
+          "status": "unknown"
+        },
+        "description": "No confirmed business meaning supplied"
+      },
+      {
+        "column": "NUM",
+        "logical_type": "number",
+        "rows": 5,
+        "missing": 1,
+        "distinct": 2,
+        "unit": {
+          "name": null,
+          "status": "unknown"
+        },
+        "description": "No confirmed business meaning supplied",
+        "observed_raw_values": [
+          [
+            "2",
+            3
+          ],
+          [
+            "0",
+            1
+          ]
+        ],
+        "observed_min": "0",
+        "observed_max": "2"
+      },
+      {
+        "column": "DEN",
+        "logical_type": "number",
+        "rows": 5,
+        "missing": 0,
+        "distinct": 3,
+        "unit": {
+          "name": null,
+          "status": "unknown"
+        },
+        "description": "No confirmed business meaning supplied",
+        "observed_raw_values": [
+          [
+            "2",
+            2
+          ],
+          [
+            "1",
+            2
+          ],
+          [
+            "0",
+            1
+          ]
+        ],
+        "observed_min": "0",
+        "observed_max": "2"
+      },
+      {
+        "column": "CUT",
+        "logical_type": "number",
+        "rows": 5,
+        "missing": 1,
+        "distinct": 1,
+        "unit": {
+          "name": null,
+          "status": "unknown"
+        },
+        "description": "No confirmed business meaning supplied",
+        "observed_raw_values": [
+          [
+            "1",
+            4
+          ]
+        ],
+        "observed_min": "1",
+        "observed_max": "1"
+      }
+    ]
+  },
+  "observed_extrema_not_proven_bounds": true,
+  "full_source_pins": [
+    {
+      "table": "COMPARISON_ROWS",
+      "sha256": "82d17a7e2a364a868d6376c1be89d94ea79aad7599c2020f53f14fd4c8190790",
+      "bytes": 69
+    }
+  ]
+}

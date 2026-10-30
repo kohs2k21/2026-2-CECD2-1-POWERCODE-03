@@ -1,0 +1,16 @@
+{
+  "question": "Per PARENT_SAMPLE row, return a complete Boolean indicating whether the ratio of physically linked CHILD_EVENT rows with raw RAW_TAG=Q to all its linked CHILD_EVENT rows is unavailable. A known empty child set gives an unavailable ratio, not numerical0. Do not assign business meaning to Q.",
+  "analysis_request": {
+    "output_table": "PARENT_SAMPLE",
+    "required_columns": [
+      [
+        "CHILD_EVENT",
+        "RAW_TAG"
+      ]
+    ],
+    "required_relationship_ids": [
+      "sample_event_parent"
+    ],
+    "complete_boolean": true
+  }
+}

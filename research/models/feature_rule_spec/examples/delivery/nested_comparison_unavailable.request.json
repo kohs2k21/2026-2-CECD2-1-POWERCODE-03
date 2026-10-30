@@ -1,0 +1,24 @@
+{
+  "question": "Compute whether NUM/DEN exceeds CUT per COMPARISON_ROWS row, then inspect whether this comparison result is unavailable. Select the explicit view; keep every row.",
+  "analysis_request": {
+    "output_table": "COMPARISON_ROWS",
+    "result_use": "unavailable",
+    "calculation_type": "boolean",
+    "required_columns": [
+      [
+        "COMPARISON_ROWS",
+        "NUM"
+      ],
+      [
+        "COMPARISON_ROWS",
+        "DEN"
+      ],
+      [
+        "COMPARISON_ROWS",
+        "CUT"
+      ]
+    ],
+    "required_relationship_ids": [],
+    "complete_boolean": true
+  }
+}

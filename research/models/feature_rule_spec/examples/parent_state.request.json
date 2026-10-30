@@ -1,0 +1,11 @@
+{
+  "question": "Per CASE_LOG row return a complete Boolean that is true when its declared CASE_HDR match count cannot be evaluated OR the known match count is zero; false for known positive match counts. Preserve missing link-key rows.",
+  "analysis_request": {
+    "output_table": "CASE_LOG",
+    "required_columns": [],
+    "complete_boolean": true,
+    "required_relationship_ids": [
+      "declared_log_header"
+    ]
+  }
+}

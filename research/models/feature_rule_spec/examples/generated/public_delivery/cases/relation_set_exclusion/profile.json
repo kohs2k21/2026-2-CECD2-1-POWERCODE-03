@@ -1,0 +1,131 @@
+{
+  "period": {
+    "controlled_domain": "Artificial rows; no operational dates"
+  },
+  "table_rows": {
+    "PARENT_SAMPLE": 4,
+    "CHILD_EVENT": 4
+  },
+  "transaction_families": 0,
+  "metadata": {
+    "PARENT_SAMPLE": [
+      {
+        "column": "PARENT_ROW",
+        "logical_type": "string",
+        "rows": 4,
+        "missing": 0,
+        "distinct": 4,
+        "unit": {
+          "name": null,
+          "status": "unknown"
+        },
+        "description": "No confirmed business meaning supplied"
+      },
+      {
+        "column": "JOIN_CODE",
+        "logical_type": "string",
+        "rows": 4,
+        "missing": 1,
+        "distinct": 3,
+        "unit": {
+          "name": null,
+          "status": "unknown"
+        },
+        "description": "No confirmed business meaning supplied"
+      }
+    ],
+    "CHILD_EVENT": [
+      {
+        "column": "CHILD_ROW",
+        "logical_type": "string",
+        "rows": 4,
+        "missing": 0,
+        "distinct": 4,
+        "unit": {
+          "name": null,
+          "status": "unknown"
+        },
+        "description": "No confirmed business meaning supplied"
+      },
+      {
+        "column": "OWNER_KEY",
+        "logical_type": "string",
+        "rows": 4,
+        "missing": 0,
+        "distinct": 2,
+        "unit": {
+          "name": null,
+          "status": "unknown"
+        },
+        "description": "No confirmed business meaning supplied"
+      },
+      {
+        "column": "RAW_TAG",
+        "logical_type": "string",
+        "rows": 4,
+        "missing": 0,
+        "distinct": 3,
+        "unit": {
+          "name": null,
+          "status": "unknown"
+        },
+        "description": "No confirmed business meaning supplied",
+        "observed_raw_values": [
+          [
+            "Q",
+            2
+          ],
+          [
+            "L",
+            1
+          ],
+          [
+            "R",
+            1
+          ]
+        ]
+      },
+      {
+        "column": "RAW_QTY",
+        "logical_type": "number",
+        "rows": 4,
+        "missing": 1,
+        "distinct": 3,
+        "unit": {
+          "name": null,
+          "status": "unknown"
+        },
+        "description": "No confirmed business meaning supplied",
+        "observed_raw_values": [
+          [
+            "2",
+            1
+          ],
+          [
+            "4",
+            1
+          ],
+          [
+            "3",
+            1
+          ]
+        ],
+        "observed_min": "2",
+        "observed_max": "4"
+      }
+    ]
+  },
+  "observed_extrema_not_proven_bounds": true,
+  "full_source_pins": [
+    {
+      "table": "PARENT_SAMPLE",
+      "sha256": "2d02dee6d5932965cfa98b16b3d762688a0eb6d7031c9096300ba52f9ce72c2a",
+      "bytes": 49
+    },
+    {
+      "table": "CHILD_EVENT",
+      "sha256": "adeeabbb8207f859bd833efbfc0df103d4350944fa90637f13316cf2fdc26ceb",
+      "bytes": 76
+    }
+  ]
+}

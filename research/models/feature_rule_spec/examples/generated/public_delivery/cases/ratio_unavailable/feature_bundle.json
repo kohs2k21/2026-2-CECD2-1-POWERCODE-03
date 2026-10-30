@@ -1,0 +1,669 @@
+{
+  "status": "feature_verified",
+  "preserved_seed_prediction": null,
+  "seed_source_pin": null,
+  "origin": "actual_Model_response",
+  "proposal": {
+    "proposal_id": "local",
+    "plan": {
+      "expression": {
+        "op": "divide",
+        "args": [
+          {
+            "op": "column",
+            "table": "CASE_LOG",
+            "column": "A"
+          },
+          {
+            "op": "column",
+            "table": "CASE_LOG",
+            "column": "B"
+          }
+        ]
+      },
+      "grain": {
+        "table": "CASE_LOG",
+        "keys": [
+          "ROW_ID"
+        ]
+      },
+      "population": {
+        "table": "CASE_LOG",
+        "filter": null
+      },
+      "group_by": [],
+      "result_use": "unavailable"
+    },
+    "purpose": "Compute A/B per CASE_LOG row and inspect its result availability. Return a complete Boolean true for unavailable, false for an available numerical result including0. Use the explicit result view.",
+    "meaning": "Return true if A/B is unavailable, false if it is available, including numeric0. Explain calculation, filters, output row and result states. True0 differs from no evaluable rows. Raw IN/OUT/MAP/VOID/UNKNOWN have no business meaning beyond supplied authority. No fault/normality/SLA/online claim follows from offline.",
+    "needed_evidence": []
+  },
+  "compilation": {
+    "passed": true,
+    "errors": [],
+    "compiled_feature": {
+      "Model_plan": {
+        "expression": {
+          "op": "divide",
+          "args": [
+            {
+              "op": "column",
+              "table": "CASE_LOG",
+              "column": "A"
+            },
+            {
+              "op": "column",
+              "table": "CASE_LOG",
+              "column": "B"
+            }
+          ]
+        },
+        "grain": {
+          "table": "CASE_LOG",
+          "keys": [
+            "ROW_ID"
+          ]
+        },
+        "population": {
+          "table": "CASE_LOG",
+          "filter": null
+        },
+        "group_by": [],
+        "result_use": "unavailable"
+      },
+      "result_view_compilation": {
+        "policy": "result-view1.0",
+        "selected_by": "explicit_plan_field",
+        "result_use": "unavailable",
+        "Model_expression": {
+          "op": "divide",
+          "args": [
+            {
+              "op": "column",
+              "table": "CASE_LOG",
+              "column": "A"
+            },
+            {
+              "op": "column",
+              "table": "CASE_LOG",
+              "column": "B"
+            }
+          ]
+        },
+        "compiled_expression": {
+          "op": "is_missing",
+          "args": [
+            {
+              "op": "divide",
+              "args": [
+                {
+                  "op": "column",
+                  "table": "CASE_LOG",
+                  "column": "A"
+                },
+                {
+                  "op": "column",
+                  "table": "CASE_LOG",
+                  "column": "B"
+                }
+              ]
+            }
+          ]
+        },
+        "not_intent_repair": true,
+        "meaning": "unavailable tests a computed result; unavailable_or_zero tests a numeric result for unavailable or known zero; filtered-out rows have no output; execution errors are not caught"
+      },
+      "id": "fd_0a3db0222f24542f7c53fb2b",
+      "definition_sha": "9faeebff599c1c2c31eafcd48f41d066bf1a960b1d258ba38b54b72fa0611bda",
+      "semantic_definition_sha": "2dbe1dd4bc864973e0dd5ab9c56cbb3776123a09dfa8103ea8e0c91ee330704a",
+      "source_version": "a317bc6e578b38c0d55ce0cf75d58476fee5e277599e67d1e67e5feab2d7d28a",
+      "schema_version": "2e137901f9402ffde18f2c767f6d44d303a87cb438dfcc53c722235e4cf88d53",
+      "plan": {
+        "id": "local_94d5555782da25c86e5335",
+        "description": "unavailability((CASE_LOG.A divided by CASE_LOG.B))",
+        "expression": {
+          "op": "is_missing",
+          "args": [
+            {
+              "op": "divide",
+              "args": [
+                {
+                  "op": "column",
+                  "table": "CASE_LOG",
+                  "column": "A"
+                },
+                {
+                  "op": "column",
+                  "table": "CASE_LOG",
+                  "column": "B"
+                }
+              ]
+            }
+          ]
+        },
+        "grain": {
+          "table": "CASE_LOG",
+          "keys": [
+            "ROW_ID"
+          ]
+        },
+        "population": {
+          "table": "CASE_LOG",
+          "filter": null
+        },
+        "group_by": [],
+        "missing_policy": {
+          "input": "propagate",
+          "empty_group": null,
+          "denominator_zero": "missing",
+          "child_missing": "propagate",
+          "unknown_predicate": "defer"
+        },
+        "schema_version": "2e137901f9402ffde18f2c767f6d44d303a87cb438dfcc53c722235e4cf88d53",
+        "source_version": "a317bc6e578b38c0d55ce0cf75d58476fee5e277599e67d1e67e5feab2d7d28a"
+      },
+      "dtype": "boolean",
+      "unit": "boolean",
+      "meaning": "Return true if A/B is unavailable, false if it is available, including numeric0. Explain calculation, filters, output row and result states. True0 differs from no evaluable rows. Raw IN/OUT/MAP/VOID/UNKNOWN have no business meaning beyond supplied authority. No fault/normality/SLA/online claim follows from offline.",
+      "purpose": "Compute A/B per CASE_LOG row and inspect its result availability. Return a complete Boolean true for unavailable, false for an available numerical result including0. Use the explicit result view.",
+      "source_columns": [
+        [
+          "CASE_LOG",
+          "A"
+        ],
+        [
+          "CASE_LOG",
+          "B"
+        ]
+      ],
+      "relationships": [],
+      "measurement": {
+        "version": "metadata-calculation-3.0.4",
+        "runtime": "full-approved-scope-1.1",
+        "summary_decimal_precision": 50,
+        "definition_status": "valid",
+        "measurement_status": "measured",
+        "definition_sha256": "9faeebff599c1c2c31eafcd48f41d066bf1a960b1d258ba38b54b72fa0611bda",
+        "proposal_sha256": "71ac83d4360f8a8c150230828df8ab7a717223d0a15fabca3e2e80b07d9794e1",
+        "source_version": "a317bc6e578b38c0d55ce0cf75d58476fee5e277599e67d1e67e5feab2d7d28a",
+        "summary": {
+          "row_count": 7,
+          "valid_count": 7,
+          "missing_count": 0,
+          "true_count": 4,
+          "false_count": 3,
+          "ratio": 0.5714285714285714,
+          "numerator": 4,
+          "denominator": 7,
+          "min": null,
+          "max": null,
+          "p95": null,
+          "p99": null,
+          "variation": "variable",
+          "quantile_method": "linear_(n-1)*p",
+          "exact_decimal": {
+            "ratio": "0.57142857142857142857142857142857142857142857142857",
+            "p95": null,
+            "p99": null
+          },
+          "population_rows_before_selection": 7,
+          "selection_unavailable_count": 0
+        },
+        "validation": {
+          "passed": true,
+          "definition_status": "valid",
+          "definition_sha256": "9faeebff599c1c2c31eafcd48f41d066bf1a960b1d258ba38b54b72fa0611bda",
+          "proposal_sha256": "71ac83d4360f8a8c150230828df8ab7a717223d0a15fabca3e2e80b07d9794e1",
+          "inferred_type": "boolean",
+          "unit": "boolean",
+          "identity": {
+            "schema_version": "2e137901f9402ffde18f2c767f6d44d303a87cb438dfcc53c722235e4cf88d53",
+            "missing_policy": {
+              "input": "propagate",
+              "empty_group": null,
+              "denominator_zero": "missing",
+              "child_missing": "propagate",
+              "unknown_predicate": "defer"
+            },
+            "population": {
+              "table": "CASE_LOG",
+              "filter": null
+            },
+            "expression": {
+              "op": "is_missing",
+              "args": [
+                {
+                  "op": "divide",
+                  "args": [
+                    {
+                      "op": "column",
+                      "table": "CASE_LOG",
+                      "column": "A"
+                    },
+                    {
+                      "op": "column",
+                      "table": "CASE_LOG",
+                      "column": "B"
+                    }
+                  ]
+                }
+              ]
+            },
+            "group_by": [],
+            "source_version": "a317bc6e578b38c0d55ce0cf75d58476fee5e277599e67d1e67e5feab2d7d28a",
+            "grain": {
+              "table": "CASE_LOG",
+              "keys": [
+                "ROW_ID"
+              ]
+            },
+            "calculation_policy": "metadata-calculation-3.0.4",
+            "inferred_type": "boolean",
+            "unit": "boolean",
+            "source_columns": [
+              [
+                "CASE_LOG",
+                "A"
+              ],
+              [
+                "CASE_LOG",
+                "B"
+              ]
+            ],
+            "relationships": []
+          },
+          "capture_missing": [],
+          "aggregate_relationships": [],
+          "errors": []
+        },
+        "anomaly_execution": "not_run",
+        "measurement_sha256": "c02c7c1747ed90088453348ba7296abc5a309328f20c8ff2812b9fe6ab8e8463"
+      },
+      "measurement_id": "m_c02c7c1747ed90088453348b",
+      "independent_calculation": {
+        "passed": true,
+        "method": "separate recursive lexical evaluator; distinct relation/group indices; exact Decimal50",
+        "values_compared": 7,
+        "selection_unavailable": 0,
+        "vector_sha": "6f240651fc401c43288b3c6f27c80b91e0ed434a90d1098e146a313713b677dc",
+        "business_truth_label": false
+      },
+      "description_revision": {
+        "sha": "0ae0152302c1f731387fa798a5f606ed32536436f83a06cbe1db6e8344a2833b",
+        "calculation_definition_sha": "9faeebff599c1c2c31eafcd48f41d066bf1a960b1d258ba38b54b72fa0611bda",
+        "measurement_sha": "c02c7c1747ed90088453348ba7296abc5a309328f20c8ff2812b9fe6ab8e8463",
+        "measurement_reuse_requires": "Same expression/grain/population/group/missing/type/unit/schema/source. This compilation always verifies its own source.",
+        "Model_origin": {
+          "file": "model/feature_0/output.json",
+          "raw_sha": "1514d1bdfbce12ed1e928d3163702a8f77a174ea6b44d42469dd392d48aa8ef6",
+          "parsed_sha": "c8660a8cef11060fdf358674335d7ccc19f31eaa200ad313c92ea479acff764f",
+          "messages_sha": "10b20ab8752ab09f50c0f56cabbb182dd0431dc5cf5760a066a0299ec61fb9d2",
+          "budget": {
+            "sequence": 1,
+            "kind": "feature",
+            "call": "feature_0",
+            "phase": "frozen_final_final_public_delivery_ratio_unavailable",
+            "at": 1793097329.4955988,
+            "failed_or_interrupted_calls_consume_budget": true,
+            "shared_sequence": 94
+          }
+        },
+        "assembled_preserved_parent": null
+      },
+      "registration": {
+        "call_id": "feature_0",
+        "Model_alias": "local",
+        "Model_proposal_sha": "76663e467b41dfc6b5fdd7dd21d31b723016bb11d283c1dd068a3161b93dcb9e"
+      },
+      "possible_states": {
+        "operator": "is_missing",
+        "unavailable_possible": false,
+        "proof_scope": "Supported operator contract on retained selected rows",
+        "children": [
+          {
+            "operator": "divide",
+            "unavailable_possible": true,
+            "proof_scope": "Supported operator contract on retained selected rows",
+            "children": [
+              {
+                "operator": "column",
+                "unavailable_possible": true,
+                "proof_scope": "Supported operator contract on retained selected rows",
+                "children": []
+              },
+              {
+                "operator": "column",
+                "unavailable_possible": true,
+                "proof_scope": "Supported operator contract on retained selected rows",
+                "children": []
+              }
+            ]
+          }
+        ]
+      },
+      "availability": "offline complete capture; prospective availability and IF not approved"
+    },
+    "row_grain": {
+      "policy": "row-grain1.0+immutable-AST3-types",
+      "passed": true,
+      "errors": [],
+      "nodes": [
+        {
+          "path": "/plan/expression/args/0/args/0",
+          "op": "column",
+          "evaluation_table": "CASE_LOG",
+          "output_table": "CASE_LOG",
+          "row_keys": [
+            "ROW_ID"
+          ],
+          "scalar": false,
+          "dtype": "number",
+          "unit": "coordinate_unit"
+        },
+        {
+          "path": "/plan/expression/args/0/args/1",
+          "op": "column",
+          "evaluation_table": "CASE_LOG",
+          "output_table": "CASE_LOG",
+          "row_keys": [
+            "ROW_ID"
+          ],
+          "scalar": false,
+          "dtype": "number",
+          "unit": "coordinate_unit"
+        },
+        {
+          "path": "/plan/expression/args/0",
+          "op": "divide",
+          "evaluation_table": "CASE_LOG",
+          "output_table": "CASE_LOG",
+          "row_keys": [
+            "ROW_ID"
+          ],
+          "scalar": false,
+          "dtype": "number",
+          "unit": "ratio"
+        },
+        {
+          "path": "/plan/expression",
+          "op": "is_missing",
+          "evaluation_table": "CASE_LOG",
+          "output_table": "CASE_LOG",
+          "row_keys": [
+            "ROW_ID"
+          ],
+          "scalar": false,
+          "dtype": "boolean",
+          "unit": "boolean"
+        }
+      ],
+      "root": {
+        "path": "/plan/expression",
+        "op": "is_missing",
+        "evaluation_table": "CASE_LOG",
+        "output_table": "CASE_LOG",
+        "row_keys": [
+          "ROW_ID"
+        ],
+        "scalar": false,
+        "dtype": "boolean",
+        "unit": "boolean"
+      },
+      "proposal_unchanged_sha": "94d5555782da25c86e5335cf5ebc896daa9553eeb266a507fb73c4345d4602f6"
+    },
+    "proposal_sha": "76663e467b41dfc6b5fdd7dd21d31b723016bb11d283c1dd068a3161b93dcb9e",
+    "row_ids": [
+      [
+        "l0"
+      ],
+      [
+        "l1"
+      ],
+      [
+        "l2"
+      ],
+      [
+        "l3"
+      ],
+      [
+        "l4"
+      ],
+      [
+        "l5"
+      ],
+      [
+        "l6"
+      ]
+    ]
+  },
+  "attempts": [
+    {
+      "attempt": 0,
+      "prediction": {
+        "schema": "feature5.2",
+        "candidates": [
+          {
+            "proposal_id": "local",
+            "plan": {
+              "expression": {
+                "op": "divide",
+                "args": [
+                  {
+                    "op": "column",
+                    "table": "CASE_LOG",
+                    "column": "A"
+                  },
+                  {
+                    "op": "column",
+                    "table": "CASE_LOG",
+                    "column": "B"
+                  }
+                ]
+              },
+              "grain": {
+                "table": "CASE_LOG",
+                "keys": [
+                  "ROW_ID"
+                ]
+              },
+              "population": {
+                "table": "CASE_LOG",
+                "filter": null
+              },
+              "group_by": [],
+              "result_use": "unavailable"
+            },
+            "purpose": "Compute A/B per CASE_LOG row and inspect its result availability. Return a complete Boolean true for unavailable, false for an available numerical result including0. Use the explicit result view.",
+            "meaning": "Return true if A/B is unavailable, false if it is available, including numeric0. Explain calculation, filters, output row and result states. True0 differs from no evaluable rows. Raw IN/OUT/MAP/VOID/UNKNOWN have no business meaning beyond supplied authority. No fault/normality/SLA/online claim follows from offline.",
+            "needed_evidence": []
+          }
+        ],
+        "stop_reason": null
+      },
+      "passed": true,
+      "errors": [],
+      "actual_model_origin": {
+        "file": "model/feature_0/output.json",
+        "raw_sha": "1514d1bdfbce12ed1e928d3163702a8f77a174ea6b44d42469dd392d48aa8ef6",
+        "parsed_sha": "c8660a8cef11060fdf358674335d7ccc19f31eaa200ad313c92ea479acff764f",
+        "messages_sha": "10b20ab8752ab09f50c0f56cabbb182dd0431dc5cf5760a066a0299ec61fb9d2",
+        "budget": {
+          "sequence": 1,
+          "kind": "feature",
+          "call": "feature_0",
+          "phase": "frozen_final_final_public_delivery_ratio_unavailable",
+          "at": 1793097329.4955988,
+          "failed_or_interrupted_calls_consume_budget": true,
+          "shared_sequence": 94
+        }
+      },
+      "partial_Model_prose_fields": null,
+      "partial_Model_expression_and_prose": false,
+      "partial_stop_reason": false,
+      "assembly_over_preserved_candidate": false,
+      "not_code_authored_answer": true
+    }
+  ],
+  "source_manifest": {
+    "sha256": "2b7b09542beb91d5ce5f3311e24de2962dbbb34fe04f38be42570378bc2c80df",
+    "source_version": "a317bc6e578b38c0d55ce0cf75d58476fee5e277599e67d1e67e5feab2d7d28a"
+  },
+  "official_semantics": {
+    "version": "calculation-facts2.0-guarded-availability",
+    "definition_sha": "9faeebff599c1c2c31eafcd48f41d066bf1a960b1d258ba38b54b72fa0611bda",
+    "source_version": "a317bc6e578b38c0d55ce0cf75d58476fee5e277599e67d1e67e5feab2d7d28a",
+    "measurement_id": "m_c02c7c1747ed90088453348b",
+    "measurement_sha": "c02c7c1747ed90088453348ba7296abc5a309328f20c8ff2812b9fe6ab8e8463",
+    "output_grain": {
+      "table": "CASE_LOG",
+      "keys": [
+        "ROW_ID"
+      ]
+    },
+    "population": {
+      "table": "CASE_LOG",
+      "filter": null
+    },
+    "dtype": "boolean",
+    "unit": "boolean",
+    "operator_contract_possible_states": [
+      "true",
+      "false"
+    ],
+    "operator_state_proof": {
+      "operator": "is_missing",
+      "unavailable_possible": false,
+      "proof_scope": "Supported operator contract on retained selected rows",
+      "children": [
+        {
+          "operator": "divide",
+          "unavailable_possible": true,
+          "proof_scope": "Supported operator contract on retained selected rows",
+          "children": [
+            {
+              "operator": "column",
+              "unavailable_possible": true,
+              "proof_scope": "Supported operator contract on retained selected rows",
+              "children": []
+            },
+            {
+              "operator": "column",
+              "unavailable_possible": true,
+              "proof_scope": "Supported operator contract on retained selected rows",
+              "children": []
+            }
+          ]
+        }
+      ]
+    },
+    "missing_policy": {
+      "input": "propagate",
+      "empty_group": null,
+      "denominator_zero": "missing",
+      "child_missing": "propagate",
+      "unknown_predicate": "defer"
+    },
+    "current": {
+      "selected_rows": 7,
+      "population_rows_before_selection": 7,
+      "selection_unavailable": 0,
+      "numeric_or_boolean_nonnull": 7,
+      "result_unavailable": 0,
+      "true": 4,
+      "false": 3
+    },
+    "interpretation": {
+      "null_result": "Does not alone identify source null, parsing, join, denominator or fault cause.",
+      "empty_child_group": "Zero only under the aggregate empty-group contract; unknown relationship/filter is different.",
+      "sample_extrema": "Observed min/max are not proven bounds.",
+      "total_missing_test": "is_missing evaluates retained null results to true; it is not an unavailable numerical comparison."
+    },
+    "row_nodes": [
+      {
+        "path": "/plan/expression/args/0/args/0",
+        "op": "column",
+        "evaluation_table": "CASE_LOG",
+        "output_table": "CASE_LOG",
+        "row_keys": [
+          "ROW_ID"
+        ],
+        "scalar": false,
+        "dtype": "number",
+        "unit": "coordinate_unit"
+      },
+      {
+        "path": "/plan/expression/args/0/args/1",
+        "op": "column",
+        "evaluation_table": "CASE_LOG",
+        "output_table": "CASE_LOG",
+        "row_keys": [
+          "ROW_ID"
+        ],
+        "scalar": false,
+        "dtype": "number",
+        "unit": "coordinate_unit"
+      },
+      {
+        "path": "/plan/expression/args/0",
+        "op": "divide",
+        "evaluation_table": "CASE_LOG",
+        "output_table": "CASE_LOG",
+        "row_keys": [
+          "ROW_ID"
+        ],
+        "scalar": false,
+        "dtype": "number",
+        "unit": "ratio"
+      },
+      {
+        "path": "/plan/expression",
+        "op": "is_missing",
+        "evaluation_table": "CASE_LOG",
+        "output_table": "CASE_LOG",
+        "row_keys": [
+          "ROW_ID"
+        ],
+        "scalar": false,
+        "dtype": "boolean",
+        "unit": "boolean"
+      }
+    ],
+    "sha256": "b04b824186384979c135966a9147848cb094d18e9662b87810919ddb6531d43c",
+    "author": "compiler",
+    "contract": "official-computation-facts1.0",
+    "not_AI_generated": true,
+    "expression": {
+      "op": "is_missing",
+      "args": [
+        {
+          "op": "divide",
+          "args": [
+            {
+              "op": "column",
+              "table": "CASE_LOG",
+              "column": "A"
+            },
+            {
+              "op": "column",
+              "table": "CASE_LOG",
+              "column": "B"
+            }
+          ]
+        }
+      ]
+    },
+    "selected_result_use": "unavailable",
+    "output_excludes_filtered_rows": true,
+    "exceptions": "Invalid sources/types/execution failures are errors, not unavailable values.",
+    "complete_natural_language_proof": false,
+    "facts_sha": "7466499ac4412effaa7314a1437b35410eefd071337e6a06362f35cd828669d9"
+  },
+  "description_validation": {
+    "status": "supported_claims_checked",
+    "complete_NL_proof": false,
+    "free_prose_approval": "not_granted_by_program_supported_claims_only",
+    "actual_Model_repair": false,
+    "errors": []
+  },
+  "admin_semantic_review": "Structured compiler facts define calculation behavior; AI prose has only the separately stated review scope."
+}

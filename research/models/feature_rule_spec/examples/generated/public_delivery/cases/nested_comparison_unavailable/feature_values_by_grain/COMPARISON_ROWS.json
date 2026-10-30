@@ -1,0 +1,33 @@
+{
+  "feature_id": "fd_5e578d65107d15146961096b",
+  "definition_sha": "e273ca8bb5125779b0890179e05335906ba6d598d6ea9459fd19660f8f8ccfad",
+  "source_version": "be762a537b99c8c61c06cf9dadd73e3ba8436a031dda587a47079cc2567ef8b3",
+  "row_keys": [
+    "ROW_KEY"
+  ],
+  "source_row_keys": [
+    [
+      "r0"
+    ],
+    [
+      "r1"
+    ],
+    [
+      "r2"
+    ],
+    [
+      "r3"
+    ],
+    [
+      "r4"
+    ]
+  ],
+  "values": [
+    false,
+    false,
+    true,
+    true,
+    true
+  ],
+  "measurement_sha": "36dc094afd6bc797853ee870f57d61ae1e79281d3e78006a2b6f6028a3f938ab"
+}

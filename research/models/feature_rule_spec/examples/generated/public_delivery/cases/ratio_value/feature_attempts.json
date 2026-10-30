@@ -1,0 +1,68 @@
+[
+  {
+    "attempt": 0,
+    "prediction": {
+      "schema": "feature5.2",
+      "candidates": [
+        {
+          "proposal_id": "local",
+          "plan": {
+            "expression": {
+              "op": "divide",
+              "args": [
+                {
+                  "op": "column",
+                  "table": "CASE_LOG",
+                  "column": "A"
+                },
+                {
+                  "op": "column",
+                  "table": "CASE_LOG",
+                  "column": "B"
+                }
+              ]
+            },
+            "grain": {
+              "table": "CASE_LOG",
+              "keys": [
+                "ROW_ID"
+              ]
+            },
+            "population": {
+              "table": "CASE_LOG",
+              "filter": null
+            },
+            "group_by": [],
+            "result_use": "value"
+          },
+          "purpose": "Calculate A divided by B per CASE_LOG row, preserving unavailable for missing operands or zero denominator and preserving valid numeric0.",
+          "meaning": "Compute A divided by B per CASE_LOG row, preserving unavailable for missing operands or zero denominator and preserving valid numeric0.",
+          "needed_evidence": []
+        }
+      ],
+      "stop_reason": null
+    },
+    "passed": true,
+    "errors": [],
+    "actual_model_origin": {
+      "file": "model/feature_0/output.json",
+      "raw_sha": "2c9c0296b9306bb2d282f9499c108ada9321cff2ade1599b7d968b1dee3da440",
+      "parsed_sha": "6b06e6f956aa06a2b454a92f7b42985ae65df5f641940ce9b145dd2ce0fc3d2a",
+      "messages_sha": "fadeeb64c81342aa14425a9b0a0c8e4fb4cfae011e756b9f5b505f77dd878d68",
+      "budget": {
+        "sequence": 1,
+        "kind": "feature",
+        "call": "feature_0",
+        "phase": "frozen_final_final_public_delivery_ratio_value",
+        "at": 1793097223.502662,
+        "failed_or_interrupted_calls_consume_budget": true,
+        "shared_sequence": 92
+      }
+    },
+    "partial_Model_prose_fields": null,
+    "partial_Model_expression_and_prose": false,
+    "partial_stop_reason": false,
+    "assembly_over_preserved_candidate": false,
+    "not_code_authored_answer": true
+  }
+]

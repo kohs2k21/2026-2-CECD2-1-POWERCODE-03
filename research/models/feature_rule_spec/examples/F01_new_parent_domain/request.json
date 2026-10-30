@@ -1,0 +1,11 @@
+{
+  "question": "For each HOP_TRACE row, return a complete Boolean: true when the physical FRAME_REGISTER match count is unavailable or its known count is0, false when the known count is positive. Keep missing link-key rows; no mandatory-parent claim.",
+  "analysis_request": {
+    "output_table": "HOP_TRACE",
+    "complete_boolean": true,
+    "required_relationship_ids": [
+      "hop_frame_link"
+    ],
+    "required_columns": []
+  }
+}

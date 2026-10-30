@@ -1,0 +1,65 @@
+{
+  "source_version": "c7fdeaacb68ac6ef68b01f651707e6aad95f42e6bc0726106a38f1cd49077ea1",
+  "table": "HOP_TRACE",
+  "row_keys": [
+    "TRACE_ROW"
+  ],
+  "column_definitions": [
+    {
+      "feature_id": "fd_40505a4d9e830b70f61fdcbd",
+      "definition_sha": "1f523c56c914ac1b959a41c0b6c57ba2398ac0374d3eec2463286660a7b7e87c",
+      "population": {
+        "table": "HOP_TRACE",
+        "filter": null
+      },
+      "case": "parent_match_state"
+    }
+  ],
+  "rows": [
+    {
+      "source_row_key": [
+        "h1"
+      ],
+      "features": {
+        "fd_40505a4d9e830b70f61fdcbd": {
+          "state": "value",
+          "value": false
+        }
+      }
+    },
+    {
+      "source_row_key": [
+        "h2"
+      ],
+      "features": {
+        "fd_40505a4d9e830b70f61fdcbd": {
+          "state": "value",
+          "value": true
+        }
+      }
+    },
+    {
+      "source_row_key": [
+        "h3"
+      ],
+      "features": {
+        "fd_40505a4d9e830b70f61fdcbd": {
+          "state": "value",
+          "value": true
+        }
+      }
+    },
+    {
+      "source_row_key": [
+        "h4"
+      ],
+      "features": {
+        "fd_40505a4d9e830b70f61fdcbd": {
+          "state": "value",
+          "value": true
+        }
+      }
+    }
+  ],
+  "not_selected_is_not_unavailable_or_false": true
+}

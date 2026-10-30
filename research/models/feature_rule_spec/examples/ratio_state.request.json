@@ -1,0 +1,17 @@
+{
+  "question": "Per CASE_LOG row return a complete Boolean indicating whether A divided by B cannot be calculated. Keep every row, including missing inputs and denominator zero.",
+  "analysis_request": {
+    "output_table": "CASE_LOG",
+    "required_columns": [
+      [
+        "CASE_LOG",
+        "A"
+      ],
+      [
+        "CASE_LOG",
+        "B"
+      ]
+    ],
+    "complete_boolean": true
+  }
+}

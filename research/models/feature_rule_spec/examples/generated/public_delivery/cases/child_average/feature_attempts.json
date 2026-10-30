@@ -1,0 +1,72 @@
+[
+  {
+    "attempt": 0,
+    "prediction": {
+      "schema": "feature5.2",
+      "candidates": [
+        {
+          "proposal_id": "local",
+          "plan": {
+            "expression": {
+              "op": "divide",
+              "args": [
+                {
+                  "op": "child_sum",
+                  "relationship_id": "sample_event_parent",
+                  "value": {
+                    "op": "column",
+                    "table": "CHILD_EVENT",
+                    "column": "RAW_QTY"
+                  },
+                  "where": null
+                },
+                {
+                  "op": "child_count",
+                  "relationship_id": "sample_event_parent"
+                }
+              ]
+            },
+            "grain": {
+              "table": "PARENT_SAMPLE",
+              "keys": [
+                "PARENT_ROW"
+              ]
+            },
+            "population": {
+              "table": "PARENT_SAMPLE",
+              "filter": null
+            },
+            "group_by": [],
+            "result_use": "value"
+          },
+          "purpose": "Compute the sum of linked CHILD_EVENT RAW_QTY values divided by the number of linked CHILD_EVENT rows.",
+          "meaning": "For each PARENT_SAMPLE row, compute the sum of linked CHILD_EVENT RAW_QTY values divided by the number of linked CHILD_EVENT rows; an unknown child quantity or unavailable relation yields unavailable, and no child rows means denominator0.",
+          "needed_evidence": []
+        }
+      ],
+      "stop_reason": null
+    },
+    "passed": true,
+    "errors": [],
+    "actual_model_origin": {
+      "file": "model/feature_0/output.json",
+      "raw_sha": "33bf0c7ad6c2132a66c4aede17c4791c307d4fe540937821b3c1dfbdde941645",
+      "parsed_sha": "1c3e681a61afc555e84f52c685fd7b0378199c774f43c430de10d4335554db0b",
+      "messages_sha": "6150c9fe643ae2021c32a817effdb3a51d5fe55e7b7162483488e8d8a0d3fa98",
+      "budget": {
+        "sequence": 1,
+        "kind": "feature",
+        "call": "feature_0",
+        "phase": "frozen_final_final_public_delivery_child_average",
+        "at": 1793097621.6294205,
+        "failed_or_interrupted_calls_consume_budget": true,
+        "shared_sequence": 100
+      }
+    },
+    "partial_Model_prose_fields": null,
+    "partial_Model_expression_and_prose": false,
+    "partial_stop_reason": false,
+    "assembly_over_preserved_candidate": false,
+    "not_code_authored_answer": true
+  }
+]

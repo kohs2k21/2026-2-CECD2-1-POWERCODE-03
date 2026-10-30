@@ -1,0 +1,68 @@
+[
+  {
+    "attempt": 0,
+    "prediction": {
+      "schema": "feature5.2",
+      "candidates": [
+        {
+          "proposal_id": "local",
+          "plan": {
+            "expression": {
+              "op": "divide",
+              "args": [
+                {
+                  "op": "column",
+                  "table": "CASE_LOG",
+                  "column": "A"
+                },
+                {
+                  "op": "column",
+                  "table": "CASE_LOG",
+                  "column": "B"
+                }
+              ]
+            },
+            "grain": {
+              "table": "CASE_LOG",
+              "keys": [
+                "ROW_ID"
+              ]
+            },
+            "population": {
+              "table": "CASE_LOG",
+              "filter": null
+            },
+            "group_by": [],
+            "result_use": "unavailable"
+          },
+          "purpose": "Compute A/B per CASE_LOG row and inspect its result availability. Return a complete Boolean true for unavailable, false for an available numerical result including0. Use the explicit result view.",
+          "meaning": "Return true if A/B is unavailable, false if it is available, including numeric0. Explain calculation, filters, output row and result states. True0 differs from no evaluable rows. Raw IN/OUT/MAP/VOID/UNKNOWN have no business meaning beyond supplied authority. No fault/normality/SLA/online claim follows from offline.",
+          "needed_evidence": []
+        }
+      ],
+      "stop_reason": null
+    },
+    "passed": true,
+    "errors": [],
+    "actual_model_origin": {
+      "file": "model/feature_0/output.json",
+      "raw_sha": "1514d1bdfbce12ed1e928d3163702a8f77a174ea6b44d42469dd392d48aa8ef6",
+      "parsed_sha": "c8660a8cef11060fdf358674335d7ccc19f31eaa200ad313c92ea479acff764f",
+      "messages_sha": "10b20ab8752ab09f50c0f56cabbb182dd0431dc5cf5760a066a0299ec61fb9d2",
+      "budget": {
+        "sequence": 1,
+        "kind": "feature",
+        "call": "feature_0",
+        "phase": "frozen_final_final_public_delivery_ratio_unavailable",
+        "at": 1793097329.4955988,
+        "failed_or_interrupted_calls_consume_budget": true,
+        "shared_sequence": 94
+      }
+    },
+    "partial_Model_prose_fields": null,
+    "partial_Model_expression_and_prose": false,
+    "partial_stop_reason": false,
+    "assembly_over_preserved_candidate": false,
+    "not_code_authored_answer": true
+  }
+]

@@ -1,0 +1,9 @@
+{
+  "requests": [
+    "observed"
+  ],
+  "question": "Controlled metadata specification only; no operational fault or mandatory-parent claim.",
+  "observed_condition": {
+    "op": "is_missing"
+  }
+}

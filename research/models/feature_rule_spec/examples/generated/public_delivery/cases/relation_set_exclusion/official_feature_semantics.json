@@ -1,0 +1,139 @@
+{
+  "version": "calculation-facts2.0-guarded-availability",
+  "definition_sha": "c8ceb852d296d559ab67ed8fdc412ce6023058285cb4c9c321bd3dd0e4a63ab3",
+  "source_version": "63365b2e2fc31603007544b35c675781cfdd75e95b2e255ce6f69991a85401be",
+  "measurement_id": "m_78077306df2abc3d1b96a974",
+  "measurement_sha": "78077306df2abc3d1b96a974a93b42115e68ccd784998d98af31cf6431abce84",
+  "output_grain": {
+    "table": "PARENT_SAMPLE",
+    "keys": [
+      "PARENT_ROW"
+    ]
+  },
+  "population": {
+    "table": "PARENT_SAMPLE",
+    "filter": null
+  },
+  "dtype": "number",
+  "unit": null,
+  "operator_contract_possible_states": [
+    "value",
+    "unavailable"
+  ],
+  "operator_state_proof": {
+    "operator": "child_sum",
+    "unavailable_possible": true,
+    "proof_scope": "Supported operator contract on retained selected rows",
+    "children": []
+  },
+  "missing_policy": {
+    "input": "propagate",
+    "empty_group": "zero",
+    "denominator_zero": null,
+    "child_missing": "propagate",
+    "unknown_predicate": "defer"
+  },
+  "current": {
+    "selected_rows": 4,
+    "population_rows_before_selection": 4,
+    "selection_unavailable": 0,
+    "numeric_or_boolean_nonnull": 2,
+    "result_unavailable": 2,
+    "true": null,
+    "false": null
+  },
+  "interpretation": {
+    "null_result": "Does not alone identify source null, parsing, join, denominator or fault cause.",
+    "empty_child_group": "Zero only under the aggregate empty-group contract; unknown relationship/filter is different.",
+    "sample_extrema": "Observed min/max are not proven bounds.",
+    "total_missing_test": "is_missing evaluates retained null results to true; it is not an unavailable numerical comparison."
+  },
+  "row_nodes": [
+    {
+      "path": "/plan/expression/where/args/0",
+      "op": "column",
+      "evaluation_table": "CHILD_EVENT",
+      "output_table": "CHILD_EVENT",
+      "row_keys": [
+        "CHILD_ROW"
+      ],
+      "scalar": false,
+      "dtype": "category",
+      "unit": null
+    },
+    {
+      "path": "/plan/expression/where",
+      "op": "not_in",
+      "evaluation_table": "CHILD_EVENT",
+      "output_table": "CHILD_EVENT",
+      "row_keys": [
+        "CHILD_ROW"
+      ],
+      "scalar": false,
+      "dtype": "boolean",
+      "unit": "boolean"
+    },
+    {
+      "path": "/plan/expression/value",
+      "op": "column",
+      "evaluation_table": "CHILD_EVENT",
+      "output_table": "CHILD_EVENT",
+      "row_keys": [
+        "CHILD_ROW"
+      ],
+      "scalar": false,
+      "dtype": "number",
+      "unit": null
+    },
+    {
+      "path": "/plan/expression",
+      "op": "child_sum",
+      "evaluation_table": "PARENT_SAMPLE",
+      "output_table": "PARENT_SAMPLE",
+      "row_keys": [
+        "PARENT_ROW"
+      ],
+      "scalar": false,
+      "dtype": "number",
+      "unit": null
+    }
+  ],
+  "sha256": "7fdc4499e12011b45ce324b6298c7535d72842c1fcfdfed1f00c786e749029ab",
+  "author": "compiler",
+  "contract": "official-computation-facts1.0",
+  "not_AI_generated": true,
+  "expression": {
+    "op": "child_sum",
+    "relationship_id": "sample_event_parent",
+    "value": {
+      "op": "column",
+      "table": "CHILD_EVENT",
+      "column": "RAW_QTY"
+    },
+    "where": {
+      "op": "not_in",
+      "args": [
+        {
+          "op": "column",
+          "table": "CHILD_EVENT",
+          "column": "RAW_TAG"
+        }
+      ],
+      "values": [
+        "L",
+        "R"
+      ]
+    }
+  },
+  "selected_result_use": "value",
+  "output_excludes_filtered_rows": true,
+  "exceptions": "Invalid sources/types/execution failures are errors, not unavailable values.",
+  "complete_natural_language_proof": false,
+  "known_empty_child_group": {
+    "result": "0",
+    "result_state": "available",
+    "hypothetical_not_measured_count": true,
+    "assumption": "Admitted output row, nonmissing parent keys, complete known-empty linked child set. Each child count/sum is0; the full expression may differ."
+  },
+  "facts_sha": "149d2d81edcd00121e40bb5b7ce1a265194e2c368af76f05eed7e0d384691e4c"
+}

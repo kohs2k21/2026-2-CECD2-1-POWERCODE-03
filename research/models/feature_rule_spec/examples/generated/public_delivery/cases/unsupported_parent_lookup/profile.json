@@ -1,0 +1,115 @@
+{
+  "period": {
+    "controlled_domain": "Artificial rows; no operational dates"
+  },
+  "table_rows": {
+    "LEAF_ROW": 1,
+    "GROUP_ROW": 1,
+    "OWNER_ROW": 1
+  },
+  "transaction_families": 0,
+  "metadata": {
+    "LEAF_ROW": [
+      {
+        "column": "RID",
+        "logical_type": "string",
+        "rows": 1,
+        "missing": 0,
+        "distinct": 1,
+        "unit": {
+          "name": null,
+          "status": "unknown"
+        },
+        "description": "No confirmed business meaning supplied"
+      },
+      {
+        "column": "GREF",
+        "logical_type": "string",
+        "rows": 1,
+        "missing": 0,
+        "distinct": 1,
+        "unit": {
+          "name": null,
+          "status": "unknown"
+        },
+        "description": "No confirmed business meaning supplied"
+      }
+    ],
+    "GROUP_ROW": [
+      {
+        "column": "GID",
+        "logical_type": "string",
+        "rows": 1,
+        "missing": 0,
+        "distinct": 1,
+        "unit": {
+          "name": null,
+          "status": "unknown"
+        },
+        "description": "No confirmed business meaning supplied"
+      },
+      {
+        "column": "OREF",
+        "logical_type": "string",
+        "rows": 1,
+        "missing": 0,
+        "distinct": 1,
+        "unit": {
+          "name": null,
+          "status": "unknown"
+        },
+        "description": "No confirmed business meaning supplied"
+      }
+    ],
+    "OWNER_ROW": [
+      {
+        "column": "OID",
+        "logical_type": "string",
+        "rows": 1,
+        "missing": 0,
+        "distinct": 1,
+        "unit": {
+          "name": null,
+          "status": "unknown"
+        },
+        "description": "No confirmed business meaning supplied"
+      },
+      {
+        "column": "RAW_TEAM",
+        "logical_type": "string",
+        "rows": 1,
+        "missing": 0,
+        "distinct": 1,
+        "unit": {
+          "name": null,
+          "status": "unknown"
+        },
+        "description": "No confirmed business meaning supplied",
+        "observed_raw_values": [
+          [
+            "Z",
+            1
+          ]
+        ]
+      }
+    ]
+  },
+  "observed_extrema_not_proven_bounds": true,
+  "full_source_pins": [
+    {
+      "table": "LEAF_ROW",
+      "sha256": "56cd24d61c6275588e4f70361b22de28765d286022df2e206467b81103b95aa2",
+      "bytes": 16
+    },
+    {
+      "table": "GROUP_ROW",
+      "sha256": "cabaef15085b80fec6fb8db2a337682c5d29ee0e5e926a791e39e6c8b75af9f0",
+      "bytes": 15
+    },
+    {
+      "table": "OWNER_ROW",
+      "sha256": "ea760c8b16a240a1ea671aac7ba322fe81ee83ef9c8cec698f28d73b281c98a0",
+      "bytes": 19
+    }
+  ]
+}

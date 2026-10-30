@@ -1,0 +1,114 @@
+{
+  "kind": "feature",
+  "arm": "selected",
+  "raw": "{\"schema\":\"feature5.2\",\"candidates\":[{\"proposal_id\":\"local\",\"plan\":{\"expression\":{\"op\":\"gt\",\"args\":[{\"op\":\"divide\",\"args\":[{\"op\":\"column\",\"table\":\"COMPARISON_ROWS\",\"column\":\"NUM\"},{\"op\":\"column\",\"table\":\"COMPARISON_ROWS\",\"column\":\"DEN\"}]},{\"op\":\"column\",\"table\":\"COMPARISON_ROWS\",\"column\":\"CUT\"}]},\"grain\":{\"table\":\"COMPARISON_ROWS\",\"keys\":[\"ROW_KEY\"]},\"population\":{\"table\":\"COMPARISON_ROWS\",\"filter\":null},\"group_by\":[],\"result_use\":\"unavailable\"},\"purpose\":\"Check whether the division of NUM by DEN exceeds CUT is unavailable.\",\"meaning\":\"Report whether the comparison of NUM divided by DEN to CUT is unavailable.\",\"needed_evidence\":[]}],\"stop_reason\":null}",
+  "parsed": {
+    "schema": "feature5.2",
+    "candidates": [
+      {
+        "proposal_id": "local",
+        "plan": {
+          "expression": {
+            "op": "gt",
+            "args": [
+              {
+                "op": "divide",
+                "args": [
+                  {
+                    "op": "column",
+                    "table": "COMPARISON_ROWS",
+                    "column": "NUM"
+                  },
+                  {
+                    "op": "column",
+                    "table": "COMPARISON_ROWS",
+                    "column": "DEN"
+                  }
+                ]
+              },
+              {
+                "op": "column",
+                "table": "COMPARISON_ROWS",
+                "column": "CUT"
+              }
+            ]
+          },
+          "grain": {
+            "table": "COMPARISON_ROWS",
+            "keys": [
+              "ROW_KEY"
+            ]
+          },
+          "population": {
+            "table": "COMPARISON_ROWS",
+            "filter": null
+          },
+          "group_by": [],
+          "result_use": "unavailable"
+        },
+        "purpose": "Check whether the division of NUM by DEN exceeds CUT is unavailable.",
+        "meaning": "Report whether the comparison of NUM divided by DEN to CUT is unavailable.",
+        "needed_evidence": []
+      }
+    ],
+    "stop_reason": null
+  },
+  "parse_error": null,
+  "length_limit_hit": false,
+  "messages_sha": "e4079bee6bda7413613d72fda1b841afb26cbe569eb5dbd3c5ba68622666824b",
+  "tokens": {
+    "input_tokens": 1955,
+    "input_token_sha": "76a2e0d9441533ef4ce3b3385495a4491fab8fda88388d34173f946d633d25b8",
+    "output_reserved": 1536,
+    "repair_reserved": 3072,
+    "truncated": false,
+    "schema_sha": "3b453b4e471b6c0b4ace3aa0703cff3f2e6f91d8fc67947c9fcb05ce9d54fcdb",
+    "chat_template_sha": "5c5c2567af60e8b6a5cb02dcdcb19775bbe046ee909fca1a04beed873078be7c"
+  },
+  "output_tokens": 163,
+  "greedy": true,
+  "thinking": false,
+  "budget": {
+    "sequence": 1,
+    "kind": "feature",
+    "call": "feature_0",
+    "phase": "frozen_final_final_public_delivery_nested_comparison_unavailable",
+    "at": 1793097432.4069912,
+    "failed_or_interrupted_calls_consume_budget": true,
+    "shared_sequence": 96
+  },
+  "model": {
+    "Base": {
+      "repo_id": "Qwen/Qwen3.6-27B",
+      "revision": "6a9e13bd6fc8f0983b9b99948120bc37f49c13e9",
+      "verified_files": 27
+    },
+    "adapter_kind": "Feature_selected",
+    "adapter_weight_sha": "f5bc75d6ffc436418236b6808fe46a0841ef3e7c974c22d2c7a9bc0333b81975",
+    "Base_adapter_layers_disabled": 0,
+    "all_weights_frozen": true,
+    "class": "PeftModelForCausalLM",
+    "quantization": {
+      "quant_method": "bitsandbytes",
+      "_load_in_8bit": false,
+      "_load_in_4bit": true,
+      "llm_int8_threshold": 6.0,
+      "llm_int8_skip_modules": null,
+      "llm_int8_enable_fp32_cpu_offload": false,
+      "llm_int8_has_fp16_weight": false,
+      "bnb_4bit_quant_type": "nf4",
+      "bnb_4bit_use_double_quant": true,
+      "bnb_4bit_compute_dtype": "bfloat16",
+      "bnb_4bit_quant_storage": "uint8",
+      "load_in_4bit": true,
+      "load_in_8bit": false
+    },
+    "compute_dtype": "bfloat16"
+  },
+  "seconds": 23.811567689292133,
+  "GPU_memory": {
+    "allocated": 15576216576,
+    "reserved": 18274582528,
+    "peak": 17961120768
+  }
+}

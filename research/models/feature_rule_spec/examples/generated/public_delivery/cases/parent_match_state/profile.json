@@ -1,0 +1,101 @@
+{
+  "period": {
+    "controlled_domain": "Artificial rows; no operational dates"
+  },
+  "table_rows": {
+    "FRAME_REGISTER": 2,
+    "HOP_TRACE": 4
+  },
+  "transaction_families": 0,
+  "metadata": {
+    "FRAME_REGISTER": [
+      {
+        "column": "FRAME_ROW",
+        "logical_type": "string",
+        "rows": 2,
+        "missing": 0,
+        "distinct": 2,
+        "unit": {
+          "name": null,
+          "status": "unknown"
+        },
+        "description": "No confirmed business meaning supplied"
+      },
+      {
+        "column": "TENANT_CODE",
+        "logical_type": "string",
+        "rows": 2,
+        "missing": 0,
+        "distinct": 1,
+        "unit": {
+          "name": null,
+          "status": "unknown"
+        },
+        "description": "No confirmed business meaning supplied"
+      },
+      {
+        "column": "JOIN_VALUE",
+        "logical_type": "string",
+        "rows": 2,
+        "missing": 0,
+        "distinct": 1,
+        "unit": {
+          "name": null,
+          "status": "unknown"
+        },
+        "description": "No confirmed business meaning supplied"
+      }
+    ],
+    "HOP_TRACE": [
+      {
+        "column": "TRACE_ROW",
+        "logical_type": "string",
+        "rows": 4,
+        "missing": 0,
+        "distinct": 4,
+        "unit": {
+          "name": null,
+          "status": "unknown"
+        },
+        "description": "No confirmed business meaning supplied"
+      },
+      {
+        "column": "TENANT_CODE",
+        "logical_type": "string",
+        "rows": 4,
+        "missing": 1,
+        "distinct": 1,
+        "unit": {
+          "name": null,
+          "status": "unknown"
+        },
+        "description": "No confirmed business meaning supplied"
+      },
+      {
+        "column": "FRAME_REF",
+        "logical_type": "string",
+        "rows": 4,
+        "missing": 1,
+        "distinct": 2,
+        "unit": {
+          "name": null,
+          "status": "unknown"
+        },
+        "description": "No confirmed business meaning supplied"
+      }
+    ]
+  },
+  "observed_extrema_not_proven_bounds": true,
+  "full_source_pins": [
+    {
+      "table": "FRAME_REGISTER",
+      "sha256": "03dfc0690e8d80591db82b2eae0f756f6fb2798b959fc35d1e327a7a7068a9ae",
+      "bytes": 56
+    },
+    {
+      "table": "HOP_TRACE",
+      "sha256": "ae374597023b9d4b49d3cc8dead6b653bb24c2067d5478a45f0115561a256c7c",
+      "bytes": 74
+    }
+  ]
+}

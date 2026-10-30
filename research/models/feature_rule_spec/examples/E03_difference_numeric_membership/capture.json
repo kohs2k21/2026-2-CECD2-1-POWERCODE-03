@@ -1,0 +1,94 @@
+{
+  "contract": "approved-metadata-capture1.0",
+  "dataset_id": "final_confirmation_E03_difference_numeric_membership",
+  "data_class": "controlled",
+  "split": "application",
+  "period": {
+    "controlled_domain": "Artificial rows; no operational dates"
+  },
+  "admission": {
+    "approved": true,
+    "Body_excluded": true,
+    "held_lineage_excluded": true,
+    "complete_family_capture": true
+  },
+  "lineage_tags": [
+    "controlled_not_operational"
+  ],
+  "tables": [
+    {
+      "name": "ARITHMETIC_ROWS",
+      "file": "ARITHMETIC_ROWS.csv",
+      "format": "csv",
+      "sha256": "1a8697c1289c6e42e1fe01b904d8d9305174cae0a49b285a731b528cf8d80fb1",
+      "row_count": 4,
+      "primary_key": [
+        "ROW_KEY"
+      ],
+      "columns": [
+        {
+          "name": "ROW_KEY",
+          "logical_type": "string",
+          "nullable": false,
+          "excluded": false,
+          "unit": {
+            "name": null,
+            "status": "unknown"
+          },
+          "missing_tokens": [
+            ""
+          ]
+        },
+        {
+          "name": "LEFT_VALUE",
+          "logical_type": "number",
+          "nullable": true,
+          "excluded": false,
+          "unit": {
+            "name": null,
+            "status": "unknown"
+          },
+          "missing_tokens": [
+            ""
+          ]
+        },
+        {
+          "name": "RIGHT_VALUE",
+          "logical_type": "number",
+          "nullable": true,
+          "excluded": false,
+          "unit": {
+            "name": null,
+            "status": "unknown"
+          },
+          "missing_tokens": [
+            ""
+          ]
+        },
+        {
+          "name": "SCOPE",
+          "logical_type": "string",
+          "nullable": true,
+          "excluded": false,
+          "unit": {
+            "name": null,
+            "status": "unknown"
+          },
+          "missing_tokens": [
+            ""
+          ]
+        }
+      ]
+    }
+  ],
+  "relationships": [],
+  "evidence": [],
+  "source_identity": {
+    "family": "related_method_new_physical_names",
+    "not_independent_business_or_method": true
+  },
+  "transaction_families": 0,
+  "unknown": [
+    "No mandatory parent, fault label, or online contract."
+  ]
+}

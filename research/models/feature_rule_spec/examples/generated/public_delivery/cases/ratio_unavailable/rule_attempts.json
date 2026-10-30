@@ -1,0 +1,66 @@
+[
+  {
+    "attempt": 0,
+    "prediction": {
+      "v": "3",
+      "feature": "fd_0a3db0222f24542f7c53fb2b",
+      "sha": "9faeebff599c1c2c31eafcd48f41d066bf1a960b1d258ba38b54b72fa0611bda",
+      "decisions": [
+        {
+          "request": "observed",
+          "role": "SR",
+          "state": "proposed",
+          "basis": "observed_diagnostic",
+          "condition": {
+            "op": "eq",
+            "value": true
+          },
+          "evidence": [
+            "m_c02c7c1747ed90088453348b"
+          ],
+          "needed": [],
+          "reason": "The supplied calculated-value diagnostic has 7 usable observations. It is evaluable even with zero activations; no historical reference or application minimum is required.",
+          "purpose": "data_quality",
+          "warning_meaning": "Narrow calculated-value or availability property under its supplied purpose and population; no general incident or business violation.",
+          "population_ref": "population_faf1d26c74437d2346b2",
+          "precondition_refs": [
+            "source_a317bc6e578b38c0d55c",
+            "availability_e555d7fbafa738dc9335",
+            "mapping_a95328f5f97b4993caae"
+          ],
+          "required_evaluation_basis": [
+            "source_a317bc6e578b38c0d55c",
+            "availability_e555d7fbafa738dc9335",
+            "mapping_a95328f5f97b4993caae",
+            "m_c02c7c1747ed90088453348b",
+            "population_faf1d26c74437d2346b2"
+          ],
+          "unavailable_action": "preserve_unassessed",
+          "unavailable_reason": "If no evaluable rows exist under this condition, preserve the unassessed result; current observations do not imply future availability.",
+          "business_scope": "Offline calculated-value or availability diagnostic under its supplied scope and population. No operational fault, online necessity, or child-parent obligation is inferred.",
+          "baseline_use_ref": null
+        }
+      ]
+    },
+    "passed": true,
+    "errors": [],
+    "actual_model_origin": {
+      "file": "model/rule_0/output.json",
+      "raw_sha": "98b6141a7449dbfab2236295570a51c2e042fff875268a9f511c6c38afcc1346",
+      "parsed_sha": "1c7acada23b71c5f29c106263a146853d14606b88ff66f4e8784768bcf94ec9a",
+      "messages_sha": "0fb41f719d5f6ac0bfc7dd26607304dbf5b8b8bfecfbd4a23eb4e3e2ead0fefd",
+      "budget": {
+        "sequence": 2,
+        "kind": "rule",
+        "call": "rule_0",
+        "phase": "frozen_final_final_public_delivery_ratio_unavailable",
+        "at": 1793097361.4812944,
+        "failed_or_interrupted_calls_consume_budget": true,
+        "shared_sequence": 95
+      }
+    },
+    "partial_roles": null,
+    "partial_Rule_prose_fields": null,
+    "normal_roles_preserved": false
+  }
+]

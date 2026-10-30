@@ -1,0 +1,169 @@
+{
+  "contract": "approved-metadata-capture1.0",
+  "dataset_id": "final_confirmation_E06_unsupported_ancestor_attribute",
+  "data_class": "controlled",
+  "split": "application",
+  "period": {
+    "controlled_domain": "Artificial rows; no operational dates"
+  },
+  "admission": {
+    "approved": true,
+    "Body_excluded": true,
+    "held_lineage_excluded": true,
+    "complete_family_capture": true
+  },
+  "lineage_tags": [
+    "controlled_not_operational"
+  ],
+  "tables": [
+    {
+      "name": "LEAF_ROW",
+      "file": "LEAF_ROW.csv",
+      "format": "csv",
+      "sha256": "56cd24d61c6275588e4f70361b22de28765d286022df2e206467b81103b95aa2",
+      "row_count": 1,
+      "primary_key": [
+        "RID"
+      ],
+      "columns": [
+        {
+          "name": "RID",
+          "logical_type": "string",
+          "nullable": false,
+          "excluded": false,
+          "unit": {
+            "name": null,
+            "status": "unknown"
+          },
+          "missing_tokens": [
+            ""
+          ]
+        },
+        {
+          "name": "GREF",
+          "logical_type": "string",
+          "nullable": true,
+          "excluded": false,
+          "unit": {
+            "name": null,
+            "status": "unknown"
+          },
+          "missing_tokens": [
+            ""
+          ]
+        }
+      ]
+    },
+    {
+      "name": "GROUP_ROW",
+      "file": "GROUP_ROW.csv",
+      "format": "csv",
+      "sha256": "cabaef15085b80fec6fb8db2a337682c5d29ee0e5e926a791e39e6c8b75af9f0",
+      "row_count": 1,
+      "primary_key": [
+        "GID"
+      ],
+      "columns": [
+        {
+          "name": "GID",
+          "logical_type": "string",
+          "nullable": false,
+          "excluded": false,
+          "unit": {
+            "name": null,
+            "status": "unknown"
+          },
+          "missing_tokens": [
+            ""
+          ]
+        },
+        {
+          "name": "OREF",
+          "logical_type": "string",
+          "nullable": true,
+          "excluded": false,
+          "unit": {
+            "name": null,
+            "status": "unknown"
+          },
+          "missing_tokens": [
+            ""
+          ]
+        }
+      ]
+    },
+    {
+      "name": "OWNER_ROW",
+      "file": "OWNER_ROW.csv",
+      "format": "csv",
+      "sha256": "ea760c8b16a240a1ea671aac7ba322fe81ee83ef9c8cec698f28d73b281c98a0",
+      "row_count": 1,
+      "primary_key": [
+        "OID"
+      ],
+      "columns": [
+        {
+          "name": "OID",
+          "logical_type": "string",
+          "nullable": false,
+          "excluded": false,
+          "unit": {
+            "name": null,
+            "status": "unknown"
+          },
+          "missing_tokens": [
+            ""
+          ]
+        },
+        {
+          "name": "RAW_TEAM",
+          "logical_type": "string",
+          "nullable": true,
+          "excluded": false,
+          "unit": {
+            "name": null,
+            "status": "unknown"
+          },
+          "missing_tokens": [
+            ""
+          ]
+        }
+      ]
+    }
+  ],
+  "relationships": [
+    {
+      "id": "leaf_group",
+      "from_table": "LEAF_ROW",
+      "from_columns": [
+        "GREF"
+      ],
+      "to_table": "GROUP_ROW",
+      "to_columns": [
+        "GID"
+      ],
+      "no_reference_values": []
+    },
+    {
+      "id": "group_owner",
+      "from_table": "GROUP_ROW",
+      "from_columns": [
+        "OREF"
+      ],
+      "to_table": "OWNER_ROW",
+      "to_columns": [
+        "OID"
+      ],
+      "no_reference_values": []
+    }
+  ],
+  "evidence": [],
+  "source_identity": {
+    "family": "related_method_new_physical_names",
+    "not_independent_business_or_method": true
+  },
+  "transaction_families": 0,
+  "unknown": [
+    "No mandatory parent, fault label, or online contract."
+  ]
+}

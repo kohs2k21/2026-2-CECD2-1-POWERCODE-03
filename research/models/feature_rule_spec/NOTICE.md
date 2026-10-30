@@ -1,0 +1,3 @@
+# Scope and publication notice
+
+This is a local research specification package prepared for user review. No Git stage, commit, push, PR or merge is performed. Customer data, original identifiers, private prompts/responses, silver teacher inputs, credentials, checkpoints/optimizer states and Base weights are excluded. Public fixtures and published Model runs are controlled/artificial and are not operational observations or incident labels. Adapter weights are included with content SHA; their learned origin does not erase the disclosed teacher limitations. Base license and any upstream model terms remain applicable.

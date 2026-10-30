@@ -1,0 +1,90 @@
+{
+  "source_version": "63365b2e2fc31603007544b35c675781cfdd75e95b2e255ce6f69991a85401be",
+  "table": "PARENT_SAMPLE",
+  "row_keys": [
+    "PARENT_ROW"
+  ],
+  "column_definitions": [
+    {
+      "feature_id": "fd_b1978eafbd02d79b5014b908",
+      "definition_sha": "a287939334fdde19737438d5fa9d89b4133ab63df73f94aa3472c29f4bda0316",
+      "population": {
+        "table": "PARENT_SAMPLE",
+        "filter": null
+      },
+      "case": "child_average"
+    },
+    {
+      "feature_id": "fd_b38018dfb6ed816862e4eeba",
+      "definition_sha": "c8ceb852d296d559ab67ed8fdc412ce6023058285cb4c9c321bd3dd0e4a63ab3",
+      "population": {
+        "table": "PARENT_SAMPLE",
+        "filter": null
+      },
+      "case": "relation_set_exclusion"
+    }
+  ],
+  "rows": [
+    {
+      "source_row_key": [
+        "p0"
+      ],
+      "features": {
+        "fd_b1978eafbd02d79b5014b908": {
+          "state": "value",
+          "value": "3"
+        },
+        "fd_b38018dfb6ed816862e4eeba": {
+          "state": "value",
+          "value": "2"
+        }
+      }
+    },
+    {
+      "source_row_key": [
+        "p1"
+      ],
+      "features": {
+        "fd_b1978eafbd02d79b5014b908": {
+          "state": "unavailable",
+          "value": null
+        },
+        "fd_b38018dfb6ed816862e4eeba": {
+          "state": "unavailable",
+          "value": null
+        }
+      }
+    },
+    {
+      "source_row_key": [
+        "p2"
+      ],
+      "features": {
+        "fd_b1978eafbd02d79b5014b908": {
+          "state": "unavailable",
+          "value": null
+        },
+        "fd_b38018dfb6ed816862e4eeba": {
+          "state": "value",
+          "value": "0"
+        }
+      }
+    },
+    {
+      "source_row_key": [
+        "p3"
+      ],
+      "features": {
+        "fd_b1978eafbd02d79b5014b908": {
+          "state": "unavailable",
+          "value": null
+        },
+        "fd_b38018dfb6ed816862e4eeba": {
+          "state": "unavailable",
+          "value": null
+        }
+      }
+    }
+  ],
+  "not_selected_is_not_unavailable_or_false": true
+}

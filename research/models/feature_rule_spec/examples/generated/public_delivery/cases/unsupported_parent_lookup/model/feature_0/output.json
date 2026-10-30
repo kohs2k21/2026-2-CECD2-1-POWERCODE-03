@@ -1,0 +1,68 @@
+{
+  "kind": "feature",
+  "arm": "selected",
+  "raw": "{\"schema\":\"feature5.2\",\"candidates\":[],\"stop_reason\":\"No supported expression can look up a parent attribute value; only child_count, conditional_count, child_sum, parent_match_count, group_count are available.\"}",
+  "parsed": {
+    "schema": "feature5.2",
+    "candidates": [],
+    "stop_reason": "No supported expression can look up a parent attribute value; only child_count, conditional_count, child_sum, parent_match_count, group_count are available."
+  },
+  "parse_error": null,
+  "length_limit_hit": false,
+  "messages_sha": "8d24b129591f74351a93600484a3ce516b625f8b7aeec7057d25d6d314719066",
+  "tokens": {
+    "input_tokens": 2326,
+    "input_token_sha": "cede35e03d4f98182e84e80b6ff4d1dbcf72bcbc8843a609a326d61fb1c56660",
+    "output_reserved": 1536,
+    "repair_reserved": 3072,
+    "truncated": false,
+    "schema_sha": "796508248c710fab06274667d662ea1b688f53d26b228d83e49c8a2b91215628",
+    "chat_template_sha": "5c5c2567af60e8b6a5cb02dcdcb19775bbe046ee909fca1a04beed873078be7c"
+  },
+  "output_tokens": 46,
+  "greedy": true,
+  "thinking": false,
+  "budget": {
+    "sequence": 1,
+    "kind": "feature",
+    "call": "feature_0",
+    "phase": "frozen_final_final_public_delivery_unsupported_parent_lookup",
+    "at": 1793097897.413394,
+    "failed_or_interrupted_calls_consume_budget": true,
+    "shared_sequence": 107
+  },
+  "model": {
+    "Base": {
+      "repo_id": "Qwen/Qwen3.6-27B",
+      "revision": "6a9e13bd6fc8f0983b9b99948120bc37f49c13e9",
+      "verified_files": 27
+    },
+    "adapter_kind": "Feature_selected",
+    "adapter_weight_sha": "f5bc75d6ffc436418236b6808fe46a0841ef3e7c974c22d2c7a9bc0333b81975",
+    "Base_adapter_layers_disabled": 0,
+    "all_weights_frozen": true,
+    "class": "PeftModelForCausalLM",
+    "quantization": {
+      "quant_method": "bitsandbytes",
+      "_load_in_8bit": false,
+      "_load_in_4bit": true,
+      "llm_int8_threshold": 6.0,
+      "llm_int8_skip_modules": null,
+      "llm_int8_enable_fp32_cpu_offload": false,
+      "llm_int8_has_fp16_weight": false,
+      "bnb_4bit_quant_type": "nf4",
+      "bnb_4bit_use_double_quant": true,
+      "bnb_4bit_compute_dtype": "bfloat16",
+      "bnb_4bit_quant_storage": "uint8",
+      "load_in_4bit": true,
+      "load_in_8bit": false
+    },
+    "compute_dtype": "bfloat16"
+  },
+  "seconds": 8.959864056669176,
+  "GPU_memory": {
+    "allocated": 15576224768,
+    "reserved": 18274582528,
+    "peak": 17961120768
+  }
+}

@@ -210,7 +210,7 @@ Status: draft
 
 - 위치: 모델 버전 spec이 아니라 **운영 설정**(시스템 전역 1개). 값 형식은 Detector 소유 v2 객체 `{version: 2, policyKey, k: {hard, soft, ml}, deadlineMs}`(detection-decision.md(#92)); 이 문서는 저장·리비전·조회만 정함
 - **리비전 0 = 내장 기본 정책** `{"version": 2, "policyKey": "category-k-of-n-or-v1", "k": {"hard": 1, "soft": 1, "ml": 1}, "deadlineMs": 3000}`(Detector 11/02 회신값) — 저장된 행이 없는 상태가 r0이며 시드 마이그레이션 불필요. **첫 저장이 리비전 1**. 버전 없음·저장 즉시 적용("저장 이후 새 판정부터")·되돌리기 = 새 저장(룰 세트 패턴)
-- **화면 노출 범위 미정**(사용자 결정 대기, Q-M10: 화면에서 편집 가능 vs 읽기 전용 표시) — 아래 `PUT`은 API 계약으로만 정의하며 WebUI 편집 화면 제공 여부를 뜻하지 않음
+- **화면 미노출 — 확정(사용자 11/02, WebUI 경유, Q-M10)**: 판정 정책은 WebUI에 편집·읽기 전용 표시 모두 두지 않음. `GET/PUT /api/detection-policy`는 **운영 담당용 API**(API·운영 담당이 관리)
 - `GET /api/detection-policy`(로그인 사용자) → `{revision, policy, savedAt, savedBy, restoredFromRevision, isDefault}`. `PUT /api/detection-policy`(관리자) 본문 `{expectedRevision, policy, restoreFromRevision?, note?}`: 409 `detection_policy_revision_conflict`, 400 `invalid_detection_policy`(형태·v1/v2 혼용·`version: 1`), 422는 #92 7.4가 정한 의미 검증 코드(예 `combination_k_out_of_range`), 409 `detection_policy_unchanged`. 응답 `{revision, previousRevision, appliesFrom: "next_decision"}`. 이력 `GET /api/detection-policy/history`(+`/:revision` 스냅샷), append-only, 모든 항목에 [되돌리기]
 - **`k.ml`과 활성 모델 수 `n_ml`의 정합** [확정 — Detector 11/02 회신 Q-M8, min(k, n) 보정 **아님**]: 정책 저장 시 `n_ml ≥ 1`이고 `k.ml > n_ml`이면 422(코드는 detection-decision.md(#92) 7.4의 "k > n" 코드); `n_ml = 0`이면 ml 대분류 비활성이라 `k.ml` 값과 무관하게 허용. 활성 집합 변경 시의 대칭 검사는 활성 집합 절 공통 검사. 두 저장 모두 통과했는데도 실행 시 위반이면(동시 변경 경합) Detector가 fail-closed(판정 행 없이 시도 실패)
 - 비교 평가는 접수 시점 정책 리비전·값을 고정해 모든 항목에 적용([config-comparison-evaluation.md](config-comparison-evaluation.md))
@@ -254,4 +254,4 @@ Status: draft
 | Q-M7 | 탐지 방법 0개가 되는 변경 허용 여부 | **확정(Detector 11/02)**: 결과 상태가 켜진 하드룰 0 + 켜진 소프트룰 0 + 활성 모델 0이 되는 **모든 변경**(룰 세트 저장·`retire`·활성 집합 교체/제거·복원)을 422 `detection_methods_empty`로 거절 — rule-set.md·이 문서 양쪽 같은 정의 |
 | Q-M8 | 정책 `k.ml` > 활성 모델 수 | **확정(Detector 11/02)**: min(k, n) 보정 아님. 정책 저장 시 `k.ml > n_ml`(`n_ml ≥ 1`) 거절, 활성 집합 변경으로 `n_ml`이 `k.ml` 미만이 되면(0 제외) 거절, 코드는 #92 7.4의 k > n 코드, 실행 시 위반은 Detector fail-closed |
 | Q-M9 | `restore`를 `POST /api/configurations/:id/applications`에 두기(`:id` 무시) vs `POST /api/active-models/restore` 전용 | 전용 경로 권장(`:id`가 의미 없음). 둘 다 허용으로 적음 |
-| Q-M10 | 운영 설정 `detectionPolicy`의 화면 노출 범위 — 화면에서 편집 가능 vs 읽기 전용 표시(값·리비전만) | **사용자 결정 대기**. `PUT /api/detection-policy`는 API 계약으로만 정의(관리자 권한). 읽기 전용이면 `PUT`은 운영자 도구·마이그레이션 경로로만 사용 |
+| Q-M10 | 운영 설정 `detectionPolicy`의 화면 노출 범위 — 편집 가능 vs 읽기 전용 표시 vs 미노출 | **확정(사용자 11/02, WebUI 경유): 화면 미노출**(편집·읽기 전용 모두 없음). `GET/PUT /api/detection-policy`는 운영 담당용 API로만 유지(관리자 권한) |

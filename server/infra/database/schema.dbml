@@ -1,4 +1,4 @@
-// Target schema after migrations 001 through 012 (file-name order, enum additions committed first).
+// Target schema after migrations 001 through 013 (file-name order, enum additions committed first; 013 changes function settings only).
 // 54 public tables + 5 powercode_queue physical queues. Server application state is tracked separately.
 // Native CHECK predicates, partial/GIN indexes and triggers: canonical SQL; DBML is visualization.
 Project powercode_erd_v03 {

@@ -1,5 +1,5 @@
 Created: 2026-10-12T02:06:03+09:00
-Updated: 2026-10-21T23:50:00+09:00
+Updated: 2026-11-02T14:40:00+09:00
 Author: contracts_page_reviewer
 Status: current
 
@@ -7,7 +7,7 @@ Status: current
 
 - Issue #32 기준: 최신 PostgreSQL·공통 규약·LLM 기획 반영. `schema.dbml`은 최종 목표 구조의 시각화, 실행 원본은 migration SQL
 - 목표 구조(Issue #32 당시): public 28테이블 + `powercode_queue` 기존 물리 큐 2테이블. 기존 public 24테이블 보존, BODY·BODY 연결·불변 입력·LLM 결과 4테이블만 추가
-- 현재 `schema.dbml`(Issue #78): 001~012 전체 반영, public 54테이블 + `powercode_queue` 5테이블. 004_feature_pipeline·005~009 추가분 24테이블 보강, 011 3테이블·012 1테이블 추가
+- 현재 `schema.dbml`(Issue #78): 001~012 전체 반영, public 54테이블 + `powercode_queue` 5테이블. 004_feature_pipeline·005~009 추가분 24테이블 보강, 011 3테이블·012 1테이블 추가. 013(#82)은 함수 설정만 바꿔 DBML 변경 없음
 - 기존 001/002 불변. 003/004는 서버 미적용; ERD 등록·SQL 검수와 실제 운영 적용 구분
 - PostgreSQL 17.11 실제 public24+queue2 존재 확인 기록과 정합. 서버 schema/version 이력 및 완전 DDL 일치는 별도 사전 확인 필요
 
@@ -42,7 +42,7 @@ Status: current
 - `run_config_comparisons`: compare 작업 완료 트랜잭션에서 1회 INSERT(ready 세트·같은 source·baseline source 일치), 이후 UPDATE·DELETE 금지. `run_config_comparison_items`: active는 baseline 구성과 일치·비교당 1개, succeeded는 같은 비교·같은 구성의 평가 행 필수, failed는 `error_code` 필수·평가 없음. 불변
 - `run_evaluations`: `comparison_id`·`evaluation_set_id` nullable 열 추가, `UNIQUE(job_id)` → `UNIQUE(job_id, config_version_id)`. 비교 밖 작업은 partial unique로 job당 1행 유지. 비교 행은 세트 snapshot·purpose·source와 비교 job·세트 일치 trigger. 같은 트랜잭션 INSERT 순서는 comparison → run_evaluations → items
 - `ml_config_versions`는 004_feature_pipeline `pipeline_immutable`로 이미 UPDATE·DELETE 금지, 011은 신규 trigger 없음
-- 011이 만들거나 재정의한 함수 4개(`erd_v03_validate_job`·`protect_evaluation_set`·`fail_evaluation_set_with_job`·`validate_comparison_lineage`)는 `SET search_path = public, pg_temp`로 고정, SECURITY INVOKER 유지. 세션 임시 테이블의 같은 이름 가리기로 검증·동기화를 우회하지 못함. 001~010 함수는 미적용(후속 조치 대상)
+- 011이 만들거나 재정의한 함수 4개(`erd_v03_validate_job`·`protect_evaluation_set`·`fail_evaluation_set_with_job`·`validate_comparison_lineage`)는 `SET search_path = public, pg_temp`로 고정, SECURITY INVOKER 유지. 세션 임시 테이블의 같은 이름 가리기로 검증·동기화를 우회하지 못함. 001~010 함수 중 표를 참조하는 10개에서 011·012가 재정의·고정한 `erd_v03_validate_job`·`publish_decision_event` 2개를 뺀 8개는 013(#82)에서 같은 값으로 고정
 - 권한(`scripts/database-roles.sql`): API 세트 SELECT·INSERT, Trainer 세트 SELECT·UPDATE·비교 2테이블 SELECT·INSERT, LLM은 dead training 큐 정리 trigger용 세트 `SELECT(job_id,status)`·`UPDATE(status,error_code)`만, API 비교 SELECT
 
 ## 012 Detector 중간 판정 기록 (#78 B)
@@ -57,7 +57,7 @@ Status: current
 - 권한(`scripts/database-roles.sql`): `run_decision_interims` SELECT 5개 런타임 역할, INSERT Detector. 작업을 failed로 바꾸는 다른 역할은 추가 권한 불필요. `REVOKE TEMPORARY ON DATABASE <현재 DB> FROM PUBLIC`(DO 블록, 런타임 코드 TEMP 미사용, DB 소유자·superuser는 유지). 역할 스크립트는 012 적용 뒤 재적용(012 이전 DB에서는 표가 없어 GRANT 실패)
 - 보장 범위: 닫힘 기록(대체됨·최종 없음)이 그 시점 DB 상태와 일치함까지. 상태 전이가 정상 코드 경로였음은 보장하지 않음(`run_jobs` UPDATE는 api·detector·trainer·llm, `run_job_attempts` UPDATE는 detector·trainer·llm 보유). #78-Q11은 판정 행만 막음 — failed→running으로 되돌린 뒤 새 시도의 `first_anomaly` 기록은 범위 밖(정상 코드에서 failed는 끝 상태)
 - 위협 모델: 런타임 서비스 로그인이 `database-roles.sql` 권한과 기본 PUBLIC 권한만 가진 구성이 범위. superuser·소유자 멤버십(`INHERIT FALSE, SET TRUE` 포함)·스키마/DB CREATE·관련 표 TRIGGER·`session_replication_role` SET·객체 또는 DB 소유(소속 그룹 포함) 같은 DBA 추가 권한은 범위 밖(트리거를 끄거나 소유자 문맥에 코드를 끼울 수 있음). 런타임이 소유자 계정으로 접속하면 소유자 검사 무효 — `compose.demo.yaml`은 서비스와 migrate가 같은 `DATABASE_URL`, `compose.yaml`은 서비스별 URL이 없으면 migrate와 같은 공통 `DATABASE_URL`로 대체하므로(코드 기준) 서비스별 로그인 분리(`DOCKER_DEPLOYMENT.md`) 후에만 B안이 유효
-- 기존 결함(012 범위 밖): 004 `erd_v03_validate_result`는 search_path 고정이 없어 임시 표 이름 가리기로 lease 만료 시도의 판정 행이 수락될 수 있음(erd-v03 Y7 정보 출력). `REVOKE TEMP`는 런타임이 CREATE 가능한 스키마가 하나도 없을 때 이 경로를 닫음. 012는 그런 판정이 더 새 시도의 묶음을 대체하는 것만 거부(Y7A2). 004 수정은 별도 Issue 대상
+- 기존 결함(012 범위 밖, 013에서 수정): 004 `erd_v03_validate_result`는 search_path 고정이 없어 임시 표 이름 가리기로 lease 만료 시도의 판정 행이 수락될 수 있었음. 013(#82)이 고정해 erd-v03 Y7은 004 거부를 단언. 012는 그런 판정이 더 새 시도의 묶음을 대체하는 것도 거부(Y7A2 — 013 뒤에는 004가 먼저 거부, 어느 층이 거부했는지 PASS 줄에 기록)
 
 ### 012 적용 절차
 
@@ -102,6 +102,15 @@ SELECT r.rolname,
  WHERE r.rolcanlogin AND c.oid = 'public.run_decision_interims'::regclass AND r.oid <> c.relowner
  ORDER BY r.rolname;
 ```
+
+## 013 기존 트리거 함수 search_path 고정 (#82)
+
+- 파일 `013_legacy_function_search_path.sql`, 012 이후 한 번 실행(`psql -v ON_ERROR_STOP=1 -f`). 001~012 수정 없음, enum·표·DBML 변경 없음 → 단일 BEGIN..COMMIT, 중간 오류 시 전체 ROLLBACK, 같은 파일 재실행 결과 동일. 자동 down migration 없음
+- 대상 8개: 004 `erd_v03_validate_result`·`erd_v03_validate_body`·`erd_v03_validate_manifest`·`erd_v03_validate_artifact`·`erd_v03_protect_observation`, 004_feature_pipeline `protect_ready_snapshot_members`, 010 `protect_prepared_dataset`·`fail_prepared_dataset_with_job`. `ALTER FUNCTION … SET search_path = public, pg_temp`(011과 같은 값), 본문·SECURITY INVOKER·소유자 유지
+- 이유: 대상 함수는 표·행 타입을 스키마 한정 없이 참조해 호출자 세션의 search_path로 해석했음. 같은 이름의 세션 임시 테이블로 lease 검사(판정 행)·ready 스냅샷 멤버 불변·준비 CSV 실패 동기화 등이 우회될 수 있었음(#78 검수 발견). `pg_temp`를 맨 뒤에 명시해 임시 테이블이 public보다 먼저 해석되지 않음. `REVOKE TEMP`(012 역할 스크립트)는 런타임 역할 경로만 막고 소유자·TEMP 보유 역할 경로가 남아 함수 고정이 별도로 필요
+- 제외: 011 고정 4개(`public, pg_temp`)·012 고정 6개(`pg_catalog, pg_temp`)는 그대로. 표를 참조하지 않는 001~010 함수 7개(`erd_v03_immutable`·`erd_v03_guard_decision`·`prevent_rule_version_mutation`·`prevent_pipeline_immutable_mutation`·`guard_demo_state`·`guard_input_replay`·`guard_input_run`)는 임시 테이블 경로가 없어 미고정
+- 적용: 함수 소유자(001~010 적용 역할)로 실행. pg_proc 갱신만 해 표 잠금 없음. 작업자 재시작 불필요 — 이미 열린 세션도 COMMIT 뒤 다음 문장부터 새 설정으로 실행(일반 문장·PREPARE한 문장·진행 중 트랜잭션의 다음 문장, PostgreSQL 17 격리 시험 확인). 권한 스크립트 변경 없음
+- 시험(`erd-v03-search-path.mjs`, `erd-v03.mjs`가 호출): `erd82_upgrade`(001~012 + 기존 행 → 013, 행 보존·대상 8개 설정만 변경·본문 md5·소유자·SECURITY INVOKER 동일·적용 후 import_csv 실패 동기화), `erd82_fresh`(001~013, 재실행 불변), `erd82_rollback`(COMMIT 직전 오류 → 무변경 → 재적용), 세 DB 모두 함수 25개 전수 설정 대조와 DBML parity. `erd-v03-interim.mjs` Y7은 013 뒤 004 거부를 PASS로 단언, Y7A2는 013 적용 DB에서 004·012 어느 거부든 허용(거부 층 기록), 001~012만 적용한 `erd_interim_y7a2_012`에서 012 거부 메시지를 정확히 단언
 
 ## 큐와 소유권
 
@@ -170,5 +179,6 @@ SELECT r.rolname,
 - 이 결과는 격리 schema 시험이며 프로젝트 worker 실행·실제 서버 003/004 적용·운영 배포·백업 복원 완료를 뜻하지 않음
 - Issue #78(011) 시험: fresh(001~011)·upgrade(001~010 + evaluate/import_csv/LLM 기존 행 + 011)·011 중간 오류 ROLLBACK·search_path 가리기 4개 DB. 새 kind 큐·요청자·legacy 분기, `recommend_methods` 결과·완료, 평가 세트 상태·불변·작업 실패 동기화(종료·시도 초과·dead 큐 정리), 비교 2테이블 FK·CHECK·불변, `run_evaluations` 다중 행·중복 거부, `ml_config_versions` 불변, `database-roles.sql`·`demo-role.sql` 권한(SET ROLE), 런타임 역할 새 연결의 임시 테이블 가리기 6종 거부 포함. 2026-10-21 native PostgreSQL 17.10(embedded) 375 checks 통과, DBML 58테이블 parity
 - dev(011 이전) `erd-v03.mjs`는 DBML 누락 24테이블·`job_kind` 순서 때문에 parity에서 실패했음(#78에서 보강)
-- Issue #78(012) 시험(`erd-v03-interim.mjs`, `erd-v03.mjs`가 호출): 기존 fresh·upgrade DB는 001~012로 DBML 59테이블 parity. 추가 4개 DB — `erd_interim_fresh`(S1~S12·Q11·함수 설정·README 소유자 쿼리와 소유자 불일치 반례·두 연결 advisory lock 대기·이벤트 순번), `erd_interim_upgrade`(001~011 + 기존 판정·이벤트·진행 중 작업 → 012, U0~U5 후 시나리오 재실행), `erd_interim_rollback`(012 COMMIT 직전 오류 주입 → 미반영 → 재적용), `erd_interim_attack`(비슈퍼유저 소유자가 001~012 적용, `database-roles.sql` 적용 뒤 실제 LOGIN 역할 새 연결로 G4·CX-A~C·X1~X7·G1~G3·R5·Y1·Y2·Y5·Y6·Y7A2·YP/Q11·Q11 경합(Detector 로그인 3연결: 미커밋 failed 전환·대기 중 되돌리기·판정 INSERT)·B6b, 비소유자 REVOKE TEMP 무시(WARNING), README 위협 모델 쿼리 양·음 사례). 가리기 공격은 TEMP를 다시 허용한 상태에서 012 함수 방어만 검증하고, REVOKE TEMP 거부는 G4로 따로 확인. Y7(004 기존 결함)은 판정·실패가 아닌 INFO 출력
+- Issue #78(012) 시험(`erd-v03-interim.mjs`, `erd-v03.mjs`가 호출): 기존 fresh·upgrade DB는 001~012로 DBML 59테이블 parity. 추가 5개 DB(`erd_interim_y7a2_012`는 #82에서 추가) — `erd_interim_fresh`(S1~S12·Q11·함수 설정·README 소유자 쿼리와 소유자 불일치 반례·두 연결 advisory lock 대기·이벤트 순번), `erd_interim_upgrade`(001~011 + 기존 판정·이벤트·진행 중 작업 → 012, U0~U5 후 시나리오 재실행), `erd_interim_rollback`(012 COMMIT 직전 오류 주입 → 미반영 → 재적용), `erd_interim_attack`(비슈퍼유저 소유자가 001~012 적용, `database-roles.sql` 적용 뒤 실제 LOGIN 역할 새 연결로 G4·CX-A~C·X1~X7·G1~G3·R5·Y1·Y2·Y5·Y6·Y7A2·YP/Q11·Q11 경합(Detector 로그인 3연결: 미커밋 failed 전환·대기 중 되돌리기·판정 INSERT)·B6b, 비소유자 REVOKE TEMP 무시(WARNING), README 위협 모델 쿼리 양·음 사례). 가리기 공격은 TEMP를 다시 허용한 상태에서 함수 방어(012, 013 뒤에는 고정된 004 포함)를 검증하고, REVOKE TEMP 거부는 G4로 따로 확인. Y7(004 기존 결함)은 013(#82) 뒤 004 거부를 PASS로 단언, Y7A2의 012 층 단독 거부는 001~012만 적용한 `erd_interim_y7a2_012`에서 확인
 - 011 search_path 시험 DB도 `database-roles.sql`의 REVOKE TEMP 거부(42501)를 먼저 확인한 뒤 TEMP를 다시 허용해 011 고정만 검증. 2026-10-21 native PostgreSQL 17.10(embedded) 629 checks 통과
+- Issue #82(013) 시험: 위 전체에 `erd82_upgrade`·`erd82_fresh`·`erd82_rollback` 3개 DB 추가(013 절). 검증 범위: 실제 우회 회귀 1경로(Y7, 판정 행 lease 검사 — 013 적용 전 우회·적용 후 거부) + 대상 8개 함수 search_path 설정 자동 확인. 다른 대상 함수의 우회 재현 시험은 범위 밖. 2026-11-02 native PostgreSQL 17.10(embedded) 649 checks 통과. 013의 `ALTER FUNCTION` 8줄을 지운 대조 실행은 Y7(만료 lease 판정 수락) 1건 + 세 DB 함수 설정 검사 4건 FAIL. `prepare-runtime-db.py`(001~013) 뒤 worker unittest 123건·integration input_roles·demo_permissions·demo_replay 통과

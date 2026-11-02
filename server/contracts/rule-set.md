@@ -6,7 +6,7 @@ Status: draft
 # 룰 세트 계약 v1 (초안, Issue #94)
 
 - 변경 요약(#94): 기존 [detection-config-version.md](detection-config-version.md)(HR·SR·ML 묶음 구성 버전, #74)를 **룰 세트(이 문서) / 모델 버전([model-version.md](model-version.md))** 두 계약으로 분리. 룰은 버전 관리 없이 저장 즉시 운영 적용·리비전 증가, 버전·교체·복원·비교는 모델 버전에만
-- 계약 버전: `rule-set-v1`. 근거 결정: MyDocs `decisions/20261102-탐지구조-룰모델분리-화면흐름.md` 6·8.2·9절(accepted), `20261020-판정파이프라인-플러그형-설계방향.md` 4.10~4.10.2(Detector 분담 합의). 근거 코드 origin/dev `7f24e03`
+- 계약 버전: `rule-set-v1`. 근거 결정: 사용자 11/02 결정(룰 설정 버전 없음·저장 즉시 적용, 룰 수정 범위 R1~R5, AI 임계값 추천 화면 설계)·Trainer·Detector 분담 합의 11/02. 절 번호(6·8.2·9)는 총괄 기록 기준. 근거 코드 origin/dev `7f24e03`
 - 범위: 하드룰 켜기/끄기 + 소프트룰(등록 필드·조건·임계값·위험도) 한 벌의 현재 상태·저장·변경 요약·변경 이력·되돌리기·동시 편집·식별자·리비전 형식
 - 제외(Detector 소유, detection-decision.md(#92)): 하드룰 내장 목록(id·조건·위험도), 소프트룰 실행 의미론(평가 시점·결측 처리), 종합 판정 `detectionPolicy` v2 `k:{hard,soft,ml}`, 이상/이상 징후 등급, evidence v4(판정마다 기록하는 룰 리비전 필드명). 소프트룰 등록 필드 목록은 [method-catalog.md](method-catalog.md) `softRuleFields[]`
 - 표기: **[확정]** 사용자 확정(11/02) 또는 코드 사실 / **[제안]** 이 초안이 정한 값(결정 질문은 문서 끝)
@@ -32,7 +32,7 @@ Status: draft
 - **동시 편집**: 요청 `expectedRevision` ≠ 현재 리비전이면 409 거절, 화면은 새로 불러오기 안내
 - 단일 룰 세트 [제안]: `ops_system_state`가 단일 행(id=1, `002_core_erd.sql:200-206`)이고 활성 모델 버전도 1개이므로 룰 세트도 시스템 전역 1개. source별 분리는 결정 질문 Q-R1
 
-## 식별자 [확정 — Detector 합의 (a)]
+## 식별자 [합의 11/02 — 사용자 확인 필요 (a)]
 
 - 형식 `<kind>:<key>`, kind ∈ `hard` / `soft` / `ml`(ml은 모델 버전 계약). key `^[a-z][a-z0-9_-]{1,63}$`(#74 규칙 유지)
 - `hard:<key>`: 내장 하드룰. key는 **kebab-case**, 목록·조건·위험도는 detection-decision.md(#92). 이 문서의 예시 id `hard:process-status`(상태 HR, `methodVersion: process-status-hr-v1`)·`hard:negative-duration`(START_TIME > END_TIME)은 Detector 11/02 회신값. 접두 `hard:`/`soft:`가 다르므로 하드룰 key와 소프트룰 key는 충돌할 수 없음
@@ -81,7 +81,7 @@ Status: draft
 | `contentHash`·`contentHashVersion` | 아래 리비전 형식 절 |
 | `savedBy` | 저장한 관리자(JSON 계정 ID, FK 아님 — `rules.md` 규약과 동일) |
 | `restoredFromRevision` | 되돌리기로 만든 리비전이면 출처 리비전, 아니면 null |
-| `hardRules[]` | Detector 내장 목록 전체를 **항상 전부** 포함(꺼진 것 포함). `displayName`·`conditionText`·`severity`는 Detector 정의값의 읽기 전용 투영, `editable`은 항상 `["enabled"]` |
+| `hardRules[]` | Detector 내장 목록 전체를 **항상 전부** 포함(꺼진 것 포함). `displayName`·`conditionText`·`severity`는 Detector 정의값의 읽기 전용 투영, `editable`은 항상 `["enabled"]`. **하드룰 위험도는 detection-decision.md(#92) 정의를 따르며 읽기 전용** — 예: `hard:process-status`는 #92 U2 기준 상태별 분기(F=critical, P·N=warning)이므로 단일 값이 아님. 이 문서 예시의 `"severity": "critical"`은 **참고값**이며 실제 응답 형식(단일 값 또는 상태별 객체)은 #92가 정함 |
 | `softRules[]` | 저장된 소프트룰 전체(꺼진 것 포함). 순서 = `id` 사전순(실행 순서 의미 없음 — 조합은 Detector 정책) |
 | `softRules[].field` | 카탈로그 `softRuleFields[].fieldId`(`method-catalog.md`). 생성 후 불변 |
 | `softRules[].operator` | `gte` / `gt` / `lte` / `lt`(화면 ≥ > ≤ <). `eq`·`ne`·문자열 연산은 소프트룰에 없음(상태 등 범주 조건은 하드룰 영역) |
@@ -134,7 +134,7 @@ Status: draft
 | `threshold` 비유한·정밀도 초과·정수 필드에 소수·고정소수 변환 실패 | 422 `soft_rule_threshold_invalid:<id or clientRef>` |
 | `severity` ∉ {info, warning, critical} | 422 `soft_rule_severity_invalid:<…>` |
 | `name` 길이·중복 | 422 `soft_rule_name_invalid` / `soft_rule_name_duplicate` |
-| 소프트룰 수 > 64 [제안] | 422 `soft_rule_limit_exceeded` |
+| 소프트룰 수 > 32(현행 Rule 상한 `jobRoutes.ts:108`과 동일, #92와 합의) | 422 `soft_rule_limit_exceeded` |
 | `restoreFromRevision` 미존재·본문 불일치 | 422 `restore_revision_unknown` / `restore_payload_mismatch` |
 | 내용이 현재 상태와 완전히 같음(hash 동일 ∧ 이름까지 동일) | 409 `rule_set_unchanged`(리비전 증가 없음, 화면은 [저장] 비활성이 정상 경로) |
 
@@ -189,7 +189,7 @@ Status: draft
 - `GET /api/rule-set/history/:revision`: 위 항목 + `snapshot`(그 리비전의 `hardRules[]`·`softRules[]` 전체, `GET /api/rule-set`와 같은 형식) — 되돌리기 본문의 출처. r0 포함
 - 이력은 **삭제·수정 없음**(append-only). 화면 하단 읽기 전용 목록 + 항목별 [이 상태로 되돌리기](→ 저장 흐름) [확정 R3]
 
-## 리비전 형식 — 정수 리비전 + 내용 hash [확정 — Detector 합의 (b)]
+## 리비전 형식 — 정수 리비전 + 내용 hash [합의 11/02 — 사용자 확인 필요 (b)]
 
 - `revision`: 정수, 저장마다 +1. 전역 순서(단일 룰 세트). 판정 evidence에는 둘 다 기록 — **Detector evidence v4(`detector-evidence-v4`)가 `ruleSetRevision`(정수)·`ruleSetHash`(문자열) 이름으로 이 문서의 `revision`·`contentHash`를 그대로 복사**(Detector 11/02 회신)
 - `contentHash`(= `ruleSetHash`) 문자열 형식: 모델 버전 `content_hash`(`contentHashVersion: 2`, `hashlib.sha256(...).hexdigest()`)와 같은 표기 — **소문자 16진수 64자, 접두 없음**(`sha256:` 같은 접두 금지)
@@ -231,7 +231,7 @@ Status: draft
 |---|---|---|
 | Q-R1 | 룰 세트를 시스템 전역 1개로 둘지, source별로 둘지 | 전역 1개(`ops_system_state` 단일 행과 일치). source가 늘면 `sourceId` 키 추가(리비전은 source별) |
 | Q-R2 | `contentHash`에서 `name` 제외 | 제외(판정 의미 기준). 포함을 원하면 `contentHashVersion: 2` |
-| Q-R3 | 소프트룰 상한 64·이름 유일 | 제안값. 화면 목록 크기 기준으로 조정 가능 |
+| Q-R3 | 소프트룰 상한 32(현행 `ruleVersionIds` ≤ 32 `jobRoutes.ts:108`, #92와 동일)·이름 유일 | 32 유지. **확대는 Trainer·Detector 합의로**(카탈로그 `softRule.maxRules`·#92 동시 개정) |
 | Q-R4 | `rule_set_unchanged` 409 vs 무변경 저장 허용(리비전만 증가) | 409(의미 없는 리비전 방지). 화면은 변경 없으면 [저장] 비활성 |
 | Q-R5 | `confirmHardRuleDisable` 범위: 새로 끄는 저장에만 vs 꺼진 규칙이 남아 있는 모든 저장 | **새로 끄는 저장에만**(reviewer 권고 8). 확인창 강조는 항상 |
 | Q-R6 | 룰 세트 hash 직렬화(compact·ensure_ascii=False·UTF-8 = 모델 버전 v3 `contentHashVersion: 2`와 동일)를 **현행 v1 hash 코드**(`runner.py:408`, 기본 separators·ensure_ascii=True)에 맞출지 | 맞추지 않음(v1 코드는 v1·v2 행 전용으로 남김). 바꾸면 룰 세트 `contentHashVersion` 2로 |

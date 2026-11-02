@@ -7,7 +7,7 @@ Status: draft
 
 - 변경 요약(#94): 대분류를 **hard / soft / ml**로 재편(사용자 11/02). 통계 SR R00~R23 **전부 삭제**·`sr:*` 폐기(호환 표만), PROCESS SR 프로토타입(#75) 미등재 유지, HR 연구 8종·`hr:process-status`·`rule` 템플릿은 카탈로그에서 제거(하드룰은 detection-decision.md(#92)가 정의). 신규 **소프트룰 등록 필드 목록 `softRuleFields[]`**(단위·타입·원천 식). ML 카탈로그(IF 등)는 `ml:` 접두로 유지, `displayName` 유지(10/22 승인)
 - 계약 버전: `method-catalog-v2`; 항목 스키마 [method-catalog.schema.json](method-catalog.schema.json)(`$id` …:v2). 근거 코드 origin/dev `7f24e03`(`worker/derived_expression.py`, `backend/src/rules/ruleContract.ts`, `worker/model_adapters.py`)
-- 상위 결정: MyDocs `decisions/20261102-탐지구조-룰모델분리-화면흐름.md` 6절(Q4·Q5)·8.2절, 설계 방향 4.10.2(분담: 등록 필드 목록·편집 제약 = Trainer, 하드룰 목록·소프트룰 실행 의미론 = Detector)
+- 상위 결정: 사용자 11/02 결정(Q4 소프트룰 = 등록 필드 + 임계값, Q5 통계 SR 제외, 8.2절 룰 수정 범위), Trainer·Detector 분담 합의 11/02(등록 필드 목록·편집 제약 = Trainer, 하드룰 목록·소프트룰 실행 의미론 = Detector). 절 번호는 총괄 기록 기준
 - 범위: ML 세부 방법의 시스템 내장 레지스트리 + 소프트룰이 고를 수 있는 **등록 필드**(시스템 정의, 사용자 등록 아님) + 식별자 체계. 룰 세트([rule-set.md](rule-set.md))·모델 버전([model-version.md](model-version.md))·임계값 추천([llm-recommendation-job.md](llm-recommendation-job.md))·WebUI가 같은 식별자를 사용
 - 제외: 하드룰 내장 목록(id·조건·위험도 — Detector), 방법 어댑터 구현, 종합 판정 규칙, 사용자 정의 방법·필드 등록 API(목표 아님)
 
@@ -17,7 +17,7 @@ Status: draft
 - 항목 추가·필드 추가는 `catalogVersion` 증가. 제거는 하지 않고 `status=deprecated`. **예외(이번 v2)**: SR 24종·HR 연구 8종은 사용자 결정으로 카탈로그에서 **삭제**(저장된 참조가 없으므로 deprecated 전환 불필요, 연구 기록은 `research/`에 보존)
 - 기본값은 출처를 기록(`defaultsSource`); 미확인 값은 `defaults=null`
 
-## 대분류·식별자 [확정 — Detector 합의 (a)]
+## 대분류·식별자 [합의 11/02 — 사용자 확인 필요 (a)]
 
 | kind | category | 화면 표시 용어 [확정 11/02] | 탐지 결과 | 정의 주체 | 카탈로그 표현 |
 |---|---|---|---|---|---|
@@ -58,7 +58,7 @@ Status: draft
 - `valueType: integer`(건수 4종)는 **계약 수준 제약**: DB 열은 `numeric`(`002_core_erd.sql:65-66` `success_count numeric, error_count numeric, total_count numeric, retry_count numeric`)이라 정수가 보장되지 않음. 임계값 입력은 정수로 제한하고, 값 계산 시 비정수 관측은 그대로 비교(Decimal)하며 정수 강제 변환은 하지 않음
 - `fieldId` 길이 ≤ 54자(스키마 `{1,53}` + 첫 글자): 소프트룰 인스턴스 id `soft:<fieldId>-<8 hex>`의 key(`<fieldId>-<8 hex>`)가 식별자 key 상한 63자를 넘지 않게 하기 위함
 - 필드 추가는 카탈로그 버전 증가 + Detector 계산 경로 확인(어댑터 추가와 같은 절차). 후보(미등재): `success_ratio`, `elapsed_s`(단위 변환), `retry_ratio`
-- `softRule`: `maxRules 64`, `severities [info, warning, critical]`, `thresholdSerialization fixed-decimal-string`(지수 표기 금지 — DSL 정규식 `ruleContract.ts:17`과 11/02 9.1 결함 근거)
+- `softRule`: `maxRules 32`(현행 Rule 상한 `jobRoutes.ts:108`·#92와 동일, 확대는 합의로), `severities [info, warning, critical]`, `thresholdSerialization fixed-decimal-string`(지수 표기 금지 — DSL 정규식 `ruleContract.ts:17`과 11/02 9.1 결함 근거)
 
 ## ML 목록 v2 — 사실 기반(v1에서 `ml:` 항목 그대로)
 
@@ -93,7 +93,7 @@ Status: draft
   "categoryDisplayNames": {"hard": "이상 규칙", "soft": "이상 징후 규칙", "ml": "머신러닝 모델"},
   "hardRules": {"definedBy": "detection-decision.md", "displayName": "이상 규칙", "contractVersion": "detection-decision-v1", "idPattern": "^hard:[a-z][a-z0-9_-]{1,63}$"},
   "softRule": {"displayName": "이상 징후 규칙", "instanceIdPattern": "^soft:[a-z][a-z0-9_]{1,53}-[0-9a-f]{8}$", "operators": ["gte", "gt", "lte", "lt"],
-               "severities": ["info", "warning", "critical"], "maxRules": 64, "thresholdSerialization": "fixed-decimal-string"},
+               "severities": ["info", "warning", "critical"], "maxRules": 32, "thresholdSerialization": "fixed-decimal-string"},
   "softRuleFields": [
     {"fieldId": "total_count", "displayName": "총 건수", "valueType": "integer", "unit": "count",
      "source": {"kind": "column", "column": "TOTAL_COUNT", "ruleDslField": "P.total_count"},

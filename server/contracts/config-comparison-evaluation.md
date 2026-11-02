@@ -8,7 +8,7 @@ Status: draft
 - 변경 요약(#94): 비교 평가·교체 추천을 **모델 버전 단위로 축소**(룰 세트는 비교 대상 아님 — 버전이 없음, 11/02 Q1). 비교 작업은 접수 시점 **룰 세트 리비전을 고정**해 모든 항목에 같은 룰을 적용(룰 차이가 결과에 섞이지 않음). `categoryResults`·`detectionPolicy`는 `hard/soft/ml`로, `detection-config-version.md` 참조는 [model-version.md](model-version.md)로. 10/21 **자동 비교 평가(§4.8)** 절 신설. PRD R1~R17은 모델 단위에 그대로 적용(아래 표). #74 본문의 "구성"·"구성 버전"은 모두 "모델 버전"으로 읽음(이 개정에서 치환 완료, 코드 현행 설명의 "구성"만 남김)
 - 계약 버전: `config-comparison-v1`(비교 작업), `evaluation-set-v1`(평가 세트). 근거 코드 origin/dev `7f24e03`(#74 인용 행 번호는 `872f540` 기준, 코드 변경 없음)
 - 상위 결정: WebUI 화면 흐름 4절(하나의 불변 평가 세트 위 다중 모델 버전 비교, 현재 운영 버전 항상 포함, 종합 + 모델별·방법별 + 4종 가족·applicability), 플러그형 설계 방향 3절(모델별 개별 결과 + 구성 종합, 하나로 합산 금지), Q-C=A(세트가 지정한 스냅샷 train 분할 기준 생성·고정)
-- 상태: 초안 — 사용자 결정 반영 완료(10/21 일괄, 설계 방향 4.7절), 구현은 MyDocs `plans/20261021-Issue74-구현분할안.md` 참조. 표기: **[확정]** 사용자 확정·코드 사실 / **충돌** 현행 코드·계약과 어긋나 구현 Issue에서 바꿀 항목(결정은 끝남)
+- 상태: 초안 — 사용자 결정 반영 완료(10/21 일괄, 설계 방향 4.7절), 구현은 #74 후속 구현 Issue 분할안(총괄 기록) 참조. 표기: **[확정]** 사용자 확정·코드 사실 / **충돌** 현행 코드·계약과 어긋나 구현 Issue에서 바꿀 항목(결정은 끝남)
 - 범위: 평가 세트 엔티티(생성·고정·조회), 비교 작업(요청·검증·상태·결과), 적용 gate와의 관계, 기존 [합성 평가 계약](synthetic-evaluation.md) 변경 제안
 - 제외: 종합 판정 조합 규칙(Detector 계약 — 비교 결과의 `composite`는 Detector 순수 함수 호출 결과를 집계만 함), 자동 교체·자동 승인, WebUI 화면, 새 합성 생성기 설계(기존 ESB P02~P04·ADBench 프로필만 재사용)
 - 기존 규약 유지: 4종 평가 가족 봉투([JSON Schema](trainer-evaluation-envelope.schema.json))·measurement 규약·"미측정은 null+사유". `synthetic-evaluation.md`의 "합성만으로 운영 적용 검증 대체 금지"는 **[확정 10/21]** "평가 세트 비교 + 사람 수락"으로 대체 — 변경 제안 표 참조
@@ -205,7 +205,7 @@ Status: draft
 - `evaluationEnvelope`: 모델 버전별 4가족 봉투 그대로. `synthetic`은 세트 합성 행 기준 측정(`synthetic-process-metrics-v1` 재사용, 모델 버전별 분모 동일) — 봉투 내부는 `evaluate`와 같은 `details.trials[]{scenario, severity, repetition, status, metrics{hr,sr,ml,combined{injectedCount, detectedCount, unjudgedCount, detectionRate}}}` 형식 유지(키 `hr`·`sr`는 현행 `synthetic-process-metrics-v1`의 이름이며 기존 결과 변경 금지 원칙으로 그대로 둠 — `hr` = 룰(hard+soft) 조합 결과, `sr`는 SR 폐기로 항상 null+사유; 새 metricVersion에서 `hard/soft` 개명 검토, `synthetic_execution.py:111-112`; 추천 규칙 (b)의 시나리오별 탐지율 입력 전제), `rule_ml`은 세트 원본 행 교차표(`rule-ml-comparison-v1`), `execution_cost`는 모델 버전별 실측, `operational`은 `unavailable/operational_report_separate_time_scoped`. ESB와 ADBench 분모 합산 금지 유지
 - 묶음 수준 지표 요약은 두지 않음(모델 버전별 봉투를 하나로 합치지 않음) [확정 3절]. 순위 표시 없음, `manualApprovalRequired: true`
 - `replacementRecommendation` [확정 — 사용자 10/21, 설계 방향 4.4절·WebUI 화면흐름 2.4절]: **교체는 시스템 '추천'만 자동, 운영 변경은 사람 '수락'으로만. 자동 교체 금지**. 비교 작업마다 추천 1건(또는 없음)을 계산해 결과에 포함
-  - 규칙 버전 `replacement-recommendation-v1` **[확정 10/21 — 사용자 "A~C 추천안대로", 설계 방향 4.7절; 기획 MyDocs `prd/20261021-운영버전-교체추천-규칙.md` R1~R17 전부 추천값 채택]**. 입력은 비교 작업 1건의 `resultSummary`만(다른 작업·운영 DB 조회 없음). 비교 전에 **활성·후보 양쪽 모두 complete인 행의 교집합**으로 라벨·주입 분모를 다시 세고(R16) `comparedRowCount`·`comparedLabelCounts`에 기록 — 활성 모델 버전이 세트 일부 행에서 unavailable이어도 추천 가능
+  - 규칙 버전 `replacement-recommendation-v1` **[확정 10/21 — 사용자 "A~C 추천안대로", 설계 방향 4.7절; 10/21 운영 버전 교체 추천 규칙 기획 R1~R17 전부 추천값 채택]**. 입력은 비교 작업 1건의 `resultSummary`만(다른 작업·운영 DB 조회 없음). 비교 전에 **활성·후보 양쪽 모두 complete인 행의 교집합**으로 라벨·주입 분모를 다시 세고(R16) `comparedRowCount`·`comparedLabelCounts`에 기록 — 활성 모델 버전이 세트 일부 행에서 unavailable이어도 추천 가능
   - (a) 후보 자격(순서대로 첫 실패 사유를 `candidates[].excludedReason`에 기록): ① 항목 `status=succeeded`(`item_failed:<errorCode>`) ② 버전 `executable=true`(`not_executable`, 사후 어댑터 소실 방어) ③ 교집합 행 밖에서도 모든 `methodResults[].unavailableCount=0`은 요구하지 않음 — 교집합 행에서만 비교(R16) ④ `applicability=valid`(`applicability_<value>`) ⑤ `operationalEligibility.eligible=true`(`operational_ineligible`). 활성 항목은 `status=succeeded`여야 함(`active_item_failed`)
   - (b) 1차 지표 — 비교 집합 `P` = 활성·후보 모두 `value≠null`인 것: `composite.completeOnly.recall`(분모 동일 → 분자 `tp` 정수 비교), `composite.completeOnly.precision`(비율 비교, `ratioEpsilon` 안이면 동등), `composite.completeOnly.falsePositiveRate`(분자 `fp` 정수 비교), `synthetic.scenario.<scenario>.sev<severity>.combinedDetectionRate`(같은 (scenario, severity)의 모든 repetition trial 합산 Σdetected/Σinjected, 분자 정수 비교, 합산 분모 < `minScenarioDenominator`면 제외 `insufficient_denominator`, `status≠generated` trial은 양쪽 제외) [확정 R1·R2]. anomaly 라벨 < `minLabeledAnomalyCount`면 recall 제외(R3). 한쪽이라도 null인 지표는 `excludedMetrics[]`에 `{metric, reason}`로 기록. **지배 규칙**: `P` 전부 같거나 우위 + 하나 이상 엄격 우위 → "활성보다 나음"; 하나라도 열위 `worse_on:<metric>`, 전부 동등 `equal_to_active`. 합산 점수·가중 평균은 만들지 않음(설계 방향 3절)
   - (c) 2차 — 실행 비용 한도(우위 요구 아님, 초과만 금지): 후보 `execution_cost.itemP95Ms` ≤ max(`latencyFloorMs`, 활성 × `latencyP95RelativeLimit`) **이고** ≤ 대상 모델 버전 `detectionPolicy.deadlineMs` × `latencyDeadlineRatio`(R5). 활성 값 null이면 절대 한도만; 후보 값 null이면 `checks.costLimit="unmeasured"`로 기록하고 추천 허용(R6, `costUnmeasuredPolicy=allow`). `processRssBytes`·학습 시간은 한도 없이 참고(`references[]`, R7 — 비교 작업은 한 워커가 순차 평가하므로 RSS가 모델 버전 귀속 값이 아님). 초과 후보 `cost_limit_exceeded:itemP95Ms`
@@ -275,7 +275,7 @@ Status: draft
 
 ## PRD R1~R17 — 모델 단위 적용 여부 [제안, #94]
 
-기획 MyDocs `prd/20261021-운영버전-교체추천-규칙.md`(10/21 전부 채택, R16 대안). PRD의 "구성 버전"을 "모델 버전"으로 읽으면 규칙·임계·사유 코드 전부 유효.
+10/21 운영 버전 교체 추천 규칙 기획(R1~R17 전부 채택, R16은 대안). 기획의 "구성 버전"을 "모델 버전"으로 읽으면 규칙·임계·사유 코드 전부 유효.
 
 | 항목 | 유지/삭제 | 비고 |
 |---|---|---|

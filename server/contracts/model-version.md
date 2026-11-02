@@ -6,7 +6,7 @@ Status: draft
 # 모델 버전 계약 v1 (초안, Issue #94)
 
 - 변경 요약(#94): 기존 [detection-config-version.md](detection-config-version.md)(#74 `detection-config-v1`, configuration_spec v3 = HR·rule·SR·ML 묶음)에서 **룰 항목을 제거**하고 `ml:*`만 남긴 모델 버전 계약. 룰은 [rule-set.md](rule-set.md)(버전 없음). 버전·교체·복원·비교 평가는 **모델 버전에만** [확정 11/02 Q1·Q2]
-- 계약 버전: `model-version-v1`(#74 `detection-config-v1` 대체). 근거 결정: MyDocs `decisions/20261102-탐지구조-룰모델분리-화면흐름.md` 6절, `20261020-판정파이프라인-플러그형-설계방향.md` 4.10.2. 근거 코드 origin/dev `7f24e03`
+- 계약 버전: `model-version-v1`(#74 `detection-config-v1` 대체). 근거 결정: 사용자 11/02 결정(Q1 운영 = 룰 1벌 + 모델 0..N, Q2 ML 다중 운영 유지)·Trainer·Detector 분담 합의 11/02. 근거 코드 origin/dev `7f24e03`
 - 범위: 불변 모델 버전 = 함께 운영할 ML 모델 목록(식별자·enabled·파라미터·산출물 참조) + 조합 정책 참조 + 데이터 계보(스냅샷·학습 선정). 저장마다 새 버전, UPDATE 없음
 - 제외: 종합 판정 조합·등급·evidence v4·`detectionPolicy` 필드 세부(detection-decision.md(#92)), 카탈로그 내용([method-catalog.md](method-catalog.md)), 비교 평가([config-comparison-evaluation.md](config-comparison-evaluation.md)), 임계값 추천([llm-recommendation-job.md](llm-recommendation-job.md)), 학습 제외 구간 요청 형식([trainer-service.md](trainer-service.md) 변경 제안 절), WebUI 화면
 - 호환 원칙: 기존 키·열·응답 유지, 추가만. schemaVersion 1·2 구성(현행 train 결과)은 변환·재해석 없이 기존 경로로 실행
@@ -18,11 +18,11 @@ Status: draft
 - 교체·복원·비교 단위 = 모델 버전. "모델끼리 비교"(11/02 Q1)는 모델 버전끼리 비교. 모델 1개만 담은 버전이 가장 흔한 형태(학습 1회 = 후보 버전 1개)
 - 대안(채택하지 않음): 모델 1개 = 버전 1개 + 활성 집합 N개. `ops_system_state`·`run_applications`·비교 기준선(활성 1개 전제)·추천 규칙을 모두 다중 활성으로 바꿔야 함
 
-## 방법 식별자 [확정 — Detector 합의 (a)]
+## 방법 식별자 [합의 11/02 — 사용자 확인 필요 (a)]
 
 - 형식 `ml:<model_key>`, key `^[a-z][a-z0-9_-]{1,63}$`. `hard:*`·`soft:*`는 룰 세트 계약, 모델 버전 `methods[]`에 오지 않음(422 `method_kind_not_allowed:<id>`)
 - 구성 안에서 식별자 유일: 같은 모델은 버전당 1개(`ml_config_models` PK `(config_version_id, model_key)` 그대로). 같은 모델을 파라미터만 바꿔 2개 넣는 것은 불가
-- `requestedMode` 파생 [유지 #74, 의미 축소]: 활성 ML 0개 버전은 저장 불가(아래 검증)이므로 v3 버전의 `requestedMode`는 항상 `ml`(v1·v2 투영에서만 `rule_only`/`ml_only`/`parallel`). 룰 전용 운영 = 활성 모델 버전 없음
+- `requestedMode` 파생 [유지 #74, 의미 축소]: 활성 ML 0개 버전은 저장 불가(아래 검증)이므로 v3 버전의 `requestedMode`는 항상 `ml`(v1·v2 투영에서만 `rule_only`/`ml_only`/`parallel`). 룰 전용 운영 = 활성 모델 버전 없음. **evidence의 `requestedMode`와의 관계**: 모델 버전의 값은 요청(저장) 시점 값이고, evidence v4의 `requestedMode`는 판정마다 **실제 켜진 대분류**(활성 룰 세트의 hard/soft 켜짐 + 활성 모델 버전의 ml)에서 파생(detection-decision.md(#92) 7.3절) — 둘이 다를 수 있으며 evidence 값이 판정 사실
 - 호환 매핑: 기존 v3 초안(#74)의 `hr:*`·`rule:*`·`sr:*` 항목은 **DB에 저장된 적 없음**(조합 저장 API 미구현) → 이관 대상 없음. v1·v2 행의 `ml_config_rules`·`statusRulePolicy`는 읽기 투영만(조회 절)
 
 ## configuration_spec schemaVersion 3 [제안: 번호 3 유지, 내용은 ML 전용으로 재정의]

@@ -250,7 +250,7 @@
     .ops-stats { font-size: 13px; word-break: keep-all; } .ops-stats th, .ops-stats td { padding: 6px 7px; } .ops-stats thead th { font-size: 12px; line-height: 1.35; }
     .ops-stats td { white-space: normal; } .ops-stats .why { display: block; font-size: 12px; color: #59636d; } .ops-stats tbody th { min-width: 140px; } .ops-stats td button { white-space: nowrap; padding: 3px 8px; font-size: 13px; }
     #opsRuleStats tbody tr > :nth-child(2) { white-space: nowrap; }
-    .version-scroll thead th, .version-scroll td { white-space: nowrap; } .version-scroll tbody th { min-width: 200px; }
+    .version-scroll thead th, .version-scroll td { white-space: nowrap; } .version-scroll tbody th { min-width: 200px; } #evalScroll tbody th { min-width: 0; }
     .ops-noverdict { margin: 10px 0 0; padding: 8px 12px; border-left: 4px solid #9a7b2e; background: #fbf7ec; font-size: 14px; }
     .excl-precise { margin: 12px 0 0; padding: 12px; }
     button.excl-pick { border: 0; background: none; padding: 2px 0; color: #234b72; text-decoration: underline; text-underline-offset: 4px; text-align: left; }
@@ -309,6 +309,7 @@
     <label><input type="checkbox" id="ruleConflict"> 다른 사람이 룰 먼저 저장</label>
     <label>새 판정 흐름 <select id="liveScenario"><option value="normal">점진 판정 → 최종</option><option value="replaced">재처리 후 대체</option><option value="failed">3회 실패</option></select></label>
     <button type="button" data-action="live-decision">새 판정 발생</button>
+    <button type="button" data-action="sim-hour">1시간 경과</button>
     <label><input type="checkbox" id="inputConflict"> 다른 화면에서 입력 모드 변경</label>
     <span id="draftState" role="status">편집 내용 없음</span>
     <span class="muted">목록·수치는 예시 데이터 · 서버 요청 없음</span>
@@ -429,8 +430,8 @@
 
       <!-- 탐지 설정 · 머신러닝 모델: 버전 목록(탭·자체 스크롤) + 같은 화면 아래 새 학습 영역(사용자 9.6, 2.1 원칙의 예외) -->
       <section data-view="detect-models">
-        <div class="page-head"><h1 data-term="ml">머신러닝 모델</h1><button type="button" data-action="scroll-train">새 학습으로 이동 ↓</button></div>
-        <div class="card"><h2>버전</h2>
+        <h1 data-term="ml">머신러닝 모델</h1>
+        <div class="card" style="margin-top:12px"><h2>버전</h2>
           <div class="tabs" role="tablist" aria-label="버전 보기" id="modelTabs"><button type="button" role="tab" data-action="model-tab" data-tab="active">현재 운영 버전</button><button type="button" role="tab" data-action="model-tab" data-tab="all">전체 버전</button></div>
           <div class="version-scroll" id="candScroll" tabindex="0" aria-label="버전 목록" data-rows="모델 버전 목록" data-partial-fail><table id="candTable"></table></div>
           <p id="candEmpty" class="muted" hidden>운영 중인 버전이 없습니다.</p>
@@ -477,7 +478,7 @@
                 </div>
                 <section class="summary" aria-labelledby="selectionTitle"><h3 id="selectionTitle">선택 요약</h3><p id="selectionCount"></p><ul id="selectionList"></ul><div class="actions-inline"><button type="button" data-action="clear-selection">전체 해제</button></div></section>
               </div>
-              <div class="actions"><a href="#cmd/train/1">이전</a><a class="button primary" href="#cmd/train/3">다음 · 모델·파라미터</a></div>
+              <div class="actions"><a href="#detect/models/train/1">이전</a><a class="button primary" href="#detect/models/train/3">다음 · 모델·파라미터</a></div>
             </div>
           </section>
           <section data-step="train/3">
@@ -491,7 +492,7 @@
               <dl><div><dt>저장 데이터셋·기간</dt><dd><span data-dataset-label>데이터 고정 대기</span> · <span data-dataset-period>—</span></dd></div><div><dt>분석 단위</dt><dd id="trainingUnit">PROCESS</dd></div><div><dt>선택 변수</dt><dd id="trainingFeatures">0개</dd></div></dl>
               <h3 style="margin-top:16px">준비 검사</h3><ul id="readiness" class="checks"></ul>
               <h3 style="margin-top:16px">다른 모델 파라미터</h3><div id="otherParams"></div>
-              <div class="actions"><a href="#cmd/train/2">이전</a><button type="submit" class="primary">학습 요청</button></div><p id="trainingBlocked" class="notice error" role="alert" hidden></p>
+              <div class="actions"><a href="#detect/models/train/2">이전</a><button type="submit" class="primary">학습 요청</button></div><p id="trainingBlocked" class="notice error" role="alert" hidden></p>
             </div></form>
           </section>
         </section>
@@ -501,10 +502,45 @@
         <h1 id="candTitle"></h1>
         <div class="card" data-rows="버전 상세"><div id="candBody"></div></div>
       </section>
-      <!-- 탐지 설정 · 평가 결과 -->
+      <!-- 탐지 설정 · 평가 결과: 평가 목록(탭·자체 스크롤) + 같은 화면 아래 새 비교 평가 영역(머신러닝 모델 화면과 같은 방식, 사용자 11/02) -->
       <section data-view="detect-evals">
-        <div class="page-head"><h1>평가 결과</h1><a class="button primary" href="#cmd/compare/1" data-start="compare">+ 새 비교 평가</a></div>
-        <div class="card"><h2>비교 평가</h2><div class="table" data-rows="비교 평가 목록" data-partial-fail><table id="evalTable"></table></div></div>
+        <h1>평가 결과</h1>
+        <div class="card" style="margin-top:12px"><h2>비교 평가</h2>
+          <div class="tabs" role="tablist" aria-label="평가 보기" id="evalTabs"><button type="button" role="tab" data-action="eval-tab" data-tab="current">현재 운영 모델 기준</button><button type="button" role="tab" data-action="eval-tab" data-tab="all">전체 평가</button></div>
+          <div class="version-scroll" id="evalScroll" tabindex="0" aria-label="평가 목록" data-rows="비교 평가 목록" data-partial-fail><table id="evalTable"></table></div>
+          <p id="evalEmpty" class="muted" hidden></p>
+        </div>
+        <section class="card" id="compareArea" data-track aria-labelledby="compareTitle">
+          <h2 id="compareTitle">새 비교 평가</h2>
+          <ol class="stepper" data-stepper="compare"><li data-s="1">1. 평가 세트</li><li data-s="2">2. 비교 모델</li><li data-s="3">3. 요청</li></ol>
+          <section data-step="compare/1">
+            <div class="card"><h2>평가 세트 선택</h2>
+              <div class="table" data-rows="평가 세트 목록" data-partial-fail><table><caption>고정 세트 · 같은 세트·분할·정답·생성 버전을 모든 비교 모델에 재사용</caption><thead><tr><th>선택</th><th>세트</th><th>생성 방식</th><th>시나리오</th><th>행 수(이상 정답)</th><th>고정 정보</th></tr></thead><tbody id="setRows"></tbody></table></div>
+              <div class="actions-inline"><button type="button" data-action="new-set">새 평가 세트 생성</button></div>
+            </div>
+            <form id="generationForm" class="card" hidden><h2>새 평가 세트 생성 · 합성 이상 생성기</h2><div class="grid"><label class="field">세트 이름<input name="setName" value="평가 세트 초안" required maxlength="80"></label><label class="field">생성 프로필<select id="generator"><option value="ESB">ESB 시나리오 · esb-process-research-v1</option><option value="ADBench">ADBench 수치 합성 · adbench-numeric-v1</option></select></label><label class="field">기준 저장 데이터셋<select><option>고정 학습 참조 데이터</option><option>정상성 확인 구간</option></select></label></div>
+              <fieldset><legend>시나리오 · 1~4개</legend><div id="scenarioChecks"></div></fieldset>
+              <div class="grid"><label class="field">강도<select name="severity" id="severity"><option value="1">1</option><option value="2">2</option><option value="3">3</option></select></label><label class="field">반복 수 · 1~5<input name="repetitions" type="number" min="1" max="5" step="1" value="2" required></label><label class="field">대상 행 수 · 1~100<input name="targetRows" type="number" min="1" max="100" step="1" value="50" required></label><label class="field">seed<input name="seed" type="number" min="0" max="2147483647" step="1" value="42" required></label></div>
+              <p id="generatorNote" class="notice"></p><p id="generationLimit" class="warn" role="status"></p>
+              <div class="actions"><button type="submit" class="primary">평가 세트 생성</button><button type="button" data-action="close-generation">닫기</button></div>
+              <p id="generationStatus" role="status"></p>
+            </form>
+            <div class="actions"><a class="button primary" href="#detect/evals/compare/2">다음 · 비교 모델</a></div>
+          </section>
+          <section data-step="compare/2">
+            <div class="card"><h2>비교 모델 · 현재 운영 포함 최대 8개</h2>
+              <p>평가 세트: <strong data-selected-set></strong></p>
+              <div id="compareTargets" data-rows="모델 버전 목록"></div>
+              <p id="targetError" class="warn" role="alert" hidden></p>
+              <div class="actions"><a href="#detect/evals/compare/1">이전</a><a class="button primary" href="#detect/evals/compare/3" id="compareNext">다음 · 요청</a></div>
+            </div>
+          </section>
+          <section data-step="compare/3">
+            <div class="card"><h2>요청 확인</h2><dl id="compareSummary"></dl>
+              <div class="actions"><a href="#detect/evals/compare/2">이전</a><button type="button" class="primary" data-action="request-compare">비교 평가 요청</button></div>
+            </div>
+          </section>
+        </section>
       </section>
       <section data-view="detect-eval">
         <div class="breadcrumb"><a href="#detect/evals">← 평가 결과</a></div>
@@ -514,39 +550,7 @@
         <div id="evalBody" data-rows="평가 결과" data-partial-fail></div>
       </section>
 
-      <!-- 명령 흐름: 결과 페이지 [+ 새 …] 버튼에서만 시작, 전체 페이지 단계 흐름 -->
-      <section data-view="cmd-compare" data-track>
-        <h1>새 비교 평가</h1>
-        <ol class="stepper" data-stepper="compare"><li data-s="1">1. 평가 세트</li><li data-s="2">2. 비교 모델</li><li data-s="3">3. 요청</li></ol>
-        <section data-step="compare/1">
-          <div class="card"><h2>평가 세트 선택</h2>
-            <div class="table" data-rows="평가 세트 목록" data-partial-fail><table><caption>고정 세트 · 같은 세트·분할·정답·생성 버전을 모든 비교 모델에 재사용</caption><thead><tr><th>선택</th><th>세트</th><th>생성 방식</th><th>시나리오</th><th>행 수(이상 정답)</th><th>고정 정보</th></tr></thead><tbody id="setRows"></tbody></table></div>
-            <div class="actions-inline"><button type="button" data-action="new-set">새 평가 세트 생성</button></div>
-          </div>
-          <form id="generationForm" class="card" hidden><h2>새 평가 세트 생성 · 합성 이상 생성기</h2><div class="grid"><label class="field">세트 이름<input name="setName" value="평가 세트 초안" required maxlength="80"></label><label class="field">생성 프로필<select id="generator"><option value="ESB">ESB 시나리오 · esb-process-research-v1</option><option value="ADBench">ADBench 수치 합성 · adbench-numeric-v1</option></select></label><label class="field">기준 저장 데이터셋<select><option>고정 학습 참조 데이터</option><option>정상성 확인 구간</option></select></label></div>
-            <fieldset><legend>시나리오 · 1~4개</legend><div id="scenarioChecks"></div></fieldset>
-            <div class="grid"><label class="field">강도<select name="severity" id="severity"><option value="1">1</option><option value="2">2</option><option value="3">3</option></select></label><label class="field">반복 수 · 1~5<input name="repetitions" type="number" min="1" max="5" step="1" value="2" required></label><label class="field">대상 행 수 · 1~100<input name="targetRows" type="number" min="1" max="100" step="1" value="50" required></label><label class="field">seed<input name="seed" type="number" min="0" max="2147483647" step="1" value="42" required></label></div>
-            <p id="generatorNote" class="notice"></p><p id="generationLimit" class="warn" role="status"></p>
-            <div class="actions"><button type="submit" class="primary">평가 세트 생성</button><button type="button" data-action="close-generation">닫기</button></div>
-            <p id="generationStatus" role="status"></p>
-          </form>
-          <div class="actions"><a class="button primary" href="#cmd/compare/2">다음 · 비교 모델</a></div>
-        </section>
-        <section data-step="compare/2">
-          <div class="card"><h2>비교 모델 · 현재 운영 포함 최대 8개</h2>
-            <p>평가 세트: <strong data-selected-set></strong></p>
-            <div id="compareTargets" data-rows="모델 버전 목록"></div>
-            <p id="targetError" class="warn" role="alert" hidden></p>
-            <div class="actions"><a href="#cmd/compare/1">이전</a><a class="button primary" href="#cmd/compare/3" id="compareNext">다음 · 요청</a></div>
-          </div>
-        </section>
-        <section data-step="compare/3">
-          <div class="card"><h2>요청 확인</h2><dl id="compareSummary"></dl>
-            <div class="actions"><a href="#cmd/compare/2">이전</a><button type="button" class="primary" data-action="request-compare">비교 평가 요청</button></div>
-          </div>
-        </section>
-      </section>
-
+      <!-- 명령 흐름: 모델 교체 요청만 전체 페이지 단계 흐름(새 학습·새 비교 평가는 각 화면 아래 영역) -->
       <section data-view="cmd-replace" data-track>
         <h1>모델 교체 요청</h1>
         <ol class="stepper" data-stepper="replace"><li data-s="1">1. 버전 선택</li><li data-s="2">2. 비교 확인</li><li data-s="3">3. 승인·요청</li></ol>
@@ -711,7 +715,7 @@
           { key: 'max_samples', label: '트리당 표본', meaning: '트리 하나가 보는 행 수', def: 512, min: 64, max: 4096, step: 1 },
           { key: 'contamination', label: 'contamination', meaning: '이상 비율 가정', fixed: 'auto' },
           { key: 'random_state', label: 'seed', meaning: '재현용 난수 seed', def: 42, min: 0, step: 1 },
-          { key: 'thresholdPolicy', label: '판정선 정책', meaning: 'train 분할 내부 기준 P99 초과', fixed: 'train-internal-p99-v1' }
+          { key: 'thresholdPolicy', label: '판정선 기준', meaning: 'train 분할 내부 기준 P99 초과', fixed: 'train-internal-p99-v1' }
         ],
         esb: { P02: 0.81, P03: 0.77, P04: 0.55, fp: 0.01 }, adb: { local: 0.62, global: 0.93, cluster: 0.48, fp: 0.03 } },
       kmeans: { methodId: 'ml:minibatch_kmeans', name: 'MiniBatchKMeans', desc: '정상 관측을 K개 군집으로 묶고, 가장 가까운 군집 중심에서 멀리 떨어진 관측을 이상으로 봅니다.', state: 'research', units: 'PROCESS · WINDOW', code: 'KMeans', cost: 2.4, rss: 36, thresholdText: 'quantile 0.99', example: { hit: 3.91, miss: 2.1, threshold: 3.4 },
@@ -841,7 +845,7 @@
       return Object.entries(groups).map(([k, names]) => k + ' ' + names.length + '건: ' + names.join(', ')).join(' · ');
     }
     function pushRuleRevision(snapshot, by, prefix) {
-      const prev = ruleCurrent(), entry = { rev: prev.rev + 1, at: stamp(), by, snapshot: ruleClone(snapshot) };
+      const prev = ruleCurrent(), entry = { rev: prev.rev + 1, at: stamp(), by, snapshot: ruleClone(snapshot), hour: simHours };
       entry.summary = (prefix || '') + changeSummary(ruleChanges(prev.snapshot, entry.snapshot));
       ruleHistory.push(entry); return entry;
     }
@@ -1049,7 +1053,8 @@
       return Object.assign({ unit: 'PROCESS', channel: 'CH-WEB' }, base, { methods: rows });
     }
     const H = TERMS.hard, SO = TERMS.soft, ML = TERMS.ml, M1 = ['M1'];
-    const DL = 'deadline_exceeded · 기한 3,000 ms 초과', NA = (f) => '입력값 누락 · ' + f + ' 미제공';
+    // 기한(deadlineMs)은 판정 정책 값이라 화면에 숫자를 보이지 않는다(사용자 9.8). 사유는 코드로 두고 표시 이름만 보인다(코드는 툴팁).
+    const DL = 'deadline_exceeded', NA = (f) => '입력값 누락 · ' + f + ' 미제공';
     let decisions = [
       mkDecision({ id: 'D-1042', at: '10:41:58', tx: 'TX-1031-104158-0007', process: 'P02 결제 승인', iface: 'IF-ORD-01', logStatus: 'F', resp: 'E500', ms: 41, ruleRev: 12, models: M1, input: 'CSV 재생', stage: 'final', workflow: 'Open',
         history: [['10:41:58.031', 'provisional', `중간 판정 · 근거 ${H}(상태가 S가 아님)`], ['10:41:58.072', 'final', '최종 · 모든 방법 종료']] }, { T: { 'hard:process-status': '' }, N: { ml: '원점수 0.47' } }),
@@ -1088,7 +1093,7 @@
     const resultLabel = { T: '이상', N: '정상 확인', U: '미판정', '·': '—' };
     const runLabel = { succeeded: '완료 · succeeded', failed: '실패 · failed', not_ready: '미완료 · not_ready', skipped: '꺼짐 · skipped', running: '실행 중' };
     // Detector 조합 규칙(10/21 확정 4.0, 대분류 이름만 hard/soft/ml): k=1 OR, 정상은 켠 방법 모두 성공일 때만. 일부만 끝난 상태는 '판정 중'.
-    // 판정 이상 등급(11/02): 이상 규칙 T가 하나라도 있으면 '이상', 이상 징후 규칙·머신러닝 모델 T만이면 '이상 징후'.
+    // 판정 이상 등급(11/02): 이상 규칙 대분류 결과가 이상이면 '이상', 이상 징후 규칙·머신러닝 모델 대분류만 이상이면 '이상 징후'.
     function summarize(d) {
       if (d.unit === 'WINDOW') return { signal: d.signal, completeness: d.completeness, basis: [], cats: [], grade: null };
       const cats = CATS3.map((cat) => {
@@ -1260,7 +1265,7 @@
       if (state === 'none') return h('div', { class: 'rec-none', role: 'status', 'data-rec-state': 'none' }, h('strong', { text: '모델 교체 추천 없음 · ' }), noRecText(rec), h('span', { class: 'muted', text: ' · ' + where }));
       if (state === 'current') return h('section', { class: 'rec-card', 'aria-label': '모델 교체 추천', 'data-rec-state': 'current' }, h('h3', { text: '모델 교체 추천 ' + rec.baselineCandidateId + ' → ' + t + ' · 시스템 추천 · 자동 교체 안 함' }), h('p', { text: rec.summary }), h('p', { style: 'font-size:13px', text: where }), h('button', { type: 'button', 'data-action': 'accept-rec', 'data-run': run.id, text: '수락하고 교체 요청' }));
       if (state === 'applied') return h('section', { class: 'rec-card quiet', 'aria-label': '모델 교체 추천', 'data-rec-state': 'applied' }, h('h3', { text: '모델 교체 추천 ' + t + ' · 이미 적용됨' }), h('p', { text: '이 추천은 적용되었습니다.' }), h('p', { style: 'font-size:13px', text: rec.summary + ' · ' + where }));
-      return h('section', { class: 'rec-card quiet', 'aria-label': '모델 교체 추천', 'data-rec-state': 'stale' }, h('h3', { text: '모델 교체 추천 ' + t + ' · 지난 추천' }), h('p', { text: '운영 모델이 바뀌어 더 이상 유효하지 않은 추천입니다. 새 비교 평가를 실행하세요.' }), h('p', { style: 'font-size:13px', text: rec.summary + ' · ' + where }), h('div', { class: 'actions-inline' }, h('button', { type: 'button', disabled: true, text: '수락하고 교체 요청' }), h('a', { class: 'button', href: '#cmd/compare/1', 'data-start': 'compare', text: '+ 새 비교 평가' })));
+      return h('section', { class: 'rec-card quiet', 'aria-label': '모델 교체 추천', 'data-rec-state': 'stale' }, h('h3', { text: '모델 교체 추천 ' + t + ' · 지난 추천' }), h('p', { text: '운영 모델이 바뀌어 더 이상 유효하지 않은 추천입니다. 새 비교 평가를 실행하세요.' }), h('p', { style: 'font-size:13px', text: rec.summary + ' · ' + where }), h('div', { class: 'actions-inline' }, h('button', { type: 'button', disabled: true, text: '수락하고 교체 요청' }), h('a', { class: 'button', href: '#detect/evals/compare/1', 'data-start': 'compare', text: '+ 새 비교 평가' })));
     }
     const recCell = (run) => { const s = recState(run); if (!s) return '—'; return s === 'none' ? REC_STATE.none : pill('추천 ' + run.rec.targetCandidateId + ' · ' + REC_STATE[s], s === 'current' ? 'busy' : 'gray'); };
     function jobPill(j) {
@@ -1318,7 +1323,7 @@
       const pctDone = csvCfg.position / csvCfg.total;
       fill($('csvBox'), ...(inputMode === 'csv' ? [admin ? h('div', { class: 'actions-inline', style: 'margin-bottom:8px' }, h('button', { type: 'button', 'data-action': 'csv-reapply', disabled: inputPending, text: '재생 설정 변경' })) : null, dl(h('dl'), [['재생 대상', csvCfg.target], ['재생 속도', csvCfg.speed], ['진행률', h('span', {}, num(csvCfg.position) + ' / ' + num(csvCfg.total) + '행 (' + pct(pctDone) + ')', h('span', { class: 'bar', role: 'progressbar', 'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-valuenow': String(Math.round(pctDone * 100)) }, h('span', { style: 'width:' + (pctDone * 100).toFixed(1) + '%' })))]])] : []));
       table('storeTable', ['원본', '누적 저장', '최근 1분', '마지막 저장', 'revision 재도착'], Object.keys(store).map((k) => [k + ' (' + k[0] + ')', num(store[k]), k === 'BODY' ? '수집 안 함 · 판정 입력 아님' : '+' + num(recentMinute[k]), k === 'BODY' ? '—' : storeLast, k === 'PROCESS' ? num(revisionCount) + '건' : '—']));
-      table('stageTable', ['단계', 'p50', 'p95', '대기·적체', '최근 실패'], [['Collector 수집', '35 ms', '120 ms', '—', '0건'], ['정제·저장', '8 ms', '22 ms', '—', '0건'], ['판정 큐 대기', '0.2 s', '1.8 s', '4건', '—'], ['Detector 판정', '28 ms', '3,000 ms(기한 초과 포함)', '—', '기한 초과 2건'], ['판정 저장', '4 ms', '11 ms', '—', '0건']]);
+      table('stageTable', ['단계', 'p50', 'p95', '대기·적체', '최근 실패'], [['Collector 수집', '35 ms', '120 ms', '—', '0건'], ['정제·저장', '8 ms', '22 ms', '—', '0건'], ['판정 큐 대기', '0.2 s', '1.8 s', '4건', '—'], ['Detector 판정', '28 ms', '2,880 ms(기한 초과 포함)', '—', '기한 초과 2건'], ['판정 저장', '4 ms', '11 ms', '—', '0건']]);
       fill($('inputHistoryRows'), ...inputHistory.map((x) => h('tr', {}, h('td', { text: x.at }), h('td', { text: x.mode }), h('td', { text: x.action }), h('td', {}, x.result === '성공' ? pill('성공', 'good') : pill('실패', 'bad')))));
     }
     // 입력 모드는 하나만(실서버 API / CSV 재생 / 일시정지). 변경은 expectedRevision과 함께 요청하고, 다른 화면에서 바뀌었으면 충돌로 거절(제품 InputControls와 같은 개념).
@@ -1437,11 +1442,12 @@
       const run = d.models.length ? latestRunFor(d.models[0]) : null;
       fill($('dAdminLinks'), ...(admin ? [h('a', { class: 'button', href: '#detect/rules', text: '룰 변경 기록 보기' }), ...d.models.map((id) => h('a', { class: 'button', href: '#detect/models/' + id, text: '당시 ' + TERMS.ml + ' ' + id + ' 보기' })), run ? h('a', { class: 'button', href: '#detect/evals/' + run.id, text: '관련 평가 보기' }) : null] : []));
       fill($('dTimeline'), ...d.history.map(([t, kind, text]) => h('li', { class: kind === 'final' ? 'final' : kind === 'void' ? 'void' : '' }, h('span', { class: 'key', text: t }), text)), ...(['pending', 'provisional', 'updated'].includes(d.stage) ? [h('li', {}, h('span', { class: 'key', text: '진행 중' }), '남은 방법 결과 대기')] : []));
-      $('dCatsNote').textContent = '세부 방법 → 대분류 → 종합. ' + TERMS.hard + '이 하나라도 이상이면 ' + TERMS.anomaly + ', ' + TERMS.soft + '·' + TERMS.ml + '만 이상이면 ' + TERMS.sign + ', 켠 방법이 모두 정상 확인일 때만 이상 신호 없음, 그 밖은 정상 여부 미확인.';
-      table('dCats', ['대분류', '켠 방법', '기준 k', '이상', '정상 확인', '미판정', '실행 중', '대분류 결과'], s.cats.map((c) => [CAT_LABEL[c.cat], c.n + '개', c.n ? '1' : '—', String(c.t), String(c.ok), String(c.u), String(c.w), c.result]), '대분류 결과를 합산하거나 점수로 바꾸지 않습니다');
+      $('dCatsNote').textContent = '세부 방법 → 대분류 → 종합. 대분류마다 결과를 정한 뒤 종합합니다. ' + TERMS.hard + ' 대분류가 이상이면 ' + TERMS.anomaly + ', ' + TERMS.soft + '·' + TERMS.ml + ' 대분류만 이상이면 ' + TERMS.sign + ', 켠 대분류가 모두 정상 확인일 때만 이상 신호 없음, 그 밖은 정상 여부 미확인.';
+      table('dCats', ['대분류', '켠 방법', '이상', '정상 확인', '미판정', '실행 중', '대분류 결과'], s.cats.map((c) => [CAT_LABEL[c.cat], c.n + '개', String(c.t), String(c.ok), String(c.u), String(c.w), c.result]), '대분류 결과를 합산하거나 점수로 바꾸지 않습니다');
       const mlMeasure = (m) => { const sc = parseFloat(String(m[4]).replace('원점수 ', '')), th = parseFloat(String(m[5]).replace('판정선 ', '')); return m[0] === 'ml' && Number.isFinite(sc) && Number.isFinite(th) && th > 0 ? m[4] + ' · 판정선 대비 ' + (sc / th).toFixed(2) + '배' : m[4]; };
+      const reasonCell = (m) => !m[7] ? '—' : has(REASON_LABEL, m[7]) ? h('span', { title: m[7], 'data-reason': m[7], text: REASON_LABEL[m[7]] }) : m[7];
       const levelCell = (m) => { const lv = methodLevel(m); return lv === null ? '—' : lv === 'unrated' ? '단계 없음' : RISK_LABEL[lv]; };
-      table('dMethods', ['대분류', '방법', '실행 상태', '결과', '측정값', '당시 기준', '위험도 단계', '처리 시간', '사유'], d.methods.map((m) => [CAT_LABEL[m[0]], m[1], runLabel[m[2]], resultLabel[m[3]], mlMeasure(m), m[5], levelCell(m), m[6], m[7] || '—']), TERMS.ml + ' 점수는 모델마다 척도가 달라 모델끼리 비교하거나 위험도에 반영하지 않습니다');
+      table('dMethods', ['대분류', '방법', '실행 상태', '결과', '측정값', '당시 기준', '위험도 단계', '처리 시간', '사유'], d.methods.map((m) => [CAT_LABEL[m[0]], m[1], runLabel[m[2]], resultLabel[m[3]], mlMeasure(m), m[5], levelCell(m), m[6], reasonCell(m)]), TERMS.ml + ' 점수는 모델마다 척도가 달라 모델끼리 비교하거나 위험도에 반영하지 않습니다');
       const f = flowOf(d);
       $('dFlowStats').textContent = '(프로세스 ' + f.processes.length + '건 · 메시지 ' + f.messages.length + '건 · 에러 ' + f.processes.filter((p) => p.status === 'F').length + '건)';
       const nodeBtn = (id, cls, label, st) => h('button', { type: 'button', class: cls, 'data-action': 'tree-node', 'data-node': id, 'aria-pressed': String(activeNode === id) }, h('span', { class: 'st ' + st, text: st }), h('span', { text: label }));
@@ -1483,6 +1489,8 @@
     };
     // 미판정 사유 표시 이름(코드는 툴팁)
     const CAUSE_LABEL = { input_missing: '입력 없음', input_invalid: '입력 형식 오류', timeout: '기한 초과', failure: '실행 실패' };
+    // 판정 상세 방법별 사유 코드 표시 이름(코드는 툴팁)
+    const REASON_LABEL = { deadline_exceeded: '기한 초과' };
     const NO_VERDICT = { '1h': { job_failed: 2, ruleset_read_failed: 0 }, '24h': { job_failed: 9, ruleset_read_failed: 1 } };
     // 판정 정책은 화면에 보이지 않는다(사용자 9.6). 상태 배지 기준은 화면 예시(값 확정 전).
     function methodStats(key, profileKey) {
@@ -1498,13 +1506,21 @@
       for (let i = ruleHistory.length - 1; i >= 0; i--) { const r = ruleHistory[i].snapshot[cat].find((x) => x.id === id); if (!r || !r.on) break; since = ruleHistory[i].rev; }
       return since;
     }
-    // 규칙 실행 수치(사용자 9.7): 마지막 저장에서 새로 켜진 규칙(새로 추가 + 꺼짐→켜짐)은 실행 0 · '적용됨 · 첫 실행 대기'.
-    // 화면에서 켠 뒤 다음 저장까지도 실행 기록이 없으면 실행 0 그대로 '점검 필요 · 실행 없음'. 예시 수치(STAT_PROFILE)는 그 전부터 켜져 있던 규칙에만.
+    // 첫 실행 대기 → 점검 필요 전환(사용자 11/02 (가)): 운영에 새로 적용한 규칙·모델은 실행 0이면 '적용됨 · 첫 실행 대기',
+    // 적용 뒤 1시간이 지나도 실행 0이면 '점검 필요 · 실행 없음'. 다음 저장 여부와 무관(시간 기준만).
+    // 1시간은 화면 예시 값이며 실제 기준 시간은 API 계약에서 정한다. 와이어프레임은 실제 시계 대신 검토 조건 '1시간 경과'로 시간을 진행한다.
+    const WAIT_HOURS = 1;
+    let simHours = 0;
+    const modelAppliedHour = {};
+    const waitStats = (hour) => ({ runs: 0, waiting: simHours - hour < WAIT_HOURS });
+    // 규칙 실행 수치(사용자 9.7): 화면을 연 뒤 저장으로 새로 켜진 규칙(새로 추가 + 꺼짐→켜짐)은 실행 기록이 없다. 예시 수치(STAT_PROFILE)는 그 전부터 켜져 있던 규칙에만.
     function ruleStats(cat, id) {
-      const since = ruleOnSince(cat, id), first = ruleHistory[0].rev, waiting = since !== null && since === ruleCurrent().rev && since > first;
-      if (waiting || (since !== null && since > SEED_RULE_REV)) return { runs: 0, waiting };
+      const since = ruleOnSince(cat, id);
+      if (since !== null && since > SEED_RULE_REV) return waitStats(ruleHistory.find((x) => x.rev === since).hour);
       return methodStats(id);
     }
+    // 모델 실행 수치: 화면을 연 뒤 적용·교체·복원한 모델은 실행 기록이 없다(규칙과 같은 기준).
+    const modelStats = (id) => has(modelAppliedHour, id) ? waitStats(modelAppliedHour[id]) : methodStats('ml:' + id, STAT_PROFILE[id] ? id : 'model');
     function statusOf(st) {
       if (!st.runs) return st.waiting ? ['적용됨 · 첫 실행 대기', 'gray', ''] : ['점검 필요', 'bad', '실행 없음'];
       const r = st.nr / st.runs, t = st.timeouts / st.runs;
@@ -1515,7 +1531,7 @@
     const ratio = (n, d) => num(n) + ' (' + pct(d ? n / d : 0) + ')';
     function statCells(st) {
       const [label, tone, why] = statusOf(st);
-      const badge = h('span', { title: '상태 예시 기준: 미판정 2% 이상 주의 · 10% 이상 또는 실행 없음 점검 필요' }, pill(label, tone), why ? h('span', { class: 'why', text: why }) : null);
+      const badge = h('span', { title: '상태 예시 기준: 미판정 2% 이상 주의 · 10% 이상 점검 필요 · 실행 없음은 점검 필요(새로 적용한 항목은 적용 뒤 1시간까지 첫 실행 대기)' }, pill(label, tone), why ? h('span', { class: 'why', text: why }) : null);
       if (!st.runs) return [badge, '0', '—', '—', '—', '—', '—', '—', '—'];
       const causeCell = st.causes.length ? h('span', {}, st.causes.slice(0, 3).map(([c, n], k) => [k ? ' · ' : '', h('span', { title: c, 'data-cause': c, text: (CAUSE_LABEL[c] || c) + ' ' + num(n) })])) : '—';
       return [badge, num(st.runs), ratio(st.ok, st.runs), ratio(st.nr, st.runs), ratio(st.anomalies, st.runs), causeCell, num(st.timeouts), st.last, num(st.p95) + ' ms'];
@@ -1530,8 +1546,8 @@
         ...snap.soft.filter((r) => r.on).map((r) => ({ attrs: { 'data-method': r.id }, cells: [h('span', {}, r.name, h('span', { class: 'key', text: softCond(r) })), TERMS.soft, ...statCells(ruleStats('soft', r.id))] }))];
       table('opsRuleStats', ['규칙', '대분류', ...STAT_HEAD], ruleRows, '켜진 규칙만 · ' + per.label);
       const appliedAt = (id) => { const j = jobs.filter((x) => ['replace', 'restore'].includes(x.kind) && x.status === 'done' && x.target === id).slice(-1)[0]; return j ? j.at : '—'; };
-      fill($('opsCurrent'), list.length ? h('div', { class: 'table' }, table(h('table', { class: 'ops-stats' }), ['모델', '버전', ...STAT_HEAD, '운영'], list.map((id) => { const c = candidateById(id); return { attrs: { 'data-method': 'ml:' + id }, cells: [MODELS[c.model].name, h('span', {}, h('a', { href: '#detect/models/' + id, text: candLabel(id) }), h('span', { class: 'key', text: '적용 ' + appliedAt(id) })), ...statCells(methodStats('ml:' + id, STAT_PROFILE[id] ? id : 'model')), h('button', { type: 'button', 'data-action': 'model-remove', 'data-cand': id, text: '운영에서 제외' })] }; }), '모델 종류마다 운영 버전 1개 · 여러 모델 동시 운영 · ' + per.label)) : h('p', { class: 'muted', id: 'opsNoModel', text: '운영 중인 ' + TERMS.ml + '이 없습니다. 룰만으로 판정합니다.' }));
-      $('opsStatNote').textContent = '상태 예시 기준: 미판정 2% 이상 주의, 10% 이상 또는 실행 없음 점검 필요(마지막 룰 저장으로 새로 켜진 규칙은 첫 실행 대기) · 판단하지 않은 경우(예: 종료 시각 없음)는 성공으로 셉니다';
+      fill($('opsCurrent'), list.length ? h('div', { class: 'table' }, table(h('table', { class: 'ops-stats' }), ['모델', '버전', ...STAT_HEAD, '운영'], list.map((id) => { const c = candidateById(id); return { attrs: { 'data-method': 'ml:' + id }, cells: [MODELS[c.model].name, h('span', {}, h('a', { href: '#detect/models/' + id, text: candLabel(id) }), h('span', { class: 'key', text: '적용 ' + appliedAt(id) })), ...statCells(modelStats(id)), h('button', { type: 'button', 'data-action': 'model-remove', 'data-cand': id, text: '운영에서 제외' })] }; }), '모델 종류마다 운영 버전 1개 · 여러 모델 동시 운영 · ' + per.label)) : h('p', { class: 'muted', id: 'opsNoModel', text: '운영 중인 ' + TERMS.ml + '이 없습니다. 룰만으로 판정합니다.' }));
+      $('opsStatNote').textContent = '상태 예시 기준: 미판정 2% 이상 주의, 10% 이상 점검 필요 · 실행 없음은 점검 필요(새로 적용한 규칙·모델은 적용 뒤 1시간까지 첫 실행 대기) · 판단하지 않은 경우(예: 종료 시각 없음)는 성공으로 셉니다';
       const lr = latestRec();
       fill($('opsRec'), recBlock(lr && lr.run));
       table('opsHistory', ['교체', '모델', '작업', '추천 수락', '요청 시각', '결과', '상세'], jobs.filter((j) => SWAP.includes(j.kind)).reverse().map((j) => [j.from + ' → ' + (j.kind === 'remove' ? '제외' : j.target), MODELS[j.model].name, KIND[j.kind], j.accepted ? j.accepted.run + ' 추천 ' + j.accepted.target : '—', j.at, jobPill(j), h('a', { href: '#detect/ops/job/' + j.id, text: j.id })]));
@@ -1570,8 +1586,8 @@
         if (j.kind === 'compare') actions.push(h('a', { class: 'button primary', href: '#detect/evals/' + j.run, text: '결과 보기 · ' + j.run }));
         if (swap) actions.push(h('a', { class: 'button primary', href: '#detect/ops', text: '운영 설정에서 확인' }));
       }
-      if (j.status === 'failed' && j.kind === 'train') { actions.push(h('button', { type: 'button', 'data-action': 'job-retry', 'data-job': j.id, text: '다시 시도' })); if (j.dataFailure) actions.push(h('a', { class: 'button', href: '#cmd/train/1', 'data-start': 'train', text: '데이터 바꿔 새 학습' })); }
-      if (j.status === 'failed' && j.kind === 'compare') actions.push(h('a', { class: 'button', href: '#cmd/compare/1', 'data-start': 'compare', text: '새 비교 평가' }));
+      if (j.status === 'failed' && j.kind === 'train') { actions.push(h('button', { type: 'button', 'data-action': 'job-retry', 'data-job': j.id, text: '다시 시도' })); if (j.dataFailure) actions.push(h('a', { class: 'button', href: '#detect/models/train/1', 'data-start': 'train', text: '데이터 바꿔 새 학습' })); }
+      if (j.status === 'failed' && j.kind === 'compare') actions.push(h('a', { class: 'button', href: '#detect/evals/compare/1', 'data-start': 'compare', text: '새 비교 평가' }));
       fill($('jobBody'), h('div', { class: 'actions-inline' }, jobPill(j)), h('div', { 'data-rows': '작업 단계', 'data-partial-fail': true }, stagesList(j)), j.status === 'running' ? h('div', { class: 'progress', 'aria-hidden': 'true' }, h('span')) : null, h('dl', { style: 'margin-top:12px' }, info.filter(Boolean).map(([k, v]) => h('div', {}, h('dt', { text: k }), h('dd', { text: v })))),
         ['failed', 'timeout'].includes(j.status) ? h('p', { class: 'notice error', role: 'alert', text: reasonText + (swap ? ' · 운영 모델 ' + j.from + ' 유지' : '') }) : null,
         j.status === 'done' && swap ? h('p', { class: 'ok', text: removing ? '운영 모델에서 ' + j.from + ' 제외됨 · 이후 판정부터 사용 안 함' + (activeList().length ? '' : ' · 현재 룰만으로 판정') : '운영 모델 ' + j.target + '로 전환됨 · 이후 판정부터 ' + j.target + ' 사용' }) : null,
@@ -1598,7 +1614,7 @@
       $('candTitle').textContent = '버전 ' + c.id + ' · ' + c.name;
       fill($('candBody'), dl(h('dl'), [...modelInfoRows(id), ['상태', stateLabel(MODELS[c.model].state)], ['운영', isActive(id) ? pill('운영 중', 'good') : '—'], ['학습 작업', h('a', { href: '#detect/ops/job/' + c.job, text: c.job })], ['산출물 hash', h('span', { class: 'key', text: c.hash })], autoJob ? ['자동 비교 평가', h('span', {}, h('a', { href: '#detect/ops/job/' + autoJob.id, text: autoJob.id }), ' ', jobPill(autoJob), autoJob.status === 'done' ? h('span', {}, ' ', h('a', { href: '#detect/evals/' + autoJob.run, text: autoJob.run + ' 결과' })) : null)] : null]),
         h('h3', { style: 'margin-top:16px', text: '평가 이력' }), h('div', { 'data-rows': '평가 이력', 'data-partial-fail': true }, runsFor.length ? h('ul', { class: 'checks' }, runsFor.map((r) => h('li', {}, h('a', { href: '#detect/evals/' + r.id, text: r.id + ' · ' + setById(r.set).name }), ' · ', r.failed[id] ? pill('평가 실패', 'bad') : r.results[id] && r.results[id].status === 'measured' ? pill('측정', 'good') : pill('미측정', 'mid')))) : h('p', { class: 'muted', text: '평가 이력 없음' })),
-        h('div', { class: 'actions' }, h('button', { type: 'button', 'data-action': 'replace-version', 'data-cand': id, disabled: !eligibleForReplace(id), text: '이 버전으로 교체 요청' }), h('a', { class: 'button', href: '#cmd/compare/1', 'data-start': 'compare', 'data-cand': id, text: '+ 새 비교 평가' })));
+        h('div', { class: 'actions' }, h('button', { type: 'button', 'data-action': 'replace-version', 'data-cand': id, disabled: !eligibleForReplace(id), text: '이 버전으로 교체 요청' }), h('a', { class: 'button', href: '#detect/evals/compare/1', 'data-start': 'compare', 'data-cand': id, text: '+ 새 비교 평가' })));
     }
 
     // ---------- 탐지 설정 · 룰 설정 ----------
@@ -1753,8 +1769,16 @@
     }
 
     // ---------- 탐지 설정 · 평가 결과(모델 버전끼리 비교, 룰은 리비전 고정 조건) ----------
+    // 평가 목록: 탭(현재 운영 모델 기준 / 전체 평가) + 자체 스크롤. 아래 새 비교 평가 영역은 같은 화면(머신러닝 모델과 같은 방식).
+    // '현재 운영 모델 기준' = 요청 뒤 운영 모델이 바뀌지 않아 기준 운영 모델 세트가 그대로인 평가(교체 추천 current와 같은 기준) · 실패한 평가는 제외.
+    let evalTab = 'current', compareStep = 1;
+    const evalForCurrent = (r) => r.baseRevision === modelRevision && r.status !== 'failed';
     function renderEvals() {
-      table('evalTable', ['비교', '평가 세트', '비교 모델', '룰 조건', '요청', '상태', '교체 추천'], [...runs].reverse().map((r) => ({ attrs: { class: 'clickable', 'data-href': '#detect/evals/' + r.id }, cells: [h('a', { href: '#detect/evals/' + r.id, text: r.id }), setById(r.set).name, r.models.join(', ') + (r.current.length ? ' (현재 운영 ' + r.current.join(', ') + ')' : ''), ruleRevText(r.ruleRev), r.at, r.status === 'running' ? pill('진행 중', 'busy') : r.status === 'failed' ? pill('실패', 'bad') : Object.keys(r.failed).length ? pill('완료 · 일부 실패', 'mid') : pill('완료', 'good'), recCell(r)] })));
+      all('[data-action="eval-tab"]').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.tab === evalTab)));
+      const list = [...runs].reverse().filter((r) => evalTab === 'all' || evalForCurrent(r));
+      $('evalEmpty').textContent = evalTab === 'all' ? '비교 평가가 없습니다.' : '현재 운영 모델 기준 평가가 없습니다.';
+      $('evalEmpty').hidden = list.length > 0;
+      table('evalTable', ['비교', '평가 세트', '비교 모델', '룰 조건', '요청', '상태', '교체 추천'], list.map((r) => ({ attrs: { class: 'clickable', 'data-href': '#detect/evals/' + r.id }, cells: [h('a', { href: '#detect/evals/' + r.id, text: r.id }), setById(r.set).name, r.models.join(', ') + (r.current.length ? ' (현재 운영 ' + r.current.join(', ') + ')' : ''), ruleRevText(r.ruleRev), r.at, r.status === 'running' ? pill('진행 중', 'busy') : r.status === 'failed' ? pill('실패', 'bad') : Object.keys(r.failed).length ? pill('완료 · 일부 실패', 'mid') : pill('완료', 'good'), recCell(r)] })));
     }
     const roleOf = (run, id) => run.current.includes(id) ? pill(isActive(id) ? '현재 운영' : '평가 당시 운영', 'good') : pill('비교 모델', 'gray');
     function matrixCard(set, run, id, withAction) {
@@ -2108,7 +2132,7 @@
       const box = $('replaceCompare'), base = d.target ? slotOf(d.target) : '', run = d.target ? (base ? commonRun(base, d.target) : latestRunFor(d.target)) : null;
       $('replaceNext2').setAttribute('aria-disabled', String(!run));
       if (!d.target) fill(box, h('p', {}, '버전을 먼저 선택해 주세요. ', h('a', { href: '#cmd/replace/1', text: '버전 선택' })));
-      else if (!run) fill(box, h('p', { class: 'notice' }, '현재 운영 모델과 같은 평가 세트로 비교한 결과가 없습니다. ', h('a', { href: '#cmd/compare/1', 'data-start': 'compare', 'data-cand': d.target, text: '+ 새 비교 평가' })));
+      else if (!run) fill(box, h('p', { class: 'notice' }, '현재 운영 모델과 같은 평가 세트로 비교한 결과가 없습니다. ', h('a', { href: '#detect/evals/compare/1', 'data-start': 'compare', 'data-cand': d.target, text: '+ 새 비교 평가' })));
       else {
         const set = setById(run.set), ids = base ? [base, d.target] : [d.target], mrows = metricRows(set, run, ids), info = ids.map(modelInfoRows);
         fill(box, h('p', { text: '평가 세트 ' + set.name + ' · ' + run.id + ' · ' + ruleRevText(run.ruleRev) + (base ? ' · 바뀐 칸 강조' : ' · 같은 종류의 운영 모델 없음(추가 운영)') }),
@@ -2174,7 +2198,7 @@
       const tick = () => {
         j.step += 1;
         if ((fail || blocked) && j.step === 1) { j.status = 'failed'; j.reason = blocked ? 'method_not_executable' : 'model_load_failed'; j.reasonText = blocked ? '실행 불가 모델' : 'Detector 모델 로드 실패 · 산출물 hash 불일치'; notifyJob(j, KIND[kind] + ' ' + j.id + ' 실패 · 기존 ' + j.from + ' 유지'); refresh(); return; }
-        if (j.step >= STEPS.replace.length) { activeModels[c.model] = target; modelRevision += 1; j.status = 'done'; notifyJob(j, KIND[kind] + ' ' + j.id + ' 완료 · ' + j.from + ' → ' + target); refresh(); return; }
+        if (j.step >= STEPS.replace.length) { activeModels[c.model] = target; modelRevision += 1; modelAppliedHour[target] = simHours; j.status = 'done'; notifyJob(j, KIND[kind] + ' ' + j.id + ' 완료 · ' + j.from + ' → ' + target); refresh(); return; }
         refresh(); later(450, tick);
       };
       later(450, tick);
@@ -2221,7 +2245,7 @@
       });
       later(2300, () => {
         if (scenario === 'normal') { d.methods.forEach((m, i) => { if (m[2] === 'running') setM(i, 'succeeded', 'N'); }); d.stage = 'final'; d.ms = 41; d.history.push([t(), 'final', '최종 · 모든 방법 종료']); }
-        if (scenario === 'replaced') { keepRisk(); d.methods.forEach((m, i) => { if (i !== last) setM(i, 'succeeded', 'N'); }); setM(last, 'not_ready', 'U', 'deadline_exceeded · 기한 3,000 ms 초과'); d.stage = 'replaced'; d.ms = 3002; d.history.push([t(), 'void', '시도 1 결과 · 대체됨'], [t(), 'final', '시도 2 · 최종 · 기한 도달']); withdraw('이전 시도 대체됨'); }
+        if (scenario === 'replaced') { keepRisk(); d.methods.forEach((m, i) => { if (i !== last) setM(i, 'succeeded', 'N'); }); setM(last, 'not_ready', 'U', DL); d.stage = 'replaced'; d.ms = 3002; d.history.push([t(), 'void', '시도 1 결과 · 대체됨'], [t(), 'final', '시도 2 · 최종 · 기한 도달']); withdraw('이전 시도 대체됨'); }
         if (scenario === 'failed') { keepRisk(); d.stage = 'failed'; d.history.push([t(), 'void', '시도 3 실패 · 최종 없음(판정 실패)']); withdraw('판정 실패(최종 없음)'); }
         renderBadges(); refresh();
       });
@@ -2229,7 +2253,7 @@
 
     // ---------- 공통 표시 상태 ----------
     // 이탈 확인 단위: 명령 흐름별, 룰 설정은 별도 구역(편집 중 다른 탐지 설정 화면으로 가도 확인)
-    const sectionOf = (path) => path.startsWith('cmd/') || path.startsWith('detect/rules') || path.startsWith('detect/models') ? path.split('/').slice(0, 2).join('/') : path.split('/')[0];
+    const sectionOf = (path) => path.startsWith('cmd/') || path.startsWith('detect/rules') || path.startsWith('detect/models') || path.startsWith('detect/evals') ? path.split('/').slice(0, 2).join('/') : path.split('/')[0];
     function paintState() {
       const state = $('state').value, page = sectionOf(route);
       if (state === 'normal') lastSuccessByPage[page] = clock();
@@ -2257,7 +2281,7 @@
 
     // ---------- 라우팅 ----------
     const LEGACY = { operations: 'ops', collection: 'ops/collect', model: 'detect/models', compose: 'detect/rules', rules: 'detect/rules', compare: 'detect/evals', evaluation: 'detect/evals', deploy: 'detect/ops', versions: 'detect/ops', notifications: 'analysis' };
-    const CMD_STEPS = { compare: 3, replace: 3 };
+    const CMD_STEPS = { replace: 3 };
     function parse(hash) {
       const seg = String(hash || '').replace(/^#/, '').split('/').filter(Boolean);
       if (seg[0] === 'analysis' && ['list', 'detail', 'window'].includes(seg[1])) return parse('analysis');
@@ -2280,19 +2304,21 @@
         if (a === 'rules') return D('detect-rules', 'rules', 'rules');
         // 탐지 버전(룰+모델 묶음) 화면 폐지(#93): 예전 주소는 운영 설정으로
         if (a === 'versions') return D('detect-ops', 'ops', 'ops');
+        if (a === 'evals' && b === 'compare') { const step = Math.min(3, Math.max(1, Number(c) || 1)); return D('detect-evals', 'evals', 'evals/compare/' + step, { step }); }
         if (a === 'evals' && b && runById(b)) return D('detect-eval', 'evals', 'evals/' + b, { id: b });
-        if (a === 'evals') return D('detect-evals', 'evals', 'evals');
+        if (a === 'evals') return D('detect-evals', 'evals', 'evals/compare/' + compareStep, { step: compareStep, listEntry: true });
         return D('detect-ops', 'ops', 'ops');
       }
       if (p === 'cmd' && ['compose', 'ai'].includes(a)) return parse('detect/rules');
       if (p === 'cmd' && a === 'train') return parse('detect/models/train/' + (b || 1));
+      if (p === 'cmd' && a === 'compare') return parse('detect/evals/compare/' + (b || 1));
       if (p === 'cmd' && has(CMD_STEPS, a)) { const step = Math.min(CMD_STEPS[a], Math.max(1, Number(b) || 1)); return { view: 'cmd-' + a, kind: a, step, path: 'cmd/' + a + '/' + step, top: 'detect' }; }
       if (p === 'settings') { const sec = SET_LABEL[a] ? a : 'notifications'; return { view: 'settings', section: sec, path: 'settings/' + sec, top: '' }; }
       return { view: 'ops', tab: 'overview', path: 'ops/overview', top: 'ops' };
     }
     const SET_LABEL = { notifications: '알림 설정', integrations: '연동 관리', display: '화면/위젯', profile: '사용자 환경' };
-    const CMD_SIDE = { compare: 'evals', replace: 'ops' };
-    const CMD_HOME = { compare: 'detect/evals', replace: 'detect/ops' };
+    const CMD_SIDE = { replace: 'ops' };
+    const CMD_HOME = { replace: 'detect/ops' };
     const cmdReturn = {};
     const viewTitle = (path) => { const r = parse(path); return r.view === 'ops' ? '운영 현황' : r.view === 'analysis' ? '이상 분석' : r.view.startsWith('cmd') ? '탐지 설정 명령' : r.view.startsWith('detect') ? '탐지 설정 · ' + ({ ops: '운영 설정', rules: TERMS.rules, models: TERMS.ml, evals: '평가 결과' })[r.side] : '설정'; };
     const VIEWS = {
@@ -2300,8 +2326,8 @@
       analysis: renderAnalysis,
       'detect-ops': renderDetectOps, 'detect-job': (r) => renderJob(r.id), 'detect-models': (r) => { if (r.step) trainStep = r.step; renderModels(); renderCmdTrain({ step: trainStep }); }, 'detect-model': (r) => renderCandidate(r.id),
       'detect-rules': renderRules,
-      'detect-evals': renderEvals, 'detect-eval': (r) => renderEval(r.id),
-      'cmd-compare': renderCmdCompare, 'cmd-replace': renderCmdReplace,
+      'detect-evals': (r) => { if (r.step) compareStep = r.step; renderEvals(); renderCmdCompare({ step: compareStep }); }, 'detect-eval': (r) => renderEval(r.id),
+      'cmd-replace': renderCmdReplace,
       settings: (r) => {
         const back = settingsReturn && !(/^(detect|cmd)/.test(settingsReturn) && currentRole !== 'admin') ? settingsReturn : '';
         $('settingsBack').textContent = back ? '이전 화면으로 돌아가기 · ' + viewTitle(back) : '운영 현황으로 돌아가기';
@@ -2324,6 +2350,7 @@
       render(r.path);
       if (location.hash !== '#' + r.path) safeSetHash(r.path);
       if (r.step && r.view === 'detect-models' && !r.listEntry) $('trainArea').scrollIntoView({ block: 'start' });
+      if (r.step && r.view === 'detect-evals' && !r.listEntry) $('compareArea').scrollIntoView({ block: 'start' });
     }
     function refresh() { if (route) render(route, true); }
     function render(path, soft = false) {
@@ -2363,7 +2390,7 @@
     }
     function startFlow(kind, data) {
       if (kind === 'train') { trainDraft = freshTrain(); resetTrainForm(); trainStep = 1; }
-      if (kind === 'compare') { compareDraft = { set: compareDraft.set, models: new Set() }; const c = data && data.cand ? candidateById(data.cand) : null; if (c && !isActive(c.id) && modelExec(c.model)) compareDraft.models.add(c.id); }
+      if (kind === 'compare') { compareStep = 1; compareDraft = { set: compareDraft.set, models: new Set() }; const c = data && data.cand ? candidateById(data.cand) : null; if (c && !isActive(c.id) && modelExec(c.model)) compareDraft.models.add(c.id); }
       if (kind === 'replace') { replaceDraft = { target: '', accepted: null }; $('replaceApprove').checked = false; }
     }
     function cleanDrafts() {
@@ -2432,6 +2459,7 @@
       const action = trigger.dataset.action, key = trigger.dataset.key;
       if (action === 'retry') { $('state').value = 'normal'; lastSuccess = clock(); refresh(); }
       if (action === 'live-decision') liveDecision();
+      if (action === 'sim-hour') { simHours += 1; refresh(); }
       // 알림
       if (action === 'bell-filter') { bellFilter = trigger.dataset.filter; renderBell(); }
       if (action === 'bell-read-all') { visibleNotices().forEach((n) => { n.read = true; }); refresh(); renderBell(); }
@@ -2459,7 +2487,7 @@
       if (action === 'job-tab') { jobTab = trigger.dataset.tab; refresh(); }
       if (action === 'ops-period') { opsPeriod = trigger.dataset.period; refresh(); }
       if (action === 'model-tab') { modelTab = trigger.dataset.tab; $('candScroll').scrollTop = 0; refresh(); }
-      if (action === 'scroll-train') { $('trainArea').scrollIntoView({ block: 'start' }); $('trainTitle').setAttribute('tabindex', '-1'); $('trainTitle').focus({ preventScroll: true }); }
+      if (action === 'eval-tab') { evalTab = trigger.dataset.tab; $('evalScroll').scrollTop = 0; refresh(); }
       if (action === 'accept-rec') { const run = runById(trigger.dataset.run), target = run.rec.targetCandidateId; if (recState(run) !== 'current') return; replaceDraft = { target: eligibleForReplace(target) ? target : '', accepted: { run: run.id, job: run.job, target, revision: run.rec.baselineActiveRevision }, staleError: false }; $('replaceApprove').checked = false; navigate('cmd/replace/1'); }
       if (action === 'open-restore') {
         // 복원: 예전에 운영했던 모델 후보(지금 운영 중이 아닌 것)를 같은 단계로 다시 적용
@@ -2508,7 +2536,7 @@
       // 새 비교 평가
       if (action === 'new-set') { $('generationForm').hidden = false; $('generationStatus').textContent = ''; generatorFields(); }
       if (action === 'close-generation') $('generationForm').hidden = true;
-      if (action === 'request-compare') { const err = compareError(); if (err) { navigate('cmd/compare/2'); $('targetError').hidden = false; $('targetError').textContent = err; return; } const j = startCompare(compareDraft.set, [...compareDraft.models]); compareDraft = { set: compareDraft.set, models: new Set() }; mark(false); navigate('detect/ops/job/' + j.id, true); }
+      if (action === 'request-compare') { const err = compareError(); if (err) { navigate('detect/evals/compare/2'); $('targetError').hidden = false; $('targetError').textContent = err; return; } const j = startCompare(compareDraft.set, [...compareDraft.models]); compareDraft = { set: compareDraft.set, models: new Set() }; compareStep = 1; mark(false); navigate('detect/ops/job/' + j.id, true); }
       // 모델 교체 요청
       if (action === 'request-replace') {
         const d = replaceDraft; if (!d.target || !$('replaceApprove').checked) return;
@@ -2587,7 +2615,7 @@
         if (st.totalMin - st.exMin <= 0) { periodError('제외 구간을 빼면 학습에 쓸 기간이 없습니다.'); return; }
         periodError('');
         trainDraft.datasetFixed = true; trainDraft.datasetName = form.elements.datasetName.value.trim(); trainDraft.period = r.from + ' ~ ' + r.to + (r.excl.length ? ' · 제외 ' + r.excl.length + '구간 ' + durText(st.exMin) : ''); trainDraft.trainFrom = r.from;
-        mark(true); navigate('cmd/train/2');
+        mark(true); navigate('detect/models/train/2');
       }
       if (form.id === 'trainingForm') {
         const { issues } = readinessIssues();
@@ -2601,7 +2629,7 @@
       if (discard) {
         const sec = sectionOf(route);
         if (sec === 'detect/models') { trainDraft = freshTrain(); resetTrainForm(); trainStep = 1; }
-        if (sec === 'cmd/compare') compareDraft = { set: 'E1', models: new Set() };
+        if (sec === 'detect/evals') { compareDraft = { set: 'E1', models: new Set() }; compareStep = 1; }
         if (sec === 'detect/rules') { ruleDraft = ruleClone(ruleCurrent().snapshot); ruleLoadedRev = ruleCurrent().rev; ruleUi = freshRuleUi(); }
         if (sec === 'cmd/replace') { replaceDraft = { target: '', accepted: null }; $('replaceApprove').checked = false; }
         editLayout = null;

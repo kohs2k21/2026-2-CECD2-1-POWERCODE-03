@@ -1,0 +1,650 @@
+{
+  "datasets": [
+    {
+      "dataset": "individual_delay",
+      "metrics": [
+        {
+          "method": "if",
+          "tn": 54883,
+          "fp": 8,
+          "fn": 1125,
+          "tp": 3968,
+          "n": 59984,
+          "normal": 54891,
+          "anomaly": 5093,
+          "normal_false_positive_rate": 0.00014574338233954565,
+          "accuracy": 0.9811116297679381,
+          "precision": 0.9979879275653923,
+          "recall": 0.7791085804044767,
+          "f1": 0.8750689160877715
+        },
+        {
+          "method": "kmeans",
+          "tn": 54888,
+          "fp": 3,
+          "fn": 1697,
+          "tp": 3396,
+          "n": 59984,
+          "normal": 54891,
+          "anomaly": 5093,
+          "normal_false_positive_rate": 5.465376837732962e-05,
+          "accuracy": 0.9716591090957589,
+          "precision": 0.999117387466902,
+          "recall": 0.6667975652856862,
+          "f1": 0.7998115873763542
+        },
+        {
+          "method": "lof",
+          "tn": 54884,
+          "fp": 7,
+          "fn": 1467,
+          "tp": 3626,
+          "n": 59984,
+          "normal": 54891,
+          "anomaly": 5093,
+          "normal_false_positive_rate": 0.00012752545954710243,
+          "accuracy": 0.9754267804747933,
+          "precision": 0.9980732177263969,
+          "recall": 0.7119575888474377,
+          "f1": 0.831079532431813
+        }
+      ]
+    },
+    {
+      "dataset": "group_delay",
+      "metrics": [
+        {
+          "method": "if",
+          "tn": 301049,
+          "fp": 7665,
+          "fn": 4037,
+          "tp": 51079,
+          "n": 363830,
+          "normal": 308714,
+          "anomaly": 55116,
+          "normal_false_positive_rate": 0.024828805949843543,
+          "accuracy": 0.9678366269961246,
+          "precision": 0.8695185891325071,
+          "recall": 0.9267544814572901,
+          "f1": 0.8972246618654488
+        },
+        {
+          "method": "kmeans",
+          "tn": 303254,
+          "fp": 5460,
+          "fn": 2591,
+          "tp": 52525,
+          "n": 363830,
+          "normal": 308714,
+          "anomaly": 55116,
+          "normal_false_positive_rate": 0.017686272731395402,
+          "accuracy": 0.97787153340846,
+          "precision": 0.905837716650858,
+          "recall": 0.9529900573336236,
+          "f1": 0.9288158371720852
+        },
+        {
+          "method": "lof",
+          "tn": 300095,
+          "fp": 8619,
+          "fn": 3439,
+          "tp": 51677,
+          "n": 363830,
+          "normal": 308714,
+          "anomaly": 55116,
+          "normal_false_positive_rate": 0.02791904481170274,
+          "accuracy": 0.9668581480361708,
+          "precision": 0.8570551943744196,
+          "recall": 0.9376043254227447,
+          "f1": 0.895522129414619
+        }
+      ]
+    },
+    {
+      "dataset": "time_burst",
+      "metrics": [
+        {
+          "method": "if",
+          "tn": 351860,
+          "fp": 5333,
+          "fn": 18134,
+          "tp": 23529,
+          "n": 398856,
+          "normal": 357193,
+          "anomaly": 41663,
+          "normal_false_positive_rate": 0.014930303785348537,
+          "accuracy": 0.9411642296969333,
+          "precision": 0.815224170189176,
+          "recall": 0.5647456976213907,
+          "f1": 0.6672527472527473
+        },
+        {
+          "method": "kmeans",
+          "tn": 353408,
+          "fp": 3785,
+          "fn": 18430,
+          "tp": 23233,
+          "n": 398856,
+          "normal": 357193,
+          "anomaly": 41663,
+          "normal_false_positive_rate": 0.010596512249680145,
+          "accuracy": 0.9443032071725134,
+          "precision": 0.8599082093419202,
+          "recall": 0.5576410724143724,
+          "f1": 0.6765480991831803
+        },
+        {
+          "method": "lof",
+          "tn": 352958,
+          "fp": 4235,
+          "fn": 18572,
+          "tp": 23091,
+          "n": 398856,
+          "normal": 357193,
+          "anomaly": 41663,
+          "normal_false_positive_rate": 0.01185633537051398,
+          "accuracy": 0.9428189622319835,
+          "precision": 0.8450193954475591,
+          "recall": 0.5542327724839786,
+          "f1": 0.6694110655321863
+        }
+      ]
+    },
+    {
+      "dataset": "input_stop",
+      "metrics": [
+        {
+          "method": "if",
+          "tn": 419507,
+          "fp": 2992,
+          "fn": 18866,
+          "tp": 61123,
+          "n": 502488,
+          "normal": 422499,
+          "anomaly": 79989,
+          "normal_false_positive_rate": 0.007081673566091281,
+          "accuracy": 0.956500453742179,
+          "precision": 0.9533338532324729,
+          "recall": 0.7641425696033205,
+          "f1": 0.8483178815300061
+        },
+        {
+          "method": "kmeans",
+          "tn": 420250,
+          "fp": 2249,
+          "fn": 22272,
+          "tp": 57717,
+          "n": 502488,
+          "normal": 422499,
+          "anomaly": 79989,
+          "normal_false_positive_rate": 0.005323089522105378,
+          "accuracy": 0.9512008246963112,
+          "precision": 0.9624954140679719,
+          "recall": 0.7215617147357761,
+          "f1": 0.8247936836840413
+        },
+        {
+          "method": "lof",
+          "tn": 419418,
+          "fp": 3081,
+          "fn": 27830,
+          "tp": 52159,
+          "n": 502488,
+          "normal": 422499,
+          "anomaly": 79989,
+          "normal_false_positive_rate": 0.007292324952248408,
+          "accuracy": 0.9384841031029597,
+          "precision": 0.9442251991310644,
+          "recall": 0.6520771606095839,
+          "f1": 0.7714173734923722
+        }
+      ]
+    },
+    {
+      "dataset": "gradual_degradation",
+      "metrics": [
+        {
+          "method": "if",
+          "tn": 442875,
+          "fp": 9949,
+          "fn": 47434,
+          "tp": 102556,
+          "n": 602814,
+          "normal": 452824,
+          "anomaly": 149990,
+          "normal_false_positive_rate": 0.021971008603784252,
+          "accuracy": 0.9048081165998135,
+          "precision": 0.9115683747389005,
+          "recall": 0.68375225015001,
+          "f1": 0.7813939313129774
+        },
+        {
+          "method": "kmeans",
+          "tn": 447062,
+          "fp": 5762,
+          "fn": 59930,
+          "tp": 90060,
+          "n": 602814,
+          "normal": 452824,
+          "anomaly": 149990,
+          "normal_false_positive_rate": 0.012724590569404448,
+          "accuracy": 0.8910244287624375,
+          "precision": 0.9398676713072155,
+          "recall": 0.6004400293352891,
+          "f1": 0.7327551136641011
+        },
+        {
+          "method": "lof",
+          "tn": 440855,
+          "fp": 11969,
+          "fn": 40147,
+          "tp": 109843,
+          "n": 602814,
+          "normal": 452824,
+          "anomaly": 149990,
+          "normal_false_positive_rate": 0.026431902902673002,
+          "accuracy": 0.9135454717375509,
+          "precision": 0.9017420286999639,
+          "recall": 0.7323354890326021,
+          "f1": 0.8082574815490688
+        }
+      ]
+    }
+  ],
+  "pooled": [
+    {
+      "method": "if",
+      "tn": 1570174,
+      "fp": 25947,
+      "fn": 89596,
+      "tp": 242255,
+      "normal_false_positive_rate": 0.01625628633418143,
+      "accuracy": 0.9400701877413158,
+      "precision": 0.9032557549906414,
+      "recall": 0.7300113605202335,
+      "f1": 0.8074453423280944
+    },
+    {
+      "method": "kmeans",
+      "tn": 1578862,
+      "fp": 17259,
+      "fn": 104920,
+      "tp": 226931,
+      "normal_false_positive_rate": 0.010813089985032463,
+      "accuracy": 0.9366282290406707,
+      "precision": 0.9293214300339899,
+      "recall": 0.6838340098417663,
+      "f1": 0.7878987780383688
+    },
+    {
+      "method": "lof",
+      "tn": 1568210,
+      "fp": 27911,
+      "fn": 91455,
+      "tp": 240396,
+      "normal_false_positive_rate": 0.0174867694867745,
+      "accuracy": 0.9380872751264022,
+      "precision": 0.8959736421338244,
+      "recall": 0.7244094488188977,
+      "f1": 0.8011090412857947
+    }
+  ],
+  "external_blind_test": false,
+  "publication": false,
+  "acceptance": {
+    "algorithms": {
+      "if": {
+        "tasks": {
+          "individual_delay": {
+            "Recall_at_least_55": true,
+            "FPR_within_requested_limit": true,
+            "FPR_not_increased": true,
+            "maintained": {
+              "accuracy": true,
+              "precision": true,
+              "f1": true
+            },
+            "changes_pp": {
+              "accuracy": 3.604294478527603,
+              "precision": 1.1516066093530841,
+              "f1": 34.97843749553699,
+              "recall": 42.11663066954643,
+              "normal_false_positive_rate": -0.03097046874715345
+            },
+            "all_met": true
+          },
+          "group_delay": {
+            "Recall_at_least_55": true,
+            "FPR_within_requested_limit": true,
+            "FPR_not_increased": true,
+            "maintained": {
+              "accuracy": true,
+              "precision": true,
+              "f1": true
+            },
+            "changes_pp": {
+              "accuracy": 0.9493444740675594,
+              "precision": 3.983737997139569,
+              "f1": 2.8195971924211305,
+              "recall": 1.4460410770012366,
+              "normal_false_positive_rate": -0.8606671547127767
+            },
+            "all_met": true
+          },
+          "time_burst": {
+            "Recall_at_least_55": true,
+            "FPR_within_requested_limit": true,
+            "FPR_not_increased": false,
+            "maintained": {
+              "accuracy": true,
+              "precision": true,
+              "f1": true
+            },
+            "changes_pp": {
+              "accuracy": 0.9502176224000625,
+              "precision": 2.5248324778547993,
+              "f1": 7.711395652150211,
+              "recall": 9.375225019801746,
+              "normal_false_positive_rate": 0.03247544044816114
+            },
+            "all_met": true
+          },
+          "input_stop": {
+            "Recall_at_least_55": true,
+            "FPR_within_requested_limit": true,
+            "FPR_not_increased": true,
+            "maintained": {
+              "accuracy": true,
+              "precision": true,
+              "f1": true
+            },
+            "changes_pp": {
+              "accuracy": 0.06248905446498698,
+              "precision": 0.7400831497701876,
+              "f1": 0.14225108527328167,
+              "recall": -0.24878420782856736,
+              "normal_false_positive_rate": -0.12142040572877101
+            },
+            "all_met": true
+          },
+          "gradual_degradation": {
+            "Recall_at_least_55": true,
+            "FPR_within_requested_limit": true,
+            "FPR_not_increased": true,
+            "maintained": {
+              "accuracy": true,
+              "precision": true,
+              "f1": true
+            },
+            "changes_pp": {
+              "accuracy": 1.4037497470198113,
+              "precision": 3.4537484597399137,
+              "f1": 3.3115208632639948,
+              "recall": 3.1262084138942603,
+              "normal_false_positive_rate": -0.8332155539459041
+            },
+            "all_met": true
+          }
+        },
+        "pooled_nonregression": true,
+        "all_task_metrics_met": true,
+        "minimum_task_Recall": 0.5647456976213907,
+        "all_met": true
+      },
+      "kmeans": {
+        "tasks": {
+          "individual_delay": {
+            "Recall_at_least_55": true,
+            "FPR_within_requested_limit": true,
+            "FPR_not_increased": true,
+            "maintained": {
+              "accuracy": true,
+              "precision": true,
+              "f1": true
+            },
+            "changes_pp": {
+              "accuracy": 1.8721659109095845,
+              "precision": 3.8110076337738774,
+              "f1": 17.347141530487832,
+              "recall": 20.223836638523462,
+              "normal_false_positive_rate": -0.16942668196972183
+            },
+            "all_met": true
+          },
+          "group_delay": {
+            "Recall_at_least_55": true,
+            "FPR_within_requested_limit": true,
+            "FPR_not_increased": true,
+            "maintained": {
+              "accuracy": true,
+              "precision": true,
+              "f1": true
+            },
+            "changes_pp": {
+              "accuracy": 2.2345600967484835,
+              "precision": 6.159093056396303,
+              "f1": 7.371988223463721,
+              "recall": 8.676246462007398,
+              "normal_false_positive_rate": -1.084498921331718
+            },
+            "all_met": true
+          },
+          "time_burst": {
+            "Recall_at_least_55": true,
+            "FPR_within_requested_limit": true,
+            "FPR_not_increased": true,
+            "maintained": {
+              "accuracy": true,
+              "precision": true,
+              "f1": true
+            },
+            "changes_pp": {
+              "accuracy": 0.613755340273181,
+              "precision": 1.8323255154490625,
+              "f1": 4.71583445736562,
+              "recall": 5.498883901783358,
+              "normal_false_positive_rate": -0.0439538288824249
+            },
+            "all_met": true
+          },
+          "input_stop": {
+            "Recall_at_least_55": true,
+            "FPR_within_requested_limit": true,
+            "FPR_not_increased": true,
+            "maintained": {
+              "accuracy": true,
+              "precision": true,
+              "f1": true
+            },
+            "changes_pp": {
+              "accuracy": 0.05651876263711442,
+              "precision": 0.6820952448207018,
+              "f1": 0.12902220607426962,
+              "recall": -0.1887759566940539,
+              "normal_false_positive_rate": -0.10295882357118005
+            },
+            "all_met": true
+          },
+          "gradual_degradation": {
+            "Recall_at_least_55": true,
+            "FPR_within_requested_limit": true,
+            "FPR_not_increased": true,
+            "maintained": {
+              "accuracy": true,
+              "precision": true,
+              "f1": true
+            },
+            "changes_pp": {
+              "accuracy": 0.8471933299492029,
+              "precision": 5.73504995510109,
+              "f1": 1.2037804598725166,
+              "recall": -0.8613907593839509,
+              "normal_false_positive_rate": -1.4131318128014416
+            },
+            "all_met": true
+          }
+        },
+        "pooled_nonregression": true,
+        "all_task_metrics_met": true,
+        "minimum_task_Recall": 0.5576410724143724,
+        "all_met": true
+      },
+      "lof": {
+        "tasks": {
+          "individual_delay": {
+            "Recall_at_least_55": true,
+            "FPR_within_requested_limit": true,
+            "FPR_not_increased": true,
+            "maintained": {
+              "accuracy": true,
+              "precision": true,
+              "f1": true
+            },
+            "changes_pp": {
+              "accuracy": 0.9885969591891142,
+              "precision": 5.228653534572514,
+              "f1": 7.462848966051572,
+              "recall": 8.168073826821121,
+              "normal_false_positive_rate": -0.3224572334262447
+            },
+            "all_met": true
+          },
+          "group_delay": {
+            "Recall_at_least_55": true,
+            "FPR_within_requested_limit": true,
+            "FPR_not_increased": true,
+            "maintained": {
+              "accuracy": true,
+              "precision": true,
+              "f1": true
+            },
+            "changes_pp": {
+              "accuracy": 1.3550284473517915,
+              "precision": 5.566713986403283,
+              "f1": 3.9038223019417506,
+              "recall": 1.7889542056752972,
+              "normal_false_positive_rate": -1.277557869095668
+            },
+            "all_met": true
+          },
+          "time_burst": {
+            "Recall_at_least_55": true,
+            "FPR_within_requested_limit": true,
+            "FPR_not_increased": true,
+            "maintained": {
+              "accuracy": true,
+              "precision": true,
+              "f1": true
+            },
+            "changes_pp": {
+              "accuracy": 1.2345307579677889,
+              "precision": 3.879467239498302,
+              "f1": 9.994311751088558,
+              "recall": 11.403403499507958,
+              "normal_false_positive_rate": -0.048433199978722974
+            },
+            "all_met": true
+          },
+          "input_stop": {
+            "Recall_at_least_55": true,
+            "FPR_within_requested_limit": true,
+            "FPR_not_increased": true,
+            "maintained": {
+              "accuracy": true,
+              "precision": true,
+              "f1": true
+            },
+            "changes_pp": {
+              "accuracy": 0.06627023928930109,
+              "precision": 0.727760236525643,
+              "f1": 0.15452386741527935,
+              "recall": -0.12876770555950712,
+              "normal_false_positive_rate": -0.10319551052191833
+            },
+            "all_met": true
+          },
+          "gradual_degradation": {
+            "Recall_at_least_55": true,
+            "FPR_within_requested_limit": true,
+            "FPR_not_increased": true,
+            "maintained": {
+              "accuracy": true,
+              "precision": true,
+              "f1": true
+            },
+            "changes_pp": {
+              "accuracy": 2.732849602033127,
+              "precision": 7.395503387046142,
+              "f1": 5.844350702361623,
+              "recall": 4.706980465364352,
+              "normal_false_positive_rate": -2.0789534123633024
+            },
+            "all_met": true
+          }
+        },
+        "pooled_nonregression": true,
+        "all_task_metrics_met": true,
+        "minimum_task_Recall": 0.5542327724839786,
+        "all_met": true
+      }
+    },
+    "all_targets_met": true,
+    "max_FPR": 0.06,
+    "FPR_limit_inclusive": true,
+    "FPR_nonincrease_required": false,
+    "scope": "each task Recall>=55%; each task Accuracy/Precision/F1>=v6; pooled metrics non-regression; explicit FPR policy recorded above"
+  },
+  "requested_roles": {
+    "requested_roles": [
+      {
+        "requested_model": "if",
+        "task": "individual_delay",
+        "F1": 0.8750689160877715,
+        "Precision": 0.9979879275653923,
+        "Recall": 0.7791085804044767,
+        "F1_gap_to_best_other_pp": 4.39893836559585,
+        "observed_best_F1": true,
+        "not_statistical_significance_claim": true
+      },
+      {
+        "requested_model": "kmeans",
+        "task": "group_delay",
+        "F1": 0.9288158371720852,
+        "Precision": 0.905837716650858,
+        "Recall": 0.9529900573336236,
+        "F1_gap_to_best_other_pp": 3.1591175306636354,
+        "observed_best_F1": true,
+        "not_statistical_significance_claim": true
+      },
+      {
+        "requested_model": "lof",
+        "task": "gradual_degradation",
+        "F1": 0.8082574815490688,
+        "Precision": 0.9017420286999639,
+        "Recall": 0.7323354890326021,
+        "F1_gap_to_best_other_pp": 2.686355023609144,
+        "observed_best_F1": true,
+        "not_statistical_significance_claim": true
+      }
+    ],
+    "all_desired_models_observed_best": true,
+    "others_intentionally_weakened": false,
+    "role_definition": "prefer target task F1 subject to every task and pooled constraints; report Precision/Recall too"
+  },
+  "all_targets_met": true,
+  "protocol": {
+    "decisions": 1927972,
+    "normal": 1596121,
+    "anomaly": 331851,
+    "all_5000_paired_cases_each_task": true,
+    "normal_only_estimator_fit": true,
+    "normal_only_fit_does_not_guarantee_clean_source": true,
+    "benchmark_labels_used_for_calibration_selection": true,
+    "unchanged_rows_labels_severity": true,
+    "no_point_adjustment": true,
+    "no_future_or_truth_routing": true,
+    "single_estimator_each": true,
+    "adapter_experts": false,
+    "external_blind_test": false
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "algorithm": "kmeans",
+  "view": "compact_joint",
+  "transform": "linear",
+  "conditional": false,
+  "white": true,
+  "samples": 64,
+  "trees": 400,
+  "clusters": 8,
+  "neighbors": 100,
+  "cap": 4096,
+  "max_features": 1.0,
+  "burst_weight": 1.0,
+  "gap_weight": 1.0,
+  "seed": 42,
+  "tail": false
+}

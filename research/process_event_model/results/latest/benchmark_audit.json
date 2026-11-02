@@ -1,0 +1,8 @@
+{
+  "passed": true,
+  "client_date": "2026-11-02",
+  "all_benchmark_csv_hashes_match": true,
+  "original_frozen_policy_unchanged": true,
+  "source_reference_audit_matches": true,
+  "manifest_sha256": "55b7af7c11e613255518f20edd89e5decff8d30cbc2c3ac5c9a115305ac9a683"
+}

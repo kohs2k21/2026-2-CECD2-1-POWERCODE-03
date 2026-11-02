@@ -143,3 +143,9 @@ GEMINI.md
 !/research/anomaly_detection/reports/model_research_v12/handoff/kmeans_v12_candidate.joblib
 !/research/anomaly_detection/reports/window_search_v2/training_inputs.joblib
 !/research/anomaly_detection/reports/window_search_v2/validation_inputs.joblib
+
+# Issue #95: exactly the latest Process-row bundle and previous minute models.
+!/research/process_event_model/models/latest_process_rows/event_models.joblib
+!/research/process_event_model/models/previous_minute/if_shared.joblib
+!/research/process_event_model/models/previous_minute/kmeans_shared.joblib
+!/research/process_event_model/models/previous_minute/lof_shared.joblib

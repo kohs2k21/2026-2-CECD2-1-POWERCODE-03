@@ -244,6 +244,17 @@
     /* 새 학습 1단계 기간: 일별 거래량 그래프 */
     .period-query { align-items: flex-end; }
     .period-query .field { margin-bottom: 0; flex: 1 1 150px; }
+    .version-scroll { max-height: 300px; overflow: auto; border: 1px solid var(--line); margin-top: 8px; overscroll-behavior: contain; }
+    .version-scroll th, .version-scroll td { border-left: 0; border-right: 0; }
+    .version-scroll thead th { position: sticky; top: 0; z-index: 1; }
+    .ops-stats { font-size: 13px; word-break: keep-all; } .ops-stats th, .ops-stats td { padding: 6px 7px; } .ops-stats thead th { font-size: 12px; line-height: 1.35; }
+    .ops-stats td { white-space: normal; } .ops-stats .why { display: block; font-size: 12px; color: #59636d; } .ops-stats tbody th { min-width: 140px; } .ops-stats td button { white-space: nowrap; padding: 3px 8px; font-size: 13px; }
+    #opsRuleStats tbody tr > :nth-child(2) { white-space: nowrap; }
+    .version-scroll thead th, .version-scroll td { white-space: nowrap; } .version-scroll tbody th { min-width: 200px; }
+    .ops-noverdict { margin: 10px 0 0; padding: 8px 12px; border-left: 4px solid #9a7b2e; background: #fbf7ec; font-size: 14px; }
+    .excl-precise { margin: 12px 0 0; padding: 12px; }
+    button.excl-pick { border: 0; background: none; padding: 2px 0; color: #234b72; text-decoration: underline; text-underline-offset: 4px; text-align: left; }
+    li.editing { background: #eef4f9; }
     .period-chart { margin: 8px 0; touch-action: none; user-select: none; -webkit-user-select: none; }
     .period-chart svg { width: 100%; height: auto; display: block; cursor: crosshair; }
     .period-chart .pbar { fill: #5d7b95; } .period-chart .pbar.excl { fill: #d2aeae; }
@@ -372,12 +383,20 @@
         </div>
       </section>
 
-      <!-- 탐지 설정 · 운영 설정: 운영(현재 운영 룰 리비전 + 운영 모델) / 작업 -->
+      <!-- 탐지 설정 · 운영 설정 = 운영 버전 overview(모니터링): 운영 룰·모델과 방법별 작동 상태 / 작업 (사용자 9.6) -->
       <section data-view="detect-ops">
         <h1>운영 설정</h1>
-        <h2 style="margin-top:18px">운영</h2>
-        <div class="card"><h3>현재 운영 룰</h3><div data-rows="현재 운영 룰" id="opsRule"></div></div>
-        <div class="card"><div class="page-head"><h3 style="margin:0">현재 운영 <span data-term="ml">머신러닝 모델</span></h3><div class="actions-inline"><a class="button primary" href="#cmd/replace/1" data-start="replace">모델 교체 요청</a><button type="button" data-action="open-restore">복원</button></div></div><div data-rows="현재 운영 모델" id="opsCurrent"></div></div>
+        <div class="page-head" style="margin-top:18px"><h2 style="margin:0">운영</h2><div class="actions-inline" id="opsCommands"><a class="button primary" href="#cmd/replace/1" data-start="replace">모델 교체 요청</a><button type="button" data-action="open-restore">복원</button></div></div>
+        <div class="card" id="opsOverview">
+          <div class="page-head"><h3 style="margin:0">운영 버전 상태</h3><div class="seg" role="group" aria-label="상태 기간"><button type="button" data-action="ops-period" data-period="1h" aria-pressed="true">최근 1시간</button><button type="button" data-action="ops-period" data-period="24h" aria-pressed="false">최근 24시간</button></div></div>
+          <div data-rows="운영 버전 요약" id="opsRule" style="margin-top:8px"></div>
+          <p id="opsNoVerdict" class="ops-noverdict" data-rows="판정 없이 실패"></p>
+          <h4 style="margin-top:16px">현재 운영 룰</h4>
+          <div class="table" data-rows="룰 작동 상태" data-partial-fail><table id="opsRuleStats" class="ops-stats"></table></div>
+          <h4 style="margin-top:16px">현재 운영 <span data-term="ml">머신러닝 모델</span></h4>
+          <div data-rows="현재 운영 모델" id="opsCurrent"></div>
+          <p class="muted" id="opsStatNote" style="font-size:13px;margin-bottom:0"></p>
+        </div>
         <div id="opsRec"></div>
         <div class="card"><h3>모델 교체 이력</h3><div class="table" data-rows="모델 교체 이력" data-partial-fail><table id="opsHistory"></table></div></div>
         <div class="divider" role="separator" aria-label="운영과 별도로 실행">운영과 별도로 실행</div>
@@ -408,15 +427,79 @@
         <section class="card"><h2>변경 기록</h2><div class="table" data-rows="변경 기록" data-partial-fail><table id="ruleHistoryTable"></table></div></section>
       </section>
 
-      <!-- 탐지 설정 · 머신러닝 모델: 버전(후보)·교체·복원·비교는 모델에만 -->
+      <!-- 탐지 설정 · 머신러닝 모델: 버전 목록(탭·자체 스크롤) + 같은 화면 아래 새 학습 영역(사용자 9.6, 2.1 원칙의 예외) -->
       <section data-view="detect-models">
-        <div class="page-head"><h1 data-term="ml">머신러닝 모델</h1><a class="button primary" href="#cmd/train/1" data-start="train">+ 새 학습</a></div>
-        <div class="card"><h2>학습 완료 후보</h2><div class="table" data-rows="모델 후보 목록" data-partial-fail><table id="candTable"></table></div></div>
+        <div class="page-head"><h1 data-term="ml">머신러닝 모델</h1><button type="button" data-action="scroll-train">새 학습으로 이동 ↓</button></div>
+        <div class="card"><h2>버전</h2>
+          <div class="tabs" role="tablist" aria-label="버전 보기" id="modelTabs"><button type="button" role="tab" data-action="model-tab" data-tab="active">현재 운영 버전</button><button type="button" role="tab" data-action="model-tab" data-tab="all">전체 버전</button></div>
+          <div class="version-scroll" id="candScroll" tabindex="0" aria-label="버전 목록" data-rows="모델 버전 목록" data-partial-fail><table id="candTable"></table></div>
+          <p id="candEmpty" class="muted" hidden>운영 중인 버전이 없습니다.</p>
+        </div>
+        <section class="card" id="trainArea" data-track aria-labelledby="trainTitle">
+          <h2 id="trainTitle">새 학습</h2>
+          <ol class="stepper" data-stepper="train"><li data-s="1">1. 기간</li><li data-s="2">2. 입력 변수</li><li data-s="3">3. 모델·파라미터</li></ol>
+          <section data-step="train/1">
+            <form id="datasetForm" novalidate><div class="card"><h2>학습 기간</h2>
+              <div class="grid">
+                <label class="field">데이터셋 이름<input name="datasetName" value="학습 데이터셋 초안" required maxlength="80"></label>
+                <label class="field">출처<select name="dataSource"><option>수집 API 저장 관측</option><option>등록된 시험 CSV</option></select></label>
+                <label class="field">업무 범위<select><option>전체 업무</option><option>선택 인터페이스</option></select></label>
+              </div>
+              <div class="actions-inline period-query"><label class="field">조회 시작<input name="from" type="date" id="periodFrom" value="2025-10-01"></label><label class="field">조회 종료<input name="to" type="date" id="periodTo" value="2026-03-31"></label><button type="button" data-action="period-query">조회</button></div>
+              <p id="periodError" class="notice error" role="alert" hidden></p>
+              <div id="periodBox" hidden style="margin-top:16px">
+                <div class="inbox-head"><h3 style="margin:0">거래량 · ESB 발생 시각 기준 <span id="periodUnit" class="pill busy"></span></h3><button type="button" data-action="period-reset-zoom">전체 보기</button></div>
+                <div id="periodChart" class="period-chart" data-rows="거래량 그래프"></div>
+                <p class="muted" id="periodHint" role="status" style="margin-top:0"></p>
+                <fieldset class="excl-precise" id="exclPrecise"><legend>제외 구간 정확히 입력</legend>
+                  <div class="actions-inline period-query"><label class="field">시작 날짜<input type="date" id="exclFrom"></label><label class="field">시작 시각<input type="time" id="exclFromTime" step="60"></label><label class="field">끝 날짜<input type="date" id="exclTo"></label><label class="field">끝 시각<input type="time" id="exclToTime" step="60"></label><div class="actions-inline"><button type="button" data-action="period-add" id="exclAddBtn">추가</button><button type="button" data-action="period-edit-cancel" id="exclEditCancel" hidden>수정 취소</button></div></div>
+                  <p class="muted" style="margin:8px 0 0">시각을 비우면 시작은 그날 00:00, 끝은 다음 날 00:00입니다. 끝 시각은 포함하지 않습니다.</p>
+                  <p id="exclError" class="warn" role="alert" hidden></p>
+                </fieldset>
+                <h3 style="margin-top:16px">제외 구간</h3><ul id="exclList" class="plain"></ul><p id="exclEmpty" class="muted">제외 구간 없음</p>
+                <h3 style="margin-top:16px">요약</h3><dl id="periodSummary"></dl>
+              </div>
+              <div class="actions"><button type="submit" class="primary">다음 · 입력 변수</button></div></div></form>
+          </section>
+          <section data-step="train/2">
+            <div class="card"><h2>입력 변수 선택</h2>
+              <div data-rows="저장 데이터셋 정보" data-partial-fail><dl><div><dt>저장 데이터셋</dt><dd data-dataset-label>데이터 고정 대기</dd></div><div><dt>기간</dt><dd data-dataset-period>—</dd></div><div><dt>카탈로그 버전</dt><dd>카탈로그 C1</dd></div></dl></div>
+              <div class="grid" style="margin-top:12px"><label class="field">분석 단위<select id="inputUnit"><option value="PROCESS">PROCESS · 완료 관측</option><option value="WINDOW">시간 집계 · WINDOW</option></select></label></div>
+              <div id="windowFields" hidden class="grid"><label class="field">집계 간격<input placeholder="값·단위 선택"></label><label class="field">관측창 길이<input placeholder="값·단위 선택"></label><label class="field">판정 주기<input placeholder="값·단위 선택"></label></div>
+              <div class="grid filters"><label class="field">검색<input id="featureSearch" type="search" placeholder="변수명·영문 키"></label><label class="field">출처<select id="featureOrigin"><option value="all">전체</option><option>원본</option><option>파생</option><option>출처 확인 중</option></select></label><label class="field">분류<select id="featureGroup"><option value="all">전체</option></select></label><label class="field">사용 가능 여부<select id="featureStatus"><option value="all">전체</option><option value="ready">사용 가능</option><option value="fit">학습 후 전처리 확정</option><option value="unsupported">실행기 미지원</option><option value="pending">정의 확정 전</option></select></label></div>
+              <div class="card" id="featAiCard"><h3>AI 추천</h3><p class="muted">등록 입력 변수 카탈로그 안에서 선택을 추천받습니다. 추천은 자동 적용하지 않습니다.</p><div class="actions-inline"><button type="button" data-action="feat-ai">AI 추천</button><span id="featAiStatus" role="status" aria-live="polite"></span></div><div id="featAiBody"></div></div>
+              <div class="select-layout">
+                <div>
+                  <div class="actions-inline"><span id="featureCount" role="status"></span><button type="button" data-action="select-filtered">검색 결과 전체 선택</button></div>
+                  <div class="table" data-rows="입력 변수 카탈로그"><table class="feature-table"><caption>등록 입력 변수 · 정의 변경은 카탈로그 새 버전</caption><thead><tr><th>선택</th><th>변수명</th><th>원본·파생</th><th>전처리</th><th>사용 가능 상태</th><th>상세</th></tr></thead><tbody id="featureRows"></tbody></table></div>
+                  <p id="featureEmpty" hidden>검색 조건의 입력 변수가 없습니다.</p>
+                  <nav class="actions-inline" aria-label="입력 변수 페이지"><button type="button" data-action="page-prev">이전</button><span id="featurePage"></span><button type="button" data-action="page-next">다음</button></nav>
+                </div>
+                <section class="summary" aria-labelledby="selectionTitle"><h3 id="selectionTitle">선택 요약</h3><p id="selectionCount"></p><ul id="selectionList"></ul><div class="actions-inline"><button type="button" data-action="clear-selection">전체 해제</button></div></section>
+              </div>
+              <div class="actions"><a href="#cmd/train/1">이전</a><a class="button primary" href="#cmd/train/3">다음 · 모델·파라미터</a></div>
+            </div>
+          </section>
+          <section data-step="train/3">
+            <div class="card"><h2>모델</h2>
+              <div class="table" data-rows="모델 카탈로그" data-partial-fail><table><caption>모델 카탈로그 · Git에 코드가 있는 모델</caption><thead><tr><th>선택</th><th>모델</th><th>설명</th><th>상태</th><th>입력 단위</th></tr></thead><tbody id="modelRows"></tbody></table></div>
+            </div>
+            <form id="trainingForm"><div class="card"><h2>파라미터 · <span id="paramModelName"></span></h2>
+              <div class="table"><table><caption>모델마다 파라미터가 다릅니다. 코드 기본값을 채우고, 코드에서 확인하지 못한 값은 "기본값 미확정"으로 표시합니다.</caption><thead><tr><th>파라미터</th><th>의미</th><th>코드 기본값</th><th>허용 범위</th><th>설정값</th></tr></thead><tbody id="paramRows"></tbody></table></div>
+              <div class="actions-inline"><button type="button" data-action="params-default">전체 기본값으로</button><span id="paramNote" class="muted" role="status"></span></div>
+              <div class="grid" style="margin-top:16px"><label class="field">버전 이름<input name="modelName" value="모델 버전 초안" required maxlength="80"></label><label class="field">전처리<select><option>학습한 전처리 설정 · 중앙값 대체 + RobustScaler</option></select></label></div>
+              <dl><div><dt>저장 데이터셋·기간</dt><dd><span data-dataset-label>데이터 고정 대기</span> · <span data-dataset-period>—</span></dd></div><div><dt>분석 단위</dt><dd id="trainingUnit">PROCESS</dd></div><div><dt>선택 변수</dt><dd id="trainingFeatures">0개</dd></div></dl>
+              <h3 style="margin-top:16px">준비 검사</h3><ul id="readiness" class="checks"></ul>
+              <h3 style="margin-top:16px">다른 모델 파라미터</h3><div id="otherParams"></div>
+              <div class="actions"><a href="#cmd/train/2">이전</a><button type="submit" class="primary">학습 요청</button></div><p id="trainingBlocked" class="notice error" role="alert" hidden></p>
+            </div></form>
+          </section>
+        </section>
       </section>
       <section data-view="detect-model">
         <div class="breadcrumb"><a href="#detect/models">← <span data-term="ml">머신러닝 모델</span></a></div>
         <h1 id="candTitle"></h1>
-        <div class="card" data-rows="후보 상세"><div id="candBody"></div></div>
+        <div class="card" data-rows="버전 상세"><div id="candBody"></div></div>
       </section>
       <!-- 탐지 설정 · 평가 결과 -->
       <section data-view="detect-evals">
@@ -432,63 +515,6 @@
       </section>
 
       <!-- 명령 흐름: 결과 페이지 [+ 새 …] 버튼에서만 시작, 전체 페이지 단계 흐름 -->
-      <section data-view="cmd-train" data-track>
-        <h1>새 학습</h1>
-        <ol class="stepper" data-stepper="train"><li data-s="1">1. 기간</li><li data-s="2">2. 입력 변수</li><li data-s="3">3. 모델·파라미터</li></ol>
-        <section data-step="train/1">
-          <form id="datasetForm" novalidate><div class="card"><h2>학습 기간</h2>
-            <div class="grid">
-              <label class="field">데이터셋 이름<input name="datasetName" value="학습 데이터셋 초안" required maxlength="80"></label>
-              <label class="field">출처<select name="dataSource"><option>수집 API 저장 관측</option><option>등록된 시험 CSV</option></select></label>
-              <label class="field">업무 범위<select><option>전체 업무</option><option>선택 인터페이스</option></select></label>
-            </div>
-            <div class="actions-inline period-query"><label class="field">조회 시작<input name="from" type="date" id="periodFrom" value="2025-10-01"></label><label class="field">조회 종료<input name="to" type="date" id="periodTo" value="2026-03-31"></label><button type="button" data-action="period-query">조회</button></div>
-            <p id="periodError" class="notice error" role="alert" hidden></p>
-            <div id="periodBox" hidden style="margin-top:16px">
-              <div class="inbox-head"><h3 style="margin:0">거래량 · ESB 발생 시각 기준 <span id="periodUnit" class="pill busy"></span></h3><button type="button" data-action="period-reset-zoom">전체 보기</button></div>
-              <div id="periodChart" class="period-chart" data-rows="거래량 그래프"></div>
-              <p class="muted" id="periodHint" role="status" style="margin-top:0"></p>
-              <div class="actions-inline period-query"><label class="field">제외 시작<input type="date" id="exclFrom"></label><label class="field">제외 종료<input type="date" id="exclTo"></label><button type="button" data-action="period-add">구간 추가</button></div>
-              <h3 style="margin-top:16px">제외 구간</h3><ul id="exclList" class="plain"></ul><p id="exclEmpty" class="muted">제외 구간 없음</p>
-              <h3 style="margin-top:16px">요약</h3><dl id="periodSummary"></dl>
-            </div>
-            <div class="actions"><button type="submit" class="primary">다음 · 입력 변수</button></div></div></form>
-        </section>
-        <section data-step="train/2">
-          <div class="card"><h2>입력 변수 선택</h2>
-            <div data-rows="저장 데이터셋 정보" data-partial-fail><dl><div><dt>저장 데이터셋</dt><dd data-dataset-label>데이터 고정 대기</dd></div><div><dt>기간</dt><dd data-dataset-period>—</dd></div><div><dt>카탈로그 버전</dt><dd>카탈로그 C1</dd></div></dl></div>
-            <div class="grid" style="margin-top:12px"><label class="field">분석 단위<select id="inputUnit"><option value="PROCESS">PROCESS · 완료 관측</option><option value="WINDOW">시간 집계 · WINDOW</option></select></label></div>
-            <div id="windowFields" hidden class="grid"><label class="field">집계 간격<input placeholder="값·단위 선택"></label><label class="field">관측창 길이<input placeholder="값·단위 선택"></label><label class="field">판정 주기<input placeholder="값·단위 선택"></label></div>
-            <div class="grid filters"><label class="field">검색<input id="featureSearch" type="search" placeholder="변수명·영문 키"></label><label class="field">출처<select id="featureOrigin"><option value="all">전체</option><option>원본</option><option>파생</option><option>출처 확인 중</option></select></label><label class="field">분류<select id="featureGroup"><option value="all">전체</option></select></label><label class="field">사용 가능 여부<select id="featureStatus"><option value="all">전체</option><option value="ready">사용 가능</option><option value="fit">학습 후 전처리 확정</option><option value="unsupported">실행기 미지원</option><option value="pending">정의 확정 전</option></select></label></div>
-            <div class="card" id="featAiCard"><h3>AI 추천</h3><p class="muted">등록 입력 변수 카탈로그 안에서 선택을 추천받습니다. 추천은 자동 적용하지 않습니다.</p><div class="actions-inline"><button type="button" data-action="feat-ai">AI 추천</button><span id="featAiStatus" role="status" aria-live="polite"></span></div><div id="featAiBody"></div></div>
-            <div class="select-layout">
-              <div>
-                <div class="actions-inline"><span id="featureCount" role="status"></span><button type="button" data-action="select-filtered">검색 결과 전체 선택</button></div>
-                <div class="table" data-rows="입력 변수 카탈로그"><table class="feature-table"><caption>등록 입력 변수 · 정의 변경은 카탈로그 새 버전</caption><thead><tr><th>선택</th><th>변수명</th><th>원본·파생</th><th>전처리</th><th>사용 가능 상태</th><th>상세</th></tr></thead><tbody id="featureRows"></tbody></table></div>
-                <p id="featureEmpty" hidden>검색 조건의 입력 변수가 없습니다.</p>
-                <nav class="actions-inline" aria-label="입력 변수 페이지"><button type="button" data-action="page-prev">이전</button><span id="featurePage"></span><button type="button" data-action="page-next">다음</button></nav>
-              </div>
-              <section class="summary" aria-labelledby="selectionTitle"><h3 id="selectionTitle">선택 요약</h3><p id="selectionCount"></p><ul id="selectionList"></ul><div class="actions-inline"><button type="button" data-action="clear-selection">전체 해제</button></div></section>
-            </div>
-            <div class="actions"><a href="#cmd/train/1">이전</a><a class="button primary" href="#cmd/train/3">다음 · 모델·파라미터</a></div>
-          </div>
-        </section>
-        <section data-step="train/3">
-          <div class="card"><h2>모델</h2>
-            <div class="table" data-rows="모델 카탈로그" data-partial-fail><table><caption>모델 카탈로그 · Git에 코드가 있는 모델</caption><thead><tr><th>선택</th><th>모델</th><th>설명</th><th>상태</th><th>입력 단위</th></tr></thead><tbody id="modelRows"></tbody></table></div>
-          </div>
-          <form id="trainingForm"><div class="card"><h2>파라미터 · <span id="paramModelName"></span></h2>
-            <div class="table"><table><caption>모델마다 파라미터가 다릅니다. 코드 기본값을 채우고, 코드에서 확인하지 못한 값은 "기본값 미확정"으로 표시합니다.</caption><thead><tr><th>파라미터</th><th>의미</th><th>코드 기본값</th><th>허용 범위</th><th>설정값</th></tr></thead><tbody id="paramRows"></tbody></table></div>
-            <div class="actions-inline"><button type="button" data-action="params-default">전체 기본값으로</button><span id="paramNote" class="muted" role="status"></span></div>
-            <div class="grid" style="margin-top:16px"><label class="field">후보 이름<input name="modelName" value="모델 후보 초안" required maxlength="80"></label><label class="field">전처리<select><option>학습한 전처리 설정 · 중앙값 대체 + RobustScaler</option></select></label></div>
-            <dl><div><dt>저장 데이터셋·기간</dt><dd><span data-dataset-label>데이터 고정 대기</span> · <span data-dataset-period>—</span></dd></div><div><dt>분석 단위</dt><dd id="trainingUnit">PROCESS</dd></div><div><dt>선택 변수</dt><dd id="trainingFeatures">0개</dd></div></dl>
-            <h3 style="margin-top:16px">준비 검사</h3><ul id="readiness" class="checks"></ul>
-            <h3 style="margin-top:16px">다른 모델 파라미터</h3><div id="otherParams"></div>
-            <div class="actions"><a href="#cmd/train/2">이전</a><button type="submit" class="primary">학습 요청</button></div><p id="trainingBlocked" class="notice error" role="alert" hidden></p>
-          </div></form>
-        </section>
-      </section>
-
       <section data-view="cmd-compare" data-track>
         <h1>새 비교 평가</h1>
         <ol class="stepper" data-stepper="compare"><li data-s="1">1. 평가 세트</li><li data-s="2">2. 비교 모델</li><li data-s="3">3. 요청</li></ol>
@@ -509,7 +535,7 @@
         <section data-step="compare/2">
           <div class="card"><h2>비교 모델 · 현재 운영 포함 최대 8개</h2>
             <p>평가 세트: <strong data-selected-set></strong></p>
-            <div id="compareTargets" data-rows="모델 후보 목록"></div>
+            <div id="compareTargets" data-rows="모델 버전 목록"></div>
             <p id="targetError" class="warn" role="alert" hidden></p>
             <div class="actions"><a href="#cmd/compare/1">이전</a><a class="button primary" href="#cmd/compare/3" id="compareNext">다음 · 요청</a></div>
           </div>
@@ -523,12 +549,12 @@
 
       <section data-view="cmd-replace" data-track>
         <h1>모델 교체 요청</h1>
-        <ol class="stepper" data-stepper="replace"><li data-s="1">1. 후보 선택</li><li data-s="2">2. 비교 확인</li><li data-s="3">3. 승인·요청</li></ol>
+        <ol class="stepper" data-stepper="replace"><li data-s="1">1. 버전 선택</li><li data-s="2">2. 비교 확인</li><li data-s="3">3. 승인·요청</li></ol>
         <p id="replaceFrom" class="notice" hidden></p>
         <p id="replaceStale" class="notice error" role="alert" hidden></p>
         <section data-step="replace/1">
-          <div class="card"><h2>교체할 모델 후보</h2><div data-rows="현재 운영 모델" data-partial-fail><p>현재 운영: <strong data-active-label></strong></p></div>
-            <div class="table" data-rows="교체 후보 모델"><table id="replaceTable"></table></div>
+          <div class="card"><h2>교체할 모델 버전</h2><div data-rows="현재 운영 모델" data-partial-fail><p>현재 운영: <strong data-active-label></strong></p></div>
+            <div class="table" data-rows="교체할 모델 버전"><table id="replaceTable"></table></div>
             <div class="actions"><a class="button primary" href="#cmd/replace/2" id="replaceNext1">다음 · 비교 확인</a></div>
           </div>
         </section>
@@ -716,9 +742,18 @@
     // 버전·교체·복원·비교는 모델에만. 다중 운영 유지: 모델 종류마다 운영 후보 0..1개(운영 = 룰 1벌 + 모델 0..N).
     let candidates = [
       { id: 'M1', model: 'iforest', name: 'IF · PROCESS 전체 변수', bundle: 'PROCESS 10개', params: defaultParams('iforest'), job: 'J-T1', hash: 'sha256:7c1e09…a41f', vary: 1, u: 0.004, threshold: 0.58, at: '10/19 14:20', dataset: '학습 데이터셋 10/01~10/10', trainFrom: '2026-10-01' },
-      { id: 'M2', model: 'iforest', name: 'IF · 시간 변수 제외', bundle: 'PROCESS 6개(시간·요일 제외)', params: defaultParams('iforest'), job: 'J-T2', hash: 'sha256:2d90b3…77c0', vary: 1.06, u: 0, threshold: 0.57, at: '10/29 15:58', dataset: '학습 데이터셋 10/01~10/25 · 제외 1구간 1일', trainFrom: '2026-10-01' }
+      { id: 'M2', model: 'iforest', name: 'IF · 시간 변수 제외', bundle: 'PROCESS 6개(시간·요일 제외)', params: defaultParams('iforest'), job: 'J-T2', hash: 'sha256:2d90b3…77c0', vary: 1.06, u: 0, threshold: 0.57, at: '10/29 15:58', dataset: '학습 데이터셋 10/01~10/25 · 제외 1구간 1일', trainFrom: '2026-10-01' },
+      // 운영에 올리지 않은 학습 버전(목록 스크롤 시연)
+      { id: 'M3', model: 'iforest', name: 'IF · 트리 256', bundle: 'PROCESS 10개', params: defaultParams('iforest'), job: 'J-T4', hash: 'sha256:23757e1…93a', vary: 1.01, u: 0, threshold: MODELS.iforest.example.threshold, at: '10/30 09:10', dataset: '학습 데이터셋 10/01~10/25', trainFrom: '2026-10-01' },
+      { id: 'M4', model: 'iforest', name: 'IF · 트리당 표본 1024', bundle: 'PROCESS 10개', params: defaultParams('iforest'), job: 'J-T5', hash: 'sha256:31676e1…124a', vary: 0.99, u: 0, threshold: MODELS.iforest.example.threshold, at: '10/30 13:40', dataset: '학습 데이터셋 10/01~10/25', trainFrom: '2026-10-01' },
+      { id: 'M5', model: 'kmeans', name: 'KMeans · K=6', bundle: 'PROCESS 10개', params: defaultParams('kmeans'), job: 'J-T6', hash: 'sha256:39595e1…155a', vary: 0.95, u: 0, threshold: MODELS.kmeans.example.threshold, at: '10/30 17:05', dataset: '학습 데이터셋 10/01~10/25', trainFrom: '2026-10-01' },
+      { id: 'M6', model: 'kmeans', name: 'KMeans · K=10', bundle: 'PROCESS 10개', params: defaultParams('kmeans'), job: 'J-T7', hash: 'sha256:47514e1…186a', vary: 0.97, u: 0, threshold: MODELS.kmeans.example.threshold, at: '10/31 10:20', dataset: '학습 데이터셋 10/01~10/25', trainFrom: '2026-10-01' },
+      { id: 'M7', model: 'iforest', name: 'IF · 재시도 변수 추가', bundle: 'PROCESS 11개', params: defaultParams('iforest'), job: 'J-T8', hash: 'sha256:55433e1…217a', vary: 1.02, u: 0, threshold: MODELS.iforest.example.threshold, at: '10/31 14:55', dataset: '학습 데이터셋 10/01~10/25', trainFrom: '2026-10-01' },
+      { id: 'M8', model: 'iforest', name: 'IF · 10월 전체', bundle: 'PROCESS 10개', params: defaultParams('iforest'), job: 'J-T9', hash: 'sha256:63352e1…248a', vary: 1, u: 0, threshold: MODELS.iforest.example.threshold, at: '11/01 09:30', dataset: '학습 데이터셋 10/01~10/25', trainFrom: '2026-10-01' },
+      { id: 'M9', model: 'kmeans', name: 'KMeans · 배치 4096', bundle: 'PROCESS 10개', params: defaultParams('kmeans'), job: 'J-T10', hash: 'sha256:71271e1…279a', vary: 0.96, u: 0, threshold: MODELS.kmeans.example.threshold, at: '11/01 13:15', dataset: '학습 데이터셋 10/01~10/25', trainFrom: '2026-10-01' },
+      { id: 'M10', model: 'iforest', name: 'IF · 장애일 제외 재학습', bundle: 'PROCESS 6개(시간·요일 제외)', params: defaultParams('iforest'), job: 'J-T11', hash: 'sha256:79190e1…310a', vary: 1.03, u: 0, threshold: MODELS.iforest.example.threshold, at: '11/01 18:40', dataset: '학습 데이터셋 10/01~10/25', trainFrom: '2026-10-01' }
     ];
-    let candSeq = 2;
+    let candSeq = 10;
     const candidateById = (id) => candidates.find((c) => c.id === id);
     const candidatesOf = (modelKey) => candidates.filter((c) => c.model === modelKey);
     const candLabel = (id) => { const c = candidateById(id); return c ? c.id + ' · ' + c.name : id; };
@@ -744,10 +779,11 @@
     ];
     const fieldByKey = (key) => SOFT_FIELDS.find((f) => f.key === key);
     // 이상 규칙: 시스템 내장 목록(Detector #92 반영 예시 2개). 조건·위험도(위험) 읽기 전용, 켜기·끄기만.
-    // '종료 시각 누락'은 EndTime 없는 정상 유형이 있어 제외(사용자 9.4). 시각 역전은 END_TIME이 있을 때만 판단, 없으면 판단 안 함(결과 정상).
+    // '종료 시각 누락'은 종료 시각(END_TIME)이 없는 정상 유형이 있어 제외(사용자 9.4). 시각 역전은 END_TIME이 있을 때만 판단, 없으면 판단 안 함(결과 정상).
     const HARD_RULES = [
-      { id: 'hard:status_not_s', name: '상태 코드', cond: 'STATUS ≠ S', level: 'critical', ok: '상태 S', hit: '상태 F' },
-      { id: 'hard:time_reversed', name: '시각 역전', cond: 'StartTime > EndTime · 종료 시각이 없으면 판단하지 않음', level: 'critical', ok: '시작 ≤ 종료', hit: '시작 > 종료' }
+      // 상태 결과 코드별 위험도: F = 위험, P·N = 주의(사용자 9.7, #92 U2)
+      { id: 'hard:process-status', name: '상태가 S가 아님', cond: 'STATUS ≠ S', level: 'critical', levelByCode: { F: 'critical', P: 'warning', N: 'warning' }, levelText: 'F 위험 · P·N 주의', ok: '상태 S', hit: '상태 F' },
+      { id: 'hard:negative-duration', name: '시작 시각이 종료 시각보다 늦음', cond: 'START_TIME > END_TIME (종료 시각이 없으면 판단하지 않음)', level: 'critical', ok: '시작 ≤ 종료', hit: '시작 > 종료' }
     ];
     const hardDef = (id) => HARD_RULES.find((r) => r.id === id);
     const fmtNum = (v) => Number(v).toLocaleString('ko-KR', { maximumFractionDigits: 4 });
@@ -774,6 +810,8 @@
       { rev: 12, at: '10/30 14:20', by: 'admin@example.com', snapshot: R12 }
     ];
     const ruleCurrent = () => ruleHistory[ruleHistory.length - 1];
+    // 화면을 연 시점의 마지막 리비전. 이후 이 화면에서 저장해 켜진 규칙은 아직 실행 기록이 없다(운영 설정 상태 표, 사용자 9.7)
+    const SEED_RULE_REV = ruleCurrent().rev;
     const ruleSnapshot = (rev) => (ruleHistory.find((x) => x.rev === rev) || ruleCurrent()).snapshot;
     const onCount = (list) => list.filter((r) => r.on).length;
     // 변경 목록: 추가·수정·삭제·켜기·끄기(대상 필드는 바꿀 수 없으므로 비교하지 않음)
@@ -832,7 +870,7 @@
       rowCache.set(set.id, rows); return rows;
     }
     // 룰 예시 탐지율(ESB 세트만, ADBench 행에는 룰 입력 필드가 없음). 사용자가 추가한 규칙은 기본값.
-    const RULE_RATES = { 'hard:status_not_s': { special: 'status' }, 'hard:time_reversed': { fp: 0.001 }, 'soft:duration': { P02: 0.62, P03: 0.7, fp: 0.02 }, 'soft:retry': { P03: 0.05, fp: 0.003 }, 'soft:error_rate': { P04: 0.1, fp: 0.004 }, 'soft:error_count': { fp: 0.005 }, 'soft:timeout': { P02: 0.2, P03: 0.25, fp: 0.002 }, 'soft:volume_drop': { P04: 0.3, fp: 0.006 }, 'soft:message_size': { fp: 0.001 } };
+    const RULE_RATES = { 'hard:process-status': { special: 'status' }, 'hard:negative-duration': { fp: 0.001 }, 'soft:duration': { P02: 0.62, P03: 0.7, fp: 0.02 }, 'soft:retry': { P03: 0.05, fp: 0.003 }, 'soft:error_rate': { P04: 0.1, fp: 0.004 }, 'soft:error_count': { fp: 0.005 }, 'soft:timeout': { P02: 0.2, P03: 0.25, fp: 0.002 }, 'soft:volume_drop': { P04: 0.3, fp: 0.006 }, 'soft:message_size': { fp: 0.001 } };
     const outcomeCache = new Map();
     function listFor(set, seedKey, rates, u) {
       const cacheKey = set.id + '|' + seedKey;
@@ -896,12 +934,12 @@
       active_missing: '현재 운영 중인 모델이 없어 비교 기준이 없습니다. 운영 모델은 직접 선택해 적용하세요.',
       active_item_failed: '현재 운영 모델의 평가가 실패해 비교할 수 없습니다(사유: {errorCode}).',
       active_results_unavailable: '현재 운영 모델의 평가에 판정 불가 행이 있어 비교 기준으로 쓸 수 없습니다.',
-      no_candidates: '같은 종류의 운영 모델과 비교할 후보가 없습니다.',
-      all_candidates_failed: '모든 후보 모델의 평가가 실패했습니다. 항목별 사유를 확인하세요.',
-      all_candidates_ineligible: '실행 가능하고 판정 불가 행이 없는 후보가 없습니다.',
+      no_candidates: '같은 종류의 운영 모델과 비교할 버전이 없습니다.',
+      all_candidates_failed: '비교한 모든 버전의 평가가 실패했습니다. 항목별 사유를 확인하세요.',
+      all_candidates_ineligible: '실행 가능하고 판정 불가 행이 없는 버전이 없습니다.',
       basis_metrics_unavailable: '이 평가 세트에는 정답 라벨이 부족해 정량 비교 근거를 만들 수 없습니다.',
-      no_candidate_better_than_active: '현재 운영 모델보다 모든 근거 지표에서 같거나 나은 후보가 없습니다.',
-      cost_limit_exceeded: '정확도가 나은 후보가 있으나 판정 지연 한도를 넘어 추천하지 않습니다. 직접 선택할 수 있습니다.'
+      no_candidate_better_than_active: '현재 운영 모델보다 모든 근거 지표에서 같거나 나은 버전이 없습니다.',
+      cost_limit_exceeded: '정확도가 나은 버전이 있으나 판정 지연 한도를 넘어 추천하지 않습니다. 직접 선택할 수 있습니다.'
     };
     const noRecText = (rec) => noRecLabel[rec.noRecommendationReason].replace('{errorCode}', rec.errorCode || '—');
     const COST_LIMIT_MS = 50;
@@ -972,9 +1010,17 @@
       { id: 'J-T3', kind: 'train', status: 'failed', at: '10/27 16:31', model: 'iforest', cand: '', name: 'IF · 10/14 데이터', dataset: '학습 데이터셋 10/14~10/15', features: 10, step: 2, reason: 'insufficient_complete_training_rows', reasonText: 'train 분할 완전 행 부족', dataFailure: true, read: false },
       { id: 'J-T2', kind: 'train', status: 'done', at: '10/29 15:40', model: 'iforest', cand: 'M2', name: 'IF · 시간 변수 제외', dataset: '학습 데이터셋 10/01~10/25 · 제외 1구간 1일', features: 6, step: 4, read: true },
       { id: 'J-C1', kind: 'compare', status: 'done', at: '10/29 16:20', run: 'R-1', auto: 'M2', read: true },
+      { id: 'J-T4', kind: 'train', status: 'done', at: '10/30 09:10', model: 'iforest', cand: 'M3', name: 'IF · 트리 256', dataset: '학습 데이터셋 10/01~10/25', features: 10, step: 4, read: true },
+      { id: 'J-T5', kind: 'train', status: 'done', at: '10/30 13:40', model: 'iforest', cand: 'M4', name: 'IF · 트리당 표본 1024', dataset: '학습 데이터셋 10/01~10/25', features: 10, step: 4, read: true },
+      { id: 'J-T6', kind: 'train', status: 'done', at: '10/30 17:05', model: 'kmeans', cand: 'M5', name: 'KMeans · K=6', dataset: '학습 데이터셋 10/01~10/25', features: 10, step: 4, read: true },
+      { id: 'J-T7', kind: 'train', status: 'done', at: '10/31 10:20', model: 'kmeans', cand: 'M6', name: 'KMeans · K=10', dataset: '학습 데이터셋 10/01~10/25', features: 10, step: 4, read: true },
+      { id: 'J-T8', kind: 'train', status: 'done', at: '10/31 14:55', model: 'iforest', cand: 'M7', name: 'IF · 재시도 변수 추가', dataset: '학습 데이터셋 10/01~10/25', features: 10, step: 4, read: true },
+      { id: 'J-T9', kind: 'train', status: 'done', at: '11/01 09:30', model: 'iforest', cand: 'M8', name: 'IF · 10월 전체', dataset: '학습 데이터셋 10/01~10/25', features: 10, step: 4, read: true },
+      { id: 'J-T10', kind: 'train', status: 'done', at: '11/01 13:15', model: 'kmeans', cand: 'M9', name: 'KMeans · 배치 4096', dataset: '학습 데이터셋 10/01~10/25', features: 10, step: 4, read: true },
+      { id: 'J-T11', kind: 'train', status: 'done', at: '11/01 18:40', model: 'iforest', cand: 'M10', name: 'IF · 장애일 제외 재학습', dataset: '학습 데이터셋 10/01~10/25', features: 10, step: 4, read: true },
       { id: 'J-C2', kind: 'compare', status: 'done', at: '10/31 09:30', run: 'R-2', read: false }
     ];
-    let jobSeq = { T: 3, C: 2, R: 1 };
+    let jobSeq = { T: 11, C: 2, R: 1 };
     const jobById = (id) => jobs.find((j) => j.id === id);
 
     // ---------- 이상 분석 예시 판정(DB 판정 기준) ----------
@@ -987,12 +1033,14 @@
         ...models.map((id) => { const c = candidateById(id); return ['ml', id + ' · ' + MODELS[c.model].name, 'succeeded', 'N', '원점수 ' + MODELS[c.model].example.miss.toFixed(2), '판정선 ' + c.threshold, '26 ms', '', null, c.model]; })
       ];
     }
+    // 이상 규칙 위험도는 결과 코드별(상태 F = 위험, P·N = 주의). 측정값 '상태 X'에서 코드를 읽는다.
+    const hitLevel = (m) => { const d = m[0] === 'hard' ? hardDef(m[9]) : null; if (!d || !d.levelByCode) return m[8]; const code = (String(m[4]).match(/상태 ([A-Z])/) || [])[1]; return d.levelByCode[code] || d.level; };
     const hitMeasure = (m) => { if (m[0] === 'hard') return hardDef(m[9]).hit; if (m[0] === 'ml') return '원점수 ' + MODELS[m[9]].example.hit.toFixed(2); const r = ruleSnapshot(ruleCurrent().rev).soft.find((x) => x.id === m[9]) || R12.soft.find((x) => x.id === m[9]); const f = r ? fieldByKey(r.field) : null; return f ? f.name + ' ' + withUnit(f.hit, f) : '—'; };
     // patch: T{id: 측정값|''}, N{id: 측정값}, U{id: [상태, 사유, 처리 시간]}, W[id...] — 모델 행 id는 'ml'
     function mkDecision(base, patch) {
       const rows = methodRows(ruleSnapshot(base.ruleRev), base.models).map((m) => {
         const id = m[0] === 'ml' ? 'ml' : m[9], row = [...m];
-        if (patch.T && has(patch.T, id)) { row[3] = 'T'; row[4] = patch.T[id] || hitMeasure(m); }
+        if (patch.T && has(patch.T, id)) { row[3] = 'T'; row[4] = patch.T[id] || hitMeasure(m); row[8] = hitLevel(row); }
         if (patch.N && has(patch.N, id)) row[4] = patch.N[id];
         if (patch.U && has(patch.U, id)) { const [st, reason, time] = patch.U[id]; row[2] = st; row[3] = 'U'; row[4] = '—'; row[6] = time || '—'; row[7] = reason; }
         if (patch.W && patch.W.includes(id)) { row[2] = 'running'; row[3] = '·'; row[4] = '—'; row[6] = '—'; }
@@ -1004,21 +1052,21 @@
     const DL = 'deadline_exceeded · 기한 3,000 ms 초과', NA = (f) => '입력값 누락 · ' + f + ' 미제공';
     let decisions = [
       mkDecision({ id: 'D-1042', at: '10:41:58', tx: 'TX-1031-104158-0007', process: 'P02 결제 승인', iface: 'IF-ORD-01', logStatus: 'F', resp: 'E500', ms: 41, ruleRev: 12, models: M1, input: 'CSV 재생', stage: 'final', workflow: 'Open',
-        history: [['10:41:58.031', 'provisional', `중간 판정 · 근거 ${H}(상태 코드)`], ['10:41:58.072', 'final', '최종 · 모든 방법 종료']] }, { T: { 'hard:status_not_s': '' }, N: { ml: '원점수 0.47' } }),
+        history: [['10:41:58.031', 'provisional', `중간 판정 · 근거 ${H}(상태가 S가 아님)`], ['10:41:58.072', 'final', '최종 · 모든 방법 종료']] }, { T: { 'hard:process-status': '' }, N: { ml: '원점수 0.47' } }),
       mkDecision({ id: 'D-1041', at: '10:41:31', tx: 'TX-1031-104131-0003', process: 'P01 송금 요청', iface: 'IF-PAY-03', channel: 'CH-APP', logStatus: 'P', resp: '—', ms: 3004, ruleRev: 12, models: M1, input: 'CSV 재생', stage: 'final',
-        history: [['10:41:28.004', 'provisional', `중간 판정 · 근거 ${H}(상태 코드)`], ['10:41:31.004', 'final', `최종 · 기한 도달(${ML} 미판정)`]] }, { T: { 'hard:status_not_s': '상태 P', 'soft:duration': '처리시간 3,004 ms' }, U: { ml: ['not_ready', DL, '3000 ms'] } }),
+        history: [['10:41:28.004', 'provisional', `중간 판정 · 근거 ${H}(상태가 S가 아님)`], ['10:41:31.004', 'final', `최종 · 기한 도달(${ML} 미판정)`]] }, { T: { 'hard:process-status': '상태 P', 'soft:duration': '처리시간 3,004 ms' }, U: { ml: ['not_ready', DL, '3000 ms'] } }),
       mkDecision({ id: 'D-1040', at: '10:40:12', tx: 'TX-1031-104012-0011', process: 'P03 재고 확인', iface: 'IF-ORD-02', logStatus: 'S', resp: '0000', ms: 52, ruleRev: 12, models: M1, input: 'CSV 재생', stage: 'final',
         history: [['10:40:12.009', 'provisional', `중간 판정 · 근거 ${SO}(오류 발생)`], ['10:40:12.041', 'updated', `근거 추가 · ${ML}(M1)`], ['10:40:12.052', 'final', '최종 · 모든 방법 종료']] }, { T: { 'soft:error_count': '오류 건수 2 건', ml: '원점수 0.61' } }),
       mkDecision({ id: 'D-1039', at: '10:39:47', tx: 'TX-1031-103947-0002', process: 'P02 고객 조회', iface: 'IF-CUS-01', channel: 'CH-APP', logStatus: 'S', resp: '0000', ms: 19, ruleRev: 12, models: M1, input: 'CSV 재생', stage: 'final',
         history: [['10:39:47.019', 'final', '최종 · 모든 방법 종료']] }, { U: { 'soft:error_count': ['not_ready', NA('error_count')], 'soft:retry': ['not_ready', NA('retry_count')] }, N: { ml: '원점수 0.44' } }),
       mkDecision({ id: 'D-1038', at: '10:39:02', tx: 'TX-1031-103902-0005', process: 'P01 주문 접수', iface: 'IF-ORD-01', logStatus: 'S', resp: '0000', ms: 33, ruleRev: 12, models: M1, input: 'CSV 재생', stage: 'final',
-        history: [['10:39:02.033', 'final', '최종 · 모든 방법 종료']] }, { N: { ml: '원점수 0.42', 'hard:time_reversed': 'EndTime 없음 · 판단 안 함' } }),
+        history: [['10:39:02.033', 'final', '최종 · 모든 방법 종료']] }, { N: { ml: '원점수 0.42', 'hard:negative-duration': '종료 시각 없음 · 판단 안 함' } }),
       mkDecision({ id: 'D-1037', at: '10:38:40', tx: 'TX-1031-103840-0009', process: 'P04 정산 집계', iface: 'IF-PAY-01', channel: 'CH-BATCH', logStatus: 'S', resp: '0000', ms: 37, ruleRev: 12, models: M1, input: 'API 수집', stage: 'final',
         history: [['10:38:40.006', 'provisional', `중간 판정 · 근거 ${SO}(오류 발생)`], ['10:38:40.037', 'final', '최종 · 모든 방법 종료']] }, { T: { 'soft:error_count': '오류 건수 1 건' }, N: { ml: '원점수 0.52' } }),
       mkDecision({ id: 'D-1036', at: '10:38:10', tx: 'TX-1031-103810-0001', process: 'P02 결제 승인', iface: 'IF-ORD-01', logStatus: '—', resp: '—', ms: 3001, ruleRev: 12, models: M1, input: 'API 수집', stage: 'final',
         history: [['10:38:13.011', 'final', '최종 · 기한 도달(모든 방법 미판정)']] }, { U: Object.assign(Object.fromEntries(R12.hard.map((r) => [r.id, ['not_ready', NA('status·시각')]])), Object.fromEntries(R12.soft.filter((r) => r.on).map((r) => [r.id, ['not_ready', NA(fieldByKey(r.field).key.slice(2))]])), { ml: ['failed', 'component_failed · 판정 계산 중 오류'] }) }),
       mkDecision({ id: 'D-1035', at: '10:37:30', tx: 'TX-1031-103730-0004', process: 'P03 재고 확인', iface: 'IF-ORD-02', logStatus: 'F', resp: 'E504', ms: 0, ruleRev: 12, models: M1, input: 'API 수집', stage: 'failed',
-        history: [['10:37:30.012', 'provisional', `시도 1 · 중간 판정 · 근거 ${H}(상태 코드)`], ['10:37:41.500', 'info', '시도 2 · 처리 예외'], ['10:37:52.900', 'void', '시도 3 실패 · 최종 없음(판정 실패)']] }, { T: { 'hard:status_not_s': '' }, W: ['hard:time_reversed', ...R12.soft.filter((r) => r.on).map((r) => r.id), 'ml'] }),
+        history: [['10:37:30.012', 'provisional', `시도 1 · 중간 판정 · 근거 ${H}(상태가 S가 아님)`], ['10:37:41.500', 'info', '시도 2 · 처리 예외'], ['10:37:52.900', 'void', '시도 3 실패 · 최종 없음(판정 실패)']] }, { T: { 'hard:process-status': '' }, W: ['hard:negative-duration', ...R12.soft.filter((r) => r.on).map((r) => r.id), 'ml'] }),
       mkDecision({ id: 'D-1034', at: '10:36:55', tx: 'TX-1031-103655-0006', process: 'P01 송금 요청', iface: 'IF-PAY-03', channel: 'CH-APP', logStatus: 'S', resp: '0000', ms: 1980, ruleRev: 12, models: M1, input: 'API 수집', stage: 'replaced',
         history: [['10:36:52.020', 'provisional', `시도 1 · 중간 판정 · 근거 ${ML}(M1)`], ['10:36:55.002', 'void', '시도 1 결과 · 대체됨'], ['10:36:55.002', 'final', `시도 2 · 최종 · 기한 도달(${ML} 미판정)`]] }, { U: { ml: ['not_ready', DL, '3000 ms'] } }),
       mkDecision({ id: 'D-1033', at: '10:36:20', tx: 'TX-1031-103620-0008', process: 'P03 재고 확인', iface: 'IF-ORD-02', logStatus: 'S', resp: '0000', ms: 44, ruleRev: 12, models: M1, input: 'API 수집', stage: 'final',
@@ -1026,9 +1074,9 @@
       mkDecision({ id: 'D-1032', at: '10:35:48', tx: 'TX-1031-103548-0002', process: 'P01 주문 접수', iface: 'IF-ORD-01', logStatus: 'S', resp: '0000', ms: 38, ruleRev: 12, models: M1, input: 'API 수집', stage: 'final',
         history: [['10:35:48.007', 'provisional', `중간 판정 · 근거 ${SO}(재시도 급증) · 위험도 참고`], ['10:35:48.038', 'final', '최종 · 모든 방법 종료']] }, { T: { 'soft:retry': '재시도 수 4 회' }, N: { ml: '원점수 0.49' } }),
       mkDecision({ id: 'D-1031', at: '10:35:10', tx: 'TX-1031-103510-0004', process: 'P02 결제 승인', iface: 'IF-ORD-01', channel: 'CH-APP', logStatus: 'S', resp: '0000', ms: 1450, ruleRev: 12, models: M1, input: 'API 수집', stage: 'replaced',
-        history: [['10:35:07.020', 'provisional', `시도 1 · 중간 판정 · 근거 ${ML}(M1) · 위험도 미정`], ['10:35:10.003', 'void', '시도 1 결과 · 대체됨'], ['10:35:10.003', 'provisional', `시도 2 · 중간 판정 · 근거 ${H}(시각 역전) · 위험도 위험`], ['10:35:10.004', 'final', `시도 2 · 최종 · 기한 도달(${ML} 미판정)`]] }, { T: { 'hard:time_reversed': '' }, U: { ml: ['not_ready', DL, '3000 ms'] } }),
+        history: [['10:35:07.020', 'provisional', `시도 1 · 중간 판정 · 근거 ${ML}(M1) · 위험도 미정`], ['10:35:10.003', 'void', '시도 1 결과 · 대체됨'], ['10:35:10.003', 'provisional', `시도 2 · 중간 판정 · 근거 ${H}(시작 시각이 종료 시각보다 늦음) · 위험도 위험`], ['10:35:10.004', 'final', `시도 2 · 최종 · 기한 도달(${ML} 미판정)`]] }, { T: { 'hard:negative-duration': '' }, U: { ml: ['not_ready', DL, '3000 ms'] } }),
       mkDecision({ id: 'D-0990', at: '10/19 22:10', tx: 'TX-1019-221000-0001', process: 'P02 결제 승인', iface: 'IF-ORD-01', logStatus: 'F', resp: 'E500', ms: 3, ruleRev: 9, models: [], input: 'CSV 재생', stage: 'final', workflow: 'Resolved',
-        history: [['10/19 22:10:00.001', 'provisional', `중간 판정 · 근거 ${H}(상태 코드)`], ['10/19 22:10:00.003', 'final', '최종 · 모든 방법 종료']] }, { T: { 'hard:status_not_s': '' } }),
+        history: [['10/19 22:10:00.001', 'provisional', `중간 판정 · 근거 ${H}(상태가 S가 아님)`], ['10/19 22:10:00.003', 'final', '최종 · 모든 방법 종료']] }, { T: { 'hard:process-status': '' } }),
       { id: 'W-0311', unit: 'WINDOW', at: '10:41:00', target: 'IF-ORD-01 · 1분 구간', ruleRev: 12, models: M1, signal: 'unknown', completeness: 'partial', note: '관측 구간 10:36~10:41 · 기준선 준비 중(과거 이력 부족)' },
       { id: 'W-0310', unit: 'WINDOW', at: '10:40:00', target: 'IF-ORD-01 · 1분 구간', ruleRev: 12, models: M1, signal: 'no', completeness: 'complete', note: '관측 구간 10:35~10:40 · 유입 편차·처리시간 P95 기준 이내' }
     ];
@@ -1203,7 +1251,7 @@
     }
     function setBell(open) { bellOpen = open; $('bellPanel').hidden = !open; $('bell').setAttribute('aria-expanded', String(open)); if (open) renderBell(); }
     // 운영 모델 표(운영 설정·교체 3단계 공용)
-    function modelInfoRows(id) { const c = candidateById(id), m = MODELS[c.model]; return [['모델', m.name + ' · ' + m.methodId], ['후보', c.id + ' · ' + c.name], ['입력 변수', c.bundle], ['학습 파라미터', paramSummary(c.model, c.params)], ['학습 데이터셋', c.dataset], ['판정선', String(c.threshold) + ' · ' + m.thresholdText]]; }
+    function modelInfoRows(id) { const c = candidateById(id), m = MODELS[c.model]; return [['모델', m.name + ' · ' + m.methodId], ['버전', c.id + ' · ' + c.name], ['입력 변수', c.bundle], ['학습 파라미터', paramSummary(c.model, c.params)], ['학습 데이터셋', c.dataset], ['판정선', String(c.threshold) + ' · ' + m.thresholdText]]; }
     const eligibleForReplace = (id) => { const c = candidateById(id); return !!c && !isActive(id) && modelExec(c.model) && isEvaluated(id); };
     function recBlock(run) {
       const state = recState(run);
@@ -1364,8 +1412,8 @@
     }
     function explainOf(d) {
       const s = summarize(d), t = d.methods.filter((m) => m[3] === 'T'), u = d.methods.filter((m) => m[3] === 'U'), checks = [];
-      if (t.some((m) => m[9] === 'hard:status_not_s')) checks.push('같은 인터페이스 ' + d.iface + '의 최근 상태 ' + d.logStatus + ' 건수');
-      if (t.some((m) => m[9] === 'hard:time_reversed')) checks.push('수집 원본의 StartTime·EndTime 기록');
+      if (t.some((m) => m[9] === 'hard:process-status')) checks.push('같은 인터페이스 ' + d.iface + '의 최근 상태 ' + d.logStatus + ' 건수');
+      if (t.some((m) => m[9] === 'hard:negative-duration')) checks.push('수집 원본의 시작 시각·종료 시각 기록');
       t.filter((m) => m[0] === 'soft').forEach((m) => checks.push('PROCESS 원본의 ' + m[4].split(' ')[0] + ' 기록'));
       if (t.some((m) => m[0] === 'ml')) checks.push(t.find((m) => m[0] === 'ml')[1].split(' ')[0] + '이 이상으로 본 PROCESS의 입력 변수 원본 값');
       if (u.some((m) => m[7].startsWith('deadline'))) checks.push('같은 시간대 Detector 기한 초과 건수');
@@ -1415,11 +1463,75 @@
     }
 
     // ---------- 탐지 설정 · 운영 설정: 운영(현재 운영 룰 리비전 + 운영 모델) / 작업 ----------
+    // 운영 버전 상태(예시): 판정 행의 방법별 결과를 기간별로 집계한 값(#92 evidence v4 methodResults 기준, 필드명 변동 가능).
+    // 성공 = succeeded(판단 안 함 not_applicable 포함), 미판정 = not_ready·failed(사유 상위), 기한 초과 = cause timeout,
+    // '완료 시각(시도 시작 기준) p95' = elapsedMs p95(순수 소요 시간 아님). 판정 행 없이 실패한 시도는 방법별 집계 밖에서 따로 셈.
+    let opsPeriod = '1h';
+    const OPS_PERIOD = { '1h': { label: '최근 1시간', runs: 1840, last: '10:41:58' }, '24h': { label: '최근 24시간', runs: 38920, last: '10:41:58' } };
+    const STAT_PROFILE = {
+      'hard:process-status': { nr: 0, anom: 0.012 },
+      'hard:negative-duration': { nr: 0.002, anom: 0.0004, causes: { input_invalid: 1 } },
+      'soft:duration': { nr: 0.004, anom: 0.021, causes: { input_missing: 1 } },
+      'soft:retry': { nr: 0.015, anom: 0.003, causes: { input_missing: 1 } },
+      'soft:error_rate': { nr: 0.12, anom: 0.006, causes: { input_invalid: 0.7, input_missing: 0.3 } },
+      'soft:error_count': { nr: 0.032, anom: 0.008, causes: { input_missing: 1 } },
+      'soft:timeout': { none: true },
+      'soft:volume_drop': { nr: 0.001, anom: 0.001, causes: { input_missing: 1 } },
+      'soft:message_size': { nr: 0, anom: 0.001 },
+      M1: { nr: 0.05, anom: 0.009, causes: { timeout: 0.82, failure: 0.18 }, p95: 2880 },
+      model: { nr: 0.012, anom: 0.008, causes: { timeout: 0.7, input_missing: 0.3 }, p95: 1240 }
+    };
+    // 미판정 사유 표시 이름(코드는 툴팁)
+    const CAUSE_LABEL = { input_missing: '입력 없음', input_invalid: '입력 형식 오류', timeout: '기한 초과', failure: '실행 실패' };
+    const NO_VERDICT = { '1h': { job_failed: 2, ruleset_read_failed: 0 }, '24h': { job_failed: 9, ruleset_read_failed: 1 } };
+    // 판정 정책은 화면에 보이지 않는다(사용자 9.6). 상태 배지 기준은 화면 예시(값 확정 전).
+    function methodStats(key, profileKey) {
+      const p = STAT_PROFILE[profileKey || key], per = OPS_PERIOD[opsPeriod];
+      if (!p || p.none) return { runs: 0 };
+      const runs = per.runs, k = opsPeriod === '24h' ? 0.8 : 1, nr = Math.round(runs * p.nr * k), ok = runs - nr, anomalies = Math.round(ok * p.anom);
+      const causes = Object.entries(p.causes || {}).map(([c, share]) => [c, Math.round(nr * share)]).filter(([, n]) => n > 0).sort((a, b) => b[1] - a[1]);
+      return { runs, ok, nr, anomalies, causes, timeouts: (causes.find(([c]) => c === 'timeout') || [0, 0])[1], last: per.last, p95: p.p95 || 3 };
+    }
+    // 현재 켜진 규칙이 끊김 없이 켜져 있기 시작한 리비전(직전 리비전에 없거나 꺼져 있으면 그 리비전부터)
+    function ruleOnSince(cat, id) {
+      let since = null;
+      for (let i = ruleHistory.length - 1; i >= 0; i--) { const r = ruleHistory[i].snapshot[cat].find((x) => x.id === id); if (!r || !r.on) break; since = ruleHistory[i].rev; }
+      return since;
+    }
+    // 규칙 실행 수치(사용자 9.7): 마지막 저장에서 새로 켜진 규칙(새로 추가 + 꺼짐→켜짐)은 실행 0 · '적용됨 · 첫 실행 대기'.
+    // 화면에서 켠 뒤 다음 저장까지도 실행 기록이 없으면 실행 0 그대로 '점검 필요 · 실행 없음'. 예시 수치(STAT_PROFILE)는 그 전부터 켜져 있던 규칙에만.
+    function ruleStats(cat, id) {
+      const since = ruleOnSince(cat, id), first = ruleHistory[0].rev, waiting = since !== null && since === ruleCurrent().rev && since > first;
+      if (waiting || (since !== null && since > SEED_RULE_REV)) return { runs: 0, waiting };
+      return methodStats(id);
+    }
+    function statusOf(st) {
+      if (!st.runs) return st.waiting ? ['적용됨 · 첫 실행 대기', 'gray', ''] : ['점검 필요', 'bad', '실행 없음'];
+      const r = st.nr / st.runs, t = st.timeouts / st.runs;
+      if (r >= 0.1) return ['점검 필요', 'bad', '미판정 ' + pct(r)];
+      if (r >= 0.02 || t >= 0.02) return ['주의', 'mid', '미판정 ' + pct(r)];
+      return ['정상', 'good', ''];
+    }
+    const ratio = (n, d) => num(n) + ' (' + pct(d ? n / d : 0) + ')';
+    function statCells(st) {
+      const [label, tone, why] = statusOf(st);
+      const badge = h('span', { title: '상태 예시 기준: 미판정 2% 이상 주의 · 10% 이상 또는 실행 없음 점검 필요' }, pill(label, tone), why ? h('span', { class: 'why', text: why }) : null);
+      if (!st.runs) return [badge, '0', '—', '—', '—', '—', '—', '—', '—'];
+      const causeCell = st.causes.length ? h('span', {}, st.causes.slice(0, 3).map(([c, n], k) => [k ? ' · ' : '', h('span', { title: c, 'data-cause': c, text: (CAUSE_LABEL[c] || c) + ' ' + num(n) })])) : '—';
+      return [badge, num(st.runs), ratio(st.ok, st.runs), ratio(st.nr, st.runs), ratio(st.anomalies, st.runs), causeCell, num(st.timeouts), st.last, num(st.p95) + ' ms'];
+    }
+    const STAT_HEAD = ['상태', '실행', '성공', '미판정', '이상 탐지', '미판정 사유 상위', '기한 초과', '마지막 실행', '완료 시각(시도 시작 기준) p95'];
     function renderDetectOps() {
-      const cur = ruleCurrent(), snap = cur.snapshot, list = activeList();
-      fill($('opsRule'), h('p', { style: 'margin:0' }, h('strong', { text: '리비전 r' + cur.rev }), ' · 마지막 변경 ' + cur.at + ' · ' + cur.by), h('p', { class: 'muted', text: TERMS.hard + ' ' + onCount(snap.hard) + '/' + snap.hard.length + ' 켜짐 · ' + TERMS.soft + ' ' + onCount(snap.soft) + '/' + snap.soft.length + ' 켜짐' }), h('a', { href: '#detect/rules', text: TERMS.rules + '으로 이동' }));
+      const cur = ruleCurrent(), snap = cur.snapshot, list = activeList(), per = OPS_PERIOD[opsPeriod], nv = NO_VERDICT[opsPeriod];
+      all('[data-action="ops-period"]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.period === opsPeriod)));
+      fill($('opsRule'), h('p', { style: 'margin:0' }, h('strong', { text: TERMS.rule + ' 리비전 r' + cur.rev }), ' · 마지막 변경 ' + cur.at + ' · ' + cur.by + ' · ', h('a', { href: '#detect/rules', text: TERMS.rules + '으로 이동' })), h('p', { class: 'muted', style: 'margin:4px 0 0', text: TERMS.hard + ' ' + onCount(snap.hard) + '/' + snap.hard.length + ' 켜짐 · ' + TERMS.soft + ' ' + onCount(snap.soft) + '/' + snap.soft.length + ' 켜짐 · 운영 ' + TERMS.ml + ' ' + list.length + '개 · ' + per.label + ' 판정 ' + num(per.runs) + '건' }));
+      fill($('opsNoVerdict'), h('strong', { text: '판정 없이 실패 ' + num(nv.job_failed + nv.ruleset_read_failed) + '건' }), ' · ' + per.label + ' · 작업 실패 ' + num(nv.job_failed) + ' · 룰 세트 읽기 실패 ' + num(nv.ruleset_read_failed) + ' · 방법별 집계와 별도');
+      const ruleRows = [...snap.hard.filter((r) => r.on).map((r) => { const d = hardDef(r.id); return { attrs: { 'data-method': r.id }, cells: [h('span', {}, d.name, h('span', { class: 'key', text: d.cond })), TERMS.hard, ...statCells(ruleStats('hard', r.id))] }; }),
+        ...snap.soft.filter((r) => r.on).map((r) => ({ attrs: { 'data-method': r.id }, cells: [h('span', {}, r.name, h('span', { class: 'key', text: softCond(r) })), TERMS.soft, ...statCells(ruleStats('soft', r.id))] }))];
+      table('opsRuleStats', ['규칙', '대분류', ...STAT_HEAD], ruleRows, '켜진 규칙만 · ' + per.label);
       const appliedAt = (id) => { const j = jobs.filter((x) => ['replace', 'restore'].includes(x.kind) && x.status === 'done' && x.target === id).slice(-1)[0]; return j ? j.at : '—'; };
-      fill($('opsCurrent'), list.length ? h('div', { class: 'table' }, table(h('table'), ['모델', '운영 후보', '입력 변수', '판정선', '적용', '운영'], list.map((id) => { const c = candidateById(id); return [MODELS[c.model].name, h('a', { href: '#detect/models/' + id, text: candLabel(id) }), c.bundle, String(c.threshold), appliedAt(id), h('button', { type: 'button', 'data-action': 'model-remove', 'data-cand': id, text: '운영에서 제외' })]; }), '모델 종류마다 운영 후보 1개 · 여러 모델 동시 운영')) : h('p', { class: 'muted', id: 'opsNoModel', text: '운영 중인 ' + TERMS.ml + '이 없습니다. 룰만으로 판정합니다.' }));
+      fill($('opsCurrent'), list.length ? h('div', { class: 'table' }, table(h('table', { class: 'ops-stats' }), ['모델', '버전', ...STAT_HEAD, '운영'], list.map((id) => { const c = candidateById(id); return { attrs: { 'data-method': 'ml:' + id }, cells: [MODELS[c.model].name, h('span', {}, h('a', { href: '#detect/models/' + id, text: candLabel(id) }), h('span', { class: 'key', text: '적용 ' + appliedAt(id) })), ...statCells(methodStats('ml:' + id, STAT_PROFILE[id] ? id : 'model')), h('button', { type: 'button', 'data-action': 'model-remove', 'data-cand': id, text: '운영에서 제외' })] }; }), '모델 종류마다 운영 버전 1개 · 여러 모델 동시 운영 · ' + per.label)) : h('p', { class: 'muted', id: 'opsNoModel', text: '운영 중인 ' + TERMS.ml + '이 없습니다. 룰만으로 판정합니다.' }));
+      $('opsStatNote').textContent = '상태 예시 기준: 미판정 2% 이상 주의, 10% 이상 또는 실행 없음 점검 필요(마지막 룰 저장으로 새로 켜진 규칙은 첫 실행 대기) · 판단하지 않은 경우(예: 종료 시각 없음)는 성공으로 셉니다';
       const lr = latestRec();
       fill($('opsRec'), recBlock(lr && lr.run));
       table('opsHistory', ['교체', '모델', '작업', '추천 수락', '요청 시각', '결과', '상세'], jobs.filter((j) => SWAP.includes(j.kind)).reverse().map((j) => [j.from + ' → ' + (j.kind === 'remove' ? '제외' : j.target), MODELS[j.model].name, KIND[j.kind], j.accepted ? j.accepted.run + ' 추천 ' + j.accepted.target : '—', j.at, jobPill(j), h('a', { href: '#detect/ops/job/' + j.id, text: j.id })]));
@@ -1436,7 +1548,7 @@
     function jobResult(j) {
       if (j.status === 'running') return '—';
       if (['failed', 'timeout'].includes(j.status)) return h('span', { class: 'warn', text: j.reason });
-      if (j.kind === 'train') return h('a', { href: '#detect/models/' + j.cand, text: '후보 ' + j.cand });
+      if (j.kind === 'train') return h('a', { href: '#detect/models/' + j.cand, text: '버전 ' + j.cand });
       if (j.kind === 'compare') { const r = runById(j.run); return h('a', { href: '#detect/evals/' + r.id, text: r.id + ' 결과' + (r.rec && r.rec.targetCandidateId ? ' · 교체 추천 ' + r.rec.targetCandidateId : '') }); }
       return h('a', { href: '#detect/ops', text: '운영 설정' });
     }
@@ -1446,15 +1558,15 @@
       readNoticesFor(id);
       $('jobTitle').textContent = KIND[j.kind] + ' 작업 ' + j.id;
       const info = [], swap = SWAP.includes(j.kind), removing = j.kind === 'remove';
-      if (j.kind === 'train') info.push(['모델', MODELS[j.model].name], ['후보 이름', j.name], ['저장 데이터셋·기간', j.dataset], ['입력 변수', j.features + '개'], ['요청 파라미터', '코드 기본값(파라미터 전달 필드는 계약 확정 전)'], j.retryOf ? ['재시도 대상', j.retryOf] : null);
-      if (j.kind === 'compare') { const r = runById(j.run); info.push(['평가 세트', setById(r.set).name], ['비교 모델', r.models.join(', ')], ['기준 운영 모델', r.current.join(', ') || '없음'], ['룰 조건', ruleRevText(r.ruleRev)], j.auto ? ['시작', '새 후보 ' + j.auto + ' 학습 완료 후 자동'] : null); }
+      if (j.kind === 'train') info.push(['모델', MODELS[j.model].name], ['버전 이름', j.name], ['저장 데이터셋·기간', j.dataset], ['입력 변수', j.features + '개'], ['요청 파라미터', '코드 기본값(파라미터 전달 필드는 계약 확정 전)'], j.retryOf ? ['재시도 대상', j.retryOf] : null);
+      if (j.kind === 'compare') { const r = runById(j.run); info.push(['평가 세트', setById(r.set).name], ['비교 모델', r.models.join(', ')], ['기준 운영 모델', r.current.join(', ') || '없음'], ['룰 조건', ruleRevText(r.ruleRev)], j.auto ? ['시작', '새 버전 ' + j.auto + ' 학습 완료 후 자동'] : null); }
       if (removing) info.push(['모델', MODELS[j.model].name], ['운영 모델', j.from + ' → 제외']);
       else if (swap) info.push(['모델', MODELS[j.model].name], ['운영 모델', j.from + ' → ' + j.target], ['추천 수락', j.accepted ? j.accepted.run + ' 추천 ' + j.accepted.target + ' (comparisonJobId ' + j.accepted.job + ')' : '없음 · 직접 선택'], j.evidence ? ['평가 근거', j.evidence] : null);
       info.push(['요청 시각', j.at]);
       const reasonText = j.reason + (j.reasonText ? ' · ' + j.reasonText : '');
       const actions = [];
       if (j.status === 'done') {
-        if (j.kind === 'train') actions.push(h('a', { class: 'button primary', href: '#detect/models/' + j.cand, text: '결과 보기 · 후보 ' + j.cand }));
+        if (j.kind === 'train') actions.push(h('a', { class: 'button primary', href: '#detect/models/' + j.cand, text: '결과 보기 · 버전 ' + j.cand }));
         if (j.kind === 'compare') actions.push(h('a', { class: 'button primary', href: '#detect/evals/' + j.run, text: '결과 보기 · ' + j.run }));
         if (swap) actions.push(h('a', { class: 'button primary', href: '#detect/ops', text: '운영 설정에서 확인' }));
       }
@@ -1473,15 +1585,20 @@
       const f = doneRuns().filter((x) => x.failed[id]).slice(-1)[0]; if (f) return pill('평가 실패 · ' + f.id, 'bad');
       return pill('평가 전', 'gray');
     }
+    // 버전 목록: 탭(현재 운영 버전 / 전체 버전) + 자체 스크롤 영역. 아래 새 학습 영역은 같은 화면.
+    let modelTab = 'active', trainStep = 1;
     function renderModels() {
-      table('candTable', ['후보', '모델', '상태', '운영', '입력 변수', '학습 파라미터', '판정선', '최근 평가', '생성'], [...candidates].reverse().map((c) => ({ attrs: { class: 'clickable' + (modelExec(c.model) ? '' : ' row-off'), 'data-href': '#detect/models/' + c.id }, cells: [h('a', { href: '#detect/models/' + c.id, text: candLabel(c.id) }), MODELS[c.model].name, stateLabel(MODELS[c.model].state), isActive(c.id) ? pill('운영 중', 'good') : '—', c.bundle, paramSummary(c.model, c.params), String(c.threshold), evalPill(c.id), c.at] })));
+      all('[data-action="model-tab"]').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.tab === modelTab)));
+      const list = [...candidates].reverse().filter((c) => modelTab === 'all' || isActive(c.id));
+      table('candTable', ['버전', '모델', '상태', '운영', '입력 변수', '학습 파라미터', '판정선', '최근 평가', '생성'], list.map((c) => ({ attrs: { class: 'clickable' + (modelExec(c.model) ? '' : ' row-off'), 'data-href': '#detect/models/' + c.id }, cells: [h('a', { href: '#detect/models/' + c.id, text: candLabel(c.id) }), MODELS[c.model].name, stateLabel(MODELS[c.model].state), isActive(c.id) ? pill('운영 중', 'good') : '—', c.bundle, paramSummary(c.model, c.params), String(c.threshold), evalPill(c.id), c.at] })));
+      $('candEmpty').hidden = list.length > 0;
     }
     function renderCandidate(id) {
       const c = candidateById(id), runsFor = runs.filter((r) => r.status === 'done' && r.models.includes(id)), autoJob = jobs.find((j) => j.kind === 'compare' && j.auto === id);
-      $('candTitle').textContent = '후보 ' + c.id + ' · ' + c.name;
+      $('candTitle').textContent = '버전 ' + c.id + ' · ' + c.name;
       fill($('candBody'), dl(h('dl'), [...modelInfoRows(id), ['상태', stateLabel(MODELS[c.model].state)], ['운영', isActive(id) ? pill('운영 중', 'good') : '—'], ['학습 작업', h('a', { href: '#detect/ops/job/' + c.job, text: c.job })], ['산출물 hash', h('span', { class: 'key', text: c.hash })], autoJob ? ['자동 비교 평가', h('span', {}, h('a', { href: '#detect/ops/job/' + autoJob.id, text: autoJob.id }), ' ', jobPill(autoJob), autoJob.status === 'done' ? h('span', {}, ' ', h('a', { href: '#detect/evals/' + autoJob.run, text: autoJob.run + ' 결과' })) : null)] : null]),
         h('h3', { style: 'margin-top:16px', text: '평가 이력' }), h('div', { 'data-rows': '평가 이력', 'data-partial-fail': true }, runsFor.length ? h('ul', { class: 'checks' }, runsFor.map((r) => h('li', {}, h('a', { href: '#detect/evals/' + r.id, text: r.id + ' · ' + setById(r.set).name }), ' · ', r.failed[id] ? pill('평가 실패', 'bad') : r.results[id] && r.results[id].status === 'measured' ? pill('측정', 'good') : pill('미측정', 'mid')))) : h('p', { class: 'muted', text: '평가 이력 없음' })),
-        h('div', { class: 'actions' }, h('button', { type: 'button', 'data-action': 'replace-version', 'data-cand': id, disabled: !eligibleForReplace(id), text: '이 후보로 교체 요청' }), h('a', { class: 'button', href: '#cmd/compare/1', 'data-start': 'compare', 'data-cand': id, text: '+ 새 비교 평가' })));
+        h('div', { class: 'actions' }, h('button', { type: 'button', 'data-action': 'replace-version', 'data-cand': id, disabled: !eligibleForReplace(id), text: '이 버전으로 교체 요청' }), h('a', { class: 'button', href: '#cmd/compare/1', 'data-start': 'compare', 'data-cand': id, text: '+ 새 비교 평가' })));
     }
 
     // ---------- 탐지 설정 · 룰 설정 ----------
@@ -1569,7 +1686,7 @@
       const hardRows = [];
       ruleDraft.hard.forEach((r) => {
         const d = hardDef(r.id), c = snap.hard.find((x) => x.id === r.id), changed = !c || c.on !== r.on;
-        hardRows.push(h('tr', { class: r.on ? '' : 'row-off', 'data-rule': r.id }, h('th', { scope: 'row' }, d.name, h('span', { class: 'key', text: r.id })), h('td', { text: d.cond }), h('td', {}, levelPill(d.level)), h('td', { class: changed ? 'changed' : null }, h('label', { class: 'check' }, h('input', { type: 'checkbox', role: 'switch', 'data-rule-hard': r.id, checked: r.on, 'aria-label': d.name + ' 켜기' }), r.on ? '켜짐' : '꺼짐'))));
+        hardRows.push(h('tr', { class: r.on ? '' : 'row-off', 'data-rule': r.id }, h('th', { scope: 'row' }, d.name, h('span', { class: 'key', text: r.id })), h('td', { text: d.cond }), h('td', {}, d.levelByCode ? h('span', { 'data-level-text': d.levelText }, levelPill('critical'), ' F · ', levelPill('warning'), ' P·N') : levelPill(d.level)), h('td', { class: changed ? 'changed' : null }, h('label', { class: 'check' }, h('input', { type: 'checkbox', role: 'switch', 'data-rule-hard': r.id, checked: r.on, 'aria-label': d.name + ' 켜기' }), r.on ? '켜짐' : '꺼짐'))));
         if (!r.on) hardRows.push(h('tr', { class: 'rule-warn', 'data-warn': r.id }, h('td', { colspan: '4', role: r.id === ruleUi.justOff ? 'alert' : null, text: d.name + ' · 끄면 명백한 이상을 놓칠 수 있습니다. 변경을 권장하지 않습니다.' })));
       });
       fill($('hardTable'), h('caption', { text: '시스템 내장 목록 · 조건·위험도는 바꿀 수 없고 켜기·끄기만 합니다' }), h('thead', {}, h('tr', {}, ['규칙', '조건', '위험도', '켜기'].map((t) => h('th', { scope: 'col', text: t })))), h('tbody', {}, hardRows));
@@ -1788,7 +1905,7 @@
         const cur = trainDraft.ai; if (cur.status !== 'running') return;
         if (scenario === 'success') { cur.status = 'done'; cur.result = FEATURE_AI; cur.picks = new Set(FEATURE_AI.filter((r) => featAiClass(r).kind === 'match').map((r) => r.key)); }
         else cur.status = scenario === 'timeout' ? 'timeout' : 'failed';
-        if (route === 'cmd/train/2') renderFeatAi();
+        if (route === 'detect/models/train/2') renderFeatAi();
       });
     }
     function renderCmdTrain(r) {
@@ -1875,9 +1992,34 @@
       if (from > to) return fail('시작 날짜가 종료 날짜보다 늦습니다.');
       if (Math.round((isoMs(to) - isoMs(from)) / MIN / DAYM) + 1 > 366) return fail('조회 범위는 최대 366일입니다.');
       periodError('');
-      r.from = from; r.to = to; r.qs = isoMin(from); r.qe = isoMin(to) + DAYM; r.view = [r.qs, r.qe]; r.pending = null; r.queried = true;
+      r.from = from; r.to = to; r.qs = isoMin(from); r.qe = isoMin(to) + DAYM; r.view = [r.qs, r.qe]; r.pending = null; r.queried = true; exclEdit = null; clearExclInputs();
       r.excl = mergeExcl(r.excl.map(([a, b]) => [Math.max(a, r.qs), Math.min(b, r.qe)]).filter(([a, b]) => a < b));
       mark(true); renderPeriod();
+    }
+    // 제외 구간 정확히 입력: 날짜+시각(분). 시각을 비우면 시작 00:00, 끝은 다음 날 00:00. 끝은 포함하지 않음.
+    let exclEdit = null; // 수정 중인 구간의 원래 [s, e] 값(목록 위치가 아님)
+    const sameRange = (x, y) => !!x && !!y && x[0] === y[0] && x[1] === y[1];
+    function clearExclInputs() { EXCL_INPUTS.forEach((id) => { $(id).value = ''; }); exclError(''); }
+    const EXCL_INPUTS = ['exclFrom', 'exclFromTime', 'exclTo', 'exclToTime'];
+    const timeMin = (t) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
+    function exclError(text) { $('exclError').hidden = !text; $('exclError').textContent = text || ''; }
+    function addExclPrecise() {
+      const r = rg(), a = $('exclFrom').value, at = $('exclFromTime').value, b = $('exclTo').value, bt = $('exclToTime').value;
+      if (EXCL_INPUTS.some((id) => $(id).validity.badInput)) return exclError('날짜·시각을 끝까지 입력해 주세요.');
+      if (!a || !b) return exclError('시작·끝 날짜를 입력해 주세요.');
+      const s = isoMin(a) + (at ? timeMin(at) : 0), e = bt ? isoMin(b) + timeMin(bt) : isoMin(b) + DAYM;
+      if (s >= e) return exclError('끝이 시작보다 늦어야 합니다.');
+      if (s < r.qs || e > r.qe) return exclError('조회 기간(' + r.from + ' ~ ' + r.to + ') 안에서 입력해 주세요.');
+      exclError('');
+      if (exclEdit) { const k = r.excl.findIndex((x) => sameRange(x, exclEdit)); if (k >= 0) r.excl.splice(k, 1); exclEdit = null; }
+      EXCL_INPUTS.forEach((id) => { $(id).value = ''; });
+      addExcl({ s, e }, { s, e });
+    }
+    function editExcl(i) {
+      const [s, e] = rg().excl[i]; exclEdit = [s, e]; exclError('');
+      $('exclFrom').value = isoOfDay(s); $('exclFromTime').value = s % DAYM === 0 ? '' : hm(s);
+      if (e % DAYM === 0) { $('exclTo').value = isoOfDay(e - DAYM); $('exclToTime').value = ''; } else { $('exclTo').value = isoOfDay(e); $('exclToTime').value = hm(e); }
+      renderPeriod(); $('exclFrom').focus();
     }
     function addExcl(a, b) { const r = rg(); r.excl = mergeExcl([...r.excl, [Math.min(a.s, b.s), Math.max(a.e, b.e)]]); r.pending = null; mark(true); renderPeriod(); }
     function periodStats() {
@@ -1889,8 +2031,11 @@
       if (!r.queried) return;
       const unit = drawPeriod(), st = periodStats();
       $('periodUnit').textContent = '단위 ' + UNITS[unit];
-      fill($('exclList'), ...r.excl.map((x, i) => h('li', { 'data-excl': keyMin(x[0]) + '~' + keyMin(x[1]) }, h('span', { text: rangeText(x[0], x[1]) + ' · ' + durText(x[1] - x[0]) + ' · ' + num(countRange(x[0], x[1])) + '건' }), h('button', { type: 'button', 'data-action': 'period-del', 'data-i': String(i), 'aria-label': rangeText(x[0], x[1]) + ' 제외 구간 삭제', text: '삭제' }))));
+      fill($('exclList'), ...r.excl.map((x, i) => h('li', { 'data-excl': keyMin(x[0]) + '~' + keyMin(x[1]), class: sameRange(x, exclEdit) ? 'editing' : null }, h('button', { type: 'button', class: 'excl-pick', 'data-action': 'period-edit', 'data-i': String(i), 'aria-label': rangeText(x[0], x[1]) + ' 입력칸에서 수정', text: rangeText(x[0], x[1]) + ' · ' + durText(x[1] - x[0]) + ' · ' + num(countRange(x[0], x[1])) + '건' }), h('button', { type: 'button', 'data-action': 'period-del', 'data-i': String(i), 'aria-label': rangeText(x[0], x[1]) + ' 제외 구간 삭제', text: '삭제' }))));
       $('exclEmpty').hidden = r.excl.length > 0;
+      // 그래프 추가로 수정 대상이 병합돼 사라지면 수정 상태만 풀고(입력값 유지) 다음 [추가]는 새 구간으로 넣는다.
+      if (exclEdit && !r.excl.some((x) => sameRange(x, exclEdit))) exclEdit = null;
+      $('exclAddBtn').textContent = exclEdit === null ? '추가' : '수정 적용'; $('exclEditCancel').hidden = exclEdit === null;
       dl('periodSummary', [['조회 기간', r.from + ' ~ ' + r.to + ' · ' + durText(st.totalMin)], ['제외', durText(st.exMin) + ' · ' + num(st.exN) + '건 · ' + r.excl.length + '구간'], ['전체 건수', num(st.total) + '건'], ['학습에 쓰는 건수', num(st.total - st.exN) + '건 · ' + durText(st.totalMin - st.exMin)]]);
       $('periodHint').textContent = (r.pending ? '끝을 클릭하세요 · 시작 ' + rangeText(r.pending.s, r.pending.e) : '드래그하거나 시작·끝 막대를 차례로 클릭해 제외 구간을 지정합니다') + ' · 마우스 휠로 확대·축소(월 → 일 → 시간 → 분) · 가로 스크롤·Shift+휠로 이동 · 표시 ' + rangeText(r.view[0], r.view[1]);
     }
@@ -1949,7 +2094,7 @@
         h('p', { class: count > 8 ? 'warn' : 'muted', text: '선택 ' + count + ' / 8' }));
       dl('compareSummary', [['평가 세트', s.name], ['비교 모델', [...ops.map((x) => x + '(현재 운영)'), ...compareDraft.models].join(', ')], ['룰 조건', ruleRevText(ruleCurrent().rev)], ['총', count + '개']]);
     }
-    function compareError() { const n = compareDraft.models.size, total = activeList().length + n; return n < 1 ? '비교할 후보 모델을 1개 이상 선택해 주세요.' : total > 8 ? '현재 운영 포함 최대 8개까지 비교합니다.' : ''; }
+    function compareError() { const n = compareDraft.models.size, total = activeList().length + n; return n < 1 ? '비교할 모델 버전을 1개 이상 선택해 주세요.' : total > 8 ? '현재 운영 포함 최대 8개까지 비교합니다.' : ''; }
     // 모델 교체 요청: 같은 종류의 운영 후보를 교체(없으면 추가 운영). 룰은 바뀌지 않음.
     function commonRun(a, b) { return [...doneRuns()].reverse().find((r) => r.results[a] && r.results[b] && r.results[a].status === 'measured' && r.results[b].status === 'measured'); }
     const slotOf = (id) => activeModels[candidateById(id).model] || '';
@@ -1958,11 +2103,11 @@
       const d = replaceDraft, acc = d.accepted && d.accepted.target === d.target;
       $('replaceFrom').hidden = !acc; $('replaceFrom').textContent = acc ? '모델 교체 추천 수락 · ' + d.accepted.run + ' 추천 ' + d.accepted.target : '';
       $('replaceStale').hidden = !d.staleError; $('replaceStale').textContent = d.staleError ? '교체 요청 거절 · 400 accepted_recommendation_stale · 운영 모델이 바뀌어 더 이상 유효하지 않은 추천입니다. 새 비교 평가를 실행하세요.' : '';
-      table('replaceTable', ['선택', '후보', '모델', '운영 변화', '최근 평가', '재현율(완료 기준)'], [...candidates].reverse().map((c) => { const ok = eligibleForReplace(c.id), lr = latestRunFor(c.id), res = lr && lr.results[c.id], base = activeModels[c.model]; return { attrs: { class: ok ? (c.id === d.target ? 'highlight' : '') : 'row-off' }, cells: [h('input', { type: 'radio', name: 'replacePick', value: c.id, checked: c.id === d.target, disabled: !ok, 'aria-label': c.id + ' 선택' }), candLabel(c.id), MODELS[c.model].name, isActive(c.id) ? pill('운영 중', 'good') : base ? base + ' → ' + c.id : '추가 운영', evalPill(c.id), res && res.status === 'measured' ? pill(lr.id + ' · ' + pct(res.completeOnly.recall), 'gray') : '—'] }; }));
+      table('replaceTable', ['선택', '버전', '모델', '운영 변화', '최근 평가', '재현율(완료 기준)'], [...candidates].reverse().map((c) => { const ok = eligibleForReplace(c.id), lr = latestRunFor(c.id), res = lr && lr.results[c.id], base = activeModels[c.model]; return { attrs: { class: ok ? (c.id === d.target ? 'highlight' : '') : 'row-off' }, cells: [h('input', { type: 'radio', name: 'replacePick', value: c.id, checked: c.id === d.target, disabled: !ok, 'aria-label': c.id + ' 선택' }), candLabel(c.id), MODELS[c.model].name, isActive(c.id) ? pill('운영 중', 'good') : base ? base + ' → ' + c.id : '추가 운영', evalPill(c.id), res && res.status === 'measured' ? pill(lr.id + ' · ' + pct(res.completeOnly.recall), 'gray') : '—'] }; }));
       $('replaceNext1').setAttribute('aria-disabled', String(!d.target));
       const box = $('replaceCompare'), base = d.target ? slotOf(d.target) : '', run = d.target ? (base ? commonRun(base, d.target) : latestRunFor(d.target)) : null;
       $('replaceNext2').setAttribute('aria-disabled', String(!run));
-      if (!d.target) fill(box, h('p', {}, '후보를 먼저 선택해 주세요. ', h('a', { href: '#cmd/replace/1', text: '후보 선택' })));
+      if (!d.target) fill(box, h('p', {}, '버전을 먼저 선택해 주세요. ', h('a', { href: '#cmd/replace/1', text: '버전 선택' })));
       else if (!run) fill(box, h('p', { class: 'notice' }, '현재 운영 모델과 같은 평가 세트로 비교한 결과가 없습니다. ', h('a', { href: '#cmd/compare/1', 'data-start': 'compare', 'data-cand': d.target, text: '+ 새 비교 평가' })));
       else {
         const set = setById(run.set), ids = base ? [base, d.target] : [d.target], mrows = metricRows(set, run, ids), info = ids.map(modelInfoRows);
@@ -1971,7 +2116,7 @@
           h('h3', { text: '혼동행렬' }), h('div', { class: 'cards' }, ids.map((id) => matrixCard(set, run, id, false))),
           h('h3', { style: 'margin-top:16px', text: '지표' }), h('div', { class: 'table' }, table(h('table'), ['지표', ...ids.map((x) => (x === base ? '현재 ' : '선택 ') + x)], mrows.map((row) => ({ cells: row, cls: ids.length === 2 && row[1] !== row[2] ? [null, 'changed', 'changed'] : [] })))));
       }
-      dl('replaceSummary', [['현재 운영 모델', base ? candLabel(base) : '없음 · 추가 운영'], ['교체할 후보', d.target ? candLabel(d.target) : '—'], ['평가 근거', run ? run.id + ' · ' + setById(run.set).name : '—'], ['추천 수락', acc ? d.accepted.run + ' 추천 ' + d.accepted.target : '없음 · 직접 선택'], [TERMS.rule, '바뀌지 않음 · 운영 룰 r' + ruleCurrent().rev]]);
+      dl('replaceSummary', [['현재 운영 모델', base ? candLabel(base) : '없음 · 추가 운영'], ['교체할 버전', d.target ? candLabel(d.target) : '—'], ['평가 근거', run ? run.id + ' · ' + setById(run.set).name : '—'], ['추천 수락', acc ? d.accepted.run + ' 추천 ' + d.accepted.target : '없음 · 직접 선택'], [TERMS.rule, '바뀌지 않음 · 운영 룰 r' + ruleCurrent().rev]]);
       document.querySelector('[data-action="request-replace"]').disabled = !$('replaceApprove').checked || !d.target || !run;
     }
 
@@ -1993,7 +2138,7 @@
           j.cand = id; j.status = 'done';
           // 새 후보가 생기면 현재 운영 모델과 비교 평가까지 자동 진행(기본 평가 세트는 예시 E1, 세부 규칙은 Trainer 기획 대기)
           const cj = startCompare(sets[0].id, [id], id);
-          notifyJob(j, '학습 ' + j.id + ' 완료 · 후보 ' + id + ' · 자동 비교 평가 ' + cj.id); refresh(); return;
+          notifyJob(j, '학습 ' + j.id + ' 완료 · 버전 ' + id + ' · 자동 비교 평가 ' + cj.id); refresh(); return;
         }
         refresh(); later(450, tick);
       };
@@ -2057,8 +2202,8 @@
       decisions.unshift(d);
       const t = () => clock() + '.' + String(Date.now() % 1000).padStart(3, '0');
       const okMeasure = (m) => m[0] === 'hard' ? hardDef(m[9]).ok : m[0] === 'ml' ? '원점수 ' + MODELS[m[9]].example.miss.toFixed(2) : (() => { const r = cur.snapshot.soft.find((x) => x.id === m[9]), f = fieldByKey(r.field); return f.name + ' ' + withUnit(f.ok, f); })();
-      const setM = (i, status, result, reason) => { const m = d.methods[i]; if (!m) return; d.methods[i] = [m[0], m[1], status, result, status === 'succeeded' ? (result === 'T' ? hitMeasure(m) : okMeasure(m)) : '—', m[5], status === 'succeeded' ? (m[0] === 'ml' ? '26 ms' : '1 ms') : status === 'not_ready' ? '3000 ms' : '—', reason || '', m[8], m[9]]; if (m[9] === 'hard:status_not_s' && result === 'T') { d.logStatus = 'F'; d.resp = 'E500'; } };
-      const idx = (pred) => d.methods.findIndex(pred), iSoft = idx((m) => m[0] === 'soft'), iStatus = idx((m) => m[9] === 'hard:status_not_s'), last = d.methods.length - 1, notice = { n: null };
+      const setM = (i, status, result, reason) => { const m = d.methods[i]; if (!m) return; d.methods[i] = [m[0], m[1], status, result, status === 'succeeded' ? (result === 'T' ? hitMeasure(m) : okMeasure(m)) : '—', m[5], status === 'succeeded' ? (m[0] === 'ml' ? '26 ms' : '1 ms') : status === 'not_ready' ? '3000 ms' : '—', reason || '', m[8], m[9]]; if (result === 'T') d.methods[i][8] = hitLevel(d.methods[i]); if (m[9] === 'hard:process-status' && result === 'T') { d.logStatus = 'F'; d.resp = 'E500'; } };
+      const idx = (pred) => d.methods.findIndex(pred), iSoft = idx((m) => m[0] === 'soft'), iStatus = idx((m) => m[9] === 'hard:process-status'), last = d.methods.length - 1, notice = { n: null };
       const provisional = (prefix) => { const s = summarize(Object.assign({}, d, { stage: 'provisional' })); if (s.signal !== 'yes') return; d.stage = 'provisional'; d.history.push([t(), 'provisional', prefix + '중간 판정 · ' + resultText(s) + ' · 근거 ' + basisText(s) + ' · 위험도 ' + riskShort(riskOf(d))]); notice.n = pushNotice('decision', d.id, d.id + ' · ' + resultText(s) + ' · 근거 ' + basisText(s)); };
       const withdraw = (text) => { if (notice.n) { notice.n.text = d.id + ' · 철회 · ' + text; notice.n.withdrawn = true; notice.n.at = stamp(); } };
       const keepRisk = () => { if (notice.n) notice.n.risk = riskOf(d); };
@@ -2084,7 +2229,7 @@
 
     // ---------- 공통 표시 상태 ----------
     // 이탈 확인 단위: 명령 흐름별, 룰 설정은 별도 구역(편집 중 다른 탐지 설정 화면으로 가도 확인)
-    const sectionOf = (path) => path.startsWith('cmd/') || path.startsWith('detect/rules') ? path.split('/').slice(0, 2).join('/') : path.split('/')[0];
+    const sectionOf = (path) => path.startsWith('cmd/') || path.startsWith('detect/rules') || path.startsWith('detect/models') ? path.split('/').slice(0, 2).join('/') : path.split('/')[0];
     function paintState() {
       const state = $('state').value, page = sectionOf(route);
       if (state === 'normal') lastSuccessByPage[page] = clock();
@@ -2112,7 +2257,7 @@
 
     // ---------- 라우팅 ----------
     const LEGACY = { operations: 'ops', collection: 'ops/collect', model: 'detect/models', compose: 'detect/rules', rules: 'detect/rules', compare: 'detect/evals', evaluation: 'detect/evals', deploy: 'detect/ops', versions: 'detect/ops', notifications: 'analysis' };
-    const CMD_STEPS = { train: 3, compare: 3, replace: 3 };
+    const CMD_STEPS = { compare: 3, replace: 3 };
     function parse(hash) {
       const seg = String(hash || '').replace(/^#/, '').split('/').filter(Boolean);
       if (seg[0] === 'analysis' && ['list', 'detail', 'window'].includes(seg[1])) return parse('analysis');
@@ -2128,6 +2273,8 @@
       if (p === 'detect') {
         const D = (view, side, path, extra) => Object.assign({ view, side, path: 'detect/' + path, top: 'detect' }, extra || {});
         if (a === 'ops' && b === 'job' && c && jobById(c)) return D('detect-job', 'ops', 'ops/job/' + c, { id: c });
+        if (a === 'models' && !b) return D('detect-models', 'models', 'models/train/' + trainStep, { step: trainStep, listEntry: true });
+        if (a === 'models' && b === 'train') { const step = Math.min(3, Math.max(1, Number(c) || 1)); return D('detect-models', 'models', 'models/train/' + step, { step }); }
         if (a === 'models' && b && candidateById(b)) return D('detect-model', 'models', 'models/' + b, { id: b });
         if (a === 'models') return D('detect-models', 'models', 'models');
         if (a === 'rules') return D('detect-rules', 'rules', 'rules');
@@ -2138,22 +2285,23 @@
         return D('detect-ops', 'ops', 'ops');
       }
       if (p === 'cmd' && ['compose', 'ai'].includes(a)) return parse('detect/rules');
+      if (p === 'cmd' && a === 'train') return parse('detect/models/train/' + (b || 1));
       if (p === 'cmd' && has(CMD_STEPS, a)) { const step = Math.min(CMD_STEPS[a], Math.max(1, Number(b) || 1)); return { view: 'cmd-' + a, kind: a, step, path: 'cmd/' + a + '/' + step, top: 'detect' }; }
       if (p === 'settings') { const sec = SET_LABEL[a] ? a : 'notifications'; return { view: 'settings', section: sec, path: 'settings/' + sec, top: '' }; }
       return { view: 'ops', tab: 'overview', path: 'ops/overview', top: 'ops' };
     }
     const SET_LABEL = { notifications: '알림 설정', integrations: '연동 관리', display: '화면/위젯', profile: '사용자 환경' };
-    const CMD_SIDE = { train: 'models', compare: 'evals', replace: 'ops' };
-    const CMD_HOME = { train: 'detect/models', compare: 'detect/evals', replace: 'detect/ops' };
+    const CMD_SIDE = { compare: 'evals', replace: 'ops' };
+    const CMD_HOME = { compare: 'detect/evals', replace: 'detect/ops' };
     const cmdReturn = {};
     const viewTitle = (path) => { const r = parse(path); return r.view === 'ops' ? '운영 현황' : r.view === 'analysis' ? '이상 분석' : r.view.startsWith('cmd') ? '탐지 설정 명령' : r.view.startsWith('detect') ? '탐지 설정 · ' + ({ ops: '운영 설정', rules: TERMS.rules, models: TERMS.ml, evals: '평가 결과' })[r.side] : '설정'; };
     const VIEWS = {
       ops: (r) => { all('[data-panel^="ops/"]').forEach((n) => { n.hidden = n.dataset.panel !== 'ops/' + r.tab; }); all('[data-view="ops"] .tabs a').forEach((a) => { if (a.hash === '#ops/' + r.tab) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); }); if (r.tab === 'overview') renderWidgets(); else renderCollect(); },
       analysis: renderAnalysis,
-      'detect-ops': renderDetectOps, 'detect-job': (r) => renderJob(r.id), 'detect-models': renderModels, 'detect-model': (r) => renderCandidate(r.id),
+      'detect-ops': renderDetectOps, 'detect-job': (r) => renderJob(r.id), 'detect-models': (r) => { if (r.step) trainStep = r.step; renderModels(); renderCmdTrain({ step: trainStep }); }, 'detect-model': (r) => renderCandidate(r.id),
       'detect-rules': renderRules,
       'detect-evals': renderEvals, 'detect-eval': (r) => renderEval(r.id),
-      'cmd-train': renderCmdTrain, 'cmd-compare': renderCmdCompare, 'cmd-replace': renderCmdReplace,
+      'cmd-compare': renderCmdCompare, 'cmd-replace': renderCmdReplace,
       settings: (r) => {
         const back = settingsReturn && !(/^(detect|cmd)/.test(settingsReturn) && currentRole !== 'admin') ? settingsReturn : '';
         $('settingsBack').textContent = back ? '이전 화면으로 돌아가기 · ' + viewTitle(back) : '운영 현황으로 돌아가기';
@@ -2175,6 +2323,7 @@
       // Render first so the hashchange that follows sees the same route; sandboxed/srcdoc frames may refuse hash updates.
       render(r.path);
       if (location.hash !== '#' + r.path) safeSetHash(r.path);
+      if (r.step && r.view === 'detect-models' && !r.listEntry) $('trainArea').scrollIntoView({ block: 'start' });
     }
     function refresh() { if (route) render(route, true); }
     function render(path, soft = false) {
@@ -2213,7 +2362,7 @@
       $('trainingBlocked').hidden = true;
     }
     function startFlow(kind, data) {
-      if (kind === 'train') { trainDraft = freshTrain(); resetTrainForm(); }
+      if (kind === 'train') { trainDraft = freshTrain(); resetTrainForm(); trainStep = 1; }
       if (kind === 'compare') { compareDraft = { set: compareDraft.set, models: new Set() }; const c = data && data.cand ? candidateById(data.cand) : null; if (c && !isActive(c.id) && modelExec(c.model)) compareDraft.models.add(c.id); }
       if (kind === 'replace') { replaceDraft = { target: '', accepted: null }; $('replaceApprove').checked = false; }
     }
@@ -2308,6 +2457,9 @@
       if (action === 'feedback') { const reason = $('feedbackReason').value.trim(); $('feedbackStatus').textContent = reason ? current.id + ' · ' + $('feedbackKind').selectedOptions[0].textContent + ' · 현재 세션 기록(저장 위치·평가 반영 범위 결정 대기)' : '조사·조치 사유를 입력하세요.'; }
       // 운영 설정
       if (action === 'job-tab') { jobTab = trigger.dataset.tab; refresh(); }
+      if (action === 'ops-period') { opsPeriod = trigger.dataset.period; refresh(); }
+      if (action === 'model-tab') { modelTab = trigger.dataset.tab; $('candScroll').scrollTop = 0; refresh(); }
+      if (action === 'scroll-train') { $('trainArea').scrollIntoView({ block: 'start' }); $('trainTitle').setAttribute('tabindex', '-1'); $('trainTitle').focus({ preventScroll: true }); }
       if (action === 'accept-rec') { const run = runById(trigger.dataset.run), target = run.rec.targetCandidateId; if (recState(run) !== 'current') return; replaceDraft = { target: eligibleForReplace(target) ? target : '', accepted: { run: run.id, job: run.job, target, revision: run.rec.baselineActiveRevision }, staleError: false }; $('replaceApprove').checked = false; navigate('cmd/replace/1'); }
       if (action === 'open-restore') {
         // 복원: 예전에 운영했던 모델 후보(지금 운영 중이 아닌 것)를 같은 단계로 다시 적용
@@ -2349,8 +2501,10 @@
       // 새 학습 1단계 기간
       if (action === 'period-query') queryPeriod();
       if (action === 'period-reset-zoom') { const r = rg(); if (r.queried) { r.view = [r.qs, r.qe]; renderPeriod(); } }
-      if (action === 'period-del') { const r = rg(); r.excl.splice(Number(trigger.dataset.i), 1); mark(true); renderPeriod(); }
-      if (action === 'period-add') { const r = rg(), a = $('exclFrom').value, b = $('exclTo').value; if (!a || !b || a > b || a < r.from || b > r.to) { periodError('제외 구간은 조회 기간 안에서 시작 ≤ 끝으로 입력해 주세요.'); return; } periodError(''); addExcl({ s: isoMin(a), e: isoMin(a) + DAYM }, { s: isoMin(b), e: isoMin(b) + DAYM }); }
+      if (action === 'period-del') { const r = rg(), [x] = r.excl.splice(Number(trigger.dataset.i), 1); if (sameRange(x, exclEdit)) { exclEdit = null; clearExclInputs(); } mark(true); renderPeriod(); }
+      if (action === 'period-add') addExclPrecise();
+      if (action === 'period-edit') editExcl(Number(trigger.dataset.i));
+      if (action === 'period-edit-cancel') { exclEdit = null; clearExclInputs(); renderPeriod(); }
       // 새 비교 평가
       if (action === 'new-set') { $('generationForm').hidden = false; $('generationStatus').textContent = ''; generatorFields(); }
       if (action === 'close-generation') $('generationForm').hidden = true;
@@ -2369,7 +2523,8 @@
     document.addEventListener('dragover', (event) => { const w = event.target.closest && event.target.closest('.widget.editing'); if (!w || !dragging) return; event.preventDefault(); all('.widget.drag-over').forEach((n) => n.classList.remove('drag-over')); w.classList.add('drag-over'); });
     document.addEventListener('drop', (event) => { const w = event.target.closest && event.target.closest('.widget.editing'); if (!w || !dragging) return; event.preventDefault(); const list = editLayout.filter((k) => k !== dragging), at = list.indexOf(w.dataset.widget); list.splice(at < 0 ? list.length : at, 0, dragging); dragging = ''; editLayout = list; refresh(); });
     document.addEventListener('dragend', () => { dragging = ''; all('.widget.drag-over').forEach((n) => n.classList.remove('drag-over')); });
-    document.addEventListener('keydown', (event) => { if (event.key === 'Escape' && bellOpen) { setBell(false); $('bell').focus(); } if (event.key === 'Escape' && route === 'cmd/train/1' && rg().pending) { rg().pending = null; renderPeriod(); } });
+    document.addEventListener('keydown', (event) => { if (event.key === 'Enter' && EXCL_INPUTS.includes(event.target.id)) { event.preventDefault(); addExclPrecise(); } });
+    document.addEventListener('keydown', (event) => { if (event.key === 'Escape' && bellOpen) { setBell(false); $('bell').focus(); } if (event.key === 'Escape' && route.startsWith('detect/models') && rg().pending) { rg().pending = null; renderPeriod(); } });
     // 규칙 추가 창: 대상 필드에 맞춰 조건·단위(불리언은 '= 1' 고정)
     function syncAddField() { const f = fieldByKey($('addField').value); fill($('addOp'), ...(f.bool ? ['='] : OPS).map((o) => h('option', { value: o, selected: o === '>', text: o }))); $('addOp').disabled = Boolean(f.bool); $('addThreshold').disabled = Boolean(f.bool); if (f.bool) $('addThreshold').value = '1'; else if ($('addThreshold').value === '1' && $('addThreshold').dataset.auto) $('addThreshold').value = ''; $('addThreshold').dataset.auto = f.bool ? '1' : ''; $('addUnit').textContent = f.unit ? '(' + f.unit + ')' : ''; if (!$('addName').value.trim() || $('addName').dataset.auto) { $('addName').value = f.name + ' 기준 초과'; $('addName').dataset.auto = '1'; } }
     document.addEventListener('input', (event) => {
@@ -2438,14 +2593,14 @@
         const { issues } = readinessIssues();
         if (issues.length) { $('trainingBlocked').textContent = '준비 검사 확인 필요 ' + issues.length + '건 · 선택은 자동으로 제거하지 않습니다. 이전 단계나 파라미터에서 수정해 주세요.'; $('trainingBlocked').hidden = false; renderTrain3(); return; }
         const j = startTrain({ model: trainDraft.model, trainFrom: trainDraft.trainFrom || '', name: form.elements.modelName.value.trim(), dataset: trainDraft.datasetName + ' · ' + trainDraft.period, features: trainDraft.selected.size, unit: $('inputUnit').value });
-        mark(false); trainDraft = freshTrain(); resetTrainForm(); navigate('detect/ops/job/' + j.id, true);
+        mark(false); trainDraft = freshTrain(); resetTrainForm(); trainStep = 1; navigate('detect/ops/job/' + j.id, true);
       }
       if (form.id === 'generationForm') { if (generationLimit()) return; generateSet(); }
     });
     function finishLeave(discard) {
       if (discard) {
         const sec = sectionOf(route);
-        if (sec === 'cmd/train') { trainDraft = freshTrain(); resetTrainForm(); }
+        if (sec === 'detect/models') { trainDraft = freshTrain(); resetTrainForm(); trainStep = 1; }
         if (sec === 'cmd/compare') compareDraft = { set: 'E1', models: new Set() };
         if (sec === 'detect/rules') { ruleDraft = ruleClone(ruleCurrent().snapshot); ruleLoadedRev = ruleCurrent().rev; ruleUi = freshRuleUi(); }
         if (sec === 'cmd/replace') { replaceDraft = { target: '', accepted: null }; $('replaceApprove').checked = false; }

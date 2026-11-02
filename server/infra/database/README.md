@@ -1,5 +1,5 @@
 Created: 2026-10-12T02:06:03+09:00
-Updated: 2026-10-21T23:50:00+09:00
+Updated: 2026-10-22T08:03:00+09:00
 Author: contracts_page_reviewer
 Status: current
 
@@ -44,6 +44,7 @@ Status: current
 - `ml_config_versions`는 004_feature_pipeline `pipeline_immutable`로 이미 UPDATE·DELETE 금지, 011은 신규 trigger 없음
 - 011이 만들거나 재정의한 함수 4개(`erd_v03_validate_job`·`protect_evaluation_set`·`fail_evaluation_set_with_job`·`validate_comparison_lineage`)는 `SET search_path = public, pg_temp`로 고정, SECURITY INVOKER 유지. 세션 임시 테이블의 같은 이름 가리기로 검증·동기화를 우회하지 못함. 001~010 함수는 미적용(후속 조치 대상)
 - 권한(`scripts/database-roles.sql`): API 세트 SELECT·INSERT, Trainer 세트 SELECT·UPDATE·비교 2테이블 SELECT·INSERT, LLM은 dead training 큐 정리 trigger용 세트 `SELECT(job_id,status)`·`UPDATE(status,error_code)`만, API 비교 SELECT
+- 010 준비 CSV 세트 LLM 권한(#81): 같은 dead training 큐 정리가 `import_csv` 작업을 failed로 바꾸면 010 `fail_prepared_dataset_with_job` 트리거(호출자 권한)가 queued 세트를 failed로 바꾸므로 `powercode_llm`에 `data_prepared_datasets` `SELECT(created_job_id,status,validation_result)`·`UPDATE(status,validation_result)`만 부여(이전에는 권한 없음 → 42501로 정리 트랜잭션 실패·worker 종료). 내용 열·INSERT·DELETE 없음, ready·failed 세트는 010 보호 트리거로 불변. 남는 위험: LLM 역할이 queued 세트를 직접 failed로 바꾸고 `validation_result`를 덮어쓸 수 있음(011 평가 세트 LLM 권한과 같은 수준)
 
 ## 012 Detector 중간 판정 기록 (#78 B)
 
@@ -172,3 +173,4 @@ SELECT r.rolname,
 - dev(011 이전) `erd-v03.mjs`는 DBML 누락 24테이블·`job_kind` 순서 때문에 parity에서 실패했음(#78에서 보강)
 - Issue #78(012) 시험(`erd-v03-interim.mjs`, `erd-v03.mjs`가 호출): 기존 fresh·upgrade DB는 001~012로 DBML 59테이블 parity. 추가 4개 DB — `erd_interim_fresh`(S1~S12·Q11·함수 설정·README 소유자 쿼리와 소유자 불일치 반례·두 연결 advisory lock 대기·이벤트 순번), `erd_interim_upgrade`(001~011 + 기존 판정·이벤트·진행 중 작업 → 012, U0~U5 후 시나리오 재실행), `erd_interim_rollback`(012 COMMIT 직전 오류 주입 → 미반영 → 재적용), `erd_interim_attack`(비슈퍼유저 소유자가 001~012 적용, `database-roles.sql` 적용 뒤 실제 LOGIN 역할 새 연결로 G4·CX-A~C·X1~X7·G1~G3·R5·Y1·Y2·Y5·Y6·Y7A2·YP/Q11·Q11 경합(Detector 로그인 3연결: 미커밋 failed 전환·대기 중 되돌리기·판정 INSERT)·B6b, 비소유자 REVOKE TEMP 무시(WARNING), README 위협 모델 쿼리 양·음 사례). 가리기 공격은 TEMP를 다시 허용한 상태에서 012 함수 방어만 검증하고, REVOKE TEMP 거부는 G4로 따로 확인. Y7(004 기존 결함)은 판정·실패가 아닌 INFO 출력
 - 011 search_path 시험 DB도 `database-roles.sql`의 REVOKE TEMP 거부(42501)를 먼저 확인한 뒤 TEMP를 다시 허용해 011 고정만 검증. 2026-10-21 native PostgreSQL 17.10(embedded) 629 checks 통과
+- Issue #81 시험(`erd-v03-llm-grant.mjs`, `erd-v03.mjs`가 호출): `pg_queue.reconcile_dead_jobs`의 training 큐 SQL 2문을 파일에서 읽어 `powercode_llm` 실제 LOGIN 새 연결·한 트랜잭션으로 실행. `erd_llm_grant_81_pre`(#81 GRANT 뺀 역할 스크립트) 42501 재현·대조, `erd_llm_grant_81` 정리 성공(작업 failed·queued 세트 failed·`errorCode` `queue_exhausted`·기존 `validation_result` 키 유지, ready·failed·무관 세트 불변), 권한 카탈로그 정확 일치, 다른 열 SELECT·내용 열 UPDATE·INSERT·DELETE·TRUNCATE 42501, 부여 열 하나씩 REVOKE 시 정리 42501. 2026-10-22 native PostgreSQL 17.10(embedded) 665 checks 통과

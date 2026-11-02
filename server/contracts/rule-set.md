@@ -82,11 +82,11 @@ Status: draft
 | `contentHash`·`contentHashVersion` | 아래 리비전 형식 절 |
 | `savedBy` | 저장한 관리자(JSON 계정 ID, FK 아님 — `rules.md` 규약과 동일) |
 | `restoredFromRevision` | 되돌리기로 만든 리비전이면 출처 리비전, 아니면 null |
-| `hardRules[]` | Detector 내장 목록 전체를 **항상 전부** 포함(꺼진 것 포함). 항목 = `{id, methodVersion, displayName, conditionText, severity, enabled}` + 이 API의 `editable`(항상 `["enabled"]`) — **#92 4.3/D13 기준**(4차 검토 중). `displayName`·`conditionText`는 화면용 한글(Detector 정의, #94는 읽기 전용 표시만). **`severity`(읽기 전용)**: 단일 문자열 `"critical"|"warning"|"info"` **또는** `{"byCode": {"<결과 코드>": "<단계>"}}` — `byCode`의 키는 그 규칙이 낼 수 있는 결과 코드 전부(결과 코드 규칙 `"PROCESS_STATUS_" + status`, `status_rule.py:22`). 예시 `hard:process-status`는 U2 추천안 `{"byCode": {"PROCESS_STATUS_F": "critical", "PROCESS_STATUS_P": "warning", "PROCESS_STATUS_N": "warning"}}`(U2에서 '모두 위험' 선택 시 단일 `"critical"`), `hard:negative-duration`은 `"critical"`·`methodVersion: negative-duration-v1`(U3 채택 시). 화면은 `byCode`를 "F 위험 · P/N 주의"처럼 코드별로 표시 |
+| `hardRules[]` | Detector 내장 목록 전체를 **항상 전부** 포함(꺼진 것 포함). 항목 = `{id, methodVersion, displayName, conditionText, severity, enabled}` + 이 API의 `editable`(항상 `["enabled"]`) — **#92 4.3/D13 기준**(4차 검토 중). `displayName`·`conditionText`는 화면용 한글(Detector 정의, #94는 읽기 전용 표시만). **`severity`(읽기 전용)**: 단일 문자열 `"critical"|"warning"|"info"` **또는** `{"byCode": {"<결과 코드>": "<단계>"}}` — `byCode`의 키는 그 규칙이 낼 수 있는 결과 코드 전부(결과 코드 규칙 `"PROCESS_STATUS_" + status`, `status_rule.py:22`). 예시 `hard:process-status`는 U2 추천안 `{"byCode": {"PROCESS_STATUS_F": "critical", "PROCESS_STATUS_P": "warning", "PROCESS_STATUS_N": "warning"}}`(U2에서 '모두 위험'을 고르면 단일 `"critical"`이 되고 **`methodVersion`도 새로 바뀜** — `process-status-hr-v1`은 P·N=warning 의미로 고정), `hard:negative-duration`은 `"critical"`·`methodVersion: negative-duration-v1`(U3 채택 시). 화면은 `byCode`를 "F 위험 · P/N 주의"처럼 코드별로 표시 |
 | `softRules[]` | 저장된 소프트룰 전체(꺼진 것 포함). 순서 = `id` 사전순(실행 순서 의미 없음 — 조합은 Detector 정책) |
 | `softRules[].field` | 카탈로그 `softRuleFields[].fieldId`(`method-catalog.md`). 생성 후 불변 |
 | `softRules[].operator` | `gte` / `gt` / `lte` / `lt`(화면 ≥ > ≤ <). `eq`·`ne`·문자열 연산은 소프트룰에 없음(상태 등 범주 조건은 하드룰 영역) |
-| `softRules[].threshold` | JSON number. 유한값, 유효 숫자 ≤ 15자리, 필드 `valueType=integer`면 정수. Detector 전달·저장 직렬화는 **고정소수 문자열**(지수 표기 금지, `ruleContract.ts:17` DSL 정규식 `^-?(?:0|[1-9]\d*)(?:\.\d+)?$`·40자 이내) — 변환 불가 값은 422 `soft_rule_threshold_invalid` |
+| `softRules[].threshold` | **JSON number** — GET/PUT 응답·저장 요청·이력 스냅샷(`ops_rule_set_revisions.snapshot`) 저장 형식 모두 number(스냅샷 저장 형식 = GET 응답 형식). 유한값, 유효 숫자 ≤ 15자리, 필드 `valueType=integer`면 정수. **고정소수 문자열은 hash 정규 객체 계산·Detector 전달(evidence·DSL 실행값) 때만 변환**(저장하지 않음) — 변환 규칙은 리비전 형식 절의 `threshold` 변환 규칙과 동일(지수 표기 금지, `ruleContract.ts:17` DSL 정규식 `^-?(?:0\|[1-9]\d*)(?:\.\d+)?$`·40자 이내). 저장 시 같은 규칙으로 변환 가능한지 미리 검사해 변환 불가 값은 422 `soft_rule_threshold_invalid` |
 | `softRules[].unit` | 필드 카탈로그의 단위를 서버가 채움(요청에 있으면 일치 검사, 불일치 422) |
 | `softRules[].severity` | `info`(참고) / `warning`(주의) / `critical`(위험). 위험도 축의 판정 의미는 Detector |
 | `softRules[].name` | 1~120자, 표시용. 룰 세트 안에서 유일(대소문자 구분 없이) |
@@ -136,7 +136,7 @@ Status: draft
 | `severity` ∉ {info, warning, critical} | 422 `soft_rule_severity_invalid:<…>` |
 | `name` 길이·중복 | 422 `soft_rule_name_invalid` / `soft_rule_name_duplicate` |
 | 소프트룰 수 > 32(현행 Rule 상한 `jobRoutes.ts:108`과 동일, #92와 합의) | 422 `soft_rule_limit_exceeded` |
-| 저장 결과 하드룰 전부 꺼짐 ∧ 켜진 소프트룰 0개 ∧ 활성 모델 버전 없음(탐지 방법 0개 운영) | `detection_methods_empty` — 422(#92 7.4 확정), 코드 의미는 detection-decision.md(#92) 7.4. 활성 모델 버전은 저장 트랜잭션 안에서 `ops_system_state`를 읽어 판단 |
+| 저장 결과 하드룰 전부 꺼짐 ∧ 켜진 소프트룰 0개 ∧ 활성 모델 버전 없음(탐지 방법 0개 운영) | `detection_methods_empty` — 422, 코드 이름은 #92 U10 결정 대기(의미는 detection-decision.md(#92) 7.4 저장 검증). 활성 모델 버전은 저장 트랜잭션 안에서 `ops_system_state`를 읽어 판단 |
 | `restoreFromRevision` 미존재·본문 불일치 | 422 `restore_revision_unknown` / `restore_payload_mismatch` |
 | 내용이 현재 상태와 완전히 같음(hash 동일 ∧ 이름까지 동일) | 409 `rule_set_unchanged`(리비전 증가 없음, 화면은 [저장] 비활성이 정상 경로) |
 
@@ -211,12 +211,13 @@ Status: draft
 - **구현 시험 기준값**: 위 정규 객체를 이 절의 규칙으로 직렬화한 SHA-256 = `5b15237724b48fcc4f18335a374ad7d5d8d7bcbaa7b5f851120f4d17b23dd8aa`(2026-11-02 Python 3 `json.dumps(obj, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")`로 계산·reviewer 교차 확인). API·Detector 구현은 이 값을 단위 시험으로 고정
 - 문서 다른 곳의 `3b1f…`·`9c40…`는 **형식 예시 값이며 계산값이 아님**
 - 포함: 하드룰 `{id, enabled}`(id 사전순 — `methodVersion`·`displayName`·`conditionText`·`severity`는 Detector 정의값이라 **hash 입력이 아님**; #92 4.3의 `severity` 형식(단일/`byCode`)이 바뀌어도 룰 세트 hash에 영향 없음), 소프트룰 `{id, field, operator, threshold, severity, enabled}`(id 사전순, 꺼진 룰 포함, `threshold`는 **고정소수 문자열** — number 직렬화 차이를 없애기 위함)
+- **`threshold` 변환 규칙**(hash 정규 객체·Detector 전달 공통, 저장값은 number 그대로): `Decimal(str(number))` → `format(d, "f")`(지수 표기 금지) → 후행 0·소수점 제거(`8000.0`→`"8000"`, `0.0100`→`"0.01"`), `valueType=integer` 필드는 소수점 없음, 음수 부호 허용, 결과 40자 이내·DSL 정규식 통과. 같은 number는 항상 같은 문자열이 되어야 함(API·Detector 단위 시험 공유)
 - 제외: `name`, `unit`(필드에서 파생), 감사 필드(`savedAt`·`savedBy`·`note`·`restoredFromRevision`·`createdAtRevision`), `catalogVersion`. 이름만 바꾼 저장은 리비전은 늘지만 hash는 같음 → "판정 의미가 같은 룰"임을 hash로 알 수 있음 [제안]
 - 되돌리기로 만든 리비전은 출처 리비전과 hash가 같음. 같은 hash라도 리비전이 다르면 다른 저장 사건
 
 ## 저장소 요구사항(PostgreSQL 세션 구현, 이름은 가칭)
 
-- `ops_rule_set_revisions`(가칭): `revision bigint PK, content_hash text, snapshot jsonb(hardRules·softRules 전체), changes jsonb, summary jsonb, note text|null, restored_from_revision bigint|null, saved_by_actor_id text, saved_at timestamptz`. **append-only + UPDATE/DELETE 금지 트리거**(003/004의 `erd_v03_immutable`·`prevent_pipeline_immutable_mutation` 방식). r0 행은 마이그레이션이 시스템 기본값으로 삽입
+- `ops_rule_set_revisions`(가칭): `revision bigint PK, content_hash text, snapshot jsonb(hardRules·softRules 전체, `GET /api/rule-set` 응답과 같은 형식 — `threshold`는 number), changes jsonb, summary jsonb, note text|null, restored_from_revision bigint|null, saved_by_actor_id text, saved_at timestamptz`. **append-only + UPDATE/DELETE 금지 트리거**(003/004의 `erd_v03_immutable`·`prevent_pipeline_immutable_mutation` 방식). r0 행은 마이그레이션이 시스템 기본값으로 삽입
 - 현재 상태 = 최대 `revision` 행. 저장은 `SELECT … FOR UPDATE`(또는 advisory lock)로 현재 리비전을 잠근 뒤 `expectedRevision` 비교 → INSERT revision+1 → 같은 트랜잭션에서 Detector 통지(방식은 Detector/DB: `ops_system_state.revision`과 별개 카운터, 또는 NOTIFY) — 운영 룰이 "바뀌었다"는 사실과 새 리비전 행이 한 트랜잭션에서 확정
 - 소프트룰 id 생성은 서버(API) 책임, 유일성은 스냅샷 안에서만 검사하면 충분(삭제된 id 재사용 금지는 hex 난수로 사실상 보장)
 - 판정 행의 룰 리비전 기록 열·인덱스는 Detector·DB(evidence v4) 범위

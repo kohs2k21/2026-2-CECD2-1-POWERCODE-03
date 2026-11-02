@@ -59,9 +59,10 @@ Status: draft
   "catalogVersion": "method-catalog-v2",
   "counts": {"hardEnabled": 2, "hardTotal": 2, "softEnabled": 1, "softTotal": 2},
   "hardRules": [
-    {"id": "hard:process-status", "displayName": "상태가 S가 아님", "conditionText": "STATUS ≠ S", "methodVersion": "process-status-hr-v1",
-     "severity": "critical", "enabled": true, "editable": ["enabled"]},
-    {"id": "hard:negative-duration", "displayName": "시작 시각이 종료 시각보다 늦음", "conditionText": "START_TIME > END_TIME",
+    {"id": "hard:process-status", "methodVersion": "process-status-hr-v1", "displayName": "상태가 S가 아님", "conditionText": "STATUS ≠ S",
+     "severity": {"byCode": {"PROCESS_STATUS_F": "critical", "PROCESS_STATUS_P": "warning", "PROCESS_STATUS_N": "warning"}},
+     "enabled": true, "editable": ["enabled"]},
+    {"id": "hard:negative-duration", "methodVersion": "negative-duration-v1", "displayName": "시작 시각이 종료 시각보다 늦음", "conditionText": "START_TIME > END_TIME",
      "severity": "critical", "enabled": true, "editable": ["enabled"]}
   ],
   "softRules": [
@@ -81,7 +82,7 @@ Status: draft
 | `contentHash`·`contentHashVersion` | 아래 리비전 형식 절 |
 | `savedBy` | 저장한 관리자(JSON 계정 ID, FK 아님 — `rules.md` 규약과 동일) |
 | `restoredFromRevision` | 되돌리기로 만든 리비전이면 출처 리비전, 아니면 null |
-| `hardRules[]` | Detector 내장 목록 전체를 **항상 전부** 포함(꺼진 것 포함). `displayName`·`conditionText`·`severity`는 Detector 정의값의 읽기 전용 투영, `editable`은 항상 `["enabled"]`. **하드룰 위험도는 detection-decision.md(#92) 정의를 따르며 읽기 전용** — 예: `hard:process-status`는 #92 U2(결정 대기)에서 상태별 분기(F=critical, P·N=warning)로 제안되어 단일 값이 아닐 수 있음. 이 문서 예시의 `"severity": "critical"`은 **참고값**이며 실제 응답 형식(단일 값 또는 `byCode` 객체)·필드명은 **#92 4.3 확정 대기**(확정 후 Detector가 재통보) |
+| `hardRules[]` | Detector 내장 목록 전체를 **항상 전부** 포함(꺼진 것 포함). 항목 = `{id, methodVersion, displayName, conditionText, severity, enabled}` + 이 API의 `editable`(항상 `["enabled"]`) — **#92 4.3/D13 기준**(4차 검토 중). `displayName`·`conditionText`는 화면용 한글(Detector 정의, #94는 읽기 전용 표시만). **`severity`(읽기 전용)**: 단일 문자열 `"critical"|"warning"|"info"` **또는** `{"byCode": {"<결과 코드>": "<단계>"}}` — `byCode`의 키는 그 규칙이 낼 수 있는 결과 코드 전부(결과 코드 규칙 `"PROCESS_STATUS_" + status`, `status_rule.py:22`). 예시 `hard:process-status`는 U2 추천안 `{"byCode": {"PROCESS_STATUS_F": "critical", "PROCESS_STATUS_P": "warning", "PROCESS_STATUS_N": "warning"}}`(U2에서 '모두 위험' 선택 시 단일 `"critical"`), `hard:negative-duration`은 `"critical"`·`methodVersion: negative-duration-v1`(U3 채택 시). 화면은 `byCode`를 "F 위험 · P/N 주의"처럼 코드별로 표시 |
 | `softRules[]` | 저장된 소프트룰 전체(꺼진 것 포함). 순서 = `id` 사전순(실행 순서 의미 없음 — 조합은 Detector 정책) |
 | `softRules[].field` | 카탈로그 `softRuleFields[].fieldId`(`method-catalog.md`). 생성 후 불변 |
 | `softRules[].operator` | `gte` / `gt` / `lte` / `lt`(화면 ≥ > ≤ <). `eq`·`ne`·문자열 연산은 소프트룰에 없음(상태 등 범주 조건은 하드룰 영역) |
@@ -135,7 +136,7 @@ Status: draft
 | `severity` ∉ {info, warning, critical} | 422 `soft_rule_severity_invalid:<…>` |
 | `name` 길이·중복 | 422 `soft_rule_name_invalid` / `soft_rule_name_duplicate` |
 | 소프트룰 수 > 32(현행 Rule 상한 `jobRoutes.ts:108`과 동일, #92와 합의) | 422 `soft_rule_limit_exceeded` |
-| 저장 결과 하드룰 전부 꺼짐 ∧ 켜진 소프트룰 0개 ∧ 활성 모델 버전 없음(탐지 방법 0개 운영) | `detection_methods_empty` — 코드·HTTP 상태는 detection-decision.md(#92) 7.4 정의를 따름(422 추정, #92 7.4 참조). 활성 모델 버전은 저장 트랜잭션 안에서 `ops_system_state`를 읽어 판단 |
+| 저장 결과 하드룰 전부 꺼짐 ∧ 켜진 소프트룰 0개 ∧ 활성 모델 버전 없음(탐지 방법 0개 운영) | `detection_methods_empty` — 422(#92 7.4 확정), 코드 의미는 detection-decision.md(#92) 7.4. 활성 모델 버전은 저장 트랜잭션 안에서 `ops_system_state`를 읽어 판단 |
 | `restoreFromRevision` 미존재·본문 불일치 | 422 `restore_revision_unknown` / `restore_payload_mismatch` |
 | 내용이 현재 상태와 완전히 같음(hash 동일 ∧ 이름까지 동일) | 409 `rule_set_unchanged`(리비전 증가 없음, 화면은 [저장] 비활성이 정상 경로) |
 
@@ -209,7 +210,7 @@ Status: draft
 - 위 예시의 키 표시 순서는 읽기용이며 실제 직렬화는 `sort_keys=True`로 모든 객체의 키를 정렬함(배열 순서만 id 사전순으로 서버가 정렬)
 - **구현 시험 기준값**: 위 정규 객체를 이 절의 규칙으로 직렬화한 SHA-256 = `5b15237724b48fcc4f18335a374ad7d5d8d7bcbaa7b5f851120f4d17b23dd8aa`(2026-11-02 Python 3 `json.dumps(obj, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")`로 계산·reviewer 교차 확인). API·Detector 구현은 이 값을 단위 시험으로 고정
 - 문서 다른 곳의 `3b1f…`·`9c40…`는 **형식 예시 값이며 계산값이 아님**
-- 포함: 하드룰 `{id, enabled}`(id 사전순), 소프트룰 `{id, field, operator, threshold, severity, enabled}`(id 사전순, 꺼진 룰 포함, `threshold`는 **고정소수 문자열** — number 직렬화 차이를 없애기 위함)
+- 포함: 하드룰 `{id, enabled}`(id 사전순 — `methodVersion`·`displayName`·`conditionText`·`severity`는 Detector 정의값이라 **hash 입력이 아님**; #92 4.3의 `severity` 형식(단일/`byCode`)이 바뀌어도 룰 세트 hash에 영향 없음), 소프트룰 `{id, field, operator, threshold, severity, enabled}`(id 사전순, 꺼진 룰 포함, `threshold`는 **고정소수 문자열** — number 직렬화 차이를 없애기 위함)
 - 제외: `name`, `unit`(필드에서 파생), 감사 필드(`savedAt`·`savedBy`·`note`·`restoredFromRevision`·`createdAtRevision`), `catalogVersion`. 이름만 바꾼 저장은 리비전은 늘지만 hash는 같음 → "판정 의미가 같은 룰"임을 hash로 알 수 있음 [제안]
 - 되돌리기로 만든 리비전은 출처 리비전과 hash가 같음. 같은 hash라도 리비전이 다르면 다른 저장 사건
 

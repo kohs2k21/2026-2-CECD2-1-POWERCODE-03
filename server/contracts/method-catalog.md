@@ -181,7 +181,8 @@ Status: draft
 }
 ```
 
-- `hardRules.contractVersion: "detection-decision-v1"`은 Detector 11/02 회신으로 **확정**. 하드룰 예시 id `hard:process-status`(`process-status-hr-v1`)·`hard:negative-duration`(kebab-case)도 Detector 회신값
+- `hardRules.contractVersion: "detection-decision-v1"`은 Detector 11/02 회신으로 **확정**. 하드룰 예시 id `hard:process-status`(`process-status-hr-v1`)·`hard:negative-duration`(`negative-duration-v1`, kebab-case)도 Detector 회신값
+- 하드룰 **항목 형식**은 카탈로그 JSON에 없음(목록 정의 주체 = Detector). 화면·API가 쓰는 항목 형식 `{id, methodVersion, displayName, conditionText, severity, enabled}`·`severity`(단일 문자열 또는 `{"byCode": {...}}`, #92 4.3 기준)는 [rule-set.md](rule-set.md) `hardRules[]` 행과 동일하며 이 schema에는 항목 정의를 추가하지 않음(`hardRules.displayName`은 대분류 표시명 "이상 규칙"일 뿐 항목 이름이 아님)
 - `softRule.instanceIdPattern`의 fieldId 부분은 `[a-z0-9_]{1,53}`(카탈로그 `fieldId` 패턴과 동일, 하이픈 없음) — 식별자 key 전체(`<fieldId>-<8 hex>`)는 `^[a-z][a-z0-9_-]{1,63}$` 안에 들어감
 
 ## 검증·시험(구현 Issue)

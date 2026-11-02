@@ -1,5 +1,5 @@
 Created: 2026-11-02T18:00:00+09:00
-Updated: 2026-11-02T18:00:00+09:00
+Updated: 2026-11-02T20:00:00+09:00
 Author: Claude Code (Trainer 세션 builder)
 Status: draft
 
@@ -8,7 +8,8 @@ Status: draft
 - 변경 요약(#94): 기존 [detection-config-version.md](detection-config-version.md)(HR·SR·ML 묶음 구성 버전, #74)를 **룰 세트(이 문서) / 모델 버전([model-version.md](model-version.md))** 두 계약으로 분리. 룰은 버전 관리 없이 저장 즉시 운영 적용·리비전 증가, 버전·교체·복원·비교는 모델 버전에만
 - 계약 버전: `rule-set-v1`. 근거 결정: 사용자 11/02 결정(룰 설정 버전 없음·저장 즉시 적용, 룰 수정 범위 R1~R5, AI 임계값 추천 화면 설계)·Trainer·Detector 분담 합의 11/02. 절 번호(6·8.2·9)는 총괄 기록 기준. 근거 코드 origin/dev `7f24e03`
 - 범위: 하드룰 켜기/끄기 + 소프트룰(등록 필드·조건·임계값·위험도) 한 벌의 현재 상태·저장·변경 요약·변경 이력·되돌리기·동시 편집·식별자·리비전 형식
-- 제외(Detector 소유, detection-decision.md(#92)): 하드룰 내장 목록(id·조건·위험도), 소프트룰 실행 의미론(평가 시점·결측 처리), 종합 판정 `detectionPolicy` v2 `k:{hard,soft,ml}`, 이상/이상 징후 등급, evidence v4(판정마다 기록하는 룰 리비전 필드명). 소프트룰 등록 필드 목록은 [method-catalog.md](method-catalog.md) `softRuleFields[]`
+- 2차 개정(사용자 11/02 9.4): 되돌리기 버튼은 **모든 이력 항목에 항상 표시**(변경 크기 기준 없음); 되돌리기 검증 분기 정정(삭제된 소프트룰이 든 스냅샷으로 되돌리기 허용, WebUI 11/02 대조); 이상 규칙의 END_TIME 누락 제외(소프트룰 `elapsed_ms` null = 평가 안 함) 연결; 활성 모델 "집합" 용어([model-version.md](model-version.md) 추천 전환)
+- 제외(Detector 소유, detection-decision.md(#92)): 하드룰 내장 목록(id·조건·위험도), 소프트룰 실행 의미론(평가 시점·결측 처리), 종합 판정 `detectionPolicy` v2 `k:{hard,soft,ml}`의 의미(저장 위치는 운영 설정 전역 값 — [model-version.md](model-version.md) 운영 설정 절), 이상/이상 징후 등급, evidence v4(판정마다 기록하는 룰 리비전 필드명). 소프트룰 등록 필드 목록은 [method-catalog.md](method-catalog.md) `softRuleFields[]`
 - 표기: **[확정]** 사용자 확정(11/02) 또는 코드 사실 / **[제안]** 이 초안이 정한 값(결정 질문은 문서 끝)
 
 ## 용어 [확정 11/02, WebUI 경유]
@@ -24,13 +25,13 @@ Status: draft
 ## 원칙 [확정 11/02]
 
 - **버전 없음, 저장 즉시 적용**: 화면은 현재 운영 중인 룰 상태를 보여 주고 [저장]을 누르면 즉시 운영에 적용. 룰 세트 버전 목록·교체·복원·비교 평가 없음
-- **리비전**: 저장마다 정수 리비전 단조 증가(r0 = 시스템 기본값). 되돌리기 = 과거 스냅샷을 **새 저장으로 재적용**(새 리비전, 예 r10 상태로 → r14). 리비전마다 **룰 전체 스냅샷**을 이력에 저장(되돌리기·evidence 추적의 전제)
-- **적용 시점**: "저장 이후 새 판정부터 적용". 진행 중 판정은 시작 시점 룰 고정, 판정마다 그 시점 룰 리비전(정수 + 내용 hash)을 evidence에 기록 — Detector 조건(필드명은 detection-decision.md(#92))
+- **리비전**: 저장마다 정수 리비전 단조 증가(r0 = 시스템 기본값). 되돌리기 = 과거 스냅샷을 **새 저장으로 재적용**(새 리비전, 예 r10 상태로 → r14). 리비전마다 **룰 전체 스냅샷**을 이력에 저장(되돌리기·evidence 추적의 전제). [이 상태로 되돌리기]는 **과거 기록마다 항상 표시**(변경 크기 기준 없음) [확정 11/02 9.4]
+- **적용 시점**: "저장 이후 새 판정부터 적용". 진행 중 판정은 시작 시점 룰 고정, 판정마다 그 시점 룰 리비전(정수 + 내용 hash)을 evidence에 기록 — Detector 조건(필드명은 detection-decision.md(#92)). Detector는 시도 시작 시 (룰 세트 `revision`·`contentHash`, 활성 모델 집합 `revision`, 운영 설정 `detectionPolicy` `revision`) 세 가지를 운영 상태 조회 응답 한 건으로 함께 읽음([model-version.md](model-version.md) 활성 집합 절 일관 읽기)
 - **하드룰**: 시스템 내장 목록(Detector 정의)만, 켜기/끄기만 가능. 조건·위험도 읽기 전용. 끄기는 경고 + 클라이언트 확인 플래그 필수(R1)
 - **소프트룰**: 등록 필드 목록에서 고르고 조건·임계값·위험도·이름 입력. 추가·수정·삭제 가능. **대상 필드 변경 불가**(삭제 후 새로 추가, R2). 위험도 참고·주의·위험 모두 선택 가능(R4)
 - **실패 시 이전 룰 유지**: 저장이 어떤 단계에서 실패해도 운영 룰·리비전은 바뀌지 않음(트랜잭션 1개)
 - **동시 편집**: 요청 `expectedRevision` ≠ 현재 리비전이면 409 거절, 화면은 새로 불러오기 안내
-- 단일 룰 세트 [제안]: `ops_system_state`가 단일 행(id=1, `002_core_erd.sql:200-206`)이고 활성 모델 버전도 1개이므로 룰 세트도 시스템 전역 1개. source별 분리는 결정 질문 Q-R1
+- 단일 룰 세트 [제안]: `ops_system_state`가 단일 행(id=1, `002_core_erd.sql:200-206`)이고 활성 모델 집합·운영 설정도 시스템 전역 1개이므로 룰 세트도 시스템 전역 1개. source별 분리는 결정 질문 Q-R1
 
 ## 식별자 [합의 11/02 — 사용자 확인 필요 (a)]
 
@@ -82,9 +83,9 @@ Status: draft
 | `contentHash`·`contentHashVersion` | 아래 리비전 형식 절 |
 | `savedBy` | 저장한 관리자(JSON 계정 ID, FK 아님 — `rules.md` 규약과 동일) |
 | `restoredFromRevision` | 되돌리기로 만든 리비전이면 출처 리비전, 아니면 null |
-| `hardRules[]` | Detector 내장 목록 전체를 **항상 전부** 포함(꺼진 것 포함). 항목 = `{id, methodVersion, displayName, conditionText, severity, enabled}` + 이 API의 `editable`(항상 `["enabled"]`) — **#92 4.3/D13 기준**(4차 검토 중). `displayName`·`conditionText`는 화면용 한글(Detector 정의, #94는 읽기 전용 표시만). **`severity`(읽기 전용)**: 단일 문자열 `"critical"|"warning"|"info"` **또는** `{"byCode": {"<결과 코드>": "<단계>"}}` — `byCode`의 키는 그 규칙이 낼 수 있는 결과 코드 전부(결과 코드 규칙 `"PROCESS_STATUS_" + status`, `status_rule.py:22`). 예시 `hard:process-status`는 U2 추천안 `{"byCode": {"PROCESS_STATUS_F": "critical", "PROCESS_STATUS_P": "warning", "PROCESS_STATUS_N": "warning"}}`(U2에서 '모두 위험'을 고르면 단일 `"critical"`이 되고 **`methodVersion`도 새로 바뀜** — `process-status-hr-v1`은 P·N=warning 의미로 고정), `hard:negative-duration`은 `"critical"`·`methodVersion: negative-duration-v1`(U3 채택 시). 화면은 `byCode`를 "F 위험 · P/N 주의"처럼 코드별로 표시 |
+| `hardRules[]` | Detector 내장 목록 전체를 **항상 전부** 포함(꺼진 것 포함). 항목 = `{id, methodVersion, displayName, conditionText, severity, enabled}` + 이 API의 `editable`(항상 `["enabled"]`) — **#92 4.3/D13 기준**. `displayName`·`conditionText`는 화면용 한글(Detector 정의, #94는 읽기 전용 표시만). **END_TIME 누락은 이상 아님**(사용자 11/02 9.4 — END_TIME이 찍히지 않는 정상 트랜잭션 유형 존재): `hard:negative-duration`은 END_TIME이 있을 때만 판단하고 없으면 결과 `not_applicable`(정상, reason `end_time_absent`); 하드룰 결과 값은 `hit`/`no_hit`/`unavailable`/`not_applicable`(Detector #92 11/02). 화면 조건 설명("종료 시각이 없으면 판단하지 않음")은 Detector `conditionText`가 담음. **`severity`(읽기 전용)**: 단일 문자열 `"critical"|"warning"|"info"` **또는** `{"byCode": {"<결과 코드>": "<단계>"}}` — `byCode`의 키는 그 규칙이 낼 수 있는 결과 코드 전부(결과 코드 규칙 `"PROCESS_STATUS_" + status`, `status_rule.py:22`). 예시 `hard:process-status`는 U2 추천안 `{"byCode": {"PROCESS_STATUS_F": "critical", "PROCESS_STATUS_P": "warning", "PROCESS_STATUS_N": "warning"}}`(U2에서 '모두 위험'을 고르면 단일 `"critical"`이 되고 **`methodVersion`도 새로 바뀜** — `process-status-hr-v1`은 P·N=warning 의미로 고정), `hard:negative-duration`은 `"critical"`·`methodVersion: negative-duration-v1`(U3 채택 시). 화면은 `byCode`를 "F 위험 · P/N 주의"처럼 코드별로 표시 |
 | `softRules[]` | 저장된 소프트룰 전체(꺼진 것 포함). 순서 = `id` 사전순(실행 순서 의미 없음 — 조합은 Detector 정책) |
-| `softRules[].field` | 카탈로그 `softRuleFields[].fieldId`(`method-catalog.md`). 생성 후 불변 |
+| `softRules[].field` | 카탈로그 `softRuleFields[].fieldId`(`method-catalog.md`). 생성 후 불변. **필드 값이 null이면 그 룰은 그 행을 평가하지 않음(이상 징후 아님)** — 예 `elapsed_ms`는 END_TIME 누락 시 null(카탈로그 `sourceMissingPolicy`), 하드룰 `hard:negative-duration`의 `not_applicable`과 같은 취지("END_TIME 없음 = 이상 아님", 사용자 11/02 9.4). 값 계산 불가(START_TIME 누락·시각 해석 불가)는 `unavailable`(미판정). 평가 의미론 자체는 detection-decision.md(#92) |
 | `softRules[].operator` | `gte` / `gt` / `lte` / `lt`(화면 ≥ > ≤ <). `eq`·`ne`·문자열 연산은 소프트룰에 없음(상태 등 범주 조건은 하드룰 영역) |
 | `softRules[].threshold` | **JSON number** — GET/PUT 응답·저장 요청·이력 스냅샷(`ops_rule_set_revisions.snapshot`) 저장 형식 모두 number(스냅샷 저장 형식 = GET 응답 형식). 유한값, 유효 숫자 ≤ 15자리, 필드 `valueType=integer`면 정수. **고정소수 문자열은 hash 정규 객체 계산·Detector 전달(evidence·DSL 실행값) 때만 변환**(저장하지 않음) — 변환 규칙은 리비전 형식 절의 `threshold` 변환 규칙과 동일(지수 표기 금지, `ruleContract.ts:17` DSL 정규식 `^-?(?:0\|[1-9]\d*)(?:\.\d+)?$`·40자 이내). 저장 시 같은 규칙으로 변환 가능한지 미리 검사해 변환 불가 값은 422 `soft_rule_threshold_invalid` |
 | `softRules[].unit` | 필드 카탈로그의 단위를 서버가 채움(요청에 있으면 일치 검사, 불일치 422) |
@@ -119,16 +120,17 @@ Status: draft
 - `softRules[]`에 없는 기존 id = 삭제. `id: null` = 추가(`clientRef` 1~40자 필수, 본문 안 유일). 기존 id는 `field`가 저장값과 같아야 함(다르면 422 `soft_rule_field_immutable`)
 - `hardRules[]`는 Detector 내장 목록 전체를 포함해야 함(누락 422 `hard_rule_missing:<id>`, 미지 id 422 `hard_rule_unknown:<id>`)
 - `confirmHardRuleDisable`: **이번 저장에서 새로 꺼지는 이상 규칙(하드룰)이 1개 이상이면** `true` 필수, 아니면 422 `hard_rule_disable_confirmation_required` [제안 — R1 "끄기 허용(경고+확인)"의 범위를 '새로 끄는 행위'로 한정, Q-R5]. 이미 꺼져 있던 규칙을 그대로 두는 저장은 플래그 불필요(확인창에는 계속 강조 표시). 화면: 행 경고 "변경을 권장하지 않습니다 — 명백한 이상을 놓칠 수 있습니다" + 확인창에서 꺼진 이상 규칙 강조 + 확인 체크 [확정 R1]
-- `restoreFromRevision`: 되돌리기 표시용. 값이 있으면 본문은 그 리비전 스냅샷과 **같아야 함**(다르면 422 `restore_payload_mismatch`; 화면은 `GET /api/rule-set/history/:revision` 스냅샷을 그대로 보냄). 되돌리기도 일반 저장과 같은 확인창·즉시 적용·실패 시 이전 룰 유지 [확정 R3]
+- `restoreFromRevision`: 되돌리기 표시용. 값이 있으면 본문은 그 리비전 스냅샷과 **같아야 함**(다르면 422 `restore_payload_mismatch`; 화면은 `GET /api/rule-set/history/:revision` 스냅샷을 그대로 보냄). 되돌리기도 일반 저장과 같은 확인창·즉시 적용·실패 시 이전 룰 유지 [확정 R3]. **되돌리기 분기**(WebUI 11/02 대조 — 아래 두 예외가 없으면 삭제된 규칙이 든 과거 스냅샷으로는 항상 422가 되는 모순): (1) 스냅샷에 있고 현재 상태에 없는 소프트룰 id(그 사이 삭제된 것)는 **같은 id로 재생성 허용** — `soft_rule_unknown` 예외, `field`·`operator`·`threshold`·`severity`·`name`·`enabled`는 스냅샷 원본 그대로(`createdAtRevision`은 원래 값 유지, `updatedAtRevision`은 새 리비전), `changes[]`에는 `soft_added`(+`restored: true`) (2) 스냅샷 이후 **새로 생긴 내장 하드룰**은 본문에 없어도 됨 — `hard_rule_missing` 미적용; **본문 값 우선**: 클라이언트가 그 id를 본문에 포함하면(`enabled: false` 포함) 그 값을 쓰고 `changes[]`에 일반 저장처럼 기록(끄면 `confirmHardRuleDisable` 필요), 미포함이면 서버가 **기본값 켬**으로 채우고 `changes[]`에 넣지 않음. `restore_payload_mismatch` 비교 대상은 **소프트룰 전체 + 스냅샷에 있는 하드룰의 `enabled`**뿐(새로 생긴 하드룰은 비교 제외). 스냅샷에 있으나 Detector 목록에서 사라진 하드룰 id는 422 `hard_rule_unknown` 그대로 — 되돌릴 수 없는 리비전은 화면이 사유 표시. 그 외 검사(이름 중복·상한·확인 플래그·`detection_methods_empty`)는 되돌리기에도 동일
 - 검증 순서(첫 실패에서 중단, 운영 룰 불변)
 
 | 검사 | 오류 |
 |---|---|
 | 본문 키 집합·타입, `expectedRevision` 정수 ≥ 0 | 400 `invalid_rule_set_request` |
 | `expectedRevision` ≠ 현재 리비전 | 409 `rule_set_revision_conflict` + `{currentRevision, savedAt, savedBy}` |
-| 하드룰 목록 누락·미지 id·중복 | 422 `hard_rule_missing:<id>` / `hard_rule_unknown:<id>` / `hard_rule_duplicate:<id>` |
+| **되돌리기 분기**: `restoreFromRevision` 미존재 → 422 `restore_revision_unknown`; 본문 ≠ 스냅샷(소프트룰 전체 + 스냅샷에 있는 하드룰의 `enabled`) → 422 `restore_payload_mismatch`. 통과하면 아래 하드룰 누락·`soft_rule_unknown` 검사에 위 두 예외 적용 | 422 `restore_revision_unknown` / `restore_payload_mismatch` |
+| 하드룰 목록 누락·미지 id·중복 | 422 `hard_rule_missing:<id>`(되돌리기에서는 스냅샷 이후 추가된 id에 한해 면제) / `hard_rule_unknown:<id>` / `hard_rule_duplicate:<id>` |
 | 이번 저장에서 새로 꺼지는 하드룰 있음 ∧ `confirmHardRuleDisable≠true` | 422 `hard_rule_disable_confirmation_required` |
-| 소프트룰 id 미존재(삭제된 것 포함)·중복·`clientRef` 중복 | 422 `soft_rule_unknown:<id>` / `soft_rule_duplicate:<id>` / `soft_rule_client_ref_duplicate` |
+| 소프트룰 id 미존재(삭제된 것 포함)·중복·`clientRef` 중복 | 422 `soft_rule_unknown:<id>`(되돌리기에서는 스냅샷에 있는 id 면제) / `soft_rule_duplicate:<id>` / `soft_rule_client_ref_duplicate` |
 | `field`가 카탈로그에 없음·`status≠supported` | 422 `soft_rule_field_unknown:<field>` |
 | 기존 룰의 `field` 변경 | 422 `soft_rule_field_immutable:<id>` |
 | `operator` ∉ 필드 허용 연산 | 422 `soft_rule_operator_invalid:<id or clientRef>` |
@@ -136,8 +138,7 @@ Status: draft
 | `severity` ∉ {info, warning, critical} | 422 `soft_rule_severity_invalid:<…>` |
 | `name` 길이·중복 | 422 `soft_rule_name_invalid` / `soft_rule_name_duplicate` |
 | 소프트룰 수 > 32(현행 Rule 상한 `jobRoutes.ts:108`과 동일, #92와 합의) | 422 `soft_rule_limit_exceeded` |
-| 저장 결과 하드룰 전부 꺼짐 ∧ 켜진 소프트룰 0개 ∧ 활성 모델 버전 없음(탐지 방법 0개 운영) | `detection_methods_empty` — 422, 코드 이름은 #92 U10 결정 대기(의미는 detection-decision.md(#92) 7.4 저장 검증). 활성 모델 버전은 저장 트랜잭션 안에서 `ops_system_state`를 읽어 판단 |
-| `restoreFromRevision` 미존재·본문 불일치 | 422 `restore_revision_unknown` / `restore_payload_mismatch` |
+| 저장 **결과** 상태가 켜진 하드룰 0 + 켜진 소프트룰 0 + 활성 모델 0(탐지 방법 0개 운영) | `detection_methods_empty` — 422 [확정 Detector 11/02 Q-M7]: **그 상태를 만드는 모든 변경**(이 저장·활성 집합의 `retire`/`replace`/`restore`)에 같은 정의·같은 코드([model-version.md](model-version.md) 활성 집합 절 공통 검사). 코드 이름은 #92 U10(의미는 detection-decision.md(#92) 7.4 저장 검증). 활성 모델 집합은 저장 트랜잭션 안에서 운영 상태를 읽어 판단 |
 | 내용이 현재 상태와 완전히 같음(hash 동일 ∧ 이름까지 동일) | 409 `rule_set_unchanged`(리비전 증가 없음, 화면은 [저장] 비활성이 정상 경로) |
 
 - 성공 응답 `200`
@@ -189,7 +190,7 @@ Status: draft
 ```
 
 - `GET /api/rule-set/history/:revision`: 위 항목 + `snapshot`(그 리비전의 `hardRules[]`·`softRules[]` 전체, `GET /api/rule-set`와 같은 형식) — 되돌리기 본문의 출처. r0 포함
-- 이력은 **삭제·수정 없음**(append-only). 화면 하단 읽기 전용 목록 + 항목별 [이 상태로 되돌리기](→ 저장 흐름) [확정 R3]
+- 이력은 **삭제·수정 없음**(append-only). 화면 하단 읽기 전용 목록 + **모든 항목에 [이 상태로 되돌리기] 항상 표시**(변경 크기·최근 여부 기준 없음, r0 포함; → 저장 흐름) [확정 R3·11/02 9.4]. 되돌릴 수 없는 리비전(스냅샷의 하드룰 id가 현재 Detector 목록에 없음)은 버튼은 두되 저장 시 422 `hard_rule_unknown` 사유를 표시
 
 ## 리비전 형식 — 정수 리비전 + 내용 hash [합의 11/02 — 사용자 확인 필요 (b)]
 
@@ -213,7 +214,7 @@ Status: draft
 - 포함: 하드룰 `{id, enabled}`(id 사전순 — `methodVersion`·`displayName`·`conditionText`·`severity`는 Detector 정의값이라 **hash 입력이 아님**; #92 4.3의 `severity` 형식(단일/`byCode`)이 바뀌어도 룰 세트 hash에 영향 없음), 소프트룰 `{id, field, operator, threshold, severity, enabled}`(id 사전순, 꺼진 룰 포함, `threshold`는 **고정소수 문자열** — number 직렬화 차이를 없애기 위함)
 - **`threshold` 변환 규칙**(hash 정규 객체·Detector 전달 공통, 저장값은 number 그대로): `Decimal(str(number))` → `format(d, "f")`(지수 표기 금지) → 후행 0·소수점 제거(`8000.0`→`"8000"`, `0.0100`→`"0.01"`), `valueType=integer` 필드는 소수점 없음, 음수 부호 허용, 결과 40자 이내·DSL 정규식 통과. 같은 number는 항상 같은 문자열이 되어야 함(API·Detector 단위 시험 공유)
 - 제외: `name`, `unit`(필드에서 파생), 감사 필드(`savedAt`·`savedBy`·`note`·`restoredFromRevision`·`createdAtRevision`), `catalogVersion`. 이름만 바꾼 저장은 리비전은 늘지만 hash는 같음 → "판정 의미가 같은 룰"임을 hash로 알 수 있음 [제안]
-- 되돌리기로 만든 리비전은 출처 리비전과 hash가 같음. 같은 hash라도 리비전이 다르면 다른 저장 사건
+- 되돌리기로 만든 리비전은 출처 리비전과 hash가 같음(스냅샷 이후 추가된 내장 하드룰이 기본값 켬으로 채워진 경우는 예외 — 그 id가 hash 입력에 더해짐). 같은 hash라도 리비전이 다르면 다른 저장 사건
 
 ## 저장소 요구사항(PostgreSQL 세션 구현, 이름은 가칭)
 

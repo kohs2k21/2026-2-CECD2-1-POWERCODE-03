@@ -1,11 +1,12 @@
 Created: 2026-10-21T00:00:00+09:00
-Updated: 2026-11-02T18:00:00+09:00
+Updated: 2026-11-02T20:00:00+09:00
 Author: Claude Code (Trainer 세션 builder)
 Status: draft
 
 # 방법 카탈로그 계약 v2 (초안, Issue #94)
 
 - 변경 요약(#94): 대분류를 **hard / soft / ml**로 재편(사용자 11/02). 통계 SR R00~R23 **전부 삭제**·`sr:*` 폐기(호환 표만), PROCESS SR 프로토타입(#75) 미등재 유지, HR 연구 8종·`hr:process-status`·`rule` 템플릿은 카탈로그에서 제거(하드룰은 detection-decision.md(#92)가 정의). 신규 **소프트룰 등록 필드 목록 `softRuleFields[]`**(단위·타입·원천 식). ML 카탈로그(IF 등)는 `ml:` 접두로 유지, `displayName` 유지(10/22 승인)
+- 2차 개정(사용자 11/02 9.4·WebUI 대조): `softRuleFields[].sourceMissingPolicy`(원천 열 누락 시 `not_applicable` = 이상 아님 / `unavailable` = 미판정) 추가 — `elapsed_ms`의 END_TIME 누락은 **null → 그 룰은 평가하지 않음**(하드룰 `hard:negative-duration`의 `not_applicable`과 같은 취지); `displayPrecisionMode`(`fixed`/`significant`) 추가 — ratio는 유효숫자 4
 - 계약 버전: `method-catalog-v2`; 항목 스키마 [method-catalog.schema.json](method-catalog.schema.json)(`$id` …:v2). 근거 코드 origin/dev `7f24e03`(`worker/derived_expression.py`, `backend/src/rules/ruleContract.ts`, `worker/model_adapters.py`)
 - 상위 결정: 사용자 11/02 결정(Q4 소프트룰 = 등록 필드 + 임계값, Q5 통계 SR 제외, 8.2절 룰 수정 범위), Trainer·Detector 분담 합의 11/02(등록 필드 목록·편집 제약 = Trainer, 하드룰 목록·소프트룰 실행 의미론 = Detector). 절 번호는 총괄 기록 기준
 - 범위: ML 세부 방법의 시스템 내장 레지스트리 + 소프트룰이 고를 수 있는 **등록 필드**(시스템 정의, 사용자 등록 아님) + 식별자 체계. 룰 세트([rule-set.md](rule-set.md))·모델 버전([model-version.md](model-version.md))·임계값 추천([llm-recommendation-job.md](llm-recommendation-job.md))·WebUI가 같은 식별자를 사용
@@ -51,10 +52,11 @@ Status: draft
 | `success_count` | 성공 건수 | integer | count | column `SUCCESS_COUNT` | 〃 |
 | `error_count` | 오류 건수 | integer | count | column `ERROR_COUNT` | 〃 |
 | `retry_count` | 재시도 수 | integer | count | column `RETRY_COUNT` | 〃 |
-| `elapsed_ms` | 처리 시간 | number | ms | derived `datetime_diff(END_TIME, START_TIME, "ms")` | 시각 파싱 실패 → unavailable; 음수는 하드룰(`START_TIME > END_TIME`) 영역이라 소프트룰 값으로는 그대로 둠 |
+| `elapsed_ms` | 처리 시간 | number | ms | derived `datetime_diff(END_TIME, START_TIME, "ms")` | **END_TIME 누락 → 값 null → 소프트룰은 그 행을 평가하지 않음(이상 징후 아님)**(`sourceMissingPolicy.END_TIME = not_applicable` — END_TIME이 찍히지 않는 정상 트랜잭션 유형 존재, 사용자 11/02 9.4; 하드룰 `hard:negative-duration`이 END_TIME 없음을 `not_applicable`(정상)로 두는 것과 같은 취지). START_TIME 누락·시각 파싱 실패 → unavailable(미판정). 음수는 하드룰(`START_TIME > END_TIME`) 영역이라 소프트룰 값으로는 그대로 둠 |
 | `error_ratio` | 오류 비율 | number | ratio | derived `divide(ERROR_COUNT, TOTAL_COUNT)` | `TOTAL_COUNT = 0` → unavailable(0 나눗셈 없음) |
 
-- 공통: `operators = ["gte","gt","lte","lt"]`, `status = supported`. `displayPrecision`: count 0, ms 0, ratio 4 — 화면 반올림 자릿수(저장값은 원값)
+- 공통: `operators = ["gte","gt","lte","lt"]`, `status = supported`. `displayPrecision`: count 0, ms 0(`displayPrecisionMode: fixed`, 소수 자릿수), ratio 4(**`displayPrecisionMode: significant`, 유효숫자** — p95가 `0.00003125`처럼 작을 때 고정 소수 4자리면 `0.0000`으로 보이는 문제 방지, WebUI 11/02 대조) — 화면 표시 자릿수(저장값은 원값, 지수 표기 금지)
+- `sourceMissingPolicy`(선택, 키 = 원천 열): 그 열이 **누락**(null)일 때 값 계산 결과 — `not_applicable` = 값 null, 룰은 그 행을 **평가하지 않음(이상 징후 아님)** / `unavailable` = 미판정. 키가 없는 열·`column` 필드의 누락은 `unavailable`(기본). 파싱 실패·0 나눗셈은 누락이 아니라 계산 실패이므로 항상 `unavailable`. 평가 의미론(집계·evidence 기록)은 detection-decision.md(#92)
 - `valueType: integer`(건수 4종)는 **계약 수준 제약**: DB 열은 `numeric`(`002_core_erd.sql:65-66` `success_count numeric, error_count numeric, total_count numeric, retry_count numeric`)이라 정수가 보장되지 않음. 임계값 입력은 정수로 제한하고, 값 계산 시 비정수 관측은 그대로 비교(Decimal)하며 정수 강제 변환은 하지 않음
 - `fieldId` 길이 ≤ 54자(스키마 `{1,53}` + 첫 글자): 소프트룰 인스턴스 id `soft:<fieldId>-<8 hex>`의 key(`<fieldId>-<8 hex>`)가 식별자 key 상한 63자를 넘지 않게 하기 위함
 - 필드 추가는 카탈로그 버전 증가 + Detector 계산 경로 확인(어댑터 추가와 같은 절차). 후보(미등재): `success_ratio`, `elapsed_s`(단위 변환), `retry_ratio`
@@ -115,16 +117,17 @@ Status: draft
      "source": {"kind": "derived", "ast": {"op": "datetime_diff", "unit": "ms",
                 "args": [{"op": "column", "table": "EC_PROCESS_MONITORING", "column": "END_TIME"},
                          {"op": "column", "table": "EC_PROCESS_MONITORING", "column": "START_TIME"}]}},
-     "operators": ["gte", "gt", "lte", "lt"], "displayPrecision": 0, "status": "supported",
+     "operators": ["gte", "gt", "lte", "lt"], "displayPrecision": 0, "displayPrecisionMode": "fixed", "status": "supported",
+     "sourceMissingPolicy": {"END_TIME": "not_applicable", "START_TIME": "unavailable"},
      "sourceRef": {"path": "server/worker/derived_expression.py", "lines": "50-53, 89-94", "commit": "7f24e03"},
-     "notes": "시각 파싱 실패 시 unavailable. 음수(START_TIME > END_TIME)는 하드룰 영역"},
+     "notes": "END_TIME 누락은 값 null → 룰 평가 안 함(이상 아님, 11/02 9.4). START_TIME 누락·시각 파싱 실패 시 unavailable. 음수(START_TIME > END_TIME)는 하드룰 영역"},
     {"fieldId": "error_ratio", "displayName": "오류 비율", "description": "ERROR_COUNT / TOTAL_COUNT", "valueType": "number", "unit": "ratio",
      "source": {"kind": "derived", "ast": {"op": "divide",
                 "args": [{"op": "column", "table": "EC_PROCESS_MONITORING", "column": "ERROR_COUNT"},
                          {"op": "column", "table": "EC_PROCESS_MONITORING", "column": "TOTAL_COUNT"}]}},
-     "operators": ["gte", "gt", "lte", "lt"], "displayPrecision": 4, "status": "supported",
+     "operators": ["gte", "gt", "lte", "lt"], "displayPrecision": 4, "displayPrecisionMode": "significant", "status": "supported",
      "sourceRef": {"path": "server/worker/derived_expression.py", "lines": "101-102", "commit": "7f24e03"},
-     "notes": "TOTAL_COUNT = 0 이면 unavailable. p95가 1e-4 미만일 수 있어 고정소수 직렬화 필수"}
+     "notes": "TOTAL_COUNT = 0 이면 unavailable. p95가 1e-4 미만일 수 있어 고정소수 직렬화 필수, 표시는 유효숫자 4"}
   ],
   "methods": [
     {"methodId": "ml:iforest", "kind": "ml", "category": "ML", "displayName": "Isolation Forest", "status": "supported",
@@ -196,5 +199,6 @@ Status: draft
 
 - 확정(11/02): 대분류 hard/soft/ml, SR 삭제, 소프트룰 = 등록 필드 + 임계값, 하드룰 = Detector 내장 목록
 - 유지(10/21): Q-H IF 기본값 / Q-I `supported := executable.process` / Q-J window 표시만 / Q-K 레지스트리 + 생성 JSON / Q3-1 저장 거부 / N13 KMeans 피처셋 대응 미확정 / N18 `k` 2..64
-- 결정 질문: Q-C1 초기 필드 6종 확정 여부(후보 `success_ratio`·`elapsed_s`·`retry_ratio` 추가 여부) / Q-C2 `elapsed_ms` 음수 처리(값 그대로 vs unavailable — Detector 의미론과 함께)
+- 확정(11/02 9.4): `elapsed_ms`의 END_TIME 누락은 이상 아님(값 null, 평가 안 함) — `sourceMissingPolicy`
+- 결정 질문: Q-C1 초기 필드 6종 확정 여부(후보 `success_ratio`·`elapsed_s`·`retry_ratio` 추가 여부) / Q-C2 `elapsed_ms` 음수 처리(값 그대로 vs unavailable — Detector 의미론과 함께) / Q-C3 `displayPrecisionMode` 기본값 `fixed`·ratio만 `significant`(제안) vs 전 필드 `significant`
 - 남은 의존: 하드룰 내장 목록 전체 key·조건·위험도(detection-decision.md(#92)); 대분류 키 `hard/soft/ml`·접두는 세션 합의로 사용자 확인 전(rule-set.md Q-R7)

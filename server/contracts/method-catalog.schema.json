@@ -89,13 +89,19 @@
           ]},
         "operators": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"$ref": "#/$defs/operator"}},
         "displayPrecision": {"type": "integer", "minimum": 0, "maximum": 6},
+        "displayPrecisionMode": {"enum": ["fixed", "significant"], "default": "fixed"},
+        "sourceMissingPolicy": {"type": "object", "additionalProperties": false,
+          "propertyNames": {"$ref": "#/$defs/sourceColumn"},
+          "patternProperties": {"^[A-Z_]+$": {"enum": ["not_applicable", "unavailable"]}}},
         "status": {"$ref": "#/$defs/status"},
         "sourceRef": {"$ref": "#/$defs/sourceRef"},
         "notes": {"type": "string", "maxLength": 2000}
       },
       "allOf": [
         {"if": {"properties": {"valueType": {"const": "integer"}}},
-         "then": {"properties": {"displayPrecision": {"const": 0}}}}
+         "then": {"properties": {"displayPrecision": {"const": 0}, "displayPrecisionMode": {"const": "fixed"}}}},
+        {"if": {"properties": {"displayPrecisionMode": {"const": "significant"}}, "required": ["displayPrecisionMode"]},
+         "then": {"properties": {"displayPrecision": {"minimum": 1}}}}
       ]
     },
     "sourceRef": {"type": "object", "additionalProperties": false, "required": ["path", "commit"],

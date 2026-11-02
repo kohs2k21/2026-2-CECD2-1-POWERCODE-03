@@ -1,11 +1,12 @@
 Created: 2026-10-21T00:00:00+09:00
-Updated: 2026-11-02T18:00:00+09:00
+Updated: 2026-11-02T20:00:00+09:00
 Author: Claude Code (Trainer 세션 builder)
 Status: draft
 
 # 소프트룰 임계값 추천 계약 v1 (초안, Issue #94 — #74 `method-recommendation-v1` 개정)
 
 - 변경 요약(#94): LLM 추천을 **소프트룰(화면 용어: 이상 징후 규칙) 임계값 추천**으로 재정의. (1) `recommend_thresholds` — 켜진 소프트룰 대상 필드 전체를 한 번에 다루는 LLM 비동기 작업(일괄, R5 b). 1차 연결은 **(가) 코드 p95 + LLM 근거**(현재 코드 동작과 일치, 11/02 9.1 실행 조사); **(나) LLM 숫자 제안**은 `source: ai_proposal`과 확장 필드로만 예약. (2) 규칙별 **수식 추천**은 LLM 없는 동기 계산 API(p95 등 통계) — 작업 큐가 아니라 API 계약. `recommend_rule` DSL 생성은 **폐지 유지**, `recommend_methods`(ML 선택 추천)는 **보류**
+- 2차 개정(사용자 11/02 9.4): 규칙별 수식 추천의 **기준 기간 선택** — (a) 현재 운영 ML 모델이 학습에 쓴 첫 기간 시작 ~ 현재 (b) 최근 1개월·3개월 (c) 사용자 지정 → `POST /api/rule-set/threshold-stats`에 `period.mode` 추가, 운영 모델이 없을 때 (a)는 오류 코드. 일괄 추천 대상은 **저장된 리비전의 켜진 소프트룰**임을 명시(WebUI 11/02 대조), ratio 필드 표시값은 유효숫자 기준(카탈로그 `displayPrecisionMode`)
 - 계약 버전: `threshold-recommendation-v1`. 근거 코드 origin/dev `7f24e03`: `worker/research_design.py:36-44`(summary·p95 `np.quantile` linear), `:154-199`(`rule_request` — 기준선 = train 분할·anomaly 라벨 제외 p95, `minimum_n 20`, 단위 `count|ratio|ms|s|us`), `:202-234`(`recommend_rules` — 변수당 LLM 1회 순차, 검증 탈락은 변수만 제외, `str(request["baseline"]["value"])`로 DSL 값 생성), `worker/generation_client.py:54-55`(`TimeoutError`를 `generation_service_unavailable`로 묶음), `backend/src/rules/ruleContract.ts:17`(DSL 십진수 정규식, 지수 표기 거부)
 - 상위 결정: 사용자 11/02 결정 — 임계값 산출 주체(8.1), AI 추천 단위 일괄 + 규칙별 수식(R5), 현재 코드 실행 조사(9.1), 화면 설계(9.2: (가)(나) 모두 담고 (가)로 먼저 연결). 절 번호는 총괄 기록 기준
 - 범위: 작업 요청·입력 범위·추천 1건 형식·상태·실패/시간 초과 구분·임계값 직렬화 규칙·수식 추천 API·마이그레이션 영향. 제외: 프롬프트·어댑터 연구(LLM 담당 팀원), GPU 배포, 자동 적용(추천은 입력칸 채우기까지, 운영 반영은 [rule-set.md](rule-set.md) 저장)
@@ -41,7 +42,7 @@ Status: draft
 
 | 키 | 규칙 |
 |---|---|
-| `ruleSetRevision` | 추천 기준 룰 세트 리비전([rule-set.md](rule-set.md)). 현재 리비전과 다르면 409 `rule_set_revision_conflict`(화면 새로 불러오기). 작업은 이 리비전의 **켜진 소프트룰** 대상 필드를 입력으로 고정(`input_spec`에 `ruleSetContentHash`·대상 목록 기록) |
+| `ruleSetRevision` | 추천 기준 룰 세트 리비전([rule-set.md](rule-set.md)). 현재 리비전과 다르면 409 `rule_set_revision_conflict`(화면 새로 불러오기). 작업은 이 리비전(= **저장된** 상태)의 **켜진 소프트룰** 대상 필드를 입력으로 고정(`input_spec`에 `ruleSetContentHash`·대상 목록 기록). **화면에서 편집 중이나 아직 저장하지 않은 규칙(추가·필드 변경·켬)은 대상이 아님** — 화면은 미저장 변경이 있으면 "저장 후 추천" 안내(WebUI 11/02 대조) |
 | `scope.softRuleIds` | null = 켜진 소프트룰 전체(R5 b 일괄). 배열이면 그 중 부분집합(화면 선택). 같은 필드를 쓰는 룰이 여러 개면 **필드당 1건** 계산하고 응답에서 룰 id 목록으로 묶음 |
 | `data.snapshotId` | 집계 출처(ready, `purpose` 무관하게 **train 분할**만 사용 — 현행 `rule_request` scope). 생략 시 `from/until`(+`timeBasis`)로 snapshot 생성하는 현행 추천 경로 재사용 [유지 10/21]. 둘 다 없으면 400 |
 | `mode` | `data_p95_with_llm_rationale`(가, 기본·유일 구현) / `ai_proposal`(나, 예약 — 어댑터 없으면 422 `recommendation_mode_not_available`) |
@@ -76,7 +77,7 @@ Status: draft
      "rationale": "The 95th percentile of 46,980 successful process durations is 7,210.5 ms; durations above it are rare in the reference period.",
      "aiProposal": null, "reviews": {"schema": true, "facts": true, "expectedTarget": true}},
     {"field": "error_ratio", "softRuleIds": ["soft:error_ratio-5d2e0b19"], "currentThreshold": 0.01,
-     "operator": "gt", "threshold": "0.00003125", "displayThreshold": "0.0000", "unit": "ratio",
+     "operator": "gt", "threshold": "0.00003125", "displayThreshold": "0.00003125", "unit": "ratio",
      "source": "data_p95", "status": "proposed",
      "evidence": {"n": 46980, "min": 0.0, "max": 0.5, "p95": 0.00003125, "quantileMethod": "linear_(n-1)*p",
                   "exclusionRule": "status=S, explicit anomaly labels excluded; unlabeled retained",
@@ -110,7 +111,7 @@ Status: draft
 | `currentThreshold` | 요청 시점 룰의 임계값(참고 표시). 룰이 여러 개면 첫 룰 값(id 사전순)·나머지는 화면이 룰 세트에서 읽음 |
 | `operator` | 1차는 항상 `gt`(코드 `reference_policy.operator`, `>p95`). 화면 조건과 다르면 사람이 조정. `status≠proposed`면 null |
 | `threshold` | **원값, 고정소수 문자열**(`Decimal` → `format(d, "f")`, 지수 표기 금지, 40자 이내·필드 `valueType=integer`면 정수). 11/02 9.1 결함 대응: p95가 1e-4 미만이어도 `"0.00003125"` 형태로 직렬화. 변환 실패(비유한·40자 초과 → 필드 `displayPrecision+6` 자리로 반올림 후 재시도, 그래도 실패)는 그 필드만 `rejected`(`threshold_serialization_failed`), **작업은 성공** |
-| `displayThreshold` | 카탈로그 `displayPrecision`으로 반올림한 표시 문자열(원값 툴팁) |
+| `displayThreshold` | 카탈로그 `displayPrecision`·`displayPrecisionMode`로 만든 표시 문자열(원값 툴팁): `fixed`(count·ms)는 소수 자릿수, `significant`(ratio)는 **유효숫자** 자릿수 — `error_ratio` p95 `0.00003125`는 유효숫자 4로 `"0.00003125"`(고정 소수 4면 `"0.0000"`이 되어 값이 사라지는 문제 방지, WebUI 11/02 대조). 지수 표기 금지는 표시값에도 적용 |
 | `unit` | 카탈로그 단위 |
 | `source` | `data_p95`(가, 코드 계산) / `ai_proposal`(나, 예약) |
 | `status` | `proposed`(적용 가능) / `request_evidence`(근거 부족 — LLM 상태) / `deferred`(보류 — LLM 상태) / `no_applicable`(해당 없음 — 기준선 `unavailable`: 표본 < 20·값 전부 결측·단위 미검증·분산 없음) / `rejected`(검증 탈락·형식 오류·직렬화 실패, `rejectedReason`) — 현행 `rule_v2` 출력 `state` 5종과 대응. 화면은 `proposed`만 선택 가능, 나머지는 사유와 함께 회색 |
@@ -139,21 +140,30 @@ Status: draft
 
 ## 규칙별 수식 추천 — `POST /api/rule-set/threshold-stats` [신규, 관리자, 동기, LLM 없음]
 
-- 용도: 규칙 행 [수식 추천] — 선택 기간 데이터의 p95를 바로 계산해 값·표본 수를 보여 주고 [적용]으로 입력칸에 채움(11/02 9.2). 작업 큐·LLM 호출 없음
+- 용도: 규칙 행 [수식 추천] — 선택 기간 데이터의 p95를 바로 계산해 값·표본 수를 보여 주고 [적용]으로 입력칸에 채움(11/02 9.2). 작업 큐·LLM 호출 없음. 기준 기간은 **세 가지 중 선택** [확정 11/02 9.4]: (a) 현재 운영 ML 모델이 학습에 쓴 **첫 기간 시작 ~ 현재** (b) 최근 1개월·3개월 (c) 사용자 지정 기간
 - **구현 주체: API(TypeScript) + PostgreSQL SQL** [제안]: `percentile_cont(0.95)`(선형 보간 — numpy `linear`와 같은 정의)를 `data_processes ⋈ data_observations`에 적용. 파생 필드(`elapsed_ms`·`error_ratio`)는 카탈로그 AST를 SQL 식으로 번역(`datetime_diff` = `parsed_times`의 end−start, `divide` = NULLIF 분모). Trainer(Python)는 비동기 워커라 동기 API에 부적합. 두 경로의 p95가 같은 표본에서 일치해야 함(통합 시험 항목)
 
 ```json
 {
   "field": "elapsed_ms",
   "statistic": "p95",
-  "period": {"from": "2026-10-01T00:00:00+09:00", "until": "2026-11-01T00:00:00+09:00", "timeBasis": "esb_occurred_at"},
+  "period": {"mode": "custom", "from": "2026-10-01T00:00:00+09:00", "until": "2026-11-01T00:00:00+09:00", "timeBasis": "esb_occurred_at"},
   "sourceId": "<source UUID>",
   "excludedIntervals": []
 }
 ```
 
-- `statistic` ∈ `p95`(기본) / `p99` / `median` / `max`. `period` 최대 366일. `excludedIntervals[]`는 학습 요청과 같은 형식([trainer-service.md](trainer-service.md) 변경 제안 절) — 장애 구간을 빼고 계산할 때
-- 표본 규칙은 LLM 작업과 동일: `status=S`·명시 anomaly 라벨 제외·결측 제외. snapshot 분할은 쓰지 않음(기간 전체) — `evidence.scope: "period"`로 구분
+- `statistic` ∈ `p95`(기본) / `p99` / `median` / `max`. `excludedIntervals[]`는 학습 요청과 같은 형식([trainer-service.md](trainer-service.md) 변경 제안 절) — 장애 구간을 빼고 계산할 때(`period.mode=active_model_training_start`에서 활성 모델의 학습 제외 구간을 자동으로 넣을지는 Q-L6, 기본은 넣지 않음)
+- `period.mode` [제안, 9.4 세 선택지의 형식]
+
+| `mode` | 서버가 정하는 `[from, until)` | 오류 |
+|---|---|---|
+| `active_model_training_start` | `from` = 현재 **활성 모델 집합**의 각 버전 `trainingSelection.trainingPeriod.from`([model-version.md](model-version.md)) 중 **가장 이른 값**(활성 모델 N개면 최솟값), `until` = 요청 시각(서버). `from`·`until`은 요청에 없어야 함. **v1·v2 운영 상태**(활성 집합이 비어 있고 `ops_system_state.active_config_version_id`가 v1·v2 행): 그 행의 train 요청 `from`(`run_jobs.input_spec`)을 `trainingPeriod.from`으로 **투영**해 같은 규칙으로 사용(model-version.md v1·v2 투영 절); 투영값이 null(train 기간 없음)이면 422 `active_model_period_unknown` + `{hint: "custom"}` | 활성 모델 0개(v1·v2 활성도 없음) → 422 `active_model_missing`; v1·v2 투영 불가 → 422 `active_model_period_unknown`; 기간 상한은 Q-L5(추천: (a)만 366일 면제, 서버가 일 단위 표본화) |
+| `recent_1m` / `recent_3m` | `until` = 요청 시각, `from` = `until` − 1개월 / 3개월(달력 월, `timezone` 기본 `Asia/Seoul`로 같은 날짜·시각) | — |
+| `custom` | 요청의 `from`·`until`(ISO 8601 오프셋 필수, `from < until`) | 둘 중 하나라도 없음 400 `invalid_threshold_stats_request`; > 366일 400 `period_too_long` |
+
+- `timeBasis` 기본 `esb_occurred_at`(생략 가능). `custom`·`recent_*`는 상한 366일(동기 API 응답 시간 보호); (a)의 상한은 Q-L5(추천: 면제 + 일 단위 표본화). 응답 `evidence.period`에 **서버가 확정한** `{mode, from, until, timeBasis, resolvedFrom}`를 돌려줌(`resolvedFrom`은 (a)에서 기준이 된 모델 버전 id, 그 외 null)
+- 표본 규칙은 LLM 작업과 동일: `status=S`·명시 anomaly 라벨 제외·결측 제외(필드 값 null 행 — 예 `elapsed_ms`의 END_TIME 누락 — 도 표본에서 제외). snapshot 분할은 쓰지 않음(기간 전체) — `evidence.scope: "period"`로 구분
 
 ```json
 {
@@ -162,13 +172,13 @@ Status: draft
   "source": "data_p95", "status": "proposed",
   "evidence": {"n": 51230, "min": 12.0, "max": 184233.0, "p95": 7210.5, "quantileMethod": "percentile_cont",
                "exclusionRule": "status=S, explicit anomaly labels excluded, excludedIntervals=0",
-               "scope": "period", "period": {"from": "…", "until": "…", "timeBasis": "esb_occurred_at"}},
+               "scope": "period", "period": {"mode": "active_model_training_start", "from": "…", "until": "…", "timeBasis": "esb_occurred_at", "resolvedFrom": "<config UUID>"}},
   "rationale": null
 }
 ```
 
 - `status`: `proposed` / `no_applicable`(n < 20 또는 분산 없음 — `minimum_n 20` 현행과 동일) / `rejected`(직렬화 실패). `rationale`은 항상 null(LLM 없음). 위험도 없음
-- 오류: 400 `invalid_threshold_stats_request`, 422 `soft_rule_field_unknown:<field>`, 400 `period_too_long`
+- 오류: 400 `invalid_threshold_stats_request`, 422 `soft_rule_field_unknown:<field>`, 400 `period_too_long`, 422 `active_model_missing`(mode (a)에서 활성 모델 집합이 비어 있고 v1·v2 활성도 없음), 422 `active_model_period_unknown`(mode (a)에서 v1·v2 활성 행의 학습 기간 투영 불가 — 응답 `{hint: "custom"}`)
 - 응답 시간 목표 ≤ 3초(인덱스 `(source_id, source_log_occurred_at)` 요구 — [trainer-service.md](trainer-service.md) 거래량 API와 공유)
 
 ## 작업 상태 ↔ 화면(11/02 9.2)
@@ -180,7 +190,7 @@ Status: draft
 | [적용] | 서버 호출 없음 — 입력칸 채움, 위험도 기본 주의, 저장해야 운영 반영 |
 | 실패 + [다시 시도] | `failed` + `errorCode`(부분 결과 없음). 새 멱등키로 재요청 |
 | 시간 초과 | `failed` + `generation_timeout` — 별도 문구 |
-| [수식 추천](규칙 행) | `POST /api/rule-set/threshold-stats` 동기 응답 |
+| [수식 추천](규칙 행) — 기간 선택(운영 모델 학습 시작~현재 / 최근 1개월 / 최근 3개월 / 직접 지정) | `POST /api/rule-set/threshold-stats` 동기 응답, `period.mode` |
 
 ## 마이그레이션·코드 영향(구현 Issue, 사실 기반)
 
@@ -209,3 +219,5 @@ Status: draft
 | Q-L2 | 수식 추천 구현 주체 API+SQL vs Trainer 동기 경로 신설 | API+SQL(동기, 큐 없음). p95 일치 시험 필수 |
 | Q-L3 | `recommend_methods` 보류 vs 폐지 | 보류(모델 카탈로그 Issue 뒤 재검토) |
 | Q-L4 | 1차 `operator` 항상 `gt` | 유지(코드 `reference_policy`). `lte/lt` 방향 필드가 생기면 카탈로그에 `recommendedOperator` 추가 |
+| Q-L5 | 수식 추천 `active_model_training_start`가 366일을 넘을 때 — (i) 오류 400 `period_too_long`(이전 추천) (ii) **(a) 모드만 상한 면제, 집계는 서버가 일 단위 표본화**(날짜별 p95·표본 수를 선계산한 일별 집계 또는 `TABLESAMPLE`로 응답 시간 보호) (iii) 최근 366일로 자름 | **(ii) 추천**(3차 검토 반영). 장점: 모델 학습 시작이 1년 이전이면 (i)는 (a)가 **항상** 실패해 기능이 무의미해짐, (iii)은 "학습 시작~현재"라는 사용자 결정의 의미가 바뀜. 단점: 일 단위 표본화는 정확한 p95가 아니라 근사(응답 `evidence.quantileMethod: "percentile_cont_daily_sampled"`·`sampled: true`로 표시), 구현이 거래량 집계 API의 일별 집계와 겹쳐 DB 세션 부담. `custom`·`recent_*`는 상한 366일 유지 |
+| Q-L6 | mode (a)에서 활성 모델의 학습 제외 구간(`excludedIntervals`)을 자동 적용할지 | 기본 미적용(요청 `excludedIntervals`만). 화면이 "학습 제외 구간 적용" 체크로 모델 버전 응답의 구간을 복사해 보내는 방식 제안 |

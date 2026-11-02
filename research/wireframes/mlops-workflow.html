@@ -387,7 +387,7 @@
       <!-- 탐지 설정 · 운영 설정 = 운영 버전 overview(모니터링): 운영 룰·모델과 방법별 작동 상태 / 작업 (사용자 9.6) -->
       <section data-view="detect-ops">
         <h1>운영 설정</h1>
-        <div class="page-head" style="margin-top:18px"><h2 style="margin:0">운영</h2><div class="actions-inline" id="opsCommands"><a class="button primary" href="#cmd/replace/1" data-start="replace">모델 교체 요청</a><button type="button" data-action="open-restore">복원</button></div></div>
+        <div class="page-head" style="margin-top:18px"><h2 style="margin:0">운영</h2><div class="actions-inline" id="opsCommands"><a class="button primary" href="#cmd/replace/1" data-start="replace">모델 교체</a><button type="button" data-action="open-restore">복원</button></div></div>
         <div class="card" id="opsOverview">
           <div class="page-head"><h3 style="margin:0">운영 버전 상태</h3><div class="seg" role="group" aria-label="상태 기간"><button type="button" data-action="ops-period" data-period="1h" aria-pressed="true">최근 1시간</button><button type="button" data-action="ops-period" data-period="24h" aria-pressed="false">최근 24시간</button></div></div>
           <div data-rows="운영 버전 요약" id="opsRule" style="margin-top:8px"></div>
@@ -550,9 +550,9 @@
         <div id="evalBody" data-rows="평가 결과" data-partial-fail></div>
       </section>
 
-      <!-- 명령 흐름: 모델 교체 요청만 전체 페이지 단계 흐름(새 학습·새 비교 평가는 각 화면 아래 영역) -->
+      <!-- 명령 흐름: 모델 교체만 전체 페이지 단계 흐름(새 학습·새 비교 평가는 각 화면 아래 영역) -->
       <section data-view="cmd-replace" data-track>
-        <h1>모델 교체 요청</h1>
+        <h1>모델 교체</h1>
         <ol class="stepper" data-stepper="replace"><li data-s="1">1. 버전 선택</li><li data-s="2">2. 비교 확인</li><li data-s="3">3. 승인·요청</li></ol>
         <p id="replaceFrom" class="notice" hidden></p>
         <p id="replaceStale" class="notice error" role="alert" hidden></p>
@@ -571,7 +571,7 @@
           <div class="card"><h2>승인·요청</h2><dl id="replaceSummary"></dl>
             <label class="check" style="margin-top:12px"><input type="checkbox" id="replaceApprove">모델 차이와 평가 결과를 확인했고 교체를 승인합니다</label>
             <p>실패하면 기존 모델을 유지합니다.</p>
-            <div class="actions"><a href="#cmd/replace/2">이전</a><button type="button" class="primary" data-action="request-replace">모델 교체 요청</button></div>
+            <div class="actions"><a href="#cmd/replace/2">이전</a><button type="button" class="primary" data-action="request-replace">모델 교체</button></div>
           </div>
         </section>
       </section>
@@ -1263,9 +1263,9 @@
       if (!state) return h('div');
       const rec = run.rec, t = rec.targetCandidateId, where = run.id + ' · ' + setById(run.set).name + ' · ' + ruleRevText(run.ruleRev) + ' · 생성 ' + rec.generatedAt;
       if (state === 'none') return h('div', { class: 'rec-none', role: 'status', 'data-rec-state': 'none' }, h('strong', { text: '모델 교체 추천 없음 · ' }), noRecText(rec), h('span', { class: 'muted', text: ' · ' + where }));
-      if (state === 'current') return h('section', { class: 'rec-card', 'aria-label': '모델 교체 추천', 'data-rec-state': 'current' }, h('h3', { text: '모델 교체 추천 ' + rec.baselineCandidateId + ' → ' + t + ' · 시스템 추천 · 자동 교체 안 함' }), h('p', { text: rec.summary }), h('p', { style: 'font-size:13px', text: where }), h('button', { type: 'button', 'data-action': 'accept-rec', 'data-run': run.id, text: '수락하고 교체 요청' }));
+      if (state === 'current') return h('section', { class: 'rec-card', 'aria-label': '모델 교체 추천', 'data-rec-state': 'current' }, h('h3', { text: '모델 교체 추천 ' + rec.baselineCandidateId + ' → ' + t + ' · 시스템 추천 · 자동 교체 안 함' }), h('p', { text: rec.summary }), h('p', { style: 'font-size:13px', text: where }), h('button', { type: 'button', 'data-action': 'accept-rec', 'data-run': run.id, text: '수락하고 교체' }));
       if (state === 'applied') return h('section', { class: 'rec-card quiet', 'aria-label': '모델 교체 추천', 'data-rec-state': 'applied' }, h('h3', { text: '모델 교체 추천 ' + t + ' · 이미 적용됨' }), h('p', { text: '이 추천은 적용되었습니다.' }), h('p', { style: 'font-size:13px', text: rec.summary + ' · ' + where }));
-      return h('section', { class: 'rec-card quiet', 'aria-label': '모델 교체 추천', 'data-rec-state': 'stale' }, h('h3', { text: '모델 교체 추천 ' + t + ' · 지난 추천' }), h('p', { text: '운영 모델이 바뀌어 더 이상 유효하지 않은 추천입니다. 새 비교 평가를 실행하세요.' }), h('p', { style: 'font-size:13px', text: rec.summary + ' · ' + where }), h('div', { class: 'actions-inline' }, h('button', { type: 'button', disabled: true, text: '수락하고 교체 요청' }), h('a', { class: 'button', href: '#detect/evals/compare/1', 'data-start': 'compare', text: '+ 새 비교 평가' })));
+      return h('section', { class: 'rec-card quiet', 'aria-label': '모델 교체 추천', 'data-rec-state': 'stale' }, h('h3', { text: '모델 교체 추천 ' + t + ' · 지난 추천' }), h('p', { text: '운영 모델이 바뀌어 더 이상 유효하지 않은 추천입니다. 새 비교 평가를 실행하세요.' }), h('p', { style: 'font-size:13px', text: rec.summary + ' · ' + where }), h('div', { class: 'actions-inline' }, h('button', { type: 'button', disabled: true, text: '수락하고 교체' }), h('a', { class: 'button', href: '#detect/evals/compare/1', 'data-start': 'compare', text: '+ 새 비교 평가' })));
     }
     const recCell = (run) => { const s = recState(run); if (!s) return '—'; return s === 'none' ? REC_STATE.none : pill('추천 ' + run.rec.targetCandidateId + ' · ' + REC_STATE[s], s === 'current' ? 'busy' : 'gray'); };
     function jobPill(j) {
@@ -1614,7 +1614,7 @@
       $('candTitle').textContent = '버전 ' + c.id + ' · ' + c.name;
       fill($('candBody'), dl(h('dl'), [...modelInfoRows(id), ['상태', stateLabel(MODELS[c.model].state)], ['운영', isActive(id) ? pill('운영 중', 'good') : '—'], ['학습 작업', h('a', { href: '#detect/ops/job/' + c.job, text: c.job })], ['산출물 hash', h('span', { class: 'key', text: c.hash })], autoJob ? ['자동 비교 평가', h('span', {}, h('a', { href: '#detect/ops/job/' + autoJob.id, text: autoJob.id }), ' ', jobPill(autoJob), autoJob.status === 'done' ? h('span', {}, ' ', h('a', { href: '#detect/evals/' + autoJob.run, text: autoJob.run + ' 결과' })) : null)] : null]),
         h('h3', { style: 'margin-top:16px', text: '평가 이력' }), h('div', { 'data-rows': '평가 이력', 'data-partial-fail': true }, runsFor.length ? h('ul', { class: 'checks' }, runsFor.map((r) => h('li', {}, h('a', { href: '#detect/evals/' + r.id, text: r.id + ' · ' + setById(r.set).name }), ' · ', r.failed[id] ? pill('평가 실패', 'bad') : r.results[id] && r.results[id].status === 'measured' ? pill('측정', 'good') : pill('미측정', 'mid')))) : h('p', { class: 'muted', text: '평가 이력 없음' })),
-        h('div', { class: 'actions' }, h('button', { type: 'button', 'data-action': 'replace-version', 'data-cand': id, disabled: !eligibleForReplace(id), text: '이 버전으로 교체 요청' }), h('a', { class: 'button', href: '#detect/evals/compare/1', 'data-start': 'compare', 'data-cand': id, text: '+ 새 비교 평가' })));
+        h('div', { class: 'actions' }, h('button', { type: 'button', 'data-action': 'replace-version', 'data-cand': id, disabled: !eligibleForReplace(id), text: '이 버전으로 교체' }), h('a', { class: 'button', href: '#detect/evals/compare/1', 'data-start': 'compare', 'data-cand': id, text: '+ 새 비교 평가' })));
     }
 
     // ---------- 탐지 설정 · 룰 설정 ----------
@@ -1792,7 +1792,7 @@
           h('div', {}, h('dt', { text: '정밀도' }), h('dd', { text: esb ? '정의 불가 · 정상 확정 라벨 없음' : pct(m.precision) + ' 완료 기준 · ' + pct(d.precision) + ' 판정 가능 기준' })),
           h('div', {}, h('dt', { text: esb ? '비주입 행 경보' : '오탐률' }), h('dd', { text: esb ? num(m.alarm) + '건 / ' + num(m.unlabeled) + '행(' + pct(m.alarmRate) + ') 완료 기준 · ' + num(d.alarm) + '건 / ' + num(d.unlabeled) + '행(' + pct(d.alarmRate) + ') 판정 가능 기준 · 정답 아님' : pct(m.fpr) + ' 완료 기준 · ' + pct(d.fpr) + ' 판정 가능 기준' })),
           h('div', {}, h('dt', { text: '제외 행' }), h('dd', { text: '완료 기준 ' + num(m.unavailable) + '행 · 판정 가능 기준 ' + num(d.unavailable) + '행' }))),
-        withAction && eligibleForReplace(id) ? h('div', { class: 'actions-inline', style: 'margin-top:8px' }, h('button', { type: 'button', 'data-action': 'replace-version', 'data-cand': id, text: '이 모델로 교체 요청' })) : null);
+        withAction && eligibleForReplace(id) ? h('div', { class: 'actions-inline', style: 'margin-top:8px' }, h('button', { type: 'button', 'data-action': 'replace-version', 'data-cand': id, text: '이 모델로 교체' })) : null);
     }
     function metricRows(set, run, ids) {
       const esb = set.kind === 'ESB';
@@ -2119,14 +2119,14 @@
       dl('compareSummary', [['평가 세트', s.name], ['비교 모델', [...ops.map((x) => x + '(현재 운영)'), ...compareDraft.models].join(', ')], ['룰 조건', ruleRevText(ruleCurrent().rev)], ['총', count + '개']]);
     }
     function compareError() { const n = compareDraft.models.size, total = activeList().length + n; return n < 1 ? '비교할 모델 버전을 1개 이상 선택해 주세요.' : total > 8 ? '현재 운영 포함 최대 8개까지 비교합니다.' : ''; }
-    // 모델 교체 요청: 같은 종류의 운영 후보를 교체(없으면 추가 운영). 룰은 바뀌지 않음.
+    // 모델 교체: 같은 종류의 운영 후보를 교체(없으면 추가 운영). 룰은 바뀌지 않음.
     function commonRun(a, b) { return [...doneRuns()].reverse().find((r) => r.results[a] && r.results[b] && r.results[a].status === 'measured' && r.results[b].status === 'measured'); }
     const slotOf = (id) => activeModels[candidateById(id).model] || '';
     function renderCmdReplace(r) {
       showStep('replace', r.step);
       const d = replaceDraft, acc = d.accepted && d.accepted.target === d.target;
       $('replaceFrom').hidden = !acc; $('replaceFrom').textContent = acc ? '모델 교체 추천 수락 · ' + d.accepted.run + ' 추천 ' + d.accepted.target : '';
-      $('replaceStale').hidden = !d.staleError; $('replaceStale').textContent = d.staleError ? '교체 요청 거절 · 400 accepted_recommendation_stale · 운영 모델이 바뀌어 더 이상 유효하지 않은 추천입니다. 새 비교 평가를 실행하세요.' : '';
+      $('replaceStale').hidden = !d.staleError; $('replaceStale').textContent = d.staleError ? '교체 거절 · 400 accepted_recommendation_stale · 운영 모델이 바뀌어 더 이상 유효하지 않은 추천입니다. 새 비교 평가를 실행하세요.' : '';
       table('replaceTable', ['선택', '버전', '모델', '운영 변화', '최근 평가', '재현율(완료 기준)'], [...candidates].reverse().map((c) => { const ok = eligibleForReplace(c.id), lr = latestRunFor(c.id), res = lr && lr.results[c.id], base = activeModels[c.model]; return { attrs: { class: ok ? (c.id === d.target ? 'highlight' : '') : 'row-off' }, cells: [h('input', { type: 'radio', name: 'replacePick', value: c.id, checked: c.id === d.target, disabled: !ok, 'aria-label': c.id + ' 선택' }), candLabel(c.id), MODELS[c.model].name, isActive(c.id) ? pill('운영 중', 'good') : base ? base + ' → ' + c.id : '추가 운영', evalPill(c.id), res && res.status === 'measured' ? pill(lr.id + ' · ' + pct(res.completeOnly.recall), 'gray') : '—'] }; }));
       $('replaceNext1').setAttribute('aria-disabled', String(!d.target));
       const box = $('replaceCompare'), base = d.target ? slotOf(d.target) : '', run = d.target ? (base ? commonRun(base, d.target) : latestRunFor(d.target)) : null;
@@ -2537,7 +2537,7 @@
       if (action === 'new-set') { $('generationForm').hidden = false; $('generationStatus').textContent = ''; generatorFields(); }
       if (action === 'close-generation') $('generationForm').hidden = true;
       if (action === 'request-compare') { const err = compareError(); if (err) { navigate('detect/evals/compare/2'); $('targetError').hidden = false; $('targetError').textContent = err; return; } const j = startCompare(compareDraft.set, [...compareDraft.models]); compareDraft = { set: compareDraft.set, models: new Set() }; compareStep = 1; mark(false); navigate('detect/ops/job/' + j.id, true); }
-      // 모델 교체 요청
+      // 모델 교체
       if (action === 'request-replace') {
         const d = replaceDraft; if (!d.target || !$('replaceApprove').checked) return;
         const base = slotOf(d.target), run = base ? commonRun(base, d.target) : latestRunFor(d.target); if (!run) return;

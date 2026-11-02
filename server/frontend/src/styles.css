@@ -2,38 +2,31 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "./lib/tokens.css";
-@import "./components/ui/ui.css";
-@import "./app/app.css";
-@import "./features/navigation/navigation.css";
-@import "./features/notifications/notifications.css";
-@import "./features/home/home.css";
-@import "./features/analysis/analysis.css";
-@import "./features/settings/settings.css";
-@import "./features/admin_system/admin_system.css";
-@import "./features/admin_model/admin_model.css";
-@import "./features/auth/auth.css";
-@import "./features/detection/detection.css";
-@import "./features/detection/detection-workbench.css";
 
-* {
-  box-sizing: border-box;
-}
-
-body {
-  margin: 0;
-  min-width: 320px;
-  background: var(--canvas-soft);
-}
-
-button {
-  font: inherit;
-}
-
-.sr-only {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    font-family: var(--font-sans);
+    font-synthesis: none;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+  }
+  body {
+    @apply bg-background text-foreground min-w-80;
+  }
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-ring;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
 }

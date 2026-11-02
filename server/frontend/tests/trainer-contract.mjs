@@ -3,7 +3,7 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { clearJobRequestKeys, forgetJobRequestKey, jobRequestKey } from "../src/services/api/job-idempotency.ts";
 import { createPipelineJob } from "../src/services/api/pipeline.api.ts";
-import { TrainerJobResult } from "../src/features/pipeline/TrainerJobResult.tsx";
+import { TrainerJobResult } from "../src/features/detection/components/TrainerJobResult.tsx";
 import { clearStoredToken, storeToken } from "../src/services/auth/session.ts";
 
 globalThis.React = React;

@@ -5,8 +5,8 @@ import type {
   LoginCredentials,
   LoginResponse,
   MeResponse,
-} from "../../types/auth";
-import { isAuthUser } from "../../types/auth";
+} from "@/types/auth";
+import { isAuthUser } from "@/types/auth";
 
 const parseLoginResponse = (response: LoginResponse): AuthSession => {
   if (

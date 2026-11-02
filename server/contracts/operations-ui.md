@@ -40,8 +40,8 @@ Status: current
 - 원본 BODY·거래 스냅샷·민감 필드 반환 제외; 프론트 모델은 명시한 필드만 복사
 - 오류: 404/503 근거 미연결, 기타 조회 실패; 수신 SSE 기본 이벤트는 유지, 이전 상세 존재 시 이전값 문구 표시
 - 조회: 계정+eventId 전용 key·AbortSignal·세션 지연 응답 제외; 자동 404 폴링 없음
-- 관리자 링크: 실제 `configurationId` → `/detection/versions?tab=configuration&version=<id>`; 없으면 운영 구성 목록
-- 관리자 링크: 실제 `evaluationId` → `/detection/evaluation?tab=candidates&result=<id>`; 미제공 ID 임의 생성 금지
+- 관리자 링크: `configurationId` 유무에 따라 `당시 구성 보기` / `운영 구성 목록` 문구로 `/detection/operations`(운영 설정) 이동. 당시 구성 상세 표시는 운영 설정 하위 Issue에서 추가(#100에서 옛 운영 버전 화면 폐지)
+- 관리자 링크: 실제 `evaluationId` → `/detection/evaluations/<id>`(평가 상세); 미제공 ID 임의 생성 금지
 
 ## 업무 분류와 SSE 선택 메타데이터
 

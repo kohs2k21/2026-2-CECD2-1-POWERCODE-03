@@ -1,5 +1,5 @@
-import { httpClient } from "../../../services/api/client";
-import { getStoredToken } from "../../../services/auth/session";
+import { httpClient } from "@/services/api/client";
+import { getStoredToken } from "@/services/auth/session";
 export type EvidenceExecution =
   "completed" | "partial" | "unavailable" | "not-run";
 export type EvidenceMeasurement = {

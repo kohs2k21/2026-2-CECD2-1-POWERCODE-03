@@ -29,7 +29,7 @@ const router = createMemoryRouter(
       element: React.createElement(Editor),
       children: [
         {
-          path: "/detection/create",
+          path: "/detection/models",
           element: React.createElement("p", null, "create"),
         },
         {
@@ -39,7 +39,7 @@ const router = createMemoryRouter(
       ],
     },
   ],
-  { initialEntries: ["/detection/create?tab=data-features"] },
+  { initialEntries: ["/detection/models?tab=all"] },
 );
 let renderer;
 await act(async () => {
@@ -48,7 +48,7 @@ await act(async () => {
 await act(async () =>
   useDraftStore
     .getState()
-    .edit("/detection/create", { selected: ["duration"] }),
+    .edit("/detection/models", { selected: ["duration"] }),
 );
 assert.ok(listeners.has("beforeunload"));
 let prevented = false;
@@ -61,27 +61,27 @@ const unload = {
 listeners.get("beforeunload")(unload);
 assert.equal(prevented, true);
 assert.equal(unload.returnValue, "");
-await act(async () => router.navigate("/detection/create?tab=training"));
+await act(async () => router.navigate("/detection/models?step=2"));
 assert.equal(guard.blocker.state, "unblocked");
-assert.deepEqual(useDraftStore.getState().drafts["/detection/create"].value, {
+assert.deepEqual(useDraftStore.getState().drafts["/detection/models"].value, {
   selected: ["duration"],
 });
 await act(async () => router.navigate("/settings"));
-assert.equal(router.state.location.pathname, "/detection/create");
+assert.equal(router.state.location.pathname, "/detection/models");
 assert.equal(guard.blocker.state, "blocked");
 await act(async () => guard.blocker.reset());
-assert.equal(router.state.location.search, "?tab=training");
-assert.equal(useDraftStore.getState().drafts["/detection/create"].dirty, true);
+assert.equal(router.state.location.search, "?step=2");
+assert.equal(useDraftStore.getState().drafts["/detection/models"].dirty, true);
 await act(async () => router.navigate("/settings"));
 await act(async () => guard.blocker.proceed());
 assert.equal(router.state.location.pathname, "/settings");
-assert.equal(useDraftStore.getState().drafts["/detection/create"].dirty, true);
+assert.equal(useDraftStore.getState().drafts["/detection/models"].dirty, true);
 assert.ok(
   listeners.has("beforeunload"),
   "preserved background drafts retain unload protection",
 );
-await act(async () => router.navigate("/detection/create?tab=training"));
-assert.deepEqual(useDraftStore.getState().drafts["/detection/create"].value, {
+await act(async () => router.navigate("/detection/models?step=2"));
+assert.deepEqual(useDraftStore.getState().drafts["/detection/models"].value, {
   selected: ["duration"],
 });
 await act(async () => router.navigate("/settings"));
@@ -111,17 +111,17 @@ const actualRouter = createMemoryRouter(
       ),
       children: [
         {
-          path: "/detection/create",
+          path: "/detection/models",
           element: React.createElement("p", null, "create"),
         },
         {
-          path: "/detection/evaluation",
+          path: "/detection/evaluations",
           element: React.createElement("p", null, "evaluation"),
         },
       ],
     },
   ],
-  { initialEntries: ["/detection/create"] },
+  { initialEntries: ["/detection/models"] },
 );
 await act(async () => {
   renderer = create(
@@ -131,9 +131,9 @@ await act(async () => {
 await act(async () =>
   useDraftStore
     .getState()
-    .edit("/detection/create", { customFeatureIds: ["custom-1"] }),
+    .edit("/detection/models", { customFeatureIds: ["custom-1"] }),
 );
-await act(async () => actualRouter.navigate("/detection/evaluation"));
+await act(async () => actualRouter.navigate("/detection/evaluations"));
 const childElements = (node) =>
   Array.isArray(node)
     ? node.flatMap(childElements)
@@ -164,19 +164,19 @@ assert.deepEqual(
 await act(async () =>
   renderer.root.findByType(Dialog).props.onOpenChange(false),
 );
-assert.equal(actualRouter.state.location.pathname, "/detection/create");
-assert.equal(useDraftStore.getState().drafts["/detection/create"].dirty, true);
-await act(async () => actualRouter.navigate("/detection/evaluation"));
+assert.equal(actualRouter.state.location.pathname, "/detection/models");
+assert.equal(useDraftStore.getState().drafts["/detection/models"].dirty, true);
+await act(async () => actualRouter.navigate("/detection/evaluations"));
 await act(async () => preserve.props.onClick());
-assert.equal(actualRouter.state.location.pathname, "/detection/evaluation");
+assert.equal(actualRouter.state.location.pathname, "/detection/evaluations");
 assert.deepEqual(
-  useDraftStore.getState().drafts["/detection/create"].value.customFeatureIds,
+  useDraftStore.getState().drafts["/detection/models"].value.customFeatureIds,
   ["custom-1"],
 );
 assert.ok(listeners.has("beforeunload"));
-await act(async () => actualRouter.navigate("/detection/create"));
-assert.equal(useDraftStore.getState().drafts["/detection/create"].dirty, true);
-await act(async () => actualRouter.navigate("/detection/evaluation"));
+await act(async () => actualRouter.navigate("/detection/models"));
+assert.equal(useDraftStore.getState().drafts["/detection/models"].dirty, true);
+await act(async () => actualRouter.navigate("/detection/evaluations"));
 const discard = dialogButtons().find(
   (node) => node.props.children === "버리고 이동",
 );
@@ -186,27 +186,26 @@ assert.equal(
   "discard action is visually secondary",
 );
 await act(async () => discard.props.onClick());
-assert.equal(actualRouter.state.location.pathname, "/detection/evaluation");
-assert.equal(useDraftStore.getState().drafts["/detection/create"], undefined);
+assert.equal(actualRouter.state.location.pathname, "/detection/evaluations");
+assert.equal(useDraftStore.getState().drafts["/detection/models"], undefined);
 assert.equal(listeners.has("beforeunload"), false);
 await act(async () => renderer.unmount());
 actualRouter.dispose();
 useDraftStore.getState().reset();
-// Create tab canonicalization/history is exercised with real auth/query/editor providers in detection-create.mjs.
 // Inline mobile menu: Escape closes it and returns keyboard focus to the toggle.
 const menuRouter = createMemoryRouter(
   [
     {
       element: React.createElement(DetectionLayout),
       children: [
-        {
-          path: "/detection/create",
-          element: React.createElement("p", null, "content"),
-        },
-      ],
+        "/detection/operations",
+        "/detection/rules",
+        "/detection/models",
+        "/detection/evaluations",
+      ].map((path) => ({ path, element: React.createElement("p", null, path) })),
     },
   ],
-  { initialEntries: ["/detection/create"] },
+  { initialEntries: ["/detection/rules"] },
 );
 let focusCount = 0;
 await act(async () => {
@@ -231,7 +230,7 @@ assert.equal(toggle().props["aria-expanded"], true);
 let escapePrevented = false;
 await act(async () =>
   renderer.root
-    .findByProps({ "aria-label": "탐지 관리 메뉴" })
+    .findByProps({ "data-slot": "side-nav" })
     .props.onKeyDown({
       key: "Escape",
       preventDefault: () => {
@@ -242,7 +241,7 @@ await act(async () =>
 assert.equal(toggle().props["aria-expanded"], false);
 assert.equal(focusCount, 1);
 assert.equal(escapePrevented, true);
-assert.equal(menuRouter.state.location.pathname, "/detection/create");
+assert.equal(menuRouter.state.location.pathname, "/detection/rules");
 await act(async () => toggle().props.onClick());
 const firstMenuLink = renderer.root.findAllByType("a")[0];
 await act(async () =>
@@ -258,6 +257,7 @@ assert.equal(
   2,
   "collapsing on selection must return focus from the hidden link",
 );
+assert.equal(menuRouter.state.location.pathname, "/detection/operations");
 await act(async () => renderer.unmount());
 menuRouter.dispose();
 console.log(

@@ -55,7 +55,7 @@ Status: draft
 
 - `id uuid PK, job_id uuid UNIQUE → run_jobs, source_id, snapshot_id → data_snapshots, purpose split_role, display_name text, synthetic_request jsonb|null, synthetic_profile_binding jsonb|null, generation jsonb, content_hash text, artifact_relative_path text|null, status text CHECK(queued|ready|failed), error_code text|null, created_by_actor_id, created_at, ready_at`
 - 불변(ready 후 UPDATE 금지 트리거 [확정 10/21]). `content_hash`는 산출물 파일 hash와 같음
-- 기존 WebUI DEV fixture 타입 `EvaluationSet{id, revision, immutable, snapshotId, splitManifestId, specId, purpose, scenarios[]}`(`frontend/src/features/detection/data/evaluationTypes.ts`)와 이름은 맞추되 `splitManifestId`·`specId`·`revision`은 서버 대응물 없음(WebUI 세션 통지)
+- 기존 WebUI DEV fixture 타입 `EvaluationSet{id, revision, immutable, snapshotId, splitManifestId, specId, purpose, scenarios[]}`(옛 `frontend/src/features/detection/data/evaluationTypes.ts`, #100에서 삭제)와 이름은 맞추되 `splitManifestId`·`specId`·`revision`은 서버 대응물 없음(WebUI 세션 통지)
 
 ## 비교 작업 `config-comparison-v1`
 

@@ -5,6 +5,7 @@ Status: current
 
 # 탐지 관리 상세 UI 계약
 
+- #100(11/03): 이 문서의 옛 탐지 관리 화면(생성·평가·운영 버전·수집)과 DetectionData 개발 예시 조회는 폐지·삭제. 새 화면은 탐지 설정 4메뉴(navigation.md)이며 화면별 계약은 각 하위 Issue에서 갱신. 아래는 재연결 시 참고할 과거 규칙
 - 현재: 관리자 4페이지의 조회·선택·입력·검증·확인 UI, 인증·권한은 auth.md 유지
 - 원본: T15/P15 metadata, F01~F24·A00~A14 후보 보존. 새 구성 기본선택 68개, ErrorTime A14 보류; 선택과 계산/모델 입력 준비 상태 분리
 - 개발 조회: `import.meta.env.DEV`에서만 명시 read fixtures, Query 비동기 어댑터. 프로덕션 조회는 service_unavailable; API 실패 뒤 fixture fallback 없음
@@ -17,8 +18,8 @@ Status: current
 
 ## 코드·외부 API 제안
 
-- 코드 단일 read model: `frontend/src/features/detection/data/types.ts`의 DetectionData, 정적 후보 metadata: catalog.ts
-- Query key: `[detection-workbench, userId]`; signal 취소·계정 변경 cache/draft 정리
+- 코드 단일 read model(#100에서 삭제): 옛 `frontend/src/features/detection/data/types.ts`의 DetectionData, 정적 후보 metadata: catalog.ts
+- Query key(옛, #100에서 삭제): `[detection-workbench, userId]`; signal 취소·계정 변경 cache/draft 정리
 - 외부 조회 제안(현재 미구현): `GET /api/detection/workbench` → DetectionData (capabilities 포함)
 - 외부 작업 제안(현재 미구현): 초안 저장/snapshot/학습/평가/적용/복원/룰 추천 각각 관리자 POST API → ActionReceipt
 - 요청 공통: snapshot/version/feature 정의·fit/평가 조건 명시; 적용/복원 expectedActiveVersionId로 경쟁 검사, 승인 요청과 active 상태 별개
@@ -99,7 +100,7 @@ Status: current
 - 비교 요청 제안: evaluate payload targets=[candidateId,configurationFingerprint] + evaluationSetId/revision + 원본 세트 condition. 각 대상의 고정 구성 재검증·동일 세트 실행은 서버 책임, 기본 capability=false
 - 지표: 성공 결과의 유효 실측만 표시, 진행/실패/미제공 지표는 —. optional scenarioOutcomes의 주입/탐지/미탐/판정 불가/제외·라벨 근거/사유만 표시; 제공되지 않은 판정 내역·오탐/합격선 생성 금지
 - 결과 딥링크: tab=candidates&result=ID 단독 또는 candidate=ID와 함께 진입. result.candidateId로 현행/보관 버전 포함 대상 조회; 없는 결과/대상은 미존재 표시
-- receipt 확장 제안: optional job={id,type:training|evaluation,candidateId?,resultId?}. requestId는 작업 ID 아님. 학습은 실제 job.id/type으로 작업 상세 연결. 평가 queue job.id는 결과 ID와 별개: 실제 resultId 제공 시만 결과 상세 연결, 미제공은 /notifications?filter=tasks. evaluations 레코드 알림은 실제 record.id를 resultId로 전달
+- receipt 확장 제안: optional job={id,type:training|evaluation,candidateId?,resultId?}. requestId는 작업 ID 아님. 학습은 실제 job.id/type으로 작업 상세 연결. 평가 queue job.id는 결과 ID와 별개: 실제 resultId 제공 시만 결과 상세(`/detection/evaluations/<resultId>`) 연결, 미제공은 작업 상세(`/detection/operations/jobs/<jobId>`). evaluations 레코드 알림은 실제 record.id를 resultId로 전달
 - 생성/학습/평가 접수 후 작업 조회로 상태 추적. receipt만으로 완료/초안 저장/운영 변경 성공 처리 금지; 이전 계정·닫힌 확인창·변경된 요청의 늦은 receipt 폐기 유지
 
 ## 운영 적용 검토·성능기준
@@ -110,6 +111,6 @@ Status: current
 - 기준 판단은 지정한 spec 지표와 합격선만 사용. 미지정 지표를 임의 필수화하거나 제공되지 않은 수치를 보완하지 않음; 최종 적용의 서버 재검증 필수
 - 승인 재사용 방지: active/대상/구성·평가 근거뿐 아니라 evaluationSets/Specs/Splits 실제 내용 변경도 승인·열린 확인창 초기화. expectedActiveVersionId·현재 계정·탭 이탈 가드 유지
 - 구성 검토: 변경 항목만 보기, 긴 피처/룰 상세 접기. 표시 조작은 구성/초안/실제 운영 상태를 수정하지 않음
-- 과거 구성 URL: /detection/versions?tab=configuration&version=실제ID. 해당 VersionBundle만 조회, 미존재/빈 ID는 미존재 상태; 현행 버전으로 조용히 대체 금지
+- 과거 구성 표시: 옛 `/detection/versions` 화면은 #100에서 폐지, 운영 설정(`/detection/operations`)에서 재연결 예정. 해당 구성만 조회, 미존재/빈 ID는 미존재 상태; 현행 버전으로 조용히 대체 금지
 - 적용/복원 요청 제안: expectedActiveVersionId와 expectedReview={evaluationId,configurationFingerprint,evaluationSetId/revision,specId/revision,splitManifestId/revision,reviewFingerprint}. 조회한 평가/세트/기준/분할 원본으로 생성; 충분한 근거 없으면 null 및 finalrequest 차단
 - reviewFingerprint는 검토 내용의 JSON 식별값이며 보안 서명 아님. revision 동일한 응답 내용 변경도 새 검토/다른 payload 필요. 서버는 승인된 근거와 실제 최신 상태를 원자적으로 대조하고 불일치 시 409 conflict→재조회/재검토 처리 제안; 실제 적용 API 미구현

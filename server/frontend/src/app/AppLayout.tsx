@@ -1,67 +1,49 @@
-import { Outlet, useLocation } from "react-router-dom";
-import { AppShell } from "../components/layout/AppShell";
-import { TopNav } from "../features/navigation/TopNav";
-import { useAuthSession } from "../services/auth/AuthSessionProvider";
-import { getVisibleNavItems } from "./router";
-import type { ViewId } from "../types/app";
 import { useState } from "react";
-import { NavigationGuard } from "../components/layout/NavigationGuard";
-import { useDraftStore } from "../stores/draftStore";
-import { RealtimeAnomalyProvider } from "../features/analysis/RealtimeAnomalyProvider";
-import { NotificationsProvider } from "../features/notifications/NotificationsProvider";
+import { Outlet, useLocation } from "react-router-dom";
+import { AppShell } from "@/components/layout/AppShell";
+import { NavigationGuard } from "@/components/layout/NavigationGuard";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { TopNav } from "@/features/navigation/TopNav";
+import { RealtimeAnomalyProvider } from "@/features/analysis/RealtimeAnomalyProvider";
+import { useAuthSession } from "@/services/auth/AuthSessionProvider";
+import { useDraftStore } from "@/stores/draftStore";
+import { paths } from "./routes";
+
+export type AppOutletContext = { requestLogout: () => void };
 
 export const AppLayout = () => {
   const session = useAuthSession();
   const location = useLocation();
   const [logoutRequested, setLogoutRequested] = useState(false);
   const requestLogout = () => {
-    if (
-      Object.values(useDraftStore.getState().drafts).some(
-        (draft) => draft.dirty,
-      )
-    )
-      setLogoutRequested(true);
+    if (Object.values(useDraftStore.getState().drafts).some((draft) => draft.dirty)) setLogoutRequested(true);
     else session.logout();
   };
-  const activeView: ViewId | null =
-    location.pathname === "/notifications"
-      ? null
-      : location.pathname === "/settings"
-        ? "settings"
-        : location.pathname.startsWith("/analysis")
-          ? "analysis"
-          : location.pathname.startsWith("/detection")
-            ? "model"
-            : "home";
+  const settingsPath =
+    location.pathname === paths.settings
+      ? location.pathname + location.search
+      : `${paths.settings}?returnTo=${encodeURIComponent(location.pathname + location.search)}`;
   return (
-    <RealtimeAnomalyProvider
-      key={`${session.user!.id}:${session.user!.userType}`}
-    >
-      <NotificationsProvider>
+    <RealtimeAnomalyProvider key={`${session.user!.id}:${session.user!.userType}`}>
+      <TooltipProvider>
         <AppShell
           topNav={
             <TopNav
-              activeView={activeView}
+              pathname={location.pathname}
               role={session.user!.userType}
-              navItems={getVisibleNavItems(session.user!.userType)}
-              settingsPath={
-                location.pathname === "/settings"
-                  ? location.pathname + location.search
-                  : "/settings?returnTo=" +
-                    encodeURIComponent(location.pathname + location.search)
-              }
+              settingsPath={settingsPath}
               onLogout={requestLogout}
             />
           }
         >
-          <Outlet context={{ requestLogout }} />
+          <Outlet context={{ requestLogout } satisfies AppOutletContext} />
           <NavigationGuard
             logoutRequested={logoutRequested}
             onCancelLogout={() => setLogoutRequested(false)}
             onLogout={session.logout}
           />
         </AppShell>
-      </NotificationsProvider>
+      </TooltipProvider>
     </RealtimeAnomalyProvider>
   );
 };

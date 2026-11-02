@@ -1,0 +1,108 @@
+{
+  "contract": "offline-specification-publication1.0",
+  "files": [
+    {
+      "file": "counts.json",
+      "sha256": "298f104cbd9444560efd82a9347fb1bdc2c2412d72d318bce40111b645a38054"
+    },
+    {
+      "file": "feature_attempts.json",
+      "sha256": "861a6ed7e10aef6c171220bed656cd3cd2abad9e445b8706594fe8ade08acb0a"
+    },
+    {
+      "file": "feature_bundle.json",
+      "sha256": "8365e220e9ce53f79543c842591df110e4a767cbed2f519ea13c3b1f6e759261"
+    },
+    {
+      "file": "feature_input.json",
+      "sha256": "a96d66355549749f2c9a1adfafe004460c652e0c99da5388943b858730c62dd8"
+    },
+    {
+      "file": "feature_values.json",
+      "sha256": "ab7562b8becde7dc5518c8c0cb604751f620ee7a40bd85db3dcfd3bd4a1cf017"
+    },
+    {
+      "file": "feature_values_by_grain/COMPARISON_ROWS.json",
+      "sha256": "6818a9f93498d9b4f4da8815aa6504d182a4aaf02dfbec5cde8676b5bf149a3a"
+    },
+    {
+      "file": "model/feature_0/input.json",
+      "sha256": "626269a798d6d8d290d86bf5399ebfdd4b668430569a9de05a4701627bcc2b41"
+    },
+    {
+      "file": "model/feature_0/output.json",
+      "sha256": "6d14013f883b1b8e490827a32c8c3fa3e8daf7f6211854d51d95a8f974e3a559"
+    },
+    {
+      "file": "model/rule_0/input.json",
+      "sha256": "eed4741b29c85556b0d5a704001b426c05ea14e84403b44dc50774effe90f5c0"
+    },
+    {
+      "file": "model/rule_0/output.json",
+      "sha256": "bae694adb0a994d376da10051f5444ddfbe063cedccad46bc042909446864c63"
+    },
+    {
+      "file": "model_calls.jsonl",
+      "sha256": "737fa8f1f9021238c73857bc151cbd8bdd043b47af2fc53afcc458d9c42c9f0e"
+    },
+    {
+      "file": "official_feature_semantics.json",
+      "sha256": "2bb8a953172f9857924b374f04fdfa3620d2b2ce03bf45d6e8ab36c06eaff4a0"
+    },
+    {
+      "file": "pending_decisions.json",
+      "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+    },
+    {
+      "file": "profile.json",
+      "sha256": "192e51d9ac171d6fccdd4b04dce190a71dc36db94419278fcb9eb9a15b31b2ea"
+    },
+    {
+      "file": "public_request.json",
+      "sha256": "62e4721118c00ddb95f0a143d802db3aca6bcc682537b719175329614c9c548a"
+    },
+    {
+      "file": "public_rule_plan.json",
+      "sha256": "146bc3721db94bd2b696423ae64fee42c4ea3f9b40e0ae50cf67864fb230a381"
+    },
+    {
+      "file": "publication_receipt.json",
+      "sha256": "5f032a9c44b1d7d1625c63828f2786b9c1cb7cf95e888324bc8ed319fcaa8339"
+    },
+    {
+      "file": "rule_attempts.json",
+      "sha256": "2978e9a11b23b7b39d452d3ba759f2a49d8ac49626da36584cd8f9be23764ae8"
+    },
+    {
+      "file": "rule_bundle.json",
+      "sha256": "a05f2dc4de63437f3fcbb03003fb105d95e07abc8898a517e0b91823556f7e83"
+    },
+    {
+      "file": "rule_input.json",
+      "sha256": "ee39ceb06d3b77a5e8098da2799e7025deca2642711e72e3231488cb081d1a65"
+    },
+    {
+      "file": "validated_rules.json",
+      "sha256": "d146ee0369ec63ae81d5407818f7801c732180102e867508d98edca80013f2e8"
+    }
+  ],
+  "original_execution_manifest_sha": "ae52827f17c0e8057ddd2ab9bf2bc986e2c3b384476656bd36b37f45217cf804",
+  "counts": {
+    "Feature_status": "feature_verified",
+    "Rule_status": "rule_verified",
+    "definition_proposed_and_validated": true,
+    "definition_kind": "derived",
+    "selected_rows": 5,
+    "valid_observations": 5,
+    "positive_feature_generated": true,
+    "rules": 1,
+    "by_role": {
+      "HR": 0,
+      "observed_SR": 1,
+      "baseline_SR": 0
+    },
+    "pending": 0,
+    "no_candidate_is_not_positive_generation": true
+  },
+  "not_operational_detection": true
+}

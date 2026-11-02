@@ -1,0 +1,104 @@
+{
+  "kind": "rule",
+  "arm": "Base",
+  "raw": "{\"v\":\"3\",\"feature\":\"fd_5e578d65107d15146961096b\",\"sha\":\"e273ca8bb5125779b0890179e05335906ba6d598d6ea9459fd19660f8f8ccfad\",\"decisions\":[{\"request\":\"observed\",\"role\":\"SR\",\"state\":\"proposed\",\"basis\":\"observed_diagnostic\",\"condition\":{\"op\":\"eq\",\"value\":true},\"evidence\":[\"m_36dc094afd6bc797853ee870\"],\"needed\":[],\"reason\":\"The supplied calculated-value diagnostic has 5 usable observations. It is evaluable regardless of current activations; no historical reference or application minimum is required.\",\"purpose\":\"data_quality\",\"warning_meaning\":\"Narrow calculated-value or availability property under its supplied scope; no operational incident or business-necessity claim.\",\"population_ref\":\"population_ed4f320da281ea34359e\",\"precondition_refs\":[\"source_be762a537b99c8c61c06\",\"availability_578549fc054bc44e8056\",\"mapping_125a3a0d56133848cad4\"],\"required_evaluation_basis\":[\"source_be762a537b99c8c61c06\",\"availability_578549fc054bc44e8056\",\"mapping_125a3a0d56133848cad4\",\"population_ed4f320da281ea34359e\",\"m_36dc094afd6bc797853ee870\"],\"unavailable_action\":\"preserve_unassessed\",\"unavailable_reason\":\"If the current calculation or its referenced sources were unavailable, this condition could not be evaluated; current availability does not imply future or online availability.\",\"business_scope\":\"Offline calculated-value or availability diagnostic under supplied source/key/child/population conditions; no inferred fault, conservation, clock, or business obligation.\",\"baseline_use_ref\":null}]}",
+  "parsed": {
+    "v": "3",
+    "feature": "fd_5e578d65107d15146961096b",
+    "sha": "e273ca8bb5125779b0890179e05335906ba6d598d6ea9459fd19660f8f8ccfad",
+    "decisions": [
+      {
+        "request": "observed",
+        "role": "SR",
+        "state": "proposed",
+        "basis": "observed_diagnostic",
+        "condition": {
+          "op": "eq",
+          "value": true
+        },
+        "evidence": [
+          "m_36dc094afd6bc797853ee870"
+        ],
+        "needed": [],
+        "reason": "The supplied calculated-value diagnostic has 5 usable observations. It is evaluable regardless of current activations; no historical reference or application minimum is required.",
+        "purpose": "data_quality",
+        "warning_meaning": "Narrow calculated-value or availability property under its supplied scope; no operational incident or business-necessity claim.",
+        "population_ref": "population_ed4f320da281ea34359e",
+        "precondition_refs": [
+          "source_be762a537b99c8c61c06",
+          "availability_578549fc054bc44e8056",
+          "mapping_125a3a0d56133848cad4"
+        ],
+        "required_evaluation_basis": [
+          "source_be762a537b99c8c61c06",
+          "availability_578549fc054bc44e8056",
+          "mapping_125a3a0d56133848cad4",
+          "population_ed4f320da281ea34359e",
+          "m_36dc094afd6bc797853ee870"
+        ],
+        "unavailable_action": "preserve_unassessed",
+        "unavailable_reason": "If the current calculation or its referenced sources were unavailable, this condition could not be evaluated; current availability does not imply future or online availability.",
+        "business_scope": "Offline calculated-value or availability diagnostic under supplied source/key/child/population conditions; no inferred fault, conservation, clock, or business obligation.",
+        "baseline_use_ref": null
+      }
+    ]
+  },
+  "parse_error": null,
+  "length_limit_hit": false,
+  "messages_sha": "b880eb1a82e37b9d857e271e344cf8b1ff1ccf08d77ef29f82b031a9065bc5c0",
+  "tokens": {
+    "input_tokens": 4538,
+    "input_token_sha": "8dc6f60d7b1cd6a05ba48f3093c8537fa8300597261fcb041415bd5336d66fbe",
+    "output_reserved": 1536,
+    "repair_reserved": 3072,
+    "truncated": false,
+    "schema_sha": "ff2a7d095e77ba0172492df0700a7d12befdaed0a358f1943e88d137b186dc26",
+    "chat_template_sha": "5c5c2567af60e8b6a5cb02dcdcb19775bbe046ee909fca1a04beed873078be7c"
+  },
+  "output_tokens": 495,
+  "greedy": true,
+  "thinking": false,
+  "budget": {
+    "sequence": 2,
+    "kind": "rule",
+    "call": "rule_0",
+    "phase": "frozen_final_final_public_delivery_nested_comparison_unavailable",
+    "at": 1793097456.2545958,
+    "failed_or_interrupted_calls_consume_budget": true,
+    "shared_sequence": 97
+  },
+  "model": {
+    "Base": {
+      "repo_id": "Qwen/Qwen3.6-27B",
+      "revision": "6a9e13bd6fc8f0983b9b99948120bc37f49c13e9",
+      "verified_files": 27
+    },
+    "adapter_kind": "Rule",
+    "adapter_weight_sha": "d816cf6a1f264149fb3d4db9c7cc929a76b12ce6f04f0407a4c4b459dbd573c9",
+    "Base_adapter_layers_disabled": 0,
+    "all_weights_frozen": true,
+    "class": "PeftModelForCausalLM",
+    "quantization": {
+      "quant_method": "bitsandbytes",
+      "_load_in_8bit": false,
+      "_load_in_4bit": true,
+      "llm_int8_threshold": 6.0,
+      "llm_int8_skip_modules": null,
+      "llm_int8_enable_fp32_cpu_offload": false,
+      "llm_int8_has_fp16_weight": false,
+      "bnb_4bit_quant_type": "nf4",
+      "bnb_4bit_use_double_quant": true,
+      "bnb_4bit_compute_dtype": "bfloat16",
+      "bnb_4bit_quant_storage": "uint8",
+      "load_in_4bit": true,
+      "load_in_8bit": false
+    },
+    "compute_dtype": "bfloat16"
+  },
+  "seconds": 70.465088352561,
+  "GPU_memory": {
+    "allocated": 15576280576,
+    "reserved": 18280873984,
+    "peak": 17961120768
+  }
+}

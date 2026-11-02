@@ -1,0 +1,197 @@
+{
+  "version": "calculation-facts2.0-guarded-availability",
+  "definition_sha": "e273ca8bb5125779b0890179e05335906ba6d598d6ea9459fd19660f8f8ccfad",
+  "source_version": "be762a537b99c8c61c06cf9dadd73e3ba8436a031dda587a47079cc2567ef8b3",
+  "measurement_id": "m_36dc094afd6bc797853ee870",
+  "measurement_sha": "36dc094afd6bc797853ee870f57d61ae1e79281d3e78006a2b6f6028a3f938ab",
+  "output_grain": {
+    "table": "COMPARISON_ROWS",
+    "keys": [
+      "ROW_KEY"
+    ]
+  },
+  "population": {
+    "table": "COMPARISON_ROWS",
+    "filter": null
+  },
+  "dtype": "boolean",
+  "unit": "boolean",
+  "operator_contract_possible_states": [
+    "true",
+    "false"
+  ],
+  "operator_state_proof": {
+    "operator": "is_missing",
+    "unavailable_possible": false,
+    "proof_scope": "Supported operator contract on retained selected rows",
+    "children": [
+      {
+        "operator": "gt",
+        "unavailable_possible": true,
+        "proof_scope": "Supported operator contract on retained selected rows",
+        "children": [
+          {
+            "operator": "divide",
+            "unavailable_possible": true,
+            "proof_scope": "Supported operator contract on retained selected rows",
+            "children": [
+              {
+                "operator": "column",
+                "unavailable_possible": true,
+                "proof_scope": "Supported operator contract on retained selected rows",
+                "children": []
+              },
+              {
+                "operator": "column",
+                "unavailable_possible": true,
+                "proof_scope": "Supported operator contract on retained selected rows",
+                "children": []
+              }
+            ]
+          },
+          {
+            "operator": "column",
+            "unavailable_possible": true,
+            "proof_scope": "Supported operator contract on retained selected rows",
+            "children": []
+          }
+        ]
+      }
+    ]
+  },
+  "missing_policy": {
+    "input": "propagate",
+    "empty_group": null,
+    "denominator_zero": "missing",
+    "child_missing": "propagate",
+    "unknown_predicate": "defer"
+  },
+  "current": {
+    "selected_rows": 5,
+    "population_rows_before_selection": 5,
+    "selection_unavailable": 0,
+    "numeric_or_boolean_nonnull": 5,
+    "result_unavailable": 0,
+    "true": 3,
+    "false": 2
+  },
+  "interpretation": {
+    "null_result": "Does not alone identify source null, parsing, join, denominator or fault cause.",
+    "empty_child_group": "Zero only under the aggregate empty-group contract; unknown relationship/filter is different.",
+    "sample_extrema": "Observed min/max are not proven bounds.",
+    "total_missing_test": "is_missing evaluates retained null results to true; it is not an unavailable numerical comparison."
+  },
+  "row_nodes": [
+    {
+      "path": "/plan/expression/args/0/args/0/args/0",
+      "op": "column",
+      "evaluation_table": "COMPARISON_ROWS",
+      "output_table": "COMPARISON_ROWS",
+      "row_keys": [
+        "ROW_KEY"
+      ],
+      "scalar": false,
+      "dtype": "number",
+      "unit": null
+    },
+    {
+      "path": "/plan/expression/args/0/args/0/args/1",
+      "op": "column",
+      "evaluation_table": "COMPARISON_ROWS",
+      "output_table": "COMPARISON_ROWS",
+      "row_keys": [
+        "ROW_KEY"
+      ],
+      "scalar": false,
+      "dtype": "number",
+      "unit": null
+    },
+    {
+      "path": "/plan/expression/args/0/args/0",
+      "op": "divide",
+      "evaluation_table": "COMPARISON_ROWS",
+      "output_table": "COMPARISON_ROWS",
+      "row_keys": [
+        "ROW_KEY"
+      ],
+      "scalar": false,
+      "dtype": "number",
+      "unit": null
+    },
+    {
+      "path": "/plan/expression/args/0/args/1",
+      "op": "column",
+      "evaluation_table": "COMPARISON_ROWS",
+      "output_table": "COMPARISON_ROWS",
+      "row_keys": [
+        "ROW_KEY"
+      ],
+      "scalar": false,
+      "dtype": "number",
+      "unit": null
+    },
+    {
+      "path": "/plan/expression/args/0",
+      "op": "gt",
+      "evaluation_table": "COMPARISON_ROWS",
+      "output_table": "COMPARISON_ROWS",
+      "row_keys": [
+        "ROW_KEY"
+      ],
+      "scalar": false,
+      "dtype": "boolean",
+      "unit": "boolean"
+    },
+    {
+      "path": "/plan/expression",
+      "op": "is_missing",
+      "evaluation_table": "COMPARISON_ROWS",
+      "output_table": "COMPARISON_ROWS",
+      "row_keys": [
+        "ROW_KEY"
+      ],
+      "scalar": false,
+      "dtype": "boolean",
+      "unit": "boolean"
+    }
+  ],
+  "sha256": "d4615d6a5a58a0fa3cba04a2365b0022741d7173ba9ba96e1b5b6676010af6a5",
+  "author": "compiler",
+  "contract": "official-computation-facts1.0",
+  "not_AI_generated": true,
+  "expression": {
+    "op": "is_missing",
+    "args": [
+      {
+        "op": "gt",
+        "args": [
+          {
+            "op": "divide",
+            "args": [
+              {
+                "op": "column",
+                "table": "COMPARISON_ROWS",
+                "column": "NUM"
+              },
+              {
+                "op": "column",
+                "table": "COMPARISON_ROWS",
+                "column": "DEN"
+              }
+            ]
+          },
+          {
+            "op": "column",
+            "table": "COMPARISON_ROWS",
+            "column": "CUT"
+          }
+        ]
+      }
+    ]
+  },
+  "selected_result_use": "unavailable",
+  "output_excludes_filtered_rows": true,
+  "exceptions": "Invalid sources/types/execution failures are errors, not unavailable values.",
+  "complete_natural_language_proof": false,
+  "facts_sha": "5a97ce9e575b7d856bdca555180b2ae8e1a2b1a3f831b96ab9e100056d60424c"
+}

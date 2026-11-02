@@ -11,6 +11,7 @@ import { randomUUID } from 'node:crypto';
 import { createServer } from 'node:net';
 import { interim012 } from './erd-v03-interim.mjs';
 import { searchPath013 } from './erd-v03-search-path.mjs';
+import { llmPreparedGrant81 } from './erd-v03-llm-grant.mjs';
 
 const toolRoot = process.argv[2];
 assert(toolRoot, 'Pass an isolated temporary workspace containing the test dependencies');
@@ -213,6 +214,7 @@ try {
   await searchPath011('erd_search_path_011');
   await interim012({ Client, port, connection, check, failures, migrations, migrationNames, rolesSql, parity, infra });
   await searchPath013({ connection, check, failures, migrations, migrationNames, parity, insert });
+  await llmPreparedGrant81({ Client, port, connection, check, failures, migrations, rolesSql, insert, infra });
   assert.equal(failures.length,0,failures.join('; '));
   console.log(`PASS ${checkCount} integration checks; no project runtime or customer data used`);
 } finally { await cluster.stop(); }

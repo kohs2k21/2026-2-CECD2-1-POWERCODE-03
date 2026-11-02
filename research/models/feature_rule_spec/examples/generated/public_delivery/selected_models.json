@@ -1,0 +1,90 @@
+{
+  "package": "feature_rule_spec",
+  "status": "final_support_validation_in_progress",
+  "Base": {
+    "repo_id": "Qwen/Qwen3.6-27B",
+    "revision": "6a9e13bd6fc8f0983b9b99948120bc37f49c13e9",
+    "content_manifest": "models/base_files.json",
+    "actual_class": "Qwen3_5ForConditionalGeneration",
+    "prepare": "Explicit local Base path or SPEC_BASE_PATH. No automatic download."
+  },
+  "Feature": {
+    "selection": "LoRA",
+    "name": "feature_silver51",
+    "adapter": "models/feature",
+    "weight_sha256": "f5bc75d6ffc436418236b6808fe46a0841ef3e7c974c22d2c7a9bc0333b81975",
+    "config_sha256": "45e0574522e34de23f9f3c361b093c0a89573f01a506815b596a6eb4446fcfff",
+    "SFT_trained_for_selected_default": true,
+    "trained_in_this_stage": false,
+    "automatic_candidate_switch": false,
+    "selection_reason": "Declared same-input support evaluation: equal5/5 math,5/5 complete supported explanations vs Base4/5. No new training."
+  },
+  "Rule": {
+    "selection": "fixed existing LoRA",
+    "adapter": "models/rule",
+    "weight_sha256": "d816cf6a1f264149fb3d4db9c7cc929a76b12ce6f04f0407a4c4b459dbd573c9",
+    "config_sha256": "1a04f51652f28f85da78939ece45fdf69178155aeda894977d9e0be74b96219b",
+    "bytes": 95136344,
+    "additional_training": false,
+    "teacher_exposure_history": "See models/teacher_exposure_history.json: two known corrected records remain historical exposure; no Rule retraining in this experiment."
+  },
+  "candidate_Feature_history": {
+    "selected": false,
+    "parent_experiment_examples": 45,
+    "parent_steps": 12,
+    "consumed_input_context_errors": 1,
+    "corrected_copy_trained": false,
+    "weights_not_in_default_loading_path": true
+  },
+  "decoding": {
+    "NF4": true,
+    "double_quantization": true,
+    "dtype": "bfloat16",
+    "greedy": true,
+    "thinking": false,
+    "output_tokens": 1536,
+    "structural_grammar": "xgrammar; no semantic answer forcing",
+    "output_tokens_by_stage": {
+      "feature": 1536,
+      "rule_one_role": 1536,
+      "rule_two_roles": 2304,
+      "rule_three_roles": 3072
+    }
+  },
+  "environment_verified": {
+    "torch": "2.11.0+cu129",
+    "transformers": "5.19.0",
+    "accelerate": "1.15.0",
+    "peft": "0.21.2",
+    "bitsandbytes": "0.50.2",
+    "xgrammar": "0.2.3",
+    "jsonschema": "4.26.0",
+    "huggingface-hub": "1.33.0"
+  },
+  "teacher_history": "models/teacher_exposure_history.json",
+  "Feature_candidates": {
+    "final_silver51": {
+      "adapter": "models/feature",
+      "weight_sha256": "f5bc75d6ffc436418236b6808fe46a0841ef3e7c974c22d2c7a9bc0333b81975",
+      "selected": true,
+      "training_examples": 51,
+      "optimizer_steps": 13,
+      "use": "Selected default under final result-view contract; same existing adapter, not newly trained here.",
+      "config_sha256": "45e0574522e34de23f9f3c361b093c0a89573f01a506815b596a6eb4446fcfff",
+      "training_original_config_sha256": "2f351e74e9ffb32eb94a5c3e43d05b6dba093ff4620b3cb9013c4e4fd90dd7fa",
+      "public_metadata_change": "base_model_name_or_path only: server directory replaced by Qwen/Qwen3.6-27B; identical adapter weight bytes",
+      "known_failures_in_previous_contract_not_erased": [
+        "strict nullable OR in nested comparison availability",
+        "false accepted empty-child average explanation"
+      ]
+    }
+  },
+  "contracts": {
+    "Feature": "feature5.2",
+    "result_view": "result-view1.0",
+    "conditional": "guarded-conditional1.1-null-branches",
+    "official_semantics": "official-computation-facts1.0 / official-condition-facts1.0",
+    "Rule": "existing v3 evidence-bound roles",
+    "inner_calculation_type_validation": "feature5.2 public calculation_type, exact inferred type check"
+  }
+}

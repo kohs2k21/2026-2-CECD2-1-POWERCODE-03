@@ -1,0 +1,39 @@
+{
+  "extracted_sources": [
+    {
+      "path": "project-relative-research-origin/generalized_measurement_v19.py",
+      "sha256": "d4000763a3f5634eb19ccaf34ee0b81cd4c277c8b7c9bafc23172204e696d623"
+    },
+    {
+      "path": "project-relative-research-origin/data/eda/schema_generalization_v25/20261012_sr_review_feature_scope/implementation/analysis_engine.py",
+      "sha256": "a5b186fa3fd76e4157aee02efc10c205528661609488fedaa214d18edbebcba7"
+    },
+    {
+      "path": "project-relative-research-origin/data/eda/full_log_teacher_dataset/20261014T202400+0900/implementation/measurement.py",
+      "sha256": "0ee47aa03fb2a7e3976b75c9f2ce113988c990ebc1430bee435ededafc43eff4"
+    },
+    {
+      "path": "project-relative-research-origin/data/eda/full_log_teacher_dataset/20261014T202400+0900/implementation/measurement.py",
+      "sha256": "0ee47aa03fb2a7e3976b75c9f2ce113988c990ebc1430bee435ededafc43eff4"
+    },
+    {
+      "path": "project-relative-research-origin/data/eda/feature_rule_final_submission/20261026T131500+0900/implementation/native_logic_extension.py",
+      "sha256": "22439199dc31220229c1e28b6a0fd776d31bddd9e5068db218285fe1bc113e1b"
+    },
+    {
+      "path": "project-relative-research-origin/data/eda/feature_rule_final_submission/20261026T131500+0900/implementation/conditional_expression.py",
+      "sha256": "0cf450e419ed41d34429ac462d40104ae50052cf57027989267cd784b4e4ef80"
+    },
+    {
+      "path": "project-relative-research-origin/data/eda/feature_row_grain_value_refinement/20261019T125454+0900/implementation/row_grain.py",
+      "sha256": "a8713918633bbf5b8ddd5b382ea957533a3b897c4c6a07f50472cc64b717d7b3"
+    }
+  ],
+  "transformations": [
+    "Preserved Engine infer/evaluate/validate and full-scope measure bodies; source reader/constructor replaced by explicit manifest admission.",
+    "Extracted independent value/verify; constructor accepts declared relations; lexical parse supports admitted types.",
+    "Preserved strict typed logic and lazy conditional evaluators; removed research-only module bootstrap/metadata hooks.",
+    "Extracted row-grain traversal; no Model AST/prose transformation."
+  ],
+  "not_new_Model_performance": true
+}

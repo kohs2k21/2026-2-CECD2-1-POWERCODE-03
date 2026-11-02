@@ -1,0 +1,36 @@
+{
+  "Feature_candidate": {
+    "prior_train_examples": 45,
+    "prior_steps": 12,
+    "known_consumed_input_context_errors": 1,
+    "corrected_copy_sha": "a73521b2afe360091b40c5ac25fa1ddd9983eefa8b57af00242f7c13c638271a",
+    "corrected_copy_optimizer_exposures": 0,
+    "new_SFT_in_this_experiment": false,
+    "not_default": true,
+    "label": "previous45_example_comparison_adapter_not_shipped"
+  },
+  "Rule_fixed": {
+    "known_correction_records": 2,
+    "training_weights_unchanged": true,
+    "corrected_train_sha": "7002121bbe2ca8d0b3f8d05215b2d942bff6bc157667cf096115b3e368ddaa63",
+    "corrected_validation_sha": "6f3a4cb5a39cfb14a9597802fd1ef88865ad3d722bbffcb1ba7a64f6110d444b",
+    "correction_manifest_sha": "4faa9d84e522a735d53b218b6f2c8d550e4dfa7afe8e49fe857a209823dab8d7",
+    "data_correction_does_not_erase_exposure": true,
+    "history": "Retained all-null calculated outputs were incorrectly deferred for is_missing; corrected copies propose the evaluable missingness diagnostic. Prior adapter exposure remains a limitation."
+  },
+  "full_teacher_inputs_private_excluded": true,
+  "new_Feature_candidate_silver51": {
+    "fresh_original_Base": true,
+    "training_examples": 51,
+    "actual_steps": 13,
+    "maximum_exposure_per_sample": 1,
+    "corrected_current_context_used": true,
+    "new_weights_selected_as_default": true,
+    "no_claim_that_all_teacher_or_Model_errors_are_removed": true,
+    "actual_Model_repair_pairs_added": 4,
+    "validation_source_row_overlap_disclosed": true,
+    "training_file_SHA": "aedbf32bb68fc8c41a8bcbe2d5496c4592695cfc18a12d98a896b643c386df37",
+    "selection_manifest_SHA": "f2de9d60c71489e6039fe3497e70b813e248920100b046f838e86c4c8e5ec74c",
+    "selection_stage": "Current delivery contract comparison; no retraining or exposure history deletion"
+  }
+}

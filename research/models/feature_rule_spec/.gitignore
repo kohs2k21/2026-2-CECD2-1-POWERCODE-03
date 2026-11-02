@@ -1,0 +1,37 @@
+# Only reviewed package content is intended for publication.
+*
+!*/
+!/.gitignore
+!/.gitattributes
+!/*.md
+!/*.py
+!/*.json
+!/demo.html
+!/requirements-verified.txt
+!/specmodel/*.py
+!/tests/*.py
+!/contracts/*.json
+!/contracts/*.txt
+!/models/*.json
+!/models/feature/*.md
+!/models/feature/adapter_config.json
+!/models/feature/adapter_model.safetensors
+!/models/rule/adapter_config.json
+!/models/rule/adapter_model.safetensors
+!/examples/**/*.csv
+!/examples/**/*.json
+!/examples/**/*.jsonl
+!/examples/**/*.html
+# Never publish future private runs, caches, Base weights or credentials.
+**/__pycache__/
+**/.env*
+**/auth.json
+**/*credentials*
+**/*secret*
+**/*.pem
+**/*.key
+/runs/
+/checkpoints/
+/private_inputs/
+/teacher/
+/base/

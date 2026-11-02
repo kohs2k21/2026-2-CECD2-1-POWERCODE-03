@@ -69,6 +69,9 @@ GRANT SELECT,INSERT ON data_evaluation_sets TO powercode_api;
 GRANT SELECT,UPDATE ON data_evaluation_sets TO powercode_trainer;
 -- LLM workers also reconcile dead training-queue jobs; the 011 job-failure trigger then fails the queued set.
 GRANT SELECT(job_id,status),UPDATE(status,error_code) ON data_evaluation_sets TO powercode_llm;
+-- #81: the same reconcile fails dead import_csv jobs; the 010 job-failure trigger (caller rights) reads
+-- created_job_id/status/validation_result and sets status/validation_result on the queued prepared dataset.
+GRANT SELECT(created_job_id,status,validation_result),UPDATE(status,validation_result) ON data_prepared_datasets TO powercode_llm;
 GRANT SELECT ON run_config_comparisons,run_config_comparison_items TO powercode_api,powercode_trainer;
 GRANT INSERT ON run_config_comparisons,run_config_comparison_items TO powercode_trainer;
 

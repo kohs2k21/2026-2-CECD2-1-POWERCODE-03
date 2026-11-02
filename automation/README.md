@@ -13,6 +13,12 @@ python -m automation.services.sync.app
 - 인증: `NOTION_TOKEN` + `GITHUB_TOKEN`(또는 `GH_TOKEN`), 비밀값 출력 금지
 - 단일 실행기 · `automation/.runtime/` 잠금·SQLite 매핑 · Git 제외
 - API 오류: 비밀값 없는 고정 오류 코드
+- 오류 분류(`classify_code`): 페이지 입력 오류(`UNSUPPORTED_*`·`INVALID_TABLE`·`BODY_TOO_*`·제목·유형·영역·Milestone·`ENGLISH_BRANCH_SLUG_REQUIRED`·`TYPE_LOCKED_AFTER_CREATION` 등)·정리 보류·항목 단위 일시 오류(`NETWORK_UNCERTAIN_RETRY_NEXT_RUN`·`HTTP_429`·`HTTP_5xx`)는 경고. Notion 수정·다음 실행 재시도로 해소
+- 실패 유지: `POSSIBLE_SECRET_IN_TASK`, `ASSIGNEE_MAPPING_REQUIRED`(config 매핑 추가 필요 가능), 무결성(소유권·표식·기준·매핑·`REF_DELETE_*`·`FOREIGN_*`·Issue 링크·`INTERNAL_ERROR`), 시스템(인증·스키마·저장소 불일치·429 외 4xx), 미분류 코드. 페이지·브랜치 단위가 아닌 실행 전체 오류(예상 밖 예외는 `INTERNAL_ERROR`)는 일시 코드여도 실패
+- 종료 코드(단일 실행): 경고만 있으면 0. 실패 오류 지문(정렬된 `대상, 코드` 목록)이 새로 생기거나 바뀌면 1. 직전 알림과 같은 지문이면 24시간 동안 경고로 낮춰 0, 24시간 경과 시 다시 1. 실패 일부 해소·추가도 변경으로 1. 저장 시각이 미래이거나 저장값 손상 시 1·갱신. 실패 오류 해소 시 지문 삭제
+- 지문 저장: `state.db`의 `alerts` 표, Actions 캐시로 실행 간 유지. 캐시 유실 시 1회 재알림 허용. `--watch`는 종료 코드·지문 없음
+- 오류 기록: 페이지 현재 값이 이미 `GitHub 동기화=오류`·같은 코드면 Notion 재기록 생략. 닫힌 Issue의 정리 오류는 링크·완료 반영과 함께 한 번에 기록, 같은 값이면 수정 없음
+- Actions 표시: 실패 `::error::`, 경고·반복 실패 `::warning::`, `GITHUB_STEP_SUMMARY` 요약. 고정 코드·page_id·Issue 번호만 표시, 기존 JSON 결과 줄 유지
 - `Milestone`: 현재 Notion 선택 옵션 기준, 이름 변경·추가·삭제 허용. 선택된 제목과 같은 GitHub milestone 재사용, 없으면 생성. 기존 GitHub milestone 이름·삭제 여부는 변경하지 않음.
 - 상태·유형·영역·대상 저장소 등 실행 계약의 필수 속성·옵션은 유지 필요
 - 신규 작업·hotfix: `dev`에서 기능 브랜치 생성 → `dev`로 Draft PR → 검토·통합 후 `dev`에서 `main`으로 승격 PR. 자동 병합·승격 PR 자동 생성 없음

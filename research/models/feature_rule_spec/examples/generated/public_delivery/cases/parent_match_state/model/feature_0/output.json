@@ -1,0 +1,93 @@
+{
+  "kind": "feature",
+  "arm": "selected",
+  "raw": "{\"schema\":\"feature5.2\",\"candidates\":[{\"proposal_id\":\"local\",\"plan\":{\"expression\":{\"op\":\"parent_match_count\",\"relationship_id\":\"hop_frame_link\"},\"grain\":{\"table\":\"HOP_TRACE\",\"keys\":[\"TRACE_ROW\"]},\"population\":{ \"table\":\"HOP_TRACE\",\"filter\":null},\"group_by\":[],\"result_use\":\"unavailable_or_zero\"},\"purpose\":\"Compute physical FRAME_REGISTER match count for each HOP_TRACE row. Return true for unavailable or known0, false for known nonzero count. Use the explicit result view, not a parent child-count.\",\"meaning\":\"Return true if the FRAME_REGISTER match count is unavailable or known0, false for a known nonzero count.\",\"needed_evidence\":[]}],\"stop_reason\":null}",
+  "parsed": {
+    "schema": "feature5.2",
+    "candidates": [
+      {
+        "proposal_id": "local",
+        "plan": {
+          "expression": {
+            "op": "parent_match_count",
+            "relationship_id": "hop_frame_link"
+          },
+          "grain": {
+            "table": "HOP_TRACE",
+            "keys": [
+              "TRACE_ROW"
+            ]
+          },
+          "population": {
+            "table": "HOP_TRACE",
+            "filter": null
+          },
+          "group_by": [],
+          "result_use": "unavailable_or_zero"
+        },
+        "purpose": "Compute physical FRAME_REGISTER match count for each HOP_TRACE row. Return true for unavailable or known0, false for known nonzero count. Use the explicit result view, not a parent child-count.",
+        "meaning": "Return true if the FRAME_REGISTER match count is unavailable or known0, false for a known nonzero count.",
+        "needed_evidence": []
+      }
+    ],
+    "stop_reason": null
+  },
+  "parse_error": null,
+  "length_limit_hit": false,
+  "messages_sha": "acfb8d338e055f22b2d839e4f693c8c15819b21bda5bbd8638feb77308b058d7",
+  "tokens": {
+    "input_tokens": 2154,
+    "input_token_sha": "080ef8228502c9df19d95e7d2d47975b45292dcc86291ec512335e37945f4128",
+    "output_reserved": 1536,
+    "repair_reserved": 3072,
+    "truncated": false,
+    "schema_sha": "9768ccf089ab2b11f578e149ce91ccf355b3ffddd2cd9aad0dd1f50da7cf5ede",
+    "chat_template_sha": "5c5c2567af60e8b6a5cb02dcdcb19775bbe046ee909fca1a04beed873078be7c"
+  },
+  "output_tokens": 150,
+  "greedy": true,
+  "thinking": false,
+  "budget": {
+    "sequence": 1,
+    "kind": "feature",
+    "call": "feature_0",
+    "phase": "frozen_final_final_public_delivery_parent_match_state",
+    "at": 1793097526.8045528,
+    "failed_or_interrupted_calls_consume_budget": true,
+    "shared_sequence": 98
+  },
+  "model": {
+    "Base": {
+      "repo_id": "Qwen/Qwen3.6-27B",
+      "revision": "6a9e13bd6fc8f0983b9b99948120bc37f49c13e9",
+      "verified_files": 27
+    },
+    "adapter_kind": "Feature_selected",
+    "adapter_weight_sha": "f5bc75d6ffc436418236b6808fe46a0841ef3e7c974c22d2c7a9bc0333b81975",
+    "Base_adapter_layers_disabled": 0,
+    "all_weights_frozen": true,
+    "class": "PeftModelForCausalLM",
+    "quantization": {
+      "quant_method": "bitsandbytes",
+      "_load_in_8bit": false,
+      "_load_in_4bit": true,
+      "llm_int8_threshold": 6.0,
+      "llm_int8_skip_modules": null,
+      "llm_int8_enable_fp32_cpu_offload": false,
+      "llm_int8_has_fp16_weight": false,
+      "bnb_4bit_quant_type": "nf4",
+      "bnb_4bit_use_double_quant": true,
+      "bnb_4bit_compute_dtype": "bfloat16",
+      "bnb_4bit_quant_storage": "uint8",
+      "load_in_4bit": true,
+      "load_in_8bit": false
+    },
+    "compute_dtype": "bfloat16"
+  },
+  "seconds": 22.297869846224785,
+  "GPU_memory": {
+    "allocated": 15576220672,
+    "reserved": 18272485376,
+    "peak": 17961120768
+  }
+}

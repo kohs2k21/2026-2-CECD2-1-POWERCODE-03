@@ -1,0 +1,825 @@
+{
+  "status": "feature_verified",
+  "preserved_seed_prediction": null,
+  "seed_source_pin": null,
+  "origin": "actual_Model_response",
+  "proposal": {
+    "proposal_id": "local",
+    "plan": {
+      "expression": {
+        "op": "gt",
+        "args": [
+          {
+            "op": "divide",
+            "args": [
+              {
+                "op": "column",
+                "table": "COMPARISON_ROWS",
+                "column": "NUM"
+              },
+              {
+                "op": "column",
+                "table": "COMPARISON_ROWS",
+                "column": "DEN"
+              }
+            ]
+          },
+          {
+            "op": "column",
+            "table": "COMPARISON_ROWS",
+            "column": "CUT"
+          }
+        ]
+      },
+      "grain": {
+        "table": "COMPARISON_ROWS",
+        "keys": [
+          "ROW_KEY"
+        ]
+      },
+      "population": {
+        "table": "COMPARISON_ROWS",
+        "filter": null
+      },
+      "group_by": [],
+      "result_use": "unavailable"
+    },
+    "purpose": "Check whether the division of NUM by DEN exceeds CUT is unavailable.",
+    "meaning": "Report whether the comparison of NUM divided by DEN to CUT is unavailable.",
+    "needed_evidence": []
+  },
+  "compilation": {
+    "passed": true,
+    "errors": [],
+    "compiled_feature": {
+      "Model_plan": {
+        "expression": {
+          "op": "gt",
+          "args": [
+            {
+              "op": "divide",
+              "args": [
+                {
+                  "op": "column",
+                  "table": "COMPARISON_ROWS",
+                  "column": "NUM"
+                },
+                {
+                  "op": "column",
+                  "table": "COMPARISON_ROWS",
+                  "column": "DEN"
+                }
+              ]
+            },
+            {
+              "op": "column",
+              "table": "COMPARISON_ROWS",
+              "column": "CUT"
+            }
+          ]
+        },
+        "grain": {
+          "table": "COMPARISON_ROWS",
+          "keys": [
+            "ROW_KEY"
+          ]
+        },
+        "population": {
+          "table": "COMPARISON_ROWS",
+          "filter": null
+        },
+        "group_by": [],
+        "result_use": "unavailable"
+      },
+      "result_view_compilation": {
+        "policy": "result-view1.0",
+        "selected_by": "explicit_plan_field",
+        "result_use": "unavailable",
+        "Model_expression": {
+          "op": "gt",
+          "args": [
+            {
+              "op": "divide",
+              "args": [
+                {
+                  "op": "column",
+                  "table": "COMPARISON_ROWS",
+                  "column": "NUM"
+                },
+                {
+                  "op": "column",
+                  "table": "COMPARISON_ROWS",
+                  "column": "DEN"
+                }
+              ]
+            },
+            {
+              "op": "column",
+              "table": "COMPARISON_ROWS",
+              "column": "CUT"
+            }
+          ]
+        },
+        "compiled_expression": {
+          "op": "is_missing",
+          "args": [
+            {
+              "op": "gt",
+              "args": [
+                {
+                  "op": "divide",
+                  "args": [
+                    {
+                      "op": "column",
+                      "table": "COMPARISON_ROWS",
+                      "column": "NUM"
+                    },
+                    {
+                      "op": "column",
+                      "table": "COMPARISON_ROWS",
+                      "column": "DEN"
+                    }
+                  ]
+                },
+                {
+                  "op": "column",
+                  "table": "COMPARISON_ROWS",
+                  "column": "CUT"
+                }
+              ]
+            }
+          ]
+        },
+        "not_intent_repair": true,
+        "meaning": "unavailable tests a computed result; unavailable_or_zero tests a numeric result for unavailable or known zero; filtered-out rows have no output; execution errors are not caught"
+      },
+      "id": "fd_5e578d65107d15146961096b",
+      "definition_sha": "e273ca8bb5125779b0890179e05335906ba6d598d6ea9459fd19660f8f8ccfad",
+      "semantic_definition_sha": "b8c9e668dafeeede4110344941b5e259889666da7c2de78a2ef308e2f7ef34d3",
+      "source_version": "be762a537b99c8c61c06cf9dadd73e3ba8436a031dda587a47079cc2567ef8b3",
+      "schema_version": "7a73a07bdada2990bf092882b516d769c1efe24b80130467ed34fe8fd3a1d1ed",
+      "plan": {
+        "id": "local_f4c2ad39cafc21bf28ec10",
+        "description": "unavailability(((COMPARISON_ROWS.NUM divided by COMPARISON_ROWS.DEN) > COMPARISON_ROWS.CUT))",
+        "expression": {
+          "op": "is_missing",
+          "args": [
+            {
+              "op": "gt",
+              "args": [
+                {
+                  "op": "divide",
+                  "args": [
+                    {
+                      "op": "column",
+                      "table": "COMPARISON_ROWS",
+                      "column": "NUM"
+                    },
+                    {
+                      "op": "column",
+                      "table": "COMPARISON_ROWS",
+                      "column": "DEN"
+                    }
+                  ]
+                },
+                {
+                  "op": "column",
+                  "table": "COMPARISON_ROWS",
+                  "column": "CUT"
+                }
+              ]
+            }
+          ]
+        },
+        "grain": {
+          "table": "COMPARISON_ROWS",
+          "keys": [
+            "ROW_KEY"
+          ]
+        },
+        "population": {
+          "table": "COMPARISON_ROWS",
+          "filter": null
+        },
+        "group_by": [],
+        "missing_policy": {
+          "input": "propagate",
+          "empty_group": null,
+          "denominator_zero": "missing",
+          "child_missing": "propagate",
+          "unknown_predicate": "defer"
+        },
+        "schema_version": "7a73a07bdada2990bf092882b516d769c1efe24b80130467ed34fe8fd3a1d1ed",
+        "source_version": "be762a537b99c8c61c06cf9dadd73e3ba8436a031dda587a47079cc2567ef8b3"
+      },
+      "dtype": "boolean",
+      "unit": "boolean",
+      "meaning": "Report whether the comparison of NUM divided by DEN to CUT is unavailable.",
+      "purpose": "Check whether the division of NUM by DEN exceeds CUT is unavailable.",
+      "source_columns": [
+        [
+          "COMPARISON_ROWS",
+          "CUT"
+        ],
+        [
+          "COMPARISON_ROWS",
+          "DEN"
+        ],
+        [
+          "COMPARISON_ROWS",
+          "NUM"
+        ]
+      ],
+      "relationships": [],
+      "measurement": {
+        "version": "metadata-calculation-3.0.4",
+        "runtime": "full-approved-scope-1.1",
+        "summary_decimal_precision": 50,
+        "definition_status": "valid",
+        "measurement_status": "measured",
+        "definition_sha256": "e273ca8bb5125779b0890179e05335906ba6d598d6ea9459fd19660f8f8ccfad",
+        "proposal_sha256": "d798d9b7108ee7e9b3feee29c4ef496dac4de50033fb8469798f97ae116920d9",
+        "source_version": "be762a537b99c8c61c06cf9dadd73e3ba8436a031dda587a47079cc2567ef8b3",
+        "summary": {
+          "row_count": 5,
+          "valid_count": 5,
+          "missing_count": 0,
+          "true_count": 3,
+          "false_count": 2,
+          "ratio": 0.6,
+          "numerator": 3,
+          "denominator": 5,
+          "min": null,
+          "max": null,
+          "p95": null,
+          "p99": null,
+          "variation": "variable",
+          "quantile_method": "linear_(n-1)*p",
+          "exact_decimal": {
+            "ratio": "0.6",
+            "p95": null,
+            "p99": null
+          },
+          "population_rows_before_selection": 5,
+          "selection_unavailable_count": 0
+        },
+        "validation": {
+          "passed": true,
+          "definition_status": "valid",
+          "definition_sha256": "e273ca8bb5125779b0890179e05335906ba6d598d6ea9459fd19660f8f8ccfad",
+          "proposal_sha256": "d798d9b7108ee7e9b3feee29c4ef496dac4de50033fb8469798f97ae116920d9",
+          "inferred_type": "boolean",
+          "unit": "boolean",
+          "identity": {
+            "schema_version": "7a73a07bdada2990bf092882b516d769c1efe24b80130467ed34fe8fd3a1d1ed",
+            "missing_policy": {
+              "input": "propagate",
+              "empty_group": null,
+              "denominator_zero": "missing",
+              "child_missing": "propagate",
+              "unknown_predicate": "defer"
+            },
+            "population": {
+              "table": "COMPARISON_ROWS",
+              "filter": null
+            },
+            "expression": {
+              "op": "is_missing",
+              "args": [
+                {
+                  "op": "gt",
+                  "args": [
+                    {
+                      "op": "divide",
+                      "args": [
+                        {
+                          "op": "column",
+                          "table": "COMPARISON_ROWS",
+                          "column": "NUM"
+                        },
+                        {
+                          "op": "column",
+                          "table": "COMPARISON_ROWS",
+                          "column": "DEN"
+                        }
+                      ]
+                    },
+                    {
+                      "op": "column",
+                      "table": "COMPARISON_ROWS",
+                      "column": "CUT"
+                    }
+                  ]
+                }
+              ]
+            },
+            "group_by": [],
+            "source_version": "be762a537b99c8c61c06cf9dadd73e3ba8436a031dda587a47079cc2567ef8b3",
+            "grain": {
+              "table": "COMPARISON_ROWS",
+              "keys": [
+                "ROW_KEY"
+              ]
+            },
+            "calculation_policy": "metadata-calculation-3.0.4",
+            "inferred_type": "boolean",
+            "unit": "boolean",
+            "source_columns": [
+              [
+                "COMPARISON_ROWS",
+                "CUT"
+              ],
+              [
+                "COMPARISON_ROWS",
+                "DEN"
+              ],
+              [
+                "COMPARISON_ROWS",
+                "NUM"
+              ]
+            ],
+            "relationships": []
+          },
+          "capture_missing": [],
+          "aggregate_relationships": [],
+          "errors": []
+        },
+        "anomaly_execution": "not_run",
+        "measurement_sha256": "36dc094afd6bc797853ee870f57d61ae1e79281d3e78006a2b6f6028a3f938ab"
+      },
+      "measurement_id": "m_36dc094afd6bc797853ee870",
+      "independent_calculation": {
+        "passed": true,
+        "method": "separate recursive lexical evaluator; distinct relation/group indices; exact Decimal50",
+        "values_compared": 5,
+        "selection_unavailable": 0,
+        "vector_sha": "a581e4553e81d5b6bf535db0782ea64a47019d8452be5fc61f832a378708ec45",
+        "business_truth_label": false
+      },
+      "description_revision": {
+        "sha": "30320e6c013beac162864368346ee63d4c079ce3eb35e6d668cfe3c9e87f59e1",
+        "calculation_definition_sha": "e273ca8bb5125779b0890179e05335906ba6d598d6ea9459fd19660f8f8ccfad",
+        "measurement_sha": "36dc094afd6bc797853ee870f57d61ae1e79281d3e78006a2b6f6028a3f938ab",
+        "measurement_reuse_requires": "Same expression/grain/population/group/missing/type/unit/schema/source. This compilation always verifies its own source.",
+        "Model_origin": {
+          "file": "model/feature_0/output.json",
+          "raw_sha": "f14aaac075a6a0588c18b9895639610877a363eca4c22df23ac8ae430d4a25e2",
+          "parsed_sha": "9d182647377fb434027693777dd7d8a7e052feb328ab7e0fdbf6703a1502c582",
+          "messages_sha": "e4079bee6bda7413613d72fda1b841afb26cbe569eb5dbd3c5ba68622666824b",
+          "budget": {
+            "sequence": 1,
+            "kind": "feature",
+            "call": "feature_0",
+            "phase": "frozen_final_final_public_delivery_nested_comparison_unavailable",
+            "at": 1793097432.4069912,
+            "failed_or_interrupted_calls_consume_budget": true,
+            "shared_sequence": 96
+          }
+        },
+        "assembled_preserved_parent": null
+      },
+      "registration": {
+        "call_id": "feature_0",
+        "Model_alias": "local",
+        "Model_proposal_sha": "d2696a7a4775330c0e7fda96ac72d02698cf49c4624167b7bbdc37dd0a1c6371"
+      },
+      "possible_states": {
+        "operator": "is_missing",
+        "unavailable_possible": false,
+        "proof_scope": "Supported operator contract on retained selected rows",
+        "children": [
+          {
+            "operator": "gt",
+            "unavailable_possible": true,
+            "proof_scope": "Supported operator contract on retained selected rows",
+            "children": [
+              {
+                "operator": "divide",
+                "unavailable_possible": true,
+                "proof_scope": "Supported operator contract on retained selected rows",
+                "children": [
+                  {
+                    "operator": "column",
+                    "unavailable_possible": true,
+                    "proof_scope": "Supported operator contract on retained selected rows",
+                    "children": []
+                  },
+                  {
+                    "operator": "column",
+                    "unavailable_possible": true,
+                    "proof_scope": "Supported operator contract on retained selected rows",
+                    "children": []
+                  }
+                ]
+              },
+              {
+                "operator": "column",
+                "unavailable_possible": true,
+                "proof_scope": "Supported operator contract on retained selected rows",
+                "children": []
+              }
+            ]
+          }
+        ]
+      },
+      "availability": "offline complete capture; prospective availability and IF not approved"
+    },
+    "row_grain": {
+      "policy": "row-grain1.0+immutable-AST3-types",
+      "passed": true,
+      "errors": [],
+      "nodes": [
+        {
+          "path": "/plan/expression/args/0/args/0/args/0",
+          "op": "column",
+          "evaluation_table": "COMPARISON_ROWS",
+          "output_table": "COMPARISON_ROWS",
+          "row_keys": [
+            "ROW_KEY"
+          ],
+          "scalar": false,
+          "dtype": "number",
+          "unit": null
+        },
+        {
+          "path": "/plan/expression/args/0/args/0/args/1",
+          "op": "column",
+          "evaluation_table": "COMPARISON_ROWS",
+          "output_table": "COMPARISON_ROWS",
+          "row_keys": [
+            "ROW_KEY"
+          ],
+          "scalar": false,
+          "dtype": "number",
+          "unit": null
+        },
+        {
+          "path": "/plan/expression/args/0/args/0",
+          "op": "divide",
+          "evaluation_table": "COMPARISON_ROWS",
+          "output_table": "COMPARISON_ROWS",
+          "row_keys": [
+            "ROW_KEY"
+          ],
+          "scalar": false,
+          "dtype": "number",
+          "unit": null
+        },
+        {
+          "path": "/plan/expression/args/0/args/1",
+          "op": "column",
+          "evaluation_table": "COMPARISON_ROWS",
+          "output_table": "COMPARISON_ROWS",
+          "row_keys": [
+            "ROW_KEY"
+          ],
+          "scalar": false,
+          "dtype": "number",
+          "unit": null
+        },
+        {
+          "path": "/plan/expression/args/0",
+          "op": "gt",
+          "evaluation_table": "COMPARISON_ROWS",
+          "output_table": "COMPARISON_ROWS",
+          "row_keys": [
+            "ROW_KEY"
+          ],
+          "scalar": false,
+          "dtype": "boolean",
+          "unit": "boolean"
+        },
+        {
+          "path": "/plan/expression",
+          "op": "is_missing",
+          "evaluation_table": "COMPARISON_ROWS",
+          "output_table": "COMPARISON_ROWS",
+          "row_keys": [
+            "ROW_KEY"
+          ],
+          "scalar": false,
+          "dtype": "boolean",
+          "unit": "boolean"
+        }
+      ],
+      "root": {
+        "path": "/plan/expression",
+        "op": "is_missing",
+        "evaluation_table": "COMPARISON_ROWS",
+        "output_table": "COMPARISON_ROWS",
+        "row_keys": [
+          "ROW_KEY"
+        ],
+        "scalar": false,
+        "dtype": "boolean",
+        "unit": "boolean"
+      },
+      "proposal_unchanged_sha": "f4c2ad39cafc21bf28ec10fa2ba0ec760a31e3aa4f8220d55de03e125ddac1e9"
+    },
+    "proposal_sha": "d2696a7a4775330c0e7fda96ac72d02698cf49c4624167b7bbdc37dd0a1c6371",
+    "row_ids": [
+      [
+        "r0"
+      ],
+      [
+        "r1"
+      ],
+      [
+        "r2"
+      ],
+      [
+        "r3"
+      ],
+      [
+        "r4"
+      ]
+    ]
+  },
+  "attempts": [
+    {
+      "attempt": 0,
+      "prediction": {
+        "schema": "feature5.2",
+        "candidates": [
+          {
+            "proposal_id": "local",
+            "plan": {
+              "expression": {
+                "op": "gt",
+                "args": [
+                  {
+                    "op": "divide",
+                    "args": [
+                      {
+                        "op": "column",
+                        "table": "COMPARISON_ROWS",
+                        "column": "NUM"
+                      },
+                      {
+                        "op": "column",
+                        "table": "COMPARISON_ROWS",
+                        "column": "DEN"
+                      }
+                    ]
+                  },
+                  {
+                    "op": "column",
+                    "table": "COMPARISON_ROWS",
+                    "column": "CUT"
+                  }
+                ]
+              },
+              "grain": {
+                "table": "COMPARISON_ROWS",
+                "keys": [
+                  "ROW_KEY"
+                ]
+              },
+              "population": {
+                "table": "COMPARISON_ROWS",
+                "filter": null
+              },
+              "group_by": [],
+              "result_use": "unavailable"
+            },
+            "purpose": "Check whether the division of NUM by DEN exceeds CUT is unavailable.",
+            "meaning": "Report whether the comparison of NUM divided by DEN to CUT is unavailable.",
+            "needed_evidence": []
+          }
+        ],
+        "stop_reason": null
+      },
+      "passed": true,
+      "errors": [],
+      "actual_model_origin": {
+        "file": "model/feature_0/output.json",
+        "raw_sha": "f14aaac075a6a0588c18b9895639610877a363eca4c22df23ac8ae430d4a25e2",
+        "parsed_sha": "9d182647377fb434027693777dd7d8a7e052feb328ab7e0fdbf6703a1502c582",
+        "messages_sha": "e4079bee6bda7413613d72fda1b841afb26cbe569eb5dbd3c5ba68622666824b",
+        "budget": {
+          "sequence": 1,
+          "kind": "feature",
+          "call": "feature_0",
+          "phase": "frozen_final_final_public_delivery_nested_comparison_unavailable",
+          "at": 1793097432.4069912,
+          "failed_or_interrupted_calls_consume_budget": true,
+          "shared_sequence": 96
+        }
+      },
+      "partial_Model_prose_fields": null,
+      "partial_Model_expression_and_prose": false,
+      "partial_stop_reason": false,
+      "assembly_over_preserved_candidate": false,
+      "not_code_authored_answer": true
+    }
+  ],
+  "source_manifest": {
+    "sha256": "e5a72fd414e79bfa185953d74792bd512b143985f0670a3ac36d0cd230fdf5d8",
+    "source_version": "be762a537b99c8c61c06cf9dadd73e3ba8436a031dda587a47079cc2567ef8b3"
+  },
+  "official_semantics": {
+    "version": "calculation-facts2.0-guarded-availability",
+    "definition_sha": "e273ca8bb5125779b0890179e05335906ba6d598d6ea9459fd19660f8f8ccfad",
+    "source_version": "be762a537b99c8c61c06cf9dadd73e3ba8436a031dda587a47079cc2567ef8b3",
+    "measurement_id": "m_36dc094afd6bc797853ee870",
+    "measurement_sha": "36dc094afd6bc797853ee870f57d61ae1e79281d3e78006a2b6f6028a3f938ab",
+    "output_grain": {
+      "table": "COMPARISON_ROWS",
+      "keys": [
+        "ROW_KEY"
+      ]
+    },
+    "population": {
+      "table": "COMPARISON_ROWS",
+      "filter": null
+    },
+    "dtype": "boolean",
+    "unit": "boolean",
+    "operator_contract_possible_states": [
+      "true",
+      "false"
+    ],
+    "operator_state_proof": {
+      "operator": "is_missing",
+      "unavailable_possible": false,
+      "proof_scope": "Supported operator contract on retained selected rows",
+      "children": [
+        {
+          "operator": "gt",
+          "unavailable_possible": true,
+          "proof_scope": "Supported operator contract on retained selected rows",
+          "children": [
+            {
+              "operator": "divide",
+              "unavailable_possible": true,
+              "proof_scope": "Supported operator contract on retained selected rows",
+              "children": [
+                {
+                  "operator": "column",
+                  "unavailable_possible": true,
+                  "proof_scope": "Supported operator contract on retained selected rows",
+                  "children": []
+                },
+                {
+                  "operator": "column",
+                  "unavailable_possible": true,
+                  "proof_scope": "Supported operator contract on retained selected rows",
+                  "children": []
+                }
+              ]
+            },
+            {
+              "operator": "column",
+              "unavailable_possible": true,
+              "proof_scope": "Supported operator contract on retained selected rows",
+              "children": []
+            }
+          ]
+        }
+      ]
+    },
+    "missing_policy": {
+      "input": "propagate",
+      "empty_group": null,
+      "denominator_zero": "missing",
+      "child_missing": "propagate",
+      "unknown_predicate": "defer"
+    },
+    "current": {
+      "selected_rows": 5,
+      "population_rows_before_selection": 5,
+      "selection_unavailable": 0,
+      "numeric_or_boolean_nonnull": 5,
+      "result_unavailable": 0,
+      "true": 3,
+      "false": 2
+    },
+    "interpretation": {
+      "null_result": "Does not alone identify source null, parsing, join, denominator or fault cause.",
+      "empty_child_group": "Zero only under the aggregate empty-group contract; unknown relationship/filter is different.",
+      "sample_extrema": "Observed min/max are not proven bounds.",
+      "total_missing_test": "is_missing evaluates retained null results to true; it is not an unavailable numerical comparison."
+    },
+    "row_nodes": [
+      {
+        "path": "/plan/expression/args/0/args/0/args/0",
+        "op": "column",
+        "evaluation_table": "COMPARISON_ROWS",
+        "output_table": "COMPARISON_ROWS",
+        "row_keys": [
+          "ROW_KEY"
+        ],
+        "scalar": false,
+        "dtype": "number",
+        "unit": null
+      },
+      {
+        "path": "/plan/expression/args/0/args/0/args/1",
+        "op": "column",
+        "evaluation_table": "COMPARISON_ROWS",
+        "output_table": "COMPARISON_ROWS",
+        "row_keys": [
+          "ROW_KEY"
+        ],
+        "scalar": false,
+        "dtype": "number",
+        "unit": null
+      },
+      {
+        "path": "/plan/expression/args/0/args/0",
+        "op": "divide",
+        "evaluation_table": "COMPARISON_ROWS",
+        "output_table": "COMPARISON_ROWS",
+        "row_keys": [
+          "ROW_KEY"
+        ],
+        "scalar": false,
+        "dtype": "number",
+        "unit": null
+      },
+      {
+        "path": "/plan/expression/args/0/args/1",
+        "op": "column",
+        "evaluation_table": "COMPARISON_ROWS",
+        "output_table": "COMPARISON_ROWS",
+        "row_keys": [
+          "ROW_KEY"
+        ],
+        "scalar": false,
+        "dtype": "number",
+        "unit": null
+      },
+      {
+        "path": "/plan/expression/args/0",
+        "op": "gt",
+        "evaluation_table": "COMPARISON_ROWS",
+        "output_table": "COMPARISON_ROWS",
+        "row_keys": [
+          "ROW_KEY"
+        ],
+        "scalar": false,
+        "dtype": "boolean",
+        "unit": "boolean"
+      },
+      {
+        "path": "/plan/expression",
+        "op": "is_missing",
+        "evaluation_table": "COMPARISON_ROWS",
+        "output_table": "COMPARISON_ROWS",
+        "row_keys": [
+          "ROW_KEY"
+        ],
+        "scalar": false,
+        "dtype": "boolean",
+        "unit": "boolean"
+      }
+    ],
+    "sha256": "d4615d6a5a58a0fa3cba04a2365b0022741d7173ba9ba96e1b5b6676010af6a5",
+    "author": "compiler",
+    "contract": "official-computation-facts1.0",
+    "not_AI_generated": true,
+    "expression": {
+      "op": "is_missing",
+      "args": [
+        {
+          "op": "gt",
+          "args": [
+            {
+              "op": "divide",
+              "args": [
+                {
+                  "op": "column",
+                  "table": "COMPARISON_ROWS",
+                  "column": "NUM"
+                },
+                {
+                  "op": "column",
+                  "table": "COMPARISON_ROWS",
+                  "column": "DEN"
+                }
+              ]
+            },
+            {
+              "op": "column",
+              "table": "COMPARISON_ROWS",
+              "column": "CUT"
+            }
+          ]
+        }
+      ]
+    },
+    "selected_result_use": "unavailable",
+    "output_excludes_filtered_rows": true,
+    "exceptions": "Invalid sources/types/execution failures are errors, not unavailable values.",
+    "complete_natural_language_proof": false,
+    "facts_sha": "5a97ce9e575b7d856bdca555180b2ae8e1a2b1a3f831b96ab9e100056d60424c"
+  },
+  "description_validation": {
+    "status": "supported_claims_checked",
+    "complete_NL_proof": false,
+    "free_prose_approval": "not_granted_by_program_supported_claims_only",
+    "actual_Model_repair": false,
+    "errors": []
+  },
+  "admin_semantic_review": "Structured compiler facts define calculation behavior; AI prose has only the separately stated review scope."
+}

@@ -73,3 +73,83 @@
 - 운영 지표 수집: Detector/API; 최초 후보 적용 전 운영 실적 없는 상태 허용
 - 운영·비용·후보 보고 API와 UTC/시간대·revision 중복 규약: [Backend 보고 계약](../backend/README.md)
 - 배포 경계: server 내부 모듈만; research 런타임 import 금지
+
+## 변경 제안 — Issue #94 (룰·모델 분리, 학습 제외 구간; 위 현행 서술은 수정하지 않음)
+
+Created: 2026-11-02T18:00:00+09:00 / Updated: 2026-11-02T18:00:00+09:00 / Author: Claude Code (Trainer 세션 builder) / Status: draft(이 절만)
+
+- 근거: 사용자 11/02 결정(학습 제외 구간, ESB 발생 시각 기준, 일별 거래량 그래프 위 구간 선택 — MyDocs `decisions/20261102-탐지구조-룰모델분리-화면흐름.md` 1·6절), 10/28 보완안 Q-B1~B3(`plans/20261028-전체기획-보완안-알림묶음-학습흐름.md` 5.1~5.2·7절), #74 변경 제안 표 승계. 코드 변경 없음(계약만)
+
+### 요청 확장 — `POST /api/jobs kind=train` [제안]
+
+```json
+{
+  "kind": "train",
+  "sourceId": "<source UUID>",
+  "from": "2026-10-01T00:00:00+09:00",
+  "until": "2026-11-01T00:00:00+09:00",
+  "timeBasis": "esb_occurred_at",
+  "modelKey": "iforest",
+  "parameters": null,
+  "featureSetId": "<feature set UUID>",
+  "detectionPolicy": {"version": 2, "policyKey": "category-k-of-n-or-v1", "k": {"hard": 1, "soft": 1, "ml": 1}, "deadlineMs": 3000},
+  "excludedIntervals": [
+    {"from": "2026-10-03T02:00:00+09:00", "until": "2026-10-03T06:30:00+09:00", "reasonCode": "known_incident", "note": "DB 장애"},
+    {"from": "2026-10-20T22:00:00+09:00", "until": "2026-10-21T01:00:00+09:00", "reasonCode": "maintenance", "note": null}
+  ],
+  "evaluationSetId": null
+}
+```
+
+| 키 | 규칙 |
+|---|---|
+| `timeBasis` | `persisted_at`(현행, 키 생략 시 기본 — 기존 요청 호환) / `esb_occurred_at`(`data_observations.source_log_occurred_at`). snapshot 기간 자르기 `[from, until)`의 기준(10/28 Q-B2 ★A "둘 다 선택"). 새 학습 화면은 거래량 그래프가 ESB 발생 시각 기준이므로 `esb_occurred_at`를 보냄 |
+| `excludedIntervals[]` | 0..32개. 각 `{from, until, reasonCode, note}`: ISO 8601(오프셋 필수), `from < until`, `[from, until)`가 요청 기간 안(밖이면 400 `excluded_interval_out_of_range`), 서로 겹치면 400 `excluded_interval_overlap`(서버 병합 없음 — 화면이 보여 준 구간과 저장 구간이 같아야 함). `reasonCode` ∈ `known_incident` / `maintenance` / `collection_anomaly` / `value_spike` / `other`, `note` ≤ 200자. 구간 비교는 **항상 ESB 발생 시각**(`source_log_occurred_at`) 기준 [확정 11/02 Q7] — `timeBasis`와 무관 |
+| `evaluationSetId` | 선택. 학습 성공 뒤 자동 비교 평가에 쓸 세트([config-comparison-evaluation.md](config-comparison-evaluation.md) 자동 비교 절). null이면 기본 세트 규칙 |
+| `modelKey`·`parameters`·`detectionPolicy`(v2) | #74 변경 제안 승계: 카탈로그 `ml:*` 키·`method_not_executable`·`parameters` 스키마 검증·v1/v2 형식 혼용 400. 키 전부 생략 시 현행 v1·v2 경로 |
+| (없음) `ruleVersionIds` | v3 요청에는 없음. 룰은 룰 세트([rule-set.md](rule-set.md))가 판정 시점에 적용 |
+
+### 선정 정책 v2 — `train-success-excluded-v2` [제안]
+
+- 조건: snapshot **train 분할** ∧ `status = S` ∧ 명시 anomaly 라벨 아님(현행 `train-success-only-v1`) ∧ **ESB 발생 시각이 모든 제외 구간 밖** ∧ (제외 구간이 1개 이상이면) ESB 발생 시각 존재·`clock_status` 신뢰. 시각 없음·불신 행은 "구간 판단 불가"로 학습에서 제외하고 `excludedTimeUnknownCount`에 집계(Q-B2 A)
+- `policyVersion` 기록: 요청에 `excludedIntervals` 키가 있으면(빈 배열 포함) v2, 없으면 v1. 빈 배열 v2는 v1과 같은 행을 고르지만 `excludedIntervalsHash`가 빈 목록 hash로 남음
+- **validation/test 분할에는 적용하지 않음**(현행 원칙 유지, 10/28 5.2). 제외 구간을 평가 정답(이상 라벨)으로 바꾸지 않음
+- 적용 지점: 모델 fit·판정선 보정·fit 연산(`group_median`·`group_centered`)·합성 기준선 **두 경로**(ADBench `select_training`, ESB `fit_generator`) 모두 공용 판단 함수(`is_training_eligible(row, selection)` 가칭)로. `reference_reason`의 S 검사는 그대로 두고 기준선 fit에서만 추가 호출(10/28 5.2)
+- 최소 행: 제외 후 행 수가 최소 행·그룹·블록(`worker/VALIDATION.md:145`)·`minTrainRows`(카탈로그) 미만이면 작업 `failed` + `train_rows_insufficient_after_exclusion` + 건수. 사전 미리보기는 거래량 집계 API(아래)의 구간 밖 S 건수 합으로 근사(train 분할 비율 70%는 화면이 안내), 정확한 검사는 접수·실행 시
+- `trainingSelection` 확장(config·resultSummary·fit 참조에 저장, 기존 키 유지): `policyVersion`, `timeBasis`, `excludedIntervalCount`, `excludedByIntervalCount`, `excludedTimeUnknownCount`, `excludedIntervalsHash`(= `[{from, until}]`를 from 순 정렬한 compact JSON SHA-256, UTC 정규화). 구간 목록 자체는 `run_jobs.input_spec`·`ml_config_models.training_settings.excludedIntervals`에 저장([model-version.md](model-version.md))
+- 학습 선정 개체(10/28 Q-B1 ★b `data_training_selections`)는 **이번 범위에서 보류**: 제외 구간은 train 요청에 포함(a′). snapshot 단독 생성(Q-B3 A/B)이 결정되면 `trainingSelectionId` 참조로 승격하고 평가 세트도 같은 개체를 참조 — 결정 질문 Q-T1
+
+### 거래량 집계 API — 요구사항만(구현 주체 API + PostgreSQL) [제안]
+
+- `GET /api/pipeline/reports/volume?sourceId=<uuid>&from=<ISO>&until=<ISO>&bucket=day|hour&timeBasis=esb_occurred_at|persisted_at&timezone=Asia/Seoul`
+- 응답: `{sourceId, timeBasis, bucket, timezone, from, until, totalCount, timeUnknownCount, buckets: [{bucketStart, processCount, statusCounts: {S, F, P, N, other}}]}`. 빈 버킷은 0으로 채움(그래프 연속), `bucketStart`는 `timezone` 기준 경계를 UTC ISO로
+- 기준: PROCESS 관측(`data_processes` ⋈ `data_observations`), `timeBasis=esb_occurred_at`이면 `source_log_occurred_at`(null은 `timeUnknownCount`로 분리, 버킷에 넣지 않음). revision 중복은 Backend 보고 규칙(execution별 최신 revision 1개)과 동일 — snapshot 멤버 규칙과 일치. UTC/시간대 규약은 [Backend 보고 계약](../backend/README.md)
+- 한도: `day` ≤ 366일, `hour` ≤ 31일(초과 400 `volume_range_too_large`); 화면 확대(마우스 휠)는 `hour`로 재조회
+- DB 요구: `data_observations(source_id, source_log_occurred_at)` 인덱스(현재 `persisted_at` 인덱스만, `002_core_erd.sql:51`). 재생(CSV) 데이터는 `persisted_at`이 재생 시각이라 ESB 시각 기준이 의미 있음(10/28 5.1)
+- 용도: 새 학습 "기간 단계"(조회 범위 → [조회] → 일별 그래프 → 드래그/두 번 클릭으로 제외 구간 N개). 그래프는 선택 보조일 뿐, 제외 구간 자동 확정 없음
+
+### capabilities·완료 결과 — #74 변경 제안 승계(모델 단위)
+
+| 현재 문구 | 제안 |
+|---|---|
+| `models[{key,displayName,supported}]` | 유지 + `methodCatalog`([method-catalog.md](method-catalog.md) v2, `supported := executable.process`) |
+| "모델: `iforest`만 지원; … 422 `unsupported_model`" | 카탈로그 `ml:*` 중 `executable.process=true`만 허용, 그 외 422 `method_not_executable`; `unsupported_model`은 카탈로그에 없는 키로 축소 |
+| "`rule_only`: modelKey 생략 필수" | v1 요청에 한함. v3는 룰 전용 학습 없음(룰은 학습 대상 아님) |
+| `modelManifest` 단일 | `modelManifests[]`(활성 ML마다 1개) 추가, `modelManifest`는 활성 ML 1개일 때 그 값·아니면 null |
+| `rule_ml` 가족 `hrBoth/hrRuleOnly/…`·`sr*` 셀 | `hr`은 "룰(hard+soft 조합 결과)"로 읽고 이름은 유지(기존 결과 변경 금지). `sr*` 셀은 영구 `not_applicable/sr_removed`(SR 폐기) — 새 metricVersion에서 제거 검토 |
+| "병렬/rule_only/ml_only 선택 모드·기한·수동 승인 보존" | v1 구성에 한함; v3는 모델 버전 + 룰 세트 리비전 + `detectionPolicy` v2 보존 |
+| `kind=compare` 결과 | `replacementRecommendation`은 `replacement-recommendation-v1`로 완료 시 1회 계산·불변; `resultSummary.ruleSet{revision, contentHash}` 기록 |
+
+### PostgreSQL 세션이 찾은 계약 누락 3건 — 명시(10/21 인수인계 4절)
+
+1. `run_jobs_v03_contract` CHECK(`004_erd_v03_contracts.sql:71-87`, `011:13-32`에서 재정의): kind별 queue·producer·role 조합을 **열거**하므로 새 kind는 반드시 분기에 추가. 이 계약이 요구하는 추가: `recommend_thresholds` → `llm_recommendation` 분기([llm-recommendation-job.md](llm-recommendation-job.md)). train 요청 확장 키(`excludedIntervals`·`timeBasis`)는 `input_spec` jsonb 안이라 CHECK 무관. **자동 비교 평가**가 시스템이 접수하는 `compare`는 현행 분기(`producer_kind='user'`·`requester_role='admin'`)를 만족하도록 **학습 요청 관리자를 승계**해 접수(분기 확장 없음)
+2. `erd_v03_validate_job`의 llm_spec 필수 kind 목록(`004:213` → `011:60`)·LLM 완료 시 `run_llm_results` 필수 목록(`004:227` → `011:76-77`)·`run_llm_results_kind_check`(`004:112` → `011:36-37`)·`run_llm_results_check`(`004:120-121` → `011:39-41`): `recommend_thresholds` 추가 필요. `recommend_methods`는 011에 이미 있고 보류 상태여도 유지
+3. `ml_config_versions` 불변 트리거: `004_feature_pipeline.sql:84-96` `pipeline_immutable`로 **이미 존재** → #74 "선택: 불변 트리거 추가"는 불필요. 룰 세트 이력 테이블([rule-set.md](rule-set.md))은 **새로** 불변 트리거 필요
+
+### 결정 질문
+
+| # | 질문 | 제안 |
+|---|---|---|
+| Q-T1 | 제외 구간 고정 위치: train 요청 포함(a′, 이번) vs 불변 학습 선정 개체(10/28 ★b) | a′로 시작, snapshot 단독 생성(Q-B3) 결정 시 b로 승격 |
+| Q-T2 | `timeBasis` 기본값 `persisted_at`(호환) 유지 | 유지, 새 화면은 명시 전송 |
+| Q-T3 | 제외 구간 상한 32·사유 코드 5종 | 제안값 |

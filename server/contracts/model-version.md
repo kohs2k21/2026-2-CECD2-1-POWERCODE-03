@@ -76,7 +76,7 @@ Status: draft
 | `methods[].parameters` | 카탈로그 `parameterSchema` 검증. 서버가 학습 후보의 실제 값(`training_settings.parameters`)을 채움 — 요청이 다른 값을 주면 422 `ml_parameters_require_training` [유지 #74] |
 | `methods[].parameterSource` | `system` / `catalog_default` / `user` / `llm_proposed`(사람이 저장을 눌렀다는 뜻, 자동 적용 아님) [유지 #74] |
 | `methods[].artifacts` | 학습 후보(`kind=train` 성공)의 `ml_config_models` 행. 파일 복사 없음, artifact ID 재사용. 후보 없는 모델은 선택 불가 |
-| `detectionPolicy` | **Detector 소유**(detection-decision.md(#92)): v2 객체 `{version: 2, policyKey, k: {hard, soft, ml}, deadlineMs}`. 이 문서는 "모델 버전 spec 안에 저장되고 hash에 포함된다"는 위치만 정함(Q-M2). `k.hard`·`k.soft`는 판정 시점 활성 룰 세트에 적용. **활성 모델 버전이 없을 때(룰만 운영) 기본 정책** = `{"version": 2, "policyKey": "category-k-of-n-or-v1", "k": {"hard": 1, "soft": 1, "ml": 1}, "deadlineMs": 3000}`(Detector 11/02 회신). **버전 판정 규칙**: `version` 키가 **없을 때만** v1(`{mode, deadlineMs, combination}`), `version: 2`는 v2 객체, **`version: 1`은 400 `invalid_detection_policy`**(v1·v2 키 혼용 400 규칙과 일관 — #74 "없거나 1이면 v1" 문구 폐기) |
+| `detectionPolicy` | **Detector 소유**(detection-decision.md(#92)): v2 객체 `{version: 2, policyKey, k: {hard, soft, ml}, deadlineMs}`. 이 문서는 "모델 버전 spec 안에 저장되고 hash에 포함된다"는 위치만 정함(Q-M2). `k.hard`·`k.soft`는 판정 시점 활성 룰 세트에 적용. **활성 모델 버전이 없을 때(룰만 운영) 기본 정책** = `{"version": 2, "policyKey": "category-k-of-n-or-v1", "k": {"hard": 1, "soft": 1, "ml": 1}, "deadlineMs": 3000}`(Detector 11/02 회신). **버전 판정 규칙**: `version` 키가 **없을 때만** v1(`{mode, deadlineMs, combination}`), `version: 2`는 v2 객체, **`version: 1`은 400 `invalid_detection_policy`**(v1·v2 키 혼용 400 규칙과 일관) — #92 U12 결정 대기(확정되면 #74 "없거나 1이면 v1" 문구를 폐기) |
 | `trainingSelection` | 활성 ML 1개면 그 후보의 값 복사, 여러 개면 null, 0개 불가. **v2 확장 필드**(`excludedByIntervalCount`·`excludedTimeUnknownCount`·`timeBasis`·`excludedIntervalsHash`)는 [trainer-service.md](trainer-service.md) 변경 제안 절. 제외 구간 목록 자체는 spec이 아니라 학습 작업 `input_spec`·`ml_config_models.training_settings`에 저장(spec은 hash만) |
 | `createdFrom` | `{kind: "train"|"compose", trainJobId?, recommendationJobId?}` [유지 #74]. `recommendationJobId`는 모델 선택 추천(보류, [llm-recommendation-job.md](llm-recommendation-job.md))이 재개될 때만 값 |
 | `operationalEligibility`·`preparedDatasetId`·`preparedInputContract` | 기존 키 유지([prepared-csv-v1](prepared-csv-import.md)). prepared 계보 후보가 하나라도 있으면 버전 전체 `eligible=false` [유지 #74] |
@@ -129,7 +129,8 @@ Status: draft
 | 후보들의 `featureSetId`가 서로·본문과 다름 | 409 `feature_set_mismatch` |
 | `parameters`를 주었고 후보 실제 값과 다름 | 422 `ml_parameters_require_training:<id>` |
 | `parameters`가 카탈로그 `parameterSchema` 위반 | 422 `method_parameters_invalid:<id>` |
-| `detectionPolicy` v2 객체 검증 | 422 Detector 계약이 정한 코드(detection-decision.md(#92)) |
+| `detectionPolicy` 형태 오류(키 집합·타입·v1/v2 혼용·`version: 1`) | 400 `invalid_detection_policy` |
+| `detectionPolicy` v2 객체 의미 검증(정책 키 미지·`k` 범위·활성 대분류 등) | 422 detection-decision.md(#92) 7.4가 정한 코드(예 `combination_k_out_of_range`) |
 
 - 파일 hash 재검증은 적용 단계 `applications.prepare_config`가 수행 [유지 #74]
 

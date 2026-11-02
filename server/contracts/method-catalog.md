@@ -33,7 +33,7 @@ Status: draft
 | 기존 | 새 체계 | 비고 |
 |---|---|---|
 | `hr:process-status` | `hard:process-status`(`methodVersion: process-status-hr-v1`, Detector 11/02 회신) | 상태 HR(`status_rule.py`) |
-| `hr:status_failed` 등 연구 HR 8종 | 카탈로그 제거. 하드룰 후보는 Detector 내장 목록 확장(#92 후속 B)에서 판단 | `research/evaluation/process_synthetic_lab/model.py` 기록 보존 |
+| `hr:status_failed` 등 연구 HR 8종 | 카탈로그 제거. 하드룰 후보는 후속 Issue(하드룰 내장 목록 확장, 미정)에서 판단 | `research/evaluation/process_synthetic_lab/model.py` 기록 보존 |
 | `rule:<rule_key>` | 임계값형은 `soft:*` 의미. `ml_rule_versions` 행은 읽기 보존, 자동 이관 없음 | `rules.md` API 유지 |
 | `sr:<key>` R00~R23 | **폐기**(등재 없음) | `research/evaluation/trend_sr_comparison/` 보존 |
 | `sr:process_*`(#75 프로토타입) | 미등재 유지, 예약 이름공간도 해제 | `research/` 보존 |

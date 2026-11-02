@@ -41,7 +41,7 @@ Status: draft
 
 | 기존 식별자 | 의미 | 새 체계 |
 |---|---|---|
-| `hr:process-status` | 상태 HR(`status_rule.py`) | 하드룰 1개(`hard:<status key>`, Detector 확정) |
+| `hr:process-status` | 상태 HR(`status_rule.py`) | 하드룰 `hard:process-status`(세션 합의 11/02, 사용자 확인 전) |
 | `rule:<rule_key>` | 등록 Rule DSL 버전 | 임계값형은 소프트룰 의미. 기존 `ml_rule_versions` 행은 읽기 보존, 소프트룰로 **자동 이관하지 않음**(사람이 새로 추가) |
 | `sr:<key>` | 통계 SR R00~R23 | **폐기**. 저장된 v3 구성 없음(백엔드 미구현)이라 이관 대상 없음 |
 
@@ -81,7 +81,7 @@ Status: draft
 | `contentHash`·`contentHashVersion` | 아래 리비전 형식 절 |
 | `savedBy` | 저장한 관리자(JSON 계정 ID, FK 아님 — `rules.md` 규약과 동일) |
 | `restoredFromRevision` | 되돌리기로 만든 리비전이면 출처 리비전, 아니면 null |
-| `hardRules[]` | Detector 내장 목록 전체를 **항상 전부** 포함(꺼진 것 포함). `displayName`·`conditionText`·`severity`는 Detector 정의값의 읽기 전용 투영, `editable`은 항상 `["enabled"]`. **하드룰 위험도는 detection-decision.md(#92) 정의를 따르며 읽기 전용** — 예: `hard:process-status`는 #92 U2 기준 상태별 분기(F=critical, P·N=warning)이므로 단일 값이 아님. 이 문서 예시의 `"severity": "critical"`은 **참고값**이며 실제 응답 형식(단일 값 또는 상태별 객체)은 #92가 정함 |
+| `hardRules[]` | Detector 내장 목록 전체를 **항상 전부** 포함(꺼진 것 포함). `displayName`·`conditionText`·`severity`는 Detector 정의값의 읽기 전용 투영, `editable`은 항상 `["enabled"]`. **하드룰 위험도는 detection-decision.md(#92) 정의를 따르며 읽기 전용** — 예: `hard:process-status`는 #92 U2(결정 대기)에서 상태별 분기(F=critical, P·N=warning)로 제안되어 단일 값이 아닐 수 있음. 이 문서 예시의 `"severity": "critical"`은 **참고값**이며 실제 응답 형식(단일 값 또는 `byCode` 객체)·필드명은 **#92 4.3 확정 대기**(확정 후 Detector가 재통보) |
 | `softRules[]` | 저장된 소프트룰 전체(꺼진 것 포함). 순서 = `id` 사전순(실행 순서 의미 없음 — 조합은 Detector 정책) |
 | `softRules[].field` | 카탈로그 `softRuleFields[].fieldId`(`method-catalog.md`). 생성 후 불변 |
 | `softRules[].operator` | `gte` / `gt` / `lte` / `lt`(화면 ≥ > ≤ <). `eq`·`ne`·문자열 연산은 소프트룰에 없음(상태 등 범주 조건은 하드룰 영역) |
@@ -135,6 +135,7 @@ Status: draft
 | `severity` ∉ {info, warning, critical} | 422 `soft_rule_severity_invalid:<…>` |
 | `name` 길이·중복 | 422 `soft_rule_name_invalid` / `soft_rule_name_duplicate` |
 | 소프트룰 수 > 32(현행 Rule 상한 `jobRoutes.ts:108`과 동일, #92와 합의) | 422 `soft_rule_limit_exceeded` |
+| 저장 결과 하드룰 전부 꺼짐 ∧ 켜진 소프트룰 0개 ∧ 활성 모델 버전 없음(탐지 방법 0개 운영) | `detection_methods_empty` — 코드·HTTP 상태는 detection-decision.md(#92) 7.4 정의를 따름(422 추정, #92 7.4 참조). 활성 모델 버전은 저장 트랜잭션 안에서 `ops_system_state`를 읽어 판단 |
 | `restoreFromRevision` 미존재·본문 불일치 | 422 `restore_revision_unknown` / `restore_payload_mismatch` |
 | 내용이 현재 상태와 완전히 같음(hash 동일 ∧ 이름까지 동일) | 409 `rule_set_unchanged`(리비전 증가 없음, 화면은 [저장] 비활성이 정상 경로) |
 

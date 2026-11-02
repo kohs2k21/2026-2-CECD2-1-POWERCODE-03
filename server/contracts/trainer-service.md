@@ -68,8 +68,8 @@
 - Detector: 해시 검증된 동일 모델·fit 추론, 준비 후 승인된 버전만 적용
 - API: 입력 검증·작업 접수·상태/결과 조회
 - 신규 후보 statusRulePolicy: `{version:"process-status-hr-v1",sourceId,mapping:{S:"no_hit",F:"critical",P:"warning",N:"warning"}}`; source·버전·매핑 엄격 검증. F 위험/P·N 주의, P/N만으로 먹통·실패 확정 금지. 미정 상태는 unavailable
-- 등록 사용자 Rule과 상태 HR 결과 별도 보존; 기존 Rule 또는 HR을 SR로 별칭 처리하지 않음. 병렬/rule_only/ml_only 선택 모드·기한·수동 승인 보존. 신규 기본 정책은 새 후보에 고정하며 기존 구성·이력 자동 변경 없음
-- Detector evidence schemaVersion=3: 기존 rules/models에 checkers.hr/sr/ml(status/anomalous/evidence), telemetry(위 실행 비용 가족), statusRulePolicy, observation(id/revisionNo/inputAsOf) 추가. 판정·계측·성공 job/queue ack 동일 트랜잭션, lease 소유권 상실 시 공개 차단
+- 등록 사용자 Rule과 상태 HR 결과 별도 보존; 기존 Rule 또는 HR을 SR로 별칭 처리하지 않음(v1·v2 구성 현행 서술 — 룰 세트·모델 버전 분리 뒤의 대응은 아래 #94 변경 제안 절). 병렬/rule_only/ml_only 선택 모드·기한·수동 승인 보존. 신규 기본 정책은 새 후보에 고정하며 기존 구성·이력 자동 변경 없음
+- Detector evidence schemaVersion=3: 기존 rules/models에 checkers.hr/sr/ml(status/anomalous/evidence), telemetry(위 실행 비용 가족), statusRulePolicy, observation(id/revisionNo/inputAsOf) 추가. 판정·계측·성공 job/queue ack 동일 트랜잭션, lease 소유권 상실 시 공개 차단. v3 모델 버전·v2 정책(`k:{hard,soft,ml}`)의 판정 기록은 evidence v4(detection-decision.md(#92) 11절) — 이 행의 v3 evidence 서술은 v1·v2 구성에 한함
 - 운영 지표 수집: Detector/API; 최초 후보 적용 전 운영 실적 없는 상태 허용
 - 운영·비용·후보 보고 API와 UTC/시간대·revision 중복 규약: [Backend 보고 계약](../backend/README.md)
 - 배포 경계: server 내부 모듈만; research 런타임 import 금지
@@ -138,6 +138,7 @@ Created: 2026-11-02T18:00:00+09:00 / Updated: 2026-11-02T18:00:00+09:00 / Author
 | `modelManifest` 단일 | `modelManifests[]`(활성 ML마다 1개) 추가, `modelManifest`는 활성 ML 1개일 때 그 값·아니면 null |
 | `rule_ml` 가족 `hrBoth/hrRuleOnly/…`·`sr*` 셀 | `hr`은 "룰(hard+soft 조합 결과)"로 읽고 이름은 유지(기존 결과 변경 금지). `sr*` 셀은 영구 `not_applicable/sr_removed`(SR 폐기) — 새 metricVersion에서 제거 검토 |
 | "병렬/rule_only/ml_only 선택 모드·기한·수동 승인 보존" | v1 구성에 한함; v3는 모델 버전 + 룰 세트 리비전 + `detectionPolicy` v2 보존 |
+| "기존 Rule 또는 HR을 SR로 별칭 처리하지 않음" | 유지하되 SR 폐기 뒤에는 "등록 Rule(`rule:*`)·상태 HR(`hr:*`) 결과를 `hard:*`/`soft:*`로 **자동 번역하지 않음**(v1·v2 행은 읽기 투영만, [model-version.md](model-version.md) 조회 절)"으로 보완 |
 | `kind=compare` 결과 | `replacementRecommendation`은 `replacement-recommendation-v1`로 완료 시 1회 계산·불변; `resultSummary.ruleSet{revision, contentHash}` 기록 |
 
 ### PostgreSQL 세션이 찾은 계약 누락 3건 — 명시(10/21 인수인계 4절)

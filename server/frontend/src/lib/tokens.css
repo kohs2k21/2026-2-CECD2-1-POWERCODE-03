@@ -65,6 +65,13 @@
   --section-menu-height: 48px;
   --top-nav-height: 64px;
   --top-nav-columns: minmax(240px, 1fr) auto minmax(240px, 1fr);
+
+  /* 차트(운영 현황 시간별 트랜잭션): 막대·현재 시간 강조·격자·축 글자 */
+  --chart-bar: var(--hairline-strong);
+  --chart-bar-current: var(--link);
+  --chart-grid: var(--hairline);
+  --chart-axis: var(--body);
+  --chart-axis-font-size: 11px;
 }
 
 @theme inline {
@@ -125,6 +132,7 @@
   --text-brand-compact--line-height: 15px;
   --container-workspace: 1600px;
   --radius-control-sm: 4px;
+  --spacing-chart: 180px;
 }
 
 @theme static {

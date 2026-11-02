@@ -8,7 +8,7 @@
     "dev": "vite --host 0.0.0.0",
     "build": "tsc -b && vite build",
     "typecheck": "tsc -b",
-    "test": "node --import tsx tests/trainer-contract.mjs && node --import tsx tests/trainer-contract-independent.mjs && node --import tsx tests/decision-diagnostics.mjs && node --import tsx tests/input-controls.mjs && node --import tsx tests/decision-stream.mjs && node --import tsx tests/realtime-stream.mjs && node --import tsx tests/realtime-hooks.mjs && node --import tsx tests/realtime-adapter.mjs && node --import tsx tests/settings-profile.mjs && node --import tsx tests/navigation-auth.mjs && node --import tsx tests/navigation-draft.mjs && node --import tsx tests/navigation-filters.mjs && node --import tsx tests/common-ui.mjs && node --import tsx tests/operations-observation.mjs && node --import tsx tests/anomaly-evidence.mjs && node --import tsx tests/anomaly-feedback.mjs && node --import tsx tests/anomaly-workflow.mjs && node --import tsx tests/anomaly-filter.mjs && node --import tsx tests/query-rules.mjs && node --import tsx tests/routes.mjs && node --import tsx tests/sidebar.mjs && node --import tsx tests/saved-decisions.mjs",
+    "test": "node --import tsx tests/trainer-contract.mjs && node --import tsx tests/trainer-contract-independent.mjs && node --import tsx tests/decision-diagnostics.mjs && node --import tsx tests/input-controls.mjs && node --import tsx tests/decision-stream.mjs && node --import tsx tests/realtime-stream.mjs && node --import tsx tests/realtime-hooks.mjs && node --import tsx tests/realtime-adapter.mjs && node --import tsx tests/settings-profile.mjs && node --import tsx tests/navigation-auth.mjs && node --import tsx tests/navigation-draft.mjs && node --import tsx tests/navigation-filters.mjs && node --import tsx tests/common-ui.mjs && node --import tsx tests/operations-observation.mjs && node --import tsx tests/operations-overview.mjs && node --import tsx tests/anomaly-evidence.mjs && node --import tsx tests/anomaly-feedback.mjs && node --import tsx tests/anomaly-workflow.mjs && node --import tsx tests/anomaly-filter.mjs && node --import tsx tests/query-rules.mjs && node --import tsx tests/routes.mjs && node --import tsx tests/sidebar.mjs && node --import tsx tests/saved-decisions.mjs",
     "preview": "vite preview --host 0.0.0.0"
   },
   "dependencies": {
@@ -16,6 +16,7 @@
     "@radix-ui/react-dialog": "^1.1.15",
     "@radix-ui/react-label": "^2.1.17",
     "@radix-ui/react-popover": "^1.3.1",
+    "@radix-ui/react-progress": "^1.2.1",
     "@radix-ui/react-radio-group": "^1.5.1",
     "@radix-ui/react-scroll-area": "^1.4.0",
     "@radix-ui/react-select": "^2.4.1",

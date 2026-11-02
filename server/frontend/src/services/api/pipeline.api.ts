@@ -188,8 +188,8 @@ export function submitObservationLabel(observationId: string, input: {
   return httpClient.post(`/api/pipeline/labels/${encodeURIComponent(observationId)}`, input);
 }
 
-export async function fetchProcessDecisions(signal?: AbortSignal): Promise<ProcessDecision[]> {
-  return (await httpClient.get<{ items: ProcessDecision[] }>("/api/pipeline/decisions", { signal })).items;
+export async function fetchProcessDecisions(signal?: AbortSignal, limit?: number): Promise<ProcessDecision[]> {
+  return (await httpClient.get<{ items: ProcessDecision[] }>("/api/pipeline/decisions", { signal, params: { limit } })).items;
 }
 
 export type CollectorMetric = {endpoint:string;requests:number;failures:number;emptyResponses:number;

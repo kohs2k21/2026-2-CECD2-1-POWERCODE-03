@@ -1,14 +1,15 @@
 import type { ReactNode } from "react";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "./dialog";
+import { cn } from "@/lib/utils";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "./dialog";
 
 export type ModalSize = "sm" | "md" | "lg" | "xl" | "full";
+const sizeClass: Record<ModalSize, string> = {
+  sm: "sm:max-w-sm",
+  md: "sm:max-w-lg",
+  lg: "sm:max-w-2xl",
+  xl: "sm:max-w-4xl",
+  full: "sm:max-w-[calc(100%-4rem)]",
+};
 export interface ModalProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
@@ -32,7 +33,7 @@ export const Modal = ({
   <Dialog open={isOpen} onOpenChange={onOpenChange}>
     {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
     <DialogContent
-      className={"ui-modal--" + size}
+      className={cn(sizeClass[size])}
       showCloseButton={showCloseButton}
       {...(description ? {} : { "aria-describedby": undefined })}
     >
@@ -40,7 +41,7 @@ export const Modal = ({
         <DialogTitle>{title}</DialogTitle>
         {description && <DialogDescription>{description}</DialogDescription>}
       </DialogHeader>
-      <div className="ui-dialog-body">{children}</div>
+      <div className="grid gap-4">{children}</div>
     </DialogContent>
   </Dialog>
 );

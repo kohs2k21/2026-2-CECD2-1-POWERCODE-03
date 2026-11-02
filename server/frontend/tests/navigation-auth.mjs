@@ -17,7 +17,7 @@ import {
   loginReturnPath,
   safeReturnPath,
   settingsReturnPath,
-} from "../src/app/routePaths.ts";
+} from "../src/app/routes.ts";
 
 globalThis.React = React;
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
@@ -110,7 +110,7 @@ const mount = async (withStream = false) => {
             element: React.createElement(AdminGate),
             children: [
               {
-                path: "/detection/create",
+                path: "/detection/models",
                 element: withStream
                   ? React.createElement(StreamEditor)
                   : React.createElement("p", null, "protected editor"),
@@ -120,7 +120,7 @@ const mount = async (withStream = false) => {
         ],
       },
     ],
-    { initialEntries: ["/detection/create?tab=training"] },
+    { initialEntries: ["/detection/models?step=2"] },
   );
   let renderer;
   await act(async () => {
@@ -194,8 +194,15 @@ assert.equal(
 );
 assert.equal(
   loginReturnPath("/detection/create?tab=rules", "admin"),
-  "/detection/create?tab=rules",
+  "/detection/rules",
+  "legacy detection address resolves to the new route before return",
 );
+assert.equal(
+  loginReturnPath("/detection/models?tab=all&step=2", "admin"),
+  "/detection/models?tab=all&step=2",
+);
+assert.equal(loginReturnPath("/detection/models", "user"), "/operations");
+assert.equal(safeReturnPath("/notifications?filter=tasks"), "/analysis");
 
 storage.set("token", "test-token");
 let resolveMe;
@@ -212,7 +219,7 @@ assert.ok(
 await act(async () => resolveMe(json({ user: admin })));
 await wait(() => session.user?.id === "admin");
 assert.ok(text(mounted.renderer.toJSON()).includes("protected editor"));
-useDraftStore.getState().edit("/detection/create", { value: "unsaved" });
+useDraftStore.getState().edit("/detection/models", { value: "unsaved" });
 mounted.cache.setQueryData(["private-records"], ["admin-only"]);
 let finishOldRequest;
 globalThis.fetch = () =>
@@ -284,7 +291,7 @@ await wait(() => mounted.router.state.location.pathname === "/login");
 assert.equal(storage.has("token"), false);
 assert.equal(
   mounted.router.state.location.state.returnTo,
-  "/detection/create?tab=training",
+  "/detection/models?step=2",
   "expiry preserves internal return destination",
 );
 await mounted.close();
@@ -330,7 +337,7 @@ globalThis.fetch = async (url, options) => {
 };
 mounted = await mount(true);
 await wait(() => session.user?.id === "admin" && Boolean(streamSignal));
-useDraftStore.getState().edit("/detection/create", { value: "admin draft" });
+useDraftStore.getState().edit("/detection/models", { value: "admin draft" });
 mounted.cache.setQueryData(["private-records"], ["admin-only"]);
 const pendingMe = [];
 globalThis.fetch = (_url, options) =>
@@ -382,7 +389,7 @@ await act(async () =>
 );
 useDraftStore
   .getState()
-  .edit("/detection/create", { value: "new admin draft" });
+  .edit("/detection/models", { value: "new admin draft" });
 mounted.cache.setQueryData(["private-records"], ["another private row"]);
 await act(async () => {
   storage.clear();

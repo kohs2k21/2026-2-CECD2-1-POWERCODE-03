@@ -1,20 +1,20 @@
 # 알림·진행 작업 UI 규약
 
-- 관련 작업: #20 WebUI 레이아웃 구조 개편
-- 진입: 우상단 알림 버튼 → 작은 확인 창 → 전체 보기 `/notifications`
-- 분류 `filter`: `all` 전체 / `operations` 운영 / `tasks` 작업; 일반 사용자 tasks 진입은 operations로 정규화
+- 관련 작업: #20 WebUI 레이아웃 구조 개편, #100 프론트 기반(알림 전체 페이지 폐지)
+- 진입: 우상단 알림 버튼 → 알림 패널(최근 운영 알림). 알림 전체 페이지 `/notifications`는 #100에서 폐지, 옛 주소는 `/analysis`로 넘김(navigation.md)
+- 읽음 상태·`읽지 않음/전체` 보기·모두 읽음(와이어프레임 #93)은 하위 Issue(알림·설정 + 사용자별 저장 API)에서 추가
 - 일반 사용자: 운영 이벤트 조회; 관리자: 운영 이벤트 + 학습·평가 작업 조회
-- 작은 창: 운영/작업 분리, 영역별 최근 최대5건, 목록 내부 스크롤·닫기·전체 보기; 동일 데이터를 전체 페이지와 공유
-- 상세 이동: 운영 이벤트 `/analysis?category=<severity>&event=<eventId>`; 학습 `/detection/create?tab=training&job=<id>`; 평가 `/detection/evaluation?tab=candidates&candidate=<id>&result=<id>`
-- 직접 URL·필터·설정 복귀 지원; 초안 편집 영역 이탈 시 기존 저장/폐기 확인 적용
+- 알림 패널: 운영 알림 최근 최대5건, 목록 내부 스크롤, Escape·바깥 클릭·이동 시 닫힘
+- 상세 이동: 운영 이벤트 `/analysis?category=<severity>&event=<eventId>`. 학습·평가 작업 알림은 #100에서 옛 화면 폐지(개발 예시 데이터 기반이었음), 탐지 설정 화면(`/detection/operations/jobs/<id>`·`/detection/evaluations/<id>`)에서 재연결 예정
+- 초안 편집 영역 이탈 시 기존 저장/폐기 확인 적용
 
 ## 데이터·상태 책임
 
 - 운영 알림: 인증된 앱 공통 RealtimeAnomalyProvider의 기존 이상 SSE 이벤트 사용, 분석/팝업/전체 페이지별 중복 구독 금지
 - 이벤트 보관: 현재 세션의 최근50건, 기존 중복 이벤트 제거·재연결·취소 정책 유지; 영속 이력·재생 API 별도
 - 페이지 이동: 수신 이벤트 유지; 로그아웃·계정/역할·인증 변경: 이전 이벤트·캐시·연결 정리, 늦은 응답 표시 금지
-- 작업 조회: TanStack Query 계정별 `[detection-workbench, userId]`; 관리자에서만 실행
-- 갱신: 알림 공통 observer의 accepted/queued/running 작업 존재 시5초 polling, 실행 작업 없으면 정지; 수동 다시 조회 지원
+- 작업 조회(재연결 시 기준): TanStack Query 계정별 key(`useAccountQuery`), 관리자에서만 실행. 옛 `[detection-workbench, userId]` 조회는 #100에서 삭제
+- 갱신(재연결 시 기준): accepted/queued/running 작업 존재 시 5초 polling, 실행 작업 없으면 정지; 수동 다시 조회 지원
 - 접수·대기·실행·성공·실패 구분; 큐 접수·관측 저장만으로 판정 완료 표시 금지
 - 진행률: TrainingJob.progress의 실제0~100 값만 사용, NULL/범위오류/미제공은 미확인; 평가 진행률 임의 추가·시간 보간 금지
 - 오류: 조회 실패·연결 끊김·이벤트 형식 오류 표시, 마지막 조회 내용은 과거 조회임을 표시; 실패의 정상/빈 성공 대체 금지

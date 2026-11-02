@@ -136,7 +136,7 @@ Created: 2026-11-02T18:00:00+09:00 / Updated: 2026-11-02T20:00:00+09:00 / Author
 | `models[{key,displayName,supported}]` | 유지 + `methodCatalog`([method-catalog.md](method-catalog.md) v2, `supported := executable.process`) |
 | "모델: `iforest`만 지원; … 422 `unsupported_model`" | 카탈로그 `ml:*` 중 `executable.process=true`만 허용, 그 외 422 `method_not_executable`; `unsupported_model`은 카탈로그에 없는 키로 축소 |
 | "`rule_only`: modelKey 생략 필수" | v1 요청에 한함. v3는 룰 전용 학습 없음(룰은 학습 대상 아님) |
-| `modelManifest` 단일 | 추천안(모델 1개 = 버전 1개, [model-version.md](model-version.md) Q-M1)에서는 **단일 유지**(변경 없음). 대안(묶음) 채택 시에만 `modelManifests[]` 추가 |
+| `modelManifest` 단일 | **단일 유지**(변경 없음 — 모델 1개 = 버전 1개, [model-version.md](model-version.md) Q-M1 확정 11/02). `modelManifests[]`는 도입하지 않음 |
 | `rule_ml` 가족 `hrBoth/hrRuleOnly/…`·`sr*` 셀 | `hr`은 "룰(hard+soft 조합 결과)"로 읽고 이름은 유지(기존 결과 변경 금지). `sr*` 셀은 영구 `not_applicable/sr_removed`(SR 폐기) — 새 metricVersion에서 제거 검토 |
 | "병렬/rule_only/ml_only 선택 모드·기한·수동 승인 보존" | v1 구성에 한함; v3는 활성 모델 집합 리비전 + 룰 세트 리비전 + 운영 설정 `detectionPolicy` 리비전(세 가지, evidence v4 `activeModelSetRevision`·`ruleSetRevision`·`detectionPolicyRevision`) 보존 |
 | "기존 Rule 또는 HR을 SR로 별칭 처리하지 않음" | 유지하되 SR 폐기 뒤에는 "등록 Rule(`rule:*`)·상태 HR(`hr:*`) 결과를 `hard:*`/`soft:*`로 **자동 번역하지 않음**(v1·v2 행은 읽기 투영만, [model-version.md](model-version.md) 조회 절)"으로 보완 |

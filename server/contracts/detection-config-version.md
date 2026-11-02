@@ -10,7 +10,7 @@ Status: draft (호환 안내 — 내용은 분리된 두 계약으로 이동)
 | 분리된 계약 | 파일 | 내용 |
 |---|---|---|
 | 룰 세트 `rule-set-v1` | [rule-set.md](rule-set.md) | 하드룰 켜기/끄기 + 소프트룰(등록 필드·조건·임계값·위험도). 버전 없음, 저장 즉시 운영 적용, 리비전 + 스냅샷 이력, 되돌리기 = 새 저장, 동시 편집 409 |
-| 모델 버전 `model-version-v1` | [model-version.md](model-version.md) | `ml:*` 1개를 담는 불변 버전(configuration_spec v3 재정의, 모델 1개 = 버전 계열 — 11/02 9.4 귀결 추천 전환, 사용자 확인 대기), 활성 모델 집합(활성화·운영에서 빼기·교체·복원·리비전), 운영 설정 `detectionPolicy` 전역 값, 자동 비교 평가 연결 |
+| 모델 버전 `model-version-v1` | [model-version.md](model-version.md) | `ml:*` 1개를 담는 불변 버전(configuration_spec v3 재정의, 모델 1개 = 버전 계열·같은 modelKey 1개 — 사용자 11/02 확정), 활성 모델 집합(활성화·운영에서 빼기·교체·복원·리비전), 운영 설정 `detectionPolicy` 전역 값, 자동 비교 평가 연결 |
 | 종합 판정 | detection-decision.md(#92, Detector) | `detectionPolicy` v2 `k:{hard,soft,ml}`의 의미(값 저장은 model-version.md 운영 설정), 조합 규칙, 이상/이상 징후 등급, evidence v4, 하드룰 내장 목록, 소프트룰 실행 의미론 |
 
 ## #74 초안에서 사라진 것
@@ -22,5 +22,6 @@ Status: draft (호환 안내 — 내용은 분리된 두 계약으로 이동)
 
 ## #74에서 그대로 가져온 것(모델 단위)
 
-- 내용 hash(`contentHashVersion: 2`), 파라미터 변경=재학습, 조합 저장 동기 API·검증 코드와 `enabled:false` 보존·중복 재저장 안내(`duplicateOf`)는 **대안(묶음) 채택 시에만**(추천안은 모델 1개 = 버전 1개, 조합 저장 보류 — model-version.md Q-M1·Q-M5), 기술 무결성 gate + 비교 + 사람 수락·자동 교체 금지, `acceptedRecommendation`·stale 400, schemaVersion fail-closed(`unsupported_config_schema`), v3 허용 시점(Detector v3 로더 병합 뒤)
+- 내용 hash(`contentHashVersion: 2`), 파라미터 변경=재학습, 기술 무결성 gate + 비교 + 사람 수락·자동 교체 금지, `acceptedRecommendation`·stale 400, schemaVersion fail-closed(`unsupported_config_schema`), v3 허용 시점(Detector v3 로더 병합 뒤)
+- #74에서 **가져오지 않은 것**(사용자 11/02 Q-M1 확정 — 모델 1개 = 버전 1개, 조합 저장 경로 없음): 조합 저장 동기 API·검증 코드, `enabled:false` 보존, 중복 재저장 안내(`duplicateOf`, 학습 = 버전이라 재저장 자체가 없음 — model-version.md Q-M5)
 - 저장소 사실: `ml_config_versions` 등은 `004_feature_pipeline.sql:84-96`의 `pipeline_immutable` 트리거로 이미 불변 — #74 "선택: 불변 트리거"는 불필요

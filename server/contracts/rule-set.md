@@ -1,5 +1,5 @@
 Created: 2026-11-02T18:00:00+09:00
-Updated: 2026-11-02T20:00:00+09:00
+Updated: 2026-11-03T12:00:00+09:00
 Author: Claude Code (Trainer 세션 builder)
 Status: draft
 
@@ -9,6 +9,7 @@ Status: draft
 - 계약 버전: `rule-set-v1`. 근거 결정: 사용자 11/02 결정(룰 설정 버전 없음·저장 즉시 적용, 룰 수정 범위 R1~R5, AI 임계값 추천 화면 설계)·Trainer·Detector 분담 합의 11/02. 절 번호(6·8.2·9)는 총괄 기록 기준. 근거 코드 origin/dev `7f24e03`
 - 범위: 하드룰 켜기/끄기 + 소프트룰(등록 필드·조건·임계값·위험도) 한 벌의 현재 상태·저장·변경 요약·변경 이력·되돌리기·동시 편집·식별자·리비전 형식
 - 2차 개정(사용자 11/02 9.4): 되돌리기 버튼은 **모든 이력 항목에 항상 표시**(변경 크기 기준 없음); 되돌리기 검증 분기 정정(삭제된 소프트룰이 든 스냅샷으로 되돌리기 허용, WebUI 11/02 대조); 이상 규칙의 END_TIME 누락 제외(소프트룰 `elapsed_ms` null = 평가 안 함) 연결; 활성 모델 "집합" 용어([model-version.md](model-version.md), 사용자 11/02 확정)
+- 3차 정정(Issue #106, 11/03): detection-decision.md(#92) 16절 후속 권고 반영 — 11/03 사용자 확정(U1·U2·U3)으로 식별자 절·호환 매핑·`hardRules[]` 예시·Q-R7 상태 표기 갱신, `softRules[].field`의 null 서술을 카탈로그 `sourceMissingPolicy = not_applicable`인 경우로 한정. 의미 변경 없음
 - 제외(Detector 소유, detection-decision.md(#92)): 하드룰 내장 목록(id·조건·위험도), 소프트룰 실행 의미론(평가 시점·결측 처리), 종합 판정 `detectionPolicy` v2 `k:{hard,soft,ml}`의 의미(저장 위치는 운영 설정 전역 값 — [model-version.md](model-version.md) 운영 설정 절), 이상/이상 징후 등급, evidence v4(판정마다 기록하는 룰 리비전 필드명). 소프트룰 등록 필드 목록은 [method-catalog.md](method-catalog.md) `softRuleFields[]`
 - 표기: **[확정]** 사용자 확정(11/02) 또는 코드 사실 / **[제안]** 이 초안이 정한 값(결정 질문은 문서 끝)
 
@@ -33,7 +34,7 @@ Status: draft
 - **동시 편집**: 요청 `expectedRevision` ≠ 현재 리비전이면 409 거절, 화면은 새로 불러오기 안내
 - 단일 룰 세트 [제안]: `ops_system_state`가 단일 행(id=1, `002_core_erd.sql:200-206`)이고 활성 모델 집합·운영 설정도 시스템 전역 1개이므로 룰 세트도 시스템 전역 1개. source별 분리는 결정 질문 Q-R1
 
-## 식별자 [합의 11/02 — 사용자 확인 필요 (a)]
+## 식별자 [확정 11/03 — #92 U1, 11/02 세션 합의 (a) 승인]
 
 - 형식 `<kind>:<key>`, kind ∈ `hard` / `soft` / `ml`(ml은 모델 버전 계약). key `^[a-z][a-z0-9_-]{1,63}$`(#74 규칙 유지)
 - `hard:<key>`: 내장 하드룰. key는 **kebab-case**, 목록·조건·위험도는 detection-decision.md(#92). 이 문서의 예시 id `hard:process-status`(상태 HR, `methodVersion: process-status-hr-v1`)·`hard:negative-duration`(START_TIME > END_TIME)은 Detector 11/02 회신값. 접두 `hard:`/`soft:`가 다르므로 하드룰 key와 소프트룰 key는 충돌할 수 없음
@@ -42,7 +43,7 @@ Status: draft
 
 | 기존 식별자 | 의미 | 새 체계 |
 |---|---|---|
-| `hr:process-status` | 상태 HR(`status_rule.py`) | 하드룰 `hard:process-status`(세션 합의 11/02, 사용자 확인 전) |
+| `hr:process-status` | 상태 HR(`status_rule.py`) | 하드룰 `hard:process-status`(세션 합의 11/02 → 사용자 확정 11/03, #92 U1) |
 | `rule:<rule_key>` | 등록 Rule DSL 버전 | 임계값형은 소프트룰 의미. 기존 `ml_rule_versions` 행은 읽기 보존, 소프트룰로 **자동 이관하지 않음**(사람이 새로 추가) |
 | `sr:<key>` | 통계 SR R00~R23 | **폐기**. 저장된 v3 구성 없음(백엔드 미구현)이라 이관 대상 없음 |
 
@@ -83,9 +84,9 @@ Status: draft
 | `contentHash`·`contentHashVersion` | 아래 리비전 형식 절 |
 | `savedBy` | 저장한 관리자(JSON 계정 ID, FK 아님 — `rules.md` 규약과 동일) |
 | `restoredFromRevision` | 되돌리기로 만든 리비전이면 출처 리비전, 아니면 null |
-| `hardRules[]` | 예시의 `displayName`·`conditionText`는 **참고값**이며 정본은 detection-decision.md(#92) 4.3. Detector 내장 목록 전체를 **항상 전부** 포함(꺼진 것 포함). 항목 = `{id, methodVersion, displayName, conditionText, severity, enabled}` + 이 API의 `editable`(항상 `["enabled"]`) — **#92 4.3/D13 기준**. `displayName`·`conditionText`는 화면용 한글(Detector 정의, #94는 읽기 전용 표시만). **END_TIME 누락은 이상 아님**(사용자 11/02 9.4 — END_TIME이 찍히지 않는 정상 트랜잭션 유형 존재): `hard:negative-duration`은 END_TIME이 있을 때만 판단하고 없으면 결과 `not_applicable`(정상, reason `end_time_absent`); 하드룰 결과 값은 `hit`/`no_hit`/`unavailable`/`not_applicable`(Detector #92 11/02). 화면 조건 설명("종료 시각이 없으면 판단하지 않음")은 Detector `conditionText`가 담음. **`severity`(읽기 전용)**: 단일 문자열 `"critical"|"warning"|"info"` **또는** `{"byCode": {"<결과 코드>": "<단계>"}}` — `byCode`의 키는 그 규칙이 낼 수 있는 결과 코드 전부(결과 코드 규칙 `"PROCESS_STATUS_" + status`, `status_rule.py:22`). 예시 `hard:process-status`는 U2 추천안 `{"byCode": {"PROCESS_STATUS_F": "critical", "PROCESS_STATUS_P": "warning", "PROCESS_STATUS_N": "warning"}}`(U2에서 '모두 위험'을 고르면 단일 `"critical"`이 되고 **`methodVersion`도 새로 바뀜** — `process-status-hr-v1`은 P·N=warning 의미로 고정), `hard:negative-duration`은 `"critical"`·`methodVersion: negative-duration-v1`(U3 채택 시). 화면은 `byCode`를 "F 위험 · P/N 주의"처럼 코드별로 표시 |
+| `hardRules[]` | 예시의 `displayName`·`conditionText`는 **참고값**이며 정본은 detection-decision.md(#92) 4.3. Detector 내장 목록 전체를 **항상 전부** 포함(꺼진 것 포함). 항목 = `{id, methodVersion, displayName, conditionText, severity, enabled}` + 이 API의 `editable`(항상 `["enabled"]`) — **#92 4.3/D13 기준**. `displayName`·`conditionText`는 화면용 한글(Detector 정의, #94는 읽기 전용 표시만). **END_TIME 누락은 이상 아님**(사용자 11/02 9.4 — END_TIME이 찍히지 않는 정상 트랜잭션 유형 존재): `hard:negative-duration`은 END_TIME이 있을 때만 판단하고 없으면 결과 `not_applicable`(정상, reason `end_time_absent`); 하드룰 결과 값은 `hit`/`no_hit`/`unavailable`/`not_applicable`(Detector #92 11/02). 화면 조건 설명("종료 시각이 없으면 판단하지 않음")은 Detector `conditionText`가 담음. **`severity`(읽기 전용)**: 단일 문자열 `"critical"|"warning"|"info"` **또는** `{"byCode": {"<결과 코드>": "<단계>"}}` — `byCode`의 키는 그 규칙이 낼 수 있는 결과 코드 전부(결과 코드 규칙 `"PROCESS_STATUS_" + status`, `status_rule.py:22`). 예시 `hard:process-status`는 **U2 확정값(11/03, F = 위험·P·N = 주의)** `{"byCode": {"PROCESS_STATUS_F": "critical", "PROCESS_STATUS_P": "warning", "PROCESS_STATUS_N": "warning"}}`(`process-status-hr-v1`은 P·N=warning 의미로 고정 — 채택하지 않은 대안 '모두 위험'이었다면 단일 `"critical"`에 **`methodVersion`도 새로 바뀌었을 것**, 기록용), `hard:negative-duration`은 `"critical"`·`methodVersion: negative-duration-v1`(**U3 확정 11/03** — 1차 목록 = `hard:process-status` + `hard:negative-duration`, 나머지 후보는 실데이터 빈도 확인 뒤 추가). 화면은 `byCode`를 "F 위험 · P/N 주의"처럼 코드별로 표시 |
 | `softRules[]` | 저장된 소프트룰 전체(꺼진 것 포함). 순서 = `id` 사전순(실행 순서 의미 없음 — 조합은 Detector 정책) |
-| `softRules[].field` | 카탈로그 `softRuleFields[].fieldId`(`method-catalog.md`). 생성 후 불변. **필드 값이 null이면 그 룰은 그 행을 평가하지 않음(이상 징후 아님)** — 예 `elapsed_ms`는 END_TIME 누락 시 null(카탈로그 `sourceMissingPolicy`), 하드룰 `hard:negative-duration`의 `not_applicable`과 같은 취지("END_TIME 없음 = 이상 아님", 사용자 11/02 9.4). 값 계산 불가(START_TIME 누락·시각 해석 불가)는 `unavailable`(미판정). 평가 의미론 자체는 detection-decision.md(#92) |
+| `softRules[].field` | 카탈로그 `softRuleFields[].fieldId`(`method-catalog.md`). 생성 후 불변. **카탈로그 `softRuleFields[].sourceMissingPolicy = not_applicable`인 원천 열 누락으로 값이 null이 된 경우에 한해** 그 룰은 그 행을 평가하지 않음(결과 `not_applicable`, 이상 징후 아님) — 예 `elapsed_ms`는 END_TIME 누락 시 null(`sourceMissingPolicy.END_TIME = not_applicable`), 하드룰 `hard:negative-duration`의 `not_applicable`과 같은 취지("END_TIME 없음 = 이상 아님", 사용자 11/02 9.4). **그 밖의 null·결측은 '평가 안 함'이 아님**: `sourceMissingPolicy`가 `unavailable`이거나 지정되지 않은 열의 누락, END_TIME이 있는데 START_TIME 누락·시각 해석 불가 등 계산 불가는 `unavailable`(미판정); 두 시각이 모두 없으면 END_TIME 없음이 우선해 `not_applicable`(#92 5.2 판정 순서). 평가 의미론 자체는 detection-decision.md(#92) 5.2가 정본 |
 | `softRules[].operator` | `gte` / `gt` / `lte` / `lt`(화면 ≥ > ≤ <). `eq`·`ne`·문자열 연산은 소프트룰에 없음(상태 등 범주 조건은 하드룰 영역) |
 | `softRules[].threshold` | **JSON number** — GET/PUT 응답·저장 요청·이력 스냅샷(`ops_rule_set_revisions.snapshot`) 저장 형식 모두 number(스냅샷 저장 형식 = GET 응답 형식). 유한값, 유효 숫자 ≤ 15자리, 필드 `valueType=integer`면 정수. **고정소수 문자열은 hash 정규 객체 계산·Detector 전달(evidence·DSL 실행값) 때만 변환**(저장하지 않음) — 변환 규칙은 리비전 형식 절의 `threshold` 변환 규칙과 동일(지수 표기 금지, `ruleContract.ts:17` DSL 정규식 `^-?(?:0\|[1-9]\d*)(?:\.\d+)?$`·40자 이내). 저장 시 같은 규칙으로 변환 가능한지 미리 검사해 변환 불가 값은 422 `soft_rule_threshold_invalid` |
 | `softRules[].unit` | 필드 카탈로그의 단위를 서버가 채움(요청에 있으면 일치 검사, 불일치 422) |
@@ -239,4 +240,4 @@ Status: draft
 | Q-R4 | `rule_set_unchanged` 409 vs 무변경 저장 허용(리비전만 증가) | 409(의미 없는 리비전 방지). 화면은 변경 없으면 [저장] 비활성 |
 | Q-R5 | `confirmHardRuleDisable` 범위: 새로 끄는 저장에만 vs 꺼진 규칙이 남아 있는 모든 저장 | **새로 끄는 저장에만**(reviewer 권고 8). 확인창 강조는 항상 |
 | Q-R6 | 룰 세트 hash 직렬화(compact·ensure_ascii=False·UTF-8 = 모델 버전 v3 `contentHashVersion: 2`와 동일)를 **현행 v1 hash 코드**(`runner.py:408`, 기본 separators·ensure_ascii=True)에 맞출지 | 맞추지 않음(v1 코드는 v1·v2 행 전용으로 남김). 바꾸면 룰 세트 `contentHashVersion` 2로 |
-| Q-R7 | 대분류 키 `hard/soft/ml`·식별자 접두 `hard:`/`soft:`/`ml:`은 Trainer·Detector 세션 합의(11/02)이며 **사용자 확인 전** | 사용자 확인 요청(#92에도 같은 질문 등재). 바뀌면 이 문서·method-catalog·model-version·detection-decision 동시 개정 |
+| Q-R7 | 대분류 키 `hard/soft/ml`·식별자 접두 `hard:`/`soft:`/`ml:` — Trainer·Detector 세션 합의(11/02) | **확정(사용자 11/03, #92 U1)**: 합의안 그대로 승인. 이 문서·method-catalog·model-version의 식별자 절 표기를 확정으로 갱신(#106) |

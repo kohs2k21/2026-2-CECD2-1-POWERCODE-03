@@ -3,7 +3,7 @@ import { getStoredToken, expireSession } from '../auth/session';
 import type { ProcessDecision } from './pipeline.api';
 
 export async function consumeDecisionStream(signal: AbortSignal, after: string,
-  receive: (decision: ProcessDecision, eventId: string) => void): Promise<void> {
+  receive: (decision: ProcessDecision, eventId: string) => void, onOpen?: () => void): Promise<void> {
   const token = getStoredToken();
   if (!token) throw new Error('로그인이 필요합니다.');
   const response = await fetch(buildApiUrl('/api/pipeline/events'), {
@@ -13,6 +13,7 @@ export async function consumeDecisionStream(signal: AbortSignal, after: string,
   if (!response.ok || !response.body || !response.headers.get('content-type')?.includes('text/event-stream')) {
     throw new Error('저장된 판정 스트림에 연결하지 못했습니다.');
   }
+  onOpen?.();
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
   let pending = '';

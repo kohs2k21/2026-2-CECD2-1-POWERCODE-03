@@ -180,7 +180,7 @@ dc run --rm sender status --run-key esb-pg-01 --watch-seconds 300
 dc --profile ui up -d --build api web
 ```
 
-서버의 `http://<서버주소>:8081`에 접속/로그인한 뒤 `/analysis/process-decisions`를 연다. 저장된 실제 판정이 SSE로 추가되며 `과거 데이터 재생 데모`와 run-key를 표시한다. 데모는 Rule을 건너뛰고 ML 결과를 표시한다. LLM을 구동하지 않는 이 구성에서 데모 설명 요청 버튼은 비활성화된다. 기존 운영 판정도 같은 DB에 있으면 함께 표시된다.
+서버의 `http://<서버주소>:8081`에 접속/로그인한 뒤 이상 분석(`/analysis`)을 연다. 저장된 실제 판정이 SSE로 목록에 반영되며(판정 상세 `/analysis/d/<판정 ID>`) `과거 데이터 재생 데모`와 run-key를 표시한다. 데모는 Rule을 건너뛰고 ML 결과를 표시한다. LLM을 구동하지 않는 이 구성에서 데모 설명 요청 버튼은 비활성화된다. 기존 운영 판정도 같은 DB에 있으면 함께 표시된다.
 
 운영 Detector가 이미 최신 코드로 동작하며 같은 아티팩트 경로/DB를 사용하면 별도 데모 Detector 대신 기존 Detector가 큐를 처리할 수 있다. 서로 다른 버전의 worker를 같은 큐에 붙이지 않는다. 별도 `compose.demo.yaml` Detector도 같은 DB의 다른 대기 작업/승인 적용 작업을 처리할 수 있으므로, 공유 운영 DB에서는 기존 최신 Detector 재사용 또는 별도 데모 대상 DB를 선택한다. 데모 Sender 자체는 운영 활성 구성을 변경하지 않는다.
 

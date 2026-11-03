@@ -1,6 +1,6 @@
 # WebUI 탐색 규약
 
-- 관련 작업: #20 WebUI 레이아웃 구조 개편, #100 프론트 기반(와이어프레임 #93 구조로 경로 개편, 사용자 11/03 승인)
+- 관련 작업: #20 WebUI 레이아웃 구조 개편, #100 프론트 기반(와이어프레임 #93 구조로 경로 개편, 사용자 11/03 승인), #105 이상 분석 판정 목록·상세
 - 화면 기준: `research/wireframes/mlops-workflow.html`(#93)
 - 인증·오류 응답: [auth.md](auth.md)
 - 권한: `user` 일반 사용자 / `admin` 관리자
@@ -12,8 +12,8 @@
 |---|---|---|
 | `/login` | 로그인 | 미인증 |
 | `/operations` | 운영 현황 | user / admin |
-| `/analysis` | 이상 분석 | user / admin |
-| `/analysis/process-decisions` | 저장된 탐지 판정·근거 설명(이상 분석 판정 화면으로 합칠 예정) | user / admin |
+| `/analysis` | 이상 분석 › 판정 목록 | user / admin |
+| `/analysis/d/:decisionId` | 이상 분석 › PROCESS 판정 상세(판정 ID 또는 최종 판정 전 detect 작업 ID, [analysis-ui.md](analysis-ui.md)) | user / admin |
 | `/settings` | 설정 | user / admin |
 | `/detection/operations` | 탐지 설정 › 운영 설정 | admin |
 | `/detection/operations/jobs/:jobId` | 작업 상세 | admin |
@@ -41,7 +41,8 @@
 | 평가 결과 | `tab` | `current` 현재 운영 모델 기준 / `all` 전체 평가 |
 | 평가 결과 | `step` | 새 비교 평가 `1` 평가 세트 / `2` 비교 모델 / `3` 요청 |
 | 모델 교체 | `step` | `1` 버전 선택 / `2` 비교 확인 / `3` 승인·요청 |
-| 이상 분석 | `category`·`q`·`event` | 분류 / 검색어 / 열린 이벤트(기존 유지) |
+| 이상 분석 | `category` | `all` / `anomaly` / `in_progress` / `undetermined` / `failed_replaced`(판정 결과별 분류: 전체 / 이상 / 판정 중·중간 판정 / 정상 여부 미확인 / 판정 실패·대체) |
+| 이상 분석 | `q`·`signal`·`completeness`·`sort`·`page`·`pageSize` | 검색어 / 이상 신호 `all`·`yes`·`no`·`unknown` / 검사 완료 `all`·`complete`·`partial`·`unavailable` / `newest`·`oldest` / 1~ / `10`·`5`·`20`. 판정 상세 주소도 같은 쿼리 유지(목록 복귀) |
 | 설정 | `returnTo` | 진입 전 앱 내부 주소 |
 
 - #100 현재: 탐지 설정 화면은 숨긴 화면 제목(sr-only h1)만 있는 골격(운영 설정은 본문 첫 줄 [모델 교체] 진입 포함). 운영 현황·이상 분석·탐지 설정은 보이는 제목 줄 없음(ui.md 화면 제목). 목록 탭·작업 단계 화면은 각 하위 Issue에서 이 주소 규칙대로 붙임(도구 `hooks/useUrlState.ts`)
@@ -54,13 +55,14 @@
 | 옛 주소 | 새 주소 |
 |---|---|
 | `/notifications`(모든 쿼리) | `/analysis` |
+| `/analysis/process-decisions`(모든 쿼리) | `/analysis`(저장된 탐지 판정 화면을 이상 분석에 합침, #105) |
 | `/detection`, `/detection/pipeline`, `/detection/versions` | `/detection/operations` |
 | `/detection/create?tab=rules` | `/detection/rules` |
 | `/detection/create`(그 외 tab) | `/detection/models` |
 | `/detection/evaluation` | `/detection/evaluations` |
 | `/detection/collection` | `/operations?tab=collect` |
 
-- 폐지 화면: `/notifications` 알림 전체 페이지(알림은 상단 패널), `/detection/pipeline` 학습·탐지 운영, 탐지 관리 실험·운영 그룹(생성·평가·운영 버전·수집)
+- 폐지 화면: `/notifications` 알림 전체 페이지(알림은 상단 패널), `/detection/pipeline` 학습·탐지 운영, 탐지 관리 실험·운영 그룹(생성·평가·운영 버전·수집), `/analysis/process-decisions` 저장된 탐지 판정(#105)
 - 로그인·설정 복귀 주소의 옛 주소도 같은 표로 바꿔 허용
 
 ## 상태 책임
@@ -69,7 +71,7 @@
   - key에 계정 ID 포함, queryFn에 AbortSignal 전달, 응답 시점에 토큰이 바뀌었으면 결과 폐기
   - 자동 재시도 없음(404 포함), 창 포커스·재연결·주기 재조회 없음
   - 주기 조회는 진행 중 작업만 5초(`RUNNING_POLL_MS`, 예: 입력 실행 running, 설명 작업 queued·running). 끝나면 멈춤
-  - 실시간 SSE(이상 이벤트·저장 판정)는 스트림 하나로 받고 캐시에 병합, 끊기면 재연결(주기 조회 아님)
+  - 실시간 SSE(이상 이벤트·저장 판정)는 스트림 하나로 받고 캐시에 병합 또는 해당 조회 무효화, 끊기면 재연결(주기 조회 아님). 이상 분석은 목록 응답 커서 다음부터 받아 이벤트가 올 때만 목록·건수를 묶어 다시 조회(analysis-ui.md)
   - 서버 변경은 Mutation. 실패를 성공으로 바꾸지 않고 최신 상태를 다시 조회
 - URL: 화면·탭·확정 필터·페이지·작업 단계
 - Zustand: 화면 간 공유가 필요한 편집 초안만(`stores/draftStore.ts`, pathname별)

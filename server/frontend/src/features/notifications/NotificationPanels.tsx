@@ -15,8 +15,8 @@ const streamLabels = {
 const severityLabels = { Info: "정보", Warning: "주의", Critical: "심각" } as const;
 const observedTime = (value: string | null | undefined) => value || "시각 미확인";
 
-export const operatingEventHref = (event: RealtimeAnomalyEvent) =>
-  `${paths.analysis}?${new URLSearchParams({ category: event.severity, event: event.eventId }).toString()}`;
+/** 실시간 이상 이벤트(데모 SSE)는 판정 ID가 없어 상세가 없다. 이상 분석 판정 목록으로 이동한다(#105, 옛 이벤트 상세 폐지). */
+export const operatingEventHref = (_event: RealtimeAnomalyEvent) => paths.analysis;
 
 /**
  * 운영 알림: 앱 공용 SSE 연결(RealtimeAnomalyProvider) 하나에서 최근 이벤트를 보여 준다. 이벤트마다 토스트 없음(ui.md).

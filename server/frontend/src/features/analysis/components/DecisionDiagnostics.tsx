@@ -1,5 +1,11 @@
 
-import type { ProcessDecision } from "@/services/api/pipeline.api";
+/** 판정 불가 사유 표시에 필요한 저장 값(ProcessDecision·이상 분석 판정 항목 공용). */
+// 판정 기한(deadlineMs)은 판정 정책 값이라 숫자를 화면에 보이지 않는다(와이어프레임 사용자 9.8). 사유 이름(기한 초과)만 보인다.
+type DiagnosableDecision = {
+  ruleStatus: string | null;
+  mlStatus: string | null;
+  evidence?: { rules?: unknown; models?: unknown } | null;
+};
 
 const reasons: Record<string, string> = {
   deadline_exceeded: '설정한 판정 처리 기한을 초과했습니다.',
@@ -24,14 +30,13 @@ function descriptions(evidence: unknown, rule: boolean): string[] {
   }))];
 }
 
-export function DecisionDiagnostics({ decision }: { decision: ProcessDecision }) {
+export function DecisionDiagnostics({ decision }: { decision: DiagnosableDecision }) {
   const paths = [
     { label: 'Rule', status: decision.ruleStatus, details: descriptions(decision.evidence?.rules, true) },
     { label: 'ML', status: decision.mlStatus, details: descriptions(decision.evidence?.models, false) },
-  ].filter(path => ['not_ready', 'failed'].includes(path.status));
+  ].filter(path => ['not_ready', 'failed'].includes(path.status ?? ''));
   if (!paths.length) return null;
   return <div className="grid gap-1 text-xs text-muted-foreground">
     {paths.map(path => <small key={path.label}>{path.label}: {path.details.join(' · ') || '저장된 세부 사유가 없습니다.'}</small>)}
-    {decision.evidence?.detectionPolicy && <small>판정 처리 기한: {decision.evidence.detectionPolicy.deadlineMs} ms</small>}
   </div>;
 }

@@ -10,6 +10,7 @@ import configRouter from './routes/configRoutes.js';
 import pipelineRouter from './routes/pipelineRoutes.js';
 import inputRouter from './routes/inputRoutes.js';
 import operationsRouter from './routes/operationsRoutes.js';
+import analysisRouter from './routes/analysisRoutes.js';
 import preparedDatasetRouter from './routes/preparedDatasetRoutes.js';
 import { checkDatabaseConnection } from './config/database.js';
 
@@ -19,7 +20,7 @@ const app = express();
 app.use(cors({
   origin: '*', // 개발·테스트용 전체 출처 허용. 운영 환경에서는 허용 출처를 제한한다.
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'If-Match', 'Idempotency-Key'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'If-Match', 'Idempotency-Key', 'Last-Event-ID'],
   exposedHeaders: ['ETag', 'Location']
 }));
 app.use('/api/prepared-datasets', preparedDatasetRouter);
@@ -45,6 +46,7 @@ app.use('/api/configurations', configRouter);
 app.use('/api/pipeline', pipelineRouter);
 app.use('/api/inputs', inputRouter);
 app.use('/api/operations', operationsRouter);
+app.use('/api/analysis', analysisRouter);
 
 // 공통 오류 처리
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {

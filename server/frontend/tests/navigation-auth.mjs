@@ -162,31 +162,22 @@ assert.equal(
   safeReturnPath("/settings?section=profile"),
   "/settings?section=profile",
 );
+// 옛 저장 판정 주소는 이상 분석으로 넘김(#105), 판정 상세 주소는 쿼리·해시 보존.
+assert.equal(safeReturnPath("/analysis/process-decisions"), "/analysis");
+assert.equal(safeReturnPath("/analysis/process-decisions?decision=d-1#latest"), "/analysis");
 assert.equal(
-  safeReturnPath("/analysis/process-decisions"),
-  "/analysis/process-decisions",
+  safeReturnPath("/analysis/d/d-1?category=anomaly#latest"),
+  "/analysis/d/d-1?category=anomaly#latest",
 );
-assert.equal(
-  safeReturnPath("/analysis/process-decisions?decision=d-1#latest"),
-  "/analysis/process-decisions?decision=d-1#latest",
-);
-assert.equal(
-  settingsReturnPath("/analysis/process-decisions"),
-  "/analysis/process-decisions",
-);
-assert.equal(
-  loginReturnPath("/analysis/process-decisions", "user"),
-  "/analysis/process-decisions",
-);
-assert.equal(
-  loginReturnPath("/analysis/process-decisions", "admin"),
-  "/analysis/process-decisions",
-);
-assert.equal(safeReturnPath("/analysis/process-decisions/x"), "/operations");
+assert.equal(settingsReturnPath("/analysis/d/d-1"), "/analysis/d/d-1");
+assert.equal(loginReturnPath("/analysis/d/d-1", "user"), "/analysis/d/d-1");
+assert.equal(loginReturnPath("/analysis/d/d-1", "admin"), "/analysis/d/d-1");
+assert.equal(safeReturnPath("/analysis/d/d-1/x"), "/operations");
+assert.equal(safeReturnPath("/analysis/d/"), "/operations");
 assert.equal(settingsReturnPath("/settings?section=profile"), "/operations");
 assert.equal(
-  settingsReturnPath("/analysis?category=Critical&q=abc"),
-  "/analysis?category=Critical&q=abc",
+  settingsReturnPath("/analysis?category=anomaly&q=abc"),
+  "/analysis?category=anomaly&q=abc",
 );
 assert.equal(
   loginReturnPath("/detection/create?tab=rules", "user"),

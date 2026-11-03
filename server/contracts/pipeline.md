@@ -30,7 +30,7 @@ Collector 실시간성은 HTTP p50/p95/p99·오류율·빈 응답 비율·DB 저
 
 `GET /api/pipeline/decisions`는 저장 판정 조회, `/events`는 Bearer SSE다. Last-Event-ID/after cursor로 DB event를 순서대로 재전달한다. event 생성 TX는 순번/commit 순서를 직렬화해 늦은 작은 ID를 놓치지 않는다. API는 risk를 재계산해 확정 판정을 덮어쓰지 않는다. 토큰 만료/사용자 변경 시 stream을 닫는다. 기존 anomaly ingest의 데모 risk/SSE는 별도 계약으로 남아 있다.
 
-설명은 요청 후 생성한다. saved evidence의 정확한 문자열/hash·모델·prompt·schema·재사용 key를 고정한다. 모델은 fact ID와 허용된 점검 항목만 선택하고 output을 검증한다. 확정 원인·SHAP·계산하지 않은 기여도는 제공하지 않는다. 일반 사용자 UI는 `/analysis/process-decisions`다. 관리자 운영 UI(옛 `/detection/pipeline`)는 #100에서 옛 화면 폐지, 탐지 설정 화면에서 재연결 예정이다.
+설명은 요청 후 생성한다. saved evidence의 정확한 문자열/hash·모델·prompt·schema·재사용 key를 고정한다. 모델은 fact ID와 허용된 점검 항목만 선택하고 output을 검증한다. 확정 원인·SHAP·계산하지 않은 기여도는 제공하지 않는다. 일반 사용자 UI는 이상 분석 판정 상세 `/analysis/d/:decisionId`(analysis-ui.md, #105 — 옛 `/analysis/process-decisions`는 `/analysis`로 넘김)다. 관리자 운영 UI(옛 `/detection/pipeline`)는 #100에서 옛 화면 폐지, 탐지 설정 화면에서 재연결 예정이다.
 
 `/api/pipeline/collector`, `/collector/metrics`는 관리자 조회이며 raw 토큰/원문 BODY를 반환하지 않는다. 자세한 배포·권한·검증 경계는 [Docker 문서](../infra/DOCKER_DEPLOYMENT.md)를 따른다.
 

@@ -51,6 +51,7 @@ const {
 // 1) 옛 주소 넘김 표
 const legacy = [
   ["/notifications", "?filter=tasks", "/analysis"],
+  ["/analysis/process-decisions", "", "/analysis"],
   ["/detection", "", "/detection/operations"],
   ["/detection/pipeline", "", "/detection/operations"],
   ["/detection/versions", "?tab=history", "/detection/operations"],
@@ -76,7 +77,10 @@ assert.deepEqual(resolveStep("x", 3), { value: 1, invalid: true });
 assert.equal(withSearchParam("?q=a&tab=x", "tab", "all"), "?q=a&tab=all", "other query values are kept");
 assert.equal(withSearchParam("?tab=x", "tab", null), "");
 assert.equal(activeTopNav("/detection/models/v1"), "detection");
-assert.equal(activeTopNav("/analysis/process-decisions"), "analysis");
+assert.equal(activeTopNav("/analysis/d/decision-1"), "analysis");
+assert.equal(isAppPath("/analysis/d/decision-1"), true);
+assert.equal(isAppPath("/analysis/process-decisions"), false);
+assert.equal(safeReturnPath("/analysis/process-decisions"), "/analysis");
 assert.equal(activeTopNav("/settings"), "settings");
 assert.equal(activeDetectionMenu("/detection/operations/replace"), "operations");
 assert.equal(activeDetectionMenu("/detection/evaluations/e-1"), "evaluations");
@@ -131,6 +135,7 @@ const location = (router) => router.state.location.pathname + router.state.locat
 const pages = [
   ["/operations", "운영 현황"],
   ["/analysis", "이상 분석"],
+  ["/analysis/d/decision-1", "이상 분석"],
   ["/settings?section=profile", "사용자 환경"],
   ["/detection/operations", "운영 설정"],
   ["/detection/rules", "룰 설정"],

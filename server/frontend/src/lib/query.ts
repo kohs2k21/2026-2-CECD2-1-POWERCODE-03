@@ -1,5 +1,6 @@
 import {
   QueryClient,
+  keepPreviousData,
   useQuery,
   type QueryKey,
   type UseQueryResult,
@@ -63,6 +64,8 @@ type AccountQueryOptions<T> = {
   adminOnly?: boolean;
   staleTime?: number;
   isRunning?: (data: T | undefined) => boolean;
+  /** 조회 조건(페이지·필터)이 바뀌는 동안 직전 결과를 유지(placeholder, isPlaceholderData=true). */
+  keepPrevious?: boolean;
 };
 
 /** 공통 Query 훅: 계정별 key·AbortSignal·세션 검증·자동 재조회 없음·진행 중만 5초 폴링. */
@@ -74,17 +77,20 @@ export const useAccountQuery = <T>({
   adminOnly = false,
   staleTime = 30_000,
   isRunning,
+  keepPrevious = false,
 }: AccountQueryOptions<T>): UseQueryResult<T> & { queryKey: QueryKey } => {
   const { user } = useAuthSession();
   const queryKey = accountQueryKey(name, user?.id, ...params);
   const allowed = Boolean(user) && (!adminOnly || user?.userType === "admin");
-  const result = useQuery({
+  const result = useQuery<T, Error, T, QueryKey>({
     queryKey,
     queryFn: ({ signal }) => sessionBound(read, signal),
     enabled: enabled && allowed,
     staleTime,
     ...queryDefaults,
     refetchInterval: isRunning ? pollWhileRunning(isRunning) : false,
+    // 계정이 바뀌면 AppLayout 아래가 다시 마운트되고 캐시도 비워져 이전 계정 결과는 남지 않는다.
+    placeholderData: keepPrevious ? keepPreviousData : undefined,
   });
   return Object.assign(result, { queryKey });
 };

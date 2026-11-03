@@ -124,7 +124,7 @@ const RecentWidget = () => {
           <ul className="grid gap-2 text-sm">
             {rows.map((decision) => (
               <li key={decision.id} className="flex flex-wrap items-baseline gap-x-2">
-                <Link to={paths.savedDecisions} className="font-medium text-link underline-offset-4 hover:underline" aria-label={`판정 ${decision.id}`}>
+                <Link to={paths.analysisDecision(decision.id)} className="font-medium text-link underline-offset-4 hover:underline" aria-label={`판정 ${decision.id}`}>
                   {decision.id.slice(0, 8)}
                 </Link>
                 <span>

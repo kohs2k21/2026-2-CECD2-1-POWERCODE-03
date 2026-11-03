@@ -8,7 +8,7 @@ export const paths = {
   login: "/login",
   operations: "/operations",
   analysis: "/analysis",
-  savedDecisions: "/analysis/process-decisions",
+  analysisDecision: (decisionId: string) => `/analysis/d/${encodeURIComponent(decisionId)}`,
   settings: "/settings",
   detection: "/detection",
   detectionOperations: "/detection/operations",
@@ -92,12 +92,13 @@ export const withSearchParam = (search: string | URLSearchParams, key: string, v
 
 /**
  * 옛 주소 → 새 주소(replace). 폐지 화면: /notifications 페이지, /detection/pipeline,
- * 탐지 관리 실험·운영 그룹(create·evaluation·versions·collection).
+ * 탐지 관리 실험·운영 그룹(create·evaluation·versions·collection), 저장된 탐지 판정(/analysis/process-decisions → 이상 분석, #105).
  */
 export const legacyRedirect = (pathname: string, search: string): string | null => {
   const params = new URLSearchParams(search);
   switch (pathname.replace(/\/+$/, "") || "/") {
     case "/notifications":
+    case "/analysis/process-decisions":
       return paths.analysis;
     case "/detection":
     case "/detection/pipeline":
@@ -117,7 +118,7 @@ export const legacyRedirect = (pathname: string, search: string): string | null 
 const appPathPatterns: RegExp[] = [
   /^\/operations$/,
   /^\/analysis$/,
-  /^\/analysis\/process-decisions$/,
+  /^\/analysis\/d\/[^/]+$/,
   /^\/settings$/,
   /^\/detection\/operations$/,
   /^\/detection\/operations\/replace$/,

@@ -21,6 +21,20 @@ globalThis.window = {
   removeEventListener() {},
   setTimeout,
   clearTimeout,
+  // prefers-reduced-motion(Motion useReducedMotion이 처음 쓸 때 한 번 읽고 change로 갱신). 기본은 동작 허용, 5e에서 줄이기로 바꾼다.
+  matchMedia: () => reducedMotionQuery,
+};
+const reducedMotionQuery = {
+  matches: false,
+  listeners: [],
+  addEventListener(_type, listener) {
+    this.listeners.push(listener);
+  },
+  removeEventListener() {},
+};
+const setReducedMotion = (matches) => {
+  reducedMotionQuery.matches = matches;
+  for (const listener of reducedMotionQuery.listeners) listener();
 };
 globalThis.HTMLFormElement = class {};
 globalThis.window.HTMLSelectElement = class {
@@ -477,6 +491,117 @@ const listCalls = () => requested.filter((r) => r.path === "/api/analysis/decisi
   await app.cleanup();
 }
 
+// 5d~5f) 설명 결과 표시: 이미 있던 결과는 바로 전체, 보는 중 도착한 결과는 타자 효과(화면 읽기용 전체 사본 + aria-hidden 사본),
+// 동작 줄이기 설정이면 효과 없이 전체. 결과 형식은 worker/explanation.py validate_output(facts·nextChecks).
+const explainSummary = {
+  decisionId: "d-9",
+  facts: [{ id: "fact_0", name: "anomalous", value: true }, { id: "fact_1", name: "decisionCode", value: "PROCESS_STATUS_F" }],
+  nextChecks: [{ code: "review_rule_threshold", text: "적중한 Rule의 승인 기준과 입력값을 확인하세요." }],
+  causeStatus: "unconfirmed", contributionStatus: "not_computed",
+};
+const explainFull = "anomalous: truedecisionCode: PROCESS_STATUS_F확인할 것(원인 후보)적중한 Rule의 승인 기준과 입력값을 확인하세요.";
+const explainRoutes = (id, detail, jobState) => ({
+  "GET /api/analysis/decisions": () => json(listBody([item(id)])),
+  [`GET /api/analysis/decisions/${id}`]: () => json(detail),
+  [`GET /api/analysis/decisions/${id}/interims`]: () => json({ id, jobId: null, items: [] }),
+  "POST /api/jobs": () => json({ id: `explain-${id}`, status: "queued", kind: "explain", inputSpec: {} }, 201),
+  [`GET /api/jobs/explain-${id}`]: () => json({ id: `explain-${id}`, kind: "explain", status: jobState.status, inputSpec: {}, errorCode: null,
+    resultSummary: jobState.status === "succeeded" ? explainSummary : null }),
+});
+const typingNodes = (app) => app.renderer.root.findAll((node) => node.type === "div" && node.props["data-typing"] === "true");
+const srOnlyNodes = (app) => app.renderer.root.findAll((node) => node.type === "div" && node.props.className === "sr-only");
+const explainCard = (app) => app.renderer.root.find((node) => node.type === "div" && node.props["data-slot"] === "section-card" && text(node.children).startsWith("AI 설명"));
+
+// 5d) 처음 열었을 때 이미 완료된 결과: 타자 효과 없이 바로 전체
+{
+  requested.length = 0;
+  const detail = { ...item("d-9"), configuration: null, job: null, explanation: { jobId: "explain-d-9", status: "succeeded", errorCode: null, createdAt: null } };
+  routes = explainRoutes("d-9", detail, { status: "succeeded" });
+  const app = await mount("/analysis/d/d-9");
+  await wait(() => app.shown().includes("설명 작업 완료"), "existing result loaded");
+  assert.equal(typingNodes(app).length, 0, "existing result is not typed");
+  const entrance = app.renderer.root.findAll((node) => node.type === "div" && node.props["data-entrance"]);
+  assert.equal(entrance.length, 1);
+  assert.equal(entrance[0].props["data-entrance"], "none", "existing result has no entrance motion (initial=false)");
+  assert.notEqual(entrance[0].props.style?.opacity, 0, "existing result is not faded in from 0");
+  assert.ok(text(explainCard(app).children).includes(explainFull), "existing result shown in full at once");
+  assert.equal(app.renderer.root.findAll((node) => node.props["data-slot"] === "explain-progress").length, 0);
+  await app.cleanup();
+}
+
+// 5e) 보는 중 도착한 결과: 요청 → 대기(진행 막대) → 완료 시 타자 효과, 화면 읽기용 전체 사본, 끝나면 전체 한 벌
+{
+  requested.length = 0;
+  const detail = { ...item("d-10"), configuration: null, job: null, explanation: null };
+  const jobState = { status: "queued" };
+  routes = explainRoutes("d-10", detail, jobState);
+  const app = await mount("/analysis/d/d-10");
+  await wait(() => app.shown().includes("아직 설명을 요청하지 않은 판정입니다."), "not requested yet");
+  const ask = app.renderer.root.findAll((node) => node.type === "button" && text(node.children) === "설명 요청")[0];
+  await act(async () => ask.props.onClick());
+  await wait(() => app.shown().includes("요청 중"), "running state");
+  const bar = app.renderer.root.findAll((node) => node.props["data-slot"] === "explain-progress");
+  assert.equal(bar.length, 1, "progress bar while queued");
+  assert.equal(bar[0].props["aria-hidden"], "true", "progress bar is decorative; status text carries the state");
+  jobState.status = "succeeded";
+  await act(async () => app.client.invalidateQueries({ queryKey: ["analysis-explain-job"] }));
+  await wait(() => typingNodes(app).length === 1, "fresh result starts typing");
+  const typed = typingNodes(app)[0];
+  assert.equal(typed.props["aria-hidden"], "true", "typed copy hidden from screen readers");
+  assert.ok(text(typed.children).length < explainFull.length, "typed copy starts partial");
+  assert.equal(text(srOnlyNodes(app)[0].children), explainFull, "screen readers get the full text at once");
+  assert.equal(app.renderer.root.findAll((node) => node.props["data-slot"] === "explain-progress").length, 0, "progress bar gone when done");
+  await wait(() => typingNodes(app).length === 0, "typing finishes", 400);
+  assert.equal(srOnlyNodes(app).length, 0, "single copy after typing");
+  assert.ok(text(explainCard(app).children).includes(explainFull), "full text after typing");
+  await app.cleanup();
+}
+
+// 5e2) 요청하지 않고 연 화면에서 진행 중(queued)이던 작업이 완료: 이 화면이 진행 중을 본 작업이므로 타자 효과(request.data 경로 아님).
+// 타자 효과 중 재조회가 와도 다시 시작하지 않는다.
+{
+  requested.length = 0;
+  const detail = { ...item("d-12"), configuration: null, job: null, explanation: { jobId: "explain-d-12", status: "queued", errorCode: null, createdAt: null } };
+  const jobState = { status: "queued" };
+  routes = explainRoutes("d-12", detail, jobState);
+  const app = await mount("/analysis/d/d-12");
+  await wait(() => app.shown().includes("요청 중"), "queued job shown on open");
+  assert.equal(requested.some((r) => r.method === "POST" && r.path === "/api/jobs"), false, "no request from this screen");
+  jobState.status = "succeeded";
+  await act(async () => app.client.invalidateQueries({ queryKey: ["analysis-explain-job"] }));
+  await wait(() => typingNodes(app).length === 1, "watched job types when it completes");
+  assert.equal(typingNodes(app)[0].props["aria-hidden"], "true");
+  assert.equal(text(srOnlyNodes(app)[0].children), explainFull, "sr-only full copy while typing");
+  assert.equal(app.renderer.root.findAll((node) => node.type === "div" && node.props["data-entrance"] === "fresh").length, 1, "fresh entrance");
+  const before = text(typingNodes(app)[0].children).length;
+  const reads = requested.filter((r) => r.path === "/api/jobs/explain-d-12").length;
+  await act(async () => app.client.invalidateQueries({ queryKey: ["analysis-explain-job"] }));
+  await wait(() => requested.filter((r) => r.path === "/api/jobs/explain-d-12").length > reads, "refetch during typing");
+  assert.equal(typingNodes(app).length, 1, "still typing after the refetch");
+  assert.ok(text(typingNodes(app)[0].children).length >= before, "refetch does not restart typing");
+  await wait(() => typingNodes(app).length === 0, "typing finishes", 400);
+  assert.ok(text(explainCard(app).children).includes(explainFull));
+  await app.cleanup();
+}
+
+// 5f) 동작 줄이기 설정: 보는 중 도착한 결과도 타자 효과 없이 바로 전체
+{
+  setReducedMotion(true);
+  requested.length = 0;
+  const detail = { ...item("d-11"), configuration: null, job: null, explanation: { jobId: "explain-d-11", status: "queued", errorCode: null, createdAt: null } };
+  const jobState = { status: "queued" };
+  routes = explainRoutes("d-11", detail, jobState);
+  const app = await mount("/analysis/d/d-11");
+  await wait(() => app.shown().includes("요청 중"), "running state on revisit");
+  jobState.status = "succeeded";
+  await act(async () => app.client.invalidateQueries({ queryKey: ["analysis-explain-job"] }));
+  await wait(() => app.shown().includes("설명 작업 완료"), "result arrived");
+  assert.equal(typingNodes(app).length, 0, "no typing with reduced motion");
+  assert.ok(text(explainCard(app).children).includes(explainFull), "full text at once with reduced motion");
+  await app.cleanup();
+  setReducedMotion(false);
+}
+
 // 6) 옛 주소·운영 현황 링크·폐지한 API 미호출
 {
   routes = { "GET /api/analysis/decisions": () => json(listBody([])) };
@@ -488,4 +613,4 @@ assert.equal(requested.some((r) => r.path.startsWith("/api/anomaly/events/")), f
 assert.ok(requested.every((r) => r.path.startsWith("/api/")), "only same-origin API paths");
 console.log("analysis page QA passed: default risk view, result/risk/workflow sidebar and view switch, unread dot, risk cell, row links, search URL, SSE cursor with interim events "
   + "and single refetch, error/empty states, detail/timeline/evidence, process flow tree, read mark, workflow transitions and 409, admin-only feedback, "
-  + "v4 method tables, explain request/failure, blocked explain without polling, lookup failure blocks re-request, final-only explain, 404, job→decision redirect, legacy address");
+  + "v4 method tables, explain request/failure, blocked explain without polling, lookup failure blocks re-request, explain result typing only for a result arriving while watching (requested or watched queued job, no restart on refetch, sr-only full copy, existing result without motion, reduced motion = full text), final-only explain, 404, job→decision redirect, legacy address");

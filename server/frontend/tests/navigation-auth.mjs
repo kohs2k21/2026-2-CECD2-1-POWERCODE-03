@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { register } from "node:module";
 import React from "react";
 import { act, create } from "react-test-renderer";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -7,7 +8,6 @@ import {
   AuthSessionProvider,
   useAuthSession,
 } from "../src/services/auth/AuthSessionProvider.tsx";
-import { SessionGate, AdminGate } from "../src/app/SessionRoutes.tsx";
 import { httpClient, HttpError } from "../src/services/api/client.ts";
 import { useDraftStore } from "../src/stores/draftStore.ts";
 import { notify } from "../src/lib/notify.ts";
@@ -18,6 +18,9 @@ import {
   safeReturnPath,
   settingsReturnPath,
 } from "../src/app/routes.ts";
+// SessionRoutes → 로그인 화면(AuthPage)이 INZENT 로고 svg를 가져오므로 svg 로더를 먼저 등록한다(정적 import는 등록보다 먼저 평가됨).
+register("./svg-loader.mjs", import.meta.url);
+const { SessionGate, AdminGate } = await import("../src/app/SessionRoutes.tsx");
 
 globalThis.React = React;
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;

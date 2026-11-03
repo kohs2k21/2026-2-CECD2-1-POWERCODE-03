@@ -249,10 +249,33 @@ for (const [path, search, expected] of legacy) {
   assert.ok(app.h1().includes("화면을 찾을 수 없습니다"));
   await app.cleanup();
 }
+// 로그인 화면(사용자 11/04): INZENT 로고 + 제목 1개 "ESB 이상 징후 탐지 시스템", 그 밖의 안내 문구 없음, 입력 양식 유지
+{
+  storage.delete("token");
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity } } });
+  const router = createMemoryRouter(appRoutes, { initialEntries: ["/login"] });
+  let renderer;
+  await act(async () => {
+    renderer = create(
+      React.createElement(QueryClientProvider, { client }, React.createElement(AuthSessionProvider, null, React.createElement(RouterProvider, { router }))),
+    );
+  });
+  await tick();
+  const shown = text(renderer.toJSON());
+  assert.deepEqual(renderer.root.findAllByType("h1").map((node) => text(node.children).trim()), ["ESB 이상 징후 탐지 시스템"], "exactly one title");
+  const logo = renderer.root.findAllByType("img");
+  assert.deepEqual(logo.map((node) => [node.props.src, node.props.alt]), [["test-logo.svg", "INZENT"]], "INZENT logo");
+  assert.ok(!/ESB Anomaly Detection|이상 징후 탐지 대시보드|사전 등록된 계정/.test(shown), "no eyebrow, old title or description");
+  assert.deepEqual(renderer.root.findAllByType("input").map((node) => node.props.id), ["login-email", "login-password"]);
+  assert.ok(renderer.root.findAll((node) => node.type === "button" && node.props.type === "submit" && text(node.children).trim() === "로그인").length === 1);
+  await act(async () => renderer.unmount());
+  router.dispose();
+  client.clear();
+}
 assert.ok(
   requested.every((url) => url.startsWith("/api/")),
   "only same-origin API paths are requested: " + [...new Set(requested)].join(", "),
 );
 console.log(
-  "routes QA passed: wireframe route table, legacy addresses replaced, top/side menus with aria-current, admin gate, back icon on sub-pages, step/tab URL normalization and history, 404",
+  "routes QA passed: wireframe route table, legacy addresses replaced, top/side menus with aria-current, admin gate, back icon on sub-pages, step/tab URL normalization and history, 404, login page logo and single title",
 );

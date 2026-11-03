@@ -1,5 +1,5 @@
 Created: 2026-10-21T00:00:00+09:00
-Updated: 2026-11-02T20:00:00+09:00
+Updated: 2026-11-03T12:00:00+09:00
 Author: Claude Code (Trainer 세션 builder)
 Status: draft
 
@@ -18,7 +18,7 @@ Status: draft
 - 항목 추가·필드 추가는 `catalogVersion` 증가. 제거는 하지 않고 `status=deprecated`. **예외(이번 v2)**: SR 24종·HR 연구 8종은 사용자 결정으로 카탈로그에서 **삭제**(저장된 참조가 없으므로 deprecated 전환 불필요, 연구 기록은 `research/`에 보존)
 - 기본값은 출처를 기록(`defaultsSource`); 미확인 값은 `defaults=null`
 
-## 대분류·식별자 [합의 11/02 — 사용자 확인 필요 (a)]
+## 대분류·식별자 [확정 11/03 — #92 U1, 11/02 세션 합의 (a) 승인]
 
 | kind | category | 화면 표시 용어 [확정 11/02] | 탐지 결과 | 정의 주체 | 카탈로그 표현 |
 |---|---|---|---|---|---|
@@ -198,7 +198,8 @@ Status: draft
 ## 확정 요약·남은 의존
 
 - 확정(11/02): 대분류 hard/soft/ml, SR 삭제, 소프트룰 = 등록 필드 + 임계값, 하드룰 = Detector 내장 목록
+- 확정(사용자 11/03, #92 U1): 대분류 키 `hard/soft/ml`·식별자 접두 `hard:`/`soft:`/`ml:` — 11/02 세션 합의안 승인(rule-set.md Q-R7·model-version.md Q-M4 같은 질문; 표기 갱신 #106)
 - 유지(10/21): Q-H IF 기본값 / Q-I `supported := executable.process` / Q-J window 표시만 / Q-K 레지스트리 + 생성 JSON / Q3-1 저장 거부 / N13 KMeans 피처셋 대응 미확정 / N18 `k` 2..64
 - 확정(11/02 9.4): `elapsed_ms`의 END_TIME 누락은 이상 아님(값 null, 평가 안 함) — `sourceMissingPolicy`
 - 결정 질문: Q-C1 초기 필드 6종 확정 여부(후보 `success_ratio`·`elapsed_s`·`retry_ratio` 추가 여부) / Q-C2 `elapsed_ms` 음수 처리(값 그대로 vs unavailable — Detector 의미론과 함께) / Q-C3 `displayPrecisionMode` 기본값 `fixed`·ratio만 `significant`(제안) vs 전 필드 `significant`
-- 남은 의존: 하드룰 내장 목록 전체 key·조건·위험도(detection-decision.md(#92)); 대분류 키 `hard/soft/ml`·접두는 세션 합의로 사용자 확인 전(rule-set.md Q-R7)
+- 남은 의존: 하드룰 내장 목록 전체 key·조건·위험도(detection-decision.md(#92) — 1차 목록은 U3 확정 11/03: `hard:process-status` + `hard:negative-duration`)

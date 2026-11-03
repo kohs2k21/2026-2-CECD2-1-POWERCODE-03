@@ -1,5 +1,5 @@
 Created: 2026-11-02T18:00:00+09:00
-Updated: 2026-11-02T20:00:00+09:00
+Updated: 2026-11-03T12:00:00+09:00
 Author: Claude Code (Trainer 세션 builder)
 Status: draft
 
@@ -7,6 +7,7 @@ Status: draft
 
 - 변경 요약(#94): 기존 [detection-config-version.md](detection-config-version.md)(#74 `detection-config-v1`, configuration_spec v3 = HR·rule·SR·ML 묶음)에서 **룰 항목을 제거**하고 `ml:*`만 남긴 모델 버전 계약. 룰은 [rule-set.md](rule-set.md)(버전 없음). 버전·교체·복원·비교 평가는 **모델 버전에만** [확정 11/02 Q1·Q2]
 - 2차 개정(사용자 11/02 9.4 결정 반영): "운영 모델 **운영에서 빼기**"·"교체 추천은 **같은 종류(modelKey) 모델끼리**" 두 결정의 귀결로 단위 정의를 **모델 1개 = 버전 계열(modelKey별 lineage), 활성 집합 0..N, 같은 modelKey 1개**로 전환하고, `detectionPolicy`를 모델 버전 spec에서 빼 **운영 설정 전역 값**으로 옮김(Detector 11/02 동의). 단위 전환은 **사용자 11/02 확정**(WebUI 경유, 결정 질문 Q-M1)
+- 3차 정정(Issue #106, 11/03): detection-decision.md(#92) 16절 정정 요청·후속 권고 반영 — 운영 설정 절 `k`·n 정합을 #92 7.4 검증 순서(U4 "모두 1" 선행)로 정정, 활성 집합 절 공통 검사 (2)를 같은 결론으로 맞춤, 리비전 고정 단위(시도, U5), 11/03 사용자 확정(U1·U12)으로 상태 표기 갱신. 의미 변경은 U4 범위 안
 - 계약 버전: `model-version-v1`(#74 `detection-config-v1` 대체). 근거 결정: 사용자 11/02 결정(Q1 운영 = 룰 1벌 + 모델 0..N, Q2 ML 다중 운영 유지, 9.4 운영에서 빼기·같은 종류끼리 추천)·Trainer·Detector 분담 합의 11/02. 근거 코드 origin/dev `7f24e03`
 - 범위: 불변 모델 버전 = ML 모델 1개(`modelKey`)의 학습 결과(식별자·파라미터·산출물 참조) + 데이터 계보(스냅샷·학습 선정·학습 기간·제외 구간). 저장마다 새 버전, UPDATE 없음. **활성 집합**(함께 운영하는 모델 버전 0..N)의 상태·조작·이력. **운영 설정**(`detectionPolicy` 전역 값)의 저장·리비전
 - 제외: 종합 판정 조합·등급·evidence v4·`detectionPolicy` 필드 의미(detection-decision.md(#92)), 카탈로그 내용([method-catalog.md](method-catalog.md)), 비교 평가([config-comparison-evaluation.md](config-comparison-evaluation.md)), 임계값 추천([llm-recommendation-job.md](llm-recommendation-job.md)), 학습 제외 구간 요청 형식([trainer-service.md](trainer-service.md) 변경 제안 절), WebUI 화면
@@ -22,7 +23,7 @@ Status: draft
 - **채택되지 않은 대안(기록용)**: 모델 버전 = ML 1..N개 묶음, 활성 버전 0 또는 1개(`ops_system_state.active_config_version_id`). 채택하지 않은 이유(9.4 결정과의 충돌): "운영에서 빼기"가 묶음 안 한 모델을 빼려면 새 묶음 버전을 만들어 교체해야 하고(빼기 조작이 교체와 구별되지 않음), "같은 종류끼리 추천"은 묶음 버전끼리의 추천 규칙과 맞지 않음(묶음 B가 묶음 A의 IF만 바꾼 것인지 식별 불가)
 - **구현 기준**: 위 확정 단위로 Detector·DB·API·WebUI 구현. 공통 전제: 모델 버전 불변·`ml:*`만·룰 세트와 분리·`detectionPolicy` 전역·일관 읽기 3요소
 
-## 방법 식별자 [합의 11/02 — 사용자 확인 필요 (a)]
+## 방법 식별자 [확정 11/03 — #92 U1, 11/02 세션 합의 (a) 승인]
 
 - 형식 `ml:<model_key>`, key `^[a-z][a-z0-9_-]{1,63}$`. `hard:*`·`soft:*`는 룰 세트 계약, 모델 버전 `methods[]`에 오지 않음(422 `method_kind_not_allowed:<id>`)
 - 모델 버전 1개 = `methods[]` **정확히 1개**(`modelKey` = 그 항목의 `<model_key>`, `ml_config_models` 1행, PK `(config_version_id, model_key)` 그대로) [확정 11/02 Q-M1]. 활성 집합 안에서는 `modelKey` 유일(활성 집합 절)
@@ -81,7 +82,7 @@ Status: draft
 | `methods[].parameters` | 카탈로그 `parameterSchema` 검증. 서버가 학습 후보의 실제 값(`training_settings.parameters`)을 채움 — 요청이 다른 값을 주면 422 `ml_parameters_require_training` [유지 #74] |
 | `methods[].parameterSource` | `system` / `catalog_default` / `user` / `llm_proposed`(사람이 저장을 눌렀다는 뜻, 자동 적용 아님) [유지 #74] |
 | `methods[].artifacts` | 학습 후보(`kind=train` 성공)의 `ml_config_models` 행. 파일 복사 없음, artifact ID 재사용. 후보 없는 모델은 선택 불가 |
-| (없음) `detectionPolicy` | **v3 spec에 없음** [확정 11/02 Q-M1, Q-M2 귀결]: 모델 1개 = 버전 1개가 되면 `k:{hard,soft,ml}`를 어느 버전에도 둘 수 없으므로 **운영 설정 전역 값**으로 이동(아래 운영 설정 절). spec·hash 입력에 `detectionPolicy` 키가 있으면 400 `invalid_configuration_request`. **버전 판정 규칙**(운영 설정·v1 train 요청 공통): `version` 키가 **없을 때만** v1(`{mode, deadlineMs, combination}`), `version: 2`는 v2 객체, **`version: 1`은 400 `invalid_detection_policy`**(v1·v2 키 혼용 400 규칙과 일관) — #92 U12 결정 대기 |
+| (없음) `detectionPolicy` | **v3 spec에 없음** [확정 11/02 Q-M1, Q-M2 귀결]: 모델 1개 = 버전 1개가 되면 `k:{hard,soft,ml}`를 어느 버전에도 둘 수 없으므로 **운영 설정 전역 값**으로 이동(아래 운영 설정 절). spec·hash 입력에 `detectionPolicy` 키가 있으면 400 `invalid_configuration_request`. **버전 판정 규칙**(운영 설정·v1 train 요청 공통): `version` 키가 **없을 때만** v1(`{mode, deadlineMs, combination}`), `version: 2`는 v2 객체, **`version: 1`은 400 `invalid_detection_policy`**(v1·v2 키 혼용 400 규칙과 일관) — #92 U12 [확정 11/03] |
 | `trainingSelection` | 그 버전의 학습 작업 값 복사(항상 값). **v2 확장 필드**(`excludedByIntervalCount`·`excludedTimeUnknownCount`·`timeBasis`·`excludedIntervalsHash`)와 **`trainingPeriod {from, until, timeBasis}`**(train 요청의 기간 — 수식 추천 기간 선택 "운영 모델 학습 시작 ~ 현재"의 입력, [llm-recommendation-job.md](llm-recommendation-job.md))는 [trainer-service.md](trainer-service.md) 변경 제안 절. 제외 구간 목록 자체는 spec이 아니라 학습 작업 `input_spec`·`ml_config_models.training_settings`에 저장(spec은 hash만, 응답 `models[].trainingSettings.excludedIntervals`로 노출) |
 | `createdFrom` | `{kind: "train"|"compose", trainJobId?, recommendationJobId?}` [유지 #74]. v3에서는 항상 `train`(`compose`는 조합 저장 경로가 없으므로 생성되지 않음 — Q-M5 확정; enum 값은 v1·v2 호환으로 유지). `recommendationJobId`는 모델 선택 추천(보류, [llm-recommendation-job.md](llm-recommendation-job.md))이 재개될 때만 값 |
 | `operationalEligibility`·`preparedDatasetId`·`preparedInputContract` | 기존 키 유지([prepared-csv-v1](prepared-csv-import.md)). prepared 계보 후보가 하나라도 있으면 버전 전체 `eligible=false` [유지 #74] |
@@ -180,12 +181,12 @@ Status: draft
 
 | `operation` | 의미 | 본문 | 검증·gate |
 |---|---|---|---|
-| `apply` | **활성화**: `:id`를 집합에 추가 | `{evaluationId, expectedRevision, acceptedRecommendation?}` | 기술 무결성 gate(아래) + 같은 `modelKey` 활성 버전이 **없어야** 함(있으면 422 `active_model_key_duplicate` — 교체는 `replace`) + 정책 정합(아래 공통) |
+| `apply` | **활성화**: `:id`를 집합에 추가 | `{evaluationId, expectedRevision, acceptedRecommendation?}` | 기술 무결성 gate(아래) + 같은 `modelKey` 활성 버전이 **없어야** 함(있으면 422 `active_model_key_duplicate` — 교체는 `replace`) + 정책 정합(1차는 `detection_methods_empty`만, 공통 검사 (2)) |
 | `replace` | **교체**: 같은 `modelKey`의 현재 활성 버전을 `:id`로 교환(같은 순서 자리) | `{evaluationId, expectedRevision, expectedActiveVersionId, acceptedRecommendation?}` | gate + `expectedActiveVersionId`가 같은 `modelKey`의 현재 활성 버전이어야 함(아니면 409 `active_version_mismatch`; 그 `modelKey`가 활성에 없으면 422 `active_model_key_missing`) |
-| `retire` | **운영에서 빼기**: `:id`를 집합에서 제거(9.4) | `{expectedRevision, confirmRetire: true, note?}` | gate 없음(평가 불필요). `confirmRetire≠true` → 422 `retire_confirmation_required`. `:id`가 활성이 아니면 422 `not_active`. 탐지 방법 0개·정책 정합은 아래 공통 검사 |
+| `retire` | **운영에서 빼기**: `:id`를 집합에서 제거(9.4) | `{expectedRevision, confirmRetire: true, note?}` | gate 없음(평가 불필요). `confirmRetire≠true` → 422 `retire_confirmation_required`. `:id`가 활성이 아니면 422 `not_active`. 탐지 방법 0개·정책 정합(1차는 `detection_methods_empty`만, 공통 검사 (2))은 아래 공통 검사 |
 | `restore` | **복원**: 과거 활성 집합 리비전 `targetRevision`의 집합을 **새 리비전으로 재적용** | `{expectedRevision, targetRevision, confirmRetire?}` (`:id`는 무시, 경로는 `POST /api/active-models/restore`도 허용) | 스냅샷의 모든 버전에 gate 재검사(`executable`·산출물 hash — 평가 행은 그 버전의 최근 적격 평가 재사용) + 현재 집합에서 빠지는 버전이 있으면 `confirmRetire: true` 필수. 룰 세트 되돌리기와 같이 모든 이력 항목에 [이 상태로 복원] 항상 표시 |
 
-- 공통 검사(모든 `operation`, 결과 상태 기준) [확정 — Detector 11/02 회신 Q-M7·Q-M8]: (1) **`detection_methods_empty`** — 변경 **결과** 상태가 켜진 하드룰 0 + 켜진 소프트룰 0 + 활성 모델 0이면 422(룰 세트 저장([rule-set.md](rule-set.md))·`retire`·`replace`·`restore` 등 **그 상태를 만드는 모든 변경**에 같은 정의·같은 코드; 코드 이름은 #92 U10) (2) **정책 정합** — 변경 결과 활성 모델 수 `n_ml`이 현재 운영 설정 `k.ml` 미만이면 거절(**`n_ml = 0`은 예외** — ml 대분류 비활성으로 취급해 허용), 오류 코드는 detection-decision.md(#92) 7.4의 "k > n" 코드. 실행 시(판정 시도 시점) 위반이 남아 있으면 Detector가 **fail-closed**(판정 행 없이 시도 실패)
+- 공통 검사(모든 `operation`, 결과 상태 기준) [확정 — Detector 11/02 회신 Q-M7·Q-M8]: (1) **`detection_methods_empty`** — 변경 **결과** 상태가 켜진 하드룰 0 + 켜진 소프트룰 0 + 활성 모델 0이면 422(룰 세트 저장([rule-set.md](rule-set.md))·`retire`·`replace`·`restore` 등 **그 상태를 만드는 모든 변경**에 같은 정의·같은 코드; 코드 이름은 #92 U10) (2) **정책 정합** [확정 11/03 #92 U4 — 7.4 "검증 위치"]: 정책 저장이 `k.hard`·`k.soft`·`k.ml`을 n과 무관하게 **모두 1**로 강제하므로(운영 설정 절) 활성 집합 변경으로는 `k.ml > n_ml`이 생길 수 없음(`n_ml ≥ 1`이면 `k.ml = 1 ≤ n_ml`, `n_ml = 0`이면 ml 대분류 비활성). 따라서 1차 구현에서 `apply`·`replace`·`retire`·`restore`(룰 세트 저장도 같음)는 (1) `detection_methods_empty`**만** 검사하고 별도 k 검사를 두지 않음. 나중에 U4를 완화해 k ≥ 2를 허용할 때만(사용자 재결정) 변경 결과 `n_ml`이 `k.ml` 미만이면 거절(**`n_ml = 0`은 예외** — ml 대분류 비활성으로 취급해 허용)하는 대칭 검사를 추가하며 오류 코드는 detection-decision.md(#92) 7.4의 "k > n" 코드. 실행 시(판정 시도 시점) 위반이 남아 있으면(동시 변경 경합) Detector가 **fail-closed**(판정 행 없이 시도 실패)
 - 공통: `expectedRevision` ≠ 현재 활성 집합 리비전 → 409 `active_set_revision_conflict` + `{currentRevision, changedAt, changedBy}`. 성공 응답 `{revision, previousRevision, models[], changes: [{type: activated|replaced|retired|restored, configVersionId, modelKey, previousConfigVersionId?}], appliesFrom: "next_decision"}`. 실패 시 집합 불변(트랜잭션 1개)
 - gate = 기술 무결성만 [유지 #74]: 해당 버전의 `purpose=validation` 평가 `applicability='valid' AND scored_count>0 AND unavailable_count=0` + prepared 아님 + 버전 `executable=true` + 산출물 경로·hash 검증. 최종 관문은 사람 수락. 자동 교체·자동 활성화·자동 빼기 금지
 - `evaluationId`에 비교 평가가 만든 버전별 `run_evaluations` 행 허용. `acceptedRecommendation: {comparisonJobId, modelKey, targetVersionId}`(mismatch 400 `accepted_recommendation_mismatch`, stale 400 `accepted_recommendation_stale` — **stale 기준은 같은 `modelKey`의 활성 변경**: 그 `modelKey`의 현재 활성 버전 ≠ 추천의 `baselineConfigVersionId`(빼기로 활성 없음 포함) 또는 평가 세트가 `ready`가 아님; 다른 `modelKey`의 활성화·빼기만으로는 stale이 아님 — Detector 11/02 Q-E4 확정, [config-comparison-evaluation.md](config-comparison-evaluation.md) stale 절) [유지 #74 N22·R10, 기준만 전환]
@@ -193,7 +194,7 @@ Status: draft
 - `gate_evidence` `gateVersion: 2`에 `comparisonJobId`·`evaluationSetId`·`acceptedRecommendation`·`recommendationRuleVersion` + **조작 시점 룰 세트 `{revision, contentHash}`·정책 `detectionPolicyRevision`·활성 집합 `{before: revision, after: revision}`** 기록 [제안] — 이력에서 "그때 룰·정책·집합이 무엇이었는지" 추적
 - 활성 집합 변경은 **룰 세트·정책에 영향 없음**(각각 별도 리비전). 복원이 룰·정책을 되돌리지 않음
 - 이력 — `GET /api/active-models/history?limit=&cursor=`(로그인 사용자): `{items: [{revision, changedAt, changedBy, note, restoredFromRevision, changes[], summary: {activated, replaced, retired}}], pagination}`; `GET /api/active-models/history/:revision`은 + `snapshot.models[]`. append-only
-- **일관 읽기 요구사항**(Detector 11/02 회신·합의): 판정 시도 시작 시 **(룰 세트 `revision`·`contentHash`, 활성 집합 `revision`(+ 모델 목록), 정책 `revision`(+ 정책 값)) 세 가지**를 **한 번에 일관되게** 읽을 수 있어야 함 — 운영 상태 조회 **응답 한 건**이 셋을 함께 담음
+- **일관 읽기 요구사항**(Detector 11/02 회신·합의): 판정 시도 시작 시 **(룰 세트 `revision`·`contentHash`, 활성 집합 `revision`(+ 모델 목록), 정책 `revision`(+ 정책 값)) 세 가지**를 **한 번에 일관되게** 읽을 수 있어야 함 — 운영 상태 조회 **응답 한 건**이 셋을 함께 담음. **고정 단위는 시도(attempt)** [확정 11/03 #92 U5]: 세 리비전은 시도마다 그 시도 시작 시점에 한 번에 새로 읽음(재시도는 이전 시도의 리비전을 이어 쓰지 않음; 작업 생성·큐 payload에 고정하는 작업 단위 안은 채택되지 않음 — #92 10절)
 
 ```json
 {
@@ -212,7 +213,7 @@ Status: draft
 - **리비전 0 = 내장 기본 정책** `{"version": 2, "policyKey": "category-k-of-n-or-v1", "k": {"hard": 1, "soft": 1, "ml": 1}, "deadlineMs": 3000}`(Detector 11/02 회신값) — 저장된 행이 없는 상태가 r0이며 시드 마이그레이션 불필요. **첫 저장이 리비전 1**. 버전 없음·저장 즉시 적용("저장 이후 새 판정부터")·되돌리기 = 새 저장(룰 세트 패턴)
 - **화면 미노출 — 확정(사용자 11/02, WebUI 경유, Q-M10)**: 판정 정책은 WebUI에 편집·읽기 전용 표시 모두 두지 않음. `GET/PUT /api/detection-policy`는 **운영 담당용 API**(API·운영 담당이 관리)
 - `GET /api/detection-policy`(로그인 사용자) → `{revision, policy, savedAt, savedBy, restoredFromRevision, isDefault}`. `PUT /api/detection-policy`(관리자) 본문 `{expectedRevision, policy, restoreFromRevision?, note?}`: 409 `detection_policy_revision_conflict`, 400 `invalid_detection_policy`(형태·v1/v2 혼용·`version: 1`), 422는 #92 7.4가 정한 의미 검증 코드(예 `combination_k_out_of_range`), 409 `detection_policy_unchanged`. 응답 `{revision, previousRevision, appliesFrom: "next_decision"}`. 이력 `GET /api/detection-policy/history`(+`/:revision` 스냅샷), append-only, 모든 항목에 [되돌리기]
-- **`k.ml`과 활성 모델 수 `n_ml`의 정합** [확정 — Detector 11/02 회신 Q-M8, min(k, n) 보정 **아님**]: 정책 저장 시 `n_ml ≥ 1`이고 `k.ml > n_ml`이면 422(코드는 detection-decision.md(#92) 7.4의 "k > n" 코드); `n_ml = 0`이면 ml 대분류 비활성이라 `k.ml` 값과 무관하게 허용. 활성 집합 변경 시의 대칭 검사는 활성 집합 절 공통 검사. 두 저장 모두 통과했는데도 실행 시 위반이면(동시 변경 경합) Detector가 fail-closed(판정 행 없이 시도 실패)
+- **`k`와 활성 방법 수의 정합 — 정책 저장 검증 순서** [1차 구현 확정 11/03 #92 U4·7.4 검증 표; min(k, n) 보정 **아님**(Detector 11/02 회신 Q-M8)]: (가) **먼저** `k.hard`·`k.soft`·`k.ml`이 **모두 1**이어야 함 — 각 대분류의 현재 n과 **무관**(n = 0인 대분류 포함, 세 값 전부 검사). 하나라도 1이 아니면 422 `combination_k_out_of_range:<category>`. (나) 그다음 k > n 검사: 활성 대분류(`n_c ≥ 1`)에서 `k_c > n_c`면 같은 코드로 거절. "`n_ml = 0`이면 ml 대분류 비활성이라 `k.ml` 값과 무관하게 허용"은 **이 (나) k > n 검사에 한정된 문장**이며, U4 적용 상태에서는 (가)가 선행하므로 `n_ml = 0`이어도 `k.ml = 2`는 **저장될 수 없음**(#92 16절 시나리오 S4 — 그 값이 저장되면 첫 모델 활성화(`apply`)가 정책 정합에 막혀 정책을 먼저 고치기 전까지 어떤 모델도 운영에 넣을 수 없게 되는 문제를 (가)가 막음). (가) 덕분에 룰 세트 저장·`retire`·활성 집합 변경으로는 k > n이 생길 수 없어 그 경로들은 `detection_methods_empty`만 검사(활성 집합 절 공통 검사 (2)). 두 저장 모두 통과했는데도 실행 시 위반이면(동시 변경 경합) Detector가 fail-closed(판정 행 없이 시도 실패). 이 항목과 #92 7.4가 어긋나면 #92 7.4가 우선(위 `PUT /api/detection-policy` 항목)
 - 비교 평가는 접수 시점 정책 리비전·값을 고정해 모든 항목에 적용([config-comparison-evaluation.md](config-comparison-evaluation.md))
 
 ## 불변성·저장소(사실 + 확정 단위 추가분)
@@ -242,16 +243,17 @@ Status: draft
 - 유지(#74 10/21 확정, 모델 단위로 축소): 식별자 형식 / 기술 무결성 gate + 비교 + 사람 수락 / 실행 불가 방법 저장 거부 / hash 입력 규칙 / 파라미터 변경=재학습 / v1·v2 형식 혼용 400 / 중복 재저장 안내 / `acceptedRecommendation`·stale
 - 확정(11/02): 룰 항목 제거, 버전·교체·복원·비교는 모델만, ML 다중 운영 유지, 9.4 운영에서 빼기·같은 종류끼리 교체 추천
 - 확정(사용자 11/02 Q-M1, WebUI 경유): 모델 1개 = 버전 계열·활성 집합 0..N·같은 modelKey 1개 / `methods[]` 길이 1 유지(평탄화 안 함) / 조합 저장 경로 없음 / `detectionPolicy` 운영 설정 전역(Detector 동의) / 활성 집합·정책 리비전 이력 / 일관 읽기 3요소
+- 확정(사용자 11/03, #92 U1~U12 전부 "추천대로" 확정): 식별자·대분류 키(U1, Q-M4) / 정책 저장 시 k 모두 1(U4, Q-M8 범위 정리) / 리비전 고정은 시도 단위(U5) / v1 판별은 `version` 키 없음만(U12)
 
 | # | 질문 | 제안 |
 |---|---|---|
 | Q-M1 | 단위: (A) 모델 1개 = 버전 계열(modelKey별 lineage)·활성 집합 0..N·같은 modelKey 1개 vs (B) 모델 버전 = ML 1..N 묶음·활성 버전 0 또는 1개 | **확정(사용자 11/02, WebUI 경유): (A) 채택**. 근거(9.4 두 결정의 귀결): "운영에서 빼기"는 (B)에서 빼기 조작이 교체(새 묶음 버전)와 구별되지 않고, "같은 modelKey끼리 교체 추천"은 묶음 버전 간 추천 규칙과 맞지 않음. 구현 영향: 활성 집합 저장소·리비전·`retire`·`replace`·`active_model_key_duplicate`·modelKey별 추천 배열·비교 기준선 복수화, 조합 저장 경로 없음 |
 | Q-M2 | `detectionPolicy`(k:{hard,soft,ml}) 저장 위치 | **운영 설정 전역 값으로 전환**(위 운영 설정 절, Detector 11/02 동의): 버전 없음·리비전 이력·r0 = 내장 기본·첫 저장 r1. Q-M1이 (A)·(B) 어느 쪽이어도 유지(모델 버전 spec에 두면 룰만 운영 중일 때 정책을 바꿀 수 없다는 Detector 지적이 (B)에서도 성립). 폐기된 안: 모델 버전 spec 포함(hash 포함) / 룰 세트 스냅샷에 `k.hard`·`k.soft`만 |
 | Q-M3 | schemaVersion 번호 3 유지 vs 4 | 3 유지(저장된 v3 없음). Detector 선호에 따름 |
-| Q-M4 | 대분류 키 `hard/soft/ml`·식별자 접두는 Trainer·Detector 세션 합의(11/02)이며 **사용자 확인 전** | 사용자 확인 요청(#92·rule-set.md Q-R7과 같은 질문) |
+| Q-M4 | 대분류 키 `hard/soft/ml`·식별자 접두 — Trainer·Detector 세션 합의(11/02) | **확정(사용자 11/03, #92 U1)**: 합의안 그대로 승인(rule-set.md Q-R7과 같은 질문). 이 문서·rule-set.md·method-catalog.md의 식별자 절 표기를 확정으로 갱신(#106) |
 | Q-M5 | 조합 저장 `POST /api/configurations`(B 경로) | **확정(Q-M1 귀결): 조합 저장 경로 없음** — 학습 = 버전, 재저장은 항상 `duplicateOf`. (B) 절은 기록용 폐기 표기 |
 | Q-M6 | 활성 집합 저장: 새 append-only 테이블 + 리비전(제안) vs `ops_system_state`에 `active_model_version_ids uuid[]` 열 추가 | 새 테이블(스냅샷 이력·복원·일관 읽기가 룰 세트와 같은 패턴). 이름·일관 읽기 뷰는 DB 세션 |
 | Q-M7 | 탐지 방법 0개가 되는 변경 허용 여부 | **확정(Detector 11/02)**: 결과 상태가 켜진 하드룰 0 + 켜진 소프트룰 0 + 활성 모델 0이 되는 **모든 변경**(룰 세트 저장·`retire`·활성 집합 교체/제거·복원)을 422 `detection_methods_empty`로 거절 — rule-set.md·이 문서 양쪽 같은 정의 |
-| Q-M8 | 정책 `k.ml` > 활성 모델 수 | **확정(Detector 11/02)**: min(k, n) 보정 아님. 정책 저장 시 `k.ml > n_ml`(`n_ml ≥ 1`) 거절, 활성 집합 변경으로 `n_ml`이 `k.ml` 미만이 되면(0 제외) 거절, 코드는 #92 7.4의 k > n 코드, 실행 시 위반은 Detector fail-closed |
+| Q-M8 | 정책 `k.ml` > 활성 모델 수 | **확정(Detector 11/02, 범위는 11/03 사용자 확정 #92 U4로 정리)**: min(k, n) 보정 아님. 1차 구현은 정책 저장 시 `k.hard`·`k.soft`·`k.ml`이 n과 무관하게 **모두 1**이어야 하며(아니면 422 `combination_k_out_of_range:<category>`) 이 검사가 **먼저** 걸림. "`k.ml > n_ml`(`n_ml ≥ 1`) 거절·`n_ml = 0`은 무관"은 그 뒤 k > n 검사에 한정된 문장이라 U4 적용 상태에서는 `k.ml = 2`가 저장되지 않음. 활성 집합 변경은 `detection_methods_empty`만 검사(k > n이 생길 수 없음). k ≥ 2 허용(사용자 재결정) 시에만 활성 집합 변경으로 `n_ml`이 `k.ml` 미만이 되면(0 제외) 거절하는 대칭 검사 추가. 코드는 #92 7.4의 k > n 코드, 실행 시 위반은 Detector fail-closed |
 | Q-M9 | `restore`를 `POST /api/configurations/:id/applications`에 두기(`:id` 무시) vs `POST /api/active-models/restore` 전용 | 전용 경로 권장(`:id`가 의미 없음). 둘 다 허용으로 적음 |
 | Q-M10 | 운영 설정 `detectionPolicy`의 화면 노출 범위 — 편집 가능 vs 읽기 전용 표시 vs 미노출 | **확정(사용자 11/02, WebUI 경유): 화면 미노출**(편집·읽기 전용 모두 없음). `GET/PUT /api/detection-policy`는 운영 담당용 API로만 유지(관리자 권한) |

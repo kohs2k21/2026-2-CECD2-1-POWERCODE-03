@@ -3,7 +3,17 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import type { DecisionItem } from "../data/analysisApi";
 import { readEvidence } from "../data/evidence";
-import { DASH, completenessText, resultText, resultVariant, runLabels, stageLabels, stampText } from "../labels";
+import {
+  DASH,
+  completenessText,
+  resultText,
+  resultVariant,
+  riskLevelLabels,
+  riskLevelVariant,
+  runLabels,
+  stageLabels,
+  stampText,
+} from "../labels";
 
 /** 경로 상태(Rule·ML) 한 줄: 저장된 rule_status·ml_status 그대로. 최종 판정 전이면 생략. */
 const pathsText = (item: DecisionItem) => {
@@ -21,9 +31,19 @@ const inputText = (item: DecisionItem) => {
   return evidence.input?.mode === "csv" ? "CSV 재생" : evidence.input?.mode === "api" ? "API 수집" : null;
 };
 
+/** 위험도 칸(와이어프레임 risk-cell·riskPill): 단계가 저장된 이상 = 단계 배지, 단계 없는 이상 = 위험도 미정, 이상이 아니면 위험도 —. */
+export const RiskCell = ({ item }: { item: DecisionItem }) =>
+  item.riskStatus === "rated" && item.riskLevel ? (
+    <Badge variant={riskLevelVariant[item.riskLevel]}>{riskLevelLabels[item.riskLevel]}</Badge>
+  ) : item.riskStatus === "unrated" ? (
+    <span className="text-xs text-muted-foreground">위험도 미정</span>
+  ) : (
+    <span className="font-mono text-xs">위험도 {DASH}</span>
+  );
+
 /**
- * 판정 목록 한 줄(와이어프레임 inbox-row): 왼쪽 = 거래·인터페이스·경로 상태, 오른쪽 = 판정 결과·단계·검사 완료와 시각·판정 ID와 프로세스.
- * 행 전체가 상세로 가는 링크(키보드 순서 = 화면 순서).
+ * 판정 목록 한 줄(와이어프레임 inbox-row): 미확인 점(요청자 기준), 왼쪽 = 거래·인터페이스·경로 상태,
+ * 오른쪽 = 판정 결과·단계·위험도·검사 완료와 시각·판정 ID와 프로세스. 행 전체가 상세로 가는 링크(키보드 순서 = 화면 순서).
  */
 export const DecisionRow = ({ item, href }: { item: DecisionItem; href: string }) => {
   const sub = [pathsText(item), modelsText(item), inputText(item)].filter(Boolean).join(" · ");
@@ -36,7 +56,14 @@ export const DecisionRow = ({ item, href }: { item: DecisionItem; href: string }
       )}
     >
       <span className="grid min-w-0 gap-1">
-        <strong className="truncate font-semibold">{item.transactionId ?? item.id}</strong>
+        <span className="flex min-w-0 items-center gap-2">
+          {item.unread && (
+            <span className="size-2 shrink-0 rounded-full bg-primary" title="미확인" data-unread="true">
+              <span className="sr-only">미확인</span>
+            </span>
+          )}
+          <strong className="truncate font-semibold">{item.transactionId ?? item.id}</strong>
+        </span>
         <span className="truncate text-muted-foreground">
           인터페이스 {item.interfaceId ?? DASH} · 채널 {item.channelId ?? DASH}
         </span>
@@ -50,6 +77,7 @@ export const DecisionRow = ({ item, href }: { item: DecisionItem; href: string }
             <Badge variant="info">{stageLabels[item.stage]}</Badge>
           )}
         </span>
+        <RiskCell item={item} />
         <span>
           검사 {completenessText(item)} · {stampText(item.occurredAt)}
         </span>

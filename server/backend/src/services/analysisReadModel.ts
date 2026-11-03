@@ -1,17 +1,25 @@
 import type { Pool } from 'pg';
 
 /**
- * 이상 분석(/analysis) 읽기 전용 판정 목록·상세·중간 판정 기록(analysis-ui.md).
- * - 기존 테이블만 조회한다(마이그레이션·스키마 변경 없음). 판정 값은 저장된 그대로 반환하고 다시 계산하지 않는다.
+ * 이상 분석(/analysis) 판정 목록·상세·중간 판정 기록·Process Flow 읽기(analysis-ui.md).
+ * - 판정 값은 저장된 그대로 반환하고 다시 계산하지 않는다. 처리 상태·읽음은 014 표에서 읽는다(쓰기는 analysisWorkflow.ts).
  * - 판정 항목 = 최종 판정 행(run_process_decisions) + 최종 판정이 없는 v03 detect 작업(판정 중·중간 판정·판정 실패).
- * - 분류(category)와 이상 신호(signal)는 저장 열(status·evidence.anomalous)과 작업·중간 기록 상태에서만 정한다.
+ * - 분류(category)와 이상 신호(signal)는 저장 열(status·evidence.anomalous)과 작업·중간 기록 상태에서만, 등급·위험도는
+ *   저장된 evidence v4 composite.grade·composite.risk에서만 정한다(detection-decision.md D7·U6).
  */
 type Queryable = Pick<Pool, 'query'>;
 
-// 사이드바 판정 결과별 분류(와이어프레임: 전체 / 이상 / [이상 징후 — v4 뒤 별도 Issue] / 판정 중·중간 판정 / 정상 여부 미확인 / 판정 실패·대체).
-// 정상(이상 신호 없음)은 분류가 없고 전체 + signal=no 필터로 찾는다.
-export const ANALYSIS_CATEGORIES = ['all', 'anomaly', 'in_progress', 'undetermined', 'failed_replaced'] as const;
-export const ANALYSIS_SIGNALS = ['yes', 'no', 'unknown'] as const;
+// 사이드바 분류(와이어프레임 #93 CATS·RISK_CATS·WORKFLOW 순서).
+// - 판정 결과별: 전체 / 이상 / 이상 징후 / 판정 중·중간 판정 / 정상 여부 미확인 / 판정 실패·대체. 정상(이상 신호 없음)은 분류가 없고 signal=no 필터로 찾는다.
+// - 위험도별: 전체(이상 신호 있음) / 위험 / 주의 / 참고 / 위험도 미정.
+// - 분류함: 보류 / 완료(처리 상태, 014).
+export const ANALYSIS_CATEGORIES = [
+  'all', 'anomaly', 'anomaly_sign', 'in_progress', 'undetermined', 'failed_replaced',
+  'risk_all', 'risk_critical', 'risk_warning', 'risk_info', 'risk_unrated',
+  'workflow_open', 'workflow_resolved',
+] as const;
+// yes = 이상 신호 있음(이상 + 이상 징후), anomaly = 이상(저장 등급이 이상 징후가 아닌 이상 신호), anomaly_sign = 이상 징후.
+export const ANALYSIS_SIGNALS = ['yes', 'anomaly', 'anomaly_sign', 'no', 'unknown'] as const;
 export const ANALYSIS_COMPLETENESS = ['complete', 'partial', 'unavailable'] as const;
 export const ANALYSIS_SORTS = ['newest', 'oldest'] as const;
 export const ANALYSIS_PAGE_SIZES = [5, 10, 20] as const;
@@ -75,19 +83,55 @@ const ITEMS_CTE = `replaced AS (
      ORDER BY a.attempt_no DESC,i.seq DESC LIMIT 1) li ON true
 ), base AS (
   SELECT * FROM final_items UNION ALL SELECT * FROM job_items
+), workflow AS (
+  SELECT DISTINCT ON (coalesce(job_id,decision_id)) coalesce(job_id,decision_id) AS target,to_state,created_at
+  FROM run_decision_workflow_events ORDER BY coalesce(job_id,decision_id),seq DESC
+), v4 AS (
+  SELECT b.*,coalesce(b.evidence->'schemaVersion'='4'::jsonb AND jsonb_typeof(b.evidence->'composite')='object',false) AS is_v4
+  FROM base b
 ), items AS (
-  SELECT b.*,p.transaction_id,p.process_id,t.interface_id,p.channel_id,p.status AS process_status,p.response_code
-  FROM base b LEFT JOIN data_processes p ON p.observation_id=b.process_observation_id
+  SELECT b.kind,b.id,b.decision_id,b.job_id,b.source_id,b.process_observation_id,b.config_version_id,b.status,b.rule_status,
+    b.ml_status,b.decision_code,b.anomaly_score,b.evidence,b.occurred_at,b.decided_at,b.signal,b.stage,b.job_status,
+    p.transaction_id,p.process_id,t.interface_id,p.channel_id,p.status AS process_status,p.response_code,
+    CASE WHEN b.is_v4 AND b.evidence->'composite'->>'grade' IN ('anomaly','anomaly_sign','normal','undetermined')
+         THEN b.evidence->'composite'->>'grade' END AS grade,
+    CASE WHEN b.signal<>'yes' THEN 'not_applicable'
+         WHEN b.is_v4 AND b.evidence->'composite'->'risk'->>'status'='rated'
+              AND b.evidence->'composite'->'risk'->>'level' IN ('critical','warning','info') THEN 'rated'
+         ELSE 'unrated' END AS risk_status,
+    CASE WHEN b.signal='yes' AND b.is_v4 AND b.evidence->'composite'->'risk'->>'status'='rated'
+              AND b.evidence->'composite'->'risk'->>'level' IN ('critical','warning','info')
+         THEN b.evidence->'composite'->'risk'->>'level' END AS risk_level,
+    coalesce(w.to_state,'detected') AS workflow_state,w.created_at AS workflow_changed_at
+  FROM v4 b LEFT JOIN data_processes p ON p.observation_id=b.process_observation_id
   LEFT JOIN data_transactions t ON t.observation_id=p.transaction_observation_id
+  LEFT JOIN workflow w ON w.target=coalesce(b.job_id,b.decision_id)
 )`;
 
 /** 분류 조건(SQL). 분류끼리 겹칠 수 있다(예: 대체된 최종 판정은 이상 신호 분류와 판정 실패·대체 분류에 모두 든다). */
+// 이상 / 이상 징후는 저장된 v4 composite.grade만 쓴다(v3는 등급 null → 이상, detection-decision.md U6).
+// 위험도는 저장된 v4 composite.risk만 쓴다(D7, 재계산 없음). v3·형식이 틀린 risk의 이상 신호 = 위험도 미정(U6), 이상 신호가 아니면 해당 없음.
 const CATEGORY_SQL: Record<AnalysisCategory, string> = {
   all: 'true',
-  anomaly: "signal='yes'",
+  anomaly: "signal='yes' AND grade IS DISTINCT FROM 'anomaly_sign'",
+  anomaly_sign: "signal='yes' AND grade='anomaly_sign'",
   undetermined: "signal='unknown'",
   in_progress: "kind IN ('pending','interim')",
   failed_replaced: "stage IN ('failed','replaced')",
+  risk_all: "signal='yes'",
+  risk_critical: "risk_level='critical'",
+  risk_warning: "risk_level='warning'",
+  risk_info: "risk_level='info'",
+  risk_unrated: "risk_status='unrated'",
+  workflow_open: "workflow_state='open'",
+  workflow_resolved: "workflow_state='resolved'",
+};
+const SIGNAL_SQL: Record<typeof ANALYSIS_SIGNALS[number], string> = {
+  yes: "signal='yes'",
+  anomaly: CATEGORY_SQL.anomaly,
+  anomaly_sign: CATEGORY_SQL.anomaly_sign,
+  no: "signal='no'",
+  unknown: "signal='unknown'",
 };
 
 const ITEM_JSON = `jsonb_build_object('id',id,'kind',kind,'stage',stage,'signal',signal,'decisionId',decision_id,'jobId',job_id,
@@ -96,10 +140,20 @@ const ITEM_JSON = `jsonb_build_object('id',id,'kind',kind,'stage',stage,'signal'
   'evidence',evidence,'occurredAt',to_char(occurred_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),
   'decidedAt',to_char(decided_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),
   'transactionId',transaction_id,'processId',process_id,'interfaceId',interface_id,'channelId',channel_id,
-  'processStatus',process_status,'responseCode',response_code)`;
+  'processStatus',process_status,'responseCode',response_code,'grade',grade,'riskStatus',risk_status,'riskLevel',risk_level,
+  'workflowState',workflow_state,
+  'workflowChangedAt',to_char(workflow_changed_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'))`;
+
+/**
+ * 요청자 기준 미확인: 그 대상(작업 → job_id, 작업 없는 판정 → decision_id)의 읽음 행이 없거나 열람 시각이 항목 시각보다 이르다
+ * (열람 뒤 중간 판정·최종 판정이 새로 생기면 다시 미확인). 페이지 행에만 계산한다(건수와 무관).
+ */
+const UNREAD_SQL = (actor: string) => `CASE WHEN f.job_id IS NOT NULL
+    THEN NOT EXISTS (SELECT 1 FROM run_decision_reads r WHERE r.job_id=f.job_id AND r.actor_id=${actor} AND r.read_at>=f.occurred_at)
+    ELSE NOT EXISTS (SELECT 1 FROM run_decision_reads r WHERE r.decision_id=f.decision_id AND r.actor_id=${actor} AND r.read_at>=f.occurred_at) END`;
 
 /** GET /api/analysis/decisions: 분류별 건수(전체 기준) + 조건에 맞는 한 페이지. */
-export async function readDecisionList(db: Pick<Pool, 'connect'>, filter: AnalysisListFilter) {
+export async function readDecisionList(db: Pick<Pool, 'connect'>, filter: AnalysisListFilter, actorId: string) {
   const conditions = [CATEGORY_SQL[filter.category]];
   const values: unknown[] = [];
   if (filter.q) {
@@ -109,8 +163,10 @@ export async function readDecisionList(db: Pick<Pool, 'connect'>, filter: Analys
     conditions.push(`(${['id::text', 'job_id::text', 'transaction_id', 'process_id', 'interface_id']
       .map((field) => `strpos(lower(${field}),${p})>0`).join(' OR ')})`);
   }
-  if (filter.signal) { values.push(filter.signal); conditions.push(`signal=$${values.length}`); }
+  if (filter.signal) conditions.push(SIGNAL_SQL[filter.signal]);
   if (filter.completeness) { values.push(filter.completeness); conditions.push(`status=$${values.length}`); }
+  values.push(actorId);
+  const actor = `$${values.length}`;
   values.push(filter.pageSize, (filter.page - 1) * filter.pageSize);
   const direction = filter.sort === 'oldest' ? 'ASC' : 'DESC';
   const counts = ANALYSIS_CATEGORIES.map((key) => `'${key}',count(*) FILTER (WHERE ${CATEGORY_SQL[key]})::integer`).join(',');
@@ -124,13 +180,15 @@ export async function readDecisionList(db: Pick<Pool, 'connect'>, filter: Analys
         (SELECT to_char(max(decided_at) AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') FROM items) AS "latestDecidedAt",
         (SELECT coalesce(max(id),0)::text FROM run_decision_events) AS "latestEventId",
         (SELECT coalesce(jsonb_agg(item ORDER BY n),'[]'::jsonb) FROM (
-           SELECT ${ITEM_JSON} AS item,row_number() OVER (ORDER BY occurred_at ${direction},id ${direction}) AS n
-             FROM filtered ORDER BY occurred_at ${direction},id ${direction}
-            LIMIT $${values.length - 1} OFFSET $${values.length}) page) AS items`, values);
+           SELECT ${ITEM_JSON} || jsonb_build_object('unread',${UNREAD_SQL(actor)}) AS item,
+                  row_number() OVER (ORDER BY occurred_at ${direction},id ${direction}) AS n
+             FROM (SELECT * FROM filtered ORDER BY occurred_at ${direction},id ${direction}
+                   LIMIT $${values.length - 1} OFFSET $${values.length}) f) page) AS items`, values);
     await client.query('COMMIT');
     return {
       observedAt: new Date().toISOString(),
-      counts: row.counts, total: row.total, page: filter.page, pageSize: filter.pageSize,
+      // jsonb는 키 순서를 보존하지 않으므로 분류 순서(사이드바 순서)대로 다시 담는다.
+      counts: Object.fromEntries(ANALYSIS_CATEGORIES.map((key) => [key, row.counts[key]])), total: row.total, page: filter.page, pageSize: filter.pageSize,
       latestDecidedAt: row.latestDecidedAt ?? null, latestEventId: row.latestEventId, items: row.items,
     };
   } catch (error) {
@@ -145,7 +203,7 @@ export async function readDecisionList(db: Pick<Pool, 'connect'>, filter: Analys
  * id 해석: 판정 ID → 그 판정. 아니면 detect 작업 ID → 그 작업의 최종 판정(있으면) 또는 작업 항목(판정 중·중간 판정·판정 실패).
  * 둘 다 아니면 null(404). 작업 ID로 요청해 최종 판정이 생긴 경우 응답 id는 판정 ID다(화면이 주소를 바꾼다).
  */
-async function resolveItem(db: Queryable, id: string) {
+export async function resolveItem(db: Queryable, id: string) {
   const { rows: [row] } = await db.query(`WITH ${ITEMS_CTE}
     SELECT ${ITEM_JSON} AS item FROM items
      WHERE id=$1 OR (kind='final' AND job_id=$1) ORDER BY (id=$1) DESC LIMIT 1`, [id]);
@@ -173,7 +231,8 @@ export async function readDecisionDetail(db: Queryable, id: string, actorId: str
          ORDER BY j.created_at DESC,j.id DESC LIMIT 1) AS explanation`,
   [item.configVersionId, item.jobId, item.decisionId, actorId]);
   return { ...item, configuration: context.configuration ?? null, job: context.job ?? null,
-    explanation: context.explanation ?? null };
+    explanation: context.explanation ?? null,
+    workflow: { state: item.workflowState, changedAt: item.workflowChangedAt ?? null } };
 }
 
 /** GET /api/analysis/decisions/:id/interims: 그 판정·작업의 중간 판정 기록(시도 순, 시도 안 순번 순). */
@@ -189,4 +248,70 @@ export async function readDecisionInterims(db: Queryable, id: string) {
     LEFT JOIN run_job_attempts b ON b.id=i.superseded_by_attempt_id
     WHERE i.job_id=$1 ORDER BY a.attempt_no,i.seq`, [item.jobId]);
   return { id: item.id, jobId: item.jobId, items: rows };
+}
+
+export const FLOW_PROCESS_LIMIT = 200;
+export const FLOW_MESSAGE_LIMIT = 500;
+/**
+ * GET /api/analysis/decisions/:id/flow: 판정 PROCESS가 속한 거래의 TRANSACTION·PROCESS·MESSAGE 저장값(조회 시점).
+ * - 묶는 기준: 같은 원본(source) 안 거래 ID·프로세스 ID 문자열. 검증된 부모 연결(FK)이 있으면 TRANSACTION은 그 행을 쓴다.
+ *   묶음은 화면 표시용이며 부모 연결을 새로 만들거나 저장하지 않는다(002 data_* 행 불변).
+ * - 실행(execution)마다 가장 큰 리비전 1건. 판정 PROCESS 실행은 판정에 쓰인 관측 그대로(focus).
+ * - 노출 필드는 와이어프레임 선택 노드 원본 정보 항목만. BODY(data_message_bodies)·response_message·원천 시각 원문은 읽지 않는다.
+ */
+export async function readDecisionFlow(db: Queryable, id: string,
+  limits = { processes: FLOW_PROCESS_LIMIT, messages: FLOW_MESSAGE_LIMIT }) {
+  const item = await resolveItem(db, id);
+  if (!item) return null;
+  const empty = { id: item.id, jobId: item.jobId, transaction: null, processes: [], messages: [], truncated: false,
+    counts: { processes: 0, messages: 0, errors: 0 } };
+  if (!item.processObservationId) return empty;
+  const { rows: [focus] } = await db.query(`SELECT p.observation_id,p.transaction_observation_id,p.transaction_id,o.source_id
+      FROM data_processes p JOIN data_observations o ON o.id=p.observation_id WHERE p.observation_id=$1`, [item.processObservationId]);
+  if (!focus) return empty;
+  const { rows: [tx] } = await db.query(`SELECT t.transaction_id AS "transactionId",t.interface_id AS "interfaceId",
+      t.start_channel_id AS "channelId",t.status,t.response_code AS "responseCode",
+      t.reported_process_time_ms::text AS "processTimeMs",t.process_count::text AS "processCount"
+    FROM data_transactions t JOIN data_observations o ON o.id=t.observation_id
+    WHERE ($1::uuid IS NOT NULL AND t.observation_id=$1) OR ($1::uuid IS NULL AND $2::text IS NOT NULL AND t.transaction_id=$2 AND o.source_id=$3)
+    ORDER BY (t.observation_id=$1) DESC NULLS LAST,o.revision_no DESC NULLS LAST,o.persisted_at DESC,o.id LIMIT 1`,
+  [focus.transaction_observation_id, focus.transaction_id, focus.source_id]);
+  const { rows: processes } = await db.query(`WITH candidates AS (
+      SELECT p.observation_id FROM data_processes p WHERE $2::text IS NOT NULL AND p.transaction_id=$2
+      UNION SELECT $1::uuid
+    ), latest AS (
+      SELECT DISTINCT ON (coalesce(o.execution_id,o.id)) p.observation_id,p.process_id,p.depend_process_id,p.status,p.response_code,
+        p.total_count,p.start_time_raw,(p.observation_id=$1) AS focus
+      FROM candidates c JOIN data_processes p ON p.observation_id=c.observation_id
+      JOIN data_observations o ON o.id=p.observation_id AND o.source_id=$3 AND o.layer='P'
+      ORDER BY coalesce(o.execution_id,o.id),(p.observation_id=$1) DESC,o.revision_no DESC NULLS LAST,o.persisted_at DESC,o.id
+    )
+    SELECT observation_id AS "observationId",process_id AS "processId",depend_process_id AS "dependsOn",status,
+      response_code AS "responseCode",total_count::text AS "totalCount",focus,
+      count(*) OVER ()::integer AS "_total",(count(*) FILTER (WHERE status='F') OVER ())::integer AS "_errors"
+    FROM latest ORDER BY start_time_raw NULLS LAST,process_id NULLS LAST,observation_id LIMIT $4`,
+  [focus.observation_id, focus.transaction_id, focus.source_id, limits.processes + 1]);
+  const { rows: messages } = focus.transaction_id === null ? { rows: [] } : await db.query(`WITH latest AS (
+      SELECT DISTINCT ON (coalesce(o.execution_id,o.id)) m.observation_id,m.message_id,m.process_id,m.direction,m.status,
+        m.data_size,m.message_index
+      FROM data_messages m JOIN data_observations o ON o.id=m.observation_id AND o.source_id=$2 AND o.layer='M'
+      WHERE m.transaction_id=$1
+      ORDER BY coalesce(o.execution_id,o.id),o.revision_no DESC NULLS LAST,o.persisted_at DESC,o.id
+    )
+    SELECT observation_id AS "observationId",message_id AS "messageId",process_id AS "processId",direction,status,
+      data_size::text AS "dataSize",count(*) OVER ()::integer AS "_total"
+    FROM latest ORDER BY process_id NULLS LAST,message_index NULLS LAST,message_id NULLS LAST,observation_id LIMIT $3`,
+  [focus.transaction_id, focus.source_id, limits.messages + 1]);
+  const strip = <T extends Record<string, unknown>>(row: T) =>
+    Object.fromEntries(Object.entries(row).filter(([key]) => !key.startsWith('_')));
+  return {
+    id: item.id,
+    jobId: item.jobId,
+    transaction: tx ?? null,
+    processes: processes.slice(0, limits.processes).map(strip),
+    messages: messages.slice(0, limits.messages).map(strip),
+    truncated: processes.length > limits.processes || messages.length > limits.messages,
+    // 상한과 무관한 실제 건수(화면 머리 `(프로세스 N건 · 메시지 M건 · 에러 K건)`). 에러 = 상태 F PROCESS.
+    counts: { processes: processes[0]?._total ?? 0, messages: messages[0]?._total ?? 0, errors: processes[0]?._errors ?? 0 },
+  };
 }

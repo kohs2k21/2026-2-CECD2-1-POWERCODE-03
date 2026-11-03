@@ -81,6 +81,11 @@ GRANT INSERT ON run_config_comparisons,run_config_comparison_items TO powercode_
 -- The #78-Q11 decision guard reads run_decision_interims with caller rights (Detector SELECT below).
 GRANT SELECT ON run_decision_interims TO powercode_api,powercode_collector,powercode_detector,powercode_trainer,powercode_llm;
 GRANT INSERT ON run_decision_interims TO powercode_detector;
+-- 014: analysis workflow state history, investigation/action records, per-user read marks (API only).
+-- Append-only history/records: API gets SELECT,INSERT only. Records are not labels or training input:
+-- Trainer, LLM, Detector and Collector have no access.
+GRANT SELECT,INSERT ON run_decision_workflow_events,run_decision_feedback TO powercode_api;
+GRANT SELECT,INSERT,UPDATE(read_at) ON run_decision_reads TO powercode_api;
 -- #78-Q10 defense in depth: no session temp tables through PUBLIC in the database this script runs in
 -- (runtime code uses none). The database owner, superusers and explicit TEMP grantees keep TEMP.
 DO $$ BEGIN

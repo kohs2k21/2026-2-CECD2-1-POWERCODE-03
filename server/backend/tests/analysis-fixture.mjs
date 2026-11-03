@@ -46,6 +46,30 @@ const v4Payload = (grade, basis, elapsedMs) => ({
   elapsedMs,
 });
 
+/** 최종 판정 evidence v4(작업 없는 판정용): 등급·위험도는 저장값(Detector가 계산) 그대로 둔다. */
+const v4Decision = ({ grade, risk, methodResults }) => ({
+  ...v3(true), rules: v3(false).rules, ruleSeverities: [], schemaVersion: 4, ruleSetRevision: 13, ruleSetHash: 'b'.repeat(64),
+  detectionPolicy: { version: 2, policyKey: 'category-k-of-n-or-v1', k: { hard: 1, soft: 1, ml: 1 }, deadlineMs: 3000 },
+  methodResults,
+  categoryResults: Object.fromEntries(['hard', 'soft', 'ml'].map((category) => {
+    const anomalous = methodResults.some((m) => m.category === category && m.anomalous);
+    return [category, { n: 1, k: 1, result: anomalous ? 'anomalous' : 'normal', status: 'succeeded', anomalous }];
+  })),
+  composite: { policy: { version: 2, policyKey: 'category-k-of-n-or-v1', k: { hard: 1, soft: 1, ml: 1 } }, status: 'complete',
+    anomalous: true, grade, basisMethods: risk.determinedBy.concat(risk.unratedMethods), firstAnomalyElapsedMs: 9.3,
+    risk: { policy: 'risk-max-v1', levelTable: 'method-defined-v2', ...risk } },
+});
+const hardNormal = { methodId: 'hard:process-status', category: 'hard', methodVersion: 'process-status-hr-v1', status: 'succeeded', anomalous: false,
+  code: null, severity: null, riskLevel: null, riskLevelReason: null, cause: null, failureCode: null, elapsedMs: 9.1, evidence: [] };
+const softInfo = { methodId: 'soft:retry_count-1a2b3c4d', category: 'soft', methodVersion: 'soft-threshold-v1', status: 'succeeded', anomalous: true,
+  code: 'SOFT_RETRY_COUNT_1A2B3C4D', severity: 'info', riskLevel: 'info', riskLevelReason: null, cause: null, failureCode: null, elapsedMs: 9.3,
+  condition: { field: 'retry_count', operator: 'gte', threshold: '3', unit: null }, observedValue: '4', evidence: [] };
+const mlHit = { methodId: 'ml:iforest', category: 'ml', methodVersion: 'process-iforest-v1', status: 'succeeded', anomalous: true, code: 'IF_ANOMALY',
+  severity: null, riskLevel: null, riskLevelReason: 'level_undefined', cause: null, failureCode: null, elapsedMs: 21.7, evidence: [],
+  score: 0.71, scoreDetail: { raw: 0.71, threshold: '0.61', direction: 'higher_is_anomaly', normalized: { kind: 'threshold_ratio', value: 1.164 } } };
+const mlNormal = { ...mlHit, anomalous: false, code: null, riskLevelReason: null, score: 0.42,
+  scoreDetail: { ...mlHit.scoreDetail, raw: 0.42, normalized: { kind: 'threshold_ratio', value: 0.689 } } };
+
 /**
  * @param {import('pg').Pool} pool
  * @param {{key?: string, legacy?: number}} options legacy = 추가로 만들 이전 형식(작업 없는) 정상 판정 수
@@ -157,6 +181,60 @@ export async function seedAnalysisFixture(pool, options = {}) {
     await legacyDecision('noAnomalousKey', 25, 'complete', { requestedMode: 'parallel' });
     await legacyDecision('demo', 24, 'complete', v3(false, { demo: { historicalReplay: true, runKey: 'fixture', scope: 'Process replay' } }));
     for (let index = 0; index < legacy; index += 1) await legacyDecision(`legacy${index}`, 40 + index, 'complete', v3(index % 4 === 0));
+    // evidence v4 최종 판정(작업 없음): 이상 징후 + 위험도 참고(소프트룰 info), 이상 징후 + 위험도 미정(ML만 T, 단계 없음).
+    await legacyDecision('v4Info', 20, 'complete', v4Decision({ grade: 'anomaly_sign',
+      risk: { status: 'rated', level: 'info', determinedBy: [softInfo.methodId], unratedMethods: [] }, methodResults: [hardNormal, softInfo, mlNormal] }),
+    'succeeded', 'succeeded', softInfo.code);
+    await legacyDecision('v4MlOnly', 19, 'complete', v4Decision({ grade: 'anomaly_sign',
+      risk: { status: 'unrated', level: null, determinedBy: [], unratedMethods: [mlHit.methodId] },
+      methodResults: [hardNormal, { ...softInfo, anomalous: false, code: null, severity: null, riskLevel: null, observedValue: '0' }, mlHit] }),
+    'succeeded', 'succeeded', 'IF_ANOMALY');
+
+    // Process Flow: 'anomaly' 판정 거래에 다른 PROCESS 1건(리비전 2건) + MESSAGE(판정 PROCESS 요청·응답(응답은 리비전 2건), 다른 PROCESS 1건).
+    // 다른 원본의 같은 거래 ID 행은 섞이지 않아야 한다. BODY 행은 만들지 않는다(API가 읽지 않음).
+    {
+      const focus = out.decisions.anomaly;
+      const observe = async (layer, execution, revision, source = sourceId) => {
+        const observation = id();
+        await client.query(`INSERT INTO data_observations(id,source_id,layer,execution_id,revision_no,dedup_key,content_hash,
+            api_received_at,persisted_at,clock_status,parsed_times,allowed_values,quality_flags,missing_fields)
+          VALUES($1,$2,$3,$4,$5,$6,$7,clock_timestamp(),clock_timestamp(),'unknown','{}','{}','[]','[]')`,
+        [observation, source, layer, execution, revision, `${layer}:${observation}`, sha(observation)]);
+        return observation;
+      };
+      const execution = async (layer, key, source = sourceId) => {
+        const executionId = id();
+        await client.query(`INSERT INTO data_executions(id,source_id,layer,execution_key,key_parts,key_contract_version,first_observed_at)
+          VALUES($1,$2,$3,$4,'{}','v1',clock_timestamp())`, [executionId, source, layer, `${key}-${executionId}`]);
+        return executionId;
+      };
+      const otherProcess = await execution('P', 'flow-p');
+      for (const [revision, status] of [[1, 'P'], [2, 'S']]) {
+        const observation = await observe('P', otherProcess, revision);
+        await client.query(`INSERT INTO data_processes(observation_id,transaction_id,process_id,depend_process_id,channel_id,status,response_code,
+            total_count,start_time_raw,response_message) VALUES($1,$2,'P99',$3,'CH-01',$4,'0000',5,'20261103010203999','fixture response text')`,
+        [observation, focus.tx, focus.processId, status]);
+      }
+      const message = async (processId, messageId, direction, revisions, source = sourceId) => {
+        const executionId = await execution('M', `flow-m-${messageId}`, source);
+        for (const [revision, status, size] of revisions) {
+          const observation = await observe('M', executionId, revision, source);
+          await client.query(`INSERT INTO data_messages(observation_id,transaction_id,process_id,message_id,direction,status,data_size,
+              message_index,response_message) VALUES($1,$2,$3,$4,$5,$6,$7,$8,'fixture response text')`,
+          [observation, focus.tx, processId, messageId, direction, status, size, direction === 'REQ' ? 1 : 2]);
+        }
+      };
+      await message(focus.processId, `MSG-${focus.processId}-REQ`, 'REQ', [[1, 'S', 512]]);
+      await message(focus.processId, `MSG-${focus.processId}-RES`, 'RES', [[1, 'P', 0], [2, 'F', 128]]);
+      await message('P99', 'MSG-P99-REQ', 'REQ', [[1, 'S', 64]]);
+      // 다른 원본(같은 거래 ID 문자열): 묶음에 섞이면 안 된다.
+      const otherSource = id();
+      await client.query(`INSERT INTO ops_sources(id,dataset_key,display_name,ingestion_method,schema_version,clock_basis,field_catalog,created_at)
+        VALUES($1,$2,$3,'switchable-input','arrival-snapshot-v1','{"status":"unknown"}','{"layers":["T","P","M","B"]}',clock_timestamp())`,
+      [otherSource, `${key}-other`, `${key}-other`]);
+      await message(focus.processId, 'MSG-OTHER-SOURCE', 'REQ', [[1, 'S', 1]], otherSource);
+      out.flow = { otherProcessId: 'P99' };
+    }
 
     // v03 작업: 1) 이전 시도 중간 기록이 대체된 뒤 최종 판정(대체됨) 2) 열린 중간 기록(근거 추가) 3) 대기 4) 중간 기록 뒤 실패(최종 없음)
     // 5) 중간 기록 없이 실패 6) 중간 기록 없는 최종(v4 근거).

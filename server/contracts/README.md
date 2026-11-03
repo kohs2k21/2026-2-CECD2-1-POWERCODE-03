@@ -8,7 +8,7 @@ Reserved for versioned request, response, event, and worker contracts shared by 
 - `rules.md`는 버전별 Rule 초안 CRUD와 파생변수 참조 규칙을 정의한다.
 - `model_adapters.md`는 추후 제공할 변수 생성·Rule 추천·IF 모델의 연결 함수를 정의한다.
 - `operations-ui.md`는 운영 현황(`/operations`) 읽기 API(`/api/operations/*`)·위젯 배치와 이상 근거 상세·피드백 UI 경계를 정의한다.
-- `analysis-ui.md`는 이상 분석(`/analysis`, `/analysis/d/:decisionId`) 판정 목록·상세·중간 판정 기록 읽기 API(`/api/analysis/*`)와 판정 결과별 분류 매핑·실시간 반영·설명 요청 화면 규칙을 정의한다(#105).
+- `analysis-ui.md`는 이상 분석(`/analysis`, `/analysis/d/:decisionId`) 판정 목록·상세·중간 판정 기록·Process Flow 읽기 API와 처리 상태·읽음·조사·조치 기록 쓰기 API(`/api/analysis/*`, 014 표), 판정 결과별·위험도별·분류함 분류 매핑(저장 등급·위험도만), 실시간 반영(중간 판정 이벤트 포함)·설명 요청 화면 규칙을 정의한다(#105).
 - `pipeline.md`는 저장, 기간 학습, 승인, 실시간 탐지의 현재 구현 경계를 정리한다.
 - `detection-decision.md`는 Detector 판정 구조(하드룰·소프트룰·ML 분류와 식별자, `detectionPolicy` v2 조합 규칙, 이상/이상 징후 등급, 위험도, 룰 세트 리비전 기록, evidence v4, 중간 판정 기록)를 정의한다 (#92 초안, Detector 소유 — 사용자 결정 U1~U12 11/03 반영).
 - `rule-set.md`는 룰 세트(하드룰 켜기/끄기 + 소프트룰 등록 필드·조건·임계값·위험도)의 현재 상태·저장 즉시 적용·리비전(정수 + 내용 hash)·스냅샷 이력·되돌리기(모든 이력 항목, 삭제된 규칙 재생성 허용)·동시 편집 409를 정의한다 (#94 초안, 룰은 버전 관리 없음).

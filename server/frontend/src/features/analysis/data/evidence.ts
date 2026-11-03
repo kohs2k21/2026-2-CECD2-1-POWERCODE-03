@@ -3,7 +3,8 @@ import { record } from "./analysisApi";
 /**
  * 판정 evidence 읽기. 저장된 값만 읽고 다시 계산하지 않는다(형식이 틀린 항목은 버림).
  * - v3(현행 Detector, `runner.py`): rules[]·models[]·checkers·anomalous·requestedMode·actualPaths·detectionPolicy·input·demo
- * - v4(detection-decision.md #92 초안): methodResults[]·categoryResults.{hard,soft,ml}·composite(grade·risk). 없으면 null(v3 표시로 대체)
+ * - v4(detection-decision.md #92): methodResults[]·categoryResults.{hard,soft,ml}·composite(grade·risk). 없으면 null(v3 표시로 대체)
+ *   정책 값(categoryResults.*.k·composite.policy·detectionPolicy.k·deadlineMs)은 화면에 보이지 않으므로 표시에 쓰지 않는다(C23·사용자 9.8)
  */
 const text = (v: unknown): string | null => (typeof v === "string" && v ? v : null);
 const finite = (v: unknown): number | null => (typeof v === "number" && Number.isFinite(v) ? v : null);
@@ -82,10 +83,15 @@ export type MethodResult = {
   code: string | null;
   severity: string | null;
   riskLevel: string | null;
+  riskLevelReason: string | null;
   cause: string | null;
   failureCode: string | null;
   elapsedMs: number | null;
   score: number | null;
+  /** ML만: 원점수·판정선·판정선 대비(threshold_ratio). 판정선은 저장 문자열 그대로. */
+  scoreDetail: { raw: number | null; threshold: string | null; ratio: number | null } | null;
+  /** 판단 안 함(not_applicable) 등 방법 evidence 요약의 reason 코드. */
+  reasons: string[];
   condition: { field: string | null; operator: string | null; threshold: string | null; unit: string | null } | null;
   observedValue: string | null;
 };
@@ -95,7 +101,7 @@ export type EvidenceV4 = {
   compositeStatus: string | null;
   anomalous: boolean | null;
   basisMethods: string[];
-  risk: { status: string | null; level: string | null; determinedBy: string[]; unratedMethods: string[] } | null;
+  risk: { status: string | null; level: string | null; levelTable: string | null; determinedBy: string[]; unratedMethods: string[] } | null;
   categoryResults: Partial<Record<MethodCategory, CategoryResult>>;
   methodResults: MethodResult[];
   ruleSetRevision: number | null;
@@ -118,18 +124,25 @@ export const readEvidenceV4 = (evidence: Record<string, unknown> | null | undefi
     compositeStatus: text(c.status),
     anomalous: bool(c.anomalous),
     basisMethods: strings(c.basisMethods),
-    risk: risk ? { status: text(risk.status), level: text(risk.level), determinedBy: strings(risk.determinedBy), unratedMethods: strings(risk.unratedMethods) } : null,
+    risk: risk ? { status: text(risk.status), level: text(risk.level), levelTable: text(risk.levelTable),
+      determinedBy: strings(risk.determinedBy), unratedMethods: strings(risk.unratedMethods) } : null,
     categoryResults,
     methodResults: list(evidence.methodResults).flatMap((m) => {
       const category = oneOf(m.category, ["hard", "soft", "ml"] as const);
       const methodId = text(m.methodId);
       if (!category || !methodId || !methodId.startsWith(`${category}:`)) return [];
       const condition = record(m.condition) ? m.condition : null;
+      const detail = record(m.scoreDetail) ? m.scoreDetail : null;
+      const normalized = detail && record(detail.normalized) && detail.normalized.kind === "threshold_ratio" ? finite(detail.normalized.value) : null;
+      const threshold = detail ? (text(detail.threshold) ?? (finite(detail.threshold) === null ? null : String(detail.threshold))) : null;
       return [{
         methodId, category, methodVersion: text(m.methodVersion),
         status: oneOf(m.status, ["succeeded", "not_ready", "failed"] as const),
         anomalous: bool(m.anomalous), code: text(m.code), severity: text(m.severity), riskLevel: text(m.riskLevel),
+        riskLevelReason: text(m.riskLevelReason),
         cause: text(m.cause), failureCode: text(m.failureCode), elapsedMs: finite(m.elapsedMs), score: finite(m.score),
+        scoreDetail: detail ? { raw: finite(detail.raw), threshold, ratio: normalized } : null,
+        reasons: list(m.evidence).flatMap((entry) => text(entry.reason) ?? []),
         condition: condition ? { field: text(condition.field), operator: text(condition.operator), threshold: text(condition.threshold), unit: text(condition.unit) } : null,
         observedValue: text(m.observedValue),
       }];

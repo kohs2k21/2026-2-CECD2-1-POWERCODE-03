@@ -1,27 +1,47 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Button } from "@/components/ui/button";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { ScreenTitle } from "@/components/layout/PageHeader";
 import { SideNav, type SideNavGroup } from "@/components/layout/SideNav";
 import { paths } from "@/app/routes";
 import { getStored, setStored, storageKeys } from "@/lib/storage";
-import { categories, listSearch, parseListSearch, type DecisionList, type ListParams } from "./data/analysisApi";
-import { useDecisionDetail, useDecisionInterims, useDecisionList, useDecisionLiveUpdates } from "./data/useAnalysis";
+import {
+  listSearch,
+  parseListSearch,
+  resultCategories,
+  riskCategories,
+  workflowCategories,
+  type Category,
+  type DecisionList,
+  type ListParams,
+} from "./data/analysisApi";
+import { useDecisionDetail, useDecisionFlow, useDecisionInterims, useDecisionList, useDecisionLiveUpdates } from "./data/useAnalysis";
 import { DecisionDetailView } from "./components/DecisionDetailView";
 import { DecisionListView } from "./components/DecisionListView";
 import { categoryLabels } from "./labels";
 
-/** 사이드바 판정 결과별 분류(건수 = 서버 전체 기준, 검색·필터와 무관). 다른 조건은 유지하고 페이지만 1로. */
-export const sidebarGroups = (params: ListParams, counts: DecisionList["counts"] | undefined): SideNavGroup[] => [
-  {
-    title: "판정",
-    items: categories.map((category) => ({
-      id: category,
-      label: categoryLabels[category],
-      count: counts?.[category] ?? undefined,
-      to: paths.analysis + listSearch({ ...params, category, page: 1 }),
-    })),
-  },
-];
+export type AnalysisView = "risk" | "result";
+const isRisk = (category: Category) => (riskCategories as readonly string[]).includes(category);
+const isResult = (category: Category) => (resultCategories as readonly string[]).includes(category);
+
+/**
+ * 사이드바(와이어프레임 analysisSide): 보기(위험도별 / 판정 결과별)에 따라 `위험도` 또는 `판정` 분류 + 아래 별도 구역 `분류함`(보류·완료).
+ * 건수 = 서버 전체 기준(검색·필터와 무관). 다른 조건은 유지하고 페이지만 1로.
+ */
+export const sidebarGroups = (params: ListParams, counts: DecisionList["counts"] | undefined, view: AnalysisView): SideNavGroup[] => {
+  const item = (category: Category) => ({
+    id: category,
+    label: categoryLabels[category],
+    count: counts?.[category] ?? undefined,
+    to: paths.analysis + listSearch({ ...params, category, page: 1 }),
+    // 와이어프레임 riskSide: 위험도 미정은 약하게(muted, 13px)
+    muted: category === "risk_unrated" || undefined,
+  });
+  return [
+    view === "risk" ? { title: "위험도", items: riskCategories.map(item) } : { title: "판정", items: resultCategories.map(item) },
+    { title: "분류함", items: workflowCategories.map(item), separated: true },
+  ];
+};
 
 /**
  * 이상 분석: 판정 결과별 분류 사이드바 + 판정 목록(`/analysis`) / PROCESS 판정 상세(`/analysis/d/:decisionId`)(와이어프레임 #93 analysis).
@@ -34,10 +54,16 @@ export const AnalysisPage = () => {
   const navigate = useNavigate();
   const { params, invalid } = parseListSearch(location.search);
   const [isWide, setIsWide] = useState<boolean>(() => getStored(storageKeys.layoutWide("analysis"), false));
+  // 보기: 위험도 분류면 위험도별, 판정 결과 분류면 판정 결과별, 분류함은 직전 보기를 유지한다.
+  // 분류함 주소로 바로 들어오면 와이어프레임 기본 보기(위험도별, analysisView='risk')
+  const [lastView, setLastView] = useState<AnalysisView>(() => (isResult(params.category) ? "result" : "risk"));
+  const view: AnalysisView = isRisk(params.category) ? "risk" : isResult(params.category) ? "result" : lastView;
+  useEffect(() => setLastView(view), [view]);
   const list = useDecisionList(params);
   const live = useDecisionLiveUpdates(list.data?.latestEventId ?? null);
   const detail = useDecisionDetail(decisionId);
   const interims = useDecisionInterims(decisionId);
+  const flow = useDecisionFlow(decisionId);
 
   // 잘못된 조건은 기본값으로 replace 정규화(기타 쿼리·state 보존).
   useEffect(() => {
@@ -67,14 +93,40 @@ export const AnalysisPage = () => {
     setIsWide(value);
     setStored(storageKeys.layoutWide("analysis"), value);
   };
-  const groups = useMemo(() => sidebarGroups(params, list.data?.counts), [params, list.data?.counts]);
+  const groups = useMemo(() => sidebarGroups(params, list.data?.counts, view), [params, list.data?.counts, view]);
+  // 와이어프레임 analysis-view: 보기를 바꾸면 그 보기의 전체 분류(위험도별 = 위험도 전체, 판정 결과별 = 전체)로, 1쪽.
+  const viewSwitch = (
+    <div role="group" aria-label="분류 보기" className="grid grid-cols-2 gap-1 px-1">
+      {(
+        [
+          ["risk", "위험도별", "risk_all"],
+          ["result", "판정 결과별", "all"],
+        ] as const
+      ).map(([mode, label, category]) => (
+        <Button
+          key={mode}
+          size="sm"
+          variant={view === mode ? "default" : "outline"}
+          aria-pressed={view === mode}
+          onClick={() => {
+            setLastView(mode);
+            navigate({ pathname: paths.analysis, search: listSearch({ ...params, category, page: 1 }, location.search) });
+          }}
+        >
+          {label}
+        </Button>
+      ))}
+    </div>
+  );
   const search = listSearch(params, location.search);
 
   return (
     <div className="grid gap-6">
       <ScreenTitle>이상 분석</ScreenTitle>
       <div className="flex flex-col gap-6 md:flex-row md:items-start">
-        {!isWide && <SideNav label="판정 분류" menuId="analysis-categories" activeId={decisionId ? null : params.category} groups={groups} />}
+        {!isWide && (
+          <SideNav label="판정 분류" menuId="analysis-categories" activeId={decisionId ? null : params.category} groups={groups} header={viewSwitch} />
+        )}
         <section className="min-w-0 flex-1" aria-label={decisionId ? "판정 상세" : "판정 목록"}>
           {decisionId ? (
             <DecisionDetailView
@@ -82,6 +134,7 @@ export const AnalysisPage = () => {
               id={decisionId}
               query={detail}
               interims={interims}
+              flow={flow}
               backHref={paths.analysis + search}
               isWide={isWide}
               onToggleWide={onToggleWide}

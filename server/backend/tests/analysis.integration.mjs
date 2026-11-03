@@ -1,4 +1,5 @@
-// 이상 분석 읽기 API(analysis-ui.md) 통합 시험: 인증·분류 매핑·건수·검색·필터·정렬·페이지·상세·중간 판정 기록·설명 작업 연결·503.
+// 이상 분석 API(analysis-ui.md) 통합 시험: 인증·분류 매핑·건수(판정 결과별·위험도별·분류함)·검색·필터·정렬·페이지·상세·중간 판정 기록·
+// 설명 작업 연결·처리 상태·조사·조치 기록·읽음·Process Flow·SSE 중간 판정 이벤트·503.
 // 로컬 전용 새 QA 데이터베이스(qa_analysis*)만 허용한다. 분류 건수는 DB 전체 기준이므로 판정이 없는 새 DB가 필요하다.
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
@@ -75,21 +76,30 @@ try {
   };
   const ids = (body) => body.items.map((item) => item.id).sort();
 
-  // 1) 인증 없음·잘못된 토큰 401, user/admin 모두 읽기 200, 쓰기 경로 없음.
-  for (const route of ['/api/analysis/decisions', `/api/analysis/decisions/${D.normal.id}`, `/api/analysis/decisions/${D.normal.id}/interims`]) {
+  // 1) 인증 없음·잘못된 토큰 401, user/admin 모두 읽기 200. 목록 쓰기 경로 없음.
+  for (const route of ['/api/analysis/decisions', `/api/analysis/decisions/${D.normal.id}`, `/api/analysis/decisions/${D.normal.id}/interims`,
+    `/api/analysis/decisions/${D.normal.id}/flow`]) {
     assert.equal((await request(base, route)).status, 401, `unauthenticated ${route}`);
     assert.equal((await request(base, route, 'GET', 'not-a-token')).status, 401, `invalid token ${route}`);
     assert.equal((await request(base, route, 'GET', user)).status, 200, `user read ${route}`);
     assert.equal((await request(base, route, 'GET', admin)).status, 200, `admin read ${route}`);
   }
   assert.equal((await request(base, '/api/analysis/decisions', 'POST', admin, {})).status, 404);
+  for (const [route, method, body] of [[`/api/analysis/decisions/${D.normal.id}/workflow`, 'PUT', { state: 'open', expectedState: 'detected' }],
+    [`/api/analysis/decisions/${D.normal.id}/read`, 'PUT', undefined], [`/api/analysis/decisions/${D.normal.id}/feedback`, 'GET', undefined],
+    [`/api/analysis/decisions/${D.normal.id}/feedback`, 'POST', { kind: 'action', reason: 'x' }]]) {
+    assert.equal((await request(base, route, method, undefined, body)).status, 401, `unauthenticated ${method} ${route}`);
+    assert.equal((await request(base, route, method, 'not-a-token', body)).status, 401, `invalid token ${method} ${route}`);
+  }
 
   // 2) 분류 건수(DB 전체 기준)와 매핑: 운영 리포트와 같은 이상 신호 규칙 + 작업·중간 기록 상태.
   const all = await list('?pageSize=20');
-  assert.deepEqual(all.counts, { all: 13, anomaly: 4, in_progress: 2, undetermined: 3, failed_replaced: 3 });
-  assert.deepEqual(Object.keys(all.counts), ['all', 'anomaly', 'in_progress', 'undetermined', 'failed_replaced'], 'wireframe sidebar order, no normal category');
-  assert.equal(all.total, 13);
-  assert.equal(all.items.length, 13);
+  const counts0 = { all: 15, anomaly: 3, anomaly_sign: 3, in_progress: 2, undetermined: 3, failed_replaced: 3,
+    risk_all: 6, risk_critical: 1, risk_warning: 1, risk_info: 1, risk_unrated: 3, workflow_open: 0, workflow_resolved: 0 };
+  assert.deepEqual(all.counts, counts0);
+  assert.deepEqual(Object.keys(all.counts), Object.keys(counts0), 'wireframe sidebar order (result view, risk view, workflow box), no normal category');
+  assert.equal(all.total, 15);
+  assert.equal(all.items.length, 15);
   assert.ok(isoTime(all.observedAt) && isoTime(all.latestDecidedAt));
   assert.match(all.latestEventId, /^[1-9]\d*$/, 'SSE cursor for live updates');
   const byId = new Map(all.items.map((item) => [item.id, item]));
@@ -109,6 +119,8 @@ try {
   const replaced = expect(D.replaced.id, 'final', 'replaced', 'no');
   assert.equal(replaced.jobId, J.replaced.id);
   expect(D.v4Final.id, 'final', 'final', 'yes');
+  expect(D.v4Info.id, 'final', 'final', 'yes');
+  expect(D.v4MlOnly.id, 'final', 'final', 'yes');
   const interimItem = expect(J.interim.id, 'interim', 'updated', 'yes');
   assert.equal(interimItem.decisionId, null);
   assert.equal(interimItem.evidence.composite.grade, 'anomaly', 'latest open interim payload');
@@ -140,34 +152,38 @@ try {
   const page1 = await list('?pageSize=5');
   const page3 = await list('?pageSize=5&page=3');
   assert.equal(page1.items.length, 5);
-  assert.equal(page3.items.length, 3);
+  assert.equal(page3.items.length, 5);
   assert.deepEqual([...page1.items, ...(await list('?pageSize=5&page=2')).items, ...page3.items].map((item) => item.id),
     all.items.map((item) => item.id));
   const beyond = await list('?pageSize=5&page=9');
-  assert.deepEqual([beyond.items.length, beyond.total, beyond.page], [0, 13, 9]);
+  assert.deepEqual([beyond.items.length, beyond.total, beyond.page], [0, 15, 9]);
   assert.equal((await list()).pageSize, 10, 'default page size');
 
   // 5) 분류·필터 결과 집합.
-  assert.deepEqual(ids(await list('?category=anomaly&pageSize=20')), [D.anomaly.id, D.anomalyPartial.id, D.v4Final.id, J.interim.id].sort());
+  assert.deepEqual(ids(await list('?category=anomaly&pageSize=20')), [D.anomaly.id, D.anomalyPartial.id, J.interim.id].sort(),
+    'anomaly = signal yes without a stored anomaly_sign grade (v3 grade null stays 이상)');
+  assert.deepEqual(ids(await list('?category=anomaly_sign&pageSize=20')), [D.v4Final.id, D.v4Info.id, D.v4MlOnly.id].sort());
   assert.deepEqual(ids(await list('?signal=no&pageSize=20')), [D.normal.id, D.demo.id, D.replaced.id].sort(), 'normal decisions via the signal filter');
   assert.deepEqual(ids(await list('?category=undetermined&pageSize=20')), [D.partialFalse.id, D.unavailable.id, D.noAnomalousKey.id].sort());
   assert.deepEqual(ids(await list('?category=in_progress&pageSize=20')), [J.interim.id, J.pending.id].sort());
   assert.deepEqual(ids(await list('?category=failed_replaced&pageSize=20')), [D.replaced.id, J.noFinal.id, J.failed.id].sort());
   assert.deepEqual(ids(await list('?signal=yes&completeness=partial&pageSize=20')), [D.anomalyPartial.id, D.v4Final.id].sort());
+  assert.deepEqual(ids(await list('?signal=anomaly&completeness=partial&pageSize=20')), [D.anomalyPartial.id]);
+  assert.deepEqual(ids(await list('?signal=anomaly_sign&pageSize=20')), [D.v4Final.id, D.v4Info.id, D.v4MlOnly.id].sort());
   assert.deepEqual(ids(await list('?completeness=unavailable')), [D.unavailable.id]);
   assert.deepEqual(ids(await list('?category=anomaly&signal=no')), []);
   const filtered = await list('?category=undetermined&signal=no');
-  assert.deepEqual([filtered.total, filtered.counts.all], [0, 13], 'counts ignore filters and search');
+  assert.deepEqual([filtered.total, filtered.counts.all], [0, 15], 'counts ignore filters and search');
 
   // 6) 검색: 판정 ID·작업 ID·거래 ID·프로세스 ID·인터페이스 ID 부분 일치(대소문자 무시), 특수 문자는 그대로.
   assert.deepEqual(ids(await list(`?q=${encodeURIComponent(D.normal.tx.toLowerCase())}`)), [D.normal.id]);
   assert.deepEqual(ids(await list(`?q=${D.normal.id.slice(0, 13).toUpperCase()}`)), [D.normal.id]);
   assert.deepEqual(ids(await list(`?q=${J.interim.id}`)), [J.interim.id]);
   assert.deepEqual(ids(await list(`?q=${J.v4Final.id}`)), [D.v4Final.id], 'final decisions are found by their detect job id');
-  assert.equal((await list('?q=if-ord-&pageSize=20')).total, 13);
+  assert.equal((await list('?q=if-ord-&pageSize=20')).total, 15);
   assert.equal((await list(`?q=${encodeURIComponent(D.normal.processId)}&pageSize=20`)).items.every((item) => item.processId === D.normal.processId), true);
   assert.equal((await list('?q=%25')).total, 0, 'percent is not a wildcard');
-  assert.equal((await list('?q=%20%20')).total, 13, 'blank search is no search');
+  assert.equal((await list('?q=%20%20')).total, 15, 'blank search is no search');
 
   // 7) 입력 검증 400.
   const bad = async (query, code) => {
@@ -237,15 +253,230 @@ try {
   // 기존 판정 API·SSE 경로는 그대로.
   assert.equal((await request(base, '/api/pipeline/decisions?limit=3', 'GET', user)).body.items.length, 3);
 
+  // 12) 등급·위험도: 저장된 v4 composite.grade·composite.risk만(재계산 없음). v3 이상 = 등급 null·위험도 미정, 이상 아님 = 해당 없음.
+  const riskOf = (itemId) => { const item = byId.get(itemId); return [item.grade, item.riskStatus, item.riskLevel]; };
+  assert.deepEqual(riskOf(D.anomaly.id), [null, 'unrated', null], 'v3 anomaly: grade null, risk unrated (U6)');
+  assert.deepEqual(riskOf(D.normal.id), [null, 'not_applicable', null]);
+  assert.deepEqual(riskOf(D.unavailable.id), [null, 'not_applicable', null]);
+  assert.deepEqual(riskOf(D.v4Final.id), ['anomaly_sign', 'rated', 'warning']);
+  assert.deepEqual(riskOf(D.v4Info.id), ['anomaly_sign', 'rated', 'info']);
+  assert.deepEqual(riskOf(D.v4MlOnly.id), ['anomaly_sign', 'unrated', null], 'stored unrated (ML only) stays unrated');
+  assert.deepEqual(riskOf(J.interim.id), ['anomaly', 'rated', 'critical'], 'interim item uses the latest open payload');
+  assert.deepEqual(riskOf(J.pending.id), [null, 'not_applicable', null]);
+  assert.deepEqual(riskOf(D.replaced.id), [null, 'not_applicable', null], 'withdrawn interim risk is not carried to the final decision');
+  assert.deepEqual(ids(await list('?category=risk_all&pageSize=20')),
+    [D.anomaly.id, D.anomalyPartial.id, D.v4Final.id, D.v4Info.id, D.v4MlOnly.id, J.interim.id].sort());
+  assert.deepEqual(ids(await list('?category=risk_critical')), [J.interim.id]);
+  assert.deepEqual(ids(await list('?category=risk_warning')), [D.v4Final.id]);
+  assert.deepEqual(ids(await list('?category=risk_info')), [D.v4Info.id]);
+  assert.deepEqual(ids(await list('?category=risk_unrated')), [D.anomaly.id, D.anomalyPartial.id, D.v4MlOnly.id].sort());
+  assert.ok(all.items.every((item) => item.workflowState === 'detected' && item.unread === true), 'initial state: detected, unread');
+
+  // 13) 처리 상태: 감지됨 → 보류 → 완료 → 원래 상태로 복원, 요청자·시각 기록. 작업 항목은 작업 ID로 저장되어 최종 판정으로 이어진다.
+  const workflow = (itemId, body, token = user, raw) => raw
+    ? fetch(`${base}/api/analysis/decisions/${itemId}/workflow`, { method: 'PUT', headers: { Authorization: `Bearer ${token}`, ...raw.headers }, body: raw.body })
+      .then(async (response) => ({ status: response.status, body: await response.json().catch(() => null) }))
+    : request(base, `/api/analysis/decisions/${itemId}/workflow`, 'PUT', token, body);
+  const opened = await workflow(D.anomaly.id, { state: 'open', expectedState: 'detected' });
+  assert.equal(opened.status, 200, JSON.stringify(opened.body));
+  assert.deepEqual([opened.body.id, opened.body.workflow.state], [D.anomaly.id, 'open']);
+  assert.ok(isoTime(opened.body.workflow.changedAt));
+  const anomalyDetail = (await detail(D.anomaly.id)).body;
+  assert.deepEqual(anomalyDetail.workflow, { state: 'open', changedAt: opened.body.workflow.changedAt });
+  assert.equal(anomalyDetail.evidence.schemaVersion, 3, 'decision values unchanged');
+  assert.deepEqual(ids(await list('?category=workflow_open')), [D.anomaly.id]);
+  assert.deepEqual([(await workflow(D.anomaly.id, { state: 'resolved', expectedState: 'detected' })).body.code], ['workflow_state_conflict'],
+    'stale expected state');
+  assert.equal((await workflow(D.anomaly.id, { state: 'resolved', expectedState: 'open' }, admin)).body.workflow.state, 'resolved', 'admin may change too');
+  const notAllowed = await workflow(D.anomaly.id, { state: 'open', expectedState: 'resolved' });
+  assert.deepEqual([notAllowed.status, notAllowed.body.code], [409, 'workflow_transition_not_allowed'], 'resolved → open is not a wireframe action');
+  assert.deepEqual([(await workflow(D.anomaly.id, { state: 'resolved', expectedState: 'resolved' })).body.code], ['workflow_transition_not_allowed']);
+  assert.equal((await workflow(D.anomaly.id, { state: 'detected', expectedState: 'resolved' })).body.workflow.state, 'detected', 'restore');
+  const history = await pool.query(`SELECT seq,from_state,to_state,actor_id,job_id,decision_id FROM run_decision_workflow_events
+    WHERE decision_id=$1 ORDER BY seq`, [D.anomaly.id]);
+  const [userId, adminId] = await Promise.all([user, admin].map(async (token) => (await request(base, '/api/auth/me', 'GET', token)).body.user.id));
+  assert.deepEqual(history.rows.map((row) => [row.seq, row.from_state, row.to_state, row.actor_id, row.job_id]),
+    [[1, 'detected', 'open', userId, null], [2, 'open', 'resolved', adminId, null], [3, 'resolved', 'detected', userId, null]], 'append-only history with actors');
+  // 작업 항목: 작업 ID 대상. 그 작업의 최종 판정을 판정 ID로 바꿔도 같은 대상.
+  assert.equal((await workflow(D.v4Final.id, { state: 'open', expectedState: 'detected' })).status, 200);
+  assert.equal((await pool.query('SELECT count(*)::int AS n FROM run_decision_workflow_events WHERE job_id=$1', [J.v4Final.id])).rows[0].n, 1,
+    'final decision with a detect job is stored by job id');
+  assert.equal((await detail(J.v4Final.id)).body.workflow.state, 'open');
+  assert.equal((await workflow(J.pending.id, { state: 'resolved', expectedState: 'detected' })).body.workflow.state, 'resolved');
+  const workflowCounts = (await list()).counts;
+  assert.deepEqual([workflowCounts.workflow_open, workflowCounts.workflow_resolved], [1, 1]);
+  assert.deepEqual(ids(await list('?category=workflow_resolved')), [J.pending.id]);
+  // 동시 변경: 같은 기대 상태로 두 요청 → 하나만 성공, 나머지 409.
+  const raced = await Promise.all([1, 2, 3].map(() => workflow(D.normal.id, { state: 'open', expectedState: 'detected' })));
+  assert.deepEqual(raced.map((r) => r.status).sort(), [200, 409, 409], JSON.stringify(raced.map((r) => r.body)));
+  assert.ok(raced.filter((r) => r.status === 409).every((r) => r.body.code === 'workflow_state_conflict'));
+  // 입력 검증 400·404.
+  const badWorkflow = async (body, code = 'invalid_workflow_request', raw) => {
+    const response = await workflow(D.normal.id, body, user, raw);
+    assert.deepEqual([response.status, response.body?.code], [400, code], JSON.stringify(body ?? raw));
+  };
+  await badWorkflow({ state: 'open' });
+  await badWorkflow({ state: 'open', expectedState: 'detected', note: 'x' });
+  await badWorkflow({ state: 'closed', expectedState: 'open' });
+  await badWorkflow({ state: 'Open', expectedState: 'open' });
+  await badWorkflow({ state: 1, expectedState: 'open' });
+  await badWorkflow(undefined, 'invalid_workflow_request', { headers: {}, body: undefined });
+  await badWorkflow(undefined, 'invalid_workflow_request', { headers: { 'Content-Type': 'text/plain' }, body: '{"state":"detected","expectedState":"open"}' });
+  await badWorkflow(undefined, 'invalid_json', { headers: { 'Content-Type': 'application/json' }, body: '{"state":' });
+  // 본문 해석 단계의 다른 요청 오류도 4xx 그대로(503 저장소 오류로 바꾸지 않음).
+  const charset = await workflow(D.normal.id, undefined, user, { headers: { 'Content-Type': 'application/json; charset=latin1' }, body: '{"state":"open","expectedState":"detected"}' });
+  assert.deepEqual([charset.status, charset.body?.code], [415, 'unsupported_charset']);
+  const encoding = await workflow(D.normal.id, undefined, user, { headers: { 'Content-Type': 'application/json', 'Content-Encoding': 'x-unknown' }, body: '{}' });
+  assert.deepEqual([encoding.status, encoding.body?.code], [415, 'unsupported_encoding']);
+  await badWorkflow(undefined, 'invalid_workflow_request', { headers: { 'Content-Type': 'application/json' }, body: '["open"]' });
+  const tooLarge = await workflow(D.normal.id, undefined, user, { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ state: 'x'.repeat(20_000) }) });
+  assert.deepEqual([tooLarge.status, tooLarge.body.code], [413, 'request_too_large']);
+  assert.deepEqual([(await workflow(crypto.randomUUID(), { state: 'open', expectedState: 'detected' })).status], [404]);
+  assert.deepEqual([(await workflow('nope', { state: 'open', expectedState: 'detected' })).body.code], ['invalid_decision_id']);
+
+  // 14) 조사·조치 기록: 관리자만 읽기·쓰기(와이어프레임 feedbackBox는 관리자에게만), append-only, 판정 값 불변.
+  const feedbackRoute = (itemId) => `/api/analysis/decisions/${itemId}/feedback`;
+  const forbidden = await request(base, feedbackRoute(D.anomaly.id), 'POST', user, { kind: 'action', reason: '조치함' });
+  assert.deepEqual([forbidden.status, forbidden.body.code], [403, 'admin_required']);
+  assert.deepEqual([(await request(base, feedbackRoute(D.anomaly.id), 'GET', user)).status], [403]);
+  const evidenceBefore = (await pool.query('SELECT evidence,status FROM run_process_decisions WHERE id=$1', [D.anomaly.id])).rows[0];
+  const saved = await request(base, feedbackRoute(D.anomaly.id), 'POST', admin, { kind: 'suspected-false-positive', reason: '  배치 재처리로 생긴 F 상태\n확인함  ' });
+  assert.equal(saved.status, 201, JSON.stringify(saved.body));
+  assert.deepEqual([saved.body.id, saved.body.item.kind, saved.body.item.reason, saved.body.item.actorId, saved.body.item.actorEmail],
+    [D.anomaly.id, 'suspected-false-positive', '배치 재처리로 생긴 F 상태\n확인함', adminId, environment.SEED_ADMIN_EMAIL]);
+  assert.ok(isoTime(saved.body.item.createdAt));
+  const longest = 'ㄱ'.repeat(2000);
+  assert.equal((await request(base, feedbackRoute(D.anomaly.id), 'POST', admin, { kind: 'action', reason: longest })).status, 201, '2000 characters allowed');
+  assert.deepEqual((await pool.query('SELECT evidence,status FROM run_process_decisions WHERE id=$1', [D.anomaly.id])).rows[0], evidenceBefore,
+    'feedback does not change the decision');
+  const feedbackList = (await request(base, feedbackRoute(D.anomaly.id), 'GET', admin)).body;
+  assert.deepEqual(feedbackList.items.map((item) => [item.kind, item.reason.length]), [['action', 2000], ['suspected-false-positive', 19]], 'newest first');
+  assert.deepEqual((await request(base, feedbackRoute(D.normal.id), 'GET', admin)).body, { id: D.normal.id, items: [] });
+  // 작업 항목 기록은 작업 ID 대상(최종 판정이 생겨도 이어짐).
+  assert.equal((await request(base, feedbackRoute(J.v4Final.id), 'POST', admin, { kind: 'insufficient-evidence', reason: '모델 근거만 있음' })).body.id, D.v4Final.id);
+  assert.equal((await request(base, feedbackRoute(D.v4Final.id), 'GET', admin)).body.items.length, 1);
+  for (const body of [{ kind: 'action' }, { kind: 'action', reason: '   ' }, { kind: 'action', reason: 'ㄱ'.repeat(2001) }, { kind: 'label', reason: 'x' },
+    { kind: 'action', reason: 'x', label: true }, { kind: 'action', reason: 7 }, { kind: 'action', reason: 'a\u0000b' }]) {
+    const response = await request(base, feedbackRoute(D.anomaly.id), 'POST', admin, body);
+    assert.deepEqual([response.status, response.body?.code], [400, 'invalid_feedback_request'], JSON.stringify(body).slice(0, 60));
+  }
+  assert.equal((await request(base, feedbackRoute(crypto.randomUUID()), 'POST', admin, { kind: 'action', reason: 'x' })).status, 404);
+  assert.equal((await pool.query('SELECT count(*)::int AS n FROM run_decision_feedback')).rows[0].n, 3, 'rejected requests store nothing');
+  // 확정 라벨·학습 입력으로 쓰이지 않음: 라벨 근거 표에 아무것도 생기지 않는다.
+  assert.equal((await pool.query('SELECT count(*)::int AS n FROM data_label_evidence')).rows[0].n, 0);
+
+  // 15) 사용자별 읽음: 상세를 열면(PUT …/read {occurredAt}) 그 사용자에게만 화면이 본 항목 시각까지 확인됨.
+  //     그 뒤 생긴 중간 판정·최종 판정(더 늦은 occurredAt)은 미확인으로 남는다(열람 경합에서도).
+  const listed = async (itemId, token = user) => (await list('?pageSize=20', token)).items.find((item) => item.id === itemId);
+  const unread = async (itemId, token) => (await listed(itemId, token)).unread;
+  const markRead = (itemId, body, token = user) => request(base, `/api/analysis/decisions/${itemId}/read`, 'PUT', token, body);
+  const normalSeen = (await listed(D.normal.id)).occurredAt;
+  const read = await markRead(D.normal.id, { occurredAt: normalSeen });
+  assert.equal(read.status, 200, JSON.stringify(read.body));
+  assert.ok(read.body.id === D.normal.id && isoTime(read.body.readAt));
+  assert.equal(read.body.readAt, normalSeen, 'read time = the item time the screen saw');
+  assert.deepEqual([await unread(D.normal.id, user), await unread(D.normal.id, admin), await unread(D.anomaly.id, user)], [false, true, true]);
+  const older = await markRead(D.normal.id, { occurredAt: '2020-01-01T00:00:00Z' });
+  assert.equal(older.body.readAt, normalSeen, 'an older screen never moves the read time back');
+  const future = await markRead(D.normal.id, { occurredAt: '2999-01-01T00:00:00.000000Z' });
+  assert.ok(Date.parse(future.body.readAt) <= Date.now() + 1000, 'a future time is capped at now');
+  assert.equal((await pool.query('SELECT count(*)::int AS n FROM run_decision_reads WHERE decision_id=$1', [D.normal.id])).rows[0].n, 1);
+  // 작업 항목: 작업 ID 대상. 화면이 이전 중간 판정 시각을 보고 연 경우(그 뒤 근거 추가가 저장됨) → 여전히 미확인.
+  const interimSeen = (await listed(J.interim.id)).occurredAt;
+  const firstInterim = (await pool.query(`SELECT to_char(created_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS t FROM run_decision_interims
+    WHERE job_id=$1 AND kind='first_anomaly'`, [J.interim.id])).rows[0].t;
+  assert.ok(firstInterim < interimSeen);
+  assert.equal((await markRead(J.interim.id, { occurredAt: firstInterim })).status, 200);
+  assert.equal(await unread(J.interim.id, user), true, 'a newer interim than the one the screen saw stays unread');
+  assert.equal((await markRead(J.interim.id, { occurredAt: interimSeen })).status, 200);
+  assert.equal(await unread(J.interim.id, user), false);
+  assert.equal((await pool.query('SELECT count(*)::int AS n FROM run_decision_reads WHERE job_id=$1', [J.interim.id])).rows[0].n, 1);
+  for (const body of [undefined, {}, { at: 'x' }, { occurredAt: 'yesterday' }, { occurredAt: '2026-11-03' }, { occurredAt: '2026-11-03T01:02:03' },
+    { occurredAt: 1762131723 }, { occurredAt: normalSeen, extra: 1 }, { occurredAt: '2026-02-30T00:00:00Z' }]) {
+    const response = await markRead(D.normal.id, body);
+    assert.deepEqual([response.status, response.body?.code], [400, 'invalid_read_request'], JSON.stringify(body));
+  }
+  assert.equal((await markRead(crypto.randomUUID(), { occurredAt: normalSeen })).status, 404);
+  assert.deepEqual((await list()).counts.all, 15, 'read marks do not change counts');
+
+  // 16) Process Flow: 같은 원본 안 같은 거래 ID의 TRANSACTION·PROCESS·MESSAGE(실행마다 최신 리비전). BODY·응답 메시지 원문 없음.
+  const flowOf = async (itemId, token = user) => (await request(base, `/api/analysis/decisions/${itemId}/flow`, 'GET', token));
+  const flow = (await flowOf(D.anomaly.id)).body;
+  assert.equal(flow.id, D.anomaly.id);
+  assert.deepEqual(flow.transaction, { transactionId: D.anomaly.tx, interfaceId: D.anomaly.iface, channelId: null, status: 'S', responseCode: null,
+    processTimeMs: null, processCount: null });
+  assert.deepEqual(flow.processes.map((p) => [p.processId, p.status, p.focus, p.dependsOn, p.totalCount]),
+    [['P99', 'S', false, D.anomaly.processId, '5'], [D.anomaly.processId, 'F', true, null, null]], 'latest revision per execution');
+  assert.ok(flow.processes.find((p) => p.focus).observationId === D.anomaly.obs);
+  assert.deepEqual(flow.messages.map((m) => [m.processId, m.messageId, m.direction, m.status, m.dataSize]), [
+    [D.anomaly.processId, `MSG-${D.anomaly.processId}-REQ`, 'REQ', 'S', '512'],
+    [D.anomaly.processId, `MSG-${D.anomaly.processId}-RES`, 'RES', 'F', '128'],
+    ['P99', 'MSG-P99-REQ', 'REQ', 'S', '64'],
+  ], 'other source rows excluded, latest message revision');
+  assert.equal(flow.truncated, false);
+  assert.deepEqual(flow.counts, { processes: 2, messages: 3, errors: 1 }, 'true totals for the flow header');
+  const flowText = JSON.stringify(flow);
+  assert.ok(!/fixture response text|body|message_in|message_out|startTime/i.test(flowText), 'no BODY, response message or raw times');
+  assert.equal((await flowOf(D.anomaly.id, admin)).body.messages.length, 3, 'admin sees the same fields (BODY is never read)');
+  const pendingFlow = (await flowOf(J.pending.id)).body;
+  assert.deepEqual([pendingFlow.transaction.transactionId, pendingFlow.processes.length, pendingFlow.processes[0].focus, pendingFlow.messages],
+    [J.pending.tx, 1, true, []], 'job items use the manifest PROCESS');
+  assert.equal((await flowOf(crypto.randomUUID())).status, 404);
+  assert.equal((await flowOf('bad')).body.code, 'invalid_decision_id');
+
+  // 17) SSE: 기본은 최종 판정 이벤트만(`event: decision`, 기존 소비자 형식 + eventKind), include=interims면 중간 판정 기록도 `event: interim`.
+  const readStream = async (query, after = '0') => {
+    const controller = new AbortController();
+    const response = await fetch(`${base}/api/pipeline/events${query}`, { headers: { Authorization: `Bearer ${user}`, 'Last-Event-ID': after }, signal: controller.signal });
+    if (response.status !== 200) return { status: response.status, body: await response.json() };
+    const reader = response.body.getReader();
+    let text = '';
+    const deadline = Date.now() + 3000;
+    while (Date.now() < deadline && !text.includes(': keepalive')) {
+      const chunk = await reader.read();
+      if (chunk.done) break;
+      text += new TextDecoder().decode(chunk.value);
+    }
+    controller.abort();
+    const frames = text.split('\n\n').filter((frame) => frame.startsWith('id: ')).map((frame) => {
+      const [, eventId, name, data] = /^id: (\d+)\nevent: (\w+)\ndata: (.*)$/s.exec(frame);
+      return { eventId, name, data: JSON.parse(data) };
+    });
+    return { status: 200, frames };
+  };
+  const finals = await readStream('');
+  assert.equal(finals.status, 200);
+  assert.ok(finals.frames.length === 11 && finals.frames.every((f) => f.name === 'decision' && f.data.eventKind === 'final'
+    && ['complete', 'partial', 'unavailable'].includes(f.data.status) && typeof f.data.id === 'string'), 'default stream: final decisions only');
+  const withInterims = await readStream('?include=interims');
+  const kinds = withInterims.frames.map((f) => `${f.name}:${f.data.eventKind}`);
+  assert.equal(withInterims.frames.length, 17);
+  assert.deepEqual(kinds.filter((k) => k.startsWith('interim:')).sort(), ['interim:evidence_added', 'interim:first_anomaly', 'interim:first_anomaly',
+    'interim:first_anomaly', 'interim:no_final', 'interim:superseded'].sort());
+  assert.ok(withInterims.frames.every((f, index) => index === 0 || BigInt(f.eventId) > BigInt(withInterims.frames[index - 1].eventId)), 'one cursor order');
+  const interimFrame = withInterims.frames.find((f) => f.data.eventKind === 'evidence_added');
+  assert.deepEqual([interimFrame.data.jobId, interimFrame.data.attemptNo, interimFrame.data.seq, interimFrame.data.sourceId,
+    interimFrame.data.processObservationId, interimFrame.data.evidenceVersion], [J.interim.id, 1, 2, fixture.sourceId, J.interim.obs, 'detector-evidence-v4']);
+  assert.ok(!('payload' in interimFrame.data) && isoTime(new Date(interimFrame.data.createdAt).toISOString()));
+  const resumed = await readStream('?include=interims', interimFrame.eventId);
+  assert.ok(resumed.frames.every((f) => BigInt(f.eventId) > BigInt(interimFrame.eventId)) && resumed.frames.length === 17 - withInterims.frames.indexOf(interimFrame) - 1,
+    'resume after an interim cursor');
+  assert.deepEqual(await readStream('?include=all'), { status: 400, body: { code: 'invalid_event_include' } });
+
   // 11) 저장소 실패는 503(성공·빈 목록 대체 없음).
   await stopChild();
   const failingBase = await startServer({ ...environment, DATABASE_URL: 'postgresql://nobody:none@127.0.0.1:1/qa_analysis_missing' });
-  for (const route of ['/api/analysis/decisions', `/api/analysis/decisions/${D.normal.id}`, `/api/analysis/decisions/${D.normal.id}/interims`]) {
-    const failed = await request(failingBase, route, 'GET', user);
-    assert.deepEqual([failed.status, failed.body.code], [503, 'analysis_storage_unavailable'], route);
+  for (const [route, method = 'GET', token = user, body] of [['/api/analysis/decisions'], [`/api/analysis/decisions/${D.normal.id}`],
+    [`/api/analysis/decisions/${D.normal.id}/interims`], [`/api/analysis/decisions/${D.normal.id}/flow`],
+    [`/api/analysis/decisions/${D.normal.id}/workflow`, 'PUT', user, { state: 'resolved', expectedState: 'open' }],
+    [`/api/analysis/decisions/${D.normal.id}/read`, 'PUT', user, { occurredAt: '2026-11-03T00:00:00Z' }], [`/api/analysis/decisions/${D.normal.id}/feedback`, 'GET', admin],
+    [`/api/analysis/decisions/${D.normal.id}/feedback`, 'POST', admin, { kind: 'action', reason: 'x' }]]) {
+    const failed = await request(failingBase, route, method, token, body);
+    assert.deepEqual([failed.status, failed.body.code], [503, 'analysis_storage_unavailable'], `${method} ${route}`);
   }
-  console.log('analysis read API integration passed: 401/user+admin read, category mapping and counts, sort, pages, filters, search, '
-    + '400 validation, detail resolution, interim history, own explain job link, 503');
+  console.log('analysis API integration passed: 401/user+admin read, category mapping and counts (result/risk/workflow), sort, pages, filters, '
+    + 'search, 400 validation, detail resolution, interim history, own explain job link, stored grade/risk, workflow transitions/conflicts, '
+    + 'admin-only feedback, per-user read marks, process flow without BODY, SSE interim events, 503');
 } finally {
   await stopChild();
   await pool.end();

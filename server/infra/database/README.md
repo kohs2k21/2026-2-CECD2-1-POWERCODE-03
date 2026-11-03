@@ -113,6 +113,15 @@ SELECT r.rolname,
 - 적용: 함수 소유자(001~010 적용 역할)로 실행. pg_proc 갱신만 해 표 잠금 없음. 작업자 재시작 불필요 — 이미 열린 세션도 COMMIT 뒤 다음 문장부터 새 설정으로 실행(일반 문장·PREPARE한 문장·진행 중 트랜잭션의 다음 문장, PostgreSQL 17 격리 시험 확인). 권한 스크립트 변경 없음
 - 시험(`erd-v03-search-path.mjs`, `erd-v03.mjs`가 호출): `erd82_upgrade`(001~012 + 기존 행 → 013, 행 보존·대상 8개 설정만 변경·본문 md5·소유자·SECURITY INVOKER 동일·적용 후 import_csv 실패 동기화), `erd82_fresh`(001~013, 재실행 불변), `erd82_rollback`(COMMIT 직전 오류 → 무변경 → 재적용), 세 DB 모두 함수 25개 전수 설정 대조와 DBML parity. `erd-v03-interim.mjs` Y7은 013 뒤 004 거부를 PASS로 단언, Y7A2는 013 적용 DB에서 004·012 어느 거부든 허용(거부 층 기록), 001~012만 적용한 `erd_interim_y7a2_012`에서 012 거부 메시지를 정확히 단언
 
+## 014 이상 분석 처리 상태·조사·조치 기록·읽음 (#105)
+
+- 파일 `014_analysis_workflow.sql`, 013 이후 한 번 실행(`psql -v ON_ERROR_STOP=1 -f`), 기존 표 소유자로 실행 뒤 DBA가 `scripts/database-roles.sql` 재적용. 001~013 표·함수·트리거·enum 변경 없음, 새 표 3개만 → 단일 BEGIN..COMMIT, 중간 오류 시 전체 ROLLBACK. 함수·트리거 없음. 자동 down migration 없음
+- 표: `run_decision_workflow_events`(처리 상태 변경 이력, 상태 detected·open·resolved, 허용 전환 CHECK, 대상별 `seq` UNIQUE로 동시 변경 직렬화), `run_decision_feedback`(조사·조치 기록, 유형 3종·사유 1~2000자), `run_decision_reads`(사용자별 마지막 열람 시각, 대상·사용자당 1행)
+- 대상 키: detect 작업이 있으면 `job_id`, 작업 없는 이전 형식 판정이면 `decision_id`(CHECK 정확히 하나). 어느 열을 쓸지는 API가 정함(analysis-ui.md)
+- 권한: API만 이력·기록 SELECT·INSERT(append-only는 권한으로 보장), 읽음 표는 SELECT·INSERT·`UPDATE(read_at)`. Trainer·LLM·Detector·Collector 권한 없음(조사·조치 기록은 확정 라벨·학습 입력이 아님). 역할 스크립트 적용 뒤 API 역할로 실제 읽기·쓰기 경로 성공, API UPDATE·DELETE 거부(42501)·다른 역할 조회 거부를 `backend/tests/analysis-grants.integration.mjs`(CI 단계 "Analysis API runtime-role grants")가 확인
+- 잠금: 새 표의 FK 생성이 `run_jobs`·`run_process_decisions`에 짧은 SHARE ROW EXCLUSIVE 잠금. 적용 중 Detector 판정 INSERT가 잠시 대기할 수 있음
+- 기존 판정은 처리 상태 감지됨(행 없음)·모든 사용자에게 미확인으로 시작
+
 ## 큐와 소유권
 
 - 001의 `detection_logs/training_jobs`는 기존 물리 큐. 기존 Python helper의 payload·물리 lease 경로 보존
@@ -161,7 +170,7 @@ SELECT r.rolname,
 
 ## DBML과 SQL 대응
 
-- DBML은 001~012 적용 후 최종 구조(컬럼·nullability·unique·FK·enum 순서). 물리 큐 5개도 명시. enum 순서는 PostgreSQL 추가 순서(`job_kind`의 `import_csv`는 explain 뒤)
+- DBML은 001~014 적용 후 최종 구조(컬럼·nullability·unique·FK·enum 순서). 물리 큐 5개도 명시. enum 순서는 PostgreSQL 추가 순서(`job_kind`의 `import_csv`는 explain 뒤)
 - nullable FK는 `>?`, unique FK는 부모 `-` 자식 방향, nullable unique FK는 부모 `?-` 자식 방향으로 표시. 실제 FK 방향은 SQL/파싱 대응 시험으로 확인
 - attempt의 복합 FK 3개는 DBML의 exact-composite index 판정 한계로 `>`/`>?` 표시. 자식의 개별 PK/unique가 실제 1:1 제약을 보장한다는 주석 유지; 그림 경고를 없애려고 SQL 중복 인덱스를 추가하지 않음
 - `@dbml/core`는 현재 문법의 `dbmlv2` parser 사용. deprecated `dbml` parser는 optional 관계 문법을 지원하지 않음

@@ -24,6 +24,8 @@ app.use(cors({
   exposedHeaders: ['ETag', 'Location']
 }));
 app.use('/api/prepared-datasets', preparedDatasetRouter);
+// 이상 분석 쓰기 API는 자체 JSON 파서(16KB)·400 오류 형식을 쓰므로 공통 express.json보다 먼저 연결한다.
+app.use('/api/analysis', analysisRouter);
 app.use(express.json());
 
 // 상태 확인 API
@@ -46,7 +48,6 @@ app.use('/api/configurations', configRouter);
 app.use('/api/pipeline', pipelineRouter);
 app.use('/api/inputs', inputRouter);
 app.use('/api/operations', operationsRouter);
-app.use('/api/analysis', analysisRouter);
 
 // 공통 오류 처리
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {

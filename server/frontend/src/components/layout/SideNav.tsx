@@ -10,8 +10,11 @@ export type SideNavItem = {
   to: string;
   icon?: ReactNode;
   count?: number;
+  /** 약하게 보이는 항목(예: 이상 분석 위험도 미정 — 와이어프레임 muted·13px). */
+  muted?: boolean;
 };
-export type SideNavGroup = { title?: string; items: SideNavItem[] };
+/** separated: 위 그룹과 구분선으로 나눈 별도 구역(예: 이상 분석 분류함). */
+export type SideNavGroup = { title?: string; items: SideNavItem[]; separated?: boolean };
 
 /**
  * 사이드바 한 벌(탐지 설정·이상 분석 분류·설정 항목 공용).
@@ -19,6 +22,7 @@ export type SideNavGroup = { title?: string; items: SideNavItem[] };
  * - 실폭 264px, 메뉴 최소 높이 48px. 제목(heading)·그룹 제목 13/600/18 흐린 글자(`text-group`), 메뉴 14/21(`text-menu`) 500, 현재 항목 600
  * - 제목 수준: heading이 있으면 heading h2·그룹 h3, 없으면 그룹 h2(이상 분석)
  * - 좁은 화면: 메뉴 버튼으로 펼침, Escape·항목 선택 시 접고 버튼으로 포커스 복귀
+ * - header: 그룹 위에 두는 보조 조작(예: 이상 분석 분류 보기 전환)
  */
 export const SideNav = ({
   label,
@@ -27,9 +31,11 @@ export const SideNav = ({
   activeId,
   menuId,
   className,
+  header,
 }: {
   label: string;
   heading?: string;
+  header?: ReactNode;
   groups: SideNavGroup[];
   activeId: string | null;
   menuId?: string;
@@ -73,8 +79,9 @@ export const SideNav = ({
         className={cn("grid gap-4 rounded-lg border bg-card p-3 md:sticky md:top-4", !expanded && "max-md:hidden")}
       >
         {heading && <h2 className="px-3 text-group text-muted-foreground">{heading}</h2>}
+        {header}
         {groups.map((group, index) => (
-          <section key={group.title ?? index} className="grid gap-1.5">
+          <section key={group.title ?? index} className={cn("grid gap-1.5", group.separated && "border-t pt-3")}>
             {group.title && <GroupTitle className="px-3 text-group text-muted-foreground">{group.title}</GroupTitle>}
             {group.items.map((item) => {
               const current = item.id === activeId;
@@ -90,7 +97,7 @@ export const SideNav = ({
                   )}
                 >
                   {item.icon && <span className="flex size-5 items-center justify-center [&_svg]:size-4">{item.icon}</span>}
-                  <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                  <span className={cn("min-w-0 flex-1 truncate", item.muted && "text-body text-muted-foreground")}>{item.label}</span>
                   {typeof item.count === "number" && (
                     <span className={cn("text-xs font-semibold tabular-nums text-muted-foreground", current && "text-foreground")}>{item.count}</span>
                   )}

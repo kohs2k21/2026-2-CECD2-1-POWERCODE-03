@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Modal } from "@/components/ui/Modal";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
-import { completenessOptions, signals, type CompletenessFilter, type SignalFilter } from "../data/analysisApi";
+import { completenessOptions, signalFilterOptions, type CompletenessFilter, type SignalFilter } from "../data/analysisApi";
 import { completenessFilterLabels, signalFilterLabels } from "../labels";
 
 /** 검색 필터(와이어프레임 filterDialog): 이상 신호·검사 완료. 바꾸면 바로 목록에 반영하고, 조건 초기화로 둘 다 전체. */
@@ -41,7 +41,8 @@ export const DecisionFilterDialog = ({
           value={signal}
           onChange={(event) => onChange({ signal: event.target.value as SignalFilter, completeness })}
         >
-          {signals.map((value) => (
+          {/* 이전 주소의 yes(이상 신호 있음)는 그 값이 선택돼 있을 때만 보인다. */}
+          {[...signalFilterOptions, ...(signal === "yes" ? (["yes"] as const) : [])].map((value) => (
             <NativeSelectOption key={value} value={value}>
               {signalFilterLabels[value]}
             </NativeSelectOption>

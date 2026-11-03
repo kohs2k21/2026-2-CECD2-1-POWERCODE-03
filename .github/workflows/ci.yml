@@ -216,6 +216,10 @@ jobs:
         env:
           PIPELINE_TEST_DATABASE_URL: postgresql://postgres:local-ci-only@127.0.0.1:5432/qa_analysis_service
         run: node server/backend/tests/analysis.integration.mjs
+      - name: Analysis API runtime-role grants
+        env:
+          PIPELINE_TEST_DATABASE_URL: postgresql://postgres:local-ci-only@127.0.0.1:5432/qa_analysis_service
+        run: node server/backend/tests/analysis-grants.integration.mjs
       - name: Synthetic profiles, fixed-model evaluation and recovery
         env:
           PIPELINE_TEST_DATABASE_URL: postgresql://postgres:local-ci-only@127.0.0.1:5432/qa_synthetic_service

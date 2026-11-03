@@ -117,3 +117,26 @@ test('asynchronous response errors cancel pending drain without an unhandled err
   await running;
   assert.equal(response.destroyed,true);assert.equal(response.listenerCount('drain'),0);
 });
+
+test('event names come from the caller (interim records) and default to decision',{timeout:5000},async()=>{
+  let served=false;
+  const h=await harness({authorize:async()=>true,eventName:event=>event.eventKind==='final'?'decision':'interim',readEvents:async()=>{
+    if(served)return [];served=true;
+    return [{eventId:'1',eventKind:'final'},{eventId:'2',eventKind:'first_anomaly'},{eventId:'3'}];
+  }});
+  try{
+    const response=await fetch(h.base+'/events',{signal:AbortSignal.timeout(4000)});
+    const reader=response.body.getReader();let text='';
+    while(!text.includes(': keepalive')){const value=await reader.read();assert(!value.done);text+=new TextDecoder().decode(value.value);}
+    await reader.cancel();
+    assert.deepEqual([...text.matchAll(/^id: (\d+)\nevent: (\w+)$/gm)].map(m=>[m[1],m[2]]),[['1','decision'],['2','interim'],['3','interim']]);
+  }finally{await h.close();}
+  const plain=await harness({authorize:async()=>true,readEvents:async after=>after==='0'?[{eventId:'1',eventKind:'first_anomaly'}]:[]});
+  try{
+    const response=await fetch(plain.base+'/events',{signal:AbortSignal.timeout(4000)});
+    const reader=response.body.getReader();let text='';
+    while(!text.includes(': keepalive')){const value=await reader.read();assert(!value.done);text+=new TextDecoder().decode(value.value);}
+    await reader.cancel();
+    assert.match(text,/^id: 1\nevent: decision\n/m,'without eventName the existing frame name is kept');
+  }finally{await plain.close();}
+});

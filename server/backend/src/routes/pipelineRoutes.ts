@@ -22,6 +22,11 @@ router.get('/events', route(async (req, res) => {
   if (typeof cursor !== 'string' || !/^(0|[1-9]\d{0,18})$/.test(cursor) || BigInt(cursor) > 9223372036854775807n) {
     res.status(400).json({code:'invalid_event_cursor'});return;
   }
+  // include=interims: 중간 판정 기록 이벤트(012 event_kind first_anomaly·evidence_added·superseded·no_final)도 `event: interim`으로 보낸다.
+  // 없으면 기존과 같이 최종 판정 이벤트(`event: decision`)만 보낸다(기존 소비자 호환). 커서는 두 경우 모두 run_decision_events 순번 하나.
+  const include = req.query.include;
+  if (include !== undefined && include !== 'interims') { res.status(400).json({code:'invalid_event_include'});return; }
+  const interims = include === 'interims';
   await streamDecisionEvents(res, {
     after: cursor,
     authorize: async () => {
@@ -29,15 +34,32 @@ router.get('/events', route(async (req, res) => {
       return !!user && user.userType === req.user!.userType && user.email === req.user!.email &&
         (req.tokenExpiresAt === undefined || Date.now() < req.tokenExpiresAt);
     },
+    eventName: (event) => event.eventKind === 'final' ? 'decision' : 'interim',
     readEvents: async (after) => {
-      const result = await getDatabasePool().query(`SELECT e.id::text AS "eventId",d.id,d.status,
+      const result = await getDatabasePool().query(`SELECT e.id::text AS "eventId",e.event_kind AS "eventKind",d.id,d.status,
           d.config_version_id AS "configVersionId",d.rule_status AS "ruleStatus",d.ml_status AS "mlStatus",
           d.decision_code AS "decisionCode",d.anomaly_score AS "anomalyScore",d.evidence,
-          o.source_id AS "sourceId",d.decided_at AS "decidedAt",d.process_observation_id AS "processObservationId"
-          FROM run_decision_events e JOIN run_process_decisions d ON d.id=e.decision_id
-          JOIN data_observations o ON o.id=d.process_observation_id
-          WHERE e.id>$1::bigint ORDER BY e.id LIMIT 100`,[after]);
-      return result.rows;
+          o.source_id AS "sourceId",d.decided_at AS "decidedAt",d.process_observation_id AS "processObservationId",
+          i.id AS "interimId",i.job_id AS "jobId",a.attempt_no AS "attemptNo",i.seq,i.evidence_version AS "evidenceVersion",
+          i.created_at AS "createdAt",m.source_id AS "interimSourceId",m.process_observation_id AS "interimProcessObservationId"
+          FROM run_decision_events e
+          LEFT JOIN run_process_decisions d ON e.event_kind='final' AND d.id=e.decision_id
+          LEFT JOIN data_observations o ON o.id=d.process_observation_id
+          LEFT JOIN run_decision_interims i ON e.event_kind<>'final' AND i.id=e.interim_id
+          LEFT JOIN run_job_attempts a ON a.id=i.attempt_id
+          LEFT JOIN run_jobs j ON j.id=i.job_id
+          LEFT JOIN run_input_manifests m ON m.id=j.input_manifest_id
+          WHERE e.id>$1::bigint AND ($2::boolean OR e.event_kind='final')
+            AND ((e.event_kind='final' AND d.id IS NOT NULL) OR (e.event_kind<>'final' AND i.id IS NOT NULL))
+          ORDER BY e.id LIMIT 100`,[after, interims]);
+      return result.rows.map((row) => row.eventKind === 'final'
+        ? { eventId: row.eventId, eventKind: 'final', id: row.id, status: row.status, configVersionId: row.configVersionId,
+            ruleStatus: row.ruleStatus, mlStatus: row.mlStatus, decisionCode: row.decisionCode, anomalyScore: row.anomalyScore,
+            evidence: row.evidence, sourceId: row.sourceId, decidedAt: row.decidedAt, processObservationId: row.processObservationId }
+        // 중간 판정 기록 이벤트: 기록 식별·시도만(payload 스냅샷은 GET /api/analysis/decisions/:id/interims로 읽는다).
+        : { eventId: row.eventId, eventKind: row.eventKind, interimId: row.interimId, jobId: row.jobId, attemptNo: row.attemptNo,
+            seq: row.seq, evidenceVersion: row.evidenceVersion, sourceId: row.interimSourceId,
+            processObservationId: row.interimProcessObservationId, createdAt: row.createdAt });
     },
   });
 }));

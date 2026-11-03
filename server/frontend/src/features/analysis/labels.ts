@@ -1,13 +1,31 @@
-import type { Category, CompletenessFilter, DecisionItem, ItemSignal, ItemStage, SignalFilter, Sort } from "./data/analysisApi";
-import { readEvidenceV4 } from "./data/evidence";
+import type {
+  Category,
+  CompletenessFilter,
+  DecisionItem,
+  FeedbackKind,
+  ItemSignal,
+  ItemStage,
+  RiskLevel,
+  SignalFilter,
+  Sort,
+  WorkflowState,
+} from "./data/analysisApi";
 
 /** 이상 분석 화면 문구(와이어프레임 #93 analysis 용어). */
 export const categoryLabels: Record<Category, string> = {
   all: "전체",
   anomaly: "이상",
+  anomaly_sign: "이상 징후",
   in_progress: "판정 중·중간 판정",
   undetermined: "정상 여부 미확인",
   failed_replaced: "판정 실패·대체",
+  risk_all: "전체",
+  risk_critical: "위험",
+  risk_warning: "주의",
+  risk_info: "참고",
+  risk_unrated: "위험도 미정",
+  workflow_open: "보류",
+  workflow_resolved: "완료",
 };
 export const signalLabels: Record<ItemSignal, string> = {
   yes: "이상",
@@ -18,9 +36,33 @@ export const signalLabels: Record<ItemSignal, string> = {
 };
 export const signalFilterLabels: Record<SignalFilter, string> = {
   all: "전체",
-  yes: "이상",
+  anomaly: "이상",
+  anomaly_sign: "이상 징후",
   no: "이상 신호 없음",
   unknown: "정상 여부 미확인",
+  // 이전 주소 `signal=yes`(와이어프레임 signalLabel.yes)
+  yes: "이상 신호 있음",
+};
+/** 위험도 단계(와이어프레임 LEVEL_LABEL). */
+export const riskLevelLabels: Record<RiskLevel, string> = { critical: "위험", warning: "주의", info: "참고" };
+export const riskLevelVariant: Record<RiskLevel, "critical" | "warning" | "secondary"> = {
+  critical: "critical",
+  warning: "warning",
+  info: "secondary",
+};
+/** 업무 분류(와이어프레임 dFields): 감지됨 / 보류 / 완료. */
+export const workflowLabels: Record<WorkflowState, string> = { detected: "감지됨", open: "보류", resolved: "완료" };
+/** 처리 상태 버튼(와이어프레임 dWorkflow): 현재 상태별 [다음 상태, 문구, 주 버튼]. */
+export const workflowActions: Record<WorkflowState, [WorkflowState, string, boolean][]> = {
+  detected: [["open", "처리 보류", false], ["resolved", "처리 완료", true]],
+  open: [["detected", "원래 상태로 복원", false], ["resolved", "처리 완료", true]],
+  resolved: [["detected", "원래 상태로 복원", false]],
+};
+/** 조사·조치 기록 유형(와이어프레임 feedbackKind). */
+export const feedbackKindLabels: Record<FeedbackKind, string> = {
+  action: "조치 기록",
+  "suspected-false-positive": "오탐 의심",
+  "insufficient-evidence": "근거 부족",
 };
 export const completenessFilterLabels: Record<CompletenessFilter, string> = {
   all: "전체",
@@ -58,17 +100,16 @@ export const completenessText = (item: DecisionItem) =>
   item.status ? completenessFilterLabels[item.status] : item.kind === "failed" ? "최종 없음" : "판정 중";
 
 /**
- * 판정 결과 문구(와이어프레임 resultText): 이상 신호가 있으면 이상. evidence v4 등급 anomaly_sign이 저장된 판정만 이상 징후.
- * 등급은 저장값만 쓴다(v3에서 등급을 추정하지 않음).
+ * 판정 결과 문구(와이어프레임 resultText): 이상 신호가 있으면 이상. 서버가 저장된 v4 composite.grade로 돌려준 등급이 anomaly_sign이면 이상 징후.
+ * 등급은 저장값만 쓴다(v3에서 등급을 추정하지 않음, detection-decision.md U6).
  */
 export const resultText = (item: DecisionItem) => {
   if (item.signal !== "yes") return signalLabels[item.signal];
-  const grade = readEvidenceV4(item.evidence)?.grade;
-  return grade === "anomaly_sign" ? "이상 징후" : signalLabels.yes;
+  return item.grade === "anomaly_sign" ? "이상 징후" : signalLabels.yes;
 };
 export const resultVariant = (item: DecisionItem): "critical" | "warning" | "success" | "secondary" | "info" =>
   item.signal === "yes"
-    ? readEvidenceV4(item.evidence)?.grade === "anomaly_sign"
+    ? item.grade === "anomaly_sign"
       ? "warning"
       : "critical"
     : item.signal === "no"
@@ -104,5 +145,8 @@ export const methodLabel = (methodId: string): string | null => {
   if (methodId.startsWith("ml:") && methodId.length > 3) return `머신러닝 모델(${methodId.slice(3)})`;
   return null;
 };
+/** v3 evidence rules[].ruleKey 표시 이름(detection-decision.md 3.2·U6): 상태 규칙 = 이상 규칙, 그 밖의 등록 Rule = 이상 징후 규칙(과거 등록 Rule). */
+export const legacyRuleLabel = (ruleKey: string) =>
+  ruleKey === "process-status" ? (methodLabel("hard:process-status") as string) : "이상 징후 규칙(과거 등록 Rule)";
 /** 방법 ID 목록 → 표시 이름 목록(중복 제거, 알 수 없는 접두 제외). */
 export const methodLabels = (methodIds: string[]) => [...new Set(methodIds.flatMap((id) => methodLabel(id) ?? []))];

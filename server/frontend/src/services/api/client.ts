@@ -139,4 +139,13 @@ export const httpClient = {
   ): Promise<T> {
     return request<T>("PATCH", path, options, body);
   },
+
+  /** body가 undefined면 본문·Content-Type 없이 보낸다. */
+  put<T>(
+    path: string,
+    body?: unknown,
+    options: RequestOptions = {},
+  ): Promise<T> {
+    return request<T>("PUT", path, options, body);
+  },
 };

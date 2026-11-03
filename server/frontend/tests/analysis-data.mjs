@@ -8,15 +8,26 @@ const labels = await import("../src/features/analysis/labels.ts");
 const { pageWindow } = await import("../src/features/analysis/components/DecisionListView.tsx");
 const { timelineEntries } = await import("../src/features/analysis/components/DecisionTimeline.tsx");
 const { sidebarGroups } = await import("../src/features/analysis/AnalysisPage.tsx");
+const { HttpError } = await import("../src/services/api/client.ts");
+const HttpErrorClass = HttpError;
 
 // 1) 주소 쿼리 → 목록 조건: 기본값, 정상 값, 잘못된 값(기본값 + invalid)
 assert.deepEqual(api.parseListSearch(""), { params: api.defaultListParams, invalid: false });
-const full = api.parseListSearch("?category=anomaly&q=TX-1&signal=yes&completeness=partial&sort=oldest&page=3&pageSize=20&tab=x");
+assert.equal(api.defaultListParams.category, "risk_all", "default = wireframe risk view 전체");
+assert.equal(api.parseListSearch("?category=all").params.category, "all", "explicit result-view 전체 keeps working");
+assert.deepEqual(api.parseListSearch("?signal=yes"), { params: { ...api.defaultListParams, signal: "yes" }, invalid: false }, "old signal=yes URLs keep working");
+assert.equal(api.listApiParams({ ...api.defaultListParams, signal: "yes" }).signal, "yes");
+assert.equal(labels.signalFilterLabels.yes, "이상 신호 있음");
+assert.equal(api.parseListSearch("?category=bogus").params.category, "risk_all", "invalid category falls back to the default");
+assert.equal(api.listSearch({ ...api.defaultListParams, category: "all" }), "?category=all", "result-view 전체 stays explicit in the URL");
+const full = api.parseListSearch("?category=anomaly&q=TX-1&signal=anomaly_sign&completeness=partial&sort=oldest&page=3&pageSize=20&tab=x");
 assert.deepEqual(full, {
-  params: { category: "anomaly", q: "TX-1", signal: "yes", completeness: "partial", sort: "oldest", page: 3, pageSize: 20 },
+  params: { category: "anomaly", q: "TX-1", signal: "anomaly_sign", completeness: "partial", sort: "oldest", page: 3, pageSize: 20 },
   invalid: false,
 });
-for (const bad of ["?category=risk", "?signal=sign", "?completeness=done", "?sort=severity_desc", "?page=0", "?page=x", "?pageSize=50", `?q=${"a".repeat(101)}`]) {
+for (const category of ["anomaly_sign", "risk_all", "risk_critical", "risk_warning", "risk_info", "risk_unrated", "workflow_open", "workflow_resolved"])
+  assert.equal(api.parseListSearch(`?category=${category}`).params.category, category, category);
+for (const bad of ["?category=risk", "?category=risk:all", "?signal=sign", "?completeness=done", "?sort=severity_desc", "?page=0", "?page=x", "?pageSize=50", `?q=${"a".repeat(101)}`]) {
   const parsed = api.parseListSearch(bad);
   assert.equal(parsed.invalid, true, bad);
 }
@@ -27,9 +38,10 @@ assert.equal(api.listSearch({ ...api.defaultListParams, q: "  tx  ", page: 2 }, 
 assert.deepEqual(api.parseListSearch(api.listSearch(full.params)).params, full.params, "round trip");
 // API 쿼리: 'all'·빈 검색·기본 정렬·1쪽은 보내지 않음, 페이지 크기는 항상
 assert.deepEqual(api.listApiParams(api.defaultListParams), {
-  category: undefined, q: undefined, signal: undefined, completeness: undefined, sort: undefined, page: undefined, pageSize: 10,
+  category: "risk_all", q: undefined, signal: undefined, completeness: undefined, sort: undefined, page: undefined, pageSize: 10,
 });
-assert.deepEqual(api.listApiParams(full.params), { category: "anomaly", q: "TX-1", signal: "yes", completeness: "partial", sort: "oldest", page: 3, pageSize: 20 });
+assert.equal(api.listApiParams({ ...api.defaultListParams, category: "all" }).category, undefined, "API default is all");
+assert.deepEqual(api.listApiParams(full.params), { category: "anomaly", q: "TX-1", signal: "anomaly_sign", completeness: "partial", sort: "oldest", page: 3, pageSize: 20 });
 
 // 2) 응답 파서: 명시 필드만, 잘못된 값 버림, 알 수 없는 분류·단계는 응답 오류
 const raw = {
@@ -37,10 +49,14 @@ const raw = {
   processObservationId: "o-1", configVersionId: "c-1", status: "complete", ruleStatus: "succeeded", mlStatus: "not_ready",
   decisionCode: null, anomalyScore: "0.42", evidence: { schemaVersion: 3, anomalous: false }, occurredAt: "2026-11-03T01:02:03.000000Z",
   decidedAt: "2026-11-03T01:02:03.000000Z", transactionId: "TX-1", processId: "P01", interfaceId: "IF-1", channelId: "CH", processStatus: "S",
-  responseCode: "0000", body: "never copied",
+  responseCode: "0000", body: "never copied", grade: null, riskStatus: "not_applicable", riskLevel: null, workflowState: "open", unread: true,
 };
 const item = api.parseItem(raw);
 assert.equal("body" in item, false, "unknown fields are not copied");
+assert.deepEqual([item.grade, item.riskStatus, item.riskLevel, item.workflowState, item.unread], [null, "not_applicable", null, "open", true]);
+assert.deepEqual((({ grade, riskStatus, riskLevel, workflowState, unread }) => [grade, riskStatus, riskLevel, workflowState, unread])(
+  api.parseItem({ ...raw, grade: "danger", riskStatus: "high", riskLevel: "severe", workflowState: "closed", unread: "yes" })),
+[null, null, null, "detected", null], "unknown grade/risk/workflow values are dropped (no invented level)");
 assert.deepEqual([item.kind, item.stage, item.signal, item.status, item.anomalyScore], ["final", "replaced", "no", "complete", "0.42"]);
 assert.equal(api.parseItem({ ...raw, status: "done", occurredAt: "not a time" }).status, null);
 assert.equal(api.parseItem({ ...raw, occurredAt: "not a time" }).occurredAt, null);
@@ -57,6 +73,9 @@ const detailBody = { ...raw, configuration: { id: "c-1", createdAt: null, detect
   job: { id: "j-1", status: "succeeded", attemptCount: 2, maxAttempts: 3, errorCode: null, createdAt: null, finishedAt: null }, explanation: null };
 const detail = api.parseDetail(detailBody, "d-1");
 assert.deepEqual(detail.configuration.models, [{ modelKey: "iforest", adapterName: "sklearn-iforest" }]);
+assert.deepEqual(detail.workflow, { state: "open", changedAt: null }, "workflow falls back to the item state");
+assert.deepEqual(api.parseDetail({ ...detailBody, workflow: { state: "resolved", changedAt: "2026-11-03T02:00:00Z" } }, "d-1").workflow,
+  { state: "resolved", changedAt: "2026-11-03T02:00:00Z" });
 assert.equal(api.parseDetail(detailBody, "j-1").id, "d-1");
 assert.throws(() => api.parseDetail(detailBody, "other"), /판정 상세 응답/);
 const history = api.parseInterims({ id: "d-1", jobId: "j-1", items: [
@@ -121,14 +140,25 @@ assert.deepEqual([v4.grade, v4.compositeStatus, v4.anomalous, v4.ruleSetRevision
 assert.deepEqual(Object.keys(v4.categoryResults), ["hard"]);
 assert.equal(v4.risk.level, "warning");
 assert.equal(readEvidenceV4({ schemaVersion: 4, composite: { grade: "danger" } }).grade, null, "unknown grade is not shown");
+const v4ml = readEvidenceV4({ schemaVersion: 4, composite: { grade: "anomaly_sign", risk: { status: "unrated", level: null, levelTable: "method-defined-v2", unratedMethods: ["ml:iforest"] } },
+  methodResults: [{ methodId: "ml:iforest", category: "ml", status: "succeeded", anomalous: true, riskLevel: null, riskLevelReason: "level_undefined", score: 0.71,
+    scoreDetail: { raw: 0.71, threshold: "0.61", direction: "higher_is_anomaly", normalized: { kind: "threshold_ratio", value: 1.164 } } },
+  { methodId: "hard:negative-duration", category: "hard", status: "succeeded", anomalous: false, evidence: [{ reason: "end_time_absent" }, "x"] }] });
+assert.deepEqual(v4ml.methodResults[0].scoreDetail, { raw: 0.71, threshold: "0.61", ratio: 1.164 });
+assert.equal(v4ml.methodResults[0].riskLevelReason, "level_undefined");
+assert.deepEqual(v4ml.methodResults[1].reasons, ["end_time_absent"]);
+assert.deepEqual([v4ml.risk.status, v4ml.risk.levelTable, v4ml.risk.unratedMethods], ["unrated", "method-defined-v2", ["ml:iforest"]]);
+assert.equal(readEvidenceV4({ schemaVersion: 4, composite: {}, methodResults: [{ methodId: "ml:a", category: "ml",
+  scoreDetail: { raw: 1, threshold: 2, normalized: { kind: "other", value: 9 } } }] }).methodResults[0].scoreDetail.ratio, null, "only threshold_ratio is shown");
 
-// 5) 결과 문구: 이상 신호가 있으면 이상, 저장된 v4 등급 anomaly_sign만 이상 징후. 이상 신호가 아니면 등급을 쓰지 않음
-const yes = { ...item, signal: "yes", evidence: { schemaVersion: 3, anomalous: true } };
+// 5) 결과 문구: 이상 신호가 있으면 이상, 서버가 저장값으로 돌려준 등급 anomaly_sign만 이상 징후. 이상 신호가 아니면 등급을 쓰지 않음
+const yes = { ...item, signal: "yes", grade: null, evidence: { schemaVersion: 3, anomalous: true } };
 assert.equal(labels.resultText(yes), "이상");
-assert.equal(labels.resultText({ ...yes, evidence: { schemaVersion: 4, composite: { grade: "anomaly" } } }), "이상");
-assert.equal(labels.resultText({ ...yes, evidence: { schemaVersion: 4, composite: { grade: "anomaly_sign" } } }), "이상 징후");
-assert.equal(labels.resultVariant({ ...yes, evidence: { schemaVersion: 4, composite: { grade: "anomaly_sign" } } }), "warning");
-assert.equal(labels.resultText({ ...item, signal: "unknown", evidence: { schemaVersion: 4, composite: { grade: "anomaly" } } }), "정상 여부 미확인");
+assert.equal(labels.resultText({ ...yes, grade: "anomaly" }), "이상");
+assert.equal(labels.resultText({ ...yes, grade: "anomaly_sign" }), "이상 징후");
+assert.equal(labels.resultVariant({ ...yes, grade: "anomaly_sign" }), "warning");
+assert.equal(labels.resultText({ ...yes, evidence: { schemaVersion: 4, composite: { grade: "anomaly_sign" } } }), "이상", "the label follows the server grade field");
+assert.equal(labels.resultText({ ...item, signal: "unknown", grade: "anomaly" }), "정상 여부 미확인");
 assert.equal(labels.resultText({ ...item, signal: "failed" }), "판정 실패");
 assert.equal(labels.completenessText({ ...item, status: null, kind: "failed" }), "최종 없음");
 assert.equal(labels.completenessText({ ...item, status: null, kind: "pending" }), "판정 중");
@@ -204,21 +234,56 @@ assert.equal((timelineHtml.match(/진행 중/g) ?? []).length, 1, "only the prog
 assert.ok(timelineHtml.includes(">—<") && timelineHtml.includes('title="detection_processing_failed"'));
 assert.deepEqual(timelineEntries({ ...finalDetail, job: null }, { id: "d", jobId: null, items: [] }).map((e) => e.text), ["최종 · 모든 방법 종료"]);
 
-// 8) 사이드바: 5개 분류(와이어프레임 판정 결과별, 이상 징후 보류), 건수 그대로(없으면 표시 안 함), 다른 조건 유지·페이지 1·상세 열림 해제
-const groups = sidebarGroups({ ...full.params }, list.counts);
-assert.deepEqual(groups[0].items.map((i) => i.label), ["전체", "이상", "판정 중·중간 판정", "정상 여부 미확인", "판정 실패·대체"], "wireframe order without the deferred 이상 징후");
-assert.deepEqual(groups[0].items.map((i) => i.count), [3, 1, 0, 1, 1]);
-const unknownLink = new URL(groups[0].items[3].to, "http://local.test");
+// 8) 사이드바: 판정 결과별 6분류 / 위험도별 5분류 + 분류함(보류·완료), 건수 그대로(없으면 표시 안 함), 다른 조건 유지·페이지 1·상세 열림 해제
+const groups = sidebarGroups({ ...full.params }, list.counts, "result");
+assert.deepEqual(groups.map((g) => [g.title, g.separated ?? false]), [["판정", false], ["분류함", true]]);
+assert.deepEqual(groups[0].items.map((i) => i.label), ["전체", "이상", "이상 징후", "판정 중·중간 판정", "정상 여부 미확인", "판정 실패·대체"], "wireframe CATS order");
+assert.deepEqual(groups[0].items.map((i) => i.count), [3, 1, undefined, 0, 1, 1], "a missing count is not shown as 0");
+assert.deepEqual(groups[1].items.map((i) => [i.id, i.label]), [["workflow_open", "보류"], ["workflow_resolved", "완료"]]);
+const riskGroups = sidebarGroups(api.defaultListParams, { ...list.counts, risk_all: 4, risk_critical: 1, risk_warning: 1, risk_info: 0, risk_unrated: 2 }, "risk");
+assert.deepEqual(riskGroups[0].title, "위험도");
+assert.deepEqual(riskGroups[0].items.map((i) => [i.label, i.count]), [["전체", 4], ["위험", 1], ["주의", 1], ["참고", 0], ["위험도 미정", 2]], "wireframe RISK_CATS");
+assert.deepEqual(riskGroups[0].items.map((i) => i.muted ?? false), [false, false, false, false, true], "위험도 미정 is muted (wireframe)");
+const unknownLink = new URL(groups[0].items[4].to, "http://local.test");
 assert.equal(unknownLink.pathname, "/analysis");
 assert.deepEqual([unknownLink.searchParams.get("category"), unknownLink.searchParams.get("q"), unknownLink.searchParams.get("page"), unknownLink.searchParams.get("sort")],
   ["undetermined", "TX-1", null, "oldest"]);
 assert.equal(api.parseListSearch("?category=normal").invalid, true, "the removed normal category is normalized away");
 assert.equal(labels.signalFilterLabels.no, "이상 신호 없음", "normal decisions stay reachable via the signal filter");
-assert.equal(new URL(groups[0].items[0].to, "http://local.test").searchParams.has("category"), false, "all is the default");
-assert.deepEqual(sidebarGroups(api.defaultListParams, undefined)[0].items.map((i) => i.count), [undefined, undefined, undefined, undefined, undefined]);
+assert.equal(new URL(groups[0].items[0].to, "http://local.test").searchParams.get("category"), "all", "result-view 전체 link is explicit");
+assert.equal(new URL(riskGroups[0].items[0].to, "http://local.test").search, "", "risk-view 전체 is the default address");
+assert.deepEqual(sidebarGroups(api.defaultListParams, undefined, "result")[0].items.map((i) => i.count), [undefined, undefined, undefined, undefined, undefined, undefined]);
+assert.deepEqual(labels.workflowActions.detected.map(([to, label]) => [to, label]), [["open", "처리 보류"], ["resolved", "처리 완료"]], "wireframe dWorkflow");
+assert.deepEqual(labels.workflowActions.open.map(([to, label]) => [to, label]), [["detected", "원래 상태로 복원"], ["resolved", "처리 완료"]]);
+assert.deepEqual(labels.workflowActions.resolved.map(([to, label]) => [to, label]), [["detected", "원래 상태로 복원"]]);
+assert.equal(labels.legacyRuleLabel("process-status"), "이상 규칙(상태가 S가 아님)");
+assert.equal(labels.legacyRuleLabel("fixture_rule"), "이상 징후 규칙(과거 등록 Rule)", "U6 past registered Rule display");
+
+// 9) Process Flow 응답·트리: 요청 판정(또는 그 작업)의 흐름만, Message는 같은 Process ID의 첫 노드 아래, 부모 없는 Message는 같은 단계 끝
+const { flowNodes } = await import("../src/features/analysis/components/ProcessFlowCard.tsx");
+const flowBody = { id: "d-1", jobId: "j-1", truncated: false, counts: { processes: 2, messages: 2, errors: 1 },
+  transaction: { transactionId: "TX-1", interfaceId: "IF-1", channelId: null, status: "S", responseCode: null, processTimeMs: "41", processCount: null, body: "x" },
+  processes: [{ observationId: "p1", processId: "P01", dependsOn: null, status: "F", responseCode: "E500", totalCount: null, focus: true },
+    { observationId: "p2", processId: "P99", dependsOn: "P01", status: "S", responseCode: "0000", totalCount: "5", focus: false }, { bad: 1 }],
+  messages: [{ observationId: "m1", messageId: "M-REQ", processId: "P01", direction: "REQ", status: "S", dataSize: "512", messageBody: "never" },
+    { observationId: "m2", messageId: "M-ORPHAN", processId: "P77", direction: "RES", status: "F", dataSize: null }] };
+const flow = api.parseFlow(flowBody, "d-1");
+assert.equal(api.parseFlow(flowBody, "j-1").id, "d-1", "job id request answered by its decision");
+assert.throws(() => api.parseFlow(flowBody, "other"), /Process Flow 응답/);
+assert.equal(flow.processes.length, 2);
+assert.deepEqual(flow.counts, { processes: 2, messages: 2, errors: 1 });
+assert.equal(api.parseFlow({ ...flowBody, counts: { processes: -1, messages: 2, errors: 0 } }, "d-1").counts, null, "malformed counts are dropped");
+assert.ok(!("body" in flow.transaction) && !("messageBody" in flow.messages[0]), "only listed fields are copied");
+assert.deepEqual(flowNodes(flow).map((n) => [n.kind, n.level, n.key]), [["tx", 0, "tx"], ["process", 1, "p1"], ["message", 2, "m1"], ["process", 1, "p2"], ["message", 1, "m2"]]);
+assert.deepEqual(flowNodes({ ...flow, transaction: null }).map((n) => n.kind)[0], "process", "no transaction node without a stored transaction");
+// 조사·조치 기록 파서·쓰기 오류 제목
+assert.deepEqual(api.parseFeedbackList({ id: "d-1", items: [{ id: "f1", kind: "action", reason: "확인", actorId: "1", actorEmail: "a@example.test", createdAt: "2026-11-03T00:00:00Z" },
+  { id: "f2", kind: "label", reason: "x" }] }).items.map((i) => i.id), ["f1"], "unknown feedback kinds dropped");
+assert.equal(api.analysisWriteErrorTitle(new HttpErrorClass("x", 409, "workflow_state_conflict"), "업무 분류"), "업무 분류 실패 · workflow_state_conflict");
+assert.deepEqual(labels.feedbackKindLabels, { action: "조치 기록", "suspected-false-positive": "오탐 의심", "insufficient-evidence": "근거 부족" });
 // 오류 제목
-const { HttpError } = await import("../src/services/api/client.ts");
 assert.equal(api.analysisErrorTitle(new HttpError("x", 404, "decision_not_found"), "판정 상세"), "판정 상세 · decision_not_found", "missing decision shows the error code as is");
 assert.equal(api.analysisErrorTitle(new HttpError("x", 503, "analysis_storage_unavailable"), "판정 목록"), "판정 목록 미연결");
 assert.equal(api.analysisErrorTitle(new HttpError("bad", 400, "invalid_q"), "판정 목록"), "bad");
-console.log("analysis data QA passed: URL/query mapping, response parsers, evidence v3 and v4 reader fallback, result labels, page window, timeline, sidebar links, error titles");
+console.log("analysis data QA passed: URL/query mapping, response parsers, evidence v3 and v4 reader fallback, result labels, page window, timeline, "
+  + "result/risk/workflow sidebar, workflow actions, flow parser and tree, feedback parser, error titles");

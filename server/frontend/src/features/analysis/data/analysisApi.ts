@@ -4,9 +4,17 @@ import { HttpError, httpClient } from "@/services/api/client";
  * 이상 분석 읽기 API(analysis-ui.md) 요청·응답. 명시한 필드만 복사하고 형식이 틀린 값은 버린다(null = 확인 불가).
  * 오류(400·401·404·503)는 httpClient가 HttpError로 던진다. 성공·빈 목록으로 바꾸지 않는다.
  */
-/** 사이드바 판정 결과별 분류(와이어프레임 순서: 전체 / 이상 / [이상 징후 — 보류] / 판정 중·중간 판정 / 정상 여부 미확인 / 판정 실패·대체). */
-export const categories = ["all", "anomaly", "in_progress", "undetermined", "failed_replaced"] as const;
-export const signals = ["all", "yes", "no", "unknown"] as const;
+/** 사이드바 판정 결과별 분류(와이어프레임 CATS 순서: 전체 / 이상 / 이상 징후 / 판정 중·중간 판정 / 정상 여부 미확인 / 판정 실패·대체). */
+export const resultCategories = ["all", "anomaly", "anomaly_sign", "in_progress", "undetermined", "failed_replaced"] as const;
+/** 위험도별 보기(와이어프레임 RISK_CATS: 전체 / 위험 / 주의 / 참고 / 위험도 미정). 전체 = 이상 신호가 있는 항목. */
+export const riskCategories = ["risk_all", "risk_critical", "risk_warning", "risk_info", "risk_unrated"] as const;
+/** 분류함(와이어프레임 WORKFLOW: 보류 / 완료). 두 보기 모두에서 아래 별도 구역. */
+export const workflowCategories = ["workflow_open", "workflow_resolved"] as const;
+export const categories = [...resultCategories, ...riskCategories, ...workflowCategories] as const;
+/** 검색 필터 이상 신호(와이어프레임 fSignal: 전체 / 이상 / 이상 징후 / 이상 신호 없음 / 정상 여부 미확인). */
+export const signalFilterOptions = ["all", "anomaly", "anomaly_sign", "no", "unknown"] as const;
+/** 주소에서 받는 값: 위 + 이전 주소의 `yes`(이상 신호 있음 = 이상 + 이상 징후, 서버도 그대로 받음). */
+export const signals = [...signalFilterOptions, "yes"] as const;
 export const completenessOptions = ["all", "complete", "partial", "unavailable"] as const;
 export const sorts = ["newest", "oldest"] as const;
 export const pageSizes = ["10", "5", "20"] as const;
@@ -24,22 +32,23 @@ export type ListParams = {
   page: number;
   pageSize: number;
 };
+/** 기본 분류 = 위험도별 전체(와이어프레임 analysisCat 'risk:all', 사용자 11/03). 판정 결과별 전체는 주소에 `category=all`로 남는다. */
 export const defaultListParams: ListParams = {
-  category: "all", q: "", signal: "all", completeness: "all", sort: "newest", page: 1, pageSize: 10,
+  category: "risk_all", q: "", signal: "all", completeness: "all", sort: "newest", page: 1, pageSize: 10,
 };
 
 /** 화면 주소 쿼리 → 목록 조건. 잘못된 값은 기본값(invalid=true면 화면이 replace로 정규화). */
 export const parseListSearch = (search: string | URLSearchParams): { params: ListParams; invalid: boolean } => {
   const query = new URLSearchParams(search);
   let invalid = false;
-  const pick = <T extends string>(key: string, allowed: readonly T[]): T => {
+  const pick = <T extends string>(key: string, allowed: readonly T[], fallback: T = allowed[0]): T => {
     const value = query.get(key);
-    if (value === null) return allowed[0];
+    if (value === null) return fallback;
     if ((allowed as readonly string[]).includes(value)) return value as T;
     invalid = true;
-    return allowed[0];
+    return fallback;
   };
-  const category = pick("category", categories);
+  const category = pick("category", categories, defaultListParams.category);
   const signal = pick("signal", signals);
   const completeness = pick("completeness", completenessOptions);
   const sort = pick("sort", sorts);
@@ -82,6 +91,11 @@ export const listApiParams = (params: ListParams) => ({
 });
 
 export type ItemKind = "final" | "interim" | "pending" | "failed";
+export type Grade = "anomaly" | "anomaly_sign" | "normal" | "undetermined";
+export type RiskStatus = "rated" | "unrated" | "not_applicable";
+export type RiskLevel = "critical" | "warning" | "info";
+export const workflowStates = ["detected", "open", "resolved"] as const;
+export type WorkflowState = (typeof workflowStates)[number];
 export type ItemStage = "final" | "replaced" | "provisional" | "updated" | "pending" | "failed";
 export type ItemSignal = "yes" | "no" | "unknown" | "pending" | "failed";
 export type DecisionItem = {
@@ -109,6 +123,14 @@ export type DecisionItem = {
   channelId: string | null;
   processStatus: string | null;
   responseCode: string | null;
+  /** 저장된 v4 composite.grade(서버가 저장값만 읽음). v3·없음 = null. */
+  grade: Grade | null;
+  /** 저장된 v4 composite.risk(서버가 저장값만 읽음). 이상 신호가 아니면 not_applicable, v3 이상 = unrated. */
+  riskStatus: RiskStatus | null;
+  riskLevel: RiskLevel | null;
+  workflowState: WorkflowState;
+  /** 요청자 기준 미확인(목록 응답만, 상세는 null). */
+  unread: boolean | null;
 };
 export type DecisionList = {
   observedAt: string;
@@ -138,6 +160,7 @@ export type DecisionDetail = DecisionItem & {
     finishedAt: string | null;
   };
   explanation: null | { jobId: string; status: string; errorCode: string | null; createdAt: string | null };
+  workflow: { state: WorkflowState; changedAt: string | null };
 };
 export type InterimRecord = {
   id: string;
@@ -181,6 +204,11 @@ export const parseItem = (value: unknown): DecisionItem => {
     occurredAt: time(value.occurredAt), decidedAt: time(value.decidedAt),
     transactionId: text(value.transactionId), processId: text(value.processId), interfaceId: text(value.interfaceId),
     channelId: text(value.channelId), processStatus: text(value.processStatus), responseCode: text(value.responseCode),
+    grade: oneOf(value.grade, ["anomaly", "anomaly_sign", "normal", "undetermined"] as const),
+    riskStatus: oneOf(value.riskStatus, ["rated", "unrated", "not_applicable"] as const),
+    riskLevel: oneOf(value.riskLevel, ["critical", "warning", "info"] as const),
+    workflowState: oneOf(value.workflowState, workflowStates) ?? "detected",
+    unread: typeof value.unread === "boolean" ? value.unread : null,
   };
 };
 export const parseList = (value: unknown): DecisionList => {
@@ -213,6 +241,10 @@ export const parseDetail = (value: unknown, requested: string): DecisionDetail =
       errorCode: text(j.errorCode), createdAt: time(j.createdAt), finishedAt: time(j.finishedAt),
     } : null,
     explanation: e && text(e.jobId) && text(e.status) ? { jobId: e.jobId as string, status: e.status as string, errorCode: text(e.errorCode), createdAt: time(e.createdAt) } : null,
+    workflow: {
+      state: (record(v.workflow) ? oneOf(v.workflow.state, workflowStates) : null) ?? item.workflowState,
+      changedAt: record(v.workflow) ? time(v.workflow.changedAt) : null,
+    },
   };
 };
 const interimKinds = ["first_anomaly", "evidence_added", "superseded", "no_final"] as const;
@@ -233,12 +265,118 @@ export const parseInterims = (value: unknown, requested: string): InterimHistory
   };
 };
 
+/** Process Flow(GET …/flow): 같은 원본 안 같은 거래 ID의 저장값. 와이어프레임 선택 노드 원본 정보 항목만(BODY 없음). */
+export type FlowTransaction = {
+  transactionId: string | null;
+  interfaceId: string | null;
+  channelId: string | null;
+  status: string | null;
+  responseCode: string | null;
+  processTimeMs: string | null;
+  processCount: string | null;
+};
+export type FlowProcess = {
+  observationId: string;
+  processId: string | null;
+  dependsOn: string | null;
+  status: string | null;
+  responseCode: string | null;
+  totalCount: string | null;
+  focus: boolean;
+};
+export type FlowMessage = {
+  observationId: string;
+  messageId: string | null;
+  processId: string | null;
+  direction: string | null;
+  status: string | null;
+  dataSize: string | null;
+};
+/** counts = 상한(PROCESS 200·MESSAGE 500)과 무관한 실제 건수. 응답에 없거나 형식이 틀리면 null(화면은 받은 목록으로 센다). */
+export type DecisionFlow = {
+  id: string;
+  transaction: FlowTransaction | null;
+  processes: FlowProcess[];
+  messages: FlowMessage[];
+  truncated: boolean;
+  counts: { processes: number; messages: number; errors: number } | null;
+};
+export const parseFlow = (value: unknown, requested: string): DecisionFlow => {
+  if (!record(value) || !text(value.id) || !Array.isArray(value.processes) || !Array.isArray(value.messages)) return fail("Process Flow");
+  // 요청한 판정(또는 그 작업)의 흐름이 아닌 응답은 표시하지 않는다.
+  if (!sameId(value.id as string, requested) && !sameId(text(value.jobId), requested)) return fail("Process Flow");
+  const t = record(value.transaction) ? value.transaction : null;
+  return {
+    id: value.id as string,
+    transaction: t ? {
+      transactionId: text(t.transactionId), interfaceId: text(t.interfaceId), channelId: text(t.channelId), status: text(t.status),
+      responseCode: text(t.responseCode), processTimeMs: text(t.processTimeMs), processCount: text(t.processCount),
+    } : null,
+    processes: value.processes.flatMap((p) => (record(p) && text(p.observationId) ? [{
+      observationId: p.observationId as string, processId: text(p.processId), dependsOn: text(p.dependsOn), status: text(p.status),
+      responseCode: text(p.responseCode), totalCount: text(p.totalCount), focus: p.focus === true,
+    }] : [])),
+    messages: value.messages.flatMap((m) => (record(m) && text(m.observationId) ? [{
+      observationId: m.observationId as string, messageId: text(m.messageId), processId: text(m.processId), direction: text(m.direction),
+      status: text(m.status), dataSize: text(m.dataSize),
+    }] : [])),
+    truncated: value.truncated === true,
+    counts: record(value.counts) && count(value.counts.processes) !== null && count(value.counts.messages) !== null && count(value.counts.errors) !== null
+      ? { processes: value.counts.processes as number, messages: value.counts.messages as number, errors: value.counts.errors as number }
+      : null,
+  };
+};
+
+/** 조사·조치 기록(관리자 전용, 와이어프레임 feedbackBox). 확정 라벨·학습에 반영되지 않는다. */
+export const feedbackKinds = ["action", "suspected-false-positive", "insufficient-evidence"] as const;
+export type FeedbackKind = (typeof feedbackKinds)[number];
+export const FEEDBACK_REASON_MAX = 2000;
+export type FeedbackRecord = { id: string; kind: FeedbackKind; reason: string; actorId: string | null; actorEmail: string | null; createdAt: string | null };
+const parseFeedbackRecord = (value: unknown): FeedbackRecord[] => {
+  const kind = record(value) ? oneOf(value.kind, feedbackKinds) : null;
+  if (!record(value) || !text(value.id) || !kind || typeof value.reason !== "string") return [];
+  return [{ id: value.id as string, kind, reason: value.reason, actorId: text(value.actorId), actorEmail: text(value.actorEmail), createdAt: time(value.createdAt) }];
+};
+export const parseFeedbackList = (value: unknown): { id: string; items: FeedbackRecord[] } => {
+  if (!record(value) || !text(value.id) || !Array.isArray(value.items)) return fail("조사·조치 기록");
+  return { id: value.id as string, items: value.items.flatMap(parseFeedbackRecord) };
+};
+
 export const readDecisionList = async (params: ListParams, signal?: AbortSignal) =>
   parseList(await httpClient.get<unknown>("/api/analysis/decisions", { signal, params: listApiParams(params) }));
 export const readDecisionDetail = async (id: string, signal?: AbortSignal) =>
   parseDetail(await httpClient.get<unknown>(`/api/analysis/decisions/${encodeURIComponent(id)}`, { signal }), id);
 export const readDecisionInterims = async (id: string, signal?: AbortSignal) =>
   parseInterims(await httpClient.get<unknown>(`/api/analysis/decisions/${encodeURIComponent(id)}/interims`, { signal }), id);
+
+export const readDecisionFlow = async (id: string, signal?: AbortSignal) =>
+  parseFlow(await httpClient.get<unknown>(`/api/analysis/decisions/${encodeURIComponent(id)}/flow`, { signal }), id);
+export const readDecisionFeedback = async (id: string, signal?: AbortSignal) =>
+  parseFeedbackList(await httpClient.get<unknown>(`/api/analysis/decisions/${encodeURIComponent(id)}/feedback`, { signal }));
+/** 처리 상태 변경: 현재 상태(expectedState)가 서버와 다르면 409 workflow_state_conflict. */
+export const changeDecisionWorkflow = async (id: string, state: WorkflowState, expectedState: WorkflowState) => {
+  const value = await httpClient.put<unknown>(`/api/analysis/decisions/${encodeURIComponent(id)}/workflow`, { state, expectedState });
+  const workflow = record(value) && record(value.workflow) ? oneOf(value.workflow.state, workflowStates) : null;
+  if (!workflow) return fail("업무 분류");
+  return workflow;
+};
+export const saveDecisionFeedback = async (id: string, kind: FeedbackKind, reason: string) => {
+  const value = await httpClient.post<unknown>(`/api/analysis/decisions/${encodeURIComponent(id)}/feedback`, { kind, reason });
+  const [item] = record(value) ? parseFeedbackRecord(value.item) : [];
+  return item ?? fail("조사·조치 기록");
+};
+/** 상세를 열면 요청자 기준 확인 처리(읽음 표시). 화면이 본 항목 시각까지만 읽음 → 그 뒤 생긴 판정 기록은 미확인으로 남는다. */
+export const markDecisionRead = async (id: string, occurredAt: string) => {
+  await httpClient.put<unknown>(`/api/analysis/decisions/${encodeURIComponent(id)}/read`, { occurredAt });
+};
+
+/** 쓰기 오류 제목: `<항목> 실패 · <오류 코드>`(설명 작업 실패 표시와 같은 형식), 코드가 없으면 서버 메시지. */
+export const analysisWriteErrorTitle = (error: unknown, what: string) =>
+  error instanceof HttpError && error.code
+    ? `${what} 실패 · ${error.code}`
+    : error instanceof Error && error.message
+      ? `${what} 실패 · ${error.message}`
+      : `${what} 실패`;
 
 /** 오류 제목: 404 decision_not_found = 오류 코드 그대로(기존 문구에 없는 판정 없음 표현을 만들지 않음), 그 외 404·503 = 미연결, 그 밖 = 서버 메시지 또는 조회 실패. */
 export const analysisErrorTitle = (error: unknown, what: string) =>

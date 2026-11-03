@@ -36,37 +36,78 @@ const { parseOperationsOverview, operationsReadUnavailable } = await import("../
 const { percentText, durationText } = await import("../src/features/operations/format.ts");
 const { HttpError } = await import("../src/services/api/client.ts");
 
-// 1) 위젯 배치 규칙(와이어프레임 widget-move/remove/add/drop/reset).
-const { layoutReducer, defaultWidgetLayout, availableWidgets, sanitizeLayout } = layout;
-assert.deepEqual([...defaultWidgetLayout], ["flow", "recent", "trend", "active", "queue", "collect"]);
+// 1) 위젯 격자 배치 규칙(x, y, w, h): 기본 배치·겹침 해소·압축·추가 위치·키보드 이동·크기 제한.
+const { layoutReducer, defaultWidgetLayout, availableWidgets, sanitizeLayout, compactLayout, collides, readingOrder, parseStoredLayout, sameLayout, widgetSizes, GRID_COLUMNS } = layout;
+const noOverlap = (items) => items.every((a) => items.every((b) => !collides(a, b)));
+const inBounds = (items) => items.every((item) => item.x >= 0 && item.x + item.w <= GRID_COLUMNS && item.y >= 0);
+const at = (items, id) => items.find((item) => item.i === id);
+assert.deepEqual(readingOrder(defaultWidgetLayout), ["flow", "recent", "trend", "active", "queue", "collect"]);
 assert.deepEqual(availableWidgets(defaultWidgetLayout), ["storage"], "storage is only in the add catalog by default");
-assert.deepEqual(layoutReducer(defaultWidgetLayout, { type: "move", id: "recent", direction: -1 }).slice(0, 2), ["recent", "flow"]);
-assert.equal(layoutReducer(defaultWidgetLayout, { type: "move", id: "flow", direction: -1 }), defaultWidgetLayout, "first cannot move forward");
-assert.equal(layoutReducer(defaultWidgetLayout, { type: "move", id: "collect", direction: 1 }), defaultWidgetLayout, "last cannot move back");
+assert(noOverlap(defaultWidgetLayout) && inBounds(defaultWidgetLayout));
+// 겹친 배치: 우선 위젯은 자리 유지, 나머지는 아래로 밀린 뒤 위로 붙는다.
+const overlapped = compactLayout([{ i: "flow", x: 0, y: 0, w: 2, h: 3 }, { i: "recent", x: 1, y: 1, w: 2, h: 3 }, { i: "trend", x: 4, y: 5, w: 2, h: 3 }], "recent");
+assert(noOverlap(overlapped));
+assert.deepEqual([at(overlapped, "recent").x, at(overlapped, "recent").y], [1, 0], "priority widget keeps its column and floats up");
+assert.equal(at(overlapped, "flow").y, 3, "displaced widget is pushed below");
+assert.equal(at(overlapped, "trend").y, 0, "gaps are compacted upward");
+// 크기 제한: 최소·최대·열 범위.
+assert.deepEqual(sanitizeLayout([{ i: "trend", x: 5, y: -2, w: 1, h: 1 }]), [{ i: "trend", x: 4, y: 0, w: 2, h: 3 }]);
+assert.deepEqual(sanitizeLayout([{ i: "flow", x: 0, y: 0, w: 9, h: 99 }])[0], { i: "flow", x: 0, y: 0, w: 6, h: 6 });
+assert.deepEqual(sanitizeLayout([{ i: "bogus", x: 0, y: 0, w: 2, h: 2 }, { i: "flow", x: "0", y: 0, w: 2, h: 3 }, { i: "queue", x: 0, y: 0, w: 2, h: 3 }, { i: "queue", x: 2, y: 0, w: 2, h: 3 }]),
+  [{ i: "queue", x: 0, y: 0, w: 2, h: 3 }], "unknown, malformed and duplicate entries are dropped");
+assert.equal(sanitizeLayout({ flow: true }), null);
+// 제거·추가: 빈 칸 채우기, 추가는 위에서부터 첫 빈 칸 또는 놓은 칸, 중복 없음.
 const removed = layoutReducer(defaultWidgetLayout, { type: "remove", id: "trend" });
 assert.deepEqual(availableWidgets(removed), ["trend", "storage"]);
-const added = layoutReducer(layoutReducer(removed, { type: "add", id: "storage" }), { type: "add", id: "trend" });
-assert.deepEqual(availableWidgets(added), [], "every widget placed → empty catalog");
-assert.deepEqual(added.slice(-2), ["storage", "trend"], "added widgets go to the end");
-assert.equal(layoutReducer(added, { type: "add", id: "trend" }), added, "no duplicates");
-assert.deepEqual(layoutReducer(defaultWidgetLayout, { type: "drop", id: "collect", before: "flow" })[0], "collect", "drop before target");
-assert.deepEqual(layoutReducer(defaultWidgetLayout, { type: "drop", id: "flow", before: "queue" }), ["recent", "trend", "active", "flow", "queue", "collect"]);
-assert.equal(layoutReducer(defaultWidgetLayout, { type: "drop", id: "flow", before: "flow" }), defaultWidgetLayout);
-assert.equal(layoutReducer(defaultWidgetLayout, { type: "drop", id: "flow", before: "recent" }), defaultWidgetLayout, "dropping in place keeps order");
-assert.deepEqual([...layoutReducer(["storage"], { type: "reset" })], [...defaultWidgetLayout]);
-assert.deepEqual(sanitizeLayout(["queue", "bogus", "queue", 3, "flow"]), ["queue", "flow"]);
-assert.equal(sanitizeLayout({ flow: true }), null);
+const storageAdded = layoutReducer(removed, { type: "add", id: "storage" });
+assert.deepEqual([at(removed, "collect").x, at(removed, "collect").y], [4, 0], "removal compacts the column upward");
+assert.deepEqual([at(storageAdded, "storage").x, at(storageAdded, "storage").y], [4, 3], "added widget takes the first free slot");
+assert.deepEqual([at(storageAdded, "storage").w, at(storageAdded, "storage").h], [widgetSizes.storage.w, widgetSizes.storage.h]);
+const dropped = layoutReducer(storageAdded, { type: "add", id: "trend", at: { x: 0, y: 0 } });
+assert.deepEqual([at(dropped, "trend").x, at(dropped, "trend").y], [0, 0], "drop position from the catalog is kept");
+assert(noOverlap(dropped) && inBounds(dropped), "existing widgets reflow around the dropped one");
+assert.deepEqual(availableWidgets(dropped), [], "every widget placed → empty catalog");
+assert.equal(layoutReducer(dropped, { type: "add", id: "trend" }), dropped, "no duplicates");
+// 키보드 대안: 읽는 순서의 이웃과 자리 바꾸기, 양 끝은 변화 없음.
+const moved = layoutReducer(defaultWidgetLayout, { type: "move", id: "recent", direction: -1 });
+assert.deepEqual(readingOrder(moved).slice(0, 2), ["recent", "flow"]);
+assert.equal(layoutReducer(defaultWidgetLayout, { type: "move", id: "flow", direction: -1 }), defaultWidgetLayout, "first cannot move forward");
+assert.equal(layoutReducer(defaultWidgetLayout, { type: "move", id: "collect", direction: 1 }), defaultWidgetLayout, "last cannot move back");
+// 격자 라이브러리 결과(change): 검증만, 같은 배치면 같은 배열(편집 초안 갱신 반복 방지).
+assert.equal(layoutReducer(defaultWidgetLayout, { type: "change", layout: defaultWidgetLayout.map((item) => ({ ...item, moved: false, minW: 2 })) }), defaultWidgetLayout);
+const resized = layoutReducer(defaultWidgetLayout, { type: "change", layout: defaultWidgetLayout.map((item) => (item.i === "collect" ? { ...item, h: 5 } : item)) });
+assert.deepEqual([at(resized, "collect").w, at(resized, "collect").h], [2, 5]);
+assert(sameLayout(layoutReducer(resized, { type: "reset" }), defaultWidgetLayout));
+// 끌기 결과(change)는 라이브러리 배열 순서와 관계없이 읽는 순서로 정렬: 화면 순서 = DOM·Tab 순서(WCAG 2.4.3).
+const draggedToFront = layoutReducer(defaultWidgetLayout, { type: "change", layout: [
+  { i: "flow", x: 0, y: 3, w: 2, h: 3 }, { i: "recent", x: 2, y: 0, w: 2, h: 3 }, { i: "trend", x: 4, y: 0, w: 2, h: 3 },
+  { i: "active", x: 4, y: 3, w: 2, h: 3 }, { i: "queue", x: 0, y: 0, w: 2, h: 3 }, { i: "collect", x: 2, y: 3, w: 2, h: 3 } ] });
+assert.deepEqual(draggedToFront.map((item) => item.i), ["queue", "recent", "trend", "flow", "collect", "active"]);
+assert.deepEqual(draggedToFront.map((item) => item.i), readingOrder(draggedToFront), "array order equals reading order");
+assert.deepEqual(readingOrder(layoutReducer(draggedToFront, { type: "move", id: "flow", direction: -1 })).slice(2, 4), ["flow", "trend"], "keyboard move follows the visual order");
+const reordered = layoutReducer(draggedToFront, { type: "change", layout: [...draggedToFront].reverse() });
+assert.equal(reordered, draggedToFront, "same positions in another array order is not a change");
+// 저장 형식: v2 위치 배열, v1(순서 배열)은 그 순서로 기본 크기 재배치, 그 외는 기본 배치(null).
+assert.deepEqual(readingOrder(parseStoredLayout(["queue", "flow", "bogus", "queue"])), ["queue", "flow"], "v1 order-only format is migrated");
+assert(noOverlap(parseStoredLayout(["queue", "flow", "trend", "recent"])));
+assert.equal(parseStoredLayout(["bogus"]), null);
+assert.equal(parseStoredLayout({ items: [] }), null, "unversioned object falls back to default");
+assert.equal(parseStoredLayout("flow"), null);
+assert(noOverlap(parseStoredLayout({ version: 2, items: [{ i: "flow", x: 0, y: 0, w: 2, h: 3 }, { i: "recent", x: 0, y: 0, w: 2, h: 3 }] })), "stored overlaps are resolved");
 
 // 2) 계정별 브라우저 저장소(저장소 차단 시 예외 없이 실패 보고).
 const store = layout.browserWidgetLayoutStore;
 assert.equal(store.load("a"), null);
-assert.equal(store.save("a", ["queue", "flow"]), true);
-assert.deepEqual(store.load("a"), ["queue", "flow"]);
+assert.equal(store.save("a", resized), true);
+assert(sameLayout(store.load("a"), resized));
+assert.equal(JSON.parse(storage.get(layout.widgetLayoutKey("a"))).version, 2);
 assert.equal(store.load("b"), null, "layouts are per account");
 storage.set(layout.widgetLayoutKey("c"), "not json");
 assert.equal(store.load("c"), null, "broken storage value falls back to default");
+storage.set(layout.widgetLayoutKey("d"), JSON.stringify(["collect", "flow"]));
+assert.deepEqual(readingOrder(store.load("d")), ["collect", "flow"], "previous order-only saves are migrated");
 storageBroken = true;
-assert.equal(store.save("a", ["flow"]), false, "blocked storage reports failure instead of success");
+assert.equal(store.save("a", defaultWidgetLayout), false, "blocked storage reports failure instead of success");
 assert.equal(store.load("a"), null);
 storageBroken = false;
 storage.clear();
@@ -223,22 +264,41 @@ assert(view.text().includes("원천 발생 → 판정: 측정 불가"));
 assert(view.text().includes("6.9%"));
 assert(!seen.some((url) => url.startsWith("/api/operations/storage")), "storage widget is not placed → not fetched");
 
-// 위젯 편집: 제거 → 저장(계정별 저장소) / 다시 편집 → 추가 → 취소(이전 배치 유지).
+// 위젯 편집(좁은 화면·격자 측정 전 = 한 줄 배치, 키보드 버튼 경로): 제거 → 저장 / 다시 편집 → 위젯 추가 목록 → 추가 → 취소.
+const { Dialog } = await import("../src/components/ui/dialog.tsx");
+const dialogButton = (renderer, label) => {
+  const walk = (node, found = []) => {
+    if (Array.isArray(node)) node.forEach((child) => walk(child, found));
+    else if (node && typeof node === "object" && node.props) { found.push(node); walk(node.props.children, found); }
+    return found;
+  };
+  return walk(renderer.root.findByType(Dialog).props.children).find((el) => el.props?.["aria-label"] === label);
+};
+await wait(() => Boolean(findButton(view.renderer, "위젯 편집")), "lazy overview tab loaded");
 await act(async () => findButton(view.renderer, "위젯 편집").props.onClick());
 assert(useDraftStore.getState().drafts["/operations"]?.dirty, "editing registers a page draft (navigation guard)");
-await act(async () => findButton(view.renderer, "판정 추이 제거").props.onClick());
-assert(view.text().includes("저장공간"), "catalog lists storage");
+assert(findButton(view.renderer, "단계 흐름 뒤로"), "keyboard move buttons in edit mode");
+await act(async () => findButton(view.renderer, "판정 추이 제거").props.onClick({ currentTarget: { closest: () => null } }));
+await act(async () => findButton(view.renderer, "최근 판정 앞으로").props.onClick());
 await act(async () => findButton(view.renderer, "배치 저장").props.onClick());
-assert.deepEqual(JSON.parse(storage.get(layout.widgetLayoutKey("user-1"))), ["flow", "recent", "active", "queue", "collect"]);
+const savedValue = JSON.parse(storage.get(layout.widgetLayoutKey("user-1")));
+assert.equal(savedValue.version, 2);
+assert.deepEqual(readingOrder(savedValue.items), ["recent", "flow", "collect", "active", "queue"], "removal compacts, keyboard move swaps");
+assert(noOverlap(savedValue.items) && inBounds(savedValue.items));
 assert(view.text().includes("배치 저장됨 · 일반 사용자 계정 · 위젯 5개"));
 assert.equal(useDraftStore.getState().drafts["/operations"], undefined, "saved edit clears the draft");
 await act(async () => findButton(view.renderer, "위젯 편집").props.onClick());
-await act(async () => findButton(view.renderer, "저장공간 추가").props.onClick());
+assert.equal(view.renderer.root.findByType(Dialog).props.open, false);
+await act(async () => findButton(view.renderer, "위젯 추가").props.onClick());
+assert.equal(view.renderer.root.findByType(Dialog).props.open, true, "위젯 추가 opens the catalog");
+assert(dialogButton(view.renderer, "판정 추이 추가") && dialogButton(view.renderer, "저장공간 추가"));
+await act(async () => dialogButton(view.renderer, "저장공간 추가").props.onClick());
+assert.equal(view.renderer.root.findByType(Dialog).props.open, false, "adding closes the catalog");
 await wait(() => seen.some((url) => url.startsWith("/api/operations/storage")), "added storage widget fetches");
 await act(async () => findButton(view.renderer, "편집 취소").props.onClick());
 assert(view.text().includes("편집 취소 · 이전 배치 유지"));
 assert(!view.text().includes("PostgreSQL"), "cancel restores the saved layout");
-assert.deepEqual(JSON.parse(storage.get(layout.widgetLayoutKey("user-1"))).length, 5);
+assert.equal(JSON.parse(storage.get(layout.widgetLayoutKey("user-1"))).items.length, 5);
 await act(async () => view.renderer.unmount());
 
 // 일반 사용자 수집 탭: 읽기 전용 카드, /api/inputs 요청·라디오 없음.

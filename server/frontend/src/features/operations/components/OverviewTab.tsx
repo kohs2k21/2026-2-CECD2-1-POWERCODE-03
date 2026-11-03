@@ -1,34 +1,149 @@
-import { useState, type DragEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type MouseEvent } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { IconRefresh } from "@tabler/icons-react";
+import { AnimatePresence, motion } from "motion/react";
+import ReactGridLayout, { useContainerWidth, verticalCompactor, type Layout } from "react-grid-layout";
+import { IconChevronLeft, IconChevronRight, IconLayoutGridAdd, IconMinus, IconPencil, IconRefresh } from "@tabler/icons-react";
 import { paths } from "@/app/routes";
-import { SectionCard } from "@/components/layout/SectionCard";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { Card, CardAction, CardContent, CardHeader } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { useAuthSession } from "@/services/auth/AuthSessionProvider";
 import { useDraftStore } from "@/stores/draftStore";
 import { inputErrorText, useSourcesQuery } from "../data/inputs";
 import { useOperationsQuery } from "../data/useOperationsQuery";
 import {
+  GRID_COLUMNS,
   availableWidgets,
   browserWidgetLayoutStore,
   cancelledLayoutMessage,
   defaultWidgetLayout,
   layoutReducer,
+  readingOrder,
   sanitizeLayout,
   savedLayoutMessage,
   widgetLabels,
+  widgetSizes,
   type LayoutAction,
   type WidgetId,
   type WidgetLayoutStore,
+  type WidgetPlacement,
 } from "../data/widgetLayout";
 import { WidgetBody, activeConfigurationText, type SourceState } from "./OverviewWidgets";
+import { WidgetCatalog } from "./WidgetCatalog";
+import { WidgetMiniature } from "./WidgetMiniature";
 
 /** 개요 위젯 편집 중 배치는 화면 초안(draftStore, /operations)으로 둔다 → 탭 이동 유지, 이탈 시 확인. */
 const draftPath = paths.operations;
+/**
+ * 격자 수치(react-grid-layout 설정값): 행 높이·간격 px. 위젯 영역 너비가 GRID_MIN_WIDTH 미만이면 격자 대신 읽는 순서 배치
+ * (넓으면 2열·좁으면 1열, 높이는 내용만큼, 끌기·크기 조절 없음, 키보드 이동). 2칸 카드가 약 260px 미만이 되면 내용이 잘리므로 880px.
+ */
+const ROW_HEIGHT = 72;
+const GAP = 16;
+const GRID_MIN_WIDTH = 880;
+const spring = { type: "spring", stiffness: 420, damping: 30 } as const;
+/** 끌기 시작 제외: 버튼·링크·입력(제거 배지·앞/뒤 버튼·위젯 안 링크). */
+const DRAG_CANCEL = "button, a, input, select, textarea, [data-no-drag]";
 
-/** 운영 현황 개요: 현재 운영 줄 + 위젯 편집(앞/뒤 이동·제거·추가·끌어서 놓기·저장·초기화·취소). */
+type DragPreview = { id: WidgetId; x: number; y: number };
+type Ghost = { id: WidgetId; x: number; y: number; width: number; height: number };
+
+const toGridItems = (layout: readonly WidgetPlacement[]): Layout =>
+  layout.map((item) => {
+    const { minW, minH, maxW, maxH } = widgetSizes[item.i];
+    return { ...item, minW, minH, maxW, maxH };
+  });
+
+/** 위젯 카드: 편집 중 살짝 흔들림·그림자, 모서리 제거 배지, 끌 때 들림(축소 동작 설정 시 멈춤). 추가될 때 스프링으로 등장. */
+const WidgetCard = ({
+  id,
+  editing,
+  grid,
+  first,
+  last,
+  added,
+  source,
+  collectHref,
+  onAction,
+  onRemove,
+}: {
+  id: WidgetId;
+  editing: boolean;
+  grid: boolean;
+  first: boolean;
+  last: boolean;
+  added: boolean;
+  source: SourceState;
+  collectHref: string;
+  onAction: (action: Extract<LayoutAction, { type: "move" }>) => void;
+  onRemove: (id: WidgetId, event: MouseEvent<HTMLButtonElement>) => void;
+}) => {
+  const label = widgetLabels[id];
+  return (
+    <motion.div
+      className="h-full"
+      initial={added ? { opacity: 0, scale: 0.9, y: 12 } : false}
+      animate={{ opacity: 1, scale: 1, y: 0 }}
+      transition={spring}
+    >
+      <Card
+        aria-label={label}
+        className={cn(
+          "relative h-full gap-3 py-5 transition-[box-shadow,scale] duration-200",
+          editing && "animate-widget-wiggle shadow-widget-edit motion-reduce:animate-none",
+          editing && grid && "cursor-grab select-none",
+          "group-[.react-draggable-dragging]/item:scale-102 group-[.react-draggable-dragging]/item:animate-none group-[.react-draggable-dragging]/item:shadow-widget-lift group-[.react-draggable-dragging]/item:cursor-grabbing",
+          "group-[.resizing]/item:animate-none",
+        )}
+      >
+        <AnimatePresence>
+          {editing && (
+            <motion.span
+              className="absolute -top-2 -left-2 z-10"
+              initial={{ opacity: 0, scale: 0.6 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.6 }}
+              transition={spring}
+            >
+              <Button
+                size="icon-sm"
+                variant="outline"
+                aria-label={`${label} 제거`}
+                onClick={(event) => onRemove(id, event)}
+                className="size-6 rounded-full shadow-toast transition-[background-color,color,border-color,scale] hover:scale-110 hover:border-destructive hover:bg-destructive hover:text-primary-foreground"
+              >
+                <IconMinus className="size-3" aria-hidden="true" />
+              </Button>
+            </motion.span>
+          )}
+        </AnimatePresence>
+        <CardHeader className="px-5">
+          <h2 className="text-section-title">{label}</h2>
+          {editing && (
+            <CardAction className="flex gap-1">
+              <Button size="icon-sm" variant="ghost" className="size-6" disabled={first} aria-label={`${label} 앞으로`} onClick={() => onAction({ type: "move", id, direction: -1 })}>
+                <IconChevronLeft aria-hidden="true" />
+              </Button>
+              <Button size="icon-sm" variant="ghost" className="size-6" disabled={last} aria-label={`${label} 뒤로`} onClick={() => onAction({ type: "move", id, direction: 1 })}>
+                <IconChevronRight aria-hidden="true" />
+              </Button>
+            </CardAction>
+          )}
+        </CardHeader>
+        <CardContent className={cn("grid min-h-0 flex-1 content-start gap-4 px-5", grid && "overflow-auto")}>
+          <WidgetBody id={id} source={source} collectHref={collectHref} />
+        </CardContent>
+      </Card>
+    </motion.div>
+  );
+};
+
+/**
+ * 운영 현황 개요: 현재 운영 줄 + 위젯 격자(react-grid-layout, #100 이전 홈 위젯 방식).
+ * 편집: 끌어서 이동·모서리로 크기 조절(다른 위젯은 부드럽게 다시 배치), 위젯 추가 목록(끌어 놓기·추가 버튼), 제거 배지,
+ * 키보드 대안(앞으로/뒤로·제거 버튼), 배치 저장·기본 배치로 초기화·편집 취소. 좁은 화면은 한 줄 배치.
+ */
 export const OverviewTab = ({
   collectHref,
   layoutStore = browserWidgetLayoutStore,
@@ -42,14 +157,20 @@ export const OverviewTab = ({
   const cache = useQueryClient();
   const overview = useOperationsQuery();
   const sources = useSourcesQuery();
-  const [saved, setSaved] = useState<readonly WidgetId[]>(() => layoutStore.load(accountId) ?? [...defaultWidgetLayout]);
+  const [saved, setSaved] = useState<readonly WidgetPlacement[]>(
+    () => layoutStore.load(accountId) ?? defaultWidgetLayout.map((item) => ({ ...item })),
+  );
   const [status, setStatus] = useState("");
   const [saveFailed, setSaveFailed] = useState(false);
-  const [dragging, setDragging] = useState<WidgetId | null>(null);
-  const [over, setOver] = useState<WidgetId | null>(null);
+  const [catalogOpen, setCatalogOpen] = useState(false);
+  const [dragPreview, setDragPreview] = useState<DragPreview | null>(null);
+  const [ghost, setGhost] = useState<Ghost | null>(null);
+  const [added, setAdded] = useState<ReadonlySet<WidgetId>>(new Set());
+  const { width, containerRef, mounted } = useContainerWidth({ initialWidth: 1216 });
   const draft = useDraftStore((state) => state.drafts[draftPath]);
   const editing = draft ? (sanitizeLayout(draft.value) ?? [...saved]) : null;
   const layout = editing ?? saved;
+  const grid = mounted && width >= GRID_MIN_WIDTH;
 
   const activeSource = overview.data?.activeConfiguration?.sourceId;
   const source: SourceState = sources.isPending
@@ -58,27 +179,55 @@ export const OverviewTab = ({
       ? { status: "error", title: inputErrorText(sources.error), retry: () => void sources.refetch() }
       : { status: "ready", id: sources.data?.find((item) => item.id === activeSource)?.id ?? sources.data?.[0]?.id ?? "" };
 
-  const edit = (next: readonly WidgetId[]) => useDraftStore.getState().edit(draftPath, [...next]);
-  const apply = (action: LayoutAction) => {
-    if (!editing) return;
-    const next = layoutReducer(editing, action);
-    if (next !== editing) edit(next);
+  // 최신 편집 배치(창 이벤트 처리기에서 읽음).
+  const editingRef = useRef(editing);
+  editingRef.current = editing;
+  const apply = useCallback((action: LayoutAction) => {
+    const current = editingRef.current;
+    if (!current) return;
+    const next = layoutReducer(current, action);
+    if (next !== current) useDraftStore.getState().edit(draftPath, next.map((item) => ({ ...item })));
+    if (action.type === "add" && next !== current) setAdded((ids) => new Set(ids).add(action.id));
+  }, []);
+  // 키보드 초점 유지: 이동 후 끝에 닿아 버튼이 비활성되면 반대 방향 버튼, 제거 후에는 이웃 위젯의 제거 버튼(없으면 위젯 추가).
+  const [focusTarget, setFocusTarget] = useState<string | null>(null);
+  useEffect(() => {
+    if (!focusTarget || typeof document.querySelector !== "function") return;
+    const timer = window.setTimeout(() => {
+      const element = document.querySelector<HTMLButtonElement>(focusTarget);
+      (element && !element.disabled ? element : document.querySelector<HTMLElement>('[data-focus="add-widget"]'))?.focus();
+      setFocusTarget(null);
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [focusTarget]);
+  const buttonFor = (id: WidgetId, kind: "앞으로" | "뒤로" | "제거") => `[aria-label="${widgetLabels[id]} ${kind}"]`;
+  const move = (action: Extract<LayoutAction, { type: "move" }>) => {
+    const current = editingRef.current;
+    if (!current) return;
+    const order = readingOrder(layoutReducer(current, action));
+    const index = order.indexOf(action.id);
+    const atEdge = action.direction < 0 ? index === 0 : index === order.length - 1;
+    apply(action);
+    setFocusTarget(buttonFor(action.id, (action.direction < 0) !== atEdge ? "앞으로" : "뒤로"));
   };
   const startEdit = () => {
     setStatus("");
     setSaveFailed(false);
-    edit(saved);
+    setAdded(new Set());
+    useDraftStore.getState().edit(draftPath, saved.map((item) => ({ ...item })));
   };
   const save = () => {
     if (!editing) return;
     const ok = layoutStore.save(accountId, editing);
-    setSaved([...editing]);
+    setSaved(editing.map((item) => ({ ...item })));
     useDraftStore.getState().discard(draftPath);
+    setCatalogOpen(false);
     setSaveFailed(!ok);
     setStatus(ok ? savedLayoutMessage(role, editing.length) : "");
   };
   const cancel = () => {
     useDraftStore.getState().discard(draftPath);
+    setCatalogOpen(false);
     setSaveFailed(false);
     setStatus(cancelledLayoutMessage);
   };
@@ -90,39 +239,66 @@ export const OverviewTab = ({
         return name.startsWith("operations-") || name === "pipeline-sources";
       },
     });
-
-  const dragProps = (id: WidgetId) =>
-    editing
-      ? {
-          draggable: true,
-          onDragStart: (event: DragEvent) => {
-            setDragging(id);
-            try {
-              event.dataTransfer.setData("text/plain", id);
-            } catch {
-              // 일부 브라우저는 dataTransfer 쓰기를 제한한다. 끌기 대상은 상태로 기억한다.
+  // 제거: 카드 자리에 잔상을 남겨 작아지며 사라지게 한다(격자는 즉시 다시 배치).
+  const remove = (id: WidgetId, event: MouseEvent<HTMLButtonElement>) => {
+    const rect = event.currentTarget.closest("[data-widget]")?.getBoundingClientRect();
+    if (rect) setGhost({ id, x: rect.left, y: rect.top, width: rect.width, height: rect.height });
+    const order = readingOrder(editingRef.current ?? []);
+    const index = order.indexOf(id);
+    const neighbor = order[index + 1] ?? order[index - 1];
+    apply({ type: "remove", id });
+    setFocusTarget(neighbor ? buttonFor(neighbor, "제거") : '[data-focus="add-widget"]');
+  };
+  // 목록에서 끌기: 목록을 닫고 포인터를 따라 미리보기를 띄운다. 격자 위에서 놓으면 그 칸에, 밖이면 취소.
+  const startCatalogDrag = (id: WidgetId, point: { x: number; y: number }) => {
+    setCatalogOpen(false);
+    setDragPreview({ id, ...point });
+  };
+  const dragging = dragPreview?.id;
+  useEffect(() => {
+    if (!dragging) return;
+    const move = (event: PointerEvent) => setDragPreview((current) => (current ? { ...current, x: event.clientX, y: event.clientY } : null));
+    const up = (event: PointerEvent) => {
+      const frame = containerRef.current?.getBoundingClientRect();
+      if (frame && event.clientX >= frame.left && event.clientX <= frame.right && event.clientY >= frame.top && event.clientY <= frame.bottom + ROW_HEIGHT) {
+        const size = widgetSizes[dragging];
+        const column = (frame.width + GAP) / GRID_COLUMNS;
+        const at = grid
+          ? {
+              x: Math.max(0, Math.min(GRID_COLUMNS - size.w, Math.round((event.clientX - frame.left) / column - size.w / 2))),
+              y: Math.max(0, Math.round((event.clientY - frame.top) / (ROW_HEIGHT + GAP) - size.h / 2)),
             }
-          },
-          onDragOver: (event: DragEvent) => {
-            if (!dragging) return;
-            event.preventDefault();
-            setOver(id);
-          },
-          onDrop: (event: DragEvent) => {
-            if (!dragging) return;
-            event.preventDefault();
-            apply({ type: "drop", id: dragging, before: id });
-            setDragging(null);
-            setOver(null);
-          },
-          onDragEnd: () => {
-            setDragging(null);
-            setOver(null);
-          },
-        }
-      : {};
+          : undefined;
+        apply({ type: "add", id: dragging, at });
+      }
+      setDragPreview(null);
+    };
+    const escape = (event: KeyboardEvent) => event.key === "Escape" && setDragPreview(null);
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+    window.addEventListener("keydown", escape);
+    return () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      window.removeEventListener("keydown", escape);
+    };
+  }, [apply, containerRef, dragging, grid]);
 
-  const available = availableWidgets(layout);
+  const order = readingOrder(layout);
+  const card = (id: WidgetId) => (
+    <WidgetCard
+      id={id}
+      editing={Boolean(editing)}
+      grid={grid}
+      first={order[0] === id}
+      last={order.at(-1) === id}
+      added={added.has(id)}
+      source={source}
+      collectHref={collectHref}
+      onAction={move}
+      onRemove={remove}
+    />
+  );
   return (
     <div className="grid gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -136,16 +312,28 @@ export const OverviewTab = ({
           </Button>
           {!editing && (
             <Button variant="outline" size="sm" onClick={startEdit}>
+              <IconPencil aria-hidden="true" />
               위젯 편집
             </Button>
           )}
         </div>
       </div>
-      {editing && (
-        <div role="group" aria-label="위젯 편집" className="flex flex-wrap items-center gap-2 rounded-lg border bg-card px-4 py-3 text-sm">
-          <strong>위젯 편집 중</strong>
-            <Button size="sm" onClick={save}>
-              배치 저장
+      <AnimatePresence initial={false}>
+        {editing && (
+          <motion.div
+            key="edit-bar"
+            role="group"
+            aria-label="위젯 편집"
+            initial={{ opacity: 0, y: -6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -6 }}
+            transition={{ duration: 0.18, ease: "easeOut" }}
+            className="flex flex-wrap items-center gap-2 rounded-lg border bg-card px-4 py-3 text-sm shadow-xs"
+          >
+            <strong className="mr-auto">위젯 편집 중</strong>
+            <Button size="sm" variant="outline" data-focus="add-widget" onClick={() => setCatalogOpen(true)}>
+              <IconLayoutGridAdd aria-hidden="true" />
+              위젯 추가
             </Button>
             <Button size="sm" variant="outline" onClick={() => apply({ type: "reset" })}>
               기본 배치로 초기화
@@ -153,61 +341,92 @@ export const OverviewTab = ({
             <Button size="sm" variant="outline" onClick={cancel}>
               편집 취소
             </Button>
-        </div>
-      )}
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3" aria-label="운영 위젯">
-        {layout.map((id, index) => (
-          <div
-            key={id}
-            data-widget={id}
-            className={cn("min-w-0", editing && "cursor-grab", over === id && dragging !== id && "rounded-xl ring-2 ring-ring")}
-            {...dragProps(id)}
+            <Button size="sm" onClick={save}>
+              배치 저장
+            </Button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      <div ref={containerRef} aria-label="운영 위젯" className="@container min-w-0">
+        {grid ? (
+          <ReactGridLayout
+            width={width}
+            layout={toGridItems(layout)}
+            gridConfig={{ cols: GRID_COLUMNS, rowHeight: ROW_HEIGHT, margin: [GAP, GAP], containerPadding: [0, 0] }}
+            dragConfig={{ enabled: Boolean(editing), bounded: false, cancel: DRAG_CANCEL, threshold: 4 }}
+            resizeConfig={{ enabled: Boolean(editing), handles: ["se"] }}
+            compactor={verticalCompactor}
+            onLayoutChange={(next) => apply({ type: "change", layout: next as WidgetPlacement[] })}
+            className={cn(
+              "[&_.react-grid-placeholder]:rounded-lg [&_.react-grid-placeholder]:border [&_.react-grid-placeholder]:border-dashed [&_.react-grid-placeholder]:border-ring [&_.react-grid-placeholder]:bg-muted [&_.react-grid-placeholder]:opacity-70",
+              // 크기 조절 손잡이: 라이브러리 기본 그림 대신 토큰 색 모서리 선.
+              "[&_.react-resizable-handle]:z-10 [&_.react-resizable-handle]:bg-none [&_.react-resizable-handle]:opacity-70 hover:[&_.react-resizable-handle]:opacity-100 [&_.react-resizable-handle]:after:border-muted-foreground",
+            )}
           >
-            <SectionCard
-              title={widgetLabels[id]}
-              aria-label={widgetLabels[id]}
-              className={cn("h-full", editing && "border-dashed border-ring")}
-              action={
-                editing && (
-                  <>
-                    <Button size="sm" variant="outline" disabled={index === 0} aria-label={`${widgetLabels[id]} 앞으로`}
-                      onClick={() => apply({ type: "move", id, direction: -1 })}>
-                      ◀ 앞으로
-                    </Button>
-                    <Button size="sm" variant="outline" disabled={index === layout.length - 1} aria-label={`${widgetLabels[id]} 뒤로`}
-                      onClick={() => apply({ type: "move", id, direction: 1 })}>
-                      뒤로 ▶
-                    </Button>
-                    <Button size="sm" variant="outline" aria-label={`${widgetLabels[id]} 제거`} onClick={() => apply({ type: "remove", id })}>
-                      제거
-                    </Button>
-                  </>
-                )
-              }
-            >
-              <WidgetBody id={id} source={source} collectHref={collectHref} />
-            </SectionCard>
+            {/* 자식 순서 = 읽는 순서(화면 순서와 같은 Tab·낭독 순서). 위치는 layout의 x, y로 정한다. */}
+            {order.map((id) => (
+              <div key={id} data-widget={id} className="group/item">
+                {card(id)}
+              </div>
+            ))}
+          </ReactGridLayout>
+        ) : (
+          <div className="grid gap-4 @2xl:grid-cols-2">
+            {order.map((id) => (
+              <div key={id} data-widget={id}>
+                {card(id)}
+              </div>
+            ))}
           </div>
-        ))}
+        )}
       </div>
-      {editing && (
-        <SectionCard title="위젯 추가" aria-label="위젯 추가">
-          {available.length ? (
-            <ul className="grid gap-2">
-              {available.map((id) => (
-                <li key={id} className="flex flex-wrap items-center justify-between gap-2 text-sm">
-                  <span>{widgetLabels[id]}</span>
-                  <Button size="sm" variant="outline" aria-label={`${widgetLabels[id]} 추가`} onClick={() => apply({ type: "add", id })}>
-                    추가
-                  </Button>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-sm text-muted-foreground">추가할 수 있는 위젯을 모두 배치했습니다.</p>
-          )}
-        </SectionCard>
-      )}
+      <WidgetCatalog
+        open={catalogOpen}
+        widgets={availableWidgets(layout)}
+        onOpenChange={setCatalogOpen}
+        onAdd={(id) => {
+          apply({ type: "add", id });
+          setCatalogOpen(false);
+        }}
+        onDragStart={startCatalogDrag}
+      />
+      <AnimatePresence>
+        {dragPreview && (
+          <motion.div
+            key="drag-preview"
+            aria-hidden="true"
+            initial={{ opacity: 0, scale: 0.92, x: dragPreview.x, y: dragPreview.y }}
+            animate={{ opacity: 1, scale: 1, x: dragPreview.x, y: dragPreview.y }}
+            exit={{ opacity: 0, scale: 0.92 }}
+            transition={{ x: { duration: 0 }, y: { duration: 0 }, default: spring }}
+            className="pointer-events-none fixed top-0 left-0 z-(--z-drag) -translate-x-1/2 -translate-y-1/2"
+          >
+            <div className="grid h-widget-preview w-widget-drag overflow-hidden rounded-lg border bg-card shadow-widget-lift">
+              <WidgetMiniature id={dragPreview.id} />
+              <span className="border-t px-3 py-1.5 text-xs font-medium">{widgetLabels[dragPreview.id]}</span>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {ghost && (
+          <motion.div
+            key={`ghost-${ghost.id}`}
+            aria-hidden="true"
+            initial={{ opacity: 1, scale: 1, x: ghost.x, y: ghost.y, width: ghost.width, height: ghost.height }}
+            animate={{ opacity: 0, scale: 0.9, x: ghost.x, y: ghost.y + 12, width: ghost.width, height: ghost.height }}
+            transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
+            onAnimationComplete={() => setGhost(null)}
+            className="pointer-events-none fixed top-0 left-0 z-(--z-popover)"
+          >
+            <Card className="h-full gap-3 py-5 shadow-widget-edit">
+              <CardHeader className="px-5">
+                <h2 className="text-section-title">{widgetLabels[ghost.id]}</h2>
+              </CardHeader>
+            </Card>
+          </motion.div>
+        )}
+      </AnimatePresence>
       <p role="status" className="text-sm text-muted-foreground">
         {status}
       </p>

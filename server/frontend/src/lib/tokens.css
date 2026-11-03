@@ -133,11 +133,25 @@
   --container-workspace: 1600px;
   --radius-control-sm: 4px;
   --spacing-chart: 180px;
+  --spacing-widget-preview: 120px;
+  --spacing-widget-drag: 200px;
 }
 
 @theme static {
   --shadow-dialog: 0 20px 60px rgb(0 0 0 / 15%);
   --shadow-toast: 0 12px 32px rgb(0 0 0 / 10%);
+  /* 운영 현황 위젯 편집(#100 이전 홈 위젯 느낌): 편집 중 그림자·끌 때 들림·살짝 흔들림 */
+  --shadow-widget-edit: 0 12px 32px rgb(0 0 0 / 8%);
+  --shadow-widget-lift: 0 18px 42px rgb(0 0 0 / 16%);
+  --animate-widget-wiggle: widget-wiggle 170ms ease-in-out infinite alternate;
+  @keyframes widget-wiggle {
+    from {
+      transform: rotate(-0.25deg);
+    }
+    to {
+      transform: rotate(0.25deg);
+    }
+  }
   --text-group: 13px;
   --text-group--line-height: 18px;
   --text-group--font-weight: 600;

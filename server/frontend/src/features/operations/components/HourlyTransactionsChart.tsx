@@ -26,7 +26,8 @@ export const HourlyTransactionsChart = ({ items }: { items: Hour[] }) => {
   const summary = `최근 24시간 시간별 트랜잭션 양 · 최대 ${numberText(max)}건 · 현재 시간 ${numberText(current?.count ?? 0)}건`;
   return (
     <div className="h-chart w-full" role="img" aria-label={summary}>
-      <ResponsiveContainer width="100%" height="100%">
+      {/* 측정 전 첫 렌더 크기(-1) 경고 방지: 측정되면 실제 크기로 바뀐다. */}
+      <ResponsiveContainer width="100%" height="100%" initialDimension={{ width: 1, height: 1 }}>
         <BarChart data={items} margin={{ top: 8, right: 4, bottom: 0, left: 0 }} barCategoryGap={2}>
           <CartesianGrid vertical={false} stroke="var(--chart-grid)" />
           <XAxis

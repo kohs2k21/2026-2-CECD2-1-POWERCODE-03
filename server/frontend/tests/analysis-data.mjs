@@ -230,6 +230,16 @@ const timelineHtml = renderToStaticMarkup(React.createElement(DecisionTimeline, 
   { key: "x", at: null, tone: "void", text: "시도 1 실패 · 최종 없음(판정 실패)", title: "detection_processing_failed" },
   { key: "progress", at: null, tone: "progress", text: "남은 방법 결과 대기" },
 ] }));
+// 위험도 단계 아이콘 색 = 위험도 배지 variant의 글자 색(위험 critical·주의 warning·참고 secondary). 목록 줄 아이콘도 같은 색.
+const { riskLevelIconTone } = await import("../src/features/analysis/icons.ts");
+assert.deepEqual(riskLevelIconTone, { critical: "text-destructive-text", warning: "text-warning-text", info: "text-secondary-foreground" });
+const { DecisionRow } = await import("../src/features/analysis/components/DecisionRow.tsx");
+const { MemoryRouter } = await import("react-router-dom");
+const infoRowHtml = renderToStaticMarkup(React.createElement(MemoryRouter, null,
+  React.createElement(DecisionRow, { item: { ...list.items[0], riskStatus: "rated", riskLevel: "info" }, href: "/analysis/d/x" })));
+assert.ok(/<svg[^>]*class="tabler-icon tabler-icon-info-circle size-4 shrink-0 text-secondary-foreground"[^>]*aria-hidden="true"/.test(infoRowHtml)
+  || /<svg[^>]*aria-hidden="true"[^>]*class="tabler-icon tabler-icon-info-circle size-4 shrink-0 text-secondary-foreground"/.test(infoRowHtml),
+  "참고 row icon uses the secondary badge text colour");
 assert.equal((timelineHtml.match(/진행 중/g) ?? []).length, 1, "only the progress entry says 진행 중");
 assert.ok(timelineHtml.includes(">—<") && timelineHtml.includes('title="detection_processing_failed"'));
 assert.deepEqual(timelineEntries({ ...finalDetail, job: null }, { id: "d", jobId: null, items: [] }).map((e) => e.text), ["최종 · 모든 방법 종료"]);

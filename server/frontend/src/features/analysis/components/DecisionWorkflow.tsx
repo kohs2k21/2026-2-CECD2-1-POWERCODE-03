@@ -14,28 +14,34 @@ import {
   type FeedbackKind,
 } from "../data/analysisApi";
 import { useDecisionFeedback, useFeedbackSave, useWorkflowChange } from "../data/useAnalysis";
+import { workflowIcons } from "../icons";
 import { feedbackKindLabels, stampText, workflowActions } from "../labels";
 
 /**
  * 처리 상태 버튼(와이어프레임 dWorkflow): 감지됨 = [처리 보류][처리 완료], 보류 = [원래 상태로 복원][처리 완료], 완료 = [원래 상태로 복원].
+ * 아이콘은 #100 이전 상세 화면과 같다(다음 상태 기준, `icons.ts` workflowIcons).
  * 서버가 현재 상태(expectedState)를 확인한다. 실패(다른 사용자가 먼저 바꿈 409 등)는 `업무 분류 실패 · <코드>`(와이어프레임 항목 이름 업무 분류)로 그대로 보이고 상세를 다시 읽는다.
  */
 export const WorkflowActions = ({ detail }: { detail: DecisionDetail }) => {
   const change = useWorkflowChange(detail);
   return (
     <div className="flex flex-wrap items-center gap-2">
-      {workflowActions[detail.workflow.state].map(([to, label, primary]) => (
-        <Button
-          key={to}
-          size="sm"
-          variant={primary ? "default" : "outline"}
-          disabled={change.isPending}
-          data-workflow-to={to}
-          onClick={() => change.mutate(to)}
-        >
-          {label}
-        </Button>
-      ))}
+      {workflowActions[detail.workflow.state].map(([to, label, primary]) => {
+        const Icon = workflowIcons[to];
+        return (
+          <Button
+            key={to}
+            size="sm"
+            variant={primary ? "default" : "outline"}
+            disabled={change.isPending}
+            data-workflow-to={to}
+            onClick={() => change.mutate(to)}
+          >
+            <Icon aria-hidden="true" />
+            {label}
+          </Button>
+        );
+      })}
       {change.isError && (
         <span role="alert" className="text-sm text-destructive-text">
           {analysisWriteErrorTitle(change.error, "업무 분류")}

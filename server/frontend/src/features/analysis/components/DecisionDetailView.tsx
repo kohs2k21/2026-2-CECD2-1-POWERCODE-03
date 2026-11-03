@@ -26,6 +26,7 @@ import {
   stampText,
   workflowLabels,
 } from "../labels";
+import { riskLevelIconTone, riskLevelIcons } from "../icons";
 import { DecisionDiagnostics } from "./DecisionDiagnostics";
 import { DecisionTimeline, timelineEntries } from "./DecisionTimeline";
 import { FeedbackCard, WorkflowActions } from "./DecisionWorkflow";
@@ -86,6 +87,8 @@ const SummaryCard = ({ detail }: { detail: DecisionDetail }) => {
   const ruleSetRevision = v4?.ruleSetRevision ?? null;
   const config = detail.configuration;
   const final = detail.kind === "final";
+  // #100 이전 이벤트 요약 제목의 심각도 아이콘 = 저장된 위험도 단계(단계가 있는 이상만).
+  const RiskIcon = detail.riskStatus === "rated" && detail.riskLevel ? riskLevelIcons[detail.riskLevel] : null;
   const items: { label: string; value: ReactNode }[] = [
     { label: "판정 ID", value: detail.decisionId ?? DASH },
     { label: "판정 시각", value: detail.decidedAt ? stampText(detail.decidedAt) : DASH },
@@ -117,6 +120,7 @@ const SummaryCard = ({ detail }: { detail: DecisionDetail }) => {
   return (
     <SectionCard
       title="판정 요약"
+      icon={RiskIcon && detail.riskLevel ? <RiskIcon className={riskLevelIconTone[detail.riskLevel]} /> : undefined}
       headingLevel={2}
       action={
         <>

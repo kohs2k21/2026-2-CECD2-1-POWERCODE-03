@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { IconBinaryTree, IconCodeDots, IconDatabase, IconListDetails, IconMessage2 } from "@tabler/icons-react";
 import { SectionCard } from "@/components/layout/SectionCard";
 import { ErrorState, LoadingState } from "@/components/ui/feedback";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -58,6 +59,13 @@ const fieldsOf = (node: Node, flow: DecisionFlow): [string, string][] => {
     ["DATA_SIZE", m.dataSize === null ? UNAVAILABLE : `${m.dataSize} bytes`]];
 };
 
+/** 노드 아이콘(#100 이전 ProcessFlowTree): Transaction = IconDatabase, Process = IconCodeDots(상태 F면 오류 색), Message = IconMessage2. */
+const NodeIcon = ({ node, status }: { node: Node; status: string }) => {
+  const Icon = node.kind === "tx" ? IconDatabase : node.kind === "process" ? IconCodeDots : IconMessage2;
+  const error = node.kind === "process" && status === "F";
+  return <Icon aria-hidden="true" className={cn("size-4 shrink-0", error ? "text-destructive-text" : "text-muted-foreground")} />;
+};
+
 const statusTone = (status: string) =>
   status === "F" ? "bg-destructive-soft text-destructive-text" : status === "S" ? "bg-success-soft text-success-text" : "bg-secondary text-secondary-foreground";
 
@@ -81,7 +89,7 @@ export const ProcessFlowCard = ({
   });
   const stats = counts ? `(프로세스 ${counts.processes}건 · 메시지 ${counts.messages}건 · 에러 ${counts.errors}건)` : null;
   return (
-    <SectionCard title="Process Flow" headingLevel={2} action={stats && <span className="text-sm text-muted-foreground">{stats}</span>}>
+    <SectionCard title="Process Flow" icon={<IconBinaryTree />} headingLevel={2} action={stats && <span className="text-sm text-muted-foreground">{stats}</span>}>
       {query.isPending && !flow ? (
         <LoadingState />
       ) : !flow ? (
@@ -112,6 +120,7 @@ export const ProcessFlowCard = ({
                       active?.key === node.key && "bg-accent font-medium",
                     )}
                   >
+                    <NodeIcon node={node} status={status} />
                     <span className={cn("inline-flex min-w-6 justify-center rounded px-1 font-mono text-xs", statusTone(status))}>{status}</span>
                     <span className="min-w-0 truncate">{labelOf(node, flow)}</span>
                   </button>
@@ -123,7 +132,10 @@ export const ProcessFlowCard = ({
           )}
           {active && (
             <details open={open} onToggle={(event) => setOpen((event.target as HTMLDetailsElement).open)}>
-              <summary className="cursor-pointer text-sm">선택 노드 원본 정보</summary>
+              <summary className="cursor-pointer text-sm">
+                <IconListDetails aria-hidden="true" className="mr-1 inline-block size-4 align-text-bottom text-muted-foreground" />
+                선택 노드 원본 정보
+              </summary>
               <Table className="mt-2">
                 <TableHeader>
                   <TableRow>

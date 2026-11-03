@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { analysisErrorTitle, sorts, type DecisionList, type ListParams, type Sort } from "../data/analysisApi";
 import type { LiveStatus } from "../data/useAnalysis";
+import { categoryIcons } from "../icons";
 import { categoryLabels, sortLabels, stampText } from "../labels";
 import { DecisionFilterDialog } from "./DecisionFilterDialog";
 import { DecisionRow } from "./DecisionRow";
@@ -75,6 +76,8 @@ export const DecisionListView = ({
 
   const totalPages = data ? Math.max(1, Math.ceil(data.total / params.pageSize)) : 1;
   // 적용 중인 필터는 검색 필터 대화상자 안의 선택값으로만 보인다(와이어프레임 요약 줄에 필터 요약 없음).
+  // 목록 제목 아이콘(#100 이전 목록 제목의 분류 아이콘). 이전 화면에 대응 분류가 없으면 아이콘 없음.
+  const CategoryIcon = categoryIcons[params.category];
   const narrowed = Boolean(params.q.trim()) || params.signal !== "all" || params.completeness !== "all" || params.category !== "all";
 
   let body: ReactNode;
@@ -88,7 +91,10 @@ export const DecisionListView = ({
     <Card className="gap-4">
       <CardContent className="grid gap-4">
         <header className="flex items-center justify-between gap-3">
-          <h2 className="text-section-title">{categoryLabels[params.category]} 판정</h2>
+          <h2 className="flex min-w-0 items-center gap-2 text-section-title">
+            {CategoryIcon && <CategoryIcon aria-hidden="true" className="size-4.5 shrink-0" />}
+            {categoryLabels[params.category]} 판정
+          </h2>
           <Button
             variant="outline"
             size="icon"

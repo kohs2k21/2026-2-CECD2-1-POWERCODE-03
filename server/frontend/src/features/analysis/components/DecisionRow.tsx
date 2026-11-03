@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import type { DecisionItem } from "../data/analysisApi";
 import { readEvidence } from "../data/evidence";
+import { riskLevelIconTone, riskLevelIcons } from "../icons";
 import {
   DASH,
   completenessText,
@@ -46,6 +47,8 @@ export const RiskCell = ({ item }: { item: DecisionItem }) =>
  * 오른쪽 = 판정 결과·단계·위험도·검사 완료와 시각·판정 ID와 프로세스. 행 전체가 상세로 가는 링크(키보드 순서 = 화면 순서).
  */
 export const DecisionRow = ({ item, href }: { item: DecisionItem; href: string }) => {
+  // #100 이전 목록 줄의 심각도 아이콘 = 저장된 위험도 단계(단계가 있는 이상만).
+  const RiskIcon = item.riskStatus === "rated" && item.riskLevel ? riskLevelIcons[item.riskLevel] : null;
   const sub = [pathsText(item), modelsText(item), inputText(item)].filter(Boolean).join(" · ");
   return (
     <Link
@@ -61,6 +64,9 @@ export const DecisionRow = ({ item, href }: { item: DecisionItem; href: string }
             <span className="size-2 shrink-0 rounded-full bg-primary" title="미확인" data-unread="true">
               <span className="sr-only">미확인</span>
             </span>
+          )}
+          {RiskIcon && item.riskLevel && (
+            <RiskIcon aria-hidden="true" className={cn("size-4 shrink-0", riskLevelIconTone[item.riskLevel])} />
           )}
           <strong className="truncate font-semibold">{item.transactionId ?? item.id}</strong>
         </span>

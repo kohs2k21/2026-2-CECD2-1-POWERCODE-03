@@ -102,6 +102,14 @@ globalThis.fetch = async (url, options = {}) => {
 };
 const rawText = (node) => (!node ? "" : typeof node === "string" ? node : Array.isArray(node) ? node.map(rawText).join("") : rawText(node.children));
 const text = (node) => rawText(node).replace(/\s+/g, " ").trim();
+// 장식 아이콘(#100 이전 화면 아이콘 복원, 사용자 11/04): Tabler svg 이름(`tabler-icon-<name>`)과 aria-hidden(자신 또는 조상).
+const svgs = (node) => node.findAll((child) => child.type === "svg");
+const iconNames = (node) => svgs(node).map((svg) => /tabler-icon-([a-z0-9-]+)/.exec(svg.props.className)?.[1] ?? "?");
+const hiddenIcon = (svg) => {
+  for (let current = svg; current; current = current.parent) if (current.props?.["aria-hidden"] === "true" || current.props?.["aria-hidden"] === true) return true;
+  return false;
+};
+const headingOf = (app, label) => app.renderer.root.find((node) => node.type === "h2" && text(node.children) === label);
 const tick = (ms = 10) => act(async () => new Promise((resolve) => setTimeout(resolve, ms)));
 const wait = async (check, label, tries = 80) => {
   for (let i = 0; i < tries && !check(); i++) await tick();
@@ -145,6 +153,11 @@ const listCalls = () => requested.filter((r) => r.path === "/api/analysis/decisi
   ]);
   assert.deepEqual(side.findAll((node) => node.type === "h2").map((h) => text(h.children)), ["판정", "분류함"]);
   assert.equal(side.findAllByType("a")[0].props["aria-current"], "page");
+  // 사이드바 아이콘(총괄 11/04): 판정 결과별 그룹은 아이콘·빈 자리 없음, 분류함(보류·완료)만
+  assert.deepEqual(side.findAllByType("a").map((a) => iconNames(a)), [[], [], [], [], [], [], ["folder-open"], ["circle-check"]]);
+  assert.equal(side.findAllByType("a").slice(0, 6).every((a) => a.findAll((node) => node.type === "span" && node.props["aria-hidden"] === "true").length === 0), true,
+    "result-view group has no blank icon slots");
+  assert.deepEqual(iconNames(headingOf(app, "전체 판정")), ["inbox"], "list heading category icon");
   const views = side.findByProps({ role: "group", "aria-label": "분류 보기" }).findAllByType("button");
   assert.deepEqual(views.map((b) => [text(b.children), b.props["aria-pressed"]]), [["위험도별", false], ["판정 결과별", true]]);
   // 행: 미확인 점(요청자 기준), 위험도 칸(단계 배지 / 위험도 미정 / 위험도 —)
@@ -154,6 +167,10 @@ const listCalls = () => requested.filter((r) => r.path === "/api/analysis/decisi
   assert.ok(text(rowOf("d-1").children).includes("위험도 미정"));
   assert.ok(text(rowOf("j-2").children).includes("위험도 —"));
   assert.ok(text(rowOf("d-3").children).includes("이상 징후") && text(rowOf("d-3").children).includes("위험"));
+  // 행 아이콘: 저장된 위험도 단계가 있는 이상만(위험 = IconFlame, 위험도 배지와 같은 색)
+  assert.deepEqual([iconNames(rowOf("d-1")), iconNames(rowOf("j-2")), iconNames(rowOf("d-3"))], [[], [], ["flame"]]);
+  assert.ok(svgs(rowOf("d-3"))[0].props.className.includes("text-destructive-text"));
+  assert.ok([...svgs(side), ...svgs(rowOf("d-3")), ...svgs(headingOf(app, "전체 판정"))].every(hiddenIcon), "list icons are decorative");
   const rows = app.renderer.root.findAll((node) => node.type === "a" && node.props["data-decision"]);
   assert.deepEqual(rows.map((row) => row.props.href), ["/analysis/d/d-1?category=all&sort=oldest", "/analysis/d/j-2?category=all&sort=oldest", "/analysis/d/d-3?category=all&sort=oldest"]);
   const shown = app.shown();
@@ -187,10 +204,15 @@ const listCalls = () => requested.filter((r) => r.path === "/api/analysis/decisi
   await wait(() => text(app.renderer.root.findByProps({ id: "analysis-categories" }).children).includes("위험도 미정2"), "risk view sidebar");
   const riskSide = app.renderer.root.findByProps({ id: "analysis-categories" });
   assert.deepEqual(riskSide.findAllByType("a").map((a) => text(a.children)), ["전체4", "위험1", "주의1", "참고0", "위험도 미정2", "보류1", "완료0"]);
+  // 위험도·분류함 그룹은 이전 화면 아이콘(위험도 미정은 대응 없음 → 빈 자리)
+  assert.deepEqual(riskSide.findAllByType("a").map((a) => iconNames(a)),
+    [["inbox"], ["flame"], ["alert-triangle"], ["info-circle"], [], ["folder-open"], ["circle-check"]]);
   const unratedLabel = riskSide.findAllByType("a")[4].findAll((node) => node.type === "span" && text(node.children) === "위험도 미정")[0];
   assert.ok(unratedLabel.props.className.includes("text-body") && unratedLabel.props.className.includes("text-muted-foreground"), "위험도 미정 is muted");
   assert.equal(riskButton().props["aria-pressed"], true);
   assert.ok(app.shown().includes("전체 판정"));
+  await wait(() => iconNames(headingOf(app, "전체 판정")).length > 0, "risk_all heading icon");
+  assert.deepEqual(iconNames(headingOf(app, "전체 판정")), ["inbox"], "risk_all list heading keeps the legacy IconInbox");
   // 분류함은 직전 보기 유지
   await act(async () => app.router.navigate("/analysis?category=workflow_open"));
   await wait(() => app.shown().includes("보류 판정"), "workflow box title");
@@ -303,6 +325,13 @@ const listCalls = () => requested.filter((r) => r.path === "/api/analysis/decisi
   assert.ok(shown.includes("당시 운영 머신러닝 모델") && shown.includes("iforest(sklearn-iforest)"));
   assert.ok(!/3000|기한|탐지 모드|당시 룰 수|탐지 작업/.test(shown), "deadline number, policy and non-wireframe rows are not shown");
   assert.ok(!shown.includes("당시 룰 리비전"), "rule revision row only when v4 evidence stores it");
+  // 섹션 이름·아이콘(사용자 11/04): AI 설명 → AI 판정 근거 요약(IconBrain), Process Flow(IconBinaryTree), 위험도 미정이면 판정 요약 아이콘 없음
+  assert.ok(!shown.includes("AI 설명"), "old section name is gone");
+  assert.deepEqual(iconNames(headingOf(app, "AI 판정 근거 요약")), ["brain"]);
+  assert.deepEqual(iconNames(headingOf(app, "Process Flow")), ["binary-tree"]);
+  assert.deepEqual(iconNames(headingOf(app, "판정 요약")), [], "no risk icon when the risk level is unrated");
+  assert.deepEqual(iconNames(headingOf(app, "판정 기록")), [], "no legacy counterpart, no icon");
+  assert.ok(svgs(app.renderer.root).every(hiddenIcon), "every icon on the detail page is decorative (aria-hidden)");
   assert.ok(shown.includes("Rule 판정 근거") && shown.includes("이상 규칙(상태가 S가 아님)") && shown.includes("위험"));
   assert.ok(app.renderer.root.findAll((node) => node.type === "th" && node.props.title === "process-status").length === 1, "v3 rule key only as tooltip");
   // 위험도(v3 이상 = 위험도 미정, U6)·업무 분류
@@ -312,6 +341,11 @@ const listCalls = () => requested.filter((r) => r.path === "/api/analysis/decisi
   assert.ok(shown.includes("Transaction: TX-d-1") && shown.includes("Focus Process: P01") && shown.includes("Process: P99") && shown.includes("Message: REQ · MSG-1"));
   const nodeButton = (label) => app.renderer.root.findAll((node) => node.type === "button" && text(node.children).includes(label))[0];
   assert.equal(nodeButton("Focus Process: P01").props["aria-pressed"], true);
+  // 노드 아이콘(#100 이전 ProcessFlowTree): Transaction IconDatabase, Process IconCodeDots(F면 오류 색), Message IconMessage2, 원본 정보 IconListDetails
+  assert.deepEqual(["Transaction: TX-d-1", "Focus Process: P01", "Process: P99", "Message: REQ"].map((label) => iconNames(nodeButton(label))),
+    [["database"], ["code-dots"], ["code-dots"], ["message-2"]]);
+  assert.ok(svgs(nodeButton("Focus Process: P01"))[0].props.className.includes("text-destructive-text"), "failed process icon uses the error tone");
+  assert.deepEqual(iconNames(app.renderer.root.find((node) => node.type === "summary")), ["list-details"]);
   await act(async () => nodeButton("Message: REQ").props.onClick());
   await wait(() => app.shown().includes("MESSAGE_IDMSG-1") && app.shown().includes("DATA_SIZE512 bytes"), "selected message fields");
   assert.ok(!app.shown().includes("BODY"), "BODY is not read or shown");
@@ -327,6 +361,7 @@ const listCalls = () => requested.filter((r) => r.path === "/api/analysis/decisi
   // 처리 상태: [처리 보류][처리 완료] → 보류 → [원래 상태로 복원][처리 완료], 409는 오류 코드 그대로
   const wfButton = (label) => app.renderer.root.findAll((node) => node.type === "button" && text(node.children) === label)[0];
   assert.ok(wfButton("처리 보류") && wfButton("처리 완료") && !wfButton("원래 상태로 복원"));
+  assert.deepEqual([iconNames(wfButton("처리 보류")), iconNames(wfButton("처리 완료"))], [["folder-open"], ["circle-check"]], "legacy workflow icons");
   await act(async () => wfButton("처리 보류").props.onClick());
   await wait(() => Boolean(wfButton("원래 상태로 복원")), "open state buttons after refetch");
   assert.deepEqual(workflowPuts[0], { state: "open", expectedState: "detected" });
@@ -339,10 +374,12 @@ const listCalls = () => requested.filter((r) => r.path === "/api/analysis/decisi
   await tick(50);
   assert.ok(app.shown().includes("업무 분류 실패 · workflow_state_conflict"), "conflict error survives the refetch");
   assert.ok(wfButton("원래 상태로 복원"));
+  assert.deepEqual(iconNames(wfButton("원래 상태로 복원")), ["refresh"]);
   assert.ok(shown.includes("아직 설명을 요청하지 않은 판정입니다."));
   const back = app.renderer.root.findAll((node) => node.type === "a" && text(node.children).includes("목록"))[0];
   assert.equal(back.props.href, "/analysis?category=anomaly", "back link keeps list conditions");
   const ask = app.renderer.root.findAll((node) => node.type === "button" && text(node.children) === "설명 요청")[0];
+  assert.deepEqual(iconNames(ask), ["brain"], "request button keeps the legacy IconBrain");
   await act(async () => ask.props.onClick());
   await wait(() => requested.some((r) => r.path === "/api/jobs/explain-1"), "job read after request");
   const post = requested.find((r) => r.method === "POST" && r.path === "/api/jobs");
@@ -394,6 +431,9 @@ const listCalls = () => requested.filter((r) => r.path === "/api/analysis/decisi
   assert.ok(shown.includes("판정 결과이상 징후 · 근거 이상 징후 규칙"), "result with basis category");
   assert.ok(shown.includes("위험도주의 · 결정 근거 이상 징후 규칙 · 단계 없는 근거 머신러닝 모델(iforest)"));
   assert.ok(shown.includes("위험도 기준 표 method-defined-v2") && shown.includes("당시 룰 리비전r13") && shown.includes("업무 분류완료"));
+  // 판정 요약 제목 아이콘 = 저장된 위험도 단계(주의 = IconAlertTriangle, 배지와 같은 색)
+  assert.deepEqual(iconNames(headingOf(app, "판정 요약")), ["alert-triangle"]);
+  assert.ok(svgs(headingOf(app, "판정 요약"))[0].props.className.includes("text-warning-text"));
   const heads = app.renderer.root.findAll((node) => node.type === "th" && !node.props.scope).map((node) => text(node.children));
   for (const head of ["대분류", "방법", "실행 상태", "결과", "측정값", "당시 기준", "위험도 단계", "처리 시간", "사유", "켠 방법", "대분류 결과"])
     assert.ok(heads.includes(head), `column ${head}`);
@@ -510,7 +550,7 @@ const explainRoutes = (id, detail, jobState) => ({
 });
 const typingNodes = (app) => app.renderer.root.findAll((node) => node.type === "div" && node.props["data-typing"] === "true");
 const srOnlyNodes = (app) => app.renderer.root.findAll((node) => node.type === "div" && node.props.className === "sr-only");
-const explainCard = (app) => app.renderer.root.find((node) => node.type === "div" && node.props["data-slot"] === "section-card" && text(node.children).startsWith("AI 설명"));
+const explainCard = (app) => app.renderer.root.find((node) => node.type === "div" && node.props["data-slot"] === "section-card" && text(node.children).startsWith("AI 판정 근거 요약"));
 
 // 5d) 처음 열었을 때 이미 완료된 결과: 타자 효과 없이 바로 전체
 {

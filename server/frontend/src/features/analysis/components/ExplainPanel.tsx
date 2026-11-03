@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { IconLoader2 } from "@tabler/icons-react";
+import { IconBrain, IconLoader2 } from "@tabler/icons-react";
 import { motion, useReducedMotion } from "motion/react";
 import { SectionCard } from "@/components/layout/SectionCard";
 import { Badge } from "@/components/ui/badge";
@@ -17,20 +17,22 @@ const errorText = (reason: unknown) => (reason instanceof Error ? reason.message
 const factValue = (value: unknown) => (typeof value === "string" ? value : JSON.stringify(value));
 
 /**
- * AI 설명(POST /api/jobs {kind:"explain"} + GET /api/jobs/:id). 최종 판정만 요청할 수 있다.
+ * AI 판정 근거 요약(POST /api/jobs {kind:"explain"} + GET /api/jobs/:id). 최종 판정만 요청할 수 있다.
+ * 제목·요청 버튼 아이콘은 #100 이전 LLM Report(LlmSection)의 IconBrain.
  * 요청 중(queued·running)일 때만 5초마다 결과를 조회하고, 실패·대기는 작업 상태 그대로 보여 준다.
  */
 export const ExplainPanel = ({ detail }: { detail: DecisionDetail }) => {
   const finalReady = detail.kind === "final";
   const demo = Boolean(readEvidence(detail.evidence).demo);
   return (
-    <SectionCard title="AI 설명" headingLevel={2}>
+    <SectionCard title="AI 판정 근거 요약" icon={<IconBrain />} headingLevel={2}>
       {finalReady && !demo ? (
         <ExplainBody detail={detail} />
       ) : (
         <div className="grid gap-2 text-sm">
           <div>
             <Button variant="outline" size="sm" disabled>
+              <IconBrain aria-hidden="true" />
               설명 요청
             </Button>
           </div>
@@ -86,6 +88,7 @@ const ExplainBody = ({ detail }: { detail: DecisionDetail }) => {
       {(!current || failed) && (
         <div>
           <Button variant="outline" size="sm" disabled={running || lookupBlocked} onClick={() => request.mutate()}>
+            <IconBrain aria-hidden="true" />
             {failed ? "설명 다시 요청" : "설명 요청"}
           </Button>
         </div>

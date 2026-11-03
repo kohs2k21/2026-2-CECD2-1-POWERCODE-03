@@ -5,6 +5,8 @@ import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import { SideNav } from "../src/components/layout/SideNav.tsx";
 import { LinkTabs } from "../src/components/layout/LinkTabs.tsx";
 import { detectionBackTarget } from "../src/features/detection/DetectionLayout.tsx";
+import { cn, fontSizeTokens } from "../src/lib/utils.ts";
+import { readFileSync } from "node:fs";
 
 globalThis.React = React;
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
@@ -37,7 +39,14 @@ const nav = renderer.root.findByProps({ id: "side-test" });
 assert.equal(nav.type, "nav");
 assert.equal(nav.props["aria-label"], "판정 분류", "one labelled navigation landmark");
 assert.deepEqual(nav.findAllByType("h3").map((node) => text(node.children)), ["이상 로그", "분류함 (확인 불가)"]);
+// 제목 h2(13/600/18 흐린 글자 = 그룹 제목과 같은 모양), 그룹은 그 아래 h3. 메뉴 글자 크기 토큰이 색 클래스와 함께 남는다.
+const heading = nav.findByType("h2");
+assert.equal(text(heading.children), "분류");
+assert.equal(heading.props.className, "px-3 text-group text-muted-foreground");
+assert.ok(nav.findAllByType("h3").every((node) => node.props.className === heading.props.className), "heading and group titles share one style");
 const links = nav.findAllByType("a");
+assert.ok(links.every((node) => node.props.className.split(" ").includes("text-menu")), "menu size token survives class merging");
+assert.deepEqual(links.map((node) => node.props.className.split(" ").includes("font-semibold")), [false, true, false], "only the current item is semibold");
 assert.deepEqual(links.map((node) => node.props.href), ["/analysis?category=All", "/analysis?category=Warning", "/analysis?category=Open"]);
 assert.deepEqual(links.map((node) => node.props["aria-current"] ?? null), [null, "page", null]);
 assert.ok(text(links[0]).includes("3") && text(links[1]).includes("0"), "zero counts are shown, not hidden");
@@ -47,6 +56,28 @@ assert.equal(toggle.props["aria-expanded"], false);
 assert.ok(text(toggle).includes("분류"));
 await act(async () => renderer.unmount());
 router.dispose();
+
+// 1-1) 제목 없는 사이드바(이상 분석): 그룹 제목이 h2(제목 수준 건너뛰기 없음)
+const noHeadingRouter = createMemoryRouter([{ path: "/analysis", element: React.createElement(SideNav, {
+  label: "판정 분류", menuId: "side-no-heading", activeId: null,
+  groups: [{ title: "이상 로그", items: [{ id: "All", label: "전체", to: "/analysis" }] }] }) }], { initialEntries: ["/analysis"] });
+await act(async () => {
+  renderer = create(React.createElement(RouterProvider, { router: noHeadingRouter }));
+});
+const plain = renderer.root.findByProps({ id: "side-no-heading" });
+assert.deepEqual(plain.findAllByType("h2").map((node) => text(node.children)), ["이상 로그"]);
+assert.equal(plain.findAllByType("h3").length, 0);
+await act(async () => renderer.unmount());
+noHeadingRouter.dispose();
+
+// 1-2) 클래스 병합: 글자 크기 토큰(tokens.css --text-*)은 글자 색 클래스와 겹치지 않는다. 토큰 목록은 tokens.css와 일치.
+assert.equal(cn("text-menu text-muted-foreground"), "text-menu text-muted-foreground");
+assert.equal(cn("px-3 text-group text-muted-foreground"), "px-3 text-group text-muted-foreground");
+assert.equal(cn("text-menu text-sm"), "text-sm", "size tokens still replace each other");
+assert.equal(cn("text-muted-foreground text-foreground"), "text-foreground", "colors still replace each other");
+const tokensCss = readFileSync(new URL("../src/lib/tokens.css", import.meta.url), "utf8");
+const declared = [...new Set([...tokensCss.matchAll(/--text-([a-z0-9-]+?)(?:--[a-z-]+)?\s*:/g)].map((match) => match[1]))].sort();
+assert.deepEqual([...fontSizeTokens].sort(), declared, "every --text-* token in tokens.css is registered for class merging");
 
 // 2) URL 탭: Link + aria-current, role=tab 미사용
 const tabsRouter = createMemoryRouter(
@@ -67,6 +98,8 @@ await act(async () => {
   renderer = create(React.createElement(RouterProvider, { router: tabsRouter }));
 });
 const tabLinks = renderer.root.findAllByType("a");
+assert.ok(tabLinks.every((node) => node.props.className.split(" ").includes("text-menu")), "tab size token survives class merging");
+assert.deepEqual(tabLinks.map((node) => node.props.className.split(" ").includes("font-semibold")), [false, true]);
 assert.deepEqual(tabLinks.map((node) => node.props["aria-current"] ?? null), [null, "page"]);
 assert.equal(renderer.root.findAll((node) => node.props.role === "tab").length, 0, "URL tabs do not use local Tabs ARIA");
 await act(async () => renderer.unmount());

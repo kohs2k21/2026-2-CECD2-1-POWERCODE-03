@@ -37,11 +37,12 @@ import { WidgetMiniature } from "./WidgetMiniature";
 const draftPath = paths.operations;
 /**
  * 격자 수치(react-grid-layout 설정값): 행 높이·간격 px. 위젯 영역 너비가 GRID_MIN_WIDTH 미만이면 격자 대신 읽는 순서 배치
- * (넓으면 2열·좁으면 1열, 높이는 내용만큼, 끌기·크기 조절 없음, 키보드 이동). 2칸 카드가 약 260px 미만이 되면 내용이 잘리므로 880px.
+ * (넓으면 2열·좁으면 1열, 높이는 내용만큼, 끌기·크기 조절 없음, 키보드 이동). 2칸 카드가 약 320px 미만이면 판정 추이 표가
+ * 가로로 넘치므로 1000px(화면 약 1064px 이상에서 격자).
  */
 const ROW_HEIGHT = 72;
 const GAP = 16;
-const GRID_MIN_WIDTH = 880;
+const GRID_MIN_WIDTH = 1000;
 const spring = { type: "spring", stiffness: 420, damping: 30 } as const;
 /** 끌기 시작 제외: 버튼·링크·입력(제거 배지·앞/뒤 버튼·위젯 안 링크). */
 const DRAG_CANCEL = "button, a, input, select, textarea, [data-no-drag]";

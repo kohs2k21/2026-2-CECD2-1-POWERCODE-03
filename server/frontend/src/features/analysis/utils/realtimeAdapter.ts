@@ -1,4 +1,4 @@
-import type { RealtimeAnomalyEvent } from "../../../types/realtime";
+import type { RealtimeAnomalyEvent } from "@/types/realtime";
 import type { AnalysisCategory } from "../types";
 
 export type AnalysisInboxItem = {

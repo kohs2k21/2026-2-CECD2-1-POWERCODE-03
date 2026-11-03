@@ -1,4 +1,4 @@
-import type { Severity } from "./domain";
+export type Severity = "Critical" | "Warning" | "Info";
 
 export type RealtimeAnomalyEvent = {
   schemaVersion: 1;

@@ -1,123 +1,204 @@
-# 방법 카탈로그 계약 v1 (초안, Issue #74)
+Created: 2026-10-21T00:00:00+09:00
+Updated: 2026-11-02T20:00:00+09:00
+Author: Claude Code (Trainer 세션 builder)
+Status: draft
 
-- 계약 버전: `method-catalog-v1`; 항목 스키마는 [method-catalog.schema.json](method-catalog.schema.json). 근거 코드 origin/dev `872f540`
-- 상위 결정: 플러그형 설계 방향 3차 지시(시스템 내장 목록, 사용자 등록 아님, 확장 쉬운 인터페이스만), 4·5차 지시(Git 기준 = UI 제작 범위, 실행 가능 여부 별도 필드, 실행 불가 선택 시 오류 그대로), Q-B=A(시간창 SR 24종 등재), Q-H=A(IF v1 기본값 = 서버 현재값)
-- 상태: 초안 — 사용자 결정 반영 완료(10/21 일괄, 설계 방향 4.7절), 구현은 MyDocs `plans/20261021-Issue74-구현분할안.md` 참조. 표기: **[확정]** 사용자 확정·코드 사실 / **★** 남은 결정 대기(N13만, 문서 끝) / **충돌** 구현 Issue에서 바꿀 항목
-- 범위: HR·SR·ML 세부 방법의 시스템 내장 레지스트리. 식별자·kind·상태·UI 제작 대상 근거·실행 가능 경로·파라미터 스키마·기본값·입력 요건·출처. 구성 버전([detection-config](detection-config-version.md))·LLM 추천([llm-recommendation-job](llm-recommendation-job.md))·WebUI가 같은 식별자를 사용
-- 제외: 방법의 실제 어댑터 구현, 종합 판정 규칙(Detector), 사용자 정의 방법 등록 API(목표 아님)
+# 방법 카탈로그 계약 v2 (초안, Issue #94)
 
-## 원칙
+- 변경 요약(#94): 대분류를 **hard / soft / ml**로 재편(사용자 11/02). 통계 SR R00~R23 **전부 삭제**·`sr:*` 폐기(호환 표만), PROCESS SR 프로토타입(#75) 미등재 유지, HR 연구 8종·`hr:process-status`·`rule` 템플릿은 카탈로그에서 제거(하드룰은 detection-decision.md(#92)가 정의). 신규 **소프트룰 등록 필드 목록 `softRuleFields[]`**(단위·타입·원천 식). ML 카탈로그(IF 등)는 `ml:` 접두로 유지, `displayName` 유지(10/22 승인)
+- 2차 개정(사용자 11/02 9.4·WebUI 대조): `softRuleFields[].sourceMissingPolicy`(원천 열 누락 시 `not_applicable` = 이상 아님 / `unavailable` = 미판정) 추가 — `elapsed_ms`의 END_TIME 누락은 **null → 그 룰은 평가하지 않음**(하드룰 `hard:negative-duration`의 `not_applicable`과 같은 취지); `displayPrecisionMode`(`fixed`/`significant`) 추가 — ratio는 유효숫자 4
+- 계약 버전: `method-catalog-v2`; 항목 스키마 [method-catalog.schema.json](method-catalog.schema.json)(`$id` …:v2). 근거 코드 origin/dev `7f24e03`(`worker/derived_expression.py`, `backend/src/rules/ruleContract.ts`, `worker/model_adapters.py`)
+- 상위 결정: 사용자 11/02 결정(Q4 소프트룰 = 등록 필드 + 임계값, Q5 통계 SR 제외, 8.2절 룰 수정 범위), Trainer·Detector 분담 합의 11/02(등록 필드 목록·편집 제약 = Trainer, 하드룰 목록·소프트룰 실행 의미론 = Detector). 절 번호는 총괄 기록 기준
+- 범위: ML 세부 방법의 시스템 내장 레지스트리 + 소프트룰이 고를 수 있는 **등록 필드**(시스템 정의, 사용자 등록 아님) + 식별자 체계. 룰 세트([rule-set.md](rule-set.md))·모델 버전([model-version.md](model-version.md))·임계값 추천([llm-recommendation-job.md](llm-recommendation-job.md))·WebUI가 같은 식별자를 사용
+- 제외: 하드룰 내장 목록(id·조건·위험도 — Detector), 방법 어댑터 구현, 종합 판정 규칙, 사용자 정의 방법·필드 등록 API(목표 아님)
 
-- **UI 제작 대상 = Git에 올라온 방법**(`server/` + `research/`) [확정]. 팀원 논의 수준(Git 없음)은 등재하지 않음
-- **실행 가능 = `server/`에 해당 경로 어댑터가 존재** [확정]. `status`와 `executable`은 별개 필드. research이면서 실행 가능(없음)·supported이면서 특정 경로 실행 불가(KMeans의 PROCESS)가 모두 표현 가능
-- 실행 불가 방법의 취급을 셋으로 구분: ① 목록·UI 제작 대상 ✓ [확정 Git 기준] ② 화면 선택은 WebUI 2.2·2.3절대로 **비활성(사유 문구 미표시)** — 사용자 확인 10/21 ③ 서버는 **저장 거부** 422 `method_not_executable:<methodId>` **[확정 — 사용자 10/21, Detector Q3-1·설계 방향 4.5절]**: 실행 불가 방법은 선택 자체 불가. 연구 폴더 항목은 개발 병행 중 화면 표시(비활성)일 뿐, 최종 버전 목록에는 없음. 학습·평가·적용 요청도 같은 코드로 거부. 목업 성공·빈 결과 대체 금지 [확정]
-- 항목 추가는 `catalogVersion` 증가. 제거는 하지 않고 `status=deprecated`로 전환(기존 구성이 참조하므로)
-- 기본값은 출처를 함께 기록(`defaultsSource`). 연구 보고서 미확인 값은 `defaults=null`로 두고 채우지 않음
+## 원칙(유지·조정)
 
-## 항목 필드
+- UI 제작 대상 = Git에 올라온 방법(`server/` + `research/`) [확정 10/21]. 실행 가능 = `server/`에 어댑터 존재. `status`와 `executable`은 별개. 실행 불가 방법은 화면 비활성·서버 저장 거부 422 `method_not_executable:<methodId>` [확정 10/21 Q3-1]
+- 항목 추가·필드 추가는 `catalogVersion` 증가. 제거는 하지 않고 `status=deprecated`. **예외(이번 v2)**: SR 24종·HR 연구 8종은 사용자 결정으로 카탈로그에서 **삭제**(저장된 참조가 없으므로 deprecated 전환 불필요, 연구 기록은 `research/`에 보존)
+- 기본값은 출처를 기록(`defaultsSource`); 미확인 값은 `defaults=null`
 
-| 필드 | 의미 |
-|---|---|
-| `methodId` | `<kind>:<key>` ([detection-config](detection-config-version.md) 식별자 절) |
-| `kind` | `hr` / `sr` / `ml` (`methods[]` 항목). `rule`은 `instanceTemplates[]`에만 있고 `methods[]`에는 오지 않음(schema `$defs.method.kind` enum에서 제외) |
-| `category` | 대분류 `HR` / `SR` / `ML`(rule은 HR — **[확정 10/21]** Detector Q2 A) |
-| `displayName` | 표시 이름(한글 가능) |
-| `status` | `supported`(운영 코드·시험 있음) / `research`(연구 코드만 또는 연구 결론 미확정) / `deprecated` |
-| `methodVersion` | 실행 코드·산출물 형식 버전 문자열(ML은 `ml_artifacts.format_version`과 동일 값) |
-| `uiTarget` | `{scope: "server"|"research", path: "<Git 경로>", ref?: "<보조 경로>"}` — UI 제작 범위 근거 |
-| `executable` | `{process: boolean, window: boolean}` 경로별 실행 가능. `process`=PROCESS 판정(Detector `detector/`), `window`=시간창(`window_worker.py`) |
-| `executableReason` | `{process?: string, window?: string}` 실행 불가 사유 코드: `server_adapter_missing` / `input_unit_mismatch` / `research_only` |
-| `runtime` | `{library: "scikit-learn"|"scipy"|"statsmodels"|"server-python"|"research-bundle", artifactFormat?: string}` |
-| `parameterSchema` | JSON Schema draft 2020-12 부분집합. 최상위 `type:"object"`·`additionalProperties:false` 필수, `properties`·`required`·`allOf`; 속성별 `type/enum/const/minimum/maximum/exclusiveMinimum/exclusiveMaximum/items/minItems/maxItems/description`(schema.json `$defs.parameterProperty`와 동일 목록) |
-| `instanceTemplates` | 선택. 인스턴스형 방법(현재 `rule`)의 템플릿 `{kind, category, displayName, status, uiTarget, executable, instanceSource, instanceIdPattern, inputRequirements, sourceRef}` 배열 [확정 10/21]. `methods[]`에는 템플릿을 두지 않고 구성의 `methods[]`에는 인스턴스 `rule:<rule_key>`만 들어감(등록 Rule 목록은 Rule API에서 조회) |
-| `parameterSchemaStatus` | `verified`(서버 코드와 대조) / `research_declared`(연구 코드 선언값) / `unconfirmed`(파라미터 미확인, 빈 schema) |
-| `defaults` | `parameterSchema`를 만족하는 객체 또는 null |
-| `defaultsSource` | 출처 문자열(경로:행 또는 보고서) |
-| `inputRequirements` | `{unit: "process_row"|"aggregated_window", featureSet: "required"|"optional"|"not_required", numericOnly?, maxFeatures?, minTrainRows?, fitOperations?, fields?, aggregationMinutes?}` |
-| `sourceRef` | `{path, lines?, commit}` 근거 코드 위치 |
-| `resultSchema` | 세부 방법별 결과 형식 버전(`method-result-v1` [확정 10/21], 아래 절) |
-| `canDisable` | 항상 true(HR 포함) [확정] |
-| `instanceSource` | `instanceTemplates[]` 항목만: `ml_rule_versions`(인스턴스는 등록 Rule 버전). `methods[]` 항목에는 없음 |
-| `notes` | 제약·주의 |
+## 대분류·식별자 [합의 11/02 — 사용자 확인 필요 (a)]
 
-## 세부 방법별 결과 형식 `method-result-v1` — Detector evidence v4에 정렬 [확정 Q8 A, 10/21]
+| kind | category | 화면 표시 용어 [확정 11/02] | 탐지 결과 | 정의 주체 | 카탈로그 표현 |
+|---|---|---|---|---|---|
+| `hard` | RULE | **이상 규칙**(내부: 하드룰) | **이상** | Detector(detection-decision.md(#92)) 내장 목록 | `hardRules: {definedBy: "detection-decision.md", displayName: "이상 규칙"}` 참조만. 항목 없음 |
+| `soft` | RULE | **이상 징후 규칙**(내부: 소프트룰) | **이상 징후** | 사용자가 등록 필드 + 임계값으로 만듦([rule-set.md](rule-set.md)) | `softRuleFields[]`(고를 수 있는 필드) + `softRule`(인스턴스 규칙, `displayName: "이상 징후 규칙"`) |
+| `ml` | ML | **머신러닝 모델** | **이상 징후** | 시스템 내장 ML 방법 | `methods[]`(전부 `ml:*`, 각 항목 `displayName`은 방법 이름) |
 
-- 계측(#66)·종합 판정·방법별 결과는 **Detector evidence v4 한 계약**으로 묶임(사용자 Q8 A). 아래 필드는 v4 확정 전의 **자리 초안**이며, 확정 시 v4 필드 정의를 그대로 따름(이 문서는 참조만)
-- Trainer 평가·Detector evidence가 공통으로 쓰는 **방법 1개의 결과**. 조합은 Detector 계약
-- `{methodId, kind, methodVersion, status: "succeeded"|"not_ready"|"failed"|"skipped", anomalous: true|false|null, score: number|null, code: string|null, severity: string|null, reason: string|null, evidence: object[]}`
-- `score`는 ML·통계 SR만(점수 척도는 방법마다 다름, 비교·합산 금지). `code` 형식(`PROCESS_STATUS_*`, Rule `outcome.decisionCode`, `SR_<KEY>`, `<KEY>_ANOMALY`)은 **Detector D12 제안이며 Q4(등급) 보류에 묶여 미확정**
-- 현행 `checkers.{hr,sr,ml}{status,anomalous,evidence}`(`detector/runner.py:88-89`)는 대분류 결과로 유지, 방법별 배열은 evidence v4에서 추가(Detector)
+- 대분류 표시명은 카탈로그 JSON의 `categoryDisplayNames`(`{hard: "이상 규칙", soft: "이상 징후 규칙", ml: "머신러닝 모델"}`, 3키 필수)와 `hardRules.displayName`·`softRule.displayName`(필수, 같은 값)로 제공해 화면이 문구를 하드코딩하지 않게 함. `hardRules.contractVersion`은 schema `const "detection-decision-v1"`
 
-## 레지스트리 인터페이스 [확정 10/21] Q-K=A
+- 식별자 `<kind>:<key>`, key `^[a-z][a-z0-9_-]{1,63}$`. 소프트룰 인스턴스 id는 서버 생성 `soft:<fieldId>-<8 hex>`(`softRule.instanceIdPattern`)
+- 호환 매핑(v1/v3 판정·구성 **읽기 전용**, 자동 변환 없음)
 
-- 원본: `server/worker/methods/registry.py`(Trainer 소유 제안). 항목은 dataclass 1개 + 어댑터 프로토콜(`prepare(reference)` / `fit(rows, parameters) -> artifacts` / `score(reference, values) -> MethodResult`). ML은 `model_adapters.py`의 `*_iforest` 함수를 첫 어댑터로 등록
-- API(TypeScript)는 빌드 시 생성된 `server/contracts/method-catalog.json`(스키마 검증 통과본)을 읽음. 수동 중복 정의 금지. 시험: Python 산출 JSON == 커밋된 JSON 일치 검사(현행 `synthetic-catalog-parity.mjs` 방식 재사용)
-- Detector는 같은 모듈을 읽기만(구현 Issue에서 같은 파일 동시 수정 금지)
-- 확장: 항목 추가 = dataclass 인스턴스 1개 + 어댑터 1개 + 시험. 사용자 등록 API 없음
+| 기존 | 새 체계 | 비고 |
+|---|---|---|
+| `hr:process-status` | `hard:process-status`(`methodVersion: process-status-hr-v1`, Detector 11/02 회신) | 상태 HR(`status_rule.py`) |
+| `hr:status_failed` 등 연구 HR 8종 | 카탈로그 제거. 하드룰 후보는 후속 Issue(하드룰 내장 목록 확장, 미정)에서 판단 | `research/evaluation/process_synthetic_lab/model.py` 기록 보존 |
+| `rule:<rule_key>` | 임계값형은 `soft:*` 의미. `ml_rule_versions` 행은 읽기 보존, 자동 이관 없음 | `rules.md` API 유지 |
+| `sr:<key>` R00~R23 | **폐기**(등재 없음) | `research/evaluation/trend_sr_comparison/` 보존 |
+| `sr:process_*`(#75 프로토타입) | 미등재 유지, 예약 이름공간도 해제 | `research/` 보존 |
+| `rule:sr_<hash>`(LLM `recommend_rule` 산출) | Rule DSL 인스턴스, 읽기 보존 | `recommend_rule` 폐지([llm-recommendation-job.md](llm-recommendation-job.md)) |
+
+## 소프트룰 등록 필드 `softRuleFields[]` [제안 — 사실 기반]
+
+- 소프트룰은 **시스템 정의 필드**만 고름. 사용자 피처셋(`F.<name>`, `rules.md`)을 참조하지 않음 — 룰 세트가 피처셋 버전에 묶이지 않게 하기 위함. 각 필드는 원천 열(`column`) 또는 내장 파생식(`derived`, `worker/derived_expression.py`의 AST와 동일 형식)으로 정의되며 Detector·Trainer·API가 같은 식으로 값을 계산
+- 원천(Rule DSL `P.*` 숫자 필드, `rules.md`·`derived_expression.py:9-11` `FIELDS`): `success_count`·`error_count`·`total_count`·`retry_count`(number→count). `P.status`·`P.response_code`·`adapter_type` 등 문자열 필드는 임계값 비교 대상이 아님(상태 조건은 하드룰 영역)
+- 파생: `datetime_diff`(timestamp 2개, 단위 `s|ms|us`), `divide`(count/count → ratio), `subtract`, `convert_unit`(`derived_expression.py:12-13, 44-66`). 처리시간은 원천 필드에 없고 `datetime_diff(END_TIME, START_TIME)` 파생으로만 존재(11/02 9.1 조사와 일치)
+
+| fieldId | displayName | valueType | unit | source | 결측 규칙(Detector 의미론과 별개로 값 계산 수준) |
+|---|---|---|---|---|---|
+| `total_count` | 총 건수 | integer | count | column `TOTAL_COUNT`(`P.total_count`) | 열 결측 → unavailable |
+| `success_count` | 성공 건수 | integer | count | column `SUCCESS_COUNT` | 〃 |
+| `error_count` | 오류 건수 | integer | count | column `ERROR_COUNT` | 〃 |
+| `retry_count` | 재시도 수 | integer | count | column `RETRY_COUNT` | 〃 |
+| `elapsed_ms` | 처리 시간 | number | ms | derived `datetime_diff(END_TIME, START_TIME, "ms")` | **END_TIME 누락 → 값 null → 소프트룰은 그 행을 평가하지 않음(이상 징후 아님)**(`sourceMissingPolicy.END_TIME = not_applicable` — END_TIME이 찍히지 않는 정상 트랜잭션 유형 존재, 사용자 11/02 9.4; 하드룰 `hard:negative-duration`이 END_TIME 없음을 `not_applicable`(정상)로 두는 것과 같은 취지). START_TIME 누락·시각 파싱 실패 → unavailable(미판정). 음수는 하드룰(`START_TIME > END_TIME`) 영역이라 소프트룰 값으로는 그대로 둠 |
+| `error_ratio` | 오류 비율 | number | ratio | derived `divide(ERROR_COUNT, TOTAL_COUNT)` | `TOTAL_COUNT = 0` → unavailable(0 나눗셈 없음) |
+
+- 공통: `operators = ["gte","gt","lte","lt"]`, `status = supported`. `displayPrecision`: count 0, ms 0(`displayPrecisionMode: fixed`, 소수 자릿수), ratio 4(**`displayPrecisionMode: significant`, 유효숫자** — p95가 `0.00003125`처럼 작을 때 고정 소수 4자리면 `0.0000`으로 보이는 문제 방지, WebUI 11/02 대조) — 화면 표시 자릿수(저장값은 원값, 지수 표기 금지)
+- `sourceMissingPolicy`(선택, 키 = 원천 열): 그 열이 **누락**(null)일 때 값 계산 결과 — `not_applicable` = 값 null, 룰은 그 행을 **평가하지 않음(이상 징후 아님)** / `unavailable` = 미판정. 키가 없는 열·`column` 필드의 누락은 `unavailable`(기본). 파싱 실패·0 나눗셈은 누락이 아니라 계산 실패이므로 항상 `unavailable`. 평가 의미론(집계·evidence 기록)은 detection-decision.md(#92)
+- `valueType: integer`(건수 4종)는 **계약 수준 제약**: DB 열은 `numeric`(`002_core_erd.sql:65-66` `success_count numeric, error_count numeric, total_count numeric, retry_count numeric`)이라 정수가 보장되지 않음. 임계값 입력은 정수로 제한하고, 값 계산 시 비정수 관측은 그대로 비교(Decimal)하며 정수 강제 변환은 하지 않음
+- `fieldId` 길이 ≤ 54자(스키마 `{1,53}` + 첫 글자): 소프트룰 인스턴스 id `soft:<fieldId>-<8 hex>`의 key(`<fieldId>-<8 hex>`)가 식별자 key 상한 63자를 넘지 않게 하기 위함
+- 필드 추가는 카탈로그 버전 증가 + Detector 계산 경로 확인(어댑터 추가와 같은 절차). 후보(미등재): `success_ratio`, `elapsed_s`(단위 변환), `retry_ratio`
+- `softRule`: `maxRules 32`(현행 Rule 상한 `jobRoutes.ts:108`·#92와 동일, 확대는 합의로), `severities [info, warning, critical]`, `thresholdSerialization fixed-decimal-string`(지수 표기 금지 — DSL 정규식 `ruleContract.ts:17`과 11/02 9.1 결함 근거)
+
+## ML 목록 v2 — 사실 기반(v1에서 `ml:` 항목 그대로)
+
+| methodId | displayName | status | uiTarget | executable | parameterSchema·defaults | inputRequirements |
+|---|---|---|---|---|---|---|
+| `ml:iforest` | Isolation Forest | supported | server `server/worker/model_adapters.py`(연구 `research/anomaly_detection/code/process_anomaly_pipeline/artifacts/process_if_v1.manifest.json`) | process ✓(`process-iforest-v1`) / window ✓(v12 번들 `if`, `window_worker.py:105`) | `n_estimators` int 16..1024, `max_samples` int 64..4096, `contamination` const `auto`, `random_state` int ≥0, `thresholdPolicy` const `train-internal-p99-v1`; defaults [확정 Q-H] `{n_estimators:128, max_samples:512, contamination:"auto", random_state:42, thresholdPolicy:"train-internal-p99-v1"}`(`model_adapters.py:121-127`) | `{unit:process_row, featureSet:required, numericOnly:true, maxFeatures:32, minTrainRows:600, fitOperations:[group_median, group_centered]}` |
+| `ml:minibatch_kmeans` | MiniBatch K-Means | research | research `research/anomaly_detection/code/analysis/minibatch_kmeans_common.py` | process ✗(`server_adapter_missing`) / window ✓ | `research_declared`: `k` int 2..64, `batch_size`·`max_iter`·`n_init`·`random_state` int, `quantile` number 0..1; defaults `{k:6, batch_size:2048, max_iter:100, n_init:5, random_state:42, quantile:0.99}` | `{unit:process_row, featureSet:required, numericOnly:true}` — 서버 피처셋 호환 미확인(N13) |
+| `ml:eif` | Extended Isolation Forest | research | research `research/evaluation/long_term_trend/models.py` | process ✗ / window ✗(`research_only`) | `research_declared`: `ntrees` int, `sample_size` int, `extension_level` const `dimension-1`; defaults `{ntrees:128, sample_size:256}` | `{unit:aggregated_window, featureSet:not_required}` |
+
+- `runtime.library`: `scikit-learn`(iforest·kmeans) / `research-bundle`(eif). v1의 `scipy`·`statsmodels`는 SR 전용이라 enum에서 제거
+- `resultSchema` 필드는 **삭제**(Detector 11/02 회신): 방법별 결과는 evidence v4 `methodResults[]`(DB `evidence_version` = `detector-evidence-v4`, detection-decision.md(#92))로 정의되며 카탈로그가 형식 이름을 들고 있지 않음. v1의 `method-result-v1` 자리 초안 폐기
+- 시간창(WINDOW) 경로 `executable.window`는 표시용 [확정 10/21 Q-J]
+
+## 레지스트리 인터페이스 [유지 10/21 Q-K]
+
+- 원본 `server/worker/methods/registry.py`(Trainer 소유 제안). ML 항목 = dataclass 1개 + 어댑터 프로토콜(`prepare/fit/score`). **소프트룰 필드** = 같은 모듈의 필드 dataclass(`fieldId`·AST·단위) + 값 계산 함수(`derived_expression.evaluate` 재사용) — Detector는 읽기만
+- API는 빌드 시 생성된 `server/contracts/method-catalog.json`(스키마 통과본)을 읽음. 시험: Python 산출 JSON == 커밋 JSON 일치
+- 확장: ML 항목 추가 = dataclass + 어댑터 + 시험; 필드 추가 = dataclass + AST 검증 시험. 사용자 등록 API 없음
 
 ## 조회 API
 
-- `GET /api/jobs/capabilities`에 `methodCatalog` 추가 [확정 10/21]: `{catalogVersion, generatedFrom: {gitRef}, methods: [...]}`. 별도 엔드포인트는 만들지 않음
-- 기존 `models[{key, displayName, supported}]` **유지**: `key` = `ml:*`의 `<model_key>`, `supported := executable.process` [확정 10/21] Q-I=A. 현재 WebUI의 `supported=false` 비활성 처리(`PipelineOperations.tsx:467`)는 최신 사용자 확인(WebUI 문서 2.2·2.3절: 실행 불가 방법은 버전 구성 화면에서 비활성, 사유 미표시)과 **일치**하므로 유지. WebUI 세션에는 "`status`(supported/research) 표기 추가, 비활성 근거는 `executable.process`"만 통지
-- **충돌**: backend 시험 `trainer-contract.test.mjs:10-11`이 `models.map(key) == ['iforest']` 고정 → `minibatch_kmeans`·`eif` 추가 시 갱신(API 세션)
-- `contractVersion`은 `trainer-service-v1` 유지, `methodCatalog.catalogVersion`으로 별도 버전
+- `GET /api/jobs/capabilities`에 `methodCatalog` [유지 10/21]: `{catalogVersion, generatedFrom: {gitRef}, hardRules, softRuleFields, softRule, methods}`. 별도 엔드포인트 없음. 하드룰 실제 목록(id·조건·위험도)은 `GET /api/rule-set`([rule-set.md](rule-set.md))이 Detector 정의값을 투영
+- 기존 `models[{key, displayName, supported}]` 유지: `key` = `ml:*`의 `<model_key>`, `supported := executable.process`
+- **충돌**: backend 시험 `trainer-contract.test.mjs:10-11`이 `models.map(key) == ['iforest']` 고정 → 항목 추가 시 갱신(API)
 
-## 초기 목록 v1 — 사실 기반
+## 예시 카탈로그 JSON(스키마 검증 대상)
 
-### HR
+```json
+{
+  "catalogVersion": "method-catalog-v2",
+  "generatedFrom": {"gitRef": "7f24e03", "generatedAt": "2026-11-02T09:00:00Z"},
+  "categoryDisplayNames": {"hard": "이상 규칙", "soft": "이상 징후 규칙", "ml": "머신러닝 모델"},
+  "hardRules": {"definedBy": "detection-decision.md", "displayName": "이상 규칙", "contractVersion": "detection-decision-v1", "idPattern": "^hard:[a-z][a-z0-9_-]{1,63}$"},
+  "softRule": {"displayName": "이상 징후 규칙", "instanceIdPattern": "^soft:[a-z][a-z0-9_]{1,53}-[0-9a-f]{8}$", "operators": ["gte", "gt", "lte", "lt"],
+               "severities": ["info", "warning", "critical"], "maxRules": 32, "thresholdSerialization": "fixed-decimal-string"},
+  "softRuleFields": [
+    {"fieldId": "total_count", "displayName": "총 건수", "valueType": "integer", "unit": "count",
+     "source": {"kind": "column", "column": "TOTAL_COUNT", "ruleDslField": "P.total_count"},
+     "operators": ["gte", "gt", "lte", "lt"], "displayPrecision": 0, "status": "supported",
+     "sourceRef": {"path": "server/worker/derived_expression.py", "lines": "9-11", "commit": "7f24e03"}},
+    {"fieldId": "success_count", "displayName": "성공 건수", "valueType": "integer", "unit": "count",
+     "source": {"kind": "column", "column": "SUCCESS_COUNT", "ruleDslField": "P.success_count"},
+     "operators": ["gte", "gt", "lte", "lt"], "displayPrecision": 0, "status": "supported",
+     "sourceRef": {"path": "server/worker/derived_expression.py", "lines": "9-11", "commit": "7f24e03"}},
+    {"fieldId": "error_count", "displayName": "오류 건수", "valueType": "integer", "unit": "count",
+     "source": {"kind": "column", "column": "ERROR_COUNT", "ruleDslField": "P.error_count"},
+     "operators": ["gte", "gt", "lte", "lt"], "displayPrecision": 0, "status": "supported",
+     "sourceRef": {"path": "server/worker/derived_expression.py", "lines": "9-11", "commit": "7f24e03"}},
+    {"fieldId": "retry_count", "displayName": "재시도 수", "valueType": "integer", "unit": "count",
+     "source": {"kind": "column", "column": "RETRY_COUNT", "ruleDslField": "P.retry_count"},
+     "operators": ["gte", "gt", "lte", "lt"], "displayPrecision": 0, "status": "supported",
+     "sourceRef": {"path": "server/worker/derived_expression.py", "lines": "9-11", "commit": "7f24e03"}},
+    {"fieldId": "elapsed_ms", "displayName": "처리 시간", "description": "END_TIME - START_TIME (ms)", "valueType": "number", "unit": "ms",
+     "source": {"kind": "derived", "ast": {"op": "datetime_diff", "unit": "ms",
+                "args": [{"op": "column", "table": "EC_PROCESS_MONITORING", "column": "END_TIME"},
+                         {"op": "column", "table": "EC_PROCESS_MONITORING", "column": "START_TIME"}]}},
+     "operators": ["gte", "gt", "lte", "lt"], "displayPrecision": 0, "displayPrecisionMode": "fixed", "status": "supported",
+     "sourceMissingPolicy": {"END_TIME": "not_applicable", "START_TIME": "unavailable"},
+     "sourceRef": {"path": "server/worker/derived_expression.py", "lines": "50-53, 89-94", "commit": "7f24e03"},
+     "notes": "END_TIME 누락은 값 null → 룰 평가 안 함(이상 아님, 11/02 9.4). START_TIME 누락·시각 파싱 실패 시 unavailable. 음수(START_TIME > END_TIME)는 하드룰 영역"},
+    {"fieldId": "error_ratio", "displayName": "오류 비율", "description": "ERROR_COUNT / TOTAL_COUNT", "valueType": "number", "unit": "ratio",
+     "source": {"kind": "derived", "ast": {"op": "divide",
+                "args": [{"op": "column", "table": "EC_PROCESS_MONITORING", "column": "ERROR_COUNT"},
+                         {"op": "column", "table": "EC_PROCESS_MONITORING", "column": "TOTAL_COUNT"}]}},
+     "operators": ["gte", "gt", "lte", "lt"], "displayPrecision": 4, "displayPrecisionMode": "significant", "status": "supported",
+     "sourceRef": {"path": "server/worker/derived_expression.py", "lines": "101-102", "commit": "7f24e03"},
+     "notes": "TOTAL_COUNT = 0 이면 unavailable. p95가 1e-4 미만일 수 있어 고정소수 직렬화 필수, 표시는 유효숫자 4"}
+  ],
+  "methods": [
+    {"methodId": "ml:iforest", "kind": "ml", "category": "ML", "displayName": "Isolation Forest", "status": "supported",
+     "methodVersion": "process-iforest-v1",
+     "uiTarget": {"scope": "server", "path": "server/worker/model_adapters.py",
+                  "ref": "research/anomaly_detection/code/process_anomaly_pipeline/artifacts/process_if_v1.manifest.json"},
+     "executable": {"process": true, "window": true},
+     "runtime": {"library": "scikit-learn", "artifactFormat": "process-iforest-v1"},
+     "parameterSchema": {"type": "object", "additionalProperties": false,
+       "required": ["n_estimators", "max_samples", "contamination", "random_state", "thresholdPolicy"],
+       "properties": {"n_estimators": {"type": "integer", "minimum": 16, "maximum": 1024},
+                      "max_samples": {"type": "integer", "minimum": 64, "maximum": 4096},
+                      "contamination": {"const": "auto"},
+                      "random_state": {"type": "integer", "minimum": 0},
+                      "thresholdPolicy": {"const": "train-internal-p99-v1"}}},
+     "parameterSchemaStatus": "verified",
+     "defaults": {"n_estimators": 128, "max_samples": 512, "contamination": "auto", "random_state": 42, "thresholdPolicy": "train-internal-p99-v1"},
+     "defaultsSource": "server/worker/model_adapters.py:121-127",
+     "inputRequirements": {"unit": "process_row", "featureSet": "required", "numericOnly": true, "maxFeatures": 32, "minTrainRows": 600,
+                           "fitOperations": ["group_median", "group_centered"]},
+     "sourceRef": {"path": "server/worker/model_adapters.py", "lines": "89-127", "commit": "7f24e03"},
+     "canDisable": true},
+    {"methodId": "ml:minibatch_kmeans", "kind": "ml", "category": "ML", "displayName": "MiniBatch K-Means", "status": "research",
+     "methodVersion": "research-minibatch-kmeans-v8",
+     "uiTarget": {"scope": "research", "path": "research/anomaly_detection/code/analysis/minibatch_kmeans_common.py"},
+     "executable": {"process": false, "window": true}, "executableReason": {"process": "server_adapter_missing"},
+     "runtime": {"library": "scikit-learn"},
+     "parameterSchema": {"type": "object", "additionalProperties": false,
+       "properties": {"k": {"type": "integer", "minimum": 2, "maximum": 64}, "batch_size": {"type": "integer", "minimum": 1},
+                      "max_iter": {"type": "integer", "minimum": 1}, "n_init": {"type": "integer", "minimum": 1},
+                      "random_state": {"type": "integer", "minimum": 0}, "quantile": {"type": "number", "minimum": 0, "maximum": 1}}},
+     "parameterSchemaStatus": "research_declared",
+     "defaults": {"k": 6, "batch_size": 2048, "max_iter": 100, "n_init": 5, "random_state": 42, "quantile": 0.99},
+     "defaultsSource": "research/anomaly_detection/code/analysis/minibatch_kmeans_common.py:35-46",
+     "inputRequirements": {"unit": "process_row", "featureSet": "required", "numericOnly": true},
+     "sourceRef": {"path": "research/anomaly_detection/code/analysis/minibatch_kmeans_common.py", "lines": "35-46", "commit": "7f24e03"},
+     "canDisable": true,
+     "notes": "PROCESS 경로 피처 정의는 연구 인코더 기준, 서버 피처셋 호환 미확인(N13)"},
+    {"methodId": "ml:eif", "kind": "ml", "category": "ML", "displayName": "Extended Isolation Forest", "status": "research",
+     "methodVersion": "research-eif-long-term-trend",
+     "uiTarget": {"scope": "research", "path": "research/evaluation/long_term_trend/models.py"},
+     "executable": {"process": false, "window": false}, "executableReason": {"process": "research_only", "window": "research_only"},
+     "runtime": {"library": "research-bundle"},
+     "parameterSchema": {"type": "object", "additionalProperties": false,
+       "properties": {"ntrees": {"type": "integer", "minimum": 1}, "sample_size": {"type": "integer", "minimum": 1},
+                      "extension_level": {"const": "dimension-1"}}},
+     "parameterSchemaStatus": "research_declared",
+     "defaults": {"ntrees": 128, "sample_size": 256},
+     "defaultsSource": "research/evaluation/if_feature_comparison/models.py:19",
+     "inputRequirements": {"unit": "aggregated_window", "featureSet": "not_required"},
+     "sourceRef": {"path": "research/evaluation/long_term_trend/models.py", "lines": "56-58", "commit": "7f24e03"},
+     "canDisable": true}
+  ]
+}
+```
 
-| methodId | status | uiTarget | executable | 비고 |
-|---|---|---|---|---|
-| `hr:process-status` | supported | server `server/worker/detector/status_rule.py` | process ✓ / window ✗ | `methodVersion=process-status-hr-v1`; `parameters={}`(매핑 S→no_hit·F→critical·P/N→warning 고정, `status_rule.py:7, 13-16`); `inputRequirements={unit:process_row, featureSet:not_required, fields:[status]}`; defaults `{}` |
-| `rule` 템플릿(`instanceTemplates[]`, `methods[]` 아님 [확정 10/21]) | supported | server `server/worker/detector/rules.py`, `server/backend/src/rules/ruleContract.ts` | process ✓ / window ✗ | `instanceSource=ml_rule_versions`, `instanceIdPattern=^rule:[a-z][a-z0-9_]{2,63}$`(`rule_key` 정규식 `ruleContract.ts:20`); 구성 `methods[]`에는 인스턴스 `rule:<rule_key>`만; 파라미터 없음(조건은 Rule DSL); `inputRequirements.featureSet=optional`(`F.*` 사용 시 required). 승인 상태 없음(`rules.md:3`) — HR 등록 목록 경계는 Detector D9-3 후속 |
-| `hr:status_failed`, `hr:success_with_error`, `hr:count_conservation`, `hr:final_missing_end`, `hr:missing_sql_required`, `hr:negative_duration`, `hr:invalid_count_domain`, `hr:invalid_input` | research [확정 10/21] Q-G=A | research `research/evaluation/process_synthetic_lab/model.py:15-16` | process ✗(`server_adapter_missing`) / window ✗ | 파라미터 미확인(`parameterSchemaStatus=unconfirmed`, defaults null); `hr:status_failed`는 `hr:process-status`의 F와 의미가 겹침 → 등재하되 `notes`에 중복 표기, 동시 활성은 허용(k=1에서 결과 동일) |
-
-### SR
-
-- 24종 모두 `status=research`, `uiTarget.scope=research`, `uiTarget.path=research/evaluation/trend_sr_comparison/methods.py`(registry `methods.py:17-22`), `executable={process:false, window:false}`, `executableReason={process:"input_unit_mismatch", window:"server_adapter_missing"}` [확정 Q-B=A]
-- `inputRequirements={unit:"aggregated_window", aggregationMinutes:[1,5,15], featureSet:"not_required"}` — 입력이 1분 집계 시간창(`features.py:72-73`)이며 PROCESS 행 단위 연구 코드는 Git에 없음(사실)
-- 공통 `parameterSchema`(연구 `Configuration` dataclass `methods.py:35-45`, `parameterSchemaStatus=research_declared`): `window`(정수 ≥1), `aggregation`(enum 1/5/15), `baseline`(enum `B0`/`B1`/`B2`, `references.py:86-106`), `window ≥ aggregation`. 방법별 변형(`methods.py:25-31`, registry 번호 → `METHODS` enumerate 순서 `methods.py:17-22`로 대응): R03 `sr:iqr` `k` enum 1.5/3.0; R07 `sr:finite_cusum` `k` enum 0.25/0.5/1.0; R18 `sr:mahalanobis` `ridge` enum 0.01/0.1; R21 `sr:holt_winters` `trend` enum none/damped; R23 `sr:arima_calendar` `order` enum [1,0,0]/[1,0,1]
-- `defaults`: 공통 `{window: 60, aggregation: 1, baseline: "B1"}` [확정 10/21](연구 기본 `baseline='B1'`, `aggregation=1`은 코드 기본값 `methods.py:37-39`; `window=60`은 초안 가정 — 연구 보고서 대조 필요, `defaultsSource`에 "미확인" 표기). 변형 파라미터 기본값은 각 enum의 첫 값 [확정 10/21]
-- `methodVersion`: `research-trend-sr-R<nn>`
-
-| registry | methodId | registry | methodId |
-|---|---|---|---|
-| R00 | `sr:typed_sr` | R12 | `sr:negative_binomial` |
-| R01 | `sr:z` | R13 | `sr:binomial` |
-| R02 | `sr:mad` | R14 | `sr:beta_binomial` |
-| R03 | `sr:iqr` | R15 | `sr:pearson` |
-| R04 | `sr:empirical_tail` | R16 | `sr:spearman` |
-| R05 | `sr:excess_ratio` | R17 | `sr:linear_residual` |
-| R06 | `sr:ewma` | R18 | `sr:mahalanobis` |
-| R07 | `sr:finite_cusum` | R19 | `sr:ks` |
-| R08 | `sr:front_back_median` | R20 | `sr:wasserstein` |
-| R09 | `sr:ols_slope` | R21 | `sr:holt_winters` |
-| R10 | `sr:known_zero` | R22 | `sr:stl_template` |
-| R11 | `sr:poisson` | R23 | `sr:arima_calendar` |
-
-- 번호↔이름 대응은 `METHODS = {f'R{i:02}': name for i, name in enumerate((...))}`(`methods.py:17-22`) 순서 그대로이며 카탈로그 JSON 생성 시 코드에서 읽어 채움(수기 표 아님)
-- PROCESS 단위 SR 프로토타입(사용자 Q-B 추가 지시, 별도 SR 서브에이전트 진행 중): 이름공간 `sr:process_*` 예약, **추가 예정(이 버전 미등재)**. 등재 시 `inputRequirements.unit=process_row`·`executable.process`는 서버 어댑터 유무로 결정
-- LLM이 만드는 `sr_<hash>` Rule(`research_design.py:228`, 코드 `SR_DIAGNOSTIC`)은 Rule DSL 인스턴스(`rule:sr_<hash>`)이며 SR 방법이 아님 — Detector D9-3 이름 정리 대상
-
-### ML
-
-| methodId | status | uiTarget | executable | parameterSchema·defaults | inputRequirements |
-|---|---|---|---|---|---|
-| `ml:iforest` | supported | server `server/worker/model_adapters.py` (연구 `research/anomaly_detection/code/process_anomaly_pipeline/artifacts/process_if_v1.manifest.json`) | process ✓(`process-iforest-v1`) / window ✓(v12 번들 `if`, `window_worker.py:105`) | `n_estimators` int 16..1024, `max_samples` int 64..4096, `contamination` const `auto`, `random_state` int ≥0, `thresholdPolicy` const `train-internal-p99-v1`; **defaults [확정 Q-H=A]** `{n_estimators:128, max_samples:512, contamination:"auto", random_state:42, thresholdPolicy:"train-internal-p99-v1"}`; `defaultsSource` `model_adapters.py:121-127`(연구 manifest와 동일값) | `{unit:process_row, featureSet:required, numericOnly:true, maxFeatures:32, minTrainRows:600, fitOperations:[group_median, group_centered]}`(`model_adapters.py:23-24, 89-108`) |
-| `ml:minibatch_kmeans` | research | research `research/anomaly_detection/code/analysis/minibatch_kmeans_common.py`, `model_research_v8/models.py` | process ✗(`server_adapter_missing`) / window ✓(v12 번들 `kmeans`, `005_research_runtime.sql:5`) | `parameterSchemaStatus=research_declared`: `k` int 2..64 [확정 10/21](상한 64는 초안 가정; 연구 후보 `candidates=(2,4,6,8,12)` 병기, 연구 코드 필드명은 `selected_k` `minibatch_kmeans_common.py:36-37`), `batch_size` int, `max_iter` int, `n_init` int, `random_state` int, `quantile` number 0..1; defaults `{k:6, batch_size:2048, max_iter:100, n_init:5, random_state:42, quantile:0.99}`(`KMeansConfig` `minibatch_kmeans_common.py:35-46`; v8 `Settings.k=6` `model_research_v5/models.py:21-28`) | `{unit:process_row, featureSet:required, numericOnly:true}` — PROCESS 경로 피처 정의는 연구 인코더 기준, 서버 피처셋 호환 미확인 |
-| `ml:eif` | research | research `research/evaluation/long_term_trend/models.py:56-58`, `if_feature_comparison/models.py:71-76` | process ✗ / window ✗(`research_only`) | `research_declared`: `ntrees` int, `sample_size` int, `extension_level` const `dimension-1`; defaults `{ntrees:128, sample_size:256}`(`SETTINGS` `if_feature_comparison/models.py:19`) | `{unit:aggregated_window, featureSet:"not_required"}`(장기 추세 연구, 피처는 연구 인코더 고정) |
-
-- `runtime.library`: `ml:iforest`·`ml:minibatch_kmeans`는 `scikit-learn`(사용자 4절 "scikit-learn 기반" 방향과 일치); `ml:eif`는 저자 구현 `third_party` 의존이라 `research-bundle`로 표기 — 서버 이식 시 scikit-learn 대체 구현이 없으면 `executable.process`는 계속 false
-- 시간창(WINDOW) 경로 포함은 [확정 10/21] Q-J=A: 구성 버전 v3는 PROCESS 경로만 다루고, `executable.window`는 표시용
+- `hardRules.contractVersion: "detection-decision-v1"`은 Detector 11/02 회신으로 **확정**. 하드룰 예시 id `hard:process-status`(`process-status-hr-v1`)·`hard:negative-duration`(`negative-duration-v1`, kebab-case)도 Detector 회신값
+- 하드룰 **항목 형식**은 카탈로그 JSON에 없음(목록 정의 주체 = Detector). 화면·API가 쓰는 항목 형식 `{id, methodVersion, displayName, conditionText, severity, enabled}`·`severity`(단일 문자열 또는 `{"byCode": {...}}`, #92 4.3 기준)는 [rule-set.md](rule-set.md) `hardRules[]` 행과 동일하며 이 schema에는 항목 정의를 추가하지 않음(`hardRules.displayName`은 대분류 표시명 "이상 규칙"일 뿐 항목 이름이 아님)
+- `softRule.instanceIdPattern`의 fieldId 부분은 `[a-z0-9_]{1,53}`(카탈로그 `fieldId` 패턴과 동일, 하이픈 없음) — 식별자 key 전체(`<fieldId>-<8 hex>`)는 `^[a-z][a-z0-9_-]{1,63}$` 안에 들어감
 
 ## 검증·시험(구현 Issue)
 
-- 카탈로그 JSON은 `method-catalog.schema.json`을 통과해야 함. `defaults`는 자신의 `parameterSchema`를 통과
-- `executable.process=true`인 항목은 `server/`에 어댑터 등록이 실제로 있어야 함(레지스트리 시험이 import·호출로 확인). 연구 경로 항목은 `server/`에서 `research/` import 금지(배포 경계 유지)
-- `uiTarget.path`는 저장소에 실제 존재(시험으로 확인)
+- 카탈로그 JSON은 `method-catalog.schema.json`을 통과. `defaults`는 자신의 `parameterSchema`를 통과. `softRuleFields[].source.ast`는 `derived_expression.validate`를 통과하고 `unit(ast)`가 필드 `unit`과 같아야 함(시험)
+- `executable.process=true` 항목은 `server/` 어댑터 등록 실제 존재. 연구 경로 항목은 `server/`에서 `research/` import 금지
+- `uiTarget.path`·`sourceRef.path`는 저장소에 실제 존재
+- 이 초안 검증(실행): 위 예시 JSON을 jsonschema(Draft 2020-12)로 검증 — 결과는 #94 보고 참조
 
 ## 확정 요약·남은 의존
 
-- 확정(10/21, 설계 방향 4.5·4.7절): Q-B 시간창 SR 24종 등재 / Q-G HR 연구 8종 등재 / Q-H IF v1 기본값 = 서버 현재값 / Q-I `supported := executable.process` 유지 / Q-J 시간창 경로 포함(`executable.window` 표시만) / Q-K 레지스트리 Python 원본 + 생성 JSON + parity 시험 / Q3-1 실행 불가 방법 저장 거부 / Q8 `method-result-v1`은 evidence v4에 정렬 / N8 SR 공통 기본값 `window=60`·변형 기본값 enum 첫 값은 **임시값으로 확정**(연구 보고서 대조는 후속 작업, `defaultsSource`에 "미확인" 표기 유지) / N17 `instanceTemplates[]` / N18 KMeans `k` 2..64
-- 남은 결정 대기 ★: N13 `ml:minibatch_kmeans` PROCESS 경로 `inputRequirements`(연구 인코더 ↔ 서버 피처셋 대응) — 서버 이식 Issue에서 확정
-- 남은 의존(결정 아님): evidence v4 필드(Detector 계약 Issue), 대표 코드 형식(`SR_<KEY>`·`<KEY>_ANOMALY`)은 Detector Q4 등급 보류에 묶임
+- 확정(11/02): 대분류 hard/soft/ml, SR 삭제, 소프트룰 = 등록 필드 + 임계값, 하드룰 = Detector 내장 목록
+- 유지(10/21): Q-H IF 기본값 / Q-I `supported := executable.process` / Q-J window 표시만 / Q-K 레지스트리 + 생성 JSON / Q3-1 저장 거부 / N13 KMeans 피처셋 대응 미확정 / N18 `k` 2..64
+- 확정(11/02 9.4): `elapsed_ms`의 END_TIME 누락은 이상 아님(값 null, 평가 안 함) — `sourceMissingPolicy`
+- 결정 질문: Q-C1 초기 필드 6종 확정 여부(후보 `success_ratio`·`elapsed_s`·`retry_ratio` 추가 여부) / Q-C2 `elapsed_ms` 음수 처리(값 그대로 vs unavailable — Detector 의미론과 함께) / Q-C3 `displayPrecisionMode` 기본값 `fixed`·ratio만 `significant`(제안) vs 전 필드 `significant`
+- 남은 의존: 하드룰 내장 목록 전체 key·조건·위험도(detection-decision.md(#92)); 대분류 키 `hard/soft/ml`·접두는 세션 합의로 사용자 확인 전(rule-set.md Q-R7)

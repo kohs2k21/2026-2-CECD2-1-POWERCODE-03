@@ -3,7 +3,7 @@ import React from "react";
 import { act, create } from "react-test-renderer";
 import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import { useAnalysisWorkspace } from "../src/features/analysis/hooks/useAnalysisWorkspace.tsx";
-import { settingsReturnPath } from "../src/app/routePaths.ts";
+import { settingsReturnPath } from "../src/app/routes.ts";
 
 globalThis.React = React;
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
@@ -38,7 +38,7 @@ await act(async () => workspace.setActiveDetailId("received-event"));
 const saved = router.state.location.pathname + router.state.location.search;
 const categoryLink = workspace.sidebarGroups
   .flatMap((group) => group.items)
-  .find((item) => item.id === "Critical").href;
+  .find((item) => item.id === "Critical").to;
 assert.equal(
   new URL(categoryLink, "http://localhost").searchParams.get("q"),
   "timeout",

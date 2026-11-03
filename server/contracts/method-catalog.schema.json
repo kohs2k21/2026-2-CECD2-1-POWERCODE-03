@@ -1,23 +1,111 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:powercode:trainer:method-catalog:v1",
+  "$id": "urn:powercode:trainer:method-catalog:v2",
   "type": "object",
   "additionalProperties": false,
-  "required": ["catalogVersion", "generatedFrom", "methods"],
+  "required": ["catalogVersion", "generatedFrom", "categoryDisplayNames", "hardRules", "softRuleFields", "softRule", "methods"],
   "properties": {
-    "catalogVersion": {"const": "method-catalog-v1"},
+    "catalogVersion": {"const": "method-catalog-v2"},
     "generatedFrom": {"type": "object", "additionalProperties": false, "required": ["gitRef"],
       "properties": {"gitRef": {"$ref": "#/$defs/text"}, "generatedAt": {"type": "string"}}},
-    "methods": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/method"}},
-    "instanceTemplates": {"type": "array", "items": {"$ref": "#/$defs/instanceTemplate"}}
+    "categoryDisplayNames": {"type": "object", "additionalProperties": false, "required": ["hard", "soft", "ml"],
+      "properties": {"hard": {"$ref": "#/$defs/text"}, "soft": {"$ref": "#/$defs/text"}, "ml": {"$ref": "#/$defs/text"}}},
+    "hardRules": {"type": "object", "additionalProperties": false, "required": ["definedBy", "displayName", "contractVersion"],
+      "properties": {
+        "definedBy": {"const": "detection-decision.md"},
+        "displayName": {"$ref": "#/$defs/text"},
+        "contractVersion": {"const": "detection-decision-v1"},
+        "idPattern": {"const": "^hard:[a-z][a-z0-9_-]{1,63}$"}
+      }},
+    "softRuleFields": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/softRuleField"}},
+    "softRule": {"type": "object", "additionalProperties": false,
+      "required": ["displayName", "instanceIdPattern", "operators", "severities", "maxRules", "thresholdSerialization"],
+      "properties": {
+        "displayName": {"$ref": "#/$defs/text"},
+        "instanceIdPattern": {"const": "^soft:[a-z][a-z0-9_]{1,53}-[0-9a-f]{8}$"},
+        "operators": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"$ref": "#/$defs/operator"}},
+        "severities": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"enum": ["info", "warning", "critical"]}},
+        "maxRules": {"type": "integer", "minimum": 1, "maximum": 1024},
+        "thresholdSerialization": {"const": "fixed-decimal-string"}
+      }},
+    "methods": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/method"}}
   },
   "$defs": {
     "text": {"type": "string", "minLength": 1, "maxLength": 512, "pattern": "^(?!.*[\\u0000-\\u001f])\\S(?:.*\\S)?$"},
-    "methodId": {"type": "string", "pattern": "^(hr|rule|sr|ml):[a-z][a-z0-9_-]{1,63}$"},
-    "kind": {"enum": ["hr", "sr", "ml"]},
-    "category": {"enum": ["HR", "SR", "ML"]},
+    "methodId": {"type": "string", "pattern": "^(hard|soft|ml):[a-z][a-z0-9_-]{1,63}$"},
+    "kind": {"enum": ["hard", "soft", "ml"]},
+    "category": {"enum": ["RULE", "ML"]},
     "status": {"enum": ["supported", "research", "deprecated"]},
     "reason": {"enum": ["server_adapter_missing", "input_unit_mismatch", "research_only"]},
+    "operator": {"enum": ["gte", "gt", "lte", "lt"]},
+    "unit": {"enum": ["count", "ms", "s", "us", "ratio"]},
+    "fieldId": {"type": "string", "pattern": "^[a-z][a-z0-9_]{1,53}$"},
+    "sourceColumn": {"enum": ["SUCCESS_COUNT", "ERROR_COUNT", "TOTAL_COUNT", "RETRY_COUNT", "START_TIME", "END_TIME"]},
+    "derivedAst": {
+      "type": "object",
+      "required": ["op"],
+      "properties": {"op": {"enum": ["column", "literal", "subtract", "divide", "datetime_diff", "convert_unit", "is_missing", "eq", "lt", "lte", "gt", "gte", "and"]}},
+      "allOf": [
+        {"if": {"properties": {"op": {"const": "column"}}},
+         "then": {"additionalProperties": false, "required": ["op", "table", "column"],
+                  "properties": {"op": {}, "table": {"const": "EC_PROCESS_MONITORING"}, "column": {"$ref": "#/$defs/sourceColumn"}}}},
+        {"if": {"properties": {"op": {"const": "literal"}}},
+         "then": {"additionalProperties": false, "required": ["op", "value"], "properties": {"op": {}, "value": {"type": ["number", "boolean"]}}}},
+        {"if": {"properties": {"op": {"const": "datetime_diff"}}},
+         "then": {"additionalProperties": false, "required": ["op", "args", "unit"],
+                  "properties": {"op": {}, "unit": {"enum": ["s", "ms", "us"]},
+                                 "args": {"type": "array", "minItems": 2, "maxItems": 2, "items": {"$ref": "#/$defs/derivedAst"}}}}},
+        {"if": {"properties": {"op": {"const": "convert_unit"}}},
+         "then": {"additionalProperties": false, "required": ["op", "args", "from_unit", "to_unit"],
+                  "properties": {"op": {}, "from_unit": {"enum": ["s", "ms", "us"]}, "to_unit": {"enum": ["s", "ms", "us"]},
+                                 "args": {"type": "array", "minItems": 1, "maxItems": 1, "items": {"$ref": "#/$defs/derivedAst"}}}}},
+        {"if": {"properties": {"op": {"const": "is_missing"}}},
+         "then": {"additionalProperties": false, "required": ["op", "args"],
+                  "properties": {"op": {}, "args": {"type": "array", "minItems": 1, "maxItems": 1, "items": {"$ref": "#/$defs/derivedAst"}}}}},
+        {"if": {"properties": {"op": {"enum": ["subtract", "divide", "eq", "lt", "lte", "gt", "gte", "and"]}}},
+         "then": {"additionalProperties": false, "required": ["op", "args"],
+                  "properties": {"op": {}, "args": {"type": "array", "minItems": 2, "maxItems": 2, "items": {"$ref": "#/$defs/derivedAst"}}}}}
+      ]
+    },
+    "softRuleField": {
+      "type": "object", "additionalProperties": false,
+      "required": ["fieldId", "displayName", "valueType", "unit", "source", "operators", "displayPrecision", "status", "sourceRef"],
+      "properties": {
+        "fieldId": {"$ref": "#/$defs/fieldId"},
+        "displayName": {"$ref": "#/$defs/text"},
+        "description": {"type": "string", "maxLength": 500},
+        "valueType": {"enum": ["integer", "number"]},
+        "unit": {"$ref": "#/$defs/unit"},
+        "source": {"type": "object", "required": ["kind"],
+          "properties": {"kind": {"enum": ["column", "derived"]}},
+          "allOf": [
+            {"if": {"properties": {"kind": {"const": "column"}}},
+             "then": {"additionalProperties": false, "required": ["kind", "column", "ruleDslField"],
+                      "properties": {"kind": {}, "column": {"$ref": "#/$defs/sourceColumn"},
+                                     "ruleDslField": {"type": "string", "pattern": "^P\\.[a-z_]+$"}}}},
+            {"if": {"properties": {"kind": {"const": "derived"}}},
+             "then": {"additionalProperties": false, "required": ["kind", "ast"],
+                      "properties": {"kind": {}, "ast": {"$ref": "#/$defs/derivedAst"}}}}
+          ]},
+        "operators": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"$ref": "#/$defs/operator"}},
+        "displayPrecision": {"type": "integer", "minimum": 0, "maximum": 6},
+        "displayPrecisionMode": {"enum": ["fixed", "significant"], "default": "fixed"},
+        "sourceMissingPolicy": {"type": "object", "additionalProperties": false,
+          "propertyNames": {"$ref": "#/$defs/sourceColumn"},
+          "patternProperties": {"^[A-Z_]+$": {"enum": ["not_applicable", "unavailable"]}}},
+        "status": {"$ref": "#/$defs/status"},
+        "sourceRef": {"$ref": "#/$defs/sourceRef"},
+        "notes": {"type": "string", "maxLength": 2000}
+      },
+      "allOf": [
+        {"if": {"properties": {"valueType": {"const": "integer"}}},
+         "then": {"properties": {"displayPrecision": {"const": 0}, "displayPrecisionMode": {"const": "fixed"}}}},
+        {"if": {"properties": {"displayPrecisionMode": {"const": "significant"}}, "required": ["displayPrecisionMode"]},
+         "then": {"properties": {"displayPrecision": {"minimum": 1}}}}
+      ]
+    },
+    "sourceRef": {"type": "object", "additionalProperties": false, "required": ["path", "commit"],
+      "properties": {"path": {"$ref": "#/$defs/text"}, "lines": {"$ref": "#/$defs/text"}, "commit": {"$ref": "#/$defs/text"}}},
     "parameterSchema": {
       "type": "object", "additionalProperties": false,
       "required": ["type", "additionalProperties"],
@@ -45,36 +133,15 @@
         "description": {"type": "string"}
       }
     },
-    "instanceTemplate": {
-      "type": "object", "additionalProperties": false,
-      "required": ["kind", "category", "displayName", "status", "uiTarget", "executable", "instanceSource", "instanceIdPattern", "inputRequirements", "sourceRef"],
-      "properties": {
-        "kind": {"const": "rule"},
-        "category": {"const": "HR"},
-        "displayName": {"$ref": "#/$defs/text"},
-        "status": {"$ref": "#/$defs/status"},
-        "uiTarget": {"$ref": "#/$defs/method/properties/uiTarget"},
-        "executable": {"$ref": "#/$defs/method/properties/executable"},
-        "instanceSource": {"enum": ["ml_rule_versions"]},
-        "instanceIdPattern": {"$ref": "#/$defs/text"},
-        "inputRequirements": {"$ref": "#/$defs/method/properties/inputRequirements"},
-        "sourceRef": {"$ref": "#/$defs/method/properties/sourceRef"},
-        "notes": {"type": "string", "maxLength": 2000}
-      },
-      "allOf": [
-        {"if": {"properties": {"status": {"const": "supported"}}},
-         "then": {"properties": {"uiTarget": {"properties": {"scope": {"const": "server"}}}}}}
-      ]
-    },
     "method": {
       "type": "object", "additionalProperties": false,
       "required": ["methodId", "kind", "category", "displayName", "status", "methodVersion", "uiTarget", "executable",
                    "runtime", "parameterSchema", "parameterSchemaStatus", "defaults", "defaultsSource",
-                   "inputRequirements", "sourceRef", "resultSchema", "canDisable"],
+                   "inputRequirements", "sourceRef", "canDisable"],
       "properties": {
-        "methodId": {"$ref": "#/$defs/methodId"},
-        "kind": {"$ref": "#/$defs/kind"},
-        "category": {"$ref": "#/$defs/category"},
+        "methodId": {"type": "string", "pattern": "^ml:[a-z][a-z0-9_-]{1,63}$"},
+        "kind": {"const": "ml"},
+        "category": {"const": "ML"},
         "displayName": {"$ref": "#/$defs/text"},
         "status": {"$ref": "#/$defs/status"},
         "methodVersion": {"$ref": "#/$defs/text"},
@@ -85,7 +152,7 @@
         "executableReason": {"type": "object", "additionalProperties": false,
           "properties": {"process": {"$ref": "#/$defs/reason"}, "window": {"$ref": "#/$defs/reason"}}},
         "runtime": {"type": "object", "additionalProperties": false, "required": ["library"],
-          "properties": {"library": {"enum": ["scikit-learn", "scipy", "statsmodels", "server-python", "research-bundle"]},
+          "properties": {"library": {"enum": ["scikit-learn", "server-python", "research-bundle"]},
                          "artifactFormat": {"$ref": "#/$defs/text"}}},
         "parameterSchema": {"$ref": "#/$defs/parameterSchema"},
         "parameterSchemaStatus": {"enum": ["verified", "research_declared", "unconfirmed"]},
@@ -99,24 +166,15 @@
             "maxFeatures": {"type": "integer", "minimum": 1},
             "minTrainRows": {"type": "integer", "minimum": 1},
             "fitOperations": {"type": "array", "items": {"enum": ["group_median", "group_centered"]}},
-            "fields": {"type": "array", "items": {"$ref": "#/$defs/text"}},
-            "aggregationMinutes": {"type": "array", "items": {"enum": [1, 5, 15]}}
+            "fields": {"type": "array", "items": {"$ref": "#/$defs/text"}}
           }},
-        "sourceRef": {"type": "object", "additionalProperties": false, "required": ["path", "commit"],
-          "properties": {"path": {"$ref": "#/$defs/text"}, "lines": {"$ref": "#/$defs/text"}, "commit": {"$ref": "#/$defs/text"}}},
-        "resultSchema": {"const": "method-result-v1"},
+        "sourceRef": {"$ref": "#/$defs/sourceRef"},
         "canDisable": {"const": true},
         "notes": {"type": "string", "maxLength": 2000}
       },
       "allOf": [
         {"if": {"properties": {"status": {"const": "supported"}}},
          "then": {"properties": {"uiTarget": {"properties": {"scope": {"const": "server"}}}}}},
-        {"if": {"properties": {"kind": {"const": "hr"}}},
-         "then": {"properties": {"category": {"const": "HR"}}}},
-        {"if": {"properties": {"kind": {"const": "sr"}}},
-         "then": {"properties": {"category": {"const": "SR"}}}},
-        {"if": {"properties": {"kind": {"const": "ml"}}},
-         "then": {"properties": {"category": {"const": "ML"}}}},
         {"if": {"properties": {"parameterSchemaStatus": {"const": "unconfirmed"}}},
          "then": {"properties": {"defaults": {"type": "null"}}}}
       ]

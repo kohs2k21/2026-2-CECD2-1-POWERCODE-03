@@ -1,19 +1,11 @@
-import { useQuery } from "@tanstack/react-query";
-import { useAuthSession } from "../../../services/auth/AuthSessionProvider";
+import { useAccountQuery } from "@/lib/query";
 import { readAnomalyEvidence } from "./anomalyEvidence";
-export const anomalyEvidenceQueryKey = (userId: string, eventId: string) =>
-  ["anomaly-evidence", userId, eventId] as const;
-export const useAnomalyEvidenceQuery = (eventId: string) => {
-  const { user } = useAuthSession();
-  return useQuery({
-    queryKey: anomalyEvidenceQueryKey(user?.id ?? "anonymous", eventId),
-    queryFn: ({ signal }) => readAnomalyEvidence(eventId, signal),
-    enabled: Boolean(user && eventId),
-    retry: false,
-    staleTime: 30000,
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: false,
-    refetchInterval: false,
-    refetchOnMount: false,
+
+export const anomalyEvidenceQueryName = "anomaly-evidence";
+export const useAnomalyEvidenceQuery = (eventId: string) =>
+  useAccountQuery({
+    name: anomalyEvidenceQueryName,
+    params: [eventId],
+    read: (signal) => readAnomalyEvidence(eventId, signal),
+    enabled: Boolean(eventId),
   });
-};

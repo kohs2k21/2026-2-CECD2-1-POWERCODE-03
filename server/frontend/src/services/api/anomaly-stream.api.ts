@@ -1,8 +1,8 @@
-import { getStoredToken, expireSession } from "../auth/session";
+import { getStoredToken, expireSession } from "@/services/auth/session";
 import {
   isRealtimeAnomalyEvent,
   type RealtimeAnomalyEvent,
-} from "../../types/realtime";
+} from "@/types/realtime";
 import { buildApiUrl } from "./client";
 
 export type AnomalyStreamOptions = {

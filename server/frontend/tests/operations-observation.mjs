@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { parseOperationsOverview, operationsFreshness, readOperationsOverview, operationsReadUnavailable } from "../src/features/home/data/operations.ts";
+import { parseOperationsOverview, operationsFreshness, readOperationsOverview, operationsReadUnavailable } from "../src/features/operations/data/operations.ts";
 import { HttpError } from "../src/services/api/client.ts";
 const now = Date.parse("2026-10-09T10:00:00Z");
 const data = parseOperationsOverview({ observedAt: "2026-10-09T09:59:50Z", maxAgeMs: 30000, stages: { collector: { state: "healthy", pendingCount: 0, oldestWaitMs: 12, rawBody: "must disappear" }, detector: { pendingCount: -1 } }, cpuPercent: 42, memoryPercent: 101, activeConfigurationVersion: "v3", secret: "must disappear" });

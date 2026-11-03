@@ -1,8 +1,8 @@
 import { useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import type { SidebarNavGroup } from "../../../components/layout/SidebarNav";
-import { getStored, setStored, storageKeys } from "../../../lib/storage";
-import type { RealtimeAnomalyEvent } from "../../../types/realtime";
+import type { SideNavGroup } from "@/components/layout/SideNav";
+import { getStored, setStored, storageKeys } from "@/lib/storage";
+import type { RealtimeAnomalyEvent } from "@/types/realtime";
 import { categoryOrder, categoryThemeMap } from "../constants";
 import type { AnalysisCategory, CategoryTheme } from "../types";
 import {
@@ -16,7 +16,7 @@ import {
 const getSidebarGroups = (
   categoryCounts: Record<AnalysisCategory, number>,
   workflowKnownCount: number,
-): SidebarNavGroup<AnalysisCategory>[] =>
+): (SideNavGroup & { items: (SideNavGroup["items"][number] & { id: AnalysisCategory })[] })[] =>
   [
     "이상 로그",
     workflowKnownCount
@@ -41,8 +41,8 @@ const getSidebarGroups = (
             theme.group === "workflow" && !workflowKnownCount
               ? undefined
               : categoryCounts[category],
-          icon: <Icon size={17} aria-hidden="true" />,
-          className: theme.className,
+          icon: <Icon aria-hidden="true" />,
+          to: "/analysis?category=" + category,
         };
       }),
   }));
@@ -103,7 +103,7 @@ export const useAnalysisWorkspace = (events: RealtimeAnomalyEvent[]) => {
           const next = new URLSearchParams(params);
           next.set("category", item.id);
           next.delete("event");
-          return { ...item, href: "/analysis?" + next.toString() };
+          return { ...item, to: "/analysis?" + next.toString() };
         }),
       })),
     [categoryCounts, params, workflowKnownCount],

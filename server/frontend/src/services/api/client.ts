@@ -1,4 +1,4 @@
-import { expireSession, getStoredToken } from "../auth/session";
+import { expireSession, getStoredToken } from "@/services/auth/session";
 
 const apiBaseUrl =
   (import.meta as ImportMeta & { env?: { VITE_API_BASE_URL?: string } }).env

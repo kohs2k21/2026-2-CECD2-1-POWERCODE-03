@@ -6,77 +6,23 @@ import {
   IconInbox,
   IconInfoCircle,
 } from "@tabler/icons-react";
-import type { AnomalyStatus, Severity } from "../../types/domain";
-import type { AnalysisCategory, AnalysisStatus, CategoryTheme } from "./types";
+import type { Severity } from "@/types/realtime";
+import type { AnalysisCategory, CategoryTheme } from "./types";
 
-export const categoryOrder: AnalysisCategory[] = [
-  "All",
-  "Critical",
-  "Warning",
-  "Info",
-  "Open",
-  "Resolved",
-];
+export const categoryOrder: AnalysisCategory[] = ["All", "Critical", "Warning", "Info", "Open", "Resolved"];
 
 export const categoryThemeMap: Record<AnalysisCategory, CategoryTheme> = {
-  All: {
-    icon: IconInbox,
-    label: "전체",
-    group: "all",
-    className: "analysis-theme--all",
-  },
-  Critical: {
-    icon: IconFlame,
-    label: "위험",
-    group: "severity",
-    className: "analysis-theme--critical",
-  },
-  Warning: {
-    icon: IconAlertTriangle,
-    label: "주의",
-    group: "severity",
-    className: "analysis-theme--warning",
-  },
-  Info: {
-    icon: IconInfoCircle,
-    label: "참고",
-    group: "severity",
-    className: "analysis-theme--info",
-  },
-  Open: {
-    icon: IconFolderOpen,
-    label: "보류",
-    group: "workflow",
-    className: "analysis-theme--open",
-  },
-  Resolved: {
-    icon: IconCircleCheck,
-    label: "완료",
-    group: "workflow",
-    className: "analysis-theme--resolved",
-  },
+  All: { icon: IconInbox, label: "전체", group: "all" },
+  Critical: { icon: IconFlame, label: "위험", group: "severity" },
+  Warning: { icon: IconAlertTriangle, label: "주의", group: "severity" },
+  Info: { icon: IconInfoCircle, label: "참고", group: "severity" },
+  Open: { icon: IconFolderOpen, label: "보류", group: "workflow" },
+  Resolved: { icon: IconCircleCheck, label: "완료", group: "workflow" },
 };
 
-export const severityToneMap: Record<
-  Severity,
-  "critical" | "warning" | "success"
-> = {
+/** 위험도 → 배지 색(토큰). */
+export const severityBadgeVariant: Record<Severity, "critical" | "warning" | "info"> = {
   Critical: "critical",
   Warning: "warning",
-  Info: "success",
-};
-
-export const statusToneMap: Record<
-  AnomalyStatus,
-  "default" | "success" | "warning"
-> = {
-  Detected: "warning",
-  Open: "warning",
-  Resolved: "success",
-};
-
-export const statusLabelMap: Record<AnalysisStatus, string> = {
-  Detected: "감지됨",
-  Open: "보류",
-  Resolved: "완료",
+  Info: "info",
 };

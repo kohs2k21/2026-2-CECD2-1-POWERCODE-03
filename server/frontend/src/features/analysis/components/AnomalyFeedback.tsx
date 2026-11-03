@@ -1,8 +1,12 @@
 import { useEffect, useRef, useState } from "react";
-import { Button } from "../../../components/ui/button";
-import { useAuthSession } from "../../../services/auth/AuthSessionProvider";
-import { getStoredToken } from "../../../services/auth/session";
-import { useDraftStore } from "../../../stores/draftStore";
+import { SectionCard } from "@/components/layout/SectionCard";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
+import { Textarea } from "@/components/ui/textarea";
+import { useAuthSession } from "@/services/auth/AuthSessionProvider";
+import { getStoredToken } from "@/services/auth/session";
+import { useDraftStore } from "@/stores/draftStore";
 import {
   feedbackWriteAllowed,
   saveAnomalyFeedback,
@@ -79,28 +83,24 @@ export const AnomalyFeedback = ({
     }
   };
   return (
-    <section
-      className="analysis-section-card anomaly-feedback"
-      aria-label="이상 이벤트 조사·조치"
-    >
-      <h3>조사·조치 기록</h3>
-      <label>
-        기록 유형
-        <select
+    <SectionCard title="조사·조치 기록" headingLevel={3} aria-label="이상 이벤트 조사·조치">
+      <div className="grid gap-2">
+        <Label htmlFor={`feedback-kind-${eventId}`}>기록 유형</Label>
+        <NativeSelect
+          id={`feedback-kind-${eventId}`}
           value={draft.kind}
           disabled={pending}
-          onChange={(e) =>
-            edit({ ...draft, kind: e.target.value as FeedbackDraft["kind"] })
-          }
+          onChange={(e) => edit({ ...draft, kind: e.target.value as FeedbackDraft["kind"] })}
         >
-          <option value="action">조치 기록</option>
-          <option value="suspected-false-positive">오탐 의심</option>
-          <option value="insufficient-evidence">근거 부족</option>
-        </select>
-      </label>
-      <label>
-        조사·조치 사유
-        <textarea
+          <NativeSelectOption value="action">조치 기록</NativeSelectOption>
+          <NativeSelectOption value="suspected-false-positive">오탐 의심</NativeSelectOption>
+          <NativeSelectOption value="insufficient-evidence">근거 부족</NativeSelectOption>
+        </NativeSelect>
+      </div>
+      <div className="grid gap-2">
+        <Label htmlFor={`feedback-reason-${eventId}`}>조사·조치 사유</Label>
+        <Textarea
+          id={`feedback-reason-${eventId}`}
           value={draft.reason}
           disabled={pending}
           maxLength={2000}
@@ -108,23 +108,25 @@ export const AnomalyFeedback = ({
           onChange={(e) => edit({ ...draft, reason: e.target.value })}
           placeholder="확인한 사실과 조치 사유를 입력하세요."
         />
-      </label>
-      <p>선택은 확정 라벨이나 자동 학습으로 반영되지 않습니다.</p>
+      </div>
+      <p className="text-sm text-muted-foreground">선택은 확정 라벨이나 자동 학습으로 반영되지 않습니다.</p>
       {!capability && (
-        <p>피드백 저장 미연결 · 입력 내용은 현재 세션의 초안입니다.</p>
+        <p className="text-sm text-muted-foreground">피드백 저장 미연결 · 입력 내용은 현재 세션의 초안입니다.</p>
       )}
-      <Button
-        type="button"
-        onClick={() => void submit()}
-        disabled={
-          !feedbackWriteAllowed(user.userType, capability) ||
-          !validFeedbackDraft(draft) ||
-          pending
-        }
-      >
-        {pending ? "서버 저장 중" : "서버에 피드백 저장"}
-      </Button>
-      {message && <p role="status">{message}</p>}
-    </section>
+      <div>
+        <Button
+          type="button"
+          onClick={() => void submit()}
+          disabled={!feedbackWriteAllowed(user.userType, capability) || !validFeedbackDraft(draft) || pending}
+        >
+          {pending ? "서버 저장 중" : "서버에 피드백 저장"}
+        </Button>
+      </div>
+      {message && (
+        <p role="status" className="text-sm">
+          {message}
+        </p>
+      )}
+    </SectionCard>
   );
 };

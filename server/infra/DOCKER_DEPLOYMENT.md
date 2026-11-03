@@ -120,7 +120,7 @@ docker compose exec collector python -m collector.report \
   --max-error-rate 0.01 --require-nonempty
 ```
 
-검사 실패/샘플 부족이면 exit 2다. `--require-nonempty`는 진행 중 응답이 계속 비어 있는 상태를 데이터 도착 시험의 통과로 처리하지 않는다. HTTP 응답 p50/p95/p99, 오류율·빈 응답 비율, DB 저장 p95, 실제 조회 간격 p95를 출력한다. **원천 발생→수집 지연은 원천 시각 검증이 없어 NULL**이다. UI의 관리자 학습·탐지 운영 화면에서도 최근 10분 API 측정값과 수집 상태를 본다.
+검사 실패/샘플 부족이면 exit 2다. `--require-nonempty`는 진행 중 응답이 계속 비어 있는 상태를 데이터 도착 시험의 통과로 처리하지 않는다. HTTP 응답 p50/p95/p99, 오류율·빈 응답 비율, DB 저장 p95, 실제 조회 간격 p95를 출력한다. **원천 발생→수집 지연은 원천 시각 검증이 없어 NULL**이다. 최근 10분 API 측정값·수집 상태를 보던 옛 관리자 학습·탐지 운영 화면은 #100에서 폐지했고, 운영 현황 수집 탭·탐지 설정 화면에서 재연결 예정이다.
 
 계속 쌓이는 samples/snapshots의 디스크 사용량과 보관 기간은 운영 정책으로 정한다. 이 구현은 과거 데이터를 자동 삭제하지 않는다. DB와 참조 artifact를 같은 백업 시점으로 보존한다.
 
@@ -152,7 +152,7 @@ docker compose exec web wget -qO- http://127.0.0.1/health/database
 
 프록시 수정은 `docker compose build web` 후 `docker compose up -d --no-deps web`으로 반영한다. API/Worker/LLM 재시작이나 DB 마이그레이션은 필요하지 않다.
 
-기존 탐지 관리 세부 화면의 `detection_gateway_unavailable` 안내는 아직 서버 조회가 연결되지 않은 화면을 뜻하며 API 장애를 뜻하지 않는다. 실제 공통 파이프라인의 피처·Rule·학습·평가·입력 전환은 `/detection/pipeline`, 저장 판정은 `/analysis/process-decisions`에서 진행한다. 미연동 화면은 해당 운영 화면으로 이동하는 링크를 제공하고 개발용 데이터를 운영 응답으로 대체하지 않는다.
+옛 탐지 관리 화면과 `detection_gateway_unavailable` 안내는 #100에서 삭제했다. 입력 전환은 운영 현황 수집 탭(`/operations?tab=collect`, 관리자), 저장 판정은 `/analysis/process-decisions`에서 진행한다. 피처·Rule·학습·평가 화면은 #100에서 옛 화면 폐지, 탐지 설정 화면에서 재연결 예정이며, 미연동 화면은 개발용 데이터를 운영 응답으로 대체하지 않는다.
 
 `unavailable`은 판정에 필요한 경로가 완료되지 않았음을 뜻한다. 운영 화면과 저장 판정 화면은 기존 evidence의 `deadline_exceeded`, `worker_busy`, 피처 부족·모델 파일 검증 실패 등의 사유를 표시한다. 과거 사유가 없는 결과는 추정하지 않으며, 이미 확정된 판정은 수정하지 않는다. 502와 unavailable이 같은 원인이라고 가정하지 않는다.
 

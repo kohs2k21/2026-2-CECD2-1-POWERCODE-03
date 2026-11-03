@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import React from 'react';
 import {renderToStaticMarkup} from 'react-dom/server';
-import {DecisionDiagnostics} from '../src/features/pipeline/DecisionDiagnostics.tsx';
+import {DecisionDiagnostics} from '../src/features/analysis/components/DecisionDiagnostics.tsx';
+globalThis.React=React;
 
 const base={id:'decision',sourceId:'source',processObservationId:'observation',configVersionId:'config',
   status:'unavailable',ruleStatus:'not_ready',mlStatus:'not_ready',decisionCode:null,anomalyScore:null,decidedAt:'2026-10-15T00:00:00Z'};

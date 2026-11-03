@@ -24,4 +24,4 @@ Infrastructure entry points and deployment configuration belong here. `scripts/b
 
 ## API / CSV 공통 전체 프로세스
 
-현재 권장 입력은 [입력 전환 안내](SWITCHABLE_INPUTS.md)다. `009_switchable_inputs.sql` 적용 후 `/detection/pipeline`에서 API·네 CSV·일시정지를 선택한다. 같은 sourceId·피처·Rule·모델을 유지하며 Rule 추천/사용자 채택 과정도 포함한다. Message 모니터링 82,351행과 BODY 참조 579행을 구분한다. 실제 BODY 원문은 수집하지 않는다.
+현재 권장 입력은 [입력 전환 안내](SWITCHABLE_INPUTS.md)다. `009_switchable_inputs.sql` 적용 후 운영 현황 수집 탭(`/operations?tab=collect`, 관리자)에서 API·네 CSV·일시정지를 선택한다. 같은 sourceId·피처·Rule·모델을 유지하며 Rule 추천/사용자 채택 과정도 포함한다. Message 모니터링 82,351행과 BODY 참조 579행을 구분한다. 실제 BODY 원문은 수집하지 않는다.

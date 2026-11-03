@@ -7,8 +7,8 @@ import {
   type PropsWithChildren,
 } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import type { AuthSession, AuthUser } from "../../types/auth";
-import { fetchCurrentUser } from "../api/auth.api";
+import type { AuthSession, AuthUser } from "@/types/auth";
+import { fetchCurrentUser } from "@/services/api/auth.api";
 import {
   clearStoredToken,
   getStoredToken,
@@ -16,8 +16,8 @@ import {
   subscribeSessionExpiry,
   subscribeTokenStorage,
 } from "./session";
-import { useDraftStore } from "../../stores/draftStore";
-import { notify } from "../../lib/notify";
+import { useDraftStore } from "@/stores/draftStore";
+import { notify } from "@/lib/notify";
 
 type SessionState = {
   user: AuthUser | null;

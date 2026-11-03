@@ -65,6 +65,13 @@
   --section-menu-height: 48px;
   --top-nav-height: 64px;
   --top-nav-columns: minmax(240px, 1fr) auto minmax(240px, 1fr);
+
+  /* 차트(운영 현황 시간별 트랜잭션): 막대·현재 시간 강조·격자·축 글자 */
+  --chart-bar: var(--hairline-strong);
+  --chart-bar-current: var(--link);
+  --chart-grid: var(--hairline);
+  --chart-axis: var(--body);
+  --chart-axis-font-size: 11px;
 }
 
 @theme inline {
@@ -125,17 +132,32 @@
   --text-brand-compact--line-height: 15px;
   --container-workspace: 1600px;
   --radius-control-sm: 4px;
+  --spacing-chart: 180px;
+  --spacing-widget-preview: 120px;
+  --spacing-widget-drag: 200px;
 }
 
 @theme static {
   --shadow-dialog: 0 20px 60px rgb(0 0 0 / 15%);
   --shadow-toast: 0 12px 32px rgb(0 0 0 / 10%);
+  /* 운영 현황 위젯 편집(#100 이전 홈 위젯 느낌): 편집 중 그림자·끌 때 들림·살짝 흔들림 */
+  --shadow-widget-edit: 0 12px 32px rgb(0 0 0 / 8%);
+  --shadow-widget-lift: 0 18px 42px rgb(0 0 0 / 16%);
+  --animate-widget-wiggle: widget-wiggle 170ms ease-in-out infinite alternate;
+  @keyframes widget-wiggle {
+    from {
+      transform: rotate(-0.25deg);
+    }
+    to {
+      transform: rotate(0.25deg);
+    }
+  }
   --text-group: 13px;
   --text-group--line-height: 18px;
   --text-group--font-weight: 600;
   --text-menu: 14px;
   --text-menu--line-height: 21px;
-  --text-menu--font-weight: 600;
+  --text-menu--font-weight: 500;
   --text-page-title: 28px;
   --text-page-title--line-height: 36px;
   --text-page-title--letter-spacing: -1.1px;

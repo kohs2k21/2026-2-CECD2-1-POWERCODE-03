@@ -7,6 +7,7 @@ Reserved for versioned request, response, event, and worker contracts shared by 
 - `queues.md`는 PostgreSQL 변수·탐지·학습 큐의 전달 계약을 정의한다.
 - `rules.md`는 버전별 Rule 초안 CRUD와 파생변수 참조 규칙을 정의한다.
 - `model_adapters.md`는 추후 제공할 변수 생성·Rule 추천·IF 모델의 연결 함수를 정의한다.
+- `operations-ui.md`는 운영 현황(`/operations`) 읽기 API(`/api/operations/*`)·위젯 배치와 이상 근거 상세·피드백 UI 경계를 정의한다.
 - `pipeline.md`는 저장, 기간 학습, 승인, 실시간 탐지의 현재 구현 경계를 정리한다.
 - `rule-set.md`는 룰 세트(하드룰 켜기/끄기 + 소프트룰 등록 필드·조건·임계값·위험도)의 현재 상태·저장 즉시 적용·리비전(정수 + 내용 hash)·스냅샷 이력·되돌리기(모든 이력 항목, 삭제된 규칙 재생성 허용)·동시 편집 409를 정의한다 (#94 초안, 룰은 버전 관리 없음).
 - `model-version.md`는 `ml:*` 1개를 담는 불변 모델 버전(configuration_spec v3 재정의, 모델 1개 = 버전 계열)·목록, 활성 모델 집합(0..N, 활성화·운영에서 빼기·교체·복원·리비전 이력), 운영 설정 `detectionPolicy` 전역 값(리비전, r0 = 내장 기본), 판정 시 일관 읽기 3요소를 정의한다 (#94 초안, #74 `detection-config-v1` 대체; 단위는 사용자 11/02 확정 — 모델 1개 = 버전 계열·같은 modelKey 1개).

@@ -34,7 +34,7 @@ Bearer tokens are accepted through request headers. Tokens in query strings are 
 
 ## 작업·구성 API
 
-`/api/jobs`는 변수 생성·Rule 추천·수동 학습·평가 작업을 영속 큐에 등록하고 상태를 조회한다. 추천 Rule의 채택은 불변 Rule 초안 버전을 생성한다. `/api/configurations`는 활성 구성과 적용·복원 요청을 관리한다. `/api/pipeline`은 출처·PROCESS 관측 검토·수동 라벨·판정·큐 지연·변수 결측률 변화를 조회한다. 기존 JWT/JSON 계정 권한을 그대로 사용한다. `DATABASE_URL`이 필요하고 migration 001~004가 선행되어야 한다. 실제 모델이 없는 상태에서는 모델 작업이 성공하지 않는다.
+`/api/jobs`는 변수 생성·Rule 추천·수동 학습·평가 작업을 영속 큐에 등록하고 상태를 조회한다. 추천 Rule의 채택은 불변 Rule 초안 버전을 생성한다. `/api/configurations`는 활성 구성과 적용·복원 요청을 관리한다. `/api/pipeline`은 출처·PROCESS 관측 검토·수동 라벨·판정·큐 지연·변수 결측률 변화를 조회한다. `/api/operations`는 운영 현황 화면용 읽기 전용 집계(개요·수집·단계 지연·원본 필드·저장공간·판정 추이)를 user/admin 모두에게 제공한다([operations-ui.md](../contracts/operations-ui.md)). 통합 시험: `PIPELINE_TEST_DATABASE_URL=<로컬 새 qa_operations* DB> node tests/operations.integration.mjs`. 기존 JWT/JSON 계정 권한을 그대로 사용한다. `DATABASE_URL`이 필요하고 migration 001~004가 선행되어야 한다. 실제 모델이 없는 상태에서는 모델 작업이 성공하지 않는다.
 
 ## Local commands
 

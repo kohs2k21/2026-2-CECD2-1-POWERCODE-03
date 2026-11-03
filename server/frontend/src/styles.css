@@ -1,6 +1,9 @@
 @import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css");
 @import "tailwindcss";
 @import "tw-animate-css";
+/* 위젯 격자 라이브러리 기본 CSS: components 층에 넣어 Tailwind 유틸리티·토큰으로 덮어쓴다. */
+@import "react-grid-layout/css/styles.css" layer(components);
+@import "react-resizable/css/styles.css" layer(components);
 @import "./lib/tokens.css";
 
 @layer base {

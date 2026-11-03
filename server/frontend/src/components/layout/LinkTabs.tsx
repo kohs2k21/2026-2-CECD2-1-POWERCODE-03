@@ -25,7 +25,7 @@ export const LinkTabs = ({
           aria-current={current ? "page" : undefined}
           className={cn(
             "whitespace-nowrap border-b-2 border-transparent px-3 py-2 text-menu text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50",
-            current && "border-primary text-foreground",
+            current && "border-primary font-semibold text-foreground",
           )}
         >
           {tab.label}

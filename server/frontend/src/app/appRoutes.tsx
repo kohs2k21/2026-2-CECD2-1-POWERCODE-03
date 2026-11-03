@@ -1,6 +1,5 @@
 import { Navigate, type RouteObject } from "react-router-dom";
 import { AnalysisPage } from "@/features/analysis/AnalysisPage";
-import { SavedDecisionsPage } from "@/features/analysis/SavedDecisionsPage";
 import { DetectionLayout } from "@/features/detection/DetectionLayout";
 import { EvaluationDetailPage, JobDetailPage, ModelVersionDetailPage } from "@/features/detection/pages/DetailPages";
 import { EvaluationsPage } from "@/features/detection/pages/EvaluationsPage";
@@ -17,6 +16,7 @@ import { AdminGate, LegacyRedirect, LoginRoute, NotFoundRoute, SessionGate } fro
 /** 폐지한 옛 주소(navigation.md). 새 주소로 replace 이동. */
 export const legacyPaths = [
   "/notifications",
+  "/analysis/process-decisions",
   "/detection",
   "/detection/pipeline",
   "/detection/create",
@@ -36,7 +36,7 @@ export const appRoutes: RouteObject[] = [
           { path: "/", element: <Navigate to={paths.operations} replace /> },
           { path: paths.operations, element: <OperationsPage /> },
           { path: paths.analysis, element: <AnalysisPage /> },
-          { path: paths.savedDecisions, element: <SavedDecisionsPage /> },
+          { path: "/analysis/d/:decisionId", element: <AnalysisPage /> },
           { path: paths.settings, element: <SettingsPage /> },
           ...legacyPaths.map((path) => ({ path, element: <LegacyRedirect /> })),
           {

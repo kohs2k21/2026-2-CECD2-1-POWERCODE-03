@@ -1,9 +1,10 @@
 import { useState, type FormEvent } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import inzentLogo from "@/features/navigation/inzent_logo.svg";
 import { login } from "@/services/api/auth.api";
 import type { AuthSession } from "@/types/auth";
 
@@ -36,12 +37,11 @@ export const AuthPage = ({ onLoginSuccess, authError = null, onRetryAuth }: Auth
   return (
     <main className="flex min-h-screen items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md" aria-labelledby="auth-title">
-        <CardHeader>
-          <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">ESB Anomaly Detection</p>
-          <h1 id="auth-title" className="text-page-title">
-            이상 징후 탐지 대시보드
+        <CardHeader className="justify-items-center gap-4 text-center">
+          <img src={inzentLogo} alt="INZENT" className="block h-brand-logo w-auto object-contain" />
+          <h1 id="auth-title" className="text-auth-title">
+            ESB 이상 징후 탐지 시스템
           </h1>
-          <CardDescription>사전 등록된 계정으로 로그인해 관제 화면을 이용하세요.</CardDescription>
         </CardHeader>
         <CardContent>
           <form className="grid gap-4" onSubmit={handleSubmit}>

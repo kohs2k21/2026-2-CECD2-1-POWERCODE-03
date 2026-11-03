@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { register } from "node:module";
 import React from "react";
 import { act, create } from "react-test-renderer";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -7,7 +8,6 @@ import {
   AuthSessionProvider,
   useAuthSession,
 } from "../src/services/auth/AuthSessionProvider.tsx";
-import { SessionGate, AdminGate } from "../src/app/SessionRoutes.tsx";
 import { httpClient, HttpError } from "../src/services/api/client.ts";
 import { useDraftStore } from "../src/stores/draftStore.ts";
 import { notify } from "../src/lib/notify.ts";
@@ -18,6 +18,9 @@ import {
   safeReturnPath,
   settingsReturnPath,
 } from "../src/app/routes.ts";
+// SessionRoutes → 로그인 화면(AuthPage)이 INZENT 로고 svg를 가져오므로 svg 로더를 먼저 등록한다(정적 import는 등록보다 먼저 평가됨).
+register("./svg-loader.mjs", import.meta.url);
+const { SessionGate, AdminGate } = await import("../src/app/SessionRoutes.tsx");
 
 globalThis.React = React;
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
@@ -162,31 +165,22 @@ assert.equal(
   safeReturnPath("/settings?section=profile"),
   "/settings?section=profile",
 );
+// 옛 저장 판정 주소는 이상 분석으로 넘김(#105), 판정 상세 주소는 쿼리·해시 보존.
+assert.equal(safeReturnPath("/analysis/process-decisions"), "/analysis");
+assert.equal(safeReturnPath("/analysis/process-decisions?decision=d-1#latest"), "/analysis");
 assert.equal(
-  safeReturnPath("/analysis/process-decisions"),
-  "/analysis/process-decisions",
+  safeReturnPath("/analysis/d/d-1?category=anomaly#latest"),
+  "/analysis/d/d-1?category=anomaly#latest",
 );
-assert.equal(
-  safeReturnPath("/analysis/process-decisions?decision=d-1#latest"),
-  "/analysis/process-decisions?decision=d-1#latest",
-);
-assert.equal(
-  settingsReturnPath("/analysis/process-decisions"),
-  "/analysis/process-decisions",
-);
-assert.equal(
-  loginReturnPath("/analysis/process-decisions", "user"),
-  "/analysis/process-decisions",
-);
-assert.equal(
-  loginReturnPath("/analysis/process-decisions", "admin"),
-  "/analysis/process-decisions",
-);
-assert.equal(safeReturnPath("/analysis/process-decisions/x"), "/operations");
+assert.equal(settingsReturnPath("/analysis/d/d-1"), "/analysis/d/d-1");
+assert.equal(loginReturnPath("/analysis/d/d-1", "user"), "/analysis/d/d-1");
+assert.equal(loginReturnPath("/analysis/d/d-1", "admin"), "/analysis/d/d-1");
+assert.equal(safeReturnPath("/analysis/d/d-1/x"), "/operations");
+assert.equal(safeReturnPath("/analysis/d/"), "/operations");
 assert.equal(settingsReturnPath("/settings?section=profile"), "/operations");
 assert.equal(
-  settingsReturnPath("/analysis?category=Critical&q=abc"),
-  "/analysis?category=Critical&q=abc",
+  settingsReturnPath("/analysis?category=anomaly&q=abc"),
+  "/analysis?category=anomaly&q=abc",
 );
 assert.equal(
   loginReturnPath("/detection/create?tab=rules", "user"),

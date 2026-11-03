@@ -1173,6 +1173,50 @@ Table run_decision_interims {
   Note: '최종 판정 행 이전의 append-only 기록. kind first_anomaly|evidence_added(Detector, 현재 시도·유효 lease·token, lease_token·evidence_version 필수)|superseded(새 시도의 첫 이상 또는 판정 행과 같은 TX)|no_final(detect 작업 failed 전환과 같은 TX). 대체됨·최종 없음은 소유자 SECURITY DEFINER 트리거만 기록. seq·created_at은 DB 부여, 판정 행 뒤 기록 금지, 닫힌 시도 기록 금지, 불변. 같은 작업에 no_final이 있으면 판정 행 INSERT 거부. payload object(내용은 Detector evidence 계약).'
 }
 
+// 014_analysis_workflow (#105). 대상 = detect 작업이 있으면 job_id, 작업 없는 이전 형식 판정이면 decision_id(정확히 하나).
+Table run_decision_workflow_events {
+  id uuid [pk]
+  job_id uuid
+  decision_id uuid
+  seq integer [not null]
+  from_state text [not null]
+  to_state text [not null]
+  actor_id text [not null]
+  created_at timestamptz [not null, default: `clock_timestamp()`]
+  indexes {
+    (job_id, seq) [unique]
+    (decision_id, seq) [unique]
+  }
+  Note: '014. 이상 분석 처리 상태 변경 이력, append-only(API SELECT·INSERT 권한만). 상태 detected|open|resolved, 허용 전환 CHECK(detected→open·resolved, open→detected·resolved, resolved→detected). 현재 상태 = 대상별 최대 seq 행의 to_state, 행 없음 = detected. 판정 값 불변.'
+}
+
+Table run_decision_feedback {
+  id uuid [pk]
+  job_id uuid
+  decision_id uuid
+  kind text [not null]
+  reason text [not null]
+  actor_id text [not null]
+  created_at timestamptz [not null, default: `clock_timestamp()`]
+  indexes {
+    (job_id, created_at) [name: 'run_decision_feedback_job_idx', note: 'partial: WHERE job_id IS NOT NULL']
+    (decision_id, created_at) [name: 'run_decision_feedback_decision_idx', note: 'partial: WHERE decision_id IS NOT NULL']
+  }
+  Note: '014. 조사·조치 기록, append-only(API SELECT·INSERT 권한만). kind action|suspected-false-positive|insufficient-evidence, reason 1~2000자. 확정 라벨·학습 입력 아님(Trainer·LLM·Detector 권한 없음).'
+}
+
+Table run_decision_reads {
+  job_id uuid
+  decision_id uuid
+  actor_id text [not null]
+  read_at timestamptz [not null, default: `clock_timestamp()`]
+  indexes {
+    (job_id, actor_id) [unique]
+    (decision_id, actor_id) [unique]
+  }
+  Note: '014. 사용자별 마지막 열람 시각(대상·사용자당 1행, 다시 열면 read_at 갱신). 미확인 = 행 없음 또는 read_at < 판정 항목 시각.'
+}
+
 Table run_config_comparison_items {
   comparison_id uuid [not null]
   config_version_id uuid [not null]
@@ -1328,3 +1372,10 @@ Ref: run_decision_interims.(attempt_id, job_id) > run_job_attempts.(id, job_id)
 Ref: run_decision_interims.(superseded_by_attempt_id, job_id) >? run_job_attempts.(id, job_id)
 // Composite FK display: child interim_id is individually UNIQUE; event kind must equal the record kind.
 Ref: run_decision_events.(interim_id, event_kind) >? run_decision_interims.(id, kind)
+// 014: workflow/feedback/read targets (exactly one of job_id, decision_id).
+Ref: run_decision_workflow_events.job_id >? run_jobs.id
+Ref: run_decision_workflow_events.decision_id >? run_process_decisions.id
+Ref: run_decision_feedback.job_id >? run_jobs.id
+Ref: run_decision_feedback.decision_id >? run_process_decisions.id
+Ref: run_decision_reads.job_id >? run_jobs.id
+Ref: run_decision_reads.decision_id >? run_process_decisions.id

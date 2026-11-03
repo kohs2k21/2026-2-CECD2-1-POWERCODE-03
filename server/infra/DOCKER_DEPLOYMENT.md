@@ -128,7 +128,7 @@ docker compose exec collector python -m collector.report \
 
 새 구성은 모드·마감 시간·결합 정책을 명시한다. 병렬의 `any_anomaly`는 해당 구성 생성 시 사용자가 선택하며, severity를 하나의 임의 수치로 합산하지 않는다. 각 Rule의 severity 근거를 저장한다. ML 부족/실패 시 정상으로 바꾸지 않고 partial/unavailable을 구분한다. ML 전용은 Rule로 몰래 바꾸지 않는다.
 
-저장 판정은 임대 token/current attempt를 검증한 트랜잭션에서 한 번 확정한다. 늦은 계산은 DB를 쓰지 않으며 API는 저장 판정을 SSE로 전달한다. 일반 사용자도 `/analysis/process-decisions`에서 판정과 요청한 근거 설명을 볼 수 있다. 설명은 saved facts ID·허용된 점검 항목만 출력 검증하며 SHAP나 확정 원인을 만들어 내지 않는다.
+저장 판정은 임대 token/current attempt를 검증한 트랜잭션에서 한 번 확정한다. 늦은 계산은 DB를 쓰지 않으며 API는 저장 판정을 SSE로 전달한다. 일반 사용자도 이상 분석(`/analysis`, 판정 상세 `/analysis/d/<판정 ID>`)에서 판정과 요청한 근거 설명을 볼 수 있다. 설명은 saved facts ID·허용된 점검 항목만 출력 검증하며 SHAP나 확정 원인을 만들어 내지 않는다.
 
 과거 정책 없는 구성은 호환용 parallel / 3000ms / any_anomaly로 실행하고 `legacy=true`를 기록한다. 과거 구성 자체를 수정하지 않는다. IF P99는 기존 train 내부 보정 방식이며 validation에서 임계값 선택으로 전환한 것으로 주장하지 않는다. 파생변수의 실행 범위는 현재 검증된 Process 행 AST이다.
 
@@ -152,7 +152,7 @@ docker compose exec web wget -qO- http://127.0.0.1/health/database
 
 프록시 수정은 `docker compose build web` 후 `docker compose up -d --no-deps web`으로 반영한다. API/Worker/LLM 재시작이나 DB 마이그레이션은 필요하지 않다.
 
-옛 탐지 관리 화면과 `detection_gateway_unavailable` 안내는 #100에서 삭제했다. 입력 전환은 운영 현황 수집 탭(`/operations?tab=collect`, 관리자), 저장 판정은 `/analysis/process-decisions`에서 진행한다. 피처·Rule·학습·평가 화면은 #100에서 옛 화면 폐지, 탐지 설정 화면에서 재연결 예정이며, 미연동 화면은 개발용 데이터를 운영 응답으로 대체하지 않는다.
+옛 탐지 관리 화면과 `detection_gateway_unavailable` 안내는 #100에서 삭제했다. 입력 전환은 운영 현황 수집 탭(`/operations?tab=collect`, 관리자), 저장 판정은 이상 분석(`/analysis`)에서 진행한다. 피처·Rule·학습·평가 화면은 #100에서 옛 화면 폐지, 탐지 설정 화면에서 재연결 예정이며, 미연동 화면은 개발용 데이터를 운영 응답으로 대체하지 않는다.
 
 `unavailable`은 판정에 필요한 경로가 완료되지 않았음을 뜻한다. 운영 화면과 저장 판정 화면은 기존 evidence의 `deadline_exceeded`, `worker_busy`, 피처 부족·모델 파일 검증 실패 등의 사유를 표시한다. 과거 사유가 없는 결과는 추정하지 않으며, 이미 확정된 판정은 수정하지 않는다. 502와 unavailable이 같은 원인이라고 가정하지 않는다.
 

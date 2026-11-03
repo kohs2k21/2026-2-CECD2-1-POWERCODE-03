@@ -152,6 +152,16 @@
       transform: rotate(0.25deg);
     }
   }
+  /* 진행 중 막대(와이어프레임 .progress: 짧은 막대가 1.1초마다 지나감, 화면은 1/3 폭). 동작 줄이기 설정이면 멈춘 전체 막대 */
+  --animate-progress-slide: progress-slide 1.1s linear infinite;
+  @keyframes progress-slide {
+    from {
+      transform: translateX(-100%);
+    }
+    to {
+      transform: translateX(300%);
+    }
+  }
   --text-group: 13px;
   --text-group--line-height: 18px;
   --text-group--font-weight: 600;
@@ -162,6 +172,11 @@
   --text-page-title--line-height: 36px;
   --text-page-title--letter-spacing: -1.1px;
   --text-page-title--font-weight: 600;
+  /* 로그인 화면 제목(사용자 11/04): 375px 폭에서도 한 줄 */
+  --text-auth-title: 22px;
+  --text-auth-title--line-height: 30px;
+  --text-auth-title--letter-spacing: -0.4px;
+  --text-auth-title--font-weight: 600;
   --text-section-title: 15px;
   --text-section-title--line-height: 22px;
   --text-section-title--font-weight: 600;

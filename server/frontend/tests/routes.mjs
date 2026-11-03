@@ -51,6 +51,7 @@ const {
 // 1) 옛 주소 넘김 표
 const legacy = [
   ["/notifications", "?filter=tasks", "/analysis"],
+  ["/analysis/process-decisions", "", "/analysis"],
   ["/detection", "", "/detection/operations"],
   ["/detection/pipeline", "", "/detection/operations"],
   ["/detection/versions", "?tab=history", "/detection/operations"],
@@ -76,7 +77,10 @@ assert.deepEqual(resolveStep("x", 3), { value: 1, invalid: true });
 assert.equal(withSearchParam("?q=a&tab=x", "tab", "all"), "?q=a&tab=all", "other query values are kept");
 assert.equal(withSearchParam("?tab=x", "tab", null), "");
 assert.equal(activeTopNav("/detection/models/v1"), "detection");
-assert.equal(activeTopNav("/analysis/process-decisions"), "analysis");
+assert.equal(activeTopNav("/analysis/d/decision-1"), "analysis");
+assert.equal(isAppPath("/analysis/d/decision-1"), true);
+assert.equal(isAppPath("/analysis/process-decisions"), false);
+assert.equal(safeReturnPath("/analysis/process-decisions"), "/analysis");
 assert.equal(activeTopNav("/settings"), "settings");
 assert.equal(activeDetectionMenu("/detection/operations/replace"), "operations");
 assert.equal(activeDetectionMenu("/detection/evaluations/e-1"), "evaluations");
@@ -131,6 +135,7 @@ const location = (router) => router.state.location.pathname + router.state.locat
 const pages = [
   ["/operations", "운영 현황"],
   ["/analysis", "이상 분석"],
+  ["/analysis/d/decision-1", "이상 분석"],
   ["/settings?section=profile", "사용자 환경"],
   ["/detection/operations", "운영 설정"],
   ["/detection/rules", "룰 설정"],
@@ -244,10 +249,33 @@ for (const [path, search, expected] of legacy) {
   assert.ok(app.h1().includes("화면을 찾을 수 없습니다"));
   await app.cleanup();
 }
+// 로그인 화면(사용자 11/04): INZENT 로고 + 제목 1개 "ESB 이상 징후 탐지 시스템", 그 밖의 안내 문구 없음, 입력 양식 유지
+{
+  storage.delete("token");
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity } } });
+  const router = createMemoryRouter(appRoutes, { initialEntries: ["/login"] });
+  let renderer;
+  await act(async () => {
+    renderer = create(
+      React.createElement(QueryClientProvider, { client }, React.createElement(AuthSessionProvider, null, React.createElement(RouterProvider, { router }))),
+    );
+  });
+  await tick();
+  const shown = text(renderer.toJSON());
+  assert.deepEqual(renderer.root.findAllByType("h1").map((node) => text(node.children).trim()), ["ESB 이상 징후 탐지 시스템"], "exactly one title");
+  const logo = renderer.root.findAllByType("img");
+  assert.deepEqual(logo.map((node) => [node.props.src, node.props.alt]), [["test-logo.svg", "INZENT"]], "INZENT logo");
+  assert.ok(!/ESB Anomaly Detection|이상 징후 탐지 대시보드|사전 등록된 계정/.test(shown), "no eyebrow, old title or description");
+  assert.deepEqual(renderer.root.findAllByType("input").map((node) => node.props.id), ["login-email", "login-password"]);
+  assert.ok(renderer.root.findAll((node) => node.type === "button" && node.props.type === "submit" && text(node.children).trim() === "로그인").length === 1);
+  await act(async () => renderer.unmount());
+  router.dispose();
+  client.clear();
+}
 assert.ok(
   requested.every((url) => url.startsWith("/api/")),
   "only same-origin API paths are requested: " + [...new Set(requested)].join(", "),
 );
 console.log(
-  "routes QA passed: wireframe route table, legacy addresses replaced, top/side menus with aria-current, admin gate, back icon on sub-pages, step/tab URL normalization and history, 404",
+  "routes QA passed: wireframe route table, legacy addresses replaced, top/side menus with aria-current, admin gate, back icon on sub-pages, step/tab URL normalization and history, 404, login page logo and single title",
 );

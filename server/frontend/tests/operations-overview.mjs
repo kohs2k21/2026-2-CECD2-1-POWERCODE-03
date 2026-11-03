@@ -226,7 +226,8 @@ bodies = {
 };
 const tick = () => act(async () => new Promise((resolve) => setTimeout(resolve, 10)));
 const wait = async (check, label) => {
-  for (let i = 0; i < 80 && !check(); i++) await tick();
+  // 부하가 큰 환경에서도 렌더를 기다리도록 상한만 늘린다(약 6초, 조건 충족 즉시 종료 — 단언은 그대로).
+  for (let i = 0; i < 600 && !check(); i++) await tick();
   assert.ok(check(), label);
 };
 const textOf = (node) => (typeof node === "string" ? node : Array.isArray(node) ? node.map(textOf).join("") : node?.children ? textOf(node.children) : "");

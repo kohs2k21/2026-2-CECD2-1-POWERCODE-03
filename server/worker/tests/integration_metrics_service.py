@@ -229,7 +229,7 @@ def verify_evaluation(conn, api, spec, train):
             assert metrics[key]['value'] == counts[pair] / known
             assert metrics[key]['coverage'] == known / len(rows)
         assert metrics['hrMissing']['value'] == len(rows) - known
-        assert metrics['srBoth']['value'] is None and metrics['srBoth']['reason'] == 'sr_experiment_pending'
+        assert metrics['srBoth']['value'] is None and metrics['srBoth']['reason'] == 'sr_removed'  # SR 폐기(#94)
         assert summary['populationCount'] == len(rows) == 300
         assert summary['unlabeledCount'] == 300 and summary['metrics']['precision'] is None
         jsonschema.Draft202012Validator(schema).validate(summary['evaluationEnvelope'])
@@ -594,16 +594,17 @@ class IndependentUtilityTests(unittest.TestCase):
                  'ml': {'status': 'succeeded', 'anomalous': ml}}
                 for sr, ml in ((True, True), (True, False), (False, True), (False, False))]
         family = comparison_family(rows, {'scope': 'controlled_fixture'})
-        self.assertEqual(family['details']['srStatus'], 'measured')
-        self.assertIsNone(family['details']['srReason'])
-        self.assertEqual([family['metrics'][k]['numerator'] for k in
-                          ('srBoth', 'srRuleOnly', 'srMlOnly', 'srNeither')], [1, 1, 1, 1])
-        self.assertTrue(all(family['metrics'][k]['value'] == .25 for k in
-                            ('srBoth', 'srRuleOnly', 'srMlOnly', 'srNeither')))
+        # 통계 SR 폐기(#94): fixture가 SR succeeded 행을 주어도 집계하지 않고 영구 not_applicable/sr_removed
+        self.assertEqual(family['details']['srStatus'], 'not_applicable')
+        self.assertEqual(family['details']['srReason'], 'sr_removed')
+        self.assertTrue(all(family['metrics'][k]['value'] is None and family['metrics'][k]['reason'] == 'sr_removed'
+                            for k in ('srBoth', 'srRuleOnly', 'srMlOnly', 'srNeither')))
+        self.assertEqual((family['metrics']['srTotal']['value'], family['metrics']['srComparable']['value'],
+                          family['metrics']['srMissing']['value']), (4, 0, 4))
         for row in rows:
             row['sr'] = {'status': 'not_ready', 'anomalous': None}
         unavailable = comparison_family(rows, {})
-        self.assertEqual(unavailable['details']['srReason'], 'sr_experiment_pending')
+        self.assertEqual(unavailable['details']['srReason'], 'sr_removed')
         self.assertIsNone(unavailable['metrics']['srBoth']['value'])
         envelope = evaluation_envelope()
         envelope['rule_ml'] = family

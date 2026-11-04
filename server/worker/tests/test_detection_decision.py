@@ -1,5 +1,6 @@
 import copy
 import json
+import pickle
 import sys
 import unittest
 from decimal import Decimal
@@ -62,7 +63,7 @@ def soft(raw, **rule):
 def model(key, anomalous):
     spec = {"direction": "higher_is_anomaly", "value": "0.61"}
     return ml_method_result(f"ml:{key}", "process-iforest-v1", f"version-{key}", .9 if anomalous else .3,
-                            spec, "train-internal-p99-v1")
+                            spec, "train-internal-p99-v1", code="IF_ANOMALY")
 
 
 def timed_out_model():
@@ -134,7 +135,30 @@ class PolicyParsing(unittest.TestCase):
         self.assertEqual(parsed.document(), self.valid())
         self.assertEqual(parsed.combination(), {k: v for k, v in self.valid().items() if k != "deadlineMs"})
         parsed.document()["k"]["hard"] = 9
+        parsed.combination()["k"]["hard"] = 9
+        parsed.k["hard"] = 9
         self.assertEqual(parsed.k["hard"], 1)
+        self.assertEqual(parsed.document(), self.valid())
+        self.assertIsNot(parsed.document(), parsed.document())
+        self.assertIsNot(parsed.document()["k"], parsed.document()["k"])
+
+    def test_changing_the_source_after_parsing_has_no_effect(self):
+        source = self.valid()
+        parsed = parse_policy_v2(source)
+        source["k"]["hard"] = 9
+        source["deadlineMs"] = 100
+        self.assertEqual(parsed.document(), self.valid())
+
+    def test_policy_is_safe_to_copy_and_hash(self):
+        parsed = parse_policy_v2(self.valid(k={"ml": 3, "hard": 1, "soft": 2}))
+        for clone in (copy.copy(parsed), copy.deepcopy(parsed), pickle.loads(pickle.dumps(parsed))):
+            self.assertEqual(clone, parsed)
+            self.assertEqual(hash(clone), hash(parsed))
+            self.assertEqual(clone.document(), parsed.document())
+        self.assertEqual(parsed, parse_policy_v2(self.valid(k={"hard": 1, "soft": 2, "ml": 3})))
+        self.assertEqual(len({parsed, copy.deepcopy(parsed)}), 1)
+        with self.assertRaises(AttributeError):
+            parsed.deadline_ms = 100
 
 
 class BuiltInHardRules(unittest.TestCase):
@@ -247,6 +271,11 @@ class SoftRules(unittest.TestCase):
         for value in (float("nan"), float("inf"), float("-inf"), True, None, "5000", Decimal("1"), [], 10 ** 41):
             with self.subTest(value=value), self.assertRaisesRegex(ValueError, "^invalid_threshold$"):
                 fixed_decimal(value)
+        self.assertEqual(len(fixed_decimal(10 ** 39)), 40)
+        self.assertEqual(len(fixed_decimal(-(10 ** 38))), 40)
+        for value in (10 ** 40, -(10 ** 39)):
+            with self.subTest(value=value), self.assertRaisesRegex(ValueError, "^invalid_threshold$"):
+                fixed_decimal(value)
         self.assertEqual(fixed_decimal(3.0, integer=True), "3")
         with self.assertRaisesRegex(ValueError, "^invalid_threshold$"):
             fixed_decimal(3.5, integer=True)
@@ -312,6 +341,32 @@ class SoftRules(unittest.TestCase):
         self.assert_outcome(evaluate_soft_rule(soft_rule(field="elapsed_ms"), broken, raw()), *definition)
         broken = {"elapsed_ms": {**FIELDS["elapsed_ms"], "source": {"kind": "derived", "ast": {"op": "exec"}}}}
         self.assert_outcome(evaluate_soft_rule(soft_rule(field="elapsed_ms"), broken, raw()), *definition)
+
+    def test_mismatched_dsl_field_and_unused_policy_column_are_invalid(self):
+        definition = ("failed", None, "failure", "invalid_rule_definition")
+        broken = {"retry_count": {**FIELDS["retry_count"], "source": {"kind": "column", "column": "RETRY_COUNT",
+                                                                      "ruleDslField": "P.total_count"}}}
+        self.assert_outcome(evaluate_soft_rule(soft_rule(), broken, {"retry_count": 9, "total_count": 0}), *definition)
+        broken = {"retry_count": {**FIELDS["retry_count"], "sourceMissingPolicy": {"END_TIME": "not_applicable"}}}
+        self.assert_outcome(evaluate_soft_rule(soft_rule(), broken, {"retry_count": 9}), *definition)
+
+    def test_malformed_ast_fails_only_this_rule(self):
+        column = {"op": "column", "table": "EC_PROCESS_MONITORING", "column": "END_TIME"}
+        asts = ({"op": ["column"], "table": "EC_PROCESS_MONITORING", "column": "END_TIME"},
+                {"op": "column", "table": "EC_PROCESS_MONITORING", "column": ["END_TIME"]},
+                {"op": "datetime_diff", "unit": ["ms"], "args": [column, column]},
+                {"op": "convert_unit", "from_unit": ["s"], "to_unit": "ms", "args": [column]},
+                {"op": {"nested": 1}, "args": []}, ["column"], None)
+        for ast in asts:
+            with self.subTest(ast=ast):
+                broken = {"elapsed_ms": {**FIELDS["elapsed_ms"], "sourceMissingPolicy": {},
+                                         "source": {"kind": "derived", "ast": ast}}}
+                bad = evaluate_soft_rule(soft_rule(field="elapsed_ms", suffix="00000001"), broken, raw())
+                self.assert_outcome(bad, "failed", None, "failure", "invalid_rule_definition")
+                good = evaluate_soft_rule(soft_rule(suffix="00000002"), FIELDS, {"retry_count": 9})
+                decided = decide(policy(), stamped(hard(raw("F")) + [bad, good]))
+                self.assertEqual(decided["composite"]["basisMethods"], [PROCESS_STATUS, good["methodId"]])
+                self.assertEqual(decided["composite"]["status"], "partial")
 
     def test_invalid_threshold_is_a_rule_failure(self):
         for value in (float("nan"), "5", None, 2.5):
@@ -597,7 +652,7 @@ class MachineLearningResults(unittest.TestCase):
 
     def result(self, score=.53, spec=None, policy_name="train-internal-p99-v1"):
         return ml_method_result("ml:iforest", "process-iforest-v1", "version", score,
-                                self.SPEC if spec is None else spec, policy_name)
+                                self.SPEC if spec is None else spec, policy_name, code="IF_ANOMALY")
 
     def test_threshold_direction(self):
         self.assertFalse(self.result(.53)["anomalous"])
@@ -619,6 +674,45 @@ class MachineLearningResults(unittest.TestCase):
     def test_ratio_is_null_when_denominator_is_not_positive(self):
         self.assertIsNone(self.result(.5, {"direction": "higher_is_anomaly", "value": 0})["scoreDetail"]["normalized"])
         self.assertIsNone(self.result(0, {"direction": "lower_is_anomaly", "value": "0.5"})["scoreDetail"]["normalized"])
+
+    def test_ratio_is_null_when_denominator_is_negative(self):
+        self.assertIsNone(self.result(.5, {"direction": "higher_is_anomaly", "value": -.5})["scoreDetail"]["normalized"])
+        self.assertIsNone(self.result(-.5, {"direction": "lower_is_anomaly", "value": "0.5"})["scoreDetail"]["normalized"])
+
+    def test_numeric_threshold_is_recorded_as_text(self):
+        self.assertEqual(self.result(.5, {"direction": "higher_is_anomaly", "value": .61})["scoreDetail"]["threshold"], "0.61")
+        self.assertEqual(self.result(.5, {"direction": "higher_is_anomaly", "value": 1})["scoreDetail"]["threshold"], "1")
+
+    def test_code_is_required(self):
+        with self.assertRaises(TypeError):
+            ml_method_result("ml:iforest", "v", "version", .5, self.SPEC, "p")
+        for code in (None, ""):
+            with self.subTest(code=code), self.assertRaisesRegex(ValueError, "^ml_result_code_required$"):
+                ml_method_result("ml:iforest", "v", "version", .5, self.SPEC, "p", code=code)
+
+    def test_bool_threshold_is_not_a_number(self):
+        for value in (True, False):
+            with self.subTest(value=value):
+                result = self.result(.5, {"direction": "higher_is_anomaly", "value": value})
+                self.assertEqual((result["status"], result["failureCode"], result["scoreDetail"]),
+                                 ("failed", "invalid_threshold", None))
+
+    def test_extreme_values_stay_strict_json(self):
+        high, low = {"direction": "higher_is_anomaly", "value": 1e-308}, {"direction": "lower_is_anomaly", "value": 1e308}
+        for score, spec in ((1e308, high), (1e-308, low)):
+            with self.subTest(score=score):
+                result = self.result(score, spec)
+                self.assertEqual(result["status"], "succeeded")
+                self.assertIsNone(result["scoreDetail"]["normalized"])
+                json.dumps(result, allow_nan=False)
+        result = self.result(10 ** 400)
+        self.assertEqual((result["status"], result["failureCode"], result["score"], result["scoreDetail"]),
+                         ("failed", "invalid_score", None, None))
+        json.dumps(result, allow_nan=False)
+        result = self.result(.5, {"direction": "higher_is_anomaly", "value": 10 ** 400})
+        self.assertEqual((result["status"], result["failureCode"], result["scoreDetail"]),
+                         ("failed", "invalid_threshold", None))
+        json.dumps(result, allow_nan=False)
 
     def test_missing_preparation_and_invalid_values(self):
         for args, cause, code in (
@@ -646,9 +740,18 @@ class MethodResultShape(unittest.TestCase):
                 (("ml:iforest", "v", "not_ready", None), {"cause": "other"}, "invalid_method_cause"),
                 (("ml:iforest", "v", "failed", None), {"cause": "failure"}, "invalid_failure_code"),
                 (("ml:iforest", "v", "failed", None), {"cause": "failure", "failure_code": "other"}, "invalid_failure_code"),
-                (("ml:iforest", "v", "not_ready", None), {"cause": "timeout", "failure_code": "exception"}, "invalid_failure_code")):
+                (("ml:iforest", "v", "not_ready", None), {"cause": "timeout", "failure_code": "exception"}, "invalid_failure_code"),
+                (("ml:iforest", "v", "not_ready", None), {"cause": "failure", "failure_code": "exception"}, "invalid_failure_code"),
+                (("ml:iforest", "v", "not_ready", True), {"cause": "pending"}, "invalid_method_result"),
+                (("ml:iforest", "v", "failed", None), {"cause": "pending"}, "invalid_method_result")):
             with self.subTest(args=args, kwargs=kwargs), self.assertRaisesRegex(ValueError, f"^{code}$"):
                 method_result(*args, **kwargs)
+
+    def test_failure_cause_needs_failed_status(self):
+        with self.assertRaisesRegex(ValueError, "^invalid_failure_code$"):
+            unresolved_result("ml:iforest", "v", "failure", failure_code="exception")
+        failed = unresolved_result("ml:iforest", "v", "failure", status="failed", failure_code="exception")
+        self.assertEqual((failed["status"], failed["failureCode"]), ("failed", "exception"))
 
     def test_identifier_format(self):
         self.assertEqual(method_category("soft:elapsed_ms-3f9a2c1d"), "soft")
@@ -671,7 +774,8 @@ class EvidenceV4(unittest.TestCase):
         status, duration = hard(raw(end=END))
         rule = evaluate_soft_rule(soft_rule(field="elapsed_ms", operator="gt", threshold=5000), FIELDS, raw(end=END))
         forest = ml_method_result("ml:iforest", "process-iforest-v1", "<#94 모델 버전 ID>", .53,
-                                  {"direction": "higher_is_anomaly", "value": "0.61"}, "train-internal-p99-v1")
+                                  {"direction": "higher_is_anomaly", "value": "0.61"}, "train-internal-p99-v1",
+                                  code="IF_ANOMALY")
         return [with_elapsed(status, 9.1), with_elapsed(duration, 9.2), with_elapsed(rule, 9.3),
                 with_elapsed(forest, 21.7)]
 
@@ -823,7 +927,8 @@ class EvidenceV4(unittest.TestCase):
         pending = unresolved_result("ml:iforest", "v", "pending")
         with self.assertRaisesRegex(ValueError, "^final_decision_has_pending_method$"):
             self.evidence(stamped(hard(raw())) + [pending])
-        for values in ((1, "sha256:" + HASH, 0, 3), (1, HASH.upper(), 0, 3), (1, "a" * 63, 0, 3), (-1, HASH, 0, 3),
+        for values in ((1, "sha256:" + HASH, 0, 3), (1, HASH.upper(), 0, 3), (1, "a" * 63, 0, 3), (1, HASH + "\n", 0, 3),
+                       (-1, HASH, 0, 3),
                        (True, HASH, 0, 3), (1, HASH, "0", 3), (1, HASH, 0, None)):
             with self.subTest(values=values), self.assertRaisesRegex(ValueError, "^invalid_pinned_revisions$"):
                 PinnedRevisions(*values)

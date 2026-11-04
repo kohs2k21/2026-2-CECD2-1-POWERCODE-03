@@ -38,10 +38,10 @@ def method_result(method_id: str, method_version: str, status: str, anomalous: b
             raise ValueError("invalid_method_result")
     elif cause not in CAUSES:
         raise ValueError("invalid_method_cause")
-    elif anomalous is False:
-        # 정상 확인은 succeeded뿐이다. 미완료여도 확인된 이상(true)은 남길 수 있다.
+    elif anomalous is False or (cause == "pending" and (status != "not_ready" or anomalous is not None)):
+        # 정상 확인은 succeeded뿐이다. 미완료여도 확인된 이상(true)은 남길 수 있으나 미도착 방법은 결과가 없다.
         raise ValueError("invalid_method_result")
-    if (cause == "failure" and failure_code not in FAILURE_CODES) or \
+    if (cause == "failure" and (status != "failed" or failure_code not in FAILURE_CODES)) or \
             (cause != "failure" and failure_code is not None):
         raise ValueError("invalid_failure_code")
     hit = anomalous is True
@@ -62,30 +62,40 @@ def unresolved_result(method_id: str, method_version: str, cause: str, *, status
     return method_result(method_id, method_version, status, None, cause=cause, failure_code=failure_code, **extra)
 
 
+def _finite(value: Any) -> float | None:
+    if isinstance(value, bool):
+        return None
+    try:
+        number = float(value)
+    except (OverflowError, TypeError, ValueError):
+        return None
+    return number if math.isfinite(number) else None
+
+
 def _normalized(raw: float, boundary: float, direction: str) -> dict[str, Any] | None:
     top, bottom = (raw, boundary) if direction == "higher_is_anomaly" else (boundary, raw)
-    return {"kind": "threshold_ratio", "value": top / bottom} if bottom > 0 else None
+    ratio = top / bottom if bottom > 0 else math.inf
+    return {"kind": "threshold_ratio", "value": ratio} if math.isfinite(ratio) else None
 
 
 def ml_method_result(method_id: str, method_version: str, model_version_id: Any, score: Any,
-                     threshold_spec: Any, threshold_policy: Any, *, code: str = "IF_ANOMALY") -> dict[str, Any]:
+                     threshold_spec: Any, threshold_policy: Any, *, code: str) -> dict[str, Any]:
     """이미 계산한 점수를 판정선과 비교한다. 준비물이 없으면 정상으로 바꾸지 않는다."""
+    if not isinstance(code, str) or not code:
+        raise ValueError("ml_result_code_required")
     extra = {"modelVersionId": model_version_id, "score": None, "scoreDetail": None}
     spec = threshold_spec if isinstance(threshold_spec, Mapping) else {}
     direction = spec.get("direction")
     if direction not in ("higher_is_anomaly", "lower_is_anomaly") or spec.get("value") is None or not threshold_policy:
         return unresolved_result(method_id, method_version, "not_configured", **extra)
-    try:
-        boundary = float(spec["value"])
-    except (TypeError, ValueError):
-        boundary = math.nan
-    if not math.isfinite(boundary):
+    boundary = _finite(spec["value"])
+    if boundary is None:
         return unresolved_result(method_id, method_version, "failure", status="failed",
                                  failure_code="invalid_threshold", **extra)
-    if isinstance(score, bool) or not isinstance(score, (int, float)) or not math.isfinite(score):
+    raw = _finite(score) if isinstance(score, (int, float)) else None
+    if raw is None:
         return unresolved_result(method_id, method_version, "failure", status="failed",
                                  failure_code="invalid_score", **extra)
-    raw = float(score)
     anomalous = raw >= boundary if direction == "higher_is_anomaly" else raw <= boundary
     return method_result(method_id, method_version, "succeeded", anomalous, code=code,
                          modelVersionId=model_version_id, score=raw,

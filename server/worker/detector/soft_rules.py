@@ -58,7 +58,8 @@ def _source_columns(field: Any) -> list[str] | None:
     if source.get("kind") == "derived":
         try:
             return _ast_columns(source["ast"]) if validate_derived(source.get("ast")) == "number" else None
-        except ValueError:
+        except (TypeError, ValueError):
+            # op나 column 자리에 리스트가 오면 validate의 집합 검사가 TypeError를 낸다.
             return None
     return None
 

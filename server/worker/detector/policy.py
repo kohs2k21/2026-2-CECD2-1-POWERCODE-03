@@ -4,9 +4,8 @@ from __future__ import annotations
 from concurrent.futures import ThreadPoolExecutor, wait
 from dataclasses import dataclass
 import threading
-from types import MappingProxyType
 import time
-from typing import Callable, Mapping
+from typing import Callable
 
 _POOLS = {name: ThreadPoolExecutor(max_workers=2, thread_name_prefix="detection-"+name) for name in ("rule","ml")}
 _SLOTS = {name: threading.BoundedSemaphore(2) for name in ("rule","ml")}
@@ -27,11 +26,15 @@ class Policy:
 @dataclass(frozen=True)
 class PolicyV2:
     policy_key: str
-    k: Mapping[str, int]
+    k_items: tuple[tuple[str, int], ...]
     deadline_ms: int
 
+    @property
+    def k(self):
+        return dict(self.k_items)
+
     def combination(self):
-        return {"version": 2, "policyKey": self.policy_key, "k": dict(self.k)}
+        return {"version": 2, "policyKey": self.policy_key, "k": self.k}
 
     def document(self):
         return {**self.combination(), "deadlineMs": self.deadline_ms}
@@ -57,13 +60,14 @@ def parse_policy_v2(value) -> PolicyV2:
     if not isinstance(value, dict) or set(value) != {"version", "policyKey", "k", "deadlineMs"}:
         raise ValueError("invalid_detection_policy")
     deadline, k = value["deadlineMs"], value["k"]
-    if type(value["version"]) is not int or value["version"] != 2 or             type(deadline) is not int or not 100 <= deadline <= 30000:
+    if type(value["version"]) is not int or value["version"] != 2 or type(deadline) is not int or \
+            not 100 <= deadline <= 30000:
         raise ValueError("invalid_detection_policy")
     if not isinstance(k, dict) or set(k) != {"hard", "soft", "ml"} or any(type(item) is not int for item in k.values()):
         raise ValueError("invalid_detection_policy")
     if not isinstance(value["policyKey"], str) or value["policyKey"] not in POLICY_V2_KEYS:
         raise ValueError("unsupported_detection_policy")
-    return PolicyV2(value["policyKey"], MappingProxyType(dict(k)), deadline)
+    return PolicyV2(value["policyKey"], tuple((name, k[name]) for name in ("hard", "soft", "ml")), deadline)
 
 
 def parse_versioned_policy(spec: dict, *, required: bool = False) -> Policy | PolicyV2:

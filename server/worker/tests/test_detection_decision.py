@@ -12,8 +12,8 @@ from detector.decision import component_status, decide, decision_columns, ensure
 from detector.evidence_v4 import INTERIM_EVIDENCE_VERSION, PinnedRevisions, build_evidence, build_interim_payload
 from detector.hard_rules import (HARD_RULES, NEGATIVE_DURATION, PROCESS_STATUS, evaluate_hard_rules,
                                  evaluate_negative_duration, evaluate_process_status)
-from detector.method_results import (method_category, method_result, ml_method_result, unresolved_result,
-                                     with_elapsed)
+from detector.method_results import (method_category, method_result, ml_method_result, source_absent,
+                                     unresolved_result, with_elapsed)
 from detector.policy import Policy, PolicyV2, parse_policy, parse_policy_v2, parse_versioned_policy
 from detector.soft_rules import evaluate_soft_rule, fixed_decimal
 
@@ -222,6 +222,48 @@ class BuiltInHardRules(unittest.TestCase):
         self.assert_duration({"start_time_raw": "2026-01-01T09:00:00+09:00", "end_time_raw": "2026-01-01T00:00:01+00:00"},
                              "succeeded", False)
 
+    def test_source_time_format(self):
+        for fraction in ("", ".120", ".120000"):
+            with self.subTest(fraction=fraction):
+                later, earlier = "2030-02-03 04:05:06" + fraction, "2030-02-03 04:05:05" + fraction
+                self.assert_duration({"start_time_raw": earlier, "end_time_raw": later}, "succeeded", False,
+                                     evidence=[{"result": "no_hit"}])
+                self.assert_duration({"start_time_raw": later, "end_time_raw": earlier}, "succeeded", True,
+                                     evidence=[{"result": "hit"}])
+                self.assert_duration({"start_time_raw": later, "end_time_raw": later}, "succeeded", False)
+        # 소수 자릿수가 달라도 같은 시각이면 역전이 아니다.
+        self.assert_duration({"start_time_raw": "2030-02-03 04:05:06.120", "end_time_raw": "2030-02-03 04:05:06.120000"},
+                             "succeeded", False)
+        self.assert_duration({"start_time_raw": "2030-02-03 04:05:06.120001", "end_time_raw": "2030-02-03 04:05:06.120"},
+                             "succeeded", True)
+
+    @unittest.skipIf(sys.version_info < (3, 11), "3.10 fromisoformat은 3·6자리 소수만 해석한다. 운영은 3.12다")
+    def test_source_time_with_trimmed_fraction(self):
+        self.assert_duration({"start_time_raw": "2030-02-03 04:05:06.1", "end_time_raw": "2030-02-03 04:05:06.120"},
+                             "succeeded", False, evidence=[{"result": "no_hit"}])
+        self.assert_duration({"start_time_raw": "2030-02-03 04:05:06.12", "end_time_raw": "2030-02-03 04:05:06.1"},
+                             "succeeded", True, evidence=[{"result": "hit"}])
+
+    def test_source_absent_end_time(self):
+        for marker in ("", "\\N"):
+            with self.subTest(marker=marker):
+                self.assert_duration({"start_time_raw": "2030-02-03 04:05:06.120", "end_time_raw": marker}, "succeeded",
+                                     False, evidence=[{"result": "not_applicable", "reason": "end_time_absent"}])
+
+    def test_csv_null_marker_is_absent(self):
+        self.assert_duration({"start_time_raw": START, "end_time_raw": "\\N"}, "succeeded", False,
+                             evidence=[{"result": "not_applicable", "reason": "end_time_absent"}])
+        self.assert_duration({"start_time_raw": "\\N", "end_time_raw": "\\N"}, "succeeded", False)
+        self.assert_duration({"start_time_raw": "\\N", "end_time_raw": END}, "not_ready", None, "input_missing")
+        self.assertEqual(evaluate_process_status({"status": "\\N"}, SOURCE)["cause"], "input_missing")
+
+    def test_null_words_are_not_absent_yet(self):
+        for word in ("NULL", "null", "None", "NaN"):
+            with self.subTest(word=word):
+                self.assert_duration({"start_time_raw": START, "end_time_raw": word}, "not_ready", None, "input_invalid")
+                self.assert_duration({"start_time_raw": word, "end_time_raw": END}, "not_ready", None, "input_invalid")
+                self.assertEqual(evaluate_process_status({"status": word}, SOURCE)["cause"], "input_invalid")
+
     def test_only_enabled_rules_run_in_list_order(self):
         self.assertEqual([item["methodId"] for item in hard(raw(), (NEGATIVE_DURATION, PROCESS_STATUS))],
                          list(BOTH_HARD))
@@ -296,6 +338,36 @@ class SoftRules(unittest.TestCase):
             self.assert_outcome(result, "not_ready", None, "input_missing")
             self.assertIsNone(result["observedValue"])
         self.assert_outcome(soft({"total_count": 3}, field="error_ratio"), "not_ready", None, "input_missing")
+
+    def test_elapsed_time_from_source_format(self):
+        for start, end, observed in (("2030-02-03 04:05:06.120", "2030-02-03 04:05:07.250", "1130"),
+                                     ("2030-02-03 04:05:06.120000", "2030-02-03 04:05:07.250000", "1130"),
+                                     ("2030-02-03 04:05:06.120", "2030-02-03 04:05:07.250500", "1130.5")):
+            with self.subTest(start=start, end=end):
+                result = soft({"start_time_raw": start, "end_time_raw": end}, field="elapsed_ms", operator="gt", threshold=1000)
+                self.assert_outcome(result, "succeeded", True)
+                self.assertEqual(result["observedValue"], observed)
+
+    def test_absent_rule_is_shared_by_every_source_column(self):
+        for marker in ("\\N", " \\N ", "", "   "):
+            with self.subTest(marker=marker):
+                self.assert_outcome(soft({"retry_count": marker}), "not_ready", None, "input_missing")
+                result = soft({"start_time_raw": START, "end_time_raw": marker}, field="elapsed_ms", threshold=1)
+                self.assert_outcome(result, "succeeded", False)
+                self.assertEqual(result["evidence"], [{"result": "not_applicable", "reason": "end_time_absent"}])
+                self.assert_outcome(soft({"start_time_raw": marker, "end_time_raw": END}, field="elapsed_ms", threshold=1),
+                                    "not_ready", None, "input_missing")
+                self.assert_outcome(soft({"error_count": marker, "total_count": 3}, field="error_ratio", threshold=1),
+                                    "not_ready", None, "input_missing")
+
+    def test_null_words_keep_their_value_rows(self):
+        for word in ("NULL", "null", "None", "NaN"):
+            with self.subTest(word=word):
+                self.assert_outcome(soft({"retry_count": word}), "failed", None, "input_invalid")
+                self.assert_outcome(soft({"start_time_raw": START, "end_time_raw": word}, field="elapsed_ms", threshold=1),
+                                    "not_ready", None, "feature_unavailable")
+                self.assert_outcome(soft({"error_count": word, "total_count": 3}, field="error_ratio", threshold=1),
+                                    "not_ready", None, "feature_unavailable")
 
     def test_not_applicable_comes_before_other_missing_columns(self):
         expected = [{"result": "not_applicable", "reason": "end_time_absent"}]
@@ -399,8 +471,14 @@ class TruthTable(unittest.TestCase):
     def test_01_hard_only_status_s(self):
         self.check(hard(raw()), "N", "-", "-", "complete", False, "normal", self.NONE)
 
-    def test_02_hard_only_status_missing(self):
+    def test_02_all_enabled_hard_rules_undetermined(self):
         self.check(hard({}, (PROCESS_STATUS,)), "U", "-", "-", "unavailable", None, "undetermined", self.NONE)
+        self.check(hard({"end_time_raw": END}), "U", "-", "-", "unavailable", None, "undetermined", self.NONE)
+
+    def test_02b_default_hard_rules_status_missing_time_rule_normal(self):
+        for values in ({"start_time_raw": START, "end_time_raw": END}, {"start_time_raw": START}, {}):
+            with self.subTest(values=values):
+                self.check(hard(values), "U", "-", "-", "partial", None, "undetermined", self.NONE)
 
     def test_03_status_f_and_if_timeout(self):
         self.check(hard(raw("F")) + [timed_out_model()], "T", "-", "U", "partial", True, "anomaly",
@@ -469,20 +547,12 @@ class TruthTable(unittest.TestCase):
     def test_17_no_methods_or_k_above_n_makes_no_decision(self):
         with self.assertRaisesRegex(ValueError, "^detection_methods_empty$"):
             decide(policy(), [])
-        with self.assertRaisesRegex(ValueError, "^combination_k_out_of_range:ml$"):
-            decide(policy(ml=2), stamped([model("iforest", True)]))
+        for k in (2, 0, -1):
+            with self.subTest(k=k), self.assertRaisesRegex(ValueError, "^combination_k_out_of_range:ml$"):
+                decide(policy(ml=k), stamped([model("iforest", True)]))
 
 
 class Combination(unittest.TestCase):
-    def test_default_hard_rules_with_missing_status_are_partial(self):
-        # 하드룰 2개가 켜져 있으면 시각 규칙의 succeeded가 있어 14절 2행과 달리 unavailable이 아니다.
-        decided = decide(policy(), stamped(hard({"start_time_raw": START, "end_time_raw": END})))
-        self.assertEqual((decided["composite"]["status"], decided["composite"]["anomalous"]), ("partial", None))
-
-    def test_all_hard_rules_undetermined_is_unavailable(self):
-        decided = decide(policy(), stamped(hard({"end_time_raw": END})))
-        self.assertEqual((decided["composite"]["status"], decided["composite"]["grade"]), ("unavailable", "undetermined"))
-
     def test_runtime_fail_closed(self):
         for k, methods, code in (
                 (dict(hard=2), BOTH_HARD[:1], "combination_k_out_of_range:hard"),
@@ -631,6 +701,18 @@ class Columns(unittest.TestCase):
         self.assertEqual(self.columns(hard(raw()) + [model("iforest", True)])["decision_code"], "IF_ANOMALY")
         self.assertIsNone(self.columns(hard(raw()))["decision_code"])
 
+    def test_method_below_k_leaves_no_code(self):
+        models = [model("aa", True), model("bb", False), model("cc", False)]
+        columns = self.columns(hard(raw()) + models, policy(ml=2))
+        self.assertIsNone(columns["decision_code"])
+        self.assertEqual(columns["status"], "complete")
+        rule = soft({"retry_count": 5})
+        self.assertEqual(self.columns(hard(raw()) + [rule] + models, policy(ml=2))["decision_code"],
+                         "SOFT_RETRY_COUNT_3F9A2C1D")
+        self.assertEqual(self.columns(hard(raw("P")) + [model("iforest", True)], policy(hard=2))["decision_code"],
+                         "IF_ANOMALY")
+        self.assertIsNone(self.columns(hard(raw("P")), policy(hard=2))["decision_code"])
+
     def test_statuses_follow_hard_plus_soft_and_ml(self):
         self.assertEqual(self.columns(hard(raw()) + [soft({"retry_count": "abc"})]),
                          {"status": "partial", "rule_status": "failed", "ml_status": "skipped",
@@ -753,6 +835,14 @@ class MethodResultShape(unittest.TestCase):
         failed = unresolved_result("ml:iforest", "v", "failure", status="failed", failure_code="exception")
         self.assertEqual((failed["status"], failed["failureCode"]), ("failed", "exception"))
 
+    def test_source_absent(self):
+        for value in (None, "", " ", "\t", "\\N", " \\N "):
+            with self.subTest(value=value):
+                self.assertTrue(source_absent(value))
+        for value in ("NULL", "null", "None", "NaN", "\\n", "N", "0", 0, False, [], "\\N\\N"):
+            with self.subTest(value=value):
+                self.assertFalse(source_absent(value))
+
     def test_identifier_format(self):
         self.assertEqual(method_category("soft:elapsed_ms-3f9a2c1d"), "soft")
         for value in ("sr:r00", "hard:A", "hard:x", "ml:", None, 3, "ml:" + "a" * 65):
@@ -873,7 +963,9 @@ class EvidenceV4(unittest.TestCase):
     def test_status_rule_timeout_keeps_v3_entry(self):
         late = unresolved_result(PROCESS_STATUS, "process-status-hr-v1", "timeout")
         evidence = self.evidence(stamped([late]))
-        self.assertEqual((evidence["rules"][0]["result"], evidence["rules"][0]["reason"]), ("unavailable", "status_unknown"))
+        self.assertEqual(evidence["rules"], [{"ruleKey": "process-status", "version": "process-status-hr-v1",
+                                              "sourceId": SOURCE, "observedStatus": None, "result": "unavailable",
+                                              "severity": None, "reason": "status_unknown"}])
         self.assertEqual(evidence["checkers"]["hr"]["status"], "not_ready")
 
     def test_reason_scope_of_other_rules(self):

@@ -23,8 +23,8 @@ def method_category(method_id: Any) -> str:
 
 
 def source_absent(value: Any) -> bool:
-    """수집 경로에 따라 빈 값이 빈 문자열로 남으므로 NULL과 같이 본다."""
-    return value is None or isinstance(value, str) and not value.strip()
+    """수집 경로에 따라 NULL이 빈 문자열이나 CSV 표기 \\N으로 남으므로 같이 본다."""
+    return value is None or isinstance(value, str) and value.strip() in ("", "\\N")
 
 
 def method_result(method_id: str, method_version: str, status: str, anomalous: bool | None, *,

@@ -137,9 +137,10 @@ def decision_columns(decided: Mapping[str, Any]) -> dict[str, Any]:
     """decide 결과나 evidence에서 run_process_decisions 열 값을 뽑는다."""
     methods = decided["methodResults"]
     ml = [method for method in methods if method["category"] == "ml"]
-    first_hit = next((method for method in methods if method["anomalous"] is True), None)
+    basis = set(decided["composite"]["basisMethods"])
+    first_basis = next((method for method in methods if method["methodId"] in basis), None)
     return {"status": decided["composite"]["status"],
             "rule_status": component_status([method for method in methods if method["category"] != "ml"]),
             "ml_status": component_status(ml),
-            "decision_code": first_hit["code"] if first_hit else None,
+            "decision_code": first_basis["code"] if first_basis else None,
             "anomaly_score": ml[0].get("score") if len(ml) == 1 else None}

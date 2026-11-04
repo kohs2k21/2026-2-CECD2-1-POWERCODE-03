@@ -7,9 +7,8 @@ import re
 from typing import Any, Iterable, Mapping
 
 from detector.decision import decide, requested_mode
-from detector.hard_rules import PROCESS_STATUS
+from detector.hard_rules import PROCESS_STATUS, status_rule_policy
 from detector.policy import PolicyV2
-from detector.status_rule import default_policy, evaluate_status
 
 SCHEMA_VERSION = 4
 INTERIM_EVIDENCE_VERSION = "detector-evidence-v4"
@@ -32,13 +31,16 @@ class PinnedRevisions:
             raise ValueError("invalid_pinned_revisions")
 
 
-def _rule_entry(method: Mapping[str, Any], status_policy: Any, rule_set_revision: int) -> dict[str, Any]:
+def _rule_entry(method: Mapping[str, Any], source_id: Any, rule_set_revision: int) -> dict[str, Any]:
     """v3 판독기가 쓰는 rules[] 형태. reason은 상태 규칙 외에는 not_applicable일 때만 둔다."""
     summary = method["evidence"][0] if method["evidence"] else {}
-    if method["methodId"] == PROCESS_STATUS:
-        return evaluate_status(status_policy, {"status": summary.get("observedStatus")})["evidence"][0]
     result = "hit" if method["anomalous"] is True else "unavailable" if method["status"] != "succeeded" else \
         "not_applicable" if summary.get("result") == "not_applicable" else "no_hit"
+    if method["methodId"] == PROCESS_STATUS:
+        return {"ruleKey": "process-status", "version": method["methodVersion"], "sourceId": str(source_id),
+                "observedStatus": summary.get("observedStatus"), "result": result, "severity": method["severity"],
+                "reason": summary.get("reason") if result == "not_applicable" else
+                "status_unknown" if result == "unavailable" else None}
     entry = {"ruleKey": method["methodId"].split(":", 1)[1],
              "version": method["methodVersion"] if method["category"] == "hard" else rule_set_revision,
              "result": result}
@@ -47,18 +49,22 @@ def _rule_entry(method: Mapping[str, Any], status_policy: Any, rule_set_revision
 
 def build_evidence(policy: PolicyV2, method_results: Iterable[Mapping[str, Any]], revisions: PinnedRevisions, *,
                    source_id: Any, telemetry: Mapping[str, Any], observation: Mapping[str, Any],
-                   input_manifest_hash: str, demo: Mapping[str, Any] | None = None,
+                   input_manifest_hash: str, status_levels: Mapping[str, str] | None = None,
+                   demo: Mapping[str, Any] | None = None,
                    input_origin: Mapping[str, Any] | None = None) -> dict[str, Any]:
-    """최종 판정 evidence. decision_columns에 그대로 넘겨 판정 행 열 값을 얻는다."""
+    """최종 판정 evidence. decision_columns에 그대로 넘겨 판정 행 열 값을 얻는다.
+
+    status_levels는 방법 평가에 쓴 read_hard_rule_snapshot 값과 같아야 한다.
+    """
     decided = decide(policy, method_results)
     methods, categories = decided["methodResults"], decided["categoryResults"]
     if any(method["cause"] == "pending" for method in methods):
         raise ValueError("final_decision_has_pending_method")
     status_method = next((method for method in methods if method["methodId"] == PROCESS_STATUS), None)
-    status_policy = default_policy(source_id) if status_method else None
+    status_policy = status_rule_policy(source_id, status_levels) if status_method else None
     rule_methods = [method for method in methods if method["category"] != "ml"]
     ml_methods = [method for method in methods if method["category"] == "ml"]
-    rules = [_rule_entry(method, status_policy, revisions.rule_set_revision) for method in rule_methods]
+    rules = [_rule_entry(method, source_id, revisions.rule_set_revision) for method in rule_methods]
     models = [{"modelKey": method["methodId"].split(":", 1)[1], "anomalous": method["anomalous"]}
               for method in ml_methods]
     skipped = {"status": "skipped", "anomalous": None, "evidence": []}

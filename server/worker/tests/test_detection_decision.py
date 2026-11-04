@@ -10,8 +10,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from detector.decision import component_status, decide, decision_columns, ensure_executable, requested_mode
 from detector.evidence_v4 import INTERIM_EVIDENCE_VERSION, PinnedRevisions, build_evidence, build_interim_payload
-from detector.hard_rules import (HARD_RULES, NEGATIVE_DURATION, PROCESS_STATUS, evaluate_hard_rules,
-                                 evaluate_negative_duration, evaluate_process_status)
+from detector.hard_rules import (COUNT_CONSERVATION, HARD_RULES, NEGATIVE_DURATION, PROCESS_STATUS, STATUS_LEVELS,
+                                 SUCCESS_WITH_ERROR, evaluate_count_conservation, evaluate_hard_rules,
+                                 evaluate_negative_duration, evaluate_process_status, evaluate_success_with_error,
+                                 read_hard_rule_snapshot, status_rule_policy)
 from detector.method_results import (method_category, method_result, ml_method_result, source_absent,
                                      unresolved_result, with_elapsed)
 from detector.policy import Policy, PolicyV2, parse_policy, parse_policy_v2, parse_versioned_policy
@@ -21,7 +23,9 @@ SOURCE = "11111111-1111-1111-1111-111111111111"
 HASH = "a" * 64
 START = "2026-01-01T00:00:00"
 END = "2026-01-01T00:00:08.120"
-BOTH_HARD = (PROCESS_STATUS, NEGATIVE_DURATION)
+ALL_HARD = (PROCESS_STATUS, NEGATIVE_DURATION, SUCCESS_WITH_ERROR, COUNT_CONSERVATION)
+# 계약 11.2 예시의 r12 스냅샷. 새 하드룰 2개가 없어 꺼짐으로 실행된다.
+R12_HARD_RULES = [{"id": PROCESS_STATUS, "enabled": True}, {"id": NEGATIVE_DURATION, "enabled": True}]
 FIELDS = {
     "retry_count": {"fieldId": "retry_count", "valueType": "integer", "unit": "count",
                     "source": {"kind": "column", "column": "RETRY_COUNT", "ruleDslField": "P.retry_count"}},
@@ -52,8 +56,8 @@ def stamped(methods, start=1.0):
     return [with_elapsed(method, start + index) for index, method in enumerate(methods)]
 
 
-def hard(raw, enabled=BOTH_HARD):
-    return evaluate_hard_rules(enabled, raw, SOURCE)
+def hard(raw, enabled=ALL_HARD):
+    return evaluate_hard_rules(enabled, raw)
 
 
 def soft(raw, **rule):
@@ -72,7 +76,8 @@ def timed_out_model():
 
 
 def raw(status="S", start=START, end=END, **values):
-    return {"status": status, "start_time_raw": start, "end_time_raw": end, "retry_count": 0, **values}
+    return {"status": status, "start_time_raw": start, "end_time_raw": end, "retry_count": 0,
+            "total_count": 10, "success_count": 10, "error_count": 0, **values}
 
 
 class PolicyParsing(unittest.TestCase):
@@ -164,30 +169,58 @@ class PolicyParsing(unittest.TestCase):
 class BuiltInHardRules(unittest.TestCase):
     def test_list_matches_contract_values(self):
         self.assertEqual(list(HARD_RULES), [
-            {"id": "hard:process-status", "methodVersion": "process-status-hr-v1",
+            {"id": "hard:process-status", "methodVersion": "process-status-hr-v2",
              "displayName": "상태가 S가 아님", "conditionText": "STATUS ≠ S",
              "severity": {"byCode": {"PROCESS_STATUS_F": "critical", "PROCESS_STATUS_P": "warning",
-                                     "PROCESS_STATUS_N": "warning"}}},
+                                     "PROCESS_STATUS_N": "info", "PROCESS_STATUS_H": "info",
+                                     "PROCESS_STATUS_Z": "warning"}}},
             {"id": "hard:negative-duration", "methodVersion": "negative-duration-v1",
              "displayName": "시작 시각이 종료 시각보다 늦음",
-             "conditionText": "START_TIME > END_TIME (종료 시각이 없으면 판단하지 않음)", "severity": "critical"}])
+             "conditionText": "START_TIME > END_TIME (종료 시각이 없으면 판단하지 않음)", "severity": "critical"},
+            {"id": "hard:success-with-error", "methodVersion": "success-with-error-v1",
+             "displayName": "성공인데 오류 건수가 있음", "conditionText": "STATUS = S, ERROR_COUNT > 0",
+             "severity": "critical"},
+            {"id": "hard:count-conservation", "methodVersion": "count-conservation-v1",
+             "displayName": "건수 합계가 맞지 않음", "conditionText": "TOTAL_COUNT ≠ SUCCESS_COUNT + ERROR_COUNT",
+             "severity": "critical"}])
 
-    def test_process_status_keeps_status_rule_meaning(self):
-        for status, level in (("F", "critical"), ("P", "warning"), ("N", "warning")):
-            result = evaluate_process_status({"status": status}, SOURCE)
+    def test_process_status_codes_and_default_levels(self):
+        for status, level in (("F", "critical"), ("P", "warning"), ("Z", "warning"), ("H", "info"), ("N", "info")):
+            result = evaluate_process_status({"status": status, "end_time_raw": END})
             self.assertEqual((result["status"], result["anomalous"], result["code"], result["severity"],
                               result["riskLevel"]), ("succeeded", True, "PROCESS_STATUS_" + status, level, level))
-        result = evaluate_process_status({"status": "S"}, SOURCE)
+        result = evaluate_process_status({"status": "S"})
         self.assertEqual((result["status"], result["anomalous"], result["code"], result["riskLevel"]),
                          ("succeeded", False, None, None))
         self.assertEqual(result["evidence"], [{"observedStatus": "S", "result": "no_hit"}])
 
     def test_process_status_undetermined_causes(self):
-        for value, cause in ((None, "input_missing"), ("", "input_missing"), ("H", "input_invalid"),
-                             ("Z", "input_invalid"), (1, "input_invalid")):
-            result = evaluate_process_status({"status": value}, SOURCE)
+        for value, cause in ((None, "input_missing"), ("", "input_missing"), ("X", "input_invalid"),
+                             ("s", "input_invalid"), (" S", "input_invalid"), (1, "input_invalid")):
+            result = evaluate_process_status({"status": value})
             self.assertEqual((result["status"], result["anomalous"], result["cause"]), ("not_ready", None, cause))
-        self.assertEqual(evaluate_process_status({}, SOURCE)["cause"], "input_missing")
+        self.assertEqual(evaluate_process_status({})["cause"], "input_missing")
+
+    def test_unprocessed_status_without_end_time_is_not_an_anomaly(self):
+        for end in (None, "", "   ", "\\N"):
+            with self.subTest(end=end):
+                result = evaluate_process_status({"status": "N", "end_time_raw": end})
+                self.assertEqual((result["status"], result["anomalous"], result["code"], result["severity"],
+                                  result["riskLevel"], result["cause"]), ("succeeded", False, None, None, None, None))
+                self.assertEqual(result["evidence"], [{"observedStatus": "N", "result": "not_applicable",
+                                                       "reason": "end_time_absent"}])
+        self.assertTrue(evaluate_process_status({"status": "N", "end_time_raw": END})["anomalous"])
+        # 시각을 해석할 수 없어도 값이 있으면 END_TIME이 있는 N이다.
+        self.assertTrue(evaluate_process_status({"status": "N", "end_time_raw": "bad"})["anomalous"])
+        for status in ("F", "P", "H", "Z"):
+            self.assertTrue(evaluate_process_status({"status": status})["anomalous"])
+
+    def test_configured_level_replaces_only_its_code(self):
+        levels = {**STATUS_LEVELS, "PROCESS_STATUS_F": "info"}
+        self.assertEqual(evaluate_process_status({"status": "F"}, levels)["riskLevel"], "info")
+        self.assertEqual(evaluate_process_status({"status": "P"}, levels)["riskLevel"], "warning")
+        self.assertEqual(hard({"status": "F"}, (PROCESS_STATUS,))[0]["riskLevel"], "critical")
+        self.assertEqual(evaluate_hard_rules((PROCESS_STATUS,), {"status": "F"}, levels)[0]["riskLevel"], "info")
 
     def assert_duration(self, raw_values, status, anomalous, cause=None, evidence=None):
         result = evaluate_negative_duration(raw_values)
@@ -234,6 +267,8 @@ class BuiltInHardRules(unittest.TestCase):
         # 소수 자릿수가 달라도 같은 시각이면 역전이 아니다.
         self.assert_duration({"start_time_raw": "2030-02-03 04:05:06.120", "end_time_raw": "2030-02-03 04:05:06.120000"},
                              "succeeded", False)
+        self.assert_duration({"start_time_raw": "2030-02-03 04:05:06.120000", "end_time_raw": "2030-02-03 04:05:06.120"},
+                             "succeeded", False, evidence=[{"result": "no_hit"}])
         self.assert_duration({"start_time_raw": "2030-02-03 04:05:06.120001", "end_time_raw": "2030-02-03 04:05:06.120"},
                              "succeeded", True)
 
@@ -255,21 +290,191 @@ class BuiltInHardRules(unittest.TestCase):
                              evidence=[{"result": "not_applicable", "reason": "end_time_absent"}])
         self.assert_duration({"start_time_raw": "\\N", "end_time_raw": "\\N"}, "succeeded", False)
         self.assert_duration({"start_time_raw": "\\N", "end_time_raw": END}, "not_ready", None, "input_missing")
-        self.assertEqual(evaluate_process_status({"status": "\\N"}, SOURCE)["cause"], "input_missing")
+        self.assertEqual(evaluate_process_status({"status": "\\N"})["cause"], "input_missing")
 
     def test_null_words_are_not_absent_yet(self):
         for word in ("NULL", "null", "None", "NaN"):
             with self.subTest(word=word):
                 self.assert_duration({"start_time_raw": START, "end_time_raw": word}, "not_ready", None, "input_invalid")
                 self.assert_duration({"start_time_raw": word, "end_time_raw": END}, "not_ready", None, "input_invalid")
-                self.assertEqual(evaluate_process_status({"status": word}, SOURCE)["cause"], "input_invalid")
+                self.assertEqual(evaluate_process_status({"status": word})["cause"], "input_invalid")
 
     def test_only_enabled_rules_run_in_list_order(self):
-        self.assertEqual([item["methodId"] for item in hard(raw(), (NEGATIVE_DURATION, PROCESS_STATUS))],
-                         list(BOTH_HARD))
+        self.assertEqual([item["methodId"] for item in hard(raw(), tuple(reversed(ALL_HARD)))], list(ALL_HARD))
         self.assertEqual([item["methodId"] for item in hard(raw(), (NEGATIVE_DURATION,))], [NEGATIVE_DURATION])
         with self.assertRaisesRegex(ValueError, "^hard_rule_unknown:hard:final-missing-end$"):
             hard(raw(), ("hard:final-missing-end",))
+
+
+class CountRules(unittest.TestCase):
+    def assert_rule(self, evaluate, values, status, anomalous, cause=None):
+        result = evaluate(values)
+        self.assertEqual((result["status"], result["anomalous"], result["cause"]), (status, anomalous, cause))
+        return result
+
+    def test_success_with_error(self):
+        result = self.assert_rule(evaluate_success_with_error, {"status": "S", "error_count": 1}, "succeeded", True)
+        self.assertEqual((result["code"], result["severity"], result["riskLevel"], result["methodVersion"], result["evidence"]),
+                         ("HARD_SUCCESS_WITH_ERROR", "critical", "critical", "success-with-error-v1", [{"result": "hit"}]))
+        result = self.assert_rule(evaluate_success_with_error, {"status": "S", "error_count": 0}, "succeeded", False)
+        self.assertEqual((result["code"], result["evidence"]), (None, [{"result": "no_hit"}]))
+
+    def test_count_conservation(self):
+        for status in ("S", "F"):
+            values = {"status": status, "total_count": 10, "success_count": 7, "error_count": 3}
+            self.assert_rule(evaluate_count_conservation, values, "succeeded", False)
+            result = self.assert_rule(evaluate_count_conservation, {**values, "total_count": 11}, "succeeded", True)
+            self.assertEqual((result["code"], result["riskLevel"], result["methodVersion"]),
+                             ("HARD_COUNT_CONSERVATION", "critical", "count-conservation-v1"))
+
+    def test_status_outside_the_target_is_false_without_counts(self):
+        for status in ("F", "P", "N", "H", "Z"):
+            self.assert_rule(evaluate_success_with_error, {"status": status, "error_count": 5}, "succeeded", False)
+            self.assert_rule(evaluate_success_with_error, {"status": status}, "succeeded", False)
+        for status in ("P", "N", "H", "Z"):
+            self.assert_rule(evaluate_count_conservation, {"status": status, "total_count": 9}, "succeeded", False)
+            self.assert_rule(evaluate_count_conservation, {"status": status}, "succeeded", False)
+
+    def test_status_missing_or_undefined_is_undetermined(self):
+        for evaluate in (evaluate_success_with_error, evaluate_count_conservation):
+            counts = {"total_count": 1, "success_count": 1, "error_count": 1}
+            for status in (None, "", " ", "\\N"):
+                self.assert_rule(evaluate, {"status": status, **counts}, "not_ready", None, "input_missing")
+            self.assert_rule(evaluate, counts, "not_ready", None, "input_missing")
+            for status in ("X", "NULL", 1):
+                self.assert_rule(evaluate, {"status": status, **counts}, "not_ready", None, "input_invalid")
+
+    def test_absent_counts_at_target_status(self):
+        for marker in (None, "", "  ", "\\N"):
+            with self.subTest(marker=marker):
+                self.assert_rule(evaluate_success_with_error, {"status": "S", "error_count": marker},
+                                 "not_ready", None, "input_missing")
+                for field in ("total_count", "success_count", "error_count"):
+                    values = {"status": "F", "total_count": 1, "success_count": 1, "error_count": 0, field: marker}
+                    self.assert_rule(evaluate_count_conservation, values, "not_ready", None, "input_missing")
+        self.assert_rule(evaluate_success_with_error, {"status": "S"}, "not_ready", None, "input_missing")
+
+    def test_non_numeric_counts_at_target_status(self):
+        for value in ("abc", "NULL", "None", "NaN", "Infinity", float("inf"), True, [1]):
+            with self.subTest(value=value):
+                self.assert_rule(evaluate_success_with_error, {"status": "S", "error_count": value},
+                                 "not_ready", None, "input_invalid")
+                self.assert_rule(evaluate_count_conservation,
+                                 {"status": "S", "total_count": value, "success_count": 1, "error_count": 0},
+                                 "not_ready", None, "input_invalid")
+
+    def test_absent_count_comes_before_non_numeric_count(self):
+        self.assert_rule(evaluate_count_conservation, {"status": "S", "total_count": "abc", "error_count": 0},
+                         "not_ready", None, "input_missing")
+
+    def test_sum_is_exact_decimal(self):
+        values = {"status": "S", "total_count": 0.3, "success_count": 0.1, "error_count": 0.2}
+        self.assertNotEqual(0.1 + 0.2, 0.3)
+        self.assert_rule(evaluate_count_conservation, values, "succeeded", False)
+        big = 10 ** 30
+        self.assert_rule(evaluate_count_conservation,
+                         {"status": "S", "total_count": big + 1, "success_count": big, "error_count": 1},
+                         "succeeded", False)
+        self.assert_rule(evaluate_count_conservation,
+                         {"status": "S", "total_count": big + 2, "success_count": big, "error_count": 1},
+                         "succeeded", True)
+        self.assert_rule(evaluate_count_conservation,
+                         {"status": "S", "total_count": "10.0", "success_count": "7", "error_count": "3.00"},
+                         "succeeded", False)
+
+    def test_sum_that_cannot_be_exact_is_invalid(self):
+        huge = 10 ** 120
+        self.assert_rule(evaluate_count_conservation,
+                         {"status": "S", "total_count": huge + 1, "success_count": huge, "error_count": 1},
+                         "not_ready", None, "input_invalid")
+        self.assert_rule(evaluate_count_conservation,
+                         {"status": "S", "total_count": 1, "success_count": "1E+999999999", "error_count": 1},
+                         "not_ready", None, "input_invalid")
+
+    def test_integer_domain_is_left_to_its_own_candidate_rule(self):
+        self.assert_rule(evaluate_success_with_error, {"status": "S", "error_count": .5}, "succeeded", True)
+        self.assert_rule(evaluate_success_with_error, {"status": "S", "error_count": -1}, "succeeded", False)
+        self.assert_rule(evaluate_count_conservation,
+                         {"status": "S", "total_count": 10, "success_count": 8.5, "error_count": 1.5}, "succeeded", False)
+        self.assert_rule(evaluate_count_conservation,
+                         {"status": "S", "total_count": 9, "success_count": 10, "error_count": -1}, "succeeded", False)
+
+
+class HardRuleSnapshot(unittest.TestCase):
+    def test_reads_enabled_rules_in_list_order(self):
+        rules = [{"id": item, "enabled": True} for item in reversed(ALL_HARD)]
+        self.assertEqual(read_hard_rule_snapshot(rules), (list(ALL_HARD), dict(STATUS_LEVELS)))
+        rules[0]["enabled"] = False
+        self.assertEqual(read_hard_rule_snapshot(rules)[0], list(ALL_HARD[:3]))
+
+    def test_builtin_rule_missing_from_snapshot_is_off(self):
+        enabled, _ = read_hard_rule_snapshot(R12_HARD_RULES)
+        self.assertEqual(enabled, [PROCESS_STATUS, NEGATIVE_DURATION])
+        decided = decide(policy(), stamped(hard({**raw(), "error_count": 5}, enabled)))
+        self.assertEqual(decided["categoryResults"]["hard"]["n"], 2)
+        self.assertEqual(decided["composite"]["anomalous"], False)
+        self.assertEqual(read_hard_rule_snapshot([]), ([], dict(STATUS_LEVELS)))
+
+    def test_unknown_id_fails(self):
+        for item in ({"id": "hard:final-missing-end", "enabled": True}, {"id": "sr:r01", "enabled": False},
+                     {"enabled": True}, {"id": ["x"], "enabled": True}, "hard:process-status", None):
+            with self.subTest(item=item), self.assertRaisesRegex(ValueError, "^hard_rule_unknown:"):
+                read_hard_rule_snapshot([item])
+
+    def test_enabled_must_be_a_bool(self):
+        for value in (1, 0, "true", None):
+            with self.subTest(value=value), self.assertRaisesRegex(
+                    ValueError, f"^invalid_hard_rule_enabled:{PROCESS_STATUS}$"):
+                read_hard_rule_snapshot([{"id": PROCESS_STATUS, "enabled": value}])
+        with self.assertRaisesRegex(ValueError, f"^invalid_hard_rule_enabled:{COUNT_CONSERVATION}$"):
+            read_hard_rule_snapshot([{"id": COUNT_CONSERVATION}])
+
+    def test_malformed_snapshot_fails(self):
+        for value in (None, {}, "x"):
+            with self.subTest(value=value), self.assertRaisesRegex(ValueError, "^invalid_hard_rule_snapshot$"):
+                read_hard_rule_snapshot(value)
+        with self.assertRaisesRegex(ValueError, "^duplicate_method_id$"):
+            read_hard_rule_snapshot(R12_HARD_RULES + R12_HARD_RULES[:1])
+
+    def test_configured_status_levels(self):
+        by_code = {code: "critical" for code in STATUS_LEVELS}
+        _, levels = read_hard_rule_snapshot([{"id": PROCESS_STATUS, "enabled": True, "severity": {"byCode": by_code}}])
+        self.assertEqual(levels, by_code)
+
+    def test_partial_or_old_entries_use_builtin_levels(self):
+        partial = {"id": PROCESS_STATUS, "enabled": True, "severity": {"byCode": {"PROCESS_STATUS_H": "critical"}}}
+        _, levels = read_hard_rule_snapshot([partial])
+        self.assertEqual(levels, {**STATUS_LEVELS, "PROCESS_STATUS_H": "critical"})
+        old = {"id": PROCESS_STATUS, "enabled": True, "severity": {"byCode": {"PROCESS_STATUS_F": "critical",
+                                                                              "PROCESS_STATUS_P": "warning"}}}
+        self.assertEqual(read_hard_rule_snapshot([old])[1], dict(STATUS_LEVELS))
+        for item in ({"id": PROCESS_STATUS, "enabled": True}, {"id": PROCESS_STATUS, "enabled": True, "severity": None},
+                     {"id": PROCESS_STATUS, "enabled": True, "severity": {"byCode": {}}}):
+            self.assertEqual(read_hard_rule_snapshot([item])[1], dict(STATUS_LEVELS))
+
+    def test_invalid_levels_fail_even_when_the_rule_is_off(self):
+        for severity in ({"byCode": {"PROCESS_STATUS_F": "high"}}, {"byCode": {"PROCESS_STATUS_F": None}},
+                         {"byCode": {"PROCESS_STATUS_F": ["info"]}}, {"byCode": {"PROCESS_STATUS_X": "info"}},
+                         {"byCode": {"PROCESS_STATUS_S": "info"}}, {"byCode": []}, {"byCode": None}, "critical",
+                         {"byCode": {}, "extra": 1}, {}):
+            for enabled in (True, False):
+                with self.subTest(severity=severity, enabled=enabled), self.assertRaisesRegex(
+                        ValueError, f"^invalid_hard_rule_severity:{PROCESS_STATUS}$"):
+                    read_hard_rule_snapshot([{"id": PROCESS_STATUS, "enabled": enabled, "severity": severity}])
+
+    def test_other_rules_ignore_snapshot_definition_values(self):
+        item = {"id": NEGATIVE_DURATION, "enabled": True, "severity": "info", "methodVersion": "x", "conditionText": "y"}
+        enabled, levels = read_hard_rule_snapshot([item])
+        self.assertEqual(levels, dict(STATUS_LEVELS))
+        result = evaluate_hard_rules(enabled, raw(start=END, end=START), levels)[0]
+        self.assertEqual((result["methodVersion"], result["riskLevel"]), ("negative-duration-v1", "critical"))
+        item = {"id": SUCCESS_WITH_ERROR, "enabled": False, "severity": {"byCode": {"X": "bad"}}}
+        self.assertEqual(read_hard_rule_snapshot([item])[0], [])
+
+    def test_source_data_is_not_mutated_and_defaults_stay(self):
+        _, levels = read_hard_rule_snapshot(R12_HARD_RULES)
+        levels["PROCESS_STATUS_F"] = "info"
+        self.assertEqual(STATUS_LEVELS["PROCESS_STATUS_F"], "critical")
 
 
 class SoftRules(unittest.TestCase):
@@ -552,14 +757,49 @@ class TruthTable(unittest.TestCase):
                 decide(policy(ml=k), stamped([model("iforest", True)]))
 
 
+    def test_18_success_with_error(self):
+        self.check(hard(raw(error_count=2, success_count=8)), "T", "-", "-", "complete", True, "anomaly",
+                   ("rated", "critical", [SUCCESS_WITH_ERROR], []))
+
+    def test_19_count_mismatch(self):
+        self.check(hard(raw(total_count=11)), "T", "-", "-", "complete", True, "anomaly",
+                   ("rated", "critical", [COUNT_CONSERVATION], []))
+
+    def test_20_status_s_with_counts_missing(self):
+        values = {"status": "S", "start_time_raw": START, "end_time_raw": END}
+        self.check(hard(values), "U", "-", "-", "partial", None, "undetermined", self.NONE)
+
+    def test_21_status_p_with_counts_missing(self):
+        values = {"status": "P", "start_time_raw": START}
+        self.check(hard(values), "T", "-", "-", "complete", True, "anomaly", ("rated", "warning", [PROCESS_STATUS], []))
+
+    def test_22_status_n_without_end_time(self):
+        self.check(hard({"status": "N", "start_time_raw": START}), "N", "-", "-", "complete", False, "normal", self.NONE)
+
+    def test_23_status_n_with_end_time(self):
+        self.check(hard(raw("N")), "T", "-", "-", "complete", True, "anomaly", ("rated", "info", [PROCESS_STATUS], []))
+
+    def test_24_status_h(self):
+        self.check(hard(raw("H")), "T", "-", "-", "complete", True, "anomaly", ("rated", "info", [PROCESS_STATUS], []))
+
+    def test_25_status_z(self):
+        self.check(hard(raw("Z")), "T", "-", "-", "complete", True, "anomaly", ("rated", "warning", [PROCESS_STATUS], []))
+
+    def test_configured_level_changes_risk_but_not_grade(self):
+        _, levels = read_hard_rule_snapshot([{"id": PROCESS_STATUS, "enabled": True,
+                                              "severity": {"byCode": {"PROCESS_STATUS_F": "info"}}}])
+        composite = decide(policy(), stamped(evaluate_hard_rules(ALL_HARD, raw("F"), levels)))["composite"]
+        self.assertEqual((composite["grade"], composite["risk"]["level"]), ("anomaly", "info"))
+
+
 class Combination(unittest.TestCase):
     def test_runtime_fail_closed(self):
         for k, methods, code in (
-                (dict(hard=2), BOTH_HARD[:1], "combination_k_out_of_range:hard"),
+                (dict(hard=2), ALL_HARD[:1], "combination_k_out_of_range:hard"),
                 (dict(soft=3), ["soft:aa-00000001", "soft:aa-00000002"], "combination_k_out_of_range:soft"),
                 (dict(ml=2), ["ml:iforest"], "combination_k_out_of_range:ml"),
                 (dict(ml=0), ["ml:iforest"], "combination_k_out_of_range:ml"),
-                (dict(hard=-1), BOTH_HARD, "combination_k_out_of_range:hard"),
+                (dict(hard=-1), ALL_HARD, "combination_k_out_of_range:hard"),
                 (dict(), [], "detection_methods_empty"),
                 (dict(), ["sr:r01"], "method_kind_not_allowed:sr:r01"),
                 (dict(), ["hr:process-status"], "method_kind_not_allowed:hr:process-status"),
@@ -569,7 +809,7 @@ class Combination(unittest.TestCase):
                 ensure_executable(policy(**k), methods)
 
     def test_k_of_inactive_category_is_ignored(self):
-        ensure_executable(policy(soft=9, ml=0), list(BOTH_HARD))
+        ensure_executable(policy(soft=9, ml=0), list(ALL_HARD))
         decided = decide(policy(soft=9, ml=0), stamped(hard(raw())))
         self.assertEqual(decided["categoryResults"]["soft"],
                          {"n": 0, "k": 9, "result": "skipped", "status": "skipped", "anomalous": None})
@@ -604,7 +844,7 @@ class Combination(unittest.TestCase):
         methods = [model("zz", True), model("aa", False), first, second] + list(reversed(hard(raw())))
         decided = decide(policy(), stamped(methods))
         self.assertEqual([item["methodId"] for item in decided["methodResults"]],
-                         list(BOTH_HARD) + [first["methodId"], second["methodId"], "ml:zz", "ml:aa"])
+                         list(ALL_HARD) + [first["methodId"], second["methodId"], "ml:zz", "ml:aa"])
 
     def test_confirmed_anomaly_counts_even_if_the_method_is_incomplete(self):
         partial = method_result("ml:aa", "v", "not_ready", True, cause="timeout", code="IF_ANOMALY")
@@ -678,7 +918,7 @@ class GradeAndRisk(unittest.TestCase):
         self.assertEqual((by_id["ml:aa"]["riskLevel"], by_id["ml:aa"]["riskLevelReason"]), (None, "level_undefined"))
 
     def test_first_anomaly_time(self):
-        late_hard = with_elapsed(evaluate_process_status({"status": "F"}, SOURCE), 30.0)
+        late_hard = with_elapsed(evaluate_process_status({"status": "F"}), 30.0)
         early_soft = with_elapsed(soft({"retry_count": 5}), 10.0)
         self.assertEqual(decide(policy(), [late_hard, early_soft])["composite"]["firstAnomalyElapsedMs"], 10.0)
         models = [with_elapsed(model("aa", True), 5.0), with_elapsed(model("bb", True), 20.0),
@@ -698,6 +938,13 @@ class Columns(unittest.TestCase):
         self.assertEqual(self.columns(methods)["decision_code"], "HARD_NEGATIVE_DURATION")
         methods = [model("iforest", True), soft({"retry_count": 5})] + hard(raw())
         self.assertEqual(self.columns(methods)["decision_code"], "SOFT_RETRY_COUNT_3F9A2C1D")
+        mismatched = raw(error_count=2, total_count=11)
+        methods = [model("iforest", True), soft({"retry_count": 5})] + hard(mismatched)
+        self.assertEqual(self.columns(methods)["decision_code"], "HARD_SUCCESS_WITH_ERROR")
+        methods = [model("iforest", True), soft({"retry_count": 5})] + hard(raw(total_count=11))
+        self.assertEqual(self.columns(methods)["decision_code"], "HARD_COUNT_CONSERVATION")
+        self.assertEqual(self.columns(hard(raw("H")))["decision_code"], "PROCESS_STATUS_H")
+        self.assertEqual(self.columns(hard(raw("Z")))["decision_code"], "PROCESS_STATUS_Z")
         self.assertEqual(self.columns(hard(raw()) + [model("iforest", True)])["decision_code"], "IF_ANOMALY")
         self.assertIsNone(self.columns(hard(raw()))["decision_code"])
 
@@ -712,6 +959,14 @@ class Columns(unittest.TestCase):
         self.assertEqual(self.columns(hard(raw("P")) + [model("iforest", True)], policy(hard=2))["decision_code"],
                          "IF_ANOMALY")
         self.assertIsNone(self.columns(hard(raw("P")), policy(hard=2))["decision_code"])
+
+    def test_soft_rule_below_k_leaves_only_the_model_code(self):
+        hit = soft({"retry_count": 5}, suffix="00000001")
+        miss = soft({"retry_count": 1}, suffix="00000002")
+        decided = decide(policy(soft=2), stamped(hard(raw()) + [hit, miss, model("iforest", True)]))
+        self.assertEqual(decided["composite"]["basisMethods"], ["ml:iforest"])
+        self.assertEqual(decision_columns(decided)["decision_code"], "IF_ANOMALY")
+        self.assertEqual(decided["categoryResults"]["soft"]["result"], "normal")
 
     def test_statuses_follow_hard_plus_soft_and_ml(self):
         self.assertEqual(self.columns(hard(raw()) + [soft({"retry_count": "abc"})]),
@@ -861,7 +1116,7 @@ class EvidenceV4(unittest.TestCase):
                               input_manifest_hash="manifest", **options)
 
     def example_methods(self):
-        status, duration = hard(raw(end=END))
+        status, duration = hard(raw(end=END), read_hard_rule_snapshot(R12_HARD_RULES)[0])
         rule = evaluate_soft_rule(soft_rule(field="elapsed_ms", operator="gt", threshold=5000), FIELDS, raw(end=END))
         forest = ml_method_result("ml:iforest", "process-iforest-v1", "<#94 모델 버전 ID>", .53,
                                   {"direction": "higher_is_anomaly", "value": "0.61"}, "train-internal-p99-v1",
@@ -870,7 +1125,7 @@ class EvidenceV4(unittest.TestCase):
                 with_elapsed(forest, 21.7)]
 
     def test_section_11_2_example(self):
-        status_rule = {"ruleKey": "process-status", "version": "process-status-hr-v1", "sourceId": SOURCE,
+        status_rule = {"ruleKey": "process-status", "version": "process-status-hr-v2", "sourceId": SOURCE,
                        "observedStatus": "S", "result": "no_hit", "severity": None, "reason": None}
         policy_document = {"version": 2, "policyKey": "category-k-of-n-or-v1", "k": {"hard": 1, "soft": 1, "ml": 1},
                            "deadlineMs": 3000}
@@ -887,7 +1142,7 @@ class EvidenceV4(unittest.TestCase):
             "detectionPolicy": policy_document, "detectionPolicyRevision": 0, "activeModelSetRevision": 3,
             "ruleSeverities": ["warning"], "ruleSetRevision": 12, "ruleSetHash": HASH,
             "methodResults": [
-                {"methodId": "hard:process-status", "category": "hard", "methodVersion": "process-status-hr-v1",
+                {"methodId": "hard:process-status", "category": "hard", "methodVersion": "process-status-hr-v2",
                  "status": "succeeded", "anomalous": False, "code": None, "severity": None,
                  "riskLevel": None, "riskLevelReason": None, "cause": None, "failureCode": None, "elapsedMs": 9.1,
                  "evidence": [{"observedStatus": "S", "result": "no_hit"}]},
@@ -920,8 +1175,9 @@ class EvidenceV4(unittest.TestCase):
                          "level": "warning", "determinedBy": ["soft:elapsed_ms-3f9a2c1d"], "unratedMethods": []}},
             "outcomes": {"classificationVersion": "detector-outcomes-v1"},
             "telemetry": self.TELEMETRY,
-            "statusRulePolicy": {"version": "process-status-hr-v1", "sourceId": SOURCE,
-                                 "mapping": {"S": "no_hit", "F": "critical", "P": "warning", "N": "warning"}},
+            "statusRulePolicy": {"version": "process-status-hr-v2", "sourceId": SOURCE,
+                                 "mapping": {"S": "no_hit", "F": "critical", "P": "warning", "N": "info",
+                                             "H": "info", "Z": "warning"}},
             "observation": self.OBSERVATION, "inputManifestHash": "manifest"}
         actual = self.evidence(self.example_methods())
         ratio = actual["methodResults"][3]["scoreDetail"]["normalized"]
@@ -951,25 +1207,46 @@ class EvidenceV4(unittest.TestCase):
         self.assertEqual([item["ruleKey"] for item in evidence["rules"]], ["negative-duration"])
 
     def test_status_rule_keeps_v3_entry_and_reason(self):
-        evidence = self.evidence(stamped(hard({"status": "H"}, (PROCESS_STATUS,))))
-        self.assertEqual(evidence["rules"], [{"ruleKey": "process-status", "version": "process-status-hr-v1",
-                                              "sourceId": SOURCE, "observedStatus": "H", "result": "unavailable",
+        evidence = self.evidence(stamped(hard({"status": "X"}, (PROCESS_STATUS,))))
+        self.assertEqual(evidence["rules"], [{"ruleKey": "process-status", "version": "process-status-hr-v2",
+                                              "sourceId": SOURCE, "observedStatus": "X", "result": "unavailable",
                                               "severity": None, "reason": "status_unknown"}])
         self.assertEqual(evidence["checkers"]["hr"]["evidence"], evidence["rules"])
         self.assertEqual(evidence["checkers"]["hr"]["status"], "not_ready")
         hit = self.evidence(stamped(hard({"status": "F"}, (PROCESS_STATUS,))))["rules"][0]
         self.assertEqual((hit["result"], hit["severity"], hit["reason"]), ("hit", "critical", None))
 
+    def test_status_n_without_end_time_is_not_applicable_in_rules(self):
+        evidence = self.evidence(stamped(hard({"status": "N"}, (PROCESS_STATUS,))))
+        self.assertEqual(evidence["rules"], [{"ruleKey": "process-status", "version": "process-status-hr-v2",
+                                              "sourceId": SOURCE, "observedStatus": "N", "result": "not_applicable",
+                                              "severity": None, "reason": "end_time_absent"}])
+        self.assertEqual((evidence["checkers"]["hr"]["status"], evidence["checkers"]["hr"]["anomalous"]),
+                         ("succeeded", False))
+        self.assertEqual(evidence["ruleSeverities"], [])
+
+    def test_status_policy_records_the_levels_used(self):
+        _, levels = read_hard_rule_snapshot([{"id": PROCESS_STATUS, "enabled": True,
+                                              "severity": {"byCode": {"PROCESS_STATUS_H": "critical"}}}])
+        methods = stamped(evaluate_hard_rules((PROCESS_STATUS,), {"status": "H"}, levels))
+        evidence = self.evidence(methods, status_levels=levels)
+        self.assertEqual(evidence["statusRulePolicy"], {
+            "version": "process-status-hr-v2", "sourceId": SOURCE,
+            "mapping": {"S": "no_hit", "F": "critical", "P": "warning", "N": "info", "H": "critical", "Z": "warning"}})
+        self.assertEqual(evidence["statusRulePolicy"], status_rule_policy(SOURCE, levels))
+        self.assertEqual((evidence["rules"][0]["severity"], evidence["composite"]["risk"]["level"]), ("critical", "critical"))
+        self.assertEqual(evidence["ruleSeverities"], ["critical"])
+
     def test_status_rule_timeout_keeps_v3_entry(self):
-        late = unresolved_result(PROCESS_STATUS, "process-status-hr-v1", "timeout")
+        late = unresolved_result(PROCESS_STATUS, "process-status-hr-v2", "timeout")
         evidence = self.evidence(stamped([late]))
-        self.assertEqual(evidence["rules"], [{"ruleKey": "process-status", "version": "process-status-hr-v1",
+        self.assertEqual(evidence["rules"], [{"ruleKey": "process-status", "version": "process-status-hr-v2",
                                               "sourceId": SOURCE, "observedStatus": None, "result": "unavailable",
                                               "severity": None, "reason": "status_unknown"}])
         self.assertEqual(evidence["checkers"]["hr"]["status"], "not_ready")
 
     def test_reason_scope_of_other_rules(self):
-        methods = hard({"status": "S"}) + [soft({}, field="elapsed_ms", suffix="00000001"),
+        methods = hard({"status": "S"}, (PROCESS_STATUS, NEGATIVE_DURATION)) + [soft({}, field="elapsed_ms", suffix="00000001"),
                                            soft({"retry_count": 9}, suffix="00000002"),
                                            soft({}, suffix="00000003"), soft({"retry_count": "x"}, suffix="00000004")]
         evidence = self.evidence(stamped(methods))
@@ -1036,7 +1313,7 @@ class InterimPayload(unittest.TestCase):
     REVISIONS = EvidenceV4.REVISIONS
 
     def test_section_13_3_snapshot(self):
-        status, duration = hard(raw("F"))
+        status = evaluate_process_status(raw("F"))
         methods = [with_elapsed(status, 9.1), unresolved_result(NEGATIVE_DURATION, "negative-duration-v1", "pending"),
                    unresolved_result("ml:iforest", "process-iforest-v1", "pending", modelVersionId="version",
                                      score=None, scoreDetail=None)]
@@ -1065,8 +1342,8 @@ class InterimPayload(unittest.TestCase):
     def test_arrivals_only_raise_grade_and_risk(self):
         forest = with_elapsed(model("iforest", True), 5.0)
         rule = with_elapsed(soft({"retry_count": 5}, severity="info"), 6.0)
-        status = with_elapsed(evaluate_process_status({"status": "F"}, SOURCE), 7.0)
-        pending_hard = unresolved_result(PROCESS_STATUS, "process-status-hr-v1", "pending")
+        status = with_elapsed(evaluate_process_status({"status": "F"}), 7.0)
+        pending_hard = unresolved_result(PROCESS_STATUS, "process-status-hr-v2", "pending")
         pending_soft = unresolved_result(rule["methodId"], "soft-threshold-v1", "pending")
         steps = [[pending_hard, pending_soft, forest], [pending_hard, rule, forest], [status, rule, forest]]
         composites = [build_interim_payload(policy(), step, self.REVISIONS, 9.0)["composite"] for step in steps]

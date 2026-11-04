@@ -6,12 +6,11 @@ import re
 from typing import Any, Mapping
 
 from derived_expression import FIELDS, evaluate as evaluate_derived, validate as validate_derived
-from detector.method_results import method_category, method_result, source_absent
+from detector.method_results import SEVERITIES, method_category, method_result, source_absent
 from detector.rules import evaluate_rules
 
 METHOD_VERSION = "soft-threshold-v1"
 OPERATORS = frozenset({"gte", "gt", "lte", "lt"})
-SEVERITIES = frozenset({"info", "warning", "critical"})
 MISSING_POLICIES = frozenset({"not_applicable", "unavailable"})
 FIXED_DECIMAL = re.compile(r"^-?(?:0|[1-9]\d*)(?:\.\d+)?$")
 

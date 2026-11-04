@@ -7,6 +7,7 @@ from typing import Any, Mapping
 
 CATEGORIES = ("hard", "soft", "ml")
 STATUSES = frozenset({"succeeded", "not_ready", "failed"})
+SEVERITIES = frozenset({"info", "warning", "critical"})
 CAUSES = frozenset({"input_missing", "input_invalid", "feature_unavailable", "not_configured",
                     "not_executable", "timeout", "capacity", "failure", "pending"})
 FAILURE_CODES = frozenset({"invalid_rule_definition", "invalid_threshold", "invalid_score",

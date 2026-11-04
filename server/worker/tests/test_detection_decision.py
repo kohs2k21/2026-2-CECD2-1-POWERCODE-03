@@ -24,8 +24,17 @@ HASH = "a" * 64
 START = "2026-01-01T00:00:00"
 END = "2026-01-01T00:00:08.120"
 ALL_HARD = (PROCESS_STATUS, NEGATIVE_DURATION, SUCCESS_WITH_ERROR, COUNT_CONSERVATION)
-# 계약 11.2 예시의 r12 스냅샷. 새 하드룰 2개가 없어 꺼짐으로 실행된다.
-R12_HARD_RULES = [{"id": PROCESS_STATUS, "enabled": True}, {"id": NEGATIVE_DURATION, "enabled": True}]
+# 015_rule_set_revisions.sql r0의 hardRules 원문 형태. v1 항목이고 새 하드룰 2개가 없다.
+R0_HARD_RULES = [
+    {"id": "hard:process-status", "methodVersion": "process-status-hr-v1", "displayName": "상태가 S가 아님",
+     "conditionText": "STATUS ≠ S",
+     "severity": {"byCode": {"PROCESS_STATUS_F": "critical", "PROCESS_STATUS_P": "warning", "PROCESS_STATUS_N": "warning"}},
+     "enabled": True, "editable": ["enabled"]},
+    {"id": "hard:negative-duration", "methodVersion": "negative-duration-v1", "displayName": "시작 시각이 종료 시각보다 늦음",
+     "conditionText": "START_TIME > END_TIME (종료 시각이 없으면 판단하지 않음)",
+     "severity": "critical", "enabled": True, "editable": ["enabled"]}]
+# rule-set.md "룰 세트 상태" 절 r12의 hardRules 원문 형태. 계약 11.2 예시가 이 상태다.
+R12_HARD_RULES = copy.deepcopy(R0_HARD_RULES)
 FIELDS = {
     "retry_count": {"fieldId": "retry_count", "valueType": "integer", "unit": "count",
                     "source": {"kind": "column", "column": "RETRY_COUNT", "ruleDslField": "P.retry_count"}},
@@ -56,8 +65,19 @@ def stamped(methods, start=1.0):
     return [with_elapsed(method, start + index) for index, method in enumerate(methods)]
 
 
+def selection(enabled=ALL_HARD, levels=None):
+    """v2 항목으로 만든 스냅샷을 실제 해석 함수로 읽는다."""
+    items = [{"id": rule_id, "enabled": rule_id in enabled} for rule_id in ALL_HARD]
+    items[0].update(methodVersion="process-status-hr-v2", severity={"byCode": {**STATUS_LEVELS, **(levels or {})}})
+    return read_hard_rule_snapshot(items)
+
+
 def hard(raw, enabled=ALL_HARD):
-    return evaluate_hard_rules(enabled, raw)
+    return evaluate_hard_rules(selection(enabled), raw)
+
+
+def status_result(values, levels=None):
+    return evaluate_process_status(values, selection(levels=levels))
 
 
 def soft(raw, **rule):
@@ -186,10 +206,10 @@ class BuiltInHardRules(unittest.TestCase):
 
     def test_process_status_codes_and_default_levels(self):
         for status, level in (("F", "critical"), ("P", "warning"), ("Z", "warning"), ("H", "info"), ("N", "info")):
-            result = evaluate_process_status({"status": status, "end_time_raw": END})
+            result = status_result({"status": status, "end_time_raw": END})
             self.assertEqual((result["status"], result["anomalous"], result["code"], result["severity"],
                               result["riskLevel"]), ("succeeded", True, "PROCESS_STATUS_" + status, level, level))
-        result = evaluate_process_status({"status": "S"})
+        result = status_result({"status": "S"})
         self.assertEqual((result["status"], result["anomalous"], result["code"], result["riskLevel"]),
                          ("succeeded", False, None, None))
         self.assertEqual(result["evidence"], [{"observedStatus": "S", "result": "no_hit"}])
@@ -197,30 +217,30 @@ class BuiltInHardRules(unittest.TestCase):
     def test_process_status_undetermined_causes(self):
         for value, cause in ((None, "input_missing"), ("", "input_missing"), ("X", "input_invalid"),
                              ("s", "input_invalid"), (" S", "input_invalid"), (1, "input_invalid")):
-            result = evaluate_process_status({"status": value})
+            result = status_result({"status": value})
             self.assertEqual((result["status"], result["anomalous"], result["cause"]), ("not_ready", None, cause))
-        self.assertEqual(evaluate_process_status({})["cause"], "input_missing")
+        self.assertEqual(status_result({})["cause"], "input_missing")
 
     def test_unprocessed_status_without_end_time_is_not_an_anomaly(self):
         for end in (None, "", "   ", "\\N"):
             with self.subTest(end=end):
-                result = evaluate_process_status({"status": "N", "end_time_raw": end})
+                result = status_result({"status": "N", "end_time_raw": end})
                 self.assertEqual((result["status"], result["anomalous"], result["code"], result["severity"],
                                   result["riskLevel"], result["cause"]), ("succeeded", False, None, None, None, None))
                 self.assertEqual(result["evidence"], [{"observedStatus": "N", "result": "not_applicable",
                                                        "reason": "end_time_absent"}])
-        self.assertTrue(evaluate_process_status({"status": "N", "end_time_raw": END})["anomalous"])
+        self.assertTrue(status_result({"status": "N", "end_time_raw": END})["anomalous"])
         # 시각을 해석할 수 없어도 값이 있으면 END_TIME이 있는 N이다.
-        self.assertTrue(evaluate_process_status({"status": "N", "end_time_raw": "bad"})["anomalous"])
+        self.assertTrue(status_result({"status": "N", "end_time_raw": "bad"})["anomalous"])
         for status in ("F", "P", "H", "Z"):
-            self.assertTrue(evaluate_process_status({"status": status})["anomalous"])
+            self.assertTrue(status_result({"status": status})["anomalous"])
 
     def test_configured_level_replaces_only_its_code(self):
-        levels = {**STATUS_LEVELS, "PROCESS_STATUS_F": "info"}
-        self.assertEqual(evaluate_process_status({"status": "F"}, levels)["riskLevel"], "info")
-        self.assertEqual(evaluate_process_status({"status": "P"}, levels)["riskLevel"], "warning")
+        levels = {"PROCESS_STATUS_F": "info"}
+        self.assertEqual(status_result({"status": "F"}, levels)["riskLevel"], "info")
+        self.assertEqual(status_result({"status": "P"}, levels)["riskLevel"], "warning")
         self.assertEqual(hard({"status": "F"}, (PROCESS_STATUS,))[0]["riskLevel"], "critical")
-        self.assertEqual(evaluate_hard_rules((PROCESS_STATUS,), {"status": "F"}, levels)[0]["riskLevel"], "info")
+        self.assertEqual(evaluate_hard_rules(selection((PROCESS_STATUS,), levels), {"status": "F"})[0]["riskLevel"], "info")
 
     def assert_duration(self, raw_values, status, anomalous, cause=None, evidence=None):
         result = evaluate_negative_duration(raw_values)
@@ -290,20 +310,18 @@ class BuiltInHardRules(unittest.TestCase):
                              evidence=[{"result": "not_applicable", "reason": "end_time_absent"}])
         self.assert_duration({"start_time_raw": "\\N", "end_time_raw": "\\N"}, "succeeded", False)
         self.assert_duration({"start_time_raw": "\\N", "end_time_raw": END}, "not_ready", None, "input_missing")
-        self.assertEqual(evaluate_process_status({"status": "\\N"})["cause"], "input_missing")
+        self.assertEqual(status_result({"status": "\\N"})["cause"], "input_missing")
 
     def test_null_words_are_not_absent_yet(self):
         for word in ("NULL", "null", "None", "NaN"):
             with self.subTest(word=word):
                 self.assert_duration({"start_time_raw": START, "end_time_raw": word}, "not_ready", None, "input_invalid")
                 self.assert_duration({"start_time_raw": word, "end_time_raw": END}, "not_ready", None, "input_invalid")
-                self.assertEqual(evaluate_process_status({"status": word})["cause"], "input_invalid")
+                self.assertEqual(status_result({"status": word})["cause"], "input_invalid")
 
     def test_only_enabled_rules_run_in_list_order(self):
         self.assertEqual([item["methodId"] for item in hard(raw(), tuple(reversed(ALL_HARD)))], list(ALL_HARD))
         self.assertEqual([item["methodId"] for item in hard(raw(), (NEGATIVE_DURATION,))], [NEGATIVE_DURATION])
-        with self.assertRaisesRegex(ValueError, "^hard_rule_unknown:hard:final-missing-end$"):
-            hard(raw(), ("hard:final-missing-end",))
 
 
 class CountRules(unittest.TestCase):
@@ -323,6 +341,7 @@ class CountRules(unittest.TestCase):
         for status in ("S", "F"):
             values = {"status": status, "total_count": 10, "success_count": 7, "error_count": 3}
             self.assert_rule(evaluate_count_conservation, values, "succeeded", False)
+            self.assert_rule(evaluate_count_conservation, {**values, "total_count": 9}, "succeeded", True)
             result = self.assert_rule(evaluate_count_conservation, {**values, "total_count": 11}, "succeeded", True)
             self.assertEqual((result["code"], result["riskLevel"], result["methodVersion"]),
                              ("HARD_COUNT_CONSERVATION", "critical", "count-conservation-v1"))
@@ -403,17 +422,64 @@ class CountRules(unittest.TestCase):
 class HardRuleSnapshot(unittest.TestCase):
     def test_reads_enabled_rules_in_list_order(self):
         rules = [{"id": item, "enabled": True} for item in reversed(ALL_HARD)]
-        self.assertEqual(read_hard_rule_snapshot(rules), (list(ALL_HARD), dict(STATUS_LEVELS)))
+        self.assertEqual(read_hard_rule_snapshot(rules).enabled_ids, ALL_HARD)
         rules[0]["enabled"] = False
-        self.assertEqual(read_hard_rule_snapshot(rules)[0], list(ALL_HARD[:3]))
+        self.assertEqual(read_hard_rule_snapshot(rules).enabled_ids, ALL_HARD[:3])
 
     def test_builtin_rule_missing_from_snapshot_is_off(self):
-        enabled, _ = read_hard_rule_snapshot(R12_HARD_RULES)
-        self.assertEqual(enabled, [PROCESS_STATUS, NEGATIVE_DURATION])
-        decided = decide(policy(), stamped(hard({**raw(), "error_count": 5}, enabled)))
+        hard_rules = read_hard_rule_snapshot(R12_HARD_RULES)
+        self.assertEqual(hard_rules.enabled_ids, (PROCESS_STATUS, NEGATIVE_DURATION))
+        decided = decide(policy(), stamped(evaluate_hard_rules(hard_rules, raw(error_count=5))))
         self.assertEqual(decided["categoryResults"]["hard"]["n"], 2)
         self.assertEqual(decided["composite"]["anomalous"], False)
-        self.assertEqual(read_hard_rule_snapshot([]), ([], dict(STATUS_LEVELS)))
+        self.assertEqual(read_hard_rule_snapshot([]).enabled_ids, ())
+
+    def test_stored_v1_entries_keep_builtin_levels(self):
+        for snapshot in (R0_HARD_RULES, R12_HARD_RULES):
+            hard_rules = read_hard_rule_snapshot(snapshot)
+            self.assertEqual(hard_rules.status_levels, dict(STATUS_LEVELS))
+            self.assertEqual(hard_rules.status_levels["PROCESS_STATUS_N"], "info")
+            result = evaluate_process_status({"status": "N", "end_time_raw": END}, hard_rules)
+            self.assertEqual((result["severity"], result["riskLevel"]), ("info", "info"))
+
+    def test_only_v2_entries_are_user_settings(self):
+        changed = {"byCode": {**STATUS_LEVELS, "PROCESS_STATUS_F": "info"}}
+        for item in ({"id": PROCESS_STATUS, "enabled": True, "severity": changed},
+                     {"id": PROCESS_STATUS, "enabled": True, "methodVersion": None, "severity": changed},
+                     {"id": PROCESS_STATUS, "enabled": True, "methodVersion": "process-status-hr-v1", "severity": changed}):
+            with self.subTest(item=item):
+                self.assertEqual(read_hard_rule_snapshot([item]).status_levels, dict(STATUS_LEVELS))
+        item = {"id": PROCESS_STATUS, "enabled": True, "methodVersion": "process-status-hr-v2", "severity": changed}
+        self.assertEqual(read_hard_rule_snapshot([item]).status_levels["PROCESS_STATUS_F"], "info")
+
+    def test_format_is_not_checked_on_v1_entries(self):
+        for severity in ("critical", {"byCode": {"PROCESS_STATUS_X": "high"}}, 3, {}):
+            item = {"id": PROCESS_STATUS, "enabled": True, "methodVersion": "process-status-hr-v1", "severity": severity}
+            self.assertEqual(read_hard_rule_snapshot([item]).status_levels, dict(STATUS_LEVELS))
+
+    def test_unknown_method_version_fails(self):
+        for version in ("process-status-hr-v3", "", 2, ["process-status-hr-v2"]):
+            item = {"id": PROCESS_STATUS, "enabled": False, "methodVersion": version}
+            with self.subTest(version=version), self.assertRaisesRegex(
+                    ValueError, f"^hard_rule_version_unknown:{PROCESS_STATUS}$"):
+                read_hard_rule_snapshot([item])
+
+    def test_v2_entry_needs_every_code_and_valid_levels(self):
+        full = dict(STATUS_LEVELS)
+        partial = {code: level for code, level in full.items() if code != "PROCESS_STATUS_H"}
+        for severity in (None, {"byCode": partial}, {"byCode": {}}, {"byCode": {**full, "PROCESS_STATUS_X": "info"}},
+                         {"byCode": {**full, "PROCESS_STATUS_S": "info"}}, {"byCode": {**full, "PROCESS_STATUS_F": "high"}},
+                         {"byCode": {**full, "PROCESS_STATUS_F": None}}, {"byCode": {**full, "PROCESS_STATUS_F": ["info"]}},
+                         {"byCode": []}, {"byCode": None}, "critical", {"byCode": full, "extra": 1}, {}):
+            for enabled in (True, False):
+                item = {"id": PROCESS_STATUS, "enabled": enabled, "methodVersion": "process-status-hr-v2", "severity": severity}
+                with self.subTest(severity=severity, enabled=enabled), self.assertRaisesRegex(
+                        ValueError, f"^invalid_hard_rule_severity:{PROCESS_STATUS}$"):
+                    read_hard_rule_snapshot([item])
+
+    def test_configured_status_levels(self):
+        by_code = {code: "critical" for code in STATUS_LEVELS}
+        self.assertEqual(selection(levels=by_code).status_levels, by_code)
 
     def test_unknown_id_fails(self):
         for item in ({"id": "hard:final-missing-end", "enabled": True}, {"id": "sr:r01", "enabled": False},
@@ -436,45 +502,25 @@ class HardRuleSnapshot(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "^duplicate_method_id$"):
             read_hard_rule_snapshot(R12_HARD_RULES + R12_HARD_RULES[:1])
 
-    def test_configured_status_levels(self):
-        by_code = {code: "critical" for code in STATUS_LEVELS}
-        _, levels = read_hard_rule_snapshot([{"id": PROCESS_STATUS, "enabled": True, "severity": {"byCode": by_code}}])
-        self.assertEqual(levels, by_code)
-
-    def test_partial_or_old_entries_use_builtin_levels(self):
-        partial = {"id": PROCESS_STATUS, "enabled": True, "severity": {"byCode": {"PROCESS_STATUS_H": "critical"}}}
-        _, levels = read_hard_rule_snapshot([partial])
-        self.assertEqual(levels, {**STATUS_LEVELS, "PROCESS_STATUS_H": "critical"})
-        old = {"id": PROCESS_STATUS, "enabled": True, "severity": {"byCode": {"PROCESS_STATUS_F": "critical",
-                                                                              "PROCESS_STATUS_P": "warning"}}}
-        self.assertEqual(read_hard_rule_snapshot([old])[1], dict(STATUS_LEVELS))
-        for item in ({"id": PROCESS_STATUS, "enabled": True}, {"id": PROCESS_STATUS, "enabled": True, "severity": None},
-                     {"id": PROCESS_STATUS, "enabled": True, "severity": {"byCode": {}}}):
-            self.assertEqual(read_hard_rule_snapshot([item])[1], dict(STATUS_LEVELS))
-
-    def test_invalid_levels_fail_even_when_the_rule_is_off(self):
-        for severity in ({"byCode": {"PROCESS_STATUS_F": "high"}}, {"byCode": {"PROCESS_STATUS_F": None}},
-                         {"byCode": {"PROCESS_STATUS_F": ["info"]}}, {"byCode": {"PROCESS_STATUS_X": "info"}},
-                         {"byCode": {"PROCESS_STATUS_S": "info"}}, {"byCode": []}, {"byCode": None}, "critical",
-                         {"byCode": {}, "extra": 1}, {}):
-            for enabled in (True, False):
-                with self.subTest(severity=severity, enabled=enabled), self.assertRaisesRegex(
-                        ValueError, f"^invalid_hard_rule_severity:{PROCESS_STATUS}$"):
-                    read_hard_rule_snapshot([{"id": PROCESS_STATUS, "enabled": enabled, "severity": severity}])
-
     def test_other_rules_ignore_snapshot_definition_values(self):
         item = {"id": NEGATIVE_DURATION, "enabled": True, "severity": "info", "methodVersion": "x", "conditionText": "y"}
-        enabled, levels = read_hard_rule_snapshot([item])
-        self.assertEqual(levels, dict(STATUS_LEVELS))
-        result = evaluate_hard_rules(enabled, raw(start=END, end=START), levels)[0]
+        hard_rules = read_hard_rule_snapshot([item])
+        self.assertEqual(hard_rules.status_levels, dict(STATUS_LEVELS))
+        result = evaluate_hard_rules(hard_rules, raw(start=END, end=START))[0]
         self.assertEqual((result["methodVersion"], result["riskLevel"]), ("negative-duration-v1", "critical"))
         item = {"id": SUCCESS_WITH_ERROR, "enabled": False, "severity": {"byCode": {"X": "bad"}}}
-        self.assertEqual(read_hard_rule_snapshot([item])[0], [])
+        self.assertEqual(read_hard_rule_snapshot([item]).enabled_ids, ())
 
-    def test_source_data_is_not_mutated_and_defaults_stay(self):
-        _, levels = read_hard_rule_snapshot(R12_HARD_RULES)
-        levels["PROCESS_STATUS_F"] = "info"
-        self.assertEqual(STATUS_LEVELS["PROCESS_STATUS_F"], "critical")
+    def test_selection_is_immutable_and_safe_to_copy(self):
+        hard_rules = selection(levels={"PROCESS_STATUS_H": "critical"})
+        hard_rules.status_levels["PROCESS_STATUS_H"] = "info"
+        self.assertEqual(hard_rules.status_levels["PROCESS_STATUS_H"], "critical")
+        self.assertEqual(STATUS_LEVELS["PROCESS_STATUS_H"], "info")
+        for clone in (copy.deepcopy(hard_rules), pickle.loads(pickle.dumps(hard_rules))):
+            self.assertEqual(clone, hard_rules)
+            self.assertEqual(hash(clone), hash(hard_rules))
+        with self.assertRaises(AttributeError):
+            hard_rules.enabled_ids = ()
 
 
 class SoftRules(unittest.TestCase):
@@ -786,9 +832,8 @@ class TruthTable(unittest.TestCase):
         self.check(hard(raw("Z")), "T", "-", "-", "complete", True, "anomaly", ("rated", "warning", [PROCESS_STATUS], []))
 
     def test_configured_level_changes_risk_but_not_grade(self):
-        _, levels = read_hard_rule_snapshot([{"id": PROCESS_STATUS, "enabled": True,
-                                              "severity": {"byCode": {"PROCESS_STATUS_F": "info"}}}])
-        composite = decide(policy(), stamped(evaluate_hard_rules(ALL_HARD, raw("F"), levels)))["composite"]
+        methods = evaluate_hard_rules(selection(levels={"PROCESS_STATUS_F": "info"}), raw("F"))
+        composite = decide(policy(), stamped(methods))["composite"]
         self.assertEqual((composite["grade"], composite["risk"]["level"]), ("anomaly", "info"))
 
 
@@ -918,7 +963,7 @@ class GradeAndRisk(unittest.TestCase):
         self.assertEqual((by_id["ml:aa"]["riskLevel"], by_id["ml:aa"]["riskLevelReason"]), (None, "level_undefined"))
 
     def test_first_anomaly_time(self):
-        late_hard = with_elapsed(evaluate_process_status({"status": "F"}), 30.0)
+        late_hard = with_elapsed(status_result({"status": "F"}), 30.0)
         early_soft = with_elapsed(soft({"retry_count": 5}), 10.0)
         self.assertEqual(decide(policy(), [late_hard, early_soft])["composite"]["firstAnomalyElapsedMs"], 10.0)
         models = [with_elapsed(model("aa", True), 5.0), with_elapsed(model("bb", True), 20.0),
@@ -1110,13 +1155,14 @@ class EvidenceV4(unittest.TestCase):
     TELEMETRY = {"kind": "cost"}
     OBSERVATION = {"id": "22222222-2222-2222-2222-222222222222", "revisionNo": 1, "inputAsOf": "2026-11-04T00:00:00Z"}
 
-    def evidence(self, methods, active_policy=None, revisions=None, **options):
-        return build_evidence(active_policy or policy(), methods, revisions or self.REVISIONS, source_id=SOURCE,
+    def evidence(self, methods, active_policy=None, revisions=None, hard_rules=None, **options):
+        hard_rules = hard_rules or selection([item["methodId"] for item in methods if item["category"] == "hard"])
+        return build_evidence(active_policy or policy(), methods, revisions or self.REVISIONS, hard_rules, source_id=SOURCE,
                               telemetry=self.TELEMETRY, observation=self.OBSERVATION,
                               input_manifest_hash="manifest", **options)
 
     def example_methods(self):
-        status, duration = hard(raw(end=END), read_hard_rule_snapshot(R12_HARD_RULES)[0])
+        status, duration = evaluate_hard_rules(read_hard_rule_snapshot(R12_HARD_RULES), raw(end=END))
         rule = evaluate_soft_rule(soft_rule(field="elapsed_ms", operator="gt", threshold=5000), FIELDS, raw(end=END))
         forest = ml_method_result("ml:iforest", "process-iforest-v1", "<#94 모델 버전 ID>", .53,
                                   {"direction": "higher_is_anomaly", "value": "0.61"}, "train-internal-p99-v1",
@@ -1179,7 +1225,7 @@ class EvidenceV4(unittest.TestCase):
                                  "mapping": {"S": "no_hit", "F": "critical", "P": "warning", "N": "info",
                                              "H": "info", "Z": "warning"}},
             "observation": self.OBSERVATION, "inputManifestHash": "manifest"}
-        actual = self.evidence(self.example_methods())
+        actual = self.evidence(self.example_methods(), hard_rules=read_hard_rule_snapshot(R12_HARD_RULES))
         ratio = actual["methodResults"][3]["scoreDetail"]["normalized"]
         self.assertAlmostEqual(ratio["value"], .869, places=3)
         ratio["value"] = .869
@@ -1226,16 +1272,28 @@ class EvidenceV4(unittest.TestCase):
         self.assertEqual(evidence["ruleSeverities"], [])
 
     def test_status_policy_records_the_levels_used(self):
-        _, levels = read_hard_rule_snapshot([{"id": PROCESS_STATUS, "enabled": True,
-                                              "severity": {"byCode": {"PROCESS_STATUS_H": "critical"}}}])
-        methods = stamped(evaluate_hard_rules((PROCESS_STATUS,), {"status": "H"}, levels))
-        evidence = self.evidence(methods, status_levels=levels)
+        hard_rules = selection((PROCESS_STATUS,), {"PROCESS_STATUS_H": "critical"})
+        methods = stamped(evaluate_hard_rules(hard_rules, {"status": "H"}))
+        evidence = self.evidence(methods, hard_rules=hard_rules)
         self.assertEqual(evidence["statusRulePolicy"], {
             "version": "process-status-hr-v2", "sourceId": SOURCE,
             "mapping": {"S": "no_hit", "F": "critical", "P": "warning", "N": "info", "H": "critical", "Z": "warning"}})
-        self.assertEqual(evidence["statusRulePolicy"], status_rule_policy(SOURCE, levels))
+        self.assertEqual(evidence["statusRulePolicy"], status_rule_policy(SOURCE, hard_rules))
         self.assertEqual((evidence["rules"][0]["severity"], evidence["composite"]["risk"]["level"]), ("critical", "critical"))
         self.assertEqual(evidence["ruleSeverities"], ["critical"])
+
+    def test_selection_must_match_the_evaluated_methods(self):
+        methods = stamped(hard(raw("F")))
+        for other in (selection((PROCESS_STATUS,)), selection(ALL_HARD, {"PROCESS_STATUS_F": "info"})):
+            with self.subTest(other=other), self.assertRaisesRegex(ValueError, "^hard_rule_selection_mismatch$"):
+                self.evidence(methods, hard_rules=other)
+        with self.assertRaises(TypeError):
+            build_evidence(policy(), methods, self.REVISIONS, source_id=SOURCE, telemetry={}, observation={},
+                           input_manifest_hash="x")
+        with self.assertRaises(TypeError):
+            evaluate_process_status({"status": "F"})
+        with self.assertRaises(TypeError):
+            evaluate_hard_rules({"status": "F"})
 
     def test_status_rule_timeout_keeps_v3_entry(self):
         late = unresolved_result(PROCESS_STATUS, "process-status-hr-v2", "timeout")
@@ -1313,7 +1371,7 @@ class InterimPayload(unittest.TestCase):
     REVISIONS = EvidenceV4.REVISIONS
 
     def test_section_13_3_snapshot(self):
-        status = evaluate_process_status(raw("F"))
+        status = status_result(raw("F"))
         methods = [with_elapsed(status, 9.1), unresolved_result(NEGATIVE_DURATION, "negative-duration-v1", "pending"),
                    unresolved_result("ml:iforest", "process-iforest-v1", "pending", modelVersionId="version",
                                      score=None, scoreDetail=None)]
@@ -1342,7 +1400,7 @@ class InterimPayload(unittest.TestCase):
     def test_arrivals_only_raise_grade_and_risk(self):
         forest = with_elapsed(model("iforest", True), 5.0)
         rule = with_elapsed(soft({"retry_count": 5}, severity="info"), 6.0)
-        status = with_elapsed(evaluate_process_status({"status": "F"}), 7.0)
+        status = with_elapsed(status_result({"status": "F"}), 7.0)
         pending_hard = unresolved_result(PROCESS_STATUS, "process-status-hr-v2", "pending")
         pending_soft = unresolved_result(rule["methodId"], "soft-threshold-v1", "pending")
         steps = [[pending_hard, pending_soft, forest], [pending_hard, rule, forest], [status, rule, forest]]

@@ -1,11 +1,13 @@
 """내장 하드룰(화면: 이상 규칙) 목록과 행 단위 실행."""
 from __future__ import annotations
 
+from dataclasses import dataclass
 from decimal import Context, Decimal, Inexact, MAX_EMAX, MIN_EMIN
 from typing import Any, Callable, Mapping
 
 from derived_expression import TABLE, evaluate as evaluate_derived, number
 from detector.method_results import SEVERITIES, method_result, source_absent
+from detector.status_rule import VERSION as LEGACY_STATUS_VERSION
 
 PROCESS_STATUS = "hard:process-status"
 NEGATIVE_DURATION = "hard:negative-duration"
@@ -35,22 +37,37 @@ HARD_RULE_ORDER = {rule["id"]: index for index, rule in enumerate(HARD_RULES)}
 STATUS_LEVELS = HARD_RULES[HARD_RULE_ORDER[PROCESS_STATUS]]["severity"]["byCode"]
 
 
+@dataclass(frozen=True)
+class HardRuleSelection:
+    """시도에 고정한 하드룰 입력. 평가와 evidence 기록이 같은 객체를 받아 단계가 어긋나지 않게 한다."""
+    enabled_ids: tuple[str, ...]
+    status_level_items: tuple[tuple[str, str], ...]
+
+    @property
+    def status_levels(self) -> dict[str, str]:
+        return dict(self.status_level_items)
+
+
 def _rule(rule_id: str) -> Mapping[str, Any]:
     return HARD_RULES[HARD_RULE_ORDER[rule_id]]
 
 
-def _snapshot_status_levels(severity: Any) -> dict[str, str]:
-    if severity is None:
-        return {}
+def _snapshot_status_levels(item: Mapping[str, Any]) -> dict[str, str]:
+    """v2 항목의 severity만 사용자 설정이다. v1 항목의 값은 그때 내장값의 투영이라 쓰지 않는다."""
+    version = item.get("methodVersion")
+    if version is None or version == LEGACY_STATUS_VERSION:
+        return dict(STATUS_LEVELS)
+    if version != PROCESS_STATUS_VERSION:
+        raise ValueError(f"hard_rule_version_unknown:{PROCESS_STATUS}")
+    severity = item.get("severity")
     by_code = severity.get("byCode") if isinstance(severity, Mapping) and set(severity) == {"byCode"} else None
-    if not isinstance(by_code, Mapping) or any(
-            code not in STATUS_LEVELS or not isinstance(level, str) or level not in SEVERITIES
-            for code, level in by_code.items()):
+    if not isinstance(by_code, Mapping) or set(by_code) != set(STATUS_LEVELS) or any(
+            not isinstance(level, str) or level not in SEVERITIES for level in by_code.values()):
         raise ValueError(f"invalid_hard_rule_severity:{PROCESS_STATUS}")
     return dict(by_code)
 
 
-def read_hard_rule_snapshot(snapshot_rules: Any) -> tuple[list[str], dict[str, str]]:
+def read_hard_rule_snapshot(snapshot_rules: Any) -> HardRuleSelection:
     """룰 세트 스냅샷 hardRules[]에서 켜진 규칙(내장 목록 순)과 상태 규칙의 코드별 단계를 읽는다.
 
     스냅샷에 없는 내장 규칙은 꺼짐이다. 그 밖의 조건·단계는 스냅샷 값을 보지 않고 내장 목록을 쓴다.
@@ -69,14 +86,14 @@ def read_hard_rule_snapshot(snapshot_rules: Any) -> tuple[list[str], dict[str, s
             raise ValueError(f"invalid_hard_rule_enabled:{rule_id}")
         enabled[rule_id] = item["enabled"]
         if rule_id == PROCESS_STATUS:
-            levels.update(_snapshot_status_levels(item.get("severity")))
-    return [rule["id"] for rule in HARD_RULES if enabled.get(rule["id"])], levels
+            levels = _snapshot_status_levels(item)
+    return HardRuleSelection(tuple(rule["id"] for rule in HARD_RULES if enabled.get(rule["id"])),
+                             tuple((code, levels[code]) for code in STATUS_LEVELS))
 
 
-def status_rule_policy(source_id: Any, status_levels: Mapping[str, str] | None = None) -> dict[str, Any]:
+def status_rule_policy(source_id: Any, hard_rules: HardRuleSelection) -> dict[str, Any]:
     """그 판정에 쓴 상태 규칙 정책. evidence statusRulePolicy에 그대로 남긴다."""
-    levels = {**STATUS_LEVELS, **(status_levels or {})}
-    mapping = {code.removeprefix("PROCESS_STATUS_"): level for code, level in levels.items()}
+    mapping = {code.removeprefix("PROCESS_STATUS_"): level for code, level in hard_rules.status_level_items}
     return {"version": PROCESS_STATUS_VERSION, "sourceId": str(source_id), "mapping": {"S": "no_hit", **mapping}}
 
 
@@ -91,7 +108,7 @@ def _decided(rule: Mapping[str, Any], hit: bool) -> dict[str, Any]:
                          evidence=[{"result": "hit" if hit else "no_hit"}])
 
 
-def evaluate_process_status(raw: Mapping[str, Any], status_levels: Mapping[str, str] | None = None) -> dict[str, Any]:
+def evaluate_process_status(raw: Mapping[str, Any], hard_rules: HardRuleSelection) -> dict[str, Any]:
     rule = _rule(PROCESS_STATUS)
     value = raw.get("status")
 
@@ -111,7 +128,7 @@ def evaluate_process_status(raw: Mapping[str, Any], status_levels: Mapping[str, 
         # 미처리로 찍힌 뒤 종료 시각이 없는 행은 이상이 아니다.
         return result("succeeded", False, "not_applicable", reason="end_time_absent")
     code = "PROCESS_STATUS_" + value
-    return result("succeeded", True, "hit", code=code, severity={**STATUS_LEVELS, **(status_levels or {})}[code])
+    return result("succeeded", True, "hit", code=code, severity=hard_rules.status_levels[code])
 
 
 def _time(raw: Mapping[str, Any], column: str):
@@ -172,15 +189,10 @@ def evaluate_count_conservation(raw: Mapping[str, Any]) -> dict[str, Any]:
                        lambda total, success, error: total != _exact_sum(success, error))
 
 
-def evaluate_hard_rules(enabled_ids: Any, raw: Mapping[str, Any],
-                        status_levels: Mapping[str, str] | None = None) -> list[dict[str, Any]]:
+def evaluate_hard_rules(hard_rules: HardRuleSelection, raw: Mapping[str, Any]) -> list[dict[str, Any]]:
     """켜진 하드룰을 내장 목록 순서로 실행한다."""
-    enabled = set(enabled_ids)
-    unknown = sorted(enabled - set(HARD_RULE_ORDER))
-    if unknown:
-        raise ValueError(f"hard_rule_unknown:{unknown[0]}")
-    runners = {PROCESS_STATUS: lambda: evaluate_process_status(raw, status_levels),
+    runners = {PROCESS_STATUS: lambda: evaluate_process_status(raw, hard_rules),
                NEGATIVE_DURATION: lambda: evaluate_negative_duration(raw),
                SUCCESS_WITH_ERROR: lambda: evaluate_success_with_error(raw),
                COUNT_CONSERVATION: lambda: evaluate_count_conservation(raw)}
-    return [runners[rule["id"]]() for rule in HARD_RULES if rule["id"] in enabled]
+    return [runners[rule_id]() for rule_id in hard_rules.enabled_ids]

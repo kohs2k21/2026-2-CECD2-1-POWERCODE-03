@@ -7,7 +7,7 @@ import re
 from typing import Any, Iterable, Mapping
 
 from detector.decision import decide, requested_mode
-from detector.hard_rules import PROCESS_STATUS, status_rule_policy
+from detector.hard_rules import HardRuleSelection, PROCESS_STATUS, status_rule_policy
 from detector.policy import PolicyV2
 
 SCHEMA_VERSION = 4
@@ -47,21 +47,28 @@ def _rule_entry(method: Mapping[str, Any], source_id: Any, rule_set_revision: in
     return {**entry, "reason": summary["reason"]} if result == "not_applicable" else entry
 
 
-def build_evidence(policy: PolicyV2, method_results: Iterable[Mapping[str, Any]], revisions: PinnedRevisions, *,
-                   source_id: Any, telemetry: Mapping[str, Any], observation: Mapping[str, Any],
-                   input_manifest_hash: str, status_levels: Mapping[str, str] | None = None,
-                   demo: Mapping[str, Any] | None = None,
-                   input_origin: Mapping[str, Any] | None = None) -> dict[str, Any]:
-    """최종 판정 evidence. decision_columns에 그대로 넘겨 판정 행 열 값을 얻는다.
+def _check_hard_rules(methods: list[Mapping[str, Any]], hard_rules: HardRuleSelection) -> None:
+    """기록할 정책이 방법을 평가한 입력과 다르면 판정을 남기지 않는다."""
+    active = tuple(method["methodId"] for method in methods if method["category"] == "hard")
+    levels = hard_rules.status_levels
+    if active != hard_rules.enabled_ids or any(
+            method["methodId"] == PROCESS_STATUS and method["anomalous"] is True and
+            method["severity"] != levels.get(method["code"]) for method in methods):
+        raise ValueError("hard_rule_selection_mismatch")
 
-    status_levels는 방법 평가에 쓴 read_hard_rule_snapshot 값과 같아야 한다.
-    """
+
+def build_evidence(policy: PolicyV2, method_results: Iterable[Mapping[str, Any]], revisions: PinnedRevisions,
+                   hard_rules: HardRuleSelection, *, source_id: Any, telemetry: Mapping[str, Any],
+                   observation: Mapping[str, Any], input_manifest_hash: str, demo: Mapping[str, Any] | None = None,
+                   input_origin: Mapping[str, Any] | None = None) -> dict[str, Any]:
+    """최종 판정 evidence. decision_columns에 그대로 넘겨 판정 행 열 값을 얻는다."""
     decided = decide(policy, method_results)
     methods, categories = decided["methodResults"], decided["categoryResults"]
     if any(method["cause"] == "pending" for method in methods):
         raise ValueError("final_decision_has_pending_method")
+    _check_hard_rules(methods, hard_rules)
     status_method = next((method for method in methods if method["methodId"] == PROCESS_STATUS), None)
-    status_policy = status_rule_policy(source_id, status_levels) if status_method else None
+    status_policy = status_rule_policy(source_id, hard_rules) if status_method else None
     rule_methods = [method for method in methods if method["category"] != "ml"]
     ml_methods = [method for method in methods if method["category"] == "ml"]
     rules = [_rule_entry(method, source_id, revisions.rule_set_revision) for method in rule_methods]

@@ -85,7 +85,7 @@ const wait = async (check, label, tries = 120) => {
   for (let i = 0; i < tries && !check(); i++) await tick();
   assert.ok(check(), label);
 };
-const mount = async (userType = "admin", { keepDrafts = false } = {}) => {
+const mount = async (userType = "admin", { keepDrafts = false, createNodeMock } = {}) => {
   currentUser = { id: `${userType}-1`, email: `${userType}@example.test`, userType, createdAt: "2026-10-01T00:00:00Z" };
   storage.set("token", `token-${userType}`);
   if (!keepDrafts) useDraftStore.getState().reset();
@@ -98,7 +98,7 @@ const mount = async (userType = "admin", { keepDrafts = false } = {}) => {
   const router = createMemoryRouter(appRoutes, { initialEntries: ["/detection/rules"] });
   let renderer;
   await act(async () => {
-    renderer = create(React.createElement(QueryClientProvider, { client }, React.createElement(AuthSessionProvider, null, React.createElement(SessionProbe), React.createElement(RouterProvider, { router }))));
+    renderer = create(React.createElement(QueryClientProvider, { client }, React.createElement(AuthSessionProvider, null, React.createElement(SessionProbe), React.createElement(RouterProvider, { router }))), { createNodeMock: createNodeMock ?? (() => null) });
   });
   for (let i = 0; i < 20 && text(renderer.toJSON()).includes("로그인 상태를 확인하는 중"); i++) await tick();
   const shown = () => text(renderer.toJSON());
@@ -125,6 +125,15 @@ const renderSaveBody = async (app) => {
 };
 const HARD_WARNING = "명백한 이상을 놓칠 수 있습니다. 변경을 권장하지 않습니다.";
 const hardWarning = (app) => app.renderer.root.findAll((node) => node.type === "p" && text(node.children) === HARD_WARNING);
+/** 위험도 묶음 구조: 묶음마다 왼쪽 배지 1개(묶음 높이를 채움) + 오른쪽 코드 줄. */
+const severityGroupsOf = (row) => row.findAll((node) => node.type === "span" && node.props["data-severity"]).map((group) => {
+  const badge = group.findAll((node) => node.props["data-slot"] === "badge" && typeof node.type === "string");
+  assert.equal(badge.length, 1, "one badge per group");
+  return {
+    level: group.props["data-severity"], badge: text(badge[0].children), stretched: badge[0].props.className.includes("self-stretch") && group.props.className.includes("grid-cols-"),
+    codes: group.findAll((node) => node.type === "span" && node.props["data-severity-code"]).map((line) => text(line.children).replace(/참고주의위험$/, "")),
+  };
+});
 const calls = (method, path) => requested.filter((call) => call.method === method && call.path === path);
 
 // 1) 표시: 머리글, byCode 코드별 위험도, 읽기 전용 조건, 이상 징후 규칙 입력, 변경 기록, 판정 정책 없음.
@@ -155,10 +164,12 @@ const calls = (method, path) => requested.filter((call) => call.method === metho
     .findAll((node) => node.type === "span" && node.props["data-severity"]).map((node) => [node.props["data-severity"], text(node.children)]);
   assert.deepEqual(severityLines("hard:negative-duration"), [["critical", "위험"]], "single severity is one badge");
   assert.equal(app.renderer.root.find((node) => node.type === "tr" && node.props["data-rule"] === "hard:negative-duration").findAll((node) => node.type === "select").length, 0, "other rules have no severity input");
-  // 편집 가능한 규칙: 코드마다 선택, 위험 → 주의 → 참고 순서, 코드 뜻을 옆에, 묶음 첫 줄에만 배지.
-  const editorRows = () => app.renderer.root.find((node) => node.type === "tr" && node.props["data-rule"] === "hard:process-status")
-    .findAll((node) => node.type === "span" && node.props["data-severity-code"]).map((node) => text(node.children).replace(/참고주의위험$/, ""));
-  assert.deepEqual(editorRows(), ["위험F 실패", "주의P 처리중", "Z 데이터없음", "참고H 부분성공", "N 미처리"]);
+  // 편집 가능한 규칙: 코드마다 선택, 위험 → 주의 → 참고 순서, 코드 뜻을 옆에, 묶음마다 배지가 코드 줄 전체 높이를 채움.
+  const statusRow = app.renderer.root.find((node) => node.type === "tr" && node.props["data-rule"] === "hard:process-status");
+  const groups = severityGroupsOf(statusRow);
+  assert.deepEqual(groups.map(({ level, badge, codes }) => [level, badge, codes]),
+    [["critical", "위험", ["F 실패"]], ["warning", "주의", ["P 처리중", "Z 데이터없음"]], ["info", "참고", ["H 부분성공", "N 미처리"]]], "one group per level with its code lines");
+  assert.ok(groups.every(({ stretched }) => stretched), "the badge fills the height of its group");
   assert.equal(app.renderer.root.findAll((node) => node.type === "select" && node.props["aria-label"] === "N 미처리 위험도")[0].props.value, "info");
   assert.equal(app.renderer.root.findAll((node) => node.type === "input" && node.props["aria-label"] === "규칙 이름")[0].props.value, softRule.name);
   await wait(() => app.shown().includes("이상 징후 규칙 수정 1건: 처리 시간 5초 초과(임계값 4,000 → 5,000)"), "history summary");
@@ -267,13 +278,18 @@ const calls = (method, path) => requested.filter((call) => call.method === metho
 {
   routes = baseRoutes({ "POST /api/rule-set/preview": () => json({ valid: true, summary: {}, hardDisabledAfterSave: [], changes: [
     { type: "hard_updated", id: "hard:process-status", displayName: "상태가 S가 아님", diff: { severity: [{ byCode: STATUS_DEFAULT }, { byCode: { ...STATUS_DEFAULT, PROCESS_STATUS_N: "warning" } }] } }] }) });
-  const app = await mount();
+  const focused = [];
+  const app = await mount("admin", { createNodeMock: (element) => (element.type === "select" ? { focus: () => focused.push(element.props["aria-label"]) } : null) });
   await wait(() => app.shown().includes("현재 운영 버전 12"), "header");
   const select = (label) => app.renderer.root.findAll((node) => node.type === "select" && node.props["aria-label"] === label)[0];
   const order = () => app.renderer.root.findAll((node) => node.type === "span" && node.props["data-severity-code"]).map((node) => node.props["data-severity-code"].split("_").at(-1));
   await act(async () => select("N 미처리 위험도").props.onChange({ target: { value: "warning" } }));
   assert.ok(app.shown().includes("변경 1건"));
   assert.deepEqual(order(), ["F", "P", "Z", "N", "H"], "the line moves to its new level");
+  assert.equal(focused.at(-1), "N 미처리 위험도", "focus returns to the moved select");
+  assert.equal(select("N 미처리 위험도").props.value, "warning", "the selection stays");
+  assert.deepEqual(severityGroupsOf(app.renderer.root.find((node) => node.type === "tr" && node.props["data-rule"] === "hard:process-status")).map(({ level, codes }) => [level, codes.length]),
+    [["critical", 1], ["warning", 3], ["info", 1]], "group sizes follow the codes");
   assert.equal(useDraftStore.getState().drafts["/detection/rules"].dirty, true, "leave guard covers severity");
   await app.click("저장");
   await wait(() => app.renderer.root.findAllByType(RuleSaveDialog).length === 1, "confirmation");
@@ -304,8 +320,9 @@ const calls = (method, path) => requested.filter((call) => call.method === metho
   routes = baseRoutes({ "GET /api/rule-set": () => json(state(12, { hardRules: [{ ...hardRules()[0], editable: ["enabled"], severity: { byCode: { ...STATUS_DEFAULT, PROCESS_STATUS_Q: "critical" } } }, hardRules()[1], addedRule] })) });
   const readOnly = await mount();
   await wait(() => readOnly.shown().includes("현재 운영 버전 12"), "header");
-  assert.deepEqual(readOnly.renderer.root.find((node) => node.type === "tr" && node.props["data-rule"] === "hard:process-status").findAll((node) => node.type === "span" && node.props["data-severity"]).map((node) => text(node.children)),
-    ["위험F 실패, Q", "주의P 처리중, Z 데이터없음", "참고H 부분성공, N 미처리"]);
+  const readGroups = severityGroupsOf(readOnly.renderer.root.find((node) => node.type === "tr" && node.props["data-rule"] === "hard:process-status"));
+  assert.deepEqual(readGroups.map(({ level, codes }) => [level, codes]), [["critical", ["F 실패", "Q"]], ["warning", ["P 처리중", "Z 데이터없음"]], ["info", ["H 부분성공", "N 미처리"]]]);
+  assert.ok(readGroups.every(({ stretched }) => stretched), "read-only groups have the same structure");
   assert.ok(readOnly.shown().includes("건수 합계 불일치") && readOnly.shown().includes("TOTAL_COUNT ≠ SUCCESS_COUNT + ERROR_COUNT"), "a longer rule list needs no code change");
   await readOnly.cleanup();
 }
@@ -509,22 +526,57 @@ const calls = (method, path) => requested.filter((call) => call.method === metho
   await app.cleanup();
 }
 
-// 5f) 현재와 같은 상태의 기록은 되돌리기 비활성. hash가 같아도 이름이 다르면 되돌릴 수 있다.
+// 5e-2) 머리글·저장 줄의 실제 높이를 CSS 변수로 알리고, 크기가 바뀌면 갱신하며, 화면을 떠나면 지운다.
+{
+  const props = new Map();
+  const style = { setProperty: (key, value) => props.set(key, value), removeProperty: (key) => props.delete(key) };
+  const nodes = { header: { offsetHeight: 134, ownerDocument: { documentElement: { style } } }, sticky: { offsetHeight: 90, ownerDocument: { documentElement: { style } } } };
+  const observers = [];
+  const RealObserver = globalThis.ResizeObserver;
+  globalThis.ResizeObserver = class {
+    constructor(callback) { this.callback = callback; observers.push(this); }
+    observe(node) { this.node = node; }
+    unobserve() {}
+    disconnect() { this.closed = true; }
+  };
+  routes = baseRoutes();
+  const app = await mount("admin", { createNodeMock: (element) => (element.type === "header" ? nodes.header : element.props["data-rule-sticky"] !== undefined ? nodes.sticky : null) });
+  await wait(() => app.shown().includes("현재 운영 버전 12"), "header");
+  await wait(() => props.get("--sticky-block-height") === "90px", "sticky height published");
+  assert.equal(props.get("--top-nav-offset"), "134px", "real header height, not the token default");
+  nodes.header.offsetHeight = 65;
+  await act(async () => observers.find((observer) => observer.node === nodes.header).callback());
+  assert.equal(props.get("--top-nav-offset"), "65px", "resize updates the offset");
+  await app.cleanup();
+  assert.ok(observers.filter((observer) => observer.node).every((observer) => observer.closed), "observers are released");
+  assert.equal(props.size, 0, "variables fall back to the tokens");
+  globalThis.ResizeObserver = RealObserver;
+}
+
+// 5f) 현재와 내용이 같은 기록은 되돌리기 비활성. hash가 같아도 이름이 다르면, hash 버전이 달라도 내용이 같으면 서버 판단을 따른다.
 {
   const hash = "a".repeat(64);
   const snapshot = (name) => ({ hardRules: hardRules(), softRules: [{ ...softRule, name }] });
+  const noop = new Set([11, 0]);
   routes = baseRoutes({
-    "GET /api/rule-set/history": () => json({ items: [historyItem(12, [], { contentHash: hash }), historyItem(11, [], { contentHash: hash }), historyItem(10, [], { contentHash: hash }), historyItem(9)], pagination: { limit: 50, hasMore: false, nextCursor: null } }),
+    "GET /api/rule-set/history": () => json({ items: [historyItem(12, [], { contentHash: hash }), historyItem(11, [], { contentHash: hash }), historyItem(10, [], { contentHash: hash }), historyItem(9),
+      historyItem(1, [], { contentHashVersion: 1 }), historyItem(0, [], { contentHashVersion: 1 })], pagination: { limit: 50, hasMore: false, nextCursor: null } }),
     "GET /api/rule-set/history/11": () => json({ ...historyItem(11), snapshot: snapshot(softRule.name) }),
     "GET /api/rule-set/history/10": () => json({ ...historyItem(10), snapshot: snapshot("옛 이름") }),
+    "GET /api/rule-set/history/1": () => json({ ...historyItem(1), snapshot: snapshot(softRule.name) }),
+    "GET /api/rule-set/history/0": () => json({ ...historyItem(0), snapshot: snapshot(softRule.name) }),
+    "POST /api/rule-set/preview": (_target, options) => {
+      const { restoreFromRevision } = JSON.parse(options.body);
+      return json(noop.has(restoreFromRevision) ? { valid: false, error: { code: "rule_set_unchanged" } } : { valid: true, summary: {}, hardDisabledAfterSave: [], changes: [] });
+    },
   });
   const app = await mount();
   const reverts = () => app.renderer.root.findAll((node) => node.type === "button" && text(node.children) === "이 상태로 되돌리기");
-  await wait(() => reverts().length === 3 && reverts()[0].props.disabled === true, "same state row is disabled");
-  await wait(() => calls("GET", "/api/rule-set/history/10").length > 0, "same hash row compares names");
+  await wait(() => reverts().length === 5 && reverts()[0].props.disabled === true && reverts()[4].props.disabled === true, "same content rows are disabled");
+  await wait(() => calls("POST", "/api/rule-set/preview").length >= 4, "rows that need the server were asked");
   await tick();
-  assert.deepEqual(reverts().map((button) => button.props.disabled), [true, false, false], "name-only difference and other states stay enabled");
-  assert.equal(calls("GET", "/api/rule-set/history/9").length, 0, "other hashes need no snapshot");
+  assert.deepEqual(reverts().map((button) => button.props.disabled), [true, false, false, false, true], "same hash and same content, name-only difference, other hash, other hash version with other content, other hash version with same content");
+  assert.equal(calls("GET", "/api/rule-set/history/9").length, 0, "same version with another hash needs no check");
   await app.cleanup();
 }
 
@@ -938,6 +990,6 @@ const calls = (method, path) => requested.filter((call) => call.method === metho
   assert.deepEqual(draft.severityGroups("critical"), [{ level: "critical", codes: [] }]);
   // byCode는 코드를 자동으로 묶는다: 코드가 늘어도 수정 없이 위험 → 주의 → 참고 순서.
   assert.deepEqual(draft.severityGroups({ byCode: { PROCESS_STATUS_Z: "info", PROCESS_STATUS_F: "critical", PROCESS_STATUS_P: "warning", PROCESS_STATUS_H: "critical", PROCESS_STATUS_N: "warning" } }),
-    [{ level: "critical", codes: ["F", "H"] }, { level: "warning", codes: ["P", "N"] }, { level: "info", codes: ["Z"] }]);
+    [{ level: "critical", codes: ["PROCESS_STATUS_F", "PROCESS_STATUS_H"] }, { level: "warning", codes: ["PROCESS_STATUS_P", "PROCESS_STATUS_N"] }, { level: "info", codes: ["PROCESS_STATUS_Z"] }]);
 }
 console.log("rules page ok");

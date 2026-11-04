@@ -161,19 +161,14 @@ export const historySummary = (item: HistoryItem) => {
   return prefix + [...groups].map(([key, names]) => `${key} ${names.length}건: ${names.join(", ")}`).join(" · ");
 };
 
-/** 위험도 표시 묶음: 단일 값, 또는 byCode를 단계별로 묶은 코드(`PROCESS_STATUS_F` → `F`). */
+/** 위험도 묶음(위험 → 주의 → 참고): 단일 값이면 코드 없음, byCode면 그 단계의 결과 코드. 코드가 늘어도 자동으로 묶인다. */
 export const severityGroups = (severity: HardRule["severity"]): { level: Severity; codes: string[] }[] => {
   if (typeof severity === "string") return [{ level: severity, codes: [] }];
   const order: Severity[] = ["critical", "warning", "info"];
   return order.flatMap((level) => {
-    const codes = Object.entries(severity.byCode).filter(([, value]) => value === level).map(([code]) => shortCode(code));
+    const codes = Object.keys(severity.byCode).filter((code) => severity.byCode[code] === level);
     return codes.length ? [{ level, codes }] : [];
   });
-};
-/** 편집 줄: 위험도 순서로 세운 코드 목록(같은 위험도가 이어져 묶음으로 보인다). */
-export const severityRows = (severity: SeverityByCode) => {
-  const order: Severity[] = ["critical", "warning", "info"];
-  return order.flatMap((level) => Object.entries(severity.byCode).filter(([, value]) => value === level).map(([code]) => ({ code, level })));
 };
 
 export const softCondition = (rule: { field: string; operator: SoftRuleOperator; threshold: number | string }, field: SoftRuleField | undefined) =>

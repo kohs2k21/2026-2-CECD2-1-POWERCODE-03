@@ -175,9 +175,8 @@ function checkRestore(request: RuleSetRequest, snapshot: StoredSnapshot) {
     if (!body) return !source;
     if (body.enabled !== filled.enabled) return false;
     if (body.severity === undefined) return true;
-    if (!source) return sameSeverity(body.severity, filled.severity);
-    // 이전 methodVersion 출처의 위험도는 무시하고 서버가 채운다. 편집 불가 규칙은 다음 검사가 맡는다.
-    return !editableSeverity(rule) || filledByServer(rule, source) || sameSeverity(body.severity, filled.severity);
+    // 이전 methodVersion 출처의 상태 규칙 위험도는 무시하고 서버가 채운다. 그 밖에는 채운 값과 같아야 한다(편집 불가 규칙도 이 검사가 먼저다).
+    return (editableSeverity(rule) && source !== undefined && filledByServer(rule, source)) || sameSeverity(body.severity, filled.severity);
   });
   if (!softSameAsSnapshot || !leftoverSame || !builtInSame) throw rejected('restore_payload_mismatch');
 }
@@ -196,10 +195,7 @@ function plannedHardRules(request: RuleSetRequest, restore: StoredSnapshot | nul
   return HARD_RULES.map((rule) => {
     const body = request.hardRules.find((item) => item.id === rule.id);
     const source = restore?.hardRules.find((item) => item.id === rule.id);
-    if (restore && (!body || (editableSeverity(rule) && filledByServer(rule, source)))) {
-      if (!editableSeverity(rule) && body?.severity !== undefined && !sameSeverity(body.severity, rule.severity)) throw rejected(`hard_rule_field_not_editable:${rule.id}`);
-      return resolveHardRule(rule, source);
-    }
+    if (restore && (!body || (editableSeverity(rule) && filledByServer(rule, source)))) return resolveHardRule(rule, source);
     if (!editableSeverity(rule)) {
       if (body!.severity !== undefined && !sameSeverity(body!.severity, rule.severity)) throw rejected(`hard_rule_field_not_editable:${rule.id}`);
       return { ...rule, enabled: body!.enabled };

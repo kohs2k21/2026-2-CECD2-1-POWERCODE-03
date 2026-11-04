@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ErrorState, LoadingState } from "@/components/ui/feedback";
 import { paths } from "@/app/routes";
+import { observeHeight } from "@/lib/observeHeight";
 import { stampText } from "@/features/operations/format";
 import { HttpError } from "@/services/api/client";
 import { useDraftStore } from "@/stores/draftStore";
@@ -91,6 +92,8 @@ const RulesEditor = ({ state, reload, onSavedStale }: {
   const ai = useRuleAi({ state, dirty, reload });
   // 저장 뒤에는 편집 여부와 상관없이 새 상태로 맞춘다.
   const resetOnNext = useRef(false);
+  const stickyBlock = useRef<HTMLDivElement>(null);
+  useEffect(() => observeHeight(stickyBlock.current, "--sticky-block-height"), []);
   const dirtyRef = useRef(dirty);
   dirtyRef.current = dirty;
 
@@ -211,7 +214,7 @@ const RulesEditor = ({ state, reload, onSavedStale }: {
     <>
       <RuleStatus state={state} />
       {/* 저장 줄·결과 안내·입력 확인은 스크롤과 무관하게 머리글 아래에 고정한다. 부모가 grid면 sticky가 자기 행 안에서만 움직여 RulesPage 바탕은 flex다. */}
-      <div data-rule-sticky className="sticky top-(--top-nav-offset) z-(--z-sticky) grid gap-2 bg-background py-2">
+      <div ref={stickyBlock} data-rule-sticky className="sticky top-(--top-nav-offset) z-(--z-sticky) grid gap-2 bg-background py-2">
         {banner && <RuleBanner banner={banner} onReload={() => void reloadFromServer()} />}
         {issues.length > 0 && (
           <ul className="grid gap-1 text-sm text-warning-text">

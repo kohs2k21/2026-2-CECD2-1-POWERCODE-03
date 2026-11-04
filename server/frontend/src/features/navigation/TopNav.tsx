@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { IconActivity, IconBrain, IconHome, IconSettings, type Icon } from "@tabler/icons-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { observeHeight } from "@/lib/observeHeight";
 import { activeTopNav, visibleTopNavItems, type TopNavId } from "@/app/routes";
 import type { UserRole } from "@/types/app";
 import { NotificationsBell } from "@/features/notifications/NotificationsBell";
@@ -30,15 +31,7 @@ export const TopNav = ({ pathname, role, onLogout, settingsPath }: TopNavProps) 
   const active = activeTopNav(pathname);
   const header = useRef<HTMLElement>(null);
   // 고정 영역(사이드바·룰 설정 저장 줄)이 머리글 아래에 붙도록 실제 높이를 알린다. 좁은 화면에서는 메뉴가 둘째 줄로 내려가 높이가 달라진다.
-  useEffect(() => {
-    const node = header.current;
-    if (!node || typeof ResizeObserver === "undefined") return;
-    const sync = () => document.documentElement.style.setProperty("--top-nav-offset", `${node.offsetHeight}px`);
-    sync();
-    const observer = new ResizeObserver(sync);
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, []);
+  useEffect(() => observeHeight(header.current, "--top-nav-offset"), []);
   return (
     <header ref={header} className="sticky top-0 z-(--z-header) grid min-h-(--top-nav-height) grid-cols-[minmax(0,1fr)_auto] items-center gap-6 border-b bg-card/92 px-6 py-3 backdrop-blur-lg nav-stack:grid-cols-(--top-nav-columns) max-nav-compact:gap-3 max-nav-compact:p-3">
       <a

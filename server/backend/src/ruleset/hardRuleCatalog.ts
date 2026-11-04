@@ -1,6 +1,6 @@
 /**
  * 이상 규칙(하드룰) 내장 목록. 정본은 detection-decision.md 4.3(Detector 소유)이고 rule-set.md `hardRules[]`는 그 투영이다.
- * Detector 코드에 목록 정본이 생기면 이 파일만 교체한다(값이 문서와 같은지는 tests/rule-set-contract.test.mjs가 확인).
+ * Detector 코드에 목록 정본이 생기면 이 파일만 교체한다(값이 rule-set.md `hardRules[]` 예시와 같은지는 tests/rule-set-contract.test.mjs가 확인).
  * `editable`에 severity가 있는 규칙만 저장 시 코드별 위험도를 바꿀 수 있고, `severity`는 그 규칙의 내장 기본값이다(코드 목록의 기준).
  */
 export type Severity = 'info' | 'warning' | 'critical';

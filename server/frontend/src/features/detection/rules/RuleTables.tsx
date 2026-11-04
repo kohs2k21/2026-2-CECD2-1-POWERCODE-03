@@ -1,4 +1,4 @@
-import { Fragment, useState, type ReactNode } from "react";
+import { Fragment, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { IconPlus } from "@tabler/icons-react";
 import { SectionCard } from "@/components/layout/SectionCard";
 import { Badge } from "@/components/ui/badge";
@@ -12,44 +12,66 @@ import { DASH, stampText } from "@/features/operations/format";
 import { cn } from "@/lib/utils";
 import { FormulaPanel } from "./FormulaPanel";
 import {
-  HARD_TERM, SOFT_TERM, codeLabel, errorCode, historySummary, nameChanged, operatorLabels, operators, severities, severityBadge, severityChanged, severityGroups, severityLabels, severityRows, thresholdChanged,
+  HARD_TERM, SOFT_TERM, codeLabel, errorCode, historySummary, nameChanged, operatorLabels, operators, severities, severityBadge, severityChanged, severityGroups, severityLabels, thresholdChanged,
   type DraftSoftRule, type RuleDraft,
 } from "./ruleDraft";
 import { readRuleSetHistory, type HardRule, type HistoryItem, type RuleSetState, type Severity, type SeverityByCode, type SoftRuleField } from "./ruleSetApi";
-import { useRuleHistory, useRuleRevision } from "./useRuleSet";
+import { useRestoreIsNoop, useRuleHistory } from "./useRuleSet";
 
 const changedCell = (changed: boolean) => cn(changed && "bg-warning-soft");
 const SwitchCell = ({ checked, label, onChange }: { checked: boolean; label: string; onChange: (value: boolean) => void }) => (
-  <label className="flex items-center gap-2 text-sm">
+  <label className="flex items-center gap-2 text-sm whitespace-nowrap">
     <Switch checked={checked} onCheckedChange={onChange} aria-label={label} />
     {checked ? "켜짐" : "꺼짐"}
   </label>
 );
 
+/** 위험도 묶음 한 칸: 왼쪽 배지가 그 묶음의 코드 줄 전체 높이를 채운다(줄 수가 바뀌면 함께 변한다). */
+const SeverityGroup = ({ level, children }: { level: Severity; children?: ReactNode }) => (
+  <span data-severity={level} className="grid grid-cols-[2.75rem_minmax(0,1fr)] gap-2 text-sm">
+    <Badge variant={severityBadge[level]} className="w-full self-stretch">{severityLabels[level]}</Badge>
+    <span className="grid gap-1">{children}</span>
+  </span>
+);
+
 const SeverityCell = ({ severity }: { severity: HardRule["severity"] }) => (
-  <span className="grid gap-1 text-sm">
+  <span className="grid gap-1">
     {severityGroups(severity).map(({ level, codes }) => (
-      <span key={level} data-severity={level} className="flex items-center gap-1">
-        <Badge variant={severityBadge[level]}>{severityLabels[level]}</Badge>
-        {codes.length > 0 && codes.map(codeLabel).join(", ")}
-      </span>
+      <SeverityGroup key={level} level={level}>
+        {codes.map((code) => <span key={code} data-severity-code={code} className="flex min-h-6 items-center">{codeLabel(code)}</span>)}
+      </SeverityGroup>
     ))}
   </span>
 );
 
-/** 코드별 위험도 선택. 한 목록에 코드 key로 두어 위험도를 바꿔 줄이 옮겨도 선택 칸이 유지된다. */
+/** 코드별 위험도 선택. 값을 바꾸면 코드가 다른 묶음으로 옮겨 선택 칸이 새로 그려지므로 초점을 그 칸으로 돌려준다. */
 const SeverityEditor = ({ severity, onChange }: { severity: SeverityByCode; onChange: (code: string, level: Severity) => void }) => {
-  const rows = severityRows(severity);
+  const selects = useRef(new Map<string, HTMLSelectElement>());
+  const refocus = useRef<string | null>(null);
+  useLayoutEffect(() => {
+    if (refocus.current) selects.current.get(refocus.current)?.focus();
+    refocus.current = null;
+  });
   return (
-    <span className="grid gap-1 text-sm">
-      {rows.map(({ code, level }, index) => (
-        <span key={code} data-severity-code={code} className="grid grid-cols-[2.75rem_6.5rem_5.5rem] items-center gap-2">
-          <span>{rows[index - 1]?.level !== level && <Badge variant={severityBadge[level]}>{severityLabels[level]}</Badge>}</span>
-          <span>{codeLabel(code)}</span>
-          <NativeSelect size="sm" aria-label={`${codeLabel(code)} 위험도`} value={level} onChange={(event) => onChange(code, event.target.value as Severity)}>
-            {severities.map((item) => <NativeSelectOption key={item} value={item}>{severityLabels[item]}</NativeSelectOption>)}
-          </NativeSelect>
-        </span>
+    <span className="grid gap-1">
+      {severityGroups(severity).map(({ level, codes }) => (
+        <SeverityGroup key={level} level={level}>
+          {codes.map((code) => (
+            <span key={code} data-severity-code={code} className="grid grid-cols-[6.5rem_5.5rem] items-center gap-2">
+              <span>{codeLabel(code)}</span>
+              <NativeSelect
+                ref={(node) => { if (node) selects.current.set(code, node); else selects.current.delete(code); }}
+                size="sm" aria-label={`${codeLabel(code)} 위험도`} value={level}
+                onChange={(event) => {
+                  refocus.current = code;
+                  onChange(code, event.target.value as Severity);
+                }}
+              >
+                {severities.map((item) => <NativeSelectOption key={item} value={item}>{severityLabels[item]}</NativeSelectOption>)}
+              </NativeSelect>
+            </span>
+          ))}
+        </SeverityGroup>
       ))}
     </span>
   );
@@ -200,11 +222,9 @@ export const SoftRulesCard = ({
 
 const HistoryRow = ({ item, state, disabled, onRevert }: { item: HistoryItem; state: RuleSetState; disabled: boolean; onRevert: (revision: number) => void }) => {
   const current = state.revision;
-  // 현재와 같은 상태면 되돌릴 것이 없다(와이어프레임 same). hash는 같은 버전끼리만 비교하고, hash에 이름이 없어 같은 행만 스냅샷 이름을 비교한다.
-  const sameHash = item.revision !== current && item.contentHashVersion === state.contentHashVersion && item.contentHash === state.contentHash;
-  const snapshot = useRuleRevision(item.revision, sameHash).data?.snapshot;
-  const same = sameHash && snapshot !== undefined && snapshot.softRules.length === state.softRules.length &&
-    snapshot.softRules.every((rule) => state.softRules.find((item) => item.id === rule.id)?.name === rule.name);
+  // 현재와 같은 내용이면 되돌릴 것이 없다(와이어프레임 same). hash는 같은 버전끼리만 비교할 수 있고 이름이 없어, 같은 hash와 다른 hash 버전 행만 서버에 묻는다.
+  const compare = item.revision !== current && (item.contentHashVersion !== state.contentHashVersion || item.contentHash === state.contentHash);
+  const same = useRestoreIsNoop(item.revision, state, compare).data === true;
   return (
     <TableRow data-revision={item.revision}>
       <TableCell>

@@ -1,5 +1,5 @@
 Created: 2026-11-04T22:00:00+09:00
-Updated: 2026-11-04T22:00:00+09:00
+Updated: 2026-11-05T02:11:00+09:00
 Author: #109 Claude Code(WebUI builder)
 Status: current
 
@@ -7,7 +7,7 @@ Status: current
 
 - 범위: `/detection/rules` 관리자 화면(#109, 상위 #101). 화면 기준 와이어프레임 #93 `section[data-view="detect-rules"]`. 요청·응답·검증 정본은 [rule-set.md](rule-set.md), 수식 추천은 [llm-recommendation-job.md](llm-recommendation-job.md) "규칙별 수식 추천" 절. 이 문서는 화면 규칙과 구현에서 정한 값만 적는다
 - 연결: `/api/rule-set`(`backend/src/routes/ruleSetRoutes.ts`), 순수 규칙 `backend/src/ruleset/ruleSetContract.ts`, 저장소 `ruleSetStore.ts`, 수식 추천 `thresholdStats.ts`
-- 내장 상수: 이상 규칙 목록 `ruleset/hardRuleCatalog.ts`(4개: 상태 규칙, 시각 역전, 성공 상태이나 오류 건수가 기록됨, 건수 합계 불일치), 등록 필드 `ruleset/softRuleCatalog.ts`. 각각 detection-decision.md 4.3·method-catalog.md 예시와 같은 값이며 `tests/rule-set-contract.test.mjs`가 문서와 대조한다. 정본 코드가 생기면 이 두 파일만 바꾼다
+- 내장 상수: 이상 규칙 목록 `ruleset/hardRuleCatalog.ts`(4개: 상태 규칙, 시각 역전, 성공 상태이나 오류 건수가 기록됨, 건수 합계 불일치), 등록 필드 `ruleset/softRuleCatalog.ts`. 각각 rule-set.md `hardRules[]` 예시·method-catalog.md 예시와 같은 값이며 `tests/rule-set-contract.test.mjs`가 문서와 대조한다(detection-decision.md 4.3 대조는 #117이 dev에 들어온 뒤 되돌린다). 정본 코드가 생기면 이 두 파일만 바꾼다
 - 인증·역할: 기존 Bearer. 없음·잘못된 토큰 401. 조회·이력 = user/admin, 저장·미리보기·수식 추천 = admin(그 외 403 `admin_required`). 화면 자체는 admin 메뉴
 - 저장소: `ops_rule_set_revisions`(마이그레이션 015). 저장은 트랜잭션 1개 — `pg_advisory_xact_lock(81739, 0)` → 일반 SELECT로 현재 리비전 읽기 → `expectedRevision` 비교 → 검증 → 일반 INSERT. API 역할에 UPDATE가 없어 `SELECT … FOR UPDATE`는 쓰지 않는다. NOTIFY 없음. 조회·저장 실패 503 `rule_set_storage_unavailable`(오류 원문 비노출, 빈 룰로 대체하지 않음)
 
@@ -22,17 +22,17 @@ Status: current
 | 영역 | 내용 |
 |---|---|
 | 현재 운영 룰 | `현재 운영 버전 N` · 마지막 변경 · 변경자 · 켜진 규칙 수(이상 규칙 n/n · 이상 징후 규칙 n/n). `GET /api/rule-set` 응답 그대로 |
-| 고정 줄 | 이상 규칙 위, 머리글 아래에 스크롤과 무관하게 고정(사용자 11/04). 알림(저장 중 / 적용됨 / 저장 실패(코드 그대로) / 저장 거절(리비전 충돌, `새로 불러오기`)), 입력 확인(`확인 필요 · …`), 저장 줄(`변경 N건`(서버 `changes[]`와 같은 단위), `변경 취소`, `저장`(변경이 있고 입력 확인 통과 시 활성)). 표 내용을 가리지 않게 바탕은 `--background`, 층은 `--z-sticky`(머리글 아래), 위치는 `--top-nav-offset`(TopNav가 실제 높이로 갱신) |
-| 이상 규칙 | 규칙·조건·위험도·켜기. 켜기는 전부, 위험도는 `editable`에 `severity`가 있는 규칙(상태 규칙 `hard:process-status`)만 코드별 선택(아래 절). 목록은 API 응답대로 그리므로 규칙이 늘어도 코드 수정이 없다. `severity.byCode`는 위험도마다 한 줄로 코드 끝 글자를 쉼표로 묶어 위험 → 주의 → 참고 순서로 세로 표시(`위험 F` / `주의 P, N`, 코드가 늘면 자동 반영, 사용자 11/04). 구역 맨 아래에 켜짐·꺼짐과 무관한 상시 경고 한 줄 `명백한 이상을 놓칠 수 있습니다. 변경을 권장하지 않습니다.`(규칙 이름 없음, 경보 역할 아님, 사용자 11/04). 저장 확인창의 강조·확인 체크는 그대로 |
+| 고정 줄 | 이상 규칙 위, 머리글 아래에 스크롤과 무관하게 고정(사용자 11/04). 알림(저장 중 / 적용됨 / 저장 실패(코드 그대로) / 저장 거절(리비전 충돌, `새로 불러오기`)), 입력 확인(`확인 필요 · …`), 저장 줄(`변경 N건`(서버 `changes[]`와 같은 단위), `변경 취소`, `저장`(변경이 있고 입력 확인 통과 시 활성)). 표 내용을 가리지 않게 바탕은 `--background`, 층은 `--z-sticky`(머리글 아래), 위치는 `--top-nav-offset`(TopNav가 실제 높이로 갱신). 입력칸 초점이 고정 영역 밑으로 가지 않게 `html`의 `scroll-padding-top`이 머리글과 고정 줄 높이(`--sticky-block-height`)를 더한다 |
+| 이상 규칙 | 규칙·조건·위험도·켜기. 켜기는 전부, 위험도는 `editable`에 `severity`가 있는 규칙(상태 규칙 `hard:process-status`)만 코드별 선택(아래 절). 목록은 API 응답대로 그리므로 규칙이 늘어도 코드 수정이 없다. `severity.byCode`는 위험 → 주의 → 참고 순서의 세로 묶음으로 표시하고, 코드는 한 줄씩 `F 실패` 형식이며 묶음마다 왼쪽 배지가 그 묶음의 코드 줄 전체 높이를 채운다(코드가 늘면 자동 반영, 사용자 11/04). 구역 맨 아래에 켜짐·꺼짐과 무관한 상시 경고 한 줄 `명백한 이상을 놓칠 수 있습니다. 변경을 권장하지 않습니다.`(규칙 이름 없음, 경보 역할 아님, 사용자 11/04). 저장 확인창의 강조·확인 체크는 그대로 |
 | 이상 징후 규칙 | 규칙 이름·대상 필드(읽기 전용)·조건·임계값·단위·위험도·켜기·수식 추천·삭제. `규칙 추가`는 등록 필드를 받은 뒤 활성. 머리글에 `AI 규칙 추천`(아래 절) |
-| 변경 기록 | 버전·시각·변경자·요약·되돌리기. 현재 버전 행은 되돌리기 없음, 그 밖의 모든 행에 `이 상태로 되돌리기`(현재와 같은 상태인 행은 비활성: hash와 규칙 이름 비교). 50건씩 `더 보기`, 끝나면 버튼 없음 |
+| 변경 기록 | 버전·시각·변경자·요약·되돌리기. 현재 버전 행은 되돌리기 없음, 그 밖의 모든 행에 `이 상태로 되돌리기`(현재와 내용이 같은 행은 비활성: 같은 hash이거나 hash 버전이 다른 행만 미리보기의 `rule_set_unchanged`로 판단). 50건씩 `더 보기`, 끝나면 버튼 없음 |
 
 - 등록 필드는 `GET /api/jobs/capabilities`의 `methodCatalog.softRuleFields`로 받는다. `methodCatalog`는 지금 ML `methods[]` 없이 `catalogVersion`·`generatedFrom`·`categoryDisplayNames`·`hardRules`·`softRule`·`softRuleFields`만 담는다(레지스트리 생성 JSON 전). 응답에 없으면 오류로 표시하고 규칙 추가를 막는다
 - 변경자 표시: 관리자 응답은 계정 email, 일반 사용자 응답과 계정이 없는 값(r0의 `system`)은 계정 ID
 
 ## 상태 규칙 코드별 위험도(사용자 11/04)
 
-- 코드 F·P·Z·H·N, 기본값 F 위험, P·Z 주의, H·N 참고(`process-status-hr-v2`). 코드마다 `NativeSelect`로 위험·주의·참고를 고른다. 줄은 위험 → 주의 → 참고 순서로 세로 묶음이고 묶음 첫 줄에 위험도 배지가 있다
+- 코드 F·P·Z·H·N, 기본값 F 위험, P·Z 주의, H·N 참고(`process-status-hr-v2`). 코드마다 `NativeSelect`로 위험·주의·참고를 고른다. 위험 → 주의 → 참고 순서의 세로 묶음이고, 묶음마다 왼쪽 배지가 그 묶음의 코드 줄 전체 높이를 채운다(읽기 전용 표시도 같음, 사용자 11/04). 값을 바꿔 코드가 다른 묶음으로 옮겨도 초점은 그 선택 칸에 남는다
 - 코드 옆에 뜻을 표시: S 성공, F 실패, P 처리중, N 미처리, H 부분성공, Z 데이터없음. 목록에 없는 코드는 코드만 표시한다
 - 저장 요청: `hard:process-status`에 `severity.byCode` 5코드 전부, 다른 규칙은 `severity` 없음. 위험도 변경은 변경 건수·이탈 확인·변경 취소·되돌리기에 포함되고, 확인창·변경 기록에는 `이상 규칙 수정 · 상태가 S가 아님 · 위험도 N 미처리 참고 → 주의`처럼 바뀐 코드만 표시한다(`hard_updated`)
 - 켜기와 위험도를 함께 바꾸면 변경 2건(`hard_disabled`/`hard_enabled` + `hard_updated`)이다. 확인 체크는 새로 끄는 경우만

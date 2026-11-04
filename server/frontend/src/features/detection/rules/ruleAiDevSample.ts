@@ -15,7 +15,7 @@ const evidence = (n: number, min: number, max: number, p95: number, baselineId: 
 export const devRecommendationResult: RecommendationResult = {
   recommendationContractVersion: "threshold-recommendation-v1",
   mode: "data_p95_with_llm_rationale",
-  ruleSet: { revision: 13, contentHash: "9c40…" },
+  ruleSet: { revision: 13, contentHash: "9c40…", contentHashVersion: 2 },
   data: { snapshotId: "<snapshot UUID>", split: "train", timeBasis: "esb_occurred_at",
     exclusionRule: "status=S, explicit anomaly labels excluded; unlabeled retained", rowCount: 47120 },
   provider: "rule_v2",

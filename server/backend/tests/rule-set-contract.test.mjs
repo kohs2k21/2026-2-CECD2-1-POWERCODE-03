@@ -80,22 +80,14 @@ test('threshold text is never exponential', () => {
   for (const value of [1e-5, 2.5e-10, 3e25, -6e-8]) assert.doesNotMatch(decimalString(value), /e/i);
 });
 
-test('built-in rule constants equal the contracts', async () => {
-  const example = JSON.parse((await contract('rule-set.md')).split('```json')[1].split('```')[0].replace(/"3b1f…"/, '"x"'));
+test('built-in rule constants equal the rule-set contract', async () => {
+  const text = await contract('rule-set.md');
+  const example = JSON.parse(text.split('```json')[1].split('```')[0].replace(/"3b1f…"/, '"x"'));
   assert.deepEqual(HARD_RULES.map(({ id }) => id), ['hard:process-status', 'hard:negative-duration', 'hard:success-with-error', 'hard:count-conservation']);
-  // 정본은 detection-decision.md 4.3(#112)과 rule-set.md(#118)다. 이 브랜치의 문서가 아직 이전 판이라 값을 직접 고정하고, 두 PR 병합 뒤 문서 대조로 되돌린다.
-  assert.deepEqual(HARD_RULES[0], { id: 'hard:process-status', methodVersion: 'process-status-hr-v2', displayName: '상태가 S가 아님', conditionText: 'STATUS ≠ S', severity: STATUS_DEFAULT, editable: ['enabled', 'severity'] });
-  assert.deepEqual(example.hardRules.find((rule) => rule.id === 'hard:negative-duration'), { ...HARD_RULES[1], enabled: true });
-  assert.deepEqual(HARD_RULES[2], { id: 'hard:success-with-error', methodVersion: 'success-with-error-v1', displayName: '성공 상태이나 오류 건수가 기록됨', conditionText: 'STATUS = S, ERROR_COUNT > 0', severity: 'critical', editable: ['enabled'] });
-  assert.deepEqual(HARD_RULES[3], { id: 'hard:count-conservation', methodVersion: 'count-conservation-v1', displayName: '건수 합계 불일치', conditionText: 'TOTAL_COUNT ≠ SUCCESS_COUNT + ERROR_COUNT', severity: 'critical', editable: ['enabled'] });
-  const decision = await contract('detection-decision.md');
-  const table = decision.slice(decision.indexOf('### 4.3'), decision.indexOf('## 5. '));
-  for (const rule of HARD_RULES.slice(1, 2)) {
-    const row = table.split('\n').find((line) => line.startsWith(`| \`${rule.id}\``));
-    assert.ok(row, rule.id);
-    assert.ok(row.includes(`\`${rule.methodVersion}\``) && row.includes(rule.displayName) && row.includes(rule.conditionText), rule.id);
-    assert.ok(row.includes(typeof rule.severity === 'string' ? `\`"${rule.severity}"\`` : `\`${JSON.stringify(rule.severity).replaceAll(',', ', ').replaceAll(':', ': ')}\``), `${rule.id} severity`);
-  }
+  // detection-decision.md 4.3 대조는 #117(정본 갱신) 병합 뒤에 다시 넣는다. 지금 이 저장소의 그 문서는 이전 판이다.
+  assert.deepEqual(example.hardRules.map(({ enabled, ...rule }) => rule), HARD_RULES);
+  assert.ok(example.hardRules.every((rule) => rule.enabled === true));
+  for (const hash of [REFERENCE_HASH, V2_ALL_FOUR_HASH, V2_DEFAULT_HASH, V2_REFERENCE_HASH]) assert.ok(text.includes(hash), `${hash} is the contract value`);
 });
 test('soft rule field constants equal the method-catalog example', async () => {
   const text = await contract('method-catalog.md');
@@ -220,6 +212,16 @@ test('restore fills rules and severity per the contract', () => {
   // 본문이 채움값과 다르면 거절.
   assert.equal(code(() => plan(body({ hardRules: [...statusOnly, { id: 'hard:negative-duration', enabled: true }] }), { state, restore })), 'restore_payload_mismatch');
   assert.equal(code(() => plan(body({ confirmHardRuleDisable: true, hardRules: [...statusOnly, ...filledOff] }), { state, restore })), 'passed');
+  // 채움 규칙의 위험도도 채움값과 같아야 하고, 편집 불가 규칙의 다른 위험도는 계약 순서대로 mismatch가 먼저다.
+  assert.equal(code(() => plan(body({ confirmHardRuleDisable: true, hardRules: [...statusOnly, { ...filledOff[0], severity: 'info' }, ...filledOff.slice(1)] }), { state, restore })), 'restore_payload_mismatch');
+  assert.equal(code(() => plan(body({ confirmHardRuleDisable: true, hardRules: [...statusOnly, { ...filledOff[0], severity: 'critical' }, ...filledOff.slice(1)] }), { state, restore })), 'passed');
+  const noStatus = { hardRules: HARD_RULES.slice(1).map((rule) => ({ ...rule, enabled: true })), softRules: [] };
+  const statusBody = (severity) => request({ restoreFromRevision: 3, confirmHardRuleDisable: true, hardRules: [{ id: 'hard:process-status', enabled: false, severity }, ...hard().slice(1)] });
+  assert.equal(code(() => plan(statusBody({ byCode: { ...STATUS_DEFAULT.byCode, PROCESS_STATUS_F: 'info' } }), { state, restore: noStatus })), 'restore_payload_mismatch', 'a status rule missing from the snapshot is compared to the filled default');
+  assert.equal(code(() => plan(statusBody(STATUS_DEFAULT), { state, restore: noStatus })), 'passed');
+  const whole = { hardRules: HARD_RULES.map((rule) => ({ ...rule, enabled: true })), softRules: [] };
+  const wrongLevel = request({ restoreFromRevision: 3, hardRules: hard().map((rule) => (rule.id === 'hard:negative-duration' ? { ...rule, severity: 'info' } : rule)) });
+  assert.equal(code(() => plan(wrongLevel, { state: current([stored('soft:elapsed_ms-9')]), restore: whole })), 'restore_payload_mismatch', 'mismatch comes before hard_rule_field_not_editable on restore');
   assert.equal(code(() => plan(body({ softRules: [{ ...sent(deleted), threshold: 1 }] }), { state, restore })), 'restore_payload_mismatch');
   assert.equal(code(() => plan(body({ softRules: [] }), { state, restore })), 'restore_payload_mismatch');
   assert.equal(code(() => plan(body({ hardRules: [{ id: 'hard:process-status', enabled: false }] }), { state, restore })), 'restore_payload_mismatch');
@@ -244,6 +246,7 @@ test('stored rules are projected by the current methodVersion', () => {
   assert.deepEqual([successWithError.enabled, countConservation.enabled], [false, false]);
   assert.deepEqual(projectHardRules([{ id: 'hard:process-status', enabled: false, methodVersion: 'process-status-hr-v2', severity: edited }])[0].severity, edited, 'current methodVersion keeps the saved value');
   assert.deepEqual(projectHardRules([{ id: 'hard:process-status', enabled: true }])[0].severity, STATUS_DEFAULT, 'no methodVersion uses the default');
+  assert.deepEqual(projectHardRules([{ ...v1, severity: edited }])[0].severity, STATUS_DEFAULT, 'a v1 item is ignored even with five valid codes');
   assert.deepEqual(projectHardRules([{ id: 'hard:process-status', enabled: true, methodVersion: 'process-status-hr-v2', severity: { byCode: {} } }])[0].severity, STATUS_DEFAULT);
 });
 test('severity is editable only on the status rule', () => {

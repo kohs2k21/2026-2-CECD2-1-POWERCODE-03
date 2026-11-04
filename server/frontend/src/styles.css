@@ -11,6 +11,7 @@
     @apply border-border outline-ring/50;
   }
   html {
+    scroll-padding-top: calc(var(--top-nav-offset) + var(--sticky-block-height) + 0.5rem);
     font-family: var(--font-sans);
     font-synthesis: none;
     text-rendering: optimizeLegibility;

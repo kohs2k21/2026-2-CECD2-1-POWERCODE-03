@@ -28,9 +28,9 @@ HARD_RULES = (
      "displayName": "시작 시각이 종료 시각보다 늦음",
      "conditionText": "START_TIME > END_TIME (종료 시각이 없으면 판단하지 않음)", "severity": "critical"},
     {"id": SUCCESS_WITH_ERROR, "methodVersion": "success-with-error-v1",
-     "displayName": "성공인데 오류 건수가 있음", "conditionText": "STATUS = S, ERROR_COUNT > 0", "severity": "critical"},
+     "displayName": "성공 상태이나 오류 건수가 기록됨", "conditionText": "STATUS = S, ERROR_COUNT > 0", "severity": "critical"},
     {"id": COUNT_CONSERVATION, "methodVersion": "count-conservation-v1",
-     "displayName": "건수 합계가 맞지 않음", "conditionText": "TOTAL_COUNT ≠ SUCCESS_COUNT + ERROR_COUNT",
+     "displayName": "건수 합계 불일치", "conditionText": "TOTAL_COUNT ≠ SUCCESS_COUNT + ERROR_COUNT",
      "severity": "critical"},
 )
 HARD_RULE_ORDER = {rule["id"]: index for index, rule in enumerate(HARD_RULES)}

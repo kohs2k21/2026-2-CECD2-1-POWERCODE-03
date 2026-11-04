@@ -1,5 +1,5 @@
 Created: 2026-10-21T00:00:00+09:00
-Updated: 2026-11-02T20:00:00+09:00
+Updated: 2026-11-04T12:00:00+09:00
 Author: Claude Code (Trainer 세션 builder)
 Status: draft
 
@@ -7,6 +7,7 @@ Status: draft
 
 - 변경 요약(#94): LLM 추천을 **소프트룰(화면 용어: 이상 징후 규칙) 임계값 추천**으로 재정의. (1) `recommend_thresholds` — 켜진 소프트룰 대상 필드 전체를 한 번에 다루는 LLM 비동기 작업(일괄, R5 b). 1차 연결은 **(가) 코드 p95 + LLM 근거**(현재 코드 동작과 일치, 11/02 9.1 실행 조사); **(나) LLM 숫자 제안**은 `source: ai_proposal`과 확장 필드로만 예약. (2) 규칙별 **수식 추천**은 LLM 없는 동기 계산 API(p95 등 통계) — 작업 큐가 아니라 API 계약. `recommend_rule` DSL 생성은 **폐지 유지**, `recommend_methods`(ML 선택 추천)는 **보류**
 - 2차 개정(사용자 11/02 9.4): 규칙별 수식 추천의 **기준 기간 선택** — (a) 현재 운영 ML 모델이 학습에 쓴 첫 기간 시작 ~ 현재 (b) 최근 1개월·3개월 (c) 사용자 지정 → `POST /api/rule-set/threshold-stats`에 `period.mode` 추가, 운영 모델이 없을 때 (a)는 오류 코드. 일괄 추천 대상은 **저장된 리비전의 켜진 소프트룰**임을 명시(WebUI 11/02 대조), ratio 필드 표시값은 유효숫자 기준(카탈로그 `displayPrecisionMode`)
+- 3차 정정(Issue #116, 11/04): 수식 추천 SQL 번역의 `datetime_diff` 원천을 `parsed_times`가 아니라 `data_observations.allowed_values`의 `start_time_raw`·`end_time_raw`로 정정(Detector 11/04 확인, #112). 결측·해석 실패 처리를 카탈로그 `sourceMissingPolicy`와 일치시킴
 - 계약 버전: `threshold-recommendation-v1`. 근거 코드 origin/dev `7f24e03`: `worker/research_design.py:36-44`(summary·p95 `np.quantile` linear), `:154-199`(`rule_request` — 기준선 = train 분할·anomaly 라벨 제외 p95, `minimum_n 20`, 단위 `count|ratio|ms|s|us`), `:202-234`(`recommend_rules` — 변수당 LLM 1회 순차, 검증 탈락은 변수만 제외, `str(request["baseline"]["value"])`로 DSL 값 생성), `worker/generation_client.py:54-55`(`TimeoutError`를 `generation_service_unavailable`로 묶음), `backend/src/rules/ruleContract.ts:17`(DSL 십진수 정규식, 지수 표기 거부)
 - 상위 결정: 사용자 11/02 결정 — 임계값 산출 주체(8.1), AI 추천 단위 일괄 + 규칙별 수식(R5), 현재 코드 실행 조사(9.1), 화면 설계(9.2: (가)(나) 모두 담고 (가)로 먼저 연결). 절 번호는 총괄 기록 기준
 - 범위: 작업 요청·입력 범위·추천 1건 형식·상태·실패/시간 초과 구분·임계값 직렬화 규칙·수식 추천 API·마이그레이션 영향. 제외: 프롬프트·어댑터 연구(LLM 담당 팀원), GPU 배포, 자동 적용(추천은 입력칸 채우기까지, 운영 반영은 [rule-set.md](rule-set.md) 저장)
@@ -141,7 +142,7 @@ Status: draft
 ## 규칙별 수식 추천 — `POST /api/rule-set/threshold-stats` [신규, 관리자, 동기, LLM 없음]
 
 - 용도: 규칙 행 [수식 추천] — 선택 기간 데이터의 p95를 바로 계산해 값·표본 수를 보여 주고 [적용]으로 입력칸에 채움(11/02 9.2). 작업 큐·LLM 호출 없음. 기준 기간은 **세 가지 중 선택** [확정 11/02 9.4]: (a) 현재 운영 ML 모델이 학습에 쓴 **첫 기간 시작 ~ 현재** (b) 최근 1개월·3개월 (c) 사용자 지정 기간
-- **구현 주체: API(TypeScript) + PostgreSQL SQL** [제안]: `percentile_cont(0.95)`(선형 보간 — numpy `linear`와 같은 정의)를 `data_processes ⋈ data_observations`에 적용. 파생 필드(`elapsed_ms`·`error_ratio`)는 카탈로그 AST를 SQL 식으로 번역(`datetime_diff` = `parsed_times`의 end−start, `divide` = NULLIF 분모). Trainer(Python)는 비동기 워커라 동기 API에 부적합. 두 경로의 p95가 같은 표본에서 일치해야 함(통합 시험 항목)
+- **구현 주체: API(TypeScript) + PostgreSQL SQL** [제안]: `percentile_cont(0.95)`(선형 보간 — numpy `linear`와 같은 정의)를 `data_processes ⋈ data_observations`에 적용. 파생 필드(`elapsed_ms`·`error_ratio`)는 카탈로그 AST를 SQL 식으로 번역 — `datetime_diff` = **`data_observations.allowed_values`의 `end_time_raw`·`start_time_raw`를 timestamp로 해석한 차**(수집기는 `parsed_times`를 항상 빈 객체로 저장하고 Detector도 `allowed_values`만 읽으므로 `parsed_times`는 원천이 아님 — Detector 11/04 확인, #112; 워커 `derived_expression`의 `START_TIME`/`END_TIME` → `start_time_raw`/`end_time_raw` 매핑과 동일), `divide` = NULLIF 분모. `datetime_diff` 번역의 결측·실패 처리는 카탈로그 `sourceMissingPolicy`와 같은 뜻: `start_time_raw` 없음·timestamp 해석 실패 → `unavailable`, `end_time_raw` 없음 → `not_applicable` — 어느 쪽이든 그 행은 표본(`n`)에서 제외. Trainer(Python)는 비동기 워커라 동기 API에 부적합. 두 경로의 p95가 같은 표본에서 일치해야 함(통합 시험 항목)
 
 ```json
 {

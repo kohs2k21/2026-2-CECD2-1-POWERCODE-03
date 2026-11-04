@@ -10,6 +10,7 @@
   - **[코드]**: 현재 코드 사실(file:line)
   - **[제안 Dn]**: Detector가 정하는 기술 항목(Detector 결정, 사용자 결정 아님). 17.2에 정보로 제공하며 이견이 없으면 이대로 진행
   - **[#94]**: Trainer Issue #94(룰·모델 분리 계약)가 정하는 항목. 이 문서는 참조만 한다
+  - **[#112 정정 11/04]**: #112 구현 확인 정정 11/04 사용자 승인. 구현 중 확인한 어긋남을 고친 항목이며 새 결정 번호(C·U)는 아니다. 기술 항목의 정정은 해당 Dn 행에 '#112 구현 확인 반영 11/04'로 적는다(Detector 결정)
 - 범위 밖
   - 룰 세트 저장 형식(리비전 번호·내용 해시·리비전별 스냅샷), 소프트룰 등록 필드 목록·수정 제약, 모델 버전·교체·비교 [#94]
   - 방법 카탈로그 항목·스키마 [#94]
@@ -101,6 +102,7 @@
 - 조건·위험도는 읽기 전용이며 Detector가 정의한다. 하드룰 위험도 기본값은 '위험'
 - 하드룰 하나라도 T면 판정 등급은 '이상'(8절)
 - 하드룰은 결정적 규칙이다. 입력값이 없거나 해석할 수 없으면 T도 N도 아닌 U(`not_ready`) [제안 D6]. 예외: `hard:negative-duration`의 END_TIME 없음은 U가 아니라 N(4.2, C19·D1). 해석 불가도 `not_ready`(cause `input_invalid`)인 이유: 하드룰은 원천 로그 값 그대로를 검사하므로 형식이 깨진 값은 "판정 입력이 갖춰지지 않음"이다. 소프트룰 비숫자가 `failed`(cause `input_invalid`)인 것은 등록 필드(숫자형으로 등록된 값)의 타입 계약 위반이기 때문이다(5.2)
+- '값 없음'의 기준 [#112 정정 11/04]: 키가 없거나 null인 값과 빈 문자열·공백만 있는 문자열·`\N`(앞뒤 공백 제외)을 모두 값 없음으로 본다. 하드룰 입력(`status`, `START_TIME`, `END_TIME`)과 소프트룰 원천 열(5.2)에 같은 기준을 쓴다. `\N`은 CSV의 NULL 표기로, 수집 경로에 따라(`collector/replay_csv.py`) 문자열로 남는다. `NULL`·`None`·`NaN` 같은 단어 문자열은 실제 등장 여부를 확인하기 전까지 값 없음에 넣지 않는다 → 값이 있는 것으로 보아 해석 불가·정의 밖으로 처리한다
 
 ### 4.2 목록 — 구현분·사용자 예시·후보
 
@@ -164,10 +166,12 @@
 | 값이 있고 숫자, 조건 불충족 | `succeeded` | `false` | — |
 | 원천 열 누락으로 값이 null이고 #94 카탈로그 `softRuleFields[].sourceMissingPolicy`가 그 열을 `not_applicable`로 정함(예 `elapsed_ms`의 END_TIME 누락) | `succeeded` | `false` | — (evidence `result: "not_applicable"`, `reason: "<원천 열 소문자>_absent"` 예 `end_time_absent`) — 조건을 평가하지 않음. "END_TIME 누락 = 이상 아님" [확정 11/02 C19], N 매핑 [제안 D4]. 우선순위: 이 행이 다른 결측 행보다 먼저 — `not_applicable` 정책 열(END_TIME)이 없으면 다른 열(START_TIME)이 함께 없어도 N |
 | 값 없음(그 밖의 원천 필드 결측·파생변수 결측, 정책이 `unavailable`이거나 없음) | `not_ready` | `null` | `input_missing` |
-| 파생변수 계산 자체 실패(피처 변환 오류) | `not_ready` | `null` | `feature_unavailable` |
-| 값이 숫자가 아니거나 유한하지 않음 | `failed` | `null` | `input_invalid` [제안 D4] |
+| 파생변수 계산 자체 실패(피처 변환 오류, 파생 필드의 원천 값이 있으나 비숫자이거나 시각으로 해석할 수 없음, 0 나눗셈) | `not_ready` | `null` | `feature_unavailable` [제안 D4, #112 구현 확인 반영 11/04] |
+| `column` 필드의 값이 숫자가 아니거나 유한하지 않음 | `failed` | `null` | `input_invalid` [제안 D4] |
 | 규칙 정의 자체가 잘못됨(알 수 없는 필드 등) | `failed` | `null` | `failure`, failureCode `invalid_rule_definition` |
+| 임계값이 잘못됨(number가 아님, 유한하지 않음, 고정소수 변환 실패, 정수 필드에 소수) | `failed` | `null` | `failure`, failureCode `invalid_threshold` [제안 D6, #112 구현 확인 반영 11/04] |
 
+- 위 표의 '누락'·'값 없음'은 4.1의 값 없음 기준을 따른다 [#112 정정 11/04]: 소프트룰이 쓰는 원천 열 값이 null이거나 빈 문자열·공백만 있는 문자열·`\N`이면 값 없음이다. `column` 필드와 파생 필드의 원천 열, `not_applicable` 판단에 모두 적용한다. `NULL`·`None`·`NaN` 같은 단어 문자열은 값이 있는 것으로 본다(`column` 필드는 비숫자 행, 파생 필드는 계산 실패 행)
 - **결측·비숫자를 정상으로 바꾸지 않는다**(위 `not_applicable` 행만 예외 — 사용자 결정으로 "이상 아님"이 정해진 누락). U인 소프트룰이 하나라도 있으면 그 판정은 정상(`false`)이 될 수 없다(7.3). U로 두면 END_TIME이 없는 정상 트랜잭션마다 소프트 대분류가 미판정이 되어 '정상'이 될 수 없으므로 하드룰 `hard:negative-duration`(4.2)과 같은 방식으로 N에 둔다
 - 현행 차이 [코드]: 지금은 등록 Rule 묶음 전체가 한 콜백이다. 결측 1개면 묶음 전체 `not_ready`(`rules.py:79`), 비숫자는 `ValueError("invalid_rule_numeric")`(`rules.py:41-46`)로 rule 경로 전체가 `failed`(`policy.py:48-52`)가 되어 같은 경로의 상태 HR 결과까지 사라진다
 - 처리시간 같은 시간 차는 원천 필드가 아니라 `datetime_diff` 파생변수(`derived_expression.py:11-12`)로 등록돼야 한다 [#94 등록 필드 목록]
@@ -183,6 +187,7 @@
   - `threshold`·`direction`·`thresholdPolicy`: 구성의 `threshold_spec`(`model_adapters.py:143-144`)과 정책 이름(`train-internal-p99-v1`)
   - `normalized`: `{kind: "threshold_ratio", value: raw / threshold}`(`lower_is_anomaly`면 `threshold / raw`). 분모가 0 이하이거나 의미 없는 척도면 `null`
   - 모델 간 정렬·합산·대표값에 쓰지 않는다
+- 결과 코드: 현재 IF의 `IF_ANOMALY`만 정의돼 있다. 후속 메모: IF 외 ML 결과 코드는 둘째 모델 추가 전에 정한다
 - 위험도: ML은 단계 정의가 없다 [확정 10/22 Q-R4-1·11/02 C17]. T인 ML 결과는 `riskLevel=null`, `riskLevelReason="level_undefined"`, N·U 결과는 둘 다 `null`(9.1 채움 규칙 [제안 D9])
 - `modelVersionId`: 사용한 모델 버전 참조. 모델 버전 식별 형식은 [#94]
 
@@ -266,7 +271,7 @@
   - **교차 저장 직렬화** [저장 구현 소유는 #94 계약·API, Detector 요구]: `detection_methods_empty`(룰 세트 + 활성 집합)와 k > n(정책 + 룰 세트·활성 집합)은 저장소 두 곳 이상을 함께 보는 검사다. 룰 세트 저장·활성 집합 변경·정책 저장이 겹치면 각자는 통과해도 합친 결과가 위반일 수 있다(예: 마지막 켜진 룰을 끄는 저장과 마지막 활성 모델을 빼는 `retire`가 동시에 통과). 따라서 세 저장은 하나의 잠금으로 직렬화해, 뒤 저장이 앞 저장의 확정 결과를 읽고 검사해야 한다. 잠금 방식(공통 advisory lock, 운영 상태 행 `FOR UPDATE` 등)과 구현은 #94·API 소유다. 아래 실행 시점 fail-closed는 직렬화가 빠졌을 때의 마지막 방어다
   - 실행 시점(Detector 시도 시작): 고정한 세 리비전(룰 세트·활성 집합·정책)으로 n_c를 다시 센다
     - 활성 방법이 0개(n_hard + n_soft + n_ml = 0)면 판정 행 없이 **시도 실패**(fail-closed). 빈 판정이나 정상 판정으로 대신하지 않는다
-    - n_c ≥ 1인데 k_c > n_c면 판정 행 없이 시도 실패(fail-closed, 저장 경합 방어)
+    - n_c ≥ 1인데 k_c < 1이거나 k_c > n_c면 판정 행 없이 시도 실패(fail-closed, 저장 경합 방어. k_c < 1은 [#112 정정 11/04])
     - n_c = 0이면 그 대분류는 `skipped`
     - 어느 경우에도 정상을 가장하지 않는다. 시도 실패 뒤에는 작업 재시도(2절 '시도', 최대 3회)를 따르고, 모든 시도가 실패하면 작업이 판정 없이 실패한다(지표에서는 `run_jobs` failed로 따로 셈, 11.6)
 
@@ -410,6 +415,7 @@
 ```
 
 - 예시의 `elapsedMs`는 기한 기준점(`runner.py:29`, 작업 claim·DB 읽기 이전)부터 재므로 수 ms 이상이 정상이다. `firstAnomalyElapsedMs`(9.3)는 종합을 처음 이상으로 만든 소프트룰의 `elapsedMs`와 같다
+- 예시의 `scoreDetail.normalized.value`(0.869)는 읽기 쉽게 반올림해 적은 표시다. 실제 기록값은 6절 식의 계산값 그대로이며 반올림하지 않는다 [#112 정정 11/04]
 
 ### 11.3 v3에서 유지하는 키 — 의미 불변
 
@@ -429,7 +435,7 @@
 | `telemetry`, `observation`, `inputManifestHash`, `demo`, `input` | 그대로 | `runner.py:90-101` |
 
 - **`rules[].reason` 키 적용 범위** [키 이름·값 확정 11/03 U10]
-  - 상태 규칙 항목(`ruleKey: process-status`): v3 형태 그대로 `reason` 키를 항상 두며 의미도 v3 그대로다(`null` 또는 `status_unknown`, `status_rule.py:27`). 이 항목은 `not_applicable`을 내지 않는다
+  - 상태 규칙 항목(`ruleKey: process-status`): v3 형태 그대로 `reason` 키를 항상 두며 의미도 v3 그대로다(`null` 또는 `status_unknown`, `status_rule.py:27`). 이 항목은 `not_applicable`을 내지 않는다. 기한 초과처럼 상태를 읽기 전에 끝나면 `observedStatus: null`, `result: unavailable`, `severity: null`, `reason: status_unknown`으로 기록한다 [제안 D9, #112 구현 확인 반영 11/04]
   - 그 밖의 하드룰 항목과 소프트룰 항목: `result: not_applicable`일 때**만** `reason`을 둔다. 값은 `end_time_absent`(하드룰 `hard:negative-duration`) 또는 `<원천 열 소문자>_absent`(소프트룰, 5.2). `hit`·`no_hit`·`unavailable`이면 `reason` 키를 두지 않는다(미판정 원인은 `methodResults[].cause`, 11.6)
   - 같은 `reason` 값을 그 방법의 `methodResults[].evidence`에도 둔다
   - #94 비교 평가 `notApplicableReasons`는 `result: not_applicable` 항목의 `reason`만 집계한다. 상태 규칙의 `status_unknown`은 대상이 아니다
@@ -445,6 +451,7 @@
 | `composite` | `policy`, `status`, `anomalous`, `grade`, `basisMethods`, `firstAnomalyElapsedMs`, `risk` | 계산 규칙 [확정 10/21 C8 조합·11/02 C7 등급·10/22 C14 위험도], 형태 [확정 11/03 U10] |
 | `composite.policy` | 그 판정의 조합 계산에 쓴 정책의 조합 부분 `{version, policyKey, k}`. 값은 evidence `detectionPolicy`에서 `deadlineMs`만 뺀 것과 **정확히 같아야** 한다(기한은 조합 규칙이 아니라 실행 기한이며 전체 값은 `detectionPolicy`에 있음). Detector는 두 값을 시도에 고정한 같은 정책 객체에서 만든다. 중간 판정 기록 payload(13.3)도 같은 규칙. 화면에 표시하지 않음(C23) | 형태 [확정 11/03 U10], 정의 [제안 D9] |
 | `composite.firstAnomalyElapsedMs` | 같은 시도에서 종합 `anomalous`가 처음 `true`가 된 시점(기한 기준점 `runner.py:29`부터 ms) = 그 순간 도착해 종합을 이상으로 만든 방법의 `elapsedMs`. 이상이 아니면 `null` | [제안 D9] |
+| `composite.risk.determinedBy` | `status=rated`일 때 근거 방법 중 `riskLevel`이 종합 `level`과 같은 방법들의 `methodId`(`methodResults` 순서). `unrated`·`not_applicable`이면 `[]`. 단계 없는 근거는 `unratedMethods`에 둔다 | [제안 D9, #112 구현 확인 반영 11/04] |
 | 최상위 `elapsedMs`(중간 판정 기록 payload만) | 스냅샷을 만든 시점(기한 기준점부터 ms). 11.5의 방법별 `methodResults[].elapsedMs`와 다른 키다. 판정 행 evidence에는 두지 않음(최종 소요는 `telemetry`) | [제안 D5] |
 | `outcomes` | `{classificationVersion}`. 방법별 원인은 `methodResults[].cause`에 둠(중복 저장 안 함) | 계측 포함 [확정 10/21 Q8], 배치 [제안 D6] |
 
@@ -461,7 +468,7 @@
 | `severity` | 방법이 낸 사실값(`critical`/`warning`/`info`) 또는 `null` | T일 때만 |
 | `riskLevel`, `riskLevelReason` | 9.1 | |
 | `cause` | 11.6 원인 코드, succeeded면 `null` | |
-| `failureCode` | `status=failed`일 때 세부 코드(11.6), 그 외 `null` | |
+| `failureCode` | `cause=failure`일 때 세부 코드(11.6), 그 외 `null`. `failed` + `input_invalid`(5.2)도 `null` | [제안 D6, #112 구현 확인 반영 11/04] |
 | `elapsedMs` | 기한 기준점(`runner.py:29` `started`)부터 이 방법의 상태가 정해진 시점까지 ms(측정값). 결과(`succeeded`)·실패(`failed`)·미판정(`not_ready`) 모두 그 상태가 정해진 시점을 기록한다. **기한 초과(`cause=timeout`)도 기한 도달을 판정한 시점의 측정값을 그대로 기록**한다(값이 `deadlineMs` 근처가 됨). `null`은 중간 판정 기록에서 아직 결과가 오지 않은 방법(`cause=pending`)뿐 | #66 계측. 기록 규칙 [제안 D9]. 시간 초과 판정 행의 처리 시간은 이 측정값을 그대로 표시 [확정 11/03 사용자(화면 흐름 결정 기록 9.9), C24] — 기한값을 짐작할 수 있는 점은 사용자가 감수 |
 | `evidence` | 요약 객체 배열 | 원천 값 전체를 복사하지 않음 |
 | `condition`, `observedValue` | 소프트룰만. 시도에서 쓴 정의와 관측값(문자열) | |
@@ -496,11 +503,12 @@
 | `status` | 7.3 판정 status | [확정 10/21] |
 | `rule_status` | hard + soft 방법 전체에 7.3 대분류 status 매핑 적용 | [제안 D2] |
 | `ml_status` | ML 방법 전체에 같은 매핑 | [제안 D2] |
-| `decision_code` | 첫 T 방법의 `code`. 순서: `hard:process-status` → 다른 하드룰(내장 목록 순) → 소프트룰(룰 세트 순) → ML(활성 집합 순서, IF는 `IF_ANOMALY`). T 없으면 `null` | [제안 D3] — 현행 v1 순서(상태 HR → 첫 hit Rule → `IF_ANOMALY`, `runner.py:102`)와 같은 방향 |
+| `decision_code` | 첫 근거 방법(T인 대분류 안의 T 방법, 9.1·`composite.basisMethods`)의 `code`. 순서: `hard:process-status` → 다른 하드룰(내장 목록 순) → 소프트룰(룰 세트 순) → ML(활성 집합 순서, IF는 `IF_ANOMALY`). 근거 방법이 없으면 `null` — k 미달 대분류의 T는 코드로 남기지 않는다 | [제안 D3], 근거 방법 기준은 [#112 정정 11/04] — 현행 v1 순서(상태 HR → 첫 hit Rule → `IF_ANOMALY`, `runner.py:102`)와 같은 방향 |
 | `anomaly_score` | 활성 ML이 정확히 1개일 때만 그 원점수, 아니면 `null` | [제안 D3] — 현행 IF 점수 1개(`runner.py:124`) |
 | `evidence` | 11절 v4 | |
 
 - 판정 행은 불변이다(`004_erd_v03_contracts.sql:131-137`). 작업당 1행(`004:94` `job_id UNIQUE`)
+- 후속 메모: IF 외 ML의 `decision_code`는 둘째 모델 추가 전에 정한다(6절)
 
 ## 13. 중간 판정 기록 — 정본
 
@@ -555,7 +563,8 @@
 | # | 상황 | hard | soft | ml | status | anomalous | grade | 위험도 | v1 현행과 차이 |
 |---|---|---|---|---|---|---|---|---|---|
 | 1 | 하드룰만, 상태 S | N | — | — | complete | false | normal | — | 같음 |
-| 2 | 하드룰만, 상태 없음 | U | — | — | unavailable | null | undetermined | — | 같음 |
+| 2 | 하드룰만, 켜진 하드룰이 모두 U(상태 규칙만 켜고 상태 없음, 또는 상태 없음 + START_TIME 없음) | U | — | — | unavailable | null | undetermined | — | 같음(v1의 하드룰은 상태 규칙뿐) |
+| 2b | 기본 구성(하드룰 2개 켜짐), 상태 없음 + 시각 규칙 N(시작 ≤ 종료 또는 END_TIME 없음) | U | — | — | **partial** | null | undetermined | — | v1은 unavailable(시각 규칙이 없음). 시각 규칙이 succeeded라 7.3에 따라 partial |
 | 3 | 상태 F + IF 기한 초과 | T | — | U | partial | true | anomaly | 위험 | 같음 |
 | 4 | 상태 P + IF N | T | — | N | complete | true | anomaly | 주의(U2) | 같음 |
 | 5 | 상태 S + 소프트 T(주의) + IF N | N | T | N | complete | true | anomaly_sign | 주의 | 등급만 새로 생김 |
@@ -570,7 +579,9 @@
 | 14 | 하드·소프트 모두 끔, IF T | — | — | T | complete | true | anomaly_sign | 미정 | 같음(ml_only) |
 | 15 | 상태 S + `START_TIME > END_TIME`(`hard:negative-duration`, U3) | T | — | — | complete | true | anomaly | 위험 | 새 규칙 |
 | 16 | 상태 S + END_TIME 없음(`hard:negative-duration` → N, `not_applicable`) | N | — | — | complete | false | normal | — | 새 규칙(EndTime 없음은 이상 아님, C19) |
-| 17 | 활성 방법 0개 / 활성 대분류 k > n | — | — | — | 판정 행 없음(저장 거부, 시도 시작 시 fail-closed) | — | — | — | 해당 없음 |
+| 17 | 활성 방법 0개 / 활성 대분류 k < 1 또는 k > n | — | — | — | 판정 행 없음(저장 거부, 시도 시작 시 fail-closed) | — | — | — | 해당 없음 |
+
+- 2행·2b행·17행의 k < 1은 [#112 정정 11/04]. 7.3 규칙은 바뀌지 않았고 표가 7.3을 정확히 옮기도록 조건만 좁혔다
 
 ## 15. 현행 코드와의 충돌 — 이 Issue는 문서만, 코드는 후속 Issue에서
 
@@ -642,15 +653,15 @@
 
 | # | 내용 | 근거·비고 |
 |---|---|---|
-| D1 | `hard:negative-duration`: 허용 오차 0ms(`START_TIME > END_TIME`이면 이상), 시각은 수집기 `parsed_times` 기준. 판정 순서: ① END_TIME 없음 → N(`not_applicable`, `end_time_absent`, START_TIME도 없어도 N) — 이상 아님은 확정 C19, N 매핑은 이 제안(U면 정상 판정이 막힘). ② START_TIME 없음 → 미판정(`input_missing`) ③ 값이 있으나 해석 불가 → 미판정(`input_invalid`) ④ 비교 | 연구 기본 허용 오차 0ms(`research/anomaly_detection/code/process_anomaly_pipeline/config.py:33`) |
+| D1 | `hard:negative-duration`: 허용 오차 0ms(`START_TIME > END_TIME`이면 이상), 시각은 PROCESS 관측 `allowed_values`의 `start_time_raw`·`end_time_raw`를 처리 시간(`datetime_diff`, `derived_expression.py`)과 같은 방식으로 해석한다 — 수집기가 `parsed_times`를 항상 빈 객체(`{}`)로 저장해(`collector/storage.py`, `collector/input_store.py`) 쓸 수 없음(#112 구현 확인 반영 11/04). 원천 시각은 시간대 없는 `YYYY-MM-DD HH:MM:SS[.소수]` 문자열이고, 같은 행의 두 시각은 같은 기준으로 비교한다. 값 없음은 빈 문자열 또는 `\N`이다. 판정 순서: ① END_TIME 없음 → N(`not_applicable`, `end_time_absent`, START_TIME도 없어도 N) — 이상 아님은 확정 C19, N 매핑은 이 제안(U면 정상 판정이 막힘). ② START_TIME 없음 → 미판정(`input_missing`) ③ 값이 있으나 해석 불가 → 미판정(`input_invalid`) ④ 비교 | 연구 기본 허용 오차 0ms(`research/anomaly_detection/code/process_anomaly_pipeline/config.py:33`) |
 | D2 | `checkers.*`는 v3 의미 유지(`checkers.hr` = 상태 규칙만, 끄면 `skipped`; v2 `checkers.sr` = `skipped`), 대분류 결과는 `categoryResults`. 대분류 status 매핑과 `rule_status`(hard+soft)·`ml_status`는 7.3 매핑 | 운영 보고·교차표 소비처 키 유지. 단 집계 영향은 15절 K14 |
-| D3 | `decision_code` 순서 hard(상태 규칙 우선) → soft → ml, `anomaly_score`는 활성 ML이 1개일 때만 | 현행 v1 순서와 같은 방향(`runner.py:102`, `:124`) |
-| D4 | 소프트룰 입력: 결측 = `not_ready` + `input_missing`, 비숫자·비유한 = `failed` + `input_invalid`. 둘 다 미판정이며 정상으로 바꾸지 않음. 예외: 카탈로그 `sourceMissingPolicy = not_applicable`인 원천 열 누락(예 `elapsed_ms`의 END_TIME)은 N(`not_applicable`, `<열>_absent`) | `pipeline.md` "판정·SSE·설명" 절 첫 문단("미완료 상태를 정상으로 바꾸지 않고") 원칙, 11/02 C19, #94 `method-catalog.md` `sourceMissingPolicy` |
+| D3 | `decision_code`는 첫 근거 방법의 코드([#112 정정 11/04]), 순서 hard(상태 규칙 우선) → soft → ml, `anomaly_score`는 활성 ML이 1개일 때만 | 현행 v1 순서와 같은 방향(`runner.py:102`, `:124`) |
+| D4 | 소프트룰 입력: 결측 = `not_ready` + `input_missing`, 비숫자·비유한 = `failed` + `input_invalid`(파생 필드의 원천 비숫자·시각 해석 불가는 `not_ready` + `feature_unavailable`, #112 구현 확인 반영 11/04). 둘 다 미판정이며 정상으로 바꾸지 않음. 예외: 카탈로그 `sourceMissingPolicy = not_applicable`인 원천 열 누락(예 `elapsed_ms`의 END_TIME)은 N(`not_applicable`, `<열>_absent`) | `pipeline.md` "판정·SSE·설명" 절 첫 문단("미완료 상태를 정상으로 바꾸지 않고") 원칙, 11/02 C19, #94 `method-catalog.md` `sourceMissingPolicy` |
 | D5 | evidence v4는 v2 정책 판정에만(v1·legacy는 v3 유지). 중간 판정 기록 payload = 전체 스냅샷, `evidence_version=detector-evidence-v4`, 근거 증가 = `basisMethods` 집합 확대, payload `elapsedMs` = 스냅샷 시점 | 012 `payload`는 object만 강제(`012_decision_interims.sql:35`) |
-| D6 | 방법별 원인은 `methodResults[].cause` 한 곳에만 둠. `failureCode` 목록·지표 정의(11.6). 상태 규칙 `status_unknown`은 값 없음 → `input_missing`, 정의 밖 값 → `input_invalid`로 대응. 하드룰 해석 불가는 `not_ready`, 소프트룰 비숫자는 `failed`(둘 다 `input_invalid`, 4.1 이유) | 현행 코드는 `reason: status_unknown` 하나(`status_rule.py:27`) |
+| D6 | 방법별 원인은 `methodResults[].cause` 한 곳에만 둠. `failureCode` 목록·지표 정의(11.6). 상태 규칙 `status_unknown`은 값 없음 → `input_missing`, 정의 밖 값 → `input_invalid`로 대응. 하드룰 해석 불가는 `not_ready`, 소프트룰 비숫자는 `failed`(둘 다 `input_invalid`, 4.1 이유). `failureCode`는 `cause=failure`일 때만, 소프트룰 임계값 오류는 `invalid_threshold`(#112 구현 확인 반영 11/04) | 현행 코드는 `reason: status_unknown` 하나(`status_rule.py:27`) |
 | D7 | 등급·위험도는 Detector가 계산·저장하고 API·WebUI·알림은 저장값만 사용 | `pipeline.md` "판정·SSE·설명" 절 판정 조회 문단 "API는 risk를 재계산해 확정 판정을 덮어쓰지 않는다"와 같은 방향 |
 | D8 | (사용자 결정 U12로 이동 — 다른 계약의 10/21 확정 문구를 바꾸는 항목, 11/03 확정) | — |
-| D9 | `riskLevel`은 방법 결과가 T일 때만 채움(ML T는 `null` + `level_undefined`, N·U는 둘 다 `null`). `rules[]`에 켜진 하드룰을 모두 v3 형태로 포함하고, 하드룰 key는 `-<8 hex>`로 끝나지 않게 정해 소프트룰 key와 구분. `firstAnomalyElapsedMs` = 종합을 처음 이상으로 만든 방법의 `elapsedMs`. `methodResults[].elapsedMs`는 상태가 정해진 시점의 측정값이며 기한 초과도 측정값 그대로(`null`은 중간 기록의 `pending`뿐, 11.5). `composite.policy` = evidence `detectionPolicy`에서 `deadlineMs`를 뺀 값(11.4) | 11.2 예시와 일치. 기한 초과 측정값 표시는 11/03 사용자 결정(화면 흐름 결정 기록 9.9, C24) |
+| D9 | `riskLevel`은 방법 결과가 T일 때만 채움(ML T는 `null` + `level_undefined`, N·U는 둘 다 `null`). `rules[]`에 켜진 하드룰을 모두 v3 형태로 포함하고, 하드룰 key는 `-<8 hex>`로 끝나지 않게 정해 소프트룰 key와 구분. `firstAnomalyElapsedMs` = 종합을 처음 이상으로 만든 방법의 `elapsedMs`. `methodResults[].elapsedMs`는 상태가 정해진 시점의 측정값이며 기한 초과도 측정값 그대로(`null`은 중간 기록의 `pending`뿐, 11.5). `composite.policy` = evidence `detectionPolicy`에서 `deadlineMs`를 뺀 값(11.4). `composite.risk.determinedBy`(11.4)와 상태 규칙의 기한 초과 기록(11.3)은 #112 구현 확인 반영 11/04 | 11.2 예시와 일치. 기한 초과 측정값 표시는 11/03 사용자 결정(화면 흐름 결정 기록 9.9, C24) |
 | D10 | **#94와 합의해 결정**: 소프트룰 임계값 형식(저장·API는 JSON number, hash 계산·Detector 전달·evidence 기록 때만 고정소수 문자열로 변환·지수 표기 금지, 5.1)·단위 변환 없음, 소프트룰 최대 32개(#94와 일치, 확대는 두 세션 합의), evidence 크기 상한 | 룰 세트 편집 제약은 #94 소유 |
 | D11 | evidence에 리비전 필드 2개: `detectionPolicyRevision`(정수, 0 = 내장 기본 정책)·`activeModelSetRevision`(정수). 정책 값은 `detectionPolicy`에 복사(U11) | 판정 1건에서 그때의 정책·활성 집합을 재구성(10/21 R6 추적성). 리비전 번호 체계는 [#94] |
 | D12 | `sr:*` 방법을 실행 중 만나면(저장 검증을 거치지 않은 예외 상황) 판정 행 없이 시도 실패(fail-closed). 저장 단계 거부와 오류 코드는 [#94] | 11/02 C2(통계 SR 제외) |
@@ -658,6 +669,7 @@
 
 ## 이력
 
+- 2026-11-04: #112 구현 확인 정정. 사용자 승인분 — 14절 2행 조건을 '켜진 하드룰이 모두 U'로 좁히고 기본 구성 2b행 추가(7.3 불변, 현행 `compute` 실행으로 2행 '같음' 재확인), 12절 `decision_code`를 첫 근거 방법으로, 7.4 실행 시점·14절 17행에 k < 1, 4.1·5.2 값 없음 기준(빈 문자열·공백·`\N`, 단어 문자열은 확인 전까지 제외), 11.2 `normalized.value` 반올림 표시. Detector 결정 반영 — D1 입력을 `allowed_values` 시각 필드로(`parsed_times`는 항상 비어 있음), 5.2 임계값 오류 행과 파생 필드 계산 실패 범위(D4·D6), 11.4 `determinedBy` 정의(D9), 11.5 `failureCode` 조건(D6), 11.3 상태 규칙 기한 초과 기록(D9). 후속 메모 — 6·12절 IF 외 ML 결과 코드
 - 2026-11-03: 사용자 결정 반영 — U1~U12 모두 추천안으로 확정(C21), 본문 "[제안 Un]"·"[합의 — 사용자 확인 필요]"를 [확정 11/03 Un]으로, 1.1 A1·A2 확정(U1), U11은 #94 Q-M2 확정의 귀결로 표기, 17.1을 결정 결과 표로, `pipeline.md` "API 작업" 절 severity 문장 교체(U7). 11/02 사용자 결정(화면 흐름 결정 기록 9.7) 이상 규칙 화면 문구 확정(C22, 4.3·D13)·P·N '주의' 유지, 판정 정책 화면 미노출(C23, 화면 흐름 결정 기록 9.6·9.8), 11/03 사용자 결정(화면 흐름 결정 기록 9.9) 기한 초과 `elapsedMs` 측정값 기록·표시(C24, 11.5). 9차 reviewer 비차단 권고 반영 — 7.4 n = 0 대분류 k 처리(U4 적용 시 정책 저장은 세 값 모두 검사, k > n·계산에서는 무시), 실행 시 활성 방법 0개 시도 실패, 교차 저장 직렬화(#94·API 소유), 7.2 운영 설정은 v2만, 11.3 `reason` 적용 범위, C19·C20 출처 표기, `composite.policy` 정의(11.4). Trainer 교차 검토 경미 지적 반영 — 7.4 검증 경로에 `restore`, 5.1 `id` 행, 현행 계약 인용을 dev 기준 절·필드 이름으로(#94 병합 전 문장은 판본 표기). dev 병합(#94 `935e5eb` 포함) 후 16절을 병합본 기준으로 재확인 — 남은 요청 없음 유지, 조건부 요청은 U4 확정으로 미발동, 비차단 권고 유지, #94 문서의 낡은 '결정 대기' 표기 후속 정정 권고 추가. 10차 검토 권고 5건 반영 — 17.1 추천 근거 복원(U3·U4·U5·U11), 비공개 결정 기록 절 번호를 '화면 흐름 결정 기록 9.x'로 통일, 16절 `model-version.md` k.ml 문구를 정정 요청으로 격상(S4), 7.2 출처, 11.4 최상위 `elapsedMs` 구분
 - 2026-11-02: 8차 최종 검토 FAIL 반영 — 7.4 k·n 규칙 재작성(n=0 대분류 k 무시, U4 승인 시 정책 저장 k 모두 1 강제, 완화 시에만 양방향 검증·룰 세트 쪽 #94 조건부 요청, 실행 시 n≥1·k>n fail-closed / n=0 skipped), 7.2 열 제목·v3 spec 행, 16절 기준 673463d·Q-M10 무영향·비차단 권고, `not_applicable` 선택 키 `reason`, END_TIME 없음 우선 판정 순서(4.2·5.2·D1), U11 대안을 #94 폐기안으로·추천안 표기 통일, U11 추천안 전제 표기
 - 2026-11-02: #94 fa8c390(최종본) 대조 — 16절 기준 변경, 4.3·16절 표시 문구를 "#94 예시도 같은 값(정본은 이 표)"으로, `sr:*` 근거의 (B) 조합 저장 절 상태를 폐기로. `git diff d8937f9 fa8c390`에서 #92와 모순 없음

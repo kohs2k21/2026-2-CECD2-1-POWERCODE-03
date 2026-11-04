@@ -14,7 +14,7 @@ files=('001_postgres_queues.sql','002_core_erd.sql','003_erd_v03_enums.sql','004
        '003_rule_versions_immutable.sql','004_feature_pipeline.sql','005_research_runtime.sql',
        '006_service_transition.sql','007_api_collection_metrics.sql','008_demo_replay.sql','009_switchable_inputs.sql',
        '010_prepared_csv_import.sql','011_config_comparison_recommendation.sql','012_decision_interims.sql',
-       '013_legacy_function_search_path.sql','014_analysis_workflow.sql')
+       '013_legacy_function_search_path.sql','014_analysis_workflow.sql','015_rule_set_revisions.sql')
 with psycopg.connect(url,autocommit=True) as admin:
     for name in ('qa_research_pipeline','qa_pipeline','qa_trainer_service','qa_metrics_service','qa_synthetic_service','qa_prepared_csv_service','qa_operations_service','qa_rule_set_service','qa_analysis_service'):
         # Existing QA databases fail here; no DROP or existing-schema changes.

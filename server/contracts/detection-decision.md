@@ -45,7 +45,7 @@
 | C22 | 이상 규칙 화면 문구 승인: 상태 규칙 "상태가 S가 아님" / "STATUS ≠ S", 시각 역전 "시작 시각이 종료 시각보다 늦음" / "START_TIME > END_TIME (종료 시각이 없으면 판단하지 않음)"(4.3 `displayName` / `conditionText`). 상태 P·N 위험도는 '주의' 유지(F만 '위험', U2와 같음). N 단계는 11/04 C26이 대체 | 11/02 사용자 결정(화면 흐름 결정 기록 9.7) |
 | C23 | 판정 정책(`detectionPolicy`)은 화면에 노출하지 않음 — 편집·읽기 전용 표시 모두 없음, 판정 상세의 '기준 k' 열도 제거 | 11/02 사용자 결정(화면 흐름 결정 기록 9.6 Q-M10·9.8) |
 | C24 | 시간 초과 판정 행의 처리 시간은 측정값(`elapsedMs`) 그대로 표시(기한값을 짐작할 수 있는 점은 감수) | 11/03 사용자 결정(화면 흐름 결정 기록 9.9) |
-| C25 | 이상 규칙에 건수 규칙 2개 추가: 상태 S인데 오류 건수가 있음, 최종 상태에서 건수 합계가 맞지 않음. U3 "하나씩 추가"의 후속 결정. 이름·버전·표시 문구는 D17 | 11/04 사용자 결정 |
+| C25 | 이상 규칙에 건수 규칙 2개 추가: 상태 S인데 오류 건수가 있음, 최종 상태에서 건수 합계가 맞지 않음. U3 "하나씩 추가"의 후속 결정. 이름·버전·`conditionText`는 D17, `displayName` 문구도 사용자 확정(4.3) | 11/04 사용자 결정 |
 | C26 | `hard:process-status`의 상태 코드 뜻 확정: S 성공, F 실패, P 처리중, N 미처리, H 부분성공, Z 데이터없음. F는 위험, P·Z는 주의. N이고 END_TIME이 값 없음이면 이상이 아니다. S·F·P·N·H·Z 밖의 값은 미판정, 상태 없음은 U3(나) 유지. H·N '참고'는 사용자의 "널널하게 봐도 된다"(잠깐 찍혔다가 S나 F로 바뀜)를 총괄이 해석한 기본값이며 사용자가 화면에서 바꿀 수 있다(C27). U2·C22의 N '주의'와 U3(나)의 H·Z 미판정을 대체 | 11/04 사용자 결정(H·N 단계는 그 해석) |
 | C27 | `hard:process-status`의 코드별 위험도는 사용자가 룰 세트에서 설정한다. C4의 '위험도 읽기 전용'을 이 규칙에 한해 대체하며, 다른 하드룰의 조건·위험도는 내장 고정 | 11/04 사용자 결정 |
 
@@ -138,10 +138,10 @@
 |---|---|---|---|---|---|
 | `hard:process-status` | `process-status-hr-v2`(D16) | 상태가 S가 아님 | STATUS ≠ S | `{"byCode": {"PROCESS_STATUS_F": "critical", "PROCESS_STATUS_P": "warning", "PROCESS_STATUS_N": "info", "PROCESS_STATUS_H": "info", "PROCESS_STATUS_Z": "warning"}}` | 순수 로직 구현, 실행 경로 미연결. 코드 집합과 N 조건이 바뀌어 v2 [제안 D16]. 값은 기본값이며(H·N은 C26의 해석값) 코드별 단계는 룰 세트 v2 항목 값(10절) |
 | `hard:negative-duration` | `negative-duration-v1`(이름은 D13) | 시작 시각이 종료 시각보다 늦음 | START_TIME > END_TIME (종료 시각이 없으면 판단하지 않음) | `"critical"` | 1차 목록 [확정 11/03 U3], 순수 로직 구현, 실행 경로 미연결 |
-| `hard:success-with-error` | `success-with-error-v1` | 성공 상태이나 오류 건수가 기록됨 | STATUS = S, ERROR_COUNT > 0 | `"critical"` | 1차 목록 [확정 11/04 사용자], 순수 로직 구현, 실행 경로 미연결. 결과 코드 `HARD_SUCCESS_WITH_ERROR`. 이름·코드는 [제안 D17], 화면 문구는 [확정 11/04 사용자] |
-| `hard:count-conservation` | `count-conservation-v1` | 건수 합계 불일치 | TOTAL_COUNT ≠ SUCCESS_COUNT + ERROR_COUNT | `"critical"` | 1차 목록 [확정 11/04 사용자], 순수 로직 구현, 실행 경로 미연결. 결과 코드 `HARD_COUNT_CONSERVATION`. 이름·코드는 [제안 D17], 화면 문구는 [확정 11/04 사용자] |
+| `hard:success-with-error` | `success-with-error-v1` | 성공 상태이나 오류 건수가 기록됨 | STATUS = S, ERROR_COUNT > 0 | `"critical"` | 1차 목록 [확정 11/04 사용자], 순수 로직 구현, 실행 경로 미연결. 결과 코드 `HARD_SUCCESS_WITH_ERROR`. 이름·코드·`conditionText`는 [제안 D17], `displayName`은 [확정 11/04 사용자] |
+| `hard:count-conservation` | `count-conservation-v1` | 건수 합계 불일치 | TOTAL_COUNT ≠ SUCCESS_COUNT + ERROR_COUNT | `"critical"` | 1차 목록 [확정 11/04 사용자], 순수 로직 구현, 실행 경로 미연결. 결과 코드 `HARD_COUNT_CONSERVATION`. 이름·코드·`conditionText`는 [제안 D17], `displayName`은 [확정 11/04 사용자] |
 
-- `displayName`·`conditionText` 문구는 위 표 값 그대로다. 앞 두 행은 [확정 11/02 사용자 화면 문구 승인(화면 흐름 결정 기록 9.7), C22], 뒤 두 행은 [확정 11/04 사용자]. Detector 구현이 같은 값을 둔다. 정의 형식(`{id, methodVersion, displayName, conditionText, severity}`)은 [제안 D13]
+- `displayName`·`conditionText` 문구는 위 표 값 그대로다. 앞 두 행은 [확정 11/02 사용자 화면 문구 승인(화면 흐름 결정 기록 9.7), C22], 뒤 두 행의 `displayName`은 [확정 11/04 사용자], `conditionText`는 [제안 D17]. Detector 구현이 같은 값을 둔다. 정의 형식(`{id, methodVersion, displayName, conditionText, severity}`)은 [제안 D13]
 - #94 `rule-set.md` "룰 세트 상태" 절 예시도 앞 두 행의 표시 문구는 같은 값(정본은 이 표)
 
 - `methodVersion`이 조건과 기본 위험도를 고정한다. 조건이나 기본 위험도를 바꾸면 새 `methodVersion`을 만들고 과거 판정은 기록된 버전 그대로 둔다. `hard:process-status`의 코드별 위험도를 사용자가 룰 세트에서 바꾸는 것은 새 `methodVersion`이 아니며 판정의 룰 세트 리비전과 `statusRulePolicy.mapping`으로 추적한다 [제안 D16]
@@ -320,7 +320,7 @@
 
 ### 9.2 단계표
 
-- 10/22 확정 구조(내장 목록 버전, 판정마다 기록)를 그대로 쓰고 대분류만 바꾼 새 버전 `method-defined-v2` [이름 확정 11/03 U10]: hard = 하드룰 정의 단계. 단 `hard:process-status`는 룰 세트 v2 항목 값 우선([확정 11/04 사용자], 판별은 D14)이고, v1 항목과 `methodVersion`이 없는 항목은 내장 기본값, v2 항목의 값 누락은 시도 실패다. soft = 규칙 `severity`, ml = 정의 없음
+- 10/22 확정 구조(내장 목록 버전, 판정마다 기록)를 그대로 쓰고 대분류만 바꾼 새 버전 `method-defined-v2` [이름 확정 11/03 U10]: hard = 하드룰 정의 단계. 단 `hard:process-status`는 룰 세트 v2 항목 값([확정 11/04 사용자], 판별은 D14)이고, v1 항목과 `methodVersion`이 없는 항목은 내장 기본값, v2 항목의 값 누락은 시도 실패다. soft = 규칙 `severity`, ml = 정의 없음
 - 계산 정책 이름 `risk-max-v1` [확정 11/03 U10]
 - 단계표나 하드룰 내장 단계가 바뀌면 새 버전으로 새 판정부터 적용. 과거 판정은 기록된 버전 그대로. 룰 세트의 코드별 단계가 바뀌면 새 룰 세트 리비전으로 새 시도부터 적용
 
@@ -683,7 +683,7 @@
 | D14 | 룰 세트 스냅샷 해석: `hardRules[]`는 `id`·`enabled`를 실행 입력으로 읽고 조건·`methodVersion`은 내장 목록을 쓴다. 스냅샷에 없는 내장 규칙은 꺼짐, 미지 `id`, 중복 `id`, bool 아닌 `enabled`는 시도 실패. `hard:process-status`는 항목의 `methodVersion`이 v2일 때만 `severity.byCode`를 사용자 설정으로 인정하고 5코드 전부를 요구하며, v1 항목·키 없음(`null` 포함)은 값을 무시하고 내장 기본값, 그 밖의 버전은 시도 실패(10절) | 꺼짐으로 두면 규칙 추가마다 시스템 리비전 migration이 필요 없고 배포 순서가 어긋나도 판정이 멈추지 않으며, 새 규칙이 말없이 켜지지 않음. v1 항목의 `severity`는 사용자가 정한 값이 아니라 저장 당시 내장값의 투영(015 r0의 N `warning`)이라 사용자 설정으로 읽으면 안 됨 |
 | D15 | 건수 규칙은 상태를 먼저 보고, 건수는 Decimal로 정확히 비교한다. 정수 여부와 음수는 보지 않으며 대상 밖 상태는 N이다(4.2). `hard:count-conservation`의 대상 S·F는 총괄 결정이고 H는 일시 상태라 제외한다. 14절 20행의 U와 21행의 N은 이 순서에서 나온다 | 정수·음수 검사는 후보 `hard:invalid-count-domain`의 범위. 수집기도 건수를 정수로 강제하지 않음(`collector/storage.py` `_typed_values`) |
 | D16 | `hard:process-status` 구현 세부: 코드 집합과 N 조건이 바뀌어 `process-status-hr-v2`로 올림. 표시 문구는 코드를 나열하지 않고 유지. 후보 `hard:invalid-status` 제거. END_TIME 없는 N은 `not_applicable`·`end_time_absent`로 기록. 사용자 단계 변경은 새 `methodVersion`이 아니라 룰 세트 리비전과 `statusRulePolicy.mapping`으로 추적하며 `mapping`은 시도에 고정한 코드별 단계(S는 `no_hit`) | C26·C27의 구현 형식. 사용자 결정이 아님 |
-| D17 | 건수 규칙 2개의 이름·버전·코드·문구: `hard:success-with-error`(`success-with-error-v1`, `HARD_SUCCESS_WITH_ERROR`, "성공 상태이나 오류 건수가 기록됨", "STATUS = S, ERROR_COUNT > 0"), `hard:count-conservation`(`count-conservation-v1`, `HARD_COUNT_CONSERVATION`, "건수 합계 불일치", "TOTAL_COUNT ≠ SUCCESS_COUNT + ERROR_COUNT") | C25의 구현 형식. 화면 문구는 사용자 확정 11/04 |
+| D17 | 건수 규칙 2개의 이름·버전·코드·문구: `hard:success-with-error`(`success-with-error-v1`, `HARD_SUCCESS_WITH_ERROR`, "성공 상태이나 오류 건수가 기록됨", "STATUS = S, ERROR_COUNT > 0"), `hard:count-conservation`(`count-conservation-v1`, `HARD_COUNT_CONSERVATION`, "건수 합계 불일치", "TOTAL_COUNT ≠ SUCCESS_COUNT + ERROR_COUNT") | C25의 구현 형식. `displayName`은 사용자 확정 11/04, `conditionText`는 Detector 제안 |
 
 ## 이력
 

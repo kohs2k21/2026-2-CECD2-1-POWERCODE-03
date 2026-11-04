@@ -183,7 +183,7 @@ END $$`],
 ['S3b', `DO $$ DECLARE j jsonb; att jsonb; BEGIN
  j := t.ins('run_jobs', jsonb_build_object('kind','train','status','queued','requested_by_actor_id','admin1','requester_role','admin','max_attempts',3,'attempt_count',0,'idempotency_key',gen_random_uuid()::text));
  att := t.attempt((j->>'id')::uuid, 1);
- PERFORM t.expect_error('S3b legacy train job', format($q$SELECT t.interim(%L, %L::jsonb, 'first_anomaly')$q$, j->>'id', att), 'v03 detect');
+ PERFORM t.expect_error('S3b legacy train job', format($q$SELECT t.interim(%L, %L::jsonb, 'first_anomaly')$q$, j->>'id', att), 'v03 or v04 detect');
 END $$`],
 ['S4', `DO $$ DECLARE info jsonb := t.mkjob(); job uuid := (info->>'job')::uuid; a1 jsonb; a2 jsonb; BEGIN
  a1 := t.attempt(job, 1);

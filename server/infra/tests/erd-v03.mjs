@@ -3,7 +3,9 @@
 // Tools: embedded-postgres@17.10.0-beta.17, pg, @dbml/core.
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
-import { readFile, readdir, mkdtemp } from 'node:fs/promises';
+import { spawnSync } from 'node:child_process';
+import { rmSync } from 'node:fs';
+import { readFile, readdir, mkdtemp, rm } from 'node:fs/promises';
 import { resolve, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { tmpdir } from 'node:os';
@@ -13,6 +15,7 @@ import { interim012 } from './erd-v03-interim.mjs';
 import { searchPath013 } from './erd-v03-search-path.mjs';
 import { llmPreparedGrant81 } from './erd-v03-llm-grant.mjs';
 import { revisions015 } from './erd-v03-revisions.mjs';
+import { detectV04_016 } from './erd-v03-detect-v04.mjs';
 
 const toolRoot = process.argv[2];
 assert(toolRoot, 'Pass an isolated temporary workspace containing the test dependencies');
@@ -46,8 +49,40 @@ const port = await new Promise((ok, fail) => {
   const s = createServer(); s.on('error', fail); s.listen(0, '127.0.0.1', () => { const p = s.address().port; s.close(() => ok(p)); });
 });
 const databaseDir = await mkdtemp(join(tmpdir(), 'powercode-erd-v03-'));
-const cluster = new EmbeddedPostgres({ databaseDir, port, user: 'erd_test', password: 'isolated-test-only', persistent: true,
+const cluster = new EmbeddedPostgres({ databaseDir, port, user: 'erd_test', password: 'isolated-test-only', persistent: false,
   postgresFlags: ['-h', '127.0.0.1'], onLog: () => {}, onError: () => {} });
+// Every run creates a new cluster directory. It must not outlive the run, and the run may exit 0 only after the final PASS line.
+// stop() waits for the exit event of the postgres process, so it never settles once that process has already ended (crash, failed start).
+// The library exit hook calls the same stop() and after its 10 s limit exits with the code of its trigger, which is 0 for a drained event loop.
+// So stop() gets a shorter limit here, and the exit listener below has the last word on the code:
+// - success, failed checks, exceptions: catch prints the error, finally cleans, and a failed run exits there instead of draining into the hook.
+// - uncaught errors and signals: the handlers below. Every open client errors when the cluster stops, so they stay installed and removeOnce cleans once.
+// - postgres dying mid-run: the exit watcher after start, because the run may be waiting on something that never settles.
+// - any other way out, a hook exit included: the exit listener removes what is left and turns 0 into 1 unless the run passed.
+// Known limit: a signal during the first seconds of initialise, or a forced kill, can leave the directory. The exit code is still non-zero.
+const STOP_LIMIT_MS = 5000;
+let passed = false, removing, postmasterPid;
+async function removeCluster() {
+  let timer, timedOut = false;
+  const limit = new Promise(ok => { timer = setTimeout(() => { timedOut = true; console.error(`cluster stop did not finish in ${STOP_LIMIT_MS} ms; removing the directory anyway`); ok(); }, STOP_LIMIT_MS); });
+  try { await Promise.race([cluster.stop(), limit]); } catch (e) { console.error(`cluster stop failed: ${e?.message}`); }
+  clearTimeout(timer);
+  // On Windows a child of a dead postmaster (autovacuum launcher) stays alive and keeps the directory busy. Only children of this run's postmaster are stopped.
+  if (timedOut && postmasterPid && process.platform === 'win32') spawnSync('powershell.exe', ['-NoProfile', '-Command',
+    `Get-CimInstance Win32_Process -Filter "Name='postgres.exe' AND ParentProcessId=${postmasterPid}" | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }`]);
+  try { await rm(databaseDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 }); }
+  catch (e) { console.error(`cluster directory not removed yet: ${e.message}`); }
+}
+const removeOnce = () => (removing ??= removeCluster());
+const abort = (code, reason) => { console.error(reason); removeOnce().finally(() => process.exit(code)); };
+process.on('uncaughtException', e => abort(1, e));
+for (const [signal, code] of Object.entries({ SIGHUP: 129, SIGINT: 130, SIGTERM: 143, SIGBREAK: 149 })) process.on(signal, () => abort(code, `stopped by ${signal}`));
+process.on('exit', () => {
+  let removed = true;
+  try { rmSync(databaseDir, { recursive: true, force: true, maxRetries: 3 }); }
+  catch (e) { removed = false; console.error(`FAIL temporary cluster not removed: ${databaseDir}: ${e.message}`); }
+  if (!passed || !removed) process.exitCode ||= 1;
+});
 let checkCount = 0;
 const failures = [];
 const check = (label) => { checkCount++; console.log(`PASS ${label}`); };
@@ -174,6 +209,7 @@ async function parity(c) {
 
 try {
   await cluster.initialise(); await cluster.start();
+  postmasterPid = cluster.process?.pid; cluster.process?.once('exit', code => { if (!removing) abort(1, `postgres exited during the run (code ${code})`); });
   const admin=connection('postgres'); await admin.connect();
   console.log((await admin.query('SELECT version() AS version')).rows[0].version);
   for (const name of ['erd_fresh','erd_upgrade','erd_rollback_011','erd_search_path_011']) await admin.query(`CREATE DATABASE ${name}`);
@@ -219,9 +255,13 @@ try {
   await searchPath013({ connection, check, failures, migrations, migrationNames, parity, insert });
   await llmPreparedGrant81({ Client, port, connection, check, failures, migrations, rolesSql, insert, infra });
   await revisions015({ Client, port, connection, check, failures, migrations, migrationNames, rolesSql, parity, insert, infra });
+  await detectV04_016({ Client, port, connection, check, failures, migrations, migrationNames, rolesSql, parity, insert });
   assert.equal(failures.length,0,failures.join('; '));
   console.log(`PASS ${checkCount} integration checks; no project runtime or customer data used`);
-} finally { await cluster.stop(); }
+  passed = true;
+} catch (e) { console.error(e ?? 'run failed without an error object (cluster start rejects with none)'); }
+finally { await removeOnce(); }
+if (!passed) process.exit(1);
 
 async function behavioral(c, database) {
   const asOf = new Date('2026-10-12T00:00:00Z');

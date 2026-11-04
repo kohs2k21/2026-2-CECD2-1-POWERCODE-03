@@ -7,12 +7,15 @@
 - 실행 상태: queued/running/succeeded/failed; 자동 재시도는 같은 job, 최대 3회·attempt 이력
 - terminal failed 재실행: 새 idempotency key로 명시적 새 요청; 같은 key·같은 본문은 기존 job 반환, 다른 본문은 409
 - Web 멱등키: sessionStorage 정상 시 새로고침 후 재사용, 저장 실패 시 현재 페이지의 메모리에서만 유지; 저장 실패 후 새로고침한 경우 작업 이력 확인 후 재실행 여부 결정
+- 현행 갱신(Issue #116, 11/04 — #111 병합 반영): 워커의 카탈로그 기준 `modelKey`·`parameters` 검증과 오류 코드(요청·발견 API 절), `sr*` 셀 영구 `not_applicable`/`sr_removed`(완료 결과 절), `training_settings` 확장(학습·전처리 절). API 쪽 선차단 전환·`parameters` 전달은 API 구현 단계 몫 [제안]
 
 ## 요청·발견 API
 
-- `GET /api/jobs/capabilities`: `contractVersion`, `models[{key,displayName,supported}]`, `evaluationFamilies`, `fittedFeatures`, `snapshot`
-- 모델: `iforest`만 지원; train의 `modelKey` 생략 시 기존 IF, 다른 값 422 `unsupported_model`
-- `rule_only`: modelKey 생략 필수; 지정 시 422 `model_not_selected`
+- `GET /api/jobs/capabilities`: `contractVersion`, `models[{key,displayName,supported}]`, `evaluationFamilies`, `fittedFeatures`, `snapshot`(현행은 `trainerContract.ts` `TRAINER_CAPABILITIES` 상수, `models` = `iforest` 1건 고정; `methodCatalog` 추가는 아래 변경 제안 절)
+- 모델 — API 현행(`jobRoutes.ts`): train 본문 `modelKey`가 `iforest`가 아니면 422 `unsupported_model`로 **선차단**(카탈로그를 읽지 않음), `parameters` 키는 허용 키 목록에 없어 400 `invalid_job_request`. `modelKey` 생략 시 기존 IF
+- 모델 — 워커 현행 [#111 구현]: `trainer/runner.py`가 큐의 `input_spec`을 `methods.registry.resolve_training_method`로 카탈로그 기준 재검증 — 카탈로그에 없는 `modelKey` → `unsupported_model`, 등록됐지만 `executable.process=false` → `method_not_executable:<methodId>`, `parameters`가 카탈로그 `parameterSchema` 위반 → `method_parameters_invalid:<methodId>`(작업 `failed`의 `errorCode`, 형식 `코드` 또는 `코드:식별자`). `modelKey`·`parameters` 생략은 IF 기본값(확정 파라미터는 `training_settings.parameters`에 기록)
+- **API 구현 단계 몫 [제안]**: `modelKey !== 'iforest'` 선차단을 카탈로그 기준(`executable.process`)으로 바꾸고(없는 키 422 `unsupported_model`, 실행 불가 422 `method_not_executable:<methodId>`), `parameters`를 허용 키에 넣어 `input_spec`으로 그대로 전달(접수 검증은 워커와 같은 카탈로그 `parameterSchema`, 위반 422 `method_parameters_invalid:<methodId>`). 백엔드 코드는 #116에서 수정하지 않음
+- `rule_only`: modelKey 생략 필수; 지정 시 422 `model_not_selected`(API·워커 같은 코드). 워커는 카탈로그 검증을 `model_not_selected` 검사보다 먼저 수행하므로 **`rule_only` 요청에 잘못된 `parameters`가 있어도 `method_parameters_invalid:<methodId>`로 거절**(#111 동작)
 - `GET /api/jobs/feature-sets?sourceId=<uuid>`: `scope=global_registered_catalog`, sourceId, hasMore, items
 - items: `{id, contentHash, featureNames: string[], supported: boolean, reason: string|null}`; 등록된 공통 피처 카탈로그, 출처별 데이터 존재·학습 가능성 보장 아님
 - train 접수 시 피처 이름·연산·깊이·타입/단위·requires_fit 검사; 미지원 정의 422, rule_only의 fit 필요 피처 422
@@ -31,7 +34,7 @@
 - 비율 지표 분자/분모 명시; 시간·용량 등 비율 아닌 값의 numerator/denominator는 null. 분모 0은 value=null, reason 필수
 - `rule_ml`: `rule-ml-comparison-v1`; 동일 snapshot의 PROCESS 관측 revision·구성·선택 경로 기준 실제 상태 HR와 ML 비교. metrics의 hrBoth/hrRuleOnly/hrMlOnly/hrNeither는 비율, numerator=셀 건수, denominator=양쪽 succeeded+boolean인 비교 가능 건수, coverage=비교 가능/전체. hrTotal/hrComparable/hrMissing은 건수
 - 무라벨 일치도는 정확도·오탐률 아님. 경로 skipped/실패/기한 초과/미정 상태는 비교 분모 제외. `details`에 sourceId/snapshotId/configVersionId/purpose/선택 경로/상태 Rule 정책·offline_snapshot 범위 고정
-- `sr*` 동일 집계 규약; 런타임 SR 미연결은 셀 value=null, reason=sr_experiment_pending. SR 집계기는 통제 fixture만 검증하며 기존 사용자 Rule·HR 결과로 대체 금지
+- `sr*` 셀(키 집합 유지) [#111 구현]: 통계 SR 폐기(#94)로 **영구 `not_applicable`/`sr_removed`** — `srBoth`/`srRuleOnly`/`srMlOnly`/`srNeither` value=null·reason=`sr_removed`, `srTotal`·`srMissing`=전체 건수(total), `srComparable`=0, `details.srStatus=not_applicable`·`details.srReason=sr_removed`. SR 프로토타입(#75)은 research 전용이며 서버 런타임에 연결하지 않음; 기존 사용자 Rule·HR 결과를 SR로 대체 금지
 - `execution_cost`: `execution-cost-v1`; metrics의 totalMs/preprocessMs/trainMs/evaluationMs/inferenceMs/ruleMs/itemP50Ms/itemP95Ms/batchP50Ms/batchP95Ms/queueWaitMs(ms), throughput(rows/s), processRssBytes(bytes). 해당 실행에서 관측하지 않은 단계 null+not_observed
 - 시간은 monotonic 실측. item 분위수는 실제 평가 행/Detector 1행 샘플, batch 분위수는 해당 작업의 배치 1회(totalMs) 분포이며 sampleCount 명시. throughput=전체 대상 행/totalMs; 처리 성공 건수와 별도
 - 메모리는 완료 시점 현재 워커 프로세스 RSS 1회 샘플, 컨테이너 peak 아님. 지원하지 않는 OS/관측 실패 null. queueWaitMs는 DB 시계 기준 enqueue→attempt 시작(재시도 대기 포함). 큐 적체는 운영 API 별도
@@ -61,6 +64,7 @@
 - Rule 전용 후보는 fit 필요 피처 미지원; ML/병렬 후보의 Rule은 같은 검증된 fit으로 계산 가능
 - 파일 이동 후 DB 확정 전 실패: 후보/성공 결과 미공개, attempt별 파일 경로 격리; 미등록 파일은 자동 재사용/활성화하지 않음
 - 기존 피처 계산·IF 파일 형식 호환 유지; 지원하지 않는 정의는 성공 대체 없음
+- 학습 후보 `ml_config_models.training_settings` [#111 구현]: 기존 키(`snapshotId`·`split`·`featureNames`·`definitionsHash`·`splitVersion`·`thresholdPolicy`·`trainingSelection`) 유지 + `methodId`·`methodVersion`·`parameters`(확정 파라미터 = 카탈로그 기본값 + 요청 값) 추가. configuration_spec schemaVersion 1·2 틀은 그대로, 마이그레이션 없음([model-version.md](model-version.md) 불변성·저장소 절). prepared 경로(`trainer/prepared_training.py`)는 아직 미반영 — 후속에서 맞춤
 
 ## 책임·범위
 
@@ -74,9 +78,9 @@
 - 운영·비용·후보 보고 API와 UTC/시간대·revision 중복 규약: [Backend 보고 계약](../backend/README.md)
 - 배포 경계: server 내부 모듈만; research 런타임 import 금지
 
-## 변경 제안 — Issue #94 (룰·모델 분리, 학습 제외 구간; 위 현행 서술은 수정하지 않음)
+## 변경 제안 — Issue #94 (룰·모델 분리, 학습 제외 구간; 위 현행 서술은 #94에서 수정하지 않음 — #111 병합분만 #116에서 현행 절에 반영)
 
-Created: 2026-11-02T18:00:00+09:00 / Updated: 2026-11-02T20:00:00+09:00 / Author: Claude Code (Trainer 세션 builder) / Status: draft(이 절만)
+Created: 2026-11-02T18:00:00+09:00 / Updated: 2026-11-04T12:00:00+09:00 / Author: Claude Code (Trainer 세션 builder) / Status: draft(이 절만)
 
 - 근거: 사용자 11/02 결정(학습 제외 구간, ESB 발생 시각 기준, 일별 거래량 그래프 위 구간 선택, 9.4 그래프 단위 월→일→시간→분), 10/28 전체 기획 보완안의 학습 흐름 Q-B1~B3(총괄 기록), #74 변경 제안 표 승계. 코드 변경 없음(계약만)
 - 2차 개정(11/02 9.4·WebUI 대조): v3 train 요청에서 `detectionPolicy` 제거(운영 설정 전역 값, [model-version.md](model-version.md)); 거래량 집계 `bucket ∈ {month, day, hour, minute}`와 단위별 범위 상한; `excludedIntervals[].reasonCode` 선택(기본 `other`); `trainingSelection.trainingPeriod` 추가
@@ -134,10 +138,10 @@ Created: 2026-11-02T18:00:00+09:00 / Updated: 2026-11-02T20:00:00+09:00 / Author
 | 현재 문구 | 제안 |
 |---|---|
 | `models[{key,displayName,supported}]` | 유지 + `methodCatalog`([method-catalog.md](method-catalog.md) v2, `supported := executable.process`) |
-| "모델: `iforest`만 지원; … 422 `unsupported_model`" | 카탈로그 `ml:*` 중 `executable.process=true`만 허용, 그 외 422 `method_not_executable`; `unsupported_model`은 카탈로그에 없는 키로 축소 |
+| "모델: `iforest`만 지원; … 422 `unsupported_model`" | 카탈로그 `ml:*` 중 `executable.process=true`만 허용, 그 외 422 `method_not_executable:<methodId>`; `unsupported_model`은 카탈로그에 없는 키로 축소 — 워커 쪽은 #111로 반영됨(현행 절), API 선차단 전환·`parameters` 허용은 API 구현 단계 몫 [제안] |
 | "`rule_only`: modelKey 생략 필수" | v1 요청에 한함. v3는 룰 전용 학습 없음(룰은 학습 대상 아님) |
 | `modelManifest` 단일 | **단일 유지**(변경 없음 — 모델 1개 = 버전 1개, [model-version.md](model-version.md) Q-M1 확정 11/02). `modelManifests[]`는 도입하지 않음 |
-| `rule_ml` 가족 `hrBoth/hrRuleOnly/…`·`sr*` 셀 | `hr`은 "룰(hard+soft 조합 결과)"로 읽고 이름은 유지(기존 결과 변경 금지). `sr*` 셀은 영구 `not_applicable/sr_removed`(SR 폐기) — 새 metricVersion에서 제거 검토 |
+| `rule_ml` 가족 `hrBoth/hrRuleOnly/…`·`sr*` 셀 | `hr`은 "룰(hard+soft 조합 결과)"로 읽고 이름은 유지(기존 결과 변경 금지). `sr*` 셀은 영구 `not_applicable/sr_removed`(SR 폐기 — #111 반영 완료, 현행 절 `sr*` 항목과 동일) — 새 metricVersion에서 제거 검토 |
 | "병렬/rule_only/ml_only 선택 모드·기한·수동 승인 보존" | v1 구성에 한함; v3는 활성 모델 집합 리비전 + 룰 세트 리비전 + 운영 설정 `detectionPolicy` 리비전(세 가지, evidence v4 `activeModelSetRevision`·`ruleSetRevision`·`detectionPolicyRevision`) 보존 |
 | "기존 Rule 또는 HR을 SR로 별칭 처리하지 않음" | 유지하되 SR 폐기 뒤에는 "등록 Rule(`rule:*`)·상태 HR(`hr:*`) 결과를 `hard:*`/`soft:*`로 **자동 번역하지 않음**(v1·v2 행은 읽기 투영만, [model-version.md](model-version.md) 조회 절)"으로 보완 |
 | `kind=compare` 결과 | `replacementRecommendations[]`(modelKey별, 같은 종류끼리만)는 `replacement-recommendation-v1`로 완료 시 1회 계산·불변; `resultSummary.ruleSet{revision, contentHash}`·`detectionPolicy{revision, policy}`·`activeModelSetRevision` 기록 |

@@ -1,5 +1,5 @@
 Created: 2026-10-21T00:00:00+09:00
-Updated: 2026-11-03T12:00:00+09:00
+Updated: 2026-11-04T23:00:00+09:00
 Author: Claude Code (Trainer 세션 builder)
 Status: draft
 
@@ -7,6 +7,7 @@ Status: draft
 
 - 변경 요약(#94): 대분류를 **hard / soft / ml**로 재편(사용자 11/02). 통계 SR R00~R23 **전부 삭제**·`sr:*` 폐기(호환 표만), PROCESS SR 프로토타입(#75) 미등재 유지, HR 연구 8종·`hr:process-status`·`rule` 템플릿은 카탈로그에서 제거(하드룰은 detection-decision.md(#92)가 정의). 신규 **소프트룰 등록 필드 목록 `softRuleFields[]`**(단위·타입·원천 식). ML 카탈로그(IF 등)는 `ml:` 접두로 유지, `displayName` 유지(10/22 승인)
 - 2차 개정(사용자 11/02 9.4·WebUI 대조): `softRuleFields[].sourceMissingPolicy`(원천 열 누락 시 `not_applicable` = 이상 아님 / `unavailable` = 미판정) 추가 — `elapsed_ms`의 END_TIME 누락은 **null → 그 룰은 평가하지 않음**(하드룰 `hard:negative-duration`의 `not_applicable`과 같은 취지); `displayPrecisionMode`(`fixed`/`significant`) 추가 — ratio는 유효숫자 4
+- 3차 정정(Issue #116, 11/04): 예시 JSON의 `generatedFrom`(`generatedAt` 생략, `gitRef`는 계약 근거 ref 상수)·`ml:iforest`의 `defaultsSource`(레지스트리 `IFOREST_DEFAULTS` 우선 표기)를 #111 생성물 `method-catalog.json`과 일치시키고, 카탈로그 JSON 생성(`--write`)·검증(`--check`) 명령을 생성 절에 명시
 - 계약 버전: `method-catalog-v2`; 항목 스키마 [method-catalog.schema.json](method-catalog.schema.json)(`$id` …:v2). 근거 코드 origin/dev `7f24e03`(`worker/derived_expression.py`, `backend/src/rules/ruleContract.ts`, `worker/model_adapters.py`)
 - 상위 결정: 사용자 11/02 결정(Q4 소프트룰 = 등록 필드 + 임계값, Q5 통계 SR 제외, 8.2절 룰 수정 범위), Trainer·Detector 분담 합의 11/02(등록 필드 목록·편집 제약 = Trainer, 하드룰 목록·소프트룰 실행 의미론 = Detector). 절 번호는 총괄 기록 기준
 - 범위: ML 세부 방법의 시스템 내장 레지스트리 + 소프트룰이 고를 수 있는 **등록 필드**(시스템 정의, 사용자 등록 아님) + 식별자 체계. 룰 세트([rule-set.md](rule-set.md))·모델 버전([model-version.md](model-version.md))·임계값 추천([llm-recommendation-job.md](llm-recommendation-job.md))·WebUI가 같은 식별자를 사용
@@ -33,7 +34,7 @@ Status: draft
 
 | 기존 | 새 체계 | 비고 |
 |---|---|---|
-| `hr:process-status` | `hard:process-status`(`methodVersion: process-status-hr-v1`, Detector 11/02 회신) | 상태 HR(`status_rule.py`) |
+| `hr:process-status` | `hard:process-status`(`methodVersion: process-status-hr-v2` — `process-status-hr-v1`(Detector 11/02 회신)은 v2로 교체됨, 상태 코드 F·P·Z·H·N, #116) | 상태 HR(`status_rule.py`, 코드는 아직 v1) |
 | `hr:status_failed` 등 연구 HR 8종 | 카탈로그 제거. 하드룰 후보는 후속 Issue(하드룰 내장 목록 확장, 미정)에서 판단 | `research/evaluation/process_synthetic_lab/model.py` 기록 보존 |
 | `rule:<rule_key>` | 임계값형은 `soft:*` 의미. `ml_rule_versions` 행은 읽기 보존, 자동 이관 없음 | `rules.md` API 유지 |
 | `sr:<key>` R00~R23 | **폐기**(등재 없음) | `research/evaluation/trend_sr_comparison/` 보존 |
@@ -66,7 +67,7 @@ Status: draft
 
 | methodId | displayName | status | uiTarget | executable | parameterSchema·defaults | inputRequirements |
 |---|---|---|---|---|---|---|
-| `ml:iforest` | Isolation Forest | supported | server `server/worker/model_adapters.py`(연구 `research/anomaly_detection/code/process_anomaly_pipeline/artifacts/process_if_v1.manifest.json`) | process ✓(`process-iforest-v1`) / window ✓(v12 번들 `if`, `window_worker.py:105`) | `n_estimators` int 16..1024, `max_samples` int 64..4096, `contamination` const `auto`, `random_state` int ≥0, `thresholdPolicy` const `train-internal-p99-v1`; defaults [확정 Q-H] `{n_estimators:128, max_samples:512, contamination:"auto", random_state:42, thresholdPolicy:"train-internal-p99-v1"}`(`model_adapters.py:121-127`) | `{unit:process_row, featureSet:required, numericOnly:true, maxFeatures:32, minTrainRows:600, fitOperations:[group_median, group_centered]}` |
+| `ml:iforest` | Isolation Forest | supported | server `server/worker/model_adapters.py`(연구 `research/anomaly_detection/code/process_anomaly_pipeline/artifacts/process_if_v1.manifest.json`) | process ✓(`process-iforest-v1`) / window ✓(v12 번들 `if`, `window_worker.py:105`) | `n_estimators` int 16..1024, `max_samples` int 64..4096, `contamination` const `auto`, `random_state` int ≥0, `thresholdPolicy` const `train-internal-p99-v1`; defaults [확정 Q-H] `{n_estimators:128, max_samples:512, contamination:"auto", random_state:42, thresholdPolicy:"train-internal-p99-v1"}`(레지스트리 `methods/registry.py` `IFOREST_DEFAULTS`; 원본 `model_adapters.py:121-127`) | `{unit:process_row, featureSet:required, numericOnly:true, maxFeatures:32, minTrainRows:600, fitOperations:[group_median, group_centered]}` |
 | `ml:minibatch_kmeans` | MiniBatch K-Means | research | research `research/anomaly_detection/code/analysis/minibatch_kmeans_common.py` | process ✗(`server_adapter_missing`) / window ✓ | `research_declared`: `k` int 2..64, `batch_size`·`max_iter`·`n_init`·`random_state` int, `quantile` number 0..1; defaults `{k:6, batch_size:2048, max_iter:100, n_init:5, random_state:42, quantile:0.99}` | `{unit:process_row, featureSet:required, numericOnly:true}` — 서버 피처셋 호환 미확인(N13) |
 | `ml:eif` | Extended Isolation Forest | research | research `research/evaluation/long_term_trend/models.py` | process ✗ / window ✗(`research_only`) | `research_declared`: `ntrees` int, `sample_size` int, `extension_level` const `dimension-1`; defaults `{ntrees:128, sample_size:256}` | `{unit:aggregated_window, featureSet:not_required}` |
 
@@ -77,7 +78,7 @@ Status: draft
 ## 레지스트리 인터페이스 [유지 10/21 Q-K]
 
 - 원본 `server/worker/methods/registry.py`(Trainer 소유 제안). ML 항목 = dataclass 1개 + 어댑터 프로토콜(`prepare/fit/score`). **소프트룰 필드** = 같은 모듈의 필드 dataclass(`fieldId`·AST·단위) + 값 계산 함수(`derived_expression.evaluate` 재사용) — Detector는 읽기만
-- API는 빌드 시 생성된 `server/contracts/method-catalog.json`(스키마 통과본)을 읽음. 시험: Python 산출 JSON == 커밋 JSON 일치
+- API는 생성된 `server/contracts/method-catalog.json`(스키마 통과본)을 읽음. 생성·검증 [#111 구현]: `server/worker`에서 `python -m methods.registry --write`로 생성, `--check`로 커밋본 대조(재생성본과 다르면 종료 코드 1). **재생성본 == 커밋본**은 시험(`server/worker/tests/test_method_registry.py`)으로 고정됨. 생성이 결정적이도록 `generatedFrom.gitRef`는 실행 시점 git ref가 아니라 계약 근거 ref 상수(`7f24e03`)이며 `generatedAt`은 두지 않음
 - 확장: ML 항목 추가 = dataclass + 어댑터 + 시험; 필드 추가 = dataclass + AST 검증 시험. 사용자 등록 API 없음
 
 ## 조회 API
@@ -91,7 +92,7 @@ Status: draft
 ```json
 {
   "catalogVersion": "method-catalog-v2",
-  "generatedFrom": {"gitRef": "7f24e03", "generatedAt": "2026-11-02T09:00:00Z"},
+  "generatedFrom": {"gitRef": "7f24e03"},
   "categoryDisplayNames": {"hard": "이상 규칙", "soft": "이상 징후 규칙", "ml": "머신러닝 모델"},
   "hardRules": {"definedBy": "detection-decision.md", "displayName": "이상 규칙", "contractVersion": "detection-decision-v1", "idPattern": "^hard:[a-z][a-z0-9_-]{1,63}$"},
   "softRule": {"displayName": "이상 징후 규칙", "instanceIdPattern": "^soft:[a-z][a-z0-9_]{1,53}-[0-9a-f]{8}$", "operators": ["gte", "gt", "lte", "lt"],
@@ -145,7 +146,7 @@ Status: draft
                       "thresholdPolicy": {"const": "train-internal-p99-v1"}}},
      "parameterSchemaStatus": "verified",
      "defaults": {"n_estimators": 128, "max_samples": 512, "contamination": "auto", "random_state": 42, "thresholdPolicy": "train-internal-p99-v1"},
-     "defaultsSource": "server/worker/model_adapters.py:121-127",
+     "defaultsSource": "server/worker/methods/registry.py IFOREST_DEFAULTS (= 7f24e03 server/worker/model_adapters.py:121-127)",
      "inputRequirements": {"unit": "process_row", "featureSet": "required", "numericOnly": true, "maxFeatures": 32, "minTrainRows": 600,
                            "fitOperations": ["group_median", "group_centered"]},
      "sourceRef": {"path": "server/worker/model_adapters.py", "lines": "89-127", "commit": "7f24e03"},
@@ -184,13 +185,14 @@ Status: draft
 }
 ```
 
-- `hardRules.contractVersion: "detection-decision-v1"`은 Detector 11/02 회신으로 **확정**. 하드룰 예시 id `hard:process-status`(`process-status-hr-v1`)·`hard:negative-duration`(`negative-duration-v1`, kebab-case)도 Detector 회신값
-- 하드룰 **항목 형식**은 카탈로그 JSON에 없음(목록 정의 주체 = Detector). 화면·API가 쓰는 항목 형식 `{id, methodVersion, displayName, conditionText, severity, enabled}`·`severity`(단일 문자열 또는 `{"byCode": {...}}`, #92 4.3 기준)는 [rule-set.md](rule-set.md) `hardRules[]` 행과 동일하며 이 schema에는 항목 정의를 추가하지 않음(`hardRules.displayName`은 대분류 표시명 "이상 규칙"일 뿐 항목 이름이 아님)
+- `hardRules.contractVersion: "detection-decision-v1"`은 Detector 11/02 회신으로 **확정**. 하드룰 내장 목록은 **4개**(#116, Detector 11/04): `hard:process-status`(`process-status-hr-v2` — v1은 v2로 교체됨)·`hard:negative-duration`(`negative-duration-v1`)·`hard:success-with-error`(`success-with-error-v1`)·`hard:count-conservation`(`count-conservation-v1`) — 조건·기본 위험도는 detection-decision.md 4.3(#112). id는 kebab-case. 레지스트리 참조 상수 `HARD_RULE_IDS`(`server/worker/methods/registry.py`)는 아직 1차 목록 2개·`process-status-hr-v1`이며 코드 갱신은 후속 Issue
+- 하드룰 **항목 형식**은 카탈로그 JSON에 없음(목록 정의 주체 = Detector). 화면·API가 쓰는 항목 형식 `{id, methodVersion, displayName, conditionText, severity, enabled}`·`severity`(단일 문자열 또는 `{"byCode": {...}}`, #92 4.3 기준)·`editable`(`hard:process-status`만 `severity` 편집 가능, #116)은 [rule-set.md](rule-set.md) `hardRules[]` 행과 동일하며 이 schema에는 항목 정의를 추가하지 않음(`hardRules.displayName`은 대분류 표시명 "이상 규칙"일 뿐 항목 이름이 아님)
 - `softRule.instanceIdPattern`의 fieldId 부분은 `[a-z0-9_]{1,53}`(카탈로그 `fieldId` 패턴과 동일, 하이픈 없음) — 식별자 key 전체(`<fieldId>-<8 hex>`)는 `^[a-z][a-z0-9_-]{1,63}$` 안에 들어감
 
 ## 검증·시험(구현 Issue)
 
 - 카탈로그 JSON은 `method-catalog.schema.json`을 통과. `defaults`는 자신의 `parameterSchema`를 통과. `softRuleFields[].source.ast`는 `derived_expression.validate`를 통과하고 `unit(ast)`가 필드 `unit`과 같아야 함(시험)
+- 카탈로그 JSON 생성·검증 [#111 구현]: `python -m methods.registry --write`로 생성, `--check`로 커밋본 대조. 재생성본 == 커밋본·schema 통과·`defaults`의 `parameterSchema` 통과는 `server/worker/tests/test_method_registry.py`가 고정. 위 예시 JSON은 생성물과 필드 단위로 같아야 함(#116 정정)
 - `executable.process=true` 항목은 `server/` 어댑터 등록 실제 존재. 연구 경로 항목은 `server/`에서 `research/` import 금지
 - `uiTarget.path`·`sourceRef.path`는 저장소에 실제 존재
 - 이 초안 검증(실행): 위 예시 JSON을 jsonschema(Draft 2020-12)로 검증 — 결과는 #94 보고 참조
@@ -202,4 +204,4 @@ Status: draft
 - 유지(10/21): Q-H IF 기본값 / Q-I `supported := executable.process` / Q-J window 표시만 / Q-K 레지스트리 + 생성 JSON / Q3-1 저장 거부 / N13 KMeans 피처셋 대응 미확정 / N18 `k` 2..64
 - 확정(11/02 9.4): `elapsed_ms`의 END_TIME 누락은 이상 아님(값 null, 평가 안 함) — `sourceMissingPolicy`
 - 결정 질문: Q-C1 초기 필드 6종 확정 여부(후보 `success_ratio`·`elapsed_s`·`retry_ratio` 추가 여부) / Q-C2 `elapsed_ms` 음수 처리(값 그대로 vs unavailable — Detector 의미론과 함께) / Q-C3 `displayPrecisionMode` 기본값 `fixed`·ratio만 `significant`(제안) vs 전 필드 `significant`
-- 남은 의존: 하드룰 내장 목록 전체 key·조건·위험도(detection-decision.md(#92) — 1차 목록은 U3 확정 11/03: `hard:process-status` + `hard:negative-duration`)
+- 남은 의존: 하드룰 내장 목록 전체 key·조건·위험도(detection-decision.md(#92, #112 정정) — 1차 목록 U3(11/03) 2개 → 사용자 11/04 확정 4개(#116): `hard:process-status`(`process-status-hr-v2`)·`hard:negative-duration`(`negative-duration-v1`)·`hard:success-with-error`(`success-with-error-v1`)·`hard:count-conservation`(`count-conservation-v1`) — 조건·기본 위험도는 정본 4.3(#112))

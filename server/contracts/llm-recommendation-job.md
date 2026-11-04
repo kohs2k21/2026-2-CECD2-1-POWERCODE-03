@@ -1,5 +1,5 @@
 Created: 2026-10-21T00:00:00+09:00
-Updated: 2026-11-04T12:00:00+09:00
+Updated: 2026-11-04T18:00:00+09:00
 Author: Claude Code (Trainer 세션 builder)
 Status: draft
 
@@ -142,7 +142,7 @@ Status: draft
 ## 규칙별 수식 추천 — `POST /api/rule-set/threshold-stats` [신규, 관리자, 동기, LLM 없음]
 
 - 용도: 규칙 행 [수식 추천] — 선택 기간 데이터의 p95를 바로 계산해 값·표본 수를 보여 주고 [적용]으로 입력칸에 채움(11/02 9.2). 작업 큐·LLM 호출 없음. 기준 기간은 **세 가지 중 선택** [확정 11/02 9.4]: (a) 현재 운영 ML 모델이 학습에 쓴 **첫 기간 시작 ~ 현재** (b) 최근 1개월·3개월 (c) 사용자 지정 기간
-- **구현 주체: API(TypeScript) + PostgreSQL SQL** [제안]: `percentile_cont(0.95)`(선형 보간 — numpy `linear`와 같은 정의)를 `data_processes ⋈ data_observations`에 적용. 파생 필드(`elapsed_ms`·`error_ratio`)는 카탈로그 AST를 SQL 식으로 번역 — `datetime_diff` = **`data_observations.allowed_values`의 `end_time_raw`·`start_time_raw`를 timestamp로 해석한 차**(수집기는 `parsed_times`를 항상 빈 객체로 저장하고 Detector도 `allowed_values`만 읽으므로 `parsed_times`는 원천이 아님 — Detector 11/04 확인, #112; 워커 `derived_expression`의 `START_TIME`/`END_TIME` → `start_time_raw`/`end_time_raw` 매핑과 동일), `divide` = NULLIF 분모. `datetime_diff` 번역의 결측·실패 처리는 카탈로그 `sourceMissingPolicy`와 같은 뜻: `start_time_raw` 없음·timestamp 해석 실패 → `unavailable`, `end_time_raw` 없음 → `not_applicable` — 어느 쪽이든 그 행은 표본(`n`)에서 제외. Trainer(Python)는 비동기 워커라 동기 API에 부적합. 두 경로의 p95가 같은 표본에서 일치해야 함(통합 시험 항목)
+- **구현 주체: API(TypeScript) + PostgreSQL SQL** [제안]: `percentile_cont(0.95)`(선형 보간 — numpy `linear`와 같은 정의)를 `data_processes ⋈ data_observations`에 적용. 파생 필드(`elapsed_ms`·`error_ratio`)는 카탈로그 AST를 SQL 식으로 번역 — `datetime_diff` = **`data_observations.allowed_values`의 `end_time_raw`·`start_time_raw`를 timestamp로 해석한 차**(수집기는 `parsed_times`를 항상 빈 객체로 저장하고 Detector도 `allowed_values`만 읽으므로 `parsed_times`는 원천이 아님 — Detector 11/04 확인, #112; 워커 `derived_expression`의 `START_TIME`/`END_TIME` → `start_time_raw`/`end_time_raw` 매핑과 동일), `divide` = NULLIF 분모. `datetime_diff` 번역의 결측·실패 처리는 카탈로그 `sourceMissingPolicy`와 같은 뜻: `start_time_raw` 없음·timestamp 해석 실패 → `unavailable`, `end_time_raw` 없음 → `not_applicable` — 어느 쪽이든 그 행은 표본(`n`)에서 제외. '값 없음' 기준은 Detector 계약(detection-decision.md 4.1 원칙·5.2 실행, #112 정정 11/04 — dev 미병합, `feat/112-detection-decision-impl`)과 같게 — null뿐 아니라 빈 문자열, 공백만 있는 문자열, `\N`(앞뒤 공백 제외)도 값 없음으로 본다. 값 없음(빈 문자열·`\N` 등)과 해석 불가(형식 불일치) 어느 쪽도 SQL 오류 없이 NULL로 떨어지게 **안전한 변환**을 쓴다(값 없음은 앞 문장 정책대로 — END_TIME이면 `not_applicable`, START_TIME이면 `unavailable`; 해석 불가는 `unavailable`). `''`를 timestamp로 직접 cast하면 쿼리 전체가 실패(실제 END_TIME 빈 문자열 다수, Detector 11/04 권고). 구체 SQL 식은 API 구현 몫. Trainer(Python)는 비동기 워커라 동기 API에 부적합. 두 경로의 p95가 같은 표본에서 일치해야 함(통합 시험 항목)
 
 ```json
 {

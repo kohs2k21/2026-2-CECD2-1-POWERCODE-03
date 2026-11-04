@@ -3,7 +3,7 @@
 - 계약 버전: `detection-decision-v1`. 정의 대상: 방법 분류(하드룰(화면: 이상 규칙)·소프트룰(화면: 이상 징후 규칙)·ML(화면: 머신러닝 모델))와 식별자, `detectionPolicy` v2, 조합 규칙, 판정 등급(이상·이상 징후), 위험도, 룰 세트 리비전 기록, evidence `schemaVersion` 4, 중간 판정 기록
 - 소유: Detector. 공통 계약이므로 바꿀 때는 사용자 결정과 Trainer·API·WebUI 조율이 필요하다
 - 근거 코드: origin/dev `768d92f`(#94 병합 `935e5eb` 포함). 코드 행 번호(file:line)는 이 커밋 기준이며, 인용한 코드 파일은 `7f24e03`(이전 기준)과 `768d92f` 사이에 바뀌지 않아 행 번호가 같다. 현행 계약은 행 번호 대신 dev 기준 문서·절·필드 이름으로 가리킨다. #94 병합으로 사라진 #74 초안 문장은 "#94 병합 전 판본(`7f24e03`)"과 절 이름으로 표기한다
-- 상태: 초안. 사용자 결정 질문 U1~U12는 **11/03 사용자가 모두 추천안으로 확정**했다(17.1 결정 결과). 확정 결정은 1절 요약 표에 날짜·출처와 함께 적었다. D1~D13은 Detector가 정하는 기술 항목(사용자 결정 아님, 17.2)이며 이견이 없으면 구현 기준이다
+- 상태: 초안. 사용자 결정 질문 U1~U12는 **11/03 사용자가 모두 추천안으로 확정**했다(17.1 결정 결과). 확정 결정은 1절 요약 표에 날짜·출처와 함께 적었다. D1~D17은 Detector가 정하는 기술 항목(사용자 결정 아님, 17.2)이며 이견이 없으면 구현 기준이다
 - 표기
   - **[확정 MM/DD]**: 사용자 결정. 출처는 요약 표에 적는다
   - **[확정 11/03 Un]**: 11/03 사용자 답변("추천대로")으로 확정된 17.1 결정 Un
@@ -42,11 +42,11 @@
 | C19 | 이상 규칙(하드룰)에서 '종료 시각(EndTime) 누락'은 제외 — EndTime이 찍히지 않는 정상 트랜잭션 유형이 있어 이상이 아님 | 11/02 사용자 결정(화면 흐름 결정 기록 9.4) |
 | C20 | 모델 운영 단위: 모델마다 따로 버전 관리 — 모델 1개 = 버전 계열, 운영은 활성 집합 0..N, 같은 `modelKey`는 활성 집합에 1개 | 11/02 사용자 결정(화면 흐름 결정 기록 9.6, Q-M1) |
 | C21 | 결정 질문 U1~U12를 모두 추천안대로 확정(확정 내용은 17.1 결정 결과 표) | 11/03 사용자 답변("추천대로") |
-| C22 | 이상 규칙 화면 문구 승인: 상태 규칙 "상태가 S가 아님" / "STATUS ≠ S", 시각 역전 "시작 시각이 종료 시각보다 늦음" / "START_TIME > END_TIME (종료 시각이 없으면 판단하지 않음)"(4.3 `displayName` / `conditionText`). 상태 P·N 위험도는 '주의' 유지(F만 '위험', U2와 같음) | 11/02 사용자 결정(화면 흐름 결정 기록 9.7) |
+| C22 | 이상 규칙 화면 문구 승인: 상태 규칙 "상태가 S가 아님" / "STATUS ≠ S", 시각 역전 "시작 시각이 종료 시각보다 늦음" / "START_TIME > END_TIME (종료 시각이 없으면 판단하지 않음)"(4.3 `displayName` / `conditionText`). 상태 P·N 위험도는 '주의' 유지(F만 '위험', U2와 같음). N 단계는 11/04 C26이 대체 | 11/02 사용자 결정(화면 흐름 결정 기록 9.7) |
 | C23 | 판정 정책(`detectionPolicy`)은 화면에 노출하지 않음 — 편집·읽기 전용 표시 모두 없음, 판정 상세의 '기준 k' 열도 제거 | 11/02 사용자 결정(화면 흐름 결정 기록 9.6 Q-M10·9.8) |
 | C24 | 시간 초과 판정 행의 처리 시간은 측정값(`elapsedMs`) 그대로 표시(기한값을 짐작할 수 있는 점은 감수) | 11/03 사용자 결정(화면 흐름 결정 기록 9.9) |
-| C25 | 이상 규칙에 `hard:success-with-error`·`hard:count-conservation` 추가. U3 "하나씩 추가"의 후속 결정 | 11/04 사용자 결정 |
-| C26 | `hard:process-status` 코드 확정: S 성공, F 실패, P 처리중, N 미처리, H 부분성공, Z 데이터없음. 기본 위험도 F 위험, P·Z 주의, H·N 참고(H·N은 잠깐 찍혔다가 S나 F로 바뀌므로 낮게 둠). N이고 END_TIME이 없으면 이상 아님. `process-status-hr-v2`. U2·C22의 N '주의'와 U3(나)의 H·Z 미판정을 대체 | 11/04 사용자 결정 |
+| C25 | 이상 규칙에 건수 규칙 2개 추가: 상태 S인데 오류 건수가 있음, 최종 상태에서 건수 합계가 맞지 않음. U3 "하나씩 추가"의 후속 결정. 이름·버전·표시 문구는 D17 | 11/04 사용자 결정 |
+| C26 | `hard:process-status`의 상태 코드 뜻 확정: S 성공, F 실패, P 처리중, N 미처리, H 부분성공, Z 데이터없음. F는 위험, P·Z는 주의. N이고 END_TIME이 값 없음이면 이상이 아니다. S·F·P·N·H·Z 밖의 값과 상태 없음은 미판정. H·N '참고'는 사용자의 "널널하게 봐도 된다"(잠깐 찍혔다가 S나 F로 바뀜)를 총괄이 해석한 기본값이며 사용자가 화면에서 바꿀 수 있다(C27). U2·C22의 N '주의'와 U3(나)의 H·Z 미판정을 대체 | 11/04 사용자 결정(H·N 단계는 그 해석) |
 | C27 | `hard:process-status`의 코드별 위험도는 사용자가 룰 세트에서 설정한다. C4의 '위험도 읽기 전용'을 이 규칙에 한해 대체하며, 다른 하드룰의 조건·위험도는 내장 고정 | 11/04 사용자 결정 |
 
 ### 1.1 세션 합의 → 사용자 확정(11/03 U1)
@@ -68,7 +68,7 @@
 | 판정 등급(`grade`) | `anomaly` 이상 / `anomaly_sign` 이상 징후 / `normal` 정상 / `undetermined` 정상 여부 미확인 |
 | 위험도 | `critical` 위험 / `warning` 주의 / `info` 참고. 이상일 때만 의미 |
 | 시도(attempt) | detect 작업의 한 번 실행(`run_job_attempts`). 작업은 최대 3회 시도 [코드 `detector/jobs.py:69`] |
-| 룰 세트 리비전 | 하드룰 켜기·끄기 + 소프트룰 정의 전체 상태의 저장 번호(정수)와 내용 해시. 형식은 [#94] |
+| 룰 세트 리비전 | 하드룰 켜기·끄기 + `hard:process-status`의 코드별 단계 + 소프트룰 정의 전체 상태의 저장 번호(정수)와 내용 해시. 형식은 [#94] |
 
 ## 3. 방법 분류·식별자
 
@@ -100,51 +100,51 @@
 
 ### 4.1 원칙 [확정 11/02 C4·C17]
 
-- 시스템 내장 목록만 존재. 사용자가 추가·수정할 수 없고 **켜기·끄기만** 가능(기본 모두 켬). 켜기·끄기 상태는 룰 세트에 저장 [#94]. 리비전 스냅샷에 없는 내장 규칙은 꺼짐으로 실행한다(10절 D14)
+- 시스템 내장 목록만 존재. 사용자가 추가·수정할 수 없고 **켜기·끄기**와 `hard:process-status`의 코드별 위험도 설정(C27)만 가능(기본 모두 켬). 켜기·끄기 상태는 룰 세트에 저장 [#94]. 리비전 스냅샷에 없는 내장 규칙은 꺼짐으로 실행한다(10절 D14)
 - 끄기는 허용하되 화면 경고와 저장 확인 체크가 필수(R1). 서버 저장 검증은 [#94]
 - 조건·위험도는 읽기 전용이며 Detector가 정의한다. 하드룰 위험도 기본값은 '위험'. 예외: `hard:process-status`의 코드별 위험도는 사용자가 룰 세트에서 설정한다(10절) [확정 11/04 사용자]
 - 하드룰 하나라도 T면 판정 등급은 '이상'(8절)
-- 하드룰은 결정적 규칙이다. 입력값이 없거나 해석할 수 없으면 T도 N도 아닌 U(`not_ready`) [제안 D6]. 예외: `hard:negative-duration`의 END_TIME 없음은 U가 아니라 N(4.2, C19·D1). 해석 불가도 `not_ready`(cause `input_invalid`)인 이유: 하드룰은 원천 로그 값 그대로를 검사하므로 형식이 깨진 값은 "판정 입력이 갖춰지지 않음"이다. 소프트룰 비숫자가 `failed`(cause `input_invalid`)인 것은 등록 필드(숫자형으로 등록된 값)의 타입 계약 위반이기 때문이다(5.2)
+- 하드룰은 결정적 규칙이다. 입력값이 없거나 해석할 수 없으면 T도 N도 아닌 U(`not_ready`) [제안 D6]. 예외: `hard:negative-duration`의 END_TIME 없음은 U가 아니라 N(4.2, C19·D1), `hard:success-with-error`·`hard:count-conservation`은 상태가 대상 밖이면 건수를 보지 않고 N(4.2, D15). 해석 불가도 `not_ready`(cause `input_invalid`)인 이유: 하드룰은 원천 로그 값 그대로를 검사하므로 형식이 깨진 값은 "판정 입력이 갖춰지지 않음"이다. 소프트룰 비숫자가 `failed`(cause `input_invalid`)인 것은 등록 필드(숫자형으로 등록된 값)의 타입 계약 위반이기 때문이다(5.2)
 - '값 없음'의 기준 [#112 정정 11/04]: 키가 없거나 null인 값과 빈 문자열·공백만 있는 문자열·`\N`(앞뒤 공백 제외)을 모두 값 없음으로 본다. 하드룰 입력(`status`, `START_TIME`, `END_TIME`, 건수 필드)과 소프트룰 원천 열(5.2)에 같은 기준을 쓴다. `\N`은 CSV의 NULL 표기로, 수집 경로에 따라(`collector/replay_csv.py`) 문자열로 남는다. `NULL`·`None`·`NaN` 같은 단어 문자열은 값 없음이 아니다 → 값이 있는 것으로 보아 해석 불가·정의 밖으로 처리한다
 
 ### 4.2 목록 — 구현분·사용자 예시·후보
 
 | methodId | 조건(T) | 위험도 | 입력 없음·해석 불가 | 상태 |
 |---|---|---|---|---|
-| `hard:process-status` | PROCESS `status`가 S가 아님: F, P, N, H, Z [확정 11/04 사용자]. **예외: N이고 END_TIME이 값 없음이면 T가 아니라 N**(`succeeded`, `anomalous=false`, evidence `result: "not_applicable"`, `reason: "end_time_absent"`), END_TIME이 있는 N만 T [확정 11/04 사용자] | 기본 F = 위험, P·Z = 주의, H·N = 참고 [확정 11/04 사용자]. 코드별 단계는 사용자가 룰 세트에서 설정(10절) | `status`가 S·F·P·N·H·Z 밖이거나 없으면 U [U3(나)의 미판정 처리 유지]. 원인 코드 대응(없음 → `input_missing`, 정의 밖 → `input_invalid`)은 [제안 D6] | **구현됨** [코드 `detector/hard_rules.py`, `methodVersion=process-status-hr-v2`]. v1·legacy 판정은 `status_rule.py`의 v1 그대로 |
-| `hard:negative-duration` | 시작 시각이 종료 시각보다 늦음(`START_TIME > END_TIME`, 사용자 예시 "StartTime > EndTime", 필드명은 `derived_expression.py:11`) | 위험 | 판정 순서 [제안 D1]: ① **END_TIME 없음 → 조건을 평가하지 않고 N**(START_TIME 유무와 무관 — 둘 다 없어도 N) ② START_TIME 없음 → U ③ 값이 있으나 해석 불가 → U ④ 비교. ① 세부: (`succeeded`, `anomalous=false`, evidence `result: "not_applicable"`, `reason: "end_time_absent"`) — "EndTime 없음 = 이상 아님" [확정 11/02 C19], N으로 매핑 [제안 D1]. U로 두면 EndTime 없는 정상 트랜잭션이 하드 대분류를 영구히 미판정(partial)으로 만들어 '정상'이 될 수 없음. ② START_TIME 없음은 U(`input_missing`), ③ 해석 불가는 U(`input_invalid`) [제안 D1] | **1차 목록 [확정 11/03 U3(가)]**(사용자 예시 11/02), 미구현 [제안 D1] |
-| `hard:success-with-error` | 상태 S인데 `error_count > 0` | 위험 | 판단 순서: ① 상태 없음 → U(`input_missing`) ② 상태가 S·F·P·N·H·Z 밖 → U(`input_invalid`) ③ S 아님 → N ④ `error_count` 값 없음 → U(`input_missing`) ⑤ 비숫자·비유한 → U(`input_invalid`) ⑥ 비교 | **1차 목록 [확정 11/04 사용자]**(U3 "하나씩 추가"의 후속 결정), 구현됨 |
-| `hard:count-conservation` | 최종 상태 S·F에서 `total_count ≠ success_count + error_count` | 위험 | 판단 순서: ① 상태 없음 → U(`input_missing`) ② 상태가 S·F·P·N·H·Z 밖 → U(`input_invalid`) ③ S·F 아님 → N ④ 세 건수 중 값 없음 → U(`input_missing`) ⑤ 비숫자·비유한 → U(`input_invalid`) ⑥ 비교 | **1차 목록 [확정 11/04 사용자]**(U3 "하나씩 추가"의 후속 결정), 구현됨 |
+| `hard:process-status` | PROCESS `status`가 S가 아님: F, P, N, H, Z [확정 11/04 사용자]. **예외: N이고 END_TIME이 값 없음이면 이상이 아니다** [확정 11/04 사용자]. N으로 매핑하고 `succeeded`, `anomalous=false`, evidence `result: "not_applicable"`, `reason: "end_time_absent"`로 기록한다 [제안 D16]. END_TIME이 있는 N만 T | 기본 F = 위험, P·Z = 주의 [확정 11/04 사용자]. H·N = 참고(C26의 해석값). 코드별 단계는 사용자가 룰 세트에서 설정(C27, 10절) | `status`가 S·F·P·N·H·Z 밖이거나 없으면 U [확정 11/04 사용자]. 원인 코드 대응(없음 → `input_missing`, 정의 밖 → `input_invalid`)은 [제안 D6] | 순수 로직 구현, 실행 경로 미연결 [코드 `detector/hard_rules.py`, `methodVersion=process-status-hr-v2`는 D16]. v1·legacy 판정은 `status_rule.py`의 v1 그대로 |
+| `hard:negative-duration` | 시작 시각이 종료 시각보다 늦음(`START_TIME > END_TIME`, 사용자 예시 "StartTime > EndTime", 필드명은 `derived_expression.py:11`) | 위험 | 판정 순서 [제안 D1]: ① **END_TIME 없음 → 조건을 평가하지 않고 N**(START_TIME 유무와 무관 — 둘 다 없어도 N) ② START_TIME 없음 → U ③ 값이 있으나 해석 불가 → U ④ 비교. ① 세부: (`succeeded`, `anomalous=false`, evidence `result: "not_applicable"`, `reason: "end_time_absent"`) — "EndTime 없음 = 이상 아님" [확정 11/02 C19], N으로 매핑 [제안 D1]. U로 두면 EndTime 없는 정상 트랜잭션이 하드 대분류를 영구히 미판정(partial)으로 만들어 '정상'이 될 수 없음. ② START_TIME 없음은 U(`input_missing`), ③ 해석 불가는 U(`input_invalid`) [제안 D1] | **1차 목록 [확정 11/03 U3(가)]**(사용자 예시 11/02), 순수 로직 구현, 실행 경로 미연결 [제안 D1] |
+| `hard:success-with-error` | 상태 S인데 `error_count > 0` | 위험 | 판단 순서 [제안 D15]: ① 상태 없음 → U(`input_missing`) ② 상태가 S·F·P·N·H·Z 밖 → U(`input_invalid`) ③ S 아님 → N ④ `error_count` 값 없음 → U(`input_missing`) ⑤ 비숫자·비유한 → U(`input_invalid`) ⑥ 비교 | **1차 목록 [확정 11/04 사용자]**(C25, U3 "하나씩 추가"의 후속 결정), 순수 로직 구현, 실행 경로 미연결 |
+| `hard:count-conservation` | 최종 상태 S·F에서 `total_count ≠ success_count + error_count` | 위험 | 판단 순서 [제안 D15]: ① 상태 없음 → U(`input_missing`) ② 상태가 S·F·P·N·H·Z 밖 → U(`input_invalid`) ③ S·F 아님 → N ④ 세 건수 중 값 없음 → U(`input_missing`) ⑤ 비숫자·비유한 → U(`input_invalid`) ⑥ 비교 | **1차 목록 [확정 11/04 사용자]**(C25, U3 "하나씩 추가"의 후속 결정), 순수 로직 구현, 실행 경로 미연결 |
 | `hard:invalid-count-domain` | 건수·재시도 수가 음수 또는 정수 아님 | 위험 | 모든 건수 없으면 U | 후보 — 1차 목록 밖 [확정 11/03 U3] |
 | `hard:final-missing-end` | 최종 상태인데 종료 시각 없음 | — | — | **제외 [확정 11/02 C19]** — EndTime이 찍히지 않는 정상 트랜잭션 유형이 있어 이상이 아님 |
 
-- 1차 목록 밖 후보는 실데이터 발생 빈도를 확인한 뒤 하나씩 추가한다 [확정 11/03 U3]. 추가하려면 4.3 정의 행과 새 `methodVersion`이 필요하다. `hard:success-with-error`·`hard:count-conservation`은 이 절차의 후속 결정으로 1차 목록에 들어왔다 [확정 11/04 사용자]
+- 1차 목록 밖 후보는 실데이터 발생 빈도를 확인한 뒤 하나씩 추가한다 [확정 11/03 U3]. 추가하려면 4.3 정의 행과 새 `methodVersion`이 필요하다. `hard:success-with-error`·`hard:count-conservation`은 이 절차의 후속 결정으로 1차 목록에 들어왔다 [확정 11/04 사용자 C25]. 건수 필드 의미는 미검증인 채 사용자가 추가를 결정했다. 프로세스 원천 실측에서 상태 S·F 행의 건수 결측은 없었다
 - 건수 규칙 공통 [제안 D15]: 판단 순서는 표대로 상태를 먼저 본다. 상태가 대상 밖이면 조건이 거짓이므로 건수를 보지 않고 N이다(`not_applicable` 아님). 건수는 Decimal로 정확히 비교하며 허용 오차는 없고, 정확히 더할 수 없는 값은 해석 불가로 둔다. 필요한 건수 중 값 없음이 하나라도 있으면 비숫자가 함께 있어도 `input_missing`이다. 정수 여부와 음수는 이 규칙들이 보지 않는다(후보 `hard:invalid-count-domain`의 몫이며, 그 후보는 아직 1차 목록 밖)
-- `hard:process-status` 표시 문구 [확정 11/04 사용자]: `displayName`·`conditionText`는 코드를 나열하지 않고 "상태가 S가 아님" / "STATUS ≠ S"를 유지한다. END_TIME 없는 N 예외는 이 절의 표가 정본이다
-- `hard:invalid-status` 제거 [확정 11/04 사용자]: 상태 코드가 S·F·P·N·H·Z로 확정됐고 그 밖의 값과 상태 없음은 `hard:process-status`의 U로 남기므로(U3(나)의 미판정 처리 유지) 별도 규칙이 필요 없다
+- `hard:process-status` 표시 문구 [제안 D16]: `displayName`·`conditionText`는 코드를 나열하지 않고 "상태가 S가 아님" / "STATUS ≠ S"를 유지한다. END_TIME 없는 N 예외는 이 절의 표가 정본이다
+- `hard:invalid-status` 제거 [제안 D16]: 상태 코드가 S·F·P·N·H·Z로 확정됐고 그 밖의 값과 상태 없음은 `hard:process-status`의 U로 남기므로(C26) 별도 규칙이 필요 없다
 
 - 후보의 출처: 연구 규칙 `research/anomaly_detection/code/process_anomaly_pipeline/rules.py:6-17`(설명), `:36-55`(계산), 카탈로그 연구 HR 8종(#94 병합 전 판본 `method-catalog.md` v1, 3.2 표). 연구 `status_failed`는 `hard:process-status`의 F와 같아 따로 두지 않는다. 연구 `missing_sql_required`(PK·NOT NULL 컬럼 결측)는 행 하나로 판정할 수는 있으나 원천 SQL 스키마의 PK·NOT NULL 기준을 서버 관측 필드에 대응시킨 근거가 없어 후보에서 보류한다(수집기는 결측 필드를 `missing_fields` 열에 따로 남김, `collector/storage.py:138`). 연구 `invalid_input` 중 복합 PK 충돌은 여러 행을 비교해야 해 행 하나로 판정할 수 없으므로 제외하고, 나머지(미정의 상태값·해석 오류)는 각 규칙의 U 처리로 다룬다
-- 입력 근거 [코드]: PROCESS 관측의 `allowed_values`에 `start_time_raw`·`end_time_raw`(문자열)와 건수 4개가 있다(`collector/storage.py:21-23`, `:30`). 그러나 Rule DSL 원천 필드에는 시각 필드가 없다(`detector/rules.py:9-11`) → `hard:negative-duration`은 Rule DSL이 아닌 **내장 구현**이 필요하다(후속 "하드룰 내장 목록 확장" Issue)
-- 상태 규칙의 단계 [확정 11/04 사용자]: 기본 F `critical`, P·Z `warning`, H·N `info`이며 END_TIME 없는 N을 빼고 모두 이상으로 판정한다. 계약 문구 "P/N만으로 먹통·실패 확정 금지"(`trainer-service.md` "책임·범위" 절 statusRulePolicy 항목)는 유지한다. v1·legacy 판정은 기존 매핑(`status_rule.py:7`) 그대로다
+- 입력 근거 [코드]: PROCESS 관측의 `allowed_values`에 `start_time_raw`·`end_time_raw`(문자열)와 건수 4개가 있다(`collector/storage.py:21-23`, `:30`). 그러나 Rule DSL 원천 필드에는 시각 필드가 없다(`detector/rules.py:9-11`) → `hard:negative-duration`은 Rule DSL이 아닌 **내장 구현**이다(`detector/hard_rules.py`, #112)
+- 상태 규칙의 단계: F `critical`, P·Z `warning`은 [확정 11/04 사용자]. H·N `info`는 사용자의 "널널하게 봐도 된다"를 총괄이 해석한 기본값이며 사용자가 화면에서 바꿀 수 있다(C26·C27). END_TIME 없는 N을 빼고 모두 이상으로 판정한다. 계약 문구 "P/N만으로 먹통·실패 확정 금지"(`trainer-service.md` "책임·범위" 절 statusRulePolicy 항목)는 유지한다. v1·legacy 판정은 기존 매핑(`status_rule.py:7`) 그대로다
 
 ### 4.3 하드룰 방법 결과의 고정값
 
-- 하드룰 정의 형식 [제안 D13] — Detector 내장 목록 항목 1개 = `{id, methodVersion, displayName, conditionText, severity}`(`displayName`·`conditionText`는 화면 표시용 한글 문자열). #94 `rule-set.md` `hardRules[]`의 `displayName`·`conditionText`·`severity`는 이 값의 읽기 전용 투영
+- 하드룰 정의 형식 [제안 D13] — Detector 내장 목록 항목 1개 = `{id, methodVersion, displayName, conditionText, severity}`(`displayName`·`conditionText`는 화면 표시용 한글 문자열). #94 `rule-set.md` `hardRules[]`의 `displayName`·`conditionText`는 이 값의 읽기 전용 투영이다. `severity`도 읽기 전용 투영이지만 `hard:process-status`의 v2 항목만은 사용자 설정 실행 입력이다(C27, 판별은 10절 D14)
   - `severity`는 기본이 **단일 문자열**(`critical` / `warning` / `info`)
   - 결과 코드별로 단계가 다르면 **`{"byCode": {<결과 코드>: <단계>, …}}`** 객체. 키는 그 규칙이 낼 수 있는 결과 코드 전부여야 하고, T 결과의 `riskLevel` = `byCode[code]`(`hard:process-status`는 룰 세트 값 우선, 10절)
   - 결과 코드는 `"PROCESS_STATUS_" + <status 값>`, 즉 `PROCESS_STATUS_F`·`PROCESS_STATUS_P`·`PROCESS_STATUS_N`·`PROCESS_STATUS_H`·`PROCESS_STATUS_Z`
 
 | id | methodVersion | displayName | conditionText | severity | 상태 |
 |---|---|---|---|---|---|
-| `hard:process-status` | `process-status-hr-v2` | 상태가 S가 아님 | STATUS ≠ S | `{"byCode": {"PROCESS_STATUS_F": "critical", "PROCESS_STATUS_P": "warning", "PROCESS_STATUS_N": "info", "PROCESS_STATUS_H": "info", "PROCESS_STATUS_Z": "warning"}}` | 구현됨. 코드 집합과 N 조건이 바뀌어 v2 [확정 11/04 사용자]. 값은 기본값이며 코드별 단계는 룰 세트 값 우선(10절) |
-| `hard:negative-duration` | `negative-duration-v1`(이름은 D13) | 시작 시각이 종료 시각보다 늦음 | START_TIME > END_TIME (종료 시각이 없으면 판단하지 않음) | `"critical"` | 1차 목록 [확정 11/03 U3], 구현됨 |
-| `hard:success-with-error` | `success-with-error-v1` | 성공인데 오류 건수가 있음 | STATUS = S, ERROR_COUNT > 0 | `"critical"` | 1차 목록 [확정 11/04 사용자], 구현됨. 결과 코드 `HARD_SUCCESS_WITH_ERROR` |
-| `hard:count-conservation` | `count-conservation-v1` | 건수 합계가 맞지 않음 | TOTAL_COUNT ≠ SUCCESS_COUNT + ERROR_COUNT | `"critical"` | 1차 목록 [확정 11/04 사용자], 구현됨. 결과 코드 `HARD_COUNT_CONSERVATION` |
+| `hard:process-status` | `process-status-hr-v2`(D16) | 상태가 S가 아님 | STATUS ≠ S | `{"byCode": {"PROCESS_STATUS_F": "critical", "PROCESS_STATUS_P": "warning", "PROCESS_STATUS_N": "info", "PROCESS_STATUS_H": "info", "PROCESS_STATUS_Z": "warning"}}` | 순수 로직 구현, 실행 경로 미연결. 코드 집합과 N 조건이 바뀌어 v2 [제안 D16]. 값은 기본값이며(H·N은 C26의 해석값) 코드별 단계는 룰 세트 값 우선(10절) |
+| `hard:negative-duration` | `negative-duration-v1`(이름은 D13) | 시작 시각이 종료 시각보다 늦음 | START_TIME > END_TIME (종료 시각이 없으면 판단하지 않음) | `"critical"` | 1차 목록 [확정 11/03 U3], 순수 로직 구현, 실행 경로 미연결 |
+| `hard:success-with-error` | `success-with-error-v1` | 성공인데 오류 건수가 있음 | STATUS = S, ERROR_COUNT > 0 | `"critical"` | 1차 목록 [확정 11/04 사용자], 순수 로직 구현, 실행 경로 미연결. 결과 코드 `HARD_SUCCESS_WITH_ERROR`. 이름·코드·문구는 [제안 D17] |
+| `hard:count-conservation` | `count-conservation-v1` | 건수 합계가 맞지 않음 | TOTAL_COUNT ≠ SUCCESS_COUNT + ERROR_COUNT | `"critical"` | 1차 목록 [확정 11/04 사용자], 순수 로직 구현, 실행 경로 미연결. 결과 코드 `HARD_COUNT_CONSERVATION`. 이름·코드·문구는 [제안 D17] |
 
-- `displayName`·`conditionText` 문구는 위 표 값 그대로다. 앞 두 행은 [확정 11/02 사용자 화면 문구 승인(화면 흐름 결정 기록 9.7), C22], 뒤 두 행은 [확정 11/04 사용자]. Detector 구현이 같은 값을 둔다. 정의 형식(`{id, methodVersion, displayName, conditionText, severity}`)은 [제안 D13]
+- `displayName`·`conditionText` 문구는 위 표 값 그대로다. 앞 두 행은 [확정 11/02 사용자 화면 문구 승인(화면 흐름 결정 기록 9.7), C22], 뒤 두 행은 [제안 D17]. Detector 구현이 같은 값을 둔다. 정의 형식(`{id, methodVersion, displayName, conditionText, severity}`)은 [제안 D13]
 - #94 `rule-set.md` "룰 세트 상태" 절 예시도 앞 두 행의 표시 문구는 같은 값(정본은 이 표)
 
-- `methodVersion`이 조건과 기본 위험도를 고정한다. 조건이나 기본 위험도를 바꾸면 새 `methodVersion`을 만들고 과거 판정은 기록된 버전 그대로 둔다. `hard:process-status`의 코드별 위험도를 사용자가 룰 세트에서 바꾸는 것은 새 `methodVersion`이 아니며 판정의 룰 세트 리비전과 `statusRulePolicy.mapping`으로 추적한다 [확정 11/04 사용자]
+- `methodVersion`이 조건과 기본 위험도를 고정한다. 조건이나 기본 위험도를 바꾸면 새 `methodVersion`을 만들고 과거 판정은 기록된 버전 그대로 둔다. `hard:process-status`의 코드별 위험도를 사용자가 룰 세트에서 바꾸는 것은 새 `methodVersion`이 아니며 판정의 룰 세트 리비전과 `statusRulePolicy.mapping`으로 추적한다 [제안 D16]
 - 하드룰 `code`(결과 코드): `hard:process-status`는 `PROCESS_STATUS_<F|P|N|H|Z>`. 새 하드룰은 `HARD_<KEY 대문자, -는 _>`(예 `HARD_NEGATIVE_DURATION`) [확정 11/03 U10]
 
 ## 5. 소프트룰(화면: 이상 징후 규칙) 실행 의미
@@ -308,7 +308,7 @@
 
 | 대분류 | `riskLevel` |
 |---|---|
-| hard | 4.3 하드룰 정의의 `severity`. `byCode`면 `byCode[code]`(T 결과의 결과 코드). 기본 위험. `hard:process-status`는 시도에 고정한 룰 세트 값 우선, 없는 코드는 내장 기본값(10절) [확정 11/04 사용자] |
+| hard | 4.3 하드룰 정의의 `severity`. `byCode`면 `byCode[code]`(T 결과의 결과 코드). 기본 위험. `hard:process-status`는 시도에 고정한 룰 세트의 v2 항목 값 우선 [확정 11/04 사용자], v1 항목이나 스냅샷에 값이 없으면 내장 기본값(10절 D14) |
 | soft | 그 규칙의 `severity`(사용자 선택, 5.1 대응) |
 | ml | `null`(T일 때 `riskLevelReason="level_undefined"`) |
 
@@ -340,7 +340,7 @@
 
 - 운영 룰 세트를 읽지 못하거나 리비전·해시가 서로 맞지 않으면 시도 실패(fail-closed). 빈 룰 세트로 대신하지 않는다
 - 하드룰 스냅샷 해석 [제안 D14]: Detector는 스냅샷 `hardRules[]`의 `id`·`enabled`를 실행 입력으로 쓰고, 조건·`methodVersion`은 내장 목록(4.3)을 쓴다. 내장 목록에 있는데 스냅샷에 없는 규칙은 꺼짐으로 실행한다(방법 목록에 넣지 않고 n에 세지 않음). 규칙을 추가할 때마다 시스템 리비전을 만들 필요가 없고, 새 규칙이 말없이 켜지지 않으며, 사용자가 켜면 새 리비전으로 추적된다. 스냅샷 `id`가 내장 목록에 없거나 `enabled`가 bool이 아니면 저장 검증을 거치지 않은 비정상이므로 시도 실패다
-- `hard:process-status`의 코드별 단계 [확정 11/04 사용자]: 스냅샷 해당 항목의 `severity.byCode`를 실행 입력으로 읽는다. 값은 `critical`·`warning`·`info`다. 없는 코드와 `severity`가 없는 예전 항목은 내장 기본값(4.3)을 쓴다. 모르는 코드 키, 잘못된 단계, 형식 오류는 그 규칙이 꺼져 있어도 시도 실패다. 다른 하드룰의 스냅샷 `severity` 등 정의 값은 무시한다
+- `hard:process-status`의 코드별 단계: 사용자 설정 자체는 [확정 11/04 사용자](C27). 판별과 형식은 [제안 D14]다. 스냅샷 항목의 `methodVersion`이 `process-status-hr-v2`일 때만 `severity.byCode`를 사용자 설정으로 인정한다. v2 항목은 5코드가 모두 있어야 하고 값은 `critical`·`warning`·`info`다. 코드 누락, 모르는 코드 키, 잘못된 단계, 형식 오류는 그 규칙이 꺼져 있어도 시도 실패다. `process-status-hr-v1` 항목과 `methodVersion`이 없는 항목의 `severity`는 그때 내장값의 투영이므로 값과 형식을 보지 않고 내장 기본값(4.3)을 쓴다(예 `015_rule_set_revisions.sql`의 r0). 그 밖의 `methodVersion`은 시도 실패다. 다른 하드룰의 스냅샷 `severity`·`methodVersion` 등 정의 값은 무시한다
 - v1·legacy 정책 판정(룰이 구성 버전 `ml_config_rules`에 묶임, `computation.py:38-41`)에는 이 필드가 없다
 
 ## 11. evidence `schemaVersion` 4
@@ -440,11 +440,11 @@
 | `actualPaths` | `rule`: hard·soft 중 succeeded 방법이 있음 / `ml`: succeeded ML이 있음 [확정 11/03 U10] | |
 | `detectionPolicy` | 시도 시작 시 읽은 v2 객체 그대로 | |
 | `ruleSeverities` | T인 소프트룰·하드룰의 `severity`를 `methodResults` 순서로 | v3는 Rule 키와 짝이 없는 hit 순서 목록(`computation.py:99-100`) — 방법별 값은 `methodResults[].severity` |
-| `statusRulePolicy` | `hard:process-status`가 켜져 있으면 그 판정에 쓴 정책 객체 `{version: process-status-hr-v2, sourceId, mapping}`, 꺼져 있으면 `null`. `mapping`은 시도에 고정한 코드별 단계이고 S는 `no_hit`다. END_TIME 없는 N 예외는 `mapping`에 나타나지 않는다 [확정 11/04 사용자] | 판독 호환 |
+| `statusRulePolicy` | `hard:process-status`가 켜져 있으면 그 판정에 쓴 정책 객체 `{version: process-status-hr-v2, sourceId, mapping}`, 꺼져 있으면 `null`. `mapping`은 시도에 고정한 코드별 단계이고 S는 `no_hit`다. END_TIME 없는 N 예외는 `mapping`에 나타나지 않는다 [제안 D16] | 판독 호환 |
 | `telemetry`, `observation`, `inputManifestHash`, `demo`, `input` | 그대로 | `runner.py:90-101` |
 
 - **`rules[].reason` 키 적용 범위** [키 이름·값 확정 11/03 U10]
-  - 상태 규칙 항목(`ruleKey: process-status`): v3 형태 그대로 `reason` 키를 항상 두며 의미도 v3 그대로다(`null` 또는 `status_unknown`, `status_rule.py:27`). END_TIME 없는 상태 N은 `result: not_applicable`, `severity: null`, `reason: end_time_absent`다 [확정 11/04 사용자]. 기한 초과처럼 상태를 읽기 전에 끝나면 `observedStatus: null`, `result: unavailable`, `severity: null`, `reason: status_unknown`으로 기록한다 [제안 D9, #112 구현 확인 반영 11/04]
+  - 상태 규칙 항목(`ruleKey: process-status`): v3 형태 그대로 `reason` 키를 항상 두며 의미도 v3 그대로다(`null` 또는 `status_unknown`, `status_rule.py:27`). END_TIME 없는 상태 N은 이상이 아니며(C26) `result: not_applicable`, `severity: null`, `reason: end_time_absent`로 기록한다 [제안 D16]. 기한 초과처럼 상태를 읽기 전에 끝나면 `observedStatus: null`, `result: unavailable`, `severity: null`, `reason: status_unknown`으로 기록한다 [제안 D9, #112 구현 확인 반영 11/04]
   - 그 밖의 하드룰 항목과 소프트룰 항목: `result: not_applicable`일 때**만** `reason`을 둔다. 값은 `end_time_absent`(하드룰 `hard:negative-duration`) 또는 `<원천 열 소문자>_absent`(소프트룰, 5.2). `hit`·`no_hit`·`unavailable`이면 `reason` 키를 두지 않는다(미판정 원인은 `methodResults[].cause`, 11.6)
   - 같은 `reason` 값을 그 방법의 `methodResults[].evidence`에도 둔다
   - #94 비교 평가 `notApplicableReasons`는 `result: not_applicable` 항목의 `reason`만 집계한다. 상태 규칙의 `status_unknown`은 대상이 아니다
@@ -599,7 +599,7 @@
 | 25 | 상태 Z | T | — | — | complete | true | anomaly | 주의 | v1은 미판정 |
 
 - 2행·2b행·17행의 k < 1은 [#112 정정 11/04]. 7.3 규칙은 바뀌지 않았고 표가 7.3을 정확히 옮기도록 조건만 좁혔다
-- 18~25행은 [확정 11/04 사용자]. '기본 구성'은 내장 하드룰 4개가 모두 켜진 상태다. 표의 '상태 S'·'상태 F' 행은 건수 규칙이 켜져 있으면 건수가 맞는 입력을 전제로 한다(20행이 건수 없는 경우)
+- 18·19행의 규칙은 [확정 11/04 사용자 C25], 22~25행의 이상 여부와 F·P·Z 단계는 [확정 11/04 사용자 C26]이다. 23·24행의 '참고'는 C26의 해석값이다. 20·21행의 U·N은 건수 규칙의 판단 순서 [제안 D15]에서 나온다. '기본 구성'은 내장 하드룰 4개가 모두 켜진 상태다. 표의 '상태 S'·'상태 F' 행은 건수 규칙이 켜져 있으면 건수가 맞는 입력을 전제로 한다(20행이 건수 없는 경우)
 
 ## 15. 현행 코드와의 충돌 — 이 Issue는 문서만, 코드는 후속 Issue에서
 
@@ -627,14 +627,15 @@
 
 대조 기준: dev 병합본 `935e5eb`(#94 PR #96 병합, 11/02). #94 소유 문서(`rule-set.md`·`model-version.md`·`method-catalog.md`·`config-comparison-evaluation.md`·`detection-config-version.md`·`trainer-service.md`·`llm-recommendation-job.md`·`queues.md`)의 dev 내용은 이전 대조 기준 673463d와 같다(`git diff 673463d origin/dev` 차이는 `config-comparison-evaluation.md`의 옛 WebUI 파일 경로 주석 1행뿐, #100 변경). 이 Issue는 #94 문서를 수정하지 않는다. #94 문서는 행 번호 대신 문서 이름과 절·필드 이름으로 가리킨다.
 
-- **남은 요청: 정정 요청 1건(아래)**(dev 병합본에서 다시 확인). 그 밖에 6ff10b5·d8937f9·fa8c390·673463d의 구조 변경(Q-M1 확정 표기·조합 저장 폐기 포함, 활성 집합 0..N, `detectionPolicy` 운영 설정 전역 값, 일관 읽기 3요소, evidence `activeModelSetRevision`·`detectionPolicyRevision`, `detection_methods_empty` 모든 저장 경로(룰 세트 저장·`retire`·`replace`·`restore`), k > n 규칙(min 보정 금지, n = 0 무시 — 7.4), `resultCounts`의 `not_applicable` 정상 집계, 소프트룰 `sourceMissingPolicy`)은 이 문서 5.2·6·7.1·7.4·10·11절과 같은 뜻이다
+- **남은 요청: 정정 요청 1건과 C27 후속 요청(아래)**(dev 병합본에서 다시 확인). 그 밖에 6ff10b5·d8937f9·fa8c390·673463d의 구조 변경(Q-M1 확정 표기·조합 저장 폐기 포함, 활성 집합 0..N, `detectionPolicy` 운영 설정 전역 값, 일관 읽기 3요소, evidence `activeModelSetRevision`·`detectionPolicyRevision`, `detection_methods_empty` 모든 저장 경로(룰 세트 저장·`retire`·`replace`·`restore`), k > n 규칙(min 보정 금지, n = 0 무시 — 7.4), `resultCounts`의 `not_applicable` 정상 집계, 소프트룰 `sourceMissingPolicy`)은 이 문서 5.2·6·7.1·7.4·10·11절과 같은 뜻이다
+- **C27 후속 요청**(#94 소유 `rule-set.md`, Trainer가 #116에서 처리 중, 이 Issue는 고치지 않음): `hard:process-status` 항목을 v2 형식(5코드 전부)으로, `severity.byCode`를 저장 입력·`editable`·hash 입력에 포함, 예시와 r0 표기 갱신. 갱신 전 v1 항목은 10절 D14대로 값을 보지 않는다
 - **정정 요청 1건**(U4 확정 반영, #94 소유): `model-version.md` 운영 설정 절 "`k.ml`과 활성 모델 수 `n_ml`의 정합" 항목의 "`n_ml = 0`이면 ml 대분류 비활성이라 `k.ml` 값과 무관하게 허용"과 같은 문서 "확정 요약·결정 질문" 절 Q-M8 행의 "정책 저장 시 `k.ml > n_ml`(`n_ml ≥ 1`) 거절"을 "k > n 검사에 한해 무관(U4에 따라 정책 저장 시 `k.ml`은 n과 무관하게 1이어야 함, #92 7.4)"이 드러나게 고치기. 근거 시나리오 S4: 그 문구만 따르면 활성 모델이 0개(n_ml = 0)일 때 `k.ml = 2`를 저장할 수 있고, 이후 첫 모델 활성화(`apply`)는 결과 n_ml = 1 < k.ml = 2라 활성 집합 절 공통 검사(정책 정합)에 걸려 거절된다 — 정책을 먼저 고치기 전까지 어떤 모델도 운영에 넣을 수 없게 된다. 우선순위: 같은 절 `PUT /api/detection-policy` 항목이 422 의미 검증을 "#92 7.4가 정한 코드"로 두므로 두 문장이 어긋나면 #92 7.4가 우선이다
 - 조건부 요청 — **현재 발동하지 않음**: U4가 11/03 추천안(k 모두 1)으로 확정되어 조건(k ≥ 2 허용)이 성립하지 않는다. 나중에 사용자가 U4를 완화할 때만 `rule-set.md` "저장 — `PUT /api/rule-set`" 절 검증 표에 "저장 결과 켜진 하드룰·소프트룰 수가 `k.hard`·`k.soft` 미만이 되면 422 `combination_k_out_of_range:<category>`(0이 되는 경우 제외)" 추가를 요청한다(7.4). dev 병합본 검증 표에는 이 행이 없고, 지금은 없는 것이 맞다
 - 비차단 권고(#94 후속 정정 권고, dev 병합본에도 그대로 남아 있음): `rule-set.md` "룰 세트 상태" 절 `softRules[].field` 행의 "필드 값이 null이면 그 룰은 그 행을 평가하지 않음"을 "`sourceMissingPolicy = not_applicable`로 null이 된 경우만"으로 좁히기. 그 밖의 결측은 미판정(U)이며 해석 기준은 이 문서 5.2가 정본
 - 후속 정정 권고(비차단, #94 소유) — 11/03 U1~U12 확정으로 #94 문서에 남은 '결정 대기' 표기. 뜻은 이미 이 문서와 같고 상태 표기만 낡았다
   - 식별자·대분류 키(U1): `rule-set.md` 식별자 절·`model-version.md` 방법 식별자 절·`method-catalog.md` 대분류·식별자 절의 "[합의 11/02 — 사용자 확인 필요 (a)]", `rule-set.md` 호환 매핑 표 `hr:process-status` 행의 "사용자 확인 전", `rule-set.md` Q-R7·`model-version.md` Q-M4·`method-catalog.md` 확정 요약의 "사용자 확인 전" → 11/03 사용자 확정(#92 U1)
   - v1 판별(U12): `model-version.md` "configuration_spec schemaVersion 3" 절 `detectionPolicy` 행의 "#92 U12 결정 대기" → 11/03 확정
-  - 하드룰 단계·1차 목록(U2·U3): `rule-set.md` "룰 세트 상태" 절 `hardRules[]` 행의 "U2 추천안", "U2에서 '모두 위험'을 고르면…", "U3 채택 시" → 11/03 확정(P·N = warning 유지, `hard:negative-duration` 1차 목록)
+  - 하드룰 단계·1차 목록(U2·U3): `rule-set.md` "룰 세트 상태" 절 `hardRules[]` 행의 "U2 추천안", "U2에서 '모두 위험'을 고르면…", "U3 채택 시" → 11/03 확정(`hard:negative-duration` 1차 목록). 단계는 11/04 C26·C27을 따른다
   - `rule-set.md` 리비전 형식 절의 "[합의 11/02 — 사용자 확인 필요 (b)]"는 #94 자체 질문이며 U1~U12에 포함되지 않는다. 이 문서는 그 상태를 바꾸지 않는다
 - `queues.md`: 변경 요청 없음
 - 확인(요청 아님)
@@ -656,7 +657,7 @@
 |---|---|---|---|
 | U1 | 계약·코드 식별자(화면 이름은 C18로 이미 확정) | 1.1 세션 합의 A1·A2 승인. 방법 식별자 `hard:<key>` / `soft:<key>` / `ml:<key>`, 계산용 대분류 키 `hard` / `soft` / `ml`(`detectionPolicy.k` 등). 과거 `hr:`·`rule:`·`sr:` 식별자는 과거 판정 읽기용 매핑만. 근거: 11/02 결정(룰 하드·소프트 / ML 분리)을 이름에 옮긴 것이고, 이전 `{hr, sr, ml}` 형태는 코드·DB에 저장된 적이 없어 이전 비용이 없음 | 1.1, 2, 3.1, 3.2, 7.1, 7.3 |
 | U2 | `hard:process-status`의 P·N 위험도 | 10/22 확정값 유지: F = 위험, P·N = 주의. "하드룰 기본 위험"은 규칙이 따로 정하지 않을 때의 기본값이고, P·N은 "먹통·실패 확정 금지" 계약(`trainer-service.md` "책임·범위" 절)이 있음. 등급은 둘 다 '이상'. 11/02 사용자 결정(화면 흐름 결정 기록 9.7)과도 같음. N 단계는 11/04 C26이 대체 | 4.2, 4.3, 14 |
-| U3 | 하드룰 1차 목록과 정의 밖 상태값 | (가) 1차 목록 = `hard:process-status` + `hard:negative-duration` (나) S·F·P·N 밖 상태값(H·Z 등)과 결측은 지금처럼 미판정. 나머지 후보(`hard:success-with-error`·`hard:count-conservation`·`hard:invalid-count-domain`·`hard:invalid-status`)는 실데이터 발생 빈도를 확인한 뒤 하나씩(건수 필드 의미 미검증). `hard:final-missing-end`는 11/02 결정으로 제외(C19). 11/04 C25·C26이 일부를 이어받음(후보 2개 추가, H·Z 코드 확정, `hard:invalid-status` 제거) | 4.2, 4.3, 14 |
+| U3 | 하드룰 1차 목록과 정의 밖 상태값 | (가) 1차 목록 = `hard:process-status` + `hard:negative-duration` (나) S·F·P·N 밖 상태값(H·Z 등)과 결측은 지금처럼 미판정. 나머지 후보(`hard:success-with-error`·`hard:count-conservation`·`hard:invalid-count-domain`·`hard:invalid-status`)는 실데이터 발생 빈도를 확인한 뒤 하나씩(건수 필드 의미 미검증). `hard:final-missing-end`는 11/02 결정으로 제외(C19). 11/04 C25·C26이 일부를 이어받음(후보 2개 추가, H·Z 코드 확정). `hard:invalid-status` 제거는 D16 | 4.2, 4.3, 14 |
 | U4 | k 고정 | 1차 구현은 정책 저장 시 `k.hard`·`k.soft`·`k.ml`이 모두 1이어야 함(아니면 422). n = 0인 대분류의 k는 판정 계산·k > n 검사에서 무시(비활성). 근거: 룰 세트·활성 집합이 버전 없이 바뀌어도 k = 1이면 k > n이 생기지 않아 저장 검증이 `detection_methods_empty` 하나로 줄고, "하드룰 T 하나 = 이상" 정의와 맞음. k ≥ 2는 다중 ML 평가 근거가 생기면 다시 질문(그때 양방향 저장 검증 추가) | 7.4, 8 |
 | U5 | 시도 시작 고정 범위 | 시도 단위: 룰 세트 리비전·활성 집합·정책 리비전을 시도마다 그 시도 시작 시점에 한 번에 새로 읽음(#94 운영 상태 조회 응답 한 건과 같음). 근거: 이전 시도 중간 기록은 '대체됨'으로 닫히고 판정마다 세 리비전이 기록돼 추적 가능. 작업 단위 고정은 세 리비전을 불변 작업 입력·큐 payload에 넣어야 함. 판정 행 구성 일치 트리거(`004:245`)·작업 입력 변경이 필요(15절 K16) | 10, 15 K16 |
 | U6 | 과거 판정(evidence v3 이하) 표시 | 등급 없음(null), 이상 판정만 위험도 '미정', 정상·미확인 판정은 위험도 '해당 없음', 과거 등록 Rule 결과(임계값형·비임계값 Rule — 문자 비교·묶음 조건 포함)는 '이상 징후 규칙(과거 등록 Rule)'으로 표시만. 과거 판정 재계산·재작성 없음(10/21 확정) | 3.2 |
@@ -684,12 +685,15 @@
 | D11 | evidence에 리비전 필드 2개: `detectionPolicyRevision`(정수, 0 = 내장 기본 정책)·`activeModelSetRevision`(정수). 정책 값은 `detectionPolicy`에 복사(U11) | 판정 1건에서 그때의 정책·활성 집합을 재구성(10/21 R6 추적성). 리비전 번호 체계는 [#94] |
 | D12 | `sr:*` 방법을 실행 중 만나면(저장 검증을 거치지 않은 예외 상황) 판정 행 없이 시도 실패(fail-closed). 저장 단계 거부와 오류 코드는 [#94] | 11/02 C2(통계 SR 제외) |
 | D13 | 하드룰 정의 형식: `{id, methodVersion, displayName, conditionText, severity}`, `severity`는 단일 문자열 또는 결과 코드별 `{"byCode": {...}}`(4.3). `hard:process-status`의 기본값은 C26(F `critical`, P·Z `warning`, H·N `info`). `hard:negative-duration`의 `methodVersion` 이름 `negative-duration-v1`. **`displayName`·`conditionText` 화면 문구는 11/02 사용자 승인(화면 흐름 결정 기록 9.7)으로 확정**(C22, 4.3 표 값 그대로) | #94 `rule-set.md` `hardRules[]` 필드가 이 형식을 따름. 형식·이름은 Detector 결정, 문구는 사용자 확정 |
-| D14 | 룰 세트 스냅샷 `hardRules[]`는 `id`·`enabled`만 실행 입력으로 읽고 조건·`methodVersion`은 내장 목록을 쓴다(`hard:process-status`의 코드별 단계는 C27). 스냅샷에 없는 내장 규칙은 꺼짐, 미지 `id`와 bool 아닌 `enabled`는 시도 실패(10절) | 꺼짐으로 두면 규칙 추가마다 시스템 리비전 migration이 필요 없고 배포 순서가 어긋나도 판정이 멈추지 않으며, 새 규칙이 말없이 켜지지 않음 |
-| D15 | 건수 규칙은 상태를 먼저 보고, 건수는 Decimal로 정확히 비교한다. 정수 여부와 음수는 보지 않으며 대상 밖 상태는 N이다(4.2) | 정수·음수 검사는 후보 `hard:invalid-count-domain`의 범위. 수집기도 건수를 정수로 강제하지 않음(`collector/storage.py` `_typed_values`) |
+| D14 | 룰 세트 스냅샷 해석: `hardRules[]`는 `id`·`enabled`를 실행 입력으로 읽고 조건·`methodVersion`은 내장 목록을 쓴다. 스냅샷에 없는 내장 규칙은 꺼짐, 미지 `id`와 bool 아닌 `enabled`는 시도 실패. `hard:process-status`는 항목의 `methodVersion`이 v2일 때만 `severity.byCode`를 사용자 설정으로 인정하고 5코드 전부를 요구하며, v1 항목·키 없음은 값을 무시하고 내장 기본값, 그 밖의 버전은 시도 실패(10절) | 꺼짐으로 두면 규칙 추가마다 시스템 리비전 migration이 필요 없고 배포 순서가 어긋나도 판정이 멈추지 않으며, 새 규칙이 말없이 켜지지 않음. v1 항목의 `severity`는 사용자가 정한 값이 아니라 저장 당시 내장값의 투영(015 r0의 N `warning`)이라 사용자 설정으로 읽으면 안 됨 |
+| D15 | 건수 규칙은 상태를 먼저 보고, 건수는 Decimal로 정확히 비교한다. 정수 여부와 음수는 보지 않으며 대상 밖 상태는 N이다(4.2). 14절 20행의 U와 21행의 N은 이 순서에서 나온다 | 정수·음수 검사는 후보 `hard:invalid-count-domain`의 범위. 수집기도 건수를 정수로 강제하지 않음(`collector/storage.py` `_typed_values`) |
+| D16 | `hard:process-status` 구현 세부: 코드 집합과 N 조건이 바뀌어 `process-status-hr-v2`로 올림. 표시 문구는 코드를 나열하지 않고 유지. 후보 `hard:invalid-status` 제거. END_TIME 없는 N은 `not_applicable`·`end_time_absent`로 기록. 사용자 단계 변경은 새 `methodVersion`이 아니라 룰 세트 리비전과 `statusRulePolicy.mapping`으로 추적하며 `mapping`은 시도에 고정한 코드별 단계(S는 `no_hit`) | C26·C27의 구현 형식. 사용자 결정이 아님 |
+| D17 | 건수 규칙 2개의 이름·버전·코드·문구: `hard:success-with-error`(`success-with-error-v1`, `HARD_SUCCESS_WITH_ERROR`, "성공인데 오류 건수가 있음", "STATUS = S, ERROR_COUNT > 0"), `hard:count-conservation`(`count-conservation-v1`, `HARD_COUNT_CONSERVATION`, "건수 합계가 맞지 않음", "TOTAL_COUNT ≠ SUCCESS_COUNT + ERROR_COUNT") | C25의 구현 형식. 화면 문구는 사용자 승인 전(C22와 다름) |
 
 ## 이력
 
-- 2026-11-04: 사용자 결정 반영 — 하드룰 2개 추가(C25, 4.2·4.3, 14절 18~21행), `hard:process-status` v2 코드·기본 위험도와 END_TIME 없는 N 예외(C26, 14절 22~25행, 11.2·11.3), 코드별 위험도 사용자 설정(C27, 4.1·4.3·9.1·9.2·10), `hard:invalid-status` 후보 제거. Detector 결정 — 하드룰 스냅샷 해석(D14), 건수 규칙 공통 규칙(D15). 구현 정정 보완 — 14절 2행 END_TIME 있음, 4.1 단어 문자열 조건 삭제, 11.2는 r12 켜진 규칙 기준임을 명시
+- 2026-11-04: #112 검토 FAIL 반영 — 저장된 v1 `severity`를 사용자 설정으로 읽지 않도록 10절·4.3 정정(D14 판별 규칙, v2 항목은 5코드 필수), 11/04 항목을 사용자 결정(C25~C27)과 Detector 결정(D14~D17)으로 분리, H·N '참고'가 해석값임을 명시, '구현됨'을 실행 경로 미연결로 정정, `rule-set.md` 낡은 권고 정리·C27 후속 요청 추가
+- 2026-11-04: 사용자 결정 반영 — 건수 규칙 2개 추가(C25, 14절 18·19행), 상태 코드 뜻·F·P·Z 단계·END_TIME 없는 N 이상 아님·정의 밖 값 미판정(C26, 14절 22~25행), 코드별 위험도 사용자 설정(C27, 4.1·4.3·9.1·9.2·10). Detector 결정 — 스냅샷 해석(D14), 건수 규칙 공통(D15, 14절 20·21행), `process-status-hr-v2`·`hard:invalid-status` 제거·표시 문구·기록 형식(D16), 새 규칙 이름·문구(D17). 구현 정정 보완 — 14절 2행 END_TIME 있음, 4.1 단어 문자열 조건 삭제, 11.2는 r12 켜진 규칙 기준임을 명시
 - 2026-11-04: #112 구현 확인 정정. 사용자 승인분 — 14절 2행 조건을 '켜진 하드룰이 모두 U'로 좁히고 기본 구성 2b행 추가(7.3 불변, 현행 `compute` 실행으로 2행 '같음' 재확인), 12절 `decision_code`를 첫 근거 방법으로, 7.4 실행 시점·14절 17행에 k < 1, 4.1·5.2 값 없음 기준(빈 문자열·공백·`\N`, 단어 문자열은 값 없음 아님), 11.2 `normalized.value` 반올림 표시. Detector 결정 반영 — D1 입력을 `allowed_values` 시각 필드로(`parsed_times`는 항상 비어 있음), 5.2 임계값 오류 행과 파생 필드 계산 실패 범위(D4·D6), 11.4 `determinedBy` 정의(D9), 11.5 `failureCode` 조건(D6), 11.3 상태 규칙 기한 초과 기록(D9). 후속 메모 — 6·12절 IF 외 ML 결과 코드
 - 2026-11-03: 사용자 결정 반영 — U1~U12 모두 추천안으로 확정(C21), 본문 "[제안 Un]"·"[합의 — 사용자 확인 필요]"를 [확정 11/03 Un]으로, 1.1 A1·A2 확정(U1), U11은 #94 Q-M2 확정의 귀결로 표기, 17.1을 결정 결과 표로, `pipeline.md` "API 작업" 절 severity 문장 교체(U7). 11/02 사용자 결정(화면 흐름 결정 기록 9.7) 이상 규칙 화면 문구 확정(C22, 4.3·D13)·P·N '주의' 유지, 판정 정책 화면 미노출(C23, 화면 흐름 결정 기록 9.6·9.8), 11/03 사용자 결정(화면 흐름 결정 기록 9.9) 기한 초과 `elapsedMs` 측정값 기록·표시(C24, 11.5). 9차 reviewer 비차단 권고 반영 — 7.4 n = 0 대분류 k 처리(U4 적용 시 정책 저장은 세 값 모두 검사, k > n·계산에서는 무시), 실행 시 활성 방법 0개 시도 실패, 교차 저장 직렬화(#94·API 소유), 7.2 운영 설정은 v2만, 11.3 `reason` 적용 범위, C19·C20 출처 표기, `composite.policy` 정의(11.4). Trainer 교차 검토 경미 지적 반영 — 7.4 검증 경로에 `restore`, 5.1 `id` 행, 현행 계약 인용을 dev 기준 절·필드 이름으로(#94 병합 전 문장은 판본 표기). dev 병합(#94 `935e5eb` 포함) 후 16절을 병합본 기준으로 재확인 — 남은 요청 없음 유지, 조건부 요청은 U4 확정으로 미발동, 비차단 권고 유지, #94 문서의 낡은 '결정 대기' 표기 후속 정정 권고 추가. 10차 검토 권고 5건 반영 — 17.1 추천 근거 복원(U3·U4·U5·U11), 비공개 결정 기록 절 번호를 '화면 흐름 결정 기록 9.x'로 통일, 16절 `model-version.md` k.ml 문구를 정정 요청으로 격상(S4), 7.2 출처, 11.4 최상위 `elapsedMs` 구분
 - 2026-11-02: 8차 최종 검토 FAIL 반영 — 7.4 k·n 규칙 재작성(n=0 대분류 k 무시, U4 승인 시 정책 저장 k 모두 1 강제, 완화 시에만 양방향 검증·룰 세트 쪽 #94 조건부 요청, 실행 시 n≥1·k>n fail-closed / n=0 skipped), 7.2 열 제목·v3 spec 행, 16절 기준 673463d·Q-M10 무영향·비차단 권고, `not_applicable` 선택 키 `reason`, END_TIME 없음 우선 판정 순서(4.2·5.2·D1), U11 대안을 #94 폐기안으로·추천안 표기 통일, U11 추천안 전제 표기

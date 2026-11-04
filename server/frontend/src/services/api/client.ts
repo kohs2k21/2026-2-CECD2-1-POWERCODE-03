@@ -12,12 +12,15 @@ type RequestOptions = RequestInit & {
 export class HttpError extends Error {
   readonly status: number;
   readonly code?: string;
+  /** 오류 응답 본문(JSON). 코드 외 값이 필요한 호출자만 읽는다. */
+  readonly payload?: unknown;
 
-  constructor(message: string, status: number, code?: string) {
+  constructor(message: string, status: number, code?: string, payload?: unknown) {
     super(message);
     this.name = "HttpError";
     this.status = status;
     this.code = code;
+    this.payload = payload;
   }
 }
 
@@ -59,9 +62,11 @@ const getErrorMessage = async (
 ): Promise<HttpError> => {
   let message = method + " " + path + " failed: " + response.status;
   let code: string | undefined;
+  let body: unknown;
 
   try {
     const payload: unknown = await response.json();
+    body = payload;
     if (
       payload &&
       typeof payload === "object" &&
@@ -81,7 +86,7 @@ const getErrorMessage = async (
     // Keep the status-based message when the server did not return JSON.
   }
 
-  return new HttpError(message, response.status, code);
+  return new HttpError(message, response.status, code, body);
 };
 
 const request = async <T>(

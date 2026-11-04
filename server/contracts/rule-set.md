@@ -1,5 +1,5 @@
 Created: 2026-11-02T18:00:00+09:00
-Updated: 2026-11-03T12:00:00+09:00
+Updated: 2026-11-04T22:00:00+09:00
 Author: Claude Code (Trainer 세션 builder)
 Status: draft
 
@@ -21,6 +21,7 @@ Status: draft
 | `soft:*` | **이상 징후 규칙** | 소프트룰 | 이상 징후 |
 | `ml:*` | **머신러닝 모델** | ML 방법 / 모델 버전 | 이상 징후 |
 
+- 화면 표시: 버전(숫자만) — 리비전은 화면에서 '버전'과 숫자로 표기하고 `r13`·'리비전'은 쓰지 않음(사용자 11/04). 필드명 `revision`과 이 문서의 내부 용어 '리비전'은 그대로
 - 식별자·API 필드명(`hardRules`·`softRules`)은 내부 용어 그대로. 화면 문구·확인창·오류 안내·카탈로그 `displayName`은 표시 용어 사용. 이 문서 본문은 내부 용어를 쓰되 화면 문구 예시에는 표시 용어를 씀
 
 ## 원칙 [확정 11/02]
@@ -120,8 +121,8 @@ Status: draft
 
 - `softRules[]`에 없는 기존 id = 삭제. `id: null` = 추가(`clientRef` 1~40자 필수, 본문 안 유일). 기존 id는 `field`가 저장값과 같아야 함(다르면 422 `soft_rule_field_immutable`)
 - `hardRules[]`는 Detector 내장 목록 전체를 포함해야 함(누락 422 `hard_rule_missing:<id>`, 미지 id 422 `hard_rule_unknown:<id>`)
-- `confirmHardRuleDisable`: **이번 저장에서 새로 꺼지는 이상 규칙(하드룰)이 1개 이상이면** `true` 필수, 아니면 422 `hard_rule_disable_confirmation_required` [제안 — R1 "끄기 허용(경고+확인)"의 범위를 '새로 끄는 행위'로 한정, Q-R5]. 이미 꺼져 있던 규칙을 그대로 두는 저장은 플래그 불필요(확인창에는 계속 강조 표시). 화면: 행 경고 "변경을 권장하지 않습니다 — 명백한 이상을 놓칠 수 있습니다" + 확인창에서 꺼진 이상 규칙 강조 + 확인 체크 [확정 R1]
-- `restoreFromRevision`: 되돌리기 표시용. 값이 있으면 본문은 그 리비전 스냅샷과 **같아야 함**(다르면 422 `restore_payload_mismatch`; 화면은 `GET /api/rule-set/history/:revision` 스냅샷을 그대로 보냄). 되돌리기도 일반 저장과 같은 확인창·즉시 적용·실패 시 이전 룰 유지 [확정 R3]. **되돌리기 분기**(WebUI 11/02 대조 — 아래 두 예외가 없으면 삭제된 규칙이 든 과거 스냅샷으로는 항상 422가 되는 모순): (1) 스냅샷에 있고 현재 상태에 없는 소프트룰 id(그 사이 삭제된 것)는 **같은 id로 재생성 허용** — `soft_rule_unknown` 예외, `field`·`operator`·`threshold`·`severity`·`name`·`enabled`는 스냅샷 원본 그대로(`createdAtRevision`은 원래 값 유지, `updatedAtRevision`은 새 리비전), `changes[]`에는 `soft_added`(+`restored: true`) (2) 스냅샷 이후 **새로 생긴 내장 하드룰**은 본문에 없어도 됨 — `hard_rule_missing` 미적용; **본문 값 우선**: 클라이언트가 그 id를 본문에 포함하면(`enabled: false` 포함) 그 값을 쓰고 `changes[]`에 일반 저장처럼 기록(끄면 `confirmHardRuleDisable` 필요), 미포함이면 서버가 **기본값 켬**으로 채우고 `changes[]`에 넣지 않음. `restore_payload_mismatch` 비교 대상은 **소프트룰 전체 + 스냅샷에 있는 하드룰의 `enabled`**뿐(새로 생긴 하드룰은 비교 제외). 스냅샷에 있으나 Detector 목록에서 사라진 하드룰 id는 422 `hard_rule_unknown` 그대로 — 되돌릴 수 없는 리비전은 화면이 사유 표시. 그 외 검사(이름 중복·상한·확인 플래그·`detection_methods_empty`)는 되돌리기에도 동일
+- `confirmHardRuleDisable`: **이번 저장에서 새로 꺼지는 이상 규칙(하드룰)이 1개 이상이면** `true` 필수, 아니면 422 `hard_rule_disable_confirmation_required` [제안 — R1 "끄기 허용(경고+확인)"의 범위를 '새로 끄는 행위'로 한정, Q-R5]. 이미 꺼져 있던 규칙을 그대로 두는 저장은 플래그 불필요(확인창에는 계속 강조 표시). 화면: 이상 규칙 구역 하단 상시 경고(사용자 11/04) "명백한 이상을 놓칠 수 있습니다. 변경을 권장하지 않습니다." + 확인창에서 꺼진 이상 규칙 강조 + 확인 체크 [확정 R1]
+- `restoreFromRevision`: 되돌리기 표시용. 값이 있으면 본문은 그 리비전 스냅샷과 **같아야 함**(다르면 422 `restore_payload_mismatch`; 화면은 `GET /api/rule-set/history/:revision` 스냅샷의 `hardRules`·`softRules`를 저장 요청 형식으로 옮겨 보냄). 되돌리기도 일반 저장과 같은 확인창·즉시 적용·실패 시 이전 룰 유지 [확정 R3]. **되돌리기 분기**(WebUI 11/02 대조 — 아래 두 예외가 없으면 삭제된 규칙이 든 과거 스냅샷으로는 항상 422가 되는 모순): (1) 스냅샷에 있고 현재 상태에 없는 소프트룰 id(그 사이 삭제된 것)는 **같은 id로 재생성 허용** — `soft_rule_unknown` 예외, `field`·`operator`·`threshold`·`severity`·`name`·`enabled`는 스냅샷 원본 그대로(`createdAtRevision`은 원래 값 유지, `updatedAtRevision`은 새 리비전), `changes[]`에는 `soft_added`(+`restored: true`) (2) 스냅샷 이후 **새로 생긴 내장 하드룰**은 본문에 없어도 됨 — `hard_rule_missing` 미적용; **본문 값 우선**: 클라이언트가 그 id를 본문에 포함하면(`enabled: false` 포함) 그 값을 쓰고 `changes[]`에 일반 저장처럼 기록(끄면 `confirmHardRuleDisable` 필요), 미포함이면 서버가 **기본값 켬**으로 채우고 `changes[]`에 넣지 않음. `restore_payload_mismatch` 비교 대상은 **소프트룰 전체 + 스냅샷에 있는 하드룰의 `enabled`**뿐(새로 생긴 하드룰은 비교 제외). 스냅샷에 있으나 Detector 목록에서 사라진 하드룰 id는 422 `hard_rule_unknown` 그대로 — 되돌릴 수 없는 리비전은 화면이 사유 표시. 그 외 검사(이름 중복·상한·확인 플래그·`detection_methods_empty`)는 되돌리기에도 동일
 - 검증 순서(첫 실패에서 중단, 운영 룰 불변)
 
 | 검사 | 오류 |
@@ -164,7 +165,7 @@ Status: draft
 
 - `changes[].type` ∈ `hard_enabled` / `hard_disabled` / `soft_added` / `soft_updated` / `soft_removed` / `soft_enabled` / `soft_disabled`. `soft_updated`의 `diff`는 바뀐 키만 `[이전, 이후]`(enabled만 바뀌면 `soft_enabled`/`soft_disabled`로 분류)
 - `appliesFrom: "next_decision"` 고정 — 확인창 문구 "저장 이후 새 판정부터 적용"의 근거
-- 화면 성공 문구 "운영에 적용됨 · 리비전 r13". 실패는 오류 코드 그대로 표시, 이전 룰 유지. 확인창 문구 예시: "이상 규칙 1개 끔 · 이상 징후 규칙 1개 추가, 1개 수정, 1개 삭제 — 저장 이후 새 판정부터 적용됩니다"
+- 화면 성공 문구 "운영에 적용됨 · 버전 13". 실패는 오류 코드 그대로 표시, 이전 룰 유지. 확인창 문구 예시: "이상 규칙 1개 끔 · 이상 징후 규칙 1개 추가, 1개 수정, 1개 삭제 — 저장 이후 새 판정부터 적용됩니다"
 
 ## 변경 요약 미리보기 — `POST /api/rule-set/preview` [신규, 관리자, 선택]
 
@@ -221,6 +222,7 @@ Status: draft
 
 - `ops_rule_set_revisions`(가칭): `revision bigint PK, content_hash text, snapshot jsonb(hardRules·softRules 전체, `GET /api/rule-set` 응답과 같은 형식 — `threshold`는 number), changes jsonb, summary jsonb, note text|null, restored_from_revision bigint|null, saved_by_actor_id text, saved_at timestamptz`. **append-only + UPDATE/DELETE 금지 트리거**(003/004의 `erd_v03_immutable`·`prevent_pipeline_immutable_mutation` 방식). r0 행은 마이그레이션이 시스템 기본값으로 삽입
 - 현재 상태 = 최대 `revision` 행. 저장은 `SELECT … FOR UPDATE`(또는 advisory lock)로 현재 리비전을 잠근 뒤 `expectedRevision` 비교 → INSERT revision+1 → 같은 트랜잭션에서 Detector 통지(방식은 Detector/DB: `ops_system_state.revision`과 별개 카운터, 또는 NOTIFY) — 운영 룰이 "바뀌었다"는 사실과 새 리비전 행이 한 트랜잭션에서 확정
+- 잠금 키: `pg_advisory_xact_lock(81739, 0)`(룰 세트·활성 집합·정책 저장 공통, #109)
 - 소프트룰 id 생성은 서버(API) 책임, 유일성은 스냅샷 안에서만 검사하면 충분(삭제된 id 재사용 금지는 hex 난수로 사실상 보장)
 - 판정 행의 룰 리비전 기록 열·인덱스는 Detector·DB(evidence v4) 범위
 

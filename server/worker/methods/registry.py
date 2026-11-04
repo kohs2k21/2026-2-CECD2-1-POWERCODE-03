@@ -112,7 +112,7 @@ class SoftRuleField:
     def evaluate(self, row: Mapping[str, Any]) -> FieldValue:
         """원천 행(`derived_expression.FIELDS` 키)에서 값을 계산한다. 평가 의미론은 Detector 몫."""
         missing = [column for column in self.source_columns
-                   if row.get(derived_expression.FIELDS[column][0]) is None]
+                   if derived_expression.source_absent(row.get(derived_expression.FIELDS[column][0]))]
         if missing:
             # not_applicable(이상 아님)이 하나라도 있으면 그 행은 평가 대상이 아니다.
             policies = {column: self.missing_policy(column) for column in missing}

@@ -1,5 +1,5 @@
 Created: 2026-10-21T00:00:00+09:00
-Updated: 2026-11-04T12:00:00+09:00
+Updated: 2026-11-04T21:00:00+09:00
 Author: Claude Code (Trainer 세션 builder)
 Status: draft
 
@@ -34,7 +34,7 @@ Status: draft
 
 | 기존 | 새 체계 | 비고 |
 |---|---|---|
-| `hr:process-status` | `hard:process-status`(`methodVersion: process-status-hr-v1`, Detector 11/02 회신) | 상태 HR(`status_rule.py`) |
+| `hr:process-status` | `hard:process-status`(`methodVersion: process-status-hr-v2` — `process-status-hr-v1`(Detector 11/02 회신)은 v2로 교체됨, 상태 코드 F·P·Z·H·N, #116) | 상태 HR(`status_rule.py`, 코드는 아직 v1) |
 | `hr:status_failed` 등 연구 HR 8종 | 카탈로그 제거. 하드룰 후보는 후속 Issue(하드룰 내장 목록 확장, 미정)에서 판단 | `research/evaluation/process_synthetic_lab/model.py` 기록 보존 |
 | `rule:<rule_key>` | 임계값형은 `soft:*` 의미. `ml_rule_versions` 행은 읽기 보존, 자동 이관 없음 | `rules.md` API 유지 |
 | `sr:<key>` R00~R23 | **폐기**(등재 없음) | `research/evaluation/trend_sr_comparison/` 보존 |
@@ -185,8 +185,8 @@ Status: draft
 }
 ```
 
-- `hardRules.contractVersion: "detection-decision-v1"`은 Detector 11/02 회신으로 **확정**. 하드룰 예시 id `hard:process-status`(`process-status-hr-v1`)·`hard:negative-duration`(`negative-duration-v1`, kebab-case)도 Detector 회신값
-- 하드룰 **항목 형식**은 카탈로그 JSON에 없음(목록 정의 주체 = Detector). 화면·API가 쓰는 항목 형식 `{id, methodVersion, displayName, conditionText, severity, enabled}`·`severity`(단일 문자열 또는 `{"byCode": {...}}`, #92 4.3 기준)는 [rule-set.md](rule-set.md) `hardRules[]` 행과 동일하며 이 schema에는 항목 정의를 추가하지 않음(`hardRules.displayName`은 대분류 표시명 "이상 규칙"일 뿐 항목 이름이 아님)
+- `hardRules.contractVersion: "detection-decision-v1"`은 Detector 11/02 회신으로 **확정**. 하드룰 내장 목록은 **4개**(#116, Detector 11/04): `hard:process-status`(`process-status-hr-v2` — v1은 v2로 교체됨)·`hard:negative-duration`(`negative-duration-v1`)·`hard:success-with-error`·`hard:count-conservation`(뒤 2개의 `methodVersion`·조건·기본 위험도는 detection-decision.md 4.3 정본 확정 후 기입 [대기]). id는 kebab-case. 레지스트리 참조 상수 `HARD_RULE_IDS`(`server/worker/methods/registry.py`)는 아직 1차 목록 2개·`process-status-hr-v1`이며 코드 갱신은 후속 Issue
+- 하드룰 **항목 형식**은 카탈로그 JSON에 없음(목록 정의 주체 = Detector). 화면·API가 쓰는 항목 형식 `{id, methodVersion, displayName, conditionText, severity, enabled}`·`severity`(단일 문자열 또는 `{"byCode": {...}}`, #92 4.3 기준)·`editable`(`hard:process-status`만 `severity` 편집 가능, #116)은 [rule-set.md](rule-set.md) `hardRules[]` 행과 동일하며 이 schema에는 항목 정의를 추가하지 않음(`hardRules.displayName`은 대분류 표시명 "이상 규칙"일 뿐 항목 이름이 아님)
 - `softRule.instanceIdPattern`의 fieldId 부분은 `[a-z0-9_]{1,53}`(카탈로그 `fieldId` 패턴과 동일, 하이픈 없음) — 식별자 key 전체(`<fieldId>-<8 hex>`)는 `^[a-z][a-z0-9_-]{1,63}$` 안에 들어감
 
 ## 검증·시험(구현 Issue)
@@ -204,4 +204,4 @@ Status: draft
 - 유지(10/21): Q-H IF 기본값 / Q-I `supported := executable.process` / Q-J window 표시만 / Q-K 레지스트리 + 생성 JSON / Q3-1 저장 거부 / N13 KMeans 피처셋 대응 미확정 / N18 `k` 2..64
 - 확정(11/02 9.4): `elapsed_ms`의 END_TIME 누락은 이상 아님(값 null, 평가 안 함) — `sourceMissingPolicy`
 - 결정 질문: Q-C1 초기 필드 6종 확정 여부(후보 `success_ratio`·`elapsed_s`·`retry_ratio` 추가 여부) / Q-C2 `elapsed_ms` 음수 처리(값 그대로 vs unavailable — Detector 의미론과 함께) / Q-C3 `displayPrecisionMode` 기본값 `fixed`·ratio만 `significant`(제안) vs 전 필드 `significant`
-- 남은 의존: 하드룰 내장 목록 전체 key·조건·위험도(detection-decision.md(#92) — 1차 목록은 U3 확정 11/03: `hard:process-status` + `hard:negative-duration`)
+- 남은 의존: 하드룰 내장 목록 전체 key·조건·위험도(detection-decision.md(#92, #112 정정) — 1차 목록 U3(11/03) 2개 → 사용자 11/04 확정 4개(#116): `hard:process-status`(v2)·`hard:negative-duration`·`hard:success-with-error`·`hard:count-conservation`; 새 2개의 `methodVersion`·조건·기본 위험도는 정본 4.3 확정 후 [대기])

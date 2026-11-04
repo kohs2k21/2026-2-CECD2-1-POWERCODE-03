@@ -1,5 +1,5 @@
 Created: 2026-10-21T00:00:00+09:00
-Updated: 2026-11-04T18:00:00+09:00
+Updated: 2026-11-04T21:00:00+09:00
 Author: Claude Code (Trainer 세션 builder)
 Status: draft
 
@@ -7,6 +7,7 @@ Status: draft
 
 - 변경 요약(#94): LLM 추천을 **소프트룰(화면 용어: 이상 징후 규칙) 임계값 추천**으로 재정의. (1) `recommend_thresholds` — 켜진 소프트룰 대상 필드 전체를 한 번에 다루는 LLM 비동기 작업(일괄, R5 b). 1차 연결은 **(가) 코드 p95 + LLM 근거**(현재 코드 동작과 일치, 11/02 9.1 실행 조사); **(나) LLM 숫자 제안**은 `source: ai_proposal`과 확장 필드로만 예약. (2) 규칙별 **수식 추천**은 LLM 없는 동기 계산 API(p95 등 통계) — 작업 큐가 아니라 API 계약. `recommend_rule` DSL 생성은 **폐지 유지**, `recommend_methods`(ML 선택 추천)는 **보류**
 - 2차 개정(사용자 11/02 9.4): 규칙별 수식 추천의 **기준 기간 선택** — (a) 현재 운영 ML 모델이 학습에 쓴 첫 기간 시작 ~ 현재 (b) 최근 1개월·3개월 (c) 사용자 지정 → `POST /api/rule-set/threshold-stats`에 `period.mode` 추가, 운영 모델이 없을 때 (a)는 오류 코드. 일괄 추천 대상은 **저장된 리비전의 켜진 소프트룰**임을 명시(WebUI 11/02 대조), ratio 필드 표시값은 유효숫자 기준(카탈로그 `displayPrecisionMode`)
+- 3차 정정(Issue #116, 11/04, WebUI 요청): `recommend_thresholds`·`threshold-stats` 결과 `threshold`를 **유효숫자 15자리 이내로 반올림한 고정소수 문자열**로 통일(rule-set.md 저장 검증과 일치, 40자 한도 유지), 원값은 `evidence.p95`에 보존, `ai_proposal` 제안값도 같은 정규화·검증; `input_spec`·결과 `ruleSet`에 `contentHashVersion` 동반
 - 3차 정정(Issue #116, 11/04): 수식 추천 SQL 번역의 `datetime_diff` 원천을 `parsed_times`가 아니라 `data_observations.allowed_values`의 `start_time_raw`·`end_time_raw`로 정정(Detector 11/04 확인, #112). 결측·해석 실패 처리를 카탈로그 `sourceMissingPolicy`와 일치시킴
 - 계약 버전: `threshold-recommendation-v1`. 근거 코드 origin/dev `7f24e03`: `worker/research_design.py:36-44`(summary·p95 `np.quantile` linear), `:154-199`(`rule_request` — 기준선 = train 분할·anomaly 라벨 제외 p95, `minimum_n 20`, 단위 `count|ratio|ms|s|us`), `:202-234`(`recommend_rules` — 변수당 LLM 1회 순차, 검증 탈락은 변수만 제외, `str(request["baseline"]["value"])`로 DSL 값 생성), `worker/generation_client.py:54-55`(`TimeoutError`를 `generation_service_unavailable`로 묶음), `backend/src/rules/ruleContract.ts:17`(DSL 십진수 정규식, 지수 표기 거부)
 - 상위 결정: 사용자 11/02 결정 — 임계값 산출 주체(8.1), AI 추천 단위 일괄 + 규칙별 수식(R5), 현재 코드 실행 조사(9.1), 화면 설계(9.2: (가)(나) 모두 담고 (가)로 먼저 연결). 절 번호는 총괄 기록 기준
@@ -43,7 +44,7 @@ Status: draft
 
 | 키 | 규칙 |
 |---|---|
-| `ruleSetRevision` | 추천 기준 룰 세트 리비전([rule-set.md](rule-set.md)). 현재 리비전과 다르면 409 `rule_set_revision_conflict`(화면 새로 불러오기). 작업은 이 리비전(= **저장된** 상태)의 **켜진 소프트룰** 대상 필드를 입력으로 고정(`input_spec`에 `ruleSetContentHash`·대상 목록 기록). **화면에서 편집 중이나 아직 저장하지 않은 규칙(추가·필드 변경·켬)은 대상이 아님** — 화면은 미저장 변경이 있으면 "저장 후 추천" 안내(WebUI 11/02 대조) |
+| `ruleSetRevision` | 추천 기준 룰 세트 리비전([rule-set.md](rule-set.md)). 현재 리비전과 다르면 409 `rule_set_revision_conflict`(화면 새로 불러오기). 작업은 이 리비전(= **저장된** 상태)의 **켜진 소프트룰** 대상 필드를 입력으로 고정(`input_spec`에 `ruleSetContentHash`·`ruleSetContentHashVersion`(그 리비전 행의 `contentHash`·`contentHashVersion` 그대로, 재계산 없음 — [rule-set.md](rule-set.md) 리비전 형식 절, #116)·대상 목록 기록). **화면에서 편집 중이나 아직 저장하지 않은 규칙(추가·필드 변경·켬)은 대상이 아님** — 화면은 미저장 변경이 있으면 "저장 후 추천" 안내(WebUI 11/02 대조) |
 | `scope.softRuleIds` | null = 켜진 소프트룰 전체(R5 b 일괄). 배열이면 그 중 부분집합(화면 선택). 같은 필드를 쓰는 룰이 여러 개면 **필드당 1건** 계산하고 응답에서 룰 id 목록으로 묶음 |
 | `data.snapshotId` | 집계 출처(ready, `purpose` 무관하게 **train 분할**만 사용 — 현행 `rule_request` scope). 생략 시 `from/until`(+`timeBasis`)로 snapshot 생성하는 현행 추천 경로 재사용 [유지 10/21]. 둘 다 없으면 400 |
 | `mode` | `data_p95_with_llm_rationale`(가, 기본·유일 구현) / `ai_proposal`(나, 예약 — 어댑터 없으면 422 `recommendation_mode_not_available`) |
@@ -63,7 +64,7 @@ Status: draft
 {
   "recommendationContractVersion": "threshold-recommendation-v1",
   "mode": "data_p95_with_llm_rationale",
-  "ruleSet": {"revision": 13, "contentHash": "9c40…"},
+  "ruleSet": {"revision": 13, "contentHash": "9c40…", "contentHashVersion": 2},
   "data": {"snapshotId": "<snapshot UUID>", "split": "train", "timeBasis": "esb_occurred_at",
            "exclusionRule": "status=S, explicit anomaly labels excluded; unlabeled retained", "rowCount": 47120},
   "provider": "rule_v2",
@@ -111,15 +112,15 @@ Status: draft
 | `field` | 카탈로그 `fieldId`. `softRuleIds[]` = 이 필드를 쓰는 켜진 소프트룰(화면이 행마다 [적용] 가능) |
 | `currentThreshold` | 요청 시점 룰의 임계값(참고 표시). 룰이 여러 개면 첫 룰 값(id 사전순)·나머지는 화면이 룰 세트에서 읽음 |
 | `operator` | 1차는 항상 `gt`(코드 `reference_policy.operator`, `>p95`). 화면 조건과 다르면 사람이 조정. `status≠proposed`면 null |
-| `threshold` | **원값, 고정소수 문자열**(`Decimal` → `format(d, "f")`, 지수 표기 금지, 40자 이내·필드 `valueType=integer`면 정수). 11/02 9.1 결함 대응: p95가 1e-4 미만이어도 `"0.00003125"` 형태로 직렬화. 변환 실패(비유한·40자 초과 → 필드 `displayPrecision+6` 자리로 반올림 후 재시도, 그래도 실패)는 그 필드만 `rejected`(`threshold_serialization_failed`), **작업은 성공** |
+| `threshold` | **유효숫자 15자리 이내로 반올림한 고정소수 문자열**(#116, WebUI 요청): 계산 원값(numpy p95 등, 예 `956.4999999999995`)을 `Decimal`로 유효숫자 15자리(`ROUND_HALF_EVEN`)로 줄인 뒤 `format(d, "f")`·후행 0·소수점 제거(지수 표기 금지, 40자 이내·필드 `valueType=integer`면 정수) — [rule-set.md](rule-set.md) 저장 검증(`소프트룰.threshold` 유효 숫자 ≤ 15자리·`threshold` 변환 규칙)과 같은 규칙이라 화면이 [적용]한 값이 그대로 저장을 통과함. 원값은 `evidence.p95`에 반올림 없이 그대로 남김. 11/02 9.1 결함 대응: p95가 1e-4 미만이어도 `"0.00003125"` 형태로 직렬화. 변환 실패(비유한·40자 초과 → 필드 `displayPrecision+6` 자리로 반올림 후 재시도, 그래도 실패)는 그 필드만 `rejected`(`threshold_serialization_failed`), **작업은 성공** |
 | `displayThreshold` | 카탈로그 `displayPrecision`·`displayPrecisionMode`로 만든 표시 문자열(원값 툴팁): `fixed`(count·ms)는 소수 자릿수, `significant`(ratio)는 **유효숫자** 자릿수 — `error_ratio` p95 `0.00003125`는 유효숫자 4로 `"0.00003125"`(고정 소수 4면 `"0.0000"`이 되어 값이 사라지는 문제 방지, WebUI 11/02 대조). 지수 표기 금지는 표시값에도 적용 |
 | `unit` | 카탈로그 단위 |
 | `source` | `data_p95`(가, 코드 계산) / `ai_proposal`(나, 예약) |
 | `status` | `proposed`(적용 가능) / `request_evidence`(근거 부족 — LLM 상태) / `deferred`(보류 — LLM 상태) / `no_applicable`(해당 없음 — 기준선 `unavailable`: 표본 < 20·값 전부 결측·단위 미검증·분산 없음) / `rejected`(검증 탈락·형식 오류·직렬화 실패, `rejectedReason`) — 현행 `rule_v2` 출력 `state` 5종과 대응. 화면은 `proposed`만 선택 가능, 나머지는 사유와 함께 회색 |
 | `rejectedReason` | `invalid_generation_output`(스키마 위반·`truncated`) / `expected_target_mismatch`(LLM이 숫자를 직접 냄 등) / `factual_review_failed` / `threshold_serialization_failed` / `generation_failed:<code>`(그 필드 호출만 실패, 아래 실패 절) |
-| `evidence` | `n`(기준 표본 `valid_count`)·`min`·`max`·`p95`(number 원값)·`quantileMethod`·`exclusionRule`·`measurementId`/`baselineId`(`m_…`/`b_…`, 입력 집계 ID — 근거 추적) |
+| `evidence` | `n`(기준 표본 `valid_count`)·`min`·`max`·`p95`(number **원값** — `threshold`의 15자리 반올림 전 값, 예 `956.4999999999995` 그대로)·`quantileMethod`·`exclusionRule`·`measurementId`/`baselineId`(`m_…`/`b_…`, 입력 집계 ID — 근거 추적) |
 | `rationale` | LLM 근거 문장(현재 영문, 한글은 LLM 팀원 범위). ≤ 500자. `rejected`는 null |
-| `aiProposal` | (나) 예약. 켜지면 `{threshold: "<고정소수>", displayThreshold, operator, validation: {inRange: boolean, unitMatched: boolean}, rawText}`; 1차는 항상 null |
+| `aiProposal` | (나) 예약. 켜지면 `{threshold: "<고정소수>", displayThreshold, operator, validation: {inRange: boolean, unitMatched: boolean}, rawText}`; 1차는 항상 null. LLM 제안 숫자도 위 `threshold`와 **같은 정규화**(유효숫자 15자리 반올림 → 고정소수 문자열)를 거친 뒤 [rule-set.md](rule-set.md) 저장 검증과 **동일 규칙**(유한값·15자리·정수 필드 정수·40자·DSL 정규식)으로 검사하고, 위반이면 그 항목 `rejected`(`rejectedReason`은 기존 코드 — 직렬화·정밀도 위반 `threshold_serialization_failed`, 범위·단위 불일치 `expected_target_mismatch`) (#116) |
 | `reviews` | 서버 검증 단계 결과 `{schema, facts, expectedTarget}`(현행 `validate_rule`·`factual_review`·`expected_target`) |
 | (없음) `severity` | **응답에 없음** [확정 11/02 9.2]: 위험도는 사람이 고름(화면 기본 `warning`) |
 
@@ -179,6 +180,7 @@ Status: draft
 ```
 
 - `status`: `proposed` / `no_applicable`(n < 20 또는 분산 없음 — `minimum_n 20` 현행과 동일) / `rejected`(직렬화 실패). `rationale`은 항상 null(LLM 없음). 위험도 없음
+- `threshold`는 서버가 이미 유효숫자 15자리로 줄여 내므로 위 `recommend_thresholds` 결과의 `threshold` 규칙(15자리 반올림 고정소수 문자열, 원값은 `evidence.p95`)과 같은 규칙 (#116)
 - 오류: 400 `invalid_threshold_stats_request`, 422 `soft_rule_field_unknown:<field>`, 400 `period_too_long`, 422 `active_model_missing`(mode (a)에서 활성 모델 집합이 비어 있고 v1·v2 활성도 없음), 422 `active_model_period_unknown`(mode (a)에서 v1·v2 활성 행의 학습 기간 투영 불가 — 응답 `{hint: "custom"}`)
 - 응답 시간 목표 ≤ 3초(인덱스 `(source_id, source_log_occurred_at)` 요구 — [trainer-service.md](trainer-service.md) 거래량 API와 공유)
 

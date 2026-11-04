@@ -1,5 +1,5 @@
 Created: 2026-11-02T18:00:00+09:00
-Updated: 2026-11-04T12:00:00+09:00
+Updated: 2026-11-04T21:00:00+09:00
 Author: Claude Code (Trainer 세션 builder)
 Status: draft
 
@@ -89,7 +89,7 @@ Status: draft
 | `operationalEligibility`·`preparedDatasetId`·`preparedInputContract` | 기존 키 유지([prepared-csv-v1](prepared-csv-import.md)). prepared 계보 후보가 하나라도 있으면 버전 전체 `eligible=false` [유지 #74] |
 | (없음) `statusRulePolicy`·`ruleVersionIds` | **v3에 없음**(v1·v2 전용 파생 복사본). 판독기는 v3에서 이 키를 요구하지 않음 |
 
-- 내용 hash(`content_hash`, `contentHashVersion: 2`) [유지 #74, 룰 항목 제거 + 이번 개정에서 `detectionPolicy` 제거]: `sourceId`, `featureSetId`, `methods[]`의 `methodId`·`enabled`·`parameters`·`artifacts.modelArtifactId/fitArtifactId`·`featureSetId`를 `json.dumps(obj, sort_keys=True, separators=(",", ":"), ensure_ascii=False)`의 **UTF-8 바이트**로 SHA-256 hex(소문자 64자, 접두 없음) — 룰 세트 `contentHash`([rule-set.md](rule-set.md))와 **같은 직렬화**. 현행 v1·v2 hash 코드(`runner.py:408`, 기본 separators·`ensure_ascii=True`)와는 다르며 그 코드는 v1·v2 행 전용으로 남김. `displayName`·`baseVersionId`·`createdFrom`·`catalogVersion`·`trainingSnapshotId`·`trainingSelection`은 제외. 같은 `sourceId`·`contentHashVersion=2` 행끼리만 중복 비교. 번호 2를 유지하는 이유: `contentHashVersion: 2`로 저장된 행이 아직 없음(#74 v3 미구현)
+- 내용 hash(`content_hash`, `contentHashVersion: 2`) [유지 #74, 룰 항목 제거 + 이번 개정에서 `detectionPolicy` 제거]: `sourceId`, `featureSetId`, `methods[]`의 `methodId`·`enabled`·`parameters`·`artifacts.modelArtifactId/fitArtifactId`·`featureSetId`를 `json.dumps(obj, sort_keys=True, separators=(",", ":"), ensure_ascii=False)`의 **UTF-8 바이트**로 SHA-256 hex(소문자 64자, 접두 없음) — 룰 세트 `contentHash`([rule-set.md](rule-set.md), 룰 세트 `contentHashVersion` 1·2 모두 — 룰 세트 v2는 정규 객체에 하드룰 `severity`를 넣는 차이뿐, #116)와 **같은 직렬화**. 현행 v1·v2 hash 코드(`runner.py:408`, 기본 separators·`ensure_ascii=True`)와는 다르며 그 코드는 v1·v2 행 전용으로 남김. `displayName`·`baseVersionId`·`createdFrom`·`catalogVersion`·`trainingSnapshotId`·`trainingSelection`은 제외. 같은 `sourceId`·`contentHashVersion=2` 행끼리만 중복 비교. 번호 2를 유지하는 이유: `contentHashVersion: 2`로 저장된 행이 아직 없음(#74 v3 미구현)
 - 같은 구성 재저장 [유지 #74]: 막지 않고 `200 {id: <기존>, duplicateOf: <기존>, …}`. 중복이 아니면 `201`·`duplicateOf: null`. 중복 저장은 자동 비교 평가를 만들지 않음([config-comparison-evaluation.md](config-comparison-evaluation.md) 자동 비교 절)
 
 ## 생성 경로
@@ -193,21 +193,21 @@ Status: draft
 - gate = 기술 무결성만 [유지 #74]: 해당 버전의 `purpose=validation` 평가 `applicability='valid' AND scored_count>0 AND unavailable_count=0` + prepared 아님 + 버전 `executable=true` + 산출물 경로·hash 검증. 최종 관문은 사람 수락. 자동 교체·자동 활성화·자동 빼기 금지
 - `evaluationId`에 비교 평가가 만든 버전별 `run_evaluations` 행 허용. `acceptedRecommendation: {comparisonJobId, modelKey, targetVersionId}`(mismatch 400 `accepted_recommendation_mismatch`, stale 400 `accepted_recommendation_stale` — **stale 기준은 같은 `modelKey`의 활성 변경**: 그 `modelKey`의 현재 활성 버전 ≠ 추천의 `baselineConfigVersionId`(빼기로 활성 없음 포함) 또는 평가 세트가 `ready`가 아님; 다른 `modelKey`의 활성화·빼기만으로는 stale이 아님 — Detector 11/02 Q-E4 확정, [config-comparison-evaluation.md](config-comparison-evaluation.md) stale 절) [유지 #74 N22·R10, 기준만 전환]
 - v3 준비 검사(Detector 소유, 요구만): 활성 집합의 `ml:*`마다 artifact·fit·feature set 일치(현행 `model_key='iforest'` 1행 고정 `configRoutes.ts:117-126`·`applications.py:13-32`를 집합 N행으로). **`ml_config_rules` 0행이 정상**(v1·v2 경로는 그대로)
-- `gate_evidence` `gateVersion: 2`에 `comparisonJobId`·`evaluationSetId`·`acceptedRecommendation`·`recommendationRuleVersion` + **조작 시점 룰 세트 `{revision, contentHash}`·정책 `detectionPolicyRevision`·활성 집합 `{before: revision, after: revision}`** 기록 [제안] — 이력에서 "그때 룰·정책·집합이 무엇이었는지" 추적
+- `gate_evidence` `gateVersion: 2`에 `comparisonJobId`·`evaluationSetId`·`acceptedRecommendation`·`recommendationRuleVersion` + **조작 시점 룰 세트 `{revision, contentHash, contentHashVersion}`(행 값 그대로)·정책 `detectionPolicyRevision`·활성 집합 `{before: revision, after: revision}`** 기록 [제안] — 이력에서 "그때 룰·정책·집합이 무엇이었는지" 추적
 - 활성 집합 변경은 **룰 세트·정책에 영향 없음**(각각 별도 리비전). 복원이 룰·정책을 되돌리지 않음
 - 이력 — `GET /api/active-models/history?limit=&cursor=`(로그인 사용자): `{items: [{revision, changedAt, changedBy, note, restoredFromRevision, changes[], summary: {activated, replaced, retired}}], pagination}`; `GET /api/active-models/history/:revision`은 + `snapshot.models[]`. append-only
-- **일관 읽기 요구사항**(Detector 11/02 회신·합의): 판정 시도 시작 시 **(룰 세트 `revision`·`contentHash`, 활성 집합 `revision`(+ 모델 목록), 정책 `revision`(+ 정책 값)) 세 가지**를 **한 번에 일관되게** 읽을 수 있어야 함 — 운영 상태 조회 **응답 한 건**이 셋을 함께 담음. **고정 단위는 시도(attempt)** [확정 11/03 #92 U5]: 세 리비전은 시도마다 그 시도 시작 시점에 한 번에 새로 읽음(재시도는 이전 시도의 리비전을 이어 쓰지 않음; 작업 생성·큐 payload에 고정하는 작업 단위 안은 채택되지 않음 — #92 10절)
+- **일관 읽기 요구사항**(Detector 11/02 회신·합의): 판정 시도 시작 시 **(룰 세트 `revision`·`contentHash`·`contentHashVersion`, 활성 집합 `revision`(+ 모델 목록), 정책 `revision`(+ 정책 값)) 세 가지**를 **한 번에 일관되게** 읽을 수 있어야 함 — 운영 상태 조회 **응답 한 건**이 셋을 함께 담음. **고정 단위는 시도(attempt)** [확정 11/03 #92 U5]: 세 리비전은 시도마다 그 시도 시작 시점에 한 번에 새로 읽음(재시도는 이전 시도의 리비전을 이어 쓰지 않음; 작업 생성·큐 payload에 고정하는 작업 단위 안은 채택되지 않음 — #92 10절)
 
 ```json
 {
-  "ruleSet": {"revision": 13, "contentHash": "9c40…"},
+  "ruleSet": {"revision": 13, "contentHash": "9c40…", "contentHashVersion": 2},
   "activeModelSet": {"revision": 7, "models": [{"configVersionId": "<config UUID>", "modelKey": "iforest", "activatedAtRevision": 5}]},
   "detectionPolicy": {"revision": 2, "policy": {"version": 2, "policyKey": "category-k-of-n-or-v1", "k": {"hard": 1, "soft": 1, "ml": 1}, "deadlineMs": 3000}},
   "readAt": "2026-11-02T10:00:00Z"
 }
 ```
 
-- 경로 `GET /api/operational-state`(가칭, 로그인 사용자; Detector는 같은 내용을 DB에서 같은 스냅샷으로 읽음). 구현 방식(같은 트랜잭션 SELECT·`ops_system_state`에 세 리비전 열 추가 등)은 DB·Detector. Detector는 evidence v4에 `ruleSetRevision`·`ruleSetHash`·**`activeModelSetRevision`(정수)·`detectionPolicyRevision`(정수)**를 기록하고 정책 값은 evidence `detectionPolicy`에 그대로 복사(`detectionPolicySource` 같은 출처 필드는 **없음** — Detector 11/02 합의)
+- 경로 `GET /api/operational-state`(가칭, 로그인 사용자; Detector는 같은 내용을 DB에서 같은 스냅샷으로 읽음). 구현 방식(같은 트랜잭션 SELECT·`ops_system_state`에 세 리비전 열 추가 등)은 DB·Detector. Detector는 evidence v4에 `ruleSetRevision`·`ruleSetHash`(행의 `contentHash` 그대로 복사 — hash 버전은 `ruleSetRevision`으로 식별, [rule-set.md](rule-set.md) 리비전 형식 절 #116)·**`activeModelSetRevision`(정수)·`detectionPolicyRevision`(정수)**를 기록하고 정책 값은 evidence `detectionPolicy`에 그대로 복사(`detectionPolicySource` 같은 출처 필드는 **없음** — Detector 11/02 합의)
 
 ## 운영 설정 — `detectionPolicy` 전역 값 [확정 11/02 Q-M1, Q-M2 귀결 — Detector 11/02 동의]
 

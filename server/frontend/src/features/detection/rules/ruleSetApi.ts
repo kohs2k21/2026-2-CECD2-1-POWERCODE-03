@@ -6,14 +6,17 @@ import { httpClient } from "@/services/api/client";
  */
 export type Severity = "info" | "warning" | "critical";
 export type SoftRuleOperator = "gte" | "gt" | "lte" | "lt";
+export type SeverityByCode = { byCode: Record<string, Severity> };
 export type Actor = { actorId: string; displayName: string };
 export type HardRule = {
   id: string;
   methodVersion: string;
   displayName: string;
   conditionText: string;
-  severity: Severity | { byCode: Record<string, Severity> };
+  severity: Severity | SeverityByCode;
   enabled: boolean;
+  /** severity가 들어 있는 규칙만 코드별 위험도를 바꿀 수 있다. */
+  editable: string[];
 };
 export type SoftRule = {
   id: string;
@@ -28,6 +31,7 @@ export type SoftRule = {
 export type RuleSetState = {
   revision: number;
   contentHash: string;
+  contentHashVersion: number;
   savedAt: string;
   savedBy: Actor;
   restoredFromRevision: number | null;
@@ -36,7 +40,7 @@ export type RuleSetState = {
   softRules: SoftRule[];
 };
 export type RuleSetChange = {
-  type: "hard_enabled" | "hard_disabled" | "soft_added" | "soft_updated" | "soft_removed" | "soft_enabled" | "soft_disabled";
+  type: "hard_enabled" | "hard_disabled" | "hard_updated" | "soft_added" | "soft_updated" | "soft_removed" | "soft_enabled" | "soft_disabled";
   id: string | null;
   name?: string;
   displayName?: string;
@@ -57,7 +61,7 @@ export type RuleSetRequest = {
   confirmHardRuleDisable: boolean;
   restoreFromRevision: number | null;
   note: null;
-  hardRules: { id: string; enabled: boolean }[];
+  hardRules: { id: string; enabled: boolean; severity?: SeverityByCode }[];
   softRules: SoftRuleRequest[];
 };
 export type RuleSetPreview =
@@ -71,10 +75,11 @@ export type HistoryItem = {
   note: string | null;
   restoredFromRevision: number | null;
   contentHash: string;
+  contentHashVersion: number;
   changes: RuleSetChange[];
 };
 export type HistoryPage = { items: HistoryItem[]; pagination: { limit: number; hasMore: boolean; nextCursor: string | null } };
-export type HistoryDetail = HistoryItem & { snapshot: { hardRules: { id: string; enabled: boolean }[]; softRules: SoftRule[] } };
+export type HistoryDetail = HistoryItem & { snapshot: { hardRules: { id: string; enabled: boolean; severity?: unknown }[]; softRules: SoftRule[] } };
 export type SoftRuleField = {
   fieldId: string;
   displayName: string;

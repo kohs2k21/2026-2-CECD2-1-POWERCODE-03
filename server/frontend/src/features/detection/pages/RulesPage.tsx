@@ -16,7 +16,7 @@ import {
   HARD_TERM, SOFT_TERM, draftChangeCount, draftFromState, draftIssues, errorCode, restoreRequest, saveRequest, softCondition,
   type DraftSoftRule, type RuleDraft,
 } from "../rules/ruleDraft";
-import { previewRuleSet, readRuleSetRevision, saveRuleSet, type RuleSetRequest, type RuleSetState } from "../rules/ruleSetApi";
+import { previewRuleSet, readRuleSetRevision, saveRuleSet, type RuleSetRequest, type RuleSetState, type Severity } from "../rules/ruleSetApi";
 import { useRuleSet, useSoftRuleFields } from "../rules/useRuleSet";
 
 type Banner =
@@ -178,7 +178,7 @@ const RulesEditor = ({ state, reload, onSavedStale }: {
     try {
       const detail = await readRuleSetRevision(revision);
       await openConfirm(
-        (confirm) => restoreRequest(detail, state.revision, confirm),
+        (confirm) => restoreRequest(detail, state, confirm),
         (changes) => ({
           title: `버전 ${revision} 상태로 되돌리기`,
           lead: `현재 버전 ${state.revision}에서 버전 ${revision} 상태를 새 버전으로 다시 적용합니다. 변경 ${changes}건${changeCount ? ` · 편집 중인 변경 ${changeCount}건은 버려집니다` : ""}`,
@@ -197,6 +197,11 @@ const RulesEditor = ({ state, reload, onSavedStale }: {
     setDraft((current) => ({ ...current, soft: current.soft.map((rule) => (rule.key === key ? { ...rule, ...patch } : rule)) }));
   const toggleHard = (id: string, enabled: boolean) =>
     setDraft((current) => ({ ...current, hard: current.hard.map((rule) => (rule.id === id ? { ...rule, enabled } : rule)) }));
+  const setHardSeverity = (id: string, code: string, level: Severity) =>
+    setDraft((current) => ({
+      ...current,
+      hard: current.hard.map((rule) => (rule.id === id && rule.severity ? { ...rule, severity: { byCode: { ...rule.severity.byCode, [code]: level } } } : rule)),
+    }));
   const addRule = (rule: Pick<DraftSoftRule, "name" | "field" | "operator" | "threshold" | "severity">) => {
     setDraft((current) => ({ ...current, nextRef: current.nextRef + 1, soft: [...current.soft, { ...rule, key: `new-${current.nextRef}`, id: null, enabled: true }] }));
     setAdding(false);
@@ -205,10 +210,27 @@ const RulesEditor = ({ state, reload, onSavedStale }: {
   return (
     <>
       <RuleStatus state={state} />
-      {banner && <RuleBanner banner={banner} onReload={() => void reloadFromServer()} />}
+      {/* 저장 줄·결과 안내·입력 확인은 스크롤과 무관하게 머리글 아래에 고정한다. 부모가 grid면 sticky가 자기 행 안에서만 움직여 RulesPage 바탕은 flex다. */}
+      <div data-rule-sticky className="sticky top-(--top-nav-offset) z-(--z-sticky) grid gap-2 bg-background py-2">
+        {banner && <RuleBanner banner={banner} onReload={() => void reloadFromServer()} />}
+        {issues.length > 0 && (
+          <ul className="grid gap-1 text-sm text-warning-text">
+            {issues.map((issue) => <li key={issue}>확인 필요 · {issue}</li>)}
+          </ul>
+        )}
+        <Card aria-live="polite" data-rule-save-bar className="py-3">
+          <CardContent className="flex flex-wrap items-center justify-between gap-3 text-sm">
+            <span><strong className="font-semibold">변경 {changeCount}건</strong> · 저장하면 바로 운영에 적용됩니다</span>
+            <span className="flex gap-2">
+              <Button size="sm" variant="outline" disabled={!changeCount || busy} onClick={() => setCancelling(true)}>변경 취소</Button>
+              <Button size="sm" disabled={!changeCount || issues.length > 0 || busy} onClick={openSave}>저장</Button>
+            </span>
+          </CardContent>
+        </Card>
+      </div>
       {/* 미리보기·저장 대기 중에는 편집을 잠근다. 요청은 누른 시점의 초안이고 성공하면 초안을 새 상태로 맞추므로, 그 사이 입력은 조용히 사라진다. */}
       <fieldset disabled={busy} aria-label={`${HARD_TERM}·${SOFT_TERM}`} className="grid min-w-0 gap-6">
-        <HardRulesCard draft={draft} onToggle={toggleHard} />
+        <HardRulesCard draft={draft} onToggle={toggleHard} onSeverity={setHardSeverity} />
         <SoftRulesCard
           draft={draft} fields={fieldList} fieldsError={fields.isError ? errorCode(fields.error) : null}
           aiControls={<RuleAiControls ai={ai} />}
@@ -216,20 +238,6 @@ const RulesEditor = ({ state, reload, onSavedStale }: {
           onEdit={editSoft} onAdd={() => setAdding(true)} onDelete={setDeleting}
         />
       </fieldset>
-      {issues.length > 0 && (
-        <ul className="grid gap-1 text-sm text-warning-text">
-          {issues.map((issue) => <li key={issue}>확인 필요 · {issue}</li>)}
-        </ul>
-      )}
-      <Card aria-live="polite" data-rule-save-bar>
-        <CardContent className="flex flex-wrap items-center justify-between gap-3 text-sm">
-          <span><strong className="font-semibold">변경 {changeCount}건</strong> · 저장하면 바로 운영에 적용됩니다</span>
-          <span className="flex gap-2">
-            <Button variant="outline" disabled={!changeCount || busy} onClick={() => setCancelling(true)}>변경 취소</Button>
-            <Button disabled={!changeCount || issues.length > 0 || busy} onClick={openSave}>저장</Button>
-          </span>
-        </CardContent>
-      </Card>
       <RuleHistoryCard key={state.revision} state={state} disabled={busy} onRevert={(revision) => void openRevert(revision)} />
       {pending && <RuleSaveDialog pending={pending} onCancel={() => setPending(null)} />}
       {adding && <RuleAddDialog fields={fieldList} onAdd={addRule} onCancel={() => setAdding(false)} />}
@@ -272,7 +280,7 @@ export const RulesPage = () => {
     if (!rules.isError) setSavedStale(null);
   }, [rules.isError]);
   return (
-    <div className="grid min-w-0 gap-6">
+    <div className="flex min-w-0 flex-col gap-6">
       <ScreenTitle>룰 설정</ScreenTitle>
       {rules.isPending && <LoadingState>현재 운영 룰 조회 중…</LoadingState>}
       {rules.isError && <ErrorState title={`현재 운영 룰 조회 실패 · ${errorCode(rules.error)}`} onRetry={() => void rules.refetch()} retryLabel="다시 조회" />}

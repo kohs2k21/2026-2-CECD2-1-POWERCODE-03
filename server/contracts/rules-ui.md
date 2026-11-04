@@ -7,7 +7,7 @@ Status: current
 
 - 범위: `/detection/rules` 관리자 화면(#109, 상위 #101). 화면 기준 와이어프레임 #93 `section[data-view="detect-rules"]`. 요청·응답·검증 정본은 [rule-set.md](rule-set.md), 수식 추천은 [llm-recommendation-job.md](llm-recommendation-job.md) "규칙별 수식 추천" 절. 이 문서는 화면 규칙과 구현에서 정한 값만 적는다
 - 연결: `/api/rule-set`(`backend/src/routes/ruleSetRoutes.ts`), 순수 규칙 `backend/src/ruleset/ruleSetContract.ts`, 저장소 `ruleSetStore.ts`, 수식 추천 `thresholdStats.ts`
-- 내장 상수: 이상 규칙 목록 `ruleset/hardRuleCatalog.ts`, 등록 필드 `ruleset/softRuleCatalog.ts`. 각각 detection-decision.md 4.3·method-catalog.md 예시와 같은 값이며 `tests/rule-set-contract.test.mjs`가 문서와 대조한다. 정본 코드가 생기면 이 두 파일만 바꾼다
+- 내장 상수: 이상 규칙 목록 `ruleset/hardRuleCatalog.ts`(4개: 상태 규칙, 시각 역전, 성공 상태이나 오류 건수가 기록됨, 건수 합계 불일치), 등록 필드 `ruleset/softRuleCatalog.ts`. 각각 detection-decision.md 4.3·method-catalog.md 예시와 같은 값이며 `tests/rule-set-contract.test.mjs`가 문서와 대조한다. 정본 코드가 생기면 이 두 파일만 바꾼다
 - 인증·역할: 기존 Bearer. 없음·잘못된 토큰 401. 조회·이력 = user/admin, 저장·미리보기·수식 추천 = admin(그 외 403 `admin_required`). 화면 자체는 admin 메뉴
 - 저장소: `ops_rule_set_revisions`(마이그레이션 015). 저장은 트랜잭션 1개 — `pg_advisory_xact_lock(81739, 0)` → 일반 SELECT로 현재 리비전 읽기 → `expectedRevision` 비교 → 검증 → 일반 INSERT. API 역할에 UPDATE가 없어 `SELECT … FOR UPDATE`는 쓰지 않는다. NOTIFY 없음. 조회·저장 실패 503 `rule_set_storage_unavailable`(오류 원문 비노출, 빈 룰로 대체하지 않음)
 
@@ -22,14 +22,23 @@ Status: current
 | 영역 | 내용 |
 |---|---|
 | 현재 운영 룰 | `현재 운영 버전 N` · 마지막 변경 · 변경자 · 켜진 규칙 수(이상 규칙 n/n · 이상 징후 규칙 n/n). `GET /api/rule-set` 응답 그대로 |
-| 알림 줄 | 저장 중 / 적용됨 / 저장 실패(코드 그대로) / 저장 거절(리비전 충돌, `새로 불러오기`) |
-| 이상 규칙 | 규칙·조건·위험도·켜기. 켜기만 편집. `severity.byCode`는 위험도마다 한 줄로 코드 끝 글자를 쉼표로 묶어 위험 → 주의 → 참고 순서로 세로 표시(`위험 F` / `주의 P, N`, 코드가 늘면 자동 반영, 사용자 11/04). 구역 맨 아래에 켜짐·꺼짐과 무관한 상시 경고 한 줄 `명백한 이상을 놓칠 수 있습니다. 변경을 권장하지 않습니다.`(규칙 이름 없음, 경보 역할 아님, 사용자 11/04). 저장 확인창의 강조·확인 체크는 그대로 |
+| 고정 줄 | 이상 규칙 위, 머리글 아래에 스크롤과 무관하게 고정(사용자 11/04). 알림(저장 중 / 적용됨 / 저장 실패(코드 그대로) / 저장 거절(리비전 충돌, `새로 불러오기`)), 입력 확인(`확인 필요 · …`), 저장 줄(`변경 N건`(서버 `changes[]`와 같은 단위), `변경 취소`, `저장`(변경이 있고 입력 확인 통과 시 활성)). 표 내용을 가리지 않게 바탕은 `--background`, 층은 `--z-sticky`(머리글 아래), 위치는 `--top-nav-offset`(TopNav가 실제 높이로 갱신) |
+| 이상 규칙 | 규칙·조건·위험도·켜기. 켜기는 전부, 위험도는 `editable`에 `severity`가 있는 규칙(상태 규칙 `hard:process-status`)만 코드별 선택(아래 절). 목록은 API 응답대로 그리므로 규칙이 늘어도 코드 수정이 없다. `severity.byCode`는 위험도마다 한 줄로 코드 끝 글자를 쉼표로 묶어 위험 → 주의 → 참고 순서로 세로 표시(`위험 F` / `주의 P, N`, 코드가 늘면 자동 반영, 사용자 11/04). 구역 맨 아래에 켜짐·꺼짐과 무관한 상시 경고 한 줄 `명백한 이상을 놓칠 수 있습니다. 변경을 권장하지 않습니다.`(규칙 이름 없음, 경보 역할 아님, 사용자 11/04). 저장 확인창의 강조·확인 체크는 그대로 |
 | 이상 징후 규칙 | 규칙 이름·대상 필드(읽기 전용)·조건·임계값·단위·위험도·켜기·수식 추천·삭제. `규칙 추가`는 등록 필드를 받은 뒤 활성. 머리글에 `AI 규칙 추천`(아래 절) |
-| 저장 줄 | `변경 N건`(규칙 1개당 1건, 서버 `changes[]`와 같은 단위), `변경 취소`, `저장`(변경이 있고 입력 확인 통과 시 활성) |
 | 변경 기록 | 버전·시각·변경자·요약·되돌리기. 현재 버전 행은 되돌리기 없음, 그 밖의 모든 행에 `이 상태로 되돌리기`(현재와 같은 상태인 행은 비활성: hash와 규칙 이름 비교). 50건씩 `더 보기`, 끝나면 버튼 없음 |
 
 - 등록 필드는 `GET /api/jobs/capabilities`의 `methodCatalog.softRuleFields`로 받는다. `methodCatalog`는 지금 ML `methods[]` 없이 `catalogVersion`·`generatedFrom`·`categoryDisplayNames`·`hardRules`·`softRule`·`softRuleFields`만 담는다(레지스트리 생성 JSON 전). 응답에 없으면 오류로 표시하고 규칙 추가를 막는다
 - 변경자 표시: 관리자 응답은 계정 email, 일반 사용자 응답과 계정이 없는 값(r0의 `system`)은 계정 ID
+
+## 상태 규칙 코드별 위험도(사용자 11/04)
+
+- 코드 F·P·Z·H·N, 기본값 F 위험, P·Z 주의, H·N 참고(`process-status-hr-v2`). 코드마다 `NativeSelect`로 위험·주의·참고를 고른다. 줄은 위험 → 주의 → 참고 순서로 세로 묶음이고 묶음 첫 줄에 위험도 배지가 있다
+- 코드 옆에 뜻을 표시: S 성공, F 실패, P 처리중, N 미처리, H 부분성공, Z 데이터없음. 목록에 없는 코드는 코드만 표시한다
+- 저장 요청: `hard:process-status`에 `severity.byCode` 5코드 전부, 다른 규칙은 `severity` 없음. 위험도 변경은 변경 건수·이탈 확인·변경 취소·되돌리기에 포함되고, 확인창·변경 기록에는 `이상 규칙 수정 · 상태가 S가 아님 · 위험도 N 미처리 참고 → 주의`처럼 바뀐 코드만 표시한다(`hard_updated`)
+- 켜기와 위험도를 함께 바꾸면 변경 2건(`hard_disabled`/`hard_enabled` + `hard_updated`)이다. 확인 체크는 새로 끄는 경우만
+- 되돌리기 본문: 위험도는 편집 가능한 규칙만 스냅샷 값으로 보낸다. 이전 `methodVersion` 출처(버전 0 등)의 값은 서버가 무시하고 내장 기본값으로 채운다
+- 스냅샷에 없는 내장 규칙은 꺼짐·내장 기본 위험도로 표시한다(버전 0은 규칙 2개만 있어 나머지 2개가 꺼짐으로 보인다). 그 버전으로 되돌리면 켜져 있던 그 규칙들은 새로 꺼지는 것이라 확인 체크가 필요하다
+- 내용 hash는 `contentHashVersion` 2(이상 규칙 `severity` 포함). 응답의 버전은 행 값 그대로이고, 변경 기록의 같은 상태 판정은 같은 hash 버전끼리만 비교한다
 
 ## 저장·되돌리기 흐름
 
@@ -74,7 +83,7 @@ Status: current
   - `measurementId`·`baselineId`·`reviews`·`quantileMethod`·`exclusionRule`·`adapterSha`는 표시하지 않는다
   - 375px에서는 표 내부 스크롤이고 페이지는 넘치지 않는다
 - 표 행은 결과가 있는 규칙만이다: 저장된 켜진 규칙 중 결과의 `softRuleIds`에 든 규칙. 같은 필드라도 `softRuleIds`에 없는 규칙에는 값이 들어가지 않고, 초안에서 지운 규칙도 표에서 빠진다
-- 결과 검증: 항목 하나라도 계약과 다르면(비객체 항목, `evidence` 형식, 모르는 `status`·`source`, `제안`의 `operator`·`threshold`·`displayThreshold` 형식, `제안`이 아닌데 값이 있음) 또는 `items`가 비면 `recommendation_result_invalid` 실패
+- 결과 검증: 항목 하나라도 계약과 다르면(비객체 항목, `evidence` 형식, 모르는 `status`·`source`, `제안`의 `operator`·`threshold`·`displayThreshold` 형식, `제안`이 아닌데 값이 있음), `items`가 비거나, `softRuleIds`가 비었거나 저장된 켜진 규칙이 아닌 id가 있으면 `recommendation_result_invalid` 실패. 판정 기준은 편집 중 초안이 아니라 저장 상태다
 - `적용`은 선택한 규칙의 조건·임계값 입력칸만 채운다. 위험도는 그대로, 서버 호출 없음, 저장해야 운영에 반영
 - 실패: 작업 전체 실패 표시와 `다시 시도`, 오류 코드 그대로, 부분 결과 없음. `generation_timeout`은 `시간 초과`로 구분. `rule_set_revision_conflict`는 현재 상태를 다시 읽고 실패 표시는 남긴다(`다시 시도`는 새 버전으로 요청). 결과 형식이 계약과 다르면 화면이 `recommendation_result_invalid`로 실패 처리, 작업이 코드 없이 실패하면 `recommendation_failed`
 - 조회 실패: 작업 상태 조회(`GET /api/jobs/:id`)가 실패하면 작업 실패가 아니라 `AI 규칙 추천 조회 실패 · <코드>`로 표시하고 5초 조회를 멈춘다. `다시 시도`는 같은 작업을 다시 읽고 새 작업을 만들지 않는다

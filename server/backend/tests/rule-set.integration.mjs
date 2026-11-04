@@ -21,7 +21,10 @@ const backend = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const temporary = await mkdtemp(path.join(os.tmpdir(), 'powercode-rule-set-'));
 const pool = new pg.Pool({ connectionString: url });
 const R0_HASH = '80d0377d69597900b7506c26761143077ae7306f464bc44d759bb62f7c83bc89';
-const HARD = ['hard:process-status', 'hard:negative-duration'];
+const HARD = ['hard:process-status', 'hard:negative-duration', 'hard:success-with-error', 'hard:count-conservation'];
+// r0 스냅샷에는 앞 2개만 있어 뒤 2개는 꺼짐으로 표시된다. 아래 흐름은 켜지 않은 채로 둔다.
+const LATER = HARD.slice(2);
+const STATUS_DEFAULT = { byCode: { PROCESS_STATUS_F: 'critical', PROCESS_STATUS_P: 'warning', PROCESS_STATUS_Z: 'warning', PROCESS_STATUS_H: 'info', PROCESS_STATUS_N: 'info' } };
 let child;
 
 async function freePort() {
@@ -72,13 +75,13 @@ try {
   const user = await login(environment.SEED_USER_EMAIL, environment.SEED_USER_PASSWORD);
   assert.ok(admin && user);
   const read = async (token = admin) => (await call('/api/rule-set', { token })).body;
-  const hardOn = (off = []) => HARD.map((id) => ({ id, enabled: !off.includes(id) }));
+  const hardOn = (off = [], severity = STATUS_DEFAULT) => HARD.map((id) => ({ id, enabled: !off.includes(id) && !LATER.includes(id), ...(id === HARD[0] ? { severity } : {}) }));
   const asRequest = ({ id, name, field, operator, threshold, severity, enabled }) => ({ id, name, field, operator, threshold, severity, enabled });
   const newRule = (overrides = {}) => ({ id: null, clientRef: 'new-1', name: '처리 시간 5초 초과', field: 'elapsed_ms', operator: 'gt', threshold: 5000, severity: 'warning', enabled: true, ...overrides });
   const put = (body, options = {}) => call('/api/rule-set', { method: 'PUT', token: admin, body, ...options });
   const save = async (changes) => {
     const state = await read();
-    const result = await put({ expectedRevision: state.revision, hardRules: state.hardRules.map(({ id, enabled }) => ({ id, enabled })), softRules: state.softRules.map(asRequest), ...changes });
+    const result = await put({ expectedRevision: state.revision, hardRules: state.hardRules.map(({ id, enabled, severity }) => ({ id, enabled, severity })), softRules: state.softRules.map(asRequest), ...changes });
     assert.equal(result.status, 200, JSON.stringify(result.body));
     return result.body;
   };
@@ -96,10 +99,12 @@ try {
   // 2) r0: 시스템 기본값, 이상 규칙 전부 켬, 이상 징후 규칙 없음. 일반 사용자도 읽기 가능.
   const r0 = await read(user);
   assert.equal(r0.contractVersion, 'rule-set-v1');
-  assert.deepEqual([r0.revision, r0.contentHash, r0.contentHashVersion, r0.catalogVersion, r0.restoredFromRevision], [0, R0_HASH, 1, 'method-catalog-v2', null]);
+  assert.deepEqual([r0.revision, r0.contentHash, r0.contentHashVersion, r0.catalogVersion, r0.restoredFromRevision], [0, R0_HASH, 1, 'method-catalog-v2', null], 'hash and version stay as the row stores them');
   assert.deepEqual(r0.savedBy, { actorId: 'system', displayName: 'system' });
-  assert.deepEqual(r0.counts, { hardEnabled: 2, hardTotal: 2, softEnabled: 0, softTotal: 0 });
-  assert.deepEqual(r0.hardRules.map((rule) => [rule.id, rule.enabled, rule.editable]), HARD.map((id) => [id, true, ['enabled']]));
+  assert.deepEqual(r0.counts, { hardEnabled: 2, hardTotal: 4, softEnabled: 0, softTotal: 0 }, 'rules not in the r0 snapshot count as off');
+  assert.deepEqual(r0.hardRules.map((rule) => [rule.id, rule.enabled, rule.editable]), [[HARD[0], true, ['enabled', 'severity']], [HARD[1], true, ['enabled']], [HARD[2], false, ['enabled']], [HARD[3], false, ['enabled']]]);
+  assert.deepEqual(r0.hardRules.slice(2).map((rule) => [rule.methodVersion, rule.severity]), [['success-with-error-v1', 'critical'], ['count-conservation-v1', 'critical']], 'off with the built-in values');
+  assert.deepEqual([r0.hardRules[0].methodVersion, r0.hardRules[0].severity], ['process-status-hr-v2', STATUS_DEFAULT], 'the stored v1 values of r0 are not shown');
   assert.deepEqual(r0.softRules, []);
   const capabilities = (await call('/api/jobs/capabilities', { token: admin })).body;
   assert.deepEqual(capabilities.methodCatalog.softRuleFields.map((field) => field.fieldId),
@@ -132,11 +137,13 @@ try {
   assert.deepEqual([added.type, added.clientRef], ['soft_added', 'new-1']);
   const r1 = await read();
   assert.equal(r1.contentHash, first.body.contentHash);
+  assert.equal(r1.contentHashVersion, 2, 'new saves are v2');
+  assert.equal((await pool.query('SELECT content_hash_version AS v FROM ops_rule_set_revisions WHERE revision=1')).rows[0].v, 2);
   assert.equal(r1.savedBy.displayName, environment.SEED_ADMIN_EMAIL, 'admin sees the account email');
   assert.notEqual((await read(user)).savedBy.displayName, environment.SEED_ADMIN_EMAIL, 'email is not exposed to a regular user');
   assert.deepEqual([r1.softRules[0].unit, r1.softRules[0].createdAtRevision, r1.softRules[0].updatedAtRevision], ['ms', 1, 1]);
   assert.equal(typeof r1.softRules[0].threshold, 'number');
-  assert.deepEqual(r1.counts, { hardEnabled: 2, hardTotal: 2, softEnabled: 1, softTotal: 1 });
+  assert.deepEqual(r1.counts, { hardEnabled: 2, hardTotal: 4, softEnabled: 1, softTotal: 1 });
   const stored = (await pool.query('SELECT snapshot,saved_by_actor_id,note FROM ops_rule_set_revisions WHERE revision=1')).rows[0];
   assert.equal(stored.note, '최초 추가');
   assert.deepEqual(stored.snapshot.softRules, r1.softRules, 'snapshot keeps the GET format with number thresholds');
@@ -161,7 +168,7 @@ try {
   const preview = await call('/api/rule-set/preview', { method: 'POST', token: admin, body: previewBody });
   assert.deepEqual([preview.status, preview.body.valid], [200, true]);
   assert.deepEqual(preview.body.changes.map((change) => [change.type, change.id]), [['hard_enabled', HARD[1]], ['soft_added', null]]);
-  assert.deepEqual(preview.body.hardDisabledAfterSave, []);
+  assert.deepEqual(preview.body.hardDisabledAfterSave, LATER);
   assert.equal((await read()).revision, 4);
   // JSON 숫자 1e400은 파싱하면 비유한값이다(JSON.stringify로는 만들 수 없어 원문으로 보낸다).
   const invalidPreview = await call('/api/rule-set/preview', { method: 'POST', token: admin, raw: JSON.stringify({ ...previewBody, softRules: [newRule({ threshold: 12345 })] }).replace('12345', '1e400') });
@@ -172,11 +179,14 @@ try {
   // 7) 이력·커서·스냅샷.
   const history = (await call('/api/rule-set/history?limit=2', { token: user })).body;
   assert.deepEqual(history.items.map((item) => item.revision), [4, 3]);
+  assert.equal(history.items[0].contentHashVersion, 2);
   assert.equal(history.pagination.hasMore, true);
   assert.deepEqual((await call(`/api/rule-set/history?limit=10&cursor=${history.pagination.nextCursor}`, { token: admin })).body.items.map((item) => item.revision), [2, 1, 0]);
   const item1 = (await call('/api/rule-set/history/1', { token: admin })).body;
   assert.deepEqual([item1.revision, item1.note, item1.restoredFromRevision, item1.summary.softAdded, item1.snapshot.softRules[0].id], [1, '최초 추가', null, 1, ruleId]);
-  assert.equal((await call('/api/rule-set/history/0', { token: user })).body.snapshot.softRules.length, 0);
+  const r0Item = (await call('/api/rule-set/history/0', { token: user })).body;
+  assert.equal(r0Item.snapshot.softRules.length, 0);
+  assert.deepEqual([r0Item.contentHashVersion, r0Item.snapshot.hardRules[0].methodVersion], [1, 'process-status-hr-v1'], 'history shows the snapshot as stored');
   for (const [route, status, code] of [['/api/rule-set/history?limit=0', 400, 'invalid_limit'], ['/api/rule-set/history?limit=101', 400, 'invalid_limit'],
     ['/api/rule-set/history?cursor=@@', 400, 'invalid_cursor'], ['/api/rule-set/history?other=1', 400, 'unknown_rule_set_filter'],
     ['/api/rule-set/history/99', 404, 'rule_set_revision_not_found'], ['/api/rule-set/history/x', 400, 'invalid_revision']]) {
@@ -188,7 +198,7 @@ try {
   const deleted = await save({ softRules: [] });
   assert.deepEqual(deleted.changes.map((change) => change.type), ['soft_removed']);
   const source = (await call('/api/rule-set/history/4', { token: admin })).body;
-  const restoreBody = { expectedRevision: 5, restoreFromRevision: 4, hardRules: source.snapshot.hardRules.map(({ id, enabled }) => ({ id, enabled })), softRules: source.snapshot.softRules.map(asRequest) };
+  const restoreBody = { expectedRevision: 5, restoreFromRevision: 4, hardRules: source.snapshot.hardRules.map(({ id, enabled, severity }) => ({ id, enabled, severity })), softRules: source.snapshot.softRules.map(asRequest) };
   const unknownRevision = await put({ ...restoreBody, restoreFromRevision: 99 });
   assert.deepEqual([unknownRevision.status, unknownRevision.body.code], [422, 'restore_revision_unknown']);
   const mismatch = await put({ ...restoreBody, softRules: [{ ...restoreBody.softRules[0], threshold: 1 }] });
@@ -199,25 +209,63 @@ try {
   assert.equal(restored.body.contentHash, source.contentHash, 'restored revision has the source hash');
   const r6 = await read();
   assert.deepEqual([r6.revision, r6.restoredFromRevision, r6.softRules[0].createdAtRevision, r6.softRules[0].updatedAtRevision], [6, 4, 1, 6]);
-  // 스냅샷 이후 새로 생긴 내장 규칙: 본문에 없으면 기본 켬·changes 없음(옛 스냅샷을 직접 넣어 재현).
+  // 스냅샷에 없는 내장 규칙: 꺼짐·내장 기본 위험도로 채우고, 현재 켜져 있으면 새로 꺼지는 것이다(옛 스냅샷을 직접 넣어 재현).
   const legacy = { hardRules: [{ id: HARD[0], enabled: true }], softRules: [] };
   await pool.query(`INSERT INTO ops_rule_set_revisions(revision,content_hash,snapshot,changes,summary,saved_by_actor_id,saved_at)
     VALUES(7,$1,$2::jsonb,'[]','{}','fixture',clock_timestamp())`, ['a'.repeat(64), JSON.stringify(legacy)]);
   await save({ softRules: [newRule({ name: '중간 규칙' })] });
-  const newHard = await put({ expectedRevision: 8, restoreFromRevision: 7, hardRules: legacy.hardRules, softRules: [] });
+  await save({ hardRules: hardOn() });
+  const restoreLegacy = { expectedRevision: 9, restoreFromRevision: 7, hardRules: legacy.hardRules, softRules: [] };
+  const needsFlag = await put(restoreLegacy);
+  assert.deepEqual([needsFlag.status, needsFlag.body.code], [422, 'hard_rule_disable_confirmation_required']);
+  const newHard = await put({ ...restoreLegacy, confirmHardRuleDisable: true });
   assert.equal(newHard.status, 200, JSON.stringify(newHard.body));
-  assert.deepEqual(newHard.body.changes.map((change) => change.type), ['soft_removed'], 'silently defaulted rule is not in changes');
-  assert.deepEqual((await read()).hardRules.map((rule) => rule.enabled), [true, true]);
+  assert.deepEqual(newHard.body.changes.map((change) => change.type), ['hard_disabled', 'soft_removed'], 'a filled rule that was on is newly off');
+  assert.deepEqual((await read()).hardRules.map((rule) => rule.enabled), [true, false, false, false]);
   // 스냅샷의 규칙이 내장 목록에서 사라졌으면 hard_rule_unknown.
   const gone = { hardRules: [...hardOn(), { id: 'hard:removed', enabled: true }], softRules: [] };
   await pool.query(`INSERT INTO ops_rule_set_revisions(revision,content_hash,snapshot,changes,summary,saved_by_actor_id,saved_at)
-    VALUES(10,$1,$2::jsonb,'[]','{}','fixture',clock_timestamp())`, ['b'.repeat(64), JSON.stringify(gone)]);
-  const goneRestore = await put({ expectedRevision: 10, restoreFromRevision: 10, hardRules: gone.hardRules, softRules: [] });
+    VALUES(11,$1,$2::jsonb,'[]','{}','fixture',clock_timestamp())`, ['b'.repeat(64), JSON.stringify(gone)]);
+  const goneRestore = await put({ expectedRevision: 11, restoreFromRevision: 11, hardRules: gone.hardRules, softRules: [] });
   assert.deepEqual([goneRestore.status, goneRestore.body.code], [422, 'hard_rule_unknown:hard:removed']);
+
+  // 8b) 코드별 위험도: 상태 규칙만 편집, 저장·이력·되돌리기·hash·무변경.
+  const editedStatus = { byCode: { ...STATUS_DEFAULT.byCode, PROCESS_STATUS_N: 'critical' } };
+  const severitySave = await put({ expectedRevision: 11, hardRules: hardOn([], editedStatus), softRules: [] });
+  assert.equal(severitySave.status, 200, JSON.stringify(severitySave.body));
+  assert.deepEqual(severitySave.body.changes, [{ type: 'hard_updated', id: HARD[0], displayName: '상태가 S가 아님', diff: { severity: [STATUS_DEFAULT, editedStatus] } }]);
+  assert.equal(severitySave.body.summary.hardUpdated, 1);
+  const r12 = await read();
+  assert.deepEqual([r12.revision, r12.contentHashVersion, r12.hardRules[0].severity], [12, 2, editedStatus]);
+  assert.deepEqual((await put({ expectedRevision: 12, hardRules: hardOn([], editedStatus), softRules: [] })).body.code, 'rule_set_unchanged');
+  for (const [body, code] of [
+    [{ hardRules: HARD.map((id) => ({ id, enabled: !LATER.includes(id) })) }, 'hard_rule_severity_invalid:hard:process-status'],
+    [{ hardRules: hardOn([], { byCode: { PROCESS_STATUS_F: 'critical' } }) }, 'hard_rule_severity_invalid:hard:process-status'],
+    [{ hardRules: hardOn().map((rule) => (rule.id === HARD[1] ? { ...rule, severity: 'info' } : rule)) }, 'hard_rule_field_not_editable:hard:negative-duration'],
+  ]) {
+    const failed = await put({ expectedRevision: 12, softRules: [], ...body });
+    assert.deepEqual([failed.status, failed.body.code], [422, code]);
+  }
+  const defaults = await save({ hardRules: hardOn() });
+  const v2Source = (await call('/api/rule-set/history/12', { token: admin })).body;
+  const backToEdited = await put({ expectedRevision: defaults.revision, restoreFromRevision: 12, hardRules: v2Source.snapshot.hardRules.map(({ id, enabled, severity }) => ({ id, enabled, severity })), softRules: [] });
+  assert.equal(backToEdited.status, 200, JSON.stringify(backToEdited.body));
+  assert.equal(backToEdited.body.contentHash, severitySave.body.contentHash, 'same version, no filled rule: same hash');
+  assert.deepEqual((await read()).hardRules[0].severity, editedStatus);
+  // r0(v1 행) 되돌리기: 위험도는 현재 내장 기본값으로 채우고 hash는 v2라 r0와 다르다.
+  const r0Source = (await call('/api/rule-set/history/0', { token: admin })).body;
+  // 새 규칙 2개를 켠 뒤 되돌리면 r0에 없는 규칙이 꺼짐으로 채워져 새로 꺼진다.
+  const allFour = await save({ hardRules: HARD.map((id) => ({ id, enabled: true, ...(id === HARD[0] ? { severity: editedStatus } : {}) })) });
+  assert.deepEqual(allFour.changes.map((change) => [change.type, change.id]), [['hard_enabled', HARD[2]], ['hard_enabled', HARD[3]]]);
+  const backToR0 = await put({ expectedRevision: allFour.revision, confirmHardRuleDisable: true, restoreFromRevision: 0, hardRules: r0Source.snapshot.hardRules.map(({ id, enabled }) => ({ id, enabled })), softRules: [] });
+  assert.equal(backToR0.status, 200, JSON.stringify(backToR0.body));
+  assert.notEqual(backToR0.body.contentHash, R0_HASH);
+  assert.deepEqual(backToR0.body.changes.map((change) => change.type), ['hard_updated', 'hard_disabled', 'hard_disabled']);
+  assert.deepEqual((await read()).hardRules[0].severity, STATUS_DEFAULT);
 
   // 9) detection_methods_empty: 활성 모델은 v1·v2 투영(ops_system_state → ml_config_models).
   const sourceId = await seedRuleSetSource(pool);
-  const allOff = { expectedRevision: 10, hardRules: hardOn(HARD), confirmHardRuleDisable: true, softRules: [] };
+  const allOff = { expectedRevision: backToR0.body.revision, hardRules: hardOn(HARD), confirmHardRuleDisable: true, softRules: [] };
   const empty = await put(allOff);
   assert.deepEqual([empty.status, empty.body.code], [422, 'detection_methods_empty']);
   await activateConfig(pool, sourceId, { models: 0 });

@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import { HARD_RULES, type HardRuleDefinition, type Severity } from './hardRuleCatalog.js';
+import { HARD_RULES, type HardRuleDefinition, type HardRuleSeverity, type Severity } from './hardRuleCatalog.js';
 import { SOFT_RULE, softRuleField, type SoftRuleOperator } from './softRuleCatalog.js';
 
 /**
@@ -7,7 +7,8 @@ import { SOFT_RULE, softRuleField, type SoftRuleOperator } from './softRuleCatal
  * DB를 읽지 않는다. 호출자가 현재 상태·되돌릴 스냅샷·활성 모델 수를 넘긴다.
  */
 export const RULE_SET_CONTRACT = 'rule-set-v1';
-export const CONTENT_HASH_VERSION = 1;
+/** 새 저장의 hash 버전. 1은 기존 행(r0 등) 대조용으로만 남는다(rule-set.md 리비전 형식). */
+export const CONTENT_HASH_VERSION = 2;
 export const THRESHOLD_MAX_LENGTH = 40;
 export const SIGNIFICANT_DIGITS_MAX = 15;
 const NOTE_MAX = 500;
@@ -21,23 +22,26 @@ export class RuleSetError extends Error {
 const rejected = (code: string) => new RuleSetError(code, 422);
 const malformed = () => new RuleSetError('invalid_rule_set_request');
 
-export type HardRuleState = HardRuleDefinition & { enabled: boolean; editable: ['enabled'] };
+export type HardRuleState = HardRuleDefinition & { enabled: boolean };
+/** 저장된 스냅샷의 이상 규칙 항목. 옛 행은 methodVersion·severity가 없거나 v1 값일 수 있다. */
+export type StoredHardRule = { id: string; enabled: boolean; methodVersion?: string; severity?: unknown };
 export type SoftRule = {
   id: string; name: string; field: string; operator: SoftRuleOperator; threshold: number; unit: string;
   severity: Severity; enabled: boolean; createdAtRevision: number; updatedAtRevision: number;
 };
 export type RuleSetSnapshot = { hardRules: HardRuleState[]; softRules: SoftRule[] };
+export type StoredSnapshot = { hardRules: StoredHardRule[]; softRules: SoftRule[] };
 export type SoftRuleRequest = {
   id: string | null; clientRef: string | null; name: string; field: string; operator: string;
   threshold: number; severity: string; enabled: boolean; unit?: string;
 };
 export type RuleSetRequest = {
   expectedRevision: number; confirmHardRuleDisable: boolean; restoreFromRevision: number | null; note: string | null;
-  hardRules: { id: string; enabled: boolean }[]; softRules: SoftRuleRequest[];
+  hardRules: { id: string; enabled: boolean; severity?: unknown }[]; softRules: SoftRuleRequest[];
 };
 export type RuleSetChange = { type: string; id: string | null; [key: string]: unknown };
 export type RuleSetSummary = {
-  hardEnabled: number; hardDisabled: number; softAdded: number; softUpdated: number;
+  hardEnabled: number; hardDisabled: number; hardUpdated: number; softAdded: number; softUpdated: number;
   softRemoved: number; softEnabled: number; softDisabled: number;
 };
 
@@ -79,9 +83,10 @@ export const canonicalSha256 = (value: unknown) =>
   crypto.createHash('sha256').update(JSON.stringify(sortKeys(value)), 'utf8').digest('hex');
 const byId = <T extends { id: string }>(left: T, right: T) => (left.id < right.id ? -1 : left.id > right.id ? 1 : 0);
 
-export function contentHash(snapshot: { hardRules: { id: string; enabled: boolean }[]; softRules: SoftRule[] }): string {
+/** 정규 객체의 hash. v2는 이상 규칙에 severity를 넣고, v1은 r0 등 기존 행 대조용이다(직렬화는 같다). */
+export function contentHash(snapshot: { hardRules: { id: string; enabled: boolean; severity?: unknown }[]; softRules: SoftRule[] }, version = CONTENT_HASH_VERSION): string {
   return canonicalSha256({
-    hardRules: [...snapshot.hardRules].sort(byId).map(({ id, enabled }) => ({ id, enabled })),
+    hardRules: [...snapshot.hardRules].sort(byId).map(({ id, enabled, severity }) => (version === 1 ? { id, enabled } : { id, enabled, severity })),
     softRules: [...snapshot.softRules].sort(byId).map(({ id, field, operator, threshold, severity, enabled }) => ({
       id, field, operator, severity, enabled,
       threshold: thresholdFixedDecimal(threshold, softRuleField(field)?.valueType ?? 'number') ?? decimalString(threshold),
@@ -118,33 +123,66 @@ export function parseRuleSetRequest(body: unknown): RuleSetRequest {
   return {
     expectedRevision, confirmHardRuleDisable, restoreFromRevision: restoreFromRevision as number | null, note: note as string | null,
     hardRules: hardRules.map((rule) => {
-      if (!plainObject(rule) || !keysWithin(rule, ['id', 'enabled'], []) || typeof rule.id !== 'string' || typeof rule.enabled !== 'boolean') throw malformed();
-      return { id: rule.id, enabled: rule.enabled };
+      if (!plainObject(rule) || !keysWithin(rule, ['id', 'enabled'], ['severity']) || typeof rule.id !== 'string' || typeof rule.enabled !== 'boolean') throw malformed();
+      return { id: rule.id, enabled: rule.enabled, ...(rule.severity === undefined ? {} : { severity: rule.severity }) };
     }),
     softRules: softRules.map(parseSoftRule),
   };
 }
 
-/** 저장된 켜기 값을 내장 목록에 맞춰 편다. 조건·위험도는 항상 내장 정의값, 스냅샷에 없는 규칙은 기본 켬. */
-export function projectHardRules(stored: { id: string; enabled: boolean }[]): HardRuleState[] {
-  return HARD_RULES.map((rule) => ({ ...rule, enabled: stored.find((item) => item.id === rule.id)?.enabled ?? true, editable: ['enabled'] }));
+const editableSeverity = (rule: HardRuleDefinition) => rule.editable.includes('severity');
+export const sameSeverity = (left: unknown, right: unknown) => JSON.stringify(sortKeys(left)) === JSON.stringify(sortKeys(right));
+const LEVELS: readonly unknown[] = SOFT_RULE.severities;
+/** 그 규칙의 내장 코드 전부를 정확히 담은 `{byCode}`면 내장 코드 순서로 돌려준다. 아니면 null. */
+function normalizedByCode(rule: HardRuleDefinition, value: unknown): HardRuleSeverity | null {
+  const codes = Object.keys((rule.severity as { byCode: Record<string, Severity> }).byCode);
+  if (!plainObject(value) || !keysWithin(value, ['byCode'], []) || !plainObject(value.byCode)) return null;
+  const byCode = value.byCode;
+  if (Object.keys(byCode).length !== codes.length || !codes.every((code) => Object.hasOwn(byCode, code) && LEVELS.includes(byCode[code]))) return null;
+  return { byCode: Object.fromEntries(codes.map((code) => [code, byCode[code] as Severity])) };
 }
+/**
+ * 저장된 항목의 현재 해석(rule-set.md v1 항목 severity 공통 규칙). 조회·되돌리기 채움·무변경 비교가 모두 쓴다.
+ * 스냅샷에 없으면 꺼짐·내장 기본값. 위험도는 현재 methodVersion 항목의 저장값만 읽고 그 밖은 내장 기본값이다.
+ */
+function resolveHardRule(rule: HardRuleDefinition, stored: StoredHardRule | undefined): HardRuleState {
+  const saved = stored && editableSeverity(rule) && stored.methodVersion === rule.methodVersion ? normalizedByCode(rule, stored.severity) : null;
+  return { ...rule, enabled: stored?.enabled ?? false, severity: saved ?? rule.severity };
+}
+export function projectHardRules(stored: StoredHardRule[]): HardRuleState[] {
+  return HARD_RULES.map((rule) => resolveHardRule(rule, stored.find((item) => item.id === rule.id)));
+}
+/** 출처 항목의 위험도를 그대로 쓸 수 없는 경우(스냅샷에 없음·이전 methodVersion): 서버가 채우고 본문 값은 비교하지 않는다. */
+const filledByServer = (rule: HardRuleDefinition, stored: StoredHardRule | undefined) => !stored || stored.methodVersion !== rule.methodVersion;
 
 const softSame = (left: SoftRuleRequest, right: SoftRule) =>
   left.name === right.name && left.field === right.field && left.operator === right.operator &&
   left.threshold === right.threshold && left.severity === right.severity && left.enabled === right.enabled;
 
-function checkRestore(request: RuleSetRequest, snapshot: RuleSetSnapshot) {
+function checkRestore(request: RuleSetRequest, snapshot: StoredSnapshot) {
   const soft = new Map(snapshot.softRules.map((rule) => [rule.id, rule]));
-  const hard = new Map(request.hardRules.map((rule) => [rule.id, rule.enabled]));
-  const same = request.softRules.length === snapshot.softRules.length &&
+  const sent = new Map(request.hardRules.map((rule) => [rule.id, rule]));
+  const stored = new Map(snapshot.hardRules.map((rule) => [rule.id, rule]));
+  const softSameAsSnapshot = request.softRules.length === snapshot.softRules.length &&
     new Set(request.softRules.map((rule) => rule.id)).size === snapshot.softRules.length &&
-    request.softRules.every((rule) => rule.id !== null && soft.has(rule.id) && softSame(rule, soft.get(rule.id)!)) &&
-    snapshot.hardRules.every((rule) => hard.get(rule.id) === rule.enabled);
-  if (!same) throw rejected('restore_payload_mismatch');
+    request.softRules.every((rule) => rule.id !== null && soft.has(rule.id) && softSame(rule, soft.get(rule.id)!));
+  // 스냅샷에 있으나 내장 목록에서 사라진 규칙은 켜기 값만 맞으면 아래 hard_rule_unknown으로 끝난다.
+  const leftoverSame = snapshot.hardRules.every((rule) => sent.get(rule.id)?.enabled === rule.enabled || HARD_RULES.some((known) => known.id === rule.id));
+  const builtInSame = HARD_RULES.every((rule) => {
+    const body = sent.get(rule.id);
+    const source = stored.get(rule.id);
+    const filled = resolveHardRule(rule, source);
+    if (!body) return !source;
+    if (body.enabled !== filled.enabled) return false;
+    if (body.severity === undefined) return true;
+    if (!source) return sameSeverity(body.severity, filled.severity);
+    // 이전 methodVersion 출처의 위험도는 무시하고 서버가 채운다. 편집 불가 규칙은 다음 검사가 맡는다.
+    return !editableSeverity(rule) || filledByServer(rule, source) || sameSeverity(body.severity, filled.severity);
+  });
+  if (!softSameAsSnapshot || !leftoverSame || !builtInSame) throw rejected('restore_payload_mismatch');
 }
 
-function checkHardRules(request: RuleSetRequest, restore: RuleSetSnapshot | null) {
+function checkHardRules(request: RuleSetRequest, restore: StoredSnapshot | null) {
   const known = new Set(HARD_RULES.map((rule) => rule.id));
   const sent = request.hardRules.map((rule) => rule.id);
   const inSnapshot = new Set(restore?.hardRules.map((rule) => rule.id));
@@ -153,7 +191,26 @@ function checkHardRules(request: RuleSetRequest, restore: RuleSetSnapshot | null
   sent.forEach((id, index) => { if (sent.indexOf(id) !== index) throw rejected(`hard_rule_duplicate:${id}`); });
 }
 
-function checkSoftRules(request: RuleSetRequest, current: RuleSetSnapshot, restore: RuleSetSnapshot | null) {
+/** 요청과 되돌릴 스냅샷으로 저장할 이상 규칙 상태를 만든다. 위험도 검사도 여기서 한다. */
+function plannedHardRules(request: RuleSetRequest, restore: StoredSnapshot | null): HardRuleState[] {
+  return HARD_RULES.map((rule) => {
+    const body = request.hardRules.find((item) => item.id === rule.id);
+    const source = restore?.hardRules.find((item) => item.id === rule.id);
+    if (restore && (!body || (editableSeverity(rule) && filledByServer(rule, source)))) {
+      if (!editableSeverity(rule) && body?.severity !== undefined && !sameSeverity(body.severity, rule.severity)) throw rejected(`hard_rule_field_not_editable:${rule.id}`);
+      return resolveHardRule(rule, source);
+    }
+    if (!editableSeverity(rule)) {
+      if (body!.severity !== undefined && !sameSeverity(body!.severity, rule.severity)) throw rejected(`hard_rule_field_not_editable:${rule.id}`);
+      return { ...rule, enabled: body!.enabled };
+    }
+    const severity = normalizedByCode(rule, body!.severity);
+    if (!severity) throw rejected(`hard_rule_severity_invalid:${rule.id}`);
+    return { ...rule, enabled: body!.enabled, severity };
+  });
+}
+
+function checkSoftRules(request: RuleSetRequest, current: RuleSetSnapshot, restore: StoredSnapshot | null) {
   const existing = new Map(current.softRules.map((rule) => [rule.id, rule]));
   const restorable = new Set(restore?.softRules.map((rule) => rule.id));
   const reference = (rule: SoftRuleRequest) => rule.id ?? rule.clientRef!;
@@ -188,9 +245,9 @@ function checkSoftRules(request: RuleSetRequest, current: RuleSetSnapshot, resto
   if (request.softRules.length > SOFT_RULE.maxRules) throw rejected('soft_rule_limit_exceeded');
 }
 
-const emptySummary = (): RuleSetSummary => ({ hardEnabled: 0, hardDisabled: 0, softAdded: 0, softUpdated: 0, softRemoved: 0, softEnabled: 0, softDisabled: 0 });
+const emptySummary = (): RuleSetSummary => ({ hardEnabled: 0, hardDisabled: 0, hardUpdated: 0, softAdded: 0, softUpdated: 0, softRemoved: 0, softEnabled: 0, softDisabled: 0 });
 const SUMMARY_KEY: Record<string, keyof RuleSetSummary> = {
-  hard_enabled: 'hardEnabled', hard_disabled: 'hardDisabled', soft_added: 'softAdded', soft_updated: 'softUpdated',
+  hard_enabled: 'hardEnabled', hard_disabled: 'hardDisabled', hard_updated: 'hardUpdated', soft_added: 'softAdded', soft_updated: 'softUpdated',
   soft_removed: 'softRemoved', soft_enabled: 'softEnabled', soft_disabled: 'softDisabled',
 };
 const DIFF_KEYS = ['name', 'operator', 'threshold', 'severity', 'enabled'] as const;
@@ -199,7 +256,7 @@ export type RuleSetPlan = {
   snapshot: RuleSetSnapshot; contentHash: string; changes: RuleSetChange[]; summary: RuleSetSummary; hardDisabledAfterSave: string[];
 };
 type PlanInput = {
-  request: RuleSetRequest; current: RuleSetSnapshot; restore: RuleSetSnapshot | null; activeModelCount: number; nextRevision: number;
+  request: RuleSetRequest; current: RuleSetSnapshot; restore: StoredSnapshot | null; activeModelCount: number; nextRevision: number;
   /** 새 규칙 id 배정. 미리보기는 저장하지 않으므로 null을 돌려준다. */
   assignId: (field: string, taken: Set<string>) => string | null;
 };
@@ -211,13 +268,15 @@ export function planRuleSetChange({ request, current, restore, activeModelCount,
     checkRestore(request, restore);
   }
   checkHardRules(request, restore);
-  const wanted = new Map(request.hardRules.map((rule) => [rule.id, rule.enabled]));
-  const before = new Map(current.hardRules.map((rule) => [rule.id, rule.enabled]));
-  const hardRules = HARD_RULES.map((rule): HardRuleState => ({ ...rule, enabled: wanted.get(rule.id) ?? true, editable: ['enabled'] }));
+  const hardRules = plannedHardRules(request, restore);
+  const before = new Map(current.hardRules.map((rule) => [rule.id, rule]));
   const changes: RuleSetChange[] = [];
   for (const rule of hardRules) {
-    if (!wanted.has(rule.id) || before.get(rule.id) === rule.enabled) continue;
-    changes.push({ type: rule.enabled ? 'hard_enabled' : 'hard_disabled', id: rule.id, displayName: rule.displayName });
+    const previous = before.get(rule.id)!;
+    if (previous.enabled !== rule.enabled) changes.push({ type: rule.enabled ? 'hard_enabled' : 'hard_disabled', id: rule.id, displayName: rule.displayName });
+    if (!sameSeverity(previous.severity, rule.severity)) {
+      changes.push({ type: 'hard_updated', id: rule.id, displayName: rule.displayName, diff: { severity: [previous.severity, rule.severity] } });
+    }
   }
   if (changes.some((change) => change.type === 'hard_disabled') && !request.confirmHardRuleDisable) throw rejected('hard_rule_disable_confirmation_required');
 

@@ -43,8 +43,10 @@ export const devRecommendationResult: RecommendationResult = {
   counts: { targets: 4, proposed: 2, requestEvidence: 0, deferred: 0, noApplicable: 1, rejected: 1 },
 };
 
-/** 예시의 규칙 id를 화면의 켜진 규칙 id로 맞춘다(같은 필드 기준). 맞는 규칙이 없는 항목은 표에 나오지 않는다. */
+/** 예시의 규칙 id를 화면의 켜진 규칙 id로 맞춘다(같은 필드 기준). 맞는 규칙이 없는 항목은 뺀다. */
 export const devRecommendationFor = (state: RuleSetState): RecommendationResult => ({
   ...devRecommendationResult,
-  items: devRecommendationResult.items.map((item) => ({ ...item, softRuleIds: state.softRules.filter((rule) => rule.enabled && rule.field === item.field).map((rule) => rule.id) })),
+  items: devRecommendationResult.items
+    .map((item) => ({ ...item, softRuleIds: state.softRules.filter((rule) => rule.enabled && rule.field === item.field).map((rule) => rule.id) }))
+    .filter((item) => item.softRuleIds.length > 0),
 });

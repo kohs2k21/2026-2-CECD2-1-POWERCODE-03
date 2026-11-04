@@ -52,6 +52,7 @@
   --radius: 8px;
 
   /* 레이어: 모달 < 드래그 미리보기 < 토스트 < 툴팁 */
+  --z-sticky: 5;
   --z-header: 10;
   --z-popover: 40;
   --z-dialog-overlay: 50;
@@ -63,7 +64,11 @@
   /* 배치 */
   --section-sidebar-width: 264px;
   --section-menu-height: 48px;
+  /* 본문 위아래 여백. 고정 사이드바의 간격도 같은 값이라 스크롤을 시작해도 위치가 변하지 않는다. */
+  --page-block-padding: 1.5rem;
   --top-nav-height: 64px;
+  /* 실제 머리글 높이. 좁은 화면에서 두 줄이 되면 TopNav가 갱신한다. 고정 영역의 top 기준. */
+  --top-nav-offset: var(--top-nav-height);
   --top-nav-columns: minmax(240px, 1fr) auto minmax(240px, 1fr);
 
   /* 차트(운영 현황 시간별 트랜잭션): 막대·현재 시간 강조·격자·축 글자 */

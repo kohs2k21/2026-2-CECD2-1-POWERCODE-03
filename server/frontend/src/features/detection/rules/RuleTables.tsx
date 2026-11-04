@@ -12,10 +12,10 @@ import { DASH, stampText } from "@/features/operations/format";
 import { cn } from "@/lib/utils";
 import { FormulaPanel } from "./FormulaPanel";
 import {
-  HARD_TERM, SOFT_TERM, errorCode, historySummary, nameChanged, operatorLabels, operators, severities, severityBadge, severityGroups, severityLabels, thresholdChanged,
+  HARD_TERM, SOFT_TERM, codeLabel, errorCode, historySummary, nameChanged, operatorLabels, operators, severities, severityBadge, severityChanged, severityGroups, severityLabels, severityRows, thresholdChanged,
   type DraftSoftRule, type RuleDraft,
 } from "./ruleDraft";
-import { readRuleSetHistory, type HardRule, type HistoryItem, type RuleSetState, type SoftRuleField } from "./ruleSetApi";
+import { readRuleSetHistory, type HardRule, type HistoryItem, type RuleSetState, type Severity, type SeverityByCode, type SoftRuleField } from "./ruleSetApi";
 import { useRuleHistory, useRuleRevision } from "./useRuleSet";
 
 const changedCell = (changed: boolean) => cn(changed && "bg-warning-soft");
@@ -31,13 +31,31 @@ const SeverityCell = ({ severity }: { severity: HardRule["severity"] }) => (
     {severityGroups(severity).map(({ level, codes }) => (
       <span key={level} data-severity={level} className="flex items-center gap-1">
         <Badge variant={severityBadge[level]}>{severityLabels[level]}</Badge>
-        {codes.length > 0 && codes.join(", ")}
+        {codes.length > 0 && codes.map(codeLabel).join(", ")}
       </span>
     ))}
   </span>
 );
 
-export const HardRulesCard = ({ draft, onToggle }: { draft: RuleDraft; onToggle: (id: string, enabled: boolean) => void }) => (
+/** 코드별 위험도 선택. 한 목록에 코드 key로 두어 위험도를 바꿔 줄이 옮겨도 선택 칸이 유지된다. */
+const SeverityEditor = ({ severity, onChange }: { severity: SeverityByCode; onChange: (code: string, level: Severity) => void }) => {
+  const rows = severityRows(severity);
+  return (
+    <span className="grid gap-1 text-sm">
+      {rows.map(({ code, level }, index) => (
+        <span key={code} data-severity-code={code} className="grid grid-cols-[2.75rem_6.5rem_5.5rem] items-center gap-2">
+          <span>{rows[index - 1]?.level !== level && <Badge variant={severityBadge[level]}>{severityLabels[level]}</Badge>}</span>
+          <span>{codeLabel(code)}</span>
+          <NativeSelect size="sm" aria-label={`${codeLabel(code)} 위험도`} value={level} onChange={(event) => onChange(code, event.target.value as Severity)}>
+            {severities.map((item) => <NativeSelectOption key={item} value={item}>{severityLabels[item]}</NativeSelectOption>)}
+          </NativeSelect>
+        </span>
+      ))}
+    </span>
+  );
+};
+
+export const HardRulesCard = ({ draft, onToggle, onSeverity }: { draft: RuleDraft; onToggle: (id: string, enabled: boolean) => void; onSeverity: (id: string, code: string, level: Severity) => void }) => (
   <SectionCard title={HARD_TERM}>
     <Table aria-label={HARD_TERM}>
       <TableHeader>
@@ -45,7 +63,8 @@ export const HardRulesCard = ({ draft, onToggle }: { draft: RuleDraft; onToggle:
       </TableHeader>
       <TableBody>
         {draft.base.hardRules.map((rule) => {
-          const enabled = draft.hard.find((item) => item.id === rule.id)?.enabled ?? rule.enabled;
+          const current = draft.hard.find((item) => item.id === rule.id);
+          const enabled = current?.enabled ?? rule.enabled;
           return (
             <TableRow key={rule.id} data-rule={rule.id} className={cn(!enabled && "text-muted-foreground")}>
               <TableCell className="whitespace-normal">
@@ -55,7 +74,11 @@ export const HardRulesCard = ({ draft, onToggle }: { draft: RuleDraft; onToggle:
                 </span>
               </TableCell>
               <TableCell className="whitespace-normal">{rule.conditionText}</TableCell>
-              <TableCell><SeverityCell severity={rule.severity} /></TableCell>
+              <TableCell className={changedCell(severityChanged(current?.severity, rule.severity))}>
+                {current?.severity
+                  ? <SeverityEditor severity={current.severity} onChange={(code, level) => onSeverity(rule.id, code, level)} />
+                  : <SeverityCell severity={rule.severity} />}
+              </TableCell>
               <TableCell className={changedCell(enabled !== rule.enabled)}>
                 <SwitchCell checked={enabled} label={`${rule.displayName} 켜기`} onChange={(value) => onToggle(rule.id, value)} />
               </TableCell>
@@ -177,8 +200,8 @@ export const SoftRulesCard = ({
 
 const HistoryRow = ({ item, state, disabled, onRevert }: { item: HistoryItem; state: RuleSetState; disabled: boolean; onRevert: (revision: number) => void }) => {
   const current = state.revision;
-  // 현재와 같은 상태면 되돌릴 것이 없다(와이어프레임 same). hash에 이름이 없어 hash가 같은 행만 스냅샷 이름을 비교한다.
-  const sameHash = item.revision !== current && item.contentHash === state.contentHash;
+  // 현재와 같은 상태면 되돌릴 것이 없다(와이어프레임 same). hash는 같은 버전끼리만 비교하고, hash에 이름이 없어 같은 행만 스냅샷 이름을 비교한다.
+  const sameHash = item.revision !== current && item.contentHashVersion === state.contentHashVersion && item.contentHash === state.contentHash;
   const snapshot = useRuleRevision(item.revision, sameHash).data?.snapshot;
   const same = sameHash && snapshot !== undefined && snapshot.softRules.length === state.softRules.length &&
     snapshot.softRules.every((rule) => state.softRules.find((item) => item.id === rule.id)?.name === rule.name);

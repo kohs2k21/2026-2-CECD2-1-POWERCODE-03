@@ -18,6 +18,11 @@ assert.equal(api.parseListSearch("?category=all").params.category, "all", "expli
 assert.deepEqual(api.parseListSearch("?signal=yes"), { params: { ...api.defaultListParams, signal: "yes" }, invalid: false }, "old signal=yes URLs keep working");
 assert.equal(api.listApiParams({ ...api.defaultListParams, signal: "yes" }).signal, "yes");
 assert.equal(labels.signalFilterLabels.yes, "이상 신호 있음");
+// 이상 규칙 4개 이름과 결과 코드 표시(detection-decision.md 4.3)
+assert.equal(labels.methodLabel("hard:success-with-error"), "이상 규칙(성공 상태이나 오류 건수가 기록됨)");
+assert.equal(labels.methodLabel("hard:count-conservation"), "이상 규칙(건수 합계 불일치)");
+assert.deepEqual(["PROCESS_STATUS_H", "PROCESS_STATUS_Z", "HARD_SUCCESS_WITH_ERROR", "HARD_COUNT_CONSERVATION", "OTHER_CODE"].map(labels.resultCodeLabel),
+  ["상태 H 부분성공", "상태 Z 데이터없음", "성공 상태이나 오류 건수가 기록됨", "건수 합계 불일치", "OTHER_CODE"]);
 assert.equal(api.parseListSearch("?category=bogus").params.category, "risk_all", "invalid category falls back to the default");
 assert.equal(api.listSearch({ ...api.defaultListParams, category: "all" }), "?category=all", "result-view 전체 stays explicit in the URL");
 const full = api.parseListSearch("?category=anomaly&q=TX-1&signal=anomaly_sign&completeness=partial&sort=oldest&page=3&pageSize=20&tab=x");

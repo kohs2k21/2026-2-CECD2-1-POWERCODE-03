@@ -39,21 +39,22 @@ const { ConfirmDialog, RuleAddBody, RuleSaveBody, RuleSaveDialog } = await impor
 const draft = await import("../src/features/detection/rules/ruleDraft.ts");
 
 const json = (body, status = 200) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
+const STATUS_DEFAULT = { PROCESS_STATUS_F: "critical", PROCESS_STATUS_P: "warning", PROCESS_STATUS_Z: "warning", PROCESS_STATUS_H: "info", PROCESS_STATUS_N: "info" };
 const hardRules = (negativeOn = true) => [
-  { id: "hard:process-status", methodVersion: "process-status-hr-v1", displayName: "상태가 S가 아님", conditionText: "STATUS ≠ S",
-    severity: { byCode: { PROCESS_STATUS_F: "critical", PROCESS_STATUS_P: "warning", PROCESS_STATUS_N: "warning" } }, enabled: true, editable: ["enabled"] },
+  { id: "hard:process-status", methodVersion: "process-status-hr-v2", displayName: "상태가 S가 아님", conditionText: "STATUS ≠ S",
+    severity: { byCode: STATUS_DEFAULT }, enabled: true, editable: ["enabled", "severity"] },
   { id: "hard:negative-duration", methodVersion: "negative-duration-v1", displayName: "시작 시각이 종료 시각보다 늦음",
     conditionText: "START_TIME > END_TIME (종료 시각이 없으면 판단하지 않음)", severity: "critical", enabled: negativeOn, editable: ["enabled"] },
 ];
 const softRule = { id: "soft:elapsed_ms-3f9a2c1d", name: "처리 시간 5초 초과", field: "elapsed_ms", operator: "gt", threshold: 5000, unit: "ms", severity: "warning", enabled: true, createdAtRevision: 7, updatedAtRevision: 12 };
 const state = (revision = 12, overrides = {}) => ({
-  contractVersion: "rule-set-v1", revision, contentHash: "a".repeat(64), contentHashVersion: 1, savedAt: "2026-11-02T08:12:33Z",
+  contractVersion: "rule-set-v1", revision, contentHash: "a".repeat(64), contentHashVersion: 2, savedAt: "2026-11-02T08:12:33Z",
   savedBy: { actorId: "1", displayName: "admin@example.test" }, restoredFromRevision: null, catalogVersion: "method-catalog-v2",
   counts: { hardEnabled: 2, hardTotal: 2, softEnabled: 1, softTotal: 1 }, hardRules: hardRules(), softRules: [softRule], ...overrides,
 });
 const field = (fieldId, displayName, unit, valueType) => ({ fieldId, displayName, unit, valueType, operators: ["gte", "gt", "lte", "lt"], status: "supported" });
 const capabilities = { methodCatalog: { softRuleFields: [field("retry_count", "재시도 수", "count", "integer"), field("elapsed_ms", "처리 시간", "ms", "number")] } };
-const historyItem = (revision, changes = [], extra = {}) => ({ revision, savedAt: "2026-11-02T08:00:00Z", savedBy: { actorId: "1", displayName: "admin@example.test" }, note: null, restoredFromRevision: null, contentHash: "b".repeat(64), summary: {}, changes, ...extra });
+const historyItem = (revision, changes = [], extra = {}) => ({ revision, savedAt: "2026-11-02T08:00:00Z", savedBy: { actorId: "1", displayName: "admin@example.test" }, note: null, restoredFromRevision: null, contentHash: "b".repeat(64), contentHashVersion: 2, summary: {}, changes, ...extra });
 const history = (revision = 12) => ({
   items: [historyItem(revision, [{ type: "soft_updated", id: softRule.id, name: softRule.name, diff: { threshold: [4000, 5000] } }]),
     historyItem(10, [{ type: "hard_enabled", id: "hard:negative-duration", displayName: "시작 시각이 종료 시각보다 늦음" }], { restoredFromRevision: 7 }), historyItem(0)],
@@ -102,7 +103,10 @@ const mount = async (userType = "admin", { keepDrafts = false } = {}) => {
   for (let i = 0; i < 20 && text(renderer.toJSON()).includes("로그인 상태를 확인하는 중"); i++) await tick();
   const shown = () => text(renderer.toJSON());
   const button = (label, index = 0) => renderer.root.findAll((node) => node.type === "button" && text(node.children) === label)[index];
-  const click = async (label, index) => act(async () => button(label, index).props.onClick());
+  const click = async (label, index) => {
+    assert.notEqual(button(label, index).props.disabled, true, `${label} is enabled`);
+    await act(async () => button(label, index).props.onClick());
+  };
   const cleanup = async () => {
     await act(async () => renderer.unmount());
     router.dispose();
@@ -134,18 +138,28 @@ const calls = (method, path) => requested.filter((call) => call.method === metho
   assert.equal(hardWarning(app).length, 1, "warning is visible while every rule is on");
   assert.equal(hardWarning(app)[0].props.role, undefined, "always-on text is not an alert");
   assert.ok(hardWarning(app)[0].props.className.includes("text-warning-text"));
+  // 저장 줄은 이상 규칙 위에, 머리글 아래 고정.
+  const stickyBox = app.renderer.root.find((node) => node.type === "div" && node.props["data-rule-sticky"] !== undefined);
+  assert.ok(text(stickyBox.children).includes("변경 0건 · 저장하면 바로 운영에 적용됩니다") && stickyBox.findAll((node) => node.type === "button").length === 2, "save bar with its buttons");
+  assert.ok(stickyBox.props.className.includes("sticky") && stickyBox.props.className.includes("bg-background"));
+  assert.ok(shown.indexOf("변경 0건") < shown.indexOf("STATUS ≠ S"), "save bar is above the hard rules");
   assert.ok(!shown.includes("시스템 내장 목록"), "no caption line under the table");
   assert.equal(app.renderer.root.findAll((node) => node.type === "table" && node.props["aria-label"] === "이상 규칙").length, 1, "table keeps a hidden name");
   assert.ok(shown.indexOf("START_TIME > END_TIME") < shown.indexOf(HARD_WARNING) && shown.indexOf(HARD_WARNING) < shown.indexOf("AI 규칙 추천"), "bottom of the hard rule section");
-  for (const expected of ["변경자 admin@example.test", "켜진 규칙 · 이상 규칙 2/2 · 이상 징후 규칙 1/1", "STATUS ≠ S", "위험F", "주의P, N", "START_TIME > END_TIME (종료 시각이 없으면 판단하지 않음)",
+  for (const expected of ["변경자 admin@example.test", "켜진 규칙 · 이상 규칙 2/2 · 이상 징후 규칙 1/1", "STATUS ≠ S", "START_TIME > END_TIME (종료 시각이 없으면 판단하지 않음)",
     "처리 시간elapsed_ms", "변경 0건 · 저장하면 바로 운영에 적용됩니다"]) assert.ok(shown.includes(expected), expected);
   for (const forbidden of ["AI 임계값 추천", "판정 정책", "기준 k", "하드룰", "소프트룰", "리비전", "r12", "r10", "r0"]) assert.ok(!shown.includes(forbidden), `${forbidden} is not on the screen`);
   assert.equal(app.button("저장").props.disabled, true);
   assert.equal(app.button("변경 취소").props.disabled, true);
   const severityLines = (id) => app.renderer.root.find((node) => node.type === "tr" && node.props["data-rule"] === id)
     .findAll((node) => node.type === "span" && node.props["data-severity"]).map((node) => [node.props["data-severity"], text(node.children)]);
-  assert.deepEqual(severityLines("hard:process-status"), [["critical", "위험F"], ["warning", "주의P, N"]], "one line per level");
   assert.deepEqual(severityLines("hard:negative-duration"), [["critical", "위험"]], "single severity is one badge");
+  assert.equal(app.renderer.root.find((node) => node.type === "tr" && node.props["data-rule"] === "hard:negative-duration").findAll((node) => node.type === "select").length, 0, "other rules have no severity input");
+  // 편집 가능한 규칙: 코드마다 선택, 위험 → 주의 → 참고 순서, 코드 뜻을 옆에, 묶음 첫 줄에만 배지.
+  const editorRows = () => app.renderer.root.find((node) => node.type === "tr" && node.props["data-rule"] === "hard:process-status")
+    .findAll((node) => node.type === "span" && node.props["data-severity-code"]).map((node) => text(node.children).replace(/참고주의위험$/, ""));
+  assert.deepEqual(editorRows(), ["위험F 실패", "주의P 처리중", "Z 데이터없음", "참고H 부분성공", "N 미처리"]);
+  assert.equal(app.renderer.root.findAll((node) => node.type === "select" && node.props["aria-label"] === "N 미처리 위험도")[0].props.value, "info");
   assert.equal(app.renderer.root.findAll((node) => node.type === "input" && node.props["aria-label"] === "규칙 이름")[0].props.value, softRule.name);
   await wait(() => app.shown().includes("이상 징후 규칙 수정 1건: 처리 시간 5초 초과(임계값 4,000 → 5,000)"), "history summary");
   assert.ok(app.shown().includes("버전 7 상태로 되돌림 · 이상 규칙 켜기 1건"), "restored revision shows its source");
@@ -180,7 +194,7 @@ const calls = (method, path) => requested.filter((call) => call.method === metho
   await wait(() => app.renderer.root.findAllByType(RuleSaveDialog).length === 1, "confirmation opened");
   const preview = calls("POST", "/api/rule-set/preview").at(-1).body;
   assert.equal(preview.expectedRevision, 12);
-  assert.deepEqual(preview.hardRules, [{ id: "hard:process-status", enabled: true }, { id: "hard:negative-duration", enabled: false }]);
+  assert.deepEqual(preview.hardRules, [{ id: "hard:process-status", enabled: true, severity: { byCode: STATUS_DEFAULT } }, { id: "hard:negative-duration", enabled: false }]);
   assert.deepEqual(preview.softRules, [{ id: softRule.id, name: softRule.name, field: "elapsed_ms", operator: "gt", threshold: 8000, severity: "warning", enabled: true }]);
   assert.equal(calls("PUT", "/api/rule-set").length, 0, "nothing is saved before the confirmation");
   const body = await renderSaveBody(app);
@@ -235,6 +249,7 @@ const calls = (method, path) => requested.filter((call) => call.method === metho
   await wait(() => app.shown().includes("저장 실패 · soft_rule_threshold_invalid:soft:elapsed_ms-3f9a2c1d · 운영 룰은 버전 12 그대로입니다. 편집 내용은 남아 있습니다."), "validation code shown");
   assert.equal(app.renderer.root.findAllByType(RuleSaveDialog).length, 0, "no confirmation on validation failure");
   assert.ok(app.shown().includes("변경 1건"), "edit kept");
+  assert.ok(text(app.renderer.root.find((node) => node.type === "div" && node.props["data-rule-sticky"] !== undefined).children).includes("저장 실패 ·"), "save result stays with the save bar");
   previewResult = () => {
     current = state(14, { savedBy: { actorId: "2", displayName: "other@example.test" } });
     return json({ code: "rule_set_revision_conflict", currentRevision: 14 }, 409);
@@ -246,6 +261,53 @@ const calls = (method, path) => requested.filter((call) => call.method === metho
   await wait(() => app.shown().includes("변경 0건"), "reload resets the draft");
   assert.ok(!app.shown().includes("저장 거절"));
   await app.cleanup();
+}
+
+// 3b) 코드별 위험도: 선택하면 줄이 위험도 순서로 옮기고, 변경 건수·저장 본문·확인창·취소·초안 복원에 반영된다.
+{
+  routes = baseRoutes({ "POST /api/rule-set/preview": () => json({ valid: true, summary: {}, hardDisabledAfterSave: [], changes: [
+    { type: "hard_updated", id: "hard:process-status", displayName: "상태가 S가 아님", diff: { severity: [{ byCode: STATUS_DEFAULT }, { byCode: { ...STATUS_DEFAULT, PROCESS_STATUS_N: "warning" } }] } }] }) });
+  const app = await mount();
+  await wait(() => app.shown().includes("현재 운영 버전 12"), "header");
+  const select = (label) => app.renderer.root.findAll((node) => node.type === "select" && node.props["aria-label"] === label)[0];
+  const order = () => app.renderer.root.findAll((node) => node.type === "span" && node.props["data-severity-code"]).map((node) => node.props["data-severity-code"].split("_").at(-1));
+  await act(async () => select("N 미처리 위험도").props.onChange({ target: { value: "warning" } }));
+  assert.ok(app.shown().includes("변경 1건"));
+  assert.deepEqual(order(), ["F", "P", "Z", "N", "H"], "the line moves to its new level");
+  assert.equal(useDraftStore.getState().drafts["/detection/rules"].dirty, true, "leave guard covers severity");
+  await app.click("저장");
+  await wait(() => app.renderer.root.findAllByType(RuleSaveDialog).length === 1, "confirmation");
+  assert.deepEqual(calls("POST", "/api/rule-set/preview").at(-1).body.hardRules, [{ id: "hard:process-status", enabled: true, severity: { byCode: { ...STATUS_DEFAULT, PROCESS_STATUS_N: "warning" } } }, { id: "hard:negative-duration", enabled: true }]);
+  const body = await renderSaveBody(app);
+  assert.ok(text(body.toJSON()).includes("이상 규칙 수정 · 상태가 S가 아님 · 위험도 N 미처리 참고 → 주의"), "only the changed code is listed");
+  assert.ok(!text(body.toJSON()).includes("확인했고"), "severity changes need no off confirmation");
+  await act(async () => body.unmount());
+  await act(async () => app.renderer.root.findByType(RuleSaveDialog).props.onCancel());
+  await toggle(app, "상태가 S가 아님 켜기", false);
+  assert.ok(app.shown().includes("변경 2건"), "enabled and severity are two changes");
+  await toggle(app, "상태가 S가 아님 켜기", true);
+  await act(async () => select("N 미처리 위험도").props.onChange({ target: { value: "info" } }));
+  assert.ok(app.shown().includes("변경 0건"), "back to the saved level is no change");
+  await act(async () => select("H 부분성공 위험도").props.onChange({ target: { value: "critical" } }));
+  await app.click("변경 취소");
+  await act(async () => app.renderer.root.findAllByType(ConfirmDialog)[0].props.onConfirm());
+  assert.equal(select("H 부분성공 위험도").props.value, "info", "cancel restores the level");
+  await act(async () => select("Z 데이터없음 위험도").props.onChange({ target: { value: "critical" } }));
+  await app.cleanup();
+  const back = await mount("admin", { keepDrafts: true });
+  await wait(() => back.shown().includes("현재 운영 버전 12"), "header after return");
+  assert.equal(back.renderer.root.findAll((node) => node.type === "select" && node.props["aria-label"] === "Z 데이터없음 위험도")[0].props.value, "critical", "draft restore keeps the level");
+  assert.ok(back.shown().includes("변경 1건"));
+  await back.cleanup();
+  // 읽기 전용 byCode·코드 추가: 코드 수정 없이 위험도별로 묶어 뜻과 함께 표시한다.
+  const addedRule = { id: "hard:count-conservation", methodVersion: "count-conservation-v1", displayName: "건수 합계 불일치", conditionText: "TOTAL_COUNT ≠ SUCCESS_COUNT + ERROR_COUNT", severity: "critical", enabled: false, editable: ["enabled"] };
+  routes = baseRoutes({ "GET /api/rule-set": () => json(state(12, { hardRules: [{ ...hardRules()[0], editable: ["enabled"], severity: { byCode: { ...STATUS_DEFAULT, PROCESS_STATUS_Q: "critical" } } }, hardRules()[1], addedRule] })) });
+  const readOnly = await mount();
+  await wait(() => readOnly.shown().includes("현재 운영 버전 12"), "header");
+  assert.deepEqual(readOnly.renderer.root.find((node) => node.type === "tr" && node.props["data-rule"] === "hard:process-status").findAll((node) => node.type === "span" && node.props["data-severity"]).map((node) => text(node.children)),
+    ["위험F 실패, Q", "주의P 처리중, Z 데이터없음", "참고H 부분성공, N 미처리"]);
+  assert.ok(readOnly.shown().includes("건수 합계 불일치") && readOnly.shown().includes("TOTAL_COUNT ≠ SUCCESS_COUNT + ERROR_COUNT"), "a longer rule list needs no code change");
+  await readOnly.cleanup();
 }
 
 // 4b) 충돌 뒤 재조회가 실패해도 응답의 현재 버전을 표시한다.
@@ -468,7 +530,8 @@ const calls = (method, path) => requested.filter((call) => call.method === metho
 
 // 6) 되돌리기: 스냅샷 값 그대로 restoreFromRevision을 보내고 편집 중 변경이 버려짐을 안내한다.
 {
-  const snapshot = { hardRules: hardRules(), softRules: [{ ...softRule, threshold: 4000 }] };
+  const savedSeverity = { byCode: { ...STATUS_DEFAULT, PROCESS_STATUS_N: "critical" } };
+  const snapshot = { hardRules: [{ ...hardRules()[0], severity: savedSeverity }, hardRules()[1]], softRules: [{ ...softRule, threshold: 4000 }] };
   routes = baseRoutes({
     "GET /api/rule-set/history/10": () => json({ ...historyItem(10), snapshot }),
     "POST /api/rule-set/preview": () => json({ valid: true, summary: {}, hardDisabledAfterSave: [], changes: [{ type: "soft_updated", id: softRule.id, name: softRule.name, diff: { threshold: [5000, 4000] } }] }),
@@ -484,6 +547,7 @@ const calls = (method, path) => requested.filter((call) => call.method === metho
   assert.equal(pending.actionText, "되돌리고 적용");
   const sent = calls("POST", "/api/rule-set/preview").at(-1).body;
   assert.deepEqual([sent.expectedRevision, sent.restoreFromRevision], [12, 10]);
+  assert.deepEqual(sent.hardRules, [{ id: "hard:process-status", enabled: true, severity: savedSeverity }, { id: "hard:negative-duration", enabled: true }], "severity only for the editable rule");
   assert.deepEqual(sent.softRules, [{ id: softRule.id, name: softRule.name, field: "elapsed_ms", operator: "gt", threshold: 4000, severity: "warning", enabled: true }]);
   await app.cleanup();
 }
@@ -611,15 +675,20 @@ const calls = (method, path) => requested.filter((call) => call.method === metho
   const { devRecommendationFor, devRecommendationResult } = await import("../src/features/detection/rules/ruleAiDevSample.ts");
   const { parseRecommendation } = await import("../src/features/detection/rules/ruleAiApi.ts");
   assert.deepEqual(devRecommendationResult, contractResult, "development sample is the contract example");
-  assert.ok(parseRecommendation(contractResult), "contract example passes validation");
 
   const retryRule = { ...softRule, id: "soft:retry_count-91ab77e0", name: "재시도 3회 이상", field: "retry_count", operator: "gte", threshold: 3, unit: "count", severity: "info" };
-  const offRule = { ...softRule, id: "soft:error_ratio-5d2e0b19", name: "꺼진 비율 규칙", field: "error_ratio", threshold: 0.01, unit: "ratio", enabled: false };
+  const offRule = { ...softRule, id: "soft:error_ratio-0000aaaa", name: "꺼진 비율 규칙", field: "error_ratio", threshold: 0.02, unit: "ratio", enabled: false };
   const noResultRule = { ...softRule, id: "soft:success_count-11112222", name: "결과 없는 규칙", field: "success_count", operator: "lt", threshold: 2, unit: "count" };
+  const ratioRule = { ...softRule, id: "soft:error_ratio-5d2e0b19", name: "오류 비율 규칙", field: "error_ratio", threshold: 0.01, unit: "ratio" };
+  const totalRule = { ...softRule, id: "soft:total_count-0a1b2c3d", name: "총 건수 규칙", field: "total_count", threshold: 10000, unit: "count" };
   const sameFieldRule = { ...softRule, id: "soft:elapsed_ms-99999999", name: "같은 필드 다른 규칙", threshold: 9000 };
-  const current = state(12, { softRules: [softRule, retryRule, offRule, noResultRule, sameFieldRule], counts: { hardEnabled: 2, hardTotal: 2, softEnabled: 4, softTotal: 5 } });
+  const current = state(12, { softRules: [softRule, ratioRule, retryRule, totalRule, offRule, noResultRule, sameFieldRule], counts: { hardEnabled: 2, hardTotal: 2, softEnabled: 6, softTotal: 7 } });
+  assert.ok(parseRecommendation(contractResult, current), "contract example passes validation");
   assert.deepEqual(devRecommendationFor(current).items.find((item) => item.field === "elapsed_ms").softRuleIds, [softRule.id, sameFieldRule.id], "only the development sample aligns ids by field");
-  assert.deepEqual(devRecommendationFor(current).items.find((item) => item.field === "error_ratio").softRuleIds, [], "off rules stay out of the sample");
+  assert.deepEqual(devRecommendationFor(current).items.find((item) => item.field === "error_ratio").softRuleIds, [ratioRule.id], "off rules stay out of the sample");
+  const onlyElapsed = state(12, { softRules: [softRule] });
+  assert.deepEqual(devRecommendationFor(onlyElapsed).items.map((item) => item.field), ["elapsed_ms"], "sample items without a rule are dropped");
+  assert.ok(parseRecommendation(devRecommendationFor(onlyElapsed), onlyElapsed), "aligned sample passes the same validation");
 
   const jobs = new Map();
   let nextJob = 0;
@@ -652,6 +721,7 @@ const calls = (method, path) => requested.filter((call) => call.method === metho
   const box = (name) => app.renderer.root.findAll((node) => node.type === "div" && node.props["data-rule-ai"] === name)[0];
   const thresholdOf = (name) => app.renderer.root.findAll((node) => node.type === "input" && node.props["aria-label"] === `${name} 임계값`)[0].props.value;
   await app.click("AI 규칙 추천");
+  await wait(() => box("running") || box("done"), "started");
   await wait(() => box("done"), "result table");
   const sent = jobCalls().at(-1).body;
   assert.equal(jobCalls().length, before + 1);
@@ -660,8 +730,8 @@ const calls = (method, path) => requested.filter((call) => call.method === metho
   assert.ok(Date.parse(sent.data.from) < Date.parse(sent.data.until) && Date.parse(sent.data.until) - Date.parse(sent.data.from) <= 92 * 86400000);
   const rows = () => app.renderer.root.findAll((node) => node.type === "tr" && node.props["data-ai-row"] !== undefined);
   const row = (id) => rows().find((node) => node.props["data-ai-row"] === id);
-  assert.deepEqual(rows().map((node) => node.props["data-ai-row"]), [softRule.id, retryRule.id], "rows are the enabled rules listed in softRuleIds; same-field, off and result-less rules are not");
-  assert.ok(text(box("done").children).includes("켜진 이상 징후 규칙 2개 · 제안 1건"));
+  assert.deepEqual(rows().map((node) => node.props["data-ai-row"]), [softRule.id, ratioRule.id, retryRule.id, totalRule.id], "rows are the enabled rules listed in softRuleIds; same-field, off and result-less rules are not");
+  assert.ok(text(box("done").children).includes("켜진 이상 징후 규칙 4개 · 제안 2건"));
   assert.equal(box("done").findAll((node) => node.type === "table" && node.props["aria-label"] === "AI 규칙 추천").length, 1);
   const heads = box("done").findAll((node) => node.type === "th").map((node) => text(node.children));
   assert.deepEqual(heads, ["선택", "규칙(대상 필드)", "임계값", "상태", "근거"], "five columns");
@@ -673,10 +743,12 @@ const calls = (method, path) => requested.filter((call) => call.method === metho
   assert.ok(row(softRule.id).findAll((node) => node.type === "span" && node.props.title === "원값 7210.5").length === 1, "raw value tooltip");
   assert.ok(text(row(retryRule.id).children).includes("해당 없음") && text(row(retryRule.id).children).includes("All reference values are 0"));
   assert.ok(text(row(retryRule.id).children).includes("≥ 3 count") && !text(row(retryRule.id).children).includes("→"), "non-proposed rows show only the current value");
+  assert.ok(text(row(totalRule.id).children).includes("거부") && text(row(totalRule.id).children).includes("invalid_generation_output"), "reason is in the status cell");
   const checkbox = (id) => row(id).findAll((node) => node.props["aria-label"]?.endsWith(" 선택") && node.props.onCheckedChange)[0];
-  assert.deepEqual([checkbox(softRule.id).props.disabled, checkbox(retryRule.id).props.disabled], [false, true], "only proposed rows are selectable");
+  assert.deepEqual([checkbox(softRule.id).props.disabled, checkbox(ratioRule.id).props.disabled, checkbox(retryRule.id).props.disabled, checkbox(totalRule.id).props.disabled], [false, false, true, true], "only proposed rows are selectable");
   // 선택 해제하면 적용 불가, 다시 고르면 적용. 적용은 고른 규칙의 입력칸만 바꾼다.
   await act(async () => checkbox(softRule.id).props.onCheckedChange(false));
+  await act(async () => checkbox(ratioRule.id).props.onCheckedChange(false));
   assert.equal(app.button("적용").props.disabled, true);
   assert.ok(text(box("done").children).includes("선택 0건"));
   await act(async () => checkbox(softRule.id).props.onCheckedChange(true));
@@ -685,8 +757,9 @@ const calls = (method, path) => requested.filter((call) => call.method === metho
   assert.equal(thresholdOf(softRule.name), "7210.5");
   assert.equal(thresholdOf(sameFieldRule.name), "9000", "same field but not listed: untouched");
   assert.equal(thresholdOf(retryRule.name), "3", "not proposed: input untouched");
-  assert.equal(thresholdOf(offRule.name), "0.01", "off rule untouched");
+  assert.equal(thresholdOf(offRule.name), "0.02", "off rule untouched");
   assert.equal(thresholdOf(noResultRule.name), "2", "rule without a result untouched");
+  assert.equal(thresholdOf(ratioRule.name), "0.01", "unselected proposal untouched");
   assert.ok(app.shown().includes("변경 1건"));
   assert.ok(text(box("applied").children).includes(`1건을 입력칸에 채움(${softRule.name}) · 저장해야 운영에 반영됩니다`));
   assert.equal(calls("PUT", "/api/rule-set").length, saves, "apply does not save");
@@ -722,9 +795,13 @@ const calls = (method, path) => requested.filter((call) => call.method === metho
     { ...contractResult, items: [{ ...validItem, status: "unknown" }] }, { ...contractResult, items: [{ ...validItem, source: "unknown" }] },
     { ...contractResult, items: [{ ...validItem, operator: "eq" }] }, { ...contractResult, items: [{ ...validItem, softRuleIds: "x" }] },
     { ...contractResult, items: [{ ...validItem, status: "no_applicable" }] },
+    { ...contractResult, items: [{ ...contractResult.items[2], status: "unknown" }] },
+    { ...contractResult, items: [{ ...validItem, evidence: { ...validItem.evidence, n: "46980" } }] }, { ...contractResult, items: [{ ...validItem, evidence: { ...validItem.evidence, n: undefined } }] },
+    { ...contractResult, items: [{ ...validItem, softRuleIds: [] }] }, { ...contractResult, items: [{ ...validItem, softRuleIds: ["soft:elapsed_ms-00000000"] }] },
+    { ...contractResult, items: [{ ...validItem, softRuleIds: [offRule.id] }] },
   ];
   for (const invalid of invalidResults) {
-    assert.equal(parseRecommendation(invalid), null, JSON.stringify(invalid)?.slice(0, 120));
+    assert.equal(parseRecommendation(invalid, current), null, JSON.stringify(invalid)?.slice(0, 120));
     jobResponse = succeeded(invalid);
     const posts = jobCalls().length;
     await app.click("다시 시도");
@@ -770,6 +847,8 @@ const calls = (method, path) => requested.filter((call) => call.method === metho
   const postsBeforePoll = jobCalls().length;
   await app.click("AI 규칙 추천");
   await wait(() => reads === 1 && box("running"), "job is running");
+  assert.ok(app.shown().includes("AI 규칙 추천 실행 중…") && !app.shown().includes("AI 임계값"), "running text uses the screen name");
+  assert.ok(text(box("running").children).includes("켜진 이상 징후 규칙 6개"));
   await wait(() => box("readFailed"), "a read failure after the 5 second poll", 800);
   assert.equal(reads, 2, "polled once more while running");
   assert.ok(text(box("readFailed").children).includes("AI 규칙 추천 조회 실패 · job_storage_unavailable"));
@@ -785,6 +864,7 @@ const calls = (method, path) => requested.filter((call) => call.method === metho
   // 운영 경로: 서버가 이 작업 종류를 거절하면 코드 그대로, 예시 없음.
   routes["POST /api/jobs"] = () => json({ code: "invalid_job_request" }, 400);
   await app.click("닫기");
+  await wait(() => app.button("AI 규칙 추천").props.disabled === false, "closed");
   await app.click("AI 규칙 추천");
   await wait(() => box("failed") && text(box("failed").children).includes("추천 실패 · invalid_job_request"), "server rejection shown");
   assert.equal(rows().length, 0, "no sample rows outside development mode");

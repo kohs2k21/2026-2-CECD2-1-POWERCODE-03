@@ -56,10 +56,10 @@ export const useRuleAi = ({ state, dirty, reload }: { state: RuleSetState; dirty
     } else if (job.data?.status === "failed") {
       setRun({ status: "failed", code: job.data.errorCode ?? "recommendation_failed" });
     } else if (job.data?.status === "succeeded") {
-      const result = parseRecommendation(job.data.resultSummary);
+      const result = parseRecommendation(job.data.resultSummary, state);
       setRun(result ? { status: "done", result, unpicked: [] } : { status: "failed", code: "recommendation_result_invalid" });
     }
-  }, [job.data, job.error, job.isError, job.isFetching, jobId, run]);
+  }, [job.data, job.error, job.isError, job.isFetching, jobId, run, state]);
   // 버전이 바뀌면 이전 버전 기준 결과는 닫는다. 실패 표시는 남긴다(충돌 뒤 재조회로 버전이 바뀌어도 안내가 사라지지 않게).
   useEffect(() => {
     setRun((current) => (current.status === "failed" ? current : { status: "idle" }));
@@ -72,8 +72,12 @@ export const useRuleAi = ({ state, dirty, reload }: { state: RuleSetState; dirty
     const body = recommendationRequest(sourceId, state.revision);
     try {
       const started = await startRecommendation(body, jobRequestKey(user?.id ?? "", body, true), state);
-      if ("result" in started) setRun({ status: "done", result: started.result, unpicked: [] });
-      else setJobId(started.jobId);
+      if ("jobId" in started) {
+        setJobId(started.jobId);
+      } else {
+        const result = parseRecommendation(started.result, state);
+        setRun(result ? { status: "done", result, unpicked: [] } : { status: "failed", code: "recommendation_result_invalid" });
+      }
     } catch (error) {
       setRun({ status: "failed", code: errorCode(error) });
       if (error instanceof HttpError && error.code === "rule_set_revision_conflict") await reload();

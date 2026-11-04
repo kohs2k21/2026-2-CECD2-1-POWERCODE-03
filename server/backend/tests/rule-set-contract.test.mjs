@@ -16,9 +16,13 @@ import { TRAINER_CAPABILITIES } from '../dist/routes/trainerContract.js';
 const contracts = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../contracts');
 const contract = (name) => readFile(path.join(contracts, name), 'utf8');
 const REFERENCE_HASH = '5b15237724b48fcc4f18335a374ad7d5d8d7bcbaa7b5f851120f4d17b23dd8aa';
+const V2_ALL_FOUR_HASH = 'de6a2ad8d0dcee189f36852a279263d3408f826632b95b4f14a97406b801bed0';
+const V2_DEFAULT_HASH = 'b6a9c84b21e7deb8df0d22bb6a11a5cd5fc80779eb4797f195505842bf605f3d';
+const V2_REFERENCE_HASH = '4cf61820400fb0de6eb41dca009cd1d20d8f29eccfcf609db8e4c6dd8098fe3d';
+const STATUS_DEFAULT = { byCode: { PROCESS_STATUS_F: 'critical', PROCESS_STATUS_P: 'warning', PROCESS_STATUS_Z: 'warning', PROCESS_STATUS_H: 'info', PROCESS_STATUS_N: 'info' } };
 const R0_HASH = '80d0377d69597900b7506c26761143077ae7306f464bc44d759bb62f7c83bc89';
 
-test('contract reference object hashes to the pinned value', () => {
+test('contract v1 reference object hashes to the pinned value', () => {
   const canonical = {
     hardRules: [{ id: 'hard:negative-duration', enabled: false }, { id: 'hard:process-status', enabled: true }],
     softRules: [{ id: 'soft:elapsed_ms-3f9a2c1d', field: 'elapsed_ms', operator: 'gt', threshold: '8000', severity: 'warning', enabled: true }],
@@ -27,10 +31,20 @@ test('contract reference object hashes to the pinned value', () => {
   assert.equal(contentHash({
     hardRules: [{ id: 'hard:process-status', enabled: true }, { id: 'hard:negative-duration', enabled: false }],
     softRules: [{ id: 'soft:elapsed_ms-3f9a2c1d', name: '이름은 hash 입력이 아님', field: 'elapsed_ms', operator: 'gt', threshold: 8000, unit: 'ms', severity: 'warning', enabled: true, createdAtRevision: 1, updatedAtRevision: 2 }],
-  }), REFERENCE_HASH, 'number threshold, name and audit fields do not change the hash');
+  }, 1), REFERENCE_HASH, 'number threshold, name and audit fields do not change the hash');
 });
-test('r0 default state has the fixed hash the migration inserts', () => {
-  assert.equal(contentHash({ hardRules: projectHardRules([]), softRules: [] }), R0_HASH);
+test('contract v2 reference objects hash to the pinned values', () => {
+  const hardRules = (negativeOn) => [{ id: 'hard:process-status', enabled: true, severity: STATUS_DEFAULT }, { id: 'hard:negative-duration', enabled: negativeOn, severity: 'critical' }];
+  assert.equal(contentHash({ hardRules: hardRules(true), softRules: [] }), V2_DEFAULT_HASH, '(a\u2032)');
+  assert.equal(contentHash({
+    hardRules: hardRules(false),
+    softRules: [{ id: 'soft:elapsed_ms-3f9a2c1d', name: '이름은 hash 입력이 아님', field: 'elapsed_ms', operator: 'gt', threshold: 8000, unit: 'ms', severity: 'warning', enabled: true, createdAtRevision: 1, updatedAtRevision: 2 }],
+  }), V2_REFERENCE_HASH, '(b)');
+  assert.equal(contentHash({ hardRules: projectHardRules(hard()), softRules: [] }), V2_ALL_FOUR_HASH, '(a) all four built-in rules on: the content of the DB 016 system row r1');
+  assert.equal(contentHash({ hardRules: projectHardRules(hard()).slice(0, 2), softRules: [] }), V2_DEFAULT_HASH, 'built-in defaults of the first two rules are the (a\u2032) input');
+});
+test('r0 keeps the fixed v1 hash the migration inserted', () => {
+  assert.equal(contentHash({ hardRules: hard().slice(0, 2).map(({ id, enabled }) => ({ id, enabled })), softRules: [] }, 1), R0_HASH);
 });
 test('hash key order follows sort_keys and array order follows id', async () => {
   const left = { b: 1, a: { d: [1, { z: 1, y: 2 }], c: 'ㄱ' } };
@@ -66,13 +80,17 @@ test('threshold text is never exponential', () => {
   for (const value of [1e-5, 2.5e-10, 3e25, -6e-8]) assert.doesNotMatch(decimalString(value), /e/i);
 });
 
-test('built-in rule constants equal detection-decision 4.3 and the rule-set example', async () => {
+test('built-in rule constants equal the contracts', async () => {
   const example = JSON.parse((await contract('rule-set.md')).split('```json')[1].split('```')[0].replace(/"3b1f…"/, '"x"'));
-  assert.deepEqual(HARD_RULES.map(({ id }) => id), ['hard:process-status', 'hard:negative-duration']);
-  assert.deepEqual(example.hardRules.map(({ enabled, editable, ...rule }) => rule), HARD_RULES);
+  assert.deepEqual(HARD_RULES.map(({ id }) => id), ['hard:process-status', 'hard:negative-duration', 'hard:success-with-error', 'hard:count-conservation']);
+  // 정본은 detection-decision.md 4.3(#112)과 rule-set.md(#118)다. 이 브랜치의 문서가 아직 이전 판이라 값을 직접 고정하고, 두 PR 병합 뒤 문서 대조로 되돌린다.
+  assert.deepEqual(HARD_RULES[0], { id: 'hard:process-status', methodVersion: 'process-status-hr-v2', displayName: '상태가 S가 아님', conditionText: 'STATUS ≠ S', severity: STATUS_DEFAULT, editable: ['enabled', 'severity'] });
+  assert.deepEqual(example.hardRules.find((rule) => rule.id === 'hard:negative-duration'), { ...HARD_RULES[1], enabled: true });
+  assert.deepEqual(HARD_RULES[2], { id: 'hard:success-with-error', methodVersion: 'success-with-error-v1', displayName: '성공 상태이나 오류 건수가 기록됨', conditionText: 'STATUS = S, ERROR_COUNT > 0', severity: 'critical', editable: ['enabled'] });
+  assert.deepEqual(HARD_RULES[3], { id: 'hard:count-conservation', methodVersion: 'count-conservation-v1', displayName: '건수 합계 불일치', conditionText: 'TOTAL_COUNT ≠ SUCCESS_COUNT + ERROR_COUNT', severity: 'critical', editable: ['enabled'] });
   const decision = await contract('detection-decision.md');
   const table = decision.slice(decision.indexOf('### 4.3'), decision.indexOf('## 5. '));
-  for (const rule of HARD_RULES) {
+  for (const rule of HARD_RULES.slice(1, 2)) {
     const row = table.split('\n').find((line) => line.startsWith(`| \`${rule.id}\``));
     assert.ok(row, rule.id);
     assert.ok(row.includes(`\`${rule.methodVersion}\``) && row.includes(rule.displayName) && row.includes(rule.conditionText), rule.id);
@@ -90,9 +108,11 @@ test('soft rule field constants equal the method-catalog example', async () => {
   assert.equal(TRAINER_CAPABILITIES.methodCatalog, METHOD_CATALOG, 'screen reads fields through GET /api/jobs/capabilities');
 });
 
-const hard = (enabled = true) => projectHardRules([]).map((rule) => ({ id: rule.id, enabled }));
-const current = (softRules = [], enabled = true) => ({ hardRules: projectHardRules(hard(enabled)), softRules });
+function hard(enabled = true) {
+  return HARD_RULES.map((rule) => ({ id: rule.id, enabled, ...(rule.editable.includes('severity') ? { severity: rule.severity } : {}) }));
+}
 const stored = (id, overrides = {}) => ({ id, name: '처리 시간 5초 초과', field: 'elapsed_ms', operator: 'gt', threshold: 5000, unit: 'ms', severity: 'warning', enabled: true, createdAtRevision: 1, updatedAtRevision: 1, ...overrides });
+const current = (softRules = [], enabled = true) => ({ hardRules: projectHardRules(hard(enabled)), softRules });
 const sent = ({ createdAtRevision, updatedAtRevision, unit, ...rule }) => rule;
 const added = (overrides = {}) => ({ id: null, clientRef: 'new-1', name: '재시도 3회 이상', field: 'retry_count', operator: 'gte', threshold: 3, severity: 'info', enabled: true, ...overrides });
 const request = (overrides = {}) => parseRuleSetRequest({ expectedRevision: 1, hardRules: hard(), softRules: [], ...overrides });
@@ -162,36 +182,96 @@ test('change classification and summary follow the contract', () => {
   const state = current([stored('soft:elapsed_ms-1'), stored('soft:elapsed_ms-2', { name: 'b' }), stored('soft:elapsed_ms-3', { name: 'c' }), stored('soft:retry_count-4', { name: 'd', field: 'retry_count', unit: 'count', operator: 'gte', threshold: 3 })]);
   const [first, second, third] = state.softRules.map(sent);
   const result = plan(request({
-    hardRules: [{ id: 'hard:process-status', enabled: true }, { id: 'hard:negative-duration', enabled: false }], confirmHardRuleDisable: true,
+    hardRules: [hard()[0], { id: 'hard:negative-duration', enabled: false }, ...hard().slice(2)], confirmHardRuleDisable: true,
     softRules: [{ ...first, threshold: 8000, enabled: false }, { ...second, enabled: false }, third, added({ name: '새 규칙' })],
   }), { state });
   assert.deepEqual(result.changes.map((change) => change.type), ['hard_disabled', 'soft_updated', 'soft_disabled', 'soft_added', 'soft_removed']);
   assert.deepEqual(result.changes[1].diff, { threshold: [5000, 8000], enabled: [true, false] }, 'mixed enabled change stays soft_updated');
-  assert.deepEqual(result.summary, { hardEnabled: 0, hardDisabled: 1, softAdded: 1, softUpdated: 1, softRemoved: 1, softEnabled: 0, softDisabled: 1 });
+  assert.deepEqual(result.summary, { hardEnabled: 0, hardDisabled: 1, hardUpdated: 0, softAdded: 1, softUpdated: 1, softRemoved: 1, softEnabled: 0, softDisabled: 1 });
   assert.deepEqual(result.snapshot.softRules.map((rule) => rule.id), ['soft:elapsed_ms-1', 'soft:elapsed_ms-2', 'soft:elapsed_ms-3', 'soft:retry_count-0000000a']);
   assert.deepEqual(result.snapshot.softRules.map((rule) => rule.updatedAtRevision), [2, 2, 1, 2], 'untouched rule keeps its revision');
   assert.equal(result.snapshot.softRules[3].unit, 'count', 'server fills the catalog unit');
   assert.deepEqual(result.hardDisabledAfterSave, ['hard:negative-duration']);
 });
-test('restore branches follow the contract exceptions', () => {
+test('restore fills rules and severity per the contract', () => {
   const deleted = stored('soft:elapsed_ms-1', { createdAtRevision: 5, updatedAtRevision: 6 });
-  const restore = { hardRules: [{ id: 'hard:process-status', enabled: true }], softRules: [deleted] };
+  const v1Status = { id: 'hard:process-status', enabled: true, methodVersion: 'process-status-hr-v1', severity: { byCode: { PROCESS_STATUS_F: 'critical', PROCESS_STATUS_P: 'warning', PROCESS_STATUS_N: 'warning' } } };
+  const restore = { hardRules: [v1Status], softRules: [deleted] };
   const state = current([]);
-  const body = (overrides = {}) => request({ restoreFromRevision: 3, hardRules: [{ id: 'hard:process-status', enabled: true }], softRules: [sent(deleted)], ...overrides });
+  const statusOnly = [{ id: 'hard:process-status', enabled: true }];
+  const body = (overrides = {}) => request({ restoreFromRevision: 3, hardRules: statusOnly, softRules: [sent(deleted)], ...overrides });
+  const filledOff = hard().slice(1).map(({ id }) => ({ id, enabled: false }));
   assert.equal(code(() => plan(body())), 'restore_revision_unknown');
-  const restored = plan(body(), { state, restore });
-  assert.deepEqual(restored.changes, [{ type: 'soft_added', id: 'soft:elapsed_ms-1', name: deleted.name, restored: true }], 'new built-in rule filled silently');
+  // 스냅샷에 없는 규칙은 꺼짐으로 채우고, 현재 켜져 있으면 새로 꺼지는 것이라 확인이 필요하다.
+  assert.equal(code(() => plan(body(), { state, restore })), 'hard_rule_disable_confirmation_required');
+  const restored = plan(body({ confirmHardRuleDisable: true }), { state, restore });
+  assert.deepEqual(restored.changes.map((change) => [change.type, change.id]), [
+    ['hard_disabled', 'hard:negative-duration'], ['hard_disabled', 'hard:success-with-error'], ['hard_disabled', 'hard:count-conservation'], ['soft_added', 'soft:elapsed_ms-1'],
+  ]);
+  assert.equal(restored.changes.at(-1).restored, true);
   assert.deepEqual([restored.snapshot.softRules[0].createdAtRevision, restored.snapshot.softRules[0].updatedAtRevision], [5, 2]);
-  assert.equal(restored.snapshot.hardRules.find((rule) => rule.id === 'hard:negative-duration').enabled, true, 'default on');
+  const rule = (id) => restored.snapshot.hardRules.find((item) => item.id === id);
+  assert.deepEqual([rule('hard:negative-duration').enabled, rule('hard:negative-duration').severity], [false, 'critical'], 'missing rule is off with the built-in severity');
+  assert.deepEqual([rule('hard:process-status').methodVersion, rule('hard:process-status').severity], ['process-status-hr-v2', STATUS_DEFAULT], 'v1 source is filled with current defaults');
+  assert.notEqual(restored.contentHash, contentHash({ hardRules: restore.hardRules, softRules: [deleted] }, 1), 'a restored v1 revision gets a v2 hash');
+  // v1 출처의 위험도는 보내도 무시한다.
+  const ignored = plan(body({ confirmHardRuleDisable: true, hardRules: [{ ...statusOnly[0], severity: v1Status.severity }] }), { state, restore });
+  assert.deepEqual(ignored.snapshot.hardRules.find((item) => item.id === 'hard:process-status').severity, STATUS_DEFAULT);
+  // 본문이 채움값과 다르면 거절.
+  assert.equal(code(() => plan(body({ hardRules: [...statusOnly, { id: 'hard:negative-duration', enabled: true }] }), { state, restore })), 'restore_payload_mismatch');
+  assert.equal(code(() => plan(body({ confirmHardRuleDisable: true, hardRules: [...statusOnly, ...filledOff] }), { state, restore })), 'passed');
   assert.equal(code(() => plan(body({ softRules: [{ ...sent(deleted), threshold: 1 }] }), { state, restore })), 'restore_payload_mismatch');
   assert.equal(code(() => plan(body({ softRules: [] }), { state, restore })), 'restore_payload_mismatch');
   assert.equal(code(() => plan(body({ hardRules: [{ id: 'hard:process-status', enabled: false }] }), { state, restore })), 'restore_payload_mismatch');
-  const newRuleOff = body({ hardRules: [{ id: 'hard:process-status', enabled: true }, { id: 'hard:negative-duration', enabled: false }] });
-  assert.equal(code(() => plan(newRuleOff, { state, restore })), 'hard_rule_disable_confirmation_required', 'body value wins over the default');
-  assert.deepEqual(plan({ ...newRuleOff, confirmHardRuleDisable: true }, { state, restore }).changes.map((change) => change.type), ['hard_disabled', 'soft_added']);
-  const legacy = { hardRules: [{ id: 'hard:old', enabled: true }, { id: 'hard:process-status', enabled: true }, { id: 'hard:negative-duration', enabled: true }], softRules: [] };
+  // v2 출처의 위험도는 저장값 그대로여야 한다.
+  const edited = { byCode: { ...STATUS_DEFAULT.byCode, PROCESS_STATUS_N: 'critical' } };
+  const v2 = { hardRules: [{ ...HARD_RULES[0], enabled: true, severity: edited }, ...HARD_RULES.slice(1).map((rule) => ({ ...rule, enabled: true }))], softRules: [] };
+  const v2Body = (severity) => request({ restoreFromRevision: 3, hardRules: [{ id: 'hard:process-status', enabled: true, ...(severity ? { severity } : {}) }, ...hard().slice(1)] });
+  const updated = plan(v2Body(edited), { state, restore: v2 });
+  assert.deepEqual(updated.changes, [{ type: 'hard_updated', id: 'hard:process-status', displayName: '상태가 S가 아님', diff: { severity: [STATUS_DEFAULT, edited] } }]);
+  assert.equal(code(() => plan(v2Body(STATUS_DEFAULT), { state, restore: v2 })), 'restore_payload_mismatch');
+  assert.equal(code(() => plan(v2Body(null), { state, restore: v2 })), 'hard_rule_severity_invalid:hard:process-status');
+  const legacy = { hardRules: [{ id: 'hard:old', enabled: true }, ...hard()], softRules: [] };
   assert.equal(code(() => plan(request({ restoreFromRevision: 3, hardRules: legacy.hardRules }), { state, restore: legacy })), 'hard_rule_unknown:hard:old');
   assert.equal(code(() => plan(request({ softRules: [sent(deleted)] }), { state })), 'soft_rule_unknown:soft:elapsed_ms-1', 'exception is restore only');
+});
+test('stored rules are projected by the current methodVersion', () => {
+  const v1 = { id: 'hard:process-status', enabled: true, methodVersion: 'process-status-hr-v1', severity: { byCode: { PROCESS_STATUS_F: 'critical', PROCESS_STATUS_P: 'warning', PROCESS_STATUS_N: 'warning' } } };
+  const edited = { byCode: { ...STATUS_DEFAULT.byCode, PROCESS_STATUS_H: 'critical' } };
+  const [status, negative, successWithError, countConservation] = projectHardRules([v1]);
+  assert.deepEqual([status.methodVersion, status.severity, status.enabled, status.editable], ['process-status-hr-v2', STATUS_DEFAULT, true, ['enabled', 'severity']], 'v1 values are not shown');
+  assert.deepEqual([negative.enabled, negative.severity, negative.editable], [false, 'critical', ['enabled']], 'not in the snapshot means off');
+  assert.deepEqual([successWithError.enabled, countConservation.enabled], [false, false]);
+  assert.deepEqual(projectHardRules([{ id: 'hard:process-status', enabled: false, methodVersion: 'process-status-hr-v2', severity: edited }])[0].severity, edited, 'current methodVersion keeps the saved value');
+  assert.deepEqual(projectHardRules([{ id: 'hard:process-status', enabled: true }])[0].severity, STATUS_DEFAULT, 'no methodVersion uses the default');
+  assert.deepEqual(projectHardRules([{ id: 'hard:process-status', enabled: true, methodVersion: 'process-status-hr-v2', severity: { byCode: {} } }])[0].severity, STATUS_DEFAULT);
+});
+test('severity is editable only on the status rule', () => {
+  const invalid = 'hard_rule_severity_invalid:hard:process-status';
+  const others = hard().slice(1);
+  const withStatus = (severity) => request({ hardRules: [{ id: 'hard:process-status', enabled: true, ...(severity === undefined ? {} : { severity }) }, ...others] });
+  const { PROCESS_STATUS_N: _dropped, ...fourCodes } = STATUS_DEFAULT.byCode;
+  for (const bad of [undefined, null, 'critical', {}, { byCode: fourCodes }, { byCode: { ...STATUS_DEFAULT.byCode, PROCESS_STATUS_X: 'info' } },
+    { byCode: { ...STATUS_DEFAULT.byCode, PROCESS_STATUS_N: 'high' } }, { ...STATUS_DEFAULT, extra: 1 }]) {
+    assert.equal(code(() => plan(withStatus(bad))), invalid, JSON.stringify(bad));
+  }
+  const notEditable = request({ hardRules: [hard()[0], { id: 'hard:negative-duration', enabled: true, severity: 'info' }, ...others.slice(1)] });
+  assert.equal(code(() => plan(notEditable)), 'hard_rule_field_not_editable:hard:negative-duration');
+  assert.equal(code(() => plan(request({ hardRules: [hard()[0], { id: 'hard:negative-duration', enabled: true, severity: 'critical' }, ...others.slice(1)], softRules: [added()] }))), 'passed', 'the built-in value may be sent');
+  const edited = { byCode: { ...STATUS_DEFAULT.byCode, PROCESS_STATUS_N: 'warning' } };
+  const changed = plan(withStatus(edited));
+  assert.deepEqual(changed.changes, [{ type: 'hard_updated', id: 'hard:process-status', displayName: '상태가 S가 아님', diff: { severity: [STATUS_DEFAULT, edited] } }]);
+  assert.equal(changed.summary.hardUpdated, 1);
+  assert.notEqual(changed.contentHash, V2_DEFAULT_HASH, 'severity is a v2 hash input');
+  const both = plan(request({ confirmHardRuleDisable: true, hardRules: [{ id: 'hard:process-status', enabled: false, severity: edited }, ...others] }));
+  assert.deepEqual(both.changes.map((change) => change.type), ['hard_disabled', 'hard_updated'], 'enabled and severity are two entries');
+  const reordered = { byCode: Object.fromEntries(Object.entries(edited.byCode).reverse()) };
+  assert.equal(code(() => plan(withStatus(reordered), { state: { ...current(), hardRules: projectHardRules([{ ...HARD_RULES[0], enabled: true, severity: edited }, ...HARD_RULES.slice(1).map((rule) => ({ ...rule, enabled: true }))]) } })), 'rule_set_unchanged', 'key order is not a change');
+  // r0 현재 상태: 내장 기본값으로 해석한 상태와 같으면 무변경이다.
+  const r0 = { hardRules: projectHardRules([{ id: 'hard:process-status', enabled: true, methodVersion: 'process-status-hr-v1' }, { id: 'hard:negative-duration', enabled: true }]), softRules: [] };
+  const asR0 = hard().map((rule, index) => ({ ...rule, enabled: index < 2 }));
+  assert.equal(code(() => plan(request({ hardRules: asR0 }), { state: r0 })), 'rule_set_unchanged');
+  assert.deepEqual(plan(request(), { state: r0 }).changes.map((change) => change.type), ['hard_enabled', 'hard_enabled'], 'turning on rules r0 does not know is a change');
 });
 
 test('threshold-stats request parsing follows the contract', () => {

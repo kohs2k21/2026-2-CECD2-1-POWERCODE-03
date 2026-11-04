@@ -2,7 +2,7 @@ import crypto from 'node:crypto';
 import type { Pool, PoolClient } from 'pg';
 import {
   CONTENT_HASH_VERSION, RULE_SET_CONTRACT, RuleSetError, planRuleSetChange, projectHardRules,
-  type RuleSetRequest, type RuleSetSnapshot, type SoftRule,
+  type RuleSetRequest, type RuleSetSnapshot, type SoftRule, type StoredHardRule, type StoredSnapshot,
 } from './ruleSetContract.js';
 import { CATALOG_VERSION } from './softRuleCatalog.js';
 
@@ -17,15 +17,15 @@ export const RULE_SET_LOCK = [81739, 0] as const;
 
 const ISO = (column: string) => `to_char(${column} AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`;
 // 별칭이 문자열이므로 정렬은 반드시 r.revision으로 한다(ORDER BY revision은 '9' > '10'이 된다).
-const COLUMNS = `r.revision::text AS revision,content_hash AS "contentHash",snapshot,changes,summary,note,
+const COLUMNS = `r.revision::text AS revision,content_hash AS "contentHash",content_hash_version AS "contentHashVersion",snapshot,changes,summary,note,
   restored_from_revision::text AS "restoredFromRevision",saved_by_actor_id AS "actorId",${ISO('saved_at')} AS "savedAt"`;
 
 type RevisionRow = {
-  revision: string; contentHash: string; snapshot: { hardRules?: { id: string; enabled: boolean }[]; softRules?: SoftRule[] };
+  revision: string; contentHash: string; contentHashVersion: number; snapshot: { hardRules?: StoredHardRule[]; softRules?: SoftRule[] };
   changes: unknown[]; summary: Record<string, number>; note: string | null; restoredFromRevision: string | null; actorId: string; savedAt: string;
 };
 const revisionOf = (row: RevisionRow) => ({
-  revision: Number(row.revision), contentHash: row.contentHash, savedAt: row.savedAt, actorId: row.actorId,
+  revision: Number(row.revision), contentHash: row.contentHash, contentHashVersion: row.contentHashVersion, savedAt: row.savedAt, actorId: row.actorId,
   restoredFromRevision: row.restoredFromRevision === null ? null : Number(row.restoredFromRevision),
   note: row.note, changes: row.changes, summary: row.summary,
 });
@@ -35,7 +35,7 @@ const counts = ({ hardRules, softRules }: RuleSetSnapshot) => ({
 });
 const currentSnapshot = (row: RevisionRow): RuleSetSnapshot => ({ hardRules: projectHardRules(row.snapshot.hardRules ?? []), softRules: row.snapshot.softRules ?? [] });
 /** 과거 스냅샷은 저장 내용 그대로 비교한다(내장 목록에서 사라진 규칙도 남긴다 — 되돌릴 때 hard_rule_unknown). */
-const storedSnapshot = (row: RevisionRow) => ({ hardRules: row.snapshot.hardRules ?? [], softRules: row.snapshot.softRules ?? [] }) as RuleSetSnapshot;
+const storedSnapshot = (row: RevisionRow): StoredSnapshot => ({ hardRules: row.snapshot.hardRules ?? [], softRules: row.snapshot.softRules ?? [] });
 
 async function latest(db: Queryable): Promise<RevisionRow> {
   const { rows: [row] } = await db.query<RevisionRow>(`SELECT ${COLUMNS} FROM ops_rule_set_revisions r ORDER BY r.revision DESC LIMIT 1`);
@@ -63,9 +63,9 @@ export type ActorResolver = (actorId: string) => Promise<ActorRef>;
 export async function readRuleSet(db: Queryable, actor: ActorResolver) {
   const row = await latest(db);
   const snapshot = currentSnapshot(row);
-  const { revision, contentHash, savedAt, restoredFromRevision, actorId } = revisionOf(row);
+  const { revision, contentHash, contentHashVersion, savedAt, restoredFromRevision, actorId } = revisionOf(row);
   return {
-    contractVersion: RULE_SET_CONTRACT, revision, contentHash, contentHashVersion: CONTENT_HASH_VERSION, savedAt,
+    contractVersion: RULE_SET_CONTRACT, revision, contentHash, contentHashVersion, savedAt,
     savedBy: await actor(actorId), restoredFromRevision, catalogVersion: CATALOG_VERSION, counts: counts(snapshot), ...snapshot,
   };
 }
@@ -116,10 +116,10 @@ export async function saveRuleSet(pool: Pool, request: RuleSetRequest, actorId: 
       nextRevision: revision, assignId: newSoftRuleId,
     });
     const { rows: [saved] } = await client.query<{ appliedAt: string }>(`INSERT INTO ops_rule_set_revisions
-        (revision,content_hash,snapshot,changes,summary,note,restored_from_revision,saved_by_actor_id,saved_at)
-      VALUES($1,$2,$3::jsonb,$4::jsonb,$5::jsonb,$6,$7,$8,clock_timestamp()) RETURNING ${ISO('saved_at')} AS "appliedAt"`,
+        (revision,content_hash,content_hash_version,snapshot,changes,summary,note,restored_from_revision,saved_by_actor_id,saved_at)
+      VALUES($1,$2,$9,$3::jsonb,$4::jsonb,$5::jsonb,$6,$7,$8,clock_timestamp()) RETURNING ${ISO('saved_at')} AS "appliedAt"`,
     [revision, plan.contentHash, JSON.stringify(plan.snapshot), JSON.stringify(plan.changes), JSON.stringify(plan.summary),
-      request.note, request.restoreFromRevision, actorId]);
+      request.note, request.restoreFromRevision, actorId, CONTENT_HASH_VERSION]);
     await client.query('COMMIT');
     return {
       revision, previousRevision: revision - 1, contentHash: plan.contentHash, appliedAt: saved.appliedAt, appliesFrom: 'next_decision' as const,
@@ -152,8 +152,8 @@ export function parseHistoryQuery(query: Record<string, unknown>) {
 }
 
 const historyItem = async (row: RevisionRow, actor: ActorResolver) => {
-  const { revision, savedAt, actorId, note, restoredFromRevision, contentHash, summary, changes } = revisionOf(row);
-  return { revision, savedAt, savedBy: await actor(actorId), note, restoredFromRevision, contentHash, summary, changes };
+  const { revision, savedAt, actorId, note, restoredFromRevision, contentHash, contentHashVersion, summary, changes } = revisionOf(row);
+  return { revision, savedAt, savedBy: await actor(actorId), note, restoredFromRevision, contentHash, contentHashVersion, summary, changes };
 };
 
 export async function readHistory(db: Queryable, filter: { limit: number; before: number | null }, actor: ActorResolver) {

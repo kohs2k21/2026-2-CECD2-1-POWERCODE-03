@@ -44,7 +44,7 @@ try {
   const state = await readRuleSet(api, actor);
   const body = {
     expectedRevision: state.revision, confirmHardRuleDisable: false, restoreFromRevision: null, note: null,
-    hardRules: state.hardRules.map(({ id, enabled }) => ({ id, enabled })),
+    hardRules: state.hardRules.map(({ id, enabled, severity }) => ({ id, enabled, severity })),
     softRules: [{ id: null, clientRef: 'grant', name: `권한 시험 ${state.revision}`, field: 'retry_count', operator: 'gte', threshold: state.revision + 3, severity: 'info', enabled: true }],
   };
   assert.equal((await previewRuleSet(api, body, actor)).valid, true);

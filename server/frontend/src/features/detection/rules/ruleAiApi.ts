@@ -55,11 +55,17 @@ const validItem = (value: unknown) => {
     ? OPERATORS.includes(operator as string) && decimalText(threshold) && decimalText(displayThreshold)
     : operator === null && threshold === null && displayThreshold === null;
 };
-/** 작업 결과 형식 확인. 항목 하나라도 계약과 다르면 null(화면은 성공으로 보이지 않게 실패로 표시). 대상 0건은 접수 단계 오류라 빈 결과도 null. */
-export const parseRecommendation = (value: unknown): RecommendationResult | null => {
+/**
+ * 작업 결과 검증. 항목 하나라도 계약과 다르면 null(화면은 성공으로 보이지 않게 실패로 표시). 대상 0건은 접수 단계 오류라 빈 결과도 null.
+ * 대상은 저장된 켜진 규칙이므로 `softRuleIds`가 비었거나 그 밖의 id가 있으면 저장 상태 기준으로 null이다(편집 중 초안과 무관).
+ */
+export const parseRecommendation = (value: unknown, state: RuleSetState): RecommendationResult | null => {
   if (!record(value) || value.recommendationContractVersion !== "threshold-recommendation-v1") return null;
   const { items } = value;
-  return Array.isArray(items) && items.length > 0 && items.every(validItem) ? (value as RecommendationResult) : null;
+  if (!Array.isArray(items) || items.length === 0 || !items.every(validItem)) return null;
+  const enabled = new Set(state.softRules.filter((rule) => rule.enabled).map((rule) => rule.id));
+  const matched = (items as RecommendationItem[]).every((item) => item.softRuleIds.length > 0 && item.softRuleIds.every((id) => enabled.has(id)));
+  return matched ? (value as RecommendationResult) : null;
 };
 
 /**

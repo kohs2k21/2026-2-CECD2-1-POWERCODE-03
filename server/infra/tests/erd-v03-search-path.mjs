@@ -153,6 +153,7 @@ export async function searchPath013({ connection, check, failures, migrations, m
       assert.deepEqual(await procs(c), before, '013 changes rolled back');
       check('erd82_rollback: 013 failing before COMMIT leaves every function setting unchanged');
       await c.query(migrations[idx013]);
+      for (let i = idx013 + 1; i < migrations.length; i++) await c.query(migrations[i]);
       await inventory(c, 'erd82_rollback');
       await parity(c);
     } finally { await c.end(); }

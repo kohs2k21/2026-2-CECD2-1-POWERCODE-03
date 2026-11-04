@@ -1,5 +1,5 @@
-// Target schema after migrations 001 through 013 (file-name order, enum additions committed first; 013 changes function settings only).
-// 54 public tables + 5 powercode_queue physical queues. Server application state is tracked separately.
+// Target schema after migrations 001 through 015 (file-name order, enum additions committed first; 013 changes function settings only).
+// 60 public tables + 5 powercode_queue physical queues. View ops_operational_state (015) is SQL-only. Server application state is tracked separately.
 // Native CHECK predicates, partial/GIN indexes and triggers: canonical SQL; DBML is visualization.
 Project powercode_erd_v03 {
   database_type: 'PostgreSQL'
@@ -1217,6 +1217,42 @@ Table run_decision_reads {
   Note: '014. 사용자별 마지막 열람 시각(대상·사용자당 1행, 다시 열면 read_at 갱신). 미확인 = 행 없음 또는 read_at < 판정 항목 시각.'
 }
 
+// 015_rule_set_revisions (#110). append-only: 문장 단위 트리거가 UPDATE·DELETE·TRUNCATE 거부. 현재 값 = 표별 최대 revision 행.
+// 저장은 API가 pg_advisory_xact_lock(81739, 0)으로 직렬화. 일관 읽기는 뷰 ops_operational_state(SQL 원본, DBML 표 아님).
+Table ops_rule_set_revisions {
+  revision bigint [pk]
+  content_hash text [not null]
+  snapshot jsonb [not null]
+  changes jsonb [not null]
+  summary jsonb [not null]
+  note text
+  restored_from_revision bigint
+  saved_by_actor_id text [not null]
+  saved_at timestamptz [not null, default: `clock_timestamp()`]
+  Note: '015. 룰 세트 리비전(rule-set.md). revision ≥ 0, r0 = 마이그레이션 시드(하드룰 2개 켬·소프트룰 없음, saved_by_actor_id system). content_hash 소문자 hex 64, snapshot = hardRules[]·softRules[] 전체, restored_from_revision은 자기 참조·revision 미만. API SELECT·INSERT, Detector SELECT.'
+}
+
+Table ops_active_model_set_revisions {
+  revision bigint [pk]
+  snapshot jsonb [not null]
+  changes jsonb [not null]
+  note text
+  restored_from_revision bigint
+  changed_by_actor_id text [not null]
+  changed_at timestamptz [not null, default: `clock_timestamp()`]
+  Note: '015. 활성 모델 집합 리비전(model-version.md). revision ≥ 0, r0 = 빈 집합 시드 행. snapshot = {models: [...]}, restored_from_revision은 자기 참조·revision 미만. API SELECT·INSERT, Detector SELECT.'
+}
+
+Table ops_detection_policy_revisions {
+  revision bigint [pk]
+  policy jsonb [not null]
+  note text
+  restored_from_revision bigint
+  saved_by_actor_id text [not null]
+  saved_at timestamptz [not null, default: `clock_timestamp()`]
+  Note: '015. 판정 정책 리비전(model-version.md 운영 설정). revision ≥ 1, 행 없음 = 리비전 0(내장 기본 정책). restored_from_revision은 자기 참조·revision 미만. API SELECT·INSERT, Detector SELECT.'
+}
+
 Table run_config_comparison_items {
   comparison_id uuid [not null]
   config_version_id uuid [not null]
@@ -1379,3 +1415,7 @@ Ref: run_decision_feedback.job_id >? run_jobs.id
 Ref: run_decision_feedback.decision_id >? run_process_decisions.id
 Ref: run_decision_reads.job_id >? run_jobs.id
 Ref: run_decision_reads.decision_id >? run_process_decisions.id
+// 015: restored_from_revision self references.
+Ref: ops_rule_set_revisions.restored_from_revision >? ops_rule_set_revisions.revision
+Ref: ops_active_model_set_revisions.restored_from_revision >? ops_active_model_set_revisions.revision
+Ref: ops_detection_policy_revisions.restored_from_revision >? ops_detection_policy_revisions.revision

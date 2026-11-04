@@ -828,7 +828,9 @@ export async function interim012({ Client, port, connection, check, failures, mi
       try {
         for (const sql of migrations.slice(0, idx012 + 1)) await o2.query(sql);
         await o2.query(helpersSql);
-        await su2.query(rolesSql);
+        // 014/015 grants name tables this 001-012 database lacks, so they are cut. The TEMP revoke stays in the script, but this test
+        // re-grants TEMP right below and checks nothing about it; G4 above checks the revoke itself.
+        await su2.query(rolesSql.replace(/^-- 014:[\s\S]*?(?=^-- #78-Q10)/m, ''));
         await o2.query(attackSetup);
         await o2.query(`GRANT TEMPORARY ON DATABASE ${db012} TO PUBLIC`);
         await asLogin(db012, detector, 'Y7A2 001-012 only', y7a2Prelude, y7a2Attack012);

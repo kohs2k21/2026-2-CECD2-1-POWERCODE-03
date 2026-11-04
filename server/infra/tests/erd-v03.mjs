@@ -12,6 +12,7 @@ import { createServer } from 'node:net';
 import { interim012 } from './erd-v03-interim.mjs';
 import { searchPath013 } from './erd-v03-search-path.mjs';
 import { llmPreparedGrant81 } from './erd-v03-llm-grant.mjs';
+import { revisions015 } from './erd-v03-revisions.mjs';
 
 const toolRoot = process.argv[2];
 assert(toolRoot, 'Pass an isolated temporary workspace containing the test dependencies');
@@ -135,8 +136,10 @@ async function preV011Fixture(c) {
 }
 
 async function parity(c) {
-  const rows = (await c.query(`SELECT table_schema,table_name,column_name,udt_name,is_nullable FROM information_schema.columns
-    WHERE table_schema IN ('public','powercode_queue') ORDER BY table_schema,table_name,ordinal_position`)).rows;
+  // Base tables only: views (015 ops_operational_state) are not DBML tables.
+  const rows = (await c.query(`SELECT c.table_schema,c.table_name,c.column_name,c.udt_name,c.is_nullable FROM information_schema.columns c
+    JOIN information_schema.tables t USING (table_schema,table_name)
+    WHERE c.table_schema IN ('public','powercode_queue') AND t.table_type='BASE TABLE' ORDER BY c.table_schema,c.table_name,c.ordinal_position`)).rows;
   const aliases = { bigint:'int8',integer:'int4',smallint:'int2',boolean:'bool',timestamptz:'timestamptz' };
   const expected = model.schemas.flatMap(s=>s.tables.map(t=>({s:s.name,t})));
   assert.deepEqual([...new Set(rows.map(r=>r.table_schema+'.'+r.table_name))].sort(), expected.map(({s,t})=>s+'.'+t.name).sort(), 'DBML/PG table parity');
@@ -215,6 +218,7 @@ try {
   await interim012({ Client, port, connection, check, failures, migrations, migrationNames, rolesSql, parity, infra });
   await searchPath013({ connection, check, failures, migrations, migrationNames, parity, insert });
   await llmPreparedGrant81({ Client, port, connection, check, failures, migrations, rolesSql, insert, infra });
+  await revisions015({ Client, port, connection, check, failures, migrations, migrationNames, rolesSql, parity, insert, infra });
   assert.equal(failures.length,0,failures.join('; '));
   console.log(`PASS ${checkCount} integration checks; no project runtime or customer data used`);
 } finally { await cluster.stop(); }

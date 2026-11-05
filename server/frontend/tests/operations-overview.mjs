@@ -155,9 +155,9 @@ const fields = reads.parseSourceFields({ layer: "T", sampleSize: 10, sampleLimit
 assert.deepEqual(fields.fields, [{ name: "retry_count", presentCount: 0, nullCount: 10, missingCount: 0 }]);
 assert.throws(() => reads.parseSourceFields({ layer: "X", sampleSize: 1 }));
 assert.deepEqual(reads.parseStorage({ measuredAt: "2026-11-03T01:00:00Z", databaseBytes: 1024, disk: null }), { measuredAt: "2026-11-03T01:00:00Z", databaseBytes: 1024, disk: null });
-const trend = reads.parseTrend({ configVersionId: "cfg", timezone: "Asia/Seoul", items: [{ day: "2026-11-03", decisionCount: 30, anomalySignalRatio: 0.069, unavailableRatio: 1.5 }, { day: "11/03", decisionCount: 1 }] });
+const trend = reads.parseTrend({ timezone: "Asia/Seoul", items: [{ day: "2026-11-03", decisionCount: 30, anomalySignalRatio: 0.069, unavailableRatio: 1.5 }, { day: "11/03", decisionCount: 1 }] });
 assert.deepEqual(trend.items, [{ day: "2026-11-03", decisionCount: 30, anomalySignalRatio: 0.069, unavailableRatio: null }]);
-assert.equal(reads.parseTrend({ configVersionId: null, items: [] }).configVersionId, null);
+assert.deepEqual(reads.parseTrend({ timezone: "Asia/Seoul", items: [] }), { timezone: "Asia/Seoul", items: [] });
 assert.equal(percentText(0.06896), "6.9%");
 assert.equal(percentText(0.5), "50%");
 assert.equal(percentText(0), "0%");
@@ -216,7 +216,7 @@ bodies = {
   "/api/operations/overview": overviewBody,
   "/api/pipeline/sources": { items: [{ id: "src", datasetKey: "k", displayName: "d", createdAt: "2026-11-01T00:00:00Z" }] },
   "/api/pipeline/decisions": { items: [{ id: "decision-0001", sourceId: "src", processObservationId: "o", configVersionId: "cfg", status: "complete", ruleStatus: "succeeded", mlStatus: "succeeded", decisionCode: "R1", anomalyScore: "0.9", decidedAt: "2026-11-03T00:58:00.000Z", evidence: { anomalous: true } }] },
-  "/api/operations/decision-trend": { configVersionId: "cfg", timezone: "Asia/Seoul", items: [{ day: "2026-11-03", decisionCount: 30, anomalySignalRatio: 0.069, unavailableRatio: 0.033 }] },
+  "/api/operations/decision-trend": { timezone: "Asia/Seoul", items: [{ day: "2026-11-03", decisionCount: 30, anomalySignalRatio: 0.069, unavailableRatio: 0.033 }] },
   "/api/operations/collection": collectionBody,
   "/api/operations/latency": { observedAt: "2026-11-03T01:00:00Z", window: "1h", stages: [{ id: "detectionQueue", samples: 0, p50Ms: null, p95Ms: null, queuePending: 2 }], endToEnd: { p50Ms: null } },
   "/api/operations/source-fields": { layer: "T", sampleSize: 0, sampleLimit: 1000, fields: [], qualityFlags: [] },

@@ -569,6 +569,19 @@ const explainCard = (app) => app.renderer.root.find((node) => node.type === "div
   await app.cleanup();
 }
 
+// 5d2) v04 판정(구성 없음): 당시 모델 줄만 빠지고 나머지 요약·설명 요청은 같다. 없는 값을 다른 문구로 채우지 않는다.
+{
+  requested.length = 0;
+  const detail = { ...item("d-v04", { jobId: "j-v04", configVersionId: null }), configuration: null,
+    job: { id: "j-v04", status: "succeeded", attemptCount: 1, maxAttempts: 3, errorCode: null, createdAt: null, finishedAt: null }, explanation: null };
+  routes = explainRoutes("d-v04", detail, { status: "queued" });
+  const app = await mount("/analysis/d/d-v04");
+  await wait(() => app.shown().includes("아직 설명을 요청하지 않은 판정입니다."), "detail without a configuration");
+  assert.ok(app.shown().includes("판정 요약") && app.shown().includes("TX-d-v04"), "summary renders");
+  assert.ok(!app.shown().includes("당시 운영 머신러닝 모델"), "no configuration, no model line");
+  await app.cleanup();
+}
+
 // 5e) 보는 중 도착한 결과: 요청 → 대기(진행 막대) → 완료 시 타자 효과, 화면 읽기용 전체 사본, 끝나면 전체 한 벌
 {
   requested.length = 0;

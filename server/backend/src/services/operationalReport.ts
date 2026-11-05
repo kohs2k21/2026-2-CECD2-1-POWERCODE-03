@@ -4,7 +4,7 @@ export class ReportRequestError extends Error {
   constructor(readonly code: string) { super(code); }
 }
 export type ReportFilter = {
-  sourceId: string; configVersionId: string; from: string; until: string;
+  sourceId: string; configVersionId?: string; from: string; until: string;
   timezone: string; scope: 'live' | 'replay'; limit: number; offset: number;
 };
 export function parseCandidateFilter(query: Record<string, unknown>) {
@@ -43,10 +43,12 @@ function microseconds(value: string): bigint {
   const fraction = value.slice(19,-1).replace(/^\./,'').padEnd(6,'0');
   return BigInt(Date.parse(value.slice(0,19)+'Z'))*1000n+BigInt(fraction);
 }
-export function parseReportFilter(query: Record<string, unknown>): ReportFilter {
+// configVersionId를 주면 그 구성의 판정·작업만, 생략하면 원천 기준으로 구성과 무관하게 본다(v04 판정은 구성이 없다).
+export function parseReportFilter(query: Record<string, unknown>, {requireConfig = false} = {}): ReportFilter {
   const permitted = ['sourceId','configVersionId','from','until','timezone','scope','limit','offset'];
   if (Object.keys(query).some(key => !permitted.includes(key))) throw new ReportRequestError('unknown_report_filter');
   for (const key of ['sourceId','configVersionId']) {
+    if (key === 'configVersionId' && query[key] === undefined && !requireConfig) continue;
     if (typeof query[key] !== 'string' || !UUID.test(query[key] as string)) throw new ReportRequestError(`invalid_${key}`);
   }
   if (!time(query.from) || !time(query.until) || microseconds(query.from) >= microseconds(query.until) ||
@@ -59,7 +61,7 @@ export function parseReportFilter(query: Record<string, unknown>): ReportFilter 
   return {...query, ...pagination(query)} as ReportFilter;
 }
 export function reportParameters(filter: ReportFilter): unknown[] {
-  return [filter.sourceId, filter.configVersionId, filter.from, filter.until, filter.timezone, filter.scope, filter.limit, filter.offset];
+  return [filter.sourceId, filter.configVersionId ?? null, filter.from, filter.until, filter.timezone, filter.scope, filter.limit, filter.offset];
 }
 
 // Origin is authoritative for switchable sources; older unknown sources are never called live.
@@ -80,7 +82,7 @@ export const SCOPED_OBSERVATIONS = `WITH parameters AS (
  SELECT o.*,d.id AS decision_id,d.status AS decision_status,d.rule_status,d.ml_status,d.evidence,d.decided_at,
  d.source_latency_ms,d.latency_status
  FROM ranked o LEFT JOIN LATERAL (
-  SELECT d.* FROM run_process_decisions d WHERE d.process_observation_id=o.id AND d.config_version_id=$2
+  SELECT d.* FROM run_process_decisions d WHERE d.process_observation_id=o.id AND ($2::uuid IS NULL OR d.config_version_id=$2)
    AND d.decided_at<$4::timestamptz ORDER BY d.decided_at DESC,d.id DESC LIMIT 1
  ) d ON true WHERE o.rank=1
 ), cohort AS (SELECT * FROM latest WHERE decided_at >= $3::timestamptz)
@@ -143,8 +145,8 @@ SELECT count(*)::integer AS targets,
  count(*) FILTER(WHERE j.status='running')::integer AS running,
  count(*) FILTER(WHERE j.status='failed' AND j.finished_at >= $3::timestamptz AND j.finished_at < $4::timestamptz)::integer AS failed,
  extract(epoch FROM clock_timestamp()-min(j.created_at) FILTER(WHERE j.status IN ('queued','running'))) AS "oldestWaitSeconds"
- FROM run_jobs j JOIN scoped o ON j.input_spec->>'observationId'=o.id::text
- WHERE j.kind='detect' AND j.input_config_version_id=$2 AND o.report_scope=$6`;
+ FROM run_jobs j JOIN run_input_manifests m ON m.id=j.input_manifest_id JOIN scoped o ON o.id=m.process_observation_id
+ WHERE j.kind='detect' AND ($2::uuid IS NULL OR j.input_config_version_id=$2) AND o.report_scope=$6`;
 
 // Reconstructs open detect jobs at min(cutoff, now) from job and attempt intervals.
 // Queued and blocked are not distinguishable historically, so both count as waiting.
@@ -154,8 +156,8 @@ export const BACKLOG_AT_CUTOFF_SQL = `${SCOPED_OBSERVATIONS}, as_of AS (SELECT l
 open_jobs AS (
  SELECT j.created_at, EXISTS(SELECT 1 FROM run_job_attempts a WHERE a.job_id=j.id AND a.started_at<=t.at AND
    least(coalesce(a.finished_at,'infinity'::timestamptz),a.lease_until) > t.at) AS running
- FROM run_jobs j JOIN scoped o ON j.input_spec->>'observationId'=o.id::text CROSS JOIN as_of t
- WHERE j.kind='detect' AND j.input_config_version_id=$2 AND o.report_scope=$6
+ FROM run_jobs j JOIN run_input_manifests m ON m.id=j.input_manifest_id JOIN scoped o ON o.id=m.process_observation_id CROSS JOIN as_of t
+ WHERE j.kind='detect' AND ($2::uuid IS NULL OR j.input_config_version_id=$2) AND o.report_scope=$6
    AND j.created_at<=t.at AND (j.finished_at IS NULL OR j.finished_at>t.at)
 )
 SELECT (SELECT at FROM as_of) AS "asOf",

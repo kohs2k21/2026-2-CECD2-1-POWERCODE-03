@@ -70,7 +70,7 @@ def fixed_threshold(value: Any, value_type: str = "number", display_precision: i
     source = _decimal(value)
     rounded = _significant(source, SIGNIFICANT_DIGITS_MAX, ROUND_HALF_EVEN)
     if value_type == "integer":
-        # 계약이 정수 단계의 반올림을 정하지 않아 수식 추천 API(Math.round)와 같은 결과를 낸다.
+        # 15자리로 줄인 값을 ROUND_HALF_UP으로 정수로 만든다(계약 `threshold` 절).
         rounded = _places(rounded, 0, ROUND_HALF_UP)
     text = _plain(rounded)
     if threshold_valid(text, value_type):

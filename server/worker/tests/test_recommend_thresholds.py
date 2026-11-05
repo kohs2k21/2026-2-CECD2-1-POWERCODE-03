@@ -160,6 +160,31 @@ class ThresholdValueTests(unittest.TestCase):
             self.assertEqual(fixed_threshold(value), expected)
             self.assertNotIn("e", fixed_threshold(value).lower())
 
+    def test_negative_zero_is_never_written(self):
+        self.assertEqual(exact_text(-0.0), "0")
+        self.assertEqual(fixed_threshold(-0.0), "0")
+        self.assertEqual(fixed_threshold(-0.4, "integer"), "0")
+        self.assertEqual(display_threshold(-0.0), "0")
+        self.assertEqual(display_threshold(-0.4), "0")
+        self.assertEqual(display_threshold(-0.0, 4, "significant"), "0")
+        self.assertFalse(threshold_valid("-0"))
+
+    def test_shared_examples_are_what_the_worker_writes(self):
+        """백엔드 시험은 같은 파일의 값을 룰 세트 저장 검증에 넣는다(tests/rule-set-contract.test.mjs, jobs.integration.mjs)."""
+        path = REPOSITORY / "server/contracts/threshold-values.example.json"
+        cases = json.loads(path.read_text(encoding="utf-8"))["cases"]
+        self.assertEqual(len({case["name"] for case in cases}), len(cases))
+        self.assertEqual({case["field"] for case in cases}, {"elapsed_ms", "error_ratio", "retry_count"})
+        for case in cases:
+            field = SOFT_RULE_FIELDS_BY_ID[case["field"]]
+            options = (case["p95"], field.value_type, field.display_precision, field.display_precision_mode)
+            with self.subTest(case["name"]):
+                if case["threshold"] is None:
+                    with self.assertRaises(ThresholdSerializationError):
+                        fixed_threshold(*options)
+                else:
+                    self.assertEqual(fixed_threshold(*options), case["threshold"])
+
     def test_fifteen_digit_rounding_is_half_even(self):
         self.assertEqual(fixed_threshold("1.000000000000005"), "1")
         self.assertEqual(fixed_threshold("1.000000000000015"), "1.00000000000002")
@@ -498,6 +523,7 @@ class RejectionTests(BundleCase):
         rejected = items["total_count"]
         self.assertEqual((rejected["status"], rejected["rejectedReason"]), ("rejected", "threshold_serialization_failed"))
         self.assertEqual((rejected["evidence"]["n"], rejected["evidence"]["p95"]), (30, None))
+        self.assertEqual((rejected["evidence"]["measurementId"], rejected["evidence"]["baselineId"]), (None, None))
         self.assertEqual((rejected["evidence"]["min"], rejected["evidence"]["max"]), (-1.7e308, 1.7e308))
         self.assertTrue(frontend_valid(rejected))
         self.assertEqual(items["elapsed_ms"]["status"], "proposed")
@@ -623,6 +649,13 @@ class GenerationClientTimeoutTests(unittest.TestCase):
         with self.assertRaisesRegex(GenerationUnavailable, "^generation_service_unavailable$") as caught:
             self.failing(error)
         self.assertEqual(caught.exception.code, "generation_contract_rejected")
+
+    def test_rejection_body_without_a_text_code_is_a_contract_rejection(self):
+        for body in (b"[]", b"1", b'"code"', b"null", b'{"code": 1}', b'{"code": null}', b'{"code": ["x"]}', b"{}", b"not json"):
+            error = urllib.error.HTTPError("http://127.0.0.1:9/generate", 422, "x", {}, io.BytesIO(body))
+            with self.subTest(body), self.assertRaises(GenerationRejected) as caught:
+                self.failing(error, report_timeout=True)
+            self.assertEqual(caught.exception.code, "generation_contract_rejected")
 
     def test_service_answers_non_object_body_with_422(self):
         class Model:

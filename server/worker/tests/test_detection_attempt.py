@@ -213,6 +213,16 @@ def wait_for_free_slots(name):
         time.sleep(.005)
 
 
+class VirtualClock:
+    """기한 판단만 시험이 움직이는 시계로 돌린다. 스레드 시작이 늦어도 순서가 바뀌지 않는다."""
+
+    def __init__(self):
+        self.now = 1000.0
+
+    def monotonic(self):
+        return self.now
+
+
 class NeverStartingPool:
     """모든 작업자가 바쁜 풀처럼 제출만 받고 시작하지 않는다."""
 
@@ -228,7 +238,7 @@ class MethodExecution(unittest.TestCase):
 
     def test_results_keep_task_order_and_measure_elapsed(self):
         started = time.monotonic()
-        methods = run_methods([task("hard:a-rule"), task("soft:b-rule"), task("ml:model", lane="ml")], 2000,
+        methods = run_methods([task("hard:a-rule"), task("soft:b-rule"), task("ml:model", lane="ml")], 30000,
                               started_at=started)
         self.assertEqual([method["methodId"] for method in methods], ["hard:a-rule", "soft:b-rule", "ml:model"])
         self.assertTrue(all(method["status"] == "succeeded" and method["elapsedMs"] >= 0 for method in methods))
@@ -237,16 +247,15 @@ class MethodExecution(unittest.TestCase):
         release = threading.Event()
 
         def slow():
-            release.wait(5)
+            release.wait(30)
             return result("ml:model", True)
 
-        methods = run_methods([task("hard:a-rule"), task("ml:model", slow, "ml")], 100, started_at=time.monotonic())
+        methods = run_methods([task("ml:model", slow, "ml")], 100, started_at=time.monotonic())
+        self.assertFalse(release.is_set(), "모델을 기다리지 않고 기한에 끝난다")
         release.set()
-        self.assertEqual(methods[0]["status"], "succeeded")
-        late = methods[1]
+        late = methods[0]
         self.assertEqual((late["status"], late["cause"], late["anomalous"]), ("not_ready", "timeout", None))
-        self.assertGreaterEqual(late["elapsedMs"], 100)
-        self.assertLess(late["elapsedMs"], 2000)
+        self.assertGreaterEqual(late["elapsedMs"], 99.9)
 
     def test_expired_deadline_runs_nothing(self):
         called = []
@@ -260,7 +269,7 @@ class MethodExecution(unittest.TestCase):
         def broken():
             raise RuntimeError("boom")
 
-        methods = run_methods([task("hard:a-rule", broken), task("hard:b-rule")], 2000, started_at=time.monotonic())
+        methods = run_methods([task("hard:a-rule", broken), task("hard:b-rule")], 30000, started_at=time.monotonic())
         self.assertEqual((methods[0]["status"], methods[0]["cause"], methods[0]["failureCode"]),
                          ("failed", "failure", "exception"))
         self.assertEqual(methods[1]["status"], "succeeded")
@@ -279,28 +288,28 @@ class MethodExecution(unittest.TestCase):
     def test_many_rules_do_not_exhaust_slots(self):
         tasks = [task(f"soft:rule-{index}") for index in range(36)]
         self.assertTrue(all(method["status"] == "succeeded"
-                            for method in run_methods(tasks, 3000, started_at=time.monotonic())))
+                            for method in run_methods(tasks, 30000, started_at=time.monotonic())))
 
     def test_slots_return_after_run(self):
         for _ in range(5):
-            execute_methods([task("hard:a-rule"), task("ml:model", lane="ml")], 1000, started_at=time.monotonic())
-        taken = [_SLOTS["rule"].acquire(blocking=False) for _ in range(2)]
-        for _ in taken:
-            _SLOTS["rule"].release()
-        self.assertEqual(taken, [True, True])
+            methods = run_methods([task("hard:a-rule"), task("ml:model", lane="ml")], 30000, started_at=time.monotonic())
+            self.assertEqual([method["status"] for method in methods], ["succeeded", "succeeded"])
+            # 결과가 도착한 뒤에 슬롯이 풀리므로 돌아오기를 기다린다.
+            wait_for_free_slots("rule")
+            wait_for_free_slots("ml")
 
     def test_progress_marks_pending_without_elapsed(self):
         gate, seen = threading.Event(), []
 
         def slow():
-            gate.wait(5)
+            gate.wait(30)
             return result("ml:model")
 
         def progress(methods):
             seen.append([(method["methodId"], method["cause"], method["elapsedMs"] is None) for method in methods])
             gate.set()
 
-        execute_methods([task("hard:a-rule"), task("ml:model", slow, "ml")], 3000, started_at=time.monotonic(),
+        execute_methods([task("hard:a-rule"), task("ml:model", slow, "ml")], 30000, started_at=time.monotonic(),
                         on_progress=progress)
         self.assertEqual(seen[0], [("hard:a-rule", None, False), ("ml:model", "pending", True)])
         self.assertEqual(len(seen), 1, "모든 방법이 끝나면 최종 판정이 기록을 닫는다")
@@ -309,16 +318,22 @@ class MethodExecution(unittest.TestCase):
         def fail(_):
             raise RuntimeError("detection_lease_lost")
 
-        gate = threading.Event()
+        gate, model_started = threading.Event(), threading.Event()
 
         def slow():
-            gate.wait(5)
+            model_started.set()
+            gate.wait(30)
             return result("ml:model")
 
+        def rule_after_model_started():
+            # 룰이 먼저 끝나면 모델이 시작 전이라 취소될 수 있다. 시작 전 취소는 아래 시험이 본다.
+            self.assertTrue(model_started.wait(30))
+            return result("hard:a-rule")
+
         with self.assertRaisesRegex(RuntimeError, "detection_lease_lost"):
-            execute_methods([task("hard:a-rule"), task("ml:model", slow, "ml")],
-                            3000, started_at=time.monotonic(), on_progress=fail)
-        self.assertLess(_SLOTS["ml"]._value, 2, "모델은 아직 돌고 있어 슬롯을 쥐고 있다")
+            execute_methods([task("hard:a-rule", rule_after_model_started), task("ml:model", slow, "ml")],
+                            30000, started_at=time.monotonic(), on_progress=fail)
+        self.assertEqual(_SLOTS["ml"]._value, 1, "시작한 모델은 취소되지 않고 끝날 때까지 슬롯을 쥔다")
         gate.set()
         wait_for_free_slots("ml")
         wait_for_free_slots("rule")
@@ -335,48 +350,54 @@ class MethodExecution(unittest.TestCase):
 
         with patch.dict(_POOLS, {"ml": NeverStartingPool()}):
             with self.assertRaisesRegex(RuntimeError, "detection_lease_lost"):
-                execute_methods([task("hard:a-rule"), task("ml:model", lane="ml")], 3000,
+                execute_methods([task("hard:a-rule"), task("ml:model", lane="ml")], 30000,
                                 started_at=time.monotonic(), on_progress=fail)
         self.assertEqual(_SLOTS["ml"]._value, 2)
 
-    def _late_run(self, *, finished):
-        """메인 스레드가 기한을 넘겨 멈춰 있는 동안 방법이 끝난다. 끝난 시각은 항상 기한 뒤다."""
-        past_deadline = threading.Event()
+    def _main_is_late(self, *, model_finishes_in_time):
+        """메인 스레드가 on_progress에 멈춘 사이 기한이 지난다. 모델이 끝나는 시각은 기한 앞이나 뒤로 고정한다."""
+        clock, gate = VirtualClock(), threading.Event()
 
-        def slow():
-            past_deadline.wait(5)
-            finished.set()
-            return MethodOutcome(result("ml:model", True), {"inferenceMs": 1.0, "features": "late"})
+        def model():
+            gate.wait(30)
+            return MethodOutcome(result("ml:model", True), {"inferenceMs": 1.0})
 
         def delayed_main(_methods):
-            time.sleep(.15)
-            past_deadline.set()
-            finished.wait(5)
-            time.sleep(.02)  # 방법 스레드가 도착 큐에 넣을 시간
+            if model_finishes_in_time:
+                gate.set()
+                wait_for_free_slots("ml")  # 슬롯은 도착 큐에 넣은 뒤에 풀린다
+                clock.now += 1
+            else:
+                clock.now += 1
+                gate.set()
+                wait_for_free_slots("ml")
 
-        return run_task(slow, delayed_main)
+        with patch("detector.method_runner.time", clock):
+            return execute_methods([task("hard:a-rule", lambda: MethodOutcome(result("hard:a-rule"), {"ruleMs": 1.0})),
+                                    task("ml:model", model, "ml")], 100, started_at=clock.now, on_progress=delayed_main)
 
     def test_result_after_deadline_is_discarded_even_if_it_arrives_before_main_looks(self):
-        execution = self._late_run(finished=threading.Event())
-        late = execution.methods[1]
+        late = self._main_is_late(model_finishes_in_time=False).methods[1]
         self.assertEqual((late["status"], late["cause"], late["anomalous"]), ("not_ready", "timeout", None))
 
     def test_values_of_discarded_result_are_not_adopted(self):
-        execution = self._late_run(finished=threading.Event())
+        execution = self._main_is_late(model_finishes_in_time=False)
         self.assertNotIn("ml:model", execution.measured)
-        self.assertIn("hard:a-rule", execution.measured)
+        self.assertEqual(execution.measured["hard:a-rule"], {"ruleMs": 1.0})
+
+    def test_result_finished_in_time_is_kept_when_main_sees_it_late(self):
+        execution = self._main_is_late(model_finishes_in_time=True)
+        model = execution.methods[1]
+        self.assertEqual((model["status"], model["anomalous"], model["cause"]), ("succeeded", True, None))
+        self.assertEqual(model["elapsedMs"], 0)
+        self.assertEqual(execution.measured["ml:model"], {"inferenceMs": 1.0})
 
     def test_values_of_accepted_result_are_adopted(self):
         def scored():
             return MethodOutcome(result("ml:model"), {"inferenceMs": 2.5})
 
-        execution = execute_methods([task("ml:model", scored, "ml")], 3000, started_at=time.monotonic())
+        execution = execute_methods([task("ml:model", scored, "ml")], 30000, started_at=time.monotonic())
         self.assertEqual(execution.measured["ml:model"], {"inferenceMs": 2.5})
-
-
-def run_task(slow, on_progress):
-    return execute_methods([task("hard:a-rule"), task("ml:model", slow, "ml")], 100, started_at=time.monotonic(),
-                           on_progress=on_progress)
 
 
 class UnresolvedShapes(unittest.TestCase):

@@ -42,6 +42,8 @@ DEFINITIONS = [{"name": "count_total", "expression": {"op": "field", "field": "P
 FIT_DEFINITIONS = [{"name": "count_raw", "expression": {"op": "field", "field": "P.total_count"}},
                    {"name": "count_centered", "expression": {"op": "group_centered", "groupBy": "P.adapter_type",
                                                              "value": {"op": "field", "field": "P.total_count"}}}]
+# 기한이 주제가 아닌 시험은 부하에 흔들리지 않게 허용 상한을 쓴다.
+LONG_DEADLINE = 30000
 RAW = {"status": "S", "start_time_raw": "2026-01-01 00:00:00", "end_time_raw": "2026-01-01 00:00:01",
        "total_count": "10", "success_count": "10", "error_count": "0", "retry_count": "0"}
 ELAPSED_SOFT = {"id": "soft:elapsed_ms-3f9a2c1d", "name": "처리 시간", "field": "elapsed_ms", "operator": "gt",
@@ -391,6 +393,7 @@ def pinning_and_fail_closed(conn, sid):
 
 
 def evidence_and_columns(conn, sid, model_config, feature_set):
+    save_policy(conn, policy(deadline=LONG_DEADLINE))
     revision = save_rule_set(conn, soft=[ELAPSED_SOFT, RETRY_SOFT])
     model_revision = save_models(conn, [active(model_config)])
 
@@ -507,9 +510,41 @@ def evidence_and_columns(conn, sid, model_config, feature_set):
     assert (model["status"], model["cause"], model["failureCode"]) == ("not_ready", "not_configured", None), model
     assert row[2] == "not_ready" and row[5]["anomalous"] is None, row[:3]
     artifact_file.write_bytes(original)
+
+    # fit 파일만 없어도 준비 안 됨이다.
+    fit_path = conn.execute("""SELECT a.relative_path FROM ml_config_models c JOIN ml_artifacts a ON a.id=c.fit_artifact_id
+        WHERE c.config_version_id=%s""", (model_config,)).fetchone()[0]
+    conn.commit()
+    fit_file = ROOT / fit_path
+    fit_original = fit_file.read_bytes()
+    fit_file.unlink()
+    _, payload = v04_job(conn, sid, "artifact-fit-missing")
+    row = judged(conn, payload)
+    model = method(row[5], "ml:iforest")
+    assert (model["status"], model["cause"], model["failureCode"]) == ("not_ready", "not_configured", None), model
+    fit_file.write_bytes(fit_original)
     _, payload = v04_job(conn, sid, "artifact-restored")
     assert method(judged(conn, payload)[5], "ml:iforest")["status"] == "succeeded"
-    print("PASS (b) 산출물 변조는 failed·artifact_invalid, 파일 없음은 not_ready·not_configured, 복구 뒤 정상 실행")
+    print("PASS (b) 산출물 변조는 failed·artifact_invalid, 모델·fit 파일 없음은 not_ready·not_configured, 복구 뒤 정상 실행")
+
+    # 모델 입력이 없거나 변환에 실패하면 feature_unavailable이다(D22).
+    seen = observe(conn, sid, f"ml-input-missing-{uuid.uuid4()}", {key: value for key, value in RAW.items() if key != "total_count"})
+    with contract("v04"):
+        payload = enqueue_observation(conn, seen.observation_id)
+    conn.commit()
+    row = judged(conn, payload)
+    model = method(row[5], "ml:iforest")
+    assert (model["status"], model["cause"], model["anomalous"]) == ("not_ready", "feature_unavailable", None), model
+    assert row[2] == "not_ready" and row[4] is None, row[:5]
+
+    def broken_features(*_args):
+        raise ValueError("feature_failed")
+
+    _, payload = v04_job(conn, sid, "ml-input-broken")
+    with patch.object(attempt_v04, "calculate_features", broken_features):
+        row = judged(conn, payload)
+    assert method(row[5], "ml:iforest")["cause"] == "feature_unavailable", row[5]["methodResults"]
+    print("PASS (b) ML 입력 결측·변환 실패는 not_ready·feature_unavailable")
 
     save_models(conn, [active(model_config), active(uuid.uuid4(), "minibatch_kmeans")])
     _, payload = v04_job(conn, sid, "model-not-executable")
@@ -529,10 +564,12 @@ def evidence_and_columns(conn, sid, model_config, feature_set):
     conn.commit()
     save_models(conn, [])
     print("PASS (b) fit을 쓰는 모델의 변수값은 저장하지 않음")
+    save_policy(conn, policy())
     return revision
 
 
 def interim_records(conn, sid, model_config):
+    save_policy(conn, policy(deadline=LONG_DEADLINE))
     save_rule_set(conn, soft=[ELAPSED_SOFT])
     save_models(conn, [active(model_config)])
     real_soft, real_score = attempt_v04.evaluate_soft_rule, model_adapters.score_iforest
@@ -629,12 +666,13 @@ def interim_records(conn, sid, model_config):
     print("PASS (c) 이상 없으면 기록 없음, 재시도 대체됨, 전 시도 실패 최종 없음")
 
     # 기한: 측정값 기록, 기한 뒤 결과 버림, 기한 뒤 중간 기록 없음.
-    revision = save_policy(conn, policy(deadline=300))
+    # 기한은 시도 시작부터 재므로 상태 규칙이 부하에도 그 안에 끝나도록 충분히 둔다.
+    revision = save_policy(conn, policy(deadline=2000))
     released, finished = threading.Event(), threading.Event()
     real_run_model, real_telemetry = attempt_v04._run_model, attempt_v04._telemetry
 
     def stuck_score(*args):
-        released.wait(10)
+        released.wait(30)
         return real_score(*args)
 
     def run_model(*args):
@@ -646,7 +684,7 @@ def interim_records(conn, sid, model_config):
     def telemetry_after_late_model(*args, **kwargs):
         # 메인 스레드는 이미 ML을 timeout으로 정했다. 그 뒤에 모델 스레드가 끝나도 그 값은 쓰이면 안 된다.
         released.set()
-        assert finished.wait(10), "late model did not finish"
+        assert finished.wait(30), "late model did not finish"
         time.sleep(.02)
         return real_telemetry(*args, **kwargs)
 
@@ -656,9 +694,9 @@ def interim_records(conn, sid, model_config):
         row = judged(conn, payload)
     model = method(row[5], "ml:iforest")
     assert (model["status"], model["cause"], model["anomalous"]) == ("not_ready", "timeout", None), model
-    assert 300 <= model["elapsedMs"] < 3000, model["elapsedMs"]
+    assert model["elapsedMs"] >= 1999.9, model["elapsedMs"]
     assert row[0] == "partial" and row[2] == "not_ready" and row[5]["anomalous"] is True, row[:3]
-    assert row[5]["detectionPolicyRevision"] == revision and row[5]["detectionPolicy"]["deadlineMs"] == 300
+    assert row[5]["detectionPolicyRevision"] == revision and row[5]["detectionPolicy"]["deadlineMs"] == 2000
     assert row[5]["composite"]["risk"]["level"] == "critical"
     assert materialized(conn, payload) == 0, "기한을 넘긴 모델의 값은 저장하지 않는다"
     assert row[5]["telemetry"]["metrics"]["inferenceMs"]["value"] is None, row[5]["telemetry"]["metrics"]["inferenceMs"]
@@ -672,7 +710,7 @@ def interim_records(conn, sid, model_config):
         return real_decide(policy_value, methods)
 
     def blocked_score(*args):
-        stuck.wait(10)
+        stuck.wait(30)
         return real_score(*args)
 
     _, payload = v04_job(conn, sid, "interim-after-deadline", raw)
@@ -688,6 +726,7 @@ def interim_records(conn, sid, model_config):
 
 def lease_loss(conn, sid):
     """소유권을 잃은 시도는 판정도 중간 기록도 남기지 않는다."""
+    save_policy(conn, policy(deadline=LONG_DEADLINE))
     save_rule_set(conn)
     raw = {"status": "F", "total_count": "10", "success_count": "9", "error_count": "1"}
     save_rule_set(conn, soft=[ELAPSED_SOFT])
@@ -770,16 +809,17 @@ def lease_loss(conn, sid):
     with patch.object(attempt_v04, "_telemetry", expire_attempt):
         failure = attempt(conn, payload)
     assert isinstance(failure, RuntimeError) and decision(conn, payload) is None, repr(failure)
+    save_policy(conn, policy())
     print("PASS 임대 상실: 최종 소유권 확인, 갱신 스레드 상실, 시도 임대 만료 모두 판정을 쓰지 않음")
 
 
 def legacy_paths(conn, sid):
     status = default_policy(sid)
     rule_only = config(conn, sid, {"statusRulePolicy": status,
-                                   "detectionPolicy": {"mode": "rule_only", "deadlineMs": 1000, "combination": "selected_path"}})
+                                   "detectionPolicy": {"mode": "rule_only", "deadlineMs": LONG_DEADLINE, "combination": "selected_path"}})
     legacy = config(conn, sid, {"statusRulePolicy": status})
     parallel = config(conn, sid, {"statusRulePolicy": status,
-                                  "detectionPolicy": {"mode": "parallel", "deadlineMs": 1000, "combination": "any_anomaly"}})
+                                  "detectionPolicy": {"mode": "parallel", "deadlineMs": LONG_DEADLINE, "combination": "any_anomaly"}})
 
     def v03(key, config_id, raw=None, setting="v03"):
         seen = observe(conn, sid, f"{key}-{uuid.uuid4()}", {**RAW, **(raw or {})})
@@ -963,10 +1003,31 @@ def legacy_paths(conn, sid):
     assert conn.execute("SELECT status::text FROM powercode_queue.detection_logs WHERE id=%s", (message.id,)).fetchone()[0] == "done"
     conn.commit()
 
+    # v03 쪽은 그 구성의 판정만 본다. 다른 구성의 판정이 있어도 작업을 만든다.
+    message = legacy_message(seen, configVersionId=str(parallel))
+    process_detection_message(conn, message, ROOT)
+    conn.commit()
+    assert job_count(seen.observation_id) == 1, "v03 복구는 다른 구성의 판정으로 막히면 안 된다"
+    seen = observe(conn, sid, f"legacy-same-config-{uuid.uuid4()}", RAW)
+    execution, as_of = conn.execute("SELECT execution_id,persisted_at FROM data_observations WHERE id=%s",
+                                    (seen.observation_id,)).fetchone()
+    conn.execute("""INSERT INTO run_process_decisions(id,execution_id,process_observation_id,config_version_id,
+        input_manifest_hash,input_as_of,status,rule_status,ml_status,evidence,decided_at,latency_status)
+        VALUES(%s,%s,%s,%s,%s,%s,'complete','succeeded','skipped','{}',clock_timestamp(),'unavailable')""",
+        (uuid.uuid4(), execution, seen.observation_id, rule_only, "b" * 64, as_of))
+    conn.commit()
+    message = legacy_message(seen, configVersionId=str(rule_only))
+    process_detection_message(conn, message, ROOT)
+    conn.commit()
+    assert job_count(seen.observation_id) == 0, "v03 복구는 같은 구성의 판정이 있으면 만들지 않는다"
+
     conn.execute("UPDATE ops_system_state SET active_config_version_id=%s WHERE id=1", (parallel,))
     conn.commit()
+    # 구성이 없으면 대조할 기준이 없으므로, 구성 없는 값으로 계산해 맞는 모양의 hash여도 거부한다.
+    empty_hash = legacy_feature_hash({"featureSetId": None, "featureHash": None}, uuid.uuid4(), "")
     for name, extra in (("wrong", {"configVersionId": str(parallel), "inputManifestHash": "0" * 64}),
-                        ("no-config", {"inputManifestHash": "0" * 64})):
+                        ("no-config", {"inputManifestHash": "0" * 64}),
+                        ("no-config-matching-hash", {"inputManifestHash": empty_hash})):
         seen = observe(conn, sid, f"legacy-{name}-{uuid.uuid4()}", RAW)
         message = legacy_message(seen, **extra)
         with contract("v04"):

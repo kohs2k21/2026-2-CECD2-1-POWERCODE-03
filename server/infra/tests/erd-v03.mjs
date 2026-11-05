@@ -17,6 +17,7 @@ import { llmPreparedGrant81 } from './erd-v03-llm-grant.mjs';
 import { revisions015 } from './erd-v03-revisions.mjs';
 import { detectV04_016 } from './erd-v03-detect-v04.mjs';
 import { recommendThresholds017 } from './erd-v03-recommend-thresholds.mjs';
+import { decisionIndex018 } from './erd-v03-decision-index.mjs';
 
 const toolRoot = process.argv[2];
 assert(toolRoot, 'Pass an isolated temporary workspace containing the test dependencies');
@@ -258,6 +259,7 @@ try {
   await revisions015({ Client, port, connection, check, failures, migrations, migrationNames, rolesSql, parity, insert, infra });
   await detectV04_016({ Client, port, connection, check, failures, migrations, migrationNames, rolesSql, parity, insert });
   await recommendThresholds017({ Client, port, connection, check, failures, migrations, migrationNames, rolesSql, parity, insert });
+  await decisionIndex018({ connection, check, failures, migrations, migrationNames, parity, insert, infra, model });
   assert.equal(failures.length,0,failures.join('; '));
   console.log(`PASS ${checkCount} integration checks; no project runtime or customer data used`);
   passed = true;

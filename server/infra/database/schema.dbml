@@ -1,4 +1,4 @@
-// Target schema after migrations 001 through 015 (file-name order, enum additions committed first; 013 changes function settings only).
+// Target schema after migrations 001 through 018 (file-name order, enum additions committed first; 013 changes function settings only).
 // 60 public tables + 5 powercode_queue physical queues. View ops_operational_state (015) is SQL-only. Server application state is tracked separately.
 // Native CHECK predicates, partial/GIN indexes and triggers: canonical SQL; DBML is visualization.
 Project powercode_erd_v03 {
@@ -595,6 +595,7 @@ Table run_process_decisions {
   result_lease_token uuid
   indexes {
     (execution_id, process_observation_id, config_version_id, input_manifest_hash) [unique]
+    (process_observation_id, decided_at, id) [name: 'run_process_decisions_observation_latest_idx', note: 'decided_at DESC, id DESC']
   }
   Note: 'Existing job/manifest/attempt NULL rows remain legacy. v03 result checks current attempt/token/lease and fixed config/input/hash/as-of; content immutable after insert, published_at may update. Job success and result insert must share one transaction. 016: config_version_id NULL only for v04 job decisions (legacy CHECK, v03 trigger, no UPDATE to NULL); partial unique run_process_decisions_no_config_idx covers the NULL gap of the 4-column unique.'
 }

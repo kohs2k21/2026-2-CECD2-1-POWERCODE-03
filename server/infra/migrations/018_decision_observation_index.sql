@@ -1,0 +1,11 @@
+-- 018: 관측별 최신 판정 조회 인덱스 (#129). 표·열·제약·트리거·함수·권한은 바꾸지 않는다. 계약 변경 없음.
+-- 왜: 운영 리포트 SCOPED_OBSERVATIONS의 LATERAL(operationalReport.ts)은 관측마다 최신 판정 1행을 찾는다. process_observation_id로 시작하는 인덱스가 없어
+--   관측마다 Seq Scan이나 4열 UNIQUE(execution_id로 시작) 전체 탐색이 돌았고, 시간이 관측 수의 제곱으로 늘었다. 어느 쪽이 도는지는 판정 행 크기에 달렸고 둘 다 이 인덱스로 사라진다.
+-- 형태: ORDER BY d.decided_at DESC,d.id DESC LIMIT 1과 같은 순서라 관측당 판정이 적은 일반 분포에서는 구성 있는 경로·구성 NULL(v04) 경로 모두 정렬 없이 첫 행에서 끝난다.
+--   config_version_id를 둘째 열에 넣으면 구성 NULL 경로가 다시 정렬하고, 관측당 판정이 1.2건인 분포에서 이득이 없어 넣지 않았다(README 018 절 측정).
+-- 전제: 001~017 적용 뒤 1회 실행(psql -v ON_ERROR_STOP=1 -f), 표 소유자로 실행. 새 표 없음 → database-roles.sql 변경 없음. 자동 down migration 없음(되돌리기는 DROP INDEX).
+-- 일반 CREATE INDEX를 쓰는 근거: 문장 1개라 실패하면 아무것도 남지 않고 같은 파일을 다시 실행하면 된다. CONCURRENTLY는 실패·취소 때 INVALID 인덱스가 남고
+--   IF NOT EXISTS가 그것을 건너뛰어 적용된 것처럼 보인다. 판정 360만 행(heap 7.9GB)에서 쓰기 대기가 2.6초(OS 캐시가 찬 상태)라 그 위험을 질 이득이 작다.
+-- 잠금: 생성이 끝날 때까지 run_process_decisions에 SHARE. 읽기는 막지 않고, 판정 INSERT·published_at UPDATE는 기다렸다가 진행된다(거부되지 않음). 열린 쓰기 트랜잭션이 있으면 그것이 끝날 때까지 생성이 먼저 기다린다.
+-- 재실행: 성공 뒤 다시 실행하면 42P07로 멈추고 아무것도 바뀌지 않는다. IF NOT EXISTS를 쓰지 않는 근거: 같은 이름의 다른 정의를 조용히 넘기지 않게 한다(016도 쓰지 않음).
+CREATE INDEX run_process_decisions_observation_latest_idx ON run_process_decisions(process_observation_id,decided_at DESC,id DESC);

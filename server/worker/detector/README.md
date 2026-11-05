@@ -22,7 +22,11 @@ v04 시도 1회의 순서.
 3. 결과가 도착할 때마다 `attempt_v04.py`의 `InterimRecorder`가 첫 이상·근거 추가를 `run_decision_interims`에 쓴다. 미도착 방법이 없으면 쓰지 않는다(판정 행이 최종이다). 대체됨·최종 없음은 DB 트리거가 쓴다.
 4. `build_evidence`와 `decision_columns`로 판정 행을 저장한다. 하드룰 입력 `HardRuleSelection`은 `read_hard_rule_snapshot`으로만 만들고 판정과 evidence가 같은 객체를 쓴다.
 
-소프트룰 필드 정의는 `methods/registry.py`의 `SOFT_RULE_FIELDS`를 쓴다. 모델을 읽지 못하거나 다른 source의 모델이면 그 모델만 `not_configured`로 미판정이 되고 다른 방법 결과는 남는다.
+소프트룰 필드 정의는 `methods/registry.py`의 `SOFT_RULE_FIELDS`를 쓴다. 모델을 읽지 못하거나 다른 source의 모델이면 그 모델만 `not_configured`로 미판정이 되고 다른 방법 결과는 남는다. 산출물 파일이 없어도 `not_configured`이고, 파일이 변조됐으면 `failed`·`artifact_invalid`다.
+
+방법 스레드는 공유 상태에 쓰지 않는다. 측정값·변수값은 결과와 함께 돌려주고, 기한 안에 채택된 결과의 값만 evidence·`data_feature_materializations`에 쓴다.
+
+시도가 값 오류로 실패하면 원인 코드(`rule_set_hash_mismatch` 등)가 `run_jobs.error_code`, 시도, 큐 `last_error`에 남는다. v03은 기존대로 `detection_processing_failed`다.
 
 ## detect 작업 생성 전환
 
@@ -31,20 +35,21 @@ detect 작업은 `jobs.py`의 `enqueue_observation` 한 곳에서만 만든다. 
 - `v03`: 지금과 같다. 구성이 없는 입력은 대기한다.
 - `v04`: 승인 운영 경로의 입력은 구성 없이 v04 작업이 된다. 입력 제어나 호출자가 승인 구성이 아닌 구성을 고정한 입력(input-validation, 데모)은 v03으로 남는다. 구성을 기다리던 입력도 v04 작업으로 바뀐다.
 - 큐 payload v04에는 `configVersionId`가 없다.
-- 같은 입력(manifest)의 v03·v04 작업은 하나만 만든다. 다른 버전 작업이 이미 있으면 그 작업을 재사용한다. 그래서 프로세스마다 설정이 어긋나도 판정이 둘이 되지는 않지만, 입력마다 경로가 갈리므로 전환은 아래 순서로 한다.
+- 같은 입력(manifest)의 v03·v04 작업은 하나만 만든다. 다른 버전 작업이 이미 있으면 failed여도 그 작업을 재사용한다. 그래서 프로세스마다 설정이 어긋나도 판정이 둘이 되지는 않지만, 입력마다 경로가 갈리므로 전환은 아래 순서로 한다.
+- 옛 메시지 복구는 그 관측에 판정이 이미 있으면 v04 작업을 만들지 않고, 메시지의 입력 hash가 맞지 않으면 거부한다.
 
 전환 순서.
 
-1. migration 016이 적용돼 있는지, API·WebUI의 v04 판독(구성 NULL 판정)이 배포됐는지 확인한다.
-2. `enqueue_observation`을 부르는 프로세스(Collector, 데모, Detector)를 멈춘다.
-3. 그 프로세스 전부에 `DETECT_JOB_CONTRACT=v04`를 넣고 다시 시작한다. `server/infra/compose.yaml`의 작업자는 같은 값 하나를 함께 받는다. 남은 v03 작업은 그대로 처리된다.
+1. 선행 조건(사용자 결정 11/05)을 확인한다: migration 016 적용, API·WebUI의 v04 판독(구성 NULL 판정) 배포, `queues.md` 조율 완료. 끝난 뒤 한 번에 전환한다.
+2. `enqueue_observation`을 부르는 프로세스를 멈춘다. `compose.yaml`은 `collector`·`input`·`detector`, `compose.demo.yaml`은 `detector`와 실행 중인 `sender`다.
+3. 그 프로세스 전부에 `DETECT_JOB_CONTRACT=v04`를 넣고 다시 시작한다. `compose.yaml`의 작업자는 `server/infra/.env`의 값 하나를 함께 받는다. 데모 스택은 `.env.demo`의 값을 받으므로 같은 DB를 쓰면 같은 값을 넣는다. 데모 `sender`의 입력은 승인 구성이 아닌 구성을 고정하므로 설정과 무관하게 v03이다. 남은 v03 작업은 그대로 처리된다.
 4. 되돌릴 때는 같은 순서로 `v03`을 넣는다. 이미 만든 v04 작업은 v04 경로로 끝난다.
 
 ## migration 016 적용 절차
 
 `server/infra/migrations/016_detect_v04_contract.sql`은 `run_jobs`·`run_process_decisions`·`run_llm_results`·`ops_pipeline_measurements`·`ops_rule_set_revisions`와 뷰 `ops_operational_state`를 COMMIT까지 잠근다. 작업자 트랜잭션은 표를 다른 순서로 잠그므로 켠 채 적용하면 교착으로 어느 한쪽이 취소될 수 있다. 반드시 작업자를 멈추고 적용한다.
 
-1. Detector·Collector·Trainer·LLM·API를 멈춘다. 처리 중인 시도는 끝나거나 임대가 만료되기를 기다리지 않아도 된다. 재시작 뒤 큐가 다시 가져간다.
+1. DB를 쓰는 작업자를 모두 멈춘다. `compose.yaml`은 `api`·`llm`·`trainer`·`collector`·`input`·`detector`·`monitor`·`window`, 같은 DB를 쓰는 데모 스택(`compose.demo.yaml`)은 `api`·`detector`와 실행 중인 `sender`다. 처리 중인 시도는 끝나거나 임대가 만료되기를 기다리지 않아도 된다. 재시작 뒤 큐가 다시 가져간다.
 2. 001~015가 적용돼 있고 룰 세트에 r0 말고 저장된 리비전이 없는지 확인한다. 저장된 리비전이 있으면 016이 전체를 되돌린다. 저장된 행을 보존하고, 새 규칙 2개를 어떻게 켤지 룰 세트 소유 세션과 정한 뒤 016의 r1 단계를 고친다.
 3. 표·함수 소유자로 `psql -v ON_ERROR_STOP=1 -f server/infra/migrations/016_detect_v04_contract.sql`을 1회 실행한다. 단일 트랜잭션이라 중간 오류는 전체 ROLLBACK이다. `database-roles.sql` 재적용은 필요 없다.
 4. `SELECT rule_set_revision,rule_set_content_hash_version FROM ops_operational_state`가 `1, 2`인지 확인한다.

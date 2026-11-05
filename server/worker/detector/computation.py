@@ -14,6 +14,46 @@ from feature_fit import requires_fit, definitions_hash
 from detector.status_rule import evaluate_status
 
 
+def _model_rows(cur, config_id, model_key=None):
+    cur.execute("""SELECT cm.feature_set_id,m.relative_path,m.content_hash,f.relative_path,f.content_hash,
+                          cm.training_settings,cm.threshold_spec,cm.model_key
+        FROM ml_config_models cm LEFT JOIN ml_artifacts m ON m.id=cm.model_artifact_id
+        LEFT JOIN ml_artifacts f ON f.id=cm.fit_artifact_id
+        WHERE cm.config_version_id=%s AND (%s::text IS NULL OR cm.model_key=%s)""", (config_id, model_key, model_key))
+    return cur.fetchall()
+
+
+def _feature_definitions(cur, feature_id):
+    if not feature_id:
+        return [], None
+    cur.execute("SELECT content_hash FROM ml_feature_sets WHERE id=%s", (feature_id,))
+    found = cur.fetchone()
+    if found is None:
+        raise ValueError("feature_set_missing")
+    cur.execute("""SELECT m.output_name,v.expression,v.requires_fit FROM ml_feature_set_members m
+        JOIN ml_feature_versions v ON v.id=m.feature_version_id
+        WHERE m.feature_set_id=%s AND m.model_input ORDER BY m.output_position""", (feature_id,))
+    members = cur.fetchall()
+    if any(bool(item[2]) != requires_fit(item[1]) for item in members):
+        raise ValueError("unsupported_fitted_feature")
+    return validate_definitions([{"name": item[0], "expression": item[1]} for item in members]), found[0]
+
+
+def load_model_context(conn, config_id, model_key, source_id):
+    """활성 집합의 모델 버전 1개를 읽는다. 구성의 판정 정책·룰은 보지 않는다(v04는 운영 상태를 쓴다)."""
+    with conn.cursor() as cur:
+        cur.execute("SELECT source_id,configuration_spec FROM ml_config_versions WHERE id=%s", (config_id,))
+        row = cur.fetchone()
+        if row is None or row[0] != source_id:
+            raise ValueError("config_source_mismatch")
+        models = _model_rows(cur, config_id, model_key)
+        if len(models) != 1:
+            raise ValueError("model_unavailable")
+        feature_id = row[1].get("featureSetId") or str(models[0][0])
+        definitions, feature_hash = _feature_definitions(cur, feature_id)
+    return {"models": models, "definitions": definitions, "featureSetId": feature_id, "featureHash": feature_hash}
+
+
 def load_context(conn, config_id, source_id):
     with conn.cursor() as cur:
         cur.execute("SELECT source_id,configuration_spec FROM ml_config_versions WHERE id=%s", (config_id,))
@@ -27,11 +67,7 @@ def load_context(conn, config_id, source_id):
         if status_policy is not None and status_policy.get('sourceId') != str(source_id):
             raise ValueError('status_policy_source_mismatch')
         policy = parse_policy(spec)
-        cur.execute("""SELECT cm.feature_set_id,m.relative_path,m.content_hash,f.relative_path,f.content_hash,
-                              cm.training_settings,cm.threshold_spec,cm.model_key
-            FROM ml_config_models cm LEFT JOIN ml_artifacts m ON m.id=cm.model_artifact_id
-            LEFT JOIN ml_artifacts f ON f.id=cm.fit_artifact_id WHERE cm.config_version_id=%s""", (config_id,))
-        models = cur.fetchall()
+        models = _model_rows(cur, config_id)
         if any(model[7] != 'iforest' for model in models):
             raise ValueError('unsupported_model')
         feature_id = spec.get("featureSetId") or (str(models[0][0]) if len(models) == 1 else None)
@@ -41,20 +77,7 @@ def load_context(conn, config_id, source_id):
         rules = cur.fetchall()
         if any(row[3].get("featureSetId") not in (None, feature_id) for row in rules):
             raise ValueError("rule_feature_set_mismatch")
-        definitions, feature_hash = [], None
-        if feature_id:
-            cur.execute("SELECT content_hash FROM ml_feature_sets WHERE id=%s", (feature_id,))
-            found = cur.fetchone()
-            if found is None:
-                raise ValueError("feature_set_missing")
-            feature_hash = found[0]
-            cur.execute("""SELECT m.output_name,v.expression,v.requires_fit FROM ml_feature_set_members m
-                JOIN ml_feature_versions v ON v.id=m.feature_version_id
-                WHERE m.feature_set_id=%s AND m.model_input ORDER BY m.output_position""", (feature_id,))
-            members = cur.fetchall()
-            if any(bool(item[2]) != requires_fit(item[1]) for item in members):
-                raise ValueError("unsupported_fitted_feature")
-            definitions = validate_definitions([{"name": item[0], "expression": item[1]} for item in members])
+        definitions, feature_hash = _feature_definitions(cur, feature_id)
     return {"policy": policy, "rules": [(r[0],r[1],r[2]) for r in rules], "models": models,
             "definitions": definitions, "featureSetId": feature_id, "featureHash": feature_hash,
             "statusRulePolicy": status_policy}

@@ -6,7 +6,7 @@ from decimal import Context, Decimal, Inexact, MAX_EMAX, MIN_EMIN
 from typing import Any, Callable, Mapping
 
 from derived_expression import TABLE, evaluate as evaluate_derived, number
-from detector.method_results import SEVERITIES, method_result, source_absent
+from detector.method_results import SEVERITIES, method_result, source_absent, unresolved_result
 from detector.status_rule import VERSION as LEGACY_STATUS_VERSION
 
 PROCESS_STATUS = "hard:process-status"
@@ -189,10 +189,24 @@ def evaluate_count_conservation(raw: Mapping[str, Any]) -> dict[str, Any]:
                        lambda total, success, error: total != _exact_sum(success, error))
 
 
-def evaluate_hard_rules(hard_rules: HardRuleSelection, raw: Mapping[str, Any]) -> list[dict[str, Any]]:
-    """켜진 하드룰을 내장 목록 순서로 실행한다."""
+def hard_rule_runners(hard_rules: HardRuleSelection,
+                      raw: Mapping[str, Any]) -> list[tuple[str, Callable[[], dict[str, Any]]]]:
+    """켜진 하드룰을 내장 목록 순서의 (methodId, 실행 함수)로 돌려준다. 방법마다 따로 실행·측정하기 위해서다."""
     runners = {PROCESS_STATUS: lambda: evaluate_process_status(raw, hard_rules),
                NEGATIVE_DURATION: lambda: evaluate_negative_duration(raw),
                SUCCESS_WITH_ERROR: lambda: evaluate_success_with_error(raw),
                COUNT_CONSERVATION: lambda: evaluate_count_conservation(raw)}
-    return [runners[rule_id]() for rule_id in hard_rules.enabled_ids]
+    return [(rule_id, runners[rule_id]) for rule_id in hard_rules.enabled_ids]
+
+
+def evaluate_hard_rules(hard_rules: HardRuleSelection, raw: Mapping[str, Any]) -> list[dict[str, Any]]:
+    return [run() for _, run in hard_rule_runners(hard_rules, raw)]
+
+
+def unresolved_hard_result(rule_id: str, cause: str, *, status: str = "not_ready",
+                           failure_code: str | None = None) -> dict[str, Any]:
+    """기한 초과처럼 입력을 읽기 전에 끝난 경우. 상태 규칙은 observedStatus를 null로 남긴다."""
+    summary = {"observedStatus": None, "result": "unavailable"} if rule_id == PROCESS_STATUS else \
+        {"result": "unavailable"}
+    return unresolved_result(rule_id, _rule(rule_id)["methodVersion"], cause, status=status,
+                             failure_code=failure_code, evidence=[summary])

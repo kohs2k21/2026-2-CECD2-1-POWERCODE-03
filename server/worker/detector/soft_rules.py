@@ -6,8 +6,9 @@ import re
 from typing import Any, Mapping
 
 from derived_expression import FIELDS, evaluate as evaluate_derived, validate as validate_derived
-from detector.method_results import SEVERITIES, method_category, method_result, source_absent
+from detector.method_results import SEVERITIES, method_category, method_result, source_absent, unresolved_result
 from detector.rules import evaluate_rules
+from methods.registry import SOFT_RULE_FIELDS
 
 METHOD_VERSION = "soft-threshold-v1"
 OPERATORS = frozenset({"gte", "gt", "lte", "lt"})
@@ -70,6 +71,24 @@ def _valid_definition(rule: Mapping[str, Any], field: Any, columns: list[str] | 
     return _member(rule.get("operator"), OPERATORS) and _member(rule.get("severity"), SEVERITIES) and \
         isinstance(policy, Mapping) and all(column in columns and _member(value, MISSING_POLICIES)
                                             for column, value in policy.items())
+
+
+def soft_rule_fields() -> dict[str, dict[str, Any]]:
+    """카탈로그 softRuleFields 항목을 fieldId별로 돌려준다. 정본은 #111 레지스트리다."""
+    return {item.field_id: item.to_catalog() for item in SOFT_RULE_FIELDS}
+
+
+def unresolved_soft_result(rule: Mapping[str, Any], cause: str, *, status: str = "not_ready",
+                           failure_code: str | None = None) -> dict[str, Any]:
+    """규칙을 평가하지 못한 경우. 시도에서 쓴 정의는 그대로 남긴다."""
+    try:
+        threshold = fixed_decimal(rule.get("threshold"))
+    except ValueError:
+        threshold = None
+    return unresolved_result(rule["id"], METHOD_VERSION, cause, status=status, failure_code=failure_code,
+                             observedValue=None,
+                             condition={"field": rule.get("field"), "operator": rule.get("operator"),
+                                        "threshold": threshold, "unit": rule.get("unit")})
 
 
 def evaluate_soft_rule(rule: Mapping[str, Any], fields: Mapping[str, Mapping[str, Any]],

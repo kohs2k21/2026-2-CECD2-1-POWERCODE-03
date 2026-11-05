@@ -10,6 +10,9 @@ from typing import Callable
 _POOLS = {name: ThreadPoolExecutor(max_workers=2, thread_name_prefix="detection-"+name) for name in ("rule","ml")}
 _SLOTS = {name: threading.BoundedSemaphore(2) for name in ("rule","ml")}
 POLICY_V2_KEYS = frozenset({"category-k-of-n-or-v1"})
+# 운영 설정을 저장한 적이 없는 상태(리비전 0)의 내장 기본 정책.
+DEFAULT_POLICY_V2 = {"version": 2, "policyKey": "category-k-of-n-or-v1", "k": {"hard": 1, "soft": 1, "ml": 1},
+                     "deadlineMs": 3000}
 
 @dataclass(frozen=True)
 class Policy:

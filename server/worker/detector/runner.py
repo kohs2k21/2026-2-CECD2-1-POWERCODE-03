@@ -23,7 +23,7 @@ from telemetry import cost_family, queue_wait_ms
 
 def process_detection_message(conn: Any, message: ClaimedMessage, root: Path | None) -> None:
     from detector.computation import load_context, compute, legacy_feature_hash
-    from detector.jobs import enqueue_observation,input_config
+    from detector.jobs import detect_contract,enqueue_observation,input_config
     from trainer.runner import _claim_job, _finish
     from trainer.lease import TrainingLeaseHeartbeat, lock_training_ownership
     started = time.monotonic()
@@ -32,19 +32,24 @@ def process_detection_message(conn: Any, message: ClaimedMessage, root: Path | N
     if not payload.get("jobId"):
         # Bridge old feature/detection backlog to the immutable job protocol.
         with conn.transaction():
-            pinned = payload.get("configVersionId") or input_config(conn,observation.source_id)
-            if pinned is None:
-                raise ValueError("active_config_unavailable")
-            context = load_context(conn, pinned, observation.source_id)
-            with conn.cursor() as cur:
-                cur.execute("SELECT content_hash FROM data_observations WHERE id=%s", (observation.observation_id,))
-                content_hash = cur.fetchone()[0]
-                previous_hash = legacy_feature_hash(context, observation.observation_id, content_hash)
-                if payload.get("inputManifestHash") not in (None, previous_hash):
-                    raise ValueError("input_manifest_mismatch")
-                cur.execute("SELECT 1 FROM run_process_decisions WHERE process_observation_id=%s AND config_version_id=%s", (observation.observation_id,pinned))
-                if cur.fetchone() is None:
-                    enqueue_observation(conn, observation.observation_id, config_id=pinned)
+            requested = payload.get("configVersionId")
+            if detect_contract(conn,observation.source_id,requested) == "v04":
+                # v04는 구성 없이 만든다. 이미 있는 작업은 manifest 기준으로 재사용한다.
+                enqueue_observation(conn, observation.observation_id, config_id=requested)
+            else:
+                pinned = requested or input_config(conn,observation.source_id)
+                if pinned is None:
+                    raise ValueError("active_config_unavailable")
+                context = load_context(conn, pinned, observation.source_id)
+                with conn.cursor() as cur:
+                    cur.execute("SELECT content_hash FROM data_observations WHERE id=%s", (observation.observation_id,))
+                    content_hash = cur.fetchone()[0]
+                    previous_hash = legacy_feature_hash(context, observation.observation_id, content_hash)
+                    if payload.get("inputManifestHash") not in (None, previous_hash):
+                        raise ValueError("input_manifest_mismatch")
+                    cur.execute("SELECT 1 FROM run_process_decisions WHERE process_observation_id=%s AND config_version_id=%s", (observation.observation_id,pinned))
+                    if cur.fetchone() is None:
+                        enqueue_observation(conn, observation.observation_id, config_id=pinned)
             if not acknowledge(conn, "detection", message):
                 raise RuntimeError("detection_lease_lost")
         return
@@ -65,6 +70,11 @@ def process_detection_message(conn: Any, message: ClaimedMessage, root: Path | N
             if fixed is None or any(payload.get(key) != fixed[0].get(key) for key in
                     ("sourceId","observationId","configVersionId","inputManifestHash","inputManifestId")):
                 raise ValueError("input_manifest_mismatch")
+        if job["contractVersion"] == "v04":
+            from detector.attempt_v04 import run_attempt
+            run_attempt(conn, message, job, attempt_id, attempt_token, observation, fixed, root,
+                        started=started, queue_wait=queue_wait, heartbeat=heartbeat, finish=_finish)
+            return
         config_id = fixed[1]
         context = load_context(conn, config_id, observation.source_id)
         with conn.cursor() as cur:

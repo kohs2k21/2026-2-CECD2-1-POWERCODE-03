@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import math
+import numbers
 import re
 from typing import Any, Mapping
 
@@ -93,7 +94,8 @@ def ml_method_result(method_id: str, method_version: str, model_version_id: Any,
     if boundary is None:
         return unresolved_result(method_id, method_version, "failure", status="failed",
                                  failure_code="invalid_threshold", **extra)
-    raw = _finite(score) if isinstance(score, (int, float)) else None
+    # np.float32는 float의 하위 형식이 아니다. raw는 float로 바뀌어 evidence 직렬화·hash에 numpy 값이 남지 않는다.
+    raw = _finite(score) if isinstance(score, numbers.Real) else None
     if raw is None:
         return unresolved_result(method_id, method_version, "failure", status="failed",
                                  failure_code="invalid_score", **extra)

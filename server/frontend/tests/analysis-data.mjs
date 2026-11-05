@@ -18,6 +18,11 @@ assert.equal(api.parseListSearch("?category=all").params.category, "all", "expli
 assert.deepEqual(api.parseListSearch("?signal=yes"), { params: { ...api.defaultListParams, signal: "yes" }, invalid: false }, "old signal=yes URLs keep working");
 assert.equal(api.listApiParams({ ...api.defaultListParams, signal: "yes" }).signal, "yes");
 assert.equal(labels.signalFilterLabels.yes, "이상 신호 있음");
+// 이상 규칙 4개 이름과 결과 코드 표시(detection-decision.md 4.3)
+assert.equal(labels.methodLabel("hard:success-with-error"), "이상 규칙(성공 상태이나 오류 건수가 기록됨)");
+assert.equal(labels.methodLabel("hard:count-conservation"), "이상 규칙(건수 합계 불일치)");
+assert.deepEqual(["PROCESS_STATUS_H", "PROCESS_STATUS_Z", "HARD_SUCCESS_WITH_ERROR", "HARD_COUNT_CONSERVATION", "OTHER_CODE"].map(labels.resultCodeLabel),
+  ["상태 H 부분성공", "상태 Z 데이터없음", "성공 상태이나 오류 건수가 기록됨", "건수 합계 불일치", "OTHER_CODE"]);
 assert.equal(api.parseListSearch("?category=bogus").params.category, "risk_all", "invalid category falls back to the default");
 assert.equal(api.listSearch({ ...api.defaultListParams, category: "all" }), "?category=all", "result-view 전체 stays explicit in the URL");
 const full = api.parseListSearch("?category=anomaly&q=TX-1&signal=anomaly_sign&completeness=partial&sort=oldest&page=3&pageSize=20&tab=x");
@@ -230,6 +235,14 @@ const timelineHtml = renderToStaticMarkup(React.createElement(DecisionTimeline, 
   { key: "x", at: null, tone: "void", text: "시도 1 실패 · 최종 없음(판정 실패)", title: "detection_processing_failed" },
   { key: "progress", at: null, tone: "progress", text: "남은 방법 결과 대기" },
 ] }));
+// 판정 상세 방법 표: 새 이상 규칙의 이름·조건·결과 코드 표시(코드 원문이 그대로 나오지 않는다).
+const { MethodResults } = await import("../src/features/analysis/components/MethodResults.tsx");
+const methodHtml = renderToStaticMarkup(React.createElement(MethodResults, { observedStatus: null, evidence: readEvidenceV4({ schemaVersion: 4, composite: {}, categoryResults: {}, methodResults: [
+  { methodId: "hard:success-with-error", category: "hard", status: "succeeded", anomalous: true, code: "HARD_SUCCESS_WITH_ERROR", riskLevel: "critical" },
+  { methodId: "hard:process-status", category: "hard", status: "succeeded", anomalous: true, code: "PROCESS_STATUS_Z", riskLevel: "warning" },
+] }) }));
+for (const shown of ["성공 상태이나 오류 건수가 기록됨", "STATUS = S, ERROR_COUNT &gt; 0", "상태 Z 데이터없음"]) assert.ok(methodHtml.includes(shown), shown);
+assert.ok(!methodHtml.includes("HARD_SUCCESS_WITH_ERROR") && !methodHtml.includes("PROCESS_STATUS_Z"), "result codes use their labels");
 // 위험도 단계 아이콘 색 = 위험도 배지 variant의 글자 색(위험 critical·주의 warning·참고 secondary). 목록 줄 아이콘도 같은 색.
 const { riskLevelIconTone } = await import("../src/features/analysis/icons.ts");
 assert.deepEqual(riskLevelIconTone, { critical: "text-destructive-text", warning: "text-warning-text", info: "text-secondary-foreground" });

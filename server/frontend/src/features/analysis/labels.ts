@@ -138,6 +138,21 @@ export const stampText = (iso: string | null | undefined) => {
 const hardRuleNames: Record<string, string> = {
   "hard:process-status": "상태가 S가 아님",
   "hard:negative-duration": "시작 시각이 종료 시각보다 늦음",
+  "hard:success-with-error": "성공 상태이나 오류 건수가 기록됨",
+  "hard:count-conservation": "건수 합계 불일치",
+};
+/** 상태 코드 뜻(사용자 11/04). 룰 설정의 코드별 위험도도 같은 표를 쓴다. */
+export const statusCodeLabels: Record<string, string> = { S: "성공", F: "실패", P: "처리중", N: "미처리", H: "부분성공", Z: "데이터없음" };
+const hardResultCodes: Record<string, string> = {
+  HARD_NEGATIVE_DURATION: hardRuleNames["hard:negative-duration"],
+  HARD_SUCCESS_WITH_ERROR: hardRuleNames["hard:success-with-error"],
+  HARD_COUNT_CONSERVATION: hardRuleNames["hard:count-conservation"],
+};
+/** 결과 코드 표시(detection-decision.md 4.3): `PROCESS_STATUS_H` → `상태 H 부분성공`, `HARD_*` → 규칙 이름. 모르는 코드는 원문 그대로. */
+export const resultCodeLabel = (code: string) => {
+  const status = /^PROCESS_STATUS_(.+)$/.exec(code)?.[1];
+  if (status) return statusCodeLabels[status] ? `상태 ${status} ${statusCodeLabels[status]}` : `상태 ${status}`;
+  return hardResultCodes[code] ?? code;
 };
 export const methodLabel = (methodId: string): string | null => {
   if (methodId.startsWith("hard:")) return hardRuleNames[methodId] ? `이상 규칙(${hardRuleNames[methodId]})` : "이상 규칙";

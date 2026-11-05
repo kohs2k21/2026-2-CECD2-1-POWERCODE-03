@@ -324,7 +324,7 @@ const listCalls = () => requested.filter((r) => r.path === "/api/analysis/decisi
   assert.ok(shown.includes("최종 · 이전 중간 판정 대체됨"));
   assert.ok(shown.includes("당시 운영 머신러닝 모델") && shown.includes("iforest(sklearn-iforest)"));
   assert.ok(!/3000|기한|탐지 모드|당시 룰 수|탐지 작업/.test(shown), "deadline number, policy and non-wireframe rows are not shown");
-  assert.ok(!shown.includes("당시 룰 리비전"), "rule revision row only when v4 evidence stores it");
+  assert.ok(!shown.includes("당시 룰 버전"), "rule revision row only when v4 evidence stores it");
   // 섹션 이름·아이콘(사용자 11/04): AI 설명 → AI 판정 근거 요약(IconBrain), Process Flow(IconBinaryTree), 위험도 미정이면 판정 요약 아이콘 없음
   assert.ok(!shown.includes("AI 설명"), "old section name is gone");
   assert.deepEqual(iconNames(headingOf(app, "AI 판정 근거 요약")), ["brain"]);
@@ -430,7 +430,7 @@ const listCalls = () => requested.filter((r) => r.path === "/api/analysis/decisi
   const shown = app.shown();
   assert.ok(shown.includes("판정 결과이상 징후 · 근거 이상 징후 규칙"), "result with basis category");
   assert.ok(shown.includes("위험도주의 · 결정 근거 이상 징후 규칙 · 단계 없는 근거 머신러닝 모델(iforest)"));
-  assert.ok(shown.includes("위험도 기준 표 method-defined-v2") && shown.includes("당시 룰 리비전r13") && shown.includes("업무 분류완료"));
+  assert.ok(shown.includes("위험도 기준 표 method-defined-v2") && shown.includes("당시 룰 버전13") && shown.includes("업무 분류완료"));
   // 판정 요약 제목 아이콘 = 저장된 위험도 단계(주의 = IconAlertTriangle, 배지와 같은 색)
   assert.deepEqual(iconNames(headingOf(app, "판정 요약")), ["alert-triangle"]);
   assert.ok(svgs(headingOf(app, "판정 요약"))[0].props.className.includes("text-warning-text"));

@@ -1,10 +1,12 @@
 /** Versioned Trainer discovery; capabilities are not training/evaluation results. */
 import { validateFeatureExpression } from './trainerFeatureValidation.js';
+import { METHOD_CATALOG } from '../ruleset/softRuleCatalog.js';
 import { SYNTHETIC_PROFILES, SYNTHETIC_CATALOG_VERSION, staticSpecHash } from './syntheticEvaluationContract.js';
 export const TRAINER_CONTRACT = 'trainer-service-v1';
 export const EVALUATION_FAMILIES = ['rule_ml', 'synthetic', 'execution_cost', 'operational'] as const;
 export const TRAINER_CAPABILITIES = {
   contractVersion: TRAINER_CONTRACT,
+  methodCatalog: METHOD_CATALOG,
   models: [{ key: 'iforest', displayName: 'Isolation Forest', supported: true }],
   evaluationFamilies: EVALUATION_FAMILIES,
   fittedFeatures: { operations: ['group_median', 'group_centered'], groupBy: ['P.adapter_type'],

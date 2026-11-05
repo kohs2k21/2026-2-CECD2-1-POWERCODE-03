@@ -4,10 +4,11 @@ import {mkdtemp,rm} from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import express from 'express';
-import {parseReportFilter,parseCandidateFilter,dailyReport,costReport,OPERATIONAL_SQL,COVERAGE_SQL,
+import {parseReportFilter,parseCandidateFilter,reportParameters,dailyReport,costReport,OPERATIONAL_SQL,COVERAGE_SQL,
   DETECTOR_COST_SQL,COHORT_SUMMARY_SQL,BACKLOG_SQL,BACKLOG_AT_CUTOFF_SQL} from '../dist/services/operationalReport.js';
 import {hasStatusRulePolicy} from '../dist/services/statusRulePolicy.js';
 import {JOB_COST_SQL,JOB_COST_SUMMARY_SQL} from '../dist/services/executionCostReport.js';
+import {readDecisionTrend} from '../dist/services/operationsReadModel.js';
 
 const temporary = await mkdtemp(path.join(os.tmpdir(),'powercode-report-test-'));
 process.env.USER_DATA_PATH=path.join(temporary,'users.json');
@@ -26,6 +27,14 @@ test('filters reject rollover dates, injection, arrays, unknown keys, invalid ti
     {sourceId:[sourceId]},{configVersionId:[configVersionId]},{limit:'101'},{limit:'0'},{offset:'10001'},
     {offset:'1.1'},{limit:'01'},{extra:'ignored'}]) assert.throws(()=>parseReportFilter({...query,...extra}),/invalid|unknown/);
   assert.equal(parseReportFilter({...query,timezone:'America/New_York',limit:'100',offset:'10000'}).limit,100);
+});
+test('configVersionId is optional for the operational report and required for execution cost',()=>{
+  const {configVersionId:_omitted,...withoutConfig}=query;
+  const filter=parseReportFilter(withoutConfig);
+  assert.equal('configVersionId' in filter,false);assert.equal(reportParameters(filter)[1],null);
+  assert.equal(reportParameters(parseReportFilter(query))[1],configVersionId);
+  for(const value of ['','not-a-uuid',[configVersionId]]) assert.throws(()=>parseReportFilter({...withoutConfig,configVersionId:value}),/invalid_configVersionId/);
+  assert.throws(()=>parseReportFilter(withoutConfig,{requireConfig:true}),/invalid_configVersionId/);
 });
 test('candidate cursor preserves microseconds and rejects additional fields or malformed cursor',()=>{
   const after={createdAt:'2026-10-02T00:00:00.123456Z',id:configVersionId};
@@ -142,6 +151,35 @@ test('operational HTTP response keeps missing values, query parameters, snapshot
     assert.equal(h.calls[0].sql,'BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY');assert.equal(h.calls.at(-1).sql,'COMMIT');
     assert.equal(h.releases(),1);
   }finally{await h.close();}
+});
+test('omitting the configuration checks only the source and names the policy it used',async()=>{
+  const {configVersionId:_omitted,...withoutConfig}=query;
+  const rowsFor=(sql)=>sql===OPERATIONAL_SQL ? [] : sql===COVERAGE_SQL ? [{unknownScopeObservations:0,missingIdentityObservations:0}] :
+    sql===COHORT_SUMMARY_SQL ? [{decisionCount:0,totalDays:2}] : sql===BACKLOG_SQL ? [{targets:0,queued:0,running:0,failed:0,oldestWaitSeconds:null}] :
+    sql===BACKLOG_AT_CUTOFF_SQL ? [{asOf:query.until,waiting:0,running:0,oldestWaitSeconds:null}] : sql===DETECTOR_COST_SQL ? [] : [{generatedAt:'2026-10-03T00:00:01Z',id:sourceId}];
+  const h=await harness('admin',async sql=>({rowCount:1,rows:rowsFor(sql)}));
+  try {
+    const body=await(await fetch(h.base+'/reports/operational?'+new URLSearchParams(withoutConfig))).json();
+    assert.equal(body.metricVersion,'operational-v1');
+    assert.equal(body.policy.decision,'latest_any_config_on_selected_revision_before_cutoff');
+    assert.equal('configVersionId' in body.filter,false);
+    assert.ok(!h.calls.some(call=>call.sql.includes('ml_config_versions')),'no configuration lookup');
+    assert.deepEqual(h.calls.find(call=>call.sql.includes('FROM ops_sources')).args,[sourceId]);
+    assert.equal(h.calls.find(call=>call.sql===OPERATIONAL_SQL).args[1],null);
+    assert.equal((await(await fetch(h.base+url)).json()).policy.decision,'latest_same_config_on_selected_revision_before_cutoff');
+    assert.equal((await fetch(h.base+'/reports/execution-cost?'+new URLSearchParams({...withoutConfig,scope:'offline'}))).status,400);
+  }finally{await h.close();}
+  const missing=await harness('admin',async()=>({rowCount:0,rows:[]}));
+  try {
+    const response=await fetch(missing.base+'/reports/operational?'+new URLSearchParams(withoutConfig));
+    assert.equal(response.status,404);assert.equal((await response.json()).code,'source_configuration_not_found');
+  }finally{await missing.close();}
+});
+test('decision trend keeps every day of the period even without sources',async()=>{
+  const client={query:async sql=>({rows:sql.includes('generate_series') ? [{from:'2026-11-02T15:00:00.000000Z',until:'2026-11-04T01:00:00.000000Z',days:['2026-11-03','2026-11-04']}] : []}),release(){}};
+  const trend=await readDecisionTrend({connect:async()=>client},2);
+  assert.deepEqual(trend.items,[{day:'2026-11-03',decisionCount:0,anomalySignalRatio:null,unavailableRatio:null},{day:'2026-11-04',decisionCount:0,anomalySignalRatio:null,unavailableRatio:null}]);
+  assert.equal('configVersionId' in trend,false);assert.equal('reason' in trend,false);
 });
 test('database error rolls back and releases the report connection',async()=>{
   const h=await harness('admin',async sql=>{if(sql===OPERATIONAL_SQL)throw new Error('failed');return {rowCount:1,rows:[{}]};});

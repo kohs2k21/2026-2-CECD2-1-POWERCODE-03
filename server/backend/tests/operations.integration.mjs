@@ -9,7 +9,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import pg from 'pg';
-import { seedOperationsFixture } from './operations-fixture.mjs';
+import { seedDetectJobs, seedOperationsFixture, seedV04Decisions } from './operations-fixture.mjs';
 
 const url = process.env.PIPELINE_TEST_DATABASE_URL;
 if (!url) throw new Error('PIPELINE_TEST_DATABASE_URL is required');
@@ -166,10 +166,10 @@ try {
   assert.ok(storage.databaseBytes > 0);
   assert.equal(storage.disk, null);
 
-  // 8) 판정 추이: 운영 구성의 일별 판정 수·비율(운영 리포트 집계 재사용).
+  // 8) 판정 추이: 전 원천의 일별 판정 수·비율(운영 리포트 구성 생략 경로 재사용). 판정 없는 날도 나온다.
   const trend = (await request(base, '/api/operations/decision-trend?days=3', 'GET', user)).body;
-  assert.equal(trend.configVersionId, fixture.configId);
-  assert.equal(trend.items.length >= 1 && trend.items.length <= 3, true);
+  assert.equal('configVersionId' in trend, false);
+  assert.equal(trend.items.length, 3);
   const today = trend.items.at(-1);
   assert.equal(trend.items.reduce((sum, item) => sum + item.decisionCount, 0), fixture.decisions);
   assert.equal(today.decisionCount > 0, true);
@@ -180,6 +180,96 @@ try {
     assert.equal(today.anomalySignalRatio, 2 / decidable);
     assert.equal(today.unavailableRatio, 1 / fixture.decisions);
   }
+
+  // 운영 보고 요청: 구성을 주면 v03 결과 그대로라는 시험의 기준값을 v04 행을 넣기 전에 받아 둔다.
+  const period = { from: new Date(Date.now() - 3600000).toISOString(), until: new Date(Date.now() + 120000).toISOString(), timezone: 'Asia/Seoul' };
+  const report = async (query) => {
+    const response = await request(base, `/api/pipeline/reports/operational?${new URLSearchParams({ scope: 'replay', ...period, ...query })}`, 'GET', admin);
+    assert.equal(response.status, 200, JSON.stringify(response.body));
+    return response.body;
+  };
+  const decisionMetrics = (body) => [body.metricVersion, body.policy.decision, body.decisionCount, body.excluded, body.executionCost.metrics,
+    body.items.map(({ day, processCount, alarmProcessCount, alarmRatio, unavailableRate, failedProcessCount, lastProcessedAt, comparisons }) =>
+      ({ day, processCount, alarmProcessCount, alarmRatio, unavailableRate, failedProcessCount, lastProcessedAt, comparisons }))];
+  const v03Report = await report({ sourceId: sid, configVersionId: fixture.configId });
+  assert.deepEqual([v03Report.decisionCount, v03Report.policy.decision], [fixture.decisions, 'latest_same_config_on_selected_revision_before_cutoff']);
+
+  // 8b) detect 작업의 원천은 입력 manifest로 찾는다: v04(구성 없음)도 대기·실패에 들어가고, 다른 원천 작업은 섞이지 않는다.
+  const { otherSource } = await seedDetectJobs(pool, fixture);
+  const latencyOf = async (source) => {
+    const body = (await request(base, `/api/operations/latency?sourceId=${source}`, 'GET', user)).body;
+    return { queue: body.stages.find((item) => item.id === 'detectionQueue'), detector: body.stages.find((item) => item.id === 'detector') };
+  };
+  const mixed = await latencyOf(sid);
+  assert.deepEqual([mixed.queue.samples, Math.round(mixed.queue.p50Ms), Math.round(mixed.queue.p95Ms)], [4, 5000, 7700], 'waits of 2, 4 (v03) and 6, 8 (v04) seconds');
+  assert.equal(mixed.detector.recentFailures, 2, 'one v03 and one v04 failure; the failure two hours ago is outside the window');
+  assert.equal(mixed.detector.samples, fixture.decisions + 1, 'a detector measurement without a configuration still counts');
+  const other = await latencyOf(otherSource);
+  assert.deepEqual([other.queue.samples, Math.round(other.queue.p50Ms), other.detector.recentFailures], [2, 4000, 2]);
+  assert.equal(Math.round((await request(base, '/api/operations/overview', 'GET', user)).body.queueWaitP95Ms), 7500, 'overview covers every source: 2, 3, 4, 5, 6, 8 seconds');
+  // v03 회귀: manifest로 찾은 v03 작업 집합이 구성으로 찾던 집합과 같다.
+  for (const source of [sid, otherSource]) {
+    const viaConfig = await pool.query(`SELECT j.id FROM run_jobs j JOIN ml_config_versions c ON c.id=j.input_config_version_id
+      WHERE j.kind='detect' AND c.source_id=$1 ORDER BY j.id`, [source]);
+    const viaManifest = await pool.query(`SELECT j.id FROM run_jobs j JOIN run_input_manifests m ON m.id=j.input_manifest_id
+      WHERE j.kind='detect' AND m.source_id=$1 AND j.contract_version='v03' ORDER BY j.id`, [source]);
+    assert.ok(viaConfig.rowCount > 0);
+    assert.deepEqual(viaManifest.rows, viaConfig.rows, 'the same v03 jobs as the configuration join');
+  }
+  // manifest 없는 detect 작업은 DB가 받지 않으므로 원천 판별에서 빠질 작업이 없다.
+  await assert.rejects(pool.query(`INSERT INTO run_jobs(id,kind,status,requested_by_actor_id,requester_role,request_hash,input_spec,max_attempts,attempt_count,next_run_at,created_at)
+    VALUES($1,'detect','queued','legacy','user','legacy','{}',3,0,clock_timestamp(),clock_timestamp())`, [crypto.randomUUID()]), { constraint: 'run_jobs_v03_contract' });
+
+  // 8c) 운영 보고: 구성을 주면 v03 판정 집계가 그대로이고, 생략하면 구성 없는 v04 판정·작업이 들어간다.
+  const { ruleOnlySource } = await seedV04Decisions(pool, fixture);
+  const sum = (body, key) => body.items.reduce((total, item) => total + (item[key].value ?? 0), 0);
+  const sameConfig = await report({ sourceId: sid, configVersionId: fixture.configId });
+  assert.deepEqual(decisionMetrics(sameConfig), decisionMetrics(v03Report), 'v04 rows do not change the report of a configuration');
+  assert.deepEqual([sameConfig.queue.queued.value, sameConfig.queue.running.value, sameConfig.queue.failedJobsInPeriod.value, sameConfig.queue.running.denominator], [0, 1, 1, 2],
+    'only the two v03 jobs of this configuration');
+  const bySource = await report({ sourceId: sid });
+  assert.deepEqual([bySource.metricVersion, bySource.policy.decision, 'configVersionId' in bySource.filter],
+    ['operational-v1', 'latest_any_config_on_selected_revision_before_cutoff', false]);
+  assert.equal(bySource.decisionCount, fixture.decisions + 1, 'the v04 decision on a judged observation replaces it, the new observation adds one');
+  assert.equal(sum(bySource, 'alarmProcessCount'), 3, 'two v03 alarms and the v04 alarm that is now the latest decision');
+  assert.deepEqual([bySource.queue.queued.value, bySource.queue.running.value, bySource.queue.failedJobsInPeriod.value, bySource.queue.running.denominator], [0, 2, 2, 7],
+    'v03 and v04 jobs of this source');
+  assert.equal(sameConfig.queue.atCutoff.running.value, 1, 'cutoff config filter');
+  assert.equal(bySource.queue.atCutoff.running.value, 2);
+  // 교차표: checkers가 있는 v04 판정 2건만 비교 가능하다(상태 규칙 이상·ML 정상 1건, 둘 다 정상 1건). v04에 SR 경로는 없다.
+  const crossTab = (body, path) => body.items.reduce((total, item) => {
+    const pair = item.comparisons[path];
+    return { comparable: total.comparable + pair.comparable, both: total.both + (pair.both.value ?? 0), ruleOnly: total.ruleOnly + (pair.ruleOnly.value ?? 0),
+      mlOnly: total.mlOnly + (pair.mlOnly.value ?? 0), neither: total.neither + (pair.neither.value ?? 0) };
+  }, { comparable: 0, both: 0, ruleOnly: 0, mlOnly: 0, neither: 0 });
+  assert.deepEqual(crossTab(bySource, 'hrMl'), { comparable: 2, both: 0, ruleOnly: 1, mlOnly: 0, neither: 1 });
+  assert.deepEqual(crossTab(bySource, 'srMl'), { comparable: 0, both: 0, ruleOnly: 0, mlOnly: 0, neither: 0 });
+  assert.ok(bySource.items.filter((item) => item.processCount.value).every((item) => item.comparisons.srMl.both.reason === 'checker_evidence_unavailable'));
+  assert.equal(crossTab(sameConfig, 'hrMl').comparable, 0, 'v03 fixture decisions carry no checkers');
+  // 실행 비용: 측정값이 있는 v04 판정 2건, 대상은 판정 모집단 전체.
+  const { totalMs, inferenceMs } = bySource.executionCost.metrics;
+  assert.deepEqual([totalMs.samples, totalMs.targets, totalMs.sum.value, totalMs.p50.value, totalMs.p50.coverage], [2, fixture.decisions + 1, 41, 20.5, 2 / (fixture.decisions + 1)]);
+  assert.deepEqual([inferenceMs.samples, inferenceMs.sum.value], [2, 9]);
+  assert.deepEqual([sameConfig.executionCost.metrics.totalMs.samples, sameConfig.executionCost.metrics.totalMs.p50.reason], [0, 'telemetry_unavailable']);
+  // 구성이 하나도 없는 원천(룰만 운영): 생략하면 200, 구성을 주면 기존처럼 404, 없는 원천은 404.
+  const ruleOnly = await report({ sourceId: ruleOnlySource, scope: 'live' });
+  assert.deepEqual([ruleOnly.decisionCount, sum(ruleOnly, 'alarmProcessCount')], [1, 1]);
+  assert.equal(crossTab(ruleOnly, 'hrMl').comparable, 0, 'no ML checker to compare with');
+  assert.deepEqual([ruleOnly.executionCost.metrics.totalMs.samples, ruleOnly.executionCost.metrics.inferenceMs.samples, ruleOnly.executionCost.metrics.inferenceMs.p50.reason],
+    [1, 0, 'telemetry_unavailable'], 'no model, no inference time');
+  const reportRoute = (query) => `/api/pipeline/reports/operational?${new URLSearchParams({ scope: 'live', ...period, ...query })}`;
+  assert.equal((await request(base, reportRoute({ sourceId: ruleOnlySource, configVersionId: fixture.configId }), 'GET', admin)).status, 404);
+  const noSource = await request(base, reportRoute({ sourceId: crypto.randomUUID() }), 'GET', admin);
+  assert.deepEqual([noSource.status, noSource.body.code], [404, 'source_configuration_not_found']);
+  assert.equal((await request(base, reportRoute({ sourceId: sid }), 'GET', user)).status, 403);
+  // 판정 추이: 전 원천 합산, 운영 구성이 없어도 같다.
+  const allSources = (await request(base, '/api/operations/decision-trend?days=3', 'GET', user)).body;
+  assert.equal(allSources.items.reduce((total, item) => total + item.decisionCount, 0), fixture.decisions + 2, 'both sources, live and replay');
+  await pool.query('UPDATE ops_system_state SET active_config_version_id=NULL WHERE id=1');
+  assert.equal((await request(base, '/api/operations/overview', 'GET', user)).body.activeConfiguration, null);
+  const noActive = (await request(base, '/api/operations/decision-trend?days=3', 'GET', user)).body;
+  assert.deepEqual(noActive.items, allSources.items, 'the trend does not depend on the active configuration');
+  assert.equal('reason' in noActive, false);
 
   // 9) 저장소 실패는 503(성공·빈 값 대체 없음).
   await stopChild();
@@ -193,7 +283,7 @@ try {
   const failed = await request(base, '/api/operations/overview', 'GET', user);
   assert.equal(failed.status, 503);
   assert.equal(failed.body.code, 'operations_storage_unavailable');
-  console.log('operations read API integration passed: 401/user read/admin-only mutation, overview contract, collection, latency, fields, storage, trend, 503');
+  console.log('operations read API integration passed: 401/user read/admin-only mutation, overview contract, collection, latency, fields, storage, trend across sources, v03/v04 detect jobs by input source, report with and without a configuration, 503');
 } finally {
   await stopChild();
   await pool.end();

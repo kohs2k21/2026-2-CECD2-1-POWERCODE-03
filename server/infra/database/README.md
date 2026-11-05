@@ -1,5 +1,5 @@
 Created: 2026-10-12T02:06:03+09:00
-Updated: 2026-11-05T00:50:00+09:00
+Updated: 2026-11-05T10:40:00+09:00
 Author: contracts_page_reviewer
 Status: current
 
@@ -7,7 +7,7 @@ Status: current
 
 - Issue #32 기준: 최신 PostgreSQL·공통 규약·LLM 기획 반영. `schema.dbml`은 최종 목표 구조의 시각화, 실행 원본은 migration SQL
 - 목표 구조(Issue #32 당시): public 28테이블 + `powercode_queue` 기존 물리 큐 2테이블. 기존 public 24테이블 보존, BODY·BODY 연결·불변 입력·LLM 결과 4테이블만 추가
-- 현재 `schema.dbml`(Issue #119): 001~016 전체 반영, public 60테이블 + `powercode_queue` 5테이블. 004_feature_pipeline·005~009 추가분 24테이블 보강, 011 3테이블·012 1테이블·014 3테이블·015 3테이블 추가. 013(#82)은 함수 설정만 바꿔 DBML 변경 없음
+- 현재 `schema.dbml`(Issue #124): 001~017 전체 반영, public 60테이블 + `powercode_queue` 5테이블. 004_feature_pipeline·005~009 추가분 24테이블 보강, 011 3테이블·012 1테이블·014 3테이블·015 3테이블 추가. 013(#82)은 함수 설정만 바꿔 DBML 변경 없음
 - 기존 001/002 불변. 003/004는 서버 미적용; ERD 등록·SQL 검수와 실제 운영 적용 구분
 - PostgreSQL 17.11 실제 public24+queue2 존재 확인 기록과 정합. 서버 schema/version 이력 및 완전 DDL 일치는 별도 사전 확인 필요
 
@@ -154,6 +154,21 @@ SELECT r.rolname,
 - 적용 순서: 016은 v03 쓰기 코드와 호환. v04 행은 Detector #112 배포 뒤에 생기므로 016 → 코드 배포 순서. worker·API가 v04를 읽는 변경은 각 Issue 범위
 - 시험(`erd-v03-detect-v04.mjs`, `erd-v03.mjs`가 호출): `erd119_fresh`(r1 행·hash 재계산·뷰·기본값·불변, v04 작업·판정·중간 판정·explain 전체 흐름과 거부 조건, 실제 LOGIN 역할), `erd119_upgrade`(001~015 + v03·legacy 행 → 016, 행 보존, 변경 목록 외 카탈로그 불변, 함수 본문은 표시한 줄만 변경, 진행 중 v03 작업 완료), `erd119_saved`·`erd119_empty`(r1 조건 실패 → 무변경), `erd119_rollback`(COMMIT 직전 오류 → 무변경 → 재적용), `erd119_encoding`(비UTF8 세션 문장 단위 적용)
 
+## 017 소프트룰 임계값 일괄 추천 작업 종류 (#124)
+
+- 파일 `017_recommend_thresholds.sql`, 016 이후 한 번 실행(`psql -v ON_ERROR_STOP=1 -f`), 기존 표·함수 소유자로 실행. 새 표 없음 → `database-roles.sql` 변경 없음. 자동 down migration 없음(enum 값은 지울 수 없음)
+- 왜: Trainer #121의 `recommend_thresholds` 작업을 DB가 받게 한다(`contracts/llm-recommendation-job.md` 마이그레이션·코드 영향 절, `contracts/trainer-service.md` 계약 누락 1·2번, `contracts/queues.md`). 이 파일만으로 작업이 생기지는 않음. API 접수·워커 처리는 각 Issue 범위
+- enum 커밋 분리(010·011 방식): `job_kind`에 값을 트랜잭션 밖 `ADD VALUE IF NOT EXISTS`로 먼저 추가, 같은 파일 안에서는 `kind::text` 비교로만 사용. `psql -f` 실행은 BEGIN..COMMIT 중간 오류 시 구조 변경 전체 ROLLBACK, 커밋된 enum 값만 남고 같은 파일 재실행 가능. 한 문자열 실행(`prepare-runtime-db.py`)은 BEGIN이 enum 추가를 흡수해 실패 시 enum까지 되돌아감
+- enum만 남은 구간: 이전 CHECK의 legacy 분기는 이 값을 막지 않는다. 쓰기 코드가 없어 행이 생기지 않고, 생기면 재실행의 CHECK 검증이 실패해 전체 ROLLBACK(반쪽 적용 없음). v03 작업은 이전 CHECK가 거부
+- `run_jobs_v03_contract`(016본 기준): `llm_recommendation` 분기에 추가(큐 `llm_recommendation`·user producer·admin·`llm_spec` 필수), legacy 분기 사용 금지. v04·explain 분기 변경 없음
+- `erd_v03_validate_job()`(016본 기준): `llm_spec` 필수 목록·LLM 완료 결과 필수 목록 2줄만 변경, `search_path` 설정·SECURITY INVOKER·소유자 유지. `erd_v03_validate_result`는 종류 목록이 없어 재정의하지 않음
+- `run_llm_results`: `run_llm_results_kind_check`(011본 기준, 016이 재정의하지 않음)·`run_llm_results_check`(016본 기준)의 `decision_id IS NULL` 분기에 추가
+- 구성·입력: 입력은 룰 세트 리비전이고 `input_spec`에 고정, 구성은 없다. `input_config_version_id`·`run_llm_results.config_version_id`는 규약상 NULL이고 DB가 작업 생성 때 강제하지는 않음(API가 넣지 않아야 함). `llm_recommendation` 분기와 `decision_id IS NULL` 분기에 구성 조건이 원래 없고 `erd_v03_validate_result`는 결과 구성 = 작업 구성만 비교하므로 조건을 풀거나 더하지 않음. 리비전을 검사할 열도 만들지 않음(입력 고정은 API, 값 대조는 Trainer)
+- v03 작업이라 `input_snapshot_id`는 규약상 NULL이고 스냅샷은 `run_job_snapshots`에만 기록. 이 NULL도 작업 생성 때 DB가 강제하지 않고, 생성 뒤 변경만 막음. 실패 작업은 `run_llm_results` 없이 `error_code`·`result_summary`만 남길 수 있음(결과 필수는 `succeeded` 전환에만 적용). `llm_spec` 값(`soft-rule-threshold-v1` 등)은 DB 제약으로 고정하지 않음
+- 잠금(COMMIT까지): `run_jobs`·`run_llm_results`에 ACCESS EXCLUSIVE. 표 재작성 없음. CHECK 검증으로 heap을 읽음(`run_jobs` 1회, `run_llm_results` 2회, TOAST 값은 읽지 않음). 012·016과 같이 Detector·Collector·Trainer·LLM·API 작업자를 멈추고 적용. 새 조건은 이전보다 넓어 기존 행이 실패할 수 없음
+- 적용 순서: 017 → API·워커 배포. 기존 코드는 새 값을 쓰지 않아 017 적용 뒤에도 수정 없이 동작
+- 시험(`erd-v03-recommend-thresholds.mjs`, `erd-v03.mjs`가 호출): `erd124_fresh`(작업 생성 조건, `llm_spec`, 결과·완료, 실패 요약, 스냅샷, 재시도, 기존 kind·v04·explain 유지, 실제 LOGIN 역할), `erd124_upgrade`(001~016 + 기존 행 → 017 문장 단위, 행 보존, 제약은 016 정의에서 새 값만 다름, 함수 본문은 2줄만 다름, 진행 중 작업 완료), `erd124_rollback`(enum 커밋 뒤 COMMIT 직전 오류, enum만 남은 구간, 재실행), `erd124_single`(한 문자열 실패·성공), `erd124_shadow`(임시 표 가리기)
+
 ## 큐와 소유권
 
 - 001의 `detection_logs/training_jobs`는 기존 물리 큐. 기존 Python helper의 payload·물리 lease 경로 보존
@@ -181,7 +196,7 @@ SELECT r.rolname,
 
 ## LLM 결과와 파일
 
-- 추천 종류 `recommend_rule/recommend_feature`는 관리자, `explain` 요청은 user/admin. 이 role 값은 인증된 계정에서 서버가 확인, DB 감사 필드만으로 실제 인증 완료 아님
+- 추천 종류 `recommend_rule/recommend_feature/recommend_methods/recommend_thresholds`는 관리자, `explain` 요청은 user/admin. 이 role 값은 인증된 계정에서 서버가 확인, DB 감사 필드만으로 실제 인증 완료 아님
 - `llm_spec`의 필수 문자열: `evidence_version`, `input_evidence_hash`, `model_version`, `prompt_version`, `output_schema_version`, `reuse_key`
 - 설명 job은 저장 판정·그 판정 config를 참조. 추천과 설명의 logical queue·재시도·실행 예산 분리, 판정 동기 경로를 LLM 완료에 연결하지 않음
 - `run_llm_results`는 성공·검증된 최종 출력만 저장. job kind/decision/config/version/reuse 값과 현재 attempt/token/lease 일치 검사, 실패는 job/attempt에 남김
@@ -202,7 +217,7 @@ SELECT r.rolname,
 
 ## DBML과 SQL 대응
 
-- DBML은 001~016 적용 후 최종 구조(컬럼·nullability·unique·FK·enum 순서). 물리 큐 5개도 명시. enum 순서는 PostgreSQL 추가 순서(`job_kind`의 `import_csv`는 explain 뒤)
+- DBML은 001~017 적용 후 최종 구조(컬럼·nullability·unique·FK·enum 순서). 물리 큐 5개도 명시. enum 순서는 PostgreSQL 추가 순서(`job_kind`의 `import_csv`는 explain 뒤)
 - nullable FK는 `>?`, unique FK는 부모 `-` 자식 방향, nullable unique FK는 부모 `?-` 자식 방향으로 표시. 실제 FK 방향은 SQL/파싱 대응 시험으로 확인
 - attempt의 복합 FK 3개는 DBML의 exact-composite index 판정 한계로 `>`/`>?` 표시. 자식의 개별 PK/unique가 실제 1:1 제약을 보장한다는 주석 유지; 그림 경고를 없애려고 SQL 중복 인덱스를 추가하지 않음
 - `@dbml/core`는 현재 문법의 `dbmlv2` parser 사용. deprecated `dbml` parser는 optional 관계 문법을 지원하지 않음
@@ -228,3 +243,4 @@ SELECT r.rolname,
 - Issue #81 시험(`erd-v03-llm-grant.mjs`, `erd-v03.mjs`가 호출): `pg_queue.reconcile_dead_jobs`의 training 큐 SQL 2문을 파일에서 읽어 `powercode_llm` 실제 LOGIN 새 연결·한 트랜잭션으로 실행. `erd_llm_grant_81_pre`(#81 GRANT 뺀 역할 스크립트) 42501 재현·대조, `erd_llm_grant_81` 정리 성공(작업 failed·queued 세트 failed·`errorCode` `queue_exhausted`·기존 `validation_result` 키 유지, ready·failed·무관 세트 불변), 권한 카탈로그 정확 일치, 다른 열 SELECT·내용 열 UPDATE·INSERT·DELETE·TRUNCATE 42501, 부여 열 하나씩 REVOKE 시 정리 42501. 2026-10-22 native PostgreSQL 17.10(embedded) 665 checks 통과
 - Issue #110(015) 시험(`erd-v03-revisions.mjs`, `erd-v03.mjs`가 호출): `erd110_fresh`·`erd110_upgrade`·`erd110_rollback` 3개 DB 추가(015 절). 함께 고친 기존 시험 결함(014 이후 `erd-v03.mjs`가 끝까지 돌지 못했음): `erd_interim_y7a2_012`는 001~012만 적용하므로 역할 스크립트의 014·015 GRANT를 빼고 적용, `erd82_rollback`은 013 재적용 뒤 남은 마이그레이션까지 적용한 다음 parity 대조, `parity`는 기본 표만 대조(뷰 제외). `erd-v03.mjs`는 CI에 없는 격리 시험이라 변경 시 직접 실행. 2026-11-04 native PostgreSQL 17.10(embedded) 806 checks 통과
 - Issue #119(016) 시험(`erd-v03-detect-v04.mjs`, `erd-v03.mjs`가 호출): `erd119_*` 6개 DB 추가(016 절). 함께 바꾼 기존 시험: `erd-v03-revisions.mjs`는 015까지만 적용한 시점의 r0를 판정하도록 고정(`erd110_fresh`는 015에서 멈춤, `erd110_upgrade`·`erd110_rollback`은 015 판정 뒤 끝까지 적용해 parity 대조, r0 값은 문서 예시 대신 시험에 고정 — 문서 예시는 이제 내장 목록 4개를 설명), `erd82_upgrade`는 함수 본문 비교를 013 직후에 수행(016이 3개를 의도적으로 재정의), 012 S3b 메시지 기대값 변경. `erd-v03.mjs`는 실행마다 임시 클러스터를 남겼으므로 성공·실패·예외·시그널·postgres 사망·기동 실패 모두 폴더를 지우도록 고침(`stop()`에 시간 제한, 끝까지 통과한 실행만 exit 0). 한계: 시작 후 약 4초의 클러스터 기동 구간에 들어온 시그널과 강제 종료는 폴더를 남길 수 있고, 이때도 종료 코드는 0이 아님. 2026-11-05 native PostgreSQL 17.10(embedded) 923 checks 통과
+- Issue #124(017) 시험(`erd-v03-recommend-thresholds.mjs`, `erd-v03.mjs`가 호출): `erd124_*` 5개 DB 추가(017 절). 2026-11-05 native PostgreSQL 17.10(embedded) 1041 checks 통과. 함께 바꾼 기존 시험: `erd119_upgrade`·`erd119_rollback`은 016 판정 뒤 끝까지 적용해 parity 대조(`schema.dbml`이 최종 구조이므로), `erd-v03-detect-v04.mjs`의 공용 도구 5개(`catalog`·`code`·`delta`·`nameOf`·`statements`)를 export. `prepare-runtime-db.py` 목록에 017 추가

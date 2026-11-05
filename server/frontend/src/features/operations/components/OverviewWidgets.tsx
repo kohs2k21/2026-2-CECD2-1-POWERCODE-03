@@ -147,31 +147,27 @@ const TrendWidget = () => {
   const query = useTrendQuery();
   return (
     <QueryState query={query} what="판정 추이">
-      {(trend) =>
-        trend.configVersionId === null ? (
-          <EmptyState>운영 구성 없음</EmptyState>
-        ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                {["날짜", "판정", "이상 신호", "정상 여부 미확인"].map((title) => (
-                  <TableHead key={title}>{title}</TableHead>
-                ))}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {trend.items.map((item) => (
-                <TableRow key={item.day}>
-                  <TableCell>{dayText(item.day)}</TableCell>
-                  <TableCell>{numberText(item.decisionCount)}</TableCell>
-                  <TableCell>{item.anomalySignalRatio === null ? DASH : percentText(item.anomalySignalRatio)}</TableCell>
-                  <TableCell>{item.unavailableRatio === null ? DASH : percentText(item.unavailableRatio)}</TableCell>
-                </TableRow>
+      {(trend) => (
+        <Table>
+          <TableHeader>
+            <TableRow>
+              {["날짜", "판정", "이상 신호", "정상 여부 미확인"].map((title) => (
+                <TableHead key={title}>{title}</TableHead>
               ))}
-            </TableBody>
-          </Table>
-        )
-      }
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {trend.items.map((item) => (
+              <TableRow key={item.day}>
+                <TableCell>{dayText(item.day)}</TableCell>
+                <TableCell>{numberText(item.decisionCount)}</TableCell>
+                <TableCell>{item.anomalySignalRatio === null ? DASH : percentText(item.anomalySignalRatio)}</TableCell>
+                <TableCell>{item.unavailableRatio === null ? DASH : percentText(item.unavailableRatio)}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      )}
     </QueryState>
   );
 };

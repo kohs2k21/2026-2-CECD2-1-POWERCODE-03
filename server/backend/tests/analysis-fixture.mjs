@@ -2,6 +2,7 @@
 // 고객 원본·BODY 값은 없다. 시각은 DB clock_timestamp() 기준 상대값으로 넣는다.
 // v03 detect 작업·시도·중간 판정 기록은 실제 DB 트리거(004·012)를 통과하는 순서로 만든다(대체됨·최종 없음은 트리거가 기록).
 import crypto from 'node:crypto';
+import { v04Final, v04Interim } from './v04-samples.mjs';
 
 const id = () => crypto.randomUUID();
 const sha = (value) => crypto.createHash('sha256').update(value).digest('hex');
@@ -70,6 +71,88 @@ const mlHit = { methodId: 'ml:iforest', category: 'ml', methodVersion: 'process-
 const mlNormal = { ...mlHit, anomalous: false, code: null, riskLevelReason: null, score: 0.42,
   scoreDetail: { ...mlHit.scoreDetail, raw: 0.42, normalized: { kind: 'threshold_ratio', value: 0.689 } } };
 
+/** 관측·판정·detect 작업을 쓰는 함수 묶음. 작업·시도·판정은 실제 DB 트리거를 통과하는 순서로 만든다. */
+const fixtureWriters = (client, sourceId, configId, out) => {
+  let serial = 0;
+  /** PROCESS 관측 1건(+ 짝 TRANSACTION). 검색 대상: 거래 ID·프로세스 ID·인터페이스 ID. */
+  const process = async (minutesAgo, label) => {
+    serial += 1;
+    const tx = `TX-${label}-${serial}`, processId = `P${String(serial % 7).padStart(2, '0')}`, iface = `IF-ORD-${(serial % 3) + 1}`;
+    const execution = id(), obs = id(), txObs = id();
+    await client.query(`INSERT INTO data_executions(id,source_id,layer,execution_key,key_parts,key_contract_version,first_observed_at)
+      VALUES($1,$2,'P',$3,'{}','v1',clock_timestamp())`, [execution, sourceId, `exec-${execution}`]);
+    for (const [observation, layer, exec] of [[txObs, 'T', null], [obs, 'P', execution]]) {
+      await client.query(`INSERT INTO data_observations(id,source_id,layer,execution_id,revision_no,dedup_key,content_hash,
+          api_received_at,persisted_at,clock_status,parsed_times,allowed_values,quality_flags,missing_fields)
+        VALUES($1,$2,$3,$4,$5,$6,$7,clock_timestamp()-($8::double precision*interval '1 minute'),
+          clock_timestamp()-($8::double precision*interval '1 minute'),'unknown','{}','{}','[]','[]')`,
+      [observation, sourceId, layer, exec, exec ? 1 : null, `${layer}:${observation}`, sha(observation), minutesAgo + 0.5]);
+    }
+    await client.query(`INSERT INTO data_transactions(observation_id,transaction_id,interface_id,status) VALUES($1,$2,$3,'S')`, [txObs, tx, iface]);
+    await client.query(`INSERT INTO data_processes(observation_id,transaction_observation_id,transaction_id,process_id,channel_id,status,response_code)
+      VALUES($1,$2,$3,$4,'CH-01',$5,$6)`, [obs, txObs, tx, processId, label === 'anomaly' ? 'F' : 'S', label === 'anomaly' ? 'E500' : '0000']);
+    return { obs, execution, txObs, tx, processId, iface };
+  };
+  /** 이전 형식 판정(작업 없음). */
+  const legacyDecision = async (name, minutesAgo, status, evidence, ruleStatus = 'succeeded', mlStatus = 'succeeded', code = null) => {
+    const p = await process(minutesAgo, name);
+    const decisionId = id();
+    await client.query(`INSERT INTO run_process_decisions(id,execution_id,process_observation_id,transaction_observation_id,config_version_id,
+        input_manifest_hash,status,rule_status,ml_status,decision_code,anomaly_score,evidence,decided_at,latency_status)
+      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,0.42,$11::jsonb,clock_timestamp()-($12::double precision*interval '1 minute'),'unavailable')`,
+    [decisionId, p.execution, p.obs, p.txObs, configId, sha(p.obs), status, ruleStatus, mlStatus, code, JSON.stringify(evidence), minutesAgo]);
+    out.decisions[name] = { id: decisionId, ...p };
+    return decisionId;
+  };
+  /** detect 작업(시도 없음, queued). v04는 구성 없이 만들고 manifest에 TRANSACTION을 고정하지 않는다(016, detector/jobs.py). */
+  const detectJob = async (name, minutesAgo, contract = 'v03') => {
+    const p = await process(minutesAgo, name);
+    const manifest = id(), job = id(), hash = sha(`manifest:${p.obs}`), v04 = contract === 'v04', config = v04 ? null : configId;
+    const inputTx = v04 ? null : p.txObs;
+    await client.query(`INSERT INTO run_input_manifests(id,source_id,execution_id,process_observation_id,transaction_observation_id,
+        message_observation_refs,readiness,input_as_of,contract_version,content_hash,created_at)
+      VALUES($1,$2,$3,$4,$5,'[]','{}',clock_timestamp()-($6::double precision*interval '1 minute'),'v03',$7,clock_timestamp())`,
+    [manifest, sourceId, p.execution, p.obs, inputTx, minutesAgo, hash]);
+    await client.query(`INSERT INTO run_jobs(id,kind,status,request_hash,input_config_version_id,input_spec,max_attempts,attempt_count,
+        next_run_at,created_at,contract_version,queue,producer_kind,producer_key,idempotency_key,input_manifest_id)
+      VALUES($1,'detect','queued',$2,$3,$4::jsonb,3,0,clock_timestamp(),clock_timestamp()-($5::double precision*interval '1 minute'),
+        $8,'detection','system',$9,$6,$7)`,
+    [job, v04 ? hash : sha(job), config,
+      JSON.stringify(v04 ? { schemaVersion: 1, eventId: job, jobId: job, sourceId, observationId: p.obs, inputManifestHash: hash, inputManifestId: manifest }
+        : { sourceId, observationId: p.obs }),
+      minutesAgo, v04 ? job : `detect:${job}`, manifest, contract, v04 ? sourceId : 'analysis-fixture']);
+    out.jobs[name] = { id: job, manifest, hash, config, inputTx, ...p };
+    return out.jobs[name];
+  };
+  const attempt = async (job, n) => {
+    const attemptId = id(), token = id();
+    await client.query(`INSERT INTO run_job_attempts(id,job_id,attempt_no,status,worker_id,lease_token,lease_until,started_at)
+      VALUES($1,$2,$3,'running','fixture-detector',$4,clock_timestamp()+interval '60 seconds',clock_timestamp())`, [attemptId, job.id, n, token]);
+    await client.query(`UPDATE run_jobs SET status='running',current_attempt_id=$2,attempt_count=$3 WHERE id=$1`, [job.id, attemptId, n]);
+    return { id: attemptId, token };
+  };
+  const interim = (job, att, kind, payload) => client.query(`INSERT INTO run_decision_interims(id,job_id,attempt_id,seq,kind,lease_token,evidence_version,payload)
+    VALUES($1,$2,$3,NULL,$4,$5,'detector-evidence-v4',$6::jsonb)`, [id(), job.id, att.id, kind, att.token, JSON.stringify(payload)]);
+  const jobDecision = async (job, att, status, evidence, code = null, { ruleStatus = 'succeeded', mlStatus = 'succeeded', score = 0.61 } = {}) => {
+    const decisionId = id();
+    await client.query(`INSERT INTO run_process_decisions(id,execution_id,process_observation_id,transaction_observation_id,config_version_id,
+        input_manifest_id,input_manifest_hash,input_as_of,job_id,result_attempt_id,result_lease_token,status,rule_status,ml_status,
+        decision_code,anomaly_score,evidence,decided_at,latency_status)
+      VALUES($1,$2,$3,$4,$5,$6,$7,(SELECT input_as_of FROM run_input_manifests WHERE id=$6),$8,$9,$10,$11,$14,$15,$12,$16,
+        $13::jsonb,clock_timestamp(),'unavailable')`,
+    [decisionId, job.execution, job.obs, job.inputTx, job.config, job.manifest, job.hash, job.id, att.id, att.token, status, code,
+      JSON.stringify(evidence), ruleStatus, mlStatus, score]);
+    await client.query(`UPDATE run_job_attempts SET status='succeeded',finished_at=clock_timestamp() WHERE id=$1`, [att.id]);
+    await client.query(`UPDATE run_jobs SET status='succeeded',finished_at=clock_timestamp() WHERE id=$1`, [job.id]);
+    return decisionId;
+  };
+  const failJob = async (job, att) => {
+    if (att) await client.query(`UPDATE run_job_attempts SET status='failed',finished_at=clock_timestamp(),error_code='detection_processing_failed' WHERE id=$1`, [att.id]);
+    await client.query(`UPDATE run_jobs SET status='failed',finished_at=clock_timestamp(),error_code='detection_processing_failed' WHERE id=$1`, [job.id]);
+  };
+  return { legacyDecision, detectJob, attempt, interim, jobDecision, failJob };
+};
+
 /**
  * @param {import('pg').Pool} pool
  * @param {{key?: string, legacy?: number}} options legacy = 추가로 만들 이전 형식(작업 없는) 정상 판정 수
@@ -97,79 +180,7 @@ export async function seedAnalysisFixture(pool, options = {}) {
     await client.query(`INSERT INTO ml_config_models(config_version_id,model_key,feature_set_id,adapter_spec,training_settings,threshold_spec)
       VALUES($1,'iforest',$2,'{"name":"sklearn-iforest","formatVersion":"1"}','{}','{}')`, [configId, featureSetId]);
 
-    let serial = 0;
-    /** PROCESS 관측 1건(+ 짝 TRANSACTION). 검색 대상: 거래 ID·프로세스 ID·인터페이스 ID. */
-    const process = async (minutesAgo, label) => {
-      serial += 1;
-      const tx = `TX-${label}-${serial}`, processId = `P${String(serial % 7).padStart(2, '0')}`, iface = `IF-ORD-${(serial % 3) + 1}`;
-      const execution = id(), obs = id(), txObs = id();
-      await client.query(`INSERT INTO data_executions(id,source_id,layer,execution_key,key_parts,key_contract_version,first_observed_at)
-        VALUES($1,$2,'P',$3,'{}','v1',clock_timestamp())`, [execution, sourceId, `exec-${execution}`]);
-      for (const [observation, layer, exec] of [[txObs, 'T', null], [obs, 'P', execution]]) {
-        await client.query(`INSERT INTO data_observations(id,source_id,layer,execution_id,revision_no,dedup_key,content_hash,
-            api_received_at,persisted_at,clock_status,parsed_times,allowed_values,quality_flags,missing_fields)
-          VALUES($1,$2,$3,$4,$5,$6,$7,clock_timestamp()-($8::double precision*interval '1 minute'),
-            clock_timestamp()-($8::double precision*interval '1 minute'),'unknown','{}','{}','[]','[]')`,
-        [observation, sourceId, layer, exec, exec ? 1 : null, `${layer}:${observation}`, sha(observation), minutesAgo + 0.5]);
-      }
-      await client.query(`INSERT INTO data_transactions(observation_id,transaction_id,interface_id,status) VALUES($1,$2,$3,'S')`, [txObs, tx, iface]);
-      await client.query(`INSERT INTO data_processes(observation_id,transaction_observation_id,transaction_id,process_id,channel_id,status,response_code)
-        VALUES($1,$2,$3,$4,'CH-01',$5,$6)`, [obs, txObs, tx, processId, label === 'anomaly' ? 'F' : 'S', label === 'anomaly' ? 'E500' : '0000']);
-      return { obs, execution, txObs, tx, processId, iface };
-    };
-    /** 이전 형식 판정(작업 없음). */
-    const legacyDecision = async (name, minutesAgo, status, evidence, ruleStatus = 'succeeded', mlStatus = 'succeeded', code = null) => {
-      const p = await process(minutesAgo, name);
-      const decisionId = id();
-      await client.query(`INSERT INTO run_process_decisions(id,execution_id,process_observation_id,transaction_observation_id,config_version_id,
-          input_manifest_hash,status,rule_status,ml_status,decision_code,anomaly_score,evidence,decided_at,latency_status)
-        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,0.42,$11::jsonb,clock_timestamp()-($12::double precision*interval '1 minute'),'unavailable')`,
-      [decisionId, p.execution, p.obs, p.txObs, configId, sha(p.obs), status, ruleStatus, mlStatus, code, JSON.stringify(evidence), minutesAgo]);
-      out.decisions[name] = { id: decisionId, ...p };
-      return decisionId;
-    };
-    /** v03 detect 작업(시도 없음, queued). */
-    const detectJob = async (name, minutesAgo) => {
-      const p = await process(minutesAgo, name);
-      const manifest = id(), job = id(), hash = sha(`manifest:${p.obs}`);
-      await client.query(`INSERT INTO run_input_manifests(id,source_id,execution_id,process_observation_id,transaction_observation_id,
-          message_observation_refs,readiness,input_as_of,contract_version,content_hash,created_at)
-        VALUES($1,$2,$3,$4,$5,'[]','{}',clock_timestamp()-($6::double precision*interval '1 minute'),'v03',$7,clock_timestamp())`,
-      [manifest, sourceId, p.execution, p.obs, p.txObs, minutesAgo, hash]);
-      await client.query(`INSERT INTO run_jobs(id,kind,status,request_hash,input_config_version_id,input_spec,max_attempts,attempt_count,
-          next_run_at,created_at,contract_version,queue,producer_kind,producer_key,idempotency_key,input_manifest_id)
-        VALUES($1,'detect','queued',$2,$3,$4::jsonb,3,0,clock_timestamp(),clock_timestamp()-($5::double precision*interval '1 minute'),
-          'v03','detection','system','analysis-fixture',$6,$7)`,
-      [job, sha(job), configId, JSON.stringify({ sourceId, observationId: p.obs }), minutesAgo, `detect:${job}`, manifest]);
-      out.jobs[name] = { id: job, manifest, hash, ...p };
-      return out.jobs[name];
-    };
-    const attempt = async (job, n) => {
-      const attemptId = id(), token = id();
-      await client.query(`INSERT INTO run_job_attempts(id,job_id,attempt_no,status,worker_id,lease_token,lease_until,started_at)
-        VALUES($1,$2,$3,'running','fixture-detector',$4,clock_timestamp()+interval '60 seconds',clock_timestamp())`, [attemptId, job.id, n, token]);
-      await client.query(`UPDATE run_jobs SET status='running',current_attempt_id=$2,attempt_count=$3 WHERE id=$1`, [job.id, attemptId, n]);
-      return { id: attemptId, token };
-    };
-    const interim = (job, att, kind, payload) => client.query(`INSERT INTO run_decision_interims(id,job_id,attempt_id,seq,kind,lease_token,evidence_version,payload)
-      VALUES($1,$2,$3,NULL,$4,$5,'detector-evidence-v4',$6::jsonb)`, [id(), job.id, att.id, kind, att.token, JSON.stringify(payload)]);
-    const jobDecision = async (job, att, status, evidence, code = null) => {
-      const decisionId = id();
-      await client.query(`INSERT INTO run_process_decisions(id,execution_id,process_observation_id,transaction_observation_id,config_version_id,
-          input_manifest_id,input_manifest_hash,input_as_of,job_id,result_attempt_id,result_lease_token,status,rule_status,ml_status,
-          decision_code,anomaly_score,evidence,decided_at,latency_status)
-        VALUES($1,$2,$3,$4,$5,$6,$7,(SELECT input_as_of FROM run_input_manifests WHERE id=$6),$8,$9,$10,$11,'succeeded','succeeded',$12,0.61,
-          $13::jsonb,clock_timestamp(),'unavailable')`,
-      [decisionId, job.execution, job.obs, job.txObs, configId, job.manifest, job.hash, job.id, att.id, att.token, status, code,
-        JSON.stringify(evidence)]);
-      await client.query(`UPDATE run_job_attempts SET status='succeeded',finished_at=clock_timestamp() WHERE id=$1`, [att.id]);
-      await client.query(`UPDATE run_jobs SET status='succeeded',finished_at=clock_timestamp() WHERE id=$1`, [job.id]);
-      return decisionId;
-    };
-    const failJob = async (job, att) => {
-      if (att) await client.query(`UPDATE run_job_attempts SET status='failed',finished_at=clock_timestamp(),error_code='detection_processing_failed' WHERE id=$1`, [att.id]);
-      await client.query(`UPDATE run_jobs SET status='failed',finished_at=clock_timestamp(),error_code='detection_processing_failed' WHERE id=$1`, [job.id]);
-    };
+    const { legacyDecision, detectJob, attempt, interim, jobDecision, failJob } = fixtureWriters(client, sourceId, configId, out);
 
     // 이전 형식(작업 없음) 판정: 분류 매핑의 경계값.
     await legacyDecision('anomaly', 30, 'complete', v3(true), 'succeeded', 'succeeded', 'PROCESS_STATUS_F');
@@ -265,6 +276,57 @@ export async function seedAnalysisFixture(pool, options = {}) {
     const { elapsedMs: _drop, ...finalV4 } = v4Payload('anomaly_sign', ['soft:elapsed_ms-3f9a2c1d'], 0);
     out.decisions.v4Final = { ...v4Job, id: await jobDecision(v4Job, f1, 'partial',
       { ...v3(true), ...finalV4, composite: { ...finalV4.composite, status: 'partial' } }, 'SOFT_ELAPSED_MS_3F9A2C1D'), jobId: v4Job.id };
+    await client.query('COMMIT');
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+  return out;
+}
+
+/**
+ * v04 작업·판정(구성 없음, 016)을 같은 원천에 덧붙인다. v03 fixture의 작업 항목과 같은 다섯 상태:
+ * 최종 판정, 이전 시도가 대체된 최종 판정, 열린 중간 기록, 대기, 중간 기록 뒤 실패(최종 없음).
+ * @param {import('pg').Pool} pool
+ * @param {{sourceId: string}} fixture seedAnalysisFixture 결과
+ */
+export async function seedAnalysisV04Fixture(pool, { sourceId }) {
+  const client = await pool.connect();
+  const out = { decisions: {}, jobs: {} };
+  const { detectJob, attempt, interim, jobDecision, failJob } = fixtureWriters(client, sourceId, null, out);
+  const modelVersionId = id();
+  const interimOf = (name) => v04Interim(name, modelVersionId);
+  /** 판정 행 열 값과 evidence는 Detector 출력 표본 그대로다. */
+  const finish = async (job, att, name) => {
+    const { rows: [{ asOf }] } = await client.query('SELECT input_as_of AS "asOf" FROM run_input_manifests WHERE id=$1', [job.manifest]);
+    const { columns, evidence } = v04Final(name, { sourceId, observationId: job.obs, inputAsOf: asOf.toISOString(), manifestHash: job.hash, modelVersionId });
+    return jobDecision(job, att, columns.status, evidence, columns.decision_code,
+      { ruleStatus: columns.rule_status, mlStatus: columns.ml_status, score: columns.anomaly_score });
+  };
+  try {
+    await client.query('BEGIN');
+    const finalJob = await detectJob('final', 6, 'v04');
+    out.decisions.final = { ...finalJob, id: await finish(finalJob, await attempt(finalJob, 1), 'signPartial'), jobId: finalJob.id };
+
+    const replacedJob = await detectJob('replaced', 5, 'v04');
+    const r1 = await attempt(replacedJob, 1);
+    await interim(replacedJob, r1, 'first_anomaly', interimOf('sign'));
+    await client.query(`UPDATE run_job_attempts SET status='expired' WHERE id=$1`, [r1.id]);
+    out.decisions.replaced = { ...replacedJob, id: await finish(replacedJob, await attempt(replacedJob, 2), 'normalComplete'), jobId: replacedJob.id };
+
+    const interimJob = await detectJob('interim', 4, 'v04');
+    const i1 = await attempt(interimJob, 1);
+    await interim(interimJob, i1, 'first_anomaly', interimOf('sign'));
+    await interim(interimJob, i1, 'evidence_added', interimOf('anomaly'));
+
+    await detectJob('pending', 2, 'v04');
+
+    const noFinalJob = await detectJob('noFinal', 3, 'v04');
+    const n1 = await attempt(noFinalJob, 1);
+    await interim(noFinalJob, n1, 'first_anomaly', interimOf('anomaly'));
+    await failJob(noFinalJob, n1);
     await client.query('COMMIT');
   } catch (error) {
     await client.query('ROLLBACK');

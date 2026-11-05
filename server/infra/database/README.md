@@ -135,7 +135,7 @@ SELECT r.rolname,
 - 잠금 획득과 현재 리비전 읽기는 **별도 문장**으로 실행(READ COMMITTED 기준). 한 문장으로 합치면 잠금을 기다리기 전의 스냅샷을 읽어 직전 저장을 놓침
 - 일관 읽기: 뷰 `ops_operational_state`, 항상 1행 — `rule_set_revision`·`rule_set_content_hash`·`active_model_set_revision`·`active_models`(snapshot의 `models` 배열)·`detection_policy_revision`·`detection_policy`. 한 문장이 한 스냅샷이므로 READ COMMITTED에서도 세 값이 서로 어긋나지 않음. 정책 행이 없으면 `detection_policy_revision = 0`·`detection_policy` NULL(읽는 쪽이 내장 기본 정책을 씀). 빈 결과는 r0 행 소실 = 저장소 이상이므로 Detector는 fail-closed. 룰 내용은 읽은 리비전으로 `ops_rule_set_revisions`를 다시 조회(append-only라 안전)
 - 뷰는 `security_invoker = true`: 호출자 권한으로 표를 읽어 뷰 권한이 표 권한을 넓히지 않음(PostgreSQL 15 이상 필요, compose·CI는 17). 표는 뷰 생성 시 OID로 고정돼 호출자 search_path·임시 테이블 영향 없음
-- 권한: `powercode_api` 3표 SELECT·INSERT, `powercode_detector` 3표 SELECT, 뷰는 둘 다 SELECT. Collector·Trainer·LLM·demo 권한 없음
+- 권한: `powercode_api` 3표 SELECT·INSERT, `powercode_detector`·`powercode_trainer` 3표 SELECT, 뷰는 셋 다 SELECT(Trainer는 #132에서 추가, 활성 집합·정책 리비전을 결과에 기록). Collector·LLM·demo 권한 없음
 - 시험(`erd-v03-revisions.mjs`, `erd-v03.mjs`가 호출): `erd110_fresh`(계약 열 이름, r0 행·hash 재계산, 트리거 3종 거부, CHECK·FK 경계, 실제 LOGIN 역할별 권한, 뷰 결과·커밋 전 비가시·동시 저장 중 일관성, 임시 테이블·search_path 영향 없음), `erd110_upgrade`(001~014 + 기존 행 → 015, 행과 001~014 함수·enum·열·제약·트리거·인덱스 불변), `erd110_rollback`(COMMIT 직전 오류 → 무변경 → 재적용). 모두 DBML parity
 
 ## 016 v04 판정 경로·룰 세트 hash 버전·시스템 행 r1 (#119)

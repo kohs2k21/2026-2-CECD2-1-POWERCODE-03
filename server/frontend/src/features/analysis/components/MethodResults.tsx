@@ -1,6 +1,6 @@
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { EvidenceV4, MethodCategory, MethodResult } from "../data/evidence";
-import { DASH, methodLabel, riskLevelLabels, runLabels } from "../labels";
+import { DASH, methodLabel, resultCodeLabel, riskLevelLabels, runLabels } from "../labels";
 
 /**
  * 종합 근거(대분류) + 세부 방법별 결과(와이어프레임 dCats·dMethods). evidence v4 저장값만 읽는다(재계산 없음, detection-decision.md D7).
@@ -17,6 +17,8 @@ const operators: Record<string, string> = { gte: "≥", gt: ">", lte: "≤", lt:
 const hardConditions: Record<string, string> = {
   "hard:process-status": "STATUS ≠ S",
   "hard:negative-duration": "START_TIME > END_TIME (종료 시각이 없으면 판단하지 않음)",
+  "hard:success-with-error": "STATUS = S, ERROR_COUNT > 0",
+  "hard:count-conservation": "TOTAL_COUNT ≠ SUCCESS_COUNT + ERROR_COUNT",
 };
 /** 미판정 사유 표시 이름(와이어프레임 REASON_LABEL). 그 밖의 원인 코드는 코드 그대로. */
 const causeLabels: Record<string, string> = { timeout: "기한 초과" };
@@ -34,7 +36,7 @@ const measured = (m: MethodResult, observedStatus: string | null) => {
     return `원점수 ${number(raw)}${m.scoreDetail?.ratio != null ? ` · 판정선 대비 ${m.scoreDetail.ratio.toFixed(2)}배` : ""}`;
   }
   if (m.methodId === "hard:process-status" && observedStatus) return `상태 ${observedStatus}`;
-  return m.anomalous === true && m.code ? m.code : DASH;
+  return m.anomalous === true && m.code ? resultCodeLabel(m.code) : DASH;
 };
 const criterion = (m: MethodResult) => {
   if (m.category === "soft" && m.condition?.threshold)

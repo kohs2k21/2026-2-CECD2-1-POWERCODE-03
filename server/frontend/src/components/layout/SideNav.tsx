@@ -23,6 +23,7 @@ export type SideNavGroup = { title?: string; items: SideNavItem[]; separated?: b
  * - 제목 수준: heading이 있으면 heading h2·그룹 h3, 없으면 그룹 h2(이상 분석)
  * - 좁은 화면: 메뉴 버튼으로 펼침, Escape·항목 선택 시 접고 버튼으로 포커스 복귀
  * - header: 그룹 위에 두는 보조 조작(예: 이상 분석 분류 보기 전환)
+ * - 넓은 화면: 페이지 스크롤에도 머리글 아래에 고정. 화면보다 길면 사이드바 안에서 스크롤. 고정은 aside에 건다(nav에 걸면 aside 높이가 같아 움직일 공간이 없다)
  */
 export const SideNav = ({
   label,
@@ -54,7 +55,7 @@ export const SideNav = ({
   return (
     <aside
       data-slot="side-nav"
-      className={cn("w-full shrink-0 md:w-(--section-sidebar-width)", className)}
+      className={cn("w-full shrink-0 md:sticky md:top-[calc(var(--top-nav-offset)+var(--page-block-padding))] md:w-(--section-sidebar-width) md:self-start", className)}
       onKeyDown={(event) => {
         if (event.key === "Escape" && expanded) {
           event.preventDefault();
@@ -76,7 +77,7 @@ export const SideNav = ({
       <nav
         id={navId}
         aria-label={label}
-        className={cn("grid gap-4 rounded-lg border bg-card p-3 md:sticky md:top-4", !expanded && "max-md:hidden")}
+        className={cn("grid gap-4 rounded-lg border bg-card p-3 md:max-h-[calc(100dvh-var(--top-nav-offset)-2*var(--page-block-padding))] md:overflow-y-auto", !expanded && "max-md:hidden")}
       >
         {heading && <h2 className="px-3 text-group text-muted-foreground">{heading}</h2>}
         {header}

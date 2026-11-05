@@ -1,5 +1,7 @@
 // 015 (#110): operational revision tables and ops_operational_state, called from erd-v03.mjs inside the same disposable cluster.
 // Databases: erd110_fresh (001-015 + role scripts), erd110_upgrade (001-014 + existing rows -> 015), erd110_rollback (015 fails before COMMIT).
+// Everything here judges the state right after 015: r0 is current and the columns are the 015 ones. 016 adds r1 and content_hash_version (erd-v03-detect-v04.mjs).
+// erd110_upgrade and erd110_rollback continue to the last migration for DBML parity; erd110_fresh saves revisions, so it stops at 015 and 016 would refuse it.
 // Checks: contract column names, r0 rows and hash recalculation, append-only triggers, CHECK/FK limits, grants by real LOGIN roles,
 // view results and single-statement consistency, search_path/temp-table independence, 001-014 catalog unchanged, rollback, DBML parity.
 import assert from 'node:assert/strict';
@@ -18,6 +20,13 @@ const JSONB = new Set(['snapshot','changes','summary','policy']);
 // Fixed value in 015. Recalculated below from the stored r0 snapshot with the rule-set.md serialization.
 const R0_HASH = '80d0377d69597900b7506c26761143077ae7306f464bc44d759bb62f7c83bc89';
 const R0_CANONICAL = '{"hardRules":[{"enabled":true,"id":"hard:negative-duration"},{"enabled":true,"id":"hard:process-status"}],"softRules":[]}';
+// r0 is an immutable historical row: fixed here as written in 015. The contract examples now describe the current built-in list (4 rules, #116), not r0.
+const R0_HARD_RULES = [
+  { id:'hard:process-status', methodVersion:'process-status-hr-v1', displayName:'상태가 S가 아님', conditionText:'STATUS ≠ S',
+    severity:{ byCode:{ PROCESS_STATUS_F:'critical', PROCESS_STATUS_P:'warning', PROCESS_STATUS_N:'warning' } }, enabled:true, editable:['enabled'] },
+  { id:'hard:negative-duration', methodVersion:'negative-duration-v1', displayName:'시작 시각이 종료 시각보다 늦음',
+    conditionText:'START_TIME > END_TIME (종료 시각이 없으면 판단하지 않음)', severity:'critical', enabled:true, editable:['enabled'] },
+];
 // rule-set.md 'implementation test value' for its example canonical object.
 const CONTRACT_HASH = '5b15237724b48fcc4f18335a374ad7d5d8d7bcbaa7b5f851120f4d17b23dd8aa';
 const EMPTY_SUMMARY = { hardEnabled:0, hardDisabled:0, softAdded:0, softUpdated:0, softRemoved:0, softEnabled:0, softDisabled:0 };
@@ -70,7 +79,6 @@ export async function revisions015({ Client, port, connection, check, failures, 
   };
   const demoRoleSql = await readFile(join(infra, 'scripts/demo-role.sql'), 'utf8');
   const ruleSetContract = await readFile(join(infra, '..', 'contracts/rule-set.md'), 'utf8');
-  const decisionContract = await readFile(join(infra, '..', 'contracts/detection-decision.md'), 'utf8');
 
   const admin = connection('postgres'); await admin.connect();
   try { for (const name of ['erd110_fresh','erd110_upgrade','erd110_rollback']) await admin.query(`CREATE DATABASE ${name}`); }
@@ -91,15 +99,14 @@ export async function revisions015({ Client, port, connection, check, failures, 
     return a;
   };
   try {
-    for (const sql of migrations) await c.query(sql);
-    check(`erd110_fresh: 001 through ${migrationNames.at(-1)} apply`);
+    for (const sql of migrations.slice(0, idx015 + 1)) await c.query(sql);
+    check(`erd110_fresh: 001 through ${migrationNames[idx015]} apply`);
     await c.query(rolesSql);
     await c.query(demoRoleSql);
     for (const role of ['api','detector','collector','trainer','llm']) {
       logins[role] = { user:`qa110_${role}`, password:randomUUID() };
       await c.query(`CREATE ROLE ${logins[role].user} LOGIN PASSWORD '${logins[role].password}' IN ROLE powercode_${role}`);
     }
-    await parity(c);
 
     // Contract column names, in contract order.
     for (const table of TABLES) {
@@ -113,11 +120,8 @@ export async function revisions015({ Client, port, connection, check, failures, 
       && r0[0].saved_at instanceof Date, `${RULE}: one r0 row by system`, JSON.stringify(r0));
     assert.deepEqual(r0[0].changes, []); assert.deepEqual(r0[0].summary, EMPTY_SUMMARY);
     check(`${RULE}: r0 changes empty and summary all zero`);
-    const example = JSON.parse(ruleSetContract.slice(ruleSetContract.indexOf('```json') + 7, ruleSetContract.indexOf('```', ruleSetContract.indexOf('```json') + 7)));
-    assert.deepEqual(r0[0].snapshot, { hardRules: example.hardRules, softRules: [] }, 'r0 snapshot = GET /api/rule-set hardRules example, no soft rules');
-    check('r0 snapshot equals the GET /api/rule-set hardRules example with empty softRules (all enabled)');
-    verdict(r0[0].snapshot.hardRules.every(h => h.enabled === true && decisionContract.includes(`| \`${h.id}\` | \`${h.methodVersion}\``)
-      && decisionContract.includes(`| ${h.displayName} | ${h.conditionText} |`)), 'r0 hard rule ids, versions and screen text match detection-decision.md 4.3');
+    assert.deepEqual(r0[0].snapshot, { hardRules:R0_HARD_RULES, softRules:[] }, 'r0 snapshot = the 015 hard rules, no soft rules');
+    check('r0 snapshot equals the 015 hard rules (ids, versions, screen text, severity, editable), all enabled, empty softRules');
     verdict(canonical(r0[0].snapshot) === R0_CANONICAL, 'r0 canonical object from the stored snapshot', canonical(r0[0].snapshot));
     verdict(sha256(canonical(r0[0].snapshot)) === R0_HASH && r0[0].content_hash === R0_HASH, `r0 content_hash recalculated from the snapshot = ${R0_HASH}`, r0[0].content_hash);
     const a0 = (await c.query(`SELECT * FROM ${ACTIVE}`)).rows;
@@ -281,7 +285,6 @@ export async function revisions015({ Client, port, connection, check, failures, 
     try { await c.query(`UPDATE public.${RULE} SET note='x'`); } catch (e) { trigger = e; }
     await c.query('ROLLBACK');
     verdict(trigger?.code === 'P0001' && /is immutable/.test(trigger.message), 'view and trigger unaffected by same-name temp tables and search_path=pg_temp', trigger?.message);
-    await parity(c);
   } finally { await c.end(); }
 
   // Upgrade: 001-014 + rows -> 015. Rows and every 001-014 catalog object stay; no function is added.
@@ -305,12 +308,13 @@ export async function revisions015({ Client, port, connection, check, failures, 
       const rowsOf = async () => (await u.query('SELECT row_to_json(x)::text AS r FROM ops_sources x WHERE id=$1 UNION ALL SELECT row_to_json(y)::text FROM ops_system_state y', [source.id])).rows;
       const rows = await rowsOf();
       const before = await catalog(u);
-      for (let i = idx015; i < migrations.length; i++) await u.query(migrations[i]);
-      check(`erd110_upgrade: 001-014 + rows, then ${migrationNames.slice(idx015).join(', ')} apply`);
+      await u.query(migrations[idx015]);
+      check(`erd110_upgrade: 001-014 + rows, then ${migrationNames[idx015]} applies`);
       assert.deepEqual(await rowsOf(), rows, 'rows written before 015 are kept unchanged');
       assert.deepEqual(await catalog(u), before, '001-014 functions, enums, columns, constraints, triggers and indexes unchanged');
       check('erd110_upgrade: rows kept; 001-014 functions, enums, columns, constraints, triggers, indexes unchanged; 015 adds no function');
       verdict((await state(u)).rule_set_content_hash === R0_HASH, 'erd110_upgrade: r0 rows and view present after upgrade');
+      for (let i = idx015 + 1; i < migrations.length; i++) await u.query(migrations[i]);
       await parity(u);
     } finally { await u.end(); }
   }
@@ -332,6 +336,7 @@ export async function revisions015({ Client, port, connection, check, failures, 
       verdict(left === 0, 'erd110_rollback: 015 failing before COMMIT leaves no table or view', `${left} left`);
       await r.query(migrations[idx015]);
       verdict((await state(r)).rule_set_revision === '0', 'erd110_rollback: 015 applies cleanly afterwards');
+      for (let i = idx015 + 1; i < migrations.length; i++) await r.query(migrations[i]);
       await parity(r);
     } finally { await r.end(); }
   }

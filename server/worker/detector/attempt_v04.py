@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import json
+from pathlib import Path
 import time
 from typing import Any, Callable, Mapping
 import uuid
@@ -13,7 +14,7 @@ from detector.decision import decide, decision_columns, requested_mode
 from detector.evidence_v4 import INTERIM_EVIDENCE_VERSION, build_evidence, build_interim_payload
 from detector.hard_rules import hard_rule_runners, unresolved_hard_result
 from detector.method_results import ml_method_result, unresolved_result
-from detector.method_runner import MethodTask, execute_methods
+from detector.method_runner import MethodExecution, MethodOutcome, MethodTask, execute_methods
 from detector.operational_state import ActiveModel, PinnedState, pin_operational_state
 from detector.soft_rules import evaluate_soft_rule, soft_rule_fields, unresolved_soft_result
 from feature_fit import requires_fit
@@ -60,57 +61,64 @@ def _features(context: Mapping[str, Any], reference: Mapping[str, Any], raw: Map
     return calculate_features(definitions, raw)
 
 
-def _run_model(model: _Model, raw: Mapping[str, Any], root: Any, measured: dict[str, Any]) -> dict[str, Any]:
-    """정상으로 바꾸지 않는다. 준비물이 없으면 not_configured, 산출물이 맞지 않으면 artifact_invalid다."""
+def _artifacts_present(row: tuple, root: Any) -> bool:
+    if root is None or row[1] is None or row[3] is None:
+        return False
+    return all((Path(root) / path).is_file() for path in (row[1], row[3]))
+
+
+def _run_model(model: _Model, raw: Mapping[str, Any], root: Any) -> MethodOutcome:
+    """정상으로 바꾸지 않는다. 산출물이 없으면 not_configured, 있는데 맞지 않으면 artifact_invalid다."""
     active, context = model.active, model.context
+
+    def unresolved(cause: str, **outcome: Any) -> MethodOutcome:
+        return MethodOutcome(_ml_unresolved(model, cause, **outcome))
+
     method = method_for_key(active.model_key)
     if method is None or not method.executable_process or active.model_key not in ML_RESULT_CODES:
-        return _ml_unresolved(model, "not_executable")
+        return unresolved("not_executable")
     if context is None:
-        return _ml_unresolved(model, "not_configured")
+        return unresolved("not_configured")
     row = context["models"][0]
-    if root is None or row[1] is None or row[3] is None:
-        return _ml_unresolved(model, "not_configured")
+    if not _artifacts_present(row, root):
+        return unresolved("not_configured")
     began = time.monotonic()
     try:
         reference = model_reference(context, root)
     except ValueError:
-        return _ml_unresolved(model, "failure", status="failed", failure_code="artifact_invalid")
+        return unresolved("failure", status="failed", failure_code="artifact_invalid")
     try:
         values, missing = _features(context, reference, raw)
     except model_adapters.ModelNotConfigured:
-        return _ml_unresolved(model, "not_configured")
+        return unresolved("not_configured")
     except (ArithmeticError, TypeError, ValueError):
-        return _ml_unresolved(model, "feature_unavailable")
+        return unresolved("feature_unavailable")
     names = row[5].get("featureNames")
     if missing or not names or set(names) != set(values):
-        return _ml_unresolved(model, "feature_unavailable")
+        return unresolved("feature_unavailable")
     scored = time.monotonic()
     try:
         score = method.adapter.score(reference, values)
     except model_adapters.ModelNotConfigured:
-        return _ml_unresolved(model, "not_configured")
+        return unresolved("not_configured")
     except ValueError:
-        return _ml_unresolved(model, "failure", status="failed", failure_code="invalid_score")
-    measured.update(preprocessMs=(scored - began) * 1000, inferenceMs=(time.monotonic() - scored) * 1000,
-                    features=(context, values, missing))
-    return ml_method_result(active.method_id, method.method_version, str(active.config_version_id), score, row[6],
-                            row[5].get("thresholdPolicy"), code=ML_RESULT_CODES[active.model_key])
+        return unresolved("failure", status="failed", failure_code="invalid_score")
+    return MethodOutcome(
+        ml_method_result(active.method_id, method.method_version, str(active.config_version_id), score, row[6],
+                         row[5].get("thresholdPolicy"), code=ML_RESULT_CODES[active.model_key]),
+        {"preprocessMs": (scored - began) * 1000, "inferenceMs": (time.monotonic() - scored) * 1000,
+         "features": (context, values, missing)})
 
 
-def _tasks(state: PinnedState, models: list[_Model], raw: Mapping[str, Any], root: Any,
-           measured: dict[str, Any]) -> list[MethodTask]:
+def _tasks(state: PinnedState, models: list[_Model], raw: Mapping[str, Any], root: Any) -> list[MethodTask]:
     """순서: 하드룰(내장 목록 순) → 소프트룰(룰 세트 순) → ML(활성 집합 순)."""
     fields = soft_rule_fields()
 
-    def timed(run: Callable[[], dict[str, Any]]) -> Callable[[], dict[str, Any]]:
-        def measure() -> dict[str, Any]:
+    def timed(run: Callable[[], dict[str, Any]]) -> Callable[[], MethodOutcome]:
+        def measure() -> MethodOutcome:
             began = time.monotonic()
-            try:
-                return run()
-            finally:
-                # 룰은 한 슬롯에서 차례로 돌므로 합계가 곧 룰 계산 시간이다.
-                measured["ruleMs"] = measured.get("ruleMs", 0) + (time.monotonic() - began) * 1000
+            result = run()
+            return MethodOutcome(result, {"ruleMs": (time.monotonic() - began) * 1000})
         return measure
 
     def hard_task(rule_id: str, run: Callable[[], dict[str, Any]]) -> MethodTask:
@@ -122,7 +130,7 @@ def _tasks(state: PinnedState, models: list[_Model], raw: Mapping[str, Any], roo
                           lambda cause, **outcome: unresolved_soft_result(rule, cause, **outcome))
 
     def ml_task(model: _Model) -> MethodTask:
-        return MethodTask(model.active.method_id, "ml", lambda: _run_model(model, raw, root, measured),
+        return MethodTask(model.active.method_id, "ml", lambda: _run_model(model, raw, root),
                           lambda cause, **outcome: _ml_unresolved(model, cause, **outcome))
 
     return [*(hard_task(rule_id, run) for rule_id, run in hard_rule_runners(state.hard_rules, raw)),
@@ -143,15 +151,17 @@ class InterimRecorder:
     def __call__(self, methods: list[dict[str, Any]]) -> None:
         composite = decide(self.state.policy, methods)["composite"]
         basis = set(composite["basisMethods"])
-        now = time.monotonic()
-        if composite["anomalous"] is not True or basis <= self.basis or now > self.deadline:
+        if composite["anomalous"] is not True or basis <= self.basis:
             return
         payload = build_interim_payload(self.state.policy, methods, self.state.revisions,
-                                        (now - self.started_at) * 1000)
+                                        (time.monotonic() - self.started_at) * 1000)
         kind = "evidence_added" if self.basis else "first_anomaly"
         with self.conn.transaction():
             if not lock_training_ownership(self.conn, self.message, self.job_id, self.attempt_id, self.attempt_token):
                 raise RuntimeError("detection_lease_lost")
+            # 잠금을 기다리는 동안에도 기한이 지날 수 있어 쓰기 직전에 본다.
+            if time.monotonic() > self.deadline:
+                return
             self.conn.execute("""INSERT INTO run_decision_interims
                 (id,job_id,attempt_id,kind,lease_token,evidence_version,payload) VALUES(%s,%s,%s,%s,%s,%s,%s::jsonb)""",
                 (uuid.uuid4(), self.job_id, self.attempt_id, kind, self.attempt_token, INTERIM_EVIDENCE_VERSION,
@@ -159,11 +169,15 @@ class InterimRecorder:
         self.basis = basis
 
 
-def _telemetry(methods: list[dict[str, Any]], measured: Mapping[str, Any], observation: Any, *, started: float,
-               queue_wait: float) -> dict[str, Any]:
+def _telemetry(execution: MethodExecution, observation: Any, *, started: float, queue_wait: float) -> dict[str, Any]:
+    methods = execution.methods
     elapsed_ms = (time.monotonic() - started) * 1000
     durations = {"totalMs": elapsed_ms}
-    durations.update({key: measured[key] for key in ("preprocessMs", "inferenceMs", "ruleMs") if key in measured})
+    for key in ("preprocessMs", "inferenceMs", "ruleMs"):
+        # 룰은 한 슬롯에서 차례로 돌므로 합계가 곧 룰 계산 시간이다.
+        values = [item[key] for item in execution.measured.values() if key in item]
+        if values:
+            durations[key] = sum(values)
     telemetry = cost_family(durations, batch_size=1, samples=[elapsed_ms], queue_wait=queue_wait)
     active_ml = any(method["category"] == "ml" for method in methods)
     telemetry["details"].update(scope="detector_process_revision", sourceClockStatus=observation.clock_status,
@@ -186,17 +200,13 @@ def run_attempt(conn: Any, message: Any, job: Mapping[str, Any], attempt_id: uui
         cur.execute("SELECT ingestion_method,dataset_key FROM ops_sources WHERE id=%s", (observation.source_id,))
         source_mode = cur.fetchone()
     conn.commit()
-    measured: dict[str, Any] = {}
     recorder = InterimRecorder(conn, state, message, job["id"], attempt_id, attempt_token, started_at=started)
-    methods = execute_methods(_tasks(state, models, observation.allowed_values, root, measured),
-                              state.policy.deadline_ms, started_at=started, on_progress=recorder)
+    execution = execute_methods(_tasks(state, models, observation.allowed_values, root),
+                                state.policy.deadline_ms, started_at=started, on_progress=recorder)
+    methods = execution.methods
     if heartbeat.lost:
         raise RuntimeError("detection_lease_lost")
-    # 기한을 넘겨 버린 모델의 측정값·변수값은 기록하지 않는다.
-    if not any(method["category"] == "ml" and method["status"] == "succeeded" for method in methods):
-        for key in ("preprocessMs", "inferenceMs", "features"):
-            measured.pop(key, None)
-    telemetry = _telemetry(methods, measured, observation, started=started, queue_wait=queue_wait)
+    telemetry = _telemetry(execution, observation, started=started, queue_wait=queue_wait)
     demo = None
     if source_mode and source_mode[0] == "demo-replay":
         demo = {"historicalReplay": True, "runKey": source_mode[1].removeprefix("demo-replay:"),
@@ -212,16 +222,14 @@ def run_attempt(conn: Any, message: Any, job: Mapping[str, Any], attempt_id: uui
         if not lock_training_ownership(conn, message, job["id"], attempt_id, attempt_token):
             raise RuntimeError("detection_lease_lost")
         with conn.cursor() as cur:
-            features = measured.get("features")
-            # 이 캐시 키에는 모델·fit 식별이 없어 fit이 필요한 값은 남기지 않는다.
-            if features and features[0]["featureSetId"] and \
-                    not any(requires_fit(item["expression"]) for item in features[0]["definitions"]):
-                context, values, missing = features
-                cur.execute("""INSERT INTO data_feature_materializations(observation_id,feature_set_id,
-                    input_manifest_hash,values_json,missing_names) VALUES(%s,%s,%s,%s::jsonb,%s::jsonb)
-                    ON CONFLICT DO NOTHING""", (observation.observation_id, context["featureSetId"],
-                    input_manifest_hash(str(observation.observation_id), source_hash, context["featureHash"]),
-                    json.dumps(values), json.dumps(missing)))
+            for context, values, missing in (item["features"] for item in execution.measured.values() if "features" in item):
+                # 이 캐시 키에는 모델·fit 식별이 없어 fit이 필요한 값은 남기지 않는다.
+                if context["featureSetId"] and not any(requires_fit(item["expression"]) for item in context["definitions"]):
+                    cur.execute("""INSERT INTO data_feature_materializations(observation_id,feature_set_id,
+                        input_manifest_hash,values_json,missing_names) VALUES(%s,%s,%s,%s::jsonb,%s::jsonb)
+                        ON CONFLICT DO NOTHING""", (observation.observation_id, context["featureSetId"],
+                        input_manifest_hash(str(observation.observation_id), source_hash, context["featureHash"]),
+                        json.dumps(values), json.dumps(missing)))
             cur.execute("""INSERT INTO run_process_decisions
                 (id,execution_id,process_observation_id,config_version_id,input_manifest_hash,input_as_of,
                 status,rule_status,ml_status,decision_code,anomaly_score,evidence,decided_at,latency_status,

@@ -1,27 +1,41 @@
 """방법 단위 실행과 기한 처리. 방법 콜백은 DB를 쓰지 않고, 호출자 스레드만 on_progress에서 DB를 쓴다."""
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from queue import Empty, SimpleQueue
 import time
-from typing import Any, Callable, Iterable
+from typing import Any, Callable, Iterable, Mapping
 
 from detector.method_results import with_elapsed
 from detector.policy import _POOLS, _SLOTS
 
 
 @dataclass(frozen=True)
+class MethodOutcome:
+    """방법 스레드가 돌려주는 값 전부. 측정값도 결과와 함께 넘겨 채택 여부를 같이 정한다."""
+    result: dict[str, Any]
+    measured: Mapping[str, Any] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class MethodExecution:
+    methods: list[dict[str, Any]]
+    # 기한 안에 채택된 방법의 측정값만 있다. 버린 결과의 값은 여기까지 오지 않는다.
+    measured: dict[str, Mapping[str, Any]]
+
+
+@dataclass(frozen=True)
 class MethodTask:
     method_id: str
     lane: str  # rule | ml
-    run: Callable[[], dict[str, Any]]
+    run: Callable[[], MethodOutcome]
     # (cause, status=..., failure_code=...)를 받아 결과를 내지 못한 방법의 결과를 만든다.
     unresolved: Callable[..., dict[str, Any]]
 
 
 def execute_methods(tasks: Iterable[MethodTask], deadline_ms: int, *, started_at: float,
-                    on_progress: Callable[[list[dict[str, Any]]], None] | None = None) -> list[dict[str, Any]]:
-    """방법마다 결과 1개를 tasks 순서로 돌려준다. 기한을 넘긴 결과는 버리고 timeout으로 남긴다.
+                    on_progress: Callable[[list[dict[str, Any]]], None] | None = None) -> MethodExecution:
+    """방법마다 결과 1개를 tasks 순서로 돌려준다. 기한을 넘긴 결과는 측정값과 함께 버리고 timeout으로 남긴다.
 
     룰은 수가 많고 계산이 짧아 한 슬롯에서 차례로 돌린다. 슬롯 수는 Detector 동시 작업 수에 맞춰져 있어서
     방법마다 슬롯을 잡으면 정상 입력도 capacity로 끝난다. 모델은 시간이 길어 모델마다 슬롯을 잡는다.
@@ -31,6 +45,7 @@ def execute_methods(tasks: Iterable[MethodTask], deadline_ms: int, *, started_at
     deadline = started_at + deadline_ms / 1000
     arrivals: SimpleQueue = SimpleQueue()
     results: dict[str, dict[str, Any]] = {}
+    adopted: dict[str, Mapping[str, Any]] = {}
 
     def measured(moment: float | None = None) -> float:
         return ((time.monotonic() if moment is None else moment) - started_at) * 1000
@@ -40,11 +55,11 @@ def execute_methods(tasks: Iterable[MethodTask], deadline_ms: int, *, started_at
 
     def run_one(task: MethodTask) -> None:
         try:
-            value = task.run()
+            outcome = task.run()
         except Exception:
             # 한 방법의 오류가 다른 방법의 결과를 지우지 않는다.
-            value = task.unresolved("failure", status="failed", failure_code="exception")
-        arrivals.put((task, value, time.monotonic()))
+            outcome = MethodOutcome(task.unresolved("failure", status="failed", failure_code="exception"))
+        arrivals.put((task, outcome, time.monotonic()))
 
     def run_lane(name: str, group: list[MethodTask]) -> None:
         try:
@@ -55,10 +70,11 @@ def execute_methods(tasks: Iterable[MethodTask], deadline_ms: int, *, started_at
         finally:
             _SLOTS[name].release()
 
-    def accept(item: tuple[MethodTask, dict[str, Any], float]) -> None:
-        task, value, completed = item
+    def accept(item: tuple[MethodTask, MethodOutcome, float]) -> None:
+        task, outcome, completed = item
         if completed <= deadline:
-            results[task.method_id] = with_elapsed(value, measured(completed))
+            results[task.method_id] = with_elapsed(outcome.result, measured(completed))
+            adopted[task.method_id] = outcome.measured
         else:
             settle(task, "timeout")
 
@@ -104,4 +120,4 @@ def execute_methods(tasks: Iterable[MethodTask], deadline_ms: int, *, started_at
             # 시작 전에 취소된 작업은 run_lane이 돌지 않으므로 여기서 슬롯을 돌려준다.
             if future.cancel():
                 _SLOTS[name].release()
-    return [results[task.method_id] for task in tasks]
+    return MethodExecution([results[task.method_id] for task in tasks], adopted)

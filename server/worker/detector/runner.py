@@ -33,23 +33,25 @@ def process_detection_message(conn: Any, message: ClaimedMessage, root: Path | N
         # Bridge old feature/detection backlog to the immutable job protocol.
         with conn.transaction():
             requested = payload.get("configVersionId")
-            if detect_contract(conn,observation.source_id,requested) == "v04":
-                # v04는 구성 없이 만든다. 이미 있는 작업은 manifest 기준으로 재사용한다.
-                enqueue_observation(conn, observation.observation_id, config_id=requested)
-            else:
-                pinned = requested or input_config(conn,observation.source_id)
-                if pinned is None:
-                    raise ValueError("active_config_unavailable")
-                context = load_context(conn, pinned, observation.source_id)
-                with conn.cursor() as cur:
-                    cur.execute("SELECT content_hash FROM data_observations WHERE id=%s", (observation.observation_id,))
-                    content_hash = cur.fetchone()[0]
+            v04 = detect_contract(conn,observation.source_id,requested) == "v04"
+            # v04는 구성 없이 판정한다. 메시지가 구성을 가리킬 때만 그 구성으로 입력을 대조한다.
+            pinned = requested if v04 else requested or input_config(conn,observation.source_id)
+            if pinned is None and not v04:
+                raise ValueError("active_config_unavailable")
+            with conn.cursor() as cur:
+                cur.execute("SELECT content_hash FROM data_observations WHERE id=%s", (observation.observation_id,))
+                content_hash = cur.fetchone()[0]
+                previous_hash = None
+                if pinned is not None:
+                    context = load_context(conn, pinned, observation.source_id)
                     previous_hash = legacy_feature_hash(context, observation.observation_id, content_hash)
-                    if payload.get("inputManifestHash") not in (None, previous_hash):
-                        raise ValueError("input_manifest_mismatch")
-                    cur.execute("SELECT 1 FROM run_process_decisions WHERE process_observation_id=%s AND config_version_id=%s", (observation.observation_id,pinned))
-                    if cur.fetchone() is None:
-                        enqueue_observation(conn, observation.observation_id, config_id=pinned)
+                if payload.get("inputManifestHash") not in (None, previous_hash):
+                    raise ValueError("input_manifest_mismatch")
+                # v04 판정은 구성에 묶이지 않으므로 그 관측의 판정이 하나라도 있으면 새로 만들지 않는다.
+                cur.execute("""SELECT 1 FROM run_process_decisions WHERE process_observation_id=%s
+                    AND (%s OR config_version_id=%s)""", (observation.observation_id,v04,pinned))
+                if cur.fetchone() is None:
+                    enqueue_observation(conn, observation.observation_id, config_id=pinned)
             if not acknowledge(conn, "detection", message):
                 raise RuntimeError("detection_lease_lost")
         return
@@ -137,9 +139,12 @@ def process_detection_message(conn: Any, message: ClaimedMessage, root: Path | N
                     VALUES(%s,%s,'detector',%s,%s)""",(uuid.uuid4(),observation.observation_id,config_id,(time.monotonic()-started)*1000))
             _finish(conn,message,job,attempt_id,attempt_token,{"status":result["status"],
                     'executionCost': telemetry, 'checkers': checkers},None,True)
-    except Exception:
+    except Exception as exc:
         conn.rollback()
-        _finish(conn,message,job,attempt_id,attempt_token,None,"detection_processing_failed",False)
+        # _finish가 큐 임대를 비우므로 run()의 fail은 효력이 없다. v04 fail-closed 원인은 여기서 남긴다.
+        failure = str(exc)[:100] if job["contractVersion"] == "v04" and isinstance(exc, ValueError) \
+            else "detection_processing_failed"
+        _finish(conn,message,job,attempt_id,attempt_token,None,failure,False)
         conn.commit()
         raise
     finally:

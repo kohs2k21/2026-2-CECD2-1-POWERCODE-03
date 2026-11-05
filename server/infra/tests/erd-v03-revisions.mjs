@@ -171,15 +171,15 @@ export async function revisions015({ Client, port, connection, check, failures, 
 
     // Privilege matrix on tables and view for every runtime role.
     const expected = {
-      powercode_api: { table:['SELECT','INSERT'], view:['SELECT'] }, powercode_detector: { table:['SELECT'], view:['SELECT'] },
-      powercode_collector: { table:[], view:[] }, powercode_trainer: { table:[], view:[] }, powercode_llm: { table:[], view:[] }, powercode_demo: { table:[], view:[] },
+      powercode_api: { table:['SELECT','INSERT'], view:['SELECT'] }, powercode_detector: { table:['SELECT'], view:['SELECT'] }, powercode_trainer: { table:['SELECT'], view:['SELECT'] },
+      powercode_collector: { table:[], view:[] }, powercode_llm: { table:[], view:[] }, powercode_demo: { table:[], view:[] },
     };
     const wrong = [];
     for (const [role, want] of Object.entries(expected)) for (const [rel, list] of [...TABLES.map(t => [t, want.table]), [VIEW, want.view]]) for (const privilege of ALL_PRIVILEGES) {
       const has = (await c.query('SELECT has_table_privilege($1,$2,$3) AS p', [role, `public.${rel}`, privilege])).rows[0].p;
       if (has !== list.includes(privilege)) wrong.push(`${role} ${rel} ${privilege}=${has}`);
     }
-    verdict(wrong.length === 0, 'grants: api SELECT,INSERT + view SELECT; detector SELECT + view SELECT; collector, trainer, llm, demo none (MAINTAIN none for all)', wrong.join('; '));
+    verdict(wrong.length === 0, 'grants: api SELECT,INSERT + view SELECT; detector, trainer SELECT + view SELECT; collector, llm, demo none (MAINTAIN none for all)', wrong.join('; '));
     const acl = (await c.query(`SELECT c.relname::text AS rel FROM pg_class c, aclexplode(c.relacl) x WHERE c.relname = ANY($1) AND x.grantee = 0`, [[...TABLES, VIEW]])).rows;
     verdict(acl.length === 0, 'no PUBLIC grant on the 3 tables or the view', JSON.stringify(acl));
 
@@ -230,11 +230,18 @@ export async function revisions015({ Client, port, connection, check, failures, 
         await rejected(`detector INSERT ${table} denied`, '42501', () => put(detector, table, table === POLICY ? policyRow(99) : table === RULE ? ruleRow(99) : activeRow(99)));
       }
       await rejected('api cannot lock the current row with FOR UPDATE (common advisory lock instead)', '42501', () => api.query(`SELECT revision FROM ${RULE} ORDER BY revision DESC LIMIT 1 FOR UPDATE`));
-      for (const role of ['collector','trainer','llm']) {
+      for (const role of ['collector','llm']) {
         const denied = await openLogin(role);
         try { for (const rel of [...TABLES, VIEW]) await rejected(`${role} SELECT ${rel} denied`, '42501', () => denied.query(`SELECT * FROM ${rel}`)); }
         finally { await denied.end(); }
       }
+      // Trainer records the revisions in its results: it reads the view and writes nothing.
+      const trainer = await openLogin('trainer');
+      try {
+        assert.deepEqual(await state(trainer), second);
+        check('view: Trainer login reads the current revisions');
+        for (const table of TABLES) await rejected(`trainer INSERT ${table} denied`, '42501', () => put(trainer, table, table === POLICY ? policyRow(99) : table === RULE ? ruleRow(99) : activeRow(99)));
+      } finally { await trainer.end(); }
 
       // security_invoker: a view grant alone does not open the tables.
       await c.query('BEGIN');

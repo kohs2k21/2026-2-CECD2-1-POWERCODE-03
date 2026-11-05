@@ -1,6 +1,6 @@
 // 룰 세트 API의 실제 읽기·쓰기 경로를 런타임 역할 powercode_api로 실행해 권한을 확인한다(015 포함).
 // 로컬·CI의 qa_rule_set* DB만 허용. 역할 스크립트는 다른 시험과 같이 superuser로 적용한다.
-// 확인: API 역할로 조회·미리보기·저장·이력·수식 추천 성공, 이력 UPDATE·DELETE 거부, Detector는 읽기만, 그 밖의 서비스 역할은 접근 거부. 실행 전 `npm run build`.
+// 확인: API 역할로 조회·미리보기·저장·이력·수식 추천 성공, 이력 UPDATE·DELETE 거부, Detector·Trainer는 읽기만, Trainer·LLM·Collector는 이력 UPDATE 거부(LLM·Collector는 읽기 권한도 없음). 실행 전 `npm run build`.
 // API 역할에는 UPDATE가 없어 SELECT … FOR UPDATE도 거부된다. 저장 직렬화는 advisory lock만 쓴다(일반 SELECT → 일반 INSERT).
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';

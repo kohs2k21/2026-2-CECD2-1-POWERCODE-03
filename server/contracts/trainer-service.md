@@ -28,6 +28,7 @@
 - `resultSummary.serviceContractVersion`: `trainer-service-v1`
 - `dataContract`: sourceId/snapshotId/snapshotHash/schemaVersion/selectionSpec/splitSpec/featureSetId/featureSetHash/ruleVersionIds
 - `modelManifest`: modelKey/modelArtifactId/modelHash/fitArtifactId/fitHash/featureSetId/featureNames/definitionsHash/thresholdSpec; Rule 전용은 null
+- 운영 상태 [#132 구현]: schemaVersion 3 구성의 train·evaluate 결과에만 `activeModelSetRevision`(정수)·`detectionPolicy {revision, policy, fixedAt: "attempt_start"}`을 추가. v1·v2 구성의 결과는 그대로이고 이때 리비전을 읽지 않음. 기록 위치·실패 코드는 [model-version.md](model-version.md) 판독 규칙 절
 - `evaluationEnvelope`: rule_ml/synthetic/execution_cost/operational 4개 항목, [JSON Schema](trainer-evaluation-envelope.schema.json)
 - 각 항목: status(measured/unavailable/not_applicable/failed), reason, metrics, metricVersion, optional details(출처·측정 조건)
 - measured의 metrics: 지표명→`{value,unit,numerator,denominator,coverage,reason}`; 미산출 값 null+reason, coverage 0~1 또는 null
@@ -64,7 +65,7 @@
 - Rule 전용 후보는 fit 필요 피처 미지원; ML/병렬 후보의 Rule은 같은 검증된 fit으로 계산 가능
 - 파일 이동 후 DB 확정 전 실패: 후보/성공 결과 미공개, attempt별 파일 경로 격리; 미등록 파일은 자동 재사용/활성화하지 않음
 - 기존 피처 계산·IF 파일 형식 호환 유지; 지원하지 않는 정의는 성공 대체 없음
-- 학습 후보 `ml_config_models.training_settings` [#111 구현]: 기존 키(`snapshotId`·`split`·`featureNames`·`definitionsHash`·`splitVersion`·`thresholdPolicy`·`trainingSelection`) 유지 + `methodId`·`methodVersion`·`parameters`(확정 파라미터 = 카탈로그 기본값 + 요청 값) 추가. configuration_spec schemaVersion 1·2 틀은 그대로, 마이그레이션 없음([model-version.md](model-version.md) 불변성·저장소 절). prepared 경로(`trainer/prepared_training.py`)는 아직 미반영 — 후속에서 맞춤
+- 학습 후보 `ml_config_models.training_settings` [#111 구현]: 기존 키(`snapshotId`·`split`·`featureNames`·`definitionsHash`·`splitVersion`·`thresholdPolicy`·`trainingSelection`) 유지 + `methodId`·`methodVersion`·`parameters`(확정 파라미터 = 카탈로그 기본값 + 요청 값) 추가. configuration_spec schemaVersion 1·2 틀은 그대로, 마이그레이션 없음([model-version.md](model-version.md) 불변성·저장소 절). prepared 경로(`trainer/prepared_training.py`)는 아직 미반영 — 후속에서 맞춤. schemaVersion 3 행은 `timeBasis`·`trainingPeriod`도 저장하고 `trainingSelection.trainingPeriod`를 구성·결과에 남김. fit 참조에는 fit 필요 피처가 있을 때만 남음(그 밖에는 fit 참조 자체가 없음) [#132]
 
 ## 책임·범위
 

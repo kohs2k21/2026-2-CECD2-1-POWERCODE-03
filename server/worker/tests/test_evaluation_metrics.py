@@ -25,7 +25,7 @@ class Connection:
     def __enter__(self): return self
     def __exit__(self, *args): pass
     def execute(self, sql, args=None): self.writes.append((sql, args))
-    def fetchone(self): return (0,)
+    def fetchone(self): return ({'schemaVersion': 1},) if 'configuration_spec' in self.writes[-1][0] else (0,)
     def commit(self): pass
 
 

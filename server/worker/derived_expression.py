@@ -13,6 +13,11 @@ BINARY = {"subtract", "divide", "eq", "lt", "lte", "gt", "gte", "and", "datetime
 FACTORS = {"s": Decimal(1), "ms": Decimal("0.001"), "us": Decimal("0.000001")}
 
 
+def source_absent(value):
+    """수집 경로에 따라 NULL이 빈 문자열·공백·CSV 표기 \\N으로 남으므로 같이 본다(detection-decision.md 5.2)."""
+    return value is None or isinstance(value, str) and value.strip() in ("", "\\N")
+
+
 def number(value):
     if value is None or isinstance(value, bool):
         return None

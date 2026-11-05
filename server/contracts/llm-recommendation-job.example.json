@@ -1,0 +1,203 @@
+{
+  "description": "recommend_thresholds 접수 예시. API 시험은 이 값대로 저장되는지, 워커 시험은 parse_job이 받는지 확인한다.",
+  "actorId": "1",
+  "idempotencyKey": "example-run-1",
+  "examples": [
+    {
+      "name": "period",
+      "currentRuleSet": {
+        "revision": 13,
+        "contentHash": "9c40a8f29c40a8f29c40a8f29c40a8f29c40a8f29c40a8f29c40a8f29c40a8f2",
+        "contentHashVersion": 2,
+        "softRules": [
+          {
+            "id": "soft:elapsed_ms-3f9a2c1d",
+            "name": "elapsed_ms rule",
+            "field": "elapsed_ms",
+            "operator": "gt",
+            "threshold": 5000,
+            "unit": "ms",
+            "severity": "warning",
+            "enabled": true,
+            "createdAtRevision": 1,
+            "updatedAtRevision": 13
+          },
+          {
+            "id": "soft:error_ratio-5d2e0b19",
+            "name": "error_ratio rule",
+            "field": "error_ratio",
+            "operator": "gt",
+            "threshold": 0.01,
+            "unit": "ratio",
+            "severity": "warning",
+            "enabled": true,
+            "createdAtRevision": 1,
+            "updatedAtRevision": 13
+          },
+          {
+            "id": "soft:retry_count-91ab77e0",
+            "name": "retry_count rule",
+            "field": "retry_count",
+            "operator": "gt",
+            "threshold": 3,
+            "unit": "count",
+            "severity": "warning",
+            "enabled": false,
+            "createdAtRevision": 1,
+            "updatedAtRevision": 13
+          }
+        ]
+      },
+      "request": {
+        "kind": "recommend_thresholds",
+        "sourceId": "11111111-1111-4111-8111-111111111111",
+        "ruleSetRevision": 13,
+        "scope": {
+          "softRuleIds": null
+        },
+        "mode": "data_p95_with_llm_rationale",
+        "data": {
+          "snapshotId": null,
+          "from": "2026-08-05T00:00:00.000Z",
+          "until": "2026-11-05T00:00:00.000Z",
+          "timeBasis": "persisted_at"
+        }
+      },
+      "input_spec": {
+        "kind": "recommend_thresholds",
+        "sourceId": "11111111-1111-4111-8111-111111111111",
+        "ruleSetRevision": 13,
+        "scope": {
+          "softRuleIds": null
+        },
+        "data": {
+          "snapshotId": null,
+          "from": "2026-08-05T00:00:00.000Z",
+          "until": "2026-11-05T00:00:00.000Z",
+          "timeBasis": "persisted_at"
+        },
+        "mode": "data_p95_with_llm_rationale",
+        "ruleSetContentHash": "9c40a8f29c40a8f29c40a8f29c40a8f29c40a8f29c40a8f29c40a8f29c40a8f2",
+        "ruleSetContentHashVersion": 2,
+        "targets": [
+          {
+            "id": "soft:elapsed_ms-3f9a2c1d",
+            "field": "elapsed_ms",
+            "threshold": 5000
+          },
+          {
+            "id": "soft:error_ratio-5d2e0b19",
+            "field": "error_ratio",
+            "threshold": 0.01
+          }
+        ]
+      },
+      "llm_spec": {
+        "evidence_version": "soft-rule-threshold-v1",
+        "input_evidence_hash": "9df4ec47c764dd8ab698ba71264bfcc3012a35ffe885c79d9d94c2e52194ee99",
+        "model_version": "rule_v2",
+        "prompt_version": "feature-rule-design-v0.2",
+        "output_schema_version": "threshold-recommendation-v1",
+        "reuse_key": "db87e0e20a37c58f6c8ae53360ad86e5378f1dbb936d4c06123fef66af1d361a"
+      }
+    },
+    {
+      "name": "snapshot",
+      "currentRuleSet": {
+        "revision": 13,
+        "contentHash": "9c40a8f29c40a8f29c40a8f29c40a8f29c40a8f29c40a8f29c40a8f29c40a8f2",
+        "contentHashVersion": 2,
+        "softRules": [
+          {
+            "id": "soft:elapsed_ms-3f9a2c1d",
+            "name": "elapsed_ms rule",
+            "field": "elapsed_ms",
+            "operator": "gt",
+            "threshold": 5000,
+            "unit": "ms",
+            "severity": "warning",
+            "enabled": true,
+            "createdAtRevision": 1,
+            "updatedAtRevision": 13
+          },
+          {
+            "id": "soft:error_ratio-5d2e0b19",
+            "name": "error_ratio rule",
+            "field": "error_ratio",
+            "operator": "gt",
+            "threshold": 0.01,
+            "unit": "ratio",
+            "severity": "warning",
+            "enabled": true,
+            "createdAtRevision": 1,
+            "updatedAtRevision": 13
+          },
+          {
+            "id": "soft:retry_count-91ab77e0",
+            "name": "retry_count rule",
+            "field": "retry_count",
+            "operator": "gt",
+            "threshold": 3,
+            "unit": "count",
+            "severity": "warning",
+            "enabled": false,
+            "createdAtRevision": 1,
+            "updatedAtRevision": 13
+          }
+        ]
+      },
+      "request": {
+        "kind": "recommend_thresholds",
+        "sourceId": "11111111-1111-4111-8111-111111111111",
+        "ruleSetRevision": 13,
+        "scope": {
+          "softRuleIds": null
+        },
+        "mode": "data_p95_with_llm_rationale",
+        "data": {
+          "snapshotId": "22222222-2222-4222-8222-222222222222",
+          "from": null,
+          "until": null,
+          "timeBasis": null
+        }
+      },
+      "input_spec": {
+        "kind": "recommend_thresholds",
+        "sourceId": "11111111-1111-4111-8111-111111111111",
+        "ruleSetRevision": 13,
+        "scope": {
+          "softRuleIds": null
+        },
+        "data": {
+          "snapshotId": "22222222-2222-4222-8222-222222222222",
+          "from": null,
+          "until": null,
+          "timeBasis": null
+        },
+        "mode": "data_p95_with_llm_rationale",
+        "ruleSetContentHash": "9c40a8f29c40a8f29c40a8f29c40a8f29c40a8f29c40a8f29c40a8f29c40a8f2",
+        "ruleSetContentHashVersion": 2,
+        "targets": [
+          {
+            "id": "soft:elapsed_ms-3f9a2c1d",
+            "field": "elapsed_ms",
+            "threshold": 5000
+          },
+          {
+            "id": "soft:error_ratio-5d2e0b19",
+            "field": "error_ratio",
+            "threshold": 0.01
+          }
+        ]
+      },
+      "llm_spec": {
+        "evidence_version": "soft-rule-threshold-v1",
+        "input_evidence_hash": "c081d945a2a4dc0f9e7f294c93dfa48d315bc9e95e8f10f2a4939e34e24dbf85",
+        "model_version": "rule_v2",
+        "prompt_version": "feature-rule-design-v0.2",
+        "output_schema_version": "threshold-recommendation-v1",
+        "reuse_key": "7b489cdc608f2c8ab25dc82b5193dd1382a75f872a617d50d922000f26b02d2a"
+      }
+    }
+  ]
+}

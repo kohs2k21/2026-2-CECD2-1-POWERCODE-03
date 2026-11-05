@@ -727,14 +727,12 @@ const calls = (method, path) => requested.filter((call) => call.method === metho
   await app.cleanup();
 }
 
-// 7d) AI 규칙 추천: 계약 경로 요청, softRuleIds로만 연결, 제안만 선택, 적용은 입력칸만, 결과 검증, 작업 실패와 조회 실패 구분, 버전 변경, 서버 거절(시험 환경은 운영 경로).
+// 7d) AI 규칙 추천: 계약 경로 요청, softRuleIds로만 연결, 제안만 선택, 적용은 입력칸만, 결과 검증, 작업 실패와 조회 실패 구분, 버전 변경, 서버 거절.
 {
   const { readFile } = await import("node:fs/promises");
   const doc = await readFile(new URL("../../contracts/llm-recommendation-job.md", import.meta.url), "utf8");
   const contractResult = JSON.parse(doc.slice(doc.indexOf("## 결과 JSON")).split("```json")[1].split("```")[0]);
-  const { devRecommendationFor, devRecommendationResult } = await import("../src/features/detection/rules/ruleAiDevSample.ts");
   const { parseRecommendation } = await import("../src/features/detection/rules/ruleAiApi.ts");
-  assert.deepEqual(devRecommendationResult, contractResult, "development sample is the contract example");
 
   const retryRule = { ...softRule, id: "soft:retry_count-91ab77e0", name: "재시도 3회 이상", field: "retry_count", operator: "gte", threshold: 3, unit: "count", severity: "info" };
   const offRule = { ...softRule, id: "soft:error_ratio-0000aaaa", name: "꺼진 비율 규칙", field: "error_ratio", threshold: 0.02, unit: "ratio", enabled: false };
@@ -744,11 +742,7 @@ const calls = (method, path) => requested.filter((call) => call.method === metho
   const sameFieldRule = { ...softRule, id: "soft:elapsed_ms-99999999", name: "같은 필드 다른 규칙", threshold: 9000 };
   const current = state(12, { softRules: [softRule, ratioRule, retryRule, totalRule, offRule, noResultRule, sameFieldRule], counts: { hardEnabled: 2, hardTotal: 2, softEnabled: 6, softTotal: 7 } });
   assert.ok(parseRecommendation(contractResult, current), "contract example passes validation");
-  assert.deepEqual(devRecommendationFor(current).items.find((item) => item.field === "elapsed_ms").softRuleIds, [softRule.id, sameFieldRule.id], "only the development sample aligns ids by field");
-  assert.deepEqual(devRecommendationFor(current).items.find((item) => item.field === "error_ratio").softRuleIds, [ratioRule.id], "off rules stay out of the sample");
-  const onlyElapsed = state(12, { softRules: [softRule] });
-  assert.deepEqual(devRecommendationFor(onlyElapsed).items.map((item) => item.field), ["elapsed_ms"], "sample items without a rule are dropped");
-  assert.ok(parseRecommendation(devRecommendationFor(onlyElapsed), onlyElapsed), "aligned sample passes the same validation");
+  assert.equal(parseRecommendation(contractResult, state(12, { softRules: [softRule] })), null, "ids are not aligned by field: another rule's id fails validation");
 
   const jobs = new Map();
   let nextJob = 0;
@@ -921,13 +915,13 @@ const calls = (method, path) => requested.filter((call) => call.method === metho
   assert.equal(reads, 3);
   assert.equal(jobCalls().length, postsBeforePoll + 1, "retry of a read creates no new job");
 
-  // 운영 경로: 서버가 이 작업 종류를 거절하면 코드 그대로, 예시 없음.
+  // 서버 거절: 코드 그대로, 예시로 대체하지 않음.
   routes["POST /api/jobs"] = () => json({ code: "invalid_job_request" }, 400);
   await app.click("닫기");
   await wait(() => app.button("AI 규칙 추천").props.disabled === false, "closed");
   await app.click("AI 규칙 추천");
   await wait(() => box("failed") && text(box("failed").children).includes("추천 실패 · invalid_job_request"), "server rejection shown");
-  assert.equal(rows().length, 0, "no sample rows outside development mode");
+  assert.equal(rows().length, 0, "a rejected request shows no result rows");
   assert.ok(!app.shown().includes("The 95th percentile"));
   await app.cleanup();
   globalThis.fetch = realFetch;

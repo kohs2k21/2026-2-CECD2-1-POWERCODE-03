@@ -33,6 +33,7 @@ from trainer.selection import select_training
 from trainer.workspace import cleanup_orphan_workspaces, training_workspace
 from detector.status_rule import default_policy
 from telemetry import cost_family, queue_wait_ms
+from threshold_recommendation import all_rejected, parse_job
 
 SAFE_MODEL_FIELDS = frozenset({
     "success_count", "error_count", "total_count", "retry_count", "status",
@@ -69,7 +70,7 @@ def _claim_job(conn: Any, message: ClaimedMessage, worker_id: str) -> tuple[dict
                 AND lease_token=%s AND lease_until>clock_timestamp() FOR UPDATE""", (message.id,message.lease_token))
             if cur.fetchone() is None:
                 raise RuntimeError("job_queue_ownership_lost")
-            if row[1] in ("recommend_feature", "recommend_rule", "train", "evaluate", "import_csv") and row[8] != "admin":
+            if row[1] in ("recommend_feature", "recommend_rule", "recommend_thresholds", "train", "evaluate", "import_csv") and row[8] != "admin":
                 raise ValueError("job_role_not_authorized")
             if row[2] in ("succeeded", "failed"):
                 if not acknowledge(conn, message.queue, message):
@@ -264,14 +265,24 @@ def _execute(conn: Any, job: dict[str, Any], attempt_id: uuid.UUID,
         return explain(job)
     if kind == "evaluate":
         return _evaluate(conn, job, artifact_root, message, attempt_id, attempt_token)
+    # 임계값 추천은 스냅샷을 만들기 전에 모드·대상을 확정하고, 기간 키는 `data` 아래에 있다.
+    threshold_plan = parse_job(spec, job.get("llmSpec")) if kind == "recommend_thresholds" else None
+    period = spec["data"] if threshold_plan else spec
     source_id = uuid.UUID(spec["sourceId"])
     with conn.cursor() as cur:
         cur.execute("SELECT snapshot_id FROM run_job_snapshots WHERE job_id=%s", (job["id"],))
         fixed_snapshot = cur.fetchone()
-    if fixed_snapshot is None and spec.get("snapshotId"):
+    if fixed_snapshot is None and period.get("snapshotId"):
         with conn.cursor() as cur:
-            cur.execute("""SELECT id FROM data_snapshots WHERE id=%s AND source_id=%s AND status='ready'
-                AND (selection_spec->>'from')::timestamptz=%s::timestamptz AND (selection_spec->>'until')::timestamptz=%s::timestamptz""", (spec["snapshotId"],source_id,spec["from"],spec["until"]))
+            if threshold_plan:
+                # 계약은 snapshotId만 보내는 요청을 허용한다. 기간을 함께 보내면 일치해야 한다.
+                cur.execute("""SELECT id FROM data_snapshots WHERE id=%s AND source_id=%s AND status='ready' AND schema_version='process-v1'
+                    AND (%s::timestamptz IS NULL OR (selection_spec->>'from')::timestamptz=%s::timestamptz)
+                    AND (%s::timestamptz IS NULL OR (selection_spec->>'until')::timestamptz=%s::timestamptz)""",
+                    (period["snapshotId"],source_id,period.get("from"),period.get("from"),period.get("until"),period.get("until")))
+            else:
+                cur.execute("""SELECT id FROM data_snapshots WHERE id=%s AND source_id=%s AND status='ready'
+                    AND (selection_spec->>'from')::timestamptz=%s::timestamptz AND (selection_spec->>'until')::timestamptz=%s::timestamptz""", (spec["snapshotId"],source_id,spec["from"],spec["until"]))
             fixed_snapshot = cur.fetchone()
         if fixed_snapshot is None:
             raise ValueError("snapshot_conditions_mismatch")
@@ -290,8 +301,13 @@ def _execute(conn: Any, job: dict[str, Any], attempt_id: uuid.UUID,
             manifest = cur.fetchone()[0]
         snapshot = SnapshotResult(fixed_snapshot[0], manifest, counts)
     else:
-        snapshot = build_snapshot(conn, source_id=source_id, from_time=spec["from"],
-                                  until_time=spec["until"], actor_id=job["actor"])
+        try:
+            snapshot = build_snapshot(conn, source_id=source_id, from_time=period["from"],
+                                      until_time=period["until"], actor_id=job["actor"])
+        except ValueError as exc:
+            if threshold_plan and str(exc) == "snapshot_insufficient_process_rows":
+                raise ValueError("recommendation_input_empty") from exc
+            raise
         conn.commit()
         with conn.transaction():
             if not lock_training_ownership(conn,message,job["id"],attempt_id,attempt_token):
@@ -323,6 +339,21 @@ def _execute(conn: Any, job: dict[str, Any], attempt_id: uuid.UUID,
                 "materializedCount": materialized, **details,
                 "referenceSampleCount": len(safe_rows), "referenceTrainPopulationCount": snapshot.counts["train"],
                 "referenceSampling": "observation_id_order_train_prefix_max_10000"}
+    if threshold_plan:
+        rows = _snapshot_rows(conn, snapshot.id, "train")
+        with conn.cursor() as cur:
+            cur.execute("SELECT selection_spec->>'timeBasis' FROM data_snapshots WHERE id=%s", (snapshot.id,))
+            time_basis = cur.fetchone()[0]
+        conn.commit()
+        if not rows:
+            raise ValueError("recommendation_input_empty")
+        completed = model_adapters.recommend_thresholds(threshold_plan, rows, snapshot.id, time_basis)
+        conn.commit()
+        if all_rejected(completed):
+            _finish(conn, message, job, attempt_id, attempt_token, None, "recommendation_all_rejected", True,
+                    failure_summary=completed)
+            return {"_finalized": True}
+        return completed
     feature_set_id = uuid.UUID(spec["featureSetId"])
     if kind == "train" and spec.get("ruleVersionIds"):
         with conn.cursor() as cur:
@@ -627,7 +658,7 @@ def _evaluate(conn: Any, job: dict[str, Any], root: Path | None,
 def _finish(conn: Any, message: ClaimedMessage, job: dict[str, Any],
             attempt_id: uuid.UUID, attempt_token: uuid.UUID,
             result: dict[str, Any] | None, error_code: str | None,
-            terminal: bool) -> None:
+            terminal: bool, *, failure_summary: dict[str, Any] | None = None) -> None:
     with conn.transaction():
         if not lock_training_ownership(conn, message, job["id"], attempt_id, attempt_token):
             raise RuntimeError("training_ownership_lost")
@@ -635,7 +666,7 @@ def _finish(conn: Any, message: ClaimedMessage, job: dict[str, Any],
             from trainer.service_contract import enrich_result
             enrich_result(conn, job, result)
         with conn.cursor() as cur:
-            if result is not None and job.get("contractVersion") == "v03" and job["kind"] in {"recommend_feature", "recommend_rule", "explain"}:
+            if result is not None and job.get("contractVersion") == "v03" and job["kind"] in {"recommend_feature", "recommend_rule", "recommend_thresholds", "explain"}:
                 spec = job["llmSpec"]
                 cur.execute("""INSERT INTO run_llm_results
                     (id,job_id,kind,decision_id,config_version_id,evidence_version,input_evidence_hash,model_version,prompt_version,
@@ -657,10 +688,11 @@ def _finish(conn: Any, message: ClaimedMessage, job: dict[str, Any],
                     (json.dumps(result), result.get("configVersionId"), result.get("artifactId"), job["id"]),
                 )
             elif terminal or message.attempts >= 3:
+                # 전 항목 거절처럼 실패여도 사유 표를 보여 줘야 하는 작업만 요약을 남긴다.
                 cur.execute(
-                    """UPDATE run_jobs SET status = 'failed', error_code = %s,
+                    """UPDATE run_jobs SET status = 'failed', error_code = %s, result_summary = %s::jsonb,
                               finished_at = clock_timestamp() WHERE id = %s""",
-                    (error_code, job["id"]),
+                    (error_code, None if failure_summary is None else json.dumps(failure_summary), job["id"]),
                 )
             else:
                 cur.execute(

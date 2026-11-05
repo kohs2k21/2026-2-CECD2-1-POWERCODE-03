@@ -5,10 +5,16 @@ import hmac
 import json
 import os
 import threading
+import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 from research_bundle import sha, verify
+
+
+def stopped_by_time(generated: int, budget: int, finished: bool, elapsed: float, limit: float) -> bool:
+    """max_time으로 끊긴 출력은 예외 없이 잘린 문자열로 돌아오므로 시간 초과로 구분한다."""
+    return not finished and generated < budget and elapsed >= limit
 
 
 class DesignModel:
@@ -40,7 +46,7 @@ class DesignModel:
         self.model.eval()
         self.lock = threading.Lock()
 
-    def generate(self, kind: str, value: dict) -> dict:
+    def generate(self, kind: str, value: dict, report_timeout: bool = False) -> dict:
         if kind not in {"feature", "rule", "explain"} or not isinstance(value, dict):
             raise ValueError("invalid_generation_request")
         prompt = (
@@ -55,19 +61,25 @@ class DesignModel:
         if len(ids) > self.manifest["generation"]["maximum_input_tokens"]:
             raise ValueError("generation_token_budget_exceeded")
         budget = 512 if kind == "explain" else self.manifest["generation"][kind + "_output_tokens"]
+        limit = float(os.environ.get("LLM_EXPLANATION_SECONDS" if kind == "explain" else "LLM_RECOMMENDATION_SECONDS", "60" if kind == "explain" else "240"))
         with self.lock, self.torch.no_grad():
             self.torch.manual_seed(42)
             if kind != "explain":
                 self.model.set_adapter(kind)
             tensor = self.torch.tensor([ids], device="cuda:0")
             from contextlib import nullcontext
+            started = time.monotonic()
             with self.model.disable_adapter() if kind == "explain" else nullcontext():
                 output = self.model.generate(input_ids=tensor, attention_mask=self.torch.ones_like(tensor),
                                          max_new_tokens=budget, do_sample=False, use_cache=True,
                                          logits_to_keep=1, pad_token_id=self.tokenizer.eos_token_id,
-                                         max_time=float(os.environ.get("LLM_EXPLANATION_SECONDS" if kind == "explain" else "LLM_RECOMMENDATION_SECONDS", "60" if kind == "explain" else "240")))
+                                         max_time=limit)
+            elapsed = time.monotonic() - started
         tail = output[0, len(ids):]
-        truncated = len(tail) >= budget and not bool((tail == self.tokenizer.eos_token_id).any())
+        finished = bool((tail == self.tokenizer.eos_token_id).any())
+        if report_timeout and stopped_by_time(len(tail), budget, finished, elapsed, limit):
+            raise TimeoutError("generation_timeout")
+        truncated = len(tail) >= budget and not finished
         value = json.loads(self.tokenizer.decode(tail, skip_special_tokens=True))
         return {"output": value, "truncated": truncated,
                 "adapterSha": (self.manifest["base"]["revision"] if kind == "explain" else self.manifest["adapters"]["feature_v5" if kind == "feature" else "rule_v2"]["sha256"])}
@@ -104,7 +116,16 @@ def serve(model, token: str, host: str = "127.0.0.1", port: int = 8010):
                     self.respond(400, {"code": "invalid_request"})
                     return
                 request = json.loads(self.rfile.read(length))
-                self.respond(200, model.generate(request["kind"], request["input"]))
+                options = {"report_timeout": True} if isinstance(request, dict) and request.get("reportTimeout") is True else {}
+                try:
+                    result = model.generate(request["kind"], request["input"], **options)
+                except json.JSONDecodeError:
+                    # 상태 코드는 다른 계약 거부와 같고, 끊긴 출력을 구분할 코드만 본문에 담는다.
+                    self.respond(422, {"code": "invalid_generation_output"})
+                    return
+                self.respond(200, result)
+            except TimeoutError:
+                self.respond(504, {"code": "generation_timeout"})
             except (KeyError, ValueError, TypeError):
                 self.respond(422, {"code": "generation_contract_rejected"})
             except Exception:

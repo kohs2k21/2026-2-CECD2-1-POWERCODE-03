@@ -1,5 +1,5 @@
 Created: 2026-11-04T22:00:00+09:00
-Updated: 2026-11-05T10:40:07+09:00
+Updated: 2026-11-05T13:11:00+09:00
 Author: #109 Claude Code(WebUI builder)
 Status: current
 
@@ -69,7 +69,7 @@ Status: current
 
 ## AI 규칙 추천(일괄)
 
-- 사용자 11/04 지시로 화면을 넣었다. 화면 이름은 `AI 규칙 추천`이고 계약 문서의 임계값 추천(`recommend_thresholds`)과 같은 기능이다. 요청·결과 형식은 [llm-recommendation-job.md](llm-recommendation-job.md) 그대로이고 **서버는 아직 `recommend_thresholds`를 받지 않는다**(`POST /api/jobs` 400 `invalid_job_request`). 운영 빌드에서는 그 실패와 코드가 그대로 표시된다
+- 사용자 11/04 지시로 화면을 넣었다. 화면 이름은 `AI 규칙 추천`이고 계약 문서의 임계값 추천(`recommend_thresholds`)과 같은 기능이다. 요청·결과 형식은 [llm-recommendation-job.md](llm-recommendation-job.md) 그대로이고 API가 접수한다(#121, DB는 migration 017 #124). 실패는 코드 그대로 표시한다
 - 요청: `POST /api/jobs` `{kind: "recommend_thresholds", sourceId, ruleSetRevision, scope: {softRuleIds: null}, data, mode: "data_p95_with_llm_rationale"}`, 실행마다 새 `Idempotency-Key`. 결과는 `GET /api/jobs/:id`의 `resultSummary`(`threshold-recommendation-v1`), 진행 중만 5초 조회
 - 와이어프레임에 기간 입력이 없어 `data`는 `{snapshotId: null, from: 3개월 전, until: 지금, timeBasis: "persisted_at"}`로 고정한다(수식 추천의 시간 기준과 같음). 출처가 여럿이면 머리글에 `출처` 선택
 - 버튼: 저장된 켜진 규칙이 없으면 비활성. 대상이 저장된 버전이라 미저장 변경이 있어도 비활성이고 `저장 후 추천`을 표시한다(계약 `ruleSetRevision`). 출처 조회 실패는 `출처 조회 실패 · <코드>`, 출처가 없으면 `저장된 데이터 출처가 없습니다.`로 이유를 표시. 저장으로 버전이 바뀌면 결과를 닫되 실패 표시는 남긴다
@@ -87,7 +87,6 @@ Status: current
 - `적용`은 선택한 규칙의 조건·임계값 입력칸만 채운다. 위험도는 그대로, 서버 호출 없음, 저장해야 운영에 반영
 - 실패: 작업 전체 실패 표시와 `다시 시도`, 오류 코드 그대로, 부분 결과 없음. `generation_timeout`은 `시간 초과`로 구분. `rule_set_revision_conflict`는 현재 상태를 다시 읽고 실패 표시는 남긴다(`다시 시도`는 새 버전으로 요청). 결과 형식이 계약과 다르면 화면이 `recommendation_result_invalid`로 실패 처리, 작업이 코드 없이 실패하면 `recommendation_failed`
 - 조회 실패: 작업 상태 조회(`GET /api/jobs/:id`)가 실패하면 작업 실패가 아니라 `AI 규칙 추천 조회 실패 · <코드>`로 표시하고 5초 조회를 멈춘다. `다시 시도`는 같은 작업을 다시 읽고 새 작업을 만들지 않는다
-- **개발 모드 예시 범위**: `import.meta.env.DEV`이고 서버가 `invalid_job_request`로 거절할 때만 계약 예시 JSON으로 결과 표를 보여 준다. 코드는 `features/detection/rules/ruleAiDevSample.ts`(예시와, 같은 필드의 켜진 규칙 id로 맞추는 함수)와 `ruleAiApi.ts`의 `devSampleAfter` 두 곳뿐이고, 서버 구현 뒤 지운다. 필드로 규칙을 잇는 것은 이 예시뿐이고 운영 경로에는 없다. 운영 빌드 산출물에 예시가 없는지는 `pnpm build` 마지막 단계 `tests/rules-dist.mjs`가 확인한다. 예시를 표시하는 별도 문구는 없다
 
 ## 수식 추천(규칙 행)
 
@@ -97,7 +96,7 @@ Status: current
 - 표본: 학습 스냅샷과 같은 순서로 PROCESS 관측(실행 식별 있음)에 기간을 먼저 적용하고 그 안에서 실행별 최신 revision(`revision_no`, `persisted_at`, `id` 내림차순)을 고른 뒤, `status=S`, 최신 라벨이 anomaly가 아닌 행, 필드 값이 있는 행. 기간 밖의 새 revision은 영향이 없다
 - 제외 구간(`excludedIntervals`)은 선택된 `timeBasis`의 시각 열에 적용한다(`evidence.exclusionRule`의 건수와 실제가 맞게). trainer-service.md의 "항상 ESB 발생 시각"과 다른 점이며 원천 시각이 비어 있는 동안의 구현이다. 화면은 지금 제외 구간을 보내지 않는다
 - 값 계산: `elapsed_ms`는 `worker/derived_expression.py`와 같이 `data_processes.start_time_raw`·`end_time_raw`로 계산한다(collector가 `parsed_times`를 비워 둠). ISO 형식이 아니거나 해석 불가, 시간대 유무가 섞인 행은 값 없음으로 제외
-- `threshold`는 저장 가능한 값으로 만든다: 유효숫자 15자리로 반올림, 정수 필드는 반올림 정수. 원값은 `evidence.p95`
+- `threshold`는 저장 가능한 값으로 만든다: 숫자 필드는 유효숫자 15자리로 반올림, 정수 필드는 반올림 정수(15자리로 줄이지 않음). 원값은 `evidence.p95`. 계산 구현이 AI 규칙 추천과 달라 같은 원값도 `threshold` 끝자리뿐 아니라 `status`까지 다를 수 있다(양쪽이 값을 낸 경우 둘 다 저장은 통과, [llm-recommendation-job.md](llm-recommendation-job.md) 수식 추천 절)
 - `timeBasis`: API는 `esb_occurred_at`(계약 기본) / `persisted_at`을 받는다. **화면은 최근 1·3개월·직접 지정에 `persisted_at`을 보낸다**: `data_observations.source_log_occurred_at`을 채우는 worker·backend 코드가 없어 기본값으로는 표본이 항상 0건이고, 학습 스냅샷 기준도 `persisted_at`이다(`GET /api/jobs/capabilities` `snapshot.timeBasis`). mode (a)는 화면이 보내지 않고 v1·v2 투영값 `persisted_at`을 쓴다
 - 시간 기준의 한계: CSV 재생 데이터의 `persisted_at`은 재생 시각이라([trainer-service.md](trainer-service.md) 거래량 집계 절) 선택한 기간이 ESB 발생 시각 기준 기간과 다를 수 있다. Collector가 `source_log_occurred_at`을 채우면 화면이 `esb_occurred_at`으로 바꾼다(Collector 후속). 화면에 별도 안내 문구는 두지 않는다
 - 366일: `custom`은 400 `period_too_long`. mode (a)가 366일을 넘으면 Q-L5 추천안대로 면제하고 일별 최대 2,000건 표본(`quantileMethod: percentile_cont_daily_sampled`, `sampled: true`). Q-L6은 추천안대로 학습 제외 구간을 자동 적용하지 않음(요청 `excludedIntervals`만)

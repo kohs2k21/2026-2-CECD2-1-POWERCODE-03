@@ -461,7 +461,7 @@ Table run_jobs {
   indexes {
     (requested_by_actor_id, kind, idempotency_key) [unique]
   }
-  Note: 'contract_version NULL=legacy; v03=logical run_jobs ownership only. Explain user/admin; recommendation admin. New input immutable; llm_spec requires evidence/model/prompt/output-schema/reuse versions. Physical queues must not mirror v03 jobs. Lease state engine is runtime responsibility.'
+  Note: 'contract_version NULL=legacy; v03=logical run_jobs ownership only. Explain user/admin; recommendation admin. New input immutable; llm_spec requires evidence/model/prompt/output-schema/reuse versions. Physical queues must not mirror v03 jobs. Lease state engine is runtime responsibility. 016: v04 = detect only, input_config_version_id NULL required, unique (kind, input_manifest_id); explain config follows its decision and may be NULL.'
 }
 
 Table run_job_attempts {
@@ -573,7 +573,7 @@ Table run_process_decisions {
   execution_id uuid [not null]
   process_observation_id uuid [not null]
   transaction_observation_id uuid
-  config_version_id uuid [not null]
+  config_version_id uuid
   input_manifest_hash text [not null]
   input_as_of timestamptz
   status decision_status [not null]
@@ -595,7 +595,7 @@ Table run_process_decisions {
   indexes {
     (execution_id, process_observation_id, config_version_id, input_manifest_hash) [unique]
   }
-  Note: 'Existing job/manifest/attempt NULL rows remain legacy. v03 result checks current attempt/token/lease and fixed config/input/hash/as-of; content immutable after insert, published_at may update. Job success and result insert must share one transaction.'
+  Note: 'Existing job/manifest/attempt NULL rows remain legacy. v03 result checks current attempt/token/lease and fixed config/input/hash/as-of; content immutable after insert, published_at may update. Job success and result insert must share one transaction. 016: config_version_id NULL only for v04 job decisions (legacy CHECK, v03 trigger, no UPDATE to NULL); partial unique run_process_decisions_no_config_idx covers the NULL gap of the 4-column unique.'
 }
 
 Table ops_storage_measurements {
@@ -693,7 +693,7 @@ Table run_llm_results {
   created_attempt_id uuid [not null]
   lease_token uuid [not null]
   completed_at timestamptz [not null]
-  Note: 'Only finalized validated LLM outputs. Kind/job/decision/config/version/reuse lineage checked, current owner/token required. Immutable successful result; runtime output validation and authorization remain required.'
+  Note: 'Only finalized validated LLM outputs. Kind/job/decision/config/version/reuse lineage checked, current owner/token required. Immutable successful result; runtime output validation and authorization remain required. 016: explain config_version_id NULL only when its decision and job config are NULL.'
 }
 
 Table powercode_queue.detection_logs {
@@ -768,13 +768,13 @@ Table ops_pipeline_measurements {
   id uuid [pk]
   observation_id uuid [not null]
   stage text [not null]
-  config_version_id uuid [not null]
+  config_version_id uuid
   duration_ms numeric [not null]
   measured_at timestamptz [not null, default: `clock_timestamp()`]
   indexes {
     (stage, measured_at) [name: 'ops_pipeline_measurements_stage_time_idx']
   }
-  Note: '004_feature_pipeline. stage feature|detector 처리 시간 측정.'
+  Note: '004_feature_pipeline. stage feature|detector 처리 시간 측정. 016: 구성 없는 v04 판정을 위해 detector 단계만 config_version_id NULL 허용.'
 }
 
 Table data_label_evidence {
@@ -1229,7 +1229,8 @@ Table ops_rule_set_revisions {
   restored_from_revision bigint
   saved_by_actor_id text [not null]
   saved_at timestamptz [not null, default: `clock_timestamp()`]
-  Note: '015. 룰 세트 리비전(rule-set.md). revision ≥ 0, r0 = 마이그레이션 시드(하드룰 2개 켬·소프트룰 없음, saved_by_actor_id system). content_hash 소문자 hex 64, snapshot = hardRules[]·softRules[] 전체, restored_from_revision은 자기 참조·revision 미만. API SELECT·INSERT, Detector SELECT.'
+  content_hash_version smallint [not null, default: 2]
+  Note: '015·016. 룰 세트 리비전(rule-set.md). revision ≥ 0, r0 = 마이그레이션 시드(하드룰 2개 켬·소프트룰 없음, saved_by_actor_id system, content_hash_version 1), r1 = 016 시스템 행(하드룰 4개 켬, 버전 2), 이후 저장 기본값 2. content_hash 소문자 hex 64, snapshot = hardRules[]·softRules[] 전체, restored_from_revision은 자기 참조·revision 미만. API SELECT·INSERT, Detector SELECT.'
 }
 
 Table ops_active_model_set_revisions {

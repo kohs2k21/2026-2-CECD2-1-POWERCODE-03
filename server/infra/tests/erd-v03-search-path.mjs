@@ -103,11 +103,12 @@ export async function searchPath013({ connection, check, failures, migrations, m
         JSON.stringify(before.filter(r => TARGETS.includes(r.name)).map(r => `${r.name}=${setting(r)}`)));
       const seeded = await seed(c);
       const rows = await rowsOf(c);
-      for (let i = idx013; i < migrations.length; i++) await c.query(migrations[i]);
+      await c.query(migrations[idx013]);
+      compare(before, await procs(c), 'erd82_upgrade'); // right after 013: 016 redefines 3 bodies on purpose
+      for (let i = idx013 + 1; i < migrations.length; i++) await c.query(migrations[i]);
       check(`erd82_upgrade: 001-012 + existing rows, then ${migrationNames.slice(idx013).join(', ')} apply`);
       assert.deepEqual(await rowsOf(c), rows, 'rows written before 013 are kept unchanged');
       check(`erd82_upgrade: rows written before 013 kept unchanged (${keptTables.join(', ')})`);
-      compare(before, await procs(c), 'erd82_upgrade');
       await inventory(c, 'erd82_upgrade');
       await c.query('BEGIN');
       try {

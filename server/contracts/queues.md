@@ -16,7 +16,7 @@
 
 이전 training 테이블의 추천 backlog는 LLM이 종류별 필터로 복구한다. Trainer는 train/evaluate/import_csv(외부 가공 CSV 반입, [prepared-csv-import](prepared-csv-import.md))만 가져간다. 새 LLM 큐는 독립 물리 테이블이고 Redis/Kafka를 필수로 추가하지 않았다. 이전 worker를 멈춘 뒤 006 migration과 새 worker를 적용한다. 과거 처리 이력을 삭제하거나 v03 입력을 다시 쓰지 않는다.
 
-## 변경 제안 — Issue #94 (위 현행 표·문단은 수정하지 않음)
+## 변경 제안 — Issue #94 (#94 제안 범위에서는 위 현행 표·문단을 수정하지 않음)
 
 Created: 2026-11-02T18:00:00+09:00 / Updated: 2026-11-05T16:26:00+09:00(detection 행, Issue #112 Detector 세션 builder) / Author: Claude Code (Trainer 세션 builder) / Status: draft(이 절만)
 

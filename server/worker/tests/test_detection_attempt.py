@@ -221,6 +221,11 @@ class NeverStartingPool:
 
 
 class MethodExecution(unittest.TestCase):
+    def setUp(self):
+        # 앞 시험의 늦은 스레드가 슬롯을 놓을 때까지 기다린다.
+        wait_for_free_slots("ml")
+        wait_for_free_slots("rule")
+
     def test_results_keep_task_order_and_measure_elapsed(self):
         started = time.monotonic()
         methods = run_methods([task("hard:a-rule"), task("soft:b-rule"), task("ml:model", lane="ml")], 2000,

@@ -819,6 +819,21 @@ def legacy_paths(conn, sid):
     assert row[0] == "unavailable" and row[5]["anomalous"] is None, "v1의 H는 미판정이다"
     print("PASS (d) legacy·v1 정책 판정 값 불변: 상태 P·N·H, 새 규칙 미적용")
 
+    # v03 시도 실패의 기록 코드는 그대로다.
+    _, payload = v03("v03-failure-code", rule_only)
+
+    def broken_context(*_args):
+        raise ValueError("config_source_mismatch")
+
+    with patch("detector.computation.load_context", broken_context):
+        failure = attempt(conn, payload)
+    assert str(failure) == "config_source_mismatch", repr(failure)
+    assert job_state(conn, payload)[4] == "detection_processing_failed", job_state(conn, payload)
+    last_error = conn.execute("SELECT last_error FROM powercode_queue.detection_logs WHERE id=%s", (payload["jobId"],)).fetchone()[0]
+    conn.commit()
+    assert last_error == "detection_processing_failed", last_error
+    print("PASS (d) v03 시도 실패 코드는 detection_processing_failed 유지")
+
     # v04 설정에서도 입력 검증은 v03이고, 그 구성의 판정을 쓴다.
     conn.execute("INSERT INTO ops_input_controls(source_id,updated_by_actor_id) VALUES(%s,'integration') ON CONFLICT DO NOTHING", (sid,))
     conn.execute("UPDATE ops_input_controls SET config_version_id=%s WHERE source_id=%s", (parallel, sid))

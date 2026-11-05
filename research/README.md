@@ -2,6 +2,8 @@
 
 `research/` contains exploratory notebooks, scenarios, model experiments, and evaluation notes. It is not a runtime dependency of `server/`.
 
+- [피처·HR/SR 명세와 공통 피처 ML 통합](integration/feature_rule_ml/README.md): 기존 최종 LLM 패키지와 IF·K-means·LOF 연구 코드 연결. 명시적 학습과 동결 추론 분리, 계산 불가 보존. v12 시간창 가중치의 직접 피처 교체 및 서버 배포와 구분.
+- [baseline 전용 SR 연구 패키지와 백엔드 전달 계약](models/baseline_rule_recommendation/BACKEND_HANDOFF.md): 고정 Rule LoRA에 전달할 TRAIN 참조/관측 요약, 출력 검증·초안 변환 및 보류 정책. 이번 전달 범위는 `research/`이며 서버 연결·배포는 백엔드 담당.
 - [LLM 기반 피처 및 HR/SR 명세 생성 모델 패키지 (#89)](models/feature_rule_spec/README.md): Feature silver51 및 고정 Rule LoRA, 공식 CLI, 계산 검증과 공개 재현 예시. 고객 원본과 Base 가중치는 제외하며 실제 이상탐지 실행은 별도 범위다.
 - [이상 탐지 연구 (#38)](anomaly_detection/README.md): 전체 연구 코드·노트북·최종 v12 IF/K-means·원본 참조 아카이브·학습/검증 캐시 포함, 기간별 원본 및 벤치마크 CSV·정답은 제외 (박준서)
 - [이상 탐지 연구 (#38)](anomaly_detection/README.md): 분석 노트북·규칙/IF·K-means·시간창 선택·평가 결과 및 학습 모델 포함, 데이터셋 제외 (고민성)

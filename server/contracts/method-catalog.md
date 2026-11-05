@@ -1,5 +1,5 @@
 Created: 2026-10-21T00:00:00+09:00
-Updated: 2026-11-04T23:00:00+09:00
+Updated: 2026-11-05T16:30:00+09:00
 Author: Claude Code (Trainer 세션 builder)
 Status: draft
 
@@ -85,7 +85,7 @@ Status: draft
 
 - `GET /api/jobs/capabilities`에 `methodCatalog` [유지 10/21]: `{catalogVersion, generatedFrom: {gitRef}, hardRules, softRuleFields, softRule, methods}`. 별도 엔드포인트 없음. 하드룰 실제 목록(id·조건·위험도)은 `GET /api/rule-set`([rule-set.md](rule-set.md))이 Detector 정의값을 투영
 - 기존 `models[{key, displayName, supported}]` 유지: `key` = `ml:*`의 `<model_key>`, `supported := executable.process`
-- **충돌**: backend 시험 `trainer-contract.test.mjs:10-11`이 `models.map(key) == ['iforest']` 고정 → 항목 추가 시 갱신(API)
+- API 구현(#128): `backend/src/ruleset/methodCatalog.ts`가 `method-catalog.json`을 읽어 `methodCatalog`로 노출하고 `models`를 `methods[]`에서 파생한다. 배포 이미지는 `backend/Dockerfile`이 같은 파일을 `/contracts`에 넣는다
 
 ## 예시 카탈로그 JSON(스키마 검증 대상)
 

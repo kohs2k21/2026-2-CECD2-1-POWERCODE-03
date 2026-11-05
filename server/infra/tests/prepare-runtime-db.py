@@ -16,7 +16,7 @@ files=('001_postgres_queues.sql','002_core_erd.sql','003_erd_v03_enums.sql','004
        '010_prepared_csv_import.sql','011_config_comparison_recommendation.sql','012_decision_interims.sql',
        '013_legacy_function_search_path.sql','014_analysis_workflow.sql','015_rule_set_revisions.sql','016_detect_v04_contract.sql')
 with psycopg.connect(url,autocommit=True) as admin:
-    for name in ('qa_research_pipeline','qa_pipeline','qa_trainer_service','qa_metrics_service','qa_synthetic_service','qa_prepared_csv_service','qa_operations_service','qa_rule_set_service','qa_analysis_service'):
+    for name in ('qa_research_pipeline','qa_pipeline','qa_trainer_service','qa_metrics_service','qa_synthetic_service','qa_prepared_csv_service','qa_operations_service','qa_rule_set_service','qa_rule_set_models','qa_analysis_service'):
         # Existing QA databases fail here; no DROP or existing-schema changes.
         admin.execute(sql.SQL('CREATE DATABASE {}').format(sql.Identifier(name)))
         database_url=urlunsplit(parsed._replace(path='/'+name))

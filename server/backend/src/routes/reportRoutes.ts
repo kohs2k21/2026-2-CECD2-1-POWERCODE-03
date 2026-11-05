@@ -6,11 +6,13 @@ import { parseReportFilter, parseCandidateFilter, reportParameters, ReportReques
   DETECTOR_COST_SQL, DETECTOR_COST_KEYS, COST_KEYS, COHORT_SUMMARY_SQL, BACKLOG_SQL, BACKLOG_AT_CUTOFF_SQL, costReport, dailyReport,
   measurement } from '../services/operationalReport.js';
 import {JOB_COST_SQL,JOB_COST_SUMMARY_SQL} from '../services/executionCostReport.js';
+import {VolumeRangeError,parseVolumeFilter,readVolume} from '../services/volumeReport.js';
 
 function route(handler: (req: Request, res: Response) => Promise<void>) {
   return (req: Request, res: Response, next: NextFunction) => {
     void handler(req, res).catch(error => {
       if (error instanceof ReportRequestError) res.status(400).json({code: error.code});
+      else if (error instanceof VolumeRangeError) res.status(400).json({code: error.message,bucket: error.bucket,maxDays: error.maxDays});
       else next(error);
     });
   };
@@ -96,6 +98,11 @@ export function createReportRouter(database: () => Pick<Pool, 'connect'> = getDa
             conditions:summary?.conditions ?? [],metrics:costReport(costs.rows.filter(row=>row.kind===kind),total,keys)};
         })});
     } catch(error) {await client.query('ROLLBACK');throw error;} finally {client.release();}
+  }));
+  router.get('/volume', route(async (req, res) => {
+    const volume = await readVolume(database, parseVolumeFilter(req.query));
+    if (!volume) {res.status(404).json({code:'source_not_found'});return;}
+    res.json(volume);
   }));
   router.get('/candidates', route(async (req, res) => {
     const filter = parseCandidateFilter(req.query);

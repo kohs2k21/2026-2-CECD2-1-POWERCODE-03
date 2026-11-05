@@ -28,16 +28,15 @@ const isResult = (category: Category) => (resultCategories as readonly string[])
 /**
  * 사이드바(와이어프레임 analysisSide): 보기(위험도별 / 판정 결과별)에 따라 `위험도` 또는 `판정` 분류 + 아래 별도 구역 `분류함`(보류·완료).
  * 건수 = 서버 전체 기준(검색·필터와 무관). 다른 조건은 유지하고 페이지만 1로.
- * 아이콘은 #100 이전 사이드바 분류 아이콘(`icons.ts`): 위험도·분류함 그룹만(총괄 11/04). 판정 결과별 그룹은 아이콘을 두지 않는다.
- * 위험도 그룹의 위험도 미정(이전 대응 없음)은 아이콘 없이 같은 자리를 비워 글자 위치를 맞춘다.
+ * 분류 아이콘은 모든 그룹에 둔다(`icons.ts`, 사용자 11/05).
  */
 export const sidebarGroups = (params: ListParams, counts: DecisionList["counts"] | undefined, view: AnalysisView): SideNavGroup[] => {
-  const item = (withIcon: boolean) => (category: Category) => {
+  const item = (category: Category) => {
     const Icon = categoryIcons[category];
     return {
       id: category,
       label: categoryLabels[category],
-      icon: !withIcon ? undefined : Icon ? <Icon aria-hidden="true" /> : <span aria-hidden="true" />,
+      icon: <Icon aria-hidden="true" />,
       count: counts?.[category] ?? undefined,
       to: paths.analysis + listSearch({ ...params, category, page: 1 }),
       // 와이어프레임 riskSide: 위험도 미정은 약하게(muted, 13px)
@@ -45,8 +44,8 @@ export const sidebarGroups = (params: ListParams, counts: DecisionList["counts"]
     };
   };
   return [
-    view === "risk" ? { title: "위험도", items: riskCategories.map(item(true)) } : { title: "판정", items: resultCategories.map(item(false)) },
-    { title: "분류함", items: workflowCategories.map(item(true)), separated: true },
+    view === "risk" ? { title: "위험도", items: riskCategories.map(item) } : { title: "판정", items: resultCategories.map(item) },
+    { title: "분류함", items: workflowCategories.map(item), separated: true },
   ];
 };
 

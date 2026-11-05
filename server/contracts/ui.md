@@ -1,5 +1,5 @@
 Created: 2026-10-08T12:53:45+09:00
-Updated: 2026-11-03T12:00:00+09:00
+Updated: 2026-11-05T18:00:00+09:00
 Author: frontend_lead · Claude Code(#100)
 Status: current
 
@@ -9,10 +9,10 @@ Status: current
 - 스타일(사용자 11/03): shadcn 부품(new-york, `frontend/components.json`) 기본. Tailwind 4는 부품 내부와 배치·간격 유틸리티로만 사용. 자체 CSS 클래스·인라인 style·색상 하드코딩 금지
 - 공통 부품 재사용; 화면별 중복 구현·동일 색상/크기 하드코딩 복제 금지. import는 `@/` 별칭
 - 기본 부품(`frontend/src/components/ui/`): button, badge, card, tabs, table, select, native-select, input, textarea, label, checkbox, radio-group, switch, dialog, Modal, popover, tooltip, separator, skeleton, scroll-area, alert, feedback
-- 화면 골격 부품(`frontend/src/components/layout/`): AppShell, PageHeader·ScreenTitle, SectionCard, SideNav(사이드바 한 벌), LinkTabs(URL 탭), DescriptionList, NavigationGuard. 주소 선택값 도구: `hooks/useUrlState.ts`(useUrlOption·useUrlStep)
+- 화면 골격 부품(`frontend/src/components/layout/`): AppShell, ScreenTitle(`PageHeader.tsx`), SectionCard, SideNav(사이드바 한 벌), LinkTabs(URL 탭), DescriptionList, NavigationGuard. 주소 선택값 도구: `hooks/useUrlState.ts`(useUrlOption·useUrlStep)
 - 공통 토큰: `frontend/src/lib/tokens.css` 한 벌 — 원천 값(`--ink`, `--canvas` 등 기존 별칭 이름) → shadcn 의미 변수(`--background`, `--primary`, `--muted-foreground` 등) → Tailwind `@theme`(예: `bg-primary`, `text-muted-foreground`, `bg-warning-soft`, `text-page-title`). 새 색·크기는 이 파일에만 추가
-- 화면 제목(사용자 11/03): 운영 현황·이상 분석·탐지 설정은 보이는 제목 줄을 두지 않음(상단 메뉴·사이드바의 현재 표시로 위치 확인). 화면 낭독기·문서 구조용 `ScreenTitle`(sr-only h1)만 두고, 제목 줄 옆 명령은 본문 첫 영역(오른쪽 정렬 줄·첫 카드 머리)으로. 탐지 설정 하위 화면의 상단 뒤로가기 아이콘은 유지. 설정·저장된 판정 화면은 `PageHeader` 유지
-- 탐지 설정 타이포그래피: 이상 분석 기준; 사이드바 실폭 264px·메뉴 최소 높이 48px·사이드바 제목(`heading`)·그룹 제목 13px/600/18px 흐린 글자(`text-group`, 제목 있으면 제목 h2·그룹 h3, 없으면 그룹 h2)·메뉴 글자 14px/21px 500, 현재 항목 600(`text-menu` + 현재 `font-semibold`, URL 탭 같음)·페이지 제목 28px/600/36px(`text-page-title`, PageHeader 사용 화면)·로그인 화면 제목 22px/600/30px(`text-auth-title`, 375px 폭에서도 한 줄), 섹션 제목 15/22(`text-section-title`), 공통 Pretendard 상속
+- 화면 제목(사용자 11/03, 설정은 11/05): 운영 현황·이상 분석·탐지 설정·설정은 보이는 제목 줄을 두지 않음(상단 메뉴·사이드바의 현재 표시로 위치 확인). 화면 낭독기·문서 구조용 `ScreenTitle`(sr-only h1)만 두고, 제목 줄 옆 명령은 본문 첫 영역(오른쪽 정렬 줄·첫 카드 머리)으로. 탐지 설정 하위 화면의 상단 뒤로가기 아이콘은 유지. 설정의 `저장 미지원`은 내용 영역 오른쪽 위
+- 탐지 설정 타이포그래피: 이상 분석 기준; 사이드바 실폭 264px·메뉴 최소 높이 48px·사이드바 제목(`heading`)·그룹 제목 13px/600/18px 흐린 글자(`text-group`, 제목 있으면 제목 h2·그룹 h3, 없으면 그룹 h2)·메뉴 글자 14px/21px 500, 현재 항목 600(`text-menu` + 현재 `font-semibold`, URL 탭 같음)·페이지 제목 28px/600/36px(`text-page-title`)·로그인 화면 제목 22px/600/30px(`text-auth-title`, 375px 폭에서도 한 줄), 섹션 제목 15/22(`text-section-title`), 공통 Pretendard 상속
 - 버튼: `variant="default|outline|ghost|secondary|destructive|link"`, `size="default|sm|lg|icon|icon-sm"`; 기본 `type="button"`, 제출은 `type="submit"` 명시
 - URL 탐색: `Button asChild` + React Router `Link`; URL 탭은 `LinkTabs`(로컬 Tabs ARIA 적용 금지). 화면 안 지역 탭만 `Tabs`
 - 선택 입력: 폼 입력은 `NativeSelect`(기본 키보드·모바일 동작), 목록 도구(정렬·페이지 크기)는 `Select`

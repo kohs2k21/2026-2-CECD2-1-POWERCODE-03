@@ -153,10 +153,10 @@ const listCalls = () => requested.filter((r) => r.path === "/api/analysis/decisi
   ]);
   assert.deepEqual(side.findAll((node) => node.type === "h2").map((h) => text(h.children)), ["판정", "분류함"]);
   assert.equal(side.findAllByType("a")[0].props["aria-current"], "page");
-  // 사이드바 아이콘(총괄 11/04): 판정 결과별 그룹은 아이콘·빈 자리 없음, 분류함(보류·완료)만
-  assert.deepEqual(side.findAllByType("a").map((a) => iconNames(a)), [[], [], [], [], [], [], ["folder-open"], ["circle-check"]]);
-  assert.equal(side.findAllByType("a").slice(0, 6).every((a) => a.findAll((node) => node.type === "span" && node.props["aria-hidden"] === "true").length === 0), true,
-    "result-view group has no blank icon slots");
+  // 사이드바 아이콘(사용자 11/05): 판정 결과별 그룹도 항목마다 서로 다른 아이콘
+  const resultIcons = side.findAllByType("a").map((a) => iconNames(a));
+  assert.deepEqual(resultIcons, [["inbox"], ["alert-octagon"], ["alert-circle"], ["clock"], ["question-mark"], ["circle-x"], ["folder-open"], ["circle-check"]]);
+  assert.equal(new Set(resultIcons.flat()).size, resultIcons.length, "each category has its own icon");
   assert.deepEqual(iconNames(headingOf(app, "전체 판정")), ["inbox"], "list heading category icon");
   const views = side.findByProps({ role: "group", "aria-label": "분류 보기" }).findAllByType("button");
   assert.deepEqual(views.map((b) => [text(b.children), b.props["aria-pressed"]]), [["위험도별", false], ["판정 결과별", true]]);
@@ -204,9 +204,9 @@ const listCalls = () => requested.filter((r) => r.path === "/api/analysis/decisi
   await wait(() => text(app.renderer.root.findByProps({ id: "analysis-categories" }).children).includes("위험도 미정2"), "risk view sidebar");
   const riskSide = app.renderer.root.findByProps({ id: "analysis-categories" });
   assert.deepEqual(riskSide.findAllByType("a").map((a) => text(a.children)), ["전체4", "위험1", "주의1", "참고0", "위험도 미정2", "보류1", "완료0"]);
-  // 위험도·분류함 그룹은 이전 화면 아이콘(위험도 미정은 대응 없음 → 빈 자리)
+  // 위험도·분류함 그룹 아이콘(위험도 미정 포함)
   assert.deepEqual(riskSide.findAllByType("a").map((a) => iconNames(a)),
-    [["inbox"], ["flame"], ["alert-triangle"], ["info-circle"], [], ["folder-open"], ["circle-check"]]);
+    [["inbox"], ["flame"], ["alert-triangle"], ["info-circle"], ["help-circle"], ["folder-open"], ["circle-check"]]);
   const unratedLabel = riskSide.findAllByType("a")[4].findAll((node) => node.type === "span" && text(node.children) === "위험도 미정")[0];
   assert.ok(unratedLabel.props.className.includes("text-body") && unratedLabel.props.className.includes("text-muted-foreground"), "위험도 미정 is muted");
   assert.equal(riskButton().props["aria-pressed"], true);
@@ -662,6 +662,18 @@ const explainCard = (app) => app.renderer.root.find((node) => node.type === "div
   assert.equal(location(app.router), "/analysis");
   await app.cleanup();
 }
+// 위험도 미정을 고르면 글자도 아이콘과 같은 톤이다(약한 표시는 선택 전에만)
+{
+  routes = { "GET /api/analysis/decisions": () => json(listBody([item("d-1")], 1)) };
+  const app = await mount("/analysis?category=risk_unrated");
+  await wait(() => app.shown().includes("TX-d-1"), "unrated rows");
+  const link = app.renderer.root.findByProps({ id: "analysis-categories" }).findAllByType("a").find((node) => node.props["aria-current"] === "page");
+  const label = link.findAll((node) => node.type === "span" && text(node.children) === "위험도 미정")[0];
+  assert.ok(label.props.className.includes("text-body"), "still the smaller size");
+  assert.ok(!label.props.className.includes("text-muted-foreground"), "selected label follows the icon");
+  await app.cleanup();
+}
+
 assert.equal(requested.some((r) => r.path.startsWith("/api/anomaly/events/")), false, "removed anomaly detail/feedback API is never called");
 assert.ok(requested.every((r) => r.path.startsWith("/api/")), "only same-origin API paths");
 console.log("analysis page QA passed: default risk view, result/risk/workflow sidebar and view switch, unread dot, risk cell, row links, search URL, SSE cursor with interim events "

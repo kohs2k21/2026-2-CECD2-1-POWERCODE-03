@@ -7,8 +7,8 @@ const member = (expression = field, requiresFit = false) => ({ name: 'count_valu
 const accepted = value => assert.equal(featureSetCapability([value]).supported, true);
 const rejected = value => assert.equal(featureSetCapability([value]).supported, false);
 
-test('catalog lists exactly the supported recipe and four evaluation families', () => {
-  assert.deepEqual(TRAINER_CAPABILITIES.models.map(x => x.key), ['iforest']);
+test('catalog supports exactly the executable recipe and four evaluation families', () => {
+  assert.deepEqual(TRAINER_CAPABILITIES.models.filter(x => x.supported).map(x => x.key), ['iforest']);
   assert.deepEqual(TRAINER_CAPABILITIES.evaluationFamilies, ['rule_ml', 'synthetic', 'execution_cost', 'operational']);
 });
 test('plain, arithmetic, fitted, and typed derived expressions are discoverable', () => {

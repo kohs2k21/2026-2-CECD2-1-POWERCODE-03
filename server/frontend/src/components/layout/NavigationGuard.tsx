@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useBlocker, useLocation } from "react-router-dom";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -34,6 +34,13 @@ export const NavigationGuard = ({
   onLogout: () => void;
 }) => {
   const { blocker, currentPath } = useDraftNavigationGuard();
+  // 버린 초안은 이동이 끝난 뒤 지운다. 먼저 지우면 편집 화면이 빈 초안으로 다시 그려져 주소를 고치며 이 이동을 덮을 수 있다.
+  const discardAfterLeave = useRef<string | null>(null);
+  useEffect(() => {
+    if (!discardAfterLeave.current || discardAfterLeave.current === currentPath) return;
+    useDraftStore.getState().discard(discardAfterLeave.current);
+    discardAfterLeave.current = null;
+  }, [currentPath]);
   const open = blocker.state === "blocked" || logoutRequested;
   const cancel = () => {
     if (blocker.state === "blocked") blocker.reset();
@@ -47,7 +54,7 @@ export const NavigationGuard = ({
     }
     if (blocker.state === "blocked") {
       // The blocked transition leaves the current editor; internal tab switches never reach this branch.
-      useDraftStore.getState().discard(currentPath);
+      discardAfterLeave.current = currentPath;
       blocker.proceed();
     }
   };

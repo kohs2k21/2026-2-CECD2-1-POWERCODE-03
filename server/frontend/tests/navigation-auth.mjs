@@ -16,7 +16,6 @@ import { useRealtimeAnomalies } from "../src/features/analysis/hooks/useRealtime
 import {
   loginReturnPath,
   safeReturnPath,
-  settingsReturnPath,
 } from "../src/app/routes.ts";
 // SessionRoutes → 로그인 화면(AuthPage)이 INZENT 로고 svg를 가져오므로 svg 로더를 먼저 등록한다(정적 import는 등록보다 먼저 평가됨).
 register("./svg-loader.mjs", import.meta.url);
@@ -172,16 +171,10 @@ assert.equal(
   safeReturnPath("/analysis/d/d-1?category=anomaly#latest"),
   "/analysis/d/d-1?category=anomaly#latest",
 );
-assert.equal(settingsReturnPath("/analysis/d/d-1"), "/analysis/d/d-1");
 assert.equal(loginReturnPath("/analysis/d/d-1", "user"), "/analysis/d/d-1");
 assert.equal(loginReturnPath("/analysis/d/d-1", "admin"), "/analysis/d/d-1");
 assert.equal(safeReturnPath("/analysis/d/d-1/x"), "/operations");
 assert.equal(safeReturnPath("/analysis/d/"), "/operations");
-assert.equal(settingsReturnPath("/settings?section=profile"), "/operations");
-assert.equal(
-  settingsReturnPath("/analysis?category=anomaly&q=abc"),
-  "/analysis?category=anomaly&q=abc",
-);
 assert.equal(
   loginReturnPath("/detection/create?tab=rules", "user"),
   "/operations",

@@ -1,5 +1,5 @@
 Created: 2026-11-02T18:00:00+09:00
-Updated: 2026-11-04T21:00:00+09:00
+Updated: 2026-11-05T16:30:00+09:00
 Author: Claude Code (Trainer 세션 builder)
 Status: draft
 
@@ -98,7 +98,8 @@ Status: draft
 
 - 현행: IF 후보 1개 + HR + Rule 0..32 → schemaVersion 1·2 구성(`trainer/runner.py:349-352`, `:402-407`). 요청 형식·권한·멱등키 유지, 기존 요청(`modelKey` 생략·`parameters` 없음)은 IF v1 기본값으로 계속 유효 [유지 #74 Q-H] — #111부터 워커가 카탈로그 기본값으로 확정해 `training_settings.parameters`·`methodId`·`methodVersion`에 기록
 - 확장(구현 단계): `modelKey` = 카탈로그 `ml:*`의 `<model_key>`(접두 없이), `executable.process=false`면 422 `method_not_executable`; 선택 `parameters`(카탈로그 schema 검증); **`excludedIntervals[]`·`timeBasis`**([trainer-service.md](trainer-service.md) 변경 제안 절); 성공 결과의 구성은 schemaVersion 3(`methods` = ML 1개, `createdFrom.kind="train"`) = **그 자체가 모델 버전**(학습 1회 = 버전 1개, 별도 조합 저장 없음 — 확정 11/02 Q-M1)
-- 검증 위치 [#111 구현, #116 반영]: `modelKey`·`parameters` 검증은 **워커**(`trainer/runner.py` → `methods.registry.resolve_training_method`)가 큐에 담긴 `input_spec`을 카탈로그 기준으로 수행 — 카탈로그에 없는 `modelKey` → `unsupported_model`, 등록됐지만 `executable.process=false` → `method_not_executable:<methodId>`, `parameters`가 `parameterSchema` 위반 → `method_parameters_invalid:<methodId>`(작업 `failed`의 `errorCode`; 형식은 `코드` 또는 `코드:식별자`). `modelKey`·`parameters` 키 부재(v1·v2 요청)는 IF 기본값. **`rule_only` 요청도 같은 검증을 먼저 거치므로 잘못된 `parameters`가 있으면 `method_parameters_invalid:<methodId>`로 거절**(`model_not_selected` 검사보다 앞). API의 접수 단계 검증(카탈로그 기준 422 선차단·`parameters` 허용·전달)은 API 구현 단계 몫 [제안] — [trainer-service.md](trainer-service.md) 요청·발견 API 절
+- 검증 위치 [#111 구현, #116 반영]: `modelKey`·`parameters` 검증은 **워커**(`trainer/runner.py` → `methods.registry.resolve_training_method`)가 큐에 담긴 `input_spec`을 카탈로그 기준으로 수행 — 카탈로그에 없는 `modelKey` → `unsupported_model`, 등록됐지만 `executable.process=false` → `method_not_executable:<methodId>`, `parameters`가 `parameterSchema` 위반 → `method_parameters_invalid:<methodId>`(작업 `failed`의 `errorCode`; 형식은 `코드` 또는 `코드:식별자`). `modelKey`·`parameters` 키 부재(v1·v2 요청)는 IF 기본값. **`rule_only` 요청도 같은 검증을 먼저 거치므로 잘못된 `parameters`가 있으면 `method_parameters_invalid:<methodId>`로 거절**(`model_not_selected` 검사보다 앞). API의 접수 단계 검증(카탈로그 기준 422·`parameters` 전달)은 #128 구현 — [trainer-service.md](trainer-service.md) 요청·발견 API 절
+- **임시 예외(#128, v3 산출 전)**: 아래 규칙은 v3 생성이 열린 뒤 적용한다. 그 전에는 `modelKey`·`parameters`와 v1 `detectionPolicy`를 함께 보내는 요청을 접수하고 schemaVersion 1 구성을 만든다(지금 서버가 받는 유일한 학습 형식, [models-ui.md](models-ui.md) 요청 본문)
 - **v3 train 요청에는 `ruleVersionIds`·`detectionPolicy`가 없음** [확정 11/02 Q-M1]: 정책은 운영 설정 전역 값이므로 v3 키(`modelKey`·`parameters`·`excludedIntervals`·`timeBasis`·`evaluationSetId` 중 하나라도)가 있는 요청에 `detectionPolicy` 키가 있으면 400 `invalid_detection_policy`. v1 형식 요청(`{mode, deadlineMs, combination}` 필수, v3 키 없음)은 v1·v2 구성 생성 경로로 계속 처리; v1 형식과 v2 객체 혼용도 400 [유지 #74 N16]
 - 성공 시 자동 비교 평가 접수(10/21 §4.8, [config-comparison-evaluation.md](config-comparison-evaluation.md) 자동 비교 절) — 비교 상대는 **같은 `modelKey`의 활성 버전**
 
@@ -143,7 +144,7 @@ Status: draft
 
 ## 조회
 
-- `GET /api/configurations?sourceId=&limit=<1..100>&cursor=&createdFrom=<train|compose>&modelKey=&executable=<true|false>` [유지 #74]: 최신순 커서 페이지. v1·v2 행은 `createdFrom=train`으로 투영
+- `GET /api/configurations?sourceId=&limit=<1..100>&cursor=&createdFrom=<train|compose>&modelKey=&executable=<true|false>&active=<true|false>` [유지 #74, `active`는 #128 추가]: 최신순 커서 페이지. v1·v2 행은 `createdFrom=train`으로 투영
 
 ```json
 {"items": [{"id": "<config UUID>", "sourceId": "…", "schemaVersion": 3, "displayName": "…", "contentHash": "…", "contentHashVersion": 2,
@@ -156,6 +157,7 @@ Status: draft
             "trainingSelection": {"policyVersion": "train-success-excluded-v2", "excludedByIntervalCount": 1040,
                                   "trainingPeriod": {"from": "2026-10-01T00:00:00+09:00", "until": "2026-11-01T00:00:00+09:00", "timeBasis": "esb_occurred_at"},
                                   "excludedIntervalCount": 2},
+            "modelSummary": {"featureCount": 10, "parameters": {"n_estimators": 128, "max_samples": 512, "random_state": 42}, "thresholdValue": "0.58"},
             "operationalEligibility": {"eligible": true, "reason": null},
             "applicationEligibility": {"eligible": true, "evaluationId": "<run_evaluations UUID>", "reason": null},
             "latestEvaluation": {"evaluationId": "…", "snapshotId": "…", "purpose": "validation", "metricVersion": "…",
@@ -166,6 +168,8 @@ Status: draft
 ```
 
 - `modelKey`(파생, `methods[0].methodId`의 `<model_key>`)·`active`(현재 활성 집합에 포함 여부)·`activeSince`(포함됐을 때 활성 집합 리비전·시각, 아니면 null) [확정 11/02 Q-M1]. `?modelKey=` 필터로 버전 계열(lineage)만 조회 — 화면 "IF 계열 버전 목록"
+- `active` 필터 [#128]: `true`면 `active: true`인 버전만, `false`면 그 밖의 버전만. 화면 탭 '현재 운영 버전'이 쓴다. 오류 400 `invalid_active`
+- `modelSummary` [#128, 추가 필드]: 목록 열 입력 변수·학습 파라미터·판정선 요약. `featureCount`(`training_settings.featureNames` 수), `parameters`(v3는 `methods[0].parameters`, v1·v2는 `training_settings.parameters`), `thresholdValue`(`threshold_spec.value`). 저장 기록이 없는 값은 null(#111 이전 v1·v2 행의 `parameters` 등), 모델 없는 구성은 `modelSummary` 자체가 null. 값을 계산·추정하지 않음
 - `trainingSelection.trainingPeriod`·`excludedIntervalCount`를 목록에도 노출(수식 추천 기간 선택·학습 흐름 화면용, WebUI 11/02 대조 결과). 제외 구간 목록 자체는 `GET /:id`의 `models[].trainingSettings.excludedIntervals`
 - `latestComparison.recommendation`은 **이 버전의 `modelKey`에 대한** 추천([config-comparison-evaluation.md](config-comparison-evaluation.md) `replacementRecommendations[]` 중 같은 `modelKey` 항목)
 - 버전 단위 `executable`: 활성 방법 전부 `executable.process=true`일 때만 true, 응답 시점 재계산. false는 저장 뒤 어댑터 소실·deprecated에서만 [유지 #74]
@@ -174,6 +178,7 @@ Status: draft
 - `latestComparison.auto`: 자동 비교 평가가 만든 작업이면 true [제안]
 - `GET /api/configurations/:id`: 기존 `{id, sourceId, configurationSpec, contentHash, createdAt}` 유지 + `schemaVersion`, `displayName`, `requestedMode`, `active`, `methods[]`(파라미터·artifacts 포함), `models[]`(`ml_config_models` 행: `modelKey, featureSetId, modelArtifactId, fitArtifactId, adapterSpec, trainingSettings(excludedIntervals 포함), thresholdSpec`). `rules[]`는 v1·v2 행에만(legacy)
 - `GET /api/pipeline/reports/candidates` 그대로 둠 [유지 #74]
+- 구현(#128): 목록·상세는 `backend/src/services/configurationReadModel.ts`. 구현에서 정한 값(오류 코드, 활성 판단의 v1·v2 호환, `latestComparison` null)은 [models-ui.md](models-ui.md)
 
 ## 활성 집합 — 활성화·운영에서 빼기·교체·복원 [확정 11/02 Q-M1, 9.4 결정 귀결]
 

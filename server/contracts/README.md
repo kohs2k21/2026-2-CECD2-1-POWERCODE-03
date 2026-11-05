@@ -10,6 +10,7 @@ Reserved for versioned request, response, event, and worker contracts shared by 
 - `operations-ui.md`는 운영 현황(`/operations`) 읽기 API(`/api/operations/*`)·위젯 배치와 이상 근거 상세·피드백 UI 경계를 정의한다.
 - `analysis-ui.md`는 이상 분석(`/analysis`, `/analysis/d/:decisionId`) 판정 목록·상세·중간 판정 기록·Process Flow 읽기 API와 처리 상태·읽음·조사·조치 기록 쓰기 API(`/api/analysis/*`, 014 표), 판정 결과별·위험도별·분류함 분류 매핑(저장 등급·위험도만), 실시간 반영(중간 판정 이벤트 포함)·설명 요청 화면 규칙을 정의한다(#105).
 - `rules-ui.md`는 룰 설정(`/detection/rules`) 화면 구성·저장·되돌리기·수식 추천 화면 규칙과 룰 세트 API 구현에서 정한 값, 화면 표시 용어(버전과 숫자)를 정의한다(#109).
+- `models-ui.md`는 머신러닝 모델(`/detection/models`) 버전 목록·상세·새 학습 화면 규칙, 지금 서버가 지원하지 않는 항목, 모델 버전 조회·거래량 집계 API 구현에서 정한 값을 정의한다.
 - `pipeline.md`는 저장, 기간 학습, 승인, 실시간 탐지의 현재 구현 경계를 정리한다.
 - `detection-decision.md`는 Detector 판정 구조(하드룰·소프트룰·ML 분류와 식별자, `detectionPolicy` v2 조합 규칙, 이상/이상 징후 등급, 위험도, 룰 세트 리비전 기록, evidence v4, 중간 판정 기록)를 정의한다 (#92 초안, Detector 소유 — 사용자 결정 U1~U12 11/03 반영).
 - `rule-set.md`는 룰 세트(하드룰 켜기/끄기 + 소프트룰 등록 필드·조건·임계값·위험도)의 현재 상태·저장 즉시 적용·리비전(정수 + 내용 hash)·스냅샷 이력·되돌리기(모든 이력 항목, 삭제된 규칙 재생성 허용)·동시 편집 409를 정의한다 (#94 초안, 룰은 버전 관리 없음; #116 정정 — 하드룰 내장 목록 4개 중 `hard:process-status`만 위험도 편집, 하드룰 `severity`를 포함하는 `contentHashVersion` 2, 스냅샷에 없는 내장 규칙은 꺼짐).

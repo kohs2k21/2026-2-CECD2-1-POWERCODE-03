@@ -11,6 +11,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+from queue import SimpleQueue
 import sys
 import tempfile
 import threading
@@ -207,6 +208,15 @@ def interims(conn, payload):
         FROM run_decision_interims WHERE job_id=%s ORDER BY created_at,seq""", (payload["jobId"],)).fetchall()
     conn.commit()
     return rows
+
+
+class SpyQueue(SimpleQueue):
+    """메인 스레드의 대기 시간을 기록한다. 기한보다 오래 기다리면 늦은 모델에 끌려간 것이다."""
+    waits: list = []
+
+    def get(self, block=True, timeout=None):
+        type(self).waits.append(timeout)
+        return super().get(block, timeout)
 
 
 def wait_until(predicate, message, seconds=10):
@@ -683,15 +693,19 @@ def interim_records(conn, sid, model_config):
 
     def telemetry_after_late_model(*args, **kwargs):
         # 메인 스레드는 이미 ML을 timeout으로 정했다. 그 뒤에 모델 스레드가 끝나도 그 값은 쓰이면 안 된다.
+        assert not finished.is_set(), "메인이 기한에 돌아오지 않고 모델을 기다렸다"
         released.set()
         assert finished.wait(30), "late model did not finish"
         time.sleep(.02)
         return real_telemetry(*args, **kwargs)
 
     _, payload = v04_job(conn, sid, "deadline", raw)
+    SpyQueue.waits = []
     with patch.object(model_adapters, "score_iforest", stuck_score), patch.object(attempt_v04, "_run_model", run_model), \
-            patch.object(attempt_v04, "_telemetry", telemetry_after_late_model):
+            patch.object(attempt_v04, "_telemetry", telemetry_after_late_model), \
+            patch("detector.method_runner.SimpleQueue", SpyQueue):
         row = judged(conn, payload)
+    assert max(SpyQueue.waits, default=0) <= 2 + 1e-6, SpyQueue.waits
     model = method(row[5], "ml:iforest")
     assert (model["status"], model["cause"], model["anomalous"]) == ("not_ready", "timeout", None), model
     assert model["elapsedMs"] >= 1999.9, model["elapsedMs"]

@@ -6,6 +6,7 @@ from concurrent.futures import Future
 import json
 import os
 from pathlib import Path
+from queue import SimpleQueue
 import sys
 import threading
 import time
@@ -213,6 +214,15 @@ def wait_for_free_slots(name):
         time.sleep(.005)
 
 
+class SpyQueue(SimpleQueue):
+    """메인 스레드가 기한보다 오래 기다리려 하지 않는지 대기 시간으로 본다. 실제 시간 가정이 없다."""
+    waits: list = []
+
+    def get(self, block=True, timeout=None):
+        type(self).waits.append(timeout)
+        return super().get(block, timeout)
+
+
 class VirtualClock:
     """기한 판단만 시험이 움직이는 시계로 돌린다. 스레드 시작이 늦어도 순서가 바뀌지 않는다."""
 
@@ -244,18 +254,23 @@ class MethodExecution(unittest.TestCase):
         self.assertTrue(all(method["status"] == "succeeded" and method["elapsedMs"] >= 0 for method in methods))
 
     def test_late_result_is_discarded_with_measured_elapsed(self):
-        release = threading.Event()
+        release, finished = threading.Event(), threading.Event()
 
         def slow():
             release.wait(30)
+            finished.set()
             return result("ml:model", True)
 
-        methods = run_methods([task("ml:model", slow, "ml")], 100, started_at=time.monotonic())
-        self.assertFalse(release.is_set(), "모델을 기다리지 않고 기한에 끝난다")
+        SpyQueue.waits = []
+        with patch("detector.method_runner.SimpleQueue", SpyQueue):
+            methods = run_methods([task("ml:model", slow, "ml")], 200, started_at=time.monotonic())
+        self.assertFalse(finished.is_set(), "모델을 기다리지 않고 기한에 끝난다")
         release.set()
         late = methods[0]
         self.assertEqual((late["status"], late["cause"], late["anomalous"]), ("not_ready", "timeout", None))
-        self.assertGreaterEqual(late["elapsedMs"], 99.9)
+        self.assertGreaterEqual(late["elapsedMs"], 199.9)
+        # 남은 시간은 시작 시각 덧셈의 부동소수 오차만큼 기한을 넘을 수 있다.
+        self.assertLessEqual(max(SpyQueue.waits, default=0), .2 + 1e-6)
 
     def test_expired_deadline_runs_nothing(self):
         called = []
@@ -264,6 +279,24 @@ class MethodExecution(unittest.TestCase):
         self.assertEqual(called, [])
         self.assertEqual(methods[0]["cause"], "timeout")
         self.assertGreaterEqual(methods[0]["elapsedMs"], 1000)
+
+    def test_rule_lane_stops_when_deadline_passes_between_rules(self):
+        clock, called = VirtualClock(), []
+
+        def first():
+            called.append("first")
+            clock.now += 1
+            return result("hard:a-rule")
+
+        def second():
+            called.append("second")
+            return result("hard:b-rule")
+
+        with patch("detector.method_runner.time", clock):
+            methods = run_methods([task("hard:a-rule", first), task("hard:b-rule", second)], 100, started_at=clock.now)
+            wait_for_free_slots("rule")  # 레인이 끝난 뒤에 호출 기록을 본다
+        self.assertEqual(called, ["first"])
+        self.assertEqual([method["cause"] for method in methods], ["timeout", "timeout"])
 
     def test_failure_stays_in_that_method(self):
         def broken():
@@ -327,12 +360,13 @@ class MethodExecution(unittest.TestCase):
 
         def rule_after_model_started():
             # 룰이 먼저 끝나면 모델이 시작 전이라 취소될 수 있다. 시작 전 취소는 아래 시험이 본다.
-            self.assertTrue(model_started.wait(30))
+            model_started.wait(30)
             return result("hard:a-rule")
 
         with self.assertRaisesRegex(RuntimeError, "detection_lease_lost"):
             execute_methods([task("hard:a-rule", rule_after_model_started), task("ml:model", slow, "ml")],
                             30000, started_at=time.monotonic(), on_progress=fail)
+        self.assertTrue(model_started.is_set())
         self.assertEqual(_SLOTS["ml"]._value, 1, "시작한 모델은 취소되지 않고 끝날 때까지 슬롯을 쥔다")
         gate.set()
         wait_for_free_slots("ml")
@@ -356,13 +390,16 @@ class MethodExecution(unittest.TestCase):
 
     def _main_is_late(self, *, model_finishes_in_time):
         """메인 스레드가 on_progress에 멈춘 사이 기한이 지난다. 모델이 끝나는 시각은 기한 앞이나 뒤로 고정한다."""
-        clock, gate = VirtualClock(), threading.Event()
+        clock, gate, model_started = VirtualClock(), threading.Event(), threading.Event()
 
         def model():
+            model_started.set()
             gate.wait(30)
             return MethodOutcome(result("ml:model", True), {"inferenceMs": 1.0})
 
         def delayed_main(_methods):
+            # 시계를 먼저 움직이면 모델이 시작 전에 건너뛰어져 늦은 결과 경로를 지나지 않는다.
+            self.assertTrue(model_started.wait(30))
             if model_finishes_in_time:
                 gate.set()
                 wait_for_free_slots("ml")  # 슬롯은 도착 큐에 넣은 뒤에 풀린다

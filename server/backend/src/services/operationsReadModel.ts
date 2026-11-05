@@ -139,7 +139,11 @@ const stat = (row: Record<string, unknown> | undefined, failures: unknown = null
   ...extra,
 });
 
-/** GET /api/operations/latency: 원천별 최근 1시간 단계 지연(p50/p95)·대기·최근 실패. 계측되지 않은 단계는 null. */
+/**
+ * GET /api/operations/latency: 원천별 최근 1시간 단계 지연(p50/p95)·대기·최근 실패. 계측되지 않은 단계는 null.
+ * detect 작업의 원천은 입력 manifest로 찾는다(v04 작업은 구성이 없다). v03은 트리거가 manifest 원천 = 구성 원천을 강제하고,
+ * manifest 없는 detect 작업은 run_jobs_v03_contract가 막으므로 구성으로 찾던 결과와 같다.
+ */
 export async function readLatency(db: Queryable, sourceId: string) {
   const exists = await db.query('SELECT 1 FROM ops_sources WHERE id=$1', [sourceId]);
   if (!exists.rowCount) return null;
@@ -151,9 +155,9 @@ export async function readLatency(db: Queryable, sourceId: string) {
     FROM ops_api_poll_samples WHERE source_id=$1 AND started_at>=clock_timestamp()-interval '1 hour'`, [sourceId]);
   const { rows: [wait] } = await db.query(`SELECT ${quantiles('wait_ms')} FROM (
       SELECT extract(epoch FROM min(a.started_at)-j.created_at)*1000 AS wait_ms
-        FROM run_jobs j JOIN ml_config_versions c ON c.id=j.input_config_version_id
+        FROM run_jobs j JOIN run_input_manifests m ON m.id=j.input_manifest_id
         JOIN run_job_attempts a ON a.job_id=j.id
-       WHERE j.kind='detect' AND c.source_id=$1 AND j.created_at>=clock_timestamp()-interval '1 hour'
+       WHERE j.kind='detect' AND m.source_id=$1 AND j.created_at>=clock_timestamp()-interval '1 hour'
        GROUP BY j.id,j.created_at) w`, [sourceId]);
   const { rows: [queue] } = await db.query(`SELECT count(*)::integer AS pending,
       extract(epoch FROM clock_timestamp()-min(created_at))*1000 AS oldest_ms
@@ -165,8 +169,8 @@ export async function readLatency(db: Queryable, sourceId: string) {
     FROM ops_pipeline_measurements m JOIN data_observations o ON o.id=m.observation_id
     WHERE m.stage='detector' AND o.source_id=$1 AND m.measured_at>=clock_timestamp()-interval '1 hour'`, [sourceId]);
   const { rows: [failed] } = await db.query(`SELECT count(*)::integer AS failures FROM run_jobs j
-    JOIN ml_config_versions c ON c.id=j.input_config_version_id
-    WHERE j.kind='detect' AND j.status='failed' AND c.source_id=$1 AND j.finished_at>=clock_timestamp()-interval '1 hour'`, [sourceId]);
+    JOIN run_input_manifests m ON m.id=j.input_manifest_id
+    WHERE j.kind='detect' AND j.status='failed' AND m.source_id=$1 AND j.finished_at>=clock_timestamp()-interval '1 hour'`, [sourceId]);
   const commit = { samples: poll.commit_samples, p50: poll.commit_p50, p95: poll.commit_p95 };
   return {
     observedAt: new Date().toISOString(), window: OPERATIONS_WINDOW, sourceId,
@@ -221,37 +225,38 @@ export async function readStorage(db: Queryable) {
 }
 
 /**
- * GET /api/operations/decision-trend: 현재 운영 구성의 일별 판정 수·이상 신호 비율·정상 여부 미확인 비율.
- * 운영 리포트(operational-v1)의 집계 SQL·정책을 그대로 쓰고 live·replay 범위를 합산한다(원천 범위 미확인 관측 제외).
+ * GET /api/operations/decision-trend: 전 원천의 일별 판정 수·이상 신호 비율·정상 여부 미확인 비율. 운영 구성과 무관하다.
+ * 운영 리포트(operational-v1)의 구성 생략 경로를 원천마다 실행해 live·replay 범위를 합산한다(원천 범위 미확인 관측 제외).
+ * 판정이 없는 날도 0건으로 돌려준다.
  */
 export async function readDecisionTrend(db: Pick<Pool, 'connect'>, days: number) {
   const client = await db.connect();
   try {
     await client.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY');
-    const { rows: [active] } = await client.query(`SELECT s.active_config_version_id AS "configVersionId",c.source_id AS "sourceId",
-        to_char(((date_trunc('day',clock_timestamp() AT TIME ZONE $1)-make_interval(days=>$2::integer-1)) AT TIME ZONE $1) AT TIME ZONE 'UTC',
-          'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS "from",
-        to_char(clock_timestamp() AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS until
-      FROM ops_system_state s LEFT JOIN ml_config_versions c ON c.id=s.active_config_version_id WHERE s.id=1`, [TREND_TIMEZONE, days]);
-    if (!active?.configVersionId) {
-      await client.query('COMMIT');
-      return { configVersionId: null, timezone: TREND_TIMEZONE, items: [], reason: 'no_active_configuration' };
-    }
-    const byDay = new Map<string, { total: number; decidable: number; alarms: number }>();
-    for (const scope of ['live', 'replay']) {
-      const result = await client.query(OPERATIONAL_SQL,
-        [active.sourceId, active.configVersionId, active.from, active.until, TREND_TIMEZONE, scope, 31, 0]);
-      for (const item of result.rows.map(dailyReport)) {
-        const day = byDay.get(item.day) ?? { total: 0, decidable: 0, alarms: 0 };
-        day.total += item.processCount.denominator ?? 0;
-        day.decidable += item.alarmRatio.denominator ?? 0;
-        day.alarms += item.alarmRatio.numerator ?? 0;
-        byDay.set(item.day, day);
+    const { rows: [period] } = await client.query(`WITH t AS (SELECT clock_timestamp() AS at_now,
+        date_trunc('day',clock_timestamp() AT TIME ZONE $1) AS today)
+      SELECT to_char(((today-make_interval(days=>$2::integer-1)) AT TIME ZONE $1) AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS "from",
+        to_char(at_now AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS until,
+        ARRAY(SELECT to_char(day,'YYYY-MM-DD') FROM generate_series(today-make_interval(days=>$2::integer-1),today,interval '1 day') day) AS days
+      FROM t`, [TREND_TIMEZONE, days]);
+    const { rows: sources } = await client.query('SELECT id FROM ops_sources ORDER BY id');
+    const byDay = new Map<string, { total: number; decidable: number; alarms: number }>(
+      period.days.map((day: string) => [day, { total: 0, decidable: 0, alarms: 0 }]));
+    for (const source of sources) {
+      for (const scope of ['live', 'replay']) {
+        const result = await client.query(OPERATIONAL_SQL, [source.id, null, period.from, period.until, TREND_TIMEZONE, scope, 31, 0]);
+        for (const item of result.rows.map(dailyReport)) {
+          const day = byDay.get(item.day) ?? { total: 0, decidable: 0, alarms: 0 };
+          day.total += item.processCount.denominator ?? 0;
+          day.decidable += item.alarmRatio.denominator ?? 0;
+          day.alarms += item.alarmRatio.numerator ?? 0;
+          byDay.set(item.day, day);
+        }
       }
     }
     await client.query('COMMIT');
     return {
-      configVersionId: active.configVersionId, timezone: TREND_TIMEZONE, from: active.from, until: active.until,
+      timezone: TREND_TIMEZONE, from: period.from, until: period.until,
       items: [...byDay.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([day, value]) => ({
         day, decisionCount: value.total,
         anomalySignalRatio: value.decidable ? value.alarms / value.decidable : null,

@@ -1,0 +1,2078 @@
+{
+ "final": {
+  "signPartial": {
+   "columns": {
+    "status": "partial",
+    "rule_status": "succeeded",
+    "ml_status": "not_ready",
+    "decision_code": "SOFT_RETRY_COUNT_3F9A2C1D",
+    "anomaly_score": null
+   },
+   "evidence": {
+    "schemaVersion": 4,
+    "rules": [
+     {
+      "ruleKey": "process-status",
+      "version": "process-status-hr-v2",
+      "sourceId": "__SOURCE_ID__",
+      "observedStatus": "S",
+      "result": "no_hit",
+      "severity": null,
+      "reason": null
+     },
+     {
+      "ruleKey": "negative-duration",
+      "version": "negative-duration-v1",
+      "result": "no_hit"
+     },
+     {
+      "ruleKey": "success-with-error",
+      "version": "success-with-error-v1",
+      "result": "no_hit"
+     },
+     {
+      "ruleKey": "count-conservation",
+      "version": "count-conservation-v1",
+      "result": "no_hit"
+     },
+     {
+      "ruleKey": "retry_count-3f9a2c1d",
+      "version": 1,
+      "result": "hit"
+     }
+    ],
+    "models": [
+     {
+      "modelKey": "iforest",
+      "anomalous": null
+     }
+    ],
+    "checkers": {
+     "hr": {
+      "status": "succeeded",
+      "anomalous": false,
+      "evidence": [
+       {
+        "ruleKey": "process-status",
+        "version": "process-status-hr-v2",
+        "sourceId": "__SOURCE_ID__",
+        "observedStatus": "S",
+        "result": "no_hit",
+        "severity": null,
+        "reason": null
+       }
+      ]
+     },
+     "sr": {
+      "status": "skipped",
+      "anomalous": null,
+      "evidence": []
+     },
+     "ml": {
+      "status": "not_ready",
+      "anomalous": null,
+      "evidence": [
+       {
+        "modelKey": "iforest",
+        "anomalous": null
+       }
+      ]
+     }
+    },
+    "anomalous": true,
+    "requestedMode": "parallel",
+    "actualPaths": [
+     "rule"
+    ],
+    "detectionPolicy": {
+     "version": 2,
+     "policyKey": "category-k-of-n-or-v1",
+     "k": {
+      "hard": 1,
+      "soft": 1,
+      "ml": 1
+     },
+     "deadlineMs": 3000
+    },
+    "detectionPolicyRevision": 0,
+    "activeModelSetRevision": 1,
+    "ruleSeverities": [
+     "warning"
+    ],
+    "ruleSetRevision": 1,
+    "ruleSetHash": "de6a2ad8d0dcee189f36852a279263d3408f826632b95b4f14a97406b801bed0",
+    "methodResults": [
+     {
+      "methodId": "hard:process-status",
+      "category": "hard",
+      "methodVersion": "process-status-hr-v2",
+      "status": "succeeded",
+      "anomalous": false,
+      "code": null,
+      "severity": null,
+      "riskLevel": null,
+      "riskLevelReason": null,
+      "cause": null,
+      "failureCode": null,
+      "elapsedMs": 1.0,
+      "evidence": [
+       {
+        "observedStatus": "S",
+        "result": "no_hit"
+       }
+      ]
+     },
+     {
+      "methodId": "hard:negative-duration",
+      "category": "hard",
+      "methodVersion": "negative-duration-v1",
+      "status": "succeeded",
+      "anomalous": false,
+      "code": null,
+      "severity": null,
+      "riskLevel": null,
+      "riskLevelReason": null,
+      "cause": null,
+      "failureCode": null,
+      "elapsedMs": 2.0,
+      "evidence": [
+       {
+        "result": "no_hit"
+       }
+      ]
+     },
+     {
+      "methodId": "hard:success-with-error",
+      "category": "hard",
+      "methodVersion": "success-with-error-v1",
+      "status": "succeeded",
+      "anomalous": false,
+      "code": null,
+      "severity": null,
+      "riskLevel": null,
+      "riskLevelReason": null,
+      "cause": null,
+      "failureCode": null,
+      "elapsedMs": 3.0,
+      "evidence": [
+       {
+        "result": "no_hit"
+       }
+      ]
+     },
+     {
+      "methodId": "hard:count-conservation",
+      "category": "hard",
+      "methodVersion": "count-conservation-v1",
+      "status": "succeeded",
+      "anomalous": false,
+      "code": null,
+      "severity": null,
+      "riskLevel": null,
+      "riskLevelReason": null,
+      "cause": null,
+      "failureCode": null,
+      "elapsedMs": 4.0,
+      "evidence": [
+       {
+        "result": "no_hit"
+       }
+      ]
+     },
+     {
+      "methodId": "soft:retry_count-3f9a2c1d",
+      "category": "soft",
+      "methodVersion": "soft-threshold-v1",
+      "status": "succeeded",
+      "anomalous": true,
+      "code": "SOFT_RETRY_COUNT_3F9A2C1D",
+      "severity": "warning",
+      "riskLevel": "warning",
+      "riskLevelReason": null,
+      "cause": null,
+      "failureCode": null,
+      "elapsedMs": 5.0,
+      "evidence": [],
+      "observedValue": "4",
+      "condition": {
+       "field": "retry_count",
+       "operator": "gte",
+       "threshold": "3",
+       "unit": "count"
+      }
+     },
+     {
+      "methodId": "ml:iforest",
+      "category": "ml",
+      "methodVersion": "process-iforest-v1",
+      "status": "not_ready",
+      "anomalous": null,
+      "code": null,
+      "severity": null,
+      "riskLevel": null,
+      "riskLevelReason": null,
+      "cause": "timeout",
+      "failureCode": null,
+      "elapsedMs": 3000.0,
+      "evidence": [],
+      "modelVersionId": "__MODEL_VERSION_ID__",
+      "score": null,
+      "scoreDetail": null
+     }
+    ],
+    "categoryResults": {
+     "hard": {
+      "n": 4,
+      "k": 1,
+      "result": "normal",
+      "status": "succeeded",
+      "anomalous": false
+     },
+     "soft": {
+      "n": 1,
+      "k": 1,
+      "result": "anomalous",
+      "status": "succeeded",
+      "anomalous": true
+     },
+     "ml": {
+      "n": 1,
+      "k": 1,
+      "result": "undetermined",
+      "status": "not_ready",
+      "anomalous": null
+     }
+    },
+    "composite": {
+     "policy": {
+      "version": 2,
+      "policyKey": "category-k-of-n-or-v1",
+      "k": {
+       "hard": 1,
+       "soft": 1,
+       "ml": 1
+      }
+     },
+     "status": "partial",
+     "anomalous": true,
+     "grade": "anomaly_sign",
+     "basisMethods": [
+      "soft:retry_count-3f9a2c1d"
+     ],
+     "firstAnomalyElapsedMs": 5.0,
+     "risk": {
+      "policy": "risk-max-v1",
+      "levelTable": "method-defined-v2",
+      "status": "rated",
+      "level": "warning",
+      "unratedMethods": [],
+      "determinedBy": [
+       "soft:retry_count-3f9a2c1d"
+      ]
+     }
+    },
+    "outcomes": {
+     "classificationVersion": "detector-outcomes-v1"
+    },
+    "telemetry": {
+     "status": "measured",
+     "reason": null,
+     "metricVersion": "execution-cost-v1",
+     "metrics": {
+      "totalMs": {
+       "value": 20.5,
+       "unit": "ms",
+       "numerator": null,
+       "denominator": null,
+       "coverage": null,
+       "reason": null
+      },
+      "preprocessMs": {
+       "value": null,
+       "unit": "ms",
+       "numerator": null,
+       "denominator": null,
+       "coverage": null,
+       "reason": "not_observed"
+      },
+      "trainMs": {
+       "value": null,
+       "unit": "ms",
+       "numerator": null,
+       "denominator": null,
+       "coverage": null,
+       "reason": "not_observed"
+      },
+      "evaluationMs": {
+       "value": null,
+       "unit": "ms",
+       "numerator": null,
+       "denominator": null,
+       "coverage": null,
+       "reason": "not_observed"
+      },
+      "inferenceMs": {
+       "value": null,
+       "unit": "ms",
+       "numerator": null,
+       "denominator": null,
+       "coverage": null,
+       "reason": "not_observed"
+      },
+      "ruleMs": {
+       "value": 1.5,
+       "unit": "ms",
+       "numerator": null,
+       "denominator": null,
+       "coverage": null,
+       "reason": null
+      },
+      "itemP50Ms": {
+       "value": 20.5,
+       "unit": "ms",
+       "numerator": null,
+       "denominator": null,
+       "coverage": null,
+       "reason": null
+      },
+      "itemP95Ms": {
+       "value": 20.5,
+       "unit": "ms",
+       "numerator": null,
+       "denominator": null,
+       "coverage": null,
+       "reason": null
+      },
+      "queueWaitMs": {
+       "value": 12.0,
+       "unit": "ms",
+       "numerator": null,
+       "denominator": null,
+       "coverage": null,
+       "reason": null
+      },
+      "processRssBytes": {
+       "value": 104857600,
+       "unit": "bytes",
+       "numerator": null,
+       "denominator": null,
+       "coverage": null,
+       "reason": null
+      },
+      "throughput": {
+       "value": 48.78048780487805,
+       "unit": "rows/s",
+       "numerator": null,
+       "denominator": null,
+       "coverage": null,
+       "reason": null
+      },
+      "esbLatencyMs": {
+       "value": null,
+       "unit": "ms",
+       "numerator": null,
+       "denominator": null,
+       "coverage": null,
+       "reason": "source_clock_unverified"
+      },
+      "batchP50Ms": {
+       "value": 20.5,
+       "unit": "ms",
+       "numerator": null,
+       "denominator": null,
+       "coverage": null,
+       "reason": null
+      },
+      "batchP95Ms": {
+       "value": 20.5,
+       "unit": "ms",
+       "numerator": null,
+       "denominator": null,
+       "coverage": null,
+       "reason": null
+      }
+     },
+     "details": {
+      "clock": "monotonic",
+      "batchSize": 1,
+      "concurrency": 2,
+      "concurrencyScope": "checker_callbacks",
+      "platform": "Linux",
+      "processCpuCount": 4,
+      "warmCold": "mixed_unclassified",
+      "samplingPeriod": "per_batch_completion",
+      "memoryScope": "process_current_rss_sample",
+      "resourceLimits": "not_observed",
+      "containerPeakMeasured": false,
+      "totalTiming": "handler_execution_before_atomic_publication",
+      "batchSampleCount": 1,
+      "itemSampleCount": 1,
+      "queueWaitClock": "database",
+      "queueWaitBasis": "enqueue_to_attempt_start_including_retry",
+      "scope": "detector_process_revision",
+      "sourceClockStatus": "unknown",
+      "modelNJobs": 2
+     }
+    },
+    "statusRulePolicy": {
+     "version": "process-status-hr-v2",
+     "sourceId": "__SOURCE_ID__",
+     "mapping": {
+      "S": "no_hit",
+      "F": "critical",
+      "P": "warning",
+      "N": "info",
+      "H": "info",
+      "Z": "warning"
+     }
+    },
+    "observation": {
+     "id": "__OBSERVATION_ID__",
+     "revisionNo": 1,
+     "inputAsOf": "__INPUT_AS_OF__"
+    },
+    "inputManifestHash": "__MANIFEST_HASH__"
+   }
+  },
+  "normalComplete": {
+   "columns": {
+    "status": "complete",
+    "rule_status": "succeeded",
+    "ml_status": "succeeded",
+    "decision_code": null,
+    "anomaly_score": 0.3
+   },
+   "evidence": {
+    "schemaVersion": 4,
+    "rules": [
+     {
+      "ruleKey": "process-status",
+      "version": "process-status-hr-v2",
+      "sourceId": "__SOURCE_ID__",
+      "observedStatus": "S",
+      "result": "no_hit",
+      "severity": null,
+      "reason": null
+     },
+     {
+      "ruleKey": "negative-duration",
+      "version": "negative-duration-v1",
+      "result": "no_hit"
+     },
+     {
+      "ruleKey": "success-with-error",
+      "version": "success-with-error-v1",
+      "result": "no_hit"
+     },
+     {
+      "ruleKey": "count-conservation",
+      "version": "count-conservation-v1",
+      "result": "no_hit"
+     },
+     {
+      "ruleKey": "retry_count-3f9a2c1d",
+      "version": 1,
+      "result": "no_hit"
+     }
+    ],
+    "models": [
+     {
+      "modelKey": "iforest",
+      "anomalous": false
+     }
+    ],
+    "checkers": {
+     "hr": {
+      "status": "succeeded",
+      "anomalous": false,
+      "evidence": [
+       {
+        "ruleKey": "process-status",
+        "version": "process-status-hr-v2",
+        "sourceId": "__SOURCE_ID__",
+        "observedStatus": "S",
+        "result": "no_hit",
+        "severity": null,
+        "reason": null
+       }
+      ]
+     },
+     "sr": {
+      "status": "skipped",
+      "anomalous": null,
+      "evidence": []
+     },
+     "ml": {
+      "status": "succeeded",
+      "anomalous": false,
+      "evidence": [
+       {
+        "modelKey": "iforest",
+        "anomalous": false
+       }
+      ]
+     }
+    },
+    "anomalous": false,
+    "requestedMode": "parallel",
+    "actualPaths": [
+     "rule",
+     "ml"
+    ],
+    "detectionPolicy": {
+     "version": 2,
+     "policyKey": "category-k-of-n-or-v1",
+     "k": {
+      "hard": 1,
+      "soft": 1,
+      "ml": 1
+     },
+     "deadlineMs": 3000
+    },
+    "detectionPolicyRevision": 0,
+    "activeModelSetRevision": 1,
+    "ruleSeverities": [],
+    "ruleSetRevision": 1,
+    "ruleSetHash": "de6a2ad8d0dcee189f36852a279263d3408f826632b95b4f14a97406b801bed0",
+    "methodResults": [
+     {
+      "methodId": "hard:process-status",
+      "category": "hard",
+      "methodVersion": "process-status-hr-v2",
+      "status": "succeeded",
+      "anomalous": false,
+      "code": null,
+      "severity": null,
+      "riskLevel": null,
+      "riskLevelReason": null,
+      "cause": null,
+      "failureCode": null,
+      "elapsedMs": 1.0,
+      "evidence": [
+       {
+        "observedStatus": "S",
+        "result": "no_hit"
+       }
+      ]
+     },
+     {
+      "methodId": "hard:negative-duration",
+      "category": "hard",
+      "methodVersion": "negative-duration-v1",
+      "status": "succeeded",
+      "anomalous": false,
+      "code": null,
+      "severity": null,
+      "riskLevel": null,
+      "riskLevelReason": null,
+      "cause": null,
+      "failureCode": null,
+      "elapsedMs": 2.0,
+      "evidence": [
+       {
+        "result": "no_hit"
+       }
+      ]
+     },
+     {
+      "methodId": "hard:success-with-error",
+      "category": "hard",
+      "methodVersion": "success-with-error-v1",
+      "status": "succeeded",
+      "anomalous": false,
+      "code": null,
+      "severity": null,
+      "riskLevel": null,
+      "riskLevelReason": null,
+      "cause": null,
+      "failureCode": null,
+      "elapsedMs": 3.0,
+      "evidence": [
+       {
+        "result": "no_hit"
+       }
+      ]
+     },
+     {
+      "methodId": "hard:count-conservation",
+      "category": "hard",
+      "methodVersion": "count-conservation-v1",
+      "status": "succeeded",
+      "anomalous": false,
+      "code": null,
+      "severity": null,
+      "riskLevel": null,
+      "riskLevelReason": null,
+      "cause": null,
+      "failureCode": null,
+      "elapsedMs": 4.0,
+      "evidence": [
+       {
+        "result": "no_hit"
+       }
+      ]
+     },
+     {
+      "methodId": "soft:retry_count-3f9a2c1d",
+      "category": "soft",
+      "methodVersion": "soft-threshold-v1",
+      "status": "succeeded",
+      "anomalous": false,
+      "code": null,
+      "severity": null,
+      "riskLevel": null,
+      "riskLevelReason": null,
+      "cause": null,
+      "failureCode": null,
+      "elapsedMs": 5.0,
+      "evidence": [],
+      "observedValue": "0",
+      "condition": {
+       "field": "retry_count",
+       "operator": "gte",
+       "threshold": "3",
+       "unit": "count"
+      }
+     },
+     {
+      "methodId": "ml:iforest",
+      "category": "ml",
+      "methodVersion": "process-iforest-v1",
+      "status": "succeeded",
+      "anomalous": false,
+      "code": null,
+      "severity": null,
+      "riskLevel": null,
+      "riskLevelReason": null,
+      "cause": null,
+      "failureCode": null,
+      "elapsedMs": 6.0,
+      "evidence": [],
+      "modelVersionId": "__MODEL_VERSION_ID__",
+      "score": 0.3,
+      "scoreDetail": {
+       "raw": 0.3,
+       "threshold": "0.61",
+       "direction": "higher_is_anomaly",
+       "thresholdPolicy": "train-internal-p99-v1",
+       "normalized": {
+        "kind": "threshold_ratio",
+        "value": 0.4918032786885246
+       }
+      }
+     }
+    ],
+    "categoryResults": {
+     "hard": {
+      "n": 4,
+      "k": 1,
+      "result": "normal",
+      "status": "succeeded",
+      "anomalous": false
+     },
+     "soft": {
+      "n": 1,
+      "k": 1,
+      "result": "normal",
+      "status": "succeeded",
+      "anomalous": false
+     },
+     "ml": {
+      "n": 1,
+      "k": 1,
+      "result": "normal",
+      "status": "succeeded",
+      "anomalous": false
+     }
+    },
+    "composite": {
+     "policy": {
+      "version": 2,
+      "policyKey": "category-k-of-n-or-v1",
+      "k": {
+       "hard": 1,
+       "soft": 1,
+       "ml": 1
+      }
+     },
+     "status": "complete",
+     "anomalous": false,
+     "grade": "normal",
+     "basisMethods": [],
+     "firstAnomalyElapsedMs": null,
+     "risk": {
+      "policy": "risk-max-v1",
+      "levelTable": "method-defined-v2",
+      "status": "not_applicable",
+      "level": null,
+      "determinedBy": [],
+      "unratedMethods": []
+     }
+    },
+    "outcomes": {
+     "classificationVersion": "detector-outcomes-v1"
+    },
+    "telemetry": {
+     "status": "measured",
+     "reason": null,
+     "metricVersion": "execution-cost-v1",
+     "metrics": {
+      "totalMs": {
+       "value": 20.5,
+       "unit": "ms",
+       "numerator": null,
+       "denominator": null,
+       "coverage": null,
+       "reason": null
+      },
+      "preprocessMs": {
+       "value": 2.5,
+       "unit": "ms",
+       "numerator": null,
+       "denominator": null,
+       "coverage": null,
+       "reason": null
+      },
+      "trainMs": {
+       "value": null,
+       "unit": "ms",
+       "numerator": null,
+       "denominator": null,
+       "coverage": null,
+       "reason": "not_observed"
+      },
+      "evaluationMs": {
+       "value": null,
+       "unit": "ms",
+       "numerator": null,
+       "denominator": null,
+       "coverage": null,
+       "reason": "not_observed"
+      },
+      "inferenceMs": {
+       "value": 4.5,
+       "unit": "ms",
+       "numerator": null,
+       "denominator": null,
+       "coverage": null,
+       "reason": null
+      },
+      "ruleMs": {
+       "value": 1.5,
+       "unit": "ms",
+       "numerator": null,
+       "denominator": null,
+       "coverage": null,
+       "reason": null
+      },
+      "itemP50Ms": {
+       "value": 20.5,
+       "unit": "ms",
+       "numerator": null,
+       "denominator": null,
+       "coverage": null,
+       "reason": null
+      },
+      "itemP95Ms": {
+       "value": 20.5,
+       "unit": "ms",
+       "numerator": null,
+       "denominator": null,
+       "coverage": null,
+       "reason": null
+      },
+      "queueWaitMs": {
+       "value": 12.0,
+       "unit": "ms",
+       "numerator": null,
+       "denominator": null,
+       "coverage": null,
+       "reason": null
+      },
+      "processRssBytes": {
+       "value": 104857600,
+       "unit": "bytes",
+       "numerator": null,
+       "denominator": null,
+       "coverage": null,
+       "reason": null
+      },
+      "throughput": {
+       "value": 48.78048780487805,
+       "unit": "rows/s",
+       "numerator": null,
+       "denominator": null,
+       "coverage": null,
+       "reason": null
+      },
+      "esbLatencyMs": {
+       "value": null,
+       "unit": "ms",
+       "numerator": null,
+       "denominator": null,
+       "coverage": null,
+       "reason": "source_clock_unverified"
+      },
+      "batchP50Ms": {
+       "value": 20.5,
+       "unit": "ms",
+       "numerator": null,
+       "denominator": null,
+       "coverage": null,
+       "reason": null
+      },
+      "batchP95Ms": {
+       "value": 20.5,
+       "unit": "ms",
+       "numerator": null,
+       "denominator": null,
+       "coverage": null,
+       "reason": null
+      }
+     },
+     "details": {
+      "clock": "monotonic",
+      "batchSize": 1,
+      "concurrency": 2,
+      "concurrencyScope": "checker_callbacks",
+      "platform": "Linux",
+      "processCpuCount": 4,
+      "warmCold": "mixed_unclassified",
+      "samplingPeriod": "per_batch_completion",
+      "memoryScope": "process_current_rss_sample",
+      "resourceLimits": "not_observed",
+      "containerPeakMeasured": false,
+      "totalTiming": "handler_execution_before_atomic_publication",
+      "batchSampleCount": 1,
+      "itemSampleCount": 1,
+      "queueWaitClock": "database",
+      "queueWaitBasis": "enqueue_to_attempt_start_including_retry",
+      "scope": "detector_process_revision",
+      "sourceClockStatus": "unknown",
+      "modelNJobs": 2
+     }
+    },
+    "statusRulePolicy": {
+     "version": "process-status-hr-v2",
+     "sourceId": "__SOURCE_ID__",
+     "mapping": {
+      "S": "no_hit",
+      "F": "critical",
+      "P": "warning",
+      "N": "info",
+      "H": "info",
+      "Z": "warning"
+     }
+    },
+    "observation": {
+     "id": "__OBSERVATION_ID__",
+     "revisionNo": 1,
+     "inputAsOf": "__INPUT_AS_OF__"
+    },
+    "inputManifestHash": "__MANIFEST_HASH__"
+   }
+  },
+  "anomalyComplete": {
+   "columns": {
+    "status": "complete",
+    "rule_status": "succeeded",
+    "ml_status": "succeeded",
+    "decision_code": "PROCESS_STATUS_F",
+    "anomaly_score": 0.3
+   },
+   "evidence": {
+    "schemaVersion": 4,
+    "rules": [
+     {
+      "ruleKey": "process-status",
+      "version": "process-status-hr-v2",
+      "sourceId": "__SOURCE_ID__",
+      "observedStatus": "F",
+      "result": "hit",
+      "severity": "critical",
+      "reason": null
+     },
+     {
+      "ruleKey": "negative-duration",
+      "version": "negative-duration-v1",
+      "result": "no_hit"
+     },
+     {
+      "ruleKey": "success-with-error",
+      "version": "success-with-error-v1",
+      "result": "no_hit"
+     },
+     {
+      "ruleKey": "count-conservation",
+      "version": "count-conservation-v1",
+      "result": "no_hit"
+     },
+     {
+      "ruleKey": "retry_count-3f9a2c1d",
+      "version": 1,
+      "result": "no_hit"
+     }
+    ],
+    "models": [
+     {
+      "modelKey": "iforest",
+      "anomalous": false
+     }
+    ],
+    "checkers": {
+     "hr": {
+      "status": "succeeded",
+      "anomalous": true,
+      "evidence": [
+       {
+        "ruleKey": "process-status",
+        "version": "process-status-hr-v2",
+        "sourceId": "__SOURCE_ID__",
+        "observedStatus": "F",
+        "result": "hit",
+        "severity": "critical",
+        "reason": null
+       }
+      ]
+     },
+     "sr": {
+      "status": "skipped",
+      "anomalous": null,
+      "evidence": []
+     },
+     "ml": {
+      "status": "succeeded",
+      "anomalous": false,
+      "evidence": [
+       {
+        "modelKey": "iforest",
+        "anomalous": false
+       }
+      ]
+     }
+    },
+    "anomalous": true,
+    "requestedMode": "parallel",
+    "actualPaths": [
+     "rule",
+     "ml"
+    ],
+    "detectionPolicy": {
+     "version": 2,
+     "policyKey": "category-k-of-n-or-v1",
+     "k": {
+      "hard": 1,
+      "soft": 1,
+      "ml": 1
+     },
+     "deadlineMs": 3000
+    },
+    "detectionPolicyRevision": 0,
+    "activeModelSetRevision": 1,
+    "ruleSeverities": [
+     "critical"
+    ],
+    "ruleSetRevision": 1,
+    "ruleSetHash": "de6a2ad8d0dcee189f36852a279263d3408f826632b95b4f14a97406b801bed0",
+    "methodResults": [
+     {
+      "methodId": "hard:process-status",
+      "category": "hard",
+      "methodVersion": "process-status-hr-v2",
+      "status": "succeeded",
+      "anomalous": true,
+      "code": "PROCESS_STATUS_F",
+      "severity": "critical",
+      "riskLevel": "critical",
+      "riskLevelReason": null,
+      "cause": null,
+      "failureCode": null,
+      "elapsedMs": 1.0,
+      "evidence": [
+       {
+        "observedStatus": "F",
+        "result": "hit"
+       }
+      ]
+     },
+     {
+      "methodId": "hard:negative-duration",
+      "category": "hard",
+      "methodVersion": "negative-duration-v1",
+      "status": "succeeded",
+      "anomalous": false,
+      "code": null,
+      "severity": null,
+      "riskLevel": null,
+      "riskLevelReason": null,
+      "cause": null,
+      "failureCode": null,
+      "elapsedMs": 2.0,
+      "evidence": [
+       {
+        "result": "no_hit"
+       }
+      ]
+     },
+     {
+      "methodId": "hard:success-with-error",
+      "category": "hard",
+      "methodVersion": "success-with-error-v1",
+      "status": "succeeded",
+      "anomalous": false,
+      "code": null,
+      "severity": null,
+      "riskLevel": null,
+      "riskLevelReason": null,
+      "cause": null,
+      "failureCode": null,
+      "elapsedMs": 3.0,
+      "evidence": [
+       {
+        "result": "no_hit"
+       }
+      ]
+     },
+     {
+      "methodId": "hard:count-conservation",
+      "category": "hard",
+      "methodVersion": "count-conservation-v1",
+      "status": "succeeded",
+      "anomalous": false,
+      "code": null,
+      "severity": null,
+      "riskLevel": null,
+      "riskLevelReason": null,
+      "cause": null,
+      "failureCode": null,
+      "elapsedMs": 4.0,
+      "evidence": [
+       {
+        "result": "no_hit"
+       }
+      ]
+     },
+     {
+      "methodId": "soft:retry_count-3f9a2c1d",
+      "category": "soft",
+      "methodVersion": "soft-threshold-v1",
+      "status": "succeeded",
+      "anomalous": false,
+      "code": null,
+      "severity": null,
+      "riskLevel": null,
+      "riskLevelReason": null,
+      "cause": null,
+      "failureCode": null,
+      "elapsedMs": 5.0,
+      "evidence": [],
+      "observedValue": "0",
+      "condition": {
+       "field": "retry_count",
+       "operator": "gte",
+       "threshold": "3",
+       "unit": "count"
+      }
+     },
+     {
+      "methodId": "ml:iforest",
+      "category": "ml",
+      "methodVersion": "process-iforest-v1",
+      "status": "succeeded",
+      "anomalous": false,
+      "code": null,
+      "severity": null,
+      "riskLevel": null,
+      "riskLevelReason": null,
+      "cause": null,
+      "failureCode": null,
+      "elapsedMs": 6.0,
+      "evidence": [],
+      "modelVersionId": "__MODEL_VERSION_ID__",
+      "score": 0.3,
+      "scoreDetail": {
+       "raw": 0.3,
+       "threshold": "0.61",
+       "direction": "higher_is_anomaly",
+       "thresholdPolicy": "train-internal-p99-v1",
+       "normalized": {
+        "kind": "threshold_ratio",
+        "value": 0.4918032786885246
+       }
+      }
+     }
+    ],
+    "categoryResults": {
+     "hard": {
+      "n": 4,
+      "k": 1,
+      "result": "anomalous",
+      "status": "succeeded",
+      "anomalous": true
+     },
+     "soft": {
+      "n": 1,
+      "k": 1,
+      "result": "normal",
+      "status": "succeeded",
+      "anomalous": false
+     },
+     "ml": {
+      "n": 1,
+      "k": 1,
+      "result": "normal",
+      "status": "succeeded",
+      "anomalous": false
+     }
+    },
+    "composite": {
+     "policy": {
+      "version": 2,
+      "policyKey": "category-k-of-n-or-v1",
+      "k": {
+       "hard": 1,
+       "soft": 1,
+       "ml": 1
+      }
+     },
+     "status": "complete",
+     "anomalous": true,
+     "grade": "anomaly",
+     "basisMethods": [
+      "hard:process-status"
+     ],
+     "firstAnomalyElapsedMs": 1.0,
+     "risk": {
+      "policy": "risk-max-v1",
+      "levelTable": "method-defined-v2",
+      "status": "rated",
+      "level": "critical",
+      "unratedMethods": [],
+      "determinedBy": [
+       "hard:process-status"
+      ]
+     }
+    },
+    "outcomes": {
+     "classificationVersion": "detector-outcomes-v1"
+    },
+    "telemetry": {
+     "status": "measured",
+     "reason": null,
+     "metricVersion": "execution-cost-v1",
+     "metrics": {
+      "totalMs": {
+       "value": 20.5,
+       "unit": "ms",
+       "numerator": null,
+       "denominator": null,
+       "coverage": null,
+       "reason": null
+      },
+      "preprocessMs": {
+       "value": 2.5,
+       "unit": "ms",
+       "numerator": null,
+       "denominator": null,
+       "coverage": null,
+       "reason": null
+      },
+      "trainMs": {
+       "value": null,
+       "unit": "ms",
+       "numerator": null,
+       "denominator": null,
+       "coverage": null,
+       "reason": "not_observed"
+      },
+      "evaluationMs": {
+       "value": null,
+       "unit": "ms",
+       "numerator": null,
+       "denominator": null,
+       "coverage": null,
+       "reason": "not_observed"
+      },
+      "inferenceMs": {
+       "value": 4.5,
+       "unit": "ms",
+       "numerator": null,
+       "denominator": null,
+       "coverage": null,
+       "reason": null
+      },
+      "ruleMs": {
+       "value": 1.5,
+       "unit": "ms",
+       "numerator": null,
+       "denominator": null,
+       "coverage": null,
+       "reason": null
+      },
+      "itemP50Ms": {
+       "value": 20.5,
+       "unit": "ms",
+       "numerator": null,
+       "denominator": null,
+       "coverage": null,
+       "reason": null
+      },
+      "itemP95Ms": {
+       "value": 20.5,
+       "unit": "ms",
+       "numerator": null,
+       "denominator": null,
+       "coverage": null,
+       "reason": null
+      },
+      "queueWaitMs": {
+       "value": 12.0,
+       "unit": "ms",
+       "numerator": null,
+       "denominator": null,
+       "coverage": null,
+       "reason": null
+      },
+      "processRssBytes": {
+       "value": 104857600,
+       "unit": "bytes",
+       "numerator": null,
+       "denominator": null,
+       "coverage": null,
+       "reason": null
+      },
+      "throughput": {
+       "value": 48.78048780487805,
+       "unit": "rows/s",
+       "numerator": null,
+       "denominator": null,
+       "coverage": null,
+       "reason": null
+      },
+      "esbLatencyMs": {
+       "value": null,
+       "unit": "ms",
+       "numerator": null,
+       "denominator": null,
+       "coverage": null,
+       "reason": "source_clock_unverified"
+      },
+      "batchP50Ms": {
+       "value": 20.5,
+       "unit": "ms",
+       "numerator": null,
+       "denominator": null,
+       "coverage": null,
+       "reason": null
+      },
+      "batchP95Ms": {
+       "value": 20.5,
+       "unit": "ms",
+       "numerator": null,
+       "denominator": null,
+       "coverage": null,
+       "reason": null
+      }
+     },
+     "details": {
+      "clock": "monotonic",
+      "batchSize": 1,
+      "concurrency": 2,
+      "concurrencyScope": "checker_callbacks",
+      "platform": "Linux",
+      "processCpuCount": 4,
+      "warmCold": "mixed_unclassified",
+      "samplingPeriod": "per_batch_completion",
+      "memoryScope": "process_current_rss_sample",
+      "resourceLimits": "not_observed",
+      "containerPeakMeasured": false,
+      "totalTiming": "handler_execution_before_atomic_publication",
+      "batchSampleCount": 1,
+      "itemSampleCount": 1,
+      "queueWaitClock": "database",
+      "queueWaitBasis": "enqueue_to_attempt_start_including_retry",
+      "scope": "detector_process_revision",
+      "sourceClockStatus": "unknown",
+      "modelNJobs": 2
+     }
+    },
+    "statusRulePolicy": {
+     "version": "process-status-hr-v2",
+     "sourceId": "__SOURCE_ID__",
+     "mapping": {
+      "S": "no_hit",
+      "F": "critical",
+      "P": "warning",
+      "N": "info",
+      "H": "info",
+      "Z": "warning"
+     }
+    },
+    "observation": {
+     "id": "__OBSERVATION_ID__",
+     "revisionNo": 1,
+     "inputAsOf": "__INPUT_AS_OF__"
+    },
+    "inputManifestHash": "__MANIFEST_HASH__"
+   }
+  },
+  "ruleOnlyAnomaly": {
+   "columns": {
+    "status": "complete",
+    "rule_status": "succeeded",
+    "ml_status": "skipped",
+    "decision_code": "PROCESS_STATUS_F",
+    "anomaly_score": null
+   },
+   "evidence": {
+    "schemaVersion": 4,
+    "rules": [
+     {
+      "ruleKey": "process-status",
+      "version": "process-status-hr-v2",
+      "sourceId": "__SOURCE_ID__",
+      "observedStatus": "F",
+      "result": "hit",
+      "severity": "critical",
+      "reason": null
+     },
+     {
+      "ruleKey": "negative-duration",
+      "version": "negative-duration-v1",
+      "result": "no_hit"
+     },
+     {
+      "ruleKey": "success-with-error",
+      "version": "success-with-error-v1",
+      "result": "no_hit"
+     },
+     {
+      "ruleKey": "count-conservation",
+      "version": "count-conservation-v1",
+      "result": "no_hit"
+     }
+    ],
+    "models": [],
+    "checkers": {
+     "hr": {
+      "status": "succeeded",
+      "anomalous": true,
+      "evidence": [
+       {
+        "ruleKey": "process-status",
+        "version": "process-status-hr-v2",
+        "sourceId": "__SOURCE_ID__",
+        "observedStatus": "F",
+        "result": "hit",
+        "severity": "critical",
+        "reason": null
+       }
+      ]
+     },
+     "sr": {
+      "status": "skipped",
+      "anomalous": null,
+      "evidence": []
+     },
+     "ml": {
+      "status": "skipped",
+      "anomalous": null,
+      "evidence": []
+     }
+    },
+    "anomalous": true,
+    "requestedMode": "rule_only",
+    "actualPaths": [
+     "rule"
+    ],
+    "detectionPolicy": {
+     "version": 2,
+     "policyKey": "category-k-of-n-or-v1",
+     "k": {
+      "hard": 1,
+      "soft": 1,
+      "ml": 1
+     },
+     "deadlineMs": 3000
+    },
+    "detectionPolicyRevision": 0,
+    "activeModelSetRevision": 1,
+    "ruleSeverities": [
+     "critical"
+    ],
+    "ruleSetRevision": 1,
+    "ruleSetHash": "de6a2ad8d0dcee189f36852a279263d3408f826632b95b4f14a97406b801bed0",
+    "methodResults": [
+     {
+      "methodId": "hard:process-status",
+      "category": "hard",
+      "methodVersion": "process-status-hr-v2",
+      "status": "succeeded",
+      "anomalous": true,
+      "code": "PROCESS_STATUS_F",
+      "severity": "critical",
+      "riskLevel": "critical",
+      "riskLevelReason": null,
+      "cause": null,
+      "failureCode": null,
+      "elapsedMs": 1.0,
+      "evidence": [
+       {
+        "observedStatus": "F",
+        "result": "hit"
+       }
+      ]
+     },
+     {
+      "methodId": "hard:negative-duration",
+      "category": "hard",
+      "methodVersion": "negative-duration-v1",
+      "status": "succeeded",
+      "anomalous": false,
+      "code": null,
+      "severity": null,
+      "riskLevel": null,
+      "riskLevelReason": null,
+      "cause": null,
+      "failureCode": null,
+      "elapsedMs": 2.0,
+      "evidence": [
+       {
+        "result": "no_hit"
+       }
+      ]
+     },
+     {
+      "methodId": "hard:success-with-error",
+      "category": "hard",
+      "methodVersion": "success-with-error-v1",
+      "status": "succeeded",
+      "anomalous": false,
+      "code": null,
+      "severity": null,
+      "riskLevel": null,
+      "riskLevelReason": null,
+      "cause": null,
+      "failureCode": null,
+      "elapsedMs": 3.0,
+      "evidence": [
+       {
+        "result": "no_hit"
+       }
+      ]
+     },
+     {
+      "methodId": "hard:count-conservation",
+      "category": "hard",
+      "methodVersion": "count-conservation-v1",
+      "status": "succeeded",
+      "anomalous": false,
+      "code": null,
+      "severity": null,
+      "riskLevel": null,
+      "riskLevelReason": null,
+      "cause": null,
+      "failureCode": null,
+      "elapsedMs": 4.0,
+      "evidence": [
+       {
+        "result": "no_hit"
+       }
+      ]
+     }
+    ],
+    "categoryResults": {
+     "hard": {
+      "n": 4,
+      "k": 1,
+      "result": "anomalous",
+      "status": "succeeded",
+      "anomalous": true
+     },
+     "soft": {
+      "n": 0,
+      "k": 1,
+      "result": "skipped",
+      "status": "skipped",
+      "anomalous": null
+     },
+     "ml": {
+      "n": 0,
+      "k": 1,
+      "result": "skipped",
+      "status": "skipped",
+      "anomalous": null
+     }
+    },
+    "composite": {
+     "policy": {
+      "version": 2,
+      "policyKey": "category-k-of-n-or-v1",
+      "k": {
+       "hard": 1,
+       "soft": 1,
+       "ml": 1
+      }
+     },
+     "status": "complete",
+     "anomalous": true,
+     "grade": "anomaly",
+     "basisMethods": [
+      "hard:process-status"
+     ],
+     "firstAnomalyElapsedMs": 1.0,
+     "risk": {
+      "policy": "risk-max-v1",
+      "levelTable": "method-defined-v2",
+      "status": "rated",
+      "level": "critical",
+      "unratedMethods": [],
+      "determinedBy": [
+       "hard:process-status"
+      ]
+     }
+    },
+    "outcomes": {
+     "classificationVersion": "detector-outcomes-v1"
+    },
+    "telemetry": {
+     "status": "measured",
+     "reason": null,
+     "metricVersion": "execution-cost-v1",
+     "metrics": {
+      "totalMs": {
+       "value": 20.5,
+       "unit": "ms",
+       "numerator": null,
+       "denominator": null,
+       "coverage": null,
+       "reason": null
+      },
+      "preprocessMs": {
+       "value": null,
+       "unit": "ms",
+       "numerator": null,
+       "denominator": null,
+       "coverage": null,
+       "reason": "not_observed"
+      },
+      "trainMs": {
+       "value": null,
+       "unit": "ms",
+       "numerator": null,
+       "denominator": null,
+       "coverage": null,
+       "reason": "not_observed"
+      },
+      "evaluationMs": {
+       "value": null,
+       "unit": "ms",
+       "numerator": null,
+       "denominator": null,
+       "coverage": null,
+       "reason": "not_observed"
+      },
+      "inferenceMs": {
+       "value": null,
+       "unit": "ms",
+       "numerator": null,
+       "denominator": null,
+       "coverage": null,
+       "reason": "not_observed"
+      },
+      "ruleMs": {
+       "value": 1.5,
+       "unit": "ms",
+       "numerator": null,
+       "denominator": null,
+       "coverage": null,
+       "reason": null
+      },
+      "itemP50Ms": {
+       "value": 20.5,
+       "unit": "ms",
+       "numerator": null,
+       "denominator": null,
+       "coverage": null,
+       "reason": null
+      },
+      "itemP95Ms": {
+       "value": 20.5,
+       "unit": "ms",
+       "numerator": null,
+       "denominator": null,
+       "coverage": null,
+       "reason": null
+      },
+      "queueWaitMs": {
+       "value": 12.0,
+       "unit": "ms",
+       "numerator": null,
+       "denominator": null,
+       "coverage": null,
+       "reason": null
+      },
+      "processRssBytes": {
+       "value": 104857600,
+       "unit": "bytes",
+       "numerator": null,
+       "denominator": null,
+       "coverage": null,
+       "reason": null
+      },
+      "throughput": {
+       "value": 48.78048780487805,
+       "unit": "rows/s",
+       "numerator": null,
+       "denominator": null,
+       "coverage": null,
+       "reason": null
+      },
+      "esbLatencyMs": {
+       "value": null,
+       "unit": "ms",
+       "numerator": null,
+       "denominator": null,
+       "coverage": null,
+       "reason": "source_clock_unverified"
+      },
+      "batchP50Ms": {
+       "value": 20.5,
+       "unit": "ms",
+       "numerator": null,
+       "denominator": null,
+       "coverage": null,
+       "reason": null
+      },
+      "batchP95Ms": {
+       "value": 20.5,
+       "unit": "ms",
+       "numerator": null,
+       "denominator": null,
+       "coverage": null,
+       "reason": null
+      }
+     },
+     "details": {
+      "clock": "monotonic",
+      "batchSize": 1,
+      "concurrency": 1,
+      "concurrencyScope": "checker_callbacks",
+      "platform": "Linux",
+      "processCpuCount": 4,
+      "warmCold": "mixed_unclassified",
+      "samplingPeriod": "per_batch_completion",
+      "memoryScope": "process_current_rss_sample",
+      "resourceLimits": "not_observed",
+      "containerPeakMeasured": false,
+      "totalTiming": "handler_execution_before_atomic_publication",
+      "batchSampleCount": 1,
+      "itemSampleCount": 1,
+      "queueWaitClock": "database",
+      "queueWaitBasis": "enqueue_to_attempt_start_including_retry",
+      "scope": "detector_process_revision",
+      "sourceClockStatus": "unknown",
+      "modelNJobs": null
+     }
+    },
+    "statusRulePolicy": {
+     "version": "process-status-hr-v2",
+     "sourceId": "__SOURCE_ID__",
+     "mapping": {
+      "S": "no_hit",
+      "F": "critical",
+      "P": "warning",
+      "N": "info",
+      "H": "info",
+      "Z": "warning"
+     }
+    },
+    "observation": {
+     "id": "__OBSERVATION_ID__",
+     "revisionNo": 1,
+     "inputAsOf": "__INPUT_AS_OF__"
+    },
+    "inputManifestHash": "__MANIFEST_HASH__"
+   }
+  }
+ },
+ "interim": {
+  "sign": {
+   "schemaVersion": 4,
+   "ruleSetRevision": 1,
+   "ruleSetHash": "de6a2ad8d0dcee189f36852a279263d3408f826632b95b4f14a97406b801bed0",
+   "detectionPolicy": {
+    "version": 2,
+    "policyKey": "category-k-of-n-or-v1",
+    "k": {
+     "hard": 1,
+     "soft": 1,
+     "ml": 1
+    },
+    "deadlineMs": 3000
+   },
+   "detectionPolicyRevision": 0,
+   "activeModelSetRevision": 1,
+   "methodResults": [
+    {
+     "methodId": "hard:process-status",
+     "category": "hard",
+     "methodVersion": "process-status-hr-v2",
+     "status": "succeeded",
+     "anomalous": false,
+     "code": null,
+     "severity": null,
+     "riskLevel": null,
+     "riskLevelReason": null,
+     "cause": null,
+     "failureCode": null,
+     "elapsedMs": 1.0,
+     "evidence": [
+      {
+       "observedStatus": "S",
+       "result": "no_hit"
+      }
+     ]
+    },
+    {
+     "methodId": "hard:negative-duration",
+     "category": "hard",
+     "methodVersion": "negative-duration-v1",
+     "status": "succeeded",
+     "anomalous": false,
+     "code": null,
+     "severity": null,
+     "riskLevel": null,
+     "riskLevelReason": null,
+     "cause": null,
+     "failureCode": null,
+     "elapsedMs": 2.0,
+     "evidence": [
+      {
+       "result": "no_hit"
+      }
+     ]
+    },
+    {
+     "methodId": "hard:success-with-error",
+     "category": "hard",
+     "methodVersion": "success-with-error-v1",
+     "status": "succeeded",
+     "anomalous": false,
+     "code": null,
+     "severity": null,
+     "riskLevel": null,
+     "riskLevelReason": null,
+     "cause": null,
+     "failureCode": null,
+     "elapsedMs": 3.0,
+     "evidence": [
+      {
+       "result": "no_hit"
+      }
+     ]
+    },
+    {
+     "methodId": "hard:count-conservation",
+     "category": "hard",
+     "methodVersion": "count-conservation-v1",
+     "status": "succeeded",
+     "anomalous": false,
+     "code": null,
+     "severity": null,
+     "riskLevel": null,
+     "riskLevelReason": null,
+     "cause": null,
+     "failureCode": null,
+     "elapsedMs": 4.0,
+     "evidence": [
+      {
+       "result": "no_hit"
+      }
+     ]
+    },
+    {
+     "methodId": "soft:retry_count-3f9a2c1d",
+     "category": "soft",
+     "methodVersion": "soft-threshold-v1",
+     "status": "succeeded",
+     "anomalous": true,
+     "code": "SOFT_RETRY_COUNT_3F9A2C1D",
+     "severity": "warning",
+     "riskLevel": "warning",
+     "riskLevelReason": null,
+     "cause": null,
+     "failureCode": null,
+     "elapsedMs": 5.0,
+     "evidence": [],
+     "observedValue": "4",
+     "condition": {
+      "field": "retry_count",
+      "operator": "gte",
+      "threshold": "3",
+      "unit": "count"
+     }
+    },
+    {
+     "methodId": "ml:iforest",
+     "category": "ml",
+     "methodVersion": "process-iforest-v1",
+     "status": "not_ready",
+     "anomalous": null,
+     "code": null,
+     "severity": null,
+     "riskLevel": null,
+     "riskLevelReason": null,
+     "cause": "pending",
+     "failureCode": null,
+     "elapsedMs": null,
+     "evidence": [],
+     "modelVersionId": "__MODEL_VERSION_ID__",
+     "score": null,
+     "scoreDetail": null
+    }
+   ],
+   "categoryResults": {
+    "hard": {
+     "n": 4,
+     "k": 1,
+     "result": "normal",
+     "status": "succeeded",
+     "anomalous": false
+    },
+    "soft": {
+     "n": 1,
+     "k": 1,
+     "result": "anomalous",
+     "status": "succeeded",
+     "anomalous": true
+    },
+    "ml": {
+     "n": 1,
+     "k": 1,
+     "result": "undetermined",
+     "status": "not_ready",
+     "anomalous": null
+    }
+   },
+   "composite": {
+    "policy": {
+     "version": 2,
+     "policyKey": "category-k-of-n-or-v1",
+     "k": {
+      "hard": 1,
+      "soft": 1,
+      "ml": 1
+     }
+    },
+    "status": "partial",
+    "anomalous": true,
+    "grade": "anomaly_sign",
+    "basisMethods": [
+     "soft:retry_count-3f9a2c1d"
+    ],
+    "firstAnomalyElapsedMs": 5.0,
+    "risk": {
+     "policy": "risk-max-v1",
+     "levelTable": "method-defined-v2",
+     "status": "rated",
+     "level": "warning",
+     "unratedMethods": [],
+     "determinedBy": [
+      "soft:retry_count-3f9a2c1d"
+     ]
+    }
+   },
+   "elapsedMs": 6.2
+  },
+  "anomaly": {
+   "schemaVersion": 4,
+   "ruleSetRevision": 1,
+   "ruleSetHash": "de6a2ad8d0dcee189f36852a279263d3408f826632b95b4f14a97406b801bed0",
+   "detectionPolicy": {
+    "version": 2,
+    "policyKey": "category-k-of-n-or-v1",
+    "k": {
+     "hard": 1,
+     "soft": 1,
+     "ml": 1
+    },
+    "deadlineMs": 3000
+   },
+   "detectionPolicyRevision": 0,
+   "activeModelSetRevision": 1,
+   "methodResults": [
+    {
+     "methodId": "hard:process-status",
+     "category": "hard",
+     "methodVersion": "process-status-hr-v2",
+     "status": "succeeded",
+     "anomalous": true,
+     "code": "PROCESS_STATUS_F",
+     "severity": "critical",
+     "riskLevel": "critical",
+     "riskLevelReason": null,
+     "cause": null,
+     "failureCode": null,
+     "elapsedMs": 1.0,
+     "evidence": [
+      {
+       "observedStatus": "F",
+       "result": "hit"
+      }
+     ]
+    },
+    {
+     "methodId": "hard:negative-duration",
+     "category": "hard",
+     "methodVersion": "negative-duration-v1",
+     "status": "succeeded",
+     "anomalous": false,
+     "code": null,
+     "severity": null,
+     "riskLevel": null,
+     "riskLevelReason": null,
+     "cause": null,
+     "failureCode": null,
+     "elapsedMs": 2.0,
+     "evidence": [
+      {
+       "result": "no_hit"
+      }
+     ]
+    },
+    {
+     "methodId": "hard:success-with-error",
+     "category": "hard",
+     "methodVersion": "success-with-error-v1",
+     "status": "succeeded",
+     "anomalous": false,
+     "code": null,
+     "severity": null,
+     "riskLevel": null,
+     "riskLevelReason": null,
+     "cause": null,
+     "failureCode": null,
+     "elapsedMs": 3.0,
+     "evidence": [
+      {
+       "result": "no_hit"
+      }
+     ]
+    },
+    {
+     "methodId": "hard:count-conservation",
+     "category": "hard",
+     "methodVersion": "count-conservation-v1",
+     "status": "succeeded",
+     "anomalous": false,
+     "code": null,
+     "severity": null,
+     "riskLevel": null,
+     "riskLevelReason": null,
+     "cause": null,
+     "failureCode": null,
+     "elapsedMs": 4.0,
+     "evidence": [
+      {
+       "result": "no_hit"
+      }
+     ]
+    },
+    {
+     "methodId": "soft:retry_count-3f9a2c1d",
+     "category": "soft",
+     "methodVersion": "soft-threshold-v1",
+     "status": "succeeded",
+     "anomalous": true,
+     "code": "SOFT_RETRY_COUNT_3F9A2C1D",
+     "severity": "warning",
+     "riskLevel": "warning",
+     "riskLevelReason": null,
+     "cause": null,
+     "failureCode": null,
+     "elapsedMs": 5.0,
+     "evidence": [],
+     "observedValue": "4",
+     "condition": {
+      "field": "retry_count",
+      "operator": "gte",
+      "threshold": "3",
+      "unit": "count"
+     }
+    },
+    {
+     "methodId": "ml:iforest",
+     "category": "ml",
+     "methodVersion": "process-iforest-v1",
+     "status": "not_ready",
+     "anomalous": null,
+     "code": null,
+     "severity": null,
+     "riskLevel": null,
+     "riskLevelReason": null,
+     "cause": "pending",
+     "failureCode": null,
+     "elapsedMs": null,
+     "evidence": [],
+     "modelVersionId": "__MODEL_VERSION_ID__",
+     "score": null,
+     "scoreDetail": null
+    }
+   ],
+   "categoryResults": {
+    "hard": {
+     "n": 4,
+     "k": 1,
+     "result": "anomalous",
+     "status": "succeeded",
+     "anomalous": true
+    },
+    "soft": {
+     "n": 1,
+     "k": 1,
+     "result": "anomalous",
+     "status": "succeeded",
+     "anomalous": true
+    },
+    "ml": {
+     "n": 1,
+     "k": 1,
+     "result": "undetermined",
+     "status": "not_ready",
+     "anomalous": null
+    }
+   },
+   "composite": {
+    "policy": {
+     "version": 2,
+     "policyKey": "category-k-of-n-or-v1",
+     "k": {
+      "hard": 1,
+      "soft": 1,
+      "ml": 1
+     }
+    },
+    "status": "partial",
+    "anomalous": true,
+    "grade": "anomaly",
+    "basisMethods": [
+     "hard:process-status",
+     "soft:retry_count-3f9a2c1d"
+    ],
+    "firstAnomalyElapsedMs": 1.0,
+    "risk": {
+     "policy": "risk-max-v1",
+     "levelTable": "method-defined-v2",
+     "status": "rated",
+     "level": "critical",
+     "unratedMethods": [],
+     "determinedBy": [
+      "hard:process-status"
+     ]
+    }
+   },
+   "elapsedMs": 7.4
+  }
+ }
+}

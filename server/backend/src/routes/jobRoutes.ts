@@ -30,7 +30,7 @@ function uuid(value: unknown): value is string {
 
 type JobInput = {
   kind: string; sourceId: string; from?: string; until?: string;
-  featureSetId?: string; configVersionId?: string; snapshotId?: string;
+  featureSetId?: string; configVersionId?: string | null; snapshotId?: string;
   purpose?: string; ruleVersionIds?: string[]; decisionId?: string; savedEvidence?: Record<string, unknown>; savedEvidenceJson?: string;
   detectionPolicy?: { mode: string; deadlineMs: number; combination: string };
   modelKey?: string;

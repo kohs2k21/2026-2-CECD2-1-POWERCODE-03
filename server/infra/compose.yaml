@@ -11,6 +11,7 @@ x-worker: &worker
     DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL in server/infra/.env}
     ARTIFACT_ROOT: /artifacts
     RESEARCH_BUNDLE_ROOT: /research-runtime
+    DETECT_JOB_CONTRACT: ${DETECT_JOB_CONTRACT:-v03}
   user: "${PWC_CONTAINER_UID:-10001}:${PWC_CONTAINER_GID:-10001}"
   networks: [runtime, database]
 

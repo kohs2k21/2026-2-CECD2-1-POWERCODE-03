@@ -1,0 +1,62 @@
+{
+  "issue": 95,
+  "client_date": "2026-11-02",
+  "status": "validated_research_handoff",
+  "user_confirmed_previous": "shared_model_v7_minute_models_if_kmeans_lof",
+  "proposed_destination": "research/process_event_model",
+  "algorithm_model_count": 6,
+  "joblib_file_count": 4,
+  "model_bytes_total": 19380961,
+  "models": [
+    {
+      "role": "latest_process_rows",
+      "algorithms": [
+        "if",
+        "kmeans",
+        "lof"
+      ],
+      "source": "reports/process_event_model/validated/event_models.joblib",
+      "destination": "models/latest_process_rows/event_models.joblib",
+      "bytes": 5234098,
+      "sha256": "defaf8c1b1e973e4def5f700a7532eb1a33a9bcdfe2e8afc8c8cae54815982a4",
+      "required_config_source": "reports/process_event_model/validated/incident_policy.json"
+    },
+    {
+      "role": "previous_minute",
+      "algorithms": [
+        "if"
+      ],
+      "source": "reports/shared_model_v7/release/handoff/if_shared.joblib",
+      "destination": "models/previous_minute/if_shared.joblib",
+      "bytes": 1128182,
+      "sha256": "e673edb10cb86632eff437e4ea0864707375d4a96f128a6a873f198c4836a290",
+      "required_config_source": "reports/shared_model_v7/release/handoff/manifest.json"
+    },
+    {
+      "role": "previous_minute",
+      "algorithms": [
+        "kmeans"
+      ],
+      "source": "reports/shared_model_v7/release/handoff/kmeans_shared.joblib",
+      "destination": "models/previous_minute/kmeans_shared.joblib",
+      "bytes": 836205,
+      "sha256": "9293ea4bd6ff85589e3ed20d6aeb01b4bbb4b610ce3d19e79c15daef7fdd5689",
+      "required_config_source": "reports/shared_model_v7/release/handoff/manifest.json"
+    },
+    {
+      "role": "previous_minute",
+      "algorithms": [
+        "lof"
+      ],
+      "source": "reports/shared_model_v7/release/handoff/lof_shared.joblib",
+      "destination": "models/previous_minute/lof_shared.joblib",
+      "bytes": 12182476,
+      "sha256": "53f104b27674260b0b9dec51dcbde351a1eb4d2e3c894c2b831214c734fa22ba",
+      "required_config_source": "reports/shared_model_v7/release/handoff/manifest.json"
+    }
+  ],
+  "datasets_included": false,
+  "benchmark_upload": "on_hold",
+  "other_historical_models_included": false,
+  "publication_package_verified": true
+}

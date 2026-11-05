@@ -1,0 +1,16 @@
+{
+  "model_sha256": "defaf8c1b1e973e4def5f700a7532eb1a33a9bcdfe2e8afc8c8cae54815982a4",
+  "user_confirmed_on": "2026-11-02",
+  "requirements": {
+    "per_scenario_f1_loss_max_percentage_points": 2.0,
+    "per_scenario_fpr_max_percent": 6.0,
+    "original_Process_rows_preserved": true,
+    "input_stop_excluded": true
+  },
+  "maximum_observed_f1_loss_pp": 1.3430723310314918,
+  "metric_gate_passed": true,
+  "Precision_and_Recall_not_required_identical": true,
+  "standalone_and_live_audits_required": true,
+  "production_deployed": false,
+  "previous_current_preserved": true
+}

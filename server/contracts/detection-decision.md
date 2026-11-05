@@ -52,6 +52,8 @@
 | C29 | 활성 모델과 관측의 source가 다르면 그 모델은 `not_configured` 미판정으로 둔다. 다중 출처 운영을 하게 되면 다시 정한다 | 11/05 사용자 결정 |
 | C30 | source 불일치 경고 화면은 개발하지 않는다. 고객사 하나당 시스템 하나라 운영 출처는 하나이고, API·CSV 입력 전환은 같은 source를 쓴다 | 11/05 사용자 결정 |
 
+- C28의 선행 조건 중 `queues.md` 조율은 #112에서 끝났다(16절). API·WebUI 대응과 migration 016 적용은 전환 때 따로 확인한다
+
 ### 1.1 세션 합의 → 사용자 확정(11/03 U1)
 
 | # | 합의 | 날짜·출처 |
@@ -647,12 +649,12 @@
 
 ## 16. 다른 계약과의 정합 — Trainer #94 반영 요청
 
-대조 기준: dev `1e70da8`(11/05, #106·#109·#110·#111·#116·#119 포함). 이 Issue는 #94 소유 문서를 수정하지 않는다. #94 문서는 행 번호 대신 문서 이름과 절·필드 이름으로 가리킨다.
+대조 기준: dev `f959b24`(11/05, #106·#109·#110·#111·#116·#119·#121·#124·#125·#129 포함). 이 Issue는 #94 소유 문서를 수정하지 않는다. #94 문서는 행 번호 대신 문서 이름과 절·필드 이름으로 가리킨다.
 
-- **남은 요청: 1건(`queues.md`, 아래)**(dev `1e70da8`에서 다시 확인). 그 밖에 6ff10b5·d8937f9·fa8c390·673463d의 구조 변경(Q-M1 확정 표기·조합 저장 폐기 포함, 활성 집합 0..N, `detectionPolicy` 운영 설정 전역 값, 일관 읽기 3요소, evidence `activeModelSetRevision`·`detectionPolicyRevision`, `detection_methods_empty` 모든 저장 경로(룰 세트 저장·`retire`·`replace`·`restore`), k > n 규칙(min 보정 금지, n = 0 무시 — 7.4), `resultCounts`의 `not_applicable` 정상 집계, 소프트룰 `sourceMissingPolicy`)은 이 문서 5.2·6·7.1·7.4·10·11절과 같은 뜻이다
-- **`queues.md` 요청**(소유 세션 조율 대기, 이 Issue는 고치지 않음): v04 detect 큐 payload에는 `configVersionId`가 없고 같은 manifest의 작업은 하나다. 메시지 참조 문구와 작업 생성 문단의 조율이 필요하며 v04 전환의 선행 조건이다(C28)
+- **남은 요청: 없음**(dev `f959b24`에서 다시 확인). 6ff10b5·d8937f9·fa8c390·673463d의 구조 변경(Q-M1 확정 표기·조합 저장 폐기 포함, 활성 집합 0..N, `detectionPolicy` 운영 설정 전역 값, 일관 읽기 3요소, evidence `activeModelSetRevision`·`detectionPolicyRevision`, `detection_methods_empty` 모든 저장 경로(룰 세트 저장·`retire`·`replace`·`restore`), k > n 규칙(min 보정 금지, n = 0 무시 — 7.4), `resultCounts`의 `not_applicable` 정상 집계, 소프트룰 `sourceMissingPolicy`)은 이 문서 5.2·6·7.1·7.4·10·11절과 같은 뜻이다
 - 해소됨(기록): 다음 요청은 #106으로 dev에 반영됐다 — 정정 요청 1건(`model-version.md`의 `k.ml`·`n_ml` 정합과 Q-M8, U4 반영), `rule-set.md` `softRules[].field` 문구, '결정 대기' 표기 6종(U1·U2·U3·U12)
 - 해소됨(기록): C27 후속 요청은 dev에 반영됐다 — `rule-set.md`의 `hard:process-status` 위험도 편집(v2 항목, 5코드 전부), hash v2(`contentHashVersion: 2`), 스냅샷에 없는 내장 규칙의 꺼짐 처리(#116), DB 016의 r1(#119), 룰 세트 저장 API(#109)
+- 해소됨(기록): `queues.md` 요청은 #112에서 반영했다 — detection 메시지 참조(v04 작업은 `configVersionId` 없음), 작업 생성 문단, 변경 제안 절 detection 행. 그 문서에 소유 세션 표시가 없어 동작을 바꾼 #112가 함께 고쳤다(DB 세션 회신 11/05)
 - 남은 표기(요청 아님): `rule-set.md` 리비전 형식 절의 "[합의 11/02 — 사용자 확인 필요 (b)]"는 #94 자체 질문이며 U1~U12에 포함되지 않는다. 이 문서는 그 상태를 바꾸지 않는다
 - 조건부 요청 — **현재 발동하지 않음**: U4가 11/03 추천안(k 모두 1)으로 확정되어 조건(k ≥ 2 허용)이 성립하지 않는다. 나중에 사용자가 U4를 완화할 때만 `rule-set.md` "저장 — `PUT /api/rule-set`" 절 검증 표에 "저장 결과 켜진 하드룰·소프트룰 수가 `k.hard`·`k.soft` 미만이 되면 422 `combination_k_out_of_range:<category>`(0이 되는 경우 제외)" 추가를 요청한다(7.4). dev 검증 표에는 이 행이 없고, 지금은 없는 것이 맞다
 - 확인(요청 아님)
@@ -707,7 +709,7 @@
 | D16 | `hard:process-status` 구현 세부: 코드 집합과 N 조건이 바뀌어 `process-status-hr-v2`로 올림. 표시 문구는 코드를 나열하지 않고 유지. 후보 `hard:invalid-status` 제거. END_TIME 없는 N은 `not_applicable`·`end_time_absent`로 기록. 사용자 단계 변경은 새 `methodVersion`이 아니라 룰 세트 리비전과 `statusRulePolicy.mapping`으로 추적하며 `mapping`은 시도에 고정한 코드별 단계(S는 `no_hit`) | C26·C27의 구현 형식. 사용자 결정이 아님 |
 | D17 | 건수 규칙 2개의 이름·버전·코드·문구: `hard:success-with-error`(`success-with-error-v1`, `HARD_SUCCESS_WITH_ERROR`, "성공 상태이나 오류 건수가 기록됨", "STATUS = S, ERROR_COUNT > 0"), `hard:count-conservation`(`count-conservation-v1`, `HARD_COUNT_CONSERVATION`, "건수 합계 불일치", "TOTAL_COUNT ≠ SUCCESS_COUNT + ERROR_COUNT") | C25의 구현 형식. `displayName`은 사용자 확정 11/04, `conditionText`는 Detector 제안 |
 | D18 | v04 선택 규칙(`detector/jobs.py` `detect_contract`): 설정이 `v03`이면 v03이다. 설정이 `v04`이면 호출자나 입력 제어가 고정한 구성이 없거나 활성 구성과 같을 때 v04이고, 그 밖의 구성을 고정한 입력(input-validation·데모)은 v03이다 | Detector 결정. 설정 유지는 C28. v04는 구성을 쓰지 않으므로 승인 구성이 아닌 구성을 시험하는 입력은 v04로 옮길 수 없음 |
-| D19 | 같은 manifest의 v03·v04 작업은 합쳐 하나다. 다른 버전 작업이 있으면 새로 만들지 않고 그 작업을 재사용한다. 그 작업이 failed여도 재사용하며 다시 판정하지 않는다 | Detector 결정. `run_jobs` 고유 조건은 버전별이라 코드가 막음. failed 재처리는 별도 운영 판단 |
+| D19 | 같은 manifest의 v03·v04 작업은 합쳐 하나다. 다른 버전 작업이 있으면 새로 만들지 않고 그 작업을 재사용한다. v03 작업끼리는 구성마다 따로 있을 수 있다. 그 작업이 failed여도 재사용하며 다시 판정하지 않는다 | Detector 결정. `run_jobs` 고유 조건은 버전별이라 코드가 막음. failed 재처리는 별도 운영 판단 |
 | D20 | 룰(하드·소프트)은 슬롯 1개에서 차례로 실행하고, 모델은 모델마다 슬롯 1개를 잡으며 ML 슬롯 상한은 2개다(`detector/method_runner.py`, `policy.py` `_SLOTS`). 슬롯을 못 잡으면 `capacity`다 | Detector 결정. 룰은 최대 36개로 짧아 방법마다 슬롯을 잡으면 정상 입력도 `capacity`가 됨. 활성 모델 3개 이상은 둘째 실행 어댑터 추가 전에 다시 정함 |
 | D21 | 모델 버전을 읽지 못하면 그 모델만 `not_configured`이고 `evidence[].reason`에 사유(예 `config_source_mismatch`)를 남긴다. 다른 방법 결과는 지우지 않는다 | Detector 결정. source 불일치를 미판정으로 두는 것은 C29 |
 | D22 | ML 입력 결측·변환 실패는 `not_ready`/`feature_unavailable`이다 | Detector 결정. 11.6 원인 분류 적용 |
@@ -717,6 +719,7 @@
 
 ## 이력
 
+- 2026-11-05: `queues.md` v04 메시지 계약 반영에 맞춰 16절 대조 기준 `f959b24`·남은 요청 없음으로 정리, C28 선행 조건 중 조율 완료를 별도 문장으로 표기, D19에 v03 구성별 작업 명시
 - 2026-11-05: #112 재검토 2차 반영 — 상태 표기를 D1~D25로, 14절·15절 K9의 `capacity` 표현을 슬롯을 못 잡은 경우로 정정
 - 2026-11-05: #112 재검토 반영 — 사용자 결정 C28~C30. Detector 결정 D18~D25. 6절 산출물 없음과 변조 구분, 15절 해소 현황을 K9·K12 실제 수준으로 낮춤, 14절 7·9행 구현 불가 명시, 16절 대조 기준 `1e70da8`·남은 요청 `queues.md` 1건
 - 2026-11-05: #112 2차 — dev 병합(016·#111) 뒤 정리. 11.2 예시를 내장 하드룰 4개 기준으로 정정, 2차 구현으로 바뀐 사실 반영(4.2·4.3 구현 상태, 6절 다중 ML 실행, 10절 뷰 읽기·hash 재계산, 11.1 경로 판별, 15절 머리말, 16절 `queues.md`). 11/04 이력 표현 정리(사용자 결정은 `displayName`만)

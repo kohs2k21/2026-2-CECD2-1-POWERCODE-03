@@ -98,7 +98,7 @@ export const SideNav = ({
                   )}
                 >
                   {item.icon && <span className="flex size-5 items-center justify-center [&_svg]:size-4">{item.icon}</span>}
-                  <span className={cn("min-w-0 flex-1 truncate", item.muted && "text-body text-muted-foreground")}>{item.label}</span>
+                  <span className={cn("min-w-0 flex-1 truncate", item.muted && "text-body", item.muted && !current && "text-muted-foreground")}>{item.label}</span>
                   {typeof item.count === "number" && (
                     <span className={cn("text-xs font-semibold tabular-nums text-muted-foreground", current && "text-foreground")}>{item.count}</span>
                   )}

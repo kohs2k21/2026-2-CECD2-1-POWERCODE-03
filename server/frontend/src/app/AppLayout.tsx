@@ -19,10 +19,7 @@ export const AppLayout = () => {
     if (Object.values(useDraftStore.getState().drafts).some((draft) => draft.dirty)) setLogoutRequested(true);
     else session.logout();
   };
-  const settingsPath =
-    location.pathname === paths.settings
-      ? location.pathname + location.search
-      : `${paths.settings}?returnTo=${encodeURIComponent(location.pathname + location.search)}`;
+  const settingsPath = location.pathname === paths.settings ? location.pathname + location.search : paths.settings;
   return (
     <RealtimeAnomalyProvider key={`${session.user!.id}:${session.user!.userType}`}>
       <TooltipProvider>

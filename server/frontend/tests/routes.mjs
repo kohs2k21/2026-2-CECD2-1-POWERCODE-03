@@ -150,11 +150,30 @@ for (const [path, title] of pages) {
   const app = await mount(path);
   assert.ok(app.h1().includes(title), `${path} renders ${title}; got ${app.h1()}`);
   assert.equal(location(app.router), path, `${path} stays on its address`);
-  if (!path.startsWith("/settings")) {
-    const h1s = app.renderer.root.findAllByType("h1");
-    assert.ok(h1s.length === 1 && h1s[0].props.className === "sr-only", `${path} keeps only a visually hidden screen title`);
-  }
+  const h1s = app.renderer.root.findAllByType("h1");
+  assert.ok(h1s.length === 1 && h1s[0].props.className === "sr-only", `${path} keeps only a visually hidden screen title`);
   await app.cleanup();
+}
+
+// 설정: 다른 화면과 같은 구조(복귀 버튼·보이는 제목 없음), 저장 미지원은 내용 오른쪽 위, 상단 설정 링크에 복귀 주소 없음
+{
+  const app = await mount("/settings?section=profile");
+  const anchors = () => app.renderer.root.findAll((node) => node.type === "a");
+  const textOf = (node) => (typeof node === "string" ? node : (node.children ?? []).map(textOf).join(""));
+  assert.equal(anchors().filter((node) => textOf(node).includes("이전 화면으로 돌아가기")).length, 0, "no back button");
+  const save = app.renderer.root.findAll((node) => node.type === "button" && textOf(node) === "저장 미지원")[0];
+  assert.equal(save.props.disabled, true, "the unsupported save stays");
+  assert.ok(save.parent.parent.props.className?.includes("justify-end") || save.parent.props.className?.includes("justify-end"), "aligned to the right");
+  assert.equal(anchors().find((node) => node.props["aria-label"] === "설정").props.href, "/settings?section=profile", "the current section stays");
+  await app.cleanup();
+  // 옛 주소 `?returnTo=`: 화면이 그대로 열리고 복귀 버튼은 없다
+  const legacy = await mount("/settings?returnTo=%2Fanalysis");
+  assert.ok(legacy.h1().includes("알림 설정"));
+  assert.equal(legacy.renderer.root.findAll((node) => node.type === "a" && textOf(node).includes("이전 화면으로 돌아가기")).length, 0);
+  await legacy.cleanup();
+  const other = await mount("/operations");
+  assert.equal(other.renderer.root.findAll((node) => node.type === "a" && node.props["aria-label"] === "설정")[0].props.href, "/settings", "no return address");
+  await other.cleanup();
 }
 
 // 옛 주소: replace 이동(뒤로 가기에 옛 주소가 남지 않음)

@@ -9,7 +9,7 @@ import {
   significantDigits, thresholdFixedDecimal,
 } from '../dist/ruleset/ruleSetContract.js';
 import { HARD_RULES } from '../dist/ruleset/hardRuleCatalog.js';
-import { METHOD_CATALOG, SOFT_RULE, SOFT_RULE_FIELDS } from '../dist/ruleset/softRuleCatalog.js';
+import { METHOD_CATALOG, SOFT_RULE, SOFT_RULE_FIELDS } from '../dist/ruleset/methodCatalog.js';
 import { displayThreshold, parseThresholdStatsRequest } from '../dist/ruleset/thresholdStats.js';
 import { TRAINER_CAPABILITIES } from '../dist/routes/trainerContract.js';
 

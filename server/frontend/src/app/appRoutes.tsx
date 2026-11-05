@@ -1,7 +1,8 @@
 import { Navigate, type RouteObject } from "react-router-dom";
 import { AnalysisPage } from "@/features/analysis/AnalysisPage";
 import { DetectionLayout } from "@/features/detection/DetectionLayout";
-import { EvaluationDetailPage, JobDetailPage, ModelVersionDetailPage } from "@/features/detection/pages/DetailPages";
+import { ModelVersionDetailPage } from "@/features/detection/models/VersionDetail";
+import { EvaluationDetailPage, JobDetailPage } from "@/features/detection/pages/DetailPages";
 import { EvaluationsPage } from "@/features/detection/pages/EvaluationsPage";
 import { ModelsPage } from "@/features/detection/pages/ModelsPage";
 import { OperationsSettingsPage } from "@/features/detection/pages/OperationsSettingsPage";

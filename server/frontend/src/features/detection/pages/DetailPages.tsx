@@ -14,5 +14,4 @@ const DetailPage = ({ title, idParam }: { title: string; idParam: string }) => {
 };
 
 export const JobDetailPage = () => <DetailPage title="작업 상세" idParam="jobId" />;
-export const ModelVersionDetailPage = () => <DetailPage title="모델 버전 상세" idParam="versionId" />;
 export const EvaluationDetailPage = () => <DetailPage title="평가 상세" idParam="evaluationId" />;

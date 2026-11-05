@@ -131,7 +131,7 @@ const appPathPatterns: RegExp[] = [
 ];
 export const isAppPath = (pathname: string) => appPathPatterns.some((pattern) => pattern.test(pathname));
 
-/** 로그인·설정 복귀 주소: 앱 내부 허용 경로만(외부 URL·프로토콜 상대 URL 금지). 옛 주소는 새 주소로 바꿔 허용. */
+/** 로그인 복귀 주소: 앱 내부 허용 경로만(외부 URL·프로토콜 상대 URL 금지). 옛 주소는 새 주소로 바꿔 허용. */
 export const safeReturnPath = (value: unknown, fallback: string = paths.operations) => {
   if (typeof value !== "string" || !value.startsWith("/") || value.startsWith("//")) return fallback;
   try {
@@ -143,10 +143,6 @@ export const safeReturnPath = (value: unknown, fallback: string = paths.operatio
   } catch {
     return fallback;
   }
-};
-export const settingsReturnPath = (value: unknown) => {
-  const path = safeReturnPath(value);
-  return new URL(path, "https://local.invalid").pathname === paths.settings ? paths.operations : path;
 };
 export const loginReturnPath = (value: unknown, role: UserRole) => {
   const path = safeReturnPath(value);

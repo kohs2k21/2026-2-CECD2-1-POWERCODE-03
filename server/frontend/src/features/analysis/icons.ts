@@ -1,25 +1,37 @@
 import {
+  IconAlertCircle,
+  IconAlertOctagon,
   IconAlertTriangle,
   IconCircleCheck,
+  IconCircleX,
+  IconClock,
   IconFlame,
   IconFolderOpen,
+  IconHelpCircle,
   IconInbox,
   IconInfoCircle,
+  IconQuestionMark,
   IconRefresh,
   type Icon,
 } from "@tabler/icons-react";
 import type { Category, RiskLevel, WorkflowState } from "./data/analysisApi";
 
 /**
- * 이상 분석 장식 아이콘(#100 이전 화면 `constants.ts` categoryThemeMap·`AnalysisDetailView` 처리 상태 버튼과 같은 Tabler 아이콘).
- * 이전 화면에 대응 항목이 있던 분류만 둔다(판정 결과별 이상·이상 징후·판정 중·미확인·실패, 위험도 미정은 대응 없음 → 아이콘 없음).
+ * 이상 분석 장식 아이콘. 위험도·분류함·처리 상태는 #100 이전 화면(`constants.ts` categoryThemeMap·`AnalysisDetailView` 처리 상태 버튼)과 같은 Tabler 아이콘이고,
+ * 이전 대응이 없던 판정 결과별 분류와 위험도 미정은 사이드바가 어긋나지 않게 뜻이 맞는 아이콘을 더했다(사용자 11/05).
  */
-export const categoryIcons: Partial<Record<Category, Icon>> = {
+export const categoryIcons: Record<Category, Icon> = {
   all: IconInbox,
+  anomaly: IconAlertOctagon,
+  anomaly_sign: IconAlertCircle,
+  in_progress: IconClock,
+  undetermined: IconQuestionMark,
+  failed_replaced: IconCircleX,
   risk_all: IconInbox,
   risk_critical: IconFlame,
   risk_warning: IconAlertTriangle,
   risk_info: IconInfoCircle,
+  risk_unrated: IconHelpCircle,
   workflow_open: IconFolderOpen,
   workflow_resolved: IconCircleCheck,
 };

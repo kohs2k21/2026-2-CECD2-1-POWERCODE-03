@@ -92,7 +92,7 @@ export const DecisionListView = ({
       <CardContent className="grid gap-4">
         <header className="flex items-center justify-between gap-3">
           <h2 className="flex min-w-0 items-center gap-2 text-section-title">
-            {CategoryIcon && <CategoryIcon aria-hidden="true" className="size-4.5 shrink-0" />}
+            <CategoryIcon aria-hidden="true" className="size-4.5 shrink-0" />
             {categoryLabels[params.category]} 판정
           </h2>
           <Button

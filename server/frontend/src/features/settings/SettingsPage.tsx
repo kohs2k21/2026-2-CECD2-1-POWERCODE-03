@@ -1,10 +1,10 @@
 import type { ComponentType } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import { IconBell, IconLayoutDashboard, IconPlug, IconUserCog } from "@tabler/icons-react";
-import { PageHeader } from "@/components/layout/PageHeader";
+import { ScreenTitle } from "@/components/layout/PageHeader";
 import { SideNav } from "@/components/layout/SideNav";
 import { Button } from "@/components/ui/button";
-import { settingsReturnPath, urlOptions, withSearchParam } from "@/app/routes";
+import { urlOptions, withSearchParam } from "@/app/routes";
 import { useUrlOption } from "@/hooks/useUrlState";
 import { useAuthSession } from "@/services/auth/AuthSessionProvider";
 import type { AuthUser } from "@/types/auth";
@@ -27,50 +27,41 @@ const sectionComponents: Record<SectionId, ComponentType<{ currentUser: AuthUser
   profile: ProfileSettings,
 };
 
-/** 설정: 독립 페이지(section URL), 종료 시 진입 전 경로·탭·필터로 복귀(returnTo). */
+/** 설정: 독립 페이지(section URL). 다른 화면처럼 보이는 제목 없이 사이드바 현재 표시로 위치를 보인다(ui.md 화면 제목). */
 export const SettingsPage = () => {
   const { user } = useAuthSession();
   const [params] = useSearchParams();
   const section = useUrlOption("section", urlOptions.settingsSection);
   const Active = sectionComponents[section.value];
   return (
-    <div className="grid gap-6">
-      <div>
-        <Button asChild variant="outline">
-          <Link to={settingsReturnPath(params.get("returnTo"))}>이전 화면으로 돌아가기</Link>
-        </Button>
-      </div>
-      <div className="flex flex-col gap-6 md:flex-row md:items-start">
-        <SideNav
-          label="설정 항목"
-          heading="설정"
-          menuId="settings-sections"
-          activeId={section.value}
-          groups={[
-            {
-              items: urlOptions.settingsSection.map((id) => {
-                const Icon = sections[id].icon;
-                return {
-                  id,
-                  label: sections[id].label,
-                  icon: <Icon aria-hidden />,
-                  to: "/settings" + withSearchParam(params, "section", id),
-                };
-              }),
-            },
-          ]}
-        />
-        <div className="grid min-w-0 flex-1 gap-6">
-          <PageHeader
-            title={sections[section.value].label}
-            actions={
-              <Button variant="outline" disabled title="설정 저장 기능은 현재 서버에서 지원하지 않습니다.">
-                저장 미지원
-              </Button>
-            }
-          />
-          <Active currentUser={user!} />
+    <div className="flex flex-col gap-6 md:flex-row md:items-start">
+      <SideNav
+        label="설정 항목"
+        heading="설정"
+        menuId="settings-sections"
+        activeId={section.value}
+        groups={[
+          {
+            items: urlOptions.settingsSection.map((id) => {
+              const Icon = sections[id].icon;
+              return {
+                id,
+                label: sections[id].label,
+                icon: <Icon aria-hidden />,
+                to: "/settings" + withSearchParam(params, "section", id),
+              };
+            }),
+          },
+        ]}
+      />
+      <div className="grid min-w-0 flex-1 gap-6">
+        <ScreenTitle>{sections[section.value].label}</ScreenTitle>
+        <div className="flex justify-end">
+          <Button variant="outline" disabled title="설정 저장 기능은 현재 서버에서 지원하지 않습니다.">
+            저장 미지원
+          </Button>
         </div>
+        <Active currentUser={user!} />
       </div>
     </div>
   );

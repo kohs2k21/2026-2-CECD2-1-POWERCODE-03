@@ -1,5 +1,5 @@
 Created: 2026-11-04T22:00:00+09:00
-Updated: 2026-11-05T13:11:00+09:00
+Updated: 2026-11-05T16:30:00+09:00
 Author: #109 Claude Code(WebUI builder)
 Status: current
 
@@ -7,7 +7,7 @@ Status: current
 
 - 범위: `/detection/rules` 관리자 화면(#109, 상위 #101). 화면 기준 와이어프레임 #93 `section[data-view="detect-rules"]`. 요청·응답·검증 정본은 [rule-set.md](rule-set.md), 수식 추천은 [llm-recommendation-job.md](llm-recommendation-job.md) "규칙별 수식 추천" 절. 이 문서는 화면 규칙과 구현에서 정한 값만 적는다
 - 연결: `/api/rule-set`(`backend/src/routes/ruleSetRoutes.ts`), 순수 규칙 `backend/src/ruleset/ruleSetContract.ts`, 저장소 `ruleSetStore.ts`, 수식 추천 `thresholdStats.ts`
-- 내장 상수: 이상 규칙 목록 `ruleset/hardRuleCatalog.ts`(4개: 상태 규칙, 시각 역전, 성공 상태이나 오류 건수가 기록됨, 건수 합계 불일치), 등록 필드 `ruleset/softRuleCatalog.ts`. 각각 rule-set.md `hardRules[]` 예시·method-catalog.md 예시와 같은 값이며 `tests/rule-set-contract.test.mjs`가 문서와 대조한다(detection-decision.md 4.3 대조는 #117이 dev에 들어온 뒤 되돌린다). 정본 코드가 생기면 이 두 파일만 바꾼다
+- 내장 상수: 이상 규칙 목록 `ruleset/hardRuleCatalog.ts`(4개: 상태 규칙, 시각 역전, 성공 상태이나 오류 건수가 기록됨, 건수 합계 불일치), 등록 필드는 `ruleset/methodCatalog.ts`가 `contracts/method-catalog.json`을 읽는다. 각각 rule-set.md `hardRules[]` 예시·method-catalog.md 예시와 같은 값이며 `tests/rule-set-contract.test.mjs`가 문서와 대조한다(detection-decision.md 4.3 대조는 #117이 dev에 들어온 뒤 되돌린다). 정본 코드가 생기면 이 두 파일만 바꾼다
 - 인증·역할: 기존 Bearer. 없음·잘못된 토큰 401. 조회·이력 = user/admin, 저장·미리보기·수식 추천 = admin(그 외 403 `admin_required`). 화면 자체는 admin 메뉴
 - 저장소: `ops_rule_set_revisions`(마이그레이션 015). 저장은 트랜잭션 1개 — `pg_advisory_xact_lock(81739, 0)` → 일반 SELECT로 현재 리비전 읽기 → `expectedRevision` 비교 → 검증 → 일반 INSERT. API 역할에 UPDATE가 없어 `SELECT … FOR UPDATE`는 쓰지 않는다. NOTIFY 없음. 조회·저장 실패 503 `rule_set_storage_unavailable`(오류 원문 비노출, 빈 룰로 대체하지 않음)
 
@@ -27,7 +27,7 @@ Status: current
 | 이상 징후 규칙 | 규칙 이름·대상 필드(읽기 전용)·조건·임계값·단위·위험도·켜기·수식 추천·삭제. `규칙 추가`는 등록 필드를 받은 뒤 활성. 머리글에 `AI 규칙 추천`(아래 절) |
 | 변경 기록 | 버전·시각·변경자·요약·되돌리기. 현재 버전 행은 되돌리기 없음, 그 밖의 모든 행에 `이 상태로 되돌리기`(현재와 내용이 같은 행은 비활성: 같은 hash이거나 hash 버전이 다른 행만 미리보기의 `rule_set_unchanged`로 판단). 50건씩 `더 보기`, 끝나면 버튼 없음 |
 
-- 등록 필드는 `GET /api/jobs/capabilities`의 `methodCatalog.softRuleFields`로 받는다. `methodCatalog`는 지금 ML `methods[]` 없이 `catalogVersion`·`generatedFrom`·`categoryDisplayNames`·`hardRules`·`softRule`·`softRuleFields`만 담는다(레지스트리 생성 JSON 전). 응답에 없으면 오류로 표시하고 규칙 추가를 막는다
+- 등록 필드는 `GET /api/jobs/capabilities`의 `methodCatalog.softRuleFields`로 받는다. `methodCatalog`는 레지스트리 생성 JSON 전체다(#128). 응답에 없으면 오류로 표시하고 규칙 추가를 막는다
 - 변경자 표시: 관리자 응답은 계정 email, 일반 사용자 응답과 계정이 없는 값(r0의 `system`)은 계정 ID
 
 ## 상태 규칙 코드별 위험도(사용자 11/04)

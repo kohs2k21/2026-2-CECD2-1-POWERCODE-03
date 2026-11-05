@@ -29,9 +29,12 @@ export function clearJobRequestKeys(): void {
   try { window.sessionStorage.removeItem(storageKey); } catch { /* Storage may be disabled. */ }
 }
 
-export function forgetJobRequestKey(actorId: string, input: Record<string, unknown>): void {
+/** `expectedKey`를 주면 저장된 키가 그 키일 때만 지운다(같은 내용의 더 새로운 요청 키는 남긴다). */
+export function forgetJobRequestKey(actorId: string, input: Record<string, unknown>, expectedKey?: string | null): void {
   loadRequests();
-  delete requests[JSON.stringify([actorId, canonical(input)])];
+  const fingerprint = JSON.stringify([actorId, canonical(input)]);
+  if (expectedKey !== undefined && requests[fingerprint] !== expectedKey) return;
+  delete requests[fingerprint];
   try { window.sessionStorage.setItem(storageKey, JSON.stringify(requests)); } catch { /* Storage may be disabled. */ }
 }
 

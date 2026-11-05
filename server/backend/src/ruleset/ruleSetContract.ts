@@ -1,6 +1,6 @@
 import crypto from 'node:crypto';
 import { HARD_RULES, type HardRuleDefinition, type HardRuleSeverity, type Severity } from './hardRuleCatalog.js';
-import { SOFT_RULE, softRuleField, type SoftRuleOperator } from './softRuleCatalog.js';
+import { SOFT_RULE, softRuleField, type SoftRuleOperator } from './methodCatalog.js';
 
 /**
  * 룰 세트 계약(rule-set.md)의 순수 규칙: 요청 형식, 고정소수 변환, 내용 hash, 저장 검증 순서, 변경 요약.

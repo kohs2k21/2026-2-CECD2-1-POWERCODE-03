@@ -12,6 +12,8 @@ WORKDIR /app
 COPY --from=build /app/package.json ./
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
+# dist/ruleset/methodCatalog.js가 세 단계 위에서 읽는다(개발·빌드와 같은 상대 위치).
+COPY contracts/method-catalog.json /contracts/method-catalog.json
 RUN mkdir -p /app/data && chown node:node /app/data
 USER node
 EXPOSE 5001

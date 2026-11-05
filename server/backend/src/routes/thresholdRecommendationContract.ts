@@ -1,6 +1,6 @@
 import crypto from 'node:crypto';
 import type { SoftRule } from '../ruleset/ruleSetContract.js';
-import { SOFT_RULE, softRuleField } from '../ruleset/softRuleCatalog.js';
+import { SOFT_RULE, softRuleField } from '../ruleset/methodCatalog.js';
 
 /**
  * 소프트룰 임계값 추천 접수(llm-recommendation-job.md `recommend_thresholds`)의 순수 규칙: 요청 형식, 대상 고정, llm_spec.

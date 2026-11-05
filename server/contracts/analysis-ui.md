@@ -1,5 +1,5 @@
 Created: 2026-11-03T18:00:00+09:00
-Updated: 2026-11-05T10:40:07+09:00
+Updated: 2026-11-05T18:30:00+09:00
 Author: #105 Claude Code(WebUI builder)
 Status: current
 
@@ -116,7 +116,7 @@ Status: current
 - 조사·조치 기록(admin만, 와이어프레임 feedbackBox): 기록 유형(조치 기록·오탐 의심·근거 부족)·조사·조치 사유(최대 2000자, 자리표시 `확인한 사실과 조치 사유를 입력하세요.`)·안내 `선택은 확정 라벨이나 자동 학습으로 반영되지 않습니다.`·`피드백 저장`. 빈 사유는 저장하지 않고 `조사·조치 사유를 입력하세요.`, 실패는 `피드백 저장 실패 · <오류 코드>`. 저장된 기록은 아래 목록(최신순 `<시각> · <유형> · <작성자 email>` + 사유) — 목록 배치는 와이어프레임에 없어 판정 기록 목록 형식을 따름
 - 판정 기한(`detectionPolicy.deadlineMs`)·정책 k는 판정 정책 값이라 숫자를 화면에 보이지 않는다(와이어프레임 사용자 9.8). 미판정 사유는 이름(예: 처리 기한 초과)만
 - AI 판정 근거 요약(설명 작업 `explain`, 사용자 11/04 이름 변경): 최종 판정만 요청(그 외·데모 판정은 버튼 비활성 + 사유). 요청 → `GET /api/jobs/:id`를 queued·running일 때만 5초 주기·`요청 중` 표시, 그 밖의 상태(blocked 등)는 주기 조회 없이 상태 코드 그대로, 실패는 작업 상태·오류 코드 그대로 + `설명 다시 요청`. 상세 `explanation`이 있으면 그 작업을 이어서 보여 주고, 그 작업을 읽는 중이거나 읽기에 실패하면 오류를 그대로 보이고 새 요청 버튼을 막는다(중복 요청 방지)
-- 장식 아이콘(사용자 11/04, #100 이전 화면 아이콘 복원, Tabler·`aria-hidden`, `frontend/src/features/analysis/icons.ts`): 사이드바 위험도·분류함 그룹과 목록 제목의 분류 아이콘(전체 IconInbox·위험 IconFlame·주의 IconAlertTriangle·참고 IconInfoCircle·보류 IconFolderOpen·완료 IconCircleCheck, 위험도 미정은 빈 자리. 판정 결과별 사이드바 그룹은 아이콘 없음), 목록 줄·판정 요약 제목 = 저장된 위험도 단계 아이콘(단계가 있는 이상만, 배지와 같은 글자 색), 처리 상태 버튼(원래 상태로 복원 IconRefresh·처리 보류 IconFolderOpen·처리 완료 IconCircleCheck), Process Flow 제목 IconBinaryTree·노드(Transaction IconDatabase·Process IconCodeDots(상태 F면 오류 색)·Message IconMessage2)·`선택 노드 원본 정보` IconListDetails, AI 판정 근거 요약 제목·설명 요청 버튼 IconBrain. 판정 기록·판정 근거·조사·조치 기록은 이전 대응 아이콘이 없어 두지 않는다
+- 장식 아이콘(사용자 11/04·11/05, #100 이전 화면 아이콘 복원, Tabler·`aria-hidden`, `frontend/src/features/analysis/icons.ts`): 사이드바 전 그룹과 목록 제목의 분류 아이콘(전체 IconInbox·위험 IconFlame·주의 IconAlertTriangle·참고 IconInfoCircle·위험도 미정 IconHelpCircle·이상 IconAlertOctagon·이상 징후 IconAlertCircle·판정 중 IconClock·미확인 IconQuestionMark·실패·대체 IconCircleX·보류 IconFolderOpen·완료 IconCircleCheck), 목록 줄·판정 요약 제목 = 저장된 위험도 단계 아이콘(단계가 있는 이상만, 배지와 같은 글자 색), 처리 상태 버튼(원래 상태로 복원 IconRefresh·처리 보류 IconFolderOpen·처리 완료 IconCircleCheck), Process Flow 제목 IconBinaryTree·노드(Transaction IconDatabase·Process IconCodeDots(상태 F면 오류 색)·Message IconMessage2)·`선택 노드 원본 정보` IconListDetails, AI 판정 근거 요약 제목·설명 요청 버튼 IconBrain. 판정 기록·판정 근거·조사·조치 기록은 이전 대응 아이콘이 없어 두지 않는다
 - evidence 읽기(`frontend/src/features/analysis/data/evidence.ts`): v3(`rules`·`models`·`checkers`·`detectionPolicy`·`input`·`demo`) + v4 읽기(`methodResults[]`·`categoryResults`·`composite`, schemaVersion 4·`composite`가 없으면 null → v3 표시). 형식이 틀린 항목은 버린다
 - 범위 밖(별도 Issue): WINDOW 판정 상세, 관리자 링크(당시 모델·평가), 와이어프레임 종합 근거 설명 문단(dCatsNote), 이상 분석 메뉴의 미확인 건수 표시, 조사·조치 기록 수정·삭제
 - 폐지: `/analysis/process-decisions`(저장된 탐지 판정 화면 → `/analysis`로 replace), 옛 실시간 이상 이벤트 분류·상세 화면과 그 화면이 부르던 `GET /api/anomaly/events/:id/detail`·`POST …/feedback`(백엔드 미구현) 호출. `/api/anomaly/*` 백엔드·알림 패널의 실시간 이벤트(데모 SSE)는 그대로이며 알림 항목은 `/analysis`로 이동한다

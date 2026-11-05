@@ -1,6 +1,6 @@
 import type { Pool } from 'pg';
 import { RuleSetError, SIGNIFICANT_DIGITS_MAX, THRESHOLD_MAX_LENGTH, decimalString, thresholdFixedDecimal } from './ruleSetContract.js';
-import { softRuleField, type SoftRuleField } from './softRuleCatalog.js';
+import { softRuleField, type SoftRuleField } from './methodCatalog.js';
 
 /**
  * 규칙별 수식 추천 POST /api/rule-set/threshold-stats(llm-recommendation-job.md). LLM·큐 없이 선택 기간 표본의 분위를 SQL로 계산한다.
@@ -34,36 +34,49 @@ export type ThresholdStatsRequest = {
 const plainObject = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value);
 const allowed = (value: Record<string, unknown>, keys: string[]) => Object.keys(value).every((key) => keys.includes(key));
 /** 달력에 있는 날짜·시각인지 왕복으로 확인한다(Date.parse는 2월 30일을 3월로 넘긴다). */
-const realCalendarTime = (text: string) => {
+export const realCalendarTime = (text: string) => {
   const [year, month, day, hour, minute, second] = (text.match(/\d+/g) ?? []).slice(0, 6).map(Number);
   const value = new Date(Date.UTC(year, month - 1, day, hour, minute, second));
   return value.getUTCFullYear() === year && value.getUTCMonth() === month - 1 && value.getUTCDate() === day &&
     value.getUTCHours() === hour && value.getUTCMinutes() === minute && value.getUTCSeconds() === second;
 };
-const instant = (value: unknown): value is string =>
+export const instant = (value: unknown): value is string =>
   typeof value === 'string' && OFFSET_TIME.test(value) && Number.isFinite(Date.parse(value)) && realCalendarTime(value);
 const utc = (value: string) => new Date(value).toISOString();
-const validTimezone = (value: string) => {
+export const validTimezone = (value: string) => {
   try { new Intl.DateTimeFormat('en', { timeZone: value }); return true; } catch { return false; }
 };
+
+/** 제외 구간 목록 형식 검사(trainer-service.md `excludedIntervals[]`). 형식이 틀리면 null. 시각은 UTC로 정규화한다. `note: null`은 학습 요청만 허용(`nullNote`). */
+export function parseExcludedIntervals(value: unknown, { nullNote = false } = {}): { from: string; until: string }[] | null {
+  if (!Array.isArray(value) || value.length > EXCLUDED_MAX) return null;
+  const valid = value.every((item) => plainObject(item) && allowed(item, ['from', 'until', 'reasonCode', 'note']) && instant(item.from) && instant(item.until) &&
+    Date.parse(item.from) < Date.parse(item.until) && (item.reasonCode === undefined || REASON_CODES.includes(item.reasonCode as string)) &&
+    (item.note === undefined || (nullNote && item.note === null) || (typeof item.note === 'string' && [...item.note].length <= EXCLUDED_NOTE_MAX)));
+  return valid ? value.map((item) => ({ from: utc(item.from), until: utc(item.until) })) : null;
+}
+/** 구간이 기간 안에 있고 서로 겹치지 않는지. 위반이면 오류 코드(trainer-service.md). */
+export function excludedIntervalsProblem(intervals: { from: string; until: string }[], period: { from: string; until: string }) {
+  const sorted = [...intervals].sort((left, right) => Date.parse(left.from) - Date.parse(right.from));
+  for (const [index, item] of sorted.entries()) {
+    if (Date.parse(item.from) < Date.parse(period.from) || Date.parse(item.until) > Date.parse(period.until)) return 'excluded_interval_out_of_range';
+    if (index && Date.parse(sorted[index - 1].until) > Date.parse(item.from)) return 'excluded_interval_overlap';
+  }
+  return null;
+}
 
 /** 요청 형식 검사(400). 필드 등록 여부는 422 soft_rule_field_unknown. */
 export function parseThresholdStatsRequest(body: unknown): ThresholdStatsRequest {
   if (!plainObject(body) || !allowed(body, ['field', 'statistic', 'period', 'sourceId', 'excludedIntervals'])) throw invalid();
   const { field, statistic = 'p95', period, sourceId, excludedIntervals = [] } = body;
   if (typeof field !== 'string' || typeof statistic !== 'string' || !Object.hasOwn(STATISTICS, statistic) || typeof sourceId !== 'string' || !UUID.test(sourceId) ||
-      !plainObject(period) || !allowed(period, ['mode', 'from', 'until', 'timeBasis', 'timezone']) || !Array.isArray(excludedIntervals) ||
-      excludedIntervals.length > EXCLUDED_MAX) throw invalid();
+      !plainObject(period) || !allowed(period, ['mode', 'from', 'until', 'timeBasis', 'timezone'])) throw invalid();
   const { mode, from, until, timeBasis, timezone = 'Asia/Seoul' } = period;
   if (typeof mode !== 'string' || !(MODES as readonly string[]).includes(mode) || typeof timezone !== 'string' || !validTimezone(timezone) ||
       (timeBasis !== undefined && (typeof timeBasis !== 'string' || !Object.hasOwn(TIME_BASES, timeBasis)))) throw invalid();
   if (mode === 'custom' ? !instant(from) || !instant(until) || Date.parse(from) >= Date.parse(until) : from !== undefined || until !== undefined) throw invalid();
-  const intervals = excludedIntervals.map((item) => {
-    if (!plainObject(item) || !allowed(item, ['from', 'until', 'reasonCode', 'note']) || !instant(item.from) || !instant(item.until) ||
-        Date.parse(item.from) >= Date.parse(item.until) || (item.reasonCode !== undefined && !REASON_CODES.includes(item.reasonCode as string)) ||
-        (item.note !== undefined && (typeof item.note !== 'string' || [...item.note].length > EXCLUDED_NOTE_MAX))) throw invalid();
-    return { from: utc(item.from), until: utc(item.until) };
-  });
+  const intervals = parseExcludedIntervals(excludedIntervals);
+  if (!intervals) throw invalid();
   return {
     field, statistic: statistic as Statistic, sourceId: sourceId.toLowerCase(), mode: mode as PeriodMode,
     from: mode === 'custom' ? utc(from as string) : null, until: mode === 'custom' ? utc(until as string) : null,
@@ -102,13 +115,6 @@ async function resolvePeriod(db: Queryable, request: ThresholdStatsRequest): Pro
   if (request.mode !== 'custom') return recentPeriod(db, request);
   if (Date.parse(request.until!) - Date.parse(request.from!) > PERIOD_DAYS_MAX * DAY_MS) throw new RuleSetError('period_too_long');
   return { from: request.from!, until: request.until!, timeBasis: request.timeBasis ?? 'esb_occurred_at', resolvedFrom: null };
-}
-function checkExcluded(intervals: ThresholdStatsRequest['excludedIntervals'], period: ResolvedPeriod) {
-  const sorted = [...intervals].sort((left, right) => Date.parse(left.from) - Date.parse(right.from));
-  sorted.forEach((item, index) => {
-    if (Date.parse(item.from) < Date.parse(period.from) || Date.parse(item.until) > Date.parse(period.until)) throw new RuleSetError('excluded_interval_out_of_range');
-    if (index && Date.parse(sorted[index - 1].until) > Date.parse(item.from)) throw new RuleSetError('excluded_interval_overlap');
-  });
 }
 
 /** Python datetime.fromisoformat이 받는 형식. 그 밖의 값은 계산 불가(결측과 같이 표본 제외), pg_input_is_valid가 2월 30일 같은 값을 거른다. */
@@ -190,7 +196,8 @@ export async function computeThresholdStats(pool: Pool, request: ThresholdStatsR
   const { rowCount } = await pool.query('SELECT 1 FROM ops_sources WHERE id=$1', [request.sourceId]);
   if (!rowCount) throw new RuleSetError('source_not_found', 404);
   const period = await resolvePeriod(pool, request);
-  checkExcluded(request.excludedIntervals, period);
+  const excludedProblem = excludedIntervalsProblem(request.excludedIntervals, period);
+  if (excludedProblem) throw new RuleSetError(excludedProblem);
   const sampled = request.mode === 'active_model_training_start' && Date.parse(period.until) - Date.parse(period.from) > PERIOD_DAYS_MAX * DAY_MS;
   const sample = await measure(pool, field, request, period, sampled);
   const evidence = {

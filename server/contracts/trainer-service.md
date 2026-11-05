@@ -7,14 +7,15 @@
 - 실행 상태: queued/running/succeeded/failed; 자동 재시도는 같은 job, 최대 3회·attempt 이력
 - terminal failed 재실행: 새 idempotency key로 명시적 새 요청; 같은 key·같은 본문은 기존 job 반환, 다른 본문은 409
 - Web 멱등키: sessionStorage 정상 시 새로고침 후 재사용, 저장 실패 시 현재 페이지의 메모리에서만 유지; 저장 실패 후 새로고침한 경우 작업 이력 확인 후 재실행 여부 결정
+- 현행 갱신(Issue #128, 11/05): API가 카탈로그를 읽어 `methodCatalog`·`models`를 노출하고 `modelKey`·`parameters`를 접수 단계에서 검증한다(요청·발견 API 절). `excludedIntervals`·`esb_occurred_at`은 워커 지원 전이라 접수하지 않는다([models-ui.md](models-ui.md))
 - 현행 갱신(Issue #116, 11/04 — #111 병합 반영): 워커의 카탈로그 기준 `modelKey`·`parameters` 검증과 오류 코드(요청·발견 API 절), `sr*` 셀 영구 `not_applicable`/`sr_removed`(완료 결과 절), `training_settings` 확장(학습·전처리 절). API 쪽 선차단 전환·`parameters` 전달은 API 구현 단계 몫 [제안]
 
 ## 요청·발견 API
 
-- `GET /api/jobs/capabilities`: `contractVersion`, `models[{key,displayName,supported}]`, `evaluationFamilies`, `fittedFeatures`, `snapshot`(현행은 `trainerContract.ts` `TRAINER_CAPABILITIES` 상수, `models` = `iforest` 1건 고정; `methodCatalog` 추가는 아래 변경 제안 절)
-- 모델 — API 현행(`jobRoutes.ts`): train 본문 `modelKey`가 `iforest`가 아니면 422 `unsupported_model`로 **선차단**(카탈로그를 읽지 않음), `parameters` 키는 허용 키 목록에 없어 400 `invalid_job_request`. `modelKey` 생략 시 기존 IF
+- `GET /api/jobs/capabilities`: `contractVersion`, `methodCatalog`(`contracts/method-catalog.json` 전체, #128), `models[{key,displayName,supported}]`(`methods[]`에서 파생, `supported := executable.process`), `evaluationFamilies`, `fittedFeatures`, `snapshot`, `training.excludedIntervals`(학습 제외 구간 접수 가능 여부, #128 추가. 지금 false)
+- 모델 — API 현행(`jobRoutes.ts`, #128): 접수 단계에서 워커와 같은 카탈로그·같은 코드로 검증한다 — 카탈로그에 없는 키 422 `unsupported_model`, 실행 불가 422 `method_not_executable:<methodId>`, `parameterSchema` 위반 422 `method_parameters_invalid:<methodId>`. `parameters`는 `input_spec`으로 그대로 전달하고 `null`·생략은 키를 남기지 않는다. `modelKey` 생략 시 기존 IF
 - 모델 — 워커 현행 [#111 구현]: `trainer/runner.py`가 큐의 `input_spec`을 `methods.registry.resolve_training_method`로 카탈로그 기준 재검증 — 카탈로그에 없는 `modelKey` → `unsupported_model`, 등록됐지만 `executable.process=false` → `method_not_executable:<methodId>`, `parameters`가 카탈로그 `parameterSchema` 위반 → `method_parameters_invalid:<methodId>`(작업 `failed`의 `errorCode`, 형식 `코드` 또는 `코드:식별자`). `modelKey`·`parameters` 생략은 IF 기본값(확정 파라미터는 `training_settings.parameters`에 기록)
-- **API 구현 단계 몫 [제안]**: `modelKey !== 'iforest'` 선차단을 카탈로그 기준(`executable.process`)으로 바꾸고(없는 키 422 `unsupported_model`, 실행 불가 422 `method_not_executable:<methodId>`), `parameters`를 허용 키에 넣어 `input_spec`으로 그대로 전달(접수 검증은 워커와 같은 카탈로그 `parameterSchema`, 위반 422 `method_parameters_invalid:<methodId>`). 백엔드 코드는 #116에서 수정하지 않음
+- 학습 범위 — API 현행(#128): `timeBasis`는 `persisted_at`만 접수하고(키 생략과 같음) `esb_occurred_at`은 422 `config_schema_not_supported_yet`, `excludedIntervals`는 형식 검사 뒤 같은 코드로 거절한다. 워커가 두 키를 아직 적용하지 않아 받으면 제외되지 않은 채 성공하기 때문이다([models-ui.md](models-ui.md))
 - `rule_only`: modelKey 생략 필수; 지정 시 422 `model_not_selected`(API·워커 같은 코드). 워커는 카탈로그 검증을 `model_not_selected` 검사보다 먼저 수행하므로 **`rule_only` 요청에 잘못된 `parameters`가 있어도 `method_parameters_invalid:<methodId>`로 거절**(#111 동작)
 - `GET /api/jobs/feature-sets?sourceId=<uuid>`: `scope=global_registered_catalog`, sourceId, hasMore, items
 - items: `{id, contentHash, featureNames: string[], supported: boolean, reason: string|null}`; 등록된 공통 피처 카탈로그, 출처별 데이터 존재·학습 가능성 보장 아님
@@ -124,7 +125,7 @@ Created: 2026-11-02T18:00:00+09:00 / Updated: 2026-11-04T12:00:00+09:00 / Author
 - `trainingSelection` 확장(config·resultSummary·fit 참조에 저장, 기존 키 유지): `policyVersion`, `timeBasis`, `excludedIntervalCount`, `excludedByIntervalCount`, `excludedTimeUnknownCount`, `excludedIntervalsHash`(= `[{from, until}]`를 from 순 정렬한 compact JSON SHA-256, UTC 정규화), **`trainingPeriod {from, until, timeBasis}`**(요청 기간 그대로 — 모델 버전 목록·상세 응답에 노출되어 수식 추천 "운영 모델 학습 시작 ~ 현재"의 입력이 됨, [llm-recommendation-job.md](llm-recommendation-job.md)). 구간 목록 자체는 `run_jobs.input_spec`·`ml_config_models.training_settings.excludedIntervals`에 저장([model-version.md](model-version.md), 상세 응답 `models[].trainingSettings`로 노출)
 - 학습 선정 개체(10/28 Q-B1 ★b `data_training_selections`)는 **이번 범위에서 보류**: 제외 구간은 train 요청에 포함(a′). snapshot 단독 생성(Q-B3 A/B)이 결정되면 `trainingSelectionId` 참조로 승격하고 평가 세트도 같은 개체를 참조 — 결정 질문 Q-T1
 
-### 거래량 집계 API — 요구사항만(구현 주체 API + PostgreSQL) [제안]
+### 거래량 집계 API — #128 구현(구현에서 정한 값은 [models-ui.md](models-ui.md)), DB 인덱스는 아래 DB 요구
 
 - `GET /api/pipeline/reports/volume?sourceId=<uuid>&from=<ISO>&until=<ISO>&bucket=month|day|hour|minute&timeBasis=esb_occurred_at|persisted_at&timezone=Asia/Seoul`
 - 응답: `{sourceId, timeBasis, bucket, timezone, from, until, totalCount, timeUnknownCount, buckets: [{bucketStart, processCount, statusCounts: {S, F, P, N, other}}]}`. 빈 버킷은 0으로 채움(그래프 연속), `bucketStart`는 `timezone` 기준 경계(월은 1일 00:00, 일은 00:00, 시·분은 정각)를 UTC ISO로
@@ -137,8 +138,8 @@ Created: 2026-11-02T18:00:00+09:00 / Updated: 2026-11-04T12:00:00+09:00 / Author
 
 | 현재 문구 | 제안 |
 |---|---|
-| `models[{key,displayName,supported}]` | 유지 + `methodCatalog`([method-catalog.md](method-catalog.md) v2, `supported := executable.process`) |
-| "모델: `iforest`만 지원; … 422 `unsupported_model`" | 카탈로그 `ml:*` 중 `executable.process=true`만 허용, 그 외 422 `method_not_executable:<methodId>`; `unsupported_model`은 카탈로그에 없는 키로 축소 — 워커 쪽은 #111로 반영됨(현행 절), API 선차단 전환·`parameters` 허용은 API 구현 단계 몫 [제안] |
+| `models[{key,displayName,supported}]` | 유지 + `methodCatalog`([method-catalog.md](method-catalog.md) v2, `supported := executable.process`) — #128 반영(현행 절) |
+| "모델: `iforest`만 지원; … 422 `unsupported_model`" | 카탈로그 `ml:*` 중 `executable.process=true`만 허용, 그 외 422 `method_not_executable:<methodId>`; `unsupported_model`은 카탈로그에 없는 키로 축소 — 워커 #111, API #128 반영(현행 절) |
 | "`rule_only`: modelKey 생략 필수" | v1 요청에 한함. v3는 룰 전용 학습 없음(룰은 학습 대상 아님) |
 | `modelManifest` 단일 | **단일 유지**(변경 없음 — 모델 1개 = 버전 1개, [model-version.md](model-version.md) Q-M1 확정 11/02). `modelManifests[]`는 도입하지 않음 |
 | `rule_ml` 가족 `hrBoth/hrRuleOnly/…`·`sr*` 셀 | `hr`은 "룰(hard+soft 조합 결과)"로 읽고 이름은 유지(기존 결과 변경 금지). `sr*` 셀은 영구 `not_applicable/sr_removed`(SR 폐기 — #111 반영 완료, 현행 절 `sr*` 항목과 동일) — 새 metricVersion에서 제거 검토 |

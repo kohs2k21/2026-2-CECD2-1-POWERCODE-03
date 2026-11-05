@@ -5,7 +5,9 @@ import { authenticateToken, AuthenticatedRequest } from '../middleware/auth.js';
 import { parseRuleDraft, parseRuleKey, InvalidRuleError, bindRecommendationEvidence } from '../rules/ruleContract.js';
 import { writeRule, RuleConflictError } from '../rules/ruleRepository.js';
 import { readCurrentSoftRules } from '../ruleset/ruleSetStore.js';
-import { TRAINER_CAPABILITIES, featureSetCapability } from './trainerContract.js';
+import { TRAINER_CAPABILITIES, TRAINING_EXCLUSION_SUPPORTED, featureSetCapability } from './trainerContract.js';
+import { mlMethod, parametersValid } from '../ruleset/methodCatalog.js';
+import { excludedIntervalsProblem, parseExcludedIntervals } from '../ruleset/thresholdStats.js';
 import { parseSyntheticEvaluation, parseSyntheticRegistration, verifySyntheticBinding, staticSpecHash,
   SyntheticRequestError, type SyntheticEvaluation, type SyntheticBinding } from './syntheticEvaluationContract.js';
 import { ThresholdRequestError, fixThresholdTargets, parseThresholdRequest, thresholdLlmSpec,
@@ -17,7 +19,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-
 const UTC_TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?Z$/;
 const KINDS = new Set(['recommend_feature', 'recommend_rule', 'recommend_thresholds', 'train', 'evaluate', 'explain']);
 
-class JobRequestError extends Error {
+export class JobRequestError extends Error {
   constructor(readonly code: string, readonly status = 400) { super(code); }
 }
 
@@ -37,18 +39,54 @@ type JobInput = {
   purpose?: string; ruleVersionIds?: string[]; decisionId?: string; savedEvidence?: Record<string, unknown>; savedEvidenceJson?: string;
   detectionPolicy?: { mode: string; deadlineMs: number; combination: string };
   modelKey?: string;
+  parameters?: Record<string, unknown>;
+  timeBasis?: string;
+  excludedIntervals?: { from: string; until: string; reasonCode: string; note: string | null }[];
   syntheticEvaluation?: SyntheticEvaluation;
   syntheticProfileBinding?: SyntheticBinding;
 } & Partial<Omit<ThresholdRequest, 'kind' | 'sourceId'> & ThresholdFixedInput>;
 
-function parseRequest(value: unknown): JobInput {
+/** 학습 모델·파라미터 접수 검증(trainer-service.md). 워커 `resolve_training_method`와 같은 카탈로그·같은 코드이고, 키 생략은 기본 IF다. */
+function checkTrainingMethod(modelKey: unknown, parameters: unknown): void {
+  const method = mlMethod(modelKey === undefined ? 'iforest' : modelKey);
+  if (!method) throw new JobRequestError('unsupported_model', 422);
+  if (!method.executable.process) throw new JobRequestError(`method_not_executable:${method.methodId}`, 422);
+  if (!parametersValid(method, parameters)) throw new JobRequestError(`method_parameters_invalid:${method.methodId}`, 422);
+}
+
+type TrainingSupport = { timeBasis: string; excludedIntervals: boolean };
+const TRAINING_SUPPORT: TrainingSupport = { timeBasis: TRAINER_CAPABILITIES.snapshot.timeBasis, excludedIntervals: TRAINING_EXCLUSION_SUPPORTED };
+
+/**
+ * 학습 기간 기준·제외 구간. 형식은 계약대로 400이고, Trainer가 적용하지 못하는 값은 무시하지 않고 422로 거절한다
+ * (model-version.md `config_schema_not_supported_yet`). 접수한 값은 작업 입력에 그대로 싣는다. 시각은 UTC, `reasonCode` 생략은 `other`(trainer-service.md).
+ * `persisted_at`은 키 생략과 같으므로 남기지 않는다.
+ */
+function trainingScope(body: Record<string, unknown>, period: { from: string; until: string }, support: TrainingSupport): Pick<JobInput, 'timeBasis' | 'excludedIntervals'> {
+  const { timeBasis, excludedIntervals } = body;
+  if (timeBasis !== undefined && timeBasis !== 'persisted_at' && timeBasis !== 'esb_occurred_at') throw new JobRequestError('invalid_job_request');
+  const intervals = excludedIntervals === undefined ? undefined : parseExcludedIntervals(excludedIntervals, { nullNote: true });
+  if (intervals === null) throw new JobRequestError('invalid_job_request');
+  const problem = intervals && excludedIntervalsProblem(intervals, period);
+  if (problem) throw new JobRequestError(problem);
+  if ((timeBasis === 'esb_occurred_at' && support.timeBasis !== timeBasis) || (intervals && !support.excludedIntervals)) {
+    throw new JobRequestError('config_schema_not_supported_yet', 422);
+  }
+  const items = excludedIntervals as { reasonCode?: string; note?: string | null }[];
+  return {
+    ...(timeBasis !== undefined && timeBasis !== 'persisted_at' ? { timeBasis } : {}),
+    ...(intervals ? { excludedIntervals: intervals.map((item, index) => ({ ...item, reasonCode: items[index].reasonCode ?? 'other', note: items[index].note ?? null })) } : {}),
+  };
+}
+
+export function parseRequest(value: unknown, support: TrainingSupport = TRAINING_SUPPORT): JobInput {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new JobRequestError('invalid_job_request');
   const body = value as Record<string, unknown>;
   if (typeof body.kind !== 'string' || !KINDS.has(body.kind) || !uuid(body.sourceId)) {
     throw new JobRequestError('invalid_job_request');
   }
   if (body.kind === 'recommend_thresholds') return parseThresholdRequest(body, body.sourceId);
-  const permitted = ['kind', 'sourceId', 'from', 'until', 'featureSetId', 'configVersionId', 'snapshotId', 'purpose', 'ruleVersionIds', 'decisionId', 'detectionPolicy', 'modelKey', 'syntheticEvaluation'];
+  const permitted = ['kind', 'sourceId', 'from', 'until', 'featureSetId', 'configVersionId', 'snapshotId', 'purpose', 'ruleVersionIds', 'decisionId', 'detectionPolicy', 'modelKey', 'parameters', 'timeBasis', 'excludedIntervals', 'syntheticEvaluation'];
   if (Object.keys(body).some((key) => !permitted.includes(key))) throw new JobRequestError('invalid_job_request');
   const input: JobInput = { kind: body.kind, sourceId: body.sourceId };
   if (body.kind === 'train' && uuid(body.snapshotId) && body.from === undefined && body.until === undefined) {
@@ -57,6 +95,8 @@ function parseRequest(value: unknown): JobInput {
     if (!policy || typeof policy !== 'object' || Array.isArray(policy) ||
         Object.keys(policy).some(key => !['mode','deadlineMs','combination'].includes(key)) || policy.mode !== 'ml_only' ||
         policy.combination !== 'selected_path' || !Number.isInteger(policy.deadlineMs) || policy.deadlineMs < 100 || policy.deadlineMs > 30000) throw new JobRequestError('prepared_ml_only_required',422);
+    checkTrainingMethod(body.modelKey, undefined);
+    // prepared 경로는 IF 고정이다(prepared_training.py).
     if (body.modelKey !== undefined && body.modelKey !== 'iforest') throw new JobRequestError('unsupported_model',422);
     input.snapshotId = body.snapshotId;
     input.detectionPolicy = policy;
@@ -104,10 +144,13 @@ function parseRequest(value: unknown): JobInput {
         throw new JobRequestError('detection_policy_required');
       }
       input.detectionPolicy = policy;
+      // 워커와 같은 순서: 카탈로그 검증이 model_not_selected보다 먼저다.
+      checkTrainingMethod(body.modelKey, body.parameters);
       if (policy.mode === 'rule_only' && body.modelKey !== undefined) throw new JobRequestError('model_not_selected', 422);
-      if (body.modelKey !== undefined && body.modelKey !== 'iforest') throw new JobRequestError('unsupported_model', 422);
+      Object.assign(input, trainingScope(body, { from: body.from, until: body.until }, support));
       // Omission keeps the historical request hash and default IF recipe.
-      if (body.modelKey !== undefined) input.modelKey = 'iforest';
+      if (body.modelKey !== undefined) input.modelKey = body.modelKey as string;
+      if (body.parameters !== undefined && body.parameters !== null) input.parameters = body.parameters as Record<string, unknown>;
       const rules = body.ruleVersionIds ?? [];
       if (!Array.isArray(rules) || rules.length > 32 || !rules.every(uuid) || new Set(rules).size !== rules.length) {
         throw new JobRequestError('invalid_rule_versions');
@@ -126,7 +169,7 @@ function parseRequest(value: unknown): JobInput {
     }
   }
   if (body.kind !== 'train' && body.detectionPolicy !== undefined) throw new JobRequestError('invalid_job_request');
-  if (body.kind !== 'train' && body.modelKey !== undefined) throw new JobRequestError('invalid_job_request');
+  if (body.kind !== 'train' && ['modelKey', 'parameters', 'timeBasis', 'excludedIntervals'].some((key) => body[key] !== undefined)) throw new JobRequestError('invalid_job_request');
   if (body.kind !== 'explain' && body.decisionId !== undefined) throw new JobRequestError('invalid_job_request');
   if (body.kind !== 'evaluate' && body.syntheticEvaluation !== undefined) throw new JobRequestError('invalid_job_request');
   return input;

@@ -19,8 +19,8 @@
 | `/detection/operations/jobs/:jobId` | 작업 상세 | admin |
 | `/detection/operations/replace` | 모델 교체(전체 페이지 단계 흐름) | admin |
 | `/detection/rules` | 탐지 설정 › 룰 설정([rules-ui.md](rules-ui.md)) | admin |
-| `/detection/models` | 탐지 설정 › 머신러닝 모델(버전 목록 + 같은 화면 새 학습) | admin |
-| `/detection/models/:versionId` | 모델 버전 상세 | admin |
+| `/detection/models` | 탐지 설정 › 머신러닝 모델(버전 목록 + 같은 화면 새 학습, [models-ui.md](models-ui.md)) | admin |
+| `/detection/models/:versionId` | 모델 버전 상세([models-ui.md](models-ui.md)) | admin |
 | `/detection/evaluations` | 탐지 설정 › 평가 결과(비교 평가 목록 + 같은 화면 새 비교 평가) | admin |
 | `/detection/evaluations/:evaluationId` | 평가 상세 | admin |
 
@@ -38,16 +38,16 @@
 | 설정 | `section` | `notifications` / `integrations` / `display` / `profile` |
 | 머신러닝 모델 | `tab` | `active` 현재 운영 버전 / `all` 전체 버전 |
 | 머신러닝 모델 | `step` | 새 학습 `1` 기간 / `2` 입력 변수 / `3` 모델·파라미터 |
+| 머신러닝 모델 | `job` | 접수한 학습 작업 ID(없으면 생략). 영역 맨 위에 진행 상태를 표시 |
 | 평가 결과 | `tab` | `current` 현재 운영 모델 기준 / `all` 전체 평가 |
 | 평가 결과 | `step` | 새 비교 평가 `1` 평가 세트 / `2` 비교 모델 / `3` 요청 |
 | 모델 교체 | `step` | `1` 버전 선택 / `2` 비교 확인 / `3` 승인·요청 |
 | 이상 분석 | `category` | `all` / `anomaly` / `in_progress` / `undetermined` / `failed_replaced`(판정 결과별 분류: 전체 / 이상 / 판정 중·중간 판정 / 정상 여부 미확인 / 판정 실패·대체) |
 | 이상 분석 | `q`·`signal`·`completeness`·`sort`·`page`·`pageSize` | 검색어 / 이상 신호 `all`·`yes`·`no`·`unknown` / 검사 완료 `all`·`complete`·`partial`·`unavailable` / `newest`·`oldest` / 1~ / `10`·`5`·`20`. 판정 상세 주소도 같은 쿼리 유지(목록 복귀) |
-| 설정 | `returnTo` | 진입 전 앱 내부 주소 |
 
-- #100 현재: 룰 설정(#109)을 뺀 탐지 설정 화면은 숨긴 화면 제목(sr-only h1)만 있는 골격(운영 설정은 본문 첫 줄 [모델 교체] 진입 포함). 운영 현황·이상 분석·탐지 설정은 보이는 제목 줄 없음(ui.md 화면 제목). 목록 탭·작업 단계 화면은 각 하위 Issue에서 이 주소 규칙대로 붙임(도구 `hooks/useUrlState.ts`)
-- 미지정 값은 기본값(주소 그대로), 잘못된 값은 기본값·가까운 유효 단계로 replace 정규화. 기타 쿼리·전달 state 보존
-- 목록 아래 같은 화면 작업 영역: 단계 이동(이전·다음)은 Link push → 브라우저 뒤로·앞으로 가기가 단계와 일치. `step`이 주소에 있으면 작업 영역을 화면에 보이게 스크롤, 목록 첫 진입은 스크롤 없음
+- #100 현재: 룰 설정(#109)·머신러닝 모델(#128)을 뺀 탐지 설정 화면은 숨긴 화면 제목(sr-only h1)만 있는 골격(운영 설정은 본문 첫 줄 [모델 교체] 진입 포함). 운영 현황·이상 분석·탐지 설정은 보이는 제목 줄 없음(ui.md 화면 제목). 목록 탭·작업 단계 화면은 각 하위 Issue에서 이 주소 규칙대로 붙임(도구 `hooks/useUrlState.ts`)
+- 미지정 값은 기본값(주소 그대로), 잘못된 값은 기본값·가까운 유효 단계로 replace 정규화. 기타 쿼리·전달 state 보존. 앞 단계가 끝나지 않은 단계 주소도 가까운 유효 단계로 정규화(새로고침하면 메모리 초안이 없어 1단계)
+- 목록 아래 같은 화면 작업 영역: 단계 이동(이전·다음, 새 학습 단계 표시)은 Link push → 브라우저 뒤로·앞으로 가기가 단계와 일치. `step`이 주소에 있으면 작업 영역을 화면에 보이게 스크롤, 목록 첫 진입은 스크롤 없음
 - URL 탭: 밑줄형 Link·`aria-current=page`(로컬 Tabs ARIA 금지). 사이드바 항목도 Link·`aria-current=page`
 
 ## 옛 주소 넘김(replace)
@@ -63,7 +63,7 @@
 | `/detection/collection` | `/operations?tab=collect` |
 
 - 폐지 화면: `/notifications` 알림 전체 페이지(알림은 상단 패널), `/detection/pipeline` 학습·탐지 운영, 탐지 관리 실험·운영 그룹(생성·평가·운영 버전·수집), `/analysis/process-decisions` 저장된 탐지 판정(#105)
-- 로그인·설정 복귀 주소의 옛 주소도 같은 표로 바꿔 허용
+- 로그인 복귀 주소의 옛 주소도 같은 표로 바꿔 허용
 
 ## 상태 책임
 
@@ -86,7 +86,7 @@
 - 로그아웃·계정 변경: 초안 보존 이동과 별도. 로그아웃 확인에는 보존 선택 없음, 세션 종료 시 전체 초안/캐시 정리
 - 모델 교체·복원 흐름 이탈: 확인창 종료·승인 초기화; 재진입 시 승인 재확인. 실제 구성·평가 근거 변경 시에도 승인 초기화(기존 운영 적용·복원 규칙 승계)
 - 고정 평가 세트: 서버 ID·revision 기준 선택; 로컬 준비 초안과 실행 가능 세트 구분, 조건 자유 입력으로 서버 세트 대체 금지(기존 평가 규칙 승계)
-- 설정: 독립 페이지; 종료 시 진입 전 경로·탭·필터 복귀
+- 설정: 독립 페이지; 복귀 버튼 없이 상단 메뉴로 이동(사용자 11/05)
 - 로그인 복귀 주소: 앱 내부의 허용 경로만 사용; 외부 URL·프로토콜 상대 URL 금지
 - 브라우저 재실행 후 편집 초안 복원: 현재 범위 제외
 

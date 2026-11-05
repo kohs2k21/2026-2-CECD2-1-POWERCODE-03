@@ -4,7 +4,7 @@ import {
   CONTENT_HASH_VERSION, RULE_SET_CONTRACT, RuleSetError, planRuleSetChange, projectHardRules,
   type RuleSetRequest, type RuleSetSnapshot, type SoftRule, type StoredHardRule, type StoredSnapshot,
 } from './ruleSetContract.js';
-import { CATALOG_VERSION } from './softRuleCatalog.js';
+import { CATALOG_VERSION } from './methodCatalog.js';
 
 /**
  * 룰 세트 저장소(rule-set.md 저장소 절, 표 ops_rule_set_revisions). 현재 상태 = 최대 revision 행, append-only.

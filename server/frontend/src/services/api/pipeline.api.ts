@@ -25,7 +25,7 @@ export type RuleSuggestion = {
 };
 export type PipelineJob = {
   id: string;
-  kind: "recommend_feature" | "recommend_rule" | "train" | "evaluate" | "explain";
+  kind: "recommend_feature" | "recommend_rule" | "recommend_thresholds" | "train" | "evaluate" | "explain";
   status: "queued" | "running" | "succeeded" | "failed";
   inputSpec: Record<string, unknown>;
   attemptCount?: number;

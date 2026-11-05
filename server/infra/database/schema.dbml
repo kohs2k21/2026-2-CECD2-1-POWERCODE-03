@@ -30,6 +30,7 @@ Enum job_kind {
   evaluation_set
   compare
   recommend_methods
+  recommend_thresholds
 }
 
 Enum job_status {
@@ -461,7 +462,7 @@ Table run_jobs {
   indexes {
     (requested_by_actor_id, kind, idempotency_key) [unique]
   }
-  Note: 'contract_version NULL=legacy; v03=logical run_jobs ownership only. Explain user/admin; recommendation admin. New input immutable; llm_spec requires evidence/model/prompt/output-schema/reuse versions. Physical queues must not mirror v03 jobs. Lease state engine is runtime responsibility. 016: v04 = detect only, input_config_version_id NULL required, unique (kind, input_manifest_id); explain config follows its decision and may be NULL.'
+  Note: 'contract_version NULL=legacy; v03=logical run_jobs ownership only. Explain user/admin; recommendation admin. New input immutable; llm_spec requires evidence/model/prompt/output-schema/reuse versions. Physical queues must not mirror v03 jobs. Lease state engine is runtime responsibility. 016: v04 = detect only, input_config_version_id NULL required, unique (kind, input_manifest_id); explain config follows its decision and may be NULL. 017: recommend_thresholds = v03, llm_recommendation queue, admin, llm_spec required; by convention no config and snapshot only in run_job_snapshots (not enforced at insert).'
 }
 
 Table run_job_attempts {
@@ -693,7 +694,7 @@ Table run_llm_results {
   created_attempt_id uuid [not null]
   lease_token uuid [not null]
   completed_at timestamptz [not null]
-  Note: 'Only finalized validated LLM outputs. Kind/job/decision/config/version/reuse lineage checked, current owner/token required. Immutable successful result; runtime output validation and authorization remain required. 016: explain config_version_id NULL only when its decision and job config are NULL.'
+  Note: 'Only finalized validated LLM outputs. Kind/job/decision/config/version/reuse lineage checked, current owner/token required. Immutable successful result; runtime output validation and authorization remain required. 016: explain config_version_id NULL only when its decision and job config are NULL. 017: recommend_thresholds stored with decision_id NULL and config_version_id NULL.'
 }
 
 Table powercode_queue.detection_logs {
@@ -865,7 +866,7 @@ Table powercode_queue.llm_recommendation_jobs {
     (available_at, created_at) [note: 'LIKE training_jobs INCLUDING ALL; WHERE status IN (pending, leased)']
     (lease_until) [note: 'LIKE training_jobs INCLUDING ALL; WHERE status = leased']
   }
-  Note: '006 physical queue copied from training_jobs. recommend_feature/recommend_rule/recommend_methods job IDs.'
+  Note: '006 physical queue copied from training_jobs. recommend_feature/recommend_rule/recommend_methods/recommend_thresholds job IDs.'
 }
 
 Table powercode_queue.llm_explanation_jobs {

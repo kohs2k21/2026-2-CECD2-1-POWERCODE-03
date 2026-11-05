@@ -1,4 +1,3 @@
-import { HttpError } from "@/services/api/client";
 import { createPipelineJob } from "@/services/api/pipeline.api";
 import type { DraftSoftRule, RuleDraft } from "./ruleDraft";
 import type { RuleSetState, SoftRuleOperator } from "./ruleSetApi";
@@ -68,27 +67,8 @@ export const parseRecommendation = (value: unknown, state: RuleSetState): Recomm
   return matched ? (value as RecommendationResult) : null;
 };
 
-/**
- * 개발 모드에서 서버가 이 작업 종류를 아직 거절할 때만 계약 예시를 돌려준다. 운영 빌드에서는 분기와 예시 파일이 사라지고 오류가 그대로 표시된다.
- * 서버가 recommend_thresholds를 받으면 이 함수와 ruleAiDevSample.ts를 지운다.
- */
-const devSampleAfter = async (error: unknown, state: RuleSetState) => {
-  if (import.meta.env?.DEV && error instanceof HttpError && error.code === "invalid_job_request") {
-    // 예시의 규칙 id는 실제 규칙과 달라 같은 필드의 켜진 규칙 id로 맞춘다. 운영 경로에는 필드 대체가 없다.
-    return (await import("./ruleAiDevSample")).devRecommendationFor(state);
-  }
-  return null;
-};
-
-export const startRecommendation = async (body: ReturnType<typeof recommendationRequest>, idempotencyKey: string, state: RuleSetState): Promise<{ jobId: string } | { result: RecommendationResult }> => {
-  try {
-    return { jobId: (await createPipelineJob(body, idempotencyKey)).id };
-  } catch (error) {
-    const result = await devSampleAfter(error, state);
-    if (result) return { result };
-    throw error;
-  }
-};
+export const startRecommendation = async (body: ReturnType<typeof recommendationRequest>, idempotencyKey: string): Promise<string> =>
+  (await createPipelineJob(body, idempotencyKey)).id;
 
 export type RecommendationRow = { rule: DraftSoftRule; item: RecommendationItem };
 /**

@@ -14,6 +14,7 @@ from derived_expression import TABLE, FIELDS, validate, unit
 from generation_client import generate
 from research_bundle import policy, verify
 from feature_runtime import calculate_features
+from threshold_values import exact_text
 
 
 def digest(value):
@@ -28,8 +29,8 @@ def adapter_sha(root: str, kind: str):
     return manifest["adapters"]["feature_v5" if kind == "feature" else "rule_v2"]["sha256"]
 
 
-def checked_generate(kind, request):
-    receipt = generate(kind, request)
+def checked_generate(kind, request, report_timeout=False):
+    receipt = generate(kind, request, report_timeout=True) if report_timeout else generate(kind, request)
     if receipt.get("adapterSha") != adapter_sha(os.environ["RESEARCH_BUNDLE_ROOT"], kind):
         raise ValueError("generation_adapter_version_mismatch")
     return receipt
@@ -153,7 +154,8 @@ def recommend_features(rows):
     return compile_features(request, checked_generate("feature", request))
 
 
-def rule_request(rows, definition, feature_set_id):
+def rule_request(rows, definition, feature_set_id,
+                 selection="train split, known anomaly labels excluded; unlabeled values retained", exact=str):
     name, expression = definition["name"], definition["expression"]
     metadata = expression.get("provenance", {})
     typ = expression.get("outputType", "number")
@@ -178,8 +180,8 @@ def rule_request(rows, definition, feature_set_id):
         if reference["valid_count"] >= 20:
             baseline = {"state": "verified", "id": "b_" + digest([feature_sha, reference])[:24],
                         "unit": unit, "n": reference["valid_count"], "minimum_n": 20,
-                        "value": reference["p95"], "value_exact": str(reference["p95"]), "method": reference["quantile_method"],
-                        "selection": "train split, known anomaly labels excluded; unlabeled values retained"}
+                        "value": reference["p95"], "value_exact": exact(reference["p95"]), "method": reference["quantile_method"],
+                        "selection": selection}
         else:
             baseline = {"state": "unavailable", "needed": ["valid_reference_values" if not reference["valid_count"] else "minimum_reference_sample"]}
     return {"input_contract": "feature-evidence-bundle-4.0.0",
@@ -219,7 +221,10 @@ def recommend_rules(rows, feature_set_id, definitions):
             continue
         condition = output["condition"]
         if condition.get("baseline"):
+            # p95 < 1e-4의 str()은 지수 표기라 Rule DSL 검증이 작업 전체를 실패시켰다. 그 밖의 값은 그대로 둔다.
             operator, value = "gt", str(request["baseline"]["value"])
+            if "e" in value:
+                value = exact_text(request["baseline"]["value"])
         elif condition.get("op") == "eq" and isinstance(condition.get("value"), bool):
             operator, value = "eq", str(int(condition["value"]))
         else:

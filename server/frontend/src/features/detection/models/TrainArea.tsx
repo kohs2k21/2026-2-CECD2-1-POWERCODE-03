@@ -20,22 +20,26 @@ import { FeatureStep, useFeatureSets } from "./FeatureStep";
 import { ModelStep } from "./ModelStep";
 import { DAY_MINUTES, minuteDay } from "./period";
 import { PeriodStep } from "./PeriodStep";
-import { draftFingerprint, freshDraft, jobBlocksRequest, modelKeyOf, readTrainDraft, readinessIssues, requestOfInput, selectedMethod, trainRequest, writeTrainDraft, type PeriodDraft, type TrainDraft } from "./trainDraft";
+import { draftFingerprint, freshDraft, jobBlocksRequest, modelKeyOf, readTrainDraft, readinessIssues, selectedMethod, trainRequest, writeTrainDraft, type PeriodDraft, type TrainDraft } from "./trainDraft";
 import { VERSIONS_QUERY, useCapabilities, useTrainJob } from "./useModels";
 
 const STEPS = ["기간", "입력 변수", "모델·파라미터"];
 
-const Stepper = ({ step }: { step: number }) => (
+/** 단계 표시: 갈 수 있는 단계는 주소 이동 링크, 앞 단계가 끝나지 않은 단계는 비활성이다. */
+const Stepper = ({ step, maxStep, hrefFor }: { step: number; maxStep: number; hrefFor: (step: number) => string }) => (
   <ol className="flex flex-wrap gap-1.5 text-sm">
-    {STEPS.map((label, index) => (
-      <li
-        key={label}
-        aria-current={index + 1 === step ? "step" : undefined}
-        className={cn("rounded-md border px-2.5 py-1", index + 1 === step && "border-primary bg-primary text-primary-foreground", index + 1 < step && "border-success text-success-text")}
-      >
-        {index + 1}. {label}
-      </li>
-    ))}
+    {STEPS.map((label, index) => {
+      const number = index + 1;
+      const current = number === step ? "step" : undefined;
+      const look = cn("block rounded-md border px-2.5 py-1", current && "border-primary bg-primary text-primary-foreground", number < step && "border-success text-success-text");
+      return (
+        <li key={label}>
+          {number <= maxStep
+            ? <Link to={hrefFor(number)} aria-current={current} className={cn(look, "outline-none hover:bg-accent focus-visible:ring-3 focus-visible:ring-ring/50", current && "hover:bg-primary")}>{number}. {label}</Link>
+            : <span aria-disabled="true" className={cn(look, "text-muted-foreground")}>{number}. {label}</span>}
+        </li>
+      );
+    })}
   </ol>
 );
 
@@ -116,21 +120,19 @@ export const TrainArea = () => {
   // 순서가 바뀌면 빈 초안의 단계 정규화가 옛 주소로 다시 이동한다. 접수 뒤 고친 내용은 남긴다.
   const handledJob = useRef<string | null>(null);
   const succeeded = job.data?.status === "succeeded" ? job.data.id : null;
-  const succeededInput = succeeded ? job.data?.inputSpec : null;
   useEffect(() => {
     if (!succeeded) return;
     if (handledJob.current !== succeeded) {
       handledJob.current = succeeded;
       void queryClient.invalidateQueries({ queryKey: [VERSIONS_QUERY] });
-      // 같은 내용의 다음 요청이 새 실행이 되게 키를 지운다. 초안이 없어도(새로고침 뒤) 작업 입력으로 찾는다.
-      if (user && succeededInput) forgetJobRequestKey(user.id, requestOfInput(succeededInput));
     }
     if (draft.jobId !== succeeded || urlJob !== succeeded) return;
-    if (user && draft.requestFor) forgetJobRequestKey(user.id, JSON.parse(draft.requestFor));
+    // 이 작업을 접수한 키만 지운다. 내용으로 찾아 지우면 같은 내용의 새 요청 키까지 사라져 다음 요청이 중복 학습이 된다.
+    if (user && draft.requestFor) forgetJobRequestKey(user.id, JSON.parse(draft.requestFor), draft.jobKey);
     writeTrainDraft((current) => (current.submitted === draftFingerprint(current)
       ? freshDraft()
       : { ...current, jobId: null, jobKey: null, submitted: null, requestKey: null, requestFor: null }));
-  }, [succeeded, succeededInput, urlJob, draft.jobId, draft.requestFor, queryClient, user]);
+  }, [succeeded, urlJob, draft.jobId, draft.jobKey, draft.requestFor, queryClient, user]);
 
   const updatePeriod = (period: PeriodDraft) => writeTrainDraft((current) => ({ ...current, period }));
   const setParam = (key: string, value: string) => {
@@ -160,7 +162,7 @@ export const TrainArea = () => {
       if (created.status === "succeeded") {
         // 같은 키의 끝난 작업이 돌아왔다(서버 멱등). 새 학습이 아니므로 그 키를 버리고 한 번만 다시 보낸다. 새 키의 응답은 끝난 작업일 수 없다.
         const previous = key;
-        if (readTrainDraft()?.requestKey !== previous) { forgetJobRequestKey(user.id, body); return; }
+        if (readTrainDraft()?.requestKey !== previous) { forgetJobRequestKey(user.id, body, previous); return; }
         key = jobRequestKey(user.id, body, true);
         writeTrainDraft((current) => (current.requestKey === previous ? { ...current, requestKey: key } : current));
         created = await createPipelineJob(body, key);
@@ -180,7 +182,7 @@ export const TrainArea = () => {
     <div ref={area}>
       <SectionCard title="새 학습">
         {jobId && <TrainJobStatus jobId={jobId} returnTo={location.pathname + location.search} />}
-        <Stepper step={shownStep} />
+        <Stepper step={shownStep} maxStep={maxStep} hrefFor={hrefFor} />
         {(capabilities.isPending || sources.isPending) && <LoadingState>학습 조건 조회 중…</LoadingState>}
         {capabilities.isError && <ErrorState title={`방법 카탈로그 조회 실패 · ${errorCode(capabilities.error)}`} onRetry={() => void capabilities.refetch()} retryLabel="다시 조회" />}
         {sources.isError && <ErrorState title={`출처 조회 실패 · ${errorCode(sources.error)}`} onRetry={() => void sources.refetch()} retryLabel="다시 조회" />}

@@ -10,7 +10,7 @@ import { MethodStatus } from "./VersionList";
 
 const PARAM_HEADS = ["파라미터", "의미", "코드 기본값", "허용 범위", "설정값"];
 
-const ParameterTable = ({ method, values, onChange }: { method: CatalogMethod; values?: Record<string, string>; onChange?: (key: string, value: string) => void }) => (
+const ParameterTable = ({ method, values, onChange }: { method: CatalogMethod; values?: Record<string, string>; onChange: (key: string, value: string) => void }) => (
   <Table>
     <TableHeader>
       <TableRow>{PARAM_HEADS.map((title) => <TableHead key={title}>{title}</TableHead>)}</TableRow>
@@ -26,8 +26,8 @@ const ParameterTable = ({ method, values, onChange }: { method: CatalogMethod; v
             <TableCell>{row.defaultValue ?? <Badge variant="warning">기본값 미확정</Badge>}</TableCell>
             <TableCell>{row.rangeLabel}</TableCell>
             <TableCell>
-              {row.fixed || !onChange ? (
-                <span className="text-muted-foreground">{row.fixed ? `${row.defaultValue} · 조정 안 함` : (row.defaultValue ?? "미확정")}</span>
+              {row.fixed ? (
+                <span className="text-muted-foreground">{row.defaultValue} · 조정 안 함</span>
               ) : (
                 <span className="flex items-center gap-2">
                   <Input
@@ -52,7 +52,7 @@ const ParameterTable = ({ method, values, onChange }: { method: CatalogMethod; v
   </Table>
 );
 
-/** 3단계 모델·파라미터: 카탈로그 `methods[]` 전부 표시, `executable.process=false`는 선택 불가(사유 문구 없이 비활성). */
+/** 3단계 모델·파라미터: 카탈로그 `methods[]` 전부 표시, `executable.process=false`는 선택 불가(사유 문구 없이 비활성). 파라미터는 선택한 모델만. */
 export const ModelStep = ({ methods, method, values, onSelect, onChange, onReset }: {
   methods: CatalogMethod[];
   method: CatalogMethod | null;
@@ -87,17 +87,6 @@ export const ModelStep = ({ methods, method, values, onSelect, onChange, onReset
           <Button size="sm" variant="outline" onClick={onReset}>전체 기본값으로</Button>
         </div>
         <ParameterTable method={method} values={values} onChange={onChange} />
-      </div>
-    )}
-    {methods.filter((item) => item !== method).length > 0 && (
-      <div className="grid gap-3">
-        <h3 className="text-sm font-medium">다른 모델 파라미터</h3>
-        {methods.filter((item) => item !== method).map((item) => (
-          <div key={item.methodId} className="grid gap-1">
-            <h4 className="flex items-center gap-2 text-sm">{item.displayName} <MethodStatus status={item.status} /></h4>
-            <ParameterTable method={item} />
-          </div>
-        ))}
       </div>
     )}
   </div>

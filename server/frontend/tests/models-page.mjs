@@ -608,6 +608,72 @@ const toStep3 = async (app) => {
   await app.cleanup();
 }
 
+// 10-1) 단계 표시 이동: 갈 수 있는 단계만 링크, 주소값·초안 유지
+{
+  routes = baseRoutes({
+    "POST /api/jobs": () => accepted(),
+    [`GET /api/jobs/${JOB}`]: () => json(job("failed", { errorCode: "x" })),
+  });
+  const app = await mount("/detection/models?tab=all");
+  await wait(() => app.input("period-from"), "period");
+  const stepLink = (label) => app.renderer.root.findAll((node) => node.type === "a" && text(node.children) === label)[0];
+  const stepLock = (label) => app.renderer.root.findAll((node) => node.type === "span" && node.props["aria-disabled"] === "true" && text(node.children) === label)[0];
+  assert.equal(stepLink("1. 기간").props["aria-current"], "step");
+  assert.ok(stepLock("2. 입력 변수") && stepLock("3. 모델·파라미터"), "later steps are disabled before the query");
+  assert.equal(stepLink("2. 입력 변수"), undefined);
+  await queryPeriod(app);
+  assert.ok(stepLink("2. 입력 변수"), "step 2 opens after the query");
+  assert.ok(stepLock("3. 모델·파라미터"), "step 3 waits for the input variables");
+  await act(async () => { await app.router.navigate(stepLink("2. 입력 변수").props.href); });
+  await wait(() => app.shown().includes("error_count, retry_count"), "step 2 by the stepper");
+  assert.equal(stepLink("2. 입력 변수").props["aria-current"], "step");
+  await act(async () => app.renderer.root.findByProps({ "aria-label": "입력 변수 세트", "data-slot": "radio-group" }).props.onValueChange(SET_OK));
+  await act(async () => { await app.router.navigate(stepLink("3. 모델·파라미터").props.href); });
+  await wait(() => app.shown().includes("준비 검사"), "step 3 by the stepper");
+  await act(async () => app.renderer.root.findAll((node) => node.type === "input" && node.props["aria-label"] === "트리 수")[0].props.onChange({ target: { value: "256" } }));
+  await app.click("학습 요청");
+  await wait(() => search(app).includes(`job=${JOB}`), "job in the address");
+  const back = stepLink("1. 기간").props.href;
+  assert.ok(back.includes("step=1") && back.includes("tab=all") && back.includes(`job=${JOB}`), "other address values stay");
+  await act(async () => { await app.router.navigate(back); });
+  await wait(() => app.input("period-from"), "back on step 1");
+  assert.equal(app.input("period-from").props.value, "2026-10-01", "the draft stays");
+  await act(async () => { await app.router.navigate(stepLink("3. 모델·파라미터").props.href); });
+  await wait(() => app.renderer.root.findAll((node) => node.type === "input" && node.props["aria-label"] === "트리 수")[0]?.props.value === "256", "edits stay");
+  await app.cleanup();
+}
+
+// 10-2) 파라미터는 선택한 모델만: 표에도 요청에도 다른 모델의 입력값이 섞이지 않는다
+{
+  const both = { ...catalog, methods: catalog.methods.map((method) => (method.methodId === "ml:minibatch_kmeans" ? { ...method, executable: { ...method.executable, process: true } } : method)) };
+  routes = baseRoutes({
+    "GET /api/jobs/capabilities": () => json({ ...capabilities(), methodCatalog: both }),
+    "POST /api/jobs": () => accepted(),
+    [`GET /api/jobs/${JOB}`]: () => json(job("running")),
+  });
+  const before = calls("POST", "/api/jobs").length;
+  const app = await mount();
+  await toStep3(app);
+  const paramInput = (label) => app.renderer.root.findAll((node) => node.type === "input" && node.props["aria-label"] === label)[0];
+  const choose = (key) => act(async () => app.renderer.root.findByProps({ "aria-label": "모델", "data-slot": "radio-group" }).props.onValueChange(key));
+  await act(async () => paramInput("트리 수").props.onChange({ target: { value: "256" } }));
+  assert.equal(paramInput("군집 수 K"), undefined);
+  await choose("minibatch_kmeans");
+  assert.equal(paramInput("트리 수"), undefined, "the other model's table is gone");
+  assert.equal(paramInput("군집 수 K").props.value, "6", "this model starts from its own default");
+  await act(async () => paramInput("군집 수 K").props.onChange({ target: { value: "8" } }));
+  await app.click("학습 요청");
+  await wait(() => search(app).includes("job="), "accepted");
+  const body = calls("POST", "/api/jobs").slice(before)[0].body;
+  assert.equal(body.modelKey, "minibatch_kmeans");
+  assert.deepEqual(Object.keys(body.parameters).sort(), ["batch_size", "k", "max_iter", "n_init", "quantile", "random_state"], "only the selected model's keys");
+  assert.equal(body.parameters.k, 8);
+  await choose("iforest");
+  assert.equal(paramInput("트리 수").props.value, "256", "each model keeps its own values");
+  assert.equal(paramInput("군집 수 K"), undefined);
+  await app.cleanup();
+}
+
 // 11) 3단계와 학습 요청: 카탈로그 표시·검사, 요청 본문, 진행 → 성공
 {
   let status = "queued";
@@ -618,9 +684,10 @@ const toStep3 = async (app) => {
   const app = await mount();
   await toStep3(app);
   const shown = app.shown();
-  for (const name of ["Isolation Forest", "MiniBatch K-Means", "Extended Isolation Forest", "ml:iforest", "연구 중 · research", "트리 수", "16 ~ 1024", "train-internal-p99-v1 · 조정 안 함", "다른 모델 파라미터", "군집 수 K"]) {
+  for (const name of ["Isolation Forest", "MiniBatch K-Means", "Extended Isolation Forest", "ml:iforest", "연구 중 · research", "트리 수", "16 ~ 1024", "train-internal-p99-v1 · 조정 안 함"]) {
     assert.ok(shown.includes(name), name);
   }
+  for (const name of ["다른 모델 파라미터", "군집 수 K", "n_init"]) assert.ok(!shown.includes(name), `${name} belongs to another model`);
   const model = (name) => app.renderer.root.findAll((node) => node.type === "button" && node.props["aria-label"] === `${name} 선택`)[0];
   assert.equal(model("MiniBatch K-Means").props.disabled, true, "research models cannot be selected");
   assert.equal(model("Extended Isolation Forest").props.disabled, true);
@@ -1059,7 +1126,7 @@ const FAKE_JOBS = ["a1a1a1a1-1111-4111-8111-111111111111", "a2a2a2a2-2222-4222-8
 const OLD_JOB = "a0a0a0a0-0000-4000-8000-000000000000";
 const RESULT = `결과 보기 · 버전 ${V1.slice(0, 8)}`;
 const poll = () => act(async () => new Promise((resolve) => setTimeout(resolve, 5100)));
-const fakeServer = ({ realInput = false } = {}) => {
+const fakeServer = () => {
   const s = { byKey: new Map(), jobs: new Map(), bodies: new Map(), keys: [], ids: [...FAKE_JOBS], holdNext: false, release: null, commitThenFail: null };
   const commit = (key, body) => {
     let id = s.byKey.get(key);
@@ -1074,7 +1141,7 @@ const fakeServer = ({ realInput = false } = {}) => {
   const read = (id) => () => {
     const entry = s.jobs.get(id);
     if (!entry) return json({ code: "job_not_found" }, 404);
-    const inputSpec = realInput && s.bodies.get(id) ? { ...s.bodies.get(id), ruleVersionIds: [] } : {};
+    const inputSpec = { ...s.bodies.get(id), ruleVersionIds: [] };
     return json(job(entry.status, { id, attemptCount: 1, inputSpec,
       ...(entry.status === "failed" ? { errorCode: "boom" } : {}), ...(entry.status === "succeeded" ? { resultSummary: { configVersionId: V1 } } : {}) }));
   };
@@ -1093,6 +1160,7 @@ const fakeServer = ({ realInput = false } = {}) => {
   });
   return s;
 };
+const savedKeys = () => JSON.parse(storage.get("s:pipeline-job-requests-v1") ?? "{}");
 const clickNoWait = (app) => act(async () => { void app.button("학습 요청").props.onClick(); });
 const refreshed = async (app, address) => {
   await app.cleanup();
@@ -1237,25 +1305,147 @@ for (const refreshWhile of ["running", "succeeded"]) {
   await app.cleanup();
 }
 
-// 초안 없이 끝난 작업의 키도 sessionStorage에 남지 않는다(작업 입력으로 찾는다). 다음 요청은 재전송이 없다
+// 초안 없이 끝난 작업의 키는 남을 수 있다. 다음 같은 내용 요청의 재전송이 교체한다
 {
-  const s = fakeServer({ realInput: true });
+  const s = fakeServer();
   (await import("../src/services/api/job-idempotency.ts")).clearJobRequestKeys();
   let app = await mount();
   await toStep3(app);
   await app.click("학습 요청");
   await wait(() => search(app).includes(`job=${FAKE_JOBS[0]}`), "J1");
-  assert.ok(Object.keys(JSON.parse(storage.get("s:pipeline-job-requests-v1"))).length > 0, "kept while it runs");
   const address = `/detection/models${search(app)}`;
   s.jobs.get(FAKE_JOBS[0]).status = "succeeded";
   app = await refreshed(app, address);
   await wait(() => app.shown().includes(RESULT), "result");
   await tick(30);
-  assert.deepEqual(Object.keys(JSON.parse(storage.get("s:pipeline-job-requests-v1"))), [], "no key left");
+  assert.deepEqual(Object.values(savedKeys()), [s.keys[0]], "the key stays: nothing ties it to the finished job");
   await toStep3(app);
   await app.click("학습 요청");
   await wait(() => search(app).includes(`job=${FAKE_JOBS[1]}`), "new job");
-  assert.equal(s.keys.length, 2, "no resend");
+  assert.equal(s.keys.length, 3, "one resend");
+  assert.deepEqual(Object.values(savedKeys()), [s.keys[2]], "replaced by the new key");
+  await app.cleanup();
+}
+
+// W) 옛 성공 작업과 내용이 같은 새 요청의 키는 지워지지 않는다(J2가 유실·실행 중인데 J3가 생기면 안 된다)
+const j1Succeeded = async (s) => {
+  const app = await mount();
+  await toStep3(app);
+  await app.click("학습 요청");
+  await wait(() => search(app).includes(`job=${FAKE_JOBS[0]}`), "J1");
+  s.jobs.get(FAKE_JOBS[0]).status = "succeeded";
+  await poll();
+  await wait(() => app.shown().includes(RESULT), "result");
+  await tick(60);
+  assert.equal(stored(), undefined, "draft cleared");
+  return app;
+};
+const runningJobs = (s) => [...s.jobs.values()].filter((entry) => entry.status === "running").length;
+// W1) 응답 유실 → 새로고침(주소는 성공한 J1) → 같은 내용
+{
+  const s = fakeServer();
+  let app = await j1Succeeded(s);
+  await toStep3(app);
+  const address = `/detection/models${search(app)}`;
+  s.holdNext = true;
+  await clickNoWait(app);
+  await wait(() => s.commitThenFail, "held");
+  await settle(() => s.commitThenFail());
+  await wait(() => app.shown().includes("학습 요청 실패"), "error");
+  app = await refreshed(app, address);
+  await wait(() => app.shown().includes(RESULT), "old result");
+  await tick(60);
+  await toStep3(app);
+  await app.click("학습 요청");
+  await tick(100);
+  assert.equal(s.jobs.size, 2, "J1 and one retry");
+  assert.equal(s.keys[1], s.keys[2], "the lost request is retried with its key");
+  await app.cleanup();
+}
+// W2) 성공 주소에서 POST 대기 → 나갔다 돌아옴 → 다시 클릭
+{
+  const s = fakeServer();
+  const app = await j1Succeeded(s);
+  await toStep3(app);
+  s.holdNext = true;
+  await clickNoWait(app);
+  await wait(() => s.release, "held");
+  const first = s.release;
+  await leaveViaDialog(app, "변경 사항 저장 후 이동");
+  await act(async () => { await app.router.navigate(-1); });
+  await wait(() => app.button("학습 요청"), "returned");
+  await tick(40);
+  if (app.button("학습 요청").props.disabled !== true) { await clickNoWait(app); await tick(40); }
+  await settle(() => first());
+  await tick(60);
+  assert.equal(s.jobs.size, 2, "J1 and one new training");
+  await app.cleanup();
+}
+// W2b) 응답 유실 → 나갔다 돌아옴 → 재시도
+{
+  const s = fakeServer();
+  const app = await j1Succeeded(s);
+  await toStep3(app);
+  s.holdNext = true;
+  await clickNoWait(app);
+  await wait(() => s.commitThenFail, "held");
+  await settle(() => s.commitThenFail());
+  await wait(() => app.shown().includes("학습 요청 실패"), "error");
+  await leaveViaDialog(app, "변경 사항 저장 후 이동");
+  await act(async () => { await app.router.navigate(-1); });
+  await wait(() => app.button("학습 요청"), "returned");
+  await tick(40);
+  await clickNoWait(app);
+  await tick(100);
+  assert.equal(s.jobs.size, 2, "J1 and one retry");
+  await app.cleanup();
+}
+// W3) J2 실행 중 → 새로고침해 옛 J1 주소로 → 같은 내용: 같은 J2로 이어진다
+{
+  const s = fakeServer();
+  let app = await j1Succeeded(s);
+  const oldAddress = `/detection/models${search(app)}`;
+  await toStep3(app);
+  await app.click("학습 요청");
+  await wait(() => search(app).includes(`job=${FAKE_JOBS[1]}`), "J2 running");
+  app = await refreshed(app, oldAddress);
+  await wait(() => app.shown().includes(RESULT), "old result");
+  await tick(60);
+  await toStep3(app);
+  await app.click("학습 요청");
+  await tick(100);
+  assert.equal(runningJobs(s), 1, "J2 only, no parallel duplicate");
+  assert.equal(s.jobs.size, 2);
+  assert.ok(search(app).includes(`job=${FAKE_JOBS[1]}`), "the screen follows J2");
+  await app.cleanup();
+}
+// 옛 키의 늦은 응답은 재전송이 만든 새 키를 지우지 않는다
+{
+  const s = fakeServer();
+  (await import("../src/services/api/job-idempotency.ts")).clearJobRequestKeys();
+  let app = await mount();
+  await toStep3(app);
+  await app.click("학습 요청");
+  await wait(() => search(app).includes(`job=${FAKE_JOBS[0]}`), "J1");
+  const address = `/detection/models${search(app)}`;
+  s.jobs.get(FAKE_JOBS[0]).status = "succeeded";
+  app = await refreshed(app, address);
+  await wait(() => app.shown().includes(RESULT), "result");
+  await toStep3(app);
+  s.holdNext = true;
+  await clickNoWait(app);
+  await wait(() => s.release, "first held");
+  const late = s.release;
+  await leaveViaDialog(app, "변경 사항 저장 후 이동");
+  await act(async () => { await app.router.navigate(-1); });
+  await wait(() => app.button("학습 요청"), "returned");
+  await tick(30);
+  await app.click("학습 요청");
+  await wait(() => search(app).includes(`job=${FAKE_JOBS[1]}`), "resent as a new job");
+  const newest = s.keys.at(-1);
+  await settle(() => late());
+  await tick(40);
+  assert.deepEqual(Object.values(savedKeys()), [newest], "the late reply leaves the new key alone");
   await app.cleanup();
 }
 
@@ -1280,6 +1470,23 @@ for (const refreshWhile of ["running", "succeeded"]) {
   assert.equal(s.keys.length, 2, "no resend for a discarded draft");
   assert.equal(s.jobs.size, 1);
   assert.equal(stored(), undefined);
+  await app.cleanup();
+}
+
+// 버린 요청의 실패는 새 초안에 적히지 않는다
+{
+  const held = heldPost();
+  const app = await mount();
+  await toStep3(app);
+  await startPost(app, held);
+  await leaveViaDialog(app, "버리고 이동");
+  await act(async () => { await app.router.navigate("/detection/models"); });
+  await wait(() => app.input("period-from"), "fresh draft");
+  await app.set("period-from", "2026-10-07");
+  await settle(() => held.fail());
+  await tick(30);
+  assert.equal(stored().value.requestError, null, "the discarded request's failure stays out");
+  assert.ok(!app.shown().includes("학습 요청 실패"));
   await app.cleanup();
 }
 

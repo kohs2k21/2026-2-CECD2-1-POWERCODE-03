@@ -30,7 +30,7 @@ export type TrainDraft = {
   submitted: string | null;
   /** 마지막으로 보낸 요청의 멱등키이자 응답을 받을 토큰이다. 응답은 이 값이 같은 초안에만 적는다(버린 초안·새 초안에는 적히지 않는다). */
   requestKey: string | null;
-  /** 그 요청 본문(JSON). 작업이 성공하면 같은 내용의 다음 요청이 새 실행이 되게 키를 지운다. */
+  /** 그 요청 본문(JSON). 초안의 작업이 성공하면 그 작업을 접수한 키를 지울 때 쓴다. */
   requestFor: string | null;
   /** 요청 실패 코드. 응답을 받은 화면과 지금 화면이 달라도 보이도록 초안에 둔다. */
   requestError: string | null;
@@ -55,8 +55,6 @@ export const draftFingerprint = ({ period, featureSetId, modelKey, params }: Tra
  * 초안의 유일한 저장소는 `draftStore`다. 화면 인스턴스가 값을 따로 들고 있으면 응답을 받은 옛 인스턴스와 복귀한 화면이 어긋난다.
  * 앱 안 이동 확인은 접수 뒤 고친 내용이 있을 때만 필요하다(`leaveFree`). 새로고침·로그아웃 확인은 `dirty`를 따른다.
  */
-/** 저장된 작업 입력 → 요청 본문(키 조회용). 초안이 없을 때(새로고침 뒤) 끝난 작업의 키를 지우는 데 쓴다. 서버가 더한 빈 `ruleVersionIds`만 다르다. */
-export const requestOfInput = ({ ruleVersionIds: _ruleVersionIds, ...body }: Record<string, unknown>) => body;
 export const readTrainDraft = () => (useDraftStore.getState().drafts[paths.detectionModels]?.value as TrainDraft | undefined) ?? null;
 export const writeTrainDraft = (update: (current: TrainDraft) => TrainDraft) => {
   const current = readTrainDraft() ?? freshDraft();

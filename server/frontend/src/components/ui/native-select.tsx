@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 export const NativeSelect = ({
   className,
   size = "default",
+  ref,
   ...props
 }: Omit<ComponentProps<"select">, "size"> & { size?: "sm" | "default" }) => (
   <div
@@ -13,6 +14,7 @@ export const NativeSelect = ({
     className="group/native-select relative w-full has-[select:disabled]:opacity-50"
   >
     <select
+      ref={ref}
       data-slot="native-select"
       data-size={size}
       className={cn(

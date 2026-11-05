@@ -3,6 +3,7 @@ import React from "react";
 import { act, create } from "react-test-renderer";
 import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import { SideNav } from "../src/components/layout/SideNav.tsx";
+import { AppShell } from "../src/components/layout/AppShell.tsx";
 import { LinkTabs } from "../src/components/layout/LinkTabs.tsx";
 import { detectionBackTarget } from "../src/features/detection/DetectionLayout.tsx";
 import { cn, fontSizeTokens } from "../src/lib/utils.ts";
@@ -37,6 +38,19 @@ await act(async () => {
 });
 const nav = renderer.root.findByProps({ id: "side-test" });
 assert.equal(nav.type, "nav");
+// 넓은 화면 고정은 aside에 걸고(nav에 걸면 움직일 공간이 없다) 머리글 높이를 고려한다. 긴 메뉴는 사이드바 안에서 스크롤.
+const aside = renderer.root.findByProps({ "data-slot": "side-nav" });
+assert.ok(aside.props.className.includes("md:sticky") && aside.props.className.includes("var(--top-nav-offset)") && aside.props.className.includes("md:self-start"));
+assert.ok(!nav.props.className.includes("md:sticky") && nav.props.className.includes("md:overflow-y-auto") && nav.props.className.includes("var(--top-nav-offset)"));
+// 고정 간격 = 본문 위 여백(같은 토큰): 스크롤을 시작해도 사이드바가 움직이지 않는다.
+let shell;
+await act(async () => {
+  shell = create(React.createElement(AppShell, { topNav: null }, "본문"));
+});
+assert.ok(shell.root.findByType("main").props.className.includes("py-(--page-block-padding)"), "page padding uses the shared token");
+assert.ok(aside.props.className.includes("md:top-[calc(var(--top-nav-offset)+var(--page-block-padding))]"), "sticky gap equals the page padding");
+assert.ok(nav.props.className.includes("md:max-h-[calc(100dvh-var(--top-nav-offset)-2*var(--page-block-padding))]"), "height keeps the same gap below");
+await act(async () => shell.unmount());
 assert.equal(nav.props["aria-label"], "판정 분류", "one labelled navigation landmark");
 assert.deepEqual(nav.findAllByType("h3").map((node) => text(node.children)), ["이상 로그", "분류함 (확인 불가)"]);
 // 제목 h2(13/600/18 흐린 글자 = 그룹 제목과 같은 모양), 그룹은 그 아래 h3. 메뉴 글자 크기 토큰이 색 클래스와 함께 남는다.

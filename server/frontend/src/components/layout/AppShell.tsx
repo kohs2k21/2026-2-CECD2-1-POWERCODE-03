@@ -4,7 +4,7 @@ import type { PropsWithChildren, ReactNode } from "react";
 export const AppShell = ({ topNav, children }: PropsWithChildren<{ topNav: ReactNode }>) => (
   <div className="min-h-screen bg-background">
     {topNav}
-    <main id="workspace-content" tabIndex={-1} className="mx-auto w-full max-w-workspace px-4 py-6 outline-none md:px-8">
+    <main id="workspace-content" tabIndex={-1} className="mx-auto w-full max-w-workspace px-4 py-(--page-block-padding) outline-none md:px-8">
       {children}
     </main>
   </div>

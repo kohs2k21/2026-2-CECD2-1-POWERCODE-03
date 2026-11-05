@@ -77,7 +77,7 @@ const resultNode = (detail: DecisionDetail, v4: EvidenceV4 | null) => {
 };
 
 /**
- * 판정 요약: 와이어프레임 판정 상세 항목(판정 ID·판정 시각·당시 룰 리비전·당시 운영 머신러닝 모델·판정 단계·판정 결과·검사 완료·위험도·
+ * 판정 요약: 와이어프레임 판정 상세 항목(판정 ID·판정 시각·당시 룰 버전·당시 운영 머신러닝 모델·판정 단계·판정 결과·검사 완료·위험도·
  * 입력 출처·업무 분류·거래 ID·프로세스·인터페이스 · 채널·로그 상태 · 응답 코드) 중 저장값이 있는 것만 + 최종 판정의 판정 코드·이상 점수·수행 상태.
  * 처리 시간은 PROCESS 원천 속성이 없어 생략. 판정 기한·정책 k는 보이지 않는다(사용자 9.8·C23).
  */
@@ -93,7 +93,7 @@ const SummaryCard = ({ detail }: { detail: DecisionDetail }) => {
     { label: "판정 ID", value: detail.decisionId ?? DASH },
     { label: "판정 시각", value: detail.decidedAt ? stampText(detail.decidedAt) : DASH },
   ];
-  if (ruleSetRevision !== null) items.push({ label: "당시 룰 리비전", value: `r${ruleSetRevision}` });
+  if (ruleSetRevision !== null) items.push({ label: "당시 룰 버전", value: String(ruleSetRevision) });
   if (config)
     items.push({
       label: "당시 운영 머신러닝 모델",

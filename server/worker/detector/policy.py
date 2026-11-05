@@ -9,6 +9,10 @@ from typing import Callable
 
 _POOLS = {name: ThreadPoolExecutor(max_workers=2, thread_name_prefix="detection-"+name) for name in ("rule","ml")}
 _SLOTS = {name: threading.BoundedSemaphore(2) for name in ("rule","ml")}
+POLICY_V2_KEYS = frozenset({"category-k-of-n-or-v1"})
+# 운영 설정을 저장한 적이 없는 상태(리비전 0)의 내장 기본 정책.
+DEFAULT_POLICY_V2 = {"version": 2, "policyKey": "category-k-of-n-or-v1", "k": {"hard": 1, "soft": 1, "ml": 1},
+                     "deadlineMs": 3000}
 
 @dataclass(frozen=True)
 class Policy:
@@ -20,6 +24,23 @@ class Policy:
     def document(self):
         return {"mode": self.mode, "deadlineMs": self.deadline_ms,
                 "combination": self.combination, "legacy": self.legacy}
+
+
+@dataclass(frozen=True)
+class PolicyV2:
+    policy_key: str
+    k_items: tuple[tuple[str, int], ...]
+    deadline_ms: int
+
+    @property
+    def k(self):
+        return dict(self.k_items)
+
+    def combination(self):
+        return {"version": 2, "policyKey": self.policy_key, "k": self.k}
+
+    def document(self):
+        return {**self.combination(), "deadlineMs": self.deadline_ms}
 
 
 def parse_policy(spec: dict, *, required: bool = False) -> Policy:
@@ -35,6 +56,32 @@ def parse_policy(spec: dict, *, required: bool = False) -> Policy:
     if combination != ("any_anomaly" if mode == "parallel" else "selected_path"):
         raise ValueError("unsupported_detection_combination")
     return Policy(mode, deadline, combination)
+
+
+def parse_policy_v2(value) -> PolicyV2:
+    """k의 범위(저장 시 모두 1, 실행 시 k<=n)는 형태 검사가 아니므로 여기서 보지 않는다."""
+    if not isinstance(value, dict) or set(value) != {"version", "policyKey", "k", "deadlineMs"}:
+        raise ValueError("invalid_detection_policy")
+    deadline, k = value["deadlineMs"], value["k"]
+    if type(value["version"]) is not int or value["version"] != 2 or type(deadline) is not int or \
+            not 100 <= deadline <= 30000:
+        raise ValueError("invalid_detection_policy")
+    if not isinstance(k, dict) or set(k) != {"hard", "soft", "ml"} or any(type(item) is not int for item in k.values()):
+        raise ValueError("invalid_detection_policy")
+    if not isinstance(value["policyKey"], str) or value["policyKey"] not in POLICY_V2_KEYS:
+        raise ValueError("unsupported_detection_policy")
+    return PolicyV2(value["policyKey"], tuple((name, k[name]) for name in ("hard", "soft", "ml")), deadline)
+
+
+def parse_versioned_policy(spec: dict, *, required: bool = False) -> Policy | PolicyV2:
+    """version 키가 있으면 v2만 인정하고, 없으면 기존 v1·legacy 판독을 그대로 쓴다."""
+    value = spec.get("detectionPolicy")
+    if isinstance(value, dict):
+        if "version" in value:
+            return parse_policy_v2(value)
+        if value.keys() & {"policyKey", "k"}:
+            raise ValueError("invalid_detection_policy")
+    return parse_policy(spec, required=required)
 
 
 def execute(policy: Policy, rule: Callable, ml: Callable, *, started_at: float | None = None) -> dict:

@@ -23,7 +23,7 @@ from telemetry import cost_family, queue_wait_ms
 
 def process_detection_message(conn: Any, message: ClaimedMessage, root: Path | None) -> None:
     from detector.computation import load_context, compute, legacy_feature_hash
-    from detector.jobs import enqueue_observation,input_config
+    from detector.jobs import detect_contract,enqueue_observation,input_config
     from trainer.runner import _claim_job, _finish
     from trainer.lease import TrainingLeaseHeartbeat, lock_training_ownership
     started = time.monotonic()
@@ -32,17 +32,24 @@ def process_detection_message(conn: Any, message: ClaimedMessage, root: Path | N
     if not payload.get("jobId"):
         # Bridge old feature/detection backlog to the immutable job protocol.
         with conn.transaction():
-            pinned = payload.get("configVersionId") or input_config(conn,observation.source_id)
-            if pinned is None:
+            requested = payload.get("configVersionId")
+            v04 = detect_contract(conn,observation.source_id,requested) == "v04"
+            # v04는 구성 없이 판정한다. 메시지가 구성을 가리킬 때만 그 구성으로 입력을 대조한다.
+            pinned = requested if v04 else requested or input_config(conn,observation.source_id)
+            if pinned is None and not v04:
                 raise ValueError("active_config_unavailable")
-            context = load_context(conn, pinned, observation.source_id)
             with conn.cursor() as cur:
                 cur.execute("SELECT content_hash FROM data_observations WHERE id=%s", (observation.observation_id,))
                 content_hash = cur.fetchone()[0]
-                previous_hash = legacy_feature_hash(context, observation.observation_id, content_hash)
+                previous_hash = None
+                if pinned is not None:
+                    context = load_context(conn, pinned, observation.source_id)
+                    previous_hash = legacy_feature_hash(context, observation.observation_id, content_hash)
                 if payload.get("inputManifestHash") not in (None, previous_hash):
                     raise ValueError("input_manifest_mismatch")
-                cur.execute("SELECT 1 FROM run_process_decisions WHERE process_observation_id=%s AND config_version_id=%s", (observation.observation_id,pinned))
+                # v04 판정은 구성에 묶이지 않으므로 그 관측의 판정이 하나라도 있으면 새로 만들지 않는다.
+                cur.execute("""SELECT 1 FROM run_process_decisions WHERE process_observation_id=%s
+                    AND (%s OR config_version_id=%s)""", (observation.observation_id,v04,pinned))
                 if cur.fetchone() is None:
                     enqueue_observation(conn, observation.observation_id, config_id=pinned)
             if not acknowledge(conn, "detection", message):
@@ -65,6 +72,11 @@ def process_detection_message(conn: Any, message: ClaimedMessage, root: Path | N
             if fixed is None or any(payload.get(key) != fixed[0].get(key) for key in
                     ("sourceId","observationId","configVersionId","inputManifestHash","inputManifestId")):
                 raise ValueError("input_manifest_mismatch")
+        if job["contractVersion"] == "v04":
+            from detector.attempt_v04 import run_attempt
+            run_attempt(conn, message, job, attempt_id, attempt_token, observation, fixed, root,
+                        started=started, queue_wait=queue_wait, heartbeat=heartbeat, finish=_finish)
+            return
         config_id = fixed[1]
         context = load_context(conn, config_id, observation.source_id)
         with conn.cursor() as cur:
@@ -127,9 +139,12 @@ def process_detection_message(conn: Any, message: ClaimedMessage, root: Path | N
                     VALUES(%s,%s,'detector',%s,%s)""",(uuid.uuid4(),observation.observation_id,config_id,(time.monotonic()-started)*1000))
             _finish(conn,message,job,attempt_id,attempt_token,{"status":result["status"],
                     'executionCost': telemetry, 'checkers': checkers},None,True)
-    except Exception:
+    except Exception as exc:
         conn.rollback()
-        _finish(conn,message,job,attempt_id,attempt_token,None,"detection_processing_failed",False)
+        # _finish가 큐 임대를 비우므로 run()의 fail은 효력이 없다. v04 fail-closed 원인은 여기서 남긴다.
+        failure = str(exc)[:100] if job["contractVersion"] == "v04" and isinstance(exc, ValueError) \
+            else "detection_processing_failed"
+        _finish(conn,message,job,attempt_id,attempt_token,None,failure,False)
         conn.commit()
         raise
     finally:

@@ -277,6 +277,23 @@ test('severity is editable only on the status rule', () => {
   assert.deepEqual(plan(request(), { state: r0 }).changes.map((change) => change.type), ['hard_enabled', 'hard_enabled'], 'turning on rules r0 does not know is a change');
 });
 
+test('worker threshold values pass the rule set save validation unchanged', async () => {
+  // 워커 시험이 fixed_threshold 출력으로 고정한 값. 화면은 문자열을 number로 바꿔 저장 요청에 넣는다(ruleDraft.ts).
+  const { cases } = JSON.parse(await contract('threshold-values.example.json'));
+  assert.ok(cases.filter(({ threshold }) => threshold !== null).length > 20);
+  for (const { name, field, p95, threshold } of cases) {
+    const { valueType } = SOFT_RULE_FIELDS.find((item) => item.fieldId === field);
+    if (threshold === null) {
+      assert.equal(thresholdFixedDecimal(p95, valueType), null, `${name}: the worker refuses only what the save refuses`);
+      continue;
+    }
+    const value = Number(threshold);
+    assert.equal(thresholdFixedDecimal(value, valueType), threshold, name);
+    const saved = plan(request({ softRules: [added({ field, operator: 'gt', threshold: value })] }));
+    assert.equal(saved.snapshot.softRules[0].threshold, value, name);
+  }
+});
+
 test('threshold-stats request parsing follows the contract', () => {
   const source = '11111111-1111-4111-8111-111111111111';
   const body = (period, extra = {}) => ({ field: 'elapsed_ms', sourceId: source, period, ...extra });

@@ -57,6 +57,13 @@ export async function activeModelCount(db: Queryable): Promise<number> {
   return row.n;
 }
 
+/** 현재 리비전의 번호·내용 hash·소프트룰. 작업 입력 고정용이며 hash는 행의 값 그대로다(재계산 없음). */
+export async function readCurrentSoftRules(db: Queryable) {
+  const row = await latest(db);
+  const { revision, contentHash, contentHashVersion } = revisionOf(row);
+  return { revision, contentHash, contentHashVersion, softRules: currentSnapshot(row).softRules };
+}
+
 export type ActorRef = { actorId: string; displayName: string };
 export type ActorResolver = (actorId: string) => Promise<ActorRef>;
 

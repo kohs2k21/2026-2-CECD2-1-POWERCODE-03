@@ -4,17 +4,20 @@ import { getDatabasePool } from '../config/database.js';
 import { authenticateToken, AuthenticatedRequest } from '../middleware/auth.js';
 import { parseRuleDraft, parseRuleKey, InvalidRuleError, bindRecommendationEvidence } from '../rules/ruleContract.js';
 import { writeRule, RuleConflictError } from '../rules/ruleRepository.js';
+import { readCurrentSoftRules } from '../ruleset/ruleSetStore.js';
 import { TRAINER_CAPABILITIES, TRAINING_EXCLUSION_SUPPORTED, featureSetCapability } from './trainerContract.js';
 import { mlMethod, parametersValid } from '../ruleset/methodCatalog.js';
 import { excludedIntervalsProblem, parseExcludedIntervals } from '../ruleset/thresholdStats.js';
 import { parseSyntheticEvaluation, parseSyntheticRegistration, verifySyntheticBinding, staticSpecHash,
   SyntheticRequestError, type SyntheticEvaluation, type SyntheticBinding } from './syntheticEvaluationContract.js';
+import { ThresholdRequestError, fixThresholdTargets, parseThresholdRequest, thresholdLlmSpec,
+  type ThresholdFixedInput, type ThresholdRequest } from './thresholdRecommendationContract.js';
 
 const router = Router();
 router.use(authenticateToken as any);
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const UTC_TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?Z$/;
-const KINDS = new Set(['recommend_feature', 'recommend_rule', 'train', 'evaluate', 'explain']);
+const KINDS = new Set(['recommend_feature', 'recommend_rule', 'recommend_thresholds', 'train', 'evaluate', 'explain']);
 
 export class JobRequestError extends Error {
   constructor(readonly code: string, readonly status = 400) { super(code); }
@@ -41,7 +44,7 @@ type JobInput = {
   excludedIntervals?: { from: string; until: string; reasonCode: string; note: string | null }[];
   syntheticEvaluation?: SyntheticEvaluation;
   syntheticProfileBinding?: SyntheticBinding;
-};
+} & Partial<Omit<ThresholdRequest, 'kind' | 'sourceId'> & ThresholdFixedInput>;
 
 /** 학습 모델·파라미터 접수 검증(trainer-service.md). 워커 `resolve_training_method`와 같은 카탈로그·같은 코드이고, 키 생략은 기본 IF다. */
 function checkTrainingMethod(modelKey: unknown, parameters: unknown): void {
@@ -82,6 +85,7 @@ export function parseRequest(value: unknown, support: TrainingSupport = TRAINING
   if (typeof body.kind !== 'string' || !KINDS.has(body.kind) || !uuid(body.sourceId)) {
     throw new JobRequestError('invalid_job_request');
   }
+  if (body.kind === 'recommend_thresholds') return parseThresholdRequest(body, body.sourceId);
   const permitted = ['kind', 'sourceId', 'from', 'until', 'featureSetId', 'configVersionId', 'snapshotId', 'purpose', 'ruleVersionIds', 'decisionId', 'detectionPolicy', 'modelKey', 'parameters', 'timeBasis', 'excludedIntervals', 'syntheticEvaluation'];
   if (Object.keys(body).some((key) => !permitted.includes(key))) throw new JobRequestError('invalid_job_request');
   const input: JobInput = { kind: body.kind, sourceId: body.sourceId };
@@ -172,9 +176,9 @@ export function parseRequest(value: unknown, support: TrainingSupport = TRAINING
 }
 
 router.post('/', route(async (req, res) => {
-  if (req.user!.userType !== 'admin' && ['recommend_feature','recommend_rule','train','evaluate'].includes(req.body?.kind)) throw new JobRequestError('admin_required',403);
+  if (req.user!.userType !== 'admin' && ['recommend_feature','recommend_rule','recommend_thresholds','train','evaluate'].includes(req.body?.kind)) throw new JobRequestError('admin_required',403);
   const input = parseRequest(req.body);
-  if (['recommend_feature', 'recommend_rule', 'train', 'evaluate'].includes(input.kind) && req.user!.userType !== 'admin') {
+  if (['recommend_feature', 'recommend_rule', 'recommend_thresholds', 'train', 'evaluate'].includes(input.kind) && req.user!.userType !== 'admin') {
     throw new JobRequestError('admin_required', 403);
   }
   const header = req.headers['idempotency-key'];
@@ -258,10 +262,24 @@ router.post('/', route(async (req, res) => {
       input.savedEvidenceJson = JSON.stringify(input.savedEvidence);
       requestHash = crypto.createHash('sha256').update(JSON.stringify(input)).digest('hex');
     }
+    const thresholds = input.kind === 'recommend_thresholds';
+    if (thresholds) {
+      const request = input as ThresholdRequest;
+      const { snapshotId, from, until } = request.data;
+      if (snapshotId) {
+        const snapshot = await client.query(`SELECT 1 FROM data_snapshots WHERE id=$1 AND source_id=$2 AND status='ready' AND schema_version='process-v1'
+          AND ($3::timestamptz IS NULL OR (selection_spec->>'from')::timestamptz=$3::timestamptz)
+          AND ($4::timestamptz IS NULL OR (selection_spec->>'until')::timestamptz=$4::timestamptz)`,
+          [snapshotId, input.sourceId, from, until]);
+        if (!snapshot.rowCount) throw new JobRequestError('snapshot_conditions_mismatch', 409);
+      }
+      Object.assign(input, fixThresholdTargets(request, await readCurrentSoftRules(client)));
+      requestHash = crypto.createHash('sha256').update(JSON.stringify(input)).digest('hex');
+    }
     const id = crypto.randomUUID();
     const recommendation = ['recommend_feature', 'recommend_rule'].includes(input.kind);
     const explanation = input.kind === 'explain';
-    const llmSpec = recommendation || explanation ? {
+    const llmSpec = thresholds ? thresholdLlmSpec(input as ThresholdRequest & ThresholdFixedInput, requestHash, req.user!.id, idempotencyKey) : recommendation || explanation ? {
       evidence_version: explanation ? 'saved-decision-v1' : 'source-period-request-v1',
       input_evidence_hash: explanation ? crypto.createHash('sha256').update(input.savedEvidenceJson!).digest('hex') : requestHash,
       model_version: explanation ? 'qwen-base-6a9e13bd' : input.kind === 'recommend_feature' ? 'feature_v5' : 'rule_v2',
@@ -297,7 +315,7 @@ router.post('/', route(async (req, res) => {
        RETURNING id, status, kind, input_spec AS "inputSpec"`,
       [id, input.kind, req.user!.id, req.user!.userType, idempotencyKey,
         requestHash, input.configVersionId ?? null, input.snapshotId ?? null, JSON.stringify(input),
-        'v03', explanation ? 'llm_explanation' : recommendation ? 'llm_recommendation' : 'training',
+        'v03', explanation ? 'llm_explanation' : recommendation || thresholds ? 'llm_recommendation' : 'training',
         'user', req.user!.id,
         llmSpec ? JSON.stringify(llmSpec) : null, input.decisionId ?? null],
     );
@@ -312,7 +330,7 @@ router.post('/', route(async (req, res) => {
       if (!row || row.request_hash !== requestHash) throw new JobRequestError('idempotency_payload_conflict', 409);
     } else {
       await client.query(
-        `INSERT INTO ${explanation ? 'powercode_queue.llm_explanation_jobs' : recommendation ? 'powercode_queue.llm_recommendation_jobs' : 'powercode_queue.training_jobs'} (id, payload)
+        `INSERT INTO ${explanation ? 'powercode_queue.llm_explanation_jobs' : recommendation || thresholds ? 'powercode_queue.llm_recommendation_jobs' : 'powercode_queue.training_jobs'} (id, payload)
          VALUES ($1, $2::jsonb)`,
         [crypto.randomUUID(), JSON.stringify({ schemaVersion: 1, jobId: id, enqueuedAt: new Date().toISOString() })],
       );
@@ -441,7 +459,7 @@ router.post('/:id/recommendations/:index/adopt', route(async (req, res) => {
 }));
 
 router.use((error: unknown, _req: Request, res: Response, _next: NextFunction) => {
-  if (error instanceof JobRequestError || error instanceof SyntheticRequestError) {
+  if (error instanceof JobRequestError || error instanceof SyntheticRequestError || error instanceof ThresholdRequestError) {
     res.status(error.status).json({ code: error.code });
     return;
   }

@@ -11,7 +11,7 @@ class ContractFixture:
         self.bundle = Path(bundle)
         self.manifest = json.loads((self.bundle / "design/manifest.json").read_text())
 
-    def generate(self, kind, request):
+    def generate(self, kind, request, report_timeout=False):
         if kind == "feature":
             columns = [{"op": "column", "table": "EC_PROCESS_MONITORING", "column": name}
                        for name in ("ERROR_COUNT", "TOTAL_COUNT")]

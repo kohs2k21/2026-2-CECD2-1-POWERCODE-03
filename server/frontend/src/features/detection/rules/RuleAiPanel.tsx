@@ -71,13 +71,7 @@ export const useRuleAi = ({ state, dirty, reload }: { state: RuleSetState; dirty
     setRun({ status: "running", count });
     const body = recommendationRequest(sourceId, state.revision);
     try {
-      const started = await startRecommendation(body, jobRequestKey(user?.id ?? "", body, true), state);
-      if ("jobId" in started) {
-        setJobId(started.jobId);
-      } else {
-        const result = parseRecommendation(started.result, state);
-        setRun(result ? { status: "done", result, unpicked: [] } : { status: "failed", code: "recommendation_result_invalid" });
-      }
+      setJobId(await startRecommendation(body, jobRequestKey(user?.id ?? "", body, true)));
     } catch (error) {
       setRun({ status: "failed", code: errorCode(error) });
       if (error instanceof HttpError && error.code === "rule_set_revision_conflict") await reload();

@@ -1,5 +1,5 @@
 Created: 2026-10-21T00:00:00+09:00
-Updated: 2026-11-04T21:00:00+09:00
+Updated: 2026-11-05T12:00:00+09:00
 Author: Claude Code (Trainer 세션 builder)
 Status: draft
 
@@ -9,6 +9,7 @@ Status: draft
 - 2차 개정(사용자 11/02 9.4): 규칙별 수식 추천의 **기준 기간 선택** — (a) 현재 운영 ML 모델이 학습에 쓴 첫 기간 시작 ~ 현재 (b) 최근 1개월·3개월 (c) 사용자 지정 → `POST /api/rule-set/threshold-stats`에 `period.mode` 추가, 운영 모델이 없을 때 (a)는 오류 코드. 일괄 추천 대상은 **저장된 리비전의 켜진 소프트룰**임을 명시(WebUI 11/02 대조), ratio 필드 표시값은 유효숫자 기준(카탈로그 `displayPrecisionMode`)
 - 3차 정정(Issue #116, 11/04, WebUI 요청): `recommend_thresholds`·`threshold-stats` 결과 `threshold`를 **유효숫자 15자리 이내로 반올림한 고정소수 문자열**로 통일(rule-set.md 저장 검증과 일치, 40자 한도 유지), 원값은 `evidence.p95`에 보존, `ai_proposal` 제안값도 같은 정규화·검증; `input_spec`·결과 `ruleSet`에 `contentHashVersion` 동반
 - 3차 정정(Issue #116, 11/04): 수식 추천 SQL 번역의 `datetime_diff` 원천을 `parsed_times`가 아니라 `data_observations.allowed_values`의 `start_time_raw`·`end_time_raw`로 정정(Detector 11/04 확인, #112). 결측·해석 실패 처리를 카탈로그 `sourceMissingPolicy`와 일치시킴
+- 4차 정정(Issue #121, 11/05): API 접수 구현과 워커 실제 동작에 맞춤. 결과 형식 `threshold-recommendation-v1`은 그대로. 요청 예시를 화면과 같은 `persisted_at` 기간으로, `input_spec`·`llm_spec` 키와 값 고정(`input_evidence_hash` = API 요청 hash, `prompt_version` 고정 이름), `current_rules` 문맥 없음, 1단계에서 `request_evidence`·`deferred` 미도달, 정수 필드 `ROUND_HALF_UP`, 실패 표 코드 추가, `generation_timeout`은 이 작업 종류만
 - 계약 버전: `threshold-recommendation-v1`. 근거 코드 origin/dev `7f24e03`: `worker/research_design.py:36-44`(summary·p95 `np.quantile` linear), `:154-199`(`rule_request` — 기준선 = train 분할·anomaly 라벨 제외 p95, `minimum_n 20`, 단위 `count|ratio|ms|s|us`), `:202-234`(`recommend_rules` — 변수당 LLM 1회 순차, 검증 탈락은 변수만 제외, `str(request["baseline"]["value"])`로 DSL 값 생성), `worker/generation_client.py:54-55`(`TimeoutError`를 `generation_service_unavailable`로 묶음), `backend/src/rules/ruleContract.ts:17`(DSL 십진수 정규식, 지수 표기 거부)
 - 상위 결정: 사용자 11/02 결정 — 임계값 산출 주체(8.1), AI 추천 단위 일괄 + 규칙별 수식(R5), 현재 코드 실행 조사(9.1), 화면 설계(9.2: (가)(나) 모두 담고 (가)로 먼저 연결). 절 번호는 총괄 기록 기준
 - 범위: 작업 요청·입력 범위·추천 1건 형식·상태·실패/시간 초과 구분·임계값 직렬화 규칙·수식 추천 API·마이그레이션 영향. 제외: 프롬프트·어댑터 연구(LLM 담당 팀원), GPU 배포, 자동 적용(추천은 입력칸 채우기까지, 운영 반영은 [rule-set.md](rule-set.md) 저장)
@@ -37,25 +38,30 @@ Status: draft
   "sourceId": "<source UUID>",
   "ruleSetRevision": 13,
   "scope": {"softRuleIds": null},
-  "data": {"snapshotId": "<ready snapshot UUID>", "from": null, "until": null, "timeBasis": "esb_occurred_at"},
+  "data": {"snapshotId": null, "from": "2026-08-05T00:00:00.000Z", "until": "2026-11-05T00:00:00.000Z", "timeBasis": "persisted_at"},
   "mode": "data_p95_with_llm_rationale"
 }
 ```
 
+- 위 키 밖이나 형식 위반은 400 `invalid_job_request`. 아래 표가 다른 코드를 정한 경우만 그 코드
+
 | 키 | 규칙 |
 |---|---|
-| `ruleSetRevision` | 추천 기준 룰 세트 리비전([rule-set.md](rule-set.md)). 현재 리비전과 다르면 409 `rule_set_revision_conflict`(화면 새로 불러오기). 작업은 이 리비전(= **저장된** 상태)의 **켜진 소프트룰** 대상 필드를 입력으로 고정(`input_spec`에 `ruleSetContentHash`·`ruleSetContentHashVersion`(그 리비전 행의 `contentHash`·`contentHashVersion` 그대로, 재계산 없음 — [rule-set.md](rule-set.md) 리비전 형식 절, #116)·대상 목록 기록). **화면에서 편집 중이나 아직 저장하지 않은 규칙(추가·필드 변경·켬)은 대상이 아님** — 화면은 미저장 변경이 있으면 "저장 후 추천" 안내(WebUI 11/02 대조) |
-| `scope.softRuleIds` | null = 켜진 소프트룰 전체(R5 b 일괄). 배열이면 그 중 부분집합(화면 선택). 같은 필드를 쓰는 룰이 여러 개면 **필드당 1건** 계산하고 응답에서 룰 id 목록으로 묶음 |
-| `data.snapshotId` | 집계 출처(ready, `purpose` 무관하게 **train 분할**만 사용 — 현행 `rule_request` scope). 생략 시 `from/until`(+`timeBasis`)로 snapshot 생성하는 현행 추천 경로 재사용 [유지 10/21]. 둘 다 없으면 400 |
-| `mode` | `data_p95_with_llm_rationale`(가, 기본·유일 구현) / `ai_proposal`(나, 예약 — 어댑터 없으면 422 `recommendation_mode_not_available`) |
+| `ruleSetRevision` | 추천 기준 룰 세트 리비전([rule-set.md](rule-set.md)). 0 이상 정수. 현재 리비전과 다르면 409 `rule_set_revision_conflict`(화면 새로 불러오기, 없는 리비전도 같음. 응답은 `{code}`만). 룰 세트는 출처별이 아니라 전역 하나라 `sourceId`와 무관하게 현재 리비전과 대조. 같은 멱등키 재전송도 이 검사를 먼저 받음. 리비전 행이 하나도 없으면 빈 대상으로 대신하지 않고 503 `job_storage_unavailable`. 작업은 이 리비전(= **저장된** 상태)의 **켜진 소프트룰** 대상 필드를 입력으로 고정(`input_spec`에 `ruleSetContentHash`·`ruleSetContentHashVersion`(그 리비전 행의 `contentHash`·`contentHashVersion` 그대로, 재계산 없음 — [rule-set.md](rule-set.md) 리비전 형식 절, #116)·대상 목록 기록). **화면에서 편집 중이나 아직 저장하지 않은 규칙(추가·필드 변경·켬)은 대상이 아님** — 화면은 미저장 변경이 있으면 "저장 후 추천" 안내(WebUI 11/02 대조) |
+| `scope.softRuleIds` | 키 필수. null = 켜진 소프트룰 전체(R5 b 일괄). 배열이면 그 중 부분집합(화면 선택): 중복 없는 소프트룰 id 최대 32개, 꺼졌거나 없는 id는 빠지고 대상만 남음. 같은 필드를 쓰는 룰이 여러 개면 **필드당 1건** 계산하고 응답에서 룰 id 목록으로 묶음 |
+| `data.snapshotId` | 집계 출처(ready, `schema_version=process-v1`, `purpose` 무관하게 **train 분할**만 사용 — 현행 `rule_request` scope). 형식 오류 400 `invalid_snapshot_reference`. 조건에 맞지 않거나 함께 보낸 기간과 다르면 409 `snapshot_conditions_mismatch`(워커에도 같은 검사). null·생략 시 `from/until`로 snapshot 생성하는 현행 추천 경로 재사용 [유지 10/21] |
+| `data.from`·`data.until` | `snapshotId`가 없으면 필수. 기존 작업 종류와 같은 규칙(UTC `Z` 표기, `from < until`, 366일 이내)에 달력에 없는 날짜 거부를 더함. 없거나 위반이면 400 `invalid_time_range` |
+| `data.timeBasis` | `persisted_at`만 실행(생략·null도 같음). 기간으로 만드는 snapshot이 저장 시각 기준뿐이라, `snapshotId` 없이 `esb_occurred_at`이면 422 `recommendation_time_basis_unsupported`(워커에도 같은 검사, 다른 기준으로 조용히 바꾸지 않음). `snapshotId`가 있으면 요청 값은 쓰이지 않고 결과 `data.timeBasis`는 그 snapshot `selection_spec` 값. 그 밖의 값은 400 `invalid_job_request` |
+| `mode` | `data_p95_with_llm_rationale`(가, 기본·유일 구현, 생략·null도 같음) / `ai_proposal`(나, 예약 — 어댑터가 없어 접수 단계에서 422 `recommendation_mode_not_available`, 작업을 만들지 않음. 워커에도 같은 검사). 그 밖의 값은 400 `invalid_job_request` |
 | 권한·멱등키·재시도·상태 | 기존 `/api/jobs`(queued/running/succeeded/failed, `attemptCount`·`maxAttempts`·`nextRunAt`). 큐 `llm_recommendation`([queues.md](queues.md)) |
-| `llm_spec` | `evidence_version: 'soft-rule-threshold-v1'`, `input_evidence_hash: sha256(입력 집계 JSON)`, `model_version: '<어댑터 식별자>'`(현행 `rule_v2`), `prompt_version: '<번들 프롬프트 hash>'`, `output_schema_version: 'threshold-recommendation-v1'`, `reuse_key: sha256([actor, input, idempotencyKey, prompt_version])` — 011 트리거 필수 6키 그대로 |
-| 접수 거부 | 켜진 소프트룰 0개(또는 `softRuleIds` 전부 꺼짐·미존재) 400 `soft_rules_empty`; 필드가 카탈로그에 없음 422 `soft_rule_field_unknown:<field>` |
+| `input_spec` | 키 고정: `kind`, `sourceId`, `ruleSetRevision`, `ruleSetContentHash`, `ruleSetContentHashVersion`, `scope`, `data{snapshotId, from, until, timeBasis}`, `mode`, `targets[]`. `targets[]`는 API가 채운 대상 규칙의 `{id, field, threshold}`(룰 세트 저장 순서, `name`·`operator`·`severity` 없음) — 워커는 이 목록만 읽고 룰 세트를 다시 읽지 않음. `ruleSetContentHash`·`ruleSetContentHashVersion`은 리비전 행 값 그대로이고 버전 1·2 모두 받음. 예시는 [llm-recommendation-job.example.json](llm-recommendation-job.example.json)(API 시험과 워커 `parse_job` 시험이 같은 파일을 읽음). `input_config_version_id`·`input_snapshot_id`·`input_decision_id`는 NULL |
+| `llm_spec` | `evidence_version: 'soft-rule-threshold-v1'`, `input_evidence_hash: <API 요청 hash>`(= `request_hash`, 위 `input_spec` 전체의 sha256. 입력 집계는 워커가 만들어 접수 시점에는 없음), `model_version: 'rule_v2'`, `prompt_version: 'feature-rule-design-v0.2'`(고정 이름 — 워커가 `recommend_rule`과 같은 번들의 rule 프롬프트를 쓰고 API는 번들을 읽지 않음), `output_schema_version: 'threshold-recommendation-v1'`, `reuse_key: sha256([actor, input, idempotencyKey, prompt_version])` — 011 트리거 필수 6키 그대로. `input`은 위 `input_spec` 전체라 리비전·hash·기간·대상이 하나라도 다르면 키가 달라지고, 멱등키가 들어 있어 재사용은 같은 실행의 재전송에만 일어남(같은 기간이라도 새 실행은 새 작업) |
+| 접수 거부 | 켜진 소프트룰 0개(또는 `softRuleIds` 전부 꺼짐·미존재) 400 `soft_rules_empty`; 필드가 카탈로그에 없음 422 `soft_rule_field_unknown:<field>`; 없는 출처 404 `source_not_found`; 같은 멱등키에 다른 입력(대상이 바뀐 경우 포함) 409 `idempotency_payload_conflict`; 관리자가 아니면 403 `admin_required` |
 
 ## 입력 범위 — GPU에 넘기는 것 [유지 10/21 Q-M: 집계값만]
 
 - 필드마다 현행 `rule_request` 형식(`feature-evidence-bundle-4.0.0`) 그대로: `feature{id, dtype, unit, expression(카탈로그 AST)}`, `measurement{row_count, valid_count, min, max, p95, …}`, `baseline{state: verified|unavailable, value, value_exact, n, minimum_n: 20, method}`, `scope`, `reference_policy{operator: gt}`. 카탈로그 `softRuleFields[].source`를 `definition`(`{name: fieldId, expression: {op: "derived", ast, outputType: "number", unit}}`)으로 변환해 기존 함수에 넘김. 단 `rule_request`는 `row["features"][name]`(`research_design.py:163`)을 읽으므로 **Trainer가 카탈로그 AST로 행마다 값을 먼저 계산해 `features[fieldId]`에 넣는 작은 경로가 필요**(`derived_expression.evaluate` 재사용; 피처셋 materialization은 쓰지 않음). 그 뒤 LLM 호출·검증 경로는 변경 없음
-- 추가 컨텍스트(요청 크기 256,000바이트 안): 현재 소프트룰 `{id, name, field, operator, threshold, severity}`(사람이 정한 현재값 — LLM 근거 문장이 "현재 5000 → 제안 7210" 식으로 참조 가능)
+- 추가 컨텍스트 없음: LLM 요청은 필드별 `rule_request` 하나뿐이고 현재 소프트룰 목록(`current_rules`)은 넣지 않는다. Rule v2 입력 계약(`feature-evidence-bundle-4.0.0`)에 자리가 없고 근거 문장은 검증기가 정한 형식이라, 현재 임계값은 결과 `currentThreshold`로만 쓴다
 - 원문 BODY·토큰·관측 원문·고객 식별자 금지. 판정 결과·evidence 제외
 
 ## 결과 JSON `threshold-recommendation-v1` — `GET /api/jobs/:id` `resultSummary`
@@ -65,7 +71,7 @@ Status: draft
   "recommendationContractVersion": "threshold-recommendation-v1",
   "mode": "data_p95_with_llm_rationale",
   "ruleSet": {"revision": 13, "contentHash": "9c40…", "contentHashVersion": 2},
-  "data": {"snapshotId": "<snapshot UUID>", "split": "train", "timeBasis": "esb_occurred_at",
+  "data": {"snapshotId": "<snapshot UUID>", "split": "train", "timeBasis": "persisted_at",
            "exclusionRule": "status=S, explicit anomaly labels excluded; unlabeled retained", "rowCount": 47120},
   "provider": "rule_v2",
   "adapterSha": "…",
@@ -112,11 +118,11 @@ Status: draft
 | `field` | 카탈로그 `fieldId`. `softRuleIds[]` = 이 필드를 쓰는 켜진 소프트룰(화면이 행마다 [적용] 가능) |
 | `currentThreshold` | 요청 시점 룰의 임계값(참고 표시). 룰이 여러 개면 첫 룰 값(id 사전순)·나머지는 화면이 룰 세트에서 읽음 |
 | `operator` | 1차는 항상 `gt`(코드 `reference_policy.operator`, `>p95`). 화면 조건과 다르면 사람이 조정. `status≠proposed`면 null |
-| `threshold` | **유효숫자 15자리 이내로 반올림한 고정소수 문자열**(#116, WebUI 요청): 계산 원값(numpy p95 등, 예 `956.4999999999995`)을 `Decimal`로 유효숫자 15자리(`ROUND_HALF_EVEN`)로 줄인 뒤 `format(d, "f")`·후행 0·소수점 제거(지수 표기 금지, 40자 이내·필드 `valueType=integer`면 정수) — [rule-set.md](rule-set.md) 저장 검증(`소프트룰.threshold` 유효 숫자 ≤ 15자리·`threshold` 변환 규칙)과 같은 규칙이라 화면이 [적용]한 값이 그대로 저장을 통과함. 원값은 `evidence.p95`에 반올림 없이 그대로 남김. 11/02 9.1 결함 대응: p95가 1e-4 미만이어도 `"0.00003125"` 형태로 직렬화. 변환 실패(비유한·40자 초과 → 필드 `displayPrecision+6` 자리로 반올림 후 재시도, 그래도 실패)는 그 필드만 `rejected`(`threshold_serialization_failed`), **작업은 성공** |
-| `displayThreshold` | 카탈로그 `displayPrecision`·`displayPrecisionMode`로 만든 표시 문자열(원값 툴팁): `fixed`(count·ms)는 소수 자릿수, `significant`(ratio)는 **유효숫자** 자릿수 — `error_ratio` p95 `0.00003125`는 유효숫자 4로 `"0.00003125"`(고정 소수 4면 `"0.0000"`이 되어 값이 사라지는 문제 방지, WebUI 11/02 대조). 지수 표기 금지는 표시값에도 적용 |
+| `threshold` | **유효숫자 15자리 이내로 반올림한 고정소수 문자열**(#116, WebUI 요청): 계산 원값(numpy p95 등, 예 `956.4999999999995`)을 `Decimal`로 유효숫자 15자리(`ROUND_HALF_EVEN`)로 줄인 뒤 `format(d, "f")`·후행 0·소수점 제거(지수 표기 금지, 40자 이내·필드 `valueType=integer`면 15자리 반올림 뒤 `ROUND_HALF_UP`으로 정수, 수식 추천 API `Math.round`와 같은 결과) — [rule-set.md](rule-set.md) 저장 검증(`소프트룰.threshold` 유효 숫자 ≤ 15자리·`threshold` 변환 규칙)과 같은 규칙이라 화면이 [적용]한 값이 그대로 저장을 통과함. 원값은 `evidence.p95`에 반올림 없이 그대로 남김. 11/02 9.1 결함 대응: p95가 1e-4 미만이어도 `"0.00003125"` 형태로 직렬화. 변환 실패(비유한·40자 초과 → 필드 `displayPrecision+6` 자리로 반올림 후 재시도, 그래도 실패)는 그 필드만 `rejected`(`threshold_serialization_failed`), **작업은 성공** |
+| `displayThreshold` | 카탈로그 `displayPrecision`·`displayPrecisionMode`로 `ROUND_HALF_UP` 반올림해 만든 표시 문자열(원값 툴팁): `fixed`(count·ms)는 소수 자릿수, `significant`(ratio)는 **유효숫자** 자릿수 — `error_ratio` p95 `0.00003125`는 유효숫자 4로 `"0.00003125"`(고정 소수 4면 `"0.0000"`이 되어 값이 사라지는 문제 방지, WebUI 11/02 대조). 지수 표기 금지는 표시값에도 적용 |
 | `unit` | 카탈로그 단위 |
 | `source` | `data_p95`(가, 코드 계산) / `ai_proposal`(나, 예약) |
-| `status` | `proposed`(적용 가능) / `request_evidence`(근거 부족 — LLM 상태) / `deferred`(보류 — LLM 상태) / `no_applicable`(해당 없음 — 기준선 `unavailable`: 표본 < 20·값 전부 결측·단위 미검증·분산 없음) / `rejected`(검증 탈락·형식 오류·직렬화 실패, `rejectedReason`) — 현행 `rule_v2` 출력 `state` 5종과 대응. 화면은 `proposed`만 선택 가능, 나머지는 사유와 함께 회색 |
+| `status` | `proposed`(적용 가능) / `request_evidence`(근거 부족 — LLM 상태) / `deferred`(보류 — LLM 상태) / `no_applicable`(해당 없음 — 기준선 `unavailable`: 표본 < 20·값 전부 결측·단위 미검증·분산 없음) / `rejected`(검증 탈락·형식 오류·직렬화 실패, `rejectedReason`) — 현행 `rule_v2` 출력 `state` 5종과 대응. 화면은 `proposed`만 선택 가능, 나머지는 사유와 함께 회색. **1단계(`data_p95_with_llm_rationale`)에서는 `request_evidence`·`deferred`에 도달하지 않음**: 기준선이 `unavailable`이거나 분산이 없으면 코드가 LLM 호출 없이 `no_applicable`로 끝내고, 그 밖의 경우 검증기 기대 상태는 항상 `proposed`라 다른 상태를 내면 `expected_target_mismatch`로 `rejected`. 이 두 상태와 `counts`의 두 값은 형식만 유지 |
 | `rejectedReason` | `invalid_generation_output`(스키마 위반·`truncated`) / `expected_target_mismatch`(LLM이 숫자를 직접 냄 등) / `factual_review_failed` / `threshold_serialization_failed` / `generation_failed:<code>`(그 필드 호출만 실패, 아래 실패 절) |
 | `evidence` | `n`(기준 표본 `valid_count`)·`min`·`max`·`p95`(number **원값** — `threshold`의 15자리 반올림 전 값, 예 `956.4999999999995` 그대로)·`quantileMethod`·`exclusionRule`·`measurementId`/`baselineId`(`m_…`/`b_…`, 입력 집계 ID — 근거 추적) |
 | `rationale` | LLM 근거 문장(현재 영문, 한글은 LLM 팀원 범위). ≤ 500자. `rejected`는 null |
@@ -133,12 +139,14 @@ Status: draft
 | 상황 | 처리 |
 |---|---|
 | 생성 서비스 미설정·연결 불가(`generation_service_not_configured`·`generation_service_unavailable`) — 첫 호출에서 | 작업 `failed` + 그 코드(재시도 규칙 기존) |
-| 호출 시간 초과 | 작업 `failed` + **`generation_timeout`** [확정 10/21 N20·11/02 9.2 "시간 초과 별도 표시"]. 현행 `generation_client.py:54-55`는 `TimeoutError`를 `generation_service_unavailable`로 묶으므로 **변경 제안**: `TimeoutError`·`socket.timeout`·`URLError.reason`이 timeout이면 `GenerationUnavailable("generation_timeout")`(기존 `recommend_rule`·`explain`에도 같은 코드 — LLM 세션 조율) |
+| 호출 시간 초과 | 작업 `failed` + **`generation_timeout`** [확정 10/21 N20·11/02 9.2 "시간 초과 별도 표시"]. **`recommend_thresholds`에만 적용**: 이 작업의 호출만 `report_timeout`을 켜고(HTTP는 `reportTimeout`, 504·`TimeoutError`·`URLError.reason`이 timeout), `recommend_rule`·`recommend_feature`·`explain`은 이전 분류(`generation_service_unavailable`) 그대로다. 기존 작업 종류로 넓히는 것은 LLM 세션 협의 대상 |
 | 일부 필드 처리 뒤 서비스 장애·시간 초과 | 작업 `failed`(부분 결과 없음, 현행과 동일) — 화면 [다시 시도]. **대안**(Q-L1): 처리된 항목을 `partial`로 저장하고 나머지 `rejected:generation_failed`로 격리해 성공 처리 |
 | 한 필드의 출력 형식 깨짐·검증 탈락·직렬화 실패 | 그 필드만 `rejected` + `rejectedReason`, 나머지 계속, 작업 **성공** — 현행 "검증 탈락은 변수만 제외"를 "제외"가 아니라 "사유와 함께 표시"로 확장(11/02 9.1: `ValueError`로 작업 전체 failed였던 지수 표기 경우를 격리) |
 | 모든 필드 `no_applicable`(데이터 사실: 표본 부족·분산 없음) | 작업 **성공**(항목마다 사유가 있으므로 빈 성공이 아님). 화면은 "제안 0건" + 사유 표. 대상 0건은 접수 단계 400 |
-| 모든 필드가 **생성계 사유**로 `rejected`(`invalid_generation_output`·`expected_target_mismatch`·`factual_review_failed`·`generation_failed:*`) | [제안, reviewer 권고 4 — Q-L1에 묶음] 작업 `failed` + `recommendation_all_rejected`(항목별 사유는 `resultSummary`에 보존해 화면이 표로 표시). 생성 서비스 전체가 깨진 상황을 "성공"으로 보이게 하지 않기 위함. `no_applicable`·`threshold_serialization_failed`가 섞여 있으면 성공 |
-| 입력 집계 부족(snapshot 행 0) | 작업 `failed` + `recommendation_input_empty` |
+| 모든 필드가 **생성계 사유**로 `rejected`(`invalid_generation_output`·`expected_target_mismatch`·`factual_review_failed`·`generation_failed:*`) | [제안, reviewer 권고 4 — Q-L1에 묶음] 작업 `failed` + `recommendation_all_rejected`(항목별 사유는 `resultSummary`에 보존해 `GET /api/jobs/:id`가 그대로 돌려줌. 현재 화면은 실패 코드만 표시하고 이 표는 그리지 않음). 생성 서비스 전체가 깨진 상황을 "성공"으로 보이게 하지 않기 위함. `no_applicable`·`threshold_serialization_failed`가 섞여 있으면 성공 |
+| 입력 집계 부족 | 작업 `failed` + `recommendation_input_empty`. 기간 안의 실행별 최신 행이 **20건 미만**(snapshot 생성의 `snapshot_insufficient_process_rows`를 이 코드로 바꿈)이거나 snapshot의 train 분할이 0행. `status=S`로 거른 표본이 20건 미만인 필드는 이 실패가 아니라 그 필드 `no_applicable` |
+| 기간은 찼지만 snapshot을 나눌 수 없음 | 작업 `failed` + 그 코드 그대로: `snapshot_insufficient_execution_groups`(실행 묶음 10개 미만) / `snapshot_time_split_unavailable`(시간 블록 3개 미만) / `snapshot_row_limit_exceeded`(기간 행 100만 초과) |
+| 워커 입력 재검사 | 정상 접수 경로에서는 나오지 않는 방어 코드, 스냅샷을 만들기 전에 작업 `failed`: `recommendation_mode_invalid`·`recommendation_llm_spec_invalid`·`recommendation_data_range_missing`·`invalid_rule_set_reference`·`invalid_recommendation_targets`·`soft_rule_limit_exceeded`. 접수와 겹치는 `recommendation_mode_not_available`·`recommendation_time_basis_unsupported`·`soft_rules_empty`·`soft_rule_field_unknown:<field>`도 같음 |
 
 ## 규칙별 수식 추천 — `POST /api/rule-set/threshold-stats` [신규, 관리자, 동기, LLM 없음]
 
@@ -199,13 +207,13 @@ Status: draft
 
 | 대상 | 변경 |
 |---|---|
-| `job_kind` enum | `recommend_thresholds` 추가(`002:7`, 011에서 `recommend_methods` 등 추가 방식과 동일) — PostgreSQL |
+| `job_kind` enum | `recommend_thresholds` 추가(`002:7`, 011에서 `recommend_methods` 등 추가 방식과 동일) — PostgreSQL. 이 표의 DB 세 행은 migration 017(#124) 몫이고, 그 전에는 API 형식 검사를 통과한 요청이 저장에서 503 `job_storage_unavailable`로 끝남 |
 | `run_jobs_v03_contract` CHECK(`011:13-32`) | `llm_recommendation` 분기 kind 목록에 `recommend_thresholds` 추가(PG 누락 1) |
 | `erd_v03_validate_job`(`011:60, 76-77`)·`run_llm_results_kind_check`(`011:36-37`)·`run_llm_results_check`(`011:39-41`, `decision_id IS NULL` 분기) | llm_spec 필수·완료 결과 필수·kind CHECK 2개에 `recommend_thresholds` 추가(PG 누락 2) |
-| `jobRoutes.ts` | `KINDS`(`:15`)·허용 키(`:47`)·관리자 검사(`:132-134`)·`llmSpec` 분기(`:219-228`)·큐 선택에 `recommend_thresholds`; 룰 세트 리비전 검사; `POST /api/rule-set/threshold-stats` 신설(SQL p95) |
+| `jobRoutes.ts`·`thresholdRecommendationContract.ts` | **구현(#121)**: 요청 형식·대상 고정·`llm_spec`은 `thresholdRecommendationContract.ts`, `jobRoutes.ts`는 `KINDS`·관리자 검사 2곳·큐 선택·리비전 읽기(`ruleSetStore.readCurrentSoftRules`). `POST /api/rule-set/threshold-stats`는 `ruleSetRoutes.ts` |
 | `trainer/runner.py` | `_execute`에 `recommend_thresholds` 분기: 룰 세트 스냅샷 → 카탈로그 필드 → `definitions` 변환 → 현행 `recommend_rules` 재사용 → 결과를 추천 항목으로 변환(Rule 초안 생성 제거); `_finish` kind 집합에 추가 |
 | `research_design.py:222-224` | DSL 값 `str(request["baseline"]["value"])` → `Decimal` 고정소수 직렬화(공용 함수), 실패 시 항목 `rejected` |
-| `generation_client.py:54-55` | `generation_timeout` 분리(위 실패 절) |
+| `generation_client.py` | `generation_timeout` 분리: `report_timeout=True` 호출만(위 실패 절) |
 | `llm_worker.py`·`generation_service.py` | `DesignModel.generate("rule", …)` 어댑터 그대로(입력 형식 불변). (나) 모드 어댑터는 LLM 팀원 |
 | `queues.md` 7행 | `recommend_thresholds` 추가([queues.md](queues.md) 변경 제안 절) |
 

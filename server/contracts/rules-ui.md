@@ -1,5 +1,5 @@
 Created: 2026-11-04T22:00:00+09:00
-Updated: 2026-11-05T02:11:00+09:00
+Updated: 2026-11-05T12:00:00+09:00
 Author: #109 Claude Code(WebUI builder)
 Status: current
 
@@ -69,7 +69,7 @@ Status: current
 
 ## AI 규칙 추천(일괄)
 
-- 사용자 11/04 지시로 화면을 넣었다. 화면 이름은 `AI 규칙 추천`이고 계약 문서의 임계값 추천(`recommend_thresholds`)과 같은 기능이다. 요청·결과 형식은 [llm-recommendation-job.md](llm-recommendation-job.md) 그대로이고 **서버는 아직 `recommend_thresholds`를 받지 않는다**(`POST /api/jobs` 400 `invalid_job_request`). 운영 빌드에서는 그 실패와 코드가 그대로 표시된다
+- 사용자 11/04 지시로 화면을 넣었다. 화면 이름은 `AI 규칙 추천`이고 계약 문서의 임계값 추천(`recommend_thresholds`)과 같은 기능이다. 요청·결과 형식은 [llm-recommendation-job.md](llm-recommendation-job.md) 그대로이고 API가 접수한다(#121). migration 017(#124) 전의 DB는 이 작업 종류를 저장하지 못해 `POST /api/jobs` 503 `job_storage_unavailable`이고 화면은 그 실패와 코드를 그대로 표시한다
 - 요청: `POST /api/jobs` `{kind: "recommend_thresholds", sourceId, ruleSetRevision, scope: {softRuleIds: null}, data, mode: "data_p95_with_llm_rationale"}`, 실행마다 새 `Idempotency-Key`. 결과는 `GET /api/jobs/:id`의 `resultSummary`(`threshold-recommendation-v1`), 진행 중만 5초 조회
 - 와이어프레임에 기간 입력이 없어 `data`는 `{snapshotId: null, from: 3개월 전, until: 지금, timeBasis: "persisted_at"}`로 고정한다(수식 추천의 시간 기준과 같음). 출처가 여럿이면 머리글에 `출처` 선택
 - 버튼: 저장된 켜진 규칙이 없으면 비활성. 대상이 저장된 버전이라 미저장 변경이 있어도 비활성이고 `저장 후 추천`을 표시한다(계약 `ruleSetRevision`). 출처 조회 실패는 `출처 조회 실패 · <코드>`, 출처가 없으면 `저장된 데이터 출처가 없습니다.`로 이유를 표시. 저장으로 버전이 바뀌면 결과를 닫되 실패 표시는 남긴다
@@ -87,7 +87,6 @@ Status: current
 - `적용`은 선택한 규칙의 조건·임계값 입력칸만 채운다. 위험도는 그대로, 서버 호출 없음, 저장해야 운영에 반영
 - 실패: 작업 전체 실패 표시와 `다시 시도`, 오류 코드 그대로, 부분 결과 없음. `generation_timeout`은 `시간 초과`로 구분. `rule_set_revision_conflict`는 현재 상태를 다시 읽고 실패 표시는 남긴다(`다시 시도`는 새 버전으로 요청). 결과 형식이 계약과 다르면 화면이 `recommendation_result_invalid`로 실패 처리, 작업이 코드 없이 실패하면 `recommendation_failed`
 - 조회 실패: 작업 상태 조회(`GET /api/jobs/:id`)가 실패하면 작업 실패가 아니라 `AI 규칙 추천 조회 실패 · <코드>`로 표시하고 5초 조회를 멈춘다. `다시 시도`는 같은 작업을 다시 읽고 새 작업을 만들지 않는다
-- **개발 모드 예시 범위**: `import.meta.env.DEV`이고 서버가 `invalid_job_request`로 거절할 때만 계약 예시 JSON으로 결과 표를 보여 준다. 코드는 `features/detection/rules/ruleAiDevSample.ts`(예시와, 같은 필드의 켜진 규칙 id로 맞추는 함수)와 `ruleAiApi.ts`의 `devSampleAfter` 두 곳뿐이고, 서버 구현 뒤 지운다. 필드로 규칙을 잇는 것은 이 예시뿐이고 운영 경로에는 없다. 운영 빌드 산출물에 예시가 없는지는 `pnpm build` 마지막 단계 `tests/rules-dist.mjs`가 확인한다. 예시를 표시하는 별도 문구는 없다
 
 ## 수식 추천(규칙 행)
 

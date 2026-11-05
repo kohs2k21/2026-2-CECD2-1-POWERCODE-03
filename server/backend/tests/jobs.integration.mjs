@@ -207,6 +207,48 @@ try {
   assert.equal(adopted.body.evidenceSpec.research.measurementId, 'test-measurement');
   const unknown = await request(base, `/api/jobs/${ruleJobId}/recommendations/1/adopt`, 'POST', token);
   assert.equal(unknown.status, 409);
+  // migration 017(#124) 전의 DB는 recommend_thresholds를 enum에서 거절하므로 그 값이 있을 때만 돈다.
+  const thresholdKind = await pool.query(`SELECT 1 FROM pg_enum e JOIN pg_type t ON t.oid=e.enumtypid
+    WHERE t.typname='job_kind' AND e.enumlabel='recommend_thresholds'`);
+  if (thresholdKind.rowCount) {
+    const current = (await request(base, '/api/rule-set', 'GET', token)).body;
+    const saved = await request(base, '/api/rule-set', 'PUT', token, {
+      expectedRevision: current.revision, hardRules: current.hardRules.map(({ id, enabled, severity }) => ({ id, enabled, severity })),
+      softRules: [
+        { id: null, clientRef: 'on', name: 'Slow process', field: 'elapsed_ms', operator: 'gt', threshold: 5000, severity: 'warning', enabled: true },
+        { id: null, clientRef: 'off', name: 'Retries', field: 'retry_count', operator: 'gte', threshold: 3, severity: 'info', enabled: false },
+      ],
+    });
+    assert.equal(saved.status, 200);
+    const ruleSet = (await request(base, '/api/rule-set', 'GET', token)).body;
+    const enabled = ruleSet.softRules.find(rule => rule.enabled);
+    const thresholds = { kind: 'recommend_thresholds', sourceId, ruleSetRevision: ruleSet.revision, scope: { softRuleIds: null },
+      data: { snapshotId: null, from, until, timeBasis: 'persisted_at' }, mode: 'data_p95_with_llm_rationale' };
+    const thresholdKey = crypto.randomUUID();
+    assert.equal((await request(base, '/api/jobs', 'POST', userToken, thresholds, thresholdKey)).status, 403);
+    assert.equal((await request(base, '/api/jobs', 'POST', token, { ...thresholds, ruleSetRevision: ruleSet.revision - 1 }, thresholdKey)).body.code, 'rule_set_revision_conflict');
+    const thresholdJob = await request(base, '/api/jobs', 'POST', token, thresholds, thresholdKey);
+    assert.equal(thresholdJob.status, 201);
+    assert.deepEqual(thresholdJob.body.inputSpec.targets, [{ id: enabled.id, field: 'elapsed_ms', threshold: 5000 }]);
+    assert.equal(thresholdJob.body.inputSpec.ruleSetContentHash, ruleSet.contentHash);
+    assert.equal(thresholdJob.body.inputSpec.ruleSetContentHashVersion, ruleSet.contentHashVersion);
+    assert.equal((await request(base, '/api/jobs', 'POST', token, thresholds, thresholdKey)).body.id, thresholdJob.body.id);
+    const stored = (await pool.query(`SELECT queue,contract_version,request_hash,llm_spec,input_config_version_id,input_snapshot_id,input_decision_id
+      FROM run_jobs WHERE id=$1`, [thresholdJob.body.id])).rows[0];
+    assert.deepEqual([stored.queue, stored.contract_version, stored.input_config_version_id, stored.input_snapshot_id, stored.input_decision_id],
+      ['llm_recommendation', 'v03', null, null, null]);
+    assert.equal(stored.llm_spec.input_evidence_hash, stored.request_hash);
+    assert.equal(stored.llm_spec.prompt_version, 'feature-rule-design-v0.2');
+    assert.equal((await pool.query(`SELECT count(*)::int AS count FROM powercode_queue.llm_recommendation_jobs WHERE payload->>'jobId'=$1`,
+      [thresholdJob.body.id])).rows[0].count, 1);
+    const failedSummary = { recommendationContractVersion: 'threshold-recommendation-v1', items: [{ field: 'elapsed_ms', status: 'rejected', rejectedReason: 'factual_review_failed' }] };
+    await pool.query(`UPDATE run_jobs SET status='failed',error_code='recommendation_all_rejected',result_summary=$2::jsonb,finished_at=clock_timestamp() WHERE id=$1`,
+      [thresholdJob.body.id, JSON.stringify(failedSummary)]);
+    const failedJob = await request(base, `/api/jobs/${thresholdJob.body.id}`, 'GET', token);
+    assert.deepEqual([failedJob.body.status, failedJob.body.errorCode, failedJob.body.resultSummary], ['failed', 'recommendation_all_rejected', failedSummary]);
+  } else {
+    console.log('skipped recommend_thresholds acceptance: job_kind has no such value before migration 017 (#124)');
+  }
   console.log('job API integration passed: auth, idempotency, durable queue, role gate, feature-bound rule adoption');
 } finally {
   if (child && child.exitCode === null) {

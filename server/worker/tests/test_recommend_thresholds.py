@@ -293,6 +293,24 @@ class ParseJobTests(unittest.TestCase):
             recommendation.parse_job(job_spec(rule("elapsed_ms"), data={"snapshotId": None, "from": None, "until": None}), LLM_SPEC)
 
 
+class ApiExampleTests(unittest.TestCase):
+    """API 시험이 그대로 저장되는지 확인하는 예시를 워커가 받는다(tests/threshold-recommendation-contract.test.mjs)."""
+
+    def test_api_examples_pass_parse_job(self):
+        path = REPOSITORY / "server/contracts/llm-recommendation-job.example.json"
+        examples = json.loads(path.read_text(encoding="utf-8"))["examples"]
+        self.assertEqual([example["name"] for example in examples], ["period", "snapshot"])
+        for example in examples:
+            spec, llm_spec = example["input_spec"], example["llm_spec"]
+            plan = recommendation.parse_job(spec, llm_spec)
+            self.assertEqual(plan.mode, recommendation.MODE_DATA_P95)
+            self.assertEqual(plan.rule_set, {"revision": spec["ruleSetRevision"], "contentHash": spec["ruleSetContentHash"],
+                                             "contentHashVersion": spec["ruleSetContentHashVersion"]})
+            self.assertEqual(sorted(plan.targets), ["elapsed_ms", "error_ratio"])
+            self.assertEqual(plan.targets["elapsed_ms"][0]["threshold"], 5000)
+            self.assertEqual(set(llm_spec), set(LLM_SPEC))
+
+
 class BundleCase(unittest.TestCase):
     @classmethod
     def setUpClass(cls):

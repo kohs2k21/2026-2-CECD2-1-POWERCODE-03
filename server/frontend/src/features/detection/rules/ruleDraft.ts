@@ -19,7 +19,7 @@ export const SOFT_TERM = "이상 징후 규칙";
 export const operatorLabels: Record<SoftRuleOperator, string> = { gte: "≥", gt: ">", lte: "≤", lt: "<" };
 export const operators = Object.keys(operatorLabels) as SoftRuleOperator[];
 export const severityLabels: Record<Severity, string> = { critical: "위험", warning: "주의", info: "참고" };
-export const severities: Severity[] = ["info", "warning", "critical"];
+export const severities: Severity[] = ["critical", "warning", "info"];
 export const severityBadge: Record<Severity, "critical" | "warning" | "secondary"> = { critical: "critical", warning: "warning", info: "secondary" };
 
 /** 코드 끝 글자와 뜻. 뜻이 없는 코드는 코드만 표시한다. */

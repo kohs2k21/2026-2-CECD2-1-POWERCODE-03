@@ -1,5 +1,5 @@
 Created: 2026-11-03T18:00:00+09:00
-Updated: 2026-11-04T22:00:00+09:00
+Updated: 2026-11-05T10:40:07+09:00
 Author: #105 Claude Code(WebUI builder)
 Status: current
 
@@ -15,7 +15,7 @@ Status: current
 
 ## 판정 항목
 
-판정 항목 = 최종 판정 행(`run_process_decisions`) + 최종 판정이 없는 v03 detect 작업(`run_jobs` kind=detect, status≠succeeded — succeeded detect 작업은 판정 행이 반드시 있음).
+판정 항목 = 최종 판정 행(`run_process_decisions`) + 최종 판정이 없는 v03·v04 detect 작업(`run_jobs` kind=detect, status≠succeeded — succeeded detect 작업은 판정 행이 반드시 있음).
 
 | `kind` | 출처 | `id` | `stage` | `signal` |
 |---|---|---|---|---|
@@ -33,7 +33,7 @@ Status: current
 - 처리 상태 `workflowState`: 대상의 마지막 변경 `to_state`, 없으면 `detected`(감지됨). `workflowChangedAt` = 마지막 변경 시각(없으면 null)
 - 미확인 `unread`(목록 응답만): 요청자의 열람 시각(화면이 본 항목 시각, 아래 읽음 표시)이 없거나 항목 `occurredAt`보다 이르면 true(본 뒤 중간 판정·최종 판정이 새로 생기면 다시 미확인). 상세·판정 기록 응답에는 없다
 
-항목 필드: `id`, `kind`, `stage`, `signal`, `decisionId`(final만), `jobId`, `jobStatus`(작업 항목만), `sourceId`, `processObservationId`, `configVersionId`(작업은 입력 구성), `status`·`ruleStatus`·`mlStatus`·`decisionCode`·`anomalyScore`(final만, 그 외 null. 점수는 문자열), `evidence`(final = 판정 evidence, interim = 마지막 열린 기록 payload, pending·failed = null), `occurredAt`, `decidedAt`(final만), `transactionId`, `processId`, `interfaceId`, `channelId`, `processStatus`, `responseCode`, `grade`, `riskStatus`, `riskLevel`, `workflowState`, `workflowChangedAt`, (목록만) `unread`. 시각은 UTC ISO(마이크로초).
+항목 필드: `id`, `kind`, `stage`, `signal`, `decisionId`(final만), `jobId`, `jobStatus`(작업 항목만), `sourceId`, `processObservationId`, `configVersionId`(작업은 입력 구성, v04 작업·판정은 구성이 없어 null), `status`·`ruleStatus`·`mlStatus`·`decisionCode`·`anomalyScore`(final만, 그 외 null. 점수는 문자열), `evidence`(final = 판정 evidence, interim = 마지막 열린 기록 payload, pending·failed = null), `occurredAt`, `decidedAt`(final만), `transactionId`, `processId`, `interfaceId`, `channelId`, `processStatus`, `responseCode`, `grade`, `riskStatus`, `riskLevel`, `workflowState`, `workflowChangedAt`, (목록만) `unread`. 시각은 UTC ISO(마이크로초).
 
 ## 분류(사이드바)
 

@@ -1,5 +1,5 @@
 // 이상 분석 API(analysis-ui.md) 통합 시험: 인증·분류 매핑·건수(판정 결과별·위험도별·분류함)·검색·필터·정렬·페이지·상세·중간 판정 기록·
-// 설명 작업 연결·처리 상태·조사·조치 기록·읽음·Process Flow·SSE 중간 판정 이벤트·503.
+// 설명 작업 연결·처리 상태·조사·조치 기록·읽음·Process Flow·SSE 중간 판정 이벤트·v04(구성 없는 작업·판정)·503.
 // 로컬 전용 새 QA 데이터베이스(qa_analysis*)만 허용한다. 분류 건수는 DB 전체 기준이므로 판정이 없는 새 DB가 필요하다.
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
@@ -10,7 +10,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import pg from 'pg';
-import { seedAnalysisFixture } from './analysis-fixture.mjs';
+import { seedAnalysisFixture, seedAnalysisV04Fixture } from './analysis-fixture.mjs';
 
 const url = process.env.PIPELINE_TEST_DATABASE_URL;
 if (!url) throw new Error('PIPELINE_TEST_DATABASE_URL is required');
@@ -463,6 +463,90 @@ try {
     'resume after an interim cursor');
   assert.deepEqual(await readStream('?include=all'), { status: 400, body: { code: 'invalid_event_include' } });
 
+  // 18) v04 작업·판정(구성 없음, 016): 목록·분류·검색·상세·기록·Process Flow·처리 상태·읽음·SSE가 v03 항목과 같게 동작한다.
+  const beforeV04 = await list('?pageSize=20');
+  const { decisions: D4, jobs: J4 } = await seedAnalysisV04Fixture(pool, fixture);
+  const afterV04 = await list('?pageSize=20');
+  assert.equal(afterV04.total, 20, 'five v04 items join the list');
+  assert.deepEqual(Object.fromEntries(Object.entries(afterV04.counts).map(([key, value]) => [key, value - beforeV04.counts[key]]).filter(([, value]) => value)),
+    { all: 5, anomaly: 1, anomaly_sign: 1, in_progress: 2, failed_replaced: 2, risk_all: 2, risk_critical: 1, risk_warning: 1 });
+  const v04ById = new Map(afterV04.items.map((item) => [item.id, item]));
+  const shape = (item) => [item.kind, item.stage, item.signal, item.jobStatus, item.status, item.grade, item.riskStatus, item.riskLevel];
+  // v03 fixture의 같은 상태 항목과 분류·단계·등급·위험도가 같고, 구성만 비어 있다.
+  for (const [v04Id, v03Id] of [[D4.final.id, D.v4Final.id], [J4.interim.id, J.interim.id], [J4.pending.id, J.pending.id], [J4.noFinal.id, J.noFinal.id]]) {
+    assert.deepEqual(shape(v04ById.get(v04Id)), shape(byId.get(v03Id)), `v04 item ${v04Id}`);
+    assert.deepEqual([v04ById.get(v04Id).configVersionId, v04ById.get(v04Id).sourceId], [null, fixture.sourceId]);
+    assert.equal(v04ById.get(v03Id).configVersionId, fixture.configId, 'v03 items keep their configuration');
+  }
+  // 정상 판정: v04는 저장 등급 normal이 있고 v3는 등급이 없다. 신호·단계·위험도는 같다.
+  assert.deepEqual(shape(v04ById.get(D4.replaced.id)), ['final', 'replaced', 'no', null, 'complete', 'normal', 'not_applicable', null]);
+  assert.deepEqual(shape(byId.get(D.replaced.id)), ['final', 'replaced', 'no', null, 'complete', null, 'not_applicable', null]);
+  assert.equal(v04ById.get(D4.replaced.id).configVersionId, null);
+  assert.deepEqual(ids(await list('?category=in_progress&pageSize=20')), [J.interim.id, J.pending.id, J4.interim.id, J4.pending.id].sort());
+  assert.deepEqual(ids(await list('?category=failed_replaced&pageSize=20')), [D.replaced.id, J.noFinal.id, J.failed.id, D4.replaced.id, J4.noFinal.id].sort());
+  assert.deepEqual(ids(await list('?signal=anomaly_sign&completeness=partial&pageSize=20')), [D.v4Final.id, D4.final.id].sort());
+  assert.deepEqual(ids(await list(`?q=${J4.final.id}`)), [D4.final.id], 'v04 final decisions are found by their detect job id');
+  assert.deepEqual(ids(await list(`?q=${encodeURIComponent(J4.pending.tx)}`)), [J4.pending.id]);
+  const v04Final = (await detail(D4.final.id)).body;
+  assert.deepEqual([v04Final.configVersionId, v04Final.configuration, v04Final.job.id, v04Final.job.status, v04Final.evidence.composite.grade],
+    [null, null, J4.final.id, 'succeeded', 'anomaly_sign'], 'no configuration summary, everything else stays');
+  // 기한 초과 ML: 부분 판정, ML 미완료, 점수 없음. SR 경로는 없다.
+  assert.deepEqual([v04Final.status, v04Final.ruleStatus, v04Final.mlStatus, v04Final.anomalyScore, v04Final.evidence.schemaVersion, v04Final.evidence.checkers.sr.status],
+    ['partial', 'succeeded', 'not_ready', null, 4, 'skipped']);
+  assert.ok(!v04Final.evidence.methodResults.some((method) => method.cause === 'pending'), 'a final decision has no pending method');
+  const v04Normal = (await detail(D4.replaced.id)).body;
+  assert.deepEqual([v04Normal.evidence.schemaVersion, v04Normal.mlStatus, Number(v04Normal.anomalyScore)], [4, 'succeeded', 0.3]);
+  assert.equal((await detail(J4.final.id)).body.id, D4.final.id, 'job id resolves to its final decision');
+  const v04Pending = (await detail(J4.pending.id)).body;
+  assert.deepEqual([v04Pending.kind, v04Pending.configuration, v04Pending.job.status], ['pending', null, 'queued']);
+  assert.deepEqual((await interims(D4.replaced.id)).items.map((item) => [item.attemptNo, item.kind, item.supersededByAttemptNo]),
+    [[1, 'first_anomaly', null], [1, 'superseded', 2]]);
+  assert.deepEqual((await interims(J4.noFinal.id)).items.map((item) => [item.kind, item.reasonCode]),
+    [['first_anomaly', null], ['no_final', 'detection_processing_failed']]);
+  assert.equal((await flowOf(J4.pending.id)).body.transaction.transactionId, J4.pending.tx, 'job items use the manifest PROCESS');
+  assert.equal((await workflow(D4.final.id, { state: 'open', expectedState: 'detected' })).body.workflow.state, 'open');
+  assert.equal((await pool.query('SELECT count(*)::int AS n FROM run_decision_workflow_events WHERE job_id=$1', [J4.final.id])).rows[0].n, 1);
+  assert.equal((await markRead(J4.interim.id, { occurredAt: v04ById.get(J4.interim.id).occurredAt })).status, 200);
+  assert.equal(await unread(J4.interim.id, user), false);
+  // 판정 설명: 구성이 빈 판정도 같은 경로로 요청한다. 작업 구성은 판정과 같게 비고, 같은 근거는 재사용한다.
+  const v04Explain = await request(base, '/api/jobs', 'POST', user, { kind: 'explain', sourceId: fixture.sourceId, decisionId: D4.final.id });
+  assert.equal(v04Explain.status, 201, JSON.stringify(v04Explain.body));
+  assert.deepEqual([v04Explain.body.inputSpec.configVersionId, v04Explain.body.inputSpec.savedEvidence.configVersionId, v04Explain.body.inputSpec.savedEvidence.decisionId],
+    [null, null, D4.final.id]);
+  assert.deepEqual([v04Explain.body.inputSpec.savedEvidence.mlStatus, v04Explain.body.inputSpec.savedEvidence.anomalyScore], ['not_ready', null]);
+  assert.ok(v04Explain.body.inputSpec.savedEvidence.rules.length > 0);
+  const explainRow = (await pool.query(`SELECT contract_version,queue,input_config_version_id,input_decision_id,llm_spec FROM run_jobs WHERE id=$1`, [v04Explain.body.id])).rows[0];
+  assert.deepEqual([explainRow.contract_version, explainRow.queue, explainRow.input_config_version_id, explainRow.input_decision_id],
+    ['v03', 'llm_explanation', null, D4.final.id]);
+  const v04Reused = await request(base, '/api/jobs', 'POST', user, { kind: 'explain', sourceId: fixture.sourceId, decisionId: D4.final.id });
+  assert.deepEqual([v04Reused.status, v04Reused.body.id], [200, v04Explain.body.id], 'same saved evidence reuses the job');
+  assert.equal((await pool.query(`SELECT count(*)::int AS n FROM powercode_queue.llm_explanation_jobs WHERE payload->>'jobId'=$1`, [v04Explain.body.id])).rows[0].n, 1);
+  const v04Linked = (await detail(D4.final.id)).body.explanation;
+  assert.deepEqual([v04Linked.jobId, v04Linked.status], [v04Explain.body.id, 'queued']);
+  // LLM 작업자가 쓰는 순서(trainer/runner.py `_finish`)대로 결과를 저장한다: 결과 구성도 NULL로 받아야 한다.
+  const explainAttempt = crypto.randomUUID(), explainLease = crypto.randomUUID(), spec = explainRow.llm_spec;
+  await pool.query(`INSERT INTO run_job_attempts(id,job_id,attempt_no,status,worker_id,lease_token,lease_until,started_at)
+    VALUES($1,$2,1,'running','fixture-llm',$3,clock_timestamp()+interval '60 seconds',clock_timestamp())`, [explainAttempt, v04Explain.body.id, explainLease]);
+  await pool.query(`UPDATE run_jobs SET status='running',current_attempt_id=$2,attempt_count=1 WHERE id=$1`, [v04Explain.body.id, explainAttempt]);
+  await pool.query(`INSERT INTO run_llm_results(id,job_id,kind,decision_id,config_version_id,evidence_version,input_evidence_hash,model_version,prompt_version,
+      output_schema_version,reuse_key,output,created_attempt_id,lease_token,completed_at)
+    VALUES($1,$2,'explain',$3,NULL,$4,$5,$6,$7,$8,$9,'{"facts":[]}',$10,$11,clock_timestamp())`,
+  [crypto.randomUUID(), v04Explain.body.id, D4.final.id, spec.evidence_version, spec.input_evidence_hash, spec.model_version, spec.prompt_version,
+    spec.output_schema_version, spec.reuse_key, explainAttempt, explainLease]);
+  await pool.query(`UPDATE run_job_attempts SET status='succeeded',finished_at=clock_timestamp() WHERE id=$1`, [explainAttempt]);
+  await pool.query(`UPDATE run_jobs SET status='succeeded',finished_at=clock_timestamp() WHERE id=$1`, [v04Explain.body.id]);
+  assert.equal((await request(base, `/api/jobs/${v04Explain.body.id}`, 'GET', user)).body.status, 'succeeded');
+  // 실시간 흐름·기존 판정 API: 구성이 null인 판정을 빠뜨리거나 거절하지 않는다.
+  const v04Stream = await readStream('?include=interims', beforeV04.latestEventId);
+  assert.deepEqual(v04Stream.frames.map((f) => `${f.name}:${f.data.eventKind}`).sort(), ['decision:final', 'decision:final', 'interim:evidence_added', 'interim:first_anomaly',
+    'interim:first_anomaly', 'interim:first_anomaly', 'interim:no_final', 'interim:superseded']);
+  const v04Finals = v04Stream.frames.filter((f) => f.name === 'decision');
+  assert.deepEqual(v04Finals.map((f) => f.data.id).sort(), [D4.final.id, D4.replaced.id].sort());
+  assert.ok(v04Finals.every((f) => f.data.configVersionId === null && f.data.sourceId === fixture.sourceId));
+  assert.deepEqual((await readStream('', beforeV04.latestEventId)).frames.map((f) => f.data.id).sort(), [D4.final.id, D4.replaced.id].sort());
+  const saved04 = (await request(base, '/api/pipeline/decisions?limit=100', 'GET', user)).body.items.find((item) => item.id === D4.final.id);
+  assert.deepEqual([saved04.configVersionId, saved04.sourceId], [null, fixture.sourceId]);
+
   // 11) 저장소 실패는 503(성공·빈 목록 대체 없음).
   await stopChild();
   const failingBase = await startServer({ ...environment, DATABASE_URL: 'postgresql://nobody:none@127.0.0.1:1/qa_analysis_missing' });
@@ -476,7 +560,7 @@ try {
   }
   console.log('analysis API integration passed: 401/user+admin read, category mapping and counts (result/risk/workflow), sort, pages, filters, '
     + 'search, 400 validation, detail resolution, interim history, own explain job link, stored grade/risk, workflow transitions/conflicts, '
-    + 'admin-only feedback, per-user read marks, process flow without BODY, SSE interim events, 503');
+    + 'admin-only feedback, per-user read marks, process flow without BODY, SSE interim events, v04 items and explanations without a configuration, 503');
 } finally {
   await stopChild();
   await pool.end();

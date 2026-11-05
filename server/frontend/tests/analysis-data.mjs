@@ -82,6 +82,9 @@ assert.deepEqual(detail.workflow, { state: "open", changedAt: null }, "workflow 
 assert.deepEqual(api.parseDetail({ ...detailBody, workflow: { state: "resolved", changedAt: "2026-11-03T02:00:00Z" } }, "d-1").workflow,
   { state: "resolved", changedAt: "2026-11-03T02:00:00Z" });
 assert.equal(api.parseDetail(detailBody, "j-1").id, "d-1");
+// v04 판정(구성 없음): 구성 값이 비어도 판정 항목·상세로 받는다.
+const withoutConfig = api.parseDetail({ ...detailBody, configVersionId: null, configuration: null }, "d-1");
+assert.deepEqual([withoutConfig.configVersionId, withoutConfig.configuration, withoutConfig.job.id], [null, null, "j-1"]);
 assert.throws(() => api.parseDetail(detailBody, "other"), /판정 상세 응답/);
 const history = api.parseInterims({ id: "d-1", jobId: "j-1", items: [
   { id: "i-1", kind: "first_anomaly", attemptNo: 1, seq: 1, evidenceVersion: "detector-evidence-v4", supersededByAttemptNo: null, reasonCode: null,

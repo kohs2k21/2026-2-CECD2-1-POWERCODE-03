@@ -3,7 +3,8 @@ import type { Pool } from 'pg';
 /**
  * 이상 분석(/analysis) 판정 목록·상세·중간 판정 기록·Process Flow 읽기(analysis-ui.md).
  * - 판정 값은 저장된 그대로 반환하고 다시 계산하지 않는다. 처리 상태·읽음은 014 표에서 읽는다(쓰기는 analysisWorkflow.ts).
- * - 판정 항목 = 최종 판정 행(run_process_decisions) + 최종 판정이 없는 v03 detect 작업(판정 중·중간 판정·판정 실패).
+ * - 판정 항목 = 최종 판정 행(run_process_decisions) + 최종 판정이 없는 v03·v04 detect 작업(판정 중·중간 판정·판정 실패).
+ *   v04 작업과 그 판정은 구성이 없으므로(016) config_version_id·상세 configuration이 null이다.
  * - 분류(category)와 이상 신호(signal)는 저장 열(status·evidence.anomalous)과 작업·중간 기록 상태에서만, 등급·위험도는
  *   저장된 evidence v4 composite.grade·composite.risk에서만 정한다(detection-decision.md D7·U6).
  */
@@ -44,7 +45,7 @@ export type AnalysisListFilter = {
  * - final: 최종 판정 행. signal은 운영 리포트(operational-v1)와 같은 규칙 — 이상 = status<>unavailable ∧ anomalous=true,
  *   정상 = complete ∧ anomalous=false, 그 밖(부분+false·판정불가·anomalous 없음/null) = 정상 여부 미확인.
  *   같은 작업에 '대체됨'(superseded) 중간 기록이 있으면 stage=replaced.
- * - 작업 항목(최종 판정 없는 v03 detect, succeeded 제외 — succeeded detect는 판정 행이 반드시 있다):
+ * - 작업 항목(최종 판정 없는 v03·v04 detect, succeeded 제외 — succeeded detect는 판정 행이 반드시 있다):
  *   failed → kind=failed(판정 실패·최종 없음), 열린(닫히지 않은) 첫 이상·근거 추가 기록이 있으면 kind=interim, 그 밖 kind=pending.
  *   interim의 evidence = 가장 최근 열린 기록 payload(그 시점 전체 스냅샷), signal=yes(중간 기록은 종합 이상일 때만 쓴다).
  */
@@ -63,7 +64,7 @@ const ITEMS_CTE = `replaced AS (
 ), open_jobs AS (
   SELECT j.id,j.status::text AS status,j.created_at,j.finished_at,j.input_config_version_id,m.source_id,m.process_observation_id
   FROM run_jobs j JOIN run_input_manifests m ON m.id=j.input_manifest_id
-  WHERE j.kind='detect' AND j.contract_version='v03' AND j.status<>'succeeded'
+  WHERE j.kind='detect' AND j.contract_version IN ('v03','v04') AND j.status<>'succeeded'
     AND NOT EXISTS (SELECT 1 FROM run_process_decisions x WHERE x.job_id=j.id)
 ), job_items AS (
   SELECT CASE WHEN j.status='failed' THEN 'failed' WHEN li.id IS NOT NULL THEN 'interim' ELSE 'pending' END AS kind,

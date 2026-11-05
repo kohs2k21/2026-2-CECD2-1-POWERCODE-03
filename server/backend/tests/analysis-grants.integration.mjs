@@ -18,6 +18,7 @@ if (!['localhost', '127.0.0.1'].includes(parsed.hostname) || !/^\/qa_analysis[a-
 const here = path.dirname(fileURLToPath(import.meta.url));
 const { readDecisionList, readDecisionDetail, readDecisionInterims, readDecisionFlow } = await import('../dist/services/analysisReadModel.js');
 const { changeWorkflow, addFeedback, listFeedback, markRead } = await import('../dist/services/analysisWorkflow.js');
+const { readLatency } = await import('../dist/services/operationsReadModel.js');
 
 const admin = new pg.Pool({ connectionString: url });
 const api = new pg.Pool({ connectionString: url, options: '-c role=powercode_api' });
@@ -43,7 +44,7 @@ try {
   assert.equal((await api.query('SELECT current_user AS u')).rows[0].u, 'powercode_api');
 
   // 읽기 경로(ITEMS_CTE·상세·판정 기록·흐름)는 API 역할 SELECT 권한만으로 동작한다.
-  const list = await readDecisionList(api, { category: 'all', q: '', signal: null, completeness: null, sort: 'newest', page: 1, pageSize: 20 }, 'grant-user');
+  const list = await readDecisionList(api, { category: 'all', q: '', signal: null, completeness: null, sort: 'newest', page: 1, pageSize: 50 }, 'grant-user');
   assert.ok(list.items.some((item) => item.id === D.v4Info.id) && list.counts.risk_info >= 1);
   assert.equal((await readDecisionDetail(api, D.anomaly.id, 'grant-user')).workflow.state, 'detected');
   assert.equal((await readDecisionInterims(api, J.interim.id)).items.length, 2);
@@ -51,6 +52,8 @@ try {
   assert.deepEqual([capped.processes.length, capped.messages.length, capped.truncated, capped.counts], [1, 2, true, { processes: 2, messages: 3, errors: 1 }],
     'capped node lists keep the true totals');
   assert.ok(!capped.processes.some((p) => Object.keys(p).some((key) => key.startsWith('_'))), 'internal count columns are not exposed');
+  // 운영 현황 대기·실패도 detect 작업 원천을 입력 manifest에서 읽는다.
+  assert.equal((await readLatency(api, fixture.sourceId)).stages.find((stage) => stage.id === 'detector').recentFailures, 2);
 
   // 쓰기 경로(API 역할): 처리 상태 이력 INSERT, 조사·조치 기록 INSERT·조회, 읽음 upsert.
   assert.equal((await changeWorkflow(api, J.v4Final.id, 'grant-user', { state: 'open', expectedState: 'detected' })).workflow.state, 'open');

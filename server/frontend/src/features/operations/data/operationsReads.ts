@@ -141,14 +141,13 @@ export const parseStorage = (value: unknown): StorageView => {
   };
 };
 
-export type TrendView = { configVersionId: string | null; timezone: string;
+export type TrendView = { timezone: string;
   items: { day: string; decisionCount: number; anomalySignalRatio: number | null; unavailableRatio: number | null }[] };
 const ratio = (v: unknown) => (finite(v) && v <= 1 ? v : null);
 export const parseTrend = (value: unknown): TrendView => {
   if (!record(value) || !Array.isArray(value.items)) fail("판정 추이");
   const v = value as Record<string, any>;
   return {
-    configVersionId: text(v.configVersionId),
     timezone: text(v.timezone) ?? "",
     items: v.items.flatMap((item: unknown) =>
       record(item) && typeof item.day === "string" && /^\d{4}-\d{2}-\d{2}$/.test(item.day) && count(item.decisionCount) !== null

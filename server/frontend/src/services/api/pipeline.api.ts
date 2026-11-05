@@ -107,7 +107,7 @@ export type ReviewObservation = {
   reasonCode: string | null;
 };
 export type ProcessDecision = {
-  id: string; sourceId: string; processObservationId: string; configVersionId: string;
+  id: string; sourceId: string; processObservationId: string; configVersionId: string | null;
   status: "complete" | "partial" | "unavailable";
   ruleStatus: string; mlStatus: string; decisionCode: string | null;
   anomalyScore: string | null; decidedAt: string;

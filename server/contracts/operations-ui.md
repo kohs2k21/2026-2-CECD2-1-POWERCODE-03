@@ -1,5 +1,5 @@
 Created: 2026-10-09T23:47:02.2964769+09:00
-Updated: 2026-11-03T18:00:00+09:00
+Updated: 2026-11-05T10:53:48+09:00
 Author: frontend_operations_builder / #103·#105 Claude Code(WebUI builder)
 Status: current
 
@@ -47,8 +47,8 @@ Status: current
 - 허용: user/admin. `window` = `1h`, `stages[]` 순서 고정: `collector`, `persist`, `detectionQueue`, `detector`, `judgmentStore`
 - 각 단계: `samples`, `p50Ms`, `p95Ms`, `recentFailures`, `queuePending`(+`oldestWaitMs`). 표본 없으면 분위수 null
 - collector·persist: 고객 API 조회 표본(`ops_api_poll_samples.duration_ms`·`db_commit_ms`). CSV 재생은 표본 없음 → null. collector 실패 = `error_code` 있는 표본 수(표본 없으면 null)
-- detectionQueue: 대기 = detect 작업 생성 → 첫 시도 시작(`run_jobs`·`run_job_attempts`). `queuePending`·`oldestWaitMs` = 해당 원천 `detection_logs` pending. 원천 범위는 `payload.sourceId`, sourceId 없는 이전 CSV 재생 메시지는 `payload.observationId`의 관측 원천으로 확인(`pg_queue.py` claim 범위와 같은 규칙, 누락 없음)
-- detector: `ops_pipeline_measurements(stage='detector')`. 실패 = 1시간 내 failed detect 작업 수
+- detectionQueue: 대기 = detect 작업 생성 → 첫 시도 시작(`run_jobs`·`run_job_attempts`). 작업의 원천은 입력 manifest `source_id`(v03·v04 공통). `queuePending`·`oldestWaitMs` = 해당 원천 `detection_logs` pending. 원천 범위는 `payload.sourceId`, sourceId 없는 이전 CSV 재생 메시지는 `payload.observationId`의 관측 원천으로 확인(`pg_queue.py` claim 범위와 같은 규칙, 누락 없음)
+- detector: `ops_pipeline_measurements(stage='detector')`. 실패 = 1시간 내 failed detect 작업 수(원천은 입력 manifest `source_id`)
 - judgmentStore: 저장 소요 미기록(`decision_committed_at` 미사용) → null
 - `endToEnd`: `{p50Ms:null, p95Ms:null, reason:'source_clock_unverified'}`
 
@@ -67,9 +67,9 @@ Status: current
 ## GET /api/operations/decision-trend?days=1..14
 
 - 허용: user/admin. 기본 `days=3`, 시간대 `Asia/Seoul` 판정일
-- 현재 운영 구성(`activeConfiguration`) 기준. 운영 구성 없으면 `{configVersionId:null, items:[], reason:'no_active_configuration'}`
-- 집계: 운영 리포트 `operational-v1`(`/api/pipeline/reports/operational`) SQL·정책 재사용, live·replay 범위 합산(입력 범위 미확인 관측 제외)
-- `items[]`: `day` YYYY-MM-DD, `decisionCount`, `anomalySignalRatio` = 이상/판정 가능(분모 0이면 null), `unavailableRatio` = (판정 − 판정 가능)/판정(판정 0이면 null) — 화면 날짜/판정/이상 신호/정상 여부 미확인
+- 전 원천 합산, 운영 구성과 무관(구성 없는 v04 판정 포함). 운영 구성이 없어도 같은 형식. 응답 `timezone`, `from`, `until`, `items[]`
+- 집계: 운영 리포트 `operational-v1`(`/api/pipeline/reports/operational`)의 `configVersionId` 생략 경로 SQL·정책을 원천마다 재사용, live·replay 범위 합산(입력 범위 미확인 관측 제외)
+- `items[]`: 기간의 모든 날(판정 없는 날은 `decisionCount` 0·비율 null). `day` YYYY-MM-DD, `decisionCount`, `anomalySignalRatio` = 이상/판정 가능(분모 0이면 null), `unavailableRatio` = (판정 − 판정 가능)/판정(판정 0이면 null) — 화면 날짜/판정/이상 신호/정상 여부 미확인
 
 ## 개요 위젯·배치
 

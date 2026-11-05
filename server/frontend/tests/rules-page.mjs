@@ -131,9 +131,12 @@ const severityGroupsOf = (row) => row.findAll((node) => node.type === "span" && 
   assert.equal(badge.length, 1, "one badge per group");
   return {
     level: group.props["data-severity"], badge: text(badge[0].children), stretched: badge[0].props.className.includes("self-stretch") && group.props.className.includes("grid-cols-"),
-    codes: group.findAll((node) => node.type === "span" && node.props["data-severity-code"]).map((line) => text(line.children).replace(/참고주의위험$/, "")),
+    codes: group.findAll((node) => node.type === "span" && node.props["data-severity-code"]).map((line) => text(line.children).replace(/위험주의참고$/, "")),
   };
 });
+/** 드롭다운 항목(위에서부터): 전송 값과 표시 문구. */
+const SEVERITY_OPTIONS = [["critical", "위험"], ["warning", "주의"], ["info", "참고"]];
+const optionsOf = (select) => select.findAll((node) => node.type === "option").map((option) => [option.props.value, text(option.children)]);
 const calls = (method, path) => requested.filter((call) => call.method === method && call.path === path);
 
 // 1) 표시: 머리글, byCode 코드별 위험도, 읽기 전용 조건, 이상 징후 규칙 입력, 변경 기록, 판정 정책 없음.
@@ -171,6 +174,11 @@ const calls = (method, path) => requested.filter((call) => call.method === metho
     [["critical", "위험", ["F 실패"]], ["warning", "주의", ["P 처리중", "Z 데이터없음"]], ["info", "참고", ["H 부분성공", "N 미처리"]]], "one group per level with its code lines");
   assert.ok(groups.every(({ stretched }) => stretched), "the badge fills the height of its group");
   assert.equal(app.renderer.root.findAll((node) => node.type === "select" && node.props["aria-label"] === "N 미처리 위험도")[0].props.value, "info");
+  // 위험도 드롭다운은 위에서부터 위험 → 주의 → 참고(상태 규칙 코드별, 이상 징후 규칙 행 모두).
+  const severitySelects = app.renderer.root.findAll((node) => node.type === "select" && node.props["aria-label"]?.endsWith(" 위험도"));
+  assert.deepEqual(severitySelects.map((select) => select.props["aria-label"]),
+    ["F 실패 위험도", "P 처리중 위험도", "Z 데이터없음 위험도", "H 부분성공 위험도", "N 미처리 위험도", `${softRule.name} 위험도`], "every severity dropdown is checked");
+  for (const select of severitySelects) assert.deepEqual(optionsOf(select), SEVERITY_OPTIONS, select.props["aria-label"]);
   assert.equal(app.renderer.root.findAll((node) => node.type === "input" && node.props["aria-label"] === "규칙 이름")[0].props.value, softRule.name);
   await wait(() => app.shown().includes("이상 징후 규칙 수정 1건: 처리 시간 5초 초과(임계값 4,000 → 5,000)"), "history summary");
   assert.ok(app.shown().includes("버전 7 상태로 되돌림 · 이상 규칙 켜기 1건"), "restored revision shows its source");
@@ -967,6 +975,9 @@ const calls = (method, path) => requested.filter((call) => call.method === metho
   await act(async () => { body = create(React.createElement(RuleAddBody, { fields: capabilities.methodCatalog.softRuleFields, onAdd: (rule) => added.push(rule), onCancel() {} })); });
   const shown = () => text(body.toJSON());
   assert.ok(shown().includes("대상 필드는 추가한 뒤 바꿀 수 없습니다."));
+  const addSeverity = body.root.findAll((node) => node.type === "select" && node.props.id === "rule-add-severity")[0];
+  assert.deepEqual(optionsOf(addSeverity), SEVERITY_OPTIONS, "the add dialog lists severities in the same order");
+  assert.equal(addSeverity.props.value, "warning", "the default does not follow the option order");
   const add = () => body.root.findAll((node) => node.type === "button" && text(node.children) === "추가")[0];
   await act(async () => add().props.onClick());
   assert.ok(shown().includes("규칙 이름과 임계값(숫자)을 입력해 주세요."));

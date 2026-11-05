@@ -78,8 +78,12 @@ class EvaluationMetricsTests(unittest.TestCase):
         self.assertEqual(metrics['hrBoth']['denominator'],5)
         self.assertEqual(metrics['hrBoth']['coverage'],5/6)
         self.assertEqual(metrics['hrMissing']['value'],1)
+        # 통계 SR 폐기(#94): sr* 셀은 영구 not_applicable/sr_removed, 키 집합은 유지
         self.assertIsNone(metrics['srBoth']['value'])
-        self.assertEqual(metrics['srBoth']['reason'],'sr_experiment_pending')
+        self.assertEqual(metrics['srBoth']['reason'],'sr_removed')
+        self.assertEqual((metrics['srTotal']['value'],metrics['srComparable']['value'],metrics['srMissing']['value']),(6,0,6))
+        self.assertEqual(result['ruleMlComparison']['details']['srStatus'],'not_applicable')
+        self.assertEqual(result['ruleMlComparison']['details']['srReason'],'sr_removed')
         self.assertIsNone(result['metrics']['precision'])
         self.assertEqual(result['unlabeledCount'],6)
         self.assertEqual(complete['applicability'],'valid')

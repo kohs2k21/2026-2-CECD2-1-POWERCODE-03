@@ -1,5 +1,5 @@
 Created: 2026-10-12T02:06:03+09:00
-Updated: 2026-11-02T14:40:00+09:00
+Updated: 2026-11-05T00:50:00+09:00
 Author: contracts_page_reviewer
 Status: current
 
@@ -7,7 +7,7 @@ Status: current
 
 - Issue #32 기준: 최신 PostgreSQL·공통 규약·LLM 기획 반영. `schema.dbml`은 최종 목표 구조의 시각화, 실행 원본은 migration SQL
 - 목표 구조(Issue #32 당시): public 28테이블 + `powercode_queue` 기존 물리 큐 2테이블. 기존 public 24테이블 보존, BODY·BODY 연결·불변 입력·LLM 결과 4테이블만 추가
-- 현재 `schema.dbml`(Issue #78): 001~012 전체 반영, public 54테이블 + `powercode_queue` 5테이블. 004_feature_pipeline·005~009 추가분 24테이블 보강, 011 3테이블·012 1테이블 추가. 013(#82)은 함수 설정만 바꿔 DBML 변경 없음
+- 현재 `schema.dbml`(Issue #119): 001~016 전체 반영, public 60테이블 + `powercode_queue` 5테이블. 004_feature_pipeline·005~009 추가분 24테이블 보강, 011 3테이블·012 1테이블·014 3테이블·015 3테이블 추가. 013(#82)은 함수 설정만 바꿔 DBML 변경 없음
 - 기존 001/002 불변. 003/004는 서버 미적용; ERD 등록·SQL 검수와 실제 운영 적용 구분
 - PostgreSQL 17.11 실제 public24+queue2 존재 확인 기록과 정합. 서버 schema/version 이력 및 완전 DDL 일치는 별도 사전 확인 필요
 
@@ -122,6 +122,38 @@ SELECT r.rolname,
 - 잠금: 새 표의 FK 생성이 `run_jobs`·`run_process_decisions`에 짧은 SHARE ROW EXCLUSIVE 잠금. 적용 중 Detector 판정 INSERT가 잠시 대기할 수 있음
 - 기존 판정은 처리 상태 감지됨(행 없음)·모든 사용자에게 미확인으로 시작
 
+## 015 운영 리비전 표·일관 읽기 (#110)
+
+- 파일 `015_rule_set_revisions.sql`, 014 이후 한 번 실행(`psql -v ON_ERROR_STOP=1 -f`), 기존 표 소유자로 실행 뒤 DBA가 `scripts/database-roles.sql` 재적용. 001~014 표·함수·트리거·enum 변경 없음, 새 표 3개·뷰 1개·트리거 3개만 → 단일 BEGIN..COMMIT, 중간 오류 시 전체 ROLLBACK. 새 함수 없음. 기존 표 잠금 없음. 자동 down migration 없음
+- 표(열 이름은 `contracts/rule-set.md`·`contracts/model-version.md` 저장소 절 그대로, 현재 값 = 표별 최대 `revision` 행): `ops_rule_set_revisions`(r0 시드), `ops_active_model_set_revisions`(r0 = 빈 집합 시드), `ops_detection_policy_revisions`(`revision ≥ 1`, 시드 없음, 행 없음 = 리비전 0 내장 기본 정책)
+- r0 룰 세트: 하드룰 2개 켬·소프트룰 없음, `saved_by_actor_id = system`, `content_hash`는 rule-set.md 리비전 형식 절 정규 객체의 고정값 `80d0377d69597900b7506c26761143077ae7306f464bc44d759bb62f7c83bc89`
+- 활성 집합 r0 행을 두는 이유: "현재 값 = 최대 revision 행" 규칙과 이력·복원(`restored_from_revision = 0`)을 룰 세트와 같은 경로로 쓰기 위함. 정책은 r0 행이 없으므로 `restored_from_revision = 0`을 넣을 수 없음(FK 거부) — 내장 기본값으로 돌아가는 저장은 일반 저장으로 기록
+- append-only: `BEFORE UPDATE OR DELETE OR TRUNCATE FOR EACH STATEMENT` 트리거 1개씩, 함수는 004 `erd_v03_immutable()` 재사용(NEW·OLD를 읽지 않아 문장 수준·TRUNCATE에도 동작, 표를 참조하지 않아 013과 같이 search_path 경로 없음). 소유자의 문장도 거부되며 조건에 맞는 행이 0개여도 거부. `INSERT … ON CONFLICT DO UPDATE`·UPDATE·DELETE 동작이 있는 `MERGE`도 거부
+- 신뢰 경계: 소유자는 `ALTER TABLE … DISABLE TRIGGER`, 슈퍼유저는 `session_replication_role = replica`로 트리거를 끌 수 있으며 이는 위협 모델 밖(서비스별 로그인을 분리한 구성 전제. `powercode_*` 런타임 역할은 소유자·슈퍼유저가 아님)
+- 무결성: `revision` 범위, `content_hash` 소문자 hex 64, `snapshot`의 `hardRules`·`softRules`·`models` 배열, `changes` 배열, `summary`·`policy` 객체, `restored_from_revision` 자기 참조 FK와 `revision` 미만. 그 밖의 snapshot 내용 검증은 API 저장 검증 범위
+- 공통 저장 잠금: API가 세 표의 저장 트랜잭션에서 `pg_advisory_xact_lock(81739, 0)`을 잡고 현재 리비전을 비교한 뒤 INSERT(마이그레이션은 잡지 않음). API는 UPDATE 권한이 없어 `SELECT … FOR UPDATE`는 쓸 수 없음
+- 잠금 획득과 현재 리비전 읽기는 **별도 문장**으로 실행(READ COMMITTED 기준). 한 문장으로 합치면 잠금을 기다리기 전의 스냅샷을 읽어 직전 저장을 놓침
+- 일관 읽기: 뷰 `ops_operational_state`, 항상 1행 — `rule_set_revision`·`rule_set_content_hash`·`active_model_set_revision`·`active_models`(snapshot의 `models` 배열)·`detection_policy_revision`·`detection_policy`. 한 문장이 한 스냅샷이므로 READ COMMITTED에서도 세 값이 서로 어긋나지 않음. 정책 행이 없으면 `detection_policy_revision = 0`·`detection_policy` NULL(읽는 쪽이 내장 기본 정책을 씀). 빈 결과는 r0 행 소실 = 저장소 이상이므로 Detector는 fail-closed. 룰 내용은 읽은 리비전으로 `ops_rule_set_revisions`를 다시 조회(append-only라 안전)
+- 뷰는 `security_invoker = true`: 호출자 권한으로 표를 읽어 뷰 권한이 표 권한을 넓히지 않음(PostgreSQL 15 이상 필요, compose·CI는 17). 표는 뷰 생성 시 OID로 고정돼 호출자 search_path·임시 테이블 영향 없음
+- 권한: `powercode_api` 3표 SELECT·INSERT, `powercode_detector` 3표 SELECT, 뷰는 둘 다 SELECT. Collector·Trainer·LLM·demo 권한 없음
+- 시험(`erd-v03-revisions.mjs`, `erd-v03.mjs`가 호출): `erd110_fresh`(계약 열 이름, r0 행·hash 재계산, 트리거 3종 거부, CHECK·FK 경계, 실제 LOGIN 역할별 권한, 뷰 결과·커밋 전 비가시·동시 저장 중 일관성, 임시 테이블·search_path 영향 없음), `erd110_upgrade`(001~014 + 기존 행 → 015, 행과 001~014 함수·enum·열·제약·트리거·인덱스 불변), `erd110_rollback`(COMMIT 직전 오류 → 무변경 → 재적용). 모두 DBML parity
+
+## 016 v04 판정 경로·룰 세트 hash 버전·시스템 행 r1 (#119)
+
+- 파일 `016_detect_v04_contract.sql`, 015 이후 한 번 실행(`psql -v ON_ERROR_STOP=1 -f`), 기존 표·함수 소유자로 실행. enum 변경·새 표 없음 → 단일 BEGIN..COMMIT, 중간 오류 시 전체 ROLLBACK, `database-roles.sql` 변경 없음. 자동 down migration 없음(v04 행이 생기면 NOT NULL 복원 불가, r1은 불변 행)
+- 왜: 판정 1건이 구성 버전 1개에 묶이지 않고(활성 모델 0..N) 룰만으로도 판정한다(`contracts/detection-decision.md` 10·12·13절, 15절 K16·K17). 리비전은 작업 입력·판정 열이 아니라 시도 시작마다 읽어 evidence v4에만 기록
+- `run_jobs.contract_version = 'v04'`: detect만 허용, `input_config_version_id` NULL 필수, manifest는 v03 형식 그대로. 중복 방지 `run_jobs_v04_detect_idx`(kind, input_manifest_id), 멱등 키 `run_jobs_v04_producer_key_idx`, 큐 `run_jobs_v04_queue_idx`. v03 인덱스·규칙 변경 없음. 입력 불변·버전 고정·성공 전 판정 필수·lease 검사는 v03과 같음. 한 manifest에 v03 작업과 v04 작업이 함께 있는 것은 막지 않음(버전 전환 구간)
+- `run_process_decisions.config_version_id` NULL 허용, 구성 NULL은 v04 작업의 판정만: 작업 없는 행은 CHECK `decisions_config_required`, 작업 있는 INSERT는 `erd_v03_validate_result`의 판정 구성 = 작업 구성 비교(v04 판정에 구성을 넣어도 거부), legacy 행의 구성을 지우거나 작업에 붙이는 UPDATE는 트리거 `decision_config_kept`가 거부(v03·v04 작업 모두, 다른 열 UPDATE는 허용). 4열 UNIQUE가 NULL을 막지 못하는 빈틈은 부분 UNIQUE `run_process_decisions_no_config_idx`
+- explain: 판정 구성이 NULL이면 작업 `input_config_version_id`·`run_llm_results.config_version_id`도 NULL, 그 밖에는 지금처럼 일치 요구. explain 작업 자체는 v03
+- `ops_pipeline_measurements.config_version_id`: detector 단계만 NULL 허용(CHECK `ops_pipeline_measurements_config_check`), feature 단계는 필수. 측정 행에 작업 참조가 없어 v04 작업까지 좁히지 못함. `run_decision_interims`는 구성 열이 없어 `validate_decision_interim`의 버전 조건만 고침. `data_feature_materializations`·`ops_input_controls` 변경 없음
+- 재정의 함수 3개(`erd_v03_validate_job`·`erd_v03_validate_result`·`validate_decision_interim`): 원본 최신판 기준으로 표시한 줄만 변경, `search_path` 설정·SECURITY INVOKER·소유자 유지. SECURITY DEFINER 함수 2개는 버전 조건이 없어 변경 없음
+- 룰 세트: `content_hash_version smallint`(1 또는 2). 기존 행 1(fast default), 열 기본값 2 → 열을 생략한 저장도 2. 시스템 행 r1 = 하드룰 4개 켬·내장 기본 severity·소프트룰 없음(`contracts/detection-decision.md` 4.3 값), `content_hash_version = 2`, `content_hash = de6a2ad8d0dcee189f36852a279263d3408f826632b95b4f14a97406b801bed0`(`contracts/rule-set.md` v2 정규 객체), `saved_by_actor_id = system`, `note` NULL, `changes`는 새 규칙 2개의 `hard_enabled`
+- r1 삽입 조건: 최대 리비전이 0일 때만. 저장된 리비전이 있으면 `RAISE EXCEPTION`으로 016 전체가 되돌아감(메시지에 사유·조치). 이 검사가 파일 맨 앞쪽이라 큰 표를 잠그기 전에 멈춘다. API 공통 잠금 81739는 잡지 않음(표 ACCESS EXCLUSIVE를 쥔 채 기다리면 API 저장과 교착, 표 잠금만으로 직렬화됨)
+- 뷰 `ops_operational_state`: 합의 열 6개의 이름·순서·형식은 그대로, 맨 뒤에 `rule_set_content_hash_version` 추가(`contracts/model-version.md` 일관 읽기 요구사항이 contentHashVersion을 함께 읽음). 뷰 권한·`security_invoker` 유지
+- 잠금(COMMIT까지): `ops_rule_set_revisions`·`run_jobs`·`run_process_decisions`·`run_llm_results`·`ops_pipeline_measurements`와 뷰 `ops_operational_state`에 ACCESS EXCLUSIVE. 표 재작성 없음. CHECK 검증과 부분 인덱스 빌드로 heap을 읽음(`run_jobs` 4회, `run_process_decisions` 2회, `run_llm_results`·`ops_pipeline_measurements` 1회, TOAST 값은 읽지 않음). 012와 같이 작업자를 멈추고 적용(켠 채 적용하면 표 잠금 순서 차이로 교착 가능). 참고 실측: 세 표 각 100만 행(판정 표 1.9GB, 로컬 embedded PostgreSQL 17)에서 016 전체 3.7초. NOT VALID 미사용: 같은 트랜잭션의 CREATE INDEX가 어차피 heap을 읽고 CONCURRENTLY는 트랜잭션 밖에서만 가능하므로 원자성만 잃음
+- 적용 순서: 016은 v03 쓰기 코드와 호환. v04 행은 Detector #112 배포 뒤에 생기므로 016 → 코드 배포 순서. worker·API가 v04를 읽는 변경은 각 Issue 범위
+- 시험(`erd-v03-detect-v04.mjs`, `erd-v03.mjs`가 호출): `erd119_fresh`(r1 행·hash 재계산·뷰·기본값·불변, v04 작업·판정·중간 판정·explain 전체 흐름과 거부 조건, 실제 LOGIN 역할), `erd119_upgrade`(001~015 + v03·legacy 행 → 016, 행 보존, 변경 목록 외 카탈로그 불변, 함수 본문은 표시한 줄만 변경, 진행 중 v03 작업 완료), `erd119_saved`·`erd119_empty`(r1 조건 실패 → 무변경), `erd119_rollback`(COMMIT 직전 오류 → 무변경 → 재적용), `erd119_encoding`(비UTF8 세션 문장 단위 적용)
+
 ## 큐와 소유권
 
 - 001의 `detection_logs/training_jobs`는 기존 물리 큐. 기존 Python helper의 payload·물리 lease 경로 보존
@@ -170,18 +202,19 @@ SELECT r.rolname,
 
 ## DBML과 SQL 대응
 
-- DBML은 001~014 적용 후 최종 구조(컬럼·nullability·unique·FK·enum 순서). 물리 큐 5개도 명시. enum 순서는 PostgreSQL 추가 순서(`job_kind`의 `import_csv`는 explain 뒤)
+- DBML은 001~016 적용 후 최종 구조(컬럼·nullability·unique·FK·enum 순서). 물리 큐 5개도 명시. enum 순서는 PostgreSQL 추가 순서(`job_kind`의 `import_csv`는 explain 뒤)
 - nullable FK는 `>?`, unique FK는 부모 `-` 자식 방향, nullable unique FK는 부모 `?-` 자식 방향으로 표시. 실제 FK 방향은 SQL/파싱 대응 시험으로 확인
 - attempt의 복합 FK 3개는 DBML의 exact-composite index 판정 한계로 `>`/`>?` 표시. 자식의 개별 PK/unique가 실제 1:1 제약을 보장한다는 주석 유지; 그림 경고를 없애려고 SQL 중복 인덱스를 추가하지 않음
 - `@dbml/core`는 현재 문법의 `dbmlv2` parser 사용. deprecated `dbml` parser는 optional 관계 문법을 지원하지 않음
 - `event_sequence`는 SQL의 `GENERATED BY DEFAULT AS IDENTITY`로 NOT NULL, DBML은 `not null/unique/increment` 표시. SQL 없는 별도 DEFAULT를 생성하지 않음
-- CHECK·partial index·GIN 실행 방식·trigger·함수는 SQL 원본 기준. DBML index note에 partial 조건을 표시하며 전체 행 unique로 오해하지 않음
+- CHECK·partial index·GIN 실행 방식·trigger·함수·뷰(015 `ops_operational_state`)는 SQL 원본 기준. DBML index note에 partial 조건을 표시하며 전체 행 unique로 오해하지 않음
 - DBML 표시/파싱 성공은 SQL 적용·운영 migration 성공과 별개. 격리 PostgreSQL의 기존 행 보존·negative constraint·enum·컬럼·FK 대응 시험 후 검수
 
 ## 격리 시험 재현
 
 - 임시 도구 폴더에만 `npm install --prefix <TEMP>/powercode-erd-review-tools embedded-postgres@17.10.0-beta.17 pg@8.23.1 @dbml/core@10.3.1`
 - 저장소 루트에서 `node server/infra/tests/erd-v03.mjs <절대 tools 폴더>` 실행
+- 임시 DB는 OS 임시 폴더에 생기고 시험이 끝나면 지워짐. 시스템 드라이브 공간이 부족하면 실행 전에 환경 변수 `TEMP`·`TMP`·`TMPDIR`을 여유 있는 디스크의 폴더로 지정(Node `os.tmpdir()`·Python `tempfile`·embedded-postgres가 모두 이 값을 따름)
 - 읽기 전용으로 확보한 서버 schema metadata JSON이 있으면 세 번째 인자로 전달, 기존 001/002의 컬럼·enum·인덱스·제약과 대조. 시험에서 서버 재접속이나 데이터행 조회 없음
 - 실제 native PostgreSQL 17.10 임시 cluster·localhost 임의 포트에서 001→002→003→004 실행, 기존 행 보존과 negative 계약·DBML parity 검증
 - 운영 서버·고객 데이터·.env·인증파일 사용 없음. 임시 DB/의존성만 사용, 완료 시 시험 프로세스 종료
@@ -193,3 +226,5 @@ SELECT r.rolname,
 - 011 search_path 시험 DB도 `database-roles.sql`의 REVOKE TEMP 거부(42501)를 먼저 확인한 뒤 TEMP를 다시 허용해 011 고정만 검증. 2026-10-21 native PostgreSQL 17.10(embedded) 629 checks 통과
 - Issue #82(013) 시험: 위 전체에 `erd82_upgrade`·`erd82_fresh`·`erd82_rollback` 3개 DB 추가(013 절). 검증 범위: 실제 우회 회귀 1경로(Y7, 판정 행 lease 검사 — 013 적용 전 우회·적용 후 거부) + 대상 8개 함수 search_path 설정 자동 확인. 다른 대상 함수의 우회 재현 시험은 범위 밖. 2026-11-02 native PostgreSQL 17.10(embedded) 685 checks 통과(dev #81 병합 후 아래 #81 시험 포함). 013의 `ALTER FUNCTION` 8줄을 지운 대조 실행은 Y7(만료 lease 판정 수락) 1건 + 세 DB 함수 설정 검사 4건 FAIL. `prepare-runtime-db.py`(001~013) 뒤 worker unittest 123건·integration input_roles·demo_permissions·demo_replay 통과
 - Issue #81 시험(`erd-v03-llm-grant.mjs`, `erd-v03.mjs`가 호출): `pg_queue.reconcile_dead_jobs`의 training 큐 SQL 2문을 파일에서 읽어 `powercode_llm` 실제 LOGIN 새 연결·한 트랜잭션으로 실행. `erd_llm_grant_81_pre`(#81 GRANT 뺀 역할 스크립트) 42501 재현·대조, `erd_llm_grant_81` 정리 성공(작업 failed·queued 세트 failed·`errorCode` `queue_exhausted`·기존 `validation_result` 키 유지, ready·failed·무관 세트 불변), 권한 카탈로그 정확 일치, 다른 열 SELECT·내용 열 UPDATE·INSERT·DELETE·TRUNCATE 42501, 부여 열 하나씩 REVOKE 시 정리 42501. 2026-10-22 native PostgreSQL 17.10(embedded) 665 checks 통과
+- Issue #110(015) 시험(`erd-v03-revisions.mjs`, `erd-v03.mjs`가 호출): `erd110_fresh`·`erd110_upgrade`·`erd110_rollback` 3개 DB 추가(015 절). 함께 고친 기존 시험 결함(014 이후 `erd-v03.mjs`가 끝까지 돌지 못했음): `erd_interim_y7a2_012`는 001~012만 적용하므로 역할 스크립트의 014·015 GRANT를 빼고 적용, `erd82_rollback`은 013 재적용 뒤 남은 마이그레이션까지 적용한 다음 parity 대조, `parity`는 기본 표만 대조(뷰 제외). `erd-v03.mjs`는 CI에 없는 격리 시험이라 변경 시 직접 실행. 2026-11-04 native PostgreSQL 17.10(embedded) 806 checks 통과
+- Issue #119(016) 시험(`erd-v03-detect-v04.mjs`, `erd-v03.mjs`가 호출): `erd119_*` 6개 DB 추가(016 절). 함께 바꾼 기존 시험: `erd-v03-revisions.mjs`는 015까지만 적용한 시점의 r0를 판정하도록 고정(`erd110_fresh`는 015에서 멈춤, `erd110_upgrade`·`erd110_rollback`은 015 판정 뒤 끝까지 적용해 parity 대조, r0 값은 문서 예시 대신 시험에 고정 — 문서 예시는 이제 내장 목록 4개를 설명), `erd82_upgrade`는 함수 본문 비교를 013 직후에 수행(016이 3개를 의도적으로 재정의), 012 S3b 메시지 기대값 변경. `erd-v03.mjs`는 실행마다 임시 클러스터를 남겼으므로 성공·실패·예외·시그널·postgres 사망·기동 실패 모두 폴더를 지우도록 고침(`stop()`에 시간 제한, 끝까지 통과한 실행만 exit 0). 한계: 시작 후 약 4초의 클러스터 기동 구간에 들어온 시그널과 강제 종료는 폴더를 남길 수 있고, 이때도 종료 코드는 0이 아님. 2026-11-05 native PostgreSQL 17.10(embedded) 923 checks 통과

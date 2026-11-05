@@ -8,6 +8,7 @@ import json
 import logging
 import math
 import os
+import re
 import time
 import uuid
 from pathlib import Path
@@ -22,6 +23,7 @@ from feature_fit import requires_fit, fit_features, transform, definitions_hash
 from detector.artifacts import verified_artifact_path
 from detector.rules import evaluate_rules
 from feature_worker import materialize_set
+from methods.registry import resolve_training_method
 from pg_queue import ClaimedMessage, acknowledge, claim, fail, _table, reconcile_dead_jobs
 from trainer.catalog import register_feature_set
 from trainer.rule_candidates import validate_suggestions
@@ -37,6 +39,14 @@ SAFE_MODEL_FIELDS = frozenset({
     "response_code", "adapter_type", "channel_id", "process_hub_id", "process_id",
     "start_time_raw", "end_time_raw",
 })
+# 종료 오류 코드 허용 형식: 코드 또는 코드:식별자(예 method_not_executable:ml:eif — 계약의 오류 형식).
+# 그 외 ValueError 문구는 노출하지 않고 invalid_job_input으로 바꾼다.
+_ERROR_CODE_PATTERN = re.compile(r'[a-z][a-z0-9_]{0,99}(?::[a-z][a-z0-9_:-]{0,99})?')
+
+
+def _terminal_error_code(exc: BaseException) -> str:
+    text = str(exc)
+    return text if _ERROR_CODE_PATTERN.fullmatch(text) else 'invalid_job_input'
 
 
 def _claim_job(conn: Any, message: ClaimedMessage, worker_id: str) -> tuple[dict[str, Any], uuid.UUID, uuid.UUID] | None:
@@ -242,9 +252,11 @@ def _execute(conn: Any, job: dict[str, Any], attempt_id: uuid.UUID,
         from trainer.prepared_execution import maybe_execute
         prepared_result = maybe_execute(conn,job,artifact_root,message,attempt_id,attempt_token)
         if prepared_result is not None: return prepared_result
+    training_method = training_parameters = None
     if kind == 'train':
-        if spec.get('modelKey', 'iforest') != 'iforest':
-            raise ValueError('unsupported_model')
+        # 카탈로그 기준 검증: 미등록 키 unsupported_model / 실행 불가 method_not_executable:<id> /
+        # parameters 위반 method_parameters_invalid:<id>. modelKey·parameters 부재(v1·v2 요청)는 IF 기본값.
+        training_method, training_parameters = resolve_training_method(spec)
         if spec.get('detectionPolicy', {}).get('mode') == 'rule_only' and 'modelKey' in spec:
             raise ValueError('model_not_selected')
     if kind == "explain":
@@ -376,8 +388,9 @@ def _execute(conn: Any, job: dict[str, Any], attempt_id: uuid.UUID,
         # 정상 확정되면 남고, 블록이 예외로 끝나 TX가 롤백되면 미등록 파일로서 함께 제거된다.
         with training_workspace(artifact_root, attempt_id) as (output, promoted):
             training_started = time.monotonic()
-            result = model_adapters.train_iforest(prepared, names, str(output), preprocessing=preprocessing) if preprocessing is not None else \
-                model_adapters.train_iforest(prepared, names, str(output))
+            # 어댑터는 레지스트리가 model_adapters 함수에 늦게 바인딩한다(현재 ml:iforest → train_iforest).
+            fit_kwargs = {"preprocessing": preprocessing} if preprocessing is not None else {}
+            result = training_method.adapter.fit(prepared, names, str(output), parameters=training_parameters, **fit_kwargs)
             training_ms = (time.monotonic()-training_started)*1000
             required = {"modelPath", "fitPath", "formatVersion", "runtimeVersion", "thresholdSpec"}
             if not isinstance(result, dict) or not required.issubset(result) or not isinstance(result["thresholdSpec"], dict):
@@ -419,12 +432,18 @@ def _execute(conn: Any, job: dict[str, Any], attempt_id: uuid.UUID,
                         """INSERT INTO ml_config_models
                              (config_version_id, model_key, feature_set_id, model_artifact_id,
                               fit_artifact_id, adapter_spec, training_settings, threshold_spec)
-                           VALUES (%s, 'iforest', %s, %s, %s, %s::jsonb, %s::jsonb, %s::jsonb)""",
-                        (config_id, feature_set_id, model_id, fit_id,
+                           VALUES (%s, %s, %s, %s, %s, %s::jsonb, %s::jsonb, %s::jsonb)""",
+                        (config_id, training_method.model_key, feature_set_id, model_id, fit_id,
                          json.dumps({"name": "sklearn-iforest", "formatVersion": result["formatVersion"]}),
+                         # 기존 키 유지 + 카탈로그 식별자·확정 파라미터 추가(model-version.md: training_settings에
+                         # parameters·methodVersion 추가, 마이그레이션 없음). schemaVersion 1 구성 틀은 그대로.
                          json.dumps({"snapshotId": str(snapshot.id), "split": "train", "featureNames": names,
                                      "definitionsHash": definition_digest, "splitVersion": "execution-block-v1",
-                                     "thresholdPolicy": "train-internal-p99-v1", "trainingSelection": selection}),
+                                     "thresholdPolicy": training_parameters["thresholdPolicy"],
+                                     "trainingSelection": selection,
+                                     "methodId": training_method.method_id,
+                                     "methodVersion": training_method.method_version,
+                                     "parameters": training_parameters}),
                          json.dumps(result["thresholdSpec"])),
                     )
                     for order, rule_id in enumerate(rule_ids):
@@ -731,8 +750,7 @@ def run(*, once: bool = False, poll_seconds: float = 1.0, role: str = "trainer")
             except ValueError as exc:
                 conn.rollback()
                 # Validation failures are terminal; never expose arbitrary exception text.
-                import re
-                code = str(exc) if re.fullmatch(r'[a-z][a-z0-9_]{0,99}', str(exc)) else 'invalid_job_input'
+                code = _terminal_error_code(exc)
                 if 'job' in locals() and 'attempt_id' in locals():
                     _finish(conn, message, job, attempt_id, attempt_token, None, code, True)
                     conn.commit()

@@ -1,5 +1,5 @@
 Created: 2026-11-02T18:00:00+09:00
-Updated: 2026-11-03T12:00:00+09:00
+Updated: 2026-11-04T21:00:00+09:00
 Author: Claude Code (Trainer 세션 builder)
 Status: draft
 
@@ -8,6 +8,7 @@ Status: draft
 - 변경 요약(#94): 기존 [detection-config-version.md](detection-config-version.md)(#74 `detection-config-v1`, configuration_spec v3 = HR·rule·SR·ML 묶음)에서 **룰 항목을 제거**하고 `ml:*`만 남긴 모델 버전 계약. 룰은 [rule-set.md](rule-set.md)(버전 없음). 버전·교체·복원·비교 평가는 **모델 버전에만** [확정 11/02 Q1·Q2]
 - 2차 개정(사용자 11/02 9.4 결정 반영): "운영 모델 **운영에서 빼기**"·"교체 추천은 **같은 종류(modelKey) 모델끼리**" 두 결정의 귀결로 단위 정의를 **모델 1개 = 버전 계열(modelKey별 lineage), 활성 집합 0..N, 같은 modelKey 1개**로 전환하고, `detectionPolicy`를 모델 버전 spec에서 빼 **운영 설정 전역 값**으로 옮김(Detector 11/02 동의). 단위 전환은 **사용자 11/02 확정**(WebUI 경유, 결정 질문 Q-M1)
 - 3차 정정(Issue #106, 11/03): detection-decision.md(#92) 16절 정정 요청·후속 권고 반영 — 운영 설정 절 `k`·n 정합을 #92 7.4 검증 순서(U4 "모두 1" 선행)로 정정, 활성 집합 절 공통 검사 (2)를 같은 결론으로 맞춤, 리비전 고정 단위(시도, U5), 11/03 사용자 확정(U1·U12)으로 상태 표기 갱신. 의미 변경은 U4 범위 안
+- 4차 정정(Issue #116, 11/04 — #111 병합 반영): 학습 요청 `modelKey`·`parameters` 검증이 **워커**에서 카탈로그 기준으로 이뤄짐(오류 코드 `unsupported_model` / `method_not_executable:<methodId>` / `method_parameters_invalid:<methodId>`, `rule_only`도 같은 검증), `ml_config_models.training_settings`에 `methodId`·`methodVersion`·`parameters` 추가됨(schemaVersion 1·2 틀 유지). prepared 경로는 미반영
 - 계약 버전: `model-version-v1`(#74 `detection-config-v1` 대체). 근거 결정: 사용자 11/02 결정(Q1 운영 = 룰 1벌 + 모델 0..N, Q2 ML 다중 운영 유지, 9.4 운영에서 빼기·같은 종류끼리 추천)·Trainer·Detector 분담 합의 11/02. 근거 코드 origin/dev `7f24e03`
 - 범위: 불변 모델 버전 = ML 모델 1개(`modelKey`)의 학습 결과(식별자·파라미터·산출물 참조) + 데이터 계보(스냅샷·학습 선정·학습 기간·제외 구간). 저장마다 새 버전, UPDATE 없음. **활성 집합**(함께 운영하는 모델 버전 0..N)의 상태·조작·이력. **운영 설정**(`detectionPolicy` 전역 값)의 저장·리비전
 - 제외: 종합 판정 조합·등급·evidence v4·`detectionPolicy` 필드 의미(detection-decision.md(#92)), 카탈로그 내용([method-catalog.md](method-catalog.md)), 비교 평가([config-comparison-evaluation.md](config-comparison-evaluation.md)), 임계값 추천([llm-recommendation-job.md](llm-recommendation-job.md)), 학습 제외 구간 요청 형식([trainer-service.md](trainer-service.md) 변경 제안 절), WebUI 화면
@@ -88,15 +89,16 @@ Status: draft
 | `operationalEligibility`·`preparedDatasetId`·`preparedInputContract` | 기존 키 유지([prepared-csv-v1](prepared-csv-import.md)). prepared 계보 후보가 하나라도 있으면 버전 전체 `eligible=false` [유지 #74] |
 | (없음) `statusRulePolicy`·`ruleVersionIds` | **v3에 없음**(v1·v2 전용 파생 복사본). 판독기는 v3에서 이 키를 요구하지 않음 |
 
-- 내용 hash(`content_hash`, `contentHashVersion: 2`) [유지 #74, 룰 항목 제거 + 이번 개정에서 `detectionPolicy` 제거]: `sourceId`, `featureSetId`, `methods[]`의 `methodId`·`enabled`·`parameters`·`artifacts.modelArtifactId/fitArtifactId`·`featureSetId`를 `json.dumps(obj, sort_keys=True, separators=(",", ":"), ensure_ascii=False)`의 **UTF-8 바이트**로 SHA-256 hex(소문자 64자, 접두 없음) — 룰 세트 `contentHash`([rule-set.md](rule-set.md))와 **같은 직렬화**. 현행 v1·v2 hash 코드(`runner.py:408`, 기본 separators·`ensure_ascii=True`)와는 다르며 그 코드는 v1·v2 행 전용으로 남김. `displayName`·`baseVersionId`·`createdFrom`·`catalogVersion`·`trainingSnapshotId`·`trainingSelection`은 제외. 같은 `sourceId`·`contentHashVersion=2` 행끼리만 중복 비교. 번호 2를 유지하는 이유: `contentHashVersion: 2`로 저장된 행이 아직 없음(#74 v3 미구현)
+- 내용 hash(`content_hash`, `contentHashVersion: 2`) [유지 #74, 룰 항목 제거 + 이번 개정에서 `detectionPolicy` 제거]: `sourceId`, `featureSetId`, `methods[]`의 `methodId`·`enabled`·`parameters`·`artifacts.modelArtifactId/fitArtifactId`·`featureSetId`를 `json.dumps(obj, sort_keys=True, separators=(",", ":"), ensure_ascii=False)`의 **UTF-8 바이트**로 SHA-256 hex(소문자 64자, 접두 없음) — 룰 세트 `contentHash`([rule-set.md](rule-set.md), 룰 세트 `contentHashVersion` 1·2 모두 — 룰 세트 v2는 정규 객체에 하드룰 `severity`를 넣는 차이뿐, #116)와 **같은 직렬화**. 현행 v1·v2 hash 코드(`runner.py:408`, 기본 separators·`ensure_ascii=True`)와는 다르며 그 코드는 v1·v2 행 전용으로 남김. `displayName`·`baseVersionId`·`createdFrom`·`catalogVersion`·`trainingSnapshotId`·`trainingSelection`은 제외. 같은 `sourceId`·`contentHashVersion=2` 행끼리만 중복 비교. 번호 2를 유지하는 이유: `contentHashVersion: 2`로 저장된 행이 아직 없음(#74 v3 미구현)
 - 같은 구성 재저장 [유지 #74]: 막지 않고 `200 {id: <기존>, duplicateOf: <기존>, …}`. 중복이 아니면 `201`·`duplicateOf: null`. 중복 저장은 자동 비교 평가를 만들지 않음([config-comparison-evaluation.md](config-comparison-evaluation.md) 자동 비교 절)
 
 ## 생성 경로
 
 ### (A) 학습 — `POST /api/jobs kind=train` [기존 + 확장]
 
-- 현행: IF 후보 1개 + HR + Rule 0..32 → schemaVersion 1·2 구성(`trainer/runner.py:349-352`, `:402-407`). 요청 형식·권한·멱등키 유지, 기존 요청(`modelKey` 생략·`parameters` 없음)은 IF v1 기본값으로 계속 유효 [유지 #74 Q-H]
+- 현행: IF 후보 1개 + HR + Rule 0..32 → schemaVersion 1·2 구성(`trainer/runner.py:349-352`, `:402-407`). 요청 형식·권한·멱등키 유지, 기존 요청(`modelKey` 생략·`parameters` 없음)은 IF v1 기본값으로 계속 유효 [유지 #74 Q-H] — #111부터 워커가 카탈로그 기본값으로 확정해 `training_settings.parameters`·`methodId`·`methodVersion`에 기록
 - 확장(구현 단계): `modelKey` = 카탈로그 `ml:*`의 `<model_key>`(접두 없이), `executable.process=false`면 422 `method_not_executable`; 선택 `parameters`(카탈로그 schema 검증); **`excludedIntervals[]`·`timeBasis`**([trainer-service.md](trainer-service.md) 변경 제안 절); 성공 결과의 구성은 schemaVersion 3(`methods` = ML 1개, `createdFrom.kind="train"`) = **그 자체가 모델 버전**(학습 1회 = 버전 1개, 별도 조합 저장 없음 — 확정 11/02 Q-M1)
+- 검증 위치 [#111 구현, #116 반영]: `modelKey`·`parameters` 검증은 **워커**(`trainer/runner.py` → `methods.registry.resolve_training_method`)가 큐에 담긴 `input_spec`을 카탈로그 기준으로 수행 — 카탈로그에 없는 `modelKey` → `unsupported_model`, 등록됐지만 `executable.process=false` → `method_not_executable:<methodId>`, `parameters`가 `parameterSchema` 위반 → `method_parameters_invalid:<methodId>`(작업 `failed`의 `errorCode`; 형식은 `코드` 또는 `코드:식별자`). `modelKey`·`parameters` 키 부재(v1·v2 요청)는 IF 기본값. **`rule_only` 요청도 같은 검증을 먼저 거치므로 잘못된 `parameters`가 있으면 `method_parameters_invalid:<methodId>`로 거절**(`model_not_selected` 검사보다 앞). API의 접수 단계 검증(카탈로그 기준 422 선차단·`parameters` 허용·전달)은 API 구현 단계 몫 [제안] — [trainer-service.md](trainer-service.md) 요청·발견 API 절
 - **v3 train 요청에는 `ruleVersionIds`·`detectionPolicy`가 없음** [확정 11/02 Q-M1]: 정책은 운영 설정 전역 값이므로 v3 키(`modelKey`·`parameters`·`excludedIntervals`·`timeBasis`·`evaluationSetId` 중 하나라도)가 있는 요청에 `detectionPolicy` 키가 있으면 400 `invalid_detection_policy`. v1 형식 요청(`{mode, deadlineMs, combination}` 필수, v3 키 없음)은 v1·v2 구성 생성 경로로 계속 처리; v1 형식과 v2 객체 혼용도 400 [유지 #74 N16]
 - 성공 시 자동 비교 평가 접수(10/21 §4.8, [config-comparison-evaluation.md](config-comparison-evaluation.md) 자동 비교 절) — 비교 상대는 **같은 `modelKey`의 활성 버전**
 
@@ -191,21 +193,21 @@ Status: draft
 - gate = 기술 무결성만 [유지 #74]: 해당 버전의 `purpose=validation` 평가 `applicability='valid' AND scored_count>0 AND unavailable_count=0` + prepared 아님 + 버전 `executable=true` + 산출물 경로·hash 검증. 최종 관문은 사람 수락. 자동 교체·자동 활성화·자동 빼기 금지
 - `evaluationId`에 비교 평가가 만든 버전별 `run_evaluations` 행 허용. `acceptedRecommendation: {comparisonJobId, modelKey, targetVersionId}`(mismatch 400 `accepted_recommendation_mismatch`, stale 400 `accepted_recommendation_stale` — **stale 기준은 같은 `modelKey`의 활성 변경**: 그 `modelKey`의 현재 활성 버전 ≠ 추천의 `baselineConfigVersionId`(빼기로 활성 없음 포함) 또는 평가 세트가 `ready`가 아님; 다른 `modelKey`의 활성화·빼기만으로는 stale이 아님 — Detector 11/02 Q-E4 확정, [config-comparison-evaluation.md](config-comparison-evaluation.md) stale 절) [유지 #74 N22·R10, 기준만 전환]
 - v3 준비 검사(Detector 소유, 요구만): 활성 집합의 `ml:*`마다 artifact·fit·feature set 일치(현행 `model_key='iforest'` 1행 고정 `configRoutes.ts:117-126`·`applications.py:13-32`를 집합 N행으로). **`ml_config_rules` 0행이 정상**(v1·v2 경로는 그대로)
-- `gate_evidence` `gateVersion: 2`에 `comparisonJobId`·`evaluationSetId`·`acceptedRecommendation`·`recommendationRuleVersion` + **조작 시점 룰 세트 `{revision, contentHash}`·정책 `detectionPolicyRevision`·활성 집합 `{before: revision, after: revision}`** 기록 [제안] — 이력에서 "그때 룰·정책·집합이 무엇이었는지" 추적
+- `gate_evidence` `gateVersion: 2`에 `comparisonJobId`·`evaluationSetId`·`acceptedRecommendation`·`recommendationRuleVersion` + **조작 시점 룰 세트 `{revision, contentHash, contentHashVersion}`(행 값 그대로)·정책 `detectionPolicyRevision`·활성 집합 `{before: revision, after: revision}`** 기록 [제안] — 이력에서 "그때 룰·정책·집합이 무엇이었는지" 추적
 - 활성 집합 변경은 **룰 세트·정책에 영향 없음**(각각 별도 리비전). 복원이 룰·정책을 되돌리지 않음
 - 이력 — `GET /api/active-models/history?limit=&cursor=`(로그인 사용자): `{items: [{revision, changedAt, changedBy, note, restoredFromRevision, changes[], summary: {activated, replaced, retired}}], pagination}`; `GET /api/active-models/history/:revision`은 + `snapshot.models[]`. append-only
-- **일관 읽기 요구사항**(Detector 11/02 회신·합의): 판정 시도 시작 시 **(룰 세트 `revision`·`contentHash`, 활성 집합 `revision`(+ 모델 목록), 정책 `revision`(+ 정책 값)) 세 가지**를 **한 번에 일관되게** 읽을 수 있어야 함 — 운영 상태 조회 **응답 한 건**이 셋을 함께 담음. **고정 단위는 시도(attempt)** [확정 11/03 #92 U5]: 세 리비전은 시도마다 그 시도 시작 시점에 한 번에 새로 읽음(재시도는 이전 시도의 리비전을 이어 쓰지 않음; 작업 생성·큐 payload에 고정하는 작업 단위 안은 채택되지 않음 — #92 10절)
+- **일관 읽기 요구사항**(Detector 11/02 회신·합의): 판정 시도 시작 시 **(룰 세트 `revision`·`contentHash`·`contentHashVersion`, 활성 집합 `revision`(+ 모델 목록), 정책 `revision`(+ 정책 값)) 세 가지**를 **한 번에 일관되게** 읽을 수 있어야 함 — 운영 상태 조회 **응답 한 건**이 셋을 함께 담음. **고정 단위는 시도(attempt)** [확정 11/03 #92 U5]: 세 리비전은 시도마다 그 시도 시작 시점에 한 번에 새로 읽음(재시도는 이전 시도의 리비전을 이어 쓰지 않음; 작업 생성·큐 payload에 고정하는 작업 단위 안은 채택되지 않음 — #92 10절)
 
 ```json
 {
-  "ruleSet": {"revision": 13, "contentHash": "9c40…"},
+  "ruleSet": {"revision": 13, "contentHash": "9c40…", "contentHashVersion": 2},
   "activeModelSet": {"revision": 7, "models": [{"configVersionId": "<config UUID>", "modelKey": "iforest", "activatedAtRevision": 5}]},
   "detectionPolicy": {"revision": 2, "policy": {"version": 2, "policyKey": "category-k-of-n-or-v1", "k": {"hard": 1, "soft": 1, "ml": 1}, "deadlineMs": 3000}},
   "readAt": "2026-11-02T10:00:00Z"
 }
 ```
 
-- 경로 `GET /api/operational-state`(가칭, 로그인 사용자; Detector는 같은 내용을 DB에서 같은 스냅샷으로 읽음). 구현 방식(같은 트랜잭션 SELECT·`ops_system_state`에 세 리비전 열 추가 등)은 DB·Detector. Detector는 evidence v4에 `ruleSetRevision`·`ruleSetHash`·**`activeModelSetRevision`(정수)·`detectionPolicyRevision`(정수)**를 기록하고 정책 값은 evidence `detectionPolicy`에 그대로 복사(`detectionPolicySource` 같은 출처 필드는 **없음** — Detector 11/02 합의)
+- 경로 `GET /api/operational-state`(가칭, 로그인 사용자; Detector는 같은 내용을 DB에서 같은 스냅샷으로 읽음). 구현 방식(같은 트랜잭션 SELECT·`ops_system_state`에 세 리비전 열 추가 등)은 DB·Detector. Detector는 evidence v4에 `ruleSetRevision`·`ruleSetHash`(행의 `contentHash` 그대로 복사 — hash 버전은 `ruleSetRevision`으로 식별, [rule-set.md](rule-set.md) 리비전 형식 절 #116)·**`activeModelSetRevision`(정수)·`detectionPolicyRevision`(정수)**를 기록하고 정책 값은 evidence `detectionPolicy`에 그대로 복사(`detectionPolicySource` 같은 출처 필드는 **없음** — Detector 11/02 합의)
 
 ## 운영 설정 — `detectionPolicy` 전역 값 [확정 11/02 Q-M1, Q-M2 귀결 — Detector 11/02 동의]
 
@@ -219,7 +221,7 @@ Status: draft
 ## 불변성·저장소(사실 + 확정 단위 추가분)
 
 - `ml_config_versions`·`ml_config_models`·`ml_config_rules`·`ml_artifacts`·`run_evaluations`는 **이미 UPDATE/DELETE 금지 트리거가 있음**(`004_feature_pipeline.sql:84-96` `pipeline_immutable` → `prevent_pipeline_immutable_mutation()`). #74 "선택: 불변 트리거 추가"는 **불필요**(PostgreSQL 세션 10/21 발견 사항 반영). 새 마이그레이션은 이 트리거를 유지해야 하며 spec 보정은 새 행으로만
-- `ml_config_models.training_settings`에 `parameters`·`methodVersion`·`excludedIntervals[]`·`timeBasis`·`trainingPeriod` 키 추가(jsonb, 마이그레이션 없음)
+- `ml_config_models.training_settings`: **`methodId`·`methodVersion`·`parameters`(확정 파라미터 = 카탈로그 기본값 + 요청 값)는 #111에서 추가됨** — 기존 키(`snapshotId`·`split`·`featureNames`·`definitionsHash`·`splitVersion`·`thresholdPolicy`·`trainingSelection`) 유지, configuration_spec schemaVersion 1·2 틀 그대로, jsonb라 마이그레이션 없음. prepared 경로(`trainer/prepared_training.py`, `model_key` `iforest` 고정·`training_settings`에 세 키 없음)는 **아직 미반영**이며 후속에서 맞춤. `excludedIntervals[]`·`timeBasis`·`trainingPeriod`는 추가 예정(같은 방식)
 - `run_jobs.input_spec`(train)에 `parameters`·`excludedIntervals`·`timeBasis` 키 추가(jsonb). `detectionPolicy`는 v3 train `input_spec`에 **없음**
 - [확정 11/02 Q-M1, 이름은 가칭 — DB 세션 결정] `ops_active_model_set_revisions`(`revision bigint PK, snapshot jsonb(models[]), changes jsonb, note, restored_from_revision, changed_by_actor_id, changed_at`, append-only + 불변 트리거, r0 행은 빈 집합) / `ops_detection_policy_revisions`(`revision bigint PK ≥ 1, policy jsonb, note, restored_from_revision, saved_by_actor_id, saved_at`, append-only; 행 없음 = r0 기본 정책) / 현재 값은 최대 `revision` 행. 세 리비전(룰·활성 집합·정책)의 일관 읽기용 열 또는 뷰는 DB·Detector. `ops_system_state.active_config_version_id`는 v1·v2 운영 호환으로만 남김
 

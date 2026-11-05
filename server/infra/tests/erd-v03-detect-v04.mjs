@@ -42,7 +42,7 @@ const canonicalV1 = ({ hardRules }) => JSON.stringify(sorted({ hardRules:byId(ha
 const sha256 = text => createHash('sha256').update(text, 'utf8').digest('hex');
 
 // Function bodies compared without comments and layout: 016 keeps code lines only.
-const code = s => s.replaceAll('\r\n', '\n').replace(/--.*$/gm, '').replace(/\s+/g, ' ').trim();
+export const code = s => s.replaceAll('\r\n', '\n').replace(/--.*$/gm, '').replace(/\s+/g, ' ').trim();
 // The only intended source changes per redefined function: [before, after].
 const FUNCTION_EDITS = {
   erd_v03_validate_job: [
@@ -55,7 +55,7 @@ const FUNCTION_EDITS = {
   validate_decision_interim: [["IF j.contract_version IS DISTINCT FROM 'v03' OR j.kind <> 'detect' THEN RAISE EXCEPTION 'interim requires v03 detect job';",
     "IF j.contract_version IS NULL OR j.contract_version NOT IN ('v03','v04') OR j.kind <> 'detect' THEN RAISE EXCEPTION 'interim requires v03 or v04 detect job';"]],
 };
-const catalog = async db => ({
+export const catalog = async db => ({
   enums: (await db.query(`SELECT t.typname::text||':'||e.enumlabel::text AS v FROM pg_enum e JOIN pg_type t ON t.oid=e.enumtypid ORDER BY 1`)).rows.map(r => r.v),
   columns: (await db.query(`SELECT table_schema||'.'||table_name||'.'||column_name||':'||udt_name||':'||is_nullable||':'||coalesce(column_default,'') AS v
     FROM information_schema.columns WHERE table_schema IN ('public','powercode_queue') ORDER BY 1`)).rows.map(r => r.v),
@@ -65,11 +65,11 @@ const catalog = async db => ({
   functions: (await db.query(`SELECT p.proname::text AS name, md5(p.prosrc) AS body, p.prosrc AS src, p.proconfig AS config, p.prosecdef AS definer, pg_get_userbyid(p.proowner) AS owner
     FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname IN ('public','powercode_queue') ORDER BY 1`)).rows,
 });
-const delta = (before, after) => ({ removed:before.filter(v => !after.includes(v)), added:after.filter(v => !before.includes(v)) });
-const nameOf = v => v.split(':')[0];
+export const delta = (before, after) => ({ removed:before.filter(v => !after.includes(v)), added:after.filter(v => !before.includes(v)) });
+export const nameOf = v => v.split(':')[0];
 
 // Top-level statements as psql -f sends them: skips -- comments, keeps '...' and $$...$$ whole.
-const statements = text => {
+export const statements = text => {
   const out = []; let cur = '', i = 0, mode = 'code';
   while (i < text.length) {
     if (mode === 'code' && text.startsWith('--', i)) { i = text.indexOf('\n', i); if (i < 0) break; continue; }
@@ -455,7 +455,6 @@ export async function detectV04_016({ Client, port, connection, check, failures,
       assert.deepEqual(versions, [{ revision:'0', content_hash_version:1 }, { revision:'1', content_hash_version:2 }]);
       check('erd119_upgrade: r0 row unchanged with content_hash_version 1; r1 added with 2');
       verdict((await u.query(`SELECT rule_set_revision FROM ${VIEW}`)).rows[0].rule_set_revision === '1', 'erd119_upgrade: view reads r1');
-      await parity(u);
 
       // In-flight v03 work after 016.
       await insert(u, 'run_decision_interims', interim(running, runningAttempt, 'evidence_added'));
@@ -476,6 +475,9 @@ export async function detectV04_016({ Client, port, connection, check, failures,
       const v04Attempt = await claim(u, v04, 1);
       const v04Final = await insert(u, 'run_process_decisions', decision(doneWorld, v04, v04Attempt));
       verdict(v04Final.config_version_id === null, 'erd119_upgrade: v04 job on an old manifest stores a NULL-config decision next to the old v03 decision');
+      // schema.dbml is the final structure, so parity needs the later migrations too.
+      for (let i = idx + 1; i < migrations.length; i++) await u.query(migrations[i]);
+      await parity(u);
     } finally { await u.end(); }
   }
 
@@ -529,6 +531,7 @@ export async function detectV04_016({ Client, port, connection, check, failures,
       check('erd119_rollback: 016 failing before COMMIT leaves catalog and rule rows unchanged');
       await r.query(migrations[idx]);
       verdict((await r.query(`SELECT rule_set_revision FROM ${VIEW}`)).rows[0].rule_set_revision === '1', 'erd119_rollback: 016 applies cleanly afterwards');
+      for (let i = idx + 1; i < migrations.length; i++) await r.query(migrations[i]);
       await parity(r);
     } finally { await r.end(); }
   }

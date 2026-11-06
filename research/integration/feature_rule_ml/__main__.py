@@ -40,6 +40,13 @@ def main(argv=None):
     q.add_argument("--field-map", help="JSON canonical-field to physical-source-column mapping")
     q.add_argument("--ml-decision", choices=("anomaly", "confirmed_anomaly"), default="anomaly")
     q.add_argument("--trust-local-model", action="store_true")
+    q = s.add_parser("restore-previous42", help="Previous Feature/Rule +42 ML features; explicit LOF fit or frozen replay")
+    for name in ("release", "llm-manifest", "output"):
+        q.add_argument("--" + name, required=True)
+    mode = q.add_mutually_exclusive_group(required=True)
+    mode.add_argument("--train-lof", action="store_true")
+    mode.add_argument("--lof-models", help="Existing LOF model root: reuse weights, never fit")
+    q.add_argument("--trust-local-model", action="store_true")
     s.add_parser("inspect-ml", help="Check published v12 hashes and versions without loading pickle")
     a = p.parse_args(argv)
     try:
@@ -58,6 +65,9 @@ def main(argv=None):
             r = predict_process(a.processes, a.output, a.runtime_python, a.prepared, a.rule_group,
                                 a.row_key_fields, read(a.field_map) if a.field_map else None,
                                 a.trust_local_model, a.ml_decision)
+        elif a.command == "restore-previous42":
+            from .previous_shared42 import run_previous
+            r = run_previous(a.release, a.llm_manifest, a.output, a.train_lof, a.trust_local_model, a.lof_models)
         else:
             r = inspect_published()
         if a.command == "inspect-ml":

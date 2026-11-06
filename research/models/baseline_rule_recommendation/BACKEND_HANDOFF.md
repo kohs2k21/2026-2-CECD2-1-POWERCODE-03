@@ -9,6 +9,7 @@
 | 새 수치 SR 추천 | `research.models.baseline_rule_recommendation` | 미리 계산한 피처 → TRAIN 요약 → Rule LLM → 검증·초안 |
 | 기존 전체 명세 연구 | `research/models/feature_rule_spec` | Feature silver51·고정 Rule LoRA·공식 CLI·검증·공개 예시 |
 | 기존 피처/Rule/ML 오프라인 연결 | `research/integration/feature_rule_ml` | 동결 피처 재계산, HR·SR·IF/K-means/LOF 연결 |
+| 최신 Process 행 ML 연결 | `research/integration/feature_rule_ml/PROCESS_EVENT_INTEGRATION.md` | PR #98 동결 모델·별도 Python 3.12·같은 원천 Process의 HR/SR 결합 |
 
 위 진입점은 서로 다른 실행 프로필이다. 새 baseline 경로는 `requests=["baseline"]`만 생성하며 HR·관측 SR은 생성하지 않는다. 기존 HR·규칙을 삭제·수정하지 않는다. 로컬 서비스 시험에서는 Feature v5를 유지했지만, 전체 연구 패키지의 기본 Feature는 silver51이다. Feature 모델까지 바꿀지는 별도 결정해야 한다.
 

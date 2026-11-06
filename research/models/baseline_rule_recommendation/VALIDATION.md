@@ -1,5 +1,12 @@
 # Baseline SR research-only delivery validation
 
+2026-11-06 follow-up: the PR98 Process ML connection uses a separately approved
+Python 3.12 environment; its packages were installed without upgrading the existing
+project environment. The combined check is 30/30 (16 integration + these 14 baseline
+checks), with no new fit or LLM calls. See
+[the latest connection contract](../../integration/feature_rule_ml/PROCESS_EVENT_INTEGRATION.md).
+The original baseline-only publication record below remains separate.
+
 Validated in the project Docker container and existing project Python environment.
 No packages were installed and no new SFT or ML fit ran. This publication includes
 only `research/`. Backend integration, deployment and merge are not performed.

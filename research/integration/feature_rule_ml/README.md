@@ -1,6 +1,13 @@
 # 피처·HR/SR 명세 모델 → 공통 피처 → ML 통합
 
-최신 `origin/dev`의 최종 명세 패키지와 기존 ML 연구 코드를 연결하는 **오프라인 연구 파이프라인**이다. 기존 LoRA·모델 파일·계산 계약·과거 결과를 수정하지 않는다. `server/`의 런타임 의존성이 아니다.
+최종 명세 패키지와 ML 연구 코드를 연결하는 **오프라인 연구 파이프라인**이다. 기존 LoRA·모델 파일·계산 계약·과거 결과를 수정하지 않는다. `server/`의 런타임 의존성이 아니다.
+
+**2026-11-06 최신 ML 연결:** Issue #95 / PR #98의 Process 실행 행 모델을 `research/process_event_model/`에 원형 그대로 포함했다.
+최신 IF·K-means·LOF를 쓸 때는 **[`predict-process` 연결 안내](PROCESS_EVENT_INTEGRATION.md)**를 따른다.
+같은 원천 Process 행에서 우리 HR/SR과 최신 ML을 결합하며, ML 전용 Python 3.12 프로세스에서 동결 모델을 실행한다.
+LLM의 임의 피처를 기존 ML의 학습 입력으로 바꾸거나 재학습하지 않는다.
+
+아래 도표와 `fit`·`predict` 예시는 이전 **공통 피처 벡터 연구 프로필**이며, 최신 Process 모델 실행과 구분한다.
 
 ```mermaid
 flowchart LR
@@ -20,9 +27,10 @@ flowchart LR
 
 | 부분 | 재사용 / 새 연결 |
 |---|---|
+| 최신 Process 행 ML | `process_event_model`의 동결 IF·K-means·LOF, `predict-process` 전용 경로 |
 | 피처·Rule LLM | `research/models/feature_rule_spec`의 Feature silver51·고정 Rule LoRA 및 공식 CLI 그대로 |
 | 계산·의미 검증 | 위 패키지의 `Dataset`, `compile_feature`, `replay`, `replay_batch`, `value_condition` 그대로 |
-| ML 알고리즘 | 기존 `anomaly_detection/code/model_research_v5/models.py`의 `Encoder`, `RawModel` 재사용: IF·MiniBatch K-means·novelty LOF |
+| 기존 공통 피처 ML 알고리즘 | `anomaly_detection/code/model_research_v5/models.py`의 `Encoder`, `RawModel` 재사용: IF·MiniBatch K-means·novelty LOF |
 | 점수 | 기존 `process_anomaly_pipeline/features.py`의 `ScoreNormalizer` 재사용 |
 | 새 코드 | LLM 산출물 → 행별 공통 피처, 동결 정의 재계산, 명시적 ML fit/load, HR·SR·ML 결과 결합 |
 

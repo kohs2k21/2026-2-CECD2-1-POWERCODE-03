@@ -1,0 +1,1846 @@
+{
+  "scope": "Controlled service integration smoke cases, development regressions; not independent generalization or customer-log detection performance",
+  "new_training": false,
+  "database_integration": false,
+  "cases": [
+    {
+      "case": "proposed",
+      "summary": {
+        "case": "proposed",
+        "state": "proposed",
+        "passed": true,
+        "suggestions": 1,
+        "attempts": 1,
+        "seconds": 62.3542988190311
+      },
+      "input": {
+        "contract": "baseline-rule-recommendation1.0",
+        "requests": [
+          "baseline"
+        ],
+        "feature": {
+          "id": "total_count",
+          "name": "total_count",
+          "sha": "40269e31a2dfd5b868781bf1534610c019d92ff7a152712b1fcec1811378107b",
+          "definition_sha": "40269e31a2dfd5b868781bf1534610c019d92ff7a152712b1fcec1811378107b",
+          "meaning": "total_count",
+          "dtype": "number",
+          "unit": "count",
+          "unit_status": "verified",
+          "expression": {
+            "op": "column",
+            "table": "EC_PROCESS_MONITORING",
+            "column": "TOTAL_COUNT"
+          },
+          "population_ref": "population_74913cd40efddf444c32441d"
+        },
+        "baseline": {
+          "id": "baseline_873bf25a37d900f030cc8840",
+          "state": "verified",
+          "quantile": "0.95",
+          "method": "linear_n_minus_1_p",
+          "operator": "gt",
+          "minimum_reference_n": 20,
+          "valid_reference_n": 40,
+          "value": 4.0,
+          "value_exact": "4.00",
+          "numeric_encoding": "JSON float roundtrip; service uses the same boundary, no substitution of exact Decimal",
+          "unit": "count",
+          "reference_ref": "reference_2b1d765f504d431de4e106eb",
+          "measurement_id": "measurement_f2bbc628c74f5a82975d12cc",
+          "period": {
+            "start_inclusive": "2026-01-01T00:00:00+00:00",
+            "end_inclusive": "2026-01-01T00:00:39+00:00"
+          },
+          "definition_sha": "40269e31a2dfd5b868781bf1534610c019d92ff7a152712b1fcec1811378107b",
+          "population_ref": "population_74913cd40efddf444c32441d",
+          "group": "whole_snapshot_train",
+          "missing": "exclude unavailable/nonfinite reference values; preserve unavailable application values",
+          "update_policy": "frozen recommendation; explicit new snapshot and review required for update",
+          "expiry_policy": "invalidate on feature/source/unit/population version mismatch; no automatic time extension",
+          "anomaly_labels_excluded": true,
+          "unlabeled_reference_included_without_normality_claim": true,
+          "current_finite_numeric_n": 10
+        },
+        "measurement_id": "measurement_f2bbc628c74f5a82975d12cc",
+        "measurement": {
+          "row_count": 10,
+          "valid_count": 10,
+          "missing_count": 0,
+          "min_exact": "9",
+          "max_exact": "9",
+          "anomaly_labels_retained": true,
+          "period": {
+            "start_inclusive": "2026-01-01T00:00:40+00:00",
+            "end_inclusive": "2026-01-01T00:00:49+00:00"
+          },
+          "rows_sha": "900638c4052a3a1ee397569e092ce2766cd4dc06939caa01e5e58704e9dcbc9a"
+        },
+        "application_context": {
+          "reference": {
+            "id": "reference_2b1d765f504d431de4e106eb",
+            "period": {
+              "start_inclusive": "2026-01-01T00:00:00+00:00",
+              "end_inclusive": "2026-01-01T00:00:39+00:00"
+            },
+            "rows": 40,
+            "finite_non_anomaly_n": 40,
+            "rows_sha": "38534abd8551ae0655ea4d374b2283386f5d1b3af8c51d331357bcca6b1ee07d"
+          },
+          "application": {
+            "id": "application_a4b986636e4290383b1d1a30",
+            "period": {
+              "start_inclusive": "2026-01-01T00:00:40+00:00",
+              "end_inclusive": "2026-01-01T00:00:49+00:00"
+            },
+            "rows": 10,
+            "finite_numeric_n": 10,
+            "rows_sha": "900638c4052a3a1ee397569e092ce2766cd4dc06939caa01e5e58704e9dcbc9a"
+          },
+          "measurement_id": "measurement_f2bbc628c74f5a82975d12cc",
+          "source_ref": "source_592b0256a0679da25a8943dc",
+          "population_ref": "population_74913cd40efddf444c32441d",
+          "partition_policy": {
+            "name": "train-internal-80-20-chronological-v1",
+            "reference_fraction": 0.8,
+            "time_basis": "persisted_at",
+            "field": "event_time",
+            "grouping": [
+              "transaction_key",
+              "equal_event_time"
+            ],
+            "boundary": "nearest_group_boundary_to_80_percent",
+            "input_order_used": false,
+            "identifier_order_used": false,
+            "reference_rows": 40,
+            "application_rows": 10,
+            "reference_max_time_inclusive": "2026-01-01T00:00:39+00:00",
+            "application_start_inclusive": "2026-01-01T00:00:40+00:00",
+            "reference_fraction_actual": 0.8
+          },
+          "source_sha": "592b0256a0679da25a8943dc7f0adbd08c111af0e5bacd46461b4c9bc122c145"
+        },
+        "analysis_plan": {
+          "purpose": "count",
+          "population_ref": "population_74913cd40efddf444c32441d",
+          "precondition_refs": [
+            "source_592b0256a0679da25a8943dc"
+          ],
+          "required_evaluation_basis": [
+            "measurement_f2bbc628c74f5a82975d12cc",
+            "baseline_873bf25a37d900f030cc8840"
+          ],
+          "business_scope": "offline_process_train_snapshot"
+        },
+        "allowed_evidence_refs": [
+          "source_592b0256a0679da25a8943dc",
+          "population_74913cd40efddf444c32441d",
+          "reference_2b1d765f504d431de4e106eb",
+          "application_a4b986636e4290383b1d1a30",
+          "measurement_f2bbc628c74f5a82975d12cc",
+          "baseline_873bf25a37d900f030cc8840"
+        ],
+        "needed_keys": [
+          "need_reference",
+          "need_reference_minimum_n",
+          "need_compatible_reference",
+          "need_verified_unit",
+          "need_valid_observations",
+          "need_confirmed_constraint",
+          "need_business_contract"
+        ],
+        "partition_issues": [],
+        "blocked": false
+      },
+      "attempts": [
+        {
+          "attempt": 0,
+          "input": {
+            "contract": "baseline-rule-recommendation1.0",
+            "requests": [
+              "baseline"
+            ],
+            "feature": {
+              "id": "total_count",
+              "name": "total_count",
+              "sha": "40269e31a2dfd5b868781bf1534610c019d92ff7a152712b1fcec1811378107b",
+              "definition_sha": "40269e31a2dfd5b868781bf1534610c019d92ff7a152712b1fcec1811378107b",
+              "meaning": "total_count",
+              "dtype": "number",
+              "unit": "count",
+              "unit_status": "verified",
+              "expression": {
+                "op": "column",
+                "table": "EC_PROCESS_MONITORING",
+                "column": "TOTAL_COUNT"
+              },
+              "population_ref": "population_74913cd40efddf444c32441d"
+            },
+            "baseline": {
+              "id": "baseline_873bf25a37d900f030cc8840",
+              "state": "verified",
+              "quantile": "0.95",
+              "method": "linear_n_minus_1_p",
+              "operator": "gt",
+              "minimum_reference_n": 20,
+              "valid_reference_n": 40,
+              "value": 4.0,
+              "value_exact": "4.00",
+              "numeric_encoding": "JSON float roundtrip; service uses the same boundary, no substitution of exact Decimal",
+              "unit": "count",
+              "reference_ref": "reference_2b1d765f504d431de4e106eb",
+              "measurement_id": "measurement_f2bbc628c74f5a82975d12cc",
+              "period": {
+                "start_inclusive": "2026-01-01T00:00:00+00:00",
+                "end_inclusive": "2026-01-01T00:00:39+00:00"
+              },
+              "definition_sha": "40269e31a2dfd5b868781bf1534610c019d92ff7a152712b1fcec1811378107b",
+              "population_ref": "population_74913cd40efddf444c32441d",
+              "group": "whole_snapshot_train",
+              "missing": "exclude unavailable/nonfinite reference values; preserve unavailable application values",
+              "update_policy": "frozen recommendation; explicit new snapshot and review required for update",
+              "expiry_policy": "invalidate on feature/source/unit/population version mismatch; no automatic time extension",
+              "anomaly_labels_excluded": true,
+              "unlabeled_reference_included_without_normality_claim": true,
+              "current_finite_numeric_n": 10
+            },
+            "measurement_id": "measurement_f2bbc628c74f5a82975d12cc",
+            "measurement": {
+              "row_count": 10,
+              "valid_count": 10,
+              "missing_count": 0,
+              "min_exact": "9",
+              "max_exact": "9",
+              "anomaly_labels_retained": true,
+              "period": {
+                "start_inclusive": "2026-01-01T00:00:40+00:00",
+                "end_inclusive": "2026-01-01T00:00:49+00:00"
+              },
+              "rows_sha": "900638c4052a3a1ee397569e092ce2766cd4dc06939caa01e5e58704e9dcbc9a"
+            },
+            "application_context": {
+              "reference": {
+                "id": "reference_2b1d765f504d431de4e106eb",
+                "period": {
+                  "start_inclusive": "2026-01-01T00:00:00+00:00",
+                  "end_inclusive": "2026-01-01T00:00:39+00:00"
+                },
+                "rows": 40,
+                "finite_non_anomaly_n": 40,
+                "rows_sha": "38534abd8551ae0655ea4d374b2283386f5d1b3af8c51d331357bcca6b1ee07d"
+              },
+              "application": {
+                "id": "application_a4b986636e4290383b1d1a30",
+                "period": {
+                  "start_inclusive": "2026-01-01T00:00:40+00:00",
+                  "end_inclusive": "2026-01-01T00:00:49+00:00"
+                },
+                "rows": 10,
+                "finite_numeric_n": 10,
+                "rows_sha": "900638c4052a3a1ee397569e092ce2766cd4dc06939caa01e5e58704e9dcbc9a"
+              },
+              "measurement_id": "measurement_f2bbc628c74f5a82975d12cc",
+              "source_ref": "source_592b0256a0679da25a8943dc",
+              "population_ref": "population_74913cd40efddf444c32441d",
+              "partition_policy": {
+                "name": "train-internal-80-20-chronological-v1",
+                "reference_fraction": 0.8,
+                "time_basis": "persisted_at",
+                "field": "event_time",
+                "grouping": [
+                  "transaction_key",
+                  "equal_event_time"
+                ],
+                "boundary": "nearest_group_boundary_to_80_percent",
+                "input_order_used": false,
+                "identifier_order_used": false,
+                "reference_rows": 40,
+                "application_rows": 10,
+                "reference_max_time_inclusive": "2026-01-01T00:00:39+00:00",
+                "application_start_inclusive": "2026-01-01T00:00:40+00:00",
+                "reference_fraction_actual": 0.8
+              },
+              "source_sha": "592b0256a0679da25a8943dc7f0adbd08c111af0e5bacd46461b4c9bc122c145"
+            },
+            "analysis_plan": {
+              "purpose": "count",
+              "population_ref": "population_74913cd40efddf444c32441d",
+              "precondition_refs": [
+                "source_592b0256a0679da25a8943dc"
+              ],
+              "required_evaluation_basis": [
+                "measurement_f2bbc628c74f5a82975d12cc",
+                "baseline_873bf25a37d900f030cc8840"
+              ],
+              "business_scope": "offline_process_train_snapshot"
+            },
+            "allowed_evidence_refs": [
+              "source_592b0256a0679da25a8943dc",
+              "population_74913cd40efddf444c32441d",
+              "reference_2b1d765f504d431de4e106eb",
+              "application_a4b986636e4290383b1d1a30",
+              "measurement_f2bbc628c74f5a82975d12cc",
+              "baseline_873bf25a37d900f030cc8840"
+            ],
+            "needed_keys": [
+              "need_reference",
+              "need_reference_minimum_n",
+              "need_compatible_reference",
+              "need_verified_unit",
+              "need_valid_observations",
+              "need_confirmed_constraint",
+              "need_business_contract"
+            ],
+            "partition_issues": [],
+            "blocked": false
+          },
+          "receipt": {
+            "output": {
+              "v": "3",
+              "feature": "total_count",
+              "sha": "40269e31a2dfd5b868781bf1534610c019d92ff7a152712b1fcec1811378107b",
+              "decisions": [
+                {
+                  "request": "baseline",
+                  "role": "SR",
+                  "state": "proposed",
+                  "basis": "reference_p95",
+                  "condition": {
+                    "op": "gt",
+                    "value": 4.0
+                  },
+                  "evidence": [
+                    "measurement_f2bbc628c74f5a82975d12cc",
+                    "baseline_873bf25a37d900f030cc8840"
+                  ],
+                  "needed": [],
+                  "reason": "Use the supplied p95 reference threshold as an upper-tail comparison; it is not an SLA or a certified clean-normal limit.",
+                  "purpose": "count",
+                  "warning_meaning": "exceeds reference p95; not a certified clean-normal limit",
+                  "population_ref": "population_74913cd40efddf444c32441d",
+                  "precondition_refs": [
+                    "source_592b0256a0679da25a8943dc"
+                  ],
+                  "required_evaluation_basis": [
+                    "measurement_f2bbc628c74f5a82975d12cc",
+                    "baseline_873bf25a37d900f030cc8840"
+                  ],
+                  "unavailable_action": "preserve_unassessed",
+                  "unavailable_reason": "If current numeric observations or reference evidence become unavailable, preserve the condition as unassessed.",
+                  "business_scope": "offline_process_train_snapshot",
+                  "baseline_use_ref": "baseline_873bf25a37d900f030cc8840"
+                }
+              ]
+            },
+            "rawOutput": "{\"v\":\"3\",\"feature\":\"total_count\",\"sha\":\"40269e31a2dfd5b868781bf1534610c019d92ff7a152712b1fcec1811378107b\",\"decisions\":[{\"request\":\"baseline\",\"role\":\"SR\",\"state\":\"proposed\",\"basis\":\"reference_p95\",\"condition\":{\"op\":\"gt\",\"value\":4.0},\"evidence\":[\"measurement_f2bbc628c74f5a82975d12cc\",\"baseline_873bf25a37d900f030cc8840\"],\"needed\":[],\"reason\":\"Use the supplied p95 reference threshold as an upper-tail comparison; it is not an SLA or a certified clean-normal limit.\",\"purpose\":\"count\",\"warning_meaning\":\"exceeds reference p95; not a certified clean-normal limit\",\"population_ref\":\"population_74913cd40efddf444c32441d\",\"precondition_refs\":[\"source_592b0256a0679da25a8943dc\"],\"required_evaluation_basis\":[\"measurement_f2bbc628c74f5a82975d12cc\",\"baseline_873bf25a37d900f030cc8840\"],\"unavailable_action\":\"preserve_unassessed\",\"unavailable_reason\":\"If current numeric observations or reference evidence become unavailable, preserve the condition as unassessed.\",\"business_scope\":\"offline_process_train_snapshot\",\"baseline_use_ref\":\"baseline_873bf25a37d900f030cc8840\"}]}",
+            "truncated": false,
+            "jsonFormat": "compact",
+            "inputTokens": 2472,
+            "outputTokens": 390,
+            "messagesSha": "185aa7c3192ebec785d5ff56f4705f4a8bcdb073e6fca67d3267bae179b51f20",
+            "adapterSha": "d816cf6a1f264149fb3d4db9c7cc929a76b12ce6f04f0407a4c4b459dbd573c9"
+          },
+          "validation": {
+            "passed": true,
+            "errors": []
+          }
+        }
+      ],
+      "prediction": {
+        "v": "3",
+        "feature": "total_count",
+        "sha": "40269e31a2dfd5b868781bf1534610c019d92ff7a152712b1fcec1811378107b",
+        "decisions": [
+          {
+            "request": "baseline",
+            "role": "SR",
+            "state": "proposed",
+            "basis": "reference_p95",
+            "condition": {
+              "op": "gt",
+              "value": 4.0
+            },
+            "evidence": [
+              "measurement_f2bbc628c74f5a82975d12cc",
+              "baseline_873bf25a37d900f030cc8840"
+            ],
+            "needed": [],
+            "reason": "Use the supplied p95 reference threshold as an upper-tail comparison; it is not an SLA or a certified clean-normal limit.",
+            "purpose": "count",
+            "warning_meaning": "exceeds reference p95; not a certified clean-normal limit",
+            "population_ref": "population_74913cd40efddf444c32441d",
+            "precondition_refs": [
+              "source_592b0256a0679da25a8943dc"
+            ],
+            "required_evaluation_basis": [
+              "measurement_f2bbc628c74f5a82975d12cc",
+              "baseline_873bf25a37d900f030cc8840"
+            ],
+            "unavailable_action": "preserve_unassessed",
+            "unavailable_reason": "If current numeric observations or reference evidence become unavailable, preserve the condition as unassessed.",
+            "business_scope": "offline_process_train_snapshot",
+            "baseline_use_ref": "baseline_873bf25a37d900f030cc8840"
+          }
+        ]
+      },
+      "suggestions": [
+        {
+          "ruleKey": "baseline_c2d3420052b10441c996cc38",
+          "displayName": "TRAIN 기준 초과: total_count",
+          "condition": {
+            "field": "F.total_count",
+            "operator": "gt",
+            "value": "4.0"
+          },
+          "outcome": {
+            "decisionCode": "SR_BASELINE",
+            "severity": "warning"
+          },
+          "evidenceSpec": {
+            "kind": "train_reference_p95",
+            "request": {
+              "contract": "baseline-rule-recommendation1.0",
+              "requests": [
+                "baseline"
+              ],
+              "feature": {
+                "id": "total_count",
+                "name": "total_count",
+                "sha": "40269e31a2dfd5b868781bf1534610c019d92ff7a152712b1fcec1811378107b",
+                "definition_sha": "40269e31a2dfd5b868781bf1534610c019d92ff7a152712b1fcec1811378107b",
+                "meaning": "total_count",
+                "dtype": "number",
+                "unit": "count",
+                "unit_status": "verified",
+                "expression": {
+                  "op": "column",
+                  "table": "EC_PROCESS_MONITORING",
+                  "column": "TOTAL_COUNT"
+                },
+                "population_ref": "population_74913cd40efddf444c32441d"
+              },
+              "baseline": {
+                "id": "baseline_873bf25a37d900f030cc8840",
+                "state": "verified",
+                "quantile": "0.95",
+                "method": "linear_n_minus_1_p",
+                "operator": "gt",
+                "minimum_reference_n": 20,
+                "valid_reference_n": 40,
+                "value": 4.0,
+                "value_exact": "4.00",
+                "numeric_encoding": "JSON float roundtrip; service uses the same boundary, no substitution of exact Decimal",
+                "unit": "count",
+                "reference_ref": "reference_2b1d765f504d431de4e106eb",
+                "measurement_id": "measurement_f2bbc628c74f5a82975d12cc",
+                "period": {
+                  "start_inclusive": "2026-01-01T00:00:00+00:00",
+                  "end_inclusive": "2026-01-01T00:00:39+00:00"
+                },
+                "definition_sha": "40269e31a2dfd5b868781bf1534610c019d92ff7a152712b1fcec1811378107b",
+                "population_ref": "population_74913cd40efddf444c32441d",
+                "group": "whole_snapshot_train",
+                "missing": "exclude unavailable/nonfinite reference values; preserve unavailable application values",
+                "update_policy": "frozen recommendation; explicit new snapshot and review required for update",
+                "expiry_policy": "invalidate on feature/source/unit/population version mismatch; no automatic time extension",
+                "anomaly_labels_excluded": true,
+                "unlabeled_reference_included_without_normality_claim": true,
+                "current_finite_numeric_n": 10
+              },
+              "measurement_id": "measurement_f2bbc628c74f5a82975d12cc",
+              "measurement": {
+                "row_count": 10,
+                "valid_count": 10,
+                "missing_count": 0,
+                "min_exact": "9",
+                "max_exact": "9",
+                "anomaly_labels_retained": true,
+                "period": {
+                  "start_inclusive": "2026-01-01T00:00:40+00:00",
+                  "end_inclusive": "2026-01-01T00:00:49+00:00"
+                },
+                "rows_sha": "900638c4052a3a1ee397569e092ce2766cd4dc06939caa01e5e58704e9dcbc9a"
+              },
+              "application_context": {
+                "reference": {
+                  "id": "reference_2b1d765f504d431de4e106eb",
+                  "period": {
+                    "start_inclusive": "2026-01-01T00:00:00+00:00",
+                    "end_inclusive": "2026-01-01T00:00:39+00:00"
+                  },
+                  "rows": 40,
+                  "finite_non_anomaly_n": 40,
+                  "rows_sha": "38534abd8551ae0655ea4d374b2283386f5d1b3af8c51d331357bcca6b1ee07d"
+                },
+                "application": {
+                  "id": "application_a4b986636e4290383b1d1a30",
+                  "period": {
+                    "start_inclusive": "2026-01-01T00:00:40+00:00",
+                    "end_inclusive": "2026-01-01T00:00:49+00:00"
+                  },
+                  "rows": 10,
+                  "finite_numeric_n": 10,
+                  "rows_sha": "900638c4052a3a1ee397569e092ce2766cd4dc06939caa01e5e58704e9dcbc9a"
+                },
+                "measurement_id": "measurement_f2bbc628c74f5a82975d12cc",
+                "source_ref": "source_592b0256a0679da25a8943dc",
+                "population_ref": "population_74913cd40efddf444c32441d",
+                "partition_policy": {
+                  "name": "train-internal-80-20-chronological-v1",
+                  "reference_fraction": 0.8,
+                  "time_basis": "persisted_at",
+                  "field": "event_time",
+                  "grouping": [
+                    "transaction_key",
+                    "equal_event_time"
+                  ],
+                  "boundary": "nearest_group_boundary_to_80_percent",
+                  "input_order_used": false,
+                  "identifier_order_used": false,
+                  "reference_rows": 40,
+                  "application_rows": 10,
+                  "reference_max_time_inclusive": "2026-01-01T00:00:39+00:00",
+                  "application_start_inclusive": "2026-01-01T00:00:40+00:00",
+                  "reference_fraction_actual": 0.8
+                },
+                "source_sha": "592b0256a0679da25a8943dc7f0adbd08c111af0e5bacd46461b4c9bc122c145"
+              },
+              "analysis_plan": {
+                "purpose": "count",
+                "population_ref": "population_74913cd40efddf444c32441d",
+                "precondition_refs": [
+                  "source_592b0256a0679da25a8943dc"
+                ],
+                "required_evaluation_basis": [
+                  "measurement_f2bbc628c74f5a82975d12cc",
+                  "baseline_873bf25a37d900f030cc8840"
+                ],
+                "business_scope": "offline_process_train_snapshot"
+              },
+              "allowed_evidence_refs": [
+                "source_592b0256a0679da25a8943dc",
+                "population_74913cd40efddf444c32441d",
+                "reference_2b1d765f504d431de4e106eb",
+                "application_a4b986636e4290383b1d1a30",
+                "measurement_f2bbc628c74f5a82975d12cc",
+                "baseline_873bf25a37d900f030cc8840"
+              ],
+              "needed_keys": [
+                "need_reference",
+                "need_reference_minimum_n",
+                "need_compatible_reference",
+                "need_verified_unit",
+                "need_valid_observations",
+                "need_confirmed_constraint",
+                "need_business_contract"
+              ],
+              "partition_issues": [],
+              "blocked": false
+            },
+            "decision": {
+              "v": "3",
+              "feature": "total_count",
+              "sha": "40269e31a2dfd5b868781bf1534610c019d92ff7a152712b1fcec1811378107b",
+              "decisions": [
+                {
+                  "request": "baseline",
+                  "role": "SR",
+                  "state": "proposed",
+                  "basis": "reference_p95",
+                  "condition": {
+                    "op": "gt",
+                    "value": 4.0
+                  },
+                  "evidence": [
+                    "measurement_f2bbc628c74f5a82975d12cc",
+                    "baseline_873bf25a37d900f030cc8840"
+                  ],
+                  "needed": [],
+                  "reason": "Use the supplied p95 reference threshold as an upper-tail comparison; it is not an SLA or a certified clean-normal limit.",
+                  "purpose": "count",
+                  "warning_meaning": "exceeds reference p95; not a certified clean-normal limit",
+                  "population_ref": "population_74913cd40efddf444c32441d",
+                  "precondition_refs": [
+                    "source_592b0256a0679da25a8943dc"
+                  ],
+                  "required_evaluation_basis": [
+                    "measurement_f2bbc628c74f5a82975d12cc",
+                    "baseline_873bf25a37d900f030cc8840"
+                  ],
+                  "unavailable_action": "preserve_unassessed",
+                  "unavailable_reason": "If current numeric observations or reference evidence become unavailable, preserve the condition as unassessed.",
+                  "business_scope": "offline_process_train_snapshot",
+                  "baseline_use_ref": "baseline_873bf25a37d900f030cc8840"
+                }
+              ]
+            },
+            "baselineId": "baseline_873bf25a37d900f030cc8840",
+            "measurementId": "measurement_f2bbc628c74f5a82975d12cc",
+            "referencePeriod": {
+              "start_inclusive": "2026-01-01T00:00:00+00:00",
+              "end_inclusive": "2026-01-01T00:00:39+00:00"
+            },
+            "applicationPeriod": {
+              "start_inclusive": "2026-01-01T00:00:40+00:00",
+              "end_inclusive": "2026-01-01T00:00:49+00:00"
+            },
+            "referenceN": 40,
+            "unit": "count",
+            "definitionSha": "40269e31a2dfd5b868781bf1534610c019d92ff7a152712b1fcec1811378107b",
+            "unavailableAction": "preserve_unassessed",
+            "meaningReviewRequired": true,
+            "model": "rule_baseline_v3",
+            "adapterSha": "d816cf6a1f264149fb3d4db9c7cc929a76b12ce6f04f0407a4c4b459dbd573c9",
+            "inputHash": "152bd41616628d2aadfc518cb3f1ea4dbd704ed46ebcae790076a3a3de618a18",
+            "outputHash": "8252174995e21cb1dc472053b0b752529df6ac600b6b83bfb68bab42bad14461",
+            "snapshotId": "controlled-train-only"
+          }
+        }
+      ]
+    },
+    {
+      "case": "request_evidence",
+      "summary": {
+        "case": "request_evidence",
+        "state": "request_evidence",
+        "passed": true,
+        "suggestions": 0,
+        "attempts": 2,
+        "seconds": 98.1422856579884
+      },
+      "input": {
+        "contract": "baseline-rule-recommendation1.0",
+        "requests": [
+          "baseline"
+        ],
+        "feature": {
+          "id": "total_count",
+          "name": "total_count",
+          "sha": "40269e31a2dfd5b868781bf1534610c019d92ff7a152712b1fcec1811378107b",
+          "definition_sha": "40269e31a2dfd5b868781bf1534610c019d92ff7a152712b1fcec1811378107b",
+          "meaning": "total_count",
+          "dtype": "number",
+          "unit": "count",
+          "unit_status": "verified",
+          "expression": {
+            "op": "column",
+            "table": "EC_PROCESS_MONITORING",
+            "column": "TOTAL_COUNT"
+          },
+          "population_ref": "population_fa0600d95de6857f5ac15b5e"
+        },
+        "baseline": {
+          "id": "baseline_6ffff765720faf580626fce3",
+          "state": "unavailable",
+          "quantile": "0.95",
+          "method": "linear_n_minus_1_p",
+          "operator": "gt",
+          "minimum_reference_n": 20,
+          "valid_reference_n": 8,
+          "value": null,
+          "value_exact": null,
+          "numeric_encoding": "JSON float roundtrip; service uses the same boundary, no substitution of exact Decimal",
+          "unit": "count",
+          "reference_ref": "reference_0220d679a69fa877393e7cc6",
+          "measurement_id": "measurement_9e72193b1b2e6ae3dd4afe99",
+          "period": {
+            "start_inclusive": "2026-01-01T00:00:00+00:00",
+            "end_inclusive": "2026-01-01T00:00:07+00:00"
+          },
+          "definition_sha": "40269e31a2dfd5b868781bf1534610c019d92ff7a152712b1fcec1811378107b",
+          "population_ref": "population_fa0600d95de6857f5ac15b5e",
+          "group": "whole_snapshot_train",
+          "missing": "exclude unavailable/nonfinite reference values; preserve unavailable application values",
+          "update_policy": "frozen recommendation; explicit new snapshot and review required for update",
+          "expiry_policy": "invalidate on feature/source/unit/population version mismatch; no automatic time extension",
+          "anomaly_labels_excluded": true,
+          "unlabeled_reference_included_without_normality_claim": true,
+          "current_finite_numeric_n": 2
+        },
+        "measurement_id": "measurement_9e72193b1b2e6ae3dd4afe99",
+        "measurement": {
+          "row_count": 2,
+          "valid_count": 2,
+          "missing_count": 0,
+          "min_exact": "9",
+          "max_exact": "9",
+          "anomaly_labels_retained": true,
+          "period": {
+            "start_inclusive": "2026-01-01T00:00:08+00:00",
+            "end_inclusive": "2026-01-01T00:00:09+00:00"
+          },
+          "rows_sha": "7d24b7fdc08a5ac70ca31073137dfc500213fef9e1c69773c920f8a0cddb2102"
+        },
+        "application_context": {
+          "reference": {
+            "id": "reference_0220d679a69fa877393e7cc6",
+            "period": {
+              "start_inclusive": "2026-01-01T00:00:00+00:00",
+              "end_inclusive": "2026-01-01T00:00:07+00:00"
+            },
+            "rows": 8,
+            "finite_non_anomaly_n": 8,
+            "rows_sha": "abb41cbb36b66ff0c932e36b14fae20e7f19051a4dd9468b167007427abea7c0"
+          },
+          "application": {
+            "id": "application_5bf77d208ff062d2f237cd05",
+            "period": {
+              "start_inclusive": "2026-01-01T00:00:08+00:00",
+              "end_inclusive": "2026-01-01T00:00:09+00:00"
+            },
+            "rows": 2,
+            "finite_numeric_n": 2,
+            "rows_sha": "7d24b7fdc08a5ac70ca31073137dfc500213fef9e1c69773c920f8a0cddb2102"
+          },
+          "measurement_id": "measurement_9e72193b1b2e6ae3dd4afe99",
+          "source_ref": "source_f52347f4737668e3a8181e49",
+          "population_ref": "population_fa0600d95de6857f5ac15b5e",
+          "partition_policy": {
+            "name": "train-internal-80-20-chronological-v1",
+            "reference_fraction": 0.8,
+            "time_basis": "persisted_at",
+            "field": "event_time",
+            "grouping": [
+              "transaction_key",
+              "equal_event_time"
+            ],
+            "boundary": "nearest_group_boundary_to_80_percent",
+            "input_order_used": false,
+            "identifier_order_used": false,
+            "reference_rows": 8,
+            "application_rows": 2,
+            "reference_max_time_inclusive": "2026-01-01T00:00:07+00:00",
+            "application_start_inclusive": "2026-01-01T00:00:08+00:00",
+            "reference_fraction_actual": 0.8
+          },
+          "source_sha": "f52347f4737668e3a8181e497644ad4db6786de51ea9922d66f271a97741e7fc"
+        },
+        "analysis_plan": {
+          "purpose": "count",
+          "population_ref": "population_fa0600d95de6857f5ac15b5e",
+          "precondition_refs": [
+            "source_f52347f4737668e3a8181e49"
+          ],
+          "required_evaluation_basis": [
+            "measurement_9e72193b1b2e6ae3dd4afe99",
+            "baseline_6ffff765720faf580626fce3"
+          ],
+          "business_scope": "offline_process_train_snapshot"
+        },
+        "allowed_evidence_refs": [
+          "source_f52347f4737668e3a8181e49",
+          "population_fa0600d95de6857f5ac15b5e",
+          "reference_0220d679a69fa877393e7cc6",
+          "application_5bf77d208ff062d2f237cd05",
+          "measurement_9e72193b1b2e6ae3dd4afe99",
+          "baseline_6ffff765720faf580626fce3"
+        ],
+        "needed_keys": [
+          "need_reference",
+          "need_reference_minimum_n",
+          "need_compatible_reference",
+          "need_verified_unit",
+          "need_valid_observations",
+          "need_confirmed_constraint",
+          "need_business_contract"
+        ],
+        "partition_issues": [],
+        "blocked": false
+      },
+      "attempts": [
+        {
+          "attempt": 0,
+          "input": {
+            "contract": "baseline-rule-recommendation1.0",
+            "requests": [
+              "baseline"
+            ],
+            "feature": {
+              "id": "total_count",
+              "name": "total_count",
+              "sha": "40269e31a2dfd5b868781bf1534610c019d92ff7a152712b1fcec1811378107b",
+              "definition_sha": "40269e31a2dfd5b868781bf1534610c019d92ff7a152712b1fcec1811378107b",
+              "meaning": "total_count",
+              "dtype": "number",
+              "unit": "count",
+              "unit_status": "verified",
+              "expression": {
+                "op": "column",
+                "table": "EC_PROCESS_MONITORING",
+                "column": "TOTAL_COUNT"
+              },
+              "population_ref": "population_fa0600d95de6857f5ac15b5e"
+            },
+            "baseline": {
+              "id": "baseline_6ffff765720faf580626fce3",
+              "state": "unavailable",
+              "quantile": "0.95",
+              "method": "linear_n_minus_1_p",
+              "operator": "gt",
+              "minimum_reference_n": 20,
+              "valid_reference_n": 8,
+              "value": null,
+              "value_exact": null,
+              "numeric_encoding": "JSON float roundtrip; service uses the same boundary, no substitution of exact Decimal",
+              "unit": "count",
+              "reference_ref": "reference_0220d679a69fa877393e7cc6",
+              "measurement_id": "measurement_9e72193b1b2e6ae3dd4afe99",
+              "period": {
+                "start_inclusive": "2026-01-01T00:00:00+00:00",
+                "end_inclusive": "2026-01-01T00:00:07+00:00"
+              },
+              "definition_sha": "40269e31a2dfd5b868781bf1534610c019d92ff7a152712b1fcec1811378107b",
+              "population_ref": "population_fa0600d95de6857f5ac15b5e",
+              "group": "whole_snapshot_train",
+              "missing": "exclude unavailable/nonfinite reference values; preserve unavailable application values",
+              "update_policy": "frozen recommendation; explicit new snapshot and review required for update",
+              "expiry_policy": "invalidate on feature/source/unit/population version mismatch; no automatic time extension",
+              "anomaly_labels_excluded": true,
+              "unlabeled_reference_included_without_normality_claim": true,
+              "current_finite_numeric_n": 2
+            },
+            "measurement_id": "measurement_9e72193b1b2e6ae3dd4afe99",
+            "measurement": {
+              "row_count": 2,
+              "valid_count": 2,
+              "missing_count": 0,
+              "min_exact": "9",
+              "max_exact": "9",
+              "anomaly_labels_retained": true,
+              "period": {
+                "start_inclusive": "2026-01-01T00:00:08+00:00",
+                "end_inclusive": "2026-01-01T00:00:09+00:00"
+              },
+              "rows_sha": "7d24b7fdc08a5ac70ca31073137dfc500213fef9e1c69773c920f8a0cddb2102"
+            },
+            "application_context": {
+              "reference": {
+                "id": "reference_0220d679a69fa877393e7cc6",
+                "period": {
+                  "start_inclusive": "2026-01-01T00:00:00+00:00",
+                  "end_inclusive": "2026-01-01T00:00:07+00:00"
+                },
+                "rows": 8,
+                "finite_non_anomaly_n": 8,
+                "rows_sha": "abb41cbb36b66ff0c932e36b14fae20e7f19051a4dd9468b167007427abea7c0"
+              },
+              "application": {
+                "id": "application_5bf77d208ff062d2f237cd05",
+                "period": {
+                  "start_inclusive": "2026-01-01T00:00:08+00:00",
+                  "end_inclusive": "2026-01-01T00:00:09+00:00"
+                },
+                "rows": 2,
+                "finite_numeric_n": 2,
+                "rows_sha": "7d24b7fdc08a5ac70ca31073137dfc500213fef9e1c69773c920f8a0cddb2102"
+              },
+              "measurement_id": "measurement_9e72193b1b2e6ae3dd4afe99",
+              "source_ref": "source_f52347f4737668e3a8181e49",
+              "population_ref": "population_fa0600d95de6857f5ac15b5e",
+              "partition_policy": {
+                "name": "train-internal-80-20-chronological-v1",
+                "reference_fraction": 0.8,
+                "time_basis": "persisted_at",
+                "field": "event_time",
+                "grouping": [
+                  "transaction_key",
+                  "equal_event_time"
+                ],
+                "boundary": "nearest_group_boundary_to_80_percent",
+                "input_order_used": false,
+                "identifier_order_used": false,
+                "reference_rows": 8,
+                "application_rows": 2,
+                "reference_max_time_inclusive": "2026-01-01T00:00:07+00:00",
+                "application_start_inclusive": "2026-01-01T00:00:08+00:00",
+                "reference_fraction_actual": 0.8
+              },
+              "source_sha": "f52347f4737668e3a8181e497644ad4db6786de51ea9922d66f271a97741e7fc"
+            },
+            "analysis_plan": {
+              "purpose": "count",
+              "population_ref": "population_fa0600d95de6857f5ac15b5e",
+              "precondition_refs": [
+                "source_f52347f4737668e3a8181e49"
+              ],
+              "required_evaluation_basis": [
+                "measurement_9e72193b1b2e6ae3dd4afe99",
+                "baseline_6ffff765720faf580626fce3"
+              ],
+              "business_scope": "offline_process_train_snapshot"
+            },
+            "allowed_evidence_refs": [
+              "source_f52347f4737668e3a8181e49",
+              "population_fa0600d95de6857f5ac15b5e",
+              "reference_0220d679a69fa877393e7cc6",
+              "application_5bf77d208ff062d2f237cd05",
+              "measurement_9e72193b1b2e6ae3dd4afe99",
+              "baseline_6ffff765720faf580626fce3"
+            ],
+            "needed_keys": [
+              "need_reference",
+              "need_reference_minimum_n",
+              "need_compatible_reference",
+              "need_verified_unit",
+              "need_valid_observations",
+              "need_confirmed_constraint",
+              "need_business_contract"
+            ],
+            "partition_issues": [],
+            "blocked": false
+          },
+          "receipt": {
+            "output": {
+              "v": "3",
+              "feature": "{",
+              "sha": "40269e31a2dfd5b868781bf1534610c019d92ff7a152712b1fcec1811378107b",
+              "decisions": [
+                {
+                  "request": "baseline",
+                  "role": "SR",
+                  "state": "request_evidence",
+                  "basis": "insufficient",
+                  "condition": null,
+                  "evidence": [],
+                  "needed": [
+                    "need_reference_minimum_n"
+                  ],
+                  "reason": "The reference has 8 finite numeric non-anomaly-labeled values, which is fewer than the required 20; the current split has 2 finite numeric observations.",
+                  "purpose": "count",
+                  "warning_meaning": "This is a research recommendation, not an operational rule; it does not replace an existing rule or declare a row healthy.",
+                  "population_ref": "population_fa0600d95de6857f5ac15b5e",
+                  "precondition_refs": [
+                    "source_f52347f4737668e3a8181e49"
+                  ],
+                  "required_evaluation_basis": [
+                    "measurement_9e72193b1b2e6ae3dd4afe99",
+                    "baseline_6ffff765720faf580626fce3"
+                  ],
+                  "unavailable_action": "no_rule",
+                  "unavailable_reason": ",",
+                  "business_scope": "offline_process_train_snapshot",
+                  "baseline_use_ref": null
+                }
+              ]
+            },
+            "rawOutput": "{\"v\":\"3\",\"feature\":\"{\",\"sha\":\"40269e31a2dfd5b868781bf1534610c019d92ff7a152712b1fcec1811378107b\",\"decisions\":[{\"request\":\"baseline\",\"role\":\"SR\",\"state\":\"request_evidence\",\"basis\":\"insufficient\",\"condition\":null,\"evidence\":[],\"needed\":[\"need_reference_minimum_n\"],\"reason\":\"The reference has 8 finite numeric non-anomaly-labeled values, which is fewer than the required 20; the current split has 2 finite numeric observations.\",\"purpose\":\"count\",\"warning_meaning\":\"This is a research recommendation, not an operational rule; it does not replace an existing rule or declare a row healthy.\",\"population_ref\":\"population_fa0600d95de6857f5ac15b5e\",\"precondition_refs\":[\"source_f52347f4737668e3a8181e49\"],\"required_evaluation_basis\":[\"measurement_9e72193b1b2e6ae3dd4afe99\",\"baseline_6ffff765720faf580626fce3\"],\"unavailable_action\":\"no_rule\",\"unavailable_reason\":\",\",\"business_scope\":\"offline_process_train_snapshot\",\"baseline_use_ref\":null}]}",
+            "truncated": false,
+            "jsonFormat": "compact",
+            "inputTokens": 2443,
+            "outputTokens": 307,
+            "messagesSha": "161a9c21f84aaa30b023cc481aeec329b4d9bda5c1de8d901647696036bf5e56",
+            "adapterSha": "d816cf6a1f264149fb3d4db9c7cc929a76b12ce6f04f0407a4c4b459dbd573c9"
+          },
+          "validation": {
+            "passed": false,
+            "errors": [
+              "feature_definition_mismatch"
+            ]
+          }
+        },
+        {
+          "attempt": 1,
+          "input": {
+            "contract": "baseline-rule-recommendation1.0",
+            "requests": [
+              "baseline"
+            ],
+            "feature": {
+              "id": "total_count",
+              "name": "total_count",
+              "sha": "40269e31a2dfd5b868781bf1534610c019d92ff7a152712b1fcec1811378107b",
+              "definition_sha": "40269e31a2dfd5b868781bf1534610c019d92ff7a152712b1fcec1811378107b",
+              "meaning": "total_count",
+              "dtype": "number",
+              "unit": "count",
+              "unit_status": "verified",
+              "expression": {
+                "op": "column",
+                "table": "EC_PROCESS_MONITORING",
+                "column": "TOTAL_COUNT"
+              },
+              "population_ref": "population_fa0600d95de6857f5ac15b5e"
+            },
+            "baseline": {
+              "id": "baseline_6ffff765720faf580626fce3",
+              "state": "unavailable",
+              "quantile": "0.95",
+              "method": "linear_n_minus_1_p",
+              "operator": "gt",
+              "minimum_reference_n": 20,
+              "valid_reference_n": 8,
+              "value": null,
+              "value_exact": null,
+              "numeric_encoding": "JSON float roundtrip; service uses the same boundary, no substitution of exact Decimal",
+              "unit": "count",
+              "reference_ref": "reference_0220d679a69fa877393e7cc6",
+              "measurement_id": "measurement_9e72193b1b2e6ae3dd4afe99",
+              "period": {
+                "start_inclusive": "2026-01-01T00:00:00+00:00",
+                "end_inclusive": "2026-01-01T00:00:07+00:00"
+              },
+              "definition_sha": "40269e31a2dfd5b868781bf1534610c019d92ff7a152712b1fcec1811378107b",
+              "population_ref": "population_fa0600d95de6857f5ac15b5e",
+              "group": "whole_snapshot_train",
+              "missing": "exclude unavailable/nonfinite reference values; preserve unavailable application values",
+              "update_policy": "frozen recommendation; explicit new snapshot and review required for update",
+              "expiry_policy": "invalidate on feature/source/unit/population version mismatch; no automatic time extension",
+              "anomaly_labels_excluded": true,
+              "unlabeled_reference_included_without_normality_claim": true,
+              "current_finite_numeric_n": 2
+            },
+            "measurement_id": "measurement_9e72193b1b2e6ae3dd4afe99",
+            "measurement": {
+              "row_count": 2,
+              "valid_count": 2,
+              "missing_count": 0,
+              "min_exact": "9",
+              "max_exact": "9",
+              "anomaly_labels_retained": true,
+              "period": {
+                "start_inclusive": "2026-01-01T00:00:08+00:00",
+                "end_inclusive": "2026-01-01T00:00:09+00:00"
+              },
+              "rows_sha": "7d24b7fdc08a5ac70ca31073137dfc500213fef9e1c69773c920f8a0cddb2102"
+            },
+            "application_context": {
+              "reference": {
+                "id": "reference_0220d679a69fa877393e7cc6",
+                "period": {
+                  "start_inclusive": "2026-01-01T00:00:00+00:00",
+                  "end_inclusive": "2026-01-01T00:00:07+00:00"
+                },
+                "rows": 8,
+                "finite_non_anomaly_n": 8,
+                "rows_sha": "abb41cbb36b66ff0c932e36b14fae20e7f19051a4dd9468b167007427abea7c0"
+              },
+              "application": {
+                "id": "application_5bf77d208ff062d2f237cd05",
+                "period": {
+                  "start_inclusive": "2026-01-01T00:00:08+00:00",
+                  "end_inclusive": "2026-01-01T00:00:09+00:00"
+                },
+                "rows": 2,
+                "finite_numeric_n": 2,
+                "rows_sha": "7d24b7fdc08a5ac70ca31073137dfc500213fef9e1c69773c920f8a0cddb2102"
+              },
+              "measurement_id": "measurement_9e72193b1b2e6ae3dd4afe99",
+              "source_ref": "source_f52347f4737668e3a8181e49",
+              "population_ref": "population_fa0600d95de6857f5ac15b5e",
+              "partition_policy": {
+                "name": "train-internal-80-20-chronological-v1",
+                "reference_fraction": 0.8,
+                "time_basis": "persisted_at",
+                "field": "event_time",
+                "grouping": [
+                  "transaction_key",
+                  "equal_event_time"
+                ],
+                "boundary": "nearest_group_boundary_to_80_percent",
+                "input_order_used": false,
+                "identifier_order_used": false,
+                "reference_rows": 8,
+                "application_rows": 2,
+                "reference_max_time_inclusive": "2026-01-01T00:00:07+00:00",
+                "application_start_inclusive": "2026-01-01T00:00:08+00:00",
+                "reference_fraction_actual": 0.8
+              },
+              "source_sha": "f52347f4737668e3a8181e497644ad4db6786de51ea9922d66f271a97741e7fc"
+            },
+            "analysis_plan": {
+              "purpose": "count",
+              "population_ref": "population_fa0600d95de6857f5ac15b5e",
+              "precondition_refs": [
+                "source_f52347f4737668e3a8181e49"
+              ],
+              "required_evaluation_basis": [
+                "measurement_9e72193b1b2e6ae3dd4afe99",
+                "baseline_6ffff765720faf580626fce3"
+              ],
+              "business_scope": "offline_process_train_snapshot"
+            },
+            "allowed_evidence_refs": [
+              "source_f52347f4737668e3a8181e49",
+              "population_fa0600d95de6857f5ac15b5e",
+              "reference_0220d679a69fa877393e7cc6",
+              "application_5bf77d208ff062d2f237cd05",
+              "measurement_9e72193b1b2e6ae3dd4afe99",
+              "baseline_6ffff765720faf580626fce3"
+            ],
+            "needed_keys": [
+              "need_reference",
+              "need_reference_minimum_n",
+              "need_compatible_reference",
+              "need_verified_unit",
+              "need_valid_observations",
+              "need_confirmed_constraint",
+              "need_business_contract"
+            ],
+            "partition_issues": [],
+            "blocked": false,
+            "repair": {
+              "previous_output": {
+                "v": "3",
+                "feature": "{",
+                "sha": "40269e31a2dfd5b868781bf1534610c019d92ff7a152712b1fcec1811378107b",
+                "decisions": [
+                  {
+                    "request": "baseline",
+                    "role": "SR",
+                    "state": "request_evidence",
+                    "basis": "insufficient",
+                    "condition": null,
+                    "evidence": [],
+                    "needed": [
+                      "need_reference_minimum_n"
+                    ],
+                    "reason": "The reference has 8 finite numeric non-anomaly-labeled values, which is fewer than the required 20; the current split has 2 finite numeric observations.",
+                    "purpose": "count",
+                    "warning_meaning": "This is a research recommendation, not an operational rule; it does not replace an existing rule or declare a row healthy.",
+                    "population_ref": "population_fa0600d95de6857f5ac15b5e",
+                    "precondition_refs": [
+                      "source_f52347f4737668e3a8181e49"
+                    ],
+                    "required_evaluation_basis": [
+                      "measurement_9e72193b1b2e6ae3dd4afe99",
+                      "baseline_6ffff765720faf580626fce3"
+                    ],
+                    "unavailable_action": "no_rule",
+                    "unavailable_reason": ",",
+                    "business_scope": "offline_process_train_snapshot",
+                    "baseline_use_ref": null
+                  }
+                ]
+              },
+              "errors": [
+                "feature_definition_mismatch"
+              ],
+              "preserve": [
+                "feature",
+                "sha",
+                "baseline",
+                "measurement",
+                "requests"
+              ],
+              "maximum_additional_attempts": 1
+            }
+          },
+          "receipt": {
+            "output": {
+              "v": "3",
+              "feature": "total_count",
+              "sha": "40269e31a2dfd5b868781bf1534610c019d92ff7a152712b1fcec1811378107b",
+              "decisions": [
+                {
+                  "request": "baseline",
+                  "role": "SR",
+                  "state": "request_evidence",
+                  "basis": "insufficient",
+                  "condition": null,
+                  "evidence": [],
+                  "needed": [
+                    "need_reference_minimum_n"
+                  ],
+                  "reason": "The reference has 8 finite numeric non-anomaly-labeled values, which is fewer than the required 20; the current split has 2 finite numeric observations.",
+                  "purpose": "count",
+                  "warning_meaning": "This is a research recommendation, not an operational rule; it does not replace an existing rule or declare a row healthy.",
+                  "population_ref": "population_fa0600d95de6857f5ac15b5e",
+                  "precondition_refs": [
+                    "source_f52347f4737668e3a8181e49"
+                  ],
+                  "required_evaluation_basis": [
+                    "measurement_9e72193b1b2e6ae3dd4afe99",
+                    "baseline_6ffff765720faf580626fce3"
+                  ],
+                  "unavailable_action": "no_rule",
+                  "unavailable_reason": ",",
+                  "business_scope": "offline_process_train_snapshot",
+                  "baseline_use_ref": null
+                }
+              ]
+            },
+            "rawOutput": "{\"v\":\"3\",\"feature\":\"total_count\",\"sha\":\"40269e31a2dfd5b868781bf1534610c019d92ff7a152712b1fcec1811378107b\",\"decisions\":[{\"request\":\"baseline\",\"role\":\"SR\",\"state\":\"request_evidence\",\"basis\":\"insufficient\",\"condition\":null,\"evidence\":[],\"needed\":[\"need_reference_minimum_n\"],\"reason\":\"The reference has 8 finite numeric non-anomaly-labeled values, which is fewer than the required 20; the current split has 2 finite numeric observations.\",\"purpose\":\"count\",\"warning_meaning\":\"This is a research recommendation, not an operational rule; it does not replace an existing rule or declare a row healthy.\",\"population_ref\":\"population_fa0600d95de6857f5ac15b5e\",\"precondition_refs\":[\"source_f52347f4737668e3a8181e49\"],\"required_evaluation_basis\":[\"measurement_9e72193b1b2e6ae3dd4afe99\",\"baseline_6ffff765720faf580626fce3\"],\"unavailable_action\":\"no_rule\",\"unavailable_reason\":\",\",\"business_scope\":\"offline_process_train_snapshot\",\"baseline_use_ref\":null}]}",
+            "truncated": false,
+            "jsonFormat": "compact",
+            "inputTokens": 2779,
+            "outputTokens": 308,
+            "messagesSha": "d881fc3c28d553fb70f5457994095162853c3eef92c34a2dfd4eab788e0adc12",
+            "adapterSha": "d816cf6a1f264149fb3d4db9c7cc929a76b12ce6f04f0407a4c4b459dbd573c9"
+          },
+          "validation": {
+            "passed": true,
+            "errors": []
+          }
+        }
+      ],
+      "prediction": {
+        "v": "3",
+        "feature": "total_count",
+        "sha": "40269e31a2dfd5b868781bf1534610c019d92ff7a152712b1fcec1811378107b",
+        "decisions": [
+          {
+            "request": "baseline",
+            "role": "SR",
+            "state": "request_evidence",
+            "basis": "insufficient",
+            "condition": null,
+            "evidence": [],
+            "needed": [
+              "need_reference_minimum_n"
+            ],
+            "reason": "The reference has 8 finite numeric non-anomaly-labeled values, which is fewer than the required 20; the current split has 2 finite numeric observations.",
+            "purpose": "count",
+            "warning_meaning": "This is a research recommendation, not an operational rule; it does not replace an existing rule or declare a row healthy.",
+            "population_ref": "population_fa0600d95de6857f5ac15b5e",
+            "precondition_refs": [
+              "source_f52347f4737668e3a8181e49"
+            ],
+            "required_evaluation_basis": [
+              "measurement_9e72193b1b2e6ae3dd4afe99",
+              "baseline_6ffff765720faf580626fce3"
+            ],
+            "unavailable_action": "no_rule",
+            "unavailable_reason": ",",
+            "business_scope": "offline_process_train_snapshot",
+            "baseline_use_ref": null
+          }
+        ]
+      },
+      "suggestions": []
+    },
+    {
+      "case": "deferred",
+      "summary": {
+        "case": "deferred",
+        "state": "deferred",
+        "passed": true,
+        "suggestions": 0,
+        "attempts": 2,
+        "seconds": 114.85866061400156
+      },
+      "input": {
+        "contract": "baseline-rule-recommendation1.0",
+        "requests": [
+          "baseline"
+        ],
+        "feature": {
+          "id": "total_count",
+          "name": "total_count",
+          "sha": "40269e31a2dfd5b868781bf1534610c019d92ff7a152712b1fcec1811378107b",
+          "definition_sha": "40269e31a2dfd5b868781bf1534610c019d92ff7a152712b1fcec1811378107b",
+          "meaning": "total_count",
+          "dtype": "number",
+          "unit": "count",
+          "unit_status": "verified",
+          "expression": {
+            "op": "column",
+            "table": "EC_PROCESS_MONITORING",
+            "column": "TOTAL_COUNT"
+          },
+          "population_ref": "population_fefd70fdb04cdeeb03eba5f9"
+        },
+        "baseline": {
+          "id": "baseline_1c4bbc1029e53ca701537267",
+          "state": "verified",
+          "quantile": "0.95",
+          "method": "linear_n_minus_1_p",
+          "operator": "gt",
+          "minimum_reference_n": 20,
+          "valid_reference_n": 40,
+          "value": 4.0,
+          "value_exact": "4.00",
+          "numeric_encoding": "JSON float roundtrip; service uses the same boundary, no substitution of exact Decimal",
+          "unit": "count",
+          "reference_ref": "reference_7bd73df9d37ab57290110da4",
+          "measurement_id": "measurement_d7e2300791c964cd7be7dd1c",
+          "period": {
+            "start_inclusive": "2026-01-01T00:00:00+00:00",
+            "end_inclusive": "2026-01-01T00:00:39+00:00"
+          },
+          "definition_sha": "40269e31a2dfd5b868781bf1534610c019d92ff7a152712b1fcec1811378107b",
+          "population_ref": "population_fefd70fdb04cdeeb03eba5f9",
+          "group": "whole_snapshot_train",
+          "missing": "exclude unavailable/nonfinite reference values; preserve unavailable application values",
+          "update_policy": "frozen recommendation; explicit new snapshot and review required for update",
+          "expiry_policy": "invalidate on feature/source/unit/population version mismatch; no automatic time extension",
+          "anomaly_labels_excluded": true,
+          "unlabeled_reference_included_without_normality_claim": true,
+          "current_finite_numeric_n": 0
+        },
+        "measurement_id": "measurement_d7e2300791c964cd7be7dd1c",
+        "measurement": {
+          "row_count": 10,
+          "valid_count": 0,
+          "missing_count": 10,
+          "min_exact": null,
+          "max_exact": null,
+          "anomaly_labels_retained": true,
+          "period": {
+            "start_inclusive": "2026-01-01T00:00:40+00:00",
+            "end_inclusive": "2026-01-01T00:00:49+00:00"
+          },
+          "rows_sha": "eb664a22622add25643b1de793f54be0ebaf3d24b9b9c8f24c864360a450b731"
+        },
+        "application_context": {
+          "reference": {
+            "id": "reference_7bd73df9d37ab57290110da4",
+            "period": {
+              "start_inclusive": "2026-01-01T00:00:00+00:00",
+              "end_inclusive": "2026-01-01T00:00:39+00:00"
+            },
+            "rows": 40,
+            "finite_non_anomaly_n": 40,
+            "rows_sha": "38534abd8551ae0655ea4d374b2283386f5d1b3af8c51d331357bcca6b1ee07d"
+          },
+          "application": {
+            "id": "application_5d0f66320ed2b6bd1b5f9a50",
+            "period": {
+              "start_inclusive": "2026-01-01T00:00:40+00:00",
+              "end_inclusive": "2026-01-01T00:00:49+00:00"
+            },
+            "rows": 10,
+            "finite_numeric_n": 0,
+            "rows_sha": "eb664a22622add25643b1de793f54be0ebaf3d24b9b9c8f24c864360a450b731"
+          },
+          "measurement_id": "measurement_d7e2300791c964cd7be7dd1c",
+          "source_ref": "source_1e82f40bde1d0c7d927c819d",
+          "population_ref": "population_fefd70fdb04cdeeb03eba5f9",
+          "partition_policy": {
+            "name": "train-internal-80-20-chronological-v1",
+            "reference_fraction": 0.8,
+            "time_basis": "persisted_at",
+            "field": "event_time",
+            "grouping": [
+              "transaction_key",
+              "equal_event_time"
+            ],
+            "boundary": "nearest_group_boundary_to_80_percent",
+            "input_order_used": false,
+            "identifier_order_used": false,
+            "reference_rows": 40,
+            "application_rows": 10,
+            "reference_max_time_inclusive": "2026-01-01T00:00:39+00:00",
+            "application_start_inclusive": "2026-01-01T00:00:40+00:00",
+            "reference_fraction_actual": 0.8
+          },
+          "source_sha": "1e82f40bde1d0c7d927c819d487320224ae6322b933dceb6d530c1df56559468"
+        },
+        "analysis_plan": {
+          "purpose": "count",
+          "population_ref": "population_fefd70fdb04cdeeb03eba5f9",
+          "precondition_refs": [
+            "source_1e82f40bde1d0c7d927c819d"
+          ],
+          "required_evaluation_basis": [
+            "measurement_d7e2300791c964cd7be7dd1c",
+            "baseline_1c4bbc1029e53ca701537267"
+          ],
+          "business_scope": "offline_process_train_snapshot"
+        },
+        "allowed_evidence_refs": [
+          "source_1e82f40bde1d0c7d927c819d",
+          "population_fefd70fdb04cdeeb03eba5f9",
+          "reference_7bd73df9d37ab57290110da4",
+          "application_5d0f66320ed2b6bd1b5f9a50",
+          "measurement_d7e2300791c964cd7be7dd1c",
+          "baseline_1c4bbc1029e53ca701537267"
+        ],
+        "needed_keys": [
+          "need_reference",
+          "need_reference_minimum_n",
+          "need_compatible_reference",
+          "need_verified_unit",
+          "need_valid_observations",
+          "need_confirmed_constraint",
+          "need_business_contract"
+        ],
+        "partition_issues": [],
+        "blocked": false
+      },
+      "attempts": [
+        {
+          "attempt": 0,
+          "input": {
+            "contract": "baseline-rule-recommendation1.0",
+            "requests": [
+              "baseline"
+            ],
+            "feature": {
+              "id": "total_count",
+              "name": "total_count",
+              "sha": "40269e31a2dfd5b868781bf1534610c019d92ff7a152712b1fcec1811378107b",
+              "definition_sha": "40269e31a2dfd5b868781bf1534610c019d92ff7a152712b1fcec1811378107b",
+              "meaning": "total_count",
+              "dtype": "number",
+              "unit": "count",
+              "unit_status": "verified",
+              "expression": {
+                "op": "column",
+                "table": "EC_PROCESS_MONITORING",
+                "column": "TOTAL_COUNT"
+              },
+              "population_ref": "population_fefd70fdb04cdeeb03eba5f9"
+            },
+            "baseline": {
+              "id": "baseline_1c4bbc1029e53ca701537267",
+              "state": "verified",
+              "quantile": "0.95",
+              "method": "linear_n_minus_1_p",
+              "operator": "gt",
+              "minimum_reference_n": 20,
+              "valid_reference_n": 40,
+              "value": 4.0,
+              "value_exact": "4.00",
+              "numeric_encoding": "JSON float roundtrip; service uses the same boundary, no substitution of exact Decimal",
+              "unit": "count",
+              "reference_ref": "reference_7bd73df9d37ab57290110da4",
+              "measurement_id": "measurement_d7e2300791c964cd7be7dd1c",
+              "period": {
+                "start_inclusive": "2026-01-01T00:00:00+00:00",
+                "end_inclusive": "2026-01-01T00:00:39+00:00"
+              },
+              "definition_sha": "40269e31a2dfd5b868781bf1534610c019d92ff7a152712b1fcec1811378107b",
+              "population_ref": "population_fefd70fdb04cdeeb03eba5f9",
+              "group": "whole_snapshot_train",
+              "missing": "exclude unavailable/nonfinite reference values; preserve unavailable application values",
+              "update_policy": "frozen recommendation; explicit new snapshot and review required for update",
+              "expiry_policy": "invalidate on feature/source/unit/population version mismatch; no automatic time extension",
+              "anomaly_labels_excluded": true,
+              "unlabeled_reference_included_without_normality_claim": true,
+              "current_finite_numeric_n": 0
+            },
+            "measurement_id": "measurement_d7e2300791c964cd7be7dd1c",
+            "measurement": {
+              "row_count": 10,
+              "valid_count": 0,
+              "missing_count": 10,
+              "min_exact": null,
+              "max_exact": null,
+              "anomaly_labels_retained": true,
+              "period": {
+                "start_inclusive": "2026-01-01T00:00:40+00:00",
+                "end_inclusive": "2026-01-01T00:00:49+00:00"
+              },
+              "rows_sha": "eb664a22622add25643b1de793f54be0ebaf3d24b9b9c8f24c864360a450b731"
+            },
+            "application_context": {
+              "reference": {
+                "id": "reference_7bd73df9d37ab57290110da4",
+                "period": {
+                  "start_inclusive": "2026-01-01T00:00:00+00:00",
+                  "end_inclusive": "2026-01-01T00:00:39+00:00"
+                },
+                "rows": 40,
+                "finite_non_anomaly_n": 40,
+                "rows_sha": "38534abd8551ae0655ea4d374b2283386f5d1b3af8c51d331357bcca6b1ee07d"
+              },
+              "application": {
+                "id": "application_5d0f66320ed2b6bd1b5f9a50",
+                "period": {
+                  "start_inclusive": "2026-01-01T00:00:40+00:00",
+                  "end_inclusive": "2026-01-01T00:00:49+00:00"
+                },
+                "rows": 10,
+                "finite_numeric_n": 0,
+                "rows_sha": "eb664a22622add25643b1de793f54be0ebaf3d24b9b9c8f24c864360a450b731"
+              },
+              "measurement_id": "measurement_d7e2300791c964cd7be7dd1c",
+              "source_ref": "source_1e82f40bde1d0c7d927c819d",
+              "population_ref": "population_fefd70fdb04cdeeb03eba5f9",
+              "partition_policy": {
+                "name": "train-internal-80-20-chronological-v1",
+                "reference_fraction": 0.8,
+                "time_basis": "persisted_at",
+                "field": "event_time",
+                "grouping": [
+                  "transaction_key",
+                  "equal_event_time"
+                ],
+                "boundary": "nearest_group_boundary_to_80_percent",
+                "input_order_used": false,
+                "identifier_order_used": false,
+                "reference_rows": 40,
+                "application_rows": 10,
+                "reference_max_time_inclusive": "2026-01-01T00:00:39+00:00",
+                "application_start_inclusive": "2026-01-01T00:00:40+00:00",
+                "reference_fraction_actual": 0.8
+              },
+              "source_sha": "1e82f40bde1d0c7d927c819d487320224ae6322b933dceb6d530c1df56559468"
+            },
+            "analysis_plan": {
+              "purpose": "count",
+              "population_ref": "population_fefd70fdb04cdeeb03eba5f9",
+              "precondition_refs": [
+                "source_1e82f40bde1d0c7d927c819d"
+              ],
+              "required_evaluation_basis": [
+                "measurement_d7e2300791c964cd7be7dd1c",
+                "baseline_1c4bbc1029e53ca701537267"
+              ],
+              "business_scope": "offline_process_train_snapshot"
+            },
+            "allowed_evidence_refs": [
+              "source_1e82f40bde1d0c7d927c819d",
+              "population_fefd70fdb04cdeeb03eba5f9",
+              "reference_7bd73df9d37ab57290110da4",
+              "application_5d0f66320ed2b6bd1b5f9a50",
+              "measurement_d7e2300791c964cd7be7dd1c",
+              "baseline_1c4bbc1029e53ca701537267"
+            ],
+            "needed_keys": [
+              "need_reference",
+              "need_reference_minimum_n",
+              "need_compatible_reference",
+              "need_verified_unit",
+              "need_valid_observations",
+              "need_confirmed_constraint",
+              "need_business_contract"
+            ],
+            "partition_issues": [],
+            "blocked": false
+          },
+          "receipt": {
+            "output": {
+              "v": "3",
+              "feature": "{",
+              "sha": "40269e31a2dfd5b868781bf1534610c019d92ff7a152712b1fcec1811378107b",
+              "decisions": [
+                {
+                  "request": "baseline",
+                  "role": "SR",
+                  "state": "deferred",
+                  "basis": "reference_p95",
+                  "condition": {
+                    "op": "gt",
+                    "value": 4.0
+                  },
+                  "evidence": [
+                    "measurement_d7e2300791c964cd7be7dd1c",
+                    "baseline_1c4bbc1029e53ca701537267"
+                  ],
+                  "needed": [
+                    "need_valid_observations"
+                  ],
+                  "reason": "Current observations are insufficient for assessment; preserve the known condition for future evaluation.",
+                  "purpose": "count",
+                  "warning_meaning": "SR",
+                  "population_ref": "population_fefd70fdb04cdeeb03eba5f9",
+                  "precondition_refs": [
+                    "source_1e82f40bde1d0c7d927c819d"
+                  ],
+                  "required_evaluation_basis": [
+                    "measurement_d7e2300791c964cd7be7dd1c",
+                    "baseline_1c4bbc1029e53ca701537267"
+                  ],
+                  "unavailable_action": "preserve_unassessed",
+                  "unavailable_reason": "If current observations become unavailable, the condition cannot be assessed; preserve it for future evaluation.",
+                  "business_scope": "offline_process_train_snapshot",
+                  "baseline_use_ref": "baseline_1c4bbc1029e53ca701537267"
+                }
+              ]
+            },
+            "rawOutput": "{\"v\":\"3\",\"feature\":\"{\",\"sha\":\"40269e31a2dfd5b868781bf1534610c019d92ff7a152712b1fcec1811378107b\",\"decisions\":[{\"request\":\"baseline\",\"role\":\"SR\",\"state\":\"deferred\",\"basis\":\"reference_p95\",\"condition\":{\"op\":\"gt\",\"value\":4.0},\"evidence\":[\"measurement_d7e2300791c964cd7be7dd1c\",\"baseline_1c4bbc1029e53ca701537267\"],\"needed\":[\"need_valid_observations\"],\"reason\":\"Current observations are insufficient for assessment; preserve the known condition for future evaluation.\",\"purpose\":\"count\",\"warning_meaning\":\"SR\",\"population_ref\":\"population_fefd70fdb04cdeeb03eba5f9\",\"precondition_refs\":[\"source_1e82f40bde1d0c7d927c819d\"],\"required_evaluation_basis\":[\"measurement_d7e2300791c964cd7be7dd1c\",\"baseline_1c4bbc1029e53ca701537267\"],\"unavailable_action\":\"preserve_unassessed\",\"unavailable_reason\":\"If current observations become unavailable, the condition cannot be assessed; preserve it for future evaluation.\",\"business_scope\":\"offline_process_train_snapshot\",\"baseline_use_ref\":\"baseline_1c4bbc1029e53ca701537267\"}]}",
+            "truncated": false,
+            "jsonFormat": "compact",
+            "inputTokens": 2442,
+            "outputTokens": 360,
+            "messagesSha": "843c30e8fa5e7deec71401175f21c0627a52c766d8a72ab02a273ace115bdc45",
+            "adapterSha": "d816cf6a1f264149fb3d4db9c7cc929a76b12ce6f04f0407a4c4b459dbd573c9"
+          },
+          "validation": {
+            "passed": false,
+            "errors": [
+              "feature_definition_mismatch"
+            ]
+          }
+        },
+        {
+          "attempt": 1,
+          "input": {
+            "contract": "baseline-rule-recommendation1.0",
+            "requests": [
+              "baseline"
+            ],
+            "feature": {
+              "id": "total_count",
+              "name": "total_count",
+              "sha": "40269e31a2dfd5b868781bf1534610c019d92ff7a152712b1fcec1811378107b",
+              "definition_sha": "40269e31a2dfd5b868781bf1534610c019d92ff7a152712b1fcec1811378107b",
+              "meaning": "total_count",
+              "dtype": "number",
+              "unit": "count",
+              "unit_status": "verified",
+              "expression": {
+                "op": "column",
+                "table": "EC_PROCESS_MONITORING",
+                "column": "TOTAL_COUNT"
+              },
+              "population_ref": "population_fefd70fdb04cdeeb03eba5f9"
+            },
+            "baseline": {
+              "id": "baseline_1c4bbc1029e53ca701537267",
+              "state": "verified",
+              "quantile": "0.95",
+              "method": "linear_n_minus_1_p",
+              "operator": "gt",
+              "minimum_reference_n": 20,
+              "valid_reference_n": 40,
+              "value": 4.0,
+              "value_exact": "4.00",
+              "numeric_encoding": "JSON float roundtrip; service uses the same boundary, no substitution of exact Decimal",
+              "unit": "count",
+              "reference_ref": "reference_7bd73df9d37ab57290110da4",
+              "measurement_id": "measurement_d7e2300791c964cd7be7dd1c",
+              "period": {
+                "start_inclusive": "2026-01-01T00:00:00+00:00",
+                "end_inclusive": "2026-01-01T00:00:39+00:00"
+              },
+              "definition_sha": "40269e31a2dfd5b868781bf1534610c019d92ff7a152712b1fcec1811378107b",
+              "population_ref": "population_fefd70fdb04cdeeb03eba5f9",
+              "group": "whole_snapshot_train",
+              "missing": "exclude unavailable/nonfinite reference values; preserve unavailable application values",
+              "update_policy": "frozen recommendation; explicit new snapshot and review required for update",
+              "expiry_policy": "invalidate on feature/source/unit/population version mismatch; no automatic time extension",
+              "anomaly_labels_excluded": true,
+              "unlabeled_reference_included_without_normality_claim": true,
+              "current_finite_numeric_n": 0
+            },
+            "measurement_id": "measurement_d7e2300791c964cd7be7dd1c",
+            "measurement": {
+              "row_count": 10,
+              "valid_count": 0,
+              "missing_count": 10,
+              "min_exact": null,
+              "max_exact": null,
+              "anomaly_labels_retained": true,
+              "period": {
+                "start_inclusive": "2026-01-01T00:00:40+00:00",
+                "end_inclusive": "2026-01-01T00:00:49+00:00"
+              },
+              "rows_sha": "eb664a22622add25643b1de793f54be0ebaf3d24b9b9c8f24c864360a450b731"
+            },
+            "application_context": {
+              "reference": {
+                "id": "reference_7bd73df9d37ab57290110da4",
+                "period": {
+                  "start_inclusive": "2026-01-01T00:00:00+00:00",
+                  "end_inclusive": "2026-01-01T00:00:39+00:00"
+                },
+                "rows": 40,
+                "finite_non_anomaly_n": 40,
+                "rows_sha": "38534abd8551ae0655ea4d374b2283386f5d1b3af8c51d331357bcca6b1ee07d"
+              },
+              "application": {
+                "id": "application_5d0f66320ed2b6bd1b5f9a50",
+                "period": {
+                  "start_inclusive": "2026-01-01T00:00:40+00:00",
+                  "end_inclusive": "2026-01-01T00:00:49+00:00"
+                },
+                "rows": 10,
+                "finite_numeric_n": 0,
+                "rows_sha": "eb664a22622add25643b1de793f54be0ebaf3d24b9b9c8f24c864360a450b731"
+              },
+              "measurement_id": "measurement_d7e2300791c964cd7be7dd1c",
+              "source_ref": "source_1e82f40bde1d0c7d927c819d",
+              "population_ref": "population_fefd70fdb04cdeeb03eba5f9",
+              "partition_policy": {
+                "name": "train-internal-80-20-chronological-v1",
+                "reference_fraction": 0.8,
+                "time_basis": "persisted_at",
+                "field": "event_time",
+                "grouping": [
+                  "transaction_key",
+                  "equal_event_time"
+                ],
+                "boundary": "nearest_group_boundary_to_80_percent",
+                "input_order_used": false,
+                "identifier_order_used": false,
+                "reference_rows": 40,
+                "application_rows": 10,
+                "reference_max_time_inclusive": "2026-01-01T00:00:39+00:00",
+                "application_start_inclusive": "2026-01-01T00:00:40+00:00",
+                "reference_fraction_actual": 0.8
+              },
+              "source_sha": "1e82f40bde1d0c7d927c819d487320224ae6322b933dceb6d530c1df56559468"
+            },
+            "analysis_plan": {
+              "purpose": "count",
+              "population_ref": "population_fefd70fdb04cdeeb03eba5f9",
+              "precondition_refs": [
+                "source_1e82f40bde1d0c7d927c819d"
+              ],
+              "required_evaluation_basis": [
+                "measurement_d7e2300791c964cd7be7dd1c",
+                "baseline_1c4bbc1029e53ca701537267"
+              ],
+              "business_scope": "offline_process_train_snapshot"
+            },
+            "allowed_evidence_refs": [
+              "source_1e82f40bde1d0c7d927c819d",
+              "population_fefd70fdb04cdeeb03eba5f9",
+              "reference_7bd73df9d37ab57290110da4",
+              "application_5d0f66320ed2b6bd1b5f9a50",
+              "measurement_d7e2300791c964cd7be7dd1c",
+              "baseline_1c4bbc1029e53ca701537267"
+            ],
+            "needed_keys": [
+              "need_reference",
+              "need_reference_minimum_n",
+              "need_compatible_reference",
+              "need_verified_unit",
+              "need_valid_observations",
+              "need_confirmed_constraint",
+              "need_business_contract"
+            ],
+            "partition_issues": [],
+            "blocked": false,
+            "repair": {
+              "previous_output": {
+                "v": "3",
+                "feature": "{",
+                "sha": "40269e31a2dfd5b868781bf1534610c019d92ff7a152712b1fcec1811378107b",
+                "decisions": [
+                  {
+                    "request": "baseline",
+                    "role": "SR",
+                    "state": "deferred",
+                    "basis": "reference_p95",
+                    "condition": {
+                      "op": "gt",
+                      "value": 4.0
+                    },
+                    "evidence": [
+                      "measurement_d7e2300791c964cd7be7dd1c",
+                      "baseline_1c4bbc1029e53ca701537267"
+                    ],
+                    "needed": [
+                      "need_valid_observations"
+                    ],
+                    "reason": "Current observations are insufficient for assessment; preserve the known condition for future evaluation.",
+                    "purpose": "count",
+                    "warning_meaning": "SR",
+                    "population_ref": "population_fefd70fdb04cdeeb03eba5f9",
+                    "precondition_refs": [
+                      "source_1e82f40bde1d0c7d927c819d"
+                    ],
+                    "required_evaluation_basis": [
+                      "measurement_d7e2300791c964cd7be7dd1c",
+                      "baseline_1c4bbc1029e53ca701537267"
+                    ],
+                    "unavailable_action": "preserve_unassessed",
+                    "unavailable_reason": "If current observations become unavailable, the condition cannot be assessed; preserve it for future evaluation.",
+                    "business_scope": "offline_process_train_snapshot",
+                    "baseline_use_ref": "baseline_1c4bbc1029e53ca701537267"
+                  }
+                ]
+              },
+              "errors": [
+                "feature_definition_mismatch"
+              ],
+              "preserve": [
+                "feature",
+                "sha",
+                "baseline",
+                "measurement",
+                "requests"
+              ],
+              "maximum_additional_attempts": 1
+            }
+          },
+          "receipt": {
+            "output": {
+              "v": "3",
+              "feature": "total_count",
+              "sha": "40269e31a2dfd5b868781bf1534610c019d92ff7a152712b1fcec1811378107b",
+              "decisions": [
+                {
+                  "request": "baseline",
+                  "role": "SR",
+                  "state": "deferred",
+                  "basis": "reference_p95",
+                  "condition": {
+                    "op": "gt",
+                    "value": 4.0
+                  },
+                  "evidence": [
+                    "measurement_d7e2300791c964cd7be7dd1c",
+                    "baseline_1c4bbc1029e53ca701537267"
+                  ],
+                  "needed": [
+                    "need_valid_observations"
+                  ],
+                  "reason": "Current observations are insufficient for assessment; preserve the known condition for future evaluation.",
+                  "purpose": "count",
+                  "warning_meaning": "SR",
+                  "population_ref": "population_fefd70fdb04cdeeb03eba5f9",
+                  "precondition_refs": [
+                    "source_1e82f40bde1d0c7d927c819d"
+                  ],
+                  "required_evaluation_basis": [
+                    "measurement_d7e2300791c964cd7be7dd1c",
+                    "baseline_1c4bbc1029e53ca701537267"
+                  ],
+                  "unavailable_action": "preserve_unassessed",
+                  "unavailable_reason": "If current observations become unavailable, the condition cannot be assessed; preserve it for future evaluation.",
+                  "business_scope": "offline_process_train_snapshot",
+                  "baseline_use_ref": "baseline_1c4bbc1029e53ca701537267"
+                }
+              ]
+            },
+            "rawOutput": "{\"v\":\"3\",\"feature\":\"total_count\",\"sha\":\"40269e31a2dfd5b868781bf1534610c019d92ff7a152712b1fcec1811378107b\",\"decisions\":[{\"request\":\"baseline\",\"role\":\"SR\",\"state\":\"deferred\",\"basis\":\"reference_p95\",\"condition\":{\"op\":\"gt\",\"value\":4.0},\"evidence\":[\"measurement_d7e2300791c964cd7be7dd1c\",\"baseline_1c4bbc1029e53ca701537267\"],\"needed\":[\"need_valid_observations\"],\"reason\":\"Current observations are insufficient for assessment; preserve the known condition for future evaluation.\",\"purpose\":\"count\",\"warning_meaning\":\"SR\",\"population_ref\":\"population_fefd70fdb04cdeeb03eba5f9\",\"precondition_refs\":[\"source_1e82f40bde1d0c7d927c819d\"],\"required_evaluation_basis\":[\"measurement_d7e2300791c964cd7be7dd1c\",\"baseline_1c4bbc1029e53ca701537267\"],\"unavailable_action\":\"preserve_unassessed\",\"unavailable_reason\":\"If current observations become unavailable, the condition cannot be assessed; preserve it for future evaluation.\",\"business_scope\":\"offline_process_train_snapshot\",\"baseline_use_ref\":\"baseline_1c4bbc1029e53ca701537267\"}]}",
+            "truncated": false,
+            "jsonFormat": "compact",
+            "inputTokens": 2831,
+            "outputTokens": 361,
+            "messagesSha": "49e69af78f7f07747ba775a1ecc05bcc5ef9f3dfb9f6a65065e227c7a8ad6e8c",
+            "adapterSha": "d816cf6a1f264149fb3d4db9c7cc929a76b12ce6f04f0407a4c4b459dbd573c9"
+          },
+          "validation": {
+            "passed": true,
+            "errors": []
+          }
+        }
+      ],
+      "prediction": {
+        "v": "3",
+        "feature": "total_count",
+        "sha": "40269e31a2dfd5b868781bf1534610c019d92ff7a152712b1fcec1811378107b",
+        "decisions": [
+          {
+            "request": "baseline",
+            "role": "SR",
+            "state": "deferred",
+            "basis": "reference_p95",
+            "condition": {
+              "op": "gt",
+              "value": 4.0
+            },
+            "evidence": [
+              "measurement_d7e2300791c964cd7be7dd1c",
+              "baseline_1c4bbc1029e53ca701537267"
+            ],
+            "needed": [
+              "need_valid_observations"
+            ],
+            "reason": "Current observations are insufficient for assessment; preserve the known condition for future evaluation.",
+            "purpose": "count",
+            "warning_meaning": "SR",
+            "population_ref": "population_fefd70fdb04cdeeb03eba5f9",
+            "precondition_refs": [
+              "source_1e82f40bde1d0c7d927c819d"
+            ],
+            "required_evaluation_basis": [
+              "measurement_d7e2300791c964cd7be7dd1c",
+              "baseline_1c4bbc1029e53ca701537267"
+            ],
+            "unavailable_action": "preserve_unassessed",
+            "unavailable_reason": "If current observations become unavailable, the condition cannot be assessed; preserve it for future evaluation.",
+            "business_scope": "offline_process_train_snapshot",
+            "baseline_use_ref": "baseline_1c4bbc1029e53ca701537267"
+          }
+        ]
+      },
+      "suggestions": []
+    }
+  ]
+}

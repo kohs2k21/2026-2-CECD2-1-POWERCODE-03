@@ -1,0 +1,62 @@
+{
+  "source_issue": 95,
+  "source_pr": 98,
+  "source_commit": "4492722d2d70439e63bfbe48df2fa115180cd94c",
+  "imported_package_files": 219,
+  "source_package_files_sha256_unchanged": true,
+  "frozen_model_files": 4,
+  "latest_algorithms": [
+    "if",
+    "kmeans",
+    "lof"
+  ],
+  "new_fit": false,
+  "new_LLM_calls": 0,
+  "CPU_validation": {
+    "tests_run": 30,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "passed": true,
+    "process_integration_tests": 16,
+    "baseline_rule_regression_tests": 14,
+    "new_ML_fit": false,
+    "new_LLM_calls": 0
+  },
+  "original_frozen_API_parity": {
+    "rows": 12,
+    "algorithms": 3,
+    "score_comparison_decimal_places": 12,
+    "decisions_equal": true
+  },
+  "controlled_wiring_demo": {
+    "kind": "controlled_CPU_rule_fixture_with_actual_frozen_ML",
+    "rows": 12,
+    "summary": {
+      "HR": {
+        "warning": 1,
+        "nonwarning": 11
+      },
+      "SR": {
+        "nonwarning": 11,
+        "warning": 1
+      },
+      "ML": {
+        "unassessable": 1,
+        "nonwarning": 11
+      },
+      "OR": {
+        "warning": 2,
+        "nonwarning": 10
+      }
+    },
+    "new_ML_fit": false,
+    "new_LLM_calls": 0,
+    "not_anomaly_accuracy": true
+  },
+  "model_environment": "Python3.12; process_event_model/requirements.txt pins",
+  "legacy_environment_preserved": true,
+  "not_production_anomaly_accuracy": true,
+  "not_new_LLM_generated_rules": "HR/SR wiring fixture is CPU-authored; actual saved Rule outputs separately revalidated",
+  "backend_deployment": false
+}

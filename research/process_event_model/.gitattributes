@@ -1,0 +1,9 @@
+*.py text eol=lf
+*.md text eol=lf
+*.json text eol=lf
+*.txt text eol=lf
+*.ipynb text eol=lf
+*.joblib binary
+*.png binary
+.gitattributes text eol=lf
+.gitignore text eol=lf

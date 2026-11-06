@@ -1,0 +1,38 @@
+{
+  "issue": 95,
+  "client_date": "2026-11-02",
+  "scope": "latest Process-row IF/K-means/LOF plus previous minute IF/K-means/LOF",
+  "local_tests": {
+    "command": "python -m pytest code/process_event_model code/event_workflow code/research_workflow -q",
+    "passed": 81,
+    "subtests_passed": 3,
+    "failed": 0,
+    "covers_new_data_normal_only_refits": true,
+    "covers_raw_row_and_minute_external_label_cli": true,
+    "covers_raw_stream_batch_equivalence": true
+  },
+  "model_files": 4,
+  "algorithm_models": 6,
+  "frozen_model_bytes_and_sha256_match": true,
+  "latest_policy_runtime_hash_passed": true,
+  "git_index_archive_isolated_export_inference_passed": true,
+  "git_stored_lf_source_inventory_sha256_passed": true,
+  "all_six_models_predicted_without_original_or_benchmark_inputs": true,
+  "latest_rows_per_invented_example": 12,
+  "previous_minutes_per_invented_example": 24,
+  "unseen_adapter_and_process_smoke_passed": true,
+  "notebooks_executed_without_error": {
+    "notebooks/result.ipynb": 5,
+    "notebooks/previous_minute_result.ipynb": 3
+  },
+  "source_python_parsed": true,
+  "exported_model_file_allowlist_checked": true,
+  "no_period_csv_benchmark_labels_or_development_caches_added": true,
+  "secret_token_and_private_key_pattern_scan_passed": true,
+  "existing_scenario_performance_retrained_or_changed": false,
+  "full_benchmark_reevaluated_during_publication": false,
+  "portable_new_data_refits_reproduce_development_selected_pipeline": false,
+  "external_blind_test": false,
+  "production_deployed": false,
+  "github_ci_status": "not_yet_checked_before_push"
+}

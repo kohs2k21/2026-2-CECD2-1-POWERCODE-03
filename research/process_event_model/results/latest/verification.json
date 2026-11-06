@@ -1,0 +1,14 @@
+{
+  "passed": true,
+  "model_sha256": "defaf8c1b1e973e4def5f700a7532eb1a33a9bcdfe2e8afc8c8cae54815982a4",
+  "saved_confusion_counts_recomputed": true,
+  "all_twelve_task_model_combinations": true,
+  "csv_free_standalone_inference": true,
+  "unseen_adapter_and_Process_smoke": true,
+  "original_row_count_and_ids_preserved": true,
+  "agreed_f1_and_fpr_gate_passed": true,
+  "maximum_f1_loss_percentage_points": 1.3430723310314918,
+  "Precision_and_Recall_changes_reported_separately": true,
+  "current_artifact_not_replaced": true,
+  "production_deployed": false
+}

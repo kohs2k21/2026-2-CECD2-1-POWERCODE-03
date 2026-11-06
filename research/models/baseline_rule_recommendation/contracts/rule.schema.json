@@ -1,0 +1,209 @@
+{
+  "type": "object",
+  "properties": {
+    "v": {
+      "const": "3"
+    },
+    "feature": {
+      "type": "string"
+    },
+    "sha": {
+      "type": "string"
+    },
+    "decisions": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {
+        "type": "object",
+        "properties": {
+          "request": {
+            "enum": [
+              "hr",
+              "observed",
+              "baseline"
+            ]
+          },
+          "role": {
+            "enum": [
+              "HR",
+              "SR"
+            ]
+          },
+          "state": {
+            "enum": [
+              "proposed",
+              "deferred",
+              "request_evidence",
+              "no_applicable"
+            ]
+          },
+          "basis": {
+            "enum": [
+              "ddl_not_null",
+              "observed_diagnostic",
+              "reference_p95",
+              "none",
+              "insufficient"
+            ]
+          },
+          "condition": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "op": {
+                    "const": "is_missing"
+                  }
+                },
+                "required": [
+                  "op"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "op": {
+                    "const": "eq"
+                  },
+                  "value": {
+                    "type": [
+                      "boolean",
+                      "number"
+                    ]
+                  }
+                },
+                "required": [
+                  "op",
+                  "value"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "op": {
+                    "enum": [
+                      "lt",
+                      "gt"
+                    ]
+                  },
+                  "value": {
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "op",
+                  "value"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          },
+          "evidence": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "needed": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 320
+          },
+          "purpose": {
+            "enum": [
+              "coordinate_delay",
+              "count",
+              "ratio",
+              "relationship",
+              "data_quality",
+              "other"
+            ]
+          },
+          "warning_meaning": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 240
+          },
+          "population_ref": {
+            "type": "string"
+          },
+          "precondition_refs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 8
+          },
+          "required_evaluation_basis": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 8
+          },
+          "unavailable_action": {
+            "enum": [
+              "preserve_unassessed",
+              "no_rule"
+            ]
+          },
+          "unavailable_reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 240
+          },
+          "business_scope": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 240
+          },
+          "baseline_use_ref": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "request",
+          "role",
+          "state",
+          "basis",
+          "condition",
+          "evidence",
+          "needed",
+          "reason",
+          "purpose",
+          "warning_meaning",
+          "population_ref",
+          "precondition_refs",
+          "required_evaluation_basis",
+          "unavailable_action",
+          "unavailable_reason",
+          "business_scope",
+          "baseline_use_ref"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "v",
+    "feature",
+    "sha",
+    "decisions"
+  ],
+  "additionalProperties": false
+}

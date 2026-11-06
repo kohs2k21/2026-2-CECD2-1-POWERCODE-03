@@ -1,0 +1,16 @@
+{
+  "transactionId": "TRANSACTION_ID",
+  "processId": "PROCESS_ID",
+  "adapterType": "ADAPTER_TYPE",
+  "startTime": "START_TIME",
+  "endTime": "END_TIME",
+  "totalCount": "TOTAL_COUNT",
+  "successCount": "SUCCESS_COUNT",
+  "errorCount": "ERROR_COUNT",
+  "retryCount": "RETRY_COUNT",
+  "status": "STATUS",
+  "dependProcessId": "DEPEND_PROCESS_ID",
+  "processHubId": "PROCESS_HUB_ID",
+  "channelId": "CHANNEL_ID",
+  "responseCode": "RESPONSE_CODE"
+}

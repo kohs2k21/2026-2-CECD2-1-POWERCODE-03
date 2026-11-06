@@ -69,6 +69,9 @@ GRANT SELECT,INSERT ON data_evaluation_sets TO powercode_api;
 GRANT SELECT,UPDATE ON data_evaluation_sets TO powercode_trainer;
 -- LLM workers also reconcile dead training-queue jobs; the 011 job-failure trigger then fails the queued set.
 GRANT SELECT(job_id,status),UPDATE(status,error_code) ON data_evaluation_sets TO powercode_llm;
+-- #81: the same reconcile fails dead import_csv jobs; the 010 job-failure trigger (caller rights) reads
+-- created_job_id/status/validation_result and sets status/validation_result on the queued prepared dataset.
+GRANT SELECT(created_job_id,status,validation_result),UPDATE(status,validation_result) ON data_prepared_datasets TO powercode_llm;
 GRANT SELECT ON run_config_comparisons,run_config_comparison_items TO powercode_api,powercode_trainer;
 GRANT INSERT ON run_config_comparisons,run_config_comparison_items TO powercode_trainer;
 
@@ -78,6 +81,17 @@ GRANT INSERT ON run_config_comparisons,run_config_comparison_items TO powercode_
 -- The #78-Q11 decision guard reads run_decision_interims with caller rights (Detector SELECT below).
 GRANT SELECT ON run_decision_interims TO powercode_api,powercode_collector,powercode_detector,powercode_trainer,powercode_llm;
 GRANT INSERT ON run_decision_interims TO powercode_detector;
+-- 014: analysis workflow state history, investigation/action records, per-user read marks (API only).
+-- Append-only history/records: API gets SELECT,INSERT only. Records are not labels or training input:
+-- Trainer, LLM, Detector and Collector have no access.
+GRANT SELECT,INSERT ON run_decision_workflow_events,run_decision_feedback TO powercode_api;
+GRANT SELECT,INSERT,UPDATE(read_at) ON run_decision_reads TO powercode_api;
+-- 015: operational revision history (rule set, active model set, detection policy). Append-only: API saves with
+-- SELECT,INSERT under pg_advisory_xact_lock(81739,0), Detector and Trainer read. Collector and LLM have no access.
+-- ops_operational_state is security_invoker, so its readers also need SELECT on the three tables.
+GRANT SELECT,INSERT ON ops_rule_set_revisions,ops_active_model_set_revisions,ops_detection_policy_revisions TO powercode_api;
+GRANT SELECT ON ops_rule_set_revisions,ops_active_model_set_revisions,ops_detection_policy_revisions TO powercode_detector,powercode_trainer;
+GRANT SELECT ON ops_operational_state TO powercode_api,powercode_detector,powercode_trainer;
 -- #78-Q10 defense in depth: no session temp tables through PUBLIC in the database this script runs in
 -- (runtime code uses none). The database owner, superusers and explicit TEMP grantees keep TEMP.
 DO $$ BEGIN

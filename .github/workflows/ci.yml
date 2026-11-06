@@ -169,6 +169,10 @@ jobs:
         run: python server/worker/tests/integration_research_pipeline.py
       - name: Service split, modes and recovery
         run: python server/worker/tests/integration_service_transition.py
+      - name: Detection decision v04 attempt, interims and v03 regression
+        env:
+          PIPELINE_TEST_DATABASE_URL: postgresql://postgres:local-ci-only@127.0.0.1:5432/qa_detection_decision
+        run: python server/worker/tests/integration_detection_decision.py
       - name: Continuous source API collection fixture and latency samples
         env:
           DATABASE_URL: postgresql://postgres:local-ci-only@127.0.0.1:5432/qa_pipeline
@@ -194,6 +198,10 @@ jobs:
         env:
           PIPELINE_TEST_DATABASE_URL: postgresql://postgres:local-ci-only@127.0.0.1:5432/qa_trainer_service
         run: python server/worker/tests/integration_trainer_service_contract.py
+      - name: Model version v3 output, operational revisions and fail-closed reads
+        env:
+          PIPELINE_TEST_DATABASE_URL: postgresql://postgres:local-ci-only@127.0.0.1:5432/qa_trainer_service
+        run: python server/worker/tests/integration_model_version_v3.py
       - name: Shared input Collector role boundaries
         env:
           DATABASE_URL: postgresql://postgres:local-ci-only@127.0.0.1:5432/qa_pipeline
@@ -208,6 +216,30 @@ jobs:
         env:
           PIPELINE_TEST_DATABASE_URL: postgresql://postgres:local-ci-only@127.0.0.1:5432/qa_pipeline
         run: node server/backend/tests/jobs.integration.mjs
+      - name: Operations read API contract
+        env:
+          PIPELINE_TEST_DATABASE_URL: postgresql://postgres:local-ci-only@127.0.0.1:5432/qa_operations_service
+        run: node server/backend/tests/operations.integration.mjs
+      - name: Analysis decision read API contract
+        env:
+          PIPELINE_TEST_DATABASE_URL: postgresql://postgres:local-ci-only@127.0.0.1:5432/qa_analysis_service
+        run: node server/backend/tests/analysis.integration.mjs
+      - name: Analysis API runtime-role grants
+        env:
+          PIPELINE_TEST_DATABASE_URL: postgresql://postgres:local-ci-only@127.0.0.1:5432/qa_analysis_service
+        run: node server/backend/tests/analysis-grants.integration.mjs
+      - name: Rule set API contract
+        env:
+          PIPELINE_TEST_DATABASE_URL: postgresql://postgres:local-ci-only@127.0.0.1:5432/qa_rule_set_service
+        run: node server/backend/tests/rule-set.integration.mjs
+      - name: Rule set API runtime-role grants
+        env:
+          PIPELINE_TEST_DATABASE_URL: postgresql://postgres:local-ci-only@127.0.0.1:5432/qa_rule_set_service
+        run: node server/backend/tests/rule-set-grants.integration.mjs
+      - name: Model version API under runtime role
+        env:
+          PIPELINE_TEST_DATABASE_URL: postgresql://postgres:local-ci-only@127.0.0.1:5432/qa_rule_set_models
+        run: node server/backend/tests/model-versions.integration.mjs
       - name: Synthetic profiles, fixed-model evaluation and recovery
         env:
           PIPELINE_TEST_DATABASE_URL: postgresql://postgres:local-ci-only@127.0.0.1:5432/qa_synthetic_service

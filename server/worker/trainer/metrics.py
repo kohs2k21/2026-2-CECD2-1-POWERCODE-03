@@ -28,15 +28,22 @@ def compare(rows, checker):
     return metrics
 
 
+SR_STATUS = 'not_applicable'
+SR_REASON = 'sr_removed'
+
+
+def sr_cells(total):
+    """통계 SR 폐기(#94): `sr*` 셀은 영구 not_applicable/sr_removed. 키 집합은 기존 그대로 유지한다."""
+    cells = {key: measurement(None, 'ratio', reason=SR_REASON) for key in ('srBoth', 'srRuleOnly', 'srMlOnly', 'srNeither')}
+    cells.update(srTotal=measurement(total, 'count'), srComparable=measurement(0, 'count'),
+                 srMissing=measurement(total, 'count'))
+    return cells
+
+
 def comparison_family(rows, provenance):
-    metrics = {}
-    for checker in ('hr', 'sr'):
-        metrics.update({checker + key[0].upper() + key[1:]: value for key, value in compare(rows, checker).items()})
-    sr_available = any(row['sr']['status'] == 'succeeded' for row in rows)
-    if not sr_available:
-        for key in ('srBoth', 'srRuleOnly', 'srMlOnly', 'srNeither'):
-            metrics[key]['reason'] = 'sr_experiment_pending'
+    metrics = {'hr' + key[0].upper() + key[1:]: value for key, value in compare(rows, 'hr').items()}
+    # SR 경로의 행별 상태(`not_ready`·fixture의 `succeeded`)는 더 이상 집계하지 않는다 — 방법 자체가 카탈로그에서 제거됨.
+    metrics.update(sr_cells(len(rows)))
     return {'status': 'measured', 'reason': None, 'metricVersion': VERSION, 'metrics': metrics,
             'details': {**provenance, 'interpretation': 'checker_agreement_not_accuracy',
-                        'srStatus': 'measured' if sr_available else 'unavailable',
-                        'srReason': None if sr_available else 'sr_experiment_pending'}}
+                        'srStatus': SR_STATUS, 'srReason': SR_REASON}}

@@ -1,0 +1,327 @@
+{
+  "input": {
+    "contract": "offline-specification-final1.0",
+    "task": "For each LEAF_ROW retrieve the raw OWNER_ROW RAW_TEAM value through its linked GROUP_ROW and OWNER_ROW. Preserve LEAF_ROW output rows. If the exact attribute-lookup operation is unsupported, return no candidate rather than a count substitute.",
+    "analysis_request": {
+      "output_table": "LEAF_ROW",
+      "required_columns": [
+        [
+          "OWNER_ROW",
+          "RAW_TEAM"
+        ]
+      ],
+      "required_relationship_ids": [
+        "leaf_group",
+        "group_owner"
+      ],
+      "result_use": "value"
+    },
+    "schema_inventory": [
+      {
+        "table": "LEAF_ROW",
+        "primary_key": [
+          "RID"
+        ],
+        "columns": [
+          {
+            "name": "RID",
+            "type": "string",
+            "unit": {
+              "name": null,
+              "status": "unknown"
+            },
+            "description": ""
+          },
+          {
+            "name": "GREF",
+            "type": "string",
+            "unit": {
+              "name": null,
+              "status": "unknown"
+            },
+            "description": ""
+          }
+        ]
+      },
+      {
+        "table": "GROUP_ROW",
+        "primary_key": [
+          "GID"
+        ],
+        "columns": [
+          {
+            "name": "GID",
+            "type": "string",
+            "unit": {
+              "name": null,
+              "status": "unknown"
+            },
+            "description": ""
+          },
+          {
+            "name": "OREF",
+            "type": "string",
+            "unit": {
+              "name": null,
+              "status": "unknown"
+            },
+            "description": ""
+          }
+        ]
+      },
+      {
+        "table": "OWNER_ROW",
+        "primary_key": [
+          "OID"
+        ],
+        "columns": [
+          {
+            "name": "OID",
+            "type": "string",
+            "unit": {
+              "name": null,
+              "status": "unknown"
+            },
+            "description": ""
+          },
+          {
+            "name": "RAW_TEAM",
+            "type": "string",
+            "unit": {
+              "name": null,
+              "status": "unknown"
+            },
+            "description": ""
+          }
+        ]
+      }
+    ],
+    "relationships": [
+      {
+        "id": "leaf_group",
+        "from_table": "LEAF_ROW",
+        "from_columns": [
+          "GREF"
+        ],
+        "to_table": "GROUP_ROW",
+        "to_columns": [
+          "GID"
+        ],
+        "no_reference_values": []
+      },
+      {
+        "id": "group_owner",
+        "from_table": "GROUP_ROW",
+        "from_columns": [
+          "OREF"
+        ],
+        "to_table": "OWNER_ROW",
+        "to_columns": [
+          "OID"
+        ],
+        "no_reference_values": []
+      }
+    ],
+    "relationship_operator_domains": [
+      {
+        "relationship_id": "leaf_group",
+        "child_row_table": "LEAF_ROW",
+        "parent_row_table": "GROUP_ROW",
+        "child_count_conditional_count_child_sum_output": "GROUP_ROW",
+        "parent_match_count_output": "LEAF_ROW",
+        "no_implicit_row_conversion": true
+      },
+      {
+        "relationship_id": "group_owner",
+        "child_row_table": "GROUP_ROW",
+        "parent_row_table": "OWNER_ROW",
+        "child_count_conditional_count_child_sum_output": "OWNER_ROW",
+        "parent_match_count_output": "GROUP_ROW",
+        "no_implicit_row_conversion": true
+      }
+    ],
+    "profile": {
+      "period": {
+        "controlled_domain": "Artificial rows; no operational dates"
+      },
+      "table_rows": {
+        "LEAF_ROW": 1,
+        "GROUP_ROW": 1,
+        "OWNER_ROW": 1
+      },
+      "transaction_families": 0,
+      "metadata": {
+        "LEAF_ROW": [
+          {
+            "column": "RID",
+            "logical_type": "string",
+            "rows": 1,
+            "missing": 0,
+            "distinct": 1,
+            "unit": {
+              "name": null,
+              "status": "unknown"
+            },
+            "description": "No confirmed business meaning supplied"
+          },
+          {
+            "column": "GREF",
+            "logical_type": "string",
+            "rows": 1,
+            "missing": 0,
+            "distinct": 1,
+            "unit": {
+              "name": null,
+              "status": "unknown"
+            },
+            "description": "No confirmed business meaning supplied"
+          }
+        ],
+        "GROUP_ROW": [
+          {
+            "column": "GID",
+            "logical_type": "string",
+            "rows": 1,
+            "missing": 0,
+            "distinct": 1
+          },
+          {
+            "column": "OREF",
+            "logical_type": "string",
+            "rows": 1,
+            "missing": 0,
+            "distinct": 1
+          }
+        ],
+        "OWNER_ROW": [
+          {
+            "column": "OID",
+            "logical_type": "string",
+            "rows": 1,
+            "missing": 0,
+            "distinct": 1
+          },
+          {
+            "column": "RAW_TEAM",
+            "logical_type": "string",
+            "rows": 1,
+            "missing": 0,
+            "distinct": 1,
+            "unit": {
+              "name": null,
+              "status": "unknown"
+            },
+            "description": "No confirmed business meaning supplied",
+            "observed_raw_values": [
+              [
+                "Z",
+                1
+              ]
+            ]
+          }
+        ]
+      },
+      "observed_extrema_not_proven_bounds": true,
+      "full_source_pins": [
+        {
+          "table": "LEAF_ROW",
+          "sha256": "56cd24d61c6275588e4f70361b22de28765d286022df2e206467b81103b95aa2",
+          "bytes": 16
+        },
+        {
+          "table": "GROUP_ROW",
+          "sha256": "cabaef15085b80fec6fb8db2a337682c5d29ee0e5e926a791e39e6c8b75af9f0",
+          "bytes": 15
+        },
+        {
+          "table": "OWNER_ROW",
+          "sha256": "ea760c8b16a240a1ea671aac7ba322fe81ee83ef9c8cec698f28d73b281c98a0",
+          "bytes": 19
+        }
+      ],
+      "coverage": [
+        {
+          "table": "LEAF_ROW",
+          "column": "RID",
+          "detailed_observation": true
+        },
+        {
+          "table": "LEAF_ROW",
+          "column": "GREF",
+          "detailed_observation": true
+        },
+        {
+          "table": "GROUP_ROW",
+          "column": "GID",
+          "detailed_observation": false
+        },
+        {
+          "table": "GROUP_ROW",
+          "column": "OREF",
+          "detailed_observation": false
+        },
+        {
+          "table": "OWNER_ROW",
+          "column": "OID",
+          "detailed_observation": false
+        },
+        {
+          "table": "OWNER_ROW",
+          "column": "RAW_TEAM",
+          "detailed_observation": true
+        }
+      ],
+      "full_profile_sha": "da36724addb4139a6beb41dc3abf349db0a794e791959a8fd9365ff216441960",
+      "selection_policy": "Full schema/type/unit/relation inventory and rows/missing/distinct for every column; detailed values for public output table and required operands. Full profile is archived; no row sampling or token truncation."
+    },
+    "source": {
+      "source_version": "8d872e80e7ea92b9d9a2212523706420d334f43f49121d0153a70f0f176779ca",
+      "manifest_sha": "3017a2bedf34be7a0248fd35716d4d27cad3da1165a9d9929a373283e644ceab",
+      "data_class": "controlled",
+      "period": {
+        "controlled_domain": "Artificial rows; no operational dates"
+      }
+    },
+    "confirmed_constraints": [],
+    "confirmed_authority": [],
+    "unknown": [
+      "No mandatory parent, fault label, or online contract."
+    ],
+    "guarded_conditional_contract": {
+      "version": "guarded-conditional1.1-null-branches",
+      "AST": {
+        "op": "if",
+        "args": [
+          "Boolean condition",
+          "value if true",
+          "value if false"
+        ]
+      },
+      "condition": "Boolean; unavailable condition yields unavailable, never the false branch",
+      "branches": "Both branches validated statically; same type/unit and output row, literal scalar broadcast only. At runtime evaluate only the chosen branch.",
+      "result": "Chosen branch value, including unavailable; no exception-to-null conversion",
+      "legacy": "All old operators and old definition hashes retain their original policy. Only plans containing if add conditional_extension to identity.",
+      "errors": "Invalid source/type/unit/relationship rejected before execution, even if branch not selected. Runtime exceptions in the chosen branch propagate.",
+      "no_AST_rewrite": true
+    },
+    "result_view_contract": {
+      "version": "result-view1.0",
+      "value": "Use expression value, preserving unavailable.",
+      "unavailable": "Complete Boolean: true when expression result unavailable, false when it is available, including numeric0 and Booleanfalse.",
+      "unavailable_or_zero": "Complete Boolean for numeric expression: true if unavailable or known0, false for a known nonzero value.",
+      "scope": "All views apply only to retained output rows; invalid sources/types/software failures are errors. Explicit null branch adopts only the other concrete branch type/unit."
+    },
+    "supported_operators_from_schema": true,
+    "existing_definitions_for_dedup_only": []
+  },
+  "messages": [
+    {
+      "role": "system",
+      "content": "Propose one executable offline metadata feature for the PUBLIC request. Return feature5.2 JSON only. Every plan explicitly chooses result_use: value / unavailable / unavailable_or_zero. Preserve source, requested filters, output rows and population. Do not replace an unsupported analysis with an easier calculation. You choose purpose, narrow meaning, calculation expression and result_use. For a calculation-result availability request, expression computes the requested value/comparison and result_use=unavailable checks that result. Do not enumerate missing causes with nullable OR. For unavailable-or-known-zero of a numeric result, select result_use=unavailable_or_zero. Result views are typed common compiler operations; they are not hidden fixes. Describe the selected final output, with no invented empty-case values; code infers types/units/missing policies/IDs/SHA. Never guess operational meaning from raw codes or unknown units. Physical parent existence is not a mandatory-parent business contract. A valid calculation may be constant or have no selected observations. If source, relation or an exact supported expression is unavailable, return candidates=[] with a precise complete stop_reason.\nSupported expression nodes: column(op,table,column), literal(op,value), is_missing(args1), subtract/divide/eq/lt/lte/gt/gte/and/or(args2), not(args1), in/not_in(args1,values homogeneous1..32 literals), if(args3), datetime_diff(args2,unit=ms/s/us), convert_unit(args1,from_unit,to_unit), child_count/parent_match_count(relationship_id), conditional_count(relationship_id,where), child_sum(relationship_id,value,where), group_count(keys,where). No add/abs or parent attribute lookup. Use JSON null, not string null.\nRelations are child/from -> parent/to. child_count, conditional_count, child_sum output PARENT rows; parent_match_count outputs CHILD rows. All nonliteral operands share output rows, including if's condition and branches. Grain keys identify output rows, not all source columns. group_by lists only actual group_count keys. A known empty child aggregate is0, missing relationship/key/predicate propagates unavailable. Division by0 is unavailable, never numeric0. is_missing tests any nested result and returns complete true/false on retained rows. and/or strictly propagate any unavailable operand; true OR unavailable is unavailable. if validates both branches, then lazily evaluates only the selected branch; unavailable condition stays unavailable. Filter-excluded or unknown-selection rows produce no output, not false or unavailable values. Do not hide invalid sources, types or execution errors as missingness.\nThe calculation component and final inspected output are distinct: never wrap the expression in a missingness test merely because result_use already requests unavailable. A public calculation_type constrains the inner value/comparison, not the final view. Keep one concise complete meaning sentence about the final view; detailed branch/empty-group behavior is recorded by compiler facts. Write purpose and meaning in English; quote original literal tokens when needed, but do not switch languages in explanatory prose. needed_evidence must not list unrelated supplied unit IDs. Write short COMPLETE purpose<=200, meaning<=320, stop_reason<=320. Prefer one concise meaning sentence around150–220 characters; do not repeat the whole plan or append a long branch-by-branch narrative. Explain calculation, filters, output row and result states. True0 differs from no evaluable rows. Raw IN/OUT/MAP/VOID/UNKNOWN have no business meaning beyond supplied authority. No fault/normality/SLA/online claim follows from offline metadata."
+    },
+    {
+      "role": "user",
+      "content": "{\"contract\":\"offline-specification-final1.0\",\"task\":\"For each LEAF_ROW retrieve the raw OWNER_ROW RAW_TEAM value through its linked GROUP_ROW and OWNER_ROW. Preserve LEAF_ROW output rows. If the exact attribute-lookup operation is unsupported, return no candidate rather than a count substitute.\",\"analysis_request\":{\"output_table\":\"LEAF_ROW\",\"required_columns\":[[\"OWNER_ROW\",\"RAW_TEAM\"]],\"required_relationship_ids\":[\"leaf_group\",\"group_owner\"],\"result_use\":\"value\"},\"schema_inventory\":[{\"table\":\"LEAF_ROW\",\"primary_key\":[\"RID\"],\"columns\":[{\"name\":\"RID\",\"type\":\"string\",\"unit\":{\"name\":null,\"status\":\"unknown\"},\"description\":\"\"},{\"name\":\"GREF\",\"type\":\"string\",\"unit\":{\"name\":null,\"status\":\"unknown\"},\"description\":\"\"}]},{\"table\":\"GROUP_ROW\",\"primary_key\":[\"GID\"],\"columns\":[{\"name\":\"GID\",\"type\":\"string\",\"unit\":{\"name\":null,\"status\":\"unknown\"},\"description\":\"\"},{\"name\":\"OREF\",\"type\":\"string\",\"unit\":{\"name\":null,\"status\":\"unknown\"},\"description\":\"\"}]},{\"table\":\"OWNER_ROW\",\"primary_key\":[\"OID\"],\"columns\":[{\"name\":\"OID\",\"type\":\"string\",\"unit\":{\"name\":null,\"status\":\"unknown\"},\"description\":\"\"},{\"name\":\"RAW_TEAM\",\"type\":\"string\",\"unit\":{\"name\":null,\"status\":\"unknown\"},\"description\":\"\"}]}],\"relationships\":[{\"id\":\"leaf_group\",\"from_table\":\"LEAF_ROW\",\"from_columns\":[\"GREF\"],\"to_table\":\"GROUP_ROW\",\"to_columns\":[\"GID\"],\"no_reference_values\":[]},{\"id\":\"group_owner\",\"from_table\":\"GROUP_ROW\",\"from_columns\":[\"OREF\"],\"to_table\":\"OWNER_ROW\",\"to_columns\":[\"OID\"],\"no_reference_values\":[]}],\"relationship_operator_domains\":[{\"relationship_id\":\"leaf_group\",\"child_row_table\":\"LEAF_ROW\",\"parent_row_table\":\"GROUP_ROW\",\"child_count_conditional_count_child_sum_output\":\"GROUP_ROW\",\"parent_match_count_output\":\"LEAF_ROW\",\"no_implicit_row_conversion\":true},{\"relationship_id\":\"group_owner\",\"child_row_table\":\"GROUP_ROW\",\"parent_row_table\":\"OWNER_ROW\",\"child_count_conditional_count_child_sum_output\":\"OWNER_ROW\",\"parent_match_count_output\":\"GROUP_ROW\",\"no_implicit_row_conversion\":true}],\"profile\":{\"period\":{\"controlled_domain\":\"Artificial rows; no operational dates\"},\"table_rows\":{\"LEAF_ROW\":1,\"GROUP_ROW\":1,\"OWNER_ROW\":1},\"transaction_families\":0,\"metadata\":{\"LEAF_ROW\":[{\"column\":\"RID\",\"logical_type\":\"string\",\"rows\":1,\"missing\":0,\"distinct\":1,\"unit\":{\"name\":null,\"status\":\"unknown\"},\"description\":\"No confirmed business meaning supplied\"},{\"column\":\"GREF\",\"logical_type\":\"string\",\"rows\":1,\"missing\":0,\"distinct\":1,\"unit\":{\"name\":null,\"status\":\"unknown\"},\"description\":\"No confirmed business meaning supplied\"}],\"GROUP_ROW\":[{\"column\":\"GID\",\"logical_type\":\"string\",\"rows\":1,\"missing\":0,\"distinct\":1},{\"column\":\"OREF\",\"logical_type\":\"string\",\"rows\":1,\"missing\":0,\"distinct\":1}],\"OWNER_ROW\":[{\"column\":\"OID\",\"logical_type\":\"string\",\"rows\":1,\"missing\":0,\"distinct\":1},{\"column\":\"RAW_TEAM\",\"logical_type\":\"string\",\"rows\":1,\"missing\":0,\"distinct\":1,\"unit\":{\"name\":null,\"status\":\"unknown\"},\"description\":\"No confirmed business meaning supplied\",\"observed_raw_values\":[[\"Z\",1]]}]},\"observed_extrema_not_proven_bounds\":true,\"full_source_pins\":[{\"table\":\"LEAF_ROW\",\"sha256\":\"56cd24d61c6275588e4f70361b22de28765d286022df2e206467b81103b95aa2\",\"bytes\":16},{\"table\":\"GROUP_ROW\",\"sha256\":\"cabaef15085b80fec6fb8db2a337682c5d29ee0e5e926a791e39e6c8b75af9f0\",\"bytes\":15},{\"table\":\"OWNER_ROW\",\"sha256\":\"ea760c8b16a240a1ea671aac7ba322fe81ee83ef9c8cec698f28d73b281c98a0\",\"bytes\":19}],\"coverage\":[{\"table\":\"LEAF_ROW\",\"column\":\"RID\",\"detailed_observation\":true},{\"table\":\"LEAF_ROW\",\"column\":\"GREF\",\"detailed_observation\":true},{\"table\":\"GROUP_ROW\",\"column\":\"GID\",\"detailed_observation\":false},{\"table\":\"GROUP_ROW\",\"column\":\"OREF\",\"detailed_observation\":false},{\"table\":\"OWNER_ROW\",\"column\":\"OID\",\"detailed_observation\":false},{\"table\":\"OWNER_ROW\",\"column\":\"RAW_TEAM\",\"detailed_observation\":true}],\"full_profile_sha\":\"da36724addb4139a6beb41dc3abf349db0a794e791959a8fd9365ff216441960\",\"selection_policy\":\"Full schema/type/unit/relation inventory and rows/missing/distinct for every column; detailed values for public output table and required operands. Full profile is archived; no row sampling or token truncation.\"},\"source\":{\"source_version\":\"8d872e80e7ea92b9d9a2212523706420d334f43f49121d0153a70f0f176779ca\",\"manifest_sha\":\"3017a2bedf34be7a0248fd35716d4d27cad3da1165a9d9929a373283e644ceab\",\"data_class\":\"controlled\",\"period\":{\"controlled_domain\":\"Artificial rows; no operational dates\"}},\"confirmed_constraints\":[],\"confirmed_authority\":[],\"unknown\":[\"No mandatory parent, fault label, or online contract.\"],\"guarded_conditional_contract\":{\"version\":\"guarded-conditional1.1-null-branches\",\"AST\":{\"op\":\"if\",\"args\":[\"Boolean condition\",\"value if true\",\"value if false\"]},\"condition\":\"Boolean; unavailable condition yields unavailable, never the false branch\",\"branches\":\"Both branches validated statically; same type/unit and output row, literal scalar broadcast only. At runtime evaluate only the chosen branch.\",\"result\":\"Chosen branch value, including unavailable; no exception-to-null conversion\",\"legacy\":\"All old operators and old definition hashes retain their original policy. Only plans containing if add conditional_extension to identity.\",\"errors\":\"Invalid source/type/unit/relationship rejected before execution, even if branch not selected. Runtime exceptions in the chosen branch propagate.\",\"no_AST_rewrite\":true},\"result_view_contract\":{\"version\":\"result-view1.0\",\"value\":\"Use expression value, preserving unavailable.\",\"unavailable\":\"Complete Boolean: true when expression result unavailable, false when it is available, including numeric0 and Booleanfalse.\",\"unavailable_or_zero\":\"Complete Boolean for numeric expression: true if unavailable or known0, false for a known nonzero value.\",\"scope\":\"All views apply only to retained output rows; invalid sources/types/software failures are errors. Explicit null branch adopts only the other concrete branch type/unit.\"},\"supported_operators_from_schema\":true,\"existing_definitions_for_dedup_only\":[]}"
+    }
+  ]
+}

@@ -1,6 +1,7 @@
 """검증된 GPU 생성 서비스에 집계 입력만 전달한다."""
 from __future__ import annotations
 
+import http.client
 import json
 import os
 import urllib.error
@@ -10,6 +11,14 @@ import urllib.request
 
 class GenerationUnavailable(RuntimeError):
     pass
+
+
+class GenerationRejected(GenerationUnavailable):
+    """서비스가 이 호출만 거부했다. 기존 작업에는 서비스 장애로 보이고, `code`는 항목 격리에만 쓴다."""
+
+    def __init__(self, code: str = "generation_contract_rejected"):
+        super().__init__("generation_service_unavailable")
+        self.code = code
 
 
 class NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -25,9 +34,23 @@ def set_local_model(model):
     _LOCAL_MODEL = model
 
 
-def generate(kind: str, payload: dict) -> dict:
+def _rejection_code(error: urllib.error.HTTPError) -> str:
+    try:
+        code = json.loads(error.read(4096)).get("code")
+    except (AttributeError, OSError, ValueError, http.client.HTTPException):
+        return "generation_contract_rejected"
+    return code if isinstance(code, str) else "generation_contract_rejected"
+
+
+def generate(kind: str, payload: dict, *, report_timeout: bool = False) -> dict:
+    """`report_timeout`은 시간 초과를 `generation_timeout`으로 받을 호출만 켠다. 기존 작업은 이전 분류 그대로다."""
     if _LOCAL_MODEL is not None:
-        return _LOCAL_MODEL.generate(kind, payload)
+        if not report_timeout:
+            return _LOCAL_MODEL.generate(kind, payload)
+        try:
+            return _LOCAL_MODEL.generate(kind, payload, report_timeout=True)
+        except TimeoutError as exc:
+            raise GenerationUnavailable("generation_timeout") from exc
     url = os.environ.get("DESIGN_MODEL_URL", "")
     token = os.environ.get("DESIGN_MODEL_TOKEN", "")
     parsed = urllib.parse.urlsplit(url)
@@ -40,7 +63,8 @@ def generate(kind: str, payload: dict) -> dict:
         parsed.scheme == "https" or parsed.scheme == "http" and parsed.hostname in http_hosts
     ) or parsed.username or parsed.password or parsed.query or parsed.fragment:
         raise GenerationUnavailable("generation_service_not_configured")
-    body = json.dumps({"kind": kind, "input": payload}, ensure_ascii=False, allow_nan=False).encode()
+    envelope = {"kind": kind, "input": payload, **({"reportTimeout": True} if report_timeout else {})}
+    body = json.dumps(envelope, ensure_ascii=False, allow_nan=False).encode()
     if len(body) > 256000:
         raise ValueError("generation_input_too_large")
     request = urllib.request.Request(url.rstrip("/") + "/generate", data=body,
@@ -51,8 +75,15 @@ def generate(kind: str, payload: dict) -> dict:
         if len(raw) > 256000:
             raise ValueError("generation_response_too_large")
         result = json.loads(raw)
+    except urllib.error.HTTPError as exc:
+        if exc.code == 422:
+            raise GenerationRejected(_rejection_code(exc)) from exc
+        raise GenerationUnavailable("generation_timeout" if report_timeout and exc.code == 504
+                                    else "generation_service_unavailable") from exc
     except (urllib.error.URLError, TimeoutError, OSError) as exc:
-        raise GenerationUnavailable("generation_service_unavailable") from exc
+        timed_out = isinstance(exc, TimeoutError) or isinstance(getattr(exc, "reason", None), TimeoutError)
+        raise GenerationUnavailable("generation_timeout" if report_timeout and timed_out
+                                    else "generation_service_unavailable") from exc
     if not isinstance(result, dict) or result.get("truncated") is not False or not isinstance(result.get("output"), dict):
         raise ValueError("invalid_generation_response")
     return result

@@ -17,7 +17,7 @@ Collector 실시간성은 HTTP p50/p95/p99·오류율·빈 응답 비율·DB 저
 
 - recommend_feature/rule, train/evaluate: 관리자.
 - explain: 인증 사용자. body `{kind:"explain",sourceId,decisionId}`. 저장 판정/config/evidence를 서버에서 고정한다. 사용자별 동일 근거·모델·prompt·schema의 진행/완료 작업을 재사용한다.
-- 새 train 요청은 `detectionPolicy:{mode,deadlineMs,combination}` 필수. mode는 rule_only/ml_only/parallel, deadlineMs는 정수 100~30000, combination은 단일 모드 selected_path / 병렬 any_anomaly이다. 병렬 정책은 해당 구성에서 명시적으로 선택한다. 단일 severity 합산 규칙을 임의로 만들지 않는다.
+- 새 train 요청은 `detectionPolicy:{mode,deadlineMs,combination}`(v1) 필수. mode는 rule_only/ml_only/parallel, deadlineMs는 정수 100~30000, combination은 단일 모드 selected_path / 병렬 any_anomaly이다. 병렬 정책은 해당 구성에서 명시적으로 선택한다. 하드룰·소프트룰·ML 대분류의 v2 객체(`version:2`) 형식·검증·v1 구분은 [판정 구조 계약](detection-decision.md)을 따른다. 위험도는 판정 구조 계약의 위험도 정책(근거 방법 단계 중 최고값)으로만 계산하고, 점수·방법 수를 합산한 단일 severity를 만들지 않는다.
 - Rule 모드를 선택하면 고정 Rule 버전이 필요하다. ML 전용의 Rule 목록은 비어 있어야 한다. Rule 전용은 IF 산출물 없이 후보를 만들고 같은 공통 평가로 검증한다.
 - 추천 이후 동일 기간 조건의 rule/train은 snapshotId를 명시해 재사용할 수 있다. source·기간·ready 상태를 검증하며 재시도는 최초 job snapshot을 유지한다.
 - train의 IF P99는 기존 train 내부 보정이다. validation 임계값 선택으로 바뀐 것으로 표시하지 않는다. test를 반복 튜닝에 사용하지 않는다.
@@ -26,11 +26,11 @@ Collector 실시간성은 HTTP p50/p95/p99·오류율·빈 응답 비율·DB 저
 
 ## 판정·SSE·설명
 
-모드별 선택 경로만 실행한다. parallel은 Rule·ML을 각자 준비하고 실행하며 모델 부족이 raw Rule을 차단하지 않는다. deadline은 job 처리의 준비 시간을 포함한다. 완료 시각을 넘긴 계산 결과는 채택하지 않고 DB를 쓰지 않는다(중간 판정 기록 포함). 완료 시각 전에는 현재 시도가 lease를 가진 동안, 종합 결과가 처음 이상일 때와 이상 근거가 늘 때만 중간 판정 기록을 남길 수 있다. 중간 판정 기록은 최종 판정을 대신하지 않으며 설명·운영 보고·평가 대상이 아니다. 최종 판정은 작업당 1건으로, 선택 경로(v2는 활성 방법)가 모두 끝나거나 완료 시각에 도달한 시점의 결과다. 같은 시도의 최종 판정이 그 시도의 기록을 닫고, 이전 시도의 기록은 새 시도가 첫 이상 또는 최종을 기록할 때 '대체됨'으로, 작업이 판정 없이 실패하면 '최종 없음'으로 닫힌다. 완료/부분/미확인과 이상 여부는 별개다. 선택 경로 미완료 상태를 정상으로 바꾸지 않고, 확인된 Rule hit는 partial에서도 유지한다.
+모드별 선택 경로만 실행한다(`detectionPolicy` v1). parallel은 Rule·ML을 각자 준비하고 실행하며 모델 부족이 raw Rule을 차단하지 않는다. deadline은 job 처리의 준비 시간을 포함한다. 완료 시각을 넘긴 계산 결과는 채택하지 않고 DB를 쓰지 않는다(중간 판정 기록 포함). 최종 판정은 작업당 1건이고, 중간 판정 기록(첫 이상·근거 추가·대체됨·최종 없음)은 최종 판정을 대신하지 않으며 설명·운영 보고·평가 대상이 아니다. 완료/부분/미확인과 이상 여부는 별개다. 선택 경로(v2는 활성 방법) 미완료 상태를 정상으로 바꾸지 않고, 확인된 Rule hit는 partial에서도 유지한다. 최종 판정 시점·중간 판정 기록 규칙은 [판정 구조 계약](detection-decision.md) 13절(10/21 확정 의미를 옮긴 정본)을 따른다. v2 조합 규칙·이상/이상 징후 구분·위험도·evidence v4도 같은 계약이 정의한다.
 
-`GET /api/pipeline/decisions`는 저장 판정 조회, `/events`는 Bearer SSE다. Last-Event-ID/after cursor로 DB event를 순서대로 재전달한다. event 생성 TX는 순번/commit 순서를 직렬화해 늦은 작은 ID를 놓치지 않는다. API는 risk를 재계산해 확정 판정을 덮어쓰지 않는다. 토큰 만료/사용자 변경 시 stream을 닫는다. 기존 anomaly ingest의 데모 risk/SSE는 별도 계약으로 남아 있다.
+`GET /api/pipeline/decisions`는 저장 판정 조회, `/events`는 Bearer SSE다. Last-Event-ID/after cursor로 DB event를 순서대로 재전달한다. 기본은 최종 판정 이벤트만 `event: decision`(기존 필드 + `eventKind:"final"`)으로 보낸다. `?include=interims`를 주면 012 중간 판정 기록 이벤트(`eventKind` first_anomaly·evidence_added·superseded·no_final)도 같은 커서 순서로 `event: interim` `{eventId,eventKind,interimId,jobId,attemptNo,seq,evidenceVersion,sourceId,processObservationId,createdAt}`(payload 스냅샷 없음, `GET /api/analysis/decisions/:id/interims`로 읽음)로 보낸다. 그 밖의 `include` 값은 400 `invalid_event_include`(#105). event 생성 TX는 순번/commit 순서를 직렬화해 늦은 작은 ID를 놓치지 않는다. API는 risk를 재계산해 확정 판정을 덮어쓰지 않는다. 토큰 만료/사용자 변경 시 stream을 닫는다. 기존 anomaly ingest의 데모 risk/SSE는 별도 계약으로 남아 있다.
 
-설명은 요청 후 생성한다. saved evidence의 정확한 문자열/hash·모델·prompt·schema·재사용 key를 고정한다. 모델은 fact ID와 허용된 점검 항목만 선택하고 output을 검증한다. 확정 원인·SHAP·계산하지 않은 기여도는 제공하지 않는다. 일반 사용자 UI는 `/analysis/process-decisions`, 관리자 운영 UI는 `/detection/pipeline`이다.
+설명은 요청 후 생성한다. saved evidence의 정확한 문자열/hash·모델·prompt·schema·재사용 key를 고정한다. 모델은 fact ID와 허용된 점검 항목만 선택하고 output을 검증한다. 확정 원인·SHAP·계산하지 않은 기여도는 제공하지 않는다. 일반 사용자 UI는 이상 분석 판정 상세 `/analysis/d/:decisionId`(analysis-ui.md, #105 — 옛 `/analysis/process-decisions`는 `/analysis`로 넘김)다. 관리자 운영 UI(옛 `/detection/pipeline`)는 #100에서 옛 화면 폐지, 탐지 설정 화면에서 재연결 예정이다.
 
 `/api/pipeline/collector`, `/collector/metrics`는 관리자 조회이며 raw 토큰/원문 BODY를 반환하지 않는다. 자세한 배포·권한·검증 경계는 [Docker 문서](../infra/DOCKER_DEPLOYMENT.md)를 따른다.
 

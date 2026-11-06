@@ -3,6 +3,7 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { getDatabasePool } from '../config/database.js';
 import { authenticateToken, AuthenticatedRequest, requireAdmin } from '../middleware/auth.js';
 import { hasStatusRulePolicy } from '../services/statusRulePolicy.js';
+import { ConfigurationQueryError, parseConfigurationQuery, readConfiguration, readConfigurations } from '../services/configurationReadModel.js';
 
 const router = Router();
 router.use(authenticateToken as any);
@@ -21,6 +22,10 @@ function route(handler: (req: AuthenticatedRequest, res: Response) => Promise<vo
 function uuid(value: unknown): value is string {
   return typeof value === 'string' && UUID.test(value);
 }
+
+router.get('/', route(async (req, res) => {
+  res.json(await readConfigurations(getDatabasePool(), parseConfigurationQuery(req.query)));
+}));
 
 router.get('/active', route(async (_req, res) => {
   const result = await getDatabasePool().query(
@@ -45,14 +50,9 @@ router.get('/applications', requireAdmin as any, route(async (_req, res) => {
 
 router.get('/:id', route(async (req, res) => {
   if (!uuid(req.params.id)) throw new ConfigError('invalid_config_id');
-  const result = await getDatabasePool().query(
-    `SELECT id, source_id AS "sourceId", configuration_spec AS "configurationSpec",
-            content_hash AS "contentHash", created_at AS "createdAt"
-       FROM ml_config_versions WHERE id = $1`,
-    [req.params.id],
-  );
-  if (!result.rowCount) throw new ConfigError('config_not_found', 404);
-  res.json(result.rows[0]);
+  const version = await readConfiguration(getDatabasePool(), req.params.id);
+  if (!version) throw new ConfigError('config_not_found', 404);
+  res.json(version);
 }));
 
 router.post('/:id/applications', requireAdmin as any, route(async (req, res) => {
@@ -184,6 +184,10 @@ router.get('/applications/:id', route(async (req, res) => {
 router.use((error: unknown, _req: Request, res: Response, _next: NextFunction) => {
   if (error instanceof ConfigError) {
     res.status(error.status).json({ code: error.code });
+    return;
+  }
+  if (error instanceof ConfigurationQueryError) {
+    res.status(400).json({ code: error.code });
     return;
   }
   res.status(503).json({ code: 'configuration_storage_unavailable' });

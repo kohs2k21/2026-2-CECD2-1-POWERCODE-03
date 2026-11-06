@@ -8,6 +8,7 @@ import uuid
 from detector.artifacts import verified_artifact_path
 from telemetry import cost_family
 from trainer.metrics import measurement
+from trainer.model_version import read_schema_version
 from trainer.prepared_contract import digest
 from trainer.prepared_models import FORMAT_VERSION,check_evaluation_lineage,check_scaling_lineage,load,scores
 from trainer.prepared_reader import load_dataset
@@ -26,6 +27,7 @@ def _model(conn, spec, dataset, root):
         rows = cur.fetchall()
     if len(rows)!=1: raise ValueError('prepared_model_not_ready')
     row = rows[0]
+    read_schema_version(row[0])
     if row[1] != uuid.UUID(spec['sourceId']) or row[0].get('preparedInputContract') is None or row[6]!=FORMAT_VERSION or row[11]!=FORMAT_VERSION:
         raise ValueError('prepared_model_input_descriptor_unavailable')
     if row[0].get('detectionPolicy',{}).get('mode')!='ml_only' or row[0].get('ruleVersionIds'):

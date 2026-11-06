@@ -23,8 +23,6 @@ export type SeverityChannelConfig = {
 export type IntegrationMetaConfig = {
   description: string;
   icon: Icon;
-  iconBackground: string;
-  iconColor: string;
   title: string;
   titleLabel: string;
 };
@@ -121,23 +119,17 @@ export const integrationMeta = {
     titleLabel: "Slack Incoming Webhook",
     description: "Slack 알림 연동은 현재 서버에서 지원하지 않습니다.",
     icon: IconBrandSlack,
-    iconBackground: "#f4ede4",
-    iconColor: "#4A154B",
   },
   email: {
     title: "이메일 (SMTP) 연동",
     titleLabel: "SMTP 아웃바운드 서버",
     description: "이메일 알림 연동은 현재 서버에서 지원하지 않습니다.",
     icon: IconMail,
-    iconBackground: "var(--theme-soft, #e8f0ff)",
-    iconColor: "var(--theme-color, #2f6fed)",
   },
   webhook: {
     title: "커스텀 Webhook 연동",
     titleLabel: "Webhook (JSON POST)",
     description: "Webhook 연동은 현재 서버에서 지원하지 않습니다.",
     icon: IconWebhook,
-    iconBackground: "#eef2f6",
-    iconColor: "#3b82f6",
   },
 } satisfies Record<string, IntegrationMetaConfig>;

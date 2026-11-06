@@ -1,0 +1,431 @@
+{
+  "catalogVersion": "method-catalog-v2",
+  "generatedFrom": {
+    "gitRef": "7f24e03"
+  },
+  "categoryDisplayNames": {
+    "hard": "이상 규칙",
+    "soft": "이상 징후 규칙",
+    "ml": "머신러닝 모델"
+  },
+  "hardRules": {
+    "definedBy": "detection-decision.md",
+    "displayName": "이상 규칙",
+    "contractVersion": "detection-decision-v1",
+    "idPattern": "^hard:[a-z][a-z0-9_-]{1,63}$"
+  },
+  "softRule": {
+    "displayName": "이상 징후 규칙",
+    "instanceIdPattern": "^soft:[a-z][a-z0-9_]{1,53}-[0-9a-f]{8}$",
+    "operators": [
+      "gte",
+      "gt",
+      "lte",
+      "lt"
+    ],
+    "severities": [
+      "info",
+      "warning",
+      "critical"
+    ],
+    "maxRules": 32,
+    "thresholdSerialization": "fixed-decimal-string"
+  },
+  "softRuleFields": [
+    {
+      "fieldId": "total_count",
+      "displayName": "총 건수",
+      "valueType": "integer",
+      "unit": "count",
+      "source": {
+        "kind": "column",
+        "column": "TOTAL_COUNT",
+        "ruleDslField": "P.total_count"
+      },
+      "operators": [
+        "gte",
+        "gt",
+        "lte",
+        "lt"
+      ],
+      "displayPrecision": 0,
+      "status": "supported",
+      "sourceRef": {
+        "path": "server/worker/derived_expression.py",
+        "lines": "9-11",
+        "commit": "7f24e03"
+      }
+    },
+    {
+      "fieldId": "success_count",
+      "displayName": "성공 건수",
+      "valueType": "integer",
+      "unit": "count",
+      "source": {
+        "kind": "column",
+        "column": "SUCCESS_COUNT",
+        "ruleDslField": "P.success_count"
+      },
+      "operators": [
+        "gte",
+        "gt",
+        "lte",
+        "lt"
+      ],
+      "displayPrecision": 0,
+      "status": "supported",
+      "sourceRef": {
+        "path": "server/worker/derived_expression.py",
+        "lines": "9-11",
+        "commit": "7f24e03"
+      }
+    },
+    {
+      "fieldId": "error_count",
+      "displayName": "오류 건수",
+      "valueType": "integer",
+      "unit": "count",
+      "source": {
+        "kind": "column",
+        "column": "ERROR_COUNT",
+        "ruleDslField": "P.error_count"
+      },
+      "operators": [
+        "gte",
+        "gt",
+        "lte",
+        "lt"
+      ],
+      "displayPrecision": 0,
+      "status": "supported",
+      "sourceRef": {
+        "path": "server/worker/derived_expression.py",
+        "lines": "9-11",
+        "commit": "7f24e03"
+      }
+    },
+    {
+      "fieldId": "retry_count",
+      "displayName": "재시도 수",
+      "valueType": "integer",
+      "unit": "count",
+      "source": {
+        "kind": "column",
+        "column": "RETRY_COUNT",
+        "ruleDslField": "P.retry_count"
+      },
+      "operators": [
+        "gte",
+        "gt",
+        "lte",
+        "lt"
+      ],
+      "displayPrecision": 0,
+      "status": "supported",
+      "sourceRef": {
+        "path": "server/worker/derived_expression.py",
+        "lines": "9-11",
+        "commit": "7f24e03"
+      }
+    },
+    {
+      "fieldId": "elapsed_ms",
+      "displayName": "처리 시간",
+      "description": "END_TIME - START_TIME (ms)",
+      "valueType": "number",
+      "unit": "ms",
+      "source": {
+        "kind": "derived",
+        "ast": {
+          "op": "datetime_diff",
+          "unit": "ms",
+          "args": [
+            {
+              "op": "column",
+              "table": "EC_PROCESS_MONITORING",
+              "column": "END_TIME"
+            },
+            {
+              "op": "column",
+              "table": "EC_PROCESS_MONITORING",
+              "column": "START_TIME"
+            }
+          ]
+        }
+      },
+      "operators": [
+        "gte",
+        "gt",
+        "lte",
+        "lt"
+      ],
+      "displayPrecision": 0,
+      "displayPrecisionMode": "fixed",
+      "status": "supported",
+      "sourceMissingPolicy": {
+        "END_TIME": "not_applicable",
+        "START_TIME": "unavailable"
+      },
+      "sourceRef": {
+        "path": "server/worker/derived_expression.py",
+        "lines": "50-53, 89-94",
+        "commit": "7f24e03"
+      },
+      "notes": "END_TIME 누락은 값 null → 룰 평가 안 함(이상 아님, 11/02 9.4). START_TIME 누락·시각 파싱 실패 시 unavailable. 음수(START_TIME > END_TIME)는 하드룰 영역"
+    },
+    {
+      "fieldId": "error_ratio",
+      "displayName": "오류 비율",
+      "description": "ERROR_COUNT / TOTAL_COUNT",
+      "valueType": "number",
+      "unit": "ratio",
+      "source": {
+        "kind": "derived",
+        "ast": {
+          "op": "divide",
+          "args": [
+            {
+              "op": "column",
+              "table": "EC_PROCESS_MONITORING",
+              "column": "ERROR_COUNT"
+            },
+            {
+              "op": "column",
+              "table": "EC_PROCESS_MONITORING",
+              "column": "TOTAL_COUNT"
+            }
+          ]
+        }
+      },
+      "operators": [
+        "gte",
+        "gt",
+        "lte",
+        "lt"
+      ],
+      "displayPrecision": 4,
+      "displayPrecisionMode": "significant",
+      "status": "supported",
+      "sourceRef": {
+        "path": "server/worker/derived_expression.py",
+        "lines": "101-102",
+        "commit": "7f24e03"
+      },
+      "notes": "TOTAL_COUNT = 0 이면 unavailable. p95가 1e-4 미만일 수 있어 고정소수 직렬화 필수, 표시는 유효숫자 4"
+    }
+  ],
+  "methods": [
+    {
+      "methodId": "ml:iforest",
+      "kind": "ml",
+      "category": "ML",
+      "displayName": "Isolation Forest",
+      "status": "supported",
+      "methodVersion": "process-iforest-v1",
+      "uiTarget": {
+        "scope": "server",
+        "path": "server/worker/model_adapters.py",
+        "ref": "research/anomaly_detection/code/process_anomaly_pipeline/artifacts/process_if_v1.manifest.json"
+      },
+      "executable": {
+        "process": true,
+        "window": true
+      },
+      "runtime": {
+        "library": "scikit-learn",
+        "artifactFormat": "process-iforest-v1"
+      },
+      "parameterSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "n_estimators",
+          "max_samples",
+          "contamination",
+          "random_state",
+          "thresholdPolicy"
+        ],
+        "properties": {
+          "n_estimators": {
+            "type": "integer",
+            "minimum": 16,
+            "maximum": 1024
+          },
+          "max_samples": {
+            "type": "integer",
+            "minimum": 64,
+            "maximum": 4096
+          },
+          "contamination": {
+            "const": "auto"
+          },
+          "random_state": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "thresholdPolicy": {
+            "const": "train-internal-p99-v1"
+          }
+        }
+      },
+      "parameterSchemaStatus": "verified",
+      "defaults": {
+        "n_estimators": 128,
+        "max_samples": 512,
+        "contamination": "auto",
+        "random_state": 42,
+        "thresholdPolicy": "train-internal-p99-v1"
+      },
+      "defaultsSource": "server/worker/methods/registry.py IFOREST_DEFAULTS (= 7f24e03 server/worker/model_adapters.py:121-127)",
+      "inputRequirements": {
+        "unit": "process_row",
+        "featureSet": "required",
+        "numericOnly": true,
+        "maxFeatures": 32,
+        "minTrainRows": 600,
+        "fitOperations": [
+          "group_median",
+          "group_centered"
+        ]
+      },
+      "sourceRef": {
+        "path": "server/worker/model_adapters.py",
+        "lines": "89-127",
+        "commit": "7f24e03"
+      },
+      "canDisable": true
+    },
+    {
+      "methodId": "ml:minibatch_kmeans",
+      "kind": "ml",
+      "category": "ML",
+      "displayName": "MiniBatch K-Means",
+      "status": "research",
+      "methodVersion": "research-minibatch-kmeans-v8",
+      "uiTarget": {
+        "scope": "research",
+        "path": "research/anomaly_detection/code/analysis/minibatch_kmeans_common.py"
+      },
+      "executable": {
+        "process": false,
+        "window": true
+      },
+      "executableReason": {
+        "process": "server_adapter_missing"
+      },
+      "runtime": {
+        "library": "scikit-learn"
+      },
+      "parameterSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "k": {
+            "type": "integer",
+            "minimum": 2,
+            "maximum": 64
+          },
+          "batch_size": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "max_iter": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "n_init": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "random_state": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "quantile": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          }
+        }
+      },
+      "parameterSchemaStatus": "research_declared",
+      "defaults": {
+        "k": 6,
+        "batch_size": 2048,
+        "max_iter": 100,
+        "n_init": 5,
+        "random_state": 42,
+        "quantile": 0.99
+      },
+      "defaultsSource": "research/anomaly_detection/code/analysis/minibatch_kmeans_common.py:35-46",
+      "inputRequirements": {
+        "unit": "process_row",
+        "featureSet": "required",
+        "numericOnly": true
+      },
+      "sourceRef": {
+        "path": "research/anomaly_detection/code/analysis/minibatch_kmeans_common.py",
+        "lines": "35-46",
+        "commit": "7f24e03"
+      },
+      "canDisable": true,
+      "notes": "PROCESS 경로 피처 정의는 연구 인코더 기준, 서버 피처셋 호환 미확인(N13)"
+    },
+    {
+      "methodId": "ml:eif",
+      "kind": "ml",
+      "category": "ML",
+      "displayName": "Extended Isolation Forest",
+      "status": "research",
+      "methodVersion": "research-eif-long-term-trend",
+      "uiTarget": {
+        "scope": "research",
+        "path": "research/evaluation/long_term_trend/models.py"
+      },
+      "executable": {
+        "process": false,
+        "window": false
+      },
+      "executableReason": {
+        "process": "research_only",
+        "window": "research_only"
+      },
+      "runtime": {
+        "library": "research-bundle"
+      },
+      "parameterSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "ntrees": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "sample_size": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "extension_level": {
+            "const": "dimension-1"
+          }
+        }
+      },
+      "parameterSchemaStatus": "research_declared",
+      "defaults": {
+        "ntrees": 128,
+        "sample_size": 256
+      },
+      "defaultsSource": "research/evaluation/if_feature_comparison/models.py:19",
+      "inputRequirements": {
+        "unit": "aggregated_window",
+        "featureSet": "not_required"
+      },
+      "sourceRef": {
+        "path": "research/evaluation/long_term_trend/models.py",
+        "lines": "56-58",
+        "commit": "7f24e03"
+      },
+      "canDisable": true
+    }
+  ]
+}

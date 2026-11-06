@@ -2,9 +2,9 @@ import { useEffect, useRef, useState } from "react";
 import {
   AnomalyStreamError,
   consumeAnomalyStream,
-} from "../../../services/api/anomaly-stream.api";
-import { getStoredToken } from "../../../services/auth/session";
-import type { RealtimeAnomalyEvent } from "../../../types/realtime";
+} from "@/services/api/anomaly-stream.api";
+import { getStoredToken } from "@/services/auth/session";
+import type { RealtimeAnomalyEvent } from "@/types/realtime";
 
 export type RealtimeStreamStatus =
   "idle" | "connecting" | "open" | "retrying" | "closed" | "error";

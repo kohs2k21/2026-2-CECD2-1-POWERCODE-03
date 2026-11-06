@@ -1,15 +1,23 @@
 /** Versioned Trainer discovery; capabilities are not training/evaluation results. */
 import { validateFeatureExpression } from './trainerFeatureValidation.js';
+import { METHOD_CATALOG, ML_METHODS, modelKeyOf } from '../ruleset/methodCatalog.js';
 import { SYNTHETIC_PROFILES, SYNTHETIC_CATALOG_VERSION, staticSpecHash } from './syntheticEvaluationContract.js';
 export const TRAINER_CONTRACT = 'trainer-service-v1';
 export const EVALUATION_FAMILIES = ['rule_ml', 'synthetic', 'execution_cost', 'operational'] as const;
+/**
+ * 학습 제외 구간은 Trainer가 아직 적용하지 않는다(trainer-service.md 변경 제안, #113 하위). 받아 두면 제외되지 않은 채 학습이 성공하므로 지원 전에는 접수하지 않는다.
+ * 지원되면 이 값만 바꾼다(접수·capabilities·화면이 함께 풀린다). 학습 기간 기준은 아래 `snapshot.timeBasis` 하나만 지원한다.
+ */
+export const TRAINING_EXCLUSION_SUPPORTED = false as boolean;
 export const TRAINER_CAPABILITIES = {
   contractVersion: TRAINER_CONTRACT,
-  models: [{ key: 'iforest', displayName: 'Isolation Forest', supported: true }],
+  methodCatalog: METHOD_CATALOG,
+  models: ML_METHODS.map(method => ({ key: modelKeyOf(method), displayName: method.displayName, supported: method.executable.process })),
   evaluationFamilies: EVALUATION_FAMILIES,
   fittedFeatures: { operations: ['group_median', 'group_centered'], groupBy: ['P.adapter_type'],
     unknownGroup: 'missing', fitSplit: 'train' },
   snapshot: { timeBasis: 'persisted_at', splitVersion: 'execution-block-v1' },
+  training: { excludedIntervals: TRAINING_EXCLUSION_SUPPORTED },
   syntheticProfiles: { catalogVersion: SYNTHETIC_CATALOG_VERSION,
     limits: { seedMax: 2147483647, targetRowsMax: 100, repetitionsMax: 5, scenariosMax: 4, attemptsMax: 20 },
     items: Object.values(SYNTHETIC_PROFILES).map(profile => ({ ...profile, staticSpecHash: staticSpecHash(profile),

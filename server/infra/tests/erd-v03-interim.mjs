@@ -183,7 +183,7 @@ END $$`],
 ['S3b', `DO $$ DECLARE j jsonb; att jsonb; BEGIN
  j := t.ins('run_jobs', jsonb_build_object('kind','train','status','queued','requested_by_actor_id','admin1','requester_role','admin','max_attempts',3,'attempt_count',0,'idempotency_key',gen_random_uuid()::text));
  att := t.attempt((j->>'id')::uuid, 1);
- PERFORM t.expect_error('S3b legacy train job', format($q$SELECT t.interim(%L, %L::jsonb, 'first_anomaly')$q$, j->>'id', att), 'v03 detect');
+ PERFORM t.expect_error('S3b legacy train job', format($q$SELECT t.interim(%L, %L::jsonb, 'first_anomaly')$q$, j->>'id', att), 'v03 or v04 detect');
 END $$`],
 ['S4', `DO $$ DECLARE info jsonb := t.mkjob(); job uuid := (info->>'job')::uuid; a1 jsonb; a2 jsonb; BEGIN
  a1 := t.attempt(job, 1);
@@ -550,13 +550,20 @@ END $$`;
 
 // Y7A2: fake run_jobs/run_job_attempts make the OLD attempt look current so 004 accepts its decision; the 012 supersede
 // trigger (owner context, pinned search_path) must refuse to close the newer attempt's chain, rolling back the decision.
+// Invariant: the forged OLD-attempt decision is refused. Since 013 (#82) pins 004 erd_v03_validate_result, 004 itself refuses
+// first ("result requires current owner …"); either refusal passes and the PASS line records which layer refused.
+// The 012 layer alone is asserted exactly in erd_interim_y7a2_012 (001-012 only, 004 still unpinned there).
 const y7a2Prelude = `SET search_path = pg_temp, public;
 CREATE TEMP TABLE run_jobs AS SELECT j.id, j.contract_version, j.kind, 'running'::job_status AS status, (SELECT (s->'a1'->>'id')::uuid FROM t.y7 WHERE name='y7a2') AS current_attempt_id, j.input_manifest_id, j.input_config_version_id
   FROM public.run_jobs j WHERE j.id = (SELECT (s->>'job')::uuid FROM t.y7 WHERE name='y7a2');
 CREATE TEMP TABLE run_job_attempts AS SELECT id, job_id, attempt_no, 'running'::text AS status, lease_token, clock_timestamp() + interval '1 hour' AS lease_until
   FROM public.run_job_attempts WHERE job_id = (SELECT (s->>'job')::uuid FROM t.y7 WHERE name='y7a2');`;
-const y7a2Attack = `DO $d$ BEGIN PERFORM t.expect_error('Y7A2 forged decision by OLD attempt (004 shadowed) cannot supersede newer chain',
-  (SELECT t.dec_sql(s,'a1') FROM t.y7 WHERE name='y7a2'), 'newer current attempt'); END $d$`;
+const y7a2Expect = (label, pattern) => `DO $d$ BEGIN PERFORM t.expect_error('${label}',
+  (SELECT t.dec_sql(s,'a1') FROM t.y7 WHERE name='y7a2'), '${pattern}'); END $d$`;
+const y7a2Attack = y7a2Expect('Y7A2 forged decision by OLD attempt cannot supersede newer chain (004 pinned by 013 or 012 refuses)',
+  'newer current attempt|result requires current owner and unexpired lease');
+const y7a2Attack012 = y7a2Expect('Y7A2 on 001-012 only: 004 shadowed, 012 supersede trigger refuses the forged OLD-attempt decision',
+  'superseded requires first_anomaly or decision of a newer current attempt');
 // YP + #78-Q11: Detector login reverts a failed job to running (its UPDATE grants) and inserts a decision.
 const ypAttack = `UPDATE run_jobs SET status='failed', error_code='detection_processing_failed' WHERE id=(SELECT (s->>'job')::uuid FROM t.y7 WHERE name='yp');
 UPDATE run_jobs SET status='running', error_code=NULL WHERE id=(SELECT (s->>'job')::uuid FROM t.y7 WHERE name='yp');
@@ -690,7 +697,7 @@ export async function interim012({ Client, port, connection, check, failures, mi
       if (before.length===1 && before[0].is_current_user && Number(before[0].objects)===4) check('README owner check before 012: applying role owns the 4 existing tables');
       else fail('README owner check before 012', JSON.stringify(before));
       for (let i=idx012; i<migrations.length; i++) await c.query(migrations[i]);
-      check(`erd_interim_upgrade: 001 through 011 + existing rows, then ${migrationNames[idx012]} apply`);
+      check(`erd_interim_upgrade: 001 through 011 + existing rows, then ${migrationNames.slice(idx012).join(', ')} apply`);
       for (const [label, sql] of upgradeChecks) await step(c, `erd_interim_upgrade ${label}`, sql);
       await runScenarios(c, 'erd_interim_upgrade');
       await parity(c);
@@ -766,15 +773,17 @@ export async function interim012({ Client, port, connection, check, failures, mi
     await step(o, 'forgery/R5/G3 checks', forgeryChecks);
     for (const [label, prelude, sql] of shadowAttacks) await asLogin(db, detector, label, prelude, sql);
     await step(o, 'Y1/Y2/Y5/Y6 state checks', shadowChecks);
-    // Y7 (004 defect, information only): expired attempt's decision through a fake run_job_attempts.
+    // Y7 (004 defect fixed by 013, #82): expired attempt's decision through a fake run_job_attempts must be refused by 004.
     {
       const a = await open(db, detector.user, detector.password);
       try {
         await a.query(`CREATE TEMP TABLE run_job_attempts AS SELECT id, job_id, attempt_no, status, lease_token, clock_timestamp() + interval '1 hour' AS lease_until
           FROM public.run_job_attempts WHERE id = (SELECT (s->'a1'->>'id')::uuid FROM t.y WHERE name='y7')`);
         const sql = (await a.query(`SELECT t.dec_sql(s,'a1') AS q FROM t.y WHERE name='y7'`)).rows[0].q;
-        let outcome; try { await a.query(sql); outcome = 'accepted'; } catch (e) { outcome = `rejected (${e.message})`; }
-        console.log(`INFO Y7 (existing 004 defect, outside 012) with TEMP granted: expired-lease decision ${outcome}`);
+        let error = null; try { await a.query(sql); } catch (e) { error = e; }
+        if (error?.code === 'P0001' && /result requires current owner and unexpired lease/.test(error.message)) {
+          check(`Y7 with TEMP granted: 004 refuses the expired-lease decision after 013 (${error.message})`);
+        } else fail('Y7 expired-lease decision after 013', error ? `${error.code} ${error.message}` : 'accepted');
       } finally { await a.end(); }
     }
     await asLogin(db, detector, 'Y7A2', y7a2Prelude, y7a2Attack);
@@ -809,6 +818,27 @@ export async function interim012({ Client, port, connection, check, failures, mi
         t.events((SELECT (s->>'job')::uuid FROM t.b WHERE name='own')) = 'first_anomaly:a1#1 > no_final:a1#2'); END $$`);
     await su.query(`DROP OPERATOR public.<> (job_status, job_status); DROP FUNCTION public.zz_ne(job_status, job_status); DROP TABLE public.zz_log;
       DROP FUNCTION IF EXISTS public.zz_backdoor(text); REVOKE SELECT ON t.b FROM ${planter.user}`);
+
+    // Y7A2 on 001-012 only (before 013 pins 004): the 012 supersede trigger is the layer that refuses; exact message asserted.
+    {
+      const db012 = 'erd_interim_y7a2_012';
+      await admin.query(`CREATE DATABASE ${db012} OWNER ${owner.user}`);
+      const o2 = await open(db012, owner.user, owner.password);
+      const su2 = await open(db012);
+      try {
+        for (const sql of migrations.slice(0, idx012 + 1)) await o2.query(sql);
+        await o2.query(helpersSql);
+        // 014/015 grants name tables this 001-012 database lacks, so they are cut. The TEMP revoke stays in the script, but this test
+        // re-grants TEMP right below and checks nothing about it; G4 above checks the revoke itself.
+        await su2.query(rolesSql.replace(/^-- 014:[\s\S]*?(?=^-- #78-Q10)/m, ''));
+        await o2.query(attackSetup);
+        await o2.query(`GRANT TEMPORARY ON DATABASE ${db012} TO PUBLIC`);
+        await asLogin(db012, detector, 'Y7A2 001-012 only', y7a2Prelude, y7a2Attack012);
+        await step(o2, 'Y7A2 001-012 only state check', `DO $$ DECLARE j uuid := (SELECT (s->>'job')::uuid FROM t.y7 WHERE name='y7a2'); BEGIN
+          PERFORM t.ok('Y7A2 001-012 only state unchanged: ' || t.events(j), t.events(j) = (SELECT events FROM t.y7_before WHERE name='y7a2')
+            AND NOT EXISTS (SELECT 1 FROM run_process_decisions WHERE job_id=j)); END $$`);
+      } finally { await o2.end(); await su2.end(); }
+    }
 
     // Final configuration: database-roles.sql re-applied (TEMP revoked again), then the README threat-model query.
     // README step 3: run by a role that is neither DB owner nor superuser, the REVOKE is only a WARNING and TEMP stays.

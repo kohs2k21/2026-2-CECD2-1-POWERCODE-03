@@ -18,10 +18,15 @@ import sklearn
 from sklearn.ensemble import IsolationForest
 from sklearn.preprocessing import RobustScaler
 
+from methods.registry import iforest_parameters
+
 
 FORMAT_VERSION = "process-iforest-v1"
 MIN_FIT_ROWS = 500
 MIN_THRESHOLD_ROWS = 100
+# fit/판정선 분할용 셔플 시드. 모델 파라미터(`random_state`)와 별개의 고정값이며 카탈로그 파라미터가 아니다.
+SPLIT_SHUFFLE_SEED = 42
+THRESHOLD_QUANTILE = .99  # thresholdPolicy `train-internal-p99-v1`
 NUMERIC_FIELDS = ("success_count", "error_count", "total_count", "retry_count")
 
 
@@ -67,6 +72,18 @@ def recommend_rules(rows: Sequence[Mapping[str, Any]], feature_set_id: str,
         raise ModelNotConfigured(str(exc)) from exc
 
 
+def recommend_thresholds(plan: Any, rows: Sequence[Any], snapshot_id: Any, time_basis: str | None) -> dict[str, Any]:
+    """코드 p95에 Rule v2 상태·근거를 붙인다. 생성 서비스 장애는 부분 결과 없이 작업 실패다."""
+    from generation_client import GenerationUnavailable
+    from threshold_recommendation import recommend
+    if not os.environ.get("RESEARCH_BUNDLE_ROOT"):
+        raise ModelNotConfigured("research_rule_context_not_configured")
+    try:
+        return recommend(plan, rows, snapshot_id, time_basis)
+    except GenerationUnavailable as exc:
+        raise ModelNotConfigured(str(exc)) from exc
+
+
 def _finite_number(value: Any) -> float | None:
     if value is None or isinstance(value, bool):
         return None
@@ -87,8 +104,14 @@ def _vector(features: Mapping[str, Any], names: Sequence[str]) -> list[float]:
 
 
 def train_iforest(rows: Sequence[Mapping[str, Any]], feature_names: Sequence[str],
-                  output_directory: str, *, preprocessing: dict | None = None) -> dict[str, Any]:
-    """Train 분할 안의 별도 기준 행으로 P99 판정선을 보정한다."""
+                  output_directory: str, *, preprocessing: dict | None = None,
+                  parameters: Mapping[str, Any] | None = None) -> dict[str, Any]:
+    """Train 분할 안의 별도 기준 행으로 P99 판정선을 보정한다.
+
+    `parameters`는 카탈로그 `ml:iforest` 스키마로 검증되며 미지정 키는 레지스트리 기본값
+    (128/512/auto/42)을 쓴다 — 기본값 호출은 파라미터화 이전과 같은 모델·점수를 낸다.
+    """
+    settings = iforest_parameters(parameters)
     names = list(feature_names)
     if not names or len(names) > 32 or len(set(names)) != len(names) or not all(
         isinstance(name, str) and name for name in names
@@ -109,7 +132,7 @@ def train_iforest(rows: Sequence[Mapping[str, Any]], feature_names: Sequence[str
     if not np.isfinite(values).all():
         raise ValueError("invalid_training_values")
     # _snapshot_rows는 UUID 정렬이므로 고정 시드로 섞어 서로 겹치지 않는 집합을 만든다.
-    shuffled = values[np.random.default_rng(42).permutation(len(values))]
+    shuffled = values[np.random.default_rng(SPLIT_SHUFFLE_SEED).permutation(len(values))]
     threshold_count = max(MIN_THRESHOLD_ROWS, math.ceil(len(shuffled) * .2))
     fit_rows, threshold_rows = shuffled[:-threshold_count], shuffled[-threshold_count:]
     if len(fit_rows) < MIN_FIT_ROWS:
@@ -119,12 +142,12 @@ def train_iforest(rows: Sequence[Mapping[str, Any]], feature_names: Sequence[str
     scaler = RobustScaler().fit(fit_rows)
     fit_values = scaler.transform(fit_rows)
     forest = IsolationForest(
-        n_estimators=128, max_samples=min(512, len(fit_values)),
-        contamination="auto", max_features=1.0, bootstrap=False,
-        random_state=42, n_jobs=2,
+        n_estimators=settings["n_estimators"], max_samples=min(settings["max_samples"], len(fit_values)),
+        contamination=settings["contamination"], max_features=1.0, bootstrap=False,
+        random_state=settings["random_state"], n_jobs=2,
     ).fit(fit_values)
     threshold_scores = -forest.score_samples(scaler.transform(threshold_rows))
-    boundary = float(np.quantile(threshold_scores, .99))
+    boundary = float(np.quantile(threshold_scores, THRESHOLD_QUANTILE))
     if not math.isfinite(boundary):
         raise ValueError("invalid_model_threshold")
     directory = Path(output_directory)
@@ -140,8 +163,9 @@ def train_iforest(rows: Sequence[Mapping[str, Any]], feature_names: Sequence[str
     joblib.dump({**metadata, "scaler": scaler, **({'preprocessing': preprocessing} if preprocessing is not None else {})}, fit_path)
     return {"modelPath": str(model_path), "fitPath": str(fit_path),
             "formatVersion": FORMAT_VERSION, "runtimeVersion": sklearn.__version__,
+            "parameters": dict(settings),
             "thresholdSpec": {"direction": "higher_is_anomaly", "value": str(boundary),
-                              "quantile": .99, "referenceCount": len(threshold_rows)}}
+                              "quantile": THRESHOLD_QUANTILE, "referenceCount": len(threshold_rows)}}
 
 
 @lru_cache(maxsize=4)

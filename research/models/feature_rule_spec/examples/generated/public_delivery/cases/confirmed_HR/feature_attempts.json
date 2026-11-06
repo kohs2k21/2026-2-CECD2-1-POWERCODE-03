@@ -1,0 +1,63 @@
+[
+  {
+    "attempt": 0,
+    "prediction": {
+      "schema": "feature5.2",
+      "candidates": [
+        {
+          "proposal_id": "local",
+          "plan": {
+            "expression": {
+              "op": "is_missing",
+              "args": [
+                {
+                  "op": "column",
+                  "table": "CASE_LOG",
+                  "column": "A"
+                }
+              ]
+            },
+            "grain": {
+              "table": "CASE_LOG",
+              "keys": [
+                "ROW_ID"
+              ]
+            },
+            "population": {
+              "table": "CASE_LOG",
+              "filter": null
+            },
+            "group_by": [],
+            "result_use": "value"
+          },
+          "purpose": "Test whether CASE_LOG.A is missing.",
+          "meaning": "For each CASE_LOG row, return true if A is missing, false if A is available.",
+          "needed_evidence": []
+        }
+      ],
+      "stop_reason": null
+    },
+    "passed": true,
+    "errors": [],
+    "actual_model_origin": {
+      "file": "model/feature_0/output.json",
+      "raw_sha": "6b15772f2487f6bf05318fe5b0f22eee489b0d572e7a8795d8303272d18483b1",
+      "parsed_sha": "eae0f2969cb5d3bc2964ca5ebb1f8bb7da9038db0c745cb7677bbfb901e67a64",
+      "messages_sha": "fabc38b0efc32fe46343156a67e5e5acd1f550c3157df2fc9cae4b416c730ea7",
+      "budget": {
+        "sequence": 1,
+        "kind": "feature",
+        "call": "feature_0",
+        "phase": "frozen_final_final_public_delivery_confirmed_HR",
+        "at": 1793097818.8387613,
+        "failed_or_interrupted_calls_consume_budget": true,
+        "shared_sequence": 105
+      }
+    },
+    "partial_Model_prose_fields": null,
+    "partial_Model_expression_and_prose": false,
+    "partial_stop_reason": false,
+    "assembly_over_preserved_candidate": false,
+    "not_code_authored_answer": true
+  }
+]

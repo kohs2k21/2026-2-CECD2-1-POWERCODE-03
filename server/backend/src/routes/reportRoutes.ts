@@ -6,11 +6,13 @@ import { parseReportFilter, parseCandidateFilter, reportParameters, ReportReques
   DETECTOR_COST_SQL, DETECTOR_COST_KEYS, COST_KEYS, COHORT_SUMMARY_SQL, BACKLOG_SQL, BACKLOG_AT_CUTOFF_SQL, costReport, dailyReport,
   measurement } from '../services/operationalReport.js';
 import {JOB_COST_SQL,JOB_COST_SUMMARY_SQL} from '../services/executionCostReport.js';
+import {VolumeRangeError,parseVolumeFilter,readVolume} from '../services/volumeReport.js';
 
 function route(handler: (req: Request, res: Response) => Promise<void>) {
   return (req: Request, res: Response, next: NextFunction) => {
     void handler(req, res).catch(error => {
       if (error instanceof ReportRequestError) res.status(400).json({code: error.code});
+      else if (error instanceof VolumeRangeError) res.status(400).json({code: error.message,bucket: error.bucket,maxDays: error.maxDays});
       else next(error);
     });
   };
@@ -24,7 +26,10 @@ export function createReportRouter(database: () => Pick<Pool, 'connect'> = getDa
     const client = await database().connect();
     try {
       await client.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY');
-      const refs = await client.query(`SELECT c.id FROM ml_config_versions c WHERE c.id=$2 AND c.source_id=$1`, parameters.slice(0,2));
+      // 구성을 생략하면 원천만 확인한다. 구성이 하나도 없는 원천(룰만 운영)도 보고할 수 있다.
+      const refs = filter.configVersionId
+        ? await client.query(`SELECT c.id FROM ml_config_versions c WHERE c.id=$2 AND c.source_id=$1`, parameters.slice(0,2))
+        : await client.query('SELECT id FROM ops_sources WHERE id=$1', parameters.slice(0,1));
       if (!refs.rowCount) { await client.query('ROLLBACK'); res.status(404).json({code:'source_configuration_not_found'}); return; }
       const zone = await client.query('SELECT 1 FROM pg_timezone_names WHERE name=$1', [filter.timezone]);
       if (!zone.rowCount) throw new ReportRequestError('invalid_report_timezone');
@@ -41,7 +46,7 @@ export function createReportRouter(database: () => Pick<Pool, 'connect'> = getDa
       res.json({metricVersion:'operational-v1',reportScope:filter.scope,filter,
         generatedAt:generated.rows[0].generatedAt,cutoff:filter.until,
         policy:{identity:'source/execution_id',revision:'latest_persisted_revision_at_cutoff',
-          decision:'latest_same_config_on_selected_revision_before_cutoff',cohort:'decided_at_in_half_open_period',
+          decision:filter.configVersionId ? 'latest_same_config_on_selected_revision_before_cutoff' : 'latest_any_config_on_selected_revision_before_cutoff',cohort:'decided_at_in_half_open_period',
           day:'decided_at_in_report_timezone',pending:'latest_revision_without_decision; persisted_at_in_period',
           sourceClock:'unverified; source timestamps not used for report buckets',
           crossTab:'both_checker_status_succeeded_and_boolean; descriptive_not_accuracy'},
@@ -72,7 +77,7 @@ export function createReportRouter(database: () => Pick<Pool, 'connect'> = getDa
   router.get('/execution-cost', route(async (req, res) => {
     if (req.query.scope !== 'offline') throw new ReportRequestError('invalid_report_scope');
     if (req.query.limit !== undefined || req.query.offset !== undefined) throw new ReportRequestError('unknown_report_filter');
-    const filter = parseReportFilter({...req.query,scope:'live'});
+    const filter = parseReportFilter({...req.query,scope:'live'},{requireConfig:true});
     const parameters = reportParameters(filter).slice(0,4), client = await database().connect();
     try {
       await client.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY');
@@ -93,6 +98,11 @@ export function createReportRouter(database: () => Pick<Pool, 'connect'> = getDa
             conditions:summary?.conditions ?? [],metrics:costReport(costs.rows.filter(row=>row.kind===kind),total,keys)};
         })});
     } catch(error) {await client.query('ROLLBACK');throw error;} finally {client.release();}
+  }));
+  router.get('/volume', route(async (req, res) => {
+    const volume = await readVolume(database, parseVolumeFilter(req.query));
+    if (!volume) {res.status(404).json({code:'source_not_found'});return;}
+    res.json(volume);
   }));
   router.get('/candidates', route(async (req, res) => {
     const filter = parseCandidateFilter(req.query);

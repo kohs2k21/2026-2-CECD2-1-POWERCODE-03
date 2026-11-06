@@ -8,6 +8,7 @@ import json
 import logging
 import math
 import os
+import re
 import time
 import uuid
 from pathlib import Path
@@ -22,21 +23,36 @@ from feature_fit import requires_fit, fit_features, transform, definitions_hash
 from detector.artifacts import verified_artifact_path
 from detector.rules import evaluate_rules
 from feature_worker import materialize_set
+from methods.registry import resolve_training_method
 from pg_queue import ClaimedMessage, acknowledge, claim, fail, _table, reconcile_dead_jobs
 from trainer.catalog import register_feature_set
 from trainer.rule_candidates import validate_suggestions
 from trainer.lease import TrainingLeaseHeartbeat, lock_training_ownership
+from trainer.model_version import (SCHEMA_VERSION, build_spec, check_training_scope, content_hash as model_version_hash,
+                                   is_model_version_request, read_model_key, read_schema_version, training_period)
+from trainer.operational_state import read_operational_state
 from trainer.snapshot import build_snapshot
 from trainer.selection import select_training
 from trainer.workspace import cleanup_orphan_workspaces, training_workspace
 from detector.status_rule import default_policy
 from telemetry import cost_family, queue_wait_ms
+from threshold_recommendation import all_rejected, parse_job
 
 SAFE_MODEL_FIELDS = frozenset({
     "success_count", "error_count", "total_count", "retry_count", "status",
     "response_code", "adapter_type", "channel_id", "process_hub_id", "process_id",
     "start_time_raw", "end_time_raw",
 })
+# 판정 정책 deadlineMs 상한(detection-decision.md). v3 평가 예열 행에만 쓴다.
+WARMUP_DEADLINE_MS = 30000
+# 종료 오류 코드 허용 형식: 코드 또는 코드:식별자(예 method_not_executable:ml:eif — 계약의 오류 형식).
+# 그 외 ValueError 문구는 노출하지 않고 invalid_job_input으로 바꾼다.
+_ERROR_CODE_PATTERN = re.compile(r'[a-z][a-z0-9_]{0,99}(?::[a-z][a-z0-9_:-]{0,99})?')
+
+
+def _terminal_error_code(exc: BaseException) -> str:
+    text = str(exc)
+    return text if _ERROR_CODE_PATTERN.fullmatch(text) else 'invalid_job_input'
 
 
 def _claim_job(conn: Any, message: ClaimedMessage, worker_id: str) -> tuple[dict[str, Any], uuid.UUID, uuid.UUID] | None:
@@ -59,7 +75,7 @@ def _claim_job(conn: Any, message: ClaimedMessage, worker_id: str) -> tuple[dict
                 AND lease_token=%s AND lease_until>clock_timestamp() FOR UPDATE""", (message.id,message.lease_token))
             if cur.fetchone() is None:
                 raise RuntimeError("job_queue_ownership_lost")
-            if row[1] in ("recommend_feature", "recommend_rule", "train", "evaluate", "import_csv") and row[8] != "admin":
+            if row[1] in ("recommend_feature", "recommend_rule", "recommend_thresholds", "train", "evaluate", "import_csv") and row[8] != "admin":
                 raise ValueError("job_role_not_authorized")
             if row[2] in ("succeeded", "failed"):
                 if not acknowledge(conn, message.queue, message):
@@ -242,24 +258,42 @@ def _execute(conn: Any, job: dict[str, Any], attempt_id: uuid.UUID,
         from trainer.prepared_execution import maybe_execute
         prepared_result = maybe_execute(conn,job,artifact_root,message,attempt_id,attempt_token)
         if prepared_result is not None: return prepared_result
+    training_method = training_parameters = operational = None
+    model_version_request = kind == 'train' and is_model_version_request(spec)
     if kind == 'train':
-        if spec.get('modelKey', 'iforest') != 'iforest':
-            raise ValueError('unsupported_model')
+        # 카탈로그 기준 검증: 미등록 키 unsupported_model / 실행 불가 method_not_executable:<id> /
+        # parameters 위반 method_parameters_invalid:<id>. modelKey·parameters 부재(v1·v2 요청)는 IF 기본값.
+        training_method, training_parameters = resolve_training_method(spec)
         if spec.get('detectionPolicy', {}).get('mode') == 'rule_only' and 'modelKey' in spec:
             raise ValueError('model_not_selected')
+        check_training_scope(spec)
+        if model_version_request:
+            # 시도 시작에 고정한다. 읽을 수 없으면 긴 학습을 돌리기 전에 멈춘다.
+            operational = read_operational_state(conn)
+            conn.commit()
     if kind == "explain":
         from explanation import explain
         return explain(job)
     if kind == "evaluate":
         return _evaluate(conn, job, artifact_root, message, attempt_id, attempt_token)
+    # 임계값 추천은 스냅샷을 만들기 전에 모드·대상을 확정하고, 기간 키는 `data` 아래에 있다.
+    threshold_plan = parse_job(spec, job.get("llmSpec")) if kind == "recommend_thresholds" else None
+    period = spec["data"] if threshold_plan else spec
     source_id = uuid.UUID(spec["sourceId"])
     with conn.cursor() as cur:
         cur.execute("SELECT snapshot_id FROM run_job_snapshots WHERE job_id=%s", (job["id"],))
         fixed_snapshot = cur.fetchone()
-    if fixed_snapshot is None and spec.get("snapshotId"):
+    if fixed_snapshot is None and period.get("snapshotId"):
         with conn.cursor() as cur:
-            cur.execute("""SELECT id FROM data_snapshots WHERE id=%s AND source_id=%s AND status='ready'
-                AND (selection_spec->>'from')::timestamptz=%s::timestamptz AND (selection_spec->>'until')::timestamptz=%s::timestamptz""", (spec["snapshotId"],source_id,spec["from"],spec["until"]))
+            if threshold_plan:
+                # 계약은 snapshotId만 보내는 요청을 허용한다. 기간을 함께 보내면 일치해야 한다.
+                cur.execute("""SELECT id FROM data_snapshots WHERE id=%s AND source_id=%s AND status='ready' AND schema_version='process-v1'
+                    AND (%s::timestamptz IS NULL OR (selection_spec->>'from')::timestamptz=%s::timestamptz)
+                    AND (%s::timestamptz IS NULL OR (selection_spec->>'until')::timestamptz=%s::timestamptz)""",
+                    (period["snapshotId"],source_id,period.get("from"),period.get("from"),period.get("until"),period.get("until")))
+            else:
+                cur.execute("""SELECT id FROM data_snapshots WHERE id=%s AND source_id=%s AND status='ready'
+                    AND (selection_spec->>'from')::timestamptz=%s::timestamptz AND (selection_spec->>'until')::timestamptz=%s::timestamptz""", (spec["snapshotId"],source_id,spec["from"],spec["until"]))
             fixed_snapshot = cur.fetchone()
         if fixed_snapshot is None:
             raise ValueError("snapshot_conditions_mismatch")
@@ -278,8 +312,13 @@ def _execute(conn: Any, job: dict[str, Any], attempt_id: uuid.UUID,
             manifest = cur.fetchone()[0]
         snapshot = SnapshotResult(fixed_snapshot[0], manifest, counts)
     else:
-        snapshot = build_snapshot(conn, source_id=source_id, from_time=spec["from"],
-                                  until_time=spec["until"], actor_id=job["actor"])
+        try:
+            snapshot = build_snapshot(conn, source_id=source_id, from_time=period["from"],
+                                      until_time=period["until"], actor_id=job["actor"])
+        except ValueError as exc:
+            if threshold_plan and str(exc) == "snapshot_insufficient_process_rows":
+                raise ValueError("recommendation_input_empty") from exc
+            raise
         conn.commit()
         with conn.transaction():
             if not lock_training_ownership(conn,message,job["id"],attempt_id,attempt_token):
@@ -311,6 +350,21 @@ def _execute(conn: Any, job: dict[str, Any], attempt_id: uuid.UUID,
                 "materializedCount": materialized, **details,
                 "referenceSampleCount": len(safe_rows), "referenceTrainPopulationCount": snapshot.counts["train"],
                 "referenceSampling": "observation_id_order_train_prefix_max_10000"}
+    if threshold_plan:
+        rows = _snapshot_rows(conn, snapshot.id, "train")
+        with conn.cursor() as cur:
+            cur.execute("SELECT selection_spec->>'timeBasis' FROM data_snapshots WHERE id=%s", (snapshot.id,))
+            time_basis = cur.fetchone()[0]
+        conn.commit()
+        if not rows:
+            raise ValueError("recommendation_input_empty")
+        completed = model_adapters.recommend_thresholds(threshold_plan, rows, snapshot.id, time_basis)
+        conn.commit()
+        if all_rejected(completed):
+            _finish(conn, message, job, attempt_id, attempt_token, None, "recommendation_all_rejected", True,
+                    failure_summary=completed)
+            return {"_finalized": True}
+        return completed
     feature_set_id = uuid.UUID(spec["featureSetId"])
     if kind == "train" and spec.get("ruleVersionIds"):
         with conn.cursor() as cur:
@@ -372,12 +426,17 @@ def _execute(conn: Any, job: dict[str, Any], attempt_id: uuid.UUID,
         preprocessing_started = time.monotonic()
         prepared, names, preprocessing, definition_digest, selection = _training_inputs(conn, snapshot.id, feature_set_id)
         preprocessing_ms = (time.monotonic()-preprocessing_started)*1000
+        period = None
+        if model_version_request:
+            # selection은 fit 참조와 같은 객체다. fit 필요 피처가 있으면 fit 참조에도 함께 남는다.
+            period = selection['trainingPeriod'] = training_period(spec)
         # tmp/<attempt>는 성공·실패 모두 블록 종료 시 제거된다. 승격(models/·fit/)된 파일은 등록 TX가
         # 정상 확정되면 남고, 블록이 예외로 끝나 TX가 롤백되면 미등록 파일로서 함께 제거된다.
         with training_workspace(artifact_root, attempt_id) as (output, promoted):
             training_started = time.monotonic()
-            result = model_adapters.train_iforest(prepared, names, str(output), preprocessing=preprocessing) if preprocessing is not None else \
-                model_adapters.train_iforest(prepared, names, str(output))
+            # 어댑터는 레지스트리가 model_adapters 함수에 늦게 바인딩한다(현재 ml:iforest → train_iforest).
+            fit_kwargs = {"preprocessing": preprocessing} if preprocessing is not None else {}
+            result = training_method.adapter.fit(prepared, names, str(output), parameters=training_parameters, **fit_kwargs)
             training_ms = (time.monotonic()-training_started)*1000
             required = {"modelPath", "fitPath", "formatVersion", "runtimeVersion", "thresholdSpec"}
             if not isinstance(result, dict) or not required.issubset(result) or not isinstance(result["thresholdSpec"], dict):
@@ -399,14 +458,32 @@ def _execute(conn: Any, job: dict[str, Any], attempt_id: uuid.UUID,
                                               runtime_version=result["runtimeVersion"], format_version=result["formatVersion"],
                                               fit_artifact_id=fit_id)
                 rule_ids = [uuid.UUID(value) for value in spec.get("ruleVersionIds", [])]
-                config_spec = {"schemaVersion": 1, "featureSetId": str(feature_set_id),
-                               "trainingSnapshotId": str(snapshot.id), "ruleVersionIds": [str(value) for value in rule_ids],
-                               "statusRulePolicy": default_policy(source_id), "trainingSelection": selection}
-                config_spec["sourceId"] = str(source_id)
-                if spec.get("detectionPolicy"):
-                    config_spec["detectionPolicy"] = spec["detectionPolicy"]
-                content_hash = hashlib.sha256(json.dumps(config_spec, sort_keys=True).encode()).hexdigest()
                 config_id = uuid.uuid4()
+                if model_version_request:
+                    config_spec = build_spec(config_id=config_id, job_id=job["id"], source_id=source_id,
+                                             feature_set_id=feature_set_id, snapshot_id=snapshot.id,
+                                             method=training_method, parameters=training_parameters,
+                                             parameters_requested=bool(spec.get("parameters")),
+                                             model_artifact_id=model_id, fit_artifact_id=fit_id,
+                                             selection=selection, period=period)
+                    content_hash = model_version_hash(config_spec)
+                else:
+                    config_spec = {"schemaVersion": 1, "featureSetId": str(feature_set_id),
+                                   "trainingSnapshotId": str(snapshot.id), "ruleVersionIds": [str(value) for value in rule_ids],
+                                   "statusRulePolicy": default_policy(source_id), "trainingSelection": selection}
+                    config_spec["sourceId"] = str(source_id)
+                    if spec.get("detectionPolicy"):
+                        config_spec["detectionPolicy"] = spec["detectionPolicy"]
+                    content_hash = hashlib.sha256(json.dumps(config_spec, sort_keys=True).encode()).hexdigest()
+                training_settings = {"snapshotId": str(snapshot.id), "split": "train", "featureNames": names,
+                                     "definitionsHash": definition_digest, "splitVersion": "execution-block-v1",
+                                     "thresholdPolicy": training_parameters["thresholdPolicy"],
+                                     "trainingSelection": selection,
+                                     "methodId": training_method.method_id,
+                                     "methodVersion": training_method.method_version,
+                                     "parameters": training_parameters}
+                if model_version_request:
+                    training_settings.update(timeBasis=period["timeBasis"], trainingPeriod=period)
                 with conn.cursor() as cur:
                     cur.execute(
                         """INSERT INTO ml_config_versions
@@ -419,12 +496,10 @@ def _execute(conn: Any, job: dict[str, Any], attempt_id: uuid.UUID,
                         """INSERT INTO ml_config_models
                              (config_version_id, model_key, feature_set_id, model_artifact_id,
                               fit_artifact_id, adapter_spec, training_settings, threshold_spec)
-                           VALUES (%s, 'iforest', %s, %s, %s, %s::jsonb, %s::jsonb, %s::jsonb)""",
-                        (config_id, feature_set_id, model_id, fit_id,
+                           VALUES (%s, %s, %s, %s, %s, %s::jsonb, %s::jsonb, %s::jsonb)""",
+                        (config_id, training_method.model_key, feature_set_id, model_id, fit_id,
                          json.dumps({"name": "sklearn-iforest", "formatVersion": result["formatVersion"]}),
-                         json.dumps({"snapshotId": str(snapshot.id), "split": "train", "featureNames": names,
-                                     "definitionsHash": definition_digest, "splitVersion": "execution-block-v1",
-                                     "thresholdPolicy": "train-internal-p99-v1", "trainingSelection": selection}),
+                         json.dumps(training_settings),
                          json.dumps(result["thresholdSpec"])),
                     )
                     for order, rule_id in enumerate(rule_ids):
@@ -442,9 +517,20 @@ def _execute(conn: Any, job: dict[str, Any], attempt_id: uuid.UUID,
                                 batch_size=len(prepared), queue_wait=queue_wait)}
                 completed['executionCost']['details']['modelNJobs'] = 2
                 completed['executionCost']['details']['scope'] = 'offline_training'
+                if operational is not None:
+                    completed.update(operational.result_fields())
                 _finish(conn, message, job, attempt_id, attempt_token, completed, None, True)
         return {**completed, "_finalized": True}
     raise ValueError("unsupported_job_kind")
+
+
+def _prepare_model(context: dict[str, Any], root: Path | None) -> None:
+    """행 기한 밖에서 산출물을 검증·적재한다. 실패는 예외로 올라가 작업을 끝낸다(`applications.prepare_config`와 같은 순서)."""
+    from detector.computation import model_reference
+    reference = model_reference(context, root)
+    model_adapters.prepare_iforest(reference)
+    if any(requires_fit(item['expression']) for item in context['definitions']):
+        model_adapters.transform_iforest_features(reference, context['definitions'], {})
 
 
 def _evaluate(conn: Any, job: dict[str, Any], root: Path | None,
@@ -456,7 +542,21 @@ def _evaluate(conn: Any, job: dict[str, Any], root: Path | None,
     config_id = uuid.UUID(spec["configVersionId"])
     snapshot_id = uuid.UUID(spec["snapshotId"])
     from detector.computation import load_context, compute
+    from detector.policy import Policy
+    with conn.cursor() as cur:
+        cur.execute("SELECT configuration_spec FROM ml_config_versions WHERE id=%s", (config_id,))
+        stored = cur.fetchone()
+    # 없는 구성은 아래 load_context가 config_source_mismatch로 끝낸다.
+    version_spec = stored[0] if stored is not None and read_schema_version(stored[0]) == SCHEMA_VERSION else None
+    model_key = read_model_key(version_spec) if version_spec is not None else None
+    operational = read_operational_state(conn) if version_spec is not None else None
     context = load_context(conn, config_id, uuid.UUID(spec["sourceId"]))
+    if operational is not None:
+        if [model[7] for model in context["models"]] != [model_key]:
+            raise ValueError("model_unavailable")
+        # v3 구성에는 정책·룰이 없다. load_context의 기본값(병렬)이 아니라 그 모델 하나만 평가한다.
+        context = {**context, "policy": Policy("ml_only", operational.deadline_ms, "selected_path")}
+    policy_evidence = operational.evidence_fields() if operational is not None else {"detectionPolicy": context["policy"].document()}
     rules = context["rules"]
     rows = _snapshot_rows(conn, snapshot_id, spec["purpose"])
     conn.commit()
@@ -494,6 +594,11 @@ def _evaluate(conn: Any, job: dict[str, Any], root: Path | None,
     complete_count = 0
     checker_results, samples = [], []
     preprocess_samples, inference_samples = [], []
+    if operational is not None:
+        # 새 버전은 적재 캐시가 없어 첫 행이 기한을 넘기면 평가 전체가 unmeasured가 된다. 측정 행의 기한은 운영과 같다.
+        # compute는 오류를 행 미판정으로 바꾸므로 적재는 직접 하고, 첫 행은 최대 기한으로 한 번 돌려 결과를 버린다.
+        _prepare_model(context, root)
+        compute({**context, "policy": Policy("ml_only", WARMUP_DEADLINE_MS, "selected_path")}, rows[0][1], root)
     for observation_id, raw, _, label_evidence in rows:
         item_started = time.monotonic()
         result = compute(context, raw, root)
@@ -542,7 +647,7 @@ def _evaluate(conn: Any, job: dict[str, Any], root: Path | None,
     metrics = {**classification_metrics(confusion),
                "model": classification_metrics(model_confusion),
                "rule": classification_metrics(rule_confusion) if rules or context.get('statusRulePolicy') else None,
-               "combination": context["policy"].combination, "detectionPolicy": context["policy"].document(), "ruleCount": len(rules),
+               "combination": context["policy"].combination, **policy_evidence, "ruleCount": len(rules),
                "scoreMin": min(scores) if scores else None,
                "scoreMax": max(scores) if scores else None}
     summary = {"populationCount": len(rows), "scoredCount": complete_count,
@@ -552,7 +657,7 @@ def _evaluate(conn: Any, job: dict[str, Any], root: Path | None,
     comparison = comparison_family(checker_results, {'sourceId': spec['sourceId'],
         'snapshotId': str(snapshot_id), 'configVersionId': str(config_id), 'purpose': spec['purpose'],
         'population': 'immutable_snapshot_process_revisions', 'scope': 'offline_snapshot',
-        'statusRulePolicy': context.get('statusRulePolicy'), 'detectionPolicy': context['policy'].document()})
+        'statusRulePolicy': context.get('statusRulePolicy'), **policy_evidence})
     execution_cost = cost_family({'totalMs': (time.monotonic()-started)*1000,
         'evaluationMs': sum(samples), 'preprocessMs': sum(preprocess_samples) if preprocess_samples else None,
         'inferenceMs': sum(inference_samples) if inference_samples else None},
@@ -573,7 +678,7 @@ def _evaluate(conn: Any, job: dict[str, Any], root: Path | None,
         reasons.append('synthetic_not_operational_validation')
         metric_version = 'synthetic-method-v1'
     evaluation_id = uuid.uuid4()
-    evaluation_spec = {"schemaVersion": 2, "metricVersion": metric_version, "detectionPolicy": context["policy"].document(),
+    evaluation_spec = {"schemaVersion": 2, "metricVersion": metric_version, **policy_evidence,
                        "threshold": threshold, "labelSource": "manual_snapshot_evidence",
                        "purpose": spec["purpose"]}
     if synthetic is not None:
@@ -601,6 +706,8 @@ def _evaluate(conn: Any, job: dict[str, Any], root: Path | None,
                      "ruleMlComparison": comparison, "executionCost": execution_cost}
         if synthetic is not None:
             completed['syntheticEvaluation'] = synthetic
+        if operational is not None:
+            completed.update(operational.result_fields())
         _finish(conn, message, job, attempt_id, attempt_token, completed, None, True)
     return {**completed, "_finalized": True}
 
@@ -608,7 +715,7 @@ def _evaluate(conn: Any, job: dict[str, Any], root: Path | None,
 def _finish(conn: Any, message: ClaimedMessage, job: dict[str, Any],
             attempt_id: uuid.UUID, attempt_token: uuid.UUID,
             result: dict[str, Any] | None, error_code: str | None,
-            terminal: bool) -> None:
+            terminal: bool, *, failure_summary: dict[str, Any] | None = None) -> None:
     with conn.transaction():
         if not lock_training_ownership(conn, message, job["id"], attempt_id, attempt_token):
             raise RuntimeError("training_ownership_lost")
@@ -616,7 +723,7 @@ def _finish(conn: Any, message: ClaimedMessage, job: dict[str, Any],
             from trainer.service_contract import enrich_result
             enrich_result(conn, job, result)
         with conn.cursor() as cur:
-            if result is not None and job.get("contractVersion") == "v03" and job["kind"] in {"recommend_feature", "recommend_rule", "explain"}:
+            if result is not None and job.get("contractVersion") == "v03" and job["kind"] in {"recommend_feature", "recommend_rule", "recommend_thresholds", "explain"}:
                 spec = job["llmSpec"]
                 cur.execute("""INSERT INTO run_llm_results
                     (id,job_id,kind,decision_id,config_version_id,evidence_version,input_evidence_hash,model_version,prompt_version,
@@ -638,10 +745,11 @@ def _finish(conn: Any, message: ClaimedMessage, job: dict[str, Any],
                     (json.dumps(result), result.get("configVersionId"), result.get("artifactId"), job["id"]),
                 )
             elif terminal or message.attempts >= 3:
+                # 전 항목 거절처럼 실패여도 사유 표를 보여 줘야 하는 작업만 요약을 남긴다.
                 cur.execute(
-                    """UPDATE run_jobs SET status = 'failed', error_code = %s,
+                    """UPDATE run_jobs SET status = 'failed', error_code = %s, result_summary = %s::jsonb,
                               finished_at = clock_timestamp() WHERE id = %s""",
-                    (error_code, job["id"]),
+                    (error_code, None if failure_summary is None else json.dumps(failure_summary), job["id"]),
                 )
             else:
                 cur.execute(
@@ -731,8 +839,7 @@ def run(*, once: bool = False, poll_seconds: float = 1.0, role: str = "trainer")
             except ValueError as exc:
                 conn.rollback()
                 # Validation failures are terminal; never expose arbitrary exception text.
-                import re
-                code = str(exc) if re.fullmatch(r'[a-z][a-z0-9_]{0,99}', str(exc)) else 'invalid_job_input'
+                code = _terminal_error_code(exc)
                 if 'job' in locals() and 'attempt_id' in locals():
                     _finish(conn, message, job, attempt_id, attempt_token, None, code, True)
                     conn.commit()

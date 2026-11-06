@@ -25,7 +25,7 @@ export type RuleSuggestion = {
 };
 export type PipelineJob = {
   id: string;
-  kind: "recommend_feature" | "recommend_rule" | "train" | "evaluate" | "explain";
+  kind: "recommend_feature" | "recommend_rule" | "recommend_thresholds" | "train" | "evaluate" | "explain";
   status: "queued" | "running" | "succeeded" | "failed";
   inputSpec: Record<string, unknown>;
   attemptCount?: number;
@@ -107,7 +107,7 @@ export type ReviewObservation = {
   reasonCode: string | null;
 };
 export type ProcessDecision = {
-  id: string; sourceId: string; processObservationId: string; configVersionId: string;
+  id: string; sourceId: string; processObservationId: string; configVersionId: string | null;
   status: "complete" | "partial" | "unavailable";
   ruleStatus: string; mlStatus: string; decisionCode: string | null;
   anomalyScore: string | null; decidedAt: string;
@@ -119,8 +119,8 @@ export type ProcessDecision = {
     ruleSeverities?: string[]; detectionPolicy?: {mode: string; deadlineMs: number; combination: string}};
 };
 
-export async function fetchSources(): Promise<Source[]> {
-  return (await httpClient.get<{ items: Source[] }>("/api/pipeline/sources")).items;
+export async function fetchSources(signal?: AbortSignal): Promise<Source[]> {
+  return (await httpClient.get<{ items: Source[] }>("/api/pipeline/sources", { signal })).items;
 }
 
 export function createPipelineJob(input: Record<string, unknown>, idempotencyKey?: string): Promise<PipelineJob> {
@@ -135,8 +135,8 @@ export function fetchFeatureSets(sourceId: string): Promise<{ items: FeatureSet[
   return httpClient.get("/api/jobs/feature-sets", { params: { sourceId } });
 }
 
-export function fetchPipelineJob(id: string): Promise<PipelineJob> {
-  return httpClient.get(`/api/jobs/${encodeURIComponent(id)}`);
+export function fetchPipelineJob(id: string, signal?: AbortSignal): Promise<PipelineJob> {
+  return httpClient.get(`/api/jobs/${encodeURIComponent(id)}`, { signal });
 }
 
 export async function fetchPipelineJobs(): Promise<PipelineJob[]> {
@@ -188,8 +188,8 @@ export function submitObservationLabel(observationId: string, input: {
   return httpClient.post(`/api/pipeline/labels/${encodeURIComponent(observationId)}`, input);
 }
 
-export async function fetchProcessDecisions(): Promise<ProcessDecision[]> {
-  return (await httpClient.get<{ items: ProcessDecision[] }>("/api/pipeline/decisions")).items;
+export async function fetchProcessDecisions(signal?: AbortSignal, limit?: number): Promise<ProcessDecision[]> {
+  return (await httpClient.get<{ items: ProcessDecision[] }>("/api/pipeline/decisions", { signal, params: { limit } })).items;
 }
 
 export type CollectorMetric = {endpoint:string;requests:number;failures:number;emptyResponses:number;

@@ -1,0 +1,12 @@
+{
+  "row_id_not_null": "Controlled schema declaration: CASE_LOG.ROW_ID NOT NULL. This is not operational DDL.",
+  "unit_coordinate": {
+    "name": "coordinate_unit",
+    "meaning": "Controlled signed numerical coordinate, not a business counter."
+  },
+  "unit_items": {
+    "name": "items",
+    "meaning": "Controlled quantity unit."
+  },
+  "A_not_null": "Controlled schema declaration: CASE_LOG.A NOT NULL. Artificial contract, not operational DDL."
+}

@@ -1,20 +1,11 @@
-import type { ModelType } from "../types/domain";
-import type { UserRole, ViewId } from "../types/app";
-
+/** 브라우저에만 두는 화면 편의 설정(넓게 보기 등). 서버 상태·편집 초안·토큰은 여기에 두지 않는다. */
 export const storageKeys = {
-  widgetLayout: (role: UserRole) => `esb_widget_layout_${role}`,
-  systemConfig: "esb_system_config",
-  activeModel: "esb_tuning_active_model",
-  runningEngine: "esb_running_engine_model",
-  lastValidatedTime: "esb_last_validated_time",
-  modelConfig: (type: ModelType) => `esb_model_config_${type}`,
-  layoutWide: (view: ViewId | "settings" | "admin_system" | "admin_model") =>
-    `esb_layout_wide_${view}`,
+  layoutWide: (view: "analysis") => `esb_layout_wide_${view}`,
 } as const;
 
 export function getStored<T>(key: string, fallback: T): T {
   try {
-    const raw = localStorage.getItem(key);
+    const raw = window.localStorage.getItem(key);
     return raw ? (JSON.parse(raw) as T) : fallback;
   } catch {
     return fallback;
@@ -22,13 +13,9 @@ export function getStored<T>(key: string, fallback: T): T {
 }
 
 export function setStored<T>(key: string, value: T): void {
-  localStorage.setItem(key, JSON.stringify(value));
-}
-
-export function getStoredText(key: string, fallback: string): string {
-  return localStorage.getItem(key) ?? fallback;
-}
-
-export function setStoredText(key: string, value: string): void {
-  localStorage.setItem(key, value);
+  try {
+    window.localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    // 저장소를 쓸 수 없으면 현재 화면에서만 유지한다.
+  }
 }

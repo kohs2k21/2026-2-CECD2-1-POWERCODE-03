@@ -1,4 +1,6 @@
 """Persisted Trainer result identifiers, separate from metric calculation."""
+from trainer.model_version import read_schema_version
+
 CONTRACT_VERSION = 'trainer-service-v1'
 FAMILIES = ('rule_ml', 'synthetic', 'execution_cost', 'operational')
 
@@ -24,6 +26,7 @@ def enrich_result(conn, job, result):
         config = cur.fetchone()
         if config is None:
             raise ValueError('result_config_missing')
+        read_schema_version(config[0])
         cur.execute('''SELECT cm.model_key,cm.model_artifact_id,m.content_hash,cm.fit_artifact_id,f.content_hash,
                      cm.feature_set_id,cm.training_settings,cm.threshold_spec
                      FROM ml_config_models cm JOIN ml_artifacts m ON m.id=cm.model_artifact_id

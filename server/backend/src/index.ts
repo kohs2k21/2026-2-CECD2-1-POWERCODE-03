@@ -9,6 +9,9 @@ import jobRouter from './routes/jobRoutes.js';
 import configRouter from './routes/configRoutes.js';
 import pipelineRouter from './routes/pipelineRoutes.js';
 import inputRouter from './routes/inputRoutes.js';
+import operationsRouter from './routes/operationsRoutes.js';
+import analysisRouter from './routes/analysisRoutes.js';
+import ruleSetRouter from './routes/ruleSetRoutes.js';
 import preparedDatasetRouter from './routes/preparedDatasetRoutes.js';
 import { checkDatabaseConnection } from './config/database.js';
 
@@ -18,10 +21,14 @@ const app = express();
 app.use(cors({
   origin: '*', // 개발·테스트용 전체 출처 허용. 운영 환경에서는 허용 출처를 제한한다.
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'If-Match', 'Idempotency-Key'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'If-Match', 'Idempotency-Key', 'Last-Event-ID'],
   exposedHeaders: ['ETag', 'Location']
 }));
 app.use('/api/prepared-datasets', preparedDatasetRouter);
+// 이상 분석 쓰기 API는 자체 JSON 파서(16KB)·400 오류 형식을 쓰므로 공통 express.json보다 먼저 연결한다.
+app.use('/api/analysis', analysisRouter);
+// 룰 세트 API도 자체 JSON 파서·오류 형식을 쓴다.
+app.use('/api/rule-set', ruleSetRouter);
 app.use(express.json());
 
 // 상태 확인 API
@@ -43,6 +50,7 @@ app.use('/api/jobs', jobRouter);
 app.use('/api/configurations', configRouter);
 app.use('/api/pipeline', pipelineRouter);
 app.use('/api/inputs', inputRouter);
+app.use('/api/operations', operationsRouter);
 
 // 공통 오류 처리
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {

@@ -34,7 +34,11 @@ Bearer tokens are accepted through request headers. Tokens in query strings are 
 
 ## 작업·구성 API
 
-`/api/jobs`는 변수 생성·Rule 추천·수동 학습·평가 작업을 영속 큐에 등록하고 상태를 조회한다. 추천 Rule의 채택은 불변 Rule 초안 버전을 생성한다. `/api/configurations`는 활성 구성과 적용·복원 요청을 관리한다. `/api/pipeline`은 출처·PROCESS 관측 검토·수동 라벨·판정·큐 지연·변수 결측률 변화를 조회한다. 기존 JWT/JSON 계정 권한을 그대로 사용한다. `DATABASE_URL`이 필요하고 migration 001~004가 선행되어야 한다. 실제 모델이 없는 상태에서는 모델 작업이 성공하지 않는다.
+`/api/jobs`는 변수 생성·Rule 추천·소프트룰 임계값 추천·수동 학습·평가 작업을 영속 큐에 등록하고 상태를 조회한다. 추천 Rule의 채택은 불변 Rule 초안 버전을 생성한다. `/api/configurations`는 모델 버전 목록·상세(`contracts/model-version.md`)와 활성 구성·적용·복원 요청을 관리한다. `/api/pipeline`은 출처·PROCESS 관측 검토·수동 라벨·판정·큐 지연·변수 결측률 변화를 조회한다. `/api/operations`는 운영 현황 화면용 읽기 전용 집계(개요·수집·단계 지연·원본 필드·저장공간·판정 추이)를 user/admin 모두에게 제공한다([operations-ui.md](../contracts/operations-ui.md)). 통합 시험: `PIPELINE_TEST_DATABASE_URL=<로컬 새 qa_operations* DB> node tests/operations.integration.mjs`. `/api/analysis`는 이상 분석 화면용 판정 목록(판정 결과별·위험도별·분류함 건수·검색·필터·정렬·페이지·요청자 기준 미확인)·상세·중간 판정 기록·Process Flow(BODY 제외)를 user/admin 모두에게, 처리 상태 변경·읽음 표시를 user/admin 모두에게(요청자 기록), 조사·조치 기록 읽기·쓰기를 admin에게 제공한다(migration 014 필요, [analysis-ui.md](../contracts/analysis-ui.md)). `/api/pipeline/events?include=interims`는 중간 판정 기록 이벤트도 보낸다(기본은 최종 판정만). 권한 시험: `PIPELINE_TEST_DATABASE_URL=<로컬 qa_analysis* DB> node tests/analysis-grants.integration.mjs`(database-roles.sql을 적용하고 실제 읽기·쓰기 경로를 `powercode_api`로 실행). 통합 시험: `npm run build` 후 `PIPELINE_TEST_DATABASE_URL=<로컬 새 qa_analysis* DB> node tests/analysis.integration.mjs`(분류 건수가 DB 전체 기준이라 판정·작업이 없는 새 DB 필요). 기존 JWT/JSON 계정 권한을 그대로 사용한다. `DATABASE_URL`이 필요하고 migration 001~004가 선행되어야 한다. 실제 모델이 없는 상태에서는 모델 작업이 성공하지 않는다.
+
+## 룰 세트 API
+
+`/api/rule-set`은 이상 규칙 켜기·끄기와 이상 징후 규칙의 현재 상태·저장 즉시 적용·미리보기·변경 이력·되돌리기를 제공하고, `POST /api/rule-set/threshold-stats`는 규칙별 수식 추천(LLM 없음)을 계산한다. 조회·이력은 로그인 사용자, 저장·미리보기·수식 추천은 관리자 전용이다. `ops_rule_set_revisions`(마이그레이션 015)가 필요하다. 계약은 `server/contracts/rule-set.md`, 화면 규칙·구현 값은 `server/contracts/rules-ui.md`. 시험: `tests/rule-set-contract.test.mjs`(단위), `tests/rule-set.integration.mjs`·`tests/rule-set-grants.integration.mjs`(로컬 `qa_rule_set*` DB).
 
 ## Local commands
 
@@ -53,20 +57,21 @@ Set the local environment variables in the shell or an ignored local environment
 ## 운영·비용·후보 보고 API
 
 - 공통: 기존 JWT 인증·관리자 권한 필수, migration 001~009·기존 API DB 조회 권한 사용. 신규 테이블·성능 자동 승인 기준 없음
-- `GET /api/pipeline/reports/operational`: `sourceId`, `configVersionId`, UTC ISO `from`, `until`, IANA `timezone`, `scope=live|replay` 필수. 반개구간 `[from, until)`, 최대 31×24시간. 일별 `limit` 1~100·기본 31, `offset` 0~10000
-- 출처·구성 실제 연결 검증, 알 수 없는 필터·배열·잘못된 날짜·시간대·UUID 거절. SQL 값 매개변수 바인딩·읽기 전용 REPEATABLE READ 스냅샷 사용
-- PROCESS 식별: source별 `execution_id`. 보고 cutoff=`until` 전에 저장된 최신 revision 선택(`revision_no`, `persisted_at`, `id` 내림차순), 해당 관측의 동일 구성·cutoff 전 최신 판정 선택(`decided_at`, `id` 내림차순). 최신 revision에 판정이 없으면 이전 revision 판정으로 대체 금지
+- `GET /api/pipeline/reports/operational`: `sourceId`, UTC ISO `from`, `until`, IANA `timezone`, `scope=live|replay` 필수, `configVersionId` 선택. 주면 그 구성의 판정·작업만(`policy.decision=latest_same_config_on_selected_revision_before_cutoff`), 생략하면 원천 기준으로 구성과 무관하게 집계(`latest_any_config_on_selected_revision_before_cutoff`, 구성 없는 v04 판정 포함). `metricVersion`은 둘 다 `operational-v1`, 생략 시 응답 `filter`에 `configVersionId` 없음. 반개구간 `[from, until)`, 최대 31×24시간. 일별 `limit` 1~100·기본 31, `offset` 0~10000
+- 구성을 주면 출처·구성 실제 연결 검증, 생략하면 출처만 검증(구성이 없는 원천도 200, 없는 출처는 404 `source_configuration_not_found`). 알 수 없는 필터·배열·잘못된 날짜·시간대·UUID 거절. SQL 값 매개변수 바인딩·읽기 전용 REPEATABLE READ 스냅샷 사용
+- PROCESS 식별: source별 `execution_id`. 보고 cutoff=`until` 전에 저장된 최신 revision 선택(`revision_no`, `persisted_at`, `id` 내림차순), 해당 관측의 cutoff 전 최신 판정 선택(`decided_at`, `id` 내림차순, 구성을 주면 동일 구성 판정만, 생략하면 구성 무관하게 1건). 최신 revision에 판정이 없으면 이전 revision 판정으로 대체 금지
 - 판정 모집단: 선택한 판정의 `decided_at`이 기간 안인 PROCESS. 보고 시간대의 **판정일** 기준 일별 분류. 수집 발생 시각·수집일·SSE 전송 시각으로 판정일 대체 금지. 다른 기간의 판정은 비율 분모에서 제외
 - `processCount`: 판정 모집단, `alarmProcessCount`: 명시적 이상 `true`인 complete/partial 판정, `alarmRatio`: 이상/판정 가능 PROCESS, `unavailableRate`: 판정 불가/전체 판정 모집단. complete+명시적 `false`만 비경보, partial+`true`는 확인된 이상 보존. unavailable·누락/알 수 없는 이상 값은 정상으로 처리 금지
 - `failedProcessCount`: 선택 판정의 Rule 또는 ML 구성요소가 `failed`인 PROCESS, 업무상 F 상태의 건수와 별개. 판정 없이 실패한 작업은 `queue.failedJobsInPeriod`로 별도 제공
-- `pendingArrivalCount`: 최신 revision에 cutoff 전 판정이 없고 해당 revision `persisted_at`이 기간 안인 고유 PROCESS. 도착/저장일 기준 별도 모집단이며 경보/미판정률 분모에서 제외. 대기 0건은 `measured` 0(분모 없음)
+- `pendingArrivalCount`: 최신 revision에 cutoff 전 판정이(구성을 주면 그 구성의 판정이) 없고 해당 revision `persisted_at`이 기간 안인 고유 PROCESS. 도착/저장일 기준 별도 모집단이며 경보/미판정률 분모에서 제외. 대기 0건은 `measured` 0(분모 없음)
 - 입력 범위: `data_input_origins.mode=api`→live, csv→replay 우선. 과거 source의 `customer-api`→live, `csv-replay-v1`/`demo-replay`→replay. 미확인 입력 범위·누락 execution identity는 집계 제외, 기간 내 제외 관측 수를 `excluded`에 제공. live/replay 합산 없음
-- `comparisons.hrMl`/`srMl`: 같은 선택 관측·구성의 명시적 `checkers` 두 경로 모두 succeeded+boolean일 때만 공통/Rule만/ML만/비경보 집계. 비교 가능/불가/전체·coverage 별도. 과거 checker 근거 누락·SR 미연결은 null+사유. 그날 모든 SR checker 근거가 `sr_experiment_pending`이면 오프라인 평가와 같은 `sr_experiment_pending`, 그 외 근거 부족은 `checker_evidence_unavailable`. 정답 없는 교차표를 정확도/오탐률로 표시 금지
+- `comparisons.hrMl`/`srMl`: 같은 선택 판정의 명시적 `checkers` 두 경로 모두 succeeded+boolean일 때만 공통/Rule만/ML만/비경보 집계. 비교 가능/불가/전체·coverage 별도. 과거 checker 근거 누락·SR 미연결은 null+사유. 그날 모든 SR checker 근거가 `sr_experiment_pending`이면 오프라인 평가와 같은 `sr_experiment_pending`, 그 외 근거 부족은 `checker_evidence_unavailable`. 정답 없는 교차표를 정확도/오탐률로 표시 금지
 - 모든 지표: `{status,value,unit,numerator,denominator,coverage,reason}`. 대상 0·측정 불가 `value=null`+사유. 실제 관측한 0만 숫자 0. 분모가 있는 경보율과 교차표는 각 분모/coverage 명시. 외부 알림 전송 미계측은 `externalNotificationCount=null`, ESB 원천 시계 정합성 미검증은 종단 지연 null+사유
 - Detector 비용: 선택한 고유 판정의 `evidence.telemetry`에서 `execution-cost-v1`·measured·기대 단위·비음수 수치만 집계. 시간 총합/P50/P95·샘플/대상/coverage 제공. 메모리는 프로세스 현재 RSS 샘플의 분포, peak/메모리 합산 아님. 처리량은 저장된 건당 처리율 샘플의 P50/P95, 합산 처리율 아님. 원본 조건은 `/api/pipeline/decisions`의 evidence에 보존
-- `queue`: scoped 관측(cutoff 전 저장)에 연결된 현재 detect 작업의 대기·실행 수와 최장 경과 시간. 조회 시각 `observedAt` 별도, 과거 시점 큐 재구성 아님. 작업 실패 수만 `finished_at` 기간 기준, 재시도/SSE는 고유 판정 수에 추가되지 않음
+- `queue`: 입력 manifest로 scoped 관측(cutoff 전 저장)에 연결된 현재 detect 작업(구성을 주면 그 구성의 작업만)의 대기·실행 수와 최장 경과 시간. 조회 시각 `observedAt` 별도, 과거 시점 큐 재구성 아님. 작업 실패 수만 `finished_at` 기간 기준, 재시도/SSE는 고유 판정 수에 추가되지 않음
 - `queue.atCutoff`: 같은 작업 범위를 `asOf=min(until, 조회 시각)` 시점으로 재구성. 열린 작업 = `created_at ≤ asOf` 이고 미종료 또는 `finished_at > asOf`. 그중 시도 구간(`started_at ≤ asOf < min(finished_at, lease_until)`)에 걸친 작업은 `running`, 나머지는 `waiting`(재시도 대기·lease 만료 후 미회수 포함). queued/blocked 이력은 저장되지 않아 `waiting`으로 합산. 재구성 값이라 열린 작업 0건도 `measured` 0(기존 현재 시점 키의 대상 0건 null+`no_targets`와 다름). `oldestWaitSeconds`는 measurement 객체로 asOf 기준 가장 오래된 열린 작업의 경과 시간, 열린 작업 없으면 null+`no_open_jobs_at_cutoff`
-- `GET /api/pipeline/reports/execution-cost`: 같은 필수 필터, `scope=offline`. 동일 source·입력/결과 구성의 train/evaluate 완료 작업을 `finished_at` 기간으로 집계. 실행 시간·RSS·처리량은 최종 완료 시도에서 저장한 배치별 샘플, 배치 P50/P95는 배치 샘플 간 분위수. 개별 행 분위수 병합 금지. `conditions`에 배치 크기/동시성/warm-cold/측정 주기/자원 제한/메모리 관측 범위 원문 보존. 정적 평가와 운영/재생 판정 합산 없음
+- `GET /api/pipeline/reports/execution-cost`: 같은 필수 필터에 `configVersionId`도 필수, `scope=offline`. 동일 source·입력/결과 구성의 train/evaluate 완료 작업을 `finished_at` 기간으로 집계. 실행 시간·RSS·처리량은 최종 완료 시도에서 저장한 배치별 샘플, 배치 P50/P95는 배치 샘플 간 분위수. 개별 행 분위수 병합 금지. `conditions`에 배치 크기/동시성/warm-cold/측정 주기/자원 제한/메모리 관측 범위 원문 보존. 정적 평가와 운영/재생 판정 합산 없음
+- `GET /api/pipeline/reports/volume?sourceId=<uuid>&from=<ISO>&until=<ISO>&bucket=month|day|hour|minute&timeBasis=esb_occurred_at|persisted_at[&timezone=Asia/Seoul]`: 새 학습 기간 그래프용 PROCESS 거래량(실행별 최신 revision, 상태별 건수, 빈 버킷 0). 단위별 상한 초과 400 `volume_range_too_large`. `contracts/trainer-service.md`·`models-ui.md`
 - `GET /api/pipeline/reports/candidates?sourceId=<uuid>&limit=31[&cursor=<nextCursor>]`: 구성·학습 snapshot/선정 정책·학습 요약·최신 평가 원문 조회. `pagination.hasMore/nextCursor`로 과거 버전 탐색, 생성 시각 microsecond·UUID 내림차순 커서. 이전 후보 결과·envelope 재계산/덮어쓰기 없음. 특정 과거 평가/적용 이력은 기존 작업·구성 API 조회 사용
 - 수동 선택: 성공한 학습/평가만으로 활성 포인터 변경 없음. 새 상태 HR 정책은 source/version/매핑 엄격 검증, 기존 모델/fit/hash/스키마·판정 가용성 적용 차단 유지
 

@@ -1,0 +1,625 @@
+{
+  "status": "rule_verified",
+  "preserved_seed_prediction": null,
+  "seed_source_pin": null,
+  "prediction": {
+    "v": "3",
+    "feature": "fd_40505a4d9e830b70f61fdcbd",
+    "sha": "1f523c56c914ac1b959a41c0b6c57ba2398ac0374d3eec2463286660a7b7e87c",
+    "decisions": [
+      {
+        "request": "observed",
+        "role": "SR",
+        "state": "proposed",
+        "basis": "observed_diagnostic",
+        "condition": {
+          "op": "eq",
+          "value": true
+        },
+        "evidence": [
+          "m_035bacbf2931f7a8db07f99d"
+        ],
+        "needed": [],
+        "reason": "The supplied calculated-value diagnostic has 4 usable observations. It is evaluable regardless of current activations or application minimum. No historical reference or business obligation is required.",
+        "purpose": "other",
+        "warning_meaning": "This is a calculated-value diagnostic under its supplied scope; it does not prove an operational incident, physical fault, or mandatory-parent violation.",
+        "population_ref": "population_41b9251fefeec3402f5c",
+        "precondition_refs": [
+          "source_c7fdeaacb68ac6ef68b0",
+          "availability_a63beb27305a545dbc36",
+          "mapping_9c2471dd665d5dc6b485"
+        ],
+        "required_evaluation_basis": [
+          "source_c7fdeaacb68ac6ef68b0",
+          "availability_a63beb27305a545dbc36",
+          "mapping_9c2471dd665d5dc6b485",
+          "population_41b9251fefeec3402f5c",
+          "m_035bacbf2931f7a8db07f99d"
+        ],
+        "unavailable_action": "preserve_unassessed",
+        "unavailable_reason": "If the current calculation or its selected inputs were unavailable, this condition could not be evaluated; current availability does not imply future or online availability.",
+        "business_scope": "The considered calculated-value diagnostic and its current offline calculation scope are confirmed. No operational usefulness or incident meaning is inferred from current values or offline calculability.",
+        "baseline_use_ref": null
+      }
+    ]
+  },
+  "attempts": [
+    {
+      "attempt": 0,
+      "prediction": {
+        "v": "3",
+        "feature": "fd_40505a4d9e830b70f61fdcbd",
+        "sha": "1f523c56c914ac1b959a41c0b6c57ba2398ac0374d3eec2463286660a7b7e87c",
+        "decisions": [
+          {
+            "request": "observed",
+            "role": "SR",
+            "state": "proposed",
+            "basis": "observed_diagnostic",
+            "condition": {
+              "op": "eq",
+              "value": true
+            },
+            "evidence": [
+              "m_035bacbf2931f7a8db07f99d"
+            ],
+            "needed": [],
+            "reason": "The supplied calculated-value diagnostic has 4 usable observations. It is evaluable regardless of current activations or application minimum. No historical reference or business obligation is required.",
+            "purpose": "other",
+            "warning_meaning": "This is a calculated-value diagnostic under its supplied scope; it does not prove an operational incident, physical fault, or mandatory-parent violation.",
+            "population_ref": "population_41b9251fefeec3402f5c",
+            "precondition_refs": [
+              "source_c7fdeaacb68ac6ef68b0",
+              "availability_a63beb27305a545dbc36",
+              "mapping_9c2471dd665d5dc6b485"
+            ],
+            "required_evaluation_basis": [
+              "source_c7fdeaacb68ac6ef68b0",
+              "availability_a63beb27305a545dbc36",
+              "mapping_9c2471dd665d5dc6b485",
+              "population_41b9251fefeec3402f5c",
+              "m_035bacbf2931f7a8db07f99d"
+            ],
+            "unavailable_action": "preserve_unassessed",
+            "unavailable_reason": "If the current calculation or its selected inputs were unavailable, this condition could not be evaluated; current availability does not imply future or online availability.",
+            "business_scope": "The considered calculated-value diagnostic and its current offline calculation scope are confirmed. No operational usefulness or incident meaning is inferred from current values or offline calculability.",
+            "baseline_use_ref": null
+          }
+        ]
+      },
+      "passed": true,
+      "errors": [],
+      "actual_model_origin": {
+        "file": "model/rule_0/output.json",
+        "raw_sha": "8621973b0f7ab40a84ee8189104f1abe680928f1a72b6a2f8ce9b0d3380e8825",
+        "parsed_sha": "19507727958f05659c38a750b26b3099b5dedcf875dadae29ea7fdad1161c982",
+        "messages_sha": "314ba34cead00b4a92545ba1f1352723ced18308e0c3f436fc4543db8d33e7db",
+        "budget": {
+          "sequence": 2,
+          "kind": "rule",
+          "call": "rule_0",
+          "phase": "frozen_final_final_public_delivery_parent_match_state",
+          "at": 1793097549.127609,
+          "failed_or_interrupted_calls_consume_budget": true,
+          "shared_sequence": 99
+        }
+      },
+      "partial_roles": null,
+      "partial_Rule_prose_fields": null,
+      "normal_roles_preserved": false
+    }
+  ],
+  "input": {
+    "contract": "evidence-bound-selected-role-final1.0",
+    "requests": [
+      "observed"
+    ],
+    "public_analysis_request": {
+      "question": "Controlled metadata specification only; no operational fault or mandatory-parent claim.",
+      "considered_observed_condition": {
+        "op": "eq",
+        "value": true
+      }
+    },
+    "feature": {
+      "id": "fd_40505a4d9e830b70f61fdcbd",
+      "sha": "1f523c56c914ac1b959a41c0b6c57ba2398ac0374d3eec2463286660a7b7e87c",
+      "meaning": "Return true if the FRAME_REGISTER match count is unavailable or known0, false for a known nonzero count.",
+      "purpose": "Compute physical FRAME_REGISTER match count for each HOP_TRACE row. Return true for unavailable or known0, false for known nonzero count. Use the explicit result view, not a parent child-count.",
+      "dtype": "boolean",
+      "unit": "boolean",
+      "expression": {
+        "op": "if",
+        "args": [
+          {
+            "op": "is_missing",
+            "args": [
+              {
+                "op": "parent_match_count",
+                "relationship_id": "hop_frame_link"
+              }
+            ]
+          },
+          {
+            "op": "literal",
+            "value": true
+          },
+          {
+            "op": "eq",
+            "args": [
+              {
+                "op": "parent_match_count",
+                "relationship_id": "hop_frame_link"
+              },
+              {
+                "op": "literal",
+                "value": 0
+              }
+            ]
+          }
+        ]
+      },
+      "grain": {
+        "table": "HOP_TRACE",
+        "keys": [
+          "TRACE_ROW"
+        ]
+      },
+      "population": {
+        "table": "HOP_TRACE",
+        "filter": null
+      },
+      "missing_policy": {
+        "input": "propagate",
+        "empty_group": null,
+        "denominator_zero": null,
+        "child_missing": "propagate",
+        "unknown_predicate": "defer"
+      },
+      "operator_state_proof": {
+        "operator": "if",
+        "unavailable_possible": false,
+        "proof_scope": "Lazy branch under declared guard; not an observed-only claim",
+        "children": [
+          {
+            "operator": "is_missing",
+            "unavailable_possible": false,
+            "proof_scope": "Supported operator contract on retained selected rows",
+            "children": [
+              {
+                "operator": "parent_match_count",
+                "unavailable_possible": true,
+                "proof_scope": "Supported operator contract on retained selected rows",
+                "children": []
+              }
+            ]
+          },
+          {
+            "operator": "literal",
+            "unavailable_possible": false,
+            "proof_scope": "Supported operator contract on retained selected rows",
+            "children": []
+          },
+          {
+            "operator": "eq",
+            "unavailable_possible": false,
+            "proof_scope": "Supported operator contract on retained selected rows",
+            "children": [
+              {
+                "operator": "parent_match_count",
+                "unavailable_possible": false,
+                "assumption": "Available in this branch, certified by the selected availability guard",
+                "children": []
+              },
+              {
+                "operator": "literal",
+                "unavailable_possible": false,
+                "proof_scope": "Supported operator contract on retained selected rows",
+                "children": []
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "definition_sha": "1f523c56c914ac1b959a41c0b6c57ba2398ac0374d3eec2463286660a7b7e87c",
+    "source_version": "c7fdeaacb68ac6ef68b01f651707e6aad95f42e6bc0726106a38f1cd49077ea1",
+    "measurement_id": "m_035bacbf2931f7a8db07f99d",
+    "measurement_sha": "035bacbf2931f7a8db07f99da04dabf6fbea350607cf949c007e3b6117ccd3d2",
+    "measurement": {
+      "row_count": 4,
+      "valid_count": 4,
+      "missing_count": 0,
+      "true_count": 3,
+      "false_count": 1,
+      "ratio": 0.75,
+      "numerator": 3,
+      "denominator": 4,
+      "min": null,
+      "max": null,
+      "p95": null,
+      "p99": null,
+      "variation": "variable",
+      "quantile_method": "linear_(n-1)*p",
+      "exact_decimal": {
+        "ratio": "0.75",
+        "p95": null,
+        "p99": null
+      },
+      "population_rows_before_selection": 4,
+      "selection_unavailable_count": 0
+    },
+    "constraints": [],
+    "baseline": {
+      "id": null,
+      "state": "not_requested",
+      "reference_valid_n": null,
+      "value": null,
+      "minimum_n": null
+    },
+    "scope": {
+      "period": {
+        "controlled_domain": "Artificial rows; no operational dates"
+      },
+      "table_rows": {
+        "FRAME_REGISTER": 2,
+        "HOP_TRACE": 4
+      },
+      "population": {
+        "table": "HOP_TRACE",
+        "filter": null
+      },
+      "manifest_sha": "ce9496b6d1cfcb83ddecf2a36d1008db89e856b9918d0b83f3342eb61d9fe29d",
+      "data_class": "controlled"
+    },
+    "range_proof": {
+      "min": false,
+      "max": true,
+      "kind": "Boolean",
+      "scope": "c7fdeaacb68ac6ef68b01f651707e6aad95f42e6bc0726106a38f1cd49077ea1"
+    },
+    "sources": {
+      "calculation_and_relationship_key_columns": [
+        [
+          "FRAME_REGISTER",
+          "JOIN_VALUE"
+        ],
+        [
+          "FRAME_REGISTER",
+          "TENANT_CODE"
+        ],
+        [
+          "HOP_TRACE",
+          "FRAME_REF"
+        ],
+        [
+          "HOP_TRACE",
+          "TENANT_CODE"
+        ]
+      ]
+    },
+    "observed_diagnostic_contract": {
+      "condition": {
+        "op": "eq",
+        "value": true
+      },
+      "purpose": "Controlled metadata specification only; no operational fault or mandatory-parent claim.",
+      "baseline_required": false,
+      "minimum_current_observations": null
+    },
+    "condition_evaluation": {
+      "condition": {
+        "op": "eq",
+        "value": true
+      },
+      "statistics": {
+        "rows": 4,
+        "evaluable": 4,
+        "satisfied": 3,
+        "not_satisfied": 1,
+        "unassessed": 0
+      }
+    },
+    "application_context": {
+      "fact_ids": [
+        "source_c7fdeaacb68ac6ef68b0",
+        "availability_a63beb27305a545dbc36",
+        "mapping_9c2471dd665d5dc6b485"
+      ],
+      "population_ref": "population_41b9251fefeec3402f5c",
+      "evaluation_preconditions": [
+        "source_c7fdeaacb68ac6ef68b0",
+        "availability_a63beb27305a545dbc36",
+        "mapping_9c2471dd665d5dc6b485"
+      ],
+      "source_certificate": {
+        "source_version": "c7fdeaacb68ac6ef68b01f651707e6aad95f42e6bc0726106a38f1cd49077ea1",
+        "numeric_valid": 4,
+        "retained_rows": 4,
+        "calculation_available": true
+      }
+    },
+    "condition_scope_facts": {
+      "valid_value_observations": 4,
+      "numeric_comparison_evaluable": null,
+      "result_missingness_test_evaluable": 4,
+      "retained_feature_unavailable_possible": false,
+      "source_missing_cause": "Result unavailable alone does not prove raw source null, parsing, denominator, relation or incident cause"
+    },
+    "availability": "offline complete capture; prospective availability and IF not approved",
+    "unknown": [
+      "No mandatory parent, fault label, or online contract."
+    ],
+    "known_evidence_ids": [
+      "source_c7fdeaacb68ac6ef68b0",
+      "availability_a63beb27305a545dbc36",
+      "mapping_9c2471dd665d5dc6b485",
+      "population_41b9251fefeec3402f5c",
+      "m_035bacbf2931f7a8db07f99d"
+    ],
+    "allowed_needed_keys": [
+      "need_reference",
+      "need_reference_minimum_n",
+      "need_compatible_reference",
+      "need_verified_unit",
+      "need_valid_observations",
+      "need_confirmed_constraint",
+      "need_business_contract"
+    ],
+    "official_computation_facts": {
+      "version": "calculation-facts2.0-guarded-availability",
+      "definition_sha": "1f523c56c914ac1b959a41c0b6c57ba2398ac0374d3eec2463286660a7b7e87c",
+      "source_version": "c7fdeaacb68ac6ef68b01f651707e6aad95f42e6bc0726106a38f1cd49077ea1",
+      "measurement_id": "m_035bacbf2931f7a8db07f99d",
+      "measurement_sha": "035bacbf2931f7a8db07f99da04dabf6fbea350607cf949c007e3b6117ccd3d2",
+      "output_grain": {
+        "table": "HOP_TRACE",
+        "keys": [
+          "TRACE_ROW"
+        ]
+      },
+      "population": {
+        "table": "HOP_TRACE",
+        "filter": null
+      },
+      "dtype": "boolean",
+      "unit": "boolean",
+      "operator_contract_possible_states": [
+        "true",
+        "false"
+      ],
+      "operator_state_proof": {
+        "operator": "if",
+        "unavailable_possible": false,
+        "proof_scope": "Lazy branch under declared guard; not an observed-only claim",
+        "children": [
+          {
+            "operator": "is_missing",
+            "unavailable_possible": false,
+            "proof_scope": "Supported operator contract on retained selected rows",
+            "children": [
+              {
+                "operator": "parent_match_count",
+                "unavailable_possible": true,
+                "proof_scope": "Supported operator contract on retained selected rows",
+                "children": []
+              }
+            ]
+          },
+          {
+            "operator": "literal",
+            "unavailable_possible": false,
+            "proof_scope": "Supported operator contract on retained selected rows",
+            "children": []
+          },
+          {
+            "operator": "eq",
+            "unavailable_possible": false,
+            "proof_scope": "Supported operator contract on retained selected rows",
+            "children": [
+              {
+                "operator": "parent_match_count",
+                "unavailable_possible": false,
+                "assumption": "Available in this branch, certified by the selected availability guard",
+                "children": []
+              },
+              {
+                "operator": "literal",
+                "unavailable_possible": false,
+                "proof_scope": "Supported operator contract on retained selected rows",
+                "children": []
+              }
+            ]
+          }
+        ]
+      },
+      "missing_policy": {
+        "input": "propagate",
+        "empty_group": null,
+        "denominator_zero": null,
+        "child_missing": "propagate",
+        "unknown_predicate": "defer"
+      },
+      "current": {
+        "selected_rows": 4,
+        "population_rows_before_selection": 4,
+        "selection_unavailable": 0,
+        "numeric_or_boolean_nonnull": 4,
+        "result_unavailable": 0,
+        "true": 3,
+        "false": 1
+      },
+      "interpretation": {
+        "null_result": "Does not alone identify source null, parsing, join, denominator or fault cause.",
+        "empty_child_group": "Zero only under the aggregate empty-group contract; unknown relationship/filter is different.",
+        "sample_extrema": "Observed min/max are not proven bounds.",
+        "total_missing_test": "is_missing evaluates retained null results to true; it is not an unavailable numerical comparison."
+      },
+      "row_nodes": [
+        {
+          "path": "/plan/expression/args/0/args/0",
+          "op": "parent_match_count",
+          "evaluation_table": "HOP_TRACE",
+          "output_table": "HOP_TRACE",
+          "row_keys": [
+            "TRACE_ROW"
+          ],
+          "scalar": false,
+          "dtype": "integer",
+          "unit": "count"
+        },
+        {
+          "path": "/plan/expression/args/0",
+          "op": "is_missing",
+          "evaluation_table": "HOP_TRACE",
+          "output_table": "HOP_TRACE",
+          "row_keys": [
+            "TRACE_ROW"
+          ],
+          "scalar": false,
+          "dtype": "boolean",
+          "unit": "boolean"
+        },
+        {
+          "path": "/plan/expression/args/1",
+          "op": "literal",
+          "evaluation_table": "HOP_TRACE",
+          "output_table": null,
+          "row_keys": [],
+          "scalar": true,
+          "dtype": "boolean",
+          "unit": "boolean"
+        },
+        {
+          "path": "/plan/expression/args/2/args/0",
+          "op": "parent_match_count",
+          "evaluation_table": "HOP_TRACE",
+          "output_table": "HOP_TRACE",
+          "row_keys": [
+            "TRACE_ROW"
+          ],
+          "scalar": false,
+          "dtype": "integer",
+          "unit": "count"
+        },
+        {
+          "path": "/plan/expression/args/2/args/1",
+          "op": "literal",
+          "evaluation_table": "HOP_TRACE",
+          "output_table": null,
+          "row_keys": [],
+          "scalar": true,
+          "dtype": "number",
+          "unit": null
+        },
+        {
+          "path": "/plan/expression/args/2",
+          "op": "eq",
+          "evaluation_table": "HOP_TRACE",
+          "output_table": "HOP_TRACE",
+          "row_keys": [
+            "TRACE_ROW"
+          ],
+          "scalar": false,
+          "dtype": "boolean",
+          "unit": "boolean"
+        },
+        {
+          "path": "/plan/expression",
+          "op": "if",
+          "evaluation_table": "HOP_TRACE",
+          "output_table": "HOP_TRACE",
+          "row_keys": [
+            "TRACE_ROW"
+          ],
+          "scalar": false,
+          "dtype": "boolean",
+          "unit": "boolean"
+        }
+      ],
+      "sha256": "c0639db6de72376c5cf09ca713c54793d5c75b1e86820b669987e3e261b29653",
+      "author": "compiler",
+      "contract": "official-computation-facts1.0",
+      "not_AI_generated": true,
+      "expression": {
+        "op": "if",
+        "args": [
+          {
+            "op": "is_missing",
+            "args": [
+              {
+                "op": "parent_match_count",
+                "relationship_id": "hop_frame_link"
+              }
+            ]
+          },
+          {
+            "op": "literal",
+            "value": true
+          },
+          {
+            "op": "eq",
+            "args": [
+              {
+                "op": "parent_match_count",
+                "relationship_id": "hop_frame_link"
+              },
+              {
+                "op": "literal",
+                "value": 0
+              }
+            ]
+          }
+        ]
+      },
+      "selected_result_use": "unavailable_or_zero",
+      "output_excludes_filtered_rows": true,
+      "exceptions": "Invalid sources/types/execution failures are errors, not unavailable values.",
+      "complete_natural_language_proof": false,
+      "facts_sha": "e33dad88c35d7aed86f04ac44c7c6e1080f5dfa679706f8bd3867200ad2007e8"
+    },
+    "AI_prose_is_not_calculation_authority": true
+  },
+  "feature_reference": {
+    "id": "fd_40505a4d9e830b70f61fdcbd",
+    "definition_sha": "1f523c56c914ac1b959a41c0b6c57ba2398ac0374d3eec2463286660a7b7e87c",
+    "source_version": "c7fdeaacb68ac6ef68b01f651707e6aad95f42e6bc0726106a38f1cd49077ea1",
+    "measurement_sha": "035bacbf2931f7a8db07f99da04dabf6fbea350607cf949c007e3b6117ccd3d2"
+  },
+  "official_semantics": [
+    {
+      "author": "compiler",
+      "contract": "official-condition-facts1.0",
+      "not_AI_generated": true,
+      "condition": {
+        "op": "eq",
+        "value": true
+      },
+      "condition_valid": true,
+      "condition_error": null,
+      "statistics": {
+        "rows": 4,
+        "evaluable": 4,
+        "satisfied": 3,
+        "not_satisfied": 1,
+        "unassessed": 0
+      },
+      "valid_feature_observations": 4,
+      "numeric_current": null,
+      "retained_current": 4,
+      "reference_valid_n": null,
+      "is_missing_checks_retained_unavailable_values": false,
+      "result_unavailable_is_not_itself_condition_unassessed": false,
+      "source_or_incident_cause_not_inferred": true,
+      "full_natural_language_proof": false
+    }
+  ],
+  "description_validation": {
+    "status": "supported_claims_checked",
+    "complete_NL_proof": false,
+    "free_prose_approval": "not_granted_by_program_supported_claims_only",
+    "actual_Model_repair": false,
+    "errors": []
+  },
+  "admin_meaning_review": "Structured condition facts are authoritative; free AI text has separate approval status."
+}

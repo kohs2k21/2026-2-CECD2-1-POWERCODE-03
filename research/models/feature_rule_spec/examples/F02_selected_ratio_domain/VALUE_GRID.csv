@@ -1,0 +1,6 @@
+VALUE_ROW,NUM_FIELD,DEN_FIELD,ZONE
+v0,0,2,kept
+v1,2,0,kept
+v2,,1,kept
+v3,-1,0.5,kept
+v4,0,0,excluded

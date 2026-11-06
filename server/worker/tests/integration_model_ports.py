@@ -25,8 +25,10 @@ from trainer.catalog import register_feature_set
 from trainer.runner import run
 
 
-def fake_train(rows, names, directory):
+def fake_train(rows, names, directory, *, parameters=None, **_kwargs):
     assert names == ["error_count"] and len(rows) >= 100
+    # runner는 레지스트리 어댑터를 거쳐 카탈로그 확정 파라미터(기본값)를 항상 넘긴다.
+    assert parameters is not None and parameters["n_estimators"] == 128 and parameters["random_state"] == 42
     model = Path(directory) / "model.joblib"
     fit = Path(directory) / "fit.joblib"
     model.write_bytes(b"test-only-model-artifact")

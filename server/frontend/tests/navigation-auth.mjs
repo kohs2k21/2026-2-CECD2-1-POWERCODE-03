@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { register } from "node:module";
 import React from "react";
 import { act, create } from "react-test-renderer";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -7,7 +8,6 @@ import {
   AuthSessionProvider,
   useAuthSession,
 } from "../src/services/auth/AuthSessionProvider.tsx";
-import { SessionGate, AdminGate } from "../src/app/SessionRoutes.tsx";
 import { httpClient, HttpError } from "../src/services/api/client.ts";
 import { useDraftStore } from "../src/stores/draftStore.ts";
 import { notify } from "../src/lib/notify.ts";
@@ -16,8 +16,10 @@ import { useRealtimeAnomalies } from "../src/features/analysis/hooks/useRealtime
 import {
   loginReturnPath,
   safeReturnPath,
-  settingsReturnPath,
-} from "../src/app/routePaths.ts";
+} from "../src/app/routes.ts";
+// SessionRoutes → 로그인 화면(AuthPage)이 INZENT 로고 svg를 가져오므로 svg 로더를 먼저 등록한다(정적 import는 등록보다 먼저 평가됨).
+register("./svg-loader.mjs", import.meta.url);
+const { SessionGate, AdminGate } = await import("../src/app/SessionRoutes.tsx");
 
 globalThis.React = React;
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
@@ -110,7 +112,7 @@ const mount = async (withStream = false) => {
             element: React.createElement(AdminGate),
             children: [
               {
-                path: "/detection/create",
+                path: "/detection/models",
                 element: withStream
                   ? React.createElement(StreamEditor)
                   : React.createElement("p", null, "protected editor"),
@@ -120,7 +122,7 @@ const mount = async (withStream = false) => {
         ],
       },
     ],
-    { initialEntries: ["/detection/create?tab=training"] },
+    { initialEntries: ["/detection/models?step=2"] },
   );
   let renderer;
   await act(async () => {
@@ -162,40 +164,32 @@ assert.equal(
   safeReturnPath("/settings?section=profile"),
   "/settings?section=profile",
 );
+// 옛 저장 판정 주소는 이상 분석으로 넘김(#105), 판정 상세 주소는 쿼리·해시 보존.
+assert.equal(safeReturnPath("/analysis/process-decisions"), "/analysis");
+assert.equal(safeReturnPath("/analysis/process-decisions?decision=d-1#latest"), "/analysis");
 assert.equal(
-  safeReturnPath("/analysis/process-decisions"),
-  "/analysis/process-decisions",
+  safeReturnPath("/analysis/d/d-1?category=anomaly#latest"),
+  "/analysis/d/d-1?category=anomaly#latest",
 );
-assert.equal(
-  safeReturnPath("/analysis/process-decisions?decision=d-1#latest"),
-  "/analysis/process-decisions?decision=d-1#latest",
-);
-assert.equal(
-  settingsReturnPath("/analysis/process-decisions"),
-  "/analysis/process-decisions",
-);
-assert.equal(
-  loginReturnPath("/analysis/process-decisions", "user"),
-  "/analysis/process-decisions",
-);
-assert.equal(
-  loginReturnPath("/analysis/process-decisions", "admin"),
-  "/analysis/process-decisions",
-);
-assert.equal(safeReturnPath("/analysis/process-decisions/x"), "/operations");
-assert.equal(settingsReturnPath("/settings?section=profile"), "/operations");
-assert.equal(
-  settingsReturnPath("/analysis?category=Critical&q=abc"),
-  "/analysis?category=Critical&q=abc",
-);
+assert.equal(loginReturnPath("/analysis/d/d-1", "user"), "/analysis/d/d-1");
+assert.equal(loginReturnPath("/analysis/d/d-1", "admin"), "/analysis/d/d-1");
+assert.equal(safeReturnPath("/analysis/d/d-1/x"), "/operations");
+assert.equal(safeReturnPath("/analysis/d/"), "/operations");
 assert.equal(
   loginReturnPath("/detection/create?tab=rules", "user"),
   "/operations",
 );
 assert.equal(
   loginReturnPath("/detection/create?tab=rules", "admin"),
-  "/detection/create?tab=rules",
+  "/detection/rules",
+  "legacy detection address resolves to the new route before return",
 );
+assert.equal(
+  loginReturnPath("/detection/models?tab=all&step=2", "admin"),
+  "/detection/models?tab=all&step=2",
+);
+assert.equal(loginReturnPath("/detection/models", "user"), "/operations");
+assert.equal(safeReturnPath("/notifications?filter=tasks"), "/analysis");
 
 storage.set("token", "test-token");
 let resolveMe;
@@ -212,7 +206,7 @@ assert.ok(
 await act(async () => resolveMe(json({ user: admin })));
 await wait(() => session.user?.id === "admin");
 assert.ok(text(mounted.renderer.toJSON()).includes("protected editor"));
-useDraftStore.getState().edit("/detection/create", { value: "unsaved" });
+useDraftStore.getState().edit("/detection/models", { value: "unsaved" });
 mounted.cache.setQueryData(["private-records"], ["admin-only"]);
 let finishOldRequest;
 globalThis.fetch = () =>
@@ -284,7 +278,7 @@ await wait(() => mounted.router.state.location.pathname === "/login");
 assert.equal(storage.has("token"), false);
 assert.equal(
   mounted.router.state.location.state.returnTo,
-  "/detection/create?tab=training",
+  "/detection/models?step=2",
   "expiry preserves internal return destination",
 );
 await mounted.close();
@@ -330,7 +324,7 @@ globalThis.fetch = async (url, options) => {
 };
 mounted = await mount(true);
 await wait(() => session.user?.id === "admin" && Boolean(streamSignal));
-useDraftStore.getState().edit("/detection/create", { value: "admin draft" });
+useDraftStore.getState().edit("/detection/models", { value: "admin draft" });
 mounted.cache.setQueryData(["private-records"], ["admin-only"]);
 const pendingMe = [];
 globalThis.fetch = (_url, options) =>
@@ -382,7 +376,7 @@ await act(async () =>
 );
 useDraftStore
   .getState()
-  .edit("/detection/create", { value: "new admin draft" });
+  .edit("/detection/models", { value: "new admin draft" });
 mounted.cache.setQueryData(["private-records"], ["another private row"]);
 await act(async () => {
   storage.clear();

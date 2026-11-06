@@ -5,6 +5,8 @@ type Options = {
   after: string;
   authorize: () => Promise<boolean>;
   readEvents: (after: string) => Promise<DecisionEvent[]>;
+  /** SSE `event:` 이름. 없으면 decision(기존 소비자 형식). */
+  eventName?: (event: DecisionEvent) => string;
   pollMs?: number;
   drainTimeoutMs?: number;
 };
@@ -61,7 +63,7 @@ export async function streamDecisionEvents(res: Response, options: Options): Pro
       const events = await options.readEvents(after);
       if (!writable()) return;
       for (const event of events) {
-        if (!await write(`id: ${event.eventId}\nevent: decision\ndata: ${JSON.stringify(event)}\n\n`)) return;
+        if (!await write(`id: ${event.eventId}\nevent: ${options.eventName?.(event) ?? 'decision'}\ndata: ${JSON.stringify(event)}\n\n`)) return;
         after = event.eventId;
       }
       await write(': keepalive\n\n');

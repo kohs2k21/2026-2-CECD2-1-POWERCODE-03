@@ -1,8 +1,10 @@
 # WebUI 탐색 규약
 
-- 관련 작업: #20 WebUI 레이아웃 구조 개편
+- 관련 작업: #20 WebUI 레이아웃 구조 개편, #100 프론트 기반(와이어프레임 #93 구조로 경로 개편, 사용자 11/03 승인), #105 이상 분석 판정 목록·상세
+- 화면 기준: `research/wireframes/mlops-workflow.html`(#93)
 - 인증·오류 응답: [auth.md](auth.md)
 - 권한: `user` 일반 사용자 / `admin` 관리자
+- 코드 기준: `frontend/src/app/routes.ts`(경로·메뉴·옛 주소 표), `frontend/src/app/appRoutes.tsx`(라우트 표)
 
 ## 화면 경로
 
@@ -10,48 +12,82 @@
 |---|---|---|
 | `/login` | 로그인 | 미인증 |
 | `/operations` | 운영 현황 | user / admin |
-| `/analysis` | 이상 분석 | user / admin |
+| `/analysis` | 이상 분석 › 판정 목록 | user / admin |
+| `/analysis/d/:decisionId` | 이상 분석 › PROCESS 판정 상세(판정 ID 또는 최종 판정 전 detect 작업 ID, [analysis-ui.md](analysis-ui.md)) | user / admin |
 | `/settings` | 설정 | user / admin |
-| `/notifications` | 알림 전체 보기 | user / admin |
-| `/detection/create` | 모델·룰 생성 | admin |
-| `/detection/evaluation` | 성능 평가·비교 | admin |
-| `/detection/versions` | 운영 버전 관리 | admin |
-| `/detection/collection` | 데이터 수집 현황 | admin |
+| `/detection/operations` | 탐지 설정 › 운영 설정 | admin |
+| `/detection/operations/jobs/:jobId` | 작업 상세 | admin |
+| `/detection/operations/replace` | 모델 교체(전체 페이지 단계 흐름) | admin |
+| `/detection/rules` | 탐지 설정 › 룰 설정([rules-ui.md](rules-ui.md)) | admin |
+| `/detection/models` | 탐지 설정 › 머신러닝 모델(버전 목록 + 같은 화면 새 학습, [models-ui.md](models-ui.md)) | admin |
+| `/detection/models/:versionId` | 모델 버전 상세([models-ui.md](models-ui.md)) | admin |
+| `/detection/evaluations` | 탐지 설정 › 평가 결과(비교 평가 목록 + 같은 화면 새 비교 평가) | admin |
+| `/detection/evaluations/:evaluationId` | 평가 상세 | admin |
 
-- 기본 경로 `/`: 운영 현황
-- 탐지 관리 첫 진입: 모델·룰 생성
-- 생성 `tab`: `dataset` 데이터셋 / `features` 피처 / `training` 모델 학습 / `rules` 룰 생성·편집
-- 평가 `tab`: `preparation` 평가 세트 준비 / `candidates` 후보 평가·비교 / `composition` 모델·룰 조합 검토
-- 운영 버전 `tab`: `configuration` 운영 구성 / `application` 적용·복원 / `history` 버전 이력
-- 수집 `tab`: `status` 수집 상태 / `fields` 원본 필드 / `history` 수집 이력 / `storage` 저장 공간
-- 알림 `filter`: all / operations / tasks; 권한·데이터 경계: [notifications.md](notifications.md)
-- 공통 내부 탐색: 밑줄형 Link·`aria-current=page`; 제목 아래 간격 32px, 선택한 내용만 표시
-- 명시한 유효 `tab` 우선; 미지정·잘못된 tab은 해당 화면의 기본·기존 상세 URL에 맞게 replace 정규화, 기타 쿼리·전달 state 보존
-- 기존 상세 URL: 평가 result→candidates / selection=composition→composition; 운영 history→history, candidate·rollback→application; 수집 history→history, field→fields
-- 이전 `data-features` URL: feature/kind/featureQ 존재 시 features, 그 외 dataset으로 replace 전환; 나머지 필터 유지
-- 새 관리자 화면: 목록·상세·입력·검증·확인 흐름 포함; 실제 미연결 작업은 detection-ui.md의 capability 계약으로 구분
-- 설정: 독립 페이지; 종료 시 진입 전 경로·탭·필터 복귀
-- 로그인 복귀 주소: 앱 내부의 허용 경로만 사용; 외부 URL·프로토콜 상대 URL 금지
+- 상단 메뉴: 운영 현황 / 이상 분석 / 탐지 설정(admin만 표시). 우측 알림 패널·설정·로그아웃
+- 기본 경로 `/`: 운영 현황. 탐지 설정 첫 진입 `/detection`: 운영 설정
+- 탐지 설정 사이드바 4메뉴: 운영 설정 · 룰 설정 · 머신러닝 모델 · 평가 결과. 상세·모델 교체 화면도 해당 메뉴를 현재 메뉴로 표시
+- 탐지 설정 하위 화면(상세·모델 교체) 상단: 뒤로가기 아이콘(이름 `뒤로 · <메뉴>`). 탐지 설정 안에서 넘겨받은 `state.returnTo`가 있으면 그 주소, 없거나 탐지 설정 밖·외부·자기 자신이면 해당 메뉴 첫 화면
+- 일반 사용자의 탐지 설정 직접 진입: 관리자 권한 안내(메뉴 숨김과 서버 API 권한 검사는 각각 적용)
+
+## 주소에 반영하는 선택값
+
+| 화면 | 쿼리 | 값(첫 값이 기본) |
+|---|---|---|
+| 운영 현황 | `tab` | `overview` 개요 / `collect` 수집 |
+| 설정 | `section` | `notifications` / `integrations` / `display` / `profile` |
+| 머신러닝 모델 | `tab` | `active` 현재 운영 버전 / `all` 전체 버전 |
+| 머신러닝 모델 | `step` | 새 학습 `1` 기간 / `2` 입력 변수 / `3` 모델·파라미터 |
+| 머신러닝 모델 | `job` | 접수한 학습 작업 ID(없으면 생략). 영역 맨 위에 진행 상태를 표시 |
+| 평가 결과 | `tab` | `current` 현재 운영 모델 기준 / `all` 전체 평가 |
+| 평가 결과 | `step` | 새 비교 평가 `1` 평가 세트 / `2` 비교 모델 / `3` 요청 |
+| 모델 교체 | `step` | `1` 버전 선택 / `2` 비교 확인 / `3` 승인·요청 |
+| 이상 분석 | `category` | `all` / `anomaly` / `in_progress` / `undetermined` / `failed_replaced`(판정 결과별 분류: 전체 / 이상 / 판정 중·중간 판정 / 정상 여부 미확인 / 판정 실패·대체) |
+| 이상 분석 | `q`·`signal`·`completeness`·`sort`·`page`·`pageSize` | 검색어 / 이상 신호 `all`·`yes`·`no`·`unknown` / 검사 완료 `all`·`complete`·`partial`·`unavailable` / `newest`·`oldest` / 1~ / `10`·`5`·`20`. 판정 상세 주소도 같은 쿼리 유지(목록 복귀) |
+
+- #100 현재: 룰 설정(#109)·머신러닝 모델(#128)을 뺀 탐지 설정 화면은 숨긴 화면 제목(sr-only h1)만 있는 골격(운영 설정은 본문 첫 줄 [모델 교체] 진입 포함). 운영 현황·이상 분석·탐지 설정은 보이는 제목 줄 없음(ui.md 화면 제목). 목록 탭·작업 단계 화면은 각 하위 Issue에서 이 주소 규칙대로 붙임(도구 `hooks/useUrlState.ts`)
+- 미지정 값은 기본값(주소 그대로), 잘못된 값은 기본값·가까운 유효 단계로 replace 정규화. 기타 쿼리·전달 state 보존. 앞 단계가 끝나지 않은 단계 주소도 가까운 유효 단계로 정규화(새로고침하면 메모리 초안이 없어 1단계)
+- 목록 아래 같은 화면 작업 영역: 단계 이동(이전·다음, 새 학습 단계 표시)은 Link push → 브라우저 뒤로·앞으로 가기가 단계와 일치. `step`이 주소에 있으면 작업 영역을 화면에 보이게 스크롤, 목록 첫 진입은 스크롤 없음
+- URL 탭: 밑줄형 Link·`aria-current=page`(로컬 Tabs ARIA 금지). 사이드바 항목도 Link·`aria-current=page`
+
+## 옛 주소 넘김(replace)
+
+| 옛 주소 | 새 주소 |
+|---|---|
+| `/notifications`(모든 쿼리) | `/analysis` |
+| `/analysis/process-decisions`(모든 쿼리) | `/analysis`(저장된 탐지 판정 화면을 이상 분석에 합침, #105) |
+| `/detection`, `/detection/pipeline`, `/detection/versions` | `/detection/operations` |
+| `/detection/create?tab=rules` | `/detection/rules` |
+| `/detection/create`(그 외 tab) | `/detection/models` |
+| `/detection/evaluation` | `/detection/evaluations` |
+| `/detection/collection` | `/operations?tab=collect` |
+
+- 폐지 화면: `/notifications` 알림 전체 페이지(알림은 상단 패널), `/detection/pipeline` 학습·탐지 운영, 탐지 관리 실험·운영 그룹(생성·평가·운영 버전·수집), `/analysis/process-decisions` 저장된 탐지 판정(#105)
+- 로그인 복귀 주소의 옛 주소도 같은 표로 바꿔 허용
 
 ## 상태 책임
 
-- TanStack Query: 현재 사용자 등 서버 조회·캐시
-- URL: 화면·탭·확정 필터·페이지
-- Zustand: 화면 간 공유가 필요한 편집 초안
+- TanStack Query: 서버 조회·캐시. 공통 훅 `useAccountQuery`(`frontend/src/lib/query.ts`)
+  - key에 계정 ID 포함, queryFn에 AbortSignal 전달, 응답 시점에 토큰이 바뀌었으면 결과 폐기
+  - 자동 재시도 없음(404 포함), 창 포커스·재연결·주기 재조회 없음
+  - 주기 조회는 진행 중 작업만 5초(`RUNNING_POLL_MS`, 예: 입력 실행 running, 설명 작업 queued·running). 끝나면 멈춤
+  - 실시간 SSE(이상 이벤트·저장 판정)는 스트림 하나로 받고 캐시에 병합 또는 해당 조회 무효화, 끊기면 재연결(주기 조회 아님). 이상 분석은 목록 응답 커서 다음부터 받아 이벤트가 올 때만 목록·건수를 묶어 다시 조회(analysis-ui.md)
+  - 서버 변경은 Mutation. 실패를 성공으로 바꾸지 않고 최신 상태를 다시 조회
+- URL: 화면·탭·확정 필터·페이지·작업 단계
+- Zustand: 화면 간 공유가 필요한 편집 초안만(`stores/draftStore.ts`, pathname별)
 - 지역 상태: 입력 중 값·팝업·메뉴 열림
+- 브라우저 저장소: 넓게 보기 같은 화면 편의 설정만. 서버 상태·초안·토큰 이외 비밀 금지
 - URL 제외: 토큰·비밀번호·BODY·편집 초안
-- 로그아웃·인증 만료·계정 변경: 사용자별 캐시·공유 초안 정리
+- 로그아웃·인증 만료·계정 변경: 사용자별 캐시·공유 초안·알림 정리
 - 다른 탭의 로그인·로그아웃: 저장소 변경 감지 후 현재 사용자 재확인·이전 조회 취소
-- 미저장 편집: 내부 탭 이동 시 유지; 편집 영역 이탈 시 `변경 사항 저장 후 이동` / `버리고 이동` 두 버튼; Escape·외부 클릭은 이동 취소; 브라우저 새로고침·닫기 경고
-- 저장 후 이동: 현재 세션의 메모리 초안 보존, 서버 영구 저장·운영 적용과 별개; dirty 및 beforeunload 보호 유지.
-- 화면 이탈 버튼: 저장 후 이동 primary(검은 배경), 버리고 이동 outline
-- 운영 적용·복원 탭 이탈: 확인창 종료·승인 초기화; 재진입 시 승인 재확인. 실제 구성·평가 근거 변경 시에도 승인 초기화
+- 미저장 편집: 내부 탭·단계 이동 시 유지; 편집 영역 이탈 시 `변경 사항 저장 후 이동`(primary) / `버리고 이동`(outline) 두 버튼; Escape·외부 클릭은 이동 취소; 브라우저 새로고침·닫기 경고
+- 저장 후 이동: 현재 세션의 메모리 초안 보존, 서버 영구 저장·운영 적용과 별개; dirty 및 beforeunload 보호 유지
 - 초안 보존 이동: 같은 세션의 다른 페이지로 이동해도 pathname별 초안 dirty 유지. 원래 화면 복귀 시 편집 값 복원, 다른 화면에 머무는 동안도 전체 초안의 beforeunload 보호 유지
 - 로그아웃·계정 변경: 초안 보존 이동과 별도. 로그아웃 확인에는 보존 선택 없음, 세션 종료 시 전체 초안/캐시 정리
-- 운영 조합 미리보기→평가: Link state의 CompositionInput 전달, 평가 화면에서 조회 산출물/룰 버전과 재검증. 기존 평가 초안이 있으면 명시적 전달 구성 사용으로 기존 편집 보호
-- 초안 보호: 실제 데이터·피처·학습·룰 및 평가 설정 편집에 pathname별 초안 적용, 내부 선택 ID별 편집 값 구분
-- 평가 준비·조건·비교·조합: 같은 pathname의 서로 다른 초안 필드 병합; 내부 탭 이동·기존 상세 URL에서 다른 편집 내용 덮어쓰기 금지
-- 고정 평가 세트: 서버 ID·revision 기준 선택; 로컬 준비 초안과 실행 가능 세트 구분, 조건 자유 입력으로 서버 세트 대체 금지
+- 모델 교체·복원 흐름 이탈: 확인창 종료·승인 초기화; 재진입 시 승인 재확인. 실제 구성·평가 근거 변경 시에도 승인 초기화(기존 운영 적용·복원 규칙 승계)
+- 고정 평가 세트: 서버 ID·revision 기준 선택; 로컬 준비 초안과 실행 가능 세트 구분, 조건 자유 입력으로 서버 세트 대체 금지(기존 평가 규칙 승계)
+- 설정: 독립 페이지; 복귀 버튼 없이 상단 메뉴로 이동(사용자 11/05)
+- 로그인 복귀 주소: 앱 내부의 허용 경로만 사용; 외부 URL·프로토콜 상대 URL 금지
 - 브라우저 재실행 후 편집 초안 복원: 현재 범위 제외
 
 ## 웹 서버 연결

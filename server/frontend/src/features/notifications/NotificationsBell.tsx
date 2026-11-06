@@ -1,51 +1,29 @@
 import { useEffect, useState } from "react";
 import { IconBell } from "@tabler/icons-react";
-import { Link, useLocation } from "react-router-dom";
-import { Button } from "../../components/ui/button";
-import { DialogFooter } from "../../components/ui/dialog";
-import { Modal } from "../../components/ui/Modal";
+import { useLocation } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { NotificationPanels } from "./NotificationPanels";
 
-export const NotificationsBell = () => {
+/** 상단 알림 패널(와이어프레임 #93 bell). 별도 알림 페이지는 폐지(/notifications → /analysis). */
+export const NotificationsBell = ({ triggerClassName }: { triggerClassName?: string }) => {
   const [open, setOpen] = useState(false);
   const location = useLocation();
   useEffect(() => setOpen(false), [location.key]);
   const close = () => setOpen(false);
   return (
-    <Modal
-      isOpen={open}
-      onOpenChange={setOpen}
-      title="알림"
-      size="sm"
-      trigger={
-        <Button
-          variant="ghost"
-          size="icon"
-          className="top-nav-icon-btn"
-          aria-label="알림"
-          aria-haspopup="dialog"
-          aria-expanded={open}
-          aria-current={
-            location.pathname === "/notifications" ? "page" : undefined
-          }
-        >
-          <IconBell size={20} aria-hidden="true" />
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button variant="ghost" size="icon" aria-label="알림" className={triggerClassName}>
+          <IconBell aria-hidden="true" />
         </Button>
-      }
-    >
-      <div className="notification-popup-list">
-        <NotificationPanels limit={5} onNavigate={close} />
-      </div>
-      <DialogFooter>
-        <Button variant="outline" onClick={close}>
-          닫기
-        </Button>
-        <Button asChild>
-          <Link to="/notifications?filter=all" onClick={close}>
-            전체 보기
-          </Link>
-        </Button>
-      </DialogFooter>
-    </Modal>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="grid w-96 max-w-[calc(100vw-2rem)] gap-3" aria-label="알림 목록">
+        <h2 className="text-section-title">알림</h2>
+        <div className="max-h-[60vh] overflow-y-auto">
+          <NotificationPanels limit={5} onNavigate={close} />
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 };

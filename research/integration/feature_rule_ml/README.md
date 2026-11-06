@@ -2,6 +2,11 @@
 
 최종 명세 패키지와 ML 연구 코드를 연결하는 **오프라인 연구 파이프라인**이다. 기존 LoRA·모델 파일·계산 계약·과거 결과를 수정하지 않는다. `server/`의 런타임 의존성이 아니다.
 
+**2026-11-06 사용자 선택 구성:** 이전 검증 Feature/Rule 설정과 규칙110개, T/P/M42개 피처, 기존 IF·K-means, 추가 학습 LOF를 연결한다.
+**새 CSV의 학습·탐지는 [Trainer·Detector 실행 패키지 (#140)](shared42/README.md)를 따른다.** 피처65개·규칙110개·실제 ML 모델9개를 포함하며 원천 재계산과 학습/저장/동결 탐지를 지원한다.
+[`restore-previous42` 안내](PREVIOUS_SHARED42.md)는 원래 아카이브 캐시를 대조하는 보존용 재생 경로다. 저장 모델만 사용하는 실행과 LOF 학습 실행을 명시적으로 구분한다.
+아래 Process 모델 연결은 보존된 별도 프로필이며 선택 구성으로 자동 전환하지 않는다.
+
 **2026-11-06 최신 ML 연결:** Issue #95 / PR #98의 Process 실행 행 모델을 `research/process_event_model/`에 원형 그대로 포함했다.
 최신 IF·K-means·LOF를 쓸 때는 **[`predict-process` 연결 안내](PROCESS_EVENT_INTEGRATION.md)**를 따른다.
 같은 원천 Process 행에서 우리 HR/SR과 최신 ML을 결합하며, ML 전용 Python 3.12 프로세스에서 동결 모델을 실행한다.
@@ -126,7 +131,9 @@ OR 정책은 하나라도 경고면 경고, HR·SR·ML 모두 비경고면 비�
 
 데모는 공개 저장 응답 8건 재생, 피처 7개·보류 1개 연결, 인공 train/calibration/threshold 각 64행, 적용 64행을 사용한다. 기존 연구 코드로 IF·K-means·LOF의 작은 신규 CPU 모델 3개를 만든다. **고객 로그 학습, LoRA 학습, 새 LLM 생성, 실제 운영 성능 평가는 아니다.**
 
-## 아직 포함하지 않는 것
+## 아래 일반 공통 벡터 프로필의 제한
+
+아래 목록은 이 문서의 `prepare/fit/predict` 일반 프로필에 적용된다. #140의 선택된 고정 T/P/M 스키마는 원천 전체 시험과 거래 roll-up을 별도로 검증한다.
 
 - 실제 고객 로그 전체에 맞춘 새 row-feature ML 학습·탐지 성능 평가
 - v12 시간창 가중치에 임의 피처 추가, 현재 `.venv`에서 v12 pickle 강제 로드

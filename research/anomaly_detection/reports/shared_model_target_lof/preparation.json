@@ -1,0 +1,8 @@
+{
+  "sha256": "ea4f3402350aff13c5cfacac85fcf779c87b2202e49d0a0253be2f6793643273",
+  "parent_model_sha256": "786cd5ff557655505cce3db18441f90fa973e0c7383499112f191c9be8731e93",
+  "benchmark_manifest_sha256": "4f5469a098b82372d78499a8e9d9e7541dd58dba61a826626006dc6dc5627e93",
+  "normal_reference_fit_train_only": true,
+  "old_confirmation_reclassified_as_second_development_fold": true,
+  "reference_unchanged_from": "reports\\shared_model_target_current"
+}

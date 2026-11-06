@@ -1,0 +1,24 @@
+{
+  "commands_passed": 12,
+  "checks": [
+    {
+      "algorithm": "if",
+      "original_model_evaluation": true,
+      "new_data_train_predict_evaluate": true,
+      "fresh_subprocess_load": true
+    },
+    {
+      "algorithm": "kmeans",
+      "original_model_evaluation": true,
+      "new_data_train_predict_evaluate": true,
+      "fresh_subprocess_load": true
+    },
+    {
+      "algorithm": "lof",
+      "original_model_evaluation": true,
+      "new_data_train_predict_evaluate": true,
+      "fresh_subprocess_load": true
+    }
+  ],
+  "fixtures": "invented, not performance evaluation"
+}

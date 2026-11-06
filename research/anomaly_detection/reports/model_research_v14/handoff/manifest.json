@@ -1,0 +1,3625 @@
+{
+  "models": [
+    {
+      "algorithm": "if",
+      "file": "if_v14_candidate.joblib",
+      "bytes": 11809123,
+      "sha256": "ecf5d70cd5c034473a6a7327b19c5b52e8d430138a2f31c4e84eb26bbc90c55d",
+      "expert_adapters": [
+        "DB.READER",
+        "DB.WRITER",
+        "FILE.READER",
+        "FILE.WRITER",
+        "SERVICE.EXECUTOR"
+      ],
+      "selection": {
+        "algorithm": "if",
+        "candidate": "preserved_v12",
+        "settings": null,
+        "recalibrated": true,
+        "mode": "phase",
+        "quantiles": [
+          0.975,
+          0.995,
+          0.925
+        ],
+        "within_budget": true,
+        "pooled": [
+          {
+            "n": 26864,
+            "normal": 21104,
+            "anomaly": 5760,
+            "tn": 20648,
+            "fp": 456,
+            "fn": 4008,
+            "tp": 1752,
+            "accuracy": 0.8338296605122096,
+            "precision": 0.7934782608695652,
+            "recall": 0.30416666666666664,
+            "f1": 0.4397590361445783,
+            "normal_false_positive_rate": 0.021607278241091737,
+            "always_normal_accuracy": 0.7855866587254318
+          },
+          {
+            "n": 26864,
+            "normal": 21104,
+            "anomaly": 5760,
+            "tn": 20868,
+            "fp": 236,
+            "fn": 4874,
+            "tp": 886,
+            "accuracy": 0.8097826086956522,
+            "precision": 0.7896613190730838,
+            "recall": 0.15381944444444445,
+            "f1": 0.25748328974135426,
+            "normal_false_positive_rate": 0.011182714177407127,
+            "always_normal_accuracy": 0.7855866587254318
+          },
+          {
+            "n": 26864,
+            "normal": 21104,
+            "anomaly": 5760,
+            "tn": 20620,
+            "fp": 484,
+            "fn": 4018,
+            "tp": 1742,
+            "accuracy": 0.8324151280524121,
+            "precision": 0.7825696316262354,
+            "recall": 0.30243055555555554,
+            "f1": 0.4362634610568495,
+            "normal_false_positive_rate": 0.02293404094010614,
+            "always_normal_accuracy": 0.7855866587254318
+          }
+        ],
+        "macro": [
+          {
+            "accuracy": 0.8688864083065088,
+            "precision": 0.8041393342299848,
+            "recall": 0.4942069905403239,
+            "f1": 0.5811266626323143,
+            "normal_false_positive_rate": 0.022048620964559163
+          },
+          {
+            "accuracy": 0.8488749882496713,
+            "precision": 0.6083909151326489,
+            "recall": 0.3117742504409171,
+            "f1": 0.40931870546472454,
+            "normal_false_positive_rate": 0.008043685362437403
+          },
+          {
+            "accuracy": 0.86561907143804,
+            "precision": 0.8230111719169062,
+            "recall": 0.43776559243225915,
+            "f1": 0.5542002901348813,
+            "normal_false_positive_rate": 0.01913300672725426
+          }
+        ],
+        "scenarios": [
+          {
+            "scenario": "individual_delay",
+            "metrics": [
+              {
+                "n": 810,
+                "normal": 720,
+                "anomaly": 90,
+                "tn": 720,
+                "fp": 0,
+                "fn": 2,
+                "tp": 88,
+                "accuracy": 0.9975308641975309,
+                "precision": 1.0,
+                "recall": 0.9777777777777777,
+                "f1": 0.9887640449438202,
+                "normal_false_positive_rate": 0.0,
+                "always_normal_accuracy": 0.8888888888888888
+              },
+              {
+                "n": 810,
+                "normal": 720,
+                "anomaly": 90,
+                "tn": 720,
+                "fp": 0,
+                "fn": 39,
+                "tp": 51,
+                "accuracy": 0.9518518518518518,
+                "precision": 1.0,
+                "recall": 0.5666666666666667,
+                "f1": 0.723404255319149,
+                "normal_false_positive_rate": 0.0,
+                "always_normal_accuracy": 0.8888888888888888
+              },
+              {
+                "n": 810,
+                "normal": 720,
+                "anomaly": 90,
+                "tn": 720,
+                "fp": 0,
+                "fn": 32,
+                "tp": 58,
+                "accuracy": 0.9604938271604938,
+                "precision": 1.0,
+                "recall": 0.6444444444444445,
+                "f1": 0.7837837837837838,
+                "normal_false_positive_rate": 0.0,
+                "always_normal_accuracy": 0.8888888888888888
+              }
+            ]
+          },
+          {
+            "scenario": "group_delay",
+            "metrics": [
+              {
+                "n": 4909,
+                "normal": 3919,
+                "anomaly": 990,
+                "tn": 3769,
+                "fp": 150,
+                "fn": 591,
+                "tp": 399,
+                "accuracy": 0.8490527602363007,
+                "precision": 0.726775956284153,
+                "recall": 0.403030303030303,
+                "f1": 0.5185185185185185,
+                "normal_false_positive_rate": 0.03827507017096198,
+                "always_normal_accuracy": 0.7983295986962722
+              },
+              {
+                "n": 4909,
+                "normal": 3919,
+                "anomaly": 990,
+                "tn": 3885,
+                "fp": 34,
+                "fn": 990,
+                "tp": 0,
+                "accuracy": 0.7914035445100835,
+                "precision": 0.0,
+                "recall": 0.0,
+                "f1": 0.0,
+                "normal_false_positive_rate": 0.008675682572084715,
+                "always_normal_accuracy": 0.7983295986962722
+              },
+              {
+                "n": 4909,
+                "normal": 3919,
+                "anomaly": 990,
+                "tn": 3757,
+                "fp": 162,
+                "fn": 552,
+                "tp": 438,
+                "accuracy": 0.8545528620900387,
+                "precision": 0.73,
+                "recall": 0.44242424242424244,
+                "f1": 0.5509433962264151,
+                "normal_false_positive_rate": 0.04133707578463894,
+                "always_normal_accuracy": 0.7983295986962722
+              }
+            ]
+          },
+          {
+            "scenario": "column_relation",
+            "metrics": [
+              {
+                "n": 810,
+                "normal": 630,
+                "anomaly": 180,
+                "tn": 605,
+                "fp": 25,
+                "fn": 90,
+                "tp": 90,
+                "accuracy": 0.8580246913580247,
+                "precision": 0.782608695652174,
+                "recall": 0.5,
+                "f1": 0.6101694915254238,
+                "normal_false_positive_rate": 0.03968253968253968,
+                "always_normal_accuracy": 0.7777777777777778
+              },
+              {
+                "n": 810,
+                "normal": 630,
+                "anomaly": 180,
+                "tn": 630,
+                "fp": 0,
+                "fn": 90,
+                "tp": 90,
+                "accuracy": 0.8888888888888888,
+                "precision": 1.0,
+                "recall": 0.5,
+                "f1": 0.6666666666666666,
+                "normal_false_positive_rate": 0.0,
+                "always_normal_accuracy": 0.7777777777777778
+              },
+              {
+                "n": 810,
+                "normal": 630,
+                "anomaly": 180,
+                "tn": 622,
+                "fp": 8,
+                "fn": 90,
+                "tp": 90,
+                "accuracy": 0.8790123456790123,
+                "precision": 0.9183673469387755,
+                "recall": 0.5,
+                "f1": 0.6474820143884892,
+                "normal_false_positive_rate": 0.012698412698412698,
+                "always_normal_accuracy": 0.7777777777777778
+              }
+            ]
+          },
+          {
+            "scenario": "time_burst",
+            "metrics": [
+              {
+                "n": 5422,
+                "normal": 4672,
+                "anomaly": 750,
+                "tn": 4559,
+                "fp": 113,
+                "fn": 491,
+                "tp": 259,
+                "accuracy": 0.8886019918849133,
+                "precision": 0.696236559139785,
+                "recall": 0.3453333333333333,
+                "f1": 0.46167557932263814,
+                "normal_false_positive_rate": 0.024186643835616438,
+                "always_normal_accuracy": 0.8616746587974917
+              },
+              {
+                "n": 5422,
+                "normal": 4672,
+                "anomaly": 750,
+                "tn": 4569,
+                "fp": 103,
+                "fn": 499,
+                "tp": 251,
+                "accuracy": 0.8889708594614534,
+                "precision": 0.7090395480225988,
+                "recall": 0.33466666666666667,
+                "f1": 0.45471014492753625,
+                "normal_false_positive_rate": 0.02204623287671233,
+                "always_normal_accuracy": 0.8616746587974917
+              },
+              {
+                "n": 5422,
+                "normal": 4672,
+                "anomaly": 750,
+                "tn": 4544,
+                "fp": 128,
+                "fn": 486,
+                "tp": 264,
+                "accuracy": 0.8867576540022132,
+                "precision": 0.673469387755102,
+                "recall": 0.352,
+                "f1": 0.46234676007005254,
+                "normal_false_positive_rate": 0.0273972602739726,
+                "always_normal_accuracy": 0.8616746587974917
+              }
+            ]
+          },
+          {
+            "scenario": "input_stop",
+            "metrics": [
+              {
+                "n": 6776,
+                "normal": 5726,
+                "anomaly": 1050,
+                "tn": 5645,
+                "fp": 81,
+                "fn": 363,
+                "tp": 687,
+                "accuracy": 0.9344746162927982,
+                "precision": 0.89453125,
+                "recall": 0.6542857142857142,
+                "f1": 0.7557755775577558,
+                "normal_false_positive_rate": 0.014146000698567935,
+                "always_normal_accuracy": 0.8450413223140496
+              },
+              {
+                "n": 6776,
+                "normal": 5726,
+                "anomaly": 1050,
+                "tn": 5654,
+                "fp": 72,
+                "fn": 558,
+                "tp": 492,
+                "accuracy": 0.9070247933884298,
+                "precision": 0.8723404255319149,
+                "recall": 0.4685714285714286,
+                "f1": 0.6096654275092936,
+                "normal_false_positive_rate": 0.012574222843171499,
+                "always_normal_accuracy": 0.8450413223140496
+              },
+              {
+                "n": 6776,
+                "normal": 5726,
+                "anomaly": 1050,
+                "tn": 5635,
+                "fp": 91,
+                "fn": 436,
+                "tp": 614,
+                "accuracy": 0.9222255017709563,
+                "precision": 0.8709219858156029,
+                "recall": 0.5847619047619048,
+                "f1": 0.6997150997150997,
+                "normal_false_positive_rate": 0.01589242053789731,
+                "always_normal_accuracy": 0.8450413223140496
+              }
+            ]
+          },
+          {
+            "scenario": "gradual_degradation",
+            "metrics": [
+              {
+                "n": 8137,
+                "normal": 5437,
+                "anomaly": 2700,
+                "tn": 5350,
+                "fp": 87,
+                "fn": 2471,
+                "tp": 229,
+                "accuracy": 0.6856335258694851,
+                "precision": 0.7246835443037974,
+                "recall": 0.08481481481481482,
+                "f1": 0.15185676392572944,
+                "normal_false_positive_rate": 0.016001471399668937,
+                "always_normal_accuracy": 0.6681823767973455
+              },
+              {
+                "n": 8137,
+                "normal": 5437,
+                "anomaly": 2700,
+                "tn": 5410,
+                "fp": 27,
+                "fn": 2698,
+                "tp": 2,
+                "accuracy": 0.6651099913973209,
+                "precision": 0.06896551724137931,
+                "recall": 0.0007407407407407407,
+                "f1": 0.0014657383657017222,
+                "normal_false_positive_rate": 0.004965973882655877,
+                "always_normal_accuracy": 0.6681823767973455
+              },
+              {
+                "n": 8137,
+                "normal": 5437,
+                "anomaly": 2700,
+                "tn": 5342,
+                "fp": 95,
+                "fn": 2422,
+                "tp": 278,
+                "accuracy": 0.6906722379255253,
+                "precision": 0.7453083109919572,
+                "recall": 0.10296296296296296,
+                "f1": 0.18093068662544745,
+                "normal_false_positive_rate": 0.01747287106860401,
+                "always_normal_accuracy": 0.6681823767973455
+              }
+            ]
+          }
+        ],
+        "objective": 0.5148818860773067,
+        "worst_pooled_fpr": 0.02293404094010614,
+        "worst_scenario_fpr": 0.04133707578463894,
+        "normal_case_false_alarm_rate": [
+          0.19629629629629633,
+          0.059259259259259255,
+          0.14444444444444443
+        ]
+      },
+      "thresholds": [
+        {
+          "route": 0,
+          "adapter": "GLOBAL",
+          "phase": "startup",
+          "evidence_gate": -1,
+          "quantile": 0.975,
+          "threshold_on_base_margin": -0.16880228596487798,
+          "normal_reference_windows": 1350,
+          "calibration_mode": "phase"
+        },
+        {
+          "route": 0,
+          "adapter": "GLOBAL",
+          "phase": "steady",
+          "evidence_gate": -1,
+          "quantile": 0.975,
+          "threshold_on_base_margin": -0.010880469999422243,
+          "normal_reference_windows": 7594,
+          "calibration_mode": "phase"
+        },
+        {
+          "route": 0,
+          "adapter": "DB.READER",
+          "phase": "startup",
+          "evidence_gate": -1,
+          "quantile": 0.975,
+          "threshold_on_base_margin": 0.007497223304956364,
+          "normal_reference_windows": 235,
+          "calibration_mode": "phase"
+        },
+        {
+          "route": 0,
+          "adapter": "DB.READER",
+          "phase": "steady",
+          "evidence_gate": -1,
+          "quantile": 0.975,
+          "threshold_on_base_margin": 0.0,
+          "normal_reference_windows": 1450,
+          "calibration_mode": "phase"
+        },
+        {
+          "route": 0,
+          "adapter": "DB.WRITER",
+          "phase": "startup",
+          "evidence_gate": -1,
+          "quantile": 0.975,
+          "threshold_on_base_margin": -0.15509922401992976,
+          "normal_reference_windows": 495,
+          "calibration_mode": "phase"
+        },
+        {
+          "route": 0,
+          "adapter": "DB.WRITER",
+          "phase": "steady",
+          "evidence_gate": -1,
+          "quantile": 0.975,
+          "threshold_on_base_margin": -0.16880228596487798,
+          "normal_reference_windows": 1575,
+          "calibration_mode": "phase"
+        },
+        {
+          "route": 0,
+          "adapter": "FILE.READER",
+          "phase": "startup",
+          "evidence_gate": -1,
+          "quantile": 0.975,
+          "threshold_on_base_margin": -0.16880228596487798,
+          "normal_reference_windows": 1350,
+          "calibration_mode": "phase"
+        },
+        {
+          "route": 0,
+          "adapter": "FILE.READER",
+          "phase": "steady",
+          "evidence_gate": -1,
+          "quantile": 0.975,
+          "threshold_on_base_margin": -0.010880469999422243,
+          "normal_reference_windows": 7594,
+          "calibration_mode": "phase"
+        },
+        {
+          "route": 0,
+          "adapter": "FILE.WRITER",
+          "phase": "startup",
+          "evidence_gate": -1,
+          "quantile": 0.975,
+          "threshold_on_base_margin": -0.16880228596487798,
+          "normal_reference_windows": 1350,
+          "calibration_mode": "phase"
+        },
+        {
+          "route": 0,
+          "adapter": "FILE.WRITER",
+          "phase": "steady",
+          "evidence_gate": -1,
+          "quantile": 0.975,
+          "threshold_on_base_margin": 0.0,
+          "normal_reference_windows": 194,
+          "calibration_mode": "phase"
+        },
+        {
+          "route": 0,
+          "adapter": "SERVICE.EXECUTOR",
+          "phase": "startup",
+          "evidence_gate": -1,
+          "quantile": 0.975,
+          "threshold_on_base_margin": -0.16880228596487798,
+          "normal_reference_windows": 1350,
+          "calibration_mode": "phase"
+        },
+        {
+          "route": 0,
+          "adapter": "SERVICE.EXECUTOR",
+          "phase": "steady",
+          "evidence_gate": -1,
+          "quantile": 0.975,
+          "threshold_on_base_margin": -0.16880228596487798,
+          "normal_reference_windows": 160,
+          "calibration_mode": "phase"
+        },
+        {
+          "route": 1,
+          "adapter": "GLOBAL",
+          "phase": "startup",
+          "evidence_gate": -1,
+          "quantile": 0.995,
+          "threshold_on_base_margin": -0.16880228596487798,
+          "normal_reference_windows": 1350,
+          "calibration_mode": "phase"
+        },
+        {
+          "route": 1,
+          "adapter": "GLOBAL",
+          "phase": "steady",
+          "evidence_gate": -1,
+          "quantile": 0.995,
+          "threshold_on_base_margin": -0.010880469999422243,
+          "normal_reference_windows": 7594,
+          "calibration_mode": "phase"
+        },
+        {
+          "route": 1,
+          "adapter": "DB.READER",
+          "phase": "startup",
+          "evidence_gate": -1,
+          "quantile": 0.995,
+          "threshold_on_base_margin": -0.06874134313811137,
+          "normal_reference_windows": 235,
+          "calibration_mode": "phase"
+        },
+        {
+          "route": 1,
+          "adapter": "DB.READER",
+          "phase": "steady",
+          "evidence_gate": -1,
+          "quantile": 0.995,
+          "threshold_on_base_margin": -0.06874134313811137,
+          "normal_reference_windows": 1450,
+          "calibration_mode": "phase"
+        },
+        {
+          "route": 1,
+          "adapter": "DB.WRITER",
+          "phase": "startup",
+          "evidence_gate": -1,
+          "quantile": 0.995,
+          "threshold_on_base_margin": 0.014552567616457734,
+          "normal_reference_windows": 495,
+          "calibration_mode": "phase"
+        },
+        {
+          "route": 1,
+          "adapter": "DB.WRITER",
+          "phase": "steady",
+          "evidence_gate": -1,
+          "quantile": 0.995,
+          "threshold_on_base_margin": 0.027651424201268645,
+          "normal_reference_windows": 1575,
+          "calibration_mode": "phase"
+        },
+        {
+          "route": 1,
+          "adapter": "FILE.READER",
+          "phase": "startup",
+          "evidence_gate": -1,
+          "quantile": 0.995,
+          "threshold_on_base_margin": 0.0037109047421950018,
+          "normal_reference_windows": 1350,
+          "calibration_mode": "phase"
+        },
+        {
+          "route": 1,
+          "adapter": "FILE.READER",
+          "phase": "steady",
+          "evidence_gate": -1,
+          "quantile": 0.995,
+          "threshold_on_base_margin": 0.03949943764777483,
+          "normal_reference_windows": 7594,
+          "calibration_mode": "phase"
+        },
+        {
+          "route": 1,
+          "adapter": "FILE.WRITER",
+          "phase": "startup",
+          "evidence_gate": -1,
+          "quantile": 0.995,
+          "threshold_on_base_margin": 0.0037109047421950018,
+          "normal_reference_windows": 1350,
+          "calibration_mode": "phase"
+        },
+        {
+          "route": 1,
+          "adapter": "FILE.WRITER",
+          "phase": "steady",
+          "evidence_gate": -1,
+          "quantile": 0.995,
+          "threshold_on_base_margin": -0.639943988819422,
+          "normal_reference_windows": 194,
+          "calibration_mode": "phase"
+        },
+        {
+          "route": 1,
+          "adapter": "SERVICE.EXECUTOR",
+          "phase": "startup",
+          "evidence_gate": -1,
+          "quantile": 0.995,
+          "threshold_on_base_margin": 0.0037109047421950018,
+          "normal_reference_windows": 1350,
+          "calibration_mode": "phase"
+        },
+        {
+          "route": 1,
+          "adapter": "SERVICE.EXECUTOR",
+          "phase": "steady",
+          "evidence_gate": -1,
+          "quantile": 0.995,
+          "threshold_on_base_margin": -0.18164381455830308,
+          "normal_reference_windows": 160,
+          "calibration_mode": "phase"
+        },
+        {
+          "route": 2,
+          "adapter": "GLOBAL",
+          "phase": "startup",
+          "evidence_gate": -1,
+          "quantile": 0.925,
+          "threshold_on_base_margin": -0.16880228596487798,
+          "normal_reference_windows": 1350,
+          "calibration_mode": "phase"
+        },
+        {
+          "route": 2,
+          "adapter": "GLOBAL",
+          "phase": "steady",
+          "evidence_gate": -1,
+          "quantile": 0.925,
+          "threshold_on_base_margin": -0.010880469999422243,
+          "normal_reference_windows": 7594,
+          "calibration_mode": "phase"
+        },
+        {
+          "route": 2,
+          "adapter": "DB.READER",
+          "phase": "startup",
+          "evidence_gate": -1,
+          "quantile": 0.925,
+          "threshold_on_base_margin": 0.0,
+          "normal_reference_windows": 235,
+          "calibration_mode": "phase"
+        },
+        {
+          "route": 2,
+          "adapter": "DB.READER",
+          "phase": "steady",
+          "evidence_gate": -1,
+          "quantile": 0.925,
+          "threshold_on_base_margin": 0.039480453991363934,
+          "normal_reference_windows": 1450,
+          "calibration_mode": "phase"
+        },
+        {
+          "route": 2,
+          "adapter": "DB.WRITER",
+          "phase": "startup",
+          "evidence_gate": -1,
+          "quantile": 0.925,
+          "threshold_on_base_margin": -0.042200571491219495,
+          "normal_reference_windows": 495,
+          "calibration_mode": "phase"
+        },
+        {
+          "route": 2,
+          "adapter": "DB.WRITER",
+          "phase": "steady",
+          "evidence_gate": -1,
+          "quantile": 0.925,
+          "threshold_on_base_margin": -0.042200571491219495,
+          "normal_reference_windows": 1575,
+          "calibration_mode": "phase"
+        },
+        {
+          "route": 2,
+          "adapter": "FILE.READER",
+          "phase": "startup",
+          "evidence_gate": -1,
+          "quantile": 0.925,
+          "threshold_on_base_margin": -0.053222455058464124,
+          "normal_reference_windows": 1350,
+          "calibration_mode": "phase"
+        },
+        {
+          "route": 2,
+          "adapter": "FILE.READER",
+          "phase": "steady",
+          "evidence_gate": -1,
+          "quantile": 0.925,
+          "threshold_on_base_margin": 0.0,
+          "normal_reference_windows": 7594,
+          "calibration_mode": "phase"
+        },
+        {
+          "route": 2,
+          "adapter": "FILE.WRITER",
+          "phase": "startup",
+          "evidence_gate": -1,
+          "quantile": 0.925,
+          "threshold_on_base_margin": -0.053222455058464124,
+          "normal_reference_windows": 1350,
+          "calibration_mode": "phase"
+        },
+        {
+          "route": 2,
+          "adapter": "FILE.WRITER",
+          "phase": "steady",
+          "evidence_gate": -1,
+          "quantile": 0.925,
+          "threshold_on_base_margin": -0.392733758020717,
+          "normal_reference_windows": 194,
+          "calibration_mode": "phase"
+        },
+        {
+          "route": 2,
+          "adapter": "SERVICE.EXECUTOR",
+          "phase": "startup",
+          "evidence_gate": -1,
+          "quantile": 0.925,
+          "threshold_on_base_margin": -0.053222455058464124,
+          "normal_reference_windows": 1350,
+          "calibration_mode": "phase"
+        },
+        {
+          "route": 2,
+          "adapter": "SERVICE.EXECUTOR",
+          "phase": "steady",
+          "evidence_gate": -1,
+          "quantile": 0.925,
+          "threshold_on_base_margin": -0.03469479661433486,
+          "normal_reference_windows": 160,
+          "calibration_mode": "phase"
+        }
+      ]
+    },
+    {
+      "algorithm": "kmeans",
+      "file": "kmeans_v14_candidate.joblib",
+      "bytes": 606381,
+      "sha256": "b37644a5c71cb03a633c390ed50a60f707f59966ad18d141354ed3ad9f225286",
+      "expert_adapters": [
+        "DB.READER",
+        "DB.WRITER",
+        "FILE.READER",
+        "FILE.WRITER",
+        "SERVICE.EXECUTOR"
+      ],
+      "selection": {
+        "algorithm": "kmeans",
+        "candidate": "preserved_v12",
+        "recalibrated": false,
+        "pooled": [
+          {
+            "n": 26864,
+            "normal": 21104,
+            "anomaly": 5760,
+            "tn": 20466,
+            "fp": 638,
+            "fn": 4348,
+            "tp": 1412,
+            "accuracy": 0.8143984514592019,
+            "precision": 0.688780487804878,
+            "recall": 0.24513888888888888,
+            "f1": 0.3615877080665813,
+            "normal_false_positive_rate": 0.030231235784685367,
+            "always_normal_accuracy": 0.7855866587254318
+          },
+          {
+            "n": 26864,
+            "normal": 21104,
+            "anomaly": 5760,
+            "tn": 20503,
+            "fp": 601,
+            "fn": 4676,
+            "tp": 1084,
+            "accuracy": 0.8035661107802263,
+            "precision": 0.6433234421364985,
+            "recall": 0.18819444444444444,
+            "f1": 0.29120214909335124,
+            "normal_false_positive_rate": 0.028478013646702046,
+            "always_normal_accuracy": 0.7855866587254318
+          },
+          {
+            "n": 26864,
+            "normal": 21104,
+            "anomaly": 5760,
+            "tn": 20335,
+            "fp": 769,
+            "fn": 4246,
+            "tp": 1514,
+            "accuracy": 0.8133189398451459,
+            "precision": 0.6631625054752519,
+            "recall": 0.26284722222222223,
+            "f1": 0.37647643913962453,
+            "normal_false_positive_rate": 0.036438589840788474,
+            "always_normal_accuracy": 0.7855866587254318
+          }
+        ],
+        "macro": [
+          {
+            "accuracy": 0.8532769816934435,
+            "precision": 0.7449910674797652,
+            "recall": 0.39739217572550906,
+            "f1": 0.4998438921680733,
+            "normal_false_positive_rate": 0.02433776054924631
+          },
+          {
+            "accuracy": 0.8405688106645798,
+            "precision": 0.7016775353974648,
+            "recall": 0.29738447971781307,
+            "f1": 0.4083661087687603,
+            "normal_false_positive_rate": 0.022447022241308286
+          },
+          {
+            "accuracy": 0.8522513435337232,
+            "precision": 0.7401657574807029,
+            "recall": 0.40607696007696004,
+            "f1": 0.5088774317580016,
+            "normal_false_positive_rate": 0.02880406260612317
+          }
+        ],
+        "scenarios": [
+          {
+            "scenario": "individual_delay",
+            "metrics": [
+              {
+                "n": 810,
+                "normal": 720,
+                "anomaly": 90,
+                "tn": 720,
+                "fp": 0,
+                "fn": 31,
+                "tp": 59,
+                "accuracy": 0.9617283950617284,
+                "precision": 1.0,
+                "recall": 0.6555555555555556,
+                "f1": 0.7919463087248322,
+                "normal_false_positive_rate": 0.0,
+                "always_normal_accuracy": 0.8888888888888888
+              },
+              {
+                "n": 810,
+                "normal": 720,
+                "anomaly": 90,
+                "tn": 720,
+                "fp": 0,
+                "fn": 61,
+                "tp": 29,
+                "accuracy": 0.9246913580246914,
+                "precision": 1.0,
+                "recall": 0.32222222222222224,
+                "f1": 0.48739495798319327,
+                "normal_false_positive_rate": 0.0,
+                "always_normal_accuracy": 0.8888888888888888
+              },
+              {
+                "n": 810,
+                "normal": 720,
+                "anomaly": 90,
+                "tn": 720,
+                "fp": 0,
+                "fn": 33,
+                "tp": 57,
+                "accuracy": 0.9592592592592593,
+                "precision": 1.0,
+                "recall": 0.6333333333333333,
+                "f1": 0.7755102040816326,
+                "normal_false_positive_rate": 0.0,
+                "always_normal_accuracy": 0.8888888888888888
+              }
+            ]
+          },
+          {
+            "scenario": "group_delay",
+            "metrics": [
+              {
+                "n": 4909,
+                "normal": 3919,
+                "anomaly": 990,
+                "tn": 3549,
+                "fp": 370,
+                "fn": 613,
+                "tp": 377,
+                "accuracy": 0.7997555510287228,
+                "precision": 0.5046854082998661,
+                "recall": 0.3808080808080808,
+                "f1": 0.4340817501439263,
+                "normal_false_positive_rate": 0.09441183975503956,
+                "always_normal_accuracy": 0.7983295986962722
+              },
+              {
+                "n": 4909,
+                "normal": 3919,
+                "anomaly": 990,
+                "tn": 3612,
+                "fp": 307,
+                "fn": 715,
+                "tp": 275,
+                "accuracy": 0.7918109594622122,
+                "precision": 0.4725085910652921,
+                "recall": 0.2777777777777778,
+                "f1": 0.34987277353689566,
+                "normal_false_positive_rate": 0.07833631028323552,
+                "always_normal_accuracy": 0.7983295986962722
+              },
+              {
+                "n": 4909,
+                "normal": 3919,
+                "anomaly": 990,
+                "tn": 3517,
+                "fp": 402,
+                "fn": 586,
+                "tp": 404,
+                "accuracy": 0.7987370136484009,
+                "precision": 0.5012406947890818,
+                "recall": 0.4080808080808081,
+                "f1": 0.44988864142538976,
+                "normal_false_positive_rate": 0.1025771880581781,
+                "always_normal_accuracy": 0.7983295986962722
+              }
+            ]
+          },
+          {
+            "scenario": "column_relation",
+            "metrics": [
+              {
+                "n": 810,
+                "normal": 630,
+                "anomaly": 180,
+                "tn": 630,
+                "fp": 0,
+                "fn": 90,
+                "tp": 90,
+                "accuracy": 0.8888888888888888,
+                "precision": 1.0,
+                "recall": 0.5,
+                "f1": 0.6666666666666666,
+                "normal_false_positive_rate": 0.0,
+                "always_normal_accuracy": 0.7777777777777778
+              },
+              {
+                "n": 810,
+                "normal": 630,
+                "anomaly": 180,
+                "tn": 630,
+                "fp": 0,
+                "fn": 90,
+                "tp": 90,
+                "accuracy": 0.8888888888888888,
+                "precision": 1.0,
+                "recall": 0.5,
+                "f1": 0.6666666666666666,
+                "normal_false_positive_rate": 0.0,
+                "always_normal_accuracy": 0.7777777777777778
+              },
+              {
+                "n": 810,
+                "normal": 630,
+                "anomaly": 180,
+                "tn": 630,
+                "fp": 0,
+                "fn": 90,
+                "tp": 90,
+                "accuracy": 0.8888888888888888,
+                "precision": 1.0,
+                "recall": 0.5,
+                "f1": 0.6666666666666666,
+                "normal_false_positive_rate": 0.0,
+                "always_normal_accuracy": 0.7777777777777778
+              }
+            ]
+          },
+          {
+            "scenario": "time_burst",
+            "metrics": [
+              {
+                "n": 5422,
+                "normal": 4672,
+                "anomaly": 750,
+                "tn": 4581,
+                "fp": 91,
+                "fn": 600,
+                "tp": 150,
+                "accuracy": 0.8725562523054223,
+                "precision": 0.6224066390041494,
+                "recall": 0.2,
+                "f1": 0.30272452068617556,
+                "normal_false_positive_rate": 0.0194777397260274,
+                "always_normal_accuracy": 0.8616746587974917
+              },
+              {
+                "n": 5422,
+                "normal": 4672,
+                "anomaly": 750,
+                "tn": 4583,
+                "fp": 89,
+                "fn": 613,
+                "tp": 137,
+                "accuracy": 0.8705274806344522,
+                "precision": 0.6061946902654868,
+                "recall": 0.18266666666666667,
+                "f1": 0.2807377049180328,
+                "normal_false_positive_rate": 0.019049657534246575,
+                "always_normal_accuracy": 0.8616746587974917
+              },
+              {
+                "n": 5422,
+                "normal": 4672,
+                "anomaly": 750,
+                "tn": 4566,
+                "fp": 106,
+                "fn": 588,
+                "tp": 162,
+                "accuracy": 0.8720029509406123,
+                "precision": 0.6044776119402985,
+                "recall": 0.216,
+                "f1": 0.3182711198428291,
+                "normal_false_positive_rate": 0.022688356164383562,
+                "always_normal_accuracy": 0.8616746587974917
+              }
+            ]
+          },
+          {
+            "scenario": "input_stop",
+            "metrics": [
+              {
+                "n": 6776,
+                "normal": 5726,
+                "anomaly": 1050,
+                "tn": 5681,
+                "fp": 45,
+                "fn": 405,
+                "tp": 645,
+                "accuracy": 0.9335891381345927,
+                "precision": 0.9347826086956522,
+                "recall": 0.6142857142857143,
+                "f1": 0.7413793103448276,
+                "normal_false_positive_rate": 0.007858889276982186,
+                "always_normal_accuracy": 0.8450413223140496
+              },
+              {
+                "n": 6776,
+                "normal": 5726,
+                "anomaly": 1050,
+                "tn": 5682,
+                "fp": 44,
+                "fn": 540,
+                "tp": 510,
+                "accuracy": 0.9138134592680047,
+                "precision": 0.9205776173285198,
+                "recall": 0.4857142857142857,
+                "f1": 0.6359102244389028,
+                "normal_false_positive_rate": 0.007684247293049249,
+                "always_normal_accuracy": 0.8450413223140496
+              },
+              {
+                "n": 6776,
+                "normal": 5726,
+                "anomaly": 1050,
+                "tn": 5678,
+                "fp": 48,
+                "fn": 393,
+                "tp": 657,
+                "accuracy": 0.9349173553719008,
+                "precision": 0.9319148936170213,
+                "recall": 0.6257142857142857,
+                "f1": 0.7487179487179487,
+                "normal_false_positive_rate": 0.008382815228781,
+                "always_normal_accuracy": 0.8450413223140496
+              }
+            ]
+          },
+          {
+            "scenario": "gradual_degradation",
+            "metrics": [
+              {
+                "n": 8137,
+                "normal": 5437,
+                "anomaly": 2700,
+                "tn": 5305,
+                "fp": 132,
+                "fn": 2609,
+                "tp": 91,
+                "accuracy": 0.6631436647413051,
+                "precision": 0.4080717488789238,
+                "recall": 0.0337037037037037,
+                "f1": 0.06226479644201163,
+                "normal_false_positive_rate": 0.02427809453742873,
+                "always_normal_accuracy": 0.6681823767973455
+              },
+              {
+                "n": 8137,
+                "normal": 5437,
+                "anomaly": 2700,
+                "tn": 5276,
+                "fp": 161,
+                "fn": 2657,
+                "tp": 43,
+                "accuracy": 0.6536807177092294,
+                "precision": 0.2107843137254902,
+                "recall": 0.015925925925925927,
+                "f1": 0.029614325068870524,
+                "normal_false_positive_rate": 0.029611918337318376,
+                "always_normal_accuracy": 0.6681823767973455
+              },
+              {
+                "n": 8137,
+                "normal": 5437,
+                "anomaly": 2700,
+                "tn": 5224,
+                "fp": 213,
+                "fn": 2556,
+                "tp": 144,
+                "accuracy": 0.6597025930932776,
+                "precision": 0.40336134453781514,
+                "recall": 0.05333333333333334,
+                "f1": 0.09421000981354269,
+                "normal_false_positive_rate": 0.03917601618539636,
+                "always_normal_accuracy": 0.6681823767973455
+              }
+            ]
+          }
+        ],
+        "objective": 0.47236247756494504,
+        "worst_pooled_fpr": 0.036438589840788474,
+        "worst_scenario_fpr": 0.1025771880581781,
+        "normal_case_false_alarm_rate": [
+          0.03703703703703704,
+          0.040740740740740744,
+          0.05925925925925926
+        ]
+      },
+      "thresholds": [
+        {
+          "algorithm": "kmeans",
+          "preserved_v12": true,
+          "original": {
+            "algorithm": "kmeans",
+            "settings": {
+              "algorithm": "kmeans",
+              "samples": 512,
+              "rotations": 1,
+              "k": 12,
+              "shape_distance": false,
+              "neighbors": 50,
+              "seed": 42,
+              "covariance": "radius"
+            },
+            "route": "GLOBAL",
+            "phase": "startup",
+            "quantile": 0.995,
+            "global_weight": 0.25,
+            "phase_aware": false,
+            "normalized_threshold": 6.56777752508955,
+            "ensemble_threshold": 6.56777752508955,
+            "normalizer_center": 0.1208417845918433,
+            "normalizer_spread": 0.866849545581651,
+            "raw_threshold": 5.8141167476971,
+            "latency_weight": 0.5,
+            "combination": "max",
+            "regime": "sparse <3 prior nonempty minutes"
+          }
+        },
+        {
+          "algorithm": "kmeans",
+          "preserved_v12": true,
+          "original": {
+            "algorithm": "kmeans",
+            "settings": {
+              "algorithm": "kmeans",
+              "samples": 512,
+              "rotations": 1,
+              "k": 12,
+              "shape_distance": false,
+              "neighbors": 50,
+              "seed": 42,
+              "covariance": "radius"
+            },
+            "route": "GLOBAL",
+            "phase": "steady",
+            "quantile": 0.995,
+            "global_weight": 0.25,
+            "phase_aware": false,
+            "normalized_threshold": 6.56777752508955,
+            "ensemble_threshold": 6.56777752508955,
+            "normalizer_center": 0.1208417845918433,
+            "normalizer_spread": 0.866849545581651,
+            "raw_threshold": 5.8141167476971,
+            "latency_weight": 0.5,
+            "combination": "max",
+            "regime": "sparse <3 prior nonempty minutes"
+          }
+        },
+        {
+          "algorithm": "kmeans",
+          "preserved_v12": true,
+          "original": {
+            "algorithm": "kmeans",
+            "settings": {
+              "algorithm": "kmeans",
+              "samples": 512,
+              "rotations": 1,
+              "k": 12,
+              "shape_distance": false,
+              "neighbors": 50,
+              "seed": 42,
+              "covariance": "radius"
+            },
+            "route": "DB.READER",
+            "phase": "startup",
+            "quantile": 0.995,
+            "global_weight": 0.25,
+            "phase_aware": false,
+            "normalized_threshold": 2.00083504981175,
+            "ensemble_threshold": 1.5006262873588125,
+            "normalizer_center": 0.1382548365868526,
+            "normalizer_spread": 0.7748025741643604,
+            "raw_threshold": 1.6885069836592728,
+            "latency_weight": 0.5,
+            "combination": "max",
+            "regime": "sparse <3 prior nonempty minutes"
+          }
+        },
+        {
+          "algorithm": "kmeans",
+          "preserved_v12": true,
+          "original": {
+            "algorithm": "kmeans",
+            "settings": {
+              "algorithm": "kmeans",
+              "samples": 512,
+              "rotations": 1,
+              "k": 12,
+              "shape_distance": false,
+              "neighbors": 50,
+              "seed": 42,
+              "covariance": "radius"
+            },
+            "route": "DB.READER",
+            "phase": "steady",
+            "quantile": 0.995,
+            "global_weight": 0.25,
+            "phase_aware": false,
+            "normalized_threshold": 2.00083504981175,
+            "ensemble_threshold": 1.5006262873588125,
+            "normalizer_center": 0.1382548365868526,
+            "normalizer_spread": 0.7748025741643604,
+            "raw_threshold": 1.6885069836592728,
+            "latency_weight": 0.5,
+            "combination": "max",
+            "regime": "sparse <3 prior nonempty minutes"
+          }
+        },
+        {
+          "algorithm": "kmeans",
+          "preserved_v12": true,
+          "original": {
+            "algorithm": "kmeans",
+            "settings": {
+              "algorithm": "kmeans",
+              "samples": 512,
+              "rotations": 1,
+              "k": 12,
+              "shape_distance": false,
+              "neighbors": 50,
+              "seed": 42,
+              "covariance": "radius"
+            },
+            "route": "DB.WRITER",
+            "phase": "startup",
+            "quantile": 0.995,
+            "global_weight": 0.25,
+            "phase_aware": false,
+            "normalized_threshold": 2.7416893342953856,
+            "ensemble_threshold": 2.280697844312112,
+            "normalizer_center": 0.004598422167067733,
+            "normalizer_spread": 0.9472317913097595,
+            "raw_threshold": 2.601613721506548,
+            "latency_weight": 0.5,
+            "combination": "max",
+            "regime": "sparse <3 prior nonempty minutes"
+          }
+        },
+        {
+          "algorithm": "kmeans",
+          "preserved_v12": true,
+          "original": {
+            "algorithm": "kmeans",
+            "settings": {
+              "algorithm": "kmeans",
+              "samples": 512,
+              "rotations": 1,
+              "k": 12,
+              "shape_distance": false,
+              "neighbors": 50,
+              "seed": 42,
+              "covariance": "radius"
+            },
+            "route": "DB.WRITER",
+            "phase": "steady",
+            "quantile": 0.995,
+            "global_weight": 0.25,
+            "phase_aware": false,
+            "normalized_threshold": 2.7416893342953856,
+            "ensemble_threshold": 2.280697844312112,
+            "normalizer_center": 0.004598422167067733,
+            "normalizer_spread": 0.9472317913097595,
+            "raw_threshold": 2.601613721506548,
+            "latency_weight": 0.5,
+            "combination": "max",
+            "regime": "sparse <3 prior nonempty minutes"
+          }
+        },
+        {
+          "algorithm": "kmeans",
+          "preserved_v12": true,
+          "original": {
+            "algorithm": "kmeans",
+            "settings": {
+              "algorithm": "kmeans",
+              "samples": 512,
+              "rotations": 1,
+              "k": 12,
+              "shape_distance": false,
+              "neighbors": 50,
+              "seed": 42,
+              "covariance": "radius"
+            },
+            "route": "FILE.READER",
+            "phase": "startup",
+            "quantile": 0.995,
+            "global_weight": 0.25,
+            "phase_aware": false,
+            "normalized_threshold": 1.9609785450862103,
+            "ensemble_threshold": 1.4707339088146576,
+            "normalizer_center": 0.11404629806443581,
+            "normalizer_spread": 0.8656316668357017,
+            "raw_threshold": 1.8115314246764613,
+            "latency_weight": 0.5,
+            "combination": "max",
+            "regime": "sparse <3 prior nonempty minutes"
+          }
+        },
+        {
+          "algorithm": "kmeans",
+          "preserved_v12": true,
+          "original": {
+            "algorithm": "kmeans",
+            "settings": {
+              "algorithm": "kmeans",
+              "samples": 512,
+              "rotations": 1,
+              "k": 12,
+              "shape_distance": false,
+              "neighbors": 50,
+              "seed": 42,
+              "covariance": "radius"
+            },
+            "route": "FILE.READER",
+            "phase": "steady",
+            "quantile": 0.995,
+            "global_weight": 0.25,
+            "phase_aware": false,
+            "normalized_threshold": 1.9609785450862103,
+            "ensemble_threshold": 1.4707339088146576,
+            "normalizer_center": 0.11404629806443581,
+            "normalizer_spread": 0.8656316668357017,
+            "raw_threshold": 1.8115314246764613,
+            "latency_weight": 0.5,
+            "combination": "max",
+            "regime": "sparse <3 prior nonempty minutes"
+          }
+        },
+        {
+          "algorithm": "kmeans",
+          "preserved_v12": true,
+          "original": {
+            "algorithm": "kmeans",
+            "settings": {
+              "algorithm": "kmeans",
+              "samples": 512,
+              "rotations": 1,
+              "k": 12,
+              "shape_distance": false,
+              "neighbors": 50,
+              "seed": 42,
+              "covariance": "radius"
+            },
+            "route": "FILE.WRITER",
+            "phase": "startup",
+            "quantile": 0.995,
+            "global_weight": 0.25,
+            "phase_aware": false,
+            "normalized_threshold": 2.3839467909935212,
+            "ensemble_threshold": 1.787960093245141,
+            "normalizer_center": 0.10847092786989034,
+            "normalizer_spread": 0.8741057954439724,
+            "raw_threshold": 2.1922926339073876,
+            "latency_weight": 0.5,
+            "combination": "max",
+            "regime": "sparse <3 prior nonempty minutes"
+          }
+        },
+        {
+          "algorithm": "kmeans",
+          "preserved_v12": true,
+          "original": {
+            "algorithm": "kmeans",
+            "settings": {
+              "algorithm": "kmeans",
+              "samples": 512,
+              "rotations": 1,
+              "k": 12,
+              "shape_distance": false,
+              "neighbors": 50,
+              "seed": 42,
+              "covariance": "radius"
+            },
+            "route": "FILE.WRITER",
+            "phase": "steady",
+            "quantile": 0.995,
+            "global_weight": 0.25,
+            "phase_aware": false,
+            "normalized_threshold": 2.3839467909935212,
+            "ensemble_threshold": 1.787960093245141,
+            "normalizer_center": 0.10847092786989034,
+            "normalizer_spread": 0.8741057954439724,
+            "raw_threshold": 2.1922926339073876,
+            "latency_weight": 0.5,
+            "combination": "max",
+            "regime": "sparse <3 prior nonempty minutes"
+          }
+        },
+        {
+          "algorithm": "kmeans",
+          "preserved_v12": true,
+          "original": {
+            "algorithm": "kmeans",
+            "settings": {
+              "algorithm": "kmeans",
+              "samples": 512,
+              "rotations": 1,
+              "k": 12,
+              "shape_distance": false,
+              "neighbors": 50,
+              "seed": 42,
+              "covariance": "radius"
+            },
+            "route": "SERVICE.EXECUTOR",
+            "phase": "startup",
+            "quantile": 0.995,
+            "global_weight": 0.25,
+            "phase_aware": false,
+            "normalized_threshold": 1.7251344228311196,
+            "ensemble_threshold": 1.2938508171233398,
+            "normalizer_center": 0.08047577020196696,
+            "normalizer_spread": 0.9092888261282349,
+            "raw_threshold": 1.6491212244514857,
+            "latency_weight": 0.5,
+            "combination": "max",
+            "regime": "sparse <3 prior nonempty minutes"
+          }
+        },
+        {
+          "algorithm": "kmeans",
+          "preserved_v12": true,
+          "original": {
+            "algorithm": "kmeans",
+            "settings": {
+              "algorithm": "kmeans",
+              "samples": 512,
+              "rotations": 1,
+              "k": 12,
+              "shape_distance": false,
+              "neighbors": 50,
+              "seed": 42,
+              "covariance": "radius"
+            },
+            "route": "SERVICE.EXECUTOR",
+            "phase": "steady",
+            "quantile": 0.995,
+            "global_weight": 0.25,
+            "phase_aware": false,
+            "normalized_threshold": 1.7251344228311196,
+            "ensemble_threshold": 1.2938508171233398,
+            "normalizer_center": 0.08047577020196696,
+            "normalizer_spread": 0.9092888261282349,
+            "raw_threshold": 1.6491212244514857,
+            "latency_weight": 0.5,
+            "combination": "max",
+            "regime": "sparse <3 prior nonempty minutes"
+          }
+        },
+        {
+          "algorithm": "kmeans",
+          "preserved_v12": true,
+          "original": {
+            "algorithm": "kmeans",
+            "route": "GLOBAL",
+            "settings": {
+              "algorithm": "kmeans",
+              "trees": 128,
+              "samples": 512,
+              "max_features": 1.0,
+              "k": 6,
+              "radius_normalization": true,
+              "quantile": 0.99,
+              "global_weight": 0.5,
+              "seed": 42
+            },
+            "quantile": 0.999,
+            "global_weight": 0.75,
+            "raw_threshold": 1.9842301513741498,
+            "normalized_threshold": 3.397157409939128,
+            "ensemble_threshold": 3.397157409939128,
+            "normalizer_median": 0.589543039882988,
+            "normalizer_spread": 0.41054533046090214,
+            "cluster_radii": [
+              2.565234422683716,
+              2.5376524925231934,
+              2.626121997833252,
+              2.8484933376312256,
+              2.9284415245056152,
+              2.012324333190918
+            ],
+            "effective_k": 6,
+            "regime": "established >=3 prior nonempty minutes"
+          }
+        },
+        {
+          "algorithm": "kmeans",
+          "preserved_v12": true,
+          "original": {
+            "algorithm": "kmeans",
+            "route": "DB.READER",
+            "settings": {
+              "algorithm": "kmeans",
+              "trees": 128,
+              "samples": 512,
+              "max_features": 1.0,
+              "k": 6,
+              "radius_normalization": true,
+              "quantile": 0.99,
+              "global_weight": 0.5,
+              "seed": 42
+            },
+            "quantile": 0.999,
+            "global_weight": 0.75,
+            "raw_threshold": 2.449640483569865,
+            "normalized_threshold": 5.565168966698119,
+            "ensemble_threshold": 3.911086517634561,
+            "normalizer_median": 0.7063836166239139,
+            "normalizer_spread": 0.3132441939099373,
+            "cluster_radii": [
+              2.220264434814453,
+              2.220264434814453,
+              1.9688628911972046,
+              2.4528470039367676,
+              1.9608811140060425,
+              2.220264434814453
+            ],
+            "effective_k": 6,
+            "regime": "established >=3 prior nonempty minutes"
+          }
+        },
+        {
+          "algorithm": "kmeans",
+          "preserved_v12": true,
+          "original": {
+            "algorithm": "kmeans",
+            "route": "DB.WRITER",
+            "settings": {
+              "algorithm": "kmeans",
+              "trees": 128,
+              "samples": 512,
+              "max_features": 1.0,
+              "k": 6,
+              "radius_normalization": true,
+              "quantile": 0.99,
+              "global_weight": 0.5,
+              "seed": 42
+            },
+            "quantile": 0.999,
+            "global_weight": 0.75,
+            "raw_threshold": 2.3599956825162987,
+            "normalized_threshold": 7.893532757935509,
+            "ensemble_threshold": 2.6932414383443968,
+            "normalizer_median": 0.8026701966331944,
+            "normalizer_spread": 0.19729131855663706,
+            "cluster_radii": [
+              3.4153196811676025,
+              3.371392250061035,
+              3.4153196811676025,
+              3.7754805088043213,
+              3.4153196811676025,
+              3.4153196811676025
+            ],
+            "effective_k": 6,
+            "regime": "established >=3 prior nonempty minutes"
+          }
+        },
+        {
+          "algorithm": "kmeans",
+          "preserved_v12": true,
+          "original": {
+            "algorithm": "kmeans",
+            "route": "FILE.READER",
+            "settings": {
+              "algorithm": "kmeans",
+              "trees": 128,
+              "samples": 512,
+              "max_features": 1.0,
+              "k": 6,
+              "radius_normalization": true,
+              "quantile": 0.99,
+              "global_weight": 0.5,
+              "seed": 42
+            },
+            "quantile": 0.999,
+            "global_weight": 0.75,
+            "raw_threshold": 1.388407997726121,
+            "normalized_threshold": 3.46447485403483,
+            "ensemble_threshold": 3.413481388612812,
+            "normalizer_median": 0.8422866803946512,
+            "normalizer_spread": 0.1576346604725506,
+            "cluster_radii": [
+              4.002784729003906,
+              3.977630615234375,
+              3.977630615234375,
+              3.88124418258667,
+              1.7197041511535645,
+              3.9797136783599854
+            ],
+            "effective_k": 6,
+            "regime": "established >=3 prior nonempty minutes"
+          }
+        },
+        {
+          "algorithm": "kmeans",
+          "preserved_v12": true,
+          "original": {
+            "algorithm": "kmeans",
+            "route": "FILE.WRITER",
+            "settings": {
+              "algorithm": "kmeans",
+              "trees": 128,
+              "samples": 512,
+              "max_features": 1.0,
+              "k": 6,
+              "radius_normalization": true,
+              "quantile": 0.99,
+              "global_weight": 0.5,
+              "seed": 42
+            },
+            "quantile": 0.999,
+            "global_weight": 0.75,
+            "raw_threshold": 1.0304836247746811,
+            "normalized_threshold": 1.2503946795504284,
+            "ensemble_threshold": 1.8829099147393888,
+            "normalizer_median": 0.878455976197474,
+            "normalizer_spread": 0.12158372957238406,
+            "cluster_radii": [
+              11.843538284301758,
+              11.832139015197754,
+              11.832139015197754,
+              11.832139015197754,
+              11.832139015197754,
+              7.321264266967773
+            ],
+            "effective_k": 6,
+            "regime": "established >=3 prior nonempty minutes"
+          }
+        },
+        {
+          "algorithm": "kmeans",
+          "preserved_v12": true,
+          "original": {
+            "algorithm": "kmeans",
+            "route": "SERVICE.EXECUTOR",
+            "settings": {
+              "algorithm": "kmeans",
+              "trees": 128,
+              "samples": 512,
+              "max_features": 1.0,
+              "k": 6,
+              "radius_normalization": true,
+              "quantile": 0.99,
+              "global_weight": 0.5,
+              "seed": 42
+            },
+            "quantile": 0.999,
+            "global_weight": 0.75,
+            "raw_threshold": 1.2792188122515176,
+            "normalized_threshold": 2.289192173137388,
+            "ensemble_threshold": 1.739681719550607,
+            "normalizer_median": 0.8093977021486767,
+            "normalizer_spread": 0.2052344558993231,
+            "cluster_radii": [
+              2.0054521560668945,
+              2.007789373397827,
+              1.924135446548462,
+              2.0407395362854004,
+              2.007789373397827,
+              2.007789373397827
+            ],
+            "effective_k": 6,
+            "regime": "established >=3 prior nonempty minutes"
+          }
+        }
+      ]
+    },
+    {
+      "algorithm": "lof",
+      "file": "lof_v14_candidate.joblib",
+      "bytes": 2967746,
+      "sha256": "5c702ff86f1844abfab933d7950207f1511b4d0cabf25fe7c96571e4563a66c0",
+      "expert_adapters": [
+        "DB.READER",
+        "DB.WRITER",
+        "FILE.READER",
+        "FILE.WRITER",
+        "SERVICE.EXECUTOR"
+      ],
+      "selection": {
+        "algorithm": "lof",
+        "candidate": "anchored_k75",
+        "settings": {
+          "algorithm": "lof",
+          "view": "anchored",
+          "samples": 512,
+          "rotations": 1,
+          "k": 6,
+          "shape_distance": false,
+          "neighbors": 75,
+          "metric": "euclidean",
+          "deduplicate": true,
+          "reference_cap": 2048,
+          "seed": 42
+        },
+        "recalibrated": true,
+        "mode": "phase_eligibility",
+        "quantiles": [
+          0.9995,
+          0.9995,
+          0.9995
+        ],
+        "within_budget": false,
+        "pooled": [
+          {
+            "n": 26864,
+            "normal": 21104,
+            "anomaly": 5760,
+            "tn": 20404,
+            "fp": 700,
+            "fn": 4674,
+            "tp": 1086,
+            "accuracy": 0.7999553305539011,
+            "precision": 0.6080627099664053,
+            "recall": 0.18854166666666666,
+            "f1": 0.2878346143652266,
+            "normal_false_positive_rate": 0.03316906747536012,
+            "always_normal_accuracy": 0.7855866587254318
+          },
+          {
+            "n": 26864,
+            "normal": 21104,
+            "anomaly": 5760,
+            "tn": 20404,
+            "fp": 700,
+            "fn": 4670,
+            "tp": 1090,
+            "accuracy": 0.800104228707564,
+            "precision": 0.6089385474860335,
+            "recall": 0.1892361111111111,
+            "f1": 0.28874172185430463,
+            "normal_false_positive_rate": 0.03316906747536012,
+            "always_normal_accuracy": 0.7855866587254318
+          },
+          {
+            "n": 26864,
+            "normal": 21104,
+            "anomaly": 5760,
+            "tn": 20354,
+            "fp": 750,
+            "fn": 4618,
+            "tp": 1142,
+            "accuracy": 0.8001786777843954,
+            "precision": 0.6035940803382663,
+            "recall": 0.19826388888888888,
+            "f1": 0.29848405645582854,
+            "normal_false_positive_rate": 0.035538286580742984,
+            "always_normal_accuracy": 0.7855866587254318
+          }
+        ],
+        "macro": [
+          {
+            "accuracy": 0.8311819852675963,
+            "precision": 0.5581312752843781,
+            "recall": 0.2635329485329485,
+            "f1": 0.3069284396371423,
+            "normal_false_positive_rate": 0.024608646447501242
+          },
+          {
+            "accuracy": 0.8314277306704576,
+            "precision": 0.5595726188158726,
+            "recall": 0.26445791245791245,
+            "f1": 0.3074332790663803,
+            "normal_false_positive_rate": 0.02451043648871175
+          },
+          {
+            "accuracy": 0.8358871411645074,
+            "precision": 0.7090809879880119,
+            "recall": 0.31564486131152797,
+            "f1": 0.3814755251197981,
+            "normal_false_positive_rate": 0.02619234008747802
+          }
+        ],
+        "scenarios": [
+          {
+            "scenario": "individual_delay",
+            "metrics": [
+              {
+                "n": 810,
+                "normal": 720,
+                "anomaly": 90,
+                "tn": 720,
+                "fp": 0,
+                "fn": 90,
+                "tp": 0,
+                "accuracy": 0.8888888888888888,
+                "precision": 0.0,
+                "recall": 0.0,
+                "f1": 0.0,
+                "normal_false_positive_rate": 0.0,
+                "always_normal_accuracy": 0.8888888888888888
+              },
+              {
+                "n": 810,
+                "normal": 720,
+                "anomaly": 90,
+                "tn": 720,
+                "fp": 0,
+                "fn": 90,
+                "tp": 0,
+                "accuracy": 0.8888888888888888,
+                "precision": 0.0,
+                "recall": 0.0,
+                "f1": 0.0,
+                "normal_false_positive_rate": 0.0,
+                "always_normal_accuracy": 0.8888888888888888
+              },
+              {
+                "n": 810,
+                "normal": 720,
+                "anomaly": 90,
+                "tn": 720,
+                "fp": 0,
+                "fn": 65,
+                "tp": 25,
+                "accuracy": 0.9197530864197531,
+                "precision": 1.0,
+                "recall": 0.2777777777777778,
+                "f1": 0.43478260869565216,
+                "normal_false_positive_rate": 0.0,
+                "always_normal_accuracy": 0.8888888888888888
+              }
+            ]
+          },
+          {
+            "scenario": "group_delay",
+            "metrics": [
+              {
+                "n": 4909,
+                "normal": 3919,
+                "anomaly": 990,
+                "tn": 3890,
+                "fp": 29,
+                "fn": 972,
+                "tp": 18,
+                "accuracy": 0.7960888164595641,
+                "precision": 0.3829787234042553,
+                "recall": 0.01818181818181818,
+                "f1": 0.03471552555448409,
+                "normal_false_positive_rate": 0.007399846899719316,
+                "always_normal_accuracy": 0.7983295986962722
+              },
+              {
+                "n": 4909,
+                "normal": 3919,
+                "anomaly": 990,
+                "tn": 3889,
+                "fp": 30,
+                "fn": 971,
+                "tp": 19,
+                "accuracy": 0.7960888164595641,
+                "precision": 0.3877551020408163,
+                "recall": 0.01919191919191919,
+                "f1": 0.03657362848893166,
+                "normal_false_positive_rate": 0.007655014034192396,
+                "always_normal_accuracy": 0.7983295986962722
+              },
+              {
+                "n": 4909,
+                "normal": 3919,
+                "anomaly": 990,
+                "tn": 3887,
+                "fp": 32,
+                "fn": 971,
+                "tp": 19,
+                "accuracy": 0.7956814015074353,
+                "precision": 0.37254901960784315,
+                "recall": 0.01919191919191919,
+                "f1": 0.03650336215177714,
+                "normal_false_positive_rate": 0.008165348303138555,
+                "always_normal_accuracy": 0.7983295986962722
+              }
+            ]
+          },
+          {
+            "scenario": "column_relation",
+            "metrics": [
+              {
+                "n": 810,
+                "normal": 630,
+                "anomaly": 180,
+                "tn": 630,
+                "fp": 0,
+                "fn": 90,
+                "tp": 90,
+                "accuracy": 0.8888888888888888,
+                "precision": 1.0,
+                "recall": 0.5,
+                "f1": 0.6666666666666666,
+                "normal_false_positive_rate": 0.0,
+                "always_normal_accuracy": 0.7777777777777778
+              },
+              {
+                "n": 810,
+                "normal": 630,
+                "anomaly": 180,
+                "tn": 630,
+                "fp": 0,
+                "fn": 90,
+                "tp": 90,
+                "accuracy": 0.8888888888888888,
+                "precision": 1.0,
+                "recall": 0.5,
+                "f1": 0.6666666666666666,
+                "normal_false_positive_rate": 0.0,
+                "always_normal_accuracy": 0.7777777777777778
+              },
+              {
+                "n": 810,
+                "normal": 630,
+                "anomaly": 180,
+                "tn": 630,
+                "fp": 0,
+                "fn": 90,
+                "tp": 90,
+                "accuracy": 0.8888888888888888,
+                "precision": 1.0,
+                "recall": 0.5,
+                "f1": 0.6666666666666666,
+                "normal_false_positive_rate": 0.0,
+                "always_normal_accuracy": 0.7777777777777778
+              }
+            ]
+          },
+          {
+            "scenario": "time_burst",
+            "metrics": [
+              {
+                "n": 5422,
+                "normal": 4672,
+                "anomaly": 750,
+                "tn": 4091,
+                "fp": 581,
+                "fn": 345,
+                "tp": 405,
+                "accuracy": 0.8292143120619697,
+                "precision": 0.4107505070993915,
+                "recall": 0.54,
+                "f1": 0.4665898617511521,
+                "normal_false_positive_rate": 0.12435787671232877,
+                "always_normal_accuracy": 0.8616746587974917
+              },
+              {
+                "n": 5422,
+                "normal": 4672,
+                "anomaly": 750,
+                "tn": 4108,
+                "fp": 564,
+                "fn": 336,
+                "tp": 414,
+                "accuracy": 0.8340095905569901,
+                "precision": 0.4233128834355828,
+                "recall": 0.552,
+                "f1": 0.4791666666666667,
+                "normal_false_positive_rate": 0.12071917808219178,
+                "always_normal_accuracy": 0.8616746587974917
+              },
+              {
+                "n": 5422,
+                "normal": 4672,
+                "anomaly": 750,
+                "tn": 4079,
+                "fp": 593,
+                "fn": 328,
+                "tp": 422,
+                "accuracy": 0.8301364810033198,
+                "precision": 0.41576354679802957,
+                "recall": 0.5626666666666666,
+                "f1": 0.4781869688385269,
+                "normal_false_positive_rate": 0.1269263698630137,
+                "always_normal_accuracy": 0.8616746587974917
+              }
+            ]
+          },
+          {
+            "scenario": "input_stop",
+            "metrics": [
+              {
+                "n": 6776,
+                "normal": 5726,
+                "anomaly": 1050,
+                "tn": 5655,
+                "fp": 71,
+                "fn": 516,
+                "tp": 534,
+                "accuracy": 0.913370720188902,
+                "precision": 0.8826446280991735,
+                "recall": 0.5085714285714286,
+                "f1": 0.6453172205438067,
+                "normal_false_positive_rate": 0.01239958085923856,
+                "always_normal_accuracy": 0.8450413223140496
+              },
+              {
+                "n": 6776,
+                "normal": 5726,
+                "anomaly": 1050,
+                "tn": 5639,
+                "fp": 87,
+                "fn": 525,
+                "tp": 525,
+                "accuracy": 0.9096812278630461,
+                "precision": 0.8578431372549019,
+                "recall": 0.5,
+                "f1": 0.631768953068592,
+                "normal_false_positive_rate": 0.015193852602165561,
+                "always_normal_accuracy": 0.8450413223140496
+              },
+              {
+                "n": 6776,
+                "normal": 5726,
+                "anomaly": 1050,
+                "tn": 5626,
+                "fp": 100,
+                "fn": 505,
+                "tp": 545,
+                "accuracy": 0.9107142857142857,
+                "precision": 0.8449612403100775,
+                "recall": 0.5190476190476191,
+                "f1": 0.6430678466076696,
+                "normal_false_positive_rate": 0.01746419839329375,
+                "always_normal_accuracy": 0.8450413223140496
+              }
+            ]
+          },
+          {
+            "scenario": "gradual_degradation",
+            "metrics": [
+              {
+                "n": 8137,
+                "normal": 5437,
+                "anomaly": 2700,
+                "tn": 5418,
+                "fp": 19,
+                "fn": 2661,
+                "tp": 39,
+                "accuracy": 0.6706402851173652,
+                "precision": 0.6724137931034483,
+                "recall": 0.014444444444444444,
+                "f1": 0.028281363306744016,
+                "normal_false_positive_rate": 0.0034945742137208018,
+                "always_normal_accuracy": 0.6681823767973455
+              },
+              {
+                "n": 8137,
+                "normal": 5437,
+                "anomaly": 2700,
+                "tn": 5418,
+                "fp": 19,
+                "fn": 2658,
+                "tp": 42,
+                "accuracy": 0.6710089713653681,
+                "precision": 0.6885245901639344,
+                "recall": 0.015555555555555555,
+                "f1": 0.030423759507424847,
+                "normal_false_positive_rate": 0.0034945742137208018,
+                "always_normal_accuracy": 0.6681823767973455
+              },
+              {
+                "n": 8137,
+                "normal": 5437,
+                "anomaly": 2700,
+                "tn": 5412,
+                "fp": 25,
+                "fn": 2659,
+                "tp": 41,
+                "accuracy": 0.6701487034533612,
+                "precision": 0.6212121212121212,
+                "recall": 0.015185185185185185,
+                "f1": 0.02964569775849602,
+                "normal_false_positive_rate": 0.004598123965422108,
+                "always_normal_accuracy": 0.6681823767973455
+              }
+            ]
+          }
+        ],
+        "objective": 0.33194574794110693,
+        "worst_pooled_fpr": 0.035538286580742984,
+        "worst_scenario_fpr": 0.1269263698630137,
+        "normal_case_false_alarm_rate": [
+          0.011111111111111112,
+          0.02962962962962963,
+          0.03333333333333333
+        ],
+        "production_promotion_recommended": false,
+        "warning": "No candidate met development false-alarm budget; comparison only"
+      },
+      "thresholds": [
+        {
+          "route": 0,
+          "adapter": "GLOBAL",
+          "phase": "startup",
+          "evidence_gate": 0,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": -1.4630019498709392,
+          "normal_reference_windows": 492,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 0,
+          "adapter": "GLOBAL",
+          "phase": "startup",
+          "evidence_gate": 1,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 5.270953365961219,
+          "normal_reference_windows": 1350,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 0,
+          "adapter": "GLOBAL",
+          "phase": "startup",
+          "evidence_gate": 2,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 4.6156531985524465,
+          "normal_reference_windows": 619,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 0,
+          "adapter": "GLOBAL",
+          "phase": "startup",
+          "evidence_gate": 3,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 5.35501992319756,
+          "normal_reference_windows": 179,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 0,
+          "adapter": "GLOBAL",
+          "phase": "steady",
+          "evidence_gate": 0,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 2.1183351622418134,
+          "normal_reference_windows": 7594,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 0,
+          "adapter": "GLOBAL",
+          "phase": "steady",
+          "evidence_gate": 1,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 1.5321362359339428,
+          "normal_reference_windows": 2184,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 0,
+          "adapter": "GLOBAL",
+          "phase": "steady",
+          "evidence_gate": 2,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 2.1183351622418134,
+          "normal_reference_windows": 7594,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 0,
+          "adapter": "GLOBAL",
+          "phase": "steady",
+          "evidence_gate": 3,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 2.1184456718794586,
+          "normal_reference_windows": 5301,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 0,
+          "adapter": "DB.READER",
+          "phase": "startup",
+          "evidence_gate": 0,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": -1.4630019498709392,
+          "normal_reference_windows": 492,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 0,
+          "adapter": "DB.READER",
+          "phase": "startup",
+          "evidence_gate": 1,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 5.270953365961219,
+          "normal_reference_windows": 1350,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 0,
+          "adapter": "DB.READER",
+          "phase": "startup",
+          "evidence_gate": 2,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 4.615691367141788,
+          "normal_reference_windows": 112,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 0,
+          "adapter": "DB.READER",
+          "phase": "startup",
+          "evidence_gate": 3,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 5.35501992319756,
+          "normal_reference_windows": 179,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 0,
+          "adapter": "DB.READER",
+          "phase": "steady",
+          "evidence_gate": 0,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 2.1183351622418134,
+          "normal_reference_windows": 7594,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 0,
+          "adapter": "DB.READER",
+          "phase": "steady",
+          "evidence_gate": 1,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 1.112875582732333,
+          "normal_reference_windows": 379,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 0,
+          "adapter": "DB.READER",
+          "phase": "steady",
+          "evidence_gate": 2,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 2.1183351622418134,
+          "normal_reference_windows": 7594,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 0,
+          "adapter": "DB.READER",
+          "phase": "steady",
+          "evidence_gate": 3,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 2.1194317052771874,
+          "normal_reference_windows": 1051,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 0,
+          "adapter": "DB.WRITER",
+          "phase": "startup",
+          "evidence_gate": 0,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": -1.4630019498709392,
+          "normal_reference_windows": 281,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 0,
+          "adapter": "DB.WRITER",
+          "phase": "startup",
+          "evidence_gate": 1,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 5.270953365961219,
+          "normal_reference_windows": 1350,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 0,
+          "adapter": "DB.WRITER",
+          "phase": "startup",
+          "evidence_gate": 2,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 0.7473454391631231,
+          "normal_reference_windows": 168,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 0,
+          "adapter": "DB.WRITER",
+          "phase": "startup",
+          "evidence_gate": 3,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 5.35501992319756,
+          "normal_reference_windows": 179,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 0,
+          "adapter": "DB.WRITER",
+          "phase": "steady",
+          "evidence_gate": 0,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 2.1183351622418134,
+          "normal_reference_windows": 7594,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 0,
+          "adapter": "DB.WRITER",
+          "phase": "steady",
+          "evidence_gate": 1,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 1.1720496007038155,
+          "normal_reference_windows": 420,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 0,
+          "adapter": "DB.WRITER",
+          "phase": "steady",
+          "evidence_gate": 2,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 2.1183351622418134,
+          "normal_reference_windows": 7594,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 0,
+          "adapter": "DB.WRITER",
+          "phase": "steady",
+          "evidence_gate": 3,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 0.8791437667071762,
+          "normal_reference_windows": 1090,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 0,
+          "adapter": "FILE.READER",
+          "phase": "startup",
+          "evidence_gate": 0,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": -1.4630019498709392,
+          "normal_reference_windows": 492,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 0,
+          "adapter": "FILE.READER",
+          "phase": "startup",
+          "evidence_gate": 1,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 5.270953365961219,
+          "normal_reference_windows": 1350,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 0,
+          "adapter": "FILE.READER",
+          "phase": "startup",
+          "evidence_gate": 2,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 4.6156531985524465,
+          "normal_reference_windows": 619,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 0,
+          "adapter": "FILE.READER",
+          "phase": "startup",
+          "evidence_gate": 3,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 5.35501992319756,
+          "normal_reference_windows": 179,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 0,
+          "adapter": "FILE.READER",
+          "phase": "steady",
+          "evidence_gate": 0,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 2.1183351622418134,
+          "normal_reference_windows": 7594,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 0,
+          "adapter": "FILE.READER",
+          "phase": "steady",
+          "evidence_gate": 1,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 1.5321362359339428,
+          "normal_reference_windows": 2184,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 0,
+          "adapter": "FILE.READER",
+          "phase": "steady",
+          "evidence_gate": 2,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 2.1183351622418134,
+          "normal_reference_windows": 7594,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 0,
+          "adapter": "FILE.READER",
+          "phase": "steady",
+          "evidence_gate": 3,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 2.1184456718794586,
+          "normal_reference_windows": 5301,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 0,
+          "adapter": "FILE.WRITER",
+          "phase": "startup",
+          "evidence_gate": 0,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": -1.4630019498709392,
+          "normal_reference_windows": 492,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 0,
+          "adapter": "FILE.WRITER",
+          "phase": "startup",
+          "evidence_gate": 1,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 5.270953365961219,
+          "normal_reference_windows": 1350,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 0,
+          "adapter": "FILE.WRITER",
+          "phase": "startup",
+          "evidence_gate": 2,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 4.6156531985524465,
+          "normal_reference_windows": 619,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 0,
+          "adapter": "FILE.WRITER",
+          "phase": "startup",
+          "evidence_gate": 3,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 5.35501992319756,
+          "normal_reference_windows": 179,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 0,
+          "adapter": "FILE.WRITER",
+          "phase": "steady",
+          "evidence_gate": 0,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 2.1183351622418134,
+          "normal_reference_windows": 7594,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 0,
+          "adapter": "FILE.WRITER",
+          "phase": "steady",
+          "evidence_gate": 1,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 1.5321362359339428,
+          "normal_reference_windows": 2184,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 0,
+          "adapter": "FILE.WRITER",
+          "phase": "steady",
+          "evidence_gate": 2,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 2.1183351622418134,
+          "normal_reference_windows": 7594,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 0,
+          "adapter": "FILE.WRITER",
+          "phase": "steady",
+          "evidence_gate": 3,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": -0.010796770959358567,
+          "normal_reference_windows": 124,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 0,
+          "adapter": "SERVICE.EXECUTOR",
+          "phase": "startup",
+          "evidence_gate": 0,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": -1.4630019498709392,
+          "normal_reference_windows": 492,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 0,
+          "adapter": "SERVICE.EXECUTOR",
+          "phase": "startup",
+          "evidence_gate": 1,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 5.270953365961219,
+          "normal_reference_windows": 1350,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 0,
+          "adapter": "SERVICE.EXECUTOR",
+          "phase": "startup",
+          "evidence_gate": 2,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 4.6156531985524465,
+          "normal_reference_windows": 619,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 0,
+          "adapter": "SERVICE.EXECUTOR",
+          "phase": "startup",
+          "evidence_gate": 3,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 5.35501992319756,
+          "normal_reference_windows": 179,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 0,
+          "adapter": "SERVICE.EXECUTOR",
+          "phase": "steady",
+          "evidence_gate": 0,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 2.1183351622418134,
+          "normal_reference_windows": 7594,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 0,
+          "adapter": "SERVICE.EXECUTOR",
+          "phase": "steady",
+          "evidence_gate": 1,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 1.5321362359339428,
+          "normal_reference_windows": 2184,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 0,
+          "adapter": "SERVICE.EXECUTOR",
+          "phase": "steady",
+          "evidence_gate": 2,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 2.1183351622418134,
+          "normal_reference_windows": 7594,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 0,
+          "adapter": "SERVICE.EXECUTOR",
+          "phase": "steady",
+          "evidence_gate": 3,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 1.058735613964671,
+          "normal_reference_windows": 113,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 1,
+          "adapter": "GLOBAL",
+          "phase": "startup",
+          "evidence_gate": 0,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": -1.4630019498709392,
+          "normal_reference_windows": 492,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 1,
+          "adapter": "GLOBAL",
+          "phase": "startup",
+          "evidence_gate": 1,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 5.270953365961219,
+          "normal_reference_windows": 1350,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 1,
+          "adapter": "GLOBAL",
+          "phase": "startup",
+          "evidence_gate": 2,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 4.6156531985524465,
+          "normal_reference_windows": 619,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 1,
+          "adapter": "GLOBAL",
+          "phase": "startup",
+          "evidence_gate": 3,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 5.35501992319756,
+          "normal_reference_windows": 179,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 1,
+          "adapter": "GLOBAL",
+          "phase": "steady",
+          "evidence_gate": 0,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 2.1183351622418134,
+          "normal_reference_windows": 7594,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 1,
+          "adapter": "GLOBAL",
+          "phase": "steady",
+          "evidence_gate": 1,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 1.5321362359339428,
+          "normal_reference_windows": 2184,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 1,
+          "adapter": "GLOBAL",
+          "phase": "steady",
+          "evidence_gate": 2,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 2.1183351622418134,
+          "normal_reference_windows": 7594,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 1,
+          "adapter": "GLOBAL",
+          "phase": "steady",
+          "evidence_gate": 3,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 2.1184456718794586,
+          "normal_reference_windows": 5301,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 1,
+          "adapter": "DB.READER",
+          "phase": "startup",
+          "evidence_gate": 0,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": -0.5243514084955501,
+          "normal_reference_windows": 492,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 1,
+          "adapter": "DB.READER",
+          "phase": "startup",
+          "evidence_gate": 1,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 5.270953365961219,
+          "normal_reference_windows": 1350,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 1,
+          "adapter": "DB.READER",
+          "phase": "startup",
+          "evidence_gate": 2,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 2.200290155873625,
+          "normal_reference_windows": 112,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 1,
+          "adapter": "DB.READER",
+          "phase": "startup",
+          "evidence_gate": 3,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 5.35501992319756,
+          "normal_reference_windows": 179,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 1,
+          "adapter": "DB.READER",
+          "phase": "steady",
+          "evidence_gate": 0,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 2.6641259808910553,
+          "normal_reference_windows": 7594,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 1,
+          "adapter": "DB.READER",
+          "phase": "steady",
+          "evidence_gate": 1,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 2.0358637462616143,
+          "normal_reference_windows": 379,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 1,
+          "adapter": "DB.READER",
+          "phase": "steady",
+          "evidence_gate": 2,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 2.6641259808910553,
+          "normal_reference_windows": 7594,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 1,
+          "adapter": "DB.READER",
+          "phase": "steady",
+          "evidence_gate": 3,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 2.667993043702349,
+          "normal_reference_windows": 1051,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 1,
+          "adapter": "DB.WRITER",
+          "phase": "startup",
+          "evidence_gate": 0,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": -1.8339079548835546,
+          "normal_reference_windows": 281,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 1,
+          "adapter": "DB.WRITER",
+          "phase": "startup",
+          "evidence_gate": 1,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 5.270953365961219,
+          "normal_reference_windows": 1350,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 1,
+          "adapter": "DB.WRITER",
+          "phase": "startup",
+          "evidence_gate": 2,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 0.7096206785799997,
+          "normal_reference_windows": 168,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 1,
+          "adapter": "DB.WRITER",
+          "phase": "startup",
+          "evidence_gate": 3,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 5.35501992319756,
+          "normal_reference_windows": 179,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 1,
+          "adapter": "DB.WRITER",
+          "phase": "steady",
+          "evidence_gate": 0,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 2.6641259808910553,
+          "normal_reference_windows": 7594,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 1,
+          "adapter": "DB.WRITER",
+          "phase": "steady",
+          "evidence_gate": 1,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 1.1902074050780638,
+          "normal_reference_windows": 420,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 1,
+          "adapter": "DB.WRITER",
+          "phase": "steady",
+          "evidence_gate": 2,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 2.6641259808910553,
+          "normal_reference_windows": 7594,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 1,
+          "adapter": "DB.WRITER",
+          "phase": "steady",
+          "evidence_gate": 3,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 1.3718588690621702,
+          "normal_reference_windows": 1090,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 1,
+          "adapter": "FILE.READER",
+          "phase": "startup",
+          "evidence_gate": 0,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": -0.5243514084955501,
+          "normal_reference_windows": 492,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 1,
+          "adapter": "FILE.READER",
+          "phase": "startup",
+          "evidence_gate": 1,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 5.270953365961219,
+          "normal_reference_windows": 1350,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 1,
+          "adapter": "FILE.READER",
+          "phase": "startup",
+          "evidence_gate": 2,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 2.195282264997543,
+          "normal_reference_windows": 619,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 1,
+          "adapter": "FILE.READER",
+          "phase": "startup",
+          "evidence_gate": 3,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 5.35501992319756,
+          "normal_reference_windows": 179,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 1,
+          "adapter": "FILE.READER",
+          "phase": "steady",
+          "evidence_gate": 0,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 2.6641259808910553,
+          "normal_reference_windows": 7594,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 1,
+          "adapter": "FILE.READER",
+          "phase": "steady",
+          "evidence_gate": 1,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 1.9683438468968357,
+          "normal_reference_windows": 2184,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 1,
+          "adapter": "FILE.READER",
+          "phase": "steady",
+          "evidence_gate": 2,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 2.6641259808910553,
+          "normal_reference_windows": 7594,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 1,
+          "adapter": "FILE.READER",
+          "phase": "steady",
+          "evidence_gate": 3,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 2.66519457543348,
+          "normal_reference_windows": 5301,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 1,
+          "adapter": "FILE.WRITER",
+          "phase": "startup",
+          "evidence_gate": 0,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": -0.5243514084955501,
+          "normal_reference_windows": 492,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 1,
+          "adapter": "FILE.WRITER",
+          "phase": "startup",
+          "evidence_gate": 1,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 5.270953365961219,
+          "normal_reference_windows": 1350,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 1,
+          "adapter": "FILE.WRITER",
+          "phase": "startup",
+          "evidence_gate": 2,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 2.195282264997543,
+          "normal_reference_windows": 619,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 1,
+          "adapter": "FILE.WRITER",
+          "phase": "startup",
+          "evidence_gate": 3,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 5.35501992319756,
+          "normal_reference_windows": 179,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 1,
+          "adapter": "FILE.WRITER",
+          "phase": "steady",
+          "evidence_gate": 0,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 2.6641259808910553,
+          "normal_reference_windows": 7594,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 1,
+          "adapter": "FILE.WRITER",
+          "phase": "steady",
+          "evidence_gate": 1,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 1.9683438468968357,
+          "normal_reference_windows": 2184,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 1,
+          "adapter": "FILE.WRITER",
+          "phase": "steady",
+          "evidence_gate": 2,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 2.6641259808910553,
+          "normal_reference_windows": 7594,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 1,
+          "adapter": "FILE.WRITER",
+          "phase": "steady",
+          "evidence_gate": 3,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 0.058827774756308335,
+          "normal_reference_windows": 124,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 1,
+          "adapter": "SERVICE.EXECUTOR",
+          "phase": "startup",
+          "evidence_gate": 0,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": -0.5243514084955501,
+          "normal_reference_windows": 492,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 1,
+          "adapter": "SERVICE.EXECUTOR",
+          "phase": "startup",
+          "evidence_gate": 1,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 5.270953365961219,
+          "normal_reference_windows": 1350,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 1,
+          "adapter": "SERVICE.EXECUTOR",
+          "phase": "startup",
+          "evidence_gate": 2,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 2.195282264997543,
+          "normal_reference_windows": 619,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 1,
+          "adapter": "SERVICE.EXECUTOR",
+          "phase": "startup",
+          "evidence_gate": 3,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 5.35501992319756,
+          "normal_reference_windows": 179,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 1,
+          "adapter": "SERVICE.EXECUTOR",
+          "phase": "steady",
+          "evidence_gate": 0,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 2.6641259808910553,
+          "normal_reference_windows": 7594,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 1,
+          "adapter": "SERVICE.EXECUTOR",
+          "phase": "steady",
+          "evidence_gate": 1,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 1.9683438468968357,
+          "normal_reference_windows": 2184,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 1,
+          "adapter": "SERVICE.EXECUTOR",
+          "phase": "steady",
+          "evidence_gate": 2,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 2.6641259808910553,
+          "normal_reference_windows": 7594,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 1,
+          "adapter": "SERVICE.EXECUTOR",
+          "phase": "steady",
+          "evidence_gate": 3,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 0.9432735103818981,
+          "normal_reference_windows": 113,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 2,
+          "adapter": "GLOBAL",
+          "phase": "startup",
+          "evidence_gate": 0,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": -1.4630019498709392,
+          "normal_reference_windows": 492,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 2,
+          "adapter": "GLOBAL",
+          "phase": "startup",
+          "evidence_gate": 1,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 5.270953365961219,
+          "normal_reference_windows": 1350,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 2,
+          "adapter": "GLOBAL",
+          "phase": "startup",
+          "evidence_gate": 2,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 4.6156531985524465,
+          "normal_reference_windows": 619,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 2,
+          "adapter": "GLOBAL",
+          "phase": "startup",
+          "evidence_gate": 3,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 5.35501992319756,
+          "normal_reference_windows": 179,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 2,
+          "adapter": "GLOBAL",
+          "phase": "steady",
+          "evidence_gate": 0,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 2.1183351622418134,
+          "normal_reference_windows": 7594,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 2,
+          "adapter": "GLOBAL",
+          "phase": "steady",
+          "evidence_gate": 1,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 1.5321362359339428,
+          "normal_reference_windows": 2184,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 2,
+          "adapter": "GLOBAL",
+          "phase": "steady",
+          "evidence_gate": 2,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 2.1183351622418134,
+          "normal_reference_windows": 7594,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 2,
+          "adapter": "GLOBAL",
+          "phase": "steady",
+          "evidence_gate": 3,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 2.1184456718794586,
+          "normal_reference_windows": 5301,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 2,
+          "adapter": "DB.READER",
+          "phase": "startup",
+          "evidence_gate": 0,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": -0.6215960781482215,
+          "normal_reference_windows": 492,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 2,
+          "adapter": "DB.READER",
+          "phase": "startup",
+          "evidence_gate": 1,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 5.270953365961219,
+          "normal_reference_windows": 1350,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 2,
+          "adapter": "DB.READER",
+          "phase": "startup",
+          "evidence_gate": 2,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 4.003324690502959,
+          "normal_reference_windows": 112,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 2,
+          "adapter": "DB.READER",
+          "phase": "startup",
+          "evidence_gate": 3,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 5.35501992319756,
+          "normal_reference_windows": 179,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 2,
+          "adapter": "DB.READER",
+          "phase": "steady",
+          "evidence_gate": 0,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 2.5290279631376724,
+          "normal_reference_windows": 7594,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 2,
+          "adapter": "DB.READER",
+          "phase": "steady",
+          "evidence_gate": 1,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 1.5587666920170953,
+          "normal_reference_windows": 379,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 2,
+          "adapter": "DB.READER",
+          "phase": "steady",
+          "evidence_gate": 2,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 2.5290279631376724,
+          "normal_reference_windows": 7594,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 2,
+          "adapter": "DB.READER",
+          "phase": "steady",
+          "evidence_gate": 3,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 2.531630600688631,
+          "normal_reference_windows": 1051,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 2,
+          "adapter": "DB.WRITER",
+          "phase": "startup",
+          "evidence_gate": 0,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": -0.9169539774417773,
+          "normal_reference_windows": 281,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 2,
+          "adapter": "DB.WRITER",
+          "phase": "startup",
+          "evidence_gate": 1,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 5.270953365961219,
+          "normal_reference_windows": 1350,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 2,
+          "adapter": "DB.WRITER",
+          "phase": "startup",
+          "evidence_gate": 2,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 0.35481033928999983,
+          "normal_reference_windows": 168,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 2,
+          "adapter": "DB.WRITER",
+          "phase": "startup",
+          "evidence_gate": 3,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 5.35501992319756,
+          "normal_reference_windows": 179,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 2,
+          "adapter": "DB.WRITER",
+          "phase": "steady",
+          "evidence_gate": 0,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 2.5290279631376724,
+          "normal_reference_windows": 7594,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 2,
+          "adapter": "DB.WRITER",
+          "phase": "steady",
+          "evidence_gate": 1,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 1.318977422178449,
+          "normal_reference_windows": 420,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 2,
+          "adapter": "DB.WRITER",
+          "phase": "steady",
+          "evidence_gate": 2,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 2.5290279631376724,
+          "normal_reference_windows": 7594,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 2,
+          "adapter": "DB.WRITER",
+          "phase": "steady",
+          "evidence_gate": 3,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 1.4117635469505805,
+          "normal_reference_windows": 1090,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 2,
+          "adapter": "FILE.READER",
+          "phase": "startup",
+          "evidence_gate": 0,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": -0.6215960781482215,
+          "normal_reference_windows": 492,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 2,
+          "adapter": "FILE.READER",
+          "phase": "startup",
+          "evidence_gate": 1,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 5.270953365961219,
+          "normal_reference_windows": 1350,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 2,
+          "adapter": "FILE.READER",
+          "phase": "startup",
+          "evidence_gate": 2,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 4.0008016607702475,
+          "normal_reference_windows": 619,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 2,
+          "adapter": "FILE.READER",
+          "phase": "startup",
+          "evidence_gate": 3,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 5.35501992319756,
+          "normal_reference_windows": 179,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 2,
+          "adapter": "FILE.READER",
+          "phase": "steady",
+          "evidence_gate": 0,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 2.5290279631376724,
+          "normal_reference_windows": 7594,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 2,
+          "adapter": "FILE.READER",
+          "phase": "steady",
+          "evidence_gate": 1,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 1.6486106899442494,
+          "normal_reference_windows": 2184,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 2,
+          "adapter": "FILE.READER",
+          "phase": "steady",
+          "evidence_gate": 2,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 2.5290279631376724,
+          "normal_reference_windows": 7594,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 2,
+          "adapter": "FILE.READER",
+          "phase": "steady",
+          "evidence_gate": 3,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 2.529726830126323,
+          "normal_reference_windows": 5301,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 2,
+          "adapter": "FILE.WRITER",
+          "phase": "startup",
+          "evidence_gate": 0,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": -0.6215960781482215,
+          "normal_reference_windows": 492,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 2,
+          "adapter": "FILE.WRITER",
+          "phase": "startup",
+          "evidence_gate": 1,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 5.270953365961219,
+          "normal_reference_windows": 1350,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 2,
+          "adapter": "FILE.WRITER",
+          "phase": "startup",
+          "evidence_gate": 2,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 4.0008016607702475,
+          "normal_reference_windows": 619,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 2,
+          "adapter": "FILE.WRITER",
+          "phase": "startup",
+          "evidence_gate": 3,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 5.35501992319756,
+          "normal_reference_windows": 179,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 2,
+          "adapter": "FILE.WRITER",
+          "phase": "steady",
+          "evidence_gate": 0,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 2.5290279631376724,
+          "normal_reference_windows": 7594,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 2,
+          "adapter": "FILE.WRITER",
+          "phase": "steady",
+          "evidence_gate": 1,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 1.6486106899442494,
+          "normal_reference_windows": 2184,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 2,
+          "adapter": "FILE.WRITER",
+          "phase": "steady",
+          "evidence_gate": 2,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 2.5290279631376724,
+          "normal_reference_windows": 7594,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 2,
+          "adapter": "FILE.WRITER",
+          "phase": "steady",
+          "evidence_gate": 3,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": -0.19805183193091958,
+          "normal_reference_windows": 124,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 2,
+          "adapter": "SERVICE.EXECUTOR",
+          "phase": "startup",
+          "evidence_gate": 0,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": -0.6215960781482215,
+          "normal_reference_windows": 492,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 2,
+          "adapter": "SERVICE.EXECUTOR",
+          "phase": "startup",
+          "evidence_gate": 1,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 5.270953365961219,
+          "normal_reference_windows": 1350,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 2,
+          "adapter": "SERVICE.EXECUTOR",
+          "phase": "startup",
+          "evidence_gate": 2,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 4.0008016607702475,
+          "normal_reference_windows": 619,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 2,
+          "adapter": "SERVICE.EXECUTOR",
+          "phase": "startup",
+          "evidence_gate": 3,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 5.35501992319756,
+          "normal_reference_windows": 179,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 2,
+          "adapter": "SERVICE.EXECUTOR",
+          "phase": "steady",
+          "evidence_gate": 0,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 2.5290279631376724,
+          "normal_reference_windows": 7594,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 2,
+          "adapter": "SERVICE.EXECUTOR",
+          "phase": "steady",
+          "evidence_gate": 1,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 1.6486106899442494,
+          "normal_reference_windows": 2184,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 2,
+          "adapter": "SERVICE.EXECUTOR",
+          "phase": "steady",
+          "evidence_gate": 2,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 2.5290279631376724,
+          "normal_reference_windows": 7594,
+          "calibration_mode": "phase_eligibility"
+        },
+        {
+          "route": 2,
+          "adapter": "SERVICE.EXECUTOR",
+          "phase": "steady",
+          "evidence_gate": 3,
+          "quantile": 0.9995,
+          "threshold_on_base_margin": 1.126176718627198,
+          "normal_reference_windows": 113,
+          "calibration_mode": "phase_eligibility"
+        }
+      ]
+    }
+  ],
+  "dependencies": {
+    "numpy": "2.5.3",
+    "pandas": "3.0.6",
+    "scikit-learn": "1.9.1",
+    "scipy": "1.18.1",
+    "joblib": "1.6.0"
+  },
+  "requires_module": "model_research_v14.inference",
+  "input": "Process minute grids + completed Process rows",
+  "transaction_table_required": false,
+  "runtime_reads_benchmark": false,
+  "synthetic_prior_history": true,
+  "operating_models_overwritten": false,
+  "trusted_pickle_only": true,
+  "production_promotion": "Requires real-log validation; no automatic deployment"
+}

@@ -1,0 +1,18 @@
+{
+  "suite": "run_latest_tests.py",
+  "tests_run": 77,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "passed": true,
+  "fixtures": "invented, not original/benchmark data",
+  "covers": [
+    "four model hashes/load",
+    "three short API roundtrips and future exclusion",
+    "raw Process long API at five horizons",
+    "new normal-data refits for three algorithms",
+    "feature causality, support arithmetic, and metric key matching"
+  ],
+  "full_labelled_benchmark_replay_this_publication": false,
+  "server_integration_or_production_deployment": false
+}

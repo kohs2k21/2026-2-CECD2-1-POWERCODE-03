@@ -1,0 +1,12 @@
+{
+  "sha256": "b130004343dc900a70df2f780889fab76e257772962e88e55fe43ca483f80199",
+  "source": "ef515572b5633420d4e3ee92c2bd16997a380acbce93e1a453097f6a26ec464d",
+  "old_model_sha256": "9fc9730cd02a69ae748f1a035740f18d81bb1ede7c7073341106dc7b6b686c0b",
+  "benchmark_manifest_sha256": "4f5469a098b82372d78499a8e9d9e7541dd58dba61a826626006dc6dc5627e93",
+  "normal_train_windows": 19793,
+  "normal_calibration_windows": 17925,
+  "search_windows": 35782,
+  "confirmation_windows": 71618,
+  "all_four_case_sets_disjoint": true,
+  "source_template_split_unchanged": true
+}

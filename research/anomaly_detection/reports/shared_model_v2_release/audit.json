@@ -1,0 +1,131 @@
+{
+  "passed": true,
+  "requirements": [
+    {
+      "algorithm": "if",
+      "f1": 0.5500623773548693,
+      "F1_target_met": true,
+      "normal_FPR": 0.03153168286561869,
+      "previous_normal_FPR": 0.03153168286561869,
+      "normal_FPR_delta_percentage_points": 0.0,
+      "strictly_no_increase": true,
+      "same_level_guard_passed": true
+    },
+    {
+      "algorithm": "kmeans",
+      "f1": 0.5622313933919788,
+      "F1_target_met": true,
+      "normal_FPR": 0.022029006930889324,
+      "previous_normal_FPR": 0.02424523410369345,
+      "normal_FPR_delta_percentage_points": -0.22162271728041263,
+      "strictly_no_increase": true,
+      "same_level_guard_passed": true
+    },
+    {
+      "algorithm": "lof",
+      "f1": 0.5505725923562206,
+      "F1_target_met": true,
+      "normal_FPR": 0.02399214297632926,
+      "previous_normal_FPR": 0.02476485482536152,
+      "normal_FPR_delta_percentage_points": -0.077271184903226,
+      "strictly_no_increase": true,
+      "same_level_guard_passed": true
+    }
+  ],
+  "all_decisions": 2167766,
+  "metrics_recomputed": true,
+  "original_benchmark_csv_hashes_verified": true,
+  "original_models_and_summary_preserved": true,
+  "truth_and_case_alignment_unchanged": true,
+  "IF_model_and_scores_exactly_unchanged": true,
+  "Adapter_feature_sensitivity": [
+    {
+      "algorithm": "if",
+      "Adapter_features": 9,
+      "score_change_when_Adapter_feature_changes": 1.153693148177468
+    },
+    {
+      "algorithm": "kmeans",
+      "Adapter_features": 9,
+      "score_change_when_Adapter_feature_changes": 1.4868507062036391
+    },
+    {
+      "algorithm": "lof",
+      "Adapter_features": 9,
+      "score_change_when_Adapter_feature_changes": 0.9879128932952881
+    }
+  ],
+  "ADBench_samples": 1000,
+  "ADBench_normal": 800,
+  "ADBench_anomaly": 200,
+  "ADBench_official_leaf_hash_verified": true,
+  "ADBench_CSV_and_NPZ_exact_roundtrip": true,
+  "ADBench_metrics_independently_recomputed": true,
+  "fresh_seed": 42400042,
+  "notebook_executed_code_cells": 7,
+  "notebook_errors": 0,
+  "figures": [
+    "adbench.png",
+    "adbench_types.png",
+    "comparison.png",
+    "if_threshold.png",
+    "kmeans_threshold.png",
+    "lof_threshold.png",
+    "scenarios.png"
+  ],
+  "serving": [
+    {
+      "algorithm": "if",
+      "saved_artifact_hash": true,
+      "raw_Process_to_prediction": true,
+      "prefix_causal": true,
+      "unknown_Adapter_fallback": true,
+      "no_research_data_reads_during_prediction": true
+    },
+    {
+      "algorithm": "kmeans",
+      "saved_artifact_hash": true,
+      "raw_Process_to_prediction": true,
+      "prefix_causal": true,
+      "unknown_Adapter_fallback": true,
+      "no_research_data_reads_during_prediction": true
+    },
+    {
+      "algorithm": "lof",
+      "saved_artifact_hash": true,
+      "raw_Process_to_prediction": true,
+      "prefix_causal": true,
+      "unknown_Adapter_fallback": true,
+      "no_research_data_reads_during_prediction": true
+    }
+  ],
+  "final_strict_FPR_margin_absolute": 0.0,
+  "external_blind_test": false,
+  "stateful_worker_implemented": false,
+  "model_sha256": "e4e58b8491b2f8807dfeeb389c59e4f5ed120a20f7ee7b859492118c29089eba",
+  "summary_sha256": "2f12c44d054618e7128f71c68d5d47f13bd06b6e15b3c8ef6d973983857a6c96",
+  "source_sha256": {
+    "adbench_eval.py": "edb37e59914ab797bec4f7839c3f05bd7371b6a9da3d570c3fe536bd1b7375e3",
+    "assemble.py": "787d3d396b13b967603cc64376a289d3d3f1cf8d643e2094472764e1779eceae",
+    "audit.py": "a3d12befc80431d31e310d5f9cd3f0b6b636547a90cb2545a04a26cdc828122d",
+    "calibrate_lof.py": "c4e71deb3e967014c3435ffe2911e8f9aed21571f52341bd2d4555f50c65025d",
+    "context_calibration.py": "c75acbae954fa098635f545b151777113dc6f0fe35fce267916010294353e635",
+    "evaluate.py": "84c379ee5f71d551a86e508e7fd6aac02ece349d7f32ff296801c5c1f76cfaf4",
+    "features.py": "22e2f7c60db1822b10fd392e19db8f3b59a4f5b32495acb37f1e7c3cd3593dbf",
+    "inference.py": "e66bb571011ca506e8c20f4fe8f94633a2179e9b4883da1f33895dc8ac0e4013",
+    "models.py": "77c857dcc490f18de9e329d6d751a52bca6c7d920d001dcf632b24459b1b768a",
+    "promote.py": "abec8325ae6e424e7895d91a4cd10edb6ebda8727878a303bf112e3d4eca5fe6",
+    "refine.py": "09b96b1021bf397cb1f44debdc24e50ed5fc7f9b7ccb8283e3062dd7376ab53a",
+    "refine_geometry.py": "bac572e0da477b53370f0ef6ab028e9a8d8256ede28babd651a17f82cbd4d383",
+    "refine_if.py": "b305d61f47f28d5ada9853f0871e5d07b8dde40e125de640a9c664452e7c4a30",
+    "refine_lof_geometry.py": "58b5b64d4fcf7690f0c20cb6ae19aaa99b846e87fd5627055004666c652ec11e",
+    "refine_lof_weights.py": "4ee0b1469678e7721830440bc98d1b14f5b2cbf848ce794bc15a45c31da999b3",
+    "refine_persistence.py": "7c6cf0796dc4c49d21a9ebebf5a209ecd81019a877dd56a83a5c1615b15f82c6",
+    "refine_reference.py": "39848f53f57f260699a93afd4a2f68c3d97c8450d481c5980f06939a795bb6ed",
+    "report.py": "ab2cae08ede9cc845863be6b08426f1f61e70fd79c90e9980ef4566f0647631e",
+    "run.py": "dfe32e1f1032f5089f46aa691bc44d92315d2cb011b9052d956355b43e23a838",
+    "score_filter.py": "fc8ce2958d6fde27a53ec6caeabe045e6e884cefc7ea1e72d5d20db2f70c1710",
+    "test_v2.py": "9fa50e2f62c253150ef0a8e6f90fa5b2504ca9981d65429a7a3f64a6e05971ef",
+    "__init__.py": "a09b03b3b38d267a255d068f443d1da9b69a31b13b5c5921134edb8b5511feaf"
+  }
+}

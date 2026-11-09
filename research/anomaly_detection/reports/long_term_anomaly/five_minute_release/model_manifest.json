@@ -1,0 +1,16 @@
+{
+  "models_sha256": "b3323b15cd97c29088b6e09bc1a488edda5fa10be89cd119bc4d890fa8054f65",
+  "selection_sha256": "f9f96e1ba59130092f4769a5fb6f663b0d01d19afbf832f662713c01ee32a5b6",
+  "native_benchmark_manifest_sha256": "7055c3ece57e323d4547d986e61dd63320c22952327474eef4b830401d05955f",
+  "normal_only_density_fit": true,
+  "development_labels_used_for_hyperparameters": true,
+  "test_used_for_selection": false,
+  "runtime_sha256": "9ffef2c2384cf43c6e02af7ed04ad9d44ee1ff6fa3f5ed8a114baa3539becacd",
+  "old_hourly_test_modified": false,
+  "development_feature_selection": true,
+  "development_normal_budget_one_hour": 0.045,
+  "one_hour_reference_calibration_and_sparse_evidence": true,
+  "other_four_lengths_unchanged_from_native_conditional_provider": true,
+  "sparse_study_sha256": "d9cd1d42c1072dd1f81eb5527d76a0f8c2b7bb634e3d6efa3dd6a1881a0e521e",
+  "sparse_study_source_sha256": "287914158f218dbea0cbc833e879d7907a1713d8da731bed5d0a8af0d548e382"
+}

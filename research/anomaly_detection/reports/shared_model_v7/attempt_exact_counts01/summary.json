@@ -1,0 +1,653 @@
+{
+  "datasets": [
+    {
+      "dataset": "individual_delay",
+      "metrics": [
+        {
+          "method": "if",
+          "n": 59984,
+          "normal": 54891,
+          "anomaly": 5093,
+          "tn": 54842,
+          "fp": 49,
+          "fn": 606,
+          "tp": 4487,
+          "accuracy": 0.9890804214457188,
+          "precision": 0.9891975308641975,
+          "recall": 0.8810131553112115,
+          "f1": 0.9319763215287153,
+          "normal_false_positive_rate": 0.0008926782168297171,
+          "always_normal_accuracy": 0.9150940250733529
+        },
+        {
+          "method": "kmeans",
+          "n": 59984,
+          "normal": 54891,
+          "anomaly": 5093,
+          "tn": 54842,
+          "fp": 49,
+          "fn": 616,
+          "tp": 4477,
+          "accuracy": 0.9889137103227528,
+          "precision": 0.9891736632788334,
+          "recall": 0.8790496760259179,
+          "f1": 0.9308659943861108,
+          "normal_false_positive_rate": 0.0008926782168297171,
+          "always_normal_accuracy": 0.9150940250733529
+        },
+        {
+          "method": "lof",
+          "n": 59984,
+          "normal": 54891,
+          "anomaly": 5093,
+          "tn": 54838,
+          "fp": 53,
+          "fn": 556,
+          "tp": 4537,
+          "accuracy": 0.9898472926113631,
+          "precision": 0.9884531590413943,
+          "recall": 0.8908305517376792,
+          "f1": 0.9371062687183724,
+          "normal_false_positive_rate": 0.00096554990799949,
+          "always_normal_accuracy": 0.9150940250733529
+        }
+      ]
+    },
+    {
+      "dataset": "group_delay",
+      "metrics": [
+        {
+          "method": "if",
+          "n": 363830,
+          "normal": 308714,
+          "anomaly": 55116,
+          "tn": 299932,
+          "fp": 8782,
+          "fn": 3619,
+          "tp": 51497,
+          "accuracy": 0.9659154000494736,
+          "precision": 0.8543107881683505,
+          "recall": 0.9343384861020393,
+          "f1": 0.8925343385761948,
+          "normal_false_positive_rate": 0.028447041598372604,
+          "always_normal_accuracy": 0.8485116675370366
+        },
+        {
+          "method": "kmeans",
+          "n": 363830,
+          "normal": 308714,
+          "anomaly": 55116,
+          "tn": 301545,
+          "fp": 7169,
+          "fn": 6300,
+          "tp": 48816,
+          "accuracy": 0.9629799631696122,
+          "precision": 0.8719478431722782,
+          "recall": 0.8856956237753103,
+          "f1": 0.8787679678850775,
+          "normal_false_positive_rate": 0.023222140881203963,
+          "always_normal_accuracy": 0.8485116675370366
+        },
+        {
+          "method": "lof",
+          "n": 363830,
+          "normal": 308714,
+          "anomaly": 55116,
+          "tn": 300732,
+          "fp": 7982,
+          "fn": 3563,
+          "tp": 51553,
+          "accuracy": 0.9682681472116098,
+          "precision": 0.8659276056101453,
+          "recall": 0.9353545250018144,
+          "f1": 0.8993031024587662,
+          "normal_false_positive_rate": 0.02585564632637328,
+          "always_normal_accuracy": 0.8485116675370366
+        }
+      ]
+    },
+    {
+      "dataset": "time_burst",
+      "metrics": [
+        {
+          "method": "if",
+          "n": 398856,
+          "normal": 357193,
+          "anomaly": 41663,
+          "tn": 349775,
+          "fp": 7418,
+          "fn": 20321,
+          "tp": 21342,
+          "accuracy": 0.9304535972882444,
+          "precision": 0.7420723226703755,
+          "recall": 0.5122530782708878,
+          "f1": 0.6061087996819221,
+          "normal_false_positive_rate": 0.02076748424521197,
+          "always_normal_accuracy": 0.8955437551396995
+        },
+        {
+          "method": "kmeans",
+          "n": 398856,
+          "normal": 357193,
+          "anomaly": 41663,
+          "tn": 351616,
+          "fp": 5577,
+          "fn": 20261,
+          "tp": 21402,
+          "accuracy": 0.9352197284232906,
+          "precision": 0.7932836650728344,
+          "recall": 0.5136932050020402,
+          "f1": 0.6235832289268961,
+          "normal_false_positive_rate": 0.015613407877533994,
+          "always_normal_accuracy": 0.8955437551396995
+        },
+        {
+          "method": "lof",
+          "n": 398856,
+          "normal": 357193,
+          "anomaly": 41663,
+          "tn": 350113,
+          "fp": 7080,
+          "fn": 20203,
+          "tp": 21460,
+          "accuracy": 0.9315968670397337,
+          "precision": 0.751927119831815,
+          "recall": 0.5150853275088207,
+          "f1": 0.6113698844778713,
+          "normal_false_positive_rate": 0.019821217101119004,
+          "always_normal_accuracy": 0.8955437551396995
+        }
+      ]
+    },
+    {
+      "dataset": "input_stop",
+      "metrics": [
+        {
+          "method": "if",
+          "n": 502488,
+          "normal": 422499,
+          "anomaly": 79989,
+          "tn": 417556,
+          "fp": 4943,
+          "fn": 17484,
+          "tp": 62505,
+          "accuracy": 0.9553680883921606,
+          "precision": 0.9267139129403392,
+          "recall": 0.7814199452424708,
+          "f1": 0.8478875723190245,
+          "normal_false_positive_rate": 0.01169943597499639,
+          "always_normal_accuracy": 0.8408141089936476
+        },
+        {
+          "method": "kmeans",
+          "n": 502488,
+          "normal": 422499,
+          "anomaly": 79989,
+          "tn": 418722,
+          "fp": 3777,
+          "fn": 18133,
+          "tp": 61856,
+          "accuracy": 0.9563969686838293,
+          "precision": 0.9424527295720141,
+          "recall": 0.7733063296203228,
+          "f1": 0.849541964813009,
+          "normal_false_positive_rate": 0.008939666129387288,
+          "always_normal_accuracy": 0.8408141089936476
+        },
+        {
+          "method": "lof",
+          "n": 502488,
+          "normal": 422499,
+          "anomaly": 79989,
+          "tn": 417655,
+          "fp": 4844,
+          "fn": 16595,
+          "tp": 63394,
+          "accuracy": 0.957334304500804,
+          "precision": 0.9290131598229725,
+          "recall": 0.7925339734213455,
+          "f1": 0.8553637326532952,
+          "normal_false_positive_rate": 0.01146511589376543,
+          "always_normal_accuracy": 0.8408141089936476
+        }
+      ]
+    },
+    {
+      "dataset": "gradual_degradation",
+      "metrics": [
+        {
+          "method": "if",
+          "n": 602814,
+          "normal": 452824,
+          "anomaly": 149990,
+          "tn": 441240,
+          "fp": 11584,
+          "fn": 42821,
+          "tp": 107169,
+          "accuracy": 0.9097482805641541,
+          "precision": 0.9024529906612886,
+          "recall": 0.7145076338422561,
+          "f1": 0.7975575177772072,
+          "normal_false_positive_rate": 0.02558168294966698,
+          "always_normal_accuracy": 0.7511836155099251
+        },
+        {
+          "method": "kmeans",
+          "n": 602814,
+          "normal": 452824,
+          "anomaly": 149990,
+          "tn": 443074,
+          "fp": 9750,
+          "fn": 46771,
+          "tp": 103219,
+          "accuracy": 0.9062380767533601,
+          "precision": 0.9136931370552983,
+          "recall": 0.6881725448363224,
+          "f1": 0.7850577466449142,
+          "normal_false_positive_rate": 0.02153154426443828,
+          "always_normal_accuracy": 0.7511836155099251
+        },
+        {
+          "method": "lof",
+          "n": 602814,
+          "normal": 452824,
+          "anomaly": 149990,
+          "tn": 442330,
+          "fp": 10494,
+          "fn": 42773,
+          "tp": 107217,
+          "accuracy": 0.9116360933886738,
+          "precision": 0.9108494533221194,
+          "recall": 0.7148276551770119,
+          "f1": 0.8010205415743684,
+          "normal_false_positive_rate": 0.023174566719078495,
+          "always_normal_accuracy": 0.7511836155099251
+        }
+      ]
+    }
+  ],
+  "pooled": [
+    {
+      "method": "if",
+      "n": 1927972,
+      "normal": 1596121,
+      "anomaly": 331851,
+      "tn": 1563345,
+      "fp": 32776,
+      "fn": 84851,
+      "tp": 247000,
+      "accuracy": 0.9389892591801126,
+      "precision": 0.8828491364520188,
+      "recall": 0.7443099463313354,
+      "f1": 0.8076818060680775,
+      "normal_false_positive_rate": 0.020534784017001217,
+      "always_normal_accuracy": 0.8278756123014235
+    },
+    {
+      "method": "kmeans",
+      "n": 1927972,
+      "normal": 1596121,
+      "anomaly": 331851,
+      "tn": 1569799,
+      "fp": 26322,
+      "fn": 92081,
+      "tp": 239770,
+      "accuracy": 0.9385867637081866,
+      "precision": 0.9010793259474167,
+      "recall": 0.7225230600480336,
+      "f1": 0.8019827976914188,
+      "normal_false_positive_rate": 0.016491230927981024,
+      "always_normal_accuracy": 0.8278756123014235
+    },
+    {
+      "method": "lof",
+      "n": 1927972,
+      "normal": 1596121,
+      "anomaly": 331851,
+      "tn": 1565668,
+      "fp": 30453,
+      "fn": 83690,
+      "tp": 248161,
+      "accuracy": 0.9407963393659244,
+      "precision": 0.8906982420122463,
+      "recall": 0.7478085044191519,
+      "f1": 0.8130228596234018,
+      "normal_false_positive_rate": 0.01907938057327734,
+      "always_normal_accuracy": 0.8278756123014235
+    }
+  ],
+  "protocol": {
+    "decisions": 1927972,
+    "normal": 1596121,
+    "anomaly": 331851,
+    "unchanged_rows_labels_severity": true,
+    "point_adjustment": false,
+    "external_blind_test": false,
+    "all_5000_paired_cases_each_task": true,
+    "published_release": false
+  },
+  "acceptance": {
+    "algorithms": {
+      "if": {
+        "tasks": {
+          "individual_delay": {
+            "Recall_at_least_55": true,
+            "FPR_below_5": true,
+            "maintained": {
+              "accuracy": true,
+              "precision": true,
+              "f1": true
+            },
+            "changes_pp": {
+              "accuracy": 4.401173646305678,
+              "precision": 0.2725669392335983,
+              "f1": 40.66917803963137,
+              "recall": 52.30708816021992,
+              "normal_false_positive_rate": 0.0437230147018637
+            },
+            "all_met": true
+          },
+          "group_delay": {
+            "Recall_at_least_55": true,
+            "FPR_below_5": true,
+            "maintained": {
+              "accuracy": true,
+              "precision": true,
+              "f1": true
+            },
+            "changes_pp": {
+              "accuracy": 0.7572217794024616,
+              "precision": 2.4629579007239055,
+              "f1": 2.35056486349573,
+              "recall": 2.2044415414761542,
+              "normal_false_positive_rate": -0.49884358985987054
+            },
+            "all_met": true
+          },
+          "time_burst": {
+            "Recall_at_least_55": false,
+            "FPR_below_5": true,
+            "maintained": {
+              "accuracy": false,
+              "precision": false,
+              "f1": true
+            },
+            "changes_pp": {
+              "accuracy": -0.12084561846882336,
+              "precision": -4.790352274025256,
+              "f1": 1.5970008950676906,
+              "recall": 4.125963084751461,
+              "normal_false_positive_rate": 0.6161934864345046
+            },
+            "all_met": false
+          },
+          "input_stop": {
+            "Recall_at_least_55": true,
+            "FPR_below_5": true,
+            "maintained": {
+              "accuracy": false,
+              "precision": false,
+              "f1": true
+            },
+            "changes_pp": {
+              "accuracy": -0.05074748053685019,
+              "precision": -1.9219108794431783,
+              "f1": 0.09922016417511781,
+              "recall": 1.4789533560864654,
+              "normal_false_positive_rate": 0.34035583516173995
+            },
+            "all_met": false
+          },
+          "gradual_degradation": {
+            "Recall_at_least_55": true,
+            "FPR_below_5": true,
+            "maintained": {
+              "accuracy": true,
+              "precision": true,
+              "f1": true
+            },
+            "changes_pp": {
+              "accuracy": 1.8977661434538717,
+              "precision": 2.5422100519787216,
+              "f1": 4.9278795096869725,
+              "recall": 6.201746783118878,
+              "normal_false_positive_rate": -0.47214811935763146
+            },
+            "all_met": true
+          }
+        },
+        "pooled_nonregression": true,
+        "all_task_metrics_met": false,
+        "minimum_task_Recall": 0.5122530782708878,
+        "all_met": false
+      },
+      "kmeans": {
+        "tasks": {
+          "individual_delay": {
+            "Recall_at_least_55": true,
+            "FPR_below_5": true,
+            "maintained": {
+              "accuracy": true,
+              "precision": true,
+              "f1": true
+            },
+            "changes_pp": {
+              "accuracy": 3.5976260336089694,
+              "precision": 2.8166352149670115,
+              "f1": 30.4525822314635,
+              "recall": 41.44904771254663,
+              "normal_false_positive_rate": -0.08562423712448307
+            },
+            "all_met": true
+          },
+          "group_delay": {
+            "Recall_at_least_55": true,
+            "FPR_below_5": true,
+            "maintained": {
+              "accuracy": true,
+              "precision": true,
+              "f1": true
+            },
+            "changes_pp": {
+              "accuracy": 0.745403072863704,
+              "precision": 2.7701057085383285,
+              "f1": 2.367201294762955,
+              "recall": 1.946803106176065,
+              "normal_false_positive_rate": -0.5309121063508618
+            },
+            "all_met": true
+          },
+          "time_burst": {
+            "Recall_at_least_55": false,
+            "FPR_below_5": true,
+            "maintained": {
+              "accuracy": false,
+              "precision": false,
+              "f1": false
+            },
+            "changes_pp": {
+              "accuracy": -0.2945925346490963,
+              "precision": -4.83012891145952,
+              "f1": -0.5806525682627961,
+              "recall": 1.1040971605501326,
+              "normal_false_positive_rate": 0.45773573390296
+            },
+            "all_met": false
+          },
+          "input_stop": {
+            "Recall_at_least_55": true,
+            "FPR_below_5": true,
+            "maintained": {
+              "accuracy": true,
+              "precision": false,
+              "f1": true
+            },
+            "changes_pp": {
+              "accuracy": 0.5761331613889253,
+              "precision": -1.322173204775079,
+              "f1": 2.603850318971046,
+              "recall": 4.985685531760609,
+              "normal_false_positive_rate": 0.258698837157011
+            },
+            "all_met": false
+          },
+          "gradual_degradation": {
+            "Recall_at_least_55": true,
+            "FPR_below_5": true,
+            "maintained": {
+              "accuracy": true,
+              "precision": true,
+              "f1": true
+            },
+            "changes_pp": {
+              "accuracy": 2.368558129041465,
+              "precision": 3.117596529909372,
+              "f1": 6.434043757953834,
+              "recall": 7.911860790719382,
+              "normal_false_positive_rate": -0.5324364432980584
+            },
+            "all_met": true
+          }
+        },
+        "pooled_nonregression": true,
+        "all_task_metrics_met": false,
+        "minimum_task_Recall": 0.5136932050020402,
+        "all_met": false
+      },
+      "lof": {
+        "tasks": {
+          "individual_delay": {
+            "Recall_at_least_55": true,
+            "FPR_below_5": true,
+            "maintained": {
+              "accuracy": true,
+              "precision": true,
+              "f1": true
+            },
+            "changes_pp": {
+              "accuracy": 2.430648172846095,
+              "precision": 4.266647666072254,
+              "f1": 18.065522594707517,
+              "recall": 26.055370115845278,
+              "normal_false_positive_rate": -0.238654788581006
+            },
+            "all_met": true
+          },
+          "group_delay": {
+            "Recall_at_least_55": true,
+            "FPR_below_5": true,
+            "maintained": {
+              "accuracy": true,
+              "precision": true,
+              "f1": true
+            },
+            "changes_pp": {
+              "accuracy": 1.4960283648956962,
+              "precision": 6.453955109975851,
+              "f1": 4.281919606356476,
+              "recall": 1.5639741635822602,
+              "normal_false_positive_rate": -1.483897717628614
+            },
+            "all_met": true
+          },
+          "time_burst": {
+            "Recall_at_least_55": false,
+            "FPR_below_5": true,
+            "maintained": {
+              "accuracy": true,
+              "precision": false,
+              "f1": true
+            },
+            "changes_pp": {
+              "accuracy": 0.11232123874280742,
+              "precision": -5.429760322076104,
+              "f1": 4.190193645657059,
+              "recall": 7.48865900199217,
+              "normal_false_positive_rate": 0.7480549730817795
+            },
+            "all_met": false
+          },
+          "input_stop": {
+            "Recall_at_least_55": true,
+            "FPR_below_5": true,
+            "maintained": {
+              "accuracy": true,
+              "precision": false,
+              "f1": true
+            },
+            "changes_pp": {
+              "accuracy": 1.9512903790737335,
+              "precision": -0.7934436942835466,
+              "f1": 8.549159783507587,
+              "recall": 13.916913575616652,
+              "normal_false_positive_rate": 0.31408358362978384
+            },
+            "all_met": false
+          },
+          "gradual_degradation": {
+            "Recall_at_least_55": true,
+            "FPR_below_5": true,
+            "maintained": {
+              "accuracy": true,
+              "precision": true,
+              "f1": true
+            },
+            "changes_pp": {
+              "accuracy": 2.5419117671454217,
+              "precision": 8.306245849261696,
+              "f1": 5.12065670489158,
+              "recall": 2.9561970798053228,
+              "normal_false_positive_rate": -2.404687030722753
+            },
+            "all_met": true
+          }
+        },
+        "pooled_nonregression": true,
+        "all_task_metrics_met": false,
+        "minimum_task_Recall": 0.5150853275088207,
+        "all_met": false
+      }
+    },
+    "all_targets_met": false,
+    "scope": "each task Recall>=55%; each task Accuracy/Precision/F1>=v6; each task and pooled FPR<5%; pooled metrics non-regression"
+  },
+  "requested_roles": {
+    "requested_roles": [
+      {
+        "requested_model": "if",
+        "task": "individual_delay",
+        "F1": 0.9319763215287153,
+        "Precision": 0.9891975308641975,
+        "Recall": 0.8810131553112115,
+        "F1_gap_to_best_other_pp": -0.5129947189657091,
+        "observed_best_F1": false,
+        "not_statistical_significance_claim": true
+      },
+      {
+        "requested_model": "kmeans",
+        "task": "group_delay",
+        "F1": 0.8787679678850775,
+        "Precision": 0.8719478431722782,
+        "Recall": 0.8856956237753103,
+        "F1_gap_to_best_other_pp": -2.053513457368872,
+        "observed_best_F1": false,
+        "not_statistical_significance_claim": true
+      },
+      {
+        "requested_model": "lof",
+        "task": "gradual_degradation",
+        "F1": 0.8010205415743684,
+        "Precision": 0.9108494533221194,
+        "Recall": 0.7148276551770119,
+        "F1_gap_to_best_other_pp": 0.34630237971612354,
+        "observed_best_F1": true,
+        "not_statistical_significance_claim": true
+      }
+    ],
+    "all_desired_models_observed_best": false,
+    "others_intentionally_weakened": false,
+    "role_definition": "prefer target task F1 subject to every task and pooled constraints; report Precision/Recall too"
+  },
+  "metric_targets_met": false,
+  "all_targets_met": false
+}

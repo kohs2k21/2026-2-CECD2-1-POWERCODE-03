@@ -1,0 +1,69 @@
+{
+  "passed": true,
+  "requirements": [
+    {
+      "algorithm": "if",
+      "baseline_f1": 0.3362477256725387,
+      "new_f1": 0.38557858545273094,
+      "f1_requirement_met": true,
+      "adapter_features": 9,
+      "one_estimator": true
+    },
+    {
+      "algorithm": "kmeans",
+      "baseline_f1": 0.33713339556121025,
+      "new_f1": 0.42560419474549044,
+      "f1_requirement_met": true,
+      "adapter_features": 9,
+      "one_estimator": true
+    },
+    {
+      "algorithm": "lof",
+      "baseline_f1": 0.3919065784351888,
+      "new_f1": 0.42664754995980425,
+      "f1_requirement_met": true,
+      "adapter_features": 9,
+      "one_estimator": true
+    }
+  ],
+  "adapter_numeric_sensitivity": [
+    {
+      "algorithm": "if",
+      "score_change_when_adapter_feature_changes": 0.03566437387031035
+    },
+    {
+      "algorithm": "kmeans",
+      "score_change_when_adapter_feature_changes": 0.022263169288635254
+    },
+    {
+      "algorithm": "lof",
+      "score_change_when_adapter_feature_changes": 0.14792513847351074
+    }
+  ],
+  "unchanged_original_csv_hashes_verified": true,
+  "old_models_and_results_unchanged": true,
+  "all_truth_labels_and_row_alignment_equal": true,
+  "metrics_independently_recomputed": true,
+  "all_decisions": 2167766,
+  "selection_matches_actual_model_search_scores": true,
+  "notebook_executed_code_cells": 8,
+  "notebook_errors": 0,
+  "serving": {
+    "raw_process_to_prediction": true,
+    "unknown_adapter_finite_global_reference": true,
+    "algorithms": 3
+  },
+  "summary_sha256": "df354d117a89975b791e002acbe828b749e2c0eba4a94c97897a7f289e51f769",
+  "model_sha256": "786cd5ff557655505cce3db18441f90fa973e0c7383499112f191c9be8731e93",
+  "source_sha256": {
+    "audit.py": "007743374568876afe846a9ac4f8c88f4517210239ad1562ae5a9fabc0bd8aaa",
+    "calibrate.py": "820a7c12cf893f5368bd2de9bc4bef2bbfcd49387855be7c97a1f7a500a30881",
+    "inference.py": "3794a81237471edcb0dd6a80135292164a9420dee680dffdd1c28553603a336d",
+    "models.py": "bc1e883ce69bf26dadd6d6ee78f29656a678d5f3d874740dd7b7777a2fe277d6",
+    "refine_if.py": "99430d3178a9c9388e3c2fdbee67a28819c77f918c313536da13dc3e924d1251",
+    "report.py": "bf1f3e8f5ec9a906c39c37b5d5e1d8eb114401cac4ac12b65fef5925372aed9c",
+    "run.py": "a09ea84b327efa5e6a55ed8c3e85ef6c3d7dd4fd04ca5f2b54f01510b183511e",
+    "test_models.py": "dc22c52b4dccd1bfacaad2be728f5f5f5cb3f45f39238cf270d08a38698d0294",
+    "__init__.py": "7d7dcecdd94fa6c0dfdfbc82a9a289eb522a91a4022c18644c46c9d369da8d4e"
+  }
+}

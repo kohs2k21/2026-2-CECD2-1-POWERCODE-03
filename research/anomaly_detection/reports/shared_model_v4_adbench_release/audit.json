@@ -1,0 +1,87 @@
+{
+  "passed": true,
+  "goals_met": {
+    "if": true,
+    "kmeans": true,
+    "lof": true
+  },
+  "exact_test_vector_overlap_with_fit_calibration_development": 0,
+  "exact_pairwise_training_split_overlap": 0,
+  "normal_only_fit": true,
+  "fixed_test_unchanged": true,
+  "metric_recomputed": true,
+  "models": [
+    {
+      "method": "if",
+      "file": "if_adbench_specific.joblib",
+      "bytes": 1348110,
+      "sha256": "64bf15e5ace22798f8c9b8a91005cb58ba01ff123483f9ef338dc504d22457a6",
+      "threshold": 0.512595317223703,
+      "actual_estimator_parameters": {
+        "bootstrap": false,
+        "contamination": "auto",
+        "max_features": 1.0,
+        "max_samples": 256,
+        "n_estimators": 400,
+        "n_jobs": 2,
+        "random_state": 42,
+        "verbose": 0,
+        "warm_start": false
+      },
+      "save_load_reproducible": true
+    },
+    {
+      "method": "kmeans",
+      "file": "kmeans_adbench_specific.joblib",
+      "bytes": 662582,
+      "sha256": "644ada4d8d89769494916f05558a65246ea5a682d2c2d7673ea2179a3567f707",
+      "threshold": 8.542689323425293,
+      "actual_estimator_parameters": {
+        "batch_size": 1024,
+        "compute_labels": true,
+        "init": "k-means++",
+        "init_size": null,
+        "max_iter": 300,
+        "max_no_improvement": 10,
+        "n_clusters": 128,
+        "n_init": 20,
+        "random_state": 42,
+        "reassignment_ratio": 0.0,
+        "tol": 0.0,
+        "verbose": 0
+      },
+      "save_load_reproducible": true
+    },
+    {
+      "method": "lof",
+      "file": "lof_adbench_specific.joblib",
+      "bytes": 11194652,
+      "sha256": "b66a362c7653b6c051e717b18e7e159d659d588efd372e9fe8238aacfb136d2e",
+      "threshold": 1.950494647026062,
+      "actual_estimator_parameters": {
+        "algorithm": "auto",
+        "contamination": "auto",
+        "leaf_size": 30,
+        "metric": "minkowski",
+        "metric_params": null,
+        "n_jobs": 2,
+        "n_neighbors": 800,
+        "novelty": true,
+        "p": 2
+      },
+      "save_load_reproducible": true
+    }
+  ],
+  "ADBench_specific_protocol_not_service_transfer": true,
+  "shared_generator_population_not_external_blind": true,
+  "executed_notebook_code_cells": 8,
+  "versions": {
+    "numpy": "2.5.3",
+    "pandas": "3.0.6",
+    "scipy": "1.18.1",
+    "scikit-learn": "1.9.1",
+    "joblib": "1.6.0"
+  },
+  "requires_code_tree": true,
+  "safe_trusted_joblib_only": true
+}

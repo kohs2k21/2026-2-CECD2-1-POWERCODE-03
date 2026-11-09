@@ -1,0 +1,26 @@
+/** Only the eight-column, machine-readable scenario summary is changed. */
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import crypto from 'node:crypto';
+import {Workbook} from '@oai/artifact-tool';
+const root=path.resolve(process.argv[2]);
+const active=['individual_delay','group_delay','time_burst','input_stop','gradual_degradation'];
+const archived=path.resolve(root,'../../reports/retired_tasks_20261018');
+const old=await fs.readFile(path.join(archived,'scenario_summary.csv'),'utf8');
+const rows=old.replace(/^\uFEFF/,'').trim().split(/\r?\n/).map(line=>line.split(','));
+if(rows.some(r=>r.length!==8))throw new Error('Unexpected summary schema');
+const matrix=[rows[0],...rows.slice(1).filter(r=>active.includes(r[0])).map(r=>[r[0],...r.slice(1).map(Number)])];
+if(matrix.length!==6 || matrix.slice(1).some(r=>r.slice(1).some(x=>!Number.isFinite(x))))throw new Error('Invalid active summary');
+const wb=Workbook.create(),sheet=wb.worksheets.add('Active tasks');
+const range=sheet.getRangeByIndexes(0,0,matrix.length,8);
+range.values=matrix;wb.recalculate();
+if(JSON.stringify(range.values)!==JSON.stringify(matrix))throw new Error('Typed value changed');
+const text='\uFEFF'+range.values.map(r=>r.join(',')).join('\r\n')+'\r\n';
+await fs.writeFile(path.join(root,'scenario_summary.csv'),text,'utf8');
+const manifest=JSON.parse(await fs.readFile(path.join(root,'manifest.json'),'utf8'));
+manifest.datasets=active;
+manifest.retired_tasks={date:'2026-10-18',tasks:['column_relation','mixed_hard'],recoverable_archive:'reports/retired_tasks_20261018',reason:'User excluded these tasks from active evaluation; retained task bytes and labels unchanged'};
+delete manifest.hard_cases;delete manifest.relation_supported_adapters;
+manifest.files['scenario_summary.csv']={rows:5,columns:8,sha256:crypto.createHash('sha256').update(text).digest('hex')};
+await fs.writeFile(path.join(root,'manifest.json'),JSON.stringify(manifest,null,2)+'\n');
+console.log('Authored five-task summary; retained task CSVs were not edited');

@@ -1,0 +1,8 @@
+{
+  "models_sha256": "a154238f57f8c7b7b0b6d0130579ec6f9d5954831316467c7536b048fbe1003b",
+  "runtime_sha256": "05f7a851809dc5fd1e59a26743b19d113e742dfa4975cd944a1990138063a479",
+  "selection_sha256": "398c56533192443fec461291da33eb4de8b8905b451cba23b3fe79ccbed81863",
+  "native_benchmark_manifest_sha256": "7055c3ece57e323d4547d986e61dd63320c22952327474eef4b830401d05955f",
+  "original_native_test_no_longer_blind": true,
+  "new_numeric_thresholds_tuned_on_test": false
+}

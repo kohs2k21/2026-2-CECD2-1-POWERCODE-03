@@ -1,0 +1,423 @@
+{
+  "contract": "approved-metadata-capture1.0",
+  "dataset_id": "FlowBench_montage_train",
+  "data_class": "controlled",
+  "split": "train",
+  "period": {
+    "controlled_domain": "Public 2022 workflow runs; execution-disjoint random benchmark partition, not chronological deployment; train"
+  },
+  "admission": {
+    "approved": true,
+    "Body_excluded": true,
+    "held_lineage_excluded": true,
+    "complete_family_capture": true
+  },
+  "lineage_tags": [
+    "public_flowbench_controlled_resource_injection"
+  ],
+  "tables": [
+    {
+      "name": "RUN",
+      "file": "RUN.csv",
+      "format": "csv",
+      "sha256": "e4801f69becb4ca3ea59f94b066524746b11d2754776b4992561df441066720c",
+      "row_count": 25,
+      "primary_key": [
+        "RUN_ID"
+      ],
+      "columns": [
+        {
+          "name": "RUN_ID",
+          "logical_type": "string",
+          "nullable": false,
+          "excluded": false,
+          "unit": {
+            "name": null,
+            "status": "unknown"
+          },
+          "missing_tokens": [
+            ""
+          ],
+          "description": "Captured row/relation identifier or task category, never an anomaly label."
+        }
+      ]
+    },
+    {
+      "name": "TASK",
+      "file": "TASK.csv",
+      "format": "csv",
+      "sha256": "5987cf14aa8c35d197a07899095dfa66aeb28c94fd8d5204864eefcfdbfeedf8",
+      "row_count": 13475,
+      "primary_key": [
+        "ROW_ID"
+      ],
+      "columns": [
+        {
+          "name": "ROW_ID",
+          "logical_type": "string",
+          "nullable": false,
+          "excluded": false,
+          "unit": {
+            "name": null,
+            "status": "unknown"
+          },
+          "missing_tokens": [
+            ""
+          ],
+          "description": "Captured row/relation identifier or task category, never an anomaly label."
+        },
+        {
+          "name": "RUN_ID",
+          "logical_type": "string",
+          "nullable": false,
+          "excluded": false,
+          "unit": {
+            "name": null,
+            "status": "unknown"
+          },
+          "missing_tokens": [
+            ""
+          ],
+          "description": "Captured row/relation identifier or task category, never an anomaly label."
+        },
+        {
+          "name": "TASK_KIND",
+          "logical_type": "string",
+          "nullable": false,
+          "excluded": false,
+          "unit": {
+            "name": null,
+            "status": "unknown"
+          },
+          "missing_tokens": [
+            ""
+          ],
+          "description": "Captured row/relation identifier or task category, never an anomaly label."
+        },
+        {
+          "name": "runtime",
+          "logical_type": "number",
+          "nullable": true,
+          "excluded": false,
+          "unit": {
+            "name": "second",
+            "status": "verified",
+            "evidence_ids": [
+              "unit_runtime"
+            ]
+          },
+          "missing_tokens": [
+            "",
+            "None",
+            "nan",
+            "NaN"
+          ],
+          "description": "Measured captured task execution duration."
+        },
+        {
+          "name": "queue_delay",
+          "logical_type": "number",
+          "nullable": true,
+          "excluded": false,
+          "unit": {
+            "name": "second",
+            "status": "verified",
+            "evidence_ids": [
+              "unit_queue_delay"
+            ]
+          },
+          "missing_tokens": [
+            "",
+            "None",
+            "nan",
+            "NaN"
+          ],
+          "description": "Measured waiting before execution."
+        },
+        {
+          "name": "wms_delay",
+          "logical_type": "number",
+          "nullable": true,
+          "excluded": false,
+          "unit": {
+            "name": "second",
+            "status": "verified",
+            "evidence_ids": [
+              "unit_wms_delay"
+            ]
+          },
+          "missing_tokens": [
+            "",
+            "None",
+            "nan",
+            "NaN"
+          ],
+          "description": "Measured workflow management delay."
+        },
+        {
+          "name": "post_script_delay",
+          "logical_type": "number",
+          "nullable": true,
+          "excluded": false,
+          "unit": {
+            "name": "second",
+            "status": "verified",
+            "evidence_ids": [
+              "unit_post_script_delay"
+            ]
+          },
+          "missing_tokens": [
+            "",
+            "None",
+            "nan",
+            "NaN"
+          ],
+          "description": "Measured post-script duration."
+        },
+        {
+          "name": "stage_in_delay",
+          "logical_type": "number",
+          "nullable": true,
+          "excluded": false,
+          "unit": {
+            "name": "second",
+            "status": "verified",
+            "evidence_ids": [
+              "unit_stage_in_delay"
+            ]
+          },
+          "missing_tokens": [
+            "",
+            "None",
+            "nan",
+            "NaN"
+          ],
+          "description": "Measured stage-in transfer duration."
+        },
+        {
+          "name": "stage_out_delay",
+          "logical_type": "number",
+          "nullable": true,
+          "excluded": false,
+          "unit": {
+            "name": "second",
+            "status": "verified",
+            "evidence_ids": [
+              "unit_stage_out_delay"
+            ]
+          },
+          "missing_tokens": [
+            "",
+            "None",
+            "nan",
+            "NaN"
+          ],
+          "description": "Measured stage-out transfer duration."
+        },
+        {
+          "name": "execute_start",
+          "logical_type": "number",
+          "nullable": true,
+          "excluded": false,
+          "unit": {
+            "name": "second",
+            "status": "verified",
+            "evidence_ids": [
+              "unit_execute_start"
+            ]
+          },
+          "missing_tokens": [
+            "",
+            "None",
+            "nan",
+            "NaN"
+          ],
+          "description": "Execution start Unix timestamp."
+        },
+        {
+          "name": "execute_end",
+          "logical_type": "number",
+          "nullable": true,
+          "excluded": false,
+          "unit": {
+            "name": "second",
+            "status": "verified",
+            "evidence_ids": [
+              "unit_execute_end"
+            ]
+          },
+          "missing_tokens": [
+            "",
+            "None",
+            "nan",
+            "NaN"
+          ],
+          "description": "Execution end Unix timestamp."
+        }
+      ]
+    }
+  ],
+  "relationships": [
+    {
+      "id": "task_to_run",
+      "from_table": "TASK",
+      "from_columns": [
+        "RUN_ID"
+      ],
+      "to_table": "RUN",
+      "to_columns": [
+        "RUN_ID"
+      ],
+      "no_reference_values": []
+    }
+  ],
+  "evidence": [
+    {
+      "id": "unit_runtime",
+      "kind": "unit",
+      "table": "TASK",
+      "column": "runtime",
+      "unit_name": "second",
+      "confirmation": "controlled_contract",
+      "source": {
+        "file": "units.json",
+        "sha256": "8fb6acafde589adf634948bb38f2a1803d6451bcc2f1bd82c715a7bb0a97b65a",
+        "pointer": "/runtime"
+      },
+      "value": {
+        "name": "second",
+        "meaning": "FlowBench timestamp/duration coordinate; duration cross-checked against execute_end-execute_start"
+      }
+    },
+    {
+      "id": "unit_queue_delay",
+      "kind": "unit",
+      "table": "TASK",
+      "column": "queue_delay",
+      "unit_name": "second",
+      "confirmation": "controlled_contract",
+      "source": {
+        "file": "units.json",
+        "sha256": "8fb6acafde589adf634948bb38f2a1803d6451bcc2f1bd82c715a7bb0a97b65a",
+        "pointer": "/queue_delay"
+      },
+      "value": {
+        "name": "second",
+        "meaning": "FlowBench timestamp/duration coordinate; duration cross-checked against execute_end-execute_start"
+      }
+    },
+    {
+      "id": "unit_wms_delay",
+      "kind": "unit",
+      "table": "TASK",
+      "column": "wms_delay",
+      "unit_name": "second",
+      "confirmation": "controlled_contract",
+      "source": {
+        "file": "units.json",
+        "sha256": "8fb6acafde589adf634948bb38f2a1803d6451bcc2f1bd82c715a7bb0a97b65a",
+        "pointer": "/wms_delay"
+      },
+      "value": {
+        "name": "second",
+        "meaning": "FlowBench timestamp/duration coordinate; duration cross-checked against execute_end-execute_start"
+      }
+    },
+    {
+      "id": "unit_post_script_delay",
+      "kind": "unit",
+      "table": "TASK",
+      "column": "post_script_delay",
+      "unit_name": "second",
+      "confirmation": "controlled_contract",
+      "source": {
+        "file": "units.json",
+        "sha256": "8fb6acafde589adf634948bb38f2a1803d6451bcc2f1bd82c715a7bb0a97b65a",
+        "pointer": "/post_script_delay"
+      },
+      "value": {
+        "name": "second",
+        "meaning": "FlowBench timestamp/duration coordinate; duration cross-checked against execute_end-execute_start"
+      }
+    },
+    {
+      "id": "unit_stage_in_delay",
+      "kind": "unit",
+      "table": "TASK",
+      "column": "stage_in_delay",
+      "unit_name": "second",
+      "confirmation": "controlled_contract",
+      "source": {
+        "file": "units.json",
+        "sha256": "8fb6acafde589adf634948bb38f2a1803d6451bcc2f1bd82c715a7bb0a97b65a",
+        "pointer": "/stage_in_delay"
+      },
+      "value": {
+        "name": "second",
+        "meaning": "FlowBench timestamp/duration coordinate; duration cross-checked against execute_end-execute_start"
+      }
+    },
+    {
+      "id": "unit_stage_out_delay",
+      "kind": "unit",
+      "table": "TASK",
+      "column": "stage_out_delay",
+      "unit_name": "second",
+      "confirmation": "controlled_contract",
+      "source": {
+        "file": "units.json",
+        "sha256": "8fb6acafde589adf634948bb38f2a1803d6451bcc2f1bd82c715a7bb0a97b65a",
+        "pointer": "/stage_out_delay"
+      },
+      "value": {
+        "name": "second",
+        "meaning": "FlowBench timestamp/duration coordinate; duration cross-checked against execute_end-execute_start"
+      }
+    },
+    {
+      "id": "unit_execute_start",
+      "kind": "unit",
+      "table": "TASK",
+      "column": "execute_start",
+      "unit_name": "second",
+      "confirmation": "controlled_contract",
+      "source": {
+        "file": "units.json",
+        "sha256": "8fb6acafde589adf634948bb38f2a1803d6451bcc2f1bd82c715a7bb0a97b65a",
+        "pointer": "/execute_start"
+      },
+      "value": {
+        "name": "second",
+        "meaning": "FlowBench timestamp/duration coordinate; duration cross-checked against execute_end-execute_start"
+      }
+    },
+    {
+      "id": "unit_execute_end",
+      "kind": "unit",
+      "table": "TASK",
+      "column": "execute_end",
+      "unit_name": "second",
+      "confirmation": "controlled_contract",
+      "source": {
+        "file": "units.json",
+        "sha256": "8fb6acafde589adf634948bb38f2a1803d6451bcc2f1bd82c715a7bb0a97b65a",
+        "pointer": "/execute_end"
+      },
+      "value": {
+        "name": "second",
+        "meaning": "FlowBench timestamp/duration coordinate; duration cross-checked against execute_end-execute_start"
+      }
+    }
+  ],
+  "unknown": [
+    "No operational SLA or mandatory-process business contract.",
+    "Resource injection labels are not protocol-violation truth.",
+    "Retrospective per-task evaluation; DAG dependency features are not in this first experiment."
+  ],
+  "source_identity": {
+    "repository_commit": "58df4e69f7b0fe4f818bad6400699cdb04e0b1cb",
+    "workflow": "montage",
+    "partition": "train",
+    "cohort": "all captured task roles; no outcome filtering"
+  }
+}

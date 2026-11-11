@@ -1,0 +1,13 @@
+{
+  "prompt_policy": "source-only-scope-review1.5-source-evidence",
+  "generated_pack_policy": "source-bound-reusable-discovery1.1-conditional-row",
+  "runtime_manifest_sha256": "df5bb37ee0a93ca24a118bd28b96dac2db8cc29a81989d48ab8edceaaf3e9bbd",
+  "actual_runtime_policies": {
+    "typed_operator_runtime_policy": "typed-relational-discovery1.3-evidence-dominance",
+    "serving_policy": "logical-rule-serving1.5-evidence-dominance",
+    "feature_contract": "logical-feature-definition1.3-runtime-binding"
+  },
+  "declared_reference_guard_policy": "declared-self-reference-direction1.0",
+  "original_templates_preserved": true,
+  "resources_are_not_automatic_model_selection": true
+}

@@ -1,0 +1,9 @@
+{
+  "cases": 8,
+  "program_complete": 8,
+  "positive_feature_generation": 7,
+  "holds_separate": 1,
+  "new_Model_calls": 16,
+  "official_structured_facts_author": "compiler",
+  "not_operational_detection": true
+}

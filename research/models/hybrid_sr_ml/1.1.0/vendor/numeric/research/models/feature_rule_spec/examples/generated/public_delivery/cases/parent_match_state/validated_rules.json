@@ -1,0 +1,152 @@
+[
+  {
+    "feature": {
+      "id": "fd_40505a4d9e830b70f61fdcbd",
+      "definition_sha": "1f523c56c914ac1b959a41c0b6c57ba2398ac0374d3eec2463286660a7b7e87c",
+      "source_version": "c7fdeaacb68ac6ef68b01f651707e6aad95f42e6bc0726106a38f1cd49077ea1",
+      "measurement_sha": "035bacbf2931f7a8db07f99da04dabf6fbea350607cf949c007e3b6117ccd3d2"
+    },
+    "decision": {
+      "request": "observed",
+      "role": "SR",
+      "state": "proposed",
+      "basis": "observed_diagnostic",
+      "condition": {
+        "op": "eq",
+        "value": true
+      },
+      "evidence": [
+        "m_035bacbf2931f7a8db07f99d"
+      ],
+      "needed": [],
+      "reason": "The supplied calculated-value diagnostic has 4 usable observations. It is evaluable regardless of current activations or application minimum. No historical reference or business obligation is required.",
+      "purpose": "other",
+      "warning_meaning": "This is a calculated-value diagnostic under its supplied scope; it does not prove an operational incident, physical fault, or mandatory-parent violation.",
+      "population_ref": "population_41b9251fefeec3402f5c",
+      "precondition_refs": [
+        "source_c7fdeaacb68ac6ef68b0",
+        "availability_a63beb27305a545dbc36",
+        "mapping_9c2471dd665d5dc6b485"
+      ],
+      "required_evaluation_basis": [
+        "source_c7fdeaacb68ac6ef68b0",
+        "availability_a63beb27305a545dbc36",
+        "mapping_9c2471dd665d5dc6b485",
+        "population_41b9251fefeec3402f5c",
+        "m_035bacbf2931f7a8db07f99d"
+      ],
+      "unavailable_action": "preserve_unassessed",
+      "unavailable_reason": "If the current calculation or its selected inputs were unavailable, this condition could not be evaluated; current availability does not imply future or online availability.",
+      "business_scope": "The considered calculated-value diagnostic and its current offline calculation scope are confirmed. No operational usefulness or incident meaning is inferred from current values or offline calculability.",
+      "baseline_use_ref": null
+    },
+    "condition_statistics": {
+      "rows": 4,
+      "evaluable": 4,
+      "satisfied": 3,
+      "not_satisfied": 1,
+      "unassessed": 0
+    },
+    "actual_Model_attempts": [
+      {
+        "attempt": 0,
+        "prediction": {
+          "v": "3",
+          "feature": "fd_40505a4d9e830b70f61fdcbd",
+          "sha": "1f523c56c914ac1b959a41c0b6c57ba2398ac0374d3eec2463286660a7b7e87c",
+          "decisions": [
+            {
+              "request": "observed",
+              "role": "SR",
+              "state": "proposed",
+              "basis": "observed_diagnostic",
+              "condition": {
+                "op": "eq",
+                "value": true
+              },
+              "evidence": [
+                "m_035bacbf2931f7a8db07f99d"
+              ],
+              "needed": [],
+              "reason": "The supplied calculated-value diagnostic has 4 usable observations. It is evaluable regardless of current activations or application minimum. No historical reference or business obligation is required.",
+              "purpose": "other",
+              "warning_meaning": "This is a calculated-value diagnostic under its supplied scope; it does not prove an operational incident, physical fault, or mandatory-parent violation.",
+              "population_ref": "population_41b9251fefeec3402f5c",
+              "precondition_refs": [
+                "source_c7fdeaacb68ac6ef68b0",
+                "availability_a63beb27305a545dbc36",
+                "mapping_9c2471dd665d5dc6b485"
+              ],
+              "required_evaluation_basis": [
+                "source_c7fdeaacb68ac6ef68b0",
+                "availability_a63beb27305a545dbc36",
+                "mapping_9c2471dd665d5dc6b485",
+                "population_41b9251fefeec3402f5c",
+                "m_035bacbf2931f7a8db07f99d"
+              ],
+              "unavailable_action": "preserve_unassessed",
+              "unavailable_reason": "If the current calculation or its selected inputs were unavailable, this condition could not be evaluated; current availability does not imply future or online availability.",
+              "business_scope": "The considered calculated-value diagnostic and its current offline calculation scope are confirmed. No operational usefulness or incident meaning is inferred from current values or offline calculability.",
+              "baseline_use_ref": null
+            }
+          ]
+        },
+        "passed": true,
+        "errors": [],
+        "actual_model_origin": {
+          "file": "model/rule_0/output.json",
+          "raw_sha": "8621973b0f7ab40a84ee8189104f1abe680928f1a72b6a2f8ce9b0d3380e8825",
+          "parsed_sha": "19507727958f05659c38a750b26b3099b5dedcf875dadae29ea7fdad1161c982",
+          "messages_sha": "314ba34cead00b4a92545ba1f1352723ced18308e0c3f436fc4543db8d33e7db",
+          "budget": {
+            "sequence": 2,
+            "kind": "rule",
+            "call": "rule_0",
+            "phase": "frozen_final_final_public_delivery_parent_match_state",
+            "at": 1793097549.127609,
+            "failed_or_interrupted_calls_consume_budget": true,
+            "shared_sequence": 99
+          }
+        },
+        "partial_roles": null,
+        "partial_Rule_prose_fields": null,
+        "normal_roles_preserved": false
+      }
+    ],
+    "official_semantics": {
+      "author": "compiler",
+      "contract": "official-condition-facts1.0",
+      "not_AI_generated": true,
+      "condition": {
+        "op": "eq",
+        "value": true
+      },
+      "condition_valid": true,
+      "condition_error": null,
+      "statistics": {
+        "rows": 4,
+        "evaluable": 4,
+        "satisfied": 3,
+        "not_satisfied": 1,
+        "unassessed": 0
+      },
+      "valid_feature_observations": 4,
+      "numeric_current": null,
+      "retained_current": 4,
+      "reference_valid_n": null,
+      "is_missing_checks_retained_unavailable_values": false,
+      "result_unavailable_is_not_itself_condition_unassessed": false,
+      "source_or_incident_cause_not_inferred": true,
+      "full_natural_language_proof": false
+    },
+    "AI_explanation_status": {
+      "status": "supported_claims_checked",
+      "complete_NL_proof": false,
+      "free_prose_approval": "not_granted_by_program_supported_claims_only",
+      "actual_Model_repair": false,
+      "errors": []
+    },
+    "operational_approval": false,
+    "anomaly_execution": "not_run"
+  }
+]

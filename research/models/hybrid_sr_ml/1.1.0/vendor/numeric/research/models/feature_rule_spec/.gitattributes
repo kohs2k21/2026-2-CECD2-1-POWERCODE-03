@@ -1,0 +1,4 @@
+# Capture and artifact manifests require byte-identical files after checkout.
+* -text
+*.csv whitespace=cr-at-eol
+*.safetensors binary

@@ -1,0 +1,29 @@
+{
+  "sources": [
+    {
+      "source": "/home/msko20702/#\uc885\ud569\uc124\uacc4/data/data/eda/logical_rule_discovery_eval/20261109T182204+0900/novel_source_validation_frozen/inputs/N01.json",
+      "packaged_file": "examples/coverage_source.json",
+      "sha256": "5a7c184b21d5cb34f7e9e812061638ecfa316aaaa7553ae8747e08d43a9fa278"
+    },
+    {
+      "source": "/home/msko20702/#\uc885\ud569\uc124\uacc4/data/data/eda/logical_rule_discovery_eval/20261109T182204+0900/declared_source_grounding_development/bounded_coverage_N01/generation/round_01/generation/input/candidate_pack.json",
+      "packaged_file": "examples/coverage_round_01_pack.json",
+      "sha256": "c3241495c9ccaa1d81144c700ec9fbae6226faf28ce23dbbe66a8a8b6104cfb4"
+    },
+    {
+      "source": "/home/msko20702/#\uc885\ud569\uc124\uacc4/data/data/eda/logical_rule_discovery_eval/20261109T182204+0900/declared_source_grounding_development/bounded_coverage_N01/generation/round_02/generation/input/candidate_pack.json",
+      "packaged_file": "examples/coverage_round_02_pack.json",
+      "sha256": "56ae2644429594c74117072a648db58266c9b92eece66aee2c26cb3d8566da01"
+    },
+    {
+      "source": "/home/msko20702/#\uc885\ud569\uc124\uacc4/data/data/eda/logical_rule_discovery_eval/20261109T182204+0900/declared_source_grounding_development/bounded_coverage_N01/reviewed_library_replay/reviewed_executable_only_library.json",
+      "packaged_file": "examples/coverage_curated_library.json",
+      "sha256": "e5809fa76a78bb9e84336dd719301fd14cce967cfedf3968a93f57f82430a834"
+    }
+  ],
+  "all_metadata_fictional": true,
+  "actual_C3_model_plans_unchanged": true,
+  "no_private_evaluation_probes_or_answers_bundled": true,
+  "curation": "Explicit AI source review selects actual executable round1/2 packs; original terminalzero pack and original aggregate library remain unchanged outside the bundle.",
+  "operational_approval": false
+}

@@ -1,0 +1,138 @@
+{
+  "contract": "shared42-model-set1.0",
+  "definition_sha": "172bdad1a080766de6adc7bdd6ef2064c3b40e260e2b129ef5d7522c7b7a88c4",
+  "environment": {
+    "python": "3.10.20",
+    "packages": {
+      "numpy": "2.2.6",
+      "pandas": "2.2.3",
+      "scikit-learn": "1.7.2",
+      "scipy": "1.15.3",
+      "joblib": "1.5.3",
+      "threadpoolctl": "3.6.0"
+    }
+  },
+  "models": {
+    "T_if": {
+      "file": "T_if.joblib",
+      "sha256": "4059e5d8c3b6cc5fa1597ff13987e127aa3c49d4a8bfd03ca0e11bf8ed79fe43",
+      "format": "legacy_family"
+    },
+    "T_kmeans": {
+      "file": "T_kmeans.joblib",
+      "sha256": "a0b328ffba40d328cb3c3d3df84e5ef0f12f34250f4927d06cfc43066c84e6b9",
+      "format": "legacy_family"
+    },
+    "T_lof": {
+      "file": "T_lof.joblib",
+      "sha256": "1b52222f415c38aa3baee4235a5aee21e03aa1ecf7055c20ddf2b594e8fbf9f9",
+      "format": "novelty_lof"
+    },
+    "P_if": {
+      "file": "P_if.joblib",
+      "sha256": "1c79a9bfb5d4062c8eda6640ca2270119ffbe082905e13a693b24bc9b1d0b83e",
+      "format": "legacy_family"
+    },
+    "P_kmeans": {
+      "file": "P_kmeans.joblib",
+      "sha256": "0d4d5d5e7d1e307ade665a0fc74df60bc6697625b1fc064d70747f616e6740f9",
+      "format": "legacy_family"
+    },
+    "P_lof": {
+      "file": "P_lof.joblib",
+      "sha256": "78a754fb732fe58d9303ab29602a086f73cd54f7cbf071780ba18da50d6cfbd8",
+      "format": "novelty_lof"
+    },
+    "M_if": {
+      "file": "M_if.joblib",
+      "sha256": "b0fb9012ebcb535fda4bcac30dba5f68515dcb3b9445935c90abf33787d62c79",
+      "format": "legacy_family"
+    },
+    "M_kmeans": {
+      "file": "M_kmeans.joblib",
+      "sha256": "37e21b52192f7ff9e454bcc94055c4a2cef7da3f4c79e88d9562fa9daaa3c951",
+      "format": "legacy_family"
+    },
+    "M_lof": {
+      "file": "M_lof.joblib",
+      "sha256": "39d646a99fd96db9f94183123c478a5e5d2da3b2e2b356daf7683bb18347d56e",
+      "format": "novelty_lof"
+    }
+  },
+  "origin": "previous_validated_models_portable_export",
+  "weights_refit": false,
+  "provenance": [
+    {
+      "model": "T_if",
+      "original_file_sha": "65b8a53fa6280ea4069e9eb4d1811f86c3ed80e16b6eb0f859b389a68c0db5ef",
+      "export_file_sha": "4059e5d8c3b6cc5fa1597ff13987e127aa3c49d4a8bfd03ca0e11bf8ed79fe43",
+      "weights_refit": false,
+      "metadata_change": "relative portable contract; source paths removed"
+    },
+    {
+      "model": "T_kmeans",
+      "original_file_sha": "c480607dc2451f0cc51c3ef945f626d52725dab4312223c17eb85fdae740caa9",
+      "export_file_sha": "a0b328ffba40d328cb3c3d3df84e5ef0f12f34250f4927d06cfc43066c84e6b9",
+      "weights_refit": false,
+      "metadata_change": "relative portable contract; source paths removed"
+    },
+    {
+      "model": "T_lof",
+      "original_file_sha": "4f2b695d2cd8c84a514099e3c24a445a9b04d50d37bebee4f904a69c1ea0dbca",
+      "export_file_sha": "1b52222f415c38aa3baee4235a5aee21e03aa1ecf7055c20ddf2b594e8fbf9f9",
+      "weights_refit": false,
+      "metadata_change": "relative portable contract; source paths removed"
+    },
+    {
+      "model": "P_if",
+      "original_file_sha": "443798d99e71dcb9a27ccb1055e11fc023109586c711e9cacd60d58a85ee2db5",
+      "export_file_sha": "1c79a9bfb5d4062c8eda6640ca2270119ffbe082905e13a693b24bc9b1d0b83e",
+      "weights_refit": false,
+      "metadata_change": "relative portable contract; source paths removed"
+    },
+    {
+      "model": "P_kmeans",
+      "original_file_sha": "fd1bb694dfe933eed65d8cd694f617ca0e58b354580a9d10bb8034cf6139f124",
+      "export_file_sha": "0d4d5d5e7d1e307ade665a0fc74df60bc6697625b1fc064d70747f616e6740f9",
+      "weights_refit": false,
+      "metadata_change": "relative portable contract; source paths removed"
+    },
+    {
+      "model": "P_lof",
+      "original_file_sha": "c6f2a5c4c73756abcd0375e0b81dc131937e604acb9102fa5bc3bd9f63530e04",
+      "export_file_sha": "78a754fb732fe58d9303ab29602a086f73cd54f7cbf071780ba18da50d6cfbd8",
+      "weights_refit": false,
+      "metadata_change": "relative portable contract; source paths removed"
+    },
+    {
+      "model": "M_if",
+      "original_file_sha": "df86a911c3c38535a4952cc7fc76a6b6df44916ca63c32aff6bfad5a835fec2f",
+      "export_file_sha": "b0fb9012ebcb535fda4bcac30dba5f68515dcb3b9445935c90abf33787d62c79",
+      "weights_refit": false,
+      "metadata_change": "relative portable contract; source paths removed"
+    },
+    {
+      "model": "M_kmeans",
+      "original_file_sha": "0f215e13df7b4b52d51db0fb964d123b368cd7c78818f21afc622ec6d0cdfb3b",
+      "export_file_sha": "37e21b52192f7ff9e454bcc94055c4a2cef7da3f4c79e88d9562fa9daaa3c951",
+      "weights_refit": false,
+      "metadata_change": "relative portable contract; source paths removed"
+    },
+    {
+      "model": "M_lof",
+      "original_file_sha": "103f1013950409298ab33f69a7649895c84460842f765df9b93b376570b31477",
+      "export_file_sha": "39d646a99fd96db9f94183123c478a5e5d2da3b2e2b356daf7683bb18347d56e",
+      "weights_refit": false,
+      "metadata_change": "relative portable contract; source paths removed"
+    }
+  ],
+  "runtime_fingerprints": {
+    "integration/feature_rule_ml/shared42/compat/gh_ml_core.py": "1464e7e82b2fe1b6efad98194af17801ed1dd75fab48540547d37f40ef6eeef1",
+    "integration/feature_rule_ml/shared42/compat/shared_normalizer.py": "ca1cf19ed3760ea19cd6117749b86170ca3494cd0c88714fa8b479c5b244d610",
+    "anomaly_detection/code/model_research_v5/models.py": "2ddddbd10c56f93ad3d14d11ed111e1f9f9f3e12866fc9af85d2e5505b21e529",
+    "anomaly_detection/code/process_anomaly_pipeline/features.py": "8c05da5083dc2671c1bdb4f9ac46f7e0e2ed762828ad2dbba541fc515b79adbf",
+    "models/feature_rule_spec/specmodel/engine.py": "e884ab5b08a50331763f5521b8a2ddcebe2fe58b662de5e93bacbf69f0e3a2c0",
+    "models/feature_rule_spec/specmodel/primitives.py": "145984c3eaf7a5811a545874f759e337c4cbec35a71d41e192fdfacd579f74ad",
+    "models/feature_rule_spec/specmodel/rule_logic.py": "47138c8fc9a50f9c530edcc267d62f1759343eeb0fc7340531ff45f84a20cf5d"
+  }
+}

@@ -1,0 +1,5 @@
+TRACE_ROW,TENANT_CODE,FRAME_REF
+h1,x,same
+h2,x,absent
+h3,,same
+h4,x,

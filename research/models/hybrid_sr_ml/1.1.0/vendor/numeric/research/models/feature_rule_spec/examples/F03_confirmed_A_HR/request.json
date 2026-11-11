@@ -1,0 +1,14 @@
+{
+  "question": "For each retained CASE_LOG row, compute whether source A is missing. Return a complete Boolean; a numeric zero is an available value. Describe only captured source availability.",
+  "analysis_request": {
+    "output_table": "CASE_LOG",
+    "complete_boolean": true,
+    "required_columns": [
+      [
+        "CASE_LOG",
+        "A"
+      ]
+    ],
+    "required_relationship_ids": []
+  }
+}

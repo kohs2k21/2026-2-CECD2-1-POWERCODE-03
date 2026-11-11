@@ -1,0 +1,31 @@
+{
+  "dtype": "boolean",
+  "row_keys": [
+    "ROW_KEY"
+  ],
+  "source_row_keys": [
+    [
+      "r0"
+    ],
+    [
+      "r1"
+    ],
+    [
+      "r2"
+    ],
+    [
+      "r3"
+    ],
+    [
+      "r4"
+    ]
+  ],
+  "values": [
+    false,
+    false,
+    true,
+    true,
+    true
+  ],
+  "measurement_sha": "36dc094afd6bc797853ee870f57d61ae1e79281d3e78006a2b6f6028a3f938ab"
+}

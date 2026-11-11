@@ -1,0 +1,41 @@
+{
+  "feature_id": "fd_fe02bdce1be16503f435620e",
+  "definition_sha": "96c09d4aab04c5cc74bdf11c9cef9cb8bffae992fb27fb4f07f0a5612637c405",
+  "source_version": "a317bc6e578b38c0d55ce0cf75d58476fee5e277599e67d1e67e5feab2d7d28a",
+  "row_keys": [
+    "ROW_ID"
+  ],
+  "source_row_keys": [
+    [
+      "l0"
+    ],
+    [
+      "l1"
+    ],
+    [
+      "l2"
+    ],
+    [
+      "l3"
+    ],
+    [
+      "l4"
+    ],
+    [
+      "l5"
+    ],
+    [
+      "l6"
+    ]
+  ],
+  "values": [
+    "0",
+    null,
+    null,
+    null,
+    "-3",
+    null,
+    "-2.5"
+  ],
+  "measurement_sha": "5988f2d7d29f37879b4646d957392afac36c2652d715e79ca8e9823e841871ab"
+}

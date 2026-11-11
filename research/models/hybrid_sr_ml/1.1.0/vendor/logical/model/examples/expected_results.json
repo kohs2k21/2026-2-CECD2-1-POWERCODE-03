@@ -1,0 +1,16 @@
+{
+  "fictional_only": true,
+  "real_company_records_included": false,
+  "model_input": "source.json only; this file is CPU example verification metadata, not a generation prompt",
+  "cases": {
+    "source.json": "warning",
+    "handled_batch.json": "nonwarning",
+    "incomplete_capture.json": "unavailable",
+    "new_identifiers.json": "warning"
+  },
+  "actual_generated_pack_source_sha256": "af8c00bb3b0607636928b174af01ac063e59783d93f5a03959ba0d875d6ca1b1",
+  "semantic_review": "The generated observed-SR uses successful-work context, full three-part activity scope and alternative replay/waiver handling; recommendations are not operationally approved.",
+  "actual_generated_pack_sha256": "f744cb5606ac57248ebe87b83c37cfc73cbfaa4aca17686b2af72c193586c3c7",
+  "selected_model_weight_sha256": "f36ce52e0690e8eefe2cfb26aa5d0f2c37f629a49f7ecd8063a37980233ee496",
+  "fixed_expectations_not_derived_from_new_predictions": true
+}

@@ -1,0 +1,103 @@
+{
+  "version": "calculation-facts2.0-guarded-availability",
+  "definition_sha": "259a8e7e8d397f083ec5f252442005390016a924e4284467e37365feec0ccffd",
+  "source_version": "a317bc6e578b38c0d55ce0cf75d58476fee5e277599e67d1e67e5feab2d7d28a",
+  "measurement_id": "m_2a664ce02dae3a60c7c785ba",
+  "measurement_sha": "2a664ce02dae3a60c7c785ba2c1e472a0a8e031807d894e289907c866e0d5324",
+  "output_grain": {
+    "table": "CASE_LOG",
+    "keys": [
+      "ROW_ID"
+    ]
+  },
+  "population": {
+    "table": "CASE_LOG",
+    "filter": null
+  },
+  "dtype": "boolean",
+  "unit": "boolean",
+  "operator_contract_possible_states": [
+    "true",
+    "false"
+  ],
+  "operator_state_proof": {
+    "operator": "is_missing",
+    "unavailable_possible": false,
+    "proof_scope": "Supported operator contract on retained selected rows",
+    "children": [
+      {
+        "operator": "column",
+        "unavailable_possible": true,
+        "proof_scope": "Supported operator contract on retained selected rows",
+        "children": []
+      }
+    ]
+  },
+  "missing_policy": {
+    "input": "propagate",
+    "empty_group": null,
+    "denominator_zero": null,
+    "child_missing": "propagate",
+    "unknown_predicate": "defer"
+  },
+  "current": {
+    "selected_rows": 7,
+    "population_rows_before_selection": 7,
+    "selection_unavailable": 0,
+    "numeric_or_boolean_nonnull": 7,
+    "result_unavailable": 0,
+    "true": 2,
+    "false": 5
+  },
+  "interpretation": {
+    "null_result": "Does not alone identify source null, parsing, join, denominator or fault cause.",
+    "empty_child_group": "Zero only under the aggregate empty-group contract; unknown relationship/filter is different.",
+    "sample_extrema": "Observed min/max are not proven bounds.",
+    "total_missing_test": "is_missing evaluates retained null results to true; it is not an unavailable numerical comparison."
+  },
+  "row_nodes": [
+    {
+      "path": "/plan/expression/args/0",
+      "op": "column",
+      "evaluation_table": "CASE_LOG",
+      "output_table": "CASE_LOG",
+      "row_keys": [
+        "ROW_ID"
+      ],
+      "scalar": false,
+      "dtype": "number",
+      "unit": "coordinate_unit"
+    },
+    {
+      "path": "/plan/expression",
+      "op": "is_missing",
+      "evaluation_table": "CASE_LOG",
+      "output_table": "CASE_LOG",
+      "row_keys": [
+        "ROW_ID"
+      ],
+      "scalar": false,
+      "dtype": "boolean",
+      "unit": "boolean"
+    }
+  ],
+  "sha256": "95cc0766acd1c919b88565cc6f3f234e0b7cfd6ef41d3eec185e31c480c38c8c",
+  "author": "compiler",
+  "contract": "official-computation-facts1.0",
+  "not_AI_generated": true,
+  "expression": {
+    "op": "is_missing",
+    "args": [
+      {
+        "op": "column",
+        "table": "CASE_LOG",
+        "column": "A"
+      }
+    ]
+  },
+  "selected_result_use": "value",
+  "output_excludes_filtered_rows": true,
+  "exceptions": "Invalid sources/types/execution failures are errors, not unavailable values.",
+  "complete_natural_language_proof": false,
+  "facts_sha": "3c1f6662e2adeb108d3607b93329920bd119cf14302a03bdeba29e59ac7cee9e"
+}

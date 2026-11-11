@@ -1,0 +1,691 @@
+{
+  "messages": [
+    {
+      "role": "system",
+      "content": "Propose one executable offline metadata feature for the PUBLIC request. Return feature5.2 JSON only. Every plan explicitly chooses result_use: value / unavailable / unavailable_or_zero. Preserve source, requested filters, output rows and population. Do not replace an unsupported analysis with an easier calculation. You choose purpose, narrow meaning, calculation expression and result_use. For a calculation-result availability request, expression computes the requested value/comparison and result_use=unavailable checks that result. Do not enumerate missing causes with nullable OR. For unavailable-or-known-zero of a numeric result, select result_use=unavailable_or_zero. Result views are typed common compiler operations; they are not hidden fixes. Describe the selected final output, with no invented empty-case values; code infers types/units/missing policies/IDs/SHA. Never guess operational meaning from raw codes or unknown units. Physical parent existence is not a mandatory-parent business contract. A valid calculation may be constant or have no selected observations. If source, relation or an exact supported expression is unavailable, return candidates=[] with a precise complete stop_reason.\nSupported expression nodes: column(op,table,column), literal(op,value), is_missing(args1), subtract/divide/eq/lt/lte/gt/gte/and/or(args2), not(args1), in/not_in(args1,values homogeneous1..32 literals), if(args3), datetime_diff(args2,unit=ms/s/us), convert_unit(args1,from_unit,to_unit), child_count/parent_match_count(relationship_id), conditional_count(relationship_id,where), child_sum(relationship_id,value,where), group_count(keys,where). No add/abs or parent attribute lookup. Use JSON null, not string null.\nRelations are child/from -> parent/to. child_count, conditional_count, child_sum output PARENT rows; parent_match_count outputs CHILD rows. All nonliteral operands share output rows, including if's condition and branches. Grain keys identify output rows, not all source columns. group_by lists only actual group_count keys. A known empty child aggregate is0, missing relationship/key/predicate propagates unavailable. Division by0 is unavailable, never numeric0. is_missing tests any nested result and returns complete true/false on retained rows. and/or strictly propagate any unavailable operand; true OR unavailable is unavailable. if validates both branches, then lazily evaluates only the selected branch; unavailable condition stays unavailable. Filter-excluded or unknown-selection rows produce no output, not false or unavailable values. Do not hide invalid sources, types or execution errors as missingness.\nThe calculation component and final inspected output are distinct: never wrap the expression in a missingness test merely because result_use already requests unavailable. A public calculation_type constrains the inner value/comparison, not the final view. Keep one concise complete meaning sentence about the final view; detailed branch/empty-group behavior is recorded by compiler facts. Write purpose and meaning in English; quote original literal tokens when needed, but do not switch languages in explanatory prose. needed_evidence must not list unrelated supplied unit IDs. Write short COMPLETE purpose<=200, meaning<=320, stop_reason<=320. Prefer one concise meaning sentence around150–220 characters; do not repeat the whole plan or append a long branch-by-branch narrative. Explain calculation, filters, output row and result states. True0 differs from no evaluable rows. Raw IN/OUT/MAP/VOID/UNKNOWN have no business meaning beyond supplied authority. No fault/normality/SLA/online claim follows from offline metadata."
+    },
+    {
+      "role": "user",
+      "content": "{\"contract\":\"offline-specification-final1.0\",\"task\":\"Compute whether NUM/DEN exceeds CUT per COMPARISON_ROWS row, then inspect whether this comparison result is unavailable. Select the explicit view; keep every row.\",\"analysis_request\":{\"output_table\":\"COMPARISON_ROWS\",\"result_use\":\"unavailable\",\"calculation_type\":\"boolean\",\"required_columns\":[[\"COMPARISON_ROWS\",\"NUM\"],[\"COMPARISON_ROWS\",\"DEN\"],[\"COMPARISON_ROWS\",\"CUT\"]],\"required_relationship_ids\":[],\"complete_boolean\":true},\"schema_inventory\":[{\"table\":\"COMPARISON_ROWS\",\"primary_key\":[\"ROW_KEY\"],\"columns\":[{\"name\":\"ROW_KEY\",\"type\":\"string\",\"unit\":{\"name\":null,\"status\":\"unknown\"},\"description\":\"\"},{\"name\":\"NUM\",\"type\":\"number\",\"unit\":{\"name\":null,\"status\":\"unknown\"},\"description\":\"\"},{\"name\":\"DEN\",\"type\":\"number\",\"unit\":{\"name\":null,\"status\":\"unknown\"},\"description\":\"\"},{\"name\":\"CUT\",\"type\":\"number\",\"unit\":{\"name\":null,\"status\":\"unknown\"},\"description\":\"\"}]}],\"relationships\":[],\"relationship_operator_domains\":[],\"profile\":{\"period\":{\"controlled_domain\":\"Artificial rows; no operational dates\"},\"table_rows\":{\"COMPARISON_ROWS\":5},\"transaction_families\":0,\"metadata\":{\"COMPARISON_ROWS\":[{\"column\":\"ROW_KEY\",\"logical_type\":\"string\",\"rows\":5,\"missing\":0,\"distinct\":5,\"unit\":{\"name\":null,\"status\":\"unknown\"},\"description\":\"No confirmed business meaning supplied\"},{\"column\":\"NUM\",\"logical_type\":\"number\",\"rows\":5,\"missing\":1,\"distinct\":2,\"unit\":{\"name\":null,\"status\":\"unknown\"},\"description\":\"No confirmed business meaning supplied\",\"observed_raw_values\":[[\"2\",3],[\"0\",1]],\"observed_min\":\"0\",\"observed_max\":\"2\"},{\"column\":\"DEN\",\"logical_type\":\"number\",\"rows\":5,\"missing\":0,\"distinct\":3,\"unit\":{\"name\":null,\"status\":\"unknown\"},\"description\":\"No confirmed business meaning supplied\",\"observed_raw_values\":[[\"2\",2],[\"1\",2],[\"0\",1]],\"observed_min\":\"0\",\"observed_max\":\"2\"},{\"column\":\"CUT\",\"logical_type\":\"number\",\"rows\":5,\"missing\":1,\"distinct\":1,\"unit\":{\"name\":null,\"status\":\"unknown\"},\"description\":\"No confirmed business meaning supplied\",\"observed_raw_values\":[[\"1\",4]],\"observed_min\":\"1\",\"observed_max\":\"1\"}]},\"observed_extrema_not_proven_bounds\":true,\"full_source_pins\":[{\"table\":\"COMPARISON_ROWS\",\"sha256\":\"82d17a7e2a364a868d6376c1be89d94ea79aad7599c2020f53f14fd4c8190790\",\"bytes\":69}],\"coverage\":[{\"table\":\"COMPARISON_ROWS\",\"column\":\"ROW_KEY\",\"detailed_observation\":true},{\"table\":\"COMPARISON_ROWS\",\"column\":\"NUM\",\"detailed_observation\":true},{\"table\":\"COMPARISON_ROWS\",\"column\":\"DEN\",\"detailed_observation\":true},{\"table\":\"COMPARISON_ROWS\",\"column\":\"CUT\",\"detailed_observation\":true}],\"full_profile_sha\":\"ff28bc02126cf9b14d19142b1dc03bfd34ff5daa350cd91ef4751b92935f900d\",\"selection_policy\":\"Full schema/type/unit/relation inventory and rows/missing/distinct for every column; detailed values for public output table and required operands. Full profile is archived; no row sampling or token truncation.\"},\"source\":{\"source_version\":\"be762a537b99c8c61c06cf9dadd73e3ba8436a031dda587a47079cc2567ef8b3\",\"manifest_sha\":\"e5a72fd414e79bfa185953d74792bd512b143985f0670a3ac36d0cd230fdf5d8\",\"data_class\":\"controlled\",\"period\":{\"controlled_domain\":\"Artificial rows; no operational dates\"}},\"confirmed_constraints\":[],\"confirmed_authority\":[],\"unknown\":[\"No mandatory parent, fault label, or online contract.\"],\"guarded_conditional_contract\":{\"version\":\"guarded-conditional1.1-null-branches\",\"AST\":{\"op\":\"if\",\"args\":[\"Boolean condition\",\"value if true\",\"value if false\"]},\"condition\":\"Boolean; unavailable condition yields unavailable, never the false branch\",\"branches\":\"Both branches validated statically; same type/unit and output row, literal scalar broadcast only. At runtime evaluate only the chosen branch.\",\"result\":\"Chosen branch value, including unavailable; no exception-to-null conversion\",\"legacy\":\"All old operators and old definition hashes retain their original policy. Only plans containing if add conditional_extension to identity.\",\"errors\":\"Invalid source/type/unit/relationship rejected before execution, even if branch not selected. Runtime exceptions in the chosen branch propagate.\",\"no_AST_rewrite\":true},\"result_view_contract\":{\"version\":\"result-view1.0\",\"value\":\"Use expression value, preserving unavailable.\",\"unavailable\":\"Complete Boolean: true when expression result unavailable, false when it is available, including numeric0 and Booleanfalse.\",\"unavailable_or_zero\":\"Complete Boolean for numeric expression: true if unavailable or known0, false for a known nonzero value.\",\"scope\":\"All views apply only to retained output rows; invalid sources/types/software failures are errors. Explicit null branch adopts only the other concrete branch type/unit.\"},\"supported_operators_from_schema\":true,\"existing_definitions_for_dedup_only\":[]}"
+    }
+  ],
+  "messages_sha": "e4079bee6bda7413613d72fda1b841afb26cbe569eb5dbd3c5ba68622666824b",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "schema": {
+        "const": "feature5.2"
+      },
+      "candidates": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "proposal_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 40
+            },
+            "plan": {
+              "type": "object",
+              "properties": {
+                "expression": {
+                  "$ref": "#/$defs/expression"
+                },
+                "grain": {
+                  "type": "object",
+                  "properties": {
+                    "table": {
+                      "const": "COMPARISON_ROWS"
+                    },
+                    "keys": {
+                      "const": [
+                        "ROW_KEY"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "table",
+                    "keys"
+                  ],
+                  "additionalProperties": false
+                },
+                "population": {
+                  "type": "object",
+                  "properties": {
+                    "table": {
+                      "const": "COMPARISON_ROWS"
+                    },
+                    "filter": {
+                      "anyOf": [
+                        {
+                          "$ref": "#/$defs/expression"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "table",
+                    "filter"
+                  ],
+                  "additionalProperties": false
+                },
+                "group_by": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "table": {
+                        "type": "string"
+                      },
+                      "column": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "table",
+                      "column"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "maxItems": 4
+                },
+                "result_use": {
+                  "enum": [
+                    "value",
+                    "unavailable",
+                    "unavailable_or_zero"
+                  ]
+                }
+              },
+              "required": [
+                "expression",
+                "grain",
+                "population",
+                "group_by",
+                "result_use"
+              ],
+              "additionalProperties": false
+            },
+            "purpose": {
+              "type": "string",
+              "maxLength": 200,
+              "minLength": 1
+            },
+            "meaning": {
+              "type": "string",
+              "maxLength": 320,
+              "minLength": 1
+            },
+            "needed_evidence": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "maxItems": 8
+            }
+          },
+          "required": [
+            "proposal_id",
+            "purpose",
+            "meaning",
+            "plan",
+            "needed_evidence"
+          ],
+          "additionalProperties": false
+        },
+        "maxItems": 1
+      },
+      "stop_reason": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "maxLength": 320
+      }
+    },
+    "required": [
+      "schema",
+      "candidates",
+      "stop_reason"
+    ],
+    "additionalProperties": false,
+    "$defs": {
+      "expression": {
+        "$ref": "#/$defs/expr_0"
+      },
+      "expr_0": {
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "op": {
+                "const": "column"
+              },
+              "table": {
+                "const": "COMPARISON_ROWS"
+              },
+              "column": {
+                "enum": [
+                  "ROW_KEY",
+                  "NUM",
+                  "DEN",
+                  "CUT"
+                ]
+              }
+            },
+            "required": [
+              "op",
+              "table",
+              "column"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": {
+                "const": "literal"
+              },
+              "value": {
+                "type": [
+                  "string",
+                  "number",
+                  "boolean",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "op",
+              "value"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": {
+                "const": "is_missing"
+              },
+              "args": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/expr_0"
+                },
+                "minItems": 1,
+                "maxItems": 1
+              }
+            },
+            "required": [
+              "op",
+              "args"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": {
+                "const": "group_count"
+              },
+              "keys": {
+                "type": "array",
+                "items": {
+                  "enum": [
+                    "ROW_KEY",
+                    "NUM",
+                    "DEN",
+                    "CUT"
+                  ]
+                },
+                "minItems": 1,
+                "maxItems": 4
+              },
+              "where": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/expr_0"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "op",
+              "keys",
+              "where"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": {
+                "const": "datetime_diff"
+              },
+              "args": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/expr_0"
+                },
+                "minItems": 2,
+                "maxItems": 2
+              },
+              "unit": {
+                "enum": [
+                  "ms",
+                  "s",
+                  "us"
+                ]
+              }
+            },
+            "required": [
+              "op",
+              "args",
+              "unit"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": {
+                "const": "convert_unit"
+              },
+              "args": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/expr_0"
+                },
+                "minItems": 1,
+                "maxItems": 1
+              },
+              "from_unit": {
+                "enum": [
+                  "ms",
+                  "s",
+                  "us"
+                ]
+              },
+              "to_unit": {
+                "enum": [
+                  "ms",
+                  "s",
+                  "us"
+                ]
+              }
+            },
+            "required": [
+              "op",
+              "args",
+              "from_unit",
+              "to_unit"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": {
+                "const": "subtract"
+              },
+              "args": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/expr_0"
+                },
+                "minItems": 2,
+                "maxItems": 2
+              }
+            },
+            "required": [
+              "op",
+              "args"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": {
+                "const": "divide"
+              },
+              "args": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/expr_0"
+                },
+                "minItems": 2,
+                "maxItems": 2
+              }
+            },
+            "required": [
+              "op",
+              "args"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": {
+                "const": "eq"
+              },
+              "args": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/expr_0"
+                },
+                "minItems": 2,
+                "maxItems": 2
+              }
+            },
+            "required": [
+              "op",
+              "args"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": {
+                "const": "lt"
+              },
+              "args": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/expr_0"
+                },
+                "minItems": 2,
+                "maxItems": 2
+              }
+            },
+            "required": [
+              "op",
+              "args"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": {
+                "const": "lte"
+              },
+              "args": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/expr_0"
+                },
+                "minItems": 2,
+                "maxItems": 2
+              }
+            },
+            "required": [
+              "op",
+              "args"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": {
+                "const": "gt"
+              },
+              "args": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/expr_0"
+                },
+                "minItems": 2,
+                "maxItems": 2
+              }
+            },
+            "required": [
+              "op",
+              "args"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": {
+                "const": "gte"
+              },
+              "args": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/expr_0"
+                },
+                "minItems": 2,
+                "maxItems": 2
+              }
+            },
+            "required": [
+              "op",
+              "args"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": {
+                "const": "and"
+              },
+              "args": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/expr_0"
+                },
+                "minItems": 2,
+                "maxItems": 2
+              }
+            },
+            "required": [
+              "op",
+              "args"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": {
+                "const": "not"
+              },
+              "args": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/expr_0"
+                },
+                "minItems": 1,
+                "maxItems": 1
+              }
+            },
+            "required": [
+              "op",
+              "args"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": {
+                "const": "or"
+              },
+              "args": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/expr_0"
+                },
+                "minItems": 2,
+                "maxItems": 2
+              }
+            },
+            "required": [
+              "op",
+              "args"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": {
+                "const": "in"
+              },
+              "args": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/expr_0"
+                },
+                "minItems": 1,
+                "maxItems": 1
+              },
+              "values": {
+                "anyOf": [
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "minItems": 1,
+                    "maxItems": 32,
+                    "uniqueItems": true
+                  },
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "number"
+                    },
+                    "minItems": 1,
+                    "maxItems": 32,
+                    "uniqueItems": true
+                  },
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "boolean"
+                    },
+                    "minItems": 1,
+                    "maxItems": 32,
+                    "uniqueItems": true
+                  }
+                ]
+              }
+            },
+            "required": [
+              "op",
+              "args",
+              "values"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": {
+                "const": "not_in"
+              },
+              "args": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/expr_0"
+                },
+                "minItems": 1,
+                "maxItems": 1
+              },
+              "values": {
+                "anyOf": [
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "minItems": 1,
+                    "maxItems": 32,
+                    "uniqueItems": true
+                  },
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "number"
+                    },
+                    "minItems": 1,
+                    "maxItems": 32,
+                    "uniqueItems": true
+                  },
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "boolean"
+                    },
+                    "minItems": 1,
+                    "maxItems": 32,
+                    "uniqueItems": true
+                  }
+                ]
+              }
+            },
+            "required": [
+              "op",
+              "args",
+              "values"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": {
+                "const": "if"
+              },
+              "args": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/expr_0"
+                },
+                "minItems": 3,
+                "maxItems": 3
+              }
+            },
+            "required": [
+              "op",
+              "args"
+            ],
+            "additionalProperties": false
+          }
+        ]
+      }
+    }
+  },
+  "tokens": {
+    "input_tokens": 1955,
+    "input_token_sha": "76a2e0d9441533ef4ce3b3385495a4491fab8fda88388d34173f946d633d25b8",
+    "output_reserved": 1536,
+    "repair_reserved": 3072,
+    "truncated": false,
+    "schema_sha": "3b453b4e471b6c0b4ace3aa0703cff3f2e6f91d8fc67947c9fcb05ce9d54fcdb",
+    "chat_template_sha": "5c5c2567af60e8b6a5cb02dcdcb19775bbe046ee909fca1a04beed873078be7c"
+  },
+  "budget": {
+    "sequence": 1,
+    "kind": "feature",
+    "call": "feature_0",
+    "phase": "frozen_final_final_public_delivery_nested_comparison_unavailable",
+    "at": 1793097432.4069912,
+    "failed_or_interrupted_calls_consume_budget": true,
+    "shared_sequence": 96
+  }
+}

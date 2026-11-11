@@ -1,0 +1,148 @@
+[
+  {
+    "feature": {
+      "id": "fd_2125094f3bba5c9c1a53a52e",
+      "definition_sha": "259a8e7e8d397f083ec5f252442005390016a924e4284467e37365feec0ccffd",
+      "source_version": "a317bc6e578b38c0d55ce0cf75d58476fee5e277599e67d1e67e5feab2d7d28a",
+      "measurement_sha": "2a664ce02dae3a60c7c785ba2c1e472a0a8e031807d894e289907c866e0d5324"
+    },
+    "decision": {
+      "request": "hr",
+      "role": "HR",
+      "state": "proposed",
+      "basis": "ddl_not_null",
+      "condition": {
+        "op": "eq",
+        "value": true
+      },
+      "evidence": [
+        "ddl_controlled_A"
+      ],
+      "needed": [],
+      "reason": "Confirmed NOT NULL constraint contract; retained as a structural screening rule irrespective of observed violations or availability. CSV tokens do not prove database SQL NULL violations.",
+      "purpose": "data_quality",
+      "warning_meaning": "Confirmed NOT NULL constraint violation; not an operational incident label.",
+      "population_ref": "population_faf1d26c74437d2346b2",
+      "precondition_refs": [
+        "source_a317bc6e578b38c0d55c",
+        "availability_b275d1569e1e09329211",
+        "mapping_e633a9a3ab1ba5b05212"
+      ],
+      "required_evaluation_basis": [
+        "source_a317bc6e578b38c0d55c",
+        "availability_b275d1569e1e09329211",
+        "mapping_e633a9a3ab1ba5b05212"
+      ],
+      "unavailable_action": "preserve_unassessed",
+      "unavailable_reason": "The condition is computable; current unavailability would follow the supplied calculation and missing-policy facts.",
+      "business_scope": "Confirmed constraint scope under the supplied contract; no operational usefulness or online necessity is inferred.",
+      "baseline_use_ref": null
+    },
+    "condition_statistics": {
+      "rows": 7,
+      "evaluable": 7,
+      "satisfied": 2,
+      "not_satisfied": 5,
+      "unassessed": 0
+    },
+    "actual_Model_attempts": [
+      {
+        "attempt": 0,
+        "prediction": {
+          "v": "3",
+          "feature": "fd_2125094f3bba5c9c1a53a52e",
+          "sha": "259a8e7e8d397f083ec5f252442005390016a924e4284467e37365feec0ccffd",
+          "decisions": [
+            {
+              "request": "hr",
+              "role": "HR",
+              "state": "proposed",
+              "basis": "ddl_not_null",
+              "condition": {
+                "op": "eq",
+                "value": true
+              },
+              "evidence": [
+                "ddl_controlled_A"
+              ],
+              "needed": [],
+              "reason": "Confirmed NOT NULL constraint contract; retained as a structural screening rule irrespective of observed violations or availability. CSV tokens do not prove database SQL NULL violations.",
+              "purpose": "data_quality",
+              "warning_meaning": "Confirmed NOT NULL constraint violation; not an operational incident label.",
+              "population_ref": "population_faf1d26c74437d2346b2",
+              "precondition_refs": [
+                "source_a317bc6e578b38c0d55c",
+                "availability_b275d1569e1e09329211",
+                "mapping_e633a9a3ab1ba5b05212"
+              ],
+              "required_evaluation_basis": [
+                "source_a317bc6e578b38c0d55c",
+                "availability_b275d1569e1e09329211",
+                "mapping_e633a9a3ab1ba5b05212"
+              ],
+              "unavailable_action": "preserve_unassessed",
+              "unavailable_reason": "The condition is computable; current unavailability would follow the supplied calculation and missing-policy facts.",
+              "business_scope": "Confirmed constraint scope under the supplied contract; no operational usefulness or online necessity is inferred.",
+              "baseline_use_ref": null
+            }
+          ]
+        },
+        "passed": true,
+        "errors": [],
+        "actual_model_origin": {
+          "file": "model/rule_0/output.json",
+          "raw_sha": "9b21b9d3954892b57c58df2f05c75a45f42267e30ddae5a6def1ca83f3ed9af3",
+          "parsed_sha": "157eb722aacccdbe148ba02f81c5e73ded075905406695c360e8ce283f7c2942",
+          "messages_sha": "68a3e1737e3f99f0e5984c0501f24f8144f8a0ee2d32cab53285ebf91166e082",
+          "budget": {
+            "sequence": 2,
+            "kind": "rule",
+            "call": "rule_0",
+            "phase": "frozen_final_final_public_delivery_confirmed_HR",
+            "at": 1793097838.1521633,
+            "failed_or_interrupted_calls_consume_budget": true,
+            "shared_sequence": 106
+          }
+        },
+        "partial_roles": null,
+        "partial_Rule_prose_fields": null,
+        "normal_roles_preserved": false
+      }
+    ],
+    "official_semantics": {
+      "author": "compiler",
+      "contract": "official-condition-facts1.0",
+      "not_AI_generated": true,
+      "condition": {
+        "op": "eq",
+        "value": true
+      },
+      "condition_valid": true,
+      "condition_error": null,
+      "statistics": {
+        "rows": 7,
+        "evaluable": 7,
+        "satisfied": 2,
+        "not_satisfied": 5,
+        "unassessed": 0
+      },
+      "valid_feature_observations": 7,
+      "numeric_current": null,
+      "retained_current": 7,
+      "reference_valid_n": null,
+      "is_missing_checks_retained_unavailable_values": false,
+      "result_unavailable_is_not_itself_condition_unassessed": false,
+      "source_or_incident_cause_not_inferred": true,
+      "full_natural_language_proof": false
+    },
+    "AI_explanation_status": {
+      "status": "supported_claims_checked",
+      "complete_NL_proof": false,
+      "free_prose_approval": "not_granted_by_program_supported_claims_only",
+      "actual_Model_repair": false,
+      "errors": []
+    },
+    "operational_approval": false,
+    "anomaly_execution": "not_run"
+  }
+]

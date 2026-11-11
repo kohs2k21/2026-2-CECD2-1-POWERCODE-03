@@ -1,0 +1,48 @@
+{
+  "contract": "hybrid-decisions1.1",
+  "unit": "ESB transaction export string/source row or FlowBench task occurrence",
+  "required_components": [
+    "numeric_SR",
+    "logical_SR",
+    "ML"
+  ],
+  "ML_algorithms": [
+    "if",
+    "kmeans",
+    "lof"
+  ],
+  "states": [
+    "warning",
+    "nonwarning",
+    "unavailable"
+  ],
+  "OR_policy": {
+    "any_warning": "warning",
+    "all_required_components_nonwarning": "nonwarning",
+    "no_warning_and_any_unavailable": "unavailable"
+  },
+  "candidate_interpretation": "Research anomaly/review candidate, not a confirmed incident",
+  "numeric_rule_modification": "New reviewed version required; no in-place threshold adjustment during detection",
+  "logical_rule_modification": "Regenerate/review a new version; do not rewrite the frozen calculation silently",
+  "frozen_ML_input_contract": "No extra Boolean columns without explicit retraining/validation",
+  "missing_policy": "Preserve null and source/relationship uncertainty; do not replace with zero or healthy",
+  "partial_failure": "Keep peer warnings and evidence; missing component remains unavailable; nonzero CLI exit",
+  "operational_approval": false,
+  "newly_materialized_source_provenance": [
+    "feature definition SHA",
+    "rule ID",
+    "source row",
+    "support row",
+    "model/profile SHA",
+    "input capture SHA"
+  ],
+  "ratio_zero_policy": {
+    "default": "actual_alternative_evaluation",
+    "ratio_imputation": null,
+    "not_applicable_used": false,
+    "strict_numeric_and_combined_preserved": true,
+    "evidence": "ratio_fallback/alternative_rule_evidence.csv.gz",
+    "source_missing_remains_unknown": true,
+    "partition_check": "SR consistency review against user-provided column definition, not source-enforced HR"
+  }
+}

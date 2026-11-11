@@ -1,0 +1,97 @@
+{
+  "issue": 142,
+  "branch": "feat/142-hybrid-sr-ml-release-1-1-0",
+  "base": "dev",
+  "base_commit": "4e547f80753c7f0429001ab435905e842b809932",
+  "release_version": "1.1.0",
+  "source_model_manifest_SHA256": "fc3a9a765a387d98db8d977e122400b87bae6ca99681458a32f015c7fadd8cc8",
+  "model_files_SHA_matched": 522,
+  "manifest_bytes_identical": true,
+  "only_research_files_changed": true,
+  "snapshot_from_git_index": true,
+  "commands": [
+    {
+      "name": "inspect",
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "passed": true,
+      "seconds": 0.6593655910110101
+    },
+    {
+      "name": "cpu_controls",
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "passed": true,
+      "seconds": 0.9337220219895244
+    },
+    {
+      "name": "ratio_controls",
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "passed": true,
+      "seconds": 0.1523130830610171
+    },
+    {
+      "name": "make_public_CSV",
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "passed": true,
+      "seconds": 0.06474669999442995
+    },
+    {
+      "name": "capture",
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "passed": true,
+      "seconds": 0.9162770960247144
+    },
+    {
+      "name": "detect_fallback",
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "passed": true,
+      "seconds": 2.9240572130074725
+    },
+    {
+      "name": "detect_strict",
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "passed": true,
+      "seconds": 2.2861015319358557
+    },
+    {
+      "name": "reject_TEST_training",
+      "exit_code": 2,
+      "expected_exit_code": 2,
+      "passed": true,
+      "seconds": 1.6099102089647204
+    }
+  ],
+  "command_checks_passed": 8,
+  "command_checks_failed": 0,
+  "original_CPU_tests": 10,
+  "ratio_CPU_tests": 29,
+  "public_new_CSV_transactions": 32,
+  "actual_alternative_evaluations": 147,
+  "ML_and_logical_unchanged": true,
+  "strict_result_preserved": true,
+  "TEST_training_rejected": true,
+  "new_model_fit": 0,
+  "new_LLM_calls": 0,
+  "new_GPU_calls": 0,
+  "files_ge_100MiB": 0,
+  "largest_file_bytes": 95136344,
+  "new_package_install": 0,
+  "customer_raw_CSV_included": false,
+  "customer_actual_row_results_included": false,
+  "raw_eval_datasets_included": false,
+  "Base_weights_included": false,
+  "archive_in_git": false,
+  "teacher_data": "Included immutable AI-authored synthetic silver with file-level provenance; inherited per-row source labels are incomplete",
+  "historical_provenance_paths": "Original metadata paths preserved for immutable source SHA; public execution verified after relocating",
+  "whitespace_preservation": "Exact two upstream files retain original whitespace through scoped attributes; no source/model bytes changed",
+  "security_review": "Source provenance, filename/schema inspection and credential/private-key/email pattern checks; no raw customer records or credential values found",
+  "remote_CI": "pending_after_push",
+  "deployment_completed": false,
+  "operational_incident_accuracy_certified": false
+}

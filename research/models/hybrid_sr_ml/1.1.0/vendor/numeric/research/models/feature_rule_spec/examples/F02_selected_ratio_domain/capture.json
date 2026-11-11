@@ -1,0 +1,94 @@
+{
+  "contract": "approved-metadata-capture1.0",
+  "dataset_id": "final_confirmation_F02_selected_ratio_domain",
+  "data_class": "controlled",
+  "split": "application",
+  "period": {
+    "controlled_domain": "Artificial rows; no operational dates"
+  },
+  "admission": {
+    "approved": true,
+    "Body_excluded": true,
+    "held_lineage_excluded": true,
+    "complete_family_capture": true
+  },
+  "lineage_tags": [
+    "controlled_not_operational"
+  ],
+  "tables": [
+    {
+      "name": "VALUE_GRID",
+      "file": "VALUE_GRID.csv",
+      "format": "csv",
+      "sha256": "f93e183b78ed6ee044f35c4c1158610788e185f366a2cd1d98720347911e2eb7",
+      "row_count": 5,
+      "primary_key": [
+        "VALUE_ROW"
+      ],
+      "columns": [
+        {
+          "name": "VALUE_ROW",
+          "logical_type": "string",
+          "nullable": false,
+          "excluded": false,
+          "unit": {
+            "name": null,
+            "status": "unknown"
+          },
+          "missing_tokens": [
+            ""
+          ]
+        },
+        {
+          "name": "NUM_FIELD",
+          "logical_type": "number",
+          "nullable": true,
+          "excluded": false,
+          "unit": {
+            "name": null,
+            "status": "unknown"
+          },
+          "missing_tokens": [
+            ""
+          ]
+        },
+        {
+          "name": "DEN_FIELD",
+          "logical_type": "number",
+          "nullable": true,
+          "excluded": false,
+          "unit": {
+            "name": null,
+            "status": "unknown"
+          },
+          "missing_tokens": [
+            ""
+          ]
+        },
+        {
+          "name": "ZONE",
+          "logical_type": "string",
+          "nullable": true,
+          "excluded": false,
+          "unit": {
+            "name": null,
+            "status": "unknown"
+          },
+          "missing_tokens": [
+            ""
+          ]
+        }
+      ]
+    }
+  ],
+  "relationships": [],
+  "evidence": [],
+  "source_identity": {
+    "family": "related_method_new_physical_names",
+    "not_independent_business_or_method": true
+  },
+  "transaction_families": 0,
+  "unknown": [
+    "No mandatory parent, fault label, or online contract."
+  ]
+}

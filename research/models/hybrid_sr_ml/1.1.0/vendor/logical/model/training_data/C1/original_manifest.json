@@ -1,0 +1,62 @@
+{
+  "policy": "logical-completion-teacher-draft1.0",
+  "splits": {
+    "train": {
+      "path": "/home/msko20702/#종합설계/data/data/eda/logical_rule_discovery_eval/20261109T182204+0900/logical_completion_sft/teacher_reviewed/train.jsonl",
+      "sha256": "3650a97776d99974c5d72c35ee68ad1c367e8315275b40415483c2846c819907",
+      "examples": 336
+    },
+    "validation": {
+      "path": "/home/msko20702/#종합설계/data/data/eda/logical_rule_discovery_eval/20261109T182204+0900/logical_completion_sft/teacher_reviewed/validation.jsonl",
+      "sha256": "87c50234a3a347dfb86f4d47a6134b33ef640c2bb6130f77d91dd881b3cbec80",
+      "examples": 84
+    }
+  },
+  "new_families": [
+    "conditional_required_fields",
+    "permission_only",
+    "observed_review"
+  ],
+  "new_train_examples": 72,
+  "new_validation_examples": 18,
+  "old_verified_examples_copied_byte_for_byte": {
+    "train": 264,
+    "validation": 66
+  },
+  "total_examples": {
+    "train": 336,
+    "validation": 84
+  },
+  "new_messages_system_policy": "source_review_prompt.SYSTEM + semantic_logic_review.INSTRUCTIONS",
+  "synthetic_label_status": "AI-authored synthetic silver specifications; not expert incident labels",
+  "warm_start": "Candidate adapter warm-start is proposed for human selection; this builder does not load or select weights",
+  "real_company_logs_used": false,
+  "model_outputs_used": false,
+  "evaluation_inputs_or_private_probes_read": false,
+  "old_teacher_files_modified": false,
+  "old_examples_rewritten": false,
+  "feature_or_rule_model_modified": false,
+  "SFT_or_GPU_run": false,
+  "initial_adapter": {
+    "path": "/home/msko20702/#종합설계/data/data/eda/logical_rule_discovery_eval/20261109T182204+0900/logical_sft/training/checkpoints/final/adapter",
+    "weight_sha256": "c0e79f5c56102d610333f0646b11a33d7e7f448c64408a2c21aaae39160f5d2b",
+    "config_sha256": "5fbc81d911196a17b924b23dbf7f69fca1ed01e770481638eb8348c56cd27c3c"
+  },
+  "main_review": {
+    "at": "2026-11-09T13:05:06.741597+00:00",
+    "status": "selected for bounded synthetic instruction learning; not expert incident certification",
+    "template_semantics": "Conditional requirements are separate sufficient violation checks; inactive nulls permitted; permission-only cannot authorize timing prohibition; controlled-source review remains SR with full recovery/waiver scope.",
+    "before_weight_exposure_corrections": [
+      "Added required input_sha matching actual training user payload.",
+      "Removed case_id family hints from new model inputs; used exact runtime public payload with physical inventory.",
+      "Replaced role-revealing document IDs with neutral source IDs.",
+      "Fixed verified clock unit marker.",
+      "Decoupled number-of-fields and positive/negative example parity."
+    ],
+    "old264_and66_rows_byte_identical": true,
+    "new72_and18_use_current_effective_system": true,
+    "original_draft_preserved": true,
+    "no_K_F_H_G_J_eval_inputs_or_model_responses_used": true,
+    "builder_sha256": "919c71d0f1b9cae2b8f33b7fbdfd2ff017e0e01f687468539f1db36cfd6b74b8"
+  }
+}

@@ -1,0 +1,3711 @@
+{
+  "policy": "source-bound-reusable-discovery1.1-conditional-row",
+  "proposal": {
+    "candidates": [
+      {
+        "id": "reported_process_failure_under_successful_transaction",
+        "requires_complete_capture": false,
+        "evidence": [
+          {
+            "document_id": "reported-status-dictionary",
+            "quote": "In the supplied T/P status dictionary, STATUS=S denotes reported success and STATUS=F denotes reported failure. These meanings describe recorded outcomes; they do not establish that a process failure under an ultimately successful transaction is prohibited."
+          },
+          {
+            "document_id": "export-lookup-scope",
+            "quote": "For this CSV review, ProcessStatusExport.TRANSACTION_ID is compared with the identical TransactionStatusExport.TRANSACTION_ID string. RETRY_COUNT is retained for provenance and is not assumed equal across files. All source CSV rows for each selected string ID are loaded."
+          },
+          {
+            "document_id": "unconfirmed-handling",
+            "quote": "Recovery and partial-success handling are not established by this input. A reported process failure with a successful parent may have been handled. Review of the recorded outcomes cannot prove an unrecovered failure, a protocol violation, or an incident."
+          }
+        ],
+        "normal_exceptions": [],
+        "reason": "Use the documented string identifier lookup and field meanings to review coexisting recorded outcomes; this does not prove recovery or a business violation.",
+        "role": "observed_SR_candidate",
+        "plan": {
+          "kind": "relation_check",
+          "select": {
+            "table": "TransactionStatusExport",
+            "filter": [
+              {
+                "column": "STATUS",
+                "op": "eq",
+                "value": "S"
+              }
+            ]
+          },
+          "related": {
+            "select": {
+              "table": "ProcessStatusExport",
+              "filter": [
+                {
+                  "column": "STATUS",
+                  "op": "eq",
+                  "value": "F"
+                }
+              ]
+            },
+            "join": [
+              {
+                "source": "TRANSACTION_ID",
+                "target": "TRANSACTION_ID"
+              }
+            ]
+          },
+          "violation": "match_present"
+        },
+        "needed": []
+      }
+    ],
+    "no_candidate_reason": null
+  },
+  "execution": {
+    "policy": "source-bound-reusable-discovery1.1-conditional-row",
+    "executable_valid": true,
+    "errors": [],
+    "decision": "warning",
+    "semantic_entailment_proven_by_code": false,
+    "operational_approval": false,
+    "input_availability_policy": "required-input-availability1.0",
+    "predicate_consistency_policy": "literal-conjunction-consistency1.2-conditional-row",
+    "declared_reference_guard_policy": "declared-self-reference-direction1.0",
+    "rules": []
+  },
+  "definition_sha": "94fabfe3068887876dad02552f8ab5ba4cb787cf3121f35bddbe66bb2b706fac",
+  "physical_schema_sha": "5df4b6fe8452f04f45420e09184c970e1ba8d80f9c90106cf3c18a771877e63b",
+  "documents_sha": "4e997754cfe46d0bc9d4baa9829cb54df0bcf2fc1ed87966043fa5bfd493d01d",
+  "source_version": "approved-esb-status-selected-export-families",
+  "source_file_sha256": "3afd3dd55c42595058a29c692c34e7817736495c5cbea03c182d66074abb7af7",
+  "generation_schema": {
+    "type": "object",
+    "properties": {
+      "candidates": {
+        "type": "array",
+        "maxItems": 4,
+        "items": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 240
+                },
+                "requires_complete_capture": {
+                  "type": "boolean"
+                },
+                "evidence": {
+                  "type": "array",
+                  "minItems": 1,
+                  "maxItems": 8,
+                  "items": {
+                    "oneOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "document_id": {
+                            "const": "reported-status-dictionary"
+                          },
+                          "quote": {
+                            "const": "In the supplied T/P status dictionary, STATUS=S denotes reported success and STATUS=F denotes reported failure. These meanings describe recorded outcomes; they do not establish that a process failure under an ultimately successful transaction is prohibited."
+                          }
+                        },
+                        "required": [
+                          "document_id",
+                          "quote"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "document_id": {
+                            "const": "export-lookup-scope"
+                          },
+                          "quote": {
+                            "const": "For this CSV review, ProcessStatusExport.TRANSACTION_ID is compared with the identical TransactionStatusExport.TRANSACTION_ID string. RETRY_COUNT is retained for provenance and is not assumed equal across files. All source CSV rows for each selected string ID are loaded."
+                          }
+                        },
+                        "required": [
+                          "document_id",
+                          "quote"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "document_id": {
+                            "const": "unconfirmed-handling"
+                          },
+                          "quote": {
+                            "const": "Recovery and partial-success handling are not established by this input. A reported process failure with a successful parent may have been handled. Review of the recorded outcomes cannot prove an unrecovered failure, a protocol violation, or an incident."
+                          }
+                        },
+                        "required": [
+                          "document_id",
+                          "quote"
+                        ],
+                        "additionalProperties": false
+                      }
+                    ]
+                  }
+                },
+                "normal_exceptions": {
+                  "type": "array",
+                  "maxItems": 4,
+                  "items": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 240
+                  }
+                },
+                "reason": {
+                  "type": "string",
+                  "minLength": 8,
+                  "maxLength": 400
+                },
+                "role": {
+                  "enum": [
+                    "HR_candidate",
+                    "observed_SR_candidate"
+                  ]
+                },
+                "plan": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "kind": {
+                          "const": "row_check"
+                        },
+                        "select": {
+                          "type": "object",
+                          "properties": {
+                            "table": {
+                              "const": "TransactionStatusExport"
+                            },
+                            "filter": {
+                              "type": "array",
+                              "maxItems": 6,
+                              "items": {
+                                "oneOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "column": {
+                                        "enum": [
+                                          "STATUS"
+                                        ]
+                                      },
+                                      "op": {
+                                        "enum": [
+                                          "eq",
+                                          "ne"
+                                        ]
+                                      },
+                                      "value": {
+                                        "type": [
+                                          "string",
+                                          "number",
+                                          "boolean"
+                                        ]
+                                      }
+                                    },
+                                    "required": [
+                                      "column",
+                                      "op",
+                                      "value"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "column": {
+                                        "enum": [
+                                          "STATUS"
+                                        ]
+                                      },
+                                      "op": {
+                                        "enum": [
+                                          "in",
+                                          "not_in"
+                                        ]
+                                      },
+                                      "value": {
+                                        "type": "array",
+                                        "minItems": 1,
+                                        "maxItems": 32,
+                                        "items": {
+                                          "type": [
+                                            "string",
+                                            "number",
+                                            "boolean"
+                                          ]
+                                        }
+                                      }
+                                    },
+                                    "required": [
+                                      "column",
+                                      "op",
+                                      "value"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "column": {
+                                        "enum": [
+                                          "RETRY_COUNT",
+                                          "STATUS",
+                                          "TRANSACTION_ID"
+                                        ]
+                                      },
+                                      "op": {
+                                        "enum": [
+                                          "is_missing",
+                                          "is_present"
+                                        ]
+                                      },
+                                      "value": {
+                                        "type": "null"
+                                      }
+                                    },
+                                    "required": [
+                                      "column",
+                                      "op",
+                                      "value"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                ]
+                              }
+                            }
+                          },
+                          "required": [
+                            "table",
+                            "filter"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "select"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "kind": {
+                          "const": "conditional_row_check"
+                        },
+                        "select": {
+                          "type": "object",
+                          "properties": {
+                            "table": {
+                              "const": "TransactionStatusExport"
+                            },
+                            "filter": {
+                              "type": "array",
+                              "maxItems": 6,
+                              "items": {
+                                "oneOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "column": {
+                                        "enum": [
+                                          "STATUS"
+                                        ]
+                                      },
+                                      "op": {
+                                        "enum": [
+                                          "eq",
+                                          "ne"
+                                        ]
+                                      },
+                                      "value": {
+                                        "type": [
+                                          "string",
+                                          "number",
+                                          "boolean"
+                                        ]
+                                      }
+                                    },
+                                    "required": [
+                                      "column",
+                                      "op",
+                                      "value"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "column": {
+                                        "enum": [
+                                          "STATUS"
+                                        ]
+                                      },
+                                      "op": {
+                                        "enum": [
+                                          "in",
+                                          "not_in"
+                                        ]
+                                      },
+                                      "value": {
+                                        "type": "array",
+                                        "minItems": 1,
+                                        "maxItems": 32,
+                                        "items": {
+                                          "type": [
+                                            "string",
+                                            "number",
+                                            "boolean"
+                                          ]
+                                        }
+                                      }
+                                    },
+                                    "required": [
+                                      "column",
+                                      "op",
+                                      "value"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "column": {
+                                        "enum": [
+                                          "RETRY_COUNT",
+                                          "STATUS",
+                                          "TRANSACTION_ID"
+                                        ]
+                                      },
+                                      "op": {
+                                        "enum": [
+                                          "is_missing",
+                                          "is_present"
+                                        ]
+                                      },
+                                      "value": {
+                                        "type": "null"
+                                      }
+                                    },
+                                    "required": [
+                                      "column",
+                                      "op",
+                                      "value"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                ]
+                              }
+                            }
+                          },
+                          "required": [
+                            "table",
+                            "filter"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "violation": {
+                          "type": "array",
+                          "maxItems": 6,
+                          "items": {
+                            "oneOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "column": {
+                                    "enum": [
+                                      "STATUS"
+                                    ]
+                                  },
+                                  "op": {
+                                    "enum": [
+                                      "eq",
+                                      "ne"
+                                    ]
+                                  },
+                                  "value": {
+                                    "type": [
+                                      "string",
+                                      "number",
+                                      "boolean"
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "column",
+                                  "op",
+                                  "value"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "column": {
+                                    "enum": [
+                                      "STATUS"
+                                    ]
+                                  },
+                                  "op": {
+                                    "enum": [
+                                      "in",
+                                      "not_in"
+                                    ]
+                                  },
+                                  "value": {
+                                    "type": "array",
+                                    "minItems": 1,
+                                    "maxItems": 32,
+                                    "items": {
+                                      "type": [
+                                        "string",
+                                        "number",
+                                        "boolean"
+                                      ]
+                                    }
+                                  }
+                                },
+                                "required": [
+                                  "column",
+                                  "op",
+                                  "value"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "column": {
+                                    "enum": [
+                                      "RETRY_COUNT",
+                                      "STATUS",
+                                      "TRANSACTION_ID"
+                                    ]
+                                  },
+                                  "op": {
+                                    "enum": [
+                                      "is_missing",
+                                      "is_present"
+                                    ]
+                                  },
+                                  "value": {
+                                    "type": "null"
+                                  }
+                                },
+                                "required": [
+                                  "column",
+                                  "op",
+                                  "value"
+                                ],
+                                "additionalProperties": false
+                              }
+                            ]
+                          },
+                          "minItems": 1
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "select",
+                        "violation"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "kind": {
+                          "const": "duplicate_key"
+                        },
+                        "select": {
+                          "type": "object",
+                          "properties": {
+                            "table": {
+                              "const": "TransactionStatusExport"
+                            },
+                            "filter": {
+                              "type": "array",
+                              "maxItems": 6,
+                              "items": {
+                                "oneOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "column": {
+                                        "enum": [
+                                          "STATUS"
+                                        ]
+                                      },
+                                      "op": {
+                                        "enum": [
+                                          "eq",
+                                          "ne"
+                                        ]
+                                      },
+                                      "value": {
+                                        "type": [
+                                          "string",
+                                          "number",
+                                          "boolean"
+                                        ]
+                                      }
+                                    },
+                                    "required": [
+                                      "column",
+                                      "op",
+                                      "value"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "column": {
+                                        "enum": [
+                                          "STATUS"
+                                        ]
+                                      },
+                                      "op": {
+                                        "enum": [
+                                          "in",
+                                          "not_in"
+                                        ]
+                                      },
+                                      "value": {
+                                        "type": "array",
+                                        "minItems": 1,
+                                        "maxItems": 32,
+                                        "items": {
+                                          "type": [
+                                            "string",
+                                            "number",
+                                            "boolean"
+                                          ]
+                                        }
+                                      }
+                                    },
+                                    "required": [
+                                      "column",
+                                      "op",
+                                      "value"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "column": {
+                                        "enum": [
+                                          "RETRY_COUNT",
+                                          "STATUS",
+                                          "TRANSACTION_ID"
+                                        ]
+                                      },
+                                      "op": {
+                                        "enum": [
+                                          "is_missing",
+                                          "is_present"
+                                        ]
+                                      },
+                                      "value": {
+                                        "type": "null"
+                                      }
+                                    },
+                                    "required": [
+                                      "column",
+                                      "op",
+                                      "value"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                ]
+                              }
+                            }
+                          },
+                          "required": [
+                            "table",
+                            "filter"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "keys": {
+                          "type": "array",
+                          "minItems": 1,
+                          "maxItems": 6,
+                          "items": {
+                            "enum": [
+                              "RETRY_COUNT",
+                              "STATUS",
+                              "TRANSACTION_ID"
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "select",
+                        "keys"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "kind": {
+                          "const": "relation_check"
+                        },
+                        "select": {
+                          "type": "object",
+                          "properties": {
+                            "table": {
+                              "const": "TransactionStatusExport"
+                            },
+                            "filter": {
+                              "type": "array",
+                              "maxItems": 6,
+                              "items": {
+                                "oneOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "column": {
+                                        "enum": [
+                                          "STATUS"
+                                        ]
+                                      },
+                                      "op": {
+                                        "enum": [
+                                          "eq",
+                                          "ne"
+                                        ]
+                                      },
+                                      "value": {
+                                        "type": [
+                                          "string",
+                                          "number",
+                                          "boolean"
+                                        ]
+                                      }
+                                    },
+                                    "required": [
+                                      "column",
+                                      "op",
+                                      "value"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "column": {
+                                        "enum": [
+                                          "STATUS"
+                                        ]
+                                      },
+                                      "op": {
+                                        "enum": [
+                                          "in",
+                                          "not_in"
+                                        ]
+                                      },
+                                      "value": {
+                                        "type": "array",
+                                        "minItems": 1,
+                                        "maxItems": 32,
+                                        "items": {
+                                          "type": [
+                                            "string",
+                                            "number",
+                                            "boolean"
+                                          ]
+                                        }
+                                      }
+                                    },
+                                    "required": [
+                                      "column",
+                                      "op",
+                                      "value"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "column": {
+                                        "enum": [
+                                          "RETRY_COUNT",
+                                          "STATUS",
+                                          "TRANSACTION_ID"
+                                        ]
+                                      },
+                                      "op": {
+                                        "enum": [
+                                          "is_missing",
+                                          "is_present"
+                                        ]
+                                      },
+                                      "value": {
+                                        "type": "null"
+                                      }
+                                    },
+                                    "required": [
+                                      "column",
+                                      "op",
+                                      "value"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                ]
+                              }
+                            }
+                          },
+                          "required": [
+                            "table",
+                            "filter"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "related": {
+                          "oneOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "select": {
+                                  "type": "object",
+                                  "properties": {
+                                    "table": {
+                                      "const": "TransactionStatusExport"
+                                    },
+                                    "filter": {
+                                      "type": "array",
+                                      "maxItems": 6,
+                                      "items": {
+                                        "oneOf": [
+                                          {
+                                            "type": "object",
+                                            "properties": {
+                                              "column": {
+                                                "enum": [
+                                                  "STATUS"
+                                                ]
+                                              },
+                                              "op": {
+                                                "enum": [
+                                                  "eq",
+                                                  "ne"
+                                                ]
+                                              },
+                                              "value": {
+                                                "type": [
+                                                  "string",
+                                                  "number",
+                                                  "boolean"
+                                                ]
+                                              }
+                                            },
+                                            "required": [
+                                              "column",
+                                              "op",
+                                              "value"
+                                            ],
+                                            "additionalProperties": false
+                                          },
+                                          {
+                                            "type": "object",
+                                            "properties": {
+                                              "column": {
+                                                "enum": [
+                                                  "STATUS"
+                                                ]
+                                              },
+                                              "op": {
+                                                "enum": [
+                                                  "in",
+                                                  "not_in"
+                                                ]
+                                              },
+                                              "value": {
+                                                "type": "array",
+                                                "minItems": 1,
+                                                "maxItems": 32,
+                                                "items": {
+                                                  "type": [
+                                                    "string",
+                                                    "number",
+                                                    "boolean"
+                                                  ]
+                                                }
+                                              }
+                                            },
+                                            "required": [
+                                              "column",
+                                              "op",
+                                              "value"
+                                            ],
+                                            "additionalProperties": false
+                                          },
+                                          {
+                                            "type": "object",
+                                            "properties": {
+                                              "column": {
+                                                "enum": [
+                                                  "RETRY_COUNT",
+                                                  "STATUS",
+                                                  "TRANSACTION_ID"
+                                                ]
+                                              },
+                                              "op": {
+                                                "enum": [
+                                                  "is_missing",
+                                                  "is_present"
+                                                ]
+                                              },
+                                              "value": {
+                                                "type": "null"
+                                              }
+                                            },
+                                            "required": [
+                                              "column",
+                                              "op",
+                                              "value"
+                                            ],
+                                            "additionalProperties": false
+                                          }
+                                        ]
+                                      }
+                                    }
+                                  },
+                                  "required": [
+                                    "table",
+                                    "filter"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "join": {
+                                  "type": "array",
+                                  "minItems": 1,
+                                  "maxItems": 6,
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "source": {
+                                        "enum": [
+                                          "RETRY_COUNT",
+                                          "STATUS",
+                                          "TRANSACTION_ID"
+                                        ]
+                                      },
+                                      "target": {
+                                        "enum": [
+                                          "RETRY_COUNT",
+                                          "STATUS",
+                                          "TRANSACTION_ID"
+                                        ]
+                                      }
+                                    },
+                                    "required": [
+                                      "source",
+                                      "target"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                }
+                              },
+                              "required": [
+                                "select",
+                                "join"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "select": {
+                                  "type": "object",
+                                  "properties": {
+                                    "table": {
+                                      "const": "ProcessStatusExport"
+                                    },
+                                    "filter": {
+                                      "type": "array",
+                                      "maxItems": 6,
+                                      "items": {
+                                        "oneOf": [
+                                          {
+                                            "type": "object",
+                                            "properties": {
+                                              "column": {
+                                                "enum": [
+                                                  "STATUS"
+                                                ]
+                                              },
+                                              "op": {
+                                                "enum": [
+                                                  "eq",
+                                                  "ne"
+                                                ]
+                                              },
+                                              "value": {
+                                                "type": [
+                                                  "string",
+                                                  "number",
+                                                  "boolean"
+                                                ]
+                                              }
+                                            },
+                                            "required": [
+                                              "column",
+                                              "op",
+                                              "value"
+                                            ],
+                                            "additionalProperties": false
+                                          },
+                                          {
+                                            "type": "object",
+                                            "properties": {
+                                              "column": {
+                                                "enum": [
+                                                  "STATUS"
+                                                ]
+                                              },
+                                              "op": {
+                                                "enum": [
+                                                  "in",
+                                                  "not_in"
+                                                ]
+                                              },
+                                              "value": {
+                                                "type": "array",
+                                                "minItems": 1,
+                                                "maxItems": 32,
+                                                "items": {
+                                                  "type": [
+                                                    "string",
+                                                    "number",
+                                                    "boolean"
+                                                  ]
+                                                }
+                                              }
+                                            },
+                                            "required": [
+                                              "column",
+                                              "op",
+                                              "value"
+                                            ],
+                                            "additionalProperties": false
+                                          },
+                                          {
+                                            "type": "object",
+                                            "properties": {
+                                              "column": {
+                                                "enum": [
+                                                  "PROCESS_ID",
+                                                  "RETRY_COUNT",
+                                                  "STATUS",
+                                                  "TRANSACTION_ID"
+                                                ]
+                                              },
+                                              "op": {
+                                                "enum": [
+                                                  "is_missing",
+                                                  "is_present"
+                                                ]
+                                              },
+                                              "value": {
+                                                "type": "null"
+                                              }
+                                            },
+                                            "required": [
+                                              "column",
+                                              "op",
+                                              "value"
+                                            ],
+                                            "additionalProperties": false
+                                          }
+                                        ]
+                                      }
+                                    }
+                                  },
+                                  "required": [
+                                    "table",
+                                    "filter"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "join": {
+                                  "type": "array",
+                                  "minItems": 1,
+                                  "maxItems": 6,
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "source": {
+                                        "enum": [
+                                          "RETRY_COUNT",
+                                          "STATUS",
+                                          "TRANSACTION_ID"
+                                        ]
+                                      },
+                                      "target": {
+                                        "enum": [
+                                          "PROCESS_ID",
+                                          "RETRY_COUNT",
+                                          "STATUS",
+                                          "TRANSACTION_ID"
+                                        ]
+                                      }
+                                    },
+                                    "required": [
+                                      "source",
+                                      "target"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                }
+                              },
+                              "required": [
+                                "select",
+                                "join"
+                              ],
+                              "additionalProperties": false
+                            }
+                          ]
+                        },
+                        "violation": {
+                          "enum": [
+                            "required_match_missing",
+                            "match_present",
+                            "match_not_exactly_one"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "select",
+                        "related",
+                        "violation"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "kind": {
+                          "const": "unexplained_event"
+                        },
+                        "select": {
+                          "type": "object",
+                          "properties": {
+                            "table": {
+                              "const": "TransactionStatusExport"
+                            },
+                            "filter": {
+                              "type": "array",
+                              "maxItems": 6,
+                              "items": {
+                                "oneOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "column": {
+                                        "enum": [
+                                          "STATUS"
+                                        ]
+                                      },
+                                      "op": {
+                                        "enum": [
+                                          "eq",
+                                          "ne"
+                                        ]
+                                      },
+                                      "value": {
+                                        "type": [
+                                          "string",
+                                          "number",
+                                          "boolean"
+                                        ]
+                                      }
+                                    },
+                                    "required": [
+                                      "column",
+                                      "op",
+                                      "value"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "column": {
+                                        "enum": [
+                                          "STATUS"
+                                        ]
+                                      },
+                                      "op": {
+                                        "enum": [
+                                          "in",
+                                          "not_in"
+                                        ]
+                                      },
+                                      "value": {
+                                        "type": "array",
+                                        "minItems": 1,
+                                        "maxItems": 32,
+                                        "items": {
+                                          "type": [
+                                            "string",
+                                            "number",
+                                            "boolean"
+                                          ]
+                                        }
+                                      }
+                                    },
+                                    "required": [
+                                      "column",
+                                      "op",
+                                      "value"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "column": {
+                                        "enum": [
+                                          "RETRY_COUNT",
+                                          "STATUS",
+                                          "TRANSACTION_ID"
+                                        ]
+                                      },
+                                      "op": {
+                                        "enum": [
+                                          "is_missing",
+                                          "is_present"
+                                        ]
+                                      },
+                                      "value": {
+                                        "type": "null"
+                                      }
+                                    },
+                                    "required": [
+                                      "column",
+                                      "op",
+                                      "value"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                ]
+                              }
+                            }
+                          },
+                          "required": [
+                            "table",
+                            "filter"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "context": {
+                          "oneOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "select": {
+                                  "type": "object",
+                                  "properties": {
+                                    "table": {
+                                      "const": "TransactionStatusExport"
+                                    },
+                                    "filter": {
+                                      "type": "array",
+                                      "maxItems": 6,
+                                      "items": {
+                                        "oneOf": [
+                                          {
+                                            "type": "object",
+                                            "properties": {
+                                              "column": {
+                                                "enum": [
+                                                  "STATUS"
+                                                ]
+                                              },
+                                              "op": {
+                                                "enum": [
+                                                  "eq",
+                                                  "ne"
+                                                ]
+                                              },
+                                              "value": {
+                                                "type": [
+                                                  "string",
+                                                  "number",
+                                                  "boolean"
+                                                ]
+                                              }
+                                            },
+                                            "required": [
+                                              "column",
+                                              "op",
+                                              "value"
+                                            ],
+                                            "additionalProperties": false
+                                          },
+                                          {
+                                            "type": "object",
+                                            "properties": {
+                                              "column": {
+                                                "enum": [
+                                                  "STATUS"
+                                                ]
+                                              },
+                                              "op": {
+                                                "enum": [
+                                                  "in",
+                                                  "not_in"
+                                                ]
+                                              },
+                                              "value": {
+                                                "type": "array",
+                                                "minItems": 1,
+                                                "maxItems": 32,
+                                                "items": {
+                                                  "type": [
+                                                    "string",
+                                                    "number",
+                                                    "boolean"
+                                                  ]
+                                                }
+                                              }
+                                            },
+                                            "required": [
+                                              "column",
+                                              "op",
+                                              "value"
+                                            ],
+                                            "additionalProperties": false
+                                          },
+                                          {
+                                            "type": "object",
+                                            "properties": {
+                                              "column": {
+                                                "enum": [
+                                                  "RETRY_COUNT",
+                                                  "STATUS",
+                                                  "TRANSACTION_ID"
+                                                ]
+                                              },
+                                              "op": {
+                                                "enum": [
+                                                  "is_missing",
+                                                  "is_present"
+                                                ]
+                                              },
+                                              "value": {
+                                                "type": "null"
+                                              }
+                                            },
+                                            "required": [
+                                              "column",
+                                              "op",
+                                              "value"
+                                            ],
+                                            "additionalProperties": false
+                                          }
+                                        ]
+                                      }
+                                    }
+                                  },
+                                  "required": [
+                                    "table",
+                                    "filter"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "join": {
+                                  "type": "array",
+                                  "minItems": 1,
+                                  "maxItems": 6,
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "source": {
+                                        "enum": [
+                                          "RETRY_COUNT",
+                                          "STATUS",
+                                          "TRANSACTION_ID"
+                                        ]
+                                      },
+                                      "target": {
+                                        "enum": [
+                                          "RETRY_COUNT",
+                                          "STATUS",
+                                          "TRANSACTION_ID"
+                                        ]
+                                      }
+                                    },
+                                    "required": [
+                                      "source",
+                                      "target"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                }
+                              },
+                              "required": [
+                                "select",
+                                "join"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "select": {
+                                  "type": "object",
+                                  "properties": {
+                                    "table": {
+                                      "const": "ProcessStatusExport"
+                                    },
+                                    "filter": {
+                                      "type": "array",
+                                      "maxItems": 6,
+                                      "items": {
+                                        "oneOf": [
+                                          {
+                                            "type": "object",
+                                            "properties": {
+                                              "column": {
+                                                "enum": [
+                                                  "STATUS"
+                                                ]
+                                              },
+                                              "op": {
+                                                "enum": [
+                                                  "eq",
+                                                  "ne"
+                                                ]
+                                              },
+                                              "value": {
+                                                "type": [
+                                                  "string",
+                                                  "number",
+                                                  "boolean"
+                                                ]
+                                              }
+                                            },
+                                            "required": [
+                                              "column",
+                                              "op",
+                                              "value"
+                                            ],
+                                            "additionalProperties": false
+                                          },
+                                          {
+                                            "type": "object",
+                                            "properties": {
+                                              "column": {
+                                                "enum": [
+                                                  "STATUS"
+                                                ]
+                                              },
+                                              "op": {
+                                                "enum": [
+                                                  "in",
+                                                  "not_in"
+                                                ]
+                                              },
+                                              "value": {
+                                                "type": "array",
+                                                "minItems": 1,
+                                                "maxItems": 32,
+                                                "items": {
+                                                  "type": [
+                                                    "string",
+                                                    "number",
+                                                    "boolean"
+                                                  ]
+                                                }
+                                              }
+                                            },
+                                            "required": [
+                                              "column",
+                                              "op",
+                                              "value"
+                                            ],
+                                            "additionalProperties": false
+                                          },
+                                          {
+                                            "type": "object",
+                                            "properties": {
+                                              "column": {
+                                                "enum": [
+                                                  "PROCESS_ID",
+                                                  "RETRY_COUNT",
+                                                  "STATUS",
+                                                  "TRANSACTION_ID"
+                                                ]
+                                              },
+                                              "op": {
+                                                "enum": [
+                                                  "is_missing",
+                                                  "is_present"
+                                                ]
+                                              },
+                                              "value": {
+                                                "type": "null"
+                                              }
+                                            },
+                                            "required": [
+                                              "column",
+                                              "op",
+                                              "value"
+                                            ],
+                                            "additionalProperties": false
+                                          }
+                                        ]
+                                      }
+                                    }
+                                  },
+                                  "required": [
+                                    "table",
+                                    "filter"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "join": {
+                                  "type": "array",
+                                  "minItems": 1,
+                                  "maxItems": 6,
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "source": {
+                                        "enum": [
+                                          "RETRY_COUNT",
+                                          "STATUS",
+                                          "TRANSACTION_ID"
+                                        ]
+                                      },
+                                      "target": {
+                                        "enum": [
+                                          "PROCESS_ID",
+                                          "RETRY_COUNT",
+                                          "STATUS",
+                                          "TRANSACTION_ID"
+                                        ]
+                                      }
+                                    },
+                                    "required": [
+                                      "source",
+                                      "target"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                }
+                              },
+                              "required": [
+                                "select",
+                                "join"
+                              ],
+                              "additionalProperties": false
+                            }
+                          ]
+                        },
+                        "explained_by": {
+                          "type": "array",
+                          "minItems": 1,
+                          "maxItems": 4,
+                          "items": {
+                            "oneOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "select": {
+                                    "type": "object",
+                                    "properties": {
+                                      "table": {
+                                        "const": "TransactionStatusExport"
+                                      },
+                                      "filter": {
+                                        "type": "array",
+                                        "maxItems": 6,
+                                        "items": {
+                                          "oneOf": [
+                                            {
+                                              "type": "object",
+                                              "properties": {
+                                                "column": {
+                                                  "enum": [
+                                                    "STATUS"
+                                                  ]
+                                                },
+                                                "op": {
+                                                  "enum": [
+                                                    "eq",
+                                                    "ne"
+                                                  ]
+                                                },
+                                                "value": {
+                                                  "type": [
+                                                    "string",
+                                                    "number",
+                                                    "boolean"
+                                                  ]
+                                                }
+                                              },
+                                              "required": [
+                                                "column",
+                                                "op",
+                                                "value"
+                                              ],
+                                              "additionalProperties": false
+                                            },
+                                            {
+                                              "type": "object",
+                                              "properties": {
+                                                "column": {
+                                                  "enum": [
+                                                    "STATUS"
+                                                  ]
+                                                },
+                                                "op": {
+                                                  "enum": [
+                                                    "in",
+                                                    "not_in"
+                                                  ]
+                                                },
+                                                "value": {
+                                                  "type": "array",
+                                                  "minItems": 1,
+                                                  "maxItems": 32,
+                                                  "items": {
+                                                    "type": [
+                                                      "string",
+                                                      "number",
+                                                      "boolean"
+                                                    ]
+                                                  }
+                                                }
+                                              },
+                                              "required": [
+                                                "column",
+                                                "op",
+                                                "value"
+                                              ],
+                                              "additionalProperties": false
+                                            },
+                                            {
+                                              "type": "object",
+                                              "properties": {
+                                                "column": {
+                                                  "enum": [
+                                                    "RETRY_COUNT",
+                                                    "STATUS",
+                                                    "TRANSACTION_ID"
+                                                  ]
+                                                },
+                                                "op": {
+                                                  "enum": [
+                                                    "is_missing",
+                                                    "is_present"
+                                                  ]
+                                                },
+                                                "value": {
+                                                  "type": "null"
+                                                }
+                                              },
+                                              "required": [
+                                                "column",
+                                                "op",
+                                                "value"
+                                              ],
+                                              "additionalProperties": false
+                                            }
+                                          ]
+                                        }
+                                      }
+                                    },
+                                    "required": [
+                                      "table",
+                                      "filter"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  "join": {
+                                    "type": "array",
+                                    "minItems": 1,
+                                    "maxItems": 6,
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "source": {
+                                          "enum": [
+                                            "RETRY_COUNT",
+                                            "STATUS",
+                                            "TRANSACTION_ID"
+                                          ]
+                                        },
+                                        "target": {
+                                          "enum": [
+                                            "RETRY_COUNT",
+                                            "STATUS",
+                                            "TRANSACTION_ID"
+                                          ]
+                                        }
+                                      },
+                                      "required": [
+                                        "source",
+                                        "target"
+                                      ],
+                                      "additionalProperties": false
+                                    }
+                                  }
+                                },
+                                "required": [
+                                  "select",
+                                  "join"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "select": {
+                                    "type": "object",
+                                    "properties": {
+                                      "table": {
+                                        "const": "ProcessStatusExport"
+                                      },
+                                      "filter": {
+                                        "type": "array",
+                                        "maxItems": 6,
+                                        "items": {
+                                          "oneOf": [
+                                            {
+                                              "type": "object",
+                                              "properties": {
+                                                "column": {
+                                                  "enum": [
+                                                    "STATUS"
+                                                  ]
+                                                },
+                                                "op": {
+                                                  "enum": [
+                                                    "eq",
+                                                    "ne"
+                                                  ]
+                                                },
+                                                "value": {
+                                                  "type": [
+                                                    "string",
+                                                    "number",
+                                                    "boolean"
+                                                  ]
+                                                }
+                                              },
+                                              "required": [
+                                                "column",
+                                                "op",
+                                                "value"
+                                              ],
+                                              "additionalProperties": false
+                                            },
+                                            {
+                                              "type": "object",
+                                              "properties": {
+                                                "column": {
+                                                  "enum": [
+                                                    "STATUS"
+                                                  ]
+                                                },
+                                                "op": {
+                                                  "enum": [
+                                                    "in",
+                                                    "not_in"
+                                                  ]
+                                                },
+                                                "value": {
+                                                  "type": "array",
+                                                  "minItems": 1,
+                                                  "maxItems": 32,
+                                                  "items": {
+                                                    "type": [
+                                                      "string",
+                                                      "number",
+                                                      "boolean"
+                                                    ]
+                                                  }
+                                                }
+                                              },
+                                              "required": [
+                                                "column",
+                                                "op",
+                                                "value"
+                                              ],
+                                              "additionalProperties": false
+                                            },
+                                            {
+                                              "type": "object",
+                                              "properties": {
+                                                "column": {
+                                                  "enum": [
+                                                    "PROCESS_ID",
+                                                    "RETRY_COUNT",
+                                                    "STATUS",
+                                                    "TRANSACTION_ID"
+                                                  ]
+                                                },
+                                                "op": {
+                                                  "enum": [
+                                                    "is_missing",
+                                                    "is_present"
+                                                  ]
+                                                },
+                                                "value": {
+                                                  "type": "null"
+                                                }
+                                              },
+                                              "required": [
+                                                "column",
+                                                "op",
+                                                "value"
+                                              ],
+                                              "additionalProperties": false
+                                            }
+                                          ]
+                                        }
+                                      }
+                                    },
+                                    "required": [
+                                      "table",
+                                      "filter"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  "join": {
+                                    "type": "array",
+                                    "minItems": 1,
+                                    "maxItems": 6,
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "source": {
+                                          "enum": [
+                                            "RETRY_COUNT",
+                                            "STATUS",
+                                            "TRANSACTION_ID"
+                                          ]
+                                        },
+                                        "target": {
+                                          "enum": [
+                                            "PROCESS_ID",
+                                            "RETRY_COUNT",
+                                            "STATUS",
+                                            "TRANSACTION_ID"
+                                          ]
+                                        }
+                                      },
+                                      "required": [
+                                        "source",
+                                        "target"
+                                      ],
+                                      "additionalProperties": false
+                                    }
+                                  }
+                                },
+                                "required": [
+                                  "select",
+                                  "join"
+                                ],
+                                "additionalProperties": false
+                              }
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "select",
+                        "context",
+                        "explained_by"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "kind": {
+                          "const": "row_check"
+                        },
+                        "select": {
+                          "type": "object",
+                          "properties": {
+                            "table": {
+                              "const": "ProcessStatusExport"
+                            },
+                            "filter": {
+                              "type": "array",
+                              "maxItems": 6,
+                              "items": {
+                                "oneOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "column": {
+                                        "enum": [
+                                          "STATUS"
+                                        ]
+                                      },
+                                      "op": {
+                                        "enum": [
+                                          "eq",
+                                          "ne"
+                                        ]
+                                      },
+                                      "value": {
+                                        "type": [
+                                          "string",
+                                          "number",
+                                          "boolean"
+                                        ]
+                                      }
+                                    },
+                                    "required": [
+                                      "column",
+                                      "op",
+                                      "value"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "column": {
+                                        "enum": [
+                                          "STATUS"
+                                        ]
+                                      },
+                                      "op": {
+                                        "enum": [
+                                          "in",
+                                          "not_in"
+                                        ]
+                                      },
+                                      "value": {
+                                        "type": "array",
+                                        "minItems": 1,
+                                        "maxItems": 32,
+                                        "items": {
+                                          "type": [
+                                            "string",
+                                            "number",
+                                            "boolean"
+                                          ]
+                                        }
+                                      }
+                                    },
+                                    "required": [
+                                      "column",
+                                      "op",
+                                      "value"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "column": {
+                                        "enum": [
+                                          "PROCESS_ID",
+                                          "RETRY_COUNT",
+                                          "STATUS",
+                                          "TRANSACTION_ID"
+                                        ]
+                                      },
+                                      "op": {
+                                        "enum": [
+                                          "is_missing",
+                                          "is_present"
+                                        ]
+                                      },
+                                      "value": {
+                                        "type": "null"
+                                      }
+                                    },
+                                    "required": [
+                                      "column",
+                                      "op",
+                                      "value"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                ]
+                              }
+                            }
+                          },
+                          "required": [
+                            "table",
+                            "filter"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "select"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "kind": {
+                          "const": "conditional_row_check"
+                        },
+                        "select": {
+                          "type": "object",
+                          "properties": {
+                            "table": {
+                              "const": "ProcessStatusExport"
+                            },
+                            "filter": {
+                              "type": "array",
+                              "maxItems": 6,
+                              "items": {
+                                "oneOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "column": {
+                                        "enum": [
+                                          "STATUS"
+                                        ]
+                                      },
+                                      "op": {
+                                        "enum": [
+                                          "eq",
+                                          "ne"
+                                        ]
+                                      },
+                                      "value": {
+                                        "type": [
+                                          "string",
+                                          "number",
+                                          "boolean"
+                                        ]
+                                      }
+                                    },
+                                    "required": [
+                                      "column",
+                                      "op",
+                                      "value"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "column": {
+                                        "enum": [
+                                          "STATUS"
+                                        ]
+                                      },
+                                      "op": {
+                                        "enum": [
+                                          "in",
+                                          "not_in"
+                                        ]
+                                      },
+                                      "value": {
+                                        "type": "array",
+                                        "minItems": 1,
+                                        "maxItems": 32,
+                                        "items": {
+                                          "type": [
+                                            "string",
+                                            "number",
+                                            "boolean"
+                                          ]
+                                        }
+                                      }
+                                    },
+                                    "required": [
+                                      "column",
+                                      "op",
+                                      "value"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "column": {
+                                        "enum": [
+                                          "PROCESS_ID",
+                                          "RETRY_COUNT",
+                                          "STATUS",
+                                          "TRANSACTION_ID"
+                                        ]
+                                      },
+                                      "op": {
+                                        "enum": [
+                                          "is_missing",
+                                          "is_present"
+                                        ]
+                                      },
+                                      "value": {
+                                        "type": "null"
+                                      }
+                                    },
+                                    "required": [
+                                      "column",
+                                      "op",
+                                      "value"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                ]
+                              }
+                            }
+                          },
+                          "required": [
+                            "table",
+                            "filter"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "violation": {
+                          "type": "array",
+                          "maxItems": 6,
+                          "items": {
+                            "oneOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "column": {
+                                    "enum": [
+                                      "STATUS"
+                                    ]
+                                  },
+                                  "op": {
+                                    "enum": [
+                                      "eq",
+                                      "ne"
+                                    ]
+                                  },
+                                  "value": {
+                                    "type": [
+                                      "string",
+                                      "number",
+                                      "boolean"
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "column",
+                                  "op",
+                                  "value"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "column": {
+                                    "enum": [
+                                      "STATUS"
+                                    ]
+                                  },
+                                  "op": {
+                                    "enum": [
+                                      "in",
+                                      "not_in"
+                                    ]
+                                  },
+                                  "value": {
+                                    "type": "array",
+                                    "minItems": 1,
+                                    "maxItems": 32,
+                                    "items": {
+                                      "type": [
+                                        "string",
+                                        "number",
+                                        "boolean"
+                                      ]
+                                    }
+                                  }
+                                },
+                                "required": [
+                                  "column",
+                                  "op",
+                                  "value"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "column": {
+                                    "enum": [
+                                      "PROCESS_ID",
+                                      "RETRY_COUNT",
+                                      "STATUS",
+                                      "TRANSACTION_ID"
+                                    ]
+                                  },
+                                  "op": {
+                                    "enum": [
+                                      "is_missing",
+                                      "is_present"
+                                    ]
+                                  },
+                                  "value": {
+                                    "type": "null"
+                                  }
+                                },
+                                "required": [
+                                  "column",
+                                  "op",
+                                  "value"
+                                ],
+                                "additionalProperties": false
+                              }
+                            ]
+                          },
+                          "minItems": 1
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "select",
+                        "violation"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "kind": {
+                          "const": "duplicate_key"
+                        },
+                        "select": {
+                          "type": "object",
+                          "properties": {
+                            "table": {
+                              "const": "ProcessStatusExport"
+                            },
+                            "filter": {
+                              "type": "array",
+                              "maxItems": 6,
+                              "items": {
+                                "oneOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "column": {
+                                        "enum": [
+                                          "STATUS"
+                                        ]
+                                      },
+                                      "op": {
+                                        "enum": [
+                                          "eq",
+                                          "ne"
+                                        ]
+                                      },
+                                      "value": {
+                                        "type": [
+                                          "string",
+                                          "number",
+                                          "boolean"
+                                        ]
+                                      }
+                                    },
+                                    "required": [
+                                      "column",
+                                      "op",
+                                      "value"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "column": {
+                                        "enum": [
+                                          "STATUS"
+                                        ]
+                                      },
+                                      "op": {
+                                        "enum": [
+                                          "in",
+                                          "not_in"
+                                        ]
+                                      },
+                                      "value": {
+                                        "type": "array",
+                                        "minItems": 1,
+                                        "maxItems": 32,
+                                        "items": {
+                                          "type": [
+                                            "string",
+                                            "number",
+                                            "boolean"
+                                          ]
+                                        }
+                                      }
+                                    },
+                                    "required": [
+                                      "column",
+                                      "op",
+                                      "value"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "column": {
+                                        "enum": [
+                                          "PROCESS_ID",
+                                          "RETRY_COUNT",
+                                          "STATUS",
+                                          "TRANSACTION_ID"
+                                        ]
+                                      },
+                                      "op": {
+                                        "enum": [
+                                          "is_missing",
+                                          "is_present"
+                                        ]
+                                      },
+                                      "value": {
+                                        "type": "null"
+                                      }
+                                    },
+                                    "required": [
+                                      "column",
+                                      "op",
+                                      "value"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                ]
+                              }
+                            }
+                          },
+                          "required": [
+                            "table",
+                            "filter"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "keys": {
+                          "type": "array",
+                          "minItems": 1,
+                          "maxItems": 6,
+                          "items": {
+                            "enum": [
+                              "PROCESS_ID",
+                              "RETRY_COUNT",
+                              "STATUS",
+                              "TRANSACTION_ID"
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "select",
+                        "keys"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "kind": {
+                          "const": "relation_check"
+                        },
+                        "select": {
+                          "type": "object",
+                          "properties": {
+                            "table": {
+                              "const": "ProcessStatusExport"
+                            },
+                            "filter": {
+                              "type": "array",
+                              "maxItems": 6,
+                              "items": {
+                                "oneOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "column": {
+                                        "enum": [
+                                          "STATUS"
+                                        ]
+                                      },
+                                      "op": {
+                                        "enum": [
+                                          "eq",
+                                          "ne"
+                                        ]
+                                      },
+                                      "value": {
+                                        "type": [
+                                          "string",
+                                          "number",
+                                          "boolean"
+                                        ]
+                                      }
+                                    },
+                                    "required": [
+                                      "column",
+                                      "op",
+                                      "value"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "column": {
+                                        "enum": [
+                                          "STATUS"
+                                        ]
+                                      },
+                                      "op": {
+                                        "enum": [
+                                          "in",
+                                          "not_in"
+                                        ]
+                                      },
+                                      "value": {
+                                        "type": "array",
+                                        "minItems": 1,
+                                        "maxItems": 32,
+                                        "items": {
+                                          "type": [
+                                            "string",
+                                            "number",
+                                            "boolean"
+                                          ]
+                                        }
+                                      }
+                                    },
+                                    "required": [
+                                      "column",
+                                      "op",
+                                      "value"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "column": {
+                                        "enum": [
+                                          "PROCESS_ID",
+                                          "RETRY_COUNT",
+                                          "STATUS",
+                                          "TRANSACTION_ID"
+                                        ]
+                                      },
+                                      "op": {
+                                        "enum": [
+                                          "is_missing",
+                                          "is_present"
+                                        ]
+                                      },
+                                      "value": {
+                                        "type": "null"
+                                      }
+                                    },
+                                    "required": [
+                                      "column",
+                                      "op",
+                                      "value"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                ]
+                              }
+                            }
+                          },
+                          "required": [
+                            "table",
+                            "filter"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "related": {
+                          "oneOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "select": {
+                                  "type": "object",
+                                  "properties": {
+                                    "table": {
+                                      "const": "TransactionStatusExport"
+                                    },
+                                    "filter": {
+                                      "type": "array",
+                                      "maxItems": 6,
+                                      "items": {
+                                        "oneOf": [
+                                          {
+                                            "type": "object",
+                                            "properties": {
+                                              "column": {
+                                                "enum": [
+                                                  "STATUS"
+                                                ]
+                                              },
+                                              "op": {
+                                                "enum": [
+                                                  "eq",
+                                                  "ne"
+                                                ]
+                                              },
+                                              "value": {
+                                                "type": [
+                                                  "string",
+                                                  "number",
+                                                  "boolean"
+                                                ]
+                                              }
+                                            },
+                                            "required": [
+                                              "column",
+                                              "op",
+                                              "value"
+                                            ],
+                                            "additionalProperties": false
+                                          },
+                                          {
+                                            "type": "object",
+                                            "properties": {
+                                              "column": {
+                                                "enum": [
+                                                  "STATUS"
+                                                ]
+                                              },
+                                              "op": {
+                                                "enum": [
+                                                  "in",
+                                                  "not_in"
+                                                ]
+                                              },
+                                              "value": {
+                                                "type": "array",
+                                                "minItems": 1,
+                                                "maxItems": 32,
+                                                "items": {
+                                                  "type": [
+                                                    "string",
+                                                    "number",
+                                                    "boolean"
+                                                  ]
+                                                }
+                                              }
+                                            },
+                                            "required": [
+                                              "column",
+                                              "op",
+                                              "value"
+                                            ],
+                                            "additionalProperties": false
+                                          },
+                                          {
+                                            "type": "object",
+                                            "properties": {
+                                              "column": {
+                                                "enum": [
+                                                  "RETRY_COUNT",
+                                                  "STATUS",
+                                                  "TRANSACTION_ID"
+                                                ]
+                                              },
+                                              "op": {
+                                                "enum": [
+                                                  "is_missing",
+                                                  "is_present"
+                                                ]
+                                              },
+                                              "value": {
+                                                "type": "null"
+                                              }
+                                            },
+                                            "required": [
+                                              "column",
+                                              "op",
+                                              "value"
+                                            ],
+                                            "additionalProperties": false
+                                          }
+                                        ]
+                                      }
+                                    }
+                                  },
+                                  "required": [
+                                    "table",
+                                    "filter"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "join": {
+                                  "type": "array",
+                                  "minItems": 1,
+                                  "maxItems": 6,
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "source": {
+                                        "enum": [
+                                          "PROCESS_ID",
+                                          "RETRY_COUNT",
+                                          "STATUS",
+                                          "TRANSACTION_ID"
+                                        ]
+                                      },
+                                      "target": {
+                                        "enum": [
+                                          "RETRY_COUNT",
+                                          "STATUS",
+                                          "TRANSACTION_ID"
+                                        ]
+                                      }
+                                    },
+                                    "required": [
+                                      "source",
+                                      "target"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                }
+                              },
+                              "required": [
+                                "select",
+                                "join"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "select": {
+                                  "type": "object",
+                                  "properties": {
+                                    "table": {
+                                      "const": "ProcessStatusExport"
+                                    },
+                                    "filter": {
+                                      "type": "array",
+                                      "maxItems": 6,
+                                      "items": {
+                                        "oneOf": [
+                                          {
+                                            "type": "object",
+                                            "properties": {
+                                              "column": {
+                                                "enum": [
+                                                  "STATUS"
+                                                ]
+                                              },
+                                              "op": {
+                                                "enum": [
+                                                  "eq",
+                                                  "ne"
+                                                ]
+                                              },
+                                              "value": {
+                                                "type": [
+                                                  "string",
+                                                  "number",
+                                                  "boolean"
+                                                ]
+                                              }
+                                            },
+                                            "required": [
+                                              "column",
+                                              "op",
+                                              "value"
+                                            ],
+                                            "additionalProperties": false
+                                          },
+                                          {
+                                            "type": "object",
+                                            "properties": {
+                                              "column": {
+                                                "enum": [
+                                                  "STATUS"
+                                                ]
+                                              },
+                                              "op": {
+                                                "enum": [
+                                                  "in",
+                                                  "not_in"
+                                                ]
+                                              },
+                                              "value": {
+                                                "type": "array",
+                                                "minItems": 1,
+                                                "maxItems": 32,
+                                                "items": {
+                                                  "type": [
+                                                    "string",
+                                                    "number",
+                                                    "boolean"
+                                                  ]
+                                                }
+                                              }
+                                            },
+                                            "required": [
+                                              "column",
+                                              "op",
+                                              "value"
+                                            ],
+                                            "additionalProperties": false
+                                          },
+                                          {
+                                            "type": "object",
+                                            "properties": {
+                                              "column": {
+                                                "enum": [
+                                                  "PROCESS_ID",
+                                                  "RETRY_COUNT",
+                                                  "STATUS",
+                                                  "TRANSACTION_ID"
+                                                ]
+                                              },
+                                              "op": {
+                                                "enum": [
+                                                  "is_missing",
+                                                  "is_present"
+                                                ]
+                                              },
+                                              "value": {
+                                                "type": "null"
+                                              }
+                                            },
+                                            "required": [
+                                              "column",
+                                              "op",
+                                              "value"
+                                            ],
+                                            "additionalProperties": false
+                                          }
+                                        ]
+                                      }
+                                    }
+                                  },
+                                  "required": [
+                                    "table",
+                                    "filter"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "join": {
+                                  "type": "array",
+                                  "minItems": 1,
+                                  "maxItems": 6,
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "source": {
+                                        "enum": [
+                                          "PROCESS_ID",
+                                          "RETRY_COUNT",
+                                          "STATUS",
+                                          "TRANSACTION_ID"
+                                        ]
+                                      },
+                                      "target": {
+                                        "enum": [
+                                          "PROCESS_ID",
+                                          "RETRY_COUNT",
+                                          "STATUS",
+                                          "TRANSACTION_ID"
+                                        ]
+                                      }
+                                    },
+                                    "required": [
+                                      "source",
+                                      "target"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                }
+                              },
+                              "required": [
+                                "select",
+                                "join"
+                              ],
+                              "additionalProperties": false
+                            }
+                          ]
+                        },
+                        "violation": {
+                          "enum": [
+                            "required_match_missing",
+                            "match_present",
+                            "match_not_exactly_one"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "select",
+                        "related",
+                        "violation"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "kind": {
+                          "const": "unexplained_event"
+                        },
+                        "select": {
+                          "type": "object",
+                          "properties": {
+                            "table": {
+                              "const": "ProcessStatusExport"
+                            },
+                            "filter": {
+                              "type": "array",
+                              "maxItems": 6,
+                              "items": {
+                                "oneOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "column": {
+                                        "enum": [
+                                          "STATUS"
+                                        ]
+                                      },
+                                      "op": {
+                                        "enum": [
+                                          "eq",
+                                          "ne"
+                                        ]
+                                      },
+                                      "value": {
+                                        "type": [
+                                          "string",
+                                          "number",
+                                          "boolean"
+                                        ]
+                                      }
+                                    },
+                                    "required": [
+                                      "column",
+                                      "op",
+                                      "value"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "column": {
+                                        "enum": [
+                                          "STATUS"
+                                        ]
+                                      },
+                                      "op": {
+                                        "enum": [
+                                          "in",
+                                          "not_in"
+                                        ]
+                                      },
+                                      "value": {
+                                        "type": "array",
+                                        "minItems": 1,
+                                        "maxItems": 32,
+                                        "items": {
+                                          "type": [
+                                            "string",
+                                            "number",
+                                            "boolean"
+                                          ]
+                                        }
+                                      }
+                                    },
+                                    "required": [
+                                      "column",
+                                      "op",
+                                      "value"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "column": {
+                                        "enum": [
+                                          "PROCESS_ID",
+                                          "RETRY_COUNT",
+                                          "STATUS",
+                                          "TRANSACTION_ID"
+                                        ]
+                                      },
+                                      "op": {
+                                        "enum": [
+                                          "is_missing",
+                                          "is_present"
+                                        ]
+                                      },
+                                      "value": {
+                                        "type": "null"
+                                      }
+                                    },
+                                    "required": [
+                                      "column",
+                                      "op",
+                                      "value"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                ]
+                              }
+                            }
+                          },
+                          "required": [
+                            "table",
+                            "filter"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "context": {
+                          "oneOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "select": {
+                                  "type": "object",
+                                  "properties": {
+                                    "table": {
+                                      "const": "TransactionStatusExport"
+                                    },
+                                    "filter": {
+                                      "type": "array",
+                                      "maxItems": 6,
+                                      "items": {
+                                        "oneOf": [
+                                          {
+                                            "type": "object",
+                                            "properties": {
+                                              "column": {
+                                                "enum": [
+                                                  "STATUS"
+                                                ]
+                                              },
+                                              "op": {
+                                                "enum": [
+                                                  "eq",
+                                                  "ne"
+                                                ]
+                                              },
+                                              "value": {
+                                                "type": [
+                                                  "string",
+                                                  "number",
+                                                  "boolean"
+                                                ]
+                                              }
+                                            },
+                                            "required": [
+                                              "column",
+                                              "op",
+                                              "value"
+                                            ],
+                                            "additionalProperties": false
+                                          },
+                                          {
+                                            "type": "object",
+                                            "properties": {
+                                              "column": {
+                                                "enum": [
+                                                  "STATUS"
+                                                ]
+                                              },
+                                              "op": {
+                                                "enum": [
+                                                  "in",
+                                                  "not_in"
+                                                ]
+                                              },
+                                              "value": {
+                                                "type": "array",
+                                                "minItems": 1,
+                                                "maxItems": 32,
+                                                "items": {
+                                                  "type": [
+                                                    "string",
+                                                    "number",
+                                                    "boolean"
+                                                  ]
+                                                }
+                                              }
+                                            },
+                                            "required": [
+                                              "column",
+                                              "op",
+                                              "value"
+                                            ],
+                                            "additionalProperties": false
+                                          },
+                                          {
+                                            "type": "object",
+                                            "properties": {
+                                              "column": {
+                                                "enum": [
+                                                  "RETRY_COUNT",
+                                                  "STATUS",
+                                                  "TRANSACTION_ID"
+                                                ]
+                                              },
+                                              "op": {
+                                                "enum": [
+                                                  "is_missing",
+                                                  "is_present"
+                                                ]
+                                              },
+                                              "value": {
+                                                "type": "null"
+                                              }
+                                            },
+                                            "required": [
+                                              "column",
+                                              "op",
+                                              "value"
+                                            ],
+                                            "additionalProperties": false
+                                          }
+                                        ]
+                                      }
+                                    }
+                                  },
+                                  "required": [
+                                    "table",
+                                    "filter"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "join": {
+                                  "type": "array",
+                                  "minItems": 1,
+                                  "maxItems": 6,
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "source": {
+                                        "enum": [
+                                          "PROCESS_ID",
+                                          "RETRY_COUNT",
+                                          "STATUS",
+                                          "TRANSACTION_ID"
+                                        ]
+                                      },
+                                      "target": {
+                                        "enum": [
+                                          "RETRY_COUNT",
+                                          "STATUS",
+                                          "TRANSACTION_ID"
+                                        ]
+                                      }
+                                    },
+                                    "required": [
+                                      "source",
+                                      "target"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                }
+                              },
+                              "required": [
+                                "select",
+                                "join"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "select": {
+                                  "type": "object",
+                                  "properties": {
+                                    "table": {
+                                      "const": "ProcessStatusExport"
+                                    },
+                                    "filter": {
+                                      "type": "array",
+                                      "maxItems": 6,
+                                      "items": {
+                                        "oneOf": [
+                                          {
+                                            "type": "object",
+                                            "properties": {
+                                              "column": {
+                                                "enum": [
+                                                  "STATUS"
+                                                ]
+                                              },
+                                              "op": {
+                                                "enum": [
+                                                  "eq",
+                                                  "ne"
+                                                ]
+                                              },
+                                              "value": {
+                                                "type": [
+                                                  "string",
+                                                  "number",
+                                                  "boolean"
+                                                ]
+                                              }
+                                            },
+                                            "required": [
+                                              "column",
+                                              "op",
+                                              "value"
+                                            ],
+                                            "additionalProperties": false
+                                          },
+                                          {
+                                            "type": "object",
+                                            "properties": {
+                                              "column": {
+                                                "enum": [
+                                                  "STATUS"
+                                                ]
+                                              },
+                                              "op": {
+                                                "enum": [
+                                                  "in",
+                                                  "not_in"
+                                                ]
+                                              },
+                                              "value": {
+                                                "type": "array",
+                                                "minItems": 1,
+                                                "maxItems": 32,
+                                                "items": {
+                                                  "type": [
+                                                    "string",
+                                                    "number",
+                                                    "boolean"
+                                                  ]
+                                                }
+                                              }
+                                            },
+                                            "required": [
+                                              "column",
+                                              "op",
+                                              "value"
+                                            ],
+                                            "additionalProperties": false
+                                          },
+                                          {
+                                            "type": "object",
+                                            "properties": {
+                                              "column": {
+                                                "enum": [
+                                                  "PROCESS_ID",
+                                                  "RETRY_COUNT",
+                                                  "STATUS",
+                                                  "TRANSACTION_ID"
+                                                ]
+                                              },
+                                              "op": {
+                                                "enum": [
+                                                  "is_missing",
+                                                  "is_present"
+                                                ]
+                                              },
+                                              "value": {
+                                                "type": "null"
+                                              }
+                                            },
+                                            "required": [
+                                              "column",
+                                              "op",
+                                              "value"
+                                            ],
+                                            "additionalProperties": false
+                                          }
+                                        ]
+                                      }
+                                    }
+                                  },
+                                  "required": [
+                                    "table",
+                                    "filter"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "join": {
+                                  "type": "array",
+                                  "minItems": 1,
+                                  "maxItems": 6,
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "source": {
+                                        "enum": [
+                                          "PROCESS_ID",
+                                          "RETRY_COUNT",
+                                          "STATUS",
+                                          "TRANSACTION_ID"
+                                        ]
+                                      },
+                                      "target": {
+                                        "enum": [
+                                          "PROCESS_ID",
+                                          "RETRY_COUNT",
+                                          "STATUS",
+                                          "TRANSACTION_ID"
+                                        ]
+                                      }
+                                    },
+                                    "required": [
+                                      "source",
+                                      "target"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                }
+                              },
+                              "required": [
+                                "select",
+                                "join"
+                              ],
+                              "additionalProperties": false
+                            }
+                          ]
+                        },
+                        "explained_by": {
+                          "type": "array",
+                          "minItems": 1,
+                          "maxItems": 4,
+                          "items": {
+                            "oneOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "select": {
+                                    "type": "object",
+                                    "properties": {
+                                      "table": {
+                                        "const": "TransactionStatusExport"
+                                      },
+                                      "filter": {
+                                        "type": "array",
+                                        "maxItems": 6,
+                                        "items": {
+                                          "oneOf": [
+                                            {
+                                              "type": "object",
+                                              "properties": {
+                                                "column": {
+                                                  "enum": [
+                                                    "STATUS"
+                                                  ]
+                                                },
+                                                "op": {
+                                                  "enum": [
+                                                    "eq",
+                                                    "ne"
+                                                  ]
+                                                },
+                                                "value": {
+                                                  "type": [
+                                                    "string",
+                                                    "number",
+                                                    "boolean"
+                                                  ]
+                                                }
+                                              },
+                                              "required": [
+                                                "column",
+                                                "op",
+                                                "value"
+                                              ],
+                                              "additionalProperties": false
+                                            },
+                                            {
+                                              "type": "object",
+                                              "properties": {
+                                                "column": {
+                                                  "enum": [
+                                                    "STATUS"
+                                                  ]
+                                                },
+                                                "op": {
+                                                  "enum": [
+                                                    "in",
+                                                    "not_in"
+                                                  ]
+                                                },
+                                                "value": {
+                                                  "type": "array",
+                                                  "minItems": 1,
+                                                  "maxItems": 32,
+                                                  "items": {
+                                                    "type": [
+                                                      "string",
+                                                      "number",
+                                                      "boolean"
+                                                    ]
+                                                  }
+                                                }
+                                              },
+                                              "required": [
+                                                "column",
+                                                "op",
+                                                "value"
+                                              ],
+                                              "additionalProperties": false
+                                            },
+                                            {
+                                              "type": "object",
+                                              "properties": {
+                                                "column": {
+                                                  "enum": [
+                                                    "RETRY_COUNT",
+                                                    "STATUS",
+                                                    "TRANSACTION_ID"
+                                                  ]
+                                                },
+                                                "op": {
+                                                  "enum": [
+                                                    "is_missing",
+                                                    "is_present"
+                                                  ]
+                                                },
+                                                "value": {
+                                                  "type": "null"
+                                                }
+                                              },
+                                              "required": [
+                                                "column",
+                                                "op",
+                                                "value"
+                                              ],
+                                              "additionalProperties": false
+                                            }
+                                          ]
+                                        }
+                                      }
+                                    },
+                                    "required": [
+                                      "table",
+                                      "filter"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  "join": {
+                                    "type": "array",
+                                    "minItems": 1,
+                                    "maxItems": 6,
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "source": {
+                                          "enum": [
+                                            "PROCESS_ID",
+                                            "RETRY_COUNT",
+                                            "STATUS",
+                                            "TRANSACTION_ID"
+                                          ]
+                                        },
+                                        "target": {
+                                          "enum": [
+                                            "RETRY_COUNT",
+                                            "STATUS",
+                                            "TRANSACTION_ID"
+                                          ]
+                                        }
+                                      },
+                                      "required": [
+                                        "source",
+                                        "target"
+                                      ],
+                                      "additionalProperties": false
+                                    }
+                                  }
+                                },
+                                "required": [
+                                  "select",
+                                  "join"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "select": {
+                                    "type": "object",
+                                    "properties": {
+                                      "table": {
+                                        "const": "ProcessStatusExport"
+                                      },
+                                      "filter": {
+                                        "type": "array",
+                                        "maxItems": 6,
+                                        "items": {
+                                          "oneOf": [
+                                            {
+                                              "type": "object",
+                                              "properties": {
+                                                "column": {
+                                                  "enum": [
+                                                    "STATUS"
+                                                  ]
+                                                },
+                                                "op": {
+                                                  "enum": [
+                                                    "eq",
+                                                    "ne"
+                                                  ]
+                                                },
+                                                "value": {
+                                                  "type": [
+                                                    "string",
+                                                    "number",
+                                                    "boolean"
+                                                  ]
+                                                }
+                                              },
+                                              "required": [
+                                                "column",
+                                                "op",
+                                                "value"
+                                              ],
+                                              "additionalProperties": false
+                                            },
+                                            {
+                                              "type": "object",
+                                              "properties": {
+                                                "column": {
+                                                  "enum": [
+                                                    "STATUS"
+                                                  ]
+                                                },
+                                                "op": {
+                                                  "enum": [
+                                                    "in",
+                                                    "not_in"
+                                                  ]
+                                                },
+                                                "value": {
+                                                  "type": "array",
+                                                  "minItems": 1,
+                                                  "maxItems": 32,
+                                                  "items": {
+                                                    "type": [
+                                                      "string",
+                                                      "number",
+                                                      "boolean"
+                                                    ]
+                                                  }
+                                                }
+                                              },
+                                              "required": [
+                                                "column",
+                                                "op",
+                                                "value"
+                                              ],
+                                              "additionalProperties": false
+                                            },
+                                            {
+                                              "type": "object",
+                                              "properties": {
+                                                "column": {
+                                                  "enum": [
+                                                    "PROCESS_ID",
+                                                    "RETRY_COUNT",
+                                                    "STATUS",
+                                                    "TRANSACTION_ID"
+                                                  ]
+                                                },
+                                                "op": {
+                                                  "enum": [
+                                                    "is_missing",
+                                                    "is_present"
+                                                  ]
+                                                },
+                                                "value": {
+                                                  "type": "null"
+                                                }
+                                              },
+                                              "required": [
+                                                "column",
+                                                "op",
+                                                "value"
+                                              ],
+                                              "additionalProperties": false
+                                            }
+                                          ]
+                                        }
+                                      }
+                                    },
+                                    "required": [
+                                      "table",
+                                      "filter"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  "join": {
+                                    "type": "array",
+                                    "minItems": 1,
+                                    "maxItems": 6,
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "source": {
+                                          "enum": [
+                                            "PROCESS_ID",
+                                            "RETRY_COUNT",
+                                            "STATUS",
+                                            "TRANSACTION_ID"
+                                          ]
+                                        },
+                                        "target": {
+                                          "enum": [
+                                            "PROCESS_ID",
+                                            "RETRY_COUNT",
+                                            "STATUS",
+                                            "TRANSACTION_ID"
+                                          ]
+                                        }
+                                      },
+                                      "required": [
+                                        "source",
+                                        "target"
+                                      ],
+                                      "additionalProperties": false
+                                    }
+                                  }
+                                },
+                                "required": [
+                                  "select",
+                                  "join"
+                                ],
+                                "additionalProperties": false
+                              }
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "select",
+                        "context",
+                        "explained_by"
+                      ],
+                      "additionalProperties": false
+                    }
+                  ]
+                },
+                "needed": {
+                  "type": "array",
+                  "maxItems": 0,
+                  "items": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 240
+                  }
+                }
+              },
+              "required": [
+                "id",
+                "requires_complete_capture",
+                "evidence",
+                "normal_exceptions",
+                "reason",
+                "role",
+                "plan",
+                "needed"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 240
+                },
+                "requires_complete_capture": {
+                  "type": "boolean"
+                },
+                "evidence": {
+                  "type": "array",
+                  "minItems": 1,
+                  "maxItems": 8,
+                  "items": {
+                    "oneOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "document_id": {
+                            "const": "reported-status-dictionary"
+                          },
+                          "quote": {
+                            "const": "In the supplied T/P status dictionary, STATUS=S denotes reported success and STATUS=F denotes reported failure. These meanings describe recorded outcomes; they do not establish that a process failure under an ultimately successful transaction is prohibited."
+                          }
+                        },
+                        "required": [
+                          "document_id",
+                          "quote"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "document_id": {
+                            "const": "export-lookup-scope"
+                          },
+                          "quote": {
+                            "const": "For this CSV review, ProcessStatusExport.TRANSACTION_ID is compared with the identical TransactionStatusExport.TRANSACTION_ID string. RETRY_COUNT is retained for provenance and is not assumed equal across files. All source CSV rows for each selected string ID are loaded."
+                          }
+                        },
+                        "required": [
+                          "document_id",
+                          "quote"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "document_id": {
+                            "const": "unconfirmed-handling"
+                          },
+                          "quote": {
+                            "const": "Recovery and partial-success handling are not established by this input. A reported process failure with a successful parent may have been handled. Review of the recorded outcomes cannot prove an unrecovered failure, a protocol violation, or an incident."
+                          }
+                        },
+                        "required": [
+                          "document_id",
+                          "quote"
+                        ],
+                        "additionalProperties": false
+                      }
+                    ]
+                  }
+                },
+                "normal_exceptions": {
+                  "type": "array",
+                  "maxItems": 4,
+                  "items": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 240
+                  }
+                },
+                "reason": {
+                  "type": "string",
+                  "minLength": 8,
+                  "maxLength": 400
+                },
+                "role": {
+                  "const": "request_evidence"
+                },
+                "plan": {
+                  "type": "null"
+                },
+                "needed": {
+                  "type": "array",
+                  "minItems": 1,
+                  "maxItems": 5,
+                  "items": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 240
+                  }
+                }
+              },
+              "required": [
+                "id",
+                "requires_complete_capture",
+                "evidence",
+                "normal_exceptions",
+                "reason",
+                "role",
+                "plan",
+                "needed"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        }
+      },
+      "no_candidate_reason": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "maxLength": 400
+      }
+    },
+    "required": [
+      "candidates",
+      "no_candidate_reason"
+    ],
+    "additionalProperties": false
+  },
+  "inferred_source_columns": {
+    "TransactionStatusExport": [
+      "RETRY_COUNT",
+      "STATUS",
+      "TRANSACTION_ID"
+    ],
+    "ProcessStatusExport": [
+      "PROCESS_ID",
+      "RETRY_COUNT",
+      "STATUS",
+      "TRANSACTION_ID"
+    ]
+  },
+  "inferred_source_types": {
+    "TransactionStatusExport.RETRY_COUNT": "string",
+    "TransactionStatusExport.STATUS": "string",
+    "TransactionStatusExport.TRANSACTION_ID": "string",
+    "ProcessStatusExport.PROCESS_ID": "string",
+    "ProcessStatusExport.RETRY_COUNT": "string",
+    "ProcessStatusExport.STATUS": "string",
+    "ProcessStatusExport.TRANSACTION_ID": "string"
+  },
+  "adopted_operational_rules": [],
+  "semantic_and_operational_review": "pending",
+  "actual_model_weight_sha": "f36ce52e0690e8eefe2cfb26aa5d0f2c37f629a49f7ecd8063a37980233ee496",
+  "Base_revision": "6a9e13bd6fc8f0983b9b99948120bc37f49c13e9",
+  "prompt_policy": "source-only-scope-review1.5-source-evidence",
+  "citation_policy": "exact-input-spans1.1",
+  "execution_feedback_policy": "source-only-execution-feedback1.0",
+  "input_availability_policy": "required-input-availability1.0",
+  "predicate_consistency_policy": "literal-conjunction-consistency1.2-conditional-row",
+  "declared_reference_guard_policy": "declared-self-reference-direction1.0",
+  "sample_execution_rows_removed": true,
+  "compiled_from_actual_pack_sha256": "c6ee282aec0b6351f0bba7e95010b66df26d9546116c0339e317238dfa908a29",
+  "original_proposal_sha256": "835a399713c575ab5bd45f64365f04c49280e0f014b3983e8ea85f58588f450b"
+}

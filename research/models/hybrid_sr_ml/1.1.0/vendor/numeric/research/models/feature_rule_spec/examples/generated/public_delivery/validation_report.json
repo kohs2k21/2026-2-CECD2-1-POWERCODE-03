@@ -1,0 +1,336 @@
+[
+  {
+    "id": "ratio_value",
+    "actual_Model_generation": true,
+    "runtime_human_answer_edits": false,
+    "counts": {
+      "Feature_status": "feature_verified",
+      "Rule_status": "rule_verified",
+      "definition_proposed_and_validated": true,
+      "definition_kind": "derived",
+      "selected_rows": 7,
+      "valid_observations": 3,
+      "positive_feature_generated": true,
+      "rules": 1,
+      "by_role": {
+        "HR": 0,
+        "observed_SR": 1,
+        "baseline_SR": 0
+      },
+      "pending": 0,
+      "no_candidate_is_not_positive_generation": true
+    },
+    "Feature_first_pass": true,
+    "Rule_first_pass": true,
+    "CPU_saved_output_replay": {
+      "saved_artifacts": true,
+      "raw_Model_provenance": true,
+      "source_remeasured": true,
+      "new_Model_calls": 0,
+      "independent_calculation": {
+        "passed": true,
+        "method": "separate recursive lexical evaluator; distinct relation/group indices; exact Decimal50",
+        "values_compared": 7,
+        "selection_unavailable": 0,
+        "vector_sha": "2a9c07192469baa2b113a95b0ad2d4d84d06f4ebb4f086e08274cbb0a44abd7a",
+        "business_truth_label": false
+      },
+      "definition_sha": "96c09d4aab04c5cc74bdf11c9cef9cb8bffae992fb27fb4f07f0a5612637c405",
+      "source_version": "a317bc6e578b38c0d55ce0cf75d58476fee5e277599e67d1e67e5feab2d7d28a"
+    },
+    "passed": true,
+    "positive_generation": true,
+    "seconds": 166.56153845787048
+  },
+  {
+    "id": "ratio_unavailable",
+    "actual_Model_generation": true,
+    "runtime_human_answer_edits": false,
+    "counts": {
+      "Feature_status": "feature_verified",
+      "Rule_status": "rule_verified",
+      "definition_proposed_and_validated": true,
+      "definition_kind": "derived",
+      "selected_rows": 7,
+      "valid_observations": 7,
+      "positive_feature_generated": true,
+      "rules": 1,
+      "by_role": {
+        "HR": 0,
+        "observed_SR": 1,
+        "baseline_SR": 0
+      },
+      "pending": 0,
+      "no_candidate_is_not_positive_generation": true
+    },
+    "Feature_first_pass": true,
+    "Rule_first_pass": true,
+    "CPU_saved_output_replay": {
+      "saved_artifacts": true,
+      "raw_Model_provenance": true,
+      "source_remeasured": true,
+      "new_Model_calls": 0,
+      "independent_calculation": {
+        "passed": true,
+        "method": "separate recursive lexical evaluator; distinct relation/group indices; exact Decimal50",
+        "values_compared": 7,
+        "selection_unavailable": 0,
+        "vector_sha": "6f240651fc401c43288b3c6f27c80b91e0ed434a90d1098e146a313713b677dc",
+        "business_truth_label": false
+      },
+      "definition_sha": "9faeebff599c1c2c31eafcd48f41d066bf1a960b1d258ba38b54b72fa0611bda",
+      "source_version": "a317bc6e578b38c0d55ce0cf75d58476fee5e277599e67d1e67e5feab2d7d28a"
+    },
+    "passed": true,
+    "positive_generation": true,
+    "seconds": 102.86843228340149
+  },
+  {
+    "id": "nested_comparison_unavailable",
+    "actual_Model_generation": true,
+    "runtime_human_answer_edits": false,
+    "counts": {
+      "Feature_status": "feature_verified",
+      "Rule_status": "rule_verified",
+      "definition_proposed_and_validated": true,
+      "definition_kind": "derived",
+      "selected_rows": 5,
+      "valid_observations": 5,
+      "positive_feature_generated": true,
+      "rules": 1,
+      "by_role": {
+        "HR": 0,
+        "observed_SR": 1,
+        "baseline_SR": 0
+      },
+      "pending": 0,
+      "no_candidate_is_not_positive_generation": true
+    },
+    "Feature_first_pass": true,
+    "Rule_first_pass": true,
+    "CPU_saved_output_replay": {
+      "saved_artifacts": true,
+      "raw_Model_provenance": true,
+      "source_remeasured": true,
+      "new_Model_calls": 0,
+      "independent_calculation": {
+        "passed": true,
+        "method": "separate recursive lexical evaluator; distinct relation/group indices; exact Decimal50",
+        "values_compared": 5,
+        "selection_unavailable": 0,
+        "vector_sha": "a581e4553e81d5b6bf535db0782ea64a47019d8452be5fc61f832a378708ec45",
+        "business_truth_label": false
+      },
+      "definition_sha": "e273ca8bb5125779b0890179e05335906ba6d598d6ea9459fd19660f8f8ccfad",
+      "source_version": "be762a537b99c8c61c06cf9dadd73e3ba8436a031dda587a47079cc2567ef8b3"
+    },
+    "passed": true,
+    "positive_generation": true,
+    "seconds": 94.38897466659546
+  },
+  {
+    "id": "parent_match_state",
+    "actual_Model_generation": true,
+    "runtime_human_answer_edits": false,
+    "counts": {
+      "Feature_status": "feature_verified",
+      "Rule_status": "rule_verified",
+      "definition_proposed_and_validated": true,
+      "definition_kind": "derived",
+      "selected_rows": 4,
+      "valid_observations": 4,
+      "positive_feature_generated": true,
+      "rules": 1,
+      "by_role": {
+        "HR": 0,
+        "observed_SR": 1,
+        "baseline_SR": 0
+      },
+      "pending": 0,
+      "no_candidate_is_not_positive_generation": true
+    },
+    "Feature_first_pass": true,
+    "Rule_first_pass": true,
+    "CPU_saved_output_replay": {
+      "saved_artifacts": true,
+      "raw_Model_provenance": true,
+      "source_remeasured": true,
+      "new_Model_calls": 0,
+      "independent_calculation": {
+        "passed": true,
+        "method": "separate recursive lexical evaluator; distinct relation/group indices; exact Decimal50",
+        "values_compared": 4,
+        "selection_unavailable": 0,
+        "vector_sha": "1cb808987e96468b7205b5bda9c6071341b4da76db600c4fb23044f4990d51a6",
+        "business_truth_label": false
+      },
+      "definition_sha": "1f523c56c914ac1b959a41c0b6c57ba2398ac0374d3eec2463286660a7b7e87c",
+      "source_version": "c7fdeaacb68ac6ef68b01f651707e6aad95f42e6bc0726106a38f1cd49077ea1"
+    },
+    "passed": true,
+    "positive_generation": true,
+    "seconds": 94.81471657752991
+  },
+  {
+    "id": "child_average",
+    "actual_Model_generation": true,
+    "runtime_human_answer_edits": false,
+    "counts": {
+      "Feature_status": "feature_verified",
+      "Rule_status": "rule_verified",
+      "definition_proposed_and_validated": true,
+      "definition_kind": "derived",
+      "selected_rows": 4,
+      "valid_observations": 1,
+      "positive_feature_generated": true,
+      "rules": 1,
+      "by_role": {
+        "HR": 0,
+        "observed_SR": 1,
+        "baseline_SR": 0
+      },
+      "pending": 0,
+      "no_candidate_is_not_positive_generation": true
+    },
+    "Feature_first_pass": true,
+    "Rule_first_pass": true,
+    "CPU_saved_output_replay": {
+      "saved_artifacts": true,
+      "raw_Model_provenance": true,
+      "source_remeasured": true,
+      "new_Model_calls": 0,
+      "independent_calculation": {
+        "passed": true,
+        "method": "separate recursive lexical evaluator; distinct relation/group indices; exact Decimal50",
+        "values_compared": 4,
+        "selection_unavailable": 0,
+        "vector_sha": "d58c3298b7921cc6a4099514d3571acad191165980e158b3c189e1b3162bc828",
+        "business_truth_label": false
+      },
+      "definition_sha": "a287939334fdde19737438d5fa9d89b4133ab63df73f94aa3472c29f4bda0316",
+      "source_version": "63365b2e2fc31603007544b35c675781cfdd75e95b2e255ce6f69991a85401be"
+    },
+    "passed": true,
+    "positive_generation": true,
+    "seconds": 97.39687037467957
+  },
+  {
+    "id": "relation_set_exclusion",
+    "actual_Model_generation": true,
+    "runtime_human_answer_edits": false,
+    "counts": {
+      "Feature_status": "feature_verified",
+      "Rule_status": "rule_verified",
+      "definition_proposed_and_validated": true,
+      "definition_kind": "derived",
+      "selected_rows": 4,
+      "valid_observations": 2,
+      "positive_feature_generated": true,
+      "rules": 1,
+      "by_role": {
+        "HR": 0,
+        "observed_SR": 1,
+        "baseline_SR": 0
+      },
+      "pending": 0,
+      "no_candidate_is_not_positive_generation": true
+    },
+    "Feature_first_pass": true,
+    "Rule_first_pass": false,
+    "CPU_saved_output_replay": {
+      "saved_artifacts": true,
+      "raw_Model_provenance": true,
+      "source_remeasured": true,
+      "new_Model_calls": 0,
+      "independent_calculation": {
+        "passed": true,
+        "method": "separate recursive lexical evaluator; distinct relation/group indices; exact Decimal50",
+        "values_compared": 4,
+        "selection_unavailable": 0,
+        "vector_sha": "15c43620cae82147ca069b9f6c386ca4261370a06f1ef77f34376efb4a5d2ff7",
+        "business_truth_label": false
+      },
+      "definition_sha": "c8ceb852d296d559ab67ed8fdc412ce6023058285cb4c9c321bd3dd0e4a63ab3",
+      "source_version": "63365b2e2fc31603007544b35c675781cfdd75e95b2e255ce6f69991a85401be"
+    },
+    "passed": true,
+    "positive_generation": true,
+    "seconds": 99.87026286125183
+  },
+  {
+    "id": "confirmed_HR",
+    "actual_Model_generation": true,
+    "runtime_human_answer_edits": false,
+    "counts": {
+      "Feature_status": "feature_verified",
+      "Rule_status": "rule_verified",
+      "definition_proposed_and_validated": true,
+      "definition_kind": "derived",
+      "selected_rows": 7,
+      "valid_observations": 7,
+      "positive_feature_generated": true,
+      "rules": 1,
+      "by_role": {
+        "HR": 1,
+        "observed_SR": 0,
+        "baseline_SR": 0
+      },
+      "pending": 0,
+      "no_candidate_is_not_positive_generation": true
+    },
+    "Feature_first_pass": true,
+    "Rule_first_pass": true,
+    "CPU_saved_output_replay": {
+      "saved_artifacts": true,
+      "raw_Model_provenance": true,
+      "source_remeasured": true,
+      "new_Model_calls": 0,
+      "independent_calculation": {
+        "passed": true,
+        "method": "separate recursive lexical evaluator; distinct relation/group indices; exact Decimal50",
+        "values_compared": 7,
+        "selection_unavailable": 0,
+        "vector_sha": "935d5f16b10033b3551ff48ee64d6fa09f5069faf4903a5fa1865ee6b2e89645",
+        "business_truth_label": false
+      },
+      "definition_sha": "259a8e7e8d397f083ec5f252442005390016a924e4284467e37365feec0ccffd",
+      "source_version": "a317bc6e578b38c0d55ce0cf75d58476fee5e277599e67d1e67e5feab2d7d28a"
+    },
+    "passed": true,
+    "positive_generation": true,
+    "seconds": 78.52352666854858
+  },
+  {
+    "id": "unsupported_parent_lookup",
+    "actual_Model_generation": true,
+    "runtime_human_answer_edits": false,
+    "counts": {
+      "Feature_status": "no_candidate_review",
+      "Rule_status": "not_run",
+      "definition_proposed_and_validated": false,
+      "definition_kind": null,
+      "selected_rows": null,
+      "valid_observations": null,
+      "positive_feature_generated": false,
+      "rules": 0,
+      "by_role": {
+        "HR": 0,
+        "observed_SR": 0,
+        "baseline_SR": 0
+      },
+      "pending": 0,
+      "no_candidate_is_not_positive_generation": true
+    },
+    "Feature_first_pass": true,
+    "Rule_first_pass": null,
+    "CPU_saved_output_replay": {
+      "saved_artifacts": true,
+      "raw_Model_provenance": true,
+      "source_remeasured": false,
+      "new_Model_calls": 0
+    },
+    "passed": true,
+    "positive_generation": false,
+    "seconds": 9.035067081451416
+  }
+]

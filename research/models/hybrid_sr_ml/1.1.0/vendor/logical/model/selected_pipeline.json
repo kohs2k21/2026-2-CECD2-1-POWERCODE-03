@@ -1,0 +1,27 @@
+{
+  "arm": "Candidate",
+  "task": "source-grounded logical feature/rule candidate specification",
+  "selection_record_sha256": "025e2140751b4ba9ee7a2c862d376efa03668fad2f9a3fe29a6986539c910ff9",
+  "source_review": true,
+  "execution_feedback": true,
+  "strict_input_guards": true,
+  "adapter_files": {
+    "adapter_model.safetensors": "f36ce52e0690e8eefe2cfb26aa5d0f2c37f629a49f7ecd8063a37980233ee496",
+    "adapter_config.json": "79f551da188da2026253b05eb29d150895e0aadda71dea29e33b0c92a47c6072"
+  },
+  "prompt_policy": "source-only-scope-review1.5-source-evidence",
+  "operational_approval": false,
+  "automatic_fallback": false,
+  "existing_numeric_Feature_and_Rule_models_replaced": false,
+  "selected_training_phase": "C3",
+  "selection_contract": "source-grounded-logical-release1.0",
+  "runtime_overlay_manifest_sha256": "df5bb37ee0a93ca24a118bd28b96dac2db8cc29a81989d48ab8edceaaf3e9bbd",
+  "serving_policy": "logical-rule-serving1.5-evidence-dominance",
+  "typed_operator_runtime_policy": "typed-relational-discovery1.3-evidence-dominance",
+  "feature_contract": "logical-feature-definition1.3-runtime-binding",
+  "adapter_metadata_change": {
+    "base_model_name_or_path_only": true,
+    "original_config_sha256": "66e94c0afa56515b39dafc43ce8460d771c6896901a8f4515bd69f975eb7db9f",
+    "weight_bytes_unchanged": true
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "Feature_status": "feature_verified",
+  "Rule_status": "rule_verified",
+  "definition_proposed_and_validated": true,
+  "definition_kind": "derived",
+  "selected_rows": 7,
+  "valid_observations": 7,
+  "positive_feature_generated": true,
+  "rules": 1,
+  "by_role": {
+    "HR": 1,
+    "observed_SR": 0,
+    "baseline_SR": 0
+  },
+  "pending": 0,
+  "no_candidate_is_not_positive_generation": true
+}

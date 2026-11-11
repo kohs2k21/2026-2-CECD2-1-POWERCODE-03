@@ -1,0 +1,82 @@
+{
+  "policy": "conditional-source-curriculum-selection1.0",
+  "splits": {
+    "train": {
+      "path": "/home/msko20702/#\uc885\ud569\uc124\uacc4/data/data/eda/logical_rule_discovery_eval/20261109T182204+0900/conditional_row_operator_development/conditional_operator_sft/teacher_selected/train.jsonl",
+      "sha256": "127f41748d6f63fcf9b84e9f8182c22ed246492e7585fb52863409180fc2c6ce",
+      "examples": 400
+    },
+    "validation": {
+      "path": "/home/msko20702/#\uc885\ud569\uc124\uacc4/data/data/eda/logical_rule_discovery_eval/20261109T182204+0900/conditional_row_operator_development/conditional_operator_sft/teacher_selected/validation.jsonl",
+      "sha256": "be294dfff38920e8d0b2a48197f1361e0d05390e7431d8ee57ed4c1e7c6ed35b",
+      "examples": 100
+    }
+  },
+  "initial_adapter": {
+    "path": "/home/msko20702/#\uc885\ud569\uc124\uacc4/data/data/eda/logical_rule_discovery_eval/20261109T182204+0900/logical_completion_sft/training/checkpoints/final/adapter",
+    "weight_sha256": "a1c45ad86d4bd5dc86f925682c2230493e159d9ee1bde2de29d5f1b9606f8cc5",
+    "config_sha256": "d74f5d5dd4351cdc3c0ad2ad9f028d0e9f1d8631036f6111a7b04b5377c7f9fd"
+  },
+  "prior_curriculum_stratified": {
+    "train": 320,
+    "validation": 80,
+    "selection_seed": 733,
+    "family_quotas": {
+      "train": {
+        "reference": 19,
+        "scoped_unique": 19,
+        "required_child": 19,
+        "forbidden_child": 19,
+        "closed_domain": 20,
+        "dependency": 19,
+        "unexplained_review": 19,
+        "nullable_backlink_review": 19,
+        "unverified_order": 19,
+        "unmapped_recovery": 19,
+        "unverified_requirement": 19,
+        "conditional_required_fields": 20,
+        "permission_only": 19,
+        "observed_review": 19,
+        "finite_export_pointer_lookup": 13,
+        "scoped_duplicate_identity": 13,
+        "reported_parent_child_outcome": 13,
+        "reported_error_dictionary": 13
+      },
+      "validation": {
+        "reference": 5,
+        "scoped_unique": 5,
+        "required_child": 5,
+        "forbidden_child": 5,
+        "closed_domain": 5,
+        "dependency": 5,
+        "unexplained_review": 5,
+        "nullable_backlink_review": 5,
+        "unverified_order": 4,
+        "unmapped_recovery": 5,
+        "unverified_requirement": 4,
+        "conditional_required_fields": 5,
+        "permission_only": 5,
+        "observed_review": 5,
+        "finite_export_pointer_lookup": 3,
+        "scoped_duplicate_identity": 3,
+        "reported_parent_child_outcome": 3,
+        "reported_error_dictionary": 3
+      }
+    }
+  },
+  "reviewed_new_teacher": {
+    "train": 80,
+    "validation": 20,
+    "root_review_sha256": "8631868a60a95f454f3d53724e4677b2ac39a79b4ccbeefdb001b9134a77053e"
+  },
+  "all_selected_prior_rows_byte_identical": true,
+  "previous_teacher_preserved": true,
+  "total_selected_train": 400,
+  "total_selected_validation": 100,
+  "additional_epoch": 1,
+  "expected_optimizer_steps": 100,
+  "warmstart_is_audited_C1_not_partial_C2": true,
+  "company_CSV_or_evaluation_or_model_response_used_in_new_teacher": false,
+  "labels": "AI-authored source-reviewed synthetic silver, not expert incident labels",
+  "automatic_release_selection": false
+}

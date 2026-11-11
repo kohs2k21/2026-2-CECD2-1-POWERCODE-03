@@ -1,0 +1,24 @@
+{
+  "version": "conditional_numeric_SR_1.0.1",
+  "reference_sha256": "3ccdb4d56576b8fd817806935259c70743db788821d3674ac1d7ca1245eb3bb0",
+  "calibration_sha256": "b5494727946242d2dd6f4bdc1d6034706ce1009adba1adef4e3ce92698022a7c",
+  "rule_names": [
+    "input_transfer_relative_execution",
+    "post_script_delay",
+    "queue_delay",
+    "runtime",
+    "stage_in_delay",
+    "stage_out_delay",
+    "wms_delay"
+  ],
+  "definition_source": "/home/msko20702/#종합설계/data/data/eda/flowbench_external_eval/20261109T154355_344475+0900/evaluation/generated_definitions.json",
+  "definition_source_sha256": "3be77f870e9608efdbb1fd3126807c873b0f870f8626f63bf68a7803063f297a",
+  "baseline_rules_source_sha256": "7499d548787aa520a86a602e0ced7a82bc0b51c256eb5deff532195772c5a465",
+  "joint_cutoff": 4.267190569744584,
+  "primary_policy": "grouped_joint_p99",
+  "no_TEST_in_fit": true,
+  "prior_failed_rule_not_added": [
+    "waiting_relative_execution"
+  ],
+  "author": "code_numeric_recalibration_of_fixed_LLM_rule_semantics"
+}

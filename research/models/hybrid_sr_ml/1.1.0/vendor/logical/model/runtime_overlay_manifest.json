@@ -1,0 +1,36 @@
+{
+  "scope": "Separate prospective execution hardening; previous runtime/model outputs and ongoing queues unchanged",
+  "files": [
+    {
+      "file": "typed_plan.py",
+      "original_sha256": "47d902e724aac50df4ab352d4e0093917d3a96aa49a9b02913d9fdeecf145003",
+      "overlay_sha256": "837f803ad2be25f58caeabd2f0bf29f6d4b2d1c4d331ab98372fd42ec185c999"
+    },
+    {
+      "file": "serve_rules.py",
+      "original_sha256": "b41a61347cef9aceb44948bc4ac6e43fe9591d89e0d68b26270cc2b27ddb14d5",
+      "overlay_sha256": "f58f2a2e439c4ef841d2d1e374305b7d8722fd0c2c492ae47015f0ae371bf395"
+    },
+    {
+      "file": "export_contracts.py",
+      "original_sha256": "e22dd473a44d024729348d17a232d203a3e474c1101985091577552b3ca1c53f",
+      "overlay_sha256": "4b797935aa078ac2da570fdaceb27806e9e4d64ae76c3a4ced9e980ca3b1aeba"
+    }
+  ],
+  "parent_overlay_manifest_sha256": "5f1d6db411649f6268b2fa4306a08812c8e87530a7d2c518c10adb685a355c48",
+  "generated_plan_AST_changed": false,
+  "previous_pack_compatibility": "Source-bound1.1 remains; source-bound1.0 rejected.",
+  "serving_policy": "logical-rule-serving1.5-evidence-dominance",
+  "typed_operator_runtime_policy": "typed-relational-discovery1.3-evidence-dominance",
+  "feature_contract": "logical-feature-definition1.3-runtime-binding",
+  "changes": [
+    "Preserve required occurrence-key unknown handling from prior overlay.",
+    "A proven matching target disproves missing-target even with unobserved or uncertain alternatives.",
+    "Two proven matching targets violate exactly-one even with unobserved or uncertain alternatives.",
+    "Unknown absence or a single target with unknown possible alternatives remains unavailable."
+  ],
+  "requires_complete_capture_choice_not_overridden": true,
+  "feature_id_version_changes_intentionally": true,
+  "previously_recorded_measurements_not_reused": true,
+  "selection": false
+}

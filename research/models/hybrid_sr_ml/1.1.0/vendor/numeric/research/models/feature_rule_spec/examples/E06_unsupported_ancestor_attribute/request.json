@@ -1,0 +1,16 @@
+{
+  "question": "For each LEAF_ROW retrieve the raw OWNER_ROW RAW_TEAM value through its linked GROUP_ROW and OWNER_ROW. Preserve LEAF_ROW output rows. If the exact attribute-lookup operation is unsupported, return no candidate rather than a count substitute.",
+  "analysis_request": {
+    "output_table": "LEAF_ROW",
+    "required_columns": [
+      [
+        "OWNER_ROW",
+        "RAW_TEAM"
+      ]
+    ],
+    "required_relationship_ids": [
+      "leaf_group",
+      "group_owner"
+    ]
+  }
+}

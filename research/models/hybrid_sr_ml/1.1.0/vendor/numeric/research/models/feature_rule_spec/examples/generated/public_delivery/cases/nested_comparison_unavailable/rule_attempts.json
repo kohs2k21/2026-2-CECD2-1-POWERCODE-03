@@ -1,0 +1,66 @@
+[
+  {
+    "attempt": 0,
+    "prediction": {
+      "v": "3",
+      "feature": "fd_5e578d65107d15146961096b",
+      "sha": "e273ca8bb5125779b0890179e05335906ba6d598d6ea9459fd19660f8f8ccfad",
+      "decisions": [
+        {
+          "request": "observed",
+          "role": "SR",
+          "state": "proposed",
+          "basis": "observed_diagnostic",
+          "condition": {
+            "op": "eq",
+            "value": true
+          },
+          "evidence": [
+            "m_36dc094afd6bc797853ee870"
+          ],
+          "needed": [],
+          "reason": "The supplied calculated-value diagnostic has 5 usable observations. It is evaluable regardless of current activations; no historical reference or application minimum is required.",
+          "purpose": "data_quality",
+          "warning_meaning": "Narrow calculated-value or availability property under its supplied scope; no operational incident or business-necessity claim.",
+          "population_ref": "population_ed4f320da281ea34359e",
+          "precondition_refs": [
+            "source_be762a537b99c8c61c06",
+            "availability_578549fc054bc44e8056",
+            "mapping_125a3a0d56133848cad4"
+          ],
+          "required_evaluation_basis": [
+            "source_be762a537b99c8c61c06",
+            "availability_578549fc054bc44e8056",
+            "mapping_125a3a0d56133848cad4",
+            "population_ed4f320da281ea34359e",
+            "m_36dc094afd6bc797853ee870"
+          ],
+          "unavailable_action": "preserve_unassessed",
+          "unavailable_reason": "If the current calculation or its referenced sources were unavailable, this condition could not be evaluated; current availability does not imply future or online availability.",
+          "business_scope": "Offline calculated-value or availability diagnostic under supplied source/key/child/population conditions; no inferred fault, conservation, clock, or business obligation.",
+          "baseline_use_ref": null
+        }
+      ]
+    },
+    "passed": true,
+    "errors": [],
+    "actual_model_origin": {
+      "file": "model/rule_0/output.json",
+      "raw_sha": "904d4db2e6e6c57c71c9dba3ca0872353c03d3b76e2f6fb3ed5928ca7b9a99c6",
+      "parsed_sha": "1911cbb5041898f566cf7da6c372af42c8ecaa1266a12f48e1af46e551d89cb1",
+      "messages_sha": "b880eb1a82e37b9d857e271e344cf8b1ff1ccf08d77ef29f82b031a9065bc5c0",
+      "budget": {
+        "sequence": 2,
+        "kind": "rule",
+        "call": "rule_0",
+        "phase": "frozen_final_final_public_delivery_nested_comparison_unavailable",
+        "at": 1793097456.2545958,
+        "failed_or_interrupted_calls_consume_budget": true,
+        "shared_sequence": 97
+      }
+    },
+    "partial_roles": null,
+    "partial_Rule_prose_fields": null,
+    "normal_roles_preserved": false
+  }
+]

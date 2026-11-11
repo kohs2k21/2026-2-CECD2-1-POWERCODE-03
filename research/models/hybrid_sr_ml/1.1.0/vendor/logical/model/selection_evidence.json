@@ -1,0 +1,46 @@
+{
+  "selection_contract": "source-grounded-logical-release1.0",
+  "created_at": "2026-11-10T08:41:15.629903+00:00",
+  "selected_arm": "Candidate",
+  "decision": "select_for_research_use",
+  "selected_model": {
+    "training_phase": "C3",
+    "weight_sha256": "f36ce52e0690e8eefe2cfb26aa5d0f2c37f629a49f7ecd8063a37980233ee496",
+    "config_sha256": "66e94c0afa56515b39dafc43ce8460d771c6896901a8f4515bd69f975eb7db9f"
+  },
+  "fixed_behavior_report": {
+    "path": "/home/msko20702/#\uc885\ud569\uc124\uacc4/data/data/eda/logical_rule_discovery_eval/20261109T182204+0900/declared_source_grounding_development/fixed_behavior_report_20261110T1608.json",
+    "sha256": "f2ad54f837a0c51e79a9fe423dc093f4f4f45d28c117d0643046c736b66b5076"
+  },
+  "semantic_review_record": {
+    "path": "/home/msko20702/#\uc885\ud569\uc124\uacc4/data/data/eda/logical_rule_discovery_eval/20261109T182204+0900/research_delivery_20261110/semantic_review_record.json",
+    "sha256": "2fd2b894f574a0c4d3fcddde32b381eb3b38095c68973503f0e14088d85e0e4d"
+  },
+  "training_audit": {
+    "path": "/home/msko20702/#\uc885\ud569\uc124\uacc4/data/data/eda/logical_rule_discovery_eval/20261109T182204+0900/conditional_row_operator_development/durable_recovery/20261110T122354+0900/C3/final_independent_audit/audit.json",
+    "sha256": "aa30ad3b769676eec4bcd0a2788b1a8d7d517db6c38a2e970b062b270b532a64"
+  },
+  "runtime_overlay_manifest_sha256": "df5bb37ee0a93ca24a118bd28b96dac2db8cc29a81989d48ab8edceaaf3e9bbd",
+  "final_two_development_result": {
+    "path": "/home/msko20702/#\uc885\ud569\uc124\uacc4/data/data/eda/logical_rule_discovery_eval/20261109T182204+0900/declared_source_grounding_development/final_two_C3_research_selection_check/scores/evaluation.json",
+    "sha256": "36eb3c596889f12635794db07162c4e42406f28606b2bbe0ad54fba6e2e33339"
+  },
+  "novel_single_call_result": {
+    "path": "/home/msko20702/#\uc885\ud569\uc124\uacc4/data/data/eda/logical_rule_discovery_eval/20261109T182204+0900/declared_source_grounding_development/evidence_dominance_scores/C3_complete/additional_scores/novel/evaluation.json",
+    "sha256": "08b31426d82e79f0e3451ad217e29ff82786cd84a9ec560a2b6b93a701f1e077"
+  },
+  "bounded_reviewed_library_result": {
+    "path": "/home/msko20702/#\uc885\ud569\uc124\uacc4/data/data/eda/logical_rule_discovery_eval/20261109T182204+0900/declared_source_grounding_development/bounded_coverage_N01/reviewed_library_replay/evaluation.json",
+    "sha256": "51c7bdf73e5378977cee63fb28a897b0d8f3292670903c71952a637d61cc9d97"
+  },
+  "same_code_Base_comparison": {
+    "path": "/home/msko20702/#\uc885\ud569\uc124\uacc4/data/data/eda/logical_rule_discovery_eval/20261109T182204+0900/declared_source_grounding_development/same_code_Base/actual_C3_C4_same_code_comparison.json",
+    "sha256": "9b206a8b1c8e7c14b88f0a6c570742cf334cbe842ed7ea35b4e9b17b4d2928ab"
+  },
+  "why_this_candidate": "Complete required fixed147 behavior, source-grounded scoped exceptions, final2 development26/26, complete audited C3 epoch. More recent candidates were not monotonic improvements.",
+  "numeric_Feature_Rule_and_ML_unchanged": true,
+  "automatic_publication": false,
+  "automatic_rule_activation": false,
+  "model_download": false,
+  "ML_fit": false
+}

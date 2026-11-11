@@ -1,0 +1,9 @@
+{
+  "requests": [
+    "observed"
+  ],
+  "question": "Offline calculated-value availability under the supplied controlled relation and population, not an incident label.",
+  "observed_condition": {
+    "op": "is_missing"
+  }
+}

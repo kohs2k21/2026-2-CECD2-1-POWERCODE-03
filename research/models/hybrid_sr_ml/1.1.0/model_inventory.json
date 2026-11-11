@@ -1,0 +1,127 @@
+{
+  "models": [
+    {
+      "path": "profiles/flowbench/1000genome/models/if.joblib",
+      "kind": "frozen_ML",
+      "bytes": 576800,
+      "sha256": "0fe1ac470a32a26a9e70f962f1a9461d90d1a1dd551edf815b9a4261204fa421"
+    },
+    {
+      "path": "profiles/flowbench/1000genome/models/kmeans.joblib",
+      "kind": "frozen_ML",
+      "bytes": 2435,
+      "sha256": "0f3dcfeb84bd02d853c0c5959b59ea13bb1f2d8513ef1b48b44bb4ce442e9e58"
+    },
+    {
+      "path": "profiles/flowbench/1000genome/models/lof.joblib",
+      "kind": "frozen_ML",
+      "bytes": 530833,
+      "sha256": "5516e82a37c0e43b428cefdd76330d32587fec82d7c55c7eb7d30040614029a3"
+    },
+    {
+      "path": "profiles/flowbench/montage/models/if.joblib",
+      "kind": "frozen_ML",
+      "bytes": 681837,
+      "sha256": "20cec62906be2c6cfdf6ea77de9aa9c3a253da3aa643660049b2809e284a7416"
+    },
+    {
+      "path": "profiles/flowbench/montage/models/kmeans.joblib",
+      "kind": "frozen_ML",
+      "bytes": 4685,
+      "sha256": "e762828da9239c60d430e2fa31ef5741344cf80d910882396e06c90948e298e8"
+    },
+    {
+      "path": "profiles/flowbench/montage/models/lof.joblib",
+      "kind": "frozen_ML",
+      "bytes": 1582437,
+      "sha256": "039fc4901e87eade482888e63366aae0db9ad6ba21d65d9084cb10e7d4d0a85c"
+    },
+    {
+      "path": "vendor/numeric/research/integration/feature_rule_ml/shared42/release/models/M_if.joblib",
+      "kind": "frozen_ML",
+      "bytes": 48650,
+      "sha256": "b0fb9012ebcb535fda4bcac30dba5f68515dcb3b9445935c90abf33787d62c79"
+    },
+    {
+      "path": "vendor/numeric/research/integration/feature_rule_ml/shared42/release/models/M_kmeans.joblib",
+      "kind": "frozen_ML",
+      "bytes": 58146,
+      "sha256": "37e21b52192f7ff9e454bcc94055c4a2cef7da3f4c79e88d9562fa9daaa3c951"
+    },
+    {
+      "path": "vendor/numeric/research/integration/feature_rule_ml/shared42/release/models/M_lof.joblib",
+      "kind": "frozen_ML",
+      "bytes": 1399,
+      "sha256": "39d646a99fd96db9f94183123c478a5e5d2da3b2e2b356daf7683bb18347d56e"
+    },
+    {
+      "path": "vendor/numeric/research/integration/feature_rule_ml/shared42/release/models/P_if.joblib",
+      "kind": "frozen_ML",
+      "bytes": 1186318,
+      "sha256": "1c79a9bfb5d4062c8eda6640ca2270119ffbe082905e13a693b24bc9b1d0b83e"
+    },
+    {
+      "path": "vendor/numeric/research/integration/feature_rule_ml/shared42/release/models/P_kmeans.joblib",
+      "kind": "frozen_ML",
+      "bytes": 304575,
+      "sha256": "0d4d5d5e7d1e307ade665a0fc74df60bc6697625b1fc064d70747f616e6740f9"
+    },
+    {
+      "path": "vendor/numeric/research/integration/feature_rule_ml/shared42/release/models/P_lof.joblib",
+      "kind": "frozen_ML",
+      "bytes": 70559,
+      "sha256": "78a754fb732fe58d9303ab29602a086f73cd54f7cbf071780ba18da50d6cfbd8"
+    },
+    {
+      "path": "vendor/numeric/research/integration/feature_rule_ml/shared42/release/models/T_if.joblib",
+      "kind": "frozen_ML",
+      "bytes": 587303,
+      "sha256": "4059e5d8c3b6cc5fa1597ff13987e127aa3c49d4a8bfd03ca0e11bf8ed79fe43"
+    },
+    {
+      "path": "vendor/numeric/research/integration/feature_rule_ml/shared42/release/models/T_kmeans.joblib",
+      "kind": "frozen_ML",
+      "bytes": 148983,
+      "sha256": "a0b328ffba40d328cb3c3d3df84e5ef0f12f34250f4927d06cfc43066c84e6b9"
+    },
+    {
+      "path": "vendor/numeric/research/integration/feature_rule_ml/shared42/release/models/T_lof.joblib",
+      "kind": "frozen_ML",
+      "bytes": 83046,
+      "sha256": "1b52222f415c38aa3baee4235a5aee21e03aa1ecf7055c20ddf2b594e8fbf9f9"
+    },
+    {
+      "path": "models/esb_design_origin/feature/adapter_model.safetensors",
+      "kind": "LoRA_adapter",
+      "bytes": 95136344,
+      "sha256": "e69a89e9f3fb4b3b6c4c58b2a7b81c77ef96d7d5fab14637d98e9855d1744177"
+    },
+    {
+      "path": "models/esb_design_origin/rule/adapter_model.safetensors",
+      "kind": "LoRA_adapter",
+      "bytes": 95136344,
+      "sha256": "085024938c1905f3274d40e426607465f6467a15bdb5f1570cb8e25377c507fe"
+    },
+    {
+      "path": "vendor/logical/model/models/logical/adapter_model.safetensors",
+      "kind": "LoRA_adapter",
+      "bytes": 95136344,
+      "sha256": "f36ce52e0690e8eefe2cfb26aa5d0f2c37f629a49f7ecd8063a37980233ee496"
+    },
+    {
+      "path": "vendor/numeric/research/models/feature_rule_spec/models/feature/adapter_model.safetensors",
+      "kind": "LoRA_adapter",
+      "bytes": 95136344,
+      "sha256": "f5bc75d6ffc436418236b6808fe46a0841ef3e7c974c22d2c7a9bc0333b81975"
+    },
+    {
+      "path": "vendor/numeric/research/models/feature_rule_spec/models/rule/adapter_model.safetensors",
+      "kind": "LoRA_adapter",
+      "bytes": 95136344,
+      "sha256": "d816cf6a1f264149fb3d4db9c7cc929a76b12ce6f04f0407a4c4b459dbd573c9"
+    }
+  ],
+  "Base_weights_bundled": false,
+  "new_weights_trained": false,
+  "neural_weights_merged": false
+}

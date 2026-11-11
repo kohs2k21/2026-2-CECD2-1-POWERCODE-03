@@ -1,0 +1,294 @@
+{
+  "definitions": {
+    "input_transfer_relative_execution": {
+      "proposal_id": "local",
+      "plan": {
+        "expression": {
+          "op": "divide",
+          "args": [
+            {
+              "op": "column",
+              "table": "TASK",
+              "column": "stage_in_delay"
+            },
+            {
+              "op": "column",
+              "table": "TASK",
+              "column": "runtime"
+            }
+          ]
+        },
+        "grain": {
+          "table": "TASK",
+          "keys": [
+            "ROW_ID"
+          ]
+        },
+        "population": {
+          "table": "TASK",
+          "filter": null
+        },
+        "group_by": [],
+        "result_use": "value"
+      },
+      "purpose": "Measure stage-in transfer duration relative to execution duration for each TASK row.",
+      "meaning": "Report the ratio of stage-in transfer duration to execution duration for each task, unavailable for missing inputs or zero execution duration.",
+      "needed_evidence": [
+        "unit_runtime",
+        "unit_stage_in_delay"
+      ]
+    },
+    "post_script_delay": {
+      "proposal_id": "local",
+      "plan": {
+        "expression": {
+          "op": "column",
+          "table": "TASK",
+          "column": "post_script_delay"
+        },
+        "grain": {
+          "table": "TASK",
+          "keys": [
+            "ROW_ID"
+          ]
+        },
+        "population": {
+          "table": "TASK",
+          "filter": null
+        },
+        "group_by": [],
+        "result_use": "value"
+      },
+      "purpose": "Represent the captured post_script_delay as one numeric per-task metric.",
+      "meaning": "Return the post_script_delay value for each task, preserving missingness and seconds.",
+      "needed_evidence": []
+    },
+    "queue_delay": {
+      "proposal_id": "local",
+      "plan": {
+        "expression": {
+          "op": "column",
+          "table": "TASK",
+          "column": "queue_delay"
+        },
+        "grain": {
+          "table": "TASK",
+          "keys": [
+            "ROW_ID"
+          ]
+        },
+        "population": {
+          "table": "TASK",
+          "filter": null
+        },
+        "group_by": [],
+        "result_use": "value"
+      },
+      "purpose": "Represent the captured queue_delay as one numeric per-task metric. Preserve the source value, all TASK rows, missingness and seconds; do not turn it into a Boolean.",
+      "meaning": "Return the queue_delay value for each task row, preserving seconds and missingness.",
+      "needed_evidence": []
+    },
+    "runtime": {
+      "proposal_id": "local",
+      "plan": {
+        "expression": {
+          "op": "column",
+          "table": "TASK",
+          "column": "runtime"
+        },
+        "grain": {
+          "table": "TASK",
+          "keys": [
+            "ROW_ID"
+          ]
+        },
+        "population": {
+          "table": "TASK",
+          "filter": null
+        },
+        "group_by": [],
+        "result_use": "value"
+      },
+      "purpose": "Represent the captured runtime as one numeric per-task metric. Preserve the source value, all TASK rows, missingness and seconds; do not turn it into a Boolean.",
+      "meaning": "Return the measured task execution duration in seconds for each task row, preserving any missingness.",
+      "needed_evidence": []
+    },
+    "stage_in_delay": {
+      "proposal_id": "local",
+      "plan": {
+        "expression": {
+          "op": "column",
+          "table": "TASK",
+          "column": "stage_in_delay"
+        },
+        "grain": {
+          "table": "TASK",
+          "keys": [
+            "ROW_ID"
+          ]
+        },
+        "population": {
+          "table": "TASK",
+          "filter": null
+        },
+        "group_by": [],
+        "result_use": "value"
+      },
+      "purpose": "Represent the captured stage_in_delay as one numeric per-task metric. Preserve the source value, all TASK rows, missingness and seconds; do not turn it into a Boolean.",
+      "meaning": "Report the measured stage-in transfer duration in seconds for each task, preserving missingness.",
+      "needed_evidence": []
+    },
+    "stage_out_delay": {
+      "proposal_id": "local",
+      "plan": {
+        "expression": {
+          "op": "column",
+          "table": "TASK",
+          "column": "stage_out_delay"
+        },
+        "grain": {
+          "table": "TASK",
+          "keys": [
+            "ROW_ID"
+          ]
+        },
+        "population": {
+          "table": "TASK",
+          "filter": null
+        },
+        "group_by": [],
+        "result_use": "value"
+      },
+      "purpose": "Represent the captured stage_out_delay as one numeric per-task metric.",
+      "meaning": "Report the stage_out_delay value for each task, preserving missingness and seconds.",
+      "needed_evidence": []
+    },
+    "waiting_relative_execution": {
+      "proposal_id": "local",
+      "plan": {
+        "expression": {
+          "op": "divide",
+          "args": [
+            {
+              "op": "column",
+              "table": "TASK",
+              "column": "queue_delay"
+            },
+            {
+              "op": "column",
+              "table": "TASK",
+              "column": "runtime"
+            }
+          ]
+        },
+        "grain": {
+          "table": "TASK",
+          "keys": [
+            "ROW_ID"
+          ]
+        },
+        "population": {
+          "table": "TASK",
+          "filter": null
+        },
+        "group_by": [],
+        "result_use": "value"
+      },
+      "purpose": "Measure queued waiting duration relative to execution duration for each TASK row.",
+      "meaning": "Compute queue_delay divided by runtime for each TASK row; unavailable for missing inputs or zero execution duration, and valid numeric zero.",
+      "needed_evidence": []
+    },
+    "wms_delay": {
+      "proposal_id": "local",
+      "plan": {
+        "expression": {
+          "op": "column",
+          "table": "TASK",
+          "column": "wms_delay"
+        },
+        "grain": {
+          "table": "TASK",
+          "keys": [
+            "ROW_ID"
+          ]
+        },
+        "population": {
+          "table": "TASK",
+          "filter": null
+        },
+        "group_by": [],
+        "result_use": "value"
+      },
+      "purpose": "Represent the captured wms_delay as one numeric per-task metric. Preserve the source value, all TASK rows, missingness and seconds; do not turn it into a Boolean.",
+      "meaning": "Return the measured workflow management delay in seconds for each task row, preserving any missingness.",
+      "needed_evidence": []
+    }
+  },
+  "conditions": {
+    "1000genome": {
+      "input_transfer_relative_execution": {
+        "op": "gt",
+        "value": 0.13793103448275862
+      },
+      "post_script_delay": {
+        "op": "gt",
+        "value": 5
+      },
+      "queue_delay": {
+        "op": "gt",
+        "value": 1021
+      },
+      "runtime": {
+        "op": "gt",
+        "value": 1053
+      },
+      "stage_in_delay": {
+        "op": "gt",
+        "value": 72
+      },
+      "stage_out_delay": {
+        "op": "gt",
+        "value": 5
+      },
+      "wms_delay": {
+        "op": "gt",
+        "value": 6
+      }
+    },
+    "montage": {
+      "input_transfer_relative_execution": {
+        "op": "gt",
+        "value": 0.7142857142857143
+      },
+      "post_script_delay": {
+        "op": "gt",
+        "value": 5
+      },
+      "queue_delay": {
+        "op": "gt",
+        "value": 179
+      },
+      "runtime": {
+        "op": "gt",
+        "value": 156
+      },
+      "stage_in_delay": {
+        "op": "gt",
+        "value": 60
+      },
+      "stage_out_delay": {
+        "op": "gt",
+        "value": 7
+      },
+      "waiting_relative_execution": {
+        "op": "gt",
+        "value": 3.086206896551724
+      },
+      "wms_delay": {
+        "op": "gt",
+        "value": 110
+      }
+    }
+  },
+  "rejections": []
+}

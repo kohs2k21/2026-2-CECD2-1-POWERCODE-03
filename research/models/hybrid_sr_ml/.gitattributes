@@ -1,0 +1,5 @@
+*.safetensors binary
+*.joblib binary
+# Preserve authenticated upstream whitespace in these two frozen source files.
+1.1.0/profiles/flowbench/OFFICIAL_README.md whitespace=-blank-at-eol
+1.1.0/vendor/logical/model/implementation/recommend.py whitespace=-blank-at-eof

@@ -1,0 +1,115 @@
+TRAINING REPRODUCTION IN THE EXISTING RESEARCH WORKSPACE
+
+The portable bundle reproduces inference and frozen-rule execution. Exact SFT
+sources, selected synthetic teacher pairs and optimizer checkpoints are preserved
+in the research experiment directory below. They are not needed for CPU serving.
+No company raw CSV or private evaluation answers were used in these SFT pairs.
+
+Experiment directory:
+  /home/msko20702/#종합설계/data/data/eda/logical_rule_discovery_eval/20261109T182204+0900
+Python:
+  /home/msko20702/#종합설계/data/.venv/bin/python
+
+Run only in the current Docker container and use an assigned exposed GPU. Check
+GPU availability first. Never reuse an output directory or overwrite a checkpoint.
+These commands describe a deliberate new training run, not an automatic startup
+step. They do not install dependencies or change the pinned original Base.
+
+Selected sources, not an unreviewed regenerated draft
+  Phase 1: logical_sft/teacher_verified/{train,validation}.jsonl, manifest.json
+  Phase 2: logical_completion_sft/teacher_reviewed/{train,validation}.jsonl,
+           manifest.json, review_before_training and training_source_snapshot
+The selected JSONL files and their recorded hashes are the authoritative pairs.
+Builders and earlier drafts are retained for provenance; rerunning a draft builder
+is not permission to substitute different targets or skip their semantic review.
+The second manifest also pins the initial logical adapter weight/config.
+
+Inspect these sources and hashes before any GPU run. Use the exact project
+interpreter with -B and without -O. Critical gates in the preserved trainer use
+assert, so optimized Python is not a supported training execution mode.
+
+Phase 1 CPU token/target admission, from the experiment directory
+  '/home/msko20702/#종합설계/data/.venv/bin/python' -B \
+    implementation/train_logical_adapter.py \
+    --teacher logical_sft/teacher_verified \
+    --output /path/to/NEW/phase1_cpu_admission --cpu-only
+
+Phase 1 deliberate GPU training
+  CUDA_VISIBLE_DEVICES=<assigned-id> \
+    '/home/msko20702/#종합설계/data/.venv/bin/python' -B \
+    implementation/train_logical_adapter.py \
+    --teacher logical_sft/teacher_verified --output /path/to/NEW/phase1_training
+
+Phase 2 deliberate GPU training, if this phase was selected in selection_evidence
+  CUDA_VISIBLE_DEVICES=<assigned-id> \
+    '/home/msko20702/#종합설계/data/.venv/bin/python' -B \
+    implementation/train_logical_completion_adapter.py \
+    --teacher logical_completion_sft/teacher_reviewed \
+    --warmstart logical_sft/training/checkpoints/final/adapter \
+    --output /path/to/NEW/phase2_training
+The reviewed second-phase manifest pins the actual original first-phase adapter.
+It will reject a different newly reproduced adapter unless a separate prospective
+dataset/initialization review creates a new manifest. Never rewrite the preserved
+selected manifest to make a different weight silently pass.
+
+Independent post-run audits
+  '/home/msko20702/#종합설계/data/.venv/bin/python' -B \
+    implementation/audit_logical_training.py \
+    --training /path/to/NEW/phase1_training --teacher logical_sft/teacher_verified \
+    --output /path/to/NEW/phase1_audit
+  '/home/msko20702/#종합설계/data/.venv/bin/python' -B \
+    implementation/audit_logical_completion_training.py \
+    --training /path/to/NEW/phase2_training \
+    --teacher logical_completion_sft/teacher_reviewed \
+    --output /path/to/NEW/phase2_audit
+
+Training protocol
+NF4 double-quantized original Base, BF16 compute; language-module LoRA rank8,
+alpha16, dropout0.05; 23,760,896 trainable parameters in 608 adapter tensors.
+Only assistant answer and EOS tokens contribute to cross-entropy; source prompt
+tokens are masked. AdamW at1e-4, accumulation4, gradient clip1, seed42, maximum
+sequence8192 with no truncation. Base and vision parameters remain frozen.
+
+Phase 1 selected264 train/66 validation, one full66-step epoch from the Base.
+Phase 2 selected336 train/84 validation, one additional84-step epoch from the
+first adapter with a fresh optimizer. The previous264/66 pairs are copied byte
+for byte;72 train/18 validation pairs add conditional independent requirements,
+permission-versus-obligation and authority-versus-observational-role examples.
+Across both phases the old264 training pairs are exposed twice and the new72
+once. This is not two full epochs over336 independent examples. Validation
+families overlap training families; exact input hashes do not overlap splits.
+
+Record complete sample consumption, finite adapter tensors, actual changes and
+unchanged protected on-disk sources. NLL and executor admission do not establish
+generation quality. Re-run source-only generation and fixed behavioral tests,
+preserving invalid attempts and first/final results. Do not put those evaluation
+answers or failed model outputs into the selected SFT data without a new study.
+The release selection is explicit; a later adapter is not adopted automatically.
+
+Checkpoint recovery
+The final selected history may include an optimizer-boundary recovery into a new
+directory after the client execution session stopped. The unchanged trainer then
+restores AdamW and Python/NumPy/Torch/CUDA RNG states. Effective consumed-example
+records up to that checkpoint are copied exactly once. Later interrupted updates
+are preserved separately and excluded from the selected weight lineage. A full
+epoch claim concerns the effective checkpoint lineage, not uninterrupted execution
+or a claim that no discarded compute occurred. A recovered training_result.json
+seconds field covers its resumed execution only; see selected_training_history.json
+for original attempts and copied-ledger accounting.
+
+SELECTED LATER-PHASE ADDENDUM
+
+Actual selected phase is C3; read selected_training_history.json.
+The earlier phase1/phase2 commands describe ancestors, not the whole selected recipe.
+Final teacher: /home/msko20702/#종합설계/data/data/eda/logical_rule_discovery_eval/20261109T182204+0900/conditional_row_operator_development/conditional_operator_sft/teacher_selected
+Final continuation: original unchanged implementation/train_logical_completion_adapter.py
+  --teacher /home/msko20702/#종합설계/data/data/eda/logical_rule_discovery_eval/20261109T182204+0900/conditional_row_operator_development/conditional_operator_sft/teacher_selected
+  --warmstart /home/msko20702/#종합설계/data/data/eda/logical_rule_discovery_eval/20261109T182204+0900/logical_completion_sft/training/checkpoints/final/adapter
+  --output /path/to/NEW/final_training
+Use the same project Python and an assigned CUDA_VISIBLE_DEVICES as above.
+Registered final phase:400 train/100 validation,100 optimizer steps,one full epoch.
+C2 and C3 both initialize from C1; do not initialize C3 from C2.
+Selected synthetic JSONL files are included under training_data for inspection.
+Preserved manifests intentionally retain original workspace paths and warmstart pins.
+Parent adapter weights/Base and the experiment trainer are external prerequisites.
+This is an inference/serving bundle, not an automatic standalone retraining package.

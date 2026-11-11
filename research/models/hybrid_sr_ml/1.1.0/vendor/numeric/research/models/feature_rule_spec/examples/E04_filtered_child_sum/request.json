@@ -1,0 +1,19 @@
+{
+  "question": "For each PARENT_SAMPLE row sum linked CHILD_EVENT RAW_QTY values whose raw RAW_TAG is neither L nor R. Keep the exact physical relationship. Known empty selected child sets yield0; a selected child with unavailable RAW_QTY yields unavailable. Do not interpret raw tags as business status.",
+  "analysis_request": {
+    "output_table": "PARENT_SAMPLE",
+    "required_columns": [
+      [
+        "CHILD_EVENT",
+        "RAW_QTY"
+      ],
+      [
+        "CHILD_EVENT",
+        "RAW_TAG"
+      ]
+    ],
+    "required_relationship_ids": [
+      "sample_event_parent"
+    ]
+  }
+}

@@ -2,7 +2,8 @@
 
 `research/` contains exploratory notebooks, scenarios, model experiments, and evaluation notes. It is not a runtime dependency of `server/`.
 
-- [선택 구성: 공통 피처 Trainer·Detector (#140)](integration/feature_rule_ml/shared42/README.md): 이전 검증 피처65개·HR10/관측SR58/수치SR42·T/P/M42개 ML 입력과 모델9개. 새 CSV 계산, 명시적 학습·저장, 동결 탐지·거래별 단독/공통 경고 집계.
+- [최종 수치·논리 SR + ML 연구 모델 1.1.0 (#142)](models/hybrid_sr_ml/README.md): ESB 수치 SR42·논리 SR3·ML9개, 분모0 실제 대체 평가와 FlowBench 전용 프로필. 동결 모델·실행 CLI·공개 재현 검사·집계 평가 포함.
+- [이전 선택 구성: 공통 피처 Trainer·Detector (#140)](integration/feature_rule_ml/shared42/README.md): 이전 검증 피처65개·HR10/관측SR58/수치SR42·T/P/M42개 ML 입력과 모델9개. 새 CSV 계산, 명시적 학습·저장, 동결 탐지·거래별 단독/공통 경고 집계.
 - [별도 Process 행 ML과 우리 HR/SR 연결 (#95·#136)](integration/feature_rule_ml/PROCESS_EVENT_INTEGRATION.md): PR #98의 동결 모델 3종을 원본 그대로 사용하며, 동일 Process 원천·행 키 검증 및 별도 Python 3.12 추론 프로세스로 결합.
 - [최신 Process 행 ML 패키지 (#95)](process_event_model/README.md): Process 실행 행 IF·K-means·LOF와 직전 1분 비교 모델, 원래 코드·정책·모델 SHA 보존.
 - [피처·HR/SR 명세와 공통 피처 ML 통합](integration/feature_rule_ml/README.md): 기존 최종 LLM 패키지와 IF·K-means·LOF 연구 코드 연결. 명시적 학습과 동결 추론 분리, 계산 불가 보존. v12 시간창 가중치의 직접 피처 교체 및 서버 배포와 구분.

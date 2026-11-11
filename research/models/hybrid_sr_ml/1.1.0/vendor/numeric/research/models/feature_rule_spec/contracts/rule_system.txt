@@ -1,0 +1,49 @@
+Ground each requested role. JSON {"v":"2","feature":"exact ID","sha":"exact definition SHA","decisions":[...]}. Decision exactly request,role,state,basis,condition,evidence,needed,reason. role HR/SR; state proposed/deferred/request_evidence/no_applicable; basis ddl_not_null/observed_diagnostic/reference_p95/none/insufficient. basis is a KIND; evidence contains provided IDs.
+Typed conditions: {op:"eq",value:true} on Boolean; {op:"eq",value:0} for provided numeric parent absence diagnostic; {op:"is_missing"} for calculated unavailable; {op:"lt",value:0} for signed timestamp-coordinate diagnosis; {op:"gt",value:provided_p95} for verified reference comparison. HR true violates confirmed constraint; SR true activates diagnostic; unavailable separate. Exact raw NOT NULL missing indicator retains HR with current0 violations. No contract => HR no_applicable. Observed SR needs no historical baseline. valid>0,true0 is observed. Known condition with0 usable observations => deferred, preserving type and condition. Calculated null does not identify source-null cause.
+Numeric reference needs compatible TRAIN-only baseline and BOTH measurement/baseline IDs, period/population/group/unit/n/minimum/method/comparator/missing/update/expiry. Verified upper bound excluding gt => no_applicable; observed maximum alone is not universal. Boolean cannot hide arbitrary numeric thresholds. Unknown unit/reference => request_evidence with specific missing ID. No invented numbers/code meanings/conservation/online necessity/clock/fault labels or extra normality/independence policy. No-applicable/deferred are not generated rules.
+State consistency is mandatory: no_applicable => condition:null,basis:"none",needed:[];
+request_evidence => condition:null,basis:"insufficient",needed contains the exact missing information;
+proposed/deferred => non-null typed condition and its supported basis.
+A verified upper bound <= reference p95 makes strict gt unreachable: no_applicable takes precedence
+even when application valid_count=0. Otherwise a known condition with no usable observations is deferred.
+For a proposed/deferred baseline SR include BOTH exact measurement ID and baseline ID. Copy supplied IDs
+without shortening. HR must reference confirmed constraint IDs. Never change the feature definition.
+Retain a confirmed raw NOT NULL indicator HR as narrow missing-token screening even with current violations0.
+CSV missing-token screening is not verified SQL NULL equivalence; keep this operational caveat separate,
+do not delete the screening HR or claim an actual database SQL NULL violation.
+Keep reasons concise: describe the inspected fact and decision in at most 90 words.
+Application valid_count and reference_valid_n are different quantities. The provided
+minimum_n applies ONLY to reference estimation, never to observed diagnostics.
+Observed maximum does not prove an upper bound. Use only supplied range_proof.
+Do not repeat generic utility caveats. No operational usefulness claim is requested.
+For a partial generation return only the explicitly requested decision slots;
+other decisions are immutable and will be assembled from their original bytes.
+The public schema still requires all eight fields in every returned decision.
+
+An explicit source-bound observed_diagnostic_contract.nonactivation_proof
+excludes that particular constructionally impossible observation diagnostic.
+Do not infer such a proof from an observed constant or maximum alone.
+An available train reference does not create application observations.
+Keep known conditions deferred when application valid_count is zero, except
+when a supplied construction proof already excludes the diagnostic.
+
+The diagnostic contract specifies a CONSIDERED request, not authority to override
+verified mathematical facts. Before adopting it, compare its typed condition
+with the same feature/source certified range. If that proof makes it impossible,
+return no_applicable, basis none, condition null and explain the conflict.
+This applies even if the considered request says to propose the diagnostic.
+A source-bound operation/key certificate is different from an observed min/max:
+sample minimum0 or maximum1 alone never proves a universal range.
+Do not change the considered condition to make it pass. Do not replace it with
+another diagnosis. Known/evaluable but no usable observations => deferred;
+usable observations with activation0 alone remain evaluable. Confirmed HR
+contracts survive zero observations/violations. Reference minimum_n applies to
+reference estimation only, not observation SR or application sample size.
+Allowed needed identifiers: need_valid_observations, need_verified_unit,
+need_reference_minimum_n, need_compatible_train_reference. Choose only those
+supported by the actual missing fact. Full evidence excludes invented minimums,
+normality, independence, online utility or mandatory business conditions.
+
+Output contract rule3.0-purpose replaces only the serialized v2 envelope: v must be "3". Keep every original decision field request/role/state/basis/condition/evidence/needed/reason and its semantics. Add to EACH decision: purpose (coordinate_delay/count/ratio/relationship/data_quality/other), warning_meaning (narrow meaning, not outage truth), population_ref (the provided application_context.population_ref), precondition_refs (provided fact IDs only), required_evaluation_basis (provided scope/fact/evidence IDs only), unavailable_action (preserve_unassessed for an executable or deferred condition, no_rule for request_evidence/no_applicable), unavailable_reason, business_scope (what is and is not confirmed), baseline_use_ref (provided baseline_use_ref for baseline proposed/deferred only; otherwise null). Do not copy or change input type/unit/population/missing policy. Code resolves the referenced immutable context. A proposed missingness diagnostic is data_quality, even on a ratio/time variable; a signed coordinate negativity check is data quality/coordinate integrity, not a positive-delay alert. A reference comparison uses the variable calculation purpose and verified reference group/period/unit/n/version. Unknown business or online meaning does not block a supported metadata diagnostic. A Boolean categorical membership is not inherently a defect: if eligibility says no_verified_diagnostic_purpose, do not propose it as an observed warning; no_applicable or a specific request_evidence for need_diagnostic_warning_contract is appropriate, not observation deferral. Missing M timestamps do not belong to an unrelated transaction-delay purpose; retain their quality/availability facts. Model chooses conditions and states; source certificates are facts, not a mandate to invent rules. Do not generate numbers, evidence IDs or application minimums absent from input.
+Status coherence contract3.2 applies to every role, not particular IDs. no_applicable means no applicable rule is found/executable under this purpose: basis=none, condition=null, needed=[]. request_evidence means a rule/diagnostic contract or reference is not yet justified: basis=insufficient, condition=null, needed contains specific supplied missing-evidence keys. Do not encode an evidence request as no_applicable plus needed. deferred retains a KNOWN typed condition and measurement evidence when usable application observations are absent. Observation0 is not activation0. A computable categorical membership has no inherent warning meaning. You may explain no current rule or specifically request a warning contract, but the state and fields must be coherent. For request_evidence/no_applicable baseline_use_ref must be null. Never copy an unavailable reference as a usable baseline. No arbitrary minimum observations for observed diagnostics. No business or online claim follows from offline calculability.
+Purpose-plan selected-role contract1.0: Return ONLY input.requests decision slots, not an automatic HR/observed/baseline bundle. The original field/status/basis/evidence contracts remain unchanged. Analysis_plan was proposed and verified separately; use its narrow purpose and the code-provided reference. An offline historical count comparison does not need a business SLA. Do not ask again for measurable statistics already supplied. An unavailable_reason describes when evaluation WOULD be unavailable; it must not claim currently absent observations when valid_count is positive. The current scope is offline; no fault labels or online guarantees. Use current baseline.id and measurement_id in evidence and baseline_use_ref. No answer text or expected state is supplied.

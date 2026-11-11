@@ -1,0 +1,78 @@
+[
+  {
+    "attempt": 0,
+    "prediction": {
+      "schema": "feature5.2",
+      "candidates": [
+        {
+          "proposal_id": "local",
+          "plan": {
+            "expression": {
+              "op": "gt",
+              "args": [
+                {
+                  "op": "divide",
+                  "args": [
+                    {
+                      "op": "column",
+                      "table": "COMPARISON_ROWS",
+                      "column": "NUM"
+                    },
+                    {
+                      "op": "column",
+                      "table": "COMPARISON_ROWS",
+                      "column": "DEN"
+                    }
+                  ]
+                },
+                {
+                  "op": "column",
+                  "table": "COMPARISON_ROWS",
+                  "column": "CUT"
+                }
+              ]
+            },
+            "grain": {
+              "table": "COMPARISON_ROWS",
+              "keys": [
+                "ROW_KEY"
+              ]
+            },
+            "population": {
+              "table": "COMPARISON_ROWS",
+              "filter": null
+            },
+            "group_by": [],
+            "result_use": "unavailable"
+          },
+          "purpose": "Check whether the division of NUM by DEN exceeds CUT is unavailable.",
+          "meaning": "Report whether the comparison of NUM divided by DEN to CUT is unavailable.",
+          "needed_evidence": []
+        }
+      ],
+      "stop_reason": null
+    },
+    "passed": true,
+    "errors": [],
+    "actual_model_origin": {
+      "file": "model/feature_0/output.json",
+      "raw_sha": "f14aaac075a6a0588c18b9895639610877a363eca4c22df23ac8ae430d4a25e2",
+      "parsed_sha": "9d182647377fb434027693777dd7d8a7e052feb328ab7e0fdbf6703a1502c582",
+      "messages_sha": "e4079bee6bda7413613d72fda1b841afb26cbe569eb5dbd3c5ba68622666824b",
+      "budget": {
+        "sequence": 1,
+        "kind": "feature",
+        "call": "feature_0",
+        "phase": "frozen_final_final_public_delivery_nested_comparison_unavailable",
+        "at": 1793097432.4069912,
+        "failed_or_interrupted_calls_consume_budget": true,
+        "shared_sequence": 96
+      }
+    },
+    "partial_Model_prose_fields": null,
+    "partial_Model_expression_and_prose": false,
+    "partial_stop_reason": false,
+    "assembly_over_preserved_candidate": false,
+    "not_code_authored_answer": true
+  }
+]

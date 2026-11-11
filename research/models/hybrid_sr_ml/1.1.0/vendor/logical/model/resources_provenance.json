@@ -1,0 +1,9 @@
+{
+  "phase": "C3",
+  "weight_sha256": "f36ce52e0690e8eefe2cfb26aa5d0f2c37f629a49f7ecd8063a37980233ee496",
+  "history_sha256": "6dffb370d743637b3de6410541e8e614763f0f99f9620c1506bdc281e1dbd57f",
+  "source_example_sha256": "af8c00bb3b0607636928b174af01ac063e59783d93f5a03959ba0d875d6ca1b1",
+  "pack_sha256": "f744cb5606ac57248ebe87b83c37cfc73cbfaa4aca17686b2af72c193586c3c7",
+  "original_examples_preserved": true,
+  "fixed_expected_example_decisions_preserved": true
+}

@@ -1,0 +1,24 @@
+{
+  "full_epoch_completed": true,
+  "actual_train_examples": 400,
+  "all_used_exactly_once": true,
+  "validation_examples": 100,
+  "exact_train_validation_input_overlap": 0,
+  "operator_families_shared_between_splits": true,
+  "silver_template_generalization_not_incident_labels": true,
+  "teacher_manifest_sha256": "27d1670fd90c47df9a6340406c2133ad39a87ee676b46fdc7628c145f8d61323",
+  "checkpoint_manifests_verified": [
+    "initial",
+    "final"
+  ],
+  "final_adapter_weight_sha256": "f36ce52e0690e8eefe2cfb26aa5d0f2c37f629a49f7ecd8063a37980233ee496",
+  "LoRA_tensors": 608,
+  "changed_LoRA_tensors": 608,
+  "saved_trainable_parameters": 23760896,
+  "all_saved_tensors_are_LoRA": true,
+  "all_saved_tensors_finite": true,
+  "base_frozen_samples_unchanged_per_trainer": true,
+  "entire_in_memory_base_independently_compared": false,
+  "base_preservation_evidence": "Optimizer was restricted to LoRA; trainer checked no frozen gradients and sampled base values each step. Original disk source SHA audited separately.",
+  "generation_quality_established_by_this_audit": false
+}

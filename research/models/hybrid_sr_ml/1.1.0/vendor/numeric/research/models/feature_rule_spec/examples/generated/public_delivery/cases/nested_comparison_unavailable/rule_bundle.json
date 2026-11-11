@@ -1,0 +1,598 @@
+{
+  "status": "rule_verified",
+  "preserved_seed_prediction": null,
+  "seed_source_pin": null,
+  "prediction": {
+    "v": "3",
+    "feature": "fd_5e578d65107d15146961096b",
+    "sha": "e273ca8bb5125779b0890179e05335906ba6d598d6ea9459fd19660f8f8ccfad",
+    "decisions": [
+      {
+        "request": "observed",
+        "role": "SR",
+        "state": "proposed",
+        "basis": "observed_diagnostic",
+        "condition": {
+          "op": "eq",
+          "value": true
+        },
+        "evidence": [
+          "m_36dc094afd6bc797853ee870"
+        ],
+        "needed": [],
+        "reason": "The supplied calculated-value diagnostic has 5 usable observations. It is evaluable regardless of current activations; no historical reference or application minimum is required.",
+        "purpose": "data_quality",
+        "warning_meaning": "Narrow calculated-value or availability property under its supplied scope; no operational incident or business-necessity claim.",
+        "population_ref": "population_ed4f320da281ea34359e",
+        "precondition_refs": [
+          "source_be762a537b99c8c61c06",
+          "availability_578549fc054bc44e8056",
+          "mapping_125a3a0d56133848cad4"
+        ],
+        "required_evaluation_basis": [
+          "source_be762a537b99c8c61c06",
+          "availability_578549fc054bc44e8056",
+          "mapping_125a3a0d56133848cad4",
+          "population_ed4f320da281ea34359e",
+          "m_36dc094afd6bc797853ee870"
+        ],
+        "unavailable_action": "preserve_unassessed",
+        "unavailable_reason": "If the current calculation or its referenced sources were unavailable, this condition could not be evaluated; current availability does not imply future or online availability.",
+        "business_scope": "Offline calculated-value or availability diagnostic under supplied source/key/child/population conditions; no inferred fault, conservation, clock, or business obligation.",
+        "baseline_use_ref": null
+      }
+    ]
+  },
+  "attempts": [
+    {
+      "attempt": 0,
+      "prediction": {
+        "v": "3",
+        "feature": "fd_5e578d65107d15146961096b",
+        "sha": "e273ca8bb5125779b0890179e05335906ba6d598d6ea9459fd19660f8f8ccfad",
+        "decisions": [
+          {
+            "request": "observed",
+            "role": "SR",
+            "state": "proposed",
+            "basis": "observed_diagnostic",
+            "condition": {
+              "op": "eq",
+              "value": true
+            },
+            "evidence": [
+              "m_36dc094afd6bc797853ee870"
+            ],
+            "needed": [],
+            "reason": "The supplied calculated-value diagnostic has 5 usable observations. It is evaluable regardless of current activations; no historical reference or application minimum is required.",
+            "purpose": "data_quality",
+            "warning_meaning": "Narrow calculated-value or availability property under its supplied scope; no operational incident or business-necessity claim.",
+            "population_ref": "population_ed4f320da281ea34359e",
+            "precondition_refs": [
+              "source_be762a537b99c8c61c06",
+              "availability_578549fc054bc44e8056",
+              "mapping_125a3a0d56133848cad4"
+            ],
+            "required_evaluation_basis": [
+              "source_be762a537b99c8c61c06",
+              "availability_578549fc054bc44e8056",
+              "mapping_125a3a0d56133848cad4",
+              "population_ed4f320da281ea34359e",
+              "m_36dc094afd6bc797853ee870"
+            ],
+            "unavailable_action": "preserve_unassessed",
+            "unavailable_reason": "If the current calculation or its referenced sources were unavailable, this condition could not be evaluated; current availability does not imply future or online availability.",
+            "business_scope": "Offline calculated-value or availability diagnostic under supplied source/key/child/population conditions; no inferred fault, conservation, clock, or business obligation.",
+            "baseline_use_ref": null
+          }
+        ]
+      },
+      "passed": true,
+      "errors": [],
+      "actual_model_origin": {
+        "file": "model/rule_0/output.json",
+        "raw_sha": "904d4db2e6e6c57c71c9dba3ca0872353c03d3b76e2f6fb3ed5928ca7b9a99c6",
+        "parsed_sha": "1911cbb5041898f566cf7da6c372af42c8ecaa1266a12f48e1af46e551d89cb1",
+        "messages_sha": "b880eb1a82e37b9d857e271e344cf8b1ff1ccf08d77ef29f82b031a9065bc5c0",
+        "budget": {
+          "sequence": 2,
+          "kind": "rule",
+          "call": "rule_0",
+          "phase": "frozen_final_final_public_delivery_nested_comparison_unavailable",
+          "at": 1793097456.2545958,
+          "failed_or_interrupted_calls_consume_budget": true,
+          "shared_sequence": 97
+        }
+      },
+      "partial_roles": null,
+      "partial_Rule_prose_fields": null,
+      "normal_roles_preserved": false
+    }
+  ],
+  "input": {
+    "contract": "evidence-bound-selected-role-final1.0",
+    "requests": [
+      "observed"
+    ],
+    "public_analysis_request": {
+      "question": "Controlled metadata specification only; no operational fault or mandatory-parent claim.",
+      "considered_observed_condition": {
+        "op": "eq",
+        "value": true
+      }
+    },
+    "feature": {
+      "id": "fd_5e578d65107d15146961096b",
+      "sha": "e273ca8bb5125779b0890179e05335906ba6d598d6ea9459fd19660f8f8ccfad",
+      "meaning": "Report whether the comparison of NUM divided by DEN to CUT is unavailable.",
+      "purpose": "Check whether the division of NUM by DEN exceeds CUT is unavailable.",
+      "dtype": "boolean",
+      "unit": "boolean",
+      "expression": {
+        "op": "is_missing",
+        "args": [
+          {
+            "op": "gt",
+            "args": [
+              {
+                "op": "divide",
+                "args": [
+                  {
+                    "op": "column",
+                    "table": "COMPARISON_ROWS",
+                    "column": "NUM"
+                  },
+                  {
+                    "op": "column",
+                    "table": "COMPARISON_ROWS",
+                    "column": "DEN"
+                  }
+                ]
+              },
+              {
+                "op": "column",
+                "table": "COMPARISON_ROWS",
+                "column": "CUT"
+              }
+            ]
+          }
+        ]
+      },
+      "grain": {
+        "table": "COMPARISON_ROWS",
+        "keys": [
+          "ROW_KEY"
+        ]
+      },
+      "population": {
+        "table": "COMPARISON_ROWS",
+        "filter": null
+      },
+      "missing_policy": {
+        "input": "propagate",
+        "empty_group": null,
+        "denominator_zero": "missing",
+        "child_missing": "propagate",
+        "unknown_predicate": "defer"
+      },
+      "operator_state_proof": {
+        "operator": "is_missing",
+        "unavailable_possible": false,
+        "proof_scope": "Supported operator contract on retained selected rows",
+        "children": [
+          {
+            "operator": "gt",
+            "unavailable_possible": true,
+            "proof_scope": "Supported operator contract on retained selected rows",
+            "children": [
+              {
+                "operator": "divide",
+                "unavailable_possible": true,
+                "proof_scope": "Supported operator contract on retained selected rows",
+                "children": [
+                  {
+                    "operator": "column",
+                    "unavailable_possible": true,
+                    "proof_scope": "Supported operator contract on retained selected rows",
+                    "children": []
+                  },
+                  {
+                    "operator": "column",
+                    "unavailable_possible": true,
+                    "proof_scope": "Supported operator contract on retained selected rows",
+                    "children": []
+                  }
+                ]
+              },
+              {
+                "operator": "column",
+                "unavailable_possible": true,
+                "proof_scope": "Supported operator contract on retained selected rows",
+                "children": []
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "definition_sha": "e273ca8bb5125779b0890179e05335906ba6d598d6ea9459fd19660f8f8ccfad",
+    "source_version": "be762a537b99c8c61c06cf9dadd73e3ba8436a031dda587a47079cc2567ef8b3",
+    "measurement_id": "m_36dc094afd6bc797853ee870",
+    "measurement_sha": "36dc094afd6bc797853ee870f57d61ae1e79281d3e78006a2b6f6028a3f938ab",
+    "measurement": {
+      "row_count": 5,
+      "valid_count": 5,
+      "missing_count": 0,
+      "true_count": 3,
+      "false_count": 2,
+      "ratio": 0.6,
+      "numerator": 3,
+      "denominator": 5,
+      "min": null,
+      "max": null,
+      "p95": null,
+      "p99": null,
+      "variation": "variable",
+      "quantile_method": "linear_(n-1)*p",
+      "exact_decimal": {
+        "ratio": "0.6",
+        "p95": null,
+        "p99": null
+      },
+      "population_rows_before_selection": 5,
+      "selection_unavailable_count": 0
+    },
+    "constraints": [],
+    "baseline": {
+      "id": null,
+      "state": "not_requested",
+      "reference_valid_n": null,
+      "value": null,
+      "minimum_n": null
+    },
+    "scope": {
+      "period": {
+        "controlled_domain": "Artificial rows; no operational dates"
+      },
+      "table_rows": {
+        "COMPARISON_ROWS": 5
+      },
+      "population": {
+        "table": "COMPARISON_ROWS",
+        "filter": null
+      },
+      "manifest_sha": "e5a72fd414e79bfa185953d74792bd512b143985f0670a3ac36d0cd230fdf5d8",
+      "data_class": "controlled"
+    },
+    "range_proof": {
+      "min": false,
+      "max": true,
+      "kind": "Boolean",
+      "scope": "be762a537b99c8c61c06cf9dadd73e3ba8436a031dda587a47079cc2567ef8b3"
+    },
+    "sources": {
+      "calculation_and_relationship_key_columns": [
+        [
+          "COMPARISON_ROWS",
+          "CUT"
+        ],
+        [
+          "COMPARISON_ROWS",
+          "DEN"
+        ],
+        [
+          "COMPARISON_ROWS",
+          "NUM"
+        ]
+      ]
+    },
+    "observed_diagnostic_contract": {
+      "condition": {
+        "op": "eq",
+        "value": true
+      },
+      "purpose": "Controlled metadata specification only; no operational fault or mandatory-parent claim.",
+      "baseline_required": false,
+      "minimum_current_observations": null
+    },
+    "condition_evaluation": {
+      "condition": {
+        "op": "eq",
+        "value": true
+      },
+      "statistics": {
+        "rows": 5,
+        "evaluable": 5,
+        "satisfied": 3,
+        "not_satisfied": 2,
+        "unassessed": 0
+      }
+    },
+    "application_context": {
+      "fact_ids": [
+        "source_be762a537b99c8c61c06",
+        "availability_578549fc054bc44e8056",
+        "mapping_125a3a0d56133848cad4"
+      ],
+      "population_ref": "population_ed4f320da281ea34359e",
+      "evaluation_preconditions": [
+        "source_be762a537b99c8c61c06",
+        "availability_578549fc054bc44e8056",
+        "mapping_125a3a0d56133848cad4"
+      ],
+      "source_certificate": {
+        "source_version": "be762a537b99c8c61c06cf9dadd73e3ba8436a031dda587a47079cc2567ef8b3",
+        "numeric_valid": 5,
+        "retained_rows": 5,
+        "calculation_available": true
+      }
+    },
+    "condition_scope_facts": {
+      "valid_value_observations": 5,
+      "numeric_comparison_evaluable": null,
+      "result_missingness_test_evaluable": 5,
+      "retained_feature_unavailable_possible": false,
+      "source_missing_cause": "Result unavailable alone does not prove raw source null, parsing, denominator, relation or incident cause"
+    },
+    "availability": "offline complete capture; prospective availability and IF not approved",
+    "unknown": [
+      "No mandatory parent, fault label, or online contract."
+    ],
+    "known_evidence_ids": [
+      "source_be762a537b99c8c61c06",
+      "availability_578549fc054bc44e8056",
+      "mapping_125a3a0d56133848cad4",
+      "population_ed4f320da281ea34359e",
+      "m_36dc094afd6bc797853ee870"
+    ],
+    "allowed_needed_keys": [
+      "need_reference",
+      "need_reference_minimum_n",
+      "need_compatible_reference",
+      "need_verified_unit",
+      "need_valid_observations",
+      "need_confirmed_constraint",
+      "need_business_contract"
+    ],
+    "official_computation_facts": {
+      "version": "calculation-facts2.0-guarded-availability",
+      "definition_sha": "e273ca8bb5125779b0890179e05335906ba6d598d6ea9459fd19660f8f8ccfad",
+      "source_version": "be762a537b99c8c61c06cf9dadd73e3ba8436a031dda587a47079cc2567ef8b3",
+      "measurement_id": "m_36dc094afd6bc797853ee870",
+      "measurement_sha": "36dc094afd6bc797853ee870f57d61ae1e79281d3e78006a2b6f6028a3f938ab",
+      "output_grain": {
+        "table": "COMPARISON_ROWS",
+        "keys": [
+          "ROW_KEY"
+        ]
+      },
+      "population": {
+        "table": "COMPARISON_ROWS",
+        "filter": null
+      },
+      "dtype": "boolean",
+      "unit": "boolean",
+      "operator_contract_possible_states": [
+        "true",
+        "false"
+      ],
+      "operator_state_proof": {
+        "operator": "is_missing",
+        "unavailable_possible": false,
+        "proof_scope": "Supported operator contract on retained selected rows",
+        "children": [
+          {
+            "operator": "gt",
+            "unavailable_possible": true,
+            "proof_scope": "Supported operator contract on retained selected rows",
+            "children": [
+              {
+                "operator": "divide",
+                "unavailable_possible": true,
+                "proof_scope": "Supported operator contract on retained selected rows",
+                "children": [
+                  {
+                    "operator": "column",
+                    "unavailable_possible": true,
+                    "proof_scope": "Supported operator contract on retained selected rows",
+                    "children": []
+                  },
+                  {
+                    "operator": "column",
+                    "unavailable_possible": true,
+                    "proof_scope": "Supported operator contract on retained selected rows",
+                    "children": []
+                  }
+                ]
+              },
+              {
+                "operator": "column",
+                "unavailable_possible": true,
+                "proof_scope": "Supported operator contract on retained selected rows",
+                "children": []
+              }
+            ]
+          }
+        ]
+      },
+      "missing_policy": {
+        "input": "propagate",
+        "empty_group": null,
+        "denominator_zero": "missing",
+        "child_missing": "propagate",
+        "unknown_predicate": "defer"
+      },
+      "current": {
+        "selected_rows": 5,
+        "population_rows_before_selection": 5,
+        "selection_unavailable": 0,
+        "numeric_or_boolean_nonnull": 5,
+        "result_unavailable": 0,
+        "true": 3,
+        "false": 2
+      },
+      "interpretation": {
+        "null_result": "Does not alone identify source null, parsing, join, denominator or fault cause.",
+        "empty_child_group": "Zero only under the aggregate empty-group contract; unknown relationship/filter is different.",
+        "sample_extrema": "Observed min/max are not proven bounds.",
+        "total_missing_test": "is_missing evaluates retained null results to true; it is not an unavailable numerical comparison."
+      },
+      "row_nodes": [
+        {
+          "path": "/plan/expression/args/0/args/0/args/0",
+          "op": "column",
+          "evaluation_table": "COMPARISON_ROWS",
+          "output_table": "COMPARISON_ROWS",
+          "row_keys": [
+            "ROW_KEY"
+          ],
+          "scalar": false,
+          "dtype": "number",
+          "unit": null
+        },
+        {
+          "path": "/plan/expression/args/0/args/0/args/1",
+          "op": "column",
+          "evaluation_table": "COMPARISON_ROWS",
+          "output_table": "COMPARISON_ROWS",
+          "row_keys": [
+            "ROW_KEY"
+          ],
+          "scalar": false,
+          "dtype": "number",
+          "unit": null
+        },
+        {
+          "path": "/plan/expression/args/0/args/0",
+          "op": "divide",
+          "evaluation_table": "COMPARISON_ROWS",
+          "output_table": "COMPARISON_ROWS",
+          "row_keys": [
+            "ROW_KEY"
+          ],
+          "scalar": false,
+          "dtype": "number",
+          "unit": null
+        },
+        {
+          "path": "/plan/expression/args/0/args/1",
+          "op": "column",
+          "evaluation_table": "COMPARISON_ROWS",
+          "output_table": "COMPARISON_ROWS",
+          "row_keys": [
+            "ROW_KEY"
+          ],
+          "scalar": false,
+          "dtype": "number",
+          "unit": null
+        },
+        {
+          "path": "/plan/expression/args/0",
+          "op": "gt",
+          "evaluation_table": "COMPARISON_ROWS",
+          "output_table": "COMPARISON_ROWS",
+          "row_keys": [
+            "ROW_KEY"
+          ],
+          "scalar": false,
+          "dtype": "boolean",
+          "unit": "boolean"
+        },
+        {
+          "path": "/plan/expression",
+          "op": "is_missing",
+          "evaluation_table": "COMPARISON_ROWS",
+          "output_table": "COMPARISON_ROWS",
+          "row_keys": [
+            "ROW_KEY"
+          ],
+          "scalar": false,
+          "dtype": "boolean",
+          "unit": "boolean"
+        }
+      ],
+      "sha256": "d4615d6a5a58a0fa3cba04a2365b0022741d7173ba9ba96e1b5b6676010af6a5",
+      "author": "compiler",
+      "contract": "official-computation-facts1.0",
+      "not_AI_generated": true,
+      "expression": {
+        "op": "is_missing",
+        "args": [
+          {
+            "op": "gt",
+            "args": [
+              {
+                "op": "divide",
+                "args": [
+                  {
+                    "op": "column",
+                    "table": "COMPARISON_ROWS",
+                    "column": "NUM"
+                  },
+                  {
+                    "op": "column",
+                    "table": "COMPARISON_ROWS",
+                    "column": "DEN"
+                  }
+                ]
+              },
+              {
+                "op": "column",
+                "table": "COMPARISON_ROWS",
+                "column": "CUT"
+              }
+            ]
+          }
+        ]
+      },
+      "selected_result_use": "unavailable",
+      "output_excludes_filtered_rows": true,
+      "exceptions": "Invalid sources/types/execution failures are errors, not unavailable values.",
+      "complete_natural_language_proof": false,
+      "facts_sha": "5a97ce9e575b7d856bdca555180b2ae8e1a2b1a3f831b96ab9e100056d60424c"
+    },
+    "AI_prose_is_not_calculation_authority": true
+  },
+  "feature_reference": {
+    "id": "fd_5e578d65107d15146961096b",
+    "definition_sha": "e273ca8bb5125779b0890179e05335906ba6d598d6ea9459fd19660f8f8ccfad",
+    "source_version": "be762a537b99c8c61c06cf9dadd73e3ba8436a031dda587a47079cc2567ef8b3",
+    "measurement_sha": "36dc094afd6bc797853ee870f57d61ae1e79281d3e78006a2b6f6028a3f938ab"
+  },
+  "official_semantics": [
+    {
+      "author": "compiler",
+      "contract": "official-condition-facts1.0",
+      "not_AI_generated": true,
+      "condition": {
+        "op": "eq",
+        "value": true
+      },
+      "condition_valid": true,
+      "condition_error": null,
+      "statistics": {
+        "rows": 5,
+        "evaluable": 5,
+        "satisfied": 3,
+        "not_satisfied": 2,
+        "unassessed": 0
+      },
+      "valid_feature_observations": 5,
+      "numeric_current": null,
+      "retained_current": 5,
+      "reference_valid_n": null,
+      "is_missing_checks_retained_unavailable_values": false,
+      "result_unavailable_is_not_itself_condition_unassessed": false,
+      "source_or_incident_cause_not_inferred": true,
+      "full_natural_language_proof": false
+    }
+  ],
+  "description_validation": {
+    "status": "supported_claims_checked",
+    "complete_NL_proof": false,
+    "free_prose_approval": "not_granted_by_program_supported_claims_only",
+    "actual_Model_repair": false,
+    "errors": []
+  },
+  "admin_meaning_review": "Structured condition facts are authoritative; free AI text has separate approval status."
+}

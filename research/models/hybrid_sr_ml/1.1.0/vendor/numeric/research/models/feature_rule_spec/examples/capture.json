@@ -1,0 +1,279 @@
+{
+  "contract": "approved-metadata-capture1.0",
+  "dataset_id": "public_controlled_metadata",
+  "data_class": "controlled",
+  "split": "application",
+  "period": {
+    "controlled_domain": "No operational dates"
+  },
+  "admission": {
+    "approved": true,
+    "Body_excluded": true,
+    "held_lineage_excluded": true,
+    "complete_family_capture": true
+  },
+  "lineage_tags": [
+    "controlled_not_operational"
+  ],
+  "tables": [
+    {
+      "name": "CASE_HDR",
+      "file": "CASE_HDR.csv",
+      "format": "csv",
+      "sha256": "1ff947d540c7db2b34d9f0b0d2a1b6260656d1c04d5c7bf297a115383728b9b3",
+      "row_count": 3,
+      "primary_key": [
+        "ROW_ID"
+      ],
+      "columns": [
+        {
+          "name": "ROW_ID",
+          "logical_type": "string",
+          "nullable": false,
+          "excluded": false,
+          "unit": {
+            "name": null,
+            "status": "unknown"
+          },
+          "missing_tokens": [
+            ""
+          ],
+          "description": "Controlled metadata, no operational meaning."
+        },
+        {
+          "name": "REGION",
+          "logical_type": "string",
+          "nullable": true,
+          "excluded": false,
+          "unit": {
+            "name": null,
+            "status": "unknown"
+          },
+          "missing_tokens": [
+            ""
+          ],
+          "description": "Controlled metadata, no operational meaning."
+        },
+        {
+          "name": "LINK_CODE",
+          "logical_type": "string",
+          "nullable": true,
+          "excluded": false,
+          "unit": {
+            "name": null,
+            "status": "unknown"
+          },
+          "missing_tokens": [
+            ""
+          ],
+          "description": "Controlled metadata, no operational meaning."
+        }
+      ]
+    },
+    {
+      "name": "CASE_LOG",
+      "file": "CASE_LOG.csv",
+      "format": "csv",
+      "sha256": "2df1eba81e5fda016254246442a126b56b0ffe625946806fba7716060da68766",
+      "row_count": 7,
+      "primary_key": [
+        "ROW_ID"
+      ],
+      "columns": [
+        {
+          "name": "ROW_ID",
+          "logical_type": "string",
+          "nullable": false,
+          "excluded": false,
+          "unit": {
+            "name": null,
+            "status": "unknown"
+          },
+          "missing_tokens": [
+            ""
+          ],
+          "description": "Controlled metadata, no operational meaning."
+        },
+        {
+          "name": "REGION",
+          "logical_type": "string",
+          "nullable": true,
+          "excluded": false,
+          "unit": {
+            "name": null,
+            "status": "unknown"
+          },
+          "missing_tokens": [
+            ""
+          ],
+          "description": "Controlled metadata, no operational meaning."
+        },
+        {
+          "name": "LINK_CODE",
+          "logical_type": "string",
+          "nullable": true,
+          "excluded": false,
+          "unit": {
+            "name": null,
+            "status": "unknown"
+          },
+          "missing_tokens": [
+            ""
+          ],
+          "description": "Controlled metadata, no operational meaning."
+        },
+        {
+          "name": "A",
+          "logical_type": "number",
+          "nullable": true,
+          "excluded": false,
+          "unit": {
+            "name": "coordinate_unit",
+            "status": "verified",
+            "evidence_ids": [
+              "unit_CASE_LOG_A"
+            ]
+          },
+          "missing_tokens": [
+            ""
+          ],
+          "description": "Controlled metadata, no operational meaning."
+        },
+        {
+          "name": "B",
+          "logical_type": "number",
+          "nullable": true,
+          "excluded": false,
+          "unit": {
+            "name": "coordinate_unit",
+            "status": "verified",
+            "evidence_ids": [
+              "unit_CASE_LOG_B"
+            ]
+          },
+          "missing_tokens": [
+            ""
+          ],
+          "description": "Controlled metadata, no operational meaning."
+        },
+        {
+          "name": "QTY",
+          "logical_type": "number",
+          "nullable": true,
+          "excluded": false,
+          "unit": {
+            "name": "items",
+            "status": "verified",
+            "evidence_ids": [
+              "unit_CASE_LOG_QTY"
+            ]
+          },
+          "missing_tokens": [
+            ""
+          ],
+          "description": "Controlled metadata, no operational meaning."
+        },
+        {
+          "name": "CLASS",
+          "logical_type": "string",
+          "nullable": true,
+          "excluded": false,
+          "unit": {
+            "name": null,
+            "status": "unknown"
+          },
+          "missing_tokens": [
+            ""
+          ],
+          "description": "Controlled metadata, no operational meaning."
+        }
+      ]
+    }
+  ],
+  "relationships": [
+    {
+      "id": "declared_log_header",
+      "from_table": "CASE_LOG",
+      "from_columns": [
+        "REGION",
+        "LINK_CODE"
+      ],
+      "to_table": "CASE_HDR",
+      "to_columns": [
+        "REGION",
+        "LINK_CODE"
+      ],
+      "no_reference_values": []
+    }
+  ],
+  "evidence": [
+    {
+      "id": "unit_CASE_LOG_A",
+      "kind": "unit",
+      "table": "CASE_LOG",
+      "column": "A",
+      "confirmation": "controlled_contract",
+      "value": {
+        "name": "coordinate_unit",
+        "meaning": "Controlled signed numerical coordinate, not a business counter."
+      },
+      "source": {
+        "file": "controlled_authority.json",
+        "sha256": "7a470aaf482d184c9ac57d32cb957946f72c67c3e36a0526dd3d2c670536840c",
+        "pointer": "/unit_coordinate"
+      }
+    },
+    {
+      "id": "unit_CASE_LOG_B",
+      "kind": "unit",
+      "table": "CASE_LOG",
+      "column": "B",
+      "confirmation": "controlled_contract",
+      "value": {
+        "name": "coordinate_unit",
+        "meaning": "Controlled signed numerical coordinate, not a business counter."
+      },
+      "source": {
+        "file": "controlled_authority.json",
+        "sha256": "7a470aaf482d184c9ac57d32cb957946f72c67c3e36a0526dd3d2c670536840c",
+        "pointer": "/unit_coordinate"
+      }
+    },
+    {
+      "id": "unit_CASE_LOG_QTY",
+      "kind": "unit",
+      "table": "CASE_LOG",
+      "column": "QTY",
+      "confirmation": "controlled_contract",
+      "value": {
+        "name": "items",
+        "meaning": "Controlled quantity unit."
+      },
+      "source": {
+        "file": "controlled_authority.json",
+        "sha256": "7a470aaf482d184c9ac57d32cb957946f72c67c3e36a0526dd3d2c670536840c",
+        "pointer": "/unit_items"
+      }
+    },
+    {
+      "id": "ddl_controlled_log_row_id",
+      "kind": "ddl_not_null",
+      "table": "CASE_LOG",
+      "column": "ROW_ID",
+      "confirmation": "controlled_contract",
+      "value": "Controlled schema declaration: CASE_LOG.ROW_ID NOT NULL. This is not operational DDL.",
+      "source": {
+        "file": "controlled_authority.json",
+        "sha256": "7a470aaf482d184c9ac57d32cb957946f72c67c3e36a0526dd3d2c670536840c",
+        "pointer": "/row_id_not_null"
+      }
+    }
+  ],
+  "source_identity": {
+    "case": "Artificial complete metadata with duplicate/missing physical keys; no anomaly labels."
+  },
+  "transaction_families": 0,
+  "unknown": [
+    "No incident labels, mandatory-parent contract, or online availability."
+  ]
+}

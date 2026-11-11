@@ -1,0 +1,51 @@
+{
+  "files": [
+    {
+      "phase": "C0",
+      "split": "train",
+      "examples": 264,
+      "packaged_file": "training_data/C0/train.jsonl",
+      "sha256": "3bd3dd84c4f23581c672f549d32a7db58c7df01383a3a5fd3509d179937229c1"
+    },
+    {
+      "phase": "C0",
+      "split": "validation",
+      "examples": 66,
+      "packaged_file": "training_data/C0/validation.jsonl",
+      "sha256": "3fdebed0e52fa83aad142adc697f9fdb7d38e2487b5df5f75e4d2054bda5d50a"
+    },
+    {
+      "phase": "C1",
+      "split": "train",
+      "examples": 336,
+      "packaged_file": "training_data/C1/train.jsonl",
+      "sha256": "3650a97776d99974c5d72c35ee68ad1c367e8315275b40415483c2846c819907"
+    },
+    {
+      "phase": "C1",
+      "split": "validation",
+      "examples": 84,
+      "packaged_file": "training_data/C1/validation.jsonl",
+      "sha256": "87c50234a3a347dfb86f4d47a6134b33ef640c2bb6130f77d91dd881b3cbec80"
+    },
+    {
+      "phase": "C3",
+      "split": "train",
+      "examples": 400,
+      "packaged_file": "training_data/C3/train.jsonl",
+      "sha256": "127f41748d6f63fcf9b84e9f8182c22ed246492e7585fb52863409180fc2c6ce"
+    },
+    {
+      "phase": "C3",
+      "split": "validation",
+      "examples": 100,
+      "packaged_file": "training_data/C3/validation.jsonl",
+      "sha256": "be294dfff38920e8d0b2a48197f1361e0d05390e7431d8ee57ed4c1e7c6ed35b"
+    }
+  ],
+  "source_type": "AI-authored reviewed synthetic silver",
+  "company_CSV_or_private_evaluation_answers_in_these_pairs": false,
+  "exact_original_manifests_preserved_with_their_workspace_paths": true,
+  "automatic_training_on_startup": false,
+  "warmstart_prerequisites": "Original audited parent adapters are not bundled; use the preserved workspace checkpoints or make a separate prospectively reviewed reproduction study."
+}

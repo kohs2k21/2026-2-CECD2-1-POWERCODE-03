@@ -1,0 +1,37 @@
+{
+  "features": {
+    "features": 70,
+    "calculation_pass": 70,
+    "description_supported_claims_pass": 70,
+    "valid_observation_roots": 61,
+    "selected_empty": 7,
+    "retained_all_null": 2,
+    "new_Model_generation": 0,
+    "original_AI_proposals_unchanged": true,
+    "mathematical_scope_source_units_deduplicated_in_parent": true,
+    "historical_rule_records_preserved": 87,
+    "original74_roles_preserved": 74,
+    "table_counts": {
+      "EC_TRANSACTION_MONITORING": 31,
+      "EC_MESSAGE_MONITORING": 24,
+      "EC_PROCESS_MONITORING": 15
+    },
+    "variation_counts": {
+      "variable": 42,
+      "constant": 19,
+      "unknown": 9
+    },
+    "raw": 7,
+    "derived": 63
+  },
+  "original63_preserved": {
+    "derived": 56,
+    "raw": 7,
+    "roles": 74,
+    "HR": 3,
+    "observed_SR": 35,
+    "baseline_SR": 36
+  },
+  "full_customer_definitions_values_and_sensitive_prompts_not_published": true,
+  "old_role_records_not_silently_rebound": true
+}

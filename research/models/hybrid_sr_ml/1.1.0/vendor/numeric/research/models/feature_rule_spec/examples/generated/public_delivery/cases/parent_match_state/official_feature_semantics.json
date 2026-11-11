@@ -1,0 +1,212 @@
+{
+  "version": "calculation-facts2.0-guarded-availability",
+  "definition_sha": "1f523c56c914ac1b959a41c0b6c57ba2398ac0374d3eec2463286660a7b7e87c",
+  "source_version": "c7fdeaacb68ac6ef68b01f651707e6aad95f42e6bc0726106a38f1cd49077ea1",
+  "measurement_id": "m_035bacbf2931f7a8db07f99d",
+  "measurement_sha": "035bacbf2931f7a8db07f99da04dabf6fbea350607cf949c007e3b6117ccd3d2",
+  "output_grain": {
+    "table": "HOP_TRACE",
+    "keys": [
+      "TRACE_ROW"
+    ]
+  },
+  "population": {
+    "table": "HOP_TRACE",
+    "filter": null
+  },
+  "dtype": "boolean",
+  "unit": "boolean",
+  "operator_contract_possible_states": [
+    "true",
+    "false"
+  ],
+  "operator_state_proof": {
+    "operator": "if",
+    "unavailable_possible": false,
+    "proof_scope": "Lazy branch under declared guard; not an observed-only claim",
+    "children": [
+      {
+        "operator": "is_missing",
+        "unavailable_possible": false,
+        "proof_scope": "Supported operator contract on retained selected rows",
+        "children": [
+          {
+            "operator": "parent_match_count",
+            "unavailable_possible": true,
+            "proof_scope": "Supported operator contract on retained selected rows",
+            "children": []
+          }
+        ]
+      },
+      {
+        "operator": "literal",
+        "unavailable_possible": false,
+        "proof_scope": "Supported operator contract on retained selected rows",
+        "children": []
+      },
+      {
+        "operator": "eq",
+        "unavailable_possible": false,
+        "proof_scope": "Supported operator contract on retained selected rows",
+        "children": [
+          {
+            "operator": "parent_match_count",
+            "unavailable_possible": false,
+            "assumption": "Available in this branch, certified by the selected availability guard",
+            "children": []
+          },
+          {
+            "operator": "literal",
+            "unavailable_possible": false,
+            "proof_scope": "Supported operator contract on retained selected rows",
+            "children": []
+          }
+        ]
+      }
+    ]
+  },
+  "missing_policy": {
+    "input": "propagate",
+    "empty_group": null,
+    "denominator_zero": null,
+    "child_missing": "propagate",
+    "unknown_predicate": "defer"
+  },
+  "current": {
+    "selected_rows": 4,
+    "population_rows_before_selection": 4,
+    "selection_unavailable": 0,
+    "numeric_or_boolean_nonnull": 4,
+    "result_unavailable": 0,
+    "true": 3,
+    "false": 1
+  },
+  "interpretation": {
+    "null_result": "Does not alone identify source null, parsing, join, denominator or fault cause.",
+    "empty_child_group": "Zero only under the aggregate empty-group contract; unknown relationship/filter is different.",
+    "sample_extrema": "Observed min/max are not proven bounds.",
+    "total_missing_test": "is_missing evaluates retained null results to true; it is not an unavailable numerical comparison."
+  },
+  "row_nodes": [
+    {
+      "path": "/plan/expression/args/0/args/0",
+      "op": "parent_match_count",
+      "evaluation_table": "HOP_TRACE",
+      "output_table": "HOP_TRACE",
+      "row_keys": [
+        "TRACE_ROW"
+      ],
+      "scalar": false,
+      "dtype": "integer",
+      "unit": "count"
+    },
+    {
+      "path": "/plan/expression/args/0",
+      "op": "is_missing",
+      "evaluation_table": "HOP_TRACE",
+      "output_table": "HOP_TRACE",
+      "row_keys": [
+        "TRACE_ROW"
+      ],
+      "scalar": false,
+      "dtype": "boolean",
+      "unit": "boolean"
+    },
+    {
+      "path": "/plan/expression/args/1",
+      "op": "literal",
+      "evaluation_table": "HOP_TRACE",
+      "output_table": null,
+      "row_keys": [],
+      "scalar": true,
+      "dtype": "boolean",
+      "unit": "boolean"
+    },
+    {
+      "path": "/plan/expression/args/2/args/0",
+      "op": "parent_match_count",
+      "evaluation_table": "HOP_TRACE",
+      "output_table": "HOP_TRACE",
+      "row_keys": [
+        "TRACE_ROW"
+      ],
+      "scalar": false,
+      "dtype": "integer",
+      "unit": "count"
+    },
+    {
+      "path": "/plan/expression/args/2/args/1",
+      "op": "literal",
+      "evaluation_table": "HOP_TRACE",
+      "output_table": null,
+      "row_keys": [],
+      "scalar": true,
+      "dtype": "number",
+      "unit": null
+    },
+    {
+      "path": "/plan/expression/args/2",
+      "op": "eq",
+      "evaluation_table": "HOP_TRACE",
+      "output_table": "HOP_TRACE",
+      "row_keys": [
+        "TRACE_ROW"
+      ],
+      "scalar": false,
+      "dtype": "boolean",
+      "unit": "boolean"
+    },
+    {
+      "path": "/plan/expression",
+      "op": "if",
+      "evaluation_table": "HOP_TRACE",
+      "output_table": "HOP_TRACE",
+      "row_keys": [
+        "TRACE_ROW"
+      ],
+      "scalar": false,
+      "dtype": "boolean",
+      "unit": "boolean"
+    }
+  ],
+  "sha256": "c0639db6de72376c5cf09ca713c54793d5c75b1e86820b669987e3e261b29653",
+  "author": "compiler",
+  "contract": "official-computation-facts1.0",
+  "not_AI_generated": true,
+  "expression": {
+    "op": "if",
+    "args": [
+      {
+        "op": "is_missing",
+        "args": [
+          {
+            "op": "parent_match_count",
+            "relationship_id": "hop_frame_link"
+          }
+        ]
+      },
+      {
+        "op": "literal",
+        "value": true
+      },
+      {
+        "op": "eq",
+        "args": [
+          {
+            "op": "parent_match_count",
+            "relationship_id": "hop_frame_link"
+          },
+          {
+            "op": "literal",
+            "value": 0
+          }
+        ]
+      }
+    ]
+  },
+  "selected_result_use": "unavailable_or_zero",
+  "output_excludes_filtered_rows": true,
+  "exceptions": "Invalid sources/types/execution failures are errors, not unavailable values.",
+  "complete_natural_language_proof": false,
+  "facts_sha": "e33dad88c35d7aed86f04ac44c7c6e1080f5dfa679706f8bd3867200ad2007e8"
+}

@@ -1,0 +1,13 @@
+{
+  "explicit_selected_runtime_required": true,
+  "prepared_resources_required": true,
+  "finalized_notes_required": true,
+  "reviewed_fictional_example_sha256": "af8c00bb3b0607636928b174af01ac063e59783d93f5a03959ba0d875d6ca1b1",
+  "selected_model_weight_sha256": "f36ce52e0690e8eefe2cfb26aa5d0f2c37f629a49f7ecd8063a37980233ee496",
+  "selected_training_phase": "C3",
+  "runtime_overlay_manifest_sha256": "df5bb37ee0a93ca24a118bd28b96dac2db8cc29a81989d48ab8edceaaf3e9bbd",
+  "example_and_teacher_contents_bound_to_reviewed_sources": true,
+  "no_company_CSV_files_or_archives_in_resources": true,
+  "automatic_publication": false,
+  "wrapper_sha256": "07d2f409b49a5912d32b433354f54e0c20c5bf97fa3ab56cf9f19e5fd62d9570"
+}

@@ -1,0 +1,163 @@
+{
+  "case_id": "G01_scoped_request",
+  "source_version": "fresh-meaning-only-G01-v1-successful-work-review",
+  "Body_included": false,
+  "schema": {
+    "WorkUnit": {
+      "keys": [
+        "site_code",
+        "work_ref"
+      ],
+      "columns": [
+        "final_state"
+      ]
+    },
+    "ActivityLog": {
+      "keys": [
+        "site_ref",
+        "work_ref_ref",
+        "activity_id"
+      ],
+      "site_ref": "WorkUnit.site_code",
+      "work_ref_ref": "WorkUnit.work_ref",
+      "columns": [
+        "result_code"
+      ]
+    },
+    "ReplayRecord": {
+      "keys": [
+        "replay_id"
+      ],
+      "site_ref": "WorkUnit.site_code",
+      "work_ref_ref": "WorkUnit.work_ref",
+      "activity_ref": "ActivityLog.activity_id",
+      "columns": [
+        "replay_state"
+      ]
+    },
+    "WaiverRecord": {
+      "keys": [
+        "waiver_id"
+      ],
+      "site_ref": "WorkUnit.site_code",
+      "work_ref_ref": "WorkUnit.work_ref",
+      "activity_ref": "ActivityLog.activity_id",
+      "columns": [
+        "waiver_state"
+      ]
+    }
+  },
+  "documents": [
+    {
+      "id": "work-status",
+      "authority": "controlled_monitoring_note_not_company_policy",
+      "text": "WorkUnit.final_state DONE means the work unit completed successfully; STOPPED means it ended without successful completion."
+    },
+    {
+      "id": "activity-result",
+      "authority": "controlled_monitoring_note_not_company_policy",
+      "text": "ActivityLog.result_code ERROR means that activity ended unsuccessfully, OK means it ended successfully, and RARE_SKIP is a permitted result code. An unsuccessful activity can occur within a DONE work unit."
+    },
+    {
+      "id": "activity-identity",
+      "authority": "controlled_monitoring_note_not_company_policy",
+      "text": "An activity occurrence is identified by the complete tuple (site_ref, work_ref_ref, activity_id). The same activity_id may be used in a different work unit."
+    },
+    {
+      "id": "replay-meaning",
+      "authority": "controlled_monitoring_note_not_company_policy",
+      "text": "A ReplayRecord with site_ref and work_ref_ref matching an activity’s work unit and activity_ref matching that activity_id documents successful replay only when replay_state=REPLAYED. A replay for a different work unit or activity is not handling of this occurrence."
+    },
+    {
+      "id": "waiver-meaning",
+      "authority": "controlled_monitoring_note_not_company_policy",
+      "text": "A WaiverRecord with site_ref and work_ref_ref matching an activity’s work unit and activity_ref matching that activity_id documents authorized handling only when waiver_state=AUTHORIZED."
+    },
+    {
+      "id": "scope-limits",
+      "authority": "controlled_monitoring_note_not_company_policy",
+      "text": "These fields describe outcomes and handling records. The supplied definitions do not state that every unsuccessful activity must be replayed or waived, prohibit an unsuccessful activity in a completed work unit, or define an incident threshold."
+    }
+  ],
+  "records": {
+    "WorkUnit": [
+      {
+        "site_code": "SOUTH",
+        "work_ref": "W-31",
+        "final_state": "DONE"
+      },
+      {
+        "site_code": "SOUTH",
+        "work_ref": "W-32",
+        "final_state": "DONE"
+      },
+      {
+        "site_code": "NORTH",
+        "work_ref": "W-44",
+        "final_state": "STOPPED"
+      }
+    ],
+    "ActivityLog": [
+      {
+        "site_ref": "SOUTH",
+        "work_ref_ref": "W-31",
+        "activity_id": "ACT-7",
+        "result_code": "ERROR"
+      },
+      {
+        "site_ref": "SOUTH",
+        "work_ref_ref": "W-31",
+        "activity_id": "ACT-8",
+        "result_code": "OK"
+      },
+      {
+        "site_ref": "SOUTH",
+        "work_ref_ref": "W-31",
+        "activity_id": "ACT-9",
+        "result_code": "RARE_SKIP"
+      },
+      {
+        "site_ref": "SOUTH",
+        "work_ref_ref": "W-32",
+        "activity_id": "ACT-7",
+        "result_code": "ERROR"
+      },
+      {
+        "site_ref": "SOUTH",
+        "work_ref_ref": "W-32",
+        "activity_id": "ACT-10",
+        "result_code": "ERROR"
+      },
+      {
+        "site_ref": "NORTH",
+        "work_ref_ref": "W-44",
+        "activity_id": "ACT-11",
+        "result_code": "ERROR"
+      }
+    ],
+    "ReplayRecord": [
+      {
+        "replay_id": "RP-1",
+        "site_ref": "SOUTH",
+        "work_ref_ref": "W-31",
+        "activity_ref": "ACT-7",
+        "replay_state": "REPLAYED"
+      }
+    ],
+    "WaiverRecord": [
+      {
+        "waiver_id": "WV-1",
+        "site_ref": "SOUTH",
+        "work_ref_ref": "W-32",
+        "activity_ref": "ACT-10",
+        "waiver_state": "AUTHORIZED"
+      }
+    ]
+  },
+  "capture": {
+    "entity_family_complete": true,
+    "source_version": "fresh-meaning-only-G01-v1-successful-work-review",
+    "Body_included": false
+  },
+  "question": "The operational purpose is reviewing work units that finished successfully, rather than re-alerting overall unsuccessful work units. Within that population, propose useful factual non-statistical review checks from the field meanings and relationships. Select the actual conditions, source bindings and documented exceptions yourself. Do not invent a business prohibition or incident label."
+}

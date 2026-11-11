@@ -1,0 +1,34 @@
+{
+  "runtime": {
+    "name": "second",
+    "meaning": "FlowBench timestamp/duration coordinate; duration cross-checked against execute_end-execute_start"
+  },
+  "queue_delay": {
+    "name": "second",
+    "meaning": "FlowBench timestamp/duration coordinate; duration cross-checked against execute_end-execute_start"
+  },
+  "wms_delay": {
+    "name": "second",
+    "meaning": "FlowBench timestamp/duration coordinate; duration cross-checked against execute_end-execute_start"
+  },
+  "post_script_delay": {
+    "name": "second",
+    "meaning": "FlowBench timestamp/duration coordinate; duration cross-checked against execute_end-execute_start"
+  },
+  "stage_in_delay": {
+    "name": "second",
+    "meaning": "FlowBench timestamp/duration coordinate; duration cross-checked against execute_end-execute_start"
+  },
+  "stage_out_delay": {
+    "name": "second",
+    "meaning": "FlowBench timestamp/duration coordinate; duration cross-checked against execute_end-execute_start"
+  },
+  "execute_start": {
+    "name": "second",
+    "meaning": "FlowBench timestamp/duration coordinate; duration cross-checked against execute_end-execute_start"
+  },
+  "execute_end": {
+    "name": "second",
+    "meaning": "FlowBench timestamp/duration coordinate; duration cross-checked against execute_end-execute_start"
+  }
+}

@@ -1,0 +1,90 @@
+{
+  "case_id": "flowbench_1000genome",
+  "schema": {
+    "Task": {
+      "keys": [
+        "RUN_ID",
+        "NODE_ID"
+      ],
+      "RUN_ID": "RunContext.RUN_ID",
+      "NODE_ID": "TaskCatalog.NODE_ID",
+      "columns": [
+        "TASK_KIND",
+        "runtime",
+        "queue_delay",
+        "wms_delay",
+        "post_script_delay",
+        "stage_in_delay",
+        "stage_out_delay",
+        "execute_start",
+        "execute_end"
+      ],
+      "units": {
+        "runtime": "second",
+        "queue_delay": "second",
+        "wms_delay": "second",
+        "post_script_delay": "second",
+        "stage_in_delay": "second",
+        "stage_out_delay": "second",
+        "execute_start": "second",
+        "execute_end": "second"
+      }
+    },
+    "RunContext": {
+      "keys": [
+        "RUN_ID"
+      ],
+      "columns": []
+    },
+    "TaskCatalog": {
+      "keys": [
+        "NODE_ID"
+      ],
+      "columns": []
+    }
+  },
+  "documents": [
+    {
+      "id": "physical-grain",
+      "authority": "monitoring_note",
+      "text": "A raw CSV contains one captured workflow run. Its first column is a task node identifier. The adapter copies it to NODE_ID and retains RUN_ID only to scope occurrences. A task occurrence is identified by the full pair (RUN_ID, NODE_ID). All raw rows are retained in full-batch serving."
+    },
+    {
+      "id": "structural-catalog",
+      "authority": "monitoring_note",
+      "text": "TaskCatalog contains the union of keys and adjacent node values from the pinned 1000genome workflow DAG JSON (SHA256 d1d42606d4d759dfbe055246c7d3d2b792568255c45c00a010e3af00c30d3a44). NODE_ID is the structural identity. This is a membership reference for this workflow, not a list of successful tasks. The export does not establish that every catalog node must execute."
+    },
+    {
+      "id": "run-scope",
+      "authority": "monitoring_note",
+      "text": "RunContext contains the run identifiers for the supplied task records. Task.RUN_ID identifies its RunContext.RUN_ID. Task.NODE_ID can be looked up in TaskCatalog.NODE_ID. Keys are relation identifiers, not predictors or anomaly-code literals."
+    },
+    {
+      "id": "measurements",
+      "authority": "monitoring_note",
+      "text": "runtime is task execution duration. queue_delay, wms_delay, post_script_delay, stage_in_delay and stage_out_delay are recorded durations of execution stages or waiting. execute_start and execute_end are Unix timestamp coordinates. The existing capture records their unit as seconds. No SLA or statistical abnormality boundary is provided here."
+    },
+    {
+      "id": "limits",
+      "authority": "monitoring_note",
+      "text": "This source describes public workflow execution metadata, not an ESB success/failure/retry/recovery protocol. No reviewed business prohibition or enforced DDL contract is provided. The DAG edge direction, mandatory dependency completion semantics and cross-host clock synchronization have not been verified for this experiment. Do not infer those facts from column names or injection labels."
+    },
+    {
+      "id": "sample-scope",
+      "authority": "monitoring_note",
+      "text": "Recommendation rows are a bounded sample from a TRAIN execution and may omit task, catalog or context rows. capture.entity_family_complete explicitly describes the supplied snapshot. Full-batch application supplies all captured task rows of each complete exported run and the entire catalog, but export completeness is not proof of complete business execution."
+    }
+  ],
+  "records": {
+    "Task": [],
+    "RunContext": [],
+    "TaskCatalog": []
+  },
+  "capture": {
+    "Body_included": false,
+    "entity_family_complete": false,
+    "shared_clock_verified": false,
+    "source_version": "FlowBench-58df4e69f7b0fe4f818bad6400699cdb04e0b1cb-1000genome-flowbench-source-metadata-adapter1.0"
+  },
+  "question": "Review task execution records for this workflow. Propose reusable factual non-statistical checks justified by the supplied field meanings and relationships, or request missing evidence. Choose the actual conditions and bindings yourself. Preserve occurrence scope, missing values and capture limitations. Do not invent business prohibitions, statistical tail thresholds, failure or recovery meanings, or incident labels."
+}

@@ -1,0 +1,5 @@
+ROW_KEY,LEFT_VALUE,RIGHT_VALUE,SCOPE
+r0,3,1,all
+r1,2,2,all
+r2,4,1,all
+r3,,1,all

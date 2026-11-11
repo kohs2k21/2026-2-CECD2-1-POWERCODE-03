@@ -1,0 +1,55 @@
+MODEL AND ACTUAL SELECTED TRAINING
+
+Selected logical phase: C3
+Selected adapter weight SHA256: f36ce52e0690e8eefe2cfb26aa5d0f2c37f629a49f7ecd8063a37980233ee496
+Pinned Base: Qwen/Qwen3.6-27B revision
+6a9e13bd6fc8f0983b9b99948120bc37f49c13e9.
+
+This is ONE joint logical specification LoRA. It reads supplied metadata and
+source definitions, and proposes typed logical plans, roles, scope and exceptions.
+Code validates and measures plans, then exports nullable-Boolean features and
+rules that reference their IDs/definition SHA. That projection is not a second
+Feature-LLM call. The original numerical Feature-51 and Rule-527 adapters and
+frozen IF/K-means/LOF models remain separate and unchanged.
+
+Effective training lineage
+  C0: 264 train / 66 validation, one complete epoch, 66 optimizer steps; parent original frozen Base.
+  C1: 336 train / 84 validation, one complete epoch, 84 optimizer steps; parent C0.
+  C3: 400 train / 100 validation, one complete epoch, 100 optimizer steps; parent C1.
+Recorded effective training-example exposures: 1000.
+Distinct recorded example IDs in that lineage: 468.
+Repeated ancestor examples are exposures, not new independent training examples.
+C2 and C3 are separate continuations from C1, not successive phases. If selected,
+C4 continues from audited C3. The interrupted
+12-step C2 attempt was preserved and its partial weights are not in this lineage.
+
+All selected phases used AI-authored, reviewed, code-checked synthetic silver
+instruction/context/answer pairs. These are not expert-confirmed company incidents.
+No company CSV rows, current private evaluation answers or model responses were
+training targets. Operator families overlap train/validation. Exact input hashes
+are disjoint within each phase; this does not prove independent operator families.
+
+NF4 double quantization, BF16 compute, LoRA rank8/alpha16/dropout0.05; 304 language
+modules, 608 adapter tensors, 23,760,896 trainable parameters. AdamW LR1e-4,
+accumulation4, clipping1.0, seed42, maximum8192 tokens with no truncation. Only
+assistant-answer and EOS tokens contribute to cross-entropy. Base and vision are
+frozen. Gradient checkpointing and CPU embedding/head/activation offload fit the
+assigned exposed GPU. Each continuation starts a fresh optimizer.
+
+Independent audits checked full selected epoch consumption, finite saved LoRA
+tensors and actual adapter changes. Frozen gradients and sampled Base values were
+checked during training; the whole in-memory Base was not independently compared.
+Protected original on-disk sources are audited separately by SHA. Validation NLL
+and formal validity alone do not establish generation quality.
+
+Limits
+Source citations and typed checks do not prove arbitrary natural-language meaning.
+The model may omit required checks or exceptions. Administrators review candidate
+meaning and scope before activation. Unsupported operations and unknown meanings
+remain unavailable or evidence requests. Rules are recommendations, not confirmed
+incident labels. No claim is made that ML in general cannot learn relations. The
+concrete added function is translating supplied meanings into explicit, reusable
+source-bound predicates. New Boolean features are not silently added to old ML
+input vectors. This bundle has no backend DB/API or alert delivery service.
+
+See selected_training_history.json and training_data/index.json for actual pins.

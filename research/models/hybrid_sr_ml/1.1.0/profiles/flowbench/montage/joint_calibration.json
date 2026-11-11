@@ -1,0 +1,14 @@
+{
+  "cutoff": 1.0,
+  "calibration_complete_rows": 4716,
+  "threshold_complete_rows": 2357,
+  "calibration_total_rows": 5390,
+  "threshold_total_rows": 2695,
+  "normalizer_center": 0.0,
+  "normalizer_spread": 0.47,
+  "normalized_threshold_p99": 2.127659574468085,
+  "authoritative_quantile_space": "raw_max_residual",
+  "only_complete_rows_set_the_cutoff": true,
+  "partial_observations_at_application": "known violation warns; otherwise any unknown rule keeps SR unknown",
+  "threshold_is_at_least_conditional_TRAIN_p95": true
+}

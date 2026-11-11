@@ -1,0 +1,4161 @@
+{
+  "version": "count-ratio-alternative-evaluation1.0",
+  "mode": "actual_alternative_evaluation",
+  "not_applicable_used": false,
+  "ratio_value_imputation": null,
+  "thresholds_recalibrated": false,
+  "ML_features_changed": false,
+  "bindings": [
+    {
+      "rule": {
+        "id": "rule_021:baseline",
+        "feature_id": "rule_021",
+        "feature_sha": "bb5798a12b73fc03028e63030d0c4748758f447255a5cd52e8c6d3bbf0e6fc67",
+        "table": "EC_PROCESS_MONITORING",
+        "dtype": "number",
+        "role": "numeric_SR",
+        "condition": {
+          "op": "gt",
+          "value": 1
+        },
+        "evidence_ids": [
+          "m_b4bf00ef9d2abfce39ebf2a0",
+          "baseline_ed6ff418982c34e372942b7d"
+        ],
+        "reason": "Use the verified train-only p95 1 ratio from 95263 reference values under its supplied scope and update policy. Current activation count does not determine validity; this is an offline reference comparison.",
+        "baseline": {
+          "state": "verified",
+          "reference_split": "train",
+          "reference_feature_definition_sha": "bb5798a12b73fc03028e63030d0c4748758f447255a5cd52e8c6d3bbf0e6fc67",
+          "semantic_definition_sha": "a06fe67a6ca2913c7d86624dbc267d8c342a67d6682f097840c78397c8c96ec0",
+          "application_semantic_definition_sha": "a06fe67a6ca2913c7d86624dbc267d8c342a67d6682f097840c78397c8c96ec0",
+          "reference_source_version": "7a3b0ecbf0434a31d8d7142b20afb99a4c4e9a712b16988888b95b6622dc37e6",
+          "reference_period": {
+            "start_inclusive": "2026-08-10",
+            "end_exclusive": "2026-08-20"
+          },
+          "application_period": {
+            "start_inclusive": "2026-08-10",
+            "end_exclusive": "2026-08-20",
+            "timezone": "unconfirmed source wall-clock"
+          },
+          "group": null,
+          "reference_population": {
+            "table": "EC_PROCESS_MONITORING",
+            "filter": null
+          },
+          "application_population": {
+            "table": "EC_PROCESS_MONITORING",
+            "filter": null
+          },
+          "reference_valid_n": 95263,
+          "minimum_n": 20,
+          "quantile": 0.95,
+          "method": "linear_(n-1)*p",
+          "value": 1,
+          "value_exact": "1.00",
+          "operator": "gt",
+          "unit": "ratio",
+          "missing": "exclude unavailable reference values; preserve unavailable comparison",
+          "refresh": "explicit rebuild on training source/definition change",
+          "expiry": "declared application period end; offline only",
+          "scope": "offline row-weighted reference; unequal capture sizes/repeated frequencies do not establish normal operational baseline",
+          "range_proof": {
+            "lower": null,
+            "upper": null,
+            "proof": "no universal numeric bound; observed min/max not universal"
+          },
+          "upstream_builder_id": "baseline_da1b88148f15743b12f2ec",
+          "evidence_policy": "corrected-rule-source-bound3.0",
+          "application_source_version": "7a3b0ecbf0434a31d8d7142b20afb99a4c4e9a712b16988888b95b6622dc37e6",
+          "application_measurement_id": "m_b4bf00ef9d2abfce39ebf2a0"
+        }
+      },
+      "feature": {
+        "id": "fd_c2a5cb0ec0e1c0462d48adcc",
+        "sha": "bb5798a12b73fc03028e63030d0c4748758f447255a5cd52e8c6d3bbf0e6fc67",
+        "meaning": "(EC_PROCESS_MONITORING.TOTAL_COUNT divided by EC_PROCESS_MONITORING.SUCCESS_COUNT); offline captured metadata only; business fault/online use unverified; offline captured metadata only; business fault/online use unverified.",
+        "dtype": "number",
+        "unit": "ratio",
+        "expression": {
+          "op": "divide",
+          "args": [
+            {
+              "op": "column",
+              "table": "EC_PROCESS_MONITORING",
+              "column": "TOTAL_COUNT"
+            },
+            {
+              "op": "column",
+              "table": "EC_PROCESS_MONITORING",
+              "column": "SUCCESS_COUNT"
+            }
+          ]
+        },
+        "grain": {
+          "table": "EC_PROCESS_MONITORING",
+          "keys": [
+            "__SOURCE_ROW_ID"
+          ]
+        },
+        "population": {
+          "table": "EC_PROCESS_MONITORING",
+          "filter": null
+        },
+        "group_by": [],
+        "missing_policy": {
+          "input": "propagate",
+          "empty_group": null,
+          "denominator_zero": "missing",
+          "child_missing": "propagate",
+          "unknown_predicate": "defer"
+        }
+      },
+      "alternative": {
+        "rule": {
+          "id": "rule_015:baseline",
+          "feature_id": "rule_015",
+          "feature_sha": "041ee80c78b4b0fb10c7b736309990ca053a6a75511c4b29ca69ec47b8a83a17",
+          "table": "EC_PROCESS_MONITORING",
+          "dtype": "number",
+          "role": "numeric_SR",
+          "condition": {
+            "op": "gt",
+            "value": 1
+          },
+          "evidence_ids": [
+            "m_45be979a2ac5d424a8e374c0",
+            "baseline_7ebe0fd1473bee18100b6244"
+          ],
+          "reason": "Use the verified train-only p95 1 count from 186530 reference values under its supplied scope and update policy. Current activation count does not determine validity; this is an offline reference comparison.",
+          "baseline": {
+            "state": "verified",
+            "reference_split": "train",
+            "reference_feature_definition_sha": "041ee80c78b4b0fb10c7b736309990ca053a6a75511c4b29ca69ec47b8a83a17",
+            "semantic_definition_sha": "36ed4e5e5676565f39355d2adde611b5c7965294fd2a806245168cdc515b5341",
+            "application_semantic_definition_sha": "36ed4e5e5676565f39355d2adde611b5c7965294fd2a806245168cdc515b5341",
+            "reference_source_version": "7a3b0ecbf0434a31d8d7142b20afb99a4c4e9a712b16988888b95b6622dc37e6",
+            "reference_period": {
+              "start_inclusive": "2026-08-10",
+              "end_exclusive": "2026-08-20"
+            },
+            "application_period": {
+              "start_inclusive": "2026-08-10",
+              "end_exclusive": "2026-08-20",
+              "timezone": "unconfirmed source wall-clock"
+            },
+            "group": null,
+            "reference_population": {
+              "table": "EC_PROCESS_MONITORING",
+              "filter": null
+            },
+            "application_population": {
+              "table": "EC_PROCESS_MONITORING",
+              "filter": null
+            },
+            "reference_valid_n": 186530,
+            "minimum_n": 20,
+            "quantile": 0.95,
+            "method": "linear_(n-1)*p",
+            "value": 1,
+            "value_exact": "1.00",
+            "operator": "gt",
+            "unit": "count",
+            "missing": "exclude unavailable reference values; preserve unavailable comparison",
+            "refresh": "explicit rebuild on training source/definition change",
+            "expiry": "declared application period end; offline only",
+            "scope": "offline row-weighted reference; unequal capture sizes/repeated frequencies do not establish normal operational baseline",
+            "range_proof": {
+              "lower": null,
+              "upper": null,
+              "proof": "no universal numeric bound; observed min/max not universal"
+            },
+            "upstream_builder_id": "baseline_f3b5b0de3d050df97b86bd",
+            "evidence_policy": "corrected-rule-source-bound3.0",
+            "application_source_version": "7a3b0ecbf0434a31d8d7142b20afb99a4c4e9a712b16988888b95b6622dc37e6",
+            "application_measurement_id": "m_45be979a2ac5d424a8e374c0"
+          }
+        },
+        "feature": {
+          "id": "fd_5100d17317657baea1d16647",
+          "sha": "041ee80c78b4b0fb10c7b736309990ca053a6a75511c4b29ca69ec47b8a83a17",
+          "meaning": "(EC_PROCESS_MONITORING.TOTAL_COUNT minus EC_PROCESS_MONITORING.SUCCESS_COUNT); offline captured metadata only; business fault/online use unverified; offline captured metadata only; business fault/online use unverified.",
+          "dtype": "number",
+          "unit": "count",
+          "expression": {
+            "op": "subtract",
+            "args": [
+              {
+                "op": "column",
+                "table": "EC_PROCESS_MONITORING",
+                "column": "TOTAL_COUNT"
+              },
+              {
+                "op": "column",
+                "table": "EC_PROCESS_MONITORING",
+                "column": "SUCCESS_COUNT"
+              }
+            ]
+          },
+          "grain": {
+            "table": "EC_PROCESS_MONITORING",
+            "keys": [
+              "__SOURCE_ROW_ID"
+            ]
+          },
+          "population": {
+            "table": "EC_PROCESS_MONITORING",
+            "filter": null
+          },
+          "group_by": [],
+          "missing_policy": {
+            "input": "propagate",
+            "empty_group": null,
+            "denominator_zero": null,
+            "child_missing": "propagate",
+            "unknown_predicate": "defer"
+          }
+        }
+      },
+      "operand_metadata": [
+        {
+          "table": "EC_PROCESS_MONITORING",
+          "column": {
+            "name": "TOTAL_COUNT",
+            "logical_type": "number",
+            "sql_type": "NUMBER",
+            "nullable": true,
+            "unit": {
+              "name": "count",
+              "status": "verified",
+              "evidence_ids": [
+                "description_29475825b545b7e798"
+              ]
+            },
+            "description": "전체 건수",
+            "missing_tokens": [
+              ""
+            ],
+            "excluded": false,
+            "evidence_ids": [
+              "ddl_29475825b545b7e798",
+              "description_29475825b545b7e798"
+            ]
+          }
+        },
+        {
+          "table": "EC_PROCESS_MONITORING",
+          "column": {
+            "name": "SUCCESS_COUNT",
+            "logical_type": "number",
+            "sql_type": "NUMBER",
+            "nullable": true,
+            "unit": {
+              "name": "count",
+              "status": "verified",
+              "evidence_ids": [
+                "description_df196120a80fe878cb"
+              ]
+            },
+            "description": "성공 건수",
+            "missing_tokens": [
+              ""
+            ],
+            "excluded": false,
+            "evidence_ids": [
+              "ddl_df196120a80fe878cb",
+              "description_df196120a80fe878cb"
+            ]
+          }
+        }
+      ],
+      "trigger": "known finite nonnegative numerator and denominator==0",
+      "counter_partition_check": true,
+      "counter_columns": [
+        {
+          "name": "TOTAL_COUNT",
+          "logical_type": "number",
+          "sql_type": "NUMBER",
+          "nullable": true,
+          "unit": {
+            "name": "count",
+            "status": "verified",
+            "evidence_ids": [
+              "description_29475825b545b7e798"
+            ]
+          },
+          "description": "전체 건수",
+          "missing_tokens": [
+            ""
+          ],
+          "excluded": false,
+          "evidence_ids": [
+            "ddl_29475825b545b7e798",
+            "description_29475825b545b7e798"
+          ]
+        },
+        {
+          "name": "SUCCESS_COUNT",
+          "logical_type": "number",
+          "sql_type": "NUMBER",
+          "nullable": true,
+          "unit": {
+            "name": "count",
+            "status": "verified",
+            "evidence_ids": [
+              "description_df196120a80fe878cb"
+            ]
+          },
+          "description": "성공 건수",
+          "missing_tokens": [
+            ""
+          ],
+          "excluded": false,
+          "evidence_ids": [
+            "ddl_df196120a80fe878cb",
+            "description_df196120a80fe878cb"
+          ]
+        },
+        {
+          "name": "ERROR_COUNT",
+          "logical_type": "number",
+          "sql_type": "NUMBER",
+          "nullable": true,
+          "unit": {
+            "name": "count",
+            "status": "verified",
+            "evidence_ids": [
+              "description_295806d6e96e012b1d"
+            ]
+          },
+          "description": "실패 건수",
+          "missing_tokens": [
+            ""
+          ],
+          "excluded": false,
+          "evidence_ids": [
+            "ddl_295806d6e96e012b1d",
+            "description_295806d6e96e012b1d"
+          ]
+        }
+      ],
+      "binding_sha256": "41ad2b45cf3c95c1f95371261e44481ab3e90bd8bf921f468b28d74c1a4d512d"
+    },
+    {
+      "rule": {
+        "id": "rule_022:baseline",
+        "feature_id": "rule_022",
+        "feature_sha": "fe26147b3e1f3c0465b5448ca3d5d9acb3a7d158739bf687f4765ac3ab98881d",
+        "table": "EC_PROCESS_MONITORING",
+        "dtype": "number",
+        "role": "numeric_SR",
+        "condition": {
+          "op": "gt",
+          "value": 1
+        },
+        "evidence_ids": [
+          "m_4e08415c3de94adcb8419dbe",
+          "baseline_774811aa1da9d50314b3c23c"
+        ],
+        "reason": "Use the verified train-only p95 1 ratio from 91181 reference values under its supplied scope and update policy. Current activation count does not determine validity; this is an offline reference comparison.",
+        "baseline": {
+          "state": "verified",
+          "reference_split": "train",
+          "reference_feature_definition_sha": "fe26147b3e1f3c0465b5448ca3d5d9acb3a7d158739bf687f4765ac3ab98881d",
+          "semantic_definition_sha": "f8abfc3574538dfb49e8426c45342d2fdb1e0b0859789ba110f428265c71eb9c",
+          "application_semantic_definition_sha": "f8abfc3574538dfb49e8426c45342d2fdb1e0b0859789ba110f428265c71eb9c",
+          "reference_source_version": "7a3b0ecbf0434a31d8d7142b20afb99a4c4e9a712b16988888b95b6622dc37e6",
+          "reference_period": {
+            "start_inclusive": "2026-08-10",
+            "end_exclusive": "2026-08-20"
+          },
+          "application_period": {
+            "start_inclusive": "2026-08-10",
+            "end_exclusive": "2026-08-20",
+            "timezone": "unconfirmed source wall-clock"
+          },
+          "group": null,
+          "reference_population": {
+            "table": "EC_PROCESS_MONITORING",
+            "filter": null
+          },
+          "application_population": {
+            "table": "EC_PROCESS_MONITORING",
+            "filter": null
+          },
+          "reference_valid_n": 91181,
+          "minimum_n": 20,
+          "quantile": 0.95,
+          "method": "linear_(n-1)*p",
+          "value": 1,
+          "value_exact": "1.00",
+          "operator": "gt",
+          "unit": "ratio",
+          "missing": "exclude unavailable reference values; preserve unavailable comparison",
+          "refresh": "explicit rebuild on training source/definition change",
+          "expiry": "declared application period end; offline only",
+          "scope": "offline row-weighted reference; unequal capture sizes/repeated frequencies do not establish normal operational baseline",
+          "range_proof": {
+            "lower": null,
+            "upper": null,
+            "proof": "no universal numeric bound; observed min/max not universal"
+          },
+          "upstream_builder_id": "baseline_7a1f5774f070fc4f98fd3e",
+          "evidence_policy": "corrected-rule-source-bound3.0",
+          "application_source_version": "7a3b0ecbf0434a31d8d7142b20afb99a4c4e9a712b16988888b95b6622dc37e6",
+          "application_measurement_id": "m_4e08415c3de94adcb8419dbe"
+        }
+      },
+      "feature": {
+        "id": "fd_c3930b5a6018e352e5a7fb4d",
+        "sha": "fe26147b3e1f3c0465b5448ca3d5d9acb3a7d158739bf687f4765ac3ab98881d",
+        "meaning": "(EC_PROCESS_MONITORING.TOTAL_COUNT divided by EC_PROCESS_MONITORING.ERROR_COUNT); offline captured metadata only; business fault/online use unverified; offline captured metadata only; business fault/online use unverified.",
+        "dtype": "number",
+        "unit": "ratio",
+        "expression": {
+          "op": "divide",
+          "args": [
+            {
+              "op": "column",
+              "table": "EC_PROCESS_MONITORING",
+              "column": "TOTAL_COUNT"
+            },
+            {
+              "op": "column",
+              "table": "EC_PROCESS_MONITORING",
+              "column": "ERROR_COUNT"
+            }
+          ]
+        },
+        "grain": {
+          "table": "EC_PROCESS_MONITORING",
+          "keys": [
+            "__SOURCE_ROW_ID"
+          ]
+        },
+        "population": {
+          "table": "EC_PROCESS_MONITORING",
+          "filter": null
+        },
+        "group_by": [],
+        "missing_policy": {
+          "input": "propagate",
+          "empty_group": null,
+          "denominator_zero": "missing",
+          "child_missing": "propagate",
+          "unknown_predicate": "defer"
+        }
+      },
+      "alternative": {
+        "rule": {
+          "id": "rule_016:baseline",
+          "feature_id": "rule_016",
+          "feature_sha": "61e8f2fc73d12e740d78e3cfd3d2d268c21beedd5e6618d34aa6ffabc96d33b9",
+          "table": "EC_PROCESS_MONITORING",
+          "dtype": "number",
+          "role": "numeric_SR",
+          "condition": {
+            "op": "gt",
+            "value": 1
+          },
+          "evidence_ids": [
+            "m_e800f2b206b557b60ca41f8f",
+            "baseline_41532013c98027da56b22c2b"
+          ],
+          "reason": "Use the verified train-only p95 1 count from 186530 reference values under its supplied scope and update policy. Current activation count does not determine validity; this is an offline reference comparison.",
+          "baseline": {
+            "state": "verified",
+            "reference_split": "train",
+            "reference_feature_definition_sha": "61e8f2fc73d12e740d78e3cfd3d2d268c21beedd5e6618d34aa6ffabc96d33b9",
+            "semantic_definition_sha": "59b6834a707c8821565b98edf09b1fb78c1c4c403e070670533641058f7827d4",
+            "application_semantic_definition_sha": "59b6834a707c8821565b98edf09b1fb78c1c4c403e070670533641058f7827d4",
+            "reference_source_version": "7a3b0ecbf0434a31d8d7142b20afb99a4c4e9a712b16988888b95b6622dc37e6",
+            "reference_period": {
+              "start_inclusive": "2026-08-10",
+              "end_exclusive": "2026-08-20"
+            },
+            "application_period": {
+              "start_inclusive": "2026-08-10",
+              "end_exclusive": "2026-08-20",
+              "timezone": "unconfirmed source wall-clock"
+            },
+            "group": null,
+            "reference_population": {
+              "table": "EC_PROCESS_MONITORING",
+              "filter": null
+            },
+            "application_population": {
+              "table": "EC_PROCESS_MONITORING",
+              "filter": null
+            },
+            "reference_valid_n": 186530,
+            "minimum_n": 20,
+            "quantile": 0.95,
+            "method": "linear_(n-1)*p",
+            "value": 1,
+            "value_exact": "1.00",
+            "operator": "gt",
+            "unit": "count",
+            "missing": "exclude unavailable reference values; preserve unavailable comparison",
+            "refresh": "explicit rebuild on training source/definition change",
+            "expiry": "declared application period end; offline only",
+            "scope": "offline row-weighted reference; unequal capture sizes/repeated frequencies do not establish normal operational baseline",
+            "range_proof": {
+              "lower": null,
+              "upper": null,
+              "proof": "no universal numeric bound; observed min/max not universal"
+            },
+            "upstream_builder_id": "baseline_319d8ed178e517d6eac928",
+            "evidence_policy": "corrected-rule-source-bound3.0",
+            "application_source_version": "7a3b0ecbf0434a31d8d7142b20afb99a4c4e9a712b16988888b95b6622dc37e6",
+            "application_measurement_id": "m_e800f2b206b557b60ca41f8f"
+          }
+        },
+        "feature": {
+          "id": "fd_b0bd8b5caf58b753852e263c",
+          "sha": "61e8f2fc73d12e740d78e3cfd3d2d268c21beedd5e6618d34aa6ffabc96d33b9",
+          "meaning": "(EC_PROCESS_MONITORING.TOTAL_COUNT minus EC_PROCESS_MONITORING.ERROR_COUNT); offline captured metadata only; business fault/online use unverified; offline captured metadata only; business fault/online use unverified.",
+          "dtype": "number",
+          "unit": "count",
+          "expression": {
+            "op": "subtract",
+            "args": [
+              {
+                "op": "column",
+                "table": "EC_PROCESS_MONITORING",
+                "column": "TOTAL_COUNT"
+              },
+              {
+                "op": "column",
+                "table": "EC_PROCESS_MONITORING",
+                "column": "ERROR_COUNT"
+              }
+            ]
+          },
+          "grain": {
+            "table": "EC_PROCESS_MONITORING",
+            "keys": [
+              "__SOURCE_ROW_ID"
+            ]
+          },
+          "population": {
+            "table": "EC_PROCESS_MONITORING",
+            "filter": null
+          },
+          "group_by": [],
+          "missing_policy": {
+            "input": "propagate",
+            "empty_group": null,
+            "denominator_zero": null,
+            "child_missing": "propagate",
+            "unknown_predicate": "defer"
+          }
+        }
+      },
+      "operand_metadata": [
+        {
+          "table": "EC_PROCESS_MONITORING",
+          "column": {
+            "name": "TOTAL_COUNT",
+            "logical_type": "number",
+            "sql_type": "NUMBER",
+            "nullable": true,
+            "unit": {
+              "name": "count",
+              "status": "verified",
+              "evidence_ids": [
+                "description_29475825b545b7e798"
+              ]
+            },
+            "description": "전체 건수",
+            "missing_tokens": [
+              ""
+            ],
+            "excluded": false,
+            "evidence_ids": [
+              "ddl_29475825b545b7e798",
+              "description_29475825b545b7e798"
+            ]
+          }
+        },
+        {
+          "table": "EC_PROCESS_MONITORING",
+          "column": {
+            "name": "ERROR_COUNT",
+            "logical_type": "number",
+            "sql_type": "NUMBER",
+            "nullable": true,
+            "unit": {
+              "name": "count",
+              "status": "verified",
+              "evidence_ids": [
+                "description_295806d6e96e012b1d"
+              ]
+            },
+            "description": "실패 건수",
+            "missing_tokens": [
+              ""
+            ],
+            "excluded": false,
+            "evidence_ids": [
+              "ddl_295806d6e96e012b1d",
+              "description_295806d6e96e012b1d"
+            ]
+          }
+        }
+      ],
+      "trigger": "known finite nonnegative numerator and denominator==0",
+      "counter_partition_check": true,
+      "counter_columns": [
+        {
+          "name": "TOTAL_COUNT",
+          "logical_type": "number",
+          "sql_type": "NUMBER",
+          "nullable": true,
+          "unit": {
+            "name": "count",
+            "status": "verified",
+            "evidence_ids": [
+              "description_29475825b545b7e798"
+            ]
+          },
+          "description": "전체 건수",
+          "missing_tokens": [
+            ""
+          ],
+          "excluded": false,
+          "evidence_ids": [
+            "ddl_29475825b545b7e798",
+            "description_29475825b545b7e798"
+          ]
+        },
+        {
+          "name": "SUCCESS_COUNT",
+          "logical_type": "number",
+          "sql_type": "NUMBER",
+          "nullable": true,
+          "unit": {
+            "name": "count",
+            "status": "verified",
+            "evidence_ids": [
+              "description_df196120a80fe878cb"
+            ]
+          },
+          "description": "성공 건수",
+          "missing_tokens": [
+            ""
+          ],
+          "excluded": false,
+          "evidence_ids": [
+            "ddl_df196120a80fe878cb",
+            "description_df196120a80fe878cb"
+          ]
+        },
+        {
+          "name": "ERROR_COUNT",
+          "logical_type": "number",
+          "sql_type": "NUMBER",
+          "nullable": true,
+          "unit": {
+            "name": "count",
+            "status": "verified",
+            "evidence_ids": [
+              "description_295806d6e96e012b1d"
+            ]
+          },
+          "description": "실패 건수",
+          "missing_tokens": [
+            ""
+          ],
+          "excluded": false,
+          "evidence_ids": [
+            "ddl_295806d6e96e012b1d",
+            "description_295806d6e96e012b1d"
+          ]
+        }
+      ],
+      "binding_sha256": "27cc38f47a25195cefecd1fa4f8367717fd80b7ab9062993517236e81d9c6665"
+    },
+    {
+      "rule": {
+        "id": "rule_023:baseline",
+        "feature_id": "rule_023",
+        "feature_sha": "b3429bfe6a897faa3554436664ec83e40b23f11224355b3715a574d64f4c96d6",
+        "table": "EC_PROCESS_MONITORING",
+        "dtype": "number",
+        "role": "numeric_SR",
+        "condition": {
+          "op": "gt",
+          "value": 1
+        },
+        "evidence_ids": [
+          "m_10b5499d76d8f21bec76c4b7",
+          "baseline_25e305683cb7127037ad14d8"
+        ],
+        "reason": "Use the verified train-only p95 1 ratio from 186444 reference values under its supplied scope and update policy. Current activation count does not determine validity; this is an offline reference comparison.",
+        "baseline": {
+          "state": "verified",
+          "reference_split": "train",
+          "reference_feature_definition_sha": "b3429bfe6a897faa3554436664ec83e40b23f11224355b3715a574d64f4c96d6",
+          "semantic_definition_sha": "8656326a6a30b059c6516febfee68e6eed2b4241d1017b5c8564b7b38a856bb6",
+          "application_semantic_definition_sha": "8656326a6a30b059c6516febfee68e6eed2b4241d1017b5c8564b7b38a856bb6",
+          "reference_source_version": "7a3b0ecbf0434a31d8d7142b20afb99a4c4e9a712b16988888b95b6622dc37e6",
+          "reference_period": {
+            "start_inclusive": "2026-08-10",
+            "end_exclusive": "2026-08-20"
+          },
+          "application_period": {
+            "start_inclusive": "2026-08-10",
+            "end_exclusive": "2026-08-20",
+            "timezone": "unconfirmed source wall-clock"
+          },
+          "group": null,
+          "reference_population": {
+            "table": "EC_PROCESS_MONITORING",
+            "filter": null
+          },
+          "application_population": {
+            "table": "EC_PROCESS_MONITORING",
+            "filter": null
+          },
+          "reference_valid_n": 186444,
+          "minimum_n": 20,
+          "quantile": 0.95,
+          "method": "linear_(n-1)*p",
+          "value": 1,
+          "value_exact": "1.00",
+          "operator": "gt",
+          "unit": "ratio",
+          "missing": "exclude unavailable reference values; preserve unavailable comparison",
+          "refresh": "explicit rebuild on training source/definition change",
+          "expiry": "declared application period end; offline only",
+          "scope": "offline row-weighted reference; unequal capture sizes/repeated frequencies do not establish normal operational baseline",
+          "range_proof": {
+            "lower": null,
+            "upper": null,
+            "proof": "no universal numeric bound; observed min/max not universal"
+          },
+          "upstream_builder_id": "baseline_32161a106be0bdfc3ca20b",
+          "evidence_policy": "corrected-rule-source-bound3.0",
+          "application_source_version": "7a3b0ecbf0434a31d8d7142b20afb99a4c4e9a712b16988888b95b6622dc37e6",
+          "application_measurement_id": "m_10b5499d76d8f21bec76c4b7"
+        }
+      },
+      "feature": {
+        "id": "fd_1df615c545e7459b4a839a83",
+        "sha": "b3429bfe6a897faa3554436664ec83e40b23f11224355b3715a574d64f4c96d6",
+        "meaning": "(EC_PROCESS_MONITORING.ERROR_COUNT divided by EC_PROCESS_MONITORING.TOTAL_COUNT); offline captured metadata only; business fault/online use unverified; offline captured metadata only; business fault/online use unverified; offline captured metadata only; business fault/online use unverified.",
+        "dtype": "number",
+        "unit": "ratio",
+        "expression": {
+          "op": "divide",
+          "args": [
+            {
+              "op": "column",
+              "table": "EC_PROCESS_MONITORING",
+              "column": "ERROR_COUNT"
+            },
+            {
+              "op": "column",
+              "table": "EC_PROCESS_MONITORING",
+              "column": "TOTAL_COUNT"
+            }
+          ]
+        },
+        "grain": {
+          "table": "EC_PROCESS_MONITORING",
+          "keys": [
+            "__SOURCE_ROW_ID"
+          ]
+        },
+        "population": {
+          "table": "EC_PROCESS_MONITORING",
+          "filter": null
+        },
+        "group_by": [],
+        "missing_policy": {
+          "input": "propagate",
+          "empty_group": null,
+          "denominator_zero": "missing",
+          "child_missing": "propagate",
+          "unknown_predicate": "defer"
+        }
+      },
+      "alternative": null,
+      "operand_metadata": [
+        {
+          "table": "EC_PROCESS_MONITORING",
+          "column": {
+            "name": "ERROR_COUNT",
+            "logical_type": "number",
+            "sql_type": "NUMBER",
+            "nullable": true,
+            "unit": {
+              "name": "count",
+              "status": "verified",
+              "evidence_ids": [
+                "description_295806d6e96e012b1d"
+              ]
+            },
+            "description": "실패 건수",
+            "missing_tokens": [
+              ""
+            ],
+            "excluded": false,
+            "evidence_ids": [
+              "ddl_295806d6e96e012b1d",
+              "description_295806d6e96e012b1d"
+            ]
+          }
+        },
+        {
+          "table": "EC_PROCESS_MONITORING",
+          "column": {
+            "name": "TOTAL_COUNT",
+            "logical_type": "number",
+            "sql_type": "NUMBER",
+            "nullable": true,
+            "unit": {
+              "name": "count",
+              "status": "verified",
+              "evidence_ids": [
+                "description_29475825b545b7e798"
+              ]
+            },
+            "description": "전체 건수",
+            "missing_tokens": [
+              ""
+            ],
+            "excluded": false,
+            "evidence_ids": [
+              "ddl_29475825b545b7e798",
+              "description_29475825b545b7e798"
+            ]
+          }
+        }
+      ],
+      "trigger": "known finite nonnegative numerator and denominator==0",
+      "counter_partition_check": true,
+      "counter_columns": [
+        {
+          "name": "TOTAL_COUNT",
+          "logical_type": "number",
+          "sql_type": "NUMBER",
+          "nullable": true,
+          "unit": {
+            "name": "count",
+            "status": "verified",
+            "evidence_ids": [
+              "description_29475825b545b7e798"
+            ]
+          },
+          "description": "전체 건수",
+          "missing_tokens": [
+            ""
+          ],
+          "excluded": false,
+          "evidence_ids": [
+            "ddl_29475825b545b7e798",
+            "description_29475825b545b7e798"
+          ]
+        },
+        {
+          "name": "SUCCESS_COUNT",
+          "logical_type": "number",
+          "sql_type": "NUMBER",
+          "nullable": true,
+          "unit": {
+            "name": "count",
+            "status": "verified",
+            "evidence_ids": [
+              "description_df196120a80fe878cb"
+            ]
+          },
+          "description": "성공 건수",
+          "missing_tokens": [
+            ""
+          ],
+          "excluded": false,
+          "evidence_ids": [
+            "ddl_df196120a80fe878cb",
+            "description_df196120a80fe878cb"
+          ]
+        },
+        {
+          "name": "ERROR_COUNT",
+          "logical_type": "number",
+          "sql_type": "NUMBER",
+          "nullable": true,
+          "unit": {
+            "name": "count",
+            "status": "verified",
+            "evidence_ids": [
+              "description_295806d6e96e012b1d"
+            ]
+          },
+          "description": "실패 건수",
+          "missing_tokens": [
+            ""
+          ],
+          "excluded": false,
+          "evidence_ids": [
+            "ddl_295806d6e96e012b1d",
+            "description_295806d6e96e012b1d"
+          ]
+        }
+      ],
+      "binding_sha256": "a935b43c0d571fa1ef604eed0ea0a7c9c480ae0e6c41c556ea72c1216036693e"
+    },
+    {
+      "rule": {
+        "id": "rule_024:baseline",
+        "feature_id": "rule_024",
+        "feature_sha": "d3c6c7245dbd76dcb2846de249fd3180599c92e6e3c77967a5fac1e8ab297892",
+        "table": "EC_PROCESS_MONITORING",
+        "dtype": "number",
+        "role": "numeric_SR",
+        "condition": {
+          "op": "gt",
+          "value": 0
+        },
+        "evidence_ids": [
+          "m_da36f2bb08b1c55998643b49",
+          "baseline_deca26119e4c56ef3fec14f7"
+        ],
+        "reason": "Use the verified train-only p95 0 ratio from 95263 reference values under its supplied scope and update policy. Current activation count does not determine validity; this is an offline reference comparison.",
+        "baseline": {
+          "state": "verified",
+          "reference_split": "train",
+          "reference_feature_definition_sha": "d3c6c7245dbd76dcb2846de249fd3180599c92e6e3c77967a5fac1e8ab297892",
+          "semantic_definition_sha": "50f43245d642dfb8e7ebabd2fcf26495cfc6d07b9fcf9155dbb50ebb2926fd90",
+          "application_semantic_definition_sha": "50f43245d642dfb8e7ebabd2fcf26495cfc6d07b9fcf9155dbb50ebb2926fd90",
+          "reference_source_version": "7a3b0ecbf0434a31d8d7142b20afb99a4c4e9a712b16988888b95b6622dc37e6",
+          "reference_period": {
+            "start_inclusive": "2026-08-10",
+            "end_exclusive": "2026-08-20"
+          },
+          "application_period": {
+            "start_inclusive": "2026-08-10",
+            "end_exclusive": "2026-08-20",
+            "timezone": "unconfirmed source wall-clock"
+          },
+          "group": null,
+          "reference_population": {
+            "table": "EC_PROCESS_MONITORING",
+            "filter": null
+          },
+          "application_population": {
+            "table": "EC_PROCESS_MONITORING",
+            "filter": null
+          },
+          "reference_valid_n": 95263,
+          "minimum_n": 20,
+          "quantile": 0.95,
+          "method": "linear_(n-1)*p",
+          "value": 0,
+          "value_exact": "0.00",
+          "operator": "gt",
+          "unit": "ratio",
+          "missing": "exclude unavailable reference values; preserve unavailable comparison",
+          "refresh": "explicit rebuild on training source/definition change",
+          "expiry": "declared application period end; offline only",
+          "scope": "offline row-weighted reference; unequal capture sizes/repeated frequencies do not establish normal operational baseline",
+          "range_proof": {
+            "lower": null,
+            "upper": null,
+            "proof": "no universal numeric bound; observed min/max not universal"
+          },
+          "upstream_builder_id": "baseline_ce46ca2f9cfc39240b1cb9",
+          "evidence_policy": "corrected-rule-source-bound3.0",
+          "application_source_version": "7a3b0ecbf0434a31d8d7142b20afb99a4c4e9a712b16988888b95b6622dc37e6",
+          "application_measurement_id": "m_da36f2bb08b1c55998643b49"
+        }
+      },
+      "feature": {
+        "id": "fd_7944415376a4e73114c577e8",
+        "sha": "d3c6c7245dbd76dcb2846de249fd3180599c92e6e3c77967a5fac1e8ab297892",
+        "meaning": "(EC_PROCESS_MONITORING.ERROR_COUNT divided by EC_PROCESS_MONITORING.SUCCESS_COUNT); offline captured metadata only; business fault/online use unverified; offline captured metadata only; business fault/online use unverified; offline captured metadata only; business fault/online use unverified.",
+        "dtype": "number",
+        "unit": "ratio",
+        "expression": {
+          "op": "divide",
+          "args": [
+            {
+              "op": "column",
+              "table": "EC_PROCESS_MONITORING",
+              "column": "ERROR_COUNT"
+            },
+            {
+              "op": "column",
+              "table": "EC_PROCESS_MONITORING",
+              "column": "SUCCESS_COUNT"
+            }
+          ]
+        },
+        "grain": {
+          "table": "EC_PROCESS_MONITORING",
+          "keys": [
+            "__SOURCE_ROW_ID"
+          ]
+        },
+        "population": {
+          "table": "EC_PROCESS_MONITORING",
+          "filter": null
+        },
+        "group_by": [],
+        "missing_policy": {
+          "input": "propagate",
+          "empty_group": null,
+          "denominator_zero": "missing",
+          "child_missing": "propagate",
+          "unknown_predicate": "defer"
+        }
+      },
+      "alternative": {
+        "rule": {
+          "id": "rule_015:baseline",
+          "feature_id": "rule_015",
+          "feature_sha": "041ee80c78b4b0fb10c7b736309990ca053a6a75511c4b29ca69ec47b8a83a17",
+          "table": "EC_PROCESS_MONITORING",
+          "dtype": "number",
+          "role": "numeric_SR",
+          "condition": {
+            "op": "gt",
+            "value": 1
+          },
+          "evidence_ids": [
+            "m_45be979a2ac5d424a8e374c0",
+            "baseline_7ebe0fd1473bee18100b6244"
+          ],
+          "reason": "Use the verified train-only p95 1 count from 186530 reference values under its supplied scope and update policy. Current activation count does not determine validity; this is an offline reference comparison.",
+          "baseline": {
+            "state": "verified",
+            "reference_split": "train",
+            "reference_feature_definition_sha": "041ee80c78b4b0fb10c7b736309990ca053a6a75511c4b29ca69ec47b8a83a17",
+            "semantic_definition_sha": "36ed4e5e5676565f39355d2adde611b5c7965294fd2a806245168cdc515b5341",
+            "application_semantic_definition_sha": "36ed4e5e5676565f39355d2adde611b5c7965294fd2a806245168cdc515b5341",
+            "reference_source_version": "7a3b0ecbf0434a31d8d7142b20afb99a4c4e9a712b16988888b95b6622dc37e6",
+            "reference_period": {
+              "start_inclusive": "2026-08-10",
+              "end_exclusive": "2026-08-20"
+            },
+            "application_period": {
+              "start_inclusive": "2026-08-10",
+              "end_exclusive": "2026-08-20",
+              "timezone": "unconfirmed source wall-clock"
+            },
+            "group": null,
+            "reference_population": {
+              "table": "EC_PROCESS_MONITORING",
+              "filter": null
+            },
+            "application_population": {
+              "table": "EC_PROCESS_MONITORING",
+              "filter": null
+            },
+            "reference_valid_n": 186530,
+            "minimum_n": 20,
+            "quantile": 0.95,
+            "method": "linear_(n-1)*p",
+            "value": 1,
+            "value_exact": "1.00",
+            "operator": "gt",
+            "unit": "count",
+            "missing": "exclude unavailable reference values; preserve unavailable comparison",
+            "refresh": "explicit rebuild on training source/definition change",
+            "expiry": "declared application period end; offline only",
+            "scope": "offline row-weighted reference; unequal capture sizes/repeated frequencies do not establish normal operational baseline",
+            "range_proof": {
+              "lower": null,
+              "upper": null,
+              "proof": "no universal numeric bound; observed min/max not universal"
+            },
+            "upstream_builder_id": "baseline_f3b5b0de3d050df97b86bd",
+            "evidence_policy": "corrected-rule-source-bound3.0",
+            "application_source_version": "7a3b0ecbf0434a31d8d7142b20afb99a4c4e9a712b16988888b95b6622dc37e6",
+            "application_measurement_id": "m_45be979a2ac5d424a8e374c0"
+          }
+        },
+        "feature": {
+          "id": "fd_5100d17317657baea1d16647",
+          "sha": "041ee80c78b4b0fb10c7b736309990ca053a6a75511c4b29ca69ec47b8a83a17",
+          "meaning": "(EC_PROCESS_MONITORING.TOTAL_COUNT minus EC_PROCESS_MONITORING.SUCCESS_COUNT); offline captured metadata only; business fault/online use unverified; offline captured metadata only; business fault/online use unverified.",
+          "dtype": "number",
+          "unit": "count",
+          "expression": {
+            "op": "subtract",
+            "args": [
+              {
+                "op": "column",
+                "table": "EC_PROCESS_MONITORING",
+                "column": "TOTAL_COUNT"
+              },
+              {
+                "op": "column",
+                "table": "EC_PROCESS_MONITORING",
+                "column": "SUCCESS_COUNT"
+              }
+            ]
+          },
+          "grain": {
+            "table": "EC_PROCESS_MONITORING",
+            "keys": [
+              "__SOURCE_ROW_ID"
+            ]
+          },
+          "population": {
+            "table": "EC_PROCESS_MONITORING",
+            "filter": null
+          },
+          "group_by": [],
+          "missing_policy": {
+            "input": "propagate",
+            "empty_group": null,
+            "denominator_zero": null,
+            "child_missing": "propagate",
+            "unknown_predicate": "defer"
+          }
+        }
+      },
+      "operand_metadata": [
+        {
+          "table": "EC_PROCESS_MONITORING",
+          "column": {
+            "name": "ERROR_COUNT",
+            "logical_type": "number",
+            "sql_type": "NUMBER",
+            "nullable": true,
+            "unit": {
+              "name": "count",
+              "status": "verified",
+              "evidence_ids": [
+                "description_295806d6e96e012b1d"
+              ]
+            },
+            "description": "실패 건수",
+            "missing_tokens": [
+              ""
+            ],
+            "excluded": false,
+            "evidence_ids": [
+              "ddl_295806d6e96e012b1d",
+              "description_295806d6e96e012b1d"
+            ]
+          }
+        },
+        {
+          "table": "EC_PROCESS_MONITORING",
+          "column": {
+            "name": "SUCCESS_COUNT",
+            "logical_type": "number",
+            "sql_type": "NUMBER",
+            "nullable": true,
+            "unit": {
+              "name": "count",
+              "status": "verified",
+              "evidence_ids": [
+                "description_df196120a80fe878cb"
+              ]
+            },
+            "description": "성공 건수",
+            "missing_tokens": [
+              ""
+            ],
+            "excluded": false,
+            "evidence_ids": [
+              "ddl_df196120a80fe878cb",
+              "description_df196120a80fe878cb"
+            ]
+          }
+        }
+      ],
+      "trigger": "known finite nonnegative numerator and denominator==0",
+      "counter_partition_check": true,
+      "counter_columns": [
+        {
+          "name": "TOTAL_COUNT",
+          "logical_type": "number",
+          "sql_type": "NUMBER",
+          "nullable": true,
+          "unit": {
+            "name": "count",
+            "status": "verified",
+            "evidence_ids": [
+              "description_29475825b545b7e798"
+            ]
+          },
+          "description": "전체 건수",
+          "missing_tokens": [
+            ""
+          ],
+          "excluded": false,
+          "evidence_ids": [
+            "ddl_29475825b545b7e798",
+            "description_29475825b545b7e798"
+          ]
+        },
+        {
+          "name": "SUCCESS_COUNT",
+          "logical_type": "number",
+          "sql_type": "NUMBER",
+          "nullable": true,
+          "unit": {
+            "name": "count",
+            "status": "verified",
+            "evidence_ids": [
+              "description_df196120a80fe878cb"
+            ]
+          },
+          "description": "성공 건수",
+          "missing_tokens": [
+            ""
+          ],
+          "excluded": false,
+          "evidence_ids": [
+            "ddl_df196120a80fe878cb",
+            "description_df196120a80fe878cb"
+          ]
+        },
+        {
+          "name": "ERROR_COUNT",
+          "logical_type": "number",
+          "sql_type": "NUMBER",
+          "nullable": true,
+          "unit": {
+            "name": "count",
+            "status": "verified",
+            "evidence_ids": [
+              "description_295806d6e96e012b1d"
+            ]
+          },
+          "description": "실패 건수",
+          "missing_tokens": [
+            ""
+          ],
+          "excluded": false,
+          "evidence_ids": [
+            "ddl_295806d6e96e012b1d",
+            "description_295806d6e96e012b1d"
+          ]
+        }
+      ],
+      "binding_sha256": "f06381c618113ee8fc5b57da23e310a89c64db3c7f88adacc3fe938b1d8703c0"
+    },
+    {
+      "rule": {
+        "id": "rule_025:baseline",
+        "feature_id": "rule_025",
+        "feature_sha": "961e0fb15bcb119cf65885ee8025cef2b094e179b53c494ca2787f11e37c9a4d",
+        "table": "EC_PROCESS_MONITORING",
+        "dtype": "number",
+        "role": "numeric_SR",
+        "condition": {
+          "op": "gt",
+          "value": 1
+        },
+        "evidence_ids": [
+          "m_fbe2f629c20b8eefe573ab3c",
+          "baseline_b093b26ff1b08ba528dd97a1"
+        ],
+        "reason": "Use the verified train-only p95 1 ratio from 186444 reference values under its supplied scope and update policy. Current activation count does not determine validity; this is an offline reference comparison.",
+        "baseline": {
+          "state": "verified",
+          "reference_split": "train",
+          "reference_feature_definition_sha": "961e0fb15bcb119cf65885ee8025cef2b094e179b53c494ca2787f11e37c9a4d",
+          "semantic_definition_sha": "2426cf6a4c5a5aa429a89d5c1b0904820b2c41d54b7ad387a0084efdf81eca8c",
+          "application_semantic_definition_sha": "2426cf6a4c5a5aa429a89d5c1b0904820b2c41d54b7ad387a0084efdf81eca8c",
+          "reference_source_version": "7a3b0ecbf0434a31d8d7142b20afb99a4c4e9a712b16988888b95b6622dc37e6",
+          "reference_period": {
+            "start_inclusive": "2026-08-10",
+            "end_exclusive": "2026-08-20"
+          },
+          "application_period": {
+            "start_inclusive": "2026-08-10",
+            "end_exclusive": "2026-08-20",
+            "timezone": "unconfirmed source wall-clock"
+          },
+          "group": null,
+          "reference_population": {
+            "table": "EC_PROCESS_MONITORING",
+            "filter": null
+          },
+          "application_population": {
+            "table": "EC_PROCESS_MONITORING",
+            "filter": null
+          },
+          "reference_valid_n": 186444,
+          "minimum_n": 20,
+          "quantile": 0.95,
+          "method": "linear_(n-1)*p",
+          "value": 1,
+          "value_exact": "1.00",
+          "operator": "gt",
+          "unit": "ratio",
+          "missing": "exclude unavailable reference values; preserve unavailable comparison",
+          "refresh": "explicit rebuild on training source/definition change",
+          "expiry": "declared application period end; offline only",
+          "scope": "offline row-weighted reference; unequal capture sizes/repeated frequencies do not establish normal operational baseline",
+          "range_proof": {
+            "lower": null,
+            "upper": null,
+            "proof": "no universal numeric bound; observed min/max not universal"
+          },
+          "upstream_builder_id": "baseline_5c9e8bd035911655d936bc",
+          "evidence_policy": "corrected-rule-source-bound3.0",
+          "application_source_version": "7a3b0ecbf0434a31d8d7142b20afb99a4c4e9a712b16988888b95b6622dc37e6",
+          "application_measurement_id": "m_fbe2f629c20b8eefe573ab3c"
+        }
+      },
+      "feature": {
+        "id": "fd_bdc5200669206d6d871ba784",
+        "sha": "961e0fb15bcb119cf65885ee8025cef2b094e179b53c494ca2787f11e37c9a4d",
+        "meaning": "(EC_PROCESS_MONITORING.SUCCESS_COUNT divided by EC_PROCESS_MONITORING.TOTAL_COUNT); offline captured metadata only; business fault/online use unverified; offline captured metadata only; business fault/online use unverified; offline captured metadata only; business fault/online use unverified.",
+        "dtype": "number",
+        "unit": "ratio",
+        "expression": {
+          "op": "divide",
+          "args": [
+            {
+              "op": "column",
+              "table": "EC_PROCESS_MONITORING",
+              "column": "SUCCESS_COUNT"
+            },
+            {
+              "op": "column",
+              "table": "EC_PROCESS_MONITORING",
+              "column": "TOTAL_COUNT"
+            }
+          ]
+        },
+        "grain": {
+          "table": "EC_PROCESS_MONITORING",
+          "keys": [
+            "__SOURCE_ROW_ID"
+          ]
+        },
+        "population": {
+          "table": "EC_PROCESS_MONITORING",
+          "filter": null
+        },
+        "group_by": [],
+        "missing_policy": {
+          "input": "propagate",
+          "empty_group": null,
+          "denominator_zero": "missing",
+          "child_missing": "propagate",
+          "unknown_predicate": "defer"
+        }
+      },
+      "alternative": null,
+      "operand_metadata": [
+        {
+          "table": "EC_PROCESS_MONITORING",
+          "column": {
+            "name": "SUCCESS_COUNT",
+            "logical_type": "number",
+            "sql_type": "NUMBER",
+            "nullable": true,
+            "unit": {
+              "name": "count",
+              "status": "verified",
+              "evidence_ids": [
+                "description_df196120a80fe878cb"
+              ]
+            },
+            "description": "성공 건수",
+            "missing_tokens": [
+              ""
+            ],
+            "excluded": false,
+            "evidence_ids": [
+              "ddl_df196120a80fe878cb",
+              "description_df196120a80fe878cb"
+            ]
+          }
+        },
+        {
+          "table": "EC_PROCESS_MONITORING",
+          "column": {
+            "name": "TOTAL_COUNT",
+            "logical_type": "number",
+            "sql_type": "NUMBER",
+            "nullable": true,
+            "unit": {
+              "name": "count",
+              "status": "verified",
+              "evidence_ids": [
+                "description_29475825b545b7e798"
+              ]
+            },
+            "description": "전체 건수",
+            "missing_tokens": [
+              ""
+            ],
+            "excluded": false,
+            "evidence_ids": [
+              "ddl_29475825b545b7e798",
+              "description_29475825b545b7e798"
+            ]
+          }
+        }
+      ],
+      "trigger": "known finite nonnegative numerator and denominator==0",
+      "counter_partition_check": true,
+      "counter_columns": [
+        {
+          "name": "TOTAL_COUNT",
+          "logical_type": "number",
+          "sql_type": "NUMBER",
+          "nullable": true,
+          "unit": {
+            "name": "count",
+            "status": "verified",
+            "evidence_ids": [
+              "description_29475825b545b7e798"
+            ]
+          },
+          "description": "전체 건수",
+          "missing_tokens": [
+            ""
+          ],
+          "excluded": false,
+          "evidence_ids": [
+            "ddl_29475825b545b7e798",
+            "description_29475825b545b7e798"
+          ]
+        },
+        {
+          "name": "SUCCESS_COUNT",
+          "logical_type": "number",
+          "sql_type": "NUMBER",
+          "nullable": true,
+          "unit": {
+            "name": "count",
+            "status": "verified",
+            "evidence_ids": [
+              "description_df196120a80fe878cb"
+            ]
+          },
+          "description": "성공 건수",
+          "missing_tokens": [
+            ""
+          ],
+          "excluded": false,
+          "evidence_ids": [
+            "ddl_df196120a80fe878cb",
+            "description_df196120a80fe878cb"
+          ]
+        },
+        {
+          "name": "ERROR_COUNT",
+          "logical_type": "number",
+          "sql_type": "NUMBER",
+          "nullable": true,
+          "unit": {
+            "name": "count",
+            "status": "verified",
+            "evidence_ids": [
+              "description_295806d6e96e012b1d"
+            ]
+          },
+          "description": "실패 건수",
+          "missing_tokens": [
+            ""
+          ],
+          "excluded": false,
+          "evidence_ids": [
+            "ddl_295806d6e96e012b1d",
+            "description_295806d6e96e012b1d"
+          ]
+        }
+      ],
+      "binding_sha256": "a83e25bc690427318ecbb665a1c066ef41f4611a80a89e44d78cc7ad3aeaeafb"
+    },
+    {
+      "rule": {
+        "id": "rule_028:baseline",
+        "feature_id": "rule_028",
+        "feature_sha": "f977a9f4d0e3df3d1bb6d6b6b1c99f5458fb52a16cd38dc20f0e766dc2f23224",
+        "table": "EC_PROCESS_MONITORING",
+        "dtype": "number",
+        "role": "numeric_SR",
+        "condition": {
+          "op": "gt",
+          "value": 0
+        },
+        "evidence_ids": [
+          "m_9856577fa37922412702fac8",
+          "baseline_d6bb41597e2211fc0ce148b9"
+        ],
+        "reason": "Use the verified train-only p95 0 ratio from 91181 reference values under its supplied scope and update policy. Current activation count does not determine validity; this is an offline reference comparison.",
+        "baseline": {
+          "state": "verified",
+          "reference_split": "train",
+          "reference_feature_definition_sha": "f977a9f4d0e3df3d1bb6d6b6b1c99f5458fb52a16cd38dc20f0e766dc2f23224",
+          "semantic_definition_sha": "84e461b32f9cc80b8ebd2bed17cf05799e0616d5eac0b60fdcc6040ec7723b5f",
+          "application_semantic_definition_sha": "84e461b32f9cc80b8ebd2bed17cf05799e0616d5eac0b60fdcc6040ec7723b5f",
+          "reference_source_version": "7a3b0ecbf0434a31d8d7142b20afb99a4c4e9a712b16988888b95b6622dc37e6",
+          "reference_period": {
+            "start_inclusive": "2026-08-10",
+            "end_exclusive": "2026-08-20"
+          },
+          "application_period": {
+            "start_inclusive": "2026-08-10",
+            "end_exclusive": "2026-08-20",
+            "timezone": "unconfirmed source wall-clock"
+          },
+          "group": null,
+          "reference_population": {
+            "table": "EC_PROCESS_MONITORING",
+            "filter": null
+          },
+          "application_population": {
+            "table": "EC_PROCESS_MONITORING",
+            "filter": null
+          },
+          "reference_valid_n": 91181,
+          "minimum_n": 20,
+          "quantile": 0.95,
+          "method": "linear_(n-1)*p",
+          "value": 0,
+          "value_exact": "0.00",
+          "operator": "gt",
+          "unit": "ratio",
+          "missing": "exclude unavailable reference values; preserve unavailable comparison",
+          "refresh": "explicit rebuild on training source/definition change",
+          "expiry": "declared application period end; offline only",
+          "scope": "offline row-weighted reference; unequal capture sizes/repeated frequencies do not establish normal operational baseline",
+          "range_proof": {
+            "lower": null,
+            "upper": null,
+            "proof": "no universal numeric bound; observed min/max not universal"
+          },
+          "upstream_builder_id": "baseline_70265c18a6deff682602c4",
+          "evidence_policy": "corrected-rule-source-bound3.0",
+          "application_source_version": "7a3b0ecbf0434a31d8d7142b20afb99a4c4e9a712b16988888b95b6622dc37e6",
+          "application_measurement_id": "m_9856577fa37922412702fac8"
+        }
+      },
+      "feature": {
+        "id": "fd_be59c670b4ed7f37c8d10b2f",
+        "sha": "f977a9f4d0e3df3d1bb6d6b6b1c99f5458fb52a16cd38dc20f0e766dc2f23224",
+        "meaning": "(EC_PROCESS_MONITORING.SUCCESS_COUNT divided by EC_PROCESS_MONITORING.ERROR_COUNT); offline captured metadata only; business fault/online use unverified; offline captured metadata only; business fault/online use unverified; offline captured metadata only; business fault/online use unverified.",
+        "dtype": "number",
+        "unit": "ratio",
+        "expression": {
+          "op": "divide",
+          "args": [
+            {
+              "op": "column",
+              "table": "EC_PROCESS_MONITORING",
+              "column": "SUCCESS_COUNT"
+            },
+            {
+              "op": "column",
+              "table": "EC_PROCESS_MONITORING",
+              "column": "ERROR_COUNT"
+            }
+          ]
+        },
+        "grain": {
+          "table": "EC_PROCESS_MONITORING",
+          "keys": [
+            "__SOURCE_ROW_ID"
+          ]
+        },
+        "population": {
+          "table": "EC_PROCESS_MONITORING",
+          "filter": null
+        },
+        "group_by": [],
+        "missing_policy": {
+          "input": "propagate",
+          "empty_group": null,
+          "denominator_zero": "missing",
+          "child_missing": "propagate",
+          "unknown_predicate": "defer"
+        }
+      },
+      "alternative": {
+        "rule": {
+          "id": "rule_016:baseline",
+          "feature_id": "rule_016",
+          "feature_sha": "61e8f2fc73d12e740d78e3cfd3d2d268c21beedd5e6618d34aa6ffabc96d33b9",
+          "table": "EC_PROCESS_MONITORING",
+          "dtype": "number",
+          "role": "numeric_SR",
+          "condition": {
+            "op": "gt",
+            "value": 1
+          },
+          "evidence_ids": [
+            "m_e800f2b206b557b60ca41f8f",
+            "baseline_41532013c98027da56b22c2b"
+          ],
+          "reason": "Use the verified train-only p95 1 count from 186530 reference values under its supplied scope and update policy. Current activation count does not determine validity; this is an offline reference comparison.",
+          "baseline": {
+            "state": "verified",
+            "reference_split": "train",
+            "reference_feature_definition_sha": "61e8f2fc73d12e740d78e3cfd3d2d268c21beedd5e6618d34aa6ffabc96d33b9",
+            "semantic_definition_sha": "59b6834a707c8821565b98edf09b1fb78c1c4c403e070670533641058f7827d4",
+            "application_semantic_definition_sha": "59b6834a707c8821565b98edf09b1fb78c1c4c403e070670533641058f7827d4",
+            "reference_source_version": "7a3b0ecbf0434a31d8d7142b20afb99a4c4e9a712b16988888b95b6622dc37e6",
+            "reference_period": {
+              "start_inclusive": "2026-08-10",
+              "end_exclusive": "2026-08-20"
+            },
+            "application_period": {
+              "start_inclusive": "2026-08-10",
+              "end_exclusive": "2026-08-20",
+              "timezone": "unconfirmed source wall-clock"
+            },
+            "group": null,
+            "reference_population": {
+              "table": "EC_PROCESS_MONITORING",
+              "filter": null
+            },
+            "application_population": {
+              "table": "EC_PROCESS_MONITORING",
+              "filter": null
+            },
+            "reference_valid_n": 186530,
+            "minimum_n": 20,
+            "quantile": 0.95,
+            "method": "linear_(n-1)*p",
+            "value": 1,
+            "value_exact": "1.00",
+            "operator": "gt",
+            "unit": "count",
+            "missing": "exclude unavailable reference values; preserve unavailable comparison",
+            "refresh": "explicit rebuild on training source/definition change",
+            "expiry": "declared application period end; offline only",
+            "scope": "offline row-weighted reference; unequal capture sizes/repeated frequencies do not establish normal operational baseline",
+            "range_proof": {
+              "lower": null,
+              "upper": null,
+              "proof": "no universal numeric bound; observed min/max not universal"
+            },
+            "upstream_builder_id": "baseline_319d8ed178e517d6eac928",
+            "evidence_policy": "corrected-rule-source-bound3.0",
+            "application_source_version": "7a3b0ecbf0434a31d8d7142b20afb99a4c4e9a712b16988888b95b6622dc37e6",
+            "application_measurement_id": "m_e800f2b206b557b60ca41f8f"
+          }
+        },
+        "feature": {
+          "id": "fd_b0bd8b5caf58b753852e263c",
+          "sha": "61e8f2fc73d12e740d78e3cfd3d2d268c21beedd5e6618d34aa6ffabc96d33b9",
+          "meaning": "(EC_PROCESS_MONITORING.TOTAL_COUNT minus EC_PROCESS_MONITORING.ERROR_COUNT); offline captured metadata only; business fault/online use unverified; offline captured metadata only; business fault/online use unverified.",
+          "dtype": "number",
+          "unit": "count",
+          "expression": {
+            "op": "subtract",
+            "args": [
+              {
+                "op": "column",
+                "table": "EC_PROCESS_MONITORING",
+                "column": "TOTAL_COUNT"
+              },
+              {
+                "op": "column",
+                "table": "EC_PROCESS_MONITORING",
+                "column": "ERROR_COUNT"
+              }
+            ]
+          },
+          "grain": {
+            "table": "EC_PROCESS_MONITORING",
+            "keys": [
+              "__SOURCE_ROW_ID"
+            ]
+          },
+          "population": {
+            "table": "EC_PROCESS_MONITORING",
+            "filter": null
+          },
+          "group_by": [],
+          "missing_policy": {
+            "input": "propagate",
+            "empty_group": null,
+            "denominator_zero": null,
+            "child_missing": "propagate",
+            "unknown_predicate": "defer"
+          }
+        }
+      },
+      "operand_metadata": [
+        {
+          "table": "EC_PROCESS_MONITORING",
+          "column": {
+            "name": "SUCCESS_COUNT",
+            "logical_type": "number",
+            "sql_type": "NUMBER",
+            "nullable": true,
+            "unit": {
+              "name": "count",
+              "status": "verified",
+              "evidence_ids": [
+                "description_df196120a80fe878cb"
+              ]
+            },
+            "description": "성공 건수",
+            "missing_tokens": [
+              ""
+            ],
+            "excluded": false,
+            "evidence_ids": [
+              "ddl_df196120a80fe878cb",
+              "description_df196120a80fe878cb"
+            ]
+          }
+        },
+        {
+          "table": "EC_PROCESS_MONITORING",
+          "column": {
+            "name": "ERROR_COUNT",
+            "logical_type": "number",
+            "sql_type": "NUMBER",
+            "nullable": true,
+            "unit": {
+              "name": "count",
+              "status": "verified",
+              "evidence_ids": [
+                "description_295806d6e96e012b1d"
+              ]
+            },
+            "description": "실패 건수",
+            "missing_tokens": [
+              ""
+            ],
+            "excluded": false,
+            "evidence_ids": [
+              "ddl_295806d6e96e012b1d",
+              "description_295806d6e96e012b1d"
+            ]
+          }
+        }
+      ],
+      "trigger": "known finite nonnegative numerator and denominator==0",
+      "counter_partition_check": true,
+      "counter_columns": [
+        {
+          "name": "TOTAL_COUNT",
+          "logical_type": "number",
+          "sql_type": "NUMBER",
+          "nullable": true,
+          "unit": {
+            "name": "count",
+            "status": "verified",
+            "evidence_ids": [
+              "description_29475825b545b7e798"
+            ]
+          },
+          "description": "전체 건수",
+          "missing_tokens": [
+            ""
+          ],
+          "excluded": false,
+          "evidence_ids": [
+            "ddl_29475825b545b7e798",
+            "description_29475825b545b7e798"
+          ]
+        },
+        {
+          "name": "SUCCESS_COUNT",
+          "logical_type": "number",
+          "sql_type": "NUMBER",
+          "nullable": true,
+          "unit": {
+            "name": "count",
+            "status": "verified",
+            "evidence_ids": [
+              "description_df196120a80fe878cb"
+            ]
+          },
+          "description": "성공 건수",
+          "missing_tokens": [
+            ""
+          ],
+          "excluded": false,
+          "evidence_ids": [
+            "ddl_df196120a80fe878cb",
+            "description_df196120a80fe878cb"
+          ]
+        },
+        {
+          "name": "ERROR_COUNT",
+          "logical_type": "number",
+          "sql_type": "NUMBER",
+          "nullable": true,
+          "unit": {
+            "name": "count",
+            "status": "verified",
+            "evidence_ids": [
+              "description_295806d6e96e012b1d"
+            ]
+          },
+          "description": "실패 건수",
+          "missing_tokens": [
+            ""
+          ],
+          "excluded": false,
+          "evidence_ids": [
+            "ddl_295806d6e96e012b1d",
+            "description_295806d6e96e012b1d"
+          ]
+        }
+      ],
+      "binding_sha256": "74c25204a63a5a4bb97f211219ada394540e2ee01e781946b52c5b87448c1f98"
+    },
+    {
+      "rule": {
+        "id": "rule_030:baseline",
+        "feature_id": "rule_030",
+        "feature_sha": "fd8cdcc5b7de9b30724e60a683f45778b2852dc2c9e08a7bce564ccbbc2d51a9",
+        "table": "EC_TRANSACTION_MONITORING",
+        "dtype": "number",
+        "role": "numeric_SR",
+        "condition": {
+          "op": "gt",
+          "value": 0.5
+        },
+        "evidence_ids": [
+          "m_bc8aadb961a3bc4abd5b0da6",
+          "baseline_722fc9508943f4674ff06e34"
+        ],
+        "reason": "Use the verified train-only p95 0.5 ratio from 186354 reference values under its supplied scope and update policy. Current activation count does not determine validity; this is an offline reference comparison.",
+        "baseline": {
+          "state": "verified",
+          "reference_split": "train",
+          "reference_feature_definition_sha": "fd8cdcc5b7de9b30724e60a683f45778b2852dc2c9e08a7bce564ccbbc2d51a9",
+          "semantic_definition_sha": "5feeea71898b2b2acd1d4f488dfc3e50d440ac4e3cbb50322e1aa0c398762326",
+          "application_semantic_definition_sha": "5feeea71898b2b2acd1d4f488dfc3e50d440ac4e3cbb50322e1aa0c398762326",
+          "reference_source_version": "7a3b0ecbf0434a31d8d7142b20afb99a4c4e9a712b16988888b95b6622dc37e6",
+          "reference_period": {
+            "start_inclusive": "2026-08-10",
+            "end_exclusive": "2026-08-20"
+          },
+          "application_period": {
+            "start_inclusive": "2026-08-10",
+            "end_exclusive": "2026-08-20",
+            "timezone": "unconfirmed source wall-clock"
+          },
+          "group": null,
+          "reference_population": {
+            "table": "EC_TRANSACTION_MONITORING",
+            "filter": null
+          },
+          "application_population": {
+            "table": "EC_TRANSACTION_MONITORING",
+            "filter": null
+          },
+          "reference_valid_n": 186354,
+          "minimum_n": 20,
+          "quantile": 0.95,
+          "method": "linear_(n-1)*p",
+          "value": 0.5,
+          "value_exact": "0.500",
+          "operator": "gt",
+          "unit": "ratio",
+          "missing": "exclude unavailable reference values; preserve unavailable comparison",
+          "refresh": "explicit rebuild on training source/definition change",
+          "expiry": "declared application period end; offline only",
+          "scope": "offline row-weighted reference; unequal capture sizes/repeated frequencies do not establish normal operational baseline",
+          "range_proof": {
+            "lower": null,
+            "upper": null,
+            "proof": "no universal numeric bound; observed min/max not universal"
+          },
+          "upstream_builder_id": "baseline_6d594b7ff6b000f5020a56",
+          "evidence_policy": "corrected-rule-source-bound3.0",
+          "application_source_version": "7a3b0ecbf0434a31d8d7142b20afb99a4c4e9a712b16988888b95b6622dc37e6",
+          "application_measurement_id": "m_bc8aadb961a3bc4abd5b0da6"
+        }
+      },
+      "feature": {
+        "id": "fd_a7dc9dd8a26efc4672fe2b52",
+        "sha": "fd8cdcc5b7de9b30724e60a683f45778b2852dc2c9e08a7bce564ccbbc2d51a9",
+        "meaning": "(physical child count of EC_PROCESS_MONITORING per EC_TRANSACTION_MONITORING row divided by physical child count of EC_MESSAGE_MONITORING per EC_TRANSACTION_MONITORING row); offline captured metadata only; business fault/online use unverified; offline captured metadata only; business fault/online use unverified.",
+        "dtype": "number",
+        "unit": "ratio",
+        "expression": {
+          "op": "divide",
+          "args": [
+            {
+              "op": "child_count",
+              "relationship_id": "physical_P_to_T"
+            },
+            {
+              "op": "child_count",
+              "relationship_id": "physical_M_to_T"
+            }
+          ]
+        },
+        "grain": {
+          "table": "EC_TRANSACTION_MONITORING",
+          "keys": [
+            "__SOURCE_ROW_ID"
+          ]
+        },
+        "population": {
+          "table": "EC_TRANSACTION_MONITORING",
+          "filter": null
+        },
+        "group_by": [],
+        "missing_policy": {
+          "input": "propagate",
+          "empty_group": "zero",
+          "denominator_zero": "missing",
+          "child_missing": "propagate",
+          "unknown_predicate": "defer"
+        }
+      },
+      "alternative": {
+        "rule": {
+          "id": "rule_029:baseline",
+          "feature_id": "rule_029",
+          "feature_sha": "b1b5f5d7862ef58ae2d69984edcd3ee35f180bef7efc78b159d0c5962612e300",
+          "table": "EC_TRANSACTION_MONITORING",
+          "dtype": "number",
+          "role": "numeric_SR",
+          "condition": {
+            "op": "gt",
+            "value": -1
+          },
+          "evidence_ids": [
+            "m_c39b5d521b33fd35029dcc36",
+            "baseline_0ec6e81673e413377369ffad"
+          ],
+          "reason": "Use the verified train-only p95 -1 count from 186431 reference values under its supplied scope and update policy. Current activation count does not determine validity; this is an offline reference comparison.",
+          "baseline": {
+            "state": "verified",
+            "reference_split": "train",
+            "reference_feature_definition_sha": "b1b5f5d7862ef58ae2d69984edcd3ee35f180bef7efc78b159d0c5962612e300",
+            "semantic_definition_sha": "b32c84da18f5161d0c1612613bd29524262bb3c1b8cad872ec47e50bf74ca9b6",
+            "application_semantic_definition_sha": "b32c84da18f5161d0c1612613bd29524262bb3c1b8cad872ec47e50bf74ca9b6",
+            "reference_source_version": "7a3b0ecbf0434a31d8d7142b20afb99a4c4e9a712b16988888b95b6622dc37e6",
+            "reference_period": {
+              "start_inclusive": "2026-08-10",
+              "end_exclusive": "2026-08-20"
+            },
+            "application_period": {
+              "start_inclusive": "2026-08-10",
+              "end_exclusive": "2026-08-20",
+              "timezone": "unconfirmed source wall-clock"
+            },
+            "group": null,
+            "reference_population": {
+              "table": "EC_TRANSACTION_MONITORING",
+              "filter": null
+            },
+            "application_population": {
+              "table": "EC_TRANSACTION_MONITORING",
+              "filter": null
+            },
+            "reference_valid_n": 186431,
+            "minimum_n": 20,
+            "quantile": 0.95,
+            "method": "linear_(n-1)*p",
+            "value": -1,
+            "value_exact": "-1.00",
+            "operator": "gt",
+            "unit": "count",
+            "missing": "exclude unavailable reference values; preserve unavailable comparison",
+            "refresh": "explicit rebuild on training source/definition change",
+            "expiry": "declared application period end; offline only",
+            "scope": "offline row-weighted reference; unequal capture sizes/repeated frequencies do not establish normal operational baseline",
+            "range_proof": {
+              "lower": null,
+              "upper": null,
+              "proof": "no universal numeric bound; observed min/max not universal"
+            },
+            "upstream_builder_id": "baseline_de5ea0b01bd5ec6857aa7b",
+            "evidence_policy": "corrected-rule-source-bound3.0",
+            "application_source_version": "7a3b0ecbf0434a31d8d7142b20afb99a4c4e9a712b16988888b95b6622dc37e6",
+            "application_measurement_id": "m_c39b5d521b33fd35029dcc36"
+          }
+        },
+        "feature": {
+          "id": "fd_b7ca8fa4e4af109714de83b1",
+          "sha": "b1b5f5d7862ef58ae2d69984edcd3ee35f180bef7efc78b159d0c5962612e300",
+          "meaning": "(physical child count of EC_PROCESS_MONITORING per EC_TRANSACTION_MONITORING row minus physical child count of EC_MESSAGE_MONITORING per EC_TRANSACTION_MONITORING row); offline captured metadata only; business fault/online use unverified; offline captured metadata only; business fault/online use unverified.",
+          "dtype": "number",
+          "unit": "count",
+          "expression": {
+            "op": "subtract",
+            "args": [
+              {
+                "op": "child_count",
+                "relationship_id": "physical_P_to_T"
+              },
+              {
+                "op": "child_count",
+                "relationship_id": "physical_M_to_T"
+              }
+            ]
+          },
+          "grain": {
+            "table": "EC_TRANSACTION_MONITORING",
+            "keys": [
+              "__SOURCE_ROW_ID"
+            ]
+          },
+          "population": {
+            "table": "EC_TRANSACTION_MONITORING",
+            "filter": null
+          },
+          "group_by": [],
+          "missing_policy": {
+            "input": "propagate",
+            "empty_group": "zero",
+            "denominator_zero": null,
+            "child_missing": "propagate",
+            "unknown_predicate": "defer"
+          }
+        }
+      },
+      "operand_metadata": [
+        {
+          "operation": "child_count",
+          "relation": {
+            "id": "physical_P_to_T",
+            "from_table": "EC_PROCESS_MONITORING",
+            "from_columns": [
+              "TRANSACTION_ID"
+            ],
+            "to_table": "EC_TRANSACTION_MONITORING",
+            "to_columns": [
+              "TRANSACTION_ID"
+            ],
+            "no_reference_values": []
+          },
+          "predicate": null
+        },
+        {
+          "operation": "child_count",
+          "relation": {
+            "id": "physical_M_to_T",
+            "from_table": "EC_MESSAGE_MONITORING",
+            "from_columns": [
+              "TRANSACTION_ID"
+            ],
+            "to_table": "EC_TRANSACTION_MONITORING",
+            "to_columns": [
+              "TRANSACTION_ID"
+            ],
+            "no_reference_values": []
+          },
+          "predicate": null
+        }
+      ],
+      "trigger": "known finite nonnegative numerator and denominator==0",
+      "counter_partition_check": false,
+      "counter_columns": [],
+      "binding_sha256": "42071e8d1aa5c551cf8d76e2f874a59ce2913f9f560e8c915ba925b0cd8de42c"
+    },
+    {
+      "rule": {
+        "id": "rule_043:baseline",
+        "feature_id": "rule_043",
+        "feature_sha": "161572bde215f99b7dede920160997e4f6cca32ac1aaad3d88b58ab8e2e8f4e7",
+        "table": "EC_PROCESS_MONITORING",
+        "dtype": "number",
+        "role": "numeric_SR",
+        "condition": {
+          "op": "gt",
+          "value": 2
+        },
+        "evidence_ids": [
+          "m_b74d178b81ec92c9ded89023",
+          "baseline_99b0eda819a0007e071b6187"
+        ],
+        "reason": "Use the verified train-only p95 2 ratio from 186459 reference values under its supplied scope and update policy. Current activation count does not determine validity; this is an offline reference comparison.",
+        "baseline": {
+          "state": "verified",
+          "reference_split": "train",
+          "reference_feature_definition_sha": "161572bde215f99b7dede920160997e4f6cca32ac1aaad3d88b58ab8e2e8f4e7",
+          "semantic_definition_sha": "1e85022c4637bee520b71c68e00497f73cc85e058d3e860718da4d3f6e6bf788",
+          "application_semantic_definition_sha": "1e85022c4637bee520b71c68e00497f73cc85e058d3e860718da4d3f6e6bf788",
+          "reference_source_version": "7a3b0ecbf0434a31d8d7142b20afb99a4c4e9a712b16988888b95b6622dc37e6",
+          "reference_period": {
+            "start_inclusive": "2026-08-10",
+            "end_exclusive": "2026-08-20"
+          },
+          "application_period": {
+            "start_inclusive": "2026-08-10",
+            "end_exclusive": "2026-08-20",
+            "timezone": "unconfirmed source wall-clock"
+          },
+          "group": null,
+          "reference_population": {
+            "table": "EC_PROCESS_MONITORING",
+            "filter": null
+          },
+          "application_population": {
+            "table": "EC_PROCESS_MONITORING",
+            "filter": null
+          },
+          "reference_valid_n": 186459,
+          "minimum_n": 20,
+          "quantile": 0.95,
+          "method": "linear_(n-1)*p",
+          "value": 2,
+          "value_exact": "2.000",
+          "operator": "gt",
+          "unit": "ratio",
+          "missing": "exclude unavailable reference values; preserve unavailable comparison",
+          "refresh": "explicit rebuild on training source/definition change",
+          "expiry": "declared application period end; offline only",
+          "scope": "offline row-weighted reference; unequal capture sizes/repeated frequencies do not establish normal operational baseline",
+          "range_proof": {
+            "lower": null,
+            "upper": null,
+            "proof": "no universal numeric bound; observed min/max not universal"
+          },
+          "upstream_builder_id": "baseline_af992698ce54d665aa305c",
+          "evidence_policy": "corrected-rule-source-bound3.0",
+          "application_source_version": "7a3b0ecbf0434a31d8d7142b20afb99a4c4e9a712b16988888b95b6622dc37e6",
+          "application_measurement_id": "m_b74d178b81ec92c9ded89023"
+        }
+      },
+      "feature": {
+        "id": "fd_7b9b6b349453d0d44fb96bd4",
+        "sha": "161572bde215f99b7dede920160997e4f6cca32ac1aaad3d88b58ab8e2e8f4e7",
+        "meaning": "(physical child count of EC_MESSAGE_MONITORING per EC_PROCESS_MONITORING row divided by physical child count of EC_MESSAGE_MONITORING per EC_PROCESS_MONITORING row where (EC_MESSAGE_MONITORING.DIRECTION equals \"OUT\")); offline captured metadata only; business fault/online use unverified; captured metadata only; business fault/online use unverified; offline captured metadata only; business fault/online use unverified; offline captured metadata only; business fault/online use unverified; offline captured metadata only; business fault/online use unverified.",
+        "dtype": "number",
+        "unit": "ratio",
+        "expression": {
+          "op": "divide",
+          "args": [
+            {
+              "op": "child_count",
+              "relationship_id": "physical_M_to_P_retry"
+            },
+            {
+              "op": "conditional_count",
+              "relationship_id": "physical_M_to_P_retry",
+              "where": {
+                "op": "eq",
+                "args": [
+                  {
+                    "op": "column",
+                    "table": "EC_MESSAGE_MONITORING",
+                    "column": "DIRECTION"
+                  },
+                  {
+                    "op": "literal",
+                    "value": "OUT"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "grain": {
+          "table": "EC_PROCESS_MONITORING",
+          "keys": [
+            "__SOURCE_ROW_ID"
+          ]
+        },
+        "population": {
+          "table": "EC_PROCESS_MONITORING",
+          "filter": null
+        },
+        "group_by": [],
+        "missing_policy": {
+          "input": "propagate",
+          "empty_group": "zero",
+          "denominator_zero": "missing",
+          "child_missing": "propagate",
+          "unknown_predicate": "defer"
+        }
+      },
+      "alternative": {
+        "rule": {
+          "id": "rule_038:baseline",
+          "feature_id": "rule_038",
+          "feature_sha": "e18d7f1295b8aeb9947c1c3c896a224853c4b3cf392adba2a0544e63951d1de9",
+          "table": "EC_PROCESS_MONITORING",
+          "dtype": "number",
+          "role": "numeric_SR",
+          "condition": {
+            "op": "gt",
+            "value": 1
+          },
+          "evidence_ids": [
+            "m_cf1a4bb960f6c6632c7d697e",
+            "baseline_bd770137d7de16a4fbc54832"
+          ],
+          "reason": "Use the verified train-only p95 1 count from 186527 reference values under its supplied scope and update policy. Current activation count does not determine validity; this is an offline reference comparison.",
+          "baseline": {
+            "state": "verified",
+            "reference_split": "train",
+            "reference_feature_definition_sha": "e18d7f1295b8aeb9947c1c3c896a224853c4b3cf392adba2a0544e63951d1de9",
+            "semantic_definition_sha": "f071141ef9ba36892a8cadf2249be3a1a46dd122e26d973116786b03bbf08e04",
+            "application_semantic_definition_sha": "f071141ef9ba36892a8cadf2249be3a1a46dd122e26d973116786b03bbf08e04",
+            "reference_source_version": "7a3b0ecbf0434a31d8d7142b20afb99a4c4e9a712b16988888b95b6622dc37e6",
+            "reference_period": {
+              "start_inclusive": "2026-08-10",
+              "end_exclusive": "2026-08-20"
+            },
+            "application_period": {
+              "start_inclusive": "2026-08-10",
+              "end_exclusive": "2026-08-20",
+              "timezone": "unconfirmed source wall-clock"
+            },
+            "group": null,
+            "reference_population": {
+              "table": "EC_PROCESS_MONITORING",
+              "filter": null
+            },
+            "application_population": {
+              "table": "EC_PROCESS_MONITORING",
+              "filter": null
+            },
+            "reference_valid_n": 186527,
+            "minimum_n": 20,
+            "quantile": 0.95,
+            "method": "linear_(n-1)*p",
+            "value": 1,
+            "value_exact": "1.00",
+            "operator": "gt",
+            "unit": "count",
+            "missing": "exclude unavailable reference values; preserve unavailable comparison",
+            "refresh": "explicit rebuild on training source/definition change",
+            "expiry": "declared application period end; offline only",
+            "scope": "offline row-weighted reference; unequal capture sizes/repeated frequencies do not establish normal operational baseline",
+            "range_proof": {
+              "lower": null,
+              "upper": null,
+              "proof": "no universal numeric bound; observed min/max not universal"
+            },
+            "upstream_builder_id": "baseline_02322ef7b0225dc0d6f221",
+            "evidence_policy": "corrected-rule-source-bound3.0",
+            "application_source_version": "7a3b0ecbf0434a31d8d7142b20afb99a4c4e9a712b16988888b95b6622dc37e6",
+            "application_measurement_id": "m_cf1a4bb960f6c6632c7d697e"
+          }
+        },
+        "feature": {
+          "id": "fd_87da8c27ae0def1cf7c969e0",
+          "sha": "e18d7f1295b8aeb9947c1c3c896a224853c4b3cf392adba2a0544e63951d1de9",
+          "meaning": "(physical child count of EC_MESSAGE_MONITORING per EC_PROCESS_MONITORING row minus physical child count of EC_MESSAGE_MONITORING per EC_PROCESS_MONITORING row where (EC_MESSAGE_MONITORING.DIRECTION equals \"OUT\")); offline captured metadata only; business fault/online use unverified; captured metadata only; business fault/online use unverified; offline captured metadata only; business fault/online use unverified; offline captured metadata only; business fault/online use unverified.",
+          "dtype": "number",
+          "unit": "count",
+          "expression": {
+            "op": "subtract",
+            "args": [
+              {
+                "op": "child_count",
+                "relationship_id": "physical_M_to_P_retry"
+              },
+              {
+                "op": "conditional_count",
+                "relationship_id": "physical_M_to_P_retry",
+                "where": {
+                  "op": "eq",
+                  "args": [
+                    {
+                      "op": "column",
+                      "table": "EC_MESSAGE_MONITORING",
+                      "column": "DIRECTION"
+                    },
+                    {
+                      "op": "literal",
+                      "value": "OUT"
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "grain": {
+            "table": "EC_PROCESS_MONITORING",
+            "keys": [
+              "__SOURCE_ROW_ID"
+            ]
+          },
+          "population": {
+            "table": "EC_PROCESS_MONITORING",
+            "filter": null
+          },
+          "group_by": [],
+          "missing_policy": {
+            "input": "propagate",
+            "empty_group": "zero",
+            "denominator_zero": null,
+            "child_missing": "propagate",
+            "unknown_predicate": "defer"
+          }
+        }
+      },
+      "operand_metadata": [
+        {
+          "operation": "child_count",
+          "relation": {
+            "id": "physical_M_to_P_retry",
+            "from_table": "EC_MESSAGE_MONITORING",
+            "from_columns": [
+              "TRANSACTION_ID",
+              "PROCESS_ID",
+              "__RETRY_LEXICAL"
+            ],
+            "to_table": "EC_PROCESS_MONITORING",
+            "to_columns": [
+              "TRANSACTION_ID",
+              "PROCESS_ID",
+              "__RETRY_LEXICAL"
+            ],
+            "no_reference_values": []
+          },
+          "predicate": null
+        },
+        {
+          "operation": "conditional_count",
+          "relation": {
+            "id": "physical_M_to_P_retry",
+            "from_table": "EC_MESSAGE_MONITORING",
+            "from_columns": [
+              "TRANSACTION_ID",
+              "PROCESS_ID",
+              "__RETRY_LEXICAL"
+            ],
+            "to_table": "EC_PROCESS_MONITORING",
+            "to_columns": [
+              "TRANSACTION_ID",
+              "PROCESS_ID",
+              "__RETRY_LEXICAL"
+            ],
+            "no_reference_values": []
+          },
+          "predicate": {
+            "op": "eq",
+            "args": [
+              {
+                "op": "column",
+                "table": "EC_MESSAGE_MONITORING",
+                "column": "DIRECTION"
+              },
+              {
+                "op": "literal",
+                "value": "OUT"
+              }
+            ]
+          }
+        }
+      ],
+      "trigger": "known finite nonnegative numerator and denominator==0",
+      "counter_partition_check": false,
+      "counter_columns": [],
+      "binding_sha256": "677c2d3ac662abcf2dd96e73ea89bb7b3a9323db6aa2c25dadd817b069544207"
+    },
+    {
+      "rule": {
+        "id": "rule_044:baseline",
+        "feature_id": "rule_044",
+        "feature_sha": "43a3df70646292c4b95b988d60f7fc9af4e16eaa9fc5903ca65d93eaaf40656f",
+        "table": "EC_PROCESS_MONITORING",
+        "dtype": "number",
+        "role": "numeric_SR",
+        "condition": {
+          "op": "gt",
+          "value": 2
+        },
+        "evidence_ids": [
+          "m_5a2354e1092cf12cb678fa80",
+          "baseline_1515b3201ed5c2f27e22c0eb"
+        ],
+        "reason": "Use the verified train-only p95 2 ratio from 186457 reference values under its supplied scope and update policy. Current activation count does not determine validity; this is an offline reference comparison.",
+        "baseline": {
+          "state": "verified",
+          "reference_split": "train",
+          "reference_feature_definition_sha": "43a3df70646292c4b95b988d60f7fc9af4e16eaa9fc5903ca65d93eaaf40656f",
+          "semantic_definition_sha": "8086bb9db846efcacf276185f9851e93a20ceadd689ae861a533dc6b9a39c9c6",
+          "application_semantic_definition_sha": "8086bb9db846efcacf276185f9851e93a20ceadd689ae861a533dc6b9a39c9c6",
+          "reference_source_version": "7a3b0ecbf0434a31d8d7142b20afb99a4c4e9a712b16988888b95b6622dc37e6",
+          "reference_period": {
+            "start_inclusive": "2026-08-10",
+            "end_exclusive": "2026-08-20"
+          },
+          "application_period": {
+            "start_inclusive": "2026-08-10",
+            "end_exclusive": "2026-08-20",
+            "timezone": "unconfirmed source wall-clock"
+          },
+          "group": null,
+          "reference_population": {
+            "table": "EC_PROCESS_MONITORING",
+            "filter": null
+          },
+          "application_population": {
+            "table": "EC_PROCESS_MONITORING",
+            "filter": null
+          },
+          "reference_valid_n": 186457,
+          "minimum_n": 20,
+          "quantile": 0.95,
+          "method": "linear_(n-1)*p",
+          "value": 2,
+          "value_exact": "2.000",
+          "operator": "gt",
+          "unit": "ratio",
+          "missing": "exclude unavailable reference values; preserve unavailable comparison",
+          "refresh": "explicit rebuild on training source/definition change",
+          "expiry": "declared application period end; offline only",
+          "scope": "offline row-weighted reference; unequal capture sizes/repeated frequencies do not establish normal operational baseline",
+          "range_proof": {
+            "lower": null,
+            "upper": null,
+            "proof": "no universal numeric bound; observed min/max not universal"
+          },
+          "upstream_builder_id": "baseline_cf483e96cb7b6e5c175ce3",
+          "evidence_policy": "corrected-rule-source-bound3.0",
+          "application_source_version": "7a3b0ecbf0434a31d8d7142b20afb99a4c4e9a712b16988888b95b6622dc37e6",
+          "application_measurement_id": "m_5a2354e1092cf12cb678fa80"
+        }
+      },
+      "feature": {
+        "id": "fd_6f922cbb22eaec688a71f0a3",
+        "sha": "43a3df70646292c4b95b988d60f7fc9af4e16eaa9fc5903ca65d93eaaf40656f",
+        "meaning": "(physical child count of EC_MESSAGE_MONITORING per EC_PROCESS_MONITORING row divided by physical child count of EC_MESSAGE_MONITORING per EC_PROCESS_MONITORING row where (EC_MESSAGE_MONITORING.DIRECTION equals \"IN\")); offline captured metadata only; business fault/online use unverified; captured metadata only; business fault/online use unverified; offline captured metadata only; business fault/online use unverified; offline captured metadata only; business fault/online use unverified; offline captured metadata only; business fault/online use unverified.",
+        "dtype": "number",
+        "unit": "ratio",
+        "expression": {
+          "op": "divide",
+          "args": [
+            {
+              "op": "child_count",
+              "relationship_id": "physical_M_to_P_retry"
+            },
+            {
+              "op": "conditional_count",
+              "relationship_id": "physical_M_to_P_retry",
+              "where": {
+                "op": "eq",
+                "args": [
+                  {
+                    "op": "column",
+                    "table": "EC_MESSAGE_MONITORING",
+                    "column": "DIRECTION"
+                  },
+                  {
+                    "op": "literal",
+                    "value": "IN"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "grain": {
+          "table": "EC_PROCESS_MONITORING",
+          "keys": [
+            "__SOURCE_ROW_ID"
+          ]
+        },
+        "population": {
+          "table": "EC_PROCESS_MONITORING",
+          "filter": null
+        },
+        "group_by": [],
+        "missing_policy": {
+          "input": "propagate",
+          "empty_group": "zero",
+          "denominator_zero": "missing",
+          "child_missing": "propagate",
+          "unknown_predicate": "defer"
+        }
+      },
+      "alternative": {
+        "rule": {
+          "id": "rule_045:baseline",
+          "feature_id": "rule_045",
+          "feature_sha": "7d099b6616e3fd881643991f183771d36f3a66913ff99c0be465b19c6c7ae2f8",
+          "table": "EC_PROCESS_MONITORING",
+          "dtype": "number",
+          "role": "numeric_SR",
+          "condition": {
+            "op": "gt",
+            "value": 1
+          },
+          "evidence_ids": [
+            "m_2d294f14c7df33ab65d8572e",
+            "baseline_e6f755133b8f9e749a204533"
+          ],
+          "reason": "Use the verified train-only p95 1 count from 186527 reference values under its supplied scope and update policy. Current activation count does not determine validity; this is an offline reference comparison.",
+          "baseline": {
+            "state": "verified",
+            "reference_split": "train",
+            "reference_feature_definition_sha": "7d099b6616e3fd881643991f183771d36f3a66913ff99c0be465b19c6c7ae2f8",
+            "semantic_definition_sha": "157b900644cf195b502bb3e59fe73e5dc865ddd753fab4e237c053380df53cc3",
+            "application_semantic_definition_sha": "157b900644cf195b502bb3e59fe73e5dc865ddd753fab4e237c053380df53cc3",
+            "reference_source_version": "7a3b0ecbf0434a31d8d7142b20afb99a4c4e9a712b16988888b95b6622dc37e6",
+            "reference_period": {
+              "start_inclusive": "2026-08-10",
+              "end_exclusive": "2026-08-20"
+            },
+            "application_period": {
+              "start_inclusive": "2026-08-10",
+              "end_exclusive": "2026-08-20",
+              "timezone": "unconfirmed source wall-clock"
+            },
+            "group": null,
+            "reference_population": {
+              "table": "EC_PROCESS_MONITORING",
+              "filter": null
+            },
+            "application_population": {
+              "table": "EC_PROCESS_MONITORING",
+              "filter": null
+            },
+            "reference_valid_n": 186527,
+            "minimum_n": 20,
+            "quantile": 0.95,
+            "method": "linear_(n-1)*p",
+            "value": 1,
+            "value_exact": "1.00",
+            "operator": "gt",
+            "unit": "count",
+            "missing": "exclude unavailable reference values; preserve unavailable comparison",
+            "refresh": "explicit rebuild on training source/definition change",
+            "expiry": "declared application period end; offline only",
+            "scope": "offline row-weighted reference; unequal capture sizes/repeated frequencies do not establish normal operational baseline",
+            "range_proof": {
+              "lower": null,
+              "upper": null,
+              "proof": "no universal numeric bound; observed min/max not universal"
+            },
+            "upstream_builder_id": "baseline_1318cb28fef4b86ca892b5",
+            "evidence_policy": "corrected-rule-source-bound3.0",
+            "application_source_version": "7a3b0ecbf0434a31d8d7142b20afb99a4c4e9a712b16988888b95b6622dc37e6",
+            "application_measurement_id": "m_2d294f14c7df33ab65d8572e"
+          }
+        },
+        "feature": {
+          "id": "fd_c6424f5af45807caaa5cab2f",
+          "sha": "7d099b6616e3fd881643991f183771d36f3a66913ff99c0be465b19c6c7ae2f8",
+          "meaning": "(physical child count of EC_MESSAGE_MONITORING per EC_PROCESS_MONITORING row minus physical child count of EC_MESSAGE_MONITORING per EC_PROCESS_MONITORING row where (EC_MESSAGE_MONITORING.DIRECTION equals \"IN\")); offline captured metadata only; business fault/online use unverified; captured metadata only; business fault/online use unverified; offline captured metadata only; business fault/online use unverified; offline captured metadata only; business fault/online use unverified; offline captured metadata only; business fault/online use unverified; captured metadata only; business fault/online use unverified; offline captured metadata only; business fault/online use unverified; offline captured metadata only; business fault/online use unverified.",
+          "dtype": "number",
+          "unit": "count",
+          "expression": {
+            "op": "subtract",
+            "args": [
+              {
+                "op": "child_count",
+                "relationship_id": "physical_M_to_P_retry"
+              },
+              {
+                "op": "conditional_count",
+                "relationship_id": "physical_M_to_P_retry",
+                "where": {
+                  "op": "eq",
+                  "args": [
+                    {
+                      "op": "column",
+                      "table": "EC_MESSAGE_MONITORING",
+                      "column": "DIRECTION"
+                    },
+                    {
+                      "op": "literal",
+                      "value": "IN"
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "grain": {
+            "table": "EC_PROCESS_MONITORING",
+            "keys": [
+              "__SOURCE_ROW_ID"
+            ]
+          },
+          "population": {
+            "table": "EC_PROCESS_MONITORING",
+            "filter": null
+          },
+          "group_by": [],
+          "missing_policy": {
+            "input": "propagate",
+            "empty_group": "zero",
+            "denominator_zero": null,
+            "child_missing": "propagate",
+            "unknown_predicate": "defer"
+          }
+        }
+      },
+      "operand_metadata": [
+        {
+          "operation": "child_count",
+          "relation": {
+            "id": "physical_M_to_P_retry",
+            "from_table": "EC_MESSAGE_MONITORING",
+            "from_columns": [
+              "TRANSACTION_ID",
+              "PROCESS_ID",
+              "__RETRY_LEXICAL"
+            ],
+            "to_table": "EC_PROCESS_MONITORING",
+            "to_columns": [
+              "TRANSACTION_ID",
+              "PROCESS_ID",
+              "__RETRY_LEXICAL"
+            ],
+            "no_reference_values": []
+          },
+          "predicate": null
+        },
+        {
+          "operation": "conditional_count",
+          "relation": {
+            "id": "physical_M_to_P_retry",
+            "from_table": "EC_MESSAGE_MONITORING",
+            "from_columns": [
+              "TRANSACTION_ID",
+              "PROCESS_ID",
+              "__RETRY_LEXICAL"
+            ],
+            "to_table": "EC_PROCESS_MONITORING",
+            "to_columns": [
+              "TRANSACTION_ID",
+              "PROCESS_ID",
+              "__RETRY_LEXICAL"
+            ],
+            "no_reference_values": []
+          },
+          "predicate": {
+            "op": "eq",
+            "args": [
+              {
+                "op": "column",
+                "table": "EC_MESSAGE_MONITORING",
+                "column": "DIRECTION"
+              },
+              {
+                "op": "literal",
+                "value": "IN"
+              }
+            ]
+          }
+        }
+      ],
+      "trigger": "known finite nonnegative numerator and denominator==0",
+      "counter_partition_check": false,
+      "counter_columns": [],
+      "binding_sha256": "083ac18ceed1e3b6883c699ce2e57ef83d0ed280c586c42bf4101cb0fa4ac627"
+    },
+    {
+      "rule": {
+        "id": "rule_046:baseline",
+        "feature_id": "rule_046",
+        "feature_sha": "67bbd54c7c7263c8938c92928014be38356687770acfd0b5e7ebfdfc5870ad28",
+        "table": "EC_TRANSACTION_MONITORING",
+        "dtype": "number",
+        "role": "numeric_SR",
+        "condition": {
+          "op": "gt",
+          "value": 1
+        },
+        "evidence_ids": [
+          "m_ae93ef5176579b1db136d0f1",
+          "baseline_157a036b08eee2430177ec7d"
+        ],
+        "reason": "Use the verified train-only p95 1 ratio from 95253 reference values under its supplied scope and update policy. Current activation count does not determine validity; this is an offline reference comparison.",
+        "baseline": {
+          "state": "verified",
+          "reference_split": "train",
+          "reference_feature_definition_sha": "67bbd54c7c7263c8938c92928014be38356687770acfd0b5e7ebfdfc5870ad28",
+          "semantic_definition_sha": "0d87c19a82f7d10580942a8c76cc908d4e4adc6a5bc0fdd488bb12c731c36011",
+          "application_semantic_definition_sha": "0d87c19a82f7d10580942a8c76cc908d4e4adc6a5bc0fdd488bb12c731c36011",
+          "reference_source_version": "7a3b0ecbf0434a31d8d7142b20afb99a4c4e9a712b16988888b95b6622dc37e6",
+          "reference_period": {
+            "start_inclusive": "2026-08-10",
+            "end_exclusive": "2026-08-20"
+          },
+          "application_period": {
+            "start_inclusive": "2026-08-10",
+            "end_exclusive": "2026-08-20",
+            "timezone": "unconfirmed source wall-clock"
+          },
+          "group": null,
+          "reference_population": {
+            "table": "EC_TRANSACTION_MONITORING",
+            "filter": null
+          },
+          "application_population": {
+            "table": "EC_TRANSACTION_MONITORING",
+            "filter": null
+          },
+          "reference_valid_n": 95253,
+          "minimum_n": 20,
+          "quantile": 0.95,
+          "method": "linear_(n-1)*p",
+          "value": 1,
+          "value_exact": "1.000",
+          "operator": "gt",
+          "unit": "ratio",
+          "missing": "exclude unavailable reference values; preserve unavailable comparison",
+          "refresh": "explicit rebuild on training source/definition change",
+          "expiry": "declared application period end; offline only",
+          "scope": "offline row-weighted reference; unequal capture sizes/repeated frequencies do not establish normal operational baseline",
+          "range_proof": {
+            "lower": null,
+            "upper": null,
+            "proof": "no universal numeric bound; observed min/max not universal"
+          },
+          "upstream_builder_id": "baseline_bd0da240372c3e9a7a1744",
+          "evidence_policy": "corrected-rule-source-bound3.0",
+          "application_source_version": "7a3b0ecbf0434a31d8d7142b20afb99a4c4e9a712b16988888b95b6622dc37e6",
+          "application_measurement_id": "m_ae93ef5176579b1db136d0f1"
+        }
+      },
+      "feature": {
+        "id": "fd_c5c107a589c459ed7bf7ce06",
+        "sha": "67bbd54c7c7263c8938c92928014be38356687770acfd0b5e7ebfdfc5870ad28",
+        "meaning": "(physical child count of EC_PROCESS_MONITORING per EC_TRANSACTION_MONITORING row divided by physical child count of EC_PROCESS_MONITORING per EC_TRANSACTION_MONITORING row where (EC_PROCESS_MONITORING.STATUS equals \"S\")); offline captured metadata only; business fault/online use unverified; offline captured metadata only; business fault/online use unverified; offline captured metadata only; business fault/online use unverified; offline captured metadata only; business fault/online use unverified.",
+        "dtype": "number",
+        "unit": "ratio",
+        "expression": {
+          "op": "divide",
+          "args": [
+            {
+              "op": "child_count",
+              "relationship_id": "physical_P_to_T"
+            },
+            {
+              "op": "conditional_count",
+              "relationship_id": "physical_P_to_T",
+              "where": {
+                "op": "eq",
+                "args": [
+                  {
+                    "op": "column",
+                    "table": "EC_PROCESS_MONITORING",
+                    "column": "STATUS"
+                  },
+                  {
+                    "op": "literal",
+                    "value": "S"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "grain": {
+          "table": "EC_TRANSACTION_MONITORING",
+          "keys": [
+            "__SOURCE_ROW_ID"
+          ]
+        },
+        "population": {
+          "table": "EC_TRANSACTION_MONITORING",
+          "filter": null
+        },
+        "group_by": [],
+        "missing_policy": {
+          "input": "propagate",
+          "empty_group": "zero",
+          "denominator_zero": "missing",
+          "child_missing": "propagate",
+          "unknown_predicate": "defer"
+        }
+      },
+      "alternative": {
+        "rule": {
+          "id": "rule_032:baseline",
+          "feature_id": "rule_032",
+          "feature_sha": "3f5211d7c8a0409013e579dee68573b6a6938cfa5c7c6aa3117ce0abf3b373ce",
+          "table": "EC_TRANSACTION_MONITORING",
+          "dtype": "number",
+          "role": "numeric_SR",
+          "condition": {
+            "op": "gt",
+            "value": 1
+          },
+          "evidence_ids": [
+            "m_7d0a1804aeed4f2d785e1ddb",
+            "baseline_6487a009f7ee0f279a1328eb"
+          ],
+          "reason": "Use the verified train-only p95 1 count from 186431 reference values under its supplied scope and update policy. Current activation count does not determine validity; this is an offline reference comparison.",
+          "baseline": {
+            "state": "verified",
+            "reference_split": "train",
+            "reference_feature_definition_sha": "3f5211d7c8a0409013e579dee68573b6a6938cfa5c7c6aa3117ce0abf3b373ce",
+            "semantic_definition_sha": "394268dd3cb1fc5d51471e8195b284d2a5933c4314f4acbf0a65c3d0fe41e358",
+            "application_semantic_definition_sha": "394268dd3cb1fc5d51471e8195b284d2a5933c4314f4acbf0a65c3d0fe41e358",
+            "reference_source_version": "7a3b0ecbf0434a31d8d7142b20afb99a4c4e9a712b16988888b95b6622dc37e6",
+            "reference_period": {
+              "start_inclusive": "2026-08-10",
+              "end_exclusive": "2026-08-20"
+            },
+            "application_period": {
+              "start_inclusive": "2026-08-10",
+              "end_exclusive": "2026-08-20",
+              "timezone": "unconfirmed source wall-clock"
+            },
+            "group": null,
+            "reference_population": {
+              "table": "EC_TRANSACTION_MONITORING",
+              "filter": null
+            },
+            "application_population": {
+              "table": "EC_TRANSACTION_MONITORING",
+              "filter": null
+            },
+            "reference_valid_n": 186431,
+            "minimum_n": 20,
+            "quantile": 0.95,
+            "method": "linear_(n-1)*p",
+            "value": 1,
+            "value_exact": "1.00",
+            "operator": "gt",
+            "unit": "count",
+            "missing": "exclude unavailable reference values; preserve unavailable comparison",
+            "refresh": "explicit rebuild on training source/definition change",
+            "expiry": "declared application period end; offline only",
+            "scope": "offline row-weighted reference; unequal capture sizes/repeated frequencies do not establish normal operational baseline",
+            "range_proof": {
+              "lower": null,
+              "upper": null,
+              "proof": "no universal numeric bound; observed min/max not universal"
+            },
+            "upstream_builder_id": "baseline_cb81ea4abfb9cb16a61e52",
+            "evidence_policy": "corrected-rule-source-bound3.0",
+            "application_source_version": "7a3b0ecbf0434a31d8d7142b20afb99a4c4e9a712b16988888b95b6622dc37e6",
+            "application_measurement_id": "m_7d0a1804aeed4f2d785e1ddb"
+          }
+        },
+        "feature": {
+          "id": "fd_e6f595fcdbbcdf3d52507d5f",
+          "sha": "3f5211d7c8a0409013e579dee68573b6a6938cfa5c7c6aa3117ce0abf3b373ce",
+          "meaning": "(physical child count of EC_PROCESS_MONITORING per EC_TRANSACTION_MONITORING row minus physical child count of EC_PROCESS_MONITORING per EC_TRANSACTION_MONITORING row where (EC_PROCESS_MONITORING.STATUS equals \"S\")); offline captured metadata only; business fault/online use unverified; offline captured metadata only; business fault/online use unverified.",
+          "dtype": "number",
+          "unit": "count",
+          "expression": {
+            "op": "subtract",
+            "args": [
+              {
+                "op": "child_count",
+                "relationship_id": "physical_P_to_T"
+              },
+              {
+                "op": "conditional_count",
+                "relationship_id": "physical_P_to_T",
+                "where": {
+                  "op": "eq",
+                  "args": [
+                    {
+                      "op": "column",
+                      "table": "EC_PROCESS_MONITORING",
+                      "column": "STATUS"
+                    },
+                    {
+                      "op": "literal",
+                      "value": "S"
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "grain": {
+            "table": "EC_TRANSACTION_MONITORING",
+            "keys": [
+              "__SOURCE_ROW_ID"
+            ]
+          },
+          "population": {
+            "table": "EC_TRANSACTION_MONITORING",
+            "filter": null
+          },
+          "group_by": [],
+          "missing_policy": {
+            "input": "propagate",
+            "empty_group": "zero",
+            "denominator_zero": null,
+            "child_missing": "propagate",
+            "unknown_predicate": "defer"
+          }
+        }
+      },
+      "operand_metadata": [
+        {
+          "operation": "child_count",
+          "relation": {
+            "id": "physical_P_to_T",
+            "from_table": "EC_PROCESS_MONITORING",
+            "from_columns": [
+              "TRANSACTION_ID"
+            ],
+            "to_table": "EC_TRANSACTION_MONITORING",
+            "to_columns": [
+              "TRANSACTION_ID"
+            ],
+            "no_reference_values": []
+          },
+          "predicate": null
+        },
+        {
+          "operation": "conditional_count",
+          "relation": {
+            "id": "physical_P_to_T",
+            "from_table": "EC_PROCESS_MONITORING",
+            "from_columns": [
+              "TRANSACTION_ID"
+            ],
+            "to_table": "EC_TRANSACTION_MONITORING",
+            "to_columns": [
+              "TRANSACTION_ID"
+            ],
+            "no_reference_values": []
+          },
+          "predicate": {
+            "op": "eq",
+            "args": [
+              {
+                "op": "column",
+                "table": "EC_PROCESS_MONITORING",
+                "column": "STATUS"
+              },
+              {
+                "op": "literal",
+                "value": "S"
+              }
+            ]
+          }
+        }
+      ],
+      "trigger": "known finite nonnegative numerator and denominator==0",
+      "counter_partition_check": false,
+      "counter_columns": [],
+      "binding_sha256": "3a02988661d401afc985617864f2a253a1e32d4ef9dbba4ec35d5ba84602a85d"
+    },
+    {
+      "rule": {
+        "id": "rule_047:baseline",
+        "feature_id": "rule_047",
+        "feature_sha": "05e7466438712f83eba2104cdb5f76fcf431f6f7af9cc70945df67ee5575eac1",
+        "table": "EC_TRANSACTION_MONITORING",
+        "dtype": "number",
+        "role": "numeric_SR",
+        "condition": {
+          "op": "gt",
+          "value": 1
+        },
+        "evidence_ids": [
+          "m_1cf3ef0dfb7bfeab2020b6b1",
+          "baseline_359906700459c72ded0a2571"
+        ],
+        "reason": "Use the verified train-only p95 1 ratio from 91186 reference values under its supplied scope and update policy. Current activation count does not determine validity; this is an offline reference comparison.",
+        "baseline": {
+          "state": "verified",
+          "reference_split": "train",
+          "reference_feature_definition_sha": "05e7466438712f83eba2104cdb5f76fcf431f6f7af9cc70945df67ee5575eac1",
+          "semantic_definition_sha": "ee36b8eb0da7e793a45900e13422e7664ce2d74c6a20f5826d2a6c6fe9f72c2e",
+          "application_semantic_definition_sha": "ee36b8eb0da7e793a45900e13422e7664ce2d74c6a20f5826d2a6c6fe9f72c2e",
+          "reference_source_version": "7a3b0ecbf0434a31d8d7142b20afb99a4c4e9a712b16988888b95b6622dc37e6",
+          "reference_period": {
+            "start_inclusive": "2026-08-10",
+            "end_exclusive": "2026-08-20"
+          },
+          "application_period": {
+            "start_inclusive": "2026-08-10",
+            "end_exclusive": "2026-08-20",
+            "timezone": "unconfirmed source wall-clock"
+          },
+          "group": null,
+          "reference_population": {
+            "table": "EC_TRANSACTION_MONITORING",
+            "filter": null
+          },
+          "application_population": {
+            "table": "EC_TRANSACTION_MONITORING",
+            "filter": null
+          },
+          "reference_valid_n": 91186,
+          "minimum_n": 20,
+          "quantile": 0.95,
+          "method": "linear_(n-1)*p",
+          "value": 1,
+          "value_exact": "1.000",
+          "operator": "gt",
+          "unit": "ratio",
+          "missing": "exclude unavailable reference values; preserve unavailable comparison",
+          "refresh": "explicit rebuild on training source/definition change",
+          "expiry": "declared application period end; offline only",
+          "scope": "offline row-weighted reference; unequal capture sizes/repeated frequencies do not establish normal operational baseline",
+          "range_proof": {
+            "lower": null,
+            "upper": null,
+            "proof": "no universal numeric bound; observed min/max not universal"
+          },
+          "upstream_builder_id": "baseline_ddfcea501b07aa31d9124c",
+          "evidence_policy": "corrected-rule-source-bound3.0",
+          "application_source_version": "7a3b0ecbf0434a31d8d7142b20afb99a4c4e9a712b16988888b95b6622dc37e6",
+          "application_measurement_id": "m_1cf3ef0dfb7bfeab2020b6b1"
+        }
+      },
+      "feature": {
+        "id": "fd_7bac004710661d9df79e1f7f",
+        "sha": "05e7466438712f83eba2104cdb5f76fcf431f6f7af9cc70945df67ee5575eac1",
+        "meaning": "(physical child count of EC_PROCESS_MONITORING per EC_TRANSACTION_MONITORING row divided by physical child count of EC_PROCESS_MONITORING per EC_TRANSACTION_MONITORING row where (EC_PROCESS_MONITORING.STATUS equals \"F\")); offline captured metadata only; business fault/online use unverified; offline captured metadata only; business fault/online use unverified; offline captured metadata only; business fault/online use unverified; offline captured metadata only; business fault/online use unverified.",
+        "dtype": "number",
+        "unit": "ratio",
+        "expression": {
+          "op": "divide",
+          "args": [
+            {
+              "op": "child_count",
+              "relationship_id": "physical_P_to_T"
+            },
+            {
+              "op": "conditional_count",
+              "relationship_id": "physical_P_to_T",
+              "where": {
+                "op": "eq",
+                "args": [
+                  {
+                    "op": "column",
+                    "table": "EC_PROCESS_MONITORING",
+                    "column": "STATUS"
+                  },
+                  {
+                    "op": "literal",
+                    "value": "F"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "grain": {
+          "table": "EC_TRANSACTION_MONITORING",
+          "keys": [
+            "__SOURCE_ROW_ID"
+          ]
+        },
+        "population": {
+          "table": "EC_TRANSACTION_MONITORING",
+          "filter": null
+        },
+        "group_by": [],
+        "missing_policy": {
+          "input": "propagate",
+          "empty_group": "zero",
+          "denominator_zero": "missing",
+          "child_missing": "propagate",
+          "unknown_predicate": "defer"
+        }
+      },
+      "alternative": {
+        "rule": {
+          "id": "rule_033:baseline",
+          "feature_id": "rule_033",
+          "feature_sha": "0df6f81956ae1a48d9651eab834c7b564038278a315355ff02eff8e73ea23fc0",
+          "table": "EC_TRANSACTION_MONITORING",
+          "dtype": "number",
+          "role": "numeric_SR",
+          "condition": {
+            "op": "gt",
+            "value": 1
+          },
+          "evidence_ids": [
+            "m_3427b72bb810e3874eeb4813",
+            "baseline_25d1f7b93320ca680c5c396d"
+          ],
+          "reason": "Use the verified train-only p95 1 count from 186431 reference values under its supplied scope and update policy. Current activation count does not determine validity; this is an offline reference comparison.",
+          "baseline": {
+            "state": "verified",
+            "reference_split": "train",
+            "reference_feature_definition_sha": "0df6f81956ae1a48d9651eab834c7b564038278a315355ff02eff8e73ea23fc0",
+            "semantic_definition_sha": "f0bf039d50ce969cdfbf00683403fdc829e65294731b7ff0deb2430a1751153e",
+            "application_semantic_definition_sha": "f0bf039d50ce969cdfbf00683403fdc829e65294731b7ff0deb2430a1751153e",
+            "reference_source_version": "7a3b0ecbf0434a31d8d7142b20afb99a4c4e9a712b16988888b95b6622dc37e6",
+            "reference_period": {
+              "start_inclusive": "2026-08-10",
+              "end_exclusive": "2026-08-20"
+            },
+            "application_period": {
+              "start_inclusive": "2026-08-10",
+              "end_exclusive": "2026-08-20",
+              "timezone": "unconfirmed source wall-clock"
+            },
+            "group": null,
+            "reference_population": {
+              "table": "EC_TRANSACTION_MONITORING",
+              "filter": null
+            },
+            "application_population": {
+              "table": "EC_TRANSACTION_MONITORING",
+              "filter": null
+            },
+            "reference_valid_n": 186431,
+            "minimum_n": 20,
+            "quantile": 0.95,
+            "method": "linear_(n-1)*p",
+            "value": 1,
+            "value_exact": "1.00",
+            "operator": "gt",
+            "unit": "count",
+            "missing": "exclude unavailable reference values; preserve unavailable comparison",
+            "refresh": "explicit rebuild on training source/definition change",
+            "expiry": "declared application period end; offline only",
+            "scope": "offline row-weighted reference; unequal capture sizes/repeated frequencies do not establish normal operational baseline",
+            "range_proof": {
+              "lower": null,
+              "upper": null,
+              "proof": "no universal numeric bound; observed min/max not universal"
+            },
+            "upstream_builder_id": "baseline_2ab3e18586833bd24639d2",
+            "evidence_policy": "corrected-rule-source-bound3.0",
+            "application_source_version": "7a3b0ecbf0434a31d8d7142b20afb99a4c4e9a712b16988888b95b6622dc37e6",
+            "application_measurement_id": "m_3427b72bb810e3874eeb4813"
+          }
+        },
+        "feature": {
+          "id": "fd_758a33599f31ebce983ff1b8",
+          "sha": "0df6f81956ae1a48d9651eab834c7b564038278a315355ff02eff8e73ea23fc0",
+          "meaning": "(physical child count of EC_PROCESS_MONITORING per EC_TRANSACTION_MONITORING row minus physical child count of EC_PROCESS_MONITORING per EC_TRANSACTION_MONITORING row where (EC_PROCESS_MONITORING.STATUS equals \"F\")); offline captured metadata only; business fault/online use unverified; offline captured metadata only; business fault/online use unverified.",
+          "dtype": "number",
+          "unit": "count",
+          "expression": {
+            "op": "subtract",
+            "args": [
+              {
+                "op": "child_count",
+                "relationship_id": "physical_P_to_T"
+              },
+              {
+                "op": "conditional_count",
+                "relationship_id": "physical_P_to_T",
+                "where": {
+                  "op": "eq",
+                  "args": [
+                    {
+                      "op": "column",
+                      "table": "EC_PROCESS_MONITORING",
+                      "column": "STATUS"
+                    },
+                    {
+                      "op": "literal",
+                      "value": "F"
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "grain": {
+            "table": "EC_TRANSACTION_MONITORING",
+            "keys": [
+              "__SOURCE_ROW_ID"
+            ]
+          },
+          "population": {
+            "table": "EC_TRANSACTION_MONITORING",
+            "filter": null
+          },
+          "group_by": [],
+          "missing_policy": {
+            "input": "propagate",
+            "empty_group": "zero",
+            "denominator_zero": null,
+            "child_missing": "propagate",
+            "unknown_predicate": "defer"
+          }
+        }
+      },
+      "operand_metadata": [
+        {
+          "operation": "child_count",
+          "relation": {
+            "id": "physical_P_to_T",
+            "from_table": "EC_PROCESS_MONITORING",
+            "from_columns": [
+              "TRANSACTION_ID"
+            ],
+            "to_table": "EC_TRANSACTION_MONITORING",
+            "to_columns": [
+              "TRANSACTION_ID"
+            ],
+            "no_reference_values": []
+          },
+          "predicate": null
+        },
+        {
+          "operation": "conditional_count",
+          "relation": {
+            "id": "physical_P_to_T",
+            "from_table": "EC_PROCESS_MONITORING",
+            "from_columns": [
+              "TRANSACTION_ID"
+            ],
+            "to_table": "EC_TRANSACTION_MONITORING",
+            "to_columns": [
+              "TRANSACTION_ID"
+            ],
+            "no_reference_values": []
+          },
+          "predicate": {
+            "op": "eq",
+            "args": [
+              {
+                "op": "column",
+                "table": "EC_PROCESS_MONITORING",
+                "column": "STATUS"
+              },
+              {
+                "op": "literal",
+                "value": "F"
+              }
+            ]
+          }
+        }
+      ],
+      "trigger": "known finite nonnegative numerator and denominator==0",
+      "counter_partition_check": false,
+      "counter_columns": [],
+      "binding_sha256": "7c25026d7773fce54cd14aac39776860203ef986fb24e3a05b837306165a76f8"
+    },
+    {
+      "rule": {
+        "id": "rule_051:baseline",
+        "feature_id": "rule_051",
+        "feature_sha": "9a806f0e22d6ff00b10b44bde1ac7594eb9dfafebb66befb257ddcfdb5b9891d",
+        "table": "EC_TRANSACTION_MONITORING",
+        "dtype": "number",
+        "role": "numeric_SR",
+        "condition": {
+          "op": "gt",
+          "value": 0.5
+        },
+        "evidence_ids": [
+          "m_8983bae137259a2daba234a4",
+          "baseline_1b9055c4d178b0f8a47f64ee"
+        ],
+        "reason": "Use the verified train-only p95 0.5 ratio from 95169 reference values under its supplied scope and update policy. Current activation count does not determine validity; this is an offline reference comparison.",
+        "baseline": {
+          "state": "verified",
+          "reference_split": "train",
+          "reference_feature_definition_sha": "9a806f0e22d6ff00b10b44bde1ac7594eb9dfafebb66befb257ddcfdb5b9891d",
+          "semantic_definition_sha": "276647219eafb014c9f38433f605aedd4331f10f5b30c5a2acc0c445890111dc",
+          "application_semantic_definition_sha": "276647219eafb014c9f38433f605aedd4331f10f5b30c5a2acc0c445890111dc",
+          "reference_source_version": "7a3b0ecbf0434a31d8d7142b20afb99a4c4e9a712b16988888b95b6622dc37e6",
+          "reference_period": {
+            "start_inclusive": "2026-08-10",
+            "end_exclusive": "2026-08-20"
+          },
+          "application_period": {
+            "start_inclusive": "2026-08-10",
+            "end_exclusive": "2026-08-20",
+            "timezone": "unconfirmed source wall-clock"
+          },
+          "group": null,
+          "reference_population": {
+            "table": "EC_TRANSACTION_MONITORING",
+            "filter": {
+              "op": "eq",
+              "args": [
+                {
+                  "op": "column",
+                  "table": "EC_TRANSACTION_MONITORING",
+                  "column": "STATUS"
+                },
+                {
+                  "op": "literal",
+                  "value": "S"
+                }
+              ]
+            }
+          },
+          "application_population": {
+            "table": "EC_TRANSACTION_MONITORING",
+            "filter": {
+              "op": "eq",
+              "args": [
+                {
+                  "op": "column",
+                  "table": "EC_TRANSACTION_MONITORING",
+                  "column": "STATUS"
+                },
+                {
+                  "op": "literal",
+                  "value": "S"
+                }
+              ]
+            }
+          },
+          "reference_valid_n": 95169,
+          "minimum_n": 20,
+          "quantile": 0.95,
+          "method": "linear_(n-1)*p",
+          "value": 0.5,
+          "value_exact": "0.500",
+          "operator": "gt",
+          "unit": "ratio",
+          "missing": "exclude unavailable reference values; preserve unavailable comparison",
+          "refresh": "explicit rebuild on training source/definition change",
+          "expiry": "declared application period end; offline only",
+          "scope": "offline row-weighted reference; unequal capture sizes/repeated frequencies do not establish normal operational baseline",
+          "range_proof": {
+            "lower": null,
+            "upper": null,
+            "proof": "no universal numeric bound; observed min/max not universal"
+          },
+          "upstream_builder_id": "baseline_f1ad2f92a28ecc5b6abdb6",
+          "evidence_policy": "corrected-rule-source-bound3.0",
+          "application_source_version": "7a3b0ecbf0434a31d8d7142b20afb99a4c4e9a712b16988888b95b6622dc37e6",
+          "application_measurement_id": "m_8983bae137259a2daba234a4"
+        }
+      },
+      "feature": {
+        "id": "fd_a323bd9c71c95c833cd585c6",
+        "sha": "9a806f0e22d6ff00b10b44bde1ac7594eb9dfafebb66befb257ddcfdb5b9891d",
+        "meaning": "(physical child count of EC_PROCESS_MONITORING per EC_TRANSACTION_MONITORING row divided by physical child count of EC_MESSAGE_MONITORING per EC_TRANSACTION_MONITORING row) where (EC_TRANSACTION_MONITORING.STATUS equals \"S\"); offline captured metadata only; business fault/online use unverified; offline captured metadata only; business fault/online use unverified; offline captured metadata only; business fault/online use unverified; offline captured metadata only; business fault/online use unverified; offline captured metadata only; business fault/online use unverified.",
+        "dtype": "number",
+        "unit": "ratio",
+        "expression": {
+          "op": "divide",
+          "args": [
+            {
+              "op": "child_count",
+              "relationship_id": "physical_P_to_T"
+            },
+            {
+              "op": "child_count",
+              "relationship_id": "physical_M_to_T"
+            }
+          ]
+        },
+        "grain": {
+          "table": "EC_TRANSACTION_MONITORING",
+          "keys": [
+            "__SOURCE_ROW_ID"
+          ]
+        },
+        "population": {
+          "table": "EC_TRANSACTION_MONITORING",
+          "filter": {
+            "op": "eq",
+            "args": [
+              {
+                "op": "column",
+                "table": "EC_TRANSACTION_MONITORING",
+                "column": "STATUS"
+              },
+              {
+                "op": "literal",
+                "value": "S"
+              }
+            ]
+          }
+        },
+        "group_by": [],
+        "missing_policy": {
+          "input": "propagate",
+          "empty_group": "zero",
+          "denominator_zero": "missing",
+          "child_missing": "propagate",
+          "unknown_predicate": "defer"
+        }
+      },
+      "alternative": {
+        "rule": {
+          "id": "rule_041:baseline",
+          "feature_id": "rule_041",
+          "feature_sha": "839213e3b0dd8f50b1c303b7ed5d9d2216951fbd1d56ee009173e8518fe80384",
+          "table": "EC_TRANSACTION_MONITORING",
+          "dtype": "number",
+          "role": "numeric_SR",
+          "condition": {
+            "op": "gt",
+            "value": -1
+          },
+          "evidence_ids": [
+            "m_e14f3649418a2ea716c3e061",
+            "baseline_49f9c239805204164329c3ab"
+          ],
+          "reason": "Use the verified train-only p95 -1 count from 95169 reference values under its supplied scope and update policy. Current activation count does not determine validity; this is an offline reference comparison.",
+          "baseline": {
+            "state": "verified",
+            "reference_split": "train",
+            "reference_feature_definition_sha": "839213e3b0dd8f50b1c303b7ed5d9d2216951fbd1d56ee009173e8518fe80384",
+            "semantic_definition_sha": "10990d7f609cf66d2d72b8948b0497a1c4161cf3b4fdec1cba2bf423b839874d",
+            "application_semantic_definition_sha": "10990d7f609cf66d2d72b8948b0497a1c4161cf3b4fdec1cba2bf423b839874d",
+            "reference_source_version": "7a3b0ecbf0434a31d8d7142b20afb99a4c4e9a712b16988888b95b6622dc37e6",
+            "reference_period": {
+              "start_inclusive": "2026-08-10",
+              "end_exclusive": "2026-08-20"
+            },
+            "application_period": {
+              "start_inclusive": "2026-08-10",
+              "end_exclusive": "2026-08-20",
+              "timezone": "unconfirmed source wall-clock"
+            },
+            "group": null,
+            "reference_population": {
+              "table": "EC_TRANSACTION_MONITORING",
+              "filter": {
+                "op": "eq",
+                "args": [
+                  {
+                    "op": "column",
+                    "table": "EC_TRANSACTION_MONITORING",
+                    "column": "STATUS"
+                  },
+                  {
+                    "op": "literal",
+                    "value": "S"
+                  }
+                ]
+              }
+            },
+            "application_population": {
+              "table": "EC_TRANSACTION_MONITORING",
+              "filter": {
+                "op": "eq",
+                "args": [
+                  {
+                    "op": "column",
+                    "table": "EC_TRANSACTION_MONITORING",
+                    "column": "STATUS"
+                  },
+                  {
+                    "op": "literal",
+                    "value": "S"
+                  }
+                ]
+              }
+            },
+            "reference_valid_n": 95169,
+            "minimum_n": 20,
+            "quantile": 0.95,
+            "method": "linear_(n-1)*p",
+            "value": -1,
+            "value_exact": "-1.00",
+            "operator": "gt",
+            "unit": "count",
+            "missing": "exclude unavailable reference values; preserve unavailable comparison",
+            "refresh": "explicit rebuild on training source/definition change",
+            "expiry": "declared application period end; offline only",
+            "scope": "offline row-weighted reference; unequal capture sizes/repeated frequencies do not establish normal operational baseline",
+            "range_proof": {
+              "lower": null,
+              "upper": null,
+              "proof": "no universal numeric bound; observed min/max not universal"
+            },
+            "upstream_builder_id": "baseline_57217d1e5173979404e328",
+            "evidence_policy": "corrected-rule-source-bound3.0",
+            "application_source_version": "7a3b0ecbf0434a31d8d7142b20afb99a4c4e9a712b16988888b95b6622dc37e6",
+            "application_measurement_id": "m_e14f3649418a2ea716c3e061"
+          }
+        },
+        "feature": {
+          "id": "fd_b0622242d9662e0d17c44366",
+          "sha": "839213e3b0dd8f50b1c303b7ed5d9d2216951fbd1d56ee009173e8518fe80384",
+          "meaning": "(physical child count of EC_PROCESS_MONITORING per EC_TRANSACTION_MONITORING row minus physical child count of EC_MESSAGE_MONITORING per EC_TRANSACTION_MONITORING row) where (EC_TRANSACTION_MONITORING.STATUS equals \"S\"); offline captured metadata only; business fault/online use unverified; offline captured metadata only; business fault/online use unverified; offline captured metadata only; business fault/online use unverified.",
+          "dtype": "number",
+          "unit": "count",
+          "expression": {
+            "op": "subtract",
+            "args": [
+              {
+                "op": "child_count",
+                "relationship_id": "physical_P_to_T"
+              },
+              {
+                "op": "child_count",
+                "relationship_id": "physical_M_to_T"
+              }
+            ]
+          },
+          "grain": {
+            "table": "EC_TRANSACTION_MONITORING",
+            "keys": [
+              "__SOURCE_ROW_ID"
+            ]
+          },
+          "population": {
+            "table": "EC_TRANSACTION_MONITORING",
+            "filter": {
+              "op": "eq",
+              "args": [
+                {
+                  "op": "column",
+                  "table": "EC_TRANSACTION_MONITORING",
+                  "column": "STATUS"
+                },
+                {
+                  "op": "literal",
+                  "value": "S"
+                }
+              ]
+            }
+          },
+          "group_by": [],
+          "missing_policy": {
+            "input": "propagate",
+            "empty_group": "zero",
+            "denominator_zero": null,
+            "child_missing": "propagate",
+            "unknown_predicate": "defer"
+          }
+        }
+      },
+      "operand_metadata": [
+        {
+          "operation": "child_count",
+          "relation": {
+            "id": "physical_P_to_T",
+            "from_table": "EC_PROCESS_MONITORING",
+            "from_columns": [
+              "TRANSACTION_ID"
+            ],
+            "to_table": "EC_TRANSACTION_MONITORING",
+            "to_columns": [
+              "TRANSACTION_ID"
+            ],
+            "no_reference_values": []
+          },
+          "predicate": null
+        },
+        {
+          "operation": "child_count",
+          "relation": {
+            "id": "physical_M_to_T",
+            "from_table": "EC_MESSAGE_MONITORING",
+            "from_columns": [
+              "TRANSACTION_ID"
+            ],
+            "to_table": "EC_TRANSACTION_MONITORING",
+            "to_columns": [
+              "TRANSACTION_ID"
+            ],
+            "no_reference_values": []
+          },
+          "predicate": null
+        }
+      ],
+      "trigger": "known finite nonnegative numerator and denominator==0",
+      "counter_partition_check": false,
+      "counter_columns": [],
+      "binding_sha256": "2642093f70d581ff43ca1b85fe51470f945f72c29d9bba634e04c2ab6d27d2da"
+    },
+    {
+      "rule": {
+        "id": "rule_052:baseline",
+        "feature_id": "rule_052",
+        "feature_sha": "a21396d5ee0a9c691b2da6b3a0f19e492ce625de6eb493f226d235c1ed0033ac",
+        "table": "EC_TRANSACTION_MONITORING",
+        "dtype": "number",
+        "role": "numeric_SR",
+        "condition": {
+          "op": "gt",
+          "value": 0.5
+        },
+        "evidence_ids": [
+          "m_1ca79a6a1ff648798ca1d384",
+          "baseline_1d7d9e05edca5916940bfa93"
+        ],
+        "reason": "Use the verified train-only p95 0.5 ratio from 91185 reference values under its supplied scope and update policy. Current activation count does not determine validity; this is an offline reference comparison.",
+        "baseline": {
+          "state": "verified",
+          "reference_split": "train",
+          "reference_feature_definition_sha": "a21396d5ee0a9c691b2da6b3a0f19e492ce625de6eb493f226d235c1ed0033ac",
+          "semantic_definition_sha": "653dfe2870bf887323a8ee761476ba9561cfa65b0272efc25b079c05a524b80f",
+          "application_semantic_definition_sha": "653dfe2870bf887323a8ee761476ba9561cfa65b0272efc25b079c05a524b80f",
+          "reference_source_version": "7a3b0ecbf0434a31d8d7142b20afb99a4c4e9a712b16988888b95b6622dc37e6",
+          "reference_period": {
+            "start_inclusive": "2026-08-10",
+            "end_exclusive": "2026-08-20"
+          },
+          "application_period": {
+            "start_inclusive": "2026-08-10",
+            "end_exclusive": "2026-08-20",
+            "timezone": "unconfirmed source wall-clock"
+          },
+          "group": null,
+          "reference_population": {
+            "table": "EC_TRANSACTION_MONITORING",
+            "filter": {
+              "op": "eq",
+              "args": [
+                {
+                  "op": "column",
+                  "table": "EC_TRANSACTION_MONITORING",
+                  "column": "STATUS"
+                },
+                {
+                  "op": "literal",
+                  "value": "F"
+                }
+              ]
+            }
+          },
+          "application_population": {
+            "table": "EC_TRANSACTION_MONITORING",
+            "filter": {
+              "op": "eq",
+              "args": [
+                {
+                  "op": "column",
+                  "table": "EC_TRANSACTION_MONITORING",
+                  "column": "STATUS"
+                },
+                {
+                  "op": "literal",
+                  "value": "F"
+                }
+              ]
+            }
+          },
+          "reference_valid_n": 91185,
+          "minimum_n": 20,
+          "quantile": 0.95,
+          "method": "linear_(n-1)*p",
+          "value": 0.5,
+          "value_exact": "0.500",
+          "operator": "gt",
+          "unit": "ratio",
+          "missing": "exclude unavailable reference values; preserve unavailable comparison",
+          "refresh": "explicit rebuild on training source/definition change",
+          "expiry": "declared application period end; offline only",
+          "scope": "offline row-weighted reference; unequal capture sizes/repeated frequencies do not establish normal operational baseline",
+          "range_proof": {
+            "lower": null,
+            "upper": null,
+            "proof": "no universal numeric bound; observed min/max not universal"
+          },
+          "upstream_builder_id": "baseline_5c14527cbc1a4f535e08bf",
+          "evidence_policy": "corrected-rule-source-bound3.0",
+          "application_source_version": "7a3b0ecbf0434a31d8d7142b20afb99a4c4e9a712b16988888b95b6622dc37e6",
+          "application_measurement_id": "m_1ca79a6a1ff648798ca1d384"
+        }
+      },
+      "feature": {
+        "id": "fd_d380c8db1eaa9c97d6adca96",
+        "sha": "a21396d5ee0a9c691b2da6b3a0f19e492ce625de6eb493f226d235c1ed0033ac",
+        "meaning": "(physical child count of EC_PROCESS_MONITORING per EC_TRANSACTION_MONITORING row divided by physical child count of EC_MESSAGE_MONITORING per EC_TRANSACTION_MONITORING row) where (EC_TRANSACTION_MONITORING.STATUS equals \"F\"); offline captured metadata only; business fault/online use unverified; offline captured metadata only; business fault/online use unverified; offline captured metadata only; business fault/online use unverified; offline captured metadata only; business fault/online use unverified; offline captured metadata only; business fault/online use unverified.",
+        "dtype": "number",
+        "unit": "ratio",
+        "expression": {
+          "op": "divide",
+          "args": [
+            {
+              "op": "child_count",
+              "relationship_id": "physical_P_to_T"
+            },
+            {
+              "op": "child_count",
+              "relationship_id": "physical_M_to_T"
+            }
+          ]
+        },
+        "grain": {
+          "table": "EC_TRANSACTION_MONITORING",
+          "keys": [
+            "__SOURCE_ROW_ID"
+          ]
+        },
+        "population": {
+          "table": "EC_TRANSACTION_MONITORING",
+          "filter": {
+            "op": "eq",
+            "args": [
+              {
+                "op": "column",
+                "table": "EC_TRANSACTION_MONITORING",
+                "column": "STATUS"
+              },
+              {
+                "op": "literal",
+                "value": "F"
+              }
+            ]
+          }
+        },
+        "group_by": [],
+        "missing_policy": {
+          "input": "propagate",
+          "empty_group": "zero",
+          "denominator_zero": "missing",
+          "child_missing": "propagate",
+          "unknown_predicate": "defer"
+        }
+      },
+      "alternative": {
+        "rule": {
+          "id": "rule_042:baseline",
+          "feature_id": "rule_042",
+          "feature_sha": "a0f1155468996e87cc125171df8fcb54ed199911f2a5f226f3748372bbfa4af5",
+          "table": "EC_TRANSACTION_MONITORING",
+          "dtype": "number",
+          "role": "numeric_SR",
+          "condition": {
+            "op": "gt",
+            "value": -1
+          },
+          "evidence_ids": [
+            "m_ea87e784059745c6383c2a75",
+            "baseline_4b17a063a87323756158dbb2"
+          ],
+          "reason": "Use the verified train-only p95 -1 count from 91262 reference values under its supplied scope and update policy. Current activation count does not determine validity; this is an offline reference comparison.",
+          "baseline": {
+            "state": "verified",
+            "reference_split": "train",
+            "reference_feature_definition_sha": "a0f1155468996e87cc125171df8fcb54ed199911f2a5f226f3748372bbfa4af5",
+            "semantic_definition_sha": "3ee3e3808533ee407297ae9f2977d4725b7c4051778202a97f70d396c014e9a9",
+            "application_semantic_definition_sha": "3ee3e3808533ee407297ae9f2977d4725b7c4051778202a97f70d396c014e9a9",
+            "reference_source_version": "7a3b0ecbf0434a31d8d7142b20afb99a4c4e9a712b16988888b95b6622dc37e6",
+            "reference_period": {
+              "start_inclusive": "2026-08-10",
+              "end_exclusive": "2026-08-20"
+            },
+            "application_period": {
+              "start_inclusive": "2026-08-10",
+              "end_exclusive": "2026-08-20",
+              "timezone": "unconfirmed source wall-clock"
+            },
+            "group": null,
+            "reference_population": {
+              "table": "EC_TRANSACTION_MONITORING",
+              "filter": {
+                "op": "eq",
+                "args": [
+                  {
+                    "op": "column",
+                    "table": "EC_TRANSACTION_MONITORING",
+                    "column": "STATUS"
+                  },
+                  {
+                    "op": "literal",
+                    "value": "F"
+                  }
+                ]
+              }
+            },
+            "application_population": {
+              "table": "EC_TRANSACTION_MONITORING",
+              "filter": {
+                "op": "eq",
+                "args": [
+                  {
+                    "op": "column",
+                    "table": "EC_TRANSACTION_MONITORING",
+                    "column": "STATUS"
+                  },
+                  {
+                    "op": "literal",
+                    "value": "F"
+                  }
+                ]
+              }
+            },
+            "reference_valid_n": 91262,
+            "minimum_n": 20,
+            "quantile": 0.95,
+            "method": "linear_(n-1)*p",
+            "value": -1,
+            "value_exact": "-1.00",
+            "operator": "gt",
+            "unit": "count",
+            "missing": "exclude unavailable reference values; preserve unavailable comparison",
+            "refresh": "explicit rebuild on training source/definition change",
+            "expiry": "declared application period end; offline only",
+            "scope": "offline row-weighted reference; unequal capture sizes/repeated frequencies do not establish normal operational baseline",
+            "range_proof": {
+              "lower": null,
+              "upper": null,
+              "proof": "no universal numeric bound; observed min/max not universal"
+            },
+            "upstream_builder_id": "baseline_22ce155dc6e0170c94b097",
+            "evidence_policy": "corrected-rule-source-bound3.0",
+            "application_source_version": "7a3b0ecbf0434a31d8d7142b20afb99a4c4e9a712b16988888b95b6622dc37e6",
+            "application_measurement_id": "m_ea87e784059745c6383c2a75"
+          }
+        },
+        "feature": {
+          "id": "fd_88e26ac6f5ab4e10cfd335b4",
+          "sha": "a0f1155468996e87cc125171df8fcb54ed199911f2a5f226f3748372bbfa4af5",
+          "meaning": "(physical child count of EC_PROCESS_MONITORING per EC_TRANSACTION_MONITORING row minus physical child count of EC_MESSAGE_MONITORING per EC_TRANSACTION_MONITORING row) where (EC_TRANSACTION_MONITORING.STATUS equals \"F\"); offline captured metadata only; business fault/online use unverified; offline captured metadata only; business fault/online use unverified; offline captured metadata only; business fault/online use unverified.",
+          "dtype": "number",
+          "unit": "count",
+          "expression": {
+            "op": "subtract",
+            "args": [
+              {
+                "op": "child_count",
+                "relationship_id": "physical_P_to_T"
+              },
+              {
+                "op": "child_count",
+                "relationship_id": "physical_M_to_T"
+              }
+            ]
+          },
+          "grain": {
+            "table": "EC_TRANSACTION_MONITORING",
+            "keys": [
+              "__SOURCE_ROW_ID"
+            ]
+          },
+          "population": {
+            "table": "EC_TRANSACTION_MONITORING",
+            "filter": {
+              "op": "eq",
+              "args": [
+                {
+                  "op": "column",
+                  "table": "EC_TRANSACTION_MONITORING",
+                  "column": "STATUS"
+                },
+                {
+                  "op": "literal",
+                  "value": "F"
+                }
+              ]
+            }
+          },
+          "group_by": [],
+          "missing_policy": {
+            "input": "propagate",
+            "empty_group": "zero",
+            "denominator_zero": null,
+            "child_missing": "propagate",
+            "unknown_predicate": "defer"
+          }
+        }
+      },
+      "operand_metadata": [
+        {
+          "operation": "child_count",
+          "relation": {
+            "id": "physical_P_to_T",
+            "from_table": "EC_PROCESS_MONITORING",
+            "from_columns": [
+              "TRANSACTION_ID"
+            ],
+            "to_table": "EC_TRANSACTION_MONITORING",
+            "to_columns": [
+              "TRANSACTION_ID"
+            ],
+            "no_reference_values": []
+          },
+          "predicate": null
+        },
+        {
+          "operation": "child_count",
+          "relation": {
+            "id": "physical_M_to_T",
+            "from_table": "EC_MESSAGE_MONITORING",
+            "from_columns": [
+              "TRANSACTION_ID"
+            ],
+            "to_table": "EC_TRANSACTION_MONITORING",
+            "to_columns": [
+              "TRANSACTION_ID"
+            ],
+            "no_reference_values": []
+          },
+          "predicate": null
+        }
+      ],
+      "trigger": "known finite nonnegative numerator and denominator==0",
+      "counter_partition_check": false,
+      "counter_columns": [],
+      "binding_sha256": "7cb60714b2a9e3b0993d25247fba0f5e4f0dce705e795aeb84b842845bfc6a8d"
+    },
+    {
+      "rule": {
+        "id": "rule_053:baseline",
+        "feature_id": "rule_053",
+        "feature_sha": "a5d580b1a2d12f3e2dfcee33e200b75a38a064970e8f1599f8ae99eff22d69b2",
+        "table": "EC_TRANSACTION_MONITORING",
+        "dtype": "number",
+        "role": "numeric_SR",
+        "condition": {
+          "op": "gt",
+          "value": 1
+        },
+        "evidence_ids": [
+          "m_4fec5007ff91348ae6487915",
+          "baseline_8eddd123e9e9e68b983b6421"
+        ],
+        "reason": "Use the verified train-only p95 1 ratio from 67 reference values under its supplied scope and update policy. Current activation count does not determine validity; this is an offline reference comparison.",
+        "baseline": {
+          "state": "verified",
+          "reference_split": "train",
+          "reference_feature_definition_sha": "a5d580b1a2d12f3e2dfcee33e200b75a38a064970e8f1599f8ae99eff22d69b2",
+          "semantic_definition_sha": "298bda9bfc4e956f4809cb67cf3b80755e931150210cf6575d69e8d912f01c66",
+          "application_semantic_definition_sha": "298bda9bfc4e956f4809cb67cf3b80755e931150210cf6575d69e8d912f01c66",
+          "reference_source_version": "7a3b0ecbf0434a31d8d7142b20afb99a4c4e9a712b16988888b95b6622dc37e6",
+          "reference_period": {
+            "start_inclusive": "2026-08-10",
+            "end_exclusive": "2026-08-20"
+          },
+          "application_period": {
+            "start_inclusive": "2026-08-10",
+            "end_exclusive": "2026-08-20",
+            "timezone": "unconfirmed source wall-clock"
+          },
+          "group": null,
+          "reference_population": {
+            "table": "EC_TRANSACTION_MONITORING",
+            "filter": null
+          },
+          "application_population": {
+            "table": "EC_TRANSACTION_MONITORING",
+            "filter": null
+          },
+          "reference_valid_n": 67,
+          "minimum_n": 20,
+          "quantile": 0.95,
+          "method": "linear_(n-1)*p",
+          "value": 1,
+          "value_exact": "1.000",
+          "operator": "gt",
+          "unit": "ratio",
+          "missing": "exclude unavailable reference values; preserve unavailable comparison",
+          "refresh": "explicit rebuild on training source/definition change",
+          "expiry": "declared application period end; offline only",
+          "scope": "offline row-weighted reference; unequal capture sizes/repeated frequencies do not establish normal operational baseline",
+          "range_proof": {
+            "lower": null,
+            "upper": null,
+            "proof": "no universal numeric bound; observed min/max not universal"
+          },
+          "upstream_builder_id": "baseline_0f466184bf8a3dd0386f0f",
+          "evidence_policy": "corrected-rule-source-bound3.0",
+          "application_source_version": "7a3b0ecbf0434a31d8d7142b20afb99a4c4e9a712b16988888b95b6622dc37e6",
+          "application_measurement_id": "m_4fec5007ff91348ae6487915"
+        }
+      },
+      "feature": {
+        "id": "fd_258afaa6fda1223210822bd2",
+        "sha": "a5d580b1a2d12f3e2dfcee33e200b75a38a064970e8f1599f8ae99eff22d69b2",
+        "meaning": "(physical child count of EC_PROCESS_MONITORING per EC_TRANSACTION_MONITORING row divided by physical child count of EC_PROCESS_MONITORING per EC_TRANSACTION_MONITORING row where (EC_PROCESS_MONITORING.STATUS equals \"N\")); offline captured metadata only; business fault/online use unverified; offline captured metadata only; business fault/online use unverified; offline captured metadata only; business fault/online use unverified; offline captured metadata only; business fault/online use unverified; offline captured metadata only; business fault/online use unverified; offline captured metadata only; business fault/online use unverified.",
+        "dtype": "number",
+        "unit": "ratio",
+        "expression": {
+          "op": "divide",
+          "args": [
+            {
+              "op": "child_count",
+              "relationship_id": "physical_P_to_T"
+            },
+            {
+              "op": "conditional_count",
+              "relationship_id": "physical_P_to_T",
+              "where": {
+                "op": "eq",
+                "args": [
+                  {
+                    "op": "column",
+                    "table": "EC_PROCESS_MONITORING",
+                    "column": "STATUS"
+                  },
+                  {
+                    "op": "literal",
+                    "value": "N"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "grain": {
+          "table": "EC_TRANSACTION_MONITORING",
+          "keys": [
+            "__SOURCE_ROW_ID"
+          ]
+        },
+        "population": {
+          "table": "EC_TRANSACTION_MONITORING",
+          "filter": null
+        },
+        "group_by": [],
+        "missing_policy": {
+          "input": "propagate",
+          "empty_group": "zero",
+          "denominator_zero": "missing",
+          "child_missing": "propagate",
+          "unknown_predicate": "defer"
+        }
+      },
+      "alternative": {
+        "rule": {
+          "id": "rule_039:baseline",
+          "feature_id": "rule_039",
+          "feature_sha": "7ffa6b79e58842526a173be7fffd10c439b5cd31d8c914d416c1241aee608708",
+          "table": "EC_TRANSACTION_MONITORING",
+          "dtype": "number",
+          "role": "numeric_SR",
+          "condition": {
+            "op": "gt",
+            "value": 1
+          },
+          "evidence_ids": [
+            "m_b1875b35b76aa08a6e5c7883",
+            "baseline_c52d805fb3b1a207f9f556fb"
+          ],
+          "reason": "Use the verified train-only p95 1 count from 186431 reference values under its supplied scope and update policy. Current activation count does not determine validity; this is an offline reference comparison.",
+          "baseline": {
+            "state": "verified",
+            "reference_split": "train",
+            "reference_feature_definition_sha": "7ffa6b79e58842526a173be7fffd10c439b5cd31d8c914d416c1241aee608708",
+            "semantic_definition_sha": "17639d26a059a7cee6bd946c28491e34493ec1f6f6212dd42364bf28a845a7f3",
+            "application_semantic_definition_sha": "17639d26a059a7cee6bd946c28491e34493ec1f6f6212dd42364bf28a845a7f3",
+            "reference_source_version": "7a3b0ecbf0434a31d8d7142b20afb99a4c4e9a712b16988888b95b6622dc37e6",
+            "reference_period": {
+              "start_inclusive": "2026-08-10",
+              "end_exclusive": "2026-08-20"
+            },
+            "application_period": {
+              "start_inclusive": "2026-08-10",
+              "end_exclusive": "2026-08-20",
+              "timezone": "unconfirmed source wall-clock"
+            },
+            "group": null,
+            "reference_population": {
+              "table": "EC_TRANSACTION_MONITORING",
+              "filter": null
+            },
+            "application_population": {
+              "table": "EC_TRANSACTION_MONITORING",
+              "filter": null
+            },
+            "reference_valid_n": 186431,
+            "minimum_n": 20,
+            "quantile": 0.95,
+            "method": "linear_(n-1)*p",
+            "value": 1,
+            "value_exact": "1.00",
+            "operator": "gt",
+            "unit": "count",
+            "missing": "exclude unavailable reference values; preserve unavailable comparison",
+            "refresh": "explicit rebuild on training source/definition change",
+            "expiry": "declared application period end; offline only",
+            "scope": "offline row-weighted reference; unequal capture sizes/repeated frequencies do not establish normal operational baseline",
+            "range_proof": {
+              "lower": null,
+              "upper": null,
+              "proof": "no universal numeric bound; observed min/max not universal"
+            },
+            "upstream_builder_id": "baseline_34e356dbf4e484380f3b58",
+            "evidence_policy": "corrected-rule-source-bound3.0",
+            "application_source_version": "7a3b0ecbf0434a31d8d7142b20afb99a4c4e9a712b16988888b95b6622dc37e6",
+            "application_measurement_id": "m_b1875b35b76aa08a6e5c7883"
+          }
+        },
+        "feature": {
+          "id": "fd_6f05ec284f1c435fe38ee370",
+          "sha": "7ffa6b79e58842526a173be7fffd10c439b5cd31d8c914d416c1241aee608708",
+          "meaning": "(physical child count of EC_PROCESS_MONITORING per EC_TRANSACTION_MONITORING row minus physical child count of EC_PROCESS_MONITORING per EC_TRANSACTION_MONITORING row where (EC_PROCESS_MONITORING.STATUS equals \"N\")); offline captured metadata only; business fault/online use unverified; offline captured metadata only; business fault/online use unverified.",
+          "dtype": "number",
+          "unit": "count",
+          "expression": {
+            "op": "subtract",
+            "args": [
+              {
+                "op": "child_count",
+                "relationship_id": "physical_P_to_T"
+              },
+              {
+                "op": "conditional_count",
+                "relationship_id": "physical_P_to_T",
+                "where": {
+                  "op": "eq",
+                  "args": [
+                    {
+                      "op": "column",
+                      "table": "EC_PROCESS_MONITORING",
+                      "column": "STATUS"
+                    },
+                    {
+                      "op": "literal",
+                      "value": "N"
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "grain": {
+            "table": "EC_TRANSACTION_MONITORING",
+            "keys": [
+              "__SOURCE_ROW_ID"
+            ]
+          },
+          "population": {
+            "table": "EC_TRANSACTION_MONITORING",
+            "filter": null
+          },
+          "group_by": [],
+          "missing_policy": {
+            "input": "propagate",
+            "empty_group": "zero",
+            "denominator_zero": null,
+            "child_missing": "propagate",
+            "unknown_predicate": "defer"
+          }
+        }
+      },
+      "operand_metadata": [
+        {
+          "operation": "child_count",
+          "relation": {
+            "id": "physical_P_to_T",
+            "from_table": "EC_PROCESS_MONITORING",
+            "from_columns": [
+              "TRANSACTION_ID"
+            ],
+            "to_table": "EC_TRANSACTION_MONITORING",
+            "to_columns": [
+              "TRANSACTION_ID"
+            ],
+            "no_reference_values": []
+          },
+          "predicate": null
+        },
+        {
+          "operation": "conditional_count",
+          "relation": {
+            "id": "physical_P_to_T",
+            "from_table": "EC_PROCESS_MONITORING",
+            "from_columns": [
+              "TRANSACTION_ID"
+            ],
+            "to_table": "EC_TRANSACTION_MONITORING",
+            "to_columns": [
+              "TRANSACTION_ID"
+            ],
+            "no_reference_values": []
+          },
+          "predicate": {
+            "op": "eq",
+            "args": [
+              {
+                "op": "column",
+                "table": "EC_PROCESS_MONITORING",
+                "column": "STATUS"
+              },
+              {
+                "op": "literal",
+                "value": "N"
+              }
+            ]
+          }
+        }
+      ],
+      "trigger": "known finite nonnegative numerator and denominator==0",
+      "counter_partition_check": false,
+      "counter_columns": [],
+      "binding_sha256": "1c69e5673761a11df5e6ba818334d78312cf6f0e3d8b401379b1720afe29249a"
+    }
+  ],
+  "counter_definition_evidence": {
+    "source": "User-provided PROCESS column-description image in this conversation",
+    "quoted_definition": "TOTAL_COUNT: 전체건수 (성공건수 + 실패건수 = 전체건수); SUCCESS_COUNT: 성공건수; ERROR_COUNT: 실패건수",
+    "use": "Source-consistency SR diagnostic; database enforcement and incident labels unverified; HR unchanged"
+  },
+  "adoption_scope": "Research execution policy authorized by user; no automatic external-service deployment"
+}

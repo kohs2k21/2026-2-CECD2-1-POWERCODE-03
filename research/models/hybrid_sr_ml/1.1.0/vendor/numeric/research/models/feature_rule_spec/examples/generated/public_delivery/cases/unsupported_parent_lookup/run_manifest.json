@@ -1,0 +1,76 @@
+{
+  "contract": "offline-specification-publication1.0",
+  "files": [
+    {
+      "file": "counts.json",
+      "sha256": "fdfd7727c06d8e9d99763cd33859ce56e3417ee85acbd460aebc47a2cb722fd9"
+    },
+    {
+      "file": "feature_attempts.json",
+      "sha256": "942c458e7f092dbb3c0fbb890698ff43dc3839787c78e6894939993f4463170c"
+    },
+    {
+      "file": "feature_bundle.json",
+      "sha256": "693cc4ad4ecdd8262249c4c5caddb0ffa28d6f6695716861fbbc95e7ed0070c0"
+    },
+    {
+      "file": "feature_input.json",
+      "sha256": "07a3292c54328fba08ebd4e8eab74c91f7bbf7533f696ec4cd39223fdc2f7bdf"
+    },
+    {
+      "file": "model/feature_0/input.json",
+      "sha256": "cae013d2af4a3bd00f861908a72c5e6b40b2d13f77c1607a0765d13eb1d4f774"
+    },
+    {
+      "file": "model/feature_0/output.json",
+      "sha256": "f86d352b45f00946650bca412be49f2d81d62bd6afc9dc08e71039daeb4f60b6"
+    },
+    {
+      "file": "model_calls.jsonl",
+      "sha256": "0118e6b01b7c3ca9523edb22e7d67bcbe814930b3def046a20ada53ccb66229c"
+    },
+    {
+      "file": "pending_decisions.json",
+      "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+    },
+    {
+      "file": "profile.json",
+      "sha256": "db2f56ea983a3ccc83fa490286dbd4983053a3e9610f697ffb453d8126d92560"
+    },
+    {
+      "file": "public_request.json",
+      "sha256": "6a97fc26a1d2e1c2c1f77d4c04066846fd79f3375787ee764745f1ee3f1dc4f7"
+    },
+    {
+      "file": "public_rule_plan.json",
+      "sha256": "9ab655cd8c21c0868964de0edd443b39044890ccdc9676d486f38a2e7ab27b97"
+    },
+    {
+      "file": "publication_receipt.json",
+      "sha256": "70f12768595ae3cd4e774f889b4c3d7a655bd6b3744403837eea31a4f8c87e65"
+    },
+    {
+      "file": "validated_rules.json",
+      "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+    }
+  ],
+  "original_execution_manifest_sha": "851c799bbd666d3fcc0350eea1380b85d61dd04adbc688a8d7824769dc8f3a78",
+  "counts": {
+    "Feature_status": "no_candidate_review",
+    "Rule_status": "not_run",
+    "definition_proposed_and_validated": false,
+    "definition_kind": null,
+    "selected_rows": null,
+    "valid_observations": null,
+    "positive_feature_generated": false,
+    "rules": 0,
+    "by_role": {
+      "HR": 0,
+      "observed_SR": 0,
+      "baseline_SR": 0
+    },
+    "pending": 0,
+    "no_candidate_is_not_positive_generation": true
+  },
+  "not_operational_detection": true
+}

@@ -1,0 +1,12 @@
+{
+  "actual_source_sha256": "6f8a4b9fa87c2cf0bb36bbdc9e34a4ab2bbc79e9c2448cb768e424e34aa4644c",
+  "actual_pack_sha256": "dcf154fac28ec35d1cc16160118de1bdf0657c60fa68baa90cf7ff32b408b045",
+  "serving_pack_sha256": "4dbb3d15d6ec5674e99b71c27fb60bf57de0420d531c799b30f8726e8d0ced8c",
+  "actual_model_weight_sha256": "f36ce52e0690e8eefe2cfb26aa5d0f2c37f629a49f7ecd8063a37980233ee496",
+  "Base_revision": "6a9e13bd6fc8f0983b9b99948120bc37f49c13e9",
+  "proposal_changed": false,
+  "schema_changed": false,
+  "documents_changed": false,
+  "private_sample_rows_copied": false,
+  "purpose": "Compile the whole actual proposal for serving without company example rows. No predicate pruning or rewriting."
+}

@@ -1,0 +1,49 @@
+{
+  "independent_metrics_recomputed": true,
+  "raw_serving_smoke_checks": [
+    {
+      "algorithm": "if",
+      "raw_Process_predict": true,
+      "prefix_causal": true,
+      "unknown_adapter_finite": true,
+      "save_load_identical": true,
+      "no_runtime_data_reads": true,
+      "research_only_not_promoted": true
+    },
+    {
+      "algorithm": "kmeans",
+      "raw_Process_predict": true,
+      "prefix_causal": true,
+      "unknown_adapter_finite": true,
+      "save_load_identical": true,
+      "no_runtime_data_reads": true,
+      "research_only_not_promoted": true
+    },
+    {
+      "algorithm": "lof",
+      "raw_Process_predict": true,
+      "prefix_causal": true,
+      "unknown_adapter_finite": true,
+      "save_load_identical": true,
+      "no_runtime_data_reads": true,
+      "research_only_not_promoted": true
+    }
+  ],
+  "all_targets_met": true,
+  "published": false,
+  "external_blind_test": false,
+  "published_local_research_handoff": true,
+  "all_benchmark_file_hashes_verified": true,
+  "ADBench_and_v6_unchanged": true,
+  "one_unique_fault_estimator_each_verified": true,
+  "model_sha256": "d02dbd80aee94bc9492b6845bfbfb22b15d0a0c9279dc6b8a3bf3e636257f0a7",
+  "summary_sha256": "c89f65e0f8cb67b2d91d52a2c2a98295c1b470d59eda08903627c17aa4492782",
+  "production_deployed": false,
+  "exported_handoff_scores_verified_against_full_replay": true,
+  "unit_tests_run": 130,
+  "unit_tests_passed": true,
+  "executed_notebook_validated": true,
+  "figure_visual_review_completed": true,
+  "report_notebook_sha256": "7c7dd69524b6c9436698549810d693dc5e4ccd4cb5e5d503be5d0223dc99f861",
+  "no_benchmark_or_ADBench_changes": true
+}

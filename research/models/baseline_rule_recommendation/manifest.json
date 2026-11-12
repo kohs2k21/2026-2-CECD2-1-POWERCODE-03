@@ -1,0 +1,26 @@
+{
+  "contract": "baseline-rule-recommendation1.0",
+  "requests": [
+    "baseline"
+  ],
+  "schema_local": "contracts/rule.schema.json",
+  "schema_scope": "one SR decision; baseline-only structural restriction",
+  "time_basis": "persisted_at",
+  "split_policy": "train-internal-80-20-chronological-v1",
+  "minimum_reference_n": 20,
+  "feature_service_adapter": "unchanged feature_v5",
+  "rule_schema_source": "research/models/feature_rule_spec/contracts/rule.schema.json",
+  "fixed_rule_model": {
+    "model_key": "fixedRule",
+    "weight_sha256": "d816cf6a1f264149fb3d4db9c7cc929a76b12ce6f04f0407a4c4b459dbd573c9",
+    "weights_copied": false,
+    "adapter_repository_path": "research/models/feature_rule_spec/models/rule",
+    "config_sha256": "1a04f51652f28f85da78939ece45fdf69178155aeda894977d9e0be74b96219b",
+    "base_content_manifest": "research/models/feature_rule_spec/models/base_files.json"
+  },
+  "publication_scope": "research_only",
+  "backend_integration": "owned_by_backend_developer_not_included",
+  "schema_effective": "contracts/baseline.schema.json",
+  "backend_handoff": "BACKEND_HANDOFF.md",
+  "provider": "rule_baseline_v3"
+}

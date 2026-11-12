@@ -1,0 +1,87 @@
+INPUT AND OUTPUT CONTRACT
+
+Input is one metadata-only JSON source snapshot, not arbitrary Python or SQL.
+Provide: schema, documents, capture, records, question. Optional case_id is for
+traceability only. The question describes the desired analysis purpose/population;
+it should not contain private expected answers or anomaly labels.
+
+schema maps each physical table name to keys, columns, references and optional
+verified units. Composite occurrence identities must list their full key.
+A reference is a column mapped to "Table.column". This physical description does
+not itself certify a business requirement. Units must not be guessed from names.
+records maps table names to arrays of scalar metadata rows. Exclude Body, payload,
+message content and evaluation-only labels before preparing the snapshot. Actual
+column inventory is checked against plans; records are not permitted arbitrary
+nested content. Unknown metadata is null, not an invented normal/zero value.
+Provide the projected row fields explicitly. JSON null denotes an observed or
+explicitly unknown value. The current row evaluator does not separately model a
+column omitted by a projection; do not use omitted fields to claim observed
+missingness. Validate projections in the upstream CSV/JSON input preparation.
+
+documents is an array of {id, authority, text}. Exact source spans are pinned.
+HR authority requires an explicit verified requirement from verified_DDL or a
+reviewed_business_contract; fictional tests use a separately named controlled
+evaluation authority. Monitoring notes can support observational review but not
+invent a prohibition. Current DDL applicability and business meanings must be
+confirmed before presenting them as verified facts.
+
+capture must include:
+  Body_included: false
+  source_version: a nonempty version string
+  entity_family_complete: true or false
+An affirmative completeness claim describes the admitted observation family; it
+is not proof that the business behavior is correct. If coverage is unconfirmed,
+use false. Supply shared_clock_verified only when supported; time comparisons
+also require verified matching units. All related records needed for an absence
+conclusion must be present in the admitted source family.
+
+Generation is bounded to 2,000 metadata rows per snapshot and the pinned tokenizer
+context budget. Preserve complete relation families when sampling. Do not quietly
+truncate rows, documents or output. Full-batch CPU serving is a separate --bulk
+path; it never forwards those full rows to the LLM.
+
+AI output
+0..4 candidates per generation call; this is not a global catalog-size target.
+Each candidate has an ID, role, typed plan or null, source evidence, explanation,
+normal exceptions, capture requirement and needed evidence. Supported plans are
+row checks, scoped uniqueness, required/forbidden/exact-one relation checks,
+verified predecessor order and unexplained-event review with OR alternatives.
+Filter atoms within one selector are ANDed. A condition requiring OR must be
+expressed with the supported alternatives or independently sufficient candidates.
+No arbitrary generated code is executed.
+
+conditional_row_check separates applicability from a local violation. Its
+selector filter is the applicability condition A, and violation contains the
+conjoined same-row violation atoms. A=false produces false (outside scope);
+A=unknown produces unknown, even when the violation atoms would be false;
+A=true evaluates the violation. This avoids hiding unknown applicability inside
+an ordinary conjunction. Independently sufficient violations, such as each of
+three independently required fields being null, need separate candidates that
+are OR-composed. A single conjunction of all three null tests is too narrow.
+At most four candidates can be returned by one call. The model is not guaranteed
+to enumerate all required fields; source-level semantic review remains necessary.
+
+Code output
+candidate_pack.json preserves the original proposal, source/type/definition SHA,
+model identity, validation errors, measured nullable values and pending reviews.
+source_valid means executable source/type/grammar validity; it does not mean the
+business meaning was approved. All raw attempts and errors remain available.
+
+Frozen serving uses warning / nonwarning / unavailable. Required missing values,
+uncertain relationships, incompatible schema/meaning versions and no executable
+rule are never treated as proof of normality. OR composition gives warning if
+any check fires; otherwise unresolved required checks preserve unavailable.
+nonwarning means only that these admitted checks did not fire.
+
+linked_feature_contracts, linked_rule_recommendations and linked_feature_values
+share feature_id and feature_definition_sha256. A changed formula, source meaning,
+capture requirement, type binding or validation policy creates a new definition.
+Rules are exported disabled; no background activation, fit or threshold update
+occurs. Source IDs identify relationships and provenance; they are not ML inputs.
+
+discover accumulates proposals over bounded coverage passes. Earlier proposals
+are marked UNAPPROVED and never become business evidence or teacher labels.
+It stops at zero/new duplicates/holds, invalid output or the round budget. The
+library preserves every pack and reports exact calculation signatures separately
+from proposal counts. Exhaustive discovery and a desired rule count are not
+guaranteed. A no-rule or held-evidence pack keeps incomplete coverage explicit.

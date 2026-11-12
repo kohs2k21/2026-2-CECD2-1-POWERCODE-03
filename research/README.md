@@ -2,6 +2,12 @@
 
 `research/` contains exploratory notebooks, scenarios, model experiments, and evaluation notes. It is not a runtime dependency of `server/`.
 
+- [최종 수치·논리 SR + ML 연구 모델 1.1.0 (#142)](models/hybrid_sr_ml/README.md): ESB 수치 SR42·논리 SR3·ML9개, 분모0 실제 대체 평가와 FlowBench 전용 프로필. 동결 모델·실행 CLI·공개 재현 검사·집계 평가 포함.
+- [이전 선택 구성: 공통 피처 Trainer·Detector (#140)](integration/feature_rule_ml/shared42/README.md): 이전 검증 피처65개·HR10/관측SR58/수치SR42·T/P/M42개 ML 입력과 모델9개. 새 CSV 계산, 명시적 학습·저장, 동결 탐지·거래별 단독/공통 경고 집계.
+- [별도 Process 행 ML과 우리 HR/SR 연결 (#95·#136)](integration/feature_rule_ml/PROCESS_EVENT_INTEGRATION.md): PR #98의 동결 모델 3종을 원본 그대로 사용하며, 동일 Process 원천·행 키 검증 및 별도 Python 3.12 추론 프로세스로 결합.
+- [최신 Process 행 ML 패키지 (#95)](process_event_model/README.md): Process 실행 행 IF·K-means·LOF와 직전 1분 비교 모델, 원래 코드·정책·모델 SHA 보존.
+- [피처·HR/SR 명세와 공통 피처 ML 통합](integration/feature_rule_ml/README.md): 기존 최종 LLM 패키지와 IF·K-means·LOF 연구 코드 연결. 명시적 학습과 동결 추론 분리, 계산 불가 보존. v12 시간창 가중치의 직접 피처 교체 및 서버 배포와 구분.
+- [baseline 전용 SR 연구 패키지와 백엔드 전달 계약](models/baseline_rule_recommendation/BACKEND_HANDOFF.md): 고정 Rule LoRA에 전달할 TRAIN 참조/관측 요약, 출력 검증·초안 변환 및 보류 정책. 이번 전달 범위는 `research/`이며 서버 연결·배포는 백엔드 담당.
 - [LLM 기반 피처 및 HR/SR 명세 생성 모델 패키지 (#89)](models/feature_rule_spec/README.md): Feature silver51 및 고정 Rule LoRA, 공식 CLI, 계산 검증과 공개 재현 예시. 고객 원본과 Base 가중치는 제외하며 실제 이상탐지 실행은 별도 범위다.
 - [이상 탐지 연구 (#38)](anomaly_detection/README.md): 전체 연구 코드·노트북·최종 v12 IF/K-means·원본 참조 아카이브·학습/검증 캐시 포함, 기간별 원본 및 벤치마크 CSV·정답은 제외 (박준서)
 - [이상 탐지 연구 (#38)](anomaly_detection/README.md): 분석 노트북·규칙/IF·K-means·시간창 선택·평가 결과 및 학습 모델 포함, 데이터셋 제외 (고민성)

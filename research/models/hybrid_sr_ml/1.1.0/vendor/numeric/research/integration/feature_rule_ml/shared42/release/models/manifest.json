@@ -1,0 +1,46 @@
+{
+  "contract": "shared42-trainer-detector1.0",
+  "kind": "model_set",
+  "files": [
+    {
+      "file": "M_if.joblib",
+      "sha256": "b0fb9012ebcb535fda4bcac30dba5f68515dcb3b9445935c90abf33787d62c79"
+    },
+    {
+      "file": "M_kmeans.joblib",
+      "sha256": "37e21b52192f7ff9e454bcc94055c4a2cef7da3f4c79e88d9562fa9daaa3c951"
+    },
+    {
+      "file": "M_lof.joblib",
+      "sha256": "39d646a99fd96db9f94183123c478a5e5d2da3b2e2b356daf7683bb18347d56e"
+    },
+    {
+      "file": "P_if.joblib",
+      "sha256": "1c79a9bfb5d4062c8eda6640ca2270119ffbe082905e13a693b24bc9b1d0b83e"
+    },
+    {
+      "file": "P_kmeans.joblib",
+      "sha256": "0d4d5d5e7d1e307ade665a0fc74df60bc6697625b1fc064d70747f616e6740f9"
+    },
+    {
+      "file": "P_lof.joblib",
+      "sha256": "78a754fb732fe58d9303ab29602a086f73cd54f7cbf071780ba18da50d6cfbd8"
+    },
+    {
+      "file": "T_if.joblib",
+      "sha256": "4059e5d8c3b6cc5fa1597ff13987e127aa3c49d4a8bfd03ca0e11bf8ed79fe43"
+    },
+    {
+      "file": "T_kmeans.joblib",
+      "sha256": "a0b328ffba40d328cb3c3d3df84e5ef0f12f34250f4927d06cfc43066c84e6b9"
+    },
+    {
+      "file": "T_lof.joblib",
+      "sha256": "1b52222f415c38aa3baee4235a5aee21e03aa1ecf7055c20ddf2b594e8fbf9f9"
+    },
+    {
+      "file": "model_set.json",
+      "sha256": "56cdf4e5e0278186fe8c52bc8a2c266edc02b7332e27dcb42e2b9589f2df2ee6"
+    }
+  ]
+}

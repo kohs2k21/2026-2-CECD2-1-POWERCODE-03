@@ -1,0 +1,17 @@
+{
+  "name": "flowbench_montage",
+  "workflow": "montage",
+  "ML_models": 3,
+  "numerical_feature_definitions": 8,
+  "numeric_SR_count": 8,
+  "logical_candidate_count": 1,
+  "primary_components": [
+    "numeric_SR",
+    "logical_SR",
+    "ML"
+  ],
+  "integrity_only_proposal_ids": [],
+  "integrity_exclusion_reason": "RunContext is constructed from the same filename as Task.RUN_ID. Predicate remains in the original pack and is separately reported; no candidate is silently removed.",
+  "source_commit": "58df4e69f7b0fe4f818bad6400699cdb04e0b1cb",
+  "operational_approval": false
+}

@@ -1,0 +1,226 @@
+{
+  "passed": true,
+  "model_sha256": "defaf8c1b1e973e4def5f700a7532eb1a33a9bcdfe2e8afc8c8cae54815982a4",
+  "results": {
+    "individual_delay": {
+      "observed": {
+        "if": {
+          "raw_Process_rows": 27,
+          "target_Process_rows": 3,
+          "minute_queries": 18,
+          "raw_packet_scores_match": true,
+          "live_minute_queries_match": true,
+          "one_sklearn_estimator": true
+        },
+        "kmeans": {
+          "raw_Process_rows": 27,
+          "target_Process_rows": 3,
+          "minute_queries": 18,
+          "raw_packet_scores_match": true,
+          "live_minute_queries_match": true,
+          "one_sklearn_estimator": true
+        },
+        "lof": {
+          "raw_Process_rows": 27,
+          "target_Process_rows": 3,
+          "minute_queries": 18,
+          "raw_packet_scores_match": true,
+          "live_minute_queries_match": true,
+          "one_sklearn_estimator": true
+        }
+      },
+      "normal": {
+        "if": {
+          "raw_Process_rows": 27,
+          "target_Process_rows": 3,
+          "minute_queries": 18,
+          "raw_packet_scores_match": true,
+          "live_minute_queries_match": true,
+          "one_sklearn_estimator": true
+        },
+        "kmeans": {
+          "raw_Process_rows": 27,
+          "target_Process_rows": 3,
+          "minute_queries": 18,
+          "raw_packet_scores_match": true,
+          "live_minute_queries_match": true,
+          "one_sklearn_estimator": true
+        },
+        "lof": {
+          "raw_Process_rows": 27,
+          "target_Process_rows": 3,
+          "minute_queries": 18,
+          "raw_packet_scores_match": true,
+          "live_minute_queries_match": true,
+          "one_sklearn_estimator": true
+        }
+      }
+    },
+    "group_delay": {
+      "observed": {
+        "if": {
+          "raw_Process_rows": 334,
+          "target_Process_rows": 125,
+          "minute_queries": 109,
+          "raw_packet_scores_match": true,
+          "live_minute_queries_match": true,
+          "one_sklearn_estimator": true
+        },
+        "kmeans": {
+          "raw_Process_rows": 334,
+          "target_Process_rows": 125,
+          "minute_queries": 109,
+          "raw_packet_scores_match": true,
+          "live_minute_queries_match": true,
+          "one_sklearn_estimator": true
+        },
+        "lof": {
+          "raw_Process_rows": 334,
+          "target_Process_rows": 125,
+          "minute_queries": 109,
+          "raw_packet_scores_match": true,
+          "live_minute_queries_match": true,
+          "one_sklearn_estimator": true
+        }
+      },
+      "normal": {
+        "if": {
+          "raw_Process_rows": 334,
+          "target_Process_rows": 125,
+          "minute_queries": 109,
+          "raw_packet_scores_match": true,
+          "live_minute_queries_match": true,
+          "one_sklearn_estimator": true
+        },
+        "kmeans": {
+          "raw_Process_rows": 334,
+          "target_Process_rows": 125,
+          "minute_queries": 109,
+          "raw_packet_scores_match": true,
+          "live_minute_queries_match": true,
+          "one_sklearn_estimator": true
+        },
+        "lof": {
+          "raw_Process_rows": 334,
+          "target_Process_rows": 125,
+          "minute_queries": 109,
+          "raw_packet_scores_match": true,
+          "live_minute_queries_match": true,
+          "one_sklearn_estimator": true
+        }
+      }
+    },
+    "time_burst": {
+      "observed": {
+        "if": {
+          "raw_Process_rows": 745,
+          "target_Process_rows": 181,
+          "minute_queries": 123,
+          "raw_packet_scores_match": true,
+          "live_minute_queries_match": true,
+          "one_sklearn_estimator": true
+        },
+        "kmeans": {
+          "raw_Process_rows": 745,
+          "target_Process_rows": 181,
+          "minute_queries": 123,
+          "raw_packet_scores_match": true,
+          "live_minute_queries_match": true,
+          "one_sklearn_estimator": true
+        },
+        "lof": {
+          "raw_Process_rows": 745,
+          "target_Process_rows": 181,
+          "minute_queries": 123,
+          "raw_packet_scores_match": true,
+          "live_minute_queries_match": true,
+          "one_sklearn_estimator": true
+        }
+      },
+      "normal": {
+        "if": {
+          "raw_Process_rows": 533,
+          "target_Process_rows": 128,
+          "minute_queries": 123,
+          "raw_packet_scores_match": true,
+          "live_minute_queries_match": true,
+          "one_sklearn_estimator": true
+        },
+        "kmeans": {
+          "raw_Process_rows": 533,
+          "target_Process_rows": 128,
+          "minute_queries": 123,
+          "raw_packet_scores_match": true,
+          "live_minute_queries_match": true,
+          "one_sklearn_estimator": true
+        },
+        "lof": {
+          "raw_Process_rows": 533,
+          "target_Process_rows": 128,
+          "minute_queries": 123,
+          "raw_packet_scores_match": true,
+          "live_minute_queries_match": true,
+          "one_sklearn_estimator": true
+        }
+      }
+    },
+    "gradual_degradation": {
+      "observed": {
+        "if": {
+          "raw_Process_rows": 559,
+          "target_Process_rows": 253,
+          "minute_queries": 182,
+          "raw_packet_scores_match": true,
+          "live_minute_queries_match": true,
+          "one_sklearn_estimator": true
+        },
+        "kmeans": {
+          "raw_Process_rows": 559,
+          "target_Process_rows": 253,
+          "minute_queries": 182,
+          "raw_packet_scores_match": true,
+          "live_minute_queries_match": true,
+          "one_sklearn_estimator": true
+        },
+        "lof": {
+          "raw_Process_rows": 559,
+          "target_Process_rows": 253,
+          "minute_queries": 182,
+          "raw_packet_scores_match": true,
+          "live_minute_queries_match": true,
+          "one_sklearn_estimator": true
+        }
+      },
+      "normal": {
+        "if": {
+          "raw_Process_rows": 559,
+          "target_Process_rows": 253,
+          "minute_queries": 182,
+          "raw_packet_scores_match": true,
+          "live_minute_queries_match": true,
+          "one_sklearn_estimator": true
+        },
+        "kmeans": {
+          "raw_Process_rows": 559,
+          "target_Process_rows": 253,
+          "minute_queries": 182,
+          "raw_packet_scores_match": true,
+          "live_minute_queries_match": true,
+          "one_sklearn_estimator": true
+        },
+        "lof": {
+          "raw_Process_rows": 559,
+          "target_Process_rows": 253,
+          "minute_queries": 182,
+          "raw_packet_scores_match": true,
+          "live_minute_queries_match": true,
+          "one_sklearn_estimator": true
+        }
+      }
+    }
+  },
+  "input_labels_or_precomputed_features": false,
+  "all_original_rows_preserved": true,
+  "silence_can_never_open_new_incident": true,
+  "scope": "3 real development cases per task, both cohorts, all 3 algorithms"
+}

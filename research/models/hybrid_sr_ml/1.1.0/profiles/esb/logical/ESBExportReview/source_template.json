@@ -1,0 +1,80 @@
+{
+  "schema": {
+    "TransactionExport": {
+      "keys": [
+        "TRANSACTION_ID",
+        "PROCESS_HUB_ID",
+        "RETRY_COUNT"
+      ],
+      "columns": [
+        "TRANSACTION_ID",
+        "PROCESS_HUB_ID",
+        "RETRY_COUNT"
+      ]
+    },
+    "ProcessExport": {
+      "keys": [
+        "TRANSACTION_ID",
+        "PROCESS_ID",
+        "RETRY_COUNT"
+      ],
+      "TRANSACTION_ID": "TransactionExport.TRANSACTION_ID",
+      "columns": [
+        "TRANSACTION_ID",
+        "PROCESS_ID",
+        "RETRY_COUNT"
+      ]
+    },
+    "MessageExport": {
+      "keys": [
+        "TRANSACTION_ID",
+        "PROCESS_ID",
+        "MESSAGE_ID",
+        "RETRY_COUNT"
+      ],
+      "TRANSACTION_ID": "ProcessExport.TRANSACTION_ID",
+      "PROCESS_ID": "ProcessExport.PROCESS_ID",
+      "columns": [
+        "TRANSACTION_ID",
+        "PROCESS_ID",
+        "MESSAGE_ID",
+        "RETRY_COUNT"
+      ]
+    }
+  },
+  "documents": [
+    {
+      "id": "table-name-aliases",
+      "authority": "export_snapshot_lookup_description_not_business_contract",
+      "text": "In the supplied schema, T means TransactionExport, P means ProcessExport, and M means MessageExport. These aliases are used only to abbreviate the CSV file names in the lookup descriptions."
+    },
+    {
+      "id": "export-value-lookup",
+      "authority": "export_snapshot_lookup_description_not_business_contract",
+      "text": "This profile compares P.TRANSACTION_ID to the identical T.TRANSACTION_ID string. It compares the pair (M.TRANSACTION_ID, M.PROCESS_ID) to the identical pair in P. Comparisons are literal string-value lookups in the supplied CSV snapshots."
+    },
+    {
+      "id": "export-scope-limit",
+      "authority": "export_snapshot_lookup_description_not_business_contract",
+      "text": "These lookups do not assume a target has exactly one row, do not equate RETRY_COUNT across files, and do not establish a required child, a foreign-key contract, or an operational business obligation."
+    },
+    {
+      "id": "snapshot-closure",
+      "authority": "export_snapshot_lookup_description_not_business_contract",
+      "text": "For this analysis, entity_family_complete=true means all rows in these three source CSV exports with each selected TRANSACTION_ID were loaded. It says nothing about completeness of operational logs outside these exports."
+    }
+  ],
+  "capture": {
+    "entity_family_complete": true,
+    "source_version": "esb-export-selected-tid-family-v1",
+    "Body_included": false,
+    "export_snapshot_only": true,
+    "business_logging_complete_unconfirmed": true
+  },
+  "records": {
+    "TransactionExport": [],
+    "ProcessExport": [],
+    "MessageExport": []
+  },
+  "question": "Propose useful reusable factual, non-statistical observations about linkage and data quality in this current CSV snapshot. Keep the scope to the stated string lookups, preserve unknown evidence, and do not assert a business contract, required child, or incident."
+}

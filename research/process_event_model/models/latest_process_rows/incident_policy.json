@@ -1,0 +1,90 @@
+{
+  "model_sha256": "defaf8c1b1e973e4def5f700a7532eb1a33a9bcdfe2e8afc8c8cae54815982a4",
+  "runtime_sha256": "28e3526bea70704654098795fd48ef2be7c7c21b66ff619793d7653010dc43b9",
+  "models": {
+    "if": {
+      "params": {
+        "delay_gate": 1.0,
+        "delay_clear": 0.5,
+        "delay_ttl": 600.0,
+        "traffic_gate": 1.0,
+        "traffic_clear": -1.0,
+        "traffic_ttl": 180.0,
+        "filter_weak": false,
+        "traffic_fast": false,
+        "traffic_clear_fast": false,
+        "traffic_excess_gate": 0.5,
+        "traffic_quiet_clear": 0,
+        "point_tail_gate": 2.0,
+        "point_shift_gate": 1.0,
+        "point_reference_max": 4,
+        "traffic_rank": false,
+        "traffic_micro": false,
+        "traffic_ewma": false,
+        "traffic_confirmations": 1,
+        "traffic_confirm_seconds": 30.0,
+        "traffic_ttl_score_gain": 0.0,
+        "traffic_gap_events": 0.0,
+        "traffic_model_family": false,
+        "traffic_model_family_clear": false
+      }
+    },
+    "kmeans": {
+      "params": {
+        "delay_gate": 0.3,
+        "delay_clear": 0.5,
+        "delay_ttl": 300.0,
+        "traffic_gate": 1.0,
+        "traffic_clear": -1.0,
+        "traffic_ttl": 180.0,
+        "filter_weak": false,
+        "traffic_fast": false,
+        "traffic_clear_fast": false,
+        "traffic_excess_gate": 0.5,
+        "traffic_quiet_clear": 2,
+        "point_tail_gate": 2.0,
+        "point_shift_gate": 1.0,
+        "point_reference_max": 4,
+        "traffic_rank": false,
+        "traffic_micro": false,
+        "traffic_ewma": false,
+        "traffic_confirmations": 1,
+        "traffic_confirm_seconds": 30.0,
+        "traffic_ttl_score_gain": 0.0,
+        "traffic_gap_events": 0.0,
+        "traffic_model_family": false,
+        "traffic_model_family_clear": false
+      }
+    },
+    "lof": {
+      "params": {
+        "delay_gate": 1.0,
+        "delay_clear": 0.5,
+        "delay_ttl": 600.0,
+        "traffic_gate": 1.0,
+        "traffic_clear": -1.0,
+        "traffic_ttl": 180.0,
+        "filter_weak": true,
+        "traffic_fast": false,
+        "traffic_clear_fast": false,
+        "traffic_excess_gate": 1.0,
+        "traffic_quiet_clear": 2,
+        "point_tail_gate": 2.0,
+        "point_shift_gate": 1.0,
+        "point_reference_max": 4,
+        "traffic_rank": false,
+        "traffic_micro": false,
+        "traffic_ewma": false,
+        "traffic_confirmations": 1,
+        "traffic_confirm_seconds": 30.0,
+        "traffic_ttl_score_gain": 0.0,
+        "traffic_gap_events": 0.0,
+        "traffic_model_family": true,
+        "traffic_model_family_clear": false
+      }
+    }
+  },
+  "no_silence_onset": true,
+  "no_synthetic_Process_rows": true,
+  "evaluation_unit": "final causal minute alert; original Process row input"
+}

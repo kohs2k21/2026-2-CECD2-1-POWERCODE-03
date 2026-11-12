@@ -1,0 +1,58 @@
+{
+  "schema": {
+    "TransactionStatusExport": {
+      "keys": [
+        "TRANSACTION_ID",
+        "RETRY_COUNT"
+      ],
+      "columns": [
+        "TRANSACTION_ID",
+        "STATUS",
+        "RETRY_COUNT"
+      ]
+    },
+    "ProcessStatusExport": {
+      "keys": [
+        "TRANSACTION_ID",
+        "PROCESS_ID",
+        "RETRY_COUNT"
+      ],
+      "columns": [
+        "TRANSACTION_ID",
+        "PROCESS_ID",
+        "STATUS",
+        "RETRY_COUNT"
+      ],
+      "TRANSACTION_ID": "TransactionStatusExport.TRANSACTION_ID"
+    }
+  },
+  "documents": [
+    {
+      "id": "reported-status-dictionary",
+      "authority": "user_supplied_field_meanings_not_business_invariant",
+      "text": "In the supplied T/P status dictionary, STATUS=S denotes reported success and STATUS=F denotes reported failure. These meanings describe recorded outcomes; they do not establish that a process failure under an ultimately successful transaction is prohibited."
+    },
+    {
+      "id": "export-lookup-scope",
+      "authority": "export_snapshot_lookup_description_not_business_contract",
+      "text": "For this CSV review, ProcessStatusExport.TRANSACTION_ID is compared with the identical TransactionStatusExport.TRANSACTION_ID string. RETRY_COUNT is retained for provenance and is not assumed equal across files. All source CSV rows for each selected string ID are loaded."
+    },
+    {
+      "id": "unconfirmed-handling",
+      "authority": "user_supplied_field_meanings_not_business_invariant",
+      "text": "Recovery and partial-success handling are not established by this input. A reported process failure with a successful parent may have been handled. Review of the recorded outcomes cannot prove an unrecovered failure, a protocol violation, or an incident."
+    }
+  ],
+  "capture": {
+    "Body_included": false,
+    "source_version": "approved-esb-status-selected-export-families",
+    "entity_family_complete": true,
+    "export_snapshot_only": true,
+    "business_logging_complete_unconfirmed": true
+  },
+  "records": {
+    "TransactionStatusExport": [],
+    "ProcessStatusExport": []
+  },
+  "question": "Recommend reusable factual review of reported process outcomes under transactions reported successful. Use the documented CSV lookup and field meanings; do not infer recovery status, a business prohibition or an incident. Keep missing evidence unavailable."
+}

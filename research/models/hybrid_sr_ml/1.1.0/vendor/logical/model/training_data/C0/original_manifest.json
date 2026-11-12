@@ -1,0 +1,35 @@
+{
+  "splits": {
+    "train": {
+      "path": "/home/msko20702/#종합설계/data/data/eda/logical_rule_discovery_eval/20261109T182204+0900/logical_sft/teacher_verified/train.jsonl",
+      "sha256": "3bd3dd84c4f23581c672f549d32a7db58c7df01383a3a5fd3509d179937229c1",
+      "examples": 264
+    },
+    "validation": {
+      "path": "/home/msko20702/#종합설계/data/data/eda/logical_rule_discovery_eval/20261109T182204+0900/logical_sft/teacher_verified/validation.jsonl",
+      "sha256": "3fdebed0e52fa83aad142adc697f9fdb7d38e2487b5df5f75e4d2054bda5d50a",
+      "examples": 66
+    }
+  },
+  "families": [
+    "reference",
+    "scoped_unique",
+    "required_child",
+    "forbidden_child",
+    "closed_domain",
+    "dependency",
+    "unexplained_review",
+    "nullable_backlink_review",
+    "unverified_order",
+    "unmapped_recovery",
+    "unverified_requirement"
+  ],
+  "real_company_logs_used": false,
+  "AI_authored_silver": true,
+  "templates_then_physical_name_materialization": true,
+  "actual_model_responses_used_as_labels": false,
+  "evaluation_or_private_probes_read": false,
+  "train_validation_split": "disjoint synthetic physical names and seeds; operator families shared",
+  "purpose": "targeted instruction learning for source-bound relational specification, not real incident classification",
+  "builder_sha256": "94d0dac49f18ab8b06860902c7cc8c6cb2c30691e170b8e64da34198c69976ae"
+}

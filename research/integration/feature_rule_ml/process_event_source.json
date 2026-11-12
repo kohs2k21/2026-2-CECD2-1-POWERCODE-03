@@ -1,0 +1,10 @@
+{
+  "source_issue": 95,
+  "source_pr": 98,
+  "source_commit": "4492722d2d70439e63bfbe48df2fa115180cd94c",
+  "pins": {
+    "model_manifest.json": "b1142e413feedb0631af12f6842f636409c1c773b364c07b7d2bd38e8a295582",
+    "source_inventory.json": "1121883cfad37b4956013f553a9a699d248686efd58a0c7a81c44e9cb006af51",
+    "requirements.txt": "7a7102bab210abfa2c481e94dd6b526ee94fe68bba8fd3c8fea049f13bf1f380"
+  }
+}

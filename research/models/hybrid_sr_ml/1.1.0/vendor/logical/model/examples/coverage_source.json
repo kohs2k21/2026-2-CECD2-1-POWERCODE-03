@@ -1,0 +1,39 @@
+{
+  "schema": {
+    "VelaPermitCard": {
+      "keys": [
+        "permit_key"
+      ],
+      "columns": [
+        "release_phase",
+        "credential_tag",
+        "seal_reference",
+        "audit_receipt"
+      ]
+    }
+  },
+  "documents": [
+    {
+      "id": "release-contract",
+      "authority": "controlled_evaluation_contract_not_company_policy",
+      "text": "For each VelaPermitCard row where release_phase=OPEN, credential_tag, seal_reference, and audit_receipt are independently required to be non-null; any one missing value is sufficient for a contract warning. For release_phase=PAUSED, nulls in those fields are permitted. A null release_phase leaves applicability unknown. A directly observed null in an OPEN row is local evidence and does not require a complete family export."
+    }
+  ],
+  "capture": {
+    "Body_included": false,
+    "source_version": "vela-permit-contract-draft-v1",
+    "entity_family_complete": false
+  },
+  "records": {
+    "VelaPermitCard": [
+      {
+        "permit_key": "permit-73",
+        "release_phase": "OPEN",
+        "credential_tag": "cred-A",
+        "seal_reference": "seal-B",
+        "audit_receipt": "audit-C"
+      }
+    ]
+  },
+  "question": "Recommend reusable checks supported by these sources. Preserve their stated scope, permitted cases, and unresolved evidence."
+}

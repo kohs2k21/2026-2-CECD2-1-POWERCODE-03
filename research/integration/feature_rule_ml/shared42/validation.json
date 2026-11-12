@@ -1,0 +1,98 @@
+{
+  "contract": "shared42-delivery-validation1.0",
+  "unit_tests": {
+    "executed": 65,
+    "passed": 65,
+    "skipped": 0,
+    "failed": 0,
+    "seconds": 27.12
+  },
+  "public_Trainer": {
+    "algorithms": [
+      "if",
+      "kmeans",
+      "lof"
+    ],
+    "grains": [
+      "T",
+      "P",
+      "M"
+    ],
+    "models_fitted_saved_reloaded": 9,
+    "LLM_fit_count": 0,
+    "split": "constructed train/calibration/threshold/test; 32 families each"
+  },
+  "real_Detector": {
+    "raw_source_rows": {
+      "T": 46815,
+      "P": 46928,
+      "M": 103792
+    },
+    "independent_feature_checks": 65,
+    "all65_vectors_equal_original": true,
+    "all110_rule_source_firings_equal_original": true,
+    "all9_scores_flags_equal_original": true,
+    "ML_fit_count": 0,
+    "LLM_calls": 0,
+    "transaction": {
+      "HR": {
+        "nonwarning": 46815
+      },
+      "observed_SR": {
+        "warning": 46815
+      },
+      "numeric_SR": {
+        "unassessable": 46215,
+        "warning": 600
+      },
+      "if": {
+        "nonwarning": 46153,
+        "warning": 662
+      },
+      "kmeans": {
+        "nonwarning": 46353,
+        "warning": 462
+      },
+      "lof": {
+        "nonwarning": 46633,
+        "warning": 182
+      },
+      "SR": {
+        "warning": 46815
+      },
+      "ML": {
+        "nonwarning": 46087,
+        "warning": 728
+      },
+      "OR_numeric": {
+        "unassessable": 46077,
+        "warning": 738
+      },
+      "OR_all": {
+        "warning": 46815
+      }
+    },
+    "numeric_overlap": {
+      "no_warning": 46077,
+      "ML": 138,
+      "SR+ML": 590,
+      "SR": 10
+    },
+    "seconds": 77.16003426699899,
+    "feature_seconds": 53.84998080704827
+  },
+  "definition_sha": "172bdad1a080766de6adc7bdd6ef2064c3b40e260e2b129ef5d7522c7b7a88c4",
+  "frozen_model_set_sha": "56cdf4e5e0278186fe8c52bc8a2c266edc02b7332e27dcb42e2b9589f2df2ee6",
+  "incident_ground_truth": false,
+  "operational_precision_recall_not_evaluated": true,
+  "clean_Git_file_export": {
+    "files": 110,
+    "new_archive_cache_dependency": false,
+    "public_demo_ML_models_fitted_saved_reloaded": 9,
+    "public_demo_detection_fit_count": 0,
+    "public_demo_training_seconds": 1.8132649480248801,
+    "public_demo_detection_seconds": 0.2861801999970339,
+    "regression_tests_passed": 21,
+    "regression_tests_seconds": 3.838
+  }
+}

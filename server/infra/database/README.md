@@ -226,6 +226,7 @@ SELECT r.rolname,
 - 기존 `run_applications`의 승인 시각·예상 active/revision·lease·gate·transition audit·실제 활성 시각과 `ops_system_state` 재사용
 - 평가한 동일 피처/fit/Rule/ML/임계값 묶음만 승인·준비·실제 적용. CAS와 실제 워커 로드·장애 복구는 별도 runtime 구현
 - 기존 `ops_storage_measurements` 재사용. BODY 저장소와 파일저장소 포함 실제 capacity/used/available 계측, 동일 filesystem 중복 합산 금지, stale/unavailable를 정상으로 대체하지 않음
+- 권한(`scripts/database-roles.sql`, #138): `ops_storage_measurements`는 `powercode_api` SELECT만(`/api/operations/storage` 읽기). 다른 런타임 역할 권한 없음. 새 migration 없이 DBA가 역할 스크립트 재적용. 서버 연결을 API 역할로 띄운 HTTP 200·SELECT 전용을 `backend/tests/operations-grants.integration.mjs`(CI 단계 "Operations API runtime-role grants")가 확인
 - 신규 불변 테이블의 DELETE도 차단. 보존 기간 만료 purge·참조 해제·감사 삭제 절차는 이번 범위 미구현; 관리자 임의 trigger 해제로 삭제하지 않음
 - snapshot·운영/감사 참조 무결성·백업/복원 확보 후 보존 정책 결정. 자동 cascade/purge 없음
 

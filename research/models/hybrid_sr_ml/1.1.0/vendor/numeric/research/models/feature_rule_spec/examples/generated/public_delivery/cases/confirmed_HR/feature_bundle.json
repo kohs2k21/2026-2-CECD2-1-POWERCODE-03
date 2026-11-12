@@ -1,0 +1,527 @@
+{
+  "status": "feature_verified",
+  "preserved_seed_prediction": null,
+  "seed_source_pin": null,
+  "origin": "actual_Model_response",
+  "proposal": {
+    "proposal_id": "local",
+    "plan": {
+      "expression": {
+        "op": "is_missing",
+        "args": [
+          {
+            "op": "column",
+            "table": "CASE_LOG",
+            "column": "A"
+          }
+        ]
+      },
+      "grain": {
+        "table": "CASE_LOG",
+        "keys": [
+          "ROW_ID"
+        ]
+      },
+      "population": {
+        "table": "CASE_LOG",
+        "filter": null
+      },
+      "group_by": [],
+      "result_use": "value"
+    },
+    "purpose": "Test whether CASE_LOG.A is missing.",
+    "meaning": "For each CASE_LOG row, return true if A is missing, false if A is available.",
+    "needed_evidence": []
+  },
+  "compilation": {
+    "passed": true,
+    "errors": [],
+    "compiled_feature": {
+      "Model_plan": {
+        "expression": {
+          "op": "is_missing",
+          "args": [
+            {
+              "op": "column",
+              "table": "CASE_LOG",
+              "column": "A"
+            }
+          ]
+        },
+        "grain": {
+          "table": "CASE_LOG",
+          "keys": [
+            "ROW_ID"
+          ]
+        },
+        "population": {
+          "table": "CASE_LOG",
+          "filter": null
+        },
+        "group_by": [],
+        "result_use": "value"
+      },
+      "result_view_compilation": {
+        "policy": "result-view1.0",
+        "selected_by": "explicit_plan_field",
+        "result_use": "value",
+        "Model_expression": {
+          "op": "is_missing",
+          "args": [
+            {
+              "op": "column",
+              "table": "CASE_LOG",
+              "column": "A"
+            }
+          ]
+        },
+        "compiled_expression": {
+          "op": "is_missing",
+          "args": [
+            {
+              "op": "column",
+              "table": "CASE_LOG",
+              "column": "A"
+            }
+          ]
+        },
+        "not_intent_repair": true,
+        "meaning": "unavailable tests a computed result; unavailable_or_zero tests a numeric result for unavailable or known zero; filtered-out rows have no output; execution errors are not caught"
+      },
+      "id": "fd_2125094f3bba5c9c1a53a52e",
+      "definition_sha": "259a8e7e8d397f083ec5f252442005390016a924e4284467e37365feec0ccffd",
+      "semantic_definition_sha": "7c44ec34ee88640cb7825060c54f5e72e1c0c4cf4e7710dc55295fa6c7613bd2",
+      "source_version": "a317bc6e578b38c0d55ce0cf75d58476fee5e277599e67d1e67e5feab2d7d28a",
+      "schema_version": "2e137901f9402ffde18f2c767f6d44d303a87cb438dfcc53c722235e4cf88d53",
+      "plan": {
+        "id": "local_ee3390e894fdb6d74bbbb7",
+        "description": "unavailability(CASE_LOG.A)",
+        "expression": {
+          "op": "is_missing",
+          "args": [
+            {
+              "op": "column",
+              "table": "CASE_LOG",
+              "column": "A"
+            }
+          ]
+        },
+        "grain": {
+          "table": "CASE_LOG",
+          "keys": [
+            "ROW_ID"
+          ]
+        },
+        "population": {
+          "table": "CASE_LOG",
+          "filter": null
+        },
+        "group_by": [],
+        "missing_policy": {
+          "input": "propagate",
+          "empty_group": null,
+          "denominator_zero": null,
+          "child_missing": "propagate",
+          "unknown_predicate": "defer"
+        },
+        "schema_version": "2e137901f9402ffde18f2c767f6d44d303a87cb438dfcc53c722235e4cf88d53",
+        "source_version": "a317bc6e578b38c0d55ce0cf75d58476fee5e277599e67d1e67e5feab2d7d28a"
+      },
+      "dtype": "boolean",
+      "unit": "boolean",
+      "meaning": "For each CASE_LOG row, return true if A is missing, false if A is available.",
+      "purpose": "Test whether CASE_LOG.A is missing.",
+      "source_columns": [
+        [
+          "CASE_LOG",
+          "A"
+        ]
+      ],
+      "relationships": [],
+      "measurement": {
+        "version": "metadata-calculation-3.0.4",
+        "runtime": "full-approved-scope-1.1",
+        "summary_decimal_precision": 50,
+        "definition_status": "valid",
+        "measurement_status": "measured",
+        "definition_sha256": "259a8e7e8d397f083ec5f252442005390016a924e4284467e37365feec0ccffd",
+        "proposal_sha256": "34ff92f10c1dc2503779214eb219df7248b51139577247fcb6d086d4ab54ed40",
+        "source_version": "a317bc6e578b38c0d55ce0cf75d58476fee5e277599e67d1e67e5feab2d7d28a",
+        "summary": {
+          "row_count": 7,
+          "valid_count": 7,
+          "missing_count": 0,
+          "true_count": 2,
+          "false_count": 5,
+          "ratio": 0.2857142857142857,
+          "numerator": 2,
+          "denominator": 7,
+          "min": null,
+          "max": null,
+          "p95": null,
+          "p99": null,
+          "variation": "variable",
+          "quantile_method": "linear_(n-1)*p",
+          "exact_decimal": {
+            "ratio": "0.28571428571428571428571428571428571428571428571429",
+            "p95": null,
+            "p99": null
+          },
+          "population_rows_before_selection": 7,
+          "selection_unavailable_count": 0
+        },
+        "validation": {
+          "passed": true,
+          "definition_status": "valid",
+          "definition_sha256": "259a8e7e8d397f083ec5f252442005390016a924e4284467e37365feec0ccffd",
+          "proposal_sha256": "34ff92f10c1dc2503779214eb219df7248b51139577247fcb6d086d4ab54ed40",
+          "inferred_type": "boolean",
+          "unit": "boolean",
+          "identity": {
+            "schema_version": "2e137901f9402ffde18f2c767f6d44d303a87cb438dfcc53c722235e4cf88d53",
+            "missing_policy": {
+              "input": "propagate",
+              "empty_group": null,
+              "denominator_zero": null,
+              "child_missing": "propagate",
+              "unknown_predicate": "defer"
+            },
+            "population": {
+              "table": "CASE_LOG",
+              "filter": null
+            },
+            "expression": {
+              "op": "is_missing",
+              "args": [
+                {
+                  "op": "column",
+                  "table": "CASE_LOG",
+                  "column": "A"
+                }
+              ]
+            },
+            "group_by": [],
+            "source_version": "a317bc6e578b38c0d55ce0cf75d58476fee5e277599e67d1e67e5feab2d7d28a",
+            "grain": {
+              "table": "CASE_LOG",
+              "keys": [
+                "ROW_ID"
+              ]
+            },
+            "calculation_policy": "metadata-calculation-3.0.4",
+            "inferred_type": "boolean",
+            "unit": "boolean",
+            "source_columns": [
+              [
+                "CASE_LOG",
+                "A"
+              ]
+            ],
+            "relationships": []
+          },
+          "capture_missing": [],
+          "aggregate_relationships": [],
+          "errors": []
+        },
+        "anomaly_execution": "not_run",
+        "measurement_sha256": "2a664ce02dae3a60c7c785ba2c1e472a0a8e031807d894e289907c866e0d5324"
+      },
+      "measurement_id": "m_2a664ce02dae3a60c7c785ba",
+      "independent_calculation": {
+        "passed": true,
+        "method": "separate recursive lexical evaluator; distinct relation/group indices; exact Decimal50",
+        "values_compared": 7,
+        "selection_unavailable": 0,
+        "vector_sha": "935d5f16b10033b3551ff48ee64d6fa09f5069faf4903a5fa1865ee6b2e89645",
+        "business_truth_label": false
+      },
+      "description_revision": {
+        "sha": "67d312186b54ac4062d2902cde58fd08466aa3098512b4fd709af5259023c074",
+        "calculation_definition_sha": "259a8e7e8d397f083ec5f252442005390016a924e4284467e37365feec0ccffd",
+        "measurement_sha": "2a664ce02dae3a60c7c785ba2c1e472a0a8e031807d894e289907c866e0d5324",
+        "measurement_reuse_requires": "Same expression/grain/population/group/missing/type/unit/schema/source. This compilation always verifies its own source.",
+        "Model_origin": {
+          "file": "model/feature_0/output.json",
+          "raw_sha": "6b15772f2487f6bf05318fe5b0f22eee489b0d572e7a8795d8303272d18483b1",
+          "parsed_sha": "eae0f2969cb5d3bc2964ca5ebb1f8bb7da9038db0c745cb7677bbfb901e67a64",
+          "messages_sha": "fabc38b0efc32fe46343156a67e5e5acd1f550c3157df2fc9cae4b416c730ea7",
+          "budget": {
+            "sequence": 1,
+            "kind": "feature",
+            "call": "feature_0",
+            "phase": "frozen_final_final_public_delivery_confirmed_HR",
+            "at": 1793097818.8387613,
+            "failed_or_interrupted_calls_consume_budget": true,
+            "shared_sequence": 105
+          }
+        },
+        "assembled_preserved_parent": null
+      },
+      "registration": {
+        "call_id": "feature_0",
+        "Model_alias": "local",
+        "Model_proposal_sha": "1a0eae23d02a688463d0f138d3838bb2e6d1afea9da7e725804e2e3740648f09"
+      },
+      "possible_states": {
+        "operator": "is_missing",
+        "unavailable_possible": false,
+        "proof_scope": "Supported operator contract on retained selected rows",
+        "children": [
+          {
+            "operator": "column",
+            "unavailable_possible": true,
+            "proof_scope": "Supported operator contract on retained selected rows",
+            "children": []
+          }
+        ]
+      },
+      "availability": "offline complete capture; prospective availability and IF not approved"
+    },
+    "row_grain": {
+      "policy": "row-grain1.0+immutable-AST3-types",
+      "passed": true,
+      "errors": [],
+      "nodes": [
+        {
+          "path": "/plan/expression/args/0",
+          "op": "column",
+          "evaluation_table": "CASE_LOG",
+          "output_table": "CASE_LOG",
+          "row_keys": [
+            "ROW_ID"
+          ],
+          "scalar": false,
+          "dtype": "number",
+          "unit": "coordinate_unit"
+        },
+        {
+          "path": "/plan/expression",
+          "op": "is_missing",
+          "evaluation_table": "CASE_LOG",
+          "output_table": "CASE_LOG",
+          "row_keys": [
+            "ROW_ID"
+          ],
+          "scalar": false,
+          "dtype": "boolean",
+          "unit": "boolean"
+        }
+      ],
+      "root": {
+        "path": "/plan/expression",
+        "op": "is_missing",
+        "evaluation_table": "CASE_LOG",
+        "output_table": "CASE_LOG",
+        "row_keys": [
+          "ROW_ID"
+        ],
+        "scalar": false,
+        "dtype": "boolean",
+        "unit": "boolean"
+      },
+      "proposal_unchanged_sha": "ee3390e894fdb6d74bbbb710492c29c68a85d2d272ab790f17de6f7483f0d5a9"
+    },
+    "proposal_sha": "1a0eae23d02a688463d0f138d3838bb2e6d1afea9da7e725804e2e3740648f09",
+    "row_ids": [
+      [
+        "l0"
+      ],
+      [
+        "l1"
+      ],
+      [
+        "l2"
+      ],
+      [
+        "l3"
+      ],
+      [
+        "l4"
+      ],
+      [
+        "l5"
+      ],
+      [
+        "l6"
+      ]
+    ]
+  },
+  "attempts": [
+    {
+      "attempt": 0,
+      "prediction": {
+        "schema": "feature5.2",
+        "candidates": [
+          {
+            "proposal_id": "local",
+            "plan": {
+              "expression": {
+                "op": "is_missing",
+                "args": [
+                  {
+                    "op": "column",
+                    "table": "CASE_LOG",
+                    "column": "A"
+                  }
+                ]
+              },
+              "grain": {
+                "table": "CASE_LOG",
+                "keys": [
+                  "ROW_ID"
+                ]
+              },
+              "population": {
+                "table": "CASE_LOG",
+                "filter": null
+              },
+              "group_by": [],
+              "result_use": "value"
+            },
+            "purpose": "Test whether CASE_LOG.A is missing.",
+            "meaning": "For each CASE_LOG row, return true if A is missing, false if A is available.",
+            "needed_evidence": []
+          }
+        ],
+        "stop_reason": null
+      },
+      "passed": true,
+      "errors": [],
+      "actual_model_origin": {
+        "file": "model/feature_0/output.json",
+        "raw_sha": "6b15772f2487f6bf05318fe5b0f22eee489b0d572e7a8795d8303272d18483b1",
+        "parsed_sha": "eae0f2969cb5d3bc2964ca5ebb1f8bb7da9038db0c745cb7677bbfb901e67a64",
+        "messages_sha": "fabc38b0efc32fe46343156a67e5e5acd1f550c3157df2fc9cae4b416c730ea7",
+        "budget": {
+          "sequence": 1,
+          "kind": "feature",
+          "call": "feature_0",
+          "phase": "frozen_final_final_public_delivery_confirmed_HR",
+          "at": 1793097818.8387613,
+          "failed_or_interrupted_calls_consume_budget": true,
+          "shared_sequence": 105
+        }
+      },
+      "partial_Model_prose_fields": null,
+      "partial_Model_expression_and_prose": false,
+      "partial_stop_reason": false,
+      "assembly_over_preserved_candidate": false,
+      "not_code_authored_answer": true
+    }
+  ],
+  "source_manifest": {
+    "sha256": "f0c2641e9464154a5be8ab391c5d0ed0380cb99738a0ba34bf514349537e5346",
+    "source_version": "a317bc6e578b38c0d55ce0cf75d58476fee5e277599e67d1e67e5feab2d7d28a"
+  },
+  "official_semantics": {
+    "version": "calculation-facts2.0-guarded-availability",
+    "definition_sha": "259a8e7e8d397f083ec5f252442005390016a924e4284467e37365feec0ccffd",
+    "source_version": "a317bc6e578b38c0d55ce0cf75d58476fee5e277599e67d1e67e5feab2d7d28a",
+    "measurement_id": "m_2a664ce02dae3a60c7c785ba",
+    "measurement_sha": "2a664ce02dae3a60c7c785ba2c1e472a0a8e031807d894e289907c866e0d5324",
+    "output_grain": {
+      "table": "CASE_LOG",
+      "keys": [
+        "ROW_ID"
+      ]
+    },
+    "population": {
+      "table": "CASE_LOG",
+      "filter": null
+    },
+    "dtype": "boolean",
+    "unit": "boolean",
+    "operator_contract_possible_states": [
+      "true",
+      "false"
+    ],
+    "operator_state_proof": {
+      "operator": "is_missing",
+      "unavailable_possible": false,
+      "proof_scope": "Supported operator contract on retained selected rows",
+      "children": [
+        {
+          "operator": "column",
+          "unavailable_possible": true,
+          "proof_scope": "Supported operator contract on retained selected rows",
+          "children": []
+        }
+      ]
+    },
+    "missing_policy": {
+      "input": "propagate",
+      "empty_group": null,
+      "denominator_zero": null,
+      "child_missing": "propagate",
+      "unknown_predicate": "defer"
+    },
+    "current": {
+      "selected_rows": 7,
+      "population_rows_before_selection": 7,
+      "selection_unavailable": 0,
+      "numeric_or_boolean_nonnull": 7,
+      "result_unavailable": 0,
+      "true": 2,
+      "false": 5
+    },
+    "interpretation": {
+      "null_result": "Does not alone identify source null, parsing, join, denominator or fault cause.",
+      "empty_child_group": "Zero only under the aggregate empty-group contract; unknown relationship/filter is different.",
+      "sample_extrema": "Observed min/max are not proven bounds.",
+      "total_missing_test": "is_missing evaluates retained null results to true; it is not an unavailable numerical comparison."
+    },
+    "row_nodes": [
+      {
+        "path": "/plan/expression/args/0",
+        "op": "column",
+        "evaluation_table": "CASE_LOG",
+        "output_table": "CASE_LOG",
+        "row_keys": [
+          "ROW_ID"
+        ],
+        "scalar": false,
+        "dtype": "number",
+        "unit": "coordinate_unit"
+      },
+      {
+        "path": "/plan/expression",
+        "op": "is_missing",
+        "evaluation_table": "CASE_LOG",
+        "output_table": "CASE_LOG",
+        "row_keys": [
+          "ROW_ID"
+        ],
+        "scalar": false,
+        "dtype": "boolean",
+        "unit": "boolean"
+      }
+    ],
+    "sha256": "95cc0766acd1c919b88565cc6f3f234e0b7cfd6ef41d3eec185e31c480c38c8c",
+    "author": "compiler",
+    "contract": "official-computation-facts1.0",
+    "not_AI_generated": true,
+    "expression": {
+      "op": "is_missing",
+      "args": [
+        {
+          "op": "column",
+          "table": "CASE_LOG",
+          "column": "A"
+        }
+      ]
+    },
+    "selected_result_use": "value",
+    "output_excludes_filtered_rows": true,
+    "exceptions": "Invalid sources/types/execution failures are errors, not unavailable values.",
+    "complete_natural_language_proof": false,
+    "facts_sha": "3c1f6662e2adeb108d3607b93329920bd119cf14302a03bdeba29e59ac7cee9e"
+  },
+  "description_validation": {
+    "status": "supported_claims_checked",
+    "complete_NL_proof": false,
+    "free_prose_approval": "not_granted_by_program_supported_claims_only",
+    "actual_Model_repair": false,
+    "errors": []
+  },
+  "admin_semantic_review": "Structured compiler facts define calculation behavior; AI prose has only the separately stated review scope."
+}

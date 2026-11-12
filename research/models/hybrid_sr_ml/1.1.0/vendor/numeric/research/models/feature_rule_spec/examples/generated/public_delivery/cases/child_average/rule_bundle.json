@@ -1,0 +1,515 @@
+{
+  "status": "rule_verified",
+  "preserved_seed_prediction": null,
+  "seed_source_pin": null,
+  "prediction": {
+    "v": "3",
+    "feature": "fd_b1978eafbd02d79b5014b908",
+    "sha": "a287939334fdde19737438d5fa9d89b4133ab63df73f94aa3472c29f4bda0316",
+    "decisions": [
+      {
+        "request": "observed",
+        "role": "SR",
+        "state": "proposed",
+        "basis": "observed_diagnostic",
+        "condition": {
+          "op": "is_missing"
+        },
+        "evidence": [
+          "m_da5e258cc6fc85c9e48328c8"
+        ],
+        "needed": [],
+        "reason": "The supplied calculated-value diagnostic has 4 usable observations. It is evaluable even with 0 activations; no historical baseline or application minimum is required.",
+        "purpose": "data_quality",
+        "warning_meaning": "Current calculated-value availability under the supplied definition and population; no operational incident or completeness claim.",
+        "population_ref": "population_35c3a77b7afdcd781d75",
+        "precondition_refs": [
+          "source_63365b2e2fc316030075",
+          "availability_59b20842112a3da22ace",
+          "mapping_5dca4e229e04b5adcd45"
+        ],
+        "required_evaluation_basis": [
+          "source_63365b2e2fc316030075",
+          "availability_59b20842112a3da22ace",
+          "mapping_5dca4e229e04b5adcd45",
+          "population_35c3a77b7afdcd781d75",
+          "m_da5e258cc6fc85c9e48328c8"
+        ],
+        "unavailable_action": "preserve_unassessed",
+        "unavailable_reason": "Under is_missing, current values are evaluable even if 0; the condition is not unavailable.",
+        "business_scope": "Offline calculated-value availability under the supplied controlled relation and population; no fault label or online necessity is inferred.",
+        "baseline_use_ref": null
+      }
+    ]
+  },
+  "attempts": [
+    {
+      "attempt": 0,
+      "prediction": {
+        "v": "3",
+        "feature": "fd_b1978eafbd02d79b5014b908",
+        "sha": "a287939334fdde19737438d5fa9d89b4133ab63df73f94aa3472c29f4bda0316",
+        "decisions": [
+          {
+            "request": "observed",
+            "role": "SR",
+            "state": "proposed",
+            "basis": "observed_diagnostic",
+            "condition": {
+              "op": "is_missing"
+            },
+            "evidence": [
+              "m_da5e258cc6fc85c9e48328c8"
+            ],
+            "needed": [],
+            "reason": "The supplied calculated-value diagnostic has 4 usable observations. It is evaluable even with 0 activations; no historical baseline or application minimum is required.",
+            "purpose": "data_quality",
+            "warning_meaning": "Current calculated-value availability under the supplied definition and population; no operational incident or completeness claim.",
+            "population_ref": "population_35c3a77b7afdcd781d75",
+            "precondition_refs": [
+              "source_63365b2e2fc316030075",
+              "availability_59b20842112a3da22ace",
+              "mapping_5dca4e229e04b5adcd45"
+            ],
+            "required_evaluation_basis": [
+              "source_63365b2e2fc316030075",
+              "availability_59b20842112a3da22ace",
+              "mapping_5dca4e229e04b5adcd45",
+              "population_35c3a77b7afdcd781d75",
+              "m_da5e258cc6fc85c9e48328c8"
+            ],
+            "unavailable_action": "preserve_unassessed",
+            "unavailable_reason": "Under is_missing, current values are evaluable even if 0; the condition is not unavailable.",
+            "business_scope": "Offline calculated-value availability under the supplied controlled relation and population; no fault label or online necessity is inferred.",
+            "baseline_use_ref": null
+          }
+        ]
+      },
+      "passed": true,
+      "errors": [],
+      "actual_model_origin": {
+        "file": "model/rule_0/output.json",
+        "raw_sha": "b941fab7cd1dc2ca89154d2c5e986d9a173390f8053184b5fc31e55919df0f6a",
+        "parsed_sha": "997e8917c9eea3affd47673ddade332dcd3f5bc40159eb862a983ce31618dea8",
+        "messages_sha": "892eb580e65fe8de2334b886a33f93404a6912a94a00426ecc6545e92c7340c4",
+        "budget": {
+          "sequence": 2,
+          "kind": "rule",
+          "call": "rule_0",
+          "phase": "frozen_final_final_public_delivery_child_average",
+          "at": 1793097650.403373,
+          "failed_or_interrupted_calls_consume_budget": true,
+          "shared_sequence": 101
+        }
+      },
+      "partial_roles": null,
+      "partial_Rule_prose_fields": null,
+      "normal_roles_preserved": false
+    }
+  ],
+  "input": {
+    "contract": "evidence-bound-selected-role-final1.0",
+    "requests": [
+      "observed"
+    ],
+    "public_analysis_request": {
+      "question": "Offline calculated-value availability under the supplied controlled relation and population, not an incident label.",
+      "considered_observed_condition": {
+        "op": "is_missing"
+      }
+    },
+    "feature": {
+      "id": "fd_b1978eafbd02d79b5014b908",
+      "sha": "a287939334fdde19737438d5fa9d89b4133ab63df73f94aa3472c29f4bda0316",
+      "meaning": "For each PARENT_SAMPLE row, compute the sum of linked CHILD_EVENT RAW_QTY values divided by the number of linked CHILD_EVENT rows; an unknown child quantity or unavailable relation yields unavailable, and no child rows means denominator0.",
+      "purpose": "Compute the sum of linked CHILD_EVENT RAW_QTY values divided by the number of linked CHILD_EVENT rows.",
+      "dtype": "number",
+      "unit": null,
+      "expression": {
+        "op": "divide",
+        "args": [
+          {
+            "op": "child_sum",
+            "relationship_id": "sample_event_parent",
+            "value": {
+              "op": "column",
+              "table": "CHILD_EVENT",
+              "column": "RAW_QTY"
+            },
+            "where": null
+          },
+          {
+            "op": "child_count",
+            "relationship_id": "sample_event_parent"
+          }
+        ]
+      },
+      "grain": {
+        "table": "PARENT_SAMPLE",
+        "keys": [
+          "PARENT_ROW"
+        ]
+      },
+      "population": {
+        "table": "PARENT_SAMPLE",
+        "filter": null
+      },
+      "missing_policy": {
+        "input": "propagate",
+        "empty_group": "zero",
+        "denominator_zero": "missing",
+        "child_missing": "propagate",
+        "unknown_predicate": "defer"
+      },
+      "operator_state_proof": {
+        "operator": "divide",
+        "unavailable_possible": true,
+        "proof_scope": "Supported operator contract on retained selected rows",
+        "children": [
+          {
+            "operator": "child_sum",
+            "unavailable_possible": true,
+            "proof_scope": "Supported operator contract on retained selected rows",
+            "children": []
+          },
+          {
+            "operator": "child_count",
+            "unavailable_possible": true,
+            "proof_scope": "Supported operator contract on retained selected rows",
+            "children": []
+          }
+        ]
+      }
+    },
+    "definition_sha": "a287939334fdde19737438d5fa9d89b4133ab63df73f94aa3472c29f4bda0316",
+    "source_version": "63365b2e2fc31603007544b35c675781cfdd75e95b2e255ce6f69991a85401be",
+    "measurement_id": "m_da5e258cc6fc85c9e48328c8",
+    "measurement_sha": "da5e258cc6fc85c9e48328c87dc173ae21e98e3d3e7dece85b3e7bd6b9f5efca",
+    "measurement": {
+      "row_count": 4,
+      "valid_count": 1,
+      "missing_count": 3,
+      "true_count": null,
+      "false_count": null,
+      "ratio": null,
+      "numerator": null,
+      "denominator": null,
+      "min": 3,
+      "max": 3,
+      "p95": 3,
+      "p99": 3,
+      "variation": "constant",
+      "quantile_method": "linear_(n-1)*p",
+      "exact_decimal": {
+        "ratio": null,
+        "p95": "3.00",
+        "p99": "3.00"
+      },
+      "population_rows_before_selection": 4,
+      "selection_unavailable_count": 0
+    },
+    "constraints": [],
+    "baseline": {
+      "id": null,
+      "state": "not_requested",
+      "reference_valid_n": null,
+      "value": null,
+      "minimum_n": null
+    },
+    "scope": {
+      "period": {
+        "controlled_domain": "Artificial rows; no operational dates"
+      },
+      "table_rows": {
+        "PARENT_SAMPLE": 4,
+        "CHILD_EVENT": 4
+      },
+      "population": {
+        "table": "PARENT_SAMPLE",
+        "filter": null
+      },
+      "manifest_sha": "c0fa97e085ac28afbb21f16af9437220eaecb68a5518c9dce746bef17315fe5b",
+      "data_class": "controlled"
+    },
+    "range_proof": {
+      "min": null,
+      "max": null,
+      "kind": "unknown",
+      "reason": null,
+      "observed_extrema_are_not_bounds": true,
+      "scope": "63365b2e2fc31603007544b35c675781cfdd75e95b2e255ce6f69991a85401be"
+    },
+    "sources": {
+      "calculation_and_relationship_key_columns": [
+        [
+          "CHILD_EVENT",
+          "OWNER_KEY"
+        ],
+        [
+          "CHILD_EVENT",
+          "RAW_QTY"
+        ],
+        [
+          "PARENT_SAMPLE",
+          "JOIN_CODE"
+        ]
+      ]
+    },
+    "observed_diagnostic_contract": {
+      "condition": {
+        "op": "is_missing"
+      },
+      "purpose": "Offline calculated-value availability under the supplied controlled relation and population, not an incident label.",
+      "baseline_required": false,
+      "minimum_current_observations": null
+    },
+    "condition_evaluation": {
+      "condition": {
+        "op": "is_missing"
+      },
+      "statistics": {
+        "rows": 4,
+        "evaluable": 4,
+        "satisfied": 3,
+        "not_satisfied": 1,
+        "unassessed": 0
+      }
+    },
+    "application_context": {
+      "fact_ids": [
+        "source_63365b2e2fc316030075",
+        "availability_59b20842112a3da22ace",
+        "mapping_5dca4e229e04b5adcd45"
+      ],
+      "population_ref": "population_35c3a77b7afdcd781d75",
+      "evaluation_preconditions": [
+        "source_63365b2e2fc316030075",
+        "availability_59b20842112a3da22ace",
+        "mapping_5dca4e229e04b5adcd45"
+      ],
+      "source_certificate": {
+        "source_version": "63365b2e2fc31603007544b35c675781cfdd75e95b2e255ce6f69991a85401be",
+        "numeric_valid": 1,
+        "retained_rows": 4,
+        "calculation_available": true
+      }
+    },
+    "condition_scope_facts": {
+      "valid_value_observations": 1,
+      "numeric_comparison_evaluable": 1,
+      "result_missingness_test_evaluable": 4,
+      "retained_feature_unavailable_possible": true,
+      "source_missing_cause": "Result unavailable alone does not prove raw source null, parsing, denominator, relation or incident cause"
+    },
+    "availability": "offline complete capture; prospective availability and IF not approved",
+    "unknown": [
+      "No mandatory parent, fault label, or online contract."
+    ],
+    "known_evidence_ids": [
+      "source_63365b2e2fc316030075",
+      "availability_59b20842112a3da22ace",
+      "mapping_5dca4e229e04b5adcd45",
+      "population_35c3a77b7afdcd781d75",
+      "m_da5e258cc6fc85c9e48328c8"
+    ],
+    "allowed_needed_keys": [
+      "need_reference",
+      "need_reference_minimum_n",
+      "need_compatible_reference",
+      "need_verified_unit",
+      "need_valid_observations",
+      "need_confirmed_constraint",
+      "need_business_contract"
+    ],
+    "official_computation_facts": {
+      "version": "calculation-facts2.0-guarded-availability",
+      "definition_sha": "a287939334fdde19737438d5fa9d89b4133ab63df73f94aa3472c29f4bda0316",
+      "source_version": "63365b2e2fc31603007544b35c675781cfdd75e95b2e255ce6f69991a85401be",
+      "measurement_id": "m_da5e258cc6fc85c9e48328c8",
+      "measurement_sha": "da5e258cc6fc85c9e48328c87dc173ae21e98e3d3e7dece85b3e7bd6b9f5efca",
+      "output_grain": {
+        "table": "PARENT_SAMPLE",
+        "keys": [
+          "PARENT_ROW"
+        ]
+      },
+      "population": {
+        "table": "PARENT_SAMPLE",
+        "filter": null
+      },
+      "dtype": "number",
+      "unit": null,
+      "operator_contract_possible_states": [
+        "value",
+        "unavailable"
+      ],
+      "operator_state_proof": {
+        "operator": "divide",
+        "unavailable_possible": true,
+        "proof_scope": "Supported operator contract on retained selected rows",
+        "children": [
+          {
+            "operator": "child_sum",
+            "unavailable_possible": true,
+            "proof_scope": "Supported operator contract on retained selected rows",
+            "children": []
+          },
+          {
+            "operator": "child_count",
+            "unavailable_possible": true,
+            "proof_scope": "Supported operator contract on retained selected rows",
+            "children": []
+          }
+        ]
+      },
+      "missing_policy": {
+        "input": "propagate",
+        "empty_group": "zero",
+        "denominator_zero": "missing",
+        "child_missing": "propagate",
+        "unknown_predicate": "defer"
+      },
+      "current": {
+        "selected_rows": 4,
+        "population_rows_before_selection": 4,
+        "selection_unavailable": 0,
+        "numeric_or_boolean_nonnull": 1,
+        "result_unavailable": 3,
+        "true": null,
+        "false": null
+      },
+      "interpretation": {
+        "null_result": "Does not alone identify source null, parsing, join, denominator or fault cause.",
+        "empty_child_group": "Zero only under the aggregate empty-group contract; unknown relationship/filter is different.",
+        "sample_extrema": "Observed min/max are not proven bounds.",
+        "total_missing_test": "is_missing evaluates retained null results to true; it is not an unavailable numerical comparison."
+      },
+      "row_nodes": [
+        {
+          "path": "/plan/expression/args/0/value",
+          "op": "column",
+          "evaluation_table": "CHILD_EVENT",
+          "output_table": "CHILD_EVENT",
+          "row_keys": [
+            "CHILD_ROW"
+          ],
+          "scalar": false,
+          "dtype": "number",
+          "unit": null
+        },
+        {
+          "path": "/plan/expression/args/0",
+          "op": "child_sum",
+          "evaluation_table": "PARENT_SAMPLE",
+          "output_table": "PARENT_SAMPLE",
+          "row_keys": [
+            "PARENT_ROW"
+          ],
+          "scalar": false,
+          "dtype": "number",
+          "unit": null
+        },
+        {
+          "path": "/plan/expression/args/1",
+          "op": "child_count",
+          "evaluation_table": "PARENT_SAMPLE",
+          "output_table": "PARENT_SAMPLE",
+          "row_keys": [
+            "PARENT_ROW"
+          ],
+          "scalar": false,
+          "dtype": "integer",
+          "unit": "count"
+        },
+        {
+          "path": "/plan/expression",
+          "op": "divide",
+          "evaluation_table": "PARENT_SAMPLE",
+          "output_table": "PARENT_SAMPLE",
+          "row_keys": [
+            "PARENT_ROW"
+          ],
+          "scalar": false,
+          "dtype": "number",
+          "unit": null
+        }
+      ],
+      "sha256": "d2a79956e7f804cb346d84e065a2c1123b043b806a8685de5cf710a8f9382b02",
+      "author": "compiler",
+      "contract": "official-computation-facts1.0",
+      "not_AI_generated": true,
+      "expression": {
+        "op": "divide",
+        "args": [
+          {
+            "op": "child_sum",
+            "relationship_id": "sample_event_parent",
+            "value": {
+              "op": "column",
+              "table": "CHILD_EVENT",
+              "column": "RAW_QTY"
+            },
+            "where": null
+          },
+          {
+            "op": "child_count",
+            "relationship_id": "sample_event_parent"
+          }
+        ]
+      },
+      "selected_result_use": "value",
+      "output_excludes_filtered_rows": true,
+      "exceptions": "Invalid sources/types/execution failures are errors, not unavailable values.",
+      "complete_natural_language_proof": false,
+      "known_empty_child_group": {
+        "result": null,
+        "result_state": "unavailable",
+        "hypothetical_not_measured_count": true,
+        "assumption": "Admitted output row, nonmissing parent keys, complete known-empty linked child set. Each child count/sum is0; the full expression may differ."
+      },
+      "facts_sha": "b5b00627448f7a583b4d720be4766428494e08d81ca6a614ed824604172d47c5"
+    },
+    "AI_prose_is_not_calculation_authority": true
+  },
+  "feature_reference": {
+    "id": "fd_b1978eafbd02d79b5014b908",
+    "definition_sha": "a287939334fdde19737438d5fa9d89b4133ab63df73f94aa3472c29f4bda0316",
+    "source_version": "63365b2e2fc31603007544b35c675781cfdd75e95b2e255ce6f69991a85401be",
+    "measurement_sha": "da5e258cc6fc85c9e48328c87dc173ae21e98e3d3e7dece85b3e7bd6b9f5efca"
+  },
+  "official_semantics": [
+    {
+      "author": "compiler",
+      "contract": "official-condition-facts1.0",
+      "not_AI_generated": true,
+      "condition": {
+        "op": "is_missing"
+      },
+      "condition_valid": true,
+      "condition_error": null,
+      "statistics": {
+        "rows": 4,
+        "evaluable": 4,
+        "satisfied": 3,
+        "not_satisfied": 1,
+        "unassessed": 0
+      },
+      "valid_feature_observations": 1,
+      "numeric_current": 1,
+      "retained_current": 4,
+      "reference_valid_n": null,
+      "is_missing_checks_retained_unavailable_values": true,
+      "result_unavailable_is_not_itself_condition_unassessed": true,
+      "source_or_incident_cause_not_inferred": true,
+      "full_natural_language_proof": false
+    }
+  ],
+  "description_validation": {
+    "status": "supported_claims_checked",
+    "complete_NL_proof": false,
+    "free_prose_approval": "not_granted_by_program_supported_claims_only",
+    "actual_Model_repair": false,
+    "errors": []
+  },
+  "admin_meaning_review": "Structured condition facts are authoritative; free AI text has separate approval status."
+}

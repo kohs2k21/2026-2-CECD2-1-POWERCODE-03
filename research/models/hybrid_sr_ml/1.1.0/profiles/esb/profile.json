@@ -1,0 +1,40 @@
+{
+  "name": "esb_shared42_C3",
+  "numerical_release": "vendor/numeric/research/integration/feature_rule_ml/shared42/release",
+  "definition_sha": "172bdad1a080766de6adc7bdd6ef2064c3b40e260e2b129ef5d7522c7b7a88c4",
+  "numerical_feature_definitions": 65,
+  "ML_input_definitions": 42,
+  "ML_models": 9,
+  "numeric_SR_count": 42,
+  "logical_SR_count": 3,
+  "logical_sources": [
+    {
+      "name": "ESBExportReview",
+      "source": "profiles/esb/logical/ESBExportReview/source_template.json",
+      "pack": "profiles/esb/logical/ESBExportReview/serving_pack.json",
+      "scope": "finite supplied export; no recovery/incident/mandatory-child assertion",
+      "channel": "logical_SR"
+    },
+    {
+      "name": "ESBReportedOutcomeReview",
+      "source": "profiles/esb/logical/ESBReportedOutcomeReview/source_template.json",
+      "pack": "profiles/esb/logical/ESBReportedOutcomeReview/serving_pack.json",
+      "scope": "finite supplied export; no recovery/incident/mandatory-child assertion",
+      "channel": "logical_SR"
+    }
+  ],
+  "primary_components": [
+    "numeric_SR",
+    "logical_SR",
+    "ML"
+  ],
+  "HR": "preserved auxiliary channel; no new authorization or automatic change",
+  "legacy_observed_SR": "preserved in native outputs, excluded from the new primary combination",
+  "operational_approval": false,
+  "research_candidate_warning_is_not_confirmed_incident": true,
+  "numeric_ratio_policy": {
+    "default": "fallback",
+    "registry": "profiles/esb/ratio_fallback.json",
+    "alternative_comparison_rules": 14
+  }
+}

@@ -1,0 +1,4089 @@
+{
+  "models": {
+    "if": {
+      "policy": {
+        "delay_gate": 1.0,
+        "delay_clear": 0.5,
+        "delay_ttl": 600.0,
+        "traffic_gate": 1.0,
+        "traffic_clear": -1.0,
+        "traffic_ttl": 180.0,
+        "filter_weak": false,
+        "traffic_fast": false,
+        "traffic_clear_fast": false,
+        "traffic_excess_gate": 0.5,
+        "traffic_quiet_clear": 0,
+        "point_tail_gate": 2.0,
+        "point_shift_gate": 1.0,
+        "point_reference_max": 4,
+        "traffic_rank": false,
+        "traffic_micro": false,
+        "traffic_ewma": false,
+        "traffic_confirmations": 1,
+        "traffic_confirm_seconds": 30.0,
+        "traffic_ttl_score_gain": 0.0,
+        "traffic_gap_events": 0.0,
+        "traffic_model_family": false,
+        "traffic_model_family_clear": false
+      },
+      "tasks": {
+        "individual_delay": {
+          "n": 4800,
+          "tp": 335,
+          "fp": 6,
+          "tn": 4386,
+          "fn": 73,
+          "accuracy": 0.9835416666666666,
+          "precision": 0.9824046920821115,
+          "recall": 0.821078431372549,
+          "f1": 0.8945260347129506,
+          "false_positive_rate": 0.001366120218579235,
+          "positives": 408
+        },
+        "group_delay": {
+          "n": 29138,
+          "tp": 4165,
+          "fp": 284,
+          "tn": 24445,
+          "fn": 244,
+          "accuracy": 0.9818793328299815,
+          "precision": 0.9361654304338054,
+          "recall": 0.9446586527557269,
+          "f1": 0.9403928652065929,
+          "false_positive_rate": 0.011484491892110477,
+          "positives": 4409
+        },
+        "time_burst": {
+          "n": 31936,
+          "tp": 1958,
+          "fp": 455,
+          "tn": 28151,
+          "fn": 1372,
+          "accuracy": 0.9427918336673347,
+          "precision": 0.8114380439287194,
+          "recall": 0.587987987987988,
+          "f1": 0.6818735852341982,
+          "false_positive_rate": 0.015905754037614486,
+          "positives": 3330
+        },
+        "gradual_degradation": {
+          "n": 48224,
+          "tp": 8822,
+          "fp": 623,
+          "tn": 35611,
+          "fn": 3168,
+          "accuracy": 0.9213876907763769,
+          "precision": 0.9340391741662255,
+          "recall": 0.7357798165137615,
+          "f1": 0.8231397247492419,
+          "false_positive_rate": 0.01719379588232047,
+          "positives": 11990
+        }
+      },
+      "settings": {
+        "algorithm": "if",
+        "view": "native_context",
+        "samples": 128,
+        "clusters": 16,
+        "neighbors": 50,
+        "whiten": false,
+        "seed": 20261030
+      },
+      "model_record": {
+        "normal_statistical_fusion": true,
+        "bare_estimator": false,
+        "one_fault_estimator": true,
+        "independent_warm_evidence_channels": true,
+        "cold_confidence_predictions_preserved": true,
+        "model_weight": 0.15,
+        "family_weights": [
+          0.65,
+          0.03,
+          0.15,
+          0.15,
+          0.15,
+          0.15,
+          0.15,
+          0.15
+        ],
+        "cutoffs": [
+          2.0,
+          2.3694663340510327,
+          1.781163686175561,
+          1.79826163437153,
+          2.088945501913626,
+          1.0975254313733764,
+          2.326583727582238,
+          1.2805518517519117
+        ],
+        "traffic_kind": "geometric",
+        "traffic_nb_power": null,
+        "delay_gain": 0.5,
+        "no_task_routing": true,
+        "adapter_score_calibration": true,
+        "adapter_expert_estimators": false,
+        "cold_only_score_references": true,
+        "adapter_factors": {
+          "DB.DELETER": 1.1614505587566244,
+          "FILE.WRITER": 1.1077592871613766,
+          "GATEWAY.INVOKER": 1.0272789736860546,
+          "GATEWAY.RECEIVER": 1.2994325749204312,
+          "OBJECT.WRITER": 1.006925780770211,
+          "QUEUE.SUBSCRIBER": 1.03802274191952,
+          "SERVICE.INVOKER": 1.011162856815747
+        },
+        "reference_support": {
+          "DATA.DECRYPTOR": {
+            "cases": 20,
+            "normal_rows": 120
+          },
+          "DATA.ENCRYPTOR": {
+            "cases": 19,
+            "normal_rows": 114
+          },
+          "DATA.MAPPER": {
+            "cases": 19,
+            "normal_rows": 114
+          },
+          "DATA.TRANSFORMER": {
+            "cases": 169,
+            "normal_rows": 764
+          },
+          "DB.DELETER": {
+            "cases": 19,
+            "normal_rows": 114
+          },
+          "DB.EXECUTOR": {
+            "cases": 169,
+            "normal_rows": 764
+          },
+          "DB.READER": {
+            "cases": 169,
+            "normal_rows": 764
+          },
+          "DB.UPDATER": {
+            "cases": 169,
+            "normal_rows": 764
+          },
+          "DB.WRITER": {
+            "cases": 169,
+            "normal_rows": 764
+          },
+          "FILE.EXECUTOR": {
+            "cases": 19,
+            "normal_rows": 114
+          },
+          "FILE.READER": {
+            "cases": 169,
+            "normal_rows": 764
+          },
+          "FILE.WRITER": {
+            "cases": 169,
+            "normal_rows": 764
+          },
+          "GATEWAY.INVOKER": {
+            "cases": 19,
+            "normal_rows": 114
+          },
+          "GATEWAY.RECEIVER": {
+            "cases": 19,
+            "normal_rows": 114
+          },
+          "OBJECT.READER": {
+            "cases": 19,
+            "normal_rows": 114
+          },
+          "OBJECT.WRITER": {
+            "cases": 19,
+            "normal_rows": 114
+          },
+          "QUEUE.EXECUTOR": {
+            "cases": 19,
+            "normal_rows": 114
+          },
+          "QUEUE.PUBLISHER": {
+            "cases": 19,
+            "normal_rows": 114
+          },
+          "QUEUE.SUBSCRIBER": {
+            "cases": 19,
+            "normal_rows": 114
+          },
+          "SERVICE.EXECUTOR": {
+            "cases": 169,
+            "normal_rows": 762
+          },
+          "SERVICE.INVOKER": {
+            "cases": 19,
+            "normal_rows": 114
+          }
+        },
+        "unseen_adapter_factor": 1.0,
+        "normal_reference_source": "existing first400 development cases; labelled negatives only",
+        "additional_generated_Process_rows": 0,
+        "warm_traffic_only_score_references": {
+          "DATA.DECRYPTOR": 1.0180226600913438,
+          "DATA.MAPPER": 0.9013181804624817,
+          "DATA.TRANSFORMER": 1.1423308599812767,
+          "DB.READER": 1.1018229278010998,
+          "DB.UPDATER": 1.1660393340828195,
+          "DB.WRITER": 1.1339627013124174,
+          "GATEWAY.RECEIVER": 0.8750068846170955,
+          "OBJECT.READER": 0.9134546966737664,
+          "OBJECT.WRITER": 1.1131054838673013,
+          "QUEUE.PUBLISHER": 0.9424692931326478,
+          "SERVICE.INVOKER": 0.8853063216796123
+        },
+        "warm_traffic_reference_support": {
+          "DATA.DECRYPTOR": {
+            "cases": 20,
+            "normal_rows": 842
+          },
+          "DATA.ENCRYPTOR": {
+            "cases": 19,
+            "normal_rows": 773
+          },
+          "DATA.MAPPER": {
+            "cases": 19,
+            "normal_rows": 713
+          },
+          "DATA.TRANSFORMER": {
+            "cases": 119,
+            "normal_rows": 6865
+          },
+          "DB.DELETER": {
+            "cases": 19,
+            "normal_rows": 774
+          },
+          "DB.EXECUTOR": {
+            "cases": 119,
+            "normal_rows": 6903
+          },
+          "DB.READER": {
+            "cases": 119,
+            "normal_rows": 6809
+          },
+          "DB.UPDATER": {
+            "cases": 119,
+            "normal_rows": 6983
+          },
+          "DB.WRITER": {
+            "cases": 119,
+            "normal_rows": 7142
+          },
+          "FILE.EXECUTOR": {
+            "cases": 19,
+            "normal_rows": 792
+          },
+          "FILE.READER": {
+            "cases": 119,
+            "normal_rows": 6882
+          },
+          "FILE.WRITER": {
+            "cases": 119,
+            "normal_rows": 7090
+          },
+          "GATEWAY.INVOKER": {
+            "cases": 19,
+            "normal_rows": 614
+          },
+          "GATEWAY.RECEIVER": {
+            "cases": 19,
+            "normal_rows": 627
+          },
+          "OBJECT.READER": {
+            "cases": 19,
+            "normal_rows": 739
+          },
+          "OBJECT.WRITER": {
+            "cases": 19,
+            "normal_rows": 757
+          },
+          "QUEUE.EXECUTOR": {
+            "cases": 19,
+            "normal_rows": 754
+          },
+          "QUEUE.PUBLISHER": {
+            "cases": 19,
+            "normal_rows": 749
+          },
+          "QUEUE.SUBSCRIBER": {
+            "cases": 19,
+            "normal_rows": 787
+          },
+          "SERVICE.EXECUTOR": {
+            "cases": 119,
+            "normal_rows": 6849
+          },
+          "SERVICE.INVOKER": {
+            "cases": 19,
+            "normal_rows": 662
+          }
+        },
+        "unchanged_latency_and_cold_score_channels": true,
+        "calendar_count_reference": {
+          "global_table": {
+            "counts": [
+              14725,
+              17582,
+              11396,
+              5037,
+              2246,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "minutes": 50986
+          },
+          "calendar_tables": {
+            "0:7": {
+              "counts": [
+                234,
+                366,
+                219,
+                138,
+                51,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 1008
+            },
+            "0:3": {
+              "counts": [
+                1225,
+                1332,
+                867,
+                286,
+                99,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 3809
+            },
+            "0:6": {
+              "counts": [
+                389,
+                543,
+                317,
+                229,
+                58,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 1536
+            },
+            "0:18": {
+              "counts": [
+                288,
+                377,
+                252,
+                141,
+                60,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 1118
+            },
+            "1:4": {
+              "counts": [
+                464,
+                466,
+                192,
+                39,
+                7,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 1168
+            },
+            "1:10": {
+              "counts": [
+                163,
+                205,
+                130,
+                89,
+                28,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 615
+            },
+            "0:16": {
+              "counts": [
+                205,
+                370,
+                343,
+                193,
+                138,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 1249
+            },
+            "0:2": {
+              "counts": [
+                1022,
+                1012,
+                572,
+                312,
+                107,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 3025
+            },
+            "0:1": {
+              "counts": [
+                929,
+                907,
+                609,
+                186,
+                44,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 2675
+            },
+            "0:0": {
+              "counts": [
+                1124,
+                1174,
+                630,
+                241,
+                77,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 3246
+            },
+            "1:16": {
+              "counts": [
+                122,
+                167,
+                143,
+                44,
+                17,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 493
+            },
+            "1:2": {
+              "counts": [
+                485,
+                414,
+                195,
+                94,
+                34,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 1222
+            },
+            "0:17": {
+              "counts": [
+                235,
+                331,
+                350,
+                195,
+                120,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 1231
+            },
+            "0:9": {
+              "counts": [
+                236,
+                361,
+                293,
+                191,
+                139,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 1220
+            },
+            "0:12": {
+              "counts": [
+                119,
+                237,
+                222,
+                94,
+                70,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 742
+            },
+            "0:15": {
+              "counts": [
+                189,
+                318,
+                300,
+                169,
+                117,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 1093
+            },
+            "1:6": {
+              "counts": [
+                92,
+                127,
+                85,
+                13,
+                13,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 330
+            },
+            "0:8": {
+              "counts": [
+                316,
+                484,
+                284,
+                131,
+                56,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 1271
+            },
+            "0:20": {
+              "counts": [
+                292,
+                359,
+                289,
+                139,
+                64,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 1143
+            },
+            "1:11": {
+              "counts": [
+                137,
+                233,
+                135,
+                56,
+                28,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 589
+            },
+            "1:12": {
+              "counts": [
+                123,
+                155,
+                101,
+                31,
+                28,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 438
+            },
+            "0:22": {
+              "counts": [
+                294,
+                423,
+                263,
+                132,
+                61,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 1173
+            },
+            "0:14": {
+              "counts": [
+                99,
+                299,
+                261,
+                165,
+                72,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 896
+            },
+            "0:21": {
+              "counts": [
+                254,
+                406,
+                294,
+                86,
+                67,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 1107
+            },
+            "1:18": {
+              "counts": [
+                107,
+                149,
+                75,
+                32,
+                2,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 365
+            },
+            "1:20": {
+              "counts": [
+                162,
+                272,
+                145,
+                86,
+                14,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 679
+            },
+            "0:19": {
+              "counts": [
+                244,
+                432,
+                283,
+                139,
+                58,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 1156
+            },
+            "0:4": {
+              "counts": [
+                1294,
+                1318,
+                682,
+                250,
+                58,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 3602
+            },
+            "0:13": {
+              "counts": [
+                191,
+                338,
+                294,
+                178,
+                113,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 1114
+            },
+            "0:10": {
+              "counts": [
+                172,
+                293,
+                278,
+                150,
+                101,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 994
+            },
+            "1:1": {
+              "counts": [
+                703,
+                682,
+                299,
+                102,
+                25,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 1811
+            },
+            "1:22": {
+              "counts": [
+                96,
+                84,
+                66,
+                20,
+                4,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 270
+            },
+            "1:8": {
+              "counts": [
+                135,
+                144,
+                68,
+                27,
+                17,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 391
+            },
+            "1:5": {
+              "counts": [
+                113,
+                138,
+                90,
+                16,
+                5,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 362
+            },
+            "0:11": {
+              "counts": [
+                132,
+                258,
+                213,
+                133,
+                80,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 816
+            },
+            "1:14": {
+              "counts": [
+                126,
+                137,
+                98,
+                51,
+                14,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 426
+            },
+            "1:7": {
+              "counts": [
+                120,
+                134,
+                80,
+                17,
+                12,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 363
+            },
+            "0:5": {
+              "counts": [
+                402,
+                434,
+                273,
+                84,
+                15,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 1208
+            },
+            "1:0": {
+              "counts": [
+                475,
+                394,
+                187,
+                26,
+                5,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 1087
+            },
+            "1:17": {
+              "counts": [
+                105,
+                165,
+                108,
+                54,
+                24,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 456
+            },
+            "1:9": {
+              "counts": [
+                85,
+                111,
+                137,
+                29,
+                31,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 393
+            },
+            "1:3": {
+              "counts": [
+                436,
+                299,
+                184,
+                64,
+                19,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 1002
+            },
+            "1:19": {
+              "counts": [
+                242,
+                226,
+                131,
+                50,
+                27,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 676
+            },
+            "1:13": {
+              "counts": [
+                86,
+                139,
+                125,
+                42,
+                26,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 418
+            },
+            "1:21": {
+              "counts": [
+                141,
+                194,
+                87,
+                28,
+                22,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 472
+            },
+            "1:15": {
+              "counts": [
+                108,
+                145,
+                123,
+                58,
+                18,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 452
+            },
+            "0:23": {
+              "counts": [
+                14,
+                29,
+                23,
+                7,
+                1,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 74
+            }
+          },
+          "normal_sessions": 1200,
+          "normal_covered_minutes": 50986,
+          "minimum_calendar_minutes": 60,
+          "global_shrinkage_minutes": 30.0,
+          "source": "existing first400 development normal controls",
+          "no_generated_Process_rows": true,
+          "zero_counts_only_inside_known_covered_synthetic_normal_sessions": true
+        },
+        "count_power": 1.0,
+        "count_model_weight": 0.35,
+        "count_cutoff": 0.7,
+        "count_stat_scale": 2.2997784891713646,
+        "normal_reference_includes_existing_synthetic_dev_controls": true,
+        "original_only_sklearn_estimator_fit": true,
+        "past_rate_support": {
+          "lower_rate": 0.16666666666666666,
+          "upper_rate": 2.6666666666666665,
+          "normal_sessions": 1200,
+          "minimum_past_exposure_minutes": 3.0,
+          "quantiles": [
+            0.005,
+            0.995
+          ],
+          "source": "existing development NORMAL sessions only"
+        },
+        "outside_support_uses_preceding_local_context_score": true
+      },
+      "objective": 0.8349830524757459
+    },
+    "kmeans": {
+      "policy": {
+        "delay_gate": 0.3,
+        "delay_clear": 0.5,
+        "delay_ttl": 300.0,
+        "traffic_gate": 1.0,
+        "traffic_clear": -1.0,
+        "traffic_ttl": 180.0,
+        "filter_weak": false,
+        "traffic_fast": false,
+        "traffic_clear_fast": false,
+        "traffic_excess_gate": 0.5,
+        "traffic_quiet_clear": 2,
+        "point_tail_gate": 2.0,
+        "point_shift_gate": 1.0,
+        "point_reference_max": 4,
+        "traffic_rank": false,
+        "traffic_micro": false,
+        "traffic_ewma": false,
+        "traffic_confirmations": 1,
+        "traffic_confirm_seconds": 30.0,
+        "traffic_ttl_score_gain": 0.0,
+        "traffic_gap_events": 0.0,
+        "traffic_model_family": false,
+        "traffic_model_family_clear": false
+      },
+      "tasks": {
+        "individual_delay": {
+          "n": 4800,
+          "tp": 301,
+          "fp": 6,
+          "tn": 4386,
+          "fn": 107,
+          "accuracy": 0.9764583333333333,
+          "precision": 0.9804560260586319,
+          "recall": 0.7377450980392157,
+          "f1": 0.8419580419580419,
+          "false_positive_rate": 0.001366120218579235,
+          "positives": 408
+        },
+        "group_delay": {
+          "n": 29138,
+          "tp": 4166,
+          "fp": 300,
+          "tn": 24429,
+          "fn": 243,
+          "accuracy": 0.9813645411490151,
+          "precision": 0.9328257948947604,
+          "recall": 0.9448854615559084,
+          "f1": 0.9388169014084508,
+          "false_positive_rate": 0.01213150551983501,
+          "positives": 4409
+        },
+        "time_burst": {
+          "n": 31936,
+          "tp": 1941,
+          "fp": 436,
+          "tn": 28170,
+          "fn": 1389,
+          "accuracy": 0.9428544589178357,
+          "precision": 0.8165755153554901,
+          "recall": 0.5828828828828829,
+          "f1": 0.680217277028211,
+          "false_positive_rate": 0.01524155771516465,
+          "positives": 3330
+        },
+        "gradual_degradation": {
+          "n": 48224,
+          "tp": 8834,
+          "fp": 655,
+          "tn": 35579,
+          "fn": 3156,
+          "accuracy": 0.9209729595222296,
+          "precision": 0.9309727052376436,
+          "recall": 0.7367806505421184,
+          "f1": 0.8225708831882304,
+          "false_positive_rate": 0.018076944306452503,
+          "positives": 11990
+        }
+      },
+      "settings": {
+        "algorithm": "kmeans",
+        "view": "native_compact",
+        "samples": 256,
+        "clusters": 32,
+        "neighbors": 50,
+        "whiten": false,
+        "seed": 20261030
+      },
+      "model_record": {
+        "normal_statistical_fusion": true,
+        "bare_estimator": false,
+        "one_fault_estimator": true,
+        "independent_warm_evidence_channels": true,
+        "cold_confidence_predictions_preserved": true,
+        "model_weight": 0.15,
+        "family_weights": [
+          0.03,
+          0.15,
+          0.15,
+          0.15,
+          0.15,
+          0.15,
+          0.15,
+          0.15
+        ],
+        "cutoffs": [
+          2.2896047736397516,
+          2.0946365588959637,
+          2.0,
+          1.8167978385381927,
+          2.0422720566440984,
+          1.1076328322962041,
+          2.2391351110604885,
+          1.4671834398026857
+        ],
+        "traffic_kind": "geometric",
+        "traffic_nb_power": null,
+        "delay_gain": 0.5,
+        "no_task_routing": true,
+        "adapter_score_calibration": true,
+        "adapter_expert_estimators": false,
+        "cold_only_score_references": true,
+        "adapter_factors": {
+          "FILE.WRITER": 1.1064483199070825,
+          "GATEWAY.RECEIVER": 1.0840424298385394
+        },
+        "reference_support": {
+          "DATA.DECRYPTOR": {
+            "cases": 20,
+            "normal_rows": 120
+          },
+          "DATA.ENCRYPTOR": {
+            "cases": 19,
+            "normal_rows": 114
+          },
+          "DATA.MAPPER": {
+            "cases": 19,
+            "normal_rows": 114
+          },
+          "DATA.TRANSFORMER": {
+            "cases": 169,
+            "normal_rows": 764
+          },
+          "DB.DELETER": {
+            "cases": 19,
+            "normal_rows": 114
+          },
+          "DB.EXECUTOR": {
+            "cases": 169,
+            "normal_rows": 764
+          },
+          "DB.READER": {
+            "cases": 169,
+            "normal_rows": 764
+          },
+          "DB.UPDATER": {
+            "cases": 169,
+            "normal_rows": 764
+          },
+          "DB.WRITER": {
+            "cases": 169,
+            "normal_rows": 764
+          },
+          "FILE.EXECUTOR": {
+            "cases": 19,
+            "normal_rows": 114
+          },
+          "FILE.READER": {
+            "cases": 169,
+            "normal_rows": 764
+          },
+          "FILE.WRITER": {
+            "cases": 169,
+            "normal_rows": 764
+          },
+          "GATEWAY.INVOKER": {
+            "cases": 19,
+            "normal_rows": 114
+          },
+          "GATEWAY.RECEIVER": {
+            "cases": 19,
+            "normal_rows": 114
+          },
+          "OBJECT.READER": {
+            "cases": 19,
+            "normal_rows": 114
+          },
+          "OBJECT.WRITER": {
+            "cases": 19,
+            "normal_rows": 114
+          },
+          "QUEUE.EXECUTOR": {
+            "cases": 19,
+            "normal_rows": 114
+          },
+          "QUEUE.PUBLISHER": {
+            "cases": 19,
+            "normal_rows": 114
+          },
+          "QUEUE.SUBSCRIBER": {
+            "cases": 19,
+            "normal_rows": 114
+          },
+          "SERVICE.EXECUTOR": {
+            "cases": 169,
+            "normal_rows": 762
+          },
+          "SERVICE.INVOKER": {
+            "cases": 19,
+            "normal_rows": 114
+          }
+        },
+        "unseen_adapter_factor": 1.0,
+        "normal_reference_source": "existing first400 development cases; labelled negatives only",
+        "additional_generated_Process_rows": 0,
+        "warm_traffic_only_score_references": {
+          "DATA.DECRYPTOR": 1.0268708425423476,
+          "DATA.ENCRYPTOR": 0.9611923252524447,
+          "DATA.MAPPER": 0.8973544636785173,
+          "DB.DELETER": 0.996635259358508,
+          "DB.READER": 1.0920493940416653,
+          "DB.UPDATER": 1.155610620978475,
+          "FILE.EXECUTOR": 1.0201794987145434,
+          "GATEWAY.RECEIVER": 0.8713116135244098,
+          "OBJECT.READER": 0.9740618852299825,
+          "QUEUE.PUBLISHER": 1.027132269104079,
+          "QUEUE.SUBSCRIBER": 0.9874417967238092,
+          "SERVICE.INVOKER": 0.8560396132652048
+        },
+        "warm_traffic_reference_support": {
+          "DATA.DECRYPTOR": {
+            "cases": 20,
+            "normal_rows": 842
+          },
+          "DATA.ENCRYPTOR": {
+            "cases": 19,
+            "normal_rows": 773
+          },
+          "DATA.MAPPER": {
+            "cases": 19,
+            "normal_rows": 713
+          },
+          "DATA.TRANSFORMER": {
+            "cases": 119,
+            "normal_rows": 6865
+          },
+          "DB.DELETER": {
+            "cases": 19,
+            "normal_rows": 774
+          },
+          "DB.EXECUTOR": {
+            "cases": 119,
+            "normal_rows": 6903
+          },
+          "DB.READER": {
+            "cases": 119,
+            "normal_rows": 6809
+          },
+          "DB.UPDATER": {
+            "cases": 119,
+            "normal_rows": 6983
+          },
+          "DB.WRITER": {
+            "cases": 119,
+            "normal_rows": 7142
+          },
+          "FILE.EXECUTOR": {
+            "cases": 19,
+            "normal_rows": 792
+          },
+          "FILE.READER": {
+            "cases": 119,
+            "normal_rows": 6882
+          },
+          "FILE.WRITER": {
+            "cases": 119,
+            "normal_rows": 7090
+          },
+          "GATEWAY.INVOKER": {
+            "cases": 19,
+            "normal_rows": 614
+          },
+          "GATEWAY.RECEIVER": {
+            "cases": 19,
+            "normal_rows": 627
+          },
+          "OBJECT.READER": {
+            "cases": 19,
+            "normal_rows": 739
+          },
+          "OBJECT.WRITER": {
+            "cases": 19,
+            "normal_rows": 757
+          },
+          "QUEUE.EXECUTOR": {
+            "cases": 19,
+            "normal_rows": 754
+          },
+          "QUEUE.PUBLISHER": {
+            "cases": 19,
+            "normal_rows": 749
+          },
+          "QUEUE.SUBSCRIBER": {
+            "cases": 19,
+            "normal_rows": 787
+          },
+          "SERVICE.EXECUTOR": {
+            "cases": 119,
+            "normal_rows": 6849
+          },
+          "SERVICE.INVOKER": {
+            "cases": 19,
+            "normal_rows": 662
+          }
+        },
+        "unchanged_latency_and_cold_score_channels": true,
+        "calendar_count_reference": {
+          "global_table": {
+            "counts": [
+              14725,
+              17582,
+              11396,
+              5037,
+              2246,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "minutes": 50986
+          },
+          "calendar_tables": {
+            "0:7": {
+              "counts": [
+                234,
+                366,
+                219,
+                138,
+                51,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 1008
+            },
+            "0:3": {
+              "counts": [
+                1225,
+                1332,
+                867,
+                286,
+                99,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 3809
+            },
+            "0:6": {
+              "counts": [
+                389,
+                543,
+                317,
+                229,
+                58,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 1536
+            },
+            "0:18": {
+              "counts": [
+                288,
+                377,
+                252,
+                141,
+                60,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 1118
+            },
+            "1:4": {
+              "counts": [
+                464,
+                466,
+                192,
+                39,
+                7,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 1168
+            },
+            "1:10": {
+              "counts": [
+                163,
+                205,
+                130,
+                89,
+                28,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 615
+            },
+            "0:16": {
+              "counts": [
+                205,
+                370,
+                343,
+                193,
+                138,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 1249
+            },
+            "0:2": {
+              "counts": [
+                1022,
+                1012,
+                572,
+                312,
+                107,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 3025
+            },
+            "0:1": {
+              "counts": [
+                929,
+                907,
+                609,
+                186,
+                44,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 2675
+            },
+            "0:0": {
+              "counts": [
+                1124,
+                1174,
+                630,
+                241,
+                77,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 3246
+            },
+            "1:16": {
+              "counts": [
+                122,
+                167,
+                143,
+                44,
+                17,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 493
+            },
+            "1:2": {
+              "counts": [
+                485,
+                414,
+                195,
+                94,
+                34,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 1222
+            },
+            "0:17": {
+              "counts": [
+                235,
+                331,
+                350,
+                195,
+                120,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 1231
+            },
+            "0:9": {
+              "counts": [
+                236,
+                361,
+                293,
+                191,
+                139,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 1220
+            },
+            "0:12": {
+              "counts": [
+                119,
+                237,
+                222,
+                94,
+                70,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 742
+            },
+            "0:15": {
+              "counts": [
+                189,
+                318,
+                300,
+                169,
+                117,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 1093
+            },
+            "1:6": {
+              "counts": [
+                92,
+                127,
+                85,
+                13,
+                13,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 330
+            },
+            "0:8": {
+              "counts": [
+                316,
+                484,
+                284,
+                131,
+                56,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 1271
+            },
+            "0:20": {
+              "counts": [
+                292,
+                359,
+                289,
+                139,
+                64,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 1143
+            },
+            "1:11": {
+              "counts": [
+                137,
+                233,
+                135,
+                56,
+                28,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 589
+            },
+            "1:12": {
+              "counts": [
+                123,
+                155,
+                101,
+                31,
+                28,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 438
+            },
+            "0:22": {
+              "counts": [
+                294,
+                423,
+                263,
+                132,
+                61,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 1173
+            },
+            "0:14": {
+              "counts": [
+                99,
+                299,
+                261,
+                165,
+                72,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 896
+            },
+            "0:21": {
+              "counts": [
+                254,
+                406,
+                294,
+                86,
+                67,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 1107
+            },
+            "1:18": {
+              "counts": [
+                107,
+                149,
+                75,
+                32,
+                2,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 365
+            },
+            "1:20": {
+              "counts": [
+                162,
+                272,
+                145,
+                86,
+                14,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 679
+            },
+            "0:19": {
+              "counts": [
+                244,
+                432,
+                283,
+                139,
+                58,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 1156
+            },
+            "0:4": {
+              "counts": [
+                1294,
+                1318,
+                682,
+                250,
+                58,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 3602
+            },
+            "0:13": {
+              "counts": [
+                191,
+                338,
+                294,
+                178,
+                113,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 1114
+            },
+            "0:10": {
+              "counts": [
+                172,
+                293,
+                278,
+                150,
+                101,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 994
+            },
+            "1:1": {
+              "counts": [
+                703,
+                682,
+                299,
+                102,
+                25,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 1811
+            },
+            "1:22": {
+              "counts": [
+                96,
+                84,
+                66,
+                20,
+                4,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 270
+            },
+            "1:8": {
+              "counts": [
+                135,
+                144,
+                68,
+                27,
+                17,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 391
+            },
+            "1:5": {
+              "counts": [
+                113,
+                138,
+                90,
+                16,
+                5,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 362
+            },
+            "0:11": {
+              "counts": [
+                132,
+                258,
+                213,
+                133,
+                80,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 816
+            },
+            "1:14": {
+              "counts": [
+                126,
+                137,
+                98,
+                51,
+                14,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 426
+            },
+            "1:7": {
+              "counts": [
+                120,
+                134,
+                80,
+                17,
+                12,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 363
+            },
+            "0:5": {
+              "counts": [
+                402,
+                434,
+                273,
+                84,
+                15,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 1208
+            },
+            "1:0": {
+              "counts": [
+                475,
+                394,
+                187,
+                26,
+                5,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 1087
+            },
+            "1:17": {
+              "counts": [
+                105,
+                165,
+                108,
+                54,
+                24,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 456
+            },
+            "1:9": {
+              "counts": [
+                85,
+                111,
+                137,
+                29,
+                31,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 393
+            },
+            "1:3": {
+              "counts": [
+                436,
+                299,
+                184,
+                64,
+                19,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 1002
+            },
+            "1:19": {
+              "counts": [
+                242,
+                226,
+                131,
+                50,
+                27,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 676
+            },
+            "1:13": {
+              "counts": [
+                86,
+                139,
+                125,
+                42,
+                26,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 418
+            },
+            "1:21": {
+              "counts": [
+                141,
+                194,
+                87,
+                28,
+                22,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 472
+            },
+            "1:15": {
+              "counts": [
+                108,
+                145,
+                123,
+                58,
+                18,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 452
+            },
+            "0:23": {
+              "counts": [
+                14,
+                29,
+                23,
+                7,
+                1,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 74
+            }
+          },
+          "normal_sessions": 1200,
+          "normal_covered_minutes": 50986,
+          "minimum_calendar_minutes": 60,
+          "global_shrinkage_minutes": 30.0,
+          "source": "existing first400 development normal controls",
+          "no_generated_Process_rows": true,
+          "zero_counts_only_inside_known_covered_synthetic_normal_sessions": true
+        },
+        "count_power": 1.0,
+        "count_model_weight": 0.15,
+        "count_cutoff": 1.0,
+        "count_stat_scale": 2.2997784891713646,
+        "normal_reference_includes_existing_synthetic_dev_controls": true,
+        "original_only_sklearn_estimator_fit": true,
+        "past_rate_support": {
+          "lower_rate": 0.16666666666666666,
+          "upper_rate": 2.6666666666666665,
+          "normal_sessions": 1200,
+          "minimum_past_exposure_minutes": 3.0,
+          "quantiles": [
+            0.005,
+            0.995
+          ],
+          "source": "existing development NORMAL sessions only"
+        },
+        "outside_support_uses_preceding_local_context_score": true
+      },
+      "objective": 0.8128077835119188
+    },
+    "lof": {
+      "policy": {
+        "delay_gate": 1.0,
+        "delay_clear": 0.5,
+        "delay_ttl": 600.0,
+        "traffic_gate": 1.0,
+        "traffic_clear": -1.0,
+        "traffic_ttl": 180.0,
+        "filter_weak": true,
+        "traffic_fast": false,
+        "traffic_clear_fast": false,
+        "traffic_excess_gate": 1.0,
+        "traffic_quiet_clear": 2,
+        "point_tail_gate": 2.0,
+        "point_shift_gate": 1.0,
+        "point_reference_max": 4,
+        "traffic_rank": false,
+        "traffic_micro": false,
+        "traffic_ewma": false,
+        "traffic_confirmations": 1,
+        "traffic_confirm_seconds": 30.0,
+        "traffic_ttl_score_gain": 0.0,
+        "traffic_gap_events": 0.0,
+        "traffic_model_family": true,
+        "traffic_model_family_clear": false
+      },
+      "tasks": {
+        "individual_delay": {
+          "n": 4800,
+          "tp": 304,
+          "fp": 7,
+          "tn": 4385,
+          "fn": 104,
+          "accuracy": 0.976875,
+          "precision": 0.977491961414791,
+          "recall": 0.7450980392156863,
+          "f1": 0.8456189151599444,
+          "false_positive_rate": 0.0015938069216757742,
+          "positives": 408
+        },
+        "group_delay": {
+          "n": 29138,
+          "tp": 4119,
+          "fp": 570,
+          "tn": 24159,
+          "fn": 290,
+          "accuracy": 0.9704852769579244,
+          "precision": 0.8784388995521433,
+          "recall": 0.9342254479473804,
+          "f1": 0.9054737304902176,
+          "false_positive_rate": 0.02304986048768652,
+          "positives": 4409
+        },
+        "time_burst": {
+          "n": 31936,
+          "tp": 1904,
+          "fp": 523,
+          "tn": 28083,
+          "fn": 1426,
+          "accuracy": 0.9389716933867736,
+          "precision": 0.784507622579316,
+          "recall": 0.5717717717717717,
+          "f1": 0.6614556192461352,
+          "false_positive_rate": 0.018282877717961266,
+          "positives": 3330
+        },
+        "gradual_degradation": {
+          "n": 48224,
+          "tp": 9614,
+          "fp": 1113,
+          "tn": 35121,
+          "fn": 2376,
+          "accuracy": 0.9276501327140013,
+          "precision": 0.8962431248252074,
+          "recall": 0.8018348623853211,
+          "f1": 0.8464145793898842,
+          "false_positive_rate": 0.03071700612684219,
+          "positives": 11990
+        }
+      },
+      "settings": {
+        "algorithm": "lof",
+        "view": "native_context",
+        "samples": 256,
+        "clusters": 16,
+        "neighbors": 60,
+        "whiten": false,
+        "seed": 20261030
+      },
+      "model_record": {
+        "normal_statistical_fusion": true,
+        "bare_estimator": false,
+        "one_fault_estimator": true,
+        "independent_warm_evidence_channels": true,
+        "cold_confidence_predictions_preserved": true,
+        "model_weight": 0.15,
+        "family_weights": [
+          0.5,
+          0.03,
+          0.15,
+          0.15,
+          0.15,
+          0.15,
+          0.15,
+          0.15
+        ],
+        "cutoffs": [
+          2.0,
+          2.0386335034816785,
+          1.638436340602094,
+          2.0,
+          2.0981029088821694,
+          0.9122626400914774,
+          2.2130978431134496,
+          1.395635649132205
+        ],
+        "traffic_kind": "geometric",
+        "traffic_nb_power": null,
+        "delay_gain": 0.5,
+        "no_task_routing": true,
+        "adapter_score_calibration": true,
+        "adapter_expert_estimators": false,
+        "cold_only_score_references": true,
+        "adapter_factors": {
+          "DB.DELETER": 1.1239747307930843,
+          "FILE.WRITER": 1.1088444515951272,
+          "GATEWAY.INVOKER": 1.0333274987949033,
+          "GATEWAY.RECEIVER": 1.2089055505746282,
+          "QUEUE.PUBLISHER": 1.0032982717027024,
+          "SERVICE.INVOKER": 1.0046739319708895
+        },
+        "reference_support": {
+          "DATA.DECRYPTOR": {
+            "cases": 20,
+            "normal_rows": 120
+          },
+          "DATA.ENCRYPTOR": {
+            "cases": 19,
+            "normal_rows": 114
+          },
+          "DATA.MAPPER": {
+            "cases": 19,
+            "normal_rows": 114
+          },
+          "DATA.TRANSFORMER": {
+            "cases": 169,
+            "normal_rows": 764
+          },
+          "DB.DELETER": {
+            "cases": 19,
+            "normal_rows": 114
+          },
+          "DB.EXECUTOR": {
+            "cases": 169,
+            "normal_rows": 764
+          },
+          "DB.READER": {
+            "cases": 169,
+            "normal_rows": 764
+          },
+          "DB.UPDATER": {
+            "cases": 169,
+            "normal_rows": 764
+          },
+          "DB.WRITER": {
+            "cases": 169,
+            "normal_rows": 764
+          },
+          "FILE.EXECUTOR": {
+            "cases": 19,
+            "normal_rows": 114
+          },
+          "FILE.READER": {
+            "cases": 169,
+            "normal_rows": 764
+          },
+          "FILE.WRITER": {
+            "cases": 169,
+            "normal_rows": 764
+          },
+          "GATEWAY.INVOKER": {
+            "cases": 19,
+            "normal_rows": 114
+          },
+          "GATEWAY.RECEIVER": {
+            "cases": 19,
+            "normal_rows": 114
+          },
+          "OBJECT.READER": {
+            "cases": 19,
+            "normal_rows": 114
+          },
+          "OBJECT.WRITER": {
+            "cases": 19,
+            "normal_rows": 114
+          },
+          "QUEUE.EXECUTOR": {
+            "cases": 19,
+            "normal_rows": 114
+          },
+          "QUEUE.PUBLISHER": {
+            "cases": 19,
+            "normal_rows": 114
+          },
+          "QUEUE.SUBSCRIBER": {
+            "cases": 19,
+            "normal_rows": 114
+          },
+          "SERVICE.EXECUTOR": {
+            "cases": 169,
+            "normal_rows": 762
+          },
+          "SERVICE.INVOKER": {
+            "cases": 19,
+            "normal_rows": 114
+          }
+        },
+        "unseen_adapter_factor": 1.0,
+        "normal_reference_source": "existing first400 development cases; labelled negatives only",
+        "additional_generated_Process_rows": 0,
+        "warm_traffic_only_score_references": {
+          "DATA.ENCRYPTOR": 0.8918481139913448,
+          "DATA.MAPPER": 0.9918410729166003,
+          "DATA.TRANSFORMER": 1.0416184311155456,
+          "DB.DELETER": 0.9443678586473166,
+          "DB.READER": 1.0343213585636573,
+          "DB.UPDATER": 1.0629354508086934,
+          "FILE.EXECUTOR": 0.9837036717761497,
+          "GATEWAY.INVOKER": 0.9137028296541969,
+          "GATEWAY.RECEIVER": 0.798437373453394,
+          "OBJECT.READER": 0.9713538135812992,
+          "QUEUE.EXECUTOR": 0.9308730769771751,
+          "QUEUE.PUBLISHER": 0.9899798594088862,
+          "SERVICE.INVOKER": 0.829072435226768
+        },
+        "warm_traffic_reference_support": {
+          "DATA.DECRYPTOR": {
+            "cases": 20,
+            "normal_rows": 842
+          },
+          "DATA.ENCRYPTOR": {
+            "cases": 19,
+            "normal_rows": 773
+          },
+          "DATA.MAPPER": {
+            "cases": 19,
+            "normal_rows": 713
+          },
+          "DATA.TRANSFORMER": {
+            "cases": 119,
+            "normal_rows": 6865
+          },
+          "DB.DELETER": {
+            "cases": 19,
+            "normal_rows": 774
+          },
+          "DB.EXECUTOR": {
+            "cases": 119,
+            "normal_rows": 6903
+          },
+          "DB.READER": {
+            "cases": 119,
+            "normal_rows": 6809
+          },
+          "DB.UPDATER": {
+            "cases": 119,
+            "normal_rows": 6983
+          },
+          "DB.WRITER": {
+            "cases": 119,
+            "normal_rows": 7142
+          },
+          "FILE.EXECUTOR": {
+            "cases": 19,
+            "normal_rows": 792
+          },
+          "FILE.READER": {
+            "cases": 119,
+            "normal_rows": 6882
+          },
+          "FILE.WRITER": {
+            "cases": 119,
+            "normal_rows": 7090
+          },
+          "GATEWAY.INVOKER": {
+            "cases": 19,
+            "normal_rows": 614
+          },
+          "GATEWAY.RECEIVER": {
+            "cases": 19,
+            "normal_rows": 627
+          },
+          "OBJECT.READER": {
+            "cases": 19,
+            "normal_rows": 739
+          },
+          "OBJECT.WRITER": {
+            "cases": 19,
+            "normal_rows": 757
+          },
+          "QUEUE.EXECUTOR": {
+            "cases": 19,
+            "normal_rows": 754
+          },
+          "QUEUE.PUBLISHER": {
+            "cases": 19,
+            "normal_rows": 749
+          },
+          "QUEUE.SUBSCRIBER": {
+            "cases": 19,
+            "normal_rows": 787
+          },
+          "SERVICE.EXECUTOR": {
+            "cases": 119,
+            "normal_rows": 6849
+          },
+          "SERVICE.INVOKER": {
+            "cases": 19,
+            "normal_rows": 662
+          }
+        },
+        "unchanged_latency_and_cold_score_channels": true,
+        "calendar_count_reference": {
+          "global_table": {
+            "counts": [
+              14725,
+              17582,
+              11396,
+              5037,
+              2246,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "minutes": 50986
+          },
+          "calendar_tables": {
+            "0:7": {
+              "counts": [
+                234,
+                366,
+                219,
+                138,
+                51,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 1008
+            },
+            "0:3": {
+              "counts": [
+                1225,
+                1332,
+                867,
+                286,
+                99,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 3809
+            },
+            "0:6": {
+              "counts": [
+                389,
+                543,
+                317,
+                229,
+                58,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 1536
+            },
+            "0:18": {
+              "counts": [
+                288,
+                377,
+                252,
+                141,
+                60,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 1118
+            },
+            "1:4": {
+              "counts": [
+                464,
+                466,
+                192,
+                39,
+                7,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 1168
+            },
+            "1:10": {
+              "counts": [
+                163,
+                205,
+                130,
+                89,
+                28,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 615
+            },
+            "0:16": {
+              "counts": [
+                205,
+                370,
+                343,
+                193,
+                138,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 1249
+            },
+            "0:2": {
+              "counts": [
+                1022,
+                1012,
+                572,
+                312,
+                107,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 3025
+            },
+            "0:1": {
+              "counts": [
+                929,
+                907,
+                609,
+                186,
+                44,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 2675
+            },
+            "0:0": {
+              "counts": [
+                1124,
+                1174,
+                630,
+                241,
+                77,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 3246
+            },
+            "1:16": {
+              "counts": [
+                122,
+                167,
+                143,
+                44,
+                17,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 493
+            },
+            "1:2": {
+              "counts": [
+                485,
+                414,
+                195,
+                94,
+                34,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 1222
+            },
+            "0:17": {
+              "counts": [
+                235,
+                331,
+                350,
+                195,
+                120,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 1231
+            },
+            "0:9": {
+              "counts": [
+                236,
+                361,
+                293,
+                191,
+                139,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 1220
+            },
+            "0:12": {
+              "counts": [
+                119,
+                237,
+                222,
+                94,
+                70,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 742
+            },
+            "0:15": {
+              "counts": [
+                189,
+                318,
+                300,
+                169,
+                117,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 1093
+            },
+            "1:6": {
+              "counts": [
+                92,
+                127,
+                85,
+                13,
+                13,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 330
+            },
+            "0:8": {
+              "counts": [
+                316,
+                484,
+                284,
+                131,
+                56,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 1271
+            },
+            "0:20": {
+              "counts": [
+                292,
+                359,
+                289,
+                139,
+                64,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 1143
+            },
+            "1:11": {
+              "counts": [
+                137,
+                233,
+                135,
+                56,
+                28,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 589
+            },
+            "1:12": {
+              "counts": [
+                123,
+                155,
+                101,
+                31,
+                28,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 438
+            },
+            "0:22": {
+              "counts": [
+                294,
+                423,
+                263,
+                132,
+                61,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 1173
+            },
+            "0:14": {
+              "counts": [
+                99,
+                299,
+                261,
+                165,
+                72,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 896
+            },
+            "0:21": {
+              "counts": [
+                254,
+                406,
+                294,
+                86,
+                67,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 1107
+            },
+            "1:18": {
+              "counts": [
+                107,
+                149,
+                75,
+                32,
+                2,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 365
+            },
+            "1:20": {
+              "counts": [
+                162,
+                272,
+                145,
+                86,
+                14,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 679
+            },
+            "0:19": {
+              "counts": [
+                244,
+                432,
+                283,
+                139,
+                58,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 1156
+            },
+            "0:4": {
+              "counts": [
+                1294,
+                1318,
+                682,
+                250,
+                58,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 3602
+            },
+            "0:13": {
+              "counts": [
+                191,
+                338,
+                294,
+                178,
+                113,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 1114
+            },
+            "0:10": {
+              "counts": [
+                172,
+                293,
+                278,
+                150,
+                101,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 994
+            },
+            "1:1": {
+              "counts": [
+                703,
+                682,
+                299,
+                102,
+                25,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 1811
+            },
+            "1:22": {
+              "counts": [
+                96,
+                84,
+                66,
+                20,
+                4,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 270
+            },
+            "1:8": {
+              "counts": [
+                135,
+                144,
+                68,
+                27,
+                17,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 391
+            },
+            "1:5": {
+              "counts": [
+                113,
+                138,
+                90,
+                16,
+                5,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 362
+            },
+            "0:11": {
+              "counts": [
+                132,
+                258,
+                213,
+                133,
+                80,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 816
+            },
+            "1:14": {
+              "counts": [
+                126,
+                137,
+                98,
+                51,
+                14,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 426
+            },
+            "1:7": {
+              "counts": [
+                120,
+                134,
+                80,
+                17,
+                12,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 363
+            },
+            "0:5": {
+              "counts": [
+                402,
+                434,
+                273,
+                84,
+                15,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 1208
+            },
+            "1:0": {
+              "counts": [
+                475,
+                394,
+                187,
+                26,
+                5,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 1087
+            },
+            "1:17": {
+              "counts": [
+                105,
+                165,
+                108,
+                54,
+                24,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 456
+            },
+            "1:9": {
+              "counts": [
+                85,
+                111,
+                137,
+                29,
+                31,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 393
+            },
+            "1:3": {
+              "counts": [
+                436,
+                299,
+                184,
+                64,
+                19,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 1002
+            },
+            "1:19": {
+              "counts": [
+                242,
+                226,
+                131,
+                50,
+                27,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 676
+            },
+            "1:13": {
+              "counts": [
+                86,
+                139,
+                125,
+                42,
+                26,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 418
+            },
+            "1:21": {
+              "counts": [
+                141,
+                194,
+                87,
+                28,
+                22,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 472
+            },
+            "1:15": {
+              "counts": [
+                108,
+                145,
+                123,
+                58,
+                18,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 452
+            },
+            "0:23": {
+              "counts": [
+                14,
+                29,
+                23,
+                7,
+                1,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "minutes": 74
+            }
+          },
+          "normal_sessions": 1200,
+          "normal_covered_minutes": 50986,
+          "minimum_calendar_minutes": 60,
+          "global_shrinkage_minutes": 30.0,
+          "source": "existing first400 development normal controls",
+          "no_generated_Process_rows": true,
+          "zero_counts_only_inside_known_covered_synthetic_normal_sessions": true
+        },
+        "count_power": 0.75,
+        "count_model_weight": 0.35,
+        "count_cutoff": 1.0,
+        "count_stat_scale": 1.4245785974343275,
+        "normal_reference_includes_existing_synthetic_dev_controls": true,
+        "original_only_sklearn_estimator_fit": true,
+        "past_rate_support": {
+          "lower_rate": 0.16666666666666666,
+          "upper_rate": 2.6666666666666665,
+          "normal_sessions": 1200,
+          "minimum_past_exposure_minutes": 3.0,
+          "quantiles": [
+            0.005,
+            0.995
+          ],
+          "source": "existing development NORMAL sessions only"
+        },
+        "outside_support_uses_preceding_local_context_score": true
+      },
+      "objective": 0.8009324615519464
+    }
+  },
+  "source_sha256": "db26e35f4f464ea2c622b2c00c6d21384672417e6e8c3ee61d272f46d14e897a",
+  "development_first400_cases_only": true,
+  "benchmark_unchanged": true,
+  "no_new_training_rows": true,
+  "inference_uses_calibrated_evidence_family_not_scenario_label": true
+}

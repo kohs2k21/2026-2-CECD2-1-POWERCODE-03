@@ -1,0 +1,67 @@
+{
+  "messages": [
+    {
+      "role": "system",
+      "content": "Revise ONLY the exact failed Rule explanation fields. All role/state/condition/evidence/population fields are immutable and assembled outside your response. Use the condition_statistics for claims about condition evaluability; feature_statistics describe the value, not necessarily that condition. Numbers are optional; if quoted state their precise scope. Write concise complete explanations of verified facts without invented causes. Do not repeat the faulty text. Return updates JSON."
+    },
+    {
+      "role": "user",
+      "content": "{\"feature_reference\":{\"id\":\"fd_b38018dfb6ed816862e4eeba\",\"definition_sha\":\"c8ceb852d296d559ab67ed8fdc412ce6023058285cb4c9c321bd3dd0e4a63ab3\",\"source_version\":\"63365b2e2fc31603007544b35c675781cfdd75e95b2e255ce6f69991a85401be\",\"measurement_id\":\"m_78077306df2abc3d1b96a974\",\"dtype\":\"number\",\"unit\":null},\"scope\":{\"period\":{\"controlled_domain\":\"Artificial rows; no operational dates\"},\"table_rows\":{\"PARENT_SAMPLE\":4,\"CHILD_EVENT\":4},\"population\":{\"table\":\"PARENT_SAMPLE\",\"filter\":null},\"manifest_sha\":\"2dc5f09888550fb25bcad57fd4c100a08bf8eaa859017c4e88c43a355af696aa\",\"data_class\":\"controlled\"},\"public_analysis_request\":{\"question\":\"Offline calculated-value availability under the supplied controlled relation and population, not an incident label.\",\"considered_observed_condition\":{\"op\":\"is_missing\"}},\"confirmed_constraints\":[],\"unknown\":[\"No mandatory parent, fault label, or online contract.\"],\"fields_to_revise\":{\"observed\":[\"reason\"]},\"errors\":[{\"path\":\"/decisions/0/reason\",\"code\":\"quoted_count_scope\",\"actual\":\"Supplied calculated-value diagnostic has 2 usable observations. It is evaluable even with zero activations; no historical baseline or application minimum is required.\",\"allowed\":{\"expected\":4,\"reference\":null,\"numeric\":2,\"retained\":4}}],\"roles\":[{\"request\":\"observed\",\"preserved_decision_sha\":\"690c8f5c81459f47c0a4c1bfbe5f6523b7dc46bcec2a9468098b2ab9fc88f896\",\"preserved_state\":\"proposed\",\"preserved_condition\":{\"op\":\"is_missing\"},\"preserved_evidence\":[\"m_78077306df2abc3d1b96a974\"],\"failed_text\":{\"reason\":\"Supplied calculated-value diagnostic has 2 usable observations. It is evaluable even with zero activations; no historical baseline or application minimum is required.\"},\"condition_statistics\":{\"rows\":4,\"evaluable\":4,\"satisfied\":2,\"not_satisfied\":2,\"unassessed\":0},\"feature_statistics\":{\"retained_rows\":4,\"valid_value_rows\":2,\"unavailable_value_rows\":2},\"reference_statistics\":{\"id\":null,\"state\":\"not_requested\",\"reference_valid_n\":null,\"value\":null,\"minimum_n\":null},\"operator_state_proof\":{\"operator\":\"child_sum\",\"unavailable_possible\":true,\"proof_scope\":\"Supported operator contract on retained selected rows\",\"children\":[]},\"evaluation_contract\":\"is_missing evaluates every retained row, including unavailable feature values. Numeric comparisons need valid numeric values. A complete Boolean is evaluable on every retained row. No selected rows is distinct from a per-row unavailable result.\"}]}"
+    }
+  ],
+  "messages_sha": "dbfe333616c3a1375882e1ed791f13789916404609e633f89ef5eae36a4d0608",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "updates": {
+        "type": "array",
+        "items": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "request": {
+                  "const": "observed"
+                },
+                "reason": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 320
+                }
+              },
+              "required": [
+                "request",
+                "reason"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "minItems": 1,
+        "maxItems": 1
+      }
+    },
+    "required": [
+      "updates"
+    ],
+    "additionalProperties": false
+  },
+  "tokens": {
+    "input_tokens": 825,
+    "input_token_sha": "cdf3b6546052ee2763a77d4a44e7ecf1bca77a6d58f98a9c88b7118b30342962",
+    "output_reserved": 1536,
+    "repair_reserved": 3072,
+    "truncated": false,
+    "schema_sha": "79c051b75e1de6a59b40bc991d648cb2a4263c2c5bc4b39553c3ce5ffc67c140",
+    "chat_template_sha": "5c5c2567af60e8b6a5cb02dcdcb19775bbe046ee909fca1a04beed873078be7c"
+  },
+  "budget": {
+    "sequence": 3,
+    "kind": "rule",
+    "call": "rule_1",
+    "phase": "frozen_final_final_public_delivery_relation_set_exclusion",
+    "at": 1793097811.8813481,
+    "failed_or_interrupted_calls_consume_budget": true,
+    "shared_sequence": 104
+  }
+}

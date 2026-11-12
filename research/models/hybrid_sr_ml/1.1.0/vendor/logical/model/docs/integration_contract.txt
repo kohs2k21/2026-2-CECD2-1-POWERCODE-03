@@ -1,0 +1,79 @@
+INTEGRATING THE LOGICAL SPECIFICATION MODEL WITH THE EXISTING DETECTORS
+
+This is a research inference/serving component. No backend API, DB migration,
+administrator approval interface or alert transport is implemented by this bundle.
+
+Offline design
+1. Prepare one metadata-only JSON snapshot: physical schema, complete occurrence
+   identities, relationships, source definitions, capture assumptions, records and
+   an analysis purpose. Provide verified constraints as evidence, not as guesses.
+   Observed frequencies alone do not establish a protocol prohibition.
+2. cli.py recommend returns actual local-model proposals and all attempts. The
+   typed compiler checks executable bindings and measures each admitted plan.
+   discover / discover-roots can explore more source populations without giving
+   the model a private expected rule list. No call guarantees exhaustive discovery.
+3. Review candidate meaning, scope, normal exceptions and evidence. A source-valid
+   plan can still be semantically wrong. Freeze the approved calculation/evidence
+   version. Exported recommendations are disabled until external adoption.
+
+The logical model is ONE joint logical-plan adapter. It is additional to the
+preserved numerical Feature/Rule adapters. Code projects a proposed logical plan
+into a nullable-Boolean variable and a rule referencing that exact variable.
+This is not a second independently learned Feature-LLM discovery call.
+
+After a completed transaction arrives
+Prepare related T/P/M metadata using the same physical schema and source meanings.
+The project assumption is post-completion batch arrival; actual ingestion times
+are not available. Give every projected field explicitly, using JSON null for an
+unknown value. Exclude Body/payload and evaluation-only labels/arm/pair mappings.
+
+The same new logs have two parallel code paths:
+  A. Frozen logical rules: cli.py serve or library-serve. --bulk uses indexed CPU
+     execution and never forwards those full rows to an LLM.
+  B. Existing frozen numerical feature transformation, numerical SR and ML models.
+     Keep the trained feature order, preprocessing, units and thresholds unchanged.
+     New Boolean variables from A are not automatically inserted into a 42-feature
+     ML input. Doing so requires a separately approved input-contract change and
+     retraining/validation, which this logical bundle does not perform.
+
+Keep the detailed source-row provenance. Aggregate P/M findings to transaction
+identity only through the verified occurrence relationships; do not group solely
+by a reusable PROCESS_ID. Unknown or missing identity is not evidence of normality.
+The included replay-esb-export and replay-esb-status CPU commands demonstrate
+binding for their exact reviewed project T/P/M projections. Arbitrary new CSV
+schemas still need an explicit, reviewed input adapter; these commands do not
+infer a new customer schema or business meaning automatically.
+
+Results and references
+serve result.json contains:
+  decision: warning | nonwarning | unavailable
+  rules: original proposal IDs, roles, nullable row values and support rows
+  linked_feature_contracts: feature_id, definition_sha256, calculation, grain,
+      source/capture/runtime policies and pending review state
+  linked_rule_recommendations: condition.feature_id and
+      condition.feature_definition_sha256, op=is_true, role, evidence, enabled=false
+  linked_feature_values: the same feature_id/feature_definition_sha256, source
+      row/key/version and measured nullable Boolean value
+  evidence_requests, pending_evidence_count, coverage_status
+
+Exported roles are HR_candidate and observed_SR_candidate. The latter is a factual
+review diagnostic, not a confirmed unrecovered incident or numeric threshold SR.
+The preserved numerical SR pipeline remains separate. HR requires a verified
+contract/constraint; unverified meaning generates an evidence request or no rule.
+
+Combine the approved checks and ML results using three-valued OR:
+  Any warning -> warning.
+  All required participating methods evaluated and nonwarning -> nonwarning.
+  Otherwise -> unavailable.
+A no-rule/evidence-request pack is incomplete coverage, not a nonwarning detector.
+Do not turn an exception, failed conversion or missing observation into zero/false.
+Preserve rule IDs, source evidence and ML scores alongside the combined decision.
+
+An explanation is specific to the represented predicate. For example, a dependency
+link may change while all frozen numerical ML inputs remain equal. A logical rule
+can describe that relation difference; this does not imply that ML in general
+cannot learn relationships, or that the transaction had no other ML warning.
+
+Schema, definition, evidence or runtime policy changes require explicit re-review.
+Version changes can intentionally change linked feature IDs. Keep old measurements
+and old models with their own contracts instead of silently mixing their vectors.

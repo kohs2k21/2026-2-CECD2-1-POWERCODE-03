@@ -1,0 +1,57 @@
+[
+  {
+    "attempt": 0,
+    "prediction": {
+      "schema": "feature5.2",
+      "candidates": [
+        {
+          "proposal_id": "local",
+          "plan": {
+            "expression": {
+              "op": "parent_match_count",
+              "relationship_id": "hop_frame_link"
+            },
+            "grain": {
+              "table": "HOP_TRACE",
+              "keys": [
+                "TRACE_ROW"
+              ]
+            },
+            "population": {
+              "table": "HOP_TRACE",
+              "filter": null
+            },
+            "group_by": [],
+            "result_use": "unavailable_or_zero"
+          },
+          "purpose": "Compute physical FRAME_REGISTER match count for each HOP_TRACE row. Return true for unavailable or known0, false for known nonzero count. Use the explicit result view, not a parent child-count.",
+          "meaning": "Return true if the FRAME_REGISTER match count is unavailable or known0, false for a known nonzero count.",
+          "needed_evidence": []
+        }
+      ],
+      "stop_reason": null
+    },
+    "passed": true,
+    "errors": [],
+    "actual_model_origin": {
+      "file": "model/feature_0/output.json",
+      "raw_sha": "96de17b0fcebe64944d085cc1e4665366856595e4701b6d6072571a6de32e2f2",
+      "parsed_sha": "d57fb6a40d21ded3d940c5e06b5386ce672d1f22f6985ab32117091c65ab4300",
+      "messages_sha": "acfb8d338e055f22b2d839e4f693c8c15819b21bda5bbd8638feb77308b058d7",
+      "budget": {
+        "sequence": 1,
+        "kind": "feature",
+        "call": "feature_0",
+        "phase": "frozen_final_final_public_delivery_parent_match_state",
+        "at": 1793097526.8045528,
+        "failed_or_interrupted_calls_consume_budget": true,
+        "shared_sequence": 98
+      }
+    },
+    "partial_Model_prose_fields": null,
+    "partial_Model_expression_and_prose": false,
+    "partial_stop_reason": false,
+    "assembly_over_preserved_candidate": false,
+    "not_code_authored_answer": true
+  }
+]

@@ -1,0 +1,112 @@
+{
+  "kind": "feature",
+  "arm": "selected",
+  "raw": "{\"schema\":\"feature5.2\",\"candidates\":[{\"proposal_id\":\"local\",\"plan\":{\"expression\":{\"op\":\"child_sum\",\"relationship_id\":\"sample_event_parent\",\"value\":{\"op\":\"column\",\"table\":\"CHILD_EVENT\",\"column\":\"RAW_QTY\"},\"where\":{\"op\":\"not_in\",\"args\":[{\"op\":\"column\",\"table\":\"CHILD_EVENT\",\"column\":\"RAW_TAG\"}], \"values\":[\"L\",\"R\"]}},\"grain\":{\"table\":\"PARENT_SAMPLE\",\"keys\":[\"PARENT_ROW\"]},\"population\":{\"table\":\"PARENT_SAMPLE\",\"filter\":null},\"group_by\":[],\"result_use\":\"value\"},\"purpose\":\"Sum linked child RAW_QTY values whose raw RAW_TAG is neither L nor R.\",\"meaning\":\"Sum of linked child RAW_QTY values whose raw RAW_TAG is neither L nor R.\",\"needed_evidence\":[]}],\"stop_reason\":null}",
+  "parsed": {
+    "schema": "feature5.2",
+    "candidates": [
+      {
+        "proposal_id": "local",
+        "plan": {
+          "expression": {
+            "op": "child_sum",
+            "relationship_id": "sample_event_parent",
+            "value": {
+              "op": "column",
+              "table": "CHILD_EVENT",
+              "column": "RAW_QTY"
+            },
+            "where": {
+              "op": "not_in",
+              "args": [
+                {
+                  "op": "column",
+                  "table": "CHILD_EVENT",
+                  "column": "RAW_TAG"
+                }
+              ],
+              "values": [
+                "L",
+                "R"
+              ]
+            }
+          },
+          "grain": {
+            "table": "PARENT_SAMPLE",
+            "keys": [
+              "PARENT_ROW"
+            ]
+          },
+          "population": {
+            "table": "PARENT_SAMPLE",
+            "filter": null
+          },
+          "group_by": [],
+          "result_use": "value"
+        },
+        "purpose": "Sum linked child RAW_QTY values whose raw RAW_TAG is neither L nor R.",
+        "meaning": "Sum of linked child RAW_QTY values whose raw RAW_TAG is neither L nor R.",
+        "needed_evidence": []
+      }
+    ],
+    "stop_reason": null
+  },
+  "parse_error": null,
+  "length_limit_hit": false,
+  "messages_sha": "87f3186396dea67d9a92c088c084bcf91d52d7b579ad1b92a16d80fac4affae7",
+  "tokens": {
+    "input_tokens": 2246,
+    "input_token_sha": "369da79f12a5b2293d634d85c5d237cfb9cef90d40dcb9c7eaeb4b52d0c801e0",
+    "output_reserved": 1536,
+    "repair_reserved": 3072,
+    "truncated": false,
+    "schema_sha": "2d0606b2d3e14c0f9e6dd2a564107cbd6bca122ccf061525f0f080084919f4f3",
+    "chat_template_sha": "5c5c2567af60e8b6a5cb02dcdcb19775bbe046ee909fca1a04beed873078be7c"
+  },
+  "output_tokens": 169,
+  "greedy": true,
+  "thinking": false,
+  "budget": {
+    "sequence": 1,
+    "kind": "feature",
+    "call": "feature_0",
+    "phase": "frozen_final_final_public_delivery_relation_set_exclusion",
+    "at": 1793097718.9664345,
+    "failed_or_interrupted_calls_consume_budget": true,
+    "shared_sequence": 102
+  },
+  "model": {
+    "Base": {
+      "repo_id": "Qwen/Qwen3.6-27B",
+      "revision": "6a9e13bd6fc8f0983b9b99948120bc37f49c13e9",
+      "verified_files": 27
+    },
+    "adapter_kind": "Feature_selected",
+    "adapter_weight_sha": "f5bc75d6ffc436418236b6808fe46a0841ef3e7c974c22d2c7a9bc0333b81975",
+    "Base_adapter_layers_disabled": 0,
+    "all_weights_frozen": true,
+    "class": "PeftModelForCausalLM",
+    "quantization": {
+      "quant_method": "bitsandbytes",
+      "_load_in_8bit": false,
+      "_load_in_4bit": true,
+      "llm_int8_threshold": 6.0,
+      "llm_int8_skip_modules": null,
+      "llm_int8_enable_fp32_cpu_offload": false,
+      "llm_int8_has_fp16_weight": false,
+      "bnb_4bit_quant_type": "nf4",
+      "bnb_4bit_use_double_quant": true,
+      "bnb_4bit_compute_dtype": "bfloat16",
+      "bnb_4bit_quant_storage": "uint8",
+      "load_in_4bit": true,
+      "load_in_8bit": false
+    },
+    "compute_dtype": "bfloat16"
+  },
+  "seconds": 25.315388679504395,
+  "GPU_memory": {
+    "allocated": 15576223744,
+    "reserved": 18274582528,
+    "peak": 17961120768
+  }
+}

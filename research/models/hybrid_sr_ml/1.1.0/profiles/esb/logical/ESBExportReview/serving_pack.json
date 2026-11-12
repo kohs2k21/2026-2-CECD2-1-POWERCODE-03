@@ -1,0 +1,3962 @@
+{
+  "policy": "source-bound-reusable-discovery1.1-conditional-row",
+  "proposal": {
+    "candidates": [
+      {
+        "id": "lookup_T_P",
+        "requires_complete_capture": false,
+        "evidence": [
+          {
+            "document_id": "export-value-lookup",
+            "quote": "This profile compares P.TRANSACTION_ID to the identical T.TRANSACTION_ID string. It compares the pair (M.TRANSACTION_ID, M.PROCESS_ID) to the identical pair in P. Comparisons are literal string-value lookups in the supplied CSV snapshots."
+          },
+          {
+            "document_id": "export-scope-limit",
+            "quote": "These lookups do not assume a target has exactly one row, do not equate RETRY_COUNT across files, and do not establish a required child, a foreign-key contract, or an operational business obligation."
+          }
+        ],
+        "normal_exceptions": [],
+        "reason": "Use the documented literal string lookup to review whether a source row has any matching target row in this snapshot. This is a descriptive reference check and does not assert a foreign-key or business constraint.",
+        "role": "observed_SR_candidate",
+        "plan": {
+          "kind": "relation_check",
+          "select": {
+            "table": "ProcessExport",
+            "filter": []
+          },
+          "related": {
+            "select": {
+              "table": "TransactionExport",
+              "filter": []
+            },
+            "join": [
+              {
+                "source": "TRANSACTION_ID",
+                "target": "TRANSACTION_ID"
+              }
+            ]
+          },
+          "violation": "required_match_missing"
+        },
+        "needed": []
+      },
+      {
+        "id": "lookup_P_M",
+        "requires_complete_capture": false,
+        "evidence": [
+          {
+            "document_id": "export-value-lookup",
+            "quote": "This profile compares P.TRANSACTION_ID to the identical T.TRANSACTION_ID string. It compares the pair (M.TRANSACTION_ID, M.PROCESS_ID) to the identical pair in P. Comparisons are literal string-value lookups in the supplied CSV snapshots."
+          },
+          {
+            "document_id": "export-scope-limit",
+            "quote": "These lookups do not assume a target has exactly one row, do not equate RETRY_COUNT across files, and do not establish a required child, a foreign-key contract, or an operational business obligation."
+          }
+        ],
+        "normal_exceptions": [],
+        "reason": "Use the documented literal string lookup to review whether a source row has any matching target row in this snapshot. This is a descriptive reference check and does not assert a foreign-key or business constraint.",
+        "role": "observed_SR_candidate",
+        "plan": {
+          "kind": "relation_check",
+          "select": {
+            "table": "MessageExport",
+            "filter": []
+          },
+          "related": {
+            "select": {
+              "table": "ProcessExport",
+              "filter": []
+            },
+            "join": [
+              {
+                "source": "TRANSACTION_ID",
+                "target": "TRANSACTION_ID"
+              },
+              {
+                "source": "PROCESS_ID",
+                "target": "PROCESS_ID"
+              }
+            ]
+          },
+          "violation": "required_match_missing"
+        },
+        "needed": []
+      }
+    ],
+    "no_candidate_reason": null
+  },
+  "execution": {
+    "policy": "source-bound-reusable-discovery1.1-conditional-row",
+    "executable_valid": true,
+    "errors": [],
+    "decision": "warning",
+    "semantic_entailment_proven_by_code": false,
+    "operational_approval": false,
+    "input_availability_policy": "required-input-availability1.0",
+    "predicate_consistency_policy": "literal-conjunction-consistency1.2-conditional-row",
+    "declared_reference_guard_policy": "declared-self-reference-direction1.0",
+    "rules": []
+  },
+  "definition_sha": "a3dfec7126afbfc2c4dfd15de9ac3bc0f934896e8a26d0f7d91704c9bf6c7aba",
+  "physical_schema_sha": "1abd1c1b2c5a7ddd1ef09a5e3b6fe4ae4331e8e7cdb9471ead514e6b8e9aad0a",
+  "documents_sha": "4895958f728f75937987171972b414f247fa74c871b867333742b67086472092",
+  "source_version": "esb-export-selected-tid-family-v1",
+  "source_file_sha256": "f7fd731153d019ec520b22e1b6af745eb17eb577ff727bd15a0b84554420b02f",
+  "generation_schema": {
+    "type": "object",
+    "properties": {
+      "candidates": {
+        "type": "array",
+        "maxItems": 4,
+        "items": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 240
+                },
+                "requires_complete_capture": {
+                  "type": "boolean"
+                },
+                "evidence": {
+                  "type": "array",
+                  "minItems": 1,
+                  "maxItems": 8,
+                  "items": {
+                    "oneOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "document_id": {
+                            "const": "table-name-aliases"
+                          },
+                          "quote": {
+                            "const": "In the supplied schema, T means TransactionExport, P means ProcessExport, and M means MessageExport. These aliases are used only to abbreviate the CSV file names in the lookup descriptions."
+                          }
+                        },
+                        "required": [
+                          "document_id",
+                          "quote"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "document_id": {
+                            "const": "export-value-lookup"
+                          },
+                          "quote": {
+                            "const": "This profile compares P.TRANSACTION_ID to the identical T.TRANSACTION_ID string. It compares the pair (M.TRANSACTION_ID, M.PROCESS_ID) to the identical pair in P. Comparisons are literal string-value lookups in the supplied CSV snapshots."
+                          }
+                        },
+                        "required": [
+                          "document_id",
+                          "quote"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "document_id": {
+                            "const": "export-scope-limit"
+                          },
+                          "quote": {
+                            "const": "These lookups do not assume a target has exactly one row, do not equate RETRY_COUNT across files, and do not establish a required child, a foreign-key contract, or an operational business obligation."
+                          }
+                        },
+                        "required": [
+                          "document_id",
+                          "quote"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "document_id": {
+                            "const": "snapshot-closure"
+                          },
+                          "quote": {
+                            "const": "For this analysis, entity_family_complete=true means all rows in these three source CSV exports with each selected TRANSACTION_ID were loaded. It says nothing about completeness of operational logs outside these exports."
+                          }
+                        },
+                        "required": [
+                          "document_id",
+                          "quote"
+                        ],
+                        "additionalProperties": false
+                      }
+                    ]
+                  }
+                },
+                "normal_exceptions": {
+                  "type": "array",
+                  "maxItems": 4,
+                  "items": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 240
+                  }
+                },
+                "reason": {
+                  "type": "string",
+                  "minLength": 8,
+                  "maxLength": 400
+                },
+                "role": {
+                  "enum": [
+                    "HR_candidate",
+                    "observed_SR_candidate"
+                  ]
+                },
+                "plan": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "kind": {
+                          "const": "row_check"
+                        },
+                        "select": {
+                          "type": "object",
+                          "properties": {
+                            "table": {
+                              "const": "TransactionExport"
+                            },
+                            "filter": {
+                              "type": "array",
+                              "maxItems": 6,
+                              "items": {
+                                "oneOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "column": {
+                                        "enum": [
+                                          "PROCESS_HUB_ID",
+                                          "RETRY_COUNT",
+                                          "TRANSACTION_ID"
+                                        ]
+                                      },
+                                      "op": {
+                                        "enum": [
+                                          "is_missing",
+                                          "is_present"
+                                        ]
+                                      },
+                                      "value": {
+                                        "type": "null"
+                                      }
+                                    },
+                                    "required": [
+                                      "column",
+                                      "op",
+                                      "value"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                ]
+                              }
+                            }
+                          },
+                          "required": [
+                            "table",
+                            "filter"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "select"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "kind": {
+                          "const": "conditional_row_check"
+                        },
+                        "select": {
+                          "type": "object",
+                          "properties": {
+                            "table": {
+                              "const": "TransactionExport"
+                            },
+                            "filter": {
+                              "type": "array",
+                              "maxItems": 6,
+                              "items": {
+                                "oneOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "column": {
+                                        "enum": [
+                                          "PROCESS_HUB_ID",
+                                          "RETRY_COUNT",
+                                          "TRANSACTION_ID"
+                                        ]
+                                      },
+                                      "op": {
+                                        "enum": [
+                                          "is_missing",
+                                          "is_present"
+                                        ]
+                                      },
+                                      "value": {
+                                        "type": "null"
+                                      }
+                                    },
+                                    "required": [
+                                      "column",
+                                      "op",
+                                      "value"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                ]
+                              }
+                            }
+                          },
+                          "required": [
+                            "table",
+                            "filter"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "violation": {
+                          "type": "array",
+                          "maxItems": 6,
+                          "items": {
+                            "oneOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "column": {
+                                    "enum": [
+                                      "PROCESS_HUB_ID",
+                                      "RETRY_COUNT",
+                                      "TRANSACTION_ID"
+                                    ]
+                                  },
+                                  "op": {
+                                    "enum": [
+                                      "is_missing",
+                                      "is_present"
+                                    ]
+                                  },
+                                  "value": {
+                                    "type": "null"
+                                  }
+                                },
+                                "required": [
+                                  "column",
+                                  "op",
+                                  "value"
+                                ],
+                                "additionalProperties": false
+                              }
+                            ]
+                          },
+                          "minItems": 1
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "select",
+                        "violation"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "kind": {
+                          "const": "duplicate_key"
+                        },
+                        "select": {
+                          "type": "object",
+                          "properties": {
+                            "table": {
+                              "const": "TransactionExport"
+                            },
+                            "filter": {
+                              "type": "array",
+                              "maxItems": 6,
+                              "items": {
+                                "oneOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "column": {
+                                        "enum": [
+                                          "PROCESS_HUB_ID",
+                                          "RETRY_COUNT",
+                                          "TRANSACTION_ID"
+                                        ]
+                                      },
+                                      "op": {
+                                        "enum": [
+                                          "is_missing",
+                                          "is_present"
+                                        ]
+                                      },
+                                      "value": {
+                                        "type": "null"
+                                      }
+                                    },
+                                    "required": [
+                                      "column",
+                                      "op",
+                                      "value"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                ]
+                              }
+                            }
+                          },
+                          "required": [
+                            "table",
+                            "filter"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "keys": {
+                          "type": "array",
+                          "minItems": 1,
+                          "maxItems": 6,
+                          "items": {
+                            "enum": [
+                              "PROCESS_HUB_ID",
+                              "RETRY_COUNT",
+                              "TRANSACTION_ID"
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "select",
+                        "keys"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "kind": {
+                          "const": "relation_check"
+                        },
+                        "select": {
+                          "type": "object",
+                          "properties": {
+                            "table": {
+                              "const": "TransactionExport"
+                            },
+                            "filter": {
+                              "type": "array",
+                              "maxItems": 6,
+                              "items": {
+                                "oneOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "column": {
+                                        "enum": [
+                                          "PROCESS_HUB_ID",
+                                          "RETRY_COUNT",
+                                          "TRANSACTION_ID"
+                                        ]
+                                      },
+                                      "op": {
+                                        "enum": [
+                                          "is_missing",
+                                          "is_present"
+                                        ]
+                                      },
+                                      "value": {
+                                        "type": "null"
+                                      }
+                                    },
+                                    "required": [
+                                      "column",
+                                      "op",
+                                      "value"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                ]
+                              }
+                            }
+                          },
+                          "required": [
+                            "table",
+                            "filter"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "related": {
+                          "oneOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "select": {
+                                  "type": "object",
+                                  "properties": {
+                                    "table": {
+                                      "const": "TransactionExport"
+                                    },
+                                    "filter": {
+                                      "type": "array",
+                                      "maxItems": 6,
+                                      "items": {
+                                        "oneOf": [
+                                          {
+                                            "type": "object",
+                                            "properties": {
+                                              "column": {
+                                                "enum": [
+                                                  "PROCESS_HUB_ID",
+                                                  "RETRY_COUNT",
+                                                  "TRANSACTION_ID"
+                                                ]
+                                              },
+                                              "op": {
+                                                "enum": [
+                                                  "is_missing",
+                                                  "is_present"
+                                                ]
+                                              },
+                                              "value": {
+                                                "type": "null"
+                                              }
+                                            },
+                                            "required": [
+                                              "column",
+                                              "op",
+                                              "value"
+                                            ],
+                                            "additionalProperties": false
+                                          }
+                                        ]
+                                      }
+                                    }
+                                  },
+                                  "required": [
+                                    "table",
+                                    "filter"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "join": {
+                                  "type": "array",
+                                  "minItems": 1,
+                                  "maxItems": 6,
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "source": {
+                                        "enum": [
+                                          "PROCESS_HUB_ID",
+                                          "RETRY_COUNT",
+                                          "TRANSACTION_ID"
+                                        ]
+                                      },
+                                      "target": {
+                                        "enum": [
+                                          "PROCESS_HUB_ID",
+                                          "RETRY_COUNT",
+                                          "TRANSACTION_ID"
+                                        ]
+                                      }
+                                    },
+                                    "required": [
+                                      "source",
+                                      "target"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                }
+                              },
+                              "required": [
+                                "select",
+                                "join"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "select": {
+                                  "type": "object",
+                                  "properties": {
+                                    "table": {
+                                      "const": "ProcessExport"
+                                    },
+                                    "filter": {
+                                      "type": "array",
+                                      "maxItems": 6,
+                                      "items": {
+                                        "oneOf": [
+                                          {
+                                            "type": "object",
+                                            "properties": {
+                                              "column": {
+                                                "enum": [
+                                                  "PROCESS_ID",
+                                                  "RETRY_COUNT",
+                                                  "TRANSACTION_ID"
+                                                ]
+                                              },
+                                              "op": {
+                                                "enum": [
+                                                  "is_missing",
+                                                  "is_present"
+                                                ]
+                                              },
+                                              "value": {
+                                                "type": "null"
+                                              }
+                                            },
+                                            "required": [
+                                              "column",
+                                              "op",
+                                              "value"
+                                            ],
+                                            "additionalProperties": false
+                                          }
+                                        ]
+                                      }
+                                    }
+                                  },
+                                  "required": [
+                                    "table",
+                                    "filter"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "join": {
+                                  "type": "array",
+                                  "minItems": 1,
+                                  "maxItems": 6,
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "source": {
+                                        "enum": [
+                                          "PROCESS_HUB_ID",
+                                          "RETRY_COUNT",
+                                          "TRANSACTION_ID"
+                                        ]
+                                      },
+                                      "target": {
+                                        "enum": [
+                                          "PROCESS_ID",
+                                          "RETRY_COUNT",
+                                          "TRANSACTION_ID"
+                                        ]
+                                      }
+                                    },
+                                    "required": [
+                                      "source",
+                                      "target"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                }
+                              },
+                              "required": [
+                                "select",
+                                "join"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "select": {
+                                  "type": "object",
+                                  "properties": {
+                                    "table": {
+                                      "const": "MessageExport"
+                                    },
+                                    "filter": {
+                                      "type": "array",
+                                      "maxItems": 6,
+                                      "items": {
+                                        "oneOf": [
+                                          {
+                                            "type": "object",
+                                            "properties": {
+                                              "column": {
+                                                "enum": [
+                                                  "MESSAGE_ID",
+                                                  "PROCESS_ID",
+                                                  "RETRY_COUNT",
+                                                  "TRANSACTION_ID"
+                                                ]
+                                              },
+                                              "op": {
+                                                "enum": [
+                                                  "is_missing",
+                                                  "is_present"
+                                                ]
+                                              },
+                                              "value": {
+                                                "type": "null"
+                                              }
+                                            },
+                                            "required": [
+                                              "column",
+                                              "op",
+                                              "value"
+                                            ],
+                                            "additionalProperties": false
+                                          }
+                                        ]
+                                      }
+                                    }
+                                  },
+                                  "required": [
+                                    "table",
+                                    "filter"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "join": {
+                                  "type": "array",
+                                  "minItems": 1,
+                                  "maxItems": 6,
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "source": {
+                                        "enum": [
+                                          "PROCESS_HUB_ID",
+                                          "RETRY_COUNT",
+                                          "TRANSACTION_ID"
+                                        ]
+                                      },
+                                      "target": {
+                                        "enum": [
+                                          "MESSAGE_ID",
+                                          "PROCESS_ID",
+                                          "RETRY_COUNT",
+                                          "TRANSACTION_ID"
+                                        ]
+                                      }
+                                    },
+                                    "required": [
+                                      "source",
+                                      "target"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                }
+                              },
+                              "required": [
+                                "select",
+                                "join"
+                              ],
+                              "additionalProperties": false
+                            }
+                          ]
+                        },
+                        "violation": {
+                          "enum": [
+                            "required_match_missing",
+                            "match_present",
+                            "match_not_exactly_one"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "select",
+                        "related",
+                        "violation"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "kind": {
+                          "const": "unexplained_event"
+                        },
+                        "select": {
+                          "type": "object",
+                          "properties": {
+                            "table": {
+                              "const": "TransactionExport"
+                            },
+                            "filter": {
+                              "type": "array",
+                              "maxItems": 6,
+                              "items": {
+                                "oneOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "column": {
+                                        "enum": [
+                                          "PROCESS_HUB_ID",
+                                          "RETRY_COUNT",
+                                          "TRANSACTION_ID"
+                                        ]
+                                      },
+                                      "op": {
+                                        "enum": [
+                                          "is_missing",
+                                          "is_present"
+                                        ]
+                                      },
+                                      "value": {
+                                        "type": "null"
+                                      }
+                                    },
+                                    "required": [
+                                      "column",
+                                      "op",
+                                      "value"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                ]
+                              }
+                            }
+                          },
+                          "required": [
+                            "table",
+                            "filter"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "context": {
+                          "oneOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "select": {
+                                  "type": "object",
+                                  "properties": {
+                                    "table": {
+                                      "const": "TransactionExport"
+                                    },
+                                    "filter": {
+                                      "type": "array",
+                                      "maxItems": 6,
+                                      "items": {
+                                        "oneOf": [
+                                          {
+                                            "type": "object",
+                                            "properties": {
+                                              "column": {
+                                                "enum": [
+                                                  "PROCESS_HUB_ID",
+                                                  "RETRY_COUNT",
+                                                  "TRANSACTION_ID"
+                                                ]
+                                              },
+                                              "op": {
+                                                "enum": [
+                                                  "is_missing",
+                                                  "is_present"
+                                                ]
+                                              },
+                                              "value": {
+                                                "type": "null"
+                                              }
+                                            },
+                                            "required": [
+                                              "column",
+                                              "op",
+                                              "value"
+                                            ],
+                                            "additionalProperties": false
+                                          }
+                                        ]
+                                      }
+                                    }
+                                  },
+                                  "required": [
+                                    "table",
+                                    "filter"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "join": {
+                                  "type": "array",
+                                  "minItems": 1,
+                                  "maxItems": 6,
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "source": {
+                                        "enum": [
+                                          "PROCESS_HUB_ID",
+                                          "RETRY_COUNT",
+                                          "TRANSACTION_ID"
+                                        ]
+                                      },
+                                      "target": {
+                                        "enum": [
+                                          "PROCESS_HUB_ID",
+                                          "RETRY_COUNT",
+                                          "TRANSACTION_ID"
+                                        ]
+                                      }
+                                    },
+                                    "required": [
+                                      "source",
+                                      "target"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                }
+                              },
+                              "required": [
+                                "select",
+                                "join"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "select": {
+                                  "type": "object",
+                                  "properties": {
+                                    "table": {
+                                      "const": "ProcessExport"
+                                    },
+                                    "filter": {
+                                      "type": "array",
+                                      "maxItems": 6,
+                                      "items": {
+                                        "oneOf": [
+                                          {
+                                            "type": "object",
+                                            "properties": {
+                                              "column": {
+                                                "enum": [
+                                                  "PROCESS_ID",
+                                                  "RETRY_COUNT",
+                                                  "TRANSACTION_ID"
+                                                ]
+                                              },
+                                              "op": {
+                                                "enum": [
+                                                  "is_missing",
+                                                  "is_present"
+                                                ]
+                                              },
+                                              "value": {
+                                                "type": "null"
+                                              }
+                                            },
+                                            "required": [
+                                              "column",
+                                              "op",
+                                              "value"
+                                            ],
+                                            "additionalProperties": false
+                                          }
+                                        ]
+                                      }
+                                    }
+                                  },
+                                  "required": [
+                                    "table",
+                                    "filter"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "join": {
+                                  "type": "array",
+                                  "minItems": 1,
+                                  "maxItems": 6,
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "source": {
+                                        "enum": [
+                                          "PROCESS_HUB_ID",
+                                          "RETRY_COUNT",
+                                          "TRANSACTION_ID"
+                                        ]
+                                      },
+                                      "target": {
+                                        "enum": [
+                                          "PROCESS_ID",
+                                          "RETRY_COUNT",
+                                          "TRANSACTION_ID"
+                                        ]
+                                      }
+                                    },
+                                    "required": [
+                                      "source",
+                                      "target"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                }
+                              },
+                              "required": [
+                                "select",
+                                "join"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "select": {
+                                  "type": "object",
+                                  "properties": {
+                                    "table": {
+                                      "const": "MessageExport"
+                                    },
+                                    "filter": {
+                                      "type": "array",
+                                      "maxItems": 6,
+                                      "items": {
+                                        "oneOf": [
+                                          {
+                                            "type": "object",
+                                            "properties": {
+                                              "column": {
+                                                "enum": [
+                                                  "MESSAGE_ID",
+                                                  "PROCESS_ID",
+                                                  "RETRY_COUNT",
+                                                  "TRANSACTION_ID"
+                                                ]
+                                              },
+                                              "op": {
+                                                "enum": [
+                                                  "is_missing",
+                                                  "is_present"
+                                                ]
+                                              },
+                                              "value": {
+                                                "type": "null"
+                                              }
+                                            },
+                                            "required": [
+                                              "column",
+                                              "op",
+                                              "value"
+                                            ],
+                                            "additionalProperties": false
+                                          }
+                                        ]
+                                      }
+                                    }
+                                  },
+                                  "required": [
+                                    "table",
+                                    "filter"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "join": {
+                                  "type": "array",
+                                  "minItems": 1,
+                                  "maxItems": 6,
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "source": {
+                                        "enum": [
+                                          "PROCESS_HUB_ID",
+                                          "RETRY_COUNT",
+                                          "TRANSACTION_ID"
+                                        ]
+                                      },
+                                      "target": {
+                                        "enum": [
+                                          "MESSAGE_ID",
+                                          "PROCESS_ID",
+                                          "RETRY_COUNT",
+                                          "TRANSACTION_ID"
+                                        ]
+                                      }
+                                    },
+                                    "required": [
+                                      "source",
+                                      "target"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                }
+                              },
+                              "required": [
+                                "select",
+                                "join"
+                              ],
+                              "additionalProperties": false
+                            }
+                          ]
+                        },
+                        "explained_by": {
+                          "type": "array",
+                          "minItems": 1,
+                          "maxItems": 4,
+                          "items": {
+                            "oneOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "select": {
+                                    "type": "object",
+                                    "properties": {
+                                      "table": {
+                                        "const": "TransactionExport"
+                                      },
+                                      "filter": {
+                                        "type": "array",
+                                        "maxItems": 6,
+                                        "items": {
+                                          "oneOf": [
+                                            {
+                                              "type": "object",
+                                              "properties": {
+                                                "column": {
+                                                  "enum": [
+                                                    "PROCESS_HUB_ID",
+                                                    "RETRY_COUNT",
+                                                    "TRANSACTION_ID"
+                                                  ]
+                                                },
+                                                "op": {
+                                                  "enum": [
+                                                    "is_missing",
+                                                    "is_present"
+                                                  ]
+                                                },
+                                                "value": {
+                                                  "type": "null"
+                                                }
+                                              },
+                                              "required": [
+                                                "column",
+                                                "op",
+                                                "value"
+                                              ],
+                                              "additionalProperties": false
+                                            }
+                                          ]
+                                        }
+                                      }
+                                    },
+                                    "required": [
+                                      "table",
+                                      "filter"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  "join": {
+                                    "type": "array",
+                                    "minItems": 1,
+                                    "maxItems": 6,
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "source": {
+                                          "enum": [
+                                            "PROCESS_HUB_ID",
+                                            "RETRY_COUNT",
+                                            "TRANSACTION_ID"
+                                          ]
+                                        },
+                                        "target": {
+                                          "enum": [
+                                            "PROCESS_HUB_ID",
+                                            "RETRY_COUNT",
+                                            "TRANSACTION_ID"
+                                          ]
+                                        }
+                                      },
+                                      "required": [
+                                        "source",
+                                        "target"
+                                      ],
+                                      "additionalProperties": false
+                                    }
+                                  }
+                                },
+                                "required": [
+                                  "select",
+                                  "join"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "select": {
+                                    "type": "object",
+                                    "properties": {
+                                      "table": {
+                                        "const": "ProcessExport"
+                                      },
+                                      "filter": {
+                                        "type": "array",
+                                        "maxItems": 6,
+                                        "items": {
+                                          "oneOf": [
+                                            {
+                                              "type": "object",
+                                              "properties": {
+                                                "column": {
+                                                  "enum": [
+                                                    "PROCESS_ID",
+                                                    "RETRY_COUNT",
+                                                    "TRANSACTION_ID"
+                                                  ]
+                                                },
+                                                "op": {
+                                                  "enum": [
+                                                    "is_missing",
+                                                    "is_present"
+                                                  ]
+                                                },
+                                                "value": {
+                                                  "type": "null"
+                                                }
+                                              },
+                                              "required": [
+                                                "column",
+                                                "op",
+                                                "value"
+                                              ],
+                                              "additionalProperties": false
+                                            }
+                                          ]
+                                        }
+                                      }
+                                    },
+                                    "required": [
+                                      "table",
+                                      "filter"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  "join": {
+                                    "type": "array",
+                                    "minItems": 1,
+                                    "maxItems": 6,
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "source": {
+                                          "enum": [
+                                            "PROCESS_HUB_ID",
+                                            "RETRY_COUNT",
+                                            "TRANSACTION_ID"
+                                          ]
+                                        },
+                                        "target": {
+                                          "enum": [
+                                            "PROCESS_ID",
+                                            "RETRY_COUNT",
+                                            "TRANSACTION_ID"
+                                          ]
+                                        }
+                                      },
+                                      "required": [
+                                        "source",
+                                        "target"
+                                      ],
+                                      "additionalProperties": false
+                                    }
+                                  }
+                                },
+                                "required": [
+                                  "select",
+                                  "join"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "select": {
+                                    "type": "object",
+                                    "properties": {
+                                      "table": {
+                                        "const": "MessageExport"
+                                      },
+                                      "filter": {
+                                        "type": "array",
+                                        "maxItems": 6,
+                                        "items": {
+                                          "oneOf": [
+                                            {
+                                              "type": "object",
+                                              "properties": {
+                                                "column": {
+                                                  "enum": [
+                                                    "MESSAGE_ID",
+                                                    "PROCESS_ID",
+                                                    "RETRY_COUNT",
+                                                    "TRANSACTION_ID"
+                                                  ]
+                                                },
+                                                "op": {
+                                                  "enum": [
+                                                    "is_missing",
+                                                    "is_present"
+                                                  ]
+                                                },
+                                                "value": {
+                                                  "type": "null"
+                                                }
+                                              },
+                                              "required": [
+                                                "column",
+                                                "op",
+                                                "value"
+                                              ],
+                                              "additionalProperties": false
+                                            }
+                                          ]
+                                        }
+                                      }
+                                    },
+                                    "required": [
+                                      "table",
+                                      "filter"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  "join": {
+                                    "type": "array",
+                                    "minItems": 1,
+                                    "maxItems": 6,
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "source": {
+                                          "enum": [
+                                            "PROCESS_HUB_ID",
+                                            "RETRY_COUNT",
+                                            "TRANSACTION_ID"
+                                          ]
+                                        },
+                                        "target": {
+                                          "enum": [
+                                            "MESSAGE_ID",
+                                            "PROCESS_ID",
+                                            "RETRY_COUNT",
+                                            "TRANSACTION_ID"
+                                          ]
+                                        }
+                                      },
+                                      "required": [
+                                        "source",
+                                        "target"
+                                      ],
+                                      "additionalProperties": false
+                                    }
+                                  }
+                                },
+                                "required": [
+                                  "select",
+                                  "join"
+                                ],
+                                "additionalProperties": false
+                              }
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "select",
+                        "context",
+                        "explained_by"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "kind": {
+                          "const": "row_check"
+                        },
+                        "select": {
+                          "type": "object",
+                          "properties": {
+                            "table": {
+                              "const": "ProcessExport"
+                            },
+                            "filter": {
+                              "type": "array",
+                              "maxItems": 6,
+                              "items": {
+                                "oneOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "column": {
+                                        "enum": [
+                                          "PROCESS_ID",
+                                          "RETRY_COUNT",
+                                          "TRANSACTION_ID"
+                                        ]
+                                      },
+                                      "op": {
+                                        "enum": [
+                                          "is_missing",
+                                          "is_present"
+                                        ]
+                                      },
+                                      "value": {
+                                        "type": "null"
+                                      }
+                                    },
+                                    "required": [
+                                      "column",
+                                      "op",
+                                      "value"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                ]
+                              }
+                            }
+                          },
+                          "required": [
+                            "table",
+                            "filter"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "select"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "kind": {
+                          "const": "conditional_row_check"
+                        },
+                        "select": {
+                          "type": "object",
+                          "properties": {
+                            "table": {
+                              "const": "ProcessExport"
+                            },
+                            "filter": {
+                              "type": "array",
+                              "maxItems": 6,
+                              "items": {
+                                "oneOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "column": {
+                                        "enum": [
+                                          "PROCESS_ID",
+                                          "RETRY_COUNT",
+                                          "TRANSACTION_ID"
+                                        ]
+                                      },
+                                      "op": {
+                                        "enum": [
+                                          "is_missing",
+                                          "is_present"
+                                        ]
+                                      },
+                                      "value": {
+                                        "type": "null"
+                                      }
+                                    },
+                                    "required": [
+                                      "column",
+                                      "op",
+                                      "value"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                ]
+                              }
+                            }
+                          },
+                          "required": [
+                            "table",
+                            "filter"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "violation": {
+                          "type": "array",
+                          "maxItems": 6,
+                          "items": {
+                            "oneOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "column": {
+                                    "enum": [
+                                      "PROCESS_ID",
+                                      "RETRY_COUNT",
+                                      "TRANSACTION_ID"
+                                    ]
+                                  },
+                                  "op": {
+                                    "enum": [
+                                      "is_missing",
+                                      "is_present"
+                                    ]
+                                  },
+                                  "value": {
+                                    "type": "null"
+                                  }
+                                },
+                                "required": [
+                                  "column",
+                                  "op",
+                                  "value"
+                                ],
+                                "additionalProperties": false
+                              }
+                            ]
+                          },
+                          "minItems": 1
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "select",
+                        "violation"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "kind": {
+                          "const": "duplicate_key"
+                        },
+                        "select": {
+                          "type": "object",
+                          "properties": {
+                            "table": {
+                              "const": "ProcessExport"
+                            },
+                            "filter": {
+                              "type": "array",
+                              "maxItems": 6,
+                              "items": {
+                                "oneOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "column": {
+                                        "enum": [
+                                          "PROCESS_ID",
+                                          "RETRY_COUNT",
+                                          "TRANSACTION_ID"
+                                        ]
+                                      },
+                                      "op": {
+                                        "enum": [
+                                          "is_missing",
+                                          "is_present"
+                                        ]
+                                      },
+                                      "value": {
+                                        "type": "null"
+                                      }
+                                    },
+                                    "required": [
+                                      "column",
+                                      "op",
+                                      "value"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                ]
+                              }
+                            }
+                          },
+                          "required": [
+                            "table",
+                            "filter"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "keys": {
+                          "type": "array",
+                          "minItems": 1,
+                          "maxItems": 6,
+                          "items": {
+                            "enum": [
+                              "PROCESS_ID",
+                              "RETRY_COUNT",
+                              "TRANSACTION_ID"
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "select",
+                        "keys"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "kind": {
+                          "const": "relation_check"
+                        },
+                        "select": {
+                          "type": "object",
+                          "properties": {
+                            "table": {
+                              "const": "ProcessExport"
+                            },
+                            "filter": {
+                              "type": "array",
+                              "maxItems": 6,
+                              "items": {
+                                "oneOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "column": {
+                                        "enum": [
+                                          "PROCESS_ID",
+                                          "RETRY_COUNT",
+                                          "TRANSACTION_ID"
+                                        ]
+                                      },
+                                      "op": {
+                                        "enum": [
+                                          "is_missing",
+                                          "is_present"
+                                        ]
+                                      },
+                                      "value": {
+                                        "type": "null"
+                                      }
+                                    },
+                                    "required": [
+                                      "column",
+                                      "op",
+                                      "value"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                ]
+                              }
+                            }
+                          },
+                          "required": [
+                            "table",
+                            "filter"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "related": {
+                          "oneOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "select": {
+                                  "type": "object",
+                                  "properties": {
+                                    "table": {
+                                      "const": "TransactionExport"
+                                    },
+                                    "filter": {
+                                      "type": "array",
+                                      "maxItems": 6,
+                                      "items": {
+                                        "oneOf": [
+                                          {
+                                            "type": "object",
+                                            "properties": {
+                                              "column": {
+                                                "enum": [
+                                                  "PROCESS_HUB_ID",
+                                                  "RETRY_COUNT",
+                                                  "TRANSACTION_ID"
+                                                ]
+                                              },
+                                              "op": {
+                                                "enum": [
+                                                  "is_missing",
+                                                  "is_present"
+                                                ]
+                                              },
+                                              "value": {
+                                                "type": "null"
+                                              }
+                                            },
+                                            "required": [
+                                              "column",
+                                              "op",
+                                              "value"
+                                            ],
+                                            "additionalProperties": false
+                                          }
+                                        ]
+                                      }
+                                    }
+                                  },
+                                  "required": [
+                                    "table",
+                                    "filter"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "join": {
+                                  "type": "array",
+                                  "minItems": 1,
+                                  "maxItems": 6,
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "source": {
+                                        "enum": [
+                                          "PROCESS_ID",
+                                          "RETRY_COUNT",
+                                          "TRANSACTION_ID"
+                                        ]
+                                      },
+                                      "target": {
+                                        "enum": [
+                                          "PROCESS_HUB_ID",
+                                          "RETRY_COUNT",
+                                          "TRANSACTION_ID"
+                                        ]
+                                      }
+                                    },
+                                    "required": [
+                                      "source",
+                                      "target"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                }
+                              },
+                              "required": [
+                                "select",
+                                "join"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "select": {
+                                  "type": "object",
+                                  "properties": {
+                                    "table": {
+                                      "const": "ProcessExport"
+                                    },
+                                    "filter": {
+                                      "type": "array",
+                                      "maxItems": 6,
+                                      "items": {
+                                        "oneOf": [
+                                          {
+                                            "type": "object",
+                                            "properties": {
+                                              "column": {
+                                                "enum": [
+                                                  "PROCESS_ID",
+                                                  "RETRY_COUNT",
+                                                  "TRANSACTION_ID"
+                                                ]
+                                              },
+                                              "op": {
+                                                "enum": [
+                                                  "is_missing",
+                                                  "is_present"
+                                                ]
+                                              },
+                                              "value": {
+                                                "type": "null"
+                                              }
+                                            },
+                                            "required": [
+                                              "column",
+                                              "op",
+                                              "value"
+                                            ],
+                                            "additionalProperties": false
+                                          }
+                                        ]
+                                      }
+                                    }
+                                  },
+                                  "required": [
+                                    "table",
+                                    "filter"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "join": {
+                                  "type": "array",
+                                  "minItems": 1,
+                                  "maxItems": 6,
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "source": {
+                                        "enum": [
+                                          "PROCESS_ID",
+                                          "RETRY_COUNT",
+                                          "TRANSACTION_ID"
+                                        ]
+                                      },
+                                      "target": {
+                                        "enum": [
+                                          "PROCESS_ID",
+                                          "RETRY_COUNT",
+                                          "TRANSACTION_ID"
+                                        ]
+                                      }
+                                    },
+                                    "required": [
+                                      "source",
+                                      "target"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                }
+                              },
+                              "required": [
+                                "select",
+                                "join"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "select": {
+                                  "type": "object",
+                                  "properties": {
+                                    "table": {
+                                      "const": "MessageExport"
+                                    },
+                                    "filter": {
+                                      "type": "array",
+                                      "maxItems": 6,
+                                      "items": {
+                                        "oneOf": [
+                                          {
+                                            "type": "object",
+                                            "properties": {
+                                              "column": {
+                                                "enum": [
+                                                  "MESSAGE_ID",
+                                                  "PROCESS_ID",
+                                                  "RETRY_COUNT",
+                                                  "TRANSACTION_ID"
+                                                ]
+                                              },
+                                              "op": {
+                                                "enum": [
+                                                  "is_missing",
+                                                  "is_present"
+                                                ]
+                                              },
+                                              "value": {
+                                                "type": "null"
+                                              }
+                                            },
+                                            "required": [
+                                              "column",
+                                              "op",
+                                              "value"
+                                            ],
+                                            "additionalProperties": false
+                                          }
+                                        ]
+                                      }
+                                    }
+                                  },
+                                  "required": [
+                                    "table",
+                                    "filter"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "join": {
+                                  "type": "array",
+                                  "minItems": 1,
+                                  "maxItems": 6,
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "source": {
+                                        "enum": [
+                                          "PROCESS_ID",
+                                          "RETRY_COUNT",
+                                          "TRANSACTION_ID"
+                                        ]
+                                      },
+                                      "target": {
+                                        "enum": [
+                                          "MESSAGE_ID",
+                                          "PROCESS_ID",
+                                          "RETRY_COUNT",
+                                          "TRANSACTION_ID"
+                                        ]
+                                      }
+                                    },
+                                    "required": [
+                                      "source",
+                                      "target"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                }
+                              },
+                              "required": [
+                                "select",
+                                "join"
+                              ],
+                              "additionalProperties": false
+                            }
+                          ]
+                        },
+                        "violation": {
+                          "enum": [
+                            "required_match_missing",
+                            "match_present",
+                            "match_not_exactly_one"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "select",
+                        "related",
+                        "violation"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "kind": {
+                          "const": "unexplained_event"
+                        },
+                        "select": {
+                          "type": "object",
+                          "properties": {
+                            "table": {
+                              "const": "ProcessExport"
+                            },
+                            "filter": {
+                              "type": "array",
+                              "maxItems": 6,
+                              "items": {
+                                "oneOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "column": {
+                                        "enum": [
+                                          "PROCESS_ID",
+                                          "RETRY_COUNT",
+                                          "TRANSACTION_ID"
+                                        ]
+                                      },
+                                      "op": {
+                                        "enum": [
+                                          "is_missing",
+                                          "is_present"
+                                        ]
+                                      },
+                                      "value": {
+                                        "type": "null"
+                                      }
+                                    },
+                                    "required": [
+                                      "column",
+                                      "op",
+                                      "value"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                ]
+                              }
+                            }
+                          },
+                          "required": [
+                            "table",
+                            "filter"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "context": {
+                          "oneOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "select": {
+                                  "type": "object",
+                                  "properties": {
+                                    "table": {
+                                      "const": "TransactionExport"
+                                    },
+                                    "filter": {
+                                      "type": "array",
+                                      "maxItems": 6,
+                                      "items": {
+                                        "oneOf": [
+                                          {
+                                            "type": "object",
+                                            "properties": {
+                                              "column": {
+                                                "enum": [
+                                                  "PROCESS_HUB_ID",
+                                                  "RETRY_COUNT",
+                                                  "TRANSACTION_ID"
+                                                ]
+                                              },
+                                              "op": {
+                                                "enum": [
+                                                  "is_missing",
+                                                  "is_present"
+                                                ]
+                                              },
+                                              "value": {
+                                                "type": "null"
+                                              }
+                                            },
+                                            "required": [
+                                              "column",
+                                              "op",
+                                              "value"
+                                            ],
+                                            "additionalProperties": false
+                                          }
+                                        ]
+                                      }
+                                    }
+                                  },
+                                  "required": [
+                                    "table",
+                                    "filter"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "join": {
+                                  "type": "array",
+                                  "minItems": 1,
+                                  "maxItems": 6,
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "source": {
+                                        "enum": [
+                                          "PROCESS_ID",
+                                          "RETRY_COUNT",
+                                          "TRANSACTION_ID"
+                                        ]
+                                      },
+                                      "target": {
+                                        "enum": [
+                                          "PROCESS_HUB_ID",
+                                          "RETRY_COUNT",
+                                          "TRANSACTION_ID"
+                                        ]
+                                      }
+                                    },
+                                    "required": [
+                                      "source",
+                                      "target"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                }
+                              },
+                              "required": [
+                                "select",
+                                "join"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "select": {
+                                  "type": "object",
+                                  "properties": {
+                                    "table": {
+                                      "const": "ProcessExport"
+                                    },
+                                    "filter": {
+                                      "type": "array",
+                                      "maxItems": 6,
+                                      "items": {
+                                        "oneOf": [
+                                          {
+                                            "type": "object",
+                                            "properties": {
+                                              "column": {
+                                                "enum": [
+                                                  "PROCESS_ID",
+                                                  "RETRY_COUNT",
+                                                  "TRANSACTION_ID"
+                                                ]
+                                              },
+                                              "op": {
+                                                "enum": [
+                                                  "is_missing",
+                                                  "is_present"
+                                                ]
+                                              },
+                                              "value": {
+                                                "type": "null"
+                                              }
+                                            },
+                                            "required": [
+                                              "column",
+                                              "op",
+                                              "value"
+                                            ],
+                                            "additionalProperties": false
+                                          }
+                                        ]
+                                      }
+                                    }
+                                  },
+                                  "required": [
+                                    "table",
+                                    "filter"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "join": {
+                                  "type": "array",
+                                  "minItems": 1,
+                                  "maxItems": 6,
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "source": {
+                                        "enum": [
+                                          "PROCESS_ID",
+                                          "RETRY_COUNT",
+                                          "TRANSACTION_ID"
+                                        ]
+                                      },
+                                      "target": {
+                                        "enum": [
+                                          "PROCESS_ID",
+                                          "RETRY_COUNT",
+                                          "TRANSACTION_ID"
+                                        ]
+                                      }
+                                    },
+                                    "required": [
+                                      "source",
+                                      "target"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                }
+                              },
+                              "required": [
+                                "select",
+                                "join"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "select": {
+                                  "type": "object",
+                                  "properties": {
+                                    "table": {
+                                      "const": "MessageExport"
+                                    },
+                                    "filter": {
+                                      "type": "array",
+                                      "maxItems": 6,
+                                      "items": {
+                                        "oneOf": [
+                                          {
+                                            "type": "object",
+                                            "properties": {
+                                              "column": {
+                                                "enum": [
+                                                  "MESSAGE_ID",
+                                                  "PROCESS_ID",
+                                                  "RETRY_COUNT",
+                                                  "TRANSACTION_ID"
+                                                ]
+                                              },
+                                              "op": {
+                                                "enum": [
+                                                  "is_missing",
+                                                  "is_present"
+                                                ]
+                                              },
+                                              "value": {
+                                                "type": "null"
+                                              }
+                                            },
+                                            "required": [
+                                              "column",
+                                              "op",
+                                              "value"
+                                            ],
+                                            "additionalProperties": false
+                                          }
+                                        ]
+                                      }
+                                    }
+                                  },
+                                  "required": [
+                                    "table",
+                                    "filter"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "join": {
+                                  "type": "array",
+                                  "minItems": 1,
+                                  "maxItems": 6,
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "source": {
+                                        "enum": [
+                                          "PROCESS_ID",
+                                          "RETRY_COUNT",
+                                          "TRANSACTION_ID"
+                                        ]
+                                      },
+                                      "target": {
+                                        "enum": [
+                                          "MESSAGE_ID",
+                                          "PROCESS_ID",
+                                          "RETRY_COUNT",
+                                          "TRANSACTION_ID"
+                                        ]
+                                      }
+                                    },
+                                    "required": [
+                                      "source",
+                                      "target"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                }
+                              },
+                              "required": [
+                                "select",
+                                "join"
+                              ],
+                              "additionalProperties": false
+                            }
+                          ]
+                        },
+                        "explained_by": {
+                          "type": "array",
+                          "minItems": 1,
+                          "maxItems": 4,
+                          "items": {
+                            "oneOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "select": {
+                                    "type": "object",
+                                    "properties": {
+                                      "table": {
+                                        "const": "TransactionExport"
+                                      },
+                                      "filter": {
+                                        "type": "array",
+                                        "maxItems": 6,
+                                        "items": {
+                                          "oneOf": [
+                                            {
+                                              "type": "object",
+                                              "properties": {
+                                                "column": {
+                                                  "enum": [
+                                                    "PROCESS_HUB_ID",
+                                                    "RETRY_COUNT",
+                                                    "TRANSACTION_ID"
+                                                  ]
+                                                },
+                                                "op": {
+                                                  "enum": [
+                                                    "is_missing",
+                                                    "is_present"
+                                                  ]
+                                                },
+                                                "value": {
+                                                  "type": "null"
+                                                }
+                                              },
+                                              "required": [
+                                                "column",
+                                                "op",
+                                                "value"
+                                              ],
+                                              "additionalProperties": false
+                                            }
+                                          ]
+                                        }
+                                      }
+                                    },
+                                    "required": [
+                                      "table",
+                                      "filter"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  "join": {
+                                    "type": "array",
+                                    "minItems": 1,
+                                    "maxItems": 6,
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "source": {
+                                          "enum": [
+                                            "PROCESS_ID",
+                                            "RETRY_COUNT",
+                                            "TRANSACTION_ID"
+                                          ]
+                                        },
+                                        "target": {
+                                          "enum": [
+                                            "PROCESS_HUB_ID",
+                                            "RETRY_COUNT",
+                                            "TRANSACTION_ID"
+                                          ]
+                                        }
+                                      },
+                                      "required": [
+                                        "source",
+                                        "target"
+                                      ],
+                                      "additionalProperties": false
+                                    }
+                                  }
+                                },
+                                "required": [
+                                  "select",
+                                  "join"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "select": {
+                                    "type": "object",
+                                    "properties": {
+                                      "table": {
+                                        "const": "ProcessExport"
+                                      },
+                                      "filter": {
+                                        "type": "array",
+                                        "maxItems": 6,
+                                        "items": {
+                                          "oneOf": [
+                                            {
+                                              "type": "object",
+                                              "properties": {
+                                                "column": {
+                                                  "enum": [
+                                                    "PROCESS_ID",
+                                                    "RETRY_COUNT",
+                                                    "TRANSACTION_ID"
+                                                  ]
+                                                },
+                                                "op": {
+                                                  "enum": [
+                                                    "is_missing",
+                                                    "is_present"
+                                                  ]
+                                                },
+                                                "value": {
+                                                  "type": "null"
+                                                }
+                                              },
+                                              "required": [
+                                                "column",
+                                                "op",
+                                                "value"
+                                              ],
+                                              "additionalProperties": false
+                                            }
+                                          ]
+                                        }
+                                      }
+                                    },
+                                    "required": [
+                                      "table",
+                                      "filter"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  "join": {
+                                    "type": "array",
+                                    "minItems": 1,
+                                    "maxItems": 6,
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "source": {
+                                          "enum": [
+                                            "PROCESS_ID",
+                                            "RETRY_COUNT",
+                                            "TRANSACTION_ID"
+                                          ]
+                                        },
+                                        "target": {
+                                          "enum": [
+                                            "PROCESS_ID",
+                                            "RETRY_COUNT",
+                                            "TRANSACTION_ID"
+                                          ]
+                                        }
+                                      },
+                                      "required": [
+                                        "source",
+                                        "target"
+                                      ],
+                                      "additionalProperties": false
+                                    }
+                                  }
+                                },
+                                "required": [
+                                  "select",
+                                  "join"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "select": {
+                                    "type": "object",
+                                    "properties": {
+                                      "table": {
+                                        "const": "MessageExport"
+                                      },
+                                      "filter": {
+                                        "type": "array",
+                                        "maxItems": 6,
+                                        "items": {
+                                          "oneOf": [
+                                            {
+                                              "type": "object",
+                                              "properties": {
+                                                "column": {
+                                                  "enum": [
+                                                    "MESSAGE_ID",
+                                                    "PROCESS_ID",
+                                                    "RETRY_COUNT",
+                                                    "TRANSACTION_ID"
+                                                  ]
+                                                },
+                                                "op": {
+                                                  "enum": [
+                                                    "is_missing",
+                                                    "is_present"
+                                                  ]
+                                                },
+                                                "value": {
+                                                  "type": "null"
+                                                }
+                                              },
+                                              "required": [
+                                                "column",
+                                                "op",
+                                                "value"
+                                              ],
+                                              "additionalProperties": false
+                                            }
+                                          ]
+                                        }
+                                      }
+                                    },
+                                    "required": [
+                                      "table",
+                                      "filter"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  "join": {
+                                    "type": "array",
+                                    "minItems": 1,
+                                    "maxItems": 6,
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "source": {
+                                          "enum": [
+                                            "PROCESS_ID",
+                                            "RETRY_COUNT",
+                                            "TRANSACTION_ID"
+                                          ]
+                                        },
+                                        "target": {
+                                          "enum": [
+                                            "MESSAGE_ID",
+                                            "PROCESS_ID",
+                                            "RETRY_COUNT",
+                                            "TRANSACTION_ID"
+                                          ]
+                                        }
+                                      },
+                                      "required": [
+                                        "source",
+                                        "target"
+                                      ],
+                                      "additionalProperties": false
+                                    }
+                                  }
+                                },
+                                "required": [
+                                  "select",
+                                  "join"
+                                ],
+                                "additionalProperties": false
+                              }
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "select",
+                        "context",
+                        "explained_by"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "kind": {
+                          "const": "row_check"
+                        },
+                        "select": {
+                          "type": "object",
+                          "properties": {
+                            "table": {
+                              "const": "MessageExport"
+                            },
+                            "filter": {
+                              "type": "array",
+                              "maxItems": 6,
+                              "items": {
+                                "oneOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "column": {
+                                        "enum": [
+                                          "MESSAGE_ID",
+                                          "PROCESS_ID",
+                                          "RETRY_COUNT",
+                                          "TRANSACTION_ID"
+                                        ]
+                                      },
+                                      "op": {
+                                        "enum": [
+                                          "is_missing",
+                                          "is_present"
+                                        ]
+                                      },
+                                      "value": {
+                                        "type": "null"
+                                      }
+                                    },
+                                    "required": [
+                                      "column",
+                                      "op",
+                                      "value"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                ]
+                              }
+                            }
+                          },
+                          "required": [
+                            "table",
+                            "filter"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "select"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "kind": {
+                          "const": "conditional_row_check"
+                        },
+                        "select": {
+                          "type": "object",
+                          "properties": {
+                            "table": {
+                              "const": "MessageExport"
+                            },
+                            "filter": {
+                              "type": "array",
+                              "maxItems": 6,
+                              "items": {
+                                "oneOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "column": {
+                                        "enum": [
+                                          "MESSAGE_ID",
+                                          "PROCESS_ID",
+                                          "RETRY_COUNT",
+                                          "TRANSACTION_ID"
+                                        ]
+                                      },
+                                      "op": {
+                                        "enum": [
+                                          "is_missing",
+                                          "is_present"
+                                        ]
+                                      },
+                                      "value": {
+                                        "type": "null"
+                                      }
+                                    },
+                                    "required": [
+                                      "column",
+                                      "op",
+                                      "value"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                ]
+                              }
+                            }
+                          },
+                          "required": [
+                            "table",
+                            "filter"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "violation": {
+                          "type": "array",
+                          "maxItems": 6,
+                          "items": {
+                            "oneOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "column": {
+                                    "enum": [
+                                      "MESSAGE_ID",
+                                      "PROCESS_ID",
+                                      "RETRY_COUNT",
+                                      "TRANSACTION_ID"
+                                    ]
+                                  },
+                                  "op": {
+                                    "enum": [
+                                      "is_missing",
+                                      "is_present"
+                                    ]
+                                  },
+                                  "value": {
+                                    "type": "null"
+                                  }
+                                },
+                                "required": [
+                                  "column",
+                                  "op",
+                                  "value"
+                                ],
+                                "additionalProperties": false
+                              }
+                            ]
+                          },
+                          "minItems": 1
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "select",
+                        "violation"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "kind": {
+                          "const": "duplicate_key"
+                        },
+                        "select": {
+                          "type": "object",
+                          "properties": {
+                            "table": {
+                              "const": "MessageExport"
+                            },
+                            "filter": {
+                              "type": "array",
+                              "maxItems": 6,
+                              "items": {
+                                "oneOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "column": {
+                                        "enum": [
+                                          "MESSAGE_ID",
+                                          "PROCESS_ID",
+                                          "RETRY_COUNT",
+                                          "TRANSACTION_ID"
+                                        ]
+                                      },
+                                      "op": {
+                                        "enum": [
+                                          "is_missing",
+                                          "is_present"
+                                        ]
+                                      },
+                                      "value": {
+                                        "type": "null"
+                                      }
+                                    },
+                                    "required": [
+                                      "column",
+                                      "op",
+                                      "value"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                ]
+                              }
+                            }
+                          },
+                          "required": [
+                            "table",
+                            "filter"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "keys": {
+                          "type": "array",
+                          "minItems": 1,
+                          "maxItems": 6,
+                          "items": {
+                            "enum": [
+                              "MESSAGE_ID",
+                              "PROCESS_ID",
+                              "RETRY_COUNT",
+                              "TRANSACTION_ID"
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "select",
+                        "keys"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "kind": {
+                          "const": "relation_check"
+                        },
+                        "select": {
+                          "type": "object",
+                          "properties": {
+                            "table": {
+                              "const": "MessageExport"
+                            },
+                            "filter": {
+                              "type": "array",
+                              "maxItems": 6,
+                              "items": {
+                                "oneOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "column": {
+                                        "enum": [
+                                          "MESSAGE_ID",
+                                          "PROCESS_ID",
+                                          "RETRY_COUNT",
+                                          "TRANSACTION_ID"
+                                        ]
+                                      },
+                                      "op": {
+                                        "enum": [
+                                          "is_missing",
+                                          "is_present"
+                                        ]
+                                      },
+                                      "value": {
+                                        "type": "null"
+                                      }
+                                    },
+                                    "required": [
+                                      "column",
+                                      "op",
+                                      "value"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                ]
+                              }
+                            }
+                          },
+                          "required": [
+                            "table",
+                            "filter"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "related": {
+                          "oneOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "select": {
+                                  "type": "object",
+                                  "properties": {
+                                    "table": {
+                                      "const": "TransactionExport"
+                                    },
+                                    "filter": {
+                                      "type": "array",
+                                      "maxItems": 6,
+                                      "items": {
+                                        "oneOf": [
+                                          {
+                                            "type": "object",
+                                            "properties": {
+                                              "column": {
+                                                "enum": [
+                                                  "PROCESS_HUB_ID",
+                                                  "RETRY_COUNT",
+                                                  "TRANSACTION_ID"
+                                                ]
+                                              },
+                                              "op": {
+                                                "enum": [
+                                                  "is_missing",
+                                                  "is_present"
+                                                ]
+                                              },
+                                              "value": {
+                                                "type": "null"
+                                              }
+                                            },
+                                            "required": [
+                                              "column",
+                                              "op",
+                                              "value"
+                                            ],
+                                            "additionalProperties": false
+                                          }
+                                        ]
+                                      }
+                                    }
+                                  },
+                                  "required": [
+                                    "table",
+                                    "filter"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "join": {
+                                  "type": "array",
+                                  "minItems": 1,
+                                  "maxItems": 6,
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "source": {
+                                        "enum": [
+                                          "MESSAGE_ID",
+                                          "PROCESS_ID",
+                                          "RETRY_COUNT",
+                                          "TRANSACTION_ID"
+                                        ]
+                                      },
+                                      "target": {
+                                        "enum": [
+                                          "PROCESS_HUB_ID",
+                                          "RETRY_COUNT",
+                                          "TRANSACTION_ID"
+                                        ]
+                                      }
+                                    },
+                                    "required": [
+                                      "source",
+                                      "target"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                }
+                              },
+                              "required": [
+                                "select",
+                                "join"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "select": {
+                                  "type": "object",
+                                  "properties": {
+                                    "table": {
+                                      "const": "ProcessExport"
+                                    },
+                                    "filter": {
+                                      "type": "array",
+                                      "maxItems": 6,
+                                      "items": {
+                                        "oneOf": [
+                                          {
+                                            "type": "object",
+                                            "properties": {
+                                              "column": {
+                                                "enum": [
+                                                  "PROCESS_ID",
+                                                  "RETRY_COUNT",
+                                                  "TRANSACTION_ID"
+                                                ]
+                                              },
+                                              "op": {
+                                                "enum": [
+                                                  "is_missing",
+                                                  "is_present"
+                                                ]
+                                              },
+                                              "value": {
+                                                "type": "null"
+                                              }
+                                            },
+                                            "required": [
+                                              "column",
+                                              "op",
+                                              "value"
+                                            ],
+                                            "additionalProperties": false
+                                          }
+                                        ]
+                                      }
+                                    }
+                                  },
+                                  "required": [
+                                    "table",
+                                    "filter"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "join": {
+                                  "type": "array",
+                                  "minItems": 1,
+                                  "maxItems": 6,
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "source": {
+                                        "enum": [
+                                          "MESSAGE_ID",
+                                          "PROCESS_ID",
+                                          "RETRY_COUNT",
+                                          "TRANSACTION_ID"
+                                        ]
+                                      },
+                                      "target": {
+                                        "enum": [
+                                          "PROCESS_ID",
+                                          "RETRY_COUNT",
+                                          "TRANSACTION_ID"
+                                        ]
+                                      }
+                                    },
+                                    "required": [
+                                      "source",
+                                      "target"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                }
+                              },
+                              "required": [
+                                "select",
+                                "join"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "select": {
+                                  "type": "object",
+                                  "properties": {
+                                    "table": {
+                                      "const": "MessageExport"
+                                    },
+                                    "filter": {
+                                      "type": "array",
+                                      "maxItems": 6,
+                                      "items": {
+                                        "oneOf": [
+                                          {
+                                            "type": "object",
+                                            "properties": {
+                                              "column": {
+                                                "enum": [
+                                                  "MESSAGE_ID",
+                                                  "PROCESS_ID",
+                                                  "RETRY_COUNT",
+                                                  "TRANSACTION_ID"
+                                                ]
+                                              },
+                                              "op": {
+                                                "enum": [
+                                                  "is_missing",
+                                                  "is_present"
+                                                ]
+                                              },
+                                              "value": {
+                                                "type": "null"
+                                              }
+                                            },
+                                            "required": [
+                                              "column",
+                                              "op",
+                                              "value"
+                                            ],
+                                            "additionalProperties": false
+                                          }
+                                        ]
+                                      }
+                                    }
+                                  },
+                                  "required": [
+                                    "table",
+                                    "filter"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "join": {
+                                  "type": "array",
+                                  "minItems": 1,
+                                  "maxItems": 6,
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "source": {
+                                        "enum": [
+                                          "MESSAGE_ID",
+                                          "PROCESS_ID",
+                                          "RETRY_COUNT",
+                                          "TRANSACTION_ID"
+                                        ]
+                                      },
+                                      "target": {
+                                        "enum": [
+                                          "MESSAGE_ID",
+                                          "PROCESS_ID",
+                                          "RETRY_COUNT",
+                                          "TRANSACTION_ID"
+                                        ]
+                                      }
+                                    },
+                                    "required": [
+                                      "source",
+                                      "target"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                }
+                              },
+                              "required": [
+                                "select",
+                                "join"
+                              ],
+                              "additionalProperties": false
+                            }
+                          ]
+                        },
+                        "violation": {
+                          "enum": [
+                            "required_match_missing",
+                            "match_present",
+                            "match_not_exactly_one"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "select",
+                        "related",
+                        "violation"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "kind": {
+                          "const": "unexplained_event"
+                        },
+                        "select": {
+                          "type": "object",
+                          "properties": {
+                            "table": {
+                              "const": "MessageExport"
+                            },
+                            "filter": {
+                              "type": "array",
+                              "maxItems": 6,
+                              "items": {
+                                "oneOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "column": {
+                                        "enum": [
+                                          "MESSAGE_ID",
+                                          "PROCESS_ID",
+                                          "RETRY_COUNT",
+                                          "TRANSACTION_ID"
+                                        ]
+                                      },
+                                      "op": {
+                                        "enum": [
+                                          "is_missing",
+                                          "is_present"
+                                        ]
+                                      },
+                                      "value": {
+                                        "type": "null"
+                                      }
+                                    },
+                                    "required": [
+                                      "column",
+                                      "op",
+                                      "value"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                ]
+                              }
+                            }
+                          },
+                          "required": [
+                            "table",
+                            "filter"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "context": {
+                          "oneOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "select": {
+                                  "type": "object",
+                                  "properties": {
+                                    "table": {
+                                      "const": "TransactionExport"
+                                    },
+                                    "filter": {
+                                      "type": "array",
+                                      "maxItems": 6,
+                                      "items": {
+                                        "oneOf": [
+                                          {
+                                            "type": "object",
+                                            "properties": {
+                                              "column": {
+                                                "enum": [
+                                                  "PROCESS_HUB_ID",
+                                                  "RETRY_COUNT",
+                                                  "TRANSACTION_ID"
+                                                ]
+                                              },
+                                              "op": {
+                                                "enum": [
+                                                  "is_missing",
+                                                  "is_present"
+                                                ]
+                                              },
+                                              "value": {
+                                                "type": "null"
+                                              }
+                                            },
+                                            "required": [
+                                              "column",
+                                              "op",
+                                              "value"
+                                            ],
+                                            "additionalProperties": false
+                                          }
+                                        ]
+                                      }
+                                    }
+                                  },
+                                  "required": [
+                                    "table",
+                                    "filter"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "join": {
+                                  "type": "array",
+                                  "minItems": 1,
+                                  "maxItems": 6,
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "source": {
+                                        "enum": [
+                                          "MESSAGE_ID",
+                                          "PROCESS_ID",
+                                          "RETRY_COUNT",
+                                          "TRANSACTION_ID"
+                                        ]
+                                      },
+                                      "target": {
+                                        "enum": [
+                                          "PROCESS_HUB_ID",
+                                          "RETRY_COUNT",
+                                          "TRANSACTION_ID"
+                                        ]
+                                      }
+                                    },
+                                    "required": [
+                                      "source",
+                                      "target"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                }
+                              },
+                              "required": [
+                                "select",
+                                "join"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "select": {
+                                  "type": "object",
+                                  "properties": {
+                                    "table": {
+                                      "const": "ProcessExport"
+                                    },
+                                    "filter": {
+                                      "type": "array",
+                                      "maxItems": 6,
+                                      "items": {
+                                        "oneOf": [
+                                          {
+                                            "type": "object",
+                                            "properties": {
+                                              "column": {
+                                                "enum": [
+                                                  "PROCESS_ID",
+                                                  "RETRY_COUNT",
+                                                  "TRANSACTION_ID"
+                                                ]
+                                              },
+                                              "op": {
+                                                "enum": [
+                                                  "is_missing",
+                                                  "is_present"
+                                                ]
+                                              },
+                                              "value": {
+                                                "type": "null"
+                                              }
+                                            },
+                                            "required": [
+                                              "column",
+                                              "op",
+                                              "value"
+                                            ],
+                                            "additionalProperties": false
+                                          }
+                                        ]
+                                      }
+                                    }
+                                  },
+                                  "required": [
+                                    "table",
+                                    "filter"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "join": {
+                                  "type": "array",
+                                  "minItems": 1,
+                                  "maxItems": 6,
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "source": {
+                                        "enum": [
+                                          "MESSAGE_ID",
+                                          "PROCESS_ID",
+                                          "RETRY_COUNT",
+                                          "TRANSACTION_ID"
+                                        ]
+                                      },
+                                      "target": {
+                                        "enum": [
+                                          "PROCESS_ID",
+                                          "RETRY_COUNT",
+                                          "TRANSACTION_ID"
+                                        ]
+                                      }
+                                    },
+                                    "required": [
+                                      "source",
+                                      "target"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                }
+                              },
+                              "required": [
+                                "select",
+                                "join"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "select": {
+                                  "type": "object",
+                                  "properties": {
+                                    "table": {
+                                      "const": "MessageExport"
+                                    },
+                                    "filter": {
+                                      "type": "array",
+                                      "maxItems": 6,
+                                      "items": {
+                                        "oneOf": [
+                                          {
+                                            "type": "object",
+                                            "properties": {
+                                              "column": {
+                                                "enum": [
+                                                  "MESSAGE_ID",
+                                                  "PROCESS_ID",
+                                                  "RETRY_COUNT",
+                                                  "TRANSACTION_ID"
+                                                ]
+                                              },
+                                              "op": {
+                                                "enum": [
+                                                  "is_missing",
+                                                  "is_present"
+                                                ]
+                                              },
+                                              "value": {
+                                                "type": "null"
+                                              }
+                                            },
+                                            "required": [
+                                              "column",
+                                              "op",
+                                              "value"
+                                            ],
+                                            "additionalProperties": false
+                                          }
+                                        ]
+                                      }
+                                    }
+                                  },
+                                  "required": [
+                                    "table",
+                                    "filter"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "join": {
+                                  "type": "array",
+                                  "minItems": 1,
+                                  "maxItems": 6,
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "source": {
+                                        "enum": [
+                                          "MESSAGE_ID",
+                                          "PROCESS_ID",
+                                          "RETRY_COUNT",
+                                          "TRANSACTION_ID"
+                                        ]
+                                      },
+                                      "target": {
+                                        "enum": [
+                                          "MESSAGE_ID",
+                                          "PROCESS_ID",
+                                          "RETRY_COUNT",
+                                          "TRANSACTION_ID"
+                                        ]
+                                      }
+                                    },
+                                    "required": [
+                                      "source",
+                                      "target"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                }
+                              },
+                              "required": [
+                                "select",
+                                "join"
+                              ],
+                              "additionalProperties": false
+                            }
+                          ]
+                        },
+                        "explained_by": {
+                          "type": "array",
+                          "minItems": 1,
+                          "maxItems": 4,
+                          "items": {
+                            "oneOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "select": {
+                                    "type": "object",
+                                    "properties": {
+                                      "table": {
+                                        "const": "TransactionExport"
+                                      },
+                                      "filter": {
+                                        "type": "array",
+                                        "maxItems": 6,
+                                        "items": {
+                                          "oneOf": [
+                                            {
+                                              "type": "object",
+                                              "properties": {
+                                                "column": {
+                                                  "enum": [
+                                                    "PROCESS_HUB_ID",
+                                                    "RETRY_COUNT",
+                                                    "TRANSACTION_ID"
+                                                  ]
+                                                },
+                                                "op": {
+                                                  "enum": [
+                                                    "is_missing",
+                                                    "is_present"
+                                                  ]
+                                                },
+                                                "value": {
+                                                  "type": "null"
+                                                }
+                                              },
+                                              "required": [
+                                                "column",
+                                                "op",
+                                                "value"
+                                              ],
+                                              "additionalProperties": false
+                                            }
+                                          ]
+                                        }
+                                      }
+                                    },
+                                    "required": [
+                                      "table",
+                                      "filter"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  "join": {
+                                    "type": "array",
+                                    "minItems": 1,
+                                    "maxItems": 6,
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "source": {
+                                          "enum": [
+                                            "MESSAGE_ID",
+                                            "PROCESS_ID",
+                                            "RETRY_COUNT",
+                                            "TRANSACTION_ID"
+                                          ]
+                                        },
+                                        "target": {
+                                          "enum": [
+                                            "PROCESS_HUB_ID",
+                                            "RETRY_COUNT",
+                                            "TRANSACTION_ID"
+                                          ]
+                                        }
+                                      },
+                                      "required": [
+                                        "source",
+                                        "target"
+                                      ],
+                                      "additionalProperties": false
+                                    }
+                                  }
+                                },
+                                "required": [
+                                  "select",
+                                  "join"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "select": {
+                                    "type": "object",
+                                    "properties": {
+                                      "table": {
+                                        "const": "ProcessExport"
+                                      },
+                                      "filter": {
+                                        "type": "array",
+                                        "maxItems": 6,
+                                        "items": {
+                                          "oneOf": [
+                                            {
+                                              "type": "object",
+                                              "properties": {
+                                                "column": {
+                                                  "enum": [
+                                                    "PROCESS_ID",
+                                                    "RETRY_COUNT",
+                                                    "TRANSACTION_ID"
+                                                  ]
+                                                },
+                                                "op": {
+                                                  "enum": [
+                                                    "is_missing",
+                                                    "is_present"
+                                                  ]
+                                                },
+                                                "value": {
+                                                  "type": "null"
+                                                }
+                                              },
+                                              "required": [
+                                                "column",
+                                                "op",
+                                                "value"
+                                              ],
+                                              "additionalProperties": false
+                                            }
+                                          ]
+                                        }
+                                      }
+                                    },
+                                    "required": [
+                                      "table",
+                                      "filter"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  "join": {
+                                    "type": "array",
+                                    "minItems": 1,
+                                    "maxItems": 6,
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "source": {
+                                          "enum": [
+                                            "MESSAGE_ID",
+                                            "PROCESS_ID",
+                                            "RETRY_COUNT",
+                                            "TRANSACTION_ID"
+                                          ]
+                                        },
+                                        "target": {
+                                          "enum": [
+                                            "PROCESS_ID",
+                                            "RETRY_COUNT",
+                                            "TRANSACTION_ID"
+                                          ]
+                                        }
+                                      },
+                                      "required": [
+                                        "source",
+                                        "target"
+                                      ],
+                                      "additionalProperties": false
+                                    }
+                                  }
+                                },
+                                "required": [
+                                  "select",
+                                  "join"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "select": {
+                                    "type": "object",
+                                    "properties": {
+                                      "table": {
+                                        "const": "MessageExport"
+                                      },
+                                      "filter": {
+                                        "type": "array",
+                                        "maxItems": 6,
+                                        "items": {
+                                          "oneOf": [
+                                            {
+                                              "type": "object",
+                                              "properties": {
+                                                "column": {
+                                                  "enum": [
+                                                    "MESSAGE_ID",
+                                                    "PROCESS_ID",
+                                                    "RETRY_COUNT",
+                                                    "TRANSACTION_ID"
+                                                  ]
+                                                },
+                                                "op": {
+                                                  "enum": [
+                                                    "is_missing",
+                                                    "is_present"
+                                                  ]
+                                                },
+                                                "value": {
+                                                  "type": "null"
+                                                }
+                                              },
+                                              "required": [
+                                                "column",
+                                                "op",
+                                                "value"
+                                              ],
+                                              "additionalProperties": false
+                                            }
+                                          ]
+                                        }
+                                      }
+                                    },
+                                    "required": [
+                                      "table",
+                                      "filter"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  "join": {
+                                    "type": "array",
+                                    "minItems": 1,
+                                    "maxItems": 6,
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "source": {
+                                          "enum": [
+                                            "MESSAGE_ID",
+                                            "PROCESS_ID",
+                                            "RETRY_COUNT",
+                                            "TRANSACTION_ID"
+                                          ]
+                                        },
+                                        "target": {
+                                          "enum": [
+                                            "MESSAGE_ID",
+                                            "PROCESS_ID",
+                                            "RETRY_COUNT",
+                                            "TRANSACTION_ID"
+                                          ]
+                                        }
+                                      },
+                                      "required": [
+                                        "source",
+                                        "target"
+                                      ],
+                                      "additionalProperties": false
+                                    }
+                                  }
+                                },
+                                "required": [
+                                  "select",
+                                  "join"
+                                ],
+                                "additionalProperties": false
+                              }
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "select",
+                        "context",
+                        "explained_by"
+                      ],
+                      "additionalProperties": false
+                    }
+                  ]
+                },
+                "needed": {
+                  "type": "array",
+                  "maxItems": 0,
+                  "items": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 240
+                  }
+                }
+              },
+              "required": [
+                "id",
+                "requires_complete_capture",
+                "evidence",
+                "normal_exceptions",
+                "reason",
+                "role",
+                "plan",
+                "needed"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 240
+                },
+                "requires_complete_capture": {
+                  "type": "boolean"
+                },
+                "evidence": {
+                  "type": "array",
+                  "minItems": 1,
+                  "maxItems": 8,
+                  "items": {
+                    "oneOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "document_id": {
+                            "const": "table-name-aliases"
+                          },
+                          "quote": {
+                            "const": "In the supplied schema, T means TransactionExport, P means ProcessExport, and M means MessageExport. These aliases are used only to abbreviate the CSV file names in the lookup descriptions."
+                          }
+                        },
+                        "required": [
+                          "document_id",
+                          "quote"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "document_id": {
+                            "const": "export-value-lookup"
+                          },
+                          "quote": {
+                            "const": "This profile compares P.TRANSACTION_ID to the identical T.TRANSACTION_ID string. It compares the pair (M.TRANSACTION_ID, M.PROCESS_ID) to the identical pair in P. Comparisons are literal string-value lookups in the supplied CSV snapshots."
+                          }
+                        },
+                        "required": [
+                          "document_id",
+                          "quote"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "document_id": {
+                            "const": "export-scope-limit"
+                          },
+                          "quote": {
+                            "const": "These lookups do not assume a target has exactly one row, do not equate RETRY_COUNT across files, and do not establish a required child, a foreign-key contract, or an operational business obligation."
+                          }
+                        },
+                        "required": [
+                          "document_id",
+                          "quote"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "document_id": {
+                            "const": "snapshot-closure"
+                          },
+                          "quote": {
+                            "const": "For this analysis, entity_family_complete=true means all rows in these three source CSV exports with each selected TRANSACTION_ID were loaded. It says nothing about completeness of operational logs outside these exports."
+                          }
+                        },
+                        "required": [
+                          "document_id",
+                          "quote"
+                        ],
+                        "additionalProperties": false
+                      }
+                    ]
+                  }
+                },
+                "normal_exceptions": {
+                  "type": "array",
+                  "maxItems": 4,
+                  "items": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 240
+                  }
+                },
+                "reason": {
+                  "type": "string",
+                  "minLength": 8,
+                  "maxLength": 400
+                },
+                "role": {
+                  "const": "request_evidence"
+                },
+                "plan": {
+                  "type": "null"
+                },
+                "needed": {
+                  "type": "array",
+                  "minItems": 1,
+                  "maxItems": 5,
+                  "items": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 240
+                  }
+                }
+              },
+              "required": [
+                "id",
+                "requires_complete_capture",
+                "evidence",
+                "normal_exceptions",
+                "reason",
+                "role",
+                "plan",
+                "needed"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        }
+      },
+      "no_candidate_reason": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "maxLength": 400
+      }
+    },
+    "required": [
+      "candidates",
+      "no_candidate_reason"
+    ],
+    "additionalProperties": false
+  },
+  "inferred_source_columns": {
+    "TransactionExport": [
+      "PROCESS_HUB_ID",
+      "RETRY_COUNT",
+      "TRANSACTION_ID"
+    ],
+    "ProcessExport": [
+      "PROCESS_ID",
+      "RETRY_COUNT",
+      "TRANSACTION_ID"
+    ],
+    "MessageExport": [
+      "MESSAGE_ID",
+      "PROCESS_ID",
+      "RETRY_COUNT",
+      "TRANSACTION_ID"
+    ]
+  },
+  "inferred_source_types": {
+    "TransactionExport.PROCESS_HUB_ID": "string",
+    "TransactionExport.RETRY_COUNT": "string",
+    "TransactionExport.TRANSACTION_ID": "string",
+    "ProcessExport.PROCESS_ID": "string",
+    "ProcessExport.RETRY_COUNT": "string",
+    "ProcessExport.TRANSACTION_ID": "string",
+    "MessageExport.MESSAGE_ID": "string",
+    "MessageExport.PROCESS_ID": "string",
+    "MessageExport.RETRY_COUNT": "string",
+    "MessageExport.TRANSACTION_ID": "string"
+  },
+  "adopted_operational_rules": [],
+  "semantic_and_operational_review": "pending",
+  "actual_model_weight_sha": "f36ce52e0690e8eefe2cfb26aa5d0f2c37f629a49f7ecd8063a37980233ee496",
+  "Base_revision": "6a9e13bd6fc8f0983b9b99948120bc37f49c13e9",
+  "prompt_policy": "source-only-scope-review1.5-source-evidence",
+  "citation_policy": "exact-input-spans1.1",
+  "execution_feedback_policy": "source-only-execution-feedback1.0",
+  "input_availability_policy": "required-input-availability1.0",
+  "predicate_consistency_policy": "literal-conjunction-consistency1.2-conditional-row",
+  "declared_reference_guard_policy": "declared-self-reference-direction1.0",
+  "sample_execution_rows_removed": true,
+  "compiled_from_actual_pack_sha256": "d921bf3a5af66f0415e95d6bccdf850abb7288097171eb8867ec0ead274abe36",
+  "original_proposal_sha256": "a26677a01f26a5f3a0f8d66a1da6237773ed774f342dbbe632cee0938d1f4a77"
+}

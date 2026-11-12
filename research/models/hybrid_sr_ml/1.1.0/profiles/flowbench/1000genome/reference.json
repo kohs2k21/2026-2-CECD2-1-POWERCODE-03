@@ -1,0 +1,902 @@
+{
+  "version": "conditional_numeric_SR_1.0.1",
+  "names": [
+    "input_transfer_relative_execution",
+    "post_script_delay",
+    "queue_delay",
+    "runtime",
+    "stage_in_delay",
+    "stage_out_delay",
+    "wms_delay"
+  ],
+  "units": {
+    "input_transfer_relative_execution": "ratio",
+    "post_script_delay": "second",
+    "queue_delay": "second",
+    "runtime": "second",
+    "stage_in_delay": "second",
+    "stage_out_delay": "second",
+    "waiting_relative_execution": "ratio",
+    "wms_delay": "second"
+  },
+  "fit_rows": 3425,
+  "fit_runs": 25,
+  "group_vocabulary_from": "TRAIN only",
+  "minimum_rows": 20,
+  "minimum_runs": 10,
+  "groups": {
+    "global": {
+      "input_transfer_relative_execution": {
+        "supported": true,
+        "n": 3300,
+        "runs": 25,
+        "median": 0.051091377253524736,
+        "p95": 0.13793103448275862,
+        "p99": 0.647088235294117,
+        "spread": 0.08683965722923388,
+        "unit": "ratio",
+        "scale_floor": 0.01
+      },
+      "post_script_delay": {
+        "supported": true,
+        "n": 3425,
+        "runs": 25,
+        "median": 5.0,
+        "p95": 5.0,
+        "p99": 6.0,
+        "spread": 1.0,
+        "unit": "second",
+        "scale_floor": 1.0
+      },
+      "queue_delay": {
+        "supported": true,
+        "n": 3425,
+        "runs": 25,
+        "median": 20.0,
+        "p95": 1021.0,
+        "p99": 1028.0,
+        "spread": 1001.0,
+        "unit": "second",
+        "scale_floor": 1.0
+      },
+      "runtime": {
+        "supported": true,
+        "n": 3425,
+        "runs": 25,
+        "median": 1001.0,
+        "p95": 1053.0,
+        "p99": 1155.5599999999986,
+        "spread": 779.0,
+        "unit": "second",
+        "scale_floor": 1.0
+      },
+      "stage_in_delay": {
+        "supported": true,
+        "n": 3300,
+        "runs": 25,
+        "median": 45.0,
+        "p95": 72.0,
+        "p99": 75.0,
+        "spread": 51.0,
+        "unit": "second",
+        "scale_floor": 1.0
+      },
+      "stage_out_delay": {
+        "supported": true,
+        "n": 3296,
+        "runs": 25,
+        "median": 5.0,
+        "p95": 5.0,
+        "p99": 6.0,
+        "spread": 1.0,
+        "unit": "second",
+        "scale_floor": 1.0
+      },
+      "wms_delay": {
+        "supported": true,
+        "n": 3425,
+        "runs": 25,
+        "median": 5.0,
+        "p95": 6.0,
+        "p99": 10.0,
+        "spread": 1.0,
+        "unit": "second",
+        "scale_floor": 1.0
+      }
+    },
+    "kind:auxiliary": {
+      "input_transfer_relative_execution": {
+        "supported": false,
+        "n": 0,
+        "runs": 0,
+        "reason": "insufficient_numeric_reference"
+      },
+      "post_script_delay": {
+        "supported": true,
+        "n": 50,
+        "runs": 25,
+        "median": 5.0,
+        "p95": 5.0,
+        "p99": 5.0,
+        "spread": 1.0,
+        "unit": "second",
+        "scale_floor": 1.0
+      },
+      "queue_delay": {
+        "supported": true,
+        "n": 50,
+        "runs": 25,
+        "median": 2.5,
+        "p95": 5.549999999999997,
+        "p99": 6.0,
+        "spread": 4.0,
+        "unit": "second",
+        "scale_floor": 1.0
+      },
+      "runtime": {
+        "supported": true,
+        "n": 50,
+        "runs": 25,
+        "median": 5.0,
+        "p95": 6.0,
+        "p99": 6.0,
+        "spread": 1.0,
+        "unit": "second",
+        "scale_floor": 1.0
+      },
+      "stage_in_delay": {
+        "supported": false,
+        "n": 0,
+        "runs": 0,
+        "reason": "insufficient_numeric_reference"
+      },
+      "stage_out_delay": {
+        "supported": false,
+        "n": 0,
+        "runs": 0,
+        "reason": "insufficient_numeric_reference"
+      },
+      "wms_delay": {
+        "supported": true,
+        "n": 50,
+        "runs": 25,
+        "median": 3.0,
+        "p95": 5.0,
+        "p99": 5.0,
+        "spread": 4.0,
+        "unit": "second",
+        "scale_floor": 1.0
+      }
+    },
+    "kind:compute": {
+      "input_transfer_relative_execution": {
+        "supported": true,
+        "n": 3300,
+        "runs": 25,
+        "median": 0.051091377253524736,
+        "p95": 0.13793103448275862,
+        "p99": 0.647088235294117,
+        "spread": 0.08683965722923388,
+        "unit": "ratio",
+        "scale_floor": 0.01
+      },
+      "post_script_delay": {
+        "supported": true,
+        "n": 3300,
+        "runs": 25,
+        "median": 5.0,
+        "p95": 5.0,
+        "p99": 6.0,
+        "spread": 1.0,
+        "unit": "second",
+        "scale_floor": 1.0
+      },
+      "queue_delay": {
+        "supported": true,
+        "n": 3300,
+        "runs": 25,
+        "median": 20.0,
+        "p95": 1021.0,
+        "p99": 1028.0,
+        "spread": 1001.0,
+        "unit": "second",
+        "scale_floor": 1.0
+      },
+      "runtime": {
+        "supported": true,
+        "n": 3300,
+        "runs": 25,
+        "median": 1004.5,
+        "p95": 1055.0,
+        "p99": 1157.0099999999998,
+        "spread": 266.0,
+        "unit": "second",
+        "scale_floor": 1.0
+      },
+      "stage_in_delay": {
+        "supported": true,
+        "n": 3300,
+        "runs": 25,
+        "median": 45.0,
+        "p95": 72.0,
+        "p99": 75.0,
+        "spread": 51.0,
+        "unit": "second",
+        "scale_floor": 1.0
+      },
+      "stage_out_delay": {
+        "supported": true,
+        "n": 3296,
+        "runs": 25,
+        "median": 5.0,
+        "p95": 5.0,
+        "p99": 6.0,
+        "spread": 1.0,
+        "unit": "second",
+        "scale_floor": 1.0
+      },
+      "wms_delay": {
+        "supported": true,
+        "n": 3300,
+        "runs": 25,
+        "median": 5.0,
+        "p95": 6.0,
+        "p99": 10.0,
+        "spread": 1.0,
+        "unit": "second",
+        "scale_floor": 1.0
+      }
+    },
+    "kind:transfer": {
+      "input_transfer_relative_execution": {
+        "supported": false,
+        "n": 0,
+        "runs": 0,
+        "reason": "insufficient_numeric_reference"
+      },
+      "post_script_delay": {
+        "supported": true,
+        "n": 75,
+        "runs": 25,
+        "median": 5.0,
+        "p95": 5.0,
+        "p99": 6.0,
+        "spread": 1.0,
+        "unit": "second",
+        "scale_floor": 1.0
+      },
+      "queue_delay": {
+        "supported": true,
+        "n": 75,
+        "runs": 25,
+        "median": 0.0,
+        "p95": 1.0,
+        "p99": 1.0,
+        "spread": 1.0,
+        "unit": "second",
+        "scale_floor": 1.0
+      },
+      "runtime": {
+        "supported": true,
+        "n": 75,
+        "runs": 25,
+        "median": 5.0,
+        "p95": 5.0,
+        "p99": 9.260000000000005,
+        "spread": 1.0,
+        "unit": "second",
+        "scale_floor": 1.0
+      },
+      "stage_in_delay": {
+        "supported": false,
+        "n": 0,
+        "runs": 0,
+        "reason": "insufficient_numeric_reference"
+      },
+      "stage_out_delay": {
+        "supported": false,
+        "n": 0,
+        "runs": 0,
+        "reason": "insufficient_numeric_reference"
+      },
+      "wms_delay": {
+        "supported": true,
+        "n": 75,
+        "runs": 25,
+        "median": 5.0,
+        "p95": 6.0,
+        "p99": 6.0,
+        "spread": 1.0,
+        "unit": "second",
+        "scale_floor": 1.0
+      }
+    },
+    "family:auxiliary|pegasus::cleanup": {
+      "input_transfer_relative_execution": {
+        "supported": false,
+        "n": 0,
+        "runs": 0,
+        "reason": "insufficient_numeric_reference"
+      },
+      "post_script_delay": {
+        "supported": true,
+        "n": 25,
+        "runs": 25,
+        "median": 5.0,
+        "p95": 5.0,
+        "p99": 5.0,
+        "spread": 1.0,
+        "unit": "second",
+        "scale_floor": 1.0
+      },
+      "queue_delay": {
+        "supported": true,
+        "n": 25,
+        "runs": 25,
+        "median": 0.0,
+        "p95": 1.0,
+        "p99": 1.0,
+        "spread": 1.0,
+        "unit": "second",
+        "scale_floor": 1.0
+      },
+      "runtime": {
+        "supported": true,
+        "n": 25,
+        "runs": 25,
+        "median": 5.0,
+        "p95": 5.0,
+        "p99": 5.0,
+        "spread": 1.0,
+        "unit": "second",
+        "scale_floor": 1.0
+      },
+      "stage_in_delay": {
+        "supported": false,
+        "n": 0,
+        "runs": 0,
+        "reason": "insufficient_numeric_reference"
+      },
+      "stage_out_delay": {
+        "supported": false,
+        "n": 0,
+        "runs": 0,
+        "reason": "insufficient_numeric_reference"
+      },
+      "wms_delay": {
+        "supported": true,
+        "n": 25,
+        "runs": 25,
+        "median": 5.0,
+        "p95": 5.0,
+        "p99": 5.0,
+        "spread": 1.0,
+        "unit": "second",
+        "scale_floor": 1.0
+      }
+    },
+    "family:auxiliary|pegasus::dirmanager": {
+      "input_transfer_relative_execution": {
+        "supported": false,
+        "n": 0,
+        "runs": 0,
+        "reason": "insufficient_numeric_reference"
+      },
+      "post_script_delay": {
+        "supported": true,
+        "n": 25,
+        "runs": 25,
+        "median": 5.0,
+        "p95": 5.0,
+        "p99": 5.0,
+        "spread": 1.0,
+        "unit": "second",
+        "scale_floor": 1.0
+      },
+      "queue_delay": {
+        "supported": true,
+        "n": 25,
+        "runs": 25,
+        "median": 4.0,
+        "p95": 6.0,
+        "p99": 6.0,
+        "spread": 2.0,
+        "unit": "second",
+        "scale_floor": 1.0
+      },
+      "runtime": {
+        "supported": true,
+        "n": 25,
+        "runs": 25,
+        "median": 6.0,
+        "p95": 6.0,
+        "p99": 6.0,
+        "spread": 1.0,
+        "unit": "second",
+        "scale_floor": 1.0
+      },
+      "stage_in_delay": {
+        "supported": false,
+        "n": 0,
+        "runs": 0,
+        "reason": "insufficient_numeric_reference"
+      },
+      "stage_out_delay": {
+        "supported": false,
+        "n": 0,
+        "runs": 0,
+        "reason": "insufficient_numeric_reference"
+      },
+      "wms_delay": {
+        "supported": true,
+        "n": 25,
+        "runs": 25,
+        "median": 1.0,
+        "p95": 1.0,
+        "p99": 1.0,
+        "spread": 1.0,
+        "unit": "second",
+        "scale_floor": 1.0
+      }
+    },
+    "family:compute|frequency": {
+      "input_transfer_relative_execution": {
+        "supported": true,
+        "n": 350,
+        "runs": 25,
+        "median": 0.018691588785046728,
+        "p95": 0.027255583273936804,
+        "p99": 0.02857142857142857,
+        "spread": 0.01,
+        "unit": "ratio",
+        "scale_floor": 0.01
+      },
+      "post_script_delay": {
+        "supported": true,
+        "n": 350,
+        "runs": 25,
+        "median": 5.0,
+        "p95": 5.550000000000011,
+        "p99": 6.0,
+        "spread": 1.0,
+        "unit": "second",
+        "scale_floor": 1.0
+      },
+      "queue_delay": {
+        "supported": true,
+        "n": 350,
+        "runs": 25,
+        "median": 1.0,
+        "p95": 11.0,
+        "p99": 15.0,
+        "spread": 10.0,
+        "unit": "second",
+        "scale_floor": 1.0
+      },
+      "runtime": {
+        "supported": true,
+        "n": 350,
+        "runs": 25,
+        "median": 202.5,
+        "p95": 264.0,
+        "p99": 269.51,
+        "spread": 61.5,
+        "unit": "second",
+        "scale_floor": 1.0
+      },
+      "stage_in_delay": {
+        "supported": true,
+        "n": 350,
+        "runs": 25,
+        "median": 4.0,
+        "p95": 5.0,
+        "p99": 5.0,
+        "spread": 1.0,
+        "unit": "second",
+        "scale_floor": 1.0
+      },
+      "stage_out_delay": {
+        "supported": true,
+        "n": 350,
+        "runs": 25,
+        "median": 5.0,
+        "p95": 5.0,
+        "p99": 6.0,
+        "spread": 1.0,
+        "unit": "second",
+        "scale_floor": 1.0
+      },
+      "wms_delay": {
+        "supported": true,
+        "n": 350,
+        "runs": 25,
+        "median": 5.0,
+        "p95": 6.0,
+        "p99": 6.0,
+        "spread": 1.0,
+        "unit": "second",
+        "scale_floor": 1.0
+      }
+    },
+    "family:compute|individuals": {
+      "input_transfer_relative_execution": {
+        "supported": true,
+        "n": 2500,
+        "runs": 25,
+        "median": 0.05014897198971546,
+        "p95": 0.06936613948547567,
+        "p99": 0.07253439411489766,
+        "spread": 0.02833145101947223,
+        "unit": "ratio",
+        "scale_floor": 0.01
+      },
+      "post_script_delay": {
+        "supported": true,
+        "n": 2500,
+        "runs": 25,
+        "median": 5.0,
+        "p95": 5.0,
+        "p99": 6.0,
+        "spread": 1.0,
+        "unit": "second",
+        "scale_floor": 1.0
+      },
+      "queue_delay": {
+        "supported": true,
+        "n": 2500,
+        "runs": 25,
+        "median": 20.0,
+        "p95": 1024.0,
+        "p99": 1029.0,
+        "spread": 1004.0,
+        "unit": "second",
+        "scale_floor": 1.0
+      },
+      "runtime": {
+        "supported": true,
+        "n": 2500,
+        "runs": 25,
+        "median": 1018.0,
+        "p95": 1062.0,
+        "p99": 1172.0099999999998,
+        "spread": 50.900000000000006,
+        "unit": "second",
+        "scale_floor": 1.0
+      },
+      "stage_in_delay": {
+        "supported": true,
+        "n": 2500,
+        "runs": 25,
+        "median": 51.0,
+        "p95": 72.0,
+        "p99": 74.0,
+        "spread": 30.0,
+        "unit": "second",
+        "scale_floor": 1.0
+      },
+      "stage_out_delay": {
+        "supported": true,
+        "n": 2498,
+        "runs": 25,
+        "median": 5.0,
+        "p95": 5.0,
+        "p99": 5.0,
+        "spread": 1.0,
+        "unit": "second",
+        "scale_floor": 1.0
+      },
+      "wms_delay": {
+        "supported": true,
+        "n": 2500,
+        "runs": 25,
+        "median": 5.0,
+        "p95": 6.0,
+        "p99": 10.0,
+        "spread": 1.0,
+        "unit": "second",
+        "scale_floor": 1.0
+      }
+    },
+    "family:compute|individuals_merge": {
+      "input_transfer_relative_execution": {
+        "supported": true,
+        "n": 50,
+        "runs": 25,
+        "median": 0.08441558441558442,
+        "p95": 0.09305518763796909,
+        "p99": 0.10017434666866631,
+        "spread": 0.01,
+        "unit": "ratio",
+        "scale_floor": 0.01
+      },
+      "post_script_delay": {
+        "supported": true,
+        "n": 50,
+        "runs": 25,
+        "median": 5.0,
+        "p95": 5.0,
+        "p99": 5.509999999999998,
+        "spread": 1.0,
+        "unit": "second",
+        "scale_floor": 1.0
+      },
+      "queue_delay": {
+        "supported": true,
+        "n": 50,
+        "runs": 25,
+        "median": 1.0,
+        "p95": 13.099999999999994,
+        "p99": 16.019999999999996,
+        "spread": 12.099999999999994,
+        "unit": "second",
+        "scale_floor": 1.0
+      },
+      "runtime": {
+        "supported": true,
+        "n": 50,
+        "runs": 25,
+        "median": 163.5,
+        "p95": 179.0,
+        "p99": 181.54999999999998,
+        "spread": 25.0,
+        "unit": "second",
+        "scale_floor": 1.0
+      },
+      "stage_in_delay": {
+        "supported": true,
+        "n": 50,
+        "runs": 25,
+        "median": 14.0,
+        "p95": 14.0,
+        "p99": 16.54999999999999,
+        "spread": 1.0,
+        "unit": "second",
+        "scale_floor": 1.0
+      },
+      "stage_out_delay": {
+        "supported": true,
+        "n": 50,
+        "runs": 25,
+        "median": 6.0,
+        "p95": 7.0,
+        "p99": 7.0,
+        "spread": 1.0,
+        "unit": "second",
+        "scale_floor": 1.0
+      },
+      "wms_delay": {
+        "supported": true,
+        "n": 50,
+        "runs": 25,
+        "median": 5.0,
+        "p95": 5.0,
+        "p99": 5.509999999999998,
+        "spread": 1.0,
+        "unit": "second",
+        "scale_floor": 1.0
+      }
+    },
+    "family:compute|mutation_overlap": {
+      "input_transfer_relative_execution": {
+        "supported": true,
+        "n": 350,
+        "runs": 25,
+        "median": 0.11764705882352941,
+        "p95": 0.14285714285714285,
+        "p99": 0.1724137931034483,
+        "spread": 0.02521008403361344,
+        "unit": "ratio",
+        "scale_floor": 0.01
+      },
+      "post_script_delay": {
+        "supported": true,
+        "n": 350,
+        "runs": 25,
+        "median": 5.0,
+        "p95": 5.0,
+        "p99": 6.0,
+        "spread": 1.0,
+        "unit": "second",
+        "scale_floor": 1.0
+      },
+      "queue_delay": {
+        "supported": true,
+        "n": 350,
+        "runs": 25,
+        "median": 1.0,
+        "p95": 11.0,
+        "p99": 15.0,
+        "spread": 10.0,
+        "unit": "second",
+        "scale_floor": 1.0
+      },
+      "runtime": {
+        "supported": true,
+        "n": 350,
+        "runs": 25,
+        "median": 34.0,
+        "p95": 59.0,
+        "p99": 64.0,
+        "spread": 25.0,
+        "unit": "second",
+        "scale_floor": 1.0
+      },
+      "stage_in_delay": {
+        "supported": true,
+        "n": 350,
+        "runs": 25,
+        "median": 4.0,
+        "p95": 4.0,
+        "p99": 5.0,
+        "spread": 1.0,
+        "unit": "second",
+        "scale_floor": 1.0
+      },
+      "stage_out_delay": {
+        "supported": true,
+        "n": 348,
+        "runs": 25,
+        "median": 5.0,
+        "p95": 5.0,
+        "p99": 5.0,
+        "spread": 1.0,
+        "unit": "second",
+        "scale_floor": 1.0
+      },
+      "wms_delay": {
+        "supported": true,
+        "n": 350,
+        "runs": 25,
+        "median": 5.0,
+        "p95": 6.0,
+        "p99": 6.0,
+        "spread": 1.0,
+        "unit": "second",
+        "scale_floor": 1.0
+      }
+    },
+    "family:compute|sifting": {
+      "input_transfer_relative_execution": {
+        "supported": true,
+        "n": 50,
+        "runs": 25,
+        "median": 0.693734335839599,
+        "p95": 0.7550925925925925,
+        "p99": 0.7636394557823128,
+        "spread": 0.09441892739712987,
+        "unit": "ratio",
+        "scale_floor": 0.01
+      },
+      "post_script_delay": {
+        "supported": true,
+        "n": 50,
+        "runs": 25,
+        "median": 5.0,
+        "p95": 5.0,
+        "p99": 5.509999999999998,
+        "spread": 1.0,
+        "unit": "second",
+        "scale_floor": 1.0
+      },
+      "queue_delay": {
+        "supported": true,
+        "n": 50,
+        "runs": 25,
+        "median": 20.0,
+        "p95": 21.0,
+        "p99": 22.0,
+        "spread": 1.0,
+        "unit": "second",
+        "scale_floor": 1.0
+      },
+      "runtime": {
+        "supported": true,
+        "n": 50,
+        "runs": 25,
+        "median": 105.0,
+        "p95": 117.19999999999999,
+        "p99": 119.0,
+        "spread": 14.0,
+        "unit": "second",
+        "scale_floor": 1.0
+      },
+      "stage_in_delay": {
+        "supported": true,
+        "n": 50,
+        "runs": 25,
+        "median": 73.0,
+        "p95": 81.55,
+        "p99": 83.50999999999999,
+        "spread": 8.549999999999997,
+        "unit": "second",
+        "scale_floor": 1.0
+      },
+      "stage_out_delay": {
+        "supported": true,
+        "n": 50,
+        "runs": 25,
+        "median": 5.0,
+        "p95": 5.0,
+        "p99": 5.509999999999998,
+        "spread": 1.0,
+        "unit": "second",
+        "scale_floor": 1.0
+      },
+      "wms_delay": {
+        "supported": true,
+        "n": 50,
+        "runs": 25,
+        "median": 5.0,
+        "p95": 6.0,
+        "p99": 6.0,
+        "spread": 1.0,
+        "unit": "second",
+        "scale_floor": 1.0
+      }
+    },
+    "family:transfer|pegasus::transfer": {
+      "input_transfer_relative_execution": {
+        "supported": false,
+        "n": 0,
+        "runs": 0,
+        "reason": "insufficient_numeric_reference"
+      },
+      "post_script_delay": {
+        "supported": true,
+        "n": 75,
+        "runs": 25,
+        "median": 5.0,
+        "p95": 5.0,
+        "p99": 6.0,
+        "spread": 1.0,
+        "unit": "second",
+        "scale_floor": 1.0
+      },
+      "queue_delay": {
+        "supported": true,
+        "n": 75,
+        "runs": 25,
+        "median": 0.0,
+        "p95": 1.0,
+        "p99": 1.0,
+        "spread": 1.0,
+        "unit": "second",
+        "scale_floor": 1.0
+      },
+      "runtime": {
+        "supported": true,
+        "n": 75,
+        "runs": 25,
+        "median": 5.0,
+        "p95": 5.0,
+        "p99": 9.260000000000005,
+        "spread": 1.0,
+        "unit": "second",
+        "scale_floor": 1.0
+      },
+      "stage_in_delay": {
+        "supported": false,
+        "n": 0,
+        "runs": 0,
+        "reason": "insufficient_numeric_reference"
+      },
+      "stage_out_delay": {
+        "supported": false,
+        "n": 0,
+        "runs": 0,
+        "reason": "insufficient_numeric_reference"
+      },
+      "wms_delay": {
+        "supported": true,
+        "n": 75,
+        "runs": 25,
+        "median": 5.0,
+        "p95": 6.0,
+        "p99": 6.0,
+        "spread": 1.0,
+        "unit": "second",
+        "scale_floor": 1.0
+      }
+    }
+  }
+}

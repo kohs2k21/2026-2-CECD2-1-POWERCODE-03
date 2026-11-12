@@ -14,7 +14,7 @@ GRANT SELECT ON ops_sources,data_observations,data_executions,data_processes,dat
  run_jobs,run_job_attempts,run_job_snapshots,run_process_decisions,run_input_manifests,run_llm_results,
  run_evaluations,run_applications,ops_system_state,run_decision_events
  TO powercode_api,powercode_collector,powercode_detector,powercode_trainer,powercode_llm;
-GRANT SELECT ON data_feature_materializations,ops_pipeline_measurements,ops_feature_drift_measurements,
+GRANT SELECT ON data_feature_materializations,ops_pipeline_measurements,ops_feature_drift_measurements,ops_storage_measurements,
  ops_window_monitors,run_window_decisions,ops_api_poll_state,ops_api_catalog TO powercode_api;
 GRANT INSERT,UPDATE ON run_jobs TO powercode_api,powercode_detector,powercode_trainer,powercode_llm;
 GRANT INSERT,UPDATE ON run_job_attempts TO powercode_detector,powercode_trainer,powercode_llm;

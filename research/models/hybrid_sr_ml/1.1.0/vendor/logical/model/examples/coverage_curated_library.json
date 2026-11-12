@@ -1,0 +1,3326 @@
+{
+  "library_policy": "logical-rule-library1.1-pending-evidence",
+  "execution_policy": "source-bound-reusable-discovery1.1-conditional-row",
+  "physical_schema_sha": "daa05ac06878a3773d05c9c157ac5f86717f439dd9fef36a614e49da3b16eead",
+  "documents_sha": "7f19c73a2700a7331f00706d75f646bf2ca7d9a1b6c394014a926ebe1bd9d0f8",
+  "input_availability_policy": "required-input-availability1.0",
+  "predicate_consistency_policy": "literal-conjunction-consistency1.2-conditional-row",
+  "operational_approval": false,
+  "approval_scope": "source_validity is not semantic or operational approval",
+  "packs": [
+    {
+      "pack_id": "pack-0000-d6b6ac2eac96",
+      "definition_sha": "1fc496644458494c7276645961bfa3f0e9f99e47607df0579f6d1503da5aa88e",
+      "source_file_sha256": "5a7c184b21d5cb34f7e9e812061638ecfa316aaaa7553ae8747e08d43a9fa278",
+      "pack": {
+        "policy": "source-bound-reusable-discovery1.1-conditional-row",
+        "proposal": {
+          "candidates": [
+            {
+              "id": "check_required_fields",
+              "requires_complete_capture": false,
+              "evidence": [
+                {
+                  "document_id": "release-contract",
+                  "quote": "For each VelaPermitCard row where release_phase=OPEN, credential_tag, seal_reference, and audit_receipt are independently required to be non-null; any one missing value is sufficient for a contract warning. For release_phase=PAUSED, nulls in those fields are permitted. A null release_phase leaves applicability unknown. A directly observed null in an OPEN row is local evidence and does not require a complete family export."
+                }
+              ],
+              "normal_exceptions": [
+                "release_phase=PAUSED permits nulls in the reviewed fields.",
+                "A directly observed null in an applicable row is sufficient evidence."
+              ],
+              "reason": "The source independently requires each field under the same explicit applicability; this candidate tests one.",
+              "role": "HR_candidate",
+              "plan": {
+                "kind": "conditional_row_check",
+                "select": {
+                  "table": "VelaPermitCard",
+                  "filter": [
+                    {
+                      "column": "release_phase",
+                      "op": "eq",
+                      "value": "OPEN"
+                    }
+                  ]
+                },
+                "violation": [
+                  {
+                    "column": "credential_tag",
+                    "op": "is_missing",
+                    "value": null
+                  }
+                ]
+              },
+              "needed": []
+            }
+          ],
+          "no_candidate_reason": null
+        },
+        "execution": {
+          "policy": "source-bound-reusable-discovery1.1-conditional-row",
+          "executable_valid": true,
+          "errors": [],
+          "rules": [
+            {
+              "id": "check_required_fields",
+              "role": "HR_candidate",
+              "decision": "nonwarning",
+              "rows": [
+                {
+                  "source_table": "VelaPermitCard",
+                  "source_row_index": 0,
+                  "source_record": {
+                    "permit_key": "permit-73",
+                    "release_phase": "OPEN",
+                    "credential_tag": "cred-A",
+                    "seal_reference": "seal-B",
+                    "audit_receipt": "audit-C"
+                  },
+                  "value": false,
+                  "support_rows": []
+                }
+              ],
+              "semantic_review": "pending"
+            }
+          ],
+          "decision": "nonwarning",
+          "semantic_entailment_proven_by_code": false,
+          "operational_approval": false,
+          "input_availability_policy": "required-input-availability1.0",
+          "predicate_consistency_policy": "literal-conjunction-consistency1.2-conditional-row",
+          "declared_reference_guard_policy": "declared-self-reference-direction1.0"
+        },
+        "definition_sha": "1fc496644458494c7276645961bfa3f0e9f99e47607df0579f6d1503da5aa88e",
+        "physical_schema_sha": "daa05ac06878a3773d05c9c157ac5f86717f439dd9fef36a614e49da3b16eead",
+        "documents_sha": "7f19c73a2700a7331f00706d75f646bf2ca7d9a1b6c394014a926ebe1bd9d0f8",
+        "source_version": "vela-permit-contract-draft-v1",
+        "source_file_sha256": "5a7c184b21d5cb34f7e9e812061638ecfa316aaaa7553ae8747e08d43a9fa278",
+        "generation_schema": {
+          "type": "object",
+          "properties": {
+            "candidates": {
+              "type": "array",
+              "maxItems": 4,
+              "items": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 240
+                      },
+                      "requires_complete_capture": {
+                        "type": "boolean"
+                      },
+                      "evidence": {
+                        "type": "array",
+                        "minItems": 1,
+                        "maxItems": 8,
+                        "items": {
+                          "oneOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "document_id": {
+                                  "const": "release-contract"
+                                },
+                                "quote": {
+                                  "const": "For each VelaPermitCard row where release_phase=OPEN, credential_tag, seal_reference, and audit_receipt are independently required to be non-null; any one missing value is sufficient for a contract warning. For release_phase=PAUSED, nulls in those fields are permitted. A null release_phase leaves applicability unknown. A directly observed null in an OPEN row is local evidence and does not require a complete family export."
+                                }
+                              },
+                              "required": [
+                                "document_id",
+                                "quote"
+                              ],
+                              "additionalProperties": false
+                            }
+                          ]
+                        }
+                      },
+                      "normal_exceptions": {
+                        "type": "array",
+                        "maxItems": 4,
+                        "items": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 240
+                        }
+                      },
+                      "reason": {
+                        "type": "string",
+                        "minLength": 8,
+                        "maxLength": 400
+                      },
+                      "role": {
+                        "enum": [
+                          "HR_candidate",
+                          "observed_SR_candidate"
+                        ]
+                      },
+                      "plan": {
+                        "oneOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": {
+                                "const": "row_check"
+                              },
+                              "select": {
+                                "type": "object",
+                                "properties": {
+                                  "table": {
+                                    "const": "VelaPermitCard"
+                                  },
+                                  "filter": {
+                                    "type": "array",
+                                    "maxItems": 6,
+                                    "items": {
+                                      "oneOf": [
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "column": {
+                                              "enum": [
+                                                "audit_receipt",
+                                                "credential_tag",
+                                                "release_phase",
+                                                "seal_reference"
+                                              ]
+                                            },
+                                            "op": {
+                                              "enum": [
+                                                "eq",
+                                                "ne"
+                                              ]
+                                            },
+                                            "value": {
+                                              "type": [
+                                                "string",
+                                                "number",
+                                                "boolean"
+                                              ]
+                                            }
+                                          },
+                                          "required": [
+                                            "column",
+                                            "op",
+                                            "value"
+                                          ],
+                                          "additionalProperties": false
+                                        },
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "column": {
+                                              "enum": [
+                                                "audit_receipt",
+                                                "credential_tag",
+                                                "release_phase",
+                                                "seal_reference"
+                                              ]
+                                            },
+                                            "op": {
+                                              "enum": [
+                                                "in",
+                                                "not_in"
+                                              ]
+                                            },
+                                            "value": {
+                                              "type": "array",
+                                              "minItems": 1,
+                                              "maxItems": 32,
+                                              "items": {
+                                                "type": [
+                                                  "string",
+                                                  "number",
+                                                  "boolean"
+                                                ]
+                                              }
+                                            }
+                                          },
+                                          "required": [
+                                            "column",
+                                            "op",
+                                            "value"
+                                          ],
+                                          "additionalProperties": false
+                                        },
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "column": {
+                                              "enum": [
+                                                "audit_receipt",
+                                                "credential_tag",
+                                                "permit_key",
+                                                "release_phase",
+                                                "seal_reference"
+                                              ]
+                                            },
+                                            "op": {
+                                              "enum": [
+                                                "is_missing",
+                                                "is_present"
+                                              ]
+                                            },
+                                            "value": {
+                                              "type": "null"
+                                            }
+                                          },
+                                          "required": [
+                                            "column",
+                                            "op",
+                                            "value"
+                                          ],
+                                          "additionalProperties": false
+                                        }
+                                      ]
+                                    }
+                                  }
+                                },
+                                "required": [
+                                  "table",
+                                  "filter"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "required": [
+                              "kind",
+                              "select"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": {
+                                "const": "conditional_row_check"
+                              },
+                              "select": {
+                                "type": "object",
+                                "properties": {
+                                  "table": {
+                                    "const": "VelaPermitCard"
+                                  },
+                                  "filter": {
+                                    "type": "array",
+                                    "maxItems": 6,
+                                    "items": {
+                                      "oneOf": [
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "column": {
+                                              "enum": [
+                                                "audit_receipt",
+                                                "credential_tag",
+                                                "release_phase",
+                                                "seal_reference"
+                                              ]
+                                            },
+                                            "op": {
+                                              "enum": [
+                                                "eq",
+                                                "ne"
+                                              ]
+                                            },
+                                            "value": {
+                                              "type": [
+                                                "string",
+                                                "number",
+                                                "boolean"
+                                              ]
+                                            }
+                                          },
+                                          "required": [
+                                            "column",
+                                            "op",
+                                            "value"
+                                          ],
+                                          "additionalProperties": false
+                                        },
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "column": {
+                                              "enum": [
+                                                "audit_receipt",
+                                                "credential_tag",
+                                                "release_phase",
+                                                "seal_reference"
+                                              ]
+                                            },
+                                            "op": {
+                                              "enum": [
+                                                "in",
+                                                "not_in"
+                                              ]
+                                            },
+                                            "value": {
+                                              "type": "array",
+                                              "minItems": 1,
+                                              "maxItems": 32,
+                                              "items": {
+                                                "type": [
+                                                  "string",
+                                                  "number",
+                                                  "boolean"
+                                                ]
+                                              }
+                                            }
+                                          },
+                                          "required": [
+                                            "column",
+                                            "op",
+                                            "value"
+                                          ],
+                                          "additionalProperties": false
+                                        },
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "column": {
+                                              "enum": [
+                                                "audit_receipt",
+                                                "credential_tag",
+                                                "permit_key",
+                                                "release_phase",
+                                                "seal_reference"
+                                              ]
+                                            },
+                                            "op": {
+                                              "enum": [
+                                                "is_missing",
+                                                "is_present"
+                                              ]
+                                            },
+                                            "value": {
+                                              "type": "null"
+                                            }
+                                          },
+                                          "required": [
+                                            "column",
+                                            "op",
+                                            "value"
+                                          ],
+                                          "additionalProperties": false
+                                        }
+                                      ]
+                                    }
+                                  }
+                                },
+                                "required": [
+                                  "table",
+                                  "filter"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "violation": {
+                                "type": "array",
+                                "maxItems": 6,
+                                "items": {
+                                  "oneOf": [
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "column": {
+                                          "enum": [
+                                            "audit_receipt",
+                                            "credential_tag",
+                                            "release_phase",
+                                            "seal_reference"
+                                          ]
+                                        },
+                                        "op": {
+                                          "enum": [
+                                            "eq",
+                                            "ne"
+                                          ]
+                                        },
+                                        "value": {
+                                          "type": [
+                                            "string",
+                                            "number",
+                                            "boolean"
+                                          ]
+                                        }
+                                      },
+                                      "required": [
+                                        "column",
+                                        "op",
+                                        "value"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "column": {
+                                          "enum": [
+                                            "audit_receipt",
+                                            "credential_tag",
+                                            "release_phase",
+                                            "seal_reference"
+                                          ]
+                                        },
+                                        "op": {
+                                          "enum": [
+                                            "in",
+                                            "not_in"
+                                          ]
+                                        },
+                                        "value": {
+                                          "type": "array",
+                                          "minItems": 1,
+                                          "maxItems": 32,
+                                          "items": {
+                                            "type": [
+                                              "string",
+                                              "number",
+                                              "boolean"
+                                            ]
+                                          }
+                                        }
+                                      },
+                                      "required": [
+                                        "column",
+                                        "op",
+                                        "value"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "column": {
+                                          "enum": [
+                                            "audit_receipt",
+                                            "credential_tag",
+                                            "permit_key",
+                                            "release_phase",
+                                            "seal_reference"
+                                          ]
+                                        },
+                                        "op": {
+                                          "enum": [
+                                            "is_missing",
+                                            "is_present"
+                                          ]
+                                        },
+                                        "value": {
+                                          "type": "null"
+                                        }
+                                      },
+                                      "required": [
+                                        "column",
+                                        "op",
+                                        "value"
+                                      ],
+                                      "additionalProperties": false
+                                    }
+                                  ]
+                                },
+                                "minItems": 1
+                              }
+                            },
+                            "required": [
+                              "kind",
+                              "select",
+                              "violation"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": {
+                                "const": "duplicate_key"
+                              },
+                              "select": {
+                                "type": "object",
+                                "properties": {
+                                  "table": {
+                                    "const": "VelaPermitCard"
+                                  },
+                                  "filter": {
+                                    "type": "array",
+                                    "maxItems": 6,
+                                    "items": {
+                                      "oneOf": [
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "column": {
+                                              "enum": [
+                                                "audit_receipt",
+                                                "credential_tag",
+                                                "release_phase",
+                                                "seal_reference"
+                                              ]
+                                            },
+                                            "op": {
+                                              "enum": [
+                                                "eq",
+                                                "ne"
+                                              ]
+                                            },
+                                            "value": {
+                                              "type": [
+                                                "string",
+                                                "number",
+                                                "boolean"
+                                              ]
+                                            }
+                                          },
+                                          "required": [
+                                            "column",
+                                            "op",
+                                            "value"
+                                          ],
+                                          "additionalProperties": false
+                                        },
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "column": {
+                                              "enum": [
+                                                "audit_receipt",
+                                                "credential_tag",
+                                                "release_phase",
+                                                "seal_reference"
+                                              ]
+                                            },
+                                            "op": {
+                                              "enum": [
+                                                "in",
+                                                "not_in"
+                                              ]
+                                            },
+                                            "value": {
+                                              "type": "array",
+                                              "minItems": 1,
+                                              "maxItems": 32,
+                                              "items": {
+                                                "type": [
+                                                  "string",
+                                                  "number",
+                                                  "boolean"
+                                                ]
+                                              }
+                                            }
+                                          },
+                                          "required": [
+                                            "column",
+                                            "op",
+                                            "value"
+                                          ],
+                                          "additionalProperties": false
+                                        },
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "column": {
+                                              "enum": [
+                                                "audit_receipt",
+                                                "credential_tag",
+                                                "permit_key",
+                                                "release_phase",
+                                                "seal_reference"
+                                              ]
+                                            },
+                                            "op": {
+                                              "enum": [
+                                                "is_missing",
+                                                "is_present"
+                                              ]
+                                            },
+                                            "value": {
+                                              "type": "null"
+                                            }
+                                          },
+                                          "required": [
+                                            "column",
+                                            "op",
+                                            "value"
+                                          ],
+                                          "additionalProperties": false
+                                        }
+                                      ]
+                                    }
+                                  }
+                                },
+                                "required": [
+                                  "table",
+                                  "filter"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "keys": {
+                                "type": "array",
+                                "minItems": 1,
+                                "maxItems": 6,
+                                "items": {
+                                  "enum": [
+                                    "audit_receipt",
+                                    "credential_tag",
+                                    "permit_key",
+                                    "release_phase",
+                                    "seal_reference"
+                                  ]
+                                }
+                              }
+                            },
+                            "required": [
+                              "kind",
+                              "select",
+                              "keys"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": {
+                                "const": "relation_check"
+                              },
+                              "select": {
+                                "type": "object",
+                                "properties": {
+                                  "table": {
+                                    "const": "VelaPermitCard"
+                                  },
+                                  "filter": {
+                                    "type": "array",
+                                    "maxItems": 6,
+                                    "items": {
+                                      "oneOf": [
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "column": {
+                                              "enum": [
+                                                "audit_receipt",
+                                                "credential_tag",
+                                                "release_phase",
+                                                "seal_reference"
+                                              ]
+                                            },
+                                            "op": {
+                                              "enum": [
+                                                "eq",
+                                                "ne"
+                                              ]
+                                            },
+                                            "value": {
+                                              "type": [
+                                                "string",
+                                                "number",
+                                                "boolean"
+                                              ]
+                                            }
+                                          },
+                                          "required": [
+                                            "column",
+                                            "op",
+                                            "value"
+                                          ],
+                                          "additionalProperties": false
+                                        },
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "column": {
+                                              "enum": [
+                                                "audit_receipt",
+                                                "credential_tag",
+                                                "release_phase",
+                                                "seal_reference"
+                                              ]
+                                            },
+                                            "op": {
+                                              "enum": [
+                                                "in",
+                                                "not_in"
+                                              ]
+                                            },
+                                            "value": {
+                                              "type": "array",
+                                              "minItems": 1,
+                                              "maxItems": 32,
+                                              "items": {
+                                                "type": [
+                                                  "string",
+                                                  "number",
+                                                  "boolean"
+                                                ]
+                                              }
+                                            }
+                                          },
+                                          "required": [
+                                            "column",
+                                            "op",
+                                            "value"
+                                          ],
+                                          "additionalProperties": false
+                                        },
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "column": {
+                                              "enum": [
+                                                "audit_receipt",
+                                                "credential_tag",
+                                                "permit_key",
+                                                "release_phase",
+                                                "seal_reference"
+                                              ]
+                                            },
+                                            "op": {
+                                              "enum": [
+                                                "is_missing",
+                                                "is_present"
+                                              ]
+                                            },
+                                            "value": {
+                                              "type": "null"
+                                            }
+                                          },
+                                          "required": [
+                                            "column",
+                                            "op",
+                                            "value"
+                                          ],
+                                          "additionalProperties": false
+                                        }
+                                      ]
+                                    }
+                                  }
+                                },
+                                "required": [
+                                  "table",
+                                  "filter"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "related": {
+                                "oneOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "select": {
+                                        "type": "object",
+                                        "properties": {
+                                          "table": {
+                                            "const": "VelaPermitCard"
+                                          },
+                                          "filter": {
+                                            "type": "array",
+                                            "maxItems": 6,
+                                            "items": {
+                                              "oneOf": [
+                                                {
+                                                  "type": "object",
+                                                  "properties": {
+                                                    "column": {
+                                                      "enum": [
+                                                        "audit_receipt",
+                                                        "credential_tag",
+                                                        "release_phase",
+                                                        "seal_reference"
+                                                      ]
+                                                    },
+                                                    "op": {
+                                                      "enum": [
+                                                        "eq",
+                                                        "ne"
+                                                      ]
+                                                    },
+                                                    "value": {
+                                                      "type": [
+                                                        "string",
+                                                        "number",
+                                                        "boolean"
+                                                      ]
+                                                    }
+                                                  },
+                                                  "required": [
+                                                    "column",
+                                                    "op",
+                                                    "value"
+                                                  ],
+                                                  "additionalProperties": false
+                                                },
+                                                {
+                                                  "type": "object",
+                                                  "properties": {
+                                                    "column": {
+                                                      "enum": [
+                                                        "audit_receipt",
+                                                        "credential_tag",
+                                                        "release_phase",
+                                                        "seal_reference"
+                                                      ]
+                                                    },
+                                                    "op": {
+                                                      "enum": [
+                                                        "in",
+                                                        "not_in"
+                                                      ]
+                                                    },
+                                                    "value": {
+                                                      "type": "array",
+                                                      "minItems": 1,
+                                                      "maxItems": 32,
+                                                      "items": {
+                                                        "type": [
+                                                          "string",
+                                                          "number",
+                                                          "boolean"
+                                                        ]
+                                                      }
+                                                    }
+                                                  },
+                                                  "required": [
+                                                    "column",
+                                                    "op",
+                                                    "value"
+                                                  ],
+                                                  "additionalProperties": false
+                                                },
+                                                {
+                                                  "type": "object",
+                                                  "properties": {
+                                                    "column": {
+                                                      "enum": [
+                                                        "audit_receipt",
+                                                        "credential_tag",
+                                                        "permit_key",
+                                                        "release_phase",
+                                                        "seal_reference"
+                                                      ]
+                                                    },
+                                                    "op": {
+                                                      "enum": [
+                                                        "is_missing",
+                                                        "is_present"
+                                                      ]
+                                                    },
+                                                    "value": {
+                                                      "type": "null"
+                                                    }
+                                                  },
+                                                  "required": [
+                                                    "column",
+                                                    "op",
+                                                    "value"
+                                                  ],
+                                                  "additionalProperties": false
+                                                }
+                                              ]
+                                            }
+                                          }
+                                        },
+                                        "required": [
+                                          "table",
+                                          "filter"
+                                        ],
+                                        "additionalProperties": false
+                                      },
+                                      "join": {
+                                        "type": "array",
+                                        "minItems": 1,
+                                        "maxItems": 6,
+                                        "items": {
+                                          "type": "object",
+                                          "properties": {
+                                            "source": {
+                                              "enum": [
+                                                "audit_receipt",
+                                                "credential_tag",
+                                                "permit_key",
+                                                "release_phase",
+                                                "seal_reference"
+                                              ]
+                                            },
+                                            "target": {
+                                              "enum": [
+                                                "audit_receipt",
+                                                "credential_tag",
+                                                "permit_key",
+                                                "release_phase",
+                                                "seal_reference"
+                                              ]
+                                            }
+                                          },
+                                          "required": [
+                                            "source",
+                                            "target"
+                                          ],
+                                          "additionalProperties": false
+                                        }
+                                      }
+                                    },
+                                    "required": [
+                                      "select",
+                                      "join"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                ]
+                              },
+                              "violation": {
+                                "enum": [
+                                  "required_match_missing",
+                                  "match_present",
+                                  "match_not_exactly_one"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "kind",
+                              "select",
+                              "related",
+                              "violation"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": {
+                                "const": "unexplained_event"
+                              },
+                              "select": {
+                                "type": "object",
+                                "properties": {
+                                  "table": {
+                                    "const": "VelaPermitCard"
+                                  },
+                                  "filter": {
+                                    "type": "array",
+                                    "maxItems": 6,
+                                    "items": {
+                                      "oneOf": [
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "column": {
+                                              "enum": [
+                                                "audit_receipt",
+                                                "credential_tag",
+                                                "release_phase",
+                                                "seal_reference"
+                                              ]
+                                            },
+                                            "op": {
+                                              "enum": [
+                                                "eq",
+                                                "ne"
+                                              ]
+                                            },
+                                            "value": {
+                                              "type": [
+                                                "string",
+                                                "number",
+                                                "boolean"
+                                              ]
+                                            }
+                                          },
+                                          "required": [
+                                            "column",
+                                            "op",
+                                            "value"
+                                          ],
+                                          "additionalProperties": false
+                                        },
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "column": {
+                                              "enum": [
+                                                "audit_receipt",
+                                                "credential_tag",
+                                                "release_phase",
+                                                "seal_reference"
+                                              ]
+                                            },
+                                            "op": {
+                                              "enum": [
+                                                "in",
+                                                "not_in"
+                                              ]
+                                            },
+                                            "value": {
+                                              "type": "array",
+                                              "minItems": 1,
+                                              "maxItems": 32,
+                                              "items": {
+                                                "type": [
+                                                  "string",
+                                                  "number",
+                                                  "boolean"
+                                                ]
+                                              }
+                                            }
+                                          },
+                                          "required": [
+                                            "column",
+                                            "op",
+                                            "value"
+                                          ],
+                                          "additionalProperties": false
+                                        },
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "column": {
+                                              "enum": [
+                                                "audit_receipt",
+                                                "credential_tag",
+                                                "permit_key",
+                                                "release_phase",
+                                                "seal_reference"
+                                              ]
+                                            },
+                                            "op": {
+                                              "enum": [
+                                                "is_missing",
+                                                "is_present"
+                                              ]
+                                            },
+                                            "value": {
+                                              "type": "null"
+                                            }
+                                          },
+                                          "required": [
+                                            "column",
+                                            "op",
+                                            "value"
+                                          ],
+                                          "additionalProperties": false
+                                        }
+                                      ]
+                                    }
+                                  }
+                                },
+                                "required": [
+                                  "table",
+                                  "filter"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "context": {
+                                "oneOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "select": {
+                                        "type": "object",
+                                        "properties": {
+                                          "table": {
+                                            "const": "VelaPermitCard"
+                                          },
+                                          "filter": {
+                                            "type": "array",
+                                            "maxItems": 6,
+                                            "items": {
+                                              "oneOf": [
+                                                {
+                                                  "type": "object",
+                                                  "properties": {
+                                                    "column": {
+                                                      "enum": [
+                                                        "audit_receipt",
+                                                        "credential_tag",
+                                                        "release_phase",
+                                                        "seal_reference"
+                                                      ]
+                                                    },
+                                                    "op": {
+                                                      "enum": [
+                                                        "eq",
+                                                        "ne"
+                                                      ]
+                                                    },
+                                                    "value": {
+                                                      "type": [
+                                                        "string",
+                                                        "number",
+                                                        "boolean"
+                                                      ]
+                                                    }
+                                                  },
+                                                  "required": [
+                                                    "column",
+                                                    "op",
+                                                    "value"
+                                                  ],
+                                                  "additionalProperties": false
+                                                },
+                                                {
+                                                  "type": "object",
+                                                  "properties": {
+                                                    "column": {
+                                                      "enum": [
+                                                        "audit_receipt",
+                                                        "credential_tag",
+                                                        "release_phase",
+                                                        "seal_reference"
+                                                      ]
+                                                    },
+                                                    "op": {
+                                                      "enum": [
+                                                        "in",
+                                                        "not_in"
+                                                      ]
+                                                    },
+                                                    "value": {
+                                                      "type": "array",
+                                                      "minItems": 1,
+                                                      "maxItems": 32,
+                                                      "items": {
+                                                        "type": [
+                                                          "string",
+                                                          "number",
+                                                          "boolean"
+                                                        ]
+                                                      }
+                                                    }
+                                                  },
+                                                  "required": [
+                                                    "column",
+                                                    "op",
+                                                    "value"
+                                                  ],
+                                                  "additionalProperties": false
+                                                },
+                                                {
+                                                  "type": "object",
+                                                  "properties": {
+                                                    "column": {
+                                                      "enum": [
+                                                        "audit_receipt",
+                                                        "credential_tag",
+                                                        "permit_key",
+                                                        "release_phase",
+                                                        "seal_reference"
+                                                      ]
+                                                    },
+                                                    "op": {
+                                                      "enum": [
+                                                        "is_missing",
+                                                        "is_present"
+                                                      ]
+                                                    },
+                                                    "value": {
+                                                      "type": "null"
+                                                    }
+                                                  },
+                                                  "required": [
+                                                    "column",
+                                                    "op",
+                                                    "value"
+                                                  ],
+                                                  "additionalProperties": false
+                                                }
+                                              ]
+                                            }
+                                          }
+                                        },
+                                        "required": [
+                                          "table",
+                                          "filter"
+                                        ],
+                                        "additionalProperties": false
+                                      },
+                                      "join": {
+                                        "type": "array",
+                                        "minItems": 1,
+                                        "maxItems": 6,
+                                        "items": {
+                                          "type": "object",
+                                          "properties": {
+                                            "source": {
+                                              "enum": [
+                                                "audit_receipt",
+                                                "credential_tag",
+                                                "permit_key",
+                                                "release_phase",
+                                                "seal_reference"
+                                              ]
+                                            },
+                                            "target": {
+                                              "enum": [
+                                                "audit_receipt",
+                                                "credential_tag",
+                                                "permit_key",
+                                                "release_phase",
+                                                "seal_reference"
+                                              ]
+                                            }
+                                          },
+                                          "required": [
+                                            "source",
+                                            "target"
+                                          ],
+                                          "additionalProperties": false
+                                        }
+                                      }
+                                    },
+                                    "required": [
+                                      "select",
+                                      "join"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                ]
+                              },
+                              "explained_by": {
+                                "type": "array",
+                                "minItems": 1,
+                                "maxItems": 4,
+                                "items": {
+                                  "oneOf": [
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "select": {
+                                          "type": "object",
+                                          "properties": {
+                                            "table": {
+                                              "const": "VelaPermitCard"
+                                            },
+                                            "filter": {
+                                              "type": "array",
+                                              "maxItems": 6,
+                                              "items": {
+                                                "oneOf": [
+                                                  {
+                                                    "type": "object",
+                                                    "properties": {
+                                                      "column": {
+                                                        "enum": [
+                                                          "audit_receipt",
+                                                          "credential_tag",
+                                                          "release_phase",
+                                                          "seal_reference"
+                                                        ]
+                                                      },
+                                                      "op": {
+                                                        "enum": [
+                                                          "eq",
+                                                          "ne"
+                                                        ]
+                                                      },
+                                                      "value": {
+                                                        "type": [
+                                                          "string",
+                                                          "number",
+                                                          "boolean"
+                                                        ]
+                                                      }
+                                                    },
+                                                    "required": [
+                                                      "column",
+                                                      "op",
+                                                      "value"
+                                                    ],
+                                                    "additionalProperties": false
+                                                  },
+                                                  {
+                                                    "type": "object",
+                                                    "properties": {
+                                                      "column": {
+                                                        "enum": [
+                                                          "audit_receipt",
+                                                          "credential_tag",
+                                                          "release_phase",
+                                                          "seal_reference"
+                                                        ]
+                                                      },
+                                                      "op": {
+                                                        "enum": [
+                                                          "in",
+                                                          "not_in"
+                                                        ]
+                                                      },
+                                                      "value": {
+                                                        "type": "array",
+                                                        "minItems": 1,
+                                                        "maxItems": 32,
+                                                        "items": {
+                                                          "type": [
+                                                            "string",
+                                                            "number",
+                                                            "boolean"
+                                                          ]
+                                                        }
+                                                      }
+                                                    },
+                                                    "required": [
+                                                      "column",
+                                                      "op",
+                                                      "value"
+                                                    ],
+                                                    "additionalProperties": false
+                                                  },
+                                                  {
+                                                    "type": "object",
+                                                    "properties": {
+                                                      "column": {
+                                                        "enum": [
+                                                          "audit_receipt",
+                                                          "credential_tag",
+                                                          "permit_key",
+                                                          "release_phase",
+                                                          "seal_reference"
+                                                        ]
+                                                      },
+                                                      "op": {
+                                                        "enum": [
+                                                          "is_missing",
+                                                          "is_present"
+                                                        ]
+                                                      },
+                                                      "value": {
+                                                        "type": "null"
+                                                      }
+                                                    },
+                                                    "required": [
+                                                      "column",
+                                                      "op",
+                                                      "value"
+                                                    ],
+                                                    "additionalProperties": false
+                                                  }
+                                                ]
+                                              }
+                                            }
+                                          },
+                                          "required": [
+                                            "table",
+                                            "filter"
+                                          ],
+                                          "additionalProperties": false
+                                        },
+                                        "join": {
+                                          "type": "array",
+                                          "minItems": 1,
+                                          "maxItems": 6,
+                                          "items": {
+                                            "type": "object",
+                                            "properties": {
+                                              "source": {
+                                                "enum": [
+                                                  "audit_receipt",
+                                                  "credential_tag",
+                                                  "permit_key",
+                                                  "release_phase",
+                                                  "seal_reference"
+                                                ]
+                                              },
+                                              "target": {
+                                                "enum": [
+                                                  "audit_receipt",
+                                                  "credential_tag",
+                                                  "permit_key",
+                                                  "release_phase",
+                                                  "seal_reference"
+                                                ]
+                                              }
+                                            },
+                                            "required": [
+                                              "source",
+                                              "target"
+                                            ],
+                                            "additionalProperties": false
+                                          }
+                                        }
+                                      },
+                                      "required": [
+                                        "select",
+                                        "join"
+                                      ],
+                                      "additionalProperties": false
+                                    }
+                                  ]
+                                }
+                              }
+                            },
+                            "required": [
+                              "kind",
+                              "select",
+                              "context",
+                              "explained_by"
+                            ],
+                            "additionalProperties": false
+                          }
+                        ]
+                      },
+                      "needed": {
+                        "type": "array",
+                        "maxItems": 0,
+                        "items": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 240
+                        }
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "requires_complete_capture",
+                      "evidence",
+                      "normal_exceptions",
+                      "reason",
+                      "role",
+                      "plan",
+                      "needed"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 240
+                      },
+                      "requires_complete_capture": {
+                        "type": "boolean"
+                      },
+                      "evidence": {
+                        "type": "array",
+                        "minItems": 1,
+                        "maxItems": 8,
+                        "items": {
+                          "oneOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "document_id": {
+                                  "const": "release-contract"
+                                },
+                                "quote": {
+                                  "const": "For each VelaPermitCard row where release_phase=OPEN, credential_tag, seal_reference, and audit_receipt are independently required to be non-null; any one missing value is sufficient for a contract warning. For release_phase=PAUSED, nulls in those fields are permitted. A null release_phase leaves applicability unknown. A directly observed null in an OPEN row is local evidence and does not require a complete family export."
+                                }
+                              },
+                              "required": [
+                                "document_id",
+                                "quote"
+                              ],
+                              "additionalProperties": false
+                            }
+                          ]
+                        }
+                      },
+                      "normal_exceptions": {
+                        "type": "array",
+                        "maxItems": 4,
+                        "items": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 240
+                        }
+                      },
+                      "reason": {
+                        "type": "string",
+                        "minLength": 8,
+                        "maxLength": 400
+                      },
+                      "role": {
+                        "const": "request_evidence"
+                      },
+                      "plan": {
+                        "type": "null"
+                      },
+                      "needed": {
+                        "type": "array",
+                        "minItems": 1,
+                        "maxItems": 5,
+                        "items": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 240
+                        }
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "requires_complete_capture",
+                      "evidence",
+                      "normal_exceptions",
+                      "reason",
+                      "role",
+                      "plan",
+                      "needed"
+                    ],
+                    "additionalProperties": false
+                  }
+                ]
+              }
+            },
+            "no_candidate_reason": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "maxLength": 400
+            }
+          },
+          "required": [
+            "candidates",
+            "no_candidate_reason"
+          ],
+          "additionalProperties": false
+        },
+        "inferred_source_columns": {
+          "VelaPermitCard": [
+            "audit_receipt",
+            "credential_tag",
+            "permit_key",
+            "release_phase",
+            "seal_reference"
+          ]
+        },
+        "inferred_source_types": {
+          "VelaPermitCard.audit_receipt": "string",
+          "VelaPermitCard.credential_tag": "string",
+          "VelaPermitCard.permit_key": "string",
+          "VelaPermitCard.release_phase": "string",
+          "VelaPermitCard.seal_reference": "string"
+        },
+        "adopted_operational_rules": [],
+        "semantic_and_operational_review": "pending",
+        "actual_model_weight_sha": "f36ce52e0690e8eefe2cfb26aa5d0f2c37f629a49f7ecd8063a37980233ee496",
+        "Base_revision": "6a9e13bd6fc8f0983b9b99948120bc37f49c13e9",
+        "prompt_policy": "source-only-scope-review1.5-source-evidence",
+        "citation_policy": "exact-input-spans1.1",
+        "execution_feedback_policy": "source-only-execution-feedback1.0",
+        "input_availability_policy": "required-input-availability1.0",
+        "predicate_consistency_policy": "literal-conjunction-consistency1.2-conditional-row",
+        "declared_reference_guard_policy": "declared-self-reference-direction1.0"
+      }
+    },
+    {
+      "pack_id": "pack-0001-fba4a9068f7e",
+      "definition_sha": "f21b5d997ec7e2093272edbc719b74a73607f5668f998706e4c462e49fa23575",
+      "source_file_sha256": "3c37aca84b637b2502bbf79f234dc5953cefaba34b14cc9836a90f5f762d34ca",
+      "pack": {
+        "policy": "source-bound-reusable-discovery1.1-conditional-row",
+        "proposal": {
+          "candidates": [
+            {
+              "id": "check_required_field_seal_reference",
+              "requires_complete_capture": false,
+              "evidence": [
+                {
+                  "document_id": "release-contract",
+                  "quote": "For each VelaPermitCard row where release_phase=OPEN, credential_tag, seal_reference, and audit_receipt are independently required to be non-null; any one missing value is sufficient for a contract warning. For release_phase=PAUSED, nulls in those fields are permitted. A null release_phase leaves applicability unknown. A directly observed null in an OPEN row is local evidence and does not require a complete family export."
+                }
+              ],
+              "normal_exceptions": [
+                "release_phase=PAUSED permits nulls in the reviewed field.",
+                "A directly observed null in an applicable row is sufficient evidence."
+              ],
+              "reason": "The source independently requires this field in the same documented context; it is a separate reusable check from other required fields.",
+              "role": "HR_candidate",
+              "plan": {
+                "kind": "conditional_row_check",
+                "select": {
+                  "table": "VelaPermitCard",
+                  "filter": [
+                    {
+                      "column": "release_phase",
+                      "op": "eq",
+                      "value": "OPEN"
+                    }
+                  ]
+                },
+                "violation": [
+                  {
+                    "column": "seal_reference",
+                    "op": "is_missing",
+                    "value": null
+                  }
+                ]
+              },
+              "needed": []
+            },
+            {
+              "id": "check_required_field_audit_receipt",
+              "requires_complete_capture": false,
+              "evidence": [
+                {
+                  "document_id": "release-contract",
+                  "quote": "For each VelaPermitCard row where release_phase=OPEN, credential_tag, seal_reference, and audit_receipt are independently required to be non-null; any one missing value is sufficient for a contract warning. For release_phase=PAUSED, nulls in those fields are permitted. A null release_phase leaves applicability unknown. A directly observed null in an OPEN row is local evidence and does not require a complete family export."
+                }
+              ],
+              "normal_exceptions": [
+                "release_phase=PAUSED permits nulls in the reviewed field.",
+                "A directly observed null in an applicable row is sufficient evidence."
+              ],
+              "reason": "The source independently requires this field in the same documented context; it is a separate reusable check from other required fields.",
+              "role": "HR_candidate",
+              "plan": {
+                "kind": "conditional_row_check",
+                "select": {
+                  "table": "VelaPermitCard",
+                  "filter": [
+                    {
+                      "column": "release_phase",
+                      "op": "eq",
+                      "value": "OPEN"
+                    }
+                  ]
+                },
+                "violation": [
+                  {
+                    "column": "audit_receipt",
+                    "op": "is_missing",
+                    "value": null
+                  }
+                ]
+              },
+              "needed": []
+            }
+          ],
+          "no_candidate_reason": null
+        },
+        "execution": {
+          "policy": "source-bound-reusable-discovery1.1-conditional-row",
+          "executable_valid": true,
+          "errors": [],
+          "rules": [
+            {
+              "id": "check_required_field_seal_reference",
+              "role": "HR_candidate",
+              "decision": "nonwarning",
+              "rows": [
+                {
+                  "source_table": "VelaPermitCard",
+                  "source_row_index": 0,
+                  "source_record": {
+                    "permit_key": "permit-73",
+                    "release_phase": "OPEN",
+                    "credential_tag": "cred-A",
+                    "seal_reference": "seal-B",
+                    "audit_receipt": "audit-C"
+                  },
+                  "value": false,
+                  "support_rows": []
+                }
+              ],
+              "semantic_review": "pending"
+            },
+            {
+              "id": "check_required_field_audit_receipt",
+              "role": "HR_candidate",
+              "decision": "nonwarning",
+              "rows": [
+                {
+                  "source_table": "VelaPermitCard",
+                  "source_row_index": 0,
+                  "source_record": {
+                    "permit_key": "permit-73",
+                    "release_phase": "OPEN",
+                    "credential_tag": "cred-A",
+                    "seal_reference": "seal-B",
+                    "audit_receipt": "audit-C"
+                  },
+                  "value": false,
+                  "support_rows": []
+                }
+              ],
+              "semantic_review": "pending"
+            }
+          ],
+          "decision": "nonwarning",
+          "semantic_entailment_proven_by_code": false,
+          "operational_approval": false,
+          "input_availability_policy": "required-input-availability1.0",
+          "predicate_consistency_policy": "literal-conjunction-consistency1.2-conditional-row",
+          "declared_reference_guard_policy": "declared-self-reference-direction1.0"
+        },
+        "definition_sha": "f21b5d997ec7e2093272edbc719b74a73607f5668f998706e4c462e49fa23575",
+        "physical_schema_sha": "daa05ac06878a3773d05c9c157ac5f86717f439dd9fef36a614e49da3b16eead",
+        "documents_sha": "7f19c73a2700a7331f00706d75f646bf2ca7d9a1b6c394014a926ebe1bd9d0f8",
+        "source_version": "vela-permit-contract-draft-v1",
+        "source_file_sha256": "3c37aca84b637b2502bbf79f234dc5953cefaba34b14cc9836a90f5f762d34ca",
+        "generation_schema": {
+          "type": "object",
+          "properties": {
+            "candidates": {
+              "type": "array",
+              "maxItems": 4,
+              "items": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 240
+                      },
+                      "requires_complete_capture": {
+                        "type": "boolean"
+                      },
+                      "evidence": {
+                        "type": "array",
+                        "minItems": 1,
+                        "maxItems": 8,
+                        "items": {
+                          "oneOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "document_id": {
+                                  "const": "release-contract"
+                                },
+                                "quote": {
+                                  "const": "For each VelaPermitCard row where release_phase=OPEN, credential_tag, seal_reference, and audit_receipt are independently required to be non-null; any one missing value is sufficient for a contract warning. For release_phase=PAUSED, nulls in those fields are permitted. A null release_phase leaves applicability unknown. A directly observed null in an OPEN row is local evidence and does not require a complete family export."
+                                }
+                              },
+                              "required": [
+                                "document_id",
+                                "quote"
+                              ],
+                              "additionalProperties": false
+                            }
+                          ]
+                        }
+                      },
+                      "normal_exceptions": {
+                        "type": "array",
+                        "maxItems": 4,
+                        "items": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 240
+                        }
+                      },
+                      "reason": {
+                        "type": "string",
+                        "minLength": 8,
+                        "maxLength": 400
+                      },
+                      "role": {
+                        "enum": [
+                          "HR_candidate",
+                          "observed_SR_candidate"
+                        ]
+                      },
+                      "plan": {
+                        "oneOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": {
+                                "const": "row_check"
+                              },
+                              "select": {
+                                "type": "object",
+                                "properties": {
+                                  "table": {
+                                    "const": "VelaPermitCard"
+                                  },
+                                  "filter": {
+                                    "type": "array",
+                                    "maxItems": 6,
+                                    "items": {
+                                      "oneOf": [
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "column": {
+                                              "enum": [
+                                                "audit_receipt",
+                                                "credential_tag",
+                                                "release_phase",
+                                                "seal_reference"
+                                              ]
+                                            },
+                                            "op": {
+                                              "enum": [
+                                                "eq",
+                                                "ne"
+                                              ]
+                                            },
+                                            "value": {
+                                              "type": [
+                                                "string",
+                                                "number",
+                                                "boolean"
+                                              ]
+                                            }
+                                          },
+                                          "required": [
+                                            "column",
+                                            "op",
+                                            "value"
+                                          ],
+                                          "additionalProperties": false
+                                        },
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "column": {
+                                              "enum": [
+                                                "audit_receipt",
+                                                "credential_tag",
+                                                "release_phase",
+                                                "seal_reference"
+                                              ]
+                                            },
+                                            "op": {
+                                              "enum": [
+                                                "in",
+                                                "not_in"
+                                              ]
+                                            },
+                                            "value": {
+                                              "type": "array",
+                                              "minItems": 1,
+                                              "maxItems": 32,
+                                              "items": {
+                                                "type": [
+                                                  "string",
+                                                  "number",
+                                                  "boolean"
+                                                ]
+                                              }
+                                            }
+                                          },
+                                          "required": [
+                                            "column",
+                                            "op",
+                                            "value"
+                                          ],
+                                          "additionalProperties": false
+                                        },
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "column": {
+                                              "enum": [
+                                                "audit_receipt",
+                                                "credential_tag",
+                                                "permit_key",
+                                                "release_phase",
+                                                "seal_reference"
+                                              ]
+                                            },
+                                            "op": {
+                                              "enum": [
+                                                "is_missing",
+                                                "is_present"
+                                              ]
+                                            },
+                                            "value": {
+                                              "type": "null"
+                                            }
+                                          },
+                                          "required": [
+                                            "column",
+                                            "op",
+                                            "value"
+                                          ],
+                                          "additionalProperties": false
+                                        }
+                                      ]
+                                    }
+                                  }
+                                },
+                                "required": [
+                                  "table",
+                                  "filter"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "required": [
+                              "kind",
+                              "select"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": {
+                                "const": "conditional_row_check"
+                              },
+                              "select": {
+                                "type": "object",
+                                "properties": {
+                                  "table": {
+                                    "const": "VelaPermitCard"
+                                  },
+                                  "filter": {
+                                    "type": "array",
+                                    "maxItems": 6,
+                                    "items": {
+                                      "oneOf": [
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "column": {
+                                              "enum": [
+                                                "audit_receipt",
+                                                "credential_tag",
+                                                "release_phase",
+                                                "seal_reference"
+                                              ]
+                                            },
+                                            "op": {
+                                              "enum": [
+                                                "eq",
+                                                "ne"
+                                              ]
+                                            },
+                                            "value": {
+                                              "type": [
+                                                "string",
+                                                "number",
+                                                "boolean"
+                                              ]
+                                            }
+                                          },
+                                          "required": [
+                                            "column",
+                                            "op",
+                                            "value"
+                                          ],
+                                          "additionalProperties": false
+                                        },
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "column": {
+                                              "enum": [
+                                                "audit_receipt",
+                                                "credential_tag",
+                                                "release_phase",
+                                                "seal_reference"
+                                              ]
+                                            },
+                                            "op": {
+                                              "enum": [
+                                                "in",
+                                                "not_in"
+                                              ]
+                                            },
+                                            "value": {
+                                              "type": "array",
+                                              "minItems": 1,
+                                              "maxItems": 32,
+                                              "items": {
+                                                "type": [
+                                                  "string",
+                                                  "number",
+                                                  "boolean"
+                                                ]
+                                              }
+                                            }
+                                          },
+                                          "required": [
+                                            "column",
+                                            "op",
+                                            "value"
+                                          ],
+                                          "additionalProperties": false
+                                        },
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "column": {
+                                              "enum": [
+                                                "audit_receipt",
+                                                "credential_tag",
+                                                "permit_key",
+                                                "release_phase",
+                                                "seal_reference"
+                                              ]
+                                            },
+                                            "op": {
+                                              "enum": [
+                                                "is_missing",
+                                                "is_present"
+                                              ]
+                                            },
+                                            "value": {
+                                              "type": "null"
+                                            }
+                                          },
+                                          "required": [
+                                            "column",
+                                            "op",
+                                            "value"
+                                          ],
+                                          "additionalProperties": false
+                                        }
+                                      ]
+                                    }
+                                  }
+                                },
+                                "required": [
+                                  "table",
+                                  "filter"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "violation": {
+                                "type": "array",
+                                "maxItems": 6,
+                                "items": {
+                                  "oneOf": [
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "column": {
+                                          "enum": [
+                                            "audit_receipt",
+                                            "credential_tag",
+                                            "release_phase",
+                                            "seal_reference"
+                                          ]
+                                        },
+                                        "op": {
+                                          "enum": [
+                                            "eq",
+                                            "ne"
+                                          ]
+                                        },
+                                        "value": {
+                                          "type": [
+                                            "string",
+                                            "number",
+                                            "boolean"
+                                          ]
+                                        }
+                                      },
+                                      "required": [
+                                        "column",
+                                        "op",
+                                        "value"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "column": {
+                                          "enum": [
+                                            "audit_receipt",
+                                            "credential_tag",
+                                            "release_phase",
+                                            "seal_reference"
+                                          ]
+                                        },
+                                        "op": {
+                                          "enum": [
+                                            "in",
+                                            "not_in"
+                                          ]
+                                        },
+                                        "value": {
+                                          "type": "array",
+                                          "minItems": 1,
+                                          "maxItems": 32,
+                                          "items": {
+                                            "type": [
+                                              "string",
+                                              "number",
+                                              "boolean"
+                                            ]
+                                          }
+                                        }
+                                      },
+                                      "required": [
+                                        "column",
+                                        "op",
+                                        "value"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "column": {
+                                          "enum": [
+                                            "audit_receipt",
+                                            "credential_tag",
+                                            "permit_key",
+                                            "release_phase",
+                                            "seal_reference"
+                                          ]
+                                        },
+                                        "op": {
+                                          "enum": [
+                                            "is_missing",
+                                            "is_present"
+                                          ]
+                                        },
+                                        "value": {
+                                          "type": "null"
+                                        }
+                                      },
+                                      "required": [
+                                        "column",
+                                        "op",
+                                        "value"
+                                      ],
+                                      "additionalProperties": false
+                                    }
+                                  ]
+                                },
+                                "minItems": 1
+                              }
+                            },
+                            "required": [
+                              "kind",
+                              "select",
+                              "violation"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": {
+                                "const": "duplicate_key"
+                              },
+                              "select": {
+                                "type": "object",
+                                "properties": {
+                                  "table": {
+                                    "const": "VelaPermitCard"
+                                  },
+                                  "filter": {
+                                    "type": "array",
+                                    "maxItems": 6,
+                                    "items": {
+                                      "oneOf": [
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "column": {
+                                              "enum": [
+                                                "audit_receipt",
+                                                "credential_tag",
+                                                "release_phase",
+                                                "seal_reference"
+                                              ]
+                                            },
+                                            "op": {
+                                              "enum": [
+                                                "eq",
+                                                "ne"
+                                              ]
+                                            },
+                                            "value": {
+                                              "type": [
+                                                "string",
+                                                "number",
+                                                "boolean"
+                                              ]
+                                            }
+                                          },
+                                          "required": [
+                                            "column",
+                                            "op",
+                                            "value"
+                                          ],
+                                          "additionalProperties": false
+                                        },
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "column": {
+                                              "enum": [
+                                                "audit_receipt",
+                                                "credential_tag",
+                                                "release_phase",
+                                                "seal_reference"
+                                              ]
+                                            },
+                                            "op": {
+                                              "enum": [
+                                                "in",
+                                                "not_in"
+                                              ]
+                                            },
+                                            "value": {
+                                              "type": "array",
+                                              "minItems": 1,
+                                              "maxItems": 32,
+                                              "items": {
+                                                "type": [
+                                                  "string",
+                                                  "number",
+                                                  "boolean"
+                                                ]
+                                              }
+                                            }
+                                          },
+                                          "required": [
+                                            "column",
+                                            "op",
+                                            "value"
+                                          ],
+                                          "additionalProperties": false
+                                        },
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "column": {
+                                              "enum": [
+                                                "audit_receipt",
+                                                "credential_tag",
+                                                "permit_key",
+                                                "release_phase",
+                                                "seal_reference"
+                                              ]
+                                            },
+                                            "op": {
+                                              "enum": [
+                                                "is_missing",
+                                                "is_present"
+                                              ]
+                                            },
+                                            "value": {
+                                              "type": "null"
+                                            }
+                                          },
+                                          "required": [
+                                            "column",
+                                            "op",
+                                            "value"
+                                          ],
+                                          "additionalProperties": false
+                                        }
+                                      ]
+                                    }
+                                  }
+                                },
+                                "required": [
+                                  "table",
+                                  "filter"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "keys": {
+                                "type": "array",
+                                "minItems": 1,
+                                "maxItems": 6,
+                                "items": {
+                                  "enum": [
+                                    "audit_receipt",
+                                    "credential_tag",
+                                    "permit_key",
+                                    "release_phase",
+                                    "seal_reference"
+                                  ]
+                                }
+                              }
+                            },
+                            "required": [
+                              "kind",
+                              "select",
+                              "keys"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": {
+                                "const": "relation_check"
+                              },
+                              "select": {
+                                "type": "object",
+                                "properties": {
+                                  "table": {
+                                    "const": "VelaPermitCard"
+                                  },
+                                  "filter": {
+                                    "type": "array",
+                                    "maxItems": 6,
+                                    "items": {
+                                      "oneOf": [
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "column": {
+                                              "enum": [
+                                                "audit_receipt",
+                                                "credential_tag",
+                                                "release_phase",
+                                                "seal_reference"
+                                              ]
+                                            },
+                                            "op": {
+                                              "enum": [
+                                                "eq",
+                                                "ne"
+                                              ]
+                                            },
+                                            "value": {
+                                              "type": [
+                                                "string",
+                                                "number",
+                                                "boolean"
+                                              ]
+                                            }
+                                          },
+                                          "required": [
+                                            "column",
+                                            "op",
+                                            "value"
+                                          ],
+                                          "additionalProperties": false
+                                        },
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "column": {
+                                              "enum": [
+                                                "audit_receipt",
+                                                "credential_tag",
+                                                "release_phase",
+                                                "seal_reference"
+                                              ]
+                                            },
+                                            "op": {
+                                              "enum": [
+                                                "in",
+                                                "not_in"
+                                              ]
+                                            },
+                                            "value": {
+                                              "type": "array",
+                                              "minItems": 1,
+                                              "maxItems": 32,
+                                              "items": {
+                                                "type": [
+                                                  "string",
+                                                  "number",
+                                                  "boolean"
+                                                ]
+                                              }
+                                            }
+                                          },
+                                          "required": [
+                                            "column",
+                                            "op",
+                                            "value"
+                                          ],
+                                          "additionalProperties": false
+                                        },
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "column": {
+                                              "enum": [
+                                                "audit_receipt",
+                                                "credential_tag",
+                                                "permit_key",
+                                                "release_phase",
+                                                "seal_reference"
+                                              ]
+                                            },
+                                            "op": {
+                                              "enum": [
+                                                "is_missing",
+                                                "is_present"
+                                              ]
+                                            },
+                                            "value": {
+                                              "type": "null"
+                                            }
+                                          },
+                                          "required": [
+                                            "column",
+                                            "op",
+                                            "value"
+                                          ],
+                                          "additionalProperties": false
+                                        }
+                                      ]
+                                    }
+                                  }
+                                },
+                                "required": [
+                                  "table",
+                                  "filter"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "related": {
+                                "oneOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "select": {
+                                        "type": "object",
+                                        "properties": {
+                                          "table": {
+                                            "const": "VelaPermitCard"
+                                          },
+                                          "filter": {
+                                            "type": "array",
+                                            "maxItems": 6,
+                                            "items": {
+                                              "oneOf": [
+                                                {
+                                                  "type": "object",
+                                                  "properties": {
+                                                    "column": {
+                                                      "enum": [
+                                                        "audit_receipt",
+                                                        "credential_tag",
+                                                        "release_phase",
+                                                        "seal_reference"
+                                                      ]
+                                                    },
+                                                    "op": {
+                                                      "enum": [
+                                                        "eq",
+                                                        "ne"
+                                                      ]
+                                                    },
+                                                    "value": {
+                                                      "type": [
+                                                        "string",
+                                                        "number",
+                                                        "boolean"
+                                                      ]
+                                                    }
+                                                  },
+                                                  "required": [
+                                                    "column",
+                                                    "op",
+                                                    "value"
+                                                  ],
+                                                  "additionalProperties": false
+                                                },
+                                                {
+                                                  "type": "object",
+                                                  "properties": {
+                                                    "column": {
+                                                      "enum": [
+                                                        "audit_receipt",
+                                                        "credential_tag",
+                                                        "release_phase",
+                                                        "seal_reference"
+                                                      ]
+                                                    },
+                                                    "op": {
+                                                      "enum": [
+                                                        "in",
+                                                        "not_in"
+                                                      ]
+                                                    },
+                                                    "value": {
+                                                      "type": "array",
+                                                      "minItems": 1,
+                                                      "maxItems": 32,
+                                                      "items": {
+                                                        "type": [
+                                                          "string",
+                                                          "number",
+                                                          "boolean"
+                                                        ]
+                                                      }
+                                                    }
+                                                  },
+                                                  "required": [
+                                                    "column",
+                                                    "op",
+                                                    "value"
+                                                  ],
+                                                  "additionalProperties": false
+                                                },
+                                                {
+                                                  "type": "object",
+                                                  "properties": {
+                                                    "column": {
+                                                      "enum": [
+                                                        "audit_receipt",
+                                                        "credential_tag",
+                                                        "permit_key",
+                                                        "release_phase",
+                                                        "seal_reference"
+                                                      ]
+                                                    },
+                                                    "op": {
+                                                      "enum": [
+                                                        "is_missing",
+                                                        "is_present"
+                                                      ]
+                                                    },
+                                                    "value": {
+                                                      "type": "null"
+                                                    }
+                                                  },
+                                                  "required": [
+                                                    "column",
+                                                    "op",
+                                                    "value"
+                                                  ],
+                                                  "additionalProperties": false
+                                                }
+                                              ]
+                                            }
+                                          }
+                                        },
+                                        "required": [
+                                          "table",
+                                          "filter"
+                                        ],
+                                        "additionalProperties": false
+                                      },
+                                      "join": {
+                                        "type": "array",
+                                        "minItems": 1,
+                                        "maxItems": 6,
+                                        "items": {
+                                          "type": "object",
+                                          "properties": {
+                                            "source": {
+                                              "enum": [
+                                                "audit_receipt",
+                                                "credential_tag",
+                                                "permit_key",
+                                                "release_phase",
+                                                "seal_reference"
+                                              ]
+                                            },
+                                            "target": {
+                                              "enum": [
+                                                "audit_receipt",
+                                                "credential_tag",
+                                                "permit_key",
+                                                "release_phase",
+                                                "seal_reference"
+                                              ]
+                                            }
+                                          },
+                                          "required": [
+                                            "source",
+                                            "target"
+                                          ],
+                                          "additionalProperties": false
+                                        }
+                                      }
+                                    },
+                                    "required": [
+                                      "select",
+                                      "join"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                ]
+                              },
+                              "violation": {
+                                "enum": [
+                                  "required_match_missing",
+                                  "match_present",
+                                  "match_not_exactly_one"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "kind",
+                              "select",
+                              "related",
+                              "violation"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": {
+                                "const": "unexplained_event"
+                              },
+                              "select": {
+                                "type": "object",
+                                "properties": {
+                                  "table": {
+                                    "const": "VelaPermitCard"
+                                  },
+                                  "filter": {
+                                    "type": "array",
+                                    "maxItems": 6,
+                                    "items": {
+                                      "oneOf": [
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "column": {
+                                              "enum": [
+                                                "audit_receipt",
+                                                "credential_tag",
+                                                "release_phase",
+                                                "seal_reference"
+                                              ]
+                                            },
+                                            "op": {
+                                              "enum": [
+                                                "eq",
+                                                "ne"
+                                              ]
+                                            },
+                                            "value": {
+                                              "type": [
+                                                "string",
+                                                "number",
+                                                "boolean"
+                                              ]
+                                            }
+                                          },
+                                          "required": [
+                                            "column",
+                                            "op",
+                                            "value"
+                                          ],
+                                          "additionalProperties": false
+                                        },
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "column": {
+                                              "enum": [
+                                                "audit_receipt",
+                                                "credential_tag",
+                                                "release_phase",
+                                                "seal_reference"
+                                              ]
+                                            },
+                                            "op": {
+                                              "enum": [
+                                                "in",
+                                                "not_in"
+                                              ]
+                                            },
+                                            "value": {
+                                              "type": "array",
+                                              "minItems": 1,
+                                              "maxItems": 32,
+                                              "items": {
+                                                "type": [
+                                                  "string",
+                                                  "number",
+                                                  "boolean"
+                                                ]
+                                              }
+                                            }
+                                          },
+                                          "required": [
+                                            "column",
+                                            "op",
+                                            "value"
+                                          ],
+                                          "additionalProperties": false
+                                        },
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "column": {
+                                              "enum": [
+                                                "audit_receipt",
+                                                "credential_tag",
+                                                "permit_key",
+                                                "release_phase",
+                                                "seal_reference"
+                                              ]
+                                            },
+                                            "op": {
+                                              "enum": [
+                                                "is_missing",
+                                                "is_present"
+                                              ]
+                                            },
+                                            "value": {
+                                              "type": "null"
+                                            }
+                                          },
+                                          "required": [
+                                            "column",
+                                            "op",
+                                            "value"
+                                          ],
+                                          "additionalProperties": false
+                                        }
+                                      ]
+                                    }
+                                  }
+                                },
+                                "required": [
+                                  "table",
+                                  "filter"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "context": {
+                                "oneOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "select": {
+                                        "type": "object",
+                                        "properties": {
+                                          "table": {
+                                            "const": "VelaPermitCard"
+                                          },
+                                          "filter": {
+                                            "type": "array",
+                                            "maxItems": 6,
+                                            "items": {
+                                              "oneOf": [
+                                                {
+                                                  "type": "object",
+                                                  "properties": {
+                                                    "column": {
+                                                      "enum": [
+                                                        "audit_receipt",
+                                                        "credential_tag",
+                                                        "release_phase",
+                                                        "seal_reference"
+                                                      ]
+                                                    },
+                                                    "op": {
+                                                      "enum": [
+                                                        "eq",
+                                                        "ne"
+                                                      ]
+                                                    },
+                                                    "value": {
+                                                      "type": [
+                                                        "string",
+                                                        "number",
+                                                        "boolean"
+                                                      ]
+                                                    }
+                                                  },
+                                                  "required": [
+                                                    "column",
+                                                    "op",
+                                                    "value"
+                                                  ],
+                                                  "additionalProperties": false
+                                                },
+                                                {
+                                                  "type": "object",
+                                                  "properties": {
+                                                    "column": {
+                                                      "enum": [
+                                                        "audit_receipt",
+                                                        "credential_tag",
+                                                        "release_phase",
+                                                        "seal_reference"
+                                                      ]
+                                                    },
+                                                    "op": {
+                                                      "enum": [
+                                                        "in",
+                                                        "not_in"
+                                                      ]
+                                                    },
+                                                    "value": {
+                                                      "type": "array",
+                                                      "minItems": 1,
+                                                      "maxItems": 32,
+                                                      "items": {
+                                                        "type": [
+                                                          "string",
+                                                          "number",
+                                                          "boolean"
+                                                        ]
+                                                      }
+                                                    }
+                                                  },
+                                                  "required": [
+                                                    "column",
+                                                    "op",
+                                                    "value"
+                                                  ],
+                                                  "additionalProperties": false
+                                                },
+                                                {
+                                                  "type": "object",
+                                                  "properties": {
+                                                    "column": {
+                                                      "enum": [
+                                                        "audit_receipt",
+                                                        "credential_tag",
+                                                        "permit_key",
+                                                        "release_phase",
+                                                        "seal_reference"
+                                                      ]
+                                                    },
+                                                    "op": {
+                                                      "enum": [
+                                                        "is_missing",
+                                                        "is_present"
+                                                      ]
+                                                    },
+                                                    "value": {
+                                                      "type": "null"
+                                                    }
+                                                  },
+                                                  "required": [
+                                                    "column",
+                                                    "op",
+                                                    "value"
+                                                  ],
+                                                  "additionalProperties": false
+                                                }
+                                              ]
+                                            }
+                                          }
+                                        },
+                                        "required": [
+                                          "table",
+                                          "filter"
+                                        ],
+                                        "additionalProperties": false
+                                      },
+                                      "join": {
+                                        "type": "array",
+                                        "minItems": 1,
+                                        "maxItems": 6,
+                                        "items": {
+                                          "type": "object",
+                                          "properties": {
+                                            "source": {
+                                              "enum": [
+                                                "audit_receipt",
+                                                "credential_tag",
+                                                "permit_key",
+                                                "release_phase",
+                                                "seal_reference"
+                                              ]
+                                            },
+                                            "target": {
+                                              "enum": [
+                                                "audit_receipt",
+                                                "credential_tag",
+                                                "permit_key",
+                                                "release_phase",
+                                                "seal_reference"
+                                              ]
+                                            }
+                                          },
+                                          "required": [
+                                            "source",
+                                            "target"
+                                          ],
+                                          "additionalProperties": false
+                                        }
+                                      }
+                                    },
+                                    "required": [
+                                      "select",
+                                      "join"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                ]
+                              },
+                              "explained_by": {
+                                "type": "array",
+                                "minItems": 1,
+                                "maxItems": 4,
+                                "items": {
+                                  "oneOf": [
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "select": {
+                                          "type": "object",
+                                          "properties": {
+                                            "table": {
+                                              "const": "VelaPermitCard"
+                                            },
+                                            "filter": {
+                                              "type": "array",
+                                              "maxItems": 6,
+                                              "items": {
+                                                "oneOf": [
+                                                  {
+                                                    "type": "object",
+                                                    "properties": {
+                                                      "column": {
+                                                        "enum": [
+                                                          "audit_receipt",
+                                                          "credential_tag",
+                                                          "release_phase",
+                                                          "seal_reference"
+                                                        ]
+                                                      },
+                                                      "op": {
+                                                        "enum": [
+                                                          "eq",
+                                                          "ne"
+                                                        ]
+                                                      },
+                                                      "value": {
+                                                        "type": [
+                                                          "string",
+                                                          "number",
+                                                          "boolean"
+                                                        ]
+                                                      }
+                                                    },
+                                                    "required": [
+                                                      "column",
+                                                      "op",
+                                                      "value"
+                                                    ],
+                                                    "additionalProperties": false
+                                                  },
+                                                  {
+                                                    "type": "object",
+                                                    "properties": {
+                                                      "column": {
+                                                        "enum": [
+                                                          "audit_receipt",
+                                                          "credential_tag",
+                                                          "release_phase",
+                                                          "seal_reference"
+                                                        ]
+                                                      },
+                                                      "op": {
+                                                        "enum": [
+                                                          "in",
+                                                          "not_in"
+                                                        ]
+                                                      },
+                                                      "value": {
+                                                        "type": "array",
+                                                        "minItems": 1,
+                                                        "maxItems": 32,
+                                                        "items": {
+                                                          "type": [
+                                                            "string",
+                                                            "number",
+                                                            "boolean"
+                                                          ]
+                                                        }
+                                                      }
+                                                    },
+                                                    "required": [
+                                                      "column",
+                                                      "op",
+                                                      "value"
+                                                    ],
+                                                    "additionalProperties": false
+                                                  },
+                                                  {
+                                                    "type": "object",
+                                                    "properties": {
+                                                      "column": {
+                                                        "enum": [
+                                                          "audit_receipt",
+                                                          "credential_tag",
+                                                          "permit_key",
+                                                          "release_phase",
+                                                          "seal_reference"
+                                                        ]
+                                                      },
+                                                      "op": {
+                                                        "enum": [
+                                                          "is_missing",
+                                                          "is_present"
+                                                        ]
+                                                      },
+                                                      "value": {
+                                                        "type": "null"
+                                                      }
+                                                    },
+                                                    "required": [
+                                                      "column",
+                                                      "op",
+                                                      "value"
+                                                    ],
+                                                    "additionalProperties": false
+                                                  }
+                                                ]
+                                              }
+                                            }
+                                          },
+                                          "required": [
+                                            "table",
+                                            "filter"
+                                          ],
+                                          "additionalProperties": false
+                                        },
+                                        "join": {
+                                          "type": "array",
+                                          "minItems": 1,
+                                          "maxItems": 6,
+                                          "items": {
+                                            "type": "object",
+                                            "properties": {
+                                              "source": {
+                                                "enum": [
+                                                  "audit_receipt",
+                                                  "credential_tag",
+                                                  "permit_key",
+                                                  "release_phase",
+                                                  "seal_reference"
+                                                ]
+                                              },
+                                              "target": {
+                                                "enum": [
+                                                  "audit_receipt",
+                                                  "credential_tag",
+                                                  "permit_key",
+                                                  "release_phase",
+                                                  "seal_reference"
+                                                ]
+                                              }
+                                            },
+                                            "required": [
+                                              "source",
+                                              "target"
+                                            ],
+                                            "additionalProperties": false
+                                          }
+                                        }
+                                      },
+                                      "required": [
+                                        "select",
+                                        "join"
+                                      ],
+                                      "additionalProperties": false
+                                    }
+                                  ]
+                                }
+                              }
+                            },
+                            "required": [
+                              "kind",
+                              "select",
+                              "context",
+                              "explained_by"
+                            ],
+                            "additionalProperties": false
+                          }
+                        ]
+                      },
+                      "needed": {
+                        "type": "array",
+                        "maxItems": 0,
+                        "items": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 240
+                        }
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "requires_complete_capture",
+                      "evidence",
+                      "normal_exceptions",
+                      "reason",
+                      "role",
+                      "plan",
+                      "needed"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 240
+                      },
+                      "requires_complete_capture": {
+                        "type": "boolean"
+                      },
+                      "evidence": {
+                        "type": "array",
+                        "minItems": 1,
+                        "maxItems": 8,
+                        "items": {
+                          "oneOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "document_id": {
+                                  "const": "release-contract"
+                                },
+                                "quote": {
+                                  "const": "For each VelaPermitCard row where release_phase=OPEN, credential_tag, seal_reference, and audit_receipt are independently required to be non-null; any one missing value is sufficient for a contract warning. For release_phase=PAUSED, nulls in those fields are permitted. A null release_phase leaves applicability unknown. A directly observed null in an OPEN row is local evidence and does not require a complete family export."
+                                }
+                              },
+                              "required": [
+                                "document_id",
+                                "quote"
+                              ],
+                              "additionalProperties": false
+                            }
+                          ]
+                        }
+                      },
+                      "normal_exceptions": {
+                        "type": "array",
+                        "maxItems": 4,
+                        "items": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 240
+                        }
+                      },
+                      "reason": {
+                        "type": "string",
+                        "minLength": 8,
+                        "maxLength": 400
+                      },
+                      "role": {
+                        "const": "request_evidence"
+                      },
+                      "plan": {
+                        "type": "null"
+                      },
+                      "needed": {
+                        "type": "array",
+                        "minItems": 1,
+                        "maxItems": 5,
+                        "items": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 240
+                        }
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "requires_complete_capture",
+                      "evidence",
+                      "normal_exceptions",
+                      "reason",
+                      "role",
+                      "plan",
+                      "needed"
+                    ],
+                    "additionalProperties": false
+                  }
+                ]
+              }
+            },
+            "no_candidate_reason": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "maxLength": 400
+            }
+          },
+          "required": [
+            "candidates",
+            "no_candidate_reason"
+          ],
+          "additionalProperties": false
+        },
+        "inferred_source_columns": {
+          "VelaPermitCard": [
+            "audit_receipt",
+            "credential_tag",
+            "permit_key",
+            "release_phase",
+            "seal_reference"
+          ]
+        },
+        "inferred_source_types": {
+          "VelaPermitCard.audit_receipt": "string",
+          "VelaPermitCard.credential_tag": "string",
+          "VelaPermitCard.permit_key": "string",
+          "VelaPermitCard.release_phase": "string",
+          "VelaPermitCard.seal_reference": "string"
+        },
+        "adopted_operational_rules": [],
+        "semantic_and_operational_review": "pending",
+        "actual_model_weight_sha": "f36ce52e0690e8eefe2cfb26aa5d0f2c37f629a49f7ecd8063a37980233ee496",
+        "Base_revision": "6a9e13bd6fc8f0983b9b99948120bc37f49c13e9",
+        "prompt_policy": "source-only-scope-review1.5-source-evidence",
+        "citation_policy": "exact-input-spans1.1",
+        "execution_feedback_policy": "source-only-execution-feedback1.0",
+        "input_availability_policy": "required-input-availability1.0",
+        "predicate_consistency_policy": "literal-conjunction-consistency1.2-conditional-row",
+        "declared_reference_guard_policy": "declared-self-reference-direction1.0"
+      }
+    }
+  ],
+  "candidate_index": [
+    {
+      "pack_id": "pack-0000-d6b6ac2eac96",
+      "candidate_id": "check_required_fields",
+      "role": "HR_candidate",
+      "is_hold": false,
+      "calculation_fingerprint": "aa837d7bfcf4537e8170e9ed2fbb140eda3274fee65f6ff4502666f9b692843d"
+    },
+    {
+      "pack_id": "pack-0001-fba4a9068f7e",
+      "candidate_id": "check_required_field_seal_reference",
+      "role": "HR_candidate",
+      "is_hold": false,
+      "calculation_fingerprint": "33b43cfd05a3592591db02c823508d7ff8ebb89aa726ad53afdf8568e40d3c3a"
+    },
+    {
+      "pack_id": "pack-0001-fba4a9068f7e",
+      "candidate_id": "check_required_field_audit_receipt",
+      "role": "HR_candidate",
+      "is_hold": false,
+      "calculation_fingerprint": "53f1121e27b7c6d1dac99be9b31ce38e94c709fee1b4a3357c8609b1bb6f2df8"
+    }
+  ],
+  "calculation_groups": [
+    {
+      "calculation_fingerprint": "aa837d7bfcf4537e8170e9ed2fbb140eda3274fee65f6ff4502666f9b692843d",
+      "pack_candidates": [
+        {
+          "pack_id": "pack-0000-d6b6ac2eac96",
+          "candidate_id": "check_required_fields"
+        }
+      ]
+    },
+    {
+      "calculation_fingerprint": "33b43cfd05a3592591db02c823508d7ff8ebb89aa726ad53afdf8568e40d3c3a",
+      "pack_candidates": [
+        {
+          "pack_id": "pack-0001-fba4a9068f7e",
+          "candidate_id": "check_required_field_seal_reference"
+        }
+      ]
+    },
+    {
+      "calculation_fingerprint": "53f1121e27b7c6d1dac99be9b31ce38e94c709fee1b4a3357c8609b1bb6f2df8",
+      "pack_candidates": [
+        {
+          "pack_id": "pack-0001-fba4a9068f7e",
+          "candidate_id": "check_required_field_audit_receipt"
+        }
+      ]
+    }
+  ],
+  "calculation_count_scope": "Exact plan AST + role + capture requirement signatures; not algebraically normalized semantic feature counts or approved rule counts.",
+  "counts": {
+    "pack_count": 2,
+    "candidate_proposal_count": 3,
+    "unique_calculation_count": 3,
+    "hold_proposal_count": 0
+  },
+  "library_sha256": "a33a800508bd28909a617b48fde1798d97011e686c5331d2d55db95598cc0fed"
+}

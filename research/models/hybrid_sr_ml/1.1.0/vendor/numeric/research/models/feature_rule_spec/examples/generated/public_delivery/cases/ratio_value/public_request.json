@@ -1,0 +1,19 @@
+{
+  "question": "Calculate A divided by B per CASE_LOG row, preserving unavailable for missing operands or zero denominator and preserving valid numeric0.",
+  "analysis_request": {
+    "output_table": "CASE_LOG",
+    "result_use": "value",
+    "calculation_type": "number",
+    "required_columns": [
+      [
+        "CASE_LOG",
+        "A"
+      ],
+      [
+        "CASE_LOG",
+        "B"
+      ]
+    ],
+    "required_relationship_ids": []
+  }
+}

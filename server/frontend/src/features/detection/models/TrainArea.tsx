@@ -7,11 +7,11 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/feedback";
+import { StepLinks } from "@/features/detection/components/StepLinks";
 import { errorCode } from "@/features/detection/rules/ruleDraft";
 import { useSourcesQuery } from "@/features/operations/data/inputs";
 import { numberText } from "@/features/operations/format";
 import { useUrlStep } from "@/hooks/useUrlState";
-import { cn } from "@/lib/utils";
 import { useAuthSession } from "@/services/auth/AuthSessionProvider";
 import { forgetJobRequestKey, jobRequestKey } from "@/services/api/job-idempotency";
 import { createPipelineJob, type PipelineJob } from "@/services/api/pipeline.api";
@@ -24,24 +24,6 @@ import { draftFingerprint, freshDraft, jobBlocksRequest, modelKeyOf, readTrainDr
 import { VERSIONS_QUERY, useCapabilities, useTrainJob } from "./useModels";
 
 const STEPS = ["기간", "입력 변수", "모델·파라미터"];
-
-/** 단계 표시: 갈 수 있는 단계는 주소 이동 링크, 앞 단계가 끝나지 않은 단계는 비활성이다. */
-const Stepper = ({ step, maxStep, hrefFor }: { step: number; maxStep: number; hrefFor: (step: number) => string }) => (
-  <ol className="flex flex-wrap gap-1.5 text-sm">
-    {STEPS.map((label, index) => {
-      const number = index + 1;
-      const current = number === step ? "step" : undefined;
-      const look = cn("block rounded-md border px-2.5 py-1", current && "border-primary bg-primary text-primary-foreground", number < step && "border-success text-success-text");
-      return (
-        <li key={label}>
-          {number <= maxStep
-            ? <Link to={hrefFor(number)} aria-current={current} className={cn(look, "outline-none hover:bg-accent focus-visible:ring-3 focus-visible:ring-ring/50", current && "hover:bg-primary")}>{number}. {label}</Link>
-            : <span aria-disabled="true" className={cn(look, "text-muted-foreground")}>{number}. {label}</span>}
-        </li>
-      );
-    })}
-  </ol>
-);
 
 const JOB_LABELS: Record<PipelineJob["status"], string> = { queued: "대기", running: "실행 중", succeeded: "완료", failed: "실패" };
 const JOB_BADGES = { queued: "info", running: "info", succeeded: "success", failed: "critical" } as const;
@@ -182,7 +164,7 @@ export const TrainArea = () => {
     <div ref={area}>
       <SectionCard title="새 학습">
         {jobId && <TrainJobStatus jobId={jobId} returnTo={location.pathname + location.search} />}
-        <Stepper step={shownStep} maxStep={maxStep} hrefFor={hrefFor} />
+        <StepLinks steps={STEPS} step={shownStep} maxStep={maxStep} hrefFor={hrefFor} />
         {(capabilities.isPending || sources.isPending) && <LoadingState>학습 조건 조회 중…</LoadingState>}
         {capabilities.isError && <ErrorState title={`방법 카탈로그 조회 실패 · ${errorCode(capabilities.error)}`} onRetry={() => void capabilities.refetch()} retryLabel="다시 조회" />}
         {sources.isError && <ErrorState title={`출처 조회 실패 · ${errorCode(sources.error)}`} onRetry={() => void sources.refetch()} retryLabel="다시 조회" />}

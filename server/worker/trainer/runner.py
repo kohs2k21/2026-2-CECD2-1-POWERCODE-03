@@ -75,7 +75,7 @@ def _claim_job(conn: Any, message: ClaimedMessage, worker_id: str) -> tuple[dict
                 AND lease_token=%s AND lease_until>clock_timestamp() FOR UPDATE""", (message.id,message.lease_token))
             if cur.fetchone() is None:
                 raise RuntimeError("job_queue_ownership_lost")
-            if row[1] in ("recommend_feature", "recommend_rule", "recommend_thresholds", "train", "evaluate", "import_csv") and row[8] != "admin":
+            if row[1] in ("recommend_feature", "recommend_rule", "recommend_thresholds", "recommend_relations", "train", "evaluate", "import_csv") and row[8] != "admin":
                 raise ValueError("job_role_not_authorized")
             if row[2] in ("succeeded", "failed"):
                 if not acknowledge(conn, message.queue, message):
@@ -271,6 +271,10 @@ def _execute(conn: Any, job: dict[str, Any], attempt_id: uuid.UUID,
             # 시도 시작에 고정한다. 읽을 수 없으면 긴 학습을 돌리기 전에 멈춘다.
             operational = read_operational_state(conn)
             conn.commit()
+    if kind == "recommend_relations":
+        # 실험 기능: 층 B 관계·처리 시간 후보. 스냅샷을 읽기만 하고 결과 JSON만 남긴다.
+        from trainer.relation_candidates import execute as execute_relations
+        return execute_relations(conn, job)
     if kind == "explain":
         from explanation import explain
         return explain(job)
@@ -783,7 +787,7 @@ def run(*, once: bool = False, poll_seconds: float = 1.0, role: str = "trainer")
                 logging.getLogger(__name__).warning("orphan training workspace cleanup skipped: %s", exc)
         while True:
             if role == "trainer":
-                message = claim(conn, "training", lease_seconds=60, job_kinds=("train", "evaluate", "import_csv"))
+                message = claim(conn, "training", lease_seconds=60, job_kinds=("train", "evaluate", "import_csv", "recommend_relations"))
             elif role == "llm":
                 message = None
                 # A bounded rotation prevents explanation starvation under recommendation load.

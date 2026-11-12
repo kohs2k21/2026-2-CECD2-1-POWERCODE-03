@@ -6,6 +6,7 @@ import { readEvidence } from "../data/evidence";
 import { riskLevelIconTone, riskLevelIcons } from "../icons";
 import {
   DASH,
+  causesLine,
   completenessText,
   resultText,
   resultVariant,
@@ -43,13 +44,15 @@ export const RiskCell = ({ item }: { item: DecisionItem }) =>
   );
 
 /**
- * 판정 목록 한 줄(와이어프레임 inbox-row): 미확인 점(요청자 기준), 왼쪽 = 거래·인터페이스·경로 상태,
- * 오른쪽 = 판정 결과·단계·위험도·검사 완료와 시각·판정 ID와 프로세스. 행 전체가 상세로 가는 링크(키보드 순서 = 화면 순서).
+ * 판정 목록 한 줄(와이어프레임 inbox-row): 왼쪽 = 미확인 점(요청자 기준)·거래 ID, 그 아래 이상 원인(사용자 11/13, 서버 `causes` 첫 원인 + 외 N건)·
+ * 경로 상태(작은 글자), 오른쪽 = 판정 결과·단계·위험도·검사 완료와 시각·판정 ID와 프로세스·인터페이스/채널(구석 작은 글자, 사용자 11/13).
+ * 행 전체가 상세로 가는 링크(키보드 순서 = 화면 순서).
  */
 export const DecisionRow = ({ item, href }: { item: DecisionItem; href: string }) => {
   // #100 이전 목록 줄의 심각도 아이콘 = 저장된 위험도 단계(단계가 있는 이상만).
   const RiskIcon = item.riskStatus === "rated" && item.riskLevel ? riskLevelIcons[item.riskLevel] : null;
   const sub = [pathsText(item), modelsText(item), inputText(item)].filter(Boolean).join(" · ");
+  const cause = causesLine(item);
   return (
     <Link
       to={href}
@@ -58,7 +61,7 @@ export const DecisionRow = ({ item, href }: { item: DecisionItem; href: string }
         "grid gap-3 rounded-lg border bg-card px-4 py-3 text-sm transition-colors outline-none hover:bg-accent focus-visible:ring-3 focus-visible:ring-ring/50 sm:grid-cols-[minmax(0,1fr)_auto]",
       )}
     >
-      <span className="grid min-w-0 gap-1">
+      <span className="grid min-w-0 content-start gap-1">
         <span className="flex min-w-0 items-center gap-2">
           {item.unread && (
             <span className="size-2 shrink-0 rounded-full bg-primary" title="미확인" data-unread="true">
@@ -70,10 +73,12 @@ export const DecisionRow = ({ item, href }: { item: DecisionItem; href: string }
           )}
           <strong className="truncate font-semibold">{item.transactionId ?? item.id}</strong>
         </span>
-        <span className="truncate text-muted-foreground">
-          인터페이스 {item.interfaceId ?? DASH} · 채널 {item.channelId ?? DASH}
-        </span>
-        {sub && <span className="truncate text-muted-foreground">{sub}</span>}
+        {cause && (
+          <span className="truncate font-medium" data-cause="true" title={cause}>
+            {cause}
+          </span>
+        )}
+        {sub && <span className="truncate text-xs text-muted-foreground">{sub}</span>}
       </span>
       <span className="grid content-start gap-1 text-xs text-muted-foreground sm:justify-items-end">
         <span className="flex flex-wrap items-center gap-1.5">
@@ -89,6 +94,9 @@ export const DecisionRow = ({ item, href }: { item: DecisionItem; href: string }
         </span>
         <span className="font-mono">
           {item.id.slice(0, 8)} · {item.processId ?? DASH}
+        </span>
+        <span data-context="true">
+          인터페이스 {item.interfaceId ?? DASH} · 채널 {item.channelId ?? DASH}
         </span>
       </span>
     </Link>

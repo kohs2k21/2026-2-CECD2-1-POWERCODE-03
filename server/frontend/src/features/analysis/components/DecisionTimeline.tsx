@@ -1,10 +1,18 @@
-import type { DecisionDetail, InterimHistory, InterimRecord } from "../data/analysisApi";
+import type { DecisionDetail, FeedbackRecord, InterimHistory, InterimRecord } from "../data/analysisApi";
 import { readEvidenceV4 } from "../data/evidence";
-import { methodLabels, stampText } from "../labels";
+import { DASH, feedbackKindLabels, methodLabels, stampText } from "../labels";
 import { cn } from "@/lib/utils";
 
 /** 판정 기록 한 줄. `title`은 사유 코드 등(화면에는 표시 이름, 코드는 툴팁 — 와이어프레임 규칙). */
-export type TimelineEntry = { key: string; at: string | null; tone: "provisional" | "final" | "void" | "progress"; text: string; title?: string };
+/** `note` = 조사·조치 사유(읽기 전용 기록 줄만, 줄바꿈 그대로). */
+export type TimelineEntry = {
+  key: string;
+  at: string | null;
+  tone: "provisional" | "final" | "void" | "progress" | "record";
+  text: string;
+  title?: string;
+  note?: string;
+};
 
 const attempt = (record: InterimRecord) => (record.attemptNo === null ? "" : `시도 ${record.attemptNo} · `);
 const basisOf = (record: InterimRecord | undefined) => (record ? (readEvidenceV4(record.payload)?.basisMethods ?? []) : []);
@@ -81,6 +89,38 @@ export const timelineEntries = (detail: DecisionDetail, history: InterimHistory 
   return entries;
 };
 
+/**
+ * 관리자 읽기 전용 줄(사용자 11/13 "판정 기록에 읽기전용으로"): 저장된 조사·조치 기록 `<유형> · <작성자 email>` + 사유.
+ * 현재 업무 분류는 판정 요약에 있으므로 여기에 두지 않는다(변경 이력 API가 없어 마지막 변경만 보이면 이력처럼 읽힘).
+ */
+export const recordEntries = (records: FeedbackRecord[]): TimelineEntry[] =>
+  records.map((record) => ({
+    key: `record-${record.id}`,
+    at: record.createdAt,
+    tone: "record",
+    text: `${feedbackKindLabels[record.kind]} · ${record.actorEmail ?? record.actorId ?? DASH}`,
+    note: record.reason,
+  }));
+
+/**
+ * 판정 기록 줄 + 읽기 전용 줄을 시각 순으로 합친다. 판정 기록 줄의 순서는 그대로 두고, 읽기 전용 줄(시각 오름차순)을 그보다 늦은 첫 판정 기록 줄 앞에 넣는다.
+ * 진행 중 줄은 지금이므로 그 앞에 남은 읽기 전용 줄을 모두 넣는다. 같은 시각이면 받은 순서.
+ */
+export const mergeTimeline = (base: TimelineEntry[], extra: TimelineEntry[]): TimelineEntry[] => {
+  const ms = (entry: TimelineEntry) => (entry.at ? Date.parse(entry.at) : Number.NaN);
+  const queue = extra
+    .map((entry, index) => ({ entry, index }))
+    .sort((a, b) => (ms(a.entry) || 0) - (ms(b.entry) || 0) || a.index - b.index)
+    .map(({ entry }) => entry);
+  const merged: TimelineEntry[] = [];
+  for (const entry of base) {
+    const at = ms(entry);
+    while (queue.length && (entry.tone === "progress" || (Number.isFinite(at) && ms(queue[0]) < at))) merged.push(queue.shift() as TimelineEntry);
+    merged.push(entry);
+  }
+  return [...merged, ...queue];
+};
+
 export const DecisionTimeline = ({ entries }: { entries: TimelineEntry[] }) => (
   <ol className="grid gap-2 border-l pl-4 text-sm">
     {entries.map((entry) => (
@@ -92,11 +132,15 @@ export const DecisionTimeline = ({ entries }: { entries: TimelineEntry[] }) => (
           entry.tone === "void" && "text-destructive-text",
           entry.tone === "progress" && "text-muted-foreground",
         )}
+        data-entry={entry.tone === "record" ? "record" : undefined}
       >
         <span className="text-xs text-muted-foreground tabular-nums">
           {entry.at ? stampText(entry.at) : entry.tone === "progress" ? "진행 중" : "—"}
         </span>
-        <span title={entry.title}>{entry.text}</span>
+        <span title={entry.title} className={entry.tone === "record" ? "text-muted-foreground" : undefined}>
+          {entry.text}
+        </span>
+        {entry.note && <span className="whitespace-pre-wrap break-words">{entry.note}</span>}
       </li>
     ))}
   </ol>

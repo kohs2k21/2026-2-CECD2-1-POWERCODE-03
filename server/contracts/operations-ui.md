@@ -19,11 +19,12 @@ Status: current
 
 - 허용: user/admin; 읽기 전용, 쿼리 없음. 범위: 전체 원천
 - 필수: `observedAt` ISO 시각(DB 시계), `maxAgeMs` 서버 신선도 정책의 양수 ms(현재 60000)
-- 선택: `activeConfigurationVersion`, `endToEndLatencyMs`, `queueWaitP95Ms`, `collectorEps`, `cpuPercent`, `memoryPercent`, `diskPercent`, `alertDeliverySuccessPercent`, `activeConfiguration`
+- 선택: `activeConfigurationVersion`, `endToEndLatencyMs`, `queueWaitP95Ms`, `collectorEps`, `cpuPercent`, `memoryPercent`, `diskPercent`, `alertDeliverySuccessPercent`, `activeConfiguration`, `operationalState`
 - 수치: 유한·0 이상, Percent 항목 100 이하
 - 현재 제공: `collectorEps` = 최근 60초 저장 관측 수/60(전 계층). `queueWaitP95Ms` = 전체 원천 detect 작업 생성 → 첫 시도 시작 최근 1시간 p95(표본 없으면 생략). cpu·memory·disk·알림 전달률은 계측 없음 → 키 생략
 - `endToEndLatencyMs`: ESB 로그 발생 → 판정 저장 실측(최근 1시간 `latency_status=measured` 중앙값); API 수신 시각 기준 재기산 금지. 현재 Detector가 항상 `unavailable`로 저장(원천 시계 미검증) → 키 생략 = 화면 `원천 발생 → 판정: 측정 불가`
 - `activeConfiguration`: `ops_system_state` 운영 포인터. 없으면 `null`(운영 구성 없음). 객체 `configVersionId`, `sourceId`, `revision`, `changedAt`, `detectionMode`(`configuration_spec.detectionPolicy.mode`), `ruleCount`(`ml_config_rules`), `ruleSeverityCounts`(info/warning/critical), `models[]`(`modelKey`, `adapterName`). #94 룰 세트·활성 모델 집합 구현 후 그 기준으로 교체
+- `operationalState`: 구성 없이(v04) 운영되는 기준 — `ops_operational_state` 뷰(한 문장 = 한 스냅샷) `ruleSetRevision`, `activeModelSetRevision`, `models[]`(활성 집합 `modelKey`만). 뷰 행이 없으면 `null`(확인 불가). 화면: `activeConfiguration`이 `null`이고 룰 세트 버전이 있으면 머리 `현재 운영: 룰 버전 N · 머신러닝 모델 …|없음`, 현재 운영 위젯 `룰 · 버전 N`·`머신러닝 모델 · …|없음`. 구성이 있으면 기존 구성 표시 그대로, 둘 다 없으면 `운영 구성 없음`
 - `stages` 선택 키: `collector`, `redaction`, `observationQueue`, `detector`, `judgmentStore`
 - 단계 선택 필드: `state` healthy/degraded/stopped/unknown, `pendingCount` 0 이상 정수, `oldestWaitMs` 0 이상 ms, `lastProcessedAt` ISO 시각
 - 단계 의미: Collector 수집 → 민감 필드 제거 → 관측 저장·ID 큐 등록 → Detector 조회·추론 → 판정 저장
@@ -68,7 +69,7 @@ Status: current
 
 - 허용: user/admin. 기본 `days=3`, 시간대 `Asia/Seoul` 판정일
 - 전 원천 합산, 운영 구성과 무관(구성 없는 v04 판정 포함). 운영 구성이 없어도 같은 형식. 응답 `timezone`, `from`, `until`, `items[]`
-- 집계: 운영 리포트 `operational-v1`(`/api/pipeline/reports/operational`)의 `configVersionId` 생략 경로 SQL·정책을 원천마다 재사용, live·replay 범위 합산(입력 범위 미확인 관측 제외)
+- 집계: 운영 리포트 `operational-v1`(`/api/pipeline/reports/operational`)의 `configVersionId` 생략 경로와 같은 범위·최신 리비전·최신 판정 규칙과 건수 조건(`DECISION_TREND_SQL`, 판정 수·판정 가능·이상만 세고 evidence는 행마다 한 번만 읽음)을 원천마다 실행, live·replay 범위 합산(입력 범위 미확인 관측 제외)
 - `items[]`: 기간의 모든 날(판정 없는 날은 `decisionCount` 0·비율 null). `day` YYYY-MM-DD, `decisionCount`, `anomalySignalRatio` = 이상/판정 가능(분모 0이면 null), `unavailableRatio` = (판정 − 판정 가능)/판정(판정 0이면 null) — 화면 날짜/판정/이상 신호/정상 여부 미확인
 
 ## 개요 위젯·배치

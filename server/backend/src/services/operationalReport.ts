@@ -129,6 +129,29 @@ SELECT days.day,coalesce(c.total,0) AS total,coalesce(c.decidable,0) AS decidabl
  FROM days LEFT JOIN counts c USING(day) LEFT JOIN pending p USING(day)
  ORDER BY days.day LIMIT $7 OFFSET $8`;
 
+/** Replaces one exact, unique part of a query (module load fails if the source text changed). */
+const swapOnce = (text: string, from: string, to: string) => {
+  if (text.split(from).length !== 2) throw new Error(`query part not found exactly once: ${from.slice(0, 40)}`);
+  return text.replace(from, () => to);
+};
+/**
+ * Daily decision count, decidable and alarm counts only (GET /api/operations/decision-trend). SCOPED_OBSERVATIONS with only the
+ * latest-decision lateral's columns narrowed, so scope, latest-revision and latest-decision rules are the same, and the same count
+ * filters as OPERATIONAL_SQL counts. evidence is decompressed once per observation inside the lateral (not flattened because of its
+ * LIMIT): OPERATIONAL_SQL reads evidence in every filter and per day for comparisons (several seconds at tens of thousands of decisions).
+ */
+export const DECISION_TREND_SQL = swapOnce(swapOnce(SCOPED_OBSERVATIONS,
+  ` SELECT o.*,d.id AS decision_id,d.status AS decision_status,d.rule_status,d.ml_status,d.evidence,d.decided_at,
+ d.source_latency_ms,d.latency_status
+`, ` SELECT o.*,d.id AS decision_id,d.status AS decision_status,d.anomalous,d.decided_at
+`),
+  '  SELECT d.* FROM run_process_decisions d ', "  SELECT d.id,d.status,d.decided_at,d.evidence->'anomalous' AS anomalous FROM run_process_decisions d ")
+  + `SELECT (decided_at AT TIME ZONE $5)::date::text AS day,count(*)::integer AS total,
+ count(*) FILTER(WHERE decision_status<>'unavailable' AND
+   (anomalous='true'::jsonb OR (decision_status='complete' AND anomalous='false'::jsonb)))::integer AS decidable,
+ count(*) FILTER(WHERE decision_status<>'unavailable' AND anomalous='true'::jsonb)::integer AS alarms
+ FROM cohort GROUP BY 1`;
+
 export const COVERAGE_SQL = `${SCOPED_OBSERVATIONS}
 SELECT count(*) FILTER(WHERE report_scope='unknown')::integer AS "unknownScopeObservations",
  count(*) FILTER(WHERE report_scope=$6 AND execution_id IS NULL)::integer AS "missingIdentityObservations"

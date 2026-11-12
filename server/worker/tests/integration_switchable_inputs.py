@@ -89,12 +89,15 @@ def main():
             first=change('csv',replayId=str(replay),rate=10000,repeat=1)
             assert call('/api/inputs/'+str(sid)+'/mode',{'mode':'paused','expectedRevision':0},admin)[0]==409
             def send_csv(n):
-                start=read_state(conn,sid)['position']
+                start=read_state(conn,sid)['position'];jobs=[]
                 while read_state(conn,sid)['position']<start+n:
                     result=tick(conn,sid,collect_catalog=False)
                     assert 'errorCode' not in result,result
+                    jobs+=result.get('detectJobs',[])
                     if result.get('idle'):time.sleep(result['wait'])
-            send_csv(5);change('paused')
+                return jobs
+            # No config yet: P rows wait for a config and are not announced to Detector.
+            assert send_csv(5)==[];change('paused')
             paused=read_state(conn,sid)['position'];assert tick(conn,sid)['idle'];assert read_state(conn,sid)['position']==paused
             resumed=change('csv',replayId=str(replay),rate=10000,repeat=1);assert resumed['runId']==first['runId']
             send_csv(1003-paused);tick(conn,sid,collect_catalog=False)
@@ -124,7 +127,12 @@ def main():
             assert evaluated['metrics']['reason']=='labels_unavailable' and 'labels_unavailable' in evaluated['reasonCodes']
             config=trained['configVersionId']
             second=change('csv',replayId=str(replay),rate=10000,repeat=1,restart=True,configVersionId=config)
-            send_csv(5)
+            announced=send_csv(5)
+            queued=conn.execute("""SELECT q.payload->>'jobId',q.payload->>'inputManifestHash' FROM powercode_queue.detection_logs q
+                JOIN data_input_origins i ON i.observation_id::text=q.payload->>'observationId' WHERE i.run_id=%s AND q.payload ? 'jobId'
+                ORDER BY q.created_at""",(second['runId'],)).fetchall();conn.commit()
+            # Exactly the jobs this run's ticks created, with the same body Detector /detect checks against run_jobs.
+            assert announced and [(j['jobId'],j['inputManifestHash']) for j in announced]==queued,(announced,queued)
             def decide_run(run_id):
                 identifiers=conn.execute("SELECT o.id FROM data_observations o JOIN data_input_origins i ON i.observation_id=o.id WHERE i.run_id=%s AND o.layer='P' ORDER BY o.persisted_at",(run_id,)).fetchall();conn.commit()
                 for (oid,) in identifiers:
@@ -135,7 +143,9 @@ def main():
             state['records']=[{'layer':'P','values':{'TRANSACTION_ID':'api-live','PROCESS_ID':'p','RETRY_COUNT':0,'ERROR_COUNT':90,'TOTAL_COUNT':100,'STATUS':'S'}}]
             api_run=change('api',pollSeconds=.1)
             api_result=tick(conn,sid,api_factory=factory);assert api_result['accepted']==1,api_result
+            assert len(api_result['detectJobs'])==1,api_result
             time.sleep(.11);dup=tick(conn,sid,api_factory=factory,collect_catalog=False);assert dup['duplicates']==1,dup
+            assert dup['detectJobs']==[],dup
             api_decisions=decide_run(api_run['runId']);assert api_decisions==1
             all_results=conn.execute("SELECT d.config_version_id,d.rule_status,d.ml_status,d.evidence FROM run_process_decisions d JOIN data_observations o ON o.id=d.process_observation_id WHERE o.source_id=%s",(sid,)).fetchall();conn.commit()
             assert all(str(r[0])==config and r[1:3]==('succeeded','succeeded') for r in all_results),all_results
@@ -159,6 +169,7 @@ def main():
             print('PASS: API/CSV/pause/resume via admin HTTP; revision conflicts and user denial')
             print('PASS: four CSV streams -> shared DB -> feature generation/materialization -> Rule recommendation -> explicit adoption -> real CPU IF -> evaluation')
             print('PASS: same selected feature/Rule/model config produces successful Rule+ML decisions for CSV and API, saved origin evidence')
+            print('PASS: tick reports only committed detect jobs; waiting-config and duplicate rows announce nothing')
             print('PASS: API duplicates, in-flight response fence, actual Bearer HTTP/auth failure, manual fallback, waiting-input recovery')
             print('PASS: missing label metrics remain null; technically valid candidate does not change the production active pointer')
     finally:

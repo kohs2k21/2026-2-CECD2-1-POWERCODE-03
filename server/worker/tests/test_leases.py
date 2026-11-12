@@ -86,6 +86,19 @@ class LeaseTests(unittest.TestCase):
             self.assertIn("payload->>'benchmarkRunId' = %s", sql)
             self.assertIn("test-run", params)
 
+    def test_job_and_observation_scopes_compare_on_uuid_side(self):
+        # uuid 열을 text로 바꾸면 PK 색인을 못 쓰므로 payload 값을 안전하게 uuid로 바꿔 비교한다.
+        # 작업 종류 확인은 최상위 EXISTS가 join으로 바뀌지 않도록 스칼라 부질의로 둔다.
+        for kwargs, column, shape in (
+                ({"job_kinds": ("detect",)}, "j.id", "AND (SELECT j.kind::text FROM run_jobs j WHERE j.id = (CASE WHEN"),
+                ({"source_id": "s"}, "scoped_observation.id", "OR (NOT (payload ? 'sourceId') AND EXISTS (")):
+            self.assertIsNone(claim(self.conn, "detection", **kwargs))
+            for sql, _params in self.conn.last_cursor.statements:
+                sql = " ".join(sql.split())
+                self.assertNotIn(f"{column}::text", sql)
+                self.assertIn(shape, sql)
+                self.assertIn(f"{column} = (CASE WHEN payload->>", sql)
+
 
 if __name__ == "__main__":
     unittest.main()

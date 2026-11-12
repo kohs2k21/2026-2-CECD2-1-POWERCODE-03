@@ -336,3 +336,65 @@ export async function seedAnalysisV04Fixture(pool, { sourceId }) {
   }
   return out;
 }
+
+/**
+ * 부모 연결(data_processes.transaction_observation_id)이 없는 PROCESS 판정 3건(실제 적재분처럼 FK가 비어 있음). 같은 원천·같은 거래 ID의 TRANSACTION:
+ * - noLink: 실행 1개, 리비전 2건(인터페이스가 리비전마다 다름) → 최신 리비전 값
+ * - retried: 실행 2개(재시도 0·1) → 재시도 번호가 큰 실행의 값
+ * - tied: 실행 2개(재시도 번호 같음) → 대표를 고를 수 없음(null)
+ * @param {import('pg').Pool} pool
+ * @param {{sourceId: string, configId: string}} fixture seedAnalysisFixture 결과
+ */
+export async function seedParentlessDecisions(pool, { sourceId, configId }) {
+  const client = await pool.connect();
+  const out = {};
+  const observe = async (layer, execution, revision) => {
+    const observation = id();
+    await client.query(`INSERT INTO data_observations(id,source_id,layer,execution_id,revision_no,dedup_key,content_hash,
+        api_received_at,persisted_at,clock_status,parsed_times,allowed_values,quality_flags,missing_fields)
+      VALUES($1,$2,$3,$4,$5,$6,$7,clock_timestamp(),clock_timestamp(),'unknown','{}','{}','[]','[]')`,
+    [observation, sourceId, layer, execution, revision, `${layer}:${observation}`, sha(observation)]);
+    return observation;
+  };
+  const execution = async (layer) => {
+    const executionId = id();
+    await client.query(`INSERT INTO data_executions(id,source_id,layer,execution_key,key_parts,key_contract_version,first_observed_at)
+      VALUES($1,$2,$3,$4,'{}','v1',clock_timestamp())`, [executionId, sourceId, layer, `parentless-${executionId}`]);
+    return executionId;
+  };
+  try {
+    await client.query('BEGIN');
+    for (const [name, transactions] of [
+      ['noLink', [[[1, 'IF-NOLINK-R1', 0], [2, 'IF-NOLINK-R2', 0]]]],
+      ['retried', [[[1, 'IF-RETRY-0', 0]], [[1, 'IF-RETRY-1', 1]]]],
+      ['tied', [[[1, 'IF-TIED-A', 0]], [[1, 'IF-TIED-B', 0]]]],
+    ]) {
+      const tx = `TX-PARENTLESS-${name}-${id().slice(0, 8)}`;
+      for (const revisions of transactions) {
+        const txExecution = await execution('T');
+        for (const [revision, iface, retry] of revisions) {
+          const observation = await observe('T', txExecution, revision);
+          await client.query(`INSERT INTO data_transactions(observation_id,transaction_id,interface_id,status,retry_count) VALUES($1,$2,$3,'S',$4)`,
+            [observation, tx, iface, retry]);
+        }
+      }
+      const processExecution = await execution('P');
+      const obs = await observe('P', processExecution, 1);
+      await client.query(`INSERT INTO data_processes(observation_id,transaction_observation_id,transaction_id,process_id,channel_id,status,response_code)
+        VALUES($1,NULL,$2,'P01','CH-01','S','0000')`, [obs, tx]);
+      const decisionId = id();
+      await client.query(`INSERT INTO run_process_decisions(id,execution_id,process_observation_id,transaction_observation_id,config_version_id,
+          input_manifest_hash,status,rule_status,ml_status,decision_code,anomaly_score,evidence,decided_at,latency_status)
+        VALUES($1,$2,$3,NULL,$4,$5,'complete','succeeded','succeeded',NULL,0.1,$6::jsonb,clock_timestamp(),'unavailable')`,
+      [decisionId, processExecution, obs, configId, sha(obs), JSON.stringify(v3(false))]);
+      out[name] = { id: decisionId, tx };
+    }
+    await client.query('COMMIT');
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+  return out;
+}

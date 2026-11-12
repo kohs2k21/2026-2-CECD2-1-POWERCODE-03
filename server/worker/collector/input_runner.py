@@ -6,9 +6,10 @@ import time
 from datetime import datetime,timezone
 from pathlib import Path
 import psycopg
+from psycopg.pq import TransactionStatus
 from dotenv import load_dotenv
 from collector.api_client import from_environment,SourceUnavailable
-from collector.api_runner import catalog_page,delivery
+from collector.api_runner import catalog_page
 from collector.input_contract import mapped_api_records
 from collector.input_store import ensure_source,admit
 from collector.telemetry import store_sample,store_snapshot,monitor_preview
@@ -90,7 +91,8 @@ def tick(conn,source,*,api_factory=from_environment,mapping=None,collect_catalog
                 (sum(o['created'] for o in outcomes),sum(not o['created'] for o in outcomes),
                  sum(not o['identified'] for o in outcomes),old['run']))
             conn.execute('UPDATE ops_input_controls SET worker_heartbeat_at=clock_timestamp() WHERE source_id=%s',(source,))
-        return {'accepted':sum(o['created'] for o in outcomes),'duplicates':sum(not o['created'] for o in outcomes),'wait':min(.5,interval)}
+        return {'accepted':sum(o['created'] for o in outcomes),'duplicates':sum(not o['created'] for o in outcomes),
+            'detectJobs':[o['detectJob'] for o in outcomes if o.get('detectJob')],'wait':min(.5,interval)}
     except Exception as exc:
         conn.rollback()
         code=str(exc) if isinstance(exc,(ValueError,SourceUnavailable)) and str(exc).replace('_','').isalnum() else type(exc).__name__
@@ -111,6 +113,38 @@ def tick(conn,source,*,api_factory=from_environment,mapping=None,collect_catalog
         return {'errorCode':code,'wait':min(5,max(.5,interval))}
 
 
+DELIVERY_LIMIT=10
+
+
+def delivery(jobs,*,limit=DELIVERY_LIMIT):
+    """After-commit optimization only: notify Detector of detect jobs this tick committed.
+
+    Reads no database queue. Jobs beyond `limit`, waiting-config items and failed POSTs
+    stay in the durable queue, which Detector polling claims. Returns the number of POSTs attempted.
+    """
+    import urllib.request
+    from generation_client import NoRedirect
+    from urllib.parse import urlsplit
+    url=os.environ.get('DETECTOR_DELIVERY_URL','')
+    token=os.environ.get('DETECTOR_DELIVERY_TOKEN','')
+    parsed=urlsplit(url)
+    if not url:
+        return 0
+    if parsed.scheme not in ('http','https') or parsed.hostname not in {'detector','127.0.0.1','localhost'} or parsed.username or parsed.password or parsed.query or parsed.fragment or len(token)<32:
+        raise ValueError('detector_delivery_configuration_rejected')
+    sent=0
+    for job in list(jobs)[:limit]:
+        request=urllib.request.Request(url.rstrip('/')+'/detect',data=json.dumps({'jobId':job['jobId'],
+            'inputManifestHash':job['inputManifestHash']}).encode(),headers={'Authorization':'Bearer '+token,'Content-Type':'application/json'})
+        sent+=1
+        try:
+            with urllib.request.build_opener(NoRedirect()).open(request,timeout=2) as response:
+                response.read(4096)
+        except (OSError,TimeoutError):
+            pass
+    return sent
+
+
 def run(once=False):
     load_dotenv(Path(__file__).resolve().parents[1]/'.env')
     dsn=os.environ['DATABASE_URL'];key=os.environ['COLLECTOR_SOURCE_KEY']
@@ -124,9 +158,10 @@ def run(once=False):
         while True:
             result=tick(conn,source,mapping=mapping)
             if result.get('errorCode'):print(json.dumps({'inputError':result['errorCode']}),flush=True)
-            if result.get('accepted'):
-                try:delivery(conn,source)
-                except Exception:conn.rollback() # durable queue polling remains authoritative
+            # tick commits its admission transaction before returning; never announce work that is not yet durable.
+            if result.get('detectJobs') and conn.info.transaction_status==TransactionStatus.IDLE:
+                try:delivery(result['detectJobs'])
+                except Exception:pass # durable queue polling remains authoritative
             if once:return
             time.sleep(result.get('wait',.5))
 

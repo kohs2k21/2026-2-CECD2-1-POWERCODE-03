@@ -138,6 +138,10 @@ def admit(conn,source,run_id,mode,layer,raw,*,namespace,position=None,config=Non
         if not saved.created:return {'created':False,'identified':parts is not None}
     conn.execute('INSERT INTO data_input_origins(observation_id,run_id,mode,position,namespace) VALUES(%s,%s,%s,%s,%s)',
         (oid,run_id,mode,position,namespace))
+    outcome={'created':True,'identified':parts is not None,'observationId':str(oid)}
     if layer=='P' and execution:
-        enqueue_observation(conn,oid,config_id=config)
-    return {'created':True,'identified':parts is not None,'observationId':str(oid)}
+        payload=enqueue_observation(conn,oid,config_id=config)
+        # Only a payload with jobId is a registered detect job; waiting-config items are left to recovery polling.
+        if payload.get('jobId'):
+            outcome['detectJob']={'jobId':payload['jobId'],'inputManifestHash':payload['inputManifestHash']}
+    return outcome

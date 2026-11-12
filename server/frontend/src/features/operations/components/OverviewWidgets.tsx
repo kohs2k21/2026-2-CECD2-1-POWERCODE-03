@@ -70,9 +70,18 @@ const ObservationNotice = ({ data }: { data: OperationsOverview }) => {
 /** 현재 운영 구성 한 줄(헤더 "현재 운영: …"·위젯 공용). */
 export const modelsText = (config: ActiveConfiguration) =>
   config.models.length ? config.models.map((m) => (m.adapterName ? `${m.modelKey}(${m.adapterName})` : m.modelKey)).join(", ") : "없음";
+/** 구성 없이(v04) 운영: 룰 세트 버전·활성 모델. 버전을 읽지 못하면 null(구성 없음으로 표시). */
+const operationalStateParts = (overview: OperationsOverview) => {
+  const state = overview.operationalState;
+  if (!state || state.ruleSetRevision === undefined) return null;
+  return { rules: `버전 ${state.ruleSetRevision}`, models: state.models.length ? state.models.map((m) => m.modelKey).join(", ") : "없음" };
+};
 export const activeConfigurationText = (overview: OperationsOverview | undefined) => {
   if (!overview || overview.activeConfiguration === undefined) return `${DASH} 확인 불가`;
-  if (overview.activeConfiguration === null) return "운영 구성 없음";
+  if (overview.activeConfiguration === null) {
+    const state = operationalStateParts(overview);
+    return state ? `룰 ${state.rules} · 머신러닝 모델 ${state.models}` : "운영 구성 없음";
+  }
   const config = overview.activeConfiguration;
   return `룰 ${config.ruleCount === undefined ? DASH : `${config.ruleCount}개`} · 머신러닝 모델 ${modelsText(config)}`;
 };
@@ -179,10 +188,20 @@ const ActiveWidget = () => {
     <QueryState query={query} what="운영 관측">
       {(data) => {
         const config = data.activeConfiguration;
+        const state = config === null ? operationalStateParts(data) : null;
         return (
           <div className="grid gap-2 text-sm">
             {config === undefined ? (
               <p>{DASH} 확인 불가</p>
+            ) : config === null && state ? (
+              <>
+                <p>
+                  <strong>룰</strong> · {state.rules}
+                </p>
+                <p>
+                  <strong>머신러닝 모델</strong> · {state.models}
+                </p>
+              </>
             ) : config === null ? (
               <p>운영 구성 없음</p>
             ) : (

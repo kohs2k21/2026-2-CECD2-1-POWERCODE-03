@@ -10,6 +10,7 @@ API/CSV를 같은 전체 피처·Rule·모델 경로로 실행하는 최신 절�
 | api | 인증, 작업·규칙·승인 요청, 저장 판정 조회·SSE | GPU 없음 | 기존 users.json 경로·DB |
 | collector | API/CSV 수동 전환, 공통 관측 입고, API 응답 측정 | CPU 1 / RAM 512MB | DB: checkpoint·catalog·snapshots·측정 samples |
 | detector | Rule 전용 / ML 전용 / 병렬, 임대 검증, 판정 확정 | CPU 2 / RAM 4GB | DB, 호스트 artifact 읽기 전용 |
+| incidents | 판정을 사건으로 묶는 1분 주기 작업(Detector 이미지, 별도 프로세스, healthcheck 없음) | CPU 1 / RAM 1GB | DB(Detector 연결) |
 | trainer | CPU IF 학습·평가, 공통 파생변수 계산 | CPU 4 / RAM 8GB | 호스트 artifact 쓰기, DB |
 | llm | Base 하나 공유, 피처·Rule 추천 / 요청 기반 근거 설명 | GPU 0 한 장 / CPU 4 / RAM 48GB | Base·번들·artifact 읽기 전용, DB |
 | 기존 PostgreSQL | 관측·4개 논리 작업 큐·판정·측정 | 기존 운영 설정 | 기존 저장소 유지 |
@@ -93,9 +94,9 @@ docker compose --profile tools --profile monitoring --profile windows config --q
 docker compose build api web collector llm
 # 번들이 아직 없을 때만 출력 parent 디렉터리를 준비하고 export한다.
 docker compose run --rm --no-deps bundle
-docker compose up -d api web collector detector trainer llm
+docker compose up -d api web collector detector incidents trainer llm
 docker compose ps
-docker compose logs --tail 100 collector detector trainer llm
+docker compose logs --tail 100 collector detector incidents trainer llm
 ```
 
 web만 공개 포트 8080을 가진다. api·Detector 직접 전달·LLM 생성 HTTP는 내부 네트워크용이다. GPU Base 적재는 수 분 걸릴 수 있고 healthcheck start_period는 20분이다. LLM 오류가 있어도 Collector·Rule 경로·Trainer는 독립 실행된다. GPU Base 실제 적재/메모리와 고객 API 응답은 서버에서 확인해야 한다.

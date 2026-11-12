@@ -1,0 +1,400 @@
+{
+  "_fixtureSource": {
+    "copiedFrom": "server/contracts/process-graph-id-vectors.json",
+    "sha256": "20ca409b0936bb40345b33d8d2ba7610281db4eecb3981307c2ab0b31a9b2706",
+    "note": "WebUI 공용 시험 벡터 사본(시험 전용). 내용은 원본과 같고 이 머리 키만 추가했다. 보이지 않는 문자(U+FEFF, U+0085, U+00A0)는 JSON 유니코드 이스케이프로 적었다."
+  },
+  "contract": "process-graph.md",
+  "status": "current",
+  "rules": {
+    "absent": "graph_value_absent(value, field): NULL, 또는 ASCII 공백(0x20)·탭(0x09)·CR(0x0D)·LF(0x0A)만 앞뒤에서 뺀 값이 \"\" 또는 \"\\N\". field가 DEPEND_PROCESS_ID일 때만 뺀 값이 정확히 \"NONE\"(대소문자 구분)이어도 없음. JS trim()·Python strip() 금지. Detector source_absent·worker/derived_expression.py와 별개",
+    "field": "absenceVectors의 field가 없으면 DEPEND_PROCESS_ID가 아닌 열(TRANSACTION_ID·PROCESS_ID·MESSAGE_ID·EXECUTION_ID 등)",
+    "escape": "없음이 아닌 값만 원래 값(앞뒤 공백 포함) 그대로, '%' -> '%25' 다음 ':' -> '%3A'. 그 밖의 변환 없음",
+    "embedded": "missing·간선 id에 들어가는 노드 id는 다시 이스케이프하지 않는다",
+    "fixedArity": "노드 kind마다 id 구성 요소 수 고정. 결측 구성 요소는 빈 칸(이스케이프 후 빈 문자열). 간선 id가 노드 id를 다시 이스케이프하지 않고 붙이므로 가변 길이면 다른 끝점 쌍이 같은 간선 id가 될 수 있다",
+    "patternIdVectors": "층 B(pattern) 예약 id. pattern_step:<interfaceId>:<processId>:<adapterType>, adapterType 없음 -> 마지막 칸 빈 문자열, interfaceId 또는 processId 없음 -> expectedId null(노드 없음), outcome undetermined. 층 B hands_off는 메시지 구성 요소 없이 3칸(hands_off:<from>:<to>)"
+  },
+  "idVectors": [
+    {
+      "case": "plain ASCII transaction",
+      "kind": "transaction",
+      "components": {
+        "transactionId": "TX-0001"
+      },
+      "expectedId": "transaction:TX-0001"
+    },
+    {
+      "case": "plain ASCII process",
+      "kind": "process",
+      "components": {
+        "transactionId": "TX-0001",
+        "processId": "PR001"
+      },
+      "expectedId": "process:TX-0001:PR001"
+    },
+    {
+      "case": "colon in transaction id",
+      "kind": "process",
+      "components": {
+        "transactionId": "a:b",
+        "processId": "c"
+      },
+      "expectedId": "process:a%3Ab:c"
+    },
+    {
+      "case": "colon in process id (no collision with previous)",
+      "kind": "process",
+      "components": {
+        "transactionId": "a",
+        "processId": "b:c"
+      },
+      "expectedId": "process:a:b%3Ac"
+    },
+    {
+      "case": "percent",
+      "kind": "process",
+      "components": {
+        "transactionId": "TX%1",
+        "processId": "PR001"
+      },
+      "expectedId": "process:TX%251:PR001"
+    },
+    {
+      "case": "value already containing %3A",
+      "kind": "process",
+      "components": {
+        "transactionId": "TX%3A1",
+        "processId": "PR001"
+      },
+      "expectedId": "process:TX%253A1:PR001"
+    },
+    {
+      "case": "present value with surrounding spaces kept verbatim",
+      "kind": "process",
+      "components": {
+        "transactionId": "TX-0001",
+        "processId": " A1 "
+      },
+      "expectedId": "process:TX-0001: A1 "
+    },
+    {
+      "case": "Korean text",
+      "kind": "process",
+      "components": {
+        "transactionId": "거래-1",
+        "processId": "수신"
+      },
+      "expectedId": "process:거래-1:수신"
+    },
+    {
+      "case": "message by execution id",
+      "kind": "message",
+      "components": {
+        "executionId": "7f1c2a9e-0000-4000-8000-000000000001"
+      },
+      "expectedId": "message:7f1c2a9e-0000-4000-8000-000000000001"
+    },
+    {
+      "case": "unkeyed by observation id",
+      "kind": "unkeyed",
+      "components": {
+        "observationId": "7f1c2a9e-0000-4000-8000-000000000002"
+      },
+      "expectedId": "unkeyed:7f1c2a9e-0000-4000-8000-000000000002"
+    },
+    {
+      "case": "missing node (referencing node id embedded verbatim)",
+      "kind": "missing",
+      "components": {
+        "referencingNodeId": "process:a%3Ab:PR002",
+        "processId": "PR:9"
+      },
+      "expectedId": "missing:process:a%3Ab:PR002:PR%3A9"
+    },
+    {
+      "case": "contains edge",
+      "kind": "contains",
+      "components": {
+        "from": "transaction:TX-0001",
+        "to": "process:TX-0001:PR001"
+      },
+      "expectedId": "contains:transaction:TX-0001:process:TX-0001:PR001"
+    },
+    {
+      "case": "precedes edge",
+      "kind": "precedes",
+      "components": {
+        "from": "process:TX-0001:PR001",
+        "to": "process:TX-0001:PR002"
+      },
+      "expectedId": "precedes:process:TX-0001:PR001:process:TX-0001:PR002"
+    },
+    {
+      "case": "hands_off edge",
+      "kind": "hands_off",
+      "components": {
+        "from": "process:TX-0001:PR001",
+        "to": "process:TX-0001:PR002",
+        "messageNodeId": "message:exec-1"
+      },
+      "expectedId": "hands_off:process:TX-0001:PR001:process:TX-0001:PR002:message:exec-1"
+    },
+    {
+      "case": "U+FEFF prefix kept verbatim (not trimmed)",
+      "kind": "process",
+      "components": {
+        "transactionId": "TX-0001",
+        "processId": "\ufeffPR001"
+      },
+      "expectedId": "process:TX-0001:\ufeffPR001"
+    },
+    {
+      "case": "U+0085 and U+001C kept verbatim (not trimmed)",
+      "kind": "process",
+      "components": {
+        "transactionId": "\u001cTX-0001",
+        "processId": "PR001\u0085"
+      },
+      "expectedId": "process:\u001cTX-0001:PR001\u0085"
+    },
+    {
+      "case": "lowercase none dependency is a value -> missing id",
+      "kind": "missing",
+      "components": {
+        "referencingNodeId": "process:TX-0001:PR002",
+        "processId": "none"
+      },
+      "expectedId": "missing:process:TX-0001:PR002:none"
+    }
+  ],
+  "patternIdVectors": [
+    {
+      "case": "pattern step plain",
+      "kind": "pattern_step",
+      "components": {
+        "interfaceId": "IF_A",
+        "processId": "IF_A_PR001",
+        "adapterType": "DB"
+      },
+      "expectedId": "pattern_step:IF_A:IF_A_PR001:DB"
+    },
+    {
+      "case": "pattern step adapter NULL -> empty last component",
+      "kind": "pattern_step",
+      "components": {
+        "interfaceId": "IF_A",
+        "processId": "IF_A_PR001",
+        "adapterType": null
+      },
+      "expectedId": "pattern_step:IF_A:IF_A_PR001:"
+    },
+    {
+      "case": "pattern step adapter ' \\N ' absent",
+      "kind": "pattern_step",
+      "components": {
+        "interfaceId": "IF_A",
+        "processId": "IF_A_PR001",
+        "adapterType": " \\N "
+      },
+      "expectedId": "pattern_step:IF_A:IF_A_PR001:"
+    },
+    {
+      "case": "pattern step colon in adapter",
+      "kind": "pattern_step",
+      "components": {
+        "interfaceId": "IF_A",
+        "processId": "IF_A_PR001",
+        "adapterType": "a:b"
+      },
+      "expectedId": "pattern_step:IF_A:IF_A_PR001:a%3Ab"
+    },
+    {
+      "case": "pattern precedes edge",
+      "kind": "precedes",
+      "components": {
+        "from": "pattern_step:IF_A:IF_A_PR001:DB",
+        "to": "pattern_step:IF_A:IF_A_PR002:DB"
+      },
+      "expectedId": "precedes:pattern_step:IF_A:IF_A_PR001:DB:pattern_step:IF_A:IF_A_PR002:DB"
+    },
+    {
+      "case": "pattern branches_to edge",
+      "kind": "branches_to",
+      "components": {
+        "from": "pattern_step:IF_A:IF_A_PR001:DB",
+        "to": "pattern_step:IF_A:IF_A_PR003:"
+      },
+      "expectedId": "branches_to:pattern_step:IF_A:IF_A_PR001:DB:pattern_step:IF_A:IF_A_PR003:"
+    },
+    {
+      "case": "pattern hands_off edge (no message node in layer B)",
+      "kind": "hands_off",
+      "components": {
+        "from": "pattern_step:IF_A:IF_A_PR001:DB",
+        "to": "pattern_step:IF_A:IF_A_PR002:DB"
+      },
+      "expectedId": "hands_off:pattern_step:IF_A:IF_A_PR001:DB:pattern_step:IF_A:IF_A_PR002:DB"
+    },
+    {
+      "case": "pattern step interface absent -> no node",
+      "kind": "pattern_step",
+      "components": {
+        "interfaceId": "  ",
+        "processId": "IF_A_PR001",
+        "adapterType": "DB"
+      },
+      "expectedId": null,
+      "outcome": "undetermined"
+    }
+  ],
+  "absenceVectors": [
+    {
+      "case": "NULL",
+      "value": null,
+      "absent": true
+    },
+    {
+      "case": "empty string",
+      "value": "",
+      "absent": true
+    },
+    {
+      "case": "spaces only",
+      "value": "  ",
+      "absent": true
+    },
+    {
+      "case": "CSV NULL marker",
+      "value": "\\N",
+      "absent": true
+    },
+    {
+      "case": "CSV NULL marker with spaces",
+      "value": " \\N ",
+      "absent": true
+    },
+    {
+      "case": "present with spaces",
+      "value": " A1 ",
+      "absent": false
+    },
+    {
+      "case": "tab CR LF around CSV NULL marker",
+      "value": "\t\\N\r\n",
+      "absent": true
+    },
+    {
+      "case": "tab CR LF only",
+      "value": "\t\r\n ",
+      "absent": true
+    },
+    {
+      "case": "NONE outside DEPEND_PROCESS_ID is a value",
+      "value": "NONE",
+      "absent": false
+    },
+    {
+      "case": "DEPEND_PROCESS_ID NONE = start step",
+      "field": "DEPEND_PROCESS_ID",
+      "value": "NONE",
+      "absent": true
+    },
+    {
+      "case": "DEPEND_PROCESS_ID NONE with ASCII spaces",
+      "field": "DEPEND_PROCESS_ID",
+      "value": " NONE ",
+      "absent": true
+    },
+    {
+      "case": "DEPEND_PROCESS_ID NONE with tab CR LF",
+      "field": "DEPEND_PROCESS_ID",
+      "value": "\tNONE\r\n",
+      "absent": true
+    },
+    {
+      "case": "DEPEND_PROCESS_ID lowercase none is a value (case-sensitive)",
+      "field": "DEPEND_PROCESS_ID",
+      "value": "none",
+      "absent": false
+    },
+    {
+      "case": "DEPEND_PROCESS_ID None is a value (case-sensitive)",
+      "field": "DEPEND_PROCESS_ID",
+      "value": "None",
+      "absent": false
+    },
+    {
+      "case": "DEPEND_PROCESS_ID real predecessor value",
+      "field": "DEPEND_PROCESS_ID",
+      "value": "IF_ORDER_PR001",
+      "absent": false
+    },
+    {
+      "case": "DEPEND_PROCESS_ID empty",
+      "field": "DEPEND_PROCESS_ID",
+      "value": "",
+      "absent": true
+    },
+    {
+      "case": "DEPEND_PROCESS_ID CSV NULL marker",
+      "field": "DEPEND_PROCESS_ID",
+      "value": "\\N",
+      "absent": true
+    },
+    {
+      "case": "U+FEFF alone is a value (JS trim() would strip it)",
+      "value": "\ufeff",
+      "absent": false
+    },
+    {
+      "case": "U+FEFF prefix on CSV NULL marker is a value",
+      "value": "\ufeff\\N",
+      "absent": false
+    },
+    {
+      "case": "U+FEFF prefix on NONE is a value",
+      "field": "DEPEND_PROCESS_ID",
+      "value": "\ufeffNONE",
+      "absent": false
+    },
+    {
+      "case": "U+0085 alone is a value (Python strip() would strip it)",
+      "value": "\u0085",
+      "absent": false
+    },
+    {
+      "case": "U+0085 suffix on NONE is a value",
+      "field": "DEPEND_PROCESS_ID",
+      "value": "NONE\u0085",
+      "absent": false
+    },
+    {
+      "case": "U+001C alone is a value (Python strip() would strip it)",
+      "value": "\u001c",
+      "absent": false
+    },
+    {
+      "case": "U+001C prefix on CSV NULL marker is a value",
+      "value": "\u001c\\N",
+      "absent": false
+    },
+    {
+      "case": "U+001C suffix on NONE is a value",
+      "field": "DEPEND_PROCESS_ID",
+      "value": "NONE\u001c",
+      "absent": false
+    },
+    {
+      "case": "U+00A0 around CSV NULL marker is a value",
+      "value": "\u00a0\\N\u00a0",
+      "absent": false
+    }
+  ],
+  "absenceOutcomes": {
+    "dependProcessId": "absent (incl. NONE) -> start step: no precedes edge, no missing node; present (e.g. none) -> predecessor lookup, missing node if not found",
+    "processId": "absent -> node id unkeyed:<observation_id>, attrs.unkeyed=true, no precedes/hands_off edges",
+    "transactionId": "absent -> process/transaction node id unkeyed:<observation_id>",
+    "executionId": "absent (message) -> node id unkeyed:<observation_id>",
+    "messageId": "absent -> hands_off result undetermined, reason missing_message_id"
+  }
+}

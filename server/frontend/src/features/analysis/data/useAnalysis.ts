@@ -12,6 +12,7 @@ import {
   readDecisionDetail,
   readDecisionFeedback,
   readDecisionFlow,
+  readDecisionGraph,
   readDecisionInterims,
   readDecisionList,
   saveDecisionFeedback,
@@ -26,6 +27,7 @@ export const detailQueryName = "analysis-decision";
 export const interimsQueryName = "analysis-decision-interims";
 export const explainJobQueryName = "analysis-explain-job";
 export const flowQueryName = "analysis-decision-flow";
+export const graphQueryName = "analysis-decision-graph";
 export const feedbackQueryName = "analysis-decision-feedback";
 
 /** 판정 목록(분류 건수 포함). 페이지·조건을 바꾸는 동안 직전 결과를 유지한다. */
@@ -44,6 +46,9 @@ export const useDecisionInterims = (id: string) =>
 /** Process Flow(조회 시점 저장값). 실시간 재조회 대상 아님(관측 행은 판정 이벤트와 별개로 늘어난다 — 다시 시도로 재조회). */
 export const useDecisionFlow = (id: string) =>
   useAccountQuery({ name: flowQueryName, params: [id], read: (signal) => readDecisionFlow(id, signal), enabled: Boolean(id) });
+/** 실행 그래프(GET …/graph, contracts/process-graph.md). 그래프 보기와 트리 보기("연결 모호" 배지) 모두 조회한다(같은 캐시). */
+export const useDecisionGraph = (id: string, enabled: boolean) =>
+  useAccountQuery({ name: graphQueryName, params: [id], read: (signal) => readDecisionGraph(id, signal), enabled: Boolean(id) && enabled });
 /** 조사·조치 기록: 관리자만 조회(일반 사용자는 요청하지 않는다). */
 export const useDecisionFeedback = (id: string, enabled: boolean) =>
   useAccountQuery({ name: feedbackQueryName, params: [id], read: (signal) => readDecisionFeedback(id, signal), enabled: Boolean(id) && enabled });

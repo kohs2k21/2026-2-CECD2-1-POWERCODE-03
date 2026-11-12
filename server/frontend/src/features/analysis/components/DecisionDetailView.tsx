@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useAuthSession } from "@/services/auth/AuthSessionProvider";
 import { analysisErrorTitle, type DecisionDetail, type DecisionFlow, type InterimHistory } from "../data/analysisApi";
 import { readEvidence, readEvidenceV4, type EvidenceV3, type EvidenceV4, type MethodCategory } from "../data/evidence";
-import { useMarkRead } from "../data/useAnalysis";
+import { useDecisionFeedback, useMarkRead } from "../data/useAnalysis";
 import {
   DASH,
   UNAVAILABLE,
@@ -28,8 +28,8 @@ import {
 } from "../labels";
 import { riskLevelIconTone, riskLevelIcons } from "../icons";
 import { DecisionDiagnostics } from "./DecisionDiagnostics";
-import { DecisionTimeline, timelineEntries } from "./DecisionTimeline";
-import { FeedbackCard, WorkflowActions } from "./DecisionWorkflow";
+import { DecisionTimeline, mergeTimeline, recordEntries, timelineEntries } from "./DecisionTimeline";
+import { WorkflowActions } from "./DecisionWorkflow";
 import { ExplainPanel } from "./ExplainPanel";
 import { MethodResults, categoryNames } from "./MethodResults";
 import { ProcessFlowCard } from "./ProcessFlowCard";
@@ -233,6 +233,7 @@ export const DecisionDetailView = ({
   interims,
   flow,
   backHref,
+  backLabel = "목록",
   isWide,
   onToggleWide,
 }: {
@@ -241,13 +242,19 @@ export const DecisionDetailView = ({
   interims: Query<InterimHistory>;
   flow: Query<DecisionFlow>;
   backHref: string;
+  /** 돌아가기 이름표: 판정 목록 = "목록", 사건 화면에서 온 경우 = "사건으로". */
+  backLabel?: string;
   isWide: boolean;
   onToggleWide: (value: boolean) => void;
 }) => {
   const detail = query.data;
   const { user } = useAuthSession();
+  const isAdmin = user?.userType === "admin";
   // 상세를 열면 요청자 기준 확인 처리(목록의 미확인 표시가 사라짐).
   useMarkRead(detail);
+  // 관리자: 저장된 조사·조치 기록을 판정 기록에 읽기 전용으로 합친다(사용자 11/13). 일반 사용자는 읽기 권한이 없어 읽지 않는다.
+  const feedback = useDecisionFeedback(detail?.id ?? "", isAdmin);
+  const extra = detail && isAdmin ? recordEntries(feedback.data?.items ?? []) : [];
   return (
     <div className="grid gap-4">
       <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
@@ -255,7 +262,7 @@ export const DecisionDetailView = ({
           <Button asChild variant="ghost" size="sm">
             <Link to={backHref}>
               <IconArrowLeft aria-hidden="true" />
-              목록
+              {backLabel}
             </Link>
           </Button>
           <span className="text-muted-foreground">판정 상세</span>
@@ -266,7 +273,7 @@ export const DecisionDetailView = ({
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {/* 판정이 바뀔 때만 초기화한다(409 뒤 재조회로 상태가 바뀌어도 실패 표시는 남는다, 다음 요청 때 지워짐). */}
-          {detail && <WorkflowActions key={detail.id} detail={detail} />}
+          {detail && <WorkflowActions key={detail.id} detail={detail} canRecord={isAdmin} />}
           <Button
           variant="outline"
           size="icon-sm"
@@ -287,24 +294,26 @@ export const DecisionDetailView = ({
             <ErrorState title={`${analysisErrorTitle(query.error, "판정 상세")} · 이전 관측값 표시`} onRetry={() => void query.refetch()} />
           )}
           <div className="grid gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] xl:items-start">
-            <ProcessFlowCard key={`flow-${detail.id}`} query={flow} />
+            <ProcessFlowCard key={`flow-${detail.id}`} query={flow} decisionId={detail.id} />
             <ExplainPanel key={detail.id} detail={detail} />
           </div>
           <SectionCard title="판정 기록" headingLevel={2}>
+            {isAdmin && feedback.isError && (
+              <ErrorState title={analysisErrorTitle(feedback.error, "조사·조치 기록")} onRetry={() => void feedback.refetch()} />
+            )}
             {interims.isPending && !interims.data ? (
               <LoadingState />
             ) : interims.isError && !interims.data ? (
               <>
                 <ErrorState title={analysisErrorTitle(interims.error, "판정 기록")} onRetry={() => void interims.refetch()} />
-                <DecisionTimeline entries={timelineEntries(detail, undefined)} />
+                <DecisionTimeline entries={mergeTimeline(timelineEntries(detail, undefined), extra)} />
               </>
             ) : (
-              <DecisionTimeline entries={timelineEntries(detail, interims.data)} />
+              <DecisionTimeline entries={mergeTimeline(timelineEntries(detail, interims.data), extra)} />
             )}
           </SectionCard>
           <SummaryCard detail={detail} />
           {(detail.kind === "final" || readEvidenceV4(detail.evidence)) && <EvidenceCard detail={detail} />}
-          {user?.userType === "admin" && <FeedbackCard key={detail.id} detail={detail} />}
         </>
       )}
     </div>

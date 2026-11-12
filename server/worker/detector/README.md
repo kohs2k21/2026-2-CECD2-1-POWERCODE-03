@@ -30,7 +30,7 @@ v04 시도 1회의 순서.
 
 ## detect 작업 생성 전환
 
-detect 작업은 `jobs.py`의 `enqueue_observation` 한 곳에서만 만든다. 호출자는 Collector(`collector/storage.py`, `collector/input_store.py`), 데모(`demo/runtime.py`), Detector의 옛 메시지 복구(`runner.py`)다. 새 작업의 계약 버전은 환경 변수 `DETECT_JOB_CONTRACT`(`v03` 기본, `v04`)가 정한다.
+detect 작업은 `jobs.py`의 `enqueue_observation` 한 곳에서만 만든다. 호출자는 Collector(`collector/storage.py`, `collector/input_store.py`), 데모(`demo/runtime.py`), Detector의 옛 메시지 복구(`runner.py`)다. 새 작업의 계약 버전은 환경 변수 `DETECT_JOB_CONTRACT`(`v03`, `v04`)가 정한다. 값이 없으면 코드 기본은 `v03`이고, `compose.yaml`·`compose.demo.yaml`의 기본은 `v04`다(아래 전환 순서 1의 선행 조건 충족, 11/13).
 
 - `v03`: 지금과 같다. 구성이 없는 입력은 대기한다.
 - `v04`: 승인 운영 경로의 입력은 구성 없이 v04 작업이 된다. 입력 제어나 호출자가 승인 구성이 아닌 구성을 고정한 입력(input-validation, 데모)은 v03으로 남는다. 구성을 기다리던 입력도 v04 작업으로 바뀐다.
@@ -49,12 +49,20 @@ detect 작업은 `jobs.py`의 `enqueue_observation` 한 곳에서만 만든다. 
 
 `server/infra/migrations/016_detect_v04_contract.sql`은 `run_jobs`·`run_process_decisions`·`run_llm_results`·`ops_pipeline_measurements`·`ops_rule_set_revisions`와 뷰 `ops_operational_state`를 COMMIT까지 잠근다. 작업자 트랜잭션은 표를 다른 순서로 잠그므로 켠 채 적용하면 교착으로 어느 한쪽이 취소될 수 있다. 반드시 작업자를 멈추고 적용한다.
 
-1. DB를 쓰는 작업자를 모두 멈춘다. `compose.yaml`은 `api`·`llm`·`trainer`·`collector`·`input`·`detector`·`monitor`·`window`, 같은 DB를 쓰는 데모 스택(`compose.demo.yaml`)은 `api`·`detector`와 실행 중인 `sender`다. 처리 중인 시도는 끝나거나 임대가 만료되기를 기다리지 않아도 된다. 재시작 뒤 큐가 다시 가져간다.
+1. DB를 쓰는 작업자를 모두 멈춘다. `compose.yaml`은 `api`·`llm`·`trainer`·`collector`·`input`·`detector`·`incidents`·`monitor`·`window`, 같은 DB를 쓰는 데모 스택(`compose.demo.yaml`)은 `api`·`detector`와 실행 중인 `sender`다. 처리 중인 시도는 끝나거나 임대가 만료되기를 기다리지 않아도 된다. 재시작 뒤 큐가 다시 가져간다.
 2. 001~015가 적용돼 있고 룰 세트에 r0 말고 저장된 리비전이 없는지 확인한다. 저장된 리비전이 있으면 016이 전체를 되돌린다. 저장된 행을 보존하고, 새 규칙 2개를 어떻게 켤지 룰 세트 소유 세션과 정한 뒤 016의 r1 단계를 고친다.
 3. 표·함수 소유자로 `psql -v ON_ERROR_STOP=1 -f server/infra/migrations/016_detect_v04_contract.sql`을 1회 실행한다. 단일 트랜잭션이라 중간 오류는 전체 ROLLBACK이다. `database-roles.sql` 재적용은 필요 없다.
 4. `SELECT rule_set_revision,rule_set_content_hash_version FROM ops_operational_state`가 `1, 2`인지 확인한다.
-5. 작업자를 다시 시작한다. 이 시점의 기본 설정은 `v03`이라 동작이 바뀌지 않는다.
+5. 작업자를 다시 시작한다. Compose 기본은 `v04`이므로 v03으로 두려면 `.env`에 `DETECT_JOB_CONTRACT=v03`을 넣는다.
 
 자동 down migration은 없다. v04 행이 생긴 뒤에는 NOT NULL을 복원할 수 없고 r1은 불변 행이라 001~015 상태로 내릴 수 없다.
 
 v03 코드 경로는 016 없이도 돈다. v04 작업 실행은 016이 만든 `rule_set_content_hash_version`과 구성 NULL 조건이 필요하다.
+
+## 사건 묶음 작업(층 C)
+
+`python -m detector.incidents_job`은 판정 행을 원본마다 사건(`run_incidents`)으로 묶는다(`../../contracts/incidents.md`). Compose 서비스 `incidents`가 `--interval 60`(초)으로 계속 돈다. Detector와 같은 이미지·DB 연결(`DETECTOR_DATABASE_URL`, 없으면 `DATABASE_URL`)·사용자를 쓰고, 상태 확인 HTTP가 없어 healthcheck는 끈다.
+
+- 시작: `docker compose -f server/infra/compose.yaml up -d incidents`. 로그는 회차마다 원본별 JSON 한 줄(`docker compose logs incidents`)
+- 한 번만: `docker compose -f server/infra/compose.yaml run --rm incidents python -m detector.incidents_job --once [--source <uuid>]`
+- 이전에 `docker compose run -d --name pwc-incidents … detector …`로 띄운 컨테이너가 있으면 먼저 멈추고 지운다(같은 잠금 81741로 줄을 서므로 둘이 돌아도 결과는 같지만 detector healthcheck를 물려받아 unhealthy로 보인다)

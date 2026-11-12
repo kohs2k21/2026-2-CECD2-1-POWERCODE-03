@@ -92,6 +92,12 @@ GRANT SELECT,INSERT,UPDATE(read_at) ON run_decision_reads TO powercode_api;
 GRANT SELECT,INSERT ON ops_rule_set_revisions,ops_active_model_set_revisions,ops_detection_policy_revisions TO powercode_api;
 GRANT SELECT ON ops_rule_set_revisions,ops_active_model_set_revisions,ops_detection_policy_revisions TO powercode_detector,powercode_trainer;
 GRANT SELECT ON ops_operational_state TO powercode_api,powercode_detector,powercode_trainer;
+-- 019: cross-transaction incident grouping. Append-only (immutable triggers): Detector writes with
+-- SELECT,INSERT under pg_try_advisory_xact_lock(81741,0), API reads. Trainer, LLM and Collector have no access.
+-- Detector already reads run_process_decisions, data_observations, data_processes and run_decision_events above.
+GRANT SELECT,INSERT ON run_incident_runs,run_incidents,run_incident_members,run_incident_events TO powercode_detector;
+GRANT USAGE ON SEQUENCE run_incident_events_id_seq TO powercode_detector;
+GRANT SELECT ON run_incident_runs,run_incidents,run_incident_members,run_incident_events TO powercode_api;
 -- #78-Q10 defense in depth: no session temp tables through PUBLIC in the database this script runs in
 -- (runtime code uses none). The database owner, superusers and explicit TEMP grantees keep TEMP.
 DO $$ BEGIN

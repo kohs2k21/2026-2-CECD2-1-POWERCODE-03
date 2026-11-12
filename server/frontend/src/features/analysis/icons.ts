@@ -12,6 +12,8 @@ import {
   IconInfoCircle,
   IconQuestionMark,
   IconRefresh,
+  IconShieldCheck,
+  IconTags,
   type Icon,
 } from "@tabler/icons-react";
 import type { Category, RiskLevel, WorkflowState } from "./data/analysisApi";
@@ -24,6 +26,7 @@ export const categoryIcons: Record<Category, Icon> = {
   all: IconInbox,
   anomaly: IconAlertOctagon,
   anomaly_sign: IconAlertCircle,
+  normal: IconShieldCheck,
   in_progress: IconClock,
   undetermined: IconQuestionMark,
   failed_replaced: IconCircleX,
@@ -55,3 +58,6 @@ export const workflowIcons: Record<WorkflowState, Icon> = {
   open: IconFolderOpen,
   resolved: IconCircleCheck,
 };
+
+/** 관리자 `로그 분류하기`(사용자 11/13, 보류·완료를 대화상자 안에서 고름): 이전 화면 대응이 없어 분류 뜻의 IconTags. */
+export const classifyIcon: Icon = IconTags;

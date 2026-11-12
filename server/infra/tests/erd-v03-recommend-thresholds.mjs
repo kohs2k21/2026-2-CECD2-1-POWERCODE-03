@@ -333,6 +333,8 @@ export async function recommendThresholds017({ Client, port, connection, check, 
       assert.equal(oldBody.split(JOB_FUNCTION_EDIT[0]).length - 1, 2, '016 body has the two kind lists');
       assert.equal(code(after.functions.find(f => f.name === 'erd_v03_validate_job').src), oldBody.replaceAll(...JOB_FUNCTION_EDIT), 'function differs from 016 only by the two lists');
       check('erd124_upgrade: erd_v03_validate_job differs from its 016 body only by the two kind lists; config, SECURITY and owner kept; no function added');
+      // Later files (018 index, 019 tables) are applied before parity because schema.dbml is the final structure.
+      for (let i = idx + 1; i < migrations.length; i++) await u.query(migrations[i]);
       await parity(u);
 
       // Work in flight when 017 ran.
@@ -380,6 +382,8 @@ export async function recommendThresholds017({ Client, port, connection, check, 
 
       await r.query(migrations[idx]);
       check('erd124_rollback: 017 applies cleanly afterwards (enum ADD VALUE IF NOT EXISTS)');
+      // Later files (018 index, 019 tables) are applied before parity because schema.dbml is the final structure.
+      for (let i = idx + 1; i < migrations.length; i++) await r.query(migrations[i]);
       await parity(r);
       const job = await insert(r, 'run_jobs', llmJob(sid));
       await finishSucceeded(r, job, await claim(r, job, 1));
@@ -406,6 +410,8 @@ export async function recommendThresholds017({ Client, port, connection, check, 
       const job = await insert(s, 'run_jobs', llmJob(w.source.id));
       await finishSucceeded(s, job, await claim(s, job, 1));
       check(`erd124_single: one-string 017 applies with no unsafe enum use; the same connection runs a ${KIND} job`);
+      // Later files (018 index, 019 tables) are applied before parity because schema.dbml is the final structure.
+      for (let i = idx + 1; i < migrations.length; i++) await s.query(migrations[i]);
       await parity(s);
     } finally { await s.end(); }
   }

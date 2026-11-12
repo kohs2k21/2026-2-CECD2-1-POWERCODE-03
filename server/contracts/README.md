@@ -9,6 +9,9 @@ Reserved for versioned request, response, event, and worker contracts shared by 
 - `model_adapters.md`는 추후 제공할 변수 생성·Rule 추천·IF 모델의 연결 함수를 정의한다.
 - `operations-ui.md`는 운영 현황(`/operations`) 읽기 API(`/api/operations/*`)·위젯 배치와 이상 근거 상세·피드백 UI 경계를 정의한다.
 - `analysis-ui.md`는 이상 분석(`/analysis`, `/analysis/d/:decisionId`) 판정 목록·상세·중간 판정 기록·Process Flow 읽기 API와 처리 상태·읽음·조사·조치 기록 쓰기 API(`/api/analysis/*`, 014 표), 판정 결과별·위험도별·분류함 분류 매핑(저장 등급·위험도만), 실시간 반영(중간 판정 이벤트 포함)·설명 요청 화면 규칙을 정의한다(#105).
+- `process-graph.md`는 실행 그래프 응답 형식 `{graph, nodes, edges}`(층 A 거래 내부 구현 `GET /api/analysis/decisions/:id/graph`, 층 B·C 어휘 예약)·고정 어휘·id 규칙·검증 상태를 정의한다(실험 기능). `process-graph-id-vectors.json`은 id·없음 판정 공용 시험 벡터다.
+- `incidents-ui.md`는 사건 보기(층 C) 읽기 API `GET /api/analysis/incidents`·`/:id`·`/:id/members`의 읽기 순서(병합 → 이어짐)·거래 기준 건수·해제 계산·오류 code와 화면 용어를 정의한다(실험 기능).
+- `rule-candidates-ui.md`는 규칙 추천(층 B 관계 규칙·처리 시간 후보 검토) 읽기 API `GET /api/rule-set/candidates`·`/:candidateId`, 후보 작업 요청 `POST /api/rule-set/candidates/jobs`, 승인 꺼짐 조건(룰 세트 hash v3 전)과 화면 용어를 정의한다(실험 기능).
 - `rules-ui.md`는 룰 설정(`/detection/rules`) 화면 구성·저장·되돌리기·수식 추천 화면 규칙과 룰 세트 API 구현에서 정한 값, 화면 표시 용어(버전과 숫자)를 정의한다(#109).
 - `models-ui.md`는 머신러닝 모델(`/detection/models`) 버전 목록·상세·새 학습 화면 규칙, 지금 서버가 지원하지 않는 항목, 모델 버전 조회·거래량 집계 API 구현에서 정한 값을 정의한다.
 - `pipeline.md`는 저장, 기간 학습, 승인, 실시간 탐지의 현재 구현 경계를 정리한다.

@@ -54,6 +54,7 @@ const { createMemoryRouter, RouterProvider } = await import("react-router-dom");
 const { AuthSessionProvider } = await import("../src/services/auth/AuthSessionProvider.tsx");
 const { appRoutes } = await import("../src/app/appRoutes.tsx");
 const { LIVE_REFRESH_MS } = await import("../src/features/analysis/data/useAnalysis.ts");
+const { WorkflowRecordBody, WorkflowRecordDialog } = await import("../src/features/analysis/components/DecisionWorkflow.tsx");
 
 const json = (body, status = 200) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 const item = (id, overrides = {}) => ({
@@ -66,7 +67,7 @@ const item = (id, overrides = {}) => ({
   interfaceId: "IF-ORD-1", channelId: "CH-01", processStatus: "F", responseCode: "E500", grade: null, riskStatus: "unrated", riskLevel: null,
   workflowState: "detected", unread: false, ...overrides,
 });
-const counts = { all: 13, anomaly: 3, anomaly_sign: 1, in_progress: 2, undetermined: 3, failed_replaced: 3,
+const counts = { all: 13, anomaly: 3, anomaly_sign: 1, normal: 4, in_progress: 2, undetermined: 3, failed_replaced: 3,
   risk_all: 4, risk_critical: 1, risk_warning: 1, risk_info: 0, risk_unrated: 2, workflow_open: 1, workflow_resolved: 0 };
 const listBody = (items, total = items.length) => ({ observedAt: "2026-11-03T01:05:00Z", counts, total, page: 1, pageSize: 10,
   latestDecidedAt: "2026-11-03T01:02:03.000000Z", latestEventId: "42", items });
@@ -110,6 +111,9 @@ const hiddenIcon = (svg) => {
   return false;
 };
 const headingOf = (app, label) => app.renderer.root.find((node) => node.type === "h2" && text(node.children) === label);
+// 판정 기록 시각 칸(labels.ts stampText와 같은 지역 시각 MM/DD HH:MM:SS)
+const stampTime = (iso) => { const d = new Date(iso), two = (n) => String(n).padStart(2, "0");
+  return `${two(d.getMonth() + 1)}/${two(d.getDate())} ${two(d.getHours())}:${two(d.getMinutes())}:${two(d.getSeconds())}`; };
 const tick = (ms = 10) => act(async () => new Promise((resolve) => setTimeout(resolve, ms)));
 const wait = async (check, label, tries = 80) => {
   for (let i = 0; i < tries && !check(); i++) await tick();
@@ -140,22 +144,28 @@ const mount = async (path, userType = "user") => {
 const location = (router) => router.state.location.pathname + router.state.location.search;
 const listCalls = () => requested.filter((r) => r.path === "/api/analysis/decisions");
 
-// 1) 목록: 사이드바(판정 결과별 6분류 + 분류함) 건수, 행 → 상세 링크(목록 조건 유지), 미확인 점·위험도 칸, SSE는 목록의 커서 다음부터
+// 1) 목록: 사이드바(판정 결과별 7분류(정상 포함, 사용자 11/13) + 분류함) 건수, 행 → 상세 링크(목록 조건 유지), 미확인 점·위험도 칸, SSE는 목록의 커서 다음부터
 {
-  routes = { "GET /api/analysis/decisions": () => json(listBody([item("d-1", { unread: true }),
+  const blankCause = { methodId: null, ruleKey: null, code: null, observedStatus: null, fieldName: null, operator: null, threshold: null, unit: null,
+    observedValue: null, modelName: null, score: null, scoreThreshold: null };
+  routes = { "GET /api/analysis/decisions": () => json(listBody([item("d-1", { unread: true,
+    causes: [{ ...blankCause, category: "hard", methodId: "hard:process-status", observedStatus: "F" }] }),
     item("j-2", { kind: "pending", stage: "pending", signal: "pending", decisionId: null, jobId: "j-2", status: null, ruleStatus: null, mlStatus: null, evidence: null, decidedAt: null, riskStatus: "not_applicable" }),
-    item("d-3", { grade: "anomaly_sign", riskStatus: "rated", riskLevel: "critical" })], 13)) };
+    item("d-3", { grade: "anomaly_sign", riskStatus: "rated", riskLevel: "critical", causes: [
+      { ...blankCause, category: "soft", methodId: "soft:elapsed_ms-1a2b3c4d", fieldName: "처리 시간", operator: "gte", threshold: "5000", unit: "ms", observedValue: "8000" },
+      { ...blankCause, category: "ml", methodId: "ml:iforest", modelName: "Isolation Forest", score: 0.84, scoreThreshold: "0.61" }] })], 13)) };
   const app = await mount("/analysis?category=all&sort=oldest");
   await wait(() => app.shown().includes("TX-d-1"), "list row rendered");
   const side = app.renderer.root.findByProps({ id: "analysis-categories" });
   assert.deepEqual(side.findAllByType("a").map((a) => text(a.children)), [
-    "전체13", "이상3", "이상 징후1", "판정 중·중간 판정2", "정상 여부 미확인3", "판정 실패·대체3", "보류1", "완료0",
-  ]);
-  assert.deepEqual(side.findAll((node) => node.type === "h2").map((h) => text(h.children)), ["판정", "분류함"]);
+    "전체13", "이상3", "이상 징후1", "정상4", "판정 중·중간 판정2", "정상 여부 미확인3", "판정 실패·대체3", "보류1", "완료0", "사건 보기",
+  ], "사건 보기(층 C, contracts/incidents-ui.md 5절) is the separated group below 분류함, without a count");
+  assert.ok(side.findAllByType("a")[3].props.href.includes("category=normal"), "normal category link reaches the API value");
+  assert.deepEqual(side.findAll((node) => node.type === "h2").map((h) => text(h.children)), ["판정", "분류함", "사건"]);
   assert.equal(side.findAllByType("a")[0].props["aria-current"], "page");
   // 사이드바 아이콘(사용자 11/05): 판정 결과별 그룹도 항목마다 서로 다른 아이콘
   const resultIcons = side.findAllByType("a").map((a) => iconNames(a));
-  assert.deepEqual(resultIcons, [["inbox"], ["alert-octagon"], ["alert-circle"], ["clock"], ["question-mark"], ["circle-x"], ["folder-open"], ["circle-check"]]);
+  assert.deepEqual(resultIcons, [["inbox"], ["alert-octagon"], ["alert-circle"], ["shield-check"], ["clock"], ["question-mark"], ["circle-x"], ["folder-open"], ["circle-check"], ["timeline-event"]]);
   assert.equal(new Set(resultIcons.flat()).size, resultIcons.length, "each category has its own icon");
   assert.deepEqual(iconNames(headingOf(app, "전체 판정")), ["inbox"], "list heading category icon");
   const views = side.findByProps({ role: "group", "aria-label": "분류 보기" }).findAllByType("button");
@@ -167,6 +177,14 @@ const listCalls = () => requested.filter((r) => r.path === "/api/analysis/decisi
   assert.ok(text(rowOf("d-1").children).includes("위험도 미정"));
   assert.ok(text(rowOf("j-2").children).includes("위험도 —"));
   assert.ok(text(rowOf("d-3").children).includes("이상 징후") && text(rowOf("d-3").children).includes("위험"));
+  // 이상 원인 줄(사용자 11/13): 거래 ID 다음 줄에 서버 causes 첫 원인 + 외 N건, 원인이 없으면 줄 없음. 인터페이스·채널은 오른쪽 아래 작은 글자.
+  const causeOf = (id) => rowOf(id).findAll((node) => node.props["data-cause"] === "true").map((node) => text(node.children));
+  assert.deepEqual([causeOf("d-1"), causeOf("j-2"), causeOf("d-3")],
+    [["상태 F 실패 · 응답 코드 E500"], [], ["처리 시간 8,000 ms (기준 ≥ 5,000 ms) 외 1건"]]);
+  const contextOf = (id) => rowOf(id).find((node) => node.props["data-context"] === "true");
+  assert.equal(text(contextOf("d-1").children), "인터페이스 IF-ORD-1 · 채널 CH-01");
+  assert.ok(contextOf("d-1").parent.props.className.includes("text-xs") && contextOf("d-1").parent.props.className.includes("sm:justify-items-end"),
+    "interface/channel sit in the small right meta column");
   // 행 아이콘: 저장된 위험도 단계가 있는 이상만(위험 = IconFlame, 위험도 배지와 같은 색)
   assert.deepEqual([iconNames(rowOf("d-1")), iconNames(rowOf("j-2")), iconNames(rowOf("d-3"))], [[], [], ["flame"]]);
   assert.ok(svgs(rowOf("d-3"))[0].props.className.includes("text-destructive-text"));
@@ -203,10 +221,10 @@ const listCalls = () => requested.filter((r) => r.path === "/api/analysis/decisi
   assert.ok(listCalls().at(-1).search.includes("category=risk_all"), "risk 전체 reaches the API");
   await wait(() => text(app.renderer.root.findByProps({ id: "analysis-categories" }).children).includes("위험도 미정2"), "risk view sidebar");
   const riskSide = app.renderer.root.findByProps({ id: "analysis-categories" });
-  assert.deepEqual(riskSide.findAllByType("a").map((a) => text(a.children)), ["전체4", "위험1", "주의1", "참고0", "위험도 미정2", "보류1", "완료0"]);
+  assert.deepEqual(riskSide.findAllByType("a").map((a) => text(a.children)), ["전체4", "위험1", "주의1", "참고0", "위험도 미정2", "보류1", "완료0", "사건 보기"]);
   // 위험도·분류함 그룹 아이콘(위험도 미정 포함)
   assert.deepEqual(riskSide.findAllByType("a").map((a) => iconNames(a)),
-    [["inbox"], ["flame"], ["alert-triangle"], ["info-circle"], ["help-circle"], ["folder-open"], ["circle-check"]]);
+    [["inbox"], ["flame"], ["alert-triangle"], ["info-circle"], ["help-circle"], ["folder-open"], ["circle-check"], ["timeline-event"]]);
   const unratedLabel = riskSide.findAllByType("a")[4].findAll((node) => node.type === "span" && text(node.children) === "위험도 미정")[0];
   assert.ok(unratedLabel.props.className.includes("text-body") && unratedLabel.props.className.includes("text-muted-foreground"), "위험도 미정 is muted");
   assert.equal(riskButton().props["aria-pressed"], true);
@@ -228,7 +246,7 @@ const listCalls = () => requested.filter((r) => r.path === "/api/analysis/decisi
   const app = await mount("/analysis");
   await wait(() => app.shown().includes("TX-d-1"), "default list rendered");
   const side = app.renderer.root.findByProps({ id: "analysis-categories" });
-  assert.deepEqual(side.findAll((node) => node.type === "h2").map((h) => text(h.children)), ["위험도", "분류함"]);
+  assert.deepEqual(side.findAll((node) => node.type === "h2").map((h) => text(h.children)), ["위험도", "분류함", "사건"]);
   assert.equal(side.findAllByType("a")[0].props["aria-current"], "page", "risk 전체 is current");
   assert.ok(listCalls()[0].search.includes("category=risk_all"));
   assert.equal(location(app.router), "/analysis", "default address has no category");
@@ -301,6 +319,12 @@ const listCalls = () => requested.filter((r) => r.path === "/api/analysis/decisi
       { id: "i2", kind: "superseded", attemptNo: 1, seq: 2, supersededByAttemptNo: 2, createdAt: "2026-11-03T01:00:02Z", payload: {} },
     ] }),
     "GET /api/analysis/decisions/d-1/flow": () => json(flowBody("d-1")),
+    // 그래프 시도 등급(트리 노드 바탕): P99 관측(p2)은 저장된 v4 등급 anomaly_sign
+    "GET /api/analysis/decisions/d-1/graph": () => json({ id: "d-1", jobId: null, truncated: false, counts: { processes: 2, messages: 1, errors: 1 },
+      graph: { layer: "instance", id: "TX-d-1", version: null, sourceId: "source-1", snapshotId: null, period: null, ruleSetRevision: null, generatedAt: "2026-11-03T01:05:00.000Z" },
+      nodes: [{ id: "process:TX-d-1:P01", kind: "process", attrs: { focus: true, verification: null, attempts: [{ observationId: "p1", grade: null, focus: true }] } },
+        { id: "process:TX-d-1:P99", kind: "process", attrs: { focus: false, verification: null, attempts: [{ observationId: "p2", grade: "anomaly_sign", focus: false }] } }],
+      edges: [] }),
     "PUT /api/analysis/decisions/d-1/read": () => json({ id: "d-1", readAt: "2026-11-03T02:00:00.000000Z" }),
     "PUT /api/analysis/decisions/d-1/workflow": (_t, options) => {
       workflowPuts.push(JSON.parse(options.body));
@@ -337,19 +361,69 @@ const listCalls = () => requested.filter((r) => r.path === "/api/analysis/decisi
   // 위험도(v3 이상 = 위험도 미정, U6)·업무 분류
   assert.ok(shown.includes("위험도위험도 미정") && shown.includes("업무 분류감지됨"), "risk unrated and workflow label");
   // Process Flow(와이어프레임 dTree): 통계, Focus Process 기본 선택, 노드 선택 → 원본 정보, BODY 행 없음
-  assert.ok(shown.includes("(프로세스 230건 · 메시지 1건 · 에러 4건)"), "header uses the true totals, not the capped node list");
-  assert.ok(shown.includes("Transaction: TX-d-1") && shown.includes("Focus Process: P01") && shown.includes("Process: P99") && shown.includes("Message: REQ · MSG-1"));
-  const nodeButton = (label) => app.renderer.root.findAll((node) => node.type === "button" && text(node.children).includes(label))[0];
-  assert.equal(nodeButton("Focus Process: P01").props["aria-pressed"], true);
+  // 건수는 머리글이 아니라 보기 상자 오른쪽 아래(사용자 11/12), 범례는 상자 오른쪽 위
+  const flowBox = app.renderer.root.findByProps({ role: "group", "aria-label": "Process Flow" });
+  assert.equal(text(flowBox.findByProps({ "data-flow-counts": "" }).children), "(프로세스 230건 · 메시지 1건 · 에러 4건)", "counts use the true totals, not the capped node list");
+  assert.equal(shown.split("프로세스 230건").length - 1, 1, "counts appear once (inside the box, no longer in the card header)");
+  const legend = flowBox.findByProps({ "data-flow-legend": "" });
+  // 오른쪽 위, 트리가 넘쳐 스크롤 막대가 생기면 그 폭(--flow-sb-x)만큼 안쪽(검토 11/12)
+  assert.ok(legend.props.className.includes("top-2") && legend.props.className.includes("right-[calc(0.5rem+var(--flow-sb-x,0px))]"), "legend sits at the top right of the box");
+  assert.ok(flowBox.findByProps({ "data-flow-counts": "" }).props.className.includes("bottom-[calc(0.5rem+var(--flow-sb-y,0px))]"), "counts clear the horizontal scrollbar");
+  // 범례(사용자 11/12): 이상(붉은 칸)·이상 징후(노란 칸)·판정 대상(표적 아이콘). 일반 칸 없음, 트리에는 로그 없음 노드가 없어 점선 항목 없음
+  assert.equal(text(legend.children), "이상이상 징후판정 대상", "tree legend: anomaly, anomaly sign, focus marker");
+  assert.deepEqual(legend.findAllByType("li").map((li) => li.findAll((n) => n.type === "span" && n.props["aria-hidden"] === "true")[0]?.props.className ?? iconNames(li).join()),
+    ["size-3 rounded-sm border border-destructive-text bg-destructive-soft", "size-3 rounded-sm border border-warning-text bg-warning-soft", "crosshair"],
+    "legend chips: red, amber (node fills, dark outlines so they stand out on the muted box), focus marker icon");
+  const viewButtons = app.renderer.root.findByProps({ role: "group", "aria-label": "Process Flow 보기" }).findAllByType("button");
+  assert.deepEqual(viewButtons.map((b) => iconNames(b)), [["sitemap"], ["route"]], "view toggle buttons carry icons");
+  // 노드에는 머리말 없이 ID만(방향은 작은 배지), 접근성 이름은 종류 + ID · 상태
+  const nodeButton = (name) => app.renderer.root.findAll((node) => node.type === "button" && String(node.props["aria-label"] ?? "").startsWith(name))[0];
+  assert.deepEqual(["Transaction TX-d-1", "Focus Process P01", "Process P99", "Message REQ MSG-1"].map((name) => nodeButton(name)?.props["aria-label"]),
+    ["Transaction TX-d-1 · S", "Focus Process P01 · F", "Process P99 · S", "Message REQ MSG-1 · S"], "accessible names keep the node kind");
+  assert.deepEqual(["Transaction TX-d-1", "Focus Process P01", "Process P99", "Message REQ MSG-1"].map((name) => text(nodeButton(name).children)),
+    ["STX-d-1", "FP01", "SP99", "SREQMSG-1"], "visible node text is the status and the ID only (no Transaction:/Process:/Message: prefix)");
+  assert.ok(!/Transaction:|Process:|Message:/.test(shown), "no header prefixes in the tree");
+  assert.equal(nodeButton("Focus Process P01").props["aria-pressed"], true);
+  // 노드 바탕 = 판정 결과(사용자 11/12): 판정 PROCESS = 판정 요약 결과(이상 신호 있음·v3 등급 없음 → 이상, 붉은 바탕),
+  // 다른 PROCESS = 그래프 시도 등급(P99 anomaly_sign → 노란 바탕), Transaction·Message = 흰 바탕. 노드에 테두리·선택 링 없음
+  await wait(() => nodeButton("Process P99").props.className.includes("bg-warning-soft"), "graph attempt grade colors the other process");
+  const classTokens = (name) => nodeButton(name).props.className.split(/\s+/);
+  assert.ok(classTokens("Focus Process P01").includes("bg-destructive-soft"), "focus process with an anomaly result: red fill");
+  assert.equal(nodeButton("Focus Process P01").props["data-tone"], "anomaly");
+  assert.ok(!classTokens("Process P99").includes("bg-destructive-soft") && nodeButton("Process P99").props["data-tone"] === "anomaly_sign", "anomaly sign: amber fill");
+  assert.ok(!classTokens("Transaction TX-d-1").some((c) => /^bg-(destructive|warning|secondary)/.test(c)), "transaction node stays white");
+  for (const name of ["Transaction TX-d-1", "Focus Process P01", "Process P99", "Message REQ MSG-1"]) {
+    const tokens = classTokens(name);
+    assert.ok(!tokens.some((c) => /^border(-|$)/.test(c) || /^ring-/.test(c)), `${name}: no border or selection ring`);
+    assert.ok(tokens.includes("focus-visible:ring-3"), `${name}: keyboard focus ring kept`);
+  }
+  assert.ok(classTokens("Focus Process P01").includes("shadow-md") && !classTokens("Process P99").includes("shadow-md"), "default selection = stronger shadow, not a border");
+  // 판정 대상 표시: 흰 바탕이어도 찾을 수 있게 표적 아이콘(범례와 같은 아이콘)
+  const markers = (name) => nodeButton(name).findAll((n) => n.props?.["data-focus-marker"] === "");
+  assert.ok(markers("Focus Process P01").length > 0 && markers("Process P99").length === 0, "focus marker only on the focus process");
+  // 색 바탕 위 상태 배지는 흰 바탕(배지 모양이 노드 바탕에 묻히지 않게)
+  const badge = (name) => nodeButton(name).findAll((n) => n.props?.["data-status-badge"] === "")[0].props.className;
+  assert.ok(badge("Focus Process P01").includes("bg-card") && badge("Focus Process P01").includes("text-destructive-text"), "F badge on red: white chip");
+  assert.ok(badge("Process P99").includes("bg-card") && badge("Transaction TX-d-1").includes("bg-success-soft"), "badges keep their fill on white nodes");
+  assert.ok(app.renderer.root.findByProps({ role: "group", "aria-label": "Process Flow" }).props.className.includes("h-80"), "fixed view box height");
+  // 위→아래 트리(포함 관계): Message 버튼은 그 Process 항목(li) 안의 하위 목록에 있다. 기본 보기는 트리.
+  const itemOf = (button) => { let n = button.parent; while (n && n.type !== "li") n = n.parent; return n; };
+  assert.ok(itemOf(nodeButton("Focus Process P01")).findAll((node) => node === nodeButton("Message REQ")).length === 1, "message nested under its process");
+  assert.ok(itemOf(nodeButton("Transaction TX-d-1")).findAll((node) => node === nodeButton("Process P99")).length === 1, "process nested under the transaction");
+  assert.equal(app.renderer.root.findByProps({ role: "group", "aria-label": "Process Flow 보기" }).findAllByType("button")[0].props["aria-pressed"], true, "tree view is the default");
   // 노드 아이콘(#100 이전 ProcessFlowTree): Transaction IconDatabase, Process IconCodeDots(F면 오류 색), Message IconMessage2, 원본 정보 IconListDetails
-  assert.deepEqual(["Transaction: TX-d-1", "Focus Process: P01", "Process: P99", "Message: REQ"].map((label) => iconNames(nodeButton(label))),
-    [["database"], ["code-dots"], ["code-dots"], ["message-2"]]);
-  assert.ok(svgs(nodeButton("Focus Process: P01"))[0].props.className.includes("text-destructive-text"), "failed process icon uses the error tone");
-  assert.deepEqual(iconNames(app.renderer.root.find((node) => node.type === "summary")), ["list-details"]);
-  await act(async () => nodeButton("Message: REQ").props.onClick());
+  assert.deepEqual(["Transaction TX-d-1", "Focus Process P01", "Process P99", "Message REQ"].map((name) => iconNames(nodeButton(name))),
+    [["database"], ["code-dots", "crosshair"], ["code-dots"], ["message-2"]], "focus process also carries the focus marker");
+  assert.ok(svgs(nodeButton("Focus Process P01"))[0].props.className.includes("text-destructive-text"), "failed process icon uses the error tone");
+  // 선택 노드 원본 정보는 접지 않고 늘 보인다(details·summary 없음)
+  assert.equal(app.renderer.root.findAll((node) => node.type === "details" || node.type === "summary").length, 0, "no dropdown toggle");
+  assert.deepEqual(iconNames(app.renderer.root.find((node) => node.type === "h3" && text(node.children) === "선택 노드 원본 정보")), ["list-details"]);
+  assert.ok(app.shown().includes("PROCESS_IDP01") && app.shown().includes("STATUSF · Code E500"), "focus process fields shown without opening anything");
+  await act(async () => nodeButton("Message REQ").props.onClick());
   await wait(() => app.shown().includes("MESSAGE_IDMSG-1") && app.shown().includes("DATA_SIZE512 bytes"), "selected message fields");
+  assert.ok(classTokens("Message REQ MSG-1").includes("shadow-md") && !classTokens("Focus Process P01").includes("shadow-md"), "selection moves as a shadow");
   assert.ok(!app.shown().includes("BODY"), "BODY is not read or shown");
-  await act(async () => nodeButton("Focus Process: P01").props.onClick());
+  await act(async () => nodeButton("Focus Process P01").props.onClick());
   await wait(() => app.shown().includes("STATUSF · Code E500") && app.shown().includes("DURATION_TIME— 확인 불가"), "process fields");
   // 상세를 열면 읽음 표시 1회
   await wait(() => requested.filter((r) => r.method === "PUT" && r.path === "/api/analysis/decisions/d-1/read").length === 1, "read mark sent once");
@@ -358,6 +432,7 @@ const listCalls = () => requested.filter((r) => r.path === "/api/analysis/decisi
   // 조사·조치 기록은 관리자에게만
   assert.ok(!app.shown().includes("조사·조치 기록"), "feedback box hidden for users");
   assert.equal(requested.some((r) => r.path.endsWith("/feedback")), false, "users do not read feedback");
+  assert.equal(app.renderer.root.findAllByType(WorkflowRecordDialog).length, 0, "users change the state directly, no record dialog");
   // 처리 상태: [처리 보류][처리 완료] → 보류 → [원래 상태로 복원][처리 완료], 409는 오류 코드 그대로
   const wfButton = (label) => app.renderer.root.findAll((node) => node.type === "button" && text(node.children) === label)[0];
   assert.ok(wfButton("처리 보류") && wfButton("처리 완료") && !wfButton("원래 상태로 복원"));
@@ -410,8 +485,8 @@ const listCalls = () => requested.filter((r) => r.path === "/api/analysis/decisi
     composite: { policy: { k: { hard: 1, soft: 1, ml: 2 } }, status: "partial", anomalous: true, grade: "anomaly_sign", basisMethods: ["soft:retry_count-1a2b3c4d"],
       risk: { policy: "risk-max-v1", levelTable: "method-defined-v2", status: "rated", level: "warning", determinedBy: ["soft:retry_count-1a2b3c4d"], unratedMethods: ["ml:iforest"] } } };
   const detail = { ...item("d-4", { grade: "anomaly_sign", riskStatus: "rated", riskLevel: "warning", status: "partial", evidence, processStatus: "S", responseCode: "0000" }),
-    configuration: null, job: null, explanation: null, workflow: { state: "resolved", changedAt: null } };
-  const feedback = [{ id: "f-1", kind: "action", reason: "재처리 확인", actorId: "admin-1", actorEmail: "admin@example.test", createdAt: "2026-11-03T01:00:00Z" }];
+    configuration: null, job: null, explanation: null, workflow: { state: "resolved", changedAt: "2026-11-03T02:10:00Z" } };
+  const feedback = [{ id: "f-1", kind: "action", reason: "재처리 확인", actorId: "admin-1", actorEmail: "admin@example.test", createdAt: "2026-11-03T02:09:00Z" }];
   routes = {
     "GET /api/analysis/decisions": () => json(listBody([item("d-4")])),
     "GET /api/analysis/decisions/d-4": () => json(detail),
@@ -426,7 +501,7 @@ const listCalls = () => requested.filter((r) => r.path === "/api/analysis/decisi
     },
   };
   const app = await mount("/analysis/d/d-4", "admin");
-  await wait(() => app.shown().includes("세부 방법별 결과") && app.shown().includes("재처리 확인"), "v4 tables and feedback rendered");
+  await wait(() => app.shown().includes("세부 방법별 결과"), "v4 tables rendered");
   const shown = app.shown();
   assert.ok(shown.includes("판정 결과이상 징후 · 근거 이상 징후 규칙"), "result with basis category");
   assert.ok(shown.includes("위험도주의 · 결정 근거 이상 징후 규칙 · 단계 없는 근거 머신러닝 모델(iforest)"));
@@ -444,21 +519,151 @@ const listCalls = () => requested.filter((r) => r.path === "/api/analysis/decisi
   assert.equal(row("ml:lof"), "머신러닝 모델머신러닝 모델(lof)미완료미판정———3,001 ms기한 초과");
   assert.ok(shown.includes("이상 징후 규칙1개1000이상") && shown.includes("머신러닝 모델2개1010미판정"), "category table from stored results");
   assert.ok(!/3000|k=|ml: 2/.test(shown), "policy values (deadline, k) are not shown");
-  assert.ok(shown.includes("원래 상태로 복원") && !shown.includes("처리 보류"), "resolved state offers only restore");
-  // 조사·조치 기록: 빈 사유는 와이어프레임 안내, 저장하면 목록 갱신
-  const save = () => app.renderer.root.findAll((node) => node.type === "button" && text(node.children) === "피드백 저장")[0];
-  await act(async () => save().props.onClick());
-  await wait(() => app.shown().includes("조사·조치 사유를 입력하세요."), "empty reason message");
-  assert.equal(requested.some((r) => r.method === "POST"), false);
-  const kindSelect = app.renderer.root.findByProps({ id: "analysis-feedback-kind" });
-  await act(async () => kindSelect.props.onChange({ target: { value: "suspected-false-positive" } }));
-  const reasonBox = app.renderer.root.findByProps({ id: "analysis-feedback-reason" });
-  assert.equal(reasonBox.props.maxLength, 2000);
-  await act(async () => reasonBox.props.onChange({ target: { value: "  배치 재처리  " } }));
-  await act(async () => save().props.onClick());
-  await wait(() => app.shown().includes("오탐 의심 · admin@example.test") && app.shown().includes("배치 재처리"), "saved record listed");
-  assert.deepEqual(JSON.parse(requested.find((r) => r.method === "POST").body), { kind: "suspected-false-positive", reason: "배치 재처리" });
-  assert.ok(app.shown().includes("선택은 확정 라벨이나 자동 학습으로 반영되지 않습니다."));
+  assert.ok(shown.includes("원래 상태로 복원") && !shown.includes("처리 보류") && !shown.includes("로그 분류하기"), "resolved state offers only restore");
+  // 저장된 조사·조치 기록은 판정 기록 카드에 읽기 전용 줄로(사용자 11/13): 최종 판정 뒤 시각 순. 업무 분류 상태 줄은 없음(판정 요약에 있음). 아래 별도 카드·저장 버튼 없음.
+  assert.ok(!shown.includes("조사·조치 기록") && !shown.includes("피드백 저장"), "no bottom record card");
+  await wait(() => app.renderer.root.findAll((node) => node.type === "li" && node.props["data-entry"] === "record").length === 1, "records in the timeline");
+  const timeline = app.renderer.root.findAll((node) => node.type === "li").filter((node) => node.parent?.type === "ol" && node.parent.props.className?.includes("border-l"));
+  assert.deepEqual(timeline.map((node) => text(node.children)), [`${stampTime("2026-11-03T01:02:03Z")}최종`,
+    `${stampTime("2026-11-03T02:09:00Z")}조치 기록 · admin@example.test재처리 확인`]);
+  assert.equal(requested.filter((r) => r.method === "GET" && r.path.endsWith("/feedback")).length, 1, "admins read records with the detail");
+  assert.equal(app.renderer.root.findByType(WorkflowRecordDialog).props.open, false);
+  await app.cleanup();
+}
+
+// 4c) 관리자 로그 분류하기(사용자 11/13): 보류·완료 버튼 하나 [로그 분류하기] → 가운데 대화상자(기록 유형·사유, 취소 버튼 없음) → 안에서 보류·완료 =
+//     사유가 있으면 기록 저장 후 처리 상태 변경. 저장 실패면 상태를 바꾸지 않음, 상태 변경 실패는 대화상자 유지·오류 그대로, 다시 눌러도 기록은 한 번만 저장.
+//     처리 중에는 닫히지 않음. 저장된 기록은 판정 기록에 읽기 전용으로. 원래 상태로 복원은 바로.
+{
+  requested.length = 0;
+  const detail = { ...item("d-5"), configuration: null, job: null, explanation: null };
+  let changedAt = null;
+  const feedback = [{ id: "f-1", kind: "action", reason: "재처리 확인", actorId: "admin-1", actorEmail: "admin@example.test", createdAt: "2026-11-03T01:00:00Z" }];
+  const puts = [];
+  const posts = [];
+  let failNext = true;
+  let failSave = false;
+  let holdSave = null;
+  routes = {
+    "GET /api/analysis/decisions": () => json(listBody([item("d-5")])),
+    "GET /api/analysis/decisions/d-5": () => json({ ...detail, workflow: { state: detail.workflowState, changedAt } }),
+    "GET /api/analysis/decisions/d-5/interims": () => json({ id: "d-5", jobId: null, items: [] }),
+    "GET /api/analysis/decisions/d-5/flow": () => json({ id: "d-5", jobId: null, transaction: null, processes: [], messages: [], truncated: false }),
+    "PUT /api/analysis/decisions/d-5/read": () => json({ id: "d-5", readAt: "2026-11-03T02:00:00Z" }),
+    "GET /api/analysis/decisions/d-5/feedback": () => json({ id: "d-5", items: feedback }),
+    "POST /api/analysis/decisions/d-5/feedback": async (_t, options) => {
+      const body = JSON.parse(options.body);
+      posts.push(body);
+      if (holdSave) await holdSave.promise;
+      if (failSave) return json({ code: "analysis_storage_unavailable" }, 503);
+      feedback.unshift({ id: `f-${feedback.length + 1}`, ...body, actorId: "admin-1", actorEmail: "admin@example.test", createdAt: "2026-11-03T02:00:00Z" });
+      return json({ id: "d-5", item: feedback[0] }, 201);
+    },
+    "PUT /api/analysis/decisions/d-5/workflow": (_t, options) => {
+      const body = JSON.parse(options.body);
+      puts.push(body);
+      if (failNext) {
+        failNext = false;
+        return json({ code: "workflow_state_conflict" }, 409);
+      }
+      detail.workflowState = body.state;
+      changedAt = "2026-11-03T02:00:01Z";
+      return json({ id: "d-5", workflow: { state: body.state, changedAt } });
+    },
+  };
+  const app = await mount("/analysis/d/d-5", "admin");
+  await wait(() => app.shown().includes("판정 요약") && app.shown().includes("업무 분류감지됨"), "admin detail rendered");
+  const headerButton = (label) => app.renderer.root.findAll((node) => node.type === "button" && text(node.children) === label)[0];
+  const headerLabels = () => app.renderer.root.findAll((node) => node.type === "button" && (node.props["data-workflow-to"] || node.props["data-workflow-classify"])).map((b) => text(b.children));
+  const dialog = () => app.renderer.root.findByType(WorkflowRecordDialog);
+  const records = () => app.renderer.root.findAll((node) => node.type === "li" && node.props["data-entry"] === "record").map((node) => text(node.children));
+  // 감지됨 = [로그 분류하기] 하나(처리 보류·처리 완료 버튼 없음), 기존 기록은 판정 기록에 읽기 전용
+  assert.deepEqual(headerLabels(), ["로그 분류하기"]);
+  assert.deepEqual(iconNames(headerButton("로그 분류하기")), ["tags"]);
+  await wait(() => records().length === 1, "saved record shown in the timeline");
+  assert.ok(records()[0].endsWith("조치 기록 · admin@example.test재처리 확인"));
+  assert.equal(dialog().props.open, false);
+  // 로그 분류하기 → 대화상자(상태는 아직 그대로), X·Esc로 닫으면 요청 없음
+  await act(async () => headerButton("로그 분류하기").props.onClick());
+  assert.deepEqual([dialog().props.open, dialog().props.state], [true, "detected"]);
+  await act(async () => dialog().props.onOpenChange(false));
+  assert.equal(dialog().props.open, false, "Esc / outside click / X closes the dialog");
+  assert.equal(puts.length + posts.length, 0, "closing sends nothing");
+  await act(async () => headerButton("로그 분류하기").props.onClick());
+  const renderBody = async () => {
+    let body;
+    await act(async () => { body = create(React.createElement(WorkflowRecordBody, dialog().props)); });
+    return body;
+  };
+  let body = await renderBody();
+  assert.equal(body.root.findByProps({ id: "analysis-feedback-reason" }).props.maxLength, 2000);
+  assert.ok(body.root.findByProps({ id: "analysis-feedback-kind" }));
+  assert.ok(!text(body.toJSON()).includes("재처리 확인"), "records are not listed in the dialog (they live in the timeline)");
+  assert.deepEqual(body.root.findAll((node) => node.type === "button").map((b) => text(b.children)), ["처리 보류", "처리 완료"], "no 취소 button");
+  const variants = () => Object.fromEntries(body.root.findAll((node) => typeof node.type !== "string" && node.props["data-workflow-to"]).map((b) => [b.props["data-workflow-to"], b.props.variant]));
+  assert.deepEqual(variants(), { open: "outline", resolved: "default" }, "처리 완료 is the primary action");
+  await act(async () => body.unmount());
+  // 기록 저장 실패(503): 상태를 바꾸지 않고 대화상자 안에 오류 그대로, 입력은 남는다
+  failSave = true;
+  await act(async () => dialog().props.onReason("저장 실패 사유"));
+  await act(async () => dialog().props.onSubmit("open"));
+  await wait(() => Boolean(dialog().props.saveError), "save failure kept in the dialog");
+  assert.deepEqual([puts.length, dialog().props.open, dialog().props.reason], [0, true, "저장 실패 사유"], "no PUT after a failed save, memo kept");
+  body = await renderBody();
+  assert.ok(text(body.toJSON()).includes("피드백 저장 실패 · analysis_storage_unavailable"), "save error text");
+  await act(async () => body.unmount());
+  failSave = false;
+  posts.length = 0;
+  // 처리 중에는 닫히지 않는다(저장 요청을 붙잡아 둔 동안 X·Esc 무시), 버튼도 막힌다
+  let release;
+  holdSave = { promise: new Promise((resolve) => { release = resolve; }) };
+  await act(async () => dialog().props.onKind("suspected-false-positive"));
+  await act(async () => dialog().props.onReason("  배치 재처리  "));
+  await act(async () => dialog().props.onSubmit("resolved"));
+  await wait(() => dialog().props.pending === true, "pending while saving");
+  await act(async () => dialog().props.onOpenChange(false));
+  assert.equal(dialog().props.open, true, "close is blocked while pending");
+  body = await renderBody();
+  assert.ok(body.root.findAll((node) => node.type === "button").every((b) => b.props.disabled), "actions disabled while pending");
+  await act(async () => body.unmount());
+  holdSave = null;
+  await act(async () => release());
+  // 기록 저장(앞뒤 공백 제거) 다음 상태 변경. 409 → 대화상자 유지, 오류 그대로, 저장된 사유는 비움
+  await wait(() => Boolean(dialog().props.changeError), "state change failure kept in the dialog");
+  assert.deepEqual(posts, [{ kind: "suspected-false-positive", reason: "배치 재처리" }]);
+  assert.deepEqual(puts, [{ state: "resolved", expectedState: "detected" }]);
+  const order = requested.filter((r) => r.method !== "GET" && r.path.startsWith("/api/analysis/decisions/d-5/") && !r.path.endsWith("/read")).map((r) => r.method);
+  assert.deepEqual(order, ["POST", "POST", "PUT"], "failed save, then record saved before the state change");
+  assert.deepEqual([dialog().props.open, dialog().props.reason], [true, ""], "dialog stays open, saved memo cleared");
+  assert.ok(!app.shown().includes("업무 분류 실패"), "the error shows inside the dialog, not behind it");
+  await wait(() => records().length === 2 && records()[1].includes("오탐 의심 · admin@example.test배치 재처리"), "saved record refreshed in the timeline");
+  body = await renderBody();
+  assert.ok(text(body.toJSON()).includes("업무 분류 실패 · workflow_state_conflict"), "error text pattern");
+  await act(async () => body.unmount());
+  // 다시 처리 완료: 기록은 다시 저장하지 않고 상태만 바꾼 뒤 닫힘 → 완료(판정 기록에 업무 분류 상태 줄은 생기지 않음)
+  await act(async () => dialog().props.onSubmit("resolved"));
+  await wait(() => dialog().props.open === false, "dialog closes after the state change");
+  assert.equal(posts.length, 1, "retry does not save the memo twice");
+  assert.deepEqual(puts[1], { state: "resolved", expectedState: "detected" });
+  await wait(() => app.shown().includes("업무 분류완료") && Boolean(headerButton("원래 상태로 복원")), "resolved after refetch");
+  assert.deepEqual(headerLabels(), ["원래 상태로 복원"], "resolved offers only restore");
+  assert.ok(records().length === 2 && !records().some((r) => r.includes("업무 분류 ·")), "no workflow state line in the timeline");
+  await wait(() => listCalls().length >= 2, "list (workflow box counts) refetched");
+  // 원래 상태로 복원은 대화상자 없이 바로, 사유 없이 보류는 기록 없이 상태만 → 보류 = [원래 상태로 복원][로그 분류하기], 대화상자는 처리 완료만
+  await act(async () => headerButton("원래 상태로 복원").props.onClick());
+  assert.equal(dialog().props.open, false, "restore does not open the dialog");
+  await wait(() => app.shown().includes("업무 분류감지됨"), "restored");
+  assert.deepEqual(puts[2], { state: "detected", expectedState: "resolved" });
+  await act(async () => headerButton("로그 분류하기").props.onClick());
+  await act(async () => dialog().props.onSubmit("open"));
+  await wait(() => dialog().props.open === false && app.shown().includes("업무 분류보류"), "memo is optional");
+  assert.deepEqual([posts.length, puts[3]], [1, { state: "open", expectedState: "detected" }]);
+  await wait(() => headerLabels().length === 2, "open state buttons");
+  assert.deepEqual(headerLabels(), ["원래 상태로 복원", "로그 분류하기"]);
+  await act(async () => headerButton("로그 분류하기").props.onClick());
+  body = await renderBody();
+  assert.deepEqual(body.root.findAll((node) => node.type === "button").map((b) => text(b.children)), ["처리 완료"], "open state: the dialog offers only 처리 완료");
+  await act(async () => body.unmount());
   await app.cleanup();
 }
 
@@ -671,11 +876,65 @@ const explainCard = (app) => app.renderer.root.find((node) => node.type === "div
   const label = link.findAll((node) => node.type === "span" && text(node.children) === "위험도 미정")[0];
   assert.ok(label.props.className.includes("text-body"), "still the smaller size");
   assert.ok(!label.props.className.includes("text-muted-foreground"), "selected label follows the icon");
+  // 넓은 화면 전환: 버튼 이름·저장값이 바뀐다. 사이드바가 밀려 나가는 효과(exit)는 DOM이 없는 이 시험 환경에서 끝나지 않아 브라우저에서 확인한다.
+  const toggle = (name) => app.renderer.root.findAll((node) => node.type === "button" && node.props["aria-label"] === name)[0];
+  await act(async () => toggle("넓은 화면으로 보기").props.onClick());
+  await wait(() => Boolean(toggle("콤팩트 화면으로 보기")), "wide mode toggle");
+  assert.equal(storage.get("esb_layout_wide_analysis"), "true", "wide mode is remembered");
+  await act(async () => toggle("콤팩트 화면으로 보기").props.onClick());
+  await wait(() => Boolean(toggle("넓은 화면으로 보기")) && app.renderer.root.findAll((node) => node.props?.id === "analysis-categories").length > 0, "compact mode shows the side nav");
+  assert.equal(storage.get("esb_layout_wide_analysis"), "false");
   await app.cleanup();
+}
+
+// 실행 순서(그래프) 보기 범례: 같은 FlowViewOverlay, 로그 없음(점선)은 missing 노드가 있을 때만(ProcessGraphView notLogged)
+{
+  const { FlowViewOverlay } = await import("../src/features/analysis/components/ProcessFlowCard.tsx");
+  const legendOf = async (notLogged) => {
+    let renderer;
+    await act(async () => {
+      renderer = create(React.createElement(FlowViewOverlay, { stats: "(프로세스 3건 · 메시지 0건 · 에러 0건)", notLogged }));
+    });
+    const legend = renderer.root.findByProps({ "data-flow-legend": "" });
+    const result = [text(legend.children), legend.findAllByType("li").length,
+      legend.findAll((n) => n.type === "span" && String(n.props.className ?? "").includes("border-dashed")).length];
+    await act(async () => renderer.unmount());
+    return result;
+  };
+  assert.deepEqual(await legendOf(true), ["이상이상 징후판정 대상로그 없음", 4, 1], "graph legend with a not-logged node: dashed item added");
+  assert.deepEqual(await legendOf(false), ["이상이상 징후판정 대상", 3, 0], "graph legend without missing nodes: no dashed item");
+}
+
+// 그래프 보기 조각 불러오기·그리기 실패는 카드 안 ErrorState(실행 순서 불러오기 실패)로 가두고, 다시 시도하면 새로 불러온다
+{
+  const { GraphViewBoundary } = await import("../src/features/analysis/components/ProcessFlowCard.tsx");
+  let failing = true;
+  let retried = 0;
+  const Chunk = () => {
+    if (failing) throw new TypeError("Failed to fetch dynamically imported module");
+    return React.createElement("p", null, "graph ready");
+  };
+  const quiet = console.error;
+  console.error = () => {};
+  let renderer;
+  try {
+    await act(async () => {
+      renderer = create(React.createElement(GraphViewBoundary, { onRetry: () => (retried += 1) }, React.createElement(Chunk)));
+    });
+  } finally {
+    console.error = quiet;
+  }
+  const alert = renderer.root.findByProps({ role: "alert" });
+  assert.ok(text(alert.children).includes("실행 순서 불러오기 실패"), "chunk failure stays inside the card");
+  failing = false;
+  await act(async () => alert.findByType("button").props.onClick());
+  assert.equal(retried, 1, "retry asks for a fresh chunk");
+  assert.ok(text(renderer.root.children).includes("graph ready"), "graph renders after retry");
+  await act(async () => renderer.unmount());
 }
 
 assert.equal(requested.some((r) => r.path.startsWith("/api/anomaly/events/")), false, "removed anomaly detail/feedback API is never called");
 assert.ok(requested.every((r) => r.path.startsWith("/api/")), "only same-origin API paths");
 console.log("analysis page QA passed: default risk view, result/risk/workflow sidebar and view switch, unread dot, risk cell, row links, search URL, SSE cursor with interim events "
-  + "and single refetch, error/empty states, detail/timeline/evidence, process flow tree, read mark, workflow transitions and 409, admin-only feedback, "
+  + "and single refetch, error/empty states, detail/timeline/evidence, process flow tree, read mark, workflow transitions and 409, admin 로그 분류하기 dialog (save then change, save failure keeps state, change failure keeps dialog, no double save, no close while pending), records in the timeline, list cause line, "
   + "v4 method tables, explain request/failure, blocked explain without polling, lookup failure blocks re-request, explain result typing only for a result arriving while watching (requested or watched queued job, no restart on refetch, sr-only full copy, existing result without motion, reduced motion = full text), final-only explain, 404, job→decision redirect, legacy address");

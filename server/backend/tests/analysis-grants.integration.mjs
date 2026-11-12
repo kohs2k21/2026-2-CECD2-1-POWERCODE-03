@@ -16,7 +16,7 @@ if (!['localhost', '127.0.0.1'].includes(parsed.hostname) || !/^\/qa_analysis[a-
   throw new Error('Only a local qa_analysis database is permitted');
 }
 const here = path.dirname(fileURLToPath(import.meta.url));
-const { readDecisionList, readDecisionDetail, readDecisionInterims, readDecisionFlow } = await import('../dist/services/analysisReadModel.js');
+const { readDecisionList, readDecisionDetail, readDecisionInterims, readDecisionFlow, readDecisionGraph } = await import('../dist/services/analysisReadModel.js');
 const { changeWorkflow, addFeedback, listFeedback, markRead } = await import('../dist/services/analysisWorkflow.js');
 const { readLatency } = await import('../dist/services/operationsReadModel.js');
 
@@ -52,6 +52,10 @@ try {
   assert.deepEqual([capped.processes.length, capped.messages.length, capped.truncated, capped.counts], [1, 2, true, { processes: 2, messages: 3, errors: 1 }],
     'capped node lists keep the true totals');
   assert.ok(!capped.processes.some((p) => Object.keys(p).some((key) => key.startsWith('_'))), 'internal count columns are not exposed');
+  const cappedGraph = await readDecisionGraph(api, D.anomaly.id, { processes: 1, messages: 2 });
+  assert.deepEqual([cappedGraph.truncated, cappedGraph.nodes.filter((n) => n.kind === 'process').length, cappedGraph.nodes.filter((n) => n.kind === 'message').length],
+    [true, 1, 2], 'graph uses the same caps and API role grants (decision lookup included)');
+  assert.ok(!JSON.stringify(cappedGraph).includes('"_'), 'internal columns are not exposed in the graph');
   // 운영 현황 대기·실패도 detect 작업 원천을 입력 manifest에서 읽는다.
   assert.equal((await readLatency(api, fixture.sourceId)).stages.find((stage) => stage.id === 'detector').recentFailures, 2);
 

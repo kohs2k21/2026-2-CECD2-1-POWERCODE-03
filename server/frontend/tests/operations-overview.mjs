@@ -120,6 +120,19 @@ assert.deepEqual(overview.activeConfiguration, { configVersionId: "cfg", sourceI
   models: [{ modelKey: "iforest", adapterName: "sklearn-iforest" }] });
 assert.equal(parseOperationsOverview({ observedAt: "2026-11-03T01:00:00Z", maxAgeMs: 1, activeConfiguration: null }).activeConfiguration, null);
 assert.equal("activeConfiguration" in parseOperationsOverview({ observedAt: "2026-11-03T01:00:00Z", maxAgeMs: 1 }), false);
+// 구성 없이(v04) 운영되는 룰 세트·활성 모델 집합 버전: 명시 필드만, 잘못된 버전·모델은 버린다.
+const v04Overview = parseOperationsOverview({ observedAt: "2026-11-03T01:00:00Z", maxAgeMs: 1, activeConfiguration: null,
+  operationalState: { ruleSetRevision: 1, activeModelSetRevision: -1, models: [{ modelKey: "iforest", configVersionId: "c" }, { modelKey: "" }], extra: 1 } });
+assert.deepEqual(v04Overview.operationalState, { ruleSetRevision: 1, models: [{ modelKey: "iforest" }] });
+assert.equal(parseOperationsOverview({ observedAt: "2026-11-03T01:00:00Z", maxAgeMs: 1, operationalState: null }).operationalState, null);
+{
+  const { activeConfigurationText } = await import("../src/features/operations/components/OverviewWidgets.tsx");
+  const base = { observedAt: "2026-11-03T01:00:00Z", maxAgeMs: 1, stages: {}, activeConfiguration: null };
+  assert.equal(activeConfigurationText({ ...base, operationalState: { ruleSetRevision: 1, models: [] } }), "룰 버전 1 · 머신러닝 모델 없음");
+  assert.equal(activeConfigurationText({ ...base, operationalState: { ruleSetRevision: 4, models: [{ modelKey: "iforest" }] } }), "룰 버전 4 · 머신러닝 모델 iforest");
+  assert.equal(activeConfigurationText({ ...base, operationalState: null }), "운영 구성 없음", "version unreadable");
+  assert.equal(activeConfigurationText(base), "운영 구성 없음");
+}
 
 const collectionBody = {
   observedAt: "2026-11-03T01:00:00.000Z",
@@ -321,5 +334,15 @@ view = await renderAs("admin", "/operations?tab=collect");
 await wait(() => view.renderer.root.findAllByType(RadioGroup).length === 1, "admin gets input mode radios");
 assert(seen.some((url) => url.startsWith("/api/inputs?sourceId=src")));
 await act(async () => view.renderer.unmount());
+
+// 구성 없이(v04) 운영: 머리·현재 운영 위젯이 룰 세트 버전과 활성 모델(없음)을 보인다("운영 구성 없음" 아님).
+bodies["/api/operations/overview"] = { ...overviewBody, activeConfiguration: null, activeConfigurationVersion: undefined,
+  operationalState: { ruleSetRevision: 1, activeModelSetRevision: 0, models: [] } };
+view = await renderAs("user", "/operations");
+await wait(() => view.text().includes("현재 운영: 룰 버전 1 · 머신러닝 모델 없음"), "v04 header shows the rule set version");
+assert(view.text().includes("룰 · 버전 1") && view.text().includes("머신러닝 모델 · 없음"), "v04 active widget");
+assert(!view.text().includes("운영 구성 없음"));
+await act(async () => view.renderer.unmount());
+bodies["/api/operations/overview"] = overviewBody;
 
 console.log("operations overview QA passed: widget layout reducer, per-account storage with failure, strict parsers, unavailable reads, user read-only vs admin controls, edit save/cancel with draft");

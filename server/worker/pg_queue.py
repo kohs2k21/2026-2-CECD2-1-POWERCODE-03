@@ -27,6 +27,19 @@ class ClaimedMessage:
     queue: QueueName = "training"
 
 
+# uuid::text 출력과 같은 소문자·하이픈 36자 형식만 uuid로 바꾼다(대소문자 구분).
+# 이 형식에서는 s::uuid::text = s가 성립하므로 예전 `id::text = payload->>key`와 맞는 집합이 같고,
+# 중괄호·하이픈 없음·대문자처럼 uuid 입력은 받지만 예전 텍스트 비교에서 맞지 않던 값은 계속 맞지 않는다.
+# 형식이 아닌 값은 NULL이 되어 캐스트 오류 없이 어떤 행과도 같지 않다.
+_CANONICAL_UUID_PATTERN = "'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'"
+
+
+def _payload_uuid(key: str) -> str:
+    """payload 문자열 값을 uuid 쪽 비교식으로 만든다. uuid 열을 text로 바꾸지 않아 PK 색인을 쓴다."""
+    value = f"payload->>'{key}'"
+    return f"(CASE WHEN {value} ~ {_CANONICAL_UUID_PATTERN} THEN ({value})::uuid END)"
+
+
 def _table(queue: QueueName) -> str:
     try:
         return TABLES[queue]
@@ -69,16 +82,21 @@ def claim(conn: Any, queue: QueueName, *, lease_seconds: int = 60,
             scope_params += (source_id,)
         else:
             # 이전 CSV 재생 메시지에는 sourceId가 없으므로 관측 참조로 범위를 확인한다.
-            scope_sql += """ AND (payload->>'sourceId' = %s OR
+            # OR 안의 EXISTS는 join으로 올라가지 않아 SubPlan으로 남고, 플래너가 hashed SubPlan과 행마다 PK 조회 중에서 고른다.
+            scope_sql += f""" AND (payload->>'sourceId' = %s OR
                 (NOT (payload ? 'sourceId') AND EXISTS (
                     SELECT 1 FROM data_observations AS scoped_observation
-                     WHERE scoped_observation.id::text = payload->>'observationId'
+                     WHERE scoped_observation.id = {_payload_uuid('observationId')}
                        AND scoped_observation.source_id::text = %s)))"""
             scope_params += (source_id, source_id)
     if job_kinds is not None:
         if not job_kinds:
             raise ValueError("job_kinds must not be empty")
-        scope_sql += " AND EXISTS (SELECT 1 FROM run_jobs j WHERE j.id::text = payload->>'jobId' AND j.kind::text = ANY(%s))"
+        # j.id::text로 비교하면 PK 색인을 못 써 대기 행마다 run_jobs 전체를 비교한다(서버 보고: 대기 2.7만×작업 4천에서 호출당 14.6초).
+        # EXISTS는 PK 조건이라 inner join으로 바뀌어 Seq Scan·Join Filter가 고를 수 있으므로 스칼라 부질의로 PK 조회를 고정한다.
+        # 작업이 없으면 NULL이라 맞지 않아 예전 EXISTS와 뜻이 같다.
+        scope_sql += (f" AND (SELECT j.kind::text FROM run_jobs j WHERE j.id = {_payload_uuid('jobId')})"
+                      " = ANY(%s)")
         scope_params += (list(job_kinds),)
     if message_id is not None:
         scope_sql += " AND id = %s"
@@ -161,6 +179,7 @@ def fail(conn: Any, queue: QueueName, message: ClaimedMessage, *, max_attempts: 
 
 def reconcile_dead_jobs(conn: Any, queue: QueueName) -> None:
     """Expire exhausted crashed attempts; a dead queue item must not look running forever."""
+    # 비용: queued/running 작업(또는 만료된 running 시도) × dead 큐 행 순차 탐색. 큐에 jobId 색인이 없어 uuid 비교로 바꿔도 줄지 않는다.
     if queue == "feature":
         return
     with conn.cursor() as cur:

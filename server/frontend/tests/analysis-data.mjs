@@ -246,6 +246,35 @@ const methodHtml = renderToStaticMarkup(React.createElement(MethodResults, { obs
 ] }) }));
 for (const shown of ["성공 상태이나 오류 건수가 기록됨", "STATUS = S, ERROR_COUNT &gt; 0", "상태 Z 데이터없음"]) assert.ok(methodHtml.includes(shown), shown);
 assert.ok(!methodHtml.includes("HARD_SUCCESS_WITH_ERROR") && !methodHtml.includes("PROCESS_STATUS_Z"), "result codes use their labels");
+// Detector v3 근거 구분(relation-rules.md 1·5절, protocol-rules.md 5.2): 관계 규칙 위반 = 규약 위반, 프로토콜·거래 실패는 기존 이름, 수집 미완료 보류 = 관계 확인 보류.
+// 방법 행은 구분 순(내장 → 관계 → 프로토콜 → 이상 징후 → 머신러닝)으로 묶이고, 내부 id·methodVersion·T 코드 원문은 보이지 않는다.
+const v3Evidence = readEvidenceV4({ schemaVersion: 4, composite: { grade: "anomaly", basisMethods: ["hard:rel-3f9a2c1d", "ml:iforest"] }, categoryResults: {}, methodResults: [
+  { methodId: "ml:iforest", category: "ml", status: "succeeded", anomalous: false },
+  { methodId: "hard:rel-3f9a2c1d", category: "hard", methodVersion: "relation-precedes-v1", status: "succeeded", anomalous: true, code: "REL_PRECEDES", riskLevel: "critical",
+    evidence: [{ result: "hit", violation: "other_predecessor", node: "process:TX:IF_A_PR002", edge: null }] },
+  { methodId: "hard:proto-5c1e9a07", category: "hard", methodVersion: "protocol-path-v1", status: "succeeded", anomalous: true, code: "PROTO_PATH_UNMATCHED", riskLevel: "critical", evidence: [{ interfaceMatched: true, routes: [] }] },
+  { methodId: "hard:rel-0a1b2c3d", category: "hard", methodVersion: "relation-message_handoff-v1", status: "not_ready", anomalous: null, cause: "capacity", evidence: [{ reason: "graph_truncated" }] },
+  { methodId: "hard:transaction-failed", category: "hard", methodVersion: "transaction-failed-v1", status: "succeeded", anomalous: true, code: "HARD_TRANSACTION_FAILED", riskLevel: "warning",
+    evidence: [{ result: "hit", transactionObservationId: "t-1", responseCode: "E901" }] },
+], relationNotes: [
+  { ruleId: "hard:rel-9e8d7c6b", kind: "precedes", result: "held", reason: "collection_incomplete", waitingFor: { processId: "IF_A_PR001" } },
+  { ruleId: "hard:transaction-failed", kind: "transaction", result: "held", reason: "transaction_pending", waitingFor: { layer: "T" } },
+  { ruleId: null, kind: "required_step", result: "deferred_to_transaction", reason: null, waitingFor: { layer: "T" } },
+] });
+const v3Html = renderToStaticMarkup(React.createElement(MethodResults, { observedStatus: null, evidence: v3Evidence }));
+assert.deepEqual([...v3Html.matchAll(/data-group="([a-z]+)"/g)].map((m) => m[1]), ["hard", "relation", "relation", "protocol", "ml"], "method rows grouped by evidence kind");
+for (const shown of ["관계 규칙(선행 관계)", "규약 위반", "다른 선행 단계", "관계 규칙(메시지 인계)", "capacity · graph_truncated", "정상 프로토콜", "처음 보는 경로",
+  "이상 규칙(거래 실패)", "응답 코드 E901", "관계 확인 보류", "선행 단계 로그 없음 · IF_A_PR001", "거래 행 없음"]) assert.ok(v3Html.includes(shown), shown);
+assert.equal((v3Html.match(/data-held=/g) ?? []).length, 2, "only held notes are listed under 관계 확인 보류");
+assert.ok(!/>(REL_PRECEDES|PROTO_PATH_UNMATCHED|HARD_TRANSACTION_FAILED|relation-precedes-v1|protocol-path-v1|hard:rel-3f9a2c1d)</.test(v3Html), "raw ids/codes stay in tooltips");
+const v3Row = (id) => v3Html.match(new RegExp(`<tr[^>]*data-method="${id}"[^>]*>.*?</tr>`))?.[0] ?? "";
+assert.ok(v3Row("hard:rel-3f9a2c1d").includes(">규약 위반<") && !v3Row("hard:rel-3f9a2c1d").includes(">이상<"), "relation violation says 규약 위반");
+assert.ok(v3Row("hard:proto-5c1e9a07").includes(">이상<") && !v3Row("hard:proto-5c1e9a07").includes("규약 위반"), "protocol is not labelled 규약 위반 (hard:rel-* only)");
+assert.equal(labels.resultCodeLabel("PROTO_PATH_UNMATCHED"), "정상 프로토콜 확인 · 처음 보는 경로", "same prefix as the protocol alert title");
+assert.deepEqual(["REL_PRECEDES", "REL_REQUIRED_STEP", "PROTO_INTERFACE_UNREGISTERED", "HARD_TRANSACTION_FAILED"].map(labels.resultCodeLabel),
+  ["규약 위반 · 선행 관계", "규약 위반 · 필수 단계", "정상 프로토콜 확인 · 등록되지 않은 인터페이스", "거래 실패"], "list cause line uses the same kind names");
+assert.deepEqual(["hard:rel-3f9a2c1d", "hard:proto-5c1e9a07", "hard:rel-XYZ", "hard:unregistered-interface"].map(labels.methodLabel),
+  ["관계 규칙", "정상 프로토콜", "이상 규칙", "이상 규칙(등록되지 않은 인터페이스)"]);
 // 위험도 단계 아이콘 색 = 위험도 배지 variant의 글자 색(위험 critical·주의 warning·참고 secondary). 목록 줄 아이콘도 같은 색.
 const { riskLevelIconTone } = await import("../src/features/analysis/icons.ts");
 assert.deepEqual(riskLevelIconTone, { critical: "text-destructive-text", warning: "text-warning-text", info: "text-secondary-foreground" });

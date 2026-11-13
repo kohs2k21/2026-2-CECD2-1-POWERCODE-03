@@ -65,6 +65,16 @@ def claim_waiting_input(conn):
     return None
 
 
+def _input_origin(conn, observation_id, approved):
+    """입력 출처(data_input_origins). approved는 출처가 있을 때만 부르는 함수(활성 구성 조회를 그때만 한다)."""
+    if not conn.execute("SELECT to_regclass('public.data_input_origins')").fetchone()[0]:
+        return None
+    origin=conn.execute('SELECT mode,run_id FROM data_input_origins WHERE observation_id=%s',(observation_id,)).fetchone()
+    if not origin:
+        return None
+    return {'mode':origin[0],'runId':str(origin[1]),'configurationScope':'approved-active' if approved() else 'input-validation'}
+
+
 def enqueue_observation(conn, observation_id, *, config_id=None, benchmark_run_id=None):
     with conn.cursor() as cur:
         cur.execute("SELECT source_id,execution_id,content_hash,persisted_at FROM data_observations WHERE id=%s AND layer='P'", (observation_id,))
@@ -106,12 +116,9 @@ def enqueue_observation(conn, observation_id, *, config_id=None, benchmark_run_i
                            "inputManifestHash": manifest_hash, "inputManifestId": str(manifest_id)}
                 if contract == 'v03':
                     payload["configVersionId"] = str(config_id)
-                if conn.execute("SELECT to_regclass('public.data_input_origins')").fetchone()[0]:
-                    origin=conn.execute('SELECT mode,run_id FROM data_input_origins WHERE observation_id=%s',(observation_id,)).fetchone()
-                    if origin:
-                        approved = contract == 'v04' or config_id == active_config(conn)
-                        payload['inputOrigin']={'mode':origin[0],'runId':str(origin[1]),
-                            'configurationScope':'approved-active' if approved else 'input-validation'}
+                origin = _input_origin(conn, observation_id, lambda: contract == 'v04' or config_id == active_config(conn))
+                if origin:
+                    payload['inputOrigin'] = origin
                 cur.execute("""INSERT INTO run_jobs(id,kind,status,request_hash,input_spec,input_config_version_id,
                     input_manifest_id,contract_version,queue,producer_kind,producer_key,idempotency_key,
                     max_attempts,attempt_count,next_run_at,created_at)
@@ -120,5 +127,74 @@ def enqueue_observation(conn, observation_id, *, config_id=None, benchmark_run_i
                     (event_id,manifest_hash,json.dumps(payload),config_id,manifest_id,contract,str(source),str(event_id)))
     if benchmark_run_id:
         payload["benchmarkRunId"] = benchmark_run_id
+    enqueue(conn, "detection", payload, message_id=event_id)
+    return payload
+
+
+# 재판정(relation-rules.md 6.3): manifest hash 입력에 관련 행을 넣지 않는다. 1회 키 = PROCESS 관측(같은 관측이면 hash가 같아
+# run_input_manifests UNIQUE(source_id, content_hash)가 DB에서 1회를 강제). 첫 판정 process-input-v1 입력은 그대로다.
+RECHECK_MANIFEST = "process-input-v2-recheck"
+RECHECK_KEY = "recheck:1"
+
+
+def recheck_manifest_hash(source_id, observation_id, revision_no) -> str:
+    """["process-input-v2-recheck", source, observation, revision_no, "recheck:1"]. revision_no는 JSON 정수."""
+    if type(revision_no) is not int:
+        raise ValueError("detect_input_unavailable")
+    return hashlib.sha256(json.dumps([RECHECK_MANIFEST, str(source_id), str(observation_id), revision_no, RECHECK_KEY],
+                                     separators=(",", ":")).encode()).hexdigest()
+
+
+def recheck_manifest_exists(conn, source_id, content_hash) -> bool:
+    return conn.execute("SELECT 1 FROM run_input_manifests WHERE source_id=%s AND content_hash=%s",
+                        (source_id, content_hash)).fetchone() is not None
+
+
+def enqueue_recheck(conn, observation_id, rechecked_decision_id, transaction_rows):
+    """재판정 v04 작업 1개(relation-rules.md 6.3). 같은 관측의 재판정 manifest가 이미 있으면 아무것도 넣지 않고 None.
+
+    - manifest: message_observation_refs [], transaction_observation_id NULL(검증된 P→T FK가 없음), contract_version 'v03'
+      (manifest 표 CHECK), input_as_of = 작업 생성 시각(DB 시계), readiness.relation = {recheck: 1, recheckedDecisionId,
+      rows: [{layer, observation_id, revision_no}]}(계기 거래 행, snake_case). DB는 readiness 안을 검사하지 않으므로
+      재판정 시도가 시작 때 직접 확인한다(attempt_v04 `recheck_reference`).
+    - 작업: 항상 v04(관계 규칙·재판정은 v04 판정에만 있다). 옛 backlog 연결 경로(runner `jobId` 없음)는 쓰지 않는다.
+    - 호출자 트랜잭션 안에서 넣는다(커밋은 호출자). 잠금 순서는 호출자 81742 → 여기 81740.
+    """
+    rows = [{"layer": "T", "observation_id": str(row["observation_id"]), "revision_no": row["revision_no"]}
+            for row in transaction_rows]
+    if not rows:
+        raise ValueError("recheck_transaction_rows_required")
+    with conn.cursor() as cur:
+        cur.execute("SELECT source_id,execution_id,revision_no FROM data_observations WHERE id=%s AND layer='P'",
+                    (observation_id,))
+        observation = cur.fetchone()
+        if observation is None or observation[1] is None:
+            raise ValueError("detect_input_unavailable")
+        source, execution, revision = observation
+        manifest_hash = recheck_manifest_hash(source, observation_id, revision)
+        manifest_id = uuid.uuid5(uuid.NAMESPACE_URL, f"manifest:{manifest_hash}")
+        readiness = {"process": "ready", "transaction": "unknown", "messages": "unknown", "body": "not_collected",
+                     "relation": {"recheck": 1, "recheckedDecisionId": str(rechecked_decision_id), "rows": rows}}
+        cur.execute("""INSERT INTO run_input_manifests(id,source_id,execution_id,process_observation_id,
+            message_observation_refs,readiness,input_as_of,contract_version,content_hash,created_at)
+            VALUES(%s,%s,%s,%s,'[]'::jsonb,%s::jsonb,clock_timestamp(),'v03',%s,clock_timestamp())
+            ON CONFLICT DO NOTHING RETURNING id""",
+            (manifest_id,source,execution,observation_id,json.dumps(readiness),manifest_hash))
+        if cur.fetchone() is None:
+            return None
+        cur.execute("SELECT pg_advisory_xact_lock(%s,hashtext(%s))", (MANIFEST_LOCK_CLASS, str(manifest_id)))
+        event_id = uuid.uuid5(uuid.NAMESPACE_URL, f"detect:{manifest_id}:v04")
+        payload = {"schemaVersion": 1, "eventId": str(event_id), "jobId": str(event_id), "sourceId": str(source),
+                   "observationId": str(observation_id), "inputManifestHash": manifest_hash,
+                   "inputManifestId": str(manifest_id)}
+        origin = _input_origin(conn, observation_id, lambda: True)
+        if origin:
+            payload["inputOrigin"] = origin
+        cur.execute("""INSERT INTO run_jobs(id,kind,status,request_hash,input_spec,input_config_version_id,
+            input_manifest_id,contract_version,queue,producer_kind,producer_key,idempotency_key,
+            max_attempts,attempt_count,next_run_at,created_at)
+            VALUES(%s,'detect','queued',%s,%s::jsonb,NULL,%s,'v04','detection','system',%s,%s,3,0,
+            clock_timestamp(),clock_timestamp())""",
+            (event_id,manifest_hash,json.dumps(payload),manifest_id,str(source),str(event_id)))
     enqueue(conn, "detection", payload, message_id=event_id)
     return payload

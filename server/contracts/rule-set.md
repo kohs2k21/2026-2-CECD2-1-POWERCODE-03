@@ -1,5 +1,5 @@
 Created: 2026-11-02T18:00:00+09:00
-Updated: 2026-11-05T01:00:00+09:00
+Updated: 2026-11-14T04:00:00+09:00
 Author: Claude Code (Trainer 세션 builder)
 Status: draft
 
@@ -11,6 +11,7 @@ Status: draft
 - 2차 개정(사용자 11/02 9.4): 되돌리기 버튼은 **모든 이력 항목에 항상 표시**(변경 크기 기준 없음); 되돌리기 검증 분기 정정(삭제된 소프트룰이 든 스냅샷으로 되돌리기 허용, WebUI 11/02 대조); 이상 규칙의 END_TIME 누락 제외(소프트룰 `elapsed_ms` null = 평가 안 함) 연결; 활성 모델 "집합" 용어([model-version.md](model-version.md), 사용자 11/02 확정)
 - 3차 정정(Issue #106, 11/03): detection-decision.md(#92) 16절 후속 권고 반영 — 11/03 사용자 확정(U1·U2·U3)으로 식별자 절·호환 매핑·`hardRules[]` 예시·Q-R7 상태 표기 갱신, `softRules[].field`의 null 서술을 카탈로그 `sourceMissingPolicy = not_applicable`인 경우로 한정. 의미 변경 없음
 - 4차 정정(Issue #116, 11/04 — Detector·WebUI·DB 세 세션 합의용): 하드룰 내장 목록 **4개**(`hard:process-status`는 `process-status-hr-v2`로 교체 — 상태 코드 F·P·Z·H·N, END_TIME 없는 N은 이상 아님; `hard:success-with-error`·`hard:count-conservation` 추가, Detector 11/04); `hard:process-status`만 **위험도(`severity`) 편집 가능**; 하드룰 정규 항목에 `severity`를 넣는 **`contentHashVersion: 2`** 도입(v1은 r0 등 기존 행 전용으로 유지, 직렬화 규칙은 동일, hash 동일성은 같은 버전끼리만); **스냅샷에 없는 내장 규칙 = 꺼짐**(되돌리기 채움값도 꺼짐, 이전 "기본값 켬" 서술 정정); 저장소 `content_hash_version` 열과 시스템 행 r1(4개 켬·내장 기본 severity, v2 — DB 016); v2 시험 기준값 3개 추가(v1 기준값 유지). 새 하드룰 2개의 값은 Detector 정본(detection-decision.md #112 4.3)에서 옮김
+- 5차 초안(11/13, Detector 세션 — API 세션 확인 전): **룰 세트 v3 절** 추가 — `relationRules`·`protocolRules`·소프트룰 `scope` 저장 형식, `contentHashVersion: 3` 정규 객체·정렬·제외, 저장 검증·422 코드·경고, id 발급, 내장 하드룰 4개 → 6개(`hard:transaction-failed`·`hard:unregistered-interface`), 버전 전환(DB 020 → Detector v3 → API v3), v3 시험 기준값 3개. 판정 의미 정본은 [relation-rules.md](relation-rules.md)·[protocol-rules.md](protocol-rules.md). 이 절이 확정되기 전까지 다른 절의 "4개"·v2 서술은 현행(API v2) 그대로
 - 제외(Detector 소유, detection-decision.md(#92, #112 정정)): 하드룰 내장 목록(id·조건·내장 위험도 — 단 `hard:process-status`의 코드별 위험도 **저장값**은 이 문서 저장 절), 소프트룰 실행 의미론(평가 시점·결측 처리), 종합 판정 `detectionPolicy` v2 `k:{hard,soft,ml}`의 의미(저장 위치는 운영 설정 전역 값 — [model-version.md](model-version.md) 운영 설정 절), 이상/이상 징후 등급, evidence v4(판정마다 기록하는 룰 리비전 필드명). 소프트룰 등록 필드 목록은 [method-catalog.md](method-catalog.md) `softRuleFields[]`
 - 표기: **[확정]** 사용자 확정(11/02) 또는 코드 사실 / **[제안]** 이 초안이 정한 값(결정 질문은 문서 끝)
 
@@ -210,7 +211,7 @@ Status: draft
 - `revision`: 정수, 저장마다 +1. 전역 순서(단일 룰 세트). 판정 evidence에는 둘 다 기록 — **Detector evidence v4(`detector-evidence-v4`)가 `ruleSetRevision`(정수)·`ruleSetHash`(문자열) 이름으로 이 문서의 `revision`·`contentHash`를 그대로 복사**(Detector 11/02 회신)
 - `contentHash`(= `ruleSetHash`) 문자열 형식: 모델 버전 `content_hash`(`contentHashVersion: 2`, `hashlib.sha256(...).hexdigest()`)와 같은 표기 — **소문자 16진수 64자, 접두 없음**(`sha256:` 같은 접두 금지)
 - **`contentHashVersion`은 행마다 저장된 값**(저장소 절 `content_hash_version`, #116): r0 등 DB 016 이전 행 = 1, DB 016 이후 모든 저장(시스템 행 r1 포함) = 2. `GET /api/rule-set`·`/history`·`/history/:revision`은 행 값을 그대로 내보내고, API가 hash를 재계산해 대조할 때는 **그 행의 버전 규칙**으로 계산. **hash 동일성은 같은 버전끼리만 의미 있음** — r0(v1) 내용을 되돌리기로 재저장하면 v2로 계산되어 hash가 달라지고 새 리비전이 됨. evidence `ruleSetHash`는 행 값 그대로이며 식별자는 `ruleSetRevision`(hash는 보조 확인값)
-- **`contentHashVersion: 2`** [#116, DB 016 이후 모든 저장]: 정규 객체 = `{"hardRules": [...], "softRules": [...]}`. 하드룰 항목 **`{id, enabled, severity}`(모든 하드룰**, id 사전순; `severity`는 그 리비전에 저장된 값 — 편집 불가 규칙은 저장 시점 내장값 — 으로 단일 문자열 `"critical"|"warning"|"info"` 또는 `{"byCode": {"<code>": "<level>"}}`, `byCode` 키 정렬은 `sort_keys`가 담당), 소프트룰 항목 `{id, field, operator, threshold, severity, enabled}`(v1과 동일). 직렬화·hash 규칙은 v1과 동일(아래)
+- **`contentHashVersion: 2`** [#116, DB 016 이후 모든 저장]: 정규 객체 = `{"hardRules": [...], "softRules": [...]}`. 하드룰 항목 **`{id, enabled, severity}`(모든 하드룰**, id 사전순; `severity`는 그 리비전에 저장된 값 — 편집 불가 규칙은 저장 시점 내장값 — 으로 단일 문자열 `"critical"|"warning"|"info"` 또는 `{"byCode": {"<code>": "<level>"}}`, `byCode` 키 정렬은 `sort_keys`가 담당), 소프트룰 항목 `{id, field, operator, threshold, severity, enabled}`(v1과 동일). 직렬화·hash 규칙은 v1과 동일(아래). `byCode` 키 정렬 안전성: v2에서 `byCode`를 갖는 규칙은 `hard:process-status`뿐이고 키는 내장 코드 `PROCESS_STATUS_*`(숫자처럼 생긴 키 아님, 저장 때 `normalizedByCode`가 내장 코드만 허용 `ruleSetContract.ts:137-146`·`:203`)라 JS `sortKeys`와 Python `sort_keys` 결과가 같다 — v3에서 응답 코드 키를 열면서 배열로 바꾼 이유는 v3.3
 - **`contentHashVersion: 1`** [r0 등 기존 행 전용 — 정의 유지, 삭제하지 않음]: 하드룰 항목이 `{id, enabled}`인 것만 v2와 다름
 - `contentHash`(v1·v2 공통 직렬화): 정규 객체를 `json.dumps(obj, sort_keys=True, separators=(",", ":"), ensure_ascii=False)`의 UTF-8 바이트로 SHA-256 hex. **주의: 현행 v1·v2 구성 hash 코드(`trainer/runner.py:408` `json.dumps(config_spec, sort_keys=True)` — 기본 separators `", "`·`": "`, `ensure_ascii=True`)와 직렬화 규칙이 다름**. 모델 버전 v3의 `contentHashVersion: 2`([model-version.md](model-version.md))는 룰 세트와 **같은 직렬화**(compact·ensure_ascii=False·UTF-8)를 쓰며, 다른 것은 현행 v1 코드뿐(Q-R6)
 - **같은 리비전에 대해 API 저장 시 계산한 `contentHash`와 Detector가 evidence에 기록하는 hash는 동일해야 함** — Detector는 재계산하지 않고 이력 행의 `content_hash`를 읽어 기록(재계산한다면 위 규칙과 바이트 단위로 같아야 하며 시험으로 확인)
@@ -239,9 +240,141 @@ Status: draft
 - 제외: `name`, `unit`(필드에서 파생), 감사 필드(`savedAt`·`savedBy`·`note`·`restoredFromRevision`·`createdAtRevision`), `catalogVersion`. 이름만 바꾼 저장은 리비전은 늘지만 hash는 같음(같은 `contentHashVersion`끼리) → "판정 의미가 같은 룰"임을 hash로 알 수 있음 [제안]
 - 되돌리기로 만든 리비전의 hash는 출처 리비전과 **`contentHashVersion`이 같고 채워진 규칙이 없을 때만** 같음(#116 정정). 출처가 r0(v1)이면 새 리비전은 v2라 hash가 다르고, 스냅샷에 없는 내장 규칙이 꺼짐·기본 severity로 채워진 경우도 다름(그 id가 정규 객체에 더해짐). 같은 hash라도 리비전이 다르면 다른 저장 사건
 
+## 룰 세트 v3 — 관계 규칙·프로토콜 규칙·새 내장 하드룰 (초안 11/13, `contentHashVersion: 3`)
+
+- 근거: Detector 설계 [relation-rules.md](relation-rules.md)(관계 규칙·`hard:transaction-failed`·소프트룰 `scope`·hash v3 8절)와 [protocol-rules.md](protocol-rules.md)(프로토콜 규칙·`hard:unregistered-interface`). 판정 의미는 그 두 문서가 정본이고, 이 절은 **저장 형식·hash·API 저장 검증·버전 전환**만 정한다
+- 상태: 표기 없는 항목은 **[제안]**(Detector 초안). 사용자 결정에서 온 것은 [확정 11/12 사용자]·[확정 11/13 사용자]. **[확정 11/13 사용자·WebUI 수용]**(WebUI 세션이 API 관점에서 확인, 11/13): 관계 규칙 상한 200·프로토콜 항목 상한 500·경로 64×64, `byCode` 키 인쇄 가능 ASCII 1~64, 본문 두 배열 필수, `hard:unregistered-interface` 기본 꺼짐 + WebUI 미리 켬, 소프트룰 `scope` 불변, API v3 뒤 모든 저장 v3 — 아래 각 위치에도 표기
+- 구현 상태(코드 사실): API `CONTENT_HASH_VERSION = 2`(`server/backend/src/ruleset/ruleSetContract.ts:11`), Detector는 버전 1·2·3을 읽음(`server/worker/detector/operational_state.py` `HASH_VERSIONS`·`check_rule_set_version`, protocol-rules.md 10절 1단계) — 10절 2~6단계로 `hard:transaction-failed`·관계 규칙 판정·scope 소프트룰 선택·관계 입력 읽기·프로토콜 판정이, 7단계로 재판정 탐색(relation-rules.md 6.5, 커서 migration 024 [제안])이 들어갔다, DB는 migration 020으로 3을 허용(`server/infra/migrations/020_rule_set_hash_v3.sql`)
+
+### v3.1 v2와 같은 것·다른 것
+
+| 항목 | v2 | v3 |
+|---|---|---|
+| 직렬화·hash | `json.dumps(obj, sort_keys=True, separators=(",", ":"), ensure_ascii=False)` UTF-8 → SHA-256 소문자 hex 64자 | **같음** |
+| 정규 객체 최상위 키 | `hardRules`·`softRules` | `hardRules`·`softRules`·**`relationRules`**·**`protocolRules`**(4키 모두 항상, 없으면 `[]`) |
+| `hardRules` 항목 | `{id, enabled, severity}`, `severity.byCode`는 객체 그대로 | 항목 키는 같음. 내장 목록에 2개 추가(v3.5), `severity`에 `{byCode, default}` 모양 추가. **정규 객체의 `byCode`는 `[[code, level], …]` 배열**(v3.3 — 모든 하드룰, `hard:process-status` 포함) |
+| `softRules` 항목 | `{id, field, operator, threshold, severity, enabled}` | 끝에 **`scope`**(키는 항상, 전역이면 `null`) |
+| 배열 순서 | id 사전순 | 같음(모든 배열 id 순). 프로토콜 `paths`는 **pathKey 코드 포인트 순**(v3.3) |
+| 제외 | `name`·`unit`·감사 필드·`catalogVersion` | 같음 + 관계·프로토콜의 **`source`**(항목·경로 모두), `createdAtRevision`·`updatedAtRevision`, 소프트룰·관계 규칙 `scope.interfaceId`(`required_step` 제외 — v3.3) |
+| hash 동일성 | 같은 버전끼리만 | 같음 — v2 행과 같은 내용을 v3로 저장해도 hash는 다르다 |
+
+### v3.2 스냅샷 저장 형식 (`ops_rule_set_revisions.snapshot`, `GET /api/rule-set` 응답과 같은 형식)
+
+- `hardRules[]`·`softRules[]`는 v2와 같고 `softRules[].scope`(`{processId, adapterType?, processHubId?, interfaceId?}` 또는 `null`)가 더해진다. 소프트룰 `scope` 의미는 relation-rules.md 4절
+- `relationRules[]` 항목 = relation-rules.md 2절 그대로: `{id, kind, scope, from, to, match, severity, enabled, source}` + 서버 기록 `createdAtRevision`·`updatedAtRevision`
+- `protocolRules[]` 항목 = protocol-rules.md 4절: `{id, interfaceId, paths: [{channels: [..], source}], severity, enabled, source}` + `createdAtRevision`·`updatedAtRevision`. **API가 저장 때 `paths`를 pathKey 코드 포인트 순으로 정렬해 저장**한다(화면·비교·hash가 같은 순서를 보게)
+- 배열 순서: 네 배열 모두 id 사전순(v2 `softRules`와 같음 — 판정 순서는 Detector가 정함)
+- 응답 `counts`에 `relationEnabled`·`relationTotal`·`protocolEnabled`·`protocolTotal` 추가. `contentHashVersion`은 행 값(3)
+
+```json
+{"relationRules": [
+   {"id": "hard:rel-3f9a2c1d", "kind": "precedes", "scope": {"interfaceId": "IF_A", "adapterType": "HTTP"},
+    "from": {"processId": "IF_A_PR001"}, "to": {"processId": "IF_A_PR002"}, "match": null,
+    "severity": "critical", "enabled": true, "source": {"jobId": "…", "snapshotId": "…", "patternEdgeId": "…", "counts": {"applicable": 100, "satisfied": 97, "violated": 2, "undetermined": 1}, "period": {"from": "…", "to": "…"}},
+    "createdAtRevision": 14, "updatedAtRevision": 14}],
+ "protocolRules": [
+   {"id": "hard:proto-5c1e9a07", "interfaceId": "IF_A",
+    "paths": [{"channels": ["CH_A", "CH_B"], "source": {"kind": "draft", "jobId": "…"}},
+              {"channels": ["CH_A", "채널C", "CH_B"], "source": {"kind": "alert", "decisionId": "…"}}],
+    "severity": "critical", "enabled": true, "source": {"jobId": "…", "snapshotId": "…", "period": {"from": "…", "to": "…"}},
+    "createdAtRevision": 15, "updatedAtRevision": 16}]}
+```
+
+### v3.3 정규 객체 규칙
+
+- `hardRules`: `{id, enabled, severity}`, 내장 목록 전체(v3.5의 6개), id 사전순. `severity`는 단일 문자열 그대로, 또는 `byCode`가 있는 객체 → **정규 객체에서는 `{"byCode": [[code, level], …]}` / `{"byCode": [[code, level], …], "default": level}`**. 배열은 `code`의 유니코드 코드 포인트 순, 원소는 길이 2 배열 `[code, level]`, 빈 `byCode`는 `[]`. 저장 형식(API 입출력·스냅샷)은 v2와 같은 객체 `{"byCode": {code: level}}`이고 **hash 계산 때만** 배열로 바꾼다
+- `softRules`: `{id, field, operator, threshold, severity, enabled, scope}`. `threshold`는 v2와 같은 고정소수 문자열. `scope`는 전역이면 `null`, 있으면 판정 키 `processId`·`adapterType`·`processHubId` 중 **값 있는 키만**(`interfaceId`는 표시용이라 뺀다 — 뺀 뒤 남는 키가 없으면 `null`)
+- `relationRules`: `{id, kind, scope, from, to, match, severity, enabled}`(정보 표시 kind `allowed_branch` 포함, 꺼진 것 포함). `scope`: `precedes`·`message_handoff`·`allowed_branch`는 `adapterType`만(없으면 `null`), `required_step`은 `{interfaceId}`(판정 키). `from` = `{processId}`, `to`·`match`는 없으면 `null` 명시(relation-rules.md 8절)
+- `protocolRules`: `{id, interfaceId, paths, severity, enabled}`. `paths` = 채널 배열의 배열(`source` 없이 `channels`만)
+- **pathKey 정렬**: pathKey = 채널마다 `%` → `%25` 다음 `:` → `%3A`로 바꾼 뒤 `:`로 이은 문자열(protocol-rules.md 5.3). 비교는 **유니코드 코드 포인트 순**(Python `str` 비교). JS 기본 문자열 비교·`Array.prototype.sort()`는 UTF-16 단위 순이라 U+E000~U+FFFF와 U+10000 이상이 섞이면 결과가 다르다 → 코드 포인트 비교 함수를 쓴다(기준값 (e)가 이 차이를 시험한다)
+- 왜 배열인가: JS 객체는 정수 인덱스처럼 생긴 키(`"9"`·`"10"`·`"8888"`)를 삽입 순서와 무관하게 숫자 순으로 먼저 내보낸다. 그래서 `ruleSetContract.ts:76-80` `sortKeys`(정렬한 키로 객체를 다시 만든 뒤 `JSON.stringify`)는 그런 키가 있으면 Python `sort_keys`와 다른 문자열을 만든다(앞자리 0 키 `"0100"`·문자 섞인 키 `"E901"`는 인덱스가 아니라 삽입 순서). 응답 코드는 대부분 숫자라 객체 그대로면 `rule_set_hash_mismatch`로 모든 판정이 실패할 수 있다. 배열은 순서가 값 자체라 두 언어가 같다(기준값 (f))
+- 그 밖의 정규 객체 키(`id`·`kind`·`scope`의 키 등)는 고정 ASCII 이름이고 정수처럼 생긴 키가 없어 기존 `sortKeys`·`byId`(`ruleSetContract.ts:76-84`)가 그대로 맞다. 원천 값에서 온 키를 객체 키로 쓰는 곳은 `byCode`뿐이다. `byCode` 키를 인쇄 가능한 ASCII로 제한하는 검증(v3.6)은 정렬 때문이 아니라 응답 코드 형식 확인용으로 둔다
+
+### v3.4 id 발급
+
+- `hard:rel-<8hex>`·`hard:proto-<8hex>`: **API가 그 항목을 처음 저장할 때 발급**, 이후 불변. 8hex = `crypto.randomBytes(4).toString('hex')`(소문자 hex 8자리, 소프트룰 id와 같은 방식 `ruleSetStore.ts:108`). 정규식 `^hard:rel-[0-9a-f]{8}$`·`^hard:proto-[0-9a-f]{8}$`
+- 요청: 새 항목은 `id: null` + `clientRef`(1~40자, 본문 안 유일, 소프트룰과 같음). 응답 `changes[]`에서 배정된 id를 받는다
+- 충돌: 저장 트랜잭션 안에서 현재 스냅샷의 id와 겹치면 다시 뽑는다. 삭제된 id 재사용 금지는 소프트룰처럼 난수로 사실상 보장
+- 되돌리기: 스냅샷에 있고 현재 없는 관계·프로토콜 항목은 **같은 id로 재생성 허용**(`*_unknown` 예외, 소프트룰 되돌리기 분기와 같음)
+- 내장 하드룰 key는 `rel-`·`proto-`로 시작하지 않는다(접두 예약). 같은 조건의 관계 규칙 재승인은 기존 id 유지(relation-rules.md 2절)
+
+### v3.5 내장 하드룰 — 4개 → 6개
+
+| id | methodVersion | 표시(참고값, 정본 Detector) | 기본 enabled | severity 모양·기본값 | 편집 |
+|---|---|---|---|---|---|
+| `hard:transaction-failed` | `transaction-failed-v1` | "거래 실패" / "거래 STATUS = F, 응답 코드가 0000·S·없음이 아님" | 스냅샷에 없으면 꺼짐(원칙 그대로, relation-rules.md 7.2) | `{"byCode": {}, "default": "warning"}` — 연결 실패 계열 코드 = `critical`은 [확정 11/12 사용자], 코드 목록은 응답코드 사전 후속이라 내장 기본 `byCode`는 빈 객체 | `["enabled", "severity"]` |
+| `hard:unregistered-interface` | `unregistered-interface-v1` | "등록되지 않은 인터페이스" / "프로토콜 설정에 없는 인터페이스의 거래(켜진 프로토콜 항목이 1개 이상일 때만)" | **켜짐 추천**(아래) | 단일 문자열, 기본 `"critical"` | `["enabled", "severity"]` |
+
+- 맞출 곳: `server/backend/src/ruleset/hardRuleCatalog.ts` `HARD_RULES`(현재 4개), [method-catalog.md](method-catalog.md) 내장 목록 문장(4개), `server/worker/methods/registry.py` `HARD_RULE_IDS`, 이 문서 원칙·식별자 절과 GET 예시의 "4개". **목록 추가는 API v3 배포와 함께**(v2 API가 새 id를 내장 목록에 넣으면 v2 행에 v3 전용 규칙이 생긴다 — Detector는 v1·v2 행의 새 규칙을 시도 실패로 막는다, relation-rules.md 8절)
+- `editable`: 위험도 편집 가능 규칙이 `hard:process-status` 1개 → 3개. `hard:unregistered-interface`는 단일 문자열 편집(4차 정정의 "process-status만" 규칙을 이 3개로 넓힘)
+- `hard:transaction-failed` 내장 `byCode`가 비어 있으므로 **사용자가 코드를 등록하기 전까지는 연결 실패도 `default` = `warning`**(주의)이다. 코드별 위험도는 룰 설정의 응답 코드 목록(목록 → 상세 하위 페이지, WebUI)에서 등록한다. 연결 실패 계열 코드 목록이 정해지면 내장 기본값에 넣는 것은 새 `methodVersion`과 함께(v2 절 "내장값 변경은 다음 저장부터"와 같음)
+- **`hard:unregistered-interface` 기본값 [확정 11/13 사용자·WebUI 수용]**: "스냅샷에 없음 = 꺼짐" 원칙은 바꾸지 않는다(조회·되돌리기 채움·무변경 비교의 기준). 대신 **WebUI가 프로토콜 설정에서 처음 항목을 만드는 저장(현재 `protocolRules`가 비어 있음)에 이 규칙을 켬으로 미리 선택**해 보내고 사용자가 끌 수 있게 한다. 근거: 켜진 프로토콜 항목이 없으면 이 규칙은 판정에 영향이 없어(protocol-rules.md 4.1) 그 전까지 꺼져 있어도 결과가 같고, 채움값 예외를 두지 않아 API·Detector 해석이 하나로 남는다
+
+### v3.6 저장 — `PUT /api/rule-set` v3 추가 규칙
+
+- 본문에 **`relationRules`·`protocolRules` 필수** [확정 11/13 사용자·WebUI 수용](전체 상태 치환 원칙 — 빠지면 400 `invalid_rule_set_request`). 없으면 기존 항목이 지워진 것으로 읽힐 위험을 막기 위해 "없음 = 유지"로 두지 않는다. API v3와 WebUI를 함께 배포한다
+- 관계 규칙 항목(요청): `{id | null, clientRef?, kind, scope, from, to, match, severity, enabled, source?}`. **조건(`kind`·`scope`·`from`·`to`·`match`)은 승인 때 고정, 이후 `enabled`·`severity`만 편집** [확정 11/12 사용자]. `source`는 새 항목에서만 받고 이후 서버가 최초 값을 유지
+  - 조건 비교 기준(`relation_rule_condition_immutable`·`relation_rule_condition_duplicate`): **v3 정규 객체**(v3.3)의 `kind`·`scope`·`from`·`to`·`match`. 정규 객체에서 빠지는 표시용 `scope.interfaceId`(`required_step` 외)는 비교하지 않고, 기존 항목이면 **서버가 저장값을 유지**한다(요청 값 무시)
+  - `scope` 모양 [제안]: `required_step`은 **정확히 `{interfaceId}`**(다른 키 금지, `null` 금지). 그 밖의 kind는 `null` 또는 키가 `interfaceId`·`adapterType` 안인 객체(`interfaceId`는 표시용). 빈 객체 `{}`는 금지(없음 표기는 `null` 하나)
+- 소프트룰 `scope` 편집 [확정 11/13 사용자·WebUI 수용]: **생성 후 불변**(대상 필드 불변 R2와 같은 취급 — 적용 단계가 바뀌면 다른 규칙). 바꾸려면 삭제 후 새로 추가. 비교는 v3 정규 객체의 `scope`(표시용 `interfaceId`는 비교 밖, 서버가 저장값 유지). 위반은 422 `soft_rule_scope_immutable:<id>`. `soft_updated`의 `diff` 키는 v2와 같음(`name`·`operator`·`threshold`·`severity`) — `scope`는 들어가지 않는다
+- 프로토콜 항목(요청): `{id | null, clientRef?, interfaceId, paths: [{channels, source?}], severity, enabled, source?}`. `interfaceId`는 생성 후 불변(바꾸려면 삭제 후 새로 — 소프트룰 `field`와 같음). `paths`는 추가·삭제 가능
+- 문자열 공통 규칙(`interfaceId`·채널·`processId`·`adapterType`·`processHubId`): **원래 값 그대로 저장·비교, trim 없음**(원천 값과 정확히 일치해야 판정에 쓰임). process-graph.md `graph_value_absent`가 없음으로 보는 값(ASCII 공백·탭·CR·LF만 앞뒤에서 뺀 값이 `""`·`\N`)은 거절. 앞뒤 공백이 있는 값은 거절하지 않는다(화면은 공백을 보이게 표시 권고). 길이 1~512 코드 포인트(`ruleCandidates.ts:23` `INTERFACE_MAX`와 같음), `storable`(NUL·짝 없는 서로게이트 금지, `ruleSetContract.ts:102`)
+- 검증 순서: v2 표의 하드룰·소프트룰 검사 다음, `detection_methods_empty` 앞에 아래를 둔다(첫 실패에서 중단, 운영 룰 불변)
+
+| 검사 | 오류 |
+|---|---|
+| `relationRules`·`protocolRules` 없음·배열 아님, 항목 키 집합·타입 — **파싱 단계**(v2 표 첫 행 `invalid_rule_set_request`와 같은 자리, 의미 검사 전) | 400 `invalid_rule_set_request` |
+| `hard:transaction-failed` `severity`: 객체 아님, 키가 정확히 `{byCode, default}`가 아님(**`default` 없으면 거절**, `byCode` 없으면 거절 — `byCode: {}`는 허용), `default` ∉ 3단계, `byCode` 값 ∉ 3단계, `byCode` 키가 `^[\x21-\x7e]{1,64}$`(인쇄 가능 ASCII, [확정 11/13 사용자·WebUI 수용]) 아님, 키 200개 초과 / `hard:unregistered-interface` `severity`가 3단계 문자열 아님 | 422 `hard_rule_severity_invalid:<id>` |
+| 소프트룰 `scope`: 객체·`null` 아님, `processId` 없음, 키가 `processId`·`adapterType`·`processHubId`·`interfaceId` 밖, 값이 문자열 공통 규칙 위반 / 기존 소프트룰의 `scope` 변경 | 422 `soft_rule_scope_invalid:<id or clientRef>` / `soft_rule_scope_immutable:<id>` |
+| 관계 규칙 id 미존재(되돌리기는 스냅샷 id 면제)·중복·`clientRef` 중복 | 422 `relation_rule_unknown:<id>` / `relation_rule_duplicate:<id>` / `relation_rule_client_ref_duplicate` |
+| `kind` ∉ {`precedes`, `message_handoff`, `required_step`, `allowed_branch`} | 422 `relation_rule_kind_unknown:<id or clientRef>`(relation-rules.md 2절) |
+| kind별 모양: `from` = `{processId}` 아님 / `to`가 `required_step`인데 null 아님, 나머지인데 `{processId}` 아님 / `to.processId` = `from.processId`(자기 자신이 선행 — Detector는 스냅샷에 있으면 `invalid_relation_rule:<id>`로 시도 실패) / `match`가 `message_handoff`인데 `{from:"OUT", to:"IN", key:"message_id"}` 아님, 나머지인데 null 아님 / `scope`가 `required_step`인데 정확히 `{interfaceId}`가 아님, 나머지인데 `null`도 아니고 키가 `interfaceId`·`adapterType` 안인 비지 않은 객체도 아님 / 값이 문자열 공통 규칙 위반 | 422 `relation_rule_shape_invalid:<id or clientRef>` |
+| 기존 관계 규칙의 조건 변경(v3 정규 객체 기준, 위 "조건 비교 기준") | 422 `relation_rule_condition_immutable:<id>` |
+| 같은 조건(v3.3 정규 객체의 `kind`·`scope`·`from`·`to`·`match`)의 규칙 2개 | 422 `relation_rule_condition_duplicate:<id or clientRef>`(재승인은 기존 id를 써야 함) |
+| 관계 규칙 `severity` ∉ 3단계 | 422 `relation_rule_severity_invalid:<…>` |
+| 관계 규칙 수 > 200 [확정 11/13 사용자·WebUI 수용] | 422 `relation_rule_limit_exceeded` |
+| 프로토콜 항목 id 미존재(되돌리기 면제)·중복·`clientRef` 중복 | 422 `protocol_rule_unknown:<id>` / `protocol_rule_duplicate:<id>` / `protocol_rule_client_ref_duplicate` |
+| `interfaceId` 문자열 공통 규칙 위반 / 기존 항목의 `interfaceId` 변경 / 같은 `interfaceId` 항목 2개 | 422 `protocol_rule_interface_invalid:<…>` / `protocol_rule_interface_immutable:<id>` / `protocol_rule_interface_duplicate:<id or clientRef>` |
+| 경로: `channels`가 배열 아님·길이 0 또는 > **64**, 채널이 문자열 공통 규칙 위반 | 422 `protocol_path_invalid:<id or clientRef>` |
+| 같은 항목 안 같은 `channels` 경로 2개(원래 문자열 배열이 정확히 같음) | 422 `protocol_path_duplicate:<id or clientRef>` |
+| 항목당 경로 0개 또는 > **64** | 422 `protocol_path_limit_exceeded:<id or clientRef>` |
+| 프로토콜 `severity` ∉ 3단계 | 422 `protocol_rule_severity_invalid:<…>` |
+| 프로토콜 항목 수 > **500** [확정 11/13 사용자·WebUI 수용] | 422 `protocol_rule_limit_exceeded` |
+
+- [확정 11/13 사용자·WebUI 수용] 상한 64/64(경로당 채널 64·항목당 경로 64)는 판정 경로 상한(protocol-rules.md 3.2: 단계 64·경로 64)과 같은 값이다. 판정 쪽 경로 수 상한은 거래 하나의 경로 수, 저장 쪽은 항목 하나의 허용 경로 수로 뜻이 다르지만 같은 숫자로 둔다. 스냅샷 전체 크기 상한(바이트)은 API·DB가 정한다
+- `detection_methods_empty` 정의 확장(relation-rules.md 4절): "scope 없는 방법이 1개 이상" — 켜진 내장 하드룰 중 `hard:transaction-failed`·`hard:unregistered-interface` **제외**, scope 없는 켜진 소프트룰, 활성 모델. 관계 규칙·프로토콜 규칙은 세지 않는다. 검사 위치는 v2와 같이 모든 저장 경로(룰 세트 저장·되돌리기·모델 `retire`·활성 집합 `replace`·`restore`)
+- `rule_set_unchanged`: 비교 기준을 **v3 정규 객체** + 소프트룰 `name`으로 바꾼다. 현재 행이 v1·v2이면 `relationRules`·`protocolRules` = `[]`, 소프트룰 `scope` = `null`, 스냅샷에 없는 내장 규칙 = 꺼짐·내장 기본 severity로 해석해 비교(v2 표의 해석 규칙과 같은 방식). 관계 규칙 재승인에서 `source.counts`만 바뀐 경우도 `rule_set_unchanged`(`source`는 비교 밖, relation-rules.md 2절)
+- 경고(저장은 허용): 응답 최상위 `warnings: [{code, ruleId, message}]`(`PUT`·`POST /api/rule-set/preview`)
+  - `relation_handoff_without_precedes`: 켜진 `message_handoff`에 짝 `precedes`(같은 `from`·`to`, `scope`가 같거나 `null`, `interfaceId` 비교 제외)가 켜져 있지 않음. 문장 "짝 선행 규칙이 없어 선행이 다르면 인계를 확인하지 않습니다."(relation-rules.md 4절)
+  - `protocol_unregistered_without_entries`: `hard:unregistered-interface`는 켜졌는데 켜진 프로토콜 항목이 없음(이 규칙이 아무것도 하지 않음, protocol-rules.md 4.1). 문장은 WebUI 결정
+- `confirmHardRuleDisable`: 새 내장 하드룰 2개에도 같은 규칙(새로 끄면 필수)
+- `changes[].type` 추가: `relation_added`·`relation_removed`·`relation_updated`(severity, `diff: {severity: [이전, 이후]}`)·`relation_enabled`·`relation_disabled`·`protocol_added`·`protocol_removed`·`protocol_updated`(`diff: {pathsAdded: [[…]], pathsRemoved: [[…]], severity?: [이전, 이후]}`)·`protocol_enabled`·`protocol_disabled`. `summary`에 같은 이름의 camelCase 건수 키
+- 되돌리기: v2 절 분기에 더해 (1) 스냅샷에 있고 현재 없는 관계·프로토콜 항목은 같은 id로 재생성(`changes[]` `*_added` + `restored: true`) (2) 출처가 v1·v2 행이면 `relationRules`·`protocolRules`·소프트룰 `scope`는 없음(`[]`·`null`)으로 읽고, 본문도 그와 같아야 한다(= 되돌리면 현재 관계·프로토콜 항목이 모두 삭제됨, 확인창에 표시) (3) 스냅샷에 없는 새 내장 하드룰 2개는 v2 절과 같이 꺼짐·내장 기본 severity로 채움(현재 켜져 있으면 `confirmHardRuleDisable` 필수). `restore_payload_mismatch` 비교 기준은 **v3 정규 객체**(채운 뒤 기준) + 소프트룰 `name`(v2 절의 "v2 정규 객체" 자리를 v3로 바꿈 — `source`·표시용 `interfaceId`는 비교 밖)
+- 알림 버튼 [정상 프로토콜에 추가](protocol-rules.md 5.3): 별도 경로를 만들지 않고 **이 `PUT`**으로 경로를 더한 전체 상태를 저장한다(`expectedRevision` 충돌 규칙 그대로) [제안 — WebUI·API 결정 가능]
+
+### v3.7 버전 전환
+
+- **v1·v2 행은 그대로 읽는다**: GET·이력·hash 재계산은 행의 `content_hash_version` 규칙으로(v2 절과 같음). 행을 고치지 않는다(불변)
+- **v2 → v3 승격 규칙** [확정 11/13 사용자·WebUI 수용]: API v3가 배포된 뒤의 **모든 저장은 v3**(내용과 무관 — DB 016 뒤 "모든 저장 = 2"와 같은 방식). 관계·프로토콜 항목을 처음 저장할 때만 v3로 올리는 방식은 쓰지 않는다 — 한 API에 두 저장 규칙이 생기고, 새 내장 하드룰 2개·`{byCode, default}`도 v3에만 있어 v2 저장 경로가 정의되지 않는다. 결과: API v3 배포 뒤 첫 저장은 내용이 같아도 hash가 바뀐다(내용 비교는 `rule_set_unchanged`가 v3.6 해석으로 막는다)
+- **배포 순서**: DB 020 → Detector v3(로더 + 관계·프로토콜·새 내장 판정, protocol-rules.md 10절) → API v3(+ 같은 세션 WebUI). API v3 저장은 **Detector v3 배포 확인 뒤에만** 연다(배포 시점 상수 `CONTENT_HASH_VERSION = 3`, 실행 중 전환 스위치 없음). `approvalState`(`ruleCandidates.ts:36-38`)는 이 상수가 3이 되면 승인 단추를 연다
+- (기록) Detector v3 로더만 먼저 나가고 관계·프로토콜 판정이 없던 단계에서는 v3 행에 그 규칙이 있으면 **시도 실패**(조용히 무시하지 않음, protocol-rules.md 10절 1단계)로 막았다. 지금 Detector는 1~7단계(판정·재판정)를 갖췄고 "구현 안 됨" 때문의 시도 실패는 남지 않았다. API v3는 재판정까지 갖춘 Detector와 DB 024(재판정 커서 [제안], relation-rules.md 6.5) 뒤에 연다
+  - 실패 코드(시도 실패 사유, `run_jobs` 실패 문자열) [제안 — Detector 1단계 구현 `server/worker/detector/operational_state.py` `check_rule_set_version`·`hard_rules.py` `read_hard_rule_snapshot`]: v3 행의 켜진 관계 규칙·`scope` 있는 소프트룰(protocol-rules.md 10절 5단계)·프로토콜 항목(6단계)은 판정을 갖춰 이 목록에서 모두 빠졌다. 프로토콜 항목 저장값 이상 → `invalid_protocol_rule:<id>`(꺼져 있어도, protocol-rules.md 10절 "6단계 구현 세부"). 관계 규칙 저장값 이상 → `relation_rule_kind_unknown:<id>`(꺼져 있어도)·`invalid_relation_rule:<id>`, 소프트룰 scope 모양 이상 → `invalid_soft_rule_scope:<id>`. 꺼져 있거나 빈 배열이면 v2와 같이 판정. 새 내장 하드룰 2개도 판정을 갖췄다(`hard:transaction-failed` 3단계, `hard:unregistered-interface` 6단계). 판정 계획에 실행기가 없는 하드룰이 들어오면 같은 코드로 시도 실패(`hard_rules.py` `hard_rule_runners`, 방어). v1·v2 행의 v3 전용 요소 → `protocol_rules_require_v3`(`protocolRules` 키) / `relation_rules_require_v3`(`relationRules` 키·소프트룰 `scope` 키·새 내장 하드룰). v3 항목의 `enabled`가 boolean이 아니거나 배열이 아님 → `invalid_rule_set_snapshot:<relationRules|protocolRules>`. hash 불일치는 기존 `rule_set_hash_mismatch`. 전체 시도 실패 코드 목록은 detection-decision.md 11.6
+- **되돌림(배포 되돌리기)**: 첫 v3 행이 생기기 **전에만** API를 v2 코드로, DB CHECK를 `(1,2)`로 되돌릴 수 있다(020 주석). 첫 v3 행이 생긴 뒤에는 v2 API가 그 행의 hash를 계산하지 못하고 v2 Detector는 시도를 실패시키므로 **앞으로만 고친다**(roll forward). 사용자 기능의 "되돌리기"(과거 리비전 재저장)는 이것과 별개로 v3 뒤에도 그대로 동작한다(새 v3 행으로 저장)
+
+### v3.8 구현 시험 기준값 — v3
+
+- 2026-11-13 Python 3.10 `hashlib.sha256(json.dumps(obj, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")).hexdigest()`로 계산했고, Node 22로 따로 구현해(키 정렬은 `ruleSetContract.ts:76-80` `sortKeys`와 같음, `byCode`는 배열로 변환, 경로·`byCode` 정렬은 코드 포인트 비교) (c)~(h) 모두 같은 문자열·같은 값을 확인했다. 모두 **시험 입력**(실제 리비전 상태 아님). 코드 값(`E901`·`9`·`0100` 등)은 가상 값이다
+- (c) v3 최소 — DB 016 r1 내용(하드룰 4개 켬·내장 기본 severity) + `hard:transaction-failed` 꺼짐·내장 기본 severity + `hard:unregistered-interface` 켬·`critical`, 나머지 빈 배열. 직렬화 문자열 `{"hardRules":[{"enabled":true,"id":"hard:count-conservation","severity":"critical"},{"enabled":true,"id":"hard:negative-duration","severity":"critical"},{"enabled":true,"id":"hard:process-status","severity":{"byCode":[["PROCESS_STATUS_F","critical"],["PROCESS_STATUS_H","info"],["PROCESS_STATUS_N","info"],["PROCESS_STATUS_P","warning"],["PROCESS_STATUS_Z","warning"]]}},{"enabled":true,"id":"hard:success-with-error","severity":"critical"},{"enabled":false,"id":"hard:transaction-failed","severity":{"byCode":[],"default":"warning"}},{"enabled":true,"id":"hard:unregistered-interface","severity":"critical"}],"protocolRules":[],"relationRules":[],"softRules":[]}` → SHA-256 `01875d1309dbe56a94158de82f4c5b94664dc25651c77ddf70a6cec96b2960b2`
+- (d) 전 기능 — (c)에서 `hard:transaction-failed` 켬·`{"byCode": {"E901": "critical"}, "default": "warning"}`, `hard:unregistered-interface` `warning`; 소프트룰 1개(`scope` `{processId, adapterType}`); 관계 규칙 2개(`precedes` — `scope` `{adapterType}`, `required_step` — `scope` `{interfaceId}`·`to` null); 프로토콜 항목 1개(경로 2개, **저장 순서가 정렬 순서와 반대**, 한글 채널 포함). 입력의 관계·프로토콜 `source`가 정규 객체에서 빠진다. 직렬화 문자열 `{"hardRules":[{"enabled":true,"id":"hard:count-conservation","severity":"critical"},{"enabled":true,"id":"hard:negative-duration","severity":"critical"},{"enabled":true,"id":"hard:process-status","severity":{"byCode":[["PROCESS_STATUS_F","critical"],["PROCESS_STATUS_H","info"],["PROCESS_STATUS_N","info"],["PROCESS_STATUS_P","warning"],["PROCESS_STATUS_Z","warning"]]}},{"enabled":true,"id":"hard:success-with-error","severity":"critical"},{"enabled":true,"id":"hard:transaction-failed","severity":{"byCode":[["E901","critical"]],"default":"warning"}},{"enabled":true,"id":"hard:unregistered-interface","severity":"warning"}],"protocolRules":[{"enabled":true,"id":"hard:proto-5c1e9a07","interfaceId":"IF_A","paths":[["CH_A","CH_B"],["CH_A","채널C","CH_B"]],"severity":"critical"}],"relationRules":[{"enabled":true,"from":{"processId":"IF_A_PR001"},"id":"hard:rel-0a1b2c3d","kind":"required_step","match":null,"scope":{"interfaceId":"IF_A"},"severity":"warning","to":null},{"enabled":true,"from":{"processId":"IF_A_PR001"},"id":"hard:rel-3f9a2c1d","kind":"precedes","match":null,"scope":{"adapterType":"HTTP"},"severity":"critical","to":{"processId":"IF_A_PR002"}}],"softRules":[{"enabled":true,"field":"elapsed_ms","id":"soft:elapsed_ms-3f9a2c1d","operator":"gt","scope":{"adapterType":"HTTP","processId":"IF_A_PR002"},"severity":"warning","threshold":"8000"}]}` → SHA-256 `fbb708690f49cbdab80da1f2fe4e890a9e577314dc4d89c07a13168d28091c6b`
+- (e) 경로 정렬 함정 1 — 코드 포인트 대 UTF-16(시험 전용, 하드룰 빈 배열). 경로를 `[["\u{10400}"], ["\u{FF21}"]]` 순서로 줌. 코드 포인트 순은 U+FF21이 먼저, JS 기본 정렬(UTF-16)은 U+10400이 먼저. 직렬화 문자열 `{"hardRules":[],"protocolRules":[{"enabled":false,"id":"hard:proto-00000000","interfaceId":"IF_B","paths":[["Ａ"],["𐐀"]],"severity":"info"}],"relationRules":[],"softRules":[]}` → SHA-256 `8f258136115b5a944b016232c1224050b6a11d8efc06e375c450020d36b91523`
+- (f) `byCode` 숫자 키 함정(시험 전용) — `hard:transaction-failed` 하나, 저장 형식 `{"byCode": {"9": "critical", "10": "warning", "0100": "critical", "8888": "info", "E901": "warning"}, "default": "warning"}`. 코드 포인트 순은 `0100` < `10` < `8888` < `9` < `E901`. 직렬화 문자열 `{"hardRules":[{"enabled":true,"id":"hard:transaction-failed","severity":{"byCode":[["0100","critical"],["10","warning"],["8888","info"],["9","critical"],["E901","warning"]],"default":"warning"}}],"protocolRules":[],"relationRules":[],"softRules":[]}` → SHA-256 `63da99508a76748d7c384a32c2bd3067ab4eff79129cc3cfb97a07a22d93e2a0`. 대조: `byCode`를 객체로 두면 Python `sort_keys`는 `{"0100","10","8888","9","E901"}` 순, Node `sortKeys` + `JSON.stringify`는 `{"9","10","8888","0100","E901"}` 순으로 문자열이 갈렸다(같은 스크립트에서 확인) — 배열 형식만 두 언어가 같다. 숫자 키는 가상 값으로 바꿔 2026-11-13 다시 계산했다(Python 3.12·Node 22 같은 문자열·같은 값)
+- (g) 경로 정렬 함정 2 — pathKey 이스케이프와 배열 사전순(시험 전용). 경로를 `[["A","B"], ["A-"], ["A:B"], ["A%"]]` 순서로 줌. pathKey는 차례로 `A:B`·`A-`·`A%3AB`·`A%25`이고 코드 포인트 순(`%` 0x25 < `-` 0x2D < `:` 0x3A, `2` < `3`)으로 `[["A%"], ["A:B"], ["A-"], ["A","B"]]`. 채널 배열 사전순(원소별 비교)이면 `["A","B"]`가 맨 앞이 되어 결과가 다르다 → 반드시 pathKey로 비교. 직렬화 문자열 `{"hardRules":[],"protocolRules":[{"enabled":true,"id":"hard:proto-0000000a","interfaceId":"IF_C","paths":[["A%"],["A:B"],["A-"],["A","B"]],"severity":"warning"}],"relationRules":[],"softRules":[]}` → SHA-256 `0fb1055a061185dcee5b8d79c7645a9be1513cf388859a1d3151687dcbf91351`
+- (h) 이스케이프 순서 함정(시험 전용) — 경로를 `[["A:"], ["A%3A"]]` 순서로 줌. 올바른 순서(`%` → `%25` 다음 `:` → `%3A`)면 pathKey가 `A%3A`·`A%253A`로 갈려 `[["A%3A"], ["A:"]]`. 순서를 거꾸로 하면(`:` 먼저) 두 pathKey가 모두 `A%253A`로 같아져 정렬 결과가 입력 순서에 따라 달라지고 이 기준값과 어긋난다(Node로 확인). 직렬화 문자열 `{"hardRules":[],"protocolRules":[{"enabled":true,"id":"hard:proto-0000000b","interfaceId":"IF_D","paths":[["A%3A"],["A:"]],"severity":"warning"}],"relationRules":[],"softRules":[]}` → SHA-256 `73045b14ab8d6c81d814e164283f5432a54f7a9d997ec0c636b6d6f6de4ab895`
+- v1·v2 기준값은 위 v2 절 그대로(바뀌지 않음)
+
 ## 저장소 요구사항(PostgreSQL 세션 구현, 이름은 가칭)
 
-- `ops_rule_set_revisions`(가칭): `revision bigint PK, content_hash text, content_hash_version smallint(1 또는 2 — DB 016: 기존 행 1, 이후 저장 2), snapshot jsonb(hardRules·softRules 전체, `GET /api/rule-set` 응답과 같은 형식 — `threshold`는 number), changes jsonb, summary jsonb, note text|null, restored_from_revision bigint|null, saved_by_actor_id text, saved_at timestamptz`. **append-only + UPDATE/DELETE 금지 트리거**(003/004의 `erd_v03_immutable`·`prevent_pipeline_immutable_mutation` 방식). r0 행은 마이그레이션이 시스템 기본값으로 삽입(하드룰 2개 켬, v1 hash — 이후 불변). **DB 016(#116)**: `content_hash_version` 열 추가(기존 행 = 1) + 시스템 행 **r1** 삽입 — 하드룰 **4개 전부 켬·내장 기본 severity**(`hard:process-status`는 F=critical·P·Z=warning·H·N=info), 소프트룰은 r0와 같이 없음, `content_hash_version = 2`, hash는 리비전 형식 절 v2 규칙으로 DB가 계산해 기준값 (a) `de6a2ad8d0dc…`와 일치해야 함, `restored_from_revision = null`; `saved_by_actor_id`·`note`·`changes`·`summary` 값은 DB 세션 결정. 처리는 DB 세션 결정(016: 최대 리비전이 0일 때만 r1 삽입, 아니면 명시적 실패). 016 이후 저장은 모두 `content_hash_version = 2`
+- `ops_rule_set_revisions`(가칭): `revision bigint PK, content_hash text, content_hash_version smallint(1 또는 2 — DB 016: 기존 행 1, 이후 저장 2), snapshot jsonb(hardRules·softRules 전체, `GET /api/rule-set` 응답과 같은 형식 — `threshold`는 number), changes jsonb, summary jsonb, note text|null, restored_from_revision bigint|null, saved_by_actor_id text, saved_at timestamptz`. **append-only + UPDATE/DELETE 금지 트리거**(003/004의 `erd_v03_immutable`·`prevent_pipeline_immutable_mutation` 방식). r0 행은 마이그레이션이 시스템 기본값으로 삽입(하드룰 2개 켬, v1 hash — 이후 불변). **DB 016(#116)**: `content_hash_version` 열 추가(기존 행 = 1) + 시스템 행 **r1** 삽입 — 하드룰 **4개 전부 켬·내장 기본 severity**(`hard:process-status`는 F=critical·P·Z=warning·H·N=info), 소프트룰은 r0와 같이 없음, `content_hash_version = 2`, hash는 리비전 형식 절 v2 규칙으로 DB가 계산해 기준값 (a) `de6a2ad8d0dc…`와 일치해야 함, `restored_from_revision = null`; `saved_by_actor_id`·`note`·`changes`·`summary` 값은 DB 세션 결정. 처리는 DB 세션 결정(016: 최대 리비전이 0일 때만 r1 삽입, 아니면 명시적 실패). 016 이후 저장은 모두 `content_hash_version = 2`. **DB 020**: CHECK를 `(1,2,3)`으로 넓힘(DEFAULT 2 유지, 기존 행 불변) — API v3 배포 뒤 저장은 3(룰 세트 v3 절 v3.7)
 - 현재 상태 = 최대 `revision` 행. 저장은 `SELECT … FOR UPDATE`(또는 advisory lock)로 현재 리비전을 잠근 뒤 `expectedRevision` 비교 → INSERT revision+1 → 같은 트랜잭션에서 Detector 통지(방식은 Detector/DB: `ops_system_state.revision`과 별개 카운터, 또는 NOTIFY) — 운영 룰이 "바뀌었다"는 사실과 새 리비전 행이 한 트랜잭션에서 확정
 - 잠금 키: `pg_advisory_xact_lock(81739, 0)`(룰 세트·활성 집합·정책 저장 공통, #109)
 - 소프트룰 id 생성은 서버(API) 책임, 유일성은 스냅샷 안에서만 검사하면 충분(삭제된 id 재사용 금지는 hex 난수로 사실상 보장)

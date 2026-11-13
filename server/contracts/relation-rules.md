@@ -1,12 +1,13 @@
 Created: 2026-11-12T16:31:29+09:00
-Updated: 2026-11-12T19:23:00+09:00
+Updated: 2026-11-14T04:00:00+09:00
 Author: Claude Code — Detector 세션(builder)
-Status: current — 실험 기능 설계(구현 전 부분은 9절)
+Status: current — 실험 기능 설계(Detector 구현 세부는 3.4·6.5절, 9절은 설계 당시 변경 계획 기록)
 
 # 관계 규칙 Detector 설계 초안 (실험 기능)
 
-- 범위: 승인된 거래 내부 관계 규칙(`relationRules[]`)의 판정 의미, 소프트룰 `scope` 평가, 새 내장 하드룰 `hard:transaction-failed`(7절), 거래 행 도착 계기 재판정(6절), 룰 세트 hash v3. **코드 변경 없음**(구현 시 바뀔 곳은 9절)
+- 범위: 승인된 거래 내부 관계 규칙(`relationRules[]`)의 판정 의미, 소프트룰 `scope` 평가, 새 내장 하드룰 `hard:transaction-failed`(7절), 거래 행 도착 계기 재판정(6절), 룰 세트 hash v3. 구현 시 바뀔 곳은 9절. 구현 상태는 protocol-rules.md 10절(1~6단계 — 관계 입력 읽기·층 A Python 그래프·`hard:transaction-failed`·과제 사전 분류·관계 규칙 판정·소프트룰 scope 선택·프로토콜 판정까지, 세부 3.4·protocol-rules.md 10절 "6단계 구현 세부")
 - 소유: Detector. 룰 세트 저장 형식·API 검증은 [rule-set.md](rule-set.md), 그래프 생성 규칙은 WebUI 그래프 계약(`process-graph.md`)을 따른다
+- 프로토콜 규칙(인터페이스별 허용 경로 `protocolRules[]`, 11/13)은 [protocol-rules.md](protocol-rules.md). 이 문서의 판정 자리(3.1 `required_step`)·입력 읽기(3.2)·보류 기록(5절)·재판정(6절)·hash v3(8절)을 함께 쓴다. 룰 세트 v3 판정 전체 구현 순서는 protocol-rules.md 10절
 - 근거 코드: origin/dev `e038b5e`. 행 번호(file:line)는 이 커밋 기준(짧은 파일명은 `server/worker/detector/` 아래)
 - 실험 기능. v04 경로에서만 의미가 있다(10절)
 - 표기: **[확정 11/12 사용자]** 사용자 결정(Trainer·WebUI 세션 질문 창 직접 답) / **[확정 11/12 사용자(3차)]** 3차 답(2차 두 항목 대체) / **[확정 11/12 사용자(4차)]** 18:10 WebUI 답 "둘 다 추천대로 진행해"(재판정 계기·마지막 단계) / **[합의]** Detector·WebUI·Trainer 세션 합의(11/12) / **[제안]** 이 초안이 정한 값 / **[확인 필요]** 데이터로 확인할 사실
@@ -85,8 +86,8 @@ Status: current — 실험 기능 설계(구현 전 부분은 9절)
 ### 3.2 판정 때 읽는 입력 [합의]
 
 - 현재 detect 입력은 관측 1건: manifest hash `process-input-v1`이 PROCESS 관측 하나만 덮고(`jobs.py:88-89`) `message_observation_refs = '[]'`, `readiness`는 `transaction`·`messages` `unknown`으로 고정 삽입(`jobs.py:91-94`). 첫 판정의 manifest는 바꾸지 않는다 [제안]
-- 관계 규칙 또는 `hard:transaction-failed`가 하나라도 선택된 판정만 **시도 시작 때** 같은 원본·같은 `transaction_id` 문자열의 TRANSACTION·PROCESS·MESSAGE 행을 읽는다(그래프 계약 층 A 입력 규칙: 실행마다 최신 리비전 1건 — 단 판정 PROCESS 자신의 실행은 판정에 쓴 관측(`focus`) 그대로, 상한 PROCESS 200·MESSAGE 500). 조회는 기존 인덱스 `data_processes_lookup_idx`·`data_messages_lookup_idx`(`002_core_erd.sql:68,77`). 첫 판정·재판정 모두 같다
-- 읽은 행은 evidence에 고정: `evidence.relationInputs = {readAt, transaction, processes:[{observationId, revisionNo}], messages:[{observationId, revisionNo}], truncated}` [제안]. 운영 상태 고정(`pin_operational_state`, `attempt_v04.py:195`)과 같은 시점에 읽고 그 시도 안에서는 다시 읽지 않는다
+- 관계 규칙 또는 `hard:transaction-failed`가 하나라도 선택됐거나 프로토콜 기능이 켜진(protocol-rules.md 4.1) 판정만 **시도 시작 때** 같은 원본·같은 `transaction_id` 문자열의 TRANSACTION·PROCESS·MESSAGE 행을 읽는다(그래프 계약 층 A 입력 규칙: 실행마다 최신 리비전 1건 — 단 판정 PROCESS 자신의 실행은 판정에 쓴 관측(`focus`) 그대로, 상한 PROCESS 200·MESSAGE 500). 조회는 기존 인덱스 `data_processes_lookup_idx`·`data_messages_lookup_idx`(`002_core_erd.sql:68,77`). 첫 판정·재판정 모두 같다
+- 읽은 행은 evidence에 고정: `evidence.relationInputs = {readAt, transaction, processes:[{observationId, revisionNo}], messages:[{observationId, revisionNo}], truncated, messagesTruncated}` [제안]. 구현(`server/worker/detector/relation_inputs.py`): `readAt` = DB `clock_timestamp()`, `transaction` = 거래 행 실행이 없으면 null, 있으면 `{executions, ambiguous, arrivalConfirmed, observationId, revisionNo}`(대표 행, 모호면 `observationId`·`revisionNo` null — 7.2. `arrivalConfirmed` = 3.4 도착 확정), `truncated` = PROCESS 상한 초과(5절 `graph_truncated`·protocol-rules.md 3.2 기준), `messagesTruncated` = MESSAGE 상한 초과(그래프 `messages_truncated`). 판정 관측 거래 ID가 없음이면 다른 행을 읽지 않는다(`processes`는 판정 관측 1건, `transaction` null). 관계 입력이 필요한 방법이 없는 판정에는 `relationInputs`·`relationNotes` 키가 없다(v2 판정과 같음). 운영 상태 고정(`pin_operational_state`, `attempt_v04.py:195`)과 같은 시점에 읽고 그 시도 안에서는 다시 읽지 않는다
 - `message_observation_refs`에는 넣지 않는다(첫 판정·재판정 모두 `[]`): 트리거 `erd_v03_validate_manifest`(`004_erd_v03_contracts.sql:181-192`)가 snake_case 키, 판정 PROCESS와 같은 `process_id`, 검증된 FK `data_messages.process_observation_id`를 요구하는데 수집이 FK를 채우지 않아 관련 MESSAGE는 거부된다
 - 그래프 구성(재시도 묶음·`ambiguous`·`hands_off` 결과)은 process-graph.md 층 A 규칙을 그대로 쓴다. Detector용 Python 구현은 같은 공용 벡터(`process-graph-id-vectors.json`)로 TS와 같은 결과를 확인한다
 - 의존: `precedes` 검증(문자열 일치)과 `hands_off` 결과만. **`contains` 검증 상태에는 의존하지 않음**(수집이 FK를 채우지 않아 대부분 `not_checked`) [합의]
@@ -96,9 +97,30 @@ Status: current — 실험 기능 설계(구현 전 부분은 9절)
 ### 3.3 실행 단계 [제안]
 
 - 용어는 둘만 쓴다: **수집 미완료 보류**(relationNotes, 과제 없음)와 **방법 결과 보류**(데이터 문제·입력 상한, 과제로 만들어 `not_ready`). 3.3·5·6·7·9절 공통
-- 관계 규칙·`hard:transaction-failed`의 입력 평가와 "수집 미완료 보류·적용 안 함·`deferred_to_transaction`" 분류는 `execute_methods` **전에**, 시도 시작 때 읽은 입력으로 끝낸다
+- 관계 규칙·`hard:transaction-failed`·프로토콜 규칙(protocol-rules.md 5절)의 입력 평가와 "수집 미완료 보류·적용 안 함·`deferred_to_transaction`" 분류는 `execute_methods` **전에**, 시도 시작 때 읽은 입력으로 끝낸다
 - 결과가 **N·T·데이터 문제·입력 상한**인 판정 규칙만 과제(`MethodTask`, lane `rule`)로 만든다. 그 밖의 규칙(수집 미완료 보류·적용 안 함·정보 기록)은 과제를 만들지 않고 relationNotes에만 둔다
 - 근거: `execute_methods`는 과제마다 결과 1개를 돌려주고 끝나지 않은 과제는 `timeout`으로 채운다(`method_runner.py:102-123`). 상태는 닫힌 집합 `STATUSES`(`method_results.py:10`)라 수집 미완료 보류를 둘 자리가 없다. 중간 기록도 과제 결과 목록으로 `decide`를 부른다(`attempt_v04.py:151-152`) — 과제 단계에서 빼야 중간·최종 판정의 n이 같다
+
+### 3.4 Detector 구현 세부 (protocol-rules.md 10절 5단계, `server/worker/detector/relation_rules.py`) [제안]
+
+- 스냅샷 검증(시도 실패, 꺼진 규칙도 검사): kind ∉ 4종 → `relation_rule_kind_unknown:<id>`. id 형식·`enabled`·`severity`·`from`/`to`(정확히 `{processId}`)·`match`·`scope`(rule-set.md v3.6 모양) 위반 → `invalid_relation_rule:<id>`. 같은 id 2개 → `duplicate_method_id`. 소프트룰 `scope` 모양 위반 → `invalid_soft_rule_scope:<id>`. 시도 시작 방법 수(`ensure_executable`)에는 판정 kind 셋만 센다
+- 저장소·그래프 불변 조건 위반 → 시도 실패(방법 결과 보류가 아님): `relation_focus_unavailable`(관계 입력에서 판정 PROCESS 관측을 찾지 못함 — 관측 행이 없거나 원본·층이 맞지 않음, `relation_inputs.py` `read_relation_inputs`), `relation_graph_inconsistent`(판정 관측 자신의 선행 값에 대한 `precedes` 간선이 그래프에 없음 — 입력과 그래프 구현이 어긋남, `relation_rules.py`), `relation_transaction_columns_mismatch`(거래 행 조회 결과 열 수가 코드의 열 이름 목록과 다름 — 위치로 짐작하지 않음, `relation_inputs.py`)
+- 판정 관측 자신의 값(`process_id`·`depend_process_id`·`adapter_type`)은 관측 `allowed_values`에서 문자열일 때만 쓴다(그 밖은 None — `data_processes` 열과 같다). 관계 입력은 켜진 `required_step`·`hard:transaction-failed`가 있거나 이 판정에서 골린 후행 kind 규칙이 있을 때만 읽는다(v2 행·골린 규칙 없음 → DB 추가 읽기 없음, evidence 관계 키 없음)
+- 방법 결과 evidence(원천 값 없음): `precedes` T `{result:"hit", violation:"start_recorded"|"other_predecessor"|"predecessor_missing", node, edge}`(+ `from`은 선행 행 없음 T·N), N `{result:"no_hit", node, from, edge}`. `message_handoff` `{result, node, from, edge, handoffs:[{edge, result}]}`. `required_step` `{result, node, transaction, step, present}`. `node`는 판정 PROCESS 노드 id, `from`·`step`은 기대한 선행·필수 단계 노드 id(그래프에 없을 수 있음)
+- **"거래 행 도착" = 도착 확정** [제안]: 시도 시작 때 읽은 거래 행 실행이 1건 이상(대표 행 모호 포함)이고, 그 모든 실행(실행마다 최신 리비전)의 `persisted_at` ≤ 판정 읽기 시각(`relationInputs.readAt`) − **30초**. 둘 다 DB 시계(`persisted_at`은 수집 `clock_timestamp()`, `readAt`은 시도의 `clock_timestamp()`)라 6.1의 시계 규칙과 같고, 30초는 6.1 최소 지연과 같은 상수(`server/worker/detector/relation_inputs.py` `TRANSACTION_SETTLE_SECONDS`, 7단계도 이 상수를 쓴다). 기록: `relationInputs.transaction.arrivalConfirmed`
+  - 도착 확정 뒤에만 3.1 구조 전제를 쓴다: 선행 행 없음은 `precedes` T, `message_handoff`는 적용 안 함 `predecessor_missing`(선행 위반은 `precedes` 몫 — 짝 없는 handoff는 저장 경고 대상. 선행 값이 다른 경우의 `precedes_absent`와 구분), `required_step`은 거래 단계 집합 검사
+  - 도착 확정 전(거래 행이 없거나 최소 지연 안)에는 "없음 = 위반"을 내지 않는다: `precedes`·`message_handoff`는 `held` / `collection_incomplete`, `required_step`은 `deferred_to_transaction` — 7단계 재판정 대상(6.1)
+  - `hard:transaction-failed`는 거래 행 자체 값으로 판정하므로 도착 확정을 쓰지 않는다(행이 1건 이상이면 평가, 7.2). 프로토콜(protocol-rules.md 5.1)은 같은 정의를 쓴다
+  - 이유와 한계: CSV 재생 수집 경로는 거래 행을 PROCESS보다 먼저 커밋한다(`server/worker/collector/input_store.py` 정렬 `('T','P','M','B')`, `input_runner.py` tick마다 1행, P 커밋 즉시 detect 작업) — 거래 행이 있다는 것만으로 3.1 구조 전제("그 거래의 PROCESS가 다 기록됨")를 쓰면 뒤 PROCESS가 아직 없는 첫 판정에서 `required_step`·`precedes` 오탐이 난다. 그래서 "거래 행 도착"을 **도착 확정**(최소 지연 30초)으로 정의한다(3.4). 남는 오탐 조건은 행 사이 간격이 아니라 **그 거래의 TRANSACTION 행 커밋부터 마지막 PROCESS 커밋까지 누적 시간(≈ PROCESS 수 ÷ 재생 속도) > 30초**다 — CSV 재생은 거래마다 T → P → M 순으로 1행씩 커밋하므로(`server/worker/collector/input_store.py:41,47` 정렬, 속도 0.1~10000행/초·기본 10, `input_store.py:85-86`) 그 거래의 k번째 PROCESS 판정은 T 커밋 뒤 약 k ÷ 속도 초에 입력을 읽고, 이 값이 30초를 넘는데 뒤 PROCESS가 아직 커밋 전이면 도착 확정 상태에서 단계가 빠진 입력을 본다(예: 1행/초에서 PROCESS 31개 이상, 0.1행/초에서 4개 이상). 그래서 느린 재생·PROCESS가 많은 거래에서는 오탐이 날 수 있고, 근본 해결은 Collector 재생 순서 변경(PROCESS·MESSAGE 뒤 TRANSACTION)이다(Collector 세션 몫)
+    - 갱신(Collector #159): CSV 재생은 이제 같은 거래 묶음에서 T를 P·M·B 뒤에 커밋한다(`input_store.py` 그룹 안 순서 P→M→B→T). 새 replay-key로 준비한 재생에서는 이 한계가 생기지 않고, 이전 순서로 이미 준비된 재생에만 남는다. 30초 도착 확정은 이전 순서 재생·같은 거래 ID 재시도 T·API 수집 poll 경계 때문에 그대로 둔다.
+- `from` = `to`인 규칙(자기 자신이 선행)은 비교할 간선이 없으므로 스냅샷 읽기에서 `invalid_relation_rule:<id>`로 시도 실패(저장은 rule-set.md v3.6 422). 그래서 `self_dependency` 사유는 없다
+- `allowed_branch`: 판정 관측 `DEPEND_PROCESS_ID`가 없음(NULL·`""`·`\N`)이면 어느 분기인지 알 수 없어 relationNotes `not_applicable` / `depend_process_id_missing`. 정확히 `NONE`(시작 단계)은 `not_in_pattern`
+- `required_step`
+  - 첫 판정 때 거래 행 없음 → relationNotes 1건 `{ruleId: null, kind: "required_step", result: "deferred_to_transaction", reason: null, waitingFor: {layer: "T"}}`(인터페이스를 아직 몰라 규칙마다 두지 않음 — protocol-rules.md 5.1과 같은 모양)
+  - 판정 관측 거래 ID 없음 → 켜진 `required_step` 규칙마다 `input_missing` + `transaction_id_missing`(인터페이스로 고를 수 없어 모두). 거래 행 모호 → 붙이는 판정에서 켜진 규칙마다 `input_invalid` + `transaction_row_ambiguous`. PROCESS 상한 초과 → 붙이는 판정을 정할 수 없어 그 거래의 모든 판정에서 인터페이스가 맞는 규칙(모호면 모두)마다 `capacity` + `graph_truncated`
+  - 붙이는 판정의 시각: 3.1 "붙이는 판정"은 관측 `parsed_times`를 적었지만 수집은 그 열을 `'{}'`로 비워 둔다(`server/worker/collector/storage.py` INSERT) → 원천 `start_time_raw`·`end_time_raw`를 처리 시간(`datetime_diff`, `server/worker/derived_expression.py`)과 같은 해석으로 쓴다. 한 거래 안에서 시간대 있는 값과 없는 값이 섞인 열은 그 열 전체를 해석 불가로 보고 다음 기준으로 가른다. 층 C 사건 묶음(`server/worker/detector/incidents.py` `occurred_time`)과 다른 이유: 층 C는 거래끼리 절대 시각을 비교하려고 시간대 없는 값에 원본(또는 가정) 시간대를 붙여 UTC로 바꾸고 판정 시각으로 대신하지만, 여기는 한 거래 안의 순서만 정하므로 시간대를 가정하지 않고 비교할 수 없는 열은 쓰지 않는다. 7단계 재판정 탐색의 붙이는 판정도 같은 함수(`relation_rules.py` `latest_ended_is_focus`)를 쓴다
+- 재판정(7단계) 전 상태: `held`·`deferred_to_transaction`은 첫 판정에 그대로 남는다(종합 영향 없음). 첫 판정 시도 시작 때 거래 행이 이미 도착 확정된 경우만 거래 완료 기준으로 판정된다
+- CSV 재생에서는 첫 판정이 거의 항상 **도착 확정 전**이다(PROCESS 판정이 T 커밋 뒤 30초 안에 입력을 읽음 — 위 한계의 반대쪽). 그래서 `required_step`과 `precedes` 선행 행 없음 위반은 사실상 **7단계 재판정에서만** 판정된다(첫 판정은 `deferred_to_transaction`·`held`). 프로토콜 판정(protocol-rules.md 5.1)도 같다. 운영 입력 경로처럼 거래 행이 PROCESS 뒤에 오는 경우만 첫 판정에서 바로 판정될 수 있다
 
 ## 4. 소프트룰 `scope` [합의 — Trainer·Detector 정정 11/12]
 
@@ -107,7 +129,7 @@ Status: current — 실험 기능 설계(구현 전 부분은 9절)
 - 대조: 판정 PROCESS의 `process_id`·`adapter_type`·`process_hub_id`(`002_core_erd.sql:63-64`)와 **원래 값 정확 일치**, 대조 값 결측이면 적용 안 함. 결측 판단 함수는 `graph_value_absent` [제안]
 - **scope가 맞는 켜진 소프트룰만 실행·n에 포함**. 맞지 않으면 그 판정 `methodResults`에서 제외(n 부풀림 방지). 현재는 켜진 소프트룰 전부를 실행(`attempt_v04.py:128-137`)
 - 저장 검사(API) [제안 — 검사 위치는 `detection_methods_empty`와 같이 **모든 저장 경로**: 룰 세트 저장(되돌리기 포함)·모델 `retire`·활성 집합 `replace`·`restore`, detection-decision.md 7.4]
-  - **scope 없는 방법이 1개 이상**: 켜진 내장 하드룰(`hard:transaction-failed` 제외), scope 없는 켜진 소프트룰, 활성 모델 중 하나. 관계 규칙은 항상 단계·인터페이스에 묶이므로 세지 않음. `hard:transaction-failed`는 첫 판정에서 거의 항상 수집 미완료 보류라 n에서 빠지므로, 그것뿐이면 모든 첫 판정이 `detection_methods_empty`로 실패한다 — 그래서 세지 않음. 이 검사가 빠지면 Detector는 그 판정 시도를 실패로 끝낸다(`decision.py:22-23`, fail-closed 현행대로)
+  - **scope 없는 방법이 1개 이상**: 켜진 내장 하드룰(`hard:transaction-failed` 제외), scope 없는 켜진 소프트룰, 활성 모델 중 하나. 관계 규칙은 항상 단계·인터페이스에 묶이므로 세지 않음. 프로토콜 규칙(`hard:proto-*`)과 내장 `hard:unregistered-interface`도 거래 행 도착 때만 평가되므로 세지 않음(protocol-rules.md 4.1). `hard:transaction-failed`는 첫 판정에서 거의 항상 수집 미완료 보류라 n에서 빠지므로, 그것뿐이면 모든 첫 판정이 `detection_methods_empty`로 실패한다 — 그래서 세지 않음. 이 검사가 빠지면 Detector는 그 판정 시도를 실패로 끝낸다(`decision.py:22-23`, fail-closed 현행대로)
   - **`message_handoff`에 짝 `precedes`가 켜져 있지 않으면 저장은 허용하고 경고**(경고 코드 `relation_handoff_without_precedes`) [제안, WebUI·Trainer 수용]. 짝 = 같은 `from`·`to`이면서 `scope`가 handoff의 `scope`와 같거나 `null`(`interfaceId`는 비교에서 뺌 — 2절·8절과 같은 기준). 응답 위치: `PUT /api/rule-set`·`POST /api/rule-set/preview` 응답 최상위 `warnings: [{code, ruleId, message}]` [제안]. 경고 문장(WebUI가 그대로 씀): "짝 선행 규칙이 없어 선행이 다르면 인계를 확인하지 않습니다." 근거: 짝 `precedes`가 후보 기준 미달이면 그 선행 관계는 규약이 아닐 가능성이 크고 억지로 켜면 오탐이 생김. 결과: 선행이 다른 경로에서는 인계를 보지 않음(의도된 동작). 대상은 룰 세트 저장(되돌리기 포함)만 — 모델 `retire`·활성 집합 경로는 관계 규칙을 바꾸지 않아 대상 아님
 - 시도 시작 검사 `ensure_executable`(`operational_state.py:124-125`)은 scope와 무관하게 켜진 방법 전체를 센다. 판정별 개수는 `decide`(`decision.py:113`)가 다시 검사
 - k가 모두 1(U4)이라 지금은 문제없다. U4를 풀면 scope 선택으로 판정마다 n이 k보다 작아져 `ensure_executable`(`decision.py:27-28`)이 시도를 실패시킬 수 있다 — 그때 다시 정함
@@ -138,6 +160,8 @@ Status: current — 실험 기능 설계(구현 전 부분은 9절)
 | MESSAGE_ID 없음(`missing_message_id`) | 방법 결과 보류(데이터 문제) | `input_missing` + `message_id_missing` |
 | 판정 관측 `DEPEND_PROCESS_ID`가 NULL·`""`·`\N` | 방법 결과 보류(데이터 문제) | `input_missing` + `depend_process_id_missing` |
 | 판정 관측 `transaction_id` 없음(`unkeyed`) | 방법 결과 보류(데이터 문제) | `input_missing` + `transaction_id_missing` |
+| `message_handoff`, 거래 행 도착 확정(3.4) 뒤에도 선행 단계 행 없음 | 적용 안 함 | relationNotes `not_applicable` / `predecessor_missing`(위반은 `precedes` 규칙 몫) |
+| `allowed_branch`, 판정 관측 `DEPEND_PROCESS_ID`가 NULL·`""`·`\N` | 적용 안 함 | relationNotes `not_applicable` / `depend_process_id_missing` |
 
 - `interface_pattern_missing`(조율 회신의 사유 후보)은 규칙을 processId·거래 행으로 고르므로 쓰지 않는다 [제안]
 
@@ -148,22 +172,26 @@ Status: current — 실험 기능 설계(구현 전 부분은 9절)
 
 ### 6.1 탐색 작업 [제안]
 
-- **Detector 소유 별도 주기 작업 1개**(판정 시도 밖, 층 C 사건 묶음과 같은 형태), 주기 30초, 잠금 **81742**(DB 세션 배정 11/12, 코드 사용처 아직 없음 — 순서는 81742 → 81740만, 81741과 같은 트랜잭션에서 잡지 않음). 수집 경로에서 거는 계기는 쓰지 않는다 — 운영 입력 경로(`server/worker/collector/input_store.py:136-142`)·데모(`server/worker/demo/runtime.py:242-244`)는 `ingest_observation`의 `detection_eligible` 경로를 거치지 않고 직접 enqueue하고, 보류 판정이 커밋되기 전에 거래 행이 도착하는 경합이 있으며, Collector 소유 경계에 걸린다
+- **Detector 소유 별도 주기 작업 1개**(판정 시도 밖, 층 C 사건 묶음과 같은 형태), 주기 30초, 잠금 **81742**(DB 세션 배정 11/12, 사용처 `recheck_store.py` — 순서는 81742 → 81740만, 81741과 같은 트랜잭션에서 잡지 않음). 수집 경로에서 거는 계기는 쓰지 않는다 — 운영 입력 경로(`server/worker/collector/input_store.py:136-142`)·데모(`server/worker/demo/runtime.py:242-244`)는 `ingest_observation`의 `detection_eligible` 경로를 거치지 않고 직접 enqueue하고, 보류 판정이 커밋되기 전에 거래 행이 도착하는 경합이 있으며, Collector 소유 경계에 걸린다
 - 출발점 (a) **새 TRANSACTION 관측**: `data_observations(source_id, persisted_at)` 인덱스(`002_core_erd.sql:51`)로 `(persisted_at, id)` 영속 커서를 두고 마지막 60초를 겹쳐 다시 읽는다. 거래 행 `persisted_at` + **30초** 뒤에 처리(같은 거래의 늦은 MESSAGE를 함께 읽기 위해). 30초 최소 지연은 (a)·(b) 모두에 적용한다((b) 아래). "지금 시각"과 `persisted_at` 비교는 둘 다 DB 시계로 한다(`persisted_at`은 수집 때 `clock_timestamp()`, 비교는 같은 쿼리의 `clock_timestamp()`) [제안] — 앱 시계와 섞으면 (b)가 미룬 판정을 (a)가 이미 지나친 틈이 생길 수 있음
 - 새 거래 행마다: 같은 원본·같은 `transaction_id`의 PROCESS 관측(`data_processes_lookup_idx`, `002_core_erd.sql:68`)과 그 관측별 최신 판정(`018_decision_observation_index.sql:11`)을 찾고, 그중 보류 판정(관계 규칙 수집 미완료 보류, `hard:transaction-failed` `transaction_pending`)과 `required_step` 적용 대상(그 거래의 `deferred_to_transaction` 판정 중 3.1 붙이는 판정 — 가장 늦게 끝난 PROCESS의 판정)을 6.2 사전 검사에 넘긴다. 대상 판정은 거래 행 `persisted_at` ≤ 그 판정 `decided_at` + 24시간인 것만
   - 한계: 가장 늦게 끝난 PROCESS에 v04 판정이 없으면(작업 재시도 3회 모두 실패(`jobs.py:118`), 또는 v03 경로 판정) `deferred_to_transaction`이 없어 붙일 판정이 없고, 그 거래의 `required_step` 위반은 기록되지 않는다(다른 PROCESS 판정으로 옮기지 않음). 구조 전제(3.1)가 깨져 거래 행 뒤에 PROCESS가 도착하면 그 PROCESS의 첫 판정이 거래 행을 보고 바로 평가하므로(3.1) 재판정된 판정과 그 첫 판정, 두 판정이 붙는 곳이 될 수 있다
+  - 한계: CSV 재생 수집 경로는 거래 행을 PROCESS보다 먼저 커밋한다(`server/worker/collector/input_store.py` 정렬 `('T','P','M','B')`, `input_runner.py` tick마다 1행, P 커밋 즉시 detect 작업) — 거래 행이 있다는 것만으로 3.1 구조 전제("그 거래의 PROCESS가 다 기록됨")를 쓰면 뒤 PROCESS가 아직 없는 첫 판정에서 `required_step`·`precedes` 오탐이 난다. 그래서 "거래 행 도착"을 **도착 확정**(최소 지연 30초)으로 정의한다(3.4). 남는 오탐 조건은 행 사이 간격이 아니라 **그 거래의 TRANSACTION 행 커밋부터 마지막 PROCESS 커밋까지 누적 시간(≈ PROCESS 수 ÷ 재생 속도) > 30초**다 — CSV 재생은 거래마다 T → P → M 순으로 1행씩 커밋하므로(`server/worker/collector/input_store.py:41,47` 정렬, 속도 0.1~10000행/초·기본 10, `input_store.py:85-86`) 그 거래의 k번째 PROCESS 판정은 T 커밋 뒤 약 k ÷ 속도 초에 입력을 읽고, 이 값이 30초를 넘는데 뒤 PROCESS가 아직 커밋 전이면 도착 확정 상태에서 단계가 빠진 입력을 본다(예: 1행/초에서 PROCESS 31개 이상, 0.1행/초에서 4개 이상). 그래서 느린 재생·PROCESS가 많은 거래에서는 오탐이 날 수 있고, 근본 해결은 Collector 재생 순서 변경(PROCESS·MESSAGE 뒤 TRANSACTION)이다(Collector 세션 몫). 탐색의 거래 행 처리(`persisted_at` + 30초)와 판정의 도착 확정(3.4)은 같은 상수를 쓴다
+    - 갱신(Collector #159): CSV 재생은 이제 같은 거래 묶음에서 T를 P·M·B 뒤에 커밋한다(`input_store.py` 그룹 안 순서 P→M→B→T). 새 replay-key로 준비한 재생에서는 이 한계가 생기지 않고, 이전 순서로 이미 준비된 재생에만 남는다. 30초 도착 확정은 이전 순서 재생·같은 거래 ID 재시도 T·API 수집 poll 경계 때문에 그대로 둔다.
 - 출발점 (b) **판정 이벤트 커서**: 거래 행보다 늦게 커밋된 보류 판정(거래 행이 이미 있었는데 판정 시도가 그 전에 입력을 읽은 경우)을 놓치지 않기 위해 `run_decision_events.id`(`event_kind='final'`, `decision_id` 조인, `006_service_transition.sql:23-26`, `012_decision_interims.sql:178-185`)로 새 최종 판정을 읽는다. 대상: ① 보류 판정인데 거래 행이 이미 있는 것 ② `deferred_to_transaction`이 있고, 그 거래 행이 이미 있으며, 재판정 manifest가 없는 판정(가장 늦게 끝난 PROCESS의 첫 판정이 거래 행 처리보다 늦게 커밋됐는데 그 시도가 거래 행을 보기 전에 입력을 읽은 경우). 둘 다 (a)와 같이 6.2로 넘기고, 24시간 기준은 그 판정의 `decided_at`. 단 **지금 시각 ≥ 거래 행 `persisted_at` + 30초**인 대상만 넘기고, 아직이면 넘기지 않고 (a)에 맡긴다((a)가 30초 뒤 그 거래 행을 처리할 때 이 판정은 이미 커밋돼 있어 판정 조회에 잡힌다). 이유: 30초 지연의 목적은 같은 거래의 늦은 MESSAGE를 함께 읽는 것이고, (b)가 먼저 재판정하면 1회 키(6.3)가 그 전에 쓰여 늦은 MESSAGE를 반영할 기회가 없어진다. 006 트리거가 `pg_advisory_xact_lock(81736,0)` 아래에서 번호를 붙이므로(`006_service_transition.sql:31-38`, DB 세션 확인) 번호가 커밋 순서와 같다. 영속 커서(직전 실행의 마지막 id)를 두고 겹쳐 읽는다
+- **재판정 시도는 항상 도착 확정이어야 한다** [제안, 7단계 설계]: 재판정은 1회 키(6.3)라 다시 하지 않는다. 그런데 시도의 도착 확정(3.4)은 거래 행 **모든 실행**(실행마다 최신 리비전)의 `persisted_at` ≤ 읽기 시각 − 30초다. 계기 행 처리 뒤 같은 거래의 새 실행·리비전이 30초 안에 오면 그 재판정 시도는 확정 전 보류(`held`·`deferred_to_transaction`)로 끝나고 다시 시도되지 않는다. 그래서 (a)·(b) 모두 대상 거래를 **그 거래의 TRANSACTION 실행(실행마다 최신 리비전) 중 가장 늦은 `persisted_at` ≤ 지금 − 30초**(DB 시계)일 때만 넘긴다 — 계기 행 하나의 `persisted_at` + 30초가 아니라 거래 단위 최댓값이다. 새 실행·리비전이 오면 그 행이 (a)의 새 계기가 되어 30초 뒤 다시 거래를 본다(1회 키는 아직 쓰이지 않았으므로 6.3 "새 리비전은 다시 계기가 되지 않는다"와 충돌하지 않는다 — 그 규칙은 재판정 manifest가 생긴 뒤의 행에 대한 것). 남는 틈: 탐색이 넘긴 뒤 재판정 시도가 입력을 읽기 전에 새 실행이 커밋되면 그 시도는 확정 전으로 끝난다(작업 생성부터 시도 시작까지의 짧은 구간 — 한계로 둔다)
 - 판정 행 `decision_committed_at`(`002_core_erd.sql:224` 인덱스)은 값을 쓰는 곳이 없어(v04 INSERT `attempt_v04.py:233-240`에 없음, `operations-ui.md:52` "미사용") 쓰지 않는다
-- (a)·(b)를 겹쳐 읽어 같은 작업을 두 번 넣으려 해도 `UNIQUE(source_id,content_hash)`(`004_erd_v03_contracts.sql:52`)가 1회를 보장한다. 커서 저장 위치는 DB 세션과 확정(10절). 커밋된 행만 읽으므로 Collector 트랜잭션에 부담이 없다
+- (a)·(b)를 겹쳐 읽어 같은 작업을 두 번 넣으려 해도 `UNIQUE(source_id,content_hash)`(`004_erd_v03_contracts.sql:52`)가 1회를 보장한다. 커서 저장 위치는 DB 세션과 확정(10절, Detector 제안은 6.5 migration 024). 커밋된 행만 읽으므로 Collector 트랜잭션에 부담이 없다
 - 장애 때 부하 대비: 주기당 상한과 우선순위(예: 오래 기다린 거래 먼저)를 두고 값은 구현 때 측정
 
 ### 6.2 거래 단위 사전 검사 — 종합이 바뀌는 판정만 재판정 [제안]
 
-- 거래 행 도착 때 탐색이 거래 단위 검사를 먼저 가볍게 계산한다. ①~④ 공통 기준: **그 시도와 같은 규칙(3.1·5절·7.2)으로 다시 평가해 결과가 N이 아닌 방법 결과(T, 방법 결과 보류 — 데이터 문제·입력 상한)이면 대상**. 방법 결과 보류도 hard 대분류를 판단 불가로 만들어(`decision.py:73-74`) 종합을 바꿀 수 있기 때문이다. N, 적용 안 함, 수집 미완료 보류 그대로(④ 메시지 없음)는 그것만으로는 대상이 아니다
+- 거래 행 도착 때 탐색이 거래 단위 검사를 먼저 가볍게 계산한다. 룰 세트: ①~⑤ 모두 원 판정에 고정된 리비전이 아니라 **사전 검사 시점의 현재 룰 세트**로 계산한다(재판정 시도가 시작 때 현재 룰 세트를 고정하므로(6.3) 같은 기준으로 거른다). ①~⑤ 공통 기준: **그 시도와 같은 규칙(3.1·5절·7.2)으로 다시 평가해 결과가 N이 아닌 방법 결과(T, 방법 결과 보류 — 데이터 문제·입력 상한)이면 대상**. 방법 결과 보류도 hard 대분류를 판단 불가로 만들어(`decision.py:73-74`) 종합을 바꿀 수 있기 때문이다. N, 적용 안 함, 수집 미완료 보류 그대로(④ 메시지 없음)는 그것만으로는 대상이 아니다
   - ① 거래 실패(`hard:transaction-failed`, 7.2): T, `transaction_row_ambiguous`·`transaction_status_missing` 등
   - ② 필수 단계 전체 집합(`required_step`, 3.1 붙이는 판정): T(필수 단계 없음), `transaction_row_ambiguous`·`graph_truncated`
   - ③ 같은 거래 판정들의 관계 규칙 수집 미완료 보류(선행 행 없음): 거래 행 도착 뒤라 선행 행 없음 = T(3.1 구조 전제). 늦게 온 행으로 `precedes_ambiguous`(데이터 문제)·`truncated`(입력 상한)가 되는 경우 포함
   - ④ 메시지 대기 보류(`no_in_message`·`no_out_message`): 늦게 온 MESSAGE로 `mismatch`(T)·`multiple_messages`·`missing_message_id`(데이터 문제)·`messages_truncated`(입력 상한)가 되는 경우
+  - ⑤ 프로토콜(protocol-rules.md 5.1, 붙이는 판정은 ②와 같음): T(경로 불일치·미등록 인터페이스), 경로를 만들 수 없는 사유(protocol-rules.md 3.4)
 - 그 결과로 **종합(`composite.grade`·`composite.risk.level`·`composite.basisMethods`(방법 id 집합))이 바뀌는 판정만** 재판정한다. `basisMethods`를 넣는 이유: 이미 이상인 판정에 `hard:rel-*`·`hard:transaction-failed` 근거가 더해지면 재판정해야 "규약 위반" 표시와 근거가 맞음. 결과가 그대로인 판정(성공 거래, 필수 단계가 다 있음, 보류가 N으로 풀림)은 재판정하지 않는다 — 부하를 줄이는 핵심 규칙
 - 사전 검사는 거르기용이다. 재판정 시도가 시작할 때 다시 읽은 입력으로 낸 결과(3.2)가 정본이고, 사전 검사와 달라도 그대로 기록한다
 - 메시지 대기 보류는 재판정되는 판정 안에서 함께 다시 평가된다. 풀려서 N이거나 여전히 메시지가 없으면 그것만으로는 재판정하지 않는다(④는 N이 아닌 방법 결과 — T·데이터 문제·입력 상한 — 가 될 때)
@@ -189,6 +217,24 @@ Status: current — 실험 기능 설계(구현 전 부분은 9절)
 - 실험 뒤 보류 비율 측정은 유지 [확정 11/12 사용자]: 측정 대상은 **재판정 뒤에도 남은** 수집 미완료 보류(관계 규칙이 선택된 판정 중 최신 판정 기준)
 - 용량: 장애 규모 재판정 시 GB 단위 증가 가능(DB 계산, 실측 아님, Git 밖 측정 기록). 1GB를 넘는 로컬 재현은 사용자 확인 뒤에만
 
+### 6.5 Detector 구현 세부 (protocol-rules.md 10절 7단계) [제안]
+
+- 파일: 거르기 규칙 `server/worker/detector/recheck.py`(순수), 탐색 1회 `recheck_store.py` `run_once`(원본 1개·트랜잭션 1개), 진입점 `recheck_job.py`(`python -m detector.recheck_job --once|--interval 30`, `DATABASE_URL` — Compose는 `DETECTOR_DATABASE_URL` 우선), 재판정 작업 생성 `jobs.py` `enqueue_recheck`, 재판정 시도 확인 `attempt_v04.py` `recheck_reference`. 실행 위치는 **별도 프로세스**(층 C `incidents`와 같은 형태, Compose 서비스 `recheck`, profile `relation-recheck`)
+- 커서 저장: migration **024** `run_recheck_runs`(append-only 실행 기록, 019 `run_incident_runs`와 같은 형태 — 거래 관측 커서 `(transaction_cursor_at, transaction_cursor_id)`, 판정 이벤트 커서 `event_cursor`, 마지막 커서 = 원본별 `seq` 최대 행). `ops_system_state.detector_state`는 활성 구성 전환이 통째로 덮어쓰고 API가 내보내서 쓰지 않았다. DB 세션 확정 전 [제안]
+  - 첫 실행: 거래 관측 커서 = 지금 − 30초 − 24시간(0 uuid), 판정 이벤트 커서 = 그때의 최대 id(그 앞 판정은 (a)가 기간 안 거래 행으로 찾는다). 첫 실행은 새 행이 없어도 실행 행을 남겨 커서를 고정하고, 그 뒤로는 커서가 움직였거나 작업을 넣었을 때만 남긴다
+  - (a) 새 행은 `(persisted_at, id)` > 커서 ∧ `persisted_at` ≤ 지금 − 30초를 상한(기본 500)까지 읽고 커서를 옮긴다. 겹침 60초는 따로(커서 앞 60초, 상한 같음) 읽어 커서를 움직이지 않는다 — 겹침 행이 상한을 채워도 새 행 처리가 멈추지 않는다. 겹침은 커서에 가까운(늦은) 행부터 상한까지 읽는다(늦게 커밋된 행은 대개 커서 바로 앞). 그래도 60초 안 거래 행이 상한보다 많으면 커서에서 먼 쪽이 빠진다(10절 한계)
+  - (b) 커서 다음 final 이벤트(이 원본)를 상한까지 읽어, 거래 행 도착을 기다리는 v04 첫 판정의 거래만 넘긴다
+- 거래마다: 거래 행(실행마다 최신 리비전, `relation_inputs.py`와 같은 행 선택) 없음 → 넘기지 않음, 가장 늦은 `persisted_at` > 지금 − 30초 → 넘기지 않음(그 행이 (a)의 새 계기). 같은 거래의 PROCESS(실행마다 최신 리비전)의 관측별 최신 판정 중 v04 첫 판정(evidence `relationRecheck` 없음)이고 relationNotes에 `held`·`deferred_to_transaction`이 있는 것이 대상
+  - 24시간: 거래 행 실행 중 가장 이른 `persisted_at` ≤ 판정 `decided_at` + 24시간(판정보다 먼저 온 거래 행 — CSV 재생 — 은 항상 안)
+  - 기간 기준이 가장 이른 거래 행이라, 사전 검사에서 한 번 걸러진(재판정하지 않은) 보류 판정도 뒤에 같은 거래의 새 실행·리비전이 오면 그 행이 (a)의 새 계기가 되어 **그때의 룰 세트**로 다시 사전 검사되고, 종합이 바뀌면 재판정될 수 있다(1회 키는 재판정 manifest가 생길 때만 쓰이므로 첫 재판정 1회 규칙과 충돌하지 않음). 사용자가 그 사이 규칙을 바꿨다면 새 규칙이 적용된다(protocol-rules.md 5.1 "그 뒤 판정부터"와 같은 결과)
+  - 재판정 manifest가 이미 있으면 사전 검사 전에 건너뛴다
+- 사전 검사(6.2): 대상이 처음 나올 때 운영 상태를 고정하고(대상이 없으면 룰 세트를 읽지 않음), 판정마다 관계 입력을 다시 읽어(도착 확정이 아니면 넘기지 않음) `relation_plan`으로 관계 기대 하드룰(`hard:transaction-failed`·`hard:rel-*`·`hard:proto-*`·`hard:unregistered-interface`)을 다시 평가한다. N 아닌 결과가 없으면 대상 아님. 있으면 옛 판정의 그 밖의 방법 결과(내장 PROCESS 규칙·소프트룰·ML)는 그대로 두고 관계 기대 하드룰만 바꿔 현재 정책으로 종합을 계산해 `grade`·`risk.level`·`basisMethods` 집합이 바뀔 때만 대상. 옛 evidence를 읽지 못하거나 현재 정책으로 계산할 수 없으면 거르지 않고 대상(정본은 재판정 시도)
+  - 판정 하나에서 나는 예외 — 관계 입력 읽기·그래프의 저장소 이상(`relation_focus_unavailable` 등, `ValueError`)과 데이터 모양 이상(`allowed_values`가 객체가 아님 등 `TypeError`·`AttributeError`·`KeyError`) — 는 그 판정만 건너뛰고 보고에 남긴다(`precheck_failed:<코드>`, 코드는 `ValueError` 문구가 사유 코드 모양 `^[a-z0-9_:]+$`일 때만 그 문구(60자까지), 그 밖은 예외 이름만 — 저장값·데이터 값이 표준 출력 JSON 보고에 섞이지 않게). 옛 evidence `composite` 모양이 어긋나면(근거 항목이 문자열이 아님 등) 거르지 않고 대상(`precheck_unavailable`). 운영 상태 고정 실패와 DB 오류는 회차 전체를 되돌린다(커서 그대로, 다음 회차가 다시 읽음)
+- 재판정 작업: manifest hash = `["process-input-v2-recheck", source, observation, revision_no(JSON 정수), "recheck:1"]`의 SHA-256, `INSERT … ON CONFLICT DO NOTHING RETURNING`으로 새로 넣었을 때만 v04 작업(id = `uuid5("detect:<manifest id>:v04")`)과 큐 메시지를 만든다. `readiness.relation.rows` = 그 거래의 TRANSACTION 실행(실행마다 최신 리비전, `persisted_at` 순)
+  - 넘길 거래 행이 비어 있으면 `enqueue_recheck`가 `ValueError("recheck_transaction_rows_required")`로 멈춘다(방어 — 탐색은 거래 행이 있는 거래만 넘기므로 정상 경로에서는 나지 않음, 회차 전체를 되돌림)
+- 재판정 시도: `runner.py`가 manifest `readiness`를 함께 읽고, `recheck_reference`가 6.3 참조 검사 + manifest hash가 재판정 hash인지 확인(어긋나면 시도 실패 `relation_recheck_reference_invalid`). evidence `relationRecheck: {recheckedDecisionId, transactionObservationId}`(거래 행 = `rows`의 마지막, 도착을 확정한 행). 재판정 판정은 `ops_pipeline_measurements` 행을 넣지 않는다(6.4 [제안] 중 "넣지 않음"을 구현). 판정 행 `input_as_of`는 manifest 값(작업 생성 시각) 그대로
+- 시험: 단위 `server/worker/tests/test_relation_recheck.py`(대상 기록·기간·사전 검사·hash·`recheck_reference`), 통합 `integration_relation_recheck.py`(임시 DB — CSV 재생 순서 → 첫 판정 보류 → 30초 안 넘기지 않음 → 30초 뒤 종합이 바뀌는 판정만 1회 → 두 번째 탐색·직접 재삽입 무시 → 재판정 판정 `REL_REQUIRED_STEP`·`REL_PRECEDES` → 재판정 판정은 대상 아님 → (b) 커서 경로)
+
 ## 7. 내장 하드룰 `hard:transaction-failed`
 
 - 근거: 사용자 결정 11/12 18:04(WebUI 세션 질문 창). 관계 규칙과 재판정 구조(6절)를 공유하므로 이 문서에 둔다
@@ -211,6 +257,7 @@ Status: current — 실험 기능 설계(구현 전 부분은 9절)
   - 판정 관측 `transaction_id` 없음 → `input_missing` + `transaction_id_missing`(3.1과 같음)
 - 고른 실행: STATUS 결측 → `input_missing` + `transaction_status_missing` / STATUS `F` ∧ 응답 코드가 제외 목록 밖 → **T**(코드 = 고정 `HARD_TRANSACTION_FAILED`, 응답 코드는 `evidence`에, 위험도는 아래) / 그 밖 → N
 - 실패 코드 "결측"은 `graph_value_absent`와 같은 기준(ASCII 공백·탭·CR·LF 제거 뒤 `""`·`\N`, NULL)
+- 구현 세부 [제안 — `server/worker/detector/hard_rules.py` `evaluate_transaction_failed`]: STATUS 결측도 `graph_value_absent`. STATUS `F`·제외 코드(`0000`·`S`)·`byCode` 조회는 ASCII 공백·탭·CR·LF를 앞뒤에서 뺀 값으로 비교(층 C 성공 코드 비교 `incidents.py`와 같음), 대소문자 구분. evidence: T `[{result: "hit", transactionObservationId, responseCode(원래 값)}]`, N `[{result: "no_hit", transactionObservationId}]`, 방법 결과 보류 `[{reason}]`. 스냅샷 항목의 `methodVersion`은 없거나 `transaction-failed-v1`이어야 하고(다르면 `hard_rule_version_unknown:<id>`), `severity`는 정확히 `{byCode, default}`(아니면 `invalid_hard_rule_severity:<id>`) — 둘 다 시도 실패. v3 투영 `rules[]`·`ruleSeverities`에는 내장 규칙으로 들어간다(`hard:rel-*`·`hard:proto-*`·`hard:unregistered-interface`만 뺀다)
 - `methodVersion` = `transaction-failed-v1`, 내장 목록 `HARD_RULES`(`hard_rules.py:21-35`) 끝에 추가
 - 위험도 모양: `{"byCode": {"<연결 실패 코드>": "critical"}, "default": "warning"}` — `byCode`의 키는 거래 행 **응답 코드**. 기본값(연결 실패 코드 = `critical`)은 [제안](연결 실패에 드는 코드 목록은 응답코드 사전 후속, 10절). 현재 내장 `byCode`는 정해진 코드를 전부 담는 형식이라(`server/backend/src/ruleset/ruleSetContract.ts:137` `normalizedByCode`) `default`가 있는 새 모양으로 hash v3에 넣는다. DB는 모양을 검사하지 않고, 버전 3 CHECK는 DB migration 020
 - 켜짐: 스냅샷에 없으면 꺼짐(`ruleSetContract.ts:148` `resolveHardRule`)이므로 룰 세트 저장으로 켠다. r0는 바꾸지 않는다
@@ -219,15 +266,15 @@ Status: current — 실험 기능 설계(구현 전 부분은 9절)
 ## 8. 룰 세트 hash `contentHashVersion: 3` [합의 — 정규화 세부는 제안]
 
 - `relationRules`·소프트룰 `scope`·`hard:transaction-failed`의 새 위험도 모양을 **같은 버전 3에서 한 번에** 도입. v1·v2 행·정의·기준값은 그대로(hash 동일성은 같은 버전끼리, rule-set.md 리비전 형식 절)
-- v1·v2 행의 스냅샷에 `relationRules`·소프트룰 `scope`·`hard:transaction-failed`(새 위험도 모양은 v3 hash에만 있음)가 있으면 Detector는 시도 실패(`relation_rules_require_v3`) [제안]
-- 정규 객체: `{"hardRules": [...], "softRules": [...], "relationRules": [...]}`(관계 규칙 없으면 `[]`), 각 배열 id 사전순, 직렬화는 v1·v2와 같음(`operational_state.py:59-60`)
-- `hardRules` 항목: v2와 같음 `{id, enabled, severity}`(`operational_state.py:38-40`). `severity`는 단일 문자열, `{byCode}`, 또는 `{byCode, default}`(7.2)
+- v1·v2 행의 스냅샷에 v3 전용 요소(새 내장 규칙·새 위험도 모양은 v3 hash에만 있음)가 있으면 Detector는 시도 실패 [제안]: `protocolRules` 키 → `protocol_rules_require_v3`, `relationRules` 키·소프트룰 `scope` 키·새 내장 하드룰 `hard:transaction-failed`·`hard:unregistered-interface` → `relation_rules_require_v3`. 새 내장 하드룰도 이름과 달리 이 코드 하나이고 `:<id>` 접미를 붙이지 않는다(v1·v2 행 자체가 저장 검증을 거치지 않은 이상이라 어느 요소인지보다 행 버전이 원인 — 구현 `server/worker/detector/operational_state.py` `check_rule_set_version`)
+- 정규 객체: `{"hardRules": [...], "softRules": [...], "relationRules": [...], "protocolRules": [...]}`(없으면 `[]`, `protocolRules` 항목은 protocol-rules.md 6절), 각 배열 id 사전순, 직렬화는 v1·v2와 같음(`operational_state.py:59-60`)
+- `hardRules` 항목: v2와 같음 `{id, enabled, severity}`(`operational_state.py:38-40`). `severity`는 단일 문자열, `{byCode}`, 또는 `{byCode, default}`(7.2). 정규 객체에서 `byCode`는 `[[code, level], …]` 배열(rule-set.md v3.3 — 숫자처럼 생긴 응답 코드 키의 JS·Python 정렬 차이 때문)
 - 빈 scope 표기는 하나: 두 배열 모두 **`scope` 키는 항상 두고 전역·없음이면 `null`**, 있으면 판정에 쓰는 키 중 값 있는 키만
 - `softRules` 항목: `{id, field, operator, threshold, severity, enabled, scope}`, scope 키 = `processId`·`adapterType`·`processHubId`(`interfaceId` 제외)
 - `relationRules` 항목: `{id, kind, scope, from, to, match, severity, enabled}`(정보 표시 규칙 포함). scope 키 = `precedes`·`message_handoff`·`allowed_branch`는 `adapterType`(`interfaceId` 제외 — 값 있는 키가 interfaceId뿐이면 `null`), `required_step`은 `interfaceId`(판정 키, 2절). `source` 제외. `from`은 `{processId}`, `to`·`match`는 없으면 null 명시
 - `interfaceId` 제외 이유: 판정 선택에 쓰지 않는 표시·출처 값이라 판정 의미가 같으면 hash가 같아야 하고, 소프트룰 scope의 interfaceId 제외와 같은 기준. `required_step`만 판정 키라 넣는다
-- 저장소: `content_hash_version` CHECK가 `IN (1,2)`(`016_detect_v04_contract.sql:27`)라 DB migration 필요. 열 DEFAULT(현재 2, `016:28`)를 3으로 바꿀지는 DB 결정. Detector는 현재 1·2 외 버전을 시도 실패로 처리(`operational_state.py:50-51`)하므로 **Detector v3 지원이 API v3 저장보다 먼저** 배포돼야 한다
-- 시험 기준값(v3 정규 객체·SHA-256)은 구현 때 API·Detector가 같이 고정(아직 계산하지 않음)
+- 저장소: `content_hash_version` CHECK는 migration 020이 `IN (1,2,3)`으로 넓혔다(`020_rule_set_hash_v3.sql`, 이전 `016_detect_v04_contract.sql:27`은 `IN (1,2)`). 열 DEFAULT는 2 그대로(020 주석 — API가 버전을 명시해 저장). Detector는 v3 행을 읽고(protocol-rules.md 10절 1단계, `operational_state.py` `HASH_VERSIONS`) 관계·프로토콜 판정(5·6단계)과 재판정(7단계, 6.5)을 갖췄다. 재판정이 돌지 않으면 보류가 첫 판정에 남으므로 **재판정까지 갖춘 Detector v3와 `recheck` 서비스(DB 024 [제안])가 API v3 저장보다 먼저** 배포돼야 한다
+- 시험 기준값(v3 정규 객체·SHA-256)은 [rule-set.md](rule-set.md) v3.8 (c)~(h)
 
 ## 9. 구현 시 바뀌는 곳 (이 초안에서는 바꾸지 않음)
 
@@ -240,7 +287,7 @@ Status: current — 실험 기능 설계(구현 전 부분은 9절)
 | `hard_rules.py` | `HARD_RULES`·`hard_rule_runners`·`read_hard_rule_snapshot`(:21-35, :192-199, :70-91) | `hard:transaction-failed` 추가(`{byCode, default}` 위험도 읽기). 관계 규칙 실행기는 별도 모듈(신규 `relation_rules.py` 제안) |
 | 〃 | `HardRuleSelection`(:41-48) | 지금은 상태 규칙 단계만 담음 → `hard:transaction-failed`의 `{byCode, default}` 위험도도 담도록 |
 | `decision.py` | `_rank`(:46-53)·`decide`(:110-133) | `hard:rel-*`을 내장 목록 뒤 **저장 순**으로 정렬. `hard:rel-*`에 상수 `(0, len(HARD_RULES))`를 주면 안정 정렬과 과제 순서 결과(`method_runner.py:113,123`) 덕분에 저장 순서가 유지됨 [제안] — `decide`·`build_interim_payload`(`evidence_v4.py:104-116`)에 인자 추가 불필요 |
-| `evidence_v4.py` | `_check_hard_rules`(:50-57) | 대조 집합 = 켜진 내장 하드룰(`hard:transaction-failed`가 수집 미완료 보류면 제외) + **선택된 판정 규칙(관계 규칙 판정 kind 셋) 중 과제로 만든 것**(수집 미완료 보류·적용 안 함·`deferred_to_transaction` 제외, 3.3). 비교는 순서 있는 튜플이라(:52-54) 내장 목록 순 다음 저장 순까지 같아야 함. 판정마다 달라지는 대조 집합을 `build_evidence`에 넘기는 방법은 구현 때 정함. 어긋나면 `hard_rule_selection_mismatch`(:54-57)로 시도 실패. 위험도 일치 검사(:53-56)는 지금 `hard:process-status`만 보므로 `hard:transaction-failed`(응답 코드 → `byCode`/`default`)로 넓힘 |
+| `evidence_v4.py` | `_check_hard_rules`(:50-57) | 대조 집합 = 켜진 내장 하드룰(`hard:transaction-failed`가 수집 미완료 보류면 제외) + **선택된 판정 규칙(관계 규칙 판정 kind 셋) 중 과제로 만든 것**(수집 미완료 보류·적용 안 함·`deferred_to_transaction` 제외, 3.3). 내장 `hard:unregistered-interface`와 `hard:proto-*`는 켜져 있어도 그 판정에서 과제로 평가한 때만 넣는다(protocol-rules.md 5.2). 비교는 순서 있는 튜플이라(:52-54) 내장 목록 순 다음 저장 순까지 같아야 함. 판정마다 달라지는 대조 집합을 `build_evidence`에 넘기는 방법은 구현 때 정함. 어긋나면 `hard_rule_selection_mismatch`(:54-57)로 시도 실패. 위험도 일치 검사(:53-56)는 지금 `hard:process-status`만 보므로 `hard:transaction-failed`(응답 코드 → `byCode`/`default`)로 넓힘 |
 | 〃 | `_rule_entry`(:34-47)·`build_evidence`(:60-101) | v3 투영 `rules[]`·`ruleSeverities`에 `hard:rel-*`을 넣을지: **넣지 않음** [제안](v3 판독기는 내장·소프트룰만 앎, 근거는 `methodResults`에 있음). 영향: LLM 설명 입력 `savedEvidence.rules`(`server/backend/src/routes/jobRoutes.ts:261`)에 관계 규칙 위반이 빠지고 `decisionCode`만 `REL_*`가 됨, 판단 불가일 때 `server/frontend/src/features/analysis/components/DecisionDiagnostics.tsx:35`가 "세부 사유 없음"을 보임. `relationNotes`·`relationInputs`·`relationRecheck` 기록 |
 | `attempt_v04.py` | `_tasks`(:113-137)·`run_attempt`(:189-245) | soft scope 선택, 관계 규칙·거래 행 입력 읽기·사전 분류(3.3) 뒤 판정 과제만 추가, 첫 판정 시도에 거래 행이 이미 있으면 거래 단위 검사 바로 평가(3.1), `required_step` 붙임 대상 판정, 재판정 시도 시작 때 `readiness.relation` 참조 검사(존재·`layer`·source·`transaction_id`·as-of·`recheckedDecisionId` 관측, 어긋나면 시도 실패, 6.3), relationNotes 전달, 재판정 측정 행 처리(6.4). `runner.py:69-70`의 `fixed`는 manifest `readiness`를 읽지 않으므로 `readiness.relation`을 읽어 `relationRecheck`를 기록하도록 바꿈 |
 | `method_runner.py` | — | **변경 없음**(3.3 방식이면 과제 목록만 달라짐) |
@@ -248,7 +295,7 @@ Status: current — 실험 기능 설계(구현 전 부분은 9절)
 | `jobs.py` | `enqueue_observation`(:68-123) 옆 | 재판정 작업 생성 함수(`process-input-v2-recheck` manifest·`readiness.relation`, 6.3) |
 | `server/worker/detector/` 신규 | 재판정 탐색 주기 작업(6.1 거래 관측 커서·판정 이벤트 커서, 6.2 사전 검사) | 실행 위치(Detector 루프 `runner.py:154` `run` 안 / 별도 프로세스)는 구현 때 결정 |
 | `server/worker/methods/registry.py`·`contracts/method-catalog.json` | `maxRules`(:43 / :31), 하드룰 목록 | 상향값(성능 확인 뒤, 4절), `hard:transaction-failed` 항목 |
-| `backend/src/ruleset/ruleSetContract.ts` | `CONTENT_HASH_VERSION`(:11)·`contentHash`(:87)·`normalizedByCode`(:137)·`planRuleSetChange`(:261, :319) | v3 hash, relationRules·scope 검증(`required_step`은 `to` null·`scope.interfaceId` 필수), kind 422, scope 없는 방법 ≥ 1 검사(`hard:transaction-failed` 제외, 모델 retire·활성 집합 경로 포함), 경고 `relation_handoff_without_precedes`(응답 `warnings[]`), `{byCode, default}` 위험도, 소프트룰 상한 |
+| `backend/src/ruleset/ruleSetContract.ts` | `CONTENT_HASH_VERSION`(:11)·`contentHash`(:87)·`normalizedByCode`(:137)·`planRuleSetChange`(:261, :319) | v3 hash, relationRules·scope 검증(`required_step`은 `to` null·`scope`는 정확히 `{interfaceId}`), kind 422, scope 없는 방법 ≥ 1 검사(`hard:transaction-failed` 제외, 모델 retire·활성 집합 경로 포함), 경고 `relation_handoff_without_precedes`(응답 `warnings[]`), `{byCode, default}` 위험도, 소프트룰 상한 |
 | `infra/migrations/` | 신규 | `content_hash_version` 3 허용(DEFAULT는 DB 결정, CHECK는 migration 020), 탐색 커서 저장, lock 81742 기록 |
 | `contracts/rule-set.md` | 원칙(:33)·식별자·리비전 형식·저장 검증 | 1·2·4·7·8절 반영 |
 | `contracts/detection-decision.md` | 4.1·4.2·5.2·7.4·11.4·11.5·11.6·11.7 | 관계 규칙 하드룰, `hard:transaction-failed`, scope 선택, relationNotes·relationInputs·relationRecheck 키, 사유 표기, 소프트룰 상한. 11.6 `capacity` 뜻 확장(유지): 슬롯 부족(일시적)과 그래프 상한(다시 해도 같음)이 한 코드로 묶임 — 세부 사유 `graph_truncated`로만 구분. 화면 `server/frontend/src/features/analysis/components/MethodResults.tsx:52-54`는 cause 이름만 보이고 세부 사유를 숨기므로 `graph_truncated`를 함께 보이도록 WebUI에 요청 |
@@ -262,8 +309,8 @@ Status: current — 실험 기능 설계(구현 전 부분은 9절)
 | 메시지가 거래 행보다 먼저 기록되는지 | **[확인 필요]**(데이터 접근 세션). 확인되면 거래 행 도착 뒤 메시지 없음도 위반으로 볼지 검토 |
 | 보류가 N으로 풀리는 판정은 재판정하지 않음(6.2) → 옛 판정에 "관계 확인 보류"가 남음. 화면에서 거래 행 도착 여부로 "확인 끝"을 보일지 | WebUI 확인 |
 | 소프트룰 상한 상향값 | 상향 확정(4절). 값은 Detector 성능 확인 뒤 |
-| 탐색 커서 저장(거래 관측 `(persisted_at, id)`, 판정 이벤트 id) | DB 세션 — 저장 위치·권한 |
-| (a) 커서 60초 겹침은 수집 트랜잭션이 60초 안에 커밋된다는 가정 | 구현 때 확인(Detector·DB) |
+| 탐색 커서 저장(거래 관측 `(persisted_at, id)`, 판정 이벤트 id) | DB 세션 — Detector 제안 migration 024 `run_recheck_runs`(6.5, 권한 `database-roles.sql` 024 줄) 확정·번호 |
+| (a) 커서 60초 겹침은 수집 트랜잭션이 60초 안에 커밋된다는 가정. 또 겹침은 회차당 상한(기본 500)까지라, 60초 안 거래 행이 상한보다 많으면 커서에서 먼 늦은 커밋 행은 다시 읽지 못한다(가까운 쪽부터 읽음, 6.5). 그 행의 보류 판정은 (b)가 그 뒤 커밋된 판정만 잡는다 | 한계로 둠. 상한·겹침 값은 운영 측정 뒤(Detector·DB) |
 | 관련 행 참조 저장 — 실험 단계는 `readiness.relation`·evidence `relationInputs` | 채택 시 DB 세션 요청: 전용 열(예 `relation_observation_refs`) 또는 `erd_v03_validate_manifest`(`004_erd_v03_contracts.sql:181-192`) 의미 확장 |
 | Trainer 후보 형식 정렬 — `relationRules[]` 필드·`required_step` `to: null`·"거래 완료 때 평가" 표시·`evaluatedAt`·건수 이름 `undetermined`. 후보의 지지·위반 건수는 TRAIN 스냅샷 안에서 **TRANSACTION 행이 있는 거래로만** 센다(끝 무렵 미완료 거래가 위반으로 섞이지 않고 Detector 최종 판정 기준과 맞음) | Trainer 확인(`evaluable:false` 해제는 WebUI가 전달함) |
 | "연결 실패"에 드는 응답 코드 목록(`hard:transaction-failed` 기본 위험도, 7.2) | 응답코드 사전 후속 |
@@ -272,7 +319,7 @@ Status: current — 실험 기능 설계(구현 전 부분은 9절)
 | processId만으로 단계 특정 가능 여부(interface 없이) | 데이터 접근 세션 확인 |
 | 공용 벡터에 묶음·모호·`hands_off` 결과 예시 추가(`process-graph-id-vectors.json`) | WebUI 몫(합의됨). Detector Python 구현이 같은 파일로 확인 |
 | 화면에서 relationNotes "관계 확인 보류"를 종합 정상과 함께 보이게 할지(5절 위험), 재판정 알림 중복 표시(6.4), `hard:transaction-failed` 거래 수 집계(7.1) | WebUI 확인 |
-| 재판정 판정의 `input_as_of`·측정 행 처리(6.4) | Detector·WebUI·API 미정 |
+| 재판정 판정의 `input_as_of`·측정 행 처리(6.4) | Detector 구현은 측정 행 없음·`input_as_of` = manifest 값(6.5) [제안]. WebUI·API 확인 |
 | v04 전환 선행 — Compose 기본 `DETECT_JOB_CONTRACT=v04`(11/13 전환, 코드 기본은 `jobs.py:17` `v03`), 관계 규칙·scope·`hard:transaction-failed`는 v04 판정(evidence v4)에서만 동작. v03 경로는 룰 세트를 읽지 않아 영향 없음 | 사용자·총괄(전환 시점) |
 
 - 해결됨(4차): 재판정 계기("거래 행 도착"으로 변경), 마지막 단계 누락 판정(포함), "시간창이 끝나도 없으면 위반으로 볼지"(거래 행 도착 뒤 행 없음 = 위반, 3.1 구조 전제), `DEPEND_PROCESS_ID` 정의값 위험(같은 이유로 해소 — 실행 기록 여부 확인은 참고로만), 선행 계기 탐색 잠금 번호(탐색 작업 1개, 81742)

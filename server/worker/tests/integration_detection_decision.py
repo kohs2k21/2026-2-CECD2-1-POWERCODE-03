@@ -23,12 +23,14 @@ import uuid
 import psycopg
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from collector.storage import ingest_observation
 from integration_research_pipeline import observe, source
 from detector import attempt_v04, operational_state
 from detector.computation import legacy_feature_hash
-from detector.hard_rules import HARD_RULES, read_hard_rule_snapshot
+from detector.hard_rules import HARD_RULES, V3_HARD_RULE_IDS, read_hard_rule_snapshot
 from detector.jobs import claim_waiting_input, enqueue_observation
 from detector.operational_state import rule_set_content_hash
+from detector.relation_inputs import read_relation_inputs
 from detector.runner import process_detection_message
 from detector.status_rule import default_policy
 from feature_fit import definitions_hash, fit_features, transform
@@ -54,9 +56,13 @@ RETRY_SOFT = {"id": "soft:retry_count-91ab77e0", "name": "재시도", "field": "
 ROOT: Path
 
 
+V2_HARD_RULES = [rule for rule in HARD_RULES if rule["id"] not in V3_HARD_RULE_IDS]
+
+
 def hard_rules(**enabled):
-    """내장 4개 전체. enabled에 false로 준 규칙만 끈다(키는 - 대신 _)."""
-    return [{**rule, "enabled": enabled.get(rule["id"].split(":")[1].replace("-", "_"), True)} for rule in HARD_RULES]
+    """v1·v2 행의 내장 4개 전체(v3 전용 2개 제외). enabled에 false로 준 규칙만 끈다(키는 - 대신 _)."""
+    return [{**rule, "enabled": enabled.get(rule["id"].split(":")[1].replace("-", "_"), True)}
+            for rule in V2_HARD_RULES]
 
 
 @contextlib.contextmanager
@@ -65,8 +71,8 @@ def contract(value):
         yield
 
 
-def save_rule_set(conn, *, hard=None, soft=(), version=2, content_hash=None):
-    snapshot = {"hardRules": hard if hard is not None else hard_rules(), "softRules": list(soft)}
+def save_rule_set(conn, *, hard=None, soft=(), version=2, content_hash=None, extra=None):
+    snapshot = {"hardRules": hard if hard is not None else hard_rules(), "softRules": list(soft), **(extra or {})}
     revision = conn.execute("SELECT max(revision)+1 FROM ops_rule_set_revisions").fetchone()[0]
     conn.execute("""INSERT INTO ops_rule_set_revisions(revision,content_hash,content_hash_version,snapshot,changes,summary,
         saved_by_actor_id) VALUES(%s,%s,%s,%s::jsonb,'[]','{}','integration')""",
@@ -330,13 +336,13 @@ def pinning_and_fail_closed(conn, sid):
     seen = {"reads": [], "evaluated": [], "recorded": []}
     real_read, real_runners = operational_state.read_hard_rule_snapshot, attempt_v04.hard_rule_runners
 
-    def read(rules):
-        seen["reads"].append(real_read(rules))
+    def read(rules, *rest):
+        seen["reads"].append(real_read(rules, *rest))
         return seen["reads"][-1]
 
-    def runners(selection, raw):
+    def runners(selection, raw, *rest):
         seen["evaluated"].append(selection)
-        return real_runners(selection, raw)
+        return real_runners(selection, raw, *rest)
 
     def build(policy_value, methods, revisions, selection, **kwargs):
         seen["recorded"].append(selection)
@@ -1131,6 +1137,247 @@ def runtime_roles(conn, sid):
     print("PASS 실제 권한: collector가 v04 작업 생성, detector가 뷰 읽기·중간 기록·판정 저장")
 
 
+def observe_layer(conn, sid, layer, raw):
+    """T·M 행(실행 1개·리비전 1). 탐지 큐에는 넣지 않는다."""
+    execution_id, key = uuid.uuid4(), f"{layer}-{uuid.uuid4()}"
+    conn.execute("""INSERT INTO data_executions(id,source_id,layer,execution_key,key_parts,key_contract_version,
+        first_observed_at) VALUES (%s,%s,%s,%s,'{}'::jsonb,'test-v1',clock_timestamp())""",
+                 (execution_id, sid, layer, key))
+    result = ingest_observation(conn, source_id=sid, layer=layer, dedup_key=key, raw=raw, execution_id=execution_id,
+                                revision_no=1)
+    conn.commit()
+    return result
+
+
+def judge_as_detector(conn, sid, key, raw):
+    """실제 권한(detector)으로 판정한다."""
+    _, payload = v04_job(conn, sid, key, raw)
+    conn.execute("SET ROLE powercode_detector")
+    conn.commit()
+    try:
+        return judged(conn, payload)
+    finally:
+        conn.rollback()
+        conn.execute("RESET ROLE")
+        conn.commit()
+
+
+def rule_set_v3_transaction(conn, sid):
+    """protocol-rules.md 10절 2~4단계: v3 행 + hard:transaction-failed. 실제 권한(detector)으로 판정한다."""
+    tx_failed = {"id": "hard:transaction-failed", "enabled": True,
+                 "severity": {"byCode": {"E901": "critical"}, "default": "warning"}}
+    empty = {"relationRules": [], "protocolRules": []}
+    save_rule_set(conn, hard=[*hard_rules(), tx_failed], version=3, extra=empty)
+    transaction = f"TXF-{uuid.uuid4()}"
+
+    def judge_as_detector_tx(raw):
+        return judge_as_detector(conn, sid, "v3-tx", {**raw, "transaction_id": transaction})
+
+    first = judge_as_detector_tx({"process_id": "IF_T_PR001", "depend_process_id": "NONE"})
+    evidence = first[5]
+    assert "hard:transaction-failed" not in [m["methodId"] for m in evidence["methodResults"]], evidence
+    assert evidence["categoryResults"]["hard"]["n"] == 4 and evidence["composite"]["grade"] == "normal", evidence
+    assert evidence["relationNotes"] == [{"ruleId": "hard:transaction-failed", "kind": "transaction",
+                                          "result": "held", "reason": "transaction_pending",
+                                          "waitingFor": {"layer": "T"}}], evidence
+    inputs = evidence["relationInputs"]
+    assert inputs["transaction"] is None and len(inputs["processes"]) == 1 and inputs["messages"] == [], inputs
+    assert inputs["processes"][0]["observationId"] == evidence["observation"]["id"], inputs
+    print("PASS (v3) 거래 행 전: hard:transaction-failed는 방법 결과가 아니라 relationNotes 보류, n=4")
+
+    tx_row = observe_layer(conn, sid, "T", {"transaction_id": transaction, "status": "F", "response_code": "E901",
+                                            "retry_count": "0", "interface_id": "IF_T"})
+    observe_layer(conn, sid, "M", {"transaction_id": transaction, "process_id": "IF_T_PR001", "direction": "OUT",
+                                   "message_id": "M-1"})
+    observe_layer(conn, sid, "M", {"transaction_id": transaction, "process_id": "IF_T_PR002", "direction": "IN",
+                                   "message_id": "M-1"})
+    second = judge_as_detector_tx({"process_id": "IF_T_PR002", "depend_process_id": "IF_T_PR001"})
+    evidence = second[5]
+    failed = method(evidence, "hard:transaction-failed")
+    assert (failed["anomalous"], failed["riskLevel"], failed["code"]) == (True, "critical", "HARD_TRANSACTION_FAILED")
+    assert failed["evidence"] == [{"result": "hit", "transactionObservationId": str(tx_row.observation_id),
+                                   "responseCode": "E901"}], failed
+    assert second[3] == "HARD_TRANSACTION_FAILED" and evidence["composite"]["grade"] == "anomaly", second[3]
+    inputs = evidence["relationInputs"]
+    # 방금 들어온 거래 행이라 도착 확정 전이지만, 거래 실패는 행 자체 값으로 판정한다(도착 확정 불필요).
+    assert inputs["transaction"] == {"executions": 1, "ambiguous": False, "arrivalConfirmed": False,
+                                     "observationId": str(tx_row.observation_id), "revisionNo": 1}, inputs
+    assert len(inputs["processes"]) == 2 and len(inputs["messages"]) == 2 and evidence["relationNotes"] == [], inputs
+    assert evidence["rules"][-1]["ruleKey"] == "transaction-failed", evidence["rules"]
+    # 같은 행으로 만든 층 A 그래프(5·6단계가 쓸 입력): 선행 문자열 일치 verified, MESSAGE_ID 인계 match.
+    graph = read_relation_inputs(conn, sid, uuid.UUID(evidence["observation"]["id"])).graph
+    conn.commit()
+    edge = next(item for item in graph["edges"] if item["kind"] == "precedes")
+    assert (edge["from"], edge["to"], edge["verification"], edge["evidence"]) == (
+        f"process:{transaction}:IF_T_PR001", f"process:{transaction}:IF_T_PR002", "verified",
+        {"handoff": "match", "reason": None}), edge
+    print("PASS (v3) 거래 행 뒤: 같은 거래 PROCESS·MESSAGE·TRANSACTION을 읽고 STATUS F·E901 → 이상(위험)")
+
+    observe_layer(conn, sid, "T", {"transaction_id": transaction, "status": "S", "response_code": "0000",
+                                   "retry_count": "0"})
+    third = judge_as_detector_tx({"process_id": "IF_T_PR003", "depend_process_id": "IF_T_PR002"})
+    failed = method(third[5], "hard:transaction-failed")
+    assert (failed["status"], failed["cause"], failed["evidence"]) == (
+        "not_ready", "input_invalid", [{"reason": "transaction_row_ambiguous"}]), failed
+    assert third[5]["composite"]["grade"] == "undetermined", third[5]["composite"]
+    print("PASS (v3) 같은 재시도 번호의 거래 실행 2개 → 방법 결과 보류 input_invalid(transaction_row_ambiguous)")
+
+    save_rule_set(conn, hard=[*hard_rules(), {**tx_failed, "enabled": False}])
+    assert_fail_closed(conn, sid, "relation_rules_require_v3", "v2-new-builtin")
+    save_rule_set(conn)
+    print("PASS (v3) v2 행의 새 내장 규칙은 시도 실패")
+
+
+def rule_set_v3_relations(conn, sid):
+    """protocol-rules.md 10절 5단계: 관계 규칙 precedes·required_step과 scope 소프트룰을 실제 DB 입력으로 판정한다."""
+    transaction = f"TXR-{uuid.uuid4()}"
+    precedes = {"id": "hard:rel-0000000a", "kind": "precedes", "scope": {"interfaceId": "IF_R", "adapterType": "HTTP"},
+                "from": {"processId": "IF_R_PR001"}, "to": {"processId": "IF_R_PR002"}, "match": None,
+                "severity": "critical", "enabled": True}
+    required = {"id": "hard:rel-0000000b", "kind": "required_step", "scope": {"interfaceId": "IF_R"},
+                "from": {"processId": "IF_R_PR005"}, "to": None, "match": None, "severity": "warning", "enabled": True}
+    scoped = {**ELAPSED_SOFT, "scope": {"processId": "IF_R_PR002", "interfaceId": "IF_R"}}
+    elsewhere = {**RETRY_SOFT, "threshold": 0, "scope": {"processId": "IF_R_PR009"}}
+    save_rule_set(conn, hard=hard_rules(), soft=[scoped, elsewhere], version=3,
+                  extra={"relationRules": [precedes, required], "protocolRules": []})
+    base = {"transaction_id": transaction, "process_id": "IF_R_PR002", "depend_process_id": "IF_R_PR001",
+            "adapter_type": "HTTP"}
+
+    first = judge_as_detector(conn, sid, "v3-rel", base)[5]
+    assert [m["methodId"] for m in first["methodResults"] if m["category"] != "hard"] == [scoped["id"]], first
+    assert first["categoryResults"]["hard"]["n"] == 4 and first["composite"]["grade"] == "normal", first
+    assert first["relationNotes"] == [
+        {"ruleId": precedes["id"], "kind": "precedes", "result": "held", "reason": "collection_incomplete",
+         "waitingFor": {"processId": "IF_R_PR001"}},
+        {"ruleId": None, "kind": "required_step", "result": "deferred_to_transaction", "reason": None,
+         "waitingFor": {"layer": "T"}}], first["relationNotes"]
+    print("PASS (v3) 관계 규칙 첫 판정(선행·거래 행 없음): 수집 미완료 보류·deferred_to_transaction 기록, n 밖, "
+          "scope 맞는 소프트룰만 실행")
+
+    # CSV 재생처럼 거래 행이 PROCESS보다 먼저 커밋된 상태: 도착 확정(최소 지연 30초) 전이라 "없음 = 위반"을 내지 않는다.
+    tx_row = observe_layer(conn, sid, "T", {"transaction_id": transaction, "status": "S", "response_code": "0000",
+                                            "retry_count": "0", "interface_id": "IF_R"})
+    early = judge_as_detector(conn, sid, "v3-rel", {**base, "retry_count": "2"})[5]
+    assert early["relationInputs"]["transaction"]["arrivalConfirmed"] is False, early["relationInputs"]
+    assert precedes["id"] not in [m["methodId"] for m in early["methodResults"]], early["methodResults"]
+    assert early["relationNotes"] == first["relationNotes"], early["relationNotes"]
+    assert early["composite"]["grade"] == "normal", early["composite"]
+    print("PASS (v3) 거래 행이 PROCESS보다 먼저(도착 확정 전): 선행 없음·필수 단계 없음을 위반으로 내지 않고 보류")
+
+    observe(conn, sid, f"v3-rel-pred-{uuid.uuid4()}", {**RAW, **base, "process_id": "IF_R_PR001",
+                                                        "depend_process_id": "NONE"})
+    # 최소 지연이 지난 것으로 만든다(거래 행 persisted_at을 DB 시계 기준 1분 전으로).
+    conn.execute("UPDATE data_observations SET persisted_at=clock_timestamp()-interval '1 minute' WHERE id=%s",
+                 (tx_row.observation_id,))
+    conn.commit()
+    row = judge_as_detector(conn, sid, "v3-rel", {**base, "retry_count": "1", "end_time_raw": "2026-01-01 00:00:09"})
+    evidence = row[5]
+    edge = method(evidence, precedes["id"])
+    assert (edge["status"], edge["anomalous"], edge["methodVersion"]) == ("succeeded", False, "relation-precedes-v1"), edge
+    step = method(evidence, required["id"])
+    assert (step["anomalous"], step["code"], step["riskLevel"]) == (True, "REL_REQUIRED_STEP", "warning"), step
+    assert step["evidence"][0]["present"] is False, step
+    assert step["evidence"][0]["transaction"] == f"transaction:{transaction}", step
+    soft = method(evidence, scoped["id"])
+    assert soft["anomalous"] is True, soft  # 9초 > 5초
+    assert [m["methodId"] for m in evidence["methodResults"]] == [
+        *(rule["id"] for rule in V2_HARD_RULES), precedes["id"], required["id"], scoped["id"]], evidence["methodResults"]
+    assert evidence["composite"]["basisMethods"] == [required["id"], scoped["id"]], evidence["composite"]
+    assert (row[3], evidence["composite"]["grade"], evidence["composite"]["risk"]["level"]) == (
+        "REL_REQUIRED_STEP", "anomaly", "warning"), (row[3], evidence["composite"])
+    assert evidence["relationNotes"] == [], evidence["relationNotes"]
+    assert evidence["relationInputs"]["transaction"]["observationId"] == str(tx_row.observation_id), evidence
+    assert evidence["relationInputs"]["transaction"]["arrivalConfirmed"] is True, evidence["relationInputs"]
+    assert "rel-0000000b" not in [rule["ruleKey"] for rule in evidence["rules"]], evidence["rules"]
+    print("PASS (v3) 거래 행 뒤 가장 늦게 끝난 PROCESS: 선행 verified → N, 필수 단계 없음 → 이상(REL_REQUIRED_STEP), "
+          "관계 규칙은 rules[] 투영 밖")
+
+    save_rule_set(conn, hard=hard_rules(), version=3, extra={"protocolRules": [], "relationRules": [
+        {**precedes, "id": "hard:rel-0000000c", "kind": "lingers", "enabled": False}]})
+    assert_fail_closed(conn, sid, "relation_rule_kind_unknown:hard:rel-0000000c", "v3-kind")
+    save_rule_set(conn)
+    print("PASS (v3) 모르는 kind는 꺼져 있어도 시도 실패(relation_rule_kind_unknown)")
+
+
+def rule_set_v3_protocol(conn, sid):
+    """protocol-rules.md 10절 6단계: 프로토콜 항목·미등록 인터페이스를 실제 DB 입력·실제 권한(detector)으로 판정한다."""
+    unregistered = {"id": "hard:unregistered-interface", "enabled": True, "severity": "warning"}
+    entry = {"id": "hard:proto-0000000a", "interfaceId": "IF_Q", "severity": "critical", "enabled": True,
+             "paths": [{"channels": ["CH_A", "CH_B"], "source": {"kind": "draft"}}]}
+    save_rule_set(conn, hard=[*hard_rules(), unregistered], version=3,
+                  extra={"relationRules": [], "protocolRules": [entry]})
+    transaction = f"TXQ-{uuid.uuid4()}"
+    base = {"transaction_id": transaction, "process_id": "IF_Q_PR002", "depend_process_id": "IF_Q_PR001",
+            "channel_id": "CH_C"}
+    observe(conn, sid, f"v3-proto-first-{uuid.uuid4()}", {**RAW, **base, "process_id": "IF_Q_PR001",
+                                                           "depend_process_id": "NONE", "channel_id": "CH_A"})
+    first = judge_as_detector(conn, sid, "v3-proto", base)[5]
+    assert [m["methodId"] for m in first["methodResults"]] == [rule["id"] for rule in V2_HARD_RULES], first
+    assert first["relationNotes"] == [{"ruleId": None, "kind": "protocol", "result": "deferred_to_transaction",
+                                       "reason": None, "waitingFor": {"layer": "T"}}], first["relationNotes"]
+    assert "protocolReview" not in first and first["composite"]["grade"] == "normal", first["composite"]
+    print("PASS (v3) 프로토콜 첫 판정(거래 행 없음): deferred_to_transaction 기록, 방법·n 밖")
+
+    tx_row = observe_layer(conn, sid, "T", {"transaction_id": transaction, "status": "S", "response_code": "0000",
+                                            "retry_count": "0", "interface_id": "IF_Q", "start_channel_id": "CH_A",
+                                            "end_channel_id": "CH_B"})
+    conn.execute("UPDATE data_observations SET persisted_at=clock_timestamp()-interval '1 minute' WHERE id=%s",
+                 (tx_row.observation_id,))
+    conn.commit()
+    row = judge_as_detector(conn, sid, "v3-proto", {**base, "retry_count": "1", "end_time_raw": "2026-01-01 00:00:09"})
+    evidence = row[5]
+    proto = method(evidence, entry["id"])
+    assert (proto["anomalous"], proto["code"], proto["riskLevel"], proto["methodVersion"]) == (
+        True, "PROTO_PATH_UNMATCHED", "critical", "protocol-path-v1"), proto
+    assert proto["evidence"] == [{"interfaceMatched": True, "routes": [
+        {"steps": [f"process:{transaction}:IF_Q_PR001", f"process:{transaction}:IF_Q_PR002"], "matched": False}]}], proto
+    review = evidence["protocolReview"]
+    assert review == {"version": 1, "kind": "path_unmatched", "interfaceId": "IF_Q", "protocolRuleId": entry["id"],
+                      "ruleSetRevision": evidence["ruleSetRevision"],
+                      "transactionObservationId": str(tx_row.observation_id),
+                      "routes": [{"channels": ["CH_A", "CH_C"], "pathKey": "CH_A:CH_C", "matched": False}],
+                      "routesReason": None,
+                      "endpoints": {"start": "CH_A", "end": "CH_B", "matchesRoutes": False, "ambiguous": False}}, review
+    assert (row[3], evidence["composite"]["grade"]) == ("PROTO_PATH_UNMATCHED", "anomaly"), row[3]
+    assert [m["methodId"] for m in evidence["methodResults"]][-1] == entry["id"], evidence["methodResults"]
+    assert evidence["relationNotes"] == [] and "proto-0000000a" not in [r["ruleKey"] for r in evidence["rules"]]
+    print("PASS (v3) 거래 행 도착 확정 뒤 가장 늦게 끝난 PROCESS: 경로 CH_A→CH_C 불일치 → 이상(PROTO_PATH_UNMATCHED), "
+          "protocolReview 기록, 끝점은 기록만")
+
+    # 같은 재시도 번호의 거래 실행 2개(대표 행 모호): 모든 실행의 interface_id가 같으면 그 값(3.1a), 하나라도 없음이면 None.
+    observe_layer(conn, sid, "T", {"transaction_id": transaction, "status": "S", "response_code": "0000",
+                                   "retry_count": "0", "interface_id": "IF_Q"})
+    same = read_relation_inputs(conn, sid, uuid.UUID(evidence["observation"]["id"]))
+    observe_layer(conn, sid, "T", {"transaction_id": transaction, "status": "S", "response_code": "0000",
+                                   "retry_count": "0", "interface_id": " \\N "})
+    mixed = read_relation_inputs(conn, sid, uuid.UUID(evidence["observation"]["id"]))
+    conn.commit()
+    assert (same.transaction_ambiguous, same.common_interface_id) == (True, "IF_Q"), same
+    assert (mixed.transaction_ambiguous, mixed.transaction_executions, mixed.common_interface_id) == (True, 3, None), mixed
+    print("PASS (v3) 대표 행 모호: 모든 실행 interface_id가 같으면 그 값, 없음 값이 섞이면 인터페이스 모름")
+
+    other = f"TXU-{uuid.uuid4()}"
+    tx_other = observe_layer(conn, sid, "T", {"transaction_id": other, "status": "S", "response_code": "0000",
+                                              "retry_count": "0", "interface_id": "IF_NEW"})
+    conn.execute("UPDATE data_observations SET persisted_at=clock_timestamp()-interval '1 minute' WHERE id=%s",
+                 (tx_other.observation_id,))
+    conn.commit()
+    lone = judge_as_detector(conn, sid, "v3-proto-u", {"transaction_id": other, "process_id": "IF_N_PR001",
+                                                       "depend_process_id": "NONE", "channel_id": "CH_A"})[5]
+    new = method(lone, "hard:unregistered-interface")
+    assert (new["anomalous"], new["code"], new["riskLevel"]) == (True, "PROTO_INTERFACE_UNREGISTERED", "warning"), new
+    assert (lone["protocolReview"]["kind"], lone["protocolReview"]["routes"]) == (
+        "interface_unregistered", [{"channels": ["CH_A"], "pathKey": "CH_A", "matched": False}]), lone["protocolReview"]
+    assert "unregistered-interface" not in [r["ruleKey"] for r in lone["rules"]], lone["rules"]
+    print("PASS (v3) 미등록 인터페이스 → 이상(PROTO_INTERFACE_UNREGISTERED, 위험도 = 내장 규칙 severity)")
+
+    save_rule_set(conn, hard=hard_rules(), version=3, extra={"relationRules": [], "protocolRules": [
+        {**entry, "paths": [{"channels": []}]}]})
+    assert_fail_closed(conn, sid, "invalid_protocol_rule:hard:proto-0000000a", "v3-proto-bad")
+    save_rule_set(conn)
+    print("PASS (v3) 저장 검증을 거치지 않은 프로토콜 항목은 시도 실패(invalid_protocol_rule)")
+
+
 def main():
     dsn = os.environ.get("PIPELINE_TEST_DATABASE_URL")
     parsed = urlsplit(dsn or "")
@@ -1144,7 +1391,7 @@ def main():
         sid = source(conn, "판정 구조 시험")
         model_config, feature_set = trained_model(conn, sid)
         assert read_hard_rule_snapshot(conn.execute("SELECT snapshot->'hardRules' FROM ops_rule_set_revisions WHERE revision=1").fetchone()[0]).enabled_ids == \
-            tuple(rule["id"] for rule in HARD_RULES)
+            tuple(rule["id"] for rule in V2_HARD_RULES)
         conn.commit()
         pinning_and_fail_closed(conn, sid)
         evidence_and_columns(conn, sid, model_config, feature_set)
@@ -1152,6 +1399,9 @@ def main():
         lease_loss(conn, sid)
         legacy_paths(conn, sid)
         runtime_roles(conn, sid)
+        rule_set_v3_transaction(conn, sid)
+        rule_set_v3_relations(conn, sid)
+        rule_set_v3_protocol(conn, sid)
     print("PASS integration_detection_decision")
 
 

@@ -4,6 +4,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import json
 from pathlib import Path
+import re
 import time
 from typing import Any, Callable, Mapping
 import uuid
@@ -16,7 +17,10 @@ from detector.hard_rules import hard_rule_runners, unresolved_hard_result
 from detector.method_results import ml_method_result, unresolved_result
 from detector.method_runner import MethodExecution, MethodOutcome, MethodTask, execute_methods
 from detector.operational_state import ActiveModel, PinnedState, pin_operational_state
-from detector.soft_rules import evaluate_soft_rule, soft_rule_fields, unresolved_soft_result
+from detector.protocol_rules import PROTOCOL_PATH_VERSION
+from detector.relation_inputs import read_relation_inputs
+from detector.relation_plan import RelationPlan, needs_relation_inputs, plan_relations
+from detector.soft_rules import evaluate_soft_rule, in_scope, soft_rule_fields, unresolved_soft_result
 from feature_fit import requires_fit
 from feature_runtime import calculate_features, input_manifest_hash
 from methods.registry import method_for_key
@@ -110,9 +114,16 @@ def _run_model(model: _Model, raw: Mapping[str, Any], root: Any) -> MethodOutcom
          "features": (context, values, missing)})
 
 
-def _tasks(state: PinnedState, models: list[_Model], raw: Mapping[str, Any], root: Any) -> list[MethodTask]:
-    """순서: 하드룰(내장 목록 순) → 소프트룰(룰 세트 순) → ML(활성 집합 순)."""
+def _tasks(state: PinnedState, models: list[_Model], raw: Mapping[str, Any], root: Any,
+           relation: RelationPlan | None = None) -> list[MethodTask]:
+    """순서: 하드룰(내장 목록 순 → 관계 → 프로토콜, relation_plan이 고른 것만) → 소프트룰(룰 세트 순) → ML(활성 집합 순).
+
+    relation이 없으면 켜진 내장 하드룰 전부(관계 입력이 필요한 규칙이 없는 판정). 소프트룰은 scope가 판정 PROCESS와
+    맞는 것만 과제로 만든다(relation-rules.md 4절 — 맞지 않으면 methodResults·n에서 뺀다).
+    """
     fields = soft_rule_fields()
+    versions = {rule.id: rule.method_version for rule in state.relation_rules}
+    versions.update((rule.id, PROTOCOL_PATH_VERSION) for rule in state.protocol_rules)
 
     def timed(run: Callable[[], dict[str, Any]]) -> Callable[[], MethodOutcome]:
         def measure() -> MethodOutcome:
@@ -123,7 +134,8 @@ def _tasks(state: PinnedState, models: list[_Model], raw: Mapping[str, Any], roo
 
     def hard_task(rule_id: str, run: Callable[[], dict[str, Any]]) -> MethodTask:
         return MethodTask(rule_id, "rule", timed(run),
-                          lambda cause, **outcome: unresolved_hard_result(rule_id, cause, **outcome))
+                          lambda cause, **outcome: unresolved_hard_result(
+                              rule_id, cause, method_version=versions.get(rule_id), **outcome))
 
     def soft_task(rule: Mapping[str, Any]) -> MethodTask:
         return MethodTask(rule["id"], "rule", timed(lambda: evaluate_soft_rule(rule, fields, raw)),
@@ -133,8 +145,11 @@ def _tasks(state: PinnedState, models: list[_Model], raw: Mapping[str, Any], roo
         return MethodTask(model.active.method_id, "ml", lambda: _run_model(model, raw, root),
                           lambda cause, **outcome: _ml_unresolved(model, cause, **outcome))
 
-    return [*(hard_task(rule_id, run) for rule_id, run in hard_rule_runners(state.hard_rules, raw)),
-            *(soft_task(rule) for rule in state.soft_rules), *(ml_task(model) for model in models)]
+    hard = hard_rule_runners(state.hard_rules, raw) if relation is None else hard_rule_runners(
+        state.hard_rules, raw, relation.hard_ids, relation.inputs, relation.relation_results)
+    return [*(hard_task(rule_id, run) for rule_id, run in hard),
+            *(soft_task(rule) for rule in state.soft_rules if in_scope(rule, raw)),
+            *(ml_task(model) for model in models)]
 
 
 class InterimRecorder:
@@ -186,14 +201,85 @@ def _telemetry(execution: MethodExecution, observation: Any, *, started: float, 
     return telemetry
 
 
+_CANONICAL_UUID = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
+_RECHECK_KEYS = frozenset({"recheck", "recheckedDecisionId", "rows"})
+_RECHECK_ROW_KEYS = frozenset({"layer", "observation_id", "revision_no"})
+
+
+def _recheck_shape(relation: Any) -> tuple[str, list[Mapping[str, Any]]]:
+    """readiness.relation 모양(relation-rules.md 6.3). 어긋나면 저장소 이상이라 시도 실패."""
+    invalid = ValueError("relation_recheck_reference_invalid")
+    if (not isinstance(relation, Mapping) or set(relation) != _RECHECK_KEYS or type(relation["recheck"]) is not int
+            or relation["recheck"] != 1 or not isinstance(relation["recheckedDecisionId"], str)
+            or not _CANONICAL_UUID.fullmatch(relation["recheckedDecisionId"])):
+        raise invalid
+    rows = relation["rows"]
+    if not isinstance(rows, list) or not rows or any(
+            not isinstance(row, Mapping) or set(row) != _RECHECK_ROW_KEYS or row["layer"] != "T" or
+            not isinstance(row["observation_id"], str) or not _CANONICAL_UUID.fullmatch(row["observation_id"]) or
+            not (row["revision_no"] is None or type(row["revision_no"]) is int) for row in rows):
+        raise invalid
+    return relation["recheckedDecisionId"], rows
+
+
+def recheck_reference(conn: Any, observation: Any, fixed: tuple) -> dict[str, Any] | None:
+    """재판정 시도면 evidence `relationRecheck`, 첫 판정이면 None(relation-rules.md 6.3·6.4). manifest hash가 재판정 hash인데
+    `readiness.relation`이 없어도 시도 실패다.
+
+    DB는 readiness 안을 검사하지 않으므로(manifest 트리거는 readiness를 읽지 않음) 시도 시작 때 확인한다: manifest hash가
+    재판정 hash인지, 재판정 대상 판정이 이 PROCESS 관측의 판정인지, 계기 거래 행마다 관측이 있고 `layer='T'`·같은 원본·
+    판정 PROCESS와 같은 `transaction_id`·리비전 일치·`persisted_at` ≤ manifest `input_as_of`인지. 어긋나면 방법 결과 보류가
+    아니라 시도 실패(`relation_recheck_reference_invalid`, fail-closed).
+    """
+    from detector.jobs import recheck_manifest_hash
+    invalid = ValueError("relation_recheck_reference_invalid")
+    readiness = fixed[5] if len(fixed) > 5 else None
+    relation = readiness.get("relation") if isinstance(readiness, Mapping) else None
+    recheck_hash = (recheck_manifest_hash(observation.source_id, observation.observation_id, observation.revision_no)
+                    if type(observation.revision_no) is int else None)
+    if not isinstance(readiness, Mapping) or "relation" not in readiness:
+        if fixed[3] == recheck_hash:
+            raise invalid  # 재판정 manifest인데 참조가 없다(readiness를 못 읽었거나 저장소 이상) — 첫 판정으로 돌리지 않는다
+        return None
+    decision_id, rows = _recheck_shape(relation)
+    if fixed[3] != recheck_hash:
+        raise invalid
+    with conn.cursor() as cur:
+        cur.execute("SELECT process_observation_id FROM run_process_decisions WHERE id=%s", (decision_id,))
+        rechecked = cur.fetchone()
+        if rechecked is None or str(rechecked[0]) != str(observation.observation_id):
+            raise invalid
+        cur.execute("""SELECT r.observation_id,o.layer::text,o.source_id,o.revision_no,o.persisted_at<=%s,
+                t.transaction_id IS NOT NULL AND t.transaction_id=p.transaction_id
+            FROM unnest(%s::uuid[]) AS r(observation_id)
+            LEFT JOIN data_observations o ON o.id=r.observation_id
+            LEFT JOIN data_transactions t ON t.observation_id=r.observation_id
+            LEFT JOIN data_processes p ON p.observation_id=%s""",
+                    (fixed[4], [row["observation_id"] for row in rows], observation.observation_id))
+        found = {str(row[0]): row[1:] for row in cur.fetchall()}
+    for row in rows:
+        layer, source, revision, as_of, same_transaction = found.get(row["observation_id"], (None,) * 5)
+        if (layer != "T" or str(source) != str(observation.source_id) or revision != row["revision_no"]
+                or as_of is not True or same_transaction is not True):
+            raise invalid
+    # 계기 거래 행은 persisted_at 순(마지막 = 도착을 확정한 행, recheck_store)이다.
+    return {"recheckedDecisionId": decision_id, "transactionObservationId": rows[-1]["observation_id"]}
+
+
 def run_attempt(conn: Any, message: Any, job: Mapping[str, Any], attempt_id: uuid.UUID, attempt_token: uuid.UUID,
                 observation: Any, fixed: tuple, root: Any, *, started: float, queue_wait: float, heartbeat: Any,
                 finish: Callable[..., None]) -> None:
-    """고정 입력 fixed = (input_spec, 구성, manifest id, manifest hash, input_as_of). 실패는 호출자가 시도 실패로 처리한다."""
+    """고정 입력 fixed = (input_spec, 구성, manifest id, manifest hash, input_as_of[, readiness]). 실패는 호출자가 시도 실패로
+    처리한다. 재판정 시도(readiness.relation)도 운영 상태·관계 입력을 이 시도 시작 때 다시 고정한다(relation-rules.md 6.3)."""
     if fixed[1] is not None or "configVersionId" in fixed[0]:
         raise ValueError("input_manifest_mismatch")
+    recheck = recheck_reference(conn, observation, fixed)
     state = pin_operational_state(conn)
     models = _load_models(conn, state, observation.source_id)
+    # 관계 입력은 운영 상태 고정과 같은 트랜잭션에서 한 번 읽는다(relation-rules.md 3.2). 필요 없는 판정은 읽지 않는다.
+    raw = observation.allowed_values
+    relation = plan_relations(state, read_relation_inputs(conn, observation.source_id, observation.observation_id)
+                              if needs_relation_inputs(state, raw) else None, raw)
     with conn.cursor() as cur:
         cur.execute("SELECT content_hash FROM data_observations WHERE id=%s", (observation.observation_id,))
         source_hash = cur.fetchone()[0]
@@ -201,7 +287,7 @@ def run_attempt(conn: Any, message: Any, job: Mapping[str, Any], attempt_id: uui
         source_mode = cur.fetchone()
     conn.commit()
     recorder = InterimRecorder(conn, state, message, job["id"], attempt_id, attempt_token, started_at=started)
-    execution = execute_methods(_tasks(state, models, observation.allowed_values, root),
+    execution = execute_methods(_tasks(state, models, observation.allowed_values, root, relation),
                                 state.policy.deadline_ms, started_at=started, on_progress=recorder)
     methods = execution.methods
     if heartbeat.lost:
@@ -216,7 +302,10 @@ def run_attempt(conn: Any, message: Any, job: Mapping[str, Any], attempt_id: uui
                               telemetry=telemetry,
                               observation={"id": str(observation.observation_id), "revisionNo": observation.revision_no,
                                            "inputAsOf": fixed[4].isoformat()},
-                              input_manifest_hash=fixed[3], demo=demo, input_origin=fixed[0].get("inputOrigin"))
+                              input_manifest_hash=fixed[3], demo=demo, input_origin=fixed[0].get("inputOrigin"),
+                              evaluated_hard_ids=relation.hard_ids,
+                              relation={**relation.evidence_fields(),
+                                        **({"relationRecheck": recheck} if recheck is not None else {})})
     columns = decision_columns(evidence)
     with conn.transaction():
         if not lock_training_ownership(conn, message, job["id"], attempt_id, attempt_token):
@@ -238,8 +327,10 @@ def run_attempt(conn: Any, message: Any, job: Mapping[str, Any], attempt_id: uui
                 (uuid.uuid4(), observation.execution_id, observation.observation_id, fixed[3], fixed[4],
                  columns["status"], columns["rule_status"], columns["ml_status"], columns["decision_code"],
                  columns["anomaly_score"], json.dumps(evidence), job["id"], fixed[2], attempt_id, attempt_token))
-            cur.execute("""INSERT INTO ops_pipeline_measurements(id,observation_id,stage,config_version_id,duration_ms)
-                VALUES(%s,%s,'detector',NULL,%s)""",
-                (uuid.uuid4(), observation.observation_id, (time.monotonic() - started) * 1000))
+            if recheck is None:
+                # 재판정은 측정 행을 넣지 않는다 [제안, relation-rules.md 6.4] — 같은 관측이 지연 집계에 두 번 들어가지 않게.
+                cur.execute("""INSERT INTO ops_pipeline_measurements(id,observation_id,stage,config_version_id,duration_ms)
+                    VALUES(%s,%s,'detector',NULL,%s)""",
+                    (uuid.uuid4(), observation.observation_id, (time.monotonic() - started) * 1000))
         finish(conn, message, job, attempt_id, attempt_token,
                {"status": columns["status"], "executionCost": telemetry, "checkers": evidence["checkers"]}, None, True)

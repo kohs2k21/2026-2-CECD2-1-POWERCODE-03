@@ -1,0 +1,12 @@
+# Rule v3 기준선 1회성 GPU 시험 환경(방식 B: python:3.10-slim + 별도 venv).
+# 버전은 research/models/feature_rule_spec/requirements-verified.txt와 같다(번들 검증 환경 재현).
+# 설치는 README "환경 B" 절의 설치 전용 컨테이너에서만 한다. 운영 이미지·운영 venv에 설치하지 않는다.
+--extra-index-url https://download.pytorch.org/whl/cu129
+torch==2.11.0+cu129
+transformers==5.19.0
+accelerate==1.15.0
+peft==0.21.2
+bitsandbytes==0.50.2
+xgrammar==0.2.3
+jsonschema==4.26.0
+huggingface-hub==1.33.0

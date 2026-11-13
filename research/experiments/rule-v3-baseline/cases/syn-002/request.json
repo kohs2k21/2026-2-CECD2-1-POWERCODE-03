@@ -1,0 +1,19 @@
+{
+  "question": "Measure the PROCESS error ratio as ERROR_COUNT divided by TOTAL_COUNT.",
+  "analysis_request": {
+    "output_table": "PROCESS",
+    "result_use": "value",
+    "calculation_type": "number",
+    "required_columns": [
+      [
+        "PROCESS",
+        "ERROR_COUNT"
+      ],
+      [
+        "PROCESS",
+        "TOTAL_COUNT"
+      ]
+    ],
+    "required_relationship_ids": []
+  }
+}

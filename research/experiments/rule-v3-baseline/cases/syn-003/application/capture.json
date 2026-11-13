@@ -1,0 +1,91 @@
+{
+  "contract": "approved-metadata-capture1.0",
+  "dataset_id": "synthetic_syn-003_application",
+  "data_class": "controlled",
+  "split": "application",
+  "period": {
+    "start_inclusive": "2026-08-03T00:32:25.663000+00:00",
+    "end_exclusive": "2026-08-03T00:41:05.045001+00:00"
+  },
+  "admission": {
+    "approved": true,
+    "Body_excluded": true,
+    "held_lineage_excluded": true,
+    "complete_family_capture": true
+  },
+  "lineage_tags": [],
+  "tables": [
+    {
+      "name": "PROCESS",
+      "file": "PROCESS.csv",
+      "format": "csv",
+      "sha256": "2baa71a45ba221d4a0d9ce550ccf6d0eca34ca51f21cbf7b25cba7678b9c7dbb",
+      "row_count": 53,
+      "primary_key": [
+        "ROW_ID"
+      ],
+      "columns": [
+        {
+          "name": "ROW_ID",
+          "logical_type": "string",
+          "nullable": false,
+          "excluded": false,
+          "unit": {
+            "name": null,
+            "status": "unknown"
+          },
+          "missing_tokens": [
+            ""
+          ],
+          "description": "Sequential row identifier assigned by the capture writer."
+        },
+        {
+          "name": "ERROR_COUNT",
+          "logical_type": "number",
+          "nullable": true,
+          "excluded": false,
+          "unit": {
+            "name": "count",
+            "status": "verified",
+            "evidence_ids": [
+              "unit_PROCESS_ERROR_COUNT"
+            ]
+          },
+          "missing_tokens": [
+            ""
+          ],
+          "description": "PROCESS numeric counter from the collected row; non-numeric text is stored as missing."
+        }
+      ]
+    }
+  ],
+  "relationships": [],
+  "evidence": [
+    {
+      "id": "unit_PROCESS_ERROR_COUNT",
+      "kind": "unit",
+      "table": "PROCESS",
+      "column": "ERROR_COUNT",
+      "confirmation": "controlled_contract",
+      "value": {
+        "name": "count",
+        "meaning": "Synthetic controlled counter unit for boundary tests."
+      },
+      "source": {
+        "file": "authority.json",
+        "sha256": "239e809ab9c61f9def120a533c035061436286c5ba61fb036f4be715628b2bef",
+        "pointer": "/unit_count"
+      }
+    }
+  ],
+  "source_identity": {
+    "dataset_id": "synthetic_syn-003_application",
+    "case": "\uc815\uc0c1 \uacbd\ub85c: count \ub2e8\uc704 \uadfc\uac70\uac00 \uc788\ub294 \uc624\ub958 \uac74\uc218",
+    "origin": "synthetic seeded generator, no operational source",
+    "side": "application"
+  },
+  "transaction_families": 0,
+  "unknown": [
+    "Synthetic boundary data with no operational meaning, incident labels or online availability."
+  ]
+}

@@ -1,0 +1,85 @@
+{
+  "contract": "approved-metadata-capture1.0",
+  "dataset_id": "synthetic_syn-001_application",
+  "data_class": "controlled",
+  "split": "application",
+  "period": {
+    "start_inclusive": "2026-08-03T00:26:57.397000+00:00",
+    "end_exclusive": "2026-08-03T00:33:41.364001+00:00"
+  },
+  "admission": {
+    "approved": true,
+    "Body_excluded": true,
+    "held_lineage_excluded": true,
+    "complete_family_capture": true
+  },
+  "lineage_tags": [],
+  "tables": [
+    {
+      "name": "PROCESS",
+      "file": "PROCESS.csv",
+      "format": "csv",
+      "sha256": "add49f35e0623df13d43b911a32b0ef547fff032f800d69e2f795cf6e54aba75",
+      "row_count": 62,
+      "primary_key": [
+        "ROW_ID"
+      ],
+      "columns": [
+        {
+          "name": "ROW_ID",
+          "logical_type": "string",
+          "nullable": false,
+          "excluded": false,
+          "unit": {
+            "name": null,
+            "status": "unknown"
+          },
+          "missing_tokens": [
+            ""
+          ],
+          "description": "Sequential row identifier assigned by the capture writer."
+        },
+        {
+          "name": "START_TIME",
+          "logical_type": "datetime",
+          "nullable": true,
+          "excluded": false,
+          "unit": {
+            "name": null,
+            "status": "unknown"
+          },
+          "missing_tokens": [
+            ""
+          ],
+          "description": "PROCESS source time normalized to UTC from the raw text by the documented source-time rule."
+        },
+        {
+          "name": "END_TIME",
+          "logical_type": "datetime",
+          "nullable": true,
+          "excluded": false,
+          "unit": {
+            "name": null,
+            "status": "unknown"
+          },
+          "missing_tokens": [
+            ""
+          ],
+          "description": "PROCESS source time normalized to UTC from the raw text by the documented source-time rule."
+        }
+      ]
+    }
+  ],
+  "relationships": [],
+  "evidence": [],
+  "source_identity": {
+    "dataset_id": "synthetic_syn-001_application",
+    "case": "\uc815\uc0c1 \uacbd\ub85c: \ucc98\ub9ac \uc2dc\uac04 p95 \ube44\uad50(\ud569\uc131 smoke)",
+    "origin": "synthetic seeded generator, no operational source",
+    "side": "application"
+  },
+  "transaction_families": 0,
+  "unknown": [
+    "Synthetic boundary data with no operational meaning, incident labels or online availability."
+  ]
+}

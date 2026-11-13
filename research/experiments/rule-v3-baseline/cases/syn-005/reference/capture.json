@@ -1,0 +1,85 @@
+{
+  "contract": "approved-metadata-capture1.0",
+  "dataset_id": "synthetic_syn-005_reference",
+  "data_class": "controlled",
+  "split": "train",
+  "period": {
+    "start_inclusive": "2026-08-03T00:00:23.307000+00:00",
+    "end_exclusive": "2026-08-03T00:22:56.456000+00:00"
+  },
+  "admission": {
+    "approved": true,
+    "Body_excluded": true,
+    "held_lineage_excluded": true,
+    "complete_family_capture": true
+  },
+  "lineage_tags": [],
+  "tables": [
+    {
+      "name": "PROCESS",
+      "file": "PROCESS.csv",
+      "format": "csv",
+      "sha256": "a4c054405b63e7782f0cb0658bddc2b4b37ef97782f55b4e4be1acc4f889f4ea",
+      "row_count": 206,
+      "primary_key": [
+        "ROW_ID"
+      ],
+      "columns": [
+        {
+          "name": "ROW_ID",
+          "logical_type": "string",
+          "nullable": false,
+          "excluded": false,
+          "unit": {
+            "name": null,
+            "status": "unknown"
+          },
+          "missing_tokens": [
+            ""
+          ],
+          "description": "Sequential row identifier assigned by the capture writer."
+        },
+        {
+          "name": "ERROR_COUNT",
+          "logical_type": "number",
+          "nullable": true,
+          "excluded": false,
+          "unit": {
+            "name": null,
+            "status": "unknown"
+          },
+          "missing_tokens": [
+            ""
+          ],
+          "description": "PROCESS numeric counter from the collected row; non-numeric text is stored as missing."
+        },
+        {
+          "name": "TOTAL_COUNT",
+          "logical_type": "number",
+          "nullable": true,
+          "excluded": false,
+          "unit": {
+            "name": null,
+            "status": "unknown"
+          },
+          "missing_tokens": [
+            ""
+          ],
+          "description": "PROCESS numeric counter from the collected row; non-numeric text is stored as missing."
+        }
+      ]
+    }
+  ],
+  "relationships": [],
+  "evidence": [],
+  "source_identity": {
+    "dataset_id": "synthetic_syn-005_reference",
+    "case": "\ub2e8\uc704 \ubbf8\uac80\uc99d(\ube44\uc728) \u2192 need_verified_unit",
+    "origin": "synthetic seeded generator, no operational source",
+    "side": "reference"
+  },
+  "transaction_families": 0,
+  "unknown": [
+    "Synthetic boundary data with no operational meaning, incident labels or online availability."
+  ]
+}

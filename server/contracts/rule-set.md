@@ -1,5 +1,5 @@
 Created: 2026-11-02T18:00:00+09:00
-Updated: 2026-11-14T00:30:00+09:00
+Updated: 2026-11-14T04:00:00+09:00
 Author: Claude Code (Trainer 세션 builder)
 Status: draft
 
@@ -244,7 +244,7 @@ Status: draft
 
 - 근거: Detector 설계 [relation-rules.md](relation-rules.md)(관계 규칙·`hard:transaction-failed`·소프트룰 `scope`·hash v3 8절)와 [protocol-rules.md](protocol-rules.md)(프로토콜 규칙·`hard:unregistered-interface`). 판정 의미는 그 두 문서가 정본이고, 이 절은 **저장 형식·hash·API 저장 검증·버전 전환**만 정한다
 - 상태: 표기 없는 항목은 **[제안]**(Detector 초안). 사용자 결정에서 온 것은 [확정 11/12 사용자]·[확정 11/13 사용자]. **[확정 11/13 사용자·WebUI 수용]**(WebUI 세션이 API 관점에서 확인, 11/13): 관계 규칙 상한 200·프로토콜 항목 상한 500·경로 64×64, `byCode` 키 인쇄 가능 ASCII 1~64, 본문 두 배열 필수, `hard:unregistered-interface` 기본 꺼짐 + WebUI 미리 켬, 소프트룰 `scope` 불변, API v3 뒤 모든 저장 v3 — 아래 각 위치에도 표기
-- 구현 상태(코드 사실): API `CONTENT_HASH_VERSION = 2`(`server/backend/src/ruleset/ruleSetContract.ts:11`), Detector는 버전 1·2·3을 읽음(`server/worker/detector/operational_state.py` `HASH_VERSIONS`·`check_rule_set_version`, protocol-rules.md 10절 1단계) — v3 행은 판정이 아직 없는 요소가 켜져 있으면 시도 실패(v3.7). 10절 2~5단계로 `hard:transaction-failed`·관계 규칙 판정·scope 소프트룰 선택·관계 입력 읽기가 들어갔다(프로토콜·재판정은 아직), DB는 migration 020으로 3을 허용(`server/infra/migrations/020_rule_set_hash_v3.sql`)
+- 구현 상태(코드 사실): API `CONTENT_HASH_VERSION = 2`(`server/backend/src/ruleset/ruleSetContract.ts:11`), Detector는 버전 1·2·3을 읽음(`server/worker/detector/operational_state.py` `HASH_VERSIONS`·`check_rule_set_version`, protocol-rules.md 10절 1단계) — 10절 2~6단계로 `hard:transaction-failed`·관계 규칙 판정·scope 소프트룰 선택·관계 입력 읽기·프로토콜 판정이, 7단계로 재판정 탐색(relation-rules.md 6.5, 커서 migration 024 [제안])이 들어갔다, DB는 migration 020으로 3을 허용(`server/infra/migrations/020_rule_set_hash_v3.sql`)
 
 ### v3.1 v2와 같은 것·다른 것
 
@@ -357,8 +357,8 @@ Status: draft
 - **v1·v2 행은 그대로 읽는다**: GET·이력·hash 재계산은 행의 `content_hash_version` 규칙으로(v2 절과 같음). 행을 고치지 않는다(불변)
 - **v2 → v3 승격 규칙** [확정 11/13 사용자·WebUI 수용]: API v3가 배포된 뒤의 **모든 저장은 v3**(내용과 무관 — DB 016 뒤 "모든 저장 = 2"와 같은 방식). 관계·프로토콜 항목을 처음 저장할 때만 v3로 올리는 방식은 쓰지 않는다 — 한 API에 두 저장 규칙이 생기고, 새 내장 하드룰 2개·`{byCode, default}`도 v3에만 있어 v2 저장 경로가 정의되지 않는다. 결과: API v3 배포 뒤 첫 저장은 내용이 같아도 hash가 바뀐다(내용 비교는 `rule_set_unchanged`가 v3.6 해석으로 막는다)
 - **배포 순서**: DB 020 → Detector v3(로더 + 관계·프로토콜·새 내장 판정, protocol-rules.md 10절) → API v3(+ 같은 세션 WebUI). API v3 저장은 **Detector v3 배포 확인 뒤에만** 연다(배포 시점 상수 `CONTENT_HASH_VERSION = 3`, 실행 중 전환 스위치 없음). `approvalState`(`ruleCandidates.ts:36-38`)는 이 상수가 3이 되면 승인 단추를 연다
-- Detector v3 로더만 먼저 나가고 관계·프로토콜 판정이 아직 없으면, v3 행에 그 규칙이 있을 때 **시도 실패**(조용히 무시하지 않음, protocol-rules.md 10절 1단계). 그래서 API v3는 판정 구현까지 끝난 Detector 뒤에 연다
-  - 실패 코드(시도 실패 사유, `run_jobs` 실패 문자열) [제안 — Detector 1단계 구현 `server/worker/detector/operational_state.py` `check_rule_set_version`·`hard_rules.py` `read_hard_rule_snapshot`]: v3 행에서 **켜진** 프로토콜 항목 → `rule_set_v3_unsupported:<id>`(처음 만난 1개. 관계 규칙·`scope` 있는 소프트룰은 protocol-rules.md 10절 5단계에서 판정을 갖춰 빠졌다). 관계 규칙 저장값 이상 → `relation_rule_kind_unknown:<id>`(꺼져 있어도)·`invalid_relation_rule:<id>`, 소프트룰 scope 모양 이상 → `invalid_soft_rule_scope:<id>`. 꺼져 있거나 빈 배열이면 v2와 같이 판정. 새 내장 하드룰 2개는 3단계에서 이 목록에서 빠졌다(`hard:transaction-failed` 판정 구현, `hard:unregistered-interface`는 켜진 프로토콜 항목이 위 검사로 막혀 있어 기능 꺼짐 = 기록 없음). 판정 계획에 실행기가 없는 하드룰이 들어오면 같은 코드로 시도 실패(`hard_rules.py` `hard_rule_runners`, 방어). v1·v2 행의 v3 전용 요소 → `protocol_rules_require_v3`(`protocolRules` 키) / `relation_rules_require_v3`(`relationRules` 키·소프트룰 `scope` 키·새 내장 하드룰). v3 항목의 `enabled`가 boolean이 아니거나 배열이 아님 → `invalid_rule_set_snapshot:<relationRules|protocolRules>`. hash 불일치는 기존 `rule_set_hash_mismatch`. 이 단계를 해당 판정 구현(5·6단계 등)이 하나씩 푼다
+- (기록) Detector v3 로더만 먼저 나가고 관계·프로토콜 판정이 없던 단계에서는 v3 행에 그 규칙이 있으면 **시도 실패**(조용히 무시하지 않음, protocol-rules.md 10절 1단계)로 막았다. 지금 Detector는 1~7단계(판정·재판정)를 갖췄고 "구현 안 됨" 때문의 시도 실패는 남지 않았다. API v3는 재판정까지 갖춘 Detector와 DB 024(재판정 커서 [제안], relation-rules.md 6.5) 뒤에 연다
+  - 실패 코드(시도 실패 사유, `run_jobs` 실패 문자열) [제안 — Detector 1단계 구현 `server/worker/detector/operational_state.py` `check_rule_set_version`·`hard_rules.py` `read_hard_rule_snapshot`]: v3 행의 켜진 관계 규칙·`scope` 있는 소프트룰(protocol-rules.md 10절 5단계)·프로토콜 항목(6단계)은 판정을 갖춰 이 목록에서 모두 빠졌다. 프로토콜 항목 저장값 이상 → `invalid_protocol_rule:<id>`(꺼져 있어도, protocol-rules.md 10절 "6단계 구현 세부"). 관계 규칙 저장값 이상 → `relation_rule_kind_unknown:<id>`(꺼져 있어도)·`invalid_relation_rule:<id>`, 소프트룰 scope 모양 이상 → `invalid_soft_rule_scope:<id>`. 꺼져 있거나 빈 배열이면 v2와 같이 판정. 새 내장 하드룰 2개도 판정을 갖췄다(`hard:transaction-failed` 3단계, `hard:unregistered-interface` 6단계). 판정 계획에 실행기가 없는 하드룰이 들어오면 같은 코드로 시도 실패(`hard_rules.py` `hard_rule_runners`, 방어). v1·v2 행의 v3 전용 요소 → `protocol_rules_require_v3`(`protocolRules` 키) / `relation_rules_require_v3`(`relationRules` 키·소프트룰 `scope` 키·새 내장 하드룰). v3 항목의 `enabled`가 boolean이 아니거나 배열이 아님 → `invalid_rule_set_snapshot:<relationRules|protocolRules>`. hash 불일치는 기존 `rule_set_hash_mismatch`. 전체 시도 실패 코드 목록은 detection-decision.md 11.6
 - **되돌림(배포 되돌리기)**: 첫 v3 행이 생기기 **전에만** API를 v2 코드로, DB CHECK를 `(1,2)`로 되돌릴 수 있다(020 주석). 첫 v3 행이 생긴 뒤에는 v2 API가 그 행의 hash를 계산하지 못하고 v2 Detector는 시도를 실패시키므로 **앞으로만 고친다**(roll forward). 사용자 기능의 "되돌리기"(과거 리비전 재저장)는 이것과 별개로 v3 뒤에도 그대로 동작한다(새 v3 행으로 저장)
 
 ### v3.8 구현 시험 기준값 — v3

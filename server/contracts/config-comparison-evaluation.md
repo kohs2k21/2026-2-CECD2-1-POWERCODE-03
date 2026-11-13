@@ -1,5 +1,5 @@
 Created: 2026-10-21T00:00:00+09:00
-Updated: 2026-11-03T12:00:00+09:00
+Updated: 2026-11-13T18:30:00+09:00
 Author: Claude Code (Trainer 세션 builder)
 Status: draft
 
@@ -13,6 +13,75 @@ Status: draft
 - 범위: 평가 세트 엔티티(생성·고정·조회), 비교 작업(요청·검증·상태·결과), 적용 gate와의 관계, 기존 [합성 평가 계약](synthetic-evaluation.md) 변경 제안
 - 제외: 종합 판정 조합 규칙(Detector 계약 — 비교 결과의 `composite`는 Detector 순수 함수 호출 결과를 집계만 함), 자동 교체·자동 승인, WebUI 화면, 새 합성 생성기 설계(기존 ESB P02~P04·ADBench 프로필만 재사용)
 - 기존 규약 유지: 4종 평가 가족 봉투([JSON Schema](trainer-evaluation-envelope.schema.json))·measurement 규약·"미측정은 null+사유". `synthetic-evaluation.md`의 "합성만으로 운영 적용 검증 대체 금지"는 **[확정 10/21]** "평가 세트 비교 + 사람 수락"으로 대체 — 변경 제안 표 참조
+
+## v1 구현 범위(11/13) — 이 절이 아래 초안보다 우선
+
+- 상태: Trainer 구현(`trainer/comparison.py`, 공유 평가 핵심 `trainer/runner.py:563-725`), API·화면은 WebUI 세션. 저장은 migration 011 그대로(새 migration 없음). 아래 초안 절은 v1 이후 목표로 남김
+- 구현: 합성 없는 세트만, **작업당 modelKey 1종**(기준선 0..1개), 모델 버전 schemaVersion **1·2·3**(운영 버전은 v1·v2 — 화면 학습이 v1을 만듦), `replacementRecommendations: null`
+- 미구현: 합성 세트(`synthetic` 요청·산출물 `evaluation-sets/...json`), 한 작업의 여러 modelKey·`baselines[]` 2개 이상, `replacementRecommendations[]`, `composite`·`methodResults[]`·`categoryResults.hard/soft`·`evaluationEnvelope`, `comparison-methods-v1` 지표 버전, 조회 시 파생 필드(`recommendationState`·`ruleSetCurrent`), §4.8 자동 비교 평가
+
+### 평가 세트 생성(`kind=evaluation_set`)
+
+- API `POST /api/evaluation-sets {sourceId, snapshotId, purpose: "validation"|"test", displayName, synthetic: null}` — `synthetic`이 null이 아니면 400 `synthetic_set_unsupported`. 한 트랜잭션: `run_jobs(kind='evaluation_set', contract_version='v03', queue='training', producer_kind='user', requester_role='admin', input_snapshot_id=snapshotId)` + `data_evaluation_sets(status='queued', job_id)` + 큐 메시지 `{schemaVersion:1, jobId, enqueuedAt}`
+- `input_spec = {kind:"evaluation_set", evaluationSetId, sourceId, snapshotId, purpose}`(import_csv의 `preparedDatasetId`처럼 대상 행 id + 대조 값). Trainer는 `(evaluationSetId, job_id)`로 세트 행을 찾고 나머지 셋이 행과 다르면 실패
+- 작업 실패 코드: `evaluation_set_not_queued` / `evaluation_set_contract_mismatch` / `synthetic_set_unsupported` / `prepared_not_comparable` / `evaluation_set_snapshot_unavailable`(스냅샷이 ready·`process-v1`·같은 source 아님) / `evaluation_set_empty`(그 분할 행 0). 작업 실패 시 011 트리거가 세트를 같은 `error_code`로 `failed`
+- 성공: 세트 `ready`·`generation`·`content_hash`·`ready_at` 갱신과 작업 성공을 한 트랜잭션(lease 확인). `artifact_relative_path` NULL(산출물 없음)
+- `generation = {version:"evaluation-set-v1", rowCount, originalRowCount(=rowCount), syntheticRowCount:0, truthCount(anomaly 라벨 수), normalLabelCount, unlabeledCount, memberHash, contentHashBasis, labelSource:"manual_snapshot_evidence"}`. 라벨 = 스냅샷 멤버 `label_evidence.label`(evaluate와 같은 읽기, `normal`/`anomaly` 외는 라벨 없음)
+- `contentHash` = SHA-256(정규 JSON — 키 정렬·구분자 `,` `:`·UTF-8 — `{basis:"observation_execution_revision_content_label_v1", snapshotId, purpose, rows}`), `rows` = observationId 오름차순 `[observationId, executionId, revisionNo, 관측 content_hash, label|null]`. `memberHash` = 같은 순서 observationId 목록만의 SHA-256
+- 작업 `resultSummary = {evaluationSetId, evaluationSetContractVersion, sourceId, snapshotId, purpose, status:"ready", contentHash, synthetic:null, generation}`
+
+### 비교 접수(`kind=compare`, API)
+
+- `POST /api/jobs {kind:"compare", sourceId, evaluationSetId, configVersionIds:[...]}` 검증(400): UUID·중복, 세트 `ready`·같은 source, 버전 존재·같은 source·schemaVersion 1/2/3·`ml_config_models` **정확히 1행**(아니면 `comparison_config_not_comparable`), modelKey = `ml_config_models.model_key`, 후보 전부 같은 modelKey(아니면 `comparison_model_key_mixed`), 활성 포함 ≤8(`comparison_too_many_configs`), 빈 목록(`comparison_configs_required`)
+- 활성 자동 포함: `ops_operational_state.active_models`에서 그 modelKey 항목. `input_spec = {kind:"compare", sourceId, evaluationSetId, configVersionIds(활성 포함·중복 없음·정렬), baselines:[{modelKey, configVersionId}](0..1, 활성 없으면 []), activeModelSetRevision, ruleSetRevision, ruleSetContentHash, detectionPolicyRevision, detectionPolicy}`. 리비전·정책은 같은 뷰 한 번 읽기 값 그대로(정책 리비전 0이면 `detectionPolicy: null` — Trainer가 내장 기본 정책으로 읽음)
+
+### 실행(Trainer)
+
+- 작업 실패(재시도 없음): `invalid_job_input`, `comparison_configs_required`, `comparison_too_many_configs`, `comparison_model_key_mixed`(baselines 2개 이상 또는 실행 중 다른 modelKey 발견), `detection_policy_unavailable`·`invalid_detection_policy`·`unsupported_detection_policy`(고정 정책 판독, `operational_state._check_policy`), `evaluation_set_not_ready`, `evaluation_set_source_mismatch`, `synthetic_set_unsupported`, `rule_set_revision_mismatch`, `evaluation_set_changed`(세트 행 재계산 hash 불일치), 기준선 버전 자체가 `config_not_found`·`config_source_mismatch`(기준선 열을 채울 수 없음), `comparison_all_items_failed`
+- 순서: 활성 먼저, 후보는 UUID 문자열 정렬. 항목마다 evaluate와 같은 핵심(`_version_context`·`_measure_version`)으로 세트 행 전체를 평가. **v1·v2는 구성에 저장된 정책·룰 그대로**(evaluate v1·v2와 같음), **v3는 접수 고정 `detectionPolicy.deadlineMs`로 ML만**(시도 시작 판독 아님, 예열 포함). 재학습·운영 변경 없음
+- 룰 세트: 고정 리비전은 **적용하지 않고 기록만**(v3는 ML만, v1·v2는 구성 룰). Trainer는 `ops_rule_set_revisions`의 그 리비전 hash = `ruleSetContentHash`만 확인. 항목 ML 결과는 룰과 무관하므로 `rule_set_stale` 판정은 두지 않음
+- 항목 실패(그 항목만 `failed`, 나머지 계속; 검사 순서 = 표 순서)
+
+| 코드 | 조건 |
+|---|---|
+| `config_not_found` | 버전 행 없음(항목 표는 FK라 `summary.items`에만 남김) |
+| `config_source_mismatch` | 다른 source |
+| `comparison_config_not_comparable` | `ml_config_models` ≠ 1행 또는 판독 불가 schemaVersion |
+| `prepared_not_comparable` | prepared 계보(구성 키 또는 학습 스냅샷 `prepared-features-v1`) |
+| `method_not_executable:ml:<modelKey>` | 카탈로그에 없거나 `executable.process=false` |
+| `evaluation_failed:training_snapshot_unavailable` | 학습 스냅샷을 찾지 못해 겹침 검사 불가 |
+| `training_evaluation_overlap` | 학습 스냅샷 train과 세트 행이 observation 또는 execution 단위로 겹침(`synthetic_execution.py:183-193`과 같은 규칙, SQL 1문장) |
+| `evaluation_failed:<code>` | 평가 중 `ValueError` 코드(예 `model_unavailable`) |
+
+- 저장(한 트랜잭션, lease 상실 시 공개 없음): `run_config_comparisons`(전부 실패여도 `status='failed'`로 기록, `baseline_config_version_id` = 기준선 또는 NULL, `active_revision`, `summary`) → 성공 항목마다 `run_evaluations`(`comparison_id`·`evaluation_set_id`, 스냅샷·purpose = 세트, `evaluation_spec_version='selected-paths-v3'`, `evaluation_spec` = evaluate 형식 + `evaluationSetId`·`evaluationSetContentHash`) → `run_config_comparison_items` → 작업 성공(`result_summary` = 같은 summary), 전부 실패면 작업 `failed` + `result_summary` = 같은 summary
+- 평가 행 의미는 evaluate 행과 같음(`applicability='valid'` = 전 행 complete). `purpose=validation` 세트의 행은 기존 적용 gate 조건을 그대로 만족할 수 있음
+
+### `resultSummary` v1
+
+```json
+{"serviceContractVersion": "trainer-service-v1", "comparisonContractVersion": "config-comparison-v1", "comparisonId": "<UUID>",
+ "evaluationSet": {"id": "<UUID>", "contentHash": "…", "purpose": "validation", "rowCount": 300, "originalRowCount": 300, "syntheticRowCount": 0, "synthetic": false},
+ "baselines": [{"modelKey": "iforest", "configVersionId": "<UUID>"}], "activeModelSetRevision": 4,
+ "ruleSet": {"revision": 1, "contentHash": "…", "fixedAt": "accepted"},
+ "detectionPolicy": {"revision": 1, "policy": {"version": 2, "policyKey": "category-k-of-n-or-v1", "k": {"hard": 1, "soft": 1, "ml": 1}, "deadlineMs": 2500}, "fixedAt": "accepted"},
+ "manualApprovalRequired": true, "replacementRecommendations": null, "replacementRecommendationsReason": "not_implemented_v1",
+ "itemCount": 2, "succeededCount": 1, "failedCount": 1,
+ "items": [
+  {"configVersionId": "<UUID>", "modelKey": "iforest", "role": "active", "status": "succeeded", "errorCode": null, "evaluationId": "<UUID>",
+   "metricVersion": "selected-paths-v3", "evaluationPolicy": {"source": "configuration", "detectionPolicy": {"mode": "ml_only", "deadlineMs": 30000, "combination": "selected_path", "legacy": false}, "ruleCount": 0},
+   "applicability": "valid", "reasonCodes": ["labels_unavailable"],
+   "counts": {"populationCount": 300, "scoredCount": 300, "unavailableCount": 0, "unlabeledCount": 228},
+   "categoryResults": {"ml": {"measurementStatus": "measured", "methodCount": 1, "confusion": {"tp": 12, "fp": 5, "tn": 55, "fn": 0}, "unavailableCount": 0,
+     "completeOnly": {"recall": {"value": 1.0, "numerator": 12, "denominator": 12, "reason": null},
+                      "precision": {"value": 0.706, "numerator": 12, "denominator": 17, "reason": null},
+                      "falsePositiveRate": {"value": 0.083, "numerator": 5, "denominator": 60, "reason": null}}}}},
+  {"configVersionId": "<UUID>", "modelKey": "iforest", "role": "candidate", "status": "failed", "errorCode": "training_evaluation_overlap", "evaluationId": null}]}
+```
+
+- `evaluationPolicy`: 그 항목 평가에 실제 쓴 정책(`source: "accepted"` = v3, 접수 고정 운영 정책 / `"configuration"` = v1·v2 구성 정책). 최상위 `detectionPolicy`는 접수 고정 기록이며 v1·v2 항목에는 적용되지 않음
+- 항목 `applicability`·`counts`·`reasonCodes`는 evaluate와 같은 종합 경로 기준이라 v1·v2 `parallel` 구성은 룰 경로(구성 룰·상태 HR)를 포함하고 v3는 ML만이다. 버전끼리는 `categoryResults.ml`로 같은 기준을 비교하고 화면은 `evaluationPolicy`를 함께 보여 준다
+- `categoryResults.ml` = ML 경로 결과 기준(평가 행 `metrics.model`과 같은 집계 — 라벨 행 중 행 결과 `ml.anomalous`가 있는 행만 혼동행렬에 셈; `unavailableCount` = 모집단 − ML succeeded 행). null 규칙: 세트에 normal 라벨이 없으면 `fp`·`tn`·`precision`·`falsePositiveRate`는 0이 아니라 null + `verified_normal_labels_unavailable`, anomaly 라벨이 없으면 `tp`·`fn`·`recall`·`precision` null + `verified_anomaly_labels_unavailable`. 분모 0은 `value: null` + `no_predicted_anomalies`·`no_scored_anomaly_rows`·`no_scored_normal_rows`. ML 경로 미선택(구성 `rule_only`) `measurementStatus: "skipped"`, ML 성공 행 0 `"unavailable"`(`ml_results_unavailable`)
+- 평가 행 `metrics`는 evaluate와 같은 `selected-paths-v3` 형식 그대로(위 null 규칙은 summary에만 적용, 기존 결과 재해석 없음)
 
 ## 평가 세트 `evaluation-set-v1`
 
@@ -39,7 +108,7 @@ Status: draft
 ```
 
 - 헤더 `Idempotency-Key` 선택(기존 규약). 응답 `201 {id, jobId, status: "queued"}`; 같은 관리자·키·같은 본문 200, 다른 본문 409 `idempotency_payload_conflict`
-- 작업: `run_jobs(kind='evaluation_set', queue='training')` [확정 10/21] 새 `job_kind` 값. Trainer worker가 claim(`trainer/runner.py:678` `job_kinds`에 추가)
+- 작업: `run_jobs(kind='evaluation_set', queue='training')` [확정 10/21] 새 `job_kind` 값. Trainer worker가 claim(`trainer/runner.py:860` `job_kinds`, 11/13 v1에서 추가)
 - 서버 고정 binding(`syntheticProfileBinding`)은 현행대로 서버가 채움, 클라이언트 주입 거부
 - 상태 `queued → ready | failed`. 생성 거부·미지원·전부 미생성은 `failed` + 사유(현행 "전부 미생성은 작업 실패" 유지). 일부 시나리오만 생성된 세트는 `ready`이되 `generation.trialStatuses`에 거부·실패 수 명시
 - 산출물: `ARTIFACT_ROOT/evaluation-sets/<setId>/<content SHA>.json` [확정 10/21](현행 `evaluations/<job UUID>/<sha>.json`과 같은 저장기 `synthetic_storage.store` 재사용, 디렉터리만 추가). 내용: 원본 행 식별자 목록 hash·합성 행(주입 전후 raw 복사본 또는 수치 행)·정답(`label=1` 주입 행)·프로필·seed·세트 스냅샷 train 통계 참조 hash. 임시 파일 격리·완성 후 원자 이동·동일 내용 재시도 hash 재사용(현행 규약)
@@ -78,7 +147,7 @@ Status: draft
 
 ### 실행 — 모델 버전별 평가
 
-- Trainer가 모델 버전마다 현행 `_evaluate`와 같은 경로(`load_context` → 행마다 `compute`, `trainer/runner.py:458-531`)로 평가하되 모집단은 **세트의 고정 행**(원본 분할 행 + 합성 행). 모델·fit 재학습 없음, 운영 모델 버전 변경 없음. **활성 항목(들)을 항상 먼저 평가**(콜드 스타트 비용을 활성이 부담, `warmCold=mixed_unclassified` 보정; 활성이 여러 `modelKey`면 활성 집합 순서) [확정 10/21 R12]
+- Trainer가 모델 버전마다 현행 `_evaluate`와 같은 경로(`load_context` → 행마다 `compute`, 11/13 v1 분리 후 `trainer/runner.py:563-698` `_version_context`·`_measure_version`, evaluate는 `:727-786`)로 평가하되 모집단은 **세트의 고정 행**(원본 분할 행 + 합성 행). 모델·fit 재학습 없음, 운영 모델 버전 변경 없음. **활성 항목(들)을 항상 먼저 평가**(콜드 스타트 비용을 활성이 부담, `warmCold=mixed_unclassified` 보정; 활성이 여러 `modelKey`면 활성 집합 순서) [확정 10/21 R12]
 - 항목 실패 사유(해당 모델 버전만 `failed`, 나머지 계속) [확정 10/21] Q-F=A
 
 | 사유 코드 | 조건 |
@@ -216,8 +285,8 @@ Status: draft
 ```
 
 - 예시 JSON의 `"<…생략>"`·`"<… UUID>"`는 **자리표시 문자열**이며 이 문서의 예시 JSON은 schema 검증 대상이 아님(구문 parse만 확인). 예시 수치 정합: active 항목 라벨 20행 중 ML이 unavailable인 라벨 행 2 → `ml` 혼동행렬 tp 9 + fn 9 = 18 = `composite.completeOnly` 분모(complete 행만), `hard`·`soft`는 unavailable 0이라 분모 20
-- 혼동행렬 칸별 null 규칙(WebUI 검토 의견 8): `fp`·`tn`은 `normal` 라벨 행에서만 세므로(`trainer/runner.py:482-485, 522-531`) `labelCounts.normalLabelCount=0`이면 `fp`·`tn`은 0이 아니라 **null**, `precision`·`falsePositiveRate`도 null+`verified_normal_labels_unavailable`. 같은 식으로 `anomalyLabelCount=0`이면 `tp`·`fn`·`recall` null. **충돌**: 현행 `classification_metrics`(`runner.py:487-492`)는 fp=0으로 두고 `precision=tp/tp`를 계산하므로 `comparison-methods-v1`은 이 null 규칙을 새로 적용(기존 `selected-paths-v3` 결과 재해석 없음). `hitCount`는 라벨 무관 hit 수
-- `composite`: Detector 순수 함수(종합 판정)의 행별 결과를 집계만 함. **정책 k > n 규칙** [확정 Detector 11/02 Q-E6]: 접수 시 고정한 운영 설정 `k.ml`이 항목의 ML 방법 수 n_ml(= 1)보다 크면 그 항목의 `composite`를 **생략**(`composite: null`)하고 항목 `reasonCodes`에 `composite_unavailable:policy_k_exceeds_single_model`을 기록 — 비교 계산에서 `k`를 조용히 바꾸지 않음(Q-M8과 일관). 1차 구현에서는 정책 저장이 `k` 모두 1을 강제하므로(#92 U4 확정 11/03, [model-version.md](model-version.md) 운영 설정 절) 이 분기는 발동하지 않으며 U4 완화 시를 위한 규칙. `composite`는 참고 표시라 추천 판단에 영향 없음. `completeOnly`(현행 기준, `trainer/runner.py:530-531`)와 `decidable`(None만 제외) **병기** — 예시 active 항목: 라벨 20행 중 complete 18행(tp 10·fn 8), partial+True 1행(decidable에서 tp 11), partial+None 1행(둘 다 제외). **[확정 Q7 C, 10/21]** `completeOnly`·`decidable` 두 기준을 각각 `coverage`(분모/전체)·`unavailableCount`와 함께 **항상 병기**(생략 분기 없음). 편향 방향은 `biasNote`로 표기. `completeOnly.hitCount` = 라벨 무관 종합 판정 true 행 수(세트 경보율·경보/일 추정 참고용) [확정 10/21 R11]
+- 혼동행렬 칸별 null 규칙(WebUI 검토 의견 8): `fp`·`tn`은 `normal` 라벨 행에서만 세므로(`trainer/runner.py:606-609, 654-663`) `labelCounts.normalLabelCount=0`이면 `fp`·`tn`은 0이 아니라 **null**, `precision`·`falsePositiveRate`도 null+`verified_normal_labels_unavailable`. 같은 식으로 `anomalyLabelCount=0`이면 `tp`·`fn`·`recall` null. **충돌**: 현행 `classification_metrics`(`runner.py:611-616`)는 fp=0으로 두고 `precision=tp/tp`를 계산하므로 `comparison-methods-v1`은 이 null 규칙을 새로 적용(기존 `selected-paths-v3` 결과 재해석 없음). `hitCount`는 라벨 무관 hit 수
+- `composite`: Detector 순수 함수(종합 판정)의 행별 결과를 집계만 함. **정책 k > n 규칙** [확정 Detector 11/02 Q-E6]: 접수 시 고정한 운영 설정 `k.ml`이 항목의 ML 방법 수 n_ml(= 1)보다 크면 그 항목의 `composite`를 **생략**(`composite: null`)하고 항목 `reasonCodes`에 `composite_unavailable:policy_k_exceeds_single_model`을 기록 — 비교 계산에서 `k`를 조용히 바꾸지 않음(Q-M8과 일관). 1차 구현에서는 정책 저장이 `k` 모두 1을 강제하므로(#92 U4 확정 11/03, [model-version.md](model-version.md) 운영 설정 절) 이 분기는 발동하지 않으며 U4 완화 시를 위한 규칙. `composite`는 참고 표시라 추천 판단에 영향 없음. `completeOnly`(현행 기준, `trainer/runner.py:662-663`)와 `decidable`(None만 제외) **병기** — 예시 active 항목: 라벨 20행 중 complete 18행(tp 10·fn 8), partial+True 1행(decidable에서 tp 11), partial+None 1행(둘 다 제외). **[확정 Q7 C, 10/21]** `completeOnly`·`decidable` 두 기준을 각각 `coverage`(분모/전체)·`unavailableCount`와 함께 **항상 병기**(생략 분기 없음). 편향 방향은 `biasNote`로 표기. `completeOnly.hitCount` = 라벨 무관 종합 판정 true 행 수(세트 경보율·경보/일 추정 참고용) [확정 10/21 R11]
 - `categoryResults{hard,soft,ml}`: 대분류 결과(Detector 1단계 결과, detection-decision.md(#92)) 기준 혼동행렬. `hard`·`soft`는 고정된 룰 세트 리비전의 켜진 룰 수(`ruleCount`), `ml`은 그 모델 버전의 방법 수(`methodCount`, 항상 1 — 비교 항목은 모델 버전 1개씩이며 활성 집합 전체를 재현하지 않음). 켜진 룰 0개·방법 0개는 `measurementStatus: skipped`. **`hard`·`soft` 결과는 모든 항목에서 동일 입력·동일 룰이므로 항목 간 차이는 `ml`과 조합(`composite`)에서만 생김**. U(정상 여부 미확인, 대분류 결과 None) 행의 집계 기준은 composite와 같은 Q7 C: `completeOnly`(대분류 방법 전부 succeeded인 행만)·`decidable`(대분류 결과 None만 제외, T는 partial이어도 포함) 두 기준을 병기하고 각각 `coverage`·`unavailableCount`를 붙임
 - v1 운영 모델 버전과 v3 후보를 같은 세트로 비교할 때 Detector 행동 변경 2(방법 단위 실행 후 등록 Rule 예외가 상태 HR 이상을 지우지 않음, 10/21 결정 D4-1 — #92 Detector 결정 D4와 다른 번호)로 드물게 v1·v3의 `composite`가 같은 입력에서 달라질 수 있음 — 차이는 `items[].metricVersion`·`detectionPolicy`(v2)로 구분하고 결과를 재해석하지 않음
 - `methodResults[]`: 켜진 하드룰·소프트룰(고정 리비전)·활성 ML 방법마다 1개, 방법별 결과 형식(detection-decision.md(#92) evidence v4)의 상태 집계. 행의 `category`(`hard`/`soft`/`ml`)는 evidence v4 `methodResults[]` 필드명과 맞춤(#92 11.5). **비활성 방법·꺼진 룰은 배열에 넣지 않음**(#92 11.5)이므로 `measurementStatus`는 `measured` / `unavailable`만(`skipped` 없음 — 대분류 단위 skipped는 `categoryResults`에만). **룰 결과 값 집계 `resultCounts`**(hard·soft 행): evidence v4 `rules[].result` 값 목록 **`hit` / `no_hit` / `unavailable` / `not_applicable`**(Detector #92 11/02) 그대로 4칸을 셈 — **4칸 합 = 그 방법이 시도한 행 수 = 항목 `counts.populationCount`**(라벨 유무 무관, 예시 1200). **`not_applicable`은 정상(no hit, N)으로 집계** — 혼동행렬에서 `no_hit`과 같은 칸(예 `hard:negative-duration`의 END_TIME 없음 `end_time_absent`, 소프트룰 `elapsed_ms`의 END_TIME 누락 null — 둘 다 "이상 아님"), `unavailable`만 분모에서 빠짐. 사유별 건수는 `notApplicableReasons`(hard, Detector reason 값)·`unavailableReasons`. `measurementStatus`는 **집계 측정 상태**이며 evidence v4 `methodResults[].status` enum(`succeeded/not_ready/failed` — v4에 `skipped` 없음, #92 11.5)과 다른 필드(이름 충돌 방지, Detector 의견 9). 실행 불가 방법이 활성인 모델 버전은 항목 자체가 `failed`(실행 절 사유 표)이므로 성공 항목의 `methodResults`에 `method_not_executable` 결과는 생기지 않음(예시 2번째 항목). 라벨 있는 행만 혼동행렬, `unavailableReasons`는 사유별 건수. ML `score` 척도는 방법마다 다르므로 비교·합산하지 않음(표시만)
@@ -262,7 +331,7 @@ Status: draft
 
 - 최종 관문은 **사람의 수락**. gate는 **기술 무결성만** 검사: 버전 `executable=true`(실행 불가 방법 없음), 산출물 경로·hash 검증(`applications.prepare_config`), 평가 행의 `scored_count>0 AND unavailable_count=0`(모든 행 complete·방법 결과 unavailable 0), prepared 계보 아님
 - "원본 validation 평가 필수"는 **"평가 세트 비교(합성 행 포함 허용) + 사람 수락"으로 대체** [확정]. 적용 요청 `evaluationId`에는 비교 작업이 만든 모델 버전별 `run_evaluations` 행(세트 `purpose=validation`)을 허용하며, 세트에 합성 행이 있어도 기술 무결성을 만족하면 `applicability='valid'`
-  - **충돌(구현 Issue)**: 현행은 합성 평가를 `applicability='unmeasured'`·`synthetic_not_operational_validation`으로 강제(`trainer/runner.py:571-574`). `comparison-methods-v1`에서는 합성 행 포함 여부를 `reasonCodes`에 `synthetic_set_evaluation`(정보성)으로만 남기고 applicability는 기술 무결성으로 판단. 기존 `evaluate`(`synthetic-method-v1`) 결과는 재해석하지 않음
+  - **충돌(구현 Issue)**: 현행은 합성 평가를 `applicability='unmeasured'`·`synthetic_not_operational_validation`으로 강제(`trainer/runner.py:764-766`). `comparison-methods-v1`에서는 합성 행 포함 여부를 `reasonCodes`에 `synthetic_set_evaluation`(정보성)으로만 남기고 applicability는 기술 무결성으로 판단. 기존 `evaluate`(`synthetic-method-v1`) 결과는 재해석하지 않음
   - `synthetic-evaluation.md` "합성 측정 완료만으로 운영 적용의 원본 validation 검증을 대체하지 않음"은 변경 제안 표에 [확정 근거] 표기(아래)
 - gate 조건 SQL(`configRoutes.ts:90-99`, `applications.py:102-109`)은 형식상 불변(`purpose='validation' AND applicability='valid' AND scored_count>0 AND unavailable_count=0`); 바뀌는 것은 Trainer가 비교 행의 applicability를 정하는 규칙과 `executable` 검사 추가
 - `purpose=test` 세트의 행은 gate 증거로 쓰지 않음(현행 유지). 기존 `evaluate` 원본 validation 행도 계속 유효
@@ -279,7 +348,7 @@ Status: draft
 | 평가 요청 절 "snapshot 분할·회원/원본 행·선정 정책 불변; 생성 통계는 train만, 변형은 선택 validation/test 복사본만" | 구성 학습 스냅샷 기준 | "생성 통계는 **세트 스냅샷** train만" 으로 명시 |
 | 결과·재현 절 "합성 산출물은 `evaluations/<job UUID>/<content SHA>.json`" | 작업별 저장 | "세트 산출물은 `evaluation-sets/<setId>/<content SHA>.json`, 작업별 평가 산출물은 기존 경로" 추가 |
 | 결과·재현 절 "SR 실제 미연결은 null+사유" | SR 자리 고정 | #94: 통계 SR 폐기 — `sr*` 셀은 `not_applicable/sr_removed`, 룰 결과는 `hard`·`soft`로 표기, 실행 불가 ML 방법은 `method_not_executable` |
-| 결과·재현 절 마지막 "합성 측정 완료만으로 운영 적용의 원본 validation 검증을 대체하지 않음" | 합성 평가는 gate 불통 | **[확정 근거: 사용자 10/21, 설계 방향 4.4절]** "평가 세트 비교(합성 행 포함 허용)의 기술 무결성 검사 + 사람 수락이 운영 적용 관문이며, 자동 교체는 금지"로 교체. `runner.py:571-574` 강제 unmeasured는 `evaluate` 경로에만 남김 |
+| 결과·재현 절 마지막 "합성 측정 완료만으로 운영 적용의 원본 validation 검증을 대체하지 않음" | 합성 평가는 gate 불통 | **[확정 근거: 사용자 10/21, 설계 방향 4.4절]** "평가 세트 비교(합성 행 포함 허용)의 기술 무결성 검사 + 사람 수락이 운영 적용 관문이며, 자동 교체는 금지"로 교체. `runner.py:764-766` 강제 unmeasured는 `evaluate` 경로에만 남김 |
 | 제외 절 "최종 시나리오/모델 선정" | 유지 | "비교 결과의 자동 순위·자동 선정" 추가; "교체 추천(`replacementRecommendations[]`, modelKey별)은 선정이 아니라 수락 대기 제안" 보완 |
 
 - `trainer-service.md` 영향: 완료 결과 절에 `kind=compare`의 `resultSummary` 형식 링크 추가("`replacementRecommendations[]`(modelKey별)은 `replacement-recommendation-v1` 규칙으로 완료 시 1회 계산·불변" 포함), `queues.md` Trainer 행에 `evaluation_set`·`compare` 추가

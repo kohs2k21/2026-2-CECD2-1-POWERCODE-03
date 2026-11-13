@@ -6,6 +6,7 @@ import userRoutes from './routes/userRoutes.js';
 import anomalyRouter from './routes/anomalyRoutes.js';
 import ruleRouter from './routes/ruleRoutes.js';
 import jobRouter from './routes/jobRoutes.js';
+import featureSetRouter from './routes/featureSetRoutes.js';
 import configRouter from './routes/configRoutes.js';
 import pipelineRouter from './routes/pipelineRoutes.js';
 import inputRouter from './routes/inputRoutes.js';
@@ -15,6 +16,7 @@ import ruleSetRouter from './routes/ruleSetRoutes.js';
 import preparedDatasetRouter from './routes/preparedDatasetRoutes.js';
 import { createMeRouter, createNotificationRouter } from './routes/notificationRoutes.js';
 import { createActiveModelRouter, createOperationalStateRouter } from './routes/activeModelRoutes.js';
+import { createComparisonRouter, createEvaluationSetRouter } from './routes/comparisonRoutes.js';
 import { checkDatabaseConnection } from './config/database.js';
 
 const app = express();
@@ -51,6 +53,8 @@ app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/anomaly', anomalyRouter);
 app.use('/api/rules', ruleRouter);
+// 입력 변수 세트 등록·필드 목록. 처리하지 않는 요청(세트 목록)은 아래 jobRouter로 넘어간다.
+app.use('/api/jobs/feature-sets', featureSetRouter);
 app.use('/api/jobs', jobRouter);
 app.use('/api/configurations', configRouter);
 app.use('/api/pipeline', pipelineRouter);
@@ -58,6 +62,8 @@ app.use('/api/inputs', inputRouter);
 app.use('/api/operations', operationsRouter);
 app.use('/api/active-models', createActiveModelRouter());
 app.use('/api/operational-state', createOperationalStateRouter());
+app.use('/api/evaluation-sets', createEvaluationSetRouter());
+app.use('/api/comparisons', createComparisonRouter());
 
 // 공통 오류 처리
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {

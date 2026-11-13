@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { paths, workStepCount } from "@/app/routes";
 import { DescriptionList } from "@/components/layout/DescriptionList";
@@ -13,7 +14,7 @@ import { numberText } from "@/features/operations/format";
 import { useUrlStep } from "@/hooks/useUrlState";
 import { useDraftStore } from "@/stores/draftStore";
 import { EMPTY_DRAFT, MAX_COMPARE, compareRequest, includedActive, pickedVersions, writeCompareDraft, type CompareDraft } from "./compareDraft";
-import { NOT_CONNECTED, evaluationCapabilities, requestComparison } from "./evaluationsApi";
+import { evaluationCapabilities, requestComparison } from "./evaluationsApi";
 import { ruleConditionText, setUnitLabel } from "./evaluationFormat";
 import { SetStep } from "./SetStep";
 import { TargetStep } from "./TargetStep";
@@ -33,6 +34,18 @@ export const CompareArea = () => {
   const [requesting, setRequesting] = useState(false);
   const [requestError, setRequestError] = useState<string | null>(null);
   const area = useRef<HTMLDivElement>(null);
+  const queryClient = useQueryClient();
+  const submitted = useRef(false);
+  useEffect(() => () => {
+    if (submitted.current) useDraftStore.getState().discard(paths.detectionEvaluations);
+  }, []);
+  // 모델 교체 2단계의 '+ 새 비교 평가'는 교체할 버전을 넘긴다. 진입 때 한 번 초안의 비교 모델로 넣는다(세트 기본 스냅샷도 그 버전의 학습 스냅샷이 된다).
+  const incoming = (location.state as { compareVersionId?: string } | null)?.compareVersionId;
+  useEffect(() => {
+    if (!incoming) return;
+    writeCompareDraft((current) => ({ ...current, versionIds: current.versionIds.includes(incoming) ? current.versionIds : [...current.versionIds, incoming], setFormOpen: current.setId ? current.setFormOpen : true }));
+    navigate(location.pathname + location.search, { replace: true, state: null });
+  }, [incoming, navigate, location.pathname, location.search]);
 
   const set = sets.data?.items.find((item) => item.id === draft.setId && item.status === "ready") ?? null;
   const picked = pickedVersions(versions.data ?? [], draft);
@@ -60,8 +73,12 @@ export const CompareArea = () => {
     setRequestError(null);
     try {
       const job = await requestComparison(compareRequest(set, picked));
-      useDraftStore.getState().discard(paths.detectionEvaluations);
-      navigate(paths.detectionJob(job.id));
+      // 비교 묶음은 완료 때 생기므로 상세는 작업 ID로 연다(같은 상세 API가 받는다). 완료될 때까지 상태를 다시 읽는다.
+      // 접수한 초안은 저장된 것으로 두고(이탈 확인 없음) 떠난 뒤 지운다. 먼저 지우면 단계 정규화가 이 화면 1단계 주소로 되돌린다.
+      useDraftStore.getState().markSaved(paths.detectionEvaluations);
+      submitted.current = true;
+      navigate(paths.detectionEvaluation(job.id));
+      await Promise.all(["comparisons", "recent-comparisons"].map((name) => queryClient.invalidateQueries({ queryKey: [name] })));
     } catch (error) {
       setRequestError(errorCode(error));
     } finally {
@@ -107,7 +124,6 @@ export const CompareArea = () => {
               ]}
             />
             {ruleRevision.isError && <ErrorState title={`룰 버전 조회 실패 · ${errorCode(ruleRevision.error)}`} onRetry={() => void ruleRevision.refetch()} retryLabel="다시 조회" />}
-            {!evaluationCapabilities.createComparison && <p className="text-sm text-warning-text">확인 필요 · 비교 평가 요청: {NOT_CONNECTED}</p>}
             {requestError && <Alert variant="destructive" data-compare-error><AlertDescription>비교 평가 요청 실패 · {requestError}</AlertDescription></Alert>}
             <div className="flex justify-between">
               <Button asChild variant="outline"><Link to={hrefFor(2)}>이전</Link></Button>

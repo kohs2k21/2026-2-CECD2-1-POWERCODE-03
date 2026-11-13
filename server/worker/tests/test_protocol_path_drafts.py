@@ -1,6 +1,6 @@
 """프로토콜 경로 초안(`protocolPathDrafts`, recommend_relations 결과 항목) 단위 시험.
 
-작은 메모리 fixture만 쓰고 DB·네트워크·고객 데이터 없음. 정의: Detector contracts/protocol-rules.md 3.2·3.4·9절(fafc630).
+작은 메모리 fixture만 쓰고 DB·네트워크·고객 데이터 없음. 정의: Detector contracts/protocol-rules.md 3.2·3.4·9절.
 """
 import itertools
 import sys
@@ -119,7 +119,7 @@ class RouteDefinitionTests(unittest.TestCase):
         self.assertEqual(transaction_routes([P("T1", "A", channel=" X ")])[1], [((" X ",), ["A"])])
 
     def test_reason_priority(self):
-        """824d0b9 3.2 끝: ① graph_truncated ② 단계 번호가 작은 것 ③ 같은 단계면 3.4 표 순서(다른 묶음끼리 포함)."""
+        """protocol-rules.md 3.2 끝: ① graph_truncated ② 단계 번호가 작은 것 ③ 같은 단계면 3.4 표 순서(다른 묶음끼리 포함)."""
         # ① 200행 초과면 PROCESS_ID 없음이 있어도 graph_truncated
         rows = [P("T1", "ROOT")] + [P("T1", f"L{i:03d}", "ROOT") for i in range(199)] + [P("T1", None, "ROOT")]
         self.assertEqual(reason(rows), "graph_truncated")

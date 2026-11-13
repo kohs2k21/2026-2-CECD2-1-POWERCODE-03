@@ -327,6 +327,9 @@ export async function readDecisionList(db: Pick<Pool, 'connect'>, filter: Analys
   try {
     // 건수·페이지·SSE 커서를 한 스냅샷에서 읽는다(건수와 목록이 서로 다른 시점이 되지 않게).
     await client.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY');
+    // JIT 끔(이 트랜잭션만): 검색어 조건의 행별 하위 조회 때문에 예상 비용이 jit_inline/optimize 기준(기본 500000)을 크게 넘어
+    // 실행보다 JIT 컴파일(식 수백 개 인라인·최적화)이 수 초 더 걸린다. 결과는 같고 계획 선택에도 영향이 없다.
+    await client.query('SET LOCAL jit = off');
     const { rows: [row] } = await client.query(`WITH ${ITEMS_CTE}${searchCte}, filtered AS (SELECT * FROM items i WHERE ${conditions.join(' AND ')})
       SELECT (SELECT jsonb_build_object(${counts}) FROM items) AS counts,
         (SELECT count(*)::integer FROM filtered) AS total,

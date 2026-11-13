@@ -1505,6 +1505,24 @@ Table ops_user_protocol_alert_reads {
   Note: '023. 프로토콜 알림 항목별 읽음(022 항목 읽음과 같은 규칙). item_key protocol:<sha256 64 hex>.'
 }
 
+Table run_recheck_runs {
+  id uuid [pk]
+  seq bigint [not null, unique, increment]
+  source_id uuid [not null]
+  transaction_cursor_at timestamptz [not null]
+  transaction_cursor_id uuid [not null]
+  event_cursor bigint [not null]
+  transactions integer [not null]
+  candidates integer [not null]
+  enqueued integer [not null]
+  started_at timestamptz [not null]
+  finished_at timestamptz [not null, default: `clock_timestamp()`]
+  indexes {
+    (source_id, seq) [name: 'run_recheck_runs_cursor_idx', note: 'seq DESC; last cursor lookup']
+  }
+  Note: '024 [제안, DB 세션 확정 대기]. 관계 규칙 재판정 탐색 1회(원본 1개) = 1행, 실행 트랜잭션 끝에 INSERT. transaction_cursor_* = 마지막으로 처리한 TRANSACTION 관측 (persisted_at, id), event_cursor = 마지막으로 읽은 run_decision_events.id(≥ 0). seq = GENERATED ALWAYS identity, advisory lock(81742,0) 아래에서만 INSERT라 seq 순서 = 커밋 순서. 건수 3종 ≥ 0, finished_at ≥ started_at. 불변(019와 같은 문장 단위 트리거).'
+}
+
 Ref: ops_demo_passes.run_id > ops_demo_runs.id
 Ref: data_demo_deliveries.pass_id > ops_demo_passes.id
 Ref: data_observations.id - data_demo_deliveries.observation_id
@@ -1561,3 +1579,4 @@ Ref: run_incident_members.added_by_run > run_incident_runs.id
 Ref: run_incident_events.incident_id > run_incidents.id
 Ref: run_incident_events.target_incident_id >? run_incidents.id
 Ref: run_incident_events.added_by_run > run_incident_runs.id
+Ref: run_recheck_runs.source_id > ops_sources.id

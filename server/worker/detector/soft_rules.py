@@ -7,6 +7,7 @@ from typing import Any, Mapping
 
 from derived_expression import FIELDS, evaluate as evaluate_derived, validate as validate_derived
 from detector.method_results import SEVERITIES, method_category, method_result, source_absent, unresolved_result
+from detector.relation_graph import graph_value_absent
 from detector.rules import evaluate_rules
 from methods.registry import SOFT_RULE_FIELDS
 
@@ -76,6 +77,29 @@ def _valid_definition(rule: Mapping[str, Any], field: Any, columns: list[str] | 
 def soft_rule_fields() -> dict[str, dict[str, Any]]:
     """카탈로그 softRuleFields 항목을 fieldId별로 돌려준다. 정본은 #111 레지스트리다."""
     return {item.field_id: item.to_catalog() for item in SOFT_RULE_FIELDS}
+
+
+# scope 키 → 판정 PROCESS 열(relation-rules.md 4절). interfaceId는 표시용이라 대조하지 않는다.
+SCOPE_COLUMNS = (("processId", "process_id"), ("adapterType", "adapter_type"), ("processHubId", "process_hub_id"))
+
+
+def in_scope(rule: Mapping[str, Any], raw: Mapping[str, Any]) -> bool:
+    """scope가 없으면 전역. 있으면 값이 있는 판정 키마다 판정 PROCESS 원래 값과 정확 일치(trim 없음).
+
+    대조 값이 없음(graph_value_absent)이거나 문자열이 아니면 적용 안 함. 맞지 않는 규칙은 그 판정의
+    methodResults·n에서 빠진다(n 부풀림 방지).
+    """
+    scope = rule.get("scope")
+    if scope is None:
+        return True
+    for key, column in SCOPE_COLUMNS:
+        expected = scope.get(key)
+        if expected is None:
+            continue
+        actual = raw.get(column)
+        if not isinstance(actual, str) or graph_value_absent(actual) or actual != expected:
+            return False
+    return True
 
 
 def unresolved_soft_result(rule: Mapping[str, Any], cause: str, *, status: str = "not_ready",

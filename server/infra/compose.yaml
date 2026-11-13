@@ -207,6 +207,21 @@ services:
     healthcheck:
       disable: true
 
+  # 관계 규칙 재판정 탐색 주기 작업(contracts/relation-rules.md 6.1). 거래 행 도착 확정 뒤 보류 판정의 v04 재판정 작업을 1회 넣는다.
+  # migration 024(run_recheck_runs, DB 세션 확정 전 [제안])가 필요해 profile로만 켠다(`--profile relation-recheck`). API v3 저장을 열기 전에 켠다.
+  # 상태 확인 HTTP가 없어 healthcheck는 끈다.
+  recheck:
+    <<: *worker
+    profiles: [relation-recheck]
+    command: [python, -m, detector.recheck_job, --interval, "30"]
+    cpus: ${RECHECK_CPUS:-0.5}
+    mem_limit: ${RECHECK_MEMORY:-512m}
+    environment:
+      <<: *worker-environment
+      DATABASE_URL: ${DETECTOR_DATABASE_URL:-${DATABASE_URL:?Set DATABASE_URL}}
+    healthcheck:
+      disable: true
+
   monitor:
     <<: *worker
     profiles: [monitoring]

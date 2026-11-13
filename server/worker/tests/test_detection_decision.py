@@ -202,6 +202,14 @@ class BuiltInHardRules(unittest.TestCase):
              "severity": "critical"},
             {"id": "hard:count-conservation", "methodVersion": "count-conservation-v1",
              "displayName": "건수 합계 불일치", "conditionText": "TOTAL_COUNT ≠ SUCCESS_COUNT + ERROR_COUNT",
+             "severity": "critical"},
+            # rule-set.md v3.5: v3 전용 내장 규칙 2개(v1·v2 행에는 없다).
+            {"id": "hard:transaction-failed", "methodVersion": "transaction-failed-v1", "displayName": "거래 실패",
+             "conditionText": "거래 STATUS = F, 응답 코드가 0000·S·없음이 아님",
+             "severity": {"byCode": {}, "default": "warning"}},
+            {"id": "hard:unregistered-interface", "methodVersion": "unregistered-interface-v1",
+             "displayName": "등록되지 않은 인터페이스",
+             "conditionText": "프로토콜 설정에 없는 인터페이스의 거래(켜진 프로토콜 항목이 1개 이상일 때만)",
              "severity": "critical"}])
 
     def test_process_status_codes_and_default_levels(self):

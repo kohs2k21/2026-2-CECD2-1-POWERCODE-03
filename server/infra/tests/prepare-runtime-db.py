@@ -17,9 +17,9 @@ files=('001_postgres_queues.sql','002_core_erd.sql','003_erd_v03_enums.sql','004
        '013_legacy_function_search_path.sql','014_analysis_workflow.sql','015_rule_set_revisions.sql','016_detect_v04_contract.sql',
        '017_recommend_thresholds.sql','018_decision_observation_index.sql',
        '019_incidents.sql','020_rule_set_hash_v3.sql','021_recommend_relations.sql','022_user_settings_notifications.sql',
-       '023_protocol_alert_actions.sql')
+       '023_protocol_alert_actions.sql','024_relation_recheck_runs.sql')
 with psycopg.connect(url,autocommit=True) as admin:
-    for name in ('qa_research_pipeline','qa_pipeline','qa_trainer_service','qa_metrics_service','qa_synthetic_service','qa_prepared_csv_service','qa_operations_service','qa_rule_set_service','qa_rule_set_models','qa_active_models_service','qa_analysis_service','qa_detection_decision','qa_notifications_service'):
+    for name in ('qa_research_pipeline','qa_pipeline','qa_trainer_service','qa_metrics_service','qa_synthetic_service','qa_prepared_csv_service','qa_operations_service','qa_rule_set_service','qa_rule_set_models','qa_active_models_service','qa_analysis_service','qa_detection_decision','qa_notifications_service','qa_feature_sets_service'):
         # Existing QA databases fail here; no DROP or existing-schema changes.
         admin.execute(sql.SQL('CREATE DATABASE {}').format(sql.Identifier(name)))
         database_url=urlunsplit(parsed._replace(path='/'+name))

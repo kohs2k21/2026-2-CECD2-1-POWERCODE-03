@@ -3,10 +3,12 @@ from __future__ import annotations
 
 import ast
 from concurrent.futures import Future
+import hashlib
 import json
 import os
 from pathlib import Path
 from queue import SimpleQueue
+import re
 import sys
 import threading
 import time
@@ -19,7 +21,8 @@ import numpy as np
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from detector import jobs
 from detector.evidence_v4 import PinnedRevisions, build_evidence
-from detector.hard_rules import HARD_RULES, PROCESS_STATUS, read_hard_rule_snapshot, unresolved_hard_result
+from detector.hard_rules import (HARD_RULES, PROCESS_STATUS, V3_HARD_RULE_IDS, read_hard_rule_snapshot,
+                                 unresolved_hard_result)
 from detector.method_results import method_result, ml_method_result, unresolved_result
 from detector.method_runner import MethodOutcome, MethodTask, execute_methods
 from detector.operational_state import pin_operational_state, rule_set_content_hash
@@ -40,9 +43,13 @@ def hard(rule_id, enabled=True, severity="critical", **extra):
     return {"id": rule_id, "enabled": enabled, "severity": severity, **extra}
 
 
+# v1·v2 행에 들어갈 수 있는 내장 하드룰(v3 전용 2개 제외).
+V2_HARD_RULES = [rule for rule in HARD_RULES if rule["id"] not in V3_HARD_RULE_IDS]
+
+
 def snapshot(hard_rules=None, soft_rules=()):
     return {"hardRules": hard_rules if hard_rules is not None else [
-        {**rule, "enabled": True} for rule in HARD_RULES], "softRules": list(soft_rules)}
+        {**rule, "enabled": True} for rule in V2_HARD_RULES], "softRules": list(soft_rules)}
 
 
 class FakeCursor:
@@ -108,7 +115,7 @@ class RuleSetHash(unittest.TestCase):
 
     def test_unknown_version_and_malformed_snapshot_fail(self):
         with self.assertRaisesRegex(ValueError, "rule_set_hash_version_unknown"):
-            rule_set_content_hash(snapshot(), 3)
+            rule_set_content_hash(snapshot(), 4)
         for broken in ({"hardRules": [{"id": "hard:process-status"}], "softRules": []},
                        {"hardRules": [], "softRules": [{**SOFT, "threshold": "8000"}]},
                        {"hardRules": []}):
@@ -160,7 +167,7 @@ class Pinning(unittest.TestCase):
                 pin_operational_state(FakeConn(content=content))
 
     def test_no_active_method_fails(self):
-        content = snapshot([{**rule, "enabled": False} for rule in HARD_RULES])
+        content = snapshot([{**rule, "enabled": False} for rule in V2_HARD_RULES])
         with self.assertRaisesRegex(ValueError, "detection_methods_empty"):
             pin_operational_state(FakeConn(content=content))
 
@@ -187,6 +194,159 @@ class Pinning(unittest.TestCase):
                   "deadlineMs": 3000}
         with self.assertRaisesRegex(ValueError, "combination_k_out_of_range:hard"):
             pin_operational_state(FakeConn(policy_revision=1, policy=policy))
+
+
+RULE_SET_MD = WORKER.parents[0] / "contracts" / "rule-set.md"
+STATUS = hard("hard:process-status", severity={"byCode": BYCODE})
+BASE_HARD = [hard("hard:count-conservation"), hard("hard:negative-duration"), STATUS, hard("hard:success-with-error")]
+TX_FAILED, UNREGISTERED = "hard:transaction-failed", "hard:unregistered-interface"
+
+
+def protocol(rule_id, interface_id, paths, enabled=True, severity="warning", **extra):
+    return {"id": rule_id, "interfaceId": interface_id, "severity": severity, "enabled": enabled,
+            "paths": [{"channels": list(path)} for path in paths], **extra}
+
+
+def v3(hard_rules=(), soft_rules=(), relation_rules=(), protocol_rules=()):
+    return {"hardRules": list(hard_rules), "softRules": list(soft_rules),
+            "relationRules": list(relation_rules), "protocolRules": list(protocol_rules)}
+
+
+# rule-set.md v3.8 기준값 (c)~(h)의 입력(저장 형식). threshold는 저장 형식대로 number.
+V3_VECTORS = {
+    "c": v3(BASE_HARD + [hard(TX_FAILED, False, {"byCode": {}, "default": "warning"}), hard(UNREGISTERED)]),
+    "d": v3(BASE_HARD + [hard(TX_FAILED, True, {"byCode": {"E901": "critical"}, "default": "warning"}),
+                         hard(UNREGISTERED, severity="warning")],
+            [{**SOFT, "scope": {"processId": "IF_A_PR002", "adapterType": "HTTP"}}],
+            [{"id": "hard:rel-3f9a2c1d", "kind": "precedes", "scope": {"adapterType": "HTTP"},
+              "from": {"processId": "IF_A_PR001"}, "to": {"processId": "IF_A_PR002"}, "match": None,
+              "severity": "critical", "enabled": True, "source": {"jobId": "출처는 hash 입력이 아니다"}},
+             {"id": "hard:rel-0a1b2c3d", "kind": "required_step", "scope": {"interfaceId": "IF_A"},
+              "from": {"processId": "IF_A_PR001"}, "to": None, "match": None, "severity": "warning", "enabled": True}],
+            [{**protocol("hard:proto-5c1e9a07", "IF_A", [("CH_A", "채널C", "CH_B"), ("CH_A", "CH_B")],
+                         severity="critical"), "source": {"jobId": "출처는 hash 입력이 아니다"}}]),
+    "e": v3(protocol_rules=[protocol("hard:proto-00000000", "IF_B", [("\U00010400",), ("Ａ",)], False, "info")]),
+    "f": v3([hard(TX_FAILED, True, {"byCode": {"9": "critical", "10": "warning", "0100": "critical",
+                                               "8888": "info", "E901": "warning"}, "default": "warning"})]),
+    "g": v3(protocol_rules=[protocol("hard:proto-0000000a", "IF_C", [("A", "B"), ("A-",), ("A:B",), ("A%",)])]),
+    "h": v3(protocol_rules=[protocol("hard:proto-0000000b", "IF_D", [("A:",), ("A%3A",)])]),
+}
+
+
+def documented_v3_vectors():
+    """rule-set.md v3.8의 (c)~(h) 직렬화 문자열·SHA-256(문서가 정본)."""
+    text = RULE_SET_MD.read_text(encoding="utf-8")
+    section = text[text.index("### v3.8"):text.index("## 저장소 요구사항")]
+    found = {}
+    for line in section.splitlines():
+        match = re.match(r"- \(([c-h])\) .*직렬화 문자열 `(.+?)` → SHA-256 `([0-9a-f]{64})`", line)
+        if match:
+            found[match.group(1)] = (match.group(2), match.group(3))
+    return found
+
+
+class RuleSetHashV3(unittest.TestCase):
+    def test_documented_vectors_match_python_canonical_hash(self):
+        documented = documented_v3_vectors()
+        self.assertEqual(sorted(documented), list("cdefgh"))
+        for name, (serialized, digest) in documented.items():
+            with self.subTest(vector=name):
+                self.assertEqual(hashlib.sha256(serialized.encode("utf-8")).hexdigest(), digest)
+                self.assertEqual(rule_set_content_hash(V3_VECTORS[name], 3), digest)
+
+    def test_by_code_order_does_not_depend_on_input_order(self):
+        reordered = {"byCode": {"E901": "warning", "8888": "info", "10": "warning", "9": "critical",
+                                "0100": "critical"}, "default": "warning"}
+        content = v3([hard(TX_FAILED, True, reordered)])
+        self.assertEqual(rule_set_content_hash(content, 3), documented_v3_vectors()["f"][1])
+
+    def test_display_interface_and_source_are_not_hash_input(self):
+        base = V3_VECTORS["d"]
+        changed = json.loads(json.dumps(base))
+        changed["softRules"][0]["scope"]["interfaceId"] = "표시용"
+        changed["relationRules"][0]["scope"]["interfaceId"] = "표시용"
+        changed["protocolRules"][0]["paths"][0]["source"] = {"kind": "alert"}
+        self.assertEqual(rule_set_content_hash(changed, 3), rule_set_content_hash(base, 3))
+        changed["relationRules"][1]["scope"]["interfaceId"] = "IF_B"  # required_step은 판정 키
+        self.assertNotEqual(rule_set_content_hash(changed, 3), rule_set_content_hash(base, 3))
+
+    def test_v2_rows_keep_v2_hash(self):
+        self.assertEqual(rule_set_content_hash(snapshot(), 2), R1_HASH)
+        self.assertNotEqual(rule_set_content_hash(snapshot(), 3), R1_HASH)
+
+    def test_malformed_v3_parts_fail_as_hash_mismatch(self):
+        for broken in (v3(BASE_HARD + [hard(TX_FAILED, False, {"byCode": [], "default": "warning"})]),
+                       v3(BASE_HARD + [hard(TX_FAILED, False, {"byCode": {}, "other": "x"})]),
+                       v3(BASE_HARD, soft_rules=[{**SOFT, "scope": "IF_A"}]),
+                       v3(BASE_HARD, protocol_rules=[{**protocol("hard:proto-00000001", "IF_A", [("A",)]),
+                                                      "paths": [{"channels": "A"}]}]),
+                       v3(BASE_HARD, relation_rules=[{"id": "hard:rel-00000001", "kind": "precedes"}])):
+            with self.assertRaisesRegex(ValueError, "rule_set_hash_mismatch"):
+                rule_set_content_hash(broken, 3)
+
+
+class RuleSetV3Pinning(unittest.TestCase):
+    """protocol-rules.md 10절 1단계: 판정이 아직 없는 v3 요소가 켜져 있으면 시도 실패, 꺼져 있으면 v2와 같은 판정."""
+
+    def pin(self, content, version=3):
+        return pin_operational_state(FakeConn(content=content, version=version))
+
+    def test_disabled_or_empty_v3_row_pins_like_v2(self):
+        v2_state = pin_operational_state(FakeConn(content=snapshot(soft_rules=[SOFT])))
+        disabled = json.loads(json.dumps(V3_VECTORS["d"]))
+        for item in disabled["hardRules"]:
+            item["enabled"] = item["id"] not in (TX_FAILED, UNREGISTERED)
+        for key in ("relationRules", "protocolRules"):
+            for item in disabled[key]:
+                item["enabled"] = False
+        disabled["softRules"] = [{**SOFT, "id": "soft:elapsed_ms-00000001", "scope": None},
+                                 {**SOFT, "enabled": False, "scope": {"processId": "IF_A_PR002"}}]
+        empty = v3(BASE_HARD + [hard(TX_FAILED, False, {"byCode": {}, "default": "warning"}),
+                                hard(UNREGISTERED, False)], soft_rules=[SOFT])
+        for content in (disabled, empty, v3(BASE_HARD, soft_rules=[SOFT])):
+            with self.subTest(content=sorted(content)):
+                state = self.pin(content)
+                # 꺼진 v3 규칙의 위험도는 읽어 두지만 판정 입력(켜진 규칙·상태 규칙 단계)은 v2와 같다.
+                self.assertEqual((state.hard_rules.enabled_ids, state.hard_rules.status_level_items),
+                                 (v2_state.hard_rules.enabled_ids, v2_state.hard_rules.status_level_items))
+                self.assertEqual(state.policy, v2_state.policy)
+        self.assertEqual([rule["id"] for rule in self.pin(disabled).soft_rules], ["soft:elapsed_ms-00000001"])
+
+    def test_enabled_v3_parts_pin(self):
+        # 6단계 뒤 켜진 v3 요소(관계 규칙·scope 소프트룰·프로토콜 항목)는 모두 고정된다.
+        self.assertEqual([rule.id for rule in self.pin(v3(BASE_HARD, protocol_rules=V3_VECTORS["d"]["protocolRules"]))
+                          .protocol_rules], ["hard:proto-5c1e9a07"])
+        state = self.pin(v3(BASE_HARD, soft_rules=V3_VECTORS["d"]["softRules"],
+                            relation_rules=V3_VECTORS["d"]["relationRules"]))
+        self.assertEqual([rule.id for rule in state.relation_rules], ["hard:rel-3f9a2c1d", "hard:rel-0a1b2c3d"])
+        self.assertEqual([rule["id"] for rule in state.soft_rules], [SOFT["id"]])
+
+    def test_v3_only_parts_in_v1_v2_rows_fail(self):
+        cases = {
+            "relation_rules_require_v3": [{**snapshot(), "relationRules": []},
+                                          snapshot(soft_rules=[{**SOFT, "scope": None}]),
+                                          snapshot([*snapshot()["hardRules"], hard(UNREGISTERED, False)])],
+            "protocol_rules_require_v3": [{**snapshot(), "protocolRules": []}],
+        }
+        for code, contents in cases.items():
+            for content in contents:
+                for version in (1, 2):
+                    with self.subTest(code=code, version=version):
+                        with self.assertRaisesRegex(ValueError, f"^{code}$"):
+                            self.pin(content, version)
+
+    def test_v3_hash_mismatch_uses_existing_path(self):
+        content = V3_VECTORS["c"]
+        wrong = rule_set_content_hash(content, 2)  # v2 규칙으로 계산한 값은 v3 행과 맞지 않는다
+        conn = FakeConn(content=content, version=3,
+                        rows=[(1, wrong, 3, 0, [], 0, None)], stored=(wrong, 3, content))
+        with self.assertRaisesRegex(ValueError, "^rule_set_hash_mismatch$"):
+            pin_operational_state(conn)
+
+    def test_invalid_v3_item_shape_fails(self):
+        content = v3(BASE_HARD, protocol_rules=[{**protocol("hard:proto-00000001", "IF_A", [("A",)]), "enabled": "yes"}])
+        with self.assertRaisesRegex(ValueError, "invalid_rule_set_snapshot:protocolRules"):
+            self.pin(content)
 
 
 def result(method_id, anomalous=False):

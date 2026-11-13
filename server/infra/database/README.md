@@ -1,5 +1,5 @@
 Created: 2026-10-12T02:06:03+09:00
-Updated: 2026-11-12T21:50:00+09:00
+Updated: 2026-11-13T19:00:00+09:00
 Author: contracts_page_reviewer
 Status: current
 
@@ -7,7 +7,7 @@ Status: current
 
 - Issue #32 기준: 최신 PostgreSQL·공통 규약·LLM 기획 반영. `schema.dbml`은 최종 목표 구조의 시각화, 실행 원본은 migration SQL
 - 목표 구조(Issue #32 당시): public 28테이블 + `powercode_queue` 기존 물리 큐 2테이블. 기존 public 24테이블 보존, BODY·BODY 연결·불변 입력·LLM 결과 4테이블만 추가
-- 현재 `schema.dbml`: 001~023 전체 반영, public 70테이블 + `powercode_queue` 5테이블. 004_feature_pipeline·005~009 추가분 24테이블 보강, 011 3테이블·012 1테이블·014 3테이블·015 3테이블·019 4테이블·022 4테이블·023 2테이블 추가. 013(#82)은 함수 설정만 바꿔 DBML 변경 없음
+- 현재 `schema.dbml`: 001~023 전체 + 024 [제안] 반영(024 절), public 71테이블 + `powercode_queue` 5테이블. 004_feature_pipeline·005~009 추가분 24테이블 보강, 011 3테이블·012 1테이블·014 3테이블·015 3테이블·019 4테이블·022 4테이블·023 2테이블·024 1테이블 추가. 013(#82)은 함수 설정만 바꿔 DBML 변경 없음
 - 기존 001/002 불변. 003/004는 서버 미적용; ERD 등록·SQL 검수와 실제 운영 적용 구분
 - PostgreSQL 17.11 실제 public24+queue2 존재 확인 기록과 정합. 서버 schema/version 이력 및 완전 DDL 일치는 별도 사전 확인 필요
 
@@ -197,7 +197,7 @@ SELECT r.rolname,
 - 읽기 기준(DB 강제 아님): 실행별 최신 판정 = `PARTITION BY d.execution_id ORDER BY o.revision_no DESC NULLS LAST, d.decided_at DESC, d.event_sequence DESC`. 해제·구성원 수는 읽을 때 계산
 - append-only: 4표 모두 `BEFORE UPDATE OR DELETE OR TRUNCATE FOR EACH STATEMENT` 트리거(004 `erd_v03_immutable()` 재사용, 015 방식. 006 행 단위보다 TRUNCATE·0행 문장까지 넓게 거부) + 권한 SELECT·INSERT만. 신뢰 경계는 015와 같음
 - 권한: `powercode_detector` 4표 SELECT·INSERT + `run_incident_events_id_seq` USAGE(006 `run_decision_events`와 같은 형식), `powercode_api` 4표 SELECT. Trainer·LLM·Collector 권한 없음
-- advisory lock 분류(코드 grep 확인): 81732 Trainer 카탈로그, 81733 파이프라인 관측, 81734 API `jobRoutes.ts` LLM 재사용 키, 81735 Collector 원천·창 감시와 API `preparedDatasetRoutes.ts` 준비 CSV, 81736 판정 이벤트, 81737 데모 실행, 81738 Collector input_store, 81739 룰 세트·활성 집합·정책 저장, 81740 Detector manifest, 81741 장애 묶음(019), 94732 API ruleRepository
+- advisory lock 분류(코드 grep 확인): 81732 Trainer 카탈로그, 81733 파이프라인 관측, 81734 API `jobRoutes.ts` LLM 재사용 키, 81735 Collector 원천·창 감시와 API `preparedDatasetRoutes.ts` 준비 CSV, 81736 판정 이벤트, 81737 데모 실행, 81738 Collector input_store, 81739 룰 세트·활성 집합·정책 저장, 81740 Detector manifest, 81741 장애 묶음(019), 81742 관계 규칙 재판정 탐색(024 [제안]), 94732 API ruleRepository
 - 시험(`erd-v03-incidents.mjs`, `erd-v03.mjs`가 호출): `erd019`(001~018 + 019 한 문자열, 제약·partial UNIQUE·지연 FK·트리거 카탈로그, 역할 5개 권한 정확 일치, 실제 LOGIN Detector 쓰기·읽기와 API 읽기·INSERT 거부, 실행 행 마지막 커밋 성공·실행 행 없음 COMMIT 23503, 중복 판정 ON CONFLICT 0행·일반 INSERT 23505, 병합 2회·자기 대상·대상 없음, 이어짐 중복·자기 참조, 시각 기준 값, 커서 역순, 비객체 기준, 런타임 역할 UPDATE·DELETE 42501, 소유자 UPDATE·DELETE·TRUNCATE P0001). 함께 바꾼 기존 시험: 015 시점에 역할 스크립트를 적용하는 `erd110_fresh`는 019 GRANT 블록을 빼고 적용, 017·018 문장 단위 DB(`erd124_upgrade`·`erd124_rollback`·`erd124_single`·`erd129_upgrade`)는 parity 전에 이후 파일까지 적용, `prepare-runtime-db.py` 목록에 019 추가
 
 ## 020 룰 세트 hash 버전 3 허용
@@ -239,6 +239,17 @@ SELECT r.rolname,
 - 권한: `powercode_api` keeps SELECT·INSERT(수정·삭제 없음), reads SELECT·INSERT·UPDATE·DELETE. Detector·Collector·Trainer·LLM 권한 없음
 - 시험(`erd-v03-protocol-alerts.mjs`, `erd-v03.mjs`가 호출): `erd023`(001~023 한 문자열, PK·FK 없음·트리거 없음 카탈로그, DBML parity, 역할 5개 권한 정확 일치, 실제 LOGIN API 기록 INSERT·ON CONFLICT DO NOTHING·UPDATE/DELETE 42501·읽음 upsert·정리, 다른 역할 42501, CHECK 경계). API 경로는 `backend/tests/notifications.integration.mjs`
 - 함께 바꾼 기존 시험: `prepare-runtime-db.py` 목록에 023 추가
+
+## 024 관계 규칙 재판정 탐색 커서 [제안, DB 세션 확정 대기]
+
+- 실험 기능(룰 세트 v3 7단계 재판정 탐색, `contracts/relation-rules.md` 6.5). Detector 세션이 제안한 파일이고 번호·표 형태·권한은 DB 세션이 확정한다. 번호 022는 사용자별 설정(위 절), 023은 WebUI 브랜치(프로토콜 알림 조치)가 쓰므로 024를 씀
+- 파일 `024_relation_recheck_runs.sql`, 021 이후 한 번 실행(`psql -v ON_ERROR_STOP=1 -f`, 022·023과 서로 의존 없어 023보다 먼저 적용해도 됨), 기존 표 소유자로 실행. 새 표 1개·트리거 1개만, 새 함수 없음(004 `erd_v03_immutable()` 재사용), 단일 BEGIN..COMMIT. FK 생성이 `ops_sources`에 짧은 SHARE ROW EXCLUSIVE. 자동 down migration 없음(표가 비어 있으면 DROP TABLE)
+- 표 `run_recheck_runs`(Detector 쓰기, 다른 역할 접근 없음): 탐색 1회(원본 1개) = 1행, 실행 트랜잭션 끝에 INSERT. 거래 관측 커서 `transaction_cursor_at`·`transaction_cursor_id`, 판정 이벤트 커서 `event_cursor`(≥ 0), 건수 3종 ≥ 0, `finished_at ≥ started_at`. 마지막 커서 = 원본별 `seq` 최대 행(인덱스 `run_recheck_runs_cursor_idx`), `seq`는 GENERATED ALWAYS identity이고 advisory lock(81742, 0) 아래에서만 INSERT라 순서 = 커밋 순서
+- append-only: `BEFORE UPDATE OR DELETE OR TRUNCATE FOR EACH STATEMENT` 트리거(019와 같음) + 권한 SELECT·INSERT만. 1회 보장은 이 표가 아니라 `run_input_manifests UNIQUE(source_id, content_hash)`(004)라 표를 잃어도 재판정이 두 번 생기지 않음(커서가 처음부터 다시 읽을 뿐)
+- 권한: `powercode_detector` SELECT·INSERT + `run_recheck_runs_seq_seq` USAGE
+- **배포 순서: `scripts/database-roles.sql`은 024를 전제한다**(024 GRANT 줄이 `run_recheck_runs`를 가리킴). 024 없이 역할 스크립트를 다시 적용하면 그 GRANT에서 실패하므로 DB 024 → 역할 스크립트 재적용 → Detector v3·`recheck` 서비스(Compose profile `relation-recheck`) → DB 023(WebUI 브랜치) → API v3 저장·WebUI 순. 024를 늦추려면 역할 스크립트의 024 블록을 빼고 적용
+- advisory lock 81742: 재판정 탐색(024 표 쓰기 트랜잭션). 같은 트랜잭션에서 81740(manifest)만 이어서 잡고 81741과 함께 잡지 않음
+- DBML: `schema.dbml`에 `run_recheck_runs`와 `ops_sources` FK를 반영(ERD 시험 parity가 모든 migration 파일을 적용한 뒤 비교하므로). ERD node 시험 파일(`erd-v03-*.mjs`)에 024 전용 검사는 아직 없음 — DB 세션 확정 때 추가
 
 ## 큐와 소유권
 
@@ -284,6 +295,7 @@ SELECT r.rolname,
 - 평가한 동일 피처/fit/Rule/ML/임계값 묶음만 승인·준비·실제 적용. CAS와 실제 워커 로드·장애 복구는 별도 runtime 구현
 - 기존 `ops_storage_measurements` 재사용. BODY 저장소와 파일저장소 포함 실제 capacity/used/available 계측, 동일 filesystem 중복 합산 금지, stale/unavailable를 정상으로 대체하지 않음
 - 권한(`scripts/database-roles.sql`, #138): `ops_storage_measurements`는 `powercode_api` SELECT만(`/api/operations/storage` 읽기). 다른 런타임 역할 권한 없음. 새 migration 없이 DBA가 역할 스크립트 재적용. 서버 연결을 API 역할로 띄운 HTTP 200·SELECT 전용을 `backend/tests/operations-grants.integration.mjs`(CI 단계 "Operations API runtime-role grants")가 확인
+- 권한(`scripts/database-roles.sql`, 입력 변수 세트 등록): `ml_feature_versions`·`ml_feature_sets`·`ml_feature_set_members`에 `powercode_api` INSERT 추가(SELECT는 기존). 화면이 고른 필드로 `operator_defined` 세트를 `pg_advisory_xact_lock(81732,1)` 아래 SELECT·INSERT만으로 등록한다(trainer-service.md 입력 변수 세트 등록 규칙, contracts/models-ui.md). UPDATE·DELETE 없음, 행은 004 불변 trigger 유지. 새 migration 없이 DBA가 역할 스크립트 재적용. API 역할 등록·수정 거부는 `backend/tests/feature-sets.integration.mjs`(CI 단계 "Feature set registration API under runtime role")가 확인
 - 신규 불변 테이블의 DELETE도 차단. 보존 기간 만료 purge·참조 해제·감사 삭제 절차는 이번 범위 미구현; 관리자 임의 trigger 해제로 삭제하지 않음
 - snapshot·운영/감사 참조 무결성·백업/복원 확보 후 보존 정책 결정. 자동 cascade/purge 없음
 

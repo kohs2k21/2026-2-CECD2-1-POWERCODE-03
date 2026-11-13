@@ -1,5 +1,5 @@
 Created: 2026-11-13T15:40:00+09:00
-Updated: 2026-11-14T00:30:00+09:00
+Updated: 2026-11-14T04:00:00+09:00
 Author: Claude Code — Detector 세션(builder)
 Status: draft — 실험 기능 설계(구현 계획·구현 상태는 10절)
 
@@ -155,7 +155,7 @@ Status: draft — 실험 기능 설계(구현 계획·구현 상태는 10절)
 | 거래 행 아직 없음 ∧ 기능 켜짐 ∧ 판정 관측 `transaction_id` 있음 | 5.1 relationNotes `deferred_to_transaction`(인터페이스를 아직 모름) |
 | 켜진 항목 있음 | 그 항목으로 경로 판정(5절) — 방법 `hard:proto-<id>` |
 | 꺼진 항목 있음 ∧ 기능 켜짐 | 적용 안 함(relationNotes `not_applicable` / `protocol_disabled`) |
-| 항목 없음 ∧ 기능 켜짐 ∧ `hard:unregistered-interface` 켜짐 | **T** `PROTO_INTERFACE_UNREGISTERED` + 알림 근거(경로를 만들 수 없어도 T — 인터페이스가 처음이라는 사실만으로 이상) |
+| 항목 없음 ∧ 기능 켜짐 ∧ `hard:unregistered-interface` 켜짐 | **T** `PROTO_INTERFACE_UNREGISTERED` + 알림 근거(경로를 만들 수 없어도 T — 인터페이스가 처음이라는 사실만으로 이상). **예외: PROCESS 입력 상한 초과(`graph_truncated`)** → T가 아니라 `hard:unregistered-interface` 보류 `capacity` + `graph_truncated`(붙이는 판정을 정할 수 없어 그 거래의 모든 판정에서 평가하므로 판정마다 이상이 반복되지 않게 — 켜진 항목·`required_step`과 같은 규칙) |
 | 항목 없음 ∧ (기능 꺼짐 또는 미등록 규칙 꺼짐) | 적용 안 함, 기록 없음 |
 | 없음 값(대표 행 `interface_id` 없음) ∧ 기능 켜짐 | 미등록 규칙 켜짐 → `hard:unregistered-interface` 보류 `input_missing` + `interface_absent`. 미등록 규칙 꺼짐 → relationNotes `not_applicable` / `interface_absent` |
 | 인터페이스 모름(대표 행 모호 ∧ 후보 `interface_id`가 서로 다르거나 없음 포함) ∧ 기능 켜짐 | 미등록 규칙 켜짐 → `hard:unregistered-interface` 보류 `input_invalid` + `transaction_row_ambiguous`. 미등록 규칙 꺼짐 → relationNotes `not_applicable` / `transaction_row_ambiguous` |
@@ -171,7 +171,7 @@ Status: draft — 실험 기능 설계(구현 계획·구현 상태는 10절)
 ### 5.1 자리·시점 — 관계 규칙 `required_step`과 같은 자리 [확정 11/13 사용자: 같은 판정 자리 / 세부 제안]
 
 - 평가는 **거래 행이 있을 때만**: 첫 판정 시도 시작 때 이미 있거나, 거래 행 도착 재판정 때(relation-rules.md 3.1 `required_step`·6절과 같음)
-- "거래 행이 있음"은 relation-rules.md 3.4의 **도착 확정**(실행 1건 이상, 모든 실행의 `persisted_at` ≤ 판정 읽기 시각 − 30초, DB 시계, 상수 `TRANSACTION_SETTLE_SECONDS`)이다. 확정 전에는 경로를 만들지 않고 아래 `deferred_to_transaction`으로 남긴다 — CSV 재생은 거래 행을 PROCESS보다 먼저 커밋하므로 거래 행만 보고 경로를 만들면 뒤 단계가 빠진 경로로 오탐한다(10절 한계)
+- "거래 행이 있음"은 relation-rules.md 3.4의 **도착 확정**(실행 1건 이상, 모든 실행의 `persisted_at` ≤ 판정 읽기 시각 − 30초, DB 시계, 상수 `TRANSACTION_SETTLE_SECONDS`)이다. 확정 전에는 경로를 만들지 않고 아래 `deferred_to_transaction`으로 남긴다 — CSV 재생은 거래 행을 PROCESS보다 먼저 커밋하므로 거래 행만 보고 경로를 만들면 뒤 단계가 빠진 경로로 오탐한다(10절 한계). 그 결과 CSV 재생의 첫 판정은 거의 항상 `deferred_to_transaction`이고 프로토콜은 사실상 7단계 재판정에서 판정된다(relation-rules.md 3.4)
 - 붙이는 판정 = 그 거래에서 가장 늦게 끝난 PROCESS의 판정(relation-rules.md 3.1 "붙이는 판정" 규칙 그대로). 다른 판정에서는 적용 안 함(기록 없음)
 - 첫 판정 때 거래 행이 아직 없고 기능이 켜져 있으며 판정 관측 `transaction_id`가 있으면(없으면 3.1a — 평가하지 않음): relationNotes `{ruleId: null, kind: "protocol", result: "deferred_to_transaction", reason: null, waitingFor: {layer: "T"}}`(인터페이스를 아직 모르므로 `ruleId` null). n에 넣지 않는다
 - 입력: relation-rules.md 3.2의 관계 입력 읽기를 그대로 쓴다. 읽는 조건에 "**프로토콜 기능 켜짐**"을 더하고, PROCESS 행 읽기에 `channel_id`를 더한다. 판정 PROCESS 실행은 관계 규칙과 같이 `focus` 관측(3.1). 새 조회는 없다
@@ -196,7 +196,7 @@ Status: draft — 실험 기능 설계(구현 계획·구현 상태는 10절)
 
 ### 5.3 알림 근거 `evidence.protocolReview` [제안 — WebUI·API가 읽는 필드]
 
-- 프로토콜 방법이 **T일 때만** 판정 evidence 최상위에 둔다(N·보류·적용 안 함이면 키 없음). 알림 목록은 최신 판정(018 순서) 중 이 키가 있는 판정에서 만든다
+- 프로토콜 방법이 **T일 때만** 판정 evidence 최상위에 둔다(N·보류·적용 안 함이면 키 없음). 기준은 **최종 `methodResults`**의 그 방법(항목 `hard:proto-<id>`, 미등록이면 `hard:unregistered-interface`)이 `anomalous: true`인지다 — 입력 평가가 T였어도 시간 초과·규칙 슬롯 부족으로 결과가 `not_ready`이면 키를 두지 않는다. 알림 목록은 최신 판정(018 순서) 중 이 키가 있는 판정에서 만든다
 
 ```json
 {"version": 1, "kind": "path_unmatched",
@@ -212,7 +212,7 @@ Status: draft — 실험 기능 설계(구현 계획·구현 상태는 10절)
 |---|---|
 | `kind` | `path_unmatched`(항목 있음, 경로 불일치) / `interface_unregistered`(항목 없음) |
 | `protocolRuleId` | `interface_unregistered`이면 null |
-| `routes` | 3.2 경로 전부. `path_unmatched`는 경로를 모두 만들었을 때만 나므로 항상 채워진다. `interface_unregistered`는 경로를 만들 수 없어도 T이므로 그때 `[]` + `routesReason` = 3.2 2~8단계 사유 |
+| `routes` | 3.2 경로 전부. `path_unmatched`는 경로를 모두 만들었을 때만 나므로 항상 채워진다. `interface_unregistered`는 경로를 만들 수 없어도 T이므로 그때 `[]` + `routesReason` = 3.2 2~8단계 사유(입력 상한 `graph_truncated`는 4.1 표 예외로 보류라 이 키가 생기지 않는다) |
 | `pathKey` | 채널마다 process-graph.md id 이스케이프(`%` → `%25` 다음 `:` → `%3A`) 뒤 `:`로 이음. 알림 묶음 키 = (`interfaceId`, `pathKey`). 쪼개 읽지 않는다(원값은 `channels`) |
 | `endpoints` | `{start, end, matchesRoutes, ambiguous}`. 거래 대표 행 `start_channel_id`·`end_channel_id` 원래 값(없음이면 null)과 "모든 경로의 첫 채널 = start ∧ 마지막 채널 = end" 여부. `start`·`end` 중 하나라도 null이거나 `routes`가 `[]`이면 `matchesRoutes: null`(비교하지 않음). 대표 행이 모호하면(3.1a) `start`·`end`·`matchesRoutes` 모두 null, `ambiguous: true`(아니면 false). **판정에 쓰지 않음**(3.3 (b)) |
 
@@ -260,7 +260,7 @@ Status: draft — 실험 기능 설계(구현 계획·구현 상태는 10절)
 | Trainer | `protocolPathDrafts`를 3절 정의로 집계: 연속 채널 합치지 않음, 갈라진 거래는 경로별로 셈(`branching` 제외 삭제, `fromBranching` 표시), 상한 64, 사유 이름 3.4, 시작 단계는 정확히 `NONE`, `endpoint_mismatch`는 정보 건수. 출력 형식: 인터페이스별 경로를 **거래 수 내림차순, 같으면 pathKey 코드 포인트 오름차순**으로 정렬해 앞 **64개**(4절 항목당 경로 저장 상한)만 내고, 나머지는 `omittedPaths: {paths, transactions}`(잘린 경로 수, 잘린 경로들의 거래 수 합 — 갈라진 거래는 여러 번 셀 수 있음)로 요약한다. `ratio`·`rare`·`status`·`distinctPaths`는 **자르기 전 전체 경로** 기준으로 계산한다. `transaction_id_missing`은 거래가 아니라 행 단위라 별도 키 `transactionIdMissingRows`(건수)로 낸다 |
 | API | v3 저장(6절), `protocolRules` 검증(4절 422·상한), id 생성, `hard:unregistered-interface` 내장 목록, 경고 `protocol_unregistered_without_entries`, 알림 버튼용 경로 추가 저장 |
 | WebUI | 프로토콜 설정 화면, `evidence.protocolReview` 알림·버튼, 그래프 process 노드 `channelId` 추가(같은 경로를 그리기 위해 — process-graph.md 개정은 WebUI 몫), 8절 질문 전달 |
-| DB | 새 표 없음. 재판정 커서 저장 위치는 relation-rules.md 10절 그대로 |
+| DB | 프로토콜 전용 새 표 없음. 재판정 커서는 Detector 제안 migration 024 `run_recheck_runs`(relation-rules.md 6.5·10절) 확정 요청 |
 | 데이터 접근 | 단계 채널과 거래 행 시작·끝 채널 관계 확인(3.3 (b)) |
 
 ## 10. Detector 구현 계획 — 룰 세트 v3 판정 전체 [제안]
@@ -275,17 +275,29 @@ Status: draft — 실험 기능 설계(구현 계획·구현 상태는 10절)
 | 3 | 내장 하드룰 `hard:transaction-failed`(7절)·`hard:unregistered-interface`(4.1) | `hard_rules.py`(`HARD_RULES`·`read_hard_rule_snapshot`·`HardRuleSelection`), `method-catalog.json`·`methods/registry.py` | 단위: 거래 행 0·1·여러 실행, 응답 코드 제외 목록, 위험도 `{byCode, default}` | API 내장 목록 |
 | 4 | 판정 조립: 과제 사전 분류(relation-rules.md 3.3), `_rank`(내장 → relation 저장 순 → protocol 저장 순), 대조 집합, relationNotes·`protocolReview` 기록 | `attempt_v04.py`(`_tasks`·`run_attempt`), `decision.py`(`_rank`), `evidence_v4.py`(`_check_hard_rules`·`build_evidence`) | 단위: 방법 순서·n, 중간/최종 n 일치 | — |
 | 5 | 관계 규칙 판정 kind 3종 + soft `scope` 선택 | 신규 `relation_rules.py`, `attempt_v04.py` | 단위: relation-rules.md 3.1·5절 표 행마다 1건 | Trainer 후보 형식 |
-| 6 | 프로토콜 판정(3절 경로, 5절 판정, 4.1 미등록) | 신규 `protocol_rules.py` | 단위: 3.4 사유마다 1건, 갈라짐 2경로(하나 불일치 → T), 기능 꺼짐 → 기록 없음, 미등록 → T | Trainer 같은 정의(공용 시험 벡터 파일을 두면 Trainer도 사용 — 권고) |
+| 6 | 프로토콜 판정(3절 경로, 5절 판정, 4.1 미등록) | 신규 `protocol_rules.py` | 단위: 3.4 사유마다 1건, 갈라짐 2경로(하나 불일치 → T), 기능 꺼짐 → 기록 없음, 미등록 → T | Trainer 같은 정의 — 공용 시험 벡터 [protocol-path-vectors.json](protocol-path-vectors.json)(Trainer 시험도 읽기 권고) |
 | 7 | 재판정: 탐색 주기 작업(거래 관측 커서·판정 이벤트 커서, 잠금 81742), 사전 검사 ①~⑤, `process-input-v2-recheck` 작업 생성, `readiness.relation` 검사 | 신규 `recheck_job.py`, `jobs.py`(재판정 작업 생성), `runner.py`(`relationRecheck` 기록·실행 위치) | 통합(임시 DB): 거래 행 도착 → 30초 뒤 1회, 두 번째 삽입 무시, 24시간 밖 제외 | DB 커서 저장 위치 |
 | 8 | 나머지 계약 반영: detection-decision.md(4.1·4.2·11.4·11.6·11.7)·queues.md(rule-set.md는 0단계) | `server/contracts/` | 문서 검토 | 각 세션 합의 |
 
 - 배포: Detector v3(1~7)는 API v3 저장보다 먼저. 1만 먼저 배포해도 v3 행을 읽을 수 있지만 관계·프로토콜 판정이 없으면 v3 행의 새 규칙은 시도 실패로 막아야 한다(조용히 무시 금지) — 1단계에서 "v3 행에 아직 구현 안 된 kind가 있으면 시도 실패"를 넣고 5·6단계에서 푼다
-  - 1단계 실패 코드(시도 실패 사유, `run_jobs` 실패 문자열) [제안 — Detector 1단계 구현 `server/worker/detector/operational_state.py` `check_rule_set_version`·`hard_rules.py` `read_hard_rule_snapshot`]: v3 행에서 **켜진** 프로토콜 항목 → `rule_set_v3_unsupported:<id>`(처음 만난 1개. 관계 규칙·`scope` 있는 소프트룰은 5단계에서 빠졌다). 꺼져 있거나 빈 배열이면 v2와 같이 판정. 새 내장 하드룰 2개는 3단계에서 이 목록에서 빠졌다(`hard:transaction-failed` 판정 구현, `hard:unregistered-interface`는 켜진 프로토콜 항목이 위 검사로 막혀 있어 기능 꺼짐 = 기록 없음). 판정 계획에 실행기가 없는 하드룰이 들어오면 같은 코드로 시도 실패(`hard_rules.py` `hard_rule_runners`, 방어). v1·v2 행의 v3 전용 요소 → `protocol_rules_require_v3`(`protocolRules` 키) / `relation_rules_require_v3`(`relationRules` 키·소프트룰 `scope` 키·새 내장 하드룰). v3 항목의 `enabled`가 boolean이 아니거나 배열이 아님 → `invalid_rule_set_snapshot:<relationRules|protocolRules>`. hash 불일치는 기존 `rule_set_hash_mismatch`. 이 단계를 해당 판정 구현(5·6단계 등)이 하나씩 푼다
-- **구현 상태**(Detector, 로컬 브랜치 — 2~5단계)
+  - 1단계 실패 코드(시도 실패 사유, `run_jobs` 실패 문자열) [제안 — Detector 1단계 구현 `server/worker/detector/operational_state.py` `check_rule_set_version`·`hard_rules.py` `read_hard_rule_snapshot`]: 1단계에서 v3 행의 켜진 관계 규칙·`scope` 있는 소프트룰·프로토콜 항목을 `rule_set_v3_unsupported:<id>`로 막았고, 5단계(관계 규칙·scope 소프트룰)와 6단계(프로토콜 항목)가 판정을 갖춰 모두 풀었다. 새 내장 하드룰 2개도 판정을 갖췄다(`hard:transaction-failed` 3단계, `hard:unregistered-interface` 6단계). 프로토콜 항목 저장값 이상 → `invalid_protocol_rule:<id>`(꺼져 있어도, 아래 "6단계 구현 세부"). 판정 계획에 실행기가 없는 하드룰이 들어오면 같은 코드로 시도 실패(`hard_rules.py` `hard_rule_runners`, 방어). v1·v2 행의 v3 전용 요소 → `protocol_rules_require_v3`(`protocolRules` 키) / `relation_rules_require_v3`(`relationRules` 키·소프트룰 `scope` 키·새 내장 하드룰). v3 항목의 `enabled`가 boolean이 아니거나 배열이 아님 → `invalid_rule_set_snapshot:<relationRules|protocolRules>`. hash 불일치는 기존 `rule_set_hash_mismatch`. 저장소·그래프 불변 조건 위반(`relation_focus_unavailable`·`relation_graph_inconsistent`·`relation_transaction_columns_mismatch`)도 시도 실패(relation-rules.md 3.4). 6단계 뒤 "구현 안 됨" 때문의 시도 실패는 남지 않았다
+- **구현 상태**(Detector — 1~7단계 구현, 8단계 계약 반영)
   - 2단계: 층 A Python 구현 `server/worker/detector/relation_graph.py`(TS `processGraph.ts`와 같은 노드·간선 — 공용 id·없음 벡터와 TS 출력 저장본 `server/worker/tests/fixtures/relation-graph-cases.json` 24사례로 확인), 관계 입력 읽기 `relation_inputs.py`(relation-rules.md 3.2, `channel_id`·`adapter_type`·`process_hub_id` 포함). WebUI 벡터 추가분(묶음·모호 예시)은 아직 없어 Detector 시험 사례로 대신한다
-  - 3단계: `hard:transaction-failed` 판정(`hard_rules.py` `evaluate_transaction_failed`, relation-rules.md 7.2). `hard:unregistered-interface`는 내장 목록·위험도 읽기만 — 평가(4.1 표의 기능 켜짐 행)는 6단계
+  - 3단계: `hard:transaction-failed` 판정(`hard_rules.py` `evaluate_transaction_failed`, relation-rules.md 7.2). `hard:unregistered-interface`는 내장 목록·위험도 읽기 — 평가(4.1 표의 기능 켜짐 행)는 6단계
   - 4단계: 과제 사전 분류 `relation_plan.py`(거래 행 없음 → relationNotes `transaction_pending`, 미등록 규칙 → 기능 꺼짐이라 기록 없음), `_rank`(내장 → `hard:rel-*` → `hard:proto-*`, 같은 순위는 저장 순), 대조 집합(`evidence_v4.py` `_check_hard_rules` — 이 판정에서 과제로 만든 하드룰), evidence `relationInputs`·`relationNotes`(관계 입력을 읽은 판정만). `protocolReview`는 6단계
   - 5단계: 관계 규칙 판정 `server/worker/detector/relation_rules.py`(relation-rules.md 2·3·5절), 소프트룰 scope 선택 `soft_rules.py` `in_scope`(4절). 켜진 관계 규칙·scope 있는 소프트룰은 이제 판정한다(`rule_set_v3_unsupported` 해제). 구현 세부는 relation-rules.md 3.4
-  - 아직 시도 실패: 켜진 프로토콜 항목(6단계). 재판정(7단계)이 없어 `transaction_pending`·관계 규칙 수집 미완료 보류(`held`)·`deferred_to_transaction`은 첫 판정에 그대로 남는다(API v3 저장은 7단계 뒤에 연다, rule-set.md v3.7)
-- 한계(CSV 재생 순서): CSV 재생 수집 경로는 거래 행을 PROCESS보다 먼저 커밋한다(`server/worker/collector/input_store.py` 정렬 `('T','P','M','B')`, `input_runner.py` tick마다 1행, P 커밋 즉시 detect 작업) — 거래 행이 있다는 것만으로 3.1 구조 전제("그 거래의 PROCESS가 다 기록됨")를 쓰면 뒤 PROCESS가 아직 없는 첫 판정에서 `required_step`·`precedes` 오탐이 난다. 그래서 "거래 행 도착"을 **도착 확정**(최소 지연 30초)으로 정의한다(3.4). 행 사이 간격이 30초를 넘는 느린 재생에서는 여전히 오탐이 날 수 있고, 근본 해결은 Collector 재생 순서 변경(PROCESS·MESSAGE 뒤 TRANSACTION)이다(Collector 세션 몫). 5단계 관계 규칙·6단계 프로토콜·7단계 재판정이 같은 도착 확정 정의(relation-rules.md 3.4)를 쓴다
+  - 6단계: 프로토콜 판정 `server/worker/detector/protocol_rules.py`(3·4.1·5절). 켜진 프로토콜 항목은 이제 판정한다(`rule_set_v3_unsupported` 해제 — 이 코드는 판정 계획에 실행기가 없는 하드룰이 들어올 때의 방어로만 남는다). 구현 세부는 아래 "6단계 구현 세부"
+  - 7단계: 재판정 탐색 주기 작업 `server/worker/detector/recheck_job.py`(별도 프로세스, Compose `recheck` profile `relation-recheck`, 잠금 81742), 사전 검사 ①~⑤(현재 룰 세트), `process-input-v2-recheck` 작업 생성(`jobs.py` `enqueue_recheck`), 재판정 시도의 `readiness.relation` 검사(`attempt_v04.py` `recheck_reference`, 어긋나면 시도 실패 `relation_recheck_reference_invalid`). 커서는 migration 024 `run_recheck_runs`(DB 세션 확정 전 [제안]). 구현 세부는 relation-rules.md 6.5. 남은 시도 실패 코드는 모두 저장소 이상(저장 검증을 거치지 않은 스냅샷·불변 조건 위반)이고 "구현 안 됨" 때문의 시도 실패는 없다
+  - 배포 전제(남은 것): DB 024 적용 → Detector(1~7단계)·`recheck` 서비스 → API v3 저장(rule-set.md v3.7). 024가 없으면 `recheck`는 회차마다 실패하고(판정에는 영향 없음) 보류가 첫 판정에 남는다
+  - 8단계(계약 반영): detection-decision.md 3.1(새 방법 id 형식)·4.1~4.4(내장 4 → 6, 관계·프로토콜 하드룰의 방법 버전·결과 코드)·11.4(`relationInputs`·`relationNotes`·`protocolReview`·`relationRecheck`, `methodResults` 순서, v3 투영 제외)·11.6(`capacity` 뜻 확장·세부 사유·새 시도 실패 코드)·11.7(상한), queues.md(재판정 작업), method-catalog.md(내장 목록 6개 — 목록 추가는 API v3 배포와 함께), rule-set.md·relation-rules.md의 낡은 구현 상태 문구. 모두 [제안](각 세션 합의 대기)
+- **6단계 구현 세부** [제안 — `server/worker/detector/protocol_rules.py`]
+  - 스냅샷 검증(시도 실패, 꺼진 항목도 검사): id 형식·`enabled`·`severity`·`interfaceId`(없음 값 금지)·`paths`(1~64개, 경로마다 `channels` 1~64개, 원소는 없음 값이 아닌 문자열, 같은 항목 안 같은 경로 금지) 위반 → `invalid_protocol_rule:<id>`. 같은 `interfaceId` 항목 2개 → 뒤 항목 id로 `invalid_protocol_rule:<id>`. 같은 id → `duplicate_method_id`. 항목 수 상한 500은 API 저장 검증만 본다. 켜진 항목은 시도 시작 방법 수(`ensure_executable`)에 들어간다
+  - 경로 만들기 `build_routes`: 3.2 그대로(Trainer `server/worker/trainer/protocol_paths.py` `transaction_routes`와 같은 정의). 묶음 모호 판단은 그래프 층 A와 같은 함수(`relation_graph.py` `retry_group_ambiguous`). 갈래 순서는 시작 단계에서 깊이 우선, 갈래는 `process_id` 코드 포인트 순. 공용 시험 벡터 [protocol-path-vectors.json](protocol-path-vectors.json)(합성 값 29사례, 기대값은 손으로 적음) — Detector 단위 시험이 읽고, Trainer 구현에도 같은 결과임을 확인했다(입력 순서를 뒤집어도 같음)
+  - 판정 순서(4.1 표): 기능 꺼짐 → 기록 없음 / 판정 관측 `transaction_id` 없음 → relationNotes `not_applicable` / `transaction_id_missing` / 거래 행 없음·도착 확정 전 → `deferred_to_transaction` / 붙이는 판정이 아님 → 기록 없음 / 인터페이스(3.1a) → 항목·미등록 규칙 순. **입력 상한(`relationInputs.truncated`)이면 붙이는 판정을 정할 수 없어 그 거래의 모든 판정에서 평가한다**(relation-rules.md 3.4 `required_step`의 `graph_truncated`와 같은 방식 — 켜진 항목과 미등록 인터페이스 모두 `capacity` + `graph_truncated` 보류, 4.1 표 예외)
+  - 대표 행 모호(3.1a)의 "후보 행들의 `interface_id`가 모두 같음"은 관계 입력의 거래 행 조회가 함께 센다(`relation_inputs.py` `_TRANSACTIONS` — 없음 값 실행 수와 `COLLATE "C"` 최소·최대, 기록은 `RelationInputs.common_interface_id`, evidence에는 남기지 않음)
+  - `protocolReview`는 판정 계획이 아니라 최종 결과로 넣는다(`evidence_v4.py` `build_evidence` — 그 방법이 최종 `methodResults`에서 T일 때만)
+  - 방법 결과 evidence: N·T `[{interfaceMatched, routes: [{steps, matched}]}]`(`steps`는 process 노드 id), 미등록 T는 `interfaceMatched: false`·모든 경로 `matched: false`(경로를 만들 수 없으면 `routes: []`), 보류 `[{reason}]`. `protocolReview`는 T일 때만, 키는 5.3 그대로(`ruleSetRevision` = 시도에 고정한 룰 세트 리비전, `transactionObservationId` = 대표 행, 모호면 null)
+  - 하드룰 대조(`evidence_v4.py` `_check_hard_rules`): 프로토콜 방법은 판정마다 많아야 1개, `hard:proto-*`는 시도에 고정한 켜진 항목이어야 하고, T의 위험도는 항목 `severity`(미등록은 `hardRules` 항목 `severity`)와 같아야 한다. 어긋나면 `hard_rule_selection_mismatch`
+  - relationNotes 순서: 내장(`hard:transaction-failed`) → 관계 규칙 → 프로토콜
+- 한계(CSV 재생 순서): CSV 재생 수집 경로는 거래 행을 PROCESS보다 먼저 커밋한다(`server/worker/collector/input_store.py` 정렬 `('T','P','M','B')`, `input_runner.py` tick마다 1행, P 커밋 즉시 detect 작업) — 거래 행이 있다는 것만으로 3.1 구조 전제("그 거래의 PROCESS가 다 기록됨")를 쓰면 뒤 PROCESS가 아직 없는 첫 판정에서 `required_step`·`precedes` 오탐이 난다. 그래서 "거래 행 도착"을 **도착 확정**(최소 지연 30초)으로 정의한다(3.4). 남는 오탐 조건은 행 사이 간격이 아니라 **그 거래의 TRANSACTION 행 커밋부터 마지막 PROCESS 커밋까지 누적 시간(≈ PROCESS 수 ÷ 재생 속도) > 30초**다 — CSV 재생은 거래마다 T → P → M 순으로 1행씩 커밋하므로(`server/worker/collector/input_store.py:41,47` 정렬, 속도 0.1~10000행/초·기본 10, `input_store.py:85-86`) 그 거래의 k번째 PROCESS 판정은 T 커밋 뒤 약 k ÷ 속도 초에 입력을 읽고, 이 값이 30초를 넘는데 뒤 PROCESS가 아직 커밋 전이면 도착 확정 상태에서 단계가 빠진 입력을 본다(예: 1행/초에서 PROCESS 31개 이상, 0.1행/초에서 4개 이상). 그래서 느린 재생·PROCESS가 많은 거래에서는 오탐이 날 수 있고, 근본 해결은 Collector 재생 순서 변경(PROCESS·MESSAGE 뒤 TRANSACTION)이다(Collector 세션 몫). 5단계 관계 규칙·6단계 프로토콜·7단계 재판정이 같은 도착 확정 정의(relation-rules.md 3.4)를 쓴다
 - 성능 확인(relation-rules.md 4절 상한 상향 전제): 관계 입력 읽기 시간이 시도 기한(`deadlineMs` 기본 3000, `policy.py:15`) 안에 드는지 작은 측정 1회

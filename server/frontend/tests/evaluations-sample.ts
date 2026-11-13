@@ -1,15 +1,11 @@
 import type { EvaluationItem } from "@/services/api/pipeline.api";
-import type { BasisRates, CompareVersion, ComparisonDetail, ComparisonItem, ComparisonListItem, ComparisonTab, Confusion, EvaluationSet, EvaluationSnapshot, Rate, Recommendation, RecommendationState } from "./evaluationsApi";
+import type { BasisRates, CompareVersion, ComparisonDetail, ComparisonItem, ComparisonListItem, ComparisonTab, Confusion, EvaluationSet, EvaluationSnapshot, Rate, Recommendation, RecommendationState } from "../src/features/detection/evaluations/evaluationsApi.ts";
 
-/** 개발 모드 전용 예시 데이터(값은 config-comparison-evaluation.md 예시와 와이어프레임 #93). 운영 빌드에는 들어가지 않는다. */
+/** 평가 결과 화면 시험용 예시 데이터(값은 config-comparison-evaluation.md 예시와 와이어프레임 #93). 시험의 가짜 API가 응답으로 돌려준다. 앱 소스에는 없다. */
 const SOURCE = "5c0f8a11-7e21-4a6c-9b1d-2f64a7c0e101";
 const SNAPSHOT = "8e13d6b2-40aa-4c17-a3ce-91b07f2d3a55";
 const hash = (seed: string) => seed.repeat(8);
 
-export const snapshots: EvaluationSnapshot[] = [
-  { id: SNAPSHOT, displayName: "고정 학습 참조 데이터" },
-  { id: "3c7e1f90-b52d-4a68-9e14-d0a6f2c8b731", displayName: "정상성 확인 구간" },
-];
 
 const SET_ESB = "e1a7f3c4-2b6d-4f10-8a55-6c1d90b2e7a1";
 const SET_ADBENCH = "a1c92d07-5e34-4b8f-9d12-3f70e6b4c8d2";
@@ -44,6 +40,12 @@ export const compareVersions: CompareVersion[] = [
   { id: V_PREVIOUS, displayName: "V3", modelKey: "iforest", modelName: IFOREST, active: false, executable: true, latestEvaluation: { evaluationId: "6ac17e93-2d50-4b8e-b1f4-c97e30a2d581" } },
   { id: V_EIF, displayName: "EIF 실험 2", modelKey: "eif", modelName: "Extended Isolation Forest", active: false, executable: false, latestEvaluation: null },
   { id: V_KMEANS, displayName: "KMeans · K=6", modelKey: "minibatch_kmeans", modelName: "MiniBatch K-Means", active: false, executable: false, latestEvaluation: null },
+];
+
+/** 세트 기준 스냅샷 = 모델 버전의 학습 스냅샷(`GET /api/evaluation-sets/snapshots`). 첫째는 V4·실험 7, 둘째는 V3이 학습한 데이터. */
+export const snapshots: EvaluationSnapshot[] = [
+  { id: SNAPSHOT, sourceId: SOURCE, createdAt: "2026-10-18T00:00:00Z", from: "2026-10-01T00:00:00Z", until: "2026-10-15T00:00:00Z", configVersionIds: [V_ACTIVE, V_EXPERIMENT_7] },
+  { id: "3c7e1f90-b52d-4a68-9e14-d0a6f2c8b731", sourceId: SOURCE, createdAt: "2026-09-20T00:00:00Z", from: "2026-09-01T00:00:00Z", until: "2026-09-15T00:00:00Z", configVersionIds: [V_PREVIOUS] },
 ];
 
 export const ruleRevision = 13;
@@ -123,7 +125,8 @@ const details: ComparisonDetail[] = [
         rules: ruleMl(9, 5, 4, 1182), itemCost: cost(38.8, 205, 407000000) }),
     ],
   },
-  { comparisonId: C_FAILED, jobId: job("dd44"), status: "failed", errorCode: "comparison_all_items_failed" },
+  { comparisonId: C_FAILED, jobId: job("dd44"), status: "failed", errorCode: "comparison_all_items_failed",
+    items: [failedItem(V_EXPERIMENT_6, "iforest", "training_evaluation_overlap")] },
   {
     comparisonId: C_ADBENCH, jobId: job("ee55"), status: "succeeded",
     evaluationSet: { id: SET_ADBENCH, contentHash: hash("91f0c713"), purpose: "validation", rowCount: 3000, originalRowCount: 0, syntheticRowCount: 3000, synthetic: true },
@@ -154,6 +157,27 @@ const details: ComparisonDetail[] = [
   },
 ];
 
+/** v1 서버 모양: 교체 추천 없음(null + `not_implemented_v1`), 룰+모델·실행 비용 없음. 목록에는 없고 상세로만 연다. */
+export const C_V1 = "5e1d7a20-3c4b-4d5e-8f60-718293a4b5c6";
+/** Trainer `_ratio`(comparison.py) 모양 그대로: {value, numerator, denominator, reason} — unit·coverage 없음. */
+const v1Rate = (numerator: number, denominator: number): Rate => ({ value: numerator / denominator, numerator, denominator, reason: null });
+const v1NoNormal: Rate = { value: null, numerator: null, denominator: null, reason: "verified_normal_labels_unavailable" };
+const v1Item = (configVersionId: string, role: ComparisonItem["role"], tp: number, fn: number): ComparisonItem => ({
+  configVersionId, modelKey: "iforest", role, status: "succeeded", errorCode: null, evaluationId: `${configVersionId.slice(0, 8)}-1111-4000-8000-000000000000`, reasonCodes: [],
+  evaluationPolicy: { source: "configuration", detectionPolicy: { mode: "ml_only", deadlineMs: 30000 }, ruleCount: 0 },
+  categoryResults: { ml: { measurementStatus: "measured", methodCount: 1, confusion: { tp, fp: null, tn: null, fn }, unavailableCount: 0,
+    completeOnly: { recall: v1Rate(tp, tp + fn), precision: v1NoNormal, falsePositiveRate: v1NoNormal } } },
+});
+details.push({
+  comparisonId: C_V1, jobId: job("ab12"), status: "succeeded", completedAt: "2026-11-13T01:00:00Z",
+  evaluationSet: { id: SET_ORIGINAL, contentHash: hash("c07a55e2"), purpose: "validation", rowCount: 1200, originalRowCount: 1200, syntheticRowCount: 0, synthetic: false },
+  baselines: baseline(V_ACTIVE), ruleSet: { revision: 13, contentHash: hash("9c40e1aa") },
+  replacementRecommendations: null, replacementRecommendationsReason: "not_implemented_v1",
+  // 후보 항목의 정밀도는 정상 라벨 부족이 아닌 사유(분모 0)로 null인 경우.
+  items: [v1Item(V_ACTIVE, "active", 9, 11), { ...v1Item(V_EXPERIMENT_7, "candidate", 14, 6), categoryResults: { ml: { ...v1Item(V_EXPERIMENT_7, "candidate", 14, 6).categoryResults!.ml,
+    completeOnly: { recall: v1Rate(14, 20), precision: { value: null, numerator: 0, denominator: 0, reason: "no_predicted_anomalies" }, falsePositiveRate: v1NoNormal } } } }],
+});
+
 const listRow = (comparisonId: string, row: Pick<ComparisonListItem, "evaluationSetId" | "activeModelSetRevision" | "completedAt"> & { itemCount: number }): ComparisonListItem => {
   const detail = details.find((item) => item.comparisonId === comparisonId)!;
   const items = detail.items ?? [];
@@ -183,3 +207,5 @@ export const comparisonPage = (tab: ComparisonTab, cursor: string | null) => {
   return { items: rows.slice(start, end), pagination: { limit: PAGE_SIZE, hasMore, nextCursor: hasMore ? String(end) : null } };
 };
 export const comparisonDetail = (id: string) => details.find((item) => item.comparisonId === id);
+/** 작업 ID로 연 상세(완료 전 비교는 작업 ID로 연다). */
+export const comparisonDetailByJob = (jobId: string) => details.find((item) => item.jobId === jobId);

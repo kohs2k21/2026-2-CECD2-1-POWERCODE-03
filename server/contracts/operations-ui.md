@@ -1,5 +1,5 @@
 Created: 2026-10-09T23:47:02.2964769+09:00
-Updated: 2026-11-13T12:00:00+09:00
+Updated: 2026-11-13T18:30:00+09:00
 Author: frontend_operations_builder / #103·#105·운영 설정 하위 7 Claude Code(WebUI builder)
 Status: current
 
@@ -84,7 +84,7 @@ Status: current
 ## 운영 설정·모델 교체 화면 — 탐지 설정 하위 7
 
 - 화면: `/detection/operations`(운영 버전 overview, 사용자 9.6), `/detection/operations/replace?step=1|2|3`(모델 교체 3단계). 와이어프레임 #93 `detect-ops`·`cmd-replace`. 판정 정책(`detectionPolicy`)은 표시하지 않음(Q-M10)
-- 조회: `GET /api/operational-state`(룰 세트·활성 집합·정책 리비전 한 번에, model-version.md 일관 읽기), `GET /api/rule-set`(규칙 이름·조건), `GET /api/operations/method-status`, `GET /api/active-models/history`, `GET /api/configurations`(교체 후보, `applicationEligibility`), 비교 평가(`evaluationsApi.ts` — 연결 전이라 개발 모드만 예시, 운영 빌드는 `미연결`)
+- 조회: `GET /api/operational-state`(룰 세트·활성 집합·정책 리비전 한 번에, model-version.md 일관 읽기), `GET /api/rule-set`(규칙 이름·조건), `GET /api/operations/method-status`, `GET /api/active-models/history`, `GET /api/configurations`(교체 후보, `applicationEligibility`), 비교 평가(`evaluationsApi.ts` → `GET /api/comparisons`(+`/:id`), [evaluations-ui.md](evaluations-ui.md)). v1 비교는 교체 추천을 만들지 않아 추천 카드는 `모델 교체 추천 미연결 · not_implemented_v1`
 - 판정 없이 실패 줄: `작업 실패 n`(코드 없음 `job_failed`) · `룰 세트 읽기 실패 n`(`rule_set_*`) · 그 밖 `<코드> n`
 - 상태 배지(사용자 9.7·9.8): 실행 0 → `enabledSince`부터 `firstRunWaitMs` 안이면 `적용됨 · 첫 실행 대기`, 지나거나 시각 모름이면 `점검 필요 · 실행 없음` / 미판정(not_ready+failed) 10% 이상 `점검 필요` / 2% 이상 또는 기한 초과 2% 이상 `주의` / 그 밖 `정상`
 - 명령: `모델 교체`(3단계), `복원`(이전 리비전 중 지금과 다른·모델 있는 집합, 최신순·같은 집합 1번. 후보마다 `현재 X 자리`/`추가 운영`, 그 집합에 같은 종류가 없어 빠지는 지금 운영 모델은 `X → 제외` → `POST /api/active-models/restore`, 확인 체크가 `confirmRetire`를 겸함), 모델 행 `운영에서 제외`(retire, 확인 체크). 결과는 화면 위 안내(적용됨 · 운영 모델 X로 전환됨 / 제외됨, 실패는 와이어프레임 형식 `<서버 코드> · 운영 모델 <현재> 유지`)

@@ -22,7 +22,8 @@ from typing import Any, Iterable, Mapping, Sequence
 
 FACTS_FORMAT = "protocol-explain-facts-v1"
 OUTPUT_FORMAT = "protocol-explain-output-v1"
-PROMPT_VERSION = "protocol-explain-prompt-v3"  # v2: 기간 그대로 쓰기 / v3: 키·코드값 대신 한국어 이름표, 명령형 금지
+# v2: 기간 그대로 쓰기 / v3: 키·코드값 대신 한국어 이름표, 명령형 금지 / v4: 근거 부족 상태 반드시 언급
+PROMPT_VERSION = "protocol-explain-prompt-v4"
 MAX_FACT_PATHS = 20  # 사실에 싣는 관측 경로 수(허용 경로에 없는 경로를 먼저). 나머지는 omitted 건수로만
 MAX_ALLOWED_PATHS = 20  # 사실에 싣는 허용 경로 수
 EXPLANATION_MAX = 600
@@ -53,11 +54,16 @@ REASON_LABELS: dict[str, str] = {
 ALLOWED_TERMS = frozenset({"ESB", "PROCESS", "TRANSACTION", "PROCESS_ID", "DEPEND_PROCESS_ID", "CHANNEL_ID", "ID",
                            "NONE", "JSON"})
 # 금지 표현: 원인 단정·추정·확신·지시. 사실에는 원인 정보가 없으므로 원인 서술은 모두 지어낸 것이다.
+_CAUSE_RO_INHAE = r"(?:으)?로\s*인(?:해|하여|한)"
+# 사유 이름표와 "(으)로 인해" 사이에 둘 수 있는 닫는 따옴표·괄호(이름표를 따옴표로 감싼 경우). 공백은 두지 않는다("바로 뒤").
+_LABEL_CLOSERS = "[\"'”’」』)]?"
 FORBIDDEN_PATTERNS: tuple[tuple[str, str], ...] = (
     # "원인"은 붙여 쓴 합성어(주원인·근본원인·장애원인)도 잡고, "직원인지" 같은 특정 낱말만 뺀다.
     # 허용은 확인을 권하는 말로 끝나는 꼴만("원인을 확인합니다", "원인 확인이 필요합니다"). "원인은 …"·"원인이 확인되었습니다"·
     # "원인 확인 결과 …"·"주원인은" 등 그 밖의 "원인"은 모두 금지(보수적).
-    ("cause", r"(?<!직)원인(?!(?:을|를)?\s*(?:확인|파악|점검|검토)(?:합니다|이\s*필요|가\s*필요|할\s*필요))"), ("cause", r"때문"), ("cause", r"(?:으)?로\s*인(?:해|하여|한)"), ("cause", r"탓"),
+    ("cause", r"(?<!직)원인(?!(?:을|를)?\s*(?:확인|파악|점검|검토)(?:합니다|이\s*필요|가\s*필요|할\s*필요))"), ("cause", r"때문"),
+    # "로 인해"는 사실에 실린 사유 이름표 바로 뒤에서만 허용한다(사실의 코드 사유를 다시 쓴 것, check_output). 그 밖은 금지.
+    ("cause", _CAUSE_RO_INHAE), ("cause", r"탓"),
     ("cause", r"유발"), ("cause", r"영향으로"), ("cause", r"에\s*의해"),
     ("speculation", r"추정"), ("speculation", r"것으로\s*보(?:입|인|임|여)"), ("speculation", r"보입니다"),
     ("speculation", r"처럼\s*보(?:입|인|임|여)"), ("speculation", r"일\s*수\s*있(?:습니다|다|음)"),
@@ -322,8 +328,9 @@ SYSTEM_PROMPT = """너는 ESB 거래 경로(프로토콜) 설명을 쓰는 도�
 3. 인터페이스·채널·경로는 사실 JSON의 표기(interface, paths의 경로 id와 채널 이름)만 쓴다. 경로를 채널로 풀어 쓸 때는 paths에 적힌 순서 그대로 "→"로 잇는다.
 4. 사실 JSON의 키 이름(예: fromBranching, inAllowed, pathTransactions)과 코드값(예: draft, insufficient_evidence, chain_broken, path_unmatched, true, false, null)을 문장에 쓰지 않는다. 사용자 메시지 이름표의 한국어 이름으로만 쓴다. 문장에 영문으로 쓸 수 있는 것은 인터페이스·채널·경로 표기뿐이다.
 5. 정상·이상 판정과 허용 여부는 코드가 정했다. 사실 값을 바꾸거나 새 판정을 내리지 않는다.
-6. 한국어로 쓴다. explanation은 1~4문장, 600자 이하. reviewPoints는 사용자가 확인할 점 0~3개, 각 200자 이하이며 "~을 확인합니다"처럼 평서문으로 쓴다. "하세요"·"하십시오"·"해야 합니다" 같은 명령·지시 표현을 쓰지 않는다.
-7. 출력은 JSON 객체 하나만: {"explanation": "...", "reviewPoints": ["..."]}. 다른 키, 앞뒤 설명, 코드 블록을 쓰지 않는다."""
+6. 초안 상태(observed.status)가 근거 부족이면 explanation에 "근거 부족"이라는 이름을 그대로 써서 그 상태를 반드시 밝힌다.
+7. 한국어로 쓴다. explanation은 1~4문장, 600자 이하. reviewPoints는 사용자가 확인할 점 0~3개, 각 200자 이하이며 "~을 확인합니다"처럼 평서문으로 쓴다. "하세요"·"하십시오"·"해야 합니다" 같은 명령·지시 표현을 쓰지 않는다.
+8. 출력은 JSON 객체 하나만: {"explanation": "...", "reviewPoints": ["..."]}. 다른 키, 앞뒤 설명, 코드 블록을 쓰지 않는다."""
 
 # 키 이름표: 사실 키 → 문장에 쓸 한국어 이름(화면 문구가 있으면 그대로, 없으면 짧게 지음). 사실 형식은 바꾸지 않는다.
 KEY_LABELS: dict[str, tuple[tuple[str, str], ...]] = {
@@ -582,7 +589,10 @@ def check_output(raw: str, facts: Mapping[str, Any]) -> dict[str, Any]:
     ratio = hangul / (hangul + latin) if hangul + latin else 0.0
     checks["korean_ok"] = hangul > 0 and ratio >= KOREAN_RATIO_MIN
     details["korean_ratio"] = round(ratio, 3)
-    forbidden = sorted({f"{kind}:{regex.pattern}" for kind, regex in _FORBIDDEN if regex.search(text)})
+    # "로 인해"만 사유 이름표 바로 뒤의 것을 지운 글로 본다. 나머지 금지 표현은 원문 그대로 본다.
+    masked = _mask_reason_cause(text, facts)
+    forbidden = sorted({f"{kind}:{regex.pattern}" for kind, regex in _FORBIDDEN
+                        if regex.search(masked if regex.pattern == _CAUSE_RO_INHAE else text)})
     checks["no_forbidden"] = not forbidden
     details["forbidden"] = forbidden
     required = ("json_parsed", "schema_ok", "length_ok", "numbers_subset", "identifiers_subset", "paths_in_facts",
@@ -597,6 +607,24 @@ def check_output(raw: str, facts: Mapping[str, Any]) -> dict[str, Any]:
     return {"format": OUTPUT_FORMAT, "passed": not failures, "failures": failures, "checks": checks,
             "coverage": coverage, "details": details,
             "output": value if schema else None}
+
+
+def reason_labels(facts: Mapping[str, Any]) -> set[str]:
+    """사실에 실린 사유 이름표(경로를 만들지 못한 거래 사유·알림 경로 사유). 코드값이 아니라 화면 이름이다."""
+    labels = {item.get("label") for item in (facts.get("observed") or {}).get("excluded") or []
+              if isinstance(item, Mapping)}
+    labels.add((facts.get("routesReason") or {}).get("label"))
+    return {label for label in labels if isinstance(label, str) and label}
+
+
+def _mask_reason_cause(text: str, facts: Mapping[str, Any]) -> str:
+    """사실의 사유 이름표 바로 뒤 "(으)로 인해·인하여·인한"을 지운다(이름표는 남김). 다른 "로 인해"는 그대로 둔다."""
+    labels = sorted(reason_labels(facts), key=len, reverse=True)
+    if not labels:
+        return text
+    pattern = re.compile("(" + "|".join(re.escape(label) for label in labels) + ")(" + _LABEL_CLOSERS + ")"
+                         + _CAUSE_RO_INHAE)
+    return pattern.sub(lambda match: match.group(1) + match.group(2) + " ", text)
 
 
 def coverage_checks(text: str, facts: Mapping[str, Any]) -> dict[str, bool]:

@@ -63,7 +63,7 @@ def generate(kind: str, payload: dict, *, report_timeout: bool = False) -> dict:
     http_hosts = {"127.0.0.1", "localhost"}
     if internal_host:
         http_hosts.add(internal_host)
-    if kind not in {"feature", "rule", "explain"} or not token or not (
+    if kind not in {"feature", "rule", "explain", "explain_protocol"} or not token or not (
         parsed.scheme == "https" or parsed.scheme == "http" and parsed.hostname in http_hosts
     ) or parsed.username or parsed.password or parsed.query or parsed.fragment:
         raise GenerationUnavailable("generation_service_not_configured")

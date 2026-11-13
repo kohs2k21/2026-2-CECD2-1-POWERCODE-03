@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type MouseEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "motion/react";
 import ReactGridLayout, { useContainerWidth, verticalCompactor, type Layout } from "react-grid-layout";
@@ -10,25 +10,27 @@ import { Card, CardAction, CardContent, CardHeader } from "@/components/ui/card"
 import { cn } from "@/lib/utils";
 import { useAuthSession } from "@/services/auth/AuthSessionProvider";
 import { useDraftStore } from "@/stores/draftStore";
+import { ErrorState, LoadingState } from "@/components/ui/feedback";
 import { inputErrorText, useSourcesQuery } from "../data/inputs";
 import { useOperationsQuery } from "../data/useOperationsQuery";
 import {
   GRID_COLUMNS,
   availableWidgets,
-  browserWidgetLayoutStore,
   cancelledLayoutMessage,
   defaultWidgetLayout,
   layoutReducer,
+  parseStoredLayout,
   readingOrder,
   sanitizeLayout,
   savedLayoutMessage,
+  serializeLayout,
   widgetLabels,
   widgetSizes,
   type LayoutAction,
   type WidgetId,
-  type WidgetLayoutStore,
   type WidgetPlacement,
 } from "../data/widgetLayout";
+import { useMySettings, useSaveMySettings } from "@/features/notifications/useNotifications";
 import { WidgetBody, activeConfigurationText, type SourceState } from "./OverviewWidgets";
 import { WidgetCatalog } from "./WidgetCatalog";
 import { WidgetMiniature } from "./WidgetMiniature";
@@ -144,23 +146,23 @@ const WidgetCard = ({
  * 운영 현황 개요: 현재 운영 줄 + 위젯 격자(react-grid-layout, #100 이전 홈 위젯 방식).
  * 편집: 끌어서 이동·모서리로 크기 조절(다른 위젯은 부드럽게 다시 배치), 위젯 추가 목록(끌어 놓기·추가 버튼), 제거 배지,
  * 키보드 대안(앞으로/뒤로·제거 버튼), 배치 저장·기본 배치로 초기화·편집 취소. 좁은 화면은 한 줄 배치.
+ * 배치는 계정별 서버 저장(GET·PUT /api/me/settings). 불러오기 전에는 위젯을 그리지 않고, 불러오지 못하면 기본 배치로 보이되 편집·저장은 막는다
+ * (저장된 배치를 모르는 채 덮어쓰지 않음). 저장에 실패하면 편집 중 배치를 그대로 두고 다시 저장할 수 있다.
  */
-export const OverviewTab = ({
-  collectHref,
-  layoutStore = browserWidgetLayoutStore,
-}: {
-  collectHref: string;
-  layoutStore?: WidgetLayoutStore;
-}) => {
+export const OverviewTab = ({ collectHref }: { collectHref: string }) => {
   const { user } = useAuthSession();
-  const accountId = user?.id ?? "";
   const role = user?.userType === "admin" ? "admin" : "user";
   const cache = useQueryClient();
   const overview = useOperationsQuery();
   const sources = useSourcesQuery();
-  const [saved, setSaved] = useState<readonly WidgetPlacement[]>(
-    () => layoutStore.load(accountId) ?? defaultWidgetLayout.map((item) => ({ ...item })),
+  const settings = useMySettings();
+  const saveLayout = useSaveMySettings();
+  const storedLayout = settings.data?.widgetLayout.layout ?? null;
+  const saved = useMemo<readonly WidgetPlacement[]>(
+    () => parseStoredLayout(storedLayout) ?? defaultWidgetLayout.map((item) => ({ ...item })),
+    [storedLayout],
   );
+  const layoutReady = settings.isSuccess;
   const [status, setStatus] = useState("");
   const [saveFailed, setSaveFailed] = useState(false);
   const [catalogOpen, setCatalogOpen] = useState(false);
@@ -212,19 +214,28 @@ export const OverviewTab = ({
     setFocusTarget(buttonFor(action.id, (action.direction < 0) !== atEdge ? "앞으로" : "뒤로"));
   };
   const startEdit = () => {
+    if (!layoutReady) return;
     setStatus("");
     setSaveFailed(false);
     setAdded(new Set());
     useDraftStore.getState().edit(draftPath, saved.map((item) => ({ ...item })));
   };
   const save = () => {
-    if (!editing) return;
-    const ok = layoutStore.save(accountId, editing);
-    setSaved(editing.map((item) => ({ ...item })));
-    useDraftStore.getState().discard(draftPath);
-    setCatalogOpen(false);
-    setSaveFailed(!ok);
-    setStatus(ok ? savedLayoutMessage(role, editing.length) : "");
+    if (!editing || saveLayout.isPending) return;
+    const next = editing.map((item) => ({ ...item }));
+    setSaveFailed(false);
+    setStatus("");
+    saveLayout.mutate(
+      { widgetLayout: serializeLayout(next) },
+      {
+        onSuccess: () => {
+          useDraftStore.getState().discard(draftPath);
+          setCatalogOpen(false);
+          setStatus(savedLayoutMessage(role, next.length));
+        },
+        onError: () => setSaveFailed(true),
+      },
+    );
   };
   const cancel = () => {
     useDraftStore.getState().discard(draftPath);
@@ -312,7 +323,7 @@ export const OverviewTab = ({
             {overview.isFetching ? "운영 관측 조회 중" : "운영 관측 새로고침"}
           </Button>
           {!editing && (
-            <Button variant="outline" size="sm" onClick={startEdit}>
+            <Button variant="outline" size="sm" onClick={startEdit} disabled={!layoutReady}>
               <IconPencil aria-hidden="true" />
               위젯 편집
             </Button>
@@ -342,14 +353,21 @@ export const OverviewTab = ({
             <Button size="sm" variant="outline" onClick={cancel}>
               편집 취소
             </Button>
-            <Button size="sm" onClick={save}>
-              배치 저장
+            <Button size="sm" onClick={save} disabled={saveLayout.isPending}>
+              {saveLayout.isPending ? "배치 저장 중" : "배치 저장"}
             </Button>
           </motion.div>
         )}
       </AnimatePresence>
+      {settings.isError && (
+        <ErrorState title="저장된 위젯 배치를 불러오지 못했습니다" onRetry={() => void settings.refetch()}>
+          기본 배치로 표시합니다. 다시 불러온 뒤 편집할 수 있습니다.
+        </ErrorState>
+      )}
       <div ref={containerRef} aria-label="운영 위젯" className="@container min-w-0">
-        {grid ? (
+        {settings.isPending ? (
+          <LoadingState>위젯 배치를 불러오는 중...</LoadingState>
+        ) : grid ? (
           <ReactGridLayout
             width={width}
             layout={toGridItems(layout)}
@@ -433,7 +451,7 @@ export const OverviewTab = ({
       </p>
       {saveFailed && (
         <Alert variant="destructive">
-          <AlertDescription>배치를 브라우저에 저장하지 못했습니다. 현재 화면에서만 유지합니다.</AlertDescription>
+          <AlertDescription>배치를 저장하지 못했습니다. 편집 중인 배치를 그대로 두었으니 다시 저장해 주세요.</AlertDescription>
         </Alert>
       )}
     </div>

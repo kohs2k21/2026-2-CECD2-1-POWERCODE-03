@@ -1,10 +1,9 @@
 /**
  * 운영 현황 개요 위젯 배치(와이어프레임 #93 위젯 + #100 이전 홈 위젯의 격자 배치 방식).
- * 배치 = 격자 칸 위치·크기(x, y, w, h). 계정별로 저장한다. 지금은 브라우저 저장소(layoutStore 기본 구현)이고,
- * 서버 계정별 저장(하위 Issue 8)은 같은 WidgetLayoutStore 인터페이스로 교체한다.
+ * 배치 = 격자 칸 위치·크기(x, y, w, h). 계정별로 서버에 저장한다(PUT /api/me/settings widgetLayout, contracts/notifications.md).
+ * 서버는 형식(정수·이름·개수)만 검사하고, 위젯 이름·크기 제한은 여기서 읽을 때 다시 적용한다(parseStoredLayout).
  * 이 파일은 격자 라이브러리를 가져오지 않는 순수 함수만 둔다(시험·지연 로딩용).
  */
-import { getStored, setStored } from "@/lib/storage";
 
 export const widgetIds = ["flow", "recent", "trend", "active", "queue", "collect", "storage"] as const;
 export type WidgetId = (typeof widgetIds)[number];
@@ -169,23 +168,11 @@ export const parseStoredLayout = (value: unknown): WidgetPlacement[] | null => {
   return items.some((a) => items.some((b) => collides(a, b))) ? compactLayout(items) : items;
 };
 
-/** 계정별 배치 저장소 경계. 서버 저장(하위 Issue 8)으로 바꿀 때 이 인터페이스만 구현한다. */
-export interface WidgetLayoutStore {
-  load(accountId: string): WidgetPlacement[] | null;
-  save(accountId: string, layout: readonly WidgetPlacement[]): boolean;
-}
-
-export const widgetLayoutKey = (accountId: string) => `esb_operations_widgets_${accountId}`;
-
-/** 브라우저 저장소 구현: 읽기·쓰기 실패는 현재 화면에서만 유지(예외 전파 없음). */
-export const browserWidgetLayoutStore: WidgetLayoutStore = {
-  load: (accountId) => parseStoredLayout(getStored<unknown>(widgetLayoutKey(accountId), null)),
-  save: (accountId, layout) => {
-    setStored(widgetLayoutKey(accountId), { version: LAYOUT_VERSION, items: layout.map(({ i, x, y, w, h }) => ({ i, x, y, w, h })) });
-    const stored = parseStoredLayout(getStored<unknown>(widgetLayoutKey(accountId), null));
-    return Boolean(stored) && sameLayout(stored!, layout);
-  },
-};
+/** 서버 저장 문서(v2). */
+export const serializeLayout = (layout: readonly WidgetPlacement[]) => ({
+  version: LAYOUT_VERSION,
+  items: layout.map(({ i, x, y, w, h }) => ({ i, x, y, w, h })),
+});
 
 /** 저장 결과 문구(와이어프레임 widgets-save). */
 export const savedLayoutMessage = (role: "admin" | "user", count: number) =>

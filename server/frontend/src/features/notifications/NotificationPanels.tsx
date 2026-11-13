@@ -1,79 +1,139 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
-import { EmptyState, ErrorState, LoadingState } from "@/components/ui/feedback";
+import { IconArrowRight, IconCheck } from "@tabler/icons-react";
 import { paths } from "@/app/routes";
-import type { RealtimeAnomalyEvent } from "@/types/realtime";
-import { useSharedRealtimeAnomalies } from "@/features/analysis/RealtimeAnomalyProvider";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { EmptyState, ErrorState, LoadingState } from "@/components/ui/feedback";
+import { riskLevelVariant, stampText } from "@/features/analysis/labels";
+import { cn } from "@/lib/utils";
+import { emptyLabels, notificationRisk, notificationText, riskText, showsRisk, viewLabels } from "./notificationLabels";
+import { notificationViews, type NotificationItem, type NotificationView } from "./notificationsApi";
+import { useMarkNotificationsRead, useNotificationPage, useUnreadCount } from "./useNotifications";
 
-const streamLabels = {
-  idle: "연결 대기",
-  connecting: "연결 중",
-  open: "연결됨",
-  retrying: "재연결 중",
-  closed: "연결 끊김",
-  error: "연결 오류",
-} as const;
-const severityLabels = { Info: "정보", Warning: "주의", Critical: "심각" } as const;
-const observedTime = (value: string | null | undefined) => value || "시각 미확인";
+/** 항목 상세 주소: 판정 → 이상 분석 판정 상세(판정 ID 또는 최종 전 작업 ID), 사건 → 사건 상세(흐름 첫 사건 ID). */
+export const notificationHref = (item: NotificationItem) =>
+  item.type === "decision" ? paths.analysisDecision(item.decision.detailId) : paths.analysisIncident(item.incident.id);
 
-/** 실시간 이상 이벤트(데모 SSE)는 판정 ID가 없어 상세가 없다. 이상 분석 판정 목록으로 이동한다(#105, 옛 이벤트 상세 폐지). */
-export const operatingEventHref = (_event: RealtimeAnomalyEvent) => paths.analysis;
+const errorText = (error: unknown) => (error instanceof Error ? error.message : String(error));
+
+const NotificationRow = ({ item, onRead, onNavigate, busy }: { item: NotificationItem; onRead: (item: NotificationItem) => void; onNavigate: (item: NotificationItem) => void; busy: boolean }) => {
+  const { headline, subject } = notificationText(item);
+  const risk = notificationRisk(item);
+  return (
+    <li data-notification={item.key} className={cn("grid gap-1.5 rounded-md border px-3 py-2 text-sm", item.unread ? "border-ring/40 bg-accent/40" : "border-transparent")}>
+      <span className="font-medium">{headline}</span>
+      <span className="break-all text-muted-foreground">{subject}</span>
+      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+        <Badge variant="outline">이상 분석</Badge>
+        {showsRisk(item) && (
+          <Badge variant={risk.riskStatus === "rated" && risk.riskLevel ? riskLevelVariant[risk.riskLevel] : "outline"}>{riskText(risk)}</Badge>
+        )}
+        <span>{stampText(item.notifiedAt)}</span>
+        {item.unread && <span className="font-medium text-foreground">읽지 않음</span>}
+      </div>
+      <div className="flex flex-wrap justify-end gap-2">
+        {item.unread && (
+          <Button variant="ghost" size="sm" disabled={busy} onClick={() => onRead(item)}>
+            <IconCheck aria-hidden="true" />
+            읽음 처리
+          </Button>
+        )}
+        <Button asChild variant="outline" size="sm">
+          <Link to={notificationHref(item)} onClick={() => onNavigate(item)}>
+            이동
+            <IconArrowRight aria-hidden="true" />
+          </Link>
+        </Button>
+      </div>
+    </li>
+  );
+};
+
+/** 패널 한 쪽. 마지막 쪽이면 더 보기(다음 커서)를 단다. */
+const NotificationPage = ({ view, cursor, last, onMore, onRead, onNavigate, busy }: {
+  view: NotificationView; cursor: string | null; last: boolean; onMore: (cursor: string) => void;
+  onRead: (item: NotificationItem) => void; onNavigate: (item: NotificationItem) => void; busy: boolean;
+}) => {
+  const page = useNotificationPage(view, cursor, true);
+  if (page.isPending) return <LoadingState className="py-3">알림을 불러오는 중...</LoadingState>;
+  if (page.isError) return <ErrorState title="알림을 불러오지 못했습니다" onRetry={() => void page.refetch()}>{errorText(page.error)}</ErrorState>;
+  const data = page.data;
+  return (
+    <>
+      {cursor === null && !data.items.length && <EmptyState className="py-4">{emptyLabels[view]}</EmptyState>}
+      {data.items.length > 0 && (
+        <ul className="grid gap-1.5">
+          {data.items.map((item) => <NotificationRow key={item.key} item={item} onRead={onRead} onNavigate={onNavigate} busy={busy} />)}
+        </ul>
+      )}
+      {last && data.nextCursor && (
+        <Button variant="ghost" size="sm" className="justify-self-center" onClick={() => onMore(data.nextCursor!)}>
+          더 보기
+        </Button>
+      )}
+      {last && data.window.truncated && (
+        <p className="text-xs text-muted-foreground">최근 판정 이벤트 {data.window.events.toLocaleString("ko-KR")}건 안의 알림만 보입니다.</p>
+      )}
+    </>
+  );
+};
 
 /**
- * 운영 알림: 앱 공용 SSE 연결(RealtimeAnomalyProvider) 하나에서 최근 이벤트를 보여 준다. 이벤트마다 토스트 없음(ui.md).
- * 읽음 상태·필터·작업 알림은 하위 Issue(알림·설정 + 사용자별 저장 API).
+ * 알림 패널 본문(contracts/notifications.md): 서버가 만든 알림(사건 단위 + 묶이지 않은 판정)을 사용자 알림 설정으로 거른 목록.
+ * 읽지 않음/전체 보기, 모두 읽음, 항목 읽음 처리, 이동(이동하면 그 항목 읽음). 미확인 수·읽음 상태는 서버 저장값만 쓴다.
  */
-export const NotificationPanels = ({ limit, onNavigate }: { limit?: number; onNavigate?: () => void }) => {
-  const realtime = useSharedRealtimeAnomalies();
-  const events = [...realtime.events].reverse().slice(0, limit);
+export const NotificationPanels = ({ onNavigate }: { onNavigate?: () => void }) => {
+  const [view, setView] = useState<NotificationView>("unread");
+  const [cursors, setCursors] = useState<(string | null)[]>([null]);
+  const unread = useUnreadCount();
+  const mark = useMarkNotificationsRead();
+  const reset = () => setCursors([null]);
+  const readOne = (item: NotificationItem) => mark.mutate({ items: [{ key: item.key, seq: item.seq }] }, { onSuccess: reset });
+  const go = (item: NotificationItem) => {
+    if (item.unread) mark.mutate({ items: [{ key: item.key, seq: item.seq }] });
+    onNavigate?.();
+  };
+  const readAll = () => unread.data && mark.mutate({ through: unread.data.latestSeq }, { onSuccess: reset });
   return (
-    <section className="grid gap-3" aria-label="운영 알림">
-      <div className="flex items-center justify-between gap-2">
-        <h3 className="text-section-title">운영 알림</h3>
-        <p className="text-xs text-muted-foreground" role="status">
-          실시간 연결: {streamLabels[realtime.status]}
-        </p>
-      </div>
-      {realtime.error && (
-        <ErrorState
-          title="운영 알림 연결을 확인해 주세요"
-          onRetry={realtime.requiresLogout ? undefined : realtime.retry}
-          retryLabel="다시 연결"
-        >
-          {realtime.error}
-        </ErrorState>
-      )}
-      {!realtime.error && realtime.status === "closed" && (
-        <ErrorState title="실시간 연결이 끊겼습니다" onRetry={realtime.retry} retryLabel="다시 연결" />
-      )}
-      {(realtime.status === "connecting" || realtime.status === "retrying") && (
-        <LoadingState className="py-2">운영 알림에 연결하는 중...</LoadingState>
-      )}
-      {realtime.invalidCount > 0 && (
-        <p className="text-xs text-destructive-text">형식을 확인할 수 없는 이벤트 {realtime.invalidCount}건</p>
-      )}
-      {events.length ? (
-        <ul className="grid gap-1">
-          {events.map((event) => (
-            <li key={event.eventId}>
-              <Link
-                to={operatingEventHref(event)}
-                onClick={onNavigate}
-                className="grid gap-0.5 rounded-md px-2 py-2 text-sm transition-colors outline-none hover:bg-accent focus-visible:ring-3 focus-visible:ring-ring/50"
-              >
-                <span className="font-medium">
-                  {severityLabels[event.severity]} · {event.processName || "프로세스 미확인"}
-                </span>
-                <span className="text-muted-foreground">응답 코드 {event.responseCode}</span>
-                <span className="text-xs text-muted-foreground">{observedTime(event.detectedAt)}</span>
-              </Link>
-            </li>
+    <section className="grid gap-3" aria-label="알림 목록">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div role="group" aria-label="알림 보기" className="inline-flex rounded-md border p-0.5">
+          {notificationViews.map((value) => (
+            <Button
+              key={value}
+              variant={view === value ? "secondary" : "ghost"}
+              size="sm"
+              aria-pressed={view === value}
+              className="h-7"
+              onClick={() => {
+                setView(value);
+                reset();
+              }}
+            >
+              {viewLabels[value]}
+            </Button>
           ))}
-        </ul>
-      ) : realtime.status === "open" ? (
-        <EmptyState className="py-4">수신한 운영 알림이 없습니다.</EmptyState>
-      ) : (
-        <EmptyState className="py-4">수신한 운영 알림이 없습니다. 연결 상태를 확인해 주세요.</EmptyState>
-      )}
+        </div>
+        <Button variant="outline" size="sm" onClick={readAll} disabled={!unread.data?.unreadCount || mark.isPending}>
+          모두 읽음
+        </Button>
+      </div>
+      {mark.isError && <p className="text-xs text-destructive-text" role="alert">읽음 상태를 저장하지 못했습니다. {errorText(mark.error)}</p>}
+      <div className="grid gap-2">
+        {cursors.map((cursor, index) => (
+          <NotificationPage
+            key={`${view}:${cursor ?? "first"}`}
+            view={view}
+            cursor={cursor}
+            last={index === cursors.length - 1}
+            onMore={(next) => setCursors((list) => [...list, next])}
+            onRead={readOne}
+            onNavigate={go}
+            busy={mark.isPending}
+          />
+        ))}
+      </div>
     </section>
   );
 };

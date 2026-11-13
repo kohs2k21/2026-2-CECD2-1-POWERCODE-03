@@ -80,14 +80,6 @@ export const dashboardDisplaySettings: SettingsToggleConfig[] = [
   },
 ];
 
-export const homeWidgetSettings: SettingsToggleConfig[] = [
-  {
-    label: "빈 위젯 catalog 표시",
-    description: "숨긴 위젯과 추가 가능한 위젯을 갤러리에서 관리합니다.",
-    enabled: true,
-  },
-];
-
 export const permissionSettings: SettingsToggleConfig[] = [
   {
     label: "상태 변경 확인",

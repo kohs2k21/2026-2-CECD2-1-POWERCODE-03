@@ -26,7 +26,7 @@
 | `/detection/evaluations` | 탐지 설정 › 평가 결과(비교 평가 목록 + 같은 화면 새 비교 평가) | admin |
 | `/detection/evaluations/:evaluationId` | 평가 상세 | admin |
 
-- 상단 메뉴: 운영 현황 / 이상 분석 / 탐지 설정(admin만 표시). 우측 알림 패널·설정·로그아웃
+- 상단 메뉴: 운영 현황 / 이상 분석 / 탐지 설정(admin만 표시). 우측 알림 패널(미확인 배지)·설정·로그아웃
 - 기본 경로 `/`: 운영 현황. 탐지 설정 첫 진입 `/detection`: 운영 설정
 - 탐지 설정 사이드바 4메뉴: 운영 설정 · 룰 설정 · 머신러닝 모델 · 평가 결과. 상세·모델 교체 화면도 해당 메뉴를 현재 메뉴로 표시
 - 탐지 설정 하위 화면(상세·모델 교체) 상단: 뒤로가기 아이콘(이름 `뒤로 · <메뉴>`). 탐지 설정 안에서 넘겨받은 `state.returnTo`가 있으면 그 주소, 없거나 탐지 설정 밖·외부·자기 자신이면 해당 메뉴 첫 화면
@@ -37,7 +37,7 @@
 | 화면 | 쿼리 | 값(첫 값이 기본) |
 |---|---|---|
 | 운영 현황 | `tab` | `overview` 개요 / `collect` 수집 |
-| 설정 | `section` | `notifications` / `integrations` / `display` / `profile` |
+| 설정 | `section` | `notifications` / `integrations` / `display` / `profile`(알림 설정 · 연동 관리 · 화면/위젯 · 사용자 환경). `notifications`·`display`는 계정별 서버 저장(바꾸면 바로 저장, [notifications.md](notifications.md)), 그 밖은 `저장 미지원` |
 | 머신러닝 모델 | `tab` | `active` 현재 운영 버전 / `all` 전체 버전 |
 | 머신러닝 모델 | `step` | 새 학습 `1` 기간 / `2` 입력 변수 / `3` 모델·파라미터 |
 | 머신러닝 모델 | `job` | 접수한 학습 작업 ID(없으면 생략). 영역 맨 위에 진행 상태를 표시 |
@@ -79,6 +79,7 @@
 - Zustand: 화면 간 공유가 필요한 편집 초안만(`stores/draftStore.ts`, pathname별)
 - 지역 상태: 입력 중 값·팝업·메뉴 열림
 - 브라우저 저장소: 넓게 보기 같은 화면 편의 설정만. 서버 상태·초안·토큰 이외 비밀 금지
+- 계정별 서버 저장(`/api/me/settings`): 알림 설정·운영 현황 위젯 배치. 알림 읽음 상태는 `/api/notifications/read`(notifications.md)
 - URL 제외: 토큰·비밀번호·BODY·편집 초안
 - 로그아웃·인증 만료·계정 변경: 사용자별 캐시·공유 초안·알림 정리
 - 다른 탭의 로그인·로그아웃: 저장소 변경 감지 후 현재 사용자 재확인·이전 조회 취소

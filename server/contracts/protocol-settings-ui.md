@@ -1,5 +1,5 @@
 Created: 2026-11-13T22:30:00+09:00
-Updated: 2026-11-14T01:30:00+09:00
+Updated: 2026-11-14T01:55:00+09:00
 Author: Claude Code(WebUI builder)
 Status: current — 실험 기능. 판정 의미는 Detector [protocol-rules.md](protocol-rules.md), 저장 형식·검증은 [rule-set.md](rule-set.md) v3 절
 
@@ -34,6 +34,7 @@ Status: current — 실험 기능. 판정 의미는 Detector [protocol-rules.md]
 
 - 룰 설정 진입 카드 "프로토콜 설정": "인터페이스별 허용 경로 · 정상 프로토콜 N개(켜짐 M개)" + [설정 보기]. 룰 설정 화면 저장은 프로토콜 항목을 현재 값 그대로 싣는다(편집은 이 하위 화면에서만)
 - 목록 `/detection/rules/protocols`: 안내 한 줄, "등록되지 않은 인터페이스" 카드(내장 하드룰 `hard:unregistered-interface` 이름·조건은 서버 값, 켜기·위험도 — 바꾸면 바로 확인창 → 저장, 켜졌는데 켜진 항목이 없으면 경고 문장), 정상 프로토콜 목록(현재 운영 버전·등록 수·켜짐 수, 초안 상태 한 줄, [인터페이스 추가], 검색 — 인터페이스 ID 부분 일치·대소문자 무시). 표: 인터페이스 · 허용 경로 수 · 위험도 · 상태(켜짐/꺼짐/미등록) · 학습 기간 관측(경로 N개 · 거래 M건 · 근거 부족). 행 = 등록 항목 + 초안에 있는 미등록 인터페이스. 행 클릭 → 상세(뒤로가기 = 목록)
+  - 정상 프로토콜 목록 카드 머리 [후보 작업 요청]: 규칙 추천 화면과 같은 확인창·API·문구(rule-candidates-ui.md 6절 요청·8절 "후보 작업 요청" — 저장 데이터셋 선택, 본문 `{snapshotId}`, `Idempotency-Key`). 초안 응답을 읽은 뒤에만 보인다. 접수되면 관측 경로 초안·규칙 추천 목록을 다시 읽는다. 초안 결과 작업과 다른 최근 작업(`latestJob`)은 초안 상태 줄 옆 `최근 작업 <상태> · <시각> · <작업 id 8자>`(작업 상세 링크, 실패는 `실패 · <코드>`)이고, 대기·실행 중이면 단추를 끄고 `후보 작업 진행 중` + 초안을 5초마다 다시 읽는다 → 성공하면 그 결과의 초안이 표에 들어온다(2절 "가장 최근 성공한 작업")
 - 상세 `/detection/rules/protocols/:interfaceId`(주소의 인터페이스 ID는 `encodeURIComponent`, 값은 원래 문자열 그대로): 운영 버전·등록 여부(내부 규칙 id는 보이지 않음)·[항목 삭제]·[저장](변경 있고 확인 필요 없을 때), 켜기·위험도, 첫 항목이면 미등록 규칙 켬 선택(1절), 허용 경로 표(채널 칩을 화살표로 — 공백이 보이게, 같은 채널 연속은 합치지 않음, 추가 표시·삭제·저장하면 삭제될 경로 줄), [경로 추가](한 줄에 채널 하나, 값 그대로·CR만 뗌, 빈 값·`\N`·중복·64단계 초과는 먼저 막음), 관측 경로 초안(단추를 눌렀을 때만 조회 — 기준 기간·경로를 만든 거래 수·갈라진 거래 수·근거 부족·경로를 만들지 못한 거래 사유별 건수·표시하지 않은 경로 요약, 경로 표 선택 · 경로 · 거래 · 비율 · 표시(드묾 n% 미만·갈라진 거래 N건), 이미 허용된 경로는 "허용됨")
 - 상한 표시: 허용 경로 `N/64`, 64개면 [경로 추가] 꺼짐. 서버 검증이 최종(422 코드 그대로)
 - 비율 표기: 규칙 추천 충족률과 같은 한 자리 내림(0·1만 정수)
@@ -70,5 +71,5 @@ Status: current — 실험 기능. 판정 의미는 Detector [protocol-rules.md]
 
 - 배포: DB 020(적용됨) → DB 023·024(재판정 커서)·025(응답 코드 사전, response-codes-ui.md) 적용(모두 새 표만 추가, 기존 코드 영향 없음) → 역할 스크립트 재적용(023·024·025 GRANT를 모두 전제) → **Detector v3**(로더 + 관계·프로토콜·새 내장 판정·재판정, protocol-rules.md 10절) → **API v3 + 이 WebUI**(함께). API v3 저장은 Detector v3 배포 확인 뒤에만(rule-set.md v3.7). 첫 v3 행이 생긴 뒤에는 앞으로만 고친다
 - 저장소 안 안전 장치: 백엔드 시험 `backend/tests/detector-hash-v3.test.mjs`가 같은 저장소 Detector의 `rule_set_content_hash(snapshot, 3)`를 Python으로 불러 기준값 (c)·(h)와 이 API가 저장하는 스냅샷 hash를 대조한다. Detector가 v3를 읽지 못하면(또는 Python이 없으면) 실패하고 건너뛰지 않는다 → Detector v3가 같은 브랜치에 들어오기 전에는 이 API 변경의 CI가 실패한다(의도)
-- Trainer `protocolPathDrafts`가 없는 옛 결과는 초안 없음 상태로 보인다(정상). 새 후보 작업을 돌리면 초안이 생긴다(작업 요청 단추는 아직 없음 — rule-candidates-ui.md 9절)
+- Trainer `protocolPathDrafts`가 없는 옛 결과는 초안 없음 상태로 보인다(정상). 새 후보 작업을 돌리면 초안이 생긴다(목록 화면 [후보 작업 요청], 3절)
 - 미검증: 실제 Detector `evidence.protocolReview` 산출물(합성 값으로만 시험), 큰 결과 JSON 읽기 비용(규칙 추천과 같은 한계), `hard:transaction-failed` 코드별 위험도 등록은 룰 설정 › 응답 코드 하위 페이지([response-codes-ui.md](response-codes-ui.md))

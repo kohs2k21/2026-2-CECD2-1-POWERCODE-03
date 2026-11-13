@@ -1,0 +1,20 @@
+{
+  "kind": "alert",
+  "review": {
+    "version": 1,
+    "kind": "interface_unregistered",
+    "interfaceId": "IF_SYN_G",
+    "protocolRuleId": null,
+    "ruleSetRevision": 7,
+    "transactionObservationId": "synthetic",
+    "routes": [],
+    "routesReason": "chain_broken",
+    "endpoints": {
+      "start": "SYN_GW",
+      "end": "SYN_CRM",
+      "matchesRoutes": null,
+      "ambiguous": false
+    }
+  },
+  "ruleEntry": null
+}

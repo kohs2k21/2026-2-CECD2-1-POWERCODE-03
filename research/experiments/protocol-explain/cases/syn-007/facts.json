@@ -1,0 +1,48 @@
+{
+  "format": "protocol-explain-facts-v1",
+  "kind": "alert",
+  "alertKind": "path_unmatched",
+  "interface": "IF-01",
+  "registered": true,
+  "enabled": true,
+  "allowed": {
+    "paths": [
+      "P1",
+      "P3"
+    ],
+    "count": 2,
+    "omitted": 0
+  },
+  "routes": [
+    {
+      "path": "P1",
+      "matched": true
+    },
+    {
+      "path": "P2",
+      "matched": false
+    }
+  ],
+  "routeCount": 2,
+  "unmatchedCount": 1,
+  "branching": true,
+  "routesReason": null,
+  "paths": {
+    "P1": [
+      "CH-01",
+      "CH-02",
+      "CH-03"
+    ],
+    "P2": [
+      "CH-01",
+      "CH-02",
+      "CH-04"
+    ],
+    "P3": [
+      "CH-01",
+      "CH-02",
+      "CH-05",
+      "CH-03"
+    ]
+  }
+}

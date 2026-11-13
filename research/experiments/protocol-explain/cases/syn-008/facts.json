@@ -1,0 +1,18 @@
+{
+  "format": "protocol-explain-facts-v1",
+  "kind": "alert",
+  "alertKind": "interface_unregistered",
+  "interface": "IF-01",
+  "registered": false,
+  "enabled": null,
+  "allowed": null,
+  "routes": [],
+  "routeCount": 0,
+  "unmatchedCount": 0,
+  "branching": false,
+  "routesReason": {
+    "reason": "chain_broken",
+    "label": "선행 사슬 끊김"
+  },
+  "paths": {}
+}

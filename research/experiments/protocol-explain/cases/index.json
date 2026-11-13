@@ -1,0 +1,108 @@
+{
+  "format": "protocol-explain-export-v1",
+  "kind": "synthetic",
+  "generator": "make_cases.py",
+  "created_at": "2026-11-14T00:00:00+00:00",
+  "alias": true,
+  "facts_format": "protocol-explain-facts-v1",
+  "source": {
+    "mode": "synthetic",
+    "trainer_draft_version": 1
+  },
+  "counts": {
+    "cases": 8,
+    "observed_paths": 6,
+    "alert": 2
+  },
+  "cases": [
+    {
+      "case_id": "syn-001",
+      "kind": "observed_paths",
+      "path": "syn-001",
+      "files": {
+        "source.json": "326374071fea4efece2c98d5e0c7cd024c7e7024887aefe4c8854a7896a8fa5e",
+        "facts.json": "52428e68243c24496beb96904545d5acf3f481c46bc29c51bc6f2afcd3e62895"
+      },
+      "scenario": "single_path_normal",
+      "purpose": "정상 단일 경로: 관측 경로 1개가 허용 경로와 같음"
+    },
+    {
+      "case_id": "syn-002",
+      "kind": "observed_paths",
+      "path": "syn-002",
+      "files": {
+        "source.json": "84fc063125c368e46e5eafc75b8ed8a2e5b87ca451ef21fcbef29dbc20782f02",
+        "facts.json": "041b6a72a0a140ffab7e02b4e9d2f72126c1adf511b5919143ba6eb5d454162e"
+      },
+      "scenario": "multiple_allowed",
+      "purpose": "허용 경로 여럿 + 갈라진 거래, 관측 경로가 모두 허용됨"
+    },
+    {
+      "case_id": "syn-003",
+      "kind": "observed_paths",
+      "path": "syn-003",
+      "files": {
+        "source.json": "93f81f48972c47a96672588b364e3cbb8ee29d5982017a764217bd6ac6f3f230",
+        "facts.json": "833d419f774b69391df773855270bb86471f04da1ffba6c50aa293db090dbbef"
+      },
+      "scenario": "unseen_path",
+      "purpose": "처음 보는 경로(허용 경로에 없음) 1개 + 관측 목록에 없는 허용 경로 1개"
+    },
+    {
+      "case_id": "syn-004",
+      "kind": "observed_paths",
+      "path": "syn-004",
+      "files": {
+        "source.json": "7b2fc8763c589a6df1caa76f12c8639c4f3f794a67b80cdc6f7fc644eaf42a8e",
+        "facts.json": "c6370a8e5c712104b0e6ad6c4df28771064489801e8f29ec65497eed5371e5ac"
+      },
+      "scenario": "unregistered_interface",
+      "purpose": "처음 보는 인터페이스(정상 프로토콜 미등록), 관측 경로 2개"
+    },
+    {
+      "case_id": "syn-005",
+      "kind": "observed_paths",
+      "path": "syn-005",
+      "files": {
+        "source.json": "d8c749f64a1d70dc979a8bc4417ee939fd2a84ea3bfa129519d2c4548e5d25b3",
+        "facts.json": "071af556ab76db9f4a27d5fb3e36360e2da5df990d9f0173d85b9703a0c944cb"
+      },
+      "scenario": "rare_path",
+      "purpose": "드문 경로(1% 미만, 연속 같은 채널) 허용 경로에 없음 + 경로를 만들지 못한 거래 사유 2종"
+    },
+    {
+      "case_id": "syn-006",
+      "kind": "observed_paths",
+      "path": "syn-006",
+      "files": {
+        "source.json": "b4c8f71f8cfab56da8f963e2c332807cbb2deb2349782b4b7b2516bee80b5bb2",
+        "facts.json": "c94c5be204271cd24f73ae8e86b462fa2a6d9bc0520c2f6fe331abd088f76ab2"
+      },
+      "scenario": "minimal_facts",
+      "purpose": "사실이 거의 없음: 경로를 만든 거래 3건(근거 부족), 대부분 사유로 제외"
+    },
+    {
+      "case_id": "syn-007",
+      "kind": "alert",
+      "path": "syn-007",
+      "files": {
+        "source.json": "bd0cb9138c3f3a129390f0e656fd2c3084fd63c3b6bc58aec987b23f4890d04e",
+        "facts.json": "7c4b9c707d0c7e8bdab66b3e9f3ead247d03699c173d42b4fa6930d1de7abc9b"
+      },
+      "scenario": "alert_path_unmatched",
+      "purpose": "알림: 갈라진 거래의 경로 2개 중 1개가 허용 경로에 없음"
+    },
+    {
+      "case_id": "syn-008",
+      "kind": "alert",
+      "path": "syn-008",
+      "files": {
+        "source.json": "3ffccd544307293e982c2fec27452e26894eb700e2b1c927d905205eb137db77",
+        "facts.json": "521fbbcb01887560a39d5a496db7757eb0a4c665997c1b07a60fb2bf526d2570"
+      },
+      "scenario": "alert_unregistered_no_routes",
+      "purpose": "알림: 등록되지 않은 인터페이스, 경로를 만들 수 없음(선행 사슬 끊김)"
+    }
+  ],
+  "skipped": []
+}

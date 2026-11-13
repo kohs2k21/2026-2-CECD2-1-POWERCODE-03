@@ -11,8 +11,10 @@ import { ErrorState, LoadingState } from "@/components/ui/feedback";
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { errorCode } from "@/features/detection/rules/ruleDraft";
 import { DASH, bytesText, msText, numberText } from "@/features/operations/format";
-import { comparisonKey, type CompareVersion, type ComparisonDetail, type ComparisonItem, type EvaluationSet, type Rate } from "./evaluationsApi";
-import { comparisonStatus, countText, fixedInfoText, labelOf, policyText, rateText, ruleConditionText, setKindLabel, setNote, setUnitLabel, truthRowLabels } from "./evaluationFormat";
+import { comparisonKey, type CompareVersion, type ComparisonDetail, type ComparisonItem, type EvaluationSet, type PairwiseAgreement, type Rate } from "./evaluationsApi";
+import {
+  comparisonStatus, costMetricText, countText, excludedText, fixedInfoText, labelOf, policyText, rateText, ruleConditionText, setKindLabel, setNote, setUnitLabel, truthRowLabels, valueOrReason,
+} from "./evaluationFormat";
 import { RecommendationBlock, RecommendationUnconnected } from "./RecommendationBlock";
 import { useCompareVersions, useComparison, useEvaluationSet } from "./useEvaluations";
 
@@ -51,12 +53,34 @@ const ruleMlText = (item: ComparisonItem) => {
   const { hrBoth, hrRuleOnly, hrMlOnly, hrNeither } = family.metrics;
   return `${[hrBoth, hrRuleOnly, hrMlOnly, hrNeither].map((cell) => countText(cell?.numerator)).join(" / ")} · 비교 가능 ${countText(hrBoth?.denominator)}`;
 };
-const costText = (item: ComparisonItem, key: string, format: (value: number) => string) => {
-  if (item.status === "failed") return FAILED_CELL;
-  const family = item.evaluationEnvelope?.execution_cost;
-  if (!family || family.status !== "measured") return `${UNMEASURED_CELL} · ${family?.reason ?? DASH}`;
-  const value = family.metrics?.[key]?.value;
-  return value === null || value === undefined ? `${UNMEASURED_CELL} · ${family.metrics?.[key]?.reason ?? DASH}` : format(value);
+const costText = (item: ComparisonItem, key: string, format: (value: number) => string) =>
+  item.status === "failed" ? FAILED_CELL : costMetricText(item.evaluationEnvelope?.execution_cost, key, format);
+
+type ListItem = { label: string; value: ReactNode };
+/** 라벨 없이 보는 판정 결과·행당 처리 시간(11/14 필드). 예전 결과처럼 키가 없으면 그 줄을 만들지 않는다. */
+const unlabeledItems = (item: ComparisonItem): ListItem[] => {
+  const ml = item.categoryResults?.ml;
+  const rows: ListItem[] = [];
+  if (ml?.predictedAnomalyCount !== undefined) rows.push({ label: "이상 판정 건수", value: valueOrReason(ml.predictedAnomalyCount, ml.predictedAnomalyRate?.reason, (value) => `${numberText(value)}건`) });
+  if (ml?.predictedAnomalyRate) rows.push({ label: "이상 판정 비율", value: rateText(ml.predictedAnomalyRate) });
+  const quantiles = ml?.scoreQuantiles;
+  if (quantiles) {
+    const values = [quantiles.p50, quantiles.p95, quantiles.p99];
+    rows.push({
+      label: "이상 점수 중앙값 / 95분위 / 99분위",
+      value: values.every((value) => value === null) ? `${UNMEASURED_CELL} · ${quantiles.reason ?? DASH}` : values.map((value) => valueOrReason(value, quantiles.reason, numberText)).join(" / "),
+    });
+  }
+  if (item.executionCost) {
+    rows.push({ label: "행당 처리 시간 중앙값", value: costMetricText(item.executionCost, "itemP50Ms", msText) });
+    rows.push({ label: "행당 처리 시간 P95", value: costMetricText(item.executionCost, "itemP95Ms", msText) });
+  }
+  return rows;
+};
+/** 평가 전에 뺀 행. 판정 실패 행(`ml.unavailableCount`)과 다른 양이라 다른 줄로 보인다. */
+const excludedItems = (item: ComparisonItem): ListItem[] => {
+  const value = excludedText(item.counts);
+  return value === null ? [] : [{ label: "평가 제외 행", value }];
 };
 
 const MetricTable = ({ items, versions, rows, caption }: { items: ComparisonItem[]; versions: CompareVersion[] | undefined; rows: [string, (item: ComparisonItem) => ReactNode][]; caption?: string }) => (
@@ -94,7 +118,15 @@ export const MatrixCard = ({ item, context, showReplace = true }: { item: Compar
     return <SectionCard title={head} headingLevel={3}><p className="text-sm text-destructive-text">평가 실패 · {item.errorCode ?? DASH} · 결과 없음</p></SectionCard>;
   }
   const ml = item.categoryResults?.ml;
-  if (!ml || ml.measurementStatus !== "measured") return <SectionCard title={head} headingLevel={3}><p className="text-sm text-muted-foreground">{UNMEASURED_CELL} · {ml?.measurementStatus ?? DASH}</p></SectionCard>;
+  if (!ml || ml.measurementStatus !== "measured") {
+    const rows = [...unlabeledItems(item), ...excludedItems(item)];
+    return (
+      <SectionCard title={head} headingLevel={3}>
+        <p className="text-sm text-muted-foreground">{UNMEASURED_CELL} · {ml?.measurementStatus ?? DASH}</p>
+        {rows.length > 0 && <DescriptionList className="sm:grid-cols-1 xl:grid-cols-1" items={rows} />}
+      </SectionCard>
+    );
+  }
   const { tp, fp, tn, fn } = ml.confusion;
   const labels = truthRowLabels(set);
   const definedSum = (a: number | null, b: number | null) => (a === null || b === null ? "" : ` ${numberText(a + b)}`);
@@ -117,13 +149,37 @@ export const MatrixCard = ({ item, context, showReplace = true }: { item: Compar
           // 정상 확정 라벨이 없어서 null일 때만 그 문구를 붙인다. 다른 사유는 rateText가 사유 코드를 그대로 보인다.
           { label: "정밀도", value: ml.completeOnly.precision.value === null ? `${rateText(ml.completeOnly.precision)}${ml.completeOnly.precision.reason === NORMAL_LABELS_UNAVAILABLE ? " · 정상 확정 라벨 없음" : ""}` : `${rateText(ml.completeOnly.precision)} 완료 기준${decidable(ml.decidable?.precision)}` },
           { label: "오탐률", value: ml.completeOnly.falsePositiveRate.value === null ? rateText(ml.completeOnly.falsePositiveRate) : `${rateText(ml.completeOnly.falsePositiveRate)} 완료 기준${decidable(ml.decidable?.falsePositiveRate)}` },
-          { label: "제외 행", value: `완료 기준 ${numberText(ml.unavailableCount)}행${ml.decidable ? ` · 판정 가능 기준 ${ml.decidable.unavailableCount === undefined ? DASH : `${numberText(ml.decidable.unavailableCount)}행`}` : ""}` },
+          ...unlabeledItems(item),
+          // 평가한 행 중 모델 판정이 실패한 행. 평가 전에 뺀 행(평가 제외 행)과 합치지 않는다.
+          { label: "판정 실패 행", value: `완료 기준 ${numberText(ml.unavailableCount)}행${ml.decidable ? ` · 판정 가능 기준 ${ml.decidable.unavailableCount === undefined ? DASH : `${numberText(ml.decidable.unavailableCount)}행`}` : ""}` },
+          // 교체 버튼 바로 위에 둔다(제외 행이 있어도 적용 gate를 통과할 수 있어서).
+          ...excludedItems(item),
         ]}
       />
       {showReplace && item.role === "candidate" && version?.executable && !version.active && (
         <div><Button asChild size="sm" variant="outline"><Link to={paths.detectionReplace} state={{ returnTo: location.pathname + location.search, targetVersionId: item.configVersionId }}>이 모델로 교체</Link></Button></div>
       )}
     </SectionCard>
+  );
+};
+
+const AGREEMENT_NOTE = "정확도가 아니라 두 버전의 판정이 얼마나 같은지입니다";
+/** 버전 쌍마다 판정 일치(서버 값 그대로). {A}/{B}는 8자 버전 ID. */
+const AgreementTable = ({ pair }: { pair: PairwiseAgreement }) => {
+  const a = pair.a.slice(0, 8);
+  const b = pair.b.slice(0, 8);
+  const cells: [string, ReactNode][] = [
+    ["둘 다 이상", numberText(pair.both)],
+    [`${a}만 이상`, numberText(pair.aOnly)],
+    [`${b}만 이상`, numberText(pair.bOnly)],
+    ["둘 다 정상", numberText(pair.neither)],
+    ["판정 일치율", rateText(pair.agreementRate)],
+  ];
+  return (
+    <Table data-agreement={`${pair.a}:${pair.b}`}>
+      <TableHeader><TableRow>{cells.map(([label]) => <TableHead key={label}>{label}</TableHead>)}</TableRow></TableHeader>
+      <TableBody><TableRow>{cells.map(([label, value]) => <TableCell key={label}>{value}</TableCell>)}</TableRow></TableBody>
+    </Table>
   );
 };
 
@@ -161,6 +217,12 @@ const Results = ({ detail, context }: { detail: ComparisonDetail; context: Conte
           ]}
         />
       </SectionCard>
+      {/* 예전 결과(키 없음)와 성공 항목 1개 이하([])는 그리지 않는다. */}
+      {detail.pairwiseAgreement && detail.pairwiseAgreement.length > 0 && (
+        <SectionCard title="버전 간 판정 일치" description={AGREEMENT_NOTE}>
+          <div className="grid gap-4">{detail.pairwiseAgreement.map((pair) => <AgreementTable key={`${pair.a}:${pair.b}`} pair={pair} />)}</div>
+        </SectionCard>
+      )}
       {withRules && (
         <SectionCard title={`룰과 함께 판정 · ${ruleConditionText(detail.ruleSet?.revision)}`}>
           <MetricTable

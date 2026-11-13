@@ -62,6 +62,20 @@ export type ModelCategoryResult = {
   unavailableCount: number;
   completeOnly: BasisRates;
   decidable?: BasisRates;
+  /** 무라벨 지표(11/14~). 예전 결과에는 키가 없다. ML 경로 미선택·성공 0행이면 값은 null이고 사유는 비율·분위의 `reason`에 있다. */
+  predictedAnomalyCount?: number | null;
+  predictedAnomalyRate?: Rate;
+  scoreQuantiles?: ScoreQuantiles;
+};
+export type ScoreQuantiles = { p50: number | null; p95: number | null; p99: number | null; count: number; reason: string | null };
+/** 항목 행 수(evaluate와 같은 종합 경로 기준). `excludedCount`·`excludedReasons`는 11/14부터: populationCount + excludedCount = 세트 rowCount. */
+export type ItemCounts = {
+  populationCount?: number;
+  scoredCount?: number;
+  unavailableCount?: number;
+  unlabeledCount?: number;
+  excludedCount?: number;
+  excludedReasons?: Record<string, number>;
 };
 export type CompositeResult = {
   labelCounts: { anomalyLabelCount: number; normalLabelCount: number; unlabeledCount: number };
@@ -80,8 +94,23 @@ export type ComparisonItem = {
   /** 그 항목 평가에 실제 쓴 정책: `accepted` = 접수 때 고정한 운영 정책(v3), `configuration` = 구성에 저장된 정책·룰(v1·v2). */
   evaluationPolicy?: EvaluationPolicy;
   composite?: CompositeResult | null;
+  counts?: ItemCounts;
   categoryResults?: { ml: ModelCategoryResult };
+  /** 성공 항목의 실행 비용(`execution-cost-v1`, 11/14~). 실패 항목·예전 결과에는 없다. */
+  executionCost?: EvaluationItem;
   evaluationEnvelope?: { rule_ml: EvaluationItem; execution_cost: EvaluationItem; operational: EvaluationItem };
+};
+/** 버전 쌍의 판정 일치(11/14~). 두 항목 모두 ML 판정이 있는 행만 센다. 정확도가 아니다. */
+export type PairwiseAgreement = {
+  a: string;
+  b: string;
+  comparableCount: number;
+  both: number;
+  aOnly: number;
+  bOnly: number;
+  neither: number;
+  agreementRate: Rate;
+  interpretation: string;
 };
 export type Recommendation = {
   modelKey: string;
@@ -109,6 +138,8 @@ export type ComparisonDetail = {
   replacementRecommendations?: Recommendation[] | null;
   replacementRecommendationsReason?: string | null;
   items?: ComparisonItem[];
+  /** 예전 결과에는 없다. 성공 항목이 2개 미만이면 []. */
+  pairwiseAgreement?: PairwiseAgreement[];
 };
 
 /** 평가 대상 모델 버전(모델 있는 구성만). `modelName`은 방법 카탈로그 표시 이름이다. */

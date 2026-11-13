@@ -355,13 +355,26 @@ const posts = (path) => requested.filter((call) => call.method === "POST" && cal
   await wait(() => app.shown().includes(`평가 세트 원본 검증 세트 10월 · ${sample.C_V1.slice(0, 8)}`), "v1 evidence");
   assert.ok(app.shown().includes("45%") && app.shown().includes("70%"), "recall from the comparison");
   assert.ok(app.shown().includes("평가 정책구성 정책 · ml_only"), "evaluation policy shown");
+  assert.ok(app.shown().includes("판정 실패 행(완료 기준)0행0행"), "ml.unavailableCount is named as failed judgments");
+  assert.ok(!app.shown().includes("평가 제외 행"), "old results have no excluded-row line");
   await app.go("다음 · 승인·요청");
   await wait(() => app.shown().includes("바뀌지 않음 · 운영 룰 버전 13"), "step 3");
+  assert.ok(!app.shown().includes("평가 제외 행"), "old results: no excluded-row line in step 3");
   await act(async () => app.renderer.root.findAllByType(Checkbox).find((node) => node.props.id === "replace-approve").props.onCheckedChange(true));
   await app.click("모델 교체");
   await wait(() => app.router.state.location.pathname === "/detection/operations", "replaced");
   assert.deepEqual(replaceBody, { operation: "replace", evaluationId: EVAL7, expectedRevision: 7, expectedActiveVersionId: V_ACTIVE });
   await app.cleanup();
+
+  // 11/14 결과: 2단계 표·카드와 3단계 요약(교체 버튼 위)에 평가 제외 행.
+  sample.comparisons.splice(0, sample.comparisons.length, { ...v1Row, comparisonId: sample.C_V2, jobId: "cd340000-1111-4222-8333-444455556666" });
+  const v2 = await mount("/detection/operations/replace?step=2", { state: { targetVersionId: V_EXP7 } });
+  await wait(() => v2.shown().includes(`평가 세트 원본 검증 세트 10월 · ${sample.C_V2.slice(0, 8)}`), "v2 evidence");
+  assert.ok(v2.shown().includes("평가 제외 행3행 · 입력 변수 계산 불가(예: 처리 건수 0) 3행0행처리 시간 p95"), "excluded rows per version in the metrics table");
+  await v2.go("다음 · 승인·요청");
+  await wait(() => v2.shown().includes("바뀌지 않음 · 운영 룰 버전 13"), "v2 step 3");
+  assert.ok(v2.shown().includes("바뀌지 않음 · 운영 룰 버전 13평가 제외 행0행"), "target's excluded rows next to the approval");
+  await v2.cleanup();
 
   // 같은 세트 비교가 없으면 '+ 새 비교 평가'가 교체할 버전을 비교 화면으로 넘긴다.
   sample.comparisons.splice(0, sample.comparisons.length);

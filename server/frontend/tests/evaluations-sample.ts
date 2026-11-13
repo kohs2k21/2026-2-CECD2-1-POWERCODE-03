@@ -178,6 +178,45 @@ details.push({
     completeOnly: { recall: v1Rate(14, 20), precision: { value: null, numerator: 0, denominator: 0, reason: "no_predicted_anomalies" }, falsePositiveRate: v1NoNormal } } } }],
 });
 
+/**
+ * 11/14 서버 모양(config-comparison-evaluation.md "평가 제외 행·무라벨 지표·버전 간 판정 일치"): counts.excludedCount·excludedReasons,
+ * 성공 항목 executionCost, ml 무라벨 지표, 최상위 pairwiseAgreement. 셋째 항목은 전 행 제외(ML 성공 0행 → unavailable). 목록에는 없고 상세로만 연다.
+ */
+export const C_V2 = "6f2e8b31-4d5c-4e6f-9a71-829304b5c6d7";
+const v2Cost = (p50: number, p95: number): EvaluationItem => ({ status: "measured", reason: null, metricVersion: "execution-cost-v1", metrics: { itemP50Ms: metric(p50, "ms"), itemP95Ms: metric(p95, "ms") } });
+const v2Item = (configVersionId: string, role: ComparisonItem["role"], excluded: number): ComparisonItem => {
+  const base = v1Item(configVersionId, role, 9, 11);
+  return {
+    ...base, counts: { populationCount: 1200 - excluded, scoredCount: 1200 - excluded, unavailableCount: 0, unlabeledCount: 1180 - excluded, excludedCount: excluded, excludedReasons: excluded ? { model_inputs_undefined: excluded } : {} },
+    executionCost: v2Cost(15, 16.4),
+    categoryResults: { ml: { ...base.categoryResults!.ml, predictedAnomalyCount: 34,
+      predictedAnomalyRate: { value: 34 / (1200 - excluded), unit: "ratio", numerator: 34, denominator: 1200 - excluded, coverage: 1, reason: null },
+      scoreQuantiles: { p50: 0.518, p95: 0.565, p99: 0.571, count: 1200 - excluded, reason: null } } },
+  };
+};
+const allExcluded: ComparisonItem = {
+  ...v1Item(V_EXPERIMENT_6, "candidate", 0, 0), reasonCodes: ["all_rows_excluded", "insufficient_labeled_population"],
+  counts: { populationCount: 0, scoredCount: 0, unavailableCount: 0, unlabeledCount: 0, excludedCount: 1200, excludedReasons: { model_inputs_undefined: 1200 } },
+  executionCost: { status: "unavailable", reason: "no_rows_measured", metricVersion: "execution-cost-v1", metrics: null },
+  categoryResults: { ml: { measurementStatus: "unavailable", methodCount: 1, confusion: { tp: null, fp: null, tn: null, fn: null }, unavailableCount: 0,
+    completeOnly: { recall: v1NoNormal, precision: v1NoNormal, falsePositiveRate: v1NoNormal }, predictedAnomalyCount: null,
+    predictedAnomalyRate: { value: null, unit: "ratio", numerator: null, denominator: null, coverage: null, reason: "ml_results_unavailable" },
+    scoreQuantiles: { p50: null, p95: null, p99: null, count: 0, reason: "ml_results_unavailable" } } },
+};
+details.push({
+  comparisonId: C_V2, jobId: job("cd34"), status: "succeeded", completedAt: "2026-11-14T01:00:00Z",
+  evaluationSet: { id: SET_ORIGINAL, contentHash: hash("c07a55e2"), purpose: "validation", rowCount: 1200, originalRowCount: 1200, syntheticRowCount: 0, synthetic: false },
+  baselines: baseline(V_ACTIVE), ruleSet: { revision: 13, contentHash: hash("9c40e1aa") },
+  replacementRecommendations: null, replacementRecommendationsReason: "not_implemented_v1",
+  items: [v2Item(V_ACTIVE, "active", 3), v2Item(V_EXPERIMENT_7, "candidate", 0), allExcluded],
+  pairwiseAgreement: [
+    { a: V_ACTIVE, b: V_EXPERIMENT_7, comparableCount: 1197, both: 30, aOnly: 4, bOnly: 4, neither: 1159,
+      agreementRate: { value: 1189 / 1197, unit: "ratio", numerator: 1189, denominator: 1197, coverage: 1197 / 1200, reason: null }, interpretation: "checker_agreement_not_accuracy" },
+    { a: V_ACTIVE, b: V_EXPERIMENT_6, comparableCount: 0, both: 0, aOnly: 0, bOnly: 0, neither: 0,
+      agreementRate: { value: null, unit: "ratio", numerator: 0, denominator: 0, coverage: 0, reason: "no_comparable_rows" }, interpretation: "checker_agreement_not_accuracy" },
+  ],
+});
+
 const listRow = (comparisonId: string, row: Pick<ComparisonListItem, "evaluationSetId" | "activeModelSetRevision" | "completedAt"> & { itemCount: number }): ComparisonListItem => {
   const detail = details.find((item) => item.comparisonId === comparisonId)!;
   const items = detail.items ?? [];

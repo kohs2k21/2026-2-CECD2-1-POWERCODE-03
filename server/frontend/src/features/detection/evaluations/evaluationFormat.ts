@@ -1,6 +1,7 @@
 import { versionLabel } from "@/features/detection/models/VersionList";
 import { DASH, numberText, percentText } from "@/features/operations/format";
-import type { CompareVersion, ComparisonStatus, EvaluationPolicy, EvaluationSet, Rate, RecommendationState } from "./evaluationsApi";
+import type { EvaluationItem } from "@/services/api/pipeline.api";
+import type { CompareVersion, ComparisonStatus, EvaluationPolicy, EvaluationSet, ItemCounts, Rate, RecommendationState } from "./evaluationsApi";
 
 /** 평가 결과 화면 표시 형식. 서버 값을 옮기기만 하고 판정을 다시 계산하지 않는다. */
 export const ruleConditionText = (revision: number | null | undefined) => (revision === null || revision === undefined ? DASH : `운영 룰 버전 ${revision} 고정`);
@@ -66,4 +67,23 @@ export const policyText = (policy: EvaluationPolicy | undefined) => {
   const rules = policy.ruleCount ? ` · 룰 ${numberText(policy.ruleCount)}개` : "";
   if (policy.source === "accepted") return `운영 정책(접수 때 고정)${rules}`;
   return `구성 정책${policy.detectionPolicy?.mode ? ` · ${policy.detectionPolicy.mode}` : ""}${rules}`;
+};
+
+/** 평가 제외 행 사유 이름(사용자 승인 11/14). 모르는 코드는 코드 그대로 보인다. */
+export const EXCLUDED_REASON_LABELS: Record<string, string> = { model_inputs_undefined: "입력 변수 계산 불가(예: 처리 건수 0)" };
+/** 평가 전에 뺀 행(`counts.excludedCount`). 예전 결과(키 없음)는 null — 화면은 그 줄을 숨긴다. */
+export const excludedText = (counts: ItemCounts | undefined) => {
+  if (counts?.excludedCount === undefined) return null;
+  const reasons = Object.entries(counts.excludedReasons ?? {}).filter(([, count]) => count > 0)
+    .map(([code, count]) => ` · ${EXCLUDED_REASON_LABELS[code] ?? code} ${numberText(count)}행`);
+  return `${numberText(counts.excludedCount)}행${reasons.join("")}`;
+};
+/** 값 하나: null이면 `미측정 · <사유>`. */
+export const valueOrReason = (value: number | null | undefined, reason: string | null | undefined, format: (value: number) => string) =>
+  value === null || value === undefined ? `미측정 · ${reason ?? DASH}` : format(value);
+/** 실행 비용 지표 하나(`execution-cost-v1`). 측정되지 않은 묶음·값은 사유 코드를 그대로 보인다. */
+export const costMetricText = (family: EvaluationItem | undefined, key: string, format: (value: number) => string) => {
+  if (!family || family.status !== "measured") return `미측정 · ${family?.reason ?? DASH}`;
+  const metric = family.metrics?.[key];
+  return valueOrReason(metric?.value, metric?.reason, format);
 };

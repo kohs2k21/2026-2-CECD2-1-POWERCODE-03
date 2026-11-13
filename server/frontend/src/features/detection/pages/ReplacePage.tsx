@@ -16,7 +16,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { StepLinks } from "@/features/detection/components/StepLinks";
 import { MatrixCard } from "@/features/detection/evaluations/EvaluationDetail";
 import { comparisonKey, type ComparisonDetail, type ComparisonItem } from "@/features/detection/evaluations/evaluationsApi";
-import { policyText, rateText, ruleConditionText } from "@/features/detection/evaluations/evaluationFormat";
+import { excludedText, policyText, rateText, ruleConditionText } from "@/features/detection/evaluations/evaluationFormat";
 import { useCompareVersions, useEvaluationSet } from "@/features/detection/evaluations/useEvaluations";
 import { methodName, parameterSummary, periodText, thresholdSummary, versionLabel } from "@/features/detection/models/VersionList";
 import type { CatalogMethod, ModelVersion } from "@/features/detection/models/modelsApi";
@@ -77,7 +77,11 @@ const Evidence = ({ detail, ids, base, versions, methods }: { detail: Comparison
     ["재현율(완료 기준)", (id) => rateText(ml(id)?.completeOnly.recall)],
     ["정밀도(완료 기준)", (id) => rateText(ml(id)?.completeOnly.precision)],
     ["오탐률(완료 기준)", (id) => rateText(ml(id)?.completeOnly.falsePositiveRate)],
-    ["제외 행(완료 기준)", (id) => (ml(id) ? `${numberText(ml(id)!.unavailableCount)}행` : DASH)],
+    ["판정 실패 행(완료 기준)", (id) => (ml(id) ? `${numberText(ml(id)!.unavailableCount)}행` : DASH)],
+    // 평가 전에 뺀 행(11/14~). 예전 결과처럼 어느 버전에도 없으면 행을 그리지 않는다.
+    ...(ids.some((id) => excludedText(measuredItem(detail, id)?.counts) !== null)
+      ? [["평가 제외 행", (id: string) => excludedText(measuredItem(detail, id)?.counts) ?? DASH] as [string, (id: string) => ReactNode]]
+      : []),
     ["처리 시간 p95", (id) => (typeof cost(id) === "number" ? msText(cost(id) as number) : DASH)],
   ];
   const table = (rows: [string, (id: string) => ReactNode][], name: string) => (
@@ -199,6 +203,7 @@ export const ReplacePage = () => {
     const ml = detail && measuredItem(detail, id)?.categoryResults?.ml;
     return detail && ml ? <Badge>{comparisonKey(detail).slice(0, 8)} · {rateText(ml.completeOnly.recall)}</Badge> : DASH;
   };
+  const targetExcluded = target && evidence ? excludedText(measuredItem(evidence, target.id)?.counts) : null;
   const activeText = active.length ? active.map((model) => `${label(model.configVersionId, items, active)} · ${methodName(methods, model.modelKey)}`).join(", ") : "없음";
 
   return (
@@ -287,6 +292,8 @@ export const ReplacePage = () => {
               { label: "평가 근거", value: `${comparisonKey(evidence).slice(0, 8)} · ${ruleConditionText(evidence.ruleSet?.revision)}` },
               { label: "추천 수락", value: accepted ? `${(acceptedRun?.comparisonId ?? accepted.comparisonJobId).slice(0, 8)} 추천 ${label(accepted.targetVersionId, items)}` : "없음 · 직접 선택" },
               { label: "룰", value: state.data ? `바뀌지 않음 · 운영 룰 버전 ${state.data.ruleSet.revision}` : DASH },
+              // 교체 버튼 근처에 평가 근거의 평가 제외 행을 보인다(예전 결과는 줄 없음).
+              ...(targetExcluded === null ? [] : [{ label: "평가 제외 행", value: targetExcluded }]),
             ]}
           />
           {!evaluationId && <p className="text-sm text-destructive-text">운영 적용 평가 없음 · {target.applicationEligibility?.reason ?? DASH}</p>}

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { ScreenTitle } from "@/components/layout/PageHeader";
+import { SectionCard } from "@/components/layout/SectionCard";
 import { Button } from "@/components/ui/button";
 import { ErrorState, LoadingState } from "@/components/ui/feedback";
 import { paths } from "@/app/routes";
@@ -107,6 +108,11 @@ export const OperationsSettingsPage = () => {
       )}
       <Recommendations />
       <ActiveHistoryCard history={history} methods={methods} />
+      <div role="separator" aria-label="운영과 별도로 실행" className="flex items-center gap-3 text-xs text-muted-foreground">
+        <span aria-hidden="true" className="h-px flex-1 bg-border" />운영과 별도로 실행<span aria-hidden="true" className="h-px flex-1 bg-border" />
+      </div>
+      <SectionCard title="작업" description="학습·평가·비교 평가·AI 규칙 추천·규칙 추천 작업의 진행과 실패 사유"
+        action={<Button asChild size="sm" variant="outline"><Link to={paths.detectionJobs} state={returnState}>작업 목록</Link></Button>} />
       {retiring && state.data && (
         <RetireDialog model={retiring} methods={methods} last={state.data.activeModelSet.models.length === 1} busy={busy}
           onCancel={() => setRetiring(null)} onConfirm={() => void retire(retiring)} />

@@ -48,6 +48,7 @@ const ReplaceAction = ({ version }: { version: ModelVersionDetail }) => {
 };
 
 const VersionBody = ({ version }: { version: ModelVersionDetail }) => {
+  const location = useLocation();
   const capabilities = useCapabilities();
   const trainJobId = version.createdFrom.trainJobId ?? null;
   const job = useTrainJob(trainJobId);
@@ -72,7 +73,7 @@ const VersionBody = ({ version }: { version: ModelVersionDetail }) => {
             { label: "상태", value: <MethodStatus status={method?.status ?? DASH} /> },
             { label: "운영", value: <ActiveBadge active={version.active} /> },
             { label: "방법 버전", value: method?.methodVersion ?? DASH },
-            { label: "학습 작업", value: trainJobId ? <Link className="text-link" to={paths.detectionJob(trainJobId)}>{trainJobId.slice(0, 8)}</Link> : DASH },
+            { label: "학습 작업", value: trainJobId ? <Link className="text-link" to={paths.detectionJob(trainJobId)} state={{ returnTo: location.pathname + location.search }}>{trainJobId.slice(0, 8)}</Link> : DASH },
             { label: "생성", value: stampText(version.createdAt) },
             { label: "최근 평가", value: version.latestEvaluation ? stampText(version.latestEvaluation.completedAt) : "평가 전" },
           ]}

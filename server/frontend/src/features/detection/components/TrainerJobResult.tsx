@@ -1,12 +1,12 @@
-// 현재 화면 미사용(시험만 import). 다음 하위 Issue(머신러닝 모델 상세)에서 학습·평가 작업 결과 표시에 쓸 후보로 보존.
+// 학습·평가 작업 결과 요약(작업 상세 `결과 요약`). 저장된 resultSummary 값만 보인다.
 import type { PipelineJob } from "@/services/api/pipeline.api";
 
 const families = { rule_ml: "Rule·ML 비교", synthetic: "합성 이상", execution_cost: "실행 비용", operational: "운영 지표" };
 const statuses = { measured: "측정됨", unavailable: "미측정", not_applicable: "해당 없음", failed: "측정 실패" };
 const number = (value: unknown): string => typeof value === "number" && Number.isFinite(value) ? String(value) : "미측정";
 
-export function TrainerJobResult({ job }: { job: PipelineJob }) {
-  const result = job.resultSummary;
+export function TrainerJobResult({ job }: { job: { resultSummary?: unknown } }) {
+  const result = job.resultSummary as PipelineJob["resultSummary"] | null | undefined;
   if (!result) return <p>저장된 결과가 없습니다.</p>;
   const manifest = result.modelManifest;
   const metrics = result.metrics;

@@ -15,6 +15,8 @@ export const paths = {
   settings: "/settings",
   detection: "/detection",
   detectionOperations: "/detection/operations",
+  /** 작업 목록(학습·평가·추천 작업, operations-ui.md) → 작업 상세. */
+  detectionJobs: "/detection/operations/jobs",
   detectionJob: (jobId: string) => `/detection/operations/jobs/${encodeURIComponent(jobId)}`,
   detectionReplace: "/detection/operations/replace",
   detectionRules: "/detection/rules",
@@ -63,6 +65,8 @@ export const urlOptions = {
   settingsSection: ["notifications", "integrations", "display", "profile"],
   modelsTab: ["active", "all"],
   evaluationsTab: ["current", "all"],
+  jobsTab: ["all", "running", "done", "failed"],
+  jobsKind: ["all", "train", "evaluate", "evaluation_set", "compare", "recommend_thresholds", "recommend_relations"],
 } as const;
 /** 작업 영역 단계 수(navigation.md). 단계 화면은 각 하위 Issue에서 붙인다. */
 export const workStepCount = { train: 3, compare: 3, replace: 3 } as const;
@@ -130,6 +134,7 @@ const appPathPatterns: RegExp[] = [
   /^\/settings$/,
   /^\/detection\/operations$/,
   /^\/detection\/operations\/replace$/,
+  /^\/detection\/operations\/jobs$/,
   /^\/detection\/operations\/jobs\/[^/]+$/,
   /^\/detection\/rules$/,
   /^\/detection\/rules\/candidates$/,

@@ -1,6 +1,7 @@
 import * as RadioGroupPrimitive from "@radix-ui/react-radio-group";
 import { IconCircleFilled } from "@tabler/icons-react";
 import type { ComponentProps } from "react";
+import { motionClasses } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 
 export const RadioGroup = ({ className, ...props }: ComponentProps<typeof RadioGroupPrimitive.Root>) => (
@@ -15,7 +16,7 @@ export const RadioGroupItem = ({ className, ...props }: ComponentProps<typeof Ra
     )}
     {...props}
   >
-    <RadioGroupPrimitive.Indicator data-slot="radio-group-indicator" className="relative flex items-center justify-center">
+    <RadioGroupPrimitive.Indicator data-slot="radio-group-indicator" className={cn("relative flex items-center justify-center", motionClasses.check)}>
       <IconCircleFilled className="absolute top-1/2 left-1/2 size-2 -translate-x-1/2 -translate-y-1/2" aria-hidden="true" />
     </RadioGroupPrimitive.Indicator>
   </RadioGroupPrimitive.Item>

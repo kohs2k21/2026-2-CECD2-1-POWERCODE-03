@@ -3,9 +3,9 @@ import type { CandidateJob, Counts, RelationCandidate, RelationKind, RelationSta
 
 /**
  * 규칙 추천 화면 문구(contracts/rule-candidates-ui.md 8절). 근거:
- * - 종류 이름: plan 20261112 3절 4번 "필수 단계·선행 관계·허용 분기·메시지 인계"
+ * - 종류 이름: "필수 단계·선행 관계·허용 분기·메시지 인계"(relation-rules.md 2절 kind의 화면 이름)
  * - 상태 기준: Trainer relation_candidates.py candidate_status(적용 30건 미만 근거 부족, 충족률 99% 이상 후보, 95~99% 검토 필요)
- * - 건수 이름: plan 3절 4번 "적용 가능·충족·위반·보류 건수"(Trainer applicable·satisfied·violated·undetermined)
+ * - 건수 이름: "적용·충족·위반·보류"(Trainer applicable·satisfied·violated·undetermined의 화면 이름)
  * - 짝 경고 문장: Detector relation-rules.md 4절 "경고 문장(WebUI가 그대로 씀)"
  * - 승인 불가 사유: Detector relation-rules.md 8절 "Detector v3 지원이 API v3 저장보다 먼저 배포돼야 한다"
  */

@@ -3,7 +3,7 @@
 - 관련 작업: #20 WebUI 레이아웃 구조 개편, #100 프론트 기반(알림 전체 페이지 폐지), #101 하위 8 알림·설정 + 사용자별 저장 API
 - 진입: 우상단 알림 버튼(배지) → 알림 패널. 알림 전체 페이지 `/notifications`는 #100에서 폐지, 옛 주소는 `/analysis`로 넘김(navigation.md)
 - 알림 = 신규 알림 목록 + 해당 화면 바로가기(와이어프레임 #93 bell). 외부 채널(메일·메신저)·작업(학습·평가) 알림은 이번 범위 밖
-- 저장: 마이그레이션 `022_user_settings_notifications.sql`(API 역할만, `infra/database/README.md` 022 절)
+- 저장: 마이그레이션 `022_user_settings_notifications.sql`(API 역할만, `infra/database/README.md` 022 절), 프로토콜 알림 처리 기록 `023_protocol_alert_actions.sql`(023 절)
 
 ## 알림 단위(사용자 11/13 "사건 단위 + 묶이지 않은 판정")
 
@@ -20,6 +20,7 @@
   - 항목 단계 `stage`: 최종 판정이 있으면 `final`(철회면 `cleared` = 이상이 아닌 최종). 재시도 대체 때 012 트리거가 새 시도 최종 뒤에 이전 시도 `superseded`를 기록하므로 마지막 이벤트 종류로 정하지 않는다. 최종이 없으면 철회는 `no_final`, 그 밖은 마지막 이벤트 `interim`·`updated`·`superseded`
 - 사건 항목: 키 `incident:<흐름 id>`. 흐름 = 구성원 사건에서 병합(양방향)·이어짐(양방향)으로 닿는 사건 전부(사건 상세 `resolveFlow`와 같은 걸음). 흐름 id = 닿은 사건 중 (`opened_at`, 병합 뿌리 id)가 가장 작은 사건의 병합 뿌리 = 사건 보기 화면의 흐름 id(첫 구간). 병합 뿌리 = `merged_into`를 끝까지 따라간 사건. 어긋난 연결(incidents-ui flags)은 거르지 않아 그런 흐름은 화면 id와 다를 수 있음
   - 구성원 판정(최종)마다 판단: 첫 통과 구성원 `opened`, 위험도 상승 `risk_raised`, 그 밖 `grew`. 사건 위험도 = 통과한 구성원 위험도 최고값, `memberDecisions` = 조회 범위 안 통과 구성원 수
+- 프로토콜 항목(contracts/protocol-settings-ui.md 5절): 키 `protocol:<sha256 64 hex>`, 묶음 (인터페이스, pathKey) — 최종 판정 `evidence.protocolReview`의 일치하지 않은 경로마다(경로 없는 미등록 인터페이스는 인터페이스 단위). **관리자 목록·배지에만**(일반 사용자 목록·배지·읽음 요청에서 빠짐). 범위 안에서 처음 나온 판정 1번만 알림(`first_seen`, 처리 전 묶음은 첫 판정이 범위 밖으로 밀리면 범위 안 가장 이른 판정으로 다시 알림), 사용자 알림 설정과 무관. [이상 유지] 뒤 순번은 유지 시점 순번을 넘지 않고 그 순번이 범위 밖이면 읽음(다시 알리지 않음). 항목 읽음은 023 `ops_user_protocol_alert_reads`
 - 미확인: 항목 순번 > max(모두 읽음 순번, 그 항목 읽음 순번). 묶인 판정의 순번은 판정 이벤트 순번이므로 "모두 읽음" 뒤에 사건으로 묶여도 다시 미확인이 되지 않는다. 새 구성원이 추가되면(순번 증가) 다시 미확인
 
 ## API(인증 필수, user·admin 모두 자기 계정만, 오류 `{code}`)
@@ -28,13 +29,15 @@
 |---|---|
 | `GET /api/notifications?view=unread\|all&limit=1~50&cursor=` | 기본 `view=unread`·`limit=20`. `{observedAt, latestSeq, readThrough, window:{events,fromSeq,truncated}, settings, unreadCount, total, nextCursor, items[]}`. 순번 내림차순 → 항목 키 내림차순 키셋, 커서 = 응답 `nextCursor` 그대로 |
 | `GET /api/notifications/unread-count` | `{latestSeq, unreadCount}`(배지) |
+| `POST /api/notifications/protocol-alerts/keep`(관리자) | 본문 `{interfaceId, pathKey \| null}`. 화면은 확인창 뒤에만 요청. [이상 유지] 기록(protocol-settings-ui.md 5절). 응답 `{key, keptThroughSeq, keptAt, keptBy, alreadyKept, latestSeq, unreadCount}`. 400 `invalid_protocol_keep_request`, 403 `admin_required`, 404 `protocol_alert_not_found` |
 | `POST /api/notifications/read` | 본문 `{"through":"<순번>"}`(모두 읽음) 또는 `{"items":[{"key","seq"}]}`(1~50개, 키 중복 금지). 모두 읽음 순번은 현재 최대 이벤트 id로 줄임. 항목은 요청자 설정 기준 지금 조회 범위에 있는 키만 저장(없는 키는 무시)하고 순번은 그 항목의 현재 알림 순번으로 줄임. 저장값은 되돌리지 않음(GREATEST). 응답 `{readThrough, latestSeq, unreadCount}` |
 | `GET /api/me/settings` | `{notifications:{decisionBasis,minRiskLevel,includeUnrated,isDefault,updatedAt}, widgetLayout:{layout,updatedAt}}`. 저장값 없으면 기본값 `interim`·`info`·`true`(`isDefault=true`), 배치 `null` |
 | `PUT /api/me/settings` | 본문 `notifications`·`widgetLayout` 중 하나 이상(보낸 항목만 바꿈, 마지막 저장이 이김). 응답 = GET과 같은 전체 설정 |
 
-- 항목 공통: `{key, type:"decision"|"incident", seq, reason, notifiedAt, unread}`. 순번은 문자열(bigint)
+- 항목 공통: `{key, type:"decision"|"incident"|"protocol", seq, reason, notifiedAt, unread}`. 순번은 문자열(bigint). 읽음 요청 `items[].key`는 세 형식 모두
 - `decision`: `{detailId, decisionId, jobId, stage, completeness, finalSignal:"yes"|"no"|"unknown"|null, grade, riskStatus:"rated"|"unrated", riskLevel, hasUnratedEvidence, processId, transactionId}`. `finalSignal` = 마지막 최종 판정의 이상 신호(analysis-ui, 최종 없으면 null). 바로가기 `/analysis/d/<detailId>`(판정 ID, 최종 전이면 detect 작업 ID)
 - `incident`: `{id, openedAt, criteria:{kind,value,longValue}, memberDecisions, riskStatus, riskLevel, hasUnratedEvidence}`. 바로가기 `/analysis/incidents/<id>`(상세가 어느 사건 ID든 흐름으로 풂)
+- `protocol`: `{kind:"path_unmatched"|"interface_unregistered", interfaceId, pathKey|null, channels|null, routesReason, protocolRuleId, decisionId(최근 판정), decisions(판정 수), resolution:"kept"|"added"|null, keptAt, keptBy, processId, transactionId}`. 바로가기 `/analysis/d/<decisionId>`, 명령(관리자, 처리 전) [정상 프로토콜에 추가](프로토콜 상세를 경로를 더한 초안으로)·[이상 유지]
 - 위젯 배치 `widgetLayout`: `{version:1~99, items:[{i,x,y,w,h}]}`, 0~32개, `i` 영문 소문자 시작 1~32자(중복 금지), x·y 0~999, w·h 1~99 정수. 위젯 이름·크기 제한은 화면이 읽을 때 다시 적용(`parseStoredLayout`)
 - 400 code: `invalid_view`·`invalid_limit`·`invalid_cursor`·`unknown_notification_filter`(알 수 없는 쿼리)·`invalid_read_request`·`invalid_settings_request`·`invalid_notification_settings`·`invalid_widget_layout`·`invalid_json`. 413 `request_too_large`(본문 16KB). 401 인증(auth.md). 저장소 오류 503 `notification_storage_unavailable`(성공·빈 목록 대체 없음)
 - 비용: 요청마다 범위 안 이벤트(최대 5,000행)를 PK 범위로 읽고 evidence·payload를 행마다 한 번 푼다. 사건 머리는 범위 안 사건만 재귀로 따라간다. 별도 쓰기 작업자 없음

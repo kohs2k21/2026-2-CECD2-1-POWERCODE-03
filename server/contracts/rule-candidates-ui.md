@@ -1,5 +1,5 @@
 Created: 2026-11-12T21:40:00+09:00
-Updated: 2026-11-13T01:50:00+09:00
+Updated: 2026-11-13T22:00:00+09:00
 Author: Claude Code(WebUI builder)
 Status: current — 실험 기능(층 B). Trainer `relation_candidates.py`(결과 계약 `relation-candidates-experimental-2`)·Detector `relation-rules.md`에 맞춤
 
@@ -7,7 +7,7 @@ Status: current — 실험 기능(층 B). Trainer `relation_candidates.py`(결�
 
 - 범위: Trainer 후보 작업 `recommend_relations`의 결과를 **읽고**, 그 작업을 **요청**하는 API와 탐지 설정 › 룰 설정 › 규칙 추천 화면. 후보 계산(집계·기준·반례)은 Trainer, 규칙 판정 의미는 Detector `relation-rules.md`가 기준이다
 - 저장: **새 표 없음**. 결과는 작업 표 `run_jobs.result_summary`(jsonb, Trainer `runner._finish`가 성공 시 기록)에 있다. API는 결과를 고치지 않고 화면에 쓰는 값만 골라 낸다
-- 구현: `backend/src/ruleset/ruleCandidates.ts`(해석·조회·요청), 경로는 룰 세트 라우터(`backend/src/routes/ruleSetRoutes.ts`, 같은 64KB JSON 파서·`{code}` 오류 형식·503 처리), 프론트 `frontend/src/features/detection/rules/candidates/`
+- 구현: `backend/src/ruleset/ruleCandidates.ts`(해석·조회·요청), 경로는 룰 세트 라우터(`backend/src/routes/ruleSetRoutes.ts`, 같은 JSON 파서(64KB — 룰 세트 저장·미리보기만 관리자 확인 뒤 2MB, protocol-settings-ui.md 1절)·`{code}` 오류 형식·503 처리), 프론트 `frontend/src/features/detection/rules/candidates/`
 - 권한: 세 경로 모두 **관리자**(탐지 설정 화면, 작업 결과는 관리자만 읽음 — `GET /api/jobs`와 같은 범위). 토큰 없음 401, user 403 `admin_required`
 
 ## 1. DB 준비 상태 — 배포 전 필요(`infra/migrations/021_recommend_relations.sql`)
@@ -86,12 +86,13 @@ Status: current — 실험 기능(층 B). Trainer `relation_candidates.py`(결�
 - 멱등: 헤더 `Idempotency-Key`(형식은 룰 세트 저장과 같음, 없으면 새 키). 같은 요청자·키의 작업을 **스냅샷 확인보다 먼저** 찾는다 → 같은 본문 200 같은 작업(그 사이 스냅샷 상태가 바뀌어도), 다른 본문 409 `idempotency_payload_conflict`. 본문 비교 값 `request_hash` = 요청 본문(`kind`·`snapshotId`·선택 키)의 sha256, 스냅샷에서 읽는 `sourceId`는 넣지 않는다. 호환: hash에서 `sourceId`를 빼기 전 구현으로 만든 작업의 `request_hash`는 입력 전체(`kind`·`snapshotId`·`sourceId`·선택 키) sha256이라, 재요청은 새 hash 또는 그 작업 `input_spec.sourceId`로 다시 계산한 옛 hash 중 하나와 같으면 같은 본문 200. 새 작업 201 `{id, status:"queued", kind, inputSpec}`
 - DB 준비 전 503(1절)
 
-## 7. 승인 — 룰 세트 저장, 지금은 꺼짐
+## 7. 승인 — 룰 세트 저장(hash v3)
 
-- 승인 = 기존 룰 세트 저장 `PUT /api/rule-set`(새 버전, 되돌리기 대상, plan 20261112 2절 보완 2). 관계 후보는 `relationRules[]`, 처리 시간 후보는 `softRules[]` + `scope`
-- 이 두 필드는 **룰 세트 hash v3에서만** 저장한다(Detector 8절). API `CONTENT_HASH_VERSION`은 Detector v3 배포 전까지 2이고, 현재 `PUT /api/rule-set`은 두 필드를 모르는 키로 400 `invalid_rule_set_request` 거절한다 → **`approval.available = (CONTENT_HASH_VERSION >= 3)`**, 사유 `rule_set_hash_v3_pending`
-- 화면은 승인 단추를 끄고 사유를 그대로 보인다. v3 전환 때 할 일: `parseRuleSetRequest`·`planRuleSetChange`에 `relationRules`·`scope` 검증(Detector 9절 표), 화면 승인 → 미리보기(`POST /api/rule-set/preview`, `warnings[]` 확인창) → 저장 연결
-- "승인됨" 표시는 별도 플래그가 아니라 현재 룰 세트에 같은 조건 규칙이 있는지로 판단(plan 2절 보완 2). v3 전에는 룰 세트에 관계 규칙이 없으므로 표시하지 않는다
+- 승인 = 기존 룰 세트 저장 `PUT /api/rule-set`(새 버전, 되돌리기 대상 — 별도 승인 저장소 없음). 관계 후보는 `relationRules[]` 새 항목(`id: null` + `clientRef`, 조건 = `ruleDraft`의 `kind`·`scope`·`from`·`to`·`match`, `source` = `ruleDraft.source`), 처리 시간 후보는 `softRules[]` 새 항목 + `scope`(= `ruleDraft.scope`). 나머지 규칙은 현재 상태 그대로 싣는다(전체 상태 치환). id(`hard:rel-<8hex>`·`soft:<field>-<8hex>`)는 서버가 발급
+- 두 필드는 **룰 세트 hash v3에서만** 저장한다(rule-set.md v3.7). **`approval.available = (CONTENT_HASH_VERSION >= 3)`** — API v3(이 브랜치)에서 `true`, 2로 되돌린 배포(첫 v3 행 전에만 가능)에서만 `false` + 사유 `rule_set_hash_v3_pending`
+- 화면 흐름: [승인] → 입력(관계: 위험도, 기본 위험 / 처리 시간: 이름·위험도, 기본 주의) → 서버 미리보기 확인창(변경 요약·`warnings[]` — 짝 없는 `message_handoff`면 `relation_handoff_without_precedes` 문장) → 저장 → 다시 읽기
+- **"승인됨"**: 별도 플래그 없이 현재 룰 세트에 같은 조건이 있으면 승인됨(단추 꺼짐). 관계 = rule-set.md v3.3 정규 객체의 `kind`·`scope`(required_step `{interfaceId}`, 그 밖 `adapterType`만)·`from`·`to`·`match`가 같음(표시용 `scope.interfaceId` 제외 — 서버 `relation_rule_condition_duplicate`와 같은 기준). 처리 시간 = 같은 `field` + 같은 `scope` 판정 키(`processId`·`adapterType`·`processHubId`)의 소프트룰이 있음(임계값은 비교하지 않음 — 범위가 같은 규칙은 룰 설정에서 임계값을 고친다)
+- 저장 거절(422 등)은 코드 그대로 안내, 운영 룰은 그대로
 
 ## 8. 화면 — 탐지 설정 › 룰 설정 › 규칙 추천
 
@@ -99,8 +100,8 @@ Status: current — 실험 기능(층 B). Trainer `relation_candidates.py`(결�
 - 목록 `/detection/rules/candidates?interface=<id>`: 결과 머리(후보 작업 완료 시각·기준 기간·전체 건수, 결과 작업과 다른 최근 작업이 있으면 그 상태), 인터페이스 선택(주소 `interface`. 인터페이스가 수백 개일 수 있어 검색 선택: 트리거 `<ID> · 승인 가능 N` → 팝오버 검색 입력 `인터페이스 ID 검색`(부분 일치·대소문자 무시) + 목록(ID · 승인 가능 N, 받은 순서), 일치 없음 `일치하는 인터페이스가 없습니다.`)
   - **관계 규칙 후보**: 패턴 그래프(React Flow + dagre, 실행 순서 보기와 같은 상자·노드 폭, 읽기 전용) — 노드 = 단계 ID·어댑터·관측 거래 수, 간선 = `precedes`만, 이름 = 선행 충족률 + 후보 표(종류 · 경로·단계 · 어댑터 · 적용 · 충족 · 위반 · 보류 · 충족률 · 상태 · 승인 가능)
   - **처리 시간(이상 징후) 후보**: 표(단계 · 어댑터 · 제안 임계값(근거 "기준 표본 p95(코드 계산)") · 근거 건수 · END_TIME 없음 · 상태) + Trainer 한계 문구("한계(Trainer) · …"). 문구에 내부 경로(`.py` 또는 `trainer/foo`처럼 소문자·`_` 단어 뒤 `/`; `S/F`·`건/분`은 경로 아님)가 있으면(옛 결과) Trainer 새 결과 `limitation` 원문 전체인 고정 문장 "종료 시각(END_TIME)이 없는 실행은 처리 시간 계산에서 제외됩니다. 늦게 끝난 단계는 잡지만, 끝나지 않고 멈춘 단계는 잡지 못합니다."(`candidateLabels.ts` `END_TIME_LIMITATION`, 근거: Trainer 한계 + 화면에 내부 경로·식별자를 보이지 않는 문구 규칙)로 바꾸고 같은 문장은 한 번만 보인다
-- 상세 `/detection/rules/candidates/:candidateId`: 건수·충족률·판정 시점, 사유별 건수, 대표 반례(→ 판정 상세 "실행 순서 보기", 판정 없으면 "판정 없음"), 짝 선행 관계 링크, 승인 시 저장할 조건, [승인](꺼짐 + 사유). 상단 뒤로가기 = 넘겨받은 목록 주소(없으면 룰 설정)
-- 용어 근거: 종류 이름 plan 3절 4번, 상태 기준 Trainer `candidate_status`(30건·99%·95%), 건수 이름 "적용·충족·위반·보류"(plan 3절 4번), 판정 시점 Detector 2절 `evaluatedAt`
+- 상세 `/detection/rules/candidates/:candidateId`: 건수·충족률·판정 시점, 사유별 건수, 대표 반례(→ 판정 상세 "실행 순서 보기", 판정 없으면 "판정 없음"), 짝 선행 관계 링크, 승인 시 저장할 조건, [승인](7절 흐름, 승인됨이면 꺼짐). 상단 뒤로가기 = 넘겨받은 목록 주소(없으면 룰 설정)
+- 용어 근거: 종류 이름 "필수 단계·선행 관계·허용 분기·메시지 인계"(relation-rules.md 2절 kind의 화면 이름), 상태 기준 Trainer `candidate_status`(30건·99%·95%), 건수 이름 "적용·충족·위반·보류"(Trainer `applicable`·`satisfied`·`violated`·`undetermined`의 화면 이름), 판정 시점 Detector 2절 `evaluatedAt`
 - `message_handoff`이고 `pairApprovable:false`이면 문장 "짝 선행 규칙이 없어 선행이 다르면 인계를 확인하지 않습니다."(Detector 4절 경고 문장 그대로)
 - 충족률 표기: 한 자리 내림(99.96% → "99.9%"), 0과 1 사이 값은 0.1%~99.9%, 정확히 0·1만 "0%"·"100%"
 - 화면은 "버전"만 쓴다(리비전 표기 없음). 후보 작업 요청 단추는 아직 두지 않는다(스냅샷 선택 화면이 없음 — 남은 결정)
@@ -109,5 +110,4 @@ Status: current — 실험 기능(층 B). Trainer `relation_candidates.py`(결�
 
 - DB: 1절 enum·CHECK는 migration 021. 큰 스냅샷의 결과 JSON 크기·`result_summary` 읽기 비용(목록 조회마다 결과 전체를 읽음) 미측정 — 크면 결과 표(층 B 채택 단계 `run_pattern_*`) 또는 요약 열로 옮김
 - 화면에서 후보 작업 요청(스냅샷 선택)을 둘지, 인터페이스가 많을 때 선택 칸 대신 검색 목록을 둘지
-- v3 전환 시 승인 저장 연결(7절)과 "승인됨" 판단 기준(같은 조건 = Detector 2절 "같은 규칙의 기준")
 - `relationNotes`(허용 분기 정보)를 화면에 보일지

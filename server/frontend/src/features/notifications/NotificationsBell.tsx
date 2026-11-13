@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { badgeText, bellLabel } from "./notificationLabels";
-import { NotificationPanels } from "./NotificationPanels";
+import { KeepConfirmDialog, NotificationPanels } from "./NotificationPanels";
+import type { ProtocolNotification } from "./notificationsApi";
 import { useNotificationLiveUpdates, useRefreshOnNavigate, useUnreadCount } from "./useNotifications";
 
 /**
@@ -14,6 +15,8 @@ import { useNotificationLiveUpdates, useRefreshOnNavigate, useUnreadCount } from
  */
 export const NotificationsBell = ({ triggerClassName }: { triggerClassName?: string }) => {
   const [open, setOpen] = useState(false);
+  // [이상 유지] 확인창은 작은 창 밖에 둔다(확인창을 누르면 작은 창이 닫히므로 그 안에 두면 확인창도 사라진다).
+  const [keeping, setKeeping] = useState<ProtocolNotification | null>(null);
   const location = useLocation();
   const unread = useUnreadCount();
   useNotificationLiveUpdates(unread.data?.latestSeq);
@@ -23,6 +26,7 @@ export const NotificationsBell = ({ triggerClassName }: { triggerClassName?: str
   const count = unread.data?.unreadCount;
   const label = unread.isError ? "알림 · 읽지 않은 수 확인 불가" : bellLabel(count);
   return (
+    <>
     <Popover
       open={open}
       onOpenChange={(next) => {
@@ -49,8 +53,12 @@ export const NotificationsBell = ({ triggerClassName }: { triggerClassName?: str
       </PopoverTrigger>
       <PopoverContent align="end" className="grid w-96 max-w-[calc(100vw-2rem)] gap-3" aria-label="알림">
         <h2 className="text-section-title">알림</h2>
-        <div className="max-h-[60vh] overflow-y-auto pr-1">{open && <NotificationPanels onNavigate={close} />}</div>
+        <div className="max-h-[60vh] overflow-y-auto pr-1">
+          {open && <NotificationPanels onNavigate={close} onKeepRequest={(item) => { setKeeping(item); close(); }} />}
+        </div>
       </PopoverContent>
     </Popover>
+    {keeping && <KeepConfirmDialog item={keeping} onClose={() => setKeeping(null)} />}
+    </>
   );
 };

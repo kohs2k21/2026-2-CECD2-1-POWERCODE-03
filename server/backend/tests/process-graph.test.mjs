@@ -294,3 +294,19 @@ test('graph read model uses the highest-retry TRANSACTION execution as the node,
   assert.deepEqual([tie.id, tie.attrs.observationId, tie.attrs.status, tie.attrs.verification], ['transaction:TX-1', null, null, 'ambiguous']);
   assert.equal(g.edges.find((e) => e.kind === 'contains' && e.from === 'transaction:TX-1').verification, 'not_checked');
 });
+
+test('process node channelId: one present raw value across attempts, otherwise null (protocol-rules.md 3.2 step 6)', () => {
+  const g = graph(TX(), [
+    P('PR001', 'NONE', { channelId: ' CH_A' }),
+    P('PR002', 'PR001', { channelId: 'CH_B', retryCount: '0' }), P('PR002', 'PR001', { channelId: 'CH_B', retryCount: '1' }),
+    P('PR003', 'PR002', { channelId: 'CH_C', retryCount: '0' }), P('PR003', 'PR002', { channelId: 'CH_D', retryCount: '1' }),
+    P('PR004', 'PR003', { channelId: 'CH_E', retryCount: '0' }), P('PR004', 'PR003', { channelId: '\N', retryCount: '1' }),
+    P('PR005', 'PR004', { channelId: null }),
+    P('PR006', 'PR005', { channelId: 'CH_F', retryCount: '0' }), P('PR006', 'PR005', { channelId: 'CH_F', retryCount: '0' }),
+  ]);
+  const channel = (id) => node(g, pid(id)).attrs.channelId;
+  assert.deepEqual(['PR001', 'PR002', 'PR003', 'PR004', 'PR005', 'PR006'].map(channel), [' CH_A', 'CH_B', null, null, null, null],
+    'raw value kept; different, mixed absent, absent and ambiguous groups have no channel');
+  assert.deepEqual(node(g, pid('PR003')).attrs.attempts.map((a) => a.channelId), ['CH_C', 'CH_D'], 'attempts keep raw values');
+  assert.equal(node(graph(TX(), [P('PR001')]), pid('PR001')).attrs.channelId, null, 'rows without the field (other callers) read as absent');
+});

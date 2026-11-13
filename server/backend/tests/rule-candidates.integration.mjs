@@ -26,6 +26,9 @@ if (!['localhost', '127.0.0.1'].includes(parsed.hostname) || !/^\/qa_analysis[a-
 const here = path.dirname(fileURLToPath(import.meta.url));
 const backend = path.resolve(here, '..');
 const { readCandidateList, readCandidateDetail, RELATION_CONTRACT_VERSION } = await import('../dist/ruleset/ruleCandidates.js');
+const { readProtocolDrafts } = await import('../dist/ruleset/protocolDrafts.js');
+// Trainer protocol_paths.py를 합성 거래로 실행한 출력(protocol-drafts.test.mjs와 같은 고정값).
+const protocolDrafts = JSON.parse(await readFile(path.join(here, 'fixtures/protocol-path-drafts.json'), 'utf8'));
 const temporary = await mkdtemp(path.join(os.tmpdir(), 'powercode-rule-candidates-'));
 const pool = new pg.Pool({ connectionString: url });
 const api = new pg.Pool({ connectionString: url, options: '-c role=powercode_api' });
@@ -172,7 +175,7 @@ try {
 
   // 2) 결과 없음 — enum 값이 없어도 kind::text 비교라 503이 아니라 result null.
   const empty = await request(base, '/api/rule-set/candidates', admin);
-  assert.deepEqual([empty.status, empty.body], [200, { latestJob: null, approval: { available: false, reason: 'rule_set_hash_v3_pending', contentHashVersion: 2 }, result: null }]);
+  assert.deepEqual([empty.status, empty.body], [200, { latestJob: null, approval: { available: true, reason: null, contentHashVersion: 3 }, result: null }]);
 
   // 3) 작업 요청: 형식 400, 스냅샷 409. 021 전: enum 없음 503 → enum만 추가(v03 CHECK 그대로) 503. 021 적용 DB는 503 단계 없음.
   assert.deepEqual([(await enqueue({ snapshotId: 'x' })).body.code], ['invalid_candidate_job_request']);
@@ -249,6 +252,27 @@ try {
   assert.equal(viaApi.result.job.id, jobId);
   const detailViaApi = await readCandidateDetail(api, `${jobId}.r0`);
   assert.equal(detailViaApi.counterexamples[0].decisionId, seeded.d.p2);
+  // 7) 프로토콜 초안(protocol-settings-ui.md 2절): 최근 성공 결과에 protocolPathDrafts 키가 없으면 명시 상태, 있으면 인터페이스 요약·상세.
+  const draftsBefore = await request(base, '/api/rule-set/protocol-drafts', admin);
+  assert.deepEqual([draftsBefore.status, draftsBefore.body.state, draftsBefore.body.reason, draftsBefore.body.job.id], [200, 'protocol_drafts_unavailable', 'not_in_result', jobId]);
+  assert.equal((await request(base, '/api/rule-set/protocol-drafts', user)).status, 403, 'admin only');
+  const draftJob = id(), draftAttempt = id();
+  await pool.query(`INSERT INTO run_jobs (id, kind, status, requested_by_actor_id, requester_role, idempotency_key, request_hash, input_snapshot_id, input_spec,
+      max_attempts, attempt_count, next_run_at, created_at, contract_version, queue, producer_kind, producer_key)
+    VALUES ($1,'recommend_relations','queued','qa','admin',$2,$3,$4,$5::jsonb,3,0,clock_timestamp(),clock_timestamp(),'v03','training','user','qa')`,
+  [draftJob, `qa-${draftJob}`, sha(draftJob), seeded.snapshotId, JSON.stringify({ kind: 'recommend_relations', snapshotId: seeded.snapshotId, sourceId: seeded.sourceId })]);
+  await pool.query(`INSERT INTO run_job_attempts(id,job_id,attempt_no,status,worker_id,lease_token,lease_until,started_at)
+    VALUES($1,$2,1,'running','qa-worker',$3,clock_timestamp() + interval '5 minutes',clock_timestamp())`, [draftAttempt, draftJob, id()]);
+  await pool.query(`UPDATE run_jobs SET status='succeeded', current_attempt_id=$2, attempt_count=1, finished_at=clock_timestamp(), result_summary=$3::jsonb WHERE id=$1`,
+    [draftJob, draftAttempt, JSON.stringify({ ...resultFor(draftJob, seeded.sourceId, seeded.snapshotId), protocolPathDrafts: protocolDrafts })]);
+  const draftList = await request(base, '/api/rule-set/protocol-drafts', admin);
+  assert.equal(draftList.status, 200, JSON.stringify(draftList.body));
+  assert.deepEqual([draftList.body.state, draftList.body.job.id, draftList.body.interfaces.map((item) => [item.interfaceId, item.listedPaths])],
+    ['available', draftJob, [['IF_SYN_NOTICE', 1], ['IF_SYN_ORDER', 5], ['IF_SYN_PAY', 2]]]);
+  const draftOne = await request(base, `/api/rule-set/protocol-drafts?interfaceId=${encodeURIComponent('IF_SYN_PAY')}`, admin);
+  assert.deepEqual(draftOne.body.interface.paths[0].channels, ['CH_GW', 'CH_PAY', 'CH_BANK:01', 'CH_PAY']);
+  assert.deepEqual(Object.values(await request(base, '/api/rule-set/protocol-drafts?x=1', admin)), [400, { code: 'unknown_protocol_draft_filter' }]);
+  assert.equal((await readProtocolDrafts(api, 'IF_SYN_ORDER')).interface.paths.length, 5, 'API role reads the same result');
   console.log('rule candidates integration passed');
 } finally {
   child?.kill();

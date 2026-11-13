@@ -217,4 +217,58 @@ assert.ok(requests.some((r) => r.path === "/api/pipeline/events" && r.search ===
   await app.cleanup();
 }
 
-console.log("notifications page QA passed: parsers and wording, bell badge (count, 99+, unknown), panel views/read/read-all/more/links/errors, notification settings save and failure");
+// 2-5) 프로토콜 알림(contracts/protocol-settings-ui.md 5절, 합성 값): 문구, 관리자만 [정상 프로토콜에 추가]·[이상 유지], 처리된 항목은 상태 배지,
+//      추가 = 그 인터페이스 프로토콜 상세를 경로를 더한 초안으로 연다(경로 없는 알림은 상세만), 이상 유지 = 서버 기록 요청.
+{
+  const K1 = `protocol:${"a".repeat(64)}`, K2 = `protocol:${"b".repeat(64)}`, K3 = `protocol:${"c".repeat(64)}`;
+  const protocolItem = (key, over = {}) => ({ key, type: "protocol", seq: "125", reason: "first_seen", notifiedAt: "2026-11-13T01:01:00.000000Z", unread: true,
+    protocol: { kind: "path_unmatched", interfaceId: "IF_SYN_A", pathKey: "CH_A:CH%3AX", channels: ["CH_A", "CH:X"], routesReason: null, protocolRuleId: "hard:proto-0000000a",
+      decisionId: U2, decisions: 3, resolution: null, keptAt: null, processId: "P01", transactionId: "TX-9", ...over } });
+  const parsed = api.parseNotificationItem(protocolItem(K1));
+  assert.equal(parsed.type, "protocol");
+  assert.equal(api.parseNotificationItem(protocolItem(K1, { channels: null })), null, "pathKey without channels is dropped");
+  assert.equal(api.parseNotificationItem({ ...protocolItem(K1), key: `job:${U1}` }), null, "protocol item needs a protocol key");
+  assert.deepEqual(labels.notificationText(parsed), { headline: "정상 프로토콜 확인 · 처음 보는 경로", subject: "인터페이스 IF_SYN_A · 경로 CH_A → CH:X · 판정 3건" });
+  assert.equal(labels.notificationText(api.parseNotificationItem(protocolItem(K2, { kind: "interface_unregistered", interfaceId: "IF_SYN_NEW", pathKey: null, channels: null }))).headline,
+    "정상 프로토콜 확인 · 등록되지 않은 인터페이스");
+  assert.equal(notificationHref(parsed), `/analysis/d/${U2}`, "move link opens the latest decision");
+  const items = [protocolItem(K1), protocolItem(K2, { kind: "interface_unregistered", interfaceId: "IF_SYN_NEW", pathKey: null, channels: null, routesReason: "chain_broken" }),
+    protocolItem(K3, { interfaceId: "IF_SYN_B", resolution: "kept", unread: false })];
+  routes = {
+    "GET /api/notifications/unread-count": () => [200, { latestSeq: "130", unreadCount: 2 }],
+    "GET /api/notifications": () => [200, listBody(items)],
+    "POST /api/notifications/protocol-alerts/keep": () => [200, { key: K1, keptThroughSeq: "125", keptAt: "x", keptBy: "admin-1", alreadyKept: false, latestSeq: "130", unreadCount: 1 }],
+    "POST /api/notifications/read": () => [200, { readThrough: "0", latestSeq: "130", unreadCount: 1 }],
+  };
+  const { useLocation } = await import("react-router-dom");
+  let location;
+  const Where = () => { location = useLocation(); return null; };
+  const panel = () => React.createElement(React.Fragment, null, React.createElement(Where), React.createElement(NotificationPanels));
+  const asUser = await mount(panel(), "user");
+  await wait(() => asUser.shown().includes("정상 프로토콜 확인 · 처음 보는 경로"), "protocol items rendered");
+  assert.equal(buttons(asUser, "이상 유지").length, 0, "actions are admin only");
+  await asUser.cleanup();
+  const app = await mount(panel(), "admin");
+  await wait(() => buttons(app, "이상 유지").length === 2, "two unresolved items have actions");
+  assert.ok(app.shown().includes("이상 유지됨"), "resolved item shows its state instead of actions");
+  await click(buttons(app, "이상 유지")[0]);
+  // 확인창(되돌릴 수 없는 전역 기록) 뒤에만 요청한다. 대화상자 본문은 포털이라 확인창 요소의 props로 확인한다.
+  const confirm = () => app.renderer.root.findAll((n) => typeof n.props?.onConfirm === "function" && n.props.title === "이상 유지")[0];
+  assert.ok(confirm(), "keep asks for confirmation");
+  assert.equal(requests.filter((r) => r.path === "/api/notifications/protocol-alerts/keep").length, 0, "no request before confirming");
+  assert.equal(confirm().props.actionText, "이상 유지");
+  const { keepConfirmMessage } = await import("../src/features/notifications/NotificationPanels.tsx");
+  assert.equal(keepConfirmMessage(parsed), "IF_SYN_A · CH_A → CH:X 알림을 이상으로 유지합니다. 같은 경로는 다시 알리지 않으며 되돌릴 수 없습니다(모든 관리자에게 적용).");
+  await act(async () => confirm().props.onConfirm());
+  await wait(() => requests.some((r) => r.path === "/api/notifications/protocol-alerts/keep"), "keep request");
+  assert.deepEqual(requests.filter((r) => r.path === "/api/notifications/protocol-alerts/keep").at(-1).body, { interfaceId: "IF_SYN_A", pathKey: "CH_A:CH%3AX" });
+  await click(buttons(app, "정상 프로토콜에 추가")[0]);
+  await wait(() => location.pathname === "/detection/rules/protocols/IF_SYN_A", "add opens the protocol detail");
+  assert.deepEqual(location.state, { returnTo: "/detection/rules/protocols", alertPath: { channels: ["CH_A", "CH:X"], decisionId: U2 } });
+  await click(buttons(app, "정상 프로토콜에 추가")[1]);
+  await wait(() => location.pathname === "/detection/rules/protocols/IF_SYN_NEW", "routes [] alert opens the detail only");
+  assert.deepEqual(location.state, { returnTo: "/detection/rules/protocols" });
+  await app.cleanup();
+}
+
+console.log("notifications page QA passed: parsers and wording, bell badge (count, 99+, unknown), panel views/read/read-all/more/links/errors, notification settings save and failure, protocol alerts (wording, admin actions, add → detail, keep)");

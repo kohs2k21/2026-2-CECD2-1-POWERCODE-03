@@ -29,9 +29,9 @@ const EXCLUDE_LENGTH_MAX = 200;
 const ISO = (column: string) => `to_char(${column} AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`;
 
 /**
- * 승인 가능 여부. 승인 = 룰 세트 저장(PUT /api/rule-set)에 relationRules·softRules.scope를 싣는 것인데,
- * 그 두 필드는 hash v3에서만 저장된다(Detector relation-rules.md 8절). API는 Detector v3 배포 전까지 CONTENT_HASH_VERSION 2이고
- * 현재 PUT은 두 필드를 모르는 키로 400 거절한다 → 화면은 승인 단추를 끄고 이 사유를 보인다.
+ * 승인 가능 여부. 승인 = 룰 세트 저장(PUT /api/rule-set)에 relationRules·softRules.scope를 싣는 것이고,
+ * 그 두 필드는 hash v3에서만 저장된다(rule-set.md v3.7). CONTENT_HASH_VERSION이 3이면 승인 단추를 연다.
+ * 2로 되돌린 배포(첫 v3 행 전에만 가능)에서는 단추를 끄고 사유를 보인다.
  */
 export const approvalState = (version = CONTENT_HASH_VERSION) =>
   version >= 3 ? { available: true, reason: null, contentHashVersion: version }
@@ -162,8 +162,8 @@ export function thresholdItem(jobId: string, index: number, raw: unknown) {
 }
 type ThresholdItem = ReturnType<typeof thresholdItem>;
 
-type JobRow = { id: string; status: string; errorCode: string | null; createdAt: string; finishedAt: string | null; inputSpec: Json; result?: unknown };
-const jobOf = (row: JobRow) => ({ id: row.id, status: row.status, errorCode: row.errorCode, createdAt: row.createdAt, finishedAt: row.finishedAt,
+export type JobRow = { id: string; status: string; errorCode: string | null; createdAt: string; finishedAt: string | null; inputSpec: Json; result?: unknown };
+export const relationJobOf = (row: JobRow) => ({ id: row.id, status: row.status, errorCode: row.errorCode, createdAt: row.createdAt, finishedAt: row.finishedAt,
   snapshotId: text(row.inputSpec?.snapshotId) ? row.inputSpec.snapshotId : null });
 const JOB_COLUMNS = `id::text AS id, status::text AS status, error_code AS "errorCode", ${ISO('created_at')} AS "createdAt",
   ${ISO('finished_at')} AS "finishedAt", input_spec AS "inputSpec"`;
@@ -171,7 +171,8 @@ const JOB_COLUMNS = `id::text AS id, status::text AS status, error_code AS "erro
 const KIND = `kind::text = '${RELATION_JOB_KIND}'`;
 
 const LATEST_SUCCEEDED = `${KIND} AND status = 'succeeded' ORDER BY finished_at DESC NULLS LAST, created_at DESC, id DESC LIMIT 1`;
-async function latestJobs(db: Queryable) {
+/** 가장 최근 작업(상태 무관)과 가장 최근 성공 작업(결과 포함). 프로토콜 초안도 같은 결과를 읽는다(protocolDrafts.ts). */
+export async function latestRelationJobs(db: Queryable) {
   const [{ rows: [latest] }, { rows: [succeeded] }] = await Promise.all([
     db.query<JobRow>(`SELECT ${JOB_COLUMNS} FROM run_jobs WHERE ${KIND} ORDER BY created_at DESC, id DESC LIMIT 1`),
     db.query<JobRow>(`SELECT ${JOB_COLUMNS}, result_summary AS result FROM run_jobs WHERE ${LATEST_SUCCEEDED}`),
@@ -188,7 +189,7 @@ const resultHead = (result: RawResult, job: JobRow) => {
   const parameters = result.parameters as Json;
   const period = object(result.period) ? result.period : {};
   return {
-    job: jobOf(job),
+    job: relationJobOf(job),
     snapshotId: text(result.snapshotId) ? result.snapshotId : null,
     sourceId: text(result.sourceId) ? result.sourceId : null,
     period: { from: text(period.from) ? period.from : null, until: text(period.until) ? period.until : null, timeBasis: text(period.timeBasis) ? period.timeBasis : null },
@@ -239,9 +240,9 @@ const graphOf = (result: RawResult, interfaceId: string) => {
 
 /** GET /api/rule-set/candidates — 가장 최근 성공한 후보 작업 결과(인터페이스 하나의 그래프·후보) + 가장 최근 작업 상태. */
 export async function readCandidateList(db: Queryable, interfaceId: string | null) {
-  const { latest, succeeded } = await latestJobs(db);
+  const { latest, succeeded } = await latestRelationJobs(db);
   const approval = approvalState();
-  if (!succeeded) return { latestJob: latest && jobOf(latest), approval, result: null };
+  if (!succeeded) return { latestJob: latest && relationJobOf(latest), approval, result: null };
   const result = checkResult(succeeded.result);
   const relations = result.candidates.map((raw, index) => relationItem(succeeded.id, index, raw));
   const thresholds = result.thresholdCandidates.map((raw, index) => thresholdItem(succeeded.id, index, raw));
@@ -250,7 +251,7 @@ export async function readCandidateList(db: Queryable, interfaceId: string | nul
   const selected = interfaceId ?? interfaces[0]?.interfaceId ?? null;
   const limitations = [...new Set(thresholds.map((item) => item.limitation).filter((value): value is string => value !== null))];
   return {
-    latestJob: latest && jobOf(latest),
+    latestJob: latest && relationJobOf(latest),
     approval,
     result: {
       ...resultHead(result, succeeded),

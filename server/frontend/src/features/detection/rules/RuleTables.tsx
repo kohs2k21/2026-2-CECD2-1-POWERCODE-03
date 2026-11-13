@@ -12,10 +12,11 @@ import { DASH, stampText } from "@/features/operations/format";
 import { cn } from "@/lib/utils";
 import { FormulaPanel } from "./FormulaPanel";
 import {
-  HARD_TERM, SOFT_TERM, codeLabel, errorCode, historySummary, nameChanged, operatorLabels, operators, severities, severityBadge, severityChanged, severityGroups, severityLabels, thresholdChanged,
+  HARD_TERM, RELATION_TERM, SOFT_TERM, codeLabel, defaultLevel, errorCode, historySummary, nameChanged, operatorLabels, operators, relationKindLabels, relationPathText,
+  severities, severityBadge, severityChanged, severityGroups, severityLabels, thresholdChanged,
   type DraftSoftRule, type RuleDraft,
 } from "./ruleDraft";
-import { readRuleSetHistory, type HardRule, type HistoryItem, type RuleSetState, type Severity, type SeverityByCode, type SoftRuleField } from "./ruleSetApi";
+import { readRuleSetHistory, type HardRule, type HardRuleSeverity, type HistoryItem, type RuleSetState, type Severity, type SeverityByCode, type SoftRuleField } from "./ruleSetApi";
 import { useRestoreIsNoop, useRuleHistory } from "./useRuleSet";
 
 const changedCell = (changed: boolean) => cn(changed && "bg-warning-soft");
@@ -34,14 +35,24 @@ const SeverityGroup = ({ level, children }: { level: Severity; children?: ReactN
   </span>
 );
 
-const SeverityCell = ({ severity }: { severity: HardRule["severity"] }) => (
-  <span className="grid gap-1">
-    {severityGroups(severity).map(({ level, codes }) => (
-      <SeverityGroup key={level} level={level}>
-        {codes.map((code) => <span key={code} data-severity-code={code} className="flex min-h-6 items-center">{codeLabel(code)}</span>)}
-      </SeverityGroup>
-    ))}
-  </span>
+const SeverityCell = ({ severity }: { severity: HardRule["severity"] }) => {
+  const fallback = defaultLevel(severity);
+  return (
+    <span className="grid gap-1">
+      {severityGroups(severity).map(({ level, codes }) => (
+        <SeverityGroup key={level} level={level}>
+          {codes.map((code) => <span key={code} data-severity-code={code} className="flex min-h-6 items-center">{codeLabel(code)}</span>)}
+        </SeverityGroup>
+      ))}
+      {fallback && <SeverityGroup level={fallback}><span data-severity-default className="flex min-h-6 items-center">그 밖의 코드</span></SeverityGroup>}
+    </span>
+  );
+};
+
+const LevelSelect = ({ value, label, onChange }: { value: Severity; label: string; onChange: (level: Severity) => void }) => (
+  <NativeSelect size="sm" aria-label={label} value={value} onChange={(event) => onChange(event.target.value as Severity)}>
+    {severities.map((item) => <NativeSelectOption key={item} value={item}>{severityLabels[item]}</NativeSelectOption>)}
+  </NativeSelect>
 );
 
 /** 코드별 위험도 선택. 값을 바꾸면 코드가 다른 묶음으로 옮겨 선택 칸이 새로 그려지므로 초점을 그 칸으로 돌려준다. */
@@ -77,7 +88,25 @@ const SeverityEditor = ({ severity, onChange }: { severity: SeverityByCode; onCh
   );
 };
 
-export const HardRulesCard = ({ draft, onToggle, onSeverity }: { draft: RuleDraft; onToggle: (id: string, enabled: boolean) => void; onSeverity: (id: string, code: string, level: Severity) => void }) => (
+/**
+ * 위험도 편집 칸(모양은 그 규칙의 내장 기본값): 단일 단계(`hard:unregistered-interface`) / 코드별(`hard:process-status`) /
+ * 코드별 + 그 밖의 코드 기본 단계(`hard:transaction-failed`, 코드 등록은 응답 코드 목록 하위 페이지 후속). code null = 단일 단계 또는 기본 단계.
+ */
+const HardSeverityEditor = ({ name, severity, onChange }: { name: string; severity: HardRuleSeverity; onChange: (code: string | null, level: Severity) => void }) => {
+  if (typeof severity === "string") return <div className="w-24"><LevelSelect value={severity} label={`${name} 위험도`} onChange={(level) => onChange(null, level)} /></div>;
+  if (severity.default === undefined) return <SeverityEditor severity={severity} onChange={onChange} />;
+  return (
+    <span className="grid gap-1">
+      {Object.keys(severity.byCode).length > 0 && <SeverityEditor severity={severity} onChange={onChange} />}
+      <span data-severity-default className="grid grid-cols-[6.5rem_5.5rem] items-center gap-2 text-sm">
+        <span>그 밖의 코드</span>
+        <LevelSelect value={severity.default} label={`${name} 그 밖의 코드 위험도`} onChange={(level) => onChange(null, level)} />
+      </span>
+    </span>
+  );
+};
+
+export const HardRulesCard = ({ draft, onToggle, onSeverity }: { draft: RuleDraft; onToggle: (id: string, enabled: boolean) => void; onSeverity: (id: string, code: string | null, level: Severity) => void }) => (
   <SectionCard title={HARD_TERM}>
     <Table aria-label={HARD_TERM}>
       <TableHeader>
@@ -97,8 +126,8 @@ export const HardRulesCard = ({ draft, onToggle, onSeverity }: { draft: RuleDraf
               </TableCell>
               <TableCell className="whitespace-normal">{rule.conditionText}</TableCell>
               <TableCell className={changedCell(severityChanged(current?.severity, rule.severity))}>
-                {current?.severity
-                  ? <SeverityEditor severity={current.severity} onChange={(code, level) => onSeverity(rule.id, code, level)} />
+                {current?.severity !== undefined
+                  ? <HardSeverityEditor name={rule.displayName} severity={current.severity} onChange={(code, level) => onSeverity(rule.id, code, level)} />
                   : <SeverityCell severity={rule.severity} />}
               </TableCell>
               <TableCell className={changedCell(enabled !== rule.enabled)}>
@@ -113,6 +142,46 @@ export const HardRulesCard = ({ draft, onToggle, onSeverity }: { draft: RuleDraf
     <p data-hard-rule-warning className="text-sm text-warning-text">명백한 이상을 놓칠 수 있습니다. 변경을 권장하지 않습니다.</p>
   </SectionCard>
 );
+
+/** 관계 규칙(규칙 추천 승인으로 추가, relation-rules.md). 조건은 승인 때 고정이라 켜기·위험도만 편집한다. */
+export const RelationRulesCard = ({ draft, onToggle, onSeverity }: {
+  draft: RuleDraft; onToggle: (id: string, enabled: boolean) => void; onSeverity: (id: string, level: Severity) => void;
+}) => {
+  const rules = draft.base.relationRules ?? [];
+  return (
+    <SectionCard title={RELATION_TERM} aria-label={RELATION_TERM}>
+      {rules.length === 0 ? (
+        <EmptyState>{RELATION_TERM}: 표시할 항목이 없습니다.</EmptyState>
+      ) : (
+        <Table aria-label={RELATION_TERM}>
+          <TableHeader>
+            <TableRow>{["종류", "경로·단계", "인터페이스", "어댑터", "위험도", "켜기"].map((title) => <TableHead key={title}>{title}</TableHead>)}</TableRow>
+          </TableHeader>
+          <TableBody>
+            {rules.map((rule) => {
+              const current = draft.relation.find((item) => item.id === rule.id) ?? rule;
+              const name = `${relationKindLabels[rule.kind]} ${relationPathText(rule)}`;
+              return (
+                <TableRow key={rule.id} data-relation-rule={rule.id} className={cn(!current.enabled && "text-muted-foreground")}>
+                  <TableCell>{relationKindLabels[rule.kind]}</TableCell>
+                  <TableCell className="font-mono text-sm whitespace-normal">{relationPathText(rule)}</TableCell>
+                  <TableCell>{rule.scope?.interfaceId ?? DASH}</TableCell>
+                  <TableCell>{rule.scope?.adapterType ?? DASH}</TableCell>
+                  <TableCell className={changedCell(current.severity !== rule.severity)}>
+                    <div className="w-24"><LevelSelect value={current.severity} label={`${name} 위험도`} onChange={(level) => onSeverity(rule.id, level)} /></div>
+                  </TableCell>
+                  <TableCell className={changedCell(current.enabled !== rule.enabled)}>
+                    <SwitchCell checked={current.enabled} label={`${name} 켜기`} onChange={(value) => onToggle(rule.id, value)} />
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      )}
+    </SectionCard>
+  );
+};
 
 export const SoftRulesCard = ({
   draft, fields, fieldsError, aiControls, aiBox, onEdit, onAdd, onDelete,

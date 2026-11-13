@@ -1483,6 +1483,28 @@ Table ops_user_notification_reads {
   Note: '022. 항목별 읽음. item_key incident:|job:|decision:<uuid>, 그 항목의 알림 순번이 read_seq 이하이면 읽음. API가 모두 읽음 순번 이하·조회 범위 밖 행을 지운다.'
 }
 
+Table ops_protocol_alert_keeps {
+  alert_key text [pk]
+  interface_id text [not null]
+  path_key text [not null]
+  kept_through_seq bigint [not null]
+  decision_id uuid
+  kept_by_actor_id text [not null]
+  kept_at timestamptz [not null, default: `clock_timestamp()`]
+  Note: '023. 프로토콜 알림 [이상 유지](시스템 전역, 추가만). alert_key protocol:<sha256 64 hex>, path_key 원래 pathKey(빈 문자열 = 경로 없는 미등록 인터페이스 알림). kept_through_seq 뒤로는 같은 묶음을 다시 알리지 않는다. Detector는 읽지 않음.'
+}
+
+Table ops_user_protocol_alert_reads {
+  actor_id text [not null]
+  item_key text [not null]
+  read_seq bigint [not null]
+  read_at timestamptz [not null, default: `clock_timestamp()`]
+  indexes {
+    (actor_id, item_key) [pk]
+  }
+  Note: '023. 프로토콜 알림 항목별 읽음(022 항목 읽음과 같은 규칙). item_key protocol:<sha256 64 hex>.'
+}
+
 Ref: ops_demo_passes.run_id > ops_demo_runs.id
 Ref: data_demo_deliveries.pass_id > ops_demo_passes.id
 Ref: data_observations.id - data_demo_deliveries.observation_id

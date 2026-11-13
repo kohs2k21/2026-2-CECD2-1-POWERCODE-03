@@ -1,10 +1,10 @@
 import express, { Router, Request, Response, NextFunction } from 'express';
 import type { Pool } from 'pg';
 import { getDatabasePool } from '../config/database.js';
-import { authenticateToken, AuthenticatedRequest } from '../middleware/auth.js';
+import { authenticateToken, requireAdmin, AuthenticatedRequest } from '../middleware/auth.js';
 import {
   NOTIFICATION_LIST_LIMITS, NOTIFICATION_READ_ITEMS_MAX, NOTIFICATION_VIEWS, decodeCursor, isItemKey, isSeq,
-  markNotificationsRead, readNotifications, readUnreadCount, type NotificationView, type ReadRequest,
+  ProtocolAlertError, keepProtocolAlert, markNotificationsRead, readNotifications, readUnreadCount, type NotificationView, type ProtocolKeepRequest, type ReadRequest,
 } from '../services/notificationReadModel.js';
 import { SettingsRequestError, loadNotificationSettings, parseSettingsUpdate, readSettings, updateSettings } from '../services/userSettings.js';
 
@@ -65,13 +65,26 @@ export function parseReadBody(req: Request): ReadRequest {
   throw new SettingsRequestError('invalid_read_request');
 }
 
+/** [이상 유지] 본문: {"interfaceId": "<1~512자>", "pathKey": "<원래 pathKey>" | null}(null = 경로 없는 미등록 인터페이스 알림). 값은 trim 없이 그대로 비교. */
+export function parseProtocolKeepBody(body: unknown): ProtocolKeepRequest {
+  const invalid = new SettingsRequestError('invalid_protocol_keep_request');
+  if (!plainObject(body) || Object.keys(body).sort().join() !== 'interfaceId,pathKey') throw invalid;
+  const { interfaceId, pathKey } = body;
+  if (typeof interfaceId !== 'string' || !interfaceId || [...interfaceId].length > 512 || /\u0000|\p{Cs}/u.test(interfaceId)) throw invalid;
+  if (pathKey !== null && (typeof pathKey !== 'string' || !pathKey || pathKey.length > 262144 || /\u0000|\p{Cs}/u.test(pathKey))) throw invalid;
+  return { interfaceId, pathKey: pathKey as string | null };
+}
+
+/** 프로토콜 알림은 관리자 목록·배지에만(명령이 관리자 전용, protocol-settings-ui.md 5절). */
+const isAdmin = (req: AuthenticatedRequest) => req.user?.userType === 'admin';
+
 const route = (handler: (req: AuthenticatedRequest, res: Response) => Promise<void>) =>
   (req: Request, res: Response, next: NextFunction) => { void handler(req as AuthenticatedRequest, res).catch(next); };
 const noQuery = (req: Request) => { if (Object.keys(req.query).length) throw new SettingsRequestError('unknown_notification_filter'); };
 
 function errors(router: Router) {
   router.use((error: unknown, _req: Request, res: Response, _next: NextFunction) => {
-    if (error instanceof SettingsRequestError) { res.status(error.status).json({ code: error.code }); return; }
+    if (error instanceof SettingsRequestError || error instanceof ProtocolAlertError) { res.status(error.status).json({ code: error.code }); return; }
     const parse = error as { type?: string; status?: number; statusCode?: number };
     const status = parse?.status ?? parse?.statusCode;
     if (typeof status === 'number' && status >= 400 && status < 500) {
@@ -108,19 +121,27 @@ export function createNotificationRouter(database: () => Pool = getDatabasePool)
   router.get('/', route(async (req, res) => {
     const query = parseNotificationQuery(req);
     const settings = await loadNotificationSettings(database(), req.user!.id);
-    res.json(await readNotifications(database(), req.user!.id, settings, query));
+    res.json(await readNotifications(database(), req.user!.id, settings, { ...query, protocol: isAdmin(req) }));
   }));
   router.get('/unread-count', route(async (req, res) => {
     noQuery(req);
     const settings = await loadNotificationSettings(database(), req.user!.id);
-    res.json(await readUnreadCount(database(), req.user!.id, settings));
+    res.json(await readUnreadCount(database(), req.user!.id, settings, undefined, isAdmin(req)));
+  }));
+  // 프로토콜 알림 [이상 유지](관리자, contracts/protocol-settings-ui.md 5절). 룰 세트·판정은 바꾸지 않는다.
+  router.post('/protocol-alerts/keep', requireAdmin as any, route(async (req, res) => {
+    noQuery(req);
+    if (!req.is('application/json')) throw new SettingsRequestError('invalid_protocol_keep_request');
+    const result = await keepProtocolAlert(database(), req.user!.id, parseProtocolKeepBody(req.body));
+    const settings = await loadNotificationSettings(database(), req.user!.id);
+    res.json({ ...result, ...(await readUnreadCount(database(), req.user!.id, settings, undefined, true)) });
   }));
   router.post('/read', route(async (req, res) => {
     noQuery(req);
     const request = parseReadBody(req);
     const settings = await loadNotificationSettings(database(), req.user!.id);
-    const result = await markNotificationsRead(database(), req.user!.id, settings, request);
-    res.json({ ...result, ...(await readUnreadCount(database(), req.user!.id, settings)) });
+    const result = await markNotificationsRead(database(), req.user!.id, settings, request, undefined, isAdmin(req));
+    res.json({ ...result, ...(await readUnreadCount(database(), req.user!.id, settings, undefined, isAdmin(req))) });
   }));
   errors(router);
   return router;

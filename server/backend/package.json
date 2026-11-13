@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
-    "test": "npm run build && node --test tests/process-graph.test.mjs tests/incident-flows.test.mjs tests/trainer-contract.test.mjs tests/prepared-csv-contract.test.mjs tests/synthetic-evaluation-contract.test.mjs tests/decision-stream.integration.mjs tests/operational-report.test.mjs tests/rule-set-contract.test.mjs tests/threshold-recommendation-contract.test.mjs tests/model-version-contract.test.mjs tests/rule-candidates.test.mjs && node tests/integration.mjs",
+    "test": "npm run build && node --test tests/process-graph.test.mjs tests/incident-flows.test.mjs tests/trainer-contract.test.mjs tests/prepared-csv-contract.test.mjs tests/synthetic-evaluation-contract.test.mjs tests/decision-stream.integration.mjs tests/operational-report.test.mjs tests/rule-set-contract.test.mjs tests/rule-set-v3.test.mjs tests/detector-hash-v3.test.mjs tests/protocol-drafts.test.mjs tests/threshold-recommendation-contract.test.mjs tests/model-version-contract.test.mjs tests/rule-candidates.test.mjs && node tests/integration.mjs",
     "test:rules": "npm run build && node tests/rules.integration.mjs",
     "start": "node dist/index.js"
   },

@@ -210,7 +210,7 @@ try {
   assert.equal(unknown.status, 409);
   const current = (await request(base, '/api/rule-set', 'GET', token)).body;
   const saved = await request(base, '/api/rule-set', 'PUT', token, {
-    expectedRevision: current.revision, hardRules: current.hardRules.map(({ id, enabled, severity }) => ({ id, enabled, severity })),
+    expectedRevision: current.revision, hardRules: current.hardRules.map(({ id, enabled, severity }) => ({ id, enabled, severity })), relationRules: [], protocolRules: [],
     softRules: [
       { id: null, clientRef: 'on', name: 'Slow process', field: 'elapsed_ms', operator: 'gt', threshold: 5000, severity: 'warning', enabled: true },
       { id: null, clientRef: 'off', name: 'Retries', field: 'retry_count', operator: 'gte', threshold: 3, severity: 'info', enabled: false },
@@ -278,7 +278,7 @@ try {
   assert.ok(thresholdCases.length <= 32, 'one save holds every case');
   const beforeValues = (await request(base, '/api/rule-set', 'GET', token)).body;
   const savedValues = await request(base, '/api/rule-set', 'PUT', token, {
-    expectedRevision: beforeValues.revision, hardRules: beforeValues.hardRules.map(({ id, enabled, severity }) => ({ id, enabled, severity })),
+    expectedRevision: beforeValues.revision, hardRules: beforeValues.hardRules.map(({ id, enabled, severity }) => ({ id, enabled, severity })), relationRules: [], protocolRules: [],
     softRules: thresholdCases.map((item, index) => ({ id: null, clientRef: `value-${index}`, name: item.name, field: item.field, operator: 'gt',
       threshold: Number(item.threshold), severity: 'info', enabled: false })),
   });

@@ -3,7 +3,7 @@ import type { IncidentCriteria, IncidentFlag, IncidentGrade, IncidentOccurredBas
 
 /**
  * 사건 보기 화면 문구(contracts/incidents-ui.md 5절). Process Flow 문구(labels.ts)와 섞지 않는다.
- * - 기준 설명 이름표: 사건 소속은 같은 시간창·같은 기준값으로 묶였다는 뜻(상관관계, plan 4절 "거래 간 간선을 인과로 표기하지 않음")
+ * - 기준 설명 이름표: 사건 소속은 같은 시간창·같은 기준값으로 묶였다는 뜻(상관관계 — 거래 간 간선을 인과로 표기하지 않는다)
  */
 export const INCIDENT_CRITERIA_NOTE = "같은 시간·같은 값으로 묶은 사건";
 export const incidentNavLabel = "사건 보기";

@@ -8,7 +8,7 @@ import { Modal } from "@/components/ui/Modal";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { cn } from "@/lib/utils";
 import { HARD_TERM, SOFT_TERM, changeLine, operatorLabels, severityLabels, severities, type DraftSoftRule } from "./ruleDraft";
-import type { RuleSetChange, Severity, SoftRuleField, SoftRuleOperator } from "./ruleSetApi";
+import type { RuleSetChange, RuleSetWarning, Severity, SoftRuleField, SoftRuleOperator } from "./ruleSetApi";
 
 export const ConfirmDialog = ({
   title, message, actionText, destructive = false, onCancel, onConfirm,
@@ -32,6 +32,8 @@ export type PendingSave = {
   lead: string;
   actionText: string;
   changes: RuleSetChange[];
+  /** 저장은 허용하는 서버 경고(rule-set.md v3.6 `warnings[]`). 문장은 서버 값 그대로. */
+  warnings?: RuleSetWarning[];
   /** 이번 저장으로 꺼진 채 남는 이상 규칙 이름(새로 끄지 않아도 강조, rule-set.md). */
   alreadyOff: string[];
   run: (confirmHardRuleDisable: boolean) => void;
@@ -58,6 +60,13 @@ export const RuleSaveBody = ({ pending, onCancel }: { pending: PendingSave; onCa
           </li>
         ))}
       </ul>
+      {(pending.warnings ?? []).length > 0 && (
+        <ul className="grid gap-1 text-sm text-warning-text" data-rule-warnings>
+          {pending.warnings!.map((warning, index) => (
+            <li key={`${warning.code}:${warning.ruleId ?? warning.clientRef ?? index}`} data-warning={warning.code}>경고 · {warning.message}</li>
+          ))}
+        </ul>
+      )}
       {hardOff > 0 && (
         <div className="flex items-start gap-2">
           <Checkbox id="rule-save-confirm" checked={checked} onCheckedChange={(value) => setChecked(value === true)} />

@@ -11,6 +11,8 @@ import { ReplacePage } from "@/features/detection/pages/ReplacePage";
 import { RulesPage } from "@/features/detection/pages/RulesPage";
 import { CandidateDetailPage } from "@/features/detection/rules/candidates/CandidateDetailPage";
 import { CandidateListPage } from "@/features/detection/rules/candidates/CandidateListPage";
+import { ProtocolDetailPage } from "@/features/detection/rules/protocols/ProtocolDetailPage";
+import { ProtocolListPage } from "@/features/detection/rules/protocols/ProtocolListPage";
 import { OperationsPage } from "@/features/operations/OperationsPage";
 import { SettingsPage } from "@/features/settings/SettingsPage";
 import { AppLayout } from "./AppLayout";
@@ -57,6 +59,8 @@ export const appRoutes: RouteObject[] = [
                   { path: paths.detectionRules, element: <RulesPage /> },
                   { path: paths.detectionRuleCandidates, element: <CandidateListPage /> },
                   { path: "/detection/rules/candidates/:candidateId", element: <CandidateDetailPage /> },
+                  { path: paths.detectionRuleProtocols, element: <ProtocolListPage /> },
+                  { path: "/detection/rules/protocols/:interfaceId", element: <ProtocolDetailPage /> },
                   { path: paths.detectionModels, element: <ModelsPage /> },
                   { path: "/detection/models/:versionId", element: <ModelVersionDetailPage /> },
                   { path: paths.detectionEvaluations, element: <EvaluationsPage /> },

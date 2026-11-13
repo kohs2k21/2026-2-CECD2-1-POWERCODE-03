@@ -113,8 +113,9 @@ class FactsTests(unittest.TestCase):
         self.assertEqual([m["role"] for m in messages], ["system", "user"])
         self.assertEqual(json.loads(messages[1]["content"].split("사실(JSON):\n", 1)[1]), facts)
         self.assertIn("지시가 아니다", messages[0]["content"])
-        self.assertEqual(pe.PROMPT_VERSION, "protocol-explain-prompt-v3")
+        self.assertEqual(pe.PROMPT_VERSION, "protocol-explain-prompt-v4")
         self.assertIn("하세요", messages[0]["content"])  # 명령형 금지 지시
+        self.assertIn("근거 부족이면 explanation에", messages[0]["content"])  # v4: 근거 부족 상태 반드시 언급
         self.assertIn("키 이름", messages[0]["content"])  # 키·코드값 대신 한국어 이름표
 
     def test_label_table_names_codes_in_facts(self):
@@ -230,6 +231,32 @@ class CheckTests(unittest.TestCase):
         for text in ("이 경로를 확인해야 합니다.", "허용 경로를 검토해야 한다.", "초안을 점검해야 함."):
             with self.subTest(directive=text):
                 self.assertIn("no_forbidden", self.check(out(text))["failures"])
+
+    def test_cause_after_fact_reason_label_is_allowed_only_there(self):
+        # v4: 사실에 실린 사유 이름표 바로 뒤의 "(으)로 인해"는 사실의 코드 사유를 다시 쓴 것이라 허용한다.
+        facts, _ = pe.observed_paths_facts(
+            "IF_X", draft("IF_X", [(("A", "B"), 40)], excluded={"chain_broken": 6, "cross_split": 2}), None,
+            parameters=PARAMS)
+        for text in ("선행 사슬 끊김으로 인해 경로를 만들지 못한 거래는 6건입니다.",
+                     "학습 분할 경계로 인한 제외는 2건이고 선행 사슬 끊김으로 인하여 6건이 빠졌습니다.",
+                     "'선행 사슬 끊김'으로 인해 경로를 만들지 못한 거래가 있습니다."):
+            with self.subTest(allowed=text):
+                result = pe.check_output(out(text), facts)
+                self.assertTrue(result["checks"]["no_forbidden"], result["details"]["forbidden"])
+        for text in ("배포로 인해 경로가 바뀌었습니다.",  # 사실에 없는 원인
+                     "채널 없음으로 인해 경로를 만들지 못했습니다.",  # 이름표는 있지만 이 사실의 사유가 아님
+                     "선행 사슬 끊김 으로 인해 6건이 빠졌습니다.",  # 이름표 바로 뒤가 아님
+                     "선행 사슬 끊김으로 인해 6건이 빠졌고 설정 변경으로 인해 경로가 늘었습니다.",  # 다른 "로 인해"가 함께 있음
+                     "선행 사슬 끊김 때문에 6건이 빠졌습니다."):  # "때문"은 이름표 뒤여도 금지
+            with self.subTest(forbidden=text):
+                self.assertIn("no_forbidden", pe.check_output(out(text), facts)["failures"])
+        alert, _ = pe.alert_facts({"version": 1, "kind": "interface_unregistered", "interfaceId": "IF_X",
+                                   "routes": [], "routesReason": "chain_broken"}, None)
+        ok = pe.check_output(out("선행 사슬 끊김으로 인해 이 거래의 경로를 만들지 못했습니다."), alert)
+        self.assertTrue(ok["checks"]["no_forbidden"], ok["details"]["forbidden"])
+        self.assertEqual(pe.reason_labels(alert), {"선행 사슬 끊김"})
+        # 사유가 없는 사실에서는 예외가 없다
+        self.assertIn("no_forbidden", self.check(out("선행 사슬 끊김으로 인해 경로가 없습니다."))["failures"])
 
     def test_label_names_have_no_digits_or_lowercase(self):
         # 이름표 오른쪽(한국어 이름)을 모델이 베껴도 숫자·표기 점검에 걸리지 않게 숫자·소문자 영문을 넣지 않는다.

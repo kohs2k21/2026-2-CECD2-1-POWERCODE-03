@@ -44,7 +44,7 @@ class RunnerHarness:
                 patch.object(runner, "claim", self.claim), \
                 patch.object(runner, "reconcile_dead_jobs", lambda conn, queue: self.reconciled.append(queue)), \
                 patch.object(runner, "_claim_job", return_value=job), \
-                patch.object(runner, "TrainingLeaseHeartbeat"), \
+                patch.object(runner, "TrainingLeaseHeartbeat", return_value=MagicMock(lost=False)), \
                 patch.object(runner, "_execute", execute), \
                 patch.object(runner, "_finish", self.finish):
             runner.run(once=True, role=role)
@@ -81,6 +81,60 @@ class RetryErrorCodeTests(unittest.TestCase):
             with self.subTest(error=repr(error)):
                 harness = RunnerHarness(self.message, error).run("llm_explanation")
                 self.assertEqual(harness.finished, [("job_processing_failed", False)])
+
+
+class ProtocolExplanationRoutingTests(unittest.TestCase):
+    """explain_protocol(새 대화형 작업)은 llm_explanation 큐로 오고 두 소비자 모두 같은 실행 경로로 처리한다."""
+
+    class Harness(RunnerHarness):
+        def finish(self, conn, message, job, attempt_id, attempt_token, result, error_code, terminal, **options):
+            self.finished.append((error_code, terminal))
+            self.summary = options.get("failure_summary")
+            self.result = result
+
+    def run_kind(self, role, behavior):
+        harness = self.Harness({("llm_explanation", None): object()}, kind="explain_protocol", real_execute=True)
+        with patch.object(runner, "queue_wait_ms", return_value=None), \
+                patch("protocol_explanation_job.explain_protocol", behavior):
+            harness.run(role)
+        return harness
+
+    def test_both_consumers_route_the_new_kind(self):
+        for role in ("llm_explanation", "llm"):
+            with self.subTest(role=role):
+                harness = self.run_kind(role, lambda conn, job: {"format": "protocol-explanation-v1"})
+                self.assertEqual(harness.finished, [(None, True)])
+                self.assertEqual(harness.result, {"format": "protocol-explanation-v1"})
+
+    def test_check_failure_is_terminal_with_codes_only(self):
+        from protocol_explanation_job import CheckFailed
+        summary = {"format": "protocol-explanation-v1", "check": {"passed": False, "failures": ["no_forbidden"]}}
+
+        def failed(conn, job):
+            raise CheckFailed(summary)
+        harness = self.run_kind("llm_explanation", failed)
+        self.assertEqual(harness.finished, [("protocol_explanation_check_failed", True)])
+        self.assertEqual(harness.summary, summary)
+
+    def test_busy_retries_and_timeout_ends(self):
+        def raising(error):
+            def run(conn, job):
+                raise error
+            return run
+        self.assertEqual(self.run_kind("llm_explanation", raising(GenerationUnavailable("generation_busy"))).finished,
+                         [("generation_busy", False)])
+        for code in ("generation_timeout", "generation_service_unavailable", "protocol_explanation_json_invalid"):
+            with self.subTest(code=code):
+                self.assertEqual(self.run_kind("llm", raising(ValueError(code))).finished, [(code, True)])
+
+    def test_result_row_decision_follows_the_target(self):
+        self.assertIn("explain_protocol", runner.LLM_RESULT_KINDS)
+        decision = str(uuid.uuid4())
+        alert = {"kind": "explain_protocol", "input": {"target": {"kind": "alert", "decisionId": decision}}}
+        observed = {"kind": "explain_protocol", "input": {"target": {"kind": "observed_paths", "jobId": decision}}}
+        self.assertEqual(runner._llm_result_decision_id(alert), decision)
+        self.assertIsNone(runner._llm_result_decision_id(observed))
+        self.assertEqual(runner._llm_result_decision_id({"kind": "explain", "input": {"decisionId": decision}}), decision)
 
 
 class AbolishedJobKindTests(unittest.TestCase):

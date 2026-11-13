@@ -88,7 +88,7 @@ def _claim_job(conn: Any, message: ClaimedMessage, worker_id: str) -> tuple[dict
             if cur.fetchone() is None:
                 raise RuntimeError("job_queue_ownership_lost")
             if row[1] in ("recommend_thresholds", "recommend_relations", "train", "evaluate", "import_csv",
-                          "evaluation_set", "compare") and row[8] != "admin":
+                          "evaluation_set", "compare", "explain_protocol") and row[8] != "admin":
                 raise ValueError("job_role_not_authorized")
             if row[2] in ("succeeded", "failed"):
                 if not acknowledge(conn, message.queue, message):
@@ -280,6 +280,15 @@ def _execute(conn: Any, job: dict[str, Any], attempt_id: uuid.UUID,
     if kind == "explain":
         from explanation import explain
         return explain(job)
+    if kind == "explain_protocol":
+        # 프로토콜 경로 설명(protocol-explanation-job.md). 점검 실패는 재시도 없이 사유 코드만 남긴다(문장 없음).
+        from protocol_explanation_job import CheckFailed, explain_protocol
+        try:
+            return explain_protocol(conn, job)
+        except CheckFailed as failed:
+            _finish(conn, message, job, attempt_id, attempt_token, None, failed.code, True,
+                    failure_summary=failed.summary)
+            return {"_finalized": True}
     if kind == "evaluate":
         return _evaluate(conn, job, artifact_root, message, attempt_id, attempt_token)
     # 임계값 추천은 스냅샷을 만들기 전에 모드·대상을 확정하고, 기간 키는 `data` 아래에 있다.
@@ -830,6 +839,20 @@ def _threshold_progress(conn: Any, message: ClaimedMessage, job: dict[str, Any],
     return write
 
 
+# 완료 때 run_llm_results 행을 함께 쓰는 v03 작업 종류(migration의 LLM 완료 결과 필수 목록과 같다 — 026 explain_protocol).
+LLM_RESULT_KINDS = frozenset({"recommend_thresholds", "explain", "explain_protocol"})
+
+
+def _llm_result_decision_id(job: dict[str, Any]) -> Any:
+    """결과 행 decision_id = 작업 input_decision_id(erd_v03_validate_result). explain은 input_spec 최상위,
+    explain_protocol은 알림 대상(target.kind = alert)만 판정이 있고 관측 경로 대상은 NULL이다."""
+    spec = job["input"]
+    if job["kind"] == "explain_protocol":
+        target = spec.get("target") or {}
+        return target.get("decisionId") if target.get("kind") == "alert" else None
+    return spec.get("decisionId")
+
+
 def _finish(conn: Any, message: ClaimedMessage, job: dict[str, Any],
             attempt_id: uuid.UUID, attempt_token: uuid.UUID,
             result: dict[str, Any] | None, error_code: str | None,
@@ -841,13 +864,13 @@ def _finish(conn: Any, message: ClaimedMessage, job: dict[str, Any],
             from trainer.service_contract import enrich_result
             enrich_result(conn, job, result)
         with conn.cursor() as cur:
-            if result is not None and job.get("contractVersion") == "v03" and job["kind"] in {"recommend_thresholds", "explain"}:
+            if result is not None and job.get("contractVersion") == "v03" and job["kind"] in LLM_RESULT_KINDS:
                 spec = job["llmSpec"]
                 cur.execute("""INSERT INTO run_llm_results
                     (id,job_id,kind,decision_id,config_version_id,evidence_version,input_evidence_hash,model_version,prompt_version,
                      output_schema_version,reuse_key,output,created_attempt_id,lease_token,completed_at)
                     VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s::jsonb,%s,%s,clock_timestamp())""",
-                    (uuid.uuid4(), job["id"], job["kind"], job["input"].get("decisionId"), job["input"].get("configVersionId"), spec["evidence_version"], spec["input_evidence_hash"],
+                    (uuid.uuid4(), job["id"], job["kind"], _llm_result_decision_id(job), job["input"].get("configVersionId"), spec["evidence_version"], spec["input_evidence_hash"],
                      spec["model_version"], spec["prompt_version"], spec["output_schema_version"],
                      spec["reuse_key"], json.dumps(result), attempt_id, attempt_token))
             cur.execute(

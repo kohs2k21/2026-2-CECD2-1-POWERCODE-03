@@ -105,6 +105,10 @@ GRANT SELECT ON run_incident_runs,run_incidents,run_incident_members,run_inciden
 -- read marks are pruned by the API (DELETE). Notification items are derived at read time, so no other role needs access.
 GRANT SELECT,INSERT,UPDATE ON ops_user_notification_settings,ops_user_widget_layouts,ops_user_notification_cursors TO powercode_api;
 GRANT SELECT,INSERT,UPDATE,DELETE ON ops_user_notification_reads TO powercode_api;
+-- 024 [제안]: relation recheck search runs (cursor). Append-only: Detector writes with SELECT,INSERT under
+-- pg_try_advisory_xact_lock(81742,0). No other role reads it.
+GRANT SELECT,INSERT ON run_recheck_runs TO powercode_detector;
+GRANT USAGE ON SEQUENCE run_recheck_runs_seq_seq TO powercode_detector;
 -- #78-Q10 defense in depth: no session temp tables through PUBLIC in the database this script runs in
 -- (runtime code uses none). The database owner, superusers and explicit TEMP grantees keep TEMP.
 DO $$ BEGIN

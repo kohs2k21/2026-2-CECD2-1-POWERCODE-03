@@ -66,8 +66,9 @@ def process_detection_message(conn: Any, message: ClaimedMessage, root: Path | N
     heartbeat.start()
     try:
         with conn.cursor() as cur:
-            cur.execute("""SELECT j.input_spec,j.input_config_version_id,j.input_manifest_id,m.content_hash,m.input_as_of
-                FROM run_jobs j JOIN run_input_manifests m ON m.id=j.input_manifest_id WHERE j.id=%s""", (job["id"],))
+            # readiness(6번째)는 v04 재판정 시도만 읽는다(readiness.relation, relation-rules.md 6.3). v03 경로는 앞 5개만 쓴다.
+            cur.execute("""SELECT j.input_spec,j.input_config_version_id,j.input_manifest_id,m.content_hash,m.input_as_of,
+                m.readiness FROM run_jobs j JOIN run_input_manifests m ON m.id=j.input_manifest_id WHERE j.id=%s""", (job["id"],))
             fixed = cur.fetchone()
             if fixed is None or any(payload.get(key) != fixed[0].get(key) for key in
                     ("sourceId","observationId","configVersionId","inputManifestHash","inputManifestId")):

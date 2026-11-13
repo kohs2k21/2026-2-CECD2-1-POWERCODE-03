@@ -84,6 +84,7 @@
 - `hard:<key>`: Detector가 정의한 내장 하드룰(4절). key는 Detector가 정한다
 - `soft:<key>`: 운영 룰 세트에 등록된 소프트룰(5절). key 부여 규칙은 [#94 `rule-set.md` 식별자 절]: 서버 생성 `soft:<fieldId>-<8 hex>`(예 `soft:elapsed_ms-3f9a2c1d`, fieldId에 하이픈 없음), 생성 후 불변
 - 하드룰 key는 kebab-case로 정하고 `-<8 hex>`로 끝나지 않게 한다 → evidence `rules[].ruleKey`(접두 없음)에서 소프트룰 key와 겹치지 않음 [제안 D9]
+- 룰 세트 v3(hash 버전 3) 추가 형식 [rule-set.md v3.4, relation-rules.md 2절, protocol-rules.md 4절]: 승인 저장 때 API가 만드는 하드룰 `hard:rel-<8 hex>`(관계 규칙 `relationRules[]`의 판정 kind 셋)·`hard:proto-<8 hex>`(프로토콜 항목 `protocolRules[]`). 소문자 hex 정확히 8자, 전체 일치로만 판별(`hard_rules.py` `is_relation_rule_id`·`is_protocol_rule_id`). `-<8 hex>`로 끝나지만 v3 투영 `rules[]`·`ruleSeverities`에 넣지 않으므로(11.4) D9의 `ruleKey` 충돌은 생기지 않는다. 내장 목록 밖 그 밖의 `hard:*`는 여전히 `hard_rule_unknown:<id>`(시도 실패)
 - `ml:<key>`: ML 모델 방법. 현재 실행 가능은 `ml:iforest`뿐 [코드 `computation.py:35-36`]
 - 통계 SR(`sr:*`)은 새 정책에서 쓰지 않는다 [확정 11/02 C2]. `sr:*`는 룰 세트·모델 버전 저장 검증에서 거부한다(오류 코드는 [#94]: 모델 버전 `methods[]`는 `ml:*`만 허용 — 422 `method_kind_not_allowed:<id>`(`model-version.md` 방법 식별자 절). 카탈로그 밖 키의 422 `method_unknown:<id>`는 같은 문서 "(B) 조합 저장" 절에만 있으나 이 절은 폐기(확정 11/02 Q-M1·Q-M5, 기록용). 룰 세트는 422 `hard_rule_unknown:<id>`·`soft_rule_unknown:<id>`(`rule-set.md` "저장 — `PUT /api/rule-set`" 절 검증 표)). Detector가 실행 중 `sr:*`를 만나면 판정 행 없이 시도 실패(fail-closed) [제안 D12]
 
@@ -105,7 +106,7 @@
 
 ### 4.1 원칙 [확정 11/02 C4·C17]
 
-- 시스템 내장 목록만 존재. 사용자가 추가·수정할 수 없고 **켜기·끄기**와 `hard:process-status`의 코드별 위험도 설정(C27)만 가능(기본 모두 켬 — DB 016의 r1이 새 규칙 2개를 켠 상태를 전제로 하며, r0만 있으면 그 2개는 꺼짐). 켜기·끄기 상태는 룰 세트에 저장 [#94]. 리비전 스냅샷에 없는 내장 규칙은 꺼짐으로 실행한다(10절 D14)
+- 시스템 내장 목록만 존재(룰 세트 v3의 관계 규칙 `hard:rel-*`·프로토콜 항목 `hard:proto-*`는 예외 — 사용자가 승인·저장한 규칙이고 의미는 relation-rules.md·protocol-rules.md가 정한다, 4.4). 내장 규칙은 사용자가 추가·수정할 수 없고 **켜기·끄기**와 `hard:process-status`의 코드별 위험도 설정(C27)만 가능(기본 모두 켬 — DB 016의 r1이 새 규칙 2개를 켠 상태를 전제로 하며, r0만 있으면 그 2개는 꺼짐). 켜기·끄기 상태는 룰 세트에 저장 [#94]. 리비전 스냅샷에 없는 내장 규칙은 꺼짐으로 실행한다(10절 D14)
 - 끄기는 허용하되 화면 경고와 저장 확인 체크가 필수(R1). 서버 저장 검증은 [#94]
 - 조건·위험도는 읽기 전용이며 Detector가 정의한다. 하드룰 위험도 기본값은 '위험'. 예외: `hard:process-status`의 코드별 위험도는 사용자가 룰 세트에서 설정한다(10절) [확정 11/04 사용자]
 - 하드룰 하나라도 T면 판정 등급은 '이상'(8절)
@@ -120,6 +121,8 @@
 | `hard:negative-duration` | 시작 시각이 종료 시각보다 늦음(`START_TIME > END_TIME`, 사용자 예시 "StartTime > EndTime", 필드명은 `derived_expression.py:11`) | 위험 | 판정 순서 [제안 D1]: ① **END_TIME 없음 → 조건을 평가하지 않고 N**(START_TIME 유무와 무관 — 둘 다 없어도 N) ② START_TIME 없음 → U ③ 값이 있으나 해석 불가 → U ④ 비교. ① 세부: (`succeeded`, `anomalous=false`, evidence `result: "not_applicable"`, `reason: "end_time_absent"`) — "EndTime 없음 = 이상 아님" [확정 11/02 C19], N으로 매핑 [제안 D1]. U로 두면 EndTime 없는 정상 트랜잭션이 하드 대분류를 영구히 미판정(partial)으로 만들어 '정상'이 될 수 없음. ② START_TIME 없음은 U(`input_missing`), ③ 해석 불가는 U(`input_invalid`) [제안 D1] | **1차 목록 [확정 11/03 U3(가)]**(사용자 예시 11/02), 구현, v04 작업 실행 경로에 연결 [제안 D1] |
 | `hard:success-with-error` | 상태 S인데 `error_count > 0` | 위험 | 판단 순서 [제안 D15]: ① 상태 없음 → U(`input_missing`) ② 상태가 S·F·P·N·H·Z 밖 → U(`input_invalid`) ③ S 아님 → N ④ `error_count` 값 없음 → U(`input_missing`) ⑤ 비숫자·비유한 → U(`input_invalid`) ⑥ 비교 | **1차 목록 [확정 11/04 사용자]**(C25, U3 "하나씩 추가"의 후속 결정), 구현, v04 작업 실행 경로에 연결 |
 | `hard:count-conservation` | 최종 상태 S·F에서 `total_count ≠ success_count + error_count` | 위험 | 판단 순서 [제안 D15]: ① 상태 없음 → U(`input_missing`) ② 상태가 S·F·P·N·H·Z 밖 → U(`input_invalid`) ③ S·F 아님 → N ④ 세 건수 중 값 없음 → U(`input_missing`) ⑤ 비숫자·비유한 → U(`input_invalid`) ⑥ 비교 | **1차 목록 [확정 11/04 사용자]**(C25, U3 "하나씩 추가"의 후속 결정), 구현, v04 작업 실행 경로에 연결 |
+| `hard:transaction-failed` | 판정 PROCESS의 거래 행(같은 원본·같은 거래 ID, 재시도 번호 최대 실행)이 STATUS `F` + 응답 코드가 `0000`·`S`·없음이 아님 [확정 11/12 사용자] | 응답 코드별 `{byCode, default}`, 기본 `default` 주의(연결 실패 계열 = 위험은 코드 목록 후속) | 거래 행 없음 → 방법 결과가 아니라 relationNotes 수집 미완료 보류(`transaction_pending`, n 밖, 4.4·11.4). 거래 ID 없음·STATUS 없음 → U(`input_missing`), 대표 행 모호 → U(`input_invalid`) | 룰 세트 v3 전용(v1·v2 행에 있으면 시도 실패), 구현 — 정의는 relation-rules.md 7절 |
+| `hard:unregistered-interface` | 프로토콜 기능(켜진 `protocolRules[]` 항목 1개 이상)이 켜진 판정에서 거래 행의 인터페이스에 프로토콜 항목이 없음 | 단일 문자열, 기본 위험 | 기능 꺼짐·붙이는 판정 아님·거래 행 도착 확정 전 → 기록 없음 또는 relationNotes(n 밖). 경로를 만들 수 없는 사유 → U(protocol-rules.md 3.4) | 룰 세트 v3 전용, 구현 — 정의는 protocol-rules.md 4.1 |
 | `hard:invalid-count-domain` | 건수·재시도 수가 음수 또는 정수 아님 | 위험 | 모든 건수 없으면 U | 후보 — 1차 목록 밖 [확정 11/03 U3] |
 | `hard:final-missing-end` | 최종 상태인데 종료 시각 없음 | — | — | **제외 [확정 11/02 C19]** — EndTime이 찍히지 않는 정상 트랜잭션 유형이 있어 이상이 아님 |
 
@@ -151,6 +154,24 @@
 
 - `methodVersion`이 조건과 기본 위험도를 고정한다. 조건이나 기본 위험도를 바꾸면 새 `methodVersion`을 만들고 과거 판정은 기록된 버전 그대로 둔다. `hard:process-status`의 코드별 위험도를 사용자가 룰 세트에서 바꾸는 것은 새 `methodVersion`이 아니며 판정의 룰 세트 리비전과 `statusRulePolicy.mapping`으로 추적한다 [제안 D16]
 - 하드룰 `code`(결과 코드): `hard:process-status`는 `PROCESS_STATUS_<F|P|N|H|Z>`. 새 하드룰은 `HARD_<KEY 대문자, -는 _>`(예 `HARD_NEGATIVE_DURATION`) [확정 11/03 U10]
+- 룰 세트 v3 내장 2개(목록 4 → 6, rule-set.md v3.5 — 목록 추가는 API v3 배포와 함께) [제안 — 정의 relation-rules.md 7.2·protocol-rules.md 4.1]
+  - `hard:transaction-failed`: `transaction-failed-v1`, "거래 실패" / "거래 STATUS = F, 응답 코드가 0000·S·없음이 아님", severity `{"byCode": {}, "default": "warning"}`(키는 거래 행 응답 코드, T의 `riskLevel` = `byCode[응답 코드]`, 없으면 `default`), 결과 코드 `HARD_TRANSACTION_FAILED`
+  - `hard:unregistered-interface`: `unregistered-interface-v1`, "등록되지 않은 인터페이스" / "프로토콜 설정에 없는 인터페이스의 거래(켜진 프로토콜 항목이 1개 이상일 때만)", severity `"critical"`, 결과 코드 `PROTO_INTERFACE_UNREGISTERED`(위 `HARD_<KEY>` 규칙의 예외 — 프로토콜 코드 계열, protocol-rules.md 5.2)
+  - 두 규칙은 스냅샷에 없으면 꺼짐, v1·v2 행에 있으면 시도 실패 `relation_rules_require_v3`(relation-rules.md 8절)
+
+### 4.4 룰 세트 v3 하드룰 — 관계 규칙·프로토콜 규칙 [제안 — 정본 relation-rules.md·protocol-rules.md]
+
+| methodId | methodVersion | 결과 코드(T) | 위험도 | 정의 |
+|---|---|---|---|---|
+| `hard:rel-<8 hex>`(kind `precedes`) | `relation-precedes-v1` | `REL_PRECEDES` | 규칙 `severity` | relation-rules.md 3.1 |
+| `hard:rel-<8 hex>`(kind `message_handoff`) | `relation-message_handoff-v1` | `REL_MESSAGE_HANDOFF` | 규칙 `severity` | relation-rules.md 3.1 |
+| `hard:rel-<8 hex>`(kind `required_step`) | `relation-required_step-v1` | `REL_REQUIRED_STEP` | 규칙 `severity` | relation-rules.md 3.1 |
+| `hard:proto-<8 hex>` | `protocol-path-v1` | `PROTO_PATH_UNMATCHED` | 항목 `severity` | protocol-rules.md 5.2 |
+
+- `allowed_branch` kind는 정보 표시만(방법이 아니라 relationNotes). 판정 kind 셋과 프로토콜 항목은 하드 대분류에 들고 T면 등급 '이상'(8절)
+- 거래 행이 와야 판정할 수 있는 결과(수집 미완료 보류·적용 안 함·`deferred_to_transaction`)는 방법 결과가 아니라 evidence `relationNotes`에 두고 n에 넣지 않는다(relation-rules.md 3.3·5절). 그 밖의 보류(데이터 문제·입력 상한)는 방법 결과 `not_ready` + 기존 cause(11.6) + `evidence: [{reason}]`
+- 거래 행 도착(도착 확정, 최소 지연 30초) 뒤 보류 판정은 Detector 재판정 탐색이 1회 다시 판정한다(새 판정 행 추가, relation-rules.md 6절)
+- 판정마다 과제로 만든 하드룰 = 켜진 내장 규칙(조건부 2개는 그 판정에서 평가한 때만) + 그 판정에서 고른 관계·프로토콜 규칙. evidence 대조(`hard_rule_selection_mismatch`)도 이 집합을 쓴다(relation-rules.md 9절)
 
 ## 5. 소프트룰(화면: 이상 징후 규칙) 실행 의미
 
@@ -472,7 +493,7 @@
 |---|---|---|
 | `ruleSetRevision`, `ruleSetHash` | 10절 | 기록 의무 [확정 11/02 C6], 이름 [확정 11/03 U10] |
 | `detectionPolicyRevision`, `activeModelSetRevision` | 정수. 시도에 고정한 정책 리비전(0 = 내장 기본 정책, 7.1)과 활성 집합 리비전(#94). 정책 값 자체는 `detectionPolicy`에 복사 | [제안 D11, U11] |
-| `methodResults[]` | 활성 방법마다 1개. 순서: 하드룰(내장 목록 순) → 소프트룰(룰 세트 순) → ML(활성 집합 순서). 비활성 방법은 넣지 않음 | 방법별 결과 포함 [확정 10/21 Q8], 필드 [확정 11/03 U10] |
+| `methodResults[]` | 활성 방법마다 1개. 순서: 하드룰(내장 목록 순 → 관계 규칙 `hard:rel-*` 저장 순 → 프로토콜 `hard:proto-*` 저장 순, 4.4) → 소프트룰(룰 세트 순, v3 `scope`가 판정 PROCESS와 맞는 것만) → ML(활성 집합 순서). 비활성 방법·이 판정에서 고르지 않은 관계·프로토콜 규칙은 넣지 않음 | 방법별 결과 포함 [확정 10/21 Q8], 필드 [확정 11/03 U10] |
 | `categoryResults.{hard,soft,ml}` | `{n, k, result, status, anomalous}`, `result` ∈ `anomalous`·`normal`·`undetermined`·`skipped`. `k`는 판정 기록용이며 화면에 표시하지 않음(C23) | 결과값 [확정 10/21 C8], status 매핑 [제안 D2] |
 | `composite` | `policy`, `status`, `anomalous`, `grade`, `basisMethods`, `firstAnomalyElapsedMs`, `risk` | 계산 규칙 [확정 10/21 C8 조합·11/02 C7 등급·10/22 C14 위험도], 형태 [확정 11/03 U10] |
 | `composite.policy` | 그 판정의 조합 계산에 쓴 정책의 조합 부분 `{version, policyKey, k}`. 값은 evidence `detectionPolicy`에서 `deadlineMs`만 뺀 것과 **정확히 같아야** 한다(기한은 조합 규칙이 아니라 실행 기한이며 전체 값은 `detectionPolicy`에 있음). Detector는 두 값을 시도에 고정한 같은 정책 객체에서 만든다. 중간 판정 기록 payload(13.3)도 같은 규칙. 화면에 표시하지 않음(C23) | 형태 [확정 11/03 U10], 정의 [제안 D9] |
@@ -480,6 +501,11 @@
 | `composite.risk.determinedBy` | `status=rated`일 때 근거 방법 중 `riskLevel`이 종합 `level`과 같은 방법들의 `methodId`(`methodResults` 순서). `unrated`·`not_applicable`이면 `[]`. 단계 없는 근거는 `unratedMethods`에 둔다 | [제안 D9, #112 구현 확인 반영 11/04] |
 | 최상위 `elapsedMs`(중간 판정 기록 payload만) | 스냅샷을 만든 시점(기한 기준점부터 ms). 11.5의 방법별 `methodResults[].elapsedMs`와 다른 키다. 판정 행 evidence에는 두지 않음(최종 소요는 `telemetry`) | [제안 D5] |
 | `outcomes` | `{classificationVersion}`. 방법별 원인은 `methodResults[].cause`에 둠(중복 저장 안 함) | 계측 포함 [확정 10/21 Q8], 배치 [제안 D6] |
+| `relationInputs` | 룰 세트 v3. 관계 입력을 읽은 판정만(관계 규칙·`hard:transaction-failed`가 선택됐거나 프로토콜 기능이 켜짐). `{readAt, transaction, processes:[{observationId, revisionNo}], messages:[…], truncated, messagesTruncated}`, `transaction` = null 또는 `{executions, ambiguous, arrivalConfirmed, observationId, revisionNo}`. 관측 참조만, 원천 값 없음 | [제안] relation-rules.md 3.2 |
+| `relationNotes` | 룰 세트 v3. `relationInputs`가 있는 판정에 항상(없으면 `[]`). 항목 `{ruleId, kind, result, reason, waitingFor}` — 수집 미완료 보류(`held`)·적용 안 함(`not_applicable`)·정보 기록(`deferred_to_transaction`·`observed`·`not_in_pattern`). 방법 결과가 아니라 종합·n에 영향 없음. 순서 내장 → 관계 → 프로토콜 | [확정 11/12 사용자 — 수집 미완료 보류만 예외로 이 키], 모양 [제안] relation-rules.md 5절 |
+| `protocolReview` | 룰 세트 v3. 그 판정의 프로토콜 방법(`hard:proto-*`·`hard:unregistered-interface`)이 최종 결과 T일 때만. 알림 근거(채널 경로·pathKey·끝점 등) | [제안] protocol-rules.md 5.3 |
+| `relationRecheck` | 재판정 판정만. `{recheckedDecisionId, transactionObservationId}`(다시 판정한 첫 판정, 도착을 확정한 거래 행). 재판정 판정은 다시 재판정 대상이 되지 않음(1회) | [제안] relation-rules.md 6.4·6.5 |
+| v3 투영 `rules[]`·`ruleSeverities`(11.3) | `hard:rel-*`·`hard:proto-*`·`hard:unregistered-interface`는 넣지 않음(v3 판독기가 모르는 방법, 근거는 `methodResults`). `hard:transaction-failed`는 내장 규칙으로 들어감 | [제안] relation-rules.md 9절·protocol-rules.md 5.2 |
 
 ### 11.5 `methodResults[]` 항목 [필드 확정 11/03 U10]
 
@@ -510,16 +536,18 @@
 | `not_configured` | 산출물·판정선 등 실행 준비물 없음 |
 | `not_executable` | 실행 코드 없음(사후 어댑터 소실 방어 경로) |
 | `timeout` | 기한 초과(`deadline_exceeded`) |
-| `capacity` | 실행 슬롯 부족(`worker_busy`) |
+| `capacity` | 실행 슬롯 부족(`worker_busy`). 룰 세트 v3 관계·프로토콜 판정에서는 입력 상한 초과(PROCESS 200·MESSAGE 500 등, 세부 사유 `evidence[].reason` = `graph_truncated`·`path_too_long`·`routes_too_many`)까지 넓힘 — 다시 해도 같은 결과라 슬롯 부족(일시적)과 뜻이 다르며 세부 사유로만 구분 [제안, relation-rules.md 5절] |
 | `failure` | 계산 중 오류 |
 | `pending` | 중간 판정 기록에서 아직 결과가 오지 않음. **최종 판정에는 쓰지 않음** |
 
 - `failureCode` 허용 목록: `invalid_rule_definition`, `invalid_threshold`, `invalid_score`, `artifact_invalid`, `exception`(그 외) [제안 D6]
+- 룰 세트 v3 방법 결과 보류는 **새 cause를 만들지 않고** 위 닫힌 집합 + `evidence: [{"reason": "<세부 사유>"}]`로 남긴다: `input_missing`(`transaction_id_missing`·`depend_process_id_missing`·`message_id_missing`·`transaction_status_missing`·`interface_absent` 등), `input_invalid`(`transaction_row_ambiguous`·`precedes_ambiguous`·`message_link_ambiguous`·`chain_broken` 등), `capacity`(`graph_truncated` 등). 사유 목록 정본은 relation-rules.md 5절 표·protocol-rules.md 3.4
+- 시도 실패 코드(판정 행 없음, `run_jobs` 실패 문자열) — 룰 세트 v3 추가분 [제안 — 정본 protocol-rules.md 10절 1단계·relation-rules.md 3.4·6.5]: 저장 검증을 거치지 않은 스냅샷 `relation_rule_kind_unknown:<id>`·`invalid_relation_rule:<id>`·`invalid_protocol_rule:<id>`·`invalid_soft_rule_scope:<id>`·`hard_rule_version_unknown:<id>`·`invalid_hard_rule_severity:<id>`·`invalid_rule_set_snapshot:<relationRules|protocolRules>`, v1·v2 행의 v3 전용 요소 `relation_rules_require_v3`·`protocol_rules_require_v3`, 저장소·그래프 불변 조건 위반 `relation_focus_unavailable`·`relation_graph_inconsistent`·`relation_transaction_columns_mismatch`, 재판정 참조 이상 `relation_recheck_reference_invalid`. 방어용(정상 경로에 없음) `rule_set_v3_unsupported:<id>`(판정 계획에 실행기 없는 하드룰)·`relation_inputs_required`·`transaction_failed_without_transaction_row`. 기존 `hard_rule_unknown:<id>`·`duplicate_method_id`·`rule_set_hash_mismatch`·`hard_rule_selection_mismatch`는 v3 행에도 그대로
 - 지표 정의(방법·대분류·종합 공통, 최종 판정 행 기준): 시도 A = 활성, 결정 D = `anomalous`가 boolean, 이상 H = `true`, 미판정 U = `null`. 판정 미생성은 `run_jobs` failed로 따로 센다 [제안 D6]
 
 ### 11.7 크기 상한 [룰 세트 편집 제약 포함 — #94와 합의, D10]
 
-- 소프트룰 최대 32개(#94와 일치, 현행 등록 Rule 상한 `jobRoutes.ts:108`과 같음 — 확대는 두 세션 합의), 하드룰은 내장 목록 수, ML은 [#94] 동시 운영 상한
+- 소프트룰 최대 32개(#94와 일치, 현행 등록 Rule 상한 `jobRoutes.ts:108`과 같음 — 확대는 두 세션 합의. 룰 세트 v3에서 **상향 확정 11/12 사용자**, 값은 Detector 성능 확인 뒤 — relation-rules.md 4절), 하드룰은 내장 목록 수(v1·v2 4개, v3 6개) + 룰 세트 v3의 관계 규칙·프로토콜 항목(항목 수 상한은 API 저장 검증, rule-set.md v3.6 — 한 판정의 프로토콜 방법은 많아야 1개), ML은 [#94] 동시 운영 상한
 - `methodResults[].evidence`는 요약만 둔다
 
 ## 12. 판정 행 열 매핑 (`run_process_decisions`, 열 추가 없음)
@@ -719,6 +747,7 @@
 
 ## 이력
 
+- 2026-11-13: 룰 세트 v3 판정(protocol-rules.md 10절 1~7단계) 반영 — 3.1 `hard:rel-*`·`hard:proto-*` 형식, 4.1·4.2·4.3 내장 하드룰 4 → 6(`hard:transaction-failed`·`hard:unregistered-interface`, 목록 추가는 API v3 배포와 함께), 4.4 관계·프로토콜 하드룰(방법 버전·결과 코드), 11.4 `methodResults` 순서·`relationInputs`·`relationNotes`·`protocolReview`·`relationRecheck`·v3 투영 제외, 11.6 `capacity` 뜻 확장·세부 사유·새 시도 실패 코드, 11.7 상한. 모두 [제안](사용자 확정분은 표기 그대로)
 - 2026-11-05: `queues.md` v04 메시지 계약 반영에 맞춰 16절 대조 기준 `f959b24`·남은 요청 없음으로 정리, C28 선행 조건 중 조율 완료를 별도 문장으로 표기, D19에 v03 구성별 작업 명시
 - 2026-11-05: #112 재검토 2차 반영 — 상태 표기를 D1~D25로, 14절·15절 K9의 `capacity` 표현을 슬롯을 못 잡은 경우로 정정
 - 2026-11-05: #112 재검토 반영 — 사용자 결정 C28~C30. Detector 결정 D18~D25. 6절 산출물 없음과 변조 구분, 15절 해소 현황을 K9·K12 실제 수준으로 낮춤, 14절 7·9행 구현 불가 명시, 16절 대조 기준 `1e70da8`·남은 요청 `queues.md` 1건

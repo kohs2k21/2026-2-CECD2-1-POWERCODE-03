@@ -4,7 +4,7 @@ from __future__ import annotations
 import math
 from typing import Any, Iterable, Mapping
 
-from detector.hard_rules import HARD_RULE_ORDER
+from detector.hard_rules import HARD_RULE_ORDER, is_protocol_rule_id, is_relation_rule_id
 from detector.method_results import CATEGORIES, method_category
 from detector.policy import PolicyV2
 
@@ -48,9 +48,17 @@ def _rank(method: Mapping[str, Any]) -> tuple[int, int]:
     category = method_category(method_id)
     if method["category"] != category:
         raise ValueError(f"method_category_mismatch:{method_id}")
-    if category == "hard" and method_id not in HARD_RULE_ORDER:
-        raise ValueError(f"hard_rule_unknown:{method_id}")
-    return CATEGORIES.index(category), HARD_RULE_ORDER.get(method_id, 0)
+    if category != "hard":
+        return CATEGORIES.index(category), 0
+    # 하드룰: 내장 목록 순 → 관계 규칙 → 프로토콜 규칙. 같은 순위끼리는 안정 정렬이라 과제 순서(= 룰 세트 저장 순)가
+    # 그대로 남는다(relation-rules.md 3.1 순서, protocol-rules.md 5.2).
+    if method_id in HARD_RULE_ORDER:
+        return 0, HARD_RULE_ORDER[method_id]
+    if is_relation_rule_id(method_id):
+        return 0, len(HARD_RULE_ORDER)
+    if is_protocol_rule_id(method_id):
+        return 0, len(HARD_RULE_ORDER) + 1
+    raise ValueError(f"hard_rule_unknown:{method_id}")
 
 
 def _check_elapsed(method: Mapping[str, Any]) -> None:

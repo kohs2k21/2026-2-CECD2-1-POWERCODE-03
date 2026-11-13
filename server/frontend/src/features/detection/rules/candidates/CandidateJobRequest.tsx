@@ -14,13 +14,24 @@ import { randomUuid } from "@/lib/uuid";
 import type { CandidateJob } from "./candidateApi";
 import { requestCandidateJob, type CandidateSnapshot } from "./candidateJobApi";
 import {
-  JOB_REQUEST, JOB_REQUEST_DESCRIPTION, JOB_REQUEST_RUNNING, JOB_REQUEST_SUBMIT, SNAPSHOTS_EMPTY, SNAPSHOTS_EMPTY_LINK, SNAPSHOT_CURRENT, SNAPSHOT_FIELD,
+  JOB_REQUEST, JOB_REQUEST_DESCRIPTION, JOB_REQUEST_RUNNING, JOB_REQUEST_SUBMIT, SNAPSHOTS_EMPTY, SNAPSHOTS_EMPTY_LINK, SNAPSHOT_CURRENT, SNAPSHOT_FIELD, jobStatusText,
 } from "./candidateLabels";
 import { candidateJobRunning, candidateListQueryName, useCandidateSnapshots } from "./useCandidates";
 
 /** 선택지 이름: 학습 기간 + 만든 시각(+ 지금 보이는 결과의 데이터셋이면 표시). */
 export const snapshotText = (snapshot: CandidateSnapshot, currentId: string | null) =>
   `${stampText(snapshot.from)} ~ ${stampText(snapshot.until)} · 생성 ${stampText(snapshot.createdAt)}${snapshot.id === currentId ? ` · ${SNAPSHOT_CURRENT}` : ""}`;
+
+/**
+ * 결과 작업과 다른 최근 후보 작업(대기·실행 중·실패 등): `최근 작업 <상태> · <시각> · <작업 id 8자>`(작업 상세 링크).
+ * 실패는 상태 뒤에 `실패 · <코드>`. 규칙 추천 목록 머리와 프로토콜 설정 목록이 같이 쓴다(같은 recommend_relations 작업).
+ */
+export const LatestCandidateJob = ({ job, returnTo }: { job: CandidateJob; returnTo: string }) => (
+  <span data-latest-job>
+    최근 작업 {jobStatusText(job)} · {stampText(job.createdAt)} ·{" "}
+    <Link className="font-mono text-xs text-link" to={paths.detectionJob(job.id)} state={{ returnTo }}>{job.id.slice(0, 8)}</Link>
+  </span>
+);
 
 /** 새 학습 화면(주소 step=1이면 그 영역으로 스크롤, models TrainArea). */
 const NEW_TRAINING = `${paths.detectionModels}?step=1`;
@@ -30,7 +41,7 @@ const NEW_TRAINING = `${paths.detectionModels}?step=1`;
  * 응답을 놓친 재전송은 서버가 같은 작업을 돌려준다(rule-candidates-ui.md 6절 멱등). 접수되면 목록을 다시 읽고 닫는다 —
  * 진행은 목록 머리의 최근 작업 상태(5초 조회)로 보이고, 끝나면 그 결과가 목록이 된다.
  */
-const RequestDialog = ({ currentSnapshotId, onClose }: { currentSnapshotId: string | null; onClose: () => void }) => {
+const RequestDialog = ({ currentSnapshotId, refreshQueryNames, onClose }: { currentSnapshotId: string | null; refreshQueryNames: readonly string[]; onClose: () => void }) => {
   const queryClient = useQueryClient();
   const snapshots = useCandidateSnapshots(true);
   const [chosen, setChosen] = useState<string | null>(null);
@@ -47,7 +58,7 @@ const RequestDialog = ({ currentSnapshotId, onClose }: { currentSnapshotId: stri
     setRequestError(null);
     try {
       await requestCandidateJob(selected.id, key);
-      await queryClient.invalidateQueries({ queryKey: [candidateListQueryName] });
+      await Promise.all(refreshQueryNames.map((name) => queryClient.invalidateQueries({ queryKey: [name] })));
       onClose();
     } catch (error) {
       setRequestError(errorCode(error));
@@ -88,15 +99,23 @@ const RequestDialog = ({ currentSnapshotId, onClose }: { currentSnapshotId: stri
   );
 };
 
-/** 목록 머리 명령: [후보 작업 요청]. 후보 작업이 대기·실행 중이면 끈다(같은 계산을 겹쳐 쌓지 않음 — 서버는 막지 않는다). */
-export const CandidateJobRequest = ({ latestJob, currentSnapshotId }: { latestJob: CandidateJob | null | undefined; currentSnapshotId: string | null }) => {
+/**
+ * 목록 머리 명령: [후보 작업 요청]. 후보 작업이 대기·실행 중이면 끈다(같은 계산을 겹쳐 쌓지 않음 — 서버는 막지 않는다).
+ * refreshQueryNames: 접수 뒤 다시 읽을 조회 이름(기본 규칙 추천 목록). 프로토콜 설정은 관측 경로 초안을 넘긴다 —
+ * 초안도 같은 recommend_relations 결과에서 온다(protocol-settings-ui.md 2절).
+ */
+export const CandidateJobRequest = ({ latestJob, currentSnapshotId, refreshQueryNames = [candidateListQueryName] }: {
+  latestJob: CandidateJob | null | undefined;
+  currentSnapshotId: string | null;
+  refreshQueryNames?: readonly string[];
+}) => {
   const [open, setOpen] = useState(false);
   const running = candidateJobRunning(latestJob?.status);
   return (
     <>
       {running && <span data-candidate-running className="text-sm text-muted-foreground">{JOB_REQUEST_RUNNING}</span>}
       <Button size="sm" disabled={running} onClick={() => setOpen(true)}>{JOB_REQUEST}</Button>
-      {open && <RequestDialog currentSnapshotId={currentSnapshotId} onClose={() => setOpen(false)} />}
+      {open && <RequestDialog currentSnapshotId={currentSnapshotId} refreshQueryNames={refreshQueryNames} onClose={() => setOpen(false)} />}
     </>
   );
 };

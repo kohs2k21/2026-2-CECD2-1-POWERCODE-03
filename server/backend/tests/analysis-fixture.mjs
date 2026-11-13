@@ -72,7 +72,7 @@ const mlNormal = { ...mlHit, anomalous: false, code: null, riskLevelReason: null
   scoreDetail: { ...mlHit.scoreDetail, raw: 0.42, normalized: { kind: 'threshold_ratio', value: 0.689 } } };
 
 /** 관측·판정·detect 작업을 쓰는 함수 묶음. 작업·시도·판정은 실제 DB 트리거를 통과하는 순서로 만든다. */
-const fixtureWriters = (client, sourceId, configId, out) => {
+export const fixtureWriters = (client, sourceId, configId, out) => {
   let serial = 0;
   /** PROCESS 관측 1건(+ 짝 TRANSACTION). 검색 대상: 거래 ID·프로세스 ID·인터페이스 ID. */
   const process = async (minutesAgo, label) => {

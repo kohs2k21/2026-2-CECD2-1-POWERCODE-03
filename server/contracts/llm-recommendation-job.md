@@ -171,6 +171,7 @@ Status: draft
 - `GET /api/llm/status`(로그인 사용자, 역할 무관, 미인증 401) → `{"available": boolean, "checkedAt": "<ISO>", "errorCode": null | "generation_service_unavailable"}`. `available=false`면 `errorCode`는 늘 `generation_service_unavailable`. `checkedAt`은 그 결과를 얻은 확인 시각(캐시된 결과면 캐시된 시각). `Cache-Control: no-store`
 - 접수 거절: `POST /api/jobs` 중 LLM 작업 종류만 — `explain`·`recommend_thresholds`(코드 상수 `LLM_JOB_KINDS` 하나, `backend/src/services/generationAvailability.ts`. 프로토콜 설명 등 새 LLM 작업 종류는 이 집합에 더한다). 확인 결과가 꺼짐이면 HTTP 503 `{"code":"generation_service_unavailable"}`
   - 순서: 요청 형식(400)·폐지 종류(422)·역할(403)·멱등키 형식(400) 검사 뒤, 트랜잭션·멱등 처리·출처·판정 조회 전. 작업 행·큐 메시지·멱등키를 남기지 않으므로 켜진 뒤 같은 `Idempotency-Key`로 다시 요청할 수 있다
+  - 이미 작업이 만들어진 같은 `Idempotency-Key`로 다시 요청해도 꺼짐이면 503이다(멱등 처리보다 확인이 먼저). 기존 작업은 `GET /api/jobs/:id`로 읽는다
   - 기존 결과 재사용(`reuse_key`)도 확인 뒤이므로 꺼짐이면 같은 503이다. 이미 끝난 결과 읽기(`GET /api/jobs/:id`, 판정 상세 `explanation`)는 영향 없음
 - 구분: `generation_busy`(GPU 차례 대기 초과, 서비스는 살아 있음, 작업 오류 코드 — GPU 차례 절)와 다르다. 워커 작업 실패 코드 `generation_service_unavailable`(실패 표 첫 줄 — 접수 뒤 생성 호출 실패)과 이름이 같지만, 이것은 접수 단계 HTTP 응답이고 작업이 생기지 않는다
 - 막지 않는 것: `POST /api/rule-set/threshold-stats`(코드 p95, LLM 없음), LLM이 아닌 작업 종류(`train`·`evaluate`·`compare`·`recommend_relations` 등), 이미 `queued`·`running`인 LLM 작업(그대로 두고 생성 서비스가 켜지면 소비)

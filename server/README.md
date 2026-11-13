@@ -26,7 +26,7 @@ cd ../frontend
 pnpm install --frozen-lockfile
 ```
 
-The backend listens on `PORT` (default `5001`) and requires `JWT_SECRET`. Optional backend settings are `JWT_EXPIRES_IN`, `USER_DATA_PATH`, `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD`, `SEED_USER_EMAIL`, and `SEED_USER_PASSWORD`.
+The backend listens on `PORT` (default `5001`) and requires `JWT_SECRET`. Optional backend settings are `JWT_EXPIRES_IN`, `USER_DATA_PATH`, `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD`, `SEED_USER_EMAIL`, `SEED_USER_PASSWORD`, and `LLM_HEALTH_URL` (LLM generation service health check, default `http://llm:8010/health`; see `contracts/llm-recommendation-job.md`).
 
 When running frontend and backend on different ports, set `VITE_API_BASE_URL` to the backend origin before starting Vite or building the frontend. There is no default Vite API proxy. For local PowerShell development, run `$env:VITE_API_BASE_URL = 'http://localhost:5001'` in the frontend terminal, then `pnpm dev` from `server/frontend`. Omit this variable only when your deployment routes `/api` from the frontend's origin to the backend. This frontend variable is embedded at build time and must never contain a secret.
 

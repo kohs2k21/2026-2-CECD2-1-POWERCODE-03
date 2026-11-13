@@ -772,6 +772,12 @@ const explainCard = (app) => app.renderer.root.find((node) => node.type === "div
   const statusQuery = app.client.getQueryCache().findAll({ queryKey: ["llm-status"] })[0];
   assert.equal(statusQuery.observers[0].options.refetchInterval, 30000, "re-read every 30 s while on the screen");
   assert.equal(requested.some((r) => r.method === "POST" && r.path === "/api/jobs"), false);
+  // 꺼짐을 받은 뒤 재조회가 실패하면(마지막 data가 남아 있어도) '모름'으로 보고 막지 않는다.
+  routes["GET /api/llm/status"] = () => json({ code: "unavailable" }, 503);
+  await act(async () => app.client.refetchQueries({ queryKey: ["llm-status"] }));
+  await wait(() => !app.shown().includes("generation_service_unavailable"), "code cleared after a failed re-read");
+  assert.equal(app.renderer.root.findAll((node) => node.type === "button" && text(node.children) === "설명 요청")[0].props.disabled, false,
+    "a failed status re-read does not keep the button blocked");
   await app.cleanup();
 
   const queued = { ...item("d-14"), configuration: null, job: null, explanation: { jobId: "explain-d-14", status: "queued", errorCode: null, createdAt: null } };

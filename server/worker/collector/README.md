@@ -11,9 +11,9 @@
 ```bash
 cd server/worker
 python -m collector.replay_csv \
-  --transaction-csv /data/gst-dongguk/powercode-esb/tmp/transaction.csv \
-  --process-csv /data/gst-dongguk/powercode-esb/tmp/process.csv \
-  --body-csv /data/gst-dongguk/powercode-esb/tmp/body.csv \
+  --transaction-csv /data/inputs/esb/transaction.csv \
+  --process-csv /data/inputs/esb/process.csv \
+  --body-csv /data/inputs/esb/body.csv \
   --dataset-key esb-csv-demo --replay-key sample-20261010 --rate 10
 ```
 

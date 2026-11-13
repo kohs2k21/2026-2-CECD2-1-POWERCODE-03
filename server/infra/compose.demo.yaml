@@ -29,7 +29,7 @@ services:
       DEMO_BODY_CSV: /inputs/${DEMO_BODY_FILE:-EC_MESSAGE_BODY.csv}
     volumes:
       - type: bind
-        source: ${DEMO_CSV_DIR:-/data/gst-dongguk/powercode-esb/tmp}
+        source: ${DEMO_CSV_DIR:-/data/inputs/esb}
         target: /inputs
         read_only: true
         bind: {create_host_path: false}

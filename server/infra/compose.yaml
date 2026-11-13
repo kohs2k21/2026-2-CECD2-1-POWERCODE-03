@@ -168,7 +168,7 @@ services:
       INPUT_BODY_CSV: /inputs/${INPUT_BODY_FILE:-EC_MESSAGE_BODY.csv}
     volumes:
       - type: bind
-        source: ${CSV_INPUT_DIR:-/data/gst-dongguk/powercode-esb/tmp}
+        source: ${CSV_INPUT_DIR:-/data/inputs/esb}
         target: /inputs
         read_only: true
         bind: {create_host_path: false}

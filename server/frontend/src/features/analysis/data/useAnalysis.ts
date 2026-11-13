@@ -3,7 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { accountQueryKey, useAccountQuery } from "@/lib/query";
 import { useAuthSession } from "@/services/auth/AuthSessionProvider";
 import { getStoredToken } from "@/services/auth/session";
-import { consumeDecisionStream } from "@/services/api/decision-stream.api";
+import { DECISION_STREAM_RETRY_MS, subscribeDecisionStream } from "@/services/api/decision-stream-hub";
 import { createPipelineJob, fetchPipelineJob, type PipelineJob } from "@/services/api/pipeline.api";
 import {
   changeDecisionWorkflow,
@@ -110,7 +110,7 @@ export const useMarkRead = (detail: DecisionDetail | undefined) => {
 };
 
 export type LiveStatus = "idle" | "connecting" | "open" | "retrying";
-export const LIVE_RETRY_MS = 3_000;
+export const LIVE_RETRY_MS = DECISION_STREAM_RETRY_MS;
 /** 새 판정 이벤트가 몰려도 목록 재조회는 이 간격에 한 번(이벤트가 있을 때만, 주기 조회 아님). */
 export const LIVE_REFRESH_MS = 2_000;
 
@@ -131,14 +131,12 @@ export const useDecisionLiveUpdates = (cursor: string | null) => {
   const userId = user?.id;
   useEffect(() => {
     if (!userId || !ready) return;
-    const controller = new AbortController();
     const token = getStoredToken();
-    let after = cursorRef.current!;
-    let retry: ReturnType<typeof setTimeout> | undefined;
+    let stopped = false;
     let refresh: ReturnType<typeof setTimeout> | undefined;
     const invalidate = () => {
       refresh = undefined;
-      if (controller.signal.aborted || token !== getStoredToken()) return;
+      if (stopped || token !== getStoredToken()) return;
       void cache.invalidateQueries({ queryKey: accountQueryKey(listQueryName, userId) });
       void cache.invalidateQueries({
         queryKey: accountQueryKey(detailQueryName, userId),
@@ -150,37 +148,27 @@ export const useDecisionLiveUpdates = (cursor: string | null) => {
           (cache.getQueryData<DecisionDetail>(accountQueryKey(detailQueryName, userId, query.queryKey[2]))?.kind ?? "pending") !== "final",
       });
     };
-    const connect = async () => {
-      setStatus((current) => (current === "idle" ? "connecting" : current));
-      try {
-        const receive = (id: string) => {
-          if (token !== getStoredToken()) return controller.abort();
-          after = id;
-          setReceived((count) => count + 1);
-          refresh ??= setTimeout(invalidate, LIVE_REFRESH_MS);
-        };
-        await consumeDecisionStream(
-          controller.signal,
-          after,
-          (_value, id) => receive(id),
-          () => {
-            setStatus("open");
-            setError("");
-          },
-          (_event, id) => receive(id),
-        );
-      } catch (reason) {
-        if (!controller.signal.aborted) setError(reason instanceof Error ? reason.message : String(reason));
-      }
-      if (!controller.signal.aborted && token === getStoredToken()) {
+    setStatus((current) => (current === "idle" ? "connecting" : current));
+    // 알림 배지와 같은 연결을 나눠 쓴다(decision-stream-hub). 재연결(3초)·커서는 연결 쪽이 맡는다.
+    const unsubscribe = subscribeDecisionStream({
+      after: cursorRef.current!,
+      onEvent: () => {
+        if (token !== getStoredToken()) return;
+        setReceived((count) => count + 1);
+        refresh ??= setTimeout(invalidate, LIVE_REFRESH_MS);
+      },
+      onOpen: () => {
+        setStatus("open");
+        setError("");
+      },
+      onDisconnect: (reason) => {
+        if (reason !== null) setError(reason);
         setStatus("retrying");
-        retry = setTimeout(() => void connect(), LIVE_RETRY_MS);
-      }
-    };
-    void connect();
+      },
+    });
     return () => {
-      controller.abort();
-      if (retry) clearTimeout(retry);
+      stopped = true;
+      unsubscribe();
       if (refresh) clearTimeout(refresh);
       setStatus("idle");
     };

@@ -7,6 +7,7 @@ import { paths } from "@/app/routes";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardAction, CardContent, CardHeader } from "@/components/ui/card";
+import { motionTransition } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 import { useAuthSession } from "@/services/auth/AuthSessionProvider";
 import { useDraftStore } from "@/stores/draftStore";
@@ -355,7 +356,7 @@ export const OverviewTab = ({ collectHref }: { collectHref: string }) => {
             initial={{ opacity: 0, y: -6 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -6 }}
-            transition={{ duration: 0.18, ease: "easeOut" }}
+            transition={motionTransition("base")}
             className="flex flex-wrap items-center gap-2 rounded-lg border bg-card px-4 py-3 text-sm shadow-xs"
           >
             <strong className="mr-auto">위젯 편집 중</strong>

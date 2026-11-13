@@ -7,6 +7,7 @@ import { ScreenTitle } from "@/components/layout/PageHeader";
 import { SideNav, type SideNavGroup } from "@/components/layout/SideNav";
 import { paths } from "@/app/routes";
 import { getStored, setStored, storageKeys } from "@/lib/storage";
+import { motionTransition } from "@/lib/motion";
 import {
   listSearch,
   parseListSearch,
@@ -193,7 +194,7 @@ export const AnalysisPage = () => {
               initial={{ width: 0, opacity: 0 }}
               animate={{ width: "auto", opacity: 1 }}
               exit={{ width: 0, opacity: 0 }}
-              transition={{ duration: reduceMotion ? 0 : 0.35, ease: [0.4, 0, 0.2, 1] }}
+              transition={reduceMotion ? { duration: 0 } : motionTransition("layout", "standard")}
             >
               <div className="shrink-0 md:pr-6">
                 <SideNav label="판정 분류" menuId="analysis-categories" activeId={incidentsMode ? "incidents" : decisionId ? null : params.category} groups={groups} header={viewSwitch} />

@@ -1,5 +1,5 @@
 Created: 2026-11-05T15:00:00+09:00
-Updated: 2026-11-05T16:30:00+09:00
+Updated: 2026-11-13T12:00:00+09:00
 Author: #128 Claude Code(WebUI builder)
 Status: current
 
@@ -18,7 +18,7 @@ Status: current
 | 버전 | URL 탭 `tab=active|all`(기본 현재 운영 버전) + 높이 고정 자체 스크롤. 열: 버전·모델·상태·운영·입력 변수·학습 파라미터·판정선·최근 평가·생성(`modelSummary`, 값이 없으면 `없음`). 파라미터는 고정 값을 뺀 `키=값`, 판정선은 넷째 자리까지(원값은 상세). 두 탭 모두 최신순 커서 `더 보기`, 현재 운영 버전은 `active=true`. 룰 전용 구성(`modelKey` null)은 모델 버전이 아니라 표시하지 않는다 |
 | 새 학습 | 같은 화면 아래, 머리글 버튼 없음. `step=1|2|3`(이전·다음과 단계 표시는 Link push. 단계 표시는 갈 수 있는 단계만 링크이고 앞 단계가 끝나지 않은 단계는 비활성, 다른 주소값은 유지). 앞 단계가 끝나지 않은 주소는 가까운 유효 단계로 replace. `step`이 주소에 있으면 영역으로 스크롤 |
 | 학습 작업 | 접수되면 주소에 `job=<작업 ID>`를 두고 영역 맨 위에 상태를 표시(새로고침해도 이어짐). 대기·실행 중만 5초 조회 |
-| 버전 상세 | 모델·상태·운영·방법 버전·학습 작업 / 학습 기간·건수·선정 정책·제외 구간 / 입력 변수 / 학습 파라미터 / 산출물(파일 ID·hash·판정선) |
+| 버전 상세 | 모델·상태·운영·방법 버전·학습 작업 / 학습 기간·건수·선정 정책·제외 구간 / 입력 변수 / 학습 파라미터 / 산출물(파일 ID·hash·판정선). 머리 오른쪽 `이 버전으로 교체`(운영 설정 하위 7): 실행 가능·운영 중 아님·`applicationEligibility.eligible`일 때만 눌리고 모델 교체 2단계로 간다([operations-ui.md](operations-ui.md) 운영 설정·모델 교체 절) |
 
 - 머리글 '새 학습' 버튼, 교체·비교 평가 버튼 없음
 
@@ -33,7 +33,7 @@ Status: current
 | 2단계 | AI 추천 | #128 범위 밖 |
 | 3단계 | 버전 이름·전처리 선택 | 학습 요청에 키가 없음 |
 | 3단계 | 다른 모델 파라미터 목록 | 선택한 모델만 표시(사용자 11/05) |
-| 상세 | 평가 이력·자동 비교 평가·이 버전으로 교체·새 비교 평가 | 하위 6·7 |
+| 상세 | 평가 이력·자동 비교 평가·새 비교 평가 | 하위 6 |
 
 ## 새 학습 단계
 
@@ -91,7 +91,7 @@ Status: current
 | 일광절약 시간대 | 버킷은 실제 시각 축으로 만든다. 전환일 시간 버킷은 23·25개이고 겹치는 시각은 서로 다른 버킷이다 |
 | ESB 기준에서 시각 없는 행 | 저장 시각이 기간 안이면 `timeUnknownCount`로만 센다 |
 | `statusCounts.other` | S·F·P·N 외 전부(Z·H·미정 포함) |
-| `active`·`activeSince` | 활성 집합의 값. 활성 집합 저장 경로(하위 7) 전에는 v1·v2 운영이 쓰는 `ops_system_state.active_config_version_id`도 운영 중으로 본다(`activeSince` = 그 상태의 revision·changed_at) |
+| `active`·`activeSince` | 활성 집합의 값만(`activeSince` = 포함된 리비전·시각). 활성 집합 저장 경로(하위 7) 구현 뒤에는 v1·v2 운영의 `ops_system_state.active_config_version_id`를 운영 중으로 보지 않는다(교체·복원 기준과 같게) |
 | `latestComparison` | 비교 평가 조회 전(하위 6)이라 항상 null |
 | 카탈로그에 없는 모델 키 | `status: "unknown"`, `executable` 전부 false, `executableReason: "method_not_in_catalog"` |
 | 모델 없는 구성 | `modelKey` null, `executable` false |

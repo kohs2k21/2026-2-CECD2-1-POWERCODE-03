@@ -4,6 +4,7 @@ import { getDatabasePool } from '../config/database.js';
 import { authenticateToken } from '../middleware/auth.js';
 import { isLayer, readCollection, readDecisionTrend, readLatency, readOverview, readSourceFields,
   readStorage } from '../services/operationsReadModel.js';
+import { isMethodStatusPeriod, readMethodStatus } from '../services/methodStatusReadModel.js';
 
 /**
  * 운영 현황 읽기 API(operations-ui.md). user/admin 모두 조회 가능한 집계만 반환한다.
@@ -59,6 +60,13 @@ export function createOperationsRouter(database: () => Pool = getDatabasePool) {
     const value = req.query.days ?? '3';
     if (typeof value !== 'string' || !/^(?:[1-9]|1[0-4])$/.test(value)) throw new OperationsRequestError('invalid_days');
     res.json(await readDecisionTrend(database(), Number(value)));
+  }));
+
+  router.get('/method-status', route(async (req, res) => {
+    allowOnly(req, ['period']);
+    const period = req.query.period ?? '1h';
+    if (!isMethodStatusPeriod(period)) throw new OperationsRequestError('invalid_period');
+    res.json(await readMethodStatus(database(), period));
   }));
 
   router.use((error: unknown, _req: Request, res: Response, _next: NextFunction) => {

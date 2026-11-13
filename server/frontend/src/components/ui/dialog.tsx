@@ -1,6 +1,7 @@
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { IconX } from "@tabler/icons-react";
 import { useRef, type ComponentProps } from "react";
+import { motionClasses } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 import { Button } from "./button";
 
@@ -13,7 +14,8 @@ export const DialogOverlay = ({ className, ...props }: ComponentProps<typeof Dia
   <DialogPrimitive.Overlay
     data-slot="dialog-overlay"
     className={cn(
-      "fixed inset-0 z-(--z-dialog-overlay) bg-overlay data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:fade-out-0",
+      "fixed inset-0 z-(--z-dialog-overlay) bg-overlay",
+      motionClasses.overlay,
       className,
     )}
     {...props}
@@ -38,7 +40,8 @@ export const DialogContent = ({
       <DialogPrimitive.Content
         data-slot="dialog-content"
         className={cn(
-          "fixed top-1/2 left-1/2 z-(--z-dialog) grid max-h-[calc(100%-2rem)] w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 overflow-y-auto rounded-lg border bg-card p-6 text-card-foreground shadow-dialog duration-200 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 sm:max-w-lg",
+          "fixed top-1/2 left-1/2 z-(--z-dialog) grid max-h-[calc(100%-2rem)] w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 overflow-y-auto rounded-lg border bg-card p-6 text-card-foreground shadow-dialog sm:max-w-lg",
+          motionClasses.dialog,
           className,
         )}
         onOpenAutoFocus={(event) => {

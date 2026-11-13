@@ -10,6 +10,8 @@ import type { CandidateJob, Counts, RelationCandidate, RelationKind, RelationSta
  * - 승인 불가 사유: Detector relation-rules.md 8절 "Detector v3 지원이 API v3 저장보다 먼저 배포돼야 한다"
  */
 export const CANDIDATES_TITLE = "규칙 추천";
+export const INTERFACE_SEARCH = "인터페이스 ID 검색";
+export const INTERFACE_SEARCH_EMPTY = "일치하는 인터페이스가 없습니다.";
 export const RELATION_SECTION = "관계 규칙 후보";
 export const THRESHOLD_SECTION = "처리 시간(이상 징후) 후보";
 export const kindLabels: Record<RelationKind, string> = { required_step: "필수 단계", precedes: "선행 관계", message_handoff: "메시지 인계" };

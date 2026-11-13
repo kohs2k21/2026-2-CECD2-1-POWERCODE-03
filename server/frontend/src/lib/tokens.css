@@ -79,6 +79,31 @@
   --chart-grid: var(--hairline);
   --chart-axis: var(--body);
   --chart-axis-font-size: 11px;
+
+  /* 움직임(ui.md "움직임"): 등장 = 빠르게 시작해 부드럽게 멈춤, 퇴장 = 등장보다 짧게. lib/motion.ts MOTION_MS·MOTION_EASE와 같은 값 */
+  --motion-duration-fast: 120ms;
+  --motion-duration-base: 180ms;
+  --motion-duration-slow: 240ms;
+  --motion-duration-layout: 320ms;
+  --motion-ease-out: cubic-bezier(0.2, 0, 0, 1);
+  --motion-ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --motion-ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+  /* 토스트(react-hot-toast ToastBar에 직접 넣는 animation 값) */
+  --animate-toast-in: toast-in var(--motion-duration-slow) var(--motion-ease-out) forwards;
+  --animate-toast-out: toast-out var(--motion-duration-base) var(--motion-ease-in) forwards;
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 0.5rem, 0) scale(0.97);
+  }
+}
+@keyframes toast-out {
+  to {
+    opacity: 0;
+    transform: translate3d(0, 0.25rem, 0) scale(0.97);
+  }
 }
 
 @theme inline {
@@ -119,6 +144,11 @@
   --color-success-text: var(--success-text);
   --color-info-soft: var(--info-soft);
   --color-info-text: var(--info-text);
+
+  /* 움직임 곡선 유틸리티(ease-motion-out 등). 길이는 duration-(--motion-duration-*)로 쓴다 */
+  --ease-motion-out: var(--motion-ease-out);
+  --ease-motion-in: var(--motion-ease-in);
+  --ease-motion-standard: var(--motion-ease-standard);
 
   --radius-sm: calc(var(--radius) - 2px);
   --radius-md: var(--radius);

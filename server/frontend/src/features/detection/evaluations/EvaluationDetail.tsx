@@ -19,7 +19,8 @@ import { useCompareVersions, useComparison, useEvaluationSet } from "./useEvalua
 const FAILED_CELL = "실패 · 결과 없음";
 const UNMEASURED_CELL = "미측정";
 
-type Context = { versions: CompareVersion[] | undefined; set: EvaluationSet | undefined };
+export type MatrixContext = { versions: CompareVersion[] | undefined; set: EvaluationSet | undefined };
+type Context = MatrixContext;
 
 const roleLabel = (item: ComparisonItem, versions: CompareVersion[] | undefined) => {
   if (item.role === "candidate") return "비교 모델";
@@ -74,8 +75,8 @@ const MetricTable = ({ items, versions, rows, caption }: { items: ComparisonItem
   </Table>
 );
 
-/** 모델 하나의 혼동행렬(모델 단독). 정의되지 않는 칸은 서버의 null 그대로 `정의 불가`로 쓴다. */
-const MatrixCard = ({ item, context }: { item: ComparisonItem; context: Context }) => {
+/** 모델 하나의 혼동행렬(모델 단독). 정의되지 않는 칸은 서버의 null 그대로 `정의 불가`로 쓴다. 모델 교체 2단계는 교체 진입 버튼 없이 쓴다. */
+export const MatrixCard = ({ item, context, showReplace = true }: { item: ComparisonItem; context: Context; showReplace?: boolean }) => {
   const location = useLocation();
   const { versions, set } = context;
   const version = versions?.find((entry) => entry.id === item.configVersionId);
@@ -114,7 +115,7 @@ const MatrixCard = ({ item, context }: { item: ComparisonItem; context: Context 
           { label: "제외 행", value: `완료 기준 ${numberText(ml.unavailableCount)}행 · 판정 가능 기준 ${ml.decidable?.unavailableCount === undefined ? DASH : `${numberText(ml.decidable.unavailableCount)}행`}` },
         ]}
       />
-      {item.role === "candidate" && version?.executable && !version.active && (
+      {showReplace && item.role === "candidate" && version?.executable && !version.active && (
         <div><Button asChild size="sm" variant="outline"><Link to={paths.detectionReplace} state={{ returnTo: location.pathname + location.search, targetVersionId: item.configVersionId }}>이 모델로 교체</Link></Button></div>
       )}
     </SectionCard>

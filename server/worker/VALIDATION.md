@@ -74,7 +74,7 @@ GPU 이미지는 서비스 전환 이후 Python 3.12 + CPU/GPU 공통 의존성�
 
 ## 2026-10-15: CSV/SQL 실시간 탐지 데모
 
-사용자 확정 파일명: `EC_TRANSACTION_MONITORING.csv`, `EC_PROCESS_MONITORING.csv`, `EC_MESSAGE_BODY.csv`. 서버 경로는 `/data/gst-dongguk/powercode-esb/tmp`이며, 실제 서버 연결/파일 읽기는 수행하지 않았다.
+사용자 확정 파일명: `EC_TRANSACTION_MONITORING.csv`, `EC_PROCESS_MONITORING.csv`, `EC_MESSAGE_BODY.csv`. 서버 경로는 배포 `.env`의 `CSV_INPUT_DIR`(예시 `/data/inputs/esb`)이며, 실제 서버 연결/파일 읽기는 수행하지 않았다.
 
 | 검증 | 결과 |
 |---|---|

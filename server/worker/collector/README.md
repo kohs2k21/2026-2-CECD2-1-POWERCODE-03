@@ -25,7 +25,7 @@ python -m collector.replay_csv \
 
 ## 고객 API 상시 수집·동시 실시간성 측정 (2026-10-15)
 
-기본 Collector는 `python -m collector.api_runner`이다. [7개 서비스 실행 문서](../../infra/DOCKER_DEPLOYMENT.md)를 따른다. 제공된 인터페이스 목록 POST·상세 GET·진행 중 목록 GET 클라이언트는 `api_client.py`에 구현했다. 상시 루프는 목록 페이지와 진행 중 목록을 조회한다. 상세 조회는 필요할 때 사용하며 상시 루프가 요청 수를 늘리지 않는다.
+기본 Collector는 compose 기준 `python -m collector.input_runner`이고, 이 절의 `python -m collector.api_runner`는 설정·진행 중 목록만 수집하는 단독 측정 경로다. [7개 서비스 실행 문서](../../infra/DOCKER_DEPLOYMENT.md)를 따른다. 제공된 인터페이스 목록 POST·상세 GET·진행 중 목록 GET 클라이언트는 `api_client.py`에 구현했다. 상시 루프는 목록 페이지와 진행 중 목록을 조회한다. 상세 조회는 필요할 때 사용하며 상시 루프가 요청 수를 늘리지 않는다.
 
 - 인증: `COLLECTOR_ACCESS_TOKEN → ACCESS_TOKEN → TOKEN` 또는 `COLLECTOR_ACCESS_TOKEN_FILE`의 **토큰 문자열만 있는 파일**. 모든 호출에 Bearer 헤더를 넣는다. 토큰 발급/갱신 API는 미제공이다.
 - 포트 1112 설정, 1114 진행 중 캐시. HTTP는 `COLLECTOR_HTTP_HOST`의 정확한 호스트만 허용하고 redirect를 따르지 않는다.
@@ -61,6 +61,6 @@ docker compose exec collector python -m collector.report \
 
 ## API / 네 CSV 공통 입고 (현재 기본)
 
-`python -m collector.input_runner`는 DB 입력 선택을 읽어 API/CSV/paused 중 하나만 입고한다. `collector.input_cli`로 init/stage-csv/status/select를 실행할 수 있고 화면 운영 현황 수집 탭(`/operations?tab=collect`, 관리자)에서 같은 상태를 제어한다. 두 모드는 `input_contract.normalize`와 `input_store.admit`를 공유한다. 피처·Rule·모델은 기존 운영 파이프라인에서 생성/선택하며 별도 데모 모델로 우회하지 않는다.
+`python -m collector.input_runner`는 DB 입력 선택을 읽어 API/CSV/paused 중 하나만 입고한다. `collector.input_cli`로 init/stage-csv/status/select를 실행할 수 있고 화면 운영 현황 수집 탭(`/operations?tab=collect`, 관리자)에서 같은 상태를 제어한다. 두 모드는 `input_contract.normalize`와 `input_store.admit`를 공유한다. 입고가 커밋된 뒤에는 그 tick 입고로 등록·재사용된 detect 작업(jobId 있음)만 `DETECTOR_DELIVERY_URL`의 `/detect`로 알린다(한 tick 최대 10건). 큐는 조회하지 않으며, 구성 대기 항목·상한 초과분·알림 실패는 Detector의 큐 polling이 처리한다. 피처·Rule·모델은 기존 운영 파이프라인에서 생성/선택하며 별도 데모 모델로 우회하지 않는다.
 
 네 파일 중 Message 모니터링과 BODY를 구분한다. CSV `\N`은 NULL, `PROCESS_DT`는 원문 시각 컬럼으로 투영한다. BODY는 현재 messageId 참조만 저장한다. API의 비어 있지 않은 로그 shape는 매핑 설정으로 연결한다. 설명과 실행 순서는 [SWITCHABLE_INPUTS.md](../../infra/SWITCHABLE_INPUTS.md)를 따른다. `api_runner` 단독 실행은 기존 API 수집 시험 경로로 남겨 두었으며 기본 컨테이너 명령은 아니다.

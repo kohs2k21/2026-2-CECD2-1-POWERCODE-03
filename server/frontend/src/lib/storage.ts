@@ -1,6 +1,7 @@
 /** 브라우저에만 두는 화면 편의 설정(넓게 보기 등). 서버 상태·편집 초안·토큰은 여기에 두지 않는다. */
 export const storageKeys = {
   layoutWide: (view: "analysis") => `esb_layout_wide_${view}`,
+  processFlowView: "esb_process_flow_view",
 } as const;
 
 export function getStored<T>(key: string, fallback: T): T {

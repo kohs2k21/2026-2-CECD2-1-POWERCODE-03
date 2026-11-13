@@ -24,6 +24,13 @@ export type OperationsOverview = {
   queueWaitP95Ms?: number;
   /** 현재 운영 구성 요약(선택). 없으면 운영 구성 미적용 또는 확인 불가. */
   activeConfiguration?: ActiveConfiguration | null;
+  /** 구성 없이(v04) 운영되는 룰 세트·활성 모델 집합 버전(선택). null = 확인 불가. */
+  operationalState?: OperationalState | null;
+};
+export type OperationalState = {
+  ruleSetRevision?: number;
+  activeModelSetRevision?: number;
+  models: { modelKey: string }[];
 };
 export type ActiveConfiguration = {
   configVersionId: string;
@@ -54,6 +61,8 @@ export const parseOperationsOverview = (value: unknown): OperationsOverview => {
   }
   if (value.activeConfiguration === null) result.activeConfiguration = null;
   else if (record(value.activeConfiguration)) result.activeConfiguration = parseActiveConfiguration(value.activeConfiguration);
+  if (value.operationalState === null) result.operationalState = null;
+  else if (record(value.operationalState)) result.operationalState = parseOperationalState(value.operationalState);
   if (record(value.stages)) for (const id of operationStageIds) {
     const stage = value.stages[id];
     if (!record(stage)) continue;
@@ -82,6 +91,15 @@ const parseActiveConfiguration = (value: Record<string, unknown>): ActiveConfigu
   if (Array.isArray(value.models)) for (const model of value.models) {
     if (!record(model) || typeof model.modelKey !== "string" || !model.modelKey) continue;
     result.models.push(typeof model.adapterName === "string" ? { modelKey: model.modelKey, adapterName: model.adapterName } : { modelKey: model.modelKey });
+  }
+  return result;
+};
+const parseOperationalState = (value: Record<string, unknown>): OperationalState => {
+  const result: OperationalState = { models: [] };
+  if (integer(value.ruleSetRevision)) result.ruleSetRevision = value.ruleSetRevision;
+  if (integer(value.activeModelSetRevision)) result.activeModelSetRevision = value.activeModelSetRevision;
+  if (Array.isArray(value.models)) for (const model of value.models) {
+    if (record(model) && typeof model.modelKey === "string" && model.modelKey) result.models.push({ modelKey: model.modelKey });
   }
   return result;
 };

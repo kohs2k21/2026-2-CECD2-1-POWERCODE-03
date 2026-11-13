@@ -19,6 +19,8 @@
 | `/detection/operations/jobs/:jobId` | 작업 상세 | admin |
 | `/detection/operations/replace` | 모델 교체(전체 페이지 단계 흐름) | admin |
 | `/detection/rules` | 탐지 설정 › 룰 설정([rules-ui.md](rules-ui.md)) | admin |
+| `/detection/rules/candidates` | 룰 설정 › 규칙 추천 목록(쿼리 `interface`, [rule-candidates-ui.md](rule-candidates-ui.md)) | admin |
+| `/detection/rules/candidates/:candidateId` | 규칙 추천 후보 상세 | admin |
 | `/detection/models` | 탐지 설정 › 머신러닝 모델(버전 목록 + 같은 화면 새 학습, [models-ui.md](models-ui.md)) | admin |
 | `/detection/models/:versionId` | 모델 버전 상세([models-ui.md](models-ui.md)) | admin |
 | `/detection/evaluations` | 탐지 설정 › 평가 결과(비교 평가 목록 + 같은 화면 새 비교 평가) | admin |
@@ -42,7 +44,7 @@
 | 평가 결과 | `tab` | `current` 현재 운영 모델 기준 / `all` 전체 평가 |
 | 평가 결과 | `step` | 새 비교 평가 `1` 평가 세트 / `2` 비교 모델 / `3` 요청 |
 | 모델 교체 | `step` | `1` 버전 선택 / `2` 비교 확인 / `3` 승인·요청 |
-| 이상 분석 | `category` | `all` / `anomaly` / `in_progress` / `undetermined` / `failed_replaced`(판정 결과별 분류: 전체 / 이상 / 판정 중·중간 판정 / 정상 여부 미확인 / 판정 실패·대체) |
+| 이상 분석 | `category` | `all` / `anomaly` / `anomaly_sign` / `normal` / `in_progress` / `undetermined` / `failed_replaced`(판정 결과별 분류: 전체 / 이상 / 이상 징후 / 정상 / 판정 중·중간 판정 / 정상 여부 미확인 / 판정 실패·대체) |
 | 이상 분석 | `q`·`signal`·`completeness`·`sort`·`page`·`pageSize` | 검색어 / 이상 신호 `all`·`yes`·`no`·`unknown` / 검사 완료 `all`·`complete`·`partial`·`unavailable` / `newest`·`oldest` / 1~ / `10`·`5`·`20`. 판정 상세 주소도 같은 쿼리 유지(목록 복귀) |
 
 - #100 현재: 룰 설정(#109)·머신러닝 모델(#128)을 뺀 탐지 설정 화면은 숨긴 화면 제목(sr-only h1)만 있는 골격(운영 설정은 본문 첫 줄 [모델 교체] 진입 포함). 운영 현황·이상 분석·탐지 설정은 보이는 제목 줄 없음(ui.md 화면 제목). 목록 탭·작업 단계 화면은 각 하위 Issue에서 이 주소 규칙대로 붙임(도구 `hooks/useUrlState.ts`)

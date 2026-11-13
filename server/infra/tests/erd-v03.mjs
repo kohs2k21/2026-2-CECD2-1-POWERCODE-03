@@ -18,6 +18,9 @@ import { revisions015 } from './erd-v03-revisions.mjs';
 import { detectV04_016 } from './erd-v03-detect-v04.mjs';
 import { recommendThresholds017 } from './erd-v03-recommend-thresholds.mjs';
 import { decisionIndex018 } from './erd-v03-decision-index.mjs';
+import { incidents019 } from './erd-v03-incidents.mjs';
+import { ruleHashV3_020 } from './erd-v03-rule-hash-v3.mjs';
+import { recommendRelations021 } from './erd-v03-recommend-relations.mjs';
 
 const toolRoot = process.argv[2];
 assert(toolRoot, 'Pass an isolated temporary workspace containing the test dependencies');
@@ -260,6 +263,9 @@ try {
   await detectV04_016({ Client, port, connection, check, failures, migrations, migrationNames, rolesSql, parity, insert });
   await recommendThresholds017({ Client, port, connection, check, failures, migrations, migrationNames, rolesSql, parity, insert });
   await decisionIndex018({ connection, check, failures, migrations, migrationNames, parity, insert, infra, model });
+  await incidents019({ Client, port, connection, check, failures, migrations, migrationNames, rolesSql, parity, insert });
+  await ruleHashV3_020({ connection, check, failures, migrations, migrationNames, parity });
+  await recommendRelations021({ Client, port, connection, check, failures, migrations, migrationNames, rolesSql, parity, insert, infra });
   assert.equal(failures.length,0,failures.join('; '));
   console.log(`PASS ${checkCount} integration checks; no project runtime or customer data used`);
   passed = true;

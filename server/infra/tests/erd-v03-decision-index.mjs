@@ -153,6 +153,8 @@ export async function decisionIndex018({ connection, check, failures, migrations
       for (const key of ['enums','columns','constraints','triggers']) assert.deepEqual(after[key], before[key], `018 leaves ${key} unchanged`);
       assert.deepEqual(after.functions.map(f => [f.name, f.body]), before.functions.map(f => [f.name, f.body]), '018 leaves functions unchanged');
       check('erd129_upgrade: one index added; enums, columns, constraints, triggers and functions unchanged');
+      // 019 tables are applied before parity because schema.dbml is the final structure (no index on run_process_decisions).
+      for (let i = idx + 1; i < migrations.length; i++) await u.query(migrations[i]);
       await parity(u);
 
       await u.query('ANALYZE');

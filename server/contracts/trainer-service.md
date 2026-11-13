@@ -68,6 +68,17 @@
 - 기존 피처 계산·IF 파일 형식 호환 유지; 지원하지 않는 정의는 성공 대체 없음
 - 학습 후보 `ml_config_models.training_settings` [#111 구현]: 기존 키(`snapshotId`·`split`·`featureNames`·`definitionsHash`·`splitVersion`·`thresholdPolicy`·`trainingSelection`) 유지 + `methodId`·`methodVersion`·`parameters`(확정 파라미터 = 카탈로그 기본값 + 요청 값) 추가. configuration_spec schemaVersion 1·2 틀은 그대로, 마이그레이션 없음([model-version.md](model-version.md) 불변성·저장소 절). prepared 경로(`trainer/prepared_training.py`)는 아직 미반영 — 후속에서 맞춤. schemaVersion 3 행은 `timeBasis`·`trainingPeriod`도 저장하고 `trainingSelection.trainingPeriod`를 구성·결과에 남김. fit 참조에는 fit 필요 피처가 있을 때만 남음(그 밖에는 fit 참조 자체가 없음) [#132]
 
+## 규칙 관계 추천 후보 작업 — `recommend_relations`(실험 기능)
+
+- 접수: API `POST /api/rule-set/candidates/jobs`(관리자, [rule-candidates-ui.md](rule-candidates-ui.md) 6절)만 만든다. `run_jobs` v03 training 모양(`queue='training'`·user producer·`requester_role='admin'`·`llm_spec` NULL), 큐 payload `{schemaVersion: 1, jobId, enqueuedAt}`. DB는 migration 021(`job_kind` 값·`run_jobs_v03_contract` training 분기)
+- 꺼내기: `trainer/runner.py` training claim 목록(`job_kinds`)에 포함, 관리자 전용 목록(`_claim_job`)에도 포함 — `requester_role`이 admin이 아니면 시도를 만들지 않고 큐 메시지를 실패 처리(`job_role_not_authorized`, 큐 사유 `job_claim_failed`)
+- 입력 `input_spec`(`trainer/relation_candidates.py` `parse_input`): `snapshotId`(UUID, 필수), `sourceId`(UUID, 선택 — API는 스냅샷의 원천을 넣음), `excludeProcessIds`(문자열 목록, 중복 없음, 선택), `handoffMismatchSuffixPatterns`(Python 정규식 목록, 최대 10개·각 100자·중복 없음·컴파일 가능, 선택 — 생략 시 기본 `-0[0-9]\Z` 1개), `kind`. 그 밖의 키나 형식 위반은 `relation_input_invalid`
+- 스냅샷 조건: `data_snapshots.status = ready`이고 `schema_version = process-v1`이어야 한다(아니면 `relation_snapshot_not_ready`). 입력 `sourceId`가 스냅샷 원천과 다르면 `snapshot_conditions_mismatch`. 스냅샷 train 분할 PROCESS 멤버가 0건이면 `recommendation_input_empty`
+- 실행: 읽기 전용 REPEATABLE READ 트랜잭션 하나에서 서버 커서로 PROCESS·TRANSACTION·MESSAGE를 거래 키 순으로 2회 읽는다(실행마다 최신 리비전). 행이 거래 키 순서를 어기면 `relation_stream_order_violation`
+- 출력: 결과 JSON(`run_jobs.result_summary`, `relationContractVersion = relation-candidates-experimental-2`, `experimental: true`)만 남긴다. 새 표·후보 행·룰 세트 변경 없음 — 승인은 룰 세트 저장 경로(관리자)에서 따로 한다
+- 거래 행 선택이 모호한(TRANSACTION 실행 재시도 번호 동률 등) 거래는 작업 오류가 아니라 후보별 `undetermined` 사유 `transaction_row_ambiguous`로 센다
+- 오류: 위 코드는 모두 `ValueError` → 재시도 없이 작업 `failed`(`errorCode`). 그 밖의 예외는 기존 학습 작업과 같이 시도 한도(3회) 안에서 재시도
+
 ## 책임·범위
 
 - Trainer: 학습/기존 평가·후보/불변 결과 저장

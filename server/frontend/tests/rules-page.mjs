@@ -156,6 +156,9 @@ const calls = (method, path) => requested.filter((call) => call.method === metho
   assert.ok(stickyBox.props.className.includes("sticky") && stickyBox.props.className.includes("bg-background"));
   assert.ok(shown.indexOf("변경 0건") < shown.indexOf("STATUS ≠ S"), "save bar is above the hard rules");
   assert.ok(!shown.includes("시스템 내장 목록"), "no caption line under the table");
+  // 규칙 추천 진입 카드(rule-candidates-ui.md): 이상 징후 규칙 아래·변경 기록 위, 후보 목록으로 가는 링크만.
+  const entry = app.renderer.root.find((node) => node.props?.["aria-label"] === "규칙 추천" && node.props["data-slot"] === "section-card");
+  assert.equal(entry.findAllByType("a").map((a) => [a.props.href, text(a.children)]).join(), "/detection/rules/candidates,후보 보기");
   assert.equal(app.renderer.root.findAll((node) => node.type === "table" && node.props["aria-label"] === "이상 규칙").length, 1, "table keeps a hidden name");
   assert.ok(shown.indexOf("START_TIME > END_TIME") < shown.indexOf(HARD_WARNING) && shown.indexOf(HARD_WARNING) < shown.indexOf("AI 규칙 추천"), "bottom of the hard rule section");
   for (const expected of ["변경자 admin@example.test", "켜진 규칙 · 이상 규칙 2/2 · 이상 징후 규칙 1/1", "STATUS ≠ S", "START_TIME > END_TIME (종료 시각이 없으면 판단하지 않음)",

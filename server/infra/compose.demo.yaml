@@ -11,7 +11,7 @@ x-worker: &worker
   environment: &environment
     DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL in .env.demo}
     ARTIFACT_ROOT: /artifacts
-    DETECT_JOB_CONTRACT: ${DETECT_JOB_CONTRACT:-v03}
+    DETECT_JOB_CONTRACT: ${DETECT_JOB_CONTRACT:-v04}
 services:
   sender:
     <<: *worker

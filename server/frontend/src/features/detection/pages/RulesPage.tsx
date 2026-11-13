@@ -1,4 +1,7 @@
 import { useEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
+import { IconChevronRight } from "@tabler/icons-react";
+import { SectionCard } from "@/components/layout/SectionCard";
 import { ScreenTitle } from "@/components/layout/PageHeader";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -241,6 +244,19 @@ const RulesEditor = ({ state, reload, onSavedStale }: {
           onEdit={editSoft} onAdd={() => setAdding(true)} onDelete={setDeleting}
         />
       </fieldset>
+      <SectionCard
+        title="규칙 추천"
+        aria-label="규칙 추천"
+        description="Trainer 후보 작업 결과 · 관계 규칙(이상)·처리 시간(이상 징후) 후보 검토"
+        action={
+          <Button asChild size="sm" variant="outline">
+            <Link to={paths.detectionRuleCandidates}>
+              후보 보기
+              <IconChevronRight aria-hidden="true" />
+            </Link>
+          </Button>
+        }
+      />
       <RuleHistoryCard key={state.revision} state={state} disabled={busy} onRevert={(revision) => void openRevert(revision)} />
       {pending && <RuleSaveDialog pending={pending} onCancel={() => setPending(null)} />}
       {adding && <RuleAddDialog fields={fieldList} onAdd={addRule} onCancel={() => setAdding(false)} />}

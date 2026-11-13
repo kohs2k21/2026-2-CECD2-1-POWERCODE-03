@@ -4,8 +4,11 @@ import { HttpError, httpClient } from "@/services/api/client";
  * 이상 분석 읽기 API(analysis-ui.md) 요청·응답. 명시한 필드만 복사하고 형식이 틀린 값은 버린다(null = 확인 불가).
  * 오류(400·401·404·503)는 httpClient가 HttpError로 던진다. 성공·빈 목록으로 바꾸지 않는다.
  */
-/** 사이드바 판정 결과별 분류(와이어프레임 CATS 순서: 전체 / 이상 / 이상 징후 / 판정 중·중간 판정 / 정상 여부 미확인 / 판정 실패·대체). */
-export const resultCategories = ["all", "anomaly", "anomaly_sign", "in_progress", "undetermined", "failed_replaced"] as const;
+/**
+ * 사이드바 판정 결과별 분류(와이어프레임 CATS 순서 + 정상: 전체 / 이상 / 이상 징후 / 정상 / 판정 중·중간 판정 / 정상 여부 미확인 / 판정 실패·대체).
+ * 정상 = 이상 신호 없음(signal=no, 사용자 11/13).
+ */
+export const resultCategories = ["all", "anomaly", "anomaly_sign", "normal", "in_progress", "undetermined", "failed_replaced"] as const;
 /** 위험도별 보기(와이어프레임 RISK_CATS: 전체 / 위험 / 주의 / 참고 / 위험도 미정). 전체 = 이상 신호가 있는 항목. */
 export const riskCategories = ["risk_all", "risk_critical", "risk_warning", "risk_info", "risk_unrated"] as const;
 /** 분류함(와이어프레임 WORKFLOW: 보류 / 완료). 두 보기 모두에서 아래 별도 구역. */
@@ -131,6 +134,24 @@ export type DecisionItem = {
   workflowState: WorkflowState;
   /** 요청자 기준 미확인(목록 응답만, 상세는 null). */
   unread: boolean | null;
+  /** 이상 원인 요약(목록 응답만, 서버가 저장 evidence에서 옮김. 이상 신호가 아니거나 상세 응답이면 빈 배열). */
+  causes: DecisionCause[];
+};
+/** 목록 행 이상 원인 한 건(analysis-ui.md `causes`). 해당 없는 값은 null. */
+export type DecisionCause = {
+  category: "hard" | "soft" | "ml";
+  methodId: string | null;
+  ruleKey: string | null;
+  code: string | null;
+  observedStatus: string | null;
+  fieldName: string | null;
+  operator: string | null;
+  threshold: string | null;
+  unit: string | null;
+  observedValue: string | null;
+  modelName: string | null;
+  score: number | null;
+  scoreThreshold: string | null;
 };
 export type DecisionList = {
   observedAt: string;
@@ -209,7 +230,19 @@ export const parseItem = (value: unknown): DecisionItem => {
     riskLevel: oneOf(value.riskLevel, ["critical", "warning", "info"] as const),
     workflowState: oneOf(value.workflowState, workflowStates) ?? "detected",
     unread: typeof value.unread === "boolean" ? value.unread : null,
+    causes: Array.isArray(value.causes) ? value.causes.flatMap(parseCause) : [],
   };
+};
+/** 원인 한 건: 대분류가 틀리면 버림, 나머지 값은 형식이 맞을 때만. */
+const parseCause = (value: unknown): DecisionCause[] => {
+  const category = record(value) ? oneOf(value.category, ["hard", "soft", "ml"] as const) : null;
+  if (!record(value) || !category) return [];
+  return [{
+    category, methodId: text(value.methodId), ruleKey: text(value.ruleKey), code: text(value.code), observedStatus: text(value.observedStatus),
+    fieldName: text(value.fieldName), operator: text(value.operator), threshold: text(value.threshold), unit: text(value.unit),
+    observedValue: text(value.observedValue), modelName: text(value.modelName),
+    score: typeof value.score === "number" && Number.isFinite(value.score) ? value.score : null, scoreThreshold: text(value.scoreThreshold),
+  }];
 };
 export const parseList = (value: unknown): DecisionList => {
   if (!record(value) || !record(value.counts) || !Array.isArray(value.items) || count(value.total) === null) return fail("판정 목록");
@@ -327,6 +360,78 @@ export const parseFlow = (value: unknown, requested: string): DecisionFlow => {
   };
 };
 
+/**
+ * 실행 그래프(GET …/graph, contracts/process-graph.md). 층 A(거래 내부) = Process Flow와 같은 조회 결과의 노드·간선.
+ * - id는 쪼개 읽지 않는다(구성 요소에 ':'가 이스케이프돼 들어간다). 간선 끝은 `from`·`to`로만 찾는다.
+ * - attrs는 종류별 원천 값 그대로(원래 공백 포함) 넘긴다. 어휘 밖 kind·verification인 노드·간선은 버린다.
+ */
+export const graphLayers = ["instance", "pattern", "incident"] as const;
+export const graphNodeKinds = ["transaction", "process", "message", "missing"] as const;
+export const graphEdgeKinds = ["contains", "precedes", "hands_off"] as const;
+export const graphVerifications = ["not_checked", "unmatched", "verified", "ambiguous", "failed"] as const;
+export const handoffResults = ["match", "mismatch", "undetermined"] as const;
+export type GraphNodeKind = (typeof graphNodeKinds)[number];
+export type GraphEdgeKind = (typeof graphEdgeKinds)[number];
+export type GraphVerification = (typeof graphVerifications)[number];
+export type HandoffResult = (typeof handoffResults)[number];
+export type GraphNode = { id: string; kind: GraphNodeKind; attrs: Record<string, unknown> };
+export type GraphEdge = {
+  id: string;
+  kind: GraphEdgeKind;
+  from: string;
+  to: string;
+  verification: GraphVerification | null;
+  evidence: Record<string, unknown> | null;
+};
+export type GraphHeader = {
+  layer: (typeof graphLayers)[number];
+  id: string | null;
+  version: string | null;
+  sourceId: string | null;
+  snapshotId: string | null;
+  period: { from: string; to: string } | null;
+  ruleSetRevision: number | null;
+  generatedAt: string | null;
+};
+export type DecisionGraph = {
+  id: string;
+  graph: GraphHeader;
+  nodes: GraphNode[];
+  edges: GraphEdge[];
+  truncated: boolean;
+  counts: { processes: number; messages: number; errors: number } | null;
+};
+export const parseGraph = (value: unknown, requested: string): DecisionGraph => {
+  if (!record(value) || !text(value.id) || !record(value.graph) || !Array.isArray(value.nodes) || !Array.isArray(value.edges)) return fail("실행 순서");
+  if (!sameId(value.id as string, requested) && !sameId(text(value.jobId), requested)) return fail("실행 순서");
+  const layer = oneOf(value.graph.layer, graphLayers);
+  if (!layer) return fail("실행 순서");
+  const nodes = value.nodes.flatMap((n): GraphNode[] => {
+    const kind = record(n) ? oneOf(n.kind, graphNodeKinds) : null;
+    return record(n) && text(n.id) && kind ? [{ id: n.id as string, kind, attrs: record(n.attrs) ? n.attrs : {} }] : [];
+  });
+  const edges = value.edges.flatMap((e): GraphEdge[] => {
+    const kind = record(e) ? oneOf(e.kind, graphEdgeKinds) : null;
+    if (!record(e) || !kind || !text(e.id) || !text(e.from) || !text(e.to)) return [];
+    const verification = e.verification === null ? null : oneOf(e.verification, graphVerifications);
+    if (verification === null && e.verification !== null) return [];
+    return [{ id: e.id as string, kind, from: e.from as string, to: e.to as string, verification, evidence: record(e.evidence) ? e.evidence : null }];
+  });
+  const counts = value.counts, period = value.graph.period;
+  return {
+    id: value.id as string,
+    graph: { layer, id: text(value.graph.id), version: text(value.graph.version), sourceId: text(value.graph.sourceId),
+      snapshotId: text(value.graph.snapshotId),
+      period: record(period) && time(period.from) && time(period.to) ? { from: period.from as string, to: period.to as string } : null,
+      ruleSetRevision: count(value.graph.ruleSetRevision), generatedAt: time(value.graph.generatedAt) },
+    nodes, edges,
+    truncated: value.truncated === true,
+    counts: record(counts) && count(counts.processes) !== null && count(counts.messages) !== null && count(counts.errors) !== null
+      ? { processes: counts.processes as number, messages: counts.messages as number, errors: counts.errors as number }
+      : null,
+  };
+};
+
 /** 조사·조치 기록(관리자 전용, 와이어프레임 feedbackBox). 확정 라벨·학습에 반영되지 않는다. */
 export const feedbackKinds = ["action", "suspected-false-positive", "insufficient-evidence"] as const;
 export type FeedbackKind = (typeof feedbackKinds)[number];
@@ -351,6 +456,8 @@ export const readDecisionInterims = async (id: string, signal?: AbortSignal) =>
 
 export const readDecisionFlow = async (id: string, signal?: AbortSignal) =>
   parseFlow(await httpClient.get<unknown>(`/api/analysis/decisions/${encodeURIComponent(id)}/flow`, { signal }), id);
+export const readDecisionGraph = async (id: string, signal?: AbortSignal) =>
+  parseGraph(await httpClient.get<unknown>(`/api/analysis/decisions/${encodeURIComponent(id)}/graph`, { signal }), id);
 export const readDecisionFeedback = async (id: string, signal?: AbortSignal) =>
   parseFeedbackList(await httpClient.get<unknown>(`/api/analysis/decisions/${encodeURIComponent(id)}/feedback`, { signal }));
 /** 처리 상태 변경: 현재 상태(expectedState)가 서버와 다르면 409 workflow_state_conflict. */

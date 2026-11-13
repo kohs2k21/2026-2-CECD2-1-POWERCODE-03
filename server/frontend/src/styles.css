@@ -34,3 +34,125 @@
     }
   }
 }
+
+/* Process Flow 트리 보기: 위→아래 포함 관계(Transaction → Process → Message), 부모-자식 꺾은 연결선. */
+@layer components {
+  .flow-tree {
+    --flow-tree-gap: 0.75rem;
+    /* Message 세로 목록 들여쓰기(세로줄 위치 = 절반) */
+    --flow-tree-indent: 0.75rem;
+    --flow-tree-line: var(--hairline-strong);
+    display: flex;
+    justify-content: center;
+    position: relative;
+  }
+  .flow-tree .flow-tree {
+    padding-top: var(--flow-tree-gap);
+  }
+  .flow-tree .flow-tree::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 50%;
+    height: var(--flow-tree-gap);
+    border-left: 1px solid var(--flow-tree-line);
+  }
+  .flow-tree > li {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: var(--flow-tree-gap) 0.125rem 0;
+  }
+  .flow-tree > li::before,
+  .flow-tree > li::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    right: 50%;
+    width: 50%;
+    height: var(--flow-tree-gap);
+    border-top: 1px solid var(--flow-tree-line);
+  }
+  .flow-tree > li::after {
+    right: auto;
+    left: 50%;
+    border-left: 1px solid var(--flow-tree-line);
+  }
+  .flow-tree > li:only-child {
+    padding-top: 0;
+  }
+  .flow-tree > li:only-child::before,
+  .flow-tree > li:only-child::after {
+    display: none;
+  }
+  .flow-tree > li:first-child::before,
+  .flow-tree > li:last-child::after {
+    border: 0 none;
+  }
+  .flow-tree > li:last-child::before {
+    border-right: 1px solid var(--flow-tree-line);
+    border-top-right-radius: 4px;
+  }
+  .flow-tree > li:first-child::after {
+    border-top-left-radius: 4px;
+  }
+  /* Process 아래 Message 세로 목록: 부모 가운데 → 왼쪽 세로줄 → 각 노드로 꺾은 선. */
+  .flow-tree-leaves {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    padding-top: var(--flow-tree-gap);
+  }
+  .flow-tree-leaves::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 50%;
+    height: calc(var(--flow-tree-gap) / 2);
+    border-left: 1px solid var(--flow-tree-line);
+  }
+  .flow-tree-leaves::after {
+    content: "";
+    position: absolute;
+    top: calc(var(--flow-tree-gap) / 2);
+    left: calc(var(--flow-tree-indent) / 2);
+    right: 50%;
+    border-top: 1px solid var(--flow-tree-line);
+  }
+  .flow-tree-leaves > li {
+    position: relative;
+    padding: 0.125rem 0 0.125rem var(--flow-tree-indent);
+  }
+  .flow-tree-leaves > li::before {
+    content: "";
+    position: absolute;
+    left: calc(var(--flow-tree-indent) / 2);
+    top: 0;
+    bottom: 0;
+    border-left: 1px solid var(--flow-tree-line);
+  }
+  .flow-tree-leaves > li:first-child::before {
+    top: calc(var(--flow-tree-gap) / -2);
+  }
+  .flow-tree-leaves > li:last-child::before {
+    bottom: 50%;
+  }
+  .flow-tree-leaves > li::after {
+    content: "";
+    position: absolute;
+    left: calc(var(--flow-tree-indent) / 2);
+    top: 50%;
+    width: calc(var(--flow-tree-indent) / 2);
+    border-top: 1px solid var(--flow-tree-line);
+  }
+  /* 맨 위 단계는 부모가 없으므로 연결선 없음. */
+  .flow-tree-root > li {
+    padding-top: 0;
+  }
+  .flow-tree-root > li::before,
+  .flow-tree-root > li::after {
+    display: none;
+  }
+}

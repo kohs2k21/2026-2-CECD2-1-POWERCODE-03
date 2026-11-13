@@ -10,7 +10,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import pg from 'pg';
-import { seedAnalysisFixture, seedAnalysisV04Fixture } from './analysis-fixture.mjs';
+import { seedAnalysisFixture, seedAnalysisV04Fixture, seedParentlessDecisions } from './analysis-fixture.mjs';
 
 const url = process.env.PIPELINE_TEST_DATABASE_URL;
 if (!url) throw new Error('PIPELINE_TEST_DATABASE_URL is required');
@@ -78,7 +78,7 @@ try {
 
   // 1) 인증 없음·잘못된 토큰 401, user/admin 모두 읽기 200. 목록 쓰기 경로 없음.
   for (const route of ['/api/analysis/decisions', `/api/analysis/decisions/${D.normal.id}`, `/api/analysis/decisions/${D.normal.id}/interims`,
-    `/api/analysis/decisions/${D.normal.id}/flow`]) {
+    `/api/analysis/decisions/${D.normal.id}/flow`, `/api/analysis/decisions/${D.normal.id}/graph`]) {
     assert.equal((await request(base, route)).status, 401, `unauthenticated ${route}`);
     assert.equal((await request(base, route, 'GET', 'not-a-token')).status, 401, `invalid token ${route}`);
     assert.equal((await request(base, route, 'GET', user)).status, 200, `user read ${route}`);
@@ -94,10 +94,10 @@ try {
 
   // 2) 분류 건수(DB 전체 기준)와 매핑: 운영 리포트와 같은 이상 신호 규칙 + 작업·중간 기록 상태.
   const all = await list('?pageSize=20');
-  const counts0 = { all: 15, anomaly: 3, anomaly_sign: 3, in_progress: 2, undetermined: 3, failed_replaced: 3,
+  const counts0 = { all: 15, anomaly: 3, anomaly_sign: 3, normal: 3, in_progress: 2, undetermined: 3, failed_replaced: 3,
     risk_all: 6, risk_critical: 1, risk_warning: 1, risk_info: 1, risk_unrated: 3, workflow_open: 0, workflow_resolved: 0 };
   assert.deepEqual(all.counts, counts0);
-  assert.deepEqual(Object.keys(all.counts), Object.keys(counts0), 'wireframe sidebar order (result view, risk view, workflow box), no normal category');
+  assert.deepEqual(Object.keys(all.counts), Object.keys(counts0), 'sidebar order (result view with normal after anomaly sign, risk view, workflow box)');
   assert.equal(all.total, 15);
   assert.equal(all.items.length, 15);
   assert.ok(isoTime(all.observedAt) && isoTime(all.latestDecidedAt));
@@ -138,6 +138,22 @@ try {
     ['complete', 'succeeded', 'succeeded', fixture.configId, fixture.sourceId]);
   assert.ok(isoTime(normal.decidedAt) && normal.decidedAt === normal.occurredAt);
   assert.equal(byId.get(J.pending.id).transactionId, J.pending.tx, 'job items carry the manifest PROCESS context');
+  // 목록 이상 원인(causes, 사용자 11/13): 이상 신호 항목의 저장 evidence에서 anomalous=true 방법만, 이름은 방법 카탈로그. 그 밖은 [].
+  const cause = (overrides) => ({ category: 'hard', methodId: null, ruleKey: null, code: null, observedStatus: null, fieldName: null, operator: null,
+    threshold: null, unit: null, observedValue: null, modelName: null, score: null, scoreThreshold: null, ...overrides });
+  const statusCause = (extra = {}) => cause({ methodId: 'hard:process-status', observedStatus: 'F', ...extra });
+  assert.deepEqual(byId.get(D.anomaly.id).causes, [statusCause()], 'v3 status rule hit');
+  assert.deepEqual(byId.get(D.v4Info.id).causes, [cause({ category: 'soft', methodId: 'soft:retry_count-1a2b3c4d', code: 'SOFT_RETRY_COUNT_1A2B3C4D',
+    fieldName: '재시도 수', operator: 'gte', threshold: '3', observedValue: '4' })], 'v4 soft rule with catalog field name');
+  assert.deepEqual(byId.get(D.v4MlOnly.id).causes, [cause({ category: 'ml', methodId: 'ml:iforest', code: 'IF_ANOMALY', modelName: 'Isolation Forest',
+    score: 0.71, scoreThreshold: '0.61' })], 'v4 ML with catalog model name');
+  const elapsedCause = cause({ category: 'soft', methodId: 'soft:elapsed_ms-3f9a2c1d', code: 'SOFT_ELAPSED_MS_3F9A2C1D', fieldName: '처리 시간',
+    operator: 'gt', threshold: '5000', unit: 'ms', observedValue: '8120' });
+  assert.deepEqual(byId.get(J.interim.id).causes, [cause({ methodId: 'hard:process-status', code: 'PROCESS_STATUS_F' }), elapsedCause],
+    'interim payload causes in basis order');
+  assert.deepEqual(byId.get(D.v4Final.id).causes, [elapsedCause]);
+  for (const other of [D.normal, D.partialFalse, D.unavailable, D.replaced, J.pending, J.failed, J.noFinal])
+    assert.deepEqual(byId.get(other.id).causes, [], `no causes without an anomaly signal ${other.id}`);
 
   // 3) 정렬: 최신순(기본)·과거순, 같은 시각은 id로 고정.
   const order = (items, direction) => items.every((item, index) => index === 0 ||
@@ -164,6 +180,9 @@ try {
     'anomaly = signal yes without a stored anomaly_sign grade (v3 grade null stays 이상)');
   assert.deepEqual(ids(await list('?category=anomaly_sign&pageSize=20')), [D.v4Final.id, D.v4Info.id, D.v4MlOnly.id].sort());
   assert.deepEqual(ids(await list('?signal=no&pageSize=20')), [D.normal.id, D.demo.id, D.replaced.id].sort(), 'normal decisions via the signal filter');
+  // 정상 분류(사용자 11/13) = 이상 신호 없음(complete ∧ anomalous=false). 부분+false·판정불가·작업 항목은 들지 않는다.
+  assert.deepEqual(ids(await list('?category=normal&pageSize=20')), [D.normal.id, D.demo.id, D.replaced.id].sort(), 'normal category');
+  assert.deepEqual(ids(await list('?category=normal&signal=yes')), [], 'normal and anomaly signal never overlap');
   assert.deepEqual(ids(await list('?category=undetermined&pageSize=20')), [D.partialFalse.id, D.unavailable.id, D.noAnomalousKey.id].sort());
   assert.deepEqual(ids(await list('?category=in_progress&pageSize=20')), [J.interim.id, J.pending.id].sort());
   assert.deepEqual(ids(await list('?category=failed_replaced&pageSize=20')), [D.replaced.id, J.noFinal.id, J.failed.id].sort());
@@ -192,7 +211,7 @@ try {
   };
   await bad('?x=1', 'unknown_analysis_filter');
   await bad('?category=risk', 'invalid_category');
-  await bad('?category=normal', 'invalid_category');
+  await bad('?category=no', 'invalid_category');
   await bad('?signal=sign', 'invalid_signal');
   await bad('?completeness=done', 'invalid_completeness');
   await bad('?sort=severity', 'invalid_sort');
@@ -417,12 +436,52 @@ try {
   assert.deepEqual(flow.counts, { processes: 2, messages: 3, errors: 1 }, 'true totals for the flow header');
   const flowText = JSON.stringify(flow);
   assert.ok(!/fixture response text|body|message_in|message_out|startTime/i.test(flowText), 'no BODY, response message or raw times');
+  // Flow 응답 형식 불변(그래프 추가 전과 같은 필드·순서): 그래프 전용 열·추가 조회 결과가 섞이지 않는다.
+  assert.deepEqual(Object.keys(flow), ['id', 'jobId', 'transaction', 'processes', 'messages', 'truncated', 'counts']);
+  assert.deepEqual(Object.keys(flow.transaction), ['transactionId', 'interfaceId', 'channelId', 'status', 'responseCode', 'processTimeMs', 'processCount']);
+  assert.ok(flow.processes.every((p) => JSON.stringify(Object.keys(p))
+    === JSON.stringify(['observationId', 'processId', 'dependsOn', 'status', 'responseCode', 'totalCount', 'focus'])), 'process fields and order');
+  assert.ok(flow.messages.every((m) => JSON.stringify(Object.keys(m))
+    === JSON.stringify(['observationId', 'messageId', 'processId', 'direction', 'status', 'dataSize'])), 'message fields and order');
   assert.equal((await flowOf(D.anomaly.id, admin)).body.messages.length, 3, 'admin sees the same fields (BODY is never read)');
   const pendingFlow = (await flowOf(J.pending.id)).body;
   assert.deepEqual([pendingFlow.transaction.transactionId, pendingFlow.processes.length, pendingFlow.processes[0].focus, pendingFlow.messages],
     [J.pending.tx, 1, true, []], 'job items use the manifest PROCESS');
   assert.equal((await flowOf(crypto.randomUUID())).status, 404);
   assert.equal((await flowOf('bad')).body.code, 'invalid_decision_id');
+
+  // 16-1) 실행 그래프(층 A, contracts/process-graph.md): Flow와 같은 조회 결과로 만든 nodes·edges.
+  const graphOf = async (itemId, token = user) => (await request(base, `/api/analysis/decisions/${itemId}/graph`, 'GET', token));
+  const graph = (await graphOf(D.anomaly.id)).body;
+  assert.deepEqual([graph.id, graph.truncated, graph.counts], [D.anomaly.id, false, { processes: 2, messages: 3, errors: 1 }]);
+  assert.deepEqual([graph.graph.layer, graph.graph.id, graph.graph.version, graph.graph.sourceId], ['instance', D.anomaly.tx, null, fixture.sourceId]);
+  assert.ok(isoTime(graph.graph.generatedAt));
+  const graphKinds = graph.nodes.reduce((acc, n) => ({ ...acc, [n.kind]: (acc[n.kind] ?? 0) + 1 }), {});
+  assert.deepEqual(graphKinds, { transaction: 1, process: 2, message: 3 });
+  const txNode = `transaction:${D.anomaly.tx}`, focusNode = `process:${D.anomaly.tx}:${D.anomaly.processId}`, p99Node = `process:${D.anomaly.tx}:P99`;
+  const edgeOf = (kind, from, to) => graph.edges.find((e) => e.kind === kind && e.from === from && e.to === to);
+  assert.equal(edgeOf('contains', txNode, focusNode).verification, 'verified', 'focus PROCESS has the transaction FK');
+  assert.equal(edgeOf('contains', txNode, p99Node).verification, 'not_checked', 'string grouping only');
+  assert.deepEqual([edgeOf('precedes', focusNode, p99Node).verification, edgeOf('precedes', focusNode, p99Node).evidence],
+    ['verified', { handoff: 'undetermined', reason: 'no_out_message' }], 'P99 depends on the focus PROCESS; REQ/RES are not OUT/IN');
+  const p99 = graph.nodes.find((n) => n.id === p99Node);
+  assert.deepEqual([p99.attrs.attempts.length, p99.attrs.attempts[0].revisionNo, p99.attrs.status, p99.attrs.verification], [1, '2', 'S', null],
+    'a newer revision of the same execution is not a second attempt');
+  const focusAttempt = graph.nodes.find((n) => n.id === focusNode).attrs.attempts[0];
+  assert.deepEqual([focusAttempt.observationId, focusAttempt.decisionId, focusAttempt.focus], [D.anomaly.obs, D.anomaly.id, true]);
+  const graphTx = graph.nodes.find((n) => n.id === txNode).attrs;
+  assert.deepEqual([graphTx.retries.length, graphTx.retries[0].observationId, graphTx.retriesTruncated], [1, graphTx.observationId, false],
+    'transaction retries come from the graph-only lookup');
+  // 재시도 상한: 상한을 넘으면 앞쪽만 두고 retriesTruncated=true(서비스 함수 직접 호출, 상한 0).
+  const { readDecisionGraph } = await import('../dist/services/analysisReadModel.js');
+  const cappedRetries = await readDecisionGraph(pool, D.anomaly.id, undefined, undefined, 0);
+  const cappedTx = cappedRetries.nodes.find((n) => n.id === txNode).attrs;
+  assert.deepEqual([cappedTx.retries, cappedTx.retriesTruncated], [[], true]);
+  assert.equal(cappedRetries.nodes.find((n) => n.id === focusNode).attrs.attempts[0].decisionId, D.anomaly.id);
+  assert.ok(graph.edges.filter((e) => e.kind === 'contains' && e.to.startsWith('message:')).every((e) => e.verification === 'not_checked'));
+  assert.ok(!/fixture response text|body|startTime|start_time/i.test(JSON.stringify(graph)), 'graph exposes no BODY, response message or raw times');
+  assert.equal((await graphOf(crypto.randomUUID())).status, 404);
+  assert.equal((await graphOf('bad')).body.code, 'invalid_decision_id');
 
   // 17) SSE: 기본은 최종 판정 이벤트만(`event: decision`, 기존 소비자 형식 + eventKind), include=interims면 중간 판정 기록도 `event: interim`.
   const readStream = async (query, after = '0') => {
@@ -469,7 +528,7 @@ try {
   const afterV04 = await list('?pageSize=20');
   assert.equal(afterV04.total, 20, 'five v04 items join the list');
   assert.deepEqual(Object.fromEntries(Object.entries(afterV04.counts).map(([key, value]) => [key, value - beforeV04.counts[key]]).filter(([, value]) => value)),
-    { all: 5, anomaly: 1, anomaly_sign: 1, in_progress: 2, failed_replaced: 2, risk_all: 2, risk_critical: 1, risk_warning: 1 });
+    { all: 5, anomaly: 1, anomaly_sign: 1, normal: 1, in_progress: 2, failed_replaced: 2, risk_all: 2, risk_critical: 1, risk_warning: 1 });
   const v04ById = new Map(afterV04.items.map((item) => [item.id, item]));
   const shape = (item) => [item.kind, item.stage, item.signal, item.jobStatus, item.status, item.grade, item.riskStatus, item.riskLevel];
   // v03 fixture의 같은 상태 항목과 분류·단계·등급·위험도가 같고, 구성만 비어 있다.
@@ -482,7 +541,15 @@ try {
   assert.deepEqual(shape(v04ById.get(D4.replaced.id)), ['final', 'replaced', 'no', null, 'complete', 'normal', 'not_applicable', null]);
   assert.deepEqual(shape(byId.get(D.replaced.id)), ['final', 'replaced', 'no', null, 'complete', null, 'not_applicable', null]);
   assert.equal(v04ById.get(D4.replaced.id).configVersionId, null);
+  // v04 Detector 표본 evidence에서도 같은 원인 요약(상태 규칙 관측 상태는 방법 evidence에서).
+  const retryCause = cause({ category: 'soft', methodId: 'soft:retry_count-3f9a2c1d', code: 'SOFT_RETRY_COUNT_3F9A2C1D', fieldName: '재시도 수',
+    operator: 'gte', threshold: '3', unit: 'count', observedValue: '4' });
+  assert.deepEqual(v04ById.get(D4.final.id).causes, [retryCause]);
+  assert.deepEqual(v04ById.get(J4.interim.id).causes, [statusCause({ code: 'PROCESS_STATUS_F' }), retryCause]);
+  assert.deepEqual(v04ById.get(D4.replaced.id).causes, []);
   assert.deepEqual(ids(await list('?category=in_progress&pageSize=20')), [J.interim.id, J.pending.id, J4.interim.id, J4.pending.id].sort());
+  assert.deepEqual(ids(await list('?category=normal&pageSize=20')), [D.normal.id, D.demo.id, D.replaced.id, D4.replaced.id].sort(),
+    'v04 normal decision (no configuration) joins the normal category');
   assert.deepEqual(ids(await list('?category=failed_replaced&pageSize=20')), [D.replaced.id, J.noFinal.id, J.failed.id, D4.replaced.id, J4.noFinal.id].sort());
   assert.deepEqual(ids(await list('?signal=anomaly_sign&completeness=partial&pageSize=20')), [D.v4Final.id, D4.final.id].sort());
   assert.deepEqual(ids(await list(`?q=${J4.final.id}`)), [D4.final.id], 'v04 final decisions are found by their detect job id');
@@ -547,11 +614,23 @@ try {
   const saved04 = (await request(base, '/api/pipeline/decisions?limit=100', 'GET', user)).body.items.find((item) => item.id === D4.final.id);
   assert.deepEqual([saved04.configVersionId, saved04.sourceId], [null, fixture.sourceId]);
 
+  // 10-1) 부모 연결(FK)이 없는 PROCESS: 인터페이스 ID는 같은 원천·같은 거래 ID의 대표 TRANSACTION 값(실행 그래프 거래 노드와 같음).
+  const P = await seedParentlessDecisions(pool, fixture);
+  for (const [name, expected] of [['noLink', 'IF-NOLINK-R2'], ['retried', 'IF-RETRY-1'], ['tied', null]]) {
+    const item = (await detail(P[name].id)).body;
+    assert.deepEqual([item.transactionId, item.interfaceId], [P[name].tx, expected], `parentless ${name} detail`);
+    const listed = (await list(`?q=${encodeURIComponent(P[name].tx)}`)).items;
+    assert.deepEqual(listed.map((row) => [row.id, row.interfaceId]), [[P[name].id, expected]], `parentless ${name} list`);
+    const graphTx = (await request(base, `/api/analysis/decisions/${P[name].id}/graph`, 'GET', user)).body.nodes.find((node) => node.kind === 'transaction');
+    assert.equal(graphTx.attrs.interfaceId, expected, `parentless ${name} graph transaction node`);
+  }
+  assert.deepEqual((await list('?q=if-retry-1')).items.map((row) => row.id), [P.retried.id], 'search matches the representative interface only');
+
   // 11) 저장소 실패는 503(성공·빈 목록 대체 없음).
   await stopChild();
   const failingBase = await startServer({ ...environment, DATABASE_URL: 'postgresql://nobody:none@127.0.0.1:1/qa_analysis_missing' });
   for (const [route, method = 'GET', token = user, body] of [['/api/analysis/decisions'], [`/api/analysis/decisions/${D.normal.id}`],
-    [`/api/analysis/decisions/${D.normal.id}/interims`], [`/api/analysis/decisions/${D.normal.id}/flow`],
+    [`/api/analysis/decisions/${D.normal.id}/interims`], [`/api/analysis/decisions/${D.normal.id}/flow`], [`/api/analysis/decisions/${D.normal.id}/graph`],
     [`/api/analysis/decisions/${D.normal.id}/workflow`, 'PUT', user, { state: 'resolved', expectedState: 'open' }],
     [`/api/analysis/decisions/${D.normal.id}/read`, 'PUT', user, { occurredAt: '2026-11-03T00:00:00Z' }], [`/api/analysis/decisions/${D.normal.id}/feedback`, 'GET', admin],
     [`/api/analysis/decisions/${D.normal.id}/feedback`, 'POST', admin, { kind: 'action', reason: 'x' }]]) {

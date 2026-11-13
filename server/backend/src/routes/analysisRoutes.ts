@@ -5,12 +5,13 @@ import { authenticateToken, requireAdmin, AuthenticatedRequest } from '../middle
 import { UserRepository } from '../repository/userRepository.js';
 import {
   ANALYSIS_CATEGORIES, ANALYSIS_COMPLETENESS, ANALYSIS_PAGE_SIZES, ANALYSIS_QUERY_MAX, ANALYSIS_SIGNALS, ANALYSIS_SORTS,
-  readDecisionDetail, readDecisionFlow, readDecisionInterims, readDecisionList, type AnalysisListFilter,
+  readDecisionDetail, readDecisionFlow, readDecisionGraph, readDecisionInterims, readDecisionList, type AnalysisListFilter,
 } from '../services/analysisReadModel.js';
 import {
   AnalysisRequestError, FEEDBACK_KINDS, FEEDBACK_REASON_MAX, WORKFLOW_STATES,
   addFeedback, changeWorkflow, listFeedback, markRead, type FeedbackKind, type WorkflowState,
 } from '../services/analysisWorkflow.js';
+import { registerIncidentRoutes } from './incidentRoutes.js';
 
 /**
  * 이상 분석 API(analysis-ui.md).
@@ -136,6 +137,10 @@ export function createAnalysisRouter(database: () => Pool = getDatabasePool, use
   router.get('/decisions/:id/flow', route(async (req, res) => {
     found(res, await readDecisionFlow(database(), idOf(req)));
   }));
+  // 거래 내부 실행 그래프(층 A, contracts/process-graph.md): Flow와 같은 조회·상한·권한.
+  router.get('/decisions/:id/graph', route(async (req, res) => {
+    found(res, await readDecisionGraph(database(), idOf(req)));
+  }));
   router.put('/decisions/:id/workflow', route(async (req, res) => {
     const id = idOf(req);
     res.json(await changeWorkflow(database(), id, req.user!.id, parseWorkflowRequest(req)));
@@ -157,6 +162,9 @@ export function createAnalysisRouter(database: () => Pool = getDatabasePool, use
     const result = await addFeedback(database(), id, req.user!.id, parseFeedbackRequest(req));
     res.status(201).json({ id: result.id, item: await withActor(result.item) });
   }));
+
+  // 사건 보기(층 C, contracts/incidents-ui.md): 읽기만, 같은 인증·오류 처리.
+  registerIncidentRoutes(router, database);
 
   router.use((error: unknown, _req: Request, res: Response, _next: NextFunction) => {
     if (error instanceof AnalysisRequestError) { res.status(error.status).json({ code: error.code }); return; }

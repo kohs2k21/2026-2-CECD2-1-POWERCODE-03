@@ -266,7 +266,16 @@ try {
   const allSources = (await request(base, '/api/operations/decision-trend?days=3', 'GET', user)).body;
   assert.equal(allSources.items.reduce((total, item) => total + item.decisionCount, 0), fixture.decisions + 2, 'both sources, live and replay');
   await pool.query('UPDATE ops_system_state SET active_config_version_id=NULL WHERE id=1');
-  assert.equal((await request(base, '/api/operations/overview', 'GET', user)).body.activeConfiguration, null);
+  const unconfigured = (await request(base, '/api/operations/overview', 'GET', user)).body;
+  assert.equal(unconfigured.activeConfiguration, null);
+  // 구성 없이(v04) 운영되는 룰 세트·활성 모델 집합 버전은 구성과 무관하게 함께 온다(시드: 룰 세트 버전 1(016)·활성 집합 버전 0(015, 모델 없음)).
+  assert.deepEqual(unconfigured.operationalState, { ruleSetRevision: 1, activeModelSetRevision: 0, models: [] });
+  await pool.query(`INSERT INTO ops_rule_set_revisions(revision,content_hash,content_hash_version,snapshot,changes,summary,saved_by_actor_id)
+    SELECT 2,content_hash,content_hash_version,snapshot,'[]','{}','operations-fixture' FROM ops_rule_set_revisions WHERE revision=1`);
+  await pool.query(`INSERT INTO ops_active_model_set_revisions(revision,snapshot,changes,changed_by_actor_id)
+    VALUES(1,'{"models":[{"configVersionId":"${fixture.configId}","modelKey":"iforest","activatedAtRevision":1}]}','[]','operations-fixture')`);
+  assert.deepEqual((await request(base, '/api/operations/overview', 'GET', user)).body.operationalState,
+    { ruleSetRevision: 2, activeModelSetRevision: 1, models: [{ modelKey: 'iforest' }] }, 'latest revisions');
   const noActive = (await request(base, '/api/operations/decision-trend?days=3', 'GET', user)).body;
   assert.deepEqual(noActive.items, allSources.items, 'the trend does not depend on the active configuration');
   assert.equal('reason' in noActive, false);

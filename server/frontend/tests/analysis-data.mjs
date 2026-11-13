@@ -6,7 +6,7 @@ const api = await import("../src/features/analysis/data/analysisApi.ts");
 const { readEvidence, readEvidenceV4 } = await import("../src/features/analysis/data/evidence.ts");
 const labels = await import("../src/features/analysis/labels.ts");
 const { pageWindow } = await import("../src/features/analysis/components/DecisionListView.tsx");
-const { timelineEntries } = await import("../src/features/analysis/components/DecisionTimeline.tsx");
+const { mergeTimeline, recordEntries, timelineEntries } = await import("../src/features/analysis/components/DecisionTimeline.tsx");
 const { sidebarGroups } = await import("../src/features/analysis/AnalysisPage.tsx");
 const { HttpError } = await import("../src/services/api/client.ts");
 const HttpErrorClass = HttpError;
@@ -260,25 +260,25 @@ assert.equal((timelineHtml.match(/진행 중/g) ?? []).length, 1, "only the prog
 assert.ok(timelineHtml.includes(">—<") && timelineHtml.includes('title="detection_processing_failed"'));
 assert.deepEqual(timelineEntries({ ...finalDetail, job: null }, { id: "d", jobId: null, items: [] }).map((e) => e.text), ["최종 · 모든 방법 종료"]);
 
-// 8) 사이드바: 판정 결과별 6분류 / 위험도별 5분류 + 분류함(보류·완료), 건수 그대로(없으면 표시 안 함), 다른 조건 유지·페이지 1·상세 열림 해제
+// 8) 사이드바: 판정 결과별 7분류(정상 포함, 사용자 11/13) / 위험도별 5분류 + 분류함(보류·완료), 건수 그대로(없으면 표시 안 함), 다른 조건 유지·페이지 1·상세 열림 해제
 const groups = sidebarGroups({ ...full.params }, list.counts, "result");
 assert.deepEqual(groups.map((g) => [g.title, g.separated ?? false]), [["판정", false], ["분류함", true]]);
-assert.deepEqual(groups[0].items.map((i) => i.label), ["전체", "이상", "이상 징후", "판정 중·중간 판정", "정상 여부 미확인", "판정 실패·대체"], "wireframe CATS order");
-assert.deepEqual(groups[0].items.map((i) => i.count), [3, 1, undefined, 0, 1, 1], "a missing count is not shown as 0");
+assert.deepEqual(groups[0].items.map((i) => i.label), ["전체", "이상", "이상 징후", "정상", "판정 중·중간 판정", "정상 여부 미확인", "판정 실패·대체"], "wireframe CATS order + normal after anomaly sign");
+assert.deepEqual(groups[0].items.map((i) => i.count), [3, 1, undefined, undefined, 0, 1, 1], "a missing count is not shown as 0");
 assert.deepEqual(groups[1].items.map((i) => [i.id, i.label]), [["workflow_open", "보류"], ["workflow_resolved", "완료"]]);
 const riskGroups = sidebarGroups(api.defaultListParams, { ...list.counts, risk_all: 4, risk_critical: 1, risk_warning: 1, risk_info: 0, risk_unrated: 2 }, "risk");
 assert.deepEqual(riskGroups[0].title, "위험도");
 assert.deepEqual(riskGroups[0].items.map((i) => [i.label, i.count]), [["전체", 4], ["위험", 1], ["주의", 1], ["참고", 0], ["위험도 미정", 2]], "wireframe RISK_CATS");
 assert.deepEqual(riskGroups[0].items.map((i) => i.muted ?? false), [false, false, false, false, true], "위험도 미정 is muted (wireframe)");
-const unknownLink = new URL(groups[0].items[4].to, "http://local.test");
+const unknownLink = new URL(groups[0].items[5].to, "http://local.test");
 assert.equal(unknownLink.pathname, "/analysis");
 assert.deepEqual([unknownLink.searchParams.get("category"), unknownLink.searchParams.get("q"), unknownLink.searchParams.get("page"), unknownLink.searchParams.get("sort")],
   ["undetermined", "TX-1", null, "oldest"]);
-assert.equal(api.parseListSearch("?category=normal").invalid, true, "the removed normal category is normalized away");
+assert.deepEqual([api.parseListSearch("?category=normal").invalid, api.parseListSearch("?category=normal").params.category], [false, "normal"], "normal category address (user 11/13)");
 assert.equal(labels.signalFilterLabels.no, "이상 신호 없음", "normal decisions stay reachable via the signal filter");
 assert.equal(new URL(groups[0].items[0].to, "http://local.test").searchParams.get("category"), "all", "result-view 전체 link is explicit");
 assert.equal(new URL(riskGroups[0].items[0].to, "http://local.test").search, "", "risk-view 전체 is the default address");
-assert.deepEqual(sidebarGroups(api.defaultListParams, undefined, "result")[0].items.map((i) => i.count), [undefined, undefined, undefined, undefined, undefined, undefined]);
+assert.deepEqual(sidebarGroups(api.defaultListParams, undefined, "result")[0].items.map((i) => i.count), [undefined, undefined, undefined, undefined, undefined, undefined, undefined]);
 assert.deepEqual(labels.workflowActions.detected.map(([to, label]) => [to, label]), [["open", "처리 보류"], ["resolved", "처리 완료"]], "wireframe dWorkflow");
 assert.deepEqual(labels.workflowActions.open.map(([to, label]) => [to, label]), [["detected", "원래 상태로 복원"], ["resolved", "처리 완료"]]);
 assert.deepEqual(labels.workflowActions.resolved.map(([to, label]) => [to, label]), [["detected", "원래 상태로 복원"]]);
@@ -286,7 +286,7 @@ assert.equal(labels.legacyRuleLabel("process-status"), "이상 규칙(상태가 
 assert.equal(labels.legacyRuleLabel("fixture_rule"), "이상 징후 규칙(과거 등록 Rule)", "U6 past registered Rule display");
 
 // 9) Process Flow 응답·트리: 요청 판정(또는 그 작업)의 흐름만, Message는 같은 Process ID의 첫 노드 아래, 부모 없는 Message는 같은 단계 끝
-const { flowNodes } = await import("../src/features/analysis/components/ProcessFlowCard.tsx");
+const { flowNodes, flowTree, fieldsOf, ambiguousRowsOf, focusToneOf, gradeTone, attemptTonesOf, processToneOf } = await import("../src/features/analysis/components/ProcessFlowCard.tsx");
 const flowBody = { id: "d-1", jobId: "j-1", truncated: false, counts: { processes: 2, messages: 2, errors: 1 },
   transaction: { transactionId: "TX-1", interfaceId: "IF-1", channelId: null, status: "S", responseCode: null, processTimeMs: "41", processCount: null, body: "x" },
   processes: [{ observationId: "p1", processId: "P01", dependsOn: null, status: "F", responseCode: "E500", totalCount: null, focus: true },
@@ -302,14 +302,113 @@ assert.equal(api.parseFlow({ ...flowBody, counts: { processes: -1, messages: 2, 
 assert.ok(!("body" in flow.transaction) && !("messageBody" in flow.messages[0]), "only listed fields are copied");
 assert.deepEqual(flowNodes(flow).map((n) => [n.kind, n.level, n.key]), [["tx", 0, "tx"], ["process", 1, "p1"], ["message", 2, "m1"], ["process", 1, "p2"], ["message", 1, "m2"]]);
 assert.deepEqual(flowNodes({ ...flow, transaction: null }).map((n) => n.kind)[0], "process", "no transaction node without a stored transaction");
+// 위→아래 트리: Transaction 아래 Process·부모 없는 Message, Process 아래 그 Message(flowNodes 순서 유지)
+const shape = (items) => items.map((i) => [i.node.key, shape(i.children)]);
+assert.deepEqual(shape(flowTree(flow)), [["tx", [["p1", [["m1", []]]], ["p2", []], ["m2", []]]]]);
+assert.deepEqual(shape(flowTree({ ...flow, transaction: null })), [["p1", [["m1", []]]], ["p2", []], ["m2", []]], "no transaction: processes are the top row");
+// 선택 노드 원본 정보: 모호 PROCESS(그래프 verification = ambiguous)는 시도 하나의 상태를 고르지 않는다
+const statusRow = (node) => fieldsOf(node, flow).find(([field]) => field === "STATUS")[1];
+assert.equal(statusRow({ key: "p1", kind: "process", level: 1, process: flow.processes[0] }), "F · Code E500");
+assert.equal(statusRow({ key: "p1", kind: "process", level: 1, process: flow.processes[0], ambiguous: true }), "— 확인 불가", "ambiguous process STATUS = UNAVAILABLE");
+// 트리 연결 모호: 그래프 모호 PROCESS 묶음의 시도 관측(행)마다 배지, 선택 표 STATUS는 행 자신의 값(그래프 병합 노드만 확인 불가)
+const ambiguousGraph = { nodes: [
+  { id: "process:TX-1:P01", kind: "process", attrs: { verification: "ambiguous", attempts: [{ observationId: "p1" }, { observationId: "p1b" }, { bad: 1 }] } },
+  { id: "process:TX-1:P99", kind: "process", attrs: { verification: null, attempts: [{ observationId: "p2" }] } },
+  { id: "transaction:TX-1", kind: "transaction", attrs: { verification: "ambiguous", attempts: [{ observationId: "tx" }] } },
+] };
+const rows = ambiguousRowsOf(ambiguousGraph);
+assert.deepEqual([...rows].sort(), ["p1", "p1b"], "only attempts of ambiguous process nodes");
+assert.deepEqual(ambiguousRowsOf(undefined).size, 0, "no graph (not loaded or failed) = no badge");
+const marked = flowNodes(flow, rows).filter((n) => n.kind === "process").map((n) => [n.key, n.ambiguousRow === true, n.ambiguous === true]);
+assert.deepEqual(marked, [["p1", true, false], ["p2", false, false]], "tree keeps one row per observation, badge only");
+assert.equal(statusRow(flowNodes(flow, rows).find((n) => n.key === "p1")), "F · Code E500", "ambiguous tree row keeps its own STATUS");
+assert.equal(flowTree(flow, rows)[0].children[0].node.ambiguousRow, true, "tree items carry the mark");
+// 노드 바탕 = 판정 결과(사용자 11/12): 판정 대상은 판정 요약 결과와 같은 규칙, 다른 PROCESS는 시도 등급 저장값만(null = 흰 바탕)
+assert.deepEqual([{ signal: "yes", grade: null }, { signal: "yes", grade: "anomaly" }, { signal: "yes", grade: "anomaly_sign" }, { signal: "no", grade: "normal" },
+  { signal: "pending", grade: null }, { signal: "unknown", grade: "anomaly" }, undefined].map(focusToneOf),
+["anomaly", "anomaly", "anomaly_sign", null, null, null, null], "focus tone follows the summary result (v3 anomaly without grade = 이상)");
+for (const value of [{ signal: "yes", grade: null }, { signal: "yes", grade: "anomaly_sign" }, { signal: "no", grade: null }])
+  assert.equal(focusToneOf(value) === null ? "white" : focusToneOf(value) === "anomaly_sign" ? "이상 징후" : "이상",
+    labels.resultText({ ...value }) === "이상 징후" ? "이상 징후" : labels.resultText({ ...value }) === "이상" ? "이상" : "white", "tone agrees with resultText");
+assert.deepEqual(["anomaly", "anomaly_sign", "normal", "undetermined", null, "danger"].map(gradeTone), ["anomaly", "anomaly_sign", null, null, null, null]);
+const toneGraph = { nodes: [
+  { id: "process:TX-1:P01", kind: "process", attrs: { verification: null, attempts: [{ observationId: "p1", grade: null }, { observationId: "p1r", grade: "anomaly" }] } },
+  { id: "process:TX-1:P02", kind: "process", attrs: { verification: "ambiguous", attempts: [{ observationId: "p2", grade: "anomaly_sign" }, { observationId: "p2b", grade: "anomaly_sign" }] } },
+  { id: "transaction:TX-1", kind: "transaction", attrs: { attempts: [{ observationId: "tx", grade: "anomaly" }] } },
+] };
+assert.deepEqual([...attemptTonesOf(toneGraph)], [["p1", null], ["p1r", "anomaly"], ["p2", "anomaly_sign"], ["p2b", "anomaly_sign"]], "tree: per-observation grade, process nodes only");
+assert.equal(attemptTonesOf(undefined).size, 0, "no graph = white for non-focus nodes");
+assert.deepEqual(toneGraph.nodes.slice(0, 2).map((n) => processToneOf(n.attrs)), ["anomaly", null], "graph: representative (last) attempt; ambiguous = white");
+assert.equal(processToneOf({ attempts: [] }), null);
+assert.deepEqual([labels.flowLegendLabels.anomaly, labels.flowLegendLabels.anomalySign, labels.flowLegendLabels.focus, labels.flowLegendLabels.notLogged],
+  ["이상", "이상 징후", "판정 대상", "로그 없음"]);
+assert.ok(!("normal" in labels.flowLegendLabels), "no 일반 legend item");
+// 트리·그래프 문구(contracts/process-graph.md 어휘): 판단 보류는 인계 undetermined에만, 모호 PROCESS는 연결 모호
+assert.deepEqual(labels.handoffLabels, { match: "인계 일치", mismatch: "인계 불일치", undetermined: "판단 보류" });
+assert.deepEqual([labels.flowViewLabels.tree, labels.flowViewLabels.graph, labels.flowViewGroupLabel], ["로그 구성", "실행 순서", "Process Flow 보기"]);
+assert.deepEqual([labels.graphLabels.notLogged, labels.graphLabels.ambiguous, labels.graphLabels.noMessages], ["로그 없음", "연결 모호", "메시지 0건"]);
+assert.notEqual(labels.graphLabels.ambiguous, labels.handoffLabels.undetermined, "ambiguous node badge does not reuse 판단 보류");
+assert.deepEqual([labels.graphLabels.zoomIn, labels.graphLabels.zoomOut, labels.graphLabels.fitView], ["확대", "축소", "전체 보기"]);
 // 조사·조치 기록 파서·쓰기 오류 제목
 assert.deepEqual(api.parseFeedbackList({ id: "d-1", items: [{ id: "f1", kind: "action", reason: "확인", actorId: "1", actorEmail: "a@example.test", createdAt: "2026-11-03T00:00:00Z" },
   { id: "f2", kind: "label", reason: "x" }] }).items.map((i) => i.id), ["f1"], "unknown feedback kinds dropped");
 assert.equal(api.analysisWriteErrorTitle(new HttpErrorClass("x", 409, "workflow_state_conflict"), "업무 분류"), "업무 분류 실패 · workflow_state_conflict");
 assert.deepEqual(labels.feedbackKindLabels, { action: "조치 기록", "suspected-false-positive": "오탐 의심", "insufficient-evidence": "근거 부족" });
+// 목록 이상 원인(사용자 11/13): 서버 causes 파서(대분류가 틀리면 버림) + 문구(기존 표시 이름) + 첫 원인 외 N건
+const cause = (overrides) => ({ category: "hard", methodId: null, ruleKey: null, code: null, observedStatus: null, fieldName: null, operator: null, threshold: null,
+  unit: null, observedValue: null, modelName: null, score: null, scoreThreshold: null, ...overrides });
+const causeItem = api.parseItem({ ...raw, causes: [cause({ methodId: "hard:process-status", code: "PROCESS_STATUS_F", observedStatus: "F" }), { category: "window" }, "x",
+  cause({ category: "ml", methodId: "ml:iforest", modelName: "Isolation Forest", score: "0.8" })] });
+assert.equal(causeItem.causes.length, 2, "unknown categories dropped");
+assert.equal(causeItem.causes[1].score, null, "non-number score dropped");
+assert.deepEqual(api.parseItem(raw).causes, [], "missing causes = no cause line (detail responses)");
+const said = (c, responseCode = null) => labels.causeText(cause(c), responseCode);
+assert.equal(said({ methodId: "hard:process-status", code: "PROCESS_STATUS_F", observedStatus: "F" }, "E500"), "상태 F 실패 · 응답 코드 E500");
+assert.equal(said({ methodId: "hard:process-status", observedStatus: "H" }), "상태 H 부분성공", "v3 status rule without code");
+assert.equal(said({ methodId: "hard:negative-duration", code: "HARD_NEGATIVE_DURATION" }), "시작 시각이 종료 시각보다 늦음");
+assert.equal(said({ methodId: "hard:success-with-error" }), "성공 상태이나 오류 건수가 기록됨");
+assert.equal(said({ methodId: "hard:count-conservation", code: "HARD_COUNT_CONSERVATION" }), "건수 합계 불일치");
+assert.equal(said({ category: "soft", methodId: "soft:elapsed_ms-1a2b3c4d", fieldName: "처리 시간", operator: "gte", threshold: "5000", unit: "ms", observedValue: "8000" }),
+  "처리 시간 8,000 ms (기준 ≥ 5,000 ms)");
+assert.equal(said({ category: "soft", methodId: "soft:retry_count-1a2b3c4d", fieldName: "재시도 수", operator: "gt", threshold: "3", observedValue: "4" }), "재시도 수 4 (기준 > 3)");
+assert.equal(said({ category: "soft", ruleKey: "fixture_rule" }), "이상 징후 규칙(과거 등록 Rule)", "v3 registered Rule");
+assert.equal(said({ category: "ml", methodId: "ml:iforest", modelName: "Isolation Forest", score: 0.83781, scoreThreshold: "0.61" }), "Isolation Forest 원점수 0.8378 (판정선 0.61)");
+assert.equal(said({ category: "ml", methodId: "ml:iforest", modelName: "Isolation Forest" }), "Isolation Forest", "v3 model without score");
+assert.equal(labels.causesLine({ causes: causeItem.causes, responseCode: "E500" }), "상태 F 실패 · 응답 코드 E500 외 1건");
+assert.equal(labels.causesLine({ causes: [], responseCode: null }), null, "no causes, no line");
+// 판정 기록 + 관리자 읽기 전용 기록(사용자 11/13): 시각 순으로 끼우고 진행 중 줄 앞, 업무 분류 상태 줄은 없음(판정 요약에 있음)
+const base = [{ key: "i1", at: "2026-11-03T01:00:00Z", tone: "provisional", text: "중간" }, { key: "final", at: "2026-11-03T01:05:00Z", tone: "final", text: "최종" }];
+const extra = recordEntries([
+  { id: "f2", kind: "suspected-false-positive", reason: "둘째\n줄", actorId: "a", actorEmail: null, createdAt: "2026-11-03T02:00:00Z" },
+  { id: "f1", kind: "action", reason: "첫째", actorId: "a", actorEmail: "admin@example.test", createdAt: "2026-11-03T01:02:00Z" },
+]);
+assert.deepEqual(mergeTimeline(base, extra).map((e) => e.key), ["i1", "record-f1", "final", "record-f2"]);
+assert.deepEqual(extra.map((e) => [e.text, e.note]), [["오탐 의심 · a", "둘째\n줄"], ["조치 기록 · admin@example.test", "첫째"]]);
+assert.deepEqual(mergeTimeline([...base.slice(0, 1), { key: "progress", at: null, tone: "progress", text: "대기" }], extra).map((e) => e.key),
+  ["i1", "record-f1", "record-f2", "progress"], "records sit before the in-progress line");
+assert.equal(recordEntries([]).length, 0, "no records, no extra lines");
 // 오류 제목
 assert.equal(api.analysisErrorTitle(new HttpError("x", 404, "decision_not_found"), "판정 상세"), "판정 상세 · decision_not_found", "missing decision shows the error code as is");
 assert.equal(api.analysisErrorTitle(new HttpError("x", 503, "analysis_storage_unavailable"), "판정 목록"), "판정 목록 미연결");
 assert.equal(api.analysisErrorTitle(new HttpError("bad", 400, "invalid_q"), "판정 목록"), "bad");
+// 실행 그래프(GET …/graph, contracts/process-graph.md): 어휘 밖 노드·간선은 버리고, attrs 원천 값(공백 포함)은 그대로 둔다.
+const graphBody = { id: uuid, jobId: null, truncated: false, counts: { processes: 2, messages: 0, errors: 0 },
+  graph: { layer: "instance", id: "TX:1", version: null, sourceId: "s-1", snapshotId: null, period: null, ruleSetRevision: null, generatedAt: "2026-11-12T00:00:00.000Z" },
+  nodes: [{ id: "transaction:TX%3A1", kind: "transaction", attrs: { transactionId: "TX:1" } }, { id: "process:TX%3A1: A1 ", kind: "process", attrs: { processId: " A1 " } },
+    { id: "process:TX%3A1:PR002", kind: "process", attrs: {} }, { id: "x", kind: "pattern_step", attrs: {} }, { kind: "process" }],
+  edges: [{ id: "precedes:process:TX%3A1: A1 :process:TX%3A1:PR002", kind: "precedes", from: "process:TX%3A1: A1 ", to: "process:TX%3A1:PR002", verification: "verified", evidence: { handoff: "match", reason: null } },
+    { id: "e2", kind: "branches_to", from: "a", to: "b", verification: null, evidence: null },
+    { id: "e3", kind: "contains", from: "a", to: "b", verification: "unlinked", evidence: null },
+    { id: "e4", kind: "hands_off", from: "a", to: "b", verification: null, evidence: "match" }] };
+const parsedGraph = api.parseGraph(graphBody, uuid.toUpperCase());
+assert.deepEqual(parsedGraph.nodes.map((n) => n.id), ["transaction:TX%3A1", "process:TX%3A1: A1 ", "process:TX%3A1:PR002"], "unknown node kinds dropped");
+assert.equal(parsedGraph.nodes[1].attrs.processId, " A1 ", "attrs keep raw values");
+assert.deepEqual(parsedGraph.edges.map((e) => [e.id.slice(0, 8), e.verification, e.evidence]),
+  [["precedes", "verified", { handoff: "match", reason: null }], ["e4", null, null]], "unknown edge kinds and verification values dropped, non-object evidence = null");
+assert.deepEqual([parsedGraph.graph.layer, parsedGraph.graph.id, parsedGraph.counts.processes], ["instance", "TX:1", 2]);
+assert.throws(() => api.parseGraph({ ...graphBody, id: "other" }, uuid), /실행 순서/, "graph of another decision is rejected");
+assert.throws(() => api.parseGraph({ ...graphBody, graph: { layer: "tree" } }, uuid), /실행 순서/);
+assert.throws(() => api.parseGraph({ ...graphBody, nodes: null }, uuid), /실행 순서/);
+
 console.log("analysis data QA passed: URL/query mapping, response parsers, evidence v3 and v4 reader fallback, result labels, page window, timeline, "
-  + "result/risk/workflow sidebar, workflow actions, flow parser and tree, feedback parser, error titles");
+  + "result/risk/workflow sidebar, workflow actions, flow parser and tree, graph parser, feedback parser, error titles");

@@ -1,5 +1,5 @@
 // 016 (#119): v04 detect path, NULL-config decisions, rule set hash version and system row r1, called from erd-v03.mjs inside the same disposable cluster.
-// Databases: erd119_fresh (001-016 + role scripts, full flows by real LOGIN roles), erd119_upgrade (001-015 + v03/legacy rows -> 016),
+// Databases: erd119_fresh (every file + role scripts, full flows by real LOGIN roles), erd119_upgrade (001-015 + v03/legacy rows -> 016),
 // erd119_saved / erd119_empty (r1 precondition fails, nothing stays), erd119_rollback (016 fails before COMMIT), erd119_encoding (non-UTF8 session, statement by statement).
 // Negative cases match the expected reason (message or constraint), not only the error class, so an unrelated rejection cannot pass.
 import assert from 'node:assert/strict';
@@ -189,7 +189,8 @@ export async function detectV04_016({ Client, port, connection, check, failures,
         const seen = (await api.query(`SELECT rule_set_revision,rule_set_content_hash_version FROM ${VIEW}`)).rows[0];
         verdict(seen.rule_set_revision === '2' && seen.rule_set_content_hash_version === 2, 'view follows the newest revision and its hash version', JSON.stringify(seen));
       } finally { await api.query('ROLLBACK'); }
-      await no('content_hash_version outside 1,2 rejected', '23514', /ops_rule_set_revisions_content_hash_version_check/, () => saveRow(c, 2, '3'));
+      // This database runs every file, so the allowed set here is the final one (020: 1,2,3). The 016 set (1,2) is judged in erd119_upgrade right after 016.
+      await no('content_hash_version outside the final set rejected (4)', '23514', /ops_rule_set_revisions_content_hash_version_check/, () => saveRow(c, 2, '4'));
       await no('content_hash_version NULL rejected', '23502', /content_hash_version/, () => saveRow(c, 2, 'NULL'));
       for (const [label, sql] of [['UPDATE r0 version', `UPDATE ${RULE} SET content_hash_version=2 WHERE revision=0`], ['UPDATE r1 version', `UPDATE ${RULE} SET content_hash_version=1 WHERE revision=1`],
         ['DELETE r1', `DELETE FROM ${RULE} WHERE revision=1`], ['TRUNCATE', `TRUNCATE ${RULE}`]])
@@ -455,6 +456,8 @@ export async function detectV04_016({ Client, port, connection, check, failures,
       assert.deepEqual(versions, [{ revision:'0', content_hash_version:1 }, { revision:'1', content_hash_version:2 }]);
       check('erd119_upgrade: r0 row unchanged with content_hash_version 1; r1 added with 2');
       verdict((await u.query(`SELECT rule_set_revision FROM ${VIEW}`)).rows[0].rule_set_revision === '1', 'erd119_upgrade: view reads r1');
+      await no('erd119_upgrade: 016 rejects content_hash_version 3', '23514', /ops_rule_set_revisions_content_hash_version_check/, () => u.query(`INSERT INTO ${RULE}(revision,content_hash,content_hash_version,snapshot,changes,summary,saved_by_actor_id)
+        VALUES(2,$1,3,'{"hardRules":[],"softRules":[]}','[]','{}','admin119')`, ['b'.repeat(64)]));
 
       // In-flight v03 work after 016.
       await insert(u, 'run_decision_interims', interim(running, runningAttempt, 'evidence_added'));

@@ -1,5 +1,5 @@
-// Target schema after migrations 001 through 018 (file-name order, enum additions committed first; 013 changes function settings only).
-// 60 public tables + 5 powercode_queue physical queues. View ops_operational_state (015) is SQL-only. Server application state is tracked separately.
+// Target schema after migrations 001 through 021 (file-name order, enum additions committed first; 013 changes function settings only).
+// 64 public tables (4 from 019) + 5 powercode_queue physical queues. View ops_operational_state (015) is SQL-only. Server application state is tracked separately.
 // Native CHECK predicates, partial/GIN indexes and triggers: canonical SQL; DBML is visualization.
 Project powercode_erd_v03 {
   database_type: 'PostgreSQL'
@@ -31,6 +31,7 @@ Enum job_kind {
   compare
   recommend_methods
   recommend_thresholds
+  recommend_relations
 }
 
 Enum job_status {
@@ -1232,7 +1233,7 @@ Table ops_rule_set_revisions {
   saved_by_actor_id text [not null]
   saved_at timestamptz [not null, default: `clock_timestamp()`]
   content_hash_version smallint [not null, default: 2]
-  Note: '015·016. 룰 세트 리비전(rule-set.md). revision ≥ 0, r0 = 마이그레이션 시드(하드룰 2개 켬·소프트룰 없음, saved_by_actor_id system, content_hash_version 1), r1 = 016 시스템 행(하드룰 4개 켬, 버전 2), 이후 저장 기본값 2. content_hash 소문자 hex 64, snapshot = hardRules[]·softRules[] 전체, restored_from_revision은 자기 참조·revision 미만. API SELECT·INSERT, Detector SELECT.'
+  Note: '015·016. 룰 세트 리비전(rule-set.md). revision ≥ 0, r0 = 마이그레이션 시드(하드룰 2개 켬·소프트룰 없음, saved_by_actor_id system, content_hash_version 1), r1 = 016 시스템 행(하드룰 4개 켬, 버전 2), 이후 저장 기본값 2. content_hash_version 허용 값 1·2(016), 020 이후 1·2·3(v3 = 관계 규칙·소프트룰 범위 포함, 규칙은 API·Detector 계약), 기본값은 계속 2. content_hash 소문자 hex 64, snapshot = hardRules[]·softRules[] 전체, restored_from_revision은 자기 참조·revision 미만. API SELECT·INSERT, Detector SELECT.'
 }
 
 Table ops_active_model_set_revisions {
@@ -1377,6 +1378,71 @@ Ref: ops_demo_runs.feature_set_id >? ml_feature_sets.id
 Ref: ops_demo_runs.train_job_id >? run_jobs.id
 Ref: ops_demo_runs.config_version_id >? ml_config_versions.id
 Ref: data_demo_inputs.run_id > ops_demo_runs.id
+// 019_incidents. Cross-transaction incident grouping (layer C): Detector writes, API reads.
+// append-only: statement-level triggers reject UPDATE·DELETE·TRUNCATE; grants SELECT·INSERT (Detector), SELECT (API).
+// Detector serializes grouping with pg_try_advisory_xact_lock(81741, 0) (skips the run when not acquired). added_by_run FKs are DEFERRABLE INITIALLY DEFERRED (SQL only): the run row is inserted last.
+Table run_incident_runs {
+  id uuid [pk]
+  source_id uuid [not null]
+  criteria_version text [not null]
+  cursor_from bigint [not null]
+  cursor_to bigint [not null]
+  added_members integer [not null]
+  opened_incidents integer [not null]
+  merged_incidents integer [not null]
+  started_at timestamptz [not null]
+  finished_at timestamptz [not null, default: `clock_timestamp()`]
+  indexes {
+    (source_id, criteria_version, cursor_to) [name: 'run_incident_runs_cursor_idx', note: 'cursor_to DESC; last cursor lookup']
+  }
+  Note: '019. Detector 주기 실행 1회 = 1행, 실행 트랜잭션 끝에 INSERT. cursor_from·cursor_to = 읽은 run_decision_events.id 범위(cursor_from ≥ 0, cursor_to ≥ cursor_from). run_decision_events.id는 006·012 트리거가 advisory lock(81736,0) 아래에서 붙이는 GENERATED identity라 id 순서 = 커밋 순서. 건수 3종 ≥ 0, finished_at ≥ started_at.'
+}
+
+Table run_incidents {
+  id uuid [pk]
+  source_id uuid [not null]
+  criteria jsonb [not null]
+  criteria_version text [not null]
+  group_key text [not null]
+  time_basis text [not null]
+  opened_at timestamptz [not null]
+  continues_from uuid
+  added_by_run uuid [not null]
+  created_at timestamptz [not null, default: `clock_timestamp()`]
+  indexes {
+    (source_id, criteria_version, group_key, opened_at) [unique, name: 'run_incidents_identity_key']
+    (source_id, opened_at, id) [name: 'run_incidents_recent_idx', note: 'opened_at DESC, id DESC; WebUI 최근 장애 목록·상세']
+    (continues_from) [unique, name: 'run_incidents_continues_idx', note: 'partial: WHERE continues_from IS NOT NULL']
+  }
+  Note: '019. 장애 묶음. criteria = 묶음 기준 객체(시간 창·허브·채널·응답 코드), time_basis process_time_raw|decided_at|source_log_occurred_at, opened_at = 첫 구성원 발생 시각. (source_id, criteria_version, group_key, opened_at) UNIQUE로 멱등 생성. continues_from = 1시간 구간으로 끊긴 앞 구간(자기 참조 금지, 앞 구간당 다음 구간 1개). 끝 시각·구성원 수·해제 여부는 저장하지 않고 읽을 때 계산. 현재 코드는 run_process_decisions.source_log_occurred_at·decision_committed_at을 쓰지 않고(NULL), run_process_decisions에 decided_at으로 시작하는 인덱스가 없음.'
+}
+
+Table run_incident_members {
+  decision_id uuid [pk]
+  incident_id uuid [not null]
+  occurred_at timestamptz [not null]
+  occurred_basis text [not null]
+  added_at timestamptz [not null, default: `clock_timestamp()`]
+  added_by_run uuid [not null]
+  indexes {
+    (incident_id, occurred_at) [name: 'run_incident_members_incident_idx']
+  }
+  Note: '019. 판정 1건은 최대 1개 묶음(decision_id PK, Detector는 ON CONFLICT (decision_id) DO NOTHING). occurred_at = 묶음에 쓴 시각, occurred_basis process_time_raw|decided_at|source_log_occurred_at = 그 시각의 출처(원문 시각 해석 실패 시 decided_at 대체). 읽기 기준(DB 강제 아님): 실행별 최신 판정 = PARTITION BY d.execution_id ORDER BY o.revision_no DESC NULLS LAST, d.decided_at DESC, d.event_sequence DESC.'
+}
+
+Table run_incident_events {
+  id bigint [pk, increment]
+  incident_id uuid [not null]
+  kind text [not null]
+  target_incident_id uuid
+  added_by_run uuid [not null]
+  created_at timestamptz [not null, default: `clock_timestamp()`]
+  indexes {
+    (incident_id) [unique, name: 'run_incident_events_merged_idx', note: 'partial: WHERE kind = merged_into']
+  }
+  Note: '019. 병합 기록, kind merged_into만(text + CHECK). merged_into는 target 필수·target ≠ incident, 묶음당 1건. 대상이 이미 병합되지 않았는지는 Detector가 advisory lock(81741,0) 안에서 확인(트리거 없음). GENERATED ALWAYS identity.'
+}
+
 Ref: ops_demo_passes.run_id > ops_demo_runs.id
 Ref: data_demo_deliveries.pass_id > ops_demo_passes.id
 Ref: data_observations.id - data_demo_deliveries.observation_id
@@ -1422,3 +1488,14 @@ Ref: run_decision_reads.decision_id >? run_process_decisions.id
 Ref: ops_rule_set_revisions.restored_from_revision >? ops_rule_set_revisions.revision
 Ref: ops_active_model_set_revisions.restored_from_revision >? ops_active_model_set_revisions.revision
 Ref: ops_detection_policy_revisions.restored_from_revision >? ops_detection_policy_revisions.revision
+// 019 refs (added_by_run: DEFERRABLE INITIALLY DEFERRED in SQL).
+Ref: run_incident_runs.source_id > ops_sources.id
+Ref: run_incidents.source_id > ops_sources.id
+Ref: run_incidents.continues_from >? run_incidents.id
+Ref: run_incidents.added_by_run > run_incident_runs.id
+Ref: run_process_decisions.id - run_incident_members.decision_id
+Ref: run_incident_members.incident_id > run_incidents.id
+Ref: run_incident_members.added_by_run > run_incident_runs.id
+Ref: run_incident_events.incident_id > run_incidents.id
+Ref: run_incident_events.target_incident_id >? run_incidents.id
+Ref: run_incident_events.added_by_run > run_incident_runs.id

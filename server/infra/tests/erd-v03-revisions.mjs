@@ -101,7 +101,10 @@ export async function revisions015({ Client, port, connection, check, failures, 
   try {
     for (const sql of migrations.slice(0, idx015 + 1)) await c.query(sql);
     check(`erd110_fresh: 001 through ${migrationNames[idx015]} apply`);
-    await c.query(rolesSql);
+    // 019 tables do not exist yet at 015, so the 019 grant block is left out here (erd-v03-incidents.mjs checks it).
+    const rolesTo015 = rolesSql.replace(/^-- 019: [\s\S]*?(?=^-- #78-Q10)/m, '');
+    assert.notEqual(rolesTo015, rolesSql, 'database-roles.sql has the 019 grant block before #78-Q10');
+    await c.query(rolesTo015);
     await c.query(demoRoleSql);
     for (const role of ['api','detector','collector','trainer','llm']) {
       logins[role] = { user:`qa110_${role}`, password:randomUUID() };

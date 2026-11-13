@@ -1,5 +1,5 @@
 import type { Pool } from 'pg';
-import { OPERATIONAL_SQL, dailyReport } from './operationalReport.js';
+import { DECISION_TREND_SQL } from './operationalReport.js';
 
 /**
  * 운영 현황(/operations) 읽기 전용 집계(operations-ui.md).
@@ -54,6 +54,13 @@ export async function readOverview(db: Queryable) {
       (SELECT coalesce(jsonb_agg(jsonb_build_object('modelKey',m.model_key,'adapterName',m.adapter_spec->>'name') ORDER BY m.model_key),'[]'::jsonb)
          FROM ml_config_models m WHERE m.config_version_id=c.id) AS models
     FROM ops_system_state s LEFT JOIN ml_config_versions c ON c.id=s.active_config_version_id WHERE s.id=1`);
+  // 구성 없이(v04) 운영되는 룰 세트·활성 모델 집합 버전(015 일관 읽기 뷰, 한 문장 = 한 스냅샷). 행이 없으면 저장소 이상이라 null.
+  const { rows: [state] } = await db.query(`SELECT rule_set_revision::float8 AS "ruleSetRevision",
+      active_model_set_revision::float8 AS "activeModelSetRevision",
+      (SELECT coalesce(jsonb_agg(jsonb_build_object('modelKey',m->>'modelKey') ORDER BY m->>'modelKey'),'[]'::jsonb)
+         FROM jsonb_array_elements(CASE WHEN jsonb_typeof(active_models)='array' THEN active_models ELSE '[]'::jsonb END) m
+        WHERE jsonb_typeof(m->'modelKey')='string') AS models
+    FROM ops_operational_state`);
   const stages: Record<string, Record<string, unknown>> = { collector: {}, observationQueue: {}, detector: {}, judgmentStore: {} };
   assign(stages.collector, 'lastProcessedAt', iso(row.collectorLast));
   // 0건은 실제로 센 값이다(대기 큐 전체 조회). 가장 오래된 대기는 대기 건이 있을 때만 있다.
@@ -70,6 +77,8 @@ export async function readOverview(db: Queryable) {
       sourceId: active.sourceId, detectionMode: active.detectionMode ?? null, ruleCount: active.ruleCount,
       ruleSeverityCounts: active.ruleSeverityCounts, models: active.models,
     } : null,
+    operationalState: state ? { ruleSetRevision: num(state.ruleSetRevision), activeModelSetRevision: num(state.activeModelSetRevision),
+      models: state.models } : null,
   };
   assign(overview, 'activeConfigurationVersion', active?.configVersionId ?? null);
   assign(overview, 'endToEndLatencyMs', num(row.endToEndP50Ms));
@@ -163,8 +172,10 @@ export async function readLatency(db: Queryable, sourceId: string) {
       extract(epoch FROM clock_timestamp()-min(created_at))*1000 AS oldest_ms
     FROM powercode_queue.detection_logs q WHERE status='pending' AND (q.payload->>'sourceId'=$1::text OR
       -- 이전 CSV 재생 메시지는 sourceId가 없으므로 관측 참조로 원천을 확인한다(pg_queue.py claim 범위와 같은 규칙).
-      (NOT (q.payload ? 'sourceId') AND EXISTS (SELECT 1 FROM data_observations o
-        WHERE o.id::text=q.payload->>'observationId' AND o.source_id=$1::uuid)))`, [sourceId]);
+      -- payload 값을 uuid로 바꿔 PK로 찾는다(pg_queue.py _payload_uuid). o.id::text 비교는 대기 행마다 관측 전체를 읽는다.
+      (NOT (q.payload ? 'sourceId') AND (SELECT o.source_id FROM data_observations o
+        WHERE o.id=CASE WHEN q.payload->>'observationId' ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+          THEN (q.payload->>'observationId')::uuid END)=$1::uuid))`, [sourceId]);
   const { rows: [detector] } = await db.query(`SELECT ${quantiles('m.duration_ms::double precision')}
     FROM ops_pipeline_measurements m JOIN data_observations o ON o.id=m.observation_id
     WHERE m.stage='detector' AND o.source_id=$1 AND m.measured_at>=clock_timestamp()-interval '1 hour'`, [sourceId]);
@@ -226,8 +237,8 @@ export async function readStorage(db: Queryable) {
 
 /**
  * GET /api/operations/decision-trend: 전 원천의 일별 판정 수·이상 신호 비율·정상 여부 미확인 비율. 운영 구성과 무관하다.
- * 운영 리포트(operational-v1)의 구성 생략 경로를 원천마다 실행해 live·replay 범위를 합산한다(원천 범위 미확인 관측 제외).
- * 판정이 없는 날도 0건으로 돌려준다.
+ * 운영 리포트(operational-v1)의 구성 생략 경로와 같은 범위·최신 판정 규칙·건수 조건(DECISION_TREND_SQL)을 원천마다 실행해
+ * live·replay 범위를 합산한다(원천 범위 미확인 관측 제외). 판정이 없는 날도 0건으로 돌려준다.
  */
 export async function readDecisionTrend(db: Pick<Pool, 'connect'>, days: number) {
   const client = await db.connect();
@@ -244,12 +255,12 @@ export async function readDecisionTrend(db: Pick<Pool, 'connect'>, days: number)
       period.days.map((day: string) => [day, { total: 0, decidable: 0, alarms: 0 }]));
     for (const source of sources) {
       for (const scope of ['live', 'replay']) {
-        const result = await client.query(OPERATIONAL_SQL, [source.id, null, period.from, period.until, TREND_TIMEZONE, scope, 31, 0]);
-        for (const item of result.rows.map(dailyReport)) {
+        const result = await client.query(DECISION_TREND_SQL, [source.id, null, period.from, period.until, TREND_TIMEZONE, scope]);
+        for (const item of result.rows) {
           const day = byDay.get(item.day) ?? { total: 0, decidable: 0, alarms: 0 };
-          day.total += item.processCount.denominator ?? 0;
-          day.decidable += item.alarmRatio.denominator ?? 0;
-          day.alarms += item.alarmRatio.numerator ?? 0;
+          day.total += item.total;
+          day.decidable += item.decidable;
+          day.alarms += item.alarms;
           byDay.set(item.day, day);
         }
       }

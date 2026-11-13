@@ -103,35 +103,6 @@ def progress_poll(conn,api,source):
     return {"snapshotId":stored[0],"snapshotCreated":stored[1],"itemCount":len(values)}
 
 
-def delivery(conn,source):
-    """After-commit optimization only; failures leave the persisted job for polling."""
-    import urllib.request
-    from generation_client import NoRedirect
-    from urllib.parse import urlsplit
-    url=os.environ.get("DETECTOR_DELIVERY_URL","")
-    token=os.environ.get("DETECTOR_DELIVERY_TOKEN","")
-    parsed=urlsplit(url)
-    if not url:
-        return
-    if parsed.scheme not in ("http","https") or parsed.hostname not in {"detector","127.0.0.1","localhost"} or parsed.username or parsed.password or parsed.query or parsed.fragment or len(token)<32:
-        raise ValueError("detector_delivery_configuration_rejected")
-    with conn.cursor() as cur:
-        cur.execute("""SELECT q.payload FROM powercode_queue.detection_logs q
-            JOIN run_jobs j ON j.id::text=q.payload->>'jobId'
-            WHERE q.status='pending' AND q.available_at<=clock_timestamp() AND q.payload->>'sourceId'=%s
-            ORDER BY q.created_at LIMIT 10""", (str(source),))
-        rows=cur.fetchall()
-    conn.commit()
-    for (payload,) in rows:
-        request=urllib.request.Request(url.rstrip("/")+"/detect",data=json.dumps({"jobId":payload["jobId"],
-            "inputManifestHash":payload["inputManifestHash"]}).encode(),headers={"Authorization":"Bearer "+token,"Content-Type":"application/json"})
-        try:
-            with urllib.request.build_opener(NoRedirect()).open(request,timeout=2) as response:
-                response.read(4096)
-        except (OSError,TimeoutError):
-            pass
-
-
 def run(*,once=False):
     load_dotenv(Path(__file__).resolve().parents[1]/".env")
     key=os.environ["COLLECTOR_SOURCE_KEY"]
@@ -169,7 +140,7 @@ def run(*,once=False):
                     if api.last_receipt:
                         store_sample(conn,source,endpoint,api.last_receipt,None,interval,error_code=code[:100])
                     conn.commit()
-            delivery(conn,source)
+            # No detect jobs are created here (snapshots/catalog only), so there is nothing to notify.
             if once:
                 return
             # Start-to-start cadence; requests never overlap to compensate for a slow API.

@@ -9,10 +9,14 @@ import {
   parseHistoryQuery, previewRuleSet, readHistory, readHistoryItem, readRuleSet, saveRuleSet, type ActorResolver,
 } from '../ruleset/ruleSetStore.js';
 import { computeThresholdStats, parseThresholdStatsRequest } from '../ruleset/thresholdStats.js';
+import {
+  enqueueCandidateJob, parseCandidateJobRequest, parseCandidateListQuery, readCandidateDetail, readCandidateList,
+} from '../ruleset/ruleCandidates.js';
 
 /**
  * 룰 세트 API(rule-set.md)·규칙별 수식 추천(llm-recommendation-job.md).
  * 읽기·이력: 로그인 사용자. 저장·미리보기·수식 추천: 관리자. Bearer만 쓰므로 CSRF 토큰 없음. 본문은 JSON만, 64KB 상한.
+ * 규칙 추천(rule-candidates-ui.md): 후보 읽기·후보 작업 요청 모두 관리자(탐지 설정 화면, 작업 결과는 관리자만 읽음).
  */
 const BODY_ERROR_CODES: Record<string, string> = {
   'entity.parse.failed': 'invalid_json', 'entity.too.large': 'request_too_large',
@@ -81,6 +85,21 @@ export function createRuleSetRouter(database: () => Pool = getDatabasePool, user
   router.post('/threshold-stats', admin, route(async (req, res) => {
     if (!req.is('application/json')) throw new RuleSetError('invalid_threshold_stats_request');
     res.json(await computeThresholdStats(database(), parseThresholdStatsRequest(req.body)));
+  }));
+
+  router.get('/candidates', admin, route(async (req, res) => {
+    res.json(await readCandidateList(database(), parseCandidateListQuery(req.query as Record<string, unknown>)));
+  }));
+  router.get('/candidates/:candidateId', admin, route(async (req, res) => {
+    if (Object.keys(req.query).length) throw new RuleSetError('unknown_candidate_filter');
+    res.json(await readCandidateDetail(database(), req.params.candidateId));
+  }));
+  router.post('/candidates/jobs', admin, route(async (req, res) => {
+    const header = req.headers['idempotency-key'];
+    if (header !== undefined && (typeof header !== 'string' || !IDEMPOTENCY_KEY.test(header))) throw new RuleSetError('invalid_idempotency_key');
+    if (!req.is('application/json')) throw new RuleSetError('invalid_candidate_job_request');
+    const { created, job } = await enqueueCandidateJob(database(), parseCandidateJobRequest(req.body), req.user!.id, header ?? null);
+    res.status(created ? 201 : 200).json(job);
   }));
 
   router.use((error: unknown, _req: Request, res: Response, _next: NextFunction) => {

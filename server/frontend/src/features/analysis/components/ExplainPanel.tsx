@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ErrorState, LoadingState } from "@/components/ui/feedback";
 import type { PipelineJob } from "@/services/api/pipeline.api";
+import { motionTransition } from "@/lib/motion";
 import type { DecisionDetail } from "../data/analysisApi";
 import { analysisErrorTitle } from "../data/analysisApi";
 import { readEvidence } from "../data/evidence";
@@ -124,7 +125,7 @@ const ExplainResult = ({ summary, fresh }: { summary: ExplainSummary; fresh: boo
       data-entrance={enter ? "fresh" : "none"}
       initial={enter}
       animate={{ opacity: 1, y: 0, scale: 1 }}
-      transition={{ duration: 0.22, ease: "easeOut" }}
+      transition={motionTransition("base")}
     >
       {typing && !done ? (
         <>

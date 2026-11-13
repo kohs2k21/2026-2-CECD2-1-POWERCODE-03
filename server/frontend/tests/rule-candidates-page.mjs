@@ -196,6 +196,14 @@ const headsOf = (app, label) => app.renderer.root.findAll((n) => n.type === "tab
   assert.ok(text(byData(app, "data-threshold-unassigned")[0].children).includes("2건"));
   const link = byData(app, "data-candidate-row")[2].findAllByType("a")[0];
   assert.equal(link.props.href, `/detection/rules/candidates/${JOB}.r2`);
+  const trigger = app.renderer.root.findAll((n) => n.type === "button" && n.props["data-slot"] === "combobox-trigger")[0];
+  assert.equal(text(trigger.children), "IF-A · 승인 가능 3", "searchable interface picker shows the selection");
+  const { filterComboboxOptions } = await import("../src/components/ui/combobox.tsx");
+  const many = Array.from({ length: 300 }, (_, i) => ({ value: `IF-ORD-${String(i).padStart(3, "0")}`, label: `IF-ORD-${String(i).padStart(3, "0")}` }));
+  assert.deepEqual(filterComboboxOptions(many, "  ord-29 ").map((o) => o.value), Array.from({ length: 10 }, (_, i) => `IF-ORD-29${i}`),
+    "case-insensitive partial match, trimmed, original order");
+  assert.equal(filterComboboxOptions(many, "").length, 300, "blank search lists all");
+  assert.equal(filterComboboxOptions(many, "%").length, 0, "no wildcard");
   const select = app.renderer.root.findAll((n) => typeof n.props?.onValueChange === "function" && n.props.value === "IF-A")[0];
   await act(async () => select.props.onValueChange("IF-B"));
   await wait(() => at(app.router) === "/detection/rules/candidates?interface=IF-B", "interface in address");

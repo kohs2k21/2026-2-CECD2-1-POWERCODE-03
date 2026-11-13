@@ -15,7 +15,7 @@ API/CSV를 같은 전체 피처·Rule·모델 경로로 실행하는 최신 절�
 | llm | Base 하나 공유, 피처·Rule 추천 / 요청 기반 근거 설명 | GPU 0 한 장 / CPU 4 / RAM 48GB | Base·번들·artifact 읽기 전용, DB |
 | 기존 PostgreSQL | 관측·4개 논리 작업 큐·판정·측정 | 기존 운영 설정 | 기존 저장소 유지 |
 
-자원 한도는 초기 설정값이다. 서버 RAM·실측 사용량에 맞춰 변경한다. GPU 2·3의 기존 임베딩 작업은 관리 대상에 포함하지 않았다. Trainer는 LLM 준비 상태에 의존하지 않는다. 파생변수 계산은 공통 코드이고 독립 feature 컨테이너는 제거했다. monitor는 `monitoring`, 1분 window는 `windows`, bundle·migrate는 `tools` 선택 프로필이다.
+자원 한도는 초기 설정값이다. 서버 RAM·실측 사용량에 맞춰 변경한다. 한도는 `.env`의 `<서비스>_CPUS`·`<서비스>_MEMORY`(예: `INCIDENTS_CPUS=1`, `INCIDENTS_MEMORY=1g`, `DETECTOR_CPUS`·`TRAINER_CPUS`·`LLM_CPUS`·`COLLECTOR_CPUS`와 각 `_MEMORY`)로 바꾼다. CPU cgroup 컨트롤러가 위임되지 않은 rootless Docker에서는 CPU 한도를 걸면 컨테이너 생성이 실패하므로 해당 서비스의 `*_CPUS=0`(CPU 한도 없음)으로 둔다. 메모리 한도는 그대로 둔다. GPU 2·3의 기존 임베딩 작업은 관리 대상에 포함하지 않았다. Trainer는 LLM 준비 상태에 의존하지 않는다. 파생변수 계산은 공통 코드이고 독립 feature 컨테이너는 제거했다. monitor는 `monitoring`, 1분 window는 `windows`, bundle·migrate는 `tools` 선택 프로필이다.
 
 ## 서버에서 준비
 
@@ -43,9 +43,9 @@ Base는 Qwen3.6-27B revision `6a9e13bd6fc8f0983b9b99948120bc37f49c13e9`을 사�
 
 | API | 요청 | 응답 계약 |
 |---|---|---|
-| 인터페이스 목록 | POST `http://183.111.104.98:1112/configuration/interfaces/list` | `responseCode=0000`, `responseObject.content`, `totalPages` |
-| 인터페이스 상세 | GET `http://183.111.104.98:1112/configuration/interfaces/{interfaceId}` | `responseObject` 객체, 조회 클라이언트 제공 |
-| 진행 중 목록 | GET `http://183.111.104.98:1114/monitoring/transactions/in-progress` | `responseObject` 배열 |
+| 인터페이스 목록 | POST `<COLLECTOR_CONFIGURATION_URL>/configuration/interfaces/list` | `responseCode=0000`, `responseObject.content`, `totalPages` |
+| 인터페이스 상세 | GET `<COLLECTOR_CONFIGURATION_URL>/configuration/interfaces/{interfaceId}` | `responseObject` 객체, 조회 클라이언트 제공 |
+| 진행 중 목록 | GET `<COLLECTOR_MONITORING_URL>/monitoring/transactions/in-progress` | `responseObject` 배열 |
 
 목록 요청 body는 `{"body":{"searchConditions":[],"currentPage":0,"pageSize":10}}`이며 모든 요청에 `Authorization: Bearer {TOKEN}`을 넣는다. 수집 루프는 목록 페이지를 순회하고 진행 중 목록을 매번 조회한다. 상세 조회는 클라이언트 기능으로 제공하며 매 페이지마다 추가 호출하지 않는다.
 
@@ -54,7 +54,7 @@ Base는 Qwen3.6-27B revision `6a9e13bd6fc8f0983b9b99948120bc37f49c13e9`을 사�
 export COLLECTOR_ACCESS_TOKEN="$ACCESS_TOKEN"
 ```
 
-Compose는 `COLLECTOR_ACCESS_TOKEN`, `ACCESS_TOKEN`, `TOKEN` 순으로 값을 재사용한다. export되지 않은 shell 변수는 위처럼 전달해야 한다. `COLLECTOR_SOURCE_KEY`는 재시작 후에도 같은 값으로 유지한다. 제공 주소는 HTTP이므로 `COLLECTOR_HTTP_HOST=183.111.104.98`에서 그 호스트만 명시적으로 허용한다. 토큰·SQL·adapter 접속 정보·원문 BODY는 snapshot에 저장하지 않는다. 토큰 파일을 쓰려면 [Collector 문서](../worker/collector/README.md)의 override를 사용한다.
+Compose는 `COLLECTOR_ACCESS_TOKEN`, `ACCESS_TOKEN`, `TOKEN` 순으로 값을 재사용한다. export되지 않은 shell 변수는 위처럼 전달해야 한다. `COLLECTOR_SOURCE_KEY`는 재시작 후에도 같은 값으로 유지한다. 제공 주소는 HTTP이므로 `COLLECTOR_HTTP_HOST=<제공 호스트>`(예시 `esb.example.invalid`)로 그 호스트만 명시적으로 허용한다. 토큰·SQL·adapter 접속 정보·원문 BODY는 snapshot에 저장하지 않는다. 토큰 파일을 쓰려면 [Collector 문서](../worker/collector/README.md)의 override를 사용한다.
 
 현재 고객 API에서 **확인된 비어 있지 않은 로그 형식은 없다.** 지속 수집은 설정 버전과 허용 필드로 투영한 진행 중 응답 snapshot을 축적한다. `[]`도 조회 측정값은 저장하며 snapshot은 중복 제거한다. 원천 실행/revision/as-of/완료 로그 계약이 미확정인 응답을 T/P/M 실행 관측으로 임의 변환하거나 탐지 성공으로 표시하지 않는다. 화면의 `monitoring_log_contract_required`가 이를 나타낸다. 진행 중 캐시만으로 완료된 전체 트랜잭션 수집을 보장할 수 없다.
 

@@ -91,6 +91,21 @@ const retry = renderer.root
 await act(async () => retry.props.onClick());
 assert.equal(retried, 1, "inline error must expose its actual retry action");
 await act(async () => renderer.unmount());
+
+// 움직임 토큰(ui.md "움직임"): CSS(lib/tokens.css)와 Motion(lib/motion.ts) 값이 같아야 한다.
+{
+  const { readFileSync } = await import("node:fs");
+  const { MOTION_MS, MOTION_EASE, motionClasses, motionTransition } = await import("../src/lib/motion.ts");
+  const css = readFileSync(new URL("../src/lib/tokens.css", import.meta.url), "utf8");
+  const token = (name) => css.match(new RegExp(`--${name}:\\s*([^;]+);`))?.[1].trim();
+  for (const [key, ms] of Object.entries(MOTION_MS)) assert.equal(token(`motion-duration-${key}`), `${ms}ms`, `duration ${key}`);
+  for (const [key, curve] of Object.entries(MOTION_EASE)) assert.equal(token(`motion-ease-${key}`), `cubic-bezier(${curve.join(", ")})`, `ease ${key}`);
+  assert.deepEqual(motionTransition("base"), { duration: 0.18, ease: [0.2, 0, 0, 1] });
+  for (const [key, classes] of Object.entries(motionClasses)) {
+    assert.ok(!/undefined|\$\{/.test(classes), `${key} classes are literal`);
+    assert.ok(/duration-\(--motion-duration-(fast|base|slow)\)/.test(classes), `${key} uses a duration token`);
+  }
+}
 console.log(
-  "common UI QA passed: notification dedup/replacement/durations/live regions, immediate clear, button/link semantics and inline retry",
+  "common UI QA passed: notification dedup/replacement/durations/live regions, immediate clear, button/link semantics and inline retry, motion tokens CSS = Motion",
 );

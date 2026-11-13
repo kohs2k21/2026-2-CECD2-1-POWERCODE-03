@@ -625,6 +625,10 @@ try {
     assert.equal(graphTx.attrs.interfaceId, expected, `parentless ${name} graph transaction node`);
   }
   assert.deepEqual((await list('?q=if-retry-1')).items.map((row) => row.id), [P.retried.id], 'search matches the representative interface only');
+  // 검색어 인터페이스 일치는 묶음 계산(SEARCH_INTERFACE_CTE)이다: 대표가 아닌 행(이전 재시도·이전 리비전)·모호(null)는 일치하지 않는다.
+  for (const [q, expected] of [['if-retry-0', []], ['if-retry', [P.retried.id]], ['if-nolink-r1', []], ['if-nolink-r2', [P.noLink.id]], ['if-tied', []]]) {
+    assert.deepEqual(ids(await list(`?q=${q}`)), expected, `parentless search ${q}`);
+  }
 
   // 11) 저장소 실패는 503(성공·빈 목록 대체 없음).
   await stopChild();

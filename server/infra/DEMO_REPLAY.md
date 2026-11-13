@@ -6,7 +6,7 @@
 
 ## 1. `~/anomaly-postgres/data` 권한 문제
 
-제공된 출력에서 `data`는 소유 UID `952966`, 권한 `700`이므로 일반 계정 `gst-dongguk`은 `cd`할 수 없다. PostgreSQL 컨테이너의 물리 저장소로 보이며, 다음 명령으로 마운트를 확인한다.
+제공된 출력에서 `data`는 소유자가 PostgreSQL 컨테이너 사용자 UID이고 권한이 `700`이므로 일반 서버 계정은 `cd`할 수 없다. PostgreSQL 컨테이너의 물리 저장소로 보이며, 다음 명령으로 마운트를 확인한다.
 
 ```bash
 docker inspect anomaly-postgres --format '{{range .Mounts}}{{println .Source "->" .Destination}}{{end}}'
@@ -20,14 +20,14 @@ DB 내용은 SQL로 조회한다. PGDATA의 파일은 CSV가 아니므로 Sender
 
 | 용도 | 호스트 파일 |
 |---|---|
-| Transaction 메타데이터 | `/data/gst-dongguk/powercode-esb/tmp/EC_TRANSACTION_MONITORING.csv` |
-| Process 탐지 입력 | `/data/gst-dongguk/powercode-esb/tmp/EC_PROCESS_MONITORING.csv` |
-| Message 메타데이터 | `/data/gst-dongguk/powercode-esb/tmp/EC_MESSAGE_BODY.csv` |
+| Transaction 메타데이터 | `/data/inputs/esb/EC_TRANSACTION_MONITORING.csv` |
+| Process 탐지 입력 | `/data/inputs/esb/EC_PROCESS_MONITORING.csv` |
+| Message 메타데이터 | `/data/inputs/esb/EC_MESSAGE_BODY.csv` |
 
 세 파일 모두 `.csv` 확장자가 있다. 서버에서 파일 존재/조회 권한을 확인한다.
 
 ```bash
-ls -l /data/gst-dongguk/powercode-esb/tmp/EC_TRANSACTION_MONITORING.csv /data/gst-dongguk/powercode-esb/tmp/EC_PROCESS_MONITORING.csv /data/gst-dongguk/powercode-esb/tmp/EC_MESSAGE_BODY.csv
+ls -l /data/inputs/esb/EC_TRANSACTION_MONITORING.csv /data/inputs/esb/EC_PROCESS_MONITORING.csv /data/inputs/esb/EC_MESSAGE_BODY.csv
 ```
 
 ## 2. 구성과 측정 범위
@@ -55,7 +55,7 @@ ls -l /data/gst-dongguk/powercode-esb/tmp/EC_TRANSACTION_MONITORING.csv /data/gs
 서버의 저장소 `server/infra`에서 시작한다. 호스트 Python 3.10이어도 컨테이너는 Python 3.12를 사용한다.
 
 ```bash
-cd /data/gst-dongguk/powercode-esb/server/infra
+cd <저장소 경로>/server/infra
 cp .env.demo.example .env.demo
 mkdir -p "$HOME/powercode-demo/artifacts" "$HOME/powercode-demo/auth"
 docker inspect anomaly-postgres --format '{{json .NetworkSettings.Networks}}'

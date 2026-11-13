@@ -150,30 +150,72 @@ const SIGNAL_SQL: Record<typeof ANALYSIS_SIGNALS[number], string> = {
  *   (현재 적재 경로는 data_processes.transaction_observation_id를 채우지 않아 거래 ID로 찾는다)
  * - 거래 ID가 있으면 같은 원천·같은 거래 ID의 실행마다 최신 리비전 중 pickTransactionRow 규칙(실행 1개 = 그 행, 여럿 = 재시도 번호 최대,
  *   실행 id·재시도 번호 없음·최대 동률 = 모호 → null). 같은 문자열 행이 없거나 거래 ID가 없음이면 tx0 값
- * 페이지 행·상세 1건·검색어 조건에서만 계산한다(건수 집계에는 쓰지 않음).
+ * 페이지 행·상세 1건에서만 행마다 계산한다(건수 집계에는 쓰지 않음). 검색어 조건은 같은 규칙의 묶음 계산(SEARCH_INTERFACE_CTE)을 쓴다.
  */
+const TX_LATEST_ORDER = 'o.revision_no DESC NULLS LAST,o.persisted_at DESC,o.id';
+/** 실행별 최신 리비전 행(execution_id·retry_count·interface_id·observation_id 열) 집계: 실행 수·빈 값 수·재시도 번호 큰 순 앞 2건. */
+const TX_TOP_COLUMNS = `count(*) AS n,count(*) FILTER (WHERE execution_id IS NULL) AS missing_execution,
+      count(*) FILTER (WHERE retry_count IS NULL) AS missing_retry,
+      (array_agg(interface_id ORDER BY retry_count DESC NULLS FIRST,observation_id))[1] AS interface_id,
+      (array_agg(retry_count ORDER BY retry_count DESC NULLS FIRST,observation_id))[1:2] AS retries`;
+/** 대표 인터페이스: 같은 문자열 실행이 없으면(top 행 없음 또는 n=0) tx0 값, 1개면 그 행, 여럿이면 모호하지 않을 때만 재시도 번호 최대 행. */
+const TX_PICK = (fallback: string, top: string) => `CASE WHEN coalesce(${top}.n,0)=0 THEN ${fallback} WHEN ${top}.n=1 THEN ${top}.interface_id
+    WHEN ${top}.missing_execution>0 OR ${top}.missing_retry>0 OR ${top}.retries[1]=${top}.retries[2] THEN NULL ELSE ${top}.interface_id END`;
 const TX_INTERFACE_SQL = (a: string) => `(WITH tx0 AS (
     SELECT t.transaction_id,t.interface_id,o.source_id FROM data_transactions t JOIN data_observations o ON o.id=t.observation_id
      WHERE t.observation_id=${a}.transaction_observation_id
     UNION ALL (SELECT t.transaction_id,t.interface_id,o.source_id FROM data_transactions t JOIN data_observations o ON o.id=t.observation_id
      WHERE ${a}.transaction_observation_id IS NULL AND t.transaction_id=${a}.transaction_id AND o.source_id=${a}.source_id
-     ORDER BY o.revision_no DESC NULLS LAST,o.persisted_at DESC,o.id LIMIT 1)
+     ORDER BY ${TX_LATEST_ORDER} LIMIT 1)
     LIMIT 1
   ), r AS (
     SELECT DISTINCT ON (coalesce(o.execution_id,o.id)) t.observation_id,o.execution_id,t.retry_count,t.interface_id
     FROM tx0 JOIN data_transactions t ON t.transaction_id=tx0.transaction_id
     JOIN data_observations o ON o.id=t.observation_id AND o.source_id=tx0.source_id AND o.layer='T'
     WHERE NOT ${GRAPH_ABSENT_SQL('tx0.transaction_id')}
-    ORDER BY coalesce(o.execution_id,o.id),o.revision_no DESC NULLS LAST,o.persisted_at DESC,o.id
+    ORDER BY coalesce(o.execution_id,o.id),${TX_LATEST_ORDER}
   ), top AS (
-    SELECT count(*) AS n,count(*) FILTER (WHERE execution_id IS NULL) AS missing_execution,
-      count(*) FILTER (WHERE retry_count IS NULL) AS missing_retry,
-      (array_agg(interface_id ORDER BY retry_count DESC NULLS FIRST,observation_id))[1] AS interface_id,
-      (array_agg(retry_count ORDER BY retry_count DESC NULLS FIRST,observation_id))[1:2] AS retries FROM r
+    SELECT ${TX_TOP_COLUMNS} FROM r
   )
-  SELECT CASE WHEN top.n=0 THEN tx0.interface_id WHEN top.n=1 THEN top.interface_id
-    WHEN top.missing_execution>0 OR top.missing_retry>0 OR top.retries[1]=top.retries[2] THEN NULL ELSE top.interface_id END
+  SELECT ${TX_PICK('tx0.interface_id', 'top')}
   FROM tx0 CROSS JOIN top)`;
+
+/**
+ * 검색어(`p` = 소문자 검색어 매개변수)의 인터페이스 일치를 행마다 계산하지 않고 묶음으로 구한다(행마다 하위 조회를 돌리면 판정이 많을 때 검색이 느려진다).
+ * - q_keys: 인터페이스 ID에 검색어가 든 TRANSACTION 행의 (원천, 거래 ID). 대표 인터페이스는 언제나 그 원천·거래 ID 행 중 하나의 값이므로
+ *   대표 값이 일치하는 항목의 키는 반드시 여기 있다(후보 상한).
+ * - q_match: 후보 키마다 TX_INTERFACE_SQL의 거래 ID 경로(FK 없음)와 같은 규칙으로 대표 인터페이스를 구해 검색어가 든 키만 남긴다.
+ * FK가 있는 항목은 후보 키(또는 FK 행 자체 값)가 일치할 때만 행마다 TX_INTERFACE_SQL로 확인한다(SEARCH_INTERFACE_SQL).
+ */
+const SEARCH_INTERFACE_CTE = (p: string) => `q_keys AS (
+  SELECT DISTINCT o.source_id,t.transaction_id FROM data_transactions t JOIN data_observations o ON o.id=t.observation_id
+   WHERE strpos(lower(t.interface_id),${p})>0
+), q_rows AS (
+  SELECT k.source_id,k.transaction_id,t.observation_id,t.interface_id,t.retry_count,o.id,o.execution_id,o.layer,o.revision_no,o.persisted_at
+  FROM q_keys k JOIN data_transactions t ON t.transaction_id=k.transaction_id
+  JOIN data_observations o ON o.id=t.observation_id AND o.source_id=k.source_id
+), q_tx0 AS (
+  SELECT DISTINCT ON (o.source_id,o.transaction_id) o.source_id,o.transaction_id,o.interface_id
+  FROM q_rows o ORDER BY o.source_id,o.transaction_id,${TX_LATEST_ORDER}
+), q_r AS (
+  SELECT DISTINCT ON (o.source_id,o.transaction_id,coalesce(o.execution_id,o.id)) o.source_id,o.transaction_id,o.observation_id,
+    o.execution_id,o.retry_count,o.interface_id
+  FROM q_rows o WHERE o.layer='T' AND NOT ${GRAPH_ABSENT_SQL('o.transaction_id')}
+  ORDER BY o.source_id,o.transaction_id,coalesce(o.execution_id,o.id),${TX_LATEST_ORDER}
+), q_top AS (
+  SELECT source_id,transaction_id,${TX_TOP_COLUMNS} FROM q_r GROUP BY source_id,transaction_id
+), q_match AS (
+  SELECT x.source_id,x.transaction_id FROM q_tx0 x
+  LEFT JOIN q_top top ON top.source_id=x.source_id AND top.transaction_id=x.transaction_id
+  WHERE strpos(lower(${TX_PICK('x.interface_id', 'top')}),${p})>0
+)`;
+const SEARCH_INTERFACE_SQL = (a: string, p: string) => `CASE WHEN ${a}.transaction_observation_id IS NULL
+    THEN (${a}.source_id,${a}.transaction_id) IN (SELECT source_id,transaction_id FROM q_match)
+  WHEN EXISTS (SELECT 1 FROM data_transactions t JOIN data_observations o ON o.id=t.observation_id
+     WHERE t.observation_id=${a}.transaction_observation_id
+       AND (strpos(lower(t.interface_id),${p})>0 OR (o.source_id,t.transaction_id) IN (SELECT source_id,transaction_id FROM q_keys)))
+    THEN strpos(lower(${TX_INTERFACE_SQL(a)}),${p})>0
+  ELSE false END`;
 
 const ITEM_JSON = (a: string) => `jsonb_build_object('id',id,'kind',kind,'stage',stage,'signal',signal,'decisionId',decision_id,'jobId',job_id,
   'jobStatus',job_status,'sourceId',source_id,'processObservationId',process_observation_id,'configVersionId',config_version_id,
@@ -265,12 +307,14 @@ export function decisionCauses(item: { signal: string; evidence: unknown; anomal
 export async function readDecisionList(db: Pick<Pool, 'connect'>, filter: AnalysisListFilter, actorId: string) {
   const conditions = [CATEGORY_SQL[filter.category]];
   const values: unknown[] = [];
+  let searchCte = '';
   if (filter.q) {
     // 부분 일치·대소문자 무시. LIKE 대신 strpos라 % _ 등 특수 문자를 그대로 찾는다. 필드마다 따로 비교(필드 경계를 넘어 일치하지 않음).
     values.push(filter.q.toLowerCase());
     const p = `$${values.length}`;
-    conditions.push(`(${['i.id::text', 'i.job_id::text', 'i.transaction_id', 'i.process_id', TX_INTERFACE_SQL('i')]
-      .map((field) => `strpos(lower(${field}),${p})>0`).join(' OR ')})`);
+    conditions.push(`(${['i.id::text', 'i.job_id::text', 'i.transaction_id', 'i.process_id']
+      .map((field) => `strpos(lower(${field}),${p})>0`).join(' OR ')} OR ${SEARCH_INTERFACE_SQL('i', p)})`);
+    searchCte = `, ${SEARCH_INTERFACE_CTE(p)}`;
   }
   if (filter.signal) conditions.push(SIGNAL_SQL[filter.signal]);
   if (filter.completeness) { values.push(filter.completeness); conditions.push(`status=$${values.length}`); }
@@ -283,7 +327,7 @@ export async function readDecisionList(db: Pick<Pool, 'connect'>, filter: Analys
   try {
     // 건수·페이지·SSE 커서를 한 스냅샷에서 읽는다(건수와 목록이 서로 다른 시점이 되지 않게).
     await client.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY');
-    const { rows: [row] } = await client.query(`WITH ${ITEMS_CTE}, filtered AS (SELECT * FROM items i WHERE ${conditions.join(' AND ')})
+    const { rows: [row] } = await client.query(`WITH ${ITEMS_CTE}${searchCte}, filtered AS (SELECT * FROM items i WHERE ${conditions.join(' AND ')})
       SELECT (SELECT jsonb_build_object(${counts}) FROM items) AS counts,
         (SELECT count(*)::integer FROM filtered) AS total,
         (SELECT to_char(max(decided_at) AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') FROM items) AS "latestDecidedAt",

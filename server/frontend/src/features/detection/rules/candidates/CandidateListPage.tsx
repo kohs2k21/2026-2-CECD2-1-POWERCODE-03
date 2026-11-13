@@ -1,10 +1,10 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useMemo } from "react";
 import { Link, useLocation, useSearchParams } from "react-router-dom";
 import { ScreenTitle } from "@/components/layout/PageHeader";
 import { SectionCard } from "@/components/layout/SectionCard";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/feedback";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Combobox } from "@/components/ui/combobox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { paths } from "@/app/routes";
 import { FlowViewBox } from "@/features/analysis/components/ProcessFlowCard";
@@ -12,7 +12,7 @@ import { stampText } from "@/features/operations/format";
 import type { DetectionReturnState } from "../../DetectionLayout";
 import type { CandidateList, RelationCandidate, ThresholdCandidate } from "./candidateApi";
 import {
-  CANDIDATES_TITLE, PAIR_LISTED, RELATION_SECTION, THRESHOLD_BASIS, THRESHOLD_SECTION, adapterText, candidateErrorTitle, jobStatusText, kindLabels, limitationTexts, n, pathText,
+  CANDIDATES_TITLE, INTERFACE_SEARCH, INTERFACE_SEARCH_EMPTY, PAIR_LISTED, RELATION_SECTION, THRESHOLD_BASIS, THRESHOLD_SECTION, adapterText, candidateErrorTitle, jobStatusText, kindLabels, limitationTexts, n, pathText,
   rateText, relationStatusBadge, relationStatusLabels, thresholdStatusLabels, thresholdText,
 } from "./candidateLabels";
 import { useCandidateList } from "./useCandidates";
@@ -136,22 +136,23 @@ const ThresholdTable = ({ items, detailState }: { items: ThresholdCandidate[]; d
 const Sections = ({ result, onInterface, detailState }: { result: Result; onInterface: (id: string) => void; detailState: DetectionReturnState }) => {
   const selected = result.selectedInterfaceId;
   const summary = result.interfaces.find((item) => item.interfaceId === selected);
+  const options = useMemo(() => result.interfaces.map((item) => ({ value: item.interfaceId, label: item.interfaceId, detail: `승인 가능 ${n(item.approvable)}` })),
+    [result.interfaces]);
   return (
     <>
       <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
         <span id="candidate-interface-label">인터페이스</span>
-        <Select value={selected ?? undefined} onValueChange={onInterface}>
-          <SelectTrigger size="sm" aria-labelledby="candidate-interface-label" className="min-w-56">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {result.interfaces.map((item) => (
-              <SelectItem key={item.interfaceId} value={item.interfaceId}>
-                {item.interfaceId} · 승인 가능 {n(item.approvable)}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <Combobox
+          size="sm"
+          aria-labelledby="candidate-interface-label"
+          className="min-w-56"
+          value={selected}
+          onValueChange={onInterface}
+          options={options}
+          valueText={summary ? `${summary.interfaceId} · 승인 가능 ${n(summary.approvable)}` : undefined}
+          searchLabel={INTERFACE_SEARCH}
+          emptyText={INTERFACE_SEARCH_EMPTY}
+        />
         {summary && <span data-interface-summary>거래 {n(summary.transactions)} · 관계 후보 {n(summary.relationCandidates)} · 처리 시간 후보 {n(summary.thresholdCandidates)}</span>}
       </div>
       <SectionCard title={RELATION_SECTION} aria-label={RELATION_SECTION}>

@@ -71,7 +71,7 @@ docker compose run --rm migrate -f /migrations/009_switchable_inputs.sql
 
 ```dotenv
 COLLECTOR_SOURCE_KEY=customer-esb
-CSV_INPUT_DIR=/data/gst-dongguk/powercode-esb/tmp
+CSV_INPUT_DIR=/data/inputs/esb
 INPUT_TRANSACTION_FILE=EC_TRANSACTION_MONITORING.csv
 INPUT_PROCESS_FILE=EC_PROCESS_MONITORING.csv
 INPUT_MESSAGE_FILE=EC_MESSAGE_MONITORING.csv

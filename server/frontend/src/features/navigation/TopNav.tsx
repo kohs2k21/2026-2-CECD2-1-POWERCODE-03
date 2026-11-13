@@ -19,9 +19,9 @@ const navIcons: Record<TopNavId, Icon> = { operations: IconHome, analysis: IconA
 
 /** 상단 메뉴 알약형 항목(935e5eb tab-item): 36px·좌우 16px·완전 둥근 모서리, 색·배경·테두리 0.18초 전환, 현재 항목은 테두리+옅은 배경. */
 const pillItem =
-  "h-9 gap-1.5 rounded-full border border-transparent px-4 text-muted-foreground transition-[color,background-color,border-color] duration-180 ease-[ease] has-[>svg]:px-4 aria-[current=page]:border-border aria-[current=page]:bg-accent aria-[current=page]:text-foreground max-nav-compact:px-2.5 max-nav-compact:text-nav-compact max-nav-compact:has-[>svg]:px-2.5";
+  "h-9 gap-1.5 rounded-full border border-transparent px-4 text-muted-foreground transition-[color,background-color,border-color,scale] duration-(--motion-duration-base) ease-motion-standard has-[>svg]:px-4 aria-[current=page]:border-border aria-[current=page]:bg-accent aria-[current=page]:text-foreground max-nav-compact:px-2.5 max-nav-compact:text-nav-compact max-nav-compact:has-[>svg]:px-2.5";
 const pillIcon =
-  "rounded-full text-muted-foreground transition-[color,background-color,border-color] duration-150 ease-[ease] [&_svg]:size-5";
+  "rounded-full text-muted-foreground transition-[color,background-color,border-color,scale] duration-(--motion-duration-base) ease-motion-standard [&_svg]:size-5";
 
 /**
  * 상단 메뉴(origin/dev 935e5eb 모양 유지): 좌측 로고·제목 / 가운데 정렬 메뉴 / 우측 로그아웃·알림·설정.

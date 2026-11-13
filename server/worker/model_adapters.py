@@ -72,14 +72,18 @@ def recommend_rules(rows: Sequence[Mapping[str, Any]], feature_set_id: str,
         raise ModelNotConfigured(str(exc)) from exc
 
 
-def recommend_thresholds(plan: Any, rows: Sequence[Any], snapshot_id: Any, time_basis: str | None) -> dict[str, Any]:
-    """코드 p95에 Rule v2 상태·근거를 붙인다. 생성 서비스 장애는 부분 결과 없이 작업 실패다."""
+def recommend_thresholds(plan: Any, rows: Sequence[Any], snapshot_id: Any, time_basis: str | None, *,
+                         source_tz: str | None = None, progress: Any = None) -> dict[str, Any]:
+    """코드 p95에 Rule v2·v3 상태·근거를 붙인다. 생성 서비스 장애는 부분 결과 없이 작업 실패다."""
     from generation_client import GenerationUnavailable
-    from threshold_recommendation import recommend
-    if not os.environ.get("RESEARCH_BUNDLE_ROOT"):
+    from rule_v3_runtime import RuleV3NotConfigured
+    from threshold_recommendation import PROVIDER_V3, recommend
+    if getattr(plan, "provider", None) != PROVIDER_V3 and not os.environ.get("RESEARCH_BUNDLE_ROOT"):
         raise ModelNotConfigured("research_rule_context_not_configured")
     try:
-        return recommend(plan, rows, snapshot_id, time_basis)
+        return recommend(plan, rows, snapshot_id, time_basis, source_tz=source_tz, progress=progress)
+    except RuleV3NotConfigured as exc:
+        raise ModelNotConfigured(str(exc)) from exc
     except GenerationUnavailable as exc:
         raise ModelNotConfigured(str(exc)) from exc
 

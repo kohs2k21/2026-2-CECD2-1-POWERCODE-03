@@ -36,7 +36,8 @@ def main():
     load_dotenv(Path(__file__).parent / ".env")
     if len(os.environ.get("DESIGN_MODEL_TOKEN","")) < 32:
         raise ValueError("design_service_token_too_short")
-    model = DesignModel(Path(os.environ["RESEARCH_BUNDLE_ROOT"]), Path(os.environ["RULE_MODEL_BASE_PATH"]))
+    model = DesignModel(Path(os.environ["RESEARCH_BUNDLE_ROOT"]), Path(os.environ["RULE_MODEL_BASE_PATH"]),
+                        Path(os.environ["RULE_V3_BUNDLE_ROOT"]) if os.environ.get("RULE_V3_BUNDLE_ROOT") else None)
     generation_client.set_local_model(model)
     server = serve(model, os.environ["DESIGN_MODEL_TOKEN"], host=os.environ.get("DESIGN_MODEL_HOST", "127.0.0.1"))
     threading.Thread(target=server.serve_forever, daemon=True).start()

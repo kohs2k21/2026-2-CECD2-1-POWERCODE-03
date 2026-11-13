@@ -31,7 +31,7 @@ docker ps --format 'table {{.Names}}\t{{.Image}}\t{{.Ports}}'
 docker network inspect anomaly-net
 ```
 
-`.env`에 기존 DB 네트워크·DATABASE_URL, JWT_SECRET, 사용자 저장 경로 `AUTH_DATA_DIR`, 산출물 경로 `ARTIFACT_ROOT_PATH`, Base 경로 `QWEN_BASE_PATH`, 번들 경로 `RESEARCH_BUNDLE_PATH`를 입력한다. 전부 서버의 실제 절대경로다. 기존 파일을 복사하거나 초기화하지 않고 그 경로를 그대로 bind mount한다. 신규 산출물 디렉터리만 미리 만들고 `tmp` 하위 폴더를 준비한다.
+`.env`에 기존 DB 네트워크·DATABASE_URL, JWT_SECRET, 사용자 저장 경로 `AUTH_DATA_DIR`, 산출물 경로 `ARTIFACT_ROOT_PATH`, Base 경로 `QWEN_BASE_PATH`, 번들 경로 `RESEARCH_BUNDLE_PATH`를 입력한다. 전부 서버의 실제 절대경로다. 선택: 임계값 추천 Rule v3 경로를 켜려면 저장소 체크아웃에서 한 번 export하고(`python server/worker/research_bundle.py --rule-v3 --output <새 폴더>`, 기존 폴더는 덮어쓰지 않음) `.env`에 `RULE_V3_BUNDLE_PATH`를 넣은 뒤 `docker compose -f compose.yaml -f compose.rule-v3.yaml up -d llm`처럼 override를 더한다. override가 없거나 v3 초기화가 실패해도 llm은 설명·rule_v2로 그대로 뜨고(실패는 시작 로그 `rule_v3_disabled: <코드>` 한 줄), rule_v3 작업만 `rule_v3_not_configured`로 실패한다. 기존 파일을 복사하거나 초기화하지 않고 그 경로를 그대로 bind mount한다. 신규 산출물 디렉터리만 미리 만들고 `tmp` 하위 폴더를 준비한다.
 
 `PWC_CONTAINER_UID/GID`는 기존 배포 소유권과 맞춘다. rootful Docker에서는 호스트 파일 소유자 UID/GID, rootless Docker에서는 보통 컨테이너 `0:0`이 daemon 실행 계정에 대응한다. 기존 파일 전체를 재귀 chown하지 않는다. 쓰기 권한은 api의 users 디렉터리와 trainer의 artifact 디렉터리에 필요하다. llm·detector는 읽기 권한이 필요하다.
 

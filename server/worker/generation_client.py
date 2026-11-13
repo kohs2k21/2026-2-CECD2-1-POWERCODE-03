@@ -34,6 +34,11 @@ def set_local_model(model):
     _LOCAL_MODEL = model
 
 
+def local_model():
+    """같은 프로세스의 생성 모델(없으면 None). Rule v3 경로는 HTTP가 아니라 이 모델에서만 실행한다."""
+    return _LOCAL_MODEL
+
+
 def _rejection_code(error: urllib.error.HTTPError) -> str:
     try:
         code = json.loads(error.read(4096)).get("code")

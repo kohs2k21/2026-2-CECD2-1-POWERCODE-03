@@ -15,7 +15,7 @@ API/CSV를 같은 전체 피처·Rule·모델 경로로 실행하는 최신 절�
 | llm | Base 하나 공유, 피처·Rule 추천 / 요청 기반 근거 설명 | GPU 0 한 장 / CPU 4 / RAM 48GB | Base·번들·artifact 읽기 전용, DB |
 | 기존 PostgreSQL | 관측·4개 논리 작업 큐·판정·측정 | 기존 운영 설정 | 기존 저장소 유지 |
 
-자원 한도는 초기 설정값이다. 서버 RAM·실측 사용량에 맞춰 변경한다. GPU 2·3의 기존 임베딩 작업은 관리 대상에 포함하지 않았다. Trainer는 LLM 준비 상태에 의존하지 않는다. 파생변수 계산은 공통 코드이고 독립 feature 컨테이너는 제거했다. monitor는 `monitoring`, 1분 window는 `windows`, bundle·migrate는 `tools` 선택 프로필이다.
+자원 한도는 초기 설정값이다. 서버 RAM·실측 사용량에 맞춰 변경한다. 한도는 `.env`의 `<서비스>_CPUS`·`<서비스>_MEMORY`(예: `INCIDENTS_CPUS=1`, `INCIDENTS_MEMORY=1g`, `DETECTOR_CPUS`·`TRAINER_CPUS`·`LLM_CPUS`·`COLLECTOR_CPUS`와 각 `_MEMORY`)로 바꾼다. CPU cgroup 컨트롤러가 위임되지 않은 rootless Docker에서는 CPU 한도를 걸면 컨테이너 생성이 실패하므로 해당 서비스의 `*_CPUS=0`(CPU 한도 없음)으로 둔다. 메모리 한도는 그대로 둔다. GPU 2·3의 기존 임베딩 작업은 관리 대상에 포함하지 않았다. Trainer는 LLM 준비 상태에 의존하지 않는다. 파생변수 계산은 공통 코드이고 독립 feature 컨테이너는 제거했다. monitor는 `monitoring`, 1분 window는 `windows`, bundle·migrate는 `tools` 선택 프로필이다.
 
 ## 서버에서 준비
 

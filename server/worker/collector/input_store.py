@@ -6,6 +6,11 @@ from collector.input_contract import csv_records,digest,identity
 from collector.storage import ingest_observation
 from detector.jobs import enqueue_observation
 
+# Replay order inside one transaction group. The source writes the TRANSACTION row only after
+# all of its PROCESS rows, and Detector treats T arrival as "transaction complete", so T goes last.
+# B follows M because a body reference is grouped through its M row's message_id.
+REPLAY_LAYER_RANK={'P':0,'M':1,'B':2,'T':3}
+
 
 def ensure_source(conn,key):
     if not isinstance(key,str) or not key.strip() or len(key)>128:raise ValueError('invalid_input_source_key')
@@ -25,6 +30,7 @@ def stage_csv(conn,source,key,files,limit=1000000):
     if not files or any(layer not in ('T','P','M','B') for layer in files):raise ValueError('csv_files_required')
     # Every referenced file must be readable before any registration writes.
     rows=[];groups={};message_groups={}
+    # Files are read T first so group order stays the T file's transaction order.
     for layer in ('T','P','M','B'):
         if layer not in files:continue
         path=Path(files[layer]);initial=path.stat()
@@ -38,7 +44,7 @@ def stage_csv(conn,source,key,files,limit=1000000):
                 mid=raw['message_id']
                 if mid in message_groups and message_groups[mid]!=group:message_groups[mid]=None
                 else:message_groups[mid]=group
-            rows.append((groups[group],('T','P','M','B').index(layer),index,layer,raw))
+            rows.append((groups[group],REPLAY_LAYER_RANK[layer],index,layer,raw))
             if len(rows)>1000000:raise ValueError('csv_total_record_limit_exceeded')
         final=path.stat()
         if (initial.st_ino,initial.st_size,initial.st_mtime_ns)!=(final.st_ino,final.st_size,final.st_mtime_ns):

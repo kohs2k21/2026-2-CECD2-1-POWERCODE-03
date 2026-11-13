@@ -1,5 +1,5 @@
 Created: 2026-10-09T23:47:02.2964769+09:00
-Updated: 2026-11-13T18:30:00+09:00
+Updated: 2026-11-13T21:00:00+09:00
 Author: frontend_operations_builder / #103·#105·운영 설정 하위 7 Claude Code(WebUI builder)
 Status: current
 
@@ -107,6 +107,26 @@ Status: current
 | 운영 상태 | `GET /api/operational-state` 로그인 사용자, 응답 `ruleSet{revision,contentHash,contentHashVersion,savedAt,savedBy}`·`activeModelSet{revision,models[],changedAt,changedBy,restoredFromRevision}`·`detectionPolicy{revision,policy,isDefault}`·`readAt`. 400 `unknown_operational_state_filter` |
 | 저장소 실패 | 503 `active_model_set_storage_unavailable`(`/api/active-models`·`/api/operational-state`). `/api/configurations/:id/applications`는 기존 `configuration_storage_unavailable` |
 | 룰 세트 `detection_methods_empty` | 활성 모델 수를 활성 집합으로 센다(이전: `ops_system_state` 단일 구성) |
+
+## 작업 목록·작업 상세 — 탐지 설정 › 운영 설정
+
+- 화면: `/detection/operations/jobs?status=all|running|done|failed&kind=all|train|evaluate|evaluation_set|compare|recommend_thresholds|recommend_relations`(작업 목록), `/detection/operations/jobs/:jobId`(작업 상세). 와이어프레임 #93 운영 설정 `작업`·`detect-job`. 긴 목록이라 운영 설정에는 입구(구분선 `운영과 별도로 실행` + `작업` 카드의 `작업 목록` 버튼)만 둔다
+- 목록: 화면 종류 6개(학습·평가·평가 세트·비교 평가·AI 규칙 추천·규칙 추천 — 각 화면 이름과 같음), 상태 탭 `전체·진행 중(대기+실행 중)·완료·실패`, 종류 선택. 최신순 20개씩 `더 보기`. 열 `작업·종류·대상·요청·상태·결과`. 대상 = 작업 입력 한 줄(모델·기간, 평가 세트·모델 수, 룰 버전, 스냅샷), 결과 = 성공 시 결과 화면 링크(학습 → 모델 버전, 평가 → 평가한 모델 버전, 평가 세트 → 평가 결과, 비교 평가 → 평가 상세(상태 무관), AI 규칙 추천 → 룰 설정, 규칙 추천 → 규칙 추천 목록), 실패·재시도 대기 = 오류 코드 그대로. 읽은 행에 대기·실행 중이 있으면 읽은 쪽 수만큼 5초마다 다시 읽는다
+- 상태 배지: 대기 / 재시도 대기(대기 + `errorCode`) / 진행 중 / 완료 / 완료 · 일부 실패(비교 평가 `failedCount>0`, 평가 결과와 같음) / 실패. 그 밖의 상태(blocked)는 코드 그대로
+- 상세: 제목 `<종류> 작업 <id 8자리>` + 상태 배지, 실패 `실패 · <코드>`, 재시도 대기 `재시도 대기 · <코드> · 시도 n/m`, 실행 중 진행 막대. `작업 단계` = 접수 → 시도마다 `시도 n · 실행 중|성공|실패 · 시작 · 끝 · 코드` → 대기·재시도 대기(다음 실행 시각) → 완료·실패(저장된 시각·시도 기록만, 기록에 없는 단계는 만들지 않음). 종류별 입력 요약(학습: 모델·학습 기간·입력 변수 세트·요청 파라미터(없으면 `코드 기본값`)·제외 구간 / 평가·평가 세트: 버전·세트·스냅샷·용도 / 비교 평가: 평가 세트·비교 모델·기준 운영 모델 / AI 규칙 추천: 룰 버전·데이터·방식 / 규칙 추천: 스냅샷), `결과 보기 · <대상>`, 실패 뒤 `새 학습`·`새 비교 평가` 등 그 화면으로 가는 링크(같은 입력 재요청 버튼은 없음), 학습·평가 성공은 `결과 요약`, 전체 입력은 `작업 입력 원문`. 대기·실행 중이면 5초마다 다시 읽는다
+- 진입: 운영 설정 `작업 목록`, 새 학습 진행 표시·모델 버전 상세 `학습 작업`·평가 상세 `작업`의 작업 ID 링크(복귀 주소 state)
+
+### `GET /api/jobs` 목록 필터·`GET /api/jobs/:id` 시도 기록(WebUI 읽기 확장, 마이그레이션 없음)
+
+| 항목 | 값 |
+|---|---|
+| 범위 | 기존 그대로: 요청자 본인 작업, 관리자는 전체. 토큰 없음 401 |
+| 쿼리 | `kind`(쉼표 목록, 사용자 요청 종류만: `preview`·`train`·`evaluate`·`import_csv`·`evaluation_set`·`compare`·`recommend_relations`·`recommend_rule`·`recommend_feature`·`recommend_methods`·`recommend_thresholds`·`explain`), `status`(쉼표 목록 `queued`·`running`·`succeeded`·`failed`·`blocked`), `limit`(1~100, 기본 50), `cursor`. 다른 키 400 `unknown_job_filter`, 형식·목록 밖·빈 값·중복·같은 키 반복 400 `invalid_job_kind`·`invalid_job_status`·`invalid_limit`·`invalid_cursor` |
+| `kind` 필터 범위 | v03 작업만(종류마다 정해진 큐 조건을 함께 걸어 v03 큐 인덱스로 읽는다 — 판정 작업이 많아도 해당 큐만). 지금 쓰기 경로는 모두 v03이고, `contract_version` 없는 옛 모양 행은 `kind` 없이 조회할 때만 나온다. `detect`는 받지 않는다 |
+| 정렬·커서 | `created_at DESC, id DESC`. 응답 `{items, pagination: {limit, hasMore, nextCursor}}`. 커서는 불투명 값 — 화면은 직전 응답 `nextCursor`를 그대로 보낸다. 서버는 마지막 항목의 `{at, id}`를 base64url로 발급하며 `at`은 DB 설정과 무관한 UTC 고정 형식(`YYYY-MM-DDTHH:MM:SS.ffffffZ`, 마이크로초 6자리)이다. 해독 실패·발급 형식이 아닌 시각·없는 날짜·uuid 아닌 `id`는 400 `invalid_cursor` |
+| 목록 항목 | `id, kind, status, inputSpec, attemptCount, maxAttempts, nextRunAt, errorCode, resultConfigVersionId, createdAt, finishedAt, result`. 결과 원문(`resultSummary`)은 싣지 않는다(규칙 후보 결과는 그래프까지 커서). `result` = 결과가 객체일 때 `{configVersionId, evaluationId, evaluationSetId, comparisonId, itemCount, failedCount}`(결과 값 그대로, 없으면 null), 결과 없음 null. 이전 목록 응답의 `resultSummary`는 쓰는 곳이 없어 뺐다 |
+| 상세 | 기존 필드 + `resultConfigVersionId` + `attempts[{attemptNo, status, startedAt, heartbeatAt, finishedAt, errorCode}]`(시도 번호 순, 작업자 이름·lease 값 없음). 없음·볼 수 없음 404 `job_not_found`, 형식 400 `invalid_job_id` |
+| 구현 | `backend/src/services/jobReadModel.ts`(라우터 `jobRoutes.ts` GET 두 곳), 통합 시험 `backend/tests/job-list.integration.mjs`, 화면 `frontend/src/features/detection/jobs/`·`pages/JobListPage.tsx` |
 
 ## 개요 위젯·배치
 

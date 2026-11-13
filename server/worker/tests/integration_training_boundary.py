@@ -1,4 +1,7 @@
-"""변수 추천 작업의 스냅샷·임대·실제 변수셋 생성을 확인한다."""
+"""폐지 종류의 남은 작업 회귀 시험: 옛 training 큐의 `recommend_feature`는 실행 없이 `job_kind_abolished`로 끝난다.
+
+재시도 없는 failed, attempt 1개, 스냅샷·LLM 결과 없음, 큐 메시지는 done(llm-recommendation-job.md "기존 추천과의 관계").
+"""
 
 from __future__ import annotations
 
@@ -20,7 +23,6 @@ from trainer.runner import run
 
 
 def main() -> None:
-    os.environ["FEATURE_DESIGN_PROVIDER"] = "numeric"
     dsn = os.environ.get("DATABASE_URL")
     if not dsn:
         raise SystemExit("격리된 시험 DB의 DATABASE_URL이 필요하다")
@@ -70,24 +72,26 @@ def main() -> None:
                            'v03','llm_recommendation','user','test-actor',%s,%s::jsonb)""",
                 (job_id, request_hash, json.dumps(spec), str(job_id), json.dumps(llm_spec)),
             )
-            enqueue(conn, "training", {"schemaVersion": 1, "jobId": str(job_id),
-                                        "enqueuedAt": now.isoformat()})
+            message_id = enqueue(conn, "training", {"schemaVersion": 1, "jobId": str(job_id),
+                                                    "enqueuedAt": now.isoformat()})
         conn.commit()
     run(once=True,role="llm")
     with psycopg.connect(dsn) as conn:
         with conn.cursor() as cur:
-            cur.execute(
-                """SELECT status, error_code, attempt_count, result_summary->>'snapshotId'
-                     FROM run_jobs WHERE id = %s""",
-                (job_id,),
-            )
+            cur.execute("SELECT status, error_code, attempt_count, result_summary FROM run_jobs WHERE id = %s", (job_id,))
             row = cur.fetchone()
-            assert row[:3] == ("succeeded", None, 1)
-            assert row[3] is not None
-            cur.execute("SELECT status, manifest_hash FROM data_snapshots WHERE id = %s", (row[3],))
-            snapshot = cur.fetchone()
-            assert snapshot[0] == "ready" and len(snapshot[1]) == 64
-    print("training boundary integration passed: immutable snapshot, fenced attempt, feature recommendation")
+            assert row == ("failed", "job_kind_abolished", 1, None), row
+            cur.execute("SELECT status, error_code FROM run_job_attempts WHERE job_id = %s", (job_id,))
+            assert cur.fetchall() == [("failed", "job_kind_abolished")]
+            cur.execute("SELECT count(*) FROM run_job_snapshots WHERE job_id = %s", (job_id,))
+            assert cur.fetchone()[0] == 0
+            cur.execute("SELECT count(*) FROM data_snapshots WHERE source_id = %s", (source_id,))
+            assert cur.fetchone()[0] == 0
+            cur.execute("SELECT count(*) FROM run_llm_results WHERE job_id = %s", (job_id,))
+            assert cur.fetchone()[0] == 0
+            cur.execute("SELECT status FROM powercode_queue.training_jobs WHERE id = %s", (message_id,))
+            assert cur.fetchone()[0] == "done"
+    print("training boundary integration passed: abolished recommend_feature ends as job_kind_abolished without snapshot")
 
 
 if __name__ == "__main__":

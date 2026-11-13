@@ -142,6 +142,7 @@ const pages = [
   ["/detection/models", "머신러닝 모델"],
   ["/detection/evaluations", "평가 결과"],
   ["/detection/operations/replace", "모델 교체"],
+  ["/detection/operations/jobs", "작업 목록"],
   ["/detection/operations/jobs/job-1", "작업 상세"],
   ["/detection/models/model-1", "모델 버전 상세"],
   ["/detection/evaluations/eval-1", "평가 상세"],

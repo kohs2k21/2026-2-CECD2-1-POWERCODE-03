@@ -1681,8 +1681,9 @@ const runningJobs = (s) => [...s.jobs.values()].filter((entry) => entry.status =
   await queryPeriod(app);
   await app.go("다음 · 입력 변수");
   await wait(() => app.shown().includes("선택 변수 0개"), "field picker");
+  assert.ok(app.shown().includes("처리 시간: 종료 시각(END_TIME)이 없는 행은 학습에서 제외됩니다."), "elapsed_ms note shown");
   for (const field of catalog.softRuleFields) assert.ok(app.shown().includes(field.displayName), `${field.fieldId} shows the catalog name`);
-  assert.equal(app.shown().includes("END_TIME"), false, "contract notes are not shown as screen text");
+  for (const { key, note } of fieldList.fields) if (note) assert.equal(app.shown().includes(note), false, `${key} raw contract note is not shown as screen text`);
   const register = "선택한 변수로 세트 등록";
   assert.equal(app.button(register).props.disabled, true, "nothing to register yet");
   const check = (name, value = true) => act(async () => app.renderer.root.findAll((node) => node.props["aria-label"] === `${name} 선택` && node.props["data-slot"] === "checkbox")[0].props.onCheckedChange(value));

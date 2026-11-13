@@ -67,6 +67,10 @@ const FieldPicker = ({ sourceId, onSelect }: { sourceId: string; onSelect: (id: 
           ))}
         </TableBody>
       </Table>
+      {/* 사용자 승인 문구(11/13). 처리 시간 필드가 목록에 있을 때만 보인다(결측 행 학습 제외 규칙, trainer-service.md 등록 규칙). */}
+      {items.some((field) => field.key === "elapsed_ms") && (
+        <p className="text-xs text-muted-foreground" data-feature-note="elapsed_ms">처리 시간: 종료 시각(END_TIME)이 없는 행은 학습에서 제외됩니다.</p>
+      )}
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-sm" data-feature-summary>선택 변수 {chosen.length}개</span>
         <Button size="sm" variant="outline" onClick={() => setChosen(items.map((item) => item.key))}>전체 선택</Button>

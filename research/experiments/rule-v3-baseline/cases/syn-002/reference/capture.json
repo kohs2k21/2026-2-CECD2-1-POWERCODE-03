@@ -1,0 +1,124 @@
+{
+  "contract": "approved-metadata-capture1.0",
+  "dataset_id": "synthetic_syn-002_reference",
+  "data_class": "controlled",
+  "split": "train",
+  "period": {
+    "start_inclusive": "2026-08-03T00:00:29.528000+00:00",
+    "end_exclusive": "2026-08-03T00:29:40.128000+00:00"
+  },
+  "admission": {
+    "approved": true,
+    "Body_excluded": true,
+    "held_lineage_excluded": true,
+    "complete_family_capture": true
+  },
+  "lineage_tags": [],
+  "tables": [
+    {
+      "name": "PROCESS",
+      "file": "PROCESS.csv",
+      "format": "csv",
+      "sha256": "4f2aff52fb460ac755819bce987691584b2f2bdf1decfcc4a1c414a573124d67",
+      "row_count": 249,
+      "primary_key": [
+        "ROW_ID"
+      ],
+      "columns": [
+        {
+          "name": "ROW_ID",
+          "logical_type": "string",
+          "nullable": false,
+          "excluded": false,
+          "unit": {
+            "name": null,
+            "status": "unknown"
+          },
+          "missing_tokens": [
+            ""
+          ],
+          "description": "Sequential row identifier assigned by the capture writer."
+        },
+        {
+          "name": "ERROR_COUNT",
+          "logical_type": "number",
+          "nullable": true,
+          "excluded": false,
+          "unit": {
+            "name": "count",
+            "status": "verified",
+            "evidence_ids": [
+              "unit_PROCESS_ERROR_COUNT"
+            ]
+          },
+          "missing_tokens": [
+            ""
+          ],
+          "description": "PROCESS numeric counter from the collected row; non-numeric text is stored as missing."
+        },
+        {
+          "name": "TOTAL_COUNT",
+          "logical_type": "number",
+          "nullable": true,
+          "excluded": false,
+          "unit": {
+            "name": "count",
+            "status": "verified",
+            "evidence_ids": [
+              "unit_PROCESS_TOTAL_COUNT"
+            ]
+          },
+          "missing_tokens": [
+            ""
+          ],
+          "description": "PROCESS numeric counter from the collected row; non-numeric text is stored as missing."
+        }
+      ]
+    }
+  ],
+  "relationships": [],
+  "evidence": [
+    {
+      "id": "unit_PROCESS_ERROR_COUNT",
+      "kind": "unit",
+      "table": "PROCESS",
+      "column": "ERROR_COUNT",
+      "confirmation": "controlled_contract",
+      "value": {
+        "name": "count",
+        "meaning": "Synthetic controlled counter unit for boundary tests."
+      },
+      "source": {
+        "file": "authority.json",
+        "sha256": "239e809ab9c61f9def120a533c035061436286c5ba61fb036f4be715628b2bef",
+        "pointer": "/unit_count"
+      }
+    },
+    {
+      "id": "unit_PROCESS_TOTAL_COUNT",
+      "kind": "unit",
+      "table": "PROCESS",
+      "column": "TOTAL_COUNT",
+      "confirmation": "controlled_contract",
+      "value": {
+        "name": "count",
+        "meaning": "Synthetic controlled counter unit for boundary tests."
+      },
+      "source": {
+        "file": "authority.json",
+        "sha256": "239e809ab9c61f9def120a533c035061436286c5ba61fb036f4be715628b2bef",
+        "pointer": "/unit_count"
+      }
+    }
+  ],
+  "source_identity": {
+    "dataset_id": "synthetic_syn-002_reference",
+    "case": "\uc815\uc0c1 \uacbd\ub85c: \uc624\ub958 \ube44\uc728 p95(\ub2e8\uc704 \ud655\uc778 count/count\u2192ratio)",
+    "origin": "synthetic seeded generator, no operational source",
+    "side": "reference"
+  },
+  "transaction_families": 0,
+  "unknown": [
+    "Synthetic boundary data with no operational meaning, incident labels or online availability."
+  ]
+}

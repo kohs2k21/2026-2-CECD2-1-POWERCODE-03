@@ -1,0 +1,10 @@
+{
+  "requests": [
+    "baseline"
+  ],
+  "question": "Offline numeric soft-rule threshold for retry_count: compare current values with the code p95 of the earlier TRAIN reference; no incident, SLA or online claim.",
+  "reference_policy": {
+    "minimum_n": 20,
+    "operator": "gt"
+  }
+}

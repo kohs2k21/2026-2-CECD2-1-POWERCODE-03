@@ -278,7 +278,7 @@ SELECT r.rolname,
 
 ## LLM 결과와 파일
 
-- 추천 종류 `recommend_rule/recommend_feature/recommend_methods/recommend_thresholds`는 관리자, `explain` 요청은 user/admin. 이 role 값은 인증된 계정에서 서버가 확인, DB 감사 필드만으로 실제 인증 완료 아님
+- 추천 종류 `recommend_thresholds`는 관리자, `explain` 요청은 user/admin. `recommend_rule/recommend_feature`는 폐지(API 신규 요청 422 `job_kind_abolished`, enum 값·옛 행·결과 읽기는 유지), `recommend_methods`는 보류(API 접수 없음). 이 role 값은 인증된 계정에서 서버가 확인, DB 감사 필드만으로 실제 인증 완료 아님
 - `llm_spec`의 필수 문자열: `evidence_version`, `input_evidence_hash`, `model_version`, `prompt_version`, `output_schema_version`, `reuse_key`
 - 설명 job은 저장 판정·그 판정 config를 참조. 추천과 설명의 logical queue·재시도·실행 예산 분리, 판정 동기 경로를 LLM 완료에 연결하지 않음
 - `run_llm_results`는 성공·검증된 최종 출력만 저장. job kind/decision/config/version/reuse 값과 현재 attempt/token/lease 일치 검사, 실패는 job/attempt에 남김

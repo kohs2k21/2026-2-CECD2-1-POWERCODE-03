@@ -23,11 +23,8 @@ from feature_runtime import calculate_features, validate_definitions
 from feature_fit import requires_fit, fit_features, transform, definitions_hash
 from detector.artifacts import verified_artifact_path
 from detector.rules import evaluate_rules
-from feature_worker import materialize_set
 from methods.registry import resolve_training_method
 from pg_queue import ClaimedMessage, acknowledge, claim, fail, _table, reconcile_dead_jobs
-from trainer.catalog import register_feature_set
-from trainer.rule_candidates import validate_suggestions
 from trainer.lease import TrainingLeaseHeartbeat, lock_training_ownership
 from trainer.model_version import (SCHEMA_VERSION, build_spec, check_training_scope, content_hash as model_version_hash,
                                    is_model_version_request, read_model_key, read_schema_version, training_period)
@@ -39,11 +36,10 @@ from detector.status_rule import default_policy
 from telemetry import cost_family, queue_wait_ms
 from threshold_recommendation import all_rejected, parse_job
 
-SAFE_MODEL_FIELDS = frozenset({
-    "success_count", "error_count", "total_count", "retry_count", "status",
-    "response_code", "adapter_type", "channel_id", "process_hub_id", "process_id",
-    "start_time_raw", "end_time_raw",
-})
+# 계약상 폐지된 작업 종류(llm-recommendation-job.md "폐지 유지"). API가 새 요청을 422 job_kind_abolished로 막고,
+# 워커는 남은 대기·임대 작업을 실행하지 않고 같은 코드로 바로 끝낸다(재시도·LLM 호출·스냅샷 생성 없음).
+# 이미 저장된 run_llm_results 행은 그대로 읽힌다.
+ABOLISHED_JOB_KINDS = frozenset({"recommend_feature", "recommend_rule"})
 # 판정 정책 deadlineMs 상한(detection-decision.md). v3 평가 예열 행에만 쓴다.
 WARMUP_DEADLINE_MS = 30000
 # 종료 오류 코드 허용 형식: 코드 또는 코드:식별자(예 method_not_executable:ml:eif — 계약의 오류 형식).
@@ -91,7 +87,7 @@ def _claim_job(conn: Any, message: ClaimedMessage, worker_id: str) -> tuple[dict
                 AND lease_token=%s AND lease_until>clock_timestamp() FOR UPDATE""", (message.id,message.lease_token))
             if cur.fetchone() is None:
                 raise RuntimeError("job_queue_ownership_lost")
-            if row[1] in ("recommend_feature", "recommend_rule", "recommend_thresholds", "recommend_relations", "train", "evaluate", "import_csv",
+            if row[1] in ("recommend_thresholds", "recommend_relations", "train", "evaluate", "import_csv",
                           "evaluation_set", "compare") and row[8] != "admin":
                 raise ValueError("job_role_not_authorized")
             if row[2] in ("succeeded", "failed"):
@@ -187,28 +183,6 @@ def _training_inputs(conn, snapshot_id, feature_set_id):
     return prepared, [item['name'] for item in definitions], state, definitions_hash(definitions), selection
 
 
-def _feature_rows(conn: Any, snapshot_id: uuid.UUID, feature_set_id: uuid.UUID,
-                  split: str | None = None) -> tuple[list[dict[str, Any]], list[str]]:
-    definitions = _definitions(conn, feature_set_id)
-    names = [item["name"] for item in definitions]
-    prepared: list[dict[str, Any]] = []
-    observations = _snapshot_rows(conn, snapshot_id, split)
-    conn.commit()
-    for observation_id, _, _, label_evidence in observations:
-        with conn.transaction():
-            manifest = materialize_set(conn, observation_id, feature_set_id)
-            with conn.cursor() as cur:
-                cur.execute(
-                    """SELECT values_json, missing_names FROM data_feature_materializations
-                        WHERE observation_id = %s AND feature_set_id = %s AND input_manifest_hash = %s""",
-                    (observation_id, feature_set_id, manifest),
-                )
-                values, missing = cur.fetchone()
-        prepared.append({"features": values, "missing": missing,
-                         "label": label_evidence.get("label") if isinstance(label_evidence, dict) else None})
-    return prepared, names
-
-
 def _register_artifact(conn: Any, *, root: Path, path_value: Any, kind: str,
                        snapshot_id: uuid.UUID, feature_set_id: uuid.UUID,
                        job_id: uuid.UUID, attempt_id: uuid.UUID,
@@ -264,6 +238,9 @@ def _promote_output(root: Path, output: Path, path_value: Any, kind: str) -> str
 def _execute(conn: Any, job: dict[str, Any], attempt_id: uuid.UUID,
              artifact_root: Path | None, message: ClaimedMessage,
              attempt_token: uuid.UUID) -> dict[str, Any]:
+    if job["kind"] in ABOLISHED_JOB_KINDS:
+        # ValueError라 run()이 종료 실패(_finish terminal)로 기록한다. DB를 읽거나 쓰기 전에 멈춘다.
+        raise ValueError("job_kind_abolished")
     started = time.monotonic()
     queue_wait = queue_wait_ms(conn, message, attempt_id)
     spec = job["input"]
@@ -353,30 +330,6 @@ def _execute(conn: Any, job: dict[str, Any], attempt_id: uuid.UUID,
             with conn.cursor() as cur:
                 cur.execute("INSERT INTO run_job_snapshots(job_id,snapshot_id) VALUES(%s,%s)", (job["id"],snapshot.id))
                 cur.execute("UPDATE run_jobs SET input_snapshot_id=%s WHERE id=%s AND contract_version IS NULL", (snapshot.id,job["id"]))
-    if kind == "recommend_feature":
-        rows = _snapshot_rows(conn, snapshot.id, "train", 10000, allow_sample=True)
-        conn.commit()
-        safe_rows = [{key: value for key, value in raw.items() if key in SAFE_MODEL_FIELDS}
-                     for _, raw, _, _ in rows]
-        recommendation = model_adapters.recommend_features(safe_rows)
-        definitions = recommendation.get("definitions", []) if isinstance(recommendation, dict) else recommendation
-        details = {key: value for key, value in recommendation.items() if key != "definitions"} if isinstance(recommendation, dict) else {}
-        if not definitions:
-            return {"snapshotId": str(snapshot.id), "featureNames": [], "materializedCount": 0, **details}
-        feature_set_id = register_feature_set(conn, definitions, job["actor"])
-        # 제안된 변수는 별도의 수동 선택 없이 요청 기간의 전체 스냅샷에 적용한다.
-        materialized = 0
-        observations = _snapshot_rows(conn, snapshot.id)
-        conn.commit()
-        for observation_id, _, _, _ in observations:
-            with conn.transaction():
-                materialize_set(conn, observation_id, feature_set_id)
-            materialized += 1
-        return {"snapshotId": str(snapshot.id), "featureSetId": str(feature_set_id),
-                "featureNames": [item["name"] for item in definitions],
-                "materializedCount": materialized, **details,
-                "referenceSampleCount": len(safe_rows), "referenceTrainPopulationCount": snapshot.counts["train"],
-                "referenceSampling": "observation_id_order_train_prefix_max_10000"}
     if threshold_plan:
         rows = _snapshot_rows(conn, snapshot.id, "train")
         with conn.cursor() as cur:
@@ -403,20 +356,6 @@ def _execute(conn: Any, job: dict[str, Any], attempt_id: uuid.UUID,
             )
             if cur.fetchone()[0] != len(spec["ruleVersionIds"]):
                 raise ValueError("rule_feature_set_mismatch")
-    if kind == "recommend_rule":
-        prepared, names = _feature_rows(conn, snapshot.id, feature_set_id, "train")
-        definitions = _definitions(conn, feature_set_id)
-        conn.commit()
-        recommendation = model_adapters.recommend_rules(
-            prepared[:10000], str(feature_set_id), definitions)
-        conn.commit()
-        suggested = validate_suggestions(recommendation.get("suggestions", [])
-                                         if isinstance(recommendation, dict) else recommendation, names)
-        # 추천은 초안일 뿐이며 채택·승인 전에는 탐지에 사용하지 않는다.
-        return {"snapshotId": str(snapshot.id), "featureSetId": str(feature_set_id),
-                "featureNames": names, "suggestions": suggested,
-                **({key: value for key, value in recommendation.items() if key != "suggestions"}
-                   if isinstance(recommendation, dict) else {})}
     if kind == "train":
         from detector.policy import parse_policy
         policy = parse_policy(spec, required=spec.get("detectionPolicy") is not None)
@@ -797,7 +736,7 @@ def _finish(conn: Any, message: ClaimedMessage, job: dict[str, Any],
             from trainer.service_contract import enrich_result
             enrich_result(conn, job, result)
         with conn.cursor() as cur:
-            if result is not None and job.get("contractVersion") == "v03" and job["kind"] in {"recommend_feature", "recommend_rule", "recommend_thresholds", "explain"}:
+            if result is not None and job.get("contractVersion") == "v03" and job["kind"] in {"recommend_thresholds", "explain"}:
                 spec = job["llmSpec"]
                 cur.execute("""INSERT INTO run_llm_results
                     (id,job_id,kind,decision_id,config_version_id,evidence_version,input_evidence_hash,model_version,prompt_version,
@@ -870,6 +809,7 @@ def run(*, once: bool = False, poll_seconds: float = 1.0, role: str = "trainer")
                         break
                 if message is None:
                     # Drain earlier releases after leases expire without rewriting their history.
+                    # 폐지 종류도 남겨 둬야 옛 training 큐 메시지가 job_kind_abolished로 끝난다(_execute 첫 검사).
                     message = claim(conn, "training", lease_seconds=60,
                                     job_kinds=("recommend_feature", "recommend_rule", "explain"))
             elif role == "llm_explanation":

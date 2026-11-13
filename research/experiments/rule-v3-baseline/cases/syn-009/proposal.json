@@ -1,0 +1,47 @@
+{
+  "proposal_id": "rule_v3_weekend_tx_failed_ratio",
+  "plan": {
+    "expression": {
+      "op": "divide",
+      "args": [
+        {
+          "op": "conditional_count",
+          "relationship_id": "process_transaction",
+          "where": {
+            "op": "eq",
+            "args": [
+              {
+                "op": "column",
+                "table": "PROCESS",
+                "column": "STATUS"
+              },
+              {
+                "op": "literal",
+                "value": "F"
+              }
+            ]
+          }
+        },
+        {
+          "op": "child_count",
+          "relationship_id": "process_transaction"
+        }
+      ]
+    },
+    "grain": {
+      "table": "TRANSACTION",
+      "keys": [
+        "TX_ID"
+      ]
+    },
+    "population": {
+      "table": "TRANSACTION",
+      "filter": null
+    },
+    "group_by": [],
+    "result_use": "value"
+  },
+  "purpose": "Measure per transaction the share of linked PROCESS rows whose STATUS equals F.",
+  "meaning": "Per TRANSACTION row, linked PROCESS rows with STATUS F divided by all linked PROCESS rows.",
+  "needed_evidence": []
+}

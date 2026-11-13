@@ -14,12 +14,18 @@ import { ThresholdRequestError, fixThresholdTargets, parseThresholdRequest, thre
   type ThresholdFixedInput, type ThresholdRequest } from './thresholdRecommendationContract.js';
 import { ComparisonError, enqueueComparison, parseComparisonRequest } from '../services/comparisonEvaluation.js';
 import { idempotencyKeyOf } from './comparisonRoutes.js';
+import { JobReadError, parseJobListQuery, readJobDetail, readJobPage } from '../services/jobReadModel.js';
 
 const router = Router();
 router.use(authenticateToken as any);
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const UTC_TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?Z$/;
-const KINDS = new Set(['recommend_feature', 'recommend_rule', 'recommend_thresholds', 'train', 'evaluate', 'explain']);
+const KINDS = new Set(['recommend_thresholds', 'train', 'evaluate', 'explain']);
+/**
+ * 폐지된 작업 종류(llm-recommendation-job.md 폐지 표 — recommend_feature 10/21, recommend_rule 10/21·11/02). 신규 요청은 역할과 무관하게
+ * 422 `job_kind_abolished`(작업·큐 메시지를 남기지 않음). 이미 끝난 작업의 읽기(GET /api/jobs, recommend_rule 결과 채택)는 그대로 둔다.
+ */
+export const ABOLISHED_KINDS = new Set(['recommend_feature', 'recommend_rule']);
 
 export class JobRequestError extends Error {
   constructor(readonly code: string, readonly status = 400) { super(code); }
@@ -84,6 +90,7 @@ function trainingScope(body: Record<string, unknown>, period: { from: string; un
 export function parseRequest(value: unknown, support: TrainingSupport = TRAINING_SUPPORT): JobInput {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new JobRequestError('invalid_job_request');
   const body = value as Record<string, unknown>;
+  if (typeof body.kind === 'string' && ABOLISHED_KINDS.has(body.kind)) throw new JobRequestError('job_kind_abolished', 422);
   if (typeof body.kind !== 'string' || !KINDS.has(body.kind) || !uuid(body.sourceId)) {
     throw new JobRequestError('invalid_job_request');
   }
@@ -123,6 +130,7 @@ export function parseRequest(value: unknown, support: TrainingSupport = TRAINING
       throw new JobRequestError('invalid_evaluation_request');
     }
   } else {
+    // 여기는 기간을 지정한 train만 온다(recommend_thresholds·prepared train·explain·evaluate는 위에서 처리, 폐지 종류는 422).
     if (typeof body.from !== 'string' || typeof body.until !== 'string' ||
         !UTC_TIME.test(body.from) || !UTC_TIME.test(body.until) ||
         !Number.isFinite(Date.parse(body.from)) || !Number.isFinite(Date.parse(body.until)) ||
@@ -132,10 +140,8 @@ export function parseRequest(value: unknown, support: TrainingSupport = TRAINING
     }
     input.from = body.from;
     input.until = body.until;
-    if (body.kind !== 'recommend_feature') {
-      if (!uuid(body.featureSetId)) throw new JobRequestError('feature_set_required');
-      input.featureSetId = body.featureSetId;
-    }
+    if (!uuid(body.featureSetId)) throw new JobRequestError('feature_set_required');
+    input.featureSetId = body.featureSetId;
     if (body.kind === 'train') {
       const policy = body.detectionPolicy as JobInput['detectionPolicy'];
       if (!policy || typeof policy !== 'object' || Array.isArray(policy) ||
@@ -159,11 +165,9 @@ export function parseRequest(value: unknown, support: TrainingSupport = TRAINING
       }
       if (policy.mode === 'ml_only' && rules.length) throw new JobRequestError('ml_only_rules_not_selected');
       input.ruleVersionIds = rules;
-    } else if (body.ruleVersionIds !== undefined) {
-      throw new JobRequestError('invalid_job_request');
     }
     if (body.snapshotId !== undefined) {
-      if (!uuid(body.snapshotId) || body.kind === 'recommend_feature') throw new JobRequestError('invalid_snapshot_reference');
+      if (!uuid(body.snapshotId)) throw new JobRequestError('invalid_snapshot_reference');
       input.snapshotId = body.snapshotId;
     }
     if (body.configVersionId !== undefined || body.purpose !== undefined) {
@@ -186,9 +190,9 @@ router.post('/', route(async (req, res) => {
     res.status(created ? 201 : 200).json(job);
     return;
   }
-  if (req.user!.userType !== 'admin' && ['recommend_feature','recommend_rule','recommend_thresholds','train','evaluate'].includes(req.body?.kind)) throw new JobRequestError('admin_required',403);
+  if (req.user!.userType !== 'admin' && ['recommend_thresholds','train','evaluate'].includes(req.body?.kind)) throw new JobRequestError('admin_required',403);
   const input = parseRequest(req.body);
-  if (['recommend_feature', 'recommend_rule', 'recommend_thresholds', 'train', 'evaluate'].includes(input.kind) && req.user!.userType !== 'admin') {
+  if (['recommend_thresholds', 'train', 'evaluate'].includes(input.kind) && req.user!.userType !== 'admin') {
     throw new JobRequestError('admin_required', 403);
   }
   const header = req.headers['idempotency-key'];
@@ -287,15 +291,15 @@ router.post('/', route(async (req, res) => {
       requestHash = crypto.createHash('sha256').update(JSON.stringify(input)).digest('hex');
     }
     const id = crypto.randomUUID();
-    const recommendation = ['recommend_feature', 'recommend_rule'].includes(input.kind);
     const explanation = input.kind === 'explain';
-    const llmSpec = thresholds ? thresholdLlmSpec(input as ThresholdRequest & ThresholdFixedInput, requestHash, req.user!.id, idempotencyKey) : recommendation || explanation ? {
-      evidence_version: explanation ? 'saved-decision-v1' : 'source-period-request-v1',
-      input_evidence_hash: explanation ? crypto.createHash('sha256').update(input.savedEvidenceJson!).digest('hex') : requestHash,
-      model_version: explanation ? 'qwen-base-6a9e13bd' : input.kind === 'recommend_feature' ? 'feature_v5' : 'rule_v2',
-      prompt_version: explanation ? 'grounded-facts-v1' : 'feature-rule-design-v0.2',
-      output_schema_version: explanation ? 'fact-ids-checks-v1' : 'safe-process-derived-v2',
-      reuse_key: crypto.createHash('sha256').update(JSON.stringify([req.user!.id, input, explanation ? null : idempotencyKey, explanation ? 'grounded-facts-v1' : 'design-v0.2'])).digest('hex'),
+    // 설명의 reuse_key는 폐지 전과 같은 배열([요청자, 입력, null, 'grounded-facts-v1'])이라 기존 작업 재사용이 그대로다.
+    const llmSpec = thresholds ? thresholdLlmSpec(input as ThresholdRequest & ThresholdFixedInput, requestHash, req.user!.id, idempotencyKey) : explanation ? {
+      evidence_version: 'saved-decision-v1',
+      input_evidence_hash: crypto.createHash('sha256').update(input.savedEvidenceJson!).digest('hex'),
+      model_version: 'qwen-base-6a9e13bd',
+      prompt_version: 'grounded-facts-v1',
+      output_schema_version: 'fact-ids-checks-v1',
+      reuse_key: crypto.createHash('sha256').update(JSON.stringify([req.user!.id, input, null, 'grounded-facts-v1'])).digest('hex'),
     } : null;
     if (llmSpec) {
       await client.query('SELECT pg_advisory_xact_lock(81734,hashtext($1))',[llmSpec.reuse_key]);
@@ -325,7 +329,7 @@ router.post('/', route(async (req, res) => {
        RETURNING id, status, kind, input_spec AS "inputSpec"`,
       [id, input.kind, req.user!.id, req.user!.userType, idempotencyKey,
         requestHash, input.configVersionId ?? null, input.snapshotId ?? null, JSON.stringify(input),
-        'v03', explanation ? 'llm_explanation' : recommendation || thresholds ? 'llm_recommendation' : 'training',
+        'v03', explanation ? 'llm_explanation' : thresholds ? 'llm_recommendation' : 'training',
         'user', req.user!.id,
         llmSpec ? JSON.stringify(llmSpec) : null, input.decisionId ?? null],
     );
@@ -340,7 +344,7 @@ router.post('/', route(async (req, res) => {
       if (!row || row.request_hash !== requestHash) throw new JobRequestError('idempotency_payload_conflict', 409);
     } else {
       await client.query(
-        `INSERT INTO ${explanation ? 'powercode_queue.llm_explanation_jobs' : recommendation || thresholds ? 'powercode_queue.llm_recommendation_jobs' : 'powercode_queue.training_jobs'} (id, payload)
+        `INSERT INTO ${explanation ? 'powercode_queue.llm_explanation_jobs' : thresholds ? 'powercode_queue.llm_recommendation_jobs' : 'powercode_queue.training_jobs'} (id, payload)
          VALUES ($1, $2::jsonb)`,
         [crypto.randomUUID(), JSON.stringify({ schemaVersion: 1, jobId: id, enqueuedAt: new Date().toISOString() })],
       );
@@ -410,31 +414,21 @@ router.get('/feature-sets', route(async (req, res) => {
       ...featureSetCapability(row.members) })) });
 }));
 
+/** 작업 목록·상세(operations-ui.md '작업 목록·작업 상세'). 읽기 규칙은 services/jobReadModel.ts. */
+const reader = (req: AuthenticatedRequest) => ({ id: req.user!.id, admin: req.user!.userType === 'admin' });
+const readError = (error: unknown) => (error instanceof JobReadError ? new JobRequestError(error.code, error.status) : error);
+
 router.get('/', route(async (req, res) => {
-  const result = await getDatabasePool().query(
-    `SELECT id, kind, status, input_spec AS "inputSpec", attempt_count AS "attemptCount",
-            max_attempts AS "maxAttempts", next_run_at AS "nextRunAt",
-            result_summary AS "resultSummary", error_code AS "errorCode",
-            created_at AS "createdAt", finished_at AS "finishedAt"
-       FROM run_jobs WHERE requested_by_actor_id = $1 OR $2::boolean
-      ORDER BY created_at DESC LIMIT 50`,
-    [req.user!.id, req.user!.userType === 'admin'],
-  );
-  res.json({ items: result.rows });
+  let filter;
+  try { filter = parseJobListQuery(req.query as Record<string, unknown>); } catch (error) { throw readError(error); }
+  res.json(await readJobPage(getDatabasePool(), reader(req), filter).catch((error: unknown) => { throw readError(error); }));
 }));
 
 router.get('/:id', route(async (req, res) => {
   if (!uuid(req.params.id)) throw new JobRequestError('invalid_job_id');
-  const result = await getDatabasePool().query(
-    `SELECT id, kind, status, input_spec AS "inputSpec", attempt_count AS "attemptCount",
-            max_attempts AS "maxAttempts", next_run_at AS "nextRunAt",
-            result_summary AS "resultSummary", error_code AS "errorCode",
-            created_at AS "createdAt", finished_at AS "finishedAt"
-       FROM run_jobs WHERE id = $1 AND (requested_by_actor_id = $2 OR $3::boolean)`,
-    [req.params.id, req.user!.id, req.user!.userType === 'admin'],
-  );
-  if (!result.rowCount) throw new JobRequestError('job_not_found', 404);
-  res.json(result.rows[0]);
+  const job = await readJobDetail(getDatabasePool(), reader(req), req.params.id);
+  if (!job) throw new JobRequestError('job_not_found', 404);
+  res.json(job);
 }));
 
 router.post('/:id/recommendations/:index/adopt', route(async (req, res) => {

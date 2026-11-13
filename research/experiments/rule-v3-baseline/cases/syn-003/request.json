@@ -1,0 +1,15 @@
+{
+  "question": "Measure the PROCESS ERROR_COUNT value as a count.",
+  "analysis_request": {
+    "output_table": "PROCESS",
+    "result_use": "value",
+    "calculation_type": "number",
+    "required_columns": [
+      [
+        "PROCESS",
+        "ERROR_COUNT"
+      ]
+    ],
+    "required_relationship_ids": []
+  }
+}

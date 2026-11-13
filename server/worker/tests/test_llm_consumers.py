@@ -18,10 +18,12 @@ from trainer import runner
 class RunnerHarness:
     """`runner.run(once=True)`을 DB 없이 한 바퀴 돌린다. claim·정리·완료 호출만 기록한다."""
 
-    def __init__(self, messages=None, error=None):
+    def __init__(self, messages=None, error=None, kind="explain", real_execute=False):
         self.claims, self.reconciled, self.finished = [], [], []
         self.messages = dict(messages or {})
         self.error = error
+        self.kind = kind
+        self.real_execute = real_execute
 
     def claim(self, conn, queue, *, lease_seconds=60, job_kinds=None, **_):
         self.claims.append((queue, job_kinds))
@@ -34,15 +36,16 @@ class RunnerHarness:
         raise self.error
 
     def run(self, role):
-        job = ({"id": uuid.uuid4(), "kind": "explain", "input": {}, "actor": "u", "contractVersion": "v03", "llmSpec": {}},
+        job = ({"id": uuid.uuid4(), "kind": self.kind, "input": {}, "actor": "u", "contractVersion": "v03", "llmSpec": {}},
                uuid.uuid4(), uuid.uuid4())
+        execute = runner._execute if self.real_execute else self.execute
         with patch.dict("os.environ", {"DATABASE_URL": "postgresql://unused"}, clear=False), \
                 patch.object(runner, "load_dotenv"), patch.object(runner.psycopg, "connect", MagicMock()), \
                 patch.object(runner, "claim", self.claim), \
                 patch.object(runner, "reconcile_dead_jobs", lambda conn, queue: self.reconciled.append(queue)), \
                 patch.object(runner, "_claim_job", return_value=job), \
                 patch.object(runner, "TrainingLeaseHeartbeat"), \
-                patch.object(runner, "_execute", self.execute), \
+                patch.object(runner, "_execute", execute), \
                 patch.object(runner, "_finish", self.finish):
             runner.run(once=True, role=role)
         return self
@@ -78,6 +81,39 @@ class RetryErrorCodeTests(unittest.TestCase):
             with self.subTest(error=repr(error)):
                 harness = RunnerHarness(self.message, error).run("llm_explanation")
                 self.assertEqual(harness.finished, [("job_processing_failed", False)])
+
+
+class AbolishedJobKindTests(unittest.TestCase):
+    """폐지 종류(recommend_feature·recommend_rule)의 남은 작업은 실행 없이 job_kind_abolished로 끝난다."""
+
+    def test_execute_stops_before_any_db_or_model_call(self):
+        for kind in ("recommend_feature", "recommend_rule"):
+            with self.subTest(kind=kind):
+                conn = MagicMock()
+                job = {"id": uuid.uuid4(), "kind": kind, "input": {"sourceId": str(uuid.uuid4())},
+                       "actor": "u", "contractVersion": "v03", "llmSpec": {}}
+                with patch.object(runner, "queue_wait_ms") as queue_wait, \
+                        patch.object(runner, "build_snapshot") as snapshot, \
+                        patch.object(runner.model_adapters, "recommend_features") as features, \
+                        patch.object(runner.model_adapters, "recommend_rules") as rules, \
+                        patch.object(runner.model_adapters, "recommend_thresholds") as thresholds:
+                    with self.assertRaisesRegex(ValueError, "^job_kind_abolished$"):
+                        runner._execute(conn, job, uuid.uuid4(), None, MagicMock(), uuid.uuid4())
+                self.assertEqual(conn.mock_calls, [])
+                for called in (queue_wait, snapshot, features, rules, thresholds):
+                    called.assert_not_called()
+
+    def test_leftover_jobs_end_as_terminal_failure_on_both_queues(self):
+        # 주 큐(llm_recommendation)와 옛 training 큐 배수 경로 모두 재시도 없이 종료 실패다.
+        for queue, job_kinds in (("llm_recommendation", None),
+                                 ("training", ("recommend_feature", "recommend_rule", "explain"))):
+            for kind in ("recommend_feature", "recommend_rule"):
+                with self.subTest(queue=queue, kind=kind):
+                    harness = RunnerHarness({(queue, job_kinds): object()}, kind=kind, real_execute=True).run("llm")
+                    self.assertEqual(harness.finished, [("job_kind_abolished", True)])
+
+    def test_abolished_set_is_exactly_the_two_contract_kinds(self):
+        self.assertEqual(runner.ABOLISHED_JOB_KINDS, {"recommend_feature", "recommend_rule"})
 
 
 class LlmWorkerMainTests(unittest.TestCase):

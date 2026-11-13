@@ -32,6 +32,7 @@ from detector.incidents_store import run_once
 INFRA = Path(__file__).resolve().parents[2] / "infra"
 DATABASE = "qa_incidents"
 LOGIN = "qa_incident_detector"
+LOGIN_PASSWORD = secrets.token_hex(16)  # 이 시험 클러스터 전용 1회용 값(CI는 비밀번호 인증)
 KST = timezone(timedelta(hours=9))
 DECIDED = datetime(2000, 1, 2, 0, 0, tzinfo=timezone.utc)  # 원문 시각과 멀리 떨어진 판정 시각(대체 확인용)
 CHECKS: list[str] = []
@@ -69,6 +70,7 @@ def prepare(admin_url: str) -> str:
         conn.execute((INFRA / "scripts" / "database-roles.sql").read_text(encoding="utf-8"))
         if not conn.execute("SELECT 1 FROM pg_roles WHERE rolname = %s", (LOGIN,)).fetchone():
             conn.execute(sql.SQL("CREATE ROLE {} LOGIN").format(sql.Identifier(LOGIN)))
+        conn.execute(sql.SQL("ALTER ROLE {} PASSWORD {}").format(sql.Identifier(LOGIN), sql.Literal(LOGIN_PASSWORD)))
         conn.execute(sql.SQL("GRANT powercode_detector TO {}").format(sql.Identifier(LOGIN)))
     return url
 
@@ -147,7 +149,7 @@ def incident_of(conn, decision: str) -> uuid.UUID:
 
 def main() -> None:
     url = prepare(os.environ["INCIDENTS_TEST_ADMIN_URL"])
-    detector_url = urlunsplit(urlsplit(url)._replace(netloc=f"{LOGIN}@{urlsplit(url).netloc.split('@')[-1]}"))
+    detector_url = urlunsplit(urlsplit(url)._replace(netloc=f"{LOGIN}:{LOGIN_PASSWORD}@{urlsplit(url).netloc.split('@')[-1]}"))
     with psycopg.connect(url) as owner, psycopg.connect(detector_url) as job, psycopg.connect(url) as other:
         check("job_role_not_superuser", not job.execute("SELECT rolsuper FROM pg_roles WHERE rolname = current_user")
               .fetchone()[0])

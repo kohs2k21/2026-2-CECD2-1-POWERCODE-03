@@ -8,6 +8,7 @@ import { RuleSetError, parseRuleSetRequest } from '../ruleset/ruleSetContract.js
 import {
   parseHistoryQuery, previewRuleSet, readHistory, readHistoryItem, readRuleSet, saveRuleSet, type ActorResolver,
 } from '../ruleset/ruleSetStore.js';
+import { parseCandidateSnapshotQuery, readCandidateSnapshots } from '../ruleset/candidateSnapshots.js';
 import { computeThresholdStats, parseThresholdStatsRequest } from '../ruleset/thresholdStats.js';
 import {
   enqueueCandidateJob, parseCandidateJobRequest, parseCandidateListQuery, readCandidateDetail, readCandidateList,
@@ -95,6 +96,11 @@ export function createRuleSetRouter(database: () => Pool = getDatabasePool, user
 
   router.get('/candidates', admin, route(async (req, res) => {
     res.json(await readCandidateList(database(), parseCandidateListQuery(req.query as Record<string, unknown>)));
+  }));
+  // `/candidates/:candidateId`보다 먼저: 'snapshots'가 후보 id로 읽히지 않게.
+  router.get('/candidates/snapshots', admin, route(async (req, res) => {
+    parseCandidateSnapshotQuery(req.query as Record<string, unknown>);
+    res.json(await readCandidateSnapshots(database()));
   }));
   router.get('/candidates/:candidateId', admin, route(async (req, res) => {
     if (Object.keys(req.query).length) throw new RuleSetError('unknown_candidate_filter');

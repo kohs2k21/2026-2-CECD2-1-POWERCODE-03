@@ -16,6 +16,7 @@
 | `/analysis/d/:decisionId` | 이상 분석 › PROCESS 판정 상세(판정 ID 또는 최종 판정 전 detect 작업 ID, [analysis-ui.md](analysis-ui.md)) | user / admin |
 | `/settings` | 설정 | user / admin |
 | `/detection/operations` | 탐지 설정 › 운영 설정 | admin |
+| `/detection/operations/jobs` | 운영 설정 › 작업 목록([operations-ui.md](operations-ui.md) 작업 목록·작업 상세) | admin |
 | `/detection/operations/jobs/:jobId` | 작업 상세 | admin |
 | `/detection/operations/replace` | 모델 교체(전체 페이지 단계 흐름) | admin |
 | `/detection/rules` | 탐지 설정 › 룰 설정([rules-ui.md](rules-ui.md)) | admin |
@@ -41,13 +42,15 @@
 | 머신러닝 모델 | `tab` | `active` 현재 운영 버전 / `all` 전체 버전 |
 | 머신러닝 모델 | `step` | 새 학습 `1` 기간 / `2` 입력 변수 / `3` 모델·파라미터 |
 | 머신러닝 모델 | `job` | 접수한 학습 작업 ID(없으면 생략). 영역 맨 위에 진행 상태를 표시 |
+| 작업 목록 | `status` | `all` 전체 / `running` 진행 중(대기·실행 중) / `done` 완료 / `failed` 실패 |
+| 작업 목록 | `kind` | `all` 전체 종류 / `train` 학습 / `evaluate` 평가 / `evaluation_set` 평가 세트 / `compare` 비교 평가 / `recommend_thresholds` AI 규칙 추천 / `recommend_relations` 규칙 추천 |
 | 평가 결과 | `tab` | `current` 현재 운영 모델 기준 / `all` 전체 평가 |
 | 평가 결과 | `step` | 새 비교 평가 `1` 평가 세트 / `2` 비교 모델 / `3` 요청 |
 | 모델 교체 | `step` | `1` 버전 선택 / `2` 비교 확인 / `3` 승인·요청 |
 | 이상 분석 | `category` | `all` / `anomaly` / `anomaly_sign` / `normal` / `in_progress` / `undetermined` / `failed_replaced`(판정 결과별 분류: 전체 / 이상 / 이상 징후 / 정상 / 판정 중·중간 판정 / 정상 여부 미확인 / 판정 실패·대체) |
 | 이상 분석 | `q`·`signal`·`completeness`·`sort`·`page`·`pageSize` | 검색어 / 이상 신호 `all`·`yes`·`no`·`unknown` / 검사 완료 `all`·`complete`·`partial`·`unavailable` / `newest`·`oldest` / 1~ / `10`·`5`·`20`. 판정 상세 주소도 같은 쿼리 유지(목록 복귀) |
 
-- #100 현재: 룰 설정(#109)·머신러닝 모델(#128)·평가 결과·운영 설정·모델 교체(하위 7, [operations-ui.md](operations-ui.md))를 뺀 탐지 설정 화면(작업 상세)은 숨긴 화면 제목(sr-only h1)만 있는 골격. 운영 현황·이상 분석·탐지 설정은 보이는 제목 줄 없음(ui.md 화면 제목). 목록 탭·작업 단계 화면은 각 하위 Issue에서 이 주소 규칙대로 붙임(도구 `hooks/useUrlState.ts`)
+- 탐지 설정 화면은 모두 내용이 있다(작업 목록·작업 상세 포함, [operations-ui.md](operations-ui.md)). 운영 현황·이상 분석·탐지 설정은 보이는 제목 줄 없음(ui.md 화면 제목). 목록 탭·작업 단계 화면은 각 하위 Issue에서 이 주소 규칙대로 붙임(도구 `hooks/useUrlState.ts`)
 - 미지정 값은 기본값(주소 그대로), 잘못된 값은 기본값·가까운 유효 단계로 replace 정규화. 기타 쿼리·전달 state 보존. 앞 단계가 끝나지 않은 단계 주소도 가까운 유효 단계로 정규화(새로고침하면 메모리 초안이 없어 1단계)
 - 목록 아래 같은 화면 작업 영역: 단계 이동(이전·다음, 새 학습 단계 표시)은 Link push → 브라우저 뒤로·앞으로 가기가 단계와 일치. `step`이 주소에 있으면 작업 영역을 화면에 보이게 스크롤, 목록 첫 진입은 스크롤 없음
 - URL 탭: 밑줄형 Link·`aria-current=page`(로컬 Tabs ARIA 금지). 사이드바 항목도 Link·`aria-current=page`

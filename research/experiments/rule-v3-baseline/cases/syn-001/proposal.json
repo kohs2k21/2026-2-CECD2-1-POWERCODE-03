@@ -1,0 +1,36 @@
+{
+  "proposal_id": "rule_v3_weekend_elapsed_ms",
+  "plan": {
+    "expression": {
+      "op": "datetime_diff",
+      "unit": "ms",
+      "args": [
+        {
+          "op": "column",
+          "table": "PROCESS",
+          "column": "END_TIME"
+        },
+        {
+          "op": "column",
+          "table": "PROCESS",
+          "column": "START_TIME"
+        }
+      ]
+    },
+    "grain": {
+      "table": "PROCESS",
+      "keys": [
+        "ROW_ID"
+      ]
+    },
+    "population": {
+      "table": "PROCESS",
+      "filter": null
+    },
+    "group_by": [],
+    "result_use": "value"
+  },
+  "purpose": "Measure PROCESS elapsed time as END_TIME minus START_TIME in milliseconds.",
+  "meaning": "Per PROCESS row, END_TIME minus START_TIME in milliseconds; unavailable when either timestamp is missing.",
+  "needed_evidence": []
+}

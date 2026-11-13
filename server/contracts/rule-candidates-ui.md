@@ -7,8 +7,8 @@ Status: current — 실험 기능(층 B). Trainer `relation_candidates.py`(결�
 
 - 범위: Trainer 후보 작업 `recommend_relations`의 결과를 **읽고**, 그 작업을 **요청**하는 API와 탐지 설정 › 룰 설정 › 규칙 추천 화면. 후보 계산(집계·기준·반례)은 Trainer, 규칙 판정 의미는 Detector `relation-rules.md`가 기준이다
 - 저장: **새 표 없음**. 결과는 작업 표 `run_jobs.result_summary`(jsonb, Trainer `runner._finish`가 성공 시 기록)에 있다. API는 결과를 고치지 않고 화면에 쓰는 값만 골라 낸다
-- 구현: `backend/src/ruleset/ruleCandidates.ts`(해석·조회·요청), 경로는 룰 세트 라우터(`backend/src/routes/ruleSetRoutes.ts`, 같은 JSON 파서(64KB — 룰 세트 저장·미리보기만 관리자 확인 뒤 2MB, protocol-settings-ui.md 1절)·`{code}` 오류 형식·503 처리), 프론트 `frontend/src/features/detection/rules/candidates/`
-- 권한: 세 경로 모두 **관리자**(탐지 설정 화면, 작업 결과는 관리자만 읽음 — `GET /api/jobs`와 같은 범위). 토큰 없음 401, user 403 `admin_required`
+- 구현: `backend/src/ruleset/ruleCandidates.ts`(해석·조회·요청)·`backend/src/ruleset/candidateSnapshots.ts`(요청할 수 있는 저장 데이터셋 목록), 경로는 룰 세트 라우터(`backend/src/routes/ruleSetRoutes.ts`, 같은 JSON 파서(64KB — 룰 세트 저장·미리보기만 관리자 확인 뒤 2MB, protocol-settings-ui.md 1절)·`{code}` 오류 형식·503 처리), 프론트 `frontend/src/features/detection/rules/candidates/`
+- 권한: 네 경로(목록·상세·저장 데이터셋 목록·작업 요청) 모두 **관리자**(탐지 설정 화면, 작업 결과는 관리자만 읽음 — `GET /api/jobs`와 같은 범위). 토큰 없음 401, user 403 `admin_required`
 
 ## 1. DB 준비 상태 — 배포 전 필요(`infra/migrations/021_recommend_relations.sql`)
 
@@ -83,6 +83,11 @@ Status: current — 실험 기능(층 B). Trainer `relation_candidates.py`(결�
 - 본문(JSON): `{snapshotId, excludeProcessIds?, handoffMismatchSuffixPatterns?}` — Trainer `parse_input` 키. 다른 키·형식 오류 400 `invalid_candidate_job_request`. 상한: 제외 단계 200개·각 200자, 패턴 10개·각 100자(Trainer와 같음), 중복 불가. 정규식 문법 검사는 Trainer(Python 문법)
 - 스냅샷: `data_snapshots` `status='ready'`·`schema_version='process-v1'`가 아니면 409 `snapshot_not_ready`. 원본 id는 스냅샷에서 읽어 입력 `sourceId`로 고정
 - 작업 입력 `input_spec` = `{kind:"recommend_relations", snapshotId, sourceId, excludeProcessIds?, handoffMismatchSuffixPatterns?}`
+- 요청할 수 있는 저장 데이터셋 `GET /api/rule-set/candidates/snapshots`(관리자) — 화면 확인창의 선택지
+  - 조건은 위 작업 요청과 같다: `data_snapshots` `status='ready'`·`schema_version='process-v1'`. 만든 시각 최신순(`created_at DESC, id DESC`) 200개. 쿼리 키가 있으면 400 `unknown_candidate_filter`, 저장소 오류 503 `rule_set_storage_unavailable`
+  - 응답 `{items: [{id, sourceId, createdAt, readyAt, from, until}]}` — `from`·`until`은 스냅샷 `selection_spec`의 학습 기간(문자열 그대로, 없으면 null), 시각은 UTC 마이크로초 ISO. 한 고객 = 한 원본이라 `sourceId` 필터는 두지 않는다
+  - 평가 세트 기준 목록 `GET /api/evaluation-sets/snapshots`(evaluations-ui.md)는 모델 버전이 쓴 스냅샷만 보여 여기에 쓰지 않는다(학습이 실패해도 스냅샷은 남을 수 있고, 추천 작업은 모델과 무관). 스냅샷 목록 API가 계약에 없어 WebUI가 정한 형식이다. 새 표·migration 없음
+  - 경로는 `/candidates/:candidateId`보다 먼저 연결한다(`snapshots`가 후보 id 형식 오류 400으로 읽히지 않게). 구현 `backend/src/ruleset/candidateSnapshots.ts`
 - 멱등: 헤더 `Idempotency-Key`(형식은 룰 세트 저장과 같음, 없으면 새 키). 같은 요청자·키의 작업을 **스냅샷 확인보다 먼저** 찾는다 → 같은 본문 200 같은 작업(그 사이 스냅샷 상태가 바뀌어도), 다른 본문 409 `idempotency_payload_conflict`. 본문 비교 값 `request_hash` = 요청 본문(`kind`·`snapshotId`·선택 키)의 sha256, 스냅샷에서 읽는 `sourceId`는 넣지 않는다. 호환: hash에서 `sourceId`를 빼기 전 구현으로 만든 작업의 `request_hash`는 입력 전체(`kind`·`snapshotId`·`sourceId`·선택 키) sha256이라, 재요청은 새 hash 또는 그 작업 `input_spec.sourceId`로 다시 계산한 옛 hash 중 하나와 같으면 같은 본문 200. 새 작업 201 `{id, status:"queued", kind, inputSpec}`
 - DB 준비 전 503(1절)
 
@@ -104,10 +109,14 @@ Status: current — 실험 기능(층 B). Trainer `relation_candidates.py`(결�
 - 용어 근거: 종류 이름 "필수 단계·선행 관계·허용 분기·메시지 인계"(relation-rules.md 2절 kind의 화면 이름), 상태 기준 Trainer `candidate_status`(30건·99%·95%), 건수 이름 "적용·충족·위반·보류"(Trainer `applicable`·`satisfied`·`violated`·`undetermined`의 화면 이름), 판정 시점 Detector 2절 `evaluatedAt`
 - `message_handoff`이고 `pairApprovable:false`이면 문장 "짝 선행 규칙이 없어 선행이 다르면 인계를 확인하지 않습니다."(Detector 4절 경고 문장 그대로)
 - 충족률 표기: 한 자리 내림(99.96% → "99.9%"), 0과 1 사이 값은 0.1%~99.9%, 정확히 0·1만 "0%"·"100%"
-- 화면은 "버전"만 쓴다(리비전 표기 없음). 후보 작업 요청 단추는 아직 두지 않는다(스냅샷 선택 화면이 없음 — 남은 결정)
+- 화면은 "버전"만 쓴다(리비전 표기 없음)
+- **후보 작업 요청**(목록 머리 오른쪽 단추 `후보 작업 요청`): 확인창 `후보 작업 요청` + 설명 "고른 저장 데이터셋으로 관계 규칙·처리 시간 후보를 다시 계산합니다. 운영 룰은 바뀌지 않고, 작업이 끝나면 이 화면에 새 결과가 나옵니다." + 선택 칸 `저장 데이터셋`(6절 목록, 확인창을 열 때만 읽음. 이름 `<학습 시작> ~ <학습 끝> · 생성 <만든 시각>`, 지금 보이는 결과의 데이터셋이면 뒤에 ` · 현재 결과`, 기본 = 가장 최근) + [취소]·[요청]. 화면 용어 "저장 데이터셋"은 평가 결과 화면 세트 생성과 같다
+  - 요청 본문은 `{snapshotId}`만(제외 단계·인계 접미사 패턴은 보내지 않음 = Trainer 기본값). `Idempotency-Key`는 확인창이 열린 동안 데이터셋마다 같은 값이라 응답을 놓친 재전송은 같은 작업(6절)
+  - 접수되면 확인창을 닫고 목록을 다시 읽는다. 진행은 결과 머리의 `최근 작업 <상태> · <시각> · <작업 id 8자>`(작업 상세 `/detection/operations/jobs/:jobId`로 링크)이고, 최근 작업이 대기·실행 중이면 목록을 5초마다 다시 읽는다(공통 진행 중 조회 규칙). 끝나 성공하면 그 결과가 목록이 되고(2절 "가장 최근 성공 작업"), 실패하면 머리에 `실패 · <코드>`가 남고 이전 결과가 그대로 보인다
+  - 최근 작업이 대기·실행 중이면 단추를 끄고 옆에 `후보 작업 진행 중`(같은 계산을 겹쳐 쌓지 않게 — 서버는 막지 않는다)
+  - 저장 데이터셋이 없으면 "저장 데이터셋이 없습니다. 학습을 요청하면 학습 기간의 저장 데이터셋이 만들어집니다." + 링크 `머신러닝 모델 › 새 학습`(`/detection/models?step=1`, 학습 작업이 `process-v1` 스냅샷을 만든다)이고 [요청]은 꺼진다. 목록 조회 실패 `저장 데이터셋 조회 실패 · <코드>`, 접수 실패 `후보 작업 요청 실패 · <코드>`(확인창 안, 닫지 않음)
 
 ## 9. 남은 결정·미검증
 
 - DB: 1절 enum·CHECK는 migration 021. 큰 스냅샷의 결과 JSON 크기·`result_summary` 읽기 비용(목록 조회마다 결과 전체를 읽음) 미측정 — 크면 결과 표(층 B 채택 단계 `run_pattern_*`) 또는 요약 열로 옮김
-- 화면에서 후보 작업 요청(스냅샷 선택)을 둘지, 인터페이스가 많을 때 선택 칸 대신 검색 목록을 둘지
 - `relationNotes`(허용 분기 정보)를 화면에 보일지

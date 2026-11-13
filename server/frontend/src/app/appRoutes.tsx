@@ -3,8 +3,9 @@ import { AnalysisPage } from "@/features/analysis/AnalysisPage";
 import { DetectionLayout } from "@/features/detection/DetectionLayout";
 import { ModelVersionDetailPage } from "@/features/detection/models/VersionDetail";
 import { EvaluationDetailPage } from "@/features/detection/evaluations/EvaluationDetail";
-import { JobDetailPage } from "@/features/detection/pages/DetailPages";
+import { JobDetailPage } from "@/features/detection/jobs/JobDetail";
 import { EvaluationsPage } from "@/features/detection/pages/EvaluationsPage";
+import { JobListPage } from "@/features/detection/pages/JobListPage";
 import { ModelsPage } from "@/features/detection/pages/ModelsPage";
 import { OperationsSettingsPage } from "@/features/detection/pages/OperationsSettingsPage";
 import { ReplacePage } from "@/features/detection/pages/ReplacePage";
@@ -55,6 +56,7 @@ export const appRoutes: RouteObject[] = [
                 children: [
                   { path: paths.detectionOperations, element: <OperationsSettingsPage /> },
                   { path: paths.detectionReplace, element: <ReplacePage /> },
+                  { path: paths.detectionJobs, element: <JobListPage /> },
                   { path: "/detection/operations/jobs/:jobId", element: <JobDetailPage /> },
                   { path: paths.detectionRules, element: <RulesPage /> },
                   { path: paths.detectionRuleCandidates, element: <CandidateListPage /> },

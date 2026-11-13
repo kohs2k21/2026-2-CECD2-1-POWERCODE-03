@@ -1,0 +1,7 @@
+{
+  "unit_count": {
+    "name": "count",
+    "meaning": "Synthetic controlled counter unit for boundary tests."
+  },
+  "note": "Synthetic controlled authority; no operational source."
+}

@@ -1,0 +1,19 @@
+{
+  "question": "Measure PROCESS elapsed time as END_TIME minus START_TIME in milliseconds.",
+  "analysis_request": {
+    "output_table": "PROCESS",
+    "result_use": "value",
+    "calculation_type": "number",
+    "required_columns": [
+      [
+        "PROCESS",
+        "START_TIME"
+      ],
+      [
+        "PROCESS",
+        "END_TIME"
+      ]
+    ],
+    "required_relationship_ids": []
+  }
+}

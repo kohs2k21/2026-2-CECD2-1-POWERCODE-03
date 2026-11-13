@@ -11,6 +11,7 @@ import { FlowViewBox } from "@/features/analysis/components/ProcessFlowCard";
 import { stampText } from "@/features/operations/format";
 import type { DetectionReturnState } from "../../DetectionLayout";
 import type { CandidateList, RelationCandidate, ThresholdCandidate } from "./candidateApi";
+import { CandidateJobRequest } from "./CandidateJobRequest";
 import {
   CANDIDATES_TITLE, INTERFACE_SEARCH, INTERFACE_SEARCH_EMPTY, PAIR_LISTED, RELATION_SECTION, THRESHOLD_BASIS, THRESHOLD_SECTION, adapterText, candidateErrorTitle, jobStatusText, kindLabels, limitationTexts, n, pathText,
   rateText, relationStatusBadge, relationStatusLabels, thresholdStatusLabels, thresholdText,
@@ -20,8 +21,8 @@ import { useCandidateList } from "./useCandidates";
 const PatternGraphView = lazy(() => import("./PatternGraphView"));
 type Result = NonNullable<CandidateList["result"]>;
 
-/** 결과 머리: 작업 완료 시각·학습 스냅샷 기간 + 결과 작업과 다른 최근 작업 상태(대기·실패 등). */
-const ResultHeader = ({ data }: { data: CandidateList }) => {
+/** 결과 머리: 작업 완료 시각·학습 스냅샷 기간 + 결과 작업과 다른 최근 작업 상태(대기·실패 등, 작업 상세로 링크). */
+const ResultHeader = ({ data, returnTo }: { data: CandidateList; returnTo: string }) => {
   const result = data.result;
   const newer = data.latestJob && data.latestJob.id !== result?.job.id ? data.latestJob : null;
   return (
@@ -35,7 +36,12 @@ const ResultHeader = ({ data }: { data: CandidateList }) => {
           </span>
         </>
       )}
-      {newer && <span data-latest-job>최근 작업 {jobStatusText(newer)} · {stampText(newer.createdAt)}</span>}
+      {newer && (
+        <span data-latest-job>
+          최근 작업 {jobStatusText(newer)} · {stampText(newer.createdAt)} ·{" "}
+          <Link className="font-mono text-xs text-link" to={paths.detectionJob(newer.id)} state={{ returnTo }}>{newer.id.slice(0, 8)}</Link>
+        </span>
+      )}
     </div>
   );
 };
@@ -194,7 +200,11 @@ export const CandidateListPage = () => {
   return (
     <div className="grid min-w-0 gap-6">
       <ScreenTitle>{CANDIDATES_TITLE}</ScreenTitle>
-      <SectionCard title={CANDIDATES_TITLE} description="Trainer 후보 작업 결과 · 관계 규칙(이상)·처리 시간(이상 징후)">
+      <SectionCard
+        title={CANDIDATES_TITLE}
+        description="Trainer 후보 작업 결과 · 관계 규칙(이상)·처리 시간(이상 징후)"
+        action={data && <CandidateJobRequest latestJob={data.latestJob} currentSnapshotId={data.result?.snapshotId ?? null} />}
+      >
         {query.isPending && !data ? (
           <LoadingState />
         ) : !data ? (
@@ -202,7 +212,7 @@ export const CandidateListPage = () => {
         ) : (
           <>
             {query.isError && <ErrorState title={`${candidateErrorTitle(query.error, CANDIDATES_TITLE)} · 이전 결과 표시`} onRetry={() => void query.refetch()} />}
-            <ResultHeader data={data} />
+            <ResultHeader data={data} returnTo={location.pathname + location.search} />
             {!data.result && <EmptyState>후보 작업 결과가 없습니다.</EmptyState>}
           </>
         )}

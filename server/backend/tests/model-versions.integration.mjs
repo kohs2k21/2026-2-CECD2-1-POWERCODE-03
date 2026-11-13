@@ -267,7 +267,10 @@ try {
   await refused({ excludedIntervals: [inside, { from: '2026-10-01T00:30:00Z', until: '2026-10-01T02:00:00Z' }] }, 400, 'excluded_interval_overlap');
   await refused({ excludedIntervals: [{ ...inside, reasonCode: 'other_reason' }] }, 400, 'invalid_job_request');
   await refused({ excludedIntervals: [{ from: inside.until, until: inside.from }] }, 400, 'invalid_job_request');
-  assert.equal((await post({ ...train, kind: 'recommend_feature', featureSetId: undefined, detectionPolicy: undefined, modelKey: undefined })).status, 400, 'parameters belong to train only');
+  const evaluateWithParameters = await post({ kind: 'evaluate', sourceId, configVersionId: id(), snapshotId: id(), purpose: 'validation', parameters: train.parameters });
+  assert.deepEqual([evaluateWithParameters.status, evaluateWithParameters.body.code], [400, 'invalid_job_request'], 'parameters belong to train only');
+  const abolished = await post({ ...train, kind: 'recommend_feature', featureSetId: undefined, detectionPolicy: undefined, modelKey: undefined });
+  assert.deepEqual([abolished.status, abolished.body.code], [422, 'job_kind_abolished'], 'abolished kind (llm-recommendation-job.md)');
   assert.equal((await post(train, user)).status, 403);
   const before = (await pool.query(`SELECT count(*)::int AS count FROM run_jobs WHERE kind='train' AND status='queued'`)).rows[0].count;
   assert.equal(before, 0, 'refused requests leave no job');

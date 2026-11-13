@@ -69,6 +69,13 @@ const details = {
 };
 const running = { ...train, id: uuid("b"), status: "running", finishedAt: null, result: undefined, resultSummary: null, attempts: [attempt(1, "running")] };
 details[running.id] = running;
+// AI 규칙 추천 실행 중 진행률(llm-recommendation-job.md 7차 '진행률' 절): resultSummary.progress. 형식이 틀린 값은 값 없는 표시로 남는다.
+const recommending = { ...base, id: uuid("d"), kind: "recommend_thresholds", status: "running", attemptCount: 1, createdAt: "2026-11-13T04:00:00Z",
+  inputSpec: { kind: "recommend_thresholds", ruleSetRevision: 13, data: { from: "2026-10-01T00:00:00Z", until: "2026-11-01T00:00:00Z" } },
+  resultSummary: { progress: { processed: 1, total: 4 } }, attempts: [attempt(1, "running")] };
+const badProgress = { ...recommending, id: uuid("e"), resultSummary: { progress: { processed: 5, total: 4 } } };
+details[recommending.id] = recommending;
+details[badProgress.id] = badProgress;
 
 const requested = [];
 let pageTwo = [relation];
@@ -200,6 +207,20 @@ const jobCalls = () => requested.filter((call) => call.path === "/api/jobs");
   assert.equal(progress[0].props["aria-valuenow"], undefined);
   assert.ok(busy.shown().includes("시도 1 · 실행 중"));
   await busy.cleanup();
+
+  // AI 규칙 추천 진행률: 같은 이름의 progressbar에 값만 연결하고 숫자 문구는 두지 않는다.
+  const recommend = await mount(`/detection/operations/jobs/${recommending.id}`);
+  await wait(() => recommend.shown().includes("AI 규칙 추천 작업 dddddddd"), "recommendation running");
+  const bar = recommend.renderer.root.findAll((node) => node.type === "div" && node.props["aria-label"] === "작업 진행 중");
+  assert.equal(bar.length, 1);
+  assert.deepEqual([bar[0].props.role, bar[0].props["aria-valuenow"], bar[0].props["aria-valuemin"], bar[0].props["aria-valuemax"]], ["progressbar", 1, 0, 4]);
+  assert.ok(!recommend.shown().includes("1/4"), "no progress number text");
+  await recommend.cleanup();
+  const bad = await mount(`/detection/operations/jobs/${badProgress.id}`);
+  await wait(() => bad.shown().includes("AI 규칙 추천 작업 eeeeeeee"), "bad progress");
+  const badBar = bad.renderer.root.findAll((node) => node.type === "div" && node.props["aria-label"] === "작업 진행 중");
+  assert.deepEqual([badBar.length, badBar[0].props.role, badBar[0].props["aria-valuenow"]], [1, "progressbar", undefined], "invalid progress keeps the value-less bar");
+  await bad.cleanup();
 
   const missing = await mount(`/detection/operations/jobs/${uuid("c")}`);
   await wait(() => missing.shown().includes("작업 조회 실패 · job_not_found"), "not found");

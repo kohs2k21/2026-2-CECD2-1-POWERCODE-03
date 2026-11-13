@@ -22,7 +22,7 @@ Object.assign(process.env, {
 });
 const { default: jobRouter } = await import('../dist/routes/jobRoutes.js');
 const { UserRepository } = await import('../dist/repository/userRepository.js');
-const { THRESHOLD_PROMPT_VERSION } = await import('../dist/routes/thresholdRecommendationContract.js');
+const { THRESHOLD_EVIDENCE_VERSION, THRESHOLD_MODEL_VERSION, THRESHOLD_PROMPT_VERSION } = await import('../dist/routes/thresholdRecommendationContract.js');
 
 const contracts = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../contracts');
 const examples = JSON.parse(await readFile(path.join(contracts, 'llm-recommendation-job.example.json'), 'utf8'));
@@ -130,7 +130,7 @@ const rejected = async (payload, status, code, options) => {
 };
 const lastSpec = () => JSON.parse(database.jobs.at(-1).llmSpec);
 
-test('accepted request stores the fixed input, the six llm_spec keys and one queue row', async () => {
+test('accepted request stores the fixed input, the six llm_spec keys (Rule v3 path) and one queue row', async () => {
   const created = await post(body(), { key: 'run-1' });
   assert.equal(created.status, 201);
   assert.deepEqual(Object.keys(created.body).sort(), ['id', 'inputSpec', 'kind', 'status']);
@@ -148,9 +148,9 @@ test('accepted request stores the fixed input, the six llm_spec keys and one que
   assert.equal(database.queued[0].payload.jobId, job.id);
   assert.equal(job.requestHash, sha256(job.inputSpec), 'the request hash covers the fixed input');
   assert.deepEqual(JSON.parse(job.llmSpec), {
-    evidence_version: 'soft-rule-threshold-v1', input_evidence_hash: job.requestHash, model_version: 'rule_v2', prompt_version: 'feature-rule-design-v0.2',
+    evidence_version: 'soft-rule-threshold-v2', input_evidence_hash: job.requestHash, model_version: 'rule_v3', prompt_version: 'feature-rule-spec-rule-v3-ko',
     output_schema_version: 'threshold-recommendation-v1',
-    reuse_key: sha256(JSON.stringify([adminId, JSON.parse(job.inputSpec), 'run-1', 'feature-rule-design-v0.2'])),
+    reuse_key: sha256(JSON.stringify([adminId, JSON.parse(job.inputSpec), 'run-1', 'feature-rule-spec-rule-v3-ko'])),
   });
   assert.ok(database.statements.includes('COMMIT'));
 });
@@ -332,5 +332,9 @@ test('abolished kinds (recommend_rule, recommend_feature) are refused with 422 a
 test('the contract names the value the API records', async () => {
   const contract = await readFile(path.join(contracts, 'llm-recommendation-job.md'), 'utf8');
   assert.ok(contract.includes(`prompt_version: '${THRESHOLD_PROMPT_VERSION}'`));
-  assert.ok(examples.examples.every((example) => example.llm_spec.prompt_version === THRESHOLD_PROMPT_VERSION));
+  assert.ok(contract.includes(`model_version: '${THRESHOLD_MODEL_VERSION}'`) && contract.includes(`evidence_version: '${THRESHOLD_EVIDENCE_VERSION}'`));
+  // 워커가 실행하는 두 조합 중 Rule v3 조합이다(llm-recommendation-job.md 7차 llm_spec 행).
+  assert.deepEqual([THRESHOLD_MODEL_VERSION, THRESHOLD_EVIDENCE_VERSION], ['rule_v3', 'soft-rule-threshold-v2']);
+  assert.ok(examples.examples.every((example) => example.llm_spec.prompt_version === THRESHOLD_PROMPT_VERSION &&
+    example.llm_spec.model_version === THRESHOLD_MODEL_VERSION && example.llm_spec.evidence_version === THRESHOLD_EVIDENCE_VERSION));
 });

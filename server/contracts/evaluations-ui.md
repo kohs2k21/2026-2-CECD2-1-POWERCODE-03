@@ -35,7 +35,7 @@ Status: current
 | 비교 요청 형식(키 집합·UUID·중복) | 400 `invalid_comparison_request` |
 | 세트 없음 / 다른 출처 / 준비 안 됨 | 404 `evaluation_set_not_found` / 400 `evaluation_set_source_mismatch` / 409 `evaluation_set_not_ready` |
 | 버전 없음 / 다른 출처 | 404 `config_not_found` / 400 `config_source_mismatch` |
-| 같은 종류 운영 버전이 다른 출처 | 409 `comparison_baseline_source_mismatch`(Trainer가 작업 실패로 끝낼 입력을 접수 때 막음) |
+| 같은 종류 운영 버전이 없는 구성 / 다른 출처 | 409 `comparison_baseline_not_found` / 409 `comparison_baseline_source_mismatch`(Trainer가 작업 실패로 끝낼 입력을 접수 때 막음) |
 | 출처 없음 | 404 `source_not_found` |
 | 조회 형식 | 400 `unknown_evaluation_set_filter`·`unknown_comparison_filter`·`invalid_source_id`·`invalid_evaluation_set_id`·`invalid_comparison_id`·`invalid_model_key`·`invalid_scope`·`invalid_limit`·`invalid_cursor`. 기본 `limit` 50, 최대 100 |
 | 없는 세트·비교 | 404 `evaluation_set_not_found`·`comparison_not_found`(평가 세트 작업 ID는 비교가 아니므로 404) |
@@ -46,7 +46,7 @@ Status: current
 - 새 비교 평가 1단계(평가 세트): `ready` 세트만 고를 수 있다. `새 평가 세트 생성` 양식: 이름 · 생성 방식(`원본 분할만` 기본, 합성 프로필은 선택은 되지만 `확인 필요 · 평가 세트 생성: synthetic_set_unsupported`로 생성 막음) · 기준 저장 데이터셋(`<버전들> 학습 데이터 (시작 ~ 끝)`). 기본 스냅샷 = 고른 후보의 학습 스냅샷 → 현재 운영 버전의 학습 스냅샷 → 첫 항목. 접수되면 양식을 닫고 초안이 새 세트를 고른다. 대기 세트가 있으면 목록을 5초마다 다시 읽고, `ready`가 되면 바로 다음 단계로 갈 수 있다. 실패는 `평가 세트 생성 실패 · <코드>`
 - 2단계(비교 모델): 모델 버전 목록(`GET /api/configurations` 최신 100개, 모델 있는 버전만) + 카탈로그 이름. 같은 종류 운영 버전은 서버가 넣는 값이라 표시만 한다
 - 3단계(요청): 접수되면 초안을 저장 상태로 두고 평가 상세(작업 ID 주소)로 간 뒤 초안을 지운다. 상세는 대기·실행 중 5초마다 다시 읽는다. 실패는 `비교 평가 요청 실패 · <코드>`, 초안 유지
-- 상세: 모델 단독 혼동행렬·지표(`categoryResults.ml`) + 항목별 `평가 정책`(`구성 정책 · <mode>`·`운영 정책(접수 때 고정)`, 룰이 있으면 `· 룰 n개`). 정본 v1이 내지 않는 룰+모델 종합·실행 비용이 하나도 없으면 그 표를 그리지 않는다. 룰 조건은 `운영 룰 버전 n 고정 · 항목별 평가 정책`(v1은 룰 세트 버전을 기록만 하고 v1·v2 항목은 구성 룰로 평가). 교체 추천이 null이면 `모델 교체 추천 미연결 · <사유>`
+- 상세: 모델 단독 혼동행렬·지표(`categoryResults.ml`) + 항목별 `평가 정책`(`구성 정책 · <mode>`·`운영 정책(접수 때 고정)`, 룰이 있으면 `· 룰 n개`). 정본 v1이 내지 않는 룰+모델 종합·실행 비용이 하나도 없으면 그 표를 그리지 않는다. 룰 조건은 `운영 룰 버전 n 고정 · 항목별 평가 정책`(v1은 룰 세트 버전을 기록만 하고 v1·v2 항목은 구성 룰로 평가). 교체 추천이 null이면 `모델 교체 추천 미연결 · <사유>`. 판정 가능 기준(`decidable`)은 서버가 줄 때만 행·문구를 그린다(v1에는 없음). 정밀도 null은 사유가 `verified_normal_labels_unavailable`일 때만 `정상 확정 라벨 없음`, 그 밖은 `미측정 · <사유>`. 비교 실패(전 항목 실패)도 항목마다 `<버전> 실패 · <코드>`
 - 운영 설정 교체 추천 카드: 최근 완료 비교에 추천 배열이 없고 사유가 있으면 `모델 교체 추천 미연결 · <사유>`
 - 모델 교체 2단계: 기존 규칙 그대로(현재 운영·선택 버전이 같은 비교에서 모두 성공·ML 측정). 지표 표에 `평가 정책` 행. 같은 세트 비교가 없을 때 `+ 새 비교 평가`는 교체할 버전을 넘겨 비교 초안의 후보로 넣고 세트 양식을 연다
 - 3단계 근거: 비교가 만든 `purpose=validation` 평가 행은 기존 적용 gate를 그대로 만족한다(정본 v1). 화면은 `applicationEligibility.evaluationId`를 그대로 쓴다

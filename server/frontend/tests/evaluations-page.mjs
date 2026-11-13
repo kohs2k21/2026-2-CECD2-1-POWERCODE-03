@@ -439,6 +439,7 @@ const openDialog = (app) => app.renderer.root.findAllByType(Dialog).find((node) 
 
   const failed = await mount(`/detection/evaluations/${C_FAILED}`);
   await wait(() => failed.shown().includes("비교 평가 실패 · comparison_all_items_failed · 결과가 없으므로 지표를 표시하지 않습니다."), "failed");
+  await wait(() => failed.shown().includes("63c8d0f2 · 실험 6 실패 · training_evaluation_overlap"), "each failed item's code");
   assert.ok(!failed.shown().includes("지표 비교"));
   await failed.cleanup();
 
@@ -450,7 +451,11 @@ const openDialog = (app) => app.renderer.root.findAllByType(Dialog).find((node) 
   const v1 = await mount(`/detection/evaluations/${sample.C_V1}`);
   await wait(() => v1.shown().includes("모델 교체 추천 미연결 · not_implemented_v1"), "recommendations not implemented");
   assert.equal(v1.link("수락하고 교체"), undefined);
-  assert.ok(v1.shown().includes("70% (커버리지 100%)"), "model metrics shown");
+  assert.ok(v1.shown().includes("재현율70% 완료 기준정밀도"), "model metrics shown without coverage or decidable basis");
+  assert.ok(!v1.shown().includes("판정 가능 기준"), "no decidable rows or sentence when the server has none");
+  assert.ok(v1.shown().includes("제외 행완료 기준 0행"));
+  assert.ok(v1.shown().includes("정밀도미측정 · no_predicted_anomalies오탐률"), "other null reasons show the code");
+  assert.equal(v1.shown().split("정상 확정 라벨 없음").length - 1, 1, "missing-normal-label wording only where that is the reason");
   assert.ok(v1.shown().includes("평가 정책구성 정책 · ml_only구성 정책 · ml_only"), "each item's evaluation policy");
   assert.ok(v1.shown().includes("운영 룰 버전 13 고정 · 항목별 평가 정책"), "v1 records the rule set version, items use their own policy");
   assert.ok(!v1.shown().includes("룰과 함께 판정") && !v1.shown().includes("기타 지표"), "no empty rule/cost tables for v1");

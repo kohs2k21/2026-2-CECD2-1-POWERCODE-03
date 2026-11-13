@@ -97,8 +97,9 @@ export async function failSet(db, setId, code = 'evaluation_set_empty') {
   await db.query(`UPDATE run_jobs SET status='failed',error_code=$2,finished_at=clock_timestamp() WHERE id=$1`, [set.jobId, code]);
 }
 
-const rate = (numerator, denominator) => (denominator ? { value: numerator / denominator, unit: 'ratio', numerator, denominator, coverage: 1, reason: null }
-  : { value: null, unit: 'ratio', numerator: null, denominator: null, coverage: null, reason: 'verified_normal_labels_unavailable' });
+// Trainer `_ratio`(comparison.py)와 같은 모양: {value, numerator, denominator, reason}.
+const rate = (numerator, denominator) => (denominator ? { value: numerator / denominator, numerator, denominator, reason: null }
+  : { value: null, numerator: null, denominator: null, reason: 'verified_normal_labels_unavailable' });
 
 /**
  * 비교 결과 기록(Trainer compare 처리 흉내, 011 주석의 순서): 비교 묶음 → 항목별 run_evaluations → 항목 → 작업 성공(resultSummary = summary).
@@ -121,7 +122,7 @@ export async function completeComparison(db, jobId, results) {
       configVersionId, modelKey: keys.get(configVersionId), role, status: 'succeeded', errorCode: null, evaluationId: id(), metricVersion: 'selected-paths-v3',
       evaluationPolicy: { source: 'configuration', detectionPolicy: { mode: 'ml_only', deadlineMs: 30000, combination: 'selected_path', legacy: false }, ruleCount: 0 },
       applicability: 'valid', reasonCodes: [], counts: { populationCount: set.generation.rowCount, scoredCount: set.generation.rowCount, unavailableCount: 0, unlabeledCount: set.generation.rowCount - tp - fn },
-      categoryResults: { ml: { measurementStatus: 'measured', confusion: { tp, fp, tn, fn }, unavailableCount: 0,
+      categoryResults: { ml: { measurementStatus: 'measured', methodCount: 1, confusion: { tp, fp, tn, fn }, unavailableCount: 0,
         completeOnly: { recall: rate(tp, tp + fn), precision: normal ? rate(tp, tp + fp) : rate(0, 0), falsePositiveRate: normal ? rate(fp, fp + tn) : rate(0, 0) } } },
     };
   });

@@ -253,6 +253,10 @@ try {
   assert.deepEqual(replaced.body.models.map((model) => model.configVersionId), [b.configId]);
   assert.ok(!(await call('/api/comparisons?scope=current', { token: admin })).body.items.some((item) => item.jobId === jobId), 'active set changed: no longer current');
 
+  // 13) 활성 집합이 가리키는 기준선 버전이 없으면 접수 때 409(Trainer는 작업 실패로 끝낸다)
+  await pushActiveModels(pool, [{ configVersionId: id(), modelKey: 'iforest' }]);
+  assert.deepEqual(code(await compare({ ...base, configVersionIds: [b.configId] })), [409, 'comparison_baseline_not_found']);
+
   console.log('comparisons integration passed');
 } finally {
   if (child && child.exitCode === null) {

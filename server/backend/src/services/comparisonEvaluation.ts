@@ -282,8 +282,9 @@ export async function enqueueComparison(pool: Pick<Pool, 'connect'>, request: Co
     const baselines = active && typeof active.configVersionId === 'string' ? [{ modelKey, configVersionId: active.configVersionId.toLowerCase() }] : [];
     if (baselines.length && !request.configVersionIds.includes(baselines[0].configVersionId)) {
       const [baseline] = await versions([baselines[0].configVersionId]);
-      // 기준선이 다른 출처면 Trainer 결과 기록(validate_comparison_lineage)이 거절한다. 접수 때 막는다.
-      if (!baseline || baseline.sourceId !== request.sourceId) throw new ComparisonError('comparison_baseline_source_mismatch', 409);
+      // 기준선 버전이 없거나 다른 출처면 Trainer가 작업 실패로 끝낸다(기준선 열을 채울 수 없음). 접수 때 막는다.
+      if (!baseline) throw new ComparisonError('comparison_baseline_not_found', 409);
+      if (baseline.sourceId !== request.sourceId) throw new ComparisonError('comparison_baseline_source_mismatch', 409);
     }
     const configVersionIds = [...new Set([...request.configVersionIds, ...baselines.map((item) => item.configVersionId)])].sort();
     if (configVersionIds.length > COMPARISON_MAX_CONFIGS) throw new ComparisonError('comparison_too_many_configs');

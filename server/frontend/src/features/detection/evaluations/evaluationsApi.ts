@@ -67,7 +67,7 @@ export type CompositeResult = {
   labelCounts: { anomalyLabelCount: number; normalLabelCount: number; unlabeledCount: number };
   completeOnly: BasisRates & { confusion: Confusion; hitCount: number };
 };
-export type EvaluationPolicy = { source: "accepted" | "configuration"; detectionPolicy: { mode?: string; deadlineMs?: number } | null; ruleCount: number };
+export type EvaluationPolicy = { source: "accepted" | "configuration"; detectionPolicy: { mode?: string; deadlineMs?: number } | null; ruleCount: number | null };
 export type ComparisonItem = {
   configVersionId: string;
   modelKey: string | null;

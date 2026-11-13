@@ -63,7 +63,7 @@ export const countText = (value: number | null | undefined) => (value === null |
  */
 export const policyText = (policy: EvaluationPolicy | undefined) => {
   if (!policy) return DASH;
-  const rules = policy.ruleCount > 0 ? ` · 룰 ${numberText(policy.ruleCount)}개` : "";
+  const rules = policy.ruleCount ? ` · 룰 ${numberText(policy.ruleCount)}개` : "";
   if (policy.source === "accepted") return `운영 정책(접수 때 고정)${rules}`;
   return `구성 정책${policy.detectionPolicy?.mode ? ` · ${policy.detectionPolicy.mode}` : ""}${rules}`;
 };

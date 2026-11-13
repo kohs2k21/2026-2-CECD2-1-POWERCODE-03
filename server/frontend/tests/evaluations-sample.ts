@@ -125,7 +125,8 @@ const details: ComparisonDetail[] = [
         rules: ruleMl(9, 5, 4, 1182), itemCost: cost(38.8, 205, 407000000) }),
     ],
   },
-  { comparisonId: C_FAILED, jobId: job("dd44"), status: "failed", errorCode: "comparison_all_items_failed" },
+  { comparisonId: C_FAILED, jobId: job("dd44"), status: "failed", errorCode: "comparison_all_items_failed",
+    items: [failedItem(V_EXPERIMENT_6, "iforest", "training_evaluation_overlap")] },
   {
     comparisonId: C_ADBENCH, jobId: job("ee55"), status: "succeeded",
     evaluationSet: { id: SET_ADBENCH, contentHash: hash("91f0c713"), purpose: "validation", rowCount: 3000, originalRowCount: 0, syntheticRowCount: 3000, synthetic: true },
@@ -158,17 +159,23 @@ const details: ComparisonDetail[] = [
 
 /** v1 서버 모양: 교체 추천 없음(null + `not_implemented_v1`), 룰+모델·실행 비용 없음. 목록에는 없고 상세로만 연다. */
 export const C_V1 = "5e1d7a20-3c4b-4d5e-8f60-718293a4b5c6";
+/** Trainer `_ratio`(comparison.py) 모양 그대로: {value, numerator, denominator, reason} — unit·coverage 없음. */
+const v1Rate = (numerator: number, denominator: number): Rate => ({ value: numerator / denominator, numerator, denominator, reason: null });
+const v1NoNormal: Rate = { value: null, numerator: null, denominator: null, reason: "verified_normal_labels_unavailable" };
 const v1Item = (configVersionId: string, role: ComparisonItem["role"], tp: number, fn: number): ComparisonItem => ({
   configVersionId, modelKey: "iforest", role, status: "succeeded", errorCode: null, evaluationId: `${configVersionId.slice(0, 8)}-1111-4000-8000-000000000000`, reasonCodes: [],
   evaluationPolicy: { source: "configuration", detectionPolicy: { mode: "ml_only", deadlineMs: 30000 }, ruleCount: 0 },
-  categoryResults: { ml: { measurementStatus: "measured", confusion: { tp, fp: null, tn: null, fn }, unavailableCount: 0, completeOnly: esbRates(rate(tp, tp + fn, 1)) } },
+  categoryResults: { ml: { measurementStatus: "measured", methodCount: 1, confusion: { tp, fp: null, tn: null, fn }, unavailableCount: 0,
+    completeOnly: { recall: v1Rate(tp, tp + fn), precision: v1NoNormal, falsePositiveRate: v1NoNormal } } },
 });
 details.push({
   comparisonId: C_V1, jobId: job("ab12"), status: "succeeded", completedAt: "2026-11-13T01:00:00Z",
   evaluationSet: { id: SET_ORIGINAL, contentHash: hash("c07a55e2"), purpose: "validation", rowCount: 1200, originalRowCount: 1200, syntheticRowCount: 0, synthetic: false },
   baselines: baseline(V_ACTIVE), ruleSet: { revision: 13, contentHash: hash("9c40e1aa") },
   replacementRecommendations: null, replacementRecommendationsReason: "not_implemented_v1",
-  items: [v1Item(V_ACTIVE, "active", 9, 11), v1Item(V_EXPERIMENT_7, "candidate", 14, 6)],
+  // 후보 항목의 정밀도는 정상 라벨 부족이 아닌 사유(분모 0)로 null인 경우.
+  items: [v1Item(V_ACTIVE, "active", 9, 11), { ...v1Item(V_EXPERIMENT_7, "candidate", 14, 6), categoryResults: { ml: { ...v1Item(V_EXPERIMENT_7, "candidate", 14, 6).categoryResults!.ml,
+    completeOnly: { recall: v1Rate(14, 20), precision: { value: null, numerator: 0, denominator: 0, reason: "no_predicted_anomalies" }, falsePositiveRate: v1NoNormal } } } }],
 });
 
 const listRow = (comparisonId: string, row: Pick<ComparisonListItem, "evaluationSetId" | "activeModelSetRevision" | "completedAt"> & { itemCount: number }): ComparisonListItem => {

@@ -11,13 +11,17 @@ import { ErrorState, LoadingState } from "@/components/ui/feedback";
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { errorCode } from "@/features/detection/rules/ruleDraft";
 import { DASH, bytesText, msText, numberText } from "@/features/operations/format";
-import { comparisonKey, type CompareVersion, type ComparisonDetail, type ComparisonItem, type EvaluationSet } from "./evaluationsApi";
+import { comparisonKey, type CompareVersion, type ComparisonDetail, type ComparisonItem, type EvaluationSet, type Rate } from "./evaluationsApi";
 import { comparisonStatus, countText, fixedInfoText, labelOf, policyText, rateText, ruleConditionText, setKindLabel, setNote, setUnitLabel, truthRowLabels } from "./evaluationFormat";
 import { RecommendationBlock, RecommendationUnconnected } from "./RecommendationBlock";
 import { useCompareVersions, useComparison, useEvaluationSet } from "./useEvaluations";
 
 const FAILED_CELL = "실패 · 결과 없음";
 const UNMEASURED_CELL = "미측정";
+
+/** 판정 가능 기준 값은 서버가 줄 때만 붙인다(v1 비교 결과에는 없다). */
+const decidable = (rate: Rate | undefined) => (rate ? ` · ${rateText(rate)} 판정 가능 기준` : "");
+const NORMAL_LABELS_UNAVAILABLE = "verified_normal_labels_unavailable";
 
 export type MatrixContext = { versions: CompareVersion[] | undefined; set: EvaluationSet | undefined };
 type Context = MatrixContext;
@@ -109,10 +113,11 @@ export const MatrixCard = ({ item, context, showReplace = true }: { item: Compar
       <DescriptionList
         className="sm:grid-cols-1 xl:grid-cols-1"
         items={[
-          { label: "재현율", value: `${rateText(ml.completeOnly.recall)} 완료 기준 · ${rateText(ml.decidable?.recall)} 판정 가능 기준` },
-          { label: "정밀도", value: ml.completeOnly.precision.value === null ? `${rateText(ml.completeOnly.precision)} · 정상 확정 라벨 없음` : `${rateText(ml.completeOnly.precision)} 완료 기준 · ${rateText(ml.decidable?.precision)} 판정 가능 기준` },
-          { label: "오탐률", value: ml.completeOnly.falsePositiveRate.value === null ? rateText(ml.completeOnly.falsePositiveRate) : `${rateText(ml.completeOnly.falsePositiveRate)} 완료 기준 · ${rateText(ml.decidable?.falsePositiveRate)} 판정 가능 기준` },
-          { label: "제외 행", value: `완료 기준 ${numberText(ml.unavailableCount)}행 · 판정 가능 기준 ${ml.decidable?.unavailableCount === undefined ? DASH : `${numberText(ml.decidable.unavailableCount)}행`}` },
+          { label: "재현율", value: `${rateText(ml.completeOnly.recall)} 완료 기준${decidable(ml.decidable?.recall)}` },
+          // 정상 확정 라벨이 없어서 null일 때만 그 문구를 붙인다. 다른 사유는 rateText가 사유 코드를 그대로 보인다.
+          { label: "정밀도", value: ml.completeOnly.precision.value === null ? `${rateText(ml.completeOnly.precision)}${ml.completeOnly.precision.reason === NORMAL_LABELS_UNAVAILABLE ? " · 정상 확정 라벨 없음" : ""}` : `${rateText(ml.completeOnly.precision)} 완료 기준${decidable(ml.decidable?.precision)}` },
+          { label: "오탐률", value: ml.completeOnly.falsePositiveRate.value === null ? rateText(ml.completeOnly.falsePositiveRate) : `${rateText(ml.completeOnly.falsePositiveRate)} 완료 기준${decidable(ml.decidable?.falsePositiveRate)}` },
+          { label: "제외 행", value: `완료 기준 ${numberText(ml.unavailableCount)}행${ml.decidable ? ` · 판정 가능 기준 ${ml.decidable.unavailableCount === undefined ? DASH : `${numberText(ml.decidable.unavailableCount)}행`}` : ""}` },
         ]}
       />
       {showReplace && item.role === "candidate" && version?.executable && !version.active && (
@@ -129,6 +134,11 @@ const Results = ({ detail, context }: { detail: ComparisonDetail; context: Conte
   // v1 서버는 룰+모델 종합·실행 비용을 내지 않는다(계약 v1 구현 범위). 그 값이 하나도 없으면 빈 표를 그리지 않는다.
   const withRules = items.some((item) => item.composite !== undefined || item.evaluationEnvelope);
   const withEnvelope = items.some((item) => item.evaluationEnvelope);
+  // 판정 가능 기준도 v1에는 없다. 어느 항목에도 없으면 그 행을 그리지 않는다.
+  const withDecidable = items.some((item) => item.categoryResults?.ml.decidable);
+  type MlResult = NonNullable<ComparisonItem["categoryResults"]>["ml"];
+  const decidableRow = (label: string, read: (ml: MlResult) => ReactNode): [string, (item: ComparisonItem) => ReactNode][] =>
+    withDecidable ? [[label, (item) => cellOf(item, read)]] : [];
   return (
     <>
       <SectionCard title="머신러닝 모델별 혼동행렬 · 모델 단독" description={note}>
@@ -138,15 +148,15 @@ const Results = ({ detail, context }: { detail: ComparisonDetail; context: Conte
         <MetricTable
           items={items}
           versions={versions}
-          caption="완료 기준 = 모델 판정이 끝난 행 · 판정 가능 기준 = 결과가 있는 행(정상 여부 미확인 제외)"
+          caption={withDecidable ? "완료 기준 = 모델 판정이 끝난 행 · 판정 가능 기준 = 결과가 있는 행(정상 여부 미확인 제외)" : "완료 기준 = 모델 판정이 끝난 행"}
           rows={[
             ["평가 정책", (item) => (item.status === "failed" ? FAILED_CELL : policyText(item.evaluationPolicy))],
             ["재현율 · 완료 기준", (item) => cellOf(item, (ml) => rateText(ml.completeOnly.recall))],
-            ["재현율 · 판정 가능 기준", (item) => cellOf(item, (ml) => rateText(ml.decidable?.recall))],
+            ...decidableRow("재현율 · 판정 가능 기준", (ml) => rateText(ml.decidable?.recall)),
             ["정밀도 · 완료 기준", (item) => cellOf(item, (ml) => rateText(ml.completeOnly.precision))],
-            ["정밀도 · 판정 가능 기준", (item) => cellOf(item, (ml) => rateText(ml.decidable?.precision))],
+            ...decidableRow("정밀도 · 판정 가능 기준", (ml) => rateText(ml.decidable?.precision)),
             ["오탐률 · 완료 기준", (item) => cellOf(item, (ml) => rateText(ml.completeOnly.falsePositiveRate))],
-            ["오탐률 · 판정 가능 기준", (item) => cellOf(item, (ml) => rateText(ml.decidable?.falsePositiveRate))],
+            ...decidableRow("오탐률 · 판정 가능 기준", (ml) => rateText(ml.decidable?.falsePositiveRate)),
             ["모델 미판정 행", (item) => cellOf(item, (ml) => `${numberText(ml.unavailableCount)}건`)],
           ]}
         />
@@ -227,7 +237,15 @@ const Body = ({ detail }: { detail: ComparisonDetail }) => {
       {detail.replacementRecommendations?.map((rec) => <RecommendationBlock key={rec.modelKey} rec={rec} versions={versions.data} where={where} />)}
       {!detail.replacementRecommendations && detail.replacementRecommendationsReason && <RecommendationUnconnected reason={detail.replacementRecommendationsReason} />}
       {detail.status === "failed" && (
-        <Alert variant="destructive"><AlertDescription>비교 평가 실패 · {detail.errorCode ?? DASH} · 결과가 없으므로 지표를 표시하지 않습니다.</AlertDescription></Alert>
+        <Alert variant="destructive">
+          <AlertDescription>
+            <p>비교 평가 실패 · {detail.errorCode ?? DASH} · 결과가 없으므로 지표를 표시하지 않습니다.</p>
+            {/* 모든 항목 실패여도 항목별 사유는 서버 값 그대로 보인다. */}
+            {detail.items?.filter((item) => item.status === "failed").map((item) => (
+              <p key={item.configVersionId} data-item-failure>{labelOf(versions.data, item.configVersionId)} 실패 · {item.errorCode ?? DASH}</p>
+            ))}
+          </AlertDescription>
+        </Alert>
       )}
       {detail.status === "succeeded" && <Results detail={detail} context={context} />}
     </>

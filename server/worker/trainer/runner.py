@@ -34,7 +34,7 @@ from trainer.selection import select_training
 from trainer.workspace import cleanup_orphan_workspaces, training_workspace
 from detector.status_rule import default_policy
 from telemetry import cost_family, queue_wait_ms
-from threshold_recommendation import all_rejected, parse_job
+from threshold_recommendation import PROVIDER_V3, all_rejected, parse_job
 
 # 계약상 폐지된 작업 종류(llm-recommendation-job.md "폐지 유지"). API가 새 요청을 422 job_kind_abolished로 막고,
 # 워커는 남은 대기·임대 작업을 실행하지 않고 같은 코드로 바로 끝낸다(재시도·LLM 호출·스냅샷 생성 없음).
@@ -332,13 +332,22 @@ def _execute(conn: Any, job: dict[str, Any], attempt_id: uuid.UUID,
                 cur.execute("UPDATE run_jobs SET input_snapshot_id=%s WHERE id=%s AND contract_version IS NULL", (snapshot.id,job["id"]))
     if threshold_plan:
         rows = _snapshot_rows(conn, snapshot.id, "train")
+        source_tz = None
         with conn.cursor() as cur:
             cur.execute("SELECT selection_spec->>'timeBasis' FROM data_snapshots WHERE id=%s", (snapshot.id,))
             time_basis = cur.fetchone()[0]
+            if threshold_plan.provider == PROVIDER_V3:
+                # rule_v3는 원천 시각으로 참조/현재를 나눈다. 시간대 규칙은 Detector 사건 묶음과 같다.
+                from rule_v3_capture import source_timezone
+                cur.execute("SELECT clock_basis FROM ops_sources WHERE id=%s", (source_id,))
+                clock = cur.fetchone()
+                source_tz = source_timezone(clock[0] if clock else None)
         conn.commit()
         if not rows:
             raise ValueError("recommendation_input_empty")
-        completed = model_adapters.recommend_thresholds(threshold_plan, rows, snapshot.id, time_basis)
+        completed = model_adapters.recommend_thresholds(
+            threshold_plan, rows, snapshot.id, time_basis, source_tz=source_tz,
+            progress=_threshold_progress(conn, message, job, attempt_id, attempt_token))
         conn.commit()
         if all_rejected(completed):
             _finish(conn, message, job, attempt_id, attempt_token, None, "recommendation_all_rejected", True,
@@ -725,6 +734,24 @@ def _evaluate(conn: Any, job: dict[str, Any], root: Path | None,
     return {**completed, "_finalized": True}
 
 
+def _threshold_progress(conn: Any, message: ClaimedMessage, job: dict[str, Any],
+                        attempt_id: uuid.UUID, attempt_token: uuid.UUID):
+    """임계값 추천 진행률: 실행 중 `result_summary` = {"progress": {"processed", "total"}}(필드 단위).
+
+    소유권을 확인한 짧은 트랜잭션으로 쓰고 바로 끝낸다(생성 중 열린 트랜잭션 없음). 성공하면 `_finish`가 최종 결과로,
+    재시도 대기면 NULL로, 종료 실패면 실패 요약 또는 NULL로 바꾼다.
+    """
+    def write(processed: int, total: int) -> None:
+        with conn.transaction():
+            if not lock_training_ownership(conn, message, job["id"], attempt_id, attempt_token):
+                raise RuntimeError("training_ownership_lost")
+            with conn.cursor() as cur:
+                cur.execute("UPDATE run_jobs SET result_summary = %s::jsonb WHERE id = %s AND status = 'running'",
+                            (json.dumps({"progress": {"processed": processed, "total": total}}), job["id"]))
+        conn.commit()
+    return write
+
+
 def _finish(conn: Any, message: ClaimedMessage, job: dict[str, Any],
             attempt_id: uuid.UUID, attempt_token: uuid.UUID,
             result: dict[str, Any] | None, error_code: str | None,
@@ -765,9 +792,11 @@ def _finish(conn: Any, message: ClaimedMessage, job: dict[str, Any],
                     (error_code, None if failure_summary is None else json.dumps(failure_summary), job["id"]),
                 )
             else:
+                # 임계값 추천은 실행 중 진행률을 result_summary에 쓰므로 재시도 대기로 갈 때 비운다.
                 cur.execute(
                     """UPDATE run_jobs SET status = 'queued', error_code = %s,
-                              next_run_at = clock_timestamp() + interval '5 seconds'
+                              next_run_at = clock_timestamp() + interval '5 seconds',
+                              result_summary = CASE WHEN kind::text = 'recommend_thresholds' THEN NULL ELSE result_summary END
                         WHERE id = %s""",
                     (error_code, job["id"]),
                 )

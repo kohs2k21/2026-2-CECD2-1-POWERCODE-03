@@ -1,4 +1,4 @@
-"""GPU 한 장에 피처 v5·Rule v2를 상주시킨 내부 생성 서비스."""
+"""GPU 한 장에 피처 v5·Rule v2를 상주시킨 내부 생성 서비스. `RULE_V3_BUNDLE_ROOT`가 있으면 Rule v3 경로를 붙인다."""
 from __future__ import annotations
 
 import hmac
@@ -85,7 +85,7 @@ class GenerationGate:
 
 
 class DesignModel:
-    def __init__(self, bundle: Path, base: Path):
+    def __init__(self, bundle: Path, base: Path, rule_v3_bundle: Path | None = None):
         self.root = verify(bundle)
         self.manifest = json.loads((self.root / "design/manifest.json").read_text())
         for name, expected in self.manifest["base"]["metadata_sha256"].items():
@@ -112,6 +112,11 @@ class DesignModel:
         self.model.load_adapter(str(self.root / "design/adapters/rule_v2"), adapter_name="rule", is_trainable=False)
         self.model.eval()
         self.gate = GenerationGate()
+        # Rule v3(임계값 추천 rule_v3 경로)는 같은 Base를 공유한다. HTTP `/generate`에는 노출하지 않는다.
+        self.rule_v3 = None
+        if rule_v3_bundle is not None:
+            from rule_v3_runtime import attach
+            self.rule_v3 = attach(Path(rule_v3_bundle), self, Path(base))
 
     def generate(self, kind: str, value: dict, report_timeout: bool = False) -> dict:
         if kind not in {"feature", "rule", "explain"} or not isinstance(value, dict):
@@ -208,6 +213,7 @@ def serve(model, token: str, host: str = "127.0.0.1", port: int = 8010):
 if __name__ == "__main__":
     from dotenv import load_dotenv
     load_dotenv(Path(__file__).parent / ".env")
-    model = DesignModel(Path(os.environ["RESEARCH_BUNDLE_ROOT"]), Path(os.environ["RULE_MODEL_BASE_PATH"]))
+    model = DesignModel(Path(os.environ["RESEARCH_BUNDLE_ROOT"]), Path(os.environ["RULE_MODEL_BASE_PATH"]),
+                        Path(os.environ["RULE_V3_BUNDLE_ROOT"]) if os.environ.get("RULE_V3_BUNDLE_ROOT") else None)
     serve(model, os.environ["DESIGN_MODEL_TOKEN"],
           host=os.environ.get("DESIGN_MODEL_HOST", "127.0.0.1")).serve_forever()

@@ -375,6 +375,8 @@ class RecommendationResultTests(BundleCase):
         self.assertEqual(result["data"], {"snapshotId": str(SNAPSHOT), "split": "train", "timeBasis": "persisted_at",
                                           "exclusionRule": EXCLUSION, "rowCount": 42})
         self.assertEqual((result["provider"], result["adapterSha"]), ("rule_v2", ADAPTER_SHA))
+        self.assertIsNone(result["heldWindowExclusion"])
+        self.assertEqual({item["basis"] for item in result["items"]}, {"train_p95"})
         self.assertEqual(result["counts"], {"targets": 4, "proposed": 2, "requestEvidence": 0, "deferred": 0,
                                             "noApplicable": 1, "rejected": 1})
         items = {item["field"]: item for item in result["items"]}

@@ -19,6 +19,7 @@ Trainer는 LLM/GPU 준비 상태를 기다리지 않는다. LLM은 CPU 공통 �
 - ARTIFACT_ROOT: Trainer 쓰기, Detector·LLM 읽기. host bind 권한을 기존 rootless/rootful 운영과 맞춘다.
 - RESEARCH_BUNDLE_ROOT: export한 해시 검증 번들. LLM/v12만 필요. Base는 RULE_MODEL_BASE_PATH, revision `6a9e13bd6fc8f0983b9b99948120bc37f49c13e9`.
 - LLM: DESIGN_MODEL_TOKEN 32자 이상. CUDA_VISIBLE_DEVICES로 실제 노출 한 장, NF4/bf16. 피처 v5·Rule v2 adapter와 설명 Base를 한 모델에서 전환한다.
+- RULE_V3_BUNDLE_ROOT: `python research_bundle.py --rule-v3 --output <새 폴더>`로 export한 Rule v3 묶음(feature_rule_spec 중 Rule 경로 파일만, `bundle.json` SHA 검증). 있으면 같은 Base에 Rule v3 LoRA(`Rule`)를 더 올려 `recommend_thresholds`의 `llm_spec.model_version=rule_v3` 작업을 처리한다(HTTP `/generate`에는 없음). 이미지에 xgrammar·C 컴파일러(gcc·libc6-dev)가 필요하다. GPU 확인 절차는 `rule_v3_check.py` 머리말.
 - Detector: DETECTOR_DELIVERY_TOKEN 32자 이상. Collector 직접 전달은 jobId/hash만 보내고, persisted input과 정확한 PG queue item을 claim한다. 직접 전달 실패/중복은 polling 복구에 맡긴다.
 - Collector: 제공 서버 Bearer 토큰, configuration/monitoring URL, 고정 source key, 허용 HTTP host. 상세 설정과 미확정 원천 로그 계약은 [Collector 문서](collector/README.md).
 

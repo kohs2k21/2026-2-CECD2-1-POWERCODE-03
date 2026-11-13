@@ -1,6 +1,9 @@
 FROM python:3.12-slim-bookworm
-ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1
-RUN apt-get update && apt-get install -y --no-install-recommends libgomp1 \
+# PYTHONUTF8: Rule v3 묶음은 파일을 기본 인코딩으로 읽고 쓴다(한국어 근거 포함).
+# TRITON_CACHE_DIR: xgrammar 문법 마스크의 triton 커널 JIT 캐시. compose UID가 홈을 못 쓸 수 있어 /tmp에 둔다.
+ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 PYTHONUTF8=1 TRITON_CACHE_DIR=/tmp/triton
+# gcc·libc6-dev: triton이 GPU에서 커널 실행 모듈을 빌드할 때 C 컴파일러가 필요하다(없으면 xgrammar 생성이 실패).
+RUN apt-get update && apt-get install -y --no-install-recommends libgomp1 gcc libc6-dev \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY worker/requirements-generation.txt worker/requirements.txt ./

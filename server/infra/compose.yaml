@@ -73,6 +73,7 @@ services:
       DATABASE_URL: ${LLM_DATABASE_URL:-${DATABASE_URL:?Set DATABASE_URL}}
       FEATURE_DESIGN_PROVIDER: research
       RESEARCH_BUNDLE_ROOT: /research-runtime
+      RULE_V3_BUNDLE_ROOT: /rule-v3-runtime
       RULE_MODEL_BASE_PATH: /qwen-base
       DESIGN_MODEL_TOKEN: ${DESIGN_MODEL_TOKEN:?Set a token of at least 32 characters}
       DESIGN_MODEL_HOST: 0.0.0.0
@@ -83,6 +84,11 @@ services:
       - type: bind
         source: ${RESEARCH_BUNDLE_PATH:?Set the exported bundle path}
         target: /research-runtime
+        read_only: true
+        bind: {create_host_path: false}
+      - type: bind
+        source: ${RULE_V3_BUNDLE_PATH:?Set the exported Rule v3 bundle path (python -m research_bundle --rule-v3)}
+        target: /rule-v3-runtime
         read_only: true
         bind: {create_host_path: false}
       - type: bind

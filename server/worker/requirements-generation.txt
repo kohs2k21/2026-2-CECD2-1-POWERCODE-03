@@ -4,4 +4,7 @@ transformers==5.19.0
 peft==0.21.2
 bitsandbytes==0.50.2
 accelerate==1.15.0
+# Rule v3 묶음(feature_rule_spec) 검증 환경과 같은 버전. xgrammar는 Rule 출력 문법 제약.
+xgrammar==0.2.3
+huggingface-hub==1.33.0
 python-dotenv>=1.0,<2

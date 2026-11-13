@@ -14,6 +14,8 @@ COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
 # dist/ruleset/methodCatalog.js가 세 단계 위에서 읽는다(개발·빌드와 같은 상대 위치).
 COPY contracts/method-catalog.json /contracts/method-catalog.json
+# dist/routes/featureSetContract.js도 같은 위치에서 입력 변수 필드 목록(ml-feature-fields.json)을 읽는다.
+COPY contracts/ml-feature-fields.json /contracts/ml-feature-fields.json
 RUN mkdir -p /app/data && chown node:node /app/data
 USER node
 EXPOSE 5001

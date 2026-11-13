@@ -102,3 +102,16 @@ export const readVolume = (params: { sourceId: string; from: string; until: stri
 
 export const readFeatureSets = (sourceId: string, signal?: AbortSignal) =>
   httpClient.get<{ items: FeatureSet[]; hasMore: boolean }>("/api/jobs/feature-sets", { params: { sourceId }, signal });
+
+/** 고를 수 있는 입력 변수 필드(`GET /api/jobs/feature-sets/fields`, ml-feature-fields.json). 이름·단위는 방법 카탈로그 등록 필드와 같은 값이다. */
+export type FeatureField = { key: string; displayName: string; unit: string; note: string | null };
+export type FeatureFieldList = { version: string; maxFields: number; fields: FeatureField[] };
+/** 필드 목록이 없는 응답은 빈 목록으로 보이지 않게 실패로 둔다. */
+export const readFeatureFields = async (signal?: AbortSignal): Promise<FeatureFieldList> => {
+  const value = await httpClient.get<Partial<FeatureFieldList>>("/api/jobs/feature-sets/fields", { signal });
+  if (!Array.isArray(value.fields) || !value.fields.length || typeof value.maxFields !== "number") throw new Error("feature_fields_unavailable");
+  return value as FeatureFieldList;
+};
+/** 고른 필드로 입력 변수 세트 등록(`POST /api/jobs/feature-sets`). 같은 조합이면 서버가 기존 세트를 `reused: true`로 돌려준다. */
+export type RegisteredFeatureSet = { id: string; contentHash: string; featureNames: string[]; reused: boolean };
+export const registerFeatureSet = (fields: string[]) => httpClient.post<RegisteredFeatureSet>("/api/jobs/feature-sets", { fields });

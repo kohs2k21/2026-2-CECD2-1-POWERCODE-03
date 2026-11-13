@@ -48,6 +48,9 @@ const draftModule = await import("../src/features/detection/models/trainDraft.ts
 const { Dialog } = await import("../src/components/ui/dialog.tsx");
 
 const catalog = JSON.parse(await readFile(new URL("../../contracts/method-catalog.json", import.meta.url), "utf8"));
+// 필드 목록 응답은 서버(featureSetContract.ts FIELD_LIST)처럼 계약 파일에서 식을 뺀 값이다.
+const fieldsDocument = JSON.parse(await readFile(new URL("../../contracts/ml-feature-fields.json", import.meta.url), "utf8"));
+const fieldList = { version: fieldsDocument.version, maxFields: fieldsDocument.maxFields, fields: fieldsDocument.fields.map(({ key, displayName, unit, note }) => ({ key, displayName, unit, note: note ?? null })) };
 const json = (body, status = 200) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 const SOURCE = "11111111-1111-4111-8111-111111111111";
 const SET_OK = "aaaaaaaa-1111-4111-8111-111111111111";
@@ -120,6 +123,7 @@ const baseRoutes = (overrides = {}) => ({
   "GET /api/pipeline/sources": () => json({ items: [{ id: SOURCE, datasetKey: "ds", displayName: "출처", createdAt: "2026-10-01T00:00:00Z" }] }),
   "GET /api/pipeline/reports/volume": (target) => json(volumeOf(target)),
   "GET /api/jobs/feature-sets": () => json(featureSets),
+  "GET /api/jobs/feature-sets/fields": () => json(fieldList),
   ...overrides,
 });
 const rawText = (node) => (!node ? "" : typeof node === "string" ? node : Array.isArray(node) ? node.map(rawText).join("") : rawText(node.children));
@@ -1660,6 +1664,83 @@ const runningJobs = (s) => [...s.jobs.values()].filter((entry) => entry.status =
   await queryPeriod(app);
   assert.ok(app.shown().includes("거래량 · 저장 시각 기준"));
   await app.cleanup();
+}
+
+// 10-2) 변수 선택 → 세트 등록(POST /api/jobs/feature-sets) → 목록 다시 읽기 → 그 세트 선택. 재사용·실패는 서버 값 그대로, 성공으로 바꾸지 않는다.
+{
+  const SET_NEW = "abababab-1111-4111-8111-111111111111";
+  const registered = { id: SET_NEW, contentHash: "n".repeat(64), featureNames: ["total_count", "error_ratio"], reused: false };
+  let afterPost = false;
+  routes = baseRoutes({
+    "GET /api/jobs/feature-sets": () => json(afterPost ? { ...featureSets, items: [{ id: SET_NEW, contentHash: registered.contentHash, featureNames: registered.featureNames, supported: true, reason: null }, ...featureSets.items] } : featureSets),
+    "POST /api/jobs/feature-sets": () => { afterPost = true; return json(registered, 201); },
+    "POST /api/jobs": () => accepted(),
+    [`GET /api/jobs/${JOB}`]: () => json(job("queued")),
+  });
+  const app = await mount("/detection/models?tab=all");
+  await queryPeriod(app);
+  await app.go("다음 · 입력 변수");
+  await wait(() => app.shown().includes("선택 변수 0개"), "field picker");
+  for (const field of catalog.softRuleFields) assert.ok(app.shown().includes(field.displayName), `${field.fieldId} shows the catalog name`);
+  assert.equal(app.shown().includes("END_TIME"), false, "contract notes are not shown as screen text");
+  const register = "선택한 변수로 세트 등록";
+  assert.equal(app.button(register).props.disabled, true, "nothing to register yet");
+  const check = (name, value = true) => act(async () => app.renderer.root.findAll((node) => node.props["aria-label"] === `${name} 선택` && node.props["data-slot"] === "checkbox")[0].props.onCheckedChange(value));
+  await app.click("전체 선택");
+  assert.ok(app.shown().includes("선택 변수 6개"));
+  await app.click("전체 해제");
+  assert.ok(app.shown().includes("선택 변수 0개"));
+  await check("오류 비율");
+  await check("총 건수");
+  assert.ok(app.shown().includes("선택 변수 2개"));
+  const setsBefore = calls("GET", "/api/jobs/feature-sets").length;
+  await app.click(register);
+  await wait(() => app.shown().includes(`새 세트 ${SET_NEW.slice(0, 8)} 선택`), "registered set selected");
+  assert.deepEqual(calls("POST", "/api/jobs/feature-sets").at(-1).body, { fields: ["total_count", "error_ratio"] }, "catalog order");
+  assert.ok(calls("GET", "/api/jobs/feature-sets").length > setsBefore, "the set list is read again");
+  assert.equal(stored().value.featureSetId, SET_NEW);
+  assert.equal(app.renderer.root.findByProps({ "aria-label": "입력 변수 세트", "data-slot": "radio-group" }).props.value, SET_NEW);
+  await app.go("다음 · 모델·파라미터");
+  await wait(() => app.shown().includes("준비 검사"), "step 3");
+  assert.ok(app.shown().includes("입력 변수 2개"), "readiness uses the registered set");
+  await app.click("학습 요청");
+  await wait(() => calls("POST", "/api/jobs").length > 0 && calls("POST", "/api/jobs").at(-1).body.featureSetId === SET_NEW, "training uses the registered set");
+  await app.cleanup();
+
+  // 같은 조합: 서버가 돌려준 기존 세트를 고른다.
+  routes = baseRoutes({ "POST /api/jobs/feature-sets": () => json({ id: SET_OK, contentHash: "h", featureNames: ["error_count", "retry_count"], reused: true }) });
+  let again = await mount();
+  await queryPeriod(again);
+  await again.go("다음 · 입력 변수");
+  await wait(() => again.shown().includes("선택 변수 0개"), "field picker");
+  await act(async () => again.renderer.root.findAll((node) => node.props["aria-label"] === "오류 건수 선택" && node.props["data-slot"] === "checkbox")[0].props.onCheckedChange(true));
+  await again.click(register);
+  await wait(() => again.shown().includes(`같은 조합의 기존 세트 ${SET_OK.slice(0, 8)} 선택`), "reused set");
+  assert.equal(stored().value.featureSetId, SET_OK);
+  await again.cleanup();
+
+  // 거절: 코드 그대로, 선택은 바뀌지 않는다.
+  routes = baseRoutes({ "POST /api/jobs/feature-sets": () => json({ code: "unknown_feature_field" }, 422) });
+  again = await mount();
+  await queryPeriod(again);
+  await again.go("다음 · 입력 변수");
+  await wait(() => again.shown().includes("선택 변수 0개"), "field picker");
+  await again.click("전체 선택");
+  await again.click(register);
+  await wait(() => again.shown().includes("세트 등록 실패 · unknown_feature_field"), "refusal shown");
+  assert.equal(stored().value.featureSetId, null, "no selection without a registered set");
+  assert.equal(again.shown().includes("새 세트"), false);
+  assert.equal(again.button("다음 · 모델·파라미터").props.disabled, true);
+  await again.cleanup();
+
+  // 필드 목록 실패: 오류로 보이고 등록된 세트 목록은 그대로 쓸 수 있다.
+  routes = baseRoutes({ "GET /api/jobs/feature-sets/fields": () => json({ code: "job_storage_unavailable" }, 503) });
+  again = await mount();
+  await queryPeriod(again);
+  await again.go("다음 · 입력 변수");
+  await wait(() => again.shown().includes("입력 변수 조회 실패 · job_storage_unavailable") && again.shown().includes("error_count, retry_count"), "fields failure keeps the set list");
+  assert.equal(again.button(register), undefined);
+  await again.cleanup();
 }
 
 // 15) 조회 실패·빈 값: 카탈로그·출처·입력 변수

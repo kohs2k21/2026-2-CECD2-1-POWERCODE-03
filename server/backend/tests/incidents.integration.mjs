@@ -1,7 +1,7 @@
 // 사건 보기 읽기 API(contracts/incidents-ui.md) 통합 시험. 로컬 새 QA DB(qa_analysis*)에 001~021이 적용돼 있어야 한다.
 // 확인: 인증·user 읽기, 흐름(병합 먼저 → 이어짐 3구간)·기간·기준 필터·커서, 거래 기준 건수·해제(실행별 최신 판정)·거래 ID 없음,
 // 어긋난 연결(다른 기준 버전·group_key·원본) 무시+표시, 상세(병합·뒤 구간 id → 흐름 id), 거래별 구성원·인터페이스·커서, 400·404 code,
-// powercode_api 역할 SELECT만으로 세 읽기 경로 동작·INSERT 거부. 실행 전 `npm run build`.
+// powercode_api 역할 SELECT만으로 세 읽기 경로 동작·INSERT 거부, 실행별 자리 묶음(Detector 8절 구성원 수)·homeIncidentId. 실행 전 `npm run build`.
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
 import { spawn } from 'node:child_process';
@@ -55,24 +55,29 @@ function writers(client, configId) {
     const obs = await observation(source, 'T', execution, execution ? revision : null);
     await client.query(`INSERT INTO data_transactions(observation_id,transaction_id,interface_id,status,response_code) VALUES($1,$2,$3,'F',$4)`, [obs, tx, iface, code]);
   };
-  /** 판정 1건: 새 실행(또는 같은 실행의 다음 리비전) PROCESS 관측 + 최종 판정(v4 등급). */
+  /**
+   * 판정 1건: 새 실행(또는 같은 실행의 다음 리비전) PROCESS 관측 + 최종 판정(v4 등급).
+   * observation을 주면 그 관측(같은 리비전)을 다시 판정한다(관측·PROCESS 행을 새로 만들지 않음, execution 필수).
+   */
   const decision = async ({ tx, minutes, grade = 'anomaly', execution = null, revision = 1, source, iface = 'IF-INC-1', evidence = v4(grade),
-    channel = 'CH:1', withTransaction = true }) => {
+    channel = 'CH:1', withTransaction = true, observation: reuse = null }) => {
     if (withTransaction && tx.trim() && !transactions.has(`${source}/${tx}`)) { transactions.add(`${source}/${tx}`); await transaction(source, tx, iface); }
     const exec = execution ?? id();
     if (!execution) {
       await client.query(`INSERT INTO data_executions(id,source_id,layer,execution_key,key_parts,key_contract_version,first_observed_at)
         VALUES($1,$2,'P',$3,'{}','v1',clock_timestamp())`, [exec, source, `exec-${exec}`]);
     }
-    const obs = await observation(source, 'P', exec, revision);
-    await client.query(`INSERT INTO data_processes(observation_id,transaction_id,process_id,channel_id,status,response_code)
-      VALUES($1,$2,$3,$4,'F','E500')`, [obs, tx, `P${String(minutes % 7).padStart(2, '0')}`, channel]);
+    const obs = reuse ?? await observation(source, 'P', exec, revision);
+    if (!reuse) {
+      await client.query(`INSERT INTO data_processes(observation_id,transaction_id,process_id,channel_id,status,response_code)
+        VALUES($1,$2,$3,$4,'F','E500')`, [obs, tx, `P${String(minutes % 7).padStart(2, '0')}`, channel]);
+    }
     const decisionId = id();
     await client.query(`INSERT INTO run_process_decisions(id,execution_id,process_observation_id,config_version_id,input_manifest_hash,status,
         rule_status,ml_status,decision_code,evidence,decided_at,latency_status)
       VALUES($1,$2,$3,$4,$5,'complete','succeeded','succeeded',NULL,$6::jsonb,$7,'unavailable')`,
-    [decisionId, exec, obs, configId, sha(obs), JSON.stringify(evidence), at(minutes + 0.5)]);
-    return { id: decisionId, execution: exec };
+    [decisionId, exec, obs, configId, sha(reuse ? decisionId : obs), JSON.stringify(evidence), at(minutes + 0.5)]);
+    return { id: decisionId, execution: exec, observation: obs };
   };
   return { transaction, decision };
 }
@@ -392,12 +397,93 @@ try {
   assert.deepEqual([longDetail.criteria.value, longDetail.criteria.longValue, longDetail.criteria.groupKey], [longCode, true, `response_code:sha256:${sha(longCode)}`]);
   assert.equal((await ok(`/api/analysis/incidents/${L.missing}`)).criteria.value, null);
 
+  // 9) 자리 묶음(Detector incidents.md 8절 구성원 수, worker/tests/test_incidents.py ReadRuleTest 사례를 옮김). 별도 원본, 거래 = 실행 1:1이라
+  //    거래 수 = Detector active_execution_count. 한 실행의 구성원 판정이 두 묶음에 들면 최신 구성원 판정(revision_no DESC, decided_at DESC,
+  //    event_sequence DESC)이 든 묶음(merge_root)에서만 세고, 다른 묶음에서는 해제처럼(세지 않음·minTransactions 제외·released). 기준 버전 고정.
+  const homeSource = await seedAnalysisFixture(pool, { key: `incidents-home-${id()}` });
+  const H = { A: id(), B: id(), V: id(), MA: id(), MB: id() };
+  const HD = {};
+  const homeWriter = await pool.connect();
+  try {
+    await homeWriter.query('BEGIN');
+    const { decision } = writers(homeWriter, fixture.configId);
+    const S = homeSource.sourceId;
+    const d = (name, tx, minutes, spec = {}) => decision({ tx, minutes, source: S, ...spec }).then((value) => { HD[name] = value; });
+    const again = (name, of, tx, minutes, spec = {}) => d(name, tx, minutes, { execution: HD[of].execution, ...spec });
+    await d('x1', 'TX-H1', 3000); await again('x2', 'x1', 'TX-H1', 3005, { revision: 2 }); // r1 A, r2 B → B
+    await d('y1', 'TX-H2', 3001); // A만
+    await d('z1', 'TX-H3', 3002); await again('z2', 'z1', 'TX-H3', 3006, { revision: 2 });
+    await again('z3', 'z1', 'TX-H3', 3010, { revision: 3, grade: 'anomaly_sign' }); // 최신 판정이 아직 구성원 아님(묶음 작업 지연) → 직전 자리 B
+    await d('w1', 'TX-H4', 3003); await again('w2', 'w1', 'TX-H4', 3007, { revision: 2 });
+    await again('w3', 'w1', 'TX-H4', 3011, { revision: 3, grade: 'normal' }); // 최신 정상 → 해제, 자리는 여전히 B
+    await d('v1', 'TX-H5', 3004); await again('v2', 'v1', 'TX-H5', 3008, { revision: 2 }); // v2는 다른 기준 버전 사건 V → A에서는 v1이 자리
+    await d('t1', 'TX-H6', 3009); await again('t2', 't1', 'TX-H6', 3009, { observation: HD.t1.observation }); // 같은 리비전·같은 시각 → 나중 event_sequence(t2, A)
+    await d('u2', 'TX-H7', 3013, { revision: 2 }); await again('u1', 'u2', 'TX-H7', 3020, { revision: 1 }); // 리비전이 시각보다 앞 → u2(A)
+    await d('k1', 'TX-H8', 3014); await again('k2', 'k1', 'TX-H8', 3015, { revision: 2, evidence: { schemaVersion: 3, anomalous: true } });
+    await again('k3', 'k1', 'TX-H8', 3016, { revision: 3 }); // 최신 이상(구성원 아님). 자리 = 자기 등급을 모르는 k2의 B(후보는 등급 무관)
+    await d('p1', 'TX-H11', 3017); await again('p2', 'p1', 'TX-H11', 3102, { revision: 2 }); // r1 B, r2 MB(MA로 병합) → 자리 MA(B 흐름 밖)
+    await d('m1', 'TX-H9', 3100); await again('m2', 'm1', 'TX-H9', 3105, { revision: 2 }); // MA·MB 병합 묶음 안에서 1번
+    await d('n1', 'TX-H10', 3101);
+    const run = id();
+    const crit = (version) => JSON.stringify({ version, gapSeconds: 300, maxSpanSeconds: 3600 });
+    for (const [incidentId, groupKey, minutes, version] of [[H.A, 'response_code:E501', 3000, 'incident-gap-v1'], [H.B, 'response_code:E502', 3005, 'incident-gap-v1'],
+      [H.V, 'response_code:E501', 3008, 'incident-gap-v0'], [H.MA, 'response_code:E503', 3100, 'incident-gap-v1'], [H.MB, 'response_code:E503', 3101, 'incident-gap-v1']]) {
+      await homeWriter.query(`INSERT INTO run_incidents(id,source_id,criteria,criteria_version,group_key,time_basis,opened_at,added_by_run)
+        VALUES($1,$2,$3::jsonb,$4,$5,'decided_at',$6,$7)`, [incidentId, S, crit(version), version, groupKey, at(minutes), run]);
+    }
+    const homeMembers = [[H.A, ['x1', 'y1', 'z1', 'w1', 'v1', 't2', 'u2', 'k1']], [H.B, ['x2', 'z2', 'w2', 't1', 'u1', 'k2', 'p1']], [H.V, ['v2']],
+      [H.MA, ['m1']], [H.MB, ['m2', 'n1', 'p2']]];
+    for (const [incidentId, names] of homeMembers) for (const name of names) {
+      await homeWriter.query(`INSERT INTO run_incident_members(decision_id,incident_id,occurred_at,occurred_basis,added_by_run)
+        SELECT d.id,$2,d.decided_at,'decided_at',$3 FROM run_process_decisions d WHERE d.id=$1`, [HD[name].id, incidentId, run]);
+    }
+    await homeWriter.query(`INSERT INTO run_incident_events(incident_id,kind,target_incident_id,added_by_run) VALUES($1,'merged_into',$2,$3)`, [H.MB, H.MA, run]);
+    await homeWriter.query(`INSERT INTO run_incident_runs(id,source_id,criteria_version,cursor_from,cursor_to,added_members,opened_incidents,merged_incidents,started_at)
+      VALUES($1,$2,'incident-gap-v1',0,0,19,5,1,clock_timestamp())`, [run, S]);
+    await homeWriter.query('COMMIT');
+  } catch (error) {
+    await homeWriter.query('ROLLBACK');
+    throw error;
+  } finally { homeWriter.release(); }
+  const homeFilter = (minTransactions) => ({ from: null, to: null, criteria: null, sourceId: homeSource.sourceId, minTransactions, limit: 20, cursor: null });
+  const homeFlows = Object.fromEntries((await readIncidentList(api, homeFilter(1))).items.map((f) => [f.id, f]));
+  assert.deepEqual(Object.keys(homeFlows).sort(), [H.A, H.B, H.V, H.MA].sort());
+  const homeCounts = (transactions, releasedTransactions, decisions, releasedDecisions) =>
+    ({ transactions, releasedTransactions, decisions, releasedDecisions, missingTransactionId: 0, unknownGrade: 0 });
+  assert.deepEqual(homeFlows[H.A].counts, homeCounts(4, 4, 4, 4),
+    'A counts y, v (other-version member ignored), t (later event_sequence), u (revision before time); x, z (lagging), k home B; w released');
+  assert.deepEqual(homeFlows[H.B].counts, homeCounts(3, 4, 3, 4), 'B counts x, z, k; w released; t, u home A; p home MA');
+  assert.deepEqual(homeFlows[H.V].counts, homeCounts(1, 0, 1, 0), 'home bundle is fixed to the read criteria version');
+  assert.deepEqual([homeFlows[H.MA].counts, homeFlows[H.MA].chain], [homeCounts(3, 0, 4, 0), { length: 1, mergedIncidents: 1 }],
+    'merged incidents are one home bundle (merge_root): m counted once, p counted here');
+  assert.deepEqual((await readIncidentDetail(api, H.B)).counts, homeFlows[H.B].counts, 'detail counts use the same rule');
+  const shownIds = async (n) => (await readIncidentList(api, homeFilter(n))).items.map((f) => f.id).sort();
+  assert.deepEqual(await shownIds(4), [H.A]);
+  assert.deepEqual(await shownIds(2), [H.A, H.B, H.MA].sort(), 'V (1) hidden');
+  assert.deepEqual(await shownIds(5), [], 'members homed elsewhere do not count toward minTransactions (old rule: A 7, B 6)');
+  const homeRows = async (incidentId) => Object.fromEntries((await readIncidentMembers(api, incidentId, 50, null)).items.map((m) => [m.transactionId, m]));
+  const homeOf = (rows, tx) => [tx, rows[tx].released, rows[tx].decisions.map((x) => [x.released, x.homeIncidentId])];
+  const inA = await homeRows(H.A);
+  assert.deepEqual(['TX-H1', 'TX-H2', 'TX-H3', 'TX-H4', 'TX-H5', 'TX-H6', 'TX-H7', 'TX-H8'].map((tx) => homeOf(inA, tx)),
+    [['TX-H1', true, [[true, H.B]]], ['TX-H2', false, [[false, H.A]]], ['TX-H3', true, [[true, H.B]]], ['TX-H4', true, [[true, H.B]]],
+      ['TX-H5', false, [[false, H.A]]], ['TX-H6', false, [[false, H.A]]], ['TX-H7', false, [[false, H.A]]], ['TX-H8', true, [[true, H.B]]]],
+    'members homed elsewhere use the existing released display; released executions keep their home bundle id');
+  assert.deepEqual([inA['TX-H1'].decisions[0].latestGrade, inA['TX-H1'].decisions[0].gradeUnknown], ['anomaly', false], 'homed elsewhere is not an unknown grade');
+  const inB = await homeRows(H.B);
+  assert.deepEqual(['TX-H8', 'TX-H11'].map((tx) => homeOf(inB, tx)), [['TX-H8', false, [[false, H.B]]], ['TX-H11', true, [[true, H.MA]]]],
+    'home outside the read flow resolves through merged_into to its merge_root');
+  assert.equal(inB['TX-H8'].decisions[0].grade, null, 'the home decision itself has an unknown grade (candidates ignore grade)');
+  const inMB = await readIncidentMembers(api, H.MB, 50, null);
+  assert.deepEqual([inMB.id, inMB.items.find((m) => m.transactionId === 'TX-H9').decisions.map((x) => [x.decisionId, x.segmentId, x.released, x.homeIncidentId])],
+    [H.MA, [[HD.m1.id, H.MA, false, H.MA], [HD.m2.id, H.MA, false, H.MA]]]);
+
   console.log('incidents integration passed: auth, 6 flows (merge first, 3-segment chain, cross-version/other-key links flagged by cause), '
     + 'unknown latest grade released (unknownGrade, Detector 8), minTransactions filter (active transactions: retry and released excluded) with keyset paging, read caps (list window truncated without false flags, '
     + 'detail beyond the window, chain walk limit), '
     + 'period/criteria/source filters and cursor, transaction counts with released and missing transaction id, detail id resolution, '
     + 'members by transaction with interface and cursor, 400/404 codes, powercode_api SELECT-only paths, occurred basis counts/rows, '
-    + 'long group key values from source rows (hash-checked, unreadable -> null)');
+    + 'long group key values from source rows (hash-checked, unreadable -> null), '
+    + 'home bundle per execution (Detector 8: counted only where the latest member decision is, released members and other versions handled, homeIncidentId)');
 } finally {
   child?.kill();
   await api.end();

@@ -81,6 +81,8 @@ export type IncidentMemberDecision = {
   latestGrade: IncidentGrade | null;
   /** 최신 판정 등급을 모름(이상·이상 징후가 아니므로 해제, Detector 8절). */
   gradeUnknown: boolean;
+  /** 실행의 자리 묶음 id(병합 뿌리, Detector 8절). 이 구간이 아니면 released(표시는 해제와 같음). 화면 표시는 아직 쓰지 않음. */
+  homeIncidentId: string | null;
 };
 export type IncidentMemberRow = {
   key: string;
@@ -199,6 +201,7 @@ const parseDecision = (v: unknown): IncidentMemberDecision[] =>
           latestDecisionId: text(v.latestDecisionId),
           latestGrade: oneOf(v.latestGrade, grades),
           gradeUnknown: v.gradeUnknown === true,
+          homeIncidentId: text(v.homeIncidentId),
         },
       ]
     : [];

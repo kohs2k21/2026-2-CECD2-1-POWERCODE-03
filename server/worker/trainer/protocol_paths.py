@@ -7,7 +7,7 @@
 - 채널 = PROCESS 행 `channel_id` 원래 값. 경로 = 시작 단계(DEPEND_PROCESS_ID가 정확히 `NONE`)부터 DEPEND 사슬을 따라
   끝 단계까지 간 채널 목록. 연속 같은 채널을 합치지 않는다(위치 = 단계). 갈라지면 끝 단계마다 경로 1개
 - 한 거래에서 어느 단계든 걸리면 그 거래 경로 전체를 버리고 사유 하나만 센다. 사유가 여럿이면 3.2 단계 번호가 작은 것,
-  같은 단계면 3.4 표 순서(`graph_truncated`는 가장 먼저) — protocol-rules.md 3.4 사유 선택 전체 순서(fafc630)
+  같은 단계면 3.4 표 순서(`graph_truncated`는 가장 먼저) — protocol-rules.md 3.4 사유 선택 전체 순서
 - 인터페이스별 출력 경로는 저장 상한(4절, 항목당 64개)에 맞춰 앞 64개만 내고 나머지는 `omittedPaths`로 요약한다
 - 거래 단위로 경로를 계산해 인터페이스별 카운터(경로마다 건수·예시 ≤ 5)만 남긴다. 거래 원본은 보관하지 않는다
 """
@@ -41,7 +41,7 @@ DEFINITION = ("protocol-rules.md 3.2: channel = data_processes.channel_id raw va
               "(DEPEND_PROCESS_ID exactly NONE after ASCII space/tab/CR/LF trim) along the DEPEND chain to each end step; "
               "consecutive equal channels are not merged; one path per end step when branching")
 REASON_RULE = ("one reason per excluded transaction: smallest protocol-rules.md 3.2 step, ties by the 3.4 table order "
-               "(graph_truncated first) - protocol-rules.md 3.4 full reason selection order (fafc630)")
+               "(graph_truncated first) - protocol-rules.md 3.4 full reason selection order")
 COUNTING_RULE = ("transactions with a TRANSACTION row only, latest revision per execution (same rows as relation "
                  "candidates). A path is counted once per transaction even if several end steps give the same channels. "
                  "ratio = path transactions / pathTransactions (branching transactions add to several paths, so ratios "

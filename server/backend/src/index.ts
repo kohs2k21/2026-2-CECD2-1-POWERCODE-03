@@ -18,6 +18,7 @@ import preparedDatasetRouter from './routes/preparedDatasetRoutes.js';
 import { createMeRouter, createNotificationRouter } from './routes/notificationRoutes.js';
 import { createActiveModelRouter, createOperationalStateRouter } from './routes/activeModelRoutes.js';
 import { createComparisonRouter, createEvaluationSetRouter } from './routes/comparisonRoutes.js';
+import llmRouter from './routes/llmRoutes.js';
 import { checkDatabaseConnection } from './config/database.js';
 
 const app = express();
@@ -67,6 +68,8 @@ app.use('/api/active-models', createActiveModelRouter());
 app.use('/api/operational-state', createOperationalStateRouter());
 app.use('/api/evaluation-sets', createEvaluationSetRouter());
 app.use('/api/comparisons', createComparisonRouter());
+// LLM 생성 서비스 가용성(llm-recommendation-job.md '생성 서비스 가용성' 절)
+app.use('/api/llm', llmRouter);
 
 // 공통 오류 처리
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {

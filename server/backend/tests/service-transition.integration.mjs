@@ -6,6 +6,7 @@ import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import net from 'node:net';
 import pg from 'pg';
+import {startFakeLlmHealth} from './fake-llm-health.mjs';
 
 const url=process.env.PIPELINE_TEST_DATABASE_URL;
 const parsed=new URL(url);
@@ -14,13 +15,15 @@ const directory=await mkdtemp(path.join(os.tmpdir(),'pwc-transition-api-'));
 const pool=new pg.Pool({connectionString:url});
 const backend=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 let child;
+// 설명 요청은 LLM 생성 서비스 가용성을 먼저 본다(llm-recommendation-job.md '생성 서비스 가용성' 절). 켜진 상태의 가짜 /health.
+const llmHealth=await startFakeLlmHealth('ready');
 const controller=new AbortController();
 try {
  const socket=net.createServer();await new Promise(resolve=>socket.listen(0,'127.0.0.1',resolve));
  const port=socket.address().port;await new Promise(resolve=>socket.close(resolve));
  child=spawn(process.execPath,[path.join(backend,'dist/index.js')],{cwd:directory,stdio:'ignore',env:{PATH:process.env.PATH,
   DATABASE_URL:url,JWT_SECRET:'local-transition-secret',USER_DATA_PATH:path.join(directory,'users.json'),PORT:String(port),
-  SEED_ADMIN_EMAIL:'admin@example.test',SEED_ADMIN_PASSWORD:'test-password',SEED_USER_EMAIL:'user@example.test',SEED_USER_PASSWORD:'test-password'}});
+  SEED_ADMIN_EMAIL:'admin@example.test',SEED_ADMIN_PASSWORD:'test-password',SEED_USER_EMAIL:'user@example.test',SEED_USER_PASSWORD:'test-password',LLM_HEALTH_URL:llmHealth.url}});
  const base=`http://127.0.0.1:${port}`;
  for(let i=0;i<50;i++){try{if((await fetch(base+'/health')).ok)break;}catch{}await new Promise(resolve=>setTimeout(resolve,100));}
  const login=async email=>(await (await fetch(base+'/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password:'test-password'})})).json()).token;
@@ -51,4 +54,4 @@ try {
  clearTimeout(timeout);assert(buffer.includes('event: decision'));assert(buffer.includes('"ruleStatus"'));assert(buffer.includes('"evidence"'));controller.abort();
  const invalid=await fetch(base+'/api/pipeline/events',{headers:{Authorization:`Bearer ${token}`,'Last-Event-ID':'9999999999999999999'}});assert.equal(invalid.status,400);
  console.log('PASS: user explanation requests, cached reuse, actor isolation, strict mode policy, saved-decision SSE, cursor bounds');
-} finally {controller.abort();if(child && child.exitCode===null){child.kill();await new Promise(resolve=>child.once('exit',resolve));}await pool.end();await rm(directory,{recursive:true,force:true});}
+} finally {controller.abort();if(child && child.exitCode===null){child.kill();await new Promise(resolve=>child.once('exit',resolve));}await llmHealth.close();await pool.end();await rm(directory,{recursive:true,force:true});}

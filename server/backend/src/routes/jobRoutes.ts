@@ -15,6 +15,7 @@ import { ThresholdRequestError, fixThresholdTargets, parseThresholdRequest, thre
 import { ComparisonError, enqueueComparison, parseComparisonRequest } from '../services/comparisonEvaluation.js';
 import { idempotencyKeyOf } from './comparisonRoutes.js';
 import { JobReadError, parseJobListQuery, readJobDetail, readJobPage } from '../services/jobReadModel.js';
+import { GENERATION_SERVICE_UNAVAILABLE, LLM_JOB_KINDS, generationAvailability } from '../services/generationAvailability.js';
 
 const router = Router();
 router.use(authenticateToken as any);
@@ -198,6 +199,11 @@ router.post('/', route(async (req, res) => {
   const header = req.headers['idempotency-key'];
   if (header !== undefined && (typeof header !== 'string' || !/^[a-zA-Z0-9_.:-]{1,128}$/.test(header))) {
     throw new JobRequestError('invalid_idempotency_key');
+  }
+  // LLM 생성 서비스가 꺼져 있으면 LLM 작업은 접수하지 않는다(llm-recommendation-job.md '생성 서비스 가용성' 절).
+  // 트랜잭션·멱등 처리보다 먼저 확인해 작업 행·큐 메시지·멱등키를 남기지 않는다(같은 키로 다시 요청할 수 있음).
+  if (LLM_JOB_KINDS.has(input.kind) && !(await generationAvailability().check()).available) {
+    throw new JobRequestError(GENERATION_SERVICE_UNAVAILABLE, 503);
   }
   const idempotencyKey = header ?? crypto.randomUUID();
   let requestHash = crypto.createHash('sha256').update(JSON.stringify(input)).digest('hex');

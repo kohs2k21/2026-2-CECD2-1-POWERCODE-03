@@ -5,6 +5,9 @@ import { SectionCard } from "@/components/layout/SectionCard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ErrorState, LoadingState } from "@/components/ui/feedback";
+import { useLlmStatus } from "@/hooks/useLlmStatus";
+import { HttpError } from "@/services/api/client";
+import { GENERATION_SERVICE_UNAVAILABLE } from "@/services/api/llm.api";
 import type { PipelineJob } from "@/services/api/pipeline.api";
 import { motionTransition } from "@/lib/motion";
 import type { DecisionDetail } from "../data/analysisApi";
@@ -21,6 +24,8 @@ const factValue = (value: unknown) => (typeof value === "string" ? value : JSON.
  * AI 판정 근거 요약(POST /api/jobs {kind:"explain"} + GET /api/jobs/:id). 최종 판정만 요청할 수 있다.
  * 제목·요청 버튼 아이콘은 #100 이전 LLM Report(LlmSection)의 IconBrain.
  * 요청 중(queued·running)일 때만 5초마다 결과를 조회하고, 실패·대기는 작업 상태 그대로 보여 준다.
+ * LLM 생성 서비스가 꺼져 있으면(GET /api/llm/status, llm-recommendation-job.md '생성 서비스 가용성' 절) 요청 버튼을 막고 코드를 그대로 보인다.
+ * 이미 요청 중인 작업은 `요청 중` 표시를 두고 같은 줄에 코드를 함께 보인다.
  */
 export const ExplainPanel = ({ detail }: { detail: DecisionDetail }) => {
   const finalReady = detail.kind === "final";
@@ -48,8 +53,14 @@ export const ExplainPanel = ({ detail }: { detail: DecisionDetail }) => {
 
 const ExplainBody = ({ detail }: { detail: DecisionDetail }) => {
   const { jobId, job, request } = useExplainJob(detail);
+  const llm = useLlmStatus();
   const current = job.data;
   const running = request.isPending || jobPending(current);
+  // 상태 조회가 늦어 접수에서 거절됐으면(503) 가용성을 바로 다시 읽어 버튼 상태를 맞춘다.
+  const { refresh } = llm;
+  useEffect(() => {
+    if (request.error instanceof HttpError && request.error.code === GENERATION_SERVICE_UNAVAILABLE) void refresh();
+  }, [request.error, refresh]);
   const failed = current?.status === "failed";
   // 기존 설명 작업(jobId)을 아직 읽지 못했거나 읽기에 실패하면 새 요청을 막는다(중복 요청 방지, 오류는 그대로 표시·다시 시도).
   const lookupBlocked = Boolean(jobId) && !current && (job.isPending || job.isError);
@@ -75,6 +86,7 @@ const ExplainBody = ({ detail }: { detail: DecisionDetail }) => {
           <span className="text-muted-foreground">
             설명 작업 {jobStatusLabels[current.status] ?? current.status}
             {current.errorCode ? ` · ${current.errorCode}` : ""}
+            {running && llm.unavailableCode ? ` · ${llm.unavailableCode}` : ""}
           </span>
         </div>
       )}
@@ -87,11 +99,16 @@ const ExplainBody = ({ detail }: { detail: DecisionDetail }) => {
       {current?.status === "succeeded" && <ExplainResult key={current.id} summary={current.resultSummary} fresh={fresh} />}
       {request.isError && <ErrorState title={errorText(request.error)} />}
       {(!current || failed) && (
-        <div>
-          <Button variant="outline" size="sm" disabled={running || lookupBlocked} onClick={() => request.mutate()}>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="outline" size="sm" disabled={running || lookupBlocked || Boolean(llm.unavailableCode)} onClick={() => request.mutate()}>
             <IconBrain aria-hidden="true" />
             {failed ? "설명 다시 요청" : "설명 요청"}
           </Button>
+          {llm.unavailableCode && !running && (
+            <span data-llm-unavailable="" className="text-destructive-text">
+              설명 요청 · {llm.unavailableCode}
+            </span>
+          )}
         </div>
       )}
       <p className="text-xs text-muted-foreground">설명은 저장된 근거를 문장으로 풀 뿐, 이상 신호·검사 완료를 바꾸지 않습니다.</p>

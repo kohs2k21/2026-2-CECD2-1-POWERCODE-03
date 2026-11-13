@@ -10,6 +10,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import pg from 'pg';
+import { startFakeLlmHealth } from './fake-llm-health.mjs';
 import { seedAnalysisFixture, seedAnalysisV04Fixture, seedParentlessDecisions } from './analysis-fixture.mjs';
 
 const url = process.env.PIPELINE_TEST_DATABASE_URL;
@@ -22,6 +23,8 @@ const backend = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const temporary = await mkdtemp(path.join(os.tmpdir(), 'powercode-analysis-'));
 const pool = new pg.Pool({ connectionString: url });
 let child;
+// 설명 요청은 LLM 생성 서비스 가용성을 먼저 본다(llm-recommendation-job.md '생성 서비스 가용성' 절). 켜진 상태의 가짜 /health.
+const llmHealth = await startFakeLlmHealth('ready');
 
 async function freePort() {
   const server = net.createServer();
@@ -61,7 +64,7 @@ try {
     JWT_SECRET: 'qa-analysis-local-only-secret',
     SEED_USER_EMAIL: 'analysis-user@example.test', SEED_USER_PASSWORD: 'qa-analysis-local-only-password',
     SEED_ADMIN_EMAIL: 'analysis-admin@example.test', SEED_ADMIN_PASSWORD: 'qa-analysis-admin-local-only',
-    USER_DATA_PATH: path.join(temporary, 'users.json'), PORT: String(await freePort()),
+    USER_DATA_PATH: path.join(temporary, 'users.json'), PORT: String(await freePort()), LLM_HEALTH_URL: llmHealth.url,
     DOTENV_CONFIG_PATH: path.join(temporary, 'no-local-env-file') };
   const base = await startServer(environment);
   const login = async (email, password) => (await request(base, '/api/auth/login', 'POST', undefined, { email, password })).body.token;
@@ -646,6 +649,7 @@ try {
     + 'admin-only feedback, per-user read marks, process flow without BODY, SSE interim events, v04 items and explanations without a configuration, 503');
 } finally {
   await stopChild();
+  await llmHealth.close();
   await pool.end();
   await rm(temporary, { recursive: true, force: true });
 }

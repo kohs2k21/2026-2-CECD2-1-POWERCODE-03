@@ -9,9 +9,13 @@ import { fileURLToPath } from 'node:url';
 import express from 'express';
 import jwt from 'jsonwebtoken';
 import pg from 'pg';
+import { startFakeLlmHealth } from './fake-llm-health.mjs';
 
 const temporary = await mkdtemp(path.join(os.tmpdir(), 'powercode-thresholds-'));
+// LLM 작업 접수는 생성 서비스 가용성을 먼저 본다(llm-recommendation-job.md '생성 서비스 가용성' 절). 이 시험은 켜진 상태의 가짜 /health를 쓴다.
+const llmHealth = await startFakeLlmHealth('ready');
 Object.assign(process.env, {
+  LLM_HEALTH_URL: llmHealth.url,
   JWT_SECRET: 'unit-only-secret', DATABASE_URL: 'postgresql://unit.invalid/never_connected', USER_DATA_PATH: path.join(temporary, 'users.json'),
   SEED_ADMIN_EMAIL: 'thresholds-admin@example.test', SEED_ADMIN_PASSWORD: 'unit-only-password',
   SEED_USER_EMAIL: 'thresholds-user@example.test', SEED_USER_PASSWORD: 'unit-only-password',
@@ -108,6 +112,7 @@ before(async () => {
 beforeEach(reset);
 after(async () => {
   await new Promise((resolve) => server.close(resolve));
+  await llmHealth.close();
   await rm(temporary, { recursive: true, force: true });
 });
 

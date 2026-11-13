@@ -1,5 +1,5 @@
 Created: 2026-11-04T22:00:00+09:00
-Updated: 2026-11-13T20:45:00+09:00
+Updated: 2026-11-14T01:40:00+09:00
 Author: #109 Claude Code(WebUI builder)
 Status: current
 
@@ -73,7 +73,7 @@ Status: current
 - 요청: `POST /api/jobs` `{kind: "recommend_thresholds", sourceId, ruleSetRevision, scope: {softRuleIds: null}, data, mode: "data_p95_with_llm_rationale"}`, 실행마다 새 `Idempotency-Key`. 결과는 `GET /api/jobs/:id`의 `resultSummary`(`threshold-recommendation-v1`), 진행 중만 5초 조회
 - 폐지된 작업 종류: `POST /api/jobs`의 `kind`가 `recommend_feature`·`recommend_rule`(llm-recommendation-job.md 폐지 표)이면 역할과 무관하게 422 `job_kind_abolished`이고 작업 행·큐 메시지를 남기지 않는다(다른 키 검사보다 먼저). 이미 끝난 옛 작업의 읽기(`GET /api/jobs`·`/:id`)와 `recommend_rule` 결과 채택(`POST /api/jobs/:id/recommendations/:index/adopt`)은 그대로다(같은 표 "기존 결과 읽기 보존"). 화면·데모는 두 종류를 보내지 않는다
 - 와이어프레임에 기간 입력이 없어 `data`는 `{snapshotId: null, from: 3개월 전, until: 지금, timeBasis: "persisted_at"}`로 고정한다(수식 추천의 시간 기준과 같음). 출처가 여럿이면 머리글에 `출처` 선택
-- 버튼: 저장된 켜진 규칙이 없으면 비활성. 대상이 저장된 버전이라 미저장 변경이 있어도 비활성이고 `저장 후 추천`을 표시한다(계약 `ruleSetRevision`). 출처 조회 실패는 `출처 조회 실패 · <코드>`, 출처가 없으면 `저장된 데이터 출처가 없습니다.`로 이유를 표시. 저장으로 버전이 바뀌면 결과를 닫되 실패 표시는 남긴다
+- 버튼: 저장된 켜진 규칙이 없으면 비활성. 대상이 저장된 버전이라 미저장 변경이 있어도 비활성이고 `저장 후 추천`을 표시한다(계약 `ruleSetRevision`). 출처 조회 실패는 `출처 조회 실패 · <코드>`, 출처가 없으면 `저장된 데이터 출처가 없습니다.`로 이유를 표시. LLM 생성 서비스가 꺼져 있으면(`GET /api/llm/status`, 화면에 들어갈 때 1회 + 30초마다, [llm-recommendation-job.md](llm-recommendation-job.md) 가용성 절) 비활성 + `AI 규칙 추천 · generation_service_unavailable`, 실행 중이면 실행 줄에 코드를 덧붙인다(수식 추천은 막지 않음, 상태 조회 실패도 막지 않음 — 접수 503). 저장으로 버전이 바뀌면 결과를 닫되 실패 표시는 남긴다
 - 표시 대상은 LLM 원본 출력(state·basis·condition·reason)이 아니라 서버가 코드 계산값과 합친 `threshold-recommendation-v1`이다. 계약 필드는 그대로 받고 표시만 합친다
 - 실행 중 → 결과 표 5열(사용자 11/04) → `적용`
   - `선택`: 상태가 `제안`인 행만(기본 선택)

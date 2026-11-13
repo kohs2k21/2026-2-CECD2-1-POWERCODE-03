@@ -1,5 +1,5 @@
 Created: 2026-10-21T00:00:00+09:00
-Updated: 2026-11-13T21:00:00+09:00
+Updated: 2026-11-14T01:40:00+09:00
 Author: Claude Code (Trainer 세션 builder)
 Status: draft
 
@@ -11,6 +11,7 @@ Status: draft
 - 3차 정정(Issue #116, 11/04): 수식 추천 SQL 번역의 `datetime_diff` 원천을 `parsed_times`가 아니라 `data_observations.allowed_values`의 `start_time_raw`·`end_time_raw`로 정정(Detector 11/04 확인, #112). 결측·해석 실패 처리를 카탈로그 `sourceMissingPolicy`와 일치시킴
 - 4차 정정(Issue #121, 11/05): API 접수 구현과 워커 실제 동작에 맞춤. 결과 형식 `threshold-recommendation-v1`은 그대로. 요청 예시를 화면과 같은 `persisted_at` 기간으로, `input_spec`·`llm_spec` 키와 값 고정(`input_evidence_hash` = API 요청 hash, `prompt_version` 고정 이름), `current_rules` 문맥 없음, 1단계에서 `request_evidence`·`deferred` 미도달, 정수 필드 `ROUND_HALF_UP`, 실패 표 코드 추가, `generation_timeout`은 이 작업 종류만
 - 5차 정정(11/13, LLM 세션): 설명 전용 소비자 추가, 생성 서비스 GPU 차례를 대화형 설명 우선으로 — `explain` 대기 상한 `LLM_EXPLANATION_WAIT_SECONDS`·오류 코드 `generation_busy` 추가(아래 GPU 차례 절). 작업 종류·결과 형식·추천 생성 시간·출력 한도는 그대로
+- 6차 정정(11/14, 사용자 결정·LLM 세션 초안): 생성 서비스 가용성 — `GET /api/llm/status` 신설, 꺼져 있으면 `POST /api/jobs`의 LLM 작업(`explain`·`recommend_thresholds`)을 503 `generation_service_unavailable`로 접수 거절(작업·멱등키 없음), 화면은 요청 버튼 비활성 + 코드(아래 가용성 절). 작업 형식·결과 형식은 그대로
 - 계약 버전: `threshold-recommendation-v1`. 근거 코드 origin/dev `7f24e03`: `worker/research_design.py:36-44`(summary·p95 `np.quantile` linear), `:154-199`(`rule_request` — 기준선 = train 분할·anomaly 라벨 제외 p95, `minimum_n 20`, 단위 `count|ratio|ms|s|us`), `:202-234`(`recommend_rules` — 변수당 LLM 1회 순차, 검증 탈락은 변수만 제외, `str(request["baseline"]["value"])`로 DSL 값 생성), `worker/generation_client.py:54-55`(`TimeoutError`를 `generation_service_unavailable`로 묶음), `backend/src/rules/ruleContract.ts:17`(DSL 십진수 정규식, 지수 표기 거부)
 - 상위 결정: 사용자 11/02 결정 — 임계값 산출 주체(8.1), AI 추천 단위 일괄 + 규칙별 수식(R5), 현재 코드 실행 조사(9.1), 화면 설계(9.2: (가)(나) 모두 담고 (가)로 먼저 연결). 절 번호는 총괄 기록 기준
 - 범위: 작업 요청·입력 범위·추천 1건 형식·상태·실패/시간 초과 구분·임계값 직렬화 규칙·수식 추천 API·마이그레이션 영향. 제외: 프롬프트·어댑터 연구(LLM 담당 팀원), GPU 배포, 자동 적용(추천은 입력칸 채우기까지, 운영 반영은 [rule-set.md](rule-set.md) 저장)
@@ -161,6 +162,22 @@ Status: draft
 - 소비자: `llm_worker`는 같은 모델로 두 소비자를 돌림 — 주 소비자(역할 `llm`, 기존 교대 소비 `llm_recommendation`↔`llm_explanation` 그대로)와 설명 전용 소비자(역할 `llm_explanation`, `llm_explanation` 큐 + 이전 `training` 큐의 `explain`만, 자기 큐만 정리). 추천 생성이 GPU를 쓰는 동안 설명 전용 소비자가 받은 설명은 다음 차례에 먼저 들어감. 설명 전용 소비자가 예외로 끝나면 기록 후 5초 뒤 다시 시작하고, 그동안 설명은 주 소비자가 처리
 - 같은 순서가 HTTP `/generate` 요청에도 적용됨(한 프로세스 안의 모든 생성 호출)
 
+## 생성 서비스 가용성 — 꺼져 있으면 LLM 작업 접수 거절 [확정 사용자 11/14]
+
+- 배경: 생성 서비스(`llm` 컨테이너)가 꺼져 있으면 LLM 작업이 소비자 없이 `queued`로 남고 화면은 `요청 중`을 계속 보인다. 사용자 결정 = 요청 버튼 비활성 + 상태 코드, 안내 문구 추가 없음
+- API 내부 확인: `GET ${LLM_HEALTH_URL:-http://llm:8010/health}`, 제한 1.5초(연결부터 응답 본문까지 전체). 가용 = HTTP 200이고 본문 `status`가 `"ready"`(`generation_service.serve`의 `/health` 응답). 연결 거부·DNS 실패·시간 초과·200 아님(3xx는 따라가지 않음)·본문 형식 틀림(JSON 아님·4KB 초과·`status`가 다름)은 모두 꺼짐
+- 의미: `llm_worker`는 모델을 적재한 뒤에야 HTTP를 띄우고 주 소비자가 끝나면 프로세스도 끝난다 → `/health` 200 = 모델 적재 + 소비자 살아 있음. 적재 중(`/health` 없음)은 꺼짐
+- 캐시: 가용·꺼짐 결과 모두 확인이 끝난 시각부터 10초(API 프로세스 메모리, 재시작하면 비어 있음). 확인 중에 들어온 요청은 같은 확인을 기다린다 — 동시 요청이 몰려도 `/health`는 한 번
+- `GET /api/llm/status`(로그인 사용자, 역할 무관, 미인증 401) → `{"available": boolean, "checkedAt": "<ISO>", "errorCode": null | "generation_service_unavailable"}`. `available=false`면 `errorCode`는 늘 `generation_service_unavailable`. `checkedAt`은 그 결과를 얻은 확인 시각(캐시된 결과면 캐시된 시각). `Cache-Control: no-store`
+- 접수 거절: `POST /api/jobs` 중 LLM 작업 종류만 — `explain`·`recommend_thresholds`(코드 상수 `LLM_JOB_KINDS` 하나, `backend/src/services/generationAvailability.ts`. 프로토콜 설명 등 새 LLM 작업 종류는 이 집합에 더한다). 확인 결과가 꺼짐이면 HTTP 503 `{"code":"generation_service_unavailable"}`
+  - 순서: 요청 형식(400)·폐지 종류(422)·역할(403)·멱등키 형식(400) 검사 뒤, 트랜잭션·멱등 처리·출처·판정 조회 전. 작업 행·큐 메시지·멱등키를 남기지 않으므로 켜진 뒤 같은 `Idempotency-Key`로 다시 요청할 수 있다
+  - 기존 결과 재사용(`reuse_key`)도 확인 뒤이므로 꺼짐이면 같은 503이다. 이미 끝난 결과 읽기(`GET /api/jobs/:id`, 판정 상세 `explanation`)는 영향 없음
+- 구분: `generation_busy`(GPU 차례 대기 초과, 서비스는 살아 있음, 작업 오류 코드 — GPU 차례 절)와 다르다. 워커 작업 실패 코드 `generation_service_unavailable`(실패 표 첫 줄 — 접수 뒤 생성 호출 실패)과 이름이 같지만, 이것은 접수 단계 HTTP 응답이고 작업이 생기지 않는다
+- 막지 않는 것: `POST /api/rule-set/threshold-stats`(코드 p95, LLM 없음), LLM이 아닌 작업 종류(`train`·`evaluate`·`compare`·`recommend_relations` 등), 이미 `queued`·`running`인 LLM 작업(그대로 두고 생성 서비스가 켜지면 소비)
+- 화면: LLM 요청 버튼이 있는 화면(이상 분석 판정 상세 `AI 판정 근거 요약`, 룰 설정 `AI 규칙 추천`)은 들어갈 때 1회 + 그 화면에 있는 동안 30초마다 조회한다. 꺼짐이면 요청 버튼 비활성 + `<항목> · generation_service_unavailable`(새 설명 문장·배지 없음), 이미 요청 중인 작업은 `요청 중` 표시를 그대로 두고 같은 자리에 코드를 함께 보인다. 상태 조회 자체가 실패하면(네트워크 등) 버튼을 막지 않는다 — 서버가 접수에서 같은 확인으로 503을 돌려준다. 세부는 [analysis-ui.md](analysis-ui.md)·[rules-ui.md](rules-ui.md)
+- 배포: compose에 `LLM_HEALTH_URL`을 두지 않는다 — 기본값이 `infra/compose.yaml`의 `llm` 서비스(`api`와 같은 `runtime` 네트워크, `DESIGN_MODEL_HOST: 0.0.0.0`, `serve` 기본 포트 8010, healthcheck도 같은 `/health`)와 맞다. `llm` 서비스가 없는 구성(`compose.demo.yaml`)은 DNS 실패 → 꺼짐. 주소가 다를 때만 `api` 환경에 넣는다(빈 값은 기본값)
+- 시험: `backend/tests/generation-availability.test.mjs`(가짜 `/health`: ready·503·loading·JSON 아님·응답 없음·연결 거부·DNS 실패·10초 캐시·확인 공유), `backend/tests/jobs.integration.mjs`(꺼짐 → 상태 조회·503·작업/큐/멱등키 없음·LLM 아닌 작업 접수, 켜진 뒤 같은 멱등키 201). LLM 작업을 접수하는 다른 통합 시험은 켜진 상태의 가짜 `/health`(`backend/tests/fake-llm-health.mjs`)를 쓴다
+
 ## 규칙별 수식 추천 — `POST /api/rule-set/threshold-stats` [신규, 관리자, 동기, LLM 없음]
 
 - 용도: 규칙 행 [수식 추천] — 선택 기간 데이터의 p95를 바로 계산해 값·표본 수를 보여 주고 [적용]으로 입력칸에 채움(11/02 9.2). 작업 큐·LLM 호출 없음. 기준 기간은 **세 가지 중 선택** [확정 11/02 9.4]: (a) 현재 운영 ML 모델이 학습에 쓴 **첫 기간 시작 ~ 현재** (b) 최근 1개월·3개월 (c) 사용자 지정 기간
@@ -210,6 +227,7 @@ Status: draft
 | 화면 | API |
 |---|---|
 | [AI 규칙 추천](화면 이름, 사용자 11/04) 실행 중(진행 표시) | `status` queued/running; 같은 멱등키 재요청은 `reuse_key`로 기존 작업 |
+| 생성 서비스 꺼짐: [AI 규칙 추천] 비활성 + `AI 규칙 추천 · generation_service_unavailable`, 실행 중이면 같은 줄에 코드 | `GET /api/llm/status` `available=false`, 접수는 503 `generation_service_unavailable`(가용성 절) |
 | 결과 표 5열(선택/규칙(대상 필드)/임계값(현재 → 추천, 조건·단위 포함, 원값 툴팁)/상태/근거, 사용자 11/04) | `items[]` 그대로 받고 표시만 합침. 출처 `source`(데이터 p95 / AI 제안)는 근거 칸 첫 줄 |
 | [적용] | 서버 호출 없음 — 입력칸 채움, 위험도 기본 주의, 저장해야 운영 반영 |
 | 실패 + [다시 시도] | `failed` + `errorCode`(부분 결과 없음). 새 멱등키로 재요청 |

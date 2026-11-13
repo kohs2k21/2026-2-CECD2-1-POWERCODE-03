@@ -950,6 +950,16 @@ const calls = (method, path) => requested.filter((call) => call.method === metho
   await wait(() => noSource.shown().includes("저장된 데이터 출처가 없습니다."), "no source reason");
   assert.equal(noSource.button("AI 규칙 추천").props.disabled, true);
   await noSource.cleanup();
+  // LLM 생성 서비스 꺼짐(GET /api/llm/status available=false, llm-recommendation-job.md '생성 서비스 가용성' 절): 버튼 비활성 + 코드 그대로.
+  // 수식 추천(LLM 없음)은 막지 않는다. 상태 조회 실패(이 파일의 다른 시험처럼 경로 없음 → 503)면 위 시험처럼 막지 않는다.
+  routes = baseRoutes({ "GET /api/llm/status": () => json({ available: false, checkedAt: "2026-11-14T01:00:00.000Z", errorCode: "generation_service_unavailable" }) });
+  const postsBefore = calls("POST", "/api/jobs").length;
+  const off = await mount();
+  await wait(() => off.shown().includes("AI 규칙 추천 · generation_service_unavailable"), "unavailable code shown");
+  assert.equal(off.button("AI 규칙 추천").props.disabled, true, "AI rule recommendation disabled while the generation service is off");
+  assert.notEqual(off.button("수식 추천").props.disabled, true, "formula recommendation is not gated");
+  assert.equal(calls("POST", "/api/jobs").length, postsBefore, "no job request");
+  await off.cleanup();
 }
 
 // 8) 조회 실패는 빈 룰로 보이지 않는다.

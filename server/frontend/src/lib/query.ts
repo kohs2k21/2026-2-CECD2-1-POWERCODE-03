@@ -13,7 +13,7 @@ import { getStoredToken } from "@/services/auth/session";
  * - 조회 key에 계정 ID를 넣는다(계정별 캐시). 계정 변경 시 AuthSessionProvider가 캐시 전체를 비운다.
  * - queryFn은 AbortSignal을 받는다. 응답이 돌아왔을 때 토큰이 바뀌었으면 결과를 버린다(AbortError).
  * - 자동 재시도·창 포커스·재연결·주기 재조회 없음(404 포함 재시도 없음).
- * - 주기 조회는 진행 중 작업만 5초(RUNNING_POLL_MS). 끝나면 멈춘다.
+ * - 주기 조회는 진행 중 작업만 5초(RUNNING_POLL_MS). 끝나면 멈춘다. 예외: 호출자가 `pollMs`를 정한 조회(LLM 생성 서비스 가용성 30초)만 그 간격.
  */
 export const RUNNING_POLL_MS = 5_000;
 
@@ -66,9 +66,11 @@ type AccountQueryOptions<T> = {
   isRunning?: (data: T | undefined) => boolean;
   /** 조회 조건(페이지·필터)이 바뀌는 동안 직전 결과를 유지(placeholder, isPlaceholderData=true). */
   keepPrevious?: boolean;
+  /** 고정 간격 주기 조회(ms). 화면에 있는 동안만(구독이 있을 때) 돈다. isRunning이 있으면 isRunning이 우선. */
+  pollMs?: number;
 };
 
-/** 공통 Query 훅: 계정별 key·AbortSignal·세션 검증·자동 재조회 없음·진행 중만 5초 폴링. */
+/** 공통 Query 훅: 계정별 key·AbortSignal·세션 검증·자동 재조회 없음·진행 중만 5초 폴링(또는 `pollMs` 고정 간격). */
 export const useAccountQuery = <T>({
   name,
   params = [],
@@ -78,6 +80,7 @@ export const useAccountQuery = <T>({
   staleTime = 30_000,
   isRunning,
   keepPrevious = false,
+  pollMs,
 }: AccountQueryOptions<T>): UseQueryResult<T> & { queryKey: QueryKey } => {
   const { user } = useAuthSession();
   const queryKey = accountQueryKey(name, user?.id, ...params);
@@ -88,7 +91,7 @@ export const useAccountQuery = <T>({
     enabled: enabled && allowed,
     staleTime,
     ...queryDefaults,
-    refetchInterval: isRunning ? pollWhileRunning(isRunning) : false,
+    refetchInterval: isRunning ? pollWhileRunning(isRunning) : (pollMs ?? false),
     // 계정이 바뀌면 AppLayout 아래가 다시 마운트되고 캐시도 비워져 이전 계정 결과는 남지 않는다.
     placeholderData: keepPrevious ? keepPreviousData : undefined,
   });

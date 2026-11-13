@@ -7,11 +7,13 @@ import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select"
 import { Progress } from "@/components/ui/progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useSourcesQuery } from "@/features/operations/data/inputs";
+import { useLlmStatus } from "@/hooks/useLlmStatus";
 import { DASH, numberText } from "@/features/operations/format";
 import { useAccountQuery } from "@/lib/query";
 import { cn } from "@/lib/utils";
 import { HttpError } from "@/services/api/client";
 import { jobRequestKey } from "@/services/api/job-idempotency";
+import { GENERATION_SERVICE_UNAVAILABLE } from "@/services/api/llm.api";
 import { fetchPipelineJob, type PipelineJob } from "@/services/api/pipeline.api";
 import { useAuthSession } from "@/services/auth/AuthSessionProvider";
 import { SOFT_TERM, errorCode, numberLabel, operatorLabels, type DraftSoftRule, type RuleDraft } from "./ruleDraft";
@@ -35,10 +37,15 @@ type AiRun =
 
 const pending = (job: PipelineJob | undefined) => job?.status === "queued" || job?.status === "running";
 
-/** 작업 실행·결과 상태. 대상은 저장된 버전이라 미저장 변경이 있으면 시작하지 않는다(화면은 `저장 후 추천`). */
+/**
+ * 작업 실행·결과 상태. 대상은 저장된 버전이라 미저장 변경이 있으면 시작하지 않는다(화면은 `저장 후 추천`).
+ * LLM 생성 서비스가 꺼져 있으면(GET /api/llm/status, llm-recommendation-job.md '생성 서비스 가용성' 절) 시작하지 않고 코드를 그대로 보인다.
+ * 수식 추천(threshold-stats, LLM 없음)은 이 상태와 무관하다.
+ */
 export const useRuleAi = ({ state, dirty, reload }: { state: RuleSetState; dirty: boolean; reload: () => Promise<unknown> }) => {
   const { user } = useAuthSession();
   const sources = useSourcesQuery();
+  const llm = useLlmStatus();
   const [selectedSource, setSelectedSource] = useState("");
   const [run, setRun] = useState<AiRun>({ status: "idle" });
   const [jobId, setJobId] = useState<string | null>(null);
@@ -75,12 +82,14 @@ export const useRuleAi = ({ state, dirty, reload }: { state: RuleSetState; dirty
     } catch (error) {
       setRun({ status: "failed", code: errorCode(error) });
       if (error instanceof HttpError && error.code === "rule_set_revision_conflict") await reload();
+      // 상태 조회가 늦어 접수에서 거절됐으면(503) 가용성을 바로 다시 읽어 버튼 상태를 맞춘다.
+      if (error instanceof HttpError && error.code === GENERATION_SERVICE_UNAVAILABLE) void llm.refresh();
     }
   };
   return {
     run, setRun, start, sources: sources.data ?? [], sourcesReady: sources.isSuccess, sourcesError: sources.isError ? errorCode(sources.error) : null,
-    sourceId, setSelectedSource, count, dirty,
-    canStart: run.status !== "running" && run.status !== "readFailed" && count > 0 && !dirty && Boolean(sourceId),
+    sourceId, setSelectedSource, count, dirty, llmUnavailable: llm.unavailableCode,
+    canStart: run.status !== "running" && run.status !== "readFailed" && count > 0 && !dirty && Boolean(sourceId) && !llm.unavailableCode,
     /** 같은 작업을 다시 읽는다(새 작업을 만들지 않음). */
     retryRead: () => {
       if (run.status !== "readFailed") return;
@@ -99,6 +108,9 @@ export const RuleAiControls = ({ ai }: { ai: RuleAi }) => (
   <>
     {ai.dirty && <span className="text-sm text-muted-foreground">저장 후 추천</span>}
     {ai.sourcesError && <span role="alert" className="text-sm text-destructive-text">출처 조회 실패 · {ai.sourcesError}</span>}
+    {ai.llmUnavailable && ai.run.status !== "running" && (
+      <span data-llm-unavailable="" className="text-sm text-destructive-text">AI 규칙 추천 · {ai.llmUnavailable}</span>
+    )}
     {ai.sourcesReady && ai.sources.length === 0 && <span className="text-sm text-muted-foreground">저장된 데이터 출처가 없습니다.</span>}
     {ai.sources.length > 1 && (
       <div className="w-full sm:w-56">
@@ -171,7 +183,10 @@ export const RuleAiBox = ({
   if (run.status === "running") {
     return (
       <div className={box} data-rule-ai="running">
-        <div className={line}><Badge variant="info">실행 중</Badge><span>켜진 {SOFT_TERM} {run.count}개</span></div>
+        <div className={line}>
+          <Badge variant="info">실행 중</Badge>
+          <span>켜진 {SOFT_TERM} {run.count}개{ai.llmUnavailable ? ` · ${ai.llmUnavailable}` : ""}</span>
+        </div>
         <Progress value={100} className="animate-pulse" aria-label="AI 규칙 추천 실행 중" />
       </div>
     );

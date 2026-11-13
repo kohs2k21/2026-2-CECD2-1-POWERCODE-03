@@ -31,7 +31,7 @@ globalThis.ResizeObserver = class {
 
 const { readFile } = await import("node:fs/promises");
 const { QueryClient, QueryClientProvider } = await import("@tanstack/react-query");
-const { createMemoryRouter, RouterProvider } = await import("react-router-dom");
+const { createMemoryRouter, Link, RouterProvider } = await import("react-router-dom");
 const { Dialog } = await import("../src/components/ui/dialog.tsx");
 const { Checkbox } = await import("../src/components/ui/checkbox.tsx");
 const { RadioGroup } = await import("../src/components/ui/radio-group.tsx");
@@ -90,7 +90,7 @@ const freshState = () => ({
 });
 const report = (period) => ({
   period, from: iso(60), until: iso(0), firstRunWaitMs: 3_600_000, ruleSetRevision: 13, activeModelSetRevision: 7,
-  decisionCount: 200, legacyDecisionCount: 0, failedWithoutDecision: { count: 2, byCode: [{ code: "operational_state_unavailable", count: 2 }] },
+  decisionCount: 200, legacyDecisionCount: 0, failedWithoutDecision: { count: 4, byCode: [{ code: "operational_state_unavailable", count: 2 }, { code: "job_failed", count: 1 }, { code: "rule_set_hash_mismatch", count: 1 }] },
   methods: [
     stat({ methodId: "hard:process-status", runs: 200, succeeded: 200, anomalous: 3 }),
     stat({ methodId: "hard:negative-duration", runs: 200, succeeded: 194, notReady: 6, causes: [{ cause: "input_invalid", count: 6 }] }),
@@ -189,7 +189,7 @@ const posts = (path) => requested.filter((call) => call.method === "POST" && cal
   assert.ok(app.row("soft:total_count-2").includes("적용됨 · 첫 실행 대기"));
   assert.equal(app.row("hard:count-conservation"), "", "rules that are off are not listed");
   assert.ok(app.row("ml:iforest").includes("4d2f7c10 · V4") && app.row("ml:iforest").includes("기한 초과 1"));
-  assert.ok(app.shown().includes("판정 없이 실패 2건 · 최근 1시간 · operational_state_unavailable 2 · 방법별 집계와 별도"));
+  assert.ok(app.shown().includes("판정 없이 실패 4건 · 최근 1시간 · 작업 실패 1 · 룰 세트 읽기 실패 1 · operational_state_unavailable 2 · 방법별 집계와 별도"));
   assert.ok(app.shown().includes("2a91e6d7 · V3 → 4d2f7c10 · V4"));
   assert.ok(!/정책|deadlineMs|category-k-of-n/.test(app.shown()), "the detection policy is not shown");
   assert.ok(app.shown().includes("모델 교체 추천 미연결 · service_unavailable"), "production has no comparison sample");
@@ -226,13 +226,15 @@ const posts = (path) => requested.filter((call) => call.method === "POST" && cal
   await failing.click("운영에서 제외");
   await approveDialog(failing);
   await pressDialog(failing, "운영에서 제외");
-  await wait(() => failing.shown().includes("운영에서 제외 실패 · 409 active_set_revision_conflict · 운영 모델 4d2f7c10 · V4 유지"), "failure kept");
+  await wait(() => failing.shown().includes("active_set_revision_conflict · 운영 모델 4d2f7c10 · V4 유지"), "failure kept");
   await failing.cleanup();
 }
 
 // 3) 복원: 지금과 다른 이전 집합만 후보(빈 집합 제외). 전용 경로로 targetRevision·confirmRetire.
 {
+  // 지금 운영: V4(iforest) + KMeans. 버전 6 집합(V3만)으로 복원하면 V4 자리에 V3, KMeans는 빠진다.
   operational = freshState();
+  operational.activeModelSet.models = [model, { configVersionId: "e8a3f1b6-2c74-49d0-96e1-7f05c4b2d913", modelKey: "minibatch_kmeans", displayName: "KMeans · K=6", activatedAtRevision: 7 }];
   routes = baseRoutes({
     "POST /api/active-models/restore": () => json({ revision: 8, previousRevision: 7, models: [{ ...model, configVersionId: V_PREVIOUS, displayName: "V3", activatedAtRevision: 8 }],
       changes: [{ type: "restored", configVersionId: V_PREVIOUS, modelKey: "iforest", previousConfigVersionId: V_ACTIVE }], changedAt: iso(0), appliesFrom: "next_decision" }),
@@ -243,6 +245,8 @@ const posts = (path) => requested.filter((call) => call.method === "POST" && cal
   await wait(() => openDialog(app), "restore dialog");
   const choices = elements(openDialog(app).props.children).filter((node) => node.props?.value && node.props.id?.startsWith("restore-"));
   assert.deepEqual(choices.map((node) => node.props.value), ["6"], "only a different, non-empty earlier set");
+  const choiceText = elements(openDialog(app).props.children).filter((node) => node.props?.htmlFor === "restore-6").map((node) => [node.props.children].flat(Infinity).join("")).join("");
+  assert.ok(choiceText.includes("현재 4d2f7c10 · V4 자리") && choiceText.includes("e8a3f1b6 · KMeans · K=6 → 제외"), choiceText);
   await approveDialog(app);
   await pressDialog(app, "복원 요청");
   await wait(() => app.shown().includes("운영 모델 2a91e6d7 · V3로 전환됨 · 이후 판정부터 2a91e6d7 · V3 사용"), "restored");
@@ -276,6 +280,23 @@ const posts = (path) => requested.filter((call) => call.method === "POST" && cal
   await wait(() => app.router.state.location.pathname === "/detection/operations", "back to operations");
   assert.deepEqual(replaceBody, { operation: "replace", evaluationId: EVAL7, expectedRevision: 7, expectedActiveVersionId: V_ACTIVE });
   await wait(() => app.shown().includes("운영 모델 7be19a34 · 실험 7로 전환됨"), "result banner");
+  await app.cleanup();
+}
+
+// 4b) 데이터가 이미 캐시에 있는 채로 모델 버전 상세에서 '이 버전으로 교체'(step=2)로 오면 2단계에 머문다(앞 렌더의 단계 상한으로 1단계로 되돌리지 않음).
+{
+  operational = freshState();
+  routes = baseRoutes({ [`GET /api/configurations/${V_EXP7}`]: () => json({ ...version(V_EXP7), methods: [{ ...version(V_EXP7).methods[0], parameters: null }], models: [], configurationSpec: {} }) });
+  const app = await mount("/detection/operations/replace");
+  await wait(() => app.shown().includes("7be19a34 · 실험 7") && app.shown().includes("b84e6d15 · 66.67%"), "warm cache");
+  await act(async () => { await app.router.navigate(`/detection/models/${V_EXP7}`); });
+  await wait(() => app.link("이 버전으로 교체"), "replace entry on version detail");
+  const entry = app.renderer.root.findAllByType(Link).find((node) => text(node.children) === "이 버전으로 교체").props;
+  assert.deepEqual([entry.to, entry.state.targetVersionId], ["/detection/operations/replace?step=2", V_EXP7]);
+  await act(async () => { await app.router.navigate(entry.to, { state: entry.state }); });
+  for (let i = 0; i < 10; i++) await tick();
+  assert.equal(app.router.state.location.search, "?step=2", "stays on step 2 with a warm cache");
+  await wait(() => app.shown().includes("평가 세트 ESB 합성 E1 · b84e6d15"), "evidence at step 2");
   await app.cleanup();
 }
 

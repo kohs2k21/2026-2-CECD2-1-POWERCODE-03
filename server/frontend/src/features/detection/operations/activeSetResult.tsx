@@ -2,7 +2,6 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { versionLabel } from "@/features/detection/models/VersionList";
 import { errorCode } from "@/features/detection/rules/ruleDraft";
-import { HttpError } from "@/services/api/client";
 import { modelsText } from "./ActiveSetDialogs";
 import type { ActiveModel, ActiveSetChanged } from "./operationsApi";
 
@@ -11,7 +10,6 @@ export type ActiveSetBanner =
   | { kind: "changed"; lines: string[] }
   | { kind: "failed"; text: string; code: string };
 export type ActiveSetOperation = "replace" | "retire" | "restore";
-const OPERATION_LABELS: Record<ActiveSetOperation, string> = { replace: "모델 교체", retire: "운영에서 제외", restore: "모델 복원" };
 
 /** 응답의 변경 목록으로 문구를 만든다. 이름은 변경 전 운영 모델과 응답의 운영 모델에서 찾는다. */
 export const changedBanner = (result: ActiveSetChanged, before: ActiveModel[]): ActiveSetBanner => {
@@ -22,10 +20,10 @@ export const changedBanner = (result: ActiveSetChanged, before: ActiveModel[]): 
     : `운영 모델 ${name(change.configVersionId)}로 전환됨 · 이후 판정부터 ${name(change.configVersionId)} 사용`);
   return { kind: "changed", lines };
 };
-export const failedBanner = (operation: ActiveSetOperation, error: unknown, before: ActiveModel[]): ActiveSetBanner => {
+export const failedBanner = (_operation: ActiveSetOperation, error: unknown, before: ActiveModel[]): ActiveSetBanner => {
+  // 와이어프레임 작업 실패 문구: <사유> · 운영 모델 <현재> 유지. 사유는 서버 코드 그대로.
   const code = errorCode(error);
-  const status = error instanceof HttpError ? `${error.status} ` : "";
-  return { kind: "failed", code, text: `${OPERATION_LABELS[operation]} 실패 · ${status}${code} · 운영 모델 ${before.length ? modelsText(before) : "없음"} 유지` };
+  return { kind: "failed", code, text: `${code} · 운영 모델 ${before.length ? modelsText(before) : "없음"} 유지` };
 };
 
 export const ActiveSetBannerView = ({ banner }: { banner: ActiveSetBanner }) =>

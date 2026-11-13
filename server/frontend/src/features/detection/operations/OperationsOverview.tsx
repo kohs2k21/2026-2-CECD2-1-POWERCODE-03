@@ -20,7 +20,18 @@ const PERIODS: { id: MethodPeriod; label: string }[] = [{ id: "1h", label: "최�
 const STAT_HEAD = ["상태", "실행", "성공", "미판정", "이상 탐지", "미판정 사유 상위", "기한 초과", "마지막 실행", "완료 시각(시도 시작 기준) p95"];
 
 const criteriaText = (waitMs: number) =>
-  `상태 기준: 미판정 2% 이상 주의, 10% 이상 점검 필요 · 실행 없음은 점검 필요(새로 적용한 규칙·모델은 적용 뒤 ${hoursText(waitMs)}까지 첫 실행 대기)`;
+  `상태 예시 기준: 미판정 2% 이상 주의, 10% 이상 점검 필요 · 실행 없음은 점검 필요(새로 적용한 규칙·모델은 적용 뒤 ${hoursText(waitMs)}까지 첫 실행 대기)`;
+/**
+ * 판정 없이 실패 내역(와이어프레임 '작업 실패 n · 룰 세트 읽기 실패 n'). 오류 코드 없음(job_failed)은 작업 실패, rule_set_* 코드는 룰 세트 읽기 실패로 묶고
+ * 그 밖의 코드는 코드 그대로 뒤에 붙인다.
+ */
+const noVerdictText = (byCode: { code: string; count: number }[]) => {
+  const sum = (match: (code: string) => boolean) => byCode.filter((item) => match(item.code)).reduce((total, item) => total + item.count, 0);
+  const job = (code: string) => code === "job_failed";
+  const ruleSet = (code: string) => code.startsWith("rule_set_");
+  const rest = byCode.filter((item) => !job(item.code) && !ruleSet(item.code)).map((item) => ` · ${item.code} ${numberText(item.count)}`).join("");
+  return `작업 실패 ${numberText(sum(job))} · 룰 세트 읽기 실패 ${numberText(sum(ruleSet))}${rest}`;
+};
 const ratio = (count: number, runs: number) => `${numberText(count)} (${percentText(runs ? count / runs : 0)})`;
 
 /** 상태 배지 + 실행 수치 칸(와이어프레임 statCells). 실행 0이면 수치 칸은 비운다. */
@@ -106,8 +117,7 @@ export const OperationsOverview = ({ state, rules, fields, methods, onRetire }: 
       {report && (
         <>
           <p className="text-sm" data-no-verdict>
-            <strong className="font-semibold">판정 없이 실패 {numberText(report.failedWithoutDecision.count)}건</strong> · {label}
-            {report.failedWithoutDecision.byCode.map(({ code, count }) => ` · ${code} ${numberText(count)}`).join("")} · 방법별 집계와 별도
+            <strong className="font-semibold">판정 없이 실패 {numberText(report.failedWithoutDecision.count)}건</strong> · {label} · {noVerdictText(report.failedWithoutDecision.byCode)} · 방법별 집계와 별도
           </p>
           <h3 className="text-sm font-semibold">현재 운영 룰</h3>
           <div className="overflow-x-auto">

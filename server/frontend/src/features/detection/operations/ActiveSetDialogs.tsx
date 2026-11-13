@@ -113,9 +113,12 @@ export const RestoreDialog = ({ candidates, current, methods, busy, onCancel, on
   const [picked, setPicked] = useState(candidates[0] ? String(candidates[0].revision) : "");
   const [checked, setChecked] = useState(false);
   const item = candidates.find((candidate) => String(candidate.revision) === picked);
+  // 와이어프레임: 같은 종류 운영 모델이 있으면 '현재 X 자리', 없으면 '추가 운영'. 그 버전 집합에 같은 종류가 없는 지금 운영 모델은 빠지므로
+  // 이력 표기와 같이 'X → 제외'로 보인다(확인 체크가 그 제외 확인을 겸한다).
   const slot = (models: ActiveModel[]) => {
     const replaced = current.filter((model) => models.some((other) => other.modelKey === model.modelKey && other.configVersionId !== model.configVersionId));
-    return replaced.length ? ` · 현재 ${modelsText(replaced)} 자리` : " · 추가 운영";
+    const removed = current.filter((model) => !models.some((other) => other.modelKey === model.modelKey));
+    return `${replaced.length ? ` · 현재 ${modelsText(replaced)} 자리` : " · 추가 운영"}${removed.length ? ` · ${modelsText(removed)} → 제외` : ""}`;
   };
   return (
     <Dialog open onOpenChange={(open) => { if (!open) onCancel(); }}>

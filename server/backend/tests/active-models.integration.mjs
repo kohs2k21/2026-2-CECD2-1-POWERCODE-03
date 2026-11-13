@@ -5,13 +5,13 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import crypto from 'node:crypto';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import pg from 'pg';
-import { addProcess, seedRuleSetSource } from './rule-set-fixture.mjs';
+import { addProcess, pushActiveModels, seedRuleSetSource } from './rule-set-fixture.mjs';
 
 const url = process.env.PIPELINE_TEST_DATABASE_URL;
 if (!url) throw new Error('PIPELINE_TEST_DATABASE_URL is required');
@@ -90,7 +90,13 @@ try {
     SEED_ADMIN_EMAIL: 'active-models-admin@example.test', SEED_ADMIN_PASSWORD: 'qa-active-models-admin-local-only',
     USER_DATA_PATH: path.join(temporary, 'users.json'), PORT: String(await freePort()),
     DOTENV_CONFIG_PATH: path.join(temporary, 'no-local-env-file') };
+  // 운영과 같은 권한으로: 소유자 연결에서 역할 스크립트를 적용하고 API는 powercode_api 역할로 붙는다(model-versions 시험과 같은 방식).
+  await pool.query(await readFile(path.join(backend, '../infra/scripts/database-roles.sql'), 'utf8'));
+  const runtimeUrl = new URL(url);
+  runtimeUrl.searchParams.set('options', '-c role=powercode_api');
+  environment.DATABASE_URL = runtimeUrl.toString();
   let base = await startServer(environment);
+  assert.equal((await pool.query(`SELECT has_table_privilege('powercode_api','ops_active_model_set_revisions','INSERT') AS ok`)).rows[0].ok, true);
   const call = async (route, { method = 'GET', token, body, headers = {} } = {}) => {
     const response = await fetch(`${base}${route}`, {
       method, body: body === undefined ? undefined : JSON.stringify(body),
@@ -232,14 +238,14 @@ try {
     const { observation, execution } = await addProcess(pool, sourceId, { occurredAt: new Date().toISOString() });
     await pool.query(`INSERT INTO run_process_decisions(id,execution_id,process_observation_id,config_version_id,input_manifest_hash,status,rule_status,ml_status,evidence,decided_at,latency_status)
       VALUES($1,$2,$3,$4,$5,'complete','succeeded','succeeded',$6::jsonb,clock_timestamp()-make_interval(mins=>$7),'unavailable')`,
-    [id(), execution, observation, b.configId, sha(observation), JSON.stringify({ schemaVersion, methodResults }), minutesAgo]);
+    [id(), execution, observation, b.configId, sha(observation), JSON.stringify(schemaVersion === 4 ? { schemaVersion, methodResults } : { schemaVersion, rules: [] }), minutesAgo]);
   };
   const ok = (methodId, extra = {}) => ({ methodId, category: methodId.split(':')[0], status: 'succeeded', anomalous: false, cause: null, elapsedMs: 2, ...extra });
   const ml = (version, extra = {}) => ok('ml:iforest', { modelVersionId: version, ...extra });
   await decide([ok(enabledHard[0], { anomalous: true }), ok(enabledHard[1], { status: 'not_ready', anomalous: null, cause: 'input_missing' }), ml(b.configId, { elapsedMs: 100 })]);
   await decide([ok(enabledHard[0]), ok(enabledHard[1], { status: 'failed', anomalous: null, cause: 'input_invalid' }), ml(b.configId, { status: 'not_ready', anomalous: null, cause: 'timeout', elapsedMs: 3001 })]);
   await decide([ok(enabledHard[0]), ok(enabledHard[1]), ml(a.configId)]);
-  await decide([ok(enabledHard[0])], 3);
+  await decide([], 3); // 옛 형식(v3) 판정: methodResults가 없다
   await decide([ok(enabledHard[0])], 4, 120);
   const report = await call('/api/operations/method-status?period=1h', { token: user });
   assert.equal(report.status, 200, JSON.stringify(report.body));
@@ -260,6 +266,17 @@ try {
   assert.equal(day.decisionCount, 4);
   assert.deepEqual(code(await call('/api/operations/method-status?period=7d', { token: admin })), [400, 'invalid_period']);
   assert.deepEqual(code(await call('/api/operations/method-status?x=1', { token: admin })), [400, 'unknown_operations_filter']);
+
+  // 10b) restore는 스냅샷의 모든 버전(그대로 남는 버전 포함)에 gate를 다시 건다. 실행 불가 모델이 남는 복원은 거절, 집합 불변.
+  const r6 = await pushActiveModels(pool, [{ configVersionId: research.configId, modelKey: 'minibatch_kmeans' }, { configVersionId: a.configId, modelKey: 'iforest' }]);
+  const r7 = await pushActiveModels(pool, [{ configVersionId: research.configId, modelKey: 'minibatch_kmeans' }, { configVersionId: b.configId, modelKey: 'iforest' }]);
+  assert.deepEqual(code(await call('/api/active-models/restore', { method: 'POST', token: admin, body: { operation: 'restore', expectedRevision: r7, targetRevision: r6, confirmRetire: true } })),
+    [409, 'method_not_executable:ml:minibatch_kmeans'], 'a kept version is gated too');
+  assert.equal(await revision(), r7);
+  const dropResearch = await call('/api/active-models/restore', { method: 'POST', token: admin, body: { operation: 'restore', expectedRevision: r7, targetRevision: 5, confirmRetire: true } });
+  assert.equal(dropResearch.status, 200, JSON.stringify(dropResearch.body));
+  assert.deepEqual(dropResearch.body.models.map((model) => model.configVersionId), [b.configId], 'the kept version passes the gate again');
+  assert.deepEqual(dropResearch.body.changes, [{ type: 'retired', configVersionId: research.configId, modelKey: 'minibatch_kmeans' }]);
 
   // 11) 저장소 실패는 503(빈 집합·성공 대체 없음).
   await stopChild();

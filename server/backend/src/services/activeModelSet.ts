@@ -272,6 +272,8 @@ async function planChange(db: Queryable, configVersionId: string | null, request
   const removed = current.filter((model) => !wanted.some((item) => item.configVersionId === model.configVersionId));
   if (!added.length && !removed.length) throw new ActiveSetError('active_model_set_unchanged', 409);
   if (removed.length && !request.confirmRetire) throw new ActiveSetError('retire_confirmation_required', 422);
+  // 스냅샷의 모든 버전에 gate를 다시 건다(model-version.md restore 행): 그대로 남는 버전도 지금 실행 가능·산출물·적격 평가가 있어야 한다.
+  for (const item of kept) await gateVersion(db, item.configVersionId, null);
   const gated: GatedVersion[] = [];
   for (const item of added) gated.push(await gateVersion(db, item.configVersionId, null));
   const changes: Change[] = [

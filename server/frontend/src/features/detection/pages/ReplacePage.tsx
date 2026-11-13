@@ -136,7 +136,11 @@ export const ReplacePage = () => {
   const capabilities = useCapabilities();
   const comparisons = useRecentComparisons();
   const stored = useDraftStore((store) => store.drafts[paths.detectionReplace]?.value as ReplaceDraft | undefined);
-  const draft = stored ?? EMPTY;
+  // 넘겨받은 선택(추천 수락·'이 모델로 교체')은 초안에 들어가기 전 렌더에서도 그대로 쓴다. 그래야 데이터가 캐시에 있을 때
+  // 첫 렌더의 단계 상한이 1로 계산돼 주소가 1단계로 되돌아가지 않는다.
+  const incoming = location.state as Incoming | null;
+  const incomingTarget = incoming?.acceptedRecommendation?.targetVersionId ?? incoming?.targetVersionId ?? null;
+  const draft: ReplaceDraft = incomingTarget ? { target: incomingTarget, accepted: incoming?.acceptedRecommendation ?? null } : (stored ?? EMPTY);
   const [banner, setBanner] = useState<ActiveSetBanner | null>(null);
   const [stale, setStale] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -144,13 +148,11 @@ export const ReplacePage = () => {
   const setDraft = (next: ReplaceDraft) => useDraftStore.getState().edit(paths.detectionReplace, next, { leaveFree: true });
 
   // 넘겨받은 선택(추천 수락·평가 상세 '이 모델로 교체')은 진입 때 한 번 초안에 넣는다.
-  const incoming = location.state as Incoming | null;
   useEffect(() => {
-    const target = incoming?.acceptedRecommendation?.targetVersionId ?? incoming?.targetVersionId;
-    if (!target) return;
-    setDraft({ target, accepted: incoming?.acceptedRecommendation ?? null });
+    if (!incomingTarget) return;
+    setDraft({ target: incomingTarget, accepted: incoming?.acceptedRecommendation ?? null });
     navigate(location.pathname + location.search, { replace: true, state: incoming?.returnTo ? { returnTo: incoming.returnTo } : null });
-  }, [incoming, navigate, location.pathname, location.search]);
+  }, [incoming, incomingTarget, navigate, location.pathname, location.search]);
   // 떠날 때 선택을 지운다(재진입 시 다시 고른다).
   useEffect(() => () => useDraftStore.getState().discard(paths.detectionReplace), []);
 
@@ -169,8 +171,8 @@ export const ReplacePage = () => {
 
   // 앞 단계가 끝나지 않은 단계 주소는 가까운 유효 단계로(navigation.md). 조회가 끝난 뒤에만 판단한다.
   useEffect(() => {
-    if (ready && step > maxStep) navigate({ pathname: location.pathname, search: withSearchParam(location.search, "step", String(maxStep)) }, { replace: true, state: location.state });
-  }, [ready, step, maxStep, navigate, location.pathname, location.search, location.state]);
+    if (ready && !incomingTarget && step > maxStep) navigate({ pathname: location.pathname, search: withSearchParam(location.search, "step", String(maxStep)) }, { replace: true, state: location.state });
+  }, [ready, incomingTarget, step, maxStep, navigate, location.pathname, location.search, location.state]);
 
   const submit = async () => {
     if (!target || !state.data || !evaluationId) return;

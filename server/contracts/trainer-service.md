@@ -76,6 +76,7 @@
 - 스냅샷 조건: `data_snapshots.status = ready`이고 `schema_version = process-v1`이어야 한다(아니면 `relation_snapshot_not_ready`). 입력 `sourceId`가 스냅샷 원천과 다르면 `snapshot_conditions_mismatch`. 스냅샷 train 분할 PROCESS 멤버가 0건이면 `recommendation_input_empty`
 - 실행: 읽기 전용 REPEATABLE READ 트랜잭션 하나에서 서버 커서로 PROCESS·TRANSACTION·MESSAGE를 거래 키 순으로 2회 읽는다(실행마다 최신 리비전). 행이 거래 키 순서를 어기면 `relation_stream_order_violation`
 - 출력: 결과 JSON(`run_jobs.result_summary`, `relationContractVersion = relation-candidates-experimental-2`, `experimental: true`)만 남긴다. 새 표·후보 행·룰 세트 변경 없음 — 승인은 룰 세트 저장 경로(관리자)에서 따로 한다
+- 결과 끝 키 `protocolPathDrafts`(실험): 인터페이스별 train 분할 관측 채널 경로 초안(경로마다 거래 수·비율·`rare`·`fromBranching`·예시 참조 ≤ 5, 인터페이스 경로 거래 30 미만 `insufficient_evidence`, 자동 채택 없음), 인터페이스별 출력 경로 ≤ 64(거래 수 내림차순, 나머지는 `omittedPaths {paths, transactions}` — 경로별 거래 수 합이라 갈래 거래는 중복될 수 있음, 비율·상태는 자르기 전 기준), 거래 단위 제외 사유별 건수(`excludedReasons`)·행 단위 `transactionIdMissingRows`·`endpoint_mismatch` 정보 건수. 경로 정의·사유·상한은 Detector `protocol-rules.md` 3·9절(`trainer/protocol_paths.py`)
 - 거래 행 선택이 모호한(TRANSACTION 실행 재시도 번호 동률 등) 거래는 작업 오류가 아니라 후보별 `undetermined` 사유 `transaction_row_ambiguous`로 센다
 - 오류: 위 코드는 모두 `ValueError` → 재시도 없이 작업 `failed`(`errorCode`). 그 밖의 예외는 기존 학습 작업과 같이 시도 한도(3회) 안에서 재시도
 

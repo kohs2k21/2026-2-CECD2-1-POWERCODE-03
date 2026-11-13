@@ -168,6 +168,16 @@ def oracle_thresholds_with_current_limitation(thresholds):
     return items
 
 
+def without_protocol_drafts(result, *, last=True):
+    """오라클 비교용: 오라클 고정 뒤 결과 맨 끝에 더한 protocolPathDrafts 하나만 뺀다(나머지 키·순서는 그대로 엄격 비교).
+
+    last=False는 jsonb 왕복 결과(키 순서 보존 안 됨, 통합 시험)용 — 키가 있는지만 본다.
+    """
+    if "protocolPathDrafts" not in result or (last and list(result)[-1] != "protocolPathDrafts"):
+        raise AssertionError("protocolPathDrafts must be the last result key")
+    return {key: value for key, value in result.items() if key != "protocolPathDrafts"}
+
+
 def as_json(value):
     """dict 비교는 1 == 1.0, -0.0 == 0.0을 같게 보므로 직렬화 문자열(키 순서 포함)로 비교한다."""
     return json.dumps(value, sort_keys=False, ensure_ascii=False)
@@ -181,8 +191,10 @@ class StreamingRegressionTests(unittest.TestCase):
             oracle.build_result(synthetic_loaded(count), parsed, job_id="job-1", generated_at=GENERATED_AT))
         in_memory = current.build_result(synthetic_loaded(count), parsed, job_id="job-1", generated_at=GENERATED_AT)
         streamed = streaming(count, parsed, raw_counts(count))
-        self.assertEqual(as_json(in_memory), as_json(expected))
-        self.assertEqual(as_json(streamed), as_json(expected))
+        self.assertEqual(as_json(without_protocol_drafts(in_memory)), as_json(expected))
+        self.assertEqual(as_json(without_protocol_drafts(streamed)), as_json(expected))
+        # 새 항목은 메모리 진입점과 스트리밍이 같아야 한다(오라클에는 없음).
+        self.assertEqual(as_json(in_memory["protocolPathDrafts"]), as_json(streamed["protocolPathDrafts"]))
         self.assertEqual(expected["excluded"]["supersededRevisions"],
                          {"process": len(range(0, count, 101)), "transaction": len([i for i in range(0, count, 151)
                                                                                    if i % 131]),
@@ -254,7 +266,7 @@ class StreamingMemoryProbe(unittest.TestCase):
             old, old_peak, old_time = self.measure(lambda: oracle.build_result(
                 synthetic_loaded(count), parsed, job_id="job-1", generated_at=GENERATED_AT))
             new, new_peak, new_time = self.measure(lambda: streaming(count, parsed, counts))
-            self.assertEqual(as_json(new), as_json(oracle_with_current_limitation(old)))
+            self.assertEqual(as_json(without_protocol_drafts(new)), as_json(oracle_with_current_limitation(old)))
             # 처리 시간 표본(설계상 허용, 값당 8바이트 array('d'))은 따로 떼어 본다.
             samples = 8 * sum(item["evidence"]["n"] for item in new["thresholdCandidates"])
             peaks[count] = (old_peak, new_peak, samples)

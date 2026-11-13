@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { errorCode } from "@/features/detection/rules/ruleDraft";
 import { stampText } from "@/features/operations/format";
+import { randomUuid } from "@/lib/uuid";
 import type { CandidateJob } from "./candidateApi";
 import { requestCandidateJob, type CandidateSnapshot } from "./candidateJobApi";
 import {
@@ -40,7 +41,7 @@ const RequestDialog = ({ currentSnapshotId, onClose }: { currentSnapshotId: stri
   const selected = items.find((item) => item.id === chosen) ?? items[0] ?? null;
   const submit = async () => {
     if (!selected) return;
-    const key = keys.current.get(selected.id) ?? crypto.randomUUID();
+    const key = keys.current.get(selected.id) ?? randomUuid();
     keys.current.set(selected.id, key);
     setRequesting(true);
     setRequestError(null);

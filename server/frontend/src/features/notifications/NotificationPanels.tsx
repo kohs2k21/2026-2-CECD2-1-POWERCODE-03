@@ -7,7 +7,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/feedback";
 import { riskLevelVariant, stampText } from "@/features/analysis/labels";
-import { cn } from "@/lib/utils";
 import { emptyLabels, notificationRisk, notificationText, protocolResolutionLabels, riskText, showsRisk, viewLabels } from "./notificationLabels";
 import { notificationViews, type NotificationItem, type NotificationView, type ProtocolNotification } from "./notificationsApi";
 import { useKeepProtocolAlert, useMarkNotificationsRead, useNotificationPage, useUnreadCount } from "./useNotifications";
@@ -73,7 +72,7 @@ const NotificationRow = ({ item, onRead, onNavigate, onKeep, busy }: {
   const risk = notificationRisk(item);
   const { user } = useAuthSession();
   return (
-    <li data-notification={item.key} className={cn("grid gap-1.5 rounded-md border px-3 py-2 text-sm", item.unread ? "border-ring/40 bg-accent/40" : "border-transparent")}>
+    <li data-notification={item.key} className="grid gap-1.5 rounded-md border border-foreground bg-card px-3 py-2 text-sm">
       <span className="font-medium">{headline}</span>
       <span className="break-all text-muted-foreground">{subject}</span>
       <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">

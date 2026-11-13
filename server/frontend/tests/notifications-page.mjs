@@ -140,6 +140,9 @@ assert.ok(requests.some((r) => r.path === "/api/pipeline/events" && r.search ===
   };
   const app = await mount(React.createElement(NotificationPanels));
   await wait(() => app.renderer.root.findAll((n) => n.props?.["data-notification"] && typeof n.type === "string").length === 2, "unread items rendered");
+  // 카드: 읽음/읽지 않음 모두 흰 배경(bg-card)·검은 테두리(border-foreground), 읽지 않음 구분은 "읽지 않음" 글자만.
+  const cardClasses = () => new Set(app.renderer.root.findAll((n) => n.props?.["data-notification"] && typeof n.type === "string").map((n) => n.props.className));
+  assert.deepEqual([...cardClasses()], ["grid gap-1.5 rounded-md border border-foreground bg-card px-3 py-2 text-sm"], "unread cards: white with black border");
   assert.equal(new URLSearchParams(requests.filter((r) => r.path === "/api/notifications").at(-1).search).get("view"), "unread", "unread is the default view");
   assert.ok(app.shown().includes("이상 · 최종 · 위험도 상승") && app.shown().includes("사건 · 응답코드 E500 · 판정 추가") && app.shown().includes("위험도 미정"));
   const links = app.renderer.root.findAll((n) => n.type === "a").map((a) => a.props.href);
@@ -168,6 +171,7 @@ assert.ok(requests.some((r) => r.path === "/api/pipeline/events" && r.search ===
   await wait(() => app.renderer.root.findAll((n) => n.props?.["data-notification"] && typeof n.type === "string").length === 3, "all view rendered");
   await click(buttons(app, "더 보기")[0]);
   await wait(() => app.renderer.root.findAll((n) => n.props?.["data-notification"] && typeof n.type === "string").length === 4, "next page appended");
+  assert.deepEqual([...cardClasses()], ["grid gap-1.5 rounded-md border border-foreground bg-card px-3 py-2 text-sm"], "read and unread cards share one style");
   assert.ok(requests.some((r) => r.search.includes("cursor=next-1")));
   await app.cleanup();
 }

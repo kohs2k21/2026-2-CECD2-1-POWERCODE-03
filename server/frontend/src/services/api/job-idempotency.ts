@@ -1,3 +1,5 @@
+import { randomUuid } from "@/lib/uuid";
+
 const storageKey = "pipeline-job-requests-v1";
 let requests: Record<string, string> = {};
 let loaded = false;
@@ -41,7 +43,7 @@ export function forgetJobRequestKey(actorId: string, input: Record<string, unkno
 export function jobRequestKey(actorId: string, input: Record<string, unknown>, newExecution = false): string {
   loadRequests();
   const fingerprint = JSON.stringify([actorId, canonical(input)]);
-  if (newExecution || !requests[fingerprint]) requests[fingerprint] = crypto.randomUUID();
+  if (newExecution || !requests[fingerprint]) requests[fingerprint] = randomUuid();
   const key = requests[fingerprint];
   try { window.sessionStorage.setItem(storageKey, JSON.stringify(requests)); } catch { /* Keep the key for retries. */ }
   return key;

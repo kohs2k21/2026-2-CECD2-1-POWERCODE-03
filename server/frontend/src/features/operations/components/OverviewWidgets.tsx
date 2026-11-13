@@ -18,7 +18,7 @@ import {
 import type { WidgetId } from "../data/widgetLayout";
 import { readErrorTitle } from "../data/operationsReads";
 import { inputModeLabel } from "./inputModeText";
-import { DASH, UNMEASURED, bytesText, clockText, dayText, durationText, msText, numberText, percentText, stampText } from "../format";
+import { DASH, UNMEASURED, bytesText, dayText, durationText, msText, numberText, percentText, stampText } from "../format";
 
 const errorTitle = readErrorTitle;
 
@@ -92,11 +92,11 @@ const FlowWidget = () => {
     <QueryState query={query} what="운영 관측">
       {(data) => {
         const steps: [string, string][] = [
-          ["수집", clockText(data.stages.collector?.lastProcessedAt)],
-          ["정제", clockText(data.stages.redaction?.lastProcessedAt)],
+          ["수집", stampText(data.stages.collector?.lastProcessedAt, true)],
+          ["정제", stampText(data.stages.redaction?.lastProcessedAt, true)],
           ["큐", data.stages.observationQueue?.pendingCount === undefined ? `대기 ${DASH}` : `대기 ${numberText(data.stages.observationQueue.pendingCount)}`],
-          ["Detector", clockText(data.stages.detector?.lastProcessedAt)],
-          ["저장", clockText(data.stages.judgmentStore?.lastProcessedAt)],
+          ["Detector", stampText(data.stages.detector?.lastProcessedAt, true)],
+          ["저장", stampText(data.stages.judgmentStore?.lastProcessedAt, true)],
         ];
         return (
           <div className="grid gap-3">
@@ -140,7 +140,7 @@ const RecentWidget = () => {
                   {decisionResult(decision)}
                   {decision.decisionCode ? ` · ${decision.decisionCode}` : ""}
                 </span>
-                <span className="text-muted-foreground">{clockText(decision.decidedAt)}</span>
+                <span className="text-muted-foreground">{stampText(decision.decidedAt, true)}</span>
               </li>
             ))}
           </ul>

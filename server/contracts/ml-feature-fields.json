@@ -1,0 +1,107 @@
+{
+  "version": "ml-feature-fields-v1",
+  "generatedBy": "python -m trainer.feature_fields --write",
+  "order": "catalog",
+  "maxFields": 32,
+  "definitionKind": "operator_defined",
+  "featureName": "key",
+  "fields": [
+    {
+      "key": "total_count",
+      "displayName": "총 건수",
+      "unit": "count",
+      "expression": {
+        "op": "field",
+        "field": "P.total_count"
+      }
+    },
+    {
+      "key": "success_count",
+      "displayName": "성공 건수",
+      "unit": "count",
+      "expression": {
+        "op": "field",
+        "field": "P.success_count"
+      }
+    },
+    {
+      "key": "error_count",
+      "displayName": "오류 건수",
+      "unit": "count",
+      "expression": {
+        "op": "field",
+        "field": "P.error_count"
+      }
+    },
+    {
+      "key": "retry_count",
+      "displayName": "재시도 수",
+      "unit": "count",
+      "expression": {
+        "op": "field",
+        "field": "P.retry_count"
+      }
+    },
+    {
+      "key": "elapsed_ms",
+      "displayName": "처리 시간",
+      "unit": "ms",
+      "expression": {
+        "op": "derived",
+        "ast": {
+          "op": "datetime_diff",
+          "unit": "ms",
+          "args": [
+            {
+              "op": "column",
+              "table": "EC_PROCESS_MONITORING",
+              "column": "END_TIME"
+            },
+            {
+              "op": "column",
+              "table": "EC_PROCESS_MONITORING",
+              "column": "START_TIME"
+            }
+          ]
+        },
+        "outputType": "number",
+        "unit": "ms",
+        "provenance": {
+          "source": "ml-feature-fields-v1",
+          "field": "elapsed_ms"
+        }
+      },
+      "note": "END_TIME이 없거나 시각을 읽지 못한 행은 값이 비어 학습에서 제외된다(결측 변수가 하나라도 있는 행은 학습하지 않음)"
+    },
+    {
+      "key": "error_ratio",
+      "displayName": "오류 비율",
+      "unit": "ratio",
+      "expression": {
+        "op": "derived",
+        "ast": {
+          "op": "divide",
+          "args": [
+            {
+              "op": "column",
+              "table": "EC_PROCESS_MONITORING",
+              "column": "ERROR_COUNT"
+            },
+            {
+              "op": "column",
+              "table": "EC_PROCESS_MONITORING",
+              "column": "TOTAL_COUNT"
+            }
+          ]
+        },
+        "outputType": "number",
+        "unit": "ratio",
+        "provenance": {
+          "source": "ml-feature-fields-v1",
+          "field": "error_ratio"
+        }
+      },
+      "note": "TOTAL_COUNT가 0이거나 없는 행은 값이 비어 학습에서 제외된다"
+    }
+  ]
+}

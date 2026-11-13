@@ -1,5 +1,5 @@
 Created: 2026-11-05T15:00:00+09:00
-Updated: 2026-11-13T12:00:00+09:00
+Updated: 2026-11-13T18:00:00+09:00
 Author: #128 Claude Code(WebUI builder)
 Status: current
 
@@ -28,7 +28,7 @@ Status: current
 |---|---|---|
 | 1단계 | 데이터셋 이름·업무 범위 | 학습 요청에 대응하는 키가 없음 |
 | 1단계 | 출처 선택 | 고객사 하나당 시스템 하나(사용자 11/05). 첫 출처를 쓴다 |
-| 2단계 | 입력 변수 개별 선택·검색·필터·상세·선택 요약 | 세트 등록 API가 없어 등록된 세트 선택으로 대체 |
+| 2단계 | 입력 변수 개별 선택·검색·필터·상세·선택 요약 | 세트 등록 API가 없어 등록된 세트 선택으로 대체. 개별 선택은 세트 등록 API로 돌아온다(trainer-service.md 입력 변수 세트 등록 규칙) |
 | 2단계 | 분석 단위 선택·집계 간격 | 학습은 PROCESS만 지원. 표시만 한다 |
 | 2단계 | AI 추천 | #128 범위 밖 |
 | 3단계 | 버전 이름·전처리 선택 | 학습 요청에 키가 없음 |
@@ -38,7 +38,7 @@ Status: current
 ## 새 학습 단계
 
 1. **기간**: 조회 시작·종료(최대 366일, 한국 시각 날짜) → `조회` → 거래량 막대. 단위는 표시 범위로 정한다(100일 초과 월, 3일 초과 일, 4시간 초과 시간, 그 이하 분, 최소 30분). 휠 확대·축소, Shift+휠·가로 스크롤 이동, `전체 보기`. 표시 범위가 멈추면 그 단위로 재조회한다. 제외 구간은 드래그, 막대 두 번 클릭, `제외 구간 정확히 입력`이 같은 목록을 쓴다. 겹치거나 맞닿으면 합치고 최대 32개. 목록에서 눌러 입력칸으로 수정, 삭제
-2. **입력 변수**: 등록된 입력 변수 세트(`GET /api/jobs/feature-sets`)에서 하나 고른다. 학습 요청이 `featureSetId` 하나를 받기 때문이다. `supported=false`는 선택 불가, `reason` 코드를 그대로 표시
+2. **입력 변수**: 등록된 입력 변수 세트(`GET /api/jobs/feature-sets`)에서 하나 고른다. 학습 요청이 `featureSetId` 하나를 받기 때문이다. `supported=false`는 선택 불가, `reason` 코드를 그대로 표시. 필드 개별 선택은 `ml-feature-fields.json` 목록에서 고른 키를 `POST /api/jobs/feature-sets`로 등록해 받은 `id`를 쓴다(같은 필드 조합은 같은 세트, trainer-service.md 입력 변수 세트 등록 규칙)
 3. **모델·파라미터**: `methodCatalog.methods[]` 전부 표시, `executable.process=false`는 선택 불가. 파라미터 표는 선택한 모델만 `parameterSchema`·`defaults`로 만든다(`const`는 고정, 범위는 minimum·maximum, 사용자 11/05). 입력값은 모델별로 따로 보관하고 요청에는 선택한 모델의 값만 보낸다. 이름·뜻·모델 설명은 카탈로그에 없어 와이어프레임 값을 화면 표로 둔다(없는 키는 키 그대로). `준비 검사`: 기간·입력 변수·`inputRequirements.maxFeatures`·파라미터 범위·제외 구간 지원 여부(`capabilities.training.excludedIntervals`, 미지원이면 서버 코드 그대로 `확인 필요 · 제외 구간: config_schema_not_supported_yet`), 위반이면 `학습 요청` 비활성
 
 - 요약의 `학습에 쓰는 건수`는 거래량 집계의 구간 밖 상태 S 건수이고 train 분할은 그중 약 70%다(trainer-service.md 선정 정책 v2의 사전 미리보기). 정확한 검사는 접수·실행 시. 제외 구간이 있는데 미지원이면 건수 대신 같은 코드를 표시한다. 구간 건수를 모르면(조회 중·실패) `제외`·`학습에 쓰는 건수`는 `—`다
@@ -73,7 +73,7 @@ Status: current
 | 학습 기간 ESB 시각 기준 | Trainer 스냅샷은 `persisted_at`만 지원(`capabilities.snapshot.timeBasis`). `timeBasis=esb_occurred_at`은 422 `config_schema_not_supported_yet`. 화면 거래량 그래프는 학습이 실제로 쓰는 기준으로 조회·표시한다(`거래량 · 저장 시각 기준`). 값이 `esb_occurred_at`로 바뀌면 그래프 문구·조회·요청이 함께 바뀌고 `timeBasis`가 `input_spec`에 실린다 | Trainer `timeBasis` 지원 뒤 `snapshot.timeBasis` |
 | 모델 버전 v3 | 학습 결과는 schemaVersion 1 구성이다. 조회는 v1·v2 투영과 v3 읽기를 모두 구현했다 | Trainer #113 하위 3 |
 | 버전 이름 | 학습 요청에 이름 키가 없어 입력칸을 두지 않는다. 목록은 ID 앞 8자리 + `displayName`(있을 때) | 요청 계약 |
-| 입력 변수 개별 선택 | 세트 등록 API가 없어 등록된 세트 선택만 가능 | 세트 등록 API |
+| 입력 변수 개별 선택 | 세트 등록 API가 없어 등록된 세트 선택만 가능 | 세트 등록 API(`POST /api/jobs/feature-sets`, 규칙·시험 벡터는 Trainer가 확정) |
 
 ## 후속
 

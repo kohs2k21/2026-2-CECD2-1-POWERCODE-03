@@ -1,5 +1,5 @@
 Created: 2026-11-12T21:40:00+09:00
-Updated: 2026-11-13T01:50:00+09:00
+Updated: 2026-11-13T21:00:00+09:00
 Author: Claude Code(WebUI builder)
 Status: current — 실험 기능(층 B). Trainer `relation_candidates.py`(결과 계약 `relation-candidates-experimental-2`)·Detector `relation-rules.md`에 맞춤
 
@@ -7,8 +7,8 @@ Status: current — 실험 기능(층 B). Trainer `relation_candidates.py`(결�
 
 - 범위: Trainer 후보 작업 `recommend_relations`의 결과를 **읽고**, 그 작업을 **요청**하는 API와 탐지 설정 › 룰 설정 › 규칙 추천 화면. 후보 계산(집계·기준·반례)은 Trainer, 규칙 판정 의미는 Detector `relation-rules.md`가 기준이다
 - 저장: **새 표 없음**. 결과는 작업 표 `run_jobs.result_summary`(jsonb, Trainer `runner._finish`가 성공 시 기록)에 있다. API는 결과를 고치지 않고 화면에 쓰는 값만 골라 낸다
-- 구현: `backend/src/ruleset/ruleCandidates.ts`(해석·조회·요청), 경로는 룰 세트 라우터(`backend/src/routes/ruleSetRoutes.ts`, 같은 64KB JSON 파서·`{code}` 오류 형식·503 처리), 프론트 `frontend/src/features/detection/rules/candidates/`
-- 권한: 세 경로 모두 **관리자**(탐지 설정 화면, 작업 결과는 관리자만 읽음 — `GET /api/jobs`와 같은 범위). 토큰 없음 401, user 403 `admin_required`
+- 구현: `backend/src/ruleset/ruleCandidates.ts`(해석·조회·요청)·`backend/src/ruleset/candidateSnapshots.ts`(요청할 수 있는 저장 데이터셋 목록), 경로는 룰 세트 라우터(`backend/src/routes/ruleSetRoutes.ts`, 같은 64KB JSON 파서·`{code}` 오류 형식·503 처리), 프론트 `frontend/src/features/detection/rules/candidates/`
+- 권한: 네 경로(목록·상세·저장 데이터셋 목록·작업 요청) 모두 **관리자**(탐지 설정 화면, 작업 결과는 관리자만 읽음 — `GET /api/jobs`와 같은 범위). 토큰 없음 401, user 403 `admin_required`
 
 ## 1. DB 준비 상태 — 배포 전 필요(`infra/migrations/021_recommend_relations.sql`)
 
@@ -118,6 +118,5 @@ Status: current — 실험 기능(층 B). Trainer `relation_candidates.py`(결�
 ## 9. 남은 결정·미검증
 
 - DB: 1절 enum·CHECK는 migration 021. 큰 스냅샷의 결과 JSON 크기·`result_summary` 읽기 비용(목록 조회마다 결과 전체를 읽음) 미측정 — 크면 결과 표(층 B 채택 단계 `run_pattern_*`) 또는 요약 열로 옮김
-- 화면에서 후보 작업 요청(스냅샷 선택)을 둘지, 인터페이스가 많을 때 선택 칸 대신 검색 목록을 둘지
 - v3 전환 시 승인 저장 연결(7절)과 "승인됨" 판단 기준(같은 조건 = Detector 2절 "같은 규칙의 기준")
 - `relationNotes`(허용 분기 정보)를 화면에 보일지

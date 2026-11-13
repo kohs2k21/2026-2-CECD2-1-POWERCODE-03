@@ -129,6 +129,7 @@ export function parseRequest(value: unknown, support: TrainingSupport = TRAINING
       throw new JobRequestError('invalid_evaluation_request');
     }
   } else {
+    // 여기는 기간을 지정한 train만 온다(recommend_thresholds·prepared train·explain·evaluate는 위에서 처리, 폐지 종류는 422).
     if (typeof body.from !== 'string' || typeof body.until !== 'string' ||
         !UTC_TIME.test(body.from) || !UTC_TIME.test(body.until) ||
         !Number.isFinite(Date.parse(body.from)) || !Number.isFinite(Date.parse(body.until)) ||
@@ -163,8 +164,6 @@ export function parseRequest(value: unknown, support: TrainingSupport = TRAINING
       }
       if (policy.mode === 'ml_only' && rules.length) throw new JobRequestError('ml_only_rules_not_selected');
       input.ruleVersionIds = rules;
-    } else if (body.ruleVersionIds !== undefined) {
-      throw new JobRequestError('invalid_job_request');
     }
     if (body.snapshotId !== undefined) {
       if (!uuid(body.snapshotId)) throw new JobRequestError('invalid_snapshot_reference');

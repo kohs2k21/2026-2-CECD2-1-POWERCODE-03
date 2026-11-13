@@ -1,5 +1,5 @@
 Created: 2026-11-12T20:00:00+09:00
-Updated: 2026-11-12T21:18:07+09:00
+Updated: 2026-11-14T02:24:00+09:00
 Author: Claude Code(Detector builder)
 Status: current — 실험 기능(층 C). DB migration 019·WebUI 사건 보기와 맞춤
 
@@ -165,7 +165,14 @@ Status: current — 실험 기능(층 C). DB migration 019·WebUI 사건 보기�
 
 - **실행별 최신 판정**: `PARTITION BY d.execution_id ORDER BY o.revision_no DESC NULLS LAST, d.decided_at DESC, d.event_sequence DESC`(o = `data_observations`, 판정 PROCESS 관측) [합의]
 - **해제**: 구성원 판정의 실행에서 최신 판정이 더는 `anomaly`·`anomaly_sign`이 아니면 그 구성원은 읽을 때 해제로 본다. 표는 바꾸지 않는다 [합의]
-- **구성원 수**: 해제되지 않은 구성원의 실행 수(실행당 1, 최신 리비전) [합의] (`active_execution_count`). 한 실행의 리비전들이 키가 달라 두 사건에 있으면 양쪽에서 센다 [제안]
+- **구성원 수** [합의 11/14 WebUI·Detector]: 병합 묶음(`merge_root` 단위)마다 센다. 키가 바뀐 리비전 때문에 한 실행의 판정들이 서로 다른 묶음의 구성원이어도 실행은 한 묶음에서만 센다
+    - 해제는 위와 같다: 실행의 최신 판정 등급이 `anomaly`·`anomaly_sign`이 아니면 해제
+    - **자리 판정**: 실행의 구성원 판정(읽는 사건과 같은 기준 버전) 중 위 최신 판정 정렬(`o.revision_no DESC NULLS LAST, d.decided_at DESC, d.event_sequence DESC`)에서 맨 앞인 판정. **자리 묶음** = 그 판정이 든 사건의 `merge_root` (`home_bundle_by_execution`)
+    - 묶음 B의 구성원 수 = B에 구성원이 있고, 최신 판정 등급이 이상·이상 징후이며, 자리 묶음이 B인 실행 수(실행당 1) (`active_execution_count`)
+    - 최신 등급은 이상·이상 징후지만 자리 묶음이 B가 아닌 실행은 B에서 해제처럼 다룬다: 세지 않고 최소 구성원 수 필터(`shown`)에도 넣지 않는다. 그래서 옛 사건이 목록에서 빠질 수 있다
+    - 근거: (1) 최신 판정이 아니라 최신 '구성원' 판정을 기준으로 하므로, 묶음 작업이 새 리비전 판정을 아직 묶지 못한 동안에는 직전 자리에서 계속 센다. (2) 실행마다 자리 묶음이 하나뿐이라 `continues_from` 흐름 전체를 합쳐도 중복이 없다
+    - 기준 버전은 읽는 사건의 기준 버전으로 고정한다(열린 항목 10)
+    - API는 구성원별 자리 묶음 id(예: `homeIncidentId`)를 내려 줄 수 있다. 화면 표시 문구는 WebUI 몫이고, 새 문구는 사용자 승인이 필요하다
 - **최소 구성원 수** `min_members` 기본 2: 사건은 구성원 1건으로 만들고 **읽을 때 거른다** [제안] (`shown`). 근거: (1) 해제 때문에 구성원 수는 어차피 읽을 때만 정해진다. (2) 2건이 모일 때까지 판정을 붙잡아 두면 커서 밖 대기 상태가 생겨 append-only·멱등성이 복잡해진다. (3) 값을 바꿔도 기준 버전·저장 행이 바뀌지 않는다. 그래서 `criteria`에 넣지 않는다
 - **읽기 순서**: 병합(`merged_into`)을 먼저 풀고(`merge_root`), 그다음 `continues_from`을 따라간다. 이때 **병합 묶음 안 모든 사건의 `continues_from`을 본다**(뿌리가 아닌 구성 사건이 앞 구간을 가리킬 수 있음). 이어진 구간은 화면이 한 흐름으로 보일 수 있다
 - 끝 시각 = 묶음 구성원 `occurred_at` 최댓값, 대체 구성원 수 = `occurred_basis = 'decided_at'` 수
@@ -196,7 +203,7 @@ Status: current — 실험 기능(층 C). DB migration 019·WebUI 사건 보기�
 3. 성공 코드 목록은 데이터에서 본 값뿐이다. 고객 코드 사전 필요
 4. 원본 시간대: 원천 시각을 한국 시각으로 보기로 했다 [확정 11/12 사용자]. 검증되지 않은 원본(지금 전부 `clock_basis.status = unknown`)의 시간대 없는 원문에 `Asia/Seoul`을 붙여 `process_time_raw`로 쓰고 `criteria.assumedTimezone`에 남긴다(3절). 배포 전 초안이라 `incident-gap-v1` 안에서 반영했다(9절). 남은 것: 고객 측이 원천 시각 기준을 확인하면 가정을 유지·변경한다(고객 측 확인 뒤 바뀔 수 있음, 배포 뒤 바뀌면 기준 버전을 올린다). 원본 `clock_basis`를 `verified`로 채우는 일은 수집기 쪽 결정이고 Detector가 하지 않는다
     - 배포 전 결정: 가정 시간대는 IANA 시간대 자료(`tzdata` 또는 OS zoneinfo)가 있어야 한다. `tzdata`는 `worker/requirements.txt` 직접 의존성이 아니고 다른 패키지(pandas·python-dateutil 등)의 의존성으로만 들어온다(Windows venv에서 확인, 컨테이너 이미지는 미확인). 자료가 없으면 기본 기준을 만드는 시점(모듈 import, 작업 시작)에 `invalid_incident_assumed_timezone`으로 멈춘다. 공용 워커 의존성 파일에 직접 넣을지는 배포 전에 정한다
-5. 키가 바뀐 리비전의 실행이 두 사건에서 세어지는 문제(8절)를 화면에서 어떻게 보일지 WebUI와 조율
+5. (닫힘, 11/14 WebUI·Detector 합의) 키가 바뀐 리비전의 실행이 두 사건에서 세어지는 문제: 실행은 자리 묶음 한 곳에서만 센다(8절 구성원 수)
 6. 전환형 입력 경로(api·csv 입력)의 재시도 거래(TRANSACTION 실행 2개 이상)와 실행 식별 불가 행이 섞인 거래는 응답코드 키가 없다(2.3). csv 입력은 실행 키에 이름공간 `csv:{run}:{position//count}`가 들어가 반복·재실행만으로도 같은 거래가 실행 2개 이상이 된다(재시도가 아니어도 응답코드 키 없음 → channel). CSV 재생 경로(csv-replay)만 재시도가 리비전이라 해당 없음. 최신 재시도 1건을 고르는 규칙, 또는 판정 PROCESS와 같은 이름공간의 TRANSACTION만 후보로 보는 규칙(`data_input_origins.namespace`)이 필요한지는 판정 행 측정 뒤
 7. 구성원 저장 대안(사건에 요약만 두고 구성원은 조회 때 계산): DB 결정은 판정 1건당 1행 저장(DB 계산상 대리 지표 규모에서도 감당 가능, 실측 아님, 수치는 Git 밖 기록). 규모는 구성원 자격과 키 규칙(성공 코드·결측 제외)으로 줄인다. 대안은 DB 의견 기록용으로 남긴다
 8. 한 번에 읽는 이벤트 상한과 첫 실행 시작점(과거 판정 전체를 묶을지, 배포 시점부터일지). 구현 임시값: 상한 1000, 시작점 0(과거 전체)

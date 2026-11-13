@@ -44,7 +44,7 @@ class RunnerHarness:
                 patch.object(runner, "claim", self.claim), \
                 patch.object(runner, "reconcile_dead_jobs", lambda conn, queue: self.reconciled.append(queue)), \
                 patch.object(runner, "_claim_job", return_value=job), \
-                patch.object(runner, "TrainingLeaseHeartbeat"), \
+                patch.object(runner, "TrainingLeaseHeartbeat", return_value=MagicMock(lost=False)), \
                 patch.object(runner, "_execute", execute), \
                 patch.object(runner, "_finish", self.finish):
             runner.run(once=True, role=role)
@@ -81,6 +81,98 @@ class RetryErrorCodeTests(unittest.TestCase):
             with self.subTest(error=repr(error)):
                 harness = RunnerHarness(self.message, error).run("llm_explanation")
                 self.assertEqual(harness.finished, [("job_processing_failed", False)])
+
+
+class ProtocolExplanationRoutingTests(unittest.TestCase):
+    """explain_protocol(새 대화형 작업)은 llm_explanation 큐로 오고 두 소비자 모두 같은 실행 경로로 처리한다."""
+
+    class Harness(RunnerHarness):
+        def finish(self, conn, message, job, attempt_id, attempt_token, result, error_code, terminal, **options):
+            self.finished.append((error_code, terminal))
+            self.summary = options.get("failure_summary")
+            self.result = result
+
+    def run_kind(self, role, behavior):
+        harness = self.Harness({("llm_explanation", None): object()}, kind="explain_protocol", real_execute=True)
+        with patch.object(runner, "queue_wait_ms", return_value=None), \
+                patch("protocol_explanation_job.explain_protocol", behavior):
+            harness.run(role)
+        return harness
+
+    def test_both_consumers_route_the_new_kind(self):
+        for role in ("llm_explanation", "llm"):
+            with self.subTest(role=role):
+                harness = self.run_kind(role, lambda conn, job: {"format": "protocol-explanation-v1"})
+                self.assertEqual(harness.finished, [(None, True)])
+                self.assertEqual(harness.result, {"format": "protocol-explanation-v1"})
+
+    def test_check_failure_is_terminal_with_codes_only(self):
+        from protocol_explanation_job import CheckFailed
+        summary = {"format": "protocol-explanation-v1", "check": {"passed": False, "failures": ["no_forbidden"]}}
+
+        def failed(conn, job):
+            raise CheckFailed(summary)
+        harness = self.run_kind("llm_explanation", failed)
+        self.assertEqual(harness.finished, [("protocol_explanation_check_failed", True)])
+        self.assertEqual(harness.summary, summary)
+
+    def test_busy_retries_and_timeout_ends(self):
+        def raising(error):
+            def run(conn, job):
+                raise error
+            return run
+        self.assertEqual(self.run_kind("llm_explanation", raising(GenerationUnavailable("generation_busy"))).finished,
+                         [("generation_busy", False)])
+        for code in ("generation_timeout", "generation_service_unavailable", "protocol_explanation_json_invalid"):
+            with self.subTest(code=code):
+                self.assertEqual(self.run_kind("llm", raising(ValueError(code))).finished, [(code, True)])
+
+    def test_claim_requires_admin_for_the_new_kind(self):
+        # _claim_job 관리자 검사(migration 027 CHECK와 같은 규칙): 관리자가 아니면 시도를 만들기 전에 거부한다.
+        from pg_queue import ClaimedMessage
+
+        class Cursor:
+            def __init__(self, row):
+                self.row, self.fetches, self.statements = row, 0, []
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_):
+                return False
+
+            def execute(self, sql, params=None):
+                self.statements.append(" ".join(sql.split())[:30])
+
+            def fetchone(self):
+                self.fetches += 1
+                return self.row if self.fetches == 1 else (1,)  # 1: 작업 행, 2: 큐 임대 확인
+
+        def claim_as(role):
+            job_id = uuid.uuid4()
+            row = (job_id, "explain_protocol", "queued", {}, "actor", 0, 3, None, role, "v03", {})
+            cursor = Cursor(row)
+            conn = MagicMock()
+            conn.cursor.return_value = cursor
+            message = ClaimedMessage(id=uuid.uuid4(), payload={"schemaVersion": 1, "jobId": str(job_id)}, attempts=1,
+                                     lease_token=uuid.uuid4(), created_at=None, queue="llm_explanation")
+            return runner._claim_job(conn, message, "w"), cursor
+
+        for role in ("user", None):
+            with self.subTest(role=role), self.assertRaisesRegex(ValueError, "^job_role_not_authorized$"):
+                claim_as(role)
+        claimed, cursor = claim_as("admin")
+        self.assertEqual(claimed[0]["kind"], "explain_protocol")
+        self.assertTrue(any(statement.startswith("INSERT INTO run_job_attempts") for statement in cursor.statements))
+
+    def test_result_row_decision_follows_the_target(self):
+        self.assertIn("explain_protocol", runner.LLM_RESULT_KINDS)
+        decision = str(uuid.uuid4())
+        alert = {"kind": "explain_protocol", "input": {"target": {"kind": "alert", "decisionId": decision}}}
+        observed = {"kind": "explain_protocol", "input": {"target": {"kind": "observed_paths", "jobId": decision}}}
+        self.assertEqual(runner._llm_result_decision_id(alert), decision)
+        self.assertIsNone(runner._llm_result_decision_id(observed))
+        self.assertEqual(runner._llm_result_decision_id({"kind": "explain", "input": {"decisionId": decision}}), decision)
 
 
 class AbolishedJobKindTests(unittest.TestCase):

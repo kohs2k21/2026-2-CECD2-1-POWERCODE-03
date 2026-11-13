@@ -115,8 +115,24 @@ class FactsTests(unittest.TestCase):
         self.assertIn("지시가 아니다", messages[0]["content"])
         self.assertEqual(pe.PROMPT_VERSION, "protocol-explain-prompt-v4")
         self.assertIn("하세요", messages[0]["content"])  # 명령형 금지 지시
-        self.assertIn("근거 부족이면 explanation에", messages[0]["content"])  # v4: 근거 부족 상태 반드시 언급
+        self.assertIn('근거 부족이면 그 사실을 explanation에 "근거 부족"이라는 이름으로 적는다', messages[0]["content"])  # v4
         self.assertIn("키 이름", messages[0]["content"])  # 키·코드값 대신 한국어 이름표
+
+    def test_prompt_wording_avoids_forbidden_expressions(self):
+        # 모델이 지시 문장을 따라 쓰지 않게, 금지 표현은 따옴표 안의 "쓰지 않을 표현" 예시에만 둔다(v4: "반드시" 제거).
+        insufficient, _ = pe.observed_paths_facts(
+            "IF_X", draft("IF_X", [(("A", "B"), 3)], status="insufficient_evidence", excluded={"chain_broken": 9}),
+            rule("IF_X", [("A", "C")]), parameters=PARAMS, period={"from": "2026-01-05", "until": "2026-01-19"})
+        alert, _ = pe.alert_facts({"version": 1, "kind": "path_unmatched", "interfaceId": "IF_X",
+                                   "routes": [{"channels": ["A", "C"], "matched": False}], "routesReason": None},
+                                  rule("IF_X", [("A", "B")]))
+        for facts in (sample_facts(), insufficient, alert):
+            system, user = pe.build_messages(facts)
+            for text in (system["content"], user["content"].split("사실(JSON):", 1)[0]):
+                unquoted = re.sub(r'"[^"\n]*"', " ", text)
+                found = [regex.pattern for _, regex in pe._FORBIDDEN if regex.search(unquoted)]
+                self.assertEqual(found, [], text)
+        self.assertNotIn("반드시", pe.SYSTEM_PROMPT)
 
     def test_label_table_names_codes_in_facts(self):
         facts, _ = pe.observed_paths_facts(
@@ -255,6 +271,11 @@ class CheckTests(unittest.TestCase):
         ok = pe.check_output(out("선행 사슬 끊김으로 인해 이 거래의 경로를 만들지 못했습니다."), alert)
         self.assertTrue(ok["checks"]["no_forbidden"], ok["details"]["forbidden"])
         self.assertEqual(pe.reason_labels(alert), {"선행 사슬 끊김"})
+        # 정의되지 않은 사유 코드는 이름표가 코드 그대로라 허용하지 않는다
+        unknown, _ = pe.observed_paths_facts("IF_X", draft("IF_X", [(("A", "B"), 40)], excluded={"새사유": 3}), None,
+                                             parameters=PARAMS)
+        self.assertEqual(pe.reason_labels(unknown), set())
+        self.assertIn("no_forbidden", pe.check_output(out("새사유로 인해 3건이 빠졌습니다."), unknown)["failures"])
         # 사유가 없는 사실에서는 예외가 없다
         self.assertIn("no_forbidden", self.check(out("선행 사슬 끊김으로 인해 경로가 없습니다."))["failures"])
 

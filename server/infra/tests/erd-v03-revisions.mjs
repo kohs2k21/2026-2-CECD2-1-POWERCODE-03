@@ -177,7 +177,7 @@ export async function revisions015({ Client, port, connection, check, failures, 
       powercode_api: { table:['SELECT','INSERT'], view:['SELECT'] }, powercode_detector: { table:['SELECT'], view:['SELECT'] }, powercode_trainer: { table:['SELECT'], view:['SELECT'] },
       powercode_collector: { table:[], view:[] }, powercode_llm: { table:[], view:[] }, powercode_demo: { table:[], view:[] },
     };
-    // 026 roles script: LLM reads the rule set history only (explain_protocol facts), not the other two tables or the view.
+    // 027 roles script: LLM reads the rule set history only (explain_protocol facts), not the other two tables or the view.
     const override = { [`powercode_llm ${RULE}`]: ['SELECT'] };
     const wrong = [];
     for (const [role, want] of Object.entries(expected)) for (const [rel, list] of [...TABLES.map(t => [t, want.table]), [VIEW, want.view]]) for (const privilege of ALL_PRIVILEGES) {

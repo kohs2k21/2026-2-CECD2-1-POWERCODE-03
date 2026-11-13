@@ -757,6 +757,37 @@ const typingNodes = (app) => app.renderer.root.findAll((node) => node.type === "
 const srOnlyNodes = (app) => app.renderer.root.findAll((node) => node.type === "div" && node.props.className === "sr-only");
 const explainCard = (app) => app.renderer.root.find((node) => node.type === "div" && node.props["data-slot"] === "section-card" && text(node.children).startsWith("AI 판정 근거 요약"));
 
+// 5c-2) LLM 생성 서비스 꺼짐(GET /api/llm/status available=false, llm-recommendation-job.md '생성 서비스 가용성' 절):
+// 요청 버튼 비활성 + 코드 그대로(새 문장·배지 없음), 화면에 있는 동안 30초 재조회. 이미 요청 중인 작업은 `요청 중`을 두고 같은 줄에 코드.
+// 상태 조회 실패(이 파일의 다른 시험처럼 경로가 없어 503)면 버튼을 막지 않는다(5번 설명 요청).
+{
+  requested.length = 0;
+  const down = () => json({ available: false, checkedAt: "2026-11-14T01:00:00.000Z", errorCode: "generation_service_unavailable" });
+  const fresh = { ...item("d-13"), configuration: null, job: null, explanation: null };
+  routes = { ...explainRoutes("d-13", fresh, { status: "queued" }), "GET /api/llm/status": down };
+  const app = await mount("/analysis/d/d-13");
+  await wait(() => app.shown().includes("설명 요청 · generation_service_unavailable"), "unavailable code shown");
+  const ask = app.renderer.root.findAll((node) => node.type === "button" && text(node.children) === "설명 요청")[0];
+  assert.equal(ask.props.disabled, true, "request button disabled while the generation service is off");
+  const statusQuery = app.client.getQueryCache().findAll({ queryKey: ["llm-status"] })[0];
+  assert.equal(statusQuery.observers[0].options.refetchInterval, 30000, "re-read every 30 s while on the screen");
+  assert.equal(requested.some((r) => r.method === "POST" && r.path === "/api/jobs"), false);
+  // 꺼짐을 받은 뒤 재조회가 실패하면(마지막 data가 남아 있어도) '모름'으로 보고 막지 않는다.
+  routes["GET /api/llm/status"] = () => json({ code: "unavailable" }, 503);
+  await act(async () => app.client.refetchQueries({ queryKey: ["llm-status"] }));
+  await wait(() => !app.shown().includes("generation_service_unavailable"), "code cleared after a failed re-read");
+  assert.equal(app.renderer.root.findAll((node) => node.type === "button" && text(node.children) === "설명 요청")[0].props.disabled, false,
+    "a failed status re-read does not keep the button blocked");
+  await app.cleanup();
+
+  const queued = { ...item("d-14"), configuration: null, job: null, explanation: { jobId: "explain-d-14", status: "queued", errorCode: null, createdAt: null } };
+  routes = { ...explainRoutes("d-14", queued, { status: "queued" }), "GET /api/llm/status": down };
+  const waiting = await mount("/analysis/d/d-14");
+  await wait(() => waiting.shown().includes("설명 작업 대기 · generation_service_unavailable"), "queued job keeps its state with the code");
+  assert.ok(waiting.shown().includes("요청 중"), "the in-progress badge stays");
+  await waiting.cleanup();
+}
+
 // 5d) 처음 열었을 때 이미 완료된 결과: 타자 효과 없이 바로 전체
 {
   requested.length = 0;

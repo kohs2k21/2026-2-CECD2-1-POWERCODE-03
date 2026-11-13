@@ -1,5 +1,5 @@
 Created: 2026-11-03T18:00:00+09:00
-Updated: 2026-11-13T21:00:00+09:00
+Updated: 2026-11-14T01:40:00+09:00
 Author: #105 Claude Code(WebUI builder)
 Status: current
 
@@ -123,7 +123,7 @@ Status: current
   - v3(최종만): `Rule 판정 근거` 표(방법·버전·결과·측정값(`상태 <관측 상태>`)·위험도 단계) — 방법은 상태 규칙 `이상 규칙(상태가 S가 아님)`, 그 밖의 등록 Rule `이상 징후 규칙(과거 등록 Rule)`(U6), Rule 키는 툴팁 — + `ML 판정 근거` 표. 값이 없으면 `— 확인 불가` 또는 `—`
 - 조사·조치 기록(admin만, 와이어프레임 feedbackBox 항목): 입력은 위 `로그 분류하기` 대화상자 안 — 기록 유형(조치 기록·오탐 의심·근거 부족)·조사·조치 사유(선택, 최대 2000자, 자리표시 `확인한 사실과 조치 사유를 입력하세요.`)·대화상자 설명 `선택은 확정 라벨이나 자동 학습으로 반영되지 않습니다.`. 빈 사유면 기록 없이 상태만 바꾼다(별도 `피드백 저장` 버튼 없음). 저장된 기록은 대화상자가 아니라 판정 기록 카드에 읽기 전용 줄로 시각 순으로 함께 보인다(사용자 11/13): `<시각>` / `<유형> · <작성자 email>` / 사유(줄바꿈 그대로). 기록은 상세를 열 때 읽고(GET …/feedback), 읽기 실패는 카드 안에 `조사·조치 기록 미연결` 등 오류 그대로 + 다시 시도. user는 읽지 않는다(판정 기록 그대로)
 - 판정 기한(`detectionPolicy.deadlineMs`)·정책 k는 판정 정책 값이라 숫자를 화면에 보이지 않는다(와이어프레임 사용자 9.8). 미판정 사유는 이름(예: 처리 기한 초과)만
-- AI 판정 근거 요약(설명 작업 `explain`, 사용자 11/04 이름 변경): 최종 판정만 요청(그 외·데모 판정은 버튼 비활성 + 사유). 요청 → `GET /api/jobs/:id`를 queued·running일 때만 5초 주기·`요청 중` 표시, 그 밖의 상태(blocked 등)는 주기 조회 없이 상태 코드 그대로, 실패는 작업 상태·오류 코드 그대로 + `설명 다시 요청`. 상세 `explanation`이 있으면 그 작업을 이어서 보여 주고, 그 작업을 읽는 중이거나 읽기에 실패하면 오류를 그대로 보이고 새 요청 버튼을 막는다(중복 요청 방지)
+- AI 판정 근거 요약(설명 작업 `explain`, 사용자 11/04 이름 변경): 최종 판정만 요청(그 외·데모 판정은 버튼 비활성 + 사유). 요청 → `GET /api/jobs/:id`를 queued·running일 때만 5초 주기·`요청 중` 표시, 그 밖의 상태(blocked 등)는 주기 조회 없이 상태 코드 그대로, 실패는 작업 상태·오류 코드 그대로 + `설명 다시 요청`. 상세 `explanation`이 있으면 그 작업을 이어서 보여 주고, 그 작업을 읽는 중이거나 읽기에 실패하면 오류를 그대로 보이고 새 요청 버튼을 막는다(중복 요청 방지). LLM 생성 서비스가 꺼져 있으면(`GET /api/llm/status`, 화면에 들어갈 때 1회 + 30초마다, [llm-recommendation-job.md](llm-recommendation-job.md) 가용성 절) 요청 버튼 비활성 + `설명 요청 · generation_service_unavailable`, 요청 중인 작업은 `요청 중`을 두고 상태 줄에 ` · generation_service_unavailable`을 덧붙인다. 상태 조회 실패는 막지 않는다(접수 503)
 - 장식 아이콘(사용자 11/04·11/05, #100 이전 화면 아이콘 복원, Tabler·`aria-hidden`, `frontend/src/features/analysis/icons.ts`): 사이드바 전 그룹과 목록 제목의 분류 아이콘(전체 IconInbox·위험 IconFlame·주의 IconAlertTriangle·참고 IconInfoCircle·위험도 미정 IconHelpCircle·이상 IconAlertOctagon·이상 징후 IconAlertCircle·정상 IconShieldCheck·판정 중 IconClock·미확인 IconQuestionMark·실패·대체 IconCircleX·보류 IconFolderOpen·완료 IconCircleCheck), 목록 줄·판정 요약 제목 = 저장된 위험도 단계 아이콘(단계가 있는 이상만, 배지와 같은 글자 색), 처리 상태 버튼(원래 상태로 복원 IconRefresh·처리 보류 IconFolderOpen·처리 완료 IconCircleCheck·로그 분류하기 IconTags(이전 대응 없음, 사용자 11/13 새 버튼)), Process Flow 제목 IconBinaryTree·노드(Transaction IconDatabase·Process IconCodeDots(상태 F면 오류 색)·Message IconMessage2)·`선택 노드 원본 정보` IconListDetails, AI 판정 근거 요약 제목·설명 요청 버튼 IconBrain. 판정 기록·판정 근거·조사·조치 기록은 이전 대응 아이콘이 없어 두지 않는다
 - evidence 읽기(`frontend/src/features/analysis/data/evidence.ts`): v3(`rules`·`models`·`checkers`·`detectionPolicy`·`input`·`demo`) + v4 읽기(`methodResults[]`·`categoryResults`·`composite`, schemaVersion 4·`composite`가 없으면 null → v3 표시). 형식이 틀린 항목은 버린다
 - 범위 밖(별도 Issue): WINDOW 판정 상세, 관리자 링크(당시 모델·평가), 와이어프레임 종합 근거 설명 문단(dCatsNote), 이상 분석 메뉴의 미확인 건수 표시, 조사·조치 기록 수정·삭제

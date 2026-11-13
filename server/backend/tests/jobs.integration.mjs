@@ -8,6 +8,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import pg from 'pg';
 import { decimalString } from '../dist/ruleset/ruleSetContract.js';
+import { startFakeLlmHealth } from './fake-llm-health.mjs';
 
 const url = process.env.PIPELINE_TEST_DATABASE_URL;
 if (!url) throw new Error('PIPELINE_TEST_DATABASE_URL is required');
@@ -19,6 +20,8 @@ const backend = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const temporary = await mkdtemp(path.join(os.tmpdir(), 'powercode-jobs-'));
 const pool = new pg.Pool({ connectionString: url });
 let child;
+// LLM 생성 서비스 가용성(llm-recommendation-job.md '생성 서비스 가용성' 절): 꺼진 상태로 시작해 LLM 작업 접수 거절을 본 뒤 켠다.
+const llmHealth = await startFakeLlmHealth('down');
 
 async function freePort() {
   const server = net.createServer();
@@ -48,6 +51,7 @@ try {
     SEED_ADMIN_EMAIL: 'jobs-admin@example.test',
     SEED_ADMIN_PASSWORD: 'qa-admin-local-only-password',
     USER_DATA_PATH: path.join(temporary, 'users.json'), PORT: String(port),
+    LLM_HEALTH_URL: llmHealth.url,
   };
   child = spawn(process.execPath, [path.join(backend, 'dist/index.js')], {
     cwd: temporary, env: environment, stdio: 'ignore',
@@ -212,6 +216,30 @@ try {
   const thresholds = { kind: 'recommend_thresholds', sourceId, ruleSetRevision: ruleSet.revision, scope: { softRuleIds: null },
     data: { snapshotId: null, from, until, timeBasis: 'persisted_at' }, mode: 'data_p95_with_llm_rationale' };
   const thresholdKey = crypto.randomUUID();
+  // 생성 서비스 꺼짐: LLM 작업(recommend_thresholds·explain)만 503 generation_service_unavailable. 작업 행·큐 메시지·멱등키를 남기지 않는다.
+  const llmRows = async () => (await pool.query(`SELECT
+      (SELECT count(*)::int FROM run_jobs WHERE kind::text IN ('recommend_thresholds','explain')) AS jobs,
+      (SELECT count(*)::int FROM run_jobs WHERE idempotency_key=$1) AS keyed,
+      (SELECT count(*)::int FROM powercode_queue.llm_recommendation_jobs) + (SELECT count(*)::int FROM powercode_queue.llm_explanation_jobs) AS queued`,
+    [thresholdKey])).rows[0];
+  const llmBefore = await llmRows();
+  assert.deepEqual((await request(base, '/api/llm/status', 'GET')).status, 401, 'status needs a login');
+  const down = await request(base, '/api/llm/status', 'GET', userToken);
+  assert.equal(down.status, 200);
+  assert.deepEqual([down.body.available, down.body.errorCode], [false, 'generation_service_unavailable']);
+  assert.ok(Number.isFinite(Date.parse(down.body.checkedAt)));
+  assert.deepEqual(await request(base, '/api/jobs', 'POST', token, thresholds, thresholdKey), { status: 503, body: { code: 'generation_service_unavailable' } });
+  assert.deepEqual(await request(base, '/api/jobs', 'POST', userToken, { kind: 'explain', sourceId, decisionId: crypto.randomUUID() }, crypto.randomUUID()),
+    { status: 503, body: { code: 'generation_service_unavailable' } }, 'explain is refused before the decision lookup');
+  assert.equal((await request(base, '/api/jobs', 'POST', userToken, thresholds, thresholdKey)).status, 403, 'role gate still comes first');
+  assert.deepEqual(await llmRows(), llmBefore, 'refused LLM requests leave no job, queue message or idempotency key');
+  assert.equal((await request(base, '/api/jobs', 'POST', token, synthetic, crypto.randomUUID())).status, 201, 'non-LLM jobs are not gated');
+  assert.equal(llmHealth.state.hits, 1, 'one /health check served the status read and both refusals (10 s cache)');
+  // 켜진 뒤 캐시(10초)가 지나면 같은 멱등키로 다시 요청할 수 있다(아래 201).
+  llmHealth.state.mode = 'ready';
+  await new Promise((resolve) => setTimeout(resolve, 10_200));
+  const up = await request(base, '/api/llm/status', 'GET', token);
+  assert.deepEqual([up.status, up.body.available, up.body.errorCode], [200, true, null]);
   assert.equal((await request(base, '/api/jobs', 'POST', userToken, thresholds, thresholdKey)).status, 403);
   assert.equal((await request(base, '/api/jobs', 'POST', token, { ...thresholds, ruleSetRevision: ruleSet.revision - 1 }, thresholdKey)).body.code, 'rule_set_revision_conflict');
   const thresholdJob = await request(base, '/api/jobs', 'POST', token, thresholds, thresholdKey);
@@ -275,8 +303,9 @@ try {
   assert.equal(savedValues.status, 200, JSON.stringify(savedValues.body));
   const reread = (await request(base, '/api/rule-set', 'GET', token)).body.softRules;
   for (const item of thresholdCases) assert.equal(decimalString(reread.find(rule => rule.name === item.name).threshold), item.threshold, item.name);
-  console.log('job API integration passed: auth, idempotency, durable queue, role gate, feature-bound rule adoption');
+  console.log('job API integration passed: auth, idempotency, durable queue, role gate, feature-bound rule adoption, LLM availability gate');
 } finally {
+  await llmHealth.close();
   if (child && child.exitCode === null) {
     child.kill();
     await new Promise((resolve) => child.once('exit', resolve));

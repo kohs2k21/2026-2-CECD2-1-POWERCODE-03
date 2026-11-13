@@ -80,6 +80,11 @@ class KitTests(unittest.TestCase):
             for value in ("SYN_", "IF-01", "CH-01", "인터페이스 ", "건이고", '"output"', '"details"', "250"):
                 self.assertNotIn(value, text, (name, value))
 
+    def test_only_explicit_synthetic_shows_values(self):
+        self.assertFalse(run_cases.is_real_index({"kind": "synthetic"}))
+        for index in ({"kind": "real"}, {}, {"kind": "Synthetic"}, {"kind": None}):
+            self.assertTrue(run_cases.is_real_index(index), index)
+
     def test_gpu_wiring_with_fake_model(self):
         class Fake:
             def __init__(self, raws):

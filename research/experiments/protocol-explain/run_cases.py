@@ -32,6 +32,12 @@ RUN_FORMAT = "protocol-explain-run-v1"
 LIBRARIES = ("torch", "transformers", "bitsandbytes", "accelerate", "huggingface-hub", "safetensors")
 BASE_FILES = kit.REPO / "research" / "models" / "feature_rule_spec" / "models" / "base_files.json"
 MODEL_CLASS = "Qwen3_5ForConditionalGeneration"
+SERVICE_EXPLAIN_SECONDS = 60.0  # 운영 설명 생성 상한(generation_service.py LLM_EXPLANATION_SECONDS 기본값). 기록만
+
+
+def is_real_index(index: dict[str, Any]) -> bool:
+    """합성이라고 명시된 사례(kind=synthetic)만 값을 보인다. 그 밖(real·누락·오타)은 모두 실데이터로 본다."""
+    return index.get("kind") != "synthetic"
 
 
 def library_versions() -> dict[str, str | None]:
@@ -214,9 +220,13 @@ def _text(value: Any) -> str:
 
 def write_summary(run_dir: Path, run: dict[str, Any], rows: list[dict[str, Any]], real: bool) -> dict[str, Any]:
     passed = sum(row["passed"] for row in rows)
+    timed = [row["seconds"] for row in rows if row.get("seconds") is not None]
+    within = sum(seconds <= SERVICE_EXPLAIN_SECONDS for seconds in timed)
     summary = {"format": RUN_FORMAT, "mode": run["mode"], "cases_kind": run["cases_kind"], "status": run["status"],
                "prompt_version": pe.PROMPT_VERSION, "system_prompt_sha256": run["system_prompt_sha256"],
                "passed": passed, "total": len(rows), "time_limit_seconds": run["parameters"]["time_limit_seconds"],
+               "service_explain_seconds": SERVICE_EXPLAIN_SECONDS,
+               "within_service_explain_seconds": {"cases": within, "timed_cases": len(timed)},
                "max_new_tokens": run["parameters"]["max_new_tokens"],
                "value_policy": "real: status, counts, booleans only" if real else "synthetic: full output",
                "cases": rows}
@@ -227,6 +237,7 @@ def write_summary(run_dir: Path, run: dict[str, Any], rows: list[dict[str, Any]]
              f"- 통과 **{passed}/{len(rows)}** · 모드 {run['mode']} · 사례 {run['cases_kind']} · 상태 {run['status']}",
              f"- 프롬프트 {pe.PROMPT_VERSION} · 시간 상한 {run['parameters']['time_limit_seconds']}초 · "
              f"출력 토큰 상한 {run['parameters']['max_new_tokens']}",
+             f"- 운영 설명 상한 {SERVICE_EXPLAIN_SECONDS:g}초 이하 사례 {within}/{len(timed)}(기록만, 통과 기준은 위 시간 상한)",
              "- 실데이터는 값 없이 참/거짓·개수만 적는다." if real else "- 합성 사례: 생성 문장을 아래에 그대로 적는다.", "",
              "| 사례 | 종류 | 사실 재생성 | 파싱 | " + " | ".join(names[1:]) + " | 초 | 출력 토큰 | length_limit | PASS/FAIL·사유 |",
              "|" + "---|" * (len(names) + 7)]
@@ -335,7 +346,7 @@ def main(argv: list[str] | None = None, model_factory: Callable[[argparse.Namesp
             raise SystemExit("CUDA_VISIBLE_DEVICES must name exactly one GPU")
         if not args.base_path or not Path(args.base_path).is_dir():
             raise SystemExit("--base-path must be the local Qwen base directory")
-    real = index.get("kind") == "real"
+    real = is_real_index(index)
     run_dir = create_run_dir(root, args.run_name)
     system_sha = hashlib.sha256(pe.SYSTEM_PROMPT.encode("utf-8")).hexdigest()
     run: dict[str, Any] = {

@@ -137,6 +137,37 @@ class CheckTests(unittest.TestCase):
                 self.assertIn("numbers_subset", result["failures"])
                 self.assertEqual(result["details"]["unknown_numbers"], [number])
 
+    def test_number_right_after_comma_detected(self):
+        result = self.check(out(f"경로 {self.p2}는 6건,77건입니다. 비율은 6.2%,55.5%입니다."))
+        self.assertIn("numbers_subset", result["failures"])
+        self.assertEqual(result["details"]["unknown_numbers"], ["55.5", "6", "6.2", "77"])
+
+    def test_native_counter_excludes_repetition_words(self):
+        self.assertEqual(pe.numbers_in("다시 한 번 확인하고 두 번째 경로를 봅니다."), [])
+        self.assertEqual(pe.numbers_in("경로 세 개와 거래 열 건"), ["3", "10"])
+
+    def test_period_digits_are_not_counts(self):
+        # 기간(2026-01-05~2026-01-19)의 5·19는 건수로 쓸 수 없다(관측 경로는 2개).
+        for text in ("관측 경로는 5개입니다.", "거래는 19건입니다.", "관측 경로는 다섯 개입니다."):
+            with self.subTest(text=text):
+                self.assertIn("numbers_subset", self.check(out(text))["failures"])
+
+    def test_dates_checked_against_period(self):
+        ok = self.check(out("학습 기간은 2026년 1월 5일부터 2026-01-19까지이고 1월 19일 전까지의 거래를 셉니다."))
+        self.assertTrue(ok["checks"]["numbers_subset"], ok["details"])
+        bad = self.check(out("학습 기간은 2026년 1월 6일부터입니다."))
+        self.assertIn("numbers_subset", bad["failures"])
+        self.assertEqual(bad["details"]["unknown_dates"], ["2026년 1월 6일"])
+        facts, _ = pe.observed_paths_facts("IF_X", draft("IF_X", [(("A", "B"), 40)]), None, parameters=PARAMS,
+                                           period={"from": "2026-01-05T00:00:00.000Z",
+                                                   "until": "2026-01-19T00:00:00.000Z"})
+        iso = pe.check_output(out("학습 기간은 2026-01-05T00:00:00.000Z부터 2026-01-19T00:00:00.000Z까지입니다."), facts)
+        self.assertTrue(iso["passed"], iso)  # ISO 시각을 옮겨 써도 T00·Z를 모르는 표기로 보지 않는다
+        moved = pe.check_output(out("학습 기간은 2026-01-05T09:00부터입니다."), facts)
+        self.assertEqual(moved["details"]["unknown_dates"], ["2026-01-05T09:00"])
+        no_period, _ = pe.observed_paths_facts("IF_X", draft("IF_X", [(("A", "B"), 40)]), None)
+        self.assertIn("numbers_subset", pe.check_output(out("기간은 1월 5일부터입니다."), no_period)["failures"])
+
     def test_identifier_digits_are_not_numbers(self):
         result = self.check(out("인터페이스 IF-01에서 CH-03 채널을 거치는 경로가 있습니다."))
         self.assertTrue(result["checks"]["numbers_subset"], result["details"])
@@ -152,16 +183,24 @@ class CheckTests(unittest.TestCase):
 
     def test_forbidden_expressions(self):
         for text in ("이 경로는 설정 변경 때문에 생겼습니다.", "배포로 인해 경로가 바뀐 것으로 보입니다.",
-                     "새 경로가 생긴 원인은 알 수 없습니다.", "이 경로를 반드시 등록해야 합니다."):
+                     "새 경로가 생긴 원인은 알 수 없습니다.", "이 경로를 반드시 등록해야 합니다.",
+                     "새 경로는 정상 흐름일 수 있습니다.", "드문 경로처럼 보입니다.", "경로가 늘어난 것이 보입니다.",
+                     "설정에 의해 경로가 바뀌었습니다.", "허용 경로에 추가하세요.", "확인하십시오."):
             with self.subTest(text=text):
                 self.assertIn("no_forbidden", self.check(out(text))["failures"])
+        self.assertTrue(self.check(out("담당 직원인지 확인이 필요합니다."))["checks"]["no_forbidden"])
 
     def test_format_language_and_length(self):
         self.assertEqual(self.check("설명입니다")["failures"][0], "json_parsed")
-        fenced = "```json\n" + out("관측 경로는 2개입니다.") + "\n```"
-        result = self.check(fenced)
-        self.assertTrue(result["passed"])
-        self.assertFalse(result["checks"]["json_strict"])
+        # 운영 generation_service.py와 같이 엄격하게 읽는다: 코드 블록·앞뒤 글은 FAIL(json_not_strict)
+        for text in ("```json\n" + out("관측 경로는 2개입니다.") + "\n```", "설명: " + out("관측 경로는 2개입니다.")):
+            with self.subTest(text=text):
+                result = self.check(text)
+                self.assertFalse(result["passed"])
+                self.assertEqual(result["failures"], ["json_not_strict"])
+                self.assertTrue(result["details"]["checks_on_extracted_object"])  # 꺼낸 객체 점검은 정보로 남김
+        result = self.check("```json\n" + out("관측 경로는 7개입니다.") + "\n```")
+        self.assertEqual(result["failures"], ["json_not_strict", "numbers_subset"])
         extra = json.dumps({"explanation": "관측 경로는 2개입니다.", "reviewPoints": [], "verdict": "anomalous"})
         self.assertIn("schema_ok", self.check(extra)["failures"])
         self.assertIn("korean_ok", self.check(out("Observed paths were aggregated by code."))["failures"])

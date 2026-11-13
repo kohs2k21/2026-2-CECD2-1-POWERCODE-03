@@ -1,0 +1,614 @@
+{
+  "version": "feature-set-hash-vectors-v1",
+  "fieldsVersion": "ml-feature-fields-v1",
+  "generatedBy": "python -m trainer.feature_fields --write",
+  "definitionKind": "operator_defined",
+  "rules": {
+    "canonicalJson": "json.dumps(value, sort_keys=True, separators=(',', ':')) — 키 사전순, 공백 없음, ASCII 밖은 \\uXXXX",
+    "contentHash": "sha256_hex(utf8('operator_defined:' + canonicalDefinitionsJson))",
+    "expressionHash": "sha256_hex(utf8(canonicalExpressionJson)) — 종류 접두 없음",
+    "definitionsOrder": "ml-feature-fields.json fields[] 순서(요청 순서 무관)"
+  },
+  "cases": [
+    {
+      "id": "single_count",
+      "fields": [
+        "error_count"
+      ],
+      "definitions": [
+        {
+          "name": "error_count",
+          "expression": {
+            "op": "field",
+            "field": "P.error_count"
+          }
+        }
+      ],
+      "canonicalDefinitionsJson": "[{\"expression\":{\"field\":\"P.error_count\",\"op\":\"field\"},\"name\":\"error_count\"}]",
+      "contentHash": "285ffb400a4563d8ed693ee62ff93ff687198e6129a2db12c449e5c2e8a41613",
+      "featureSet": {
+        "schema_version": "numeric-process-v2",
+        "transform_version": "safe-dsl-v2",
+        "output_schema": [
+          "error_count"
+        ]
+      },
+      "members": [
+        {
+          "name": "error_count",
+          "canonicalExpressionJson": "{\"field\":\"P.error_count\",\"op\":\"field\"}",
+          "expressionHash": "da71715e0069959f2b3f4cfd83fbee2b24a5e1e08331308384e873bdacb6efaf",
+          "definition_key": "error_count",
+          "display_name": "error_count",
+          "definition_kind": "operator_defined",
+          "output_type": "decimal",
+          "output_unit": null,
+          "value_policy": {
+            "missing": "null",
+            "zeroDivision": "null"
+          },
+          "availability_spec": {
+            "layer": "P",
+            "asOf": "observation"
+          },
+          "requires_fit": false,
+          "model_input": true,
+          "output_position": 0,
+          "output_name": "error_count",
+          "transform_settings": {}
+        }
+      ]
+    },
+    {
+      "id": "all_six",
+      "fields": [
+        "total_count",
+        "success_count",
+        "error_count",
+        "retry_count",
+        "elapsed_ms",
+        "error_ratio"
+      ],
+      "definitions": [
+        {
+          "name": "total_count",
+          "expression": {
+            "op": "field",
+            "field": "P.total_count"
+          }
+        },
+        {
+          "name": "success_count",
+          "expression": {
+            "op": "field",
+            "field": "P.success_count"
+          }
+        },
+        {
+          "name": "error_count",
+          "expression": {
+            "op": "field",
+            "field": "P.error_count"
+          }
+        },
+        {
+          "name": "retry_count",
+          "expression": {
+            "op": "field",
+            "field": "P.retry_count"
+          }
+        },
+        {
+          "name": "elapsed_ms",
+          "expression": {
+            "op": "derived",
+            "ast": {
+              "op": "datetime_diff",
+              "unit": "ms",
+              "args": [
+                {
+                  "op": "column",
+                  "table": "EC_PROCESS_MONITORING",
+                  "column": "END_TIME"
+                },
+                {
+                  "op": "column",
+                  "table": "EC_PROCESS_MONITORING",
+                  "column": "START_TIME"
+                }
+              ]
+            },
+            "outputType": "number",
+            "unit": "ms",
+            "provenance": {
+              "source": "ml-feature-fields-v1",
+              "field": "elapsed_ms"
+            }
+          }
+        },
+        {
+          "name": "error_ratio",
+          "expression": {
+            "op": "derived",
+            "ast": {
+              "op": "divide",
+              "args": [
+                {
+                  "op": "column",
+                  "table": "EC_PROCESS_MONITORING",
+                  "column": "ERROR_COUNT"
+                },
+                {
+                  "op": "column",
+                  "table": "EC_PROCESS_MONITORING",
+                  "column": "TOTAL_COUNT"
+                }
+              ]
+            },
+            "outputType": "number",
+            "unit": "ratio",
+            "provenance": {
+              "source": "ml-feature-fields-v1",
+              "field": "error_ratio"
+            }
+          }
+        }
+      ],
+      "canonicalDefinitionsJson": "[{\"expression\":{\"field\":\"P.total_count\",\"op\":\"field\"},\"name\":\"total_count\"},{\"expression\":{\"field\":\"P.success_count\",\"op\":\"field\"},\"name\":\"success_count\"},{\"expression\":{\"field\":\"P.error_count\",\"op\":\"field\"},\"name\":\"error_count\"},{\"expression\":{\"field\":\"P.retry_count\",\"op\":\"field\"},\"name\":\"retry_count\"},{\"expression\":{\"ast\":{\"args\":[{\"column\":\"END_TIME\",\"op\":\"column\",\"table\":\"EC_PROCESS_MONITORING\"},{\"column\":\"START_TIME\",\"op\":\"column\",\"table\":\"EC_PROCESS_MONITORING\"}],\"op\":\"datetime_diff\",\"unit\":\"ms\"},\"op\":\"derived\",\"outputType\":\"number\",\"provenance\":{\"field\":\"elapsed_ms\",\"source\":\"ml-feature-fields-v1\"},\"unit\":\"ms\"},\"name\":\"elapsed_ms\"},{\"expression\":{\"ast\":{\"args\":[{\"column\":\"ERROR_COUNT\",\"op\":\"column\",\"table\":\"EC_PROCESS_MONITORING\"},{\"column\":\"TOTAL_COUNT\",\"op\":\"column\",\"table\":\"EC_PROCESS_MONITORING\"}],\"op\":\"divide\"},\"op\":\"derived\",\"outputType\":\"number\",\"provenance\":{\"field\":\"error_ratio\",\"source\":\"ml-feature-fields-v1\"},\"unit\":\"ratio\"},\"name\":\"error_ratio\"}]",
+      "contentHash": "4a34bbfe81323afc89b6df344a393ebf9a115fdf1b1acfe2221244446fcc2a69",
+      "featureSet": {
+        "schema_version": "numeric-process-v2",
+        "transform_version": "safe-dsl-v2",
+        "output_schema": [
+          "total_count",
+          "success_count",
+          "error_count",
+          "retry_count",
+          "elapsed_ms",
+          "error_ratio"
+        ]
+      },
+      "members": [
+        {
+          "name": "total_count",
+          "canonicalExpressionJson": "{\"field\":\"P.total_count\",\"op\":\"field\"}",
+          "expressionHash": "1bfbf6e43b23c54801c6f717c50f6c2b253855777c3d67fe3a97f1dfc49a0992",
+          "definition_key": "total_count",
+          "display_name": "total_count",
+          "definition_kind": "operator_defined",
+          "output_type": "decimal",
+          "output_unit": null,
+          "value_policy": {
+            "missing": "null",
+            "zeroDivision": "null"
+          },
+          "availability_spec": {
+            "layer": "P",
+            "asOf": "observation"
+          },
+          "requires_fit": false,
+          "model_input": true,
+          "output_position": 0,
+          "output_name": "total_count",
+          "transform_settings": {}
+        },
+        {
+          "name": "success_count",
+          "canonicalExpressionJson": "{\"field\":\"P.success_count\",\"op\":\"field\"}",
+          "expressionHash": "3b4131ac3ca51b5eeeea860bddf137f660df5fb66e546e56c642af00bbfa8a35",
+          "definition_key": "success_count",
+          "display_name": "success_count",
+          "definition_kind": "operator_defined",
+          "output_type": "decimal",
+          "output_unit": null,
+          "value_policy": {
+            "missing": "null",
+            "zeroDivision": "null"
+          },
+          "availability_spec": {
+            "layer": "P",
+            "asOf": "observation"
+          },
+          "requires_fit": false,
+          "model_input": true,
+          "output_position": 1,
+          "output_name": "success_count",
+          "transform_settings": {}
+        },
+        {
+          "name": "error_count",
+          "canonicalExpressionJson": "{\"field\":\"P.error_count\",\"op\":\"field\"}",
+          "expressionHash": "da71715e0069959f2b3f4cfd83fbee2b24a5e1e08331308384e873bdacb6efaf",
+          "definition_key": "error_count",
+          "display_name": "error_count",
+          "definition_kind": "operator_defined",
+          "output_type": "decimal",
+          "output_unit": null,
+          "value_policy": {
+            "missing": "null",
+            "zeroDivision": "null"
+          },
+          "availability_spec": {
+            "layer": "P",
+            "asOf": "observation"
+          },
+          "requires_fit": false,
+          "model_input": true,
+          "output_position": 2,
+          "output_name": "error_count",
+          "transform_settings": {}
+        },
+        {
+          "name": "retry_count",
+          "canonicalExpressionJson": "{\"field\":\"P.retry_count\",\"op\":\"field\"}",
+          "expressionHash": "f53cc88cde37e4b120a0e0b815a8a5c3c060a469b5a759f841786eb5110de994",
+          "definition_key": "retry_count",
+          "display_name": "retry_count",
+          "definition_kind": "operator_defined",
+          "output_type": "decimal",
+          "output_unit": null,
+          "value_policy": {
+            "missing": "null",
+            "zeroDivision": "null"
+          },
+          "availability_spec": {
+            "layer": "P",
+            "asOf": "observation"
+          },
+          "requires_fit": false,
+          "model_input": true,
+          "output_position": 3,
+          "output_name": "retry_count",
+          "transform_settings": {}
+        },
+        {
+          "name": "elapsed_ms",
+          "canonicalExpressionJson": "{\"ast\":{\"args\":[{\"column\":\"END_TIME\",\"op\":\"column\",\"table\":\"EC_PROCESS_MONITORING\"},{\"column\":\"START_TIME\",\"op\":\"column\",\"table\":\"EC_PROCESS_MONITORING\"}],\"op\":\"datetime_diff\",\"unit\":\"ms\"},\"op\":\"derived\",\"outputType\":\"number\",\"provenance\":{\"field\":\"elapsed_ms\",\"source\":\"ml-feature-fields-v1\"},\"unit\":\"ms\"}",
+          "expressionHash": "8f64ebbf0a58ddd3ef8564e447285561cc8d5f41986de8fc03c098970cf02b78",
+          "definition_key": "elapsed_ms",
+          "display_name": "elapsed_ms",
+          "definition_kind": "operator_defined",
+          "output_type": "number",
+          "output_unit": "ms",
+          "value_policy": {
+            "missing": "null",
+            "zeroDivision": "null"
+          },
+          "availability_spec": {
+            "layer": "P",
+            "asOf": "observation"
+          },
+          "requires_fit": false,
+          "model_input": true,
+          "output_position": 4,
+          "output_name": "elapsed_ms",
+          "transform_settings": {}
+        },
+        {
+          "name": "error_ratio",
+          "canonicalExpressionJson": "{\"ast\":{\"args\":[{\"column\":\"ERROR_COUNT\",\"op\":\"column\",\"table\":\"EC_PROCESS_MONITORING\"},{\"column\":\"TOTAL_COUNT\",\"op\":\"column\",\"table\":\"EC_PROCESS_MONITORING\"}],\"op\":\"divide\"},\"op\":\"derived\",\"outputType\":\"number\",\"provenance\":{\"field\":\"error_ratio\",\"source\":\"ml-feature-fields-v1\"},\"unit\":\"ratio\"}",
+          "expressionHash": "dc9013757f8ccf0883b47994cb04ddc9f5106160b4e8f8455d9badfbb38676a2",
+          "definition_key": "error_ratio",
+          "display_name": "error_ratio",
+          "definition_kind": "operator_defined",
+          "output_type": "number",
+          "output_unit": "ratio",
+          "value_policy": {
+            "missing": "null",
+            "zeroDivision": "null"
+          },
+          "availability_spec": {
+            "layer": "P",
+            "asOf": "observation"
+          },
+          "requires_fit": false,
+          "model_input": true,
+          "output_position": 5,
+          "output_name": "error_ratio",
+          "transform_settings": {}
+        }
+      ]
+    },
+    {
+      "id": "subset_unordered",
+      "fields": [
+        "error_ratio",
+        "total_count",
+        "elapsed_ms"
+      ],
+      "definitions": [
+        {
+          "name": "total_count",
+          "expression": {
+            "op": "field",
+            "field": "P.total_count"
+          }
+        },
+        {
+          "name": "elapsed_ms",
+          "expression": {
+            "op": "derived",
+            "ast": {
+              "op": "datetime_diff",
+              "unit": "ms",
+              "args": [
+                {
+                  "op": "column",
+                  "table": "EC_PROCESS_MONITORING",
+                  "column": "END_TIME"
+                },
+                {
+                  "op": "column",
+                  "table": "EC_PROCESS_MONITORING",
+                  "column": "START_TIME"
+                }
+              ]
+            },
+            "outputType": "number",
+            "unit": "ms",
+            "provenance": {
+              "source": "ml-feature-fields-v1",
+              "field": "elapsed_ms"
+            }
+          }
+        },
+        {
+          "name": "error_ratio",
+          "expression": {
+            "op": "derived",
+            "ast": {
+              "op": "divide",
+              "args": [
+                {
+                  "op": "column",
+                  "table": "EC_PROCESS_MONITORING",
+                  "column": "ERROR_COUNT"
+                },
+                {
+                  "op": "column",
+                  "table": "EC_PROCESS_MONITORING",
+                  "column": "TOTAL_COUNT"
+                }
+              ]
+            },
+            "outputType": "number",
+            "unit": "ratio",
+            "provenance": {
+              "source": "ml-feature-fields-v1",
+              "field": "error_ratio"
+            }
+          }
+        }
+      ],
+      "canonicalDefinitionsJson": "[{\"expression\":{\"field\":\"P.total_count\",\"op\":\"field\"},\"name\":\"total_count\"},{\"expression\":{\"ast\":{\"args\":[{\"column\":\"END_TIME\",\"op\":\"column\",\"table\":\"EC_PROCESS_MONITORING\"},{\"column\":\"START_TIME\",\"op\":\"column\",\"table\":\"EC_PROCESS_MONITORING\"}],\"op\":\"datetime_diff\",\"unit\":\"ms\"},\"op\":\"derived\",\"outputType\":\"number\",\"provenance\":{\"field\":\"elapsed_ms\",\"source\":\"ml-feature-fields-v1\"},\"unit\":\"ms\"},\"name\":\"elapsed_ms\"},{\"expression\":{\"ast\":{\"args\":[{\"column\":\"ERROR_COUNT\",\"op\":\"column\",\"table\":\"EC_PROCESS_MONITORING\"},{\"column\":\"TOTAL_COUNT\",\"op\":\"column\",\"table\":\"EC_PROCESS_MONITORING\"}],\"op\":\"divide\"},\"op\":\"derived\",\"outputType\":\"number\",\"provenance\":{\"field\":\"error_ratio\",\"source\":\"ml-feature-fields-v1\"},\"unit\":\"ratio\"},\"name\":\"error_ratio\"}]",
+      "contentHash": "a67b03038fa0cfe90cbd03917caaa6c5b3ef26c17b036bcea572075b27cb19f4",
+      "featureSet": {
+        "schema_version": "numeric-process-v2",
+        "transform_version": "safe-dsl-v2",
+        "output_schema": [
+          "total_count",
+          "elapsed_ms",
+          "error_ratio"
+        ]
+      },
+      "members": [
+        {
+          "name": "total_count",
+          "canonicalExpressionJson": "{\"field\":\"P.total_count\",\"op\":\"field\"}",
+          "expressionHash": "1bfbf6e43b23c54801c6f717c50f6c2b253855777c3d67fe3a97f1dfc49a0992",
+          "definition_key": "total_count",
+          "display_name": "total_count",
+          "definition_kind": "operator_defined",
+          "output_type": "decimal",
+          "output_unit": null,
+          "value_policy": {
+            "missing": "null",
+            "zeroDivision": "null"
+          },
+          "availability_spec": {
+            "layer": "P",
+            "asOf": "observation"
+          },
+          "requires_fit": false,
+          "model_input": true,
+          "output_position": 0,
+          "output_name": "total_count",
+          "transform_settings": {}
+        },
+        {
+          "name": "elapsed_ms",
+          "canonicalExpressionJson": "{\"ast\":{\"args\":[{\"column\":\"END_TIME\",\"op\":\"column\",\"table\":\"EC_PROCESS_MONITORING\"},{\"column\":\"START_TIME\",\"op\":\"column\",\"table\":\"EC_PROCESS_MONITORING\"}],\"op\":\"datetime_diff\",\"unit\":\"ms\"},\"op\":\"derived\",\"outputType\":\"number\",\"provenance\":{\"field\":\"elapsed_ms\",\"source\":\"ml-feature-fields-v1\"},\"unit\":\"ms\"}",
+          "expressionHash": "8f64ebbf0a58ddd3ef8564e447285561cc8d5f41986de8fc03c098970cf02b78",
+          "definition_key": "elapsed_ms",
+          "display_name": "elapsed_ms",
+          "definition_kind": "operator_defined",
+          "output_type": "number",
+          "output_unit": "ms",
+          "value_policy": {
+            "missing": "null",
+            "zeroDivision": "null"
+          },
+          "availability_spec": {
+            "layer": "P",
+            "asOf": "observation"
+          },
+          "requires_fit": false,
+          "model_input": true,
+          "output_position": 1,
+          "output_name": "elapsed_ms",
+          "transform_settings": {}
+        },
+        {
+          "name": "error_ratio",
+          "canonicalExpressionJson": "{\"ast\":{\"args\":[{\"column\":\"ERROR_COUNT\",\"op\":\"column\",\"table\":\"EC_PROCESS_MONITORING\"},{\"column\":\"TOTAL_COUNT\",\"op\":\"column\",\"table\":\"EC_PROCESS_MONITORING\"}],\"op\":\"divide\"},\"op\":\"derived\",\"outputType\":\"number\",\"provenance\":{\"field\":\"error_ratio\",\"source\":\"ml-feature-fields-v1\"},\"unit\":\"ratio\"}",
+          "expressionHash": "dc9013757f8ccf0883b47994cb04ddc9f5106160b4e8f8455d9badfbb38676a2",
+          "definition_key": "error_ratio",
+          "display_name": "error_ratio",
+          "definition_kind": "operator_defined",
+          "output_type": "number",
+          "output_unit": "ratio",
+          "value_policy": {
+            "missing": "null",
+            "zeroDivision": "null"
+          },
+          "availability_spec": {
+            "layer": "P",
+            "asOf": "observation"
+          },
+          "requires_fit": false,
+          "model_input": true,
+          "output_position": 2,
+          "output_name": "error_ratio",
+          "transform_settings": {}
+        }
+      ]
+    },
+    {
+      "id": "derived_only",
+      "fields": [
+        "error_ratio",
+        "elapsed_ms"
+      ],
+      "definitions": [
+        {
+          "name": "elapsed_ms",
+          "expression": {
+            "op": "derived",
+            "ast": {
+              "op": "datetime_diff",
+              "unit": "ms",
+              "args": [
+                {
+                  "op": "column",
+                  "table": "EC_PROCESS_MONITORING",
+                  "column": "END_TIME"
+                },
+                {
+                  "op": "column",
+                  "table": "EC_PROCESS_MONITORING",
+                  "column": "START_TIME"
+                }
+              ]
+            },
+            "outputType": "number",
+            "unit": "ms",
+            "provenance": {
+              "source": "ml-feature-fields-v1",
+              "field": "elapsed_ms"
+            }
+          }
+        },
+        {
+          "name": "error_ratio",
+          "expression": {
+            "op": "derived",
+            "ast": {
+              "op": "divide",
+              "args": [
+                {
+                  "op": "column",
+                  "table": "EC_PROCESS_MONITORING",
+                  "column": "ERROR_COUNT"
+                },
+                {
+                  "op": "column",
+                  "table": "EC_PROCESS_MONITORING",
+                  "column": "TOTAL_COUNT"
+                }
+              ]
+            },
+            "outputType": "number",
+            "unit": "ratio",
+            "provenance": {
+              "source": "ml-feature-fields-v1",
+              "field": "error_ratio"
+            }
+          }
+        }
+      ],
+      "canonicalDefinitionsJson": "[{\"expression\":{\"ast\":{\"args\":[{\"column\":\"END_TIME\",\"op\":\"column\",\"table\":\"EC_PROCESS_MONITORING\"},{\"column\":\"START_TIME\",\"op\":\"column\",\"table\":\"EC_PROCESS_MONITORING\"}],\"op\":\"datetime_diff\",\"unit\":\"ms\"},\"op\":\"derived\",\"outputType\":\"number\",\"provenance\":{\"field\":\"elapsed_ms\",\"source\":\"ml-feature-fields-v1\"},\"unit\":\"ms\"},\"name\":\"elapsed_ms\"},{\"expression\":{\"ast\":{\"args\":[{\"column\":\"ERROR_COUNT\",\"op\":\"column\",\"table\":\"EC_PROCESS_MONITORING\"},{\"column\":\"TOTAL_COUNT\",\"op\":\"column\",\"table\":\"EC_PROCESS_MONITORING\"}],\"op\":\"divide\"},\"op\":\"derived\",\"outputType\":\"number\",\"provenance\":{\"field\":\"error_ratio\",\"source\":\"ml-feature-fields-v1\"},\"unit\":\"ratio\"},\"name\":\"error_ratio\"}]",
+      "contentHash": "258105351e37170ed6cdbe9a354dde39fe709b95a5eacbba399ae4cafd11552e",
+      "featureSet": {
+        "schema_version": "numeric-process-v2",
+        "transform_version": "safe-dsl-v2",
+        "output_schema": [
+          "elapsed_ms",
+          "error_ratio"
+        ]
+      },
+      "members": [
+        {
+          "name": "elapsed_ms",
+          "canonicalExpressionJson": "{\"ast\":{\"args\":[{\"column\":\"END_TIME\",\"op\":\"column\",\"table\":\"EC_PROCESS_MONITORING\"},{\"column\":\"START_TIME\",\"op\":\"column\",\"table\":\"EC_PROCESS_MONITORING\"}],\"op\":\"datetime_diff\",\"unit\":\"ms\"},\"op\":\"derived\",\"outputType\":\"number\",\"provenance\":{\"field\":\"elapsed_ms\",\"source\":\"ml-feature-fields-v1\"},\"unit\":\"ms\"}",
+          "expressionHash": "8f64ebbf0a58ddd3ef8564e447285561cc8d5f41986de8fc03c098970cf02b78",
+          "definition_key": "elapsed_ms",
+          "display_name": "elapsed_ms",
+          "definition_kind": "operator_defined",
+          "output_type": "number",
+          "output_unit": "ms",
+          "value_policy": {
+            "missing": "null",
+            "zeroDivision": "null"
+          },
+          "availability_spec": {
+            "layer": "P",
+            "asOf": "observation"
+          },
+          "requires_fit": false,
+          "model_input": true,
+          "output_position": 0,
+          "output_name": "elapsed_ms",
+          "transform_settings": {}
+        },
+        {
+          "name": "error_ratio",
+          "canonicalExpressionJson": "{\"ast\":{\"args\":[{\"column\":\"ERROR_COUNT\",\"op\":\"column\",\"table\":\"EC_PROCESS_MONITORING\"},{\"column\":\"TOTAL_COUNT\",\"op\":\"column\",\"table\":\"EC_PROCESS_MONITORING\"}],\"op\":\"divide\"},\"op\":\"derived\",\"outputType\":\"number\",\"provenance\":{\"field\":\"error_ratio\",\"source\":\"ml-feature-fields-v1\"},\"unit\":\"ratio\"}",
+          "expressionHash": "dc9013757f8ccf0883b47994cb04ddc9f5106160b4e8f8455d9badfbb38676a2",
+          "definition_key": "error_ratio",
+          "display_name": "error_ratio",
+          "definition_kind": "operator_defined",
+          "output_type": "number",
+          "output_unit": "ratio",
+          "value_policy": {
+            "missing": "null",
+            "zeroDivision": "null"
+          },
+          "availability_spec": {
+            "layer": "P",
+            "asOf": "observation"
+          },
+          "requires_fit": false,
+          "model_input": true,
+          "output_position": 1,
+          "output_name": "error_ratio",
+          "transform_settings": {}
+        }
+      ]
+    }
+  ],
+  "invalidRequests": [
+    {
+      "fields": [],
+      "error": "invalid_feature_count"
+    },
+    {
+      "fields": [
+        "unknown_field"
+      ],
+      "error": "unknown_feature_field"
+    },
+    {
+      "fields": [
+        "P.error_count"
+      ],
+      "error": "unknown_feature_field"
+    },
+    {
+      "fields": [
+        "error_count",
+        "error_count"
+      ],
+      "error": "duplicate_feature_field"
+    }
+  ]
+}

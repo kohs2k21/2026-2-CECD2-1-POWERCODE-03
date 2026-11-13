@@ -13,6 +13,7 @@ Reserved for versioned request, response, event, and worker contracts shared by 
 - `incidents-ui.md`는 사건 보기(층 C) 읽기 API `GET /api/analysis/incidents`·`/:id`·`/:id/members`의 읽기 순서(병합 → 이어짐)·거래 기준 건수·해제 계산·오류 code와 화면 용어를 정의한다(실험 기능).
 - `rule-candidates-ui.md`는 규칙 추천(층 B 관계 규칙·처리 시간 후보 검토) 읽기 API `GET /api/rule-set/candidates`·`/:candidateId`, 후보 작업 요청 `POST /api/rule-set/candidates/jobs`, 승인 꺼짐 조건(룰 세트 hash v3 전)과 화면 용어를 정의한다(실험 기능).
 - `rules-ui.md`는 룰 설정(`/detection/rules`) 화면 구성·저장·되돌리기·수식 추천 화면 규칙과 룰 세트 API 구현에서 정한 값, 화면 표시 용어(버전과 숫자)를 정의한다(#109).
+- `evaluations-ui.md`는 평가 결과(`/detection/evaluations`) 화면과 평가 세트·비교 평가 접수·조회 API(`/api/evaluation-sets`, `/api/comparisons`, `POST /api/jobs kind=compare`)에서 WebUI가 정한 값을 정의한다(정본은 `config-comparison-evaluation.md` v1 구현 범위).
 - `models-ui.md`는 머신러닝 모델(`/detection/models`) 버전 목록·상세·새 학습 화면 규칙, 지금 서버가 지원하지 않는 항목, 모델 버전 조회·거래량 집계 API 구현에서 정한 값을 정의한다.
 - `pipeline.md`는 저장, 기간 학습, 승인, 실시간 탐지의 현재 구현 경계를 정리한다.
 - `detection-decision.md`는 Detector 판정 구조(하드룰·소프트룰·ML 분류와 식별자, `detectionPolicy` v2 조합 규칙, 이상/이상 징후 등급, 위험도, 룰 세트 리비전 기록, evidence v4, 중간 판정 기록)를 정의한다 (#92 초안, Detector 소유 — 사용자 결정 U1~U12 11/03 반영).

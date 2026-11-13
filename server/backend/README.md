@@ -38,6 +38,8 @@ Bearer tokens are accepted through request headers. Tokens in query strings are 
 
 ## 사용자별 설정·알림 API
 
+`/api/evaluation-sets`(접수·목록·상세·기준 스냅샷)와 `/api/comparisons`(목록·상세), `POST /api/jobs kind=compare`는 비교 평가 v1을 관리자에게 제공한다(migration 011 필요, [evaluations-ui.md](../contracts/evaluations-ui.md)). 통합 시험: `npm run build` 후 `PIPELINE_TEST_DATABASE_URL=<로컬 새 qa_comparisons* DB> node tests/comparisons.integration.mjs`(database-roles.sql을 적용하고 서버 DB 연결을 `powercode_api`로 띄움, Trainer 처리는 `tests/comparison-fixture.mjs`가 흉내).
+
 `/api/me/settings`(GET·PUT)는 요청 계정의 알림 설정(판정 기준·위험도 하한·위험도 미정 포함)과 운영 현황 위젯 배치를, `/api/notifications`(목록·`/unread-count`·`POST /read`)는 사건 단위 + 묶이지 않은 판정 알림과 계정별 읽음 상태를 다룬다(migration 022 필요, [notifications.md](../contracts/notifications.md)). 통합 시험: `npm run build` 후 `PIPELINE_TEST_DATABASE_URL=<로컬 새 qa_notifications* DB> node tests/notifications.integration.mjs`(database-roles.sql을 적용하고 서버 DB 연결을 `powercode_api`로 띄움).
 
 ## 룰 세트 API

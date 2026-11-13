@@ -6,6 +6,13 @@ import { stampText } from "@/features/operations/format";
 import type { CompareVersion, Recommendation } from "./evaluationsApi";
 import { labelOf } from "./evaluationFormat";
 
+/** 교체 추천을 만들지 않는 비교(v1 `not_implemented_v1`): 빈 추천을 성공처럼 보이지 않고 미연결과 사유 코드를 그대로 보인다. */
+export const RecommendationUnconnected = ({ reason }: { reason: string }) => (
+  <Alert role="status" data-rec-state="unconnected">
+    <AlertDescription><p>모델 교체 추천 미연결 · {reason}</p></AlertDescription>
+  </Alert>
+);
+
 /** 모델 교체 추천 한 건(modelKey별). 문구는 와이어프레임, 사유 문장은 서버 `summary`. 자동 교체는 없고 수락해도 교체 화면으로 갈 뿐이다. */
 export const RecommendationBlock = ({ rec, versions, where }: { rec: Recommendation; versions: CompareVersion[] | undefined; where: string }) => {
   const location = useLocation();

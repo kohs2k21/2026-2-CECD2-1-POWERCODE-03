@@ -1,4 +1,6 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -11,15 +13,16 @@ import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, Tabl
 import { errorCode } from "@/features/detection/rules/ruleDraft";
 import { stampText } from "@/features/operations/format";
 import { cn } from "@/lib/utils";
-import { writeCompareDraft, type CompareDraft, type ProfileKey, type SetForm } from "./compareDraft";
-import { NOT_CONNECTED, evaluationCapabilities, type EvaluationSet } from "./evaluationsApi";
-import { SET_STATUS_LABELS, fixedInfoText, rowCountText, scenarioText, setKindLabel } from "./evaluationFormat";
-import { useSnapshots } from "./useEvaluations";
+import { FRESH_SET_FORM, defaultSnapshot, setRequest, writeCompareDraft, type CompareDraft, type ProfileKey, type SetForm } from "./compareDraft";
+import { SYNTHETIC_UNSUPPORTED, evaluationCapabilities, requestEvaluationSet, type CompareVersion, type EvaluationSet, type EvaluationSnapshot } from "./evaluationsApi";
+import { SET_STATUS_LABELS, fixedInfoText, labelOf, rowCountText, scenarioText, setKindLabel } from "./evaluationFormat";
+import { EVALUATION_SETS_QUERY, useCompareVersions, useSnapshots } from "./useEvaluations";
 
 const COLUMNS = ["선택", "세트", "생성 방식", "시나리오", "행 수(이상 정답)", "고정 정보"];
 
 type ScenarioOption = { value: string; label: string; disabled?: boolean };
-const PROFILES: Record<ProfileKey, { label: string; scenarios: ScenarioOption[]; note: string }> = {
+type SyntheticProfile = Exclude<ProfileKey, "original">;
+const PROFILES: Record<SyntheticProfile, { label: string; scenarios: ScenarioOption[]; note: string }> = {
   esb: {
     label: "ESB 시나리오 · esb-process-research-v1",
     scenarios: [
@@ -51,31 +54,18 @@ const Field = ({ label, id, children }: { label: string; id: string; children: R
 const updateForm = (update: (form: SetForm) => SetForm) => writeCompareDraft((current) => ({ ...current, setForm: update(current.setForm) }));
 const setField = (field: Exclude<keyof SetForm, "profile" | "scenarios">, value: string) => updateForm((form) => ({ ...form, [field]: value }));
 
-/** 새 평가 세트 생성 입력. 값은 비교 초안에 있어 단계를 오가도 남는다. 생성 요청은 연결 전이라 비활성이다. */
-const GenerationForm = ({ form }: { form: SetForm }) => {
-  const snapshots = useSnapshots();
-  const spec = PROFILES[form.profile];
+/** 스냅샷 선택지 이름: 그 스냅샷으로 학습한 버전 + 학습 기간. */
+const snapshotLabel = (snapshot: EvaluationSnapshot, versions: CompareVersion[] | undefined) => {
+  const names = snapshot.configVersionIds.map((id) => labelOf(versions, id)).join(", ");
+  return `${names} 학습 데이터 (${stampText(snapshot.from)} ~ ${stampText(snapshot.until)})`;
+};
+
+/** 합성 프로필 입력(v1 서버 미지원: 값은 초안에 남지만 생성 요청은 막는다). */
+const SyntheticFields = ({ form }: { form: SetForm }) => {
+  const spec = PROFILES[form.profile as SyntheticProfile];
   const limit = generationLimit(form.scenarios.length, Number(form.repetitions) || 0);
-  const snapshotId = form.snapshotId ?? snapshots.data?.[0]?.id ?? "";
-  const changeProfile = (profile: ProfileKey) =>
-    updateForm((current) => ({ ...current, profile, scenarios: [PROFILES[profile].scenarios[0].value], severity: profile === "adbench" ? "1" : current.severity }));
   return (
-    <div className="grid gap-4 rounded-lg border p-4">
-      <h3 className="text-sm font-medium">새 평가 세트 생성 · 합성 이상 생성기</h3>
-      <div className="grid gap-4 md:grid-cols-3">
-        <Field label="세트 이름" id="set-name"><Input id="set-name" value={form.name} maxLength={80} onChange={(event) => setField("name", event.target.value)} /></Field>
-        <Field label="생성 프로필" id="set-profile">
-          <NativeSelect id="set-profile" value={form.profile} onChange={(event) => changeProfile(event.target.value as ProfileKey)}>
-            {(Object.keys(PROFILES) as ProfileKey[]).map((key) => <NativeSelectOption key={key} value={key}>{PROFILES[key].label}</NativeSelectOption>)}
-          </NativeSelect>
-        </Field>
-        <Field label="기준 저장 데이터셋" id="set-snapshot">
-          <NativeSelect id="set-snapshot" value={snapshotId} disabled={!snapshots.data?.length} onChange={(event) => setField("snapshotId", event.target.value)}>
-            {snapshots.data?.map((snapshot) => <NativeSelectOption key={snapshot.id} value={snapshot.id}>{snapshot.displayName}</NativeSelectOption>)}
-          </NativeSelect>
-        </Field>
-      </div>
-      {snapshots.isError && <ErrorState title={`저장 데이터셋 조회 실패 · ${errorCode(snapshots.error)}`} onRetry={() => void snapshots.refetch()} retryLabel="다시 조회" />}
+    <>
       <fieldset className="grid gap-2">
         <legend className="text-sm font-medium">시나리오 · 1~4개</legend>
         {spec.scenarios.map(({ value, label, disabled }) => (
@@ -101,9 +91,63 @@ const GenerationForm = ({ form }: { form: SetForm }) => {
       </div>
       <p className="text-sm text-muted-foreground">{spec.note}</p>
       {limit && <p role="status" className="text-sm text-warning-text">{limit}</p>}
-      {!evaluationCapabilities.createEvaluationSet && <p className="text-sm text-warning-text">확인 필요 · 평가 세트 생성: {NOT_CONNECTED}</p>}
+      <p className="text-sm text-warning-text">확인 필요 · 평가 세트 생성: {SYNTHETIC_UNSUPPORTED}</p>
+    </>
+  );
+};
+
+/**
+ * 새 평가 세트 생성. 값은 비교 초안에 있어 단계를 오가도 남는다. v1은 원본 검증 분할만 만든다(합성 없음). 기준 스냅샷 기본값은 고른 버전의 학습 스냅샷이다.
+ * 접수되면 세트는 대기 상태로 목록에 들어가고(초안이 그 세트를 고른다), Trainer가 고정하면 고를 수 있게 된다.
+ */
+const GenerationForm = ({ draft }: { draft: CompareDraft }) => {
+  const queryClient = useQueryClient();
+  const snapshots = useSnapshots();
+  const versions = useCompareVersions();
+  const [requesting, setRequesting] = useState(false);
+  const [requestError, setRequestError] = useState<string | null>(null);
+  const form = draft.setForm;
+  const snapshot = snapshots.data ? defaultSnapshot(snapshots.data, form, draft.versionIds, versions.data ?? []) : null;
+  const original = form.profile === "original";
+  const changeProfile = (profile: ProfileKey) =>
+    updateForm((current) => ({ ...current, profile, scenarios: profile === "original" ? current.scenarios : [PROFILES[profile].scenarios[0].value], severity: profile === "adbench" ? "1" : current.severity }));
+  const create = async () => {
+    if (!snapshot) return;
+    setRequesting(true);
+    setRequestError(null);
+    try {
+      const created = await requestEvaluationSet(setRequest(form, snapshot));
+      writeCompareDraft((current) => ({ ...current, setId: created.id, setForm: FRESH_SET_FORM, setFormOpen: false }));
+      await queryClient.invalidateQueries({ queryKey: [EVALUATION_SETS_QUERY] });
+    } catch (error) {
+      setRequestError(errorCode(error));
+    } finally {
+      setRequesting(false);
+    }
+  };
+  return (
+    <div className="grid gap-4 rounded-lg border p-4">
+      <h3 className="text-sm font-medium">새 평가 세트 생성</h3>
+      <div className="grid gap-4 md:grid-cols-3">
+        <Field label="세트 이름" id="set-name"><Input id="set-name" value={form.name} maxLength={80} onChange={(event) => setField("name", event.target.value)} /></Field>
+        <Field label="생성 방식" id="set-profile">
+          <NativeSelect id="set-profile" value={form.profile} onChange={(event) => changeProfile(event.target.value as ProfileKey)}>
+            <NativeSelectOption value="original">원본 분할만</NativeSelectOption>
+            {(Object.keys(PROFILES) as SyntheticProfile[]).map((key) => <NativeSelectOption key={key} value={key}>{PROFILES[key].label}</NativeSelectOption>)}
+          </NativeSelect>
+        </Field>
+        <Field label="기준 저장 데이터셋" id="set-snapshot">
+          <NativeSelect id="set-snapshot" value={snapshot?.id ?? ""} disabled={!snapshots.data?.length} onChange={(event) => setField("snapshotId", event.target.value)}>
+            {snapshots.data?.map((item) => <NativeSelectOption key={item.id} value={item.id}>{snapshotLabel(item, versions.data)}</NativeSelectOption>)}
+          </NativeSelect>
+        </Field>
+      </div>
+      {snapshots.isError && <ErrorState title={`저장 데이터셋 조회 실패 · ${errorCode(snapshots.error)}`} onRetry={() => void snapshots.refetch()} retryLabel="다시 조회" />}
+      {snapshots.data && !snapshots.data.length && <EmptyState>학습된 모델 버전의 저장 데이터셋이 없습니다.</EmptyState>}
+      {original ? <p className="text-sm text-muted-foreground">검증 분할 · 합성 없음</p> : <SyntheticFields form={form} />}
+      {requestError && <Alert variant="destructive" data-set-error><AlertDescription>평가 세트 생성 실패 · {requestError}</AlertDescription></Alert>}
       <div className="flex gap-2">
-        <Button disabled={!evaluationCapabilities.createEvaluationSet || Boolean(limit) || !snapshotId}>평가 세트 생성</Button>
+        <Button disabled={!original || !evaluationCapabilities.createEvaluationSet || !snapshot || !form.name.trim() || requesting} onClick={() => void create()}>평가 세트 생성</Button>
         <Button variant="outline" onClick={() => writeCompareDraft((current) => ({ ...current, setFormOpen: false }))}>닫기</Button>
       </div>
     </div>
@@ -142,6 +186,6 @@ export const SetStep = ({ sets, draft }: { sets: EvaluationSet[]; draft: Compare
       </RadioGroup>
     )}
     <div><Button variant="outline" onClick={() => writeCompareDraft((current) => ({ ...current, setFormOpen: true }))}>새 평가 세트 생성</Button></div>
-    {draft.setFormOpen && <GenerationForm form={draft.setForm} />}
+    {draft.setFormOpen && <GenerationForm draft={draft} />}
   </div>
 );

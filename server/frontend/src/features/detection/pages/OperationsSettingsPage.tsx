@@ -5,7 +5,8 @@ import { ScreenTitle } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { ErrorState, LoadingState } from "@/components/ui/feedback";
 import { paths } from "@/app/routes";
-import { RecommendationBlock } from "@/features/detection/evaluations/RecommendationBlock";
+import { RecommendationBlock, RecommendationUnconnected } from "@/features/detection/evaluations/RecommendationBlock";
+import { comparisonKey } from "@/features/detection/evaluations/evaluationsApi";
 import { ruleConditionText } from "@/features/detection/evaluations/evaluationFormat";
 import { useCompareVersions } from "@/features/detection/evaluations/useEvaluations";
 import { VERSIONS_QUERY, useCapabilities } from "@/features/detection/models/useModels";
@@ -33,8 +34,12 @@ const Recommendations = () => {
     return <ErrorState title={unconnected ? `모델 교체 추천 미연결 · ${errorCode(recent.error)}` : `모델 교체 추천 조회 실패 · ${errorCode(recent.error)}`} onRetry={() => void recent.refetch()} retryLabel="다시 조회" />;
   }
   const latest = recent.data?.find((detail) => detail.replacementRecommendations?.length);
-  if (!latest) return null;
-  const where = `${latest.comparisonId.slice(0, 8)} · ${ruleConditionText(latest.ruleSet?.revision)}`;
+  if (!latest) {
+    // 최근 완료 비교가 추천을 만들지 않았으면(v1 `not_implemented_v1`) 미연결로 보인다. 비교가 없으면 아무것도 없다.
+    const reason = recent.data?.find((detail) => !detail.replacementRecommendations && detail.replacementRecommendationsReason)?.replacementRecommendationsReason;
+    return reason ? <RecommendationUnconnected reason={reason} /> : null;
+  }
+  const where = `${comparisonKey(latest).slice(0, 8)} · ${ruleConditionText(latest.ruleSet?.revision)}`;
   return <div className="grid gap-2">{latest.replacementRecommendations!.map((rec) => <RecommendationBlock key={rec.modelKey} rec={rec} versions={versions.data} where={where} />)}</div>;
 };
 

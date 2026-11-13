@@ -1,6 +1,6 @@
 """프로토콜 경로 초안(`protocolPathDrafts`, recommend_relations 결과 항목) 단위 시험.
 
-작은 메모리 fixture만 쓰고 DB·네트워크·고객 데이터 없음. 정의: Detector contracts/protocol-rules.md 3.2·3.4·9절(824d0b9).
+작은 메모리 fixture만 쓰고 DB·네트워크·고객 데이터 없음. 정의: Detector contracts/protocol-rules.md 3.2·3.4·9절(fafc630).
 """
 import itertools
 import sys

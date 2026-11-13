@@ -68,7 +68,7 @@ Status: current — 실험 기능. 판정 의미는 Detector [protocol-rules.md]
 
 ## 6. 배포 순서·미검증
 
-- 배포: DB 020(적용됨) → **Detector v3**(로더 + 관계·프로토콜·새 내장 판정, protocol-rules.md 10절) → DB 023 → **API v3 + 이 WebUI**(함께). API v3 저장은 Detector v3 배포 확인 뒤에만(rule-set.md v3.7). 첫 v3 행이 생긴 뒤에는 앞으로만 고친다
+- 배포: DB 020(적용됨) → DB 024(재판정 커서) → 역할 스크립트 재적용 → **Detector v3**(로더 + 관계·프로토콜·새 내장 판정·재판정, protocol-rules.md 10절) → DB 023 → **API v3 + 이 WebUI**(함께). API v3 저장은 Detector v3 배포 확인 뒤에만(rule-set.md v3.7). 첫 v3 행이 생긴 뒤에는 앞으로만 고친다
 - 저장소 안 안전 장치: 백엔드 시험 `backend/tests/detector-hash-v3.test.mjs`가 같은 저장소 Detector의 `rule_set_content_hash(snapshot, 3)`를 Python으로 불러 기준값 (c)·(h)와 이 API가 저장하는 스냅샷 hash를 대조한다. Detector가 v3를 읽지 못하면(또는 Python이 없으면) 실패하고 건너뛰지 않는다 → Detector v3가 같은 브랜치에 들어오기 전에는 이 API 변경의 CI가 실패한다(의도)
 - Trainer `protocolPathDrafts`가 없는 옛 결과는 초안 없음 상태로 보인다(정상). 새 후보 작업을 돌리면 초안이 생긴다(작업 요청 단추는 아직 없음 — rule-candidates-ui.md 9절)
 - 미검증: 실제 Detector `evidence.protocolReview` 산출물(합성 값으로만 시험), 큰 결과 JSON 읽기 비용(규칙 추천과 같은 한계), 응답 코드 목록 하위 페이지(`hard:transaction-failed` 코드별 위험도 등록 — 지금은 기본 단계와 등록된 코드 단계만 편집)

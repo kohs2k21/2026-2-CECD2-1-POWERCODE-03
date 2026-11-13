@@ -244,7 +244,7 @@ Status: draft
 
 - 근거: Detector 설계 [relation-rules.md](relation-rules.md)(관계 규칙·`hard:transaction-failed`·소프트룰 `scope`·hash v3 8절)와 [protocol-rules.md](protocol-rules.md)(프로토콜 규칙·`hard:unregistered-interface`). 판정 의미는 그 두 문서가 정본이고, 이 절은 **저장 형식·hash·API 저장 검증·버전 전환**만 정한다
 - 상태: 표기 없는 항목은 **[제안]**(Detector 초안). 사용자 결정에서 온 것은 [확정 11/12 사용자]·[확정 11/13 사용자]. **[확정 11/13 사용자·WebUI 수용]**(WebUI 세션이 API 관점에서 확인, 11/13): 관계 규칙 상한 200·프로토콜 항목 상한 500·경로 64×64, `byCode` 키 인쇄 가능 ASCII 1~64, 본문 두 배열 필수, `hard:unregistered-interface` 기본 꺼짐 + WebUI 미리 켬, 소프트룰 `scope` 불변, API v3 뒤 모든 저장 v3 — 아래 각 위치에도 표기
-- 구현 상태(코드 사실): API `CONTENT_HASH_VERSION = 2`(`server/backend/src/ruleset/ruleSetContract.ts:11`), Detector는 버전 1·2·3을 읽음(`server/worker/detector/operational_state.py` `HASH_VERSIONS`·`check_rule_set_version`, protocol-rules.md 10절 1단계) — 10절 2~6단계로 `hard:transaction-failed`·관계 규칙 판정·scope 소프트룰 선택·관계 입력 읽기·프로토콜 판정이, 7단계로 재판정 탐색(relation-rules.md 6.5, 커서 migration 024 [제안])이 들어갔다, DB는 migration 020으로 3을 허용(`server/infra/migrations/020_rule_set_hash_v3.sql`)
+- 구현 상태(코드 사실): API `CONTENT_HASH_VERSION = 3`(`server/backend/src/ruleset/ruleSetContract.ts:15`), Detector는 버전 1·2·3을 읽음(`server/worker/detector/operational_state.py` `HASH_VERSIONS`·`check_rule_set_version`, protocol-rules.md 10절 1단계) — 10절 2~6단계로 `hard:transaction-failed`·관계 규칙 판정·scope 소프트룰 선택·관계 입력 읽기·프로토콜 판정이, 7단계로 재판정 탐색(relation-rules.md 6.5, 커서 migration 024 [제안])이 들어갔다, DB는 migration 020으로 3을 허용(`server/infra/migrations/020_rule_set_hash_v3.sql`)
 
 ### v3.1 v2와 같은 것·다른 것
 

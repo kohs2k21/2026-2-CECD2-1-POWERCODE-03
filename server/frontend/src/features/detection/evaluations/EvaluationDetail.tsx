@@ -11,9 +11,9 @@ import { ErrorState, LoadingState } from "@/components/ui/feedback";
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { errorCode } from "@/features/detection/rules/ruleDraft";
 import { DASH, bytesText, msText, numberText } from "@/features/operations/format";
-import type { CompareVersion, ComparisonDetail, ComparisonItem, EvaluationSet } from "./evaluationsApi";
-import { comparisonStatus, countText, fixedInfoText, labelOf, rateText, ruleConditionText, setKindLabel, setNote, setUnitLabel, truthRowLabels } from "./evaluationFormat";
-import { RecommendationBlock } from "./RecommendationBlock";
+import { comparisonKey, type CompareVersion, type ComparisonDetail, type ComparisonItem, type EvaluationSet } from "./evaluationsApi";
+import { comparisonStatus, countText, fixedInfoText, labelOf, policyText, rateText, ruleConditionText, setKindLabel, setNote, setUnitLabel, truthRowLabels } from "./evaluationFormat";
+import { RecommendationBlock, RecommendationUnconnected } from "./RecommendationBlock";
 import { useCompareVersions, useComparison, useEvaluationSet } from "./useEvaluations";
 
 const FAILED_CELL = "실패 · 결과 없음";
@@ -126,6 +126,9 @@ const Results = ({ detail, context }: { detail: ComparisonDetail; context: Conte
   const { versions, set } = context;
   const items = detail.items ?? [];
   const note = setNote(set);
+  // v1 서버는 룰+모델 종합·실행 비용을 내지 않는다(계약 v1 구현 범위). 그 값이 하나도 없으면 빈 표를 그리지 않는다.
+  const withRules = items.some((item) => item.composite !== undefined || item.evaluationEnvelope);
+  const withEnvelope = items.some((item) => item.evaluationEnvelope);
   return (
     <>
       <SectionCard title="머신러닝 모델별 혼동행렬 · 모델 단독" description={note}>
@@ -137,6 +140,7 @@ const Results = ({ detail, context }: { detail: ComparisonDetail; context: Conte
           versions={versions}
           caption="완료 기준 = 모델 판정이 끝난 행 · 판정 가능 기준 = 결과가 있는 행(정상 여부 미확인 제외)"
           rows={[
+            ["평가 정책", (item) => (item.status === "failed" ? FAILED_CELL : policyText(item.evaluationPolicy))],
             ["재현율 · 완료 기준", (item) => cellOf(item, (ml) => rateText(ml.completeOnly.recall))],
             ["재현율 · 판정 가능 기준", (item) => cellOf(item, (ml) => rateText(ml.decidable?.recall))],
             ["정밀도 · 완료 기준", (item) => cellOf(item, (ml) => rateText(ml.completeOnly.precision))],
@@ -147,32 +151,36 @@ const Results = ({ detail, context }: { detail: ComparisonDetail; context: Conte
           ]}
         />
       </SectionCard>
-      <SectionCard title={`룰과 함께 판정 · ${ruleConditionText(detail.ruleSet?.revision)}`}>
-        <MetricTable
-          items={items}
-          versions={versions}
-          caption="모든 모델에 같은 룰 버전을 적용 · 점수로 합산하지 않습니다"
-          rows={[
-            ["재현율 · 룰+모델 · 완료 기준", (item) => withComposite(item, (composite) => rateText(composite.completeOnly.recall))],
-            ["오탐률 · 룰+모델 · 완료 기준", (item) => withComposite(item, (composite) => rateText(composite.completeOnly.falsePositiveRate))],
-            ["경보 · 룰+모델 · 완료 기준", (item) => withComposite(item, (composite) => `${numberText(composite.completeOnly.hitCount)}건`)],
-            ["룰·머신러닝 모델 비교 · 둘 다 이상 / 룰만 / 모델만 / 둘 다 정상", ruleMlText],
-          ]}
-        />
-      </SectionCard>
-      <SectionCard title="기타 지표">
-        <MetricTable
-          items={items}
-          versions={versions}
-          caption="상태: measured / unavailable / not_applicable / failed"
-          rows={[
-            ["실행 비용 · 판정 1건 p95", (item) => costText(item, "itemP95Ms", msText)],
-            ["실행 비용 · 처리량", (item) => costText(item, "throughput", (value) => `${numberText(Math.round(value))} 행/s`)],
-            ["실행 비용 · 워커 RSS(완료 시점 1회)", (item) => costText(item, "processRssBytes", bytesText)],
-            ["운영 지표", (item) => (item.status === "failed" ? FAILED_CELL : "미측정 · 기간을 지정한 별도 운영 보고에서 조회")],
-          ]}
-        />
-      </SectionCard>
+      {withRules && (
+        <SectionCard title={`룰과 함께 판정 · ${ruleConditionText(detail.ruleSet?.revision)}`}>
+          <MetricTable
+            items={items}
+            versions={versions}
+            caption="모든 모델에 같은 룰 버전을 적용 · 점수로 합산하지 않습니다"
+            rows={[
+              ["재현율 · 룰+모델 · 완료 기준", (item) => withComposite(item, (composite) => rateText(composite.completeOnly.recall))],
+              ["오탐률 · 룰+모델 · 완료 기준", (item) => withComposite(item, (composite) => rateText(composite.completeOnly.falsePositiveRate))],
+              ["경보 · 룰+모델 · 완료 기준", (item) => withComposite(item, (composite) => `${numberText(composite.completeOnly.hitCount)}건`)],
+              ["룰·머신러닝 모델 비교 · 둘 다 이상 / 룰만 / 모델만 / 둘 다 정상", ruleMlText],
+            ]}
+          />
+        </SectionCard>
+      )}
+      {withEnvelope && (
+        <SectionCard title="기타 지표">
+          <MetricTable
+            items={items}
+            versions={versions}
+            caption="상태: measured / unavailable / not_applicable / failed"
+            rows={[
+              ["실행 비용 · 판정 1건 p95", (item) => costText(item, "itemP95Ms", msText)],
+              ["실행 비용 · 처리량", (item) => costText(item, "throughput", (value) => `${numberText(Math.round(value))} 행/s`)],
+              ["실행 비용 · 워커 RSS(완료 시점 1회)", (item) => costText(item, "processRssBytes", bytesText)],
+              ["운영 지표", (item) => (item.status === "failed" ? FAILED_CELL : "미측정 · 기간을 지정한 별도 운영 보고에서 조회")],
+            ]}
+          />
+        </SectionCard>
+      )}
     </>
   );
 };
@@ -189,12 +197,13 @@ const Head = ({ detail, context }: { detail: ComparisonDetail; context: Context 
     }).join(", ")
     : "없음";
   return (
-    <SectionCard title={`비교 평가 ${detail.comparisonId.slice(0, 8)}`} action={<Badge variant={status.variant}>{status.label}</Badge>}>
+    <SectionCard title={`비교 평가 ${comparisonKey(detail).slice(0, 8)}`} action={<Badge variant={status.variant}>{status.label}</Badge>}>
       <DescriptionList
         items={[
           { label: "평가 세트", value: set ? `${set.displayName} · ${setKindLabel(set)}${set.synthetic ? `(${setUnitLabel(set)})` : ""}` : DASH },
-          { label: "행 수 · 이상 정답", value: detail.evaluationSet ? `${numberText(detail.evaluationSet.rowCount)}행 · ${set?.generation ? `${numberText(set.generation.truthCount)}행` : DASH}` : DASH },
-          { label: "룰 조건", value: detail.ruleSet ? `${ruleConditionText(detail.ruleSet.revision)} · 모든 모델에 같은 룰` : DASH },
+          { label: "행 수 · 이상 정답", value: detail.evaluationSet?.rowCount !== undefined ? `${numberText(detail.evaluationSet.rowCount)}행 · ${set?.generation ? `${numberText(set.generation.truthCount)}행` : DASH}` : DASH },
+          // v1: 룰 세트 버전은 접수 때 기록만 하고 항목은 각자의 평가 정책으로 평가한다(v1·v2 = 구성 룰). 같은 룰이라고 적지 않는다.
+          { label: "룰 조건", value: detail.ruleSet ? `${ruleConditionText(detail.ruleSet.revision)} · ${detail.items?.some((item) => item.evaluationPolicy) ? "항목별 평가 정책" : "모든 모델에 같은 룰"}` : DASH },
           { label: "기준 운영 모델", value: detail.baselines ? baselineText : DASH },
           { label: "비교 모델", value: detail.items?.map((item) => labelOf(versions, item.configVersionId)).join(", ") ?? DASH },
           { label: "작업", value: <Link className="text-link" to={paths.detectionJob(detail.jobId)} state={{ returnTo: location.pathname + location.search }}>{detail.jobId.slice(0, 8)}</Link> },
@@ -209,13 +218,14 @@ const Body = ({ detail }: { detail: ComparisonDetail }) => {
   const versions = useCompareVersions();
   const set = useEvaluationSet(detail.evaluationSet?.id);
   const context = { versions: versions.data, set: set.data };
-  const where = `${detail.comparisonId.slice(0, 8)} · ${set.data?.displayName ?? DASH} · ${ruleConditionText(detail.ruleSet?.revision)}`;
+  const where = `${comparisonKey(detail).slice(0, 8)} · ${set.data?.displayName ?? DASH} · ${ruleConditionText(detail.ruleSet?.revision)}`;
   return (
     <>
       {versions.isError && <ErrorState title={`모델 버전 조회 실패 · ${errorCode(versions.error)}`} onRetry={() => void versions.refetch()} retryLabel="다시 조회" />}
       {set.isError && <ErrorState title={`평가 세트 조회 실패 · ${errorCode(set.error)}`} onRetry={() => void set.refetch()} retryLabel="다시 조회" />}
       <Head detail={detail} context={context} />
       {detail.replacementRecommendations?.map((rec) => <RecommendationBlock key={rec.modelKey} rec={rec} versions={versions.data} where={where} />)}
+      {!detail.replacementRecommendations && detail.replacementRecommendationsReason && <RecommendationUnconnected reason={detail.replacementRecommendationsReason} />}
       {detail.status === "failed" && (
         <Alert variant="destructive"><AlertDescription>비교 평가 실패 · {detail.errorCode ?? DASH} · 결과가 없으므로 지표를 표시하지 않습니다.</AlertDescription></Alert>
       )}

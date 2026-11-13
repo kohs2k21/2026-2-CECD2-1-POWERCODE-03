@@ -15,8 +15,8 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { StepLinks } from "@/features/detection/components/StepLinks";
 import { MatrixCard } from "@/features/detection/evaluations/EvaluationDetail";
-import type { ComparisonDetail, ComparisonItem } from "@/features/detection/evaluations/evaluationsApi";
-import { rateText, ruleConditionText } from "@/features/detection/evaluations/evaluationFormat";
+import { comparisonKey, type ComparisonDetail, type ComparisonItem } from "@/features/detection/evaluations/evaluationsApi";
+import { policyText, rateText, ruleConditionText } from "@/features/detection/evaluations/evaluationFormat";
 import { useCompareVersions, useEvaluationSet } from "@/features/detection/evaluations/useEvaluations";
 import { methodName, parameterSummary, periodText, thresholdSummary, versionLabel } from "@/features/detection/models/VersionList";
 import type { CatalogMethod, ModelVersion } from "@/features/detection/models/modelsApi";
@@ -73,6 +73,7 @@ const Evidence = ({ detail, ids, base, versions, methods }: { detail: Comparison
   const ml = (id: string) => measuredItem(detail, id)?.categoryResults?.ml;
   const cost = (id: string) => measuredItem(detail, id)?.evaluationEnvelope?.execution_cost.metrics?.itemP95Ms?.value;
   const metrics: [string, (id: string) => ReactNode][] = [
+    ["평가 정책", (id) => policyText(measuredItem(detail, id)?.evaluationPolicy)],
     ["재현율(완료 기준)", (id) => rateText(ml(id)?.completeOnly.recall)],
     ["정밀도(완료 기준)", (id) => rateText(ml(id)?.completeOnly.precision)],
     ["오탐률(완료 기준)", (id) => rateText(ml(id)?.completeOnly.falsePositiveRate)],
@@ -90,7 +91,7 @@ const Evidence = ({ detail, ids, base, versions, methods }: { detail: Comparison
   return (
     <div className="grid gap-4">
       <p className="text-sm">
-        평가 세트 {set.data?.displayName ?? DASH} · {detail.comparisonId.slice(0, 8)} · {ruleConditionText(detail.ruleSet?.revision)}
+        평가 세트 {set.data?.displayName ?? DASH} · {comparisonKey(detail).slice(0, 8)} · {ruleConditionText(detail.ruleSet?.revision)}
         {base ? " · 바뀐 칸 강조" : " · 같은 종류의 운영 모델 없음(추가 운영)"}
       </p>
       <h3 className="text-sm font-semibold">{ML_TERM} 정보</h3>
@@ -196,7 +197,7 @@ export const ReplacePage = () => {
   const recall = (id: string) => {
     const detail = comparisons.data?.find((item) => measuredItem(item, id));
     const ml = detail && measuredItem(detail, id)?.categoryResults?.ml;
-    return detail && ml ? <Badge>{detail.comparisonId.slice(0, 8)} · {rateText(ml.completeOnly.recall)}</Badge> : DASH;
+    return detail && ml ? <Badge>{comparisonKey(detail).slice(0, 8)} · {rateText(ml.completeOnly.recall)}</Badge> : DASH;
   };
   const activeText = active.length ? active.map((model) => `${label(model.configVersionId, items, active)} · ${methodName(methods, model.modelKey)}`).join(", ") : "없음";
 
@@ -265,7 +266,7 @@ export const ReplacePage = () => {
           {targetUsable && comparisons.data && !evidence && (
             <Alert role="status">
               <AlertDescription>
-                <p>현재 운영 모델과 같은 평가 세트로 비교한 결과가 없습니다. <Link className="text-link underline-offset-2 hover:underline" to={`${paths.detectionEvaluations}?step=1`}>+ 새 비교 평가</Link></p>
+                <p>현재 운영 모델과 같은 평가 세트로 비교한 결과가 없습니다. <Link className="text-link underline-offset-2 hover:underline" to={`${paths.detectionEvaluations}?step=1`} state={{ compareVersionId: target?.id }}>+ 새 비교 평가</Link></p>
               </AlertDescription>
             </Alert>
           )}
@@ -283,7 +284,7 @@ export const ReplacePage = () => {
             items={[
               { label: "현재 운영 모델", value: base ? label(base, items, active) : "없음 · 추가 운영" },
               { label: "교체할 버전", value: versionLabel(target) },
-              { label: "평가 근거", value: `${evidence.comparisonId.slice(0, 8)} · ${ruleConditionText(evidence.ruleSet?.revision)}` },
+              { label: "평가 근거", value: `${comparisonKey(evidence).slice(0, 8)} · ${ruleConditionText(evidence.ruleSet?.revision)}` },
               { label: "추천 수락", value: accepted ? `${(acceptedRun?.comparisonId ?? accepted.comparisonJobId).slice(0, 8)} 추천 ${label(accepted.targetVersionId, items)}` : "없음 · 직접 선택" },
               { label: "룰", value: state.data ? `바뀌지 않음 · 운영 룰 버전 ${state.data.ruleSet.revision}` : DASH },
             ]}

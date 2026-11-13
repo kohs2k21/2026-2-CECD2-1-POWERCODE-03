@@ -1,6 +1,6 @@
 import { versionLabel } from "@/features/detection/models/VersionList";
 import { DASH, numberText, percentText } from "@/features/operations/format";
-import type { CompareVersion, ComparisonStatus, EvaluationSet, Rate, RecommendationState } from "./evaluationsApi";
+import type { CompareVersion, ComparisonStatus, EvaluationPolicy, EvaluationSet, Rate, RecommendationState } from "./evaluationsApi";
 
 /** 평가 결과 화면 표시 형식. 서버 값을 옮기기만 하고 판정을 다시 계산하지 않는다. */
 export const ruleConditionText = (revision: number | null | undefined) => (revision === null || revision === undefined ? DASH : `운영 룰 버전 ${revision} 고정`);
@@ -57,3 +57,13 @@ export const rateText = (rate: Rate | undefined) => {
   return `${percentText(rate.value)}${rate.coverage === null || rate.coverage === undefined ? "" : ` (커버리지 ${percentText(rate.coverage)})`}`;
 };
 export const countText = (value: number | null | undefined) => (value === null || value === undefined ? "정의 불가" : numberText(value));
+
+/**
+ * 항목 평가 정책(계약 v1: v1·v2는 구성 정책·룰, v3는 접수 고정 운영 정책). 버전끼리는 모델 단독 결과로 비교하고 이 값을 함께 보인다.
+ */
+export const policyText = (policy: EvaluationPolicy | undefined) => {
+  if (!policy) return DASH;
+  const rules = policy.ruleCount > 0 ? ` · 룰 ${numberText(policy.ruleCount)}개` : "";
+  if (policy.source === "accepted") return `운영 정책(접수 때 고정)${rules}`;
+  return `구성 정책${policy.detectionPolicy?.mode ? ` · ${policy.detectionPolicy.mode}` : ""}${rules}`;
+};

@@ -160,6 +160,7 @@ const details: ComparisonDetail[] = [
 export const C_V1 = "5e1d7a20-3c4b-4d5e-8f60-718293a4b5c6";
 const v1Item = (configVersionId: string, role: ComparisonItem["role"], tp: number, fn: number): ComparisonItem => ({
   configVersionId, modelKey: "iforest", role, status: "succeeded", errorCode: null, evaluationId: `${configVersionId.slice(0, 8)}-1111-4000-8000-000000000000`, reasonCodes: [],
+  evaluationPolicy: { source: "configuration", detectionPolicy: { mode: "ml_only", deadlineMs: 30000 }, ruleCount: 0 },
   categoryResults: { ml: { measurementStatus: "measured", confusion: { tp, fp: null, tn: null, fn }, unavailableCount: 0, completeOnly: esbRates(rate(tp, tp + fn, 1)) } },
 });
 details.push({

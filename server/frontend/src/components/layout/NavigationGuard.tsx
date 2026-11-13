@@ -7,8 +7,9 @@ import { shouldBlockDraftNavigation, useDraftStore } from "@/stores/draftStore";
 export const useDraftNavigationGuard = () => {
   const drafts = useDraftStore((state) => state.drafts);
   const location = useLocation();
+  // 이동 시점의 저장소 값으로 판단한다(같은 처리에서 초안을 저장 상태로 바꾼 뒤 바로 떠나는 화면이 있다 — 비교 평가 접수).
   const blocker = useBlocker(({ currentLocation, nextLocation }) =>
-    shouldBlockDraftNavigation(drafts, currentLocation.pathname, nextLocation.pathname),
+    shouldBlockDraftNavigation(useDraftStore.getState().drafts, currentLocation.pathname, nextLocation.pathname),
   );
   const dirty = Object.values(drafts).some((draft) => draft.dirty);
   useEffect(() => {

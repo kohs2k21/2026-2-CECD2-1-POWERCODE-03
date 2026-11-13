@@ -107,6 +107,14 @@ const memberRow = (tx, decisionId, overrides = {}) => ({ key: `transaction:${tx}
   assert.deepEqual([labels.durationText(30_000), labels.durationText(131 * 60_000), labels.segmentsText(1), labels.segmentsText(3)], ["1분 미만", "2시간 11분", "—", "3개 구간"]);
   assert.ok(isAppPath("/analysis/incidents") && isAppPath("/analysis/incidents/f-1"));
   assert.equal(safeReturnPath("/analysis/incidents/f-1?period=24h"), "/analysis/incidents/f-1?period=24h");
+  // navigation.md 화면 경로 표가 실제 주소(routes.ts)와 맞음(incidents-ui.md 6절 5번 닫힘).
+  const { readFileSync } = await import("node:fs");
+  const navigation = readFileSync(new URL("../../contracts/navigation.md", import.meta.url), "utf8");
+  assert.ok(navigation.includes("| `/analysis/incidents` |") && navigation.includes("| `/analysis/incidents/:incidentId` |"),
+    "navigation.md lists the incident list and detail paths");
+  // 같은 표에 프로토콜 설정·응답 코드 목록·상세 주소(관리자 전용, AdminGate 안)도 있음.
+  for (const path of ["/detection/rules/protocols", "/detection/rules/protocols/:interfaceId", "/detection/rules/response-codes", "/detection/rules/response-codes/:code"])
+    assert.match(navigation, new RegExp(`\\| \`${path}\` \\|[^\\n]*\\| admin \\|`), `navigation.md lists ${path} as admin-only`);
 }
 
 let routes = {};

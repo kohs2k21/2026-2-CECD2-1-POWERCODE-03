@@ -1,5 +1,5 @@
 Created: 2026-11-12T19:10:00+09:00
-Updated: 2026-11-12T23:00:00+09:00
+Updated: 2026-11-14T02:20:00+09:00
 Author: Claude Code(WebUI builder)
 Status: current — 실험 기능(층 C). DB migration 019·Detector `incidents.md` 읽기 규칙 8절에 맞춤
 
@@ -107,4 +107,4 @@ Status: current — 실험 기능(층 C). DB migration 019·Detector `incidents.
 2. (닫힘, 사용자 11/12) 최소 구성원 수 필터: 해제 제외는 Detector와 맞춤, 단위는 거래로 둠(3절). 남은 비용은 1번
 3. 층 C 그래프 문서(`incident` 노드·`member_of` 간선, process-graph.md 예약 어휘) 응답은 아직 없음(Detector 열린 항목 9)
 4. 키가 바뀐 리비전의 실행이 두 사건에 들면 양쪽에서 센다(Detector 열린 항목 5) — 화면 표시 방법
-5. `navigation.md`에 사건 보기 주소 반영은 합의 뒤
+5. (닫힘) `navigation.md`에 사건 보기 주소 반영: 화면 경로·주소 쿼리 표에 실제 주소(`frontend/src/app/routes.ts`)를 적음

@@ -1,6 +1,6 @@
 # WebUI 탐색 규약
 
-- 관련 작업: #20 WebUI 레이아웃 구조 개편, #100 프론트 기반(와이어프레임 #93 구조로 경로 개편, 사용자 11/03 승인), #105 이상 분석 판정 목록·상세
+- 관련 작업: #20 WebUI 레이아웃 구조 개편, #100 프론트 기반(와이어프레임 #93 구조로 경로 개편, 사용자 11/03 승인), #105 이상 분석 판정 목록·상세, 사건 보기([incidents-ui.md](incidents-ui.md))
 - 화면 기준: `research/wireframes/mlops-workflow.html`(#93)
 - 인증·오류 응답: [auth.md](auth.md)
 - 권한: `user` 일반 사용자 / `admin` 관리자
@@ -14,6 +14,8 @@
 | `/operations` | 운영 현황 | user / admin |
 | `/analysis` | 이상 분석 › 판정 목록 | user / admin |
 | `/analysis/d/:decisionId` | 이상 분석 › PROCESS 판정 상세(판정 ID 또는 최종 판정 전 detect 작업 ID, [analysis-ui.md](analysis-ui.md)) | user / admin |
+| `/analysis/incidents` | 이상 분석 › 사건 보기(사이드바 별도 구역 "사건", 실험 기능 층 C, [incidents-ui.md](incidents-ui.md)) | user / admin |
+| `/analysis/incidents/:incidentId` | 사건 상세(아무 사건 ID, 병합·뒤 구간 ID로 열면 흐름 ID 주소로 replace) | user / admin |
 | `/settings` | 설정 | user / admin |
 | `/detection/operations` | 탐지 설정 › 운영 설정 | admin |
 | `/detection/operations/jobs` | 운영 설정 › 작업 목록([operations-ui.md](operations-ui.md) 작업 목록·작업 상세) | admin |
@@ -22,6 +24,10 @@
 | `/detection/rules` | 탐지 설정 › 룰 설정([rules-ui.md](rules-ui.md)) | admin |
 | `/detection/rules/candidates` | 룰 설정 › 규칙 추천 목록(쿼리 `interface`, [rule-candidates-ui.md](rule-candidates-ui.md)) | admin |
 | `/detection/rules/candidates/:candidateId` | 규칙 추천 후보 상세 | admin |
+| `/detection/rules/protocols` | 룰 설정 › 프로토콜 설정 목록(정상 프로토콜 = 인터페이스별 허용 경로, [protocol-settings-ui.md](protocol-settings-ui.md)) | admin |
+| `/detection/rules/protocols/:interfaceId` | 프로토콜 설정 인터페이스 상세 | admin |
+| `/detection/rules/response-codes` | 룰 설정 › 응답 코드 목록(사전 메시지 + 거래 실패 규칙 코드별 위험도, [response-codes-ui.md](response-codes-ui.md)) | admin |
+| `/detection/rules/response-codes/:code` | 응답 코드 상세(코드는 퍼센트 인코딩) | admin |
 | `/detection/models` | 탐지 설정 › 머신러닝 모델(버전 목록 + 같은 화면 새 학습, [models-ui.md](models-ui.md)) | admin |
 | `/detection/models/:versionId` | 모델 버전 상세([models-ui.md](models-ui.md)) | admin |
 | `/detection/evaluations` | 탐지 설정 › 평가 결과(비교 평가 목록 + 같은 화면 새 비교 평가) | admin |
@@ -49,6 +55,7 @@
 | 모델 교체 | `step` | `1` 버전 선택 / `2` 비교 확인 / `3` 승인·요청 |
 | 이상 분석 | `category` | `all` / `anomaly` / `anomaly_sign` / `normal` / `in_progress` / `undetermined` / `failed_replaced`(판정 결과별 분류: 전체 / 이상 / 이상 징후 / 정상 / 판정 중·중간 판정 / 정상 여부 미확인 / 판정 실패·대체) |
 | 이상 분석 | `q`·`signal`·`completeness`·`sort`·`page`·`pageSize` | 검색어 / 이상 신호 `all`·`yes`·`no`·`unknown` / 검사 완료 `all`·`complete`·`partial`·`unavailable` / `newest`·`oldest` / 1~ / `10`·`5`·`20`. 판정 상세 주소도 같은 쿼리 유지(목록 복귀) |
+| 사건 보기 | `period`·`all`·`cursor` | `all` 전체 / `24h` / `7d` / `30d`(최근 24시간·7일·30일) · `all=1` 모두 보기(없으면 거래 2건 이상만) · 직전 응답 커서(없으면 첫 쪽). 사건 상세 주소도 같은 쿼리 유지(목록 복귀) |
 
 - 탐지 설정 화면은 모두 내용이 있다(작업 목록·작업 상세 포함, [operations-ui.md](operations-ui.md)). 운영 현황·이상 분석·탐지 설정은 보이는 제목 줄 없음(ui.md 화면 제목). 목록 탭·작업 단계 화면은 각 하위 Issue에서 이 주소 규칙대로 붙임(도구 `hooks/useUrlState.ts`)
 - 미지정 값은 기본값(주소 그대로), 잘못된 값은 기본값·가까운 유효 단계로 replace 정규화. 기타 쿼리·전달 state 보존. 앞 단계가 끝나지 않은 단계 주소도 가까운 유효 단계로 정규화(새로고침하면 메모리 초안이 없어 1단계)

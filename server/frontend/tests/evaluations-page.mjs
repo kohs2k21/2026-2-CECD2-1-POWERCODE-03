@@ -453,13 +453,36 @@ const openDialog = (app) => app.renderer.root.findAllByType(Dialog).find((node) 
   assert.equal(v1.link("수락하고 교체"), undefined);
   assert.ok(v1.shown().includes("재현율70% 완료 기준정밀도"), "model metrics shown without coverage or decidable basis");
   assert.ok(!v1.shown().includes("판정 가능 기준"), "no decidable rows or sentence when the server has none");
-  assert.ok(v1.shown().includes("제외 행완료 기준 0행"));
+  assert.ok(v1.shown().includes("판정 실패 행완료 기준 0행"), "ml.unavailableCount is named as failed judgments");
+  // 예전 결과(11/14 필드 없음): 새 줄·표를 숨긴다(오류 아님).
+  for (const hidden of ["평가 제외 행", "이상 판정 건수", "이상 판정 비율", "이상 점수", "행당 처리 시간", "버전 간 판정 일치", "정확도가 아니라"]) assert.ok(!v1.shown().includes(hidden), `${hidden} hidden for old results`);
   assert.ok(v1.shown().includes("정밀도미측정 · no_predicted_anomalies오탐률"), "other null reasons show the code");
   assert.equal(v1.shown().split("정상 확정 라벨 없음").length - 1, 1, "missing-normal-label wording only where that is the reason");
   assert.ok(v1.shown().includes("평가 정책구성 정책 · ml_only구성 정책 · ml_only"), "each item's evaluation policy");
   assert.ok(v1.shown().includes("운영 룰 버전 13 고정 · 항목별 평가 정책"), "v1 records the rule set version, items use their own policy");
   assert.ok(!v1.shown().includes("룰과 함께 판정") && !v1.shown().includes("기타 지표"), "no empty rule/cost tables for v1");
   await v1.cleanup();
+
+  // 11/14 결과: 평가 제외 행(사유 이름)·판정 실패 행 두 줄, 무라벨 지표·행당 처리 시간, 버전 간 판정 일치(쌍마다, 8자 ID).
+  const v2 = await mount(`/detection/evaluations/${sample.C_V2}`);
+  await wait(() => v2.shown().includes("버전 간 판정 일치"), "pairwise agreement section");
+  await wait(() => v2.shown().includes("7be19a34 · 실험 7"), "versions joined");
+  const v2Shown = v2.shown();
+  assert.ok(v2Shown.includes("판정 실패 행완료 기준 0행평가 제외 행3행 · 입력 변수 계산 불가(예: 처리 건수 0) 3행"), "excluded rows and failed judgments are two lines");
+  assert.ok(v2Shown.includes("평가 제외 행0행이 모델로 교체"), "excluded rows right above the replace button, 0 shown as 0");
+  assert.ok(v2Shown.includes("이상 판정 건수34건이상 판정 비율2.84% (커버리지 100%)"));
+  assert.ok(v2Shown.includes("이상 점수 중앙값 / 95분위 / 99분위0.518 / 0.565 / 0.571"));
+  assert.ok(v2Shown.includes("행당 처리 시간 중앙값15 ms행당 처리 시간 P9516 ms"));
+  // 전 행 제외 항목: 미측정이어도 제외 행 수와 사유 코드를 보인다.
+  assert.ok(v2Shown.includes("미측정 · unavailable이상 판정 건수미측정 · ml_results_unavailable이상 판정 비율미측정 · ml_results_unavailable이상 점수 중앙값 / 95분위 / 99분위미측정 · ml_results_unavailable"));
+  assert.ok(v2Shown.includes("행당 처리 시간 중앙값미측정 · no_rows_measured") && v2Shown.includes("평가 제외 행1,200행 · 입력 변수 계산 불가(예: 처리 건수 0) 1,200행"));
+  assert.ok(v2Shown.includes("버전 간 판정 일치정확도가 아니라 두 버전의 판정이 얼마나 같은지입니다"));
+  const pairs = v2.renderer.root.findAll((node) => node.type === "table" && node.props["data-agreement"]);
+  assert.equal(pairs.length, 2, "one table per pair");
+  assert.equal(text(pairs[0].children), "둘 다 이상4d2f7c10만 이상7be19a34만 이상둘 다 정상판정 일치율30441,15999.33% (커버리지 99.75%)");
+  assert.ok(text(pairs[1].children).includes("63c8d0f2만 이상") && text(pairs[1].children).includes("미측정 · no_comparable_rows"));
+  assert.ok(!/리비전|r\d+/.test(v2Shown), "version wording");
+  await v2.cleanup();
 
   const applied = await mount(`/detection/evaluations/${C_ADBENCH}`);
   await wait(() => applied.shown().includes("이미 적용됨"), "applied");

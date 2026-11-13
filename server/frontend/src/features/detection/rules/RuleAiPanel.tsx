@@ -18,7 +18,7 @@ import { fetchPipelineJob, type PipelineJob } from "@/services/api/pipeline.api"
 import { useAuthSession } from "@/services/auth/AuthSessionProvider";
 import { SOFT_TERM, errorCode, numberLabel, operatorLabels, type DraftSoftRule, type RuleDraft } from "./ruleDraft";
 import {
-  parseRecommendation, recommendationRequest, recommendationRows, selectable, startRecommendation,
+  basisLabel, parseRecommendation, recommendationProgress, recommendationRequest, recommendationRows, selectable, startRecommendation,
   type RecommendationResult, type RecommendationRow, type RecommendationStatus,
 } from "./ruleAiApi";
 import type { RuleSetState, SoftRuleField } from "./ruleSetApi";
@@ -88,6 +88,8 @@ export const useRuleAi = ({ state, dirty, reload }: { state: RuleSetState; dirty
   };
   return {
     run, setRun, start, sources: sources.data ?? [], sourcesReady: sources.isSuccess, sourcesError: sources.isError ? errorCode(sources.error) : null,
+    /** 실행 중 진행률(running일 때만, 형식이 맞을 때만). 숫자 문구는 두지 않고 진행 막대 값으로만 쓴다. */
+    progress: run.status === "running" && job.data?.status === "running" ? recommendationProgress(job.data.resultSummary) : null,
     sourceId, setSelectedSource, count, dirty, llmUnavailable: llm.unavailableCode,
     canStart: run.status !== "running" && run.status !== "readFailed" && count > 0 && !dirty && Boolean(sourceId) && !llm.unavailableCode,
     /** 같은 작업을 다시 읽는다(새 작업을 만들지 않음). */
@@ -130,6 +132,7 @@ const ResultRow = ({ row, field, picked, onPick }: { row: RecommendationRow; fie
   const ok = selectable(row);
   const unit = field?.unit ?? item.unit;
   const { evidence } = item;
+  const basis = basisLabel(item.basis);
   return (
     <TableRow data-ai-row={rule.key} className={cn(!ok && "text-muted-foreground")}>
       <TableCell><Checkbox aria-label={`${rule.name} 선택`} checked={ok && picked} disabled={!ok} onCheckedChange={(value) => onPick(value === true)} /></TableCell>
@@ -161,6 +164,7 @@ const ResultRow = ({ row, field, picked, onPick }: { row: RecommendationRow; fie
           <span>
             {SOURCE_LABEL[item.source]} · 표본 {numberText(evidence.n)} · min {evidence.min === null ? DASH : numberLabel(evidence.min)} · max {evidence.max === null ? DASH : numberLabel(evidence.max)} · p95 {evidence.p95 === null ? DASH : numberLabel(evidence.p95)}
           </span>
+          {basis && <span data-ai-basis="" className="text-xs text-muted-foreground">{basis}</span>}
           {item.rationale && <span className="text-xs text-muted-foreground">{item.rationale}</span>}
         </span>
       </TableCell>
@@ -187,7 +191,11 @@ export const RuleAiBox = ({
           <Badge variant="info">실행 중</Badge>
           <span>켜진 {SOFT_TERM} {run.count}개{ai.llmUnavailable ? ` · ${ai.llmUnavailable}` : ""}</span>
         </div>
-        <Progress value={100} className="animate-pulse" aria-label="AI 규칙 추천 실행 중" />
+        {ai.progress ? (
+          <Progress value={ai.progress.processed} max={ai.progress.total} aria-label="AI 규칙 추천 실행 중" />
+        ) : (
+          <Progress value={100} className="animate-pulse" aria-label="AI 규칙 추천 실행 중" />
+        )}
       </div>
     );
   }

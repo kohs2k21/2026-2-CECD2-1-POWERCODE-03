@@ -93,12 +93,12 @@
         ]
       },
       "llm_spec": {
-        "evidence_version": "soft-rule-threshold-v1",
+        "evidence_version": "soft-rule-threshold-v2",
         "input_evidence_hash": "9df4ec47c764dd8ab698ba71264bfcc3012a35ffe885c79d9d94c2e52194ee99",
-        "model_version": "rule_v2",
-        "prompt_version": "feature-rule-design-v0.2",
+        "model_version": "rule_v3",
+        "prompt_version": "feature-rule-spec-rule-v3-ko",
         "output_schema_version": "threshold-recommendation-v1",
-        "reuse_key": "db87e0e20a37c58f6c8ae53360ad86e5378f1dbb936d4c06123fef66af1d361a"
+        "reuse_key": "e7a86b4ad21c5dcc643b3e74e72601d32abf98a6a0681f64944d08e1db737746"
       }
     },
     {
@@ -191,12 +191,12 @@
         ]
       },
       "llm_spec": {
-        "evidence_version": "soft-rule-threshold-v1",
+        "evidence_version": "soft-rule-threshold-v2",
         "input_evidence_hash": "c081d945a2a4dc0f9e7f294c93dfa48d315bc9e95e8f10f2a4939e34e24dbf85",
-        "model_version": "rule_v2",
-        "prompt_version": "feature-rule-design-v0.2",
+        "model_version": "rule_v3",
+        "prompt_version": "feature-rule-spec-rule-v3-ko",
         "output_schema_version": "threshold-recommendation-v1",
-        "reuse_key": "7b489cdc608f2c8ab25dc82b5193dd1382a75f872a617d50d922000f26b02d2a"
+        "reuse_key": "9e2b621825859da5519c266cdc1046a91fcf1d413065614e0aa9044586927e01"
       }
     }
   ]

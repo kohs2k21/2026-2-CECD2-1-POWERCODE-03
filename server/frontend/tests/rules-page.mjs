@@ -651,6 +651,8 @@ const calls = (method, path) => requested.filter((call) => call.method === metho
   await app.click("계산");
   await wait(() => app.shown().includes("수식 추천 · 데이터 p95 7211 ms"), "result");
   assert.ok(app.shown().includes("표본 51,230건") && app.shown().includes("(최근 1개월) · LLM 미사용"));
+  // 수식 추천 기준 문구(사용자 11/14): 기간 전체 p95.
+  assert.deepEqual(app.renderer.root.findAll((node) => node.type === "span" && node.props["data-formula-basis"] !== undefined).map((node) => text(node.children)), ["기준 · 기간 전체 p95"]);
   const sent = calls("POST", "/api/rule-set/threshold-stats").at(-1).body;
   assert.deepEqual([sent.field, sent.statistic, sent.period], ["elapsed_ms", "p95", { mode: "recent_1m", timeBasis: "persisted_at" }]);
   assert.equal(app.renderer.root.find((node) => node.type === "strong" && node.props.title === "원값 7210.5") !== undefined, true, "raw value tooltip");
@@ -737,7 +739,16 @@ const calls = (method, path) => requested.filter((call) => call.method === metho
   const { readFile } = await import("node:fs/promises");
   const doc = await readFile(new URL("../../contracts/llm-recommendation-job.md", import.meta.url), "utf8");
   const contractResult = JSON.parse(doc.slice(doc.indexOf("## 결과 JSON")).split("```json")[1].split("```")[0]);
-  const { parseRecommendation } = await import("../src/features/detection/rules/ruleAiApi.ts");
+  const { basisLabel, parseRecommendation, recommendationProgress } = await import("../src/features/detection/rules/ruleAiApi.ts");
+  const v3Result = JSON.parse(doc.slice(doc.indexOf("### 결과 추가 필드")).split("```json")[1].split("```")[0]);
+  assert.deepEqual([basisLabel("train_reference_80_p95"), basisLabel("train_p95"), basisLabel(undefined), basisLabel("other"), basisLabel("toString")],
+    ["기준 · 학습 기간 앞 80% p95", null, null, null, null], "only the Rule v3 basis has a label");
+  assert.deepEqual(recommendationProgress({ progress: { processed: 0, total: 3 } }), { processed: 0, total: 3 });
+  assert.deepEqual(recommendationProgress({ progress: { processed: 3, total: 3 } }), { processed: 3, total: 3 });
+  for (const invalid of [null, {}, { progress: null }, { progress: { processed: 1 } }, { progress: { processed: 4, total: 3 } }, { progress: { processed: -1, total: 3 } },
+    { progress: { processed: 0, total: 0 } }, { progress: { processed: 1.5, total: 3 } }, { progress: { processed: "1", total: 3 } }]) {
+    assert.equal(recommendationProgress(invalid), null, JSON.stringify(invalid));
+  }
 
   const retryRule = { ...softRule, id: "soft:retry_count-91ab77e0", name: "재시도 3회 이상", field: "retry_count", operator: "gte", threshold: 3, unit: "count", severity: "info" };
   const offRule = { ...softRule, id: "soft:error_ratio-0000aaaa", name: "꺼진 비율 규칙", field: "error_ratio", threshold: 0.02, unit: "ratio", enabled: false };
@@ -798,6 +809,9 @@ const calls = (method, path) => requested.filter((call) => call.method === metho
   assert.ok(proposed.includes("> 5,000 ms → > 7,211 ms"), proposed);
   assert.ok(proposed.includes("데이터 p95 · 표본 46,980 · min 12 · max 184,233 · p95 7,210.5"), "source leads the evidence line");
   assert.ok(proposed.includes("The 95th percentile of 46,980 successful process durations"), "rationale stays as returned");
+  assert.equal(contractResult.items[0].basis, "train_p95");
+  assert.equal(box("done").findAll((node) => node.props["data-ai-basis"] !== undefined).length, 0, "train_p95 and a missing basis show no basis line");
+  assert.ok(!text(box("done").children).includes("기준 ·"));
   for (const hidden of ["m_…", "b_…", "linear_(n-1)*p", "explicit anomaly labels", "reviews", "rule_v2"]) assert.ok(!text(box("done").children).includes(hidden), `${hidden} is not on the screen`);
   assert.ok(row(softRule.id).findAll((node) => node.type === "span" && node.props.title === "원값 7210.5").length === 1, "raw value tooltip");
   assert.ok(text(row(retryRule.id).children).includes("해당 없음") && text(row(retryRule.id).children).includes("All reference values are 0"));
@@ -899,7 +913,7 @@ const calls = (method, path) => requested.filter((call) => call.method === metho
   let reads = 0;
   jobResponse = () => {
     reads += 1;
-    if (reads === 1) return json({ kind: "recommend_thresholds", status: "running", inputSpec: {} });
+    if (reads === 1) return json({ kind: "recommend_thresholds", status: "running", inputSpec: {}, resultSummary: { progress: { processed: 2, total: 6 } } });
     if (reads === 2) return json({ code: "job_storage_unavailable" }, 503);
     return succeeded(contractResult)();
   };
@@ -908,6 +922,11 @@ const calls = (method, path) => requested.filter((call) => call.method === metho
   await wait(() => reads === 1 && box("running"), "job is running");
   assert.ok(app.shown().includes("AI 규칙 추천 실행 중…") && !app.shown().includes("AI 임계값"), "running text uses the screen name");
   assert.ok(text(box("running").children).includes("켜진 이상 징후 규칙 6개"));
+  // 진행률(llm-recommendation-job.md 7차): 막대 값만 연결하고 숫자 문구는 두지 않는다.
+  const bar = () => box("running").findAll((node) => node.type === "div" && node.props.role === "progressbar")[0];
+  await wait(() => bar()?.props["aria-valuenow"] === 2, "progress value from the running job");
+  assert.deepEqual([bar().props["aria-valuenow"], bar().props["aria-valuemax"], bar().props["aria-valuemin"], bar().props["aria-label"]], [2, 6, 0, "AI 규칙 추천 실행 중"]);
+  assert.ok(!text(box("running").children).includes("2/6") && !text(box("running").children).includes("처리"), "no progress number text");
   await wait(() => box("readFailed"), "a read failure after the 5 second poll", 800);
   assert.equal(reads, 2, "polled once more while running");
   assert.ok(text(box("readFailed").children).includes("AI 규칙 추천 조회 실패 · job_storage_unavailable"));
@@ -919,6 +938,25 @@ const calls = (method, path) => requested.filter((call) => call.method === metho
   await wait(() => box("done"), "same job is read again");
   assert.equal(reads, 3);
   assert.equal(jobCalls().length, postsBeforePoll + 1, "retry of a read creates no new job");
+
+  // Rule v3 결과(계약 7차 예시): 기준 문구와 한국어 근거. Rule v3 실패 코드는 기존 형식 그대로.
+  await app.click("닫기");
+  await wait(() => app.button("AI 규칙 추천").props.disabled === false, "closed before rule v3");
+  jobResponse = succeeded(v3Result);
+  await app.click("AI 규칙 추천");
+  await wait(() => box("done"), "rule v3 result");
+  assert.deepEqual(rows().map((node) => node.props["data-ai-row"]), [softRule.id]);
+  const v3Row = text(row(softRule.id).children);
+  assert.deepEqual(row(softRule.id).findAll((node) => node.type === "span" && node.props["data-ai-basis"] !== undefined).map((node) => text(node.children)), ["기준 · 학습 기간 앞 80% p95"]);
+  assert.ok(v3Row.includes("> 5,000 ms → > 7,180 ms") && v3Row.includes("참조 기간 유효 값 30100개의 p95보다 큰"), v3Row);
+  for (const hidden of ["train_reference_80_p95", "rule_v3", "baseline_…", "attempts", "currentN"]) assert.ok(!text(box("done").children).includes(hidden), `${hidden} is not on the screen`);
+  for (const code of ["rule_v3_not_configured", "recommendation_rule_input_rejected", "rule_v3_model_failure", "generation_adapter_version_mismatch"]) {
+    await app.click("닫기");
+    await wait(() => app.button("AI 규칙 추천").props.disabled === false, `closed before ${code}`);
+    jobResponse = failedJob(code);
+    await app.click("AI 규칙 추천");
+    await wait(() => box("failed") && text(box("failed").children).includes(`추천 실패 · ${code} · 작업 전체가 실패해 부분 결과가 없습니다.`), code);
+  }
 
   // 서버 거절: 코드 그대로, 예시로 대체하지 않음.
   routes["POST /api/jobs"] = () => json({ code: "invalid_job_request" }, 400);

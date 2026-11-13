@@ -1,5 +1,5 @@
 Created: 2026-11-04T22:00:00+09:00
-Updated: 2026-11-14T01:40:00+09:00
+Updated: 2026-11-14T15:00:00+09:00
 Author: #109 Claude Code(WebUI builder)
 Status: current
 
@@ -75,12 +75,13 @@ Status: current
 - 와이어프레임에 기간 입력이 없어 `data`는 `{snapshotId: null, from: 3개월 전, until: 지금, timeBasis: "persisted_at"}`로 고정한다(수식 추천의 시간 기준과 같음). 출처가 여럿이면 머리글에 `출처` 선택
 - 버튼: 저장된 켜진 규칙이 없으면 비활성. 대상이 저장된 버전이라 미저장 변경이 있어도 비활성이고 `저장 후 추천`을 표시한다(계약 `ruleSetRevision`). 출처 조회 실패는 `출처 조회 실패 · <코드>`, 출처가 없으면 `저장된 데이터 출처가 없습니다.`로 이유를 표시. LLM 생성 서비스가 꺼져 있으면(`GET /api/llm/status`, 화면에 들어갈 때 1회 + 30초마다, [llm-recommendation-job.md](llm-recommendation-job.md) 가용성 절) 비활성 + `AI 규칙 추천 · generation_service_unavailable`, 실행 중이면 실행 줄에 코드를 덧붙인다(수식 추천은 막지 않음, 상태 조회 실패도 막지 않음 — 접수 503). 저장으로 버전이 바뀌면 결과를 닫되 실패 표시는 남긴다
 - 표시 대상은 LLM 원본 출력(state·basis·condition·reason)이 아니라 서버가 코드 계산값과 합친 `threshold-recommendation-v1`이다. 계약 필드는 그대로 받고 표시만 합친다
+- 실행 중: 진행 막대. 작업이 `running`이고 `resultSummary.progress{processed,total}`가 있으면(정수, `0 ≤ processed ≤ total`, `total > 0`) 막대 값을 `processed`/`total`로 둔다(`aria-valuenow`·`aria-valuemax`, 숫자 문구 없음). 없거나 형식이 다르면 값 없는 진행 표시 그대로([llm-recommendation-job.md](llm-recommendation-job.md) 진행률 절). 작업 상세(`작업 진행 중`)도 같다
 - 실행 중 → 결과 표 5열(사용자 11/04) → `적용`
   - `선택`: 상태가 `제안`인 행만(기본 선택)
   - `규칙(대상 필드)`
   - `임계값`: 현재 → 추천, 조건 기호와 단위를 값에 붙임(예 `> 5,000 ms → > 7,211 ms`). 추천은 `displayThreshold`, 원값은 툴팁. `제안`이 아닌 행은 현재 값만
   - `상태`: 제안·근거 부족·보류·해당 없음·거부와 사유(`rejectedReason`). `제안`이 아닌 행은 회색
-  - `근거`: 첫 줄 출처(`데이터 p95` 또는 `AI 제안`)·표본 수·min·max·p95, 다음 줄 근거 문장(응답 영문 그대로)
+  - `근거`: 첫 줄 출처(`데이터 p95` 또는 `AI 제안`)·표본 수·min·max·p95, 다음 줄 기준(`basis`가 `train_reference_80_p95`면 `기준 · 학습 기간 앞 80% p95`, `train_p95`·없음·모르는 값은 표시 안 함, 사용자 11/14), 그다음 근거 문장(응답 그대로 — rule_v2 영문, rule_v3 한국어)
   - `measurementId`·`baselineId`·`reviews`·`quantileMethod`·`exclusionRule`·`adapterSha`는 표시하지 않는다
   - 375px에서는 표 내부 스크롤이고 페이지는 넘치지 않는다
 - 표 행은 결과가 있는 규칙만이다: 저장된 켜진 규칙 중 결과의 `softRuleIds`에 든 규칙. 같은 필드라도 `softRuleIds`에 없는 규칙에는 값이 들어가지 않고, 초안에서 지운 규칙도 표에서 빠진다
@@ -91,7 +92,7 @@ Status: current
 
 ## 수식 추천(규칙 행)
 
-- 기간: 운영 머신러닝 모델 학습 기간 시작 ~ 현재(`active_model_training_start`) / 최근 1개월 / 최근 3개월 / 직접 지정. 출처가 여럿이면 `출처` 선택. 계산 → 값·표본 수·사용 기간 표시 → `적용`은 입력칸만 채운다(서버 저장 없음)
+- 기간: 운영 머신러닝 모델 학습 기간 시작 ~ 현재(`active_model_training_start`) / 최근 1개월 / 최근 3개월 / 직접 지정. 출처가 여럿이면 `출처` 선택. 계산 → 값·`기준 · 기간 전체 p95`(사용자 11/14)·표본 수·사용 기간 표시 → `적용`은 입력칸만 채운다(서버 저장 없음)
 - `해당 없음`(표본 20건 미만 `최소 기준 미달`, 값이 모두 같으면 `분산 없음`), `거부`(`threshold_serialization_failed`), 실패는 코드 그대로, 입력칸 유지
 - 화면은 항상 `statistic: p95`. 응답 `operator`(1차 항상 `gt`)를 `조건`으로 보여 주며 규칙 조건은 바꾸지 않는다(Q-L4 "화면 조건과 다르면 사람이 조정")
 - 표본: 학습 스냅샷과 같은 순서로 PROCESS 관측(실행 식별 있음)에 기간을 먼저 적용하고 그 안에서 실행별 최신 revision(`revision_no`, `persisted_at`, `id` 내림차순)을 고른 뒤, `status=S`, 최신 라벨이 anomaly가 아닌 행, 필드 값이 있는 행. 기간 밖의 새 revision은 영향이 없다

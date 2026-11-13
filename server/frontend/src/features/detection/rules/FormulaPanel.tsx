@@ -34,12 +34,18 @@ const statusLabel = { no_applicable: "해당 없음", rejected: "거부" } as co
 /** 표본 부족·분산 없음(llm-recommendation-job.md `no_applicable` 사유). */
 const noApplicableReason = ({ n, min, max }: ThresholdStats["evidence"]) => (n < 20 ? "최소 기준 미달" : min === max ? "분산 없음" : null);
 
+/** 수식 추천은 snapshot 분할 없이 선택 기간 전체로 계산한다(`evidence.scope: "period"`, 화면은 항상 p95). 문구는 사용자 11/14 승인. */
+const FORMULA_BASIS = "기준 · 기간 전체 p95";
+
 const Evidence = ({ stats }: { stats: ThresholdStats }) => {
   const { n, period } = stats.evidence;
   return (
-    <span className="text-sm text-muted-foreground">
-      표본 {numberText(n)}건 · 사용 기간 {day(period.from)}~{day(period.until)}({periodLabel(period.mode)}) · LLM 미사용
-    </span>
+    <>
+      <span data-formula-basis="" className="text-sm text-muted-foreground">{FORMULA_BASIS}</span>
+      <span className="text-sm text-muted-foreground">
+        표본 {numberText(n)}건 · 사용 기간 {day(period.from)}~{day(period.until)}({periodLabel(period.mode)}) · LLM 미사용
+      </span>
+    </>
   );
 };
 

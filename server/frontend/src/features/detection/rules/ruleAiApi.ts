@@ -17,7 +17,26 @@ export type RecommendationItem = {
   rejectedReason?: string;
   evidence: { n: number; min: number | null; max: number | null; p95: number | null; [key: string]: unknown };
   rationale: string | null;
+  /** (7차) 임계값 p95 표본 코드: `train_p95`(rule_v2) / `train_reference_80_p95`(rule_v3). 모르는 값은 표시하지 않는다. */
+  basis?: string;
   [key: string]: unknown;
+};
+
+/** 화면 기준 문구(사용자 11/14 승인). `train_p95`·basis 없음·모르는 값은 기준을 표시하지 않는다. */
+export const BASIS_LABELS: Record<string, string> = { train_reference_80_p95: "기준 · 학습 기간 앞 80% p95" };
+export const basisLabel = (basis: unknown) => (typeof basis === "string" && Object.hasOwn(BASIS_LABELS, basis) ? BASIS_LABELS[basis] : null);
+
+/**
+ * 실행 중 진행률(llm-recommendation-job.md 7차 '진행률' 절): running 동안 `resultSummary.progress{processed,total}`.
+ * 재시도 대기·새 임대·실패면 비어 있다. 형식이 맞지 않으면(정수 아님, total ≤ 0, processed 범위 밖) null — 화면은 값 없는 진행 표시를 유지한다.
+ */
+export type RecommendationProgress = { processed: number; total: number };
+export const recommendationProgress = (summary: unknown): RecommendationProgress | null => {
+  if (!record(summary) || !record(summary.progress)) return null;
+  const { processed, total } = summary.progress;
+  if (!Number.isSafeInteger(processed) || !Number.isSafeInteger(total)) return null;
+  const [done, all] = [processed as number, total as number];
+  return all > 0 && done >= 0 && done <= all ? { processed: done, total: all } : null;
 };
 export type RecommendationResult = { recommendationContractVersion: string; items: RecommendationItem[]; [key: string]: unknown };
 

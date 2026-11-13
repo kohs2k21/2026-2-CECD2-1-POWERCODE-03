@@ -253,7 +253,8 @@ try {
   assert.deepEqual([stored.queue, stored.contract_version, stored.input_config_version_id, stored.input_snapshot_id, stored.input_decision_id],
     ['llm_recommendation', 'v03', null, null, null]);
   assert.equal(stored.llm_spec.input_evidence_hash, stored.request_hash);
-  assert.equal(stored.llm_spec.prompt_version, 'feature-rule-design-v0.2');
+  assert.deepEqual([stored.llm_spec.model_version, stored.llm_spec.evidence_version, stored.llm_spec.prompt_version],
+    ['rule_v3', 'soft-rule-threshold-v2', 'feature-rule-spec-rule-v3-ko']);
   assert.equal((await pool.query(`SELECT count(*)::int AS count FROM powercode_queue.llm_recommendation_jobs WHERE payload->>'jobId'=$1`,
     [thresholdJob.body.id])).rows[0].count, 1);
   const failedSummary = { recommendationContractVersion: 'threshold-recommendation-v1', items: [{ field: 'elapsed_ms', status: 'rejected', rejectedReason: 'factual_review_failed' }] };

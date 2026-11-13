@@ -14,8 +14,13 @@ const MODE_DATA_P95 = 'data_p95_with_llm_rationale';
 const MODE_AI_PROPOSAL = 'ai_proposal';
 const TIME_BASIS_SNAPSHOT = 'persisted_at';
 const TIME_BASES: readonly unknown[] = [TIME_BASIS_SNAPSHOT, 'esb_occurred_at'];
-/** 워커가 `recommend_rule`과 같은 번들의 rule 프롬프트를 쓴다. API는 번들을 읽지 않아 그 고정 이름을 기록한다. */
-export const THRESHOLD_PROMPT_VERSION = 'feature-rule-design-v0.2';
+/**
+ * Rule v3 경로(llm-recommendation-job.md 7차 'Rule v3 경로' 절). 워커는 `(model_version, evidence_version)`으로 경로를 고르고
+ * rule_v2 조합도 그대로 받으므로 이 세 값만 바꾸면 전환·되돌림이 된다. API는 번들을 읽지 않아 프롬프트는 고정 이름을 기록한다.
+ */
+export const THRESHOLD_MODEL_VERSION = 'rule_v3';
+export const THRESHOLD_EVIDENCE_VERSION = 'soft-rule-threshold-v2';
+export const THRESHOLD_PROMPT_VERSION = 'feature-rule-spec-rule-v3-ko';
 
 export class ThresholdRequestError extends Error {
   constructor(readonly code: string, readonly status = 400) { super(code); }
@@ -105,7 +110,7 @@ export function fixThresholdTargets(request: ThresholdRequest, current: CurrentR
  * 멱등키도 들어 있어 재사용은 같은 실행의 재전송에만 일어난다(데이터는 시간이 지나면 바뀌므로 새 실행은 새 작업이다).
  */
 export const thresholdLlmSpec = (input: ThresholdRequest & ThresholdFixedInput, requestHash: string, actorId: string, idempotencyKey: string) => ({
-  evidence_version: 'soft-rule-threshold-v1', input_evidence_hash: requestHash, model_version: 'rule_v2',
+  evidence_version: THRESHOLD_EVIDENCE_VERSION, input_evidence_hash: requestHash, model_version: THRESHOLD_MODEL_VERSION,
   prompt_version: THRESHOLD_PROMPT_VERSION, output_schema_version: 'threshold-recommendation-v1',
   reuse_key: crypto.createHash('sha256').update(JSON.stringify([actorId, input, idempotencyKey, THRESHOLD_PROMPT_VERSION])).digest('hex'),
 });

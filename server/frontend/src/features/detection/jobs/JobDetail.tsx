@@ -8,9 +8,11 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ErrorState, LoadingState } from "@/components/ui/feedback";
+import { Progress } from "@/components/ui/progress";
 import { TrainerJobResult } from "@/features/detection/components/TrainerJobResult";
 import { fullText } from "@/features/detection/models/period";
 import { parameterLabel } from "@/features/detection/models/trainDraft";
+import { recommendationProgress } from "@/features/detection/rules/ruleAiApi";
 import { errorCode } from "@/features/detection/rules/ruleDraft";
 import { DASH, numberText, stampText } from "@/features/operations/format";
 import { jobResultLink, jobStatusBadge, jobTarget, kindLabel, modelName, type JobNames } from "./jobFormat";
@@ -113,9 +115,13 @@ const JobBody = ({ job }: { job: JobDetail }) => {
     configVersionId: text(result?.configVersionId), comparisonId: text(result?.comparisonId),
   }, names);
   const again = restart(job);
+  // AI 규칙 추천만 실행 중 진행률을 남긴다(llm-recommendation-job.md 7차 '진행률' 절). 숫자 문구 없이 막대 값만 쓴다.
+  const progress = job.kind === "recommend_thresholds" && job.status === "running" ? recommendationProgress(job.resultSummary) : null;
   return (
     <SectionCard title={`${kindLabel(job.kind)} 작업 ${job.id.slice(0, 8)}`} action={<Badge variant={badge.variant} data-job-status={job.status}>{badge.label}</Badge>}>
-      {job.status === "running" && <div role="progressbar" aria-label="작업 진행 중" className="h-2 w-full animate-pulse rounded-full bg-primary/40" />}
+      {job.status === "running" && (progress
+        ? <Progress value={progress.processed} max={progress.total} aria-label="작업 진행 중" />
+        : <div role="progressbar" aria-label="작업 진행 중" className="h-2 w-full animate-pulse rounded-full bg-primary/40" />)}
       {job.status === "failed" && (
         <Alert variant="destructive" role="alert"><AlertDescription>실패 · {job.errorCode ?? DASH}</AlertDescription></Alert>
       )}

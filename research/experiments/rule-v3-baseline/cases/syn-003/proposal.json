@@ -1,0 +1,25 @@
+{
+  "proposal_id": "rule_v3_weekend_error_count",
+  "plan": {
+    "expression": {
+      "op": "column",
+      "table": "PROCESS",
+      "column": "ERROR_COUNT"
+    },
+    "grain": {
+      "table": "PROCESS",
+      "keys": [
+        "ROW_ID"
+      ]
+    },
+    "population": {
+      "table": "PROCESS",
+      "filter": null
+    },
+    "group_by": [],
+    "result_use": "value"
+  },
+  "purpose": "Measure the PROCESS ERROR_COUNT value as a count.",
+  "meaning": "Per PROCESS row, the ERROR_COUNT value; unavailable when the value is missing.",
+  "needed_evidence": []
+}

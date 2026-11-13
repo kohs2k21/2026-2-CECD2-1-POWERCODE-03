@@ -1,0 +1,35 @@
+{
+  "proposal_id": "rule_v3_weekend_error_ratio",
+  "plan": {
+    "expression": {
+      "op": "divide",
+      "args": [
+        {
+          "op": "column",
+          "table": "PROCESS",
+          "column": "ERROR_COUNT"
+        },
+        {
+          "op": "column",
+          "table": "PROCESS",
+          "column": "TOTAL_COUNT"
+        }
+      ]
+    },
+    "grain": {
+      "table": "PROCESS",
+      "keys": [
+        "ROW_ID"
+      ]
+    },
+    "population": {
+      "table": "PROCESS",
+      "filter": null
+    },
+    "group_by": [],
+    "result_use": "value"
+  },
+  "purpose": "Measure the PROCESS error ratio as ERROR_COUNT divided by TOTAL_COUNT.",
+  "meaning": "Per PROCESS row, ERROR_COUNT divided by TOTAL_COUNT; unavailable when an operand is missing or TOTAL_COUNT is zero.",
+  "needed_evidence": []
+}

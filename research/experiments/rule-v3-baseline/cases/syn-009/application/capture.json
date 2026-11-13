@@ -1,0 +1,124 @@
+{
+  "contract": "approved-metadata-capture1.0",
+  "dataset_id": "synthetic_syn-009_application",
+  "data_class": "controlled",
+  "split": "application",
+  "period": {
+    "start_inclusive": "2026-08-03T00:28:47.100000+00:00",
+    "end_exclusive": "2026-08-03T00:36:29.100001+00:00"
+  },
+  "admission": {
+    "approved": true,
+    "Body_excluded": true,
+    "held_lineage_excluded": true,
+    "complete_family_capture": true
+  },
+  "lineage_tags": [],
+  "tables": [
+    {
+      "name": "TRANSACTION",
+      "file": "TRANSACTION.csv",
+      "format": "csv",
+      "sha256": "834be2fd671e0d374c895c867d80a93b3a7b653a69c6f5f59e5966650c3b8149",
+      "row_count": 30,
+      "primary_key": [
+        "TX_ID"
+      ],
+      "columns": [
+        {
+          "name": "TX_ID",
+          "logical_type": "string",
+          "nullable": false,
+          "excluded": false,
+          "unit": {
+            "name": null,
+            "status": "unknown"
+          },
+          "missing_tokens": [
+            ""
+          ],
+          "description": "Transaction group identifier assigned by the capture writer."
+        }
+      ]
+    },
+    {
+      "name": "PROCESS",
+      "file": "PROCESS.csv",
+      "format": "csv",
+      "sha256": "277a626f6874e3984e294bc29b54f5189951bf7a9959adf6eabde22df3fbd06e",
+      "row_count": 88,
+      "primary_key": [
+        "ROW_ID"
+      ],
+      "columns": [
+        {
+          "name": "ROW_ID",
+          "logical_type": "string",
+          "nullable": false,
+          "excluded": false,
+          "unit": {
+            "name": null,
+            "status": "unknown"
+          },
+          "missing_tokens": [
+            ""
+          ],
+          "description": "Sequential row identifier assigned by the capture writer."
+        },
+        {
+          "name": "TX_ID",
+          "logical_type": "string",
+          "nullable": false,
+          "excluded": false,
+          "unit": {
+            "name": null,
+            "status": "unknown"
+          },
+          "missing_tokens": [
+            ""
+          ],
+          "description": "Transaction group identifier assigned by the capture writer."
+        },
+        {
+          "name": "STATUS",
+          "logical_type": "string",
+          "nullable": true,
+          "excluded": false,
+          "unit": {
+            "name": null,
+            "status": "unknown"
+          },
+          "missing_tokens": [
+            ""
+          ],
+          "description": "Raw PROCESS status code; F is compared literally without business meaning."
+        }
+      ]
+    }
+  ],
+  "relationships": [
+    {
+      "id": "process_transaction",
+      "from_table": "PROCESS",
+      "from_columns": [
+        "TX_ID"
+      ],
+      "to_table": "TRANSACTION",
+      "to_columns": [
+        "TX_ID"
+      ],
+      "no_reference_values": []
+    }
+  ],
+  "evidence": [],
+  "source_identity": {
+    "dataset_id": "synthetic_syn-009_application",
+    "case": "\uc99d\uba85\ub41c \uc0c1\ud55c 1 \u2264 \ucc38\uc870 p95 1 \u2192 no_applicable",
+    "origin": "synthetic seeded generator, no operational source",
+    "side": "application"
+  },
+  "transaction_families": 30,
+  "unknown": [
+    "Synthetic boundary data with no operational meaning, incident labels or online availability."
+  ]
+}

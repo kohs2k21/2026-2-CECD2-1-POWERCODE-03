@@ -1,0 +1,17 @@
+{
+  "question": "Measure per transaction the share of linked PROCESS rows whose STATUS equals F.",
+  "analysis_request": {
+    "output_table": "TRANSACTION",
+    "result_use": "value",
+    "calculation_type": "number",
+    "required_columns": [
+      [
+        "PROCESS",
+        "STATUS"
+      ]
+    ],
+    "required_relationship_ids": [
+      "process_transaction"
+    ]
+  }
+}

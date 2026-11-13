@@ -1,0 +1,716 @@
+{
+  "format": "rule-v3-baseline-export-v1",
+  "kind": "synthetic",
+  "generator": "make_cases.py",
+  "period_format": "YYYY-MM-DDTHH:MM:SS.ffffff+00:00 (UTC, fixed length)",
+  "reference_ratio": 0.8,
+  "exclusion_rule": "status=S, explicit anomaly labels excluded; unlabeled retained",
+  "minimum_n": 20,
+  "input_assumptions": [
+    "Synthetic controlled data: count units are a controlled_contract test authority, not an operational assumption."
+  ],
+  "cases": [
+    {
+      "case_id": "syn-001",
+      "field": "elapsed_ms",
+      "scope": "synthetic_boundary",
+      "kind": "synthetic",
+      "purpose": "\uc815\uc0c1 \uacbd\ub85c: \ucc98\ub9ac \uc2dc\uac04 p95 \ube44\uad50(\ud569\uc131 smoke)",
+      "path": "syn-001",
+      "files": {
+        "application/PROCESS.csv": "add49f35e0623df13d43b911a32b0ef547fff032f800d69e2f795cf6e54aba75",
+        "application/authority.json": "239e809ab9c61f9def120a533c035061436286c5ba61fb036f4be715628b2bef",
+        "application/capture.json": "063deda6308c5a8bf54b40bb04a20d3fa6085302d9426ca7dcc03c08ec2bf64d",
+        "proposal.json": "170221e7628e2faa371321fc93e49d4bd9390058ded491fc947cbd2481119843",
+        "reference/PROCESS.csv": "3a737935020742477f3b6136975ff8b5490a461ba36c83c9153c5f5fc9e51cef",
+        "reference/authority.json": "239e809ab9c61f9def120a533c035061436286c5ba61fb036f4be715628b2bef",
+        "reference/capture.json": "926e05d5c0bb175034348a9a1607cff316c8d39edf811a668d63812eab6bdbd2",
+        "request.json": "5d756d28ba2acb89244a9111d738387f01ac61349c480ed677832d11c7ac7b78",
+        "rule_plan.json": "3eb28dd5958ffe5230c7a481c0d81d877407b42459b7885aee08432a5263f1e5"
+      },
+      "periods": {
+        "reference": {
+          "start_inclusive": "2026-08-03T00:00:05.182000+00:00",
+          "end_exclusive": "2026-08-03T00:26:57.397000+00:00"
+        },
+        "application": {
+          "start_inclusive": "2026-08-03T00:26:57.397000+00:00",
+          "end_exclusive": "2026-08-03T00:33:41.364001+00:00"
+        }
+      },
+      "held_window_overlap": false,
+      "counts": {
+        "observations": 314,
+        "excluded_status_not_S": 1,
+        "excluded_anomaly_label": 1,
+        "held_transactions_dropped": 0,
+        "held_rows_dropped": 0,
+        "grouping": {
+          "rows_in": 312,
+          "rows_grouped": 310,
+          "excluded_unparsed_time": 1,
+          "excluded_missing_transaction": 1,
+          "outside_source_window": 0,
+          "basis": {
+            "offset": 27,
+            "verified_tz": 0,
+            "assumed_tz": 283
+          },
+          "field": {
+            "end": 310,
+            "start": 0
+          },
+          "groups": 150
+        },
+        "cut": {
+          "reference_groups": 119,
+          "current_groups": 31,
+          "reference_rows": 248,
+          "current_rows": 62,
+          "reference_blocks": 114,
+          "current_blocks": 29
+        },
+        "value_parse_failures": {},
+        "reference_valid": 248,
+        "current_valid": 62,
+        "reference_constant": false
+      },
+      "expected": {
+        "baseline_state": "verified",
+        "states": [
+          "proposed"
+        ],
+        "needed": [],
+        "condition": {
+          "op": "gt",
+          "value_decimal": "3919.4",
+          "value_canonical": "3919.4"
+        },
+        "reference_p95_decimal": "3919.4"
+      }
+    },
+    {
+      "case_id": "syn-002",
+      "field": "error_ratio",
+      "scope": "synthetic_boundary",
+      "kind": "synthetic",
+      "purpose": "\uc815\uc0c1 \uacbd\ub85c: \uc624\ub958 \ube44\uc728 p95(\ub2e8\uc704 \ud655\uc778 count/count\u2192ratio)",
+      "path": "syn-002",
+      "files": {
+        "application/PROCESS.csv": "c42478255d10f4f6c1a747886e8fa2b1b97363db7d7c77f918cca9df413d755b",
+        "application/authority.json": "239e809ab9c61f9def120a533c035061436286c5ba61fb036f4be715628b2bef",
+        "application/capture.json": "f17f0c7cc40f43eb7b6bb48f053d3c3f7a95e70ede753357f0c63f3027665aa3",
+        "proposal.json": "e991a4bd4d15a98f7632d7c167aa83011456b36c709f068c8cfe3952954bab68",
+        "reference/PROCESS.csv": "4f2aff52fb460ac755819bce987691584b2f2bdf1decfcc4a1c414a573124d67",
+        "reference/authority.json": "239e809ab9c61f9def120a533c035061436286c5ba61fb036f4be715628b2bef",
+        "reference/capture.json": "a9c2324ac342a53d03ef084d34f538513591093524e55b2a13139a2adee6c735",
+        "request.json": "44f28714fdbd746a55bdb7863aae1099d18c9ad49aa2864fa87f7a291465633c",
+        "rule_plan.json": "39b5c6c58e3619be006884fe37e042aae248778d0497c54319b5107dac480713"
+      },
+      "periods": {
+        "reference": {
+          "start_inclusive": "2026-08-03T00:00:29.528000+00:00",
+          "end_exclusive": "2026-08-03T00:29:40.128000+00:00"
+        },
+        "application": {
+          "start_inclusive": "2026-08-03T00:29:40.128000+00:00",
+          "end_exclusive": "2026-08-03T00:37:31.006001+00:00"
+        }
+      },
+      "held_window_overlap": false,
+      "counts": {
+        "observations": 313,
+        "excluded_status_not_S": 1,
+        "excluded_anomaly_label": 1,
+        "held_transactions_dropped": 0,
+        "held_rows_dropped": 0,
+        "grouping": {
+          "rows_in": 311,
+          "rows_grouped": 309,
+          "excluded_unparsed_time": 1,
+          "excluded_missing_transaction": 1,
+          "outside_source_window": 0,
+          "basis": {
+            "offset": 34,
+            "verified_tz": 0,
+            "assumed_tz": 275
+          },
+          "field": {
+            "end": 309,
+            "start": 0
+          },
+          "groups": 150
+        },
+        "cut": {
+          "reference_groups": 120,
+          "current_groups": 30,
+          "reference_rows": 249,
+          "current_rows": 60,
+          "reference_blocks": 120,
+          "current_blocks": 30
+        },
+        "value_parse_failures": {},
+        "reference_valid": 249,
+        "current_valid": 60,
+        "reference_constant": false
+      },
+      "expected": {
+        "baseline_state": "verified",
+        "states": [
+          "proposed"
+        ],
+        "needed": [],
+        "condition": {
+          "op": "gt",
+          "value_decimal": "0.42380952380952380952380952380952380952380952380953",
+          "value_canonical": "0.4238095238095238"
+        },
+        "reference_p95_decimal": "0.42380952380952380952380952380952380952380952380953"
+      }
+    },
+    {
+      "case_id": "syn-003",
+      "field": "error_count",
+      "scope": "synthetic_boundary",
+      "kind": "synthetic",
+      "purpose": "\uc815\uc0c1 \uacbd\ub85c: count \ub2e8\uc704 \uadfc\uac70\uac00 \uc788\ub294 \uc624\ub958 \uac74\uc218",
+      "path": "syn-003",
+      "files": {
+        "application/PROCESS.csv": "2baa71a45ba221d4a0d9ce550ccf6d0eca34ca51f21cbf7b25cba7678b9c7dbb",
+        "application/authority.json": "239e809ab9c61f9def120a533c035061436286c5ba61fb036f4be715628b2bef",
+        "application/capture.json": "49662c958a2b044771fb15e2068b15b629c3cb778a1487ffbb4a46ef2af49e95",
+        "proposal.json": "023072656b4482fe60b04873fdd5d890cda4f180b4f8c0ca466833dea92a41a9",
+        "reference/PROCESS.csv": "47ff9cea114203ece3c285e4346cedeac7ff1f1dae1e61c1004255a44b00512b",
+        "reference/authority.json": "239e809ab9c61f9def120a533c035061436286c5ba61fb036f4be715628b2bef",
+        "reference/capture.json": "9af529c31341151d8cd30f14d3e2090e406b4ea1f87461b2edb3a0fed7b48d81",
+        "request.json": "d4895b0ee5e7e15677d4f3da81032e804a00015bc413a8c2a3e0d354bbdc8f5d",
+        "rule_plan.json": "5c7d50bcbffc615cbdee92304f1b08f78012e407e60443987d0ec23332e6dfc2"
+      },
+      "periods": {
+        "reference": {
+          "start_inclusive": "2026-08-03T00:00:09.016000+00:00",
+          "end_exclusive": "2026-08-03T00:32:25.663000+00:00"
+        },
+        "application": {
+          "start_inclusive": "2026-08-03T00:32:25.663000+00:00",
+          "end_exclusive": "2026-08-03T00:41:05.045001+00:00"
+        }
+      },
+      "held_window_overlap": false,
+      "counts": {
+        "observations": 296,
+        "excluded_status_not_S": 1,
+        "excluded_anomaly_label": 1,
+        "held_transactions_dropped": 0,
+        "held_rows_dropped": 0,
+        "grouping": {
+          "rows_in": 294,
+          "rows_grouped": 292,
+          "excluded_unparsed_time": 1,
+          "excluded_missing_transaction": 1,
+          "outside_source_window": 0,
+          "basis": {
+            "offset": 26,
+            "verified_tz": 0,
+            "assumed_tz": 266
+          },
+          "field": {
+            "end": 292,
+            "start": 0
+          },
+          "groups": 150
+        },
+        "cut": {
+          "reference_groups": 120,
+          "current_groups": 30,
+          "reference_rows": 239,
+          "current_rows": 53,
+          "reference_blocks": 120,
+          "current_blocks": 30
+        },
+        "value_parse_failures": {},
+        "reference_valid": 239,
+        "current_valid": 53,
+        "reference_constant": false
+      },
+      "expected": {
+        "baseline_state": "verified",
+        "states": [
+          "proposed"
+        ],
+        "needed": [],
+        "condition": {
+          "op": "gt",
+          "value_decimal": "5",
+          "value_canonical": "5"
+        },
+        "reference_p95_decimal": "5"
+      }
+    },
+    {
+      "case_id": "syn-004",
+      "field": "elapsed_ms",
+      "scope": "synthetic_boundary",
+      "kind": "synthetic",
+      "purpose": "\ucc38\uc870 \uc720\ud6a8\uac12 20 \ubbf8\ub9cc \u2192 need_reference_minimum_n",
+      "path": "syn-004",
+      "files": {
+        "application/PROCESS.csv": "ebdc9c66a363db3e5a506f48f503b5ec70db4250e7ab72507da348a91124c9a5",
+        "application/authority.json": "239e809ab9c61f9def120a533c035061436286c5ba61fb036f4be715628b2bef",
+        "application/capture.json": "eb96420d66a610871c6c91d925c336113907dc9ce542d6a2a4f4206a067fcffd",
+        "proposal.json": "170221e7628e2faa371321fc93e49d4bd9390058ded491fc947cbd2481119843",
+        "reference/PROCESS.csv": "e4ee0a6f6810ede507111a951f67f50d3766fb27e0c5a4a8a6450ba914a1d2bd",
+        "reference/authority.json": "239e809ab9c61f9def120a533c035061436286c5ba61fb036f4be715628b2bef",
+        "reference/capture.json": "b73748ee257b922de073fda6bec4cb5eb3d0ad4c58a16dfff58753a98bfec289",
+        "request.json": "5d756d28ba2acb89244a9111d738387f01ac61349c480ed677832d11c7ac7b78",
+        "rule_plan.json": "3eb28dd5958ffe5230c7a481c0d81d877407b42459b7885aee08432a5263f1e5"
+      },
+      "periods": {
+        "reference": {
+          "start_inclusive": "2026-08-03T00:00:09.672000+00:00",
+          "end_exclusive": "2026-08-03T00:03:30.088000+00:00"
+        },
+        "application": {
+          "start_inclusive": "2026-08-03T00:03:30.088000+00:00",
+          "end_exclusive": "2026-08-03T00:04:20.287001+00:00"
+        }
+      },
+      "held_window_overlap": false,
+      "counts": {
+        "observations": 20,
+        "excluded_status_not_S": 0,
+        "excluded_anomaly_label": 0,
+        "held_transactions_dropped": 0,
+        "held_rows_dropped": 0,
+        "grouping": {
+          "rows_in": 20,
+          "rows_grouped": 20,
+          "excluded_unparsed_time": 0,
+          "excluded_missing_transaction": 0,
+          "outside_source_window": 0,
+          "basis": {
+            "offset": 2,
+            "verified_tz": 0,
+            "assumed_tz": 18
+          },
+          "field": {
+            "end": 20,
+            "start": 0
+          },
+          "groups": 20
+        },
+        "cut": {
+          "reference_groups": 16,
+          "current_groups": 4,
+          "reference_rows": 16,
+          "current_rows": 4,
+          "reference_blocks": 16,
+          "current_blocks": 4
+        },
+        "value_parse_failures": {},
+        "reference_valid": 16,
+        "current_valid": 4,
+        "reference_constant": false
+      },
+      "expected": {
+        "baseline_state": "insufficient",
+        "states": [
+          "request_evidence"
+        ],
+        "needed": [
+          "need_reference_minimum_n"
+        ],
+        "condition": null,
+        "reference_p95_decimal": "3812.75"
+      }
+    },
+    {
+      "case_id": "syn-005",
+      "field": "error_ratio",
+      "scope": "synthetic_boundary",
+      "kind": "synthetic",
+      "purpose": "\ub2e8\uc704 \ubbf8\uac80\uc99d(\ube44\uc728) \u2192 need_verified_unit",
+      "path": "syn-005",
+      "files": {
+        "application/PROCESS.csv": "410236c2610597527c54b2053f2796031f5aaf87496cc44afe3b92d68b72cc21",
+        "application/authority.json": "239e809ab9c61f9def120a533c035061436286c5ba61fb036f4be715628b2bef",
+        "application/capture.json": "e78085a922ad0f958b394ecd0e991237061617b6780d7281000f187471c5a10a",
+        "proposal.json": "e991a4bd4d15a98f7632d7c167aa83011456b36c709f068c8cfe3952954bab68",
+        "reference/PROCESS.csv": "a4c054405b63e7782f0cb0658bddc2b4b37ef97782f55b4e4be1acc4f889f4ea",
+        "reference/authority.json": "239e809ab9c61f9def120a533c035061436286c5ba61fb036f4be715628b2bef",
+        "reference/capture.json": "cd3b2b44a5810514505e8966d94c559d8e7d84880517a21e3b83671c3d3a2cd6",
+        "request.json": "44f28714fdbd746a55bdb7863aae1099d18c9ad49aa2864fa87f7a291465633c",
+        "rule_plan.json": "39b5c6c58e3619be006884fe37e042aae248778d0497c54319b5107dac480713"
+      },
+      "periods": {
+        "reference": {
+          "start_inclusive": "2026-08-03T00:00:23.307000+00:00",
+          "end_exclusive": "2026-08-03T00:22:56.456000+00:00"
+        },
+        "application": {
+          "start_inclusive": "2026-08-03T00:22:56.456000+00:00",
+          "end_exclusive": "2026-08-03T00:28:21.534001+00:00"
+        }
+      },
+      "held_window_overlap": false,
+      "counts": {
+        "observations": 258,
+        "excluded_status_not_S": 1,
+        "excluded_anomaly_label": 1,
+        "held_transactions_dropped": 0,
+        "held_rows_dropped": 0,
+        "grouping": {
+          "rows_in": 256,
+          "rows_grouped": 254,
+          "excluded_unparsed_time": 1,
+          "excluded_missing_transaction": 1,
+          "outside_source_window": 0,
+          "basis": {
+            "offset": 37,
+            "verified_tz": 0,
+            "assumed_tz": 217
+          },
+          "field": {
+            "end": 254,
+            "start": 0
+          },
+          "groups": 120
+        },
+        "cut": {
+          "reference_groups": 96,
+          "current_groups": 24,
+          "reference_rows": 206,
+          "current_rows": 48,
+          "reference_blocks": 96,
+          "current_blocks": 24
+        },
+        "value_parse_failures": {},
+        "reference_valid": 206,
+        "current_valid": 48,
+        "reference_constant": false
+      },
+      "expected": {
+        "baseline_state": "unit_unconfirmed",
+        "states": [
+          "request_evidence"
+        ],
+        "needed": [
+          "need_verified_unit"
+        ],
+        "condition": null,
+        "reference_p95_decimal": "0.5"
+      }
+    },
+    {
+      "case_id": "syn-006",
+      "field": "retry_count",
+      "scope": "synthetic_boundary",
+      "kind": "synthetic",
+      "purpose": "\ub2e8\uc704 \ubbf8\uac80\uc99d(\uac74\uc218) \u2192 need_verified_unit",
+      "path": "syn-006",
+      "files": {
+        "application/PROCESS.csv": "d5671fa406af77002b73b51b56d78f97c945869f3dcb2cb3ae0f7047a3b904a8",
+        "application/authority.json": "239e809ab9c61f9def120a533c035061436286c5ba61fb036f4be715628b2bef",
+        "application/capture.json": "ab17e7ae30b0049b5aa6ed85fbe15ff911f2d574fb5f84e98440408212fa172f",
+        "proposal.json": "ef39dcce20ae7a53043aac815a4cd402d17894e3fa2c232e003ddf1630daf5e6",
+        "reference/PROCESS.csv": "4d8ee08ed95d52cc9e99772be794c7e28ff009720e923cd00490160be79ad00f",
+        "reference/authority.json": "239e809ab9c61f9def120a533c035061436286c5ba61fb036f4be715628b2bef",
+        "reference/capture.json": "c2dbfe4c3626d130a7296245929c1eeab59ee03ebda1cd491e807f4ef960c9cc",
+        "request.json": "571a87c0be9e91d53f00b6e614274a039bd3df701a33b189d6424c80414d1e34",
+        "rule_plan.json": "bea0d0e29f345bde17ad6a0ae0c26f013967c43b9e672fd6cfdf01272092c55a"
+      },
+      "periods": {
+        "reference": {
+          "start_inclusive": "2026-08-03T00:00:27.983000+00:00",
+          "end_exclusive": "2026-08-03T00:26:13.534000+00:00"
+        },
+        "application": {
+          "start_inclusive": "2026-08-03T00:26:13.534000+00:00",
+          "end_exclusive": "2026-08-03T00:31:36.195001+00:00"
+        }
+      },
+      "held_window_overlap": false,
+      "counts": {
+        "observations": 244,
+        "excluded_status_not_S": 1,
+        "excluded_anomaly_label": 1,
+        "held_transactions_dropped": 0,
+        "held_rows_dropped": 0,
+        "grouping": {
+          "rows_in": 242,
+          "rows_grouped": 240,
+          "excluded_unparsed_time": 1,
+          "excluded_missing_transaction": 1,
+          "outside_source_window": 0,
+          "basis": {
+            "offset": 21,
+            "verified_tz": 0,
+            "assumed_tz": 219
+          },
+          "field": {
+            "end": 240,
+            "start": 0
+          },
+          "groups": 120
+        },
+        "cut": {
+          "reference_groups": 96,
+          "current_groups": 24,
+          "reference_rows": 189,
+          "current_rows": 51,
+          "reference_blocks": 96,
+          "current_blocks": 24
+        },
+        "value_parse_failures": {},
+        "reference_valid": 189,
+        "current_valid": 51,
+        "reference_constant": false
+      },
+      "expected": {
+        "baseline_state": "unit_unconfirmed",
+        "states": [
+          "request_evidence"
+        ],
+        "needed": [
+          "need_verified_unit"
+        ],
+        "condition": null,
+        "reference_p95_decimal": "2"
+      }
+    },
+    {
+      "case_id": "syn-007",
+      "field": "elapsed_ms",
+      "scope": "synthetic_boundary",
+      "kind": "synthetic",
+      "purpose": "\ud604\uc7ac END_TIME \uc804\ubd80 \uc5c6\uc74c \u2192 \ud604\uc7ac \uc720\ud6a8 0 \u2192 deferred",
+      "path": "syn-007",
+      "files": {
+        "application/PROCESS.csv": "3fcc4f839a338ff55d0aaeac11687641f2405140be0168b23c480d02b42d53f6",
+        "application/authority.json": "239e809ab9c61f9def120a533c035061436286c5ba61fb036f4be715628b2bef",
+        "application/capture.json": "6726356c8dc97ab3b7708aba23aa3c15bc83f0a0a55f5ad94f556aff83ae4503",
+        "proposal.json": "170221e7628e2faa371321fc93e49d4bd9390058ded491fc947cbd2481119843",
+        "reference/PROCESS.csv": "f190e80a51c35a70a140c2714a19bdcef7cbd15ccec7c261f1b1588e66707364",
+        "reference/authority.json": "239e809ab9c61f9def120a533c035061436286c5ba61fb036f4be715628b2bef",
+        "reference/capture.json": "6669baea05a706d875a67dc4c25bffe952caf1067299e31ebc1761b5a3a8d0d0",
+        "request.json": "5d756d28ba2acb89244a9111d738387f01ac61349c480ed677832d11c7ac7b78",
+        "rule_plan.json": "3eb28dd5958ffe5230c7a481c0d81d877407b42459b7885aee08432a5263f1e5"
+      },
+      "periods": {
+        "reference": {
+          "start_inclusive": "2026-08-03T00:00:11.247000+00:00",
+          "end_exclusive": "2026-08-03T00:22:50.000000+00:00"
+        },
+        "application": {
+          "start_inclusive": "2026-08-03T00:22:50.000000+00:00",
+          "end_exclusive": "2026-08-03T00:27:14.000001+00:00"
+        }
+      },
+      "held_window_overlap": false,
+      "counts": {
+        "observations": 149,
+        "excluded_status_not_S": 0,
+        "excluded_anomaly_label": 0,
+        "held_transactions_dropped": 0,
+        "held_rows_dropped": 0,
+        "grouping": {
+          "rows_in": 149,
+          "rows_grouped": 149,
+          "excluded_unparsed_time": 0,
+          "excluded_missing_transaction": 0,
+          "outside_source_window": 0,
+          "basis": {
+            "offset": 17,
+            "verified_tz": 0,
+            "assumed_tz": 132
+          },
+          "field": {
+            "end": 118,
+            "start": 31
+          },
+          "groups": 100
+        },
+        "cut": {
+          "reference_groups": 80,
+          "current_groups": 20,
+          "reference_rows": 118,
+          "current_rows": 31,
+          "reference_blocks": 80,
+          "current_blocks": 20
+        },
+        "value_parse_failures": {},
+        "reference_valid": 118,
+        "current_valid": 0,
+        "reference_constant": false
+      },
+      "expected": {
+        "baseline_state": "verified",
+        "states": [
+          "deferred"
+        ],
+        "needed": [
+          "need_valid_observations"
+        ],
+        "condition": null,
+        "reference_p95_decimal": "7921"
+      }
+    },
+    {
+      "case_id": "syn-008",
+      "field": "error_count",
+      "scope": "synthetic_boundary",
+      "kind": "synthetic",
+      "purpose": "\ucc38\uc870 \uc0c1\uc218(\uc804\ubd80 0) \u2192 proposed(gt 0)\u00b7no_applicable \ubaa8\ub450 \uac80\uc99d\uae30 \ud1b5\uacfc",
+      "path": "syn-008",
+      "files": {
+        "application/PROCESS.csv": "f66a8dc66e2c3dc5f837627490e22577496d8ef808e4a75457af3982e8124c78",
+        "application/authority.json": "239e809ab9c61f9def120a533c035061436286c5ba61fb036f4be715628b2bef",
+        "application/capture.json": "5378421906d3e35bec0a0c379137219008573f1e0dad235036ae1ac3b477c0f4",
+        "proposal.json": "023072656b4482fe60b04873fdd5d890cda4f180b4f8c0ca466833dea92a41a9",
+        "reference/PROCESS.csv": "97800c33ec56a95c0608de30e51762d67de0d246105f4a0d454f0c8a50268c40",
+        "reference/authority.json": "239e809ab9c61f9def120a533c035061436286c5ba61fb036f4be715628b2bef",
+        "reference/capture.json": "16f37e3ebf9b072591ed690f4cfa27372b2b3a81d0b053dc8fe64467c30461f2",
+        "request.json": "d4895b0ee5e7e15677d4f3da81032e804a00015bc413a8c2a3e0d354bbdc8f5d",
+        "rule_plan.json": "5c7d50bcbffc615cbdee92304f1b08f78012e407e60443987d0ec23332e6dfc2"
+      },
+      "periods": {
+        "reference": {
+          "start_inclusive": "2026-08-03T00:00:08.567000+00:00",
+          "end_exclusive": "2026-08-03T00:25:37.777000+00:00"
+        },
+        "application": {
+          "start_inclusive": "2026-08-03T00:25:37.777000+00:00",
+          "end_exclusive": "2026-08-03T00:30:57.300001+00:00"
+        }
+      },
+      "held_window_overlap": false,
+      "counts": {
+        "observations": 235,
+        "excluded_status_not_S": 1,
+        "excluded_anomaly_label": 1,
+        "held_transactions_dropped": 0,
+        "held_rows_dropped": 0,
+        "grouping": {
+          "rows_in": 233,
+          "rows_grouped": 231,
+          "excluded_unparsed_time": 1,
+          "excluded_missing_transaction": 1,
+          "outside_source_window": 0,
+          "basis": {
+            "offset": 20,
+            "verified_tz": 0,
+            "assumed_tz": 211
+          },
+          "field": {
+            "end": 231,
+            "start": 0
+          },
+          "groups": 120
+        },
+        "cut": {
+          "reference_groups": 96,
+          "current_groups": 24,
+          "reference_rows": 181,
+          "current_rows": 50,
+          "reference_blocks": 96,
+          "current_blocks": 24
+        },
+        "value_parse_failures": {},
+        "reference_valid": 181,
+        "current_valid": 50,
+        "reference_constant": true
+      },
+      "expected": {
+        "baseline_state": "verified",
+        "states": [
+          "proposed",
+          "no_applicable"
+        ],
+        "needed": [],
+        "condition": {
+          "op": "gt",
+          "value_decimal": "0",
+          "value_canonical": "0"
+        },
+        "reference_p95_decimal": "0"
+      }
+    },
+    {
+      "case_id": "syn-009",
+      "field": "tx_failed_ratio",
+      "scope": "synthetic_boundary",
+      "kind": "synthetic",
+      "purpose": "\uc99d\uba85\ub41c \uc0c1\ud55c 1 \u2264 \ucc38\uc870 p95 1 \u2192 no_applicable",
+      "path": "syn-009",
+      "files": {
+        "application/PROCESS.csv": "277a626f6874e3984e294bc29b54f5189951bf7a9959adf6eabde22df3fbd06e",
+        "application/TRANSACTION.csv": "834be2fd671e0d374c895c867d80a93b3a7b653a69c6f5f59e5966650c3b8149",
+        "application/authority.json": "239e809ab9c61f9def120a533c035061436286c5ba61fb036f4be715628b2bef",
+        "application/capture.json": "96ff3449c475c32974b4abb4d1937c2aaf1037bb5b8a61e53317405048c912a3",
+        "proposal.json": "59d05d96d65d26a0528aaddd6ba159bd7a467832b3ea85ed9196f425f9ac3542",
+        "reference/PROCESS.csv": "c2bbe11fa045f3100069a658adc537f9feeaa410dc99d6c667841483b5550a1d",
+        "reference/TRANSACTION.csv": "61e72daca3758ef943f4daec69419a0ac5f48146fe87dd4dd8eaf936bd371431",
+        "reference/authority.json": "239e809ab9c61f9def120a533c035061436286c5ba61fb036f4be715628b2bef",
+        "reference/capture.json": "51aff25c83ab23631ab9883ee8964d158703deaa5e36c331f3835df745a1bb64",
+        "request.json": "fd982f37cefd93f8d940b01abe5cd78d470165104b9ea9ea5937a019f1d7311d",
+        "rule_plan.json": "14a419c7117eb40db805725306e19a472cf54755790788a0ae94283a1571a261"
+      },
+      "periods": {
+        "reference": {
+          "start_inclusive": "2026-08-03T00:00:15.100000+00:00",
+          "end_exclusive": "2026-08-03T00:28:47.100000+00:00"
+        },
+        "application": {
+          "start_inclusive": "2026-08-03T00:28:47.100000+00:00",
+          "end_exclusive": "2026-08-03T00:36:29.100001+00:00"
+        }
+      },
+      "held_window_overlap": false,
+      "counts": {
+        "observations": 382,
+        "excluded_status_not_S": 0,
+        "excluded_anomaly_label": 0,
+        "held_transactions_dropped": 0,
+        "held_rows_dropped": 0,
+        "grouping": {
+          "rows_in": 382,
+          "rows_grouped": 382,
+          "excluded_unparsed_time": 0,
+          "excluded_missing_transaction": 0,
+          "outside_source_window": 0,
+          "basis": {
+            "offset": 0,
+            "verified_tz": 0,
+            "assumed_tz": 382
+          },
+          "field": {
+            "end": 382,
+            "start": 0
+          },
+          "groups": 150
+        },
+        "cut": {
+          "reference_groups": 120,
+          "current_groups": 30,
+          "reference_rows": 294,
+          "current_rows": 88,
+          "reference_blocks": 120,
+          "current_blocks": 30
+        },
+        "value_parse_failures": {},
+        "reference_valid": 120,
+        "current_valid": 30,
+        "reference_constant": false
+      },
+      "expected": {
+        "baseline_state": "verified",
+        "states": [
+          "no_applicable"
+        ],
+        "needed": [],
+        "condition": null,
+        "reference_p95_decimal": "1"
+      }
+    }
+  ]
+}

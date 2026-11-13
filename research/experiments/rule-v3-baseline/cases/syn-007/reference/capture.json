@@ -1,0 +1,85 @@
+{
+  "contract": "approved-metadata-capture1.0",
+  "dataset_id": "synthetic_syn-007_reference",
+  "data_class": "controlled",
+  "split": "train",
+  "period": {
+    "start_inclusive": "2026-08-03T00:00:11.247000+00:00",
+    "end_exclusive": "2026-08-03T00:22:50.000000+00:00"
+  },
+  "admission": {
+    "approved": true,
+    "Body_excluded": true,
+    "held_lineage_excluded": true,
+    "complete_family_capture": true
+  },
+  "lineage_tags": [],
+  "tables": [
+    {
+      "name": "PROCESS",
+      "file": "PROCESS.csv",
+      "format": "csv",
+      "sha256": "f190e80a51c35a70a140c2714a19bdcef7cbd15ccec7c261f1b1588e66707364",
+      "row_count": 118,
+      "primary_key": [
+        "ROW_ID"
+      ],
+      "columns": [
+        {
+          "name": "ROW_ID",
+          "logical_type": "string",
+          "nullable": false,
+          "excluded": false,
+          "unit": {
+            "name": null,
+            "status": "unknown"
+          },
+          "missing_tokens": [
+            ""
+          ],
+          "description": "Sequential row identifier assigned by the capture writer."
+        },
+        {
+          "name": "START_TIME",
+          "logical_type": "datetime",
+          "nullable": true,
+          "excluded": false,
+          "unit": {
+            "name": null,
+            "status": "unknown"
+          },
+          "missing_tokens": [
+            ""
+          ],
+          "description": "PROCESS source time normalized to UTC from the raw text by the documented source-time rule."
+        },
+        {
+          "name": "END_TIME",
+          "logical_type": "datetime",
+          "nullable": true,
+          "excluded": false,
+          "unit": {
+            "name": null,
+            "status": "unknown"
+          },
+          "missing_tokens": [
+            ""
+          ],
+          "description": "PROCESS source time normalized to UTC from the raw text by the documented source-time rule."
+        }
+      ]
+    }
+  ],
+  "relationships": [],
+  "evidence": [],
+  "source_identity": {
+    "dataset_id": "synthetic_syn-007_reference",
+    "case": "\ud604\uc7ac END_TIME \uc804\ubd80 \uc5c6\uc74c \u2192 \ud604\uc7ac \uc720\ud6a8 0 \u2192 deferred",
+    "origin": "synthetic seeded generator, no operational source",
+    "side": "reference"
+  },
+  "transaction_families": 0,
+  "unknown": [
+    "Synthetic boundary data with no operational meaning, incident labels or online availability."
+  ]
+}

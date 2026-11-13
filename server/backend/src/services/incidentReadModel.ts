@@ -9,7 +9,10 @@ import { GRAPH_ABSENT_SQL } from './processGraph.js';
  * - 같은 원본·같은 criteria_version·같은 group_key 일관성은 Detector 책임(DB가 강제하지 않음). 어긋난 연결은 쓰지 않고 흐름에 표시(flags)한다.
  * - 건수는 거래 기준(사용자 11/12): 구성원 판정 → 판정 PROCESS 관측 → transaction_id 문자열, 서로 다른 거래 수. 판정 수는 보조.
  * - 해제(Detector incidents.md 8절 합의): 구성원 판정의 실행(execution_id)에서 최신 판정 등급이 더는 이상·이상 징후(anomaly·anomaly_sign)가 아니면 해제.
- *   최신 판정 등급을 모르면(null: v3 evidence·형식 오류)도 이상·이상 징후가 아니므로 해제이고 unknownGrade로 따로 센다(Detector active_execution_count와 같음). 표는 바꾸지 않는다.
+ *   최신 판정 등급을 모르면(null: v3 evidence·형식 오류)도 이상·이상 징후가 아니므로 해제이고 unknownGrade로 따로 센다. 표는 바꾸지 않는다.
+ * - 자리 묶음(Detector 8절 구성원 수, home_bundle_by_execution·active_execution_count와 같음): 실행의 구성원 판정(읽는 사건과 같은 기준 버전,
+ *   해제 여부·등급 무관) 중 최신 판정 정렬 맨 앞 판정이 든 사건의 병합 뿌리. 최신 등급이 이상·이상 징후라도 자리 묶음이 그 구성원의 구간이
+ *   아니면 그 구간에서는 해제처럼 다룬다(세지 않고 minTransactions에도 넣지 않음, 화면 표시도 해제와 같음).
  * - 구성원 시각 출처(Detector 3절·8절): occurred_basis가 decided_at이면 그 시각은 원천 발생 시각이 아니라 판정 시각이다. 흐름·구간·거래 줄에 출처 수·출처를 돌려준다.
  * - 긴 기준값(Detector 4.2): group_key 값이 `sha256:<hex>`이면 원래 값은 저장돼 있지 않다. 구성원 판정의 원천 행에서 읽어 해시가 맞는 값만 보인다(없으면 value null).
  * - 끝 시각 = 구성원 occurred_at 최댓값(해제 포함). 사건 묶음은 같은 시간창·같은 기준값의 상관관계이며 인과가 아니다.
@@ -259,13 +262,13 @@ async function incidentSources(db: Queryable): Promise<string[]> {
 }
 
 /**
- * 구성원 기본 CTE: $1 사건 id[], $2 구간 id[], $3 흐름 id[](같은 길이). 열: flow_id, segment_id, incident_id, decision_id, occurred_at,
+ * 구성원 기본 CTE: $1 사건 id[], $2 구간 id[], $3 흐름 id[](같은 길이). 열: flow_id, segment_id, incident_id, criteria_version, decision_id, occurred_at,
  * occurred_basis, execution_id, transaction_id, process_id, same_source, tx_absent. 판정 evidence(jsonb)는 읽지 않는다.
  */
 const MEMBER_BASE_CTE = `map AS (
   SELECT * FROM unnest($1::uuid[],$2::uuid[],$3::uuid[]) AS x(incident_id,segment_id,flow_id)
 ), mem AS (
-  SELECT map.flow_id,map.segment_id,m.incident_id,m.decision_id,m.occurred_at,m.occurred_basis,d.execution_id,
+  SELECT map.flow_id,map.segment_id,m.incident_id,i.criteria_version,m.decision_id,m.occurred_at,m.occurred_basis,d.execution_id,
     p.transaction_id,p.process_id,(o.source_id=i.source_id) AS same_source,${ABSENT_SQL('p.transaction_id')} AS tx_absent
   FROM map JOIN run_incident_members m ON m.incident_id=map.incident_id
   JOIN run_incidents i ON i.id=m.incident_id
@@ -284,8 +287,33 @@ const LATEST_CTE = (rows: string) => `latest AS (
     FROM run_process_decisions d JOIN data_observations o ON o.id=d.process_observation_id
     WHERE d.execution_id IN (SELECT DISTINCT execution_id FROM ${rows})) r WHERE n=1
 )`;
-/** Detector incidents.md 8절·active_execution_count: 최신 등급이 ELIGIBLE_GRADES(anomaly·anomaly_sign)가 아니면 해제(null 포함). */
+/** Detector incidents.md 8절 해제: 최신 등급이 ELIGIBLE_GRADES(anomaly·anomaly_sign)가 아니면 해제(null 포함). */
 const RELEASED_SQL = (grade: string) => `coalesce(${grade} NOT IN ('anomaly','anomaly_sign'),true)`;
+/**
+ * 실행별 자리 묶음(Detector 8절 home_bundle_by_execution, rows CTE의 (execution_id, criteria_version)마다): 그 실행의 구성원 판정 중
+ * 최신 판정 정렬(관측 revision_no DESC NULLS LAST, decided_at DESC, event_sequence DESC) 맨 앞 판정이 든 사건 = home_incident_id.
+ * 후보 = 읽는 사건과 같은 criteria_version인 사건의 구성원 판정 전부(이 흐름 밖 사건·해제된 구성원 판정 포함, 등급 무관).
+ * 구성원은 decision_id PK라 판정마다 사건 1개이고 event_sequence가 UNIQUE라 맨 앞은 하나다.
+ * home_segment_id = 그 사건이 이 요청의 map에 있으면 그 구간(= 병합 뿌리), 없으면 null(이 요청의 어느 구간도 자리가 아님).
+ * 병합은 같은 group_key끼리만 유효하므로(2절) 자리 사건의 병합 뿌리는 그 사건이 든 구간이다.
+ */
+const HOME_CTE = (rows: string) => `home AS (
+  SELECT DISTINCT ON (k.execution_id,k.criteria_version) k.execution_id,k.criteria_version,hm.incident_id AS home_incident_id
+  FROM (SELECT DISTINCT execution_id,criteria_version FROM ${rows}) k
+  JOIN run_process_decisions hd ON hd.execution_id=k.execution_id
+  JOIN run_incident_members hm ON hm.decision_id=hd.id
+  JOIN run_incidents hi ON hi.id=hm.incident_id AND hi.criteria_version=k.criteria_version
+  JOIN data_observations ho ON ho.id=hd.process_observation_id
+  ORDER BY k.execution_id,k.criteria_version,ho.revision_no DESC NULLS LAST,hd.decided_at DESC,hd.event_sequence DESC
+), home_seg AS (
+  SELECT home.*,hmap.segment_id AS home_segment_id FROM home LEFT JOIN map hmap ON hmap.incident_id=home.home_incident_id
+)`;
+/**
+ * 구간에서 세는 구성원(Detector 8절 active_execution_count 조건): 실행의 최신 등급이 이상·이상 징후이고 자리 묶음이 그 구성원의 구간.
+ * 자리가 다른 묶음인 구성원은 해제처럼 다룬다(released = NOT active).
+ */
+const ACTIVE_SQL = (latestGrade: string, homeSegment: string, segment: string) =>
+  `(NOT ${RELEASED_SQL(latestGrade)} AND coalesce(${homeSegment}=${segment},false))`;
 
 export type IncidentCounts = {
   transactions: number;
@@ -320,9 +348,9 @@ async function loadCounts(db: Queryable, flows: IncidentFlow[]) {
   const empty = (): CountEntry => ({ counts: zeroCounts(), basis: zeroBasis() });
   for (const flow of flows) result.set(flow.id, { ...empty(), mismatch: false, segments: new Map(flow.segments.map((s) => [s.id, empty()])) });
   if (!flows.length) return result;
-  const { rows } = await db.query(`WITH ${MEMBER_BASE_CTE}, ${LATEST_CTE('mem')}, x AS (
-      SELECT mem.*,NOT ${RELEASED_SQL('l.latest_grade')} AS active,(l.latest_grade IS NULL) AS unknown_grade
-      FROM mem LEFT JOIN latest l USING (execution_id)
+  const { rows } = await db.query(`WITH ${MEMBER_BASE_CTE}, ${LATEST_CTE('mem')}, ${HOME_CTE('mem')}, x AS (
+      SELECT mem.*,${ACTIVE_SQL('l.latest_grade', 'h.home_segment_id', 'mem.segment_id')} AS active,(l.latest_grade IS NULL) AS unknown_grade
+      FROM mem LEFT JOIN latest l USING (execution_id) LEFT JOIN home_seg h USING (execution_id,criteria_version)
     )
     SELECT flow_id::text AS flow,segment_id::text AS segment,
       count(DISTINCT transaction_id) FILTER (WHERE same_source AND active AND NOT tx_absent)::integer AS transactions,
@@ -348,15 +376,16 @@ async function loadCounts(db: Queryable, flows: IncidentFlow[]) {
 
 /**
  * 흐름별 해제되지 않은 서로 다른 거래 ID 수(거래 ID 없음·다른 원본 판정 제외). 목록 minTransactions 필터용.
- * 거래는 구성원 판정 중 하나라도 실행의 최신 판정이 이상·이상 징후면 센다(loadCounts transactions와 같은 규칙, Detector 8절 RELEASED_SQL).
+ * 거래는 구성원 판정 중 하나라도 세는 구성원(ACTIVE_SQL: 최신 등급 이상·이상 징후 + 자리 묶음이 그 구간)이면 센다(loadCounts transactions와 같은 규칙).
  */
 async function loadTransactionTotals(db: Queryable, flows: IncidentFlow[]) {
   const totals = new Map<string, number>(flows.map((flow) => [flow.id, 0]));
   if (!flows.length) return totals;
-  const { rows } = await db.query(`WITH ${MEMBER_BASE_CTE}, ${LATEST_CTE('mem')}
+  const { rows } = await db.query(`WITH ${MEMBER_BASE_CTE}, ${LATEST_CTE('mem')}, ${HOME_CTE('mem')}
     SELECT mem.flow_id::text AS flow,
-      count(DISTINCT mem.transaction_id) FILTER (WHERE mem.same_source AND NOT mem.tx_absent AND NOT ${RELEASED_SQL('l.latest_grade')})::integer AS n
-    FROM mem LEFT JOIN latest l USING (execution_id) GROUP BY mem.flow_id`, mapping(flows));
+      count(DISTINCT mem.transaction_id) FILTER (WHERE mem.same_source AND NOT mem.tx_absent
+        AND ${ACTIVE_SQL('l.latest_grade', 'h.home_segment_id', 'mem.segment_id')})::integer AS n
+    FROM mem LEFT JOIN latest l USING (execution_id) LEFT JOIN home_seg h USING (execution_id,criteria_version) GROUP BY mem.flow_id`, mapping(flows));
   for (const row of rows) totals.set(row.flow, row.n);
   return totals;
 }
@@ -528,7 +557,8 @@ export type MemberCursor = { firstAt: string; key: string };
 
 /**
  * GET /api/analysis/incidents/:id/members: 흐름 구성원을 거래별로(첫 구성원 시각 → 키 순). 거래 ID가 없음인 판정은 판정마다 한 줄.
- * 거래 해제 = 그 거래의 구성원 판정이 모두 해제. 인터페이스 = 같은 원본·같은 거래 ID TRANSACTION 행의 interface_id가 하나뿐일 때만.
+ * 거래 해제 = 그 거래의 구성원 판정이 모두 해제(자리 묶음이 그 구간이 아닌 판정 포함, ACTIVE_SQL). 인터페이스 = 같은 원본·같은 거래 ID TRANSACTION 행의 interface_id가 하나뿐일 때만.
+ * 판정 homeIncidentId = 그 실행의 자리 묶음 id(병합 뿌리, HOME_CTE). 이 흐름 밖이면 merged_into를 끝까지 따라간 사건(고리면 자리 사건 그대로).
  * 비용: 먼저 흐름 구성원의 키·첫 시각만으로 이 쪽의 거래 키를 정하고, 그 키의 판정만 등급·실행별 최신 판정·jsonb로 묶는다.
  */
 export async function readIncidentMembers(db: Queryable, id: string, limit: number, cursor: MemberCursor | null,
@@ -538,7 +568,7 @@ export async function readIncidentMembers(db: Queryable, id: string, limit: numb
   const { flow } = resolved;
   const values: unknown[] = [...mapping([flow]), flow.sourceId, cursor?.firstAt ?? null, cursor?.key ?? null, limit + 1,
     INCIDENT_DECISIONS_PER_TRANSACTION];
-  const { rows } = await db.query(`WITH ${MEMBER_BASE_CTE}, keyed AS (
+  const { rows } = await db.query(`WITH RECURSIVE ${MEMBER_BASE_CTE}, keyed AS (
       SELECT mem.*,CASE WHEN tx_absent THEN 'decision:'||decision_id::text ELSE 'transaction:'||transaction_id END AS key
       FROM mem WHERE same_source
     ), keys AS (
@@ -549,10 +579,21 @@ export async function readIncidentMembers(db: Queryable, id: string, limit: numb
       ORDER BY first_at,key COLLATE "C" LIMIT $7
     ), sel AS (
       SELECT keyed.* FROM keyed JOIN page USING (key)
-    ), ${LATEST_CTE('sel')}, x AS (
-      SELECT sel.*,${GRADE_SQL('d')} AS grade,l.latest_id,l.latest_grade,${RELEASED_SQL('l.latest_grade')} AS released,
+    ), ${LATEST_CTE('sel')}, ${HOME_CTE('sel')}, home_walk(home_incident_id,at) AS (
+      SELECT DISTINCT home_incident_id,home_incident_id FROM home_seg WHERE home_segment_id IS NULL
+      UNION
+      SELECT w.home_incident_id,e.target_incident_id FROM home_walk w JOIN run_incident_events e ON e.incident_id=w.at AND e.kind='merged_into'
+    ), home_root AS (
+      SELECT w.home_incident_id,w.at AS root FROM home_walk w
+      WHERE NOT EXISTS (SELECT 1 FROM run_incident_events e WHERE e.incident_id=w.at AND e.kind='merged_into')
+    ), x AS (
+      SELECT sel.*,${GRADE_SQL('d')} AS grade,l.latest_id,l.latest_grade,
+        NOT ${ACTIVE_SQL('l.latest_grade', 'h.home_segment_id', 'sel.segment_id')} AS released,
+        coalesce(h.home_segment_id,hr.root,h.home_incident_id) AS home_id,
         row_number() OVER (PARTITION BY sel.key ORDER BY sel.occurred_at,sel.decision_id) AS n
       FROM sel JOIN run_process_decisions d ON d.id=sel.decision_id LEFT JOIN latest l ON l.execution_id=sel.execution_id
+      LEFT JOIN home_seg h ON h.execution_id=sel.execution_id AND h.criteria_version=sel.criteria_version
+      LEFT JOIN home_root hr ON hr.home_incident_id=h.home_incident_id
     ), grouped AS (
       SELECT key,bool_and(tx_absent) AS tx_absent,min(transaction_id) AS transaction_id,min(occurred_at) AS first_at,max(occurred_at) AS last_at,
         bool_and(released) AS released,count(*)::integer AS decision_count,
@@ -560,7 +601,7 @@ export async function readIncidentMembers(db: Queryable, id: string, limit: numb
           ELSE 'mixed' END AS basis,
         jsonb_agg(jsonb_build_object('decisionId',decision_id,'incidentId',incident_id,'segmentId',segment_id,
           'occurredAt',${iso('occurred_at')},'occurredBasis',occurred_basis,'processId',process_id,'grade',grade,
-          'released',released,'latestDecisionId',latest_id,'latestGrade',latest_grade,'gradeUnknown',latest_grade IS NULL)
+          'released',released,'latestDecisionId',latest_id,'latestGrade',latest_grade,'gradeUnknown',latest_grade IS NULL,'homeIncidentId',home_id)
           ORDER BY occurred_at,decision_id) FILTER (WHERE n<=$8) AS decisions
       FROM x GROUP BY key
     )

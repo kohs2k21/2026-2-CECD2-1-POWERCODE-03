@@ -1,5 +1,5 @@
 Created: 2026-11-12T19:10:00+09:00
-Updated: 2026-11-14T02:20:00+09:00
+Updated: 2026-11-14T05:00:00+09:00
 Author: Claude Code(WebUI builder)
 Status: current — 실험 기능(층 C). DB migration 019·Detector `incidents.md` 읽기 규칙 8절에 맞춤
 
@@ -33,13 +33,17 @@ Status: current — 실험 기능(층 C). DB migration 019·Detector `incidents.
 ## 3. 건수 — 거래 기준(사용자 11/12)
 
 - 구성원 판정 → 판정 PROCESS 관측(`run_process_decisions.process_observation_id`) → `data_processes.transaction_id` 문자열. **서로 다른 거래 ID 수**가 주 건수, 판정 수는 보조
-- **Detector와 다른 점(단위)**: Detector 8절 구성원 수(`active_execution_count`)는 해제되지 않은 구성원의 **실행 수**(실행당 1)다. 화면 주 건수는 사용자 11/12 결정대로 **거래 수**라 다를 수 있다(한 거래의 PROCESS 실행 여러 개 = Detector 여러 건, 화면 1건). 해제·최신 판정 규칙은 같다
+- **Detector와 다른 점(단위)**: Detector 8절 구성원 수(`active_execution_count`)는 해제되지 않았고 **자리 묶음이 그 묶음인** 구성원의 **실행 수**(실행당 1)다. 화면 주 건수는 사용자 11/12 결정대로 **거래 수**라 다를 수 있다(한 거래의 PROCESS 실행 여러 개 = Detector 여러 건, 화면 1건). 해제·최신 판정·자리 묶음 규칙은 같다
 - **해제**(Detector 8절과 같음): 구성원 판정의 실행(`execution_id`)에서 최신 판정의 저장된 v4 `composite.grade`가 더는 `anomaly`·`anomaly_sign`이 아니면 그 구성원은 해제. **최신 판정 등급을 모르면**(null: v3 evidence·형식 오류)도 이상·이상 징후가 아니므로 해제이고 `unknownGrade`로 따로 센다(Detector `active_execution_count`가 `ELIGIBLE_GRADES`만 세는 것과 같음. 11/12 이전 이 초안은 등급 모름을 활성으로 셌다). 최신 판정 = `PARTITION BY d.execution_id ORDER BY o.revision_no DESC NULLS LAST, d.decided_at DESC, d.event_sequence DESC`(o = 판정 PROCESS 관측, Detector 8절 합의, Detector `_BATCH_SQL` latest와 같은 정렬). 새 리비전 판정 전에는 옛 판정 유지(해제 아님). 표는 바꾸지 않는다
+- **자리 묶음**(Detector 8절 11/14 합의, `home_bundle_by_execution`과 같음): 키가 바뀐 리비전 때문에 한 실행의 구성원 판정이 서로 다른 묶음에 들 수 있다. 실행마다 **자리 판정** = 그 실행의 구성원 판정 중 위 최신 판정 정렬 맨 앞 판정, **자리 묶음** = 그 판정이 든 사건의 병합 뿌리(`merge_root`)
+    - 후보 = 읽는 사건과 **같은 기준 버전**(`criteria_version`) 사건의 구성원 판정 전부. 흐름 밖 사건의 구성원 판정과 해제된 구성원 판정도 포함하고 판정 자체 등급은 보지 않는다. 최신 판정이 아직 구성원이 아니면(묶음 작업 지연) 직전 구성원 판정의 자리를 쓴다
+    - 최신 등급이 이상·이상 징후라도 자리 묶음이 그 구성원의 구간(병합 뿌리)이 아니면 그 구간에서는 **해제처럼** 다룬다: 세지 않고(`counts`·`minTransactions`), 구성원 판정·거래 줄 `released`도 해제와 같다(화면 표시 문구는 해제와 같음, 새 문구는 사용자 승인 뒤). `unknownGrade`는 최신 등급을 모를 때만이라 여기에 들지 않는다
+    - 그래서 실행은 기준 버전마다 한 구간에서만 센다(흐름 전체를 합쳐도 중복 없음). 옛 묶음은 남은 구성원이 줄어 `minTransactions`로 목록에서 빠질 수 있다
 - 등급 읽기 조건 차이(영향 없음): 화면은 `evidence->'schemaVersion' = '4'::jsonb`(숫자 4)·`composite` 객체일 때만 등급을 읽고(analysisReadModel과 같음), Detector는 `evidence->>'schemaVersion' = '4'`(문자 "4"도 포함)로 읽는다. Detector evidence 작성기는 숫자 4를 쓰므로 지금 데이터에서는 같다
 - 거래 ID가 없음(그래프 계약 `graph_value_absent`: NULL 또는 ASCII 공백·탭·CR·LF를 앞뒤에서 지운 값이 `""`·`\N`)인 판정은 거래로 세지 않고 `missingTransactionId`로 따로 센다
-- `counts` 필드(정수, 모두 필수): `transactions`(해제되지 않은 구성원이 있는 거래 수) · `releasedTransactions`(구성원 모두 해제된 거래 수) · `decisions`(해제되지 않은 구성원 판정 수) · `releasedDecisions` · `missingTransactionId`(해제되지 않은, 거래 ID 없음 판정 수) · `unknownGrade`(최신 판정 등급을 몰라 해제된 판정 수, `releasedDecisions`에 포함)
+- `counts` 필드(정수, 모두 필수, "해제"에는 자리 묶음이 다른 구성원 포함): `transactions`(해제되지 않은 구성원이 있는 거래 수) · `releasedTransactions`(구성원 모두 해제된 거래 수) · `decisions`(해제되지 않은 구성원 판정 수) · `releasedDecisions` · `missingTransactionId`(해제되지 않은, 거래 ID 없음 판정 수) · `unknownGrade`(최신 판정 등급을 몰라 해제된 판정 수, `releasedDecisions`에 포함)
 - API 기본은 최소 구성원 수로 거르지 않는다. 목록 쿼리 `minTransactions`(아래)로 거를 수 있다
-- **최소 구성원 수 — Detector와 다른 점(사용자 11/12 결정)**: Detector `min_members` 기본 2(`shown(active_count)`)는 **해제되지 않은 실행 수** 기준의 읽기 변수다. 화면 기본 `minTransactions=2`는 **해제되지 않은 서로 다른 거래 ID 수**(= `counts.transactions`: 구성원 판정 중 하나라도 실행의 최신 판정이 `anomaly`·`anomaly_sign`인 거래, 거래 ID 없음·다른 원본 판정 제외) 기준이다. 해제 제외·최신 판정 규칙은 Detector 8절과 같고, **다른 점은 단위(거래 vs 실행)뿐**이다. 예: (1) 한 거래가 재시도돼 PROCESS 실행 2건 → Detector 2(보임), 화면 1(기본 숨김). (2) 거래 X·Y 중 Y가 해제 → 화면 1(숨김, Detector도 실행 1이면 숨김). "모두 보기"는 거르지 않는다. 11/12 이전 이 초안은 해제를 포함해 셌다
+- **최소 구성원 수 — Detector와 다른 점(사용자 11/12 결정)**: Detector `min_members` 기본 2(`shown(active_count)`)는 **해제되지 않은 실행 수** 기준의 읽기 변수다. 화면 기본 `minTransactions=2`는 **해제되지 않은 서로 다른 거래 ID 수**(= `counts.transactions`: 구성원 판정 중 하나라도 실행의 최신 판정이 `anomaly`·`anomaly_sign`이고 자리 묶음이 그 구간인 거래, 거래 ID 없음·다른 원본 판정 제외) 기준이다. 해제 제외·최신 판정·자리 묶음 규칙은 Detector 8절과 같고, **다른 점은 단위(거래 vs 실행)뿐**이다. 예: (1) 한 거래가 재시도돼 PROCESS 실행 2건 → Detector 2(보임), 화면 1(기본 숨김). (2) 거래 X·Y 중 Y가 해제 → 화면 1(숨김, Detector도 실행 1이면 숨김). "모두 보기"는 거르지 않는다. 11/12 이전 이 초안은 해제를 포함해 셌다
 
 ## 3a. 구성원 시각 출처 — Detector 3절·8절
 
@@ -83,7 +87,7 @@ Status: current — 실험 기능(층 C). DB migration 019·Detector `incidents.
 - 정렬: 거래의 첫 구성원 시각 오름차순, 같으면 키 순. 거래 ID 없음 판정은 판정마다 한 줄(`transactionId` null)
 - 응답 `{id, requestedId, total(거래 줄 수), nextCursor, items[]}`
 - 줄: `key`(커서용, 화면은 쓰지 않음) · `transactionId` · `interfaceId`(같은 원본·같은 거래 ID TRANSACTION 행의 `interface_id`가 하나뿐일 때만, 그 밖 null) · `firstOccurredAt` · `lastOccurredAt` · `occurredBasis`(3a, `process_time_raw` | `decided_at` | `mixed`) · `released`(구성원 모두 해제) · `decisionCount` · `decisionsTruncated`(50건 넘음) · `decisions[]`
-- 판정: `decisionId`(→ 화면 `/analysis/d/:decisionId`, 거래 내부 실행 그래프) · `incidentId`(저장된 사건) · `segmentId` · `occurredAt` · `occurredBasis` · `processId` · `grade`(그 판정의 저장 등급) · `released` · `latestDecisionId` · `latestGrade`(실행별 최신 판정) · `gradeUnknown`(최신 판정 등급을 모름 → 해제)
+- 판정: `decisionId`(→ 화면 `/analysis/d/:decisionId`, 거래 내부 실행 그래프) · `incidentId`(저장된 사건) · `segmentId` · `occurredAt` · `occurredBasis` · `processId` · `grade`(그 판정의 저장 등급) · `released`(해제 또는 자리 묶음이 이 구간이 아님, 3절) · `latestDecisionId` · `latestGrade`(실행별 최신 판정) · `gradeUnknown`(최신 판정 등급을 모름 → 해제) · `homeIncidentId`(그 실행의 자리 묶음 id = 병합 뿌리 사건 id, 3절. `released:false`면 `segmentId`와 같다. 자리 사건이 이 흐름 밖이면 `merged_into`를 끝까지 따라간 사건, 병합 고리면 자리 사건 그대로)
 
 ### 오류 code
 
@@ -103,8 +107,8 @@ Status: current — 실험 기능(층 C). DB migration 019·Detector `incidents.
 
 ## 6. 열린 항목
 
-1. 읽기 비용: 목록은 요청마다 원본별 사건 골격(최대 50,000행, criteria 제외)을 읽어 흐름을 계산하고 페이지 흐름의 구성원만 센다. `minTransactions` > 1이면 기간·기준에 맞는 흐름 전체의 구성원과 그 실행별 최신 판정을 읽어 해제되지 않은 거래 수를 센다. 한 장애 구성원이 대량이면 한 흐름 건수 계산이 무겁다 — 실측 후 흐름 요약 물질화 여부(DB·Detector). 인덱스 `run_incidents(source_id, opened_at DESC, id DESC)`는 DB가 019에 추가(`run_incidents_recent_idx`) — 골격 쿼리가 정렬 없이 이 인덱스로 읽음(작은 DB EXPLAIN 확인). 상세 사슬 읽기의 "병합돼 들어온 사건" 역방향 조회(`run_incident_events.target_incident_id`)는 인덱스가 없어 이벤트 표가 커지면 필요(DB 요청 후보)
+1. 읽기 비용: 목록은 요청마다 원본별 사건 골격(최대 50,000행, criteria 제외)을 읽어 흐름을 계산하고 페이지 흐름의 구성원만 센다. `minTransactions` > 1이면 기간·기준에 맞는 흐름 전체의 구성원과 그 실행별 최신 판정·자리 판정(실행의 판정 → 구성원, `execution_id`로 시작하는 판정 UNIQUE 인덱스와 `run_incident_members` PK)을 읽어 해제되지 않은 거래 수를 센다. 한 장애 구성원이 대량이면 한 흐름 건수 계산이 무겁다 — 실측 후 흐름 요약 물질화 여부(DB·Detector). 인덱스 `run_incidents(source_id, opened_at DESC, id DESC)`는 DB가 019에 추가(`run_incidents_recent_idx`) — 골격 쿼리가 정렬 없이 이 인덱스로 읽음(작은 DB EXPLAIN 확인). 상세 사슬 읽기의 "병합돼 들어온 사건" 역방향 조회(`run_incident_events.target_incident_id`)는 인덱스가 없어 이벤트 표가 커지면 필요(DB 요청 후보)
 2. (닫힘, 사용자 11/12) 최소 구성원 수 필터: 해제 제외는 Detector와 맞춤, 단위는 거래로 둠(3절). 남은 비용은 1번
 3. 층 C 그래프 문서(`incident` 노드·`member_of` 간선, process-graph.md 예약 어휘) 응답은 아직 없음(Detector 열린 항목 9)
-4. 키가 바뀐 리비전의 실행이 두 사건에 들면 양쪽에서 센다(Detector 열린 항목 5) — 화면 표시 방법
+4. (닫힘, 11/14 WebUI·Detector) 키가 바뀐 리비전의 실행이 두 사건에 들면: 자리 묶음 한 곳에서만 세고 옛 묶음 구성원은 해제처럼 표시(3절, Detector 8절). API는 판정마다 `homeIncidentId`를 내린다. 옛 묶음 구성원을 해제와 다른 문구(예: 다른 사건으로 옮김)로 보일지는 사용자 결정 전이라 화면은 해제 표시 그대로
 5. (닫힘) `navigation.md`에 사건 보기 주소 반영: 화면 경로·주소 쿼리 표에 실제 주소(`frontend/src/app/routes.ts`)를 적음

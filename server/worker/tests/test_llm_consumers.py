@@ -127,6 +127,44 @@ class ProtocolExplanationRoutingTests(unittest.TestCase):
             with self.subTest(code=code):
                 self.assertEqual(self.run_kind("llm", raising(ValueError(code))).finished, [(code, True)])
 
+    def test_claim_requires_admin_for_the_new_kind(self):
+        # _claim_job 관리자 검사(migration 027 CHECK와 같은 규칙): 관리자가 아니면 시도를 만들기 전에 거부한다.
+        from pg_queue import ClaimedMessage
+
+        class Cursor:
+            def __init__(self, row):
+                self.row, self.fetches, self.statements = row, 0, []
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_):
+                return False
+
+            def execute(self, sql, params=None):
+                self.statements.append(" ".join(sql.split())[:30])
+
+            def fetchone(self):
+                self.fetches += 1
+                return self.row if self.fetches == 1 else (1,)  # 1: 작업 행, 2: 큐 임대 확인
+
+        def claim_as(role):
+            job_id = uuid.uuid4()
+            row = (job_id, "explain_protocol", "queued", {}, "actor", 0, 3, None, role, "v03", {})
+            cursor = Cursor(row)
+            conn = MagicMock()
+            conn.cursor.return_value = cursor
+            message = ClaimedMessage(id=uuid.uuid4(), payload={"schemaVersion": 1, "jobId": str(job_id)}, attempts=1,
+                                     lease_token=uuid.uuid4(), created_at=None, queue="llm_explanation")
+            return runner._claim_job(conn, message, "w"), cursor
+
+        for role in ("user", None):
+            with self.subTest(role=role), self.assertRaisesRegex(ValueError, "^job_role_not_authorized$"):
+                claim_as(role)
+        claimed, cursor = claim_as("admin")
+        self.assertEqual(claimed[0]["kind"], "explain_protocol")
+        self.assertTrue(any(statement.startswith("INSERT INTO run_job_attempts") for statement in cursor.statements))
+
     def test_result_row_decision_follows_the_target(self):
         self.assertIn("explain_protocol", runner.LLM_RESULT_KINDS)
         decision = str(uuid.uuid4())

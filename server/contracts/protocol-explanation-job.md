@@ -1,5 +1,5 @@
 Created: 2026-11-14T18:00:00+09:00
-Updated: 2026-11-14T23:00:00+09:00
+Updated: 2026-11-15T01:00:00+09:00
 Author: Claude Code (LLM 세션 builder)
 Status: draft
 
@@ -9,7 +9,7 @@ Status: draft
 - 근거: 시험 키트(`research/experiments/protocol-explain`, 기반 모델 Qwen3.6-27B NF4 어댑터 없음 + 프롬프트 v3 → 합성 7/8, 실데이터 7/8·7/8, 시험 사례 모두 60초 생성 상한 안, 지어낸 숫자·경로·표기 0건). 이 작업은 v3의 남은 실패(사유 이름표 뒤 "로 인해")와 약점(근거 부족 미언급)을 고친 **프롬프트 v4**로 시작한다(아래 프롬프트 절)
 - 합의(WebUI 총괄): 새 작업 종류 `explain_protocol`(기존 `explain` 입력 확장 아님) / 출력은 `{explanation, reviewPoints[≤3]}`이고 판정·숫자 필드 없음 / 대화형 상한(`LLM_EXPLANATION_WAIT_SECONDS` 10초·`LLM_EXPLANATION_SECONDS` 60초)과 GPU 차례는 `explain`과 같은 대화형 등급 / API 접수·검증과 화면은 WebUI·API 담당
 - 표기: **[확정]** 합의·코드 사실 / **[제안]** 이 초안이 정한 값 / **[승인 대상]** 공통 계약(migration·API 요청·큐 payload·결과 형식)이라 사용자 승인 뒤 확정 / **[확정 11/14 사용자]** 12절 결정 / **[후보]** 화면 문구(사용자 승인 대상)
-- 구현 위치(이 초안과 같은 PR): 워커 `server/worker/protocol_explanation_job.py`(작업), `protocol_explanation.py`(사실·이름표·프롬프트·점검 순수 함수, 키트와 공용), `generation_service.py`·`generation_client.py`(새 kind), `trainer/runner.py`(소비자 경로), migration `027_explain_protocol.sql`(초안), 역할 스크립트 1줄. API(`server/backend`)·화면(`server/frontend`)은 이 PR에서 바꾸지 않는다(아래 API 쪽 변경점 표)
+- 구현 위치(이 계약과 같은 PR): 워커 `server/worker/protocol_explanation_job.py`(작업), `protocol_explanation.py`(사실·이름표·프롬프트·점검 순수 함수, 키트와 공용), `generation_service.py`·`generation_client.py`(새 kind), `trainer/runner.py`(소비자 경로), migration `027_explain_protocol.sql`·역할 스크립트 1줄([확정 11/14 사용자], 9절). API(`server/backend`)·화면(`server/frontend`)은 이 PR에서 바꾸지 않는다(아래 API 쪽 변경점 표)
 
 ## 1. 요청 — `POST /api/jobs kind=explain_protocol` [승인 대상]
 
@@ -27,7 +27,7 @@ Status: draft
 |---|---|
 | `sourceId` | 기존 `/api/jobs`와 같이 필수 UUID. 후보 작업 결과의 `sourceId`, 판정 관측의 `source_id`와 같아야 한다(다르면 대상 없음) |
 | `target.jobId` | 화면이 보여 주는 관측 경로 초안의 원천 작업(`GET /api/rule-set/protocol-drafts` 응답 `job`). `recommend_relations`·`succeeded`. 최신 작업일 필요는 없다(요청이 고정) |
-| `target.interfaceId` | 1~512자, 원래 문자열 그대로(상세 화면 주소의 인터페이스 ID를 되돌린 값). 학습 기간에 관측되지 않았어도 등록돼 있으면 받는다 |
+| `target.interfaceId` | 1~512자, 원래 문자열 그대로(상세 화면 주소의 인터페이스 ID를 되돌린 값). (a) 그 작업 결과의 초안 `protocolPathDrafts.interfaces[]`에 있거나 (b) `ruleSetRevision` 버전의 `protocolRules[]`에 등록돼 있어야 한다 — 학습 기간에 관측되지 않았어도 등록돼 있으면 받는다. 둘 다 아니면 400 `protocol_explanation_facts_unavailable`(10절 접수 검증, 워커 판정과 같은 조건) |
 | `target.ruleSetRevision` | 비교할 룰 세트 버전(0 이상 정수, 화면의 현재 운영 버전). 현재 버전일 필요는 없고 리비전 행이 있어야 한다. 화면 표시는 "버전 N"([rule-set.md](rule-set.md) 용어) |
 | `target.decisionId` | 알림이 가리키는 판정(알림 묶음의 첫 판정 등 화면이 고른 판정). 그 판정의 `evidence.protocolReview`와 그 안의 `ruleSetRevision`을 쓴다 |
 | 권한 | **관리자만**(403 `admin_required`) [확정 11/14 사용자]. 프로토콜 설정·초안 API와 프로토콜 알림이 모두 관리자 전용이기 때문. migration CHECK도 `requester_role='admin'` |
@@ -115,7 +115,8 @@ Status: draft
 | `protocol_explanation_facts_unavailable` | 결과에 경로 집계 없음(집계 전 Trainer 결과)·버전 다름·형식 다름, 인터페이스가 초안에도 룰 세트에도 없음, 판정에 프로토콜 근거 없음, 처음 보는 경로 알림인데 그 버전에 항목 없음 | 없음 | "설명에 쓸 사실이 부족합니다." |
 | `generation_busy` | 대기 상한 안에 GPU 차례를 얻지 못함 | 있음(explain과 같음: 5초 뒤, 최대 3회 뒤 `failed` + 이 코드) | "LLM이 다른 생성을 처리 중입니다. 잠시 뒤 다시 요청해 주세요." |
 | `generation_timeout` | 생성 시간 상한 초과 | 없음 | "설명 생성 시간이 초과되었습니다." |
-| `generation_service_unavailable` | 생성 서비스 연결 불가·장애(`generation_service_not_configured`는 설정 없음) | 없음 [확정 11/14 사용자 — explain은 `job_processing_failed`로 재시도하지만 이 작업은 바로 실패] | "LLM을 사용할 수 없습니다." |
+| `generation_service_unavailable` | 생성 서비스 연결 불가·장애 | 없음 [확정 11/14 사용자 — explain은 `job_processing_failed`로 재시도하지만 이 작업은 바로 실패] | "LLM을 사용할 수 없습니다." |
+| `generation_service_not_configured` | 생성 서비스 설정 없음(HTTP 주소·토큰 없음 등, 코드 그대로 저장) | 없음(위와 같음) | "LLM을 사용할 수 없습니다." |
 | `protocol_explanation_check_failed` | 자동 점검 실패(`check.failures`에 사유) | 없음 | "자동 점검을 통과하지 못해 설명을 보이지 않습니다." + 사유 이름(아래) |
 | `protocol_explanation_json_invalid` | 출력이 JSON 객체 하나가 아님(코드 블록·앞뒤 글·객체 아님)·출력 한도에서 끊김 | 없음 | "설명 형식이 올바르지 않아 보이지 않습니다." |
 | `generation_contract_rejected` | 입력 토큰 예산 초과 등 생성 서비스 요청 거부 | 없음 | "설명을 만들 수 없는 요청입니다." |
@@ -123,7 +124,7 @@ Status: draft
 | `protocol_explanation_input_invalid`·`protocol_explanation_llm_spec_invalid`·`job_role_not_authorized` | 워커 방어(정상 접수에서는 나오지 않음) | 없음 | 코드 그대로 |
 | `job_processing_failed` | 그 밖의 예외(기존 흐름) | 있음 | 기존 문구 |
 
-- `protocol_explanation_target_not_found`·`protocol_explanation_facts_unavailable`은 접수 단계에서도 같은 코드의 400으로 온다(10절 접수 검증 — 작업 없음). 위 표는 접수 뒤 워커 방어 검사에서 나는 경우다
+- 접수와 워커의 구분: 접수 단계(10절)에서는 `protocol_explanation_target_not_found`(대상 없음)와 `protocol_explanation_facts_unavailable`(초안 v1 없음, 인터페이스가 초안에도 그 버전 룰 세트에도 없음, 판정에 프로토콜 근거 없음)이 **400**으로 오고 작업은 만들어지지 않는다. 위 표의 같은 두 코드(작업 `failed`)는 접수 뒤 워커 방어 검사에서 나는 경우다. 그중 "처음 보는 경로 알림인데 판정 근거의 룰 세트 버전에 그 인터페이스 항목이 없음(행이 없는 경우 포함)"과 "원천 형식이 사실 함수 기준과 다름(`protocol_explain_*` 검증 실패)"은 접수가 보지 않으므로 **워커에서만** 나온다
 - 점검 사유 이름 [후보]: `numbers_subset` 사실에 없는 숫자 · `identifiers_subset` 사실에 없는 표기 · `paths_in_facts` 사실에 없는 경로 · `no_forbidden` 원인 단정·추정·지시 표현 · `korean_ok` 한국어 문장 아님 · `length_ok` 길이 · `schema_ok` 형식 · `json_parsed` 형식
 
 ## 8. 큐 [제안 — 기존 `llm_explanation` 재사용 추천]
@@ -156,7 +157,7 @@ Status: draft
 | `server/backend/src/services/generationAvailability.ts` `LLM_JOB_KINDS` | `'explain_protocol'` 한 줄 추가 — 생성 서비스가 꺼져 있으면 접수 503 `generation_service_unavailable`(LLM 가용성 브랜치 기준) |
 | `routes/jobRoutes.ts` `KINDS`·관리자 검사 | `explain_protocol` 추가, 본문 해석 전 관리자 검사(403 `admin_required`) |
 | 접수 검증 — 형식 | 1절 키 규칙. 위반은 400 `invalid_protocol_explanation_request` [제안] |
-| 접수 검증 — 대상·사실 [확정 11/14 사용자] | 접수 때 대상과 사실이 있는지 확인하고, 없으면 **400**으로 거절한다(작업·큐 메시지를 만들지 않음). 응답은 `{code}`만<br>관측 경로 대상: (1) `target.jobId` 작업이 있고 `kind = recommend_relations`·`status = succeeded`·결과 `sourceId` = 요청 `sourceId` (2) `target.ruleSetRevision` 리비전 행이 있음 — 둘 중 하나라도 아니면 400 `protocol_explanation_target_not_found` (3) 그 결과의 `protocolPathDrafts`가 `version` 1이고 `interfaces[]`에 `target.interfaceId` 항목이 있음 — 아니면 400 `protocol_explanation_facts_unavailable`<br>알림 대상: (1) 판정이 있고 그 관측이 요청 `sourceId` 출처 — 아니면 400 `protocol_explanation_target_not_found` (2) `evidence.protocolReview`가 있고 알림 목록과 같은 판별(`version` 1, `kind` ∈ {`path_unmatched`, `interface_unregistered`}, `interfaceId` 비지 않은 문자열)을 통과 — 아니면 400 `protocol_explanation_facts_unavailable`<br>워커의 같은 검사(2절·7절, 작업 `failed` + 같은 코드)는 방어용으로 그대로 둔다. 워커는 "초안에 없지만 그 리비전에 등록된 인터페이스"도 사실로 만들 수 있으나 접수가 초안에 있는 인터페이스만 받으므로 정상 경로에서는 오지 않는다 |
+| 접수 검증 — 대상·사실 [확정 11/14 사용자] | 접수 때 대상과 사실이 있는지 확인하고, 없으면 **400**으로 거절한다(작업·큐 메시지를 만들지 않음). 응답은 `{code}`만<br>관측 경로 대상: (1) `target.jobId` 작업이 있고 `kind = recommend_relations`·`status = succeeded`·결과 `sourceId` = 요청 `sourceId` (2) `target.ruleSetRevision` 리비전 행이 있음 — 둘 중 하나라도 아니면 400 `protocol_explanation_target_not_found` (3) 그 결과의 `protocolPathDrafts`가 `version` 1(`interfaces[]` 목록 있음) (4) `target.interfaceId`가 (a) 초안 `interfaces[]`에 있거나 (b) 그 리비전 `protocolRules[]`에 등록됨(`interfaceId` 원래 문자열 정확 일치) — (3)·(4) 중 하나라도 아니면 400 `protocol_explanation_facts_unavailable`. (1)~(4)는 워커 판정 `protocol_explanation_job.build_facts`(관측 경로 분기)·`rules_by_interface`와 같은 조건이다. API는 이 규칙을 그대로 구현한다<br>알림 대상: (1) 판정이 있고 그 관측이 요청 `sourceId` 출처 — 아니면 400 `protocol_explanation_target_not_found` (2) `evidence.protocolReview`가 있고 알림 목록과 같은 판별(`version` 1, `kind` ∈ {`path_unmatched`, `interface_unregistered`}, `interfaceId` 비지 않은 문자열)을 통과 — 아니면 400 `protocol_explanation_facts_unavailable`. 알림 대상은 판정 근거의 룰 세트 버전 행·항목을 접수에서 보지 않는다. "처음 보는 경로 알림인데 그 버전에 항목이 없음"은 워커 방어에서만 나오는 경우다(작업 `failed` + `protocol_explanation_facts_unavailable`, 2절)<br>워커의 같은 검사(2절·7절, 작업 `failed` + 같은 코드)는 방어용으로 그대로 둔다 |
 | `llm_spec`·재사용 | 1절 고정 값, `reuse_key`·멱등 처리는 explain 흐름 재사용 |
 | `input_decision_id` | 알림 대상은 `target.decisionId`와 **같은 값**, 관측 경로 대상은 NULL. 이 대조는 **API 접수 책임**이다. 워커는 결과 행 판정 id를 `target.decisionId`로 쓰고 DB(`erd_v03_validate_result`)가 결과 판정 = 작업 `input_decision_id`를 강제하므로, 둘이 다르면 완료 단계에서 거부되어 작업이 `job_processing_failed`로 끝난다 |
 | 큐 선택 | `llm_explanation`(INSERT 대상 `powercode_queue.llm_explanation_jobs`) |

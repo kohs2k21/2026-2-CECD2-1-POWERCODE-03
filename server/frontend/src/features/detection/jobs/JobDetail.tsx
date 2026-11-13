@@ -8,7 +8,6 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ErrorState, LoadingState } from "@/components/ui/feedback";
-import { Progress } from "@/components/ui/progress";
 import { TrainerJobResult } from "@/features/detection/components/TrainerJobResult";
 import { fullText } from "@/features/detection/models/period";
 import { parameterLabel } from "@/features/detection/models/trainDraft";
@@ -116,7 +115,7 @@ const JobBody = ({ job }: { job: JobDetail }) => {
   const again = restart(job);
   return (
     <SectionCard title={`${kindLabel(job.kind)} 작업 ${job.id.slice(0, 8)}`} action={<Badge variant={badge.variant} data-job-status={job.status}>{badge.label}</Badge>}>
-      {job.status === "running" && <Progress value={100} className="animate-pulse" aria-label="작업 진행 중" />}
+      {job.status === "running" && <div role="status" aria-label="작업 진행 중" className="h-2 w-full animate-pulse rounded-full bg-primary/40" />}
       {job.status === "failed" && (
         <Alert variant="destructive" role="alert"><AlertDescription>실패 · {job.errorCode ?? DASH}</AlertDescription></Alert>
       )}

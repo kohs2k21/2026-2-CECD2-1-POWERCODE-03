@@ -159,6 +159,8 @@ try {
   assert.deepEqual(code(await call('/api/jobs?limit=0', admin)), [400, 'invalid_limit']);
   assert.deepEqual(code(await call('/api/jobs?limit=101', admin)), [400, 'invalid_limit']);
   assert.deepEqual(code(await call('/api/jobs?cursor=not-a-cursor', admin)), [400, 'invalid_cursor']);
+  // Date.parse는 통과하지만 커서 시각 형식이 아닌 값도 PG 변환 오류(500) 대신 400.
+  assert.deepEqual(code(await call(`/api/jobs?cursor=${Buffer.from(JSON.stringify({ at: '1', id: '00000000-0000-4000-8000-000000000001' })).toString('base64url')}`, admin)), [400, 'invalid_cursor']);
   assert.deepEqual(code(await call('/api/jobs?kind=train&kind=compare', admin)), [400, 'invalid_job_kind'], 'repeated key is not a list');
   assert.equal((await call('/api/jobs')).status, 401);
 

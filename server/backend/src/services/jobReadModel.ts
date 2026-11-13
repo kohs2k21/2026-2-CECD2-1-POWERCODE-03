@@ -31,12 +31,15 @@ type Cursor = { at: string; id: string };
 export type JobListFilter = { kinds: string[] | null; statuses: string[] | null; limit: number; cursor: Cursor | null };
 
 const encodeCursor = (cursor: Cursor) => Buffer.from(JSON.stringify(cursor)).toString('base64url');
+/** 서버가 발급한 커서의 시각(`created_at::text`, 예: `2026-01-01 00:00:00.123456+00`) 형식. 그 밖은 PG 변환 오류 대신 400. */
+const CURSOR_AT = /^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}(\.\d{1,6})?(Z|[+-]\d{2}(:?\d{2})?)$/;
+
 function decodeCursor(value: unknown): Cursor | null {
   if (value === undefined) return null;
   try {
     if (typeof value !== 'string' || !/^[A-Za-z0-9_-]{1,512}$/.test(value)) throw new Error();
     const parsed = JSON.parse(Buffer.from(value, 'base64url').toString('utf8')) as Record<string, unknown>;
-    if (Object.keys(parsed).sort().join() !== 'at,id' || typeof parsed.at !== 'string' || !Number.isFinite(Date.parse(parsed.at))
+    if (Object.keys(parsed).sort().join() !== 'at,id' || typeof parsed.at !== 'string' || !CURSOR_AT.test(parsed.at) || !Number.isFinite(Date.parse(parsed.at))
       || typeof parsed.id !== 'string' || !UUID.test(parsed.id)) throw new Error();
     return { at: parsed.at, id: parsed.id };
   } catch { throw new JobReadError('invalid_cursor'); }

@@ -282,11 +282,12 @@ assert(view.text().includes("현재 운영: 룰 2개 · 머신러닝 모델 ifor
 assert(!view.text().includes("운영 설정"), "user has no 운영 설정 link");
 assert(view.text().includes("원천 발생 → 판정: 측정 불가"));
 assert(view.text().includes("6.9%"));
-// 최근 판정: 날짜를 붙여 MM/DD HH:mm:ss(로컬 시간, 다른 화면과 같은 형식).
+// 최근 판정·단계 흐름: 날짜를 붙여 MM/DD HH:mm:ss(로컬 시간, 다른 화면과 같은 형식).
 {
-  const at = new Date("2026-11-03T00:58:00.000Z");
   const two = (n) => String(n).padStart(2, "0");
-  assert(view.text().includes(`${two(at.getMonth() + 1)}/${two(at.getDate())} ${two(at.getHours())}:${two(at.getMinutes())}:00`), "recent decision shows date and time");
+  const stamp = (iso) => { const at = new Date(iso); return `${two(at.getMonth() + 1)}/${two(at.getDate())} ${two(at.getHours())}:${two(at.getMinutes())}:${two(at.getSeconds())}`; };
+  assert(view.text().includes(stamp("2026-11-03T00:58:00.000Z")), "recent decision shows date and time");
+  assert(view.text().includes(`수집 · ${stamp("2026-11-03T00:59:00.000Z")}`), "stage flow shows date and time");
 }
 assert(!seen.some((url) => url.startsWith("/api/operations/storage")), "storage widget is not placed → not fetched");
 

@@ -1,5 +1,5 @@
 Created: 2026-11-14T18:00:00+09:00
-Updated: 2026-11-14T21:00:00+09:00
+Updated: 2026-11-14T23:00:00+09:00
 Author: Claude Code (LLM 세션 builder)
 Status: draft
 
@@ -8,7 +8,7 @@ Status: draft
 - 무엇: 프로토콜 설정 상세(관측 경로 vs 허용 경로)와 프로토콜 알림 상세에서 관리자가 요청하는 **대화형 LLM 설명**. LLM은 코드가 만든 사실을 한국어 문장 `{explanation, reviewPoints}`로 풀어 쓰기만 한다. 경로 집계·허용 여부·판정은 코드 값이다([protocol-rules.md](protocol-rules.md) 1절 "LLM은 설명만")
 - 근거: 시험 키트(`research/experiments/protocol-explain`, 기반 모델 Qwen3.6-27B NF4 어댑터 없음 + 프롬프트 v3 → 합성 7/8, 실데이터 7/8·7/8, 시험 사례 모두 60초 생성 상한 안, 지어낸 숫자·경로·표기 0건). 이 작업은 v3의 남은 실패(사유 이름표 뒤 "로 인해")와 약점(근거 부족 미언급)을 고친 **프롬프트 v4**로 시작한다(아래 프롬프트 절)
 - 합의(WebUI 총괄): 새 작업 종류 `explain_protocol`(기존 `explain` 입력 확장 아님) / 출력은 `{explanation, reviewPoints[≤3]}`이고 판정·숫자 필드 없음 / 대화형 상한(`LLM_EXPLANATION_WAIT_SECONDS` 10초·`LLM_EXPLANATION_SECONDS` 60초)과 GPU 차례는 `explain`과 같은 대화형 등급 / API 접수·검증과 화면은 WebUI·API 담당
-- 표기: **[확정]** 합의·코드 사실 / **[제안]** 이 초안이 정한 값 / **[승인 대상]** 공통 계약(migration·API 요청·큐 payload·결과 형식)이라 사용자 승인 뒤 확정 / **[후보]** 화면 문구(사용자 승인 대상)
+- 표기: **[확정]** 합의·코드 사실 / **[제안]** 이 초안이 정한 값 / **[승인 대상]** 공통 계약(migration·API 요청·큐 payload·결과 형식)이라 사용자 승인 뒤 확정 / **[확정 11/14 사용자]** 12절 결정 / **[후보]** 화면 문구(사용자 승인 대상)
 - 구현 위치(이 초안과 같은 PR): 워커 `server/worker/protocol_explanation_job.py`(작업), `protocol_explanation.py`(사실·이름표·프롬프트·점검 순수 함수, 키트와 공용), `generation_service.py`·`generation_client.py`(새 kind), `trainer/runner.py`(소비자 경로), migration `027_explain_protocol.sql`(초안), 역할 스크립트 1줄. API(`server/backend`)·화면(`server/frontend`)은 이 PR에서 바꾸지 않는다(아래 API 쪽 변경점 표)
 
 ## 1. 요청 — `POST /api/jobs kind=explain_protocol` [승인 대상]
@@ -30,7 +30,7 @@ Status: draft
 | `target.interfaceId` | 1~512자, 원래 문자열 그대로(상세 화면 주소의 인터페이스 ID를 되돌린 값). 학습 기간에 관측되지 않았어도 등록돼 있으면 받는다 |
 | `target.ruleSetRevision` | 비교할 룰 세트 버전(0 이상 정수, 화면의 현재 운영 버전). 현재 버전일 필요는 없고 리비전 행이 있어야 한다. 화면 표시는 "버전 N"([rule-set.md](rule-set.md) 용어) |
 | `target.decisionId` | 알림이 가리키는 판정(알림 묶음의 첫 판정 등 화면이 고른 판정). 그 판정의 `evidence.protocolReview`와 그 안의 `ruleSetRevision`을 쓴다 |
-| 권한 | **관리자만**(403 `admin_required`). 프로토콜 설정·초안 API와 프로토콜 알림이 모두 관리자 전용이기 때문. migration CHECK도 `requester_role='admin'` |
+| 권한 | **관리자만**(403 `admin_required`) [확정 11/14 사용자]. 프로토콜 설정·초안 API와 프로토콜 알림이 모두 관리자 전용이기 때문. migration CHECK도 `requester_role='admin'` |
 | 멱등키·재시도·상태 | 기존 `/api/jobs` 그대로(`Idempotency-Key`, queued/running/succeeded/failed, `attemptCount`·`maxAttempts` 3·`nextRunAt`). 같은 멱등키에 다른 입력 409 `idempotency_payload_conflict` |
 | `input_spec` | 요청 본문 그대로(키 `kind`·`sourceId`·`target`). 워커는 이것만 읽는다. `input_config_version_id`·`input_snapshot_id`·`input_manifest_id` NULL. `input_decision_id` = 알림 대상의 `decisionId`, 관측 경로 대상은 NULL |
 | `llm_spec` | `evidence_version: "protocol-explain-facts-v1"`, `input_evidence_hash: <request_hash>`(= `input_spec` sha256, recommend_thresholds와 같은 방식 — 사실은 워커가 만들어 접수 시점에는 없음), `model_version: "qwen-base-6a9e13bd"`(explain과 같은 기반 모델 이름), `prompt_version: "protocol-explain-prompt-v4"`, `output_schema_version: "protocol-explanation-v1"`, `reuse_key: sha256([actor, input_spec, null, prompt_version])`(explain과 같은 꼴). 워커는 `evidence_version`·`prompt_version`·`output_schema_version`이 위 값과 다르면 `protocol_explanation_llm_spec_invalid`로 멈춘다 |
@@ -62,7 +62,7 @@ Status: draft
 
 - 작업 종류 이름이 생성 kind다: `generate("explain_protocol", {"facts": <사실>}, report_timeout=True)`. HTTP(`generation_client` → `/generate`)와 같은 프로세스(`set_local_model`) 두 경로가 같다
 - 서비스가 프롬프트를 만든다: `protocol_explanation.build_messages(facts)`(system + 이름표·사실 JSON). 입력은 `{"facts"}` 하나이고 `facts.format`이 `protocol-explain-facts-v1`이 아니면 GPU 차례를 기다리기 전에 거부한다 — 서비스 안 `ValueError("invalid_generation_request")`, HTTP 422 본문 `generation_contract_rejected`, 작업 코드 `generation_contract_rejected`(같은 프로세스 경로도 같은 코드로 맞춤)
-- explain과 같은 대화형 설정: 어댑터 끔(`disable_adapter`), `enable_thinking=False`, greedy, seed 42, 출력 토큰 512, 입력 토큰 상한은 번들 manifest `maximum_input_tokens` 그대로(초과 422 `generation_token_budget_exceeded`). 응답 `adapterSha` = 기반 모델 revision, `promptVersion` = 서비스가 쓴 프롬프트 버전(워커가 대조, 다르면 `generation_prompt_version_mismatch`)
+- explain과 같은 대화형 설정: 어댑터 끔(`disable_adapter`), `enable_thinking=False`, greedy, seed 42, 출력 토큰 512, 입력 토큰 상한은 번들 manifest `maximum_input_tokens` 그대로(초과는 서비스 안 `ValueError("generation_token_budget_exceeded")` → HTTP 422 본문·작업 코드 `generation_contract_rejected`, 같은 프로세스 경로도 같은 작업 코드 — 7절 표와 같음). 응답 `adapterSha` = 기반 모델 revision, `promptVersion` = 서비스가 쓴 프롬프트 버전(워커가 대조, 다르면 `generation_prompt_version_mismatch`)
 - 출력은 explain과 같이 **전체를 `json.loads`로 엄격하게** 읽는다. 코드 블록·앞뒤 글이 있으면 HTTP 422 `invalid_generation_output` / 같은 프로세스는 `JSONDecodeError` → 작업 `protocol_explanation_json_invalid`. 그래서 키트 점검의 `json_not_strict`는 운영에서 나오지 않는다
 
 ### GPU 차례 [확정 합의]
@@ -115,7 +115,7 @@ Status: draft
 | `protocol_explanation_facts_unavailable` | 결과에 경로 집계 없음(집계 전 Trainer 결과)·버전 다름·형식 다름, 인터페이스가 초안에도 룰 세트에도 없음, 판정에 프로토콜 근거 없음, 처음 보는 경로 알림인데 그 버전에 항목 없음 | 없음 | "설명에 쓸 사실이 부족합니다." |
 | `generation_busy` | 대기 상한 안에 GPU 차례를 얻지 못함 | 있음(explain과 같음: 5초 뒤, 최대 3회 뒤 `failed` + 이 코드) | "LLM이 다른 생성을 처리 중입니다. 잠시 뒤 다시 요청해 주세요." |
 | `generation_timeout` | 생성 시간 상한 초과 | 없음 | "설명 생성 시간이 초과되었습니다." |
-| `generation_service_unavailable` | 생성 서비스 연결 불가·장애(`generation_service_not_configured`는 설정 없음) | 없음 [제안 — explain은 `job_processing_failed`로 재시도] | "LLM을 사용할 수 없습니다." |
+| `generation_service_unavailable` | 생성 서비스 연결 불가·장애(`generation_service_not_configured`는 설정 없음) | 없음 [확정 11/14 사용자 — explain은 `job_processing_failed`로 재시도하지만 이 작업은 바로 실패] | "LLM을 사용할 수 없습니다." |
 | `protocol_explanation_check_failed` | 자동 점검 실패(`check.failures`에 사유) | 없음 | "자동 점검을 통과하지 못해 설명을 보이지 않습니다." + 사유 이름(아래) |
 | `protocol_explanation_json_invalid` | 출력이 JSON 객체 하나가 아님(코드 블록·앞뒤 글·객체 아님)·출력 한도에서 끊김 | 없음 | "설명 형식이 올바르지 않아 보이지 않습니다." |
 | `generation_contract_rejected` | 입력 토큰 예산 초과 등 생성 서비스 요청 거부 | 없음 | "설명을 만들 수 없는 요청입니다." |
@@ -123,6 +123,7 @@ Status: draft
 | `protocol_explanation_input_invalid`·`protocol_explanation_llm_spec_invalid`·`job_role_not_authorized` | 워커 방어(정상 접수에서는 나오지 않음) | 없음 | 코드 그대로 |
 | `job_processing_failed` | 그 밖의 예외(기존 흐름) | 있음 | 기존 문구 |
 
+- `protocol_explanation_target_not_found`·`protocol_explanation_facts_unavailable`은 접수 단계에서도 같은 코드의 400으로 온다(10절 접수 검증 — 작업 없음). 위 표는 접수 뒤 워커 방어 검사에서 나는 경우다
 - 점검 사유 이름 [후보]: `numbers_subset` 사실에 없는 숫자 · `identifiers_subset` 사실에 없는 표기 · `paths_in_facts` 사실에 없는 경로 · `no_forbidden` 원인 단정·추정·지시 표현 · `korean_ok` 한국어 문장 아님 · `length_ok` 길이 · `schema_ok` 형식 · `json_parsed` 형식
 
 ## 8. 큐 [제안 — 기존 `llm_explanation` 재사용 추천]
@@ -131,9 +132,9 @@ Status: draft
 - 근거: GPU 순서를 정하는 것은 큐가 아니라 생성 서비스 `GenerationGate`이고 두 작업이 같은 대화형 등급이다. 대화형 작업은 생성 상한 60초 안에서 끝나 같은 큐에서 도착 순으로 처리해도 explain을 오래 막지 않는다
 - 대안(채택 안 함): 새 큐 `llm_protocol_explanation` — `queue_kind` enum 값·새 물리 표·역할 GRANT·소비자 claim 경로가 늘지만 GPU 차례가 같아 처리 순서는 달라지지 않는다. 프로토콜 설명이 많아져 explain 대기를 눈에 띄게 늘리면 그때 다시 본다
 
-## 9. DB 영향 — migration 027 [초안, 승인 대상]
+## 9. DB 영향 — migration 027 [확정 11/14 사용자]
 
-`server/infra/migrations/`를 정적으로 대조한 결과 **migration이 필요하다**(새 enum 값 + kind 목록을 가진 CHECK·함수 3곳). 초안 `027_explain_protocol.sql`을 이 PR에 넣었다.
+`server/infra/migrations/`를 정적으로 대조한 결과 **migration이 필요하다**(새 enum 값 + kind 목록을 가진 CHECK·함수 3곳). `027_explain_protocol.sql`과 역할 GRANT 1줄을 이 PR에 넣었고 사용자가 승인했다(11/14). 실제 PostgreSQL 시험은 아래 미검증 줄
 
 | 대상(최신 정의) | 변경 |
 |---|---|
@@ -142,19 +143,20 @@ Status: draft
 | `run_llm_results_kind_check`·`run_llm_results_check`(017본) | kind 목록 추가, `explain_protocol` 분기(decision 조건 없음 — 결과 판정 = 작업 판정은 `erd_v03_validate_result`가 이미 강제) |
 | `erd_v03_validate_job`(017본) | llm_spec 필수 목록·LLM 완료 결과 필수 목록에 추가(2줄). explain 전용 판정 구성 대조는 적용하지 않음(프로토콜 판정은 v04 구성 NULL) |
 | `erd_v03_validate_result` | 변경 없음(종류 목록 없음) |
-| `scripts/database-roles.sql` | `GRANT SELECT ON ops_rule_set_revisions TO powercode_llm` 1줄(사실에 룰 세트 리비전을 읽음). 다른 읽기·쓰기 권한은 이미 있음 |
+| `scripts/database-roles.sql` | `GRANT SELECT ON ops_rule_set_revisions TO powercode_llm` 1줄(사실에 룰 세트 리비전을 읽음, 표 단위 SELECT) [확정 11/14 사용자]. 다른 읽기·쓰기 권한은 이미 있음 |
 | `schema.dbml`·`database/README.md`·`tests/prepare-runtime-db.py` | enum 값·주석, 027 절, 적용 목록 |
 
 - 적용 순서: 작업자를 멈추고 027 → 역할 스크립트 재적용 → LLM 워커 → API(접수). 기존 코드는 새 값을 쓰지 않아 027 뒤에도 그대로 동작
 - 미검증: 실제 PostgreSQL 적용·재실행·역할 경계 시험(`erd-v03-*.mjs` 027 전용)은 아직 없다. CI의 `prepare-runtime-db.py`(한 문자열 실행)가 적용만 확인한다
 
-## 10. API 쪽 변경점 (WebUI·API 담당, 이 PR에서 고치지 않음) [제안]
+## 10. API 쪽 변경점 (WebUI·API 담당, 이 PR에서 고치지 않음) [제안, 접수 검증 행은 확정 11/14 사용자]
 
 | 위치 | 변경 |
 |---|---|
 | `server/backend/src/services/generationAvailability.ts` `LLM_JOB_KINDS` | `'explain_protocol'` 한 줄 추가 — 생성 서비스가 꺼져 있으면 접수 503 `generation_service_unavailable`(LLM 가용성 브랜치 기준) |
 | `routes/jobRoutes.ts` `KINDS`·관리자 검사 | `explain_protocol` 추가, 본문 해석 전 관리자 검사(403 `admin_required`) |
-| 접수 검증 | 1절 키 규칙(400 `invalid_protocol_explanation_request`). 대상 확인(워커와 같은 기준, 접수에서 먼저 막음): 관측 경로 — 작업 존재·`recommend_relations`·`succeeded`·같은 출처, 리비전 행 존재(없으면 404 `protocol_explanation_target_not_found`), `protocolPathDrafts` v1이 있고 인터페이스가 초안이나 그 리비전 `protocolRules[]`에 있음(아니면 422 `protocol_explanation_facts_unavailable`) / 알림 — 판정이 그 출처 관측(404), `evidence.protocolReview` v1 판별 통과(422) |
+| 접수 검증 — 형식 | 1절 키 규칙. 위반은 400 `invalid_protocol_explanation_request` [제안] |
+| 접수 검증 — 대상·사실 [확정 11/14 사용자] | 접수 때 대상과 사실이 있는지 확인하고, 없으면 **400**으로 거절한다(작업·큐 메시지를 만들지 않음). 응답은 `{code}`만<br>관측 경로 대상: (1) `target.jobId` 작업이 있고 `kind = recommend_relations`·`status = succeeded`·결과 `sourceId` = 요청 `sourceId` (2) `target.ruleSetRevision` 리비전 행이 있음 — 둘 중 하나라도 아니면 400 `protocol_explanation_target_not_found` (3) 그 결과의 `protocolPathDrafts`가 `version` 1이고 `interfaces[]`에 `target.interfaceId` 항목이 있음 — 아니면 400 `protocol_explanation_facts_unavailable`<br>알림 대상: (1) 판정이 있고 그 관측이 요청 `sourceId` 출처 — 아니면 400 `protocol_explanation_target_not_found` (2) `evidence.protocolReview`가 있고 알림 목록과 같은 판별(`version` 1, `kind` ∈ {`path_unmatched`, `interface_unregistered`}, `interfaceId` 비지 않은 문자열)을 통과 — 아니면 400 `protocol_explanation_facts_unavailable`<br>워커의 같은 검사(2절·7절, 작업 `failed` + 같은 코드)는 방어용으로 그대로 둔다. 워커는 "초안에 없지만 그 리비전에 등록된 인터페이스"도 사실로 만들 수 있으나 접수가 초안에 있는 인터페이스만 받으므로 정상 경로에서는 오지 않는다 |
 | `llm_spec`·재사용 | 1절 고정 값, `reuse_key`·멱등 처리는 explain 흐름 재사용 |
 | `input_decision_id` | 알림 대상은 `target.decisionId`와 **같은 값**, 관측 경로 대상은 NULL. 이 대조는 **API 접수 책임**이다. 워커는 결과 행 판정 id를 `target.decisionId`로 쓰고 DB(`erd_v03_validate_result`)가 결과 판정 = 작업 `input_decision_id`를 강제하므로, 둘이 다르면 완료 단계에서 거부되어 작업이 `job_processing_failed`로 끝난다 |
 | 큐 선택 | `llm_explanation`(INSERT 대상 `powercode_queue.llm_explanation_jobs`) |
@@ -167,12 +169,13 @@ Status: draft
 - 결과 칸 제목 "LLM 설명"(본문 `explanation`), "확인할 점"(`reviewPoints` 목록, 없으면 칸 숨김). 경로 id(`P1`)는 `paths`로 채널 칩·화살표를 함께 보임. 아래 작은 글씨 "코드가 집계한 사실만으로 쓴 설명입니다 · 버전 N 기준"
 - 실패 코드 표시: 7절 후보 문구. 점검 실패는 사유 이름만 보이고 생성 문장은 보이지 않음
 
-## 12. 결정 필요
+## 12. 결정 결과 (11/14 사용자, WebUI 경유 — 추천안대로)
 
-| # | 질문 | 제안 |
+| # | 질문 | 결정 |
 |---|---|---|
-| Q-P1 | 권한: 관리자만 vs 인증 사용자 | 관리자만(원천 화면·API가 관리자 전용) |
-| Q-P2 | `generation_service_unavailable` 재시도: 없음(즉시 실패) vs explain처럼 재시도 | 없음 — 접수 가용성 차단(503)이 먼저 막고, 대화형이라 빨리 실패해 [다시 요청]이 낫다 |
-| Q-P3 | 큐: `llm_explanation` 재사용 vs 새 큐 | 재사용(8절) |
-| Q-P4 | migration 027 초안·역할 GRANT 1줄 | 승인 후 DB 세션 시험(실제 PostgreSQL)으로 확정. GRANT는 표 단위 SELECT 유지 — 대안: 열 단위 `GRANT SELECT(revision, snapshot) ON ops_rule_set_revisions TO powercode_llm`(필요한 열만, 단 015 권한 시험이 열 권한을 보도록 바꿔야 하고 열이 늘면 다시 GRANT) |
-| Q-P5 | 화면 문구(11절)·실패 코드 문구(7절) | WebUI가 사용자 승인 받아 확정 |
+| Q-P1 | 권한: 관리자만 vs 인증 사용자 | **관리자만** [확정 11/14 사용자] (원천 화면·API가 관리자 전용) |
+| Q-P2 | `generation_service_unavailable` 재시도: 없음(즉시 실패) vs explain처럼 재시도 | **재시도 없이 실패** [확정 11/14 사용자] — 접수 가용성 차단(503)이 먼저 막고, 대화형이라 빨리 실패해 [다시 요청]이 낫다(현재 구현 그대로) |
+| Q-P3 | 큐: `llm_explanation` 재사용 vs 새 큐 | **재사용**(8절). 따로 묻지 않았고, 승인된 migration 027의 CHECK가 이 작업을 `llm_explanation` 큐로 고정하므로 그 승인으로 함께 정해짐 |
+| Q-P4 | migration 027·역할 GRANT 1줄 | **승인** [확정 11/14 사용자]. GRANT는 표 단위 SELECT. 대안 열 단위 `GRANT SELECT(revision, snapshot) ON ops_rule_set_revisions TO powercode_llm`(필요한 열만, 단 015 권한 시험이 열 권한을 보도록 바꿔야 하고 열이 늘면 다시 GRANT)은 **채택 안 함**. 실제 PostgreSQL 시험은 9절 미검증 줄대로 남음 |
+| Q-P5 | 화면 문구(11절)·실패 코드 문구(7절) | 미정 — 이번 결정 범위 밖. WebUI가 사용자 승인을 받아 확정(그때까지 [후보]) |
+| Q-P6 | API 접수에서 대상·사실 존재를 확인할지 | **확인하고 없으면 400** [확정 11/14 사용자] — 10절 접수 검증 행(코드 `protocol_explanation_target_not_found`·`protocol_explanation_facts_unavailable`), 워커 검사는 방어용으로 유지 |

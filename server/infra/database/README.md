@@ -278,7 +278,7 @@ SELECT r.rolname,
 - 시험(`erd-v03-notification-window.mjs`, `erd-v03.mjs`가 호출): `erd026_upgrade`(001~025 + 역할 스크립트 + 기존 설정 행 → 026: 기존 행 7, 역할 스크립트 재적용 없이 실제 LOGIN API가 새 열 upsert·조회, 이전 API 형태 upsert는 저장값 유지), CHECK 경계(0·31·NULL 거부, 1·30 허용), DBML parity. 2026-11-14 embedded PostgreSQL 17.10 1276 checks 통과(임시 폴더 D 드라이브). API 경로는 `backend/tests/notifications.integration.mjs`(CI 단계 "User settings and notifications API under runtime role", `powercode_api` 연결)
 - 함께 바꾼 기존 시험: `prepare-runtime-db.py` 목록에 026 추가, `erd022` API 문장 형태를 새 upsert(`window_days` 포함)로 맞춤
 
-## 027 프로토콜 경로 설명 작업 종류 [초안, 사용자 승인 대기]
+## 027 프로토콜 경로 설명 작업 종류 [확정 11/14 사용자]
 
 - 파일 `027_explain_protocol.sql`, 026 이후 한 번 실행(`psql -v ON_ERROR_STOP=1 -f`), 기존 표·함수 소유자로 실행. 계약 [protocol-explanation-job.md](../../contracts/protocol-explanation-job.md) DB 영향 절
 - 왜: 프로토콜 설정 상세·프로토콜 알림 상세의 대화형 LLM 설명(`explain_protocol`). API가 `llm_explanation` 큐로 접수, LLM이 `run_llm_results`에 결과를 쓴다(explain과 같은 등급, 관리자만)

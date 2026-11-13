@@ -1,4 +1,4 @@
--- 027: 프로토콜 경로 설명 작업 종류 explain_protocol (계약 server/contracts/protocol-explanation-job.md DB 영향 절). [초안 — 공통 계약, 사용자 승인 대상]
+-- 027: 프로토콜 경로 설명 작업 종류 explain_protocol (계약 server/contracts/protocol-explanation-job.md DB 영향 절). [확정 11/14 사용자 — 공통 계약, 역할 GRANT 1줄 포함]
 -- 왜: 프로토콜 설정 상세(관측 경로)·프로토콜 알림 상세에서 관리자가 요청하는 대화형 LLM 설명. API가 llm_explanation 큐로 접수하고 LLM이 결과를 run_llm_results에 쓴다(explain과 같은 등급).
 --   run_jobs v03에 explain_protocol 분기(llm_explanation 큐·user producer·admin·llm_spec 필수·구성/manifest NULL, 판정은 알림 대상만)를 더하고, legacy(contract_version NULL) 금지 목록에도 넣어 v03 전용으로 만든다(017·021 방식).
 --   run_llm_results kind CHECK와 decision 분기, erd_v03_validate_job의 llm_spec 필수·LLM 완료 결과 필수 목록에 값을 더한다(017 방식).

@@ -12,6 +12,8 @@ import type {
   Sort,
   WorkflowState,
 } from "./data/analysisApi";
+import { isProtocolRuleId, isRelationRuleId, type EvidenceGroup } from "./data/evidence";
+import { kindLabels as relationKindNames } from "@/features/detection/rules/candidates/candidateLabels";
 
 /** 이상 분석 화면 문구(와이어프레임 #93 analysis 용어). */
 export const categoryLabels: Record<Category, string> = {
@@ -183,21 +185,59 @@ const hardRuleNames: Record<string, string> = {
   "hard:negative-duration": "시작 시각이 종료 시각보다 늦음",
   "hard:success-with-error": "성공 상태이나 오류 건수가 기록됨",
   "hard:count-conservation": "건수 합계 불일치",
+  // 룰 세트 v3 내장 규칙: Detector 내장 목록 displayName(hard_rules.py, 룰 설정·응답 코드·프로토콜 설정 화면이 이미 보이는 이름)
+  "hard:transaction-failed": "거래 실패",
+  "hard:unregistered-interface": "등록되지 않은 인터페이스",
 };
+/**
+ * 근거 구분 이름(판정 상세 세부 방법별 결과·판정 결과 근거). 새 문구 없이 기존 화면 용어만 쓴다.
+ * - 이상 규칙·이상 징후 규칙·머신러닝 모델: rule-set.md 용어 절 / 관계 규칙: 룰 설정·규칙 추천(rule-candidates-ui.md) / 정상 프로토콜: protocol-settings-ui.md(결정 11/13)
+ * - "규약 위반"은 근거가 관계 규칙(`hard:rel-*`)일 때만, 내장 이상 규칙은 그대로(relation-rules.md 1절)
+ * - "관계 확인 보류" = relationNotes 수집 미완료 보류(relation-rules.md 5절, 확정 11/12 사용자)
+ */
+export const evidenceGroupLabels: Record<EvidenceGroup, string> = {
+  hard: "이상 규칙",
+  relation: "관계 규칙",
+  protocol: "정상 프로토콜",
+  soft: "이상 징후 규칙",
+  ml: "머신러닝 모델",
+};
+export const RELATION_VIOLATION = "규약 위반";
+export const RELATION_HELD = "관계 확인 보류";
+/** 관계 규칙 판정 kind 화면 이름(규칙 추천 kindLabels와 같은 표 — rule-candidates-ui.md 8절). */
+export const relationKindLabel = (kind: string | null) => (kind && kind in relationKindNames ? relationKindNames[kind as keyof typeof relationKindNames] : null);
 /** 상태 코드 뜻(사용자 11/04). 룰 설정의 코드별 위험도도 같은 표를 쓴다. */
 export const statusCodeLabels: Record<string, string> = { S: "성공", F: "실패", P: "처리중", N: "미처리", H: "부분성공", Z: "데이터없음" };
+/** 프로토콜 방법 T 코드(protocol-rules.md 5.2) → 프로토콜 알림과 같은 이름(protocol-settings-ui.md 4절 "처음 보는 경로|등록되지 않은 인터페이스"). */
+export const protocolHitLabels: Record<string, string> = {
+  PROTO_PATH_UNMATCHED: "처음 보는 경로",
+  PROTO_INTERFACE_UNREGISTERED: hardRuleNames["hard:unregistered-interface"],
+};
 const hardResultCodes: Record<string, string> = {
   HARD_NEGATIVE_DURATION: hardRuleNames["hard:negative-duration"],
   HARD_SUCCESS_WITH_ERROR: hardRuleNames["hard:success-with-error"],
   HARD_COUNT_CONSERVATION: hardRuleNames["hard:count-conservation"],
+  HARD_TRANSACTION_FAILED: hardRuleNames["hard:transaction-failed"],
+  PROTO_PATH_UNMATCHED: `${evidenceGroupLabels.protocol} · ${protocolHitLabels.PROTO_PATH_UNMATCHED}`,
+  PROTO_INTERFACE_UNREGISTERED: `${evidenceGroupLabels.protocol} · ${protocolHitLabels.PROTO_INTERFACE_UNREGISTERED}`,
 };
-/** 결과 코드 표시(detection-decision.md 4.3): `PROCESS_STATUS_H` → `상태 H 부분성공`, `HARD_*` → 규칙 이름. 모르는 코드는 원문 그대로. */
+/**
+ * 결과 코드 표시(detection-decision.md 4.3): `PROCESS_STATUS_H` → `상태 H 부분성공`, `HARD_*` → 규칙 이름,
+ * 관계 규칙 `REL_<KIND>`(relation-rules.md 3절) → `규약 위반 · 선행 관계`, 프로토콜 `PROTO_*` → `정상 프로토콜 · …`. 모르는 코드는 원문 그대로.
+ */
 export const resultCodeLabel = (code: string) => {
   const status = /^PROCESS_STATUS_(.+)$/.exec(code)?.[1];
   if (status) return statusCodeLabels[status] ? `상태 ${status} ${statusCodeLabels[status]}` : `상태 ${status}`;
+  const relation = relationKindLabel(/^REL_([A-Z_]+)$/.exec(code)?.[1]?.toLowerCase() ?? null);
+  if (relation) return `${RELATION_VIOLATION} · ${relation}`;
   return hardResultCodes[code] ?? code;
 };
+/**
+ * 방법 표시 이름. 관계 규칙 `hard:rel-*`은 `관계 규칙`, 프로토콜 항목 `hard:proto-*`은 `정상 프로토콜`(근거 구분 이름 — 내부 id는 툴팁).
+ */
 export const methodLabel = (methodId: string): string | null => {
+  if (isRelationRuleId(methodId)) return evidenceGroupLabels.relation;
+  if (isProtocolRuleId(methodId)) return evidenceGroupLabels.protocol;
   if (methodId.startsWith("hard:")) return hardRuleNames[methodId] ? `이상 규칙(${hardRuleNames[methodId]})` : "이상 규칙";
   if (methodId.startsWith("soft:")) return "이상 징후 규칙";
   if (methodId.startsWith("ml:") && methodId.length > 3) return `머신러닝 모델(${methodId.slice(3)})`;

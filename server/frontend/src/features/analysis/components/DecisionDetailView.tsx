@@ -9,12 +9,14 @@ import { ErrorState, LoadingState } from "@/components/ui/feedback";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useAuthSession } from "@/services/auth/AuthSessionProvider";
 import { analysisErrorTitle, type DecisionDetail, type DecisionFlow, type InterimHistory } from "../data/analysisApi";
-import { readEvidence, readEvidenceV4, type EvidenceV3, type EvidenceV4, type MethodCategory } from "../data/evidence";
+import { evidenceGroupOf, evidenceGroups, readEvidence, readEvidenceV4, type EvidenceV3, type EvidenceV4 } from "../data/evidence";
 import { useDecisionFeedback, useMarkRead } from "../data/useAnalysis";
 import {
   DASH,
+  RELATION_HELD,
   UNAVAILABLE,
   completenessText,
+  evidenceGroupLabels,
   legacyRuleLabel,
   methodLabels,
   resultText,
@@ -31,7 +33,7 @@ import { DecisionDiagnostics } from "./DecisionDiagnostics";
 import { DecisionTimeline, mergeTimeline, recordEntries, timelineEntries } from "./DecisionTimeline";
 import { WorkflowActions } from "./DecisionWorkflow";
 import { ExplainPanel } from "./ExplainPanel";
-import { MethodResults, categoryNames } from "./MethodResults";
+import { MethodResults } from "./MethodResults";
 import { ProcessFlowCard } from "./ProcessFlowCard";
 
 const ruleResultLabels: Record<string, string> = { hit: "이상", no_hit: "정상 확인", unavailable: "미판정", not_applicable: "해당 없음" };
@@ -66,14 +68,15 @@ const riskNode = (detail: DecisionDetail, v4: EvidenceV4 | null): ReactNode => {
     </>
   );
 };
-/** 판정 결과 + 근거 대분류(와이어프레임 `이상 · 근거 이상 규칙`): v4 basisMethods의 대분류 표시 이름. */
+/**
+ * 판정 결과 + 근거 구분(와이어프레임 `이상 · 근거 이상 규칙`): v4 basisMethods의 근거 구분 이름(내장 이상 규칙·관계 규칙·정상 프로토콜·이상 징후 규칙·머신러닝 모델).
+ * relationNotes 수집 미완료 보류가 있으면 결과와 관계없이 ` · 관계 확인 보류`를 붙인다(relation-rules.md 5절 — 종합 정상과 함께 보이게).
+ */
 const resultNode = (detail: DecisionDetail, v4: EvidenceV4 | null) => {
-  const categories = [...new Set((v4?.basisMethods ?? []).map((id) => id.split(":")[0]))].filter(
-    (c): c is MethodCategory => c === "hard" || c === "soft" || c === "ml",
-  );
-  return detail.signal === "yes" && categories.length
-    ? `${resultText(detail)} · 근거 ${categories.map((c) => categoryNames[c]).join(", ")}`
-    : resultText(detail);
+  const basis = new Set((v4?.basisMethods ?? []).flatMap((id) => evidenceGroupOf(id) ?? []));
+  const groups = evidenceGroups.filter((group) => basis.has(group));
+  const head = detail.signal === "yes" && groups.length ? `${resultText(detail)} · 근거 ${groups.map((g) => evidenceGroupLabels[g]).join(", ")}` : resultText(detail);
+  return v4?.relationNotes.some((note) => note.result === "held") ? `${head} · ${RELATION_HELD}` : head;
 };
 
 /**

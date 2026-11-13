@@ -74,9 +74,38 @@ export const readEvidence = (evidence: Record<string, unknown> | null | undefine
 export const grades = ["anomaly", "anomaly_sign", "normal", "undetermined"] as const;
 export type Grade = (typeof grades)[number];
 export type MethodCategory = "hard" | "soft" | "ml";
+/**
+ * 근거 구분(Detector v3 방법 id 형식, detection-decision.md 4.2·rule-set.md v3.4): 대분류 hard를 방법 id로 나눈다(저장값만, 재계산 없음).
+ * - relation: 관계 규칙 `hard:rel-<8 hex>`(relation-rules.md 1절) / protocol: 프로토콜 항목 `hard:proto-<8 hex>` + 내장 `hard:unregistered-interface`(protocol-rules.md 4.1)
+ * - hard: 그 밖의 내장 이상 규칙(`hard:transaction-failed` 포함), soft·ml은 대분류 그대로
+ */
+export type EvidenceGroup = "hard" | "relation" | "protocol" | "soft" | "ml";
+export const evidenceGroups: readonly EvidenceGroup[] = ["hard", "relation", "protocol", "soft", "ml"];
+export const isRelationRuleId = (id: string) => /^hard:rel-[0-9a-f]{8}$/.test(id);
+export const isProtocolRuleId = (id: string) => /^hard:proto-[0-9a-f]{8}$/.test(id);
+export const evidenceGroupOf = (methodId: string): EvidenceGroup | null => {
+  const category = methodId.split(":")[0];
+  if (category === "soft" || category === "ml") return category;
+  if (category !== "hard") return null;
+  if (isRelationRuleId(methodId)) return "relation";
+  return isProtocolRuleId(methodId) || methodId === "hard:unregistered-interface" ? "protocol" : "hard";
+};
+/** 관계 규칙 판정 kind 셋(relation-rules.md 3절): methodVersion `relation-<kind>-v1` 또는 코드 `REL_<KIND>`. */
+export const relationKinds = ["precedes", "message_handoff", "required_step"] as const;
+export type RelationMethodKind = (typeof relationKinds)[number];
+const relationKindOf = (version: string | null, code: string | null): RelationMethodKind | null => {
+  const fromVersion = version ? /^relation-([a-z_]+)-v\d+$/.exec(version)?.[1] : undefined;
+  const fromCode = code ? /^REL_([A-Z_]+)$/.exec(code)?.[1]?.toLowerCase() : undefined;
+  return oneOf(fromVersion ?? fromCode, relationKinds);
+};
 export type MethodResult = {
   methodId: string;
   category: MethodCategory;
+  group: EvidenceGroup;
+  /** 관계 규칙만: 판정 kind. */
+  relationKind: RelationMethodKind | null;
+  /** 방법 evidence 첫 항목의 위반 기록(Detector relation_rules·hard_rules 저장값): violation 코드, 필수 단계 있음 여부, 인계 결과, 거래 응답 코드. */
+  hit: { violation: string | null; present: boolean | null; handoffResults: string[]; responseCode: string | null };
   methodVersion: string | null;
   status: "succeeded" | "not_ready" | "failed" | null;
   anomalous: boolean | null;
@@ -104,8 +133,18 @@ export type EvidenceV4 = {
   risk: { status: string | null; level: string | null; levelTable: string | null; determinedBy: string[]; unratedMethods: string[] } | null;
   categoryResults: Partial<Record<MethodCategory, CategoryResult>>;
   methodResults: MethodResult[];
+  /** 관계·프로토콜·거래 실패 규칙의 방법 결과 밖 기록(relation-rules.md 5절). 없으면 []. */
+  relationNotes: RelationNote[];
   ruleSetRevision: number | null;
   elapsedMs: number | null;
+};
+/** relationNotes 항목 `{ruleId, kind, result, reason, waitingFor}`. result `held`(수집 미완료 보류)만 화면 "관계 확인 보류"(relation-rules.md 5절). */
+export type RelationNote = {
+  ruleId: string | null;
+  kind: string | null;
+  result: string | null;
+  reason: string | null;
+  waitingFor: { processId: string | null; direction: "IN" | "OUT" | null; layer: string | null } | null;
 };
 
 /** evidence(또는 중간 판정 기록 payload) v4 읽기. schemaVersion 4·composite가 없으면 null. */
@@ -131,12 +170,17 @@ export const readEvidenceV4 = (evidence: Record<string, unknown> | null | undefi
       const category = oneOf(m.category, ["hard", "soft", "ml"] as const);
       const methodId = text(m.methodId);
       if (!category || !methodId || !methodId.startsWith(`${category}:`)) return [];
+      const group = evidenceGroupOf(methodId) as EvidenceGroup;
+      const first = list(m.evidence)[0] ?? {};
       const condition = record(m.condition) ? m.condition : null;
       const detail = record(m.scoreDetail) ? m.scoreDetail : null;
       const normalized = detail && record(detail.normalized) && detail.normalized.kind === "threshold_ratio" ? finite(detail.normalized.value) : null;
       const threshold = detail ? (text(detail.threshold) ?? (finite(detail.threshold) === null ? null : String(detail.threshold))) : null;
       return [{
-        methodId, category, methodVersion: text(m.methodVersion),
+        methodId, category, group, methodVersion: text(m.methodVersion),
+        relationKind: group === "relation" ? relationKindOf(text(m.methodVersion), text(m.code)) : null,
+        hit: { violation: text(first.violation), present: bool(first.present),
+          handoffResults: list(first.handoffs).flatMap((h) => text(h.result) ?? []), responseCode: text(first.responseCode) },
         status: oneOf(m.status, ["succeeded", "not_ready", "failed"] as const),
         anomalous: bool(m.anomalous), code: text(m.code), severity: text(m.severity), riskLevel: text(m.riskLevel),
         riskLevelReason: text(m.riskLevelReason),
@@ -146,6 +190,11 @@ export const readEvidenceV4 = (evidence: Record<string, unknown> | null | undefi
         condition: condition ? { field: text(condition.field), operator: text(condition.operator), threshold: text(condition.threshold), unit: text(condition.unit) } : null,
         observedValue: text(m.observedValue),
       }];
+    }),
+    relationNotes: list(evidence.relationNotes).map((n) => {
+      const waiting = record(n.waitingFor) ? n.waitingFor : null;
+      return { ruleId: text(n.ruleId), kind: text(n.kind), result: text(n.result), reason: text(n.reason),
+        waitingFor: waiting ? { processId: text(waiting.processId), direction: oneOf(waiting.direction, ["IN", "OUT"] as const), layer: text(waiting.layer) } : null };
     }),
     ruleSetRevision: finite(evidence.ruleSetRevision),
     elapsedMs: finite(evidence.elapsedMs),

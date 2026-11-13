@@ -18,7 +18,9 @@ from typing import Any, Mapping, Sequence
 from methods.registry import method_for_key
 from trainer.lease import lock_training_ownership
 from trainer.model_version import read_schema_version
+from trainer.metrics import measurement
 from trainer.operational_state import ActiveModel, OperationalState, _policy
+from telemetry import percentile
 
 COMPARISON_CONTRACT_VERSION = "config-comparison-v1"
 EVALUATION_SET_VERSION = "evaluation-set-v1"
@@ -193,19 +195,42 @@ def _ratio(numerator: int | None, denominator: int | None, empty_reason: str) ->
             "denominator": denominator, "reason": None if denominator else empty_reason}
 
 
+def _unlabeled_null(reason: str) -> dict[str, Any]:
+    """ML 결과가 없는 분기의 무라벨 지표 3종(null + 그 분기 사유)."""
+    return {"predictedAnomalyCount": None, "predictedAnomalyRate": measurement(None, "ratio", reason=reason),
+            "scoreQuantiles": {"p50": None, "p95": None, "p99": None, "count": 0, "reason": reason}}
+
+
+def unlabeled_measures(measured_ml: Mapping[str, Any]) -> dict[str, Any]:
+    """라벨 없이 셀 수 있는 ML 지표. 분모 = ML succeeded이고 anomalous가 bool인 행(`predictions`), coverage = 분모/모집단.
+    점수 분위수는 그 행들의 점수에 `telemetry.percentile`(가장 가까운 두 순위 사이 선형 보간)."""
+    predictions, scores = measured_ml["predictions"], measured_ml["scores"]
+    population, denominator = measured_ml["populationCount"], len(predictions)
+    anomalies = sum(1 for value in predictions.values() if value)
+    rate = measurement(anomalies / denominator if denominator else None, "ratio", numerator=anomalies,
+                       denominator=denominator, coverage=denominator / population if population else None,
+                       reason=None if denominator else "no_scored_rows")
+    quantiles = {"p50": percentile(scores, .5), "p95": percentile(scores, .95), "p99": percentile(scores, .99),
+                 "count": len(scores), "reason": None if scores else "no_scored_rows"}
+    return {"predictedAnomalyCount": anomalies, "predictedAnomalyRate": rate, "scoreQuantiles": quantiles}
+
+
 def ml_category(measured_ml: Mapping[str, Any]) -> dict[str, Any]:
     """`categoryResults.ml`. 혼동행렬 칸 null 규칙(계약 결과 절): 세트에 normal 라벨이 없으면 fp·tn·precision·FPR은
-    0이 아니라 null + `verified_normal_labels_unavailable`, anomaly 라벨이 없으면 tp·fn·recall(과 precision) null."""
+    0이 아니라 null + `verified_normal_labels_unavailable`, anomaly 라벨이 없으면 tp·fn·recall(과 precision) null.
+    무라벨 지표(`predictedAnomalyCount`·`predictedAnomalyRate`·`scoreQuantiles`)는 measured에서만 값이 있고
+    skipped·unavailable은 null + 그 분기 사유(`ml_path_not_selected`·`ml_results_unavailable`)."""
     if not measured_ml["selected"]:
         return {"measurementStatus": "skipped", "methodCount": 1, "confusion": None, "unavailableCount": None,
-                "completeOnly": None, "reason": "ml_path_not_selected"}
+                "completeOnly": None, "reason": "ml_path_not_selected", **_unlabeled_null("ml_path_not_selected")}
     labels, confusion = measured_ml["labelCounts"], measured_ml["confusion"]
     population = measured_ml["populationCount"]
     unavailable = population - measured_ml["succeededCount"]
     if not measured_ml["succeededCount"]:
         missing = {"value": None, "numerator": None, "denominator": None, "reason": "ml_results_unavailable"}
         return {"measurementStatus": "unavailable", "methodCount": 1, "confusion": None, "unavailableCount": unavailable,
-                "completeOnly": {"recall": dict(missing), "precision": dict(missing), "falsePositiveRate": dict(missing)}}
+                "completeOnly": {"recall": dict(missing), "precision": dict(missing), "falsePositiveRate": dict(missing)},
+                **_unlabeled_null("ml_results_unavailable")}
     anomaly, normal = labels["anomaly"] > 0, labels["normal"] > 0
     cells = {"tp": confusion["tp"] if anomaly else None, "fp": confusion["fp"] if normal else None,
              "tn": confusion["tn"] if normal else None, "fn": confusion["fn"] if anomaly else None}
@@ -220,7 +245,8 @@ def ml_category(measured_ml: Mapping[str, Any]) -> dict[str, Any]:
     fpr = _ratio(cells["fp"], None if not normal else cells["fp"] + cells["tn"],
                  NORMAL_LABELS_UNAVAILABLE if not normal else "no_scored_normal_rows")
     return {"measurementStatus": "measured", "methodCount": 1, "confusion": cells, "unavailableCount": unavailable,
-            "completeOnly": {"recall": recall, "precision": precision, "falsePositiveRate": fpr}}
+            "completeOnly": {"recall": recall, "precision": precision, "falsePositiveRate": fpr},
+            **unlabeled_measures(measured_ml)}
 
 
 def succeeded_item(config_id: uuid.UUID, model_key: str, role: str, evaluation_id: uuid.UUID,
@@ -234,8 +260,12 @@ def succeeded_item(config_id: uuid.UUID, model_key: str, role: str, evaluation_i
             "errorCode": None, "evaluationId": str(evaluation_id), "metricVersion": METRIC_VERSION,
             "evaluationPolicy": applied,
             "applicability": summary["applicability"], "reasonCodes": list(summary["reasonCodes"]),
-            "counts": {key: summary[key] for key in ("populationCount", "scoredCount", "unavailableCount", "unlabeledCount")},
-            "categoryResults": {"ml": ml_category({**measured["ml"], "populationCount": summary["populationCount"]})}}
+            "counts": {**{key: summary[key] for key in ("populationCount", "scoredCount", "unavailableCount",
+                                                        "unlabeledCount", "excludedCount")},
+                       "excludedReasons": dict(summary["excludedReasons"])},
+            "categoryResults": {"ml": ml_category({**measured["ml"], "populationCount": summary["populationCount"]})},
+            # `_measure_version`의 `cost_family` 결과 그대로(평가한 행 기준, 제외 행 미포함). 실패 항목에는 없다.
+            "executionCost": measured["executionCost"]}
 
 
 def failed_item(config_id: uuid.UUID, model_key: str | None, role: str, error_code: str) -> dict[str, Any]:
@@ -243,8 +273,35 @@ def failed_item(config_id: uuid.UUID, model_key: str | None, role: str, error_co
             "errorCode": error_code, "evaluationId": None}
 
 
+AGREEMENT_INTERPRETATION = "checker_agreement_not_accuracy"
+
+
+def pairwise_agreement(predictions: Sequence[tuple[str, Mapping[str, bool]]], row_count: int) -> list[dict[str, Any]]:
+    """성공 항목 쌍별 ML 판정 일치(`pairwiseAgreement`). `predictions` = 항목 순서(기준선 먼저, 나머지 id 순)의
+    (configVersionId, observation id → ML 판정). 비교 가능 행 = 두 항목 모두 ML succeeded + bool 판정인 행(교집합)이라
+    항목마다 제외·미판정 행이 달라도 같은 행끼리만 센다. 라벨과 무관한 판정 일치이며 정확도가 아니다."""
+    pairs = []
+    for index, (a, left) in enumerate(predictions):
+        for b, right in predictions[index + 1:]:
+            cells = {"both": 0, "aOnly": 0, "bOnly": 0, "neither": 0}
+            common = left.keys() & right.keys()
+            for key in common:
+                cells["both" if left[key] and right[key] else "aOnly" if left[key] else
+                      "bOnly" if right[key] else "neither"] += 1
+            comparable = len(common)
+            agree = cells["both"] + cells["neither"]
+            pairs.append({"a": a, "b": b, "comparableCount": comparable, **cells,
+                          "agreementRate": measurement(agree / comparable if comparable else None, "ratio",
+                                                       numerator=agree, denominator=comparable,
+                                                       coverage=comparable / row_count if row_count else None,
+                                                       reason=None if comparable else "no_comparable_rows"),
+                          "interpretation": AGREEMENT_INTERPRETATION})
+    return pairs
+
+
 def build_summary(*, comparison_id: uuid.UUID, plan: Mapping[str, Any], evaluation_set: Mapping[str, Any],
-                  items: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+                  items: Sequence[Mapping[str, Any]],
+                  pairwise: Sequence[Mapping[str, Any]] = ()) -> dict[str, Any]:
     from trainer.service_contract import CONTRACT_VERSION
     return {"serviceContractVersion": CONTRACT_VERSION, "comparisonContractVersion": COMPARISON_CONTRACT_VERSION,
             "comparisonId": str(comparison_id),
@@ -262,7 +319,7 @@ def build_summary(*, comparison_id: uuid.UUID, plan: Mapping[str, Any], evaluati
             "replacementRecommendations": None, "replacementRecommendationsReason": "not_implemented_v1",
             "itemCount": len(items), "succeededCount": sum(item["status"] == "succeeded" for item in items),
             "failedCount": sum(item["status"] == "failed" for item in items),
-            "items": list(items)}
+            "items": list(items), "pairwiseAgreement": list(pairwise)}
 
 
 # ---------- 비교 실행 ----------
@@ -383,6 +440,8 @@ def execute_compare(conn: Any, job: dict[str, Any], root: Any, message: Any,
     comparison_id = uuid.uuid4()
     items: list[dict[str, Any]] = []
     evaluations: list[tuple[uuid.UUID, uuid.UUID, dict[str, Any], dict[str, Any]]] = []
+    # 성공 항목의 행별 ML 판정(작업 메모리에만, DB에 쓰지 않음) — pairwiseAgreement용.
+    predictions: list[tuple[str, Mapping[str, bool]]] = []
     for config_id in plan["order"]:
         role = "active" if config_id == plan["baseline"] else "candidate"
         model_key, error = check_item(conn, config_id, plan["sourceId"], snapshot_id, purpose)
@@ -416,8 +475,10 @@ def execute_compare(conn: Any, job: dict[str, Any], root: Any, message: Any,
                            "evaluationSetId": str(evaluation_set["id"]), "evaluationSetContentHash": content_hash}
         evaluations.append((evaluation_id, config_id, evaluation_spec, measured))
         items.append(succeeded_item(config_id, model_key, role, evaluation_id, measured))
+        predictions.append((str(config_id), measured["ml"]["predictions"]))
     succeeded = any(item["status"] == "succeeded" for item in items)
-    summary = build_summary(comparison_id=comparison_id, plan=plan, evaluation_set=evaluation_set, items=items)
+    summary = build_summary(comparison_id=comparison_id, plan=plan, evaluation_set=evaluation_set, items=items,
+                            pairwise=pairwise_agreement(predictions, evaluation_set["generation"]["rowCount"]))
     with conn.transaction():
         if not lock_training_ownership(conn, message, job["id"], attempt_id, attempt_token):
             raise RuntimeError("training_ownership_lost")

@@ -4,6 +4,7 @@ from __future__ import annotations
 from contextlib import nullcontext
 from pathlib import Path
 import sys
+import time
 import unittest
 from unittest.mock import patch
 import uuid
@@ -12,6 +13,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from trainer import comparison, runner
 from trainer.operational_state import DEFAULT_POLICY
+from detector.policy import Policy
 
 SOURCE = "11111111-1111-4111-8111-111111111111"
 SET = "22222222-2222-4222-8222-222222222222"
@@ -89,9 +91,13 @@ class CompareSpecTests(unittest.TestCase):
             comparison.parse_compare_spec(spec(detectionPolicyRevision=3, detectionPolicy=None))
 
 
-def measured_ml(tp=0, fp=0, tn=0, fn=0, anomaly=0, normal=0, succeeded=10, selected=True, population=10):
+def measured_ml(tp=0, fp=0, tn=0, fn=0, anomaly=0, normal=0, succeeded=10, selected=True, population=10,
+                predictions=None, scores=None):
+    if predictions is None:
+        predictions = {str(index): index < tp + fp for index in range(succeeded)}
     return {"selected": selected, "succeededCount": succeeded, "populationCount": population,
-            "confusion": {"tp": tp, "fp": fp, "tn": tn, "fn": fn}, "labelCounts": {"anomaly": anomaly, "normal": normal}}
+            "confusion": {"tp": tp, "fp": fp, "tn": tn, "fn": fn}, "labelCounts": {"anomaly": anomaly, "normal": normal},
+            "predictions": predictions, "scores": [float(index) for index in range(succeeded)] if scores is None else scores}
 
 
 class MlCategoryNullRuleTests(unittest.TestCase):
@@ -125,6 +131,170 @@ class MlCategoryNullRuleTests(unittest.TestCase):
                          ("unavailable", None, 10))
         self.assertEqual(missing["completeOnly"]["recall"]["reason"], "ml_results_unavailable")
 
+    def test_unlabeled_measures_null_rules(self):
+        skipped = comparison.ml_category(measured_ml(selected=False))
+        self.assertIsNone(skipped["predictedAnomalyCount"])
+        self.assertEqual((skipped["predictedAnomalyRate"]["value"], skipped["predictedAnomalyRate"]["reason"]),
+                         (None, "ml_path_not_selected"))
+        self.assertEqual(skipped["scoreQuantiles"],
+                         {"p50": None, "p95": None, "p99": None, "count": 0, "reason": "ml_path_not_selected"})
+        missing = comparison.ml_category(measured_ml(succeeded=0, predictions={}, scores=[]))
+        self.assertIsNone(missing["predictedAnomalyCount"])
+        self.assertEqual(missing["predictedAnomalyRate"]["reason"], "ml_results_unavailable")
+        self.assertEqual(missing["scoreQuantiles"]["reason"], "ml_results_unavailable")
+        # ML succeeded 행은 있지만 bool 판정 행이 없으면(방어 분기) 분모 0 → null + no_scored_rows.
+        empty = comparison.ml_category(measured_ml(succeeded=3, predictions={}, scores=[]))
+        self.assertEqual((empty["predictedAnomalyCount"], empty["predictedAnomalyRate"]["value"],
+                          empty["predictedAnomalyRate"]["reason"], empty["scoreQuantiles"]["reason"]),
+                         (0, None, "no_scored_rows", "no_scored_rows"))
+
+    def test_unlabeled_measures_values(self):
+        result = comparison.ml_category(measured_ml(tp=1, fp=1, succeeded=4, population=5,
+                                                    scores=[0.0, 1.0, 2.0, 3.0]))
+        self.assertEqual(result["predictedAnomalyCount"], 2)
+        self.assertEqual(result["predictedAnomalyRate"], {"value": .5, "unit": "ratio", "numerator": 2, "denominator": 4,
+                                                          "coverage": .8, "reason": None})
+        # telemetry.percentile: (n-1)·q 위치의 선형 보간.
+        quantiles = result["scoreQuantiles"]
+        self.assertEqual((quantiles["p50"], quantiles["count"], quantiles["reason"]), (1.5, 4, None))
+        self.assertAlmostEqual(quantiles["p95"], 2.85)
+        self.assertAlmostEqual(quantiles["p99"], 2.97)
+
+
+RATIO = {"name": "error_ratio", "expression": {"op": "ratio", "left": {"op": "field", "field": "P.error_count"},
+                                               "right": {"op": "field", "field": "P.total_count"}}}
+
+
+def process_rows(values):
+    """(error_count, total_count) → 평가 행. 라벨 없음."""
+    return [(uuid.UUID(int=index + 1), {"status": "S", "error_count": str(errors), "total_count": str(total)},
+             "validation", None) for index, (errors, total) in enumerate(values)]
+
+
+def measure(rows, *, score=None, mode="ml_only"):
+    """실제 `_measure_version`·`compute`(ML 경로). 산출물 검증·IF 점수만 고정한다: 점수 = error_ratio, 임계 .5."""
+    policy = Policy(mode, 30000, "selected_path")
+    context = {"policy": policy, "rules": [], "statusRulePolicy": None, "definitions": [RATIO], "featureSetId": "fixture",
+               "models": [("fixture", "m", "hash", "f", "hash", {"featureNames": ["error_ratio"]},
+                           {"value": .5, "direction": "higher_is_anomaly"}, "iforest")]}
+    with patch("detector.computation.model_reference", return_value={}), \
+         patch("detector.computation.verified_artifact_path", return_value=Path("fixture")), \
+         patch("model_adapters.score_iforest", side_effect=score or (lambda _ref, values: float(values["error_ratio"]))):
+        return runner._measure_version(context, None, rows, Path("."), provenance={}, started=time.monotonic(),
+                                       queue_wait=None)
+
+
+class MeasureExclusionTests(unittest.TestCase):
+    """모델 입력 미정의 행(TOTAL_COUNT 0 → error_ratio 0 나누기)은 평가 전에 빠지고 따로 센다."""
+    values = [(0, 10), (1, 2), (0, 0), (3, 4), (0, 5)]
+
+    def test_zero_total_row_is_excluded_not_unavailable(self):
+        rows = process_rows(self.values)
+        measured = measure(rows)
+        summary = measured["summary"]
+        self.assertEqual((summary["populationCount"], summary["scoredCount"], summary["unavailableCount"],
+                          summary["unlabeledCount"], summary["excludedCount"]), (4, 4, 0, 4, 1))
+        self.assertEqual(summary["excludedReasons"], {"model_inputs_undefined": 1})
+        self.assertEqual(summary["populationCount"] + summary["excludedCount"], len(rows))
+        self.assertEqual(summary["applicability"], "valid")
+        self.assertNotIn("selected_paths_unavailable", summary["reasonCodes"])
+        self.assertEqual((measured["metrics"]["excludedCount"], measured["metrics"]["excludedReasons"]),
+                         (1, {"model_inputs_undefined": 1}))
+        # 제외 행은 판정·점수·행 처리 시간·무라벨 비교 분모 어디에도 없다.
+        self.assertNotIn(str(rows[2][0]), measured["ml"]["predictions"])
+        self.assertEqual(len(measured["ml"]["predictions"]), 4)
+        self.assertEqual(measured["executionCost"]["details"]["itemSampleCount"], 4)
+        self.assertEqual(measured["executionCost"]["details"]["batchSize"], 4)
+        self.assertEqual(measured["comparison"]["metrics"]["hrTotal"]["value"], 4)
+        ml = comparison.ml_category({**measured["ml"], "populationCount": summary["populationCount"]})
+        self.assertEqual((ml["measurementStatus"], ml["unavailableCount"], ml["predictedAnomalyCount"]), ("measured", 0, 2))
+        self.assertEqual(ml["predictedAnomalyRate"]["coverage"], 1.0)
+        self.assertEqual(ml["scoreQuantiles"]["count"], 4)
+        self.assertEqual(ml["scoreQuantiles"]["p50"], .25)
+
+    def test_runtime_failure_stays_unavailable_and_unmeasured(self):
+        def score(_reference, values):
+            if values["error_ratio"] == "0.5":
+                raise ValueError("invalid_model_score")
+            return float(values["error_ratio"])
+        summary = measure(process_rows(self.values), score=score)["summary"]
+        self.assertEqual((summary["populationCount"], summary["scoredCount"], summary["unavailableCount"],
+                          summary["excludedCount"]), (4, 3, 1, 1))
+        self.assertEqual(summary["applicability"], "unmeasured")
+        self.assertIn("selected_paths_unavailable", summary["reasonCodes"])
+
+    def test_arithmetic_error_row_is_not_excluded_but_unscored(self):
+        """행 계산이 decimal 예외(Overflow)를 내면 제외 판정에서 새지 않고, compute에서 component_failed 미판정이 된다."""
+        rows = process_rows(self.values + [("9E+999999", "1E-999999")])
+        measured = measure(rows)  # 예외 없이 끝나야 항목·작업이 계속된다
+        summary = measured["summary"]
+        self.assertEqual((summary["populationCount"], summary["scoredCount"], summary["unavailableCount"],
+                          summary["excludedCount"]), (5, 4, 1, 1))
+        self.assertEqual(summary["applicability"], "unmeasured")
+        self.assertIn("selected_paths_unavailable", summary["reasonCodes"])
+        self.assertNotIn(str(rows[-1][0]), measured["ml"]["predictions"])
+
+    def test_all_rows_excluded_is_not_valid(self):
+        measured = measure(process_rows([(0, 0), (1, 0)]))
+        summary = measured["summary"]
+        self.assertEqual((summary["populationCount"], summary["scoredCount"], summary["unavailableCount"],
+                          summary["excludedCount"]), (0, 0, 0, 2))
+        self.assertEqual(summary["applicability"], "unmeasured")
+        self.assertIn("all_rows_excluded", summary["reasonCodes"])
+        ml = comparison.ml_category({**measured["ml"], "populationCount": 0})
+        self.assertEqual((ml["measurementStatus"], ml["unavailableCount"], ml["predictedAnomalyCount"]),
+                         ("unavailable", 0, None))
+
+    def test_unseen_fit_group_stays_unscored_but_missing_group_column_is_excluded(self):
+        """학습에 없던 그룹 = 모델 적용 범위 밖(미판정 → unmeasured), 그룹 열 자체가 없는 행 = 행 값 결손(제외)."""
+        from feature_fit import fit_features, transform
+        centered = {"name": "count_centered", "expression": {"op": "group_centered", "groupBy": "P.adapter_type",
+                                                             "value": {"op": "field", "field": "P.total_count"}}}
+        state = fit_features([centered], [{"raw": {"adapter_type": "A", "total_count": "10"}, "label": None}],
+                             snapshot_id="fixture")
+        context = {"policy": Policy("ml_only", 30000, "selected_path"), "rules": [], "statusRulePolicy": None,
+                   "definitions": [centered], "featureSetId": "fixture",
+                   "models": [("fixture", "m", "hash", "f", "hash", {"featureNames": ["count_centered"]},
+                               {"value": 5, "direction": "higher_is_anomaly"}, "iforest")]}
+        rows = [(uuid.UUID(int=index + 1), raw, "validation", None) for index, raw in enumerate([
+            {"adapter_type": "A", "total_count": "12"}, {"adapter_type": "UNSEEN", "total_count": "12"},
+            {"total_count": "12"}, {"adapter_type": "A", "total_count": "x"}])]
+        with patch("detector.computation.model_reference", return_value={}), \
+             patch("detector.computation.verified_artifact_path", return_value=Path("fixture")), \
+             patch("model_adapters.transform_iforest_features", side_effect=lambda _ref, definitions, raw: transform(definitions, raw, state)), \
+             patch("model_adapters.score_iforest", side_effect=lambda _ref, values: float(values["count_centered"])):
+            summary = runner._measure_version(context, None, rows, Path("."), provenance={}, started=time.monotonic(),
+                                              queue_wait=None)["summary"]
+        # 그룹 열 없음·숫자 아님 2행 제외, UNSEEN 1행은 모집단에 남아 미판정.
+        self.assertEqual((summary["populationCount"], summary["scoredCount"], summary["unavailableCount"],
+                          summary["excludedCount"]), (2, 1, 1, 2))
+        self.assertEqual(summary["applicability"], "unmeasured")
+        self.assertIn("selected_paths_unavailable", summary["reasonCodes"])
+
+    def test_rule_only_configuration_excludes_nothing(self):
+        summary = measure(process_rows(self.values), mode="rule_only")["summary"]
+        self.assertEqual((summary["populationCount"], summary["excludedCount"], summary["excludedReasons"]), (5, 0, {}))
+
+
+class PairwiseAgreementTests(unittest.TestCase):
+    def test_intersection_of_rows_each_item_judged(self):
+        # a는 4행을 제외, b는 1행을 제외했다 — 같은 행(2·3)끼리만 센다.
+        a = {"1": True, "2": False, "3": True}
+        b = {"2": False, "3": False, "4": True}
+        [pair] = comparison.pairwise_agreement([("A", a), ("B", b)], 5)
+        self.assertEqual({key: pair[key] for key in ("a", "b", "comparableCount", "both", "aOnly", "bOnly", "neither")},
+                         {"a": "A", "b": "B", "comparableCount": 2, "both": 0, "aOnly": 1, "bOnly": 0, "neither": 1})
+        self.assertEqual(pair["agreementRate"], {"value": .5, "unit": "ratio", "numerator": 1, "denominator": 2,
+                                                 "coverage": .4, "reason": None})
+        self.assertEqual(pair["interpretation"], "checker_agreement_not_accuracy")
+
+    def test_no_comparable_rows_and_pair_order(self):
+        pairs = comparison.pairwise_agreement([("A", {"1": True}), ("B", {"2": True}), ("C", {})], 2)
+        self.assertEqual([(pair["a"], pair["b"]) for pair in pairs], [("A", "B"), ("A", "C"), ("B", "C")])
+        self.assertEqual(pairs[0]["agreementRate"]["value"], None)
+        self.assertEqual(pairs[0]["agreementRate"]["reason"], "no_comparable_rows")
+        self.assertEqual(comparison.pairwise_agreement([("A", {"1": True})], 2), [])
+
 
 class Connection:
     def __init__(self):
@@ -156,10 +326,13 @@ def fake_measure(context, operational, rows, root, **_):
     if context == "broken":
         raise ValueError("model_feature_schema_mismatch")
     summary = {"populationCount": 2, "scoredCount": 2, "unavailableCount": 0, "unlabeledCount": 1,
+               "excludedCount": 0, "excludedReasons": {},
                "applicability": "valid", "reasonCodes": ["labels_unavailable"], "metrics": {}}
     return {"summary": summary, "metrics": {}, "reasons": summary["reasonCodes"], "comparison": {},
-            "executionCost": {}, "policyEvidence": {"detectionPolicy": {"mode": "ml_only"}}, "threshold": None,
-            "ml": measured_ml(tp=1, anomaly=1, succeeded=2, population=2)}
+            "executionCost": {"metricVersion": "execution-cost-v1", "context": context},
+            "policyEvidence": {"detectionPolicy": {"mode": "ml_only"}}, "threshold": None,
+            "ml": measured_ml(tp=1, anomaly=1, succeeded=2, population=2,
+                              predictions={str(uuid.UUID(int=1)): True, str(uuid.UUID(int=2)): False})}
 
 
 class CompareExecutionTests(unittest.TestCase):
@@ -206,6 +379,13 @@ class CompareExecutionTests(unittest.TestCase):
         self.assertEqual(result["items"][0]["categoryResults"]["ml"]["confusion"], {"tp": 1, "fp": None, "tn": None, "fn": 0})
         self.assertEqual(result["items"][0]["evaluationPolicy"],
                          {"source": "configuration", "detectionPolicy": {"mode": "ml_only"}, "ruleCount": None})
+        self.assertEqual(result["items"][0]["counts"]["excludedCount"], 0)
+        self.assertEqual(result["items"][0]["counts"]["excludedReasons"], {})
+        # 실행 비용은 성공 항목에만, `_measure_version` 값 그대로.
+        self.assertEqual(result["items"][0]["executionCost"], {"metricVersion": "execution-cost-v1", "context": "ok"})
+        self.assertTrue(all("executionCost" not in item for item in result["items"][1:]))
+        # 성공 항목이 1개라 쌍이 없다.
+        self.assertEqual(result["pairwiseAgreement"], [])
         self.assertEqual(len(finished), 1)
         self.assertIsNotNone(finished[0][0])
         self.assertIsNone(finished[0][1])
@@ -213,6 +393,15 @@ class CompareExecutionTests(unittest.TestCase):
         tables = [next(name for name in ("run_config_comparisons", "run_evaluations", "run_config_comparison_items")
                        if f"INSERT INTO {name} " in sql) for sql in statements if sql.startswith("INSERT")]
         self.assertEqual(tables, ["run_config_comparisons", "run_evaluations"] + ["run_config_comparison_items"] * 3)
+
+    def test_pairwise_agreement_follows_item_order(self):
+        checks = {ACTIVE: ("iforest", None), CANDIDATE_A: ("iforest", None), CANDIDATE_B: ("iforest", None)}
+        result, _, _, _ = self.run_compare(checks)
+        pairs = result["pairwiseAgreement"]
+        self.assertEqual([(pair["a"], pair["b"]) for pair in pairs],
+                         [(ACTIVE, CANDIDATE_A), (ACTIVE, CANDIDATE_B), (CANDIDATE_A, CANDIDATE_B)])
+        self.assertEqual([(pair["comparableCount"], pair["both"], pair["neither"], pair["agreementRate"]["coverage"])
+                          for pair in pairs], [(2, 1, 1, 1.0)] * 3)
 
     def test_all_items_failing_fails_the_job_with_the_summary(self):
         checks = {ACTIVE: ("iforest", "prepared_not_comparable"), CANDIDATE_A: (None, "config_not_found"),

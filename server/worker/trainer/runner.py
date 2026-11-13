@@ -521,14 +521,68 @@ def _version_context(conn: Any, config_id: uuid.UUID, source_id: uuid.UUID,
     return context, operational
 
 
+# 평가 제외 사유(config-comparison-evaluation.md "평가 제외 행"). v1은 이 하나뿐이다.
+MODEL_INPUTS_UNDEFINED = "model_inputs_undefined"
+ALL_ROWS_EXCLUDED = "all_rows_excluded"
+
+
+def _inputs_undefined_check(context: dict[str, Any]) -> Any:
+    """평가 제외 판정 함수(raw → bool) 또는 None(제외하지 않음).
+
+    ML 경로가 선택된 모델 1개 구성에서, 모델 입력 변수를 **그 행 자신의 값만으로** 계산할 수 없는 행 = 입력 미정의 행
+    (0으로 나누기·열 없음·숫자/시각 해석 불가)이다. 판정은 `calculate_features`(Detector가 쓰는 같은 계산)를
+    행 수준 식에 적용한다: fit 없는 정의는 식 그대로, `group_centered`는 안쪽 `value` 식, fit 정의(`group_median`·
+    `group_centered`)는 그룹 열(`P.adapter_type`)이 있는지(`feature_fit._group`). fit 상태(학습 그룹 목록)는 보지 않는다 —
+    학습에 없던 그룹은 데이터 결손이 아니라 모델 적용 범위 밖이므로 제외하지 않고, compute에서 미판정
+    (`model_features_unavailable`)으로 남아 `unmeasured`가 된다. `group_median`은 행 값을 쓰지 않으므로 안쪽 식은 보지 않는다.
+    계산 자체가 예외를 내면 제외하지 않고 실행 경로(미판정)에 맡긴다."""
+    from feature_fit import _group as fit_group
+    if len(context["models"]) != 1 or context["policy"].mode == "rule_only":
+        return None
+    row_level: list[dict[str, Any]] = []
+    grouped = False
+    for item in context["definitions"]:
+        expression = item["expression"]
+        if requires_fit(expression):
+            grouped = True
+            if expression["op"] == "group_centered":
+                row_level.append({"name": item["name"], "expression": expression["value"]})
+        else:
+            row_level.append(item)
+
+    def undefined(raw: Any) -> bool:
+        if grouped and fit_group(raw) is None:
+            return True
+        if not row_level:
+            return False
+        try:
+            _, missing = calculate_features(row_level, raw)
+        except Exception:
+            # compute의 guarded와 같은 범위: decimal ArithmeticError 등 계산 예외는 제외하지 않고
+            # 실행 경로에 맡긴다(그 행은 component_failed 미판정). 여기서 새면 작업 전체가 실패한다.
+            return False
+        return bool(missing)
+    return undefined
+
+
 def _measure_version(context: dict[str, Any], operational: Any, rows: list[Any], root: Path | None, *,
                      provenance: dict[str, Any], started: float, queue_wait: float | None,
                      synthetic_baseline: dict[str, Any] | None = None) -> dict[str, Any]:
     """고정 행 위에서 모델 버전 1개를 행마다 계산해 evaluate와 같은 지표·요약을 만든다(DB 쓰기 없음).
 
-    `ml`은 비교 항목용 추가 집계(ML 경로 선택 여부·성공 행 수·ML 혼동행렬·라벨 수)이며 evaluate 결과·평가 행에는 넣지 않는다."""
+    `ml`은 비교 항목용 추가 집계(ML 경로 선택 여부·성공 행 수·ML 혼동행렬·라벨 수·행별 ML 판정·점수)이며
+    evaluate 결과·평가 행에는 넣지 않는다.
+
+    모델 입력이 정의되지 않는 행(`_inputs_undefined_check`)은 계산 전에 평가에서 뺀다. 뺀 행은 모집단·완료·미판정·
+    라벨·혼동행렬·점수·행 처리 시간 어디에도 세지 않고 `excludedCount`·`excludedReasons`로만 남긴다
+    (populationCount + excludedCount = 입력 행 수)."""
     from detector.computation import compute
     from detector.policy import Policy
+    undefined = _inputs_undefined_check(context)
+    excluded_flags = [undefined is not None and undefined(row[1]) for row in rows]
+    evaluated = [row for row, flag in zip(rows, excluded_flags) if not flag]
+    excluded = len(rows) - len(evaluated)
+    excluded_reasons = {MODEL_INPUTS_UNDEFINED: excluded} if excluded else {}
     policy_evidence = operational.evidence_fields() if operational is not None else {"detectionPolicy": context["policy"].document()}
     rules = context["rules"]
     threshold = context["models"][0][6] if context["models"] else None
@@ -561,8 +615,19 @@ def _measure_version(context: dict[str, Any], operational: Any, rows: list[Any],
         # 새 버전은 적재 캐시가 없어 첫 행이 기한을 넘기면 평가 전체가 unmeasured가 된다. 측정 행의 기한은 운영과 같다.
         # compute는 오류를 행 미판정으로 바꾸므로 적재는 직접 하고, 첫 행은 최대 기한으로 한 번 돌려 결과를 버린다.
         _prepare_model(context, root)
-        compute({**context, "policy": Policy("ml_only", WARMUP_DEADLINE_MS, "selected_path")}, rows[0][1], root)
-    for observation_id, raw, _, label_evidence in rows:
+        # 전 행 제외면 rows[0](제외 행)으로 예열한다. 결과는 버리고 ml()은 변수 결측에서 바로 not_ready로 끝나므로
+        # 해가 없다(모델 적재는 위 _prepare_model이 이미 했다).
+        warmup = evaluated[0] if evaluated else rows[0]
+        compute({**context, "policy": Policy("ml_only", WARMUP_DEADLINE_MS, "selected_path")}, warmup[1], root)
+    ml_predictions: dict[str, bool] = {}
+    ml_scores: list[float] = []
+    for (observation_id, raw, _, label_evidence), excluded_row in zip(rows, excluded_flags):
+        if excluded_row:
+            if synthetic_baseline is not None:
+                # 합성 평가는 원본 전 행의 기준 판정을 쓴다(제외 행 포함, 아래 집계에는 넣지 않음).
+                from trainer.synthetic_metrics import prediction
+                synthetic_baseline[str(observation_id)] = prediction(compute(context, raw, root))
+            continue
         item_started = time.monotonic()
         result = compute(context, raw, root)
         if synthetic_baseline is not None:
@@ -577,6 +642,10 @@ def _measure_version(context: dict[str, Any], operational: Any, rows: list[Any],
             inference_samples.append(result['ml']['inferenceMs'])
         if result['ml'].get('status') == 'succeeded':
             ml_succeeded += 1
+            if type(result['ml'].get('anomalous')) is bool:
+                ml_predictions[str(observation_id)] = result['ml']['anomalous']
+                if isinstance(result['ml'].get('score'), (int, float)):
+                    ml_scores.append(float(result['ml']['score']))
         rule_status = result["rule"]["status"]
         rule_prediction = result["rule"].get("anomalous")
         model_prediction = result["ml"].get("anomalous")
@@ -601,23 +670,28 @@ def _measure_version(context: dict[str, Any], operational: Any, rows: list[Any],
         if result["status"] == "complete":
             record(confusion, result["anomalous"], label)
     reasons = []
-    if len(rows) < 20 or confusion["tp"] + confusion["fn"] == 0 or confusion["fp"] + confusion["tn"] == 0:
+    if len(evaluated) < 20 or confusion["tp"] + confusion["fn"] == 0 or confusion["fp"] + confusion["tn"] == 0:
         reasons.append("insufficient_labeled_population")
     if unlabeled:
         reasons.append("labels_unavailable")
-    if complete_count != len(rows):
+    if complete_count != len(evaluated):
         reasons.append("selected_paths_unavailable")
     if rule_unavailable:
         reasons.append("rule_inputs_unavailable")
-    applicability = "valid" if complete_count == len(rows) else "unmeasured"
+    if not evaluated:
+        # 전 행 제외: 평가한 행이 없으므로 valid(완료 0 = 모집단 0)로 두지 않는다.
+        reasons.append(ALL_ROWS_EXCLUDED)
+    applicability = "valid" if evaluated and complete_count == len(evaluated) else "unmeasured"
     metrics = {**classification_metrics(confusion),
                "model": classification_metrics(model_confusion),
                "rule": classification_metrics(rule_confusion) if rules or context.get('statusRulePolicy') else None,
                "combination": context["policy"].combination, **policy_evidence, "ruleCount": len(rules),
                "scoreMin": min(scores) if scores else None,
-               "scoreMax": max(scores) if scores else None}
-    summary = {"populationCount": len(rows), "scoredCount": complete_count,
+               "scoreMax": max(scores) if scores else None,
+               "excludedCount": excluded, "excludedReasons": dict(excluded_reasons)}
+    summary = {"populationCount": len(evaluated), "scoredCount": complete_count,
                "unavailableCount": unavailable, "unlabeledCount": unlabeled,
+               "excludedCount": excluded, "excludedReasons": dict(excluded_reasons),
                "applicability": applicability, "metrics": metrics, "reasonCodes": reasons}
     from trainer.metrics import comparison_family
     comparison = comparison_family(checker_results, {**provenance,
@@ -626,13 +700,15 @@ def _measure_version(context: dict[str, Any], operational: Any, rows: list[Any],
     execution_cost = cost_family({'totalMs': (time.monotonic()-started)*1000,
         'evaluationMs': sum(samples), 'preprocessMs': sum(preprocess_samples) if preprocess_samples else None,
         'inferenceMs': sum(inference_samples) if inference_samples else None},
-        batch_size=len(rows), samples=samples, queue_wait=queue_wait)
+        batch_size=len(evaluated), samples=samples, queue_wait=queue_wait)
     execution_cost['details'].update(scope='offline_snapshot', modelNJobs=2 if context['models'] else None)
     metrics['ruleMlComparison'] = comparison
     return {"summary": summary, "metrics": metrics, "reasons": reasons, "comparison": comparison,
             "executionCost": execution_cost, "policyEvidence": policy_evidence, "threshold": threshold,
             "ml": {"selected": context["policy"].mode != "rule_only", "succeededCount": ml_succeeded,
-                   "confusion": dict(model_confusion), "labelCounts": dict(label_counts)}}
+                   "confusion": dict(model_confusion), "labelCounts": dict(label_counts),
+                   # ML succeeded이고 anomalous가 bool인 행만: observation id → 판정, 그 행들의 점수.
+                   "predictions": ml_predictions, "scores": ml_scores}}
 
 
 def _evaluation_spec(measured: dict[str, Any], metric_version: str, purpose: str) -> dict[str, Any]:

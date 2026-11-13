@@ -140,7 +140,7 @@ const RecentWidget = () => {
                   {decisionResult(decision)}
                   {decision.decisionCode ? ` · ${decision.decisionCode}` : ""}
                 </span>
-                <span className="text-muted-foreground">{clockText(decision.decidedAt)}</span>
+                <span className="text-muted-foreground">{stampText(decision.decidedAt, true)}</span>
               </li>
             ))}
           </ul>

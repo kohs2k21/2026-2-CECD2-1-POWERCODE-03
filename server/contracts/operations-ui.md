@@ -1,5 +1,5 @@
 Created: 2026-10-09T23:47:02.2964769+09:00
-Updated: 2026-11-13T21:00:00+09:00
+Updated: 2026-11-14T04:45:00+09:00
 Author: frontend_operations_builder / #103·#105·운영 설정 하위 7 Claude Code(WebUI builder)
 Status: current
 
@@ -121,7 +121,7 @@ Status: current
 | 항목 | 값 |
 |---|---|
 | 범위 | 기존 그대로: 요청자 본인 작업, 관리자는 전체. 토큰 없음 401 |
-| 쿼리 | `kind`(쉼표 목록, 사용자 요청 종류만: `preview`·`train`·`evaluate`·`import_csv`·`evaluation_set`·`compare`·`recommend_relations`·`recommend_rule`·`recommend_feature`·`recommend_methods`·`recommend_thresholds`·`explain`), `status`(쉼표 목록 `queued`·`running`·`succeeded`·`failed`·`blocked`), `limit`(1~100, 기본 50), `cursor`. 다른 키 400 `unknown_job_filter`, 형식·목록 밖·빈 값·중복·같은 키 반복 400 `invalid_job_kind`·`invalid_job_status`·`invalid_limit`·`invalid_cursor` |
+| 쿼리 | `kind`(쉼표 목록, 사용자 요청 종류만: `preview`·`train`·`evaluate`·`import_csv`·`evaluation_set`·`compare`·`recommend_relations`·`recommend_rule`·`recommend_feature`·`recommend_methods`·`recommend_thresholds`·`explain`·`explain_protocol`), `status`(쉼표 목록 `queued`·`running`·`succeeded`·`failed`·`blocked`), `limit`(1~100, 기본 50), `cursor`. 다른 키 400 `unknown_job_filter`, 형식·목록 밖·빈 값·중복·같은 키 반복 400 `invalid_job_kind`·`invalid_job_status`·`invalid_limit`·`invalid_cursor` |
 | `kind` 필터 범위 | v03 작업만(종류마다 정해진 큐 조건을 함께 걸어 v03 큐 인덱스로 읽는다 — 판정 작업이 많아도 해당 큐만). 지금 쓰기 경로는 모두 v03이고, `contract_version` 없는 옛 모양 행은 `kind` 없이 조회할 때만 나온다. `detect`는 받지 않는다 |
 | 정렬·커서 | `created_at DESC, id DESC`. 응답 `{items, pagination: {limit, hasMore, nextCursor}}`. 커서는 불투명 값 — 화면은 직전 응답 `nextCursor`를 그대로 보낸다. 서버는 마지막 항목의 `{at, id}`를 base64url로 발급하며 `at`은 DB 설정과 무관한 UTC 고정 형식(`YYYY-MM-DDTHH:MM:SS.ffffffZ`, 마이크로초 6자리)이다. 해독 실패·발급 형식이 아닌 시각·없는 날짜·uuid 아닌 `id`는 400 `invalid_cursor` |
 | 목록 항목 | `id, kind, status, inputSpec, attemptCount, maxAttempts, nextRunAt, errorCode, resultConfigVersionId, createdAt, finishedAt, result`. 결과 원문(`resultSummary`)은 싣지 않는다(규칙 후보 결과는 그래프까지 커서). `result` = 결과가 객체일 때 `{configVersionId, evaluationId, evaluationSetId, comparisonId, itemCount, failedCount}`(결과 값 그대로, 없으면 null), 결과 없음 null. 이전 목록 응답의 `resultSummary`는 쓰는 곳이 없어 뺐다 |

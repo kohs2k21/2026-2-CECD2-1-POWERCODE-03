@@ -11,7 +11,7 @@ import https from 'node:https';
  */
 export const GENERATION_SERVICE_UNAVAILABLE = 'generation_service_unavailable';
 /** LLM이 소비하는 작업 종류. 프로토콜 설명 등 새 LLM 작업 종류는 여기에만 더한다(접수 거절 대상). */
-export const LLM_JOB_KINDS: ReadonlySet<string> = new Set(['explain', 'recommend_thresholds']);
+export const LLM_JOB_KINDS: ReadonlySet<string> = new Set(['explain', 'recommend_thresholds', 'explain_protocol']);
 export const DEFAULT_LLM_HEALTH_URL = 'http://llm:8010/health';
 export const HEALTH_TIMEOUT_MS = 1_500;
 export const AVAILABILITY_CACHE_MS = 10_000;

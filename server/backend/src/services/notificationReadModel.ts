@@ -49,6 +49,14 @@ const RATED = (risk: string) => `coalesce(${risk}->>'status'='rated' AND ${risk}
 const PROTOCOL_KEY_SQL = (interfaceId: string, pathKey: string) =>
   `'protocol:'||encode(sha256(convert_to(jsonb_build_array(${interfaceId},${pathKey})::text,'UTF8')),'hex')`;
 /**
+ * 알림 목록에 오르는 protocolReview 판별(판정 단위): v1 객체, 종류 2가지, interfaceId 비지 않은 문자열. `review`는 jsonb SQL 식이다.
+ * 프로토콜 경로 설명 접수(routes/protocolExplanationContract.ts, protocol-explanation-job.md 10절)도 이 식을 그대로 쓴다.
+ * 값이 없으면(NULL) 결과도 NULL일 수 있다 — 조건으로 쓰면 거짓과 같다.
+ */
+export const protocolReviewListedSql = (review: string) => `(jsonb_typeof(${review})='object' AND ${review}->'version'='1'::jsonb
+    AND ${review}->>'kind' IN ('path_unmatched','interface_unregistered')
+    AND jsonb_typeof(${review}->'interfaceId')='string' AND ${review}->>'interfaceId'<>'')`;
+/**
  * 프로토콜 알림 원천 CTE(top 다음 — top.lo = 범위 시작 순번(이 순번 초과가 범위)). pkeyed: 일치하지 않은 경로마다 1행(seq, decision_id, 종류, 인터페이스, pathKey, channels…, item_key).
  * protocolReview 형식이 다르면(버전·종류·인터페이스·경로 모양) 그 판정·경로는 알림을 만들지 않는다(Detector 계약 밖 값은 해석하지 않음).
  */
@@ -56,9 +64,7 @@ const protocolCte = (included: boolean) => `pev AS (
   SELECT e.id AS seq,e.created_at,d.id AS decision_id,d.evidence->'protocolReview' AS review
   FROM top JOIN run_decision_events e ON e.id>top.lo AND e.event_kind='final'
   JOIN run_process_decisions d ON d.id=e.decision_id
-  WHERE ${included ? 'true' : 'false'} AND jsonb_typeof(d.evidence->'protocolReview')='object' AND d.evidence->'protocolReview'->'version'='1'::jsonb
-    AND d.evidence->'protocolReview'->>'kind' IN ('path_unmatched','interface_unregistered')
-    AND jsonb_typeof(d.evidence->'protocolReview'->'interfaceId')='string' AND d.evidence->'protocolReview'->>'interfaceId'<>''
+  WHERE ${included ? 'true' : 'false'} AND ${protocolReviewListedSql(`d.evidence->'protocolReview'`)}
 ), proute AS (
   SELECT pev.seq,pev.created_at,pev.decision_id,pev.review->>'kind' AS pkind,pev.review->>'interfaceId' AS interface_id,
     coalesce(rt->>'pathKey','') AS path_key,rt->'channels' AS channels,

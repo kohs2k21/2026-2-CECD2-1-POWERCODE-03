@@ -1,0 +1,194 @@
+{
+  "kind": "observed_paths",
+  "interfaceId": "IF_SYN_E",
+  "draftInterface": {
+    "interfaceId": "IF_SYN_E",
+    "status": "draft",
+    "transactions": 259,
+    "pathTransactions": 252,
+    "branchingTransactions": 0,
+    "distinctPaths": 2,
+    "excludedReasons": {
+      "chain_broken": 4,
+      "channel_absent": 3
+    },
+    "endpoints": {
+      "compared": 252,
+      "mismatch": 0,
+      "notCompared": 0
+    },
+    "paths": [
+      {
+        "channels": [
+          "SYN_GW",
+          "SYN_ESB",
+          "SYN_ERP"
+        ],
+        "pathKey": "SYN_GW:SYN_ESB:SYN_ERP",
+        "transactions": 250,
+        "ratio": 0.992063,
+        "rare": false,
+        "fromBranching": 0,
+        "exampleRefs": [
+          {
+            "refs": [
+              "transaction:TX-IF_SYN_E-00382"
+            ],
+            "steps": [
+              "process:TX-IF_SYN_E-00382:IF_SYN_E_PR001",
+              "process:TX-IF_SYN_E-00382:IF_SYN_E_PR002",
+              "process:TX-IF_SYN_E-00382:IF_SYN_E_PR003"
+            ]
+          },
+          {
+            "refs": [
+              "transaction:TX-IF_SYN_E-00383"
+            ],
+            "steps": [
+              "process:TX-IF_SYN_E-00383:IF_SYN_E_PR001",
+              "process:TX-IF_SYN_E-00383:IF_SYN_E_PR002",
+              "process:TX-IF_SYN_E-00383:IF_SYN_E_PR003"
+            ]
+          },
+          {
+            "refs": [
+              "transaction:TX-IF_SYN_E-00384"
+            ],
+            "steps": [
+              "process:TX-IF_SYN_E-00384:IF_SYN_E_PR001",
+              "process:TX-IF_SYN_E-00384:IF_SYN_E_PR002",
+              "process:TX-IF_SYN_E-00384:IF_SYN_E_PR003"
+            ]
+          },
+          {
+            "refs": [
+              "transaction:TX-IF_SYN_E-00385"
+            ],
+            "steps": [
+              "process:TX-IF_SYN_E-00385:IF_SYN_E_PR001",
+              "process:TX-IF_SYN_E-00385:IF_SYN_E_PR002",
+              "process:TX-IF_SYN_E-00385:IF_SYN_E_PR003"
+            ]
+          },
+          {
+            "refs": [
+              "transaction:TX-IF_SYN_E-00386"
+            ],
+            "steps": [
+              "process:TX-IF_SYN_E-00386:IF_SYN_E_PR001",
+              "process:TX-IF_SYN_E-00386:IF_SYN_E_PR002",
+              "process:TX-IF_SYN_E-00386:IF_SYN_E_PR003"
+            ]
+          }
+        ]
+      },
+      {
+        "channels": [
+          "SYN_GW",
+          "SYN_ESB",
+          "SYN_ESB",
+          "SYN_ERP"
+        ],
+        "pathKey": "SYN_GW:SYN_ESB:SYN_ESB:SYN_ERP",
+        "transactions": 2,
+        "ratio": 0.007937,
+        "rare": true,
+        "fromBranching": 0,
+        "exampleRefs": [
+          {
+            "refs": [
+              "transaction:TX-IF_SYN_E-00632"
+            ],
+            "steps": [
+              "process:TX-IF_SYN_E-00632:IF_SYN_E_PR001",
+              "process:TX-IF_SYN_E-00632:IF_SYN_E_PR002",
+              "process:TX-IF_SYN_E-00632:IF_SYN_E_PR003",
+              "process:TX-IF_SYN_E-00632:IF_SYN_E_PR004"
+            ]
+          },
+          {
+            "refs": [
+              "transaction:TX-IF_SYN_E-00633"
+            ],
+            "steps": [
+              "process:TX-IF_SYN_E-00633:IF_SYN_E_PR001",
+              "process:TX-IF_SYN_E-00633:IF_SYN_E_PR002",
+              "process:TX-IF_SYN_E-00633:IF_SYN_E_PR003",
+              "process:TX-IF_SYN_E-00633:IF_SYN_E_PR004"
+            ]
+          }
+        ]
+      }
+    ],
+    "omittedPaths": {
+      "paths": 0,
+      "transactions": 0
+    }
+  },
+  "ruleEntry": {
+    "id": "hard:proto-e9d0bba9",
+    "interfaceId": "IF_SYN_E",
+    "paths": [
+      {
+        "channels": [
+          "SYN_GW",
+          "SYN_ESB",
+          "SYN_ERP"
+        ],
+        "source": {
+          "kind": "draft",
+          "jobId": "synthetic"
+        }
+      }
+    ],
+    "severity": "critical",
+    "enabled": true,
+    "source": {
+      "jobId": "synthetic",
+      "snapshotId": "synthetic",
+      "period": {
+        "from": "2026-01-05T00:00:00.000Z",
+        "until": "2026-01-19T00:00:00.000Z",
+        "timeBasis": "source_time"
+      }
+    }
+  },
+  "period": {
+    "from": "2026-01-05T00:00:00.000Z",
+    "until": "2026-01-19T00:00:00.000Z",
+    "timeBasis": "source_time"
+  },
+  "parameters": {
+    "minTransactions": 30,
+    "rarePercent": 1,
+    "maxPathSteps": 64,
+    "maxRoutes": 64,
+    "maxProcessRows": 200,
+    "maxExampleRefs": 5,
+    "maxOutputPaths": 64,
+    "definition": "protocol-rules.md 3.2: channel = data_processes.channel_id raw value; path = channels from the start step (DEPEND_PROCESS_ID exactly NONE after ASCII space/tab/CR/LF trim) along the DEPEND chain to each end step; consecutive equal channels are not merged; one path per end step when branching",
+    "reasonRule": "one reason per excluded transaction: smallest protocol-rules.md 3.2 step, ties by the 3.4 table order (graph_truncated first) - protocol-rules.md 3.4 full reason selection order",
+    "countingRule": "transactions with a TRANSACTION row only, latest revision per execution (same rows as relation candidates). A path is counted once per transaction even if several end steps give the same channels. ratio = path transactions / pathTransactions (branching transactions add to several paths, so ratios can sum above 1). excludeProcessIds is not applied (Detector judges with all PROCESS rows)",
+    "unitNote": "excludedReasons counts transactions only. PROCESS rows without TRANSACTION_ID (protocol-rules.md 3.4 transaction_id_missing) are not grouped into transactions and are counted as rows in transactionIdMissingRows (each such row is its own unkeyed node in the graph)",
+    "endpointRule": "endpoint_mismatch (information only, not an exclusion): representative TRANSACTION row start_channel_id/end_channel_id raw values vs first/last channel of every path. Not compared when either value is absent or the representative row is ambiguous",
+    "selectionPolicy": "no automatic adoption: observed paths are listed for the user to confirm and save. status insufficient_evidence when pathTransactions < minTransactions (display only)",
+    "outputLimitRule": "per interface, paths sorted by transactions desc then pathKey (code point) asc; only the first maxOutputPaths are listed (protocol-rules.md 4 save limit: 64 paths per entry), the rest are summarized in omittedPaths {paths, transactions}. ratio, rare, status and distinctPaths use all paths before the cut. omittedPaths.transactions is the sum of per-path transaction counts, so a branching transaction can be counted more than once",
+    "reasonOrder": [
+      "cross_split",
+      "anomaly_label",
+      "no_transaction_row",
+      "transaction_row_ambiguous",
+      "interface_absent",
+      "graph_truncated",
+      "process_id_missing",
+      "precedes_ambiguous",
+      "depend_process_id_missing",
+      "start_ambiguous",
+      "chain_broken",
+      "channel_absent",
+      "channel_ambiguous",
+      "path_too_long",
+      "routes_too_many"
+    ]
+  }
+}

@@ -1,0 +1,78 @@
+{
+  "kind": "alert",
+  "review": {
+    "version": 1,
+    "kind": "path_unmatched",
+    "interfaceId": "IF_SYN_C",
+    "protocolRuleId": "hard:proto-8dc63d17",
+    "ruleSetRevision": 7,
+    "transactionObservationId": "synthetic",
+    "routes": [
+      {
+        "channels": [
+          "SYN_GW",
+          "SYN_ESB",
+          "SYN_ERP"
+        ],
+        "pathKey": "SYN_GW:SYN_ESB:SYN_ERP",
+        "matched": true
+      },
+      {
+        "channels": [
+          "SYN_GW",
+          "SYN_ESB",
+          "SYN_CRM"
+        ],
+        "pathKey": "SYN_GW:SYN_ESB:SYN_CRM",
+        "matched": false
+      }
+    ],
+    "routesReason": null,
+    "endpoints": {
+      "start": "SYN_GW",
+      "end": "SYN_ERP",
+      "matchesRoutes": false,
+      "ambiguous": false
+    }
+  },
+  "ruleEntry": {
+    "id": "hard:proto-8dc63d17",
+    "interfaceId": "IF_SYN_C",
+    "paths": [
+      {
+        "channels": [
+          "SYN_GW",
+          "SYN_ESB",
+          "SYN_ERP"
+        ],
+        "source": {
+          "kind": "draft",
+          "jobId": "synthetic"
+        }
+      },
+      {
+        "channels": [
+          "SYN_GW",
+          "SYN_ESB",
+          "SYN_MDM",
+          "SYN_ERP"
+        ],
+        "source": {
+          "kind": "draft",
+          "jobId": "synthetic"
+        }
+      }
+    ],
+    "severity": "critical",
+    "enabled": true,
+    "source": {
+      "jobId": "synthetic",
+      "snapshotId": "synthetic",
+      "period": {
+        "from": "2026-01-05T00:00:00.000Z",
+        "until": "2026-01-19T00:00:00.000Z",
+        "timeBasis": "source_time"
+      }
+    }
+  }
+}

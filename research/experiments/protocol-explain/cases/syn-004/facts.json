@@ -1,0 +1,59 @@
+{
+  "format": "protocol-explain-facts-v1",
+  "kind": "observed_paths",
+  "interface": "IF-01",
+  "registered": false,
+  "enabled": null,
+  "period": {
+    "from": "2026-01-05T00:00:00.000Z",
+    "until": "2026-01-19T00:00:00.000Z"
+  },
+  "allowed": null,
+  "observed": {
+    "available": true,
+    "status": "draft",
+    "minTransactions": 30,
+    "rarePercent": 1,
+    "transactions": 45,
+    "pathTransactions": 45,
+    "branchingTransactions": 0,
+    "distinctPaths": 2,
+    "paths": [
+      {
+        "path": "P1",
+        "transactions": 40,
+        "percent": "88.8",
+        "rare": false,
+        "fromBranching": 0,
+        "inAllowed": null
+      },
+      {
+        "path": "P2",
+        "transactions": 5,
+        "percent": "11.1",
+        "rare": false,
+        "fromBranching": 0,
+        "inAllowed": null
+      }
+    ],
+    "omitted": {
+      "paths": 0,
+      "transactions": 0
+    },
+    "excluded": [],
+    "excludedTransactions": 0,
+    "listComplete": true
+  },
+  "comparison": null,
+  "paths": {
+    "P1": [
+      "CH-01",
+      "CH-02",
+      "CH-03"
+    ],
+    "P2": [
+      "CH-01",
+      "CH-03"
+    ]
+  }
+}

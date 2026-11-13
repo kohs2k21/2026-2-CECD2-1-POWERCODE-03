@@ -1,0 +1,98 @@
+{
+  "format": "protocol-explain-facts-v1",
+  "kind": "observed_paths",
+  "interface": "IF-01",
+  "registered": true,
+  "enabled": true,
+  "period": {
+    "from": "2026-01-05T00:00:00.000Z",
+    "until": "2026-01-19T00:00:00.000Z"
+  },
+  "allowed": {
+    "paths": [
+      "P1",
+      "P2",
+      "P3",
+      "P4"
+    ],
+    "count": 4,
+    "omitted": 0
+  },
+  "observed": {
+    "available": true,
+    "status": "draft",
+    "minTransactions": 30,
+    "rarePercent": 1,
+    "transactions": 120,
+    "pathTransactions": 120,
+    "branchingTransactions": 10,
+    "distinctPaths": 4,
+    "paths": [
+      {
+        "path": "P1",
+        "transactions": 80,
+        "percent": "66.6",
+        "rare": false,
+        "fromBranching": 0,
+        "inAllowed": true
+      },
+      {
+        "path": "P2",
+        "transactions": 30,
+        "percent": "25.0",
+        "rare": false,
+        "fromBranching": 0,
+        "inAllowed": true
+      },
+      {
+        "path": "P3",
+        "transactions": 10,
+        "percent": "8.3",
+        "rare": false,
+        "fromBranching": 10,
+        "inAllowed": true
+      },
+      {
+        "path": "P4",
+        "transactions": 10,
+        "percent": "8.3",
+        "rare": false,
+        "fromBranching": 10,
+        "inAllowed": true
+      }
+    ],
+    "omitted": {
+      "paths": 0,
+      "transactions": 0
+    },
+    "excluded": [],
+    "excludedTransactions": 0,
+    "listComplete": true
+  },
+  "comparison": {
+    "notAllowedCount": 0,
+    "notAllowedPaths": [],
+    "allowedNotInObservedList": [],
+    "observedListComplete": true
+  },
+  "paths": {
+    "P1": [
+      "CH-01",
+      "CH-02",
+      "CH-03"
+    ],
+    "P2": [
+      "CH-01",
+      "CH-02",
+      "CH-04"
+    ],
+    "P3": [
+      "CH-01",
+      "CH-02"
+    ],
+    "P4": [
+      "CH-01",
+      "CH-05"
+    ]
+  }
+}

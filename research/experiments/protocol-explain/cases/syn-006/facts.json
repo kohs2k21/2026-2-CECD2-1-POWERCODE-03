@@ -1,0 +1,63 @@
+{
+  "format": "protocol-explain-facts-v1",
+  "kind": "observed_paths",
+  "interface": "IF-01",
+  "registered": true,
+  "enabled": true,
+  "period": {
+    "from": "2026-01-05T00:00:00.000Z",
+    "until": "2026-01-19T00:00:00.000Z"
+  },
+  "allowed": {
+    "paths": [
+      "P1"
+    ],
+    "count": 1,
+    "omitted": 0
+  },
+  "observed": {
+    "available": true,
+    "status": "insufficient_evidence",
+    "minTransactions": 30,
+    "rarePercent": 1,
+    "transactions": 12,
+    "pathTransactions": 3,
+    "branchingTransactions": 0,
+    "distinctPaths": 1,
+    "paths": [
+      {
+        "path": "P1",
+        "transactions": 3,
+        "percent": "100",
+        "rare": false,
+        "fromBranching": 0,
+        "inAllowed": true
+      }
+    ],
+    "omitted": {
+      "paths": 0,
+      "transactions": 0
+    },
+    "excluded": [
+      {
+        "reason": "depend_process_id_missing",
+        "label": "선행 값 없음",
+        "transactions": 9
+      }
+    ],
+    "excludedTransactions": 9,
+    "listComplete": true
+  },
+  "comparison": {
+    "notAllowedCount": 0,
+    "notAllowedPaths": [],
+    "allowedNotInObservedList": [],
+    "observedListComplete": true
+  },
+  "paths": {
+    "P1": [
+      "CH-01",
+      "CH-02"
+    ]
+  }
+}

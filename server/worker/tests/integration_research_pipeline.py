@@ -1,4 +1,4 @@
-"""격리 DB: 생성 계약 시험 응답 + 실제 IF + 실제 v12 전체 실행 경로."""
+"""격리 DB: 생성 계약 시험 응답(임계값 추천) + 실제 IF + 실제 v12 전체 실행 경로."""
 from __future__ import annotations
 import hashlib
 import json
@@ -19,6 +19,8 @@ from detector.runner import process_detection_message
 from feature_worker import process_feature_message
 from generation_service import serve
 from pg_queue import claim, enqueue
+from trainer.catalog import register_feature_set
+from trainer.feature_fields import definitions_for_fields
 from trainer.runner import run
 from window_worker import measure_once, register
 from window_runtime import model as window_model
@@ -28,10 +30,10 @@ from research_fixture import ContractFixture
 def job(conn, spec):
     identifier = uuid.uuid4()
     request_hash = hashlib.sha256(json.dumps(spec).encode()).hexdigest()
-    recommendation = spec["kind"] in {"recommend_feature", "recommend_rule"}
-    llm = {"evidence_version": "source-period-request-v1", "input_evidence_hash": request_hash,
-           "model_version": "feature_v5" if spec["kind"] == "recommend_feature" else "rule_v2",
-           "prompt_version": "feature-rule-design-v0.2", "output_schema_version": "safe-process-derived-v2",
+    # LLM 작업은 임계값 추천뿐이다(recommend_feature·recommend_rule은 폐지, llm-recommendation-job.md llm_spec).
+    recommendation = spec["kind"] == "recommend_thresholds"
+    llm = {"evidence_version": "soft-rule-threshold-v1", "input_evidence_hash": request_hash, "model_version": "rule_v2",
+           "prompt_version": "feature-rule-design-v0.2", "output_schema_version": "threshold-recommendation-v1",
            "reuse_key": str(identifier)}
     with conn.cursor() as cur:
         cur.execute("""INSERT INTO run_jobs
@@ -101,22 +103,30 @@ def main():
             now = datetime.now(timezone.utc)
             period = {"sourceId": str(sid), "from": (now - timedelta(hours=1)).isoformat(),
                       "until": (now + timedelta(hours=1)).isoformat()}
-            features = job(conn, {**period, "kind": "recommend_feature"})
-            assert features["provider"] == "feature_v5" and features["materializedCount"] == 1000
-            rules = job(conn, {**period, "kind": "recommend_rule", "featureSetId": features["featureSetId"], "snapshotId":features["snapshotId"]})
-            assert rules["provider"] == "rule_v2" and len(rules["suggestions"]) == 1
-            selected = rules["suggestions"][0]
+            # 생성 fixture 경로: 켜진 소프트룰 1개(error_ratio)의 임계값 추천. 숫자는 코드 p95, 상태·근거는 Rule v2 응답.
+            thresholds = job(conn, {"kind": "recommend_thresholds", "sourceId": str(sid), "ruleSetRevision": 1,
+                "ruleSetContentHash": "0" * 64, "ruleSetContentHashVersion": 2, "scope": {"softRuleIds": None},
+                "mode": "data_p95_with_llm_rationale",
+                "data": {"snapshotId": None, "from": period["from"], "until": period["until"], "timeBasis": "persisted_at"},
+                "targets": [{"id": "soft:error_ratio-fixture", "field": "error_ratio", "threshold": 0.5}]})
+            assert [item["field"] for item in thresholds["items"]] == ["error_ratio"], thresholds
+            assert thresholds["items"][0]["status"] != "rejected", thresholds["items"][0]
+            # 변수 세트·Rule은 폐지된 recommend_feature·recommend_rule 대신 화면 등록 경로와 같은 고정값으로 만든다.
+            feature_set_id = str(register_feature_set(conn, definitions_for_fields(["error_ratio"]), "integration-admin",
+                                                      definition_kind="operator_defined"))
+            conn.commit()
             rule_id = uuid.uuid4()
-            rule = {"schemaVersion": 1, "state": "draft", "condition": selected["condition"], "outcome": selected["outcome"]}
+            rule = {"schemaVersion": 1, "state": "draft", "outcome": {"decisionCode": "SR_DIAGNOSTIC", "severity": "warning"},
+                    "condition": {"field": "F.error_ratio", "operator": "gt", "value": "0.06"}}
             with conn.cursor() as cur:
                 cur.execute("""INSERT INTO ml_rule_versions
                     (id,rule_key,version,rule_spec,input_spec,evidence_spec,content_hash,created_by_actor_id,created_at)
                     VALUES (%s,%s,1,%s::jsonb,%s::jsonb,%s::jsonb,%s,'integration-admin',clock_timestamp())""",
-                    (rule_id, selected["ruleKey"], json.dumps(rule), json.dumps({"featureSetId": features["featureSetId"]}),
-                     json.dumps(selected["evidenceSpec"]), hashlib.sha256(json.dumps(rule).encode()).hexdigest()))
+                    (rule_id, "sr_fixture_" + rule_id.hex[:12], json.dumps(rule), json.dumps({"featureSetId": feature_set_id}),
+                     json.dumps({"source": "integration_fixed_rule"}), hashlib.sha256(json.dumps(rule).encode()).hexdigest()))
             conn.commit()
-            trained = job(conn, {**period, "kind": "train", "featureSetId": features["featureSetId"], "ruleVersionIds": [str(rule_id)],
-                "snapshotId":features["snapshotId"],"detectionPolicy":{"mode":"parallel","deadlineMs":3000,"combination":"any_anomaly"}})
+            trained = job(conn, {**period, "kind": "train", "featureSetId": feature_set_id, "ruleVersionIds": [str(rule_id)],
+                "detectionPolicy":{"mode":"parallel","deadlineMs":3000,"combination":"any_anomaly"}})
             evaluated = job(conn, {"sourceId": str(sid), "kind": "evaluate", "configVersionId": trained["configVersionId"],
                                   "snapshotId": trained["snapshotId"], "purpose": "validation"})
             assert evaluated["applicability"] == "valid"
@@ -138,7 +148,7 @@ def main():
                 cur.execute("SELECT status,ml_status,rule_status,decision_code FROM run_process_decisions WHERE process_observation_id=%s", (live.observation_id,))
                 assert cur.fetchone() == ("complete", "succeeded", "succeeded", "SR_DIAGNOSTIC")
             conn.commit()
-            print("PASS: generation HTTP contract -> derived feature -> grounded SR -> real IF -> evaluate -> apply -> decision")
+            print("PASS: generation HTTP contract -> threshold recommendation; fixed feature set + SR -> real IF -> evaluate -> apply -> decision")
             start = now.replace(second=0, microsecond=0) - timedelta(minutes=10)
             window_source = source(conn, "v12 fixture", {"status": "verified", "timezone": "Asia/Seoul", "arrivalEventsAvailable": True})
             for minute in (0, 1, 2, 3, 4, 6, 7):
@@ -161,8 +171,8 @@ def main():
             with conn.cursor() as cur:
                 cur.execute("SELECT count(*),count(DISTINCT model_hash) FROM run_window_decisions")
                 assert cur.fetchone() == (16, 2)
-                cur.execute("SELECT count(*) FROM run_llm_results WHERE model_version IN ('feature_v5','rule_v2')")
-                assert cur.fetchone()[0] == 2
+                cur.execute("SELECT count(*) FROM run_llm_results WHERE kind='recommend_thresholds' AND model_version='rule_v2'")
+                assert cur.fetchone()[0] == 1
             print("PASS: actual v12 IF/K-means, 8 contiguous minutes including empty minute, durable idempotent decisions")
     finally:
         server.shutdown()

@@ -23,7 +23,12 @@ import { useRuleSetSave } from "../useRuleSetSave";
 import {
   PROTOCOL_LIST_LEAD, UNREGISTERED_WITHOUT_ENTRIES, count, draftUnavailableText, protocolFeatureOn, unregisteredRule,
 } from "./protocolLabels";
-import { useProtocolDrafts } from "./useProtocolDrafts";
+import { CandidateJobRequest, LatestCandidateJob } from "../candidates/CandidateJobRequest";
+import { candidateListQueryName } from "../candidates/useCandidates";
+import { protocolDraftsQueryName, useProtocolDrafts } from "./useProtocolDrafts";
+
+/** 후보 작업 접수 뒤 다시 읽을 조회: 관측 경로 초안 + 같은 작업 결과를 쓰는 규칙 추천 목록. */
+const DRAFT_JOB_REFRESH = [protocolDraftsQueryName, candidateListQueryName] as const;
 
 type Row = {
   interfaceId: string;
@@ -94,6 +99,8 @@ export const ProtocolListPage = () => {
   const save = useRuleSetSave({ state: rules.data, reload });
   const state = rules.data;
   const available = drafts.data?.state === "available" ? drafts.data : null;
+  /** 초안 결과 작업과 다른 최근 후보 작업(대기·실행 중·실패). 초안 결과가 없으면 최근 작업 그대로. */
+  const newerJob = drafts.data?.latestJob && drafts.data.latestJob.id !== drafts.data.job?.id ? drafts.data.latestJob : null;
   const rows = useMemo<Row[]>(() => {
     if (!state) return [];
     const entries = state.protocolRules ?? [];
@@ -127,13 +134,19 @@ export const ProtocolListPage = () => {
                 {drafts.isError && <span data-drafts-error>관측 경로 초안 조회 실패 · {errorCode(drafts.error)}</span>}
                 {drafts.data?.state === "protocol_drafts_unavailable" && <span data-drafts-unavailable>{draftUnavailableText(drafts.data)}</span>}
                 {available && <span data-drafts-head>관측 경로 초안 · 후보 작업 완료 {stampText(available.job.finishedAt)} · 기준 기간 {stampText(available.period.from)} ~ {stampText(available.period.until)}</span>}
+                {newerJob && <LatestCandidateJob job={newerJob} returnTo={paths.detectionRuleProtocols} />}
               </span>
             }
             action={
-              <Button size="sm" variant="outline" onClick={() => setAdding(true)}>
-                <IconPlus aria-hidden="true" />
-                인터페이스 추가
-              </Button>
+              <>
+                {drafts.data && (
+                  <CandidateJobRequest latestJob={drafts.data.latestJob} currentSnapshotId={available?.snapshotId ?? null} refreshQueryNames={DRAFT_JOB_REFRESH} />
+                )}
+                <Button size="sm" variant="outline" onClick={() => setAdding(true)}>
+                  <IconPlus aria-hidden="true" />
+                  인터페이스 추가
+                </Button>
+              </>
             }
           >
             <div className="max-w-sm">

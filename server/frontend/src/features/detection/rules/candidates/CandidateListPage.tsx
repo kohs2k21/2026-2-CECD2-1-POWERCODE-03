@@ -11,9 +11,9 @@ import { FlowViewBox } from "@/features/analysis/components/ProcessFlowCard";
 import { stampText } from "@/features/operations/format";
 import type { DetectionReturnState } from "../../DetectionLayout";
 import type { CandidateList, RelationCandidate, ThresholdCandidate } from "./candidateApi";
-import { CandidateJobRequest } from "./CandidateJobRequest";
+import { CandidateJobRequest, LatestCandidateJob } from "./CandidateJobRequest";
 import {
-  CANDIDATES_TITLE, INTERFACE_SEARCH, INTERFACE_SEARCH_EMPTY, PAIR_LISTED, RELATION_SECTION, THRESHOLD_BASIS, THRESHOLD_SECTION, adapterText, candidateErrorTitle, jobStatusText, kindLabels, limitationTexts, n, pathText,
+  CANDIDATES_TITLE, INTERFACE_SEARCH, INTERFACE_SEARCH_EMPTY, PAIR_LISTED, RELATION_SECTION, THRESHOLD_BASIS, THRESHOLD_SECTION, adapterText, candidateErrorTitle, kindLabels, limitationTexts, n, pathText,
   rateText, relationStatusBadge, relationStatusLabels, thresholdStatusLabels, thresholdText,
 } from "./candidateLabels";
 import { useCandidateList } from "./useCandidates";
@@ -36,12 +36,7 @@ const ResultHeader = ({ data, returnTo }: { data: CandidateList; returnTo: strin
           </span>
         </>
       )}
-      {newer && (
-        <span data-latest-job>
-          최근 작업 {jobStatusText(newer)} · {stampText(newer.createdAt)} ·{" "}
-          <Link className="font-mono text-xs text-link" to={paths.detectionJob(newer.id)} state={{ returnTo }}>{newer.id.slice(0, 8)}</Link>
-        </span>
-      )}
+      {newer && <LatestCandidateJob job={newer} returnTo={returnTo} />}
     </div>
   );
 };

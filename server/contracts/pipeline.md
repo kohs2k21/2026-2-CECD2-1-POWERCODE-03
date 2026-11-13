@@ -16,6 +16,7 @@ Collector 실시간성은 HTTP p50/p95/p99·오류율·빈 응답 비율·DB 저
 `POST /api/jobs`:
 
 - recommend_thresholds, train/evaluate: 관리자. recommend_feature·recommend_rule은 폐지 — 422 `job_kind_abolished`(역할 무관, 작업·큐 메시지 없음, [rules-ui.md](rules-ui.md) AI 규칙 추천 절).
+- explain_protocol [초안]: 관리자. 프로토콜 설정 상세(관측 경로)·프로토콜 알림 대상 경로 설명, `llm_explanation` 큐 — [protocol-explanation-job.md](protocol-explanation-job.md).
 - explain: 인증 사용자. body `{kind:"explain",sourceId,decisionId}`. 저장 판정/config/evidence를 서버에서 고정한다. 사용자별 동일 근거·모델·prompt·schema의 진행/완료 작업을 재사용한다.
 - 새 train 요청은 `detectionPolicy:{mode,deadlineMs,combination}`(v1) 필수. mode는 rule_only/ml_only/parallel, deadlineMs는 정수 100~30000, combination은 단일 모드 selected_path / 병렬 any_anomaly이다. 병렬 정책은 해당 구성에서 명시적으로 선택한다. 하드룰·소프트룰·ML 대분류의 v2 객체(`version:2`) 형식·검증·v1 구분은 [판정 구조 계약](detection-decision.md)을 따른다. 위험도는 판정 구조 계약의 위험도 정책(근거 방법 단계 중 최고값)으로만 계산하고, 점수·방법 수를 합산한 단일 severity를 만들지 않는다.
 - Rule 모드를 선택하면 고정 Rule 버전이 필요하다. ML 전용의 Rule 목록은 비어 있어야 한다. Rule 전용은 IF 산출물 없이 후보를 만들고 같은 공통 평가로 검증한다.

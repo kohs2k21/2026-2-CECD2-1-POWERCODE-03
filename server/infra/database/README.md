@@ -278,6 +278,18 @@ SELECT r.rolname,
 - 시험(`erd-v03-notification-window.mjs`, `erd-v03.mjs`가 호출): `erd026_upgrade`(001~025 + 역할 스크립트 + 기존 설정 행 → 026: 기존 행 7, 역할 스크립트 재적용 없이 실제 LOGIN API가 새 열 upsert·조회, 이전 API 형태 upsert는 저장값 유지), CHECK 경계(0·31·NULL 거부, 1·30 허용), DBML parity. 2026-11-14 embedded PostgreSQL 17.10 1276 checks 통과(임시 폴더 D 드라이브). API 경로는 `backend/tests/notifications.integration.mjs`(CI 단계 "User settings and notifications API under runtime role", `powercode_api` 연결)
 - 함께 바꾼 기존 시험: `prepare-runtime-db.py` 목록에 026 추가, `erd022` API 문장 형태를 새 upsert(`window_days` 포함)로 맞춤
 
+## 026 프로토콜 경로 설명 작업 종류 [초안, 사용자 승인 대기]
+
+- 파일 `026_explain_protocol.sql`, 025 이후 한 번 실행(`psql -v ON_ERROR_STOP=1 -f`), 기존 표·함수 소유자로 실행. 계약 [protocol-explanation-job.md](../../contracts/protocol-explanation-job.md) DB 영향 절
+- 왜: 프로토콜 설정 상세·프로토콜 알림 상세의 대화형 LLM 설명(`explain_protocol`). API가 `llm_explanation` 큐로 접수, LLM이 `run_llm_results`에 결과를 쓴다(explain과 같은 등급, 관리자만)
+- enum 커밋 분리(017·021과 같음): `job_kind`에 `explain_protocol`을 트랜잭션 밖 `ADD VALUE IF NOT EXISTS`로 먼저 추가, 파일 안에서는 `kind::text` 비교만
+- `run_jobs_v03_contract`(021본 기준): legacy 금지 목록에 추가, 새 분기 `queue='llm_explanation'`·user producer·`requester_role='admin'`·`llm_spec` 필수·manifest·구성 NULL(판정은 알림 대상만 — `input_decision_id` NULL 허용)
+- `run_llm_results_kind_check`·`run_llm_results_check`(017본): kind 목록과 `explain_protocol` 분기(decision 조건 없음, 결과 판정 = 작업 판정은 `erd_v03_validate_result`가 강제). `erd_v03_validate_job`(017본): llm_spec 필수·LLM 완료 결과 필수 목록 2줄만
+- 역할: `database-roles.sql`에 `GRANT SELECT ON ops_rule_set_revisions TO powercode_llm` 한 줄(사실을 만들 때 룰 세트 리비전 `protocolRules[]`를 읽음). 015 시험(`erd-v03-revisions.mjs`)의 권한 표를 같이 고침(llm은 룰 세트 이력 SELECT만)
+- 적용 순서: 작업자를 멈추고 026 → 역할 스크립트 재적용 → LLM → API. 기존 코드는 새 값을 쓰지 않아 026 뒤에도 그대로 동작. 새 조건은 이전보다 넓기만 해 NOT VALID 없이 바로 검증
+- 되돌리기: enum 값은 지울 수 없다. CHECK·함수는 021·017본으로 다시 만들 수 있으나 `explain_protocol` 작업·결과 행이 없을 때만
+- 시험: `prepare-runtime-db.py` 목록에 026 추가(CI가 한 문자열 실행으로 적용). 026 전용 `erd-v03-*.mjs` 시험은 아직 없다(미검증 — 실제 PostgreSQL 적용·재실행·역할 경계는 DB 세션 확인 대상)
+
 ## 큐와 소유권
 
 - 001의 `detection_logs/training_jobs`는 기존 물리 큐. 기존 Python helper의 payload·물리 lease 경로 보존

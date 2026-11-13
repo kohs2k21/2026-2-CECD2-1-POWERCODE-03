@@ -177,12 +177,14 @@ export async function revisions015({ Client, port, connection, check, failures, 
       powercode_api: { table:['SELECT','INSERT'], view:['SELECT'] }, powercode_detector: { table:['SELECT'], view:['SELECT'] }, powercode_trainer: { table:['SELECT'], view:['SELECT'] },
       powercode_collector: { table:[], view:[] }, powercode_llm: { table:[], view:[] }, powercode_demo: { table:[], view:[] },
     };
+    // 026 roles script: LLM reads the rule set history only (explain_protocol facts), not the other two tables or the view.
+    const override = { [`powercode_llm ${RULE}`]: ['SELECT'] };
     const wrong = [];
     for (const [role, want] of Object.entries(expected)) for (const [rel, list] of [...TABLES.map(t => [t, want.table]), [VIEW, want.view]]) for (const privilege of ALL_PRIVILEGES) {
       const has = (await c.query('SELECT has_table_privilege($1,$2,$3) AS p', [role, `public.${rel}`, privilege])).rows[0].p;
-      if (has !== list.includes(privilege)) wrong.push(`${role} ${rel} ${privilege}=${has}`);
+      if (has !== (override[`${role} ${rel}`] ?? list).includes(privilege)) wrong.push(`${role} ${rel} ${privilege}=${has}`);
     }
-    verdict(wrong.length === 0, 'grants: api SELECT,INSERT + view SELECT; detector, trainer SELECT + view SELECT; collector, llm, demo none (MAINTAIN none for all)', wrong.join('; '));
+    verdict(wrong.length === 0, 'grants: api SELECT,INSERT + view SELECT; detector, trainer SELECT + view SELECT; llm SELECT on rule set history only; collector, demo none (MAINTAIN none for all)', wrong.join('; '));
     const acl = (await c.query(`SELECT c.relname::text AS rel FROM pg_class c, aclexplode(c.relacl) x WHERE c.relname = ANY($1) AND x.grantee = 0`, [[...TABLES, VIEW]])).rows;
     verdict(acl.length === 0, 'no PUBLIC grant on the 3 tables or the view', JSON.stringify(acl));
 

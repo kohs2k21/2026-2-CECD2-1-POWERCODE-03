@@ -94,6 +94,9 @@ GRANT SELECT,INSERT,UPDATE(read_at) ON run_decision_reads TO powercode_api;
 -- ops_operational_state is security_invoker, so its readers also need SELECT on the three tables.
 GRANT SELECT,INSERT ON ops_rule_set_revisions,ops_active_model_set_revisions,ops_detection_policy_revisions TO powercode_api;
 GRANT SELECT ON ops_rule_set_revisions,ops_active_model_set_revisions,ops_detection_policy_revisions TO powercode_detector,powercode_trainer;
+-- 026 explain_protocol: LLM compares observed/alert paths with a rule set revision's protocolRules[] (read only).
+-- Rule set history only: no active model set, detection policy or ops_operational_state for LLM.
+GRANT SELECT ON ops_rule_set_revisions TO powercode_llm;
 GRANT SELECT ON ops_operational_state TO powercode_api,powercode_detector,powercode_trainer;
 -- 019: cross-transaction incident grouping. Append-only (immutable triggers): Detector writes with
 -- SELECT,INSERT under pg_try_advisory_xact_lock(81741,0), API reads. Trainer, LLM and Collector have no access.

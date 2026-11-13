@@ -8,7 +8,11 @@ export const decisionBases = ["interim", "final_any", "final_complete"] as const
 export const riskFloors = ["critical", "warning", "info"] as const;
 export type DecisionBasis = (typeof decisionBases)[number];
 export type RiskFloor = (typeof riskFloors)[number];
-export type NotificationSettings = { decisionBasis: DecisionBasis; minRiskLevel: RiskFloor; includeUnrated: boolean };
+/** 알림 조회 기간(일): 기본 7, 1~30 정수(contracts/notifications.md "API" 절). */
+export const NOTIFICATION_WINDOW_DAYS = { default: 7, min: 1, max: 30 } as const;
+export const isWindowDays = (value: unknown): value is number =>
+  typeof value === "number" && Number.isInteger(value) && value >= NOTIFICATION_WINDOW_DAYS.min && value <= NOTIFICATION_WINDOW_DAYS.max;
+export type NotificationSettings = { decisionBasis: DecisionBasis; minRiskLevel: RiskFloor; includeUnrated: boolean; windowDays: number };
 export const notificationViews = ["unread", "all"] as const;
 export type NotificationView = (typeof notificationViews)[number];
 
@@ -68,7 +72,8 @@ export type NotificationItem = DecisionNotification | IncidentNotification | Pro
 export type NotificationList = {
   latestSeq: string;
   readThrough: string;
-  window: { events: number; fromSeq: string; truncated: boolean };
+  /** truncatedBy: 범위를 정한 쪽 — days(조회 기간) / events(최근 이벤트 수 상한) / null(잘림 없음). */
+  window: { events: number; days: number; fromSeq: string; truncated: boolean; truncatedBy: "days" | "events" | null };
   settings: NotificationSettings;
   unreadCount: number;
   total: number;
@@ -96,8 +101,8 @@ export const parseNotificationSettings = (value: unknown, what = "알림 설정"
   if (!obj(value)) return fail(what);
   const decisionBasis = oneOf(value.decisionBasis, decisionBases);
   const minRiskLevel = oneOf(value.minRiskLevel, riskFloors);
-  if (!decisionBasis || !minRiskLevel || typeof value.includeUnrated !== "boolean") return fail(what);
-  return { decisionBasis, minRiskLevel, includeUnrated: value.includeUnrated };
+  if (!decisionBasis || !minRiskLevel || typeof value.includeUnrated !== "boolean" || !isWindowDays(value.windowDays)) return fail(what);
+  return { decisionBasis, minRiskLevel, includeUnrated: value.includeUnrated, windowDays: value.windowDays };
 };
 
 const parseRisk = (value: Obj): Risk | null => {
@@ -153,7 +158,8 @@ export const parseNotificationList = (value: unknown): NotificationList => {
   return {
     latestSeq: String(value.latestSeq),
     readThrough: String(value.readThrough),
-    window: { events: Number(w.events) || 0, fromSeq: String(w.fromSeq ?? "1"), truncated: w.truncated === true },
+    window: { events: Number(w.events) || 0, days: Number(w.days) || 0, fromSeq: String(w.fromSeq ?? "1"), truncated: w.truncated === true,
+      truncatedBy: oneOf(w.truncatedBy, ["days", "events"] as const) },
     settings: parseNotificationSettings(value.settings, "알림 목록"),
     unreadCount: value.unreadCount as number,
     total: value.total as number,

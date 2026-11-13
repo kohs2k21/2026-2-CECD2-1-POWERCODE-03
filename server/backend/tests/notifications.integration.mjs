@@ -1,6 +1,6 @@
-// 사용자별 설정·알림 API(contracts/notifications.md) 통합 시험. 로컬 새 QA DB(qa_notifications*)에 001~022가 적용돼 있어야 한다.
+// 사용자별 설정·알림 API(contracts/notifications.md) 통합 시험. 로컬 새 QA DB(qa_notifications*)에 001~026이 적용돼 있어야 한다.
 // API 프로세스는 powercode_api 역할로 접속한다(연결 options role). 확인: 인증·400 code, 설정 기본값·저장·계정 분리, 알림 항목(묶이지 않은 판정·사건 흐름),
-// 판정 기준 3택·위험도 하한·미정 포함 필터, 알림 사유(opened·risk_raised·withdrawn·grew), 미확인·항목/모두 읽음·다시 알림, 커서, 조회 범위. 실행 전 `npm run build`.
+// 판정 기준 3택·위험도 하한·미정 포함 필터, 알림 사유(opened·risk_raised·withdrawn·grew), 미확인·항목/모두 읽음·다시 알림, 커서, 조회 범위(이벤트 수·조회 기간 일). 실행 전 `npm run build`.
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
 import { spawn } from 'node:child_process';
@@ -185,6 +185,10 @@ try {
   await code('PUT', '/api/me/settings', 400, 'invalid_notification_settings', { notifications: { decisionBasis: 'final', minRiskLevel: 'info', includeUnrated: true } });
   await code('PUT', '/api/me/settings', 400, 'invalid_notification_settings', { notifications: { decisionBasis: 'interim', minRiskLevel: 'info' } });
   await code('PUT', '/api/me/settings', 400, 'invalid_notification_settings', { notifications: { decisionBasis: 'interim', minRiskLevel: 'info', includeUnrated: 'yes' } });
+  // 알림 조회 기간(026): 1~30 정수만. 0·31·소수·문자열·null 거절.
+  for (const windowDays of [0, 31, 7.5, '7', null, -1]) {
+    await code('PUT', '/api/me/settings', 400, 'invalid_notification_settings', { notifications: { decisionBasis: 'interim', minRiskLevel: 'info', includeUnrated: true, windowDays } });
+  }
   await code('PUT', '/api/me/settings', 400, 'invalid_widget_layout', { widgetLayout: { version: 2, items: [{ i: 'flow', x: 0, y: 0, w: 2 }] } });
   await code('PUT', '/api/me/settings', 400, 'invalid_widget_layout', { widgetLayout: { version: 2, items: [{ i: 'flow', x: 0, y: 0, w: 2, h: 3 }, { i: 'flow', x: 2, y: 0, w: 2, h: 3 }] } });
   await code('PUT', '/api/me/settings', 400, 'invalid_widget_layout', { widgetLayout: { version: 2, items: [{ i: 'Flow', x: 0.5, y: 0, w: 2, h: 3 }] } });
@@ -194,14 +198,22 @@ try {
 
   // 4) 설정: 기본값 → 저장 → 다시 읽기, 계정 분리.
   const defaults = await ok('GET', '/api/me/settings');
-  assert.deepEqual(defaults, { notifications: { decisionBasis: 'interim', minRiskLevel: 'info', includeUnrated: true, isDefault: true, updatedAt: null },
+  assert.deepEqual(defaults, { notifications: { decisionBasis: 'interim', minRiskLevel: 'info', includeUnrated: true, windowDays: 7, isDefault: true, updatedAt: null },
     widgetLayout: { layout: null, updatedAt: null } });
   const layout = { version: 2, items: [{ i: 'flow', x: 0, y: 0, w: 2, h: 3 }, { i: 'storage', x: 2, y: 0, w: 2, h: 2 }] };
   const savedLayout = await ok('PUT', '/api/me/settings', admin, { widgetLayout: layout });
   assert.deepEqual(savedLayout.widgetLayout.layout, layout);
   assert.equal(savedLayout.notifications.isDefault, true, 'saving the layout leaves notification settings at their defaults');
   assert.deepEqual((await ok('GET', '/api/me/settings')).widgetLayout, { layout: null, updatedAt: null }, 'layouts are per account');
-  console.log('PASS settings defaults, partial save and per-account isolation');
+  // 조회 기간 경계 1·30 저장, windowDays 생략은 저장값 유지(026 이전 화면 호환), 계정 분리. 관리자 값은 끝에 기본 7로 되돌린다.
+  const notif = (windowDays) => ({ decisionBasis: 'interim', minRiskLevel: 'info', includeUnrated: true, ...(windowDays === undefined ? {} : { windowDays }) });
+  assert.equal((await ok('PUT', '/api/me/settings', admin, { notifications: notif(1) })).notifications.windowDays, 1);
+  assert.equal((await ok('PUT', '/api/me/settings', admin, { notifications: notif(30) })).notifications.windowDays, 30);
+  assert.equal((await ok('PUT', '/api/me/settings', admin, { notifications: notif() })).notifications.windowDays, 30, 'omitted windowDays keeps the stored value');
+  assert.equal((await ok('GET', '/api/me/settings', admin)).notifications.windowDays, 30);
+  assert.equal((await ok('GET', '/api/me/settings')).notifications.windowDays, 7, 'window days are per account');
+  assert.equal((await ok('PUT', '/api/me/settings', admin, { notifications: notif(7) })).notifications.windowDays, 7);
+  console.log('PASS settings defaults, partial save, window days bounds and per-account isolation');
 
   // 5) 기본 설정(interim·info·미정 포함): 항목 6개. 정상 판정과 사건에 묶인 작업(J3)은 없다.
   const all = await list();
@@ -212,8 +224,8 @@ try {
   assert.equal(all.total, 6);
   assert.equal(all.unreadCount, 6);
   assert.equal(all.readThrough, '0');
-  assert.equal(all.window.truncated, false);
-  assert.deepEqual(all.settings, { decisionBasis: 'interim', minRiskLevel: 'info', includeUnrated: true });
+  assert.deepEqual([all.window.truncated, all.window.truncatedBy, all.window.days, all.window.fromSeq], [false, null, 7, '1']);
+  assert.deepEqual(all.settings, { decisionBasis: 'interim', minRiskLevel: 'info', includeUnrated: true, windowDays: 7 });
   const raisedEvents = await interimSeqs(J.raised.id);
   const raised = items[`job:${J.raised.id}`];
   assert.equal(raised.reason, 'risk_raised', 'warning interim → critical evidence_added raises risk');
@@ -314,10 +326,10 @@ try {
 
   // 10) 조회 범위: 최근 이벤트 몇 개만 보면 범위 밖 항목은 빠지고 truncated. 서비스 함수를 powercode_api 역할 풀로 직접 부른다.
   const latest = BigInt(again.latestSeq);
-  const windowed = await readNotifications(api, 'window-check', { decisionBasis: 'interim', minRiskLevel: 'info', includeUnrated: true },
+  const windowed = await readNotifications(api, 'window-check', { decisionBasis: 'interim', minRiskLevel: 'info', includeUnrated: true, windowDays: 7 },
     { view: 'all', limit: 50, cursor: null, windowEvents: 2 });
-  assert.deepEqual([windowed.window.truncated, windowed.window.fromSeq, windowed.items.map((item) => item.key).sort()],
-    [true, String(latest - 1n), [`decision:${D.late}`, `incident:${I.a}`].sort()]);
+  assert.deepEqual([windowed.window.truncated, windowed.window.truncatedBy, windowed.window.fromSeq, windowed.items.map((item) => item.key).sort()],
+    [true, 'events', String(latest - 1n), [`decision:${D.late}`, `incident:${I.a}`].sort()]);
   assert.equal(windowed.items.find((item) => item.type === 'incident').incident.memberDecisions, 1, 'only in-window members count');
   assert.equal((await readUnreadCount(api, 'window-check', windowed.settings, 2)).unreadCount, 2);
   console.log('PASS event window bound');
@@ -436,7 +448,7 @@ try {
     'kept: same pair again does not re-notify, the item stays listed');
   // 범위가 밀린 뒤(B4): 유지 시점 판정이 범위 밖으로 나가고 범위 정리 DELETE로 읽음 행이 지워져도, 같은 묶음이 다시 나오면 미확인이 아니고 배지도 그대로.
   const adminId = kept.keptBy;
-  const adminSettings = { decisionBasis: 'interim', minRiskLevel: 'info', includeUnrated: true };
+  const adminSettings = { decisionBasis: 'interim', minRiskLevel: 'info', includeUnrated: true, windowDays: 7 };
   const badgeBefore = (await ok('GET', '/api/notifications/unread-count', admin)).unreadCount;
   // 판정 자체의 알림(묶이지 않은 판정)이 배지를 바꾸지 않도록 이 판정은 정상 저장값으로 둔다(protocolReview만 봄 — 합성 값).
   await writeProtocol('p7', 0.9, unmatched, v4({ anomalous: false, grade: 'normal' }));
@@ -470,6 +482,45 @@ try {
       severity: 'critical', enabled: true, source: null, createdAtRevision: 1, updatedAtRevision: 1 }] })]);
   assert.equal((await protocolItems()).find((item) => item.protocol.interfaceId === 'IF_SYN_NEW').protocol.resolution, 'added');
   console.log('PASS protocol alerts: grouping, first-seen seq, read marks, keep (admin, once, no re-notify), added');
+
+  // 13) 조회 기간(026): 앞 이벤트들의 시각을 과거로 옮긴다(시험 DB 소유자만, 불변 트리거를 잠깐 끔 — 순번·내용은 그대로).
+  //     D.critical까지 20일 전, 그 뒤 D.mlOnly까지 3일 전. 기간 1일: 셋 다 빠짐 / 7일: critical만 빠짐 / 30일: 모두 보임.
+  const [seqCritical, seqInfoPartial, seqMlOnly] = [await seqOf(D.critical), await seqOf(D.infoPartial), await seqOf(D.mlOnly)];
+  assert.ok(BigInt(seqCritical) < BigInt(seqInfoPartial) && BigInt(seqInfoPartial) < BigInt(seqMlOnly), 'fixture order critical < infoPartial < mlOnly');
+  const aged = await pool.connect();
+  try {
+    await aged.query('BEGIN');
+    await aged.query('ALTER TABLE run_decision_events DISABLE TRIGGER decision_event_immutable');
+    await aged.query(`UPDATE run_decision_events SET created_at=created_at-interval '20 days' WHERE id<=$1`, [seqCritical]);
+    await aged.query(`UPDATE run_decision_events SET created_at=created_at-interval '3 days' WHERE id>$1 AND id<=$2`, [seqCritical, seqMlOnly]);
+    await aged.query('ALTER TABLE run_decision_events ENABLE TRIGGER decision_event_immutable');
+    await aged.query('COMMIT');
+  } catch (error) { await aged.query('ROLLBACK'); throw error; } finally { aged.release(); }
+  const early = [`decision:${D.critical}`, `decision:${D.infoPartial}`, `decision:${D.mlOnly}`];
+  const periodFor = async (windowDays) => {
+    await ok('PUT', '/api/me/settings', user, { notifications: notif(windowDays) });
+    const body = await list('view=all&limit=50', user);
+    return { body, shown: early.filter((key) => body.items.some((item) => item.key === key)) };
+  };
+  const day1 = await periodFor(1);
+  assert.deepEqual(day1.shown, [], 'window 1 day: events older than a day are excluded');
+  assert.deepEqual([day1.body.window.days, day1.body.window.truncated, day1.body.window.truncatedBy, day1.body.window.fromSeq, day1.body.settings.windowDays],
+    [1, true, 'days', String(BigInt(seqMlOnly) + 1n), 1]);
+  const day7 = await periodFor(7);
+  assert.deepEqual(day7.shown, [`decision:${D.infoPartial}`, `decision:${D.mlOnly}`], 'window 7 days: the 20-day-old event is excluded, the 3-day-old ones stay');
+  assert.deepEqual([day7.body.window.truncatedBy, day7.body.window.fromSeq], ['days', String(BigInt(seqCritical) + 1n)]);
+  const day30 = await periodFor(30);
+  assert.deepEqual(day30.shown, early, 'window 30 days: all three are back');
+  assert.deepEqual([day30.body.window.truncated, day30.body.window.truncatedBy, day30.body.window.fromSeq], [false, null, '1']);
+  // 미확인 수·읽음 요청도 같은 범위: 기간 밖 항목은 세지 않고, 읽음 요청에서는 무시된다(행 없음).
+  await ok('PUT', '/api/me/settings', admin, { notifications: notif(1) });
+  const adminDay1 = await list('view=all&limit=50', admin);
+  assert.equal((await ok('GET', '/api/notifications/unread-count', admin)).unreadCount, adminDay1.items.filter((item) => item.unread).length, 'badge = unread items in the window');
+  assert.equal(adminDay1.items.some((item) => early.includes(item.key)), false);
+  await ok('POST', '/api/notifications/read', admin, { items: [{ key: `decision:${D.critical}`, seq: seqCritical }] });
+  assert.equal(Number((await pool.query('SELECT count(*) AS n FROM ops_user_notification_reads WHERE item_key=$1', [`decision:${D.critical}`])).rows[0].n), 0,
+    'an item outside the window is not stored as read');
+  console.log('PASS notification window days: 1/7/30 days, truncatedBy, badge and read requests use the same window');
   console.log('PASS notifications integration');
 } finally {
   child?.kill();

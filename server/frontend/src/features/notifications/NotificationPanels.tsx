@@ -124,7 +124,7 @@ const NotificationPage = ({ view, cursor, last, onMore, onRead, onNavigate, onKe
           더 보기
         </Button>
       )}
-      {last && data.window.truncated && (
+      {last && data.window.truncated && data.window.truncatedBy === "events" && (
         <p className="text-xs text-muted-foreground">최근 판정 이벤트 {data.window.events.toLocaleString("ko-KR")}건 안의 알림만 보입니다.</p>
       )}
     </>

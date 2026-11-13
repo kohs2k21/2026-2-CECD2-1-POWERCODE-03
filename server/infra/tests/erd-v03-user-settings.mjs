@@ -60,11 +60,14 @@ export async function userSettings022({ Client, port, connection, check, failure
     // API statement shapes (backend services/userSettings.ts and notificationReadModel.ts) through a real LOGIN role.
     const api = await login('api');
     const actor = 'qa-user-1';
-    const upsertSettings = `INSERT INTO ops_user_notification_settings(actor_id,decision_basis,min_risk_level,include_unrated) VALUES($1,$2,$3,$4)
+    // Same statement as updateSettings (026 window_days: omitted = keep stored value, new row = default).
+    const upsertSettings = `INSERT INTO ops_user_notification_settings(actor_id,decision_basis,min_risk_level,include_unrated,window_days)
+      VALUES($1,$2,$3,$4,coalesce($5::integer,$6::integer))
       ON CONFLICT (actor_id) DO UPDATE SET decision_basis=EXCLUDED.decision_basis,min_risk_level=EXCLUDED.min_risk_level,
-        include_unrated=EXCLUDED.include_unrated,updated_at=clock_timestamp() RETURNING decision_basis`;
-    await api.query(upsertSettings, [actor, 'interim', 'info', true]);
-    const second = await api.query(upsertSettings, [actor, 'final_complete', 'critical', false]);
+        include_unrated=EXCLUDED.include_unrated,window_days=coalesce($5::integer,ops_user_notification_settings.window_days),updated_at=clock_timestamp()
+      RETURNING decision_basis`;
+    await api.query(upsertSettings, [actor, 'interim', 'info', true, null, 7]);
+    const second = await api.query(upsertSettings, [actor, 'final_complete', 'critical', false, 14, 7]);
     verdict(second.rows[0].decision_basis === 'final_complete', `${db}: api login upserts notification settings (ON CONFLICT DO UPDATE)`);
     const layout = { version:2, items:[{ i:'flow', x:0, y:0, w:2, h:3 }] };
     await api.query(`INSERT INTO ops_user_widget_layouts(actor_id,screen,layout) VALUES($1,'operations_overview',$2)

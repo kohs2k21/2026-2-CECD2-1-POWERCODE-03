@@ -193,15 +193,16 @@ assert.ok(requests.some((r) => r.path === "/api/pipeline/events" && r.search ===
   await app.cleanup();
 }
 
-// 2-3b) 범위 안내: 최근 이벤트 수 상한이 범위를 정할 때만 기존 문구, 조회 기간이 정할 때는 표시 없음.
-for (const [truncatedBy, shown] of [["events", true], ["days", false]]) {
+// 2-3b) 범위 안내: 최근 이벤트 수 상한이 범위를 정하면 이벤트 문구, 조회 기간이 정하면 기간 문구, 잘림 없으면 둘 다 없음.
+for (const truncatedBy of ["events", "days", null]) {
   routes = {
     "GET /api/notifications/unread-count": () => [200, { latestSeq: "130", unreadCount: 1 }],
-    "GET /api/notifications": () => [200, listBody([decisionItem()], { window: { events: 5000, days: 7, fromSeq: "40", truncated: true, truncatedBy } })],
+    "GET /api/notifications": () => [200, listBody([decisionItem()], { window: { events: 5000, days: 7, fromSeq: "40", truncated: truncatedBy !== null, truncatedBy } })],
   };
   const app = await mount(React.createElement(NotificationPanels));
   await wait(() => app.shown().includes("이상 · 최종 · 위험도 상승"), `list rendered (${truncatedBy})`);
-  assert.equal(app.shown().includes("최근 판정 이벤트 5,000건 안의 알림만 보입니다."), shown, `range notice when truncated by ${truncatedBy}`);
+  assert.equal(app.shown().includes("최근 판정 이벤트 5,000건 안의 알림만 보입니다."), truncatedBy === "events", `events notice when truncated by ${truncatedBy}`);
+  assert.equal(app.shown().includes("최근 7일 안의 알림만 보입니다."), truncatedBy === "days", `days notice when truncated by ${truncatedBy}`);
   await app.cleanup();
 }
 

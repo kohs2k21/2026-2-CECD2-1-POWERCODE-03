@@ -127,6 +127,9 @@ const NotificationPage = ({ view, cursor, last, onMore, onRead, onNavigate, onKe
       {last && data.window.truncated && data.window.truncatedBy === "events" && (
         <p className="text-xs text-muted-foreground">최근 판정 이벤트 {data.window.events.toLocaleString("ko-KR")}건 안의 알림만 보입니다.</p>
       )}
+      {last && data.window.truncated && data.window.truncatedBy === "days" && (
+        <p className="text-xs text-muted-foreground">최근 {data.window.days.toLocaleString("ko-KR")}일 안의 알림만 보입니다.</p>
+      )}
     </>
   );
 };

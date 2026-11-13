@@ -129,28 +129,18 @@ try {
   await pool.query('UPDATE ops_sources SET field_catalog=$2::jsonb WHERE id=$1', [sourceId, JSON.stringify(bindingCatalog)]);
   const from = new Date(Date.now() - 3600000).toISOString();
   const until = new Date(Date.now() + 3600000).toISOString();
-  const input = { kind: 'recommend_feature', sourceId, from, until };
-  const key = crypto.randomUUID();
-  const first = await request(base, '/api/jobs', 'POST', token, input, key);
-  assert.equal(first.status, 201);
-  const repeated = await request(base, '/api/jobs', 'POST', token, input, key);
-  assert.equal(repeated.status, 200);
-  assert.equal(repeated.body.id, first.body.id);
-  const changed = await request(base, '/api/jobs', 'POST', token,
-    { ...input, until: new Date(Date.now() + 7200000).toISOString() }, key);
-  assert.equal(changed.status, 409);
-  assert.equal((await request(base, `/api/jobs/${first.body.id}`, 'GET', token)).status, 200);
-  assert.equal((await request(base, '/api/jobs', 'POST', userToken, input)).status, 403);
+  // 폐지된 작업 종류(llm-recommendation-job.md 폐지 표): 관리자·사용자 모두 422 job_kind_abolished, 작업·큐 메시지를 남기지 않는다.
+  const queuedBefore = (await pool.query('SELECT count(*)::integer AS count FROM powercode_queue.llm_recommendation_jobs')).rows[0].count;
+  for (const kind of ['recommend_feature', 'recommend_rule']) {
+    for (const [who, label] of [[token, 'admin'], [userToken, 'user']]) {
+      const refused = await request(base, '/api/jobs', 'POST', who, { kind, sourceId, from, until, featureSetId: crypto.randomUUID() }, crypto.randomUUID());
+      assert.deepEqual([refused.status, refused.body.code], [422, 'job_kind_abolished'], `${kind} as ${label}`);
+    }
+  }
+  assert.equal((await pool.query(`SELECT count(*)::integer AS count FROM run_jobs WHERE kind IN ('recommend_feature', 'recommend_rule')`)).rows[0].count, 0, 'no abolished job row');
+  assert.equal((await pool.query('SELECT count(*)::integer AS count FROM powercode_queue.llm_recommendation_jobs')).rows[0].count, queuedBefore, 'no queue message');
   assert.equal((await request(base, '/api/jobs', 'POST', userToken,
-    { ...input, kind: 'train', featureSetId: crypto.randomUUID() })).status, 403);
-  const queued = await pool.query(
-    `SELECT count(*)::integer AS count FROM powercode_queue.llm_recommendation_jobs
-      WHERE payload->>'jobId' = $1`, [first.body.id],
-  );
-  assert.equal(queued.rows[0].count, 1);
-  const lineage = await pool.query('SELECT contract_version,llm_spec FROM run_jobs WHERE id=$1', [first.body.id]);
-  assert.equal(lineage.rows[0].contract_version, 'v03');
-  assert.equal(lineage.rows[0].llm_spec.model_version, 'feature_v5');
+    { kind: 'train', sourceId, from, until, featureSetId: crypto.randomUUID() })).status, 403);
   assert.equal((await request(base, '/api/pipeline/windows', 'GET', token)).status, 200);
   assert.equal((await request(base, '/api/pipeline/window-monitors', 'GET', userToken)).status, 403);
   const featureSetId = crypto.randomUUID();

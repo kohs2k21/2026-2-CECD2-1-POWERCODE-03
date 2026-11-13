@@ -5,7 +5,8 @@ import { act, create } from "react-test-renderer";
 
 // 규칙 추천(contracts/rule-candidates-ui.md) 화면 시험(로컬 가짜 fetch만): 응답 해석·충족률 표기·주소, 룰 설정 진입 카드,
 // 목록(작업 머리·인터페이스 선택 주소·관계 후보 표 열·처리 시간 표 열·한계 문구·패턴 그래프 간선 이름), 결과 없음,
-// 상세(관계: 건수·짝 경고 문장·짝 링크·반례 → 판정 상세·승인 꺼짐 사유 / 처리 시간: 근거·한계·초안), 조회 실패 code, 일반 사용자 접근 불가.
+// 상세(관계: 건수·짝 경고 문장·짝 링크·반례 → 판정 상세·승인 꺼짐 사유 / 처리 시간: 근거·한계·초안), 조회 실패 code, 일반 사용자 접근 불가,
+// 후보 작업 요청(확인창 저장 데이터셋 선택 → 접수·같은 키 재전송 → 진행 중 단추 꺼짐·5초 조회 → 새 결과, 데이터셋 없음·조회 실패·요청 실패 code).
 register("./svg-loader.mjs", import.meta.url);
 // 패턴 그래프(React Flow) 스타일 파일은 시험에서 빈 모듈로 둔다(이 시험 전용 로더).
 register("data:text/javascript," + encodeURIComponent('export const load = (url, context, next) => url.endsWith(".css") ? { format: "module", source: "", shortCircuit: true } : next(url, context);'));
@@ -40,6 +41,9 @@ const { isAppPath, paths } = await import("../src/app/routes.ts");
 const api = await import("../src/features/detection/rules/candidates/candidateApi.ts");
 const labels = await import("../src/features/detection/rules/candidates/candidateLabels.ts");
 const { buildPatternGraph } = await import("../src/features/detection/rules/candidates/PatternGraphView.tsx");
+const { Dialog } = await import("../src/components/ui/dialog.tsx");
+const { NativeSelect } = await import("../src/components/ui/native-select.tsx");
+const { snapshotText } = await import("../src/features/detection/rules/candidates/CandidateJobRequest.tsx");
 
 const JOB = "8cc86810-673b-4886-87b1-e026856fe636";
 const json = (body, status = 200) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
@@ -121,13 +125,13 @@ const relationDetail = (index, extra = {}) => ({ ...head, isLatest: true, approv
 
 let routes = {};
 const requested = [];
-globalThis.fetch = async (url) => {
+globalThis.fetch = async (url, init = {}) => {
   const target = new URL(String(url), "http://local.test");
-  requested.push({ path: target.pathname, search: target.search });
+  requested.push({ path: target.pathname, search: target.search, method: init.method ?? "GET" });
   if (target.pathname === "/api/auth/me") return json({ user: currentUser });
   if (target.pathname === "/api/pipeline/events") return new Response(new ReadableStream({ start() {} }), { headers: { "Content-Type": "text/event-stream" } });
   const handler = routes[target.pathname];
-  if (handler) return handler(target);
+  if (handler) return handler(target, init);
   return json({ code: "rule_set_storage_unavailable" }, 503);
 };
 const rawText = (node) => (!node ? "" : typeof node === "string" ? node : Array.isArray(node) ? node.map(rawText).join("") : rawText(node.children));
@@ -275,6 +279,91 @@ const headsOf = (app, label) => app.renderer.root.findAll((n) => n.type === "tab
   await wait(() => app.shown().includes("관리자 권한이 필요합니다"), "admin gate for a user");
   assert.ok(!requested.some((r) => r.path.startsWith("/api/rule-set/candidates")), "no candidate request for a user");
   await app.cleanup();
+}
+// 7) 후보 작업 요청
+const elements = (node) => (Array.isArray(node) ? node.flatMap(elements) : React.isValidElement(node) ? [node, ...elements(node.props.children)] : []);
+/** 확인창은 포털이라 시험 렌더러에 없다. 열린 Dialog 요소 트리에서 찾는다(operations-page.mjs와 같은 방식). */
+const openDialog = (app) => app.renderer.root.findAllByType(Dialog).find((node) => node.props.open);
+const dialogPart = (app, match) => elements(openDialog(app)?.props.children ?? []).find(match);
+const dialogButton = (app, label) => dialogPart(app, (node) => typeof node.props.onClick === "function" && node.props.children === label);
+const pageButton = (app, label) => app.renderer.root.findAll((n) => n.type === "button" && text(n.children) === label)[0];
+const elementText = (node) => (typeof node === "string" || typeof node === "number" ? String(node) : Array.isArray(node) ? node.map(elementText).join("")
+  : React.isValidElement(node) ? elementText(node.props.children) : "");
+const SNAP_NEW = "11111111-2222-4333-8444-555555555555";
+const NEW_JOB = "22222222-3333-4444-8555-666666666666";
+const snapshots = [
+  { id: SNAP_NEW, sourceId: "s-1", createdAt: "2026-11-13T01:00:00.000000Z", readyAt: "2026-11-13T01:05:00.000000Z", from: "2026-10-13T00:00:00Z", until: "2026-11-13T00:00:00Z" },
+  { id: "snap-1", sourceId: "s-1", createdAt: "2026-11-01T01:00:00.000000Z", readyAt: null, from: "2026-10-01T00:00:00Z", until: "2026-11-01T00:00:00Z" },
+];
+{
+  let phase = "done";
+  const posted = [];
+  const newJob = { ...job, id: NEW_JOB, snapshotId: SNAP_NEW };
+  routes = {
+    "/api/rule-set/candidates": () => json(phase === "done" ? listBody()
+      : phase === "queued" ? listBody("IF-A", { ...newJob, status: "queued", finishedAt: null })
+        : { ...listBody("IF-A", newJob), result: { ...listBody().result, job: newJob, snapshotId: SNAP_NEW } }),
+    "/api/rule-set/candidates/snapshots": () => json({ items: snapshots }),
+    "/api/rule-set/candidates/jobs": (_target, init) => {
+      posted.push({ method: init.method, body: JSON.parse(init.body), key: new Headers(init.headers).get("Idempotency-Key") });
+      if (posted.length === 1) return json({ code: "snapshot_not_ready" }, 409);
+      phase = "queued";
+      return json({ id: NEW_JOB, status: "queued", kind: "recommend_relations", inputSpec: { kind: "recommend_relations", snapshotId: SNAP_NEW, sourceId: "s-1" } }, 201);
+    },
+  };
+  requested.length = 0;
+  const app = await mount(paths.detectionRuleCandidates);
+  await wait(() => byData(app, "data-candidate-row").length === 4, "list rendered");
+  assert.ok(!requested.some((r) => r.path === "/api/rule-set/candidates/snapshots"), "saved datasets are read only when the dialog opens");
+  assert.equal(byData(app, "data-latest-job").length, 0, "latest job is the result job");
+  await act(async () => pageButton(app, labels.JOB_REQUEST).props.onClick());
+  await wait(() => Boolean(dialogPart(app, (n) => n.type === NativeSelect)), "dialog lists saved datasets");
+  assert.ok(dialogPart(app, (n) => n.props.children === labels.JOB_REQUEST_DESCRIPTION), "description sentence");
+  const select = dialogPart(app, (n) => n.type === NativeSelect);
+  assert.equal(select.props.value, SNAP_NEW, "newest dataset is the default");
+  const options = elements(select.props.children).map((o) => o.props.children);
+  assert.deepEqual(options, [snapshotText(snapshots[0], "snap-1"), snapshotText(snapshots[1], "snap-1")]);
+  assert.ok(options[1].endsWith(" · 현재 결과") && !options[0].includes("현재 결과"), "dataset of the shown result is marked");
+  // 첫 요청 409 → 확인창에 코드, 닫히지 않음. 다시 요청은 같은 키(서버 멱등).
+  await act(async () => dialogButton(app, labels.JOB_REQUEST_SUBMIT).props.onClick());
+  await wait(() => Boolean(dialogPart(app, (n) => n.props["data-candidate-request-error"] !== undefined)), "request error shown");
+  assert.equal(elementText(dialogPart(app, (n) => n.props["data-candidate-request-error"] !== undefined)), `${labels.JOB_REQUEST} 실패 · snapshot_not_ready`);
+  await act(async () => dialogButton(app, labels.JOB_REQUEST_SUBMIT).props.onClick());
+  await wait(() => !openDialog(app), "dialog closes after acceptance");
+  assert.deepEqual(posted.map((p) => [p.method, p.body]), [["POST", { snapshotId: SNAP_NEW }], ["POST", { snapshotId: SNAP_NEW }]], "snapshotId only (Trainer defaults)");
+  assert.ok(posted[0].key && posted[0].key === posted[1].key, "same key for the resend in one dialog");
+  await wait(() => byData(app, "data-latest-job").length === 1, "list re-read: queued job shown");
+  const latest = byData(app, "data-latest-job")[0];
+  assert.ok(text(latest.children).startsWith("최근 작업 대기"), text(latest.children));
+  assert.equal(latest.findAllByType("a")[0].props.href, `/detection/operations/jobs/${NEW_JOB}`, "job detail link");
+  assert.equal(pageButton(app, labels.JOB_REQUEST).props.disabled, true, "no second request while a candidate job runs");
+  assert.equal(text(byData(app, "data-candidate-running")[0].children), labels.JOB_REQUEST_RUNNING);
+  // 진행 중이면 5초마다 목록을 다시 읽는다 → 끝나면 새 결과가 목록이 된다.
+  phase = "succeeded";
+  await wait(() => byData(app, "data-latest-job").length === 0 && byData(app, "data-candidate-running").length === 0, "new result after polling", 800);
+  assert.equal(pageButton(app, labels.JOB_REQUEST).props.disabled, false, "request is available again");
+  await app.cleanup();
+}
+{
+  routes = { "/api/rule-set/candidates": () => json({ latestJob: null, approval, result: null }), "/api/rule-set/candidates/snapshots": () => json({ items: [] }) };
+  const app = await mount(paths.detectionRuleCandidates);
+  await wait(() => app.shown().includes("후보 작업 결과가 없습니다."), "no result yet");
+  await act(async () => pageButton(app, labels.JOB_REQUEST).props.onClick());
+  await wait(() => Boolean(dialogPart(app, (n) => n.props["data-snapshots-empty"] !== undefined)), "no saved dataset");
+  assert.ok(dialogPart(app, (n) => n.props.children === labels.SNAPSHOTS_EMPTY), "empty sentence");
+  const link = dialogPart(app, (n) => n.props.to !== undefined);
+  assert.deepEqual([link.props.to, link.props.children], ["/detection/models?step=1", labels.SNAPSHOTS_EMPTY_LINK], "points to 새 학습");
+  assert.equal(dialogButton(app, labels.JOB_REQUEST_SUBMIT).props.disabled, true, "nothing to request");
+  await act(async () => dialogButton(app, "취소").props.onClick());
+  await wait(() => !openDialog(app), "cancel closes");
+  await app.cleanup();
+  routes = { "/api/rule-set/candidates": () => json({ latestJob: null, approval, result: null }), "/api/rule-set/candidates/snapshots": () => json({ code: "rule_set_storage_unavailable" }, 503) };
+  const failed = await mount(paths.detectionRuleCandidates);
+  await wait(() => Boolean(pageButton(failed, labels.JOB_REQUEST)), "button");
+  await act(async () => pageButton(failed, labels.JOB_REQUEST).props.onClick());
+  await wait(() => Boolean(dialogPart(failed, (n) => n.props.title === "저장 데이터셋 조회 실패 · rule_set_storage_unavailable")), "saved dataset list error code");
+  assert.equal(dialogButton(failed, labels.JOB_REQUEST_SUBMIT).props.disabled, true);
+  await failed.cleanup();
 }
 console.log("rule candidates page tests passed");
 process.exit(0);

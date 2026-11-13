@@ -5,7 +5,7 @@
 // 뒤 CHECK를 시험 DB에서만 지운 "migration 뒤" 모의, 021 적용 DB면 503 단계를 건너뛰고 CHECK를 지우지 않은 채 실제 021 CHECK·트리거로:
 // 201 + training 큐 메시지 + 같은 키 재요청 200(스냅샷이 바뀐 뒤에도) + 다른 본문 409,
 // 결과 읽기(v03 성공 작업: 시도 행 + 성공 전환, 목록·상세·반례 → 거래별 판정 id, 판정이 많은 거래가 다른 거래를 밀어내지 않음),
-// powercode_api 역할 SELECT만으로 읽기 경로 동작. 실행 전 `npm run build`.
+// powercode_api 역할 SELECT만으로 읽기 경로 동작, 저장 데이터셋 목록(ready·process-v1만, 최신순, 'snapshots'가 후보 id로 읽히지 않음). 실행 전 `npm run build`.
 // 주의: 021 전 경로의 enum 값 추가·CHECK 삭제는 이 시험 DB에만 한다(migration 아님, 되돌릴 수 없음 → 새 DB를 쓴다).
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
@@ -26,6 +26,7 @@ if (!['localhost', '127.0.0.1'].includes(parsed.hostname) || !/^\/qa_analysis[a-
 const here = path.dirname(fileURLToPath(import.meta.url));
 const backend = path.resolve(here, '..');
 const { readCandidateList, readCandidateDetail, RELATION_CONTRACT_VERSION } = await import('../dist/ruleset/ruleCandidates.js');
+const { readCandidateSnapshots } = await import('../dist/ruleset/candidateSnapshots.js');
 const temporary = await mkdtemp(path.join(os.tmpdir(), 'powercode-rule-candidates-'));
 const pool = new pg.Pool({ connectionString: url });
 const api = new pg.Pool({ connectionString: url, options: '-c role=powercode_api' });
@@ -164,11 +165,31 @@ try {
 
   // 1) 권한: 토큰 없음 401, user 403(읽기·요청 모두).
   assert.equal((await request(base, '/api/rule-set/candidates')).status, 401);
-  for (const [route, options] of [['/api/rule-set/candidates', {}], [`/api/rule-set/candidates/${id()}.r0`, {}],
+  for (const [route, options] of [['/api/rule-set/candidates', {}], [`/api/rule-set/candidates/${id()}.r0`, {}], ['/api/rule-set/candidates/snapshots', {}],
     ['/api/rule-set/candidates/jobs', { method: 'POST', body: { snapshotId: seeded.snapshotId } }]]) {
     const response = await request(base, route, user, options);
     assert.deepEqual([response.status, response.body?.code], [403, 'admin_required'], route);
   }
+  // 1-후) 저장 데이터셋 목록(6.1절): 작업 요청과 같은 조건(ready·process-v1)만, 만든 시각 최신순. building·다른 형식은 빠진다.
+  const snapshotRow = async (status, schema, minutesAgo) => {
+    const snapshot = id();
+    await pool.query(`INSERT INTO data_snapshots(id,source_id,status,observation_cutoff_at,selection_spec,split_spec,schema_version,created_by_actor_id,created_at,ready_at)
+      VALUES($1,$2,$3,clock_timestamp(),'{"from":"2026-09-01T00:00:00Z","until":"2026-10-01T00:00:00Z"}','{}',$4,'qa',clock_timestamp() - make_interval(mins => $5),NULL)`,
+    [snapshot, seeded.sourceId, status, schema, minutesAgo]);
+    return snapshot;
+  };
+  const older = await snapshotRow('ready', 'process-v1', 60);
+  await snapshotRow('building', 'process-v1', 0);
+  await snapshotRow('ready', 'prepared-features-v1', 0);
+  const listed = await request(base, '/api/rule-set/candidates/snapshots', admin);
+  assert.equal(listed.status, 200, JSON.stringify(listed.body));
+  assert.deepEqual(listed.body.items.map((item) => item.id), [seeded.snapshotId, older], 'ready process-v1 only, newest first');
+  assert.deepEqual(Object.keys(listed.body.items[0]).sort(), ['createdAt', 'from', 'id', 'readyAt', 'sourceId', 'until']);
+  assert.deepEqual([listed.body.items[0].sourceId, listed.body.items[0].from, listed.body.items[0].until, listed.body.items[1].readyAt],
+    [seeded.sourceId, '2026-10-01T00:00:00Z', '2026-11-01T00:00:00Z', null]);
+  assert.match(listed.body.items[0].createdAt, /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$/);
+  assert.deepEqual(Object.values(await request(base, '/api/rule-set/candidates/snapshots?x=1', admin)), [400, { code: 'unknown_candidate_filter' }]);
+  assert.deepEqual((await readCandidateSnapshots(api)).items.map((item) => item.id), [seeded.snapshotId, older], 'API role (SELECT only) reads the same list');
 
   // 2) 결과 없음 — enum 값이 없어도 kind::text 비교라 503이 아니라 result null.
   const empty = await request(base, '/api/rule-set/candidates', admin);

@@ -96,3 +96,16 @@ export const jobStatusText = (job: CandidateJob) => `${jobStatusLabels[job.statu
 
 export const candidateErrorTitle = (error: unknown, what: string) =>
   error instanceof HttpError ? `${what} 조회 실패 · ${error.code ?? `http_${error.status}`}` : error instanceof Error && error.message ? error.message : `${what} 조회 실패`;
+
+/**
+ * 후보 작업 요청(contracts/rule-candidates-ui.md 8절 "후보 작업 요청"). 화면 용어: 스냅샷 = "저장 데이터셋"(평가 결과 화면 세트 생성과 같음),
+ * 조회·요청 실패는 "<무엇> 조회 실패 · <코드>"·"<무엇> 요청 실패 · <코드>"(학습 요청과 같은 형식).
+ */
+export const JOB_REQUEST = "후보 작업 요청";
+export const JOB_REQUEST_SUBMIT = "요청";
+export const JOB_REQUEST_RUNNING = "후보 작업 진행 중";
+export const JOB_REQUEST_DESCRIPTION = "고른 저장 데이터셋으로 관계 규칙·처리 시간 후보를 다시 계산합니다. 운영 룰은 바뀌지 않고, 작업이 끝나면 이 화면에 새 결과가 나옵니다.";
+export const SNAPSHOT_FIELD = "저장 데이터셋";
+export const SNAPSHOT_CURRENT = "현재 결과";
+export const SNAPSHOTS_EMPTY = "저장 데이터셋이 없습니다. 학습을 요청하면 학습 기간의 저장 데이터셋이 만들어집니다.";
+export const SNAPSHOTS_EMPTY_LINK = "머신러닝 모델 › 새 학습";

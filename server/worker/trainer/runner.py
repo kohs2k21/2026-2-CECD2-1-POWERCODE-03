@@ -18,6 +18,7 @@ import psycopg
 from dotenv import load_dotenv
 
 import model_adapters
+from generation_client import GenerationUnavailable
 from feature_runtime import calculate_features, validate_definitions
 from feature_fit import requires_fit, fit_features, transform, definitions_hash
 from detector.artifacts import verified_artifact_path
@@ -53,6 +54,21 @@ _ERROR_CODE_PATTERN = re.compile(r'[a-z][a-z0-9_]{0,99}(?::[a-z][a-z0-9_:-]{0,99
 def _terminal_error_code(exc: BaseException) -> str:
     text = str(exc)
     return text if _ERROR_CODE_PATTERN.fullmatch(text) else 'invalid_job_input'
+
+
+def _retry_error_code(exc: BaseException) -> str:
+    """재시도 실패의 저장 코드. 설명의 GPU 대기 초과만 따로 남기고 그 밖은 기존 `job_processing_failed`다."""
+    if isinstance(exc, GenerationUnavailable) and str(exc) == "generation_busy":
+        return "generation_busy"
+    return "job_processing_failed"
+
+
+# 역할별로 정리(reconcile_dead_jobs)하는 큐. llm_explanation 역할은 자기 큐만 정리한다.
+_RECONCILED_QUEUES = {
+    "trainer": ("training",),
+    "llm": ("training", "llm_recommendation", "llm_explanation"),
+    "llm_explanation": ("llm_explanation",),
+}
 
 
 def _claim_job(conn: Any, message: ClaimedMessage, worker_id: str) -> tuple[dict[str, Any], uuid.UUID, uuid.UUID] | None:
@@ -801,9 +817,14 @@ def run(*, once: bool = False, poll_seconds: float = 1.0, role: str = "trainer")
                     # Drain earlier releases after leases expire without rewriting their history.
                     message = claim(conn, "training", lease_seconds=60,
                                     job_kinds=("recommend_feature", "recommend_rule", "explain"))
+            elif role == "llm_explanation":
+                # 설명 전용 소비자: 추천 생성이 GPU를 쓰는 동안에도 설명을 받아 GPU 차례에서 먼저 넣는다.
+                message = claim(conn, "llm_explanation", lease_seconds=60)
+                if message is None:
+                    message = claim(conn, "training", lease_seconds=60, job_kinds=("explain",))
             else:
                 raise ValueError("invalid_worker_role")
-            for queue in (("training",) if role == "trainer" else ("training","llm_recommendation","llm_explanation")):
+            for queue in _RECONCILED_QUEUES[role]:
                 reconcile_dead_jobs(conn,queue)
             conn.commit()
             if message is None:
@@ -850,11 +871,11 @@ def run(*, once: bool = False, poll_seconds: float = 1.0, role: str = "trainer")
                 else:
                     fail(conn, message.queue, message, reason='job_claim_failed')
                     conn.commit()
-            except Exception:
+            except Exception as exc:
                 conn.rollback()
                 if 'job' in locals() and 'attempt_id' in locals():
                     try:
-                        _finish(conn, message, job, attempt_id, attempt_token, None, "job_processing_failed", False)
+                        _finish(conn, message, job, attempt_id, attempt_token, None, _retry_error_code(exc), False)
                         conn.commit()
                     except Exception:
                         conn.rollback()

@@ -45,12 +45,16 @@ def _rejection_code(error: urllib.error.HTTPError) -> str:
 def generate(kind: str, payload: dict, *, report_timeout: bool = False) -> dict:
     """`report_timeout`은 시간 초과를 `generation_timeout`으로 받을 호출만 켠다. 기존 작업은 이전 분류 그대로다."""
     if _LOCAL_MODEL is not None:
-        if not report_timeout:
-            return _LOCAL_MODEL.generate(kind, payload)
+        from generation_service import GenerationBusy
         try:
-            return _LOCAL_MODEL.generate(kind, payload, report_timeout=True)
-        except TimeoutError as exc:
-            raise GenerationUnavailable("generation_timeout") from exc
+            if not report_timeout:
+                return _LOCAL_MODEL.generate(kind, payload)
+            try:
+                return _LOCAL_MODEL.generate(kind, payload, report_timeout=True)
+            except TimeoutError as exc:
+                raise GenerationUnavailable("generation_timeout") from exc
+        except GenerationBusy as exc:
+            raise GenerationUnavailable("generation_busy") from exc
     url = os.environ.get("DESIGN_MODEL_URL", "")
     token = os.environ.get("DESIGN_MODEL_TOKEN", "")
     parsed = urllib.parse.urlsplit(url)
@@ -78,6 +82,9 @@ def generate(kind: str, payload: dict, *, report_timeout: bool = False) -> dict:
     except urllib.error.HTTPError as exc:
         if exc.code == 422:
             raise GenerationRejected(_rejection_code(exc)) from exc
+        if exc.code == 503 and _rejection_code(exc) == "generation_busy":
+            # 대화형 대기 상한 초과. 장애와 구분되는 재시도 가능 코드이며 성공으로 바꾸지 않는다.
+            raise GenerationUnavailable("generation_busy") from exc
         raise GenerationUnavailable("generation_timeout" if report_timeout and exc.code == 504
                                     else "generation_service_unavailable") from exc
     except (urllib.error.URLError, TimeoutError, OSError) as exc:

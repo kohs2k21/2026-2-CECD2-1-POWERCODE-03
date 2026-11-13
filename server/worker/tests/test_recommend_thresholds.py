@@ -29,7 +29,7 @@ import model_adapters
 import threshold_recommendation as recommendation
 from generation_client import GenerationRejected, GenerationUnavailable, generate
 from explanation import explain
-from generation_service import DesignModel, serve, stopped_by_time
+from generation_service import DesignModel, GenerationGate, serve, stopped_by_time
 from methods.registry import SOFT_RULE_FIELDS_BY_ID
 from pg_queue import ClaimedMessage
 from research_bundle import policy, sha
@@ -737,7 +737,7 @@ class DesignModelTimeoutTests(unittest.TestCase):
         (root / "design/rule_system.txt").write_text("system")
         model.root = root
         model.manifest = {"generation": {"maximum_input_tokens": 100, "rule_output_tokens": 512}}
-        model.lock = threading.Lock()
+        model.gate = GenerationGate()
         model.tokenizer = _Tokenizer()
         model.torch = SimpleNamespace(no_grad=nullcontext, manual_seed=lambda _: None,
                                       tensor=lambda value, device: np.array(value), ones_like=np.ones_like)

@@ -1,5 +1,5 @@
 Created: 2026-10-21T00:00:00+09:00
-Updated: 2026-11-05T13:11:00+09:00
+Updated: 2026-11-13T12:00:00+09:00
 Author: Claude Code (Trainer 세션 builder)
 Status: draft
 
@@ -10,6 +10,7 @@ Status: draft
 - 3차 정정(Issue #116, 11/04, WebUI 요청): `recommend_thresholds`·`threshold-stats` 결과 `threshold`를 **유효숫자 15자리 이내로 반올림한 고정소수 문자열**로 형식 통일(rule-set.md 저장 검증과 일치, 40자 한도 유지, 두 경로의 반올림 구현 차이는 수식 추천 절), 원값은 `evidence.p95`에 보존, `ai_proposal` 제안값도 같은 정규화·검증; `input_spec`·결과 `ruleSet`에 `contentHashVersion` 동반
 - 3차 정정(Issue #116, 11/04): 수식 추천 SQL 번역의 `datetime_diff` 원천을 `parsed_times`가 아니라 `data_observations.allowed_values`의 `start_time_raw`·`end_time_raw`로 정정(Detector 11/04 확인, #112). 결측·해석 실패 처리를 카탈로그 `sourceMissingPolicy`와 일치시킴
 - 4차 정정(Issue #121, 11/05): API 접수 구현과 워커 실제 동작에 맞춤. 결과 형식 `threshold-recommendation-v1`은 그대로. 요청 예시를 화면과 같은 `persisted_at` 기간으로, `input_spec`·`llm_spec` 키와 값 고정(`input_evidence_hash` = API 요청 hash, `prompt_version` 고정 이름), `current_rules` 문맥 없음, 1단계에서 `request_evidence`·`deferred` 미도달, 정수 필드 `ROUND_HALF_UP`, 실패 표 코드 추가, `generation_timeout`은 이 작업 종류만
+- 5차 정정(11/13, LLM 세션): 설명 전용 소비자 추가, 생성 서비스 GPU 차례를 대화형 설명 우선으로 — `explain` 대기 상한 `LLM_EXPLANATION_WAIT_SECONDS`·오류 코드 `generation_busy` 추가(아래 GPU 차례 절). 작업 종류·결과 형식·추천 생성 시간·출력 한도는 그대로
 - 계약 버전: `threshold-recommendation-v1`. 근거 코드 origin/dev `7f24e03`: `worker/research_design.py:36-44`(summary·p95 `np.quantile` linear), `:154-199`(`rule_request` — 기준선 = train 분할·anomaly 라벨 제외 p95, `minimum_n 20`, 단위 `count|ratio|ms|s|us`), `:202-234`(`recommend_rules` — 변수당 LLM 1회 순차, 검증 탈락은 변수만 제외, `str(request["baseline"]["value"])`로 DSL 값 생성), `worker/generation_client.py:54-55`(`TimeoutError`를 `generation_service_unavailable`로 묶음), `backend/src/rules/ruleContract.ts:17`(DSL 십진수 정규식, 지수 표기 거부)
 - 상위 결정: 사용자 11/02 결정 — 임계값 산출 주체(8.1), AI 추천 단위 일괄 + 규칙별 수식(R5), 현재 코드 실행 조사(9.1), 화면 설계(9.2: (가)(나) 모두 담고 (가)로 먼저 연결). 절 번호는 총괄 기록 기준
 - 범위: 작업 요청·입력 범위·추천 1건 형식·상태·실패/시간 초과 구분·임계값 직렬화 규칙·수식 추천 API·마이그레이션 영향. 제외: 프롬프트·어댑터 연구(LLM 담당 팀원), GPU 배포, 자동 적용(추천은 입력칸 채우기까지, 운영 반영은 [rule-set.md](rule-set.md) 저장)
@@ -23,7 +24,7 @@ Status: draft
 | `recommend_feature` | 폐지 유지 [확정 10/21] | 변경 없음 |
 | `recommend_methods` | **보류** [제안] | #74 "등록 방법 중 선택 추천"의 ML 선택 부분. 모델 카탈로그·레지스트리·IF 파라미터화 Issue 뒤 재검토. `job_kind` 값(011)·`run_llm_results.kind` CHECK는 유지, API 접수·worker 분기는 구현하지 않음. 폐지가 아니라 "현 단계 범위 밖" |
 | `recommend_thresholds` | **신규** | 이 문서 |
-| `explain` | 변경 없음 | — |
+| `explain` | 작업 형식 변경 없음 | GPU 차례 우선·대기 상한·`generation_busy`는 아래 GPU 차례 절 |
 
 ## 산출 주체 — (가) 코드 p95 + LLM 근거 [확정 11/02 9.2, 1차 연결]
 
@@ -140,6 +141,7 @@ Status: draft
 |---|---|
 | 생성 서비스 미설정·연결 불가(`generation_service_not_configured`·`generation_service_unavailable`) — 첫 호출에서 | 작업 `failed` + 그 코드(재시도 규칙 기존) |
 | 호출 시간 초과 | 작업 `failed` + **`generation_timeout`** [확정 10/21 N20·11/02 9.2 "시간 초과 별도 표시"]. **`recommend_thresholds`에만 적용**: 이 작업의 호출만 `report_timeout`을 켜고(HTTP는 `reportTimeout`, 504·`TimeoutError`·`URLError.reason`이 timeout), `recommend_rule`·`recommend_feature`·`explain`은 이전 분류(`generation_service_unavailable`) 그대로다. 기존 작업 종류로 넓히는 것은 LLM 세션 협의 대상 |
+| 설명 GPU 대기 초과 | `explain`만: 아래 GPU 차례 절의 대기 상한 안에 생성을 시작하지 못하면 `generation_busy`. 성공으로 바꾸지 않음. 추천 작업은 대기 상한이 없어 이 코드를 받지 않음 |
 | 일부 필드 처리 뒤 서비스 장애·시간 초과 | 작업 `failed`(부분 결과 없음, 현행과 동일) — 화면 [다시 시도]. **대안**(Q-L1): 처리된 항목을 `partial`로 저장하고 나머지 `rejected:generation_failed`로 격리해 성공 처리 |
 | 한 필드의 출력 형식 깨짐·검증 탈락·직렬화 실패 | 그 필드만 `rejected` + `rejectedReason`, 나머지 계속, 작업 **성공** — 현행 "검증 탈락은 변수만 제외"를 "제외"가 아니라 "사유와 함께 표시"로 확장(11/02 9.1: `ValueError`로 작업 전체 failed였던 지수 표기 경우를 격리) |
 | 모든 필드 `no_applicable`(데이터 사실: 표본 부족·분산 없음) | 작업 **성공**(항목마다 사유가 있으므로 빈 성공이 아님). 화면은 "제안 0건" + 사유 표. 대상 0건은 접수 단계 400 |
@@ -147,6 +149,15 @@ Status: draft
 | 입력 집계 부족 | 작업 `failed` + `recommendation_input_empty`. 기간 안의 실행별 최신 행이 **20건 미만**(snapshot 생성의 `snapshot_insufficient_process_rows`를 이 코드로 바꿈)이거나 snapshot의 train 분할이 0행. `status=S`로 거른 표본이 20건 미만인 필드는 이 실패가 아니라 그 필드 `no_applicable` |
 | 기간은 찼지만 snapshot을 나눌 수 없음 | 작업 `failed` + 그 코드 그대로: `snapshot_insufficient_execution_groups`(실행 묶음 10개 미만) / `snapshot_time_split_unavailable`(시간 블록 3개 미만) / `snapshot_row_limit_exceeded`(기간 행 100만 초과) |
 | 워커 입력 재검사 | 정상 접수 경로에서는 나오지 않는 방어 코드, 스냅샷을 만들기 전에 작업 `failed`: `recommendation_mode_invalid`·`recommendation_llm_spec_invalid`·`recommendation_data_range_missing`·`invalid_rule_set_reference`·`invalid_recommendation_targets`·`soft_rule_limit_exceeded`. 접수와 겹치는 `recommendation_mode_not_available`·`recommendation_time_basis_unsupported`·`soft_rules_empty`·`soft_rule_field_unknown:<field>`도 같음 |
+
+## 생성 서비스 GPU 차례 — 대화형 설명 우선 [확정 코드 사실]
+
+- GPU 생성은 한 번에 하나(`generation_service.GenerationGate`). GPU가 비면 기다리는 `explain`(대화형)을 `rule`·`feature` 생성(작업: `recommend_*`·`recommend_thresholds`)보다 먼저 넣고, 같은 등급은 도착 순. 실행 중인 생성은 끊지 않음
+- 대기 상한: `explain`만 `LLM_EXPLANATION_WAIT_SECONDS`(기본 10초). 생성 시간 상한 `LLM_EXPLANATION_SECONDS`(기본 60초)와 따로 셈. 작업 대기는 상한 없음(생성 상한 `LLM_RECOMMENDATION_SECONDS` 기본 240초·출력 한도 그대로)
+- 상한 초과: `generation_busy` — HTTP 503 본문 `{"code":"generation_busy"}`(장애 503 `generation_failed`와 본문 코드로 구분), 클라이언트와 같은 프로세스 호출 모두 `GenerationUnavailable("generation_busy")`. 요청 검증·토큰 예산 거부는 대기 전에 판단(422 그대로)
+- 작업 결과: `explain` 작업은 `error_code` `generation_busy`로 재시도(다른 재시도 실패의 `job_processing_failed`와 같은 흐름 — 5초 뒤 다시 대기, 최대 시도 3회 뒤 `failed` + `generation_busy`). 화면은 오류 코드를 그대로 보임
+- 소비자: `llm_worker`는 같은 모델로 두 소비자를 돌림 — 주 소비자(역할 `llm`, 기존 교대 소비 `llm_recommendation`↔`llm_explanation` 그대로)와 설명 전용 소비자(역할 `llm_explanation`, `llm_explanation` 큐 + 이전 `training` 큐의 `explain`만, 자기 큐만 정리). 추천 생성이 GPU를 쓰는 동안 설명 전용 소비자가 받은 설명은 다음 차례에 먼저 들어감. 설명 전용 소비자가 예외로 끝나면 기록 후 5초 뒤 다시 시작하고, 그동안 설명은 주 소비자가 처리
+- 같은 순서가 HTTP `/generate` 요청에도 적용됨(한 프로세스 안의 모든 생성 호출)
 
 ## 규칙별 수식 추천 — `POST /api/rule-set/threshold-stats` [신규, 관리자, 동기, LLM 없음]
 
@@ -213,8 +224,8 @@ Status: draft
 | `jobRoutes.ts`·`thresholdRecommendationContract.ts` | **구현(#121)**: 요청 형식·대상 고정·`llm_spec`은 `thresholdRecommendationContract.ts`, `jobRoutes.ts`는 `KINDS`·관리자 검사 2곳·큐 선택·리비전 읽기(`ruleSetStore.readCurrentSoftRules`). `POST /api/rule-set/threshold-stats`는 `ruleSetRoutes.ts` |
 | `trainer/runner.py` | `_execute`에 `recommend_thresholds` 분기: 룰 세트 스냅샷 → 카탈로그 필드 → `definitions` 변환 → 현행 `recommend_rules` 재사용 → 결과를 추천 항목으로 변환(Rule 초안 생성 제거); `_finish` kind 집합에 추가 |
 | `research_design.py:222-224` | DSL 값 `str(request["baseline"]["value"])` → `Decimal` 고정소수 직렬화(공용 함수), 실패 시 항목 `rejected` |
-| `generation_client.py` | `generation_timeout` 분리: `report_timeout=True` 호출만(위 실패 절) |
-| `llm_worker.py`·`generation_service.py` | `DesignModel.generate("rule", …)` 어댑터 그대로(입력 형식 불변). (나) 모드 어댑터는 LLM 팀원 |
+| `generation_client.py` | `generation_timeout` 분리: `report_timeout=True` 호출만(위 실패 절). 503 본문 `generation_busy`·같은 프로세스 `GenerationBusy` → `GenerationUnavailable("generation_busy")`(GPU 차례 절) |
+| `llm_worker.py`·`generation_service.py` | `DesignModel.generate("rule", …)` 어댑터 그대로(입력 형식 불변). (나) 모드 어댑터는 LLM 팀원. GPU 구간은 `GenerationGate`(GPU 차례 절) |
 | `queues.md` 7행 | `recommend_thresholds` 추가([queues.md](queues.md) 변경 제안 절) |
 
 - GPU·외부 생성 서비스 호출은 사용자 승인 환경에서만. 이 계약은 호출을 요구하지 않음(11/02 9.1 조사도 가짜 LLM으로 서버 수용 범위만 확인)

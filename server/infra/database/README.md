@@ -1,5 +1,5 @@
 Created: 2026-10-12T02:06:03+09:00
-Updated: 2026-11-13T21:00:00+09:00
+Updated: 2026-11-14T12:00:00+09:00
 Author: contracts_page_reviewer
 Status: current
 
@@ -7,7 +7,7 @@ Status: current
 
 - Issue #32 기준: 최신 PostgreSQL·공통 규약·LLM 기획 반영. `schema.dbml`은 최종 목표 구조의 시각화, 실행 원본은 migration SQL
 - 목표 구조(Issue #32 당시): public 28테이블 + `powercode_queue` 기존 물리 큐 2테이블. 기존 public 24테이블 보존, BODY·BODY 연결·불변 입력·LLM 결과 4테이블만 추가
-- 현재 `schema.dbml`: 001~023 전체 + 024 [제안] + 025 반영(024·025 절), public 73테이블 + `powercode_queue` 5테이블. 004_feature_pipeline·005~009 추가분 24테이블 보강, 011 3테이블·012 1테이블·014 3테이블·015 3테이블·019 4테이블·022 4테이블·023 2테이블·024 1테이블·025 2테이블 추가. 013(#82)은 함수 설정만 바꿔 DBML 변경 없음
+- 현재 `schema.dbml`: 001~023 전체 + 024 [제안] + 025·026 반영(024·025·026 절), public 73테이블 + `powercode_queue` 5테이블. 004_feature_pipeline·005~009 추가분 24테이블 보강, 011 3테이블·012 1테이블·014 3테이블·015 3테이블·019 4테이블·022 4테이블·023 2테이블·024 1테이블·025 2테이블 추가, 026은 022 표에 열 1개 추가. 013(#82)은 함수 설정만 바꿔 DBML 변경 없음
 - 기존 001/002 불변. 003/004는 서버 미적용; ERD 등록·SQL 검수와 실제 운영 적용 구분
 - PostgreSQL 17.11 실제 public24+queue2 존재 확인 기록과 정합. 서버 schema/version 이력 및 완전 DDL 일치는 별도 사전 확인 필요
 
@@ -268,6 +268,16 @@ SELECT r.rolname,
 - 시험(`erd-v03-response-codes.mjs`, `erd-v03.mjs`가 호출): `erd025`(디렉터리의 모든 migration 파일을 번호 순으로 한 문자열씩, PK·FK 1개·트리거 없음·색인 카탈로그, DBML parity, 역할 5개 권한 정확 일치, 실제 LOGIN API INSERT·수정 번호 UPDATE·기록 INSERT, DELETE·TRUNCATE·기록 UPDATE/DELETE 42501, GENERATED ALWAYS·FK, 다른 역할 42501, CHECK 경계, 합성 값만). 2026-11-13 embedded PostgreSQL 17.10 1259 checks 통과(임시 폴더 D 드라이브). API·도구 경로는 `backend/tests/response-codes.integration.mjs`(CI 단계 "Response code dictionary import and API under runtime role", `powercode_api` 연결)
 - 함께 바꾼 기존 시험: `prepare-runtime-db.py` 목록에 025·`qa_response_codes_service` 추가. 시험 도구는 migration 디렉터리를 이름 순으로 읽어 적용한다
 
+## 026 알림 조회 기간
+
+- 파일 `026_notification_window_days.sql`, 022 적용 뒤 한 번 실행(023~025와 의존 없어 순서 무관)(`psql -v ON_ERROR_STOP=1 -f`), 022 표 소유자로 실행. 022 `ops_user_notification_settings`에 열 `window_days integer NOT NULL DEFAULT 7 CHECK (1~30)` 1개만 추가(새 표·함수·트리거·색인·enum 없음), 단일 BEGIN..COMMIT. 자동 down migration 없음(되돌리기 = `ALTER TABLE ops_user_notification_settings DROP COLUMN window_days`, 이전 API는 이 열을 읽지 않음)
+- 잠금: 이 표에만 ACCESS EXCLUSIVE를 잠깐(상수 DEFAULT라 행 재작성 없음, CHECK 검사는 사용자 수만큼의 행). 다른 표는 잠그지 않고 작업자를 멈출 필요 없음
+- **역할 스크립트 재적용 불필요**: 022 GRANT가 표 단위(`powercode_api` SELECT·INSERT·UPDATE)라 새 열에도 그대로 적용된다. 열 단위 GRANT를 쓰지 않으므로 `scripts/database-roles.sql` 변경 없음(다른 이유로 재적용해도 결과 같음)
+- **배포 순서: migration 026 → API → WebUI**. 기존 행은 7을 받고, 이 열을 모르는 이전 API의 INSERT는 DEFAULT, upsert는 이 열을 건드리지 않아 저장값 유지(먼저 적용해도 안전). 새 API는 이 열을 읽으므로 열이 없으면 알림·설정 조회가 503. 새 WebUI는 응답의 `windowDays`를 요구하므로 API보다 먼저 올리지 않는다
+- 의미: API가 알림 목록·미확인 수를 "지금 − `window_days`일" 이후 판정 이벤트로 좁힌다(기존 최근 5,000개 이벤트 상한은 요청 비용 상한으로 유지, `contracts/notifications.md` "알림 단위" 절). 기간 경계는 개수 범위(최대 5,000행) 안을 PK 역순으로 읽어 정하므로 `run_decision_events.created_at` 색인은 두지 않는다
+- 시험(`erd-v03-notification-window.mjs`, `erd-v03.mjs`가 호출): `erd026_upgrade`(001~025 + 역할 스크립트 + 기존 설정 행 → 026: 기존 행 7, 역할 스크립트 재적용 없이 실제 LOGIN API가 새 열 upsert·조회, 이전 API 형태 upsert는 저장값 유지), CHECK 경계(0·31·NULL 거부, 1·30 허용), DBML parity. 2026-11-14 embedded PostgreSQL 17.10 1276 checks 통과(임시 폴더 D 드라이브). API 경로는 `backend/tests/notifications.integration.mjs`(CI 단계 "User settings and notifications API under runtime role", `powercode_api` 연결)
+- 함께 바꾼 기존 시험: `prepare-runtime-db.py` 목록에 026 추가, `erd022` API 문장 형태를 새 upsert(`window_days` 포함)로 맞춤
+
 ## 큐와 소유권
 
 - 001의 `detection_logs/training_jobs`는 기존 물리 큐. 기존 Python helper의 payload·물리 lease 경로 보존
@@ -318,7 +328,7 @@ SELECT r.rolname,
 
 ## DBML과 SQL 대응
 
-- DBML은 001~025(024 [제안] 포함) 적용 후 최종 구조(컬럼·nullability·unique·FK·enum 순서). 물리 큐 5개도 명시. enum 순서는 PostgreSQL 추가 순서(`job_kind`의 `import_csv`는 explain 뒤)
+- DBML은 001~026(024 [제안] 포함) 적용 후 최종 구조(컬럼·nullability·unique·FK·enum 순서). 물리 큐 5개도 명시. enum 순서는 PostgreSQL 추가 순서(`job_kind`의 `import_csv`는 explain 뒤)
 - nullable FK는 `>?`, unique FK는 부모 `-` 자식 방향, nullable unique FK는 부모 `?-` 자식 방향으로 표시. 실제 FK 방향은 SQL/파싱 대응 시험으로 확인
 - attempt의 복합 FK 3개는 DBML의 exact-composite index 판정 한계로 `>`/`>?` 표시. 자식의 개별 PK/unique가 실제 1:1 제약을 보장한다는 주석 유지; 그림 경고를 없애려고 SQL 중복 인덱스를 추가하지 않음
 - `@dbml/core`는 현재 문법의 `dbmlv2` parser 사용. deprecated `dbml` parser는 optional 관계 문법을 지원하지 않음

@@ -6,7 +6,11 @@ import { RISK_RANK, type NotificationSettings } from './userSettings.js';
  * 알림 목록·미확인 수·읽음 표시(contracts/notifications.md). 알림 항목은 저장하지 않고 읽을 때 만든다(사용자 11/13 "사건 단위 + 묶이지 않은 판정").
  *
  * 알림 시각(순번) = run_decision_events.id. 006·012 트리거가 advisory lock(81736, 0) 아래에서 붙이는 identity라 id 순서 = 커밋 순서다.
- * 조회 범위: 최근 NOTIFICATION_WINDOW_EVENTS개 이벤트(id > 최대 id − 범위, PK 범위 읽기). 범위 밖으로 밀려난 항목은 패널에서 사라진다.
+ * 조회 범위: 최근 NOTIFICATION_WINDOW_EVENTS개 이벤트(id > 최대 id − 범위, PK 범위 읽기) 중 사용자 알림 조회 기간(windowDays일, 026) 안의 이벤트.
+ *   기간은 순번 경계로 바꿔 쓴다: 범위 시작 lo = max(최대 id − 범위, 개수 범위 안에서 지금 − 기간보다 이른 마지막 이벤트 id) → id > lo.
+ *   created_at은 순번을 붙이는 같은 advisory lock 아래 clock_timestamp()라 순번 순서와 같다(경계 = 행마다 시각 비교와 같은 결과).
+ *   개수 상한(5,000)은 요청 비용 상한으로 그대로 둔다(기간 경계 계산도 이 범위 안에서만 PK 역순으로 읽는다 — 새 색인 없음).
+ *   범위 밖으로 밀려난 항목은 패널에서 사라진다.
  *
  * 1) 이벤트 판단(사용자 알림 설정, Detector 위험도 틀 Q-N1·Q-N1-1 ②): 이상 ∧ 판정 기준 충족 ∧ [위험도 ≥ 하한 ∨ (미정 포함 ∧ 단계 없는 근거 있음)]
  *    - 이상: 최종 = status<>unavailable ∧ evidence.anomalous=true(analysis-ui 이상 신호와 같음), 중간 기록 first_anomaly·evidence_added = 이상
@@ -45,12 +49,12 @@ const RATED = (risk: string) => `coalesce(${risk}->>'status'='rated' AND ${risk}
 const PROTOCOL_KEY_SQL = (interfaceId: string, pathKey: string) =>
   `'protocol:'||encode(sha256(convert_to(jsonb_build_array(${interfaceId},${pathKey})::text,'UTF8')),'hex')`;
 /**
- * 프로토콜 알림 원천 CTE(top 다음, $1 = 범위 이벤트 수). pkeyed: 일치하지 않은 경로마다 1행(seq, decision_id, 종류, 인터페이스, pathKey, channels…, item_key).
+ * 프로토콜 알림 원천 CTE(top 다음 — top.lo = 범위 시작 순번(이 순번 초과가 범위)). pkeyed: 일치하지 않은 경로마다 1행(seq, decision_id, 종류, 인터페이스, pathKey, channels…, item_key).
  * protocolReview 형식이 다르면(버전·종류·인터페이스·경로 모양) 그 판정·경로는 알림을 만들지 않는다(Detector 계약 밖 값은 해석하지 않음).
  */
 const protocolCte = (included: boolean) => `pev AS (
   SELECT e.id AS seq,e.created_at,d.id AS decision_id,d.evidence->'protocolReview' AS review
-  FROM top JOIN run_decision_events e ON e.id>top.top-$1::bigint AND e.event_kind='final'
+  FROM top JOIN run_decision_events e ON e.id>top.lo AND e.event_kind='final'
   JOIN run_process_decisions d ON d.id=e.decision_id
   WHERE ${included ? 'true' : 'false'} AND jsonb_typeof(d.evidence->'protocolReview')='object' AND d.evidence->'protocolReview'->'version'='1'::jsonb
     AND d.evidence->'protocolReview'->>'kind' IN ('path_unmatched','interface_unregistered')
@@ -70,15 +74,25 @@ const protocolCte = (included: boolean) => `pev AS (
 )`;
 
 /**
- * 공통 CTE. 인자: $1 범위 이벤트 수, $2 판정 기준, $3 하한 순위(1~3), $4 미정 포함, $5 actor_id. protocol = 프로토콜 항목 포함(관리자만, 서버 값이라 SQL 문자열에 넣음).
+ * 범위 CTE `top`: top = 최대 이벤트 id, lo = 범위 시작(id > lo가 범위), by_days = 기간 경계가 개수 경계보다 좁음.
+ * $1 범위 이벤트 수, $6 조회 기간(일). 기간 경계는 개수 범위 안만 PK 역순으로 읽는다(최대 $1행, created_at 색인 불필요).
+ */
+const windowCte = `top AS (
+  SELECT t.top,greatest(t.top-$1::bigint,coalesce(b.old,t.top-$1::bigint)) AS lo,b.old IS NOT NULL AS by_days
+  FROM (SELECT coalesce(max(id),0) AS top FROM run_decision_events) t
+  CROSS JOIN LATERAL (SELECT max(e.id) AS old FROM run_decision_events e
+    WHERE e.id>t.top-$1::bigint AND e.created_at<now()-make_interval(days=>$6::integer)) b
+)`;
+
+/**
+ * 공통 CTE. 인자: $1 범위 이벤트 수, $2 판정 기준, $3 하한 순위(1~3), $4 미정 포함, $5 actor_id, $6 조회 기간(일).
+ * protocol = 프로토콜 항목 포함(관리자만, 서버 값이라 SQL 문자열에 넣음).
  * 결과 CTE `state`: kind, item_key, notify_seq, notified_at, reason, unread + 화면 값 열(+ 프로토콜 항목 extra).
  */
-const stateCte = (protocol: boolean) => `WITH RECURSIVE top AS (
-  SELECT coalesce(max(id),0) AS top FROM run_decision_events
-), ${protocolCte(protocol)}, ev AS (
+const stateCte = (protocol: boolean) => `WITH RECURSIVE ${windowCte}, ${protocolCte(protocol)}, ev AS (
   SELECT e.id AS seq,e.event_kind AS kind,e.created_at,d.id AS decision_id,coalesce(d.job_id,i.job_id) AS job_id,d.status::text AS status,
     CASE WHEN e.event_kind='final' THEN d.evidence WHEN e.event_kind IN ('first_anomaly','evidence_added') THEN i.payload END AS snap
-  FROM top JOIN run_decision_events e ON e.id>top.top-$1::bigint
+  FROM top JOIN run_decision_events e ON e.id>top.lo
   LEFT JOIN run_process_decisions d ON e.event_kind='final' AND d.id=e.decision_id
   LEFT JOIN run_decision_interims i ON e.event_kind<>'final' AND i.id=e.interim_id
   WHERE (e.event_kind='final' AND d.id IS NOT NULL) OR (e.event_kind<>'final' AND i.id IS NOT NULL)
@@ -186,14 +200,14 @@ const stateCte = (protocol: boolean) => `WITH RECURSIVE top AS (
 ), state AS (
   -- 이상 유지한 프로토콜 묶음: 순번(≤ 유지 순번)이 범위 밖이면 읽음(범위 정리로 읽음 행이 지워져도 다시 미확인이 되지 않는다).
   SELECT items.*,items.notify_seq>greatest(coalesce(c.read_through,0),coalesce(rd.read_seq,0),coalesce(prd.read_seq,0))
-    AND NOT (items.kind='protocol' AND items.extra->>'keptAt' IS NOT NULL AND items.notify_seq<=(SELECT top FROM top)-$1::bigint) AS unread
+    AND NOT (items.kind='protocol' AND items.extra->>'keptAt' IS NOT NULL AND items.notify_seq<=(SELECT lo FROM top)) AS unread
   FROM items LEFT JOIN ops_user_notification_cursors c ON c.actor_id=$5::text
   LEFT JOIN ops_user_notification_reads rd ON rd.actor_id=$5::text AND rd.item_key=items.item_key
   LEFT JOIN ops_user_protocol_alert_reads prd ON prd.actor_id=$5::text AND prd.item_key=items.item_key
 )`;
 
 const baseParams = (actorId: string, settings: NotificationSettings, windowEvents: number) =>
-  [windowEvents, settings.decisionBasis, RISK_RANK[settings.minRiskLevel], settings.includeUnrated, actorId];
+  [windowEvents, settings.decisionBasis, RISK_RANK[settings.minRiskLevel], settings.includeUnrated, actorId, settings.windowDays];
 
 const encodeCursor = (value: NotificationCursor) => Buffer.from(JSON.stringify([value.seq, value.key]), 'utf8').toString('base64url');
 const ITEM_KEY = /^((incident|job|decision):[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|protocol:[0-9a-f]{64})$/;
@@ -273,10 +287,10 @@ export async function readNotifications(db: Queryable, actorId: string, settings
     { view: NotificationView; limit: number; cursor: NotificationCursor | null; windowEvents?: number; protocol?: boolean },
   now = () => new Date()) {
   const { rows: [row] } = await db.query(`${stateCte(protocol)}, filtered AS (
-      SELECT * FROM state WHERE $6::text='all' OR unread
+      SELECT * FROM state WHERE $7::text='all' OR unread
     ), page AS (
-      SELECT * FROM filtered WHERE $7::bigint IS NULL OR (notify_seq,item_key COLLATE "C")<($7::bigint,$8::text COLLATE "C")
-      ORDER BY notify_seq DESC,item_key COLLATE "C" DESC LIMIT $9
+      SELECT * FROM filtered WHERE $8::bigint IS NULL OR (notify_seq,item_key COLLATE "C")<($8::bigint,$9::text COLLATE "C")
+      ORDER BY notify_seq DESC,item_key COLLATE "C" DESC LIMIT $10
     ), shown AS (
       SELECT p.*,p.notify_seq::text AS seq_text,${ISO('p.notified_at')} AS notified_iso,${ISO('ri.opened_at')} AS opened_at,ri.group_key,dp.process_id,dp.transaction_id
       FROM page p LEFT JOIN run_incidents ri ON ri.id=p.incident_id
@@ -285,7 +299,7 @@ export async function readNotifications(db: Queryable, actorId: string, settings
       LEFT JOIN run_input_manifests pm ON pm.id=pj.input_manifest_id
       LEFT JOIN data_processes dp ON dp.observation_id=coalesce(pd.process_observation_id,pm.process_observation_id)
     )
-    SELECT (SELECT top::text FROM top) AS top,
+    SELECT (SELECT top::text FROM top) AS top,(SELECT lo::text FROM top) AS lo,(SELECT by_days FROM top) AS by_days,
       (SELECT read_through::text FROM ops_user_notification_cursors WHERE actor_id=$5::text) AS read_through,
       (SELECT count(*)::integer FROM state WHERE unread) AS unread,
       (SELECT count(*)::integer FROM filtered) AS total,
@@ -296,13 +310,16 @@ export async function readNotifications(db: Queryable, actorId: string, settings
   const page = rows.slice(0, limit);
   const entries = page.some((item) => item.kind === 'protocol') ? await currentProtocolEntries(db) : new Map();
   const last = page.at(-1);
-  const top = BigInt(row.top as string);
-  const fromSeq = top > BigInt(windowEvents) ? top - BigInt(windowEvents) + 1n : 1n;
+  const lo = BigInt(row.lo as string);
+  const fromSeq = lo > 0n ? lo + 1n : 1n;
+  const truncated = fromSeq > 1n;
   return {
     observedAt: now().toISOString(),
     latestSeq: row.top as string,
     readThrough: (row.read_through as string | null) ?? '0',
-    window: { events: windowEvents, fromSeq: String(fromSeq), truncated: fromSeq > 1n },
+    // truncatedBy: 범위를 정한 쪽 — days(조회 기간보다 이른 이벤트가 있음) / events(기간 안 이벤트가 개수 상한을 넘음) / null(잘림 없음).
+    window: { events: windowEvents, days: settings.windowDays, fromSeq: String(fromSeq), truncated,
+      truncatedBy: !truncated ? null : row.by_days ? 'days' as const : 'events' as const },
     settings,
     unreadCount: row.unread as number,
     total: row.total as number,
@@ -325,7 +342,8 @@ export type ReadRequest = { through: string } | { items: { key: string; seq: str
  * - through: 모두 읽음(그 순번 이하 항목 전부). 항목 읽음 행 중 그 이하인 것은 지운다.
  * - items: 항목별 읽음(그 항목의 순번까지). 다시 알리면(순번이 커지면) 다시 미확인. 요청자 설정 기준 지금 조회 범위에 있는 항목 키만 저장하고
  *   (없는 키는 무시 → 사용자당 행 수는 범위 안 항목 수 이하), 순번은 그 항목의 현재 알림 순번 이하로 줄인다.
- * 어느 쪽이든 조회 범위 밖(최대 id − 범위 이하)으로 밀려난 항목 읽음 행을 지운다(사용자당 행 수 = 최근 알림 수 이하).
+ * 어느 쪽이든 개수 범위 밖(최대 id − 범위 이하)으로 밀려난 항목 읽음 행을 지운다(사용자당 행 수 = 최근 알림 수 이하).
+ * 조회 기간(windowDays)으로는 지우지 않는다: 기간을 늘리면 다시 보이는 항목이 읽음을 잃지 않게(행 수 상한은 개수 범위로 충분).
  */
 export async function markNotificationsRead(pool: Pool, actorId: string, settings: NotificationSettings, request: ReadRequest,
   windowEvents = NOTIFICATION_WINDOW_EVENTS, protocol = false) {
@@ -338,7 +356,7 @@ export async function markNotificationsRead(pool: Pool, actorId: string, setting
         ON CONFLICT (actor_id) DO UPDATE SET read_through=GREATEST(ops_user_notification_cursors.read_through,EXCLUDED.read_through),updated_at=clock_timestamp()`,
       [actorId, request.through, top]);
     } else {
-      const { rows: present } = await client.query(`${stateCte(protocol)} SELECT item_key,notify_seq::text AS seq FROM state WHERE item_key=ANY($6::text[])`,
+      const { rows: present } = await client.query(`${stateCte(protocol)} SELECT item_key,notify_seq::text AS seq FROM state WHERE item_key=ANY($7::text[])`,
         [...baseParams(actorId, settings, windowEvents), request.items.map((item) => item.key)]);
       const current = new Map(present.map((row) => [row.item_key as string, row.seq as string]));
       for (const item of request.items) {
@@ -380,7 +398,8 @@ export async function keepProtocolAlert(pool: Pool, actorId: string, request: Pr
   const client: PoolClient = await pool.connect();
   try {
     await client.query('BEGIN');
-    const { rows: [found] } = await client.query(`WITH top AS (SELECT coalesce(max(id),0) AS top FROM run_decision_events), ${protocolCte(true)}
+    // 범위 = 개수 범위만(관리자 명령, 사용자 조회 기간과 무관 — 기간 범위보다 넓어 화면에 보이는 묶음은 모두 찾는다).
+    const { rows: [found] } = await client.query(`WITH top AS (SELECT coalesce(max(id),0)-$1::bigint AS lo FROM run_decision_events), ${protocolCte(true)}
       SELECT item_key,max(seq)::text AS seq,(array_agg(decision_id ORDER BY seq DESC))[1] AS decision_id
       FROM pkeyed WHERE interface_id=$2 AND path_key=$3 GROUP BY item_key`, [windowEvents, request.interfaceId, request.pathKey ?? '']);
     if (!found) throw new ProtocolAlertError('protocol_alert_not_found', 404);

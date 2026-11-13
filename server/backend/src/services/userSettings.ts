@@ -2,7 +2,7 @@ import type { Pool, PoolClient } from 'pg';
 
 /**
  * 사용자별 설정(022, contracts/notifications.md "API" 절 `/api/me/settings` 줄). 계정은 API 파일 저장소에 있으므로 인증 계정 id 문자열(actor_id)로 저장한다.
- * - 알림 설정: 판정 기준 3택·위험도 하한·위험도 미정 포함(Detector 위험도 틀 Q-N1·Q-N1-1). 행이 없으면 기본값(interim·info·true).
+ * - 알림 설정: 판정 기준 3택·위험도 하한·위험도 미정 포함(Detector 위험도 틀 Q-N1·Q-N1-1)·알림 조회 기간(일, 026). 행이 없으면 기본값(interim·info·true·7).
  * - 위젯 배치: 운영 현황 개요(operations_overview) 배치 문서 1개. 형식 검사는 여기서, 화면별 위젯 이름·크기 제한은 화면이 다시 검사한다.
  */
 type Queryable = Pick<Pool, 'query'>;
@@ -15,9 +15,13 @@ export const DECISION_BASES = ['interim', 'final_any', 'final_complete'] as cons
 export const RISK_LEVELS = ['info', 'warning', 'critical'] as const;
 export type DecisionBasis = typeof DECISION_BASES[number];
 export type RiskLevel = typeof RISK_LEVELS[number];
-export type NotificationSettings = { decisionBasis: DecisionBasis; minRiskLevel: RiskLevel; includeUnrated: boolean };
-/** 기본값 = 확정된 알림 방식(D8·Q6: 첫 이상에서 알림, 근거가 늘면 갱신). */
-export const DEFAULT_NOTIFICATION_SETTINGS: NotificationSettings = { decisionBasis: 'interim', minRiskLevel: 'info', includeUnrated: true };
+/** 알림 조회 기간(일): 기본 7, 1~30 정수(사용자 11/14). 026 window_days CHECK와 같은 범위. */
+export const NOTIFICATION_WINDOW_DAYS = { default: 7, min: 1, max: 30 } as const;
+export type NotificationSettings = { decisionBasis: DecisionBasis; minRiskLevel: RiskLevel; includeUnrated: boolean; windowDays: number };
+/** PUT 본문의 알림 설정: windowDays는 생략 가능(생략하면 저장값 유지, 저장값이 없으면 기본값 — 026 이전 화면과 호환). */
+export type NotificationSettingsUpdate = Omit<NotificationSettings, 'windowDays'> & { windowDays?: number };
+/** 기본값 = 확정된 알림 방식(D8·Q6: 첫 이상에서 알림, 근거가 늘면 갱신) + 조회 기간 7일. */
+export const DEFAULT_NOTIFICATION_SETTINGS: NotificationSettings = { decisionBasis: 'interim', minRiskLevel: 'info', includeUnrated: true, windowDays: NOTIFICATION_WINDOW_DAYS.default };
 export const RISK_RANK: Record<RiskLevel, number> = { info: 1, warning: 2, critical: 3 };
 
 /** 위젯 배치 문서: {version: 1~99, items: [{i, x, y, w, h}]}. 화면 위젯 이름은 영문 소문자 시작 1~32자, 정수 좌표·크기. */
@@ -36,13 +40,16 @@ const exactKeys = (value: Record<string, unknown>, keys: readonly string[]) => {
 const integer = (value: unknown, min: number, max: number) =>
   typeof value === 'number' && Number.isInteger(value) && value >= min && value <= max;
 
-export function parseNotificationSettings(value: unknown): NotificationSettings {
-  if (!plainObject(value) || !exactKeys(value, ['decisionBasis', 'minRiskLevel', 'includeUnrated'])) throw new SettingsRequestError('invalid_notification_settings');
-  const { decisionBasis, minRiskLevel, includeUnrated } = value;
+export function parseNotificationSettings(value: unknown): NotificationSettingsUpdate {
+  const base = ['decisionBasis', 'minRiskLevel', 'includeUnrated'];
+  if (!plainObject(value) || !(exactKeys(value, base) || exactKeys(value, [...base, 'windowDays']))) throw new SettingsRequestError('invalid_notification_settings');
+  const { decisionBasis, minRiskLevel, includeUnrated, windowDays } = value;
   if (typeof decisionBasis !== 'string' || !(DECISION_BASES as readonly string[]).includes(decisionBasis)
     || typeof minRiskLevel !== 'string' || !(RISK_LEVELS as readonly string[]).includes(minRiskLevel)
-    || typeof includeUnrated !== 'boolean') throw new SettingsRequestError('invalid_notification_settings');
-  return { decisionBasis: decisionBasis as DecisionBasis, minRiskLevel: minRiskLevel as RiskLevel, includeUnrated };
+    || typeof includeUnrated !== 'boolean'
+    || ('windowDays' in value && !integer(windowDays, NOTIFICATION_WINDOW_DAYS.min, NOTIFICATION_WINDOW_DAYS.max))) throw new SettingsRequestError('invalid_notification_settings');
+  return { decisionBasis: decisionBasis as DecisionBasis, minRiskLevel: minRiskLevel as RiskLevel, includeUnrated,
+    ...('windowDays' in value ? { windowDays: windowDays as number } : {}) };
 }
 
 export function parseWidgetLayout(value: unknown): WidgetLayout {
@@ -60,7 +67,7 @@ export function parseWidgetLayout(value: unknown): WidgetLayout {
 }
 
 /** PUT 본문: notifications·widgetLayout 중 하나 이상(그 밖 키·빈 객체 거절). 보낸 항목만 바꾼다. */
-export function parseSettingsUpdate(body: unknown): { notifications?: NotificationSettings; widgetLayout?: WidgetLayout } {
+export function parseSettingsUpdate(body: unknown): { notifications?: NotificationSettingsUpdate; widgetLayout?: WidgetLayout } {
   if (!plainObject(body)) throw new SettingsRequestError('invalid_settings_request');
   const keys = Object.keys(body);
   if (!keys.length || keys.some((key) => key !== 'notifications' && key !== 'widgetLayout')) throw new SettingsRequestError('invalid_settings_request');
@@ -72,8 +79,8 @@ export function parseSettingsUpdate(body: unknown): { notifications?: Notificati
 
 /** 알림 조회가 쓰는 현재 알림 설정(행 없으면 기본값). */
 export async function loadNotificationSettings(db: Queryable, actorId: string): Promise<NotificationSettings> {
-  const { rows: [row] } = await db.query(`SELECT decision_basis AS "decisionBasis",min_risk_level AS "minRiskLevel",include_unrated AS "includeUnrated"
-    FROM ops_user_notification_settings WHERE actor_id=$1`, [actorId]);
+  const { rows: [row] } = await db.query(`SELECT decision_basis AS "decisionBasis",min_risk_level AS "minRiskLevel",include_unrated AS "includeUnrated",
+    window_days AS "windowDays" FROM ops_user_notification_settings WHERE actor_id=$1`, [actorId]);
   return row ? row as NotificationSettings : { ...DEFAULT_NOTIFICATION_SETTINGS };
 }
 
@@ -81,13 +88,14 @@ export async function loadNotificationSettings(db: Queryable, actorId: string): 
 export async function readSettings(db: Queryable, actorId: string) {
   const { rows: [row] } = await db.query(`SELECT
       (SELECT jsonb_build_object('decisionBasis',decision_basis,'minRiskLevel',min_risk_level,'includeUnrated',include_unrated,
-        'updatedAt',${ISO('updated_at')}) FROM ops_user_notification_settings WHERE actor_id=$1) AS notifications,
+        'windowDays',window_days,'updatedAt',${ISO('updated_at')}) FROM ops_user_notification_settings WHERE actor_id=$1) AS notifications,
       (SELECT jsonb_build_object('layout',layout,'updatedAt',${ISO('updated_at')}) FROM ops_user_widget_layouts
         WHERE actor_id=$1 AND screen='operations_overview') AS layout`, [actorId]);
   const stored = row.notifications as (NotificationSettings & { updatedAt: string }) | null;
   return {
     notifications: stored
-      ? { decisionBasis: stored.decisionBasis, minRiskLevel: stored.minRiskLevel, includeUnrated: stored.includeUnrated, isDefault: false, updatedAt: stored.updatedAt }
+      ? { decisionBasis: stored.decisionBasis, minRiskLevel: stored.minRiskLevel, includeUnrated: stored.includeUnrated, windowDays: stored.windowDays,
+        isDefault: false, updatedAt: stored.updatedAt }
       : { ...DEFAULT_NOTIFICATION_SETTINGS, isDefault: true, updatedAt: null },
     widgetLayout: row.layout
       ? { layout: row.layout.layout as WidgetLayout, updatedAt: row.layout.updatedAt as string }
@@ -101,10 +109,13 @@ export async function updateSettings(pool: Pool, actorId: string, update: Return
   try {
     await client.query('BEGIN');
     if (update.notifications) {
-      const { decisionBasis, minRiskLevel, includeUnrated } = update.notifications;
-      await client.query(`INSERT INTO ops_user_notification_settings(actor_id,decision_basis,min_risk_level,include_unrated) VALUES($1,$2,$3,$4)
+      const { decisionBasis, minRiskLevel, includeUnrated, windowDays } = update.notifications;
+      // windowDays 생략($5 NULL): 새 행은 기본값($6), 기존 행은 저장값 유지.
+      await client.query(`INSERT INTO ops_user_notification_settings(actor_id,decision_basis,min_risk_level,include_unrated,window_days)
+        VALUES($1,$2,$3,$4,coalesce($5::integer,$6::integer))
         ON CONFLICT (actor_id) DO UPDATE SET decision_basis=EXCLUDED.decision_basis,min_risk_level=EXCLUDED.min_risk_level,
-          include_unrated=EXCLUDED.include_unrated,updated_at=clock_timestamp()`, [actorId, decisionBasis, minRiskLevel, includeUnrated]);
+          include_unrated=EXCLUDED.include_unrated,window_days=coalesce($5::integer,ops_user_notification_settings.window_days),updated_at=clock_timestamp()`,
+      [actorId, decisionBasis, minRiskLevel, includeUnrated, windowDays ?? null, NOTIFICATION_WINDOW_DAYS.default]);
     }
     if (update.widgetLayout) {
       await client.query(`INSERT INTO ops_user_widget_layouts(actor_id,screen,layout) VALUES($1,'operations_overview',$2::jsonb)

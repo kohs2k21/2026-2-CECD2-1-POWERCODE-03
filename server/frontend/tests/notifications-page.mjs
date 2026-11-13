@@ -4,7 +4,7 @@ import React from "react";
 import { act, create } from "react-test-renderer";
 
 // 알림 패널·배지·알림 설정 화면 시험(contracts/notifications.md, 로컬 가짜 fetch만): 응답 해석·문구, 배지(서버 미확인 수·99+·확인 불가),
-// 패널(읽지 않음/전체·항목 읽음·모두 읽음·더 보기·이동 링크·빈 목록·오류), 설정 › 알림(불러오기·바로 저장·실패 시 서버 값 유지).
+// 패널(읽지 않음/전체·항목 읽음·모두 읽음·더 보기·이동 링크·빈 목록·오류·범위 안내), 설정 › 알림(불러오기·바로 저장·실패 시 서버 값 유지·알림 조회 기간 입력).
 register("./svg-loader.mjs", import.meta.url);
 globalThis.React = React;
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
@@ -39,8 +39,9 @@ const decisionItem = (over = {}) => ({ key: `job:${U1}`, type: "decision", seq: 
 const incidentItem = (over = {}) => ({ key: `incident:${U3}`, type: "incident", seq: "118", reason: "grew", notifiedAt: "2026-11-13T01:00:00.000000Z", unread: true,
   incident: { id: U3, openedAt: "2026-11-13T00:00:00.000000Z", criteria: { kind: "response_code", value: "E500", longValue: false }, memberDecisions: 12,
     riskStatus: "unrated", riskLevel: null, hasUnratedEvidence: true }, ...over });
-const listBody = (items, over = {}) => ({ observedAt: "2026-11-13T01:05:00.000Z", latestSeq: "130", readThrough: "0", window: { events: 5000, fromSeq: "1", truncated: false },
-  settings: { decisionBasis: "interim", minRiskLevel: "info", includeUnrated: true }, unreadCount: items.filter((item) => item.unread).length, total: items.length, nextCursor: null, items, ...over });
+const listBody = (items, over = {}) => ({ observedAt: "2026-11-13T01:05:00.000Z", latestSeq: "130", readThrough: "0",
+  window: { events: 5000, days: 7, fromSeq: "1", truncated: false, truncatedBy: null },
+  settings: { decisionBasis: "interim", minRiskLevel: "info", includeUnrated: true, windowDays: 7 }, unreadCount: items.filter((item) => item.unread).length, total: items.length, nextCursor: null, items, ...over });
 
 // 1) 응답 해석·문구
 {
@@ -49,6 +50,13 @@ const listBody = (items, over = {}) => ({ observedAt: "2026-11-13T01:05:00.000Z"
     incidentItem({ incident: { ...incidentItem().incident, memberDecisions: 0 } })]));
   assert.deepEqual(parsed.items.map((item) => item.key), [`job:${U1}`, `incident:${U3}`], "unknown type, wrong reason for a decision and empty incidents are dropped");
   assert.throws(() => api.parseNotificationList(listBody([], { settings: { decisionBasis: "final" } })), /알림 목록/);
+  for (const windowDays of [0, 31, 7.5, "7", undefined]) {
+    assert.throws(() => api.parseNotificationList(listBody([], { settings: { decisionBasis: "interim", minRiskLevel: "info", includeUnrated: true, windowDays } })), /알림 목록/,
+      `windowDays ${windowDays} rejected`);
+  }
+  assert.deepEqual(api.parseNotificationList(listBody([], { window: { events: 5000, days: 1, fromSeq: "9", truncated: true, truncatedBy: "days" } })).window,
+    { events: 5000, days: 1, fromSeq: "9", truncated: true, truncatedBy: "days" });
+  assert.equal(api.parseNotificationList(listBody([], { window: { events: 5000, days: 7, fromSeq: "1", truncated: false, truncatedBy: "x" } })).window.truncatedBy, null);
   assert.throws(() => api.parseUnreadCount({ latestSeq: "1", unreadCount: -1 }), /알림 수/);
   const [decision, incident] = parsed.items;
   assert.deepEqual(labels.notificationText(decision), { headline: "이상 · 최종 · 위험도 상승", subject: "거래 TX-1 · 프로세스 P01" });
@@ -67,9 +75,9 @@ const listBody = (items, over = {}) => ({ observedAt: "2026-11-13T01:05:00.000Z"
   assert.deepEqual([notificationHref(decision), notificationHref(withdrawn), notificationHref(incident)], [`/analysis/d/${U2}`, `/analysis/d/${U1}`, `/analysis/incidents/${U3}`]);
   assert.deepEqual([labels.badgeText(7), labels.badgeText(99), labels.badgeText(100)], ["7", "99", "99+"]);
   assert.equal(labels.savedSettingsMessage("admin"), "관리자 계정 알림 설정 반영 · 알림 목록·배지에 바로 적용");
-  const settings = api.parseMySettings({ notifications: { decisionBasis: "final_any", minRiskLevel: "warning", includeUnrated: false, isDefault: false, updatedAt: "x" },
+  const settings = api.parseMySettings({ notifications: { decisionBasis: "final_any", minRiskLevel: "warning", includeUnrated: false, windowDays: 30, isDefault: false, updatedAt: "x" },
     widgetLayout: { layout: null, updatedAt: null } });
-  assert.deepEqual([settings.notifications.decisionBasis, settings.widgetLayout.layout], ["final_any", null]);
+  assert.deepEqual([settings.notifications.decisionBasis, settings.notifications.windowDays, settings.widgetLayout.layout], ["final_any", 30, null]);
 }
 
 // 2) 화면: 가짜 fetch(계정 토큰별), SSE는 열린 채 이벤트 없음.
@@ -185,9 +193,21 @@ assert.ok(requests.some((r) => r.path === "/api/pipeline/events" && r.search ===
   await app.cleanup();
 }
 
+// 2-3b) 범위 안내: 최근 이벤트 수 상한이 범위를 정할 때만 기존 문구, 조회 기간이 정할 때는 표시 없음.
+for (const [truncatedBy, shown] of [["events", true], ["days", false]]) {
+  routes = {
+    "GET /api/notifications/unread-count": () => [200, { latestSeq: "130", unreadCount: 1 }],
+    "GET /api/notifications": () => [200, listBody([decisionItem()], { window: { events: 5000, days: 7, fromSeq: "40", truncated: true, truncatedBy } })],
+  };
+  const app = await mount(React.createElement(NotificationPanels));
+  await wait(() => app.shown().includes("이상 · 최종 · 위험도 상승"), `list rendered (${truncatedBy})`);
+  assert.equal(app.shown().includes("최근 판정 이벤트 5,000건 안의 알림만 보입니다."), shown, `range notice when truncated by ${truncatedBy}`);
+  await app.cleanup();
+}
+
 // 2-4) 설정 › 알림: 서버 값 표시, 바꾸면 바로 저장(알림 설정 3값 전부), 실패하면 서버 값 유지.
 {
-  let stored = { decisionBasis: "interim", minRiskLevel: "info", includeUnrated: true };
+  let stored = { decisionBasis: "interim", minRiskLevel: "info", includeUnrated: true, windowDays: 7 };
   let failPut = false;
   const settingsBody = () => ({ notifications: { ...stored, isDefault: false, updatedAt: "2026-11-13T00:00:00.000000Z" }, widgetLayout: { layout: null, updatedAt: null } });
   routes = {
@@ -206,7 +226,7 @@ assert.ok(requests.some((r) => r.path === "/api/pipeline/events" && r.search ===
   assert.ok(app.shown().includes("중간 판정부터") && app.shown().includes("최종(부분 포함)") && app.shown().includes("최종 완료만"));
   await act(async () => radio().props.onValueChange("final_complete"));
   await wait(() => app.shown().includes("관리자 계정 알림 설정 반영 · 알림 목록·배지에 바로 적용"), "saved status");
-  assert.deepEqual(requests.filter((r) => r.method === "PUT").at(-1).body, { notifications: { decisionBasis: "final_complete", minRiskLevel: "info", includeUnrated: true } });
+  assert.deepEqual(requests.filter((r) => r.method === "PUT").at(-1).body, { notifications: { decisionBasis: "final_complete", minRiskLevel: "info", includeUnrated: true, windowDays: 7 } });
   const select = app.renderer.root.findAll((n) => n.type === "select" && n.props.id === "notif-min-risk")[0];
   assert.deepEqual(select.findAllByType("option").map((o) => text(o.children)), ["위험", "주의 이상", "참고 이상"]);
   failPut = true;
@@ -218,6 +238,72 @@ assert.ok(requests.some((r) => r.path === "/api/pipeline/events" && r.search ===
   await act(async () => box.props.onCheckedChange(false));
   await wait(() => requests.filter((r) => r.method === "PUT").at(-1).body.notifications.includeUnrated === false, "unrated toggle saved");
   await wait(() => !app.shown().includes("알림 설정을 저장하지 못했습니다"), "error cleared after a successful save");
+  await app.cleanup();
+}
+
+// 2-4b) 설정 › 알림 › 알림 조회 기간: 라벨·단위만, 1~30 정수 밖이면 입력 오류 표시·저장 비활성, 저장하면 4값 전송·목록·배지 다시 조회.
+{
+  let stored = { decisionBasis: "final_any", minRiskLevel: "warning", includeUnrated: false, windowDays: 7 };
+  let unreadReads = 0;
+  let failPut = false;
+  const settingsBody = () => ({ notifications: { ...stored, isDefault: false, updatedAt: "2026-11-14T00:00:00.000000Z" }, widgetLayout: { layout: null, updatedAt: null } });
+  routes = {
+    "GET /api/me/settings": () => [200, settingsBody()],
+    "PUT /api/me/settings": (_target, body) => {
+      if (failPut) return [503, { code: "notification_storage_unavailable" }];
+      stored = body.notifications;
+      return [200, settingsBody()];
+    },
+    "GET /api/notifications/unread-count": () => {
+      unreadReads += 1;
+      return [200, { latestSeq: "130", unreadCount: 0 }];
+    },
+  };
+  const user = { id: "user-1", email: "user@example.test", userType: "user", createdAt: "2026-10-01T00:00:00Z" };
+  const app = await mount(React.createElement(React.Fragment, null, React.createElement(NotificationsBell), React.createElement(NotificationSettings, { currentUser: user })));
+  await wait(() => app.shown().includes("알림 조회 기간") && unreadReads === 1, "window days field and bell loaded");
+  const input = () => app.renderer.root.findAll((n) => n.type === "input" && n.props.id === "notif-window-days")[0];
+  const saveButton = () => buttons(app, "저장")[0];
+  const label = app.renderer.root.findAll((n) => n.type === "label" && n.props.htmlFor === "notif-window-days")[0];
+  assert.equal(text(label.children), "알림 조회 기간");
+  const unit = app.renderer.root.findAll((n) => n.type === "span" && text(n.children) === "일"
+    && n.parent.findAll((c) => c.type === "input" && c.props.id === "notif-window-days").length === 1);
+  assert.equal(unit.length, 1, "unit 일 next to the input");
+  assert.deepEqual([input().props.value, input().props.min, input().props.max, input().props["aria-invalid"], saveButton().props.disabled], ["7", 1, 30, undefined, true],
+    "stored value shown, unchanged value cannot be saved");
+  for (const bad of ["0", "31", "7.5", "", "-1", "abc"]) {
+    await act(async () => input().props.onChange({ target: { value: bad } }));
+    assert.deepEqual([input().props["aria-invalid"], saveButton().props.disabled], [true, true], `out of range "${bad}": invalid mark and save disabled`);
+  }
+  for (const edge of ["1", "30"]) {
+    await act(async () => input().props.onChange({ target: { value: edge } }));
+    assert.deepEqual([input().props["aria-invalid"], saveButton().props.disabled], [undefined, false], `boundary ${edge} can be saved`);
+  }
+  const putsBefore = requests.filter((r) => r.method === "PUT").length;
+  await click(saveButton());
+  await wait(() => requests.filter((r) => r.method === "PUT").length === putsBefore + 1, "window days saved");
+  assert.deepEqual(requests.filter((r) => r.method === "PUT").at(-1).body,
+    { notifications: { decisionBasis: "final_any", minRiskLevel: "warning", includeUnrated: false, windowDays: 30 } }, "all four notification values are sent");
+  await wait(() => app.shown().includes("일반 사용자 계정 알림 설정 반영 · 알림 목록·배지에 바로 적용"), "saved status");
+  await wait(() => unreadReads === 2, "bell count is read again after the save");
+  assert.deepEqual([input().props.value, saveButton().props.disabled], ["30", true], "saved value shown, draft cleared");
+  // 다른 알림 설정을 바꿔도 저장된 조회 기간을 함께 보낸다.
+  const box = app.renderer.root.findAll((n) => typeof n.props?.onCheckedChange === "function" && n.props.id === "notif-unrated")[0];
+  await act(async () => box.props.onCheckedChange(true));
+  await wait(() => requests.filter((r) => r.method === "PUT").at(-1).body.notifications.includeUnrated === true, "unrated saved");
+  assert.equal(requests.filter((r) => r.method === "PUT").at(-1).body.notifications.windowDays, 30);
+  // 저장 실패: 입력값(draft)은 그대로 두고 기존 오류 표시, 다시 저장할 수 있다. 서버 저장값(30)은 바뀌지 않는다.
+  failPut = true;
+  await act(async () => input().props.onChange({ target: { value: "14" } }));
+  await click(saveButton());
+  await wait(() => app.shown().includes("알림 설정을 저장하지 못했습니다"), "window days save failure shown");
+  assert.ok(app.shown().includes("저장된 설정을 그대로 유지합니다."));
+  assert.deepEqual([input().props.value, input().props["aria-invalid"], saveButton().props.disabled, stored.windowDays], ["14", undefined, false, 30],
+    "failed save keeps the typed value for a retry and the stored value on the server");
+  failPut = false;
+  await click(saveButton());
+  await wait(() => !app.shown().includes("알림 설정을 저장하지 못했습니다") && stored.windowDays === 14, "retry saves the typed value");
+  await wait(() => input().props.value === "14" && saveButton().props.disabled === true, "draft cleared after the retry");
   await app.cleanup();
 }
 
@@ -275,4 +361,4 @@ assert.ok(requests.some((r) => r.path === "/api/pipeline/events" && r.search ===
   await app.cleanup();
 }
 
-console.log("notifications page QA passed: parsers and wording, bell badge (count, 99+, unknown), panel views/read/read-all/more/links/errors, notification settings save and failure, protocol alerts (wording, admin actions, add → detail, keep)");
+console.log("notifications page QA passed: parsers and wording, bell badge (count, 99+, unknown), panel views/read/read-all/more/links/errors/range notice, notification settings save and failure, window days input (bounds, save, refresh), protocol alerts (wording, admin actions, add → detail, keep)");

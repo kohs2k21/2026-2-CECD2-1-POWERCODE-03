@@ -223,7 +223,7 @@ const overviewBody = { observedAt: new Date().toISOString(), maxAgeMs: 60000,
 // 계정별 서버 설정(GET·PUT /api/me/settings): 토큰별로 저장, settingsMode로 실패 재현.
 const serverLayouts = {};
 let settingsMode = "ok";
-const settingsBody = (auth) => ({ notifications: { decisionBasis: "interim", minRiskLevel: "info", includeUnrated: true, isDefault: true, updatedAt: null },
+const settingsBody = (auth) => ({ notifications: { decisionBasis: "interim", minRiskLevel: "info", includeUnrated: true, windowDays: 7, isDefault: true, updatedAt: null },
   widgetLayout: serverLayouts[auth] ? { layout: serverLayouts[auth], updatedAt: "2026-11-03T01:00:00.000000Z" } : { layout: null, updatedAt: null } });
 const settingsRoute = (_url, options) => {
   const auth = new Headers(options?.headers).get("Authorization");

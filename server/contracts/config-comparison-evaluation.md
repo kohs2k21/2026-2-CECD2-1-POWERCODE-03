@@ -1,5 +1,5 @@
 Created: 2026-10-21T00:00:00+09:00
-Updated: 2026-11-14T18:00:00+09:00
+Updated: 2026-11-14T21:00:00+09:00
 Author: Claude Code (Trainer 세션 builder)
 Status: draft
 
@@ -123,7 +123,7 @@ Status: draft
 - 기존 값은 `categoryResults.ml.unavailableCount` = `populationCount` − ML succeeded 행 수(평가 상세 ML 칸)이고, 새 `counts.excludedCount`와 **다른 양이다. 합치지 않는다**
 - 이 변경 뒤 `ml.unavailableCount`는 평가한 행 중 ML이 성공하지 못한 행(런타임 실패)만, `excludedCount`는 입력 미정의로 평가 전에 뺀 행만 센다. ML 판정이 없는 행 전체 = `excludedCount + ml.unavailableCount`
 - 서버 사례(7,101행)에 적용하면 `excludedCount` 3, `ml.unavailableCount` 0, `populationCount` 7,098
-- 화면 권고: 두 값을 서로 다른 두 줄로 보인다. 기존 라벨 "제외 행"을 런타임 실패 뜻에 맞게 바꿀지는 WebUI·사용자 결정(이번 승인 범위 밖, 제안만)
+- 화면: 두 값을 서로 다른 두 줄로 보인다. 기존 라벨 "제외 행"은 런타임 실패 뜻에 맞게 **"판정 실패 행"**으로 바꾼다 [확정 — 사용자 승인 2026-11-14]
 
 **`categoryResults.ml` 무라벨 지표** (`trainer/comparison.py` `unlabeled_measures`)
 
@@ -160,8 +160,9 @@ Status: draft
 | `both` / `aOnly` / `bOnly` / `neither` | 둘 다 이상 / {A 이름}만 이상 / {B 이름}만 이상 / 둘 다 정상 |
 | `agreementRate` | 판정 일치율 |
 | `interpretation` 안내문 | 정확도가 아니라 두 버전의 판정이 얼마나 같은지입니다 |
+| `categoryResults.ml.unavailableCount`(기존 "제외 행") | 판정 실패 행 |
 
-- 기존 "제외 행"(= `ml.unavailableCount`) 라벨 변경은 위 승인에 포함되지 않음 — WebUI 제안으로만 남김
+- 기존 "제외 행"(= `ml.unavailableCount`) 라벨은 "판정 실패 행"으로 바꾼다(사용자 승인 2026-11-14, 위 표에 포함). "평가 제외 행"과 두 줄로 구분한다
 
 ## 평가 세트 `evaluation-set-v1`
 

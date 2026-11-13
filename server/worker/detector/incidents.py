@@ -535,10 +535,42 @@ def merge_root(incident: str, merged_into: Mapping[str, str]) -> str:
     return incident
 
 
-def active_execution_count(members: Iterable[tuple[str, str]], latest_grade_by_execution: Mapping[str, str | None]) -> int:
-    """구성원 (decision_id, execution_id) 중 실행의 최신 판정이 아직 이상·이상 징후인 실행 수. 실행당 1."""
+def _member_order_key(row: tuple[str, str, str, int | None, datetime, int]) -> tuple[bool, int, datetime, int]:
+    """계약 8절 정렬 `revision_no DESC NULLS LAST, decided_at DESC, event_sequence DESC`의 max 키.
+
+    revision_no가 있는 행이 없는 행보다 앞선다(NULLS LAST). event_sequence는 판정 표에서 UNIQUE라 순서가 완전하다.
+    """
+    _, _, _, revision_no, decided_at, event_sequence = row
+    return (revision_no is not None, revision_no if revision_no is not None else 0, decided_at, event_sequence)
+
+
+def home_bundle_by_execution(member_rows: Iterable[tuple[str, str, str, int | None, datetime, int]],
+                             merged_into: Mapping[str, str]) -> dict[str, str]:
+    """실행별 자리 묶음(계약 8절): 실행의 구성원 판정 중 8절 정렬 맨 앞 판정이 든 사건의 merge_root.
+
+    member_rows = (decision_id, execution_id, incident_id, revision_no | None, decided_at, event_sequence).
+    읽는 사건과 같은 기준 버전의 구성원 행만 넘긴다(열린 항목 10). 최신 판정이 아니라 최신 '구성원' 판정 기준이라
+    묶음 작업이 따라잡기 전에는 직전 자리를 유지한다.
+    """
+    best: dict[str, tuple[str, str, str, int | None, datetime, int]] = {}
+    for row in member_rows:
+        execution = row[1]
+        current = best.get(execution)
+        if current is None or _member_order_key(row) > _member_order_key(current):
+            best[execution] = row
+    return {execution: merge_root(row[2], merged_into) for execution, row in best.items()}
+
+
+def active_execution_count(members: Iterable[tuple[str, str]], latest_grade_by_execution: Mapping[str, str | None],
+                           *, bundle_id: str, home_by_execution: Mapping[str, str]) -> int:
+    """묶음 bundle_id(merge_root)의 구성원 수(계약 8절). 실행당 1.
+
+    members = 그 묶음 구성원 (decision_id, execution_id). 실행의 최신 판정이 이상·이상 징후이고 자리 묶음
+    (home_bundle_by_execution)이 bundle_id인 실행만 센다. 자리가 다른 묶음이면 이 묶음에서는 해제처럼 다룬다.
+    """
     return len({execution for _, execution in members
-                if latest_grade_by_execution.get(execution) in ELIGIBLE_GRADES})
+                if latest_grade_by_execution.get(execution) in ELIGIBLE_GRADES
+                and home_by_execution.get(execution) == bundle_id})
 
 
 def shown(active_count: int, min_members: int = 2) -> bool:

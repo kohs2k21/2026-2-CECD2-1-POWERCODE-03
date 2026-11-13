@@ -339,13 +339,66 @@ class IdempotencyTest(unittest.TestCase):
                          partition(final, step1.members + step2.members))
 
 
+def member_row(decision, execution, incident, revision, minute, sequence):
+    """(decision_id, execution_id, incident_id, revision_no, decided_at, event_sequence)."""
+    return (decision, execution, incident, revision, DECIDED + timedelta(minutes=minute), sequence)
+
+
+def count(rows, bundle, latest, merged_into=None):
+    """묶음 bundle의 구성원 수. rows 중 merge_root가 bundle인 사건의 구성원만 그 묶음 구성원이다."""
+    merged_into = merged_into or {}
+    home = inc.home_bundle_by_execution(rows, merged_into)
+    members = [(row[0], row[1]) for row in rows if merge_root(row[2], merged_into) == bundle]
+    return active_execution_count(members, latest, bundle_id=bundle, home_by_execution=home)
+
+
 class ReadRuleTest(unittest.TestCase):
     def test_active_count_one_per_execution_and_release(self):
-        members = [("d1", "e1"), ("d2", "e1"), ("d3", "e2"), ("d4", "e3")]
+        rows = [member_row("d1", "e1", "A", 1, 0, 1), member_row("d2", "e1", "A", 2, 1, 2),
+                member_row("d3", "e2", "A", 1, 0, 3), member_row("d4", "e3", "A", 1, 0, 4)]
         latest = {"e1": "anomaly", "e2": "normal", "e3": "anomaly_sign"}
-        self.assertEqual(active_execution_count(members, latest), 2)
+        self.assertEqual(count(rows, "A", latest), 2)
         self.assertTrue(shown(2))
-        self.assertFalse(shown(active_execution_count(members, {"e1": "anomaly"})))
+        self.assertFalse(shown(count(rows, "A", {"e1": "anomaly"})))
+
+    def test_execution_counts_only_in_home_bundle(self):
+        # 키가 바뀐 리비전: e1의 r1은 A, r2는 B에 들었다. 최신 구성원(r2)이 든 B에서만 센다.
+        rows = [member_row("d1", "e1", "A", 1, 0, 1), member_row("d2", "e1", "B", 2, 5, 2),
+                member_row("d3", "e2", "A", 1, 0, 3)]
+        latest = {"e1": "anomaly", "e2": "anomaly"}
+        self.assertEqual(inc.home_bundle_by_execution(rows, {}), {"e1": "B", "e2": "A"})
+        self.assertEqual(count(rows, "A", latest), 1)
+        self.assertEqual(count(rows, "B", latest), 1)
+        self.assertFalse(shown(count(rows, "A", latest)))
+
+    def test_lagging_latest_decision_keeps_previous_home(self):
+        # e1의 최신 판정(r3)은 아직 구성원이 아니다(묶음 작업 지연). 최신 구성원 r2의 자리 B에서 계속 센다.
+        rows = [member_row("d1", "e1", "A", 1, 0, 1), member_row("d2", "e1", "B", 2, 5, 2)]
+        latest = {"e1": "anomaly_sign"}
+        self.assertEqual(count(rows, "A", latest), 0)
+        self.assertEqual(count(rows, "B", latest), 1)
+        # 최신 판정 등급이 이상이 아니면 자리와 무관하게 해제.
+        self.assertEqual(count(rows, "B", {"e1": "normal"}), 0)
+
+    def test_null_revision_sorts_last(self):
+        # revision_no 없는 판정은 decided_at·event_sequence가 더 커도 뒤로 간다(NULLS LAST).
+        rows = [member_row("d1", "e1", "A", None, 30, 9), member_row("d2", "e1", "B", 1, 0, 1)]
+        self.assertEqual(inc.home_bundle_by_execution(rows, {}), {"e1": "B"})
+        self.assertEqual(inc.home_bundle_by_execution(list(reversed(rows)), {}), {"e1": "B"})
+        # 둘 다 없으면 decided_at, 같으면 event_sequence 순.
+        both_null = [member_row("d1", "e1", "A", None, 5, 1), member_row("d2", "e1", "B", None, 0, 2)]
+        self.assertEqual(inc.home_bundle_by_execution(both_null, {}), {"e1": "A"})
+        same_time = [member_row("d1", "e1", "A", 1, 0, 2), member_row("d2", "e1", "B", 1, 0, 1)]
+        self.assertEqual(inc.home_bundle_by_execution(same_time, {}), {"e1": "A"})
+
+    def test_merged_incidents_share_home_bundle(self):
+        # B가 A로 병합되면 A·B는 묶음 A 하나다. 같은 실행이 A·B 양쪽에 있어도 묶음 A에서 1번.
+        rows = [member_row("d1", "e1", "A", 1, 0, 1), member_row("d2", "e1", "B", 2, 5, 2),
+                member_row("d3", "e2", "B", 1, 0, 3)]
+        merged = {"B": "A"}
+        latest = {"e1": "anomaly", "e2": "anomaly"}
+        self.assertEqual(inc.home_bundle_by_execution(rows, merged), {"e1": "A", "e2": "A"})
+        self.assertEqual(count(rows, "A", latest, merged), 2)
 
     def test_merge_root(self):
         self.assertEqual(merge_root("C", {"C": "B", "B": "A"}), "A")

@@ -116,7 +116,8 @@ Qwen Base: `$BASE`(운영 세션이 27개 파일 `base_files.json`과 일치를 
 ```bash
 docker run --rm --user 0:0 -v $W:/w -v $REPO:/repo:ro python:3.10-slim sh -c \
   'python -m venv /w/venv-rulev3 && /w/venv-rulev3/bin/pip install --no-cache-dir -r /repo/research/experiments/rule-v3-baseline/requirements-oneoff.txt \
-   && /w/venv-rulev3/bin/python -c "import torch,transformers,peft,bitsandbytes,xgrammar,jsonschema;print(torch.__version__)"'
+   && /w/venv-rulev3/bin/python -c "import torch,transformers,peft,bitsandbytes,xgrammar,jsonschema;from importlib.metadata import version as v;print({n: v(n) for n in (\"torch\",\"transformers\",\"peft\",\"bitsandbytes\",\"accelerate\",\"xgrammar\",\"jsonschema\")})"'
+# 버전은 importlib.metadata로 읽는다(xgrammar에는 __version__ 속성이 없다)
 ```
 
 ### 환경 A 설치(대안)

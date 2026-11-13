@@ -313,19 +313,14 @@ test('a failed job keeps its result summary on GET /api/jobs/:id', async () => {
   assert.deepEqual(await response.json(), { id: created.body.id, kind: 'recommend_thresholds', status: 'failed', errorCode: 'recommendation_all_rejected', resultSummary });
 });
 
-test('recommend_rule keeps its request shape, llm_spec and queue', async () => {
+test('abolished kinds (recommend_rule, recommend_feature) are refused with 422 and leave no job', async () => {
   const featureSetId = '33333333-3333-4333-8333-333333333333';
   const { from, until } = body().data;
-  const request = { kind: 'recommend_rule', sourceId: SOURCE, from, until, featureSetId };
-  assert.equal((await post(request, { key: 'old-kind' })).status, 201);
-  const [job] = database.jobs;
-  assert.deepEqual(JSON.parse(job.inputSpec), { kind: 'recommend_rule', sourceId: SOURCE, from, until, featureSetId });
-  assert.deepEqual(JSON.parse(job.llmSpec), {
-    evidence_version: 'source-period-request-v1', input_evidence_hash: job.requestHash, model_version: 'rule_v2', prompt_version: 'feature-rule-design-v0.2',
-    output_schema_version: 'safe-process-derived-v2', reuse_key: sha256(JSON.stringify([adminId, JSON.parse(job.inputSpec), 'old-kind', 'design-v0.2'])),
-  });
-  assert.equal(job.queue, 'llm_recommendation');
-  assert.equal((await post({ ...request, ruleSetRevision: 13 })).body.code, 'invalid_job_request', 'threshold keys stay out of the old kinds');
+  for (const kind of ['recommend_rule', 'recommend_feature']) {
+    await rejected({ kind, sourceId: SOURCE, from, until, featureSetId }, 422, 'job_kind_abolished', { key: `old-${kind}` });
+    await rejected({ kind, sourceId: SOURCE, from, until, featureSetId, ruleSetRevision: 13 }, 422, 'job_kind_abolished');
+    await rejected({ kind, sourceId: SOURCE, from, until, featureSetId }, 422, 'job_kind_abolished', { token: userToken });
+  }
 });
 
 test('the contract names the value the API records', async () => {

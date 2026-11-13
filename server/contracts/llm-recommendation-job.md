@@ -20,8 +20,8 @@ Status: draft
 
 | 작업 종류 | 상태 | 비고 |
 |---|---|---|
-| `recommend_rule` | **폐지 유지** [확정 10/21·11/02] | 새 Rule DSL 초안(`rule:sr_<hash>`, `SR_DIAGNOSTIC`) 생성 경로. 기존 `run_llm_results`·`adopt` Rule은 읽기 보존. 신규 요청 차단 시점(422)은 LLM 세션. **내부 계산 경로(`rule_request`·`recommend_rules`의 p95·검증)는 `recommend_thresholds`가 재사용** — 산출물만 Rule 초안이 아니라 임계값 추천으로 바뀜 |
-| `recommend_feature` | 폐지 유지 [확정 10/21] | 변경 없음 |
+| `recommend_rule` | **폐지 유지** [확정 10/21·11/02] | 새 Rule DSL 초안(`rule:sr_<hash>`, `SR_DIAGNOSTIC`) 생성 경로. 기존 `run_llm_results`·`adopt` Rule은 읽기 보존. 신규 요청은 API가 422 `job_kind_abolished`로 거절(11/13, 작업 행·큐 메시지 없음, rules-ui.md AI 규칙 추천 절). **내부 계산 경로(`rule_request`·`recommend_rules`의 p95·검증)는 `recommend_thresholds`가 재사용** — 산출물만 Rule 초안이 아니라 임계값 추천으로 바뀜 |
+| `recommend_feature` | 폐지 유지 [확정 10/21] | 신규 요청은 API가 422 `job_kind_abolished`로 거절(11/13). 입력 변수 세트는 필드 선택 등록(`POST /api/jobs/feature-sets`, trainer-service.md) |
 | `recommend_methods` | **보류** [제안] | #74 "등록 방법 중 선택 추천"의 ML 선택 부분. 모델 카탈로그·레지스트리·IF 파라미터화 Issue 뒤 재검토. `job_kind` 값(011)·`run_llm_results.kind` CHECK는 유지, API 접수·worker 분기는 구현하지 않음. 폐지가 아니라 "현 단계 범위 밖" |
 | `recommend_thresholds` | **신규** | 이 문서 |
 | `explain` | 작업 형식 변경 없음 | GPU 차례 우선·대기 상한·`generation_busy`는 아래 GPU 차례 절 |

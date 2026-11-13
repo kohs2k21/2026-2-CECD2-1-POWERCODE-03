@@ -44,7 +44,7 @@ const maxVersions = async (names) => {
 const membersOf = async (setId) => (await pool.query(
   `SELECT m.output_name, m.output_position, m.model_input, m.transform_settings, v.id, v.definition_key, v.version, v.display_name,
           v.definition_kind, v.expression, v.output_type, v.output_unit, v.value_policy, v.availability_spec, v.requires_fit,
-          v.content_hash, v.created_by_actor_id, v.created_at
+          v.content_hash, v.created_by_actor_id, v.created_at, to_char(v.created_at, 'YYYY-MM-DD"T"HH24:MI:SS.US') AS created_at_us
      FROM ml_feature_set_members m JOIN ml_feature_versions v ON v.id = m.feature_version_id
     WHERE m.feature_set_id = $1 ORDER BY m.output_position`, [setId])).rows;
 
@@ -151,10 +151,12 @@ try {
       else {
         assert.equal(row.version, before[row.output_name] + 1, `${vector.id} ${row.output_name} max+1`);
         assert.equal(row.created_by_actor_id, actorId);
-        fresh.push(row.created_at.getTime());
+        fresh.push(row.created_at_us);
       }
     });
-    if (fresh.length > 1) assert.equal(new Set(fresh).size, fresh.length, 'clock_timestamp per insert');
+    // clock_timestamp()면 INSERT마다 시각이 흐른다(now()면 모두 같다). JS Date는 밀리초라 마이크로초 문자열로 비교하고,
+    // 빠른 실행에서 같은 마이크로초가 겹칠 수 있으므로 '전부 다름' 대신 '두 개 이상 다름'으로 now()와 구분한다.
+    if (fresh.length > 1) assert.ok(new Set(fresh).size > 1, 'clock_timestamp per insert');
   }
   assert.equal(new Set(Object.values(ids)).size, vectors.cases.length);
   assert.equal(versionIds.total_count, expectedReuse.total_count, 'lowest matching version reused');

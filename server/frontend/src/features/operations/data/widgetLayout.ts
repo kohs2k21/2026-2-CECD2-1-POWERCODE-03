@@ -4,6 +4,7 @@
  * 서버는 형식(정수·이름·개수)만 검사하고, 위젯 이름·크기 제한은 여기서 읽을 때 다시 적용한다(parseStoredLayout).
  * 이 파일은 격자 라이브러리를 가져오지 않는 순수 함수만 둔다(시험·지연 로딩용).
  */
+import { getStored } from "@/lib/storage";
 
 export const widgetIds = ["flow", "recent", "trend", "active", "queue", "collect", "storage"] as const;
 export type WidgetId = (typeof widgetIds)[number];
@@ -166,6 +167,20 @@ export const parseStoredLayout = (value: unknown): WidgetPlacement[] | null => {
   if (!items) return null;
   // 겹침이 있을 때만 다시 배치한다(격자에서 저장한 배치는 그대로 복원).
   return items.some((a) => items.some((b) => collides(a, b))) ? compactLayout(items) : items;
+};
+
+/**
+ * 서버 저장 전 브라우저 저장소 배치(옛 키, 한 번만 옮김): 서버에 배치가 없고 이 값이 유효하면 화면이 이 배치를 쓰고 서버에 저장한 뒤 지운다.
+ * 서버에 배치가 있으면 옛 값은 쓰지 않고 지운다.
+ */
+export const legacyLayoutKey = (accountId: string) => `esb_operations_widgets_${accountId}`;
+export const readLegacyLayout = (accountId: string) => (accountId ? parseStoredLayout(getStored<unknown>(legacyLayoutKey(accountId), null)) : null);
+export const removeLegacyLayout = (accountId: string) => {
+  try {
+    window.localStorage.removeItem(legacyLayoutKey(accountId));
+  } catch {
+    // 저장소를 쓸 수 없으면 다음에 다시 시도한다(서버 배치가 있으면 옛 값은 쓰지 않는다).
+  }
 };
 
 /** 서버 저장 문서(v2). */

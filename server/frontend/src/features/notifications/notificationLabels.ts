@@ -20,7 +20,9 @@ export const riskText = (item: { riskStatus: "rated" | "unrated"; riskLevel: Ris
 /** 판정 알림 첫 줄: 결과 · 단계(와이어프레임 stageLabel, 철회 문구 N-5·N-6). */
 const decisionHeadline = ({ reason, decision }: DecisionNotification) => {
   if (decision.stage === "no_final") return "철회 · 판정 실패(최종 없음)";
-  if (decision.stage === "cleared") return "철회 · 최종 판정 이상 아님";
+  // 이상이 아닌 최종(재처리 대체 결과): 이상 분석의 기존 결과 문구(판정불가·이상 신호 없음·정상 여부 미확인)를 쓴다.
+  if (decision.stage === "cleared")
+    return `철회 · 최종 ${decision.completeness === "unavailable" ? "판정불가" : decision.finalSignal === "no" ? "이상 신호 없음" : "정상 여부 미확인"}`;
   const result = decision.grade === "anomaly_sign" ? "이상 징후" : "이상";
   const stage = { interim: "중간 판정", updated: "근거 추가", final: "최종", superseded: "이전 시도 대체됨" }[decision.stage];
   return `${result} · ${stage}${reason === "risk_raised" ? " · 위험도 상승" : ""}`;

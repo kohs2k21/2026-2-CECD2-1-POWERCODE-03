@@ -26,6 +26,8 @@ export type DecisionNotification = Base & {
     jobId: string | null;
     stage: DecisionStage;
     completeness: "complete" | "partial" | "unavailable" | null;
+    /** 마지막 최종 판정의 이상 신호(analysis-ui signal). 최종이 없으면 null. */
+    finalSignal: "yes" | "no" | "unknown" | null;
     grade: "anomaly" | "anomaly_sign" | "normal" | "undetermined" | null;
     processId: string | null;
     transactionId: string | null;
@@ -97,6 +99,7 @@ export const parseNotificationItem = (value: unknown): NotificationItem | null =
     if (!reason || !stage || !risk || typeof d.detailId !== "string" || !d.detailId) return null;
     return { ...base, type: "decision", reason, decision: { ...risk, detailId: d.detailId, decisionId: str(d.decisionId), jobId: str(d.jobId), stage,
       completeness: oneOf(d.completeness, ["complete", "partial", "unavailable"] as const),
+      finalSignal: oneOf(d.finalSignal, ["yes", "no", "unknown"] as const),
       grade: oneOf(d.grade, ["anomaly", "anomaly_sign", "normal", "undetermined"] as const), processId: str(d.processId), transactionId: str(d.transactionId) } };
   }
   if (value.type === "incident" && obj(value.incident) && value.key.startsWith("incident:")) {

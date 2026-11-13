@@ -62,7 +62,10 @@ export const useMarkNotificationsRead = () => {
       const token = getStoredToken();
       return { result: await markNotificationsRead(body), token };
     },
-    onSuccess: ({ result, token }) => {
+    onSuccess: async ({ result, token }) => {
+      if (token !== getStoredToken()) return;
+      // 읽음 응답보다 먼저 시작한 배지 조회(이동·SSE로 시작)는 읽기 전 값을 돌려줄 수 있으므로 취소하고 응답값을 쓴다.
+      await cache.cancelQueries({ queryKey: accountQueryKey(unreadCountQueryName, user?.id) });
       if (token !== getStoredToken()) return;
       cache.setQueryData<UnreadCount>(accountQueryKey(unreadCountQueryName, user?.id), { latestSeq: result.latestSeq, unreadCount: result.unreadCount });
       void cache.invalidateQueries({ queryKey: accountQueryKey(notificationListQueryName, user?.id) });

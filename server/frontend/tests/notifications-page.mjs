@@ -55,6 +55,11 @@ const listBody = (items, over = {}) => ({ observedAt: "2026-11-13T01:05:00.000Z"
   assert.deepEqual(labels.notificationText(incident), { headline: "사건 · 응답코드 E500 · 판정 추가", subject: "묶인 판정 12건" });
   const withdrawn = api.parseNotificationItem(decisionItem({ reason: "withdrawn", decision: { ...decisionItem().decision, stage: "no_final", decisionId: null, detailId: U1 } }));
   assert.equal(labels.notificationText(withdrawn).headline, "철회 · 판정 실패(최종 없음)");
+  const cleared = (completeness, finalSignal) => api.parseNotificationItem(decisionItem({ reason: "withdrawn",
+    decision: { ...decisionItem().decision, stage: "cleared", completeness, finalSignal, grade: "normal" } }));
+  assert.deepEqual([cleared("complete", "no"), cleared("partial", "unknown"), cleared("unavailable", "unknown")].map((item) => labels.notificationText(item).headline),
+    ["철회 · 최종 이상 신호 없음", "철회 · 최종 정상 여부 미확인", "철회 · 최종 판정불가"], "withdrawn by a non-anomalous final uses the analysis result words");
+  assert.equal(labels.showsRisk(cleared("complete", "no")), false);
   assert.equal(labels.showsRisk(withdrawn), false);
   const sign = api.parseNotificationItem(decisionItem({ reason: "opened", decision: { ...decisionItem().decision, stage: "interim", grade: "anomaly_sign", transactionId: null, processId: null } }));
   assert.deepEqual(labels.notificationText(sign), { headline: "이상 징후 · 중간 판정", subject: "PROCESS 판정" });
@@ -77,7 +82,7 @@ globalThis.fetch = async (url, options = {}) => {
   if (target.pathname === "/api/pipeline/events") return new Response(new ReadableStream({ start() {} }), { headers: { "Content-Type": "text/event-stream" } });
   const handler = routes[`${options.method ?? "GET"} ${target.pathname}`];
   if (!handler) return new Response(JSON.stringify({ code: "notification_storage_unavailable" }), { status: 503 });
-  const [status, value] = handler(target, body);
+  const [status, value] = await handler(target, body);
   return new Response(JSON.stringify(value), { status, headers: { "Content-Type": "application/json" } });
 };
 const rawText = (node) => (!node ? "" : typeof node === "string" ? node : Array.isArray(node) ? node.map(rawText).join("") : rawText(node.children));
@@ -100,7 +105,7 @@ const mount = async (element, role = "user") => {
       React.createElement(AuthSessionProvider, null, React.createElement(Probe), element))));
   });
   await act(async () => session.login({ token: `${role}-token`, user: { id: `${role}-1`, email: `${role}@example.test`, userType: role, createdAt: "2026-10-01T00:00:00Z" } }));
-  return { renderer, shown: () => text(renderer.toJSON()), cleanup: async () => { await act(async () => renderer.unmount()); client.clear(); } };
+  return { renderer, client, shown: () => text(renderer.toJSON()), cleanup: async () => { await act(async () => renderer.unmount()); client.clear(); } };
 };
 const buttons = (app, label) => app.renderer.root.findAll((node) => node.type === "button" && text(node.children) === label);
 const click = async (button) => act(async () => button.props.onClick?.({ preventDefault() {} }));
@@ -139,8 +144,20 @@ assert.ok(requests.some((r) => r.path === "/api/pipeline/events" && r.search ===
   assert.ok(app.shown().includes("이상 · 최종 · 위험도 상승") && app.shown().includes("사건 · 응답코드 E500 · 판정 추가") && app.shown().includes("위험도 미정"));
   const links = app.renderer.root.findAll((n) => n.type === "a").map((a) => a.props.href);
   assert.deepEqual(links, [`/analysis/d/${U2}`, `/analysis/incidents/${U3}`]);
+  // 경합: 읽음 요청 전에 시작한 느린 배지 조회(읽기 전 값)는 읽음 응답 뒤에 도착해도 배지를 덮지 않는다.
+  let slow = true;
+  const fast = routes["GET /api/notifications/unread-count"];
+  routes["GET /api/notifications/unread-count"] = async (...args) => {
+    const stale = fast(...args);
+    if (slow) await new Promise((resolve) => setTimeout(resolve, 150));
+    return stale;
+  };
+  await act(async () => void app.client.invalidateQueries({ queryKey: ["notifications-unread"] }));
   await click(buttons(app, "읽음 처리")[0]);
   await wait(() => requests.some((r) => r.method === "POST"), "item read sent");
+  await tick(250);
+  assert.equal(app.client.getQueryData(["notifications-unread", "user-1"]).unreadCount, 1, "stale count started before the read does not overwrite it");
+  slow = false;
   assert.deepEqual(requests.filter((r) => r.method === "POST").at(-1).body, { items: [{ key: `job:${U1}`, seq: "120" }] });
   await click(buttons(app, "모두 읽음")[0]);
   await wait(() => requests.filter((r) => r.method === "POST").length === 2, "read-all sent");

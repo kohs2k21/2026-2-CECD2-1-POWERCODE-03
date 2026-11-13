@@ -20,7 +20,9 @@ import {
   defaultWidgetLayout,
   layoutReducer,
   parseStoredLayout,
+  readLegacyLayout,
   readingOrder,
+  removeLegacyLayout,
   sanitizeLayout,
   savedLayoutMessage,
   serializeLayout,
@@ -158,10 +160,24 @@ export const OverviewTab = ({ collectHref }: { collectHref: string }) => {
   const settings = useMySettings();
   const saveLayout = useSaveMySettings();
   const storedLayout = settings.data?.widgetLayout.layout ?? null;
+  const accountId = user?.id ?? "";
+  // 옛 브라우저 저장 배치(서버 저장 전): 서버에 배치가 없을 때만 쓰고 서버로 한 번 옮긴다.
+  const [legacy] = useState(() => readLegacyLayout(accountId));
+  const useLegacy = settings.isSuccess && !storedLayout && Boolean(legacy);
   const saved = useMemo<readonly WidgetPlacement[]>(
-    () => parseStoredLayout(storedLayout) ?? defaultWidgetLayout.map((item) => ({ ...item })),
-    [storedLayout],
+    () => parseStoredLayout(storedLayout) ?? (useLegacy ? legacy : null) ?? defaultWidgetLayout.map((item) => ({ ...item })),
+    [storedLayout, useLegacy, legacy],
   );
+  const migrated = useRef(false);
+  useEffect(() => {
+    if (!settings.isSuccess || migrated.current || !accountId) return;
+    migrated.current = true;
+    if (storedLayout || !legacy) {
+      removeLegacyLayout(accountId);
+      return;
+    }
+    saveLayout.mutate({ widgetLayout: serializeLayout(legacy) }, { onSuccess: () => removeLegacyLayout(accountId) });
+  }, [accountId, legacy, saveLayout, settings.isSuccess, storedLayout]);
   const layoutReady = settings.isSuccess;
   const [status, setStatus] = useState("");
   const [saveFailed, setSaveFailed] = useState(false);

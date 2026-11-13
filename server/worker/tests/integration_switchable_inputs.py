@@ -109,17 +109,25 @@ def main():
             now=datetime.now(timezone.utc);period={'sourceId':str(sid),'from':(now-timedelta(hours=1)).isoformat().replace('+00:00','Z'),'until':now.isoformat().replace('+00:00','Z')}
             def job(spec):
                 code,response=call('/api/jobs',spec,admin);assert code==201,(code,response)
-                run(once=True,role='llm' if spec['kind'].startswith('recommend') else 'trainer')
+                run(once=True,role='trainer')
                 row=conn.execute('SELECT status,result_summary,error_code FROM run_jobs WHERE id=%s',(response['id'],)).fetchone();conn.commit()
                 assert row[0]=='succeeded',row
                 return response['id'],row[1]
-            _,features=job({**period,'kind':'recommend_feature'})
-            assert features['materializedCount']==1000
-            rid,rules=job({**period,'kind':'recommend_rule','snapshotId':features['snapshotId'],'featureSetId':features['featureSetId']})
-            assert rules['suggestions']
-            code,selected=call('/api/jobs/'+rid+'/recommendations/0/adopt',{},admin);assert code==201,(code,selected)
-            _,trained=job({**period,'kind':'train','snapshotId':features['snapshotId'],'featureSetId':features['featureSetId'],
+            # LLM 변수·Rule 추천(recommend_feature/rule)은 폐지(llm-recommendation-job.md): API가 422로 거절하고 작업을 남기지 않는다.
+            for kind in ('recommend_feature','recommend_rule'):
+                code,out=call('/api/jobs',{**period,'kind':kind},admin);assert (code,out)==(422,{'code':'job_kind_abolished'}),(kind,code,out)
+            assert conn.execute("SELECT count(*) FROM run_jobs WHERE kind IN ('recommend_feature','recommend_rule') AND input_spec->>'sourceId'=%s",(str(sid),)).fetchone()[0]==0;conn.commit()
+            # 현재 경로: 필드를 골라 입력 변수 세트 등록(ml-feature-fields.json 키) → 관리자가 Rule 버전을 만들고 학습 요청에 명시한다.
+            code,features=call('/api/jobs/feature-sets',{'fields':['error_count','retry_count','total_count']},admin)
+            assert code in (200,201) and features['featureNames']==['total_count','error_count','retry_count'],(code,features)
+            code,selected=call('/api/rules',{'ruleKey':'shared_input_'+uuid.uuid4().hex[:10],'displayName':'Shared input error rule','featureSetId':features['id'],
+                'condition':{'field':'F.error_count','operator':'gt','value':'5'},'outcome':{'decisionCode':'SHARED_INPUT_ERROR','severity':'warning'}},admin)
+            assert code==201,(code,selected)
+            _,trained=job({**period,'kind':'train','featureSetId':features['id'],
                 'ruleVersionIds':[selected['id']],'detectionPolicy':{'mode':'parallel','deadlineMs':3000,'combination':'any_anomaly'}})
+            assert conn.execute('SELECT count(*) FROM data_snapshot_members WHERE snapshot_id=%s',(trained['snapshotId'],)).fetchone()[0]==1000;conn.commit()
+            assert [str(r[0]) for r in conn.execute('SELECT rule_version_id FROM ml_config_rules WHERE config_version_id=%s ORDER BY evaluation_order',
+                (trained['configVersionId'],)).fetchall()]==[selected['id']];conn.commit()
             _,evaluated=job({'kind':'evaluate','sourceId':str(sid),'configVersionId':trained['configVersionId'],'snapshotId':trained['snapshotId'],'purpose':'validation'})
             assert evaluated['applicability']=='valid' # Technical readiness is independent of label availability.
             assert evaluated['scoredCount']==evaluated['populationCount']>0 and evaluated['unavailableCount']==0
@@ -167,7 +175,7 @@ def main():
             assert conn.execute('SELECT active_config_version_id FROM ops_system_state WHERE id=1').fetchone() in (None,(None,))
             conn.commit()
             print('PASS: API/CSV/pause/resume via admin HTTP; revision conflicts and user denial')
-            print('PASS: four CSV streams -> shared DB -> feature generation/materialization -> Rule recommendation -> explicit adoption -> real CPU IF -> evaluation')
+            print('PASS: four CSV streams -> shared DB -> selected feature set -> explicit Rule version -> real CPU IF -> evaluation; abolished recommend kinds refused')
             print('PASS: same selected feature/Rule/model config produces successful Rule+ML decisions for CSV and API, saved origin evidence')
             print('PASS: tick reports only committed detect jobs; waiting-config and duplicate rows announce nothing')
             print('PASS: API duplicates, in-flight response fence, actual Bearer HTTP/auth failure, manual fallback, waiting-input recovery')

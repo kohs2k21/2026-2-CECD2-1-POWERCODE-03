@@ -24,6 +24,10 @@
 | `/detection/rules` | 탐지 설정 › 룰 설정([rules-ui.md](rules-ui.md)) | admin |
 | `/detection/rules/candidates` | 룰 설정 › 규칙 추천 목록(쿼리 `interface`, [rule-candidates-ui.md](rule-candidates-ui.md)) | admin |
 | `/detection/rules/candidates/:candidateId` | 규칙 추천 후보 상세 | admin |
+| `/detection/rules/protocols` | 룰 설정 › 프로토콜 설정 목록(정상 프로토콜 = 인터페이스별 허용 경로, [protocol-settings-ui.md](protocol-settings-ui.md)) | admin |
+| `/detection/rules/protocols/:interfaceId` | 프로토콜 설정 인터페이스 상세 | admin |
+| `/detection/rules/response-codes` | 룰 설정 › 응답 코드 목록(사전 메시지 + 거래 실패 규칙 코드별 위험도, [response-codes-ui.md](response-codes-ui.md)) | admin |
+| `/detection/rules/response-codes/:code` | 응답 코드 상세(코드는 퍼센트 인코딩) | admin |
 | `/detection/models` | 탐지 설정 › 머신러닝 모델(버전 목록 + 같은 화면 새 학습, [models-ui.md](models-ui.md)) | admin |
 | `/detection/models/:versionId` | 모델 버전 상세([models-ui.md](models-ui.md)) | admin |
 | `/detection/evaluations` | 탐지 설정 › 평가 결과(비교 평가 목록 + 같은 화면 새 비교 평가) | admin |

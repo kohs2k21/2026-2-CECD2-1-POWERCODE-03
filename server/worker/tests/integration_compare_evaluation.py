@@ -27,24 +27,32 @@ from trainer.catalog import register_feature_set
 from trainer.operational_state import DEFAULT_POLICY, read_operational_state
 
 FIELD = {"op": "field", "field": "P.total_count"}
-DEFINITIONS = [{"name": "count_raw", "expression": FIELD}]
+# success_ratio = SUCCESS_COUNT / TOTAL_COUNT: TOTAL_COUNT 0 행은 모델 입력이 정의되지 않아 평가에서 제외된다
+# (서버 사례 error_ratio와 같은 0 나누기). 이상 행(TOTAL_COUNT 900)은 비율이 낮아 모델 판정에도 쓰인다.
+DEFINITIONS = [{"name": "count_raw", "expression": FIELD},
+               {"name": "success_ratio", "expression": {"op": "ratio", "left": {"op": "field", "field": "P.success_count"},
+                                                        "right": FIELD}}]
 V1_POLICY = {"mode": "ml_only", "deadlineMs": 30000, "combination": "selected_path"}
 # IF 학습 최소 fit 500 + 임계 보정 125행. 후반 절반 학습도 train 700행이 되도록 2000행.
 ROWS = 2000
 FOREIGN_ROWS = 1000
+# 시간순 70/15/15에서 validation(1400..1699)에 드는 행 1개를 TOTAL_COUNT 0·실패(F)로 둔다(학습 선택은 S만이라 학습에 안 쓰임).
+ZERO_TOTAL_INDEX = 1552
 
 
 def stamp(moment):
     return moment.isoformat().replace("+00:00", "Z")
 
 
-def seed(conn, name, rows):
+def seed(conn, name, rows, zero_total=None):
     sid = source(conn, name)
     start = datetime.now(timezone.utc) - timedelta(hours=2)
     for index in range(rows):
         anomalous = index % 25 == 0
         raw = {"adapter_type": "A" if index % 2 else "B", "total_count": str(900 if anomalous else 50 + index % 13),
                "success_count": str(50 + index % 13), "error_count": "0", "status": "S"}
+        if index == zero_total:
+            raw.update(total_count="0", success_count="0", error_count="0", status="F")
         # 라벨은 일부 행에만(이상 4%·정상 일부, 나머지는 라벨 없음) — 정상 라벨 유무 null 규칙을 실제 값으로 본다.
         label = "anomaly" if anomalous else "normal" if index % 5 == 1 else None
         observe(conn, sid, f"compare-{sid}-{index}", raw, label, persisted=start + timedelta(seconds=index))
@@ -175,7 +183,8 @@ def verify_synthetic_rejected(conn, fixture, snapshot_id):
 def comparison_rows(conn, job_id):
     comparison = conn.execute("""SELECT id,status,baseline_config_version_id,active_revision,summary
                                    FROM run_config_comparisons WHERE job_id=%s""", (job_id,)).fetchall()
-    evaluations = conn.execute("""SELECT id,config_version_id,comparison_id,evaluation_set_id,purpose::text,applicability,population_count
+    evaluations = conn.execute("""SELECT id,config_version_id,comparison_id,evaluation_set_id,purpose::text,applicability,population_count,
+                                         scored_count,unavailable_count,metrics->'excludedCount',metrics->'excludedReasons'
                                     FROM run_evaluations WHERE job_id=%s ORDER BY config_version_id""", (job_id,)).fetchall()
     items = conn.execute("""SELECT config_version_id,role,status,error_code,evaluation_id FROM run_config_comparison_items
                              WHERE comparison_id=%s ORDER BY config_version_id""",
@@ -192,9 +201,12 @@ def verify_compare(conn, fixture, set_id, generation, active, candidate, version
     comparison, evaluations, items = comparison_rows(conn, job_id)
     assert len(comparison) == 1 and comparison[0][1] == "succeeded" and str(comparison[0][2]) == active, comparison
     assert len(evaluations) == 3 and len(items) == 3, (evaluations, items)
+    evaluated = generation["rowCount"] - 1  # TOTAL_COUNT 0 행 1개 제외
     for evaluation in evaluations:
         assert evaluation[2] == comparison[0][0] and evaluation[3] == set_id and evaluation[4] == "validation"
-        assert evaluation[6] == generation["rowCount"], evaluation
+        # 저장 열은 제외 뒤 값, 제외 수·사유는 metrics JSON에.
+        assert evaluation[5] == "valid" and evaluation[6:9] == (evaluated, evaluated, 0), evaluation
+        assert (evaluation[9], evaluation[10]) == (1, {"model_inputs_undefined": 1}), evaluation
     assert {(str(item[0]), item[1], item[2]) for item in items} == {(active, "active", "succeeded"), (candidate, "candidate", "succeeded"),
                                                                     (version3, "candidate", "succeeded")}
     summary = result
@@ -205,7 +217,16 @@ def verify_compare(conn, fixture, set_id, generation, active, candidate, version
     conn.commit()
     for item in summary["items"]:
         ml = item["categoryResults"]["ml"]
-        assert ml["measurementStatus"] == "measured" and item["counts"]["populationCount"] == generation["rowCount"], item
+        counts = item["counts"]
+        assert ml["measurementStatus"] == "measured" and counts["populationCount"] == evaluated, item
+        assert (counts["excludedCount"], counts["excludedReasons"]) == (1, {"model_inputs_undefined": 1}), counts
+        assert counts["populationCount"] + counts["excludedCount"] == generation["rowCount"], counts
+        assert item["applicability"] == "valid" and "selected_paths_unavailable" not in item["reasonCodes"], item
+        # 제외 행은 ML 미판정(unavailableCount)이 아니다.
+        assert ml["unavailableCount"] == 0 and ml["predictedAnomalyRate"]["denominator"] == evaluated, ml
+        assert ml["predictedAnomalyCount"] == ml["predictedAnomalyRate"]["numerator"] and ml["scoreQuantiles"]["count"] == evaluated, ml
+        assert item["executionCost"]["metricVersion"] == "execution-cost-v1", item.get("executionCost")
+        assert item["executionCost"]["details"]["itemSampleCount"] == evaluated, item["executionCost"]["details"]
         # 세트에 정상·이상 라벨이 모두 있으므로 칸은 정수이고 분모는 라벨 행 수와 같다.
         assert all(type(value) is int for value in ml["confusion"].values()), ml
         assert ml["completeOnly"]["recall"]["denominator"] == generation["truthCount"], ml
@@ -217,6 +238,13 @@ def verify_compare(conn, fixture, set_id, generation, active, candidate, version
             assert pinned == spec["detectionPolicy"] and pinned["deadlineMs"] == 2500, (pinned, spec)
         else:
             assert policy["source"] == "configuration" and policy["detectionPolicy"]["mode"] == "ml_only", policy
+    # 성공 3항목 → 쌍 3개, 항목 순서(활성 먼저). 비교 가능 행 = 두 항목 모두 판정한 행(제외 행 빠짐).
+    order = [item["configVersionId"] for item in summary["items"]]
+    pairs = summary["pairwiseAgreement"]
+    assert [(pair["a"], pair["b"]) for pair in pairs] == [(order[0], order[1]), (order[0], order[2]), (order[1], order[2])], pairs
+    for pair in pairs:
+        assert pair["comparableCount"] == evaluated == pair["both"] + pair["aOnly"] + pair["bOnly"] + pair["neither"], pair
+        assert pair["agreementRate"]["denominator"] == evaluated and pair["interpretation"] == "checker_agreement_not_accuracy", pair
     # 2. 다른 source 후보 1개는 그 항목만 실패, 나머지는 성공.
     job_id, (status, code, result) = run_compare(conn, compare_spec(conn, fixture, set_id, [active, foreign], active))
     assert (status, code) == ("succeeded", None), (status, code)
@@ -224,6 +252,7 @@ def verify_compare(conn, fixture, set_id, generation, active, candidate, version
     assert states == {active: ("succeeded", None), foreign: ("failed", "config_source_mismatch")}, states
     comparison, evaluations, items = comparison_rows(conn, job_id)
     assert len(evaluations) == 1 and len(items) == 2, (evaluations, items)
+    assert result["pairwiseAgreement"] == [] and "executionCost" not in result["items"][1], result
     # 3. 학습 train이 세트 행과 겹치는 후보는 training_evaluation_overlap.
     job_id, (status, code, result) = run_compare(conn, compare_spec(conn, fixture, set_id, [active, overlapping], active))
     states = {item["configVersionId"]: (item["status"], item["errorCode"]) for item in result["items"]}
@@ -244,7 +273,7 @@ def main():
     with tempfile.TemporaryDirectory(prefix="powercode-compare-") as directory:
         os.environ["ARTIFACT_ROOT"] = str(Path(directory).resolve())
         with psycopg.connect(dsn) as conn:
-            fixture = seed(conn, "Compare evaluation fixture", ROWS)
+            fixture = seed(conn, "Compare evaluation fixture", ROWS, zero_total=ZERO_TOTAL_INDEX)
             foreign_fixture = seed(conn, "Compare evaluation other source", FOREIGN_ROWS)
             active = train(conn, fixture, -1, ROWS + 10)
             candidate = train(conn, fixture, -1, ROWS + 10)
@@ -260,7 +289,8 @@ def main():
             conn.commit()
             verify_compare(conn, fixture, set_id, generation, active["configVersionId"], candidate["configVersionId"],
                            version3["configVersionId"], foreign["configVersionId"], overlapping["configVersionId"])
-    print("compare evaluation integration passed: evaluation set, v1 active + v1/v3 candidates compare, item failures, all-failed")
+    print("compare evaluation integration passed: evaluation set, v1 active + v1/v3 candidates compare (1 excluded row, "
+          "pairwise agreement), item failures, all-failed")
 
 
 if __name__ == "__main__":

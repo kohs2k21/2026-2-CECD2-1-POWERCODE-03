@@ -1,5 +1,5 @@
 Created: 2026-10-17T01:49:42+09:00
-Updated: 2026-11-13T21:00:00+09:00
+Updated: 2026-11-14T18:00:00+09:00
 Author: Claude Code (Trainer 세션 builder)
 Status: current
 
@@ -37,7 +37,7 @@ Status: current
 - 고를 수 있는 필드: [ml-feature-fields.json](ml-feature-fields.json) `fields[]`(`ml-feature-fields-v1`, 목록 순서 고정). 계수 4종은 `{"op":"field","field":"P.<key>"}`, `elapsed_ms`·`error_ratio`는 소프트룰 등록 필드와 같은 AST의 `derived`(`provenance={"source":"ml-feature-fields-v1","field":<key>}`). 변수 이름 = 필드 키. 모두 `requires_fit=false`
 - 요청: 필드 키 1–32개. 검사 순서는 ① 목록이 아니거나 개수 밖(0·33개 이상) `invalid_feature_count` → ② 문자열이 아니거나 목록 밖 키 `unknown_feature_field` → ③ 중복 `duplicate_feature_field`(예: `["x","x"]`는 `unknown_feature_field`). 요청 순서는 무관하고 정의는 목록 순서로 정렬한다
 - `ml-feature-fields.json`의 `unit`·`label`은 화면 표시용이다. DB 열 값은 아래 규칙(계수 4종은 `output_type='decimal'`, `output_unit=NULL`)과 벡터를 따른다
-- 결측: 값이 없는 변수(END_TIME 없음 → `elapsed_ms`, TOTAL_COUNT 0 → `error_ratio`)는 0으로 채우지 않는다. 결측 변수가 하나라도 있는 행은 학습하지 않는다(`model_adapters.train_iforest`)
+- 결측: 값이 없는 변수(END_TIME 없음 → `elapsed_ms`, TOTAL_COUNT 0 → `error_ratio`)는 0으로 채우지 않는다. 결측 변수가 하나라도 있는 행은 학습하지 않는다(`model_adapters.train_iforest`). 평가(evaluate·compare 항목)에서는 그 모델의 입력 변수를 행 자신의 값만으로 계산할 수 없는 행(0 나누기·열 없음·해석 불가)을 평가 전에 제외하고 `excludedCount`·`excludedReasons {model_inputs_undefined: n}`로 센다(미판정 `unavailableCount`와 별개; 학습에 없던 fit 그룹은 제외가 아니라 미판정) — 정의·불변식·전 행 제외 규칙은 [config-comparison-evaluation.md](config-comparison-evaluation.md) "평가 제외 행" 절
 - 정규 JSON: `json.dumps(value, sort_keys=True, separators=(",", ":"))`. 키 사전순, 공백 없음, ASCII 밖은 `\uXXXX`(목록 값은 ASCII만이라 이스케이프 차이 없음)
 - 세트 hash: `sha256_hex(utf8("operator_defined:" + 정규JSON(정의 배열)))`. `model_generated`만 접두가 없어 같은 정의라도 hash가 다르다
 - 변수 버전 hash: `sha256_hex(utf8(정규JSON(expression)))`, 종류 접두 없음
@@ -68,7 +68,7 @@ Status: current
 - `synthetic`: 선택 `syntheticEvaluation` 요청의 실제 생성·고정 모델 평가 결과; 미요청은 unavailable/not_implemented 유지. 프로필 등록·요청·결과·재현 규약은 [합성 평가 계약](synthetic-evaluation.md)
 - `operational`: unavailable/operational_report_separate_time_scoped; 운영 실적은 source/config/기간/보고 시간대를 명시한 별도 API에서 조회. 과거 오프라인 결과에 현재 실적을 덮어쓰지 않음
 - ESB 발생→판정 지연은 추론 시간과 별도. 신뢰할 발생 시각·시계 정합성 미확인 시 esbLatencyMs=null/source_clock_unverified
-- 기존 라벨 평가는 metrics/reasonCodes/evaluationId로 유지. 새 selected-paths-v3의 applicability는 선택 경로 기술적 완전성만 반영; 정답 라벨 부족은 정보성 사유·정의 불가 precision/recall/falsePositiveRate=null. 성능 점수 자동 합격·승인 없음, validation 전체 선택 경로 성공 및 파일/hash/모델·fit·스키마 검사 유지. 과거 v2 결과 재해석·재작성 없음
+- 기존 라벨 평가는 metrics/reasonCodes/evaluationId로 유지. evaluate 결과·평가 행 `metrics`에 `excludedCount`·`excludedReasons` 추가(11/14), `populationCount`·`scoredCount`·`unavailableCount`와 평가 행 세 열은 제외 뒤 값(`populationCount + excludedCount` = 분할 행 수). 새 selected-paths-v3의 applicability는 선택 경로 기술적 완전성만 반영(평가한 전 행 complete; 전 행 제외면 `unmeasured` + `all_rows_excluded`); 정답 라벨 부족은 정보성 사유·정의 불가 precision/recall/falsePositiveRate=null. 성능 점수 자동 합격·승인 없음, validation 전체 선택 경로 성공 및 파일/hash/모델·fit·스키마 검사 유지. 과거 v2 결과 재해석·재작성 없음
 - 기존 결과 변경 금지; 이전 작업은 새 확장 필드가 없을 수 있음
 - 결과 공개 조건: 후보/평가 저장과 job 성공·queue ack를 같은 DB 트랜잭션으로 확정
 
@@ -82,7 +82,7 @@ Status: current
 - 신규 학습 기본 `train-success-only-v1`: snapshot train 중 status=S, 명시적 anomaly 라벨 제외. F/P/N/미정/결측은 모델·fit 통계 입력에서 모두 제외. S는 학습 후보이며 정상 정답 보장 아님
 - trainingSelection: policyVersion/split/populationCount/selectedCount/excludedCount/excludedExplicitAnomalyCount/statusCounts/normalGroundTruth=false; config·resultSummary·fit 참조에 저장, API 과거 버전별 그대로 조회. rule_only는 선정 정보만 기록하고 모델 fit 미실행
 - snapshot membership와 validation/test는 필터링하지 않음. 평가 F/P/N/미정 상태 보존, S-only 학습 필터 재사용 금지
-- 중앙값: 그룹별 유한 관측값; 결측 그룹/처음 보는 그룹은 missing, 전체 중앙값 자동 대체 없음
+- 중앙값: 그룹별 유한 관측값; 결측 그룹/처음 보는 그룹은 missing, 전체 중앙값 자동 대체 없음. 평가에서는 그룹 열이 비어 있는 행만 `model_inputs_undefined`로 제외되고, 처음 보는 그룹 행은 제외하지 않고 미판정(`unavailableCount`, 항목 `unmeasured`)으로 남음
 - fit 상태: 기존 fit.joblib에 정의 hash·그룹 통계·train snapshot 참조와 함께 저장; 모델 hash와 동일 수준 검증
 - Trainer/Detector: 같은 정의 순서·fit 상태·transform 함수 재사용
 - 모델별 fit 계산값을 observation+featureSet만 키인 전역 materialization에 저장하지 않음
@@ -111,6 +111,7 @@ Status: current
 - `evaluation_set` 완료: 세트 `ready`와 작업 성공을 한 트랜잭션에. `resultSummary = {evaluationSetId, evaluationSetContractVersion:"evaluation-set-v1", sourceId, snapshotId, purpose, status, contentHash, synthetic:null, generation}`. 작업이 실패하면 011 트리거가 세트를 같은 `error_code`로 `failed` 처리
 - `compare` 완료: 항목 평가 행(`run_evaluations`, `comparison_id`·`evaluation_set_id`)·비교 묶음·항목·작업 결과를 한 트랜잭션에 기록. `replacementRecommendations`는 null(`not_implemented_v1`). 전 항목 실패면 작업 `failed`(`comparison_all_items_failed`)이고 `result_summary`에 같은 요약을 남김
 - 항목 평가는 evaluate와 같은 핵심(`_version_context`·`_measure_version`)을 씀. v1·v2는 구성 정책·룰, v3는 접수 고정 운영 정책으로 평가하고, 고정 룰 세트 리비전은 적용하지 않고 hash 일치만 확인
+- 11/14 추가: 항목 `counts.excludedCount`·`excludedReasons`(모델 입력 미정의 행 평가 전 제외), 성공 항목 `executionCost`(`cost_family` 그대로), `categoryResults.ml`의 `predictedAnomalyCount`·`predictedAnomalyRate`·`scoreQuantiles`, 최상위 `pairwiseAgreement`(성공 항목 쌍별 ML 판정 일치, 교집합 행 기준, 정확도 아님). 정의·null 규칙·확정 표시 이름은 config-comparison-evaluation.md "평가 제외 행·무라벨 지표·버전 간 판정 일치(11/14)" 절
 - 오류: 작업 수준 코드는 `ValueError` → 재시도 없이 `failed`. 항목 수준 코드는 그 항목만 `failed`이고 작업은 계속
 
 ## 책임·범위

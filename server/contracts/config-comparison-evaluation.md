@@ -1,5 +1,5 @@
 Created: 2026-10-21T00:00:00+09:00
-Updated: 2026-11-13T18:30:00+09:00
+Updated: 2026-11-14T18:00:00+09:00
 Author: Claude Code (Trainer 세션 builder)
 Status: draft
 
@@ -16,7 +16,7 @@ Status: draft
 
 ## v1 구현 범위(11/13) — 이 절이 아래 초안보다 우선
 
-- 상태: Trainer 구현(`trainer/comparison.py`, 공유 평가 핵심 `trainer/runner.py:563-725`), API·화면은 WebUI 세션. 저장은 migration 011 그대로(새 migration 없음). 아래 초안 절은 v1 이후 목표로 남김
+- 상태: Trainer 구현(`trainer/comparison.py`, 공유 평가 핵심 `trainer/runner.py` `_version_context`·`_measure_version`), API·화면은 WebUI 세션. 저장은 migration 011 그대로(새 migration 없음). 아래 초안 절은 v1 이후 목표로 남김
 - 구현: 합성 없는 세트만, **작업당 modelKey 1종**(기준선 0..1개), 모델 버전 schemaVersion **1·2·3**(운영 버전은 v1·v2 — 화면 학습이 v1을 만듦), `replacementRecommendations: null`
 - 미구현: 합성 세트(`synthetic` 요청·산출물 `evaluation-sets/...json`), 한 작업의 여러 modelKey·`baselines[]` 2개 이상, `replacementRecommendations[]`, `composite`·`methodResults[]`·`categoryResults.hard/soft`·`evaluationEnvelope`, `comparison-methods-v1` 지표 버전, 조회 시 파생 필드(`recommendationState`·`ruleSetCurrent`), §4.8 자동 비교 평가
 
@@ -54,7 +54,7 @@ Status: draft
 | `evaluation_failed:<code>` | 평가 중 `ValueError` 코드(예 `model_unavailable`) |
 
 - 저장(한 트랜잭션, lease 상실 시 공개 없음): `run_config_comparisons`(전부 실패여도 `status='failed'`로 기록, `baseline_config_version_id` = 기준선 또는 NULL, `active_revision`, `summary`) → 성공 항목마다 `run_evaluations`(`comparison_id`·`evaluation_set_id`, 스냅샷·purpose = 세트, `evaluation_spec_version='selected-paths-v3'`, `evaluation_spec` = evaluate 형식 + `evaluationSetId`·`evaluationSetContentHash`) → `run_config_comparison_items` → 작업 성공(`result_summary` = 같은 summary), 전부 실패면 작업 `failed` + `result_summary` = 같은 summary
-- 평가 행 의미는 evaluate 행과 같음(`applicability='valid'` = 전 행 complete). `purpose=validation` 세트의 행은 기존 적용 gate 조건을 그대로 만족할 수 있음
+- 평가 행 의미는 evaluate 행과 같음(`applicability='valid'` = 평가한 전 행 complete, 평가 제외 행은 아래 "평가 제외 행" 절). `purpose=validation` 세트의 행은 기존 적용 gate 조건을 그대로 만족할 수 있음
 
 ### `resultSummary` v1
 
@@ -70,18 +70,98 @@ Status: draft
   {"configVersionId": "<UUID>", "modelKey": "iforest", "role": "active", "status": "succeeded", "errorCode": null, "evaluationId": "<UUID>",
    "metricVersion": "selected-paths-v3", "evaluationPolicy": {"source": "configuration", "detectionPolicy": {"mode": "ml_only", "deadlineMs": 30000, "combination": "selected_path", "legacy": false}, "ruleCount": 0},
    "applicability": "valid", "reasonCodes": ["labels_unavailable"],
-   "counts": {"populationCount": 300, "scoredCount": 300, "unavailableCount": 0, "unlabeledCount": 228},
+   "counts": {"populationCount": 299, "scoredCount": 299, "unavailableCount": 0, "unlabeledCount": 227,
+              "excludedCount": 1, "excludedReasons": {"model_inputs_undefined": 1}},
    "categoryResults": {"ml": {"measurementStatus": "measured", "methodCount": 1, "confusion": {"tp": 12, "fp": 5, "tn": 55, "fn": 0}, "unavailableCount": 0,
      "completeOnly": {"recall": {"value": 1.0, "numerator": 12, "denominator": 12, "reason": null},
                       "precision": {"value": 0.706, "numerator": 12, "denominator": 17, "reason": null},
-                      "falsePositiveRate": {"value": 0.083, "numerator": 5, "denominator": 60, "reason": null}}}}},
-  {"configVersionId": "<UUID>", "modelKey": "iforest", "role": "candidate", "status": "failed", "errorCode": "training_evaluation_overlap", "evaluationId": null}]}
+                      "falsePositiveRate": {"value": 0.083, "numerator": 5, "denominator": 60, "reason": null}},
+     "predictedAnomalyCount": 34,
+     "predictedAnomalyRate": {"value": 0.114, "unit": "ratio", "numerator": 34, "denominator": 299, "coverage": 1.0, "reason": null},
+     "scoreQuantiles": {"p50": 0.518, "p95": 0.565, "p99": 0.565, "count": 299, "reason": null}}},
+   "executionCost": {"status": "measured", "reason": null, "metricVersion": "execution-cost-v1",
+     "metrics": {"itemP50Ms": {"value": 15.0, "unit": "ms", "numerator": null, "denominator": null, "coverage": null, "reason": null},
+                 "itemP95Ms": {"value": 16.0, "unit": "ms", "numerator": null, "denominator": null, "coverage": null, "reason": null}, "…": "…"},
+     "details": {"batchSize": 299, "itemSampleCount": 299, "scope": "offline_snapshot", "…": "…"}}},
+  {"configVersionId": "<UUID>", "modelKey": "iforest", "role": "candidate", "status": "failed", "errorCode": "training_evaluation_overlap", "evaluationId": null}],
+ "pairwiseAgreement": []}
+```
+
+- 성공 항목이 2개 이상일 때 `pairwiseAgreement` 원소 예:
+
+```json
+{"a": "<기준선 UUID>", "b": "<후보 UUID>", "comparableCount": 299, "both": 34, "aOnly": 0, "bOnly": 0, "neither": 265,
+ "agreementRate": {"value": 1.0, "unit": "ratio", "numerator": 299, "denominator": 299, "coverage": 0.997, "reason": null},
+ "interpretation": "checker_agreement_not_accuracy"}
 ```
 
 - `evaluationPolicy`: 그 항목 평가에 실제 쓴 정책(`source: "accepted"` = v3, 접수 고정 운영 정책 / `"configuration"` = v1·v2 구성 정책). 최상위 `detectionPolicy`는 접수 고정 기록이며 v1·v2 항목에는 적용되지 않음
 - 항목 `applicability`·`counts`·`reasonCodes`는 evaluate와 같은 종합 경로 기준이라 v1·v2 `parallel` 구성은 룰 경로(구성 룰·상태 HR)를 포함하고 v3는 ML만이다. 버전끼리는 `categoryResults.ml`로 같은 기준을 비교하고 화면은 `evaluationPolicy`를 함께 보여 준다
 - `categoryResults.ml` = ML 경로 결과 기준(평가 행 `metrics.model`과 같은 집계 — 라벨 행 중 행 결과 `ml.anomalous`가 있는 행만 혼동행렬에 셈; `unavailableCount` = 모집단 − ML succeeded 행). null 규칙: 세트에 normal 라벨이 없으면 `fp`·`tn`·`precision`·`falsePositiveRate`는 0이 아니라 null + `verified_normal_labels_unavailable`, anomaly 라벨이 없으면 `tp`·`fn`·`recall`·`precision` null + `verified_anomaly_labels_unavailable`. 분모 0은 `value: null` + `no_predicted_anomalies`·`no_scored_anomaly_rows`·`no_scored_normal_rows`. ML 경로 미선택(구성 `rule_only`) `measurementStatus: "skipped"`, ML 성공 행 0 `"unavailable"`(`ml_results_unavailable`)
-- 평가 행 `metrics`는 evaluate와 같은 `selected-paths-v3` 형식 그대로(위 null 규칙은 summary에만 적용, 기존 결과 재해석 없음)
+- 평가 행 `metrics`는 evaluate와 같은 `selected-paths-v3` 형식 그대로(위 null 규칙은 summary에만 적용, 기존 결과 재해석 없음). 11/14부터 `excludedCount`·`excludedReasons` 두 키가 추가됨(아래 절)
+
+### 평가 제외 행·무라벨 지표·버전 간 판정 일치(11/14) [확정 — 사용자·WebUI 합의]
+
+배경: 서버 비교 시험(validation 세트 7,101행)에서 PROCESS 3행(상태 F)이 `TOTAL_COUNT 0` → `error_ratio` 0 나누기 → 모델 입력 결측 → ML `not_ready model_features_unavailable` → 두 항목 모두 `unmeasured`(`selected_paths_unavailable`)였다. 학습 선택(`train-success-only-v1`)은 S 행만 써서 이 경우를 보지 못한다. 런타임 실패가 아니라 그 행에서 모델 입력이 정의되지 않는 것이므로 미판정과 분리해 센다.
+
+**평가 제외 행** (`trainer/runner.py` `_inputs_undefined_check`·`_measure_version`, 비교 항목과 단독 evaluate 모두)
+
+- 대상: 항목 구성에 모델이 1개 있고 ML 경로가 선택된 경우(`rule_only`·모델 없음 구성은 제외 없음). 모델 입력 변수를 **그 행 자신의 값만으로** 계산할 수 없는 행을 **평가 전에** 뺀다 — 0으로 나누기, 열 없음·숫자 해석 불가, 시각 해석 불가
+- 판정 방법: 행 수준 식에 `feature_runtime.calculate_features`(Detector와 같은 계산)를 적용해 결측이 하나라도 나오면 제외. 행 수준 식 = fit 없는 정의는 식 그대로, `group_centered`는 안쪽 `value` 식. fit 정의(`group_median`·`group_centered`)는 그룹 열 `P.adapter_type`이 비어 있으면 제외(`feature_fit._group`). `group_median`은 변환 때 행 값을 쓰지 않으므로 안쪽 식은 보지 않는다. fit 상태(학습 그룹 목록)·산출물은 보지 않는다
+- **학습에 없던 fit 그룹은 제외가 아니다**: `adapter_type` 값은 있으나 학습 fit에 없는 그룹(처음 보는 그룹)은 데이터 결손이 아니라 모델 적용 범위 밖이다. 그 행은 모집단에 남아 종전처럼 미판정(ML `not_ready` `model_features_unavailable` → `unavailableCount`, `selected_paths_unavailable`)이 되고 항목은 `unmeasured`다 — 새 그룹이 많은 validation 세트가 적용 gate를 `valid`로 통과하지 못하게 하려는 것(Trainer 총괄 결정 11/14)
+- 행 전체 제외: 제외 행은 `compute`를 부르지 않으며(합성 평가 기준 판정용 계산만 예외, 집계 미포함) 모집단·완료·미판정·라벨 없음·혼동행렬·점수·`ruleMlComparison`·행 처리 시간 표본·`batchSize`(=`throughput`의 행 수) 어디에도 세지 않는다. 단 `totalMs`(따라서 `throughput`·`batchP50Ms`)는 작업 시작부터 잰 시간이라 전 행의 제외 판정 계산 시간을 포함한다. `parallel` 구성에서도 룰 경로까지 함께 빠진다
+- 제외가 아닌 것(종전처럼 `unavailableCount`·`applicability: "unmeasured"`): 기한 초과(`deadline_exceeded`)·`worker_busy`·계산 예외(`component_failed`)·산출물 경로/hash·임계값 문제·변수 이름 목록 불일치·학습에 없던 fit 그룹. 행 수준 계산 자체가 예외(decimal `Overflow` 등 모든 예외)를 내면 그 행을 제외하지 않고 실행 경로에 맡긴다 — compute에서 `component_failed` 미판정
+- 사유 코드(v1은 하나): `model_inputs_undefined`
+- 항목·평가 결과 키: `counts.excludedCount`(정수), `counts.excludedReasons`(`{"model_inputs_undefined": n}`, 0이면 `{}`). 단독 evaluate 작업 `resultSummary`에는 `populationCount` 옆 최상위 키로 같은 두 키가 들어간다
+- 불변식: `populationCount + excludedCount` = 입력 행 수(비교 = 평가 세트 `rowCount`, evaluate = 스냅샷 그 분할 행 수). `populationCount` = 실제로 평가한 행 수, `scoredCount + unavailableCount = populationCount`
+- 저장: `run_evaluations.population_count`·`scored_count`·`unavailable_count`는 제외 뒤 값, `metrics` JSON에 `excludedCount`·`excludedReasons`. migration 없음, DB CHECK(`scored + unavailable ≤ population`) 그대로 성립
+- `applicability` 규칙 불변: 평가한 전 행이 complete면 `valid`. 단 **평가한 행이 0이면(전 행 제외) `valid`가 아니라 `unmeasured`** + 사유 `all_rows_excluded`(그때 `populationCount`·`scoredCount`·`unavailableCount` 모두 0, `insufficient_labeled_population`도 붙음). 적용 gate SQL(`applicability='valid' AND purpose='validation' AND scored_count>0 AND unavailable_count=0`)은 바꾸지 않음 — 제외 행이 있어도 평가한 행이 전부 complete면 gate를 통과할 수 있고, 제외 수는 `metrics.excludedCount`로 남는다
+- 항목 간: 항목(버전)마다 변수 정의가 달라 제외 행이 다를 수 있다. 버전끼리 행 단위로 맞대는 값은 아래 `pairwiseAgreement`처럼 교집합만 쓴다
+
+**기존 화면 값 "제외 행: 완료 기준 n행"과의 관계** (WebUI 요청으로 명시)
+
+- 기존 값은 `categoryResults.ml.unavailableCount` = `populationCount` − ML succeeded 행 수(평가 상세 ML 칸)이고, 새 `counts.excludedCount`와 **다른 양이다. 합치지 않는다**
+- 이 변경 뒤 `ml.unavailableCount`는 평가한 행 중 ML이 성공하지 못한 행(런타임 실패)만, `excludedCount`는 입력 미정의로 평가 전에 뺀 행만 센다. ML 판정이 없는 행 전체 = `excludedCount + ml.unavailableCount`
+- 서버 사례(7,101행)에 적용하면 `excludedCount` 3, `ml.unavailableCount` 0, `populationCount` 7,098
+- 화면 권고: 두 값을 서로 다른 두 줄로 보인다. 기존 라벨 "제외 행"을 런타임 실패 뜻에 맞게 바꿀지는 WebUI·사용자 결정(이번 승인 범위 밖, 제안만)
+
+**`categoryResults.ml` 무라벨 지표** (`trainer/comparison.py` `unlabeled_measures`)
+
+- 기준 행 = 평가한 행 중 ML `status=succeeded`이고 `anomalous`가 bool인 행
+- `predictedAnomalyCount`: 그 행 중 `anomalous=true` 수(정수)
+- `predictedAnomalyRate`: measurement `{value, unit:"ratio", numerator=predictedAnomalyCount, denominator=기준 행 수, coverage=기준 행 수/populationCount, reason}`; 분모 0이면 `value: null` + `no_scored_rows`
+- `scoreQuantiles`: `{p50, p95, p99, count, reason}` — 기준 행의 ML 점수에 `telemetry.percentile`(오름차순 정렬 뒤 위치 (n−1)·q의 선형 보간, numpy 기본 `linear`과 같은 정의). `count` 0이면 세 값 null + `no_scored_rows`
+- 분기별 null 규칙: `measurementStatus: "skipped"`(ML 경로 미선택) → `predictedAnomalyCount: null`, `predictedAnomalyRate.value: null` + `ml_path_not_selected`, `scoreQuantiles` 세 값 null·`count: 0` + `ml_path_not_selected`. `"unavailable"`(ML 성공 0행, 전 행 제외 포함) → 같은 모양에 사유 `ml_results_unavailable`
+- 라벨과 무관한 값이다 — 이상 판정 비율은 정확도·오탐률이 아니다
+
+**항목 `executionCost`**
+
+- 성공 항목에만: `_measure_version`의 `cost_family` 결과(`execution-cost-v1`, [trainer-service.md](trainer-service.md) `execution_cost` 정의) 그대로. 실패 항목에는 키가 없다. 행 수·행 처리 시간 표본은 평가한 행 기준(`batchSize`·`itemSampleCount` = `populationCount`, 제외 행·예열 행 미포함). `totalMs`는 제외 판정 계산 시간을 포함하므로 `throughput` = 평가한 행 수 / (제외 판정 포함 totalMs)
+- `run_evaluations.metrics`에는 넣지 않는다(evaluate 평가 행과 형식을 맞춤; evaluate의 실행 비용은 종전처럼 작업 결과 `executionCost`·`evaluationEnvelope.execution_cost`에만)
+
+**최상위 `pairwiseAgreement`** (`trainer/comparison.py` `pairwise_agreement`)
+
+- 목록. 성공 항목이 2개 미만이면 `[]`(전 항목 실패 묶음 포함)
+- 쌍 순서: 항목 순서(기준선 먼저, 나머지 UUID 문자열 순)에서 앞 항목이 `a`, 뒤 항목이 `b`인 모든 쌍(성공 항목 k개 → k(k−1)/2개)
+- 비교 가능 행 = 두 항목 모두 ML succeeded + bool 판정인 행(observation id 교집합). 항목마다 제외·미판정 행이 달라도 같은 행끼리만 센다
+- 필드: `a`, `b`(configVersionId 문자열), `comparableCount`, `both`(둘 다 이상), `aOnly`, `bOnly`, `neither`(둘 다 정상), `agreementRate` measurement(`numerator = both + neither`, `denominator = comparableCount`, `coverage = comparableCount / 평가 세트 rowCount`, 0이면 `value: null` + `no_comparable_rows`), `interpretation: "checker_agreement_not_accuracy"`
+- 행별 판정은 작업 메모리에만 두고 저장하지 않는다(DB 쓰기 없음, ≤ 8항목 × 세트 행 수)
+
+**화면 표시 이름** [확정 — 사용자 승인 2026-11-14, WebUI 경유]
+
+| 키 | 표시 이름 |
+|---|---|
+| `excludedCount` | 평가 제외 행 |
+| `excludedReasons.model_inputs_undefined` | 입력 변수 계산 불가(예: 처리 건수 0) |
+| `executionCost.metrics.itemP50Ms` / `itemP95Ms` | 행당 처리 시간 중앙값 / 행당 처리 시간 P95 |
+| `predictedAnomalyCount` / `predictedAnomalyRate` | 이상 판정 건수 / 이상 판정 비율 |
+| `scoreQuantiles.p50` / `p95` / `p99` | 이상 점수 중앙값 / 95분위 / 99분위 |
+| `pairwiseAgreement` | 버전 간 판정 일치 |
+| `both` / `aOnly` / `bOnly` / `neither` | 둘 다 이상 / {A 이름}만 이상 / {B 이름}만 이상 / 둘 다 정상 |
+| `agreementRate` | 판정 일치율 |
+| `interpretation` 안내문 | 정확도가 아니라 두 버전의 판정이 얼마나 같은지입니다 |
+
+- 기존 "제외 행"(= `ml.unavailableCount`) 라벨 변경은 위 승인에 포함되지 않음 — WebUI 제안으로만 남김
 
 ## 평가 세트 `evaluation-set-v1`
 

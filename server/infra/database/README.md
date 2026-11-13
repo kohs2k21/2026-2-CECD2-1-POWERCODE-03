@@ -7,7 +7,7 @@ Status: current
 
 - Issue #32 기준: 최신 PostgreSQL·공통 규약·LLM 기획 반영. `schema.dbml`은 최종 목표 구조의 시각화, 실행 원본은 migration SQL
 - 목표 구조(Issue #32 당시): public 28테이블 + `powercode_queue` 기존 물리 큐 2테이블. 기존 public 24테이블 보존, BODY·BODY 연결·불변 입력·LLM 결과 4테이블만 추가
-- 현재 `schema.dbml`: 001~022 전체 + 024 [제안] 반영(024 절), public 69테이블 + `powercode_queue` 5테이블. 004_feature_pipeline·005~009 추가분 24테이블 보강, 011 3테이블·012 1테이블·014 3테이블·015 3테이블·019 4테이블·022 4테이블·024 1테이블 추가. 013(#82)은 함수 설정만 바꿔 DBML 변경 없음
+- 현재 `schema.dbml`: 001~023 전체 + 024 [제안] 반영(024 절), public 71테이블 + `powercode_queue` 5테이블. 004_feature_pipeline·005~009 추가분 24테이블 보강, 011 3테이블·012 1테이블·014 3테이블·015 3테이블·019 4테이블·022 4테이블·023 2테이블·024 1테이블 추가. 013(#82)은 함수 설정만 바꿔 DBML 변경 없음
 - 기존 001/002 불변. 003/004는 서버 미적용; ERD 등록·SQL 검수와 실제 운영 적용 구분
 - PostgreSQL 17.11 실제 public24+queue2 존재 확인 기록과 정합. 서버 schema/version 이력 및 완전 DDL 일치는 별도 사전 확인 필요
 
@@ -231,6 +231,15 @@ SELECT r.rolname,
 - 시험(`erd-v03-user-settings.mjs`, `erd-v03.mjs`가 호출): `erd022`(001~022 한 문자열, PK·FK 없음·트리거 없음 카탈로그, DBML parity, 역할 5개 권한 정확 일치, 실제 LOGIN API upsert·GREATEST 순번·DELETE 정리와 TRUNCATE·설정 DELETE 42501, 다른 역할 읽기·쓰기 42501, CHECK 경계 12종). 2026-11-13 native PostgreSQL 17.10(embedded) 1180 checks 통과(임시 폴더 D 드라이브). API 경로는 `backend/tests/notifications.integration.mjs`(CI 단계 "User settings and notifications API under runtime role", `powercode_api` 역할 연결)
 - 함께 바꾼 기존 시험: `prepare-runtime-db.py` 목록에 022·`qa_notifications_service` 추가. `erd110_fresh`(015 시점 역할 스크립트)는 019 블록부터 `#78-Q10` 앞까지를 빼므로 022 블록도 함께 빠짐(변경 없음)
 
+## 023 프로토콜 알림 처리 기록
+
+- 파일 `023_protocol_alert_actions.sql`, 022 이후 한 번 실행(`psql -v ON_ERROR_STOP=1 -f`), 기존 표 소유자로 실행 뒤 DBA가 `scripts/database-roles.sql` 재적용. 새 표 2개만(함수·트리거·시퀀스·enum 없음, 001~022 정의·022 `item_key` CHECK 그대로), 단일 BEGIN..COMMIT. FK가 없어 기존 표를 잠그지 않고 작업자를 멈출 필요 없음. 자동 down migration 없음(되돌리기 = 새 표 2개 DROP)
+- 표(API만 읽고 씀): `ops_protocol_alert_keeps`(알림 [이상 유지] 기록, 시스템 전역, 묶음 키 (인터페이스, pathKey)당 1행, 추가만 — 키 `protocol:` + sha256 16진 64자, `path_key` 원래 값·`''` = 경로 없는 미등록 인터페이스 알림, `kept_through_seq` = 누른 시점 알림 순번), `ops_user_protocol_alert_reads`(프로토콜 알림 항목별 읽음, 022 항목 읽음과 같은 규칙)
+- 알림 항목은 저장하지 않는다: API가 최종 판정 `evidence.protocolReview`(Detector `protocol-rules.md` 5.3)에서 읽을 때 만든다(`contracts/protocol-settings-ui.md` 5절). Detector는 이 표들을 읽지 않는다(판정은 이상 그대로)
+- 권한: `powercode_api` keeps SELECT·INSERT(수정·삭제 없음), reads SELECT·INSERT·UPDATE·DELETE. Detector·Collector·Trainer·LLM 권한 없음
+- 시험(`erd-v03-protocol-alerts.mjs`, `erd-v03.mjs`가 호출): `erd023`(001~023 한 문자열, PK·FK 없음·트리거 없음 카탈로그, DBML parity, 역할 5개 권한 정확 일치, 실제 LOGIN API 기록 INSERT·ON CONFLICT DO NOTHING·UPDATE/DELETE 42501·읽음 upsert·정리, 다른 역할 42501, CHECK 경계). API 경로는 `backend/tests/notifications.integration.mjs`
+- 함께 바꾼 기존 시험: `prepare-runtime-db.py` 목록에 023 추가
+
 ## 024 관계 규칙 재판정 탐색 커서 [제안, DB 세션 확정 대기]
 
 - 실험 기능(룰 세트 v3 7단계 재판정 탐색, `contracts/relation-rules.md` 6.5). Detector 세션이 제안한 파일이고 번호·표 형태·권한은 DB 세션이 확정한다. 번호 022는 사용자별 설정(위 절), 023은 WebUI 브랜치(프로토콜 알림 조치)가 쓰므로 024를 씀
@@ -292,7 +301,7 @@ SELECT r.rolname,
 
 ## DBML과 SQL 대응
 
-- DBML은 001~022 적용 후 최종 구조(컬럼·nullability·unique·FK·enum 순서). 물리 큐 5개도 명시. enum 순서는 PostgreSQL 추가 순서(`job_kind`의 `import_csv`는 explain 뒤)
+- DBML은 001~023 적용 후 최종 구조(컬럼·nullability·unique·FK·enum 순서). 물리 큐 5개도 명시. enum 순서는 PostgreSQL 추가 순서(`job_kind`의 `import_csv`는 explain 뒤)
 - nullable FK는 `>?`, unique FK는 부모 `-` 자식 방향, nullable unique FK는 부모 `?-` 자식 방향으로 표시. 실제 FK 방향은 SQL/파싱 대응 시험으로 확인
 - attempt의 복합 FK 3개는 DBML의 exact-composite index 판정 한계로 `>`/`>?` 표시. 자식의 개별 PK/unique가 실제 1:1 제약을 보장한다는 주석 유지; 그림 경고를 없애려고 SQL 중복 인덱스를 추가하지 않음
 - `@dbml/core`는 현재 문법의 `dbmlv2` parser 사용. deprecated `dbml` parser는 optional 관계 문법을 지원하지 않음

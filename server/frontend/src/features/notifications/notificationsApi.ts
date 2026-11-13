@@ -43,7 +43,28 @@ export type IncidentNotification = Base & {
     memberDecisions: number;
   };
 };
-export type NotificationItem = DecisionNotification | IncidentNotification;
+/** 프로토콜 알림(contracts/protocol-settings-ui.md 5절): (인터페이스, 경로)마다 1개, 처음 나온 판정 1번. pathKey null = 경로 없는 미등록 인터페이스 알림. */
+export type ProtocolNotification = Base & {
+  type: "protocol";
+  reason: "first_seen";
+  protocol: {
+    kind: "path_unmatched" | "interface_unregistered";
+    interfaceId: string;
+    pathKey: string | null;
+    channels: string[] | null;
+    routesReason: string | null;
+    protocolRuleId: string | null;
+    /** 가장 최근 판정(판정 상세 주소). */
+    decisionId: string;
+    decisions: number;
+    /** kept = [이상 유지], added = 현재 룰 세트에 있음(옛 알림 "추가됨"), null = 처리 전. */
+    resolution: "kept" | "added" | null;
+    keptAt: string | null;
+    processId: string | null;
+    transactionId: string | null;
+  };
+};
+export type NotificationItem = DecisionNotification | IncidentNotification | ProtocolNotification;
 export type NotificationList = {
   latestSeq: string;
   readThrough: string;
@@ -111,6 +132,17 @@ export const parseNotificationItem = (value: unknown): NotificationItem | null =
     return { ...base, type: "incident", reason, incident: { ...risk, id: i.id, openedAt: str(i.openedAt), memberDecisions: i.memberDecisions as number,
       criteria: { kind: str(criteria.kind), value: str(criteria.value), longValue: criteria.longValue === true } } };
   }
+  if (value.type === "protocol" && obj(value.protocol) && /^protocol:[0-9a-f]{64}$/.test(value.key) && value.reason === "first_seen") {
+    const p = value.protocol;
+    const kind = oneOf(p.kind, ["path_unmatched", "interface_unregistered"] as const);
+    const channels = Array.isArray(p.channels) && p.channels.length > 0 && p.channels.every((item) => typeof item === "string") ? (p.channels as string[]) : null;
+    const pathKey = str(p.pathKey);
+    if (!kind || typeof p.interfaceId !== "string" || !p.interfaceId || typeof p.decisionId !== "string" || !p.decisionId
+      || (pathKey === null) !== (channels === null) || !Number.isInteger(p.decisions) || (p.decisions as number) < 1) return null;
+    return { ...base, type: "protocol", reason: "first_seen", protocol: { kind, interfaceId: p.interfaceId, pathKey, channels, routesReason: str(p.routesReason),
+      protocolRuleId: str(p.protocolRuleId), decisionId: p.decisionId, decisions: p.decisions as number,
+      resolution: oneOf(p.resolution, ["kept", "added"] as const), keptAt: str(p.keptAt), processId: str(p.processId), transactionId: str(p.transactionId) } };
+  }
   return null;
 };
 
@@ -157,6 +189,11 @@ export const markNotificationsRead = async (body: ReadRequest) => {
   const value = await httpClient.post<unknown>("/api/notifications/read", body);
   const count = parseUnreadCount(value);
   return { ...count, readThrough: obj(value) && SEQ.test(String(value.readThrough)) ? String(value.readThrough) : "0" };
+};
+/** [이상 유지](관리자): 룰 세트·판정은 바꾸지 않고 같은 (인터페이스, 경로)를 다시 알리지 않는다. */
+export const keepProtocolAlert = async (body: { interfaceId: string; pathKey: string | null }) => {
+  const value = await httpClient.post<unknown>("/api/notifications/protocol-alerts/keep", body);
+  return { ...parseUnreadCount(value), alreadyKept: obj(value) && value.alreadyKept === true };
 };
 export const readMySettings = async (signal?: AbortSignal) => parseMySettings(await httpClient.get<unknown>("/api/me/settings", { signal }));
 export const saveMySettings = async (body: { notifications?: NotificationSettings; widgetLayout?: StoredLayout }) =>

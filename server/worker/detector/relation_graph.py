@@ -214,8 +214,13 @@ def build_instance_graph(*, source_id: str | None, transaction: Mapping[str, Any
     for group in groups.values():
         last = group["attempts"][-1]
         values = group["dependsOnValues"]
+        # 채널: 모든 시도의 원래 값(trim 없음)이 같고 값이 있을 때만 그 값. 없음은 하나(None)로 보고, 없음·섞임·다름·
+        # 모호 묶음은 None(TS `new Set(...)`과 같이 원래 문자열로 구분 — " CH" 와 "CH"는 다른 값).
+        channels = list(dict.fromkeys(
+            attempt.get("channelId") if _present(attempt.get("channelId")) else None for attempt in group["attempts"]))
         nodes.append({"id": group["id"], "kind": "process", "attrs": {
             "transactionId": group["transactionId"], "processId": group["processId"],
+            "channelId": channels[0] if not group["ambiguous"] and len(channels) == 1 else None,
             "dependsOn": values[0] if len(values) == 1 else None,
             "status": None if group["ambiguous"] else last.get("status"),
             "responseCode": None if group["ambiguous"] else last.get("responseCode"),
@@ -227,7 +232,7 @@ def build_instance_graph(*, source_id: str | None, transaction: Mapping[str, Any
                           "status": a.get("status"), "responseCode": a.get("responseCode"),
                           "dependsOn": a.get("dependsOn"), "totalCount": a.get("totalCount"),
                           "focus": a.get("focus") is True, "decisionId": a.get("decisionId"),
-                          "grade": a.get("grade")} for a in group["attempts"]]}})
+                          "grade": a.get("grade"), "channelId": a.get("channelId")} for a in group["attempts"]]}})
     if tx and tx_node_id:
         for group in groups.values():
             # 대표 행이 없으면(모호) 어느 시도도 검증된 연결로 보지 않는다.

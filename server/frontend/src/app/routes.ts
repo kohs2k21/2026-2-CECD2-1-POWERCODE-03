@@ -23,6 +23,9 @@ export const paths = {
   /** 규칙 추천(층 B 후보 검토, contracts/rule-candidates-ui.md): 목록 → 후보 상세. */
   detectionRuleCandidates: "/detection/rules/candidates",
   detectionRuleCandidate: (candidateId: string) => `/detection/rules/candidates/${encodeURIComponent(candidateId)}`,
+  /** 프로토콜 설정(정상 프로토콜 = 인터페이스별 허용 경로, contracts/protocol-settings-ui.md): 목록 → 인터페이스 상세. */
+  detectionRuleProtocols: "/detection/rules/protocols",
+  detectionRuleProtocol: (interfaceId: string) => `/detection/rules/protocols/${encodeURIComponent(interfaceId)}`,
   detectionModels: "/detection/models",
   detectionModel: (versionId: string) => `/detection/models/${encodeURIComponent(versionId)}`,
   detectionEvaluations: "/detection/evaluations",
@@ -139,6 +142,8 @@ const appPathPatterns: RegExp[] = [
   /^\/detection\/rules$/,
   /^\/detection\/rules\/candidates$/,
   /^\/detection\/rules\/candidates\/[^/]+$/,
+  /^\/detection\/rules\/protocols$/,
+  /^\/detection\/rules\/protocols\/[^/]+$/,
   /^\/detection\/models$/,
   /^\/detection\/models\/[^/]+$/,
   /^\/detection\/evaluations$/,

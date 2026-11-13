@@ -441,7 +441,7 @@ async function loadFlowRows(db: Queryable, id: string, limits: FlowLimits) {
     ), latest AS (
       SELECT DISTINCT ON (coalesce(o.execution_id,o.id)) p.observation_id,p.process_id,p.depend_process_id,p.status,p.response_code,
         p.total_count,p.start_time_raw,(p.observation_id=$1) AS focus,o.execution_id,o.revision_no,p.transaction_id,
-        p.transaction_observation_id,p.retry_count
+        p.transaction_observation_id,p.retry_count,p.channel_id
       FROM candidates c JOIN data_processes p ON p.observation_id=c.observation_id
       JOIN data_observations o ON o.id=p.observation_id AND o.source_id=$3 AND o.layer='P'
       ORDER BY coalesce(o.execution_id,o.id),(p.observation_id=$1) DESC,o.revision_no DESC NULLS LAST,o.persisted_at DESC,o.id
@@ -450,7 +450,7 @@ async function loadFlowRows(db: Queryable, id: string, limits: FlowLimits) {
       l.response_code AS "responseCode",l.total_count::text AS "totalCount",l.focus,
       count(*) OVER ()::integer AS "_total",(count(*) FILTER (WHERE l.status='F') OVER ())::integer AS "_errors",
       l.execution_id AS "_executionId",l.revision_no::text AS "_revisionNo",l.transaction_id AS "_transactionId",
-      l.transaction_observation_id AS "_transactionObservationId",l.retry_count::text AS "_retryCount"
+      l.transaction_observation_id AS "_transactionObservationId",l.retry_count::text AS "_retryCount",l.channel_id AS "_channelId"
     FROM latest l
     ORDER BY l.start_time_raw NULLS LAST,l.process_id NULLS LAST,l.observation_id LIMIT $4`,
   [focus.observation_id, focus.transaction_id, focus.source_id, limits.processes + 1]);
@@ -559,7 +559,7 @@ export async function readDecisionGraph(db: Queryable, id: string,
       revisionNo: p._revisionNo, transactionId: p._transactionId, transactionObservationId: p._transactionObservationId,
       processId: p.processId, dependsOn: p.dependsOn, status: p.status, responseCode: p.responseCode, totalCount: p.totalCount,
       retryCount: p._retryCount, focus: p.focus === true, decisionId: latestDecision.get(p.observationId)?.decisionId ?? null,
-      grade: latestDecision.get(p.observationId)?.grade ?? null })),
+      grade: latestDecision.get(p.observationId)?.grade ?? null, channelId: p._channelId ?? null })),
     messages: loaded.messages.slice(0, limits.messages).map((m) => ({ observationId: m.observationId, executionId: m._executionId,
       revisionNo: m._revisionNo, processObservationId: m._processObservationId, transactionId: m._transactionId,
       processId: m.processId, messageId: m.messageId, direction: m.direction, status: m.status, dataSize: m.dataSize,

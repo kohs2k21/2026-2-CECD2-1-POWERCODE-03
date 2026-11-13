@@ -20,7 +20,7 @@ if (!['localhost', '127.0.0.1'].includes(parsed.hostname) || !/^\/qa_notificatio
 }
 const here = path.dirname(fileURLToPath(import.meta.url));
 const backend = path.resolve(here, '..');
-const { readNotifications, readUnreadCount } = await import('../dist/services/notificationReadModel.js');
+const { readNotifications, readUnreadCount, markNotificationsRead } = await import('../dist/services/notificationReadModel.js');
 const { readIncidentDetail } = await import('../dist/services/incidentReadModel.js');
 const temporary = await mkdtemp(path.join(os.tmpdir(), 'powercode-notifications-'));
 const pool = new pg.Pool({ connectionString: url });
@@ -377,10 +377,104 @@ try {
   assert.deepEqual(flowKeys, [`incident:${flowId}`], 'one item keyed by the incidents screen flow id');
   assert.equal(retriedItems[`incident:${flowId}`].incident.memberDecisions, 2);
   console.log('PASS retry supersede stage and incident flow id parity');
+  // 12) 프로토콜 알림(contracts/protocol-settings-ui.md 5절, 합성 인터페이스·채널): evidence.protocolReview가 있는 최종 판정에서 (인터페이스, 경로)마다 항목 1개,
+  //     처음 나온 판정 1번만 알림, [이상 유지] 뒤 다시 알리지 않음(목록에는 남음), 경로 없는 미등록 인터페이스는 인터페이스 단위, 현재 룰 세트에 있으면 추가됨.
+  const review = (kind, interfaceId, routes, extra = {}) => ({ version: 1, kind, interfaceId, protocolRuleId: kind === 'path_unmatched' ? 'hard:proto-0000000a' : null,
+    ruleSetRevision: 3, transactionObservationId: id(), routes, routesReason: null, endpoints: { start: null, end: null, matchesRoutes: null, ambiguous: false }, ...extra });
+  const route = (channels, matched) => ({ channels, pathKey: channels.map((c) => c.replaceAll('%', '%25').replaceAll(':', '%3A')).join(':'), matched });
+  const unmatched = review('path_unmatched', 'IF_SYN_A', [route(['CH_A', 'CH:X'], false), route(['CH_A', 'CH_B'], true)]);
+  const P = {};
+  const writeProtocol = async (name, minutesAgo, protocolReview, evidence = v4({ level: 'critical' })) => {
+    const tx = await pool.connect();
+    try {
+      await tx.query('BEGIN');
+      const w = fixtureWriters(tx, base.sourceId, base.configId, out);
+      P[name] = await w.legacyDecision(name, minutesAgo, 'complete', { ...evidence, protocolReview });
+      await tx.query('COMMIT');
+    } catch (error) { await tx.query('ROLLBACK'); throw error; } finally { tx.release(); }
+  };
+  await writeProtocol('p1', 1.5, unmatched);
+  await writeProtocol('p2', 1.4, unmatched);
+  await writeProtocol('p3', 1.3, review('interface_unregistered', 'IF_SYN_NEW', [], { routesReason: 'chain_broken' }));
+  await writeProtocol('p4', 1.2, { ...unmatched, version: 2 });
+  await writeProtocol('p5', 1.1, { ...unmatched, interfaceId: 'IF_SYN_OK', routes: [route(['CH_A'], true)] });
+  const protocolItems = () => list('view=all&limit=50', admin).then((body) => body.items.filter((item) => item.type === 'protocol'));
+  const items1 = await protocolItems();
+  assert.deepEqual(items1.map((item) => [item.protocol.interfaceId, item.protocol.pathKey, item.protocol.kind, item.protocol.decisions, item.reason, item.unread]),
+    [['IF_SYN_NEW', null, 'interface_unregistered', 1, 'first_seen', true], ['IF_SYN_A', 'CH_A:CH%3AX', 'path_unmatched', 2, 'first_seen', true]],
+    'one item per (interface, unmatched path); version 2 and fully matched reviews make none');
+  const pathItem = items1.find((item) => item.protocol.interfaceId === 'IF_SYN_A');
+  const firstSeq = (await pool.query('SELECT id::text AS id FROM run_decision_events WHERE decision_id=$1', [P.p1])).rows[0].id;
+  assert.deepEqual([pathItem.seq, pathItem.protocol.decisionId, pathItem.protocol.channels, pathItem.protocol.protocolRuleId, pathItem.protocol.resolution],
+    [firstSeq, P.p2, ['CH_A', 'CH:X'], 'hard:proto-0000000a', null], 'seq = first occurrence, decision = latest');
+  assert.match(pathItem.key, /^protocol:[0-9a-f]{64}$/);
+  const newItem = items1.find((item) => item.protocol.interfaceId === 'IF_SYN_NEW');
+  assert.deepEqual([newItem.protocol.channels, newItem.protocol.routesReason], [null, 'chain_broken']);
+  // 관리자만: 일반 사용자 목록·배지·읽음 요청에는 프로토콜 항목이 없다.
+  const userBefore = (await ok('GET', '/api/notifications/unread-count', user)).unreadCount;
+  assert.equal((await list('view=all&limit=50', user)).items.filter((item) => item.type === 'protocol').length, 0, 'protocol items are admin only');
+  await ok('POST', '/api/notifications/read', user, { items: [{ key: pathItem.key, seq: pathItem.seq }] });
+  assert.equal(Number((await pool.query('SELECT count(*) AS n FROM ops_user_protocol_alert_reads')).rows[0].n), 0, 'a user cannot mark a protocol item');
+  assert.equal((await ok('GET', '/api/notifications/unread-count', user)).unreadCount, userBefore);
+  // 항목 읽음: 023 표에 저장, 022 표에는 넣지 않는다.
+  await ok('POST', '/api/notifications/read', admin, { items: [{ key: pathItem.key, seq: pathItem.seq }] });
+  assert.equal((await list('view=all&limit=50', admin)).items.find((item) => item.key === pathItem.key).unread, false);
+  assert.equal(Number((await pool.query('SELECT count(*) AS n FROM ops_user_protocol_alert_reads WHERE item_key=$1', [pathItem.key])).rows[0].n), 1);
+  // [이상 유지]: 관리자만, 본문 검사, 범위에 없는 묶음 404, 두 번째는 처음 기록 유지.
+  await code('POST', '/api/notifications/protocol-alerts/keep', 403, 'admin_required', { interfaceId: 'IF_SYN_A', pathKey: 'CH_A:CH%3AX' }, user);
+  for (const bad of [{}, { interfaceId: '', pathKey: null }, { interfaceId: 'IF_SYN_A' }, { interfaceId: 'IF_SYN_A', pathKey: '' }, { interfaceId: 'IF_SYN_A', pathKey: 3 },
+    { interfaceId: 'IF_SYN_A', pathKey: null, extra: 1 }]) {
+    await code('POST', '/api/notifications/protocol-alerts/keep', 400, 'invalid_protocol_keep_request', bad, admin);
+  }
+  await code('POST', '/api/notifications/protocol-alerts/keep', 404, 'protocol_alert_not_found', { interfaceId: 'IF_SYN_A', pathKey: 'CH_A:CH_B' }, admin);
+  const kept = await ok('POST', '/api/notifications/protocol-alerts/keep', admin, { interfaceId: 'IF_SYN_A', pathKey: 'CH_A:CH%3AX' });
+  assert.deepEqual([kept.key, kept.alreadyKept, kept.keptBy], [pathItem.key, false, (await pool.query('SELECT kept_by_actor_id AS a FROM ops_protocol_alert_keeps')).rows[0].a]);
+  assert.equal((await ok('POST', '/api/notifications/protocol-alerts/keep', admin, { interfaceId: 'IF_SYN_A', pathKey: 'CH_A:CH%3AX' })).alreadyKept, true);
+  await writeProtocol('p6', 1.0, unmatched);
+  const afterKeep = (await protocolItems()).find((item) => item.key === pathItem.key);
+  assert.deepEqual([afterKeep.seq, afterKeep.unread, afterKeep.protocol.decisions, afterKeep.protocol.resolution], [firstSeq, false, 3, 'kept'],
+    'kept: same pair again does not re-notify, the item stays listed');
+  // 범위가 밀린 뒤(B4): 유지 시점 판정이 범위 밖으로 나가고 범위 정리 DELETE로 읽음 행이 지워져도, 같은 묶음이 다시 나오면 미확인이 아니고 배지도 그대로.
+  const adminId = kept.keptBy;
+  const adminSettings = { decisionBasis: 'interim', minRiskLevel: 'info', includeUnrated: true };
+  const badgeBefore = (await ok('GET', '/api/notifications/unread-count', admin)).unreadCount;
+  // 판정 자체의 알림(묶이지 않은 판정)이 배지를 바꾸지 않도록 이 판정은 정상 저장값으로 둔다(protocolReview만 봄 — 합성 값).
+  await writeProtocol('p7', 0.9, unmatched, v4({ anomalous: false, grade: 'normal' }));
+  for (let index = 0; index < 3; index += 1) {
+    const tx = await pool.connect();
+    try {
+      await tx.query('BEGIN');
+      await fixtureWriters(tx, base.sourceId, base.configId, out).legacyDecision(`filler${index}`, 0.8 - index * 0.01, 'complete', v4({ anomalous: false, grade: 'normal' }));
+      await tx.query('COMMIT');
+    } catch (error) { await tx.query('ROLLBACK'); throw error; } finally { tx.release(); }
+  }
+  assert.equal((await ok('GET', '/api/notifications/unread-count', admin)).unreadCount, badgeBefore, 'same pair again after keep: badge unchanged');
+  const { rows: [{ top: topSeq }] } = await pool.query('SELECT max(id)::bigint AS top FROM run_decision_events');
+  const narrowWindow = Number(BigInt(topSeq) - BigInt(kept.keptThroughSeq));
+  assert.ok(narrowWindow >= 2, 'p6 and p7 stay inside the narrow window, the kept occurrence is outside');
+  await markNotificationsRead(api, adminId, adminSettings, { through: '0' }, narrowWindow, true);
+  assert.equal(Number((await pool.query('SELECT count(*) AS n FROM ops_user_protocol_alert_reads WHERE actor_id=$1 AND item_key=$2', [adminId, pathItem.key])).rows[0].n), 0,
+    'window cleanup deleted the read mark of the kept item');
+  const narrow = await readNotifications(api, adminId, adminSettings, { view: 'all', limit: 50, cursor: null, windowEvents: narrowWindow, protocol: true });
+  const slid = narrow.items.find((item) => item.key === pathItem.key);
+  assert.ok(slid && BigInt(slid.seq) <= BigInt(kept.keptThroughSeq), `window slid: seq ${slid?.seq} <= kept ${kept.keptThroughSeq}`);
+  assert.deepEqual([slid.unread, slid.protocol.resolution], [false, 'kept'], 'kept item outside the window counts as read');
+  const narrowBadge = await readUnreadCount(api, adminId, adminSettings, narrowWindow, true);
+  assert.equal(narrowBadge.unreadCount, narrow.items.filter((item) => item.unread).length);
+  assert.ok(!narrow.items.some((item) => item.key === pathItem.key && item.unread));
+  // 추가됨: 현재 룰 세트에 그 인터페이스 항목이 있으면(경로 없는 알림) resolution added.
+  const { rows: [top] } = await pool.query('SELECT max(revision)::bigint AS r FROM ops_rule_set_revisions');
+  await pool.query(`INSERT INTO ops_rule_set_revisions(revision,content_hash,content_hash_version,snapshot,changes,summary,saved_by_actor_id,saved_at)
+    VALUES($1,$2,3,$3::jsonb,'[]','{}','fixture',clock_timestamp())`, [Number(top.r) + 1, sha('protocol-fixture'),
+    JSON.stringify({ hardRules: [], softRules: [], relationRules: [], protocolRules: [{ id: 'hard:proto-0000000b', interfaceId: 'IF_SYN_NEW', paths: [{ channels: ['CH_N'], source: null }],
+      severity: 'critical', enabled: true, source: null, createdAtRevision: 1, updatedAtRevision: 1 }] })]);
+  assert.equal((await protocolItems()).find((item) => item.protocol.interfaceId === 'IF_SYN_NEW').protocol.resolution, 'added');
+  console.log('PASS protocol alerts: grouping, first-seen seq, read marks, keep (admin, once, no re-notify), added');
   console.log('PASS notifications integration');
 } finally {
   child?.kill();
   await pool.end();
   await api.end();
-  await rm(temporary, { recursive: true, force: true });
+  // Windows에서 방금 끝낸 API 프로세스가 작업 폴더를 잠시 잡고 있을 수 있다 — 정리 실패가 시험 실패를 가리지 않게.
+  await rm(temporary, { recursive: true, force: true }).catch(() => {});
 }

@@ -78,9 +78,10 @@ const rejects = async (promise, code, status) => {
   await assert.rejects(promise, (error) => error instanceof RuleSetError && error.code === code && (status === undefined || error.status === status));
 };
 
-test('approval is off until the API saves hash v3 (Detector relation-rules.md 8)', () => {
-  assert.equal(CONTENT_HASH_VERSION, 2, 'this branch keeps v2 until Detector v3 deploys');
-  assert.deepEqual(approvalState(), { available: false, reason: 'rule_set_hash_v3_pending', contentHashVersion: 2 });
+test('approval opens with hash v3 saves and stays off on a v2 build (rule-set.md v3.7)', () => {
+  assert.equal(CONTENT_HASH_VERSION, 3, 'API v3: deploy only after Detector v3');
+  assert.deepEqual(approvalState(), { available: true, reason: null, contentHashVersion: 3 });
+  assert.deepEqual(approvalState(2), { available: false, reason: 'rule_set_hash_v3_pending', contentHashVersion: 2 });
   assert.deepEqual(approvalState(3), { available: true, reason: null, contentHashVersion: 3 });
 });
 
@@ -126,7 +127,7 @@ test('transaction refs are unescaped exactly once (contract %25 / %3A)', () => {
 test('list: latest succeeded job, default interface = most approvable, graph and tables of that interface only', async () => {
   const db = fakeDb({ latest: job('99999999-2222-4333-8444-555555555555', { status: 'queued', finishedAt: null }) });
   const body = await readCandidateList(db, null);
-  assert.deepEqual([body.latestJob.status, body.approval.available, body.result.job.id], ['queued', false, JOB]);
+  assert.deepEqual([body.latestJob.status, body.approval.available, body.result.job.id], ['queued', true, JOB]);
   assert.deepEqual(body.result.interfaces.map((item) => [item.interfaceId, item.approvable, item.transactions, item.thresholdCandidates]),
     [['IF-A', 2, 300, 2], ['IF-B', 0, 500, 1], ['IF-C', 0, 50, 0]]);
   assert.equal(body.result.selectedInterfaceId, 'IF-A');
@@ -157,7 +158,7 @@ test('detail: counterexamples link to the latest decision of the target step, pa
   ];
   const db = fakeDb({ byId: { [OLD_JOB]: { ...job(OLD_JOB), result: result() } }, decisions });
   const detail = await readCandidateDetail(db, `${OLD_JOB}.r2`);
-  assert.deepEqual([detail.type, detail.isLatest, detail.approval.available, detail.relation.kind], ['relation', false, false, 'message_handoff']);
+  assert.deepEqual([detail.type, detail.isLatest, detail.approval.available, detail.relation.kind], ['relation', false, true, 'message_handoff']);
   assert.deepEqual(detail.counterexamples, [
     { transactionId: 'TX-1', reason: 'message_id_mismatch', transactionStatus: 'S', decisionId: 'd-p2' },
     { transactionId: 'TX-2', reason: 'message_id_mismatch', transactionStatus: 'S', decisionId: 'd-tx2' },

@@ -189,12 +189,12 @@ try {
   assert.deepEqual(code(await apply(b.configId, { operation: 'retire', expectedRevision: 2, confirmRetire: false })), [422, 'retire_confirmation_required']);
   assert.deepEqual(code(await apply(a.configId, { operation: 'retire', expectedRevision: 2, confirmRetire: true })), [422, 'not_active']);
   const rules = (await call('/api/rule-set', { token: admin })).body;
-  const offAll = await call('/api/rule-set', { method: 'PUT', token: admin, body: { expectedRevision: rules.revision, confirmHardRuleDisable: true, softRules: [],
-    hardRules: rules.hardRules.map(({ id: ruleId, severity }) => ({ id: ruleId, enabled: false, ...(ruleId === 'hard:process-status' ? { severity } : {}) })) } });
+  const offAll = await call('/api/rule-set', { method: 'PUT', token: admin, body: { expectedRevision: rules.revision, confirmHardRuleDisable: true, softRules: [], relationRules: [], protocolRules: [],
+    hardRules: rules.hardRules.map(({ id: ruleId, severity, editable }) => ({ id: ruleId, enabled: false, ...(editable.includes('severity') ? { severity } : {}) })) } });
   assert.equal(offAll.status, 200, 'rule save counts the active model set');
   assert.deepEqual(code(await apply(b.configId, { operation: 'retire', expectedRevision: 2, confirmRetire: true })), [422, 'detection_methods_empty']);
   const on = await call('/api/rule-set', { method: 'PUT', token: admin, body: { expectedRevision: offAll.body.revision, confirmHardRuleDisable: true,
-    softRules: [], hardRules: rules.hardRules.map(({ id: ruleId, enabled, severity }) => ({ id: ruleId, enabled, ...(ruleId === 'hard:process-status' ? { severity } : {}) })) } });
+    softRules: [], relationRules: [], protocolRules: [], hardRules: rules.hardRules.map(({ id: ruleId, enabled, severity, editable }) => ({ id: ruleId, enabled, ...(editable.includes('severity') ? { severity } : {}) })) } });
   assert.equal(on.status, 200, JSON.stringify(on.body));
   const retired = await apply(b.configId, { operation: 'retire', expectedRevision: 2, confirmRetire: true, note: '점검' });
   assert.equal(retired.status, 200, JSON.stringify(retired.body));

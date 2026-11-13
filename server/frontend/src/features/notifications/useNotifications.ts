@@ -15,8 +15,7 @@ import {
   type NotificationView,
   type ReadRequest,
   type StoredLayout,
-  type UnreadCount,
-} from "./notificationsApi";
+  type UnreadCount, keepProtocolAlert } from "./notificationsApi";
 
 export const notificationListQueryName = "notifications-list";
 export const unreadCountQueryName = "notifications-unread";
@@ -50,6 +49,21 @@ const useInvalidateNotifications = () => {
     void cache.invalidateQueries({ queryKey: accountQueryKey(notificationListQueryName, user?.id) });
     void cache.invalidateQueries({ queryKey: accountQueryKey(unreadCountQueryName, user?.id) });
   };
+};
+
+/** [이상 유지](관리자). 성공하면 배지 수를 응답값으로 바꾸고 목록을 다시 조회한다. */
+export const useKeepProtocolAlert = () => {
+  const { user } = useAuthSession();
+  const cache = useQueryClient();
+  const invalidate = useInvalidateNotifications();
+  return useMutation({
+    mutationFn: keepProtocolAlert,
+    onSuccess: (result) => {
+      cache.setQueryData<UnreadCount>(accountQueryKey(unreadCountQueryName, user?.id), { latestSeq: result.latestSeq, unreadCount: result.unreadCount });
+      void cache.invalidateQueries({ queryKey: accountQueryKey(notificationListQueryName, user?.id) });
+    },
+    onError: invalidate,
+  });
 };
 
 /** 읽음 표시(항목 또는 모두). 성공하면 배지 수를 응답값으로 바꾸고 목록을 다시 조회한다. 실패는 오류 그대로. */

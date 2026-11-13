@@ -13,11 +13,13 @@ import { computeThresholdStats, parseThresholdStatsRequest } from '../ruleset/th
 import {
   enqueueCandidateJob, parseCandidateJobRequest, parseCandidateListQuery, readCandidateDetail, readCandidateList,
 } from '../ruleset/ruleCandidates.js';
+import { parseProtocolDraftQuery, readProtocolDrafts } from '../ruleset/protocolDrafts.js';
 
 /**
  * 룰 세트 API(rule-set.md)·규칙별 수식 추천(llm-recommendation-job.md).
- * 읽기·이력: 로그인 사용자. 저장·미리보기·수식 추천: 관리자. Bearer만 쓰므로 CSRF 토큰 없음. 본문은 JSON만, 64KB 상한.
- * 규칙 추천(rule-candidates-ui.md): 후보 읽기·후보 작업 요청 모두 관리자(탐지 설정 화면, 작업 결과는 관리자만 읽음).
+ * 읽기·이력: 로그인 사용자. 저장·미리보기·수식 추천: 관리자. Bearer만 쓰므로 CSRF 토큰 없음. 본문은 JSON만, 64KB 상한 —
+ * 저장·미리보기만 관리자 확인 뒤 2MB(v3 저장 본문은 프로토콜 경로 전체를 담는다, protocol-settings-ui.md 1절).
+ * 규칙 추천(rule-candidates-ui.md)·프로토콜 초안(protocol-settings-ui.md): 읽기·작업 요청 모두 관리자(탐지 설정 화면, 작업 결과는 관리자만 읽음).
  */
 const BODY_ERROR_CODES: Record<string, string> = {
   'entity.parse.failed': 'invalid_json', 'entity.too.large': 'request_too_large',
@@ -31,7 +33,11 @@ export function createRuleSetRouter(database: () => Pool = getDatabasePool, user
   const router = Router();
   router.use(authenticateToken as any);
   // 앱 공통 express.json보다 먼저 연결한다(index.ts): 잘못된 JSON·과대 본문을 이 라우터 오류 형식으로 돌려준다.
-  router.use(express.json({ limit: '64kb', strict: true }));
+  // 큰 본문(2MB, v3 저장 본문은 프로토콜 경로 전체)은 관리자 확인 뒤의 저장·미리보기에서만 읽는다. 그 밖은 64KB.
+  const smallBody = express.json({ limit: '64kb', strict: true });
+  const largeBody = express.json({ limit: '2mb', strict: true });
+  const savesRuleSet = (req: Request) => (req.method === 'PUT' && req.path === '/') || (req.method === 'POST' && req.path === '/preview');
+  router.use((req, res, next) => (savesRuleSet(req) ? next() : smallBody(req, res, next)));
   const route = (handler: (req: AuthenticatedRequest, res: Response) => Promise<void>) =>
     (req: Request, res: Response, next: NextFunction) => { void handler(req as AuthenticatedRequest, res).catch(next); };
   const admin = requireAdmin as any;
@@ -59,7 +65,7 @@ export function createRuleSetRouter(database: () => Pool = getDatabasePool, user
   };
 
   router.get('/', route(async (req, res) => { res.json(await readRuleSet(database(), actorOf(req))); }));
-  router.put('/', admin, route(async (req, res) => {
+  router.put('/', admin, largeBody, route(async (req, res) => {
     const key = replayKey(req);
     const request = parseRuleSetRequest(json(req));
     const requestHash = crypto.createHash('sha256').update(JSON.stringify(request)).digest('hex');
@@ -73,7 +79,7 @@ export function createRuleSetRouter(database: () => Pool = getDatabasePool, user
     if (key) remember(key, { requestHash, response });
     res.json(response);
   }));
-  router.post('/preview', admin, route(async (req, res) => {
+  router.post('/preview', admin, largeBody, route(async (req, res) => {
     res.json(await previewRuleSet(database(), parseRuleSetRequest(json(req)), actorOf(req)));
   }));
   router.get('/history', route(async (req, res) => {
@@ -99,6 +105,9 @@ export function createRuleSetRouter(database: () => Pool = getDatabasePool, user
   router.get('/candidates/:candidateId', admin, route(async (req, res) => {
     if (Object.keys(req.query).length) throw new RuleSetError('unknown_candidate_filter');
     res.json(await readCandidateDetail(database(), req.params.candidateId));
+  }));
+  router.get('/protocol-drafts', admin, route(async (req, res) => {
+    res.json(await readProtocolDrafts(database(), parseProtocolDraftQuery(req.query as Record<string, unknown>)));
   }));
   router.post('/candidates/jobs', admin, route(async (req, res) => {
     const header = req.headers['idempotency-key'];

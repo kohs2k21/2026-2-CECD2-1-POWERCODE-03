@@ -217,7 +217,8 @@ const calls = (method, path) => requested.filter((call) => call.method === metho
   const preview = calls("POST", "/api/rule-set/preview").at(-1).body;
   assert.equal(preview.expectedRevision, 12);
   assert.deepEqual(preview.hardRules, [{ id: "hard:process-status", enabled: true, severity: { byCode: STATUS_DEFAULT } }, { id: "hard:negative-duration", enabled: false }]);
-  assert.deepEqual(preview.softRules, [{ id: softRule.id, name: softRule.name, field: "elapsed_ms", operator: "gt", threshold: 8000, severity: "warning", enabled: true }]);
+  assert.deepEqual(preview.softRules, [{ id: softRule.id, name: softRule.name, field: "elapsed_ms", operator: "gt", threshold: 8000, severity: "warning", enabled: true, scope: null }]);
+  assert.deepEqual([preview.relationRules, preview.protocolRules], [[], []], "v3 body always carries both arrays");
   assert.equal(calls("PUT", "/api/rule-set").length, 0, "nothing is saved before the confirmation");
   const body = await renderSaveBody(app);
   const bodyText = () => text(body.toJSON());
@@ -611,7 +612,8 @@ const calls = (method, path) => requested.filter((call) => call.method === metho
   const sent = calls("POST", "/api/rule-set/preview").at(-1).body;
   assert.deepEqual([sent.expectedRevision, sent.restoreFromRevision], [12, 10]);
   assert.deepEqual(sent.hardRules, [{ id: "hard:process-status", enabled: true, severity: savedSeverity }, { id: "hard:negative-duration", enabled: true }], "severity only for the editable rule");
-  assert.deepEqual(sent.softRules, [{ id: softRule.id, name: softRule.name, field: "elapsed_ms", operator: "gt", threshold: 4000, severity: "warning", enabled: true }]);
+  assert.deepEqual(sent.softRules, [{ id: softRule.id, name: softRule.name, field: "elapsed_ms", operator: "gt", threshold: 4000, severity: "warning", enabled: true, scope: null }]);
+  assert.deepEqual([sent.relationRules, sent.protocolRules], [[], []], "a v2 snapshot restores to no relation or protocol items");
   await app.cleanup();
 }
 
@@ -993,7 +995,7 @@ const calls = (method, path) => requested.filter((call) => call.method === metho
   const edited = { ...base, soft: [], hard: base.hard.map((rule) => ({ ...rule, enabled: false })) };
   assert.equal(draft.draftChangeCount(edited), 3, "two hard toggles and one removal");
   const added = { ...base, soft: [...base.soft, { key: "new-1", id: null, name: "x", field: "retry_count", operator: "gt", threshold: "3", severity: "info", enabled: true }] };
-  assert.deepEqual(draft.saveRequest(added, false).softRules.at(-1), { id: null, clientRef: "new-1", name: "x", field: "retry_count", operator: "gt", threshold: 3, severity: "info", enabled: true });
+  assert.deepEqual(draft.saveRequest(added, false).softRules.at(-1), { id: null, clientRef: "new-1", name: "x", field: "retry_count", operator: "gt", threshold: 3, severity: "info", enabled: true, scope: null });
   assert.equal(draft.numberLabel(0.00003125), "0.00003125", "small thresholds stay visible");
   assert.deepEqual(draft.severityGroups("critical"), [{ level: "critical", codes: [] }]);
   // byCode는 코드를 자동으로 묶는다: 코드가 늘어도 수정 없이 위험 → 주의 → 참고 순서.
@@ -1001,3 +1003,32 @@ const calls = (method, path) => requested.filter((call) => call.method === metho
     [{ level: "critical", codes: ["PROCESS_STATUS_F", "PROCESS_STATUS_H"] }, { level: "warning", codes: ["PROCESS_STATUS_P", "PROCESS_STATUS_N"] }, { level: "info", codes: ["PROCESS_STATUS_Z"] }]);
 }
 console.log("rules page ok");
+
+// 11) v3 초안: 관계 규칙 켜기·위험도 편집, 단일·기본 단계 위험도, 프로토콜 항목은 그대로 실린다.
+{
+  const relation = { id: "hard:rel-0000000a", kind: "precedes", scope: { interfaceId: "IF_A", adapterType: "HTTP" }, from: { processId: "P1" }, to: { processId: "P2" },
+    match: null, severity: "critical", enabled: true, source: { jobId: "j" }, createdAtRevision: 3, updatedAtRevision: 3 };
+  const protocol = { id: "hard:proto-0000000b", interfaceId: "IF_A", paths: [{ channels: ["CH_A", "CH_B"], source: { kind: "draft" } }], severity: "critical", enabled: true,
+    source: null, createdAtRevision: 3, updatedAtRevision: 3 };
+  const v3Hard = [...hardRules(),
+    { id: "hard:transaction-failed", methodVersion: "transaction-failed-v1", displayName: "거래 실패", conditionText: "x", severity: { byCode: {}, default: "warning" }, enabled: false, editable: ["enabled", "severity"] },
+    { id: "hard:unregistered-interface", methodVersion: "unregistered-interface-v1", displayName: "등록되지 않은 인터페이스", conditionText: "y", severity: "critical", enabled: true, editable: ["enabled", "severity"] }];
+  const base = draft.draftFromState(state(12, { hardRules: v3Hard, relationRules: [relation], protocolRules: [protocol], softRules: [{ ...softRule, scope: { processId: "P2", interfaceId: "IF_A" } }] }));
+  const request = draft.saveRequest(base, false);
+  assert.deepEqual(request.relationRules, [{ id: relation.id, kind: "precedes", scope: relation.scope, from: relation.from, to: relation.to, match: null, severity: "critical", enabled: true }], "source is not resent");
+  assert.deepEqual(request.protocolRules, [{ id: protocol.id, interfaceId: "IF_A", paths: [{ channels: ["CH_A", "CH_B"] }], severity: "critical", enabled: true }]);
+  assert.deepEqual(request.softRules[0].scope, { processId: "P2", interfaceId: "IF_A" }, "stored scope is resent unchanged");
+  assert.deepEqual(request.hardRules.slice(2).map((rule) => rule.severity), [{ byCode: {}, default: "warning" }, "critical"]);
+  const edited = { ...base, relation: [{ id: relation.id, enabled: false, severity: "info" }],
+    hard: base.hard.map((rule) => (rule.id === "hard:unregistered-interface" ? { ...rule, severity: "warning" } : rule.id === "hard:transaction-failed" ? { ...rule, severity: { byCode: {}, default: "critical" } } : rule)) };
+  assert.equal(draft.draftChangeCount(edited), 4, "relation toggle + relation severity + two hard severities");
+  assert.deepEqual(draft.saveRequest(edited, false).relationRules[0], { id: relation.id, kind: "precedes", scope: relation.scope, from: relation.from, to: relation.to, match: null, severity: "info", enabled: false });
+  assert.equal(draft.changeLine({ type: "protocol_updated", id: protocol.id, interfaceId: "IF_A", diff: { pathsAdded: [["CH_A", "CH_C"]], pathsRemoved: [], severity: ["critical", "warning"] } }),
+    "정상 프로토콜 수정 · IF_A · 허용 경로 추가 CH_A → CH_C, 위험도 위험 → 주의");
+  assert.equal(draft.changeLine({ type: "relation_added", id: null, clientRef: "c", kind: "required_step", interfaceId: "IF_A", from: "P1", to: null }), "관계 규칙 추가 · 필수 단계 P1");
+  assert.equal(draft.changeLine({ type: "hard_updated", id: "hard:transaction-failed", displayName: "거래 실패", diff: { severity: [{ byCode: {}, default: "warning" }, { byCode: { E901: "critical" }, default: "warning" }] } }),
+    "이상 규칙 수정 · 거래 실패 · 위험도 E901 — → 위험");
+  const restore = draft.restoreRequest({ ...historyItem(9), snapshot: { hardRules: v3Hard, softRules: [], relationRules: [relation], protocolRules: [protocol] } }, state(12, { hardRules: v3Hard }), false);
+  assert.deepEqual([restore.relationRules.length, restore.protocolRules[0].paths, restore.hardRules[3].severity], [1, [{ channels: ["CH_A", "CH_B"] }], "critical"]);
+}
+console.log("rules page v3 ok");

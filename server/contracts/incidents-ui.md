@@ -8,7 +8,7 @@ Status: current — 실험 기능(층 C). DB migration 019·Detector `incidents.
 - 범위: Detector가 묶어 둔 사건(019 표)을 **읽기만** 하는 API와 화면 용어. 묶는 규칙(구성원 자격·기준 키·간격·병합 결정)은 Detector `incidents.md`, 표 형태는 `infra/migrations/019_incidents.sql`이 기준이다
 - 저장: 019 표 4개 `run_incident_runs`·`run_incidents`·`run_incident_members`·`run_incident_events`. 모두 INSERT만(문장 단위 불변 트리거), API 역할 `powercode_api`는 **SELECT만**. 끝 시각·건수·해제·흐름은 저장하지 않고 **읽을 때 계산**한다
 - 구현: `backend/src/services/incidentReadModel.ts`(순수 함수 `buildIncidentFlows` + 조회), 경로 `backend/src/routes/incidentRoutes.ts`(이상 분석 라우터 안), 프론트 `frontend/src/features/analysis/incidents/`
-- **상관관계만**: 사건 소속은 "같은 시간창·같은 기준값으로 묶였다"는 뜻이다. 원인·전파(인과)를 뜻하지 않는다. 화면은 거래 사이 화살표를 그리지 않고, 기준 설명 이름표를 "같은 시간·같은 값으로 묶은 사건"으로 둔다(plan 4절 "거래 간 간선을 인과로 표기하지 않음")
+- **상관관계만**: 사건 소속은 "같은 시간창·같은 기준값으로 묶였다"는 뜻이다. 원인·전파(인과)를 뜻하지 않는다. 화면은 거래 사이 화살표를 그리지 않고, 기준 설명 이름표를 "같은 시간·같은 값으로 묶은 사건"으로 둔다(거래 간 간선을 인과로 표기하지 않는다)
 
 ## 1. 읽기 순서 — Detector 8절과 같음
 
@@ -34,7 +34,7 @@ Status: current — 실험 기능(층 C). DB migration 019·Detector `incidents.
 
 - 구성원 판정 → 판정 PROCESS 관측(`run_process_decisions.process_observation_id`) → `data_processes.transaction_id` 문자열. **서로 다른 거래 ID 수**가 주 건수, 판정 수는 보조
 - **Detector와 다른 점(단위)**: Detector 8절 구성원 수(`active_execution_count`)는 해제되지 않은 구성원의 **실행 수**(실행당 1)다. 화면 주 건수는 사용자 11/12 결정대로 **거래 수**라 다를 수 있다(한 거래의 PROCESS 실행 여러 개 = Detector 여러 건, 화면 1건). 해제·최신 판정 규칙은 같다
-- **해제**(Detector 8절과 같음): 구성원 판정의 실행(`execution_id`)에서 최신 판정의 저장된 v4 `composite.grade`가 더는 `anomaly`·`anomaly_sign`이 아니면 그 구성원은 해제. **최신 판정 등급을 모르면**(null: v3 evidence·형식 오류)도 이상·이상 징후가 아니므로 해제이고 `unknownGrade`로 따로 센다(Detector `active_execution_count`가 `ELIGIBLE_GRADES`만 세는 것과 같음. 11/12 이전 이 초안은 등급 모름을 활성으로 셌다). 최신 판정 = `PARTITION BY d.execution_id ORDER BY o.revision_no DESC NULLS LAST, d.decided_at DESC, d.event_sequence DESC`(o = 판정 PROCESS 관측, plan 4절·Detector 8절 합의, Detector `_BATCH_SQL` latest와 같은 정렬). 새 리비전 판정 전에는 옛 판정 유지(해제 아님). 표는 바꾸지 않는다
+- **해제**(Detector 8절과 같음): 구성원 판정의 실행(`execution_id`)에서 최신 판정의 저장된 v4 `composite.grade`가 더는 `anomaly`·`anomaly_sign`이 아니면 그 구성원은 해제. **최신 판정 등급을 모르면**(null: v3 evidence·형식 오류)도 이상·이상 징후가 아니므로 해제이고 `unknownGrade`로 따로 센다(Detector `active_execution_count`가 `ELIGIBLE_GRADES`만 세는 것과 같음. 11/12 이전 이 초안은 등급 모름을 활성으로 셌다). 최신 판정 = `PARTITION BY d.execution_id ORDER BY o.revision_no DESC NULLS LAST, d.decided_at DESC, d.event_sequence DESC`(o = 판정 PROCESS 관측, Detector 8절 합의, Detector `_BATCH_SQL` latest와 같은 정렬). 새 리비전 판정 전에는 옛 판정 유지(해제 아님). 표는 바꾸지 않는다
 - 등급 읽기 조건 차이(영향 없음): 화면은 `evidence->'schemaVersion' = '4'::jsonb`(숫자 4)·`composite` 객체일 때만 등급을 읽고(analysisReadModel과 같음), Detector는 `evidence->>'schemaVersion' = '4'`(문자 "4"도 포함)로 읽는다. Detector evidence 작성기는 숫자 4를 쓰므로 지금 데이터에서는 같다
 - 거래 ID가 없음(그래프 계약 `graph_value_absent`: NULL 또는 ASCII 공백·탭·CR·LF를 앞뒤에서 지운 값이 `""`·`\N`)인 판정은 거래로 세지 않고 `missingTransactionId`로 따로 센다
 - `counts` 필드(정수, 모두 필수): `transactions`(해제되지 않은 구성원이 있는 거래 수) · `releasedTransactions`(구성원 모두 해제된 거래 수) · `decisions`(해제되지 않은 구성원 판정 수) · `releasedDecisions` · `missingTransactionId`(해제되지 않은, 거래 ID 없음 판정 수) · `unknownGrade`(최신 판정 등급을 몰라 해제된 판정 수, `releasedDecisions`에 포함)

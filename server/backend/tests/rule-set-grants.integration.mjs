@@ -45,13 +45,16 @@ try {
   const body = {
     expectedRevision: state.revision, confirmHardRuleDisable: false, restoreFromRevision: null, note: null,
     hardRules: state.hardRules.map(({ id, enabled, severity }) => ({ id, enabled, severity })),
-    softRules: [{ id: null, clientRef: 'grant', name: `권한 시험 ${state.revision}`, field: 'retry_count', operator: 'gte', threshold: state.revision + 3, severity: 'info', enabled: true }],
+    softRules: [{ id: null, clientRef: 'grant', name: `권한 시험 ${state.revision}`, field: 'retry_count', operator: 'gte', threshold: state.revision + 3, severity: 'info', enabled: true, scope: null }],
+    // v3 저장(관계·프로토콜 항목 포함)도 API 역할로 된다. 프로토콜 항목은 인터페이스당 1개라 리비전마다 다른 이름을 쓴다.
+    relationRules: [], protocolRules: [{ id: null, clientRef: 'grant-proto', interfaceId: `IF_GRANT_${state.revision}`, paths: [{ channels: ['CH_A', 'CH_B'] }], severity: 'critical', enabled: true }],
   };
   assert.equal((await previewRuleSet(api, body, actor)).valid, true);
   const saved = await saveRuleSet(api, body, 'grant-admin', actor);
   assert.equal(saved.revision, state.revision + 1);
   assert.equal((await readHistory(api, { limit: 5, before: null }, actor)).items[0].revision, saved.revision);
   assert.equal((await readHistoryItem(api, saved.revision, actor)).snapshot.softRules.length, 1);
+  assert.equal((await readRuleSet(api, actor)).contentHashVersion, 3, 'API role inserts v3 rows (DB 020 CHECK allows 3)');
 
   const sourceId = await seedRuleSetSource(admin, 'grants');
   for (let index = 0; index < 25; index += 1) await addProcess(admin, sourceId, { occurredAt: new Date().toISOString(), counts: { total: index + 1 } });

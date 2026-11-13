@@ -1,5 +1,5 @@
 import { criteriaText } from "@/features/analysis/incidents/incidentLabels";
-import type { DecisionBasis, DecisionNotification, IncidentNotification, NotificationItem, NotificationView, RiskFloor } from "./notificationsApi";
+import type { DecisionBasis, DecisionNotification, IncidentNotification, NotificationItem, NotificationView, ProtocolNotification, RiskFloor } from "./notificationsApi";
 
 /** 알림 패널·알림 설정 문구(와이어프레임 #93 bell·notifSettings, 화면 흐름 결정 2.2). */
 export const viewLabels: Record<NotificationView, string> = { unread: "읽지 않음", all: "전체" };
@@ -34,8 +34,20 @@ const incidentReasonLabels: Record<IncidentNotification["reason"], string> = { o
 const incidentHeadline = ({ reason, incident }: IncidentNotification) => `사건 · ${criteriaText(incident.criteria)} · ${incidentReasonLabels[reason]}`;
 const incidentSubject = ({ incident }: IncidentNotification) => `묶인 판정 ${incident.memberDecisions.toLocaleString("ko-KR")}건`;
 
+/** 프로토콜 알림(결정 11/13 "처음 보는 경로·인터페이스 = 이상 + 알림"). 경로는 채널을 화살표로 잇는다(원래 값). */
+const protocolHeadline = ({ protocol }: ProtocolNotification) =>
+  `정상 프로토콜 확인 · ${protocol.kind === "interface_unregistered" ? "등록되지 않은 인터페이스" : "처음 보는 경로"}`;
+const protocolSubject = ({ protocol }: ProtocolNotification) =>
+  [`인터페이스 ${protocol.interfaceId}`, protocol.channels ? `경로 ${protocol.channels.join(" → ")}` : "경로를 만들 수 없음",
+    `판정 ${protocol.decisions.toLocaleString("ko-KR")}건`].join(" · ");
+export const protocolResolutionLabels: Record<"kept" | "added", string> = { kept: "이상 유지됨", added: "정상 프로토콜에 추가됨" };
+
 export const notificationText = (item: NotificationItem) =>
-  item.type === "decision" ? { headline: decisionHeadline(item), subject: decisionSubject(item) } : { headline: incidentHeadline(item), subject: incidentSubject(item) };
-export const notificationRisk = (item: NotificationItem) => (item.type === "decision" ? item.decision : item.incident);
-/** 철회 알림은 위험도 대신 철회만 보인다. */
-export const showsRisk = (item: NotificationItem) => !(item.type === "decision" && (item.decision.stage === "no_final" || item.decision.stage === "cleared"));
+  item.type === "decision" ? { headline: decisionHeadline(item), subject: decisionSubject(item) }
+    : item.type === "incident" ? { headline: incidentHeadline(item), subject: incidentSubject(item) }
+      : { headline: protocolHeadline(item), subject: protocolSubject(item) };
+export const notificationRisk = (item: NotificationItem) =>
+  item.type === "decision" ? item.decision : item.type === "incident" ? item.incident : { riskStatus: "unrated" as const, riskLevel: null, hasUnratedEvidence: false };
+/** 철회 알림은 위험도 대신 철회만 보인다. 프로토콜 알림은 위험도 없음(판정 상세에서 확인). */
+export const showsRisk = (item: NotificationItem) =>
+  item.type !== "protocol" && !(item.type === "decision" && (item.decision.stage === "no_final" || item.decision.stage === "cleared"));

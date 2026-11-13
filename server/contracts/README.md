@@ -12,7 +12,8 @@ Reserved for versioned request, response, event, and worker contracts shared by 
 - `process-graph.md`는 실행 그래프 응답 형식 `{graph, nodes, edges}`(층 A 거래 내부 구현 `GET /api/analysis/decisions/:id/graph`, 층 B·C 어휘 예약)·고정 어휘·id 규칙·검증 상태를 정의한다(실험 기능). `process-graph-id-vectors.json`은 id·없음 판정 공용 시험 벡터다.
 - `relation-rules.md`는 거래 내부 관계 규칙·`hard:transaction-failed`·거래 행 도착 재판정·룰 세트 hash v3의 Detector 판정 설계, `protocol-rules.md`는 인터페이스별 허용 경로(프로토콜 규칙) 판정·알림 근거와 룰 세트 v3 판정 구현 계획을 정의한다(실험 기능, Detector 판정·재판정 구현 — 재판정 커서는 DB 024 [제안]). `protocol-path-vectors.json`은 프로토콜 경로 만들기(Detector·Trainer 공용) 시험 벡터다.
 - `incidents-ui.md`는 사건 보기(층 C) 읽기 API `GET /api/analysis/incidents`·`/:id`·`/:id/members`의 읽기 순서(병합 → 이어짐)·거래 기준 건수·해제 계산·오류 code와 화면 용어를 정의한다(실험 기능).
-- `rule-candidates-ui.md`는 규칙 추천(층 B 관계 규칙·처리 시간 후보 검토) 읽기 API `GET /api/rule-set/candidates`·`/:candidateId`, 후보 작업 요청 `POST /api/rule-set/candidates/jobs`, 승인 꺼짐 조건(룰 세트 hash v3 전)과 화면 용어를 정의한다(실험 기능).
+- `rule-candidates-ui.md`는 규칙 추천(층 B 관계 규칙·처리 시간 후보 검토) 읽기 API `GET /api/rule-set/candidates`·`/:candidateId`, 후보 작업 요청 `POST /api/rule-set/candidates/jobs`, 승인(룰 세트 hash v3 저장, 승인됨 판단)과 화면 용어를 정의한다(실험 기능).
+- `protocol-settings-ui.md`는 룰 설정 › 프로토콜 설정(정상 프로토콜 = 인터페이스별 허용 경로) 화면·관측 경로 초안 읽기 API `GET /api/rule-set/protocol-drafts`·룰 세트 v3 저장 본문 상한·경고 문장·알림 [정상 프로토콜에 추가]·[이상 유지] 처리 기록을 정의한다(실험 기능, 판정 의미는 Detector `protocol-rules.md`).
 - `rules-ui.md`는 룰 설정(`/detection/rules`) 화면 구성·저장·되돌리기·수식 추천 화면 규칙과 룰 세트 API 구현에서 정한 값, 화면 표시 용어(버전과 숫자)를 정의한다(#109).
 - `evaluations-ui.md`는 평가 결과(`/detection/evaluations`) 화면과 평가 세트·비교 평가 접수·조회 API(`/api/evaluation-sets`, `/api/comparisons`, `POST /api/jobs kind=compare`)에서 WebUI가 정한 값을 정의한다(정본은 `config-comparison-evaluation.md` v1 구현 범위).
 - `models-ui.md`는 머신러닝 모델(`/detection/models`) 버전 목록·상세·새 학습 화면 규칙, 지금 서버가 지원하지 않는 항목, 모델 버전 조회·거래량 집계 API 구현에서 정한 값을 정의한다.

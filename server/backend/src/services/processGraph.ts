@@ -30,6 +30,8 @@ export type GraphProcessRow = {
   transactionObservationId: string | null; processId: string | null; dependsOn: string | null; status: string | null;
   responseCode: string | null; totalCount: string | null; retryCount: string | null; focus: boolean;
   decisionId: string | null; grade: string | null;
+  /** data_processes.channel_id 원래 값(trim 없음). 노드 attrs.channelId는 시도 값이 모두 같고 값이 있을 때만(protocol-rules.md 3.2 6단계와 같은 기준). */
+  channelId?: string | null;
 };
 export type GraphMessageRow = {
   observationId: string; executionId: string | null; revisionNo: string | null; processObservationId: string | null;
@@ -209,15 +211,19 @@ export function buildInstanceGraph(input: {
 
   for (const group of groups.values()) {
     const last = group.attempts[group.attempts.length - 1];
+    // 채널: 모든 시도의 원래 값이 같고 값이 있을 때만 그 값. 없음·섞임·다름은 null(경로를 그리지 않음 — 판정의 channel_absent·channel_ambiguous와 같은 경우).
+    const channels = new Set(group.attempts.map((a) => (present(a.channelId) ? a.channelId : null)));
+    const [onlyChannel] = channels;
     nodes.push({ id: group.id, kind: 'process', attrs: {
       transactionId: group.transactionId, processId: group.processId,
+      channelId: !group.ambiguous && channels.size === 1 && onlyChannel !== null ? onlyChannel : null,
       dependsOn: group.dependsOnValues.length === 1 ? group.dependsOnValues[0] : null,
       status: group.ambiguous ? null : last.status, responseCode: group.ambiguous ? null : last.responseCode,
       focus: group.attempts.some((a) => a.focus), verification: group.ambiguous ? 'ambiguous' : null, unkeyed: !group.keyed,
       branch: (outgoing.get(group.id)?.size ?? 0) >= 2, selfDependency: selfDependency.has(group.id),
       attempts: group.attempts.map((a) => ({ observationId: a.observationId, executionId: a.executionId, revisionNo: a.revisionNo,
         retryCount: a.retryCount, status: a.status, responseCode: a.responseCode, dependsOn: a.dependsOn, totalCount: a.totalCount,
-        focus: a.focus, decisionId: a.decisionId, grade: a.grade })),
+        focus: a.focus, decisionId: a.decisionId, grade: a.grade, channelId: a.channelId ?? null })),
     } });
   }
   if (tx && txNodeId) {

@@ -20,6 +20,14 @@ import { RISK_RANK, type NotificationSettings } from './userSettings.js';
  *    흐름 id = 닿은 사건 중 (opened_at, 병합 뿌리 id)가 가장 작은 사건의 병합 뿌리 = buildIncidentFlows의 첫 구간 id(사건 보기 화면 흐름 id와 같음).
  *    병합 뿌리 = merged_into를 끝까지 따라간 사건(고리면 자기 자신). 어긋난 연결(incidents-ui flags)은 거르지 않는다(그런 흐름은 화면 id와 다를 수 있음).
  * 4) 읽음: 항목 순번 > max(모두 읽음 순번, 그 항목 읽음 순번)이면 미확인. 묶인 판정의 시각은 판정 이벤트 순번이므로 "모두 읽음" 뒤에 묶여도 다시 미확인이 되지 않는다.
+ * 5) 프로토콜 항목(key protocol:<sha256(interfaceId, pathKey)>, contracts/protocol-settings-ui.md 5절): 범위 안 최종 판정의 evidence.protocolReview
+ *    (Detector protocol-rules.md 5.3, T일 때만 있음)에서 일치하지 않은 경로마다 묶는다(경로를 만들 수 없는 미등록 인터페이스는 pathKey '' = 인터페이스 단위).
+ *    관리자 목록·배지에만 있다(명령이 관리자 전용 — 일반 사용자 목록·배지·읽음 요청에서는 빠짐).
+ *    알림은 범위 안에서 처음 나온 판정 1번(first_seen) — 같은 묶음이 다시 나와도 순번을 바꾸지 않는다(판정 수만 늘어남). 사용자 알림 설정(판정 기준·위험도)과 무관.
+ *    처리 전 묶음은 첫 판정이 범위 밖으로 밀리면 범위 안 가장 이른 판정이 새 순번이 된다 → 아직 처리하지 않은 경로가 계속 나오면 다시 알린다(의도).
+ *    [이상 유지](023 ops_protocol_alert_keeps) 뒤에는 순번이 누른 시점 순번을 넘지 않고, 그 순번이 범위 밖이면 읽음으로 본다(읽음 행이 범위 정리로 지워져도)
+ *    → 같은 묶음을 다시 알리지 않는다(목록에는 남김).
+ *    항목 읽음은 023 ops_user_protocol_alert_reads(022 항목 읽음 표의 키 형식이 UUID로 고정이라 따로 둔다).
  */
 type Queryable = Pick<Pool, 'query'>;
 
@@ -33,13 +41,41 @@ export type NotificationCursor = { seq: string; key: string };
 const ISO = (column: string) => `to_char(${column} AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`;
 const RATED = (risk: string) => `coalesce(${risk}->>'status'='rated' AND ${risk}->>'level' IN ('critical','warning','info'),false)`;
 
+/** 프로토콜 알림 항목 키(023 표 CHECK와 같은 형식). */
+const PROTOCOL_KEY_SQL = (interfaceId: string, pathKey: string) =>
+  `'protocol:'||encode(sha256(convert_to(jsonb_build_array(${interfaceId},${pathKey})::text,'UTF8')),'hex')`;
 /**
- * 공통 CTE. 인자: $1 범위 이벤트 수, $2 판정 기준, $3 하한 순위(1~3), $4 미정 포함, $5 actor_id.
- * 결과 CTE `state`: kind, item_key, notify_seq, notified_at, reason, unread + 화면 값 열.
+ * 프로토콜 알림 원천 CTE(top 다음, $1 = 범위 이벤트 수). pkeyed: 일치하지 않은 경로마다 1행(seq, decision_id, 종류, 인터페이스, pathKey, channels…, item_key).
+ * protocolReview 형식이 다르면(버전·종류·인터페이스·경로 모양) 그 판정·경로는 알림을 만들지 않는다(Detector 계약 밖 값은 해석하지 않음).
  */
-const STATE_CTE = `WITH RECURSIVE top AS (
+const protocolCte = (included: boolean) => `pev AS (
+  SELECT e.id AS seq,e.created_at,d.id AS decision_id,d.evidence->'protocolReview' AS review
+  FROM top JOIN run_decision_events e ON e.id>top.top-$1::bigint AND e.event_kind='final'
+  JOIN run_process_decisions d ON d.id=e.decision_id
+  WHERE ${included ? 'true' : 'false'} AND jsonb_typeof(d.evidence->'protocolReview')='object' AND d.evidence->'protocolReview'->'version'='1'::jsonb
+    AND d.evidence->'protocolReview'->>'kind' IN ('path_unmatched','interface_unregistered')
+    AND jsonb_typeof(d.evidence->'protocolReview'->'interfaceId')='string' AND d.evidence->'protocolReview'->>'interfaceId'<>''
+), proute AS (
+  SELECT pev.seq,pev.created_at,pev.decision_id,pev.review->>'kind' AS pkind,pev.review->>'interfaceId' AS interface_id,
+    coalesce(rt->>'pathKey','') AS path_key,rt->'channels' AS channels,
+    CASE WHEN jsonb_typeof(pev.review->'routesReason')='string' THEN pev.review->>'routesReason' END AS routes_reason,
+    CASE WHEN jsonb_typeof(pev.review->'protocolRuleId')='string' THEN pev.review->>'protocolRuleId' END AS protocol_rule_id
+  FROM pev CROSS JOIN LATERAL jsonb_array_elements(CASE WHEN jsonb_typeof(pev.review->'routes')='array' AND jsonb_array_length(pev.review->'routes')>0
+    THEN pev.review->'routes' WHEN pev.review->>'kind'='interface_unregistered' THEN '[{"matched":false}]'::jsonb ELSE '[]'::jsonb END) rt
+  WHERE jsonb_typeof(rt)='object' AND rt->'matched'='false'::jsonb
+    AND ((rt->'pathKey' IS NULL AND rt->'channels' IS NULL) OR (jsonb_typeof(rt->'pathKey')='string' AND rt->>'pathKey'<>''
+      AND jsonb_typeof(rt->'channels')='array' AND jsonb_array_length(rt->'channels')>0))
+), pkeyed AS (
+  SELECT proute.*,${PROTOCOL_KEY_SQL('proute.interface_id', 'proute.path_key')} AS item_key FROM proute
+)`;
+
+/**
+ * 공통 CTE. 인자: $1 범위 이벤트 수, $2 판정 기준, $3 하한 순위(1~3), $4 미정 포함, $5 actor_id. protocol = 프로토콜 항목 포함(관리자만, 서버 값이라 SQL 문자열에 넣음).
+ * 결과 CTE `state`: kind, item_key, notify_seq, notified_at, reason, unread + 화면 값 열(+ 프로토콜 항목 extra).
+ */
+const stateCte = (protocol: boolean) => `WITH RECURSIVE top AS (
   SELECT coalesce(max(id),0) AS top FROM run_decision_events
-), ev AS (
+), ${protocolCte(protocol)}, ev AS (
   SELECT e.id AS seq,e.event_kind AS kind,e.created_at,d.id AS decision_id,coalesce(d.job_id,i.job_id) AS job_id,d.status::text AS status,
     CASE WHEN e.event_kind='final' THEN d.evidence WHEN e.event_kind IN ('first_anomaly','evidence_added') THEN i.payload END AS snap
   FROM top JOIN run_decision_events e ON e.id>top.top-$1::bigint
@@ -95,7 +131,7 @@ const STATE_CTE = `WITH RECURSIVE top AS (
     (array_agg(d.grade ORDER BY d.seq DESC) FILTER (WHERE d.anomaly))[1] AS grade,
     (array_agg(d.risk_level ORDER BY d.seq DESC) FILTER (WHERE d.anomaly))[1] AS risk_level,
     coalesce((array_agg(d.has_unrated ORDER BY d.seq DESC) FILTER (WHERE d.anomaly))[1],false) AS has_unrated,
-    NULL::uuid AS incident_id,NULL::integer AS members
+    NULL::uuid AS incident_id,NULL::integer AS members,NULL::jsonb AS extra
   FROM dlast l JOIN dev d ON d.item_key=l.item_key GROUP BY l.item_key,l.notify_seq,l.notified_at,l.reason
 ), up(start_id,id) AS (
   SELECT DISTINCT incident_id,incident_id FROM mem
@@ -130,21 +166,38 @@ const STATE_CTE = `WITH RECURSIVE top AS (
     (array_agg(CASE WHEN prior_n=0 THEN 'opened' WHEN rank>coalesce(prior_rank,0) THEN 'risk_raised' ELSE 'grew' END ORDER BY seq DESC))[1] AS reason,
     NULL::text AS last_event,NULL::uuid AS job_id,NULL::uuid AS decision_id,NULL::text AS completeness,NULL::text AS final_signal,NULL::text AS grade,
     CASE max(rank) WHEN 3 THEN 'critical' WHEN 2 THEN 'warning' WHEN 1 THEN 'info' END AS risk_level,bool_or(has_unrated) AS has_unrated,
-    incident_id,count(*)::integer AS members
+    incident_id,count(*)::integer AS members,NULL::jsonb AS extra
   FROM iprior GROUP BY incident_id
+), pitems AS (
+  SELECT 'protocol'::text AS kind,p.item_key,
+    CASE WHEN k.alert_key IS NULL THEN min(p.seq) ELSE least(min(p.seq),k.kept_through_seq) END AS notify_seq,
+    (array_agg(p.created_at ORDER BY p.seq))[1] AS notified_at,'first_seen'::text AS reason,
+    NULL::text AS last_event,NULL::uuid AS job_id,(array_agg(p.decision_id ORDER BY p.seq DESC))[1] AS decision_id,
+    NULL::text AS completeness,NULL::text AS final_signal,NULL::text AS grade,NULL::text AS risk_level,false AS has_unrated,
+    NULL::uuid AS incident_id,count(DISTINCT p.decision_id)::integer AS members,
+    jsonb_build_object('kind',(array_agg(p.pkind ORDER BY p.seq DESC))[1],'interfaceId',(array_agg(p.interface_id))[1],
+      'pathKey',nullif((array_agg(p.path_key))[1],''),'channels',(array_agg(p.channels ORDER BY p.seq DESC))[1],
+      'routesReason',(array_agg(p.routes_reason ORDER BY p.seq DESC))[1],'protocolRuleId',(array_agg(p.protocol_rule_id ORDER BY p.seq DESC))[1],
+      'keptAt',${ISO('k.kept_at')},'keptBy',k.kept_by_actor_id) AS extra
+  FROM pkeyed p LEFT JOIN ops_protocol_alert_keeps k ON k.alert_key=p.item_key
+  GROUP BY p.item_key,k.alert_key,k.kept_through_seq,k.kept_at,k.kept_by_actor_id
 ), items AS (
-  SELECT * FROM ditems UNION ALL SELECT * FROM iitems
+  SELECT * FROM ditems UNION ALL SELECT * FROM iitems UNION ALL SELECT * FROM pitems
 ), state AS (
-  SELECT items.*,items.notify_seq>greatest(coalesce(c.read_through,0),coalesce(rd.read_seq,0)) AS unread
+  -- 이상 유지한 프로토콜 묶음: 순번(≤ 유지 순번)이 범위 밖이면 읽음(범위 정리로 읽음 행이 지워져도 다시 미확인이 되지 않는다).
+  SELECT items.*,items.notify_seq>greatest(coalesce(c.read_through,0),coalesce(rd.read_seq,0),coalesce(prd.read_seq,0))
+    AND NOT (items.kind='protocol' AND items.extra->>'keptAt' IS NOT NULL AND items.notify_seq<=(SELECT top FROM top)-$1::bigint) AS unread
   FROM items LEFT JOIN ops_user_notification_cursors c ON c.actor_id=$5::text
   LEFT JOIN ops_user_notification_reads rd ON rd.actor_id=$5::text AND rd.item_key=items.item_key
+  LEFT JOIN ops_user_protocol_alert_reads prd ON prd.actor_id=$5::text AND prd.item_key=items.item_key
 )`;
 
 const baseParams = (actorId: string, settings: NotificationSettings, windowEvents: number) =>
   [windowEvents, settings.decisionBasis, RISK_RANK[settings.minRiskLevel], settings.includeUnrated, actorId];
 
 const encodeCursor = (value: NotificationCursor) => Buffer.from(JSON.stringify([value.seq, value.key]), 'utf8').toString('base64url');
-const ITEM_KEY = /^(incident|job|decision):[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+const ITEM_KEY = /^((incident|job|decision):[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|protocol:[0-9a-f]{64})$/;
+const PROTOCOL_ITEM = /^protocol:[0-9a-f]{64}$/;
 const SEQ = /^(0|[1-9]\d{0,18})$/;
 export const isItemKey = (value: unknown): value is string => typeof value === 'string' && ITEM_KEY.test(value);
 export const isSeq = (value: unknown): value is string => typeof value === 'string' && SEQ.test(value) && BigInt(value) <= 9223372036854775807n;
@@ -169,8 +222,41 @@ const stageOf = (row: Row) => row.decision_id
   : row.reason === 'withdrawn' ? 'no_final'
   : (({ first_anomaly: 'interim', evidence_added: 'updated', superseded: 'superseded', no_final: 'no_final' } as Record<string, string>)[row.last_event] ?? 'interim');
 
-function itemOf(row: Row) {
+/** 현재 룰 세트 프로토콜 항목(인터페이스 → 허용 경로 목록). 프로토콜 알림의 "추가됨" 판단에만 쓴다(읽기 1회). */
+type ProtocolEntries = Map<string, string[][]>;
+async function currentProtocolEntries(db: Queryable): Promise<ProtocolEntries> {
+  const { rows: [row] } = await db.query(`SELECT snapshot->'protocolRules' AS rules FROM ops_rule_set_revisions ORDER BY revision DESC LIMIT 1`);
+  const entries: ProtocolEntries = new Map();
+  for (const rule of Array.isArray(row?.rules) ? row.rules : []) {
+    if (typeof rule?.interfaceId !== 'string' || !Array.isArray(rule.paths)) continue;
+    entries.set(rule.interfaceId, rule.paths.map((path: { channels?: unknown }) => (Array.isArray(path?.channels) ? path.channels as string[] : [])));
+  }
+  return entries;
+}
+const sameChannels = (left: readonly unknown[], right: readonly unknown[]) => left.length === right.length && left.every((value, index) => value === right[index]);
+/**
+ * 프로토콜 항목 처리 상태: kept([이상 유지]) / added(현재 룰 세트에 그 경로 — 경로 없는 미등록 알림은 그 인터페이스 항목 — 가 있음, 옛 알림 "추가됨") / null(처리 전).
+ * Detector는 옛 판정을 고치지 않으므로(protocol-rules.md 5.3) 추가됨은 화면이 현재 룰 세트와 대조해 보인다.
+ */
+function protocolOf(row: Row, entries: ProtocolEntries) {
+  const extra = (row.extra ?? {}) as Record<string, unknown>;
+  const interfaceId = extra.interfaceId as string;
+  const channels = Array.isArray(extra.channels) && extra.channels.every((value) => typeof value === 'string') ? extra.channels as string[] : null;
+  const allowed = entries.get(interfaceId);
+  const added = allowed !== undefined && (channels === null ? true : allowed.some((path) => sameChannels(path, channels)));
+  return {
+    kind: extra.kind as 'path_unmatched' | 'interface_unregistered', interfaceId, pathKey: (extra.pathKey as string | null) ?? null, channels,
+    routesReason: (extra.routesReason as string | null) ?? null, protocolRuleId: (extra.protocolRuleId as string | null) ?? null,
+    decisionId: row.decision_id as string, decisions: row.members as number,
+    resolution: extra.keptAt ? 'kept' as const : added ? 'added' as const : null,
+    keptAt: (extra.keptAt as string | null) ?? null, keptBy: (extra.keptBy as string | null) ?? null,
+    processId: row.process_id ?? null, transactionId: row.transaction_id ?? null,
+  };
+}
+
+function itemOf(row: Row, entries: ProtocolEntries) {
   const base = { key: row.item_key as string, seq: row.seq_text as string, reason: row.reason as string, notifiedAt: row.notified_at as string, unread: Boolean(row.unread) };
+  if (row.kind === 'protocol') return { ...base, type: 'protocol' as const, protocol: protocolOf(row, entries) };
   if (row.kind === 'incident') {
     const { kind, value, valueHash } = parseGroupKey(row.group_key ?? '');
     return { ...base, type: 'incident' as const, incident: { id: row.incident_id as string, openedAt: row.opened_at as string | null,
@@ -183,9 +269,10 @@ function itemOf(row: Row) {
 
 /** GET /api/notifications. 최근 순번 → 항목 키 내림차순 키셋. view=unread면 미확인만. */
 export async function readNotifications(db: Queryable, actorId: string, settings: NotificationSettings,
-  { view, limit, cursor, windowEvents = NOTIFICATION_WINDOW_EVENTS }: { view: NotificationView; limit: number; cursor: NotificationCursor | null; windowEvents?: number },
+  { view, limit, cursor, windowEvents = NOTIFICATION_WINDOW_EVENTS, protocol = false }:
+    { view: NotificationView; limit: number; cursor: NotificationCursor | null; windowEvents?: number; protocol?: boolean },
   now = () => new Date()) {
-  const { rows: [row] } = await db.query(`${STATE_CTE}, filtered AS (
+  const { rows: [row] } = await db.query(`${stateCte(protocol)}, filtered AS (
       SELECT * FROM state WHERE $6::text='all' OR unread
     ), page AS (
       SELECT * FROM filtered WHERE $7::bigint IS NULL OR (notify_seq,item_key COLLATE "C")<($7::bigint,$8::text COLLATE "C")
@@ -207,6 +294,7 @@ export async function readNotifications(db: Queryable, actorId: string, settings
   [...baseParams(actorId, settings, windowEvents), view, cursor?.seq ?? null, cursor?.key ?? null, limit + 1]);
   const rows = row.items as Row[];
   const page = rows.slice(0, limit);
+  const entries = page.some((item) => item.kind === 'protocol') ? await currentProtocolEntries(db) : new Map();
   const last = page.at(-1);
   const top = BigInt(row.top as string);
   const fromSeq = top > BigInt(windowEvents) ? top - BigInt(windowEvents) + 1n : 1n;
@@ -219,13 +307,13 @@ export async function readNotifications(db: Queryable, actorId: string, settings
     unreadCount: row.unread as number,
     total: row.total as number,
     nextCursor: rows.length > limit && last ? encodeCursor({ seq: last.seq_text as string, key: last.item_key as string }) : null,
-    items: page.map(itemOf),
+    items: page.map((item) => itemOf(item, entries)),
   };
 }
 
 /** GET /api/notifications/unread-count: 배지용. 목록과 같은 계산의 미확인 항목 수. */
-export async function readUnreadCount(db: Queryable, actorId: string, settings: NotificationSettings, windowEvents = NOTIFICATION_WINDOW_EVENTS) {
-  const { rows: [row] } = await db.query(`${STATE_CTE}
+export async function readUnreadCount(db: Queryable, actorId: string, settings: NotificationSettings, windowEvents = NOTIFICATION_WINDOW_EVENTS, protocol = false) {
+  const { rows: [row] } = await db.query(`${stateCte(protocol)}
     SELECT (SELECT top::text FROM top) AS top,(SELECT count(*)::integer FROM state WHERE unread) AS unread`, baseParams(actorId, settings, windowEvents));
   return { latestSeq: row.top as string, unreadCount: row.unread as number };
 }
@@ -240,7 +328,7 @@ export type ReadRequest = { through: string } | { items: { key: string; seq: str
  * 어느 쪽이든 조회 범위 밖(최대 id − 범위 이하)으로 밀려난 항목 읽음 행을 지운다(사용자당 행 수 = 최근 알림 수 이하).
  */
 export async function markNotificationsRead(pool: Pool, actorId: string, settings: NotificationSettings, request: ReadRequest,
-  windowEvents = NOTIFICATION_WINDOW_EVENTS) {
+  windowEvents = NOTIFICATION_WINDOW_EVENTS, protocol = false) {
   const client: PoolClient = await pool.connect();
   try {
     await client.query('BEGIN');
@@ -250,22 +338,62 @@ export async function markNotificationsRead(pool: Pool, actorId: string, setting
         ON CONFLICT (actor_id) DO UPDATE SET read_through=GREATEST(ops_user_notification_cursors.read_through,EXCLUDED.read_through),updated_at=clock_timestamp()`,
       [actorId, request.through, top]);
     } else {
-      const { rows: present } = await client.query(`${STATE_CTE} SELECT item_key,notify_seq::text AS seq FROM state WHERE item_key=ANY($6::text[])`,
+      const { rows: present } = await client.query(`${stateCte(protocol)} SELECT item_key,notify_seq::text AS seq FROM state WHERE item_key=ANY($6::text[])`,
         [...baseParams(actorId, settings, windowEvents), request.items.map((item) => item.key)]);
       const current = new Map(present.map((row) => [row.item_key as string, row.seq as string]));
       for (const item of request.items) {
         const seq = current.get(item.key);
         if (seq === undefined) continue;
-        await client.query(`INSERT INTO ops_user_notification_reads(actor_id,item_key,read_seq) VALUES($1,$2,least($3::bigint,$4::bigint))
-          ON CONFLICT (actor_id,item_key) DO UPDATE SET read_seq=GREATEST(ops_user_notification_reads.read_seq,EXCLUDED.read_seq),read_at=clock_timestamp()`,
+        // 프로토콜 항목은 023 표(022 표의 키 형식은 UUID만), 그 밖은 022 표. 저장 규칙은 같다.
+        const table = PROTOCOL_ITEM.test(item.key) ? 'ops_user_protocol_alert_reads' : 'ops_user_notification_reads';
+        await client.query(`INSERT INTO ${table}(actor_id,item_key,read_seq) VALUES($1,$2,least($3::bigint,$4::bigint))
+          ON CONFLICT (actor_id,item_key) DO UPDATE SET read_seq=GREATEST(${table}.read_seq,EXCLUDED.read_seq),read_at=clock_timestamp()`,
         [actorId, item.key, item.seq, seq]);
       }
     }
-    await client.query(`DELETE FROM ops_user_notification_reads WHERE actor_id=$1 AND (read_seq<=$2::bigint-$3::bigint
-      OR read_seq<=(SELECT read_through FROM ops_user_notification_cursors WHERE actor_id=$1))`, [actorId, top, windowEvents]);
+    for (const table of ['ops_user_notification_reads', 'ops_user_protocol_alert_reads']) {
+      await client.query(`DELETE FROM ${table} WHERE actor_id=$1 AND (read_seq<=$2::bigint-$3::bigint
+        OR read_seq<=(SELECT read_through FROM ops_user_notification_cursors WHERE actor_id=$1))`, [actorId, top, windowEvents]);
+    }
     const { rows: [cursor] } = await client.query('SELECT read_through::text AS n FROM ops_user_notification_cursors WHERE actor_id=$1', [actorId]);
     await client.query('COMMIT');
     return { readThrough: (cursor?.n as string | undefined) ?? '0' };
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => {});
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+export class ProtocolAlertError extends Error {
+  constructor(readonly code: string, readonly status: number) { super(code); }
+}
+export type ProtocolKeepRequest = { interfaceId: string; pathKey: string | null };
+/**
+ * POST /api/notifications/protocol-alerts/keep(관리자, contracts/protocol-settings-ui.md 5절): [이상 유지]. 룰 세트·판정은 바꾸지 않는다(판정은 이상 그대로).
+ * 지금 조회 범위에 그 묶음(인터페이스, pathKey — null = 경로 없는 미등록 인터페이스 알림)이 있어야 한다(없으면 404 protocol_alert_not_found).
+ * 기록 = 그 묶음의 현재 최대 순번까지(kept_through_seq) → 그 뒤 같은 묶음은 다시 알리지 않는다. 이미 기록돼 있으면 처음 기록 그대로(alreadyKept).
+ * 누른 관리자에게는 그 항목을 읽음으로 둔다.
+ */
+export async function keepProtocolAlert(pool: Pool, actorId: string, request: ProtocolKeepRequest, windowEvents = NOTIFICATION_WINDOW_EVENTS) {
+  const client: PoolClient = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const { rows: [found] } = await client.query(`WITH top AS (SELECT coalesce(max(id),0) AS top FROM run_decision_events), ${protocolCte(true)}
+      SELECT item_key,max(seq)::text AS seq,(array_agg(decision_id ORDER BY seq DESC))[1] AS decision_id
+      FROM pkeyed WHERE interface_id=$2 AND path_key=$3 GROUP BY item_key`, [windowEvents, request.interfaceId, request.pathKey ?? '']);
+    if (!found) throw new ProtocolAlertError('protocol_alert_not_found', 404);
+    const inserted = await client.query(`INSERT INTO ops_protocol_alert_keeps(alert_key,interface_id,path_key,kept_through_seq,decision_id,kept_by_actor_id)
+      VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT (alert_key) DO NOTHING`, [found.item_key, request.interfaceId, request.pathKey ?? '', found.seq, found.decision_id, actorId]);
+    const { rows: [kept] } = await client.query(`SELECT kept_through_seq::text AS seq,${ISO('kept_at')} AS "keptAt",kept_by_actor_id AS "keptBy"
+      FROM ops_protocol_alert_keeps WHERE alert_key=$1`, [found.item_key]);
+    await client.query(`INSERT INTO ops_user_protocol_alert_reads(actor_id,item_key,read_seq) VALUES($1,$2,$3)
+      ON CONFLICT (actor_id,item_key) DO UPDATE SET read_seq=GREATEST(ops_user_protocol_alert_reads.read_seq,EXCLUDED.read_seq),read_at=clock_timestamp()`,
+    [actorId, found.item_key, found.seq]);
+    await client.query('COMMIT');
+    return { key: found.item_key as string, keptThroughSeq: kept.seq as string, keptAt: kept.keptAt as string, keptBy: kept.keptBy as string,
+      alreadyKept: inserted.rowCount === 0 };
   } catch (error) {
     await client.query('ROLLBACK').catch(() => {});
     throw error;

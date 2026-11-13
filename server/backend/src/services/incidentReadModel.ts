@@ -275,7 +275,7 @@ const MEMBER_BASE_CTE = `map AS (
 )`;
 /**
  * 실행별 최신 판정(rows CTE 이름의 execution_id만): PARTITION BY execution_id ORDER BY 관측 revision_no DESC NULLS LAST, decided_at DESC,
- * event_sequence DESC(plan 4절, Detector 8절 합의). 해제 = 최신 등급이 이상·이상 징후가 아님(normal·undetermined·등급 모름 null).
+ * event_sequence DESC(Detector 8절 합의). 해제 = 최신 등급이 이상·이상 징후가 아님(normal·undetermined·등급 모름 null).
  */
 const LATEST_CTE = (rows: string) => `latest AS (
   SELECT execution_id,id AS latest_id,grade AS latest_grade FROM (

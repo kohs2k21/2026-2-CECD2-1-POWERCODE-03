@@ -3,7 +3,6 @@ import { Link } from "react-router-dom";
 import { IconChevronRight } from "@tabler/icons-react";
 import { SectionCard } from "@/components/layout/SectionCard";
 import { ScreenTitle } from "@/components/layout/PageHeader";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -14,47 +13,15 @@ import { stampText } from "@/features/operations/format";
 import { HttpError } from "@/services/api/client";
 import { useDraftStore } from "@/stores/draftStore";
 import { RuleAiBox, RuleAiControls, useRuleAi } from "../rules/RuleAiPanel";
+import { RuleBanner, type Banner } from "../rules/RuleBanner";
 import { ConfirmDialog, RuleAddDialog, RuleSaveDialog, type PendingSave } from "../rules/RuleDialogs";
-import { HardRulesCard, RuleHistoryCard, SoftRulesCard } from "../rules/RuleTables";
+import { HardRulesCard, RelationRulesCard, RuleHistoryCard, SoftRulesCard } from "../rules/RuleTables";
 import {
-  HARD_TERM, SOFT_TERM, draftChangeCount, draftFromState, draftIssues, errorCode, restoreRequest, saveRequest, softCondition,
+  HARD_TERM, PROTOCOL_ITEM_TERM, PROTOCOL_TERM, RELATION_TERM, SOFT_TERM, draftChangeCount, draftFromState, draftIssues, errorCode, restoreRequest, saveRequest, softCondition,
   type DraftSoftRule, type RuleDraft,
 } from "../rules/ruleDraft";
 import { previewRuleSet, readRuleSetRevision, saveRuleSet, type RuleSetRequest, type RuleSetState, type Severity } from "../rules/ruleSetApi";
 import { useRuleSet, useSoftRuleFields } from "../rules/useRuleSet";
-
-type Banner =
-  | { kind: "saving" }
-  | { kind: "applied"; revision: number }
-  | { kind: "conflict"; code: string; revision: number }
-  | { kind: "failed"; code: string; revision: number; editsKept: boolean };
-
-const RuleBanner = ({ banner, onReload }: { banner: Banner; onReload: () => void }) => {
-  if (banner.kind === "saving") {
-    return (
-      <Alert role="status" data-banner="saving">
-        <AlertDescription className="flex flex-row flex-wrap items-center gap-2"><Badge variant="info">저장 중</Badge>운영에 적용하는 중입니다</AlertDescription>
-      </Alert>
-    );
-  }
-  if (banner.kind === "applied") {
-    return (
-      <Alert role="status" data-banner="applied">
-        <AlertDescription className="flex flex-row flex-wrap items-center gap-2"><Badge variant="success">적용됨</Badge>운영에 적용됨 · 버전 {banner.revision}</AlertDescription>
-      </Alert>
-    );
-  }
-  return (
-    <Alert variant="destructive" data-banner={banner.kind}>
-      <AlertDescription className="flex flex-row flex-wrap items-center gap-2">
-        {banner.kind === "conflict"
-          ? `저장 거절 · ${banner.code} · 다른 사람이 먼저 저장했습니다(현재 버전 ${banner.revision}). 운영 룰은 버전 ${banner.revision} 그대로이며 이 변경은 적용되지 않았습니다. 새로 불러온 뒤 다시 변경하세요.`
-          : `저장 실패 · ${banner.code} · 운영 룰은 버전 ${banner.revision} 그대로입니다.${banner.editsKept ? " 편집 내용은 남아 있습니다." : ""}`}
-        {banner.kind === "conflict" && <Button size="sm" variant="outline" onClick={onReload}>새로 불러오기</Button>}
-      </AlertDescription>
-    </Alert>
-  );
-};
 
 const RuleStatus = ({ state }: { state: RuleSetState }) => (
   <Card aria-label="현재 운영 룰">
@@ -62,7 +29,11 @@ const RuleStatus = ({ state }: { state: RuleSetState }) => (
       <span>현재 운영 <strong className="font-semibold">버전 {state.revision}</strong></span>
       <span>마지막 변경 {stampText(state.savedAt)}</span>
       <span>변경자 {state.savedBy.displayName}</span>
-      <span>켜진 규칙 · {HARD_TERM} {state.counts.hardEnabled}/{state.counts.hardTotal} · {SOFT_TERM} {state.counts.softEnabled}/{state.counts.softTotal}</span>
+      <span>
+        켜진 규칙 · {HARD_TERM} {state.counts.hardEnabled}/{state.counts.hardTotal} · {SOFT_TERM} {state.counts.softEnabled}/{state.counts.softTotal}
+        {state.counts.relationTotal !== undefined && <> · {RELATION_TERM} {state.counts.relationEnabled}/{state.counts.relationTotal}</>}
+        {state.counts.protocolTotal !== undefined && <> · {PROTOCOL_ITEM_TERM} {state.counts.protocolEnabled}/{state.counts.protocolTotal}</>}
+      </span>
     </CardContent>
   </Card>
 );
@@ -164,6 +135,7 @@ const RulesEditor = ({ state, reload, onSavedStale }: {
       setPending({
         ...text(preview.changes.length),
         changes: preview.changes,
+        warnings: preview.warnings ?? [],
         alreadyOff: state.hardRules.filter((rule) => preview.hardDisabledAfterSave.includes(rule.id) && !newlyOff.includes(rule.id)).map((rule) => rule.displayName),
         run: (confirm) => void submit(request(confirm), editsKept),
       });
@@ -203,13 +175,21 @@ const RulesEditor = ({ state, reload, onSavedStale }: {
     setDraft((current) => ({ ...current, soft: current.soft.map((rule) => (rule.key === key ? { ...rule, ...patch } : rule)) }));
   const toggleHard = (id: string, enabled: boolean) =>
     setDraft((current) => ({ ...current, hard: current.hard.map((rule) => (rule.id === id ? { ...rule, enabled } : rule)) }));
-  const setHardSeverity = (id: string, code: string, level: Severity) =>
+  /** code null = 단일 단계 규칙의 단계 또는 `{byCode, default}` 규칙의 기본 단계. */
+  const setHardSeverity = (id: string, code: string | null, level: Severity) =>
     setDraft((current) => ({
       ...current,
-      hard: current.hard.map((rule) => (rule.id === id && rule.severity ? { ...rule, severity: { byCode: { ...rule.severity.byCode, [code]: level } } } : rule)),
+      hard: current.hard.map((rule) => {
+        if (rule.id !== id || rule.severity === undefined) return rule;
+        if (typeof rule.severity === "string") return { ...rule, severity: level };
+        if (code === null) return { ...rule, severity: { ...rule.severity, default: level } };
+        return { ...rule, severity: { ...rule.severity, byCode: { ...rule.severity.byCode, [code]: level } } };
+      }),
     }));
+  const editRelation = (id: string, patch: Partial<RuleDraft["relation"][number]>) =>
+    setDraft((current) => ({ ...current, relation: current.relation.map((rule) => (rule.id === id ? { ...rule, ...patch } : rule)) }));
   const addRule = (rule: Pick<DraftSoftRule, "name" | "field" | "operator" | "threshold" | "severity">) => {
-    setDraft((current) => ({ ...current, nextRef: current.nextRef + 1, soft: [...current.soft, { ...rule, key: `new-${current.nextRef}`, id: null, enabled: true }] }));
+    setDraft((current) => ({ ...current, nextRef: current.nextRef + 1, soft: [...current.soft, { ...rule, key: `new-${current.nextRef}`, id: null, enabled: true, scope: null }] }));
     setAdding(false);
   };
 
@@ -243,7 +223,21 @@ const RulesEditor = ({ state, reload, onSavedStale }: {
           aiBox={<RuleAiBox ai={ai} state={state} draft={draft} fields={fieldList} onApply={(updates) => updates.forEach(({ key, patch }) => editSoft(key, patch))} />}
           onEdit={editSoft} onAdd={() => setAdding(true)} onDelete={setDeleting}
         />
+        <RelationRulesCard draft={draft} onToggle={(id, enabled) => editRelation(id, { enabled })} onSeverity={(id, severity) => editRelation(id, { severity })} />
       </fieldset>
+      <SectionCard
+        title={PROTOCOL_TERM}
+        aria-label={PROTOCOL_TERM}
+        description={`인터페이스별 허용 경로 · ${PROTOCOL_ITEM_TERM} ${state.protocolRules?.length ?? 0}개(켜짐 ${state.protocolRules?.filter((rule) => rule.enabled).length ?? 0}개)`}
+        action={
+          <Button asChild size="sm" variant="outline">
+            <Link to={paths.detectionRuleProtocols}>
+              설정 보기
+              <IconChevronRight aria-hidden="true" />
+            </Link>
+          </Button>
+        }
+      />
       <SectionCard
         title="규칙 추천"
         aria-label="규칙 추천"

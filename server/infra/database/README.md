@@ -7,7 +7,7 @@ Status: current
 
 - Issue #32 기준: 최신 PostgreSQL·공통 규약·LLM 기획 반영. `schema.dbml`은 최종 목표 구조의 시각화, 실행 원본은 migration SQL
 - 목표 구조(Issue #32 당시): public 28테이블 + `powercode_queue` 기존 물리 큐 2테이블. 기존 public 24테이블 보존, BODY·BODY 연결·불변 입력·LLM 결과 4테이블만 추가
-- 현재 `schema.dbml`: 001~023 전체 + 024 [제안] + 025 반영(024·025 절), public 73테이블 + `powercode_queue` 5테이블. 004_feature_pipeline·005~009 추가분 24테이블 보강, 011 3테이블·012 1테이블·014 3테이블·015 3테이블·019 4테이블·022 4테이블·023 2테이블·024 1테이블·025 2테이블 추가. 013(#82)은 함수 설정만 바꿔 DBML 변경 없음
+- 현재 `schema.dbml`: 001~023 전체 + 024 [제안] + 025 반영(024·025 절) + 026 [초안] `job_kind` 값 1개, public 73테이블 + `powercode_queue` 5테이블. 004_feature_pipeline·005~009 추가분 24테이블 보강, 011 3테이블·012 1테이블·014 3테이블·015 3테이블·019 4테이블·022 4테이블·023 2테이블·024 1테이블·025 2테이블 추가. 013(#82)은 함수 설정만 바꿔 DBML 변경 없음
 - 기존 001/002 불변. 003/004는 서버 미적용; ERD 등록·SQL 검수와 실제 운영 적용 구분
 - PostgreSQL 17.11 실제 public24+queue2 존재 확인 기록과 정합. 서버 schema/version 이력 및 완전 DDL 일치는 별도 사전 확인 필요
 
@@ -267,6 +267,18 @@ SELECT r.rolname,
   `DATABASE_URL`은 컨테이너 환경 변수 그대로(`.env`를 읽지 않음). 잘못된 행이 있으면 아무것도 쓰지 않고 종료 2. 파일에 같은 코드가 여러 행이면 메시지·코드명·메시지 키를 `A 또는 B`로 합친다(유형·HTTP 상태가 다르면 잘못된 행, 출력 `merged codes`). 다시 실행하면 바뀐 값만 반영, 화면에서 고친 메시지는 `--force` 없이는 덮지 않는다, 파일에 없는 코드는 지우지 않는다(규칙 상세 contracts/response-codes-ui.md 6절)
 - 시험(`erd-v03-response-codes.mjs`, `erd-v03.mjs`가 호출): `erd025`(디렉터리의 모든 migration 파일을 번호 순으로 한 문자열씩, PK·FK 1개·트리거 없음·색인 카탈로그, DBML parity, 역할 5개 권한 정확 일치, 실제 LOGIN API INSERT·수정 번호 UPDATE·기록 INSERT, DELETE·TRUNCATE·기록 UPDATE/DELETE 42501, GENERATED ALWAYS·FK, 다른 역할 42501, CHECK 경계, 합성 값만). 2026-11-13 embedded PostgreSQL 17.10 1259 checks 통과(임시 폴더 D 드라이브). API·도구 경로는 `backend/tests/response-codes.integration.mjs`(CI 단계 "Response code dictionary import and API under runtime role", `powercode_api` 연결)
 - 함께 바꾼 기존 시험: `prepare-runtime-db.py` 목록에 025·`qa_response_codes_service` 추가. 시험 도구는 migration 디렉터리를 이름 순으로 읽어 적용한다
+
+## 026 프로토콜 경로 설명 작업 종류 [초안, 사용자 승인 대기]
+
+- 파일 `026_explain_protocol.sql`, 025 이후 한 번 실행(`psql -v ON_ERROR_STOP=1 -f`), 기존 표·함수 소유자로 실행. 계약 [protocol-explanation-job.md](../../contracts/protocol-explanation-job.md) DB 영향 절
+- 왜: 프로토콜 설정 상세·프로토콜 알림 상세의 대화형 LLM 설명(`explain_protocol`). API가 `llm_explanation` 큐로 접수, LLM이 `run_llm_results`에 결과를 쓴다(explain과 같은 등급, 관리자만)
+- enum 커밋 분리(017·021과 같음): `job_kind`에 `explain_protocol`을 트랜잭션 밖 `ADD VALUE IF NOT EXISTS`로 먼저 추가, 파일 안에서는 `kind::text` 비교만
+- `run_jobs_v03_contract`(021본 기준): legacy 금지 목록에 추가, 새 분기 `queue='llm_explanation'`·user producer·`requester_role='admin'`·`llm_spec` 필수·manifest·구성 NULL(판정은 알림 대상만 — `input_decision_id` NULL 허용)
+- `run_llm_results_kind_check`·`run_llm_results_check`(017본): kind 목록과 `explain_protocol` 분기(decision 조건 없음, 결과 판정 = 작업 판정은 `erd_v03_validate_result`가 강제). `erd_v03_validate_job`(017본): llm_spec 필수·LLM 완료 결과 필수 목록 2줄만
+- 역할: `database-roles.sql`에 `GRANT SELECT ON ops_rule_set_revisions TO powercode_llm` 한 줄(사실을 만들 때 룰 세트 리비전 `protocolRules[]`를 읽음). 015 시험(`erd-v03-revisions.mjs`)의 권한 표를 같이 고침(llm은 룰 세트 이력 SELECT만)
+- 적용 순서: 작업자를 멈추고 026 → 역할 스크립트 재적용 → LLM → API. 기존 코드는 새 값을 쓰지 않아 026 뒤에도 그대로 동작. 새 조건은 이전보다 넓기만 해 NOT VALID 없이 바로 검증
+- 되돌리기: enum 값은 지울 수 없다. CHECK·함수는 021·017본으로 다시 만들 수 있으나 `explain_protocol` 작업·결과 행이 없을 때만
+- 시험: `prepare-runtime-db.py` 목록에 026 추가(CI가 한 문자열 실행으로 적용). 026 전용 `erd-v03-*.mjs` 시험은 아직 없다(미검증 — 실제 PostgreSQL 적용·재실행·역할 경계는 DB 세션 확인 대상)
 
 ## 큐와 소유권
 

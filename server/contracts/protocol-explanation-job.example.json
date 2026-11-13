@@ -1,0 +1,37 @@
+{
+  "$comment": "explain_protocol 접수 예시(protocol-explanation-job.md). 값은 시험용이다. API 접수 시험과 워커 parse_input 시험이 이 파일을 함께 읽는다. llm_spec의 두 해시·reuse_key는 접수 때 API가 계산한다(여기는 자리 표시 64자).",
+  "observedPaths": {
+    "request": {
+      "kind": "explain_protocol",
+      "sourceId": "6f1c2b9e-3d4a-4b5c-8d6e-7f8091a2b3c4",
+      "target": {"kind": "observed_paths", "jobId": "0b9e8d7c-6f5a-4e3d-9c2b-1a0f9e8d7c6b", "interfaceId": "IF_EXAMPLE", "ruleSetRevision": 15}
+    },
+    "inputSpec": {
+      "kind": "explain_protocol",
+      "sourceId": "6f1c2b9e-3d4a-4b5c-8d6e-7f8091a2b3c4",
+      "target": {"kind": "observed_paths", "jobId": "0b9e8d7c-6f5a-4e3d-9c2b-1a0f9e8d7c6b", "interfaceId": "IF_EXAMPLE", "ruleSetRevision": 15}
+    },
+    "inputDecisionId": null
+  },
+  "alert": {
+    "request": {
+      "kind": "explain_protocol",
+      "sourceId": "6f1c2b9e-3d4a-4b5c-8d6e-7f8091a2b3c4",
+      "target": {"kind": "alert", "decisionId": "3c4d5e6f-7a8b-4c9d-8e0f-1a2b3c4d5e6f"}
+    },
+    "inputSpec": {
+      "kind": "explain_protocol",
+      "sourceId": "6f1c2b9e-3d4a-4b5c-8d6e-7f8091a2b3c4",
+      "target": {"kind": "alert", "decisionId": "3c4d5e6f-7a8b-4c9d-8e0f-1a2b3c4d5e6f"}
+    },
+    "inputDecisionId": "3c4d5e6f-7a8b-4c9d-8e0f-1a2b3c4d5e6f"
+  },
+  "llmSpec": {
+    "evidence_version": "protocol-explain-facts-v1",
+    "input_evidence_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+    "model_version": "qwen-base-6a9e13bd",
+    "prompt_version": "protocol-explain-prompt-v4",
+    "output_schema_version": "protocol-explanation-v1",
+    "reuse_key": "1111111111111111111111111111111111111111111111111111111111111111"
+  }
+}

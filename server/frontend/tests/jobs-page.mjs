@@ -193,7 +193,11 @@ const jobCalls = () => requested.filter((call) => call.path === "/api/jobs");
 
   const busy = await mount(`/detection/operations/jobs/${running.id}`);
   await wait(() => busy.shown().includes("진행 중"), "running");
-  assert.ok(busy.renderer.root.findAll((node) => node.props["aria-label"] === "작업 진행 중").length > 0);
+  // 값 없는 진행 표시: progressbar + 이름, aria-valuenow 없음.
+  const progress = busy.renderer.root.findAll((node) => node.type === "div" && node.props["aria-label"] === "작업 진행 중");
+  assert.equal(progress.length, 1);
+  assert.equal(progress[0].props.role, "progressbar");
+  assert.equal(progress[0].props["aria-valuenow"], undefined);
   assert.ok(busy.shown().includes("시도 1 · 실행 중"));
   await busy.cleanup();
 

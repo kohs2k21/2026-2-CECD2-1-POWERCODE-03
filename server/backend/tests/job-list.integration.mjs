@@ -71,7 +71,7 @@ try {
     await pool.query(`INSERT INTO run_jobs (id, kind, status, requested_by_actor_id, requester_role, idempotency_key, request_hash,
         input_spec, max_attempts, attempt_count, next_run_at, created_at, contract_version, queue, producer_kind, producer_key)
       VALUES ($1, $2::text::job_kind, 'queued', $3, 'admin', $4, $5, $6::jsonb, 3, 0, $7, $7, 'v03', 'training', 'user', $3)`,
-    [jobId, kind, adminId, id(), id(), JSON.stringify({ kind, ...input }), at(minutesAgo)]);
+    [jobId, kind, adminId, id(), id(), JSON.stringify({ kind, ...input }), typeof minutesAgo === 'string' ? minutesAgo : at(minutesAgo)]);
     return jobId;
   };
   const legacy = async (kind, minutesAgo, actor, role) => {
@@ -106,10 +106,10 @@ try {
   await attempt(relationRunning, 1, 'running');
   await pool.query(`UPDATE run_jobs SET status = 'running' WHERE id = $1`, [relationRunning]);
 
-  // 같은 시각 두 작업: id 내림차순으로 나온다.
+  // 같은 시각 두 작업(마이크로초까지 같음, 20분 전): id 내림차순으로 나온다.
   const [sameA, sameB] = [id(), id()].sort();
-  await v03('train', 20, {}, sameA);
-  await v03('train', 20, {}, sameB);
+  await v03('train', '2026-11-13T11:40:00.123456Z', {}, sameA);
+  await v03('train', '2026-11-13T11:40:00.123456Z', {}, sameB);
   const legacyTrain = await legacy('train', 10, adminId, 'admin');
   const userJob = await legacy('preview', 5, userId, 'user');
 
@@ -131,18 +131,21 @@ try {
   assert.deepEqual((await call('/api/jobs?kind=recommend_relations&status=queued,running', admin)).body.items.map((item) => item.id), [relationRunning]);
   assert.deepEqual((await call('/api/jobs?kind=compare', admin)).body.items, []);
 
-  // 3) 커서: 2개씩 끝까지 읽으면 같은 순서·중복 없음, 마지막 쪽 nextCursor null.
-  const seen = [];
-  let cursor = null;
-  for (let page = 0; page < 5; page += 1) {
-    const result = await call(`/api/jobs?kind=train,recommend_relations&limit=2${cursor ? `&cursor=${cursor}` : ''}`, admin);
-    assert.equal(result.status, 200);
-    seen.push(...result.body.items.map((item) => item.id));
-    cursor = result.body.pagination.nextCursor;
-    assert.equal(result.body.pagination.hasMore, cursor !== null);
-    if (!cursor) break;
+  // 3) 커서: 2개씩·1개씩 끝까지 읽으면 같은 순서·중복 없음, 마지막 쪽 nextCursor null.
+  // 1개씩은 마이크로초 시각이 같은 두 행 사이에서 쪽이 갈린다(커서 시각이 잘리면 sameA를 건너뛴다).
+  for (const limit of [2, 1]) {
+    const seen = [];
+    let cursor = null;
+    for (let page = 0; page < 10; page += 1) {
+      const result = await call(`/api/jobs?kind=train,recommend_relations&limit=${limit}${cursor ? `&cursor=${cursor}` : ''}`, admin);
+      assert.equal(result.status, 200);
+      seen.push(...result.body.items.map((item) => item.id));
+      cursor = result.body.pagination.nextCursor;
+      assert.equal(result.body.pagination.hasMore, cursor !== null);
+      if (!cursor) break;
+    }
+    assert.deepEqual(seen, [sameB, sameA, relationRunning, trainFailed, trainDone], `limit ${limit}`);
   }
-  assert.deepEqual(seen, [sameB, sameA, relationRunning, trainFailed, trainDone]);
 
   // 4) 필터 없음: 기존처럼 볼 수 있는 모든 작업(옛 모양 포함). 사용자는 본인 작업만.
   const all = await call('/api/jobs', admin);
@@ -159,8 +162,11 @@ try {
   assert.deepEqual(code(await call('/api/jobs?limit=0', admin)), [400, 'invalid_limit']);
   assert.deepEqual(code(await call('/api/jobs?limit=101', admin)), [400, 'invalid_limit']);
   assert.deepEqual(code(await call('/api/jobs?cursor=not-a-cursor', admin)), [400, 'invalid_cursor']);
-  // Date.parse는 통과하지만 커서 시각 형식이 아닌 값도 PG 변환 오류(500) 대신 400.
-  assert.deepEqual(code(await call(`/api/jobs?cursor=${Buffer.from(JSON.stringify({ at: '1', id: '00000000-0000-4000-8000-000000000001' })).toString('base64url')}`, admin)), [400, 'invalid_cursor']);
+  // 발급 형식(UTC·마이크로초 6자리)이 아닌 시각, 형식은 맞지만 없는 날짜(PG 범위 오류)도 500 대신 400.
+  for (const at of ['1', '2026-11-13 08:00:00.123456+00', '2026-02-30T00:00:00.000000Z']) {
+    const forged = Buffer.from(JSON.stringify({ at, id: '00000000-0000-4000-8000-000000000001' })).toString('base64url');
+    assert.deepEqual(code(await call(`/api/jobs?cursor=${forged}`, admin)), [400, 'invalid_cursor'], at);
+  }
   assert.deepEqual(code(await call('/api/jobs?kind=train&kind=compare', admin)), [400, 'invalid_job_kind'], 'repeated key is not a list');
   assert.equal((await call('/api/jobs')).status, 401);
 

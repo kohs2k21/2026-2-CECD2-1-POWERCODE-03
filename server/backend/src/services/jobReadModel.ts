@@ -31,8 +31,8 @@ type Cursor = { at: string; id: string };
 export type JobListFilter = { kinds: string[] | null; statuses: string[] | null; limit: number; cursor: Cursor | null };
 
 const encodeCursor = (cursor: Cursor) => Buffer.from(JSON.stringify(cursor)).toString('base64url');
-/** 서버가 발급한 커서의 시각(`created_at::text`, 예: `2026-01-01 00:00:00.123456+00`) 형식. 그 밖은 PG 변환 오류 대신 400. */
-const CURSOR_AT = /^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}(\.\d{1,6})?(Z|[+-]\d{2}(:?\d{2})?)$/;
+/** 서버가 발급한 커서의 시각 형식(UTC 고정, 마이크로초 6자리 — 아래 `rawAt`). DB DateStyle과 무관하다. 그 밖은 400. */
+const CURSOR_AT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$/;
 
 function decodeCursor(value: unknown): Cursor | null {
   if (value === undefined) return null;
@@ -78,16 +78,23 @@ const RESULT_LINKS = `CASE WHEN jsonb_typeof(result_summary) = 'object' THEN jso
 
 export async function readJobPage(db: Queryable, actor: { id: string; admin: boolean }, filter: JobListFilter) {
   const queues = filter.kinds ? [...new Set(filter.kinds.map((kind) => LISTABLE_JOB_KINDS[kind]))] : null;
-  const { rows } = await db.query<{ id: string; rawAt: string }>(
-    `SELECT ${COMMON}, ${RESULT_LINKS} AS result, created_at::text AS "rawAt"
-       FROM run_jobs
-      WHERE (requested_by_actor_id = $1 OR $2::boolean)
-        AND ($3::text[] IS NULL OR (contract_version = 'v03' AND queue = ANY($4::text[]::queue_kind[]) AND kind::text = ANY($3::text[])))
-        AND ($5::text[] IS NULL OR status::text = ANY($5::text[]))
-        AND ($6::timestamptz IS NULL OR (created_at, id) < ($6::timestamptz, $7::uuid))
-      ORDER BY created_at DESC, id DESC LIMIT $8`,
-    [actor.id, actor.admin, filter.kinds, queues, filter.statuses, filter.cursor?.at ?? null, filter.cursor?.id ?? null, filter.limit + 1],
-  );
+  let rows: { id: string; rawAt: string }[];
+  try {
+    rows = (await db.query<{ id: string; rawAt: string }>(
+      `SELECT ${COMMON}, ${RESULT_LINKS} AS result, to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS "rawAt"
+         FROM run_jobs
+        WHERE (requested_by_actor_id = $1 OR $2::boolean)
+          AND ($3::text[] IS NULL OR (contract_version = 'v03' AND queue = ANY($4::text[]::queue_kind[]) AND kind::text = ANY($3::text[])))
+          AND ($5::text[] IS NULL OR status::text = ANY($5::text[]))
+          AND ($6::timestamptz IS NULL OR (created_at, id) < ($6::timestamptz, $7::uuid))
+        ORDER BY created_at DESC, id DESC LIMIT $8`,
+      [actor.id, actor.admin, filter.kinds, queues, filter.statuses, filter.cursor?.at ?? null, filter.cursor?.id ?? null, filter.limit + 1],
+    )).rows;
+  } catch (error) {
+    // 형식은 맞지만 범위 밖인 위조 커서 시각(예: 2월 30일)은 PG 날짜 오류 → 400.
+    if (filter.cursor && ['22007', '22008', '22009'].includes((error as { code?: string }).code ?? '')) throw new JobReadError('invalid_cursor');
+    throw error;
+  }
   const items = rows.slice(0, filter.limit).map(({ rawAt: _at, ...item }) => item);
   const hasMore = rows.length > filter.limit;
   const last = rows[filter.limit - 1];

@@ -115,7 +115,7 @@ const JobBody = ({ job }: { job: JobDetail }) => {
   const again = restart(job);
   return (
     <SectionCard title={`${kindLabel(job.kind)} 작업 ${job.id.slice(0, 8)}`} action={<Badge variant={badge.variant} data-job-status={job.status}>{badge.label}</Badge>}>
-      {job.status === "running" && <div role="status" aria-label="작업 진행 중" className="h-2 w-full animate-pulse rounded-full bg-primary/40" />}
+      {job.status === "running" && <div role="progressbar" aria-label="작업 진행 중" className="h-2 w-full animate-pulse rounded-full bg-primary/40" />}
       {job.status === "failed" && (
         <Alert variant="destructive" role="alert"><AlertDescription>실패 · {job.errorCode ?? DASH}</AlertDescription></Alert>
       )}

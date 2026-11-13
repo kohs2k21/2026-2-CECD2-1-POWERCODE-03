@@ -418,7 +418,7 @@ const readError = (error: unknown) => (error instanceof JobReadError ? new JobRe
 router.get('/', route(async (req, res) => {
   let filter;
   try { filter = parseJobListQuery(req.query as Record<string, unknown>); } catch (error) { throw readError(error); }
-  res.json(await readJobPage(getDatabasePool(), reader(req), filter));
+  res.json(await readJobPage(getDatabasePool(), reader(req), filter).catch((error: unknown) => { throw readError(error); }));
 }));
 
 router.get('/:id', route(async (req, res) => {

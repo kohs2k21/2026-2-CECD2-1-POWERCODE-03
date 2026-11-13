@@ -1,5 +1,5 @@
 Created: 2026-10-21T00:00:00+09:00
-Updated: 2026-11-13T12:00:00+09:00
+Updated: 2026-11-13T21:00:00+09:00
 Author: Claude Code (Trainer 세션 builder)
 Status: draft
 
@@ -25,6 +25,8 @@ Status: draft
 | `recommend_methods` | **보류** [제안] | #74 "등록 방법 중 선택 추천"의 ML 선택 부분. 모델 카탈로그·레지스트리·IF 파라미터화 Issue 뒤 재검토. `job_kind` 값(011)·`run_llm_results.kind` CHECK는 유지, API 접수·worker 분기는 구현하지 않음. 폐지가 아니라 "현 단계 범위 밖" |
 | `recommend_thresholds` | **신규** | 이 문서 |
 | `explain` | 작업 형식 변경 없음 | GPU 차례 우선·대기 상한·`generation_busy`는 아래 GPU 차례 절 |
+
+- 폐지 두 종류의 남은 대기·임대 작업은 워커가 실행 없이(LLM 호출·스냅샷 없음) 재시도 없는 `failed`·`job_kind_abolished`로 끝낸다. 기존 `run_llm_results` 행은 읽기 보존
 
 ## 산출 주체 — (가) 코드 p95 + LLM 근거 [확정 11/02 9.2, 1차 연결]
 

@@ -47,7 +47,8 @@ def main() -> None:
     if not dsn:
         raise SystemExit("격리된 시험 DB의 DATABASE_URL이 필요하다")
     real_iforest = os.environ.get("REAL_IFOREST") == "1"
-    reference_count = 1000 if real_iforest else 200
+    # 기본 모드는 절반이 이상 라벨이고 train 분할이 70%라, 학습 선택 뒤 fake_train 하한(100행)을 넘도록 400행을 쓴다.
+    reference_count = 1000 if real_iforest else 400
     source_id, train_id, evaluation_job_id, rule_id = (uuid.uuid4() for _ in range(4))
     now = datetime.now(timezone.utc)
     with tempfile.TemporaryDirectory() as directory:
@@ -58,14 +59,6 @@ def main() -> None:
             model_adapters.train_iforest = fake_train
             model_adapters.score_iforest = fake_score
             model_adapters.prepare_iforest = lambda _reference: None
-        model_adapters.recommend_features = lambda _rows: [
-            {"name": "error_count", "expression": {"op": "field", "field": "P.error_count"}}
-        ]
-        model_adapters.recommend_rules = lambda _rows, _feature_set_id, _definitions=None: [
-            {"ruleKey": f"process_error_{source_id.hex[:8]}", "displayName": "Process error",
-             "condition": {"field": "F.error_count", "operator": "gt", "value": "0"},
-             "outcome": {"decisionCode": "TEST_RULE_HIT", "severity": "warning"}}
-        ]
         with psycopg.connect(dsn) as conn:
             with conn.cursor() as cur:
                 cur.execute(
@@ -77,9 +70,10 @@ def main() -> None:
                     (source_id, f"model-port-{source_id}"),
                 )
             conn.commit()
+            # 폐지된 recommend_feature·recommend_rule 대신 화면 등록 경로(operator_defined)와 고정 Rule을 쓴다.
             feature_set_id = register_feature_set(conn, [
                 {"name": "error_count", "expression": {"op": "field", "field": "P.error_count"}}
-            ], "test-admin")
+            ], "test-admin", definition_kind="operator_defined")
             conn.commit()
             for index in range(reference_count):
                 execution_id = uuid.uuid4()
@@ -108,70 +102,18 @@ def main() -> None:
                          if real_iforest else ("anomaly" if index % 2 else "normal")),
                     )
                 conn.commit()
-            recommendation_id = uuid.uuid4()
-            recommendation_spec = {"kind": "recommend_feature", "sourceId": str(source_id),
-                                   "from": (now - timedelta(minutes=10)).isoformat(),
-                                   "until": (now + timedelta(minutes=10)).isoformat()}
-            with conn.cursor() as cur:
-                cur.execute(
-                    """INSERT INTO run_jobs
-                         (id, kind, status, requested_by_actor_id, requester_role,
-                          request_hash, input_spec, max_attempts, attempt_count,
-                          next_run_at, created_at,contract_version,queue,producer_kind,producer_key,idempotency_key,llm_spec)
-                       VALUES (%s, 'recommend_feature', 'queued', 'test-admin', 'admin',
-                               %s, %s::jsonb, 3, 0, clock_timestamp(), clock_timestamp(),
-                               'v03','llm_recommendation','user','test-admin',%s,%s::jsonb)""",
-                    (recommendation_id, hashlib.sha256(json.dumps(recommendation_spec).encode()).hexdigest(),
-                     json.dumps(recommendation_spec), str(recommendation_id), json.dumps({
-                         "evidence_version": "test-period-v1",
-                         "input_evidence_hash": hashlib.sha256(json.dumps(recommendation_spec).encode()).hexdigest(),
-                         "model_version": "fixture-test", "prompt_version": "test",
-                         "output_schema_version": "test", "reuse_key": str(recommendation_id)})),
-                )
-                enqueue(conn, "training", {"schemaVersion": 1, "jobId": str(recommendation_id)})
             conn.commit()
-        run(once=True,role="llm")
-        with psycopg.connect(dsn) as conn:
+            selected_spec = {"schemaVersion": 1, "state": "draft",
+                             "condition": {"field": "F.error_count", "operator": "gt", "value": "0"},
+                             "outcome": {"decisionCode": "TEST_RULE_HIT", "severity": "warning"}}
             with conn.cursor() as cur:
-                cur.execute("SELECT status, result_summary FROM run_jobs WHERE id = %s", (recommendation_id,))
-                recommendation_status, recommendation_result = cur.fetchone()
-                assert recommendation_status == "succeeded", (recommendation_status, recommendation_result)
-                assert recommendation_result["featureSetId"] == str(feature_set_id)
-                assert recommendation_result["materializedCount"] == reference_count
-            rule_job_id = uuid.uuid4()
-            rule_spec = {"kind": "recommend_rule", "sourceId": str(source_id),
-                         "from": (now - timedelta(minutes=10)).isoformat(),
-                         "until": (now + timedelta(minutes=10)).isoformat(),
-                         "featureSetId": str(feature_set_id)}
-            with conn.cursor() as cur:
-                cur.execute(
-                    """INSERT INTO run_jobs
-                         (id, kind, status, requested_by_actor_id, requester_role,
-                          request_hash, input_spec, max_attempts, attempt_count,
-                          next_run_at, created_at)
-                       VALUES (%s, 'recommend_rule', 'queued', 'test-admin', 'admin',
-                               %s, %s::jsonb, 3, 0, clock_timestamp(), clock_timestamp())""",
-                    (rule_job_id, hashlib.sha256(json.dumps(rule_spec).encode()).hexdigest(),
-                     json.dumps(rule_spec)),
-                )
-                enqueue(conn, "training", {"schemaVersion": 1, "jobId": str(rule_job_id)})
-            conn.commit()
-        run(once=True,role="llm")
-        with psycopg.connect(dsn) as conn:
-            with conn.cursor() as cur:
-                cur.execute("SELECT status, result_summary FROM run_jobs WHERE id = %s", (rule_job_id,))
-                rule_status, rule_result = cur.fetchone()
-                assert rule_status == "succeeded" and len(rule_result["suggestions"]) == 1
-                selected = rule_result["suggestions"][0]
-                selected_spec = {"schemaVersion": 1, "state": "draft",
-                                 "condition": selected["condition"], "outcome": selected["outcome"]}
                 cur.execute(
                     """INSERT INTO ml_rule_versions
                          (id, rule_key, version, rule_spec, input_spec, evidence_spec,
                           content_hash, created_by_actor_id, created_at)
                        VALUES (%s, %s, 1, %s::jsonb, %s::jsonb, '{}'::jsonb,
                                %s, 'test-admin', clock_timestamp())""",
-                    (rule_id, selected["ruleKey"], json.dumps(selected_spec),
+                    (rule_id, f"process_error_{source_id.hex[:8]}", json.dumps(selected_spec),
                      json.dumps({"featureSetId": str(feature_set_id), "fields": ["F.error_count"]}),
                      hashlib.sha256(json.dumps(selected_spec).encode()).hexdigest()),
                 )
@@ -227,7 +169,7 @@ def main() -> None:
                 evaluation_status, result = cur.fetchone()
                 assert evaluation_status == "succeeded", (evaluation_status, result)
                 assert result["applicability"] == "valid", result
-                assert result["metrics"]["combination"] == "rule_or_iforest"
+                assert result["metrics"]["combination"] == "any_anomaly"
                 assert result["metrics"]["ruleCount"] == 1
                 assert result["metrics"]["rule"] is not None
                 evaluation_id = uuid.UUID(result["evaluationId"])
@@ -284,7 +226,7 @@ def main() -> None:
                 )
                 assert cur.fetchone() == ("complete", "succeeded", "TEST_RULE_HIT")
         print(f"model ports integration passed ({'real IF' if real_iforest else 'test adapter'}): "
-              "feature recommendation, rule recommendation, train, evaluate, apply, decision")
+              "fixed feature set and rule, train, evaluate, apply, decision")
 
 
 if __name__ == "__main__":

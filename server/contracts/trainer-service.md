@@ -1,5 +1,5 @@
 Created: 2026-10-17T01:49:42+09:00
-Updated: 2026-11-13T18:00:00+09:00
+Updated: 2026-11-13T21:00:00+09:00
 Author: Claude Code (Trainer 세션 builder)
 Status: current
 
@@ -10,6 +10,7 @@ Status: current
 - 외부 완성 가공 CSV·합성 주입 CSV: [prepared-csv-v1](prepared-csv-import.md)의 관리자 반입·model_input·snapshotId 계약 적용; SQL/SQLite·raw 모델 호환 추정·운영 적용 제외
 - 학습 성공: 후보 생성만; 활성 버전 변경은 기존 관리자 승인·Detector 적용 경로
 - 실행 상태: queued/running/succeeded/failed; 자동 재시도는 같은 job, 최대 3회·attempt 이력
+- 폐지 종류 `recommend_feature`·`recommend_rule`: 남은 작업은 워커가 실행 없이 `failed`·`job_kind_abolished`로 끝냄(재시도 없음, [llm-recommendation-job.md](llm-recommendation-job.md))
 - terminal failed 재실행: 새 idempotency key로 명시적 새 요청; 같은 key·같은 본문은 기존 job 반환, 다른 본문은 409
 - Web 멱등키: sessionStorage 정상 시 새로고침 후 재사용, 저장 실패 시 현재 페이지의 메모리에서만 유지; 저장 실패 후 새로고침한 경우 작업 이력 확인 후 재실행 여부 결정
 - 현행 갱신(Issue #128, 11/05): API가 카탈로그를 읽어 `methodCatalog`·`models`를 노출하고 `modelKey`·`parameters`를 접수 단계에서 검증한다(요청·발견 API 절). `excludedIntervals`·`esb_occurred_at`은 워커 지원 전이라 접수하지 않는다([models-ui.md](models-ui.md))

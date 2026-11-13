@@ -63,6 +63,9 @@ GRANT SELECT(observation_id) ON data_message_bodies TO powercode_collector,power
 GRANT SELECT,INSERT ON data_prepared_datasets TO powercode_api;
 GRANT SELECT,UPDATE ON data_prepared_datasets TO powercode_trainer;
 GRANT INSERT ON ml_feature_versions,ml_feature_sets,ml_feature_set_members TO powercode_trainer;
+-- Operator-defined feature set registration (models-ui.md step 2, trainer-service.md registration rules): the API
+-- inserts sets/versions/members with SELECT,INSERT only under pg_advisory_xact_lock(81732,1). Rows stay immutable (004 trigger).
+GRANT INSERT ON ml_feature_versions,ml_feature_sets,ml_feature_set_members TO powercode_api;
 
 -- 011: evaluation sets and configuration comparisons. API registers queued sets; Trainer completes sets/comparisons.
 GRANT SELECT,INSERT ON data_evaluation_sets TO powercode_api;

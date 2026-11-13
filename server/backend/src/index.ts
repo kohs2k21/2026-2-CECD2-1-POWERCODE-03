@@ -6,6 +6,7 @@ import userRoutes from './routes/userRoutes.js';
 import anomalyRouter from './routes/anomalyRoutes.js';
 import ruleRouter from './routes/ruleRoutes.js';
 import jobRouter from './routes/jobRoutes.js';
+import featureSetRouter from './routes/featureSetRoutes.js';
 import configRouter from './routes/configRoutes.js';
 import pipelineRouter from './routes/pipelineRoutes.js';
 import inputRouter from './routes/inputRoutes.js';
@@ -52,6 +53,8 @@ app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/anomaly', anomalyRouter);
 app.use('/api/rules', ruleRouter);
+// 입력 변수 세트 등록·필드 목록. 처리하지 않는 요청(세트 목록)은 아래 jobRouter로 넘어간다.
+app.use('/api/jobs/feature-sets', featureSetRouter);
 app.use('/api/jobs', jobRouter);
 app.use('/api/configurations', configRouter);
 app.use('/api/pipeline', pipelineRouter);

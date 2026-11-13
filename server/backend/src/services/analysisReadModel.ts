@@ -223,7 +223,8 @@ const ITEM_JSON = (a: string) => `jsonb_build_object('id',id,'kind',kind,'stage'
   'evidence',evidence,'occurredAt',to_char(occurred_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),
   'decidedAt',to_char(decided_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),
   'transactionId',transaction_id,'processId',process_id,'interfaceId',${TX_INTERFACE_SQL(a)},'channelId',channel_id,
-  'processStatus',process_status,'responseCode',response_code,'grade',grade,'riskStatus',risk_status,'riskLevel',risk_level,
+  'processStatus',process_status,'responseCode',response_code,
+  'responseCodeMessage',(SELECT rc.message FROM ops_response_codes rc WHERE rc.code=${a}.response_code),'grade',grade,'riskStatus',risk_status,'riskLevel',risk_level,
   'workflowState',workflow_state,
   'workflowChangedAt',to_char(workflow_changed_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'))`;
 

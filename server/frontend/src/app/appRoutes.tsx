@@ -14,6 +14,8 @@ import { CandidateDetailPage } from "@/features/detection/rules/candidates/Candi
 import { CandidateListPage } from "@/features/detection/rules/candidates/CandidateListPage";
 import { ProtocolDetailPage } from "@/features/detection/rules/protocols/ProtocolDetailPage";
 import { ProtocolListPage } from "@/features/detection/rules/protocols/ProtocolListPage";
+import { ResponseCodeDetailPage } from "@/features/detection/rules/responsecodes/ResponseCodeDetailPage";
+import { ResponseCodeListPage } from "@/features/detection/rules/responsecodes/ResponseCodeListPage";
 import { OperationsPage } from "@/features/operations/OperationsPage";
 import { SettingsPage } from "@/features/settings/SettingsPage";
 import { AppLayout } from "./AppLayout";
@@ -63,6 +65,8 @@ export const appRoutes: RouteObject[] = [
                   { path: "/detection/rules/candidates/:candidateId", element: <CandidateDetailPage /> },
                   { path: paths.detectionRuleProtocols, element: <ProtocolListPage /> },
                   { path: "/detection/rules/protocols/:interfaceId", element: <ProtocolDetailPage /> },
+                  { path: paths.detectionRuleResponseCodes, element: <ResponseCodeListPage /> },
+                  { path: "/detection/rules/response-codes/:code", element: <ResponseCodeDetailPage /> },
                   { path: paths.detectionModels, element: <ModelsPage /> },
                   { path: "/detection/models/:versionId", element: <ModelVersionDetailPage /> },
                   { path: paths.detectionEvaluations, element: <EvaluationsPage /> },

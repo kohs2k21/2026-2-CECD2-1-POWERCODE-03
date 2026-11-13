@@ -1,5 +1,5 @@
 Created: 2026-10-12T02:06:03+09:00
-Updated: 2026-11-13T19:00:00+09:00
+Updated: 2026-11-13T21:00:00+09:00
 Author: contracts_page_reviewer
 Status: current
 
@@ -7,7 +7,7 @@ Status: current
 
 - Issue #32 기준: 최신 PostgreSQL·공통 규약·LLM 기획 반영. `schema.dbml`은 최종 목표 구조의 시각화, 실행 원본은 migration SQL
 - 목표 구조(Issue #32 당시): public 28테이블 + `powercode_queue` 기존 물리 큐 2테이블. 기존 public 24테이블 보존, BODY·BODY 연결·불변 입력·LLM 결과 4테이블만 추가
-- 현재 `schema.dbml`: 001~023 전체 + 024 [제안] 반영(024 절), public 71테이블 + `powercode_queue` 5테이블. 004_feature_pipeline·005~009 추가분 24테이블 보강, 011 3테이블·012 1테이블·014 3테이블·015 3테이블·019 4테이블·022 4테이블·023 2테이블·024 1테이블 추가. 013(#82)은 함수 설정만 바꿔 DBML 변경 없음
+- 현재 `schema.dbml`: 001~023 전체 + 024 [제안] + 025 반영(024·025 절), public 73테이블 + `powercode_queue` 5테이블. 004_feature_pipeline·005~009 추가분 24테이블 보강, 011 3테이블·012 1테이블·014 3테이블·015 3테이블·019 4테이블·022 4테이블·023 2테이블·024 1테이블·025 2테이블 추가. 013(#82)은 함수 설정만 바꿔 DBML 변경 없음
 - 기존 001/002 불변. 003/004는 서버 미적용; ERD 등록·SQL 검수와 실제 운영 적용 구분
 - PostgreSQL 17.11 실제 public24+queue2 존재 확인 기록과 정합. 서버 schema/version 이력 및 완전 DDL 일치는 별도 사전 확인 필요
 
@@ -233,11 +233,11 @@ SELECT r.rolname,
 
 ## 023 프로토콜 알림 처리 기록
 
-- 파일 `023_protocol_alert_actions.sql`, 022 이후 한 번 실행(`psql -v ON_ERROR_STOP=1 -f`), 기존 표 소유자로 실행 뒤 DBA가 `scripts/database-roles.sql` 재적용. 새 표 2개만(함수·트리거·시퀀스·enum 없음, 001~022 정의·022 `item_key` CHECK 그대로), 단일 BEGIN..COMMIT. FK가 없어 기존 표를 잠그지 않고 작업자를 멈출 필요 없음. 자동 down migration 없음(되돌리기 = 새 표 2개 DROP)
+- 파일 `023_protocol_alert_actions.sql`, 022 이후 한 번 실행(`psql -v ON_ERROR_STOP=1 -f`), 기존 표 소유자로 실행. 역할 스크립트 재적용은 023·024·025를 모두 적용한 뒤 한 번(024 절 배포 순서). 새 표 2개만(함수·트리거·시퀀스·enum 없음, 001~022 정의·022 `item_key` CHECK 그대로), 단일 BEGIN..COMMIT. FK가 없어 기존 표를 잠그지 않고 작업자를 멈출 필요 없음. 자동 down migration 없음(되돌리기 = 새 표 2개 DROP)
 - 표(API만 읽고 씀): `ops_protocol_alert_keeps`(알림 [이상 유지] 기록, 시스템 전역, 묶음 키 (인터페이스, pathKey)당 1행, 추가만 — 키 `protocol:` + sha256 16진 64자, `path_key` 원래 값·`''` = 경로 없는 미등록 인터페이스 알림, `kept_through_seq` = 누른 시점 알림 순번), `ops_user_protocol_alert_reads`(프로토콜 알림 항목별 읽음, 022 항목 읽음과 같은 규칙)
 - 알림 항목은 저장하지 않는다: API가 최종 판정 `evidence.protocolReview`(Detector `protocol-rules.md` 5.3)에서 읽을 때 만든다(`contracts/protocol-settings-ui.md` 5절). Detector는 이 표들을 읽지 않는다(판정은 이상 그대로)
 - 권한: `powercode_api` keeps SELECT·INSERT(수정·삭제 없음), reads SELECT·INSERT·UPDATE·DELETE. Detector·Collector·Trainer·LLM 권한 없음
-- 시험(`erd-v03-protocol-alerts.mjs`, `erd-v03.mjs`가 호출): `erd023`(001~023 한 문자열, PK·FK 없음·트리거 없음 카탈로그, DBML parity, 역할 5개 권한 정확 일치, 실제 LOGIN API 기록 INSERT·ON CONFLICT DO NOTHING·UPDATE/DELETE 42501·읽음 upsert·정리, 다른 역할 42501, CHECK 경계). API 경로는 `backend/tests/notifications.integration.mjs`
+- 시험(`erd-v03-protocol-alerts.mjs`, `erd-v03.mjs`가 호출): `erd023`(migration 전체 적용 뒤 역할 스크립트, PK·FK 없음·트리거 없음 카탈로그, DBML parity, 역할 5개 권한 정확 일치, 실제 LOGIN API 기록 INSERT·ON CONFLICT DO NOTHING·UPDATE/DELETE 42501·읽음 upsert·정리, 다른 역할 42501, CHECK 경계). API 경로는 `backend/tests/notifications.integration.mjs`
 - 함께 바꾼 기존 시험: `prepare-runtime-db.py` 목록에 023 추가
 
 ## 024 관계 규칙 재판정 탐색 커서 [제안, DB 세션 확정 대기]
@@ -247,9 +247,26 @@ SELECT r.rolname,
 - 표 `run_recheck_runs`(Detector 쓰기, 다른 역할 접근 없음): 탐색 1회(원본 1개) = 1행, 실행 트랜잭션 끝에 INSERT. 거래 관측 커서 `transaction_cursor_at`·`transaction_cursor_id`, 판정 이벤트 커서 `event_cursor`(≥ 0), 건수 3종 ≥ 0, `finished_at ≥ started_at`. 마지막 커서 = 원본별 `seq` 최대 행(인덱스 `run_recheck_runs_cursor_idx`), `seq`는 GENERATED ALWAYS identity이고 advisory lock(81742, 0) 아래에서만 INSERT라 순서 = 커밋 순서
 - append-only: `BEFORE UPDATE OR DELETE OR TRUNCATE FOR EACH STATEMENT` 트리거(019와 같음) + 권한 SELECT·INSERT만. 1회 보장은 이 표가 아니라 `run_input_manifests UNIQUE(source_id, content_hash)`(004)라 표를 잃어도 재판정이 두 번 생기지 않음(커서가 처음부터 다시 읽을 뿐)
 - 권한: `powercode_detector` SELECT·INSERT + `run_recheck_runs_seq_seq` USAGE
-- **배포 순서: `scripts/database-roles.sql`은 024를 전제한다**(024 GRANT 줄이 `run_recheck_runs`를 가리킴). 024 없이 역할 스크립트를 다시 적용하면 그 GRANT에서 실패하므로 DB 024 → 역할 스크립트 재적용 → Detector v3·`recheck` 서비스(Compose profile `relation-recheck`) → DB 023(WebUI 브랜치) → API v3 저장·WebUI 순. 024를 늦추려면 역할 스크립트의 024 블록을 빼고 적용
+- **배포 순서: `scripts/database-roles.sql`은 023·024·025를 모두 전제한다**(각 GRANT 줄이 그 표를 가리킴). 하나라도 없이 역할 스크립트를 다시 적용하면 그 GRANT에서 실패하므로 DB 023·024·025 적용(새 표만 추가라 기존 코드 영향 없음) → 역할 스크립트 재적용 → Detector v3·`recheck` 서비스(Compose profile `relation-recheck`) → API v3 저장·WebUI 순. 024를 늦추려면 역할 스크립트의 024 블록을 빼고 적용
 - advisory lock 81742: 재판정 탐색(024 표 쓰기 트랜잭션). 같은 트랜잭션에서 81740(manifest)만 이어서 잡고 81741과 함께 잡지 않음
 - DBML: `schema.dbml`에 `run_recheck_runs`와 `ops_sources` FK를 반영(ERD 시험 parity가 모든 migration 파일을 적용한 뒤 비교하므로). ERD node 시험 파일(`erd-v03-*.mjs`)에 024 전용 검사는 아직 없음 — DB 세션 확정 때 추가
+
+## 025 응답 코드 사전
+
+- 파일 `025_response_codes.sql`, 023 적용 뒤 한 번 실행(024 Detector 재판정 커서와 의존이 없어 024와 순서 무관)(`psql -v ON_ERROR_STOP=1 -f`), 기존 표 소유자로 실행. 역할 스크립트 재적용은 023·024·025를 모두 적용한 뒤 한 번(024 절 배포 순서). 새 표 2개·색인 1개만(함수·트리거·enum 없음, 001~024 정의 그대로, 024 표와 의존 없음), 단일 BEGIN..COMMIT. FK는 새 표끼리만(기록 → 사전)이라 기존 표를 잠그지 않고 작업자를 멈출 필요 없음. 자동 down migration 없음(되돌리기 = 새 표 2개 DROP). **API(이 migration을 읽는 이상 분석 목록·상세 포함)보다 먼저 적용**한다 — 표가 없으면 이상 분석 조회가 503이 된다
+- 역할 스크립트 재적용 전 확인: `scripts/database-roles.sql`에 023·024·025 표 GRANT가 모두 들어 있어 하나라도 없으면 실패한다. `SELECT to_regclass('public.ops_protocol_alert_keeps'), to_regclass('public.run_recheck_runs'), to_regclass('public.ops_response_codes')`가 모두 NULL이 아닌지 먼저 본다(024를 늦추려면 024 절대로 역할 스크립트의 024 블록을 빼고 적용)
+- 표(API만 읽고 씀): `ops_response_codes`(코드당 1행, `code` 인쇄 가능한 ASCII 1~64자, 메시지 1~500자, `origin` import|edited, `revision` = 화면 편집 낙관적 잠금, 삭제 없음), `ops_response_code_changes`(메시지 변경 기록, 추가만, GENERATED ALWAYS identity, 기록 → 사전 FK). 코드별 위험도는 이 표가 아니라 룰 세트 `hard:transaction-failed`(contracts/response-codes-ui.md 1절). Detector는 읽지 않는다
+- 권한: `powercode_api` 사전 SELECT·INSERT·UPDATE(DELETE 없음), 기록 SELECT·INSERT(수정·삭제 없음, identity라 시퀀스 권한 불필요). Detector·Collector·Trainer·LLM 권한 없음
+- **기본값 넣기(서버, 운영자)**: 사전 값은 고객 자료라 저장소·이미지에 없다. migration 025 적용 뒤 원본 파일(.xlsx 또는 UTF-8 .csv)을 저장소 밖에서 API 컨테이너(compose 서비스 `api`, 역할 `API_DATABASE_URL`)로 복사해 API 역할로 실행한다. 출력은 건수·행 번호·사유 코드만(값 없음)
+  ```sh
+  docker compose cp <저장소 밖 경로>/<사전 파일>.xlsx api:/tmp/response-codes.xlsx
+  docker compose exec api node dist/scripts/importResponseCodes.js /tmp/response-codes.xlsx --dry-run   # 검사·건수만(ROLLBACK)
+  docker compose exec api node dist/scripts/importResponseCodes.js /tmp/response-codes.xlsx             # 반영
+  docker compose exec -u root api rm /tmp/response-codes.xlsx
+  ```
+  `DATABASE_URL`은 컨테이너 환경 변수 그대로(`.env`를 읽지 않음). 잘못된 행이 있으면 아무것도 쓰지 않고 종료 2. 파일에 같은 코드가 여러 행이면 메시지·코드명·메시지 키를 `A 또는 B`로 합친다(유형·HTTP 상태가 다르면 잘못된 행, 출력 `merged codes`). 다시 실행하면 바뀐 값만 반영, 화면에서 고친 메시지는 `--force` 없이는 덮지 않는다, 파일에 없는 코드는 지우지 않는다(규칙 상세 contracts/response-codes-ui.md 6절)
+- 시험(`erd-v03-response-codes.mjs`, `erd-v03.mjs`가 호출): `erd025`(디렉터리의 모든 migration 파일을 번호 순으로 한 문자열씩, PK·FK 1개·트리거 없음·색인 카탈로그, DBML parity, 역할 5개 권한 정확 일치, 실제 LOGIN API INSERT·수정 번호 UPDATE·기록 INSERT, DELETE·TRUNCATE·기록 UPDATE/DELETE 42501, GENERATED ALWAYS·FK, 다른 역할 42501, CHECK 경계, 합성 값만). 2026-11-13 embedded PostgreSQL 17.10 1259 checks 통과(임시 폴더 D 드라이브). API·도구 경로는 `backend/tests/response-codes.integration.mjs`(CI 단계 "Response code dictionary import and API under runtime role", `powercode_api` 연결)
+- 함께 바꾼 기존 시험: `prepare-runtime-db.py` 목록에 025·`qa_response_codes_service` 추가. 시험 도구는 migration 디렉터리를 이름 순으로 읽어 적용한다
 
 ## 큐와 소유권
 
@@ -301,7 +318,7 @@ SELECT r.rolname,
 
 ## DBML과 SQL 대응
 
-- DBML은 001~023 적용 후 최종 구조(컬럼·nullability·unique·FK·enum 순서). 물리 큐 5개도 명시. enum 순서는 PostgreSQL 추가 순서(`job_kind`의 `import_csv`는 explain 뒤)
+- DBML은 001~025(024 [제안] 포함) 적용 후 최종 구조(컬럼·nullability·unique·FK·enum 순서). 물리 큐 5개도 명시. enum 순서는 PostgreSQL 추가 순서(`job_kind`의 `import_csv`는 explain 뒤)
 - nullable FK는 `>?`, unique FK는 부모 `-` 자식 방향, nullable unique FK는 부모 `?-` 자식 방향으로 표시. 실제 FK 방향은 SQL/파싱 대응 시험으로 확인
 - attempt의 복합 FK 3개는 DBML의 exact-composite index 판정 한계로 `>`/`>?` 표시. 자식의 개별 PK/unique가 실제 1:1 제약을 보장한다는 주석 유지; 그림 경고를 없애려고 SQL 중복 인덱스를 추가하지 않음
 - `@dbml/core`는 현재 문법의 `dbmlv2` parser 사용. deprecated `dbml` parser는 optional 관계 문법을 지원하지 않음

@@ -22,6 +22,7 @@ import {
 } from "../rules/ruleDraft";
 import { previewRuleSet, readRuleSetRevision, saveRuleSet, type RuleSetRequest, type RuleSetState, type Severity } from "../rules/ruleSetApi";
 import { useRuleSet, useSoftRuleFields } from "../rules/useRuleSet";
+import { RESPONSE_CODE_TERM, failedRule, summaryText } from "../rules/responsecodes/responseCodeLabels";
 
 const RuleStatus = ({ state }: { state: RuleSetState }) => (
   <Card aria-label="현재 운영 룰">
@@ -37,6 +38,27 @@ const RuleStatus = ({ state }: { state: RuleSetState }) => (
     </CardContent>
   </Card>
 );
+
+/** 응답 코드 진입 카드: 거래 실패 규칙의 코드별 위험도 요약(현재 운영 룰 값) → 목록 → 상세(contracts/response-codes-ui.md 4절). */
+const ResponseCodeCard = ({ state }: { state: RuleSetState }) => {
+  const failed = failedRule(state);
+  if (!failed) return null;
+  return (
+    <SectionCard
+      title={RESPONSE_CODE_TERM}
+      aria-label={RESPONSE_CODE_TERM}
+      description={summaryText(failed.rule, failed.severity)}
+      action={
+        <Button asChild size="sm" variant="outline">
+          <Link to={paths.detectionRuleResponseCodes}>
+            목록 보기
+            <IconChevronRight aria-hidden="true" />
+          </Link>
+        </Button>
+      }
+    />
+  );
+};
 
 const storedDraft = () => {
   const stored = useDraftStore.getState().drafts[paths.detectionRules];
@@ -238,6 +260,7 @@ const RulesEditor = ({ state, reload, onSavedStale }: {
           </Button>
         }
       />
+      <ResponseCodeCard state={state} />
       <SectionCard
         title="규칙 추천"
         aria-label="규칙 추천"

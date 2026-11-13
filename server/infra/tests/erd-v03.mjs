@@ -23,6 +23,7 @@ import { ruleHashV3_020 } from './erd-v03-rule-hash-v3.mjs';
 import { recommendRelations021 } from './erd-v03-recommend-relations.mjs';
 import { userSettings022 } from './erd-v03-user-settings.mjs';
 import { protocolAlerts023 } from './erd-v03-protocol-alerts.mjs';
+import { responseCodes025 } from './erd-v03-response-codes.mjs';
 
 const toolRoot = process.argv[2];
 assert(toolRoot, 'Pass an isolated temporary workspace containing the test dependencies');
@@ -270,6 +271,7 @@ try {
   await recommendRelations021({ Client, port, connection, check, failures, migrations, migrationNames, rolesSql, parity, insert, infra });
   await userSettings022({ Client, port, connection, check, failures, migrations, migrationNames, rolesSql, parity });
   await protocolAlerts023({ Client, port, connection, check, failures, migrations, migrationNames, rolesSql, parity });
+  await responseCodes025({ Client, port, connection, check, failures, migrations, migrationNames, rolesSql, parity });
   assert.equal(failures.length,0,failures.join('; '));
   console.log(`PASS ${checkCount} integration checks; no project runtime or customer data used`);
   passed = true;

@@ -86,6 +86,14 @@ export async function readCurrentSoftRules(db: Queryable) {
   return { revision, contentHash, contentHashVersion, softRules: currentSnapshot(row).softRules };
 }
 
+/** 현재 리비전의 내장 하드룰 1개(켜짐·위험도, 내장 목록 해석 그대로). 응답 코드 목록·상세의 코드별 위험도 표시용(response-codes-ui.md 3절). */
+export async function readCurrentHardRule(db: Queryable, id: string) {
+  const row = await latest(db);
+  const rule = currentSnapshot(row).hardRules.find((item) => item.id === id);
+  if (!rule) throw new Error('hard_rule_missing');
+  return { revision: Number(row.revision), enabled: rule.enabled, severity: rule.severity as unknown };
+}
+
 export type ActorRef = { actorId: string; displayName: string };
 export type ActorResolver = (actorId: string) => Promise<ActorRef>;
 

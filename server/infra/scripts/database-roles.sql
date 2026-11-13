@@ -113,6 +113,11 @@ GRANT SELECT,INSERT,UPDATE,DELETE ON ops_user_protocol_alert_reads TO powercode_
 -- pg_try_advisory_xact_lock(81742,0). No other role reads it.
 GRANT SELECT,INSERT ON run_recheck_runs TO powercode_detector;
 GRANT USAGE ON SEQUENCE run_recheck_runs_seq_seq TO powercode_detector;
+-- 025: response code dictionary (WebUI rule settings, analysis cause line). API only: dictionary rows are inserted by the
+-- import tool (which runs under the API role) and edited in place (no DELETE); the message change log is insert-only.
+-- Per-code severity lives in the rule set (hard:transaction-failed), so Detector does not read either table.
+GRANT SELECT,INSERT,UPDATE ON ops_response_codes TO powercode_api;
+GRANT SELECT,INSERT ON ops_response_code_changes TO powercode_api;
 -- #78-Q10 defense in depth: no session temp tables through PUBLIC in the database this script runs in
 -- (runtime code uses none). The database owner, superusers and explicit TEMP grantees keep TEMP.
 DO $$ BEGIN

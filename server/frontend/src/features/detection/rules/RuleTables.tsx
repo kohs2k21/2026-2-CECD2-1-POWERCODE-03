@@ -90,7 +90,7 @@ const SeverityEditor = ({ severity, onChange }: { severity: SeverityByCode; onCh
 
 /**
  * 위험도 편집 칸(모양은 그 규칙의 내장 기본값): 단일 단계(`hard:unregistered-interface`) / 코드별(`hard:process-status`) /
- * 코드별 + 그 밖의 코드 기본 단계(`hard:transaction-failed`, 코드 등록은 응답 코드 목록 하위 페이지 후속). code null = 단일 단계 또는 기본 단계.
+ * 코드별 + 그 밖의 코드 기본 단계(`hard:transaction-failed`, 코드 등록·해제는 룰 설정 › 응답 코드 상세). code null = 단일 단계 또는 기본 단계.
  */
 const HardSeverityEditor = ({ name, severity, onChange }: { name: string; severity: HardRuleSeverity; onChange: (code: string | null, level: Severity) => void }) => {
   if (typeof severity === "string") return <div className="w-24"><LevelSelect value={severity} label={`${name} 위험도`} onChange={(level) => onChange(null, level)} /></div>;

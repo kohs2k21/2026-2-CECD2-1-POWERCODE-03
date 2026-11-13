@@ -26,6 +26,9 @@ export const paths = {
   /** 프로토콜 설정(정상 프로토콜 = 인터페이스별 허용 경로, contracts/protocol-settings-ui.md): 목록 → 인터페이스 상세. */
   detectionRuleProtocols: "/detection/rules/protocols",
   detectionRuleProtocol: (interfaceId: string) => `/detection/rules/protocols/${encodeURIComponent(interfaceId)}`,
+  /** 응답 코드(사전 메시지 + 거래 실패 규칙 코드별 위험도, contracts/response-codes-ui.md): 목록 → 코드 상세. */
+  detectionRuleResponseCodes: "/detection/rules/response-codes",
+  detectionRuleResponseCode: (code: string) => `/detection/rules/response-codes/${encodeURIComponent(code)}`,
   detectionModels: "/detection/models",
   detectionModel: (versionId: string) => `/detection/models/${encodeURIComponent(versionId)}`,
   detectionEvaluations: "/detection/evaluations",
@@ -144,6 +147,8 @@ const appPathPatterns: RegExp[] = [
   /^\/detection\/rules\/candidates\/[^/]+$/,
   /^\/detection\/rules\/protocols$/,
   /^\/detection\/rules\/protocols\/[^/]+$/,
+  /^\/detection\/rules\/response-codes$/,
+  /^\/detection\/rules\/response-codes\/[^/]+$/,
   /^\/detection\/models$/,
   /^\/detection\/models\/[^/]+$/,
   /^\/detection\/evaluations$/,

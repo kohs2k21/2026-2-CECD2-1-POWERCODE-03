@@ -216,15 +216,18 @@ const numberText = (value: string) => (value.trim() !== "" && Number.isFinite(Nu
 const unitText = (value: string, unit: string | null) => (unit ? `${numberText(value)} ${unit}` : numberText(value));
 /**
  * 목록 행 이상 원인 한 건 문구(사용자 11/13). 저장값만 쓰고 이름은 기존 표시 이름(결과 코드·규칙 이름·카탈로그 이름)을 쓴다.
- * - 상태 규칙: `상태 F 실패`(+ ` · 응답 코드 E500`), 그 밖의 이상 규칙: 승인 규칙 이름(결과 코드 → 이름)
+ * - 상태 규칙: `상태 F 실패`(+ ` · 응답 코드 E500`, 응답 코드 사전에 메시지가 있으면 ` (메시지)`), 그 밖의 이상 규칙: 승인 규칙 이름(결과 코드 → 이름)
  * - 이상 징후 규칙: `처리 시간 8,000 ms (기준 ≥ 5,000 ms)`, 과거 등록 Rule: `이상 징후 규칙(과거 등록 Rule)`
  * - 머신러닝 모델: `Isolation Forest 원점수 0.84 (판정선 0.61)`
  */
-export const causeText = (cause: DecisionCause, responseCode: string | null) => {
+/** `응답 코드 <코드>` + 사전 메시지가 있으면 ` (<메시지>)`(contracts/response-codes-ui.md 5절). */
+export const responseCodeText = (responseCode: string, message: string | null | undefined) =>
+  message ? `응답 코드 ${responseCode} (${message})` : `응답 코드 ${responseCode}`;
+export const causeText = (cause: DecisionCause, responseCode: string | null, responseCodeMessage: string | null = null) => {
   if (cause.category === "hard") {
     if (cause.methodId === "hard:process-status") {
       const status = cause.code ? resultCodeLabel(cause.code) : cause.observedStatus ? resultCodeLabel(`PROCESS_STATUS_${cause.observedStatus}`) : (methodLabel(cause.methodId) as string);
-      return responseCode ? `${status} · 응답 코드 ${responseCode}` : status;
+      return responseCode ? `${status} · ${responseCodeText(responseCode, responseCodeMessage)}` : status;
     }
     if (cause.code) return resultCodeLabel(cause.code);
     return (cause.methodId && hardRuleNames[cause.methodId]) ?? (cause.methodId ? methodLabel(cause.methodId) : null) ?? "이상 규칙";
@@ -241,8 +244,8 @@ export const causeText = (cause: DecisionCause, responseCode: string | null) => 
   return `${name}${score}${cause.scoreThreshold ? ` (판정선 ${cause.scoreThreshold})` : ""}`;
 };
 /** 목록 행 이상 원인 줄: 첫 원인 + 더 있으면 ` 외 N건`. 원인이 없으면 null(줄 없음). */
-export const causesLine = (item: Pick<DecisionItem, "causes" | "responseCode">) => {
+export const causesLine = (item: Pick<DecisionItem, "causes" | "responseCode"> & Partial<Pick<DecisionItem, "responseCodeMessage">>) => {
   const [first, ...rest] = item.causes;
   if (!first) return null;
-  return `${causeText(first, item.responseCode)}${rest.length ? ` 외 ${rest.length}건` : ""}`;
+  return `${causeText(first, item.responseCode, item.responseCodeMessage ?? null)}${rest.length ? ` 외 ${rest.length}건` : ""}`;
 };

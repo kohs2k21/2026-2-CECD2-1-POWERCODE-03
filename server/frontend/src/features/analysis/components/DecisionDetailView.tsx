@@ -109,7 +109,10 @@ const SummaryCard = ({ detail }: { detail: DecisionDetail }) => {
     { label: "거래 ID", value: detail.transactionId ?? UNAVAILABLE },
     { label: "프로세스", value: detail.processId ?? UNAVAILABLE },
     { label: "인터페이스 · 채널", value: `${detail.interfaceId ?? DASH} · ${detail.channelId ?? DASH}` },
-    { label: "로그 상태 · 응답 코드", value: `${detail.processStatus ?? DASH} · ${detail.responseCode ?? DASH}` },
+    {
+      label: "로그 상태 · 응답 코드",
+      value: `${detail.processStatus ?? DASH} · ${detail.responseCode ?? DASH}${detail.responseCode && detail.responseCodeMessage ? ` (${detail.responseCodeMessage})` : ""}`,
+    },
   );
   if (final)
     items.push(

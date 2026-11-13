@@ -70,6 +70,8 @@ export type ModelVersion = {
   /** 모델 없는 구성은 null. 안의 값도 저장 기록이 없으면 null이다. */
   modelSummary: { featureCount: number | null; parameters: Record<string, unknown> | null; thresholdValue: string | null } | null;
   latestEvaluation: { evaluationId: string; applicability: string; completedAt: string } | null;
+  /** 운영 적용 gate(model-version.md 조회 절): 적격 평가 1건 또는 사유. */
+  applicationEligibility?: { eligible: boolean; evaluationId: string | null; reason: string | null };
 };
 export type ExcludedInterval = { from: string; until: string; reasonCode?: string; note?: string | null };
 export type ModelVersionDetail = ModelVersion & {

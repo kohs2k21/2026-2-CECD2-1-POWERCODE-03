@@ -13,6 +13,7 @@ import operationsRouter from './routes/operationsRoutes.js';
 import analysisRouter from './routes/analysisRoutes.js';
 import ruleSetRouter from './routes/ruleSetRoutes.js';
 import preparedDatasetRouter from './routes/preparedDatasetRoutes.js';
+import { createActiveModelRouter, createOperationalStateRouter } from './routes/activeModelRoutes.js';
 import { checkDatabaseConnection } from './config/database.js';
 
 const app = express();
@@ -51,6 +52,8 @@ app.use('/api/configurations', configRouter);
 app.use('/api/pipeline', pipelineRouter);
 app.use('/api/inputs', inputRouter);
 app.use('/api/operations', operationsRouter);
+app.use('/api/active-models', createActiveModelRouter());
+app.use('/api/operational-state', createOperationalStateRouter());
 
 // 공통 오류 처리
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {

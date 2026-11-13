@@ -57,3 +57,12 @@ export async function activateConfig(db, sourceId, { trainFrom = null, models = 
   return configId;
 }
 export const clearActiveConfig = (db) => db.query(`UPDATE ops_system_state SET active_config_version_id=NULL,revision=revision+1,changed_at=clock_timestamp() WHERE id=1`);
+
+/** 활성 모델 집합에 새 리비전을 넣는다(models = [{configVersionId, modelKey}]). 저장 API 대신 시험 준비용으로만 쓴다. */
+export async function pushActiveModels(db, models) {
+  const { rows: [latest] } = await db.query('SELECT revision::int AS revision FROM ops_active_model_set_revisions ORDER BY revision DESC LIMIT 1');
+  const revision = latest.revision + 1;
+  await db.query(`INSERT INTO ops_active_model_set_revisions(revision,snapshot,changes,changed_by_actor_id) VALUES($1,$2::jsonb,'[]','fixture')`,
+    [revision, JSON.stringify({ models: models.map((model) => ({ displayName: null, activatedAtRevision: revision, ...model })) })]);
+  return revision;
+}

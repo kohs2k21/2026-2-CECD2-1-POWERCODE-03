@@ -1,5 +1,5 @@
 // 룰 세트 API(rule-set.md)·수식 추천(llm-recommendation-job.md) 통합 시험: 인증·권한, 저장·검증·리비전, 충돌 409, 무변경 409,
-// 되돌리기 분기, detection_methods_empty(v1·v2 투영), 공통 잠금, 멱등키, 미리보기, 이력·커서, append-only, 표본 규칙·분위 일치, 기간 mode, 503.
+// 되돌리기 분기, detection_methods_empty(활성 모델 집합 기준), 공통 잠금, 멱등키, 미리보기, 이력·커서, append-only, 표본 규칙·분위 일치, 기간 mode, 503.
 // 로컬 전용 새 QA 데이터베이스(qa_rule_set*)만 허용한다. 표 ops_rule_set_revisions는 마이그레이션 015가 만든다(r0 행 포함).
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
@@ -9,7 +9,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import pg from 'pg';
-import { activateConfig, addProcess, clearActiveConfig, seedRuleSetSource } from './rule-set-fixture.mjs';
+import { activateConfig, addProcess, clearActiveConfig, pushActiveModels, seedRuleSetSource } from './rule-set-fixture.mjs';
 
 const url = process.env.PIPELINE_TEST_DATABASE_URL;
 if (!url) throw new Error('PIPELINE_TEST_DATABASE_URL is required');
@@ -281,18 +281,19 @@ try {
   assert.deepEqual(backToR0.body.changes.map((change) => change.type), ['hard_updated', 'hard_disabled', 'hard_disabled']);
   assert.deepEqual((await read()).hardRules[0].severity, STATUS_DEFAULT);
 
-  // 9) detection_methods_empty: 활성 모델은 v1·v2 투영(ops_system_state → ml_config_models).
+  // 9) detection_methods_empty: 활성 모델은 활성 모델 집합(v04 판정이 쓰는 집합)으로 센다. v1·v2 단일 구성은 세지 않는다.
   const sourceId = await seedRuleSetSource(pool);
   const allOff = { expectedRevision: backToR0.body.revision, hardRules: hardOn(HARD), confirmHardRuleDisable: true, softRules: [] };
   const empty = await put(allOff);
   assert.deepEqual([empty.status, empty.body.code], [422, 'detection_methods_empty']);
-  await activateConfig(pool, sourceId, { models: 0 });
-  assert.equal((await put(allOff)).body.code, 'detection_methods_empty', 'an active configuration without models does not count');
-  await activateConfig(pool, sourceId, { models: 1, trainFrom: null });
+  const legacyModel = await activateConfig(pool, sourceId, { models: 1, trainFrom: null });
+  assert.equal((await put(allOff)).body.code, 'detection_methods_empty', 'the v1/v2 single configuration is not the active model set');
+  await pushActiveModels(pool, [{ configVersionId: legacyModel, modelKey: 'iforest' }]);
   const withModel = await put(allOff);
   assert.equal(withModel.status, 200, JSON.stringify(withModel.body));
   assert.equal((await read()).counts.hardEnabled, 0);
   await save({ hardRules: hardOn() });
+  await pushActiveModels(pool, []);
   await clearActiveConfig(pool);
 
   // 10) 동시 저장: 공통 잠금을 기다리고, 같은 리비전 기준이면 한쪽만 성공.

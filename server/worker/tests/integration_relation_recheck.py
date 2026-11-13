@@ -48,7 +48,8 @@ def migration_files() -> list[str]:
     text = (INFRA / "tests" / "prepare-runtime-db.py").read_text(encoding="utf-8")
     block = re.search(r"files=\((.*?)\)\n", text, re.S).group(1)
     files = re.findall(r"'([0-9]{3}_[a-z0-9_]+\.sql)'", block)
-    assert files[-1] == "024_relation_recheck_runs.sql", files[-3:]
+    # 024가 목록에 있어야 한다(뒤에 다른 migration이 더해져도 된다).
+    assert "024_relation_recheck_runs.sql" in files, files[-3:]
     return files
 
 

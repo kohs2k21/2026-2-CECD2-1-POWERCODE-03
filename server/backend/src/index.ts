@@ -13,6 +13,7 @@ import inputRouter from './routes/inputRoutes.js';
 import operationsRouter from './routes/operationsRoutes.js';
 import analysisRouter from './routes/analysisRoutes.js';
 import ruleSetRouter from './routes/ruleSetRoutes.js';
+import responseCodeRouter from './routes/responseCodeRoutes.js';
 import preparedDatasetRouter from './routes/preparedDatasetRoutes.js';
 import { createMeRouter, createNotificationRouter } from './routes/notificationRoutes.js';
 import { createActiveModelRouter, createOperationalStateRouter } from './routes/activeModelRoutes.js';
@@ -33,6 +34,8 @@ app.use('/api/prepared-datasets', preparedDatasetRouter);
 app.use('/api/analysis', analysisRouter);
 // 룰 세트 API도 자체 JSON 파서·오류 형식을 쓴다.
 app.use('/api/rule-set', ruleSetRouter);
+// 응답 코드 사전 API도 자체 JSON 파서(16KB)·오류 형식을 쓴다.
+app.use('/api/response-codes', responseCodeRouter);
 // 사용자별 설정·알림 API도 자체 JSON 파서(16KB)·오류 형식을 쓴다.
 app.use('/api/me', createMeRouter());
 app.use('/api/notifications', createNotificationRouter());

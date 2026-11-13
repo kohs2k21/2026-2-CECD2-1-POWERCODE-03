@@ -2,7 +2,7 @@
 -- 새 표 1개·트리거 1개만 만든다. 001~021 표·함수·트리거·enum·권한은 바꾸지 않는다. 새 함수 없음(004 erd_v03_immutable() 재사용).
 -- 왜 새 표인가: ops_system_state.detector_state는 활성 구성 전환(applications.py)이 통째로 덮어쓰고 API가 그대로 내보내며,
 --   ops_collection_checkpoints는 Collector 소유라 Detector 커서를 둘 자리가 아니다. 019 run_incident_runs와 같은 append-only 실행 기록으로 둔다.
--- 전제: 001~021 적용 뒤 1회 실행(psql -v ON_ERROR_STOP=1 -f), 기존 표 소유자로 실행. 이어서 DBA가 scripts/database-roles.sql 재적용.
+-- 전제: 001~021 적용 뒤 1회 실행(psql -v ON_ERROR_STOP=1 -f), 기존 표 소유자로 실행. 역할 스크립트(scripts/database-roles.sql) 재적용은 023·024·025를 모두 적용한 뒤 한 번(infra/database/README.md 024 절 배포 순서).
 --   enum 변경 없음 → 단일 BEGIN..COMMIT, 중간 오류 시 전체 ROLLBACK. 자동 down migration 없음(표가 비어 있으면 DROP TABLE로 되돌림).
 --   잠금: 새 표의 FK 생성이 ops_sources에 짧은 SHARE ROW EXCLUSIVE를 잡는다.
 -- 표 run_recheck_runs: Detector 재판정 탐색 1회(원본 1개) = 1행. 실행 트랜잭션 끝에 INSERT(커서가 움직였거나 작업을 넣었거나 첫 실행일 때만).

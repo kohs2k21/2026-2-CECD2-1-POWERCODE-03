@@ -126,6 +126,8 @@ export type DecisionItem = {
   channelId: string | null;
   processStatus: string | null;
   responseCode: string | null;
+  /** 응답 코드 사전(룰 설정 › 응답 코드) 메시지. 사전에 없으면 null(contracts/response-codes-ui.md 5절). */
+  responseCodeMessage: string | null;
   /** 저장된 v4 composite.grade(서버가 저장값만 읽음). v3·없음 = null. */
   grade: Grade | null;
   /** 저장된 v4 composite.risk(서버가 저장값만 읽음). 이상 신호가 아니면 not_applicable, v3 이상 = unrated. */
@@ -225,6 +227,7 @@ export const parseItem = (value: unknown): DecisionItem => {
     occurredAt: time(value.occurredAt), decidedAt: time(value.decidedAt),
     transactionId: text(value.transactionId), processId: text(value.processId), interfaceId: text(value.interfaceId),
     channelId: text(value.channelId), processStatus: text(value.processStatus), responseCode: text(value.responseCode),
+    responseCodeMessage: text(value.responseCodeMessage),
     grade: oneOf(value.grade, ["anomaly", "anomaly_sign", "normal", "undetermined"] as const),
     riskStatus: oneOf(value.riskStatus, ["rated", "unrated", "not_applicable"] as const),
     riskLevel: oneOf(value.riskLevel, ["critical", "warning", "info"] as const),

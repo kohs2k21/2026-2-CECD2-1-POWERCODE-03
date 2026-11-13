@@ -1523,6 +1523,34 @@ Table run_recheck_runs {
   Note: '024 [제안, DB 세션 확정 대기]. 관계 규칙 재판정 탐색 1회(원본 1개) = 1행, 실행 트랜잭션 끝에 INSERT. transaction_cursor_* = 마지막으로 처리한 TRANSACTION 관측 (persisted_at, id), event_cursor = 마지막으로 읽은 run_decision_events.id(≥ 0). seq = GENERATED ALWAYS identity, advisory lock(81742,0) 아래에서만 INSERT라 seq 순서 = 커밋 순서. 건수 3종 ≥ 0, finished_at ≥ started_at. 불변(019와 같은 문장 단위 트리거).'
 }
 
+Table ops_response_codes {
+  code text [pk]
+  enum_name text
+  code_type text
+  http_status text
+  message_key text
+  message text [not null]
+  origin text [not null]
+  revision integer [not null, default: 1]
+  updated_at timestamptz [not null, default: `clock_timestamp()`]
+  updated_by_actor_id text [not null]
+  Note: '025. 응답 코드 사전(코드당 1행, 삭제 없음). code 인쇄 가능한 ASCII 1~64자(룰 세트 byCode 키 형식). origin import|edited(화면 메시지 편집), 가져오기는 기본으로 edited 행을 덮지 않는다. revision = 화면 편집 낙관적 잠금. 값은 가져오기 도구로 DB에만 넣는다(저장소에 없음). 코드별 위험도는 룰 세트 hard:transaction-failed가 정본. Detector는 읽지 않음.'
+}
+
+Table ops_response_code_changes {
+  id bigint [pk, increment]
+  code text [not null]
+  kind text [not null]
+  message_before text
+  message_after text [not null]
+  actor_id text [not null]
+  changed_at timestamptz [not null, default: `clock_timestamp()`]
+  indexes {
+    (code, id) [name: 'ops_response_code_changes_code_idx', note: 'code, id DESC']
+  }
+  Note: '025. 응답 코드 메시지 변경 기록(추가만, 수정·삭제 권한 없음). kind import|edit, message_before NULL = 처음 넣은 행. GENERATED ALWAYS identity.'
+}
+
 Ref: ops_demo_passes.run_id > ops_demo_runs.id
 Ref: data_demo_deliveries.pass_id > ops_demo_passes.id
 Ref: data_observations.id - data_demo_deliveries.observation_id
@@ -1580,3 +1608,5 @@ Ref: run_incident_events.incident_id > run_incidents.id
 Ref: run_incident_events.target_incident_id >? run_incidents.id
 Ref: run_incident_events.added_by_run > run_incident_runs.id
 Ref: run_recheck_runs.source_id > ops_sources.id
+// 025 refs
+Ref: ops_response_code_changes.code > ops_response_codes.code

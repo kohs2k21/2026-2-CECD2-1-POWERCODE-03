@@ -46,6 +46,8 @@ Bearer tokens are accepted through request headers. Tokens in query strings are 
 
 `/api/rule-set`은 이상 규칙 켜기·끄기와 이상 징후 규칙의 현재 상태·저장 즉시 적용·미리보기·변경 이력·되돌리기를 제공하고, `POST /api/rule-set/threshold-stats`는 규칙별 수식 추천(LLM 없음)을 계산한다. 조회·이력은 로그인 사용자, 저장·미리보기·수식 추천은 관리자 전용이다. `ops_rule_set_revisions`(마이그레이션 015)가 필요하다. 계약은 `server/contracts/rule-set.md`, 화면 규칙·구현 값은 `server/contracts/rules-ui.md`. 시험: `tests/rule-set-contract.test.mjs`(단위), `tests/rule-set.integration.mjs`·`tests/rule-set-grants.integration.mjs`(로컬 `qa_rule_set*` DB).
 
+`/api/response-codes`(목록·`/:code` 상세: 로그인 사용자, `PUT /:code` 메시지 편집: 관리자)는 응답 코드 사전과 현재 룰 세트 `hard:transaction-failed`의 코드별 위험도·위험도 바뀐 버전을 다룬다. 위험도 저장은 `PUT /api/rule-set`. migration 025 필요, 계약 `server/contracts/response-codes-ui.md`. 사전 기본값은 저장소에 없고 `node dist/scripts/importResponseCodes.js <저장소 밖 .xlsx|.csv> [--dry-run] [--force]`(환경 변수 `DATABASE_URL`)로 DB에만 넣는다(출력은 건수만). 시험: `tests/response-codes.test.mjs`(단위, 합성 값), `tests/response-codes.integration.mjs`(로컬 `qa_response_codes*` DB, 서버·도구를 `powercode_api`로 실행).
+
 ## Local commands
 
 From `server/`:

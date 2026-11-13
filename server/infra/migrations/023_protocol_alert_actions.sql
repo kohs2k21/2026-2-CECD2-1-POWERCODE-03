@@ -1,6 +1,6 @@
 -- 023: 프로토콜 알림 처리 기록(WebUI 알림 [이상 유지]·프로토콜 알림 항목별 읽음). API만 읽고 쓴다.
 -- 새 표 2개만 만든다. 001~022 표·함수·트리거·enum·CHECK·권한은 바꾸지 않는다(022 항목 읽음 표의 item_key CHECK도 그대로 — 프로토콜 항목은 새 표에 둔다).
--- 전제: 001~022 적용 뒤 1회 실행(psql -v ON_ERROR_STOP=1 -f), 기존 표 소유자로 실행. 이어서 DBA가 scripts/database-roles.sql 재적용.
+-- 전제: 001~022 적용 뒤 1회 실행(psql -v ON_ERROR_STOP=1 -f), 기존 표 소유자로 실행. 역할 스크립트(scripts/database-roles.sql) 재적용은 023·024·025를 모두 적용한 뒤 한 번(infra/database/README.md 024 절 배포 순서).
 --   enum 변경 없음 → 단일 BEGIN..COMMIT, 중간 오류 시 전체 ROLLBACK. 자동 down migration 없음(되돌리기 = 새 표 2개 DROP, 다른 표 영향 없음).
 --   잠금: 다른 표를 참조하지 않으므로(FK 없음) 기존 표를 잠그지 않는다. 적용 중 작업자를 멈출 필요 없음.
 -- 알림 항목 자체는 저장하지 않는다: API가 읽을 때 최종 판정 evidence.protocolReview(Detector protocol-rules.md 5.3)에서 만든다

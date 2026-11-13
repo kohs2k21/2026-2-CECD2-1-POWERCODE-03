@@ -91,7 +91,8 @@ def _claim_job(conn: Any, message: ClaimedMessage, worker_id: str) -> tuple[dict
                 AND lease_token=%s AND lease_until>clock_timestamp() FOR UPDATE""", (message.id,message.lease_token))
             if cur.fetchone() is None:
                 raise RuntimeError("job_queue_ownership_lost")
-            if row[1] in ("recommend_feature", "recommend_rule", "recommend_thresholds", "recommend_relations", "train", "evaluate", "import_csv") and row[8] != "admin":
+            if row[1] in ("recommend_feature", "recommend_rule", "recommend_thresholds", "recommend_relations", "train", "evaluate", "import_csv",
+                          "evaluation_set", "compare") and row[8] != "admin":
                 raise ValueError("job_role_not_authorized")
             if row[2] in ("succeeded", "failed"):
                 if not acknowledge(conn, message.queue, message):
@@ -270,6 +271,12 @@ def _execute(conn: Any, job: dict[str, Any], attempt_id: uuid.UUID,
     if kind == 'import_csv':
         from trainer.prepared_import import execute as execute_import
         return execute_import(conn,job,artifact_root,message,attempt_id,attempt_token)
+    if kind in ('evaluation_set', 'compare'):
+        # 평가 세트 생성·세트 위 모델 버전 비교(config-comparison-evaluation.md v1 구현 범위).
+        from trainer import comparison
+        if kind == 'evaluation_set':
+            return comparison.execute_evaluation_set(conn, job, message, attempt_id, attempt_token)
+        return comparison.execute_compare(conn, job, artifact_root, message, attempt_id, attempt_token)
     if kind in ('train','evaluate') and spec.get('snapshotId'):
         from trainer.prepared_execution import maybe_execute
         prepared_result = maybe_execute(conn,job,artifact_root,message,attempt_id,attempt_token)
@@ -553,15 +560,11 @@ def _prepare_model(context: dict[str, Any], root: Path | None) -> None:
         model_adapters.transform_iforest_features(reference, context['definitions'], {})
 
 
-def _evaluate(conn: Any, job: dict[str, Any], root: Path | None,
-              message: ClaimedMessage, attempt_id: uuid.UUID,
-              attempt_token: uuid.UUID) -> dict[str, Any]:
-    started = time.monotonic()
-    queue_wait = queue_wait_ms(conn, message, attempt_id)
-    spec = job["input"]
-    config_id = uuid.UUID(spec["configVersionId"])
-    snapshot_id = uuid.UUID(spec["snapshotId"])
-    from detector.computation import load_context, compute
+def _version_context(conn: Any, config_id: uuid.UUID, source_id: uuid.UUID,
+                     pinned: Any = None) -> tuple[dict[str, Any], Any]:
+    """평가할 모델 버전 1개의 실행 문맥. v3는 운영 정책(시도 시작 판독 또는 비교 접수 고정값 `pinned`)으로
+    그 모델 하나만, v1·v2는 구성에 저장된 정책·룰 그대로 평가한다. evaluate와 비교 작업(`trainer/comparison.py`)이 공유한다."""
+    from detector.computation import load_context
     from detector.policy import Policy
     with conn.cursor() as cur:
         cur.execute("SELECT configuration_spec FROM ml_config_versions WHERE id=%s", (config_id,))
@@ -569,27 +572,26 @@ def _evaluate(conn: Any, job: dict[str, Any], root: Path | None,
     # 없는 구성은 아래 load_context가 config_source_mismatch로 끝낸다.
     version_spec = stored[0] if stored is not None and read_schema_version(stored[0]) == SCHEMA_VERSION else None
     model_key = read_model_key(version_spec) if version_spec is not None else None
-    operational = read_operational_state(conn) if version_spec is not None else None
-    context = load_context(conn, config_id, uuid.UUID(spec["sourceId"]))
+    operational = (pinned if pinned is not None else read_operational_state(conn)) if version_spec is not None else None
+    context = load_context(conn, config_id, source_id)
     if operational is not None:
         if [model[7] for model in context["models"]] != [model_key]:
             raise ValueError("model_unavailable")
         # v3 구성에는 정책·룰이 없다. load_context의 기본값(병렬)이 아니라 그 모델 하나만 평가한다.
         context = {**context, "policy": Policy("ml_only", operational.deadline_ms, "selected_path")}
+    return context, operational
+
+
+def _measure_version(context: dict[str, Any], operational: Any, rows: list[Any], root: Path | None, *,
+                     provenance: dict[str, Any], started: float, queue_wait: float | None,
+                     synthetic_baseline: dict[str, Any] | None = None) -> dict[str, Any]:
+    """고정 행 위에서 모델 버전 1개를 행마다 계산해 evaluate와 같은 지표·요약을 만든다(DB 쓰기 없음).
+
+    `ml`은 비교 항목용 추가 집계(ML 경로 선택 여부·성공 행 수·ML 혼동행렬·라벨 수)이며 evaluate 결과·평가 행에는 넣지 않는다."""
+    from detector.computation import compute
+    from detector.policy import Policy
     policy_evidence = operational.evidence_fields() if operational is not None else {"detectionPolicy": context["policy"].document()}
     rules = context["rules"]
-    rows = _snapshot_rows(conn, snapshot_id, spec["purpose"])
-    conn.commit()
-    if not rows:
-        raise ValueError("evaluation_empty_population")
-    synthetic_baseline = None
-    if spec.get('syntheticEvaluation') is not None:
-        from trainer.synthetic_profiles import validate_request
-        from trainer.synthetic_snapshot import MAX_COHORT_ROWS
-        validate_request(spec['syntheticEvaluation'])
-        if len(rows) > MAX_COHORT_ROWS:
-            raise ValueError('synthetic_cohort_limit_exceeded')
-        synthetic_baseline = {}
     threshold = context["models"][0][6] if context["models"] else None
     scores: list[float] = []
     unavailable = 0
@@ -598,6 +600,8 @@ def _evaluate(conn: Any, job: dict[str, Any], root: Path | None,
     model_confusion = dict.fromkeys(confusion, 0)
     rule_confusion = dict.fromkeys(confusion, 0)
     rule_unavailable = 0
+    ml_succeeded = 0
+    label_counts = {"anomaly": 0, "normal": 0}
 
     def record(target: dict[str, int], predicted: bool, label: str) -> None:
         key = "tp" if predicted and label == "anomaly" else "fp" if predicted else \
@@ -632,6 +636,8 @@ def _evaluate(conn: Any, job: dict[str, Any], root: Path | None,
             preprocess_samples.append(result['ml']['preprocessMs'])
         if 'inferenceMs' in result['ml']:
             inference_samples.append(result['ml']['inferenceMs'])
+        if result['ml'].get('status') == 'succeeded':
+            ml_succeeded += 1
         rule_status = result["rule"]["status"]
         rule_prediction = result["rule"].get("anomalous")
         model_prediction = result["ml"].get("anomalous")
@@ -648,6 +654,7 @@ def _evaluate(conn: Any, job: dict[str, Any], root: Path | None,
         if label not in {"normal", "anomaly"}:
             unlabeled += 1
             continue
+        label_counts[label] += 1
         if model_prediction is not None:
             record(model_confusion, model_prediction, label)
         if rule_prediction is not None:
@@ -674,8 +681,7 @@ def _evaluate(conn: Any, job: dict[str, Any], root: Path | None,
                "unavailableCount": unavailable, "unlabeledCount": unlabeled,
                "applicability": applicability, "metrics": metrics, "reasonCodes": reasons}
     from trainer.metrics import comparison_family
-    comparison = comparison_family(checker_results, {'sourceId': spec['sourceId'],
-        'snapshotId': str(snapshot_id), 'configVersionId': str(config_id), 'purpose': spec['purpose'],
+    comparison = comparison_family(checker_results, {**provenance,
         'population': 'immutable_snapshot_process_revisions', 'scope': 'offline_snapshot',
         'statusRulePolicy': context.get('statusRulePolicy'), **policy_evidence})
     execution_cost = cost_family({'totalMs': (time.monotonic()-started)*1000,
@@ -684,6 +690,67 @@ def _evaluate(conn: Any, job: dict[str, Any], root: Path | None,
         batch_size=len(rows), samples=samples, queue_wait=queue_wait)
     execution_cost['details'].update(scope='offline_snapshot', modelNJobs=2 if context['models'] else None)
     metrics['ruleMlComparison'] = comparison
+    return {"summary": summary, "metrics": metrics, "reasons": reasons, "comparison": comparison,
+            "executionCost": execution_cost, "policyEvidence": policy_evidence, "threshold": threshold,
+            "ml": {"selected": context["policy"].mode != "rule_only", "succeededCount": ml_succeeded,
+                   "confusion": dict(model_confusion), "labelCounts": dict(label_counts)}}
+
+
+def _evaluation_spec(measured: dict[str, Any], metric_version: str, purpose: str) -> dict[str, Any]:
+    return {"schemaVersion": 2, "metricVersion": metric_version, **measured["policyEvidence"],
+            "threshold": measured["threshold"], "labelSource": "manual_snapshot_evidence",
+            "purpose": purpose}
+
+
+def _insert_evaluation(cur: Any, *, evaluation_id: uuid.UUID, job_id: uuid.UUID, config_id: uuid.UUID,
+                       snapshot_id: Any, purpose: str, metric_version: str, evaluation_spec: dict[str, Any],
+                       measured: dict[str, Any], comparison_id: uuid.UUID | None = None,
+                       evaluation_set_id: uuid.UUID | None = None) -> None:
+    """평가 행 1개. evaluate는 계보 열 2개가 NULL이고, 비교 작업은 비교·세트 id를 채운다(011 계보 트리거)."""
+    summary = measured["summary"]
+    cur.execute(
+        """INSERT INTO run_evaluations
+             (id, job_id, config_version_id, snapshot_id, purpose,
+              evaluation_spec_version, evaluation_spec_hash, evaluation_spec,
+              applicability, population_count, scored_count, unavailable_count,
+              metrics, reason_codes, comparison_id, evaluation_set_id, completed_at)
+             VALUES (%s, %s, %s, %s, %s, %s, %s, %s::jsonb,
+                   %s, %s, %s, %s, %s::jsonb, %s::jsonb, %s, %s, clock_timestamp())""",
+        (evaluation_id, job_id, config_id, snapshot_id, purpose, metric_version,
+         hashlib.sha256(json.dumps(evaluation_spec, sort_keys=True).encode()).hexdigest(),
+         json.dumps(evaluation_spec), summary["applicability"],
+         summary["populationCount"], summary["scoredCount"], summary["unavailableCount"],
+         json.dumps(measured["metrics"]), json.dumps(measured["reasons"]), comparison_id, evaluation_set_id),
+    )
+
+
+def _evaluate(conn: Any, job: dict[str, Any], root: Path | None,
+              message: ClaimedMessage, attempt_id: uuid.UUID,
+              attempt_token: uuid.UUID) -> dict[str, Any]:
+    started = time.monotonic()
+    queue_wait = queue_wait_ms(conn, message, attempt_id)
+    spec = job["input"]
+    config_id = uuid.UUID(spec["configVersionId"])
+    snapshot_id = uuid.UUID(spec["snapshotId"])
+    context, operational = _version_context(conn, config_id, uuid.UUID(spec["sourceId"]))
+    rows = _snapshot_rows(conn, snapshot_id, spec["purpose"])
+    conn.commit()
+    if not rows:
+        raise ValueError("evaluation_empty_population")
+    synthetic_baseline = None
+    if spec.get('syntheticEvaluation') is not None:
+        from trainer.synthetic_profiles import validate_request
+        from trainer.synthetic_snapshot import MAX_COHORT_ROWS
+        validate_request(spec['syntheticEvaluation'])
+        if len(rows) > MAX_COHORT_ROWS:
+            raise ValueError('synthetic_cohort_limit_exceeded')
+        synthetic_baseline = {}
+    measured = _measure_version(context, operational, rows, root, started=started, queue_wait=queue_wait,
+                                provenance={'sourceId': spec['sourceId'], 'snapshotId': str(snapshot_id),
+                                            'configVersionId': str(config_id), 'purpose': spec['purpose']},
+                                synthetic_baseline=synthetic_baseline)
+    summary, metrics, reasons = measured["summary"], measured["metrics"], measured["reasons"]
+    comparison, execution_cost = measured["comparison"], measured["executionCost"]
     synthetic = None
     metric_version = 'selected-paths-v3'
     if synthetic_baseline is not None:
@@ -694,13 +761,11 @@ def _evaluate(conn: Any, job: dict[str, Any], root: Path | None,
         execution_cost['details'].update(scope='offline_original_snapshot_only', syntheticProcessingIncluded=False)
         metrics['syntheticEvaluation'] = synthetic
         # Synthetic method success cannot authorize an operational model switch.
-        applicability = summary['applicability'] = 'unmeasured'
+        summary['applicability'] = 'unmeasured'
         reasons.append('synthetic_not_operational_validation')
         metric_version = 'synthetic-method-v1'
     evaluation_id = uuid.uuid4()
-    evaluation_spec = {"schemaVersion": 2, "metricVersion": metric_version, **policy_evidence,
-                       "threshold": threshold, "labelSource": "manual_snapshot_evidence",
-                       "purpose": spec["purpose"]}
+    evaluation_spec = _evaluation_spec(measured, metric_version, spec["purpose"])
     if synthetic is not None:
         evaluation_spec['syntheticEvaluation'] = spec['syntheticEvaluation']
         evaluation_spec['syntheticProfileBinding'] = spec['syntheticProfileBinding']
@@ -708,20 +773,9 @@ def _evaluate(conn: Any, job: dict[str, Any], root: Path | None,
         if not lock_training_ownership(conn, message, job["id"], attempt_id, attempt_token):
             raise RuntimeError("training_ownership_lost")
         with conn.cursor() as cur:
-            cur.execute(
-                """INSERT INTO run_evaluations
-                     (id, job_id, config_version_id, snapshot_id, purpose,
-                      evaluation_spec_version, evaluation_spec_hash, evaluation_spec,
-                      applicability, population_count, scored_count, unavailable_count,
-                      metrics, reason_codes, completed_at)
-                     VALUES (%s, %s, %s, %s, %s, %s, %s, %s::jsonb,
-                           %s, %s, %s, %s, %s::jsonb, %s::jsonb, clock_timestamp())""",
-                (evaluation_id, job["id"], config_id, snapshot_id, spec["purpose"], metric_version,
-                 hashlib.sha256(json.dumps(evaluation_spec, sort_keys=True).encode()).hexdigest(),
-                 json.dumps(evaluation_spec), applicability,
-                 len(rows), complete_count, unavailable,
-                 json.dumps(metrics), json.dumps(reasons)),
-            )
+            _insert_evaluation(cur, evaluation_id=evaluation_id, job_id=job["id"], config_id=config_id,
+                               snapshot_id=snapshot_id, purpose=spec["purpose"], metric_version=metric_version,
+                               evaluation_spec=evaluation_spec, measured=measured)
         completed = {**summary, "evaluationId": str(evaluation_id),
                      "ruleMlComparison": comparison, "executionCost": execution_cost}
         if synthetic is not None:
@@ -803,7 +857,8 @@ def run(*, once: bool = False, poll_seconds: float = 1.0, role: str = "trainer")
                 logging.getLogger(__name__).warning("orphan training workspace cleanup skipped: %s", exc)
         while True:
             if role == "trainer":
-                message = claim(conn, "training", lease_seconds=60, job_kinds=("train", "evaluate", "import_csv", "recommend_relations"))
+                message = claim(conn, "training", lease_seconds=60, job_kinds=("train", "evaluate", "import_csv", "recommend_relations",
+                                                                          "evaluation_set", "compare"))
             elif role == "llm":
                 message = None
                 # A bounded rotation prevents explanation starvation under recommendation load.

@@ -103,6 +103,15 @@ Status: current
 - 거래 행 선택이 모호한(TRANSACTION 실행 재시도 번호 동률 등) 거래는 작업 오류가 아니라 후보별 `undetermined` 사유 `transaction_row_ambiguous`로 센다
 - 오류: 위 코드는 모두 `ValueError` → 재시도 없이 작업 `failed`(`errorCode`). 그 밖의 예외는 기존 학습 작업과 같이 시도 한도(3회) 안에서 재시도
 
+## 평가 세트·모델 버전 비교 작업 — `evaluation_set`·`compare`(v1, 11/13)
+
+- 요청·input_spec·결과 형식·실패 코드: [config-comparison-evaluation.md](config-comparison-evaluation.md) "v1 구현 범위(11/13)". DB는 migration 011 그대로
+- 꺼내기: training 큐. `trainer/runner.py` claim 목록(`job_kinds`)과 관리자 전용 목록(`_claim_job`)에 포함, `requester_role=admin`만(v03 작업만 허용은 011 DB 제약)
+- `evaluation_set` 완료: 세트 `ready`와 작업 성공을 한 트랜잭션에. `resultSummary = {evaluationSetId, evaluationSetContractVersion:"evaluation-set-v1", sourceId, snapshotId, purpose, status, contentHash, synthetic:null, generation}`. 작업이 실패하면 011 트리거가 세트를 같은 `error_code`로 `failed` 처리
+- `compare` 완료: 항목 평가 행(`run_evaluations`, `comparison_id`·`evaluation_set_id`)·비교 묶음·항목·작업 결과를 한 트랜잭션에 기록. `replacementRecommendations`는 null(`not_implemented_v1`). 전 항목 실패면 작업 `failed`(`comparison_all_items_failed`)이고 `result_summary`에 같은 요약을 남김
+- 항목 평가는 evaluate와 같은 핵심(`_version_context`·`_measure_version`)을 씀. v1·v2는 구성 정책·룰, v3는 접수 고정 운영 정책으로 평가하고, 고정 룰 세트 리비전은 적용하지 않고 hash 일치만 확인
+- 오류: 작업 수준 코드는 `ValueError` → 재시도 없이 `failed`. 항목 수준 코드는 그 항목만 `failed`이고 작업은 계속
+
 ## 책임·범위
 
 - Trainer: 학습/기존 평가·후보/불변 결과 저장

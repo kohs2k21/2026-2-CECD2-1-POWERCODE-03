@@ -270,8 +270,9 @@ assert.ok(!/>(REL_PRECEDES|PROTO_PATH_UNMATCHED|HARD_TRANSACTION_FAILED|relation
 const v3Row = (id) => v3Html.match(new RegExp(`<tr[^>]*data-method="${id}"[^>]*>.*?</tr>`))?.[0] ?? "";
 assert.ok(v3Row("hard:rel-3f9a2c1d").includes(">규약 위반<") && !v3Row("hard:rel-3f9a2c1d").includes(">이상<"), "relation violation says 규약 위반");
 assert.ok(v3Row("hard:proto-5c1e9a07").includes(">이상<") && !v3Row("hard:proto-5c1e9a07").includes("규약 위반"), "protocol is not labelled 규약 위반 (hard:rel-* only)");
+assert.equal(labels.resultCodeLabel("PROTO_PATH_UNMATCHED"), "정상 프로토콜 확인 · 처음 보는 경로", "same prefix as the protocol alert title");
 assert.deepEqual(["REL_PRECEDES", "REL_REQUIRED_STEP", "PROTO_INTERFACE_UNREGISTERED", "HARD_TRANSACTION_FAILED"].map(labels.resultCodeLabel),
-  ["규약 위반 · 선행 관계", "규약 위반 · 필수 단계", "정상 프로토콜 · 등록되지 않은 인터페이스", "거래 실패"], "list cause line uses the same kind names");
+  ["규약 위반 · 선행 관계", "규약 위반 · 필수 단계", "정상 프로토콜 확인 · 등록되지 않은 인터페이스", "거래 실패"], "list cause line uses the same kind names");
 assert.deepEqual(["hard:rel-3f9a2c1d", "hard:proto-5c1e9a07", "hard:rel-XYZ", "hard:unregistered-interface"].map(labels.methodLabel),
   ["관계 규칙", "정상 프로토콜", "이상 규칙", "이상 규칙(등록되지 않은 인터페이스)"]);
 // 위험도 단계 아이콘 색 = 위험도 배지 variant의 글자 색(위험 critical·주의 warning·참고 secondary). 목록 줄 아이콘도 같은 색.

@@ -213,17 +213,21 @@ export const protocolHitLabels: Record<string, string> = {
   PROTO_PATH_UNMATCHED: "처음 보는 경로",
   PROTO_INTERFACE_UNREGISTERED: hardRuleNames["hard:unregistered-interface"],
 };
+/** 프로토콜 알림 제목 앞부분(protocol-settings-ui.md 4절). */
+const PROTOCOL_CHECK = "정상 프로토콜 확인";
 const hardResultCodes: Record<string, string> = {
   HARD_NEGATIVE_DURATION: hardRuleNames["hard:negative-duration"],
   HARD_SUCCESS_WITH_ERROR: hardRuleNames["hard:success-with-error"],
   HARD_COUNT_CONSERVATION: hardRuleNames["hard:count-conservation"],
   HARD_TRANSACTION_FAILED: hardRuleNames["hard:transaction-failed"],
-  PROTO_PATH_UNMATCHED: `${evidenceGroupLabels.protocol} · ${protocolHitLabels.PROTO_PATH_UNMATCHED}`,
-  PROTO_INTERFACE_UNREGISTERED: `${evidenceGroupLabels.protocol} · ${protocolHitLabels.PROTO_INTERFACE_UNREGISTERED}`,
+  // 목록 이상 원인 줄은 프로토콜 알림 제목과 같은 앞부분(protocol-settings-ui.md 4절 "정상 프로토콜 확인 · 처음 보는 경로|등록되지 않은 인터페이스")
+  // — `정상 프로토콜 · …`만 쓰면 이상 원인이 "정상"으로 읽힐 수 있다.
+  PROTO_PATH_UNMATCHED: `${PROTOCOL_CHECK} · ${protocolHitLabels.PROTO_PATH_UNMATCHED}`,
+  PROTO_INTERFACE_UNREGISTERED: `${PROTOCOL_CHECK} · ${protocolHitLabels.PROTO_INTERFACE_UNREGISTERED}`,
 };
 /**
  * 결과 코드 표시(detection-decision.md 4.3): `PROCESS_STATUS_H` → `상태 H 부분성공`, `HARD_*` → 규칙 이름,
- * 관계 규칙 `REL_<KIND>`(relation-rules.md 3절) → `규약 위반 · 선행 관계`, 프로토콜 `PROTO_*` → `정상 프로토콜 · …`. 모르는 코드는 원문 그대로.
+ * 관계 규칙 `REL_<KIND>`(relation-rules.md 3절) → `규약 위반 · 선행 관계`, 프로토콜 `PROTO_*` → `정상 프로토콜 확인 · …`(알림 제목과 같음). 모르는 코드는 원문 그대로.
  */
 export const resultCodeLabel = (code: string) => {
   const status = /^PROCESS_STATUS_(.+)$/.exec(code)?.[1];

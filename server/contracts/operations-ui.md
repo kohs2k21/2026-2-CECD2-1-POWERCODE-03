@@ -1,11 +1,11 @@
 Created: 2026-10-09T23:47:02.2964769+09:00
-Updated: 2026-11-05T10:53:48+09:00
-Author: frontend_operations_builder / #103·#105 Claude Code(WebUI builder)
+Updated: 2026-11-13T12:00:00+09:00
+Author: frontend_operations_builder / #103·#105·운영 설정 하위 7 Claude Code(WebUI builder)
 Status: current
 
 # 운영 관측 · 이상 근거 조회 UI 계약
 
-- 범위: `/operations` user/admin 공용 운영 조회(개요 위젯·수집 탭, #103). 관리자 탐지 작업 조회 모델과 별도
+- 범위: `/operations` user/admin 공용 운영 조회(개요 위젯·수집 탭, #103). 관리자 탐지 작업 조회 모델과 별도. 탐지 설정 › 운영 설정·모델 교체(하위 7)의 방법별 운영 상태·활성 집합 API는 아래 두 절
 - 연결: `GET /api/operations/*` 읽기 API 6개 백엔드 구현(#103, `backend/src/routes/operationsRoutes.ts`·`services/operationsReadModel.ts`). 아래 이벤트 상세·피드백 API는 미연결
 - 인증: 기존 Bearer·401 세션 정리·403 권한 부족; 서버의 사용자 권한 검사 필수
 - 권한: `/api/operations/*`는 user/admin 모두 GET만(집계만), 쓰기 경로 없음. 입력 모드 변경은 기존 관리자 전용 `POST /api/inputs/:sourceId/mode`(user 403)
@@ -71,6 +71,41 @@ Status: current
 - 전 원천 합산, 운영 구성과 무관(구성 없는 v04 판정 포함). 운영 구성이 없어도 같은 형식. 응답 `timezone`, `from`, `until`, `items[]`
 - 집계: 운영 리포트 `operational-v1`(`/api/pipeline/reports/operational`)의 `configVersionId` 생략 경로와 같은 범위·최신 리비전·최신 판정 규칙과 건수 조건(`DECISION_TREND_SQL`, 판정 수·판정 가능·이상만 세고 evidence는 행마다 한 번만 읽음)을 원천마다 실행, live·replay 범위 합산(입력 범위 미확인 관측 제외)
 - `items[]`: 기간의 모든 날(판정 없는 날은 `decisionCount` 0·비율 null). `day` YYYY-MM-DD, `decisionCount`, `anomalySignalRatio` = 이상/판정 가능(분모 0이면 null), `unavailableRatio` = (판정 − 판정 가능)/판정(판정 0이면 null) — 화면 날짜/판정/이상 신호/정상 여부 미확인
+
+## GET /api/operations/method-status?period=1h|24h
+
+- 허용: user/admin(집계만). 기본 `1h`. 400 `invalid_period`·`unknown_operations_filter`, 저장소 실패·10초 초과 503 `operations_storage_unavailable`(부분 결과 없음)
+- 대상: 지금 운영 중인 방법만 — 현재 룰 세트의 켜진 이상 규칙(내장 목록 순)·이상 징후 규칙(룰 세트 순) + 활성 모델 집합의 모델(집합 순). 같은 REPEATABLE READ 안에서 읽어 `ruleSetRevision`·`activeModelSetRevision`과 맞음
+- 원천: 기간 안(`decided_at`) `run_process_decisions.evidence.schemaVersion=4` 행의 `methodResults[]`(의미 정본 detection-decision.md 11.5·11.6). 모델은 `modelVersionId`가 지금 활성 버전인 결과만 센다(같은 `ml:<key>`의 이전 버전 결과 제외)
+- `methods[]`: `methodId`, `category`, `modelVersionId`(모델만), `enabledSince`(규칙은 끊김 없이 켜져 있기 시작한 룰 세트 리비전 저장 시각 — 최근 1000개 리비전까지 거슬러 읽음, 모델은 `activatedAtRevision`의 변경 시각), `runs`, `succeeded`(판단하지 않음 `not_applicable` 포함), `notReady`, `failed`, `anomalous`(true), `timeouts`(`cause=timeout`), `causes[]`(미판정 `cause`별 건수, 많은 순), `lastRunAt`, `elapsedP95Ms`(`elapsedMs` p95 — 시도 기한 기준점부터, 순수 소요 시간 아님). 실행 0이면 수치 0·null
+- 전체: `decisionCount`(v4 판정 수), `legacyDecisionCount`(v1·v3 판정 — 방법별 결과가 없어 집계 밖), `failedWithoutDecision {count, byCode[{code,count}]}`(기간 안 끝난 detect 작업 중 판정 행 없이 failed, `error_code` 없으면 `job_failed`), `firstRunWaitMs`(3600000 — 첫 실행 대기 기준, 사용자 11/02 9.8 예시값), `from`·`until`·`period`
+- 한계: `decided_at` 인덱스가 없어 기간 조건이 판정 표를 훑는다(큰 표에서 느릴 수 있음, 인덱스는 DB 세션 결정). 마이그레이션·스키마 변경 없음
+
+## 운영 설정·모델 교체 화면 — 탐지 설정 하위 7
+
+- 화면: `/detection/operations`(운영 버전 overview, 사용자 9.6), `/detection/operations/replace?step=1|2|3`(모델 교체 3단계). 와이어프레임 #93 `detect-ops`·`cmd-replace`. 판정 정책(`detectionPolicy`)은 표시하지 않음(Q-M10)
+- 조회: `GET /api/operational-state`(룰 세트·활성 집합·정책 리비전 한 번에, model-version.md 일관 읽기), `GET /api/rule-set`(규칙 이름·조건), `GET /api/operations/method-status`, `GET /api/active-models/history`, `GET /api/configurations`(교체 후보, `applicationEligibility`), 비교 평가(`evaluationsApi.ts` — 연결 전이라 개발 모드만 예시, 운영 빌드는 `미연결`)
+- 상태 배지(사용자 9.7·9.8): 실행 0 → `enabledSince`부터 `firstRunWaitMs` 안이면 `적용됨 · 첫 실행 대기`, 지나거나 시각 모름이면 `점검 필요 · 실행 없음` / 미판정(not_ready+failed) 10% 이상 `점검 필요` / 2% 이상 또는 기한 초과 2% 이상 `주의` / 그 밖 `정상`
+- 명령: `모델 교체`(3단계), `복원`(이전 리비전 중 지금과 다른·모델 있는 집합, 최신순·같은 집합 1번 → `POST /api/active-models/restore`, 확인 체크가 `confirmRetire`를 겸함), 모델 행 `운영에서 제외`(retire, 확인 체크). 결과는 화면 위 안내(적용됨 · 운영 모델 X로 전환됨 / 제외됨, 실패는 `<작업> 실패 · <상태> <코드> · 운영 모델 <현재> 유지`)
+- 모델 교체: 1 버전 선택(실행 가능·운영 중 아님·`applicationEligibility.eligible`만 선택 가능, 운영 변화 = 같은 종류 운영 버전 → 선택 또는 `추가 운영`) → 2 비교 확인(현재 운영·선택 버전이 모두 측정된 가장 최근 비교, 같은 종류 운영 모델이 없으면 선택 버전이 측정된 비교. 없으면 다음 단계 막힘) → 3 승인(체크)·요청. 같은 종류 운영 버전이 있으면 `replace`, 없으면 `apply`. `evaluationId`는 추천 수락이면 그 추천의 `targetEvaluationId`, 아니면 `applicationEligibility.evaluationId`. `expectedRevision`은 조회한 현재 활성 집합 리비전. 선택은 화면 초안(떠나면 지움, 새로고침하면 1단계), 승인 체크는 3단계를 떠나면 초기화
+- 진입: 운영 설정 `모델 교체`, 교체 추천 `수락하고 교체`(state `acceptedRecommendation`), 평가 상세 `이 모델로 교체`·모델 버전 상세 `이 버전으로 교체`(state `targetVersionId`)
+
+### 활성 집합 API 구현에서 정한 값(model-version.md에 코드가 없는 곳)
+
+| 경우 | 값 |
+|---|---|
+| v1·v2 단일 구성 경로와 같은 주소 | `POST /api/configurations/:id/applications` 본문이 `apply`·`restore` + `expectedActiveVersionId` 키면 기존 v1·v2(`ops_system_state`·`run_applications`) 경로, 그 밖은 활성 집합 |
+| 응답 | 200 `{revision, previousRevision, models[], changes[], changedAt, appliesFrom:"next_decision"}`(동기 적용, 작업 행 없음) |
+| 근거 기록 | 변경 항목 `changes[].gate`(평가 ID·추천 수락·조작 시점 룰 세트 `{revision, contentHash, contentHashVersion}`·정책 리비전·집합 before/after). 응답·이력에는 `evaluationId`·`acceptedRecommendation`만 |
+| 멱등키 | 형식 400 `invalid_idempotency_key`, 같은 키 다른 본문 409 `idempotency_payload_conflict`. 재전송 보장은 프로세스 메모리(룰 세트 저장과 같음), 재시작 뒤는 `expectedRevision`이 막음 |
+| 형식 오류 | 400 `invalid_application_request`(키 집합 정확 일치, `note` 500자) |
+| gate 실패 | 404 `config_not_found`, 422 `config_schema_not_supported_yet`(v3), 409 `model_artifacts_not_ready`(모델 행 1개 아님·산출물 행 불일치), 409 `method_not_executable:ml:<key>`(카탈로그), 409 `prepared_detector_reproduction_unverified`, 409 `evaluation_gate_not_met`. 산출물 파일 hash는 API가 볼 수 없어 Detector가 시도마다 검증 |
+| 바뀌는 것이 없음 | 409 `active_model_set_unchanged`(같은 버전으로 replace, 지금과 같은 집합으로 restore) |
+| restore 대상 | 현재 리비전 이상 422 `invalid_target_revision`, 없음 404 `active_model_set_revision_not_found` |
+| 이력 목록 | 항목에 `snapshot.models`(그 리비전 집합)도 둔다(복원 선택창), 변경 항목에 `displayName`·`previousDisplayName`(구성 행 값). 400 `unknown_active_model_filter`·`invalid_limit`·`invalid_cursor`·`invalid_revision` |
+| 운영 상태 | `GET /api/operational-state` 로그인 사용자, 응답 `ruleSet{revision,contentHash,contentHashVersion,savedAt,savedBy}`·`activeModelSet{revision,models[],changedAt,changedBy,restoredFromRevision}`·`detectionPolicy{revision,policy,isDefault}`·`readAt`. 400 `unknown_operational_state_filter` |
+| 저장소 실패 | 503 `active_model_set_storage_unavailable`(`/api/active-models`·`/api/operational-state`). `/api/configurations/:id/applications`는 기존 `configuration_storage_unavailable` |
+| 룰 세트 `detection_methods_empty` | 활성 모델 수를 활성 집합으로 센다(이전: `ops_system_state` 단일 구성) |
 
 ## 개요 위젯·배치
 

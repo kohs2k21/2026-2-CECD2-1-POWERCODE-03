@@ -1,8 +1,9 @@
-import { Link, useParams } from "react-router-dom";
+import { Link, useLocation, useParams } from "react-router-dom";
 import { paths } from "@/app/routes";
 import { DescriptionList } from "@/components/layout/DescriptionList";
 import { ScreenTitle } from "@/components/layout/PageHeader";
 import { SectionCard } from "@/components/layout/SectionCard";
+import { Button } from "@/components/ui/button";
 import { ErrorState, LoadingState } from "@/components/ui/feedback";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { errorCode } from "@/features/detection/rules/ruleDraft";
@@ -37,6 +38,15 @@ const ParametersCard = ({ parameters }: { parameters: Record<string, unknown> | 
   </SectionCard>
 );
 
+/** 와이어프레임 '이 버전으로 교체': 교체 2단계(비교 확인)로 간다. 실행 가능·운영 중 아님·운영 적용 평가 있음일 때만 누를 수 있다. */
+const ReplaceAction = ({ version }: { version: ModelVersionDetail }) => {
+  const location = useLocation();
+  const usable = version.executable && !version.active && version.applicationEligibility?.eligible === true;
+  return usable
+    ? <Button asChild size="sm" variant="outline"><Link to={`${paths.detectionReplace}?step=2`} state={{ returnTo: location.pathname + location.search, targetVersionId: version.id }}>이 버전으로 교체</Link></Button>
+    : <Button size="sm" variant="outline" disabled>이 버전으로 교체</Button>;
+};
+
 const VersionBody = ({ version }: { version: ModelVersionDetail }) => {
   const capabilities = useCapabilities();
   const trainJobId = version.createdFrom.trainJobId ?? null;
@@ -54,7 +64,7 @@ const VersionBody = ({ version }: { version: ModelVersionDetail }) => {
   };
   return (
     <>
-      <SectionCard title={`버전 ${versionLabel(version)}`}>
+      <SectionCard title={`버전 ${versionLabel(version)}`} action={version.modelKey ? <ReplaceAction version={version} /> : undefined}>
         <DescriptionList
           items={[
             { label: "모델", value: `${methodName(capabilities.data?.methodCatalog.methods, version.modelKey)}${method ? ` · ${method.methodId}` : ""}` },

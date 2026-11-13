@@ -210,12 +210,11 @@ try {
   assert.equal(refusedCursor.body.code, 'invalid_cursor');
   assert.equal((await get(list({ limit: '1' }), user)).status, 200, 'any signed-in user reads the list, like GET /:id');
 
-  // v1 운영이 쓰는 단일 활성 구성도 운영 중이다(활성 집합 저장 경로 전)
+  // v1·v2 운영의 단일 구성(ops_system_state)은 운영 중으로 보지 않는다: 활성 모델 집합만 정본(운영 설정 하위 7)
   const legacy = await activateConfig(pool, sourceId, { trainFrom: '2026-09-01T00:00:00Z' });
   const running = (await get(`/api/configurations/${legacy}`)).body;
-  assert.equal(running.active, true);
-  assert.ok(running.activeSince.at);
-  assert.deepEqual((await get(list({ active: 'true' }))).body.items.map((entry) => entry.id).sort(), [first, legacy].sort(), 'the filter uses the same active rule as the field');
+  assert.deepEqual([running.active, running.activeSince], [false, null]);
+  assert.deepEqual((await get(list({ active: 'true' }))).body.items.map((entry) => entry.id), [first], 'the filter uses the same active rule as the field');
 
   // 상세: 기존 키 유지 + 모델·파라미터·입력 변수·산출물
   const detail = await get(`/api/configurations/${first}`);

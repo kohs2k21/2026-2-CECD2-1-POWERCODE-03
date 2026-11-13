@@ -52,8 +52,8 @@ type ActiveSince = { revision: number; at: string };
 export type ActiveState = Map<string, ActiveSince>;
 
 /**
- * 활성 집합(ops_active_model_set_revisions)이 정본이다. 다만 활성 집합 저장 경로(하위 7)와 Detector v3 로더(#92 후속) 전에는
- * v1·v2 운영이 쓰는 ops_system_state 단일 활성 구성만 실제로 돌고 있으므로 그 구성도 운영 중으로 본다(model-version.md 호환 절).
+ * 활성 집합(ops_active_model_set_revisions)이 정본이다(v04 판정이 시도마다 읽는 집합). 활성 집합 저장 경로(운영 설정 하위 7)가 생겨
+ * v1·v2 운영의 ops_system_state 단일 구성은 운영 중으로 보지 않는다(교체·복원 화면의 기준과 같게).
  */
 export async function readActiveState(db: Pick<PoolClient, 'query'>): Promise<ActiveState> {
   const { rows: [set] } = await db.query<{ revision: string; models: { configVersionId: string; activatedAtRevision: number }[] }>(
@@ -64,11 +64,7 @@ export async function readActiveState(db: Pick<PoolClient, 'query'>): Promise<Ac
     `SELECT revision,to_char(changed_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS at FROM ops_active_model_set_revisions WHERE revision=ANY($1::bigint[])`,
     [models.map((model) => model.activatedAtRevision)]);
   const changedAt = new Map(revisions.rows.map((row) => [Number(row.revision), row.at]));
-  const state: ActiveState = new Map(models.map((model) => [model.configVersionId, { revision: model.activatedAtRevision, at: changedAt.get(model.activatedAtRevision) ?? '' }]));
-  const { rows: [legacy] } = await db.query<{ id: string | null; revision: string; at: string }>(
-    `SELECT active_config_version_id AS id,revision,to_char(changed_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS at FROM ops_system_state WHERE id=1`);
-  if (legacy?.id && !state.has(legacy.id)) state.set(legacy.id, { revision: Number(legacy.revision), at: legacy.at });
-  return state;
+  return new Map(models.map((model) => [model.configVersionId, { revision: model.activatedAtRevision, at: changedAt.get(model.activatedAtRevision) ?? '' }]));
 }
 
 /** 카탈로그 기준 방법 상태(실행 가능 여부는 저장값이 아니라 지금 카탈로그). 카탈로그에 없는 키는 실행 불가다. */

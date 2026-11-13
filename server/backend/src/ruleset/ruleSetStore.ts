@@ -48,13 +48,19 @@ async function atRevision(db: Queryable, revision: number): Promise<RevisionRow 
   return row ?? null;
 }
 /**
- * 켜진 머신러닝 모델 수. 활성 모델 집합 저장소가 아직 없으므로 v1·v2 투영으로 센다(model-version.md):
- * ops_system_state.active_config_version_id가 가리키는 구성의 ml_config_models 행 수(활성 구성이 없으면 0).
+ * 켜진 머신러닝 모델 수 = 현재 활성 모델 집합의 모델 수(model-version.md 활성 집합 절, 공통 검사 detection_methods_empty).
+ * v04 판정이 쓰는 집합이다. v1·v2 운영의 ops_system_state 단일 구성은 세지 않는다.
  */
 export async function activeModelCount(db: Queryable): Promise<number> {
-  const { rows: [row] } = await db.query<{ n: number }>(`SELECT count(*)::int AS n FROM ops_system_state s
-    JOIN ml_config_models m ON m.config_version_id=s.active_config_version_id WHERE s.id=1`);
+  const { rows: [row] } = await db.query<{ n: number }>(`SELECT jsonb_array_length(COALESCE(active_models,'[]'::jsonb))::int AS n FROM ops_operational_state`);
+  if (!row) throw new Error('operational_state_unavailable');
   return row.n;
+}
+
+/** 현재 룰 세트에서 켜진 이상 규칙 + 이상 징후 규칙 수(활성 집합 변경의 detection_methods_empty 검사). */
+export async function enabledRuleCount(db: Queryable): Promise<number> {
+  const { hardRules, softRules } = currentSnapshot(await latest(db));
+  return hardRules.filter((rule) => rule.enabled).length + softRules.filter((rule) => rule.enabled).length;
 }
 
 /** 현재 리비전의 번호·내용 hash·소프트룰. 작업 입력 고정용이며 hash는 행의 값 그대로다(재계산 없음). */

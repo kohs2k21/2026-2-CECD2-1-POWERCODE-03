@@ -471,7 +471,8 @@ const toStep3 = async (app) => {
   for (const expected of ["Isolation Forest · ml:iforest", "process-iforest-v1", "운영 중", "2026-10-01 00:00 ~ 2026-11-01 00:00 · 저장 시각 기준", "47,120건", "train-success-only-v1", "입력 변수 2개", "error_count, retry_count", "64", "m-1", "f-1", "value 0.58", "2026-10-03 09:00 ~ 2026-10-03 12:00 · DB 장애"]) {
     assert.ok(shown.includes(expected), expected);
   }
-  for (const excluded of ["이 버전으로 교체", "새 비교 평가", "리비전"]) assert.ok(!shown.includes(excluded), `${excluded} is out of this screen`);
+  for (const excluded of ["새 비교 평가", "리비전"]) assert.ok(!shown.includes(excluded), `${excluded} is out of this screen`);
+  assert.equal(app.button("이 버전으로 교체")?.props.disabled, true, "a version in operation cannot be the replacement (operations settings sub-issue 7)");
   await app.cleanup();
 }
 {

@@ -4,6 +4,8 @@ import { getDatabasePool } from '../config/database.js';
 import { authenticateToken, AuthenticatedRequest, requireAdmin } from '../middleware/auth.js';
 import { hasStatusRulePolicy } from '../services/statusRulePolicy.js';
 import { ConfigurationQueryError, parseConfigurationQuery, readConfiguration, readConfigurations } from '../services/configurationReadModel.js';
+import { ActiveSetError, isLegacyApplication } from '../services/activeModelSet.js';
+import { handleActiveSetChange } from './activeModelRoutes.js';
 
 const router = Router();
 router.use(authenticateToken as any);
@@ -58,6 +60,11 @@ router.get('/:id', route(async (req, res) => {
 router.post('/:id/applications', requireAdmin as any, route(async (req, res) => {
   if (!uuid(req.params.id)) throw new ConfigError('invalid_config_id');
   const body = req.body;
+  // 활성 모델 집합 조작(apply·replace·retire·restore, model-version.md 활성 집합 절). v1·v2 단일 구성 경로는 아래 그대로.
+  if (!isLegacyApplication(body)) {
+    await handleActiveSetChange(req, res, req.params.id.toLowerCase());
+    return;
+  }
   if (!body || typeof body !== 'object' || Array.isArray(body) ||
       Object.keys(body).some((key) => !['operation', 'evaluationId', 'expectedRevision', 'expectedActiveVersionId'].includes(key)) ||
       !['apply', 'restore'].includes(body.operation) || !uuid(body.evaluationId) ||
@@ -182,6 +189,10 @@ router.get('/applications/:id', route(async (req, res) => {
 }));
 
 router.use((error: unknown, _req: Request, res: Response, _next: NextFunction) => {
+  if (error instanceof ActiveSetError) {
+    res.status(error.status).json({ code: error.code, ...error.detail });
+    return;
+  }
   if (error instanceof ConfigError) {
     res.status(error.status).json({ code: error.code });
     return;

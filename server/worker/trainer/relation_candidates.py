@@ -23,6 +23,8 @@ adapter). from adapter는 대조하지 않고 분포(`fromAdapterTypes`)만 남�
 transaction_id COLLATE "C" 순)를 거래 키로 합쳐 거래 1건씩 처리하고 2회 통과한다(STREAM_DESIGN). 결과 JSON은 스트리밍 전환
 전 메모리 일괄 구현과 같다(tests/relation_candidates_oracle.py와 비교 시험). 예외는 thresholdCandidates의
 limitation 문구·limitationRefs 두 필드뿐(오라클 고정 뒤 화면 문구 정리).
+`protocolPathDrafts`: 인터페이스별 관측 채널 경로 초안(프로토콜 설정 [관측 경로로 초안 만들기]용, 집계만 — 판정은 Detector).
+정의는 Detector `contracts/protocol-rules.md` 3·9절, 구현 `trainer/protocol_paths.py`. 통과 1에서 거래마다 함께 센다.
 """
 from __future__ import annotations
 
@@ -214,6 +216,7 @@ class ProcessRow:
     raw: Mapping[str, Any] = field(default_factory=dict)
     label: str | None = None
     split: str = "train"
+    channel_id: str | None = None  # protocolPathDrafts 전용(관계 후보 계산은 읽지 않음)
 
 
 @dataclass(frozen=True)
@@ -226,6 +229,8 @@ class TransactionRow:
     interface_id: str | None
     status: str | None = None
     retry_count: Any = None
+    start_channel_id: str | None = None  # protocolPathDrafts endpoint_mismatch 정보 전용
+    end_channel_id: str | None = None
 
 
 @dataclass(frozen=True)
@@ -319,6 +324,24 @@ def _unresolved_reason(group: _Group, role: str) -> str:
     return f"{role}_ambiguous_retry"
 
 
+def select_transaction_row(items: Sequence[TransactionRow]) -> tuple[TransactionRow | None, bool]:
+    """같은 거래 ID의 TRANSACTION 행(실행마다 최신 리비전, 1건 이상) → (대표 행, 모호). TRANSACTION_ROW_RULE.
+
+    실행이 하나면 그 행. 여럿이면 retry_count가 가장 큰 실행. 여럿인데 가장 큰 번호가 2건 이상·번호가 숫자 아님·
+    execution id 없는 행이 있으면 모호(대표 None). protocolPathDrafts도 이 함수로 대표 행을 고른다.
+    """
+    chosen, ambiguous = items[0], False
+    if len(items) > 1:
+        retries = [_retry_number(row.retry_count) for row in items]
+        if any(row.execution_id is None for row in items) or None in retries:
+            ambiguous = True
+        else:
+            top = max(retries)
+            tops = [row for row, number in zip(items, retries) if number == top]
+            ambiguous, chosen = len(tops) > 1, tops[0]
+    return (None if ambiguous else chosen), ambiguous
+
+
 def resolve_transactions(rows: Iterable[TransactionRow]) -> dict[str, dict[str, Any]]:
     """거래 ID 문자열 → interface·상태. 같은 원본·스냅샷 기준시각 안 TRANSACTION 행으로만 정하고 추정하지 않는다.
 
@@ -333,15 +356,7 @@ def resolve_transactions(rows: Iterable[TransactionRow]) -> dict[str, dict[str, 
             by_transaction[row.transaction_id].append(row)
     resolved: dict[str, dict[str, Any]] = {}
     for transaction_id, items in by_transaction.items():
-        chosen, ambiguous = items[0], False
-        if len(items) > 1:
-            retries = [_retry_number(row.retry_count) for row in items]
-            if any(row.execution_id is None for row in items) or None in retries:
-                ambiguous = True
-            else:
-                top = max(retries)
-                tops = [row for row, number in zip(items, retries) if number == top]
-                ambiguous, chosen = len(tops) > 1, tops[0]
+        chosen, ambiguous = select_transaction_row(items)
         if ambiguous:
             present = {row.interface_id for row in items if not graph_value_absent(row.interface_id)}
             interface_id = next(iter(present)) if len(present) == 1 else None
@@ -1143,14 +1158,14 @@ _P_SOURCE = """data_snapshot_members AS m JOIN data_observations AS o ON o.id = 
                JOIN data_processes AS p ON p.observation_id = o.id"""
 _P_WHERE = "m.snapshot_id = %(snapshot)s"
 _P_SELECT = """m.split::text AS split, m.label_evidence, o.allowed_values, p.transaction_id, p.process_id,
-               p.depend_process_id, p.adapter_type, p.retry_count"""
+               p.depend_process_id, p.adapter_type, p.retry_count, p.channel_id"""
 _MEMBER_TX = """SELECT p2.transaction_id FROM data_snapshot_members AS m2
                   JOIN data_processes AS p2 ON p2.observation_id = m2.observation_id
                  WHERE m2.snapshot_id = %(snapshot)s AND m2.split = 'train' AND p2.transaction_id IS NOT NULL"""
 _T_SOURCE = "data_transactions AS t JOIN data_observations AS o ON o.id = t.observation_id"
 _T_WHERE = f"""o.source_id = %(source)s AND o.layer = 'T' AND o.persisted_at <= %(cutoff)s
                AND t.transaction_id IN ({_MEMBER_TX})"""
-_T_SELECT = "t.transaction_id, t.interface_id, t.status, t.retry_count"
+_T_SELECT = "t.transaction_id, t.interface_id, t.status, t.retry_count, t.start_channel_id, t.end_channel_id"
 _M_SOURCE = "data_messages AS d JOIN data_observations AS o ON o.id = d.observation_id"
 _M_WHERE = f"""o.source_id = %(source)s AND o.layer = 'M' AND o.persisted_at <= %(cutoff)s
                AND d.transaction_id IN ({_MEMBER_TX})"""
@@ -1159,7 +1174,7 @@ _M_SELECT = "d.transaction_id, d.process_id, d.message_id, d.direction"
 
 def _process_row(r: Sequence[Any]) -> ProcessRow:
     return ProcessRow(r[0], r[1], r[2], r[3], r[7], r[8], r[9], r[10], r[11], r[6] or {},
-                      (r[5] or {}).get("label") if isinstance(r[5], dict) else None, r[4])
+                      (r[5] or {}).get("label") if isinstance(r[5], dict) else None, r[4], r[12])
 
 
 def _grouped(cursor: Any, make: Callable[[Sequence[Any]], Any], chunk: int = STREAM_ITERSIZE
@@ -1226,12 +1241,19 @@ def _db_bundles(conn: Any, params: Mapping[str, Any], pass_no: int) -> Iterable[
 def stream_result(make_bundles: Callable[[], Iterable[TxBundle]], parsed: Mapping[str, Any], *, job_id: Any,
                   source_id: Any, selection: Mapping[str, Any], raw_counts: Mapping[str, int],
                   superseded: Mapping[str, int], generated_at: datetime | None = None) -> dict[str, Any]:
-    """묶음 스트림 → 결과 JSON(오라클 build_result와 같은 모양·값). 처리 시간 표본은 통과 1에서 함께 모은다."""
+    """묶음 스트림 → 결과 JSON(오라클 build_result와 같은 모양·값 + 끝 키 protocolPathDrafts).
+
+    처리 시간 표본·프로토콜 경로 초안은 통과 1에서 묶음마다 함께 모은다.
+    """
+    from trainer.protocol_paths import ProtocolPathDrafts
+
     excluded_values = set(parsed["excludeProcessIds"])
     thresholds_acc = ThresholdAccumulator()
+    path_drafts = ProtocolPathDrafts()
     tally = Counter()
 
     def first_pass(bundle: TxBundle) -> None:
+        path_drafts.add(bundle)  # excludeProcessIds와 무관하게 train PROCESS 행 전부(Detector 경로 정의와 같은 입력)
         tally["train"] += len(bundle.processes)
         rows = [row for row in bundle.processes if row.process_id not in excluded_values]
         tally["elapsedProcessIdAbsent"] += sum(graph_value_absent(row.process_id) for row in rows)
@@ -1289,6 +1311,8 @@ def stream_result(make_bundles: Callable[[], Iterable[TxBundle]], parsed: Mappin
         "counts": {"approvable": mined["candidateCounts"]["approvable"], "relationNotes": len(mined["relationNotes"]),
                    "thresholdCandidateCount": sum(item["status"] == "candidate" for item in thresholds),
                    "thresholdItems": len(thresholds)},
+        # 오라클 고정 뒤 더한 항목. 맨 끝 키로 둬 기존 항목의 순서·값을 바꾸지 않는다.
+        "protocolPathDrafts": path_drafts.result(),
     }
 
 

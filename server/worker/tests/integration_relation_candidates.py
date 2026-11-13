@@ -25,7 +25,7 @@ from pg_queue import enqueue  # noqa: E402
 from trainer.runner import run  # noqa: E402
 from trainer.snapshot import build_snapshot  # noqa: E402
 import relation_candidates_oracle as oracle  # noqa: E402  (시험 전용: 메모리 일괄 구현)
-from test_relation_candidates_stream import oracle_with_current_limitation  # noqa: E402
+from test_relation_candidates_stream import oracle_with_current_limitation, without_protocol_drafts  # noqa: E402
 
 TRANSACTIONS = 50  # 블록 = 거래 → train 35, validation 7, test 8 (snapshot.assign_splits 70/15/15)
 
@@ -70,7 +70,8 @@ def seed(conn, source_id):
         at = base + timedelta(seconds=index)
         if index != 8:  # TX-0008: TRANSACTION 행 없음 → interface 미정(undetermined로 셈, 추정 안 함)
             _ingest(conn, source_id, "T", f"T:{tx}", {"transaction_id": tx, "interface_id": "IF_A",
-                                                      "status": "F" if index == 5 else "S"}, at)
+                                                      "status": "F" if index == 5 else "S",
+                                                      "start_channel_id": "CH_A", "end_channel_id": "CH_B"}, at)
         steps = [("IF_A_PR001", "NONE", 0), ("IF_A_PR002", "IF_A_PR001", 0)]
         if index == 5:  # 필수 단계 누락
             steps = steps[:1]
@@ -82,7 +83,7 @@ def seed(conn, source_id):
             end = "\\N" if (index == 10 and pid == "IF_A_PR002") else f"2026-01-01T00:00:00.{100 + index:03d}+09:00"
             _ingest(conn, source_id, "P", f"P:{tx}:{pid}:{retry}",
                     {"transaction_id": tx, "process_id": pid, "depend_process_id": depend, "adapter_type": "DB",
-                     "process_hub_id": "hub", "status": "S", "retry_count": retry, "total_count": 1,
+                     "channel_id": "CH_A" if pid == "IF_A_PR001" else "CH_B", "process_hub_id": "hub", "status": "S", "retry_count": retry, "total_count": 1,
                      "success_count": 1, "error_count": 0, "start_time_raw": "2026-01-01T00:00:00+09:00",
                      "end_time_raw": end}, at)
         in_id = f"OTHER-{index}" if index == 7 else f"MSG-{index}"  # TX-0007: 인계 ID 불일치
@@ -203,7 +204,18 @@ def main() -> None:
     # 문자열로 비교한다(dict 비교는 1 == 1.0을 같게 본다). jsonb는 키 순서를 보존하지 않으므로 이 비교만 sort_keys=True,
     # 오라클 쪽은 jsonb 왕복과 같은 숫자 표기가 되도록 한 번 직렬화했다가 읽는다.
     assert json.dumps(json.loads(json.dumps(expected)), sort_keys=True, ensure_ascii=False) == \
-        json.dumps(result, sort_keys=True, ensure_ascii=False), "streaming job result differs from oracle"
+        json.dumps(without_protocol_drafts(result, last=False), sort_keys=True, ensure_ascii=False), \
+        "streaming job result differs from oracle"
+    # protocolPathDrafts(오라클 뒤 추가): DB 경로가 channel_id·start/end_channel_id를 읽어 경로를 센다.
+    # 34거래 중 TX-0005(단계 1개, 끝 채널 CH_A ≠ CH_B)·TX-0009(STUB도 경로에 포함 — excludeProcessIds 미적용)는 다른 경로.
+    # 제외는 거래 단위(TX-0008 거래 행 없음), TRANSACTION_ID 없는 PROCESS 1행은 행 수로 따로.
+    assert (result["protocolPathDrafts"]["excludedReasons"], result["protocolPathDrafts"]["transactionIdMissingRows"]) \
+        == ({"no_transaction_row": 1}, 1), result["protocolPathDrafts"]
+    drafts = result["protocolPathDrafts"]["interfaces"]
+    assert [(d["interfaceId"], d["status"], d["pathTransactions"], d["endpoints"]["mismatch"],
+             [(p["pathKey"], p["transactions"]) for p in d["paths"]], d["omittedPaths"]) for d in drafts] == \
+        [("IF_A", "draft", 34, 1, [("CH_A:CH_B", 32), ("CH_A", 1), ("CH_A:CH_B:CH_B", 1)],
+          {"paths": 0, "transactions": 0})], drafts
     print("relation candidates integration passed:", json.dumps(result["counts"], sort_keys=True))
 
 

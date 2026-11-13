@@ -16,7 +16,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import relation_candidates_oracle as oracle  # noqa: E402
 from test_relation_candidates_stream import (  # noqa: E402
-    oracle_thresholds_with_current_limitation, oracle_with_current_limitation)
+    oracle_thresholds_with_current_limitation, oracle_with_current_limitation, without_protocol_drafts)
 from trainer import relation_candidates as current  # noqa: E402
 from trainer.relation_candidates import (  # noqa: E402
     MessageRow, ProcessRow, TransactionRow, candidate_status, graph_id, graph_value_absent,
@@ -47,9 +47,12 @@ def mine_relations(*args, **kwargs):
 
 
 # 오라클의 thresholdCandidates는 limitation·limitationRefs 두 필드만 현재 값으로 맞춘다(오라클 고정 뒤 화면 문구 정리).
+# 오라클 뒤에 더한 protocolPathDrafts만 비교에서 빼고, 돌려주는 결과에는 그대로 둔다.
 def build_result(*args, **kwargs):
-    return _same_as_oracle("build_result", current.build_result(*args, **kwargs),
-                           oracle_with_current_limitation(oracle.build_result(*args, **kwargs)))
+    result = current.build_result(*args, **kwargs)
+    _same_as_oracle("build_result", without_protocol_drafts(result),
+                    oracle_with_current_limitation(oracle.build_result(*args, **kwargs)))
+    return result
 
 
 def threshold_candidates(*args, **kwargs):

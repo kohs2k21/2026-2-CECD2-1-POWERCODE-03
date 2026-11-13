@@ -98,6 +98,10 @@ GRANT SELECT ON ops_operational_state TO powercode_api,powercode_detector,powerc
 GRANT SELECT,INSERT ON run_incident_runs,run_incidents,run_incident_members,run_incident_events TO powercode_detector;
 GRANT USAGE ON SEQUENCE run_incident_events_id_seq TO powercode_detector;
 GRANT SELECT ON run_incident_runs,run_incidents,run_incident_members,run_incident_events TO powercode_api;
+-- 022: per-user settings and notification read state (WebUI). API only: settings and layouts are replaced in place,
+-- read marks are pruned by the API (DELETE). Notification items are derived at read time, so no other role needs access.
+GRANT SELECT,INSERT,UPDATE ON ops_user_notification_settings,ops_user_widget_layouts,ops_user_notification_cursors TO powercode_api;
+GRANT SELECT,INSERT,UPDATE,DELETE ON ops_user_notification_reads TO powercode_api;
 -- #78-Q10 defense in depth: no session temp tables through PUBLIC in the database this script runs in
 -- (runtime code uses none). The database owner, superusers and explicit TEMP grantees keep TEMP.
 DO $$ BEGIN

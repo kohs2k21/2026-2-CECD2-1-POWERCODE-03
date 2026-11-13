@@ -167,6 +167,10 @@
   --text-nav-compact: 13px;
   --text-brand-compact: 11px;
   --text-brand-compact--line-height: 15px;
+  /* 상단 알림 버튼 미확인 수 배지(와이어프레임 #93 badge) */
+  --text-count-badge: 10px;
+  --text-count-badge--line-height: 16px;
+  --spacing-count-badge: 16px;
   --container-workspace: 1600px;
   --radius-control-sm: 4px;
   --spacing-chart: 180px;

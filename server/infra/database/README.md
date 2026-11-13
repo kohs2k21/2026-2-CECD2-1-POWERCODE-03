@@ -7,7 +7,7 @@ Status: current
 
 - Issue #32 기준: 최신 PostgreSQL·공통 규약·LLM 기획 반영. `schema.dbml`은 최종 목표 구조의 시각화, 실행 원본은 migration SQL
 - 목표 구조(Issue #32 당시): public 28테이블 + `powercode_queue` 기존 물리 큐 2테이블. 기존 public 24테이블 보존, BODY·BODY 연결·불변 입력·LLM 결과 4테이블만 추가
-- 현재 `schema.dbml`: 001~021 전체 반영, public 64테이블 + `powercode_queue` 5테이블. 004_feature_pipeline·005~009 추가분 24테이블 보강, 011 3테이블·012 1테이블·014 3테이블·015 3테이블·019 4테이블 추가. 013(#82)은 함수 설정만 바꿔 DBML 변경 없음
+- 현재 `schema.dbml`: 001~022 전체 반영, public 68테이블 + `powercode_queue` 5테이블. 004_feature_pipeline·005~009 추가분 24테이블 보강, 011 3테이블·012 1테이블·014 3테이블·015 3테이블·019 4테이블·022 4테이블 추가. 013(#82)은 함수 설정만 바꿔 DBML 변경 없음
 - 기존 001/002 불변. 003/004는 서버 미적용; ERD 등록·SQL 검수와 실제 운영 적용 구분
 - PostgreSQL 17.11 실제 public24+queue2 존재 확인 기록과 정합. 서버 schema/version 이력 및 완전 DDL 일치는 별도 사전 확인 필요
 
@@ -221,6 +221,16 @@ SELECT r.rolname,
 - 배포 순서: DB 021 → Trainer(training claim 목록과 admin 확인 목록에 이 kind 추가) → API 접수 활성화. API가 먼저 접수하면 작업이 큐에 남은 채 처리되지 않음. 021만 적용한 상태에서 기존 코드는 새 값을 쓰지 않아 그대로 동작
 - 시험(`erd-v03-recommend-relations.mjs`, `erd-v03.mjs`가 호출): `erd021`(021 전 22P02, 021 문장 단위 적용·ASCII 문장, 카탈로그는 enum 값 1개와 `run_jobs_v03_contract`의 두 목록만 017 정의와 다름·검증됨, 한 문자열 재실행 같은 카탈로그, DBML parity, 실제 LOGIN API 작업·큐 메시지 생성과 다른 큐·`llm_spec`·일반 사용자·system producer·producer 불일치·멱등키 없음·manifest·decision·legacy·v04·중복 거부, Trainer claim·완료·`result_summary`·큐 확인, `run_llm_results` 행 거부, 만료 lease 완료 거부, `pg_queue.reconcile_dead_jobs` SQL로 dead 큐 정리, 기존 kind 대조). 기존 kind 전체 흐름은 021까지 적용하는 기존 DB들(`erd_fresh`·`erd124_fresh` 등)이 그대로 확인. 함께 바꾼 기존 시험: `prepare-runtime-db.py` 목록에 021 추가(최종 상태 제약 문자열을 비교하는 기존 시험은 없어 옮긴 검사 없음)
 
+## 022 사용자별 설정·알림 읽음 상태
+
+- 파일 `022_user_settings_notifications.sql`, 021 이후 한 번 실행(`psql -v ON_ERROR_STOP=1 -f`), 기존 표 소유자로 실행 뒤 DBA가 `scripts/database-roles.sql` 재적용. 새 표 4개만(함수·트리거·시퀀스·enum 없음), 단일 BEGIN..COMMIT. FK가 없어 기존 표를 잠그지 않고 작업자를 멈출 필요 없음. 자동 down migration 없음(되돌리기 = 새 표 4개 DROP)
+- 표(API만 읽고 씀): `ops_user_notification_settings`(알림 설정 3값, 사용자당 1행, 행 없음 = 기본값), `ops_user_widget_layouts`(화면별 위젯 배치 문서, 지금은 `operations_overview`만, 객체·16KB 이하), `ops_user_notification_cursors`(모두 읽음 순번), `ops_user_notification_reads`(항목별 읽음 순번, 키 `incident:`·`job:`·`decision:` + 소문자 UUID)
+- 사용자 키 `actor_id` = 인증 계정 id 문자열(1~128자, 014 `run_decision_reads.actor_id`와 같음). 계정은 API 파일 저장소에 있어 FK 없음. 계정을 지워도 행은 남음(같은 id가 다시 생기지 않는 한 읽히지 않음, 정리는 운영 절차)
+- 알림 항목은 저장하지 않는다: API가 `run_decision_events`·판정·중간 기록·장애 묶음에서 읽을 때 만든다(`contracts/notifications.md`). 읽음 순번 = `run_decision_events.id`(006·012 identity, id 순서 = 커밋 순서)
+- 권한: `powercode_api` 설정·배치·순번 표 SELECT·INSERT·UPDATE, 항목 읽음 표 SELECT·INSERT·UPDATE·DELETE(모두 읽음 순번 이하·조회 범위 밖 행 정리). Detector·Collector·Trainer·LLM 권한 없음
+- 시험(`erd-v03-user-settings.mjs`, `erd-v03.mjs`가 호출): `erd022`(001~022 한 문자열, PK·FK 없음·트리거 없음 카탈로그, DBML parity, 역할 5개 권한 정확 일치, 실제 LOGIN API upsert·GREATEST 순번·DELETE 정리와 TRUNCATE·설정 DELETE 42501, 다른 역할 읽기·쓰기 42501, CHECK 경계 12종). 2026-11-13 native PostgreSQL 17.10(embedded) 1180 checks 통과(임시 폴더 D 드라이브). API 경로는 `backend/tests/notifications.integration.mjs`(CI 단계 "User settings and notifications API under runtime role", `powercode_api` 역할 연결)
+- 함께 바꾼 기존 시험: `prepare-runtime-db.py` 목록에 022·`qa_notifications_service` 추가. `erd110_fresh`(015 시점 역할 스크립트)는 019 블록부터 `#78-Q10` 앞까지를 빼므로 022 블록도 함께 빠짐(변경 없음)
+
 ## 큐와 소유권
 
 - 001의 `detection_logs/training_jobs`는 기존 물리 큐. 기존 Python helper의 payload·물리 lease 경로 보존
@@ -270,7 +280,7 @@ SELECT r.rolname,
 
 ## DBML과 SQL 대응
 
-- DBML은 001~021 적용 후 최종 구조(컬럼·nullability·unique·FK·enum 순서). 물리 큐 5개도 명시. enum 순서는 PostgreSQL 추가 순서(`job_kind`의 `import_csv`는 explain 뒤)
+- DBML은 001~022 적용 후 최종 구조(컬럼·nullability·unique·FK·enum 순서). 물리 큐 5개도 명시. enum 순서는 PostgreSQL 추가 순서(`job_kind`의 `import_csv`는 explain 뒤)
 - nullable FK는 `>?`, unique FK는 부모 `-` 자식 방향, nullable unique FK는 부모 `?-` 자식 방향으로 표시. 실제 FK 방향은 SQL/파싱 대응 시험으로 확인
 - attempt의 복합 FK 3개는 DBML의 exact-composite index 판정 한계로 `>`/`>?` 표시. 자식의 개별 PK/unique가 실제 1:1 제약을 보장한다는 주석 유지; 그림 경고를 없애려고 SQL 중복 인덱스를 추가하지 않음
 - `@dbml/core`는 현재 문법의 `dbmlv2` parser 사용. deprecated `dbml` parser는 optional 관계 문법을 지원하지 않음

@@ -95,22 +95,14 @@ assert.equal(parseStoredLayout({ items: [] }), null, "unversioned object falls b
 assert.equal(parseStoredLayout("flow"), null);
 assert(noOverlap(parseStoredLayout({ version: 2, items: [{ i: "flow", x: 0, y: 0, w: 2, h: 3 }, { i: "recent", x: 0, y: 0, w: 2, h: 3 }] })), "stored overlaps are resolved");
 
-// 2) 계정별 브라우저 저장소(저장소 차단 시 예외 없이 실패 보고).
-const store = layout.browserWidgetLayoutStore;
-assert.equal(store.load("a"), null);
-assert.equal(store.save("a", resized), true);
-assert(sameLayout(store.load("a"), resized));
-assert.equal(JSON.parse(storage.get(layout.widgetLayoutKey("a"))).version, 2);
-assert.equal(store.load("b"), null, "layouts are per account");
-storage.set(layout.widgetLayoutKey("c"), "not json");
-assert.equal(store.load("c"), null, "broken storage value falls back to default");
-storage.set(layout.widgetLayoutKey("d"), JSON.stringify(["collect", "flow"]));
-assert.deepEqual(readingOrder(store.load("d")), ["collect", "flow"], "previous order-only saves are migrated");
-storageBroken = true;
-assert.equal(store.save("a", defaultWidgetLayout), false, "blocked storage reports failure instead of success");
-assert.equal(store.load("a"), null);
-storageBroken = false;
-storage.clear();
+// 2) 서버 저장 문서(v2): 직렬화 → 읽기 왕복, 서버 값도 읽을 때 위젯 이름·크기 제한을 다시 적용한다.
+const doc = layout.serializeLayout(resized);
+assert.equal(doc.version, 2);
+assert(sameLayout(parseStoredLayout(doc), resized), "serialized layout reads back the same");
+assert.deepEqual(Object.keys(doc.items[0]).sort(), ["h", "i", "w", "x", "y"], "only placement fields are sent");
+assert.deepEqual(parseStoredLayout({ version: 2, items: [{ i: "bogus", x: 0, y: 0, w: 2, h: 2 }, { i: "flow", x: 0, y: 0, w: 1, h: 1 }] }),
+  [{ i: "flow", x: 0, y: 0, w: 2, h: 2 }], "unknown widgets dropped and size limits applied to stored values");
+assert.equal(parseStoredLayout(null), null, "no stored layout → default");
 
 // 3) 응답 파서: 명시 필드만 복사, 잘못된 값은 null, 필수 누락은 실패.
 const overview = parseOperationsOverview({ observedAt: "2026-11-03T01:00:00.000Z", maxAgeMs: 60000, stages: {},
@@ -199,6 +191,9 @@ globalThis.fetch = async (url, options) => {
   const parsed = new URL(String(url), "http://local.test");
   seen.push(parsed.pathname + parsed.search);
   if (mode === "503") return new Response(JSON.stringify({ code: "operations_storage_unavailable" }), { status: 503 });
+  if (parsed.pathname === "/api/me/settings" && settingsMode !== "ok" && (settingsMode === "all" || options?.method === settingsMode)) {
+    return new Response(JSON.stringify({ code: "notification_storage_unavailable" }), { status: 503 });
+  }
   const body = bodies[parsed.pathname];
   if (!body) return new Response(JSON.stringify({ code: "not_found" }), { status: 404 });
   return new Response(JSON.stringify(typeof body === "function" ? body(parsed, options) : body), { headers: { "Content-Type": "application/json" } });
@@ -225,7 +220,18 @@ const overviewBody = { observedAt: new Date().toISOString(), maxAgeMs: 60000,
   stages: { collector: { lastProcessedAt: "2026-11-03T00:59:00.000Z" }, observationQueue: { pendingCount: 2, oldestWaitMs: 3000 }, detector: { pendingCount: 0 }, judgmentStore: {} },
   activeConfiguration: { configVersionId: "cfg", sourceId: "src", ruleCount: 2, ruleSeverityCounts: {}, models: [{ modelKey: "iforest", adapterName: "sklearn-iforest" }] },
   activeConfigurationVersion: "cfg" };
+// 계정별 서버 설정(GET·PUT /api/me/settings): 토큰별로 저장, settingsMode로 실패 재현.
+const serverLayouts = {};
+let settingsMode = "ok";
+const settingsBody = (auth) => ({ notifications: { decisionBasis: "interim", minRiskLevel: "info", includeUnrated: true, isDefault: true, updatedAt: null },
+  widgetLayout: serverLayouts[auth] ? { layout: serverLayouts[auth], updatedAt: "2026-11-03T01:00:00.000000Z" } : { layout: null, updatedAt: null } });
+const settingsRoute = (_url, options) => {
+  const auth = new Headers(options?.headers).get("Authorization");
+  if (options?.method === "PUT") serverLayouts[auth] = JSON.parse(options.body).widgetLayout;
+  return settingsBody(auth);
+};
 bodies = {
+  "/api/me/settings": settingsRoute,
   "/api/operations/overview": overviewBody,
   "/api/pipeline/sources": { items: [{ id: "src", datasetKey: "k", displayName: "d", createdAt: "2026-11-01T00:00:00Z" }] },
   "/api/pipeline/decisions": { items: [{ id: "decision-0001", sourceId: "src", processObservationId: "o", configVersionId: "cfg", status: "complete", ruleStatus: "succeeded", mlStatus: "succeeded", decisionCode: "R1", anomalyScore: "0.9", decidedAt: "2026-11-03T00:58:00.000Z", evidence: { anomalous: true } }] },
@@ -252,7 +258,7 @@ const renderAs = async (role, entry) => {
     session = useAuthSession();
     return null;
   };
-  const cache = new QueryClient({ defaultOptions: { queries: { gcTime: Infinity } } });
+  const cache = new QueryClient({ defaultOptions: { queries: { gcTime: Infinity }, mutations: { gcTime: Infinity } } });
   let renderer;
   await act(async () => {
     renderer = create(
@@ -294,12 +300,21 @@ assert(useDraftStore.getState().drafts["/operations"]?.dirty, "editing registers
 assert(findButton(view.renderer, "단계 흐름 뒤로"), "keyboard move buttons in edit mode");
 await act(async () => findButton(view.renderer, "판정 추이 제거").props.onClick({ currentTarget: { closest: () => null } }));
 await act(async () => findButton(view.renderer, "최근 판정 앞으로").props.onClick());
+// 저장 실패: 편집 중 배치 유지 + 안내, 서버 값 없음. 다시 저장하면 성공.
+settingsMode = "PUT";
 await act(async () => findButton(view.renderer, "배치 저장").props.onClick());
-const savedValue = JSON.parse(storage.get(layout.widgetLayoutKey("user-1")));
+await wait(() => view.text().includes("배치를 저장하지 못했습니다"), "save failure alert");
+assert(useDraftStore.getState().drafts["/operations"]?.dirty, "failed save keeps the edit");
+assert.equal(serverLayouts["Bearer user-token"], undefined);
+settingsMode = "ok";
+await act(async () => findButton(view.renderer, "배치 저장").props.onClick());
+await wait(() => Boolean(serverLayouts["Bearer user-token"]), "layout saved to the server");
+const savedValue = serverLayouts["Bearer user-token"];
 assert.equal(savedValue.version, 2);
 assert.deepEqual(readingOrder(savedValue.items), ["recent", "flow", "collect", "active", "queue"], "removal compacts, keyboard move swaps");
 assert(noOverlap(savedValue.items) && inBounds(savedValue.items));
-assert(view.text().includes("배치 저장됨 · 일반 사용자 계정 · 위젯 5개"));
+await wait(() => view.text().includes("배치 저장됨 · 일반 사용자 계정 · 위젯 5개"), "saved status");
+assert(!view.text().includes("배치를 저장하지 못했습니다"), "failure alert cleared after a successful save");
 assert.equal(useDraftStore.getState().drafts["/operations"], undefined, "saved edit clears the draft");
 await act(async () => findButton(view.renderer, "위젯 편집").props.onClick());
 assert.equal(view.renderer.root.findByType(Dialog).props.open, false);
@@ -312,7 +327,34 @@ await wait(() => seen.some((url) => url.startsWith("/api/operations/storage")), 
 await act(async () => findButton(view.renderer, "편집 취소").props.onClick());
 assert(view.text().includes("편집 취소 · 이전 배치 유지"));
 assert(!view.text().includes("PostgreSQL"), "cancel restores the saved layout");
-assert.equal(JSON.parse(storage.get(layout.widgetLayoutKey("user-1"))).items.length, 5);
+assert.equal(serverLayouts["Bearer user-token"].items.length, 5);
+await act(async () => view.renderer.unmount());
+
+// 다시 열면 서버 배치(5개)를 그대로 그린다. 배치를 불러오지 못하면 기본 배치 + 안내, 편집은 막는다.
+view = await renderAs("user", "/operations");
+await wait(() => view.renderer.root.findAll((node) => typeof node.type === "string" && node.props?.["data-widget"]).length === 5, "server layout restored");
+assert.equal(view.renderer.root.findAll((node) => typeof node.type === "string" && node.props?.["data-widget"] === "trend").length, 0);
+await act(async () => view.renderer.unmount());
+// 옛 브라우저 배치(서버 저장 전 키): 서버에 배치가 없으면 그 배치를 쓰고 서버에 저장한 뒤 지운다. 서버에 배치가 있으면 지우기만 한다.
+storage.set(layout.legacyLayoutKey("admin-1"), JSON.stringify({ version: 2, items: [{ i: "queue", x: 0, y: 0, w: 2, h: 3 }, { i: "storage", x: 2, y: 0, w: 2, h: 2 }] }));
+view = await renderAs("admin", "/operations");
+await wait(() => Boolean(serverLayouts["Bearer admin-token"]), "legacy layout saved to the server");
+assert.deepEqual(serverLayouts["Bearer admin-token"].items.map((item) => item.i), ["queue", "storage"]);
+await wait(() => !storage.has(layout.legacyLayoutKey("admin-1")), "legacy key removed after the server save");
+await wait(() => view.renderer.root.findAll((node) => typeof node.type === "string" && node.props?.["data-widget"]).length === 2, "legacy layout shown");
+await act(async () => view.renderer.unmount());
+storage.set(layout.legacyLayoutKey("user-1"), JSON.stringify({ version: 2, items: [{ i: "queue", x: 0, y: 0, w: 2, h: 3 }] }));
+view = await renderAs("user", "/operations");
+await wait(() => !storage.has(layout.legacyLayoutKey("user-1")), "stale legacy key removed when the server has a layout");
+assert.equal(serverLayouts["Bearer user-token"].items.length, 5, "server layout kept");
+await act(async () => view.renderer.unmount());
+delete serverLayouts["Bearer admin-token"];
+settingsMode = "all";
+view = await renderAs("user", "/operations");
+await wait(() => view.text().includes("저장된 위젯 배치를 불러오지 못했습니다"), "layout load failure shown");
+assert.equal(view.renderer.root.findAll((node) => typeof node.type === "string" && node.props?.["data-widget"] === "trend").length, 1, "default layout shown");
+assert.equal(findButton(view.renderer, "위젯 편집").props.disabled, true, "editing blocked without the stored layout");
+settingsMode = "ok";
 await act(async () => view.renderer.unmount());
 
 // 일반 사용자 수집 탭: 읽기 전용 카드, /api/inputs 요청·라디오 없음.
@@ -345,4 +387,4 @@ assert(!view.text().includes("운영 구성 없음"));
 await act(async () => view.renderer.unmount());
 bodies["/api/operations/overview"] = overviewBody;
 
-console.log("operations overview QA passed: widget layout reducer, per-account storage with failure, strict parsers, unavailable reads, user read-only vs admin controls, edit save/cancel with draft");
+console.log("operations overview QA passed: widget layout reducer, server layout save (failure keeps the edit) and load failure, strict parsers, unavailable reads, user read-only vs admin controls, edit save/cancel with draft");

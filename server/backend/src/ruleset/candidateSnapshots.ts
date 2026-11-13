@@ -2,7 +2,7 @@ import type { Pool } from 'pg';
 import { RuleSetError } from './ruleSetContract.js';
 
 /**
- * GET /api/rule-set/candidates/snapshots — 후보 작업(`recommend_relations`)을 요청할 수 있는 저장 데이터셋(contracts/rule-candidates-ui.md 6.1절).
+ * GET /api/rule-set/candidates/snapshots — 후보 작업(`recommend_relations`)을 요청할 수 있는 저장 데이터셋(contracts/rule-candidates-ui.md 6절).
  * 조건은 작업 요청(enqueueCandidateJob)과 같다: `data_snapshots` `status='ready'`·`schema_version='process-v1'`. 최신 200개.
  * 평가 세트 기준 목록(`GET /api/evaluation-sets/snapshots`)은 모델 버전이 쓴 스냅샷만 보이므로 여기에는 맞지 않는다(학습이 실패해도 스냅샷은 남을 수 있음).
  * 스냅샷 목록 API가 계약에 없어 WebUI가 정한 형식이다. 새 표·migration 없음.

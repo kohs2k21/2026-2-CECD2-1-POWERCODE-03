@@ -1,7 +1,7 @@
 import { httpClient } from "@/services/api/client";
 
 /**
- * 후보 작업 요청(contracts/rule-candidates-ui.md 6·6.1절): 요청할 수 있는 저장 데이터셋 목록과 작업 접수.
+ * 후보 작업 요청(contracts/rule-candidates-ui.md 6절): 요청할 수 있는 저장 데이터셋 목록과 작업 접수.
  * 형식이 틀리면 빈 목록으로 바꾸지 않고 오류로 던진다. 오류(400·403·409·503)는 httpClient가 HttpError로 던진다.
  */
 export type CandidateSnapshot = { id: string; sourceId: string; createdAt: string; readyAt: string | null; from: string | null; until: string | null };

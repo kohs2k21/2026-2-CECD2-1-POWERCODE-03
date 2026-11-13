@@ -26,11 +26,11 @@ if (!['localhost', '127.0.0.1'].includes(parsed.hostname) || !/^\/qa_analysis[a-
 const here = path.dirname(fileURLToPath(import.meta.url));
 const backend = path.resolve(here, '..');
 const { readCandidateList, readCandidateDetail, RELATION_CONTRACT_VERSION } = await import('../dist/ruleset/ruleCandidates.js');
-const { readCandidateSnapshots } = await import('../dist/ruleset/candidateSnapshots.js');
 const temporary = await mkdtemp(path.join(os.tmpdir(), 'powercode-rule-candidates-'));
 const pool = new pg.Pool({ connectionString: url });
 const api = new pg.Pool({ connectionString: url, options: '-c role=powercode_api' });
 let child;
+const { readCandidateSnapshots } = await import('../dist/ruleset/candidateSnapshots.js');
 
 const id = () => crypto.randomUUID();
 const sha = (value) => crypto.createHash('sha256').update(value).digest('hex');
@@ -170,7 +170,7 @@ try {
     const response = await request(base, route, user, options);
     assert.deepEqual([response.status, response.body?.code], [403, 'admin_required'], route);
   }
-  // 1-후) 저장 데이터셋 목록(6.1절): 작업 요청과 같은 조건(ready·process-v1)만, 만든 시각 최신순. building·다른 형식은 빠진다.
+  // 1-후) 저장 데이터셋 목록(6절): 작업 요청과 같은 조건(ready·process-v1)만, 만든 시각 최신순. building·다른 형식은 빠진다.
   const snapshotRow = async (status, schema, minutesAgo) => {
     const snapshot = id();
     await pool.query(`INSERT INTO data_snapshots(id,source_id,status,observation_cutoff_at,selection_spec,split_spec,schema_version,created_by_actor_id,created_at,ready_at)

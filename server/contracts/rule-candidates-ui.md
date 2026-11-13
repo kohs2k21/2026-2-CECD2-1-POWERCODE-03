@@ -83,15 +83,13 @@ Status: current — 실험 기능(층 B). Trainer `relation_candidates.py`(결�
 - 본문(JSON): `{snapshotId, excludeProcessIds?, handoffMismatchSuffixPatterns?}` — Trainer `parse_input` 키. 다른 키·형식 오류 400 `invalid_candidate_job_request`. 상한: 제외 단계 200개·각 200자, 패턴 10개·각 100자(Trainer와 같음), 중복 불가. 정규식 문법 검사는 Trainer(Python 문법)
 - 스냅샷: `data_snapshots` `status='ready'`·`schema_version='process-v1'`가 아니면 409 `snapshot_not_ready`. 원본 id는 스냅샷에서 읽어 입력 `sourceId`로 고정
 - 작업 입력 `input_spec` = `{kind:"recommend_relations", snapshotId, sourceId, excludeProcessIds?, handoffMismatchSuffixPatterns?}`
+- 요청할 수 있는 저장 데이터셋 `GET /api/rule-set/candidates/snapshots`(관리자) — 화면 확인창의 선택지
+  - 조건은 위 작업 요청과 같다: `data_snapshots` `status='ready'`·`schema_version='process-v1'`. 만든 시각 최신순(`created_at DESC, id DESC`) 200개. 쿼리 키가 있으면 400 `unknown_candidate_filter`, 저장소 오류 503 `rule_set_storage_unavailable`
+  - 응답 `{items: [{id, sourceId, createdAt, readyAt, from, until}]}` — `from`·`until`은 스냅샷 `selection_spec`의 학습 기간(문자열 그대로, 없으면 null), 시각은 UTC 마이크로초 ISO. 한 고객 = 한 원본이라 `sourceId` 필터는 두지 않는다
+  - 평가 세트 기준 목록 `GET /api/evaluation-sets/snapshots`(evaluations-ui.md)는 모델 버전이 쓴 스냅샷만 보여 여기에 쓰지 않는다(학습이 실패해도 스냅샷은 남을 수 있고, 추천 작업은 모델과 무관). 스냅샷 목록 API가 계약에 없어 WebUI가 정한 형식이다. 새 표·migration 없음
+  - 경로는 `/candidates/:candidateId`보다 먼저 연결한다(`snapshots`가 후보 id 형식 오류 400으로 읽히지 않게). 구현 `backend/src/ruleset/candidateSnapshots.ts`
 - 멱등: 헤더 `Idempotency-Key`(형식은 룰 세트 저장과 같음, 없으면 새 키). 같은 요청자·키의 작업을 **스냅샷 확인보다 먼저** 찾는다 → 같은 본문 200 같은 작업(그 사이 스냅샷 상태가 바뀌어도), 다른 본문 409 `idempotency_payload_conflict`. 본문 비교 값 `request_hash` = 요청 본문(`kind`·`snapshotId`·선택 키)의 sha256, 스냅샷에서 읽는 `sourceId`는 넣지 않는다. 호환: hash에서 `sourceId`를 빼기 전 구현으로 만든 작업의 `request_hash`는 입력 전체(`kind`·`snapshotId`·`sourceId`·선택 키) sha256이라, 재요청은 새 hash 또는 그 작업 `input_spec.sourceId`로 다시 계산한 옛 hash 중 하나와 같으면 같은 본문 200. 새 작업 201 `{id, status:"queued", kind, inputSpec}`
 - DB 준비 전 503(1절)
-
-## 6.1 `GET /api/rule-set/candidates/snapshots`(관리자) — 요청할 수 있는 저장 데이터셋
-
-- 화면 확인창의 선택지. 조건은 6절 작업 요청과 같다: `data_snapshots` `status='ready'`·`schema_version='process-v1'`. 만든 시각 최신순(`created_at DESC, id DESC`) 200개. 쿼리 키가 있으면 400 `unknown_candidate_filter`, 저장소 오류 503 `rule_set_storage_unavailable`
-- 응답 `{items: [{id, sourceId, createdAt, readyAt, from, until}]}` — `from`·`until`은 스냅샷 `selection_spec`의 학습 기간(문자열 그대로, 없으면 null), 시각은 UTC 마이크로초 ISO. 한 고객 = 한 원본이라 `sourceId` 필터는 두지 않는다
-- 평가 세트 기준 목록 `GET /api/evaluation-sets/snapshots`(evaluations-ui.md)는 모델 버전이 쓴 스냅샷만 보여 여기에 쓰지 않는다(학습이 실패해도 스냅샷은 남을 수 있고, 추천 작업은 모델과 무관). 스냅샷 목록 API가 계약에 없어 WebUI가 정한 형식이다. 새 표·migration 없음
-- 경로는 `/candidates/:candidateId`보다 먼저 연결한다(`snapshots`가 후보 id 형식 오류 400으로 읽히지 않게). 구현 `backend/src/ruleset/candidateSnapshots.ts`
 
 ## 7. 승인 — 룰 세트 저장, 지금은 꺼짐
 
@@ -111,7 +109,7 @@ Status: current — 실험 기능(층 B). Trainer `relation_candidates.py`(결�
 - `message_handoff`이고 `pairApprovable:false`이면 문장 "짝 선행 규칙이 없어 선행이 다르면 인계를 확인하지 않습니다."(Detector 4절 경고 문장 그대로)
 - 충족률 표기: 한 자리 내림(99.96% → "99.9%"), 0과 1 사이 값은 0.1%~99.9%, 정확히 0·1만 "0%"·"100%"
 - 화면은 "버전"만 쓴다(리비전 표기 없음)
-- **후보 작업 요청**(목록 머리 오른쪽 단추 `후보 작업 요청`): 확인창 `후보 작업 요청` + 설명 "고른 저장 데이터셋으로 관계 규칙·처리 시간 후보를 다시 계산합니다. 운영 룰은 바뀌지 않고, 작업이 끝나면 이 화면에 새 결과가 나옵니다." + 선택 칸 `저장 데이터셋`(6.1절, 확인창을 열 때만 읽음. 이름 `<학습 시작> ~ <학습 끝> · 생성 <만든 시각>`, 지금 보이는 결과의 데이터셋이면 뒤에 ` · 현재 결과`, 기본 = 가장 최근) + [취소]·[요청]. 화면 용어 "저장 데이터셋"은 평가 결과 화면 세트 생성과 같다
+- **후보 작업 요청**(목록 머리 오른쪽 단추 `후보 작업 요청`): 확인창 `후보 작업 요청` + 설명 "고른 저장 데이터셋으로 관계 규칙·처리 시간 후보를 다시 계산합니다. 운영 룰은 바뀌지 않고, 작업이 끝나면 이 화면에 새 결과가 나옵니다." + 선택 칸 `저장 데이터셋`(6절 목록, 확인창을 열 때만 읽음. 이름 `<학습 시작> ~ <학습 끝> · 생성 <만든 시각>`, 지금 보이는 결과의 데이터셋이면 뒤에 ` · 현재 결과`, 기본 = 가장 최근) + [취소]·[요청]. 화면 용어 "저장 데이터셋"은 평가 결과 화면 세트 생성과 같다
   - 요청 본문은 `{snapshotId}`만(제외 단계·인계 접미사 패턴은 보내지 않음 = Trainer 기본값). `Idempotency-Key`는 확인창이 열린 동안 데이터셋마다 같은 값이라 응답을 놓친 재전송은 같은 작업(6절)
   - 접수되면 확인창을 닫고 목록을 다시 읽는다. 진행은 결과 머리의 `최근 작업 <상태> · <시각> · <작업 id 8자>`(작업 상세 `/detection/operations/jobs/:jobId`로 링크)이고, 최근 작업이 대기·실행 중이면 목록을 5초마다 다시 읽는다(공통 진행 중 조회 규칙). 끝나 성공하면 그 결과가 목록이 되고(2절 "가장 최근 성공 작업"), 실패하면 머리에 `실패 · <코드>`가 남고 이전 결과가 그대로 보인다
   - 최근 작업이 대기·실행 중이면 단추를 끄고 옆에 `후보 작업 진행 중`(같은 계산을 겹쳐 쌓지 않게 — 서버는 막지 않는다)

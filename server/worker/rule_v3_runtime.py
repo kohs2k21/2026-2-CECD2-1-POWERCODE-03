@@ -24,7 +24,7 @@ KO_LINE = ("Additional run instruction (outside the frozen bundle): write every 
            "keep all other fields, identifiers and numbers exactly as specified.")
 PROVIDER = "rule_v3"
 MAX_MODEL_CALLS = 2  # 첫 시도 + 수리 1회(번들 rule_flow 상한과 같음)
-RATIONALE_MAX = 500
+RATIONALE_MAX = 320  # 번들 Rule 스키마 reason 상한과 같다(계약 rule_v2 상한 500과 다름)
 HANGUL_MINIMUM = Decimal("0.5")
 
 # 번들 validate_rule 오류 코드 분류. 이 밖의 코드(설명 문장 검사, official_facts.rule_description_conflicts)는 문장 쪽이다.
@@ -145,10 +145,20 @@ class RuleV3Runtime:
         return {"result": result, "attempts": list(self.models.records)}
 
 
+def check_base(files: Mapping[str, Any], service_base: Mapping[str, Any]) -> None:
+    """Rule v3 묶음의 Base 목록이 서비스가 올린 Base(revision·메타데이터 SHA)와 같은지 본다."""
+    listed = {item.get("name"): item.get("sha256") for item in files.get("files", [])}
+    metadata = service_base.get("metadata_sha256") or {}
+    mismatched = any(listed.get(name) != digest for name, digest in metadata.items())
+    if files.get("revision") != service_base.get("revision") or not metadata or mismatched:
+        raise ValueError("rule_v3_base_mismatch")
+
+
 def attach(root: Path, service, base: Path) -> RuleV3Runtime:
-    """생성 서비스 모델에 Rule v3 경로를 붙인다. 실패하면 서비스 시작이 실패한다(구성 오류를 숨기지 않음)."""
+    """생성 서비스 모델에 Rule v3 경로를 붙인다. 실패는 예외로 알리고, 서비스는 v3 없이 뜬다(`DesignModel`)."""
     package = load(root)
     files = json.loads((Path(package.local_models.PACKAGE) / "models/base_files.json").read_text(encoding="utf-8"))
+    check_base(files, service.manifest["base"])
     integrity = {"repo_id": files.get("repo_id"), "revision": files.get("revision"), "verified_files": 0,
                  "service_metadata_verified": True}
     cls = shared_model_class(package.local_models.LocalModels)
@@ -189,8 +199,18 @@ def text_numbers(text: str) -> list[Decimal]:
     return [value for value in (_decimal(m.group(0)) for m in _NUMBER.finditer(text)) if value is not None]
 
 
+# 사실 집합에서 빼는 값: ID·SHA·버전·기간 키의 값, ID·해시·시각 꼴의 문자열. 그 안의 숫자는 근거가 인용할 사실이 아니다.
+_ID_KEY = re.compile(r"(?:^|_)(?:ids?|sha(?:256)?|hash|digest|refs?|version|period|preconditions)$|"
+                     r"^(?:start_inclusive|end_exclusive)$")
+_ID_TEXT = re.compile(r"^(?:[A-Za-z]+_)*[0-9a-f]{12,}$|^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}", re.I)
+_PERCENT = re.compile(r"%|퍼센트|백분율")
+
+
 def fact_numbers(value: Any, found: set[Decimal] | None = None) -> set[Decimal]:
-    """Rule 입력(피처·측정·기준선·범위·공식 계산 사실)에 나오는 모든 숫자. 키 `p95`류는 그 분위 숫자를 더한다."""
+    """Rule 입력(피처·측정·기준선·범위·공식 계산 사실)에 나오는 숫자. 키 `p95`류는 그 분위 숫자를 더한다.
+
+    ID·SHA·버전·기간 값과 ID·해시·시각 꼴 문자열에서 나온 숫자는 넣지 않는다.
+    """
     found = set() if found is None else found
     if isinstance(value, bool) or value is None:
         return found
@@ -199,14 +219,15 @@ def fact_numbers(value: Any, found: set[Decimal] | None = None) -> set[Decimal]:
         if number is not None:
             found.add(number)
     elif isinstance(value, str):
-        found.update(text_numbers(value))
+        if not _ID_TEXT.search(value):
+            found.update(text_numbers(value))
     elif isinstance(value, Mapping):
         for key, item in value.items():
             match = _PERCENTILE_KEY.match(str(key))
             if match:
                 found.add(Decimal(match.group(1)))
-            found.update(text_numbers(str(key)))
-            fact_numbers(item, found)
+            if not _ID_KEY.search(str(key)):
+                fact_numbers(item, found)
     elif isinstance(value, (list, tuple)):
         for item in value:
             fact_numbers(item, found)
@@ -214,7 +235,10 @@ def fact_numbers(value: Any, found: set[Decimal] | None = None) -> set[Decimal]:
 
 
 def rationale_checks(text: str, facts: Any) -> dict[str, bool]:
-    """서버 점검: (a) 글자 중 한글 50% 이상 (b) 문장 숫자가 모두 입력 사실에 있는 숫자."""
+    """서버 점검: (a) 글자 중 한글 50% 이상 (b) 문장 숫자가 모두 입력 사실에 있는 숫자이고 퍼센트 표기가 없다.
+
+    퍼센트는 입력 사실(비율 0~1)과 단위가 달라 대조할 수 없으므로 거절한다.
+    """
     known = fact_numbers(facts)
     return {"korean": hangul_ratio(text) >= HANGUL_MINIMUM,
-            "numbers": all(number in known for number in text_numbers(text))}
+            "numbers": not _PERCENT.search(text) and all(number in known for number in text_numbers(text))}

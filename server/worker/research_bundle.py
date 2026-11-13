@@ -101,7 +101,8 @@ def build_rule_v3(repository: Path, destination: Path) -> None:
     manifest = json.loads((source / "artifact_manifest.json").read_text(encoding="utf-8"))
     selected = [item for item in manifest["files"]
                 if item["path"].startswith(RULE_V3_PREFIXES) or item["path"] in RULE_V3_FILES]
-    if not {item["path"] for item in selected} >= set(RULE_V3_FILES) or             not any(item["path"] == "models/rule/adapter_model.safetensors" for item in selected):
+    paths = {item["path"] for item in selected}
+    if not paths >= set(RULE_V3_FILES) or "models/rule/adapter_model.safetensors" not in paths:
         raise ValueError("research_rule_v3_manifest_incomplete")
     destination.mkdir(parents=True)
     try:

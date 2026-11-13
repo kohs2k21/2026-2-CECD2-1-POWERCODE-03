@@ -314,6 +314,52 @@ class RuntimeTests(unittest.TestCase):
         self.assertFalse(v3.rationale_checks("Values above p95 are flagged.", facts)["korean"])
         self.assertEqual(v3.text_numbers("p95 r000001 A1 20개 0.5."), [Decimal(20), Decimal("0.5")])
 
+    def test_id_sha_period_numbers_are_not_facts(self):
+        facts = {"measurement_id": "m_4471aa00bb11cc22", "definition_sha": "4471aa00bb11cc22dd33",
+                 "baseline": {"id": "baseline_9031ab12cd34ef56", "reference_valid_n": 40, "minimum_n": 20},
+                 "scope": {"period": {"start_inclusive": "2026-10-10T00:00:00.000000+00:00"}},
+                 "evaluation_preconditions": ["source_7781aa00bb11cc22"],
+                 "table_rows": {"PROCESS": 50}}
+        known = v3.fact_numbers(facts)
+        self.assertEqual(known, {Decimal(40), Decimal(20), Decimal(50)})
+        for text in ("4471개 기준입니다.", "2026년 10월 기간입니다.", "7781개 행입니다."):
+            self.assertFalse(v3.rationale_checks(text, facts)["numbers"], text)
+        self.assertTrue(v3.rationale_checks("참조 유효 값 40개, 현재 50행입니다.", facts)["numbers"])
+
+    def test_percent_is_rejected(self):
+        facts = {"baseline": {"value": 20, "reference_valid_n": 40}}
+        for text in ("값의 20%를 넘으면 경고합니다.", "20퍼센트 기준입니다."):
+            self.assertFalse(v3.rationale_checks(text, facts)["numbers"], text)
+
+
+class AttachTests(unittest.TestCase):
+    def service(self, base):
+        return SimpleNamespace(manifest={"base": base}, model=None, tokenizer=None, gate=GenerationGate())
+
+    def test_base_mismatch_or_missing_bundle_disables_only_v3(self):
+        from generation_service import DesignModel
+        files = json.loads((_EXPORT / "models/base_files.json").read_text(encoding="utf-8"))
+        for bundle, base, code in (
+                (_EXPORT, {"revision": "other", "metadata_sha256": {"config.json": "0"}}, "rule_v3_base_mismatch"),
+                (_ROOT / "absent", {"revision": files["revision"]}, "FileNotFoundError")):
+            service = self.service(base)
+            with self.assertLogs("generation_service", "ERROR") as logged:
+                DesignModel.attach_rule_v3(service, bundle, _ROOT)
+            self.assertIsNone(service.rule_v3)
+            self.assertEqual(service.rule_v3_error, code)
+            self.assertEqual(logged.output, [f"ERROR:generation_service:rule_v3_disabled: {code}"])
+        service = self.service({})
+        DesignModel.attach_rule_v3(service, None, _ROOT)
+        self.assertEqual((service.rule_v3, service.rule_v3_error), (None, None))
+
+    def test_v3_base_list_matches_the_service_bundle(self):
+        files = json.loads((_EXPORT / "models/base_files.json").read_text(encoding="utf-8"))
+        service = json.loads((REPOSITORY / "research/models/feature_rule_design_v0_2/model_manifest.json")
+                             .read_text(encoding="utf-8"))["base"]
+        v3.check_base(files, service)
+        with self.assertRaisesRegex(ValueError, "rule_v3_base_mismatch"):
+            v3.check_base(files, {**service, "metadata_sha256": {**service["metadata_sha256"], "config.json": "0" * 64}})
+
 
 class RecommendationV3Tests(Base):
     def test_result_document_and_progress(self):
@@ -460,6 +506,24 @@ class RunnerV3Tests(Base):
         progress = [json.loads(params[0]) for sql, params in connection.statements
                     if sql.startswith("UPDATE run_jobs SET result_summary")]
         self.assertEqual(progress, [{"progress": {"processed": 0, "total": 1}}, {"progress": {"processed": 1, "total": 1}}])
+
+    def test_new_lease_and_terminal_failures_clear_progress(self):
+        import pg_queue
+        clear = pg_queue.CLEAR_PROGRESS
+        job_id, previous = uuid.uuid4(), uuid.uuid4()
+        message = ClaimedMessage(queue="llm_recommendation", id=uuid.uuid4(),
+                                 payload={"schemaVersion": 1, "jobId": str(job_id)}, attempts=1,
+                                 lease_token=uuid.uuid4(), created_at=None)
+        for count, statement in ((1, "SET status = 'running', attempt_count"), (3, "error_code = 'max_attempts'")):
+            row = (job_id, "recommend_thresholds", "queued", {}, "admin-1", count, 3, previous, "admin", "v03",
+                   LLM_SPEC_V3)
+            connection = Connection({"attempt_count, max_attempts, current_attempt_id": row, "status='leased'": (1,),
+                                     "SELECT status FROM run_job_attempts": ("expired",)})
+            runner._claim_job(connection, message, "llm-test")
+            self.assertIn(clear, connection.find(statement)[0][0], statement)
+        connection = Connection({})
+        pg_queue.reconcile_dead_jobs(connection, "llm_recommendation")
+        self.assertIn(clear, connection.find("error_code='queue_exhausted',finished_at")[0][0])
 
     def test_retry_wait_clears_progress(self):
         connection = Connection({})

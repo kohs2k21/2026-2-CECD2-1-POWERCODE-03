@@ -1,0 +1,14 @@
+# 선택: 임계값 추천 Rule v3 경로(llm_spec.model_version=rule_v3)를 켠다. 기본 compose만으로는 v3 없이 뜬다.
+#   python server/worker/research_bundle.py --rule-v3 --output <새 폴더>   # 배포 전 1회 export
+#   docker compose -f compose.yaml -f compose.rule-v3.yaml up -d llm
+# v3 초기화에 실패해도 llm은 v3 없이(explain·rule_v2) 뜨고 시작 로그에 rule_v3_disabled 한 줄을 남긴다.
+services:
+  llm:
+    environment:
+      RULE_V3_BUNDLE_ROOT: /rule-v3-runtime
+    volumes:
+      - type: bind
+        source: ${RULE_V3_BUNDLE_PATH:?Set the exported Rule v3 bundle path}
+        target: /rule-v3-runtime
+        read_only: true
+        bind: {create_host_path: false}

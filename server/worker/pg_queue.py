@@ -177,6 +177,11 @@ def fail(conn: Any, queue: QueueName, message: ClaimedMessage, *, max_attempts: 
         return cur.rowcount == 1
 
 
+# 임계값 추천은 실행 중 진행률({"progress": …})을 run_jobs.result_summary에 쓴다. 성공 외로 시도가 끝나거나 새로
+# 임대될 때 이 식으로 비운다(다른 작업 종류의 result_summary는 그대로).
+CLEAR_PROGRESS = "result_summary = CASE WHEN kind::text = 'recommend_thresholds' THEN NULL ELSE result_summary END"
+
+
 def reconcile_dead_jobs(conn: Any, queue: QueueName) -> None:
     """Expire exhausted crashed attempts; a dead queue item must not look running forever."""
     # 비용: queued/running 작업(또는 만료된 running 시도) × dead 큐 행 순차 탐색. 큐에 jobId 색인이 없어 uuid 비교로 바꿔도 줄지 않는다.
@@ -187,7 +192,7 @@ def reconcile_dead_jobs(conn: Any, queue: QueueName) -> None:
             FROM run_jobs j WHERE a.id=j.current_attempt_id AND a.job_id=j.id AND a.status='running'
               AND a.lease_until<=clock_timestamp() AND EXISTS(SELECT 1 FROM {_table(queue)} q
               WHERE q.status='dead' AND q.payload->>'jobId'=j.id::text)""")
-        cur.execute(f"""UPDATE run_jobs j SET status='failed',error_code='queue_exhausted',finished_at=clock_timestamp()
+        cur.execute(f"""UPDATE run_jobs j SET status='failed',error_code='queue_exhausted',finished_at=clock_timestamp(),{CLEAR_PROGRESS}
             WHERE j.status IN ('queued','running') AND EXISTS(SELECT 1 FROM {_table(queue)} q
               WHERE q.status='dead' AND q.payload->>'jobId'=j.id::text)
               AND NOT EXISTS(SELECT 1 FROM run_job_attempts a WHERE a.id=j.current_attempt_id

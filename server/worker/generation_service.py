@@ -3,7 +3,9 @@ from __future__ import annotations
 
 import hmac
 import json
+import logging
 import os
+import re
 import threading
 import time
 from collections import deque
@@ -17,6 +19,9 @@ from research_bundle import sha, verify
 def stopped_by_time(generated: int, budget: int, finished: bool, elapsed: float, limit: float) -> bool:
     """max_time으로 끊긴 출력은 예외 없이 잘린 문자열로 돌아오므로 시간 초과로 구분한다."""
     return not finished and generated < budget and elapsed >= limit
+
+
+_CODE = re.compile(r"[a-z][a-z0-9_]{0,99}")
 
 
 class GenerationBusy(RuntimeError):
@@ -113,10 +118,20 @@ class DesignModel:
         self.model.eval()
         self.gate = GenerationGate()
         # Rule v3(임계값 추천 rule_v3 경로)는 같은 Base를 공유한다. HTTP `/generate`에는 노출하지 않는다.
+        self.attach_rule_v3(rule_v3_bundle, base)
+
+    def attach_rule_v3(self, bundle: Path | None, base: Path) -> None:
+        """선택 기능. 붙이지 못해도 설명·rule_v2는 그대로 뜨고, v3 작업만 rule_v3_not_configured로 실패한다."""
         self.rule_v3 = None
-        if rule_v3_bundle is not None:
+        self.rule_v3_error = None
+        if bundle is None:
+            return
+        try:
             from rule_v3_runtime import attach
-            self.rule_v3 = attach(Path(rule_v3_bundle), self, Path(base))
+            self.rule_v3 = attach(Path(bundle), self, Path(base))
+        except Exception as exc:  # 구성 오류를 숨기지 않도록 시작 로그에 한 줄 남긴다
+            self.rule_v3_error = str(exc) if _CODE.fullmatch(str(exc)) else type(exc).__name__
+            logging.getLogger(__name__).error("rule_v3_disabled: %s", self.rule_v3_error)
 
     def generate(self, kind: str, value: dict, report_timeout: bool = False) -> dict:
         if kind not in {"feature", "rule", "explain"} or not isinstance(value, dict):

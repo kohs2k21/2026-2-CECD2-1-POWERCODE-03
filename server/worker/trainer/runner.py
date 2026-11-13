@@ -24,7 +24,7 @@ from feature_fit import requires_fit, fit_features, transform, definitions_hash
 from detector.artifacts import verified_artifact_path
 from detector.rules import evaluate_rules
 from methods.registry import resolve_training_method
-from pg_queue import ClaimedMessage, acknowledge, claim, fail, _table, reconcile_dead_jobs
+from pg_queue import CLEAR_PROGRESS, ClaimedMessage, acknowledge, claim, fail, _table, reconcile_dead_jobs
 from trainer.lease import TrainingLeaseHeartbeat, lock_training_ownership
 from trainer.model_version import (SCHEMA_VERSION, build_spec, check_training_scope, content_hash as model_version_hash,
                                    is_model_version_request, read_model_key, read_schema_version, training_period)
@@ -106,7 +106,8 @@ def _claim_job(conn: Any, message: ClaimedMessage, worker_id: str) -> tuple[dict
                 if cur.fetchone()[0] == "running":
                     raise RuntimeError("job_already_running")
             if row[5] >= row[6]:
-                cur.execute("UPDATE run_jobs SET status = 'failed', error_code = 'max_attempts', finished_at = clock_timestamp() WHERE id = %s", (job_id,))
+                cur.execute("UPDATE run_jobs SET status = 'failed', error_code = 'max_attempts', finished_at = clock_timestamp(), "
+                            f"{CLEAR_PROGRESS} WHERE id = %s", (job_id,))
                 if not acknowledge(conn, message.queue, message):
                     raise RuntimeError("training_lease_lost")
                 return None
@@ -120,9 +121,10 @@ def _claim_job(conn: Any, message: ClaimedMessage, worker_id: str) -> tuple[dict
                            clock_timestamp() + interval '60 seconds', clock_timestamp())""",
                 (attempt_id, job_id, row[5] + 1, worker_id, attempt_token),
             )
+            # 새 임대는 이전 시도(크래시·재임대)가 남긴 임계값 추천 진행률을 비우고 시작한다.
             cur.execute(
-                """UPDATE run_jobs SET status = 'running', attempt_count = attempt_count + 1,
-                          current_attempt_id = %s WHERE id = %s""",
+                f"""UPDATE run_jobs SET status = 'running', attempt_count = attempt_count + 1,
+                          current_attempt_id = %s, {CLEAR_PROGRESS} WHERE id = %s""",
                 (attempt_id, job_id),
             )
     return ({"id": job_id, "kind": row[1], "input": row[3], "actor": row[4],
@@ -794,9 +796,9 @@ def _finish(conn: Any, message: ClaimedMessage, job: dict[str, Any],
             else:
                 # 임계값 추천은 실행 중 진행률을 result_summary에 쓰므로 재시도 대기로 갈 때 비운다.
                 cur.execute(
-                    """UPDATE run_jobs SET status = 'queued', error_code = %s,
+                    f"""UPDATE run_jobs SET status = 'queued', error_code = %s,
                               next_run_at = clock_timestamp() + interval '5 seconds',
-                              result_summary = CASE WHEN kind::text = 'recommend_thresholds' THEN NULL ELSE result_summary END
+                              {CLEAR_PROGRESS}
                         WHERE id = %s""",
                     (error_code, job["id"]),
                 )

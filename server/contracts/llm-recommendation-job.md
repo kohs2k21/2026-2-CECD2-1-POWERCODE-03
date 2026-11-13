@@ -134,24 +134,25 @@ Status: draft
 | `status` | `proposed`(적용 가능) / `request_evidence`(근거 부족 — LLM 상태) / `deferred`(보류 — LLM 상태) / `no_applicable`(해당 없음 — 기준선 `unavailable`: 표본 < 20·값 전부 결측·단위 미검증·분산 없음) / `rejected`(검증 탈락·형식 오류·직렬화 실패, `rejectedReason`) — 현행 `rule_v2` 출력 `state` 5종과 대응. 화면은 `proposed`만 선택 가능, 나머지는 사유와 함께 회색. **1단계(`data_p95_with_llm_rationale`)에서는 `request_evidence`·`deferred`에 도달하지 않음**: 기준선이 `unavailable`이거나 분산이 없으면 코드가 LLM 호출 없이 `no_applicable`로 끝내고, 그 밖의 경우 검증기 기대 상태는 항상 `proposed`라 다른 상태를 내면 `expected_target_mismatch`로 `rejected`. 이 두 상태와 `counts`의 두 값은 형식만 유지 |
 | `rejectedReason` | `invalid_generation_output`(스키마 위반·`truncated`) / `expected_target_mismatch`(LLM이 숫자를 직접 냄 등) / `factual_review_failed` / `threshold_serialization_failed` / `generation_failed:<code>`(그 필드 호출만 실패, 아래 실패 절) |
 | `evidence` | `n`(기준 표본 `valid_count`)·`min`·`max`·`p95`(number **원값** — `threshold`의 15자리 반올림 전 값, 예 `956.4999999999995` 그대로)·`quantileMethod`·`exclusionRule`·`measurementId`/`baselineId`(`m_…`/`b_…`, 입력 집계 ID — 근거 추적). 분위 보간이 넘쳐 p95가 비유한값이면 그 항목은 `threshold_serialization_failed`이고 `evidence.p95`·`measurementId`·`baselineId`가 null(JSON과 hash를 만들 수 없음), `n`·`min`·`max`는 유지 |
-| `rationale` | LLM 근거 문장. rule_v2는 영문, rule_v3는 **한국어**(번들 결정의 `reason`만, 1~320자). ≤ 500자. `rejected`는 null. rule_v3에서 LLM 없이 끝난 `no_applicable`은 코드가 쓴 한국어 문장 |
+| `rationale` | LLM 근거 문장. rule_v2는 영문 ≤ 500자, rule_v3는 **한국어**(번들 결정의 `reason`만, 1~320자 — 번들 스키마 상한). `rejected`는 null. rule_v3에서 LLM 없이 끝난 `no_applicable`은 코드가 쓴 한국어 문장 |
 | `aiProposal` | (나) 예약. 켜지면 `{threshold: "<고정소수>", displayThreshold, operator, validation: {inRange: boolean, unitMatched: boolean}, rawText}`; 1차는 항상 null. LLM 제안 숫자도 위 `threshold`와 **같은 정규화**(유효숫자 15자리 반올림 → 고정소수 문자열)를 거친 뒤 [rule-set.md](rule-set.md) 저장 검증과 **동일 규칙**(유한값·15자리·정수 필드 정수·40자·DSL 정규식)으로 검사하고, 위반이면 그 항목 `rejected`(`rejectedReason`은 기존 코드 — 직렬화·정밀도 위반 `threshold_serialization_failed`, 범위·단위 불일치 `expected_target_mismatch`) (#116) |
 | `reviews` | 서버 검증 단계 결과 `{schema, facts, expectedTarget}`(현행 `validate_rule`·`factual_review`·`expected_target`) |
 | (없음) `severity` | **응답에 없음** [확정 11/02 9.2]: 위험도는 사람이 고름(화면 기본 `warning`) |
 
-- 상한: `items` ≤ 32(소프트룰 상한 32와 동일, 현행 변수당 LLM 호출 최대 32건과도 일치), `rationale` ≤ 500자
+- 상한: `items` ≤ 32(소프트룰 상한 32와 동일, 현행 변수당 LLM 호출 최대 32건과도 일치), `rationale` ≤ 500자(rule_v2), ≤ 320자(rule_v3)
 - 저장: 성공 결과는 `run_llm_results`(kind `recommend_thresholds`) + `run_jobs.result_summary`(현행 `_finish` 경로). 항목별 `rejected`가 있어도 저장
 - 적용: 화면 [적용] → 선택한 값만 룰 입력칸에 채움 → [저장]([rule-set.md](rule-set.md) `PUT /api/rule-set`)해야 운영 반영. 서버 자동 적용 없음 [확정]
 
 ## Rule v3 경로 — `llm_spec.model_version=rule_v3` [7차 초안 11/14]
 
+- 켜기: 선택 기능. compose override(`infra/compose.rule-v3.yaml`)로 export를 마운트할 때만 켜진다. export 검증·Base 대조(Rule v3 묶음 Base 목록의 revision·메타데이터 SHA = 서비스 Base)·초기화가 실패하면 v3만 끄고 시작 로그에 `rule_v3_disabled: <코드>` 한 줄을 남긴다. 설명·rule_v2는 영향 없음. 꺼진 동안 rule_v3 작업은 `rule_v3_not_configured`
 - 실행: `llm` 컨테이너 같은 프로세스에서 Rule v3 묶음(연구 묶음 `feature_rule_spec`을 `research_bundle.py --rule-v3`로 export, `RULE_V3_BUNDLE_ROOT` 읽기 전용)을 부른다. Base는 서비스가 이미 올린 것을 공유하고 Rule v3 LoRA만 더 올린다. HTTP `/generate`에는 없다(외부 모델 모드면 `rule_v3_not_configured`). 추가 학습 없음
 - 표본: rule_v2와 같은 규칙(status=S·명시 anomaly 라벨 제외)으로 snapshot **train 분할**을 고른 뒤, 원천 시각(END 먼저, 없으면 START, 시간대는 출처 `clock_basis` 검증값 또는 Asia/Seoul 가정)으로 거래를 묶어 시간 블록 단위로 **앞 80% = 참조, 뒤 20% = 현재**로 나눈다. 같은 시각·한 거래는 갈라지지 않는다
 - 숫자: `threshold`는 **코드가 참조 표본으로 계산한 p95**(linear (n-1)·0.95, Decimal)를 위 `threshold` 규칙으로 직렬화한 값. 번들 기준선 값과 같은 표기로 일치해야 하고 다르면 `expected_target_mismatch`. LLM은 상태·근거만 낸다. `evidence.n·min·max·p95`는 참조 표본 기준, `evidence.currentN`은 현재 쪽 유효 값 수, `measurementId`·`baselineId`는 번들 Rule 입력 ID(LLM 없이 끝난 항목은 null)
 - 코드 선처리(LLM 호출 없음, `no_applicable`, 한국어 문장): 참조 유효 값 0개 / 20개 미만 / 전부 같은 값
 - 상태: 번들 결정 `state` 그대로 — `proposed`(operator `gt`, threshold 채움) / `deferred`(현재 쪽 유효 값 0 등) / `request_evidence` / `no_applicable`. 이 경로에서는 `deferred`·`request_evidence`에 도달할 수 있다(위 1단계 미도달 문장은 rule_v2 기준)
 - 검증·수리: 번들 검증기가 출력을 확인하고 실패하면 **번들 안에서 수리 1회**(필드당 생성 최대 2회). 최종 실패면 `rejected`이며 마지막 시도 오류로 사유를 정한다: JSON·잘림·스키마 → `invalid_generation_output`(reviews 모두 false) / 상태·조건·근거 ID·기준선(`baseline_grounding`, `*_contract`, `unusable_reference`, `no_current_numeric_observations`, `structurally_unreachable` 등) → `expected_target_mismatch` / 설명 문장 검사만 → `factual_review_failed`
-- 서버 근거 점검(번들 통과 뒤, 하나라도 실패하면 `rejected` + `factual_review_failed`, reviews `{schema: true, facts: false, expectedTarget: true}`): (a) 글자 중 한글 50% 이상 (b) 문장의 숫자가 모두 그 필드 Rule 입력 사실(피처·측정·기준선·범위 등)에 있는 숫자. 앞에 글자가 붙은 숫자(`p95`)는 세지 않고, 뒤에 붙은 단위(`7210.5ms`, `20개`)는 센다. 입력 키 `p95`류는 그 분위 숫자(95)를 사실에 더한다
+- 서버 근거 점검(번들 통과 뒤, 하나라도 실패하면 `rejected` + `factual_review_failed`, reviews `{schema: true, facts: false, expectedTarget: true}`): (a) 글자 중 한글 50% 이상 (b) 문장의 숫자가 모두 그 필드 Rule 입력 사실(피처·측정·기준선·범위 등)에 있는 숫자. 앞에 글자가 붙은 숫자(`p95`)는 세지 않고, 뒤에 붙은 단위(`7210.5ms`, `20개`)는 센다. 입력 키 `p95`류는 그 분위 숫자(95)를 사실에 더하고, ID·SHA·버전·기간 값과 ID·해시·시각 꼴 문자열에서 나온 숫자는 사실에서 뺀다. **근거의 퍼센트 표기(`%`·`퍼센트`·`백분율`)는 거절**한다(입력 사실은 0~1 비율이라 대조할 수 없음)
 - 보류 창: 번들 입장 검사는 기간이 9/30~10/2 보류 창과 겹치면 거부한다. 워커는 겹치면 **회피 규칙**으로 진행한다: 해석된 START·END 시각의 [최소, 최대]가 창 `[2026-09-30T00:00+09:00, 2026-10-03T00:00Z)`(보류 날짜는 시간대 없는 KST 날짜라 하한을 KST로, 상한은 UTC로 둔 보수적 경계)와 겹치는 거래를 통째로 빼고, **창 뒤쪽(≥ 10/03 00:00Z)만** 남겨 나누며, 뒤쪽으로 나눌 수 없으면 **앞쪽(< 9/30 00:00 KST)만** 남긴다. 참조 기간은 첫 참조 시각부터 현재 시작까지라 창 양쪽 데이터를 함께 쓰면 기간이 창을 덮으므로 한쪽만 남긴다. 뺀 행(창 거래 행 + 버린 쪽 행) 수를 `heldWindowExclusion`에 적는다. 빼고 나서 한 필드 표본이 부족하면 그 필드 `no_applicable`, 어느 쪽도 나눌 수 없으면 작업 `failed` + `recommendation_input_empty`
 - 시간: 생성 시도 1회 상한 `LLM_RECOMMENDATION_SECONDS`(기본 240초, 시도 동안만 Base `generation_config.max_time`으로 둠). 끊긴 시도는 수리로 넘기지 않고 작업 `failed` + `generation_timeout`(위 실패 절 규칙). 필드 최대 6개 × 시도 2회라 최악 약 48분 + CPU 처리, 주말 실측 시도당 64~102초
 - GPU 차례: 생성 시도 1회마다 작업 차례를 따로 잡는다(설명이 시도 사이에 먼저 들어감). 시도가 길어 그 사이 설명 요청이 대기 상한 10초를 넘겨 `generation_busy`가 나는 일이 rule_v2보다 잦을 수 있다
@@ -189,7 +190,7 @@ Status: draft
 ### 진행률 — 실행 중 `resultSummary` [7차 초안, 두 경로 공통]
 
 - 작업이 `running`인 동안 `resultSummary` = `{"progress": {"processed": <처리한 필드 수>, "total": <대상 필드 수>}}`. 시작 시 0, 필드마다 갱신. `recommendationContractVersion` 키가 없으므로 결과 문서와 구분된다
-- 성공하면 최종 결과로 바뀐다. 재시도 대기(`queued`)로 갈 때 NULL로 비우고, 종료 실패면 기존 규칙(전 항목 거절 요약 또는 NULL)
+- 성공하면 최종 결과로 바뀐다. 재시도 대기(`queued`), 새 임대(이전 시도 만료 뒤 다시 시작), `max_attempts`·`queue_exhausted` 종료에서는 NULL로 비우고, 그 밖의 종료 실패는 기존 규칙(전 항목 거절 요약 또는 NULL)
 - 쓰기는 작업 소유권을 확인한 짧은 트랜잭션이라 생성 중에 열린 트랜잭션이 없다
 
 ## 실패·시간 초과 — 작업 전체 vs 필드 격리 [제안]
@@ -203,7 +204,7 @@ Status: draft
 | 한 필드의 출력 형식 깨짐·검증 탈락·직렬화 실패 | 그 필드만 `rejected` + `rejectedReason`, 나머지 계속, 작업 **성공** — 현행 "검증 탈락은 변수만 제외"를 "제외"가 아니라 "사유와 함께 표시"로 확장(11/02 9.1: `ValueError`로 작업 전체 failed였던 지수 표기 경우를 격리) |
 | 모든 필드 `no_applicable`(데이터 사실: 표본 부족·분산 없음) | 작업 **성공**(항목마다 사유가 있으므로 빈 성공이 아님). 화면은 "제안 0건" + 사유 표. 대상 0건은 접수 단계 400 |
 | 모든 필드가 **생성계 사유**로 `rejected`(`invalid_generation_output`·`expected_target_mismatch`·`factual_review_failed`·`generation_failed:*`) | [제안, reviewer 권고 4 — Q-L1에 묶음] 작업 `failed` + `recommendation_all_rejected`(항목별 사유는 `resultSummary`에 보존해 `GET /api/jobs/:id`가 그대로 돌려줌. 현재 화면은 실패 코드만 표시하고 이 표는 그리지 않음). 생성 서비스 전체가 깨진 상황을 "성공"으로 보이게 하지 않기 위함. `no_applicable`·`threshold_serialization_failed`가 섞여 있으면 성공 |
-| (7차) rule_v3 구성·입력 | 작업 `failed`: `rule_v3_not_configured`(Rule v3 export 없음·같은 프로세스 모델 없음) / `recommendation_rule_input_rejected`(번들이 캡처 입력을 거부 — 입력 조립 문제라 전 필드 공통) / `rule_v3_model_failure`(번들 모델 검사 실패, 어댑터 설정·호출 예산 등) / `generation_adapter_version_mismatch`(시도 출력의 어댑터 SHA가 export와 다름) |
+| (7차) rule_v3 구성·입력 | 작업 `failed`: `rule_v3_not_configured`(Rule v3 override 없음·초기화 실패로 꺼짐·같은 프로세스 모델 없음) / `recommendation_rule_input_rejected`(번들이 캡처 입력을 거부 — 입력 조립 문제라 전 필드 공통) / `rule_v3_model_failure`(번들 모델 검사 실패, 어댑터 설정·호출 예산 등) / `generation_adapter_version_mismatch`(시도 출력의 어댑터 SHA가 export와 다름) |
 | 입력 집계 부족 | 작업 `failed` + `recommendation_input_empty`. (7차) rule_v3는 참조/현재로 나눌 거래 묶음·시간 블록이 모자라거나 보류 창 회피 뒤 남는 쪽이 없을 때도 이 코드. 기간 안의 실행별 최신 행이 **20건 미만**(snapshot 생성의 `snapshot_insufficient_process_rows`를 이 코드로 바꿈)이거나 snapshot의 train 분할이 0행. `status=S`로 거른 표본이 20건 미만인 필드는 이 실패가 아니라 그 필드 `no_applicable` |
 | 기간은 찼지만 snapshot을 나눌 수 없음 | 작업 `failed` + 그 코드 그대로: `snapshot_insufficient_execution_groups`(실행 묶음 10개 미만) / `snapshot_time_split_unavailable`(시간 블록 3개 미만) / `snapshot_row_limit_exceeded`(기간 행 100만 초과) |
 | 워커 입력 재검사 | 정상 접수 경로에서는 나오지 않는 방어 코드, 스냅샷을 만들기 전에 작업 `failed`: `recommendation_mode_invalid`·`recommendation_llm_spec_invalid`·`recommendation_data_range_missing`·`invalid_rule_set_reference`·`invalid_recommendation_targets`·`soft_rule_limit_exceeded`. 접수와 겹치는 `recommendation_mode_not_available`·`recommendation_time_basis_unsupported`·`soft_rules_empty`·`soft_rule_field_unknown:<field>`도 같음 |
@@ -303,7 +304,7 @@ Status: draft
 | `generation_client.py` | `generation_timeout` 분리: `report_timeout=True` 호출만(위 실패 절). 503 본문 `generation_busy`·같은 프로세스 `GenerationBusy` → `GenerationUnavailable("generation_busy")`(GPU 차례 절) |
 | `llm_worker.py`·`generation_service.py` | `DesignModel.generate("rule", …)` 어댑터 그대로(입력 형식 불변). (나) 모드 어댑터는 LLM 팀원. GPU 구간은 `GenerationGate`(GPU 차례 절). (7차) `RULE_V3_BUNDLE_ROOT`가 있으면 같은 Base에 Rule v3 경로를 붙임(`rule_v3_runtime.py`·`rule_v3_capture.py`) |
 | (7차, API·WebUI 세션) `backend/src/routes/thresholdRecommendationContract.ts` | rule_v3 전환 시 `llm_spec` 값: `model_version: 'rule_v3'`, `evidence_version: 'soft-rule-threshold-v2'`, `prompt_version`(예 `feature-rule-spec-rule-v3-ko`, `reuse_key` 계산에도 들어감). `output_schema_version`은 그대로. 워커는 두 조합을 모두 받으므로 API 값만 바꾸면 전환·되돌림이 된다. 화면: `basis`·`heldWindowExclusion`·`attempts` 표시, 실행 중 `resultSummary.progress` 표시, rule_v3에서 도달하는 `deferred`·`request_evidence` 문구 |
-| (7차) 이미지·배포 | `Dockerfile.generation`: gcc·libc6-dev(xgrammar triton 커널 빌드), `PYTHONUTF8=1`, `TRITON_CACHE_DIR=/tmp/triton`. `requirements-generation.txt`: `xgrammar==0.2.3`, `huggingface-hub==1.33.0`. compose `llm`: `RULE_V3_BUNDLE_PATH` → `/rule-v3-runtime` 읽기 전용 |
+| (7차) 이미지·배포 | `Dockerfile.generation`: gcc·libc6-dev(xgrammar triton 커널 빌드), `PYTHONUTF8=1`, `TRITON_CACHE_DIR=/tmp/triton`. `requirements-generation.txt`: `xgrammar==0.2.3`, `huggingface-hub==1.33.0`. compose: 기본 `compose.yaml`은 그대로, 선택 override `compose.rule-v3.yaml`이 `llm`에 `RULE_V3_BUNDLE_PATH` → `/rule-v3-runtime` 읽기 전용과 `RULE_V3_BUNDLE_ROOT`를 더함 |
 | `queues.md` 7행 | `recommend_thresholds` 추가([queues.md](queues.md) 변경 제안 절) |
 
 - GPU·외부 생성 서비스 호출은 사용자 승인 환경에서만. 이 계약은 호출을 요구하지 않음(11/02 9.1 조사도 가짜 LLM으로 서버 수용 범위만 확인)

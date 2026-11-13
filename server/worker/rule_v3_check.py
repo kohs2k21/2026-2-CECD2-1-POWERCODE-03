@@ -25,6 +25,7 @@
       powercode-llm:rulev3-cand python -m rule_v3_check --max-time-probe 10 > $W/rule-v3-check-synthetic.json
     # 실데이터(선택): --network <DB 네트워크> -e DATABASE_URL(읽기 전용 역할 권장) ... --snapshot-id <UUID>
 
+운영 배포(이 확인 뒤)는 compose override로 켠다: `docker compose -f compose.yaml -f compose.rule-v3.yaml up -d llm`.
 컨테이너는 운영 llm 컨테이너와 별개이고 운영 DB에 쓰지 않는다. 할당 GPU 여유가 20GB 미만이면 시작하지 않는다.
 """
 from __future__ import annotations
@@ -203,7 +204,15 @@ def main(argv: list[str] | None = None) -> int:
     summary["modelLoadSeconds"] = round(time.monotonic() - started, 1)
     summary["gpuName"] = torch.cuda.get_device_name(0)
     summary["afterLoadAllocatedBytes"] = torch.cuda.memory_allocated()
+    # 서비스는 v3를 붙이지 못해도 뜬다. 확인에서는 그 사유를 남기고 v3 단계를 건너뛴다.
+    summary["ruleV3Attached"] = model.rule_v3 is not None
+    summary["ruleV3Error"] = model.rule_v3_error
     rows = synthetic_rows()
+    if model.rule_v3 is None:
+        summary["ruleV2"] = run_v2(rows)
+        summary["explain"] = run_explain(model)
+        print(json.dumps(summary, ensure_ascii=False, indent=2))
+        return 1
     if not args.skip_synthetic:
         summary["synthetic"] = run_v3(model, rows, uuid.uuid4())
         summary["ruleV2AfterV3"] = run_v2(rows)

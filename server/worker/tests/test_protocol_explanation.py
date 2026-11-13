@@ -1,5 +1,6 @@
 """프로토콜 경로 설명(protocol_explanation.py) 단위 시험 — 사실 만들기·프롬프트·자동 점검. DB·모델·네트워크 없음."""
 import json
+import re
 import sys
 import unittest
 from pathlib import Path
@@ -212,14 +213,31 @@ class CheckTests(unittest.TestCase):
             with self.subTest(text=text):
                 self.assertIn("no_forbidden", self.check(out(text))["failures"])  # 붙여 쓴 원인도 잡는다
         self.assertTrue(self.check(out("담당 직원인지 확인이 필요합니다."))["checks"]["no_forbidden"])
-        # 원인을 단정하지 않고 확인을 권하는 꼴은 허용, 단정은 계속 FAIL
-        for text in ("P1의 부재 원인 확인이 필요합니다.", "제외된 거래의 원인을 확인합니다.", "원인 파악을 확인합니다.",
-                     "경로가 없는 원인을 점검합니다.", "원인이 검토되었는지 확인합니다."):
+        # 허용은 확인을 권하는 말로 끝나는 꼴만. 그 밖의 "원인"(확인·검토 결과를 앞세운 단정 포함)은 FAIL
+        for text in ("P1의 부재 원인 확인이 필요합니다.", "제외된 거래의 원인을 확인합니다.",
+                     "경로가 없는 원인을 점검합니다.", "원인 파악이 필요합니다."):
             with self.subTest(allowed=text):
                 self.assertTrue(self.check(out(text))["checks"]["no_forbidden"], text)
-        for text in ("원인은 설정 변경입니다.", "원인은 설정 변경 때문입니다.", "주원인은 배포입니다.", "원인이 배포입니다."):
+        for text in ("원인은 설정 변경입니다.", "원인은 설정 변경 때문입니다.", "주원인은 배포입니다.", "원인이 배포입니다.",
+                     "원인이 검토되었는지 확인합니다.", "원인 파악을 확인합니다.",
+                     "원인은 검토 결과 설정 변경입니다.", "원인은 확인 결과 배포입니다.",
+                     "원인은 점검 결과 네트워크 장애입니다.", "원인 파악 결과 배포가 문제입니다.",
+                     "원인을 확인한 결과 배포였습니다.", "원인 확인: 배포 변경.",
+                     "장애 원인 확인 결과 배포로 판명되었습니다.", "근본원인 파악 결과 설정 변경입니다.",
+                     "원인이 확인된 바 배포입니다.", "원인이 확인되었습니다.", "원인이 파악되었습니다: 배포."):
             with self.subTest(forbidden=text):
                 self.assertIn("no_forbidden", self.check(out(text))["failures"])
+        for text in ("이 경로를 확인해야 합니다.", "허용 경로를 검토해야 한다.", "초안을 점검해야 함."):
+            with self.subTest(directive=text):
+                self.assertIn("no_forbidden", self.check(out(text))["failures"])
+
+    def test_label_names_have_no_digits_or_lowercase(self):
+        # 이름표 오른쪽(한국어 이름)을 모델이 베껴도 숫자·표기 점검에 걸리지 않게 숫자·소문자 영문을 넣지 않는다.
+        names = [name for table in pe.KEY_LABELS.values() for _, name in table] + list(pe.VALUE_LABELS.values())
+        for name in names:
+            with self.subTest(name=name):
+                self.assertIsNone(re.search(r"[0-9a-z]", name))
+        self.assertIn(("comparison.notAllowedPaths", "허용 경로에 없는 관측 경로"), pe.KEY_LABELS["observed_paths"])
 
     def test_format_language_and_length(self):
         self.assertEqual(self.check("설명입니다")["failures"][0], "json_parsed")

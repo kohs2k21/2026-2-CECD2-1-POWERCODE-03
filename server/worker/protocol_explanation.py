@@ -55,15 +55,16 @@ ALLOWED_TERMS = frozenset({"ESB", "PROCESS", "TRANSACTION", "PROCESS_ID", "DEPEN
 # 금지 표현: 원인 단정·추정·확신·지시. 사실에는 원인 정보가 없으므로 원인 서술은 모두 지어낸 것이다.
 FORBIDDEN_PATTERNS: tuple[tuple[str, str], ...] = (
     # "원인"은 붙여 쓴 합성어(주원인·근본원인·장애원인)도 잡고, "직원인지" 같은 특정 낱말만 뺀다.
-    # 원인을 단정하지 않고 확인을 권하는 꼴("원인을 확인합니다", "원인 파악")은 뺀다. "원인은 …"·"주원인은"은 계속 금지.
-    ("cause", r"(?<!직)원인(?!(?:을|를|이|은)?\s*(?:확인|파악|점검|검토))"), ("cause", r"때문"), ("cause", r"(?:으)?로\s*인(?:해|하여|한)"), ("cause", r"탓"),
+    # 허용은 확인을 권하는 말로 끝나는 꼴만("원인을 확인합니다", "원인 확인이 필요합니다"). "원인은 …"·"원인이 확인되었습니다"·
+    # "원인 확인 결과 …"·"주원인은" 등 그 밖의 "원인"은 모두 금지(보수적).
+    ("cause", r"(?<!직)원인(?!(?:을|를)?\s*(?:확인|파악|점검|검토)(?:합니다|이\s*필요|가\s*필요|할\s*필요))"), ("cause", r"때문"), ("cause", r"(?:으)?로\s*인(?:해|하여|한)"), ("cause", r"탓"),
     ("cause", r"유발"), ("cause", r"영향으로"), ("cause", r"에\s*의해"),
     ("speculation", r"추정"), ("speculation", r"것으로\s*보(?:입|인|임|여)"), ("speculation", r"보입니다"),
     ("speculation", r"처럼\s*보(?:입|인|임|여)"), ("speculation", r"일\s*수\s*있(?:습니다|다|음)"),
     ("speculation", r"가능성이\s*(?:높|크|있)"), ("speculation", r"아마"), ("speculation", r"짐작"),
     ("speculation", r"듯(?:합니다|하다|함)"), ("speculation", r"것\s*같(?:습니다|다)"),
     ("certainty", r"확실(?:히|합니다)"), ("certainty", r"분명(?:히|합니다)"), ("certainty", r"틀림없"),
-    ("directive", r"(?:추가|등록|삭제|수정|변경|차단)해야\s*(?:합니다|한다|함)"), ("directive", r"반드시"),
+    ("directive", r"해야\s*(?:합니다|한다|함)"), ("directive", r"반드시"),
     ("directive", r"하세요"), ("directive", r"하십시오"),
 )
 _FORBIDDEN = tuple((kind, re.compile(pattern)) for kind, pattern in FORBIDDEN_PATTERNS)
@@ -329,7 +330,7 @@ KEY_LABELS: dict[str, tuple[tuple[str, str], ...]] = {
     "observed_paths": (
         ("kind=observed_paths", "학습 기간 관측 경로와 허용 경로 비교"), ("interface", "인터페이스"),
         ("registered", "정상 프로토콜 등록 여부"), ("enabled", "항목 켜짐"), ("period", "학습 기간"),
-        ("paths", "경로(경로 id → 거치는 채널 순서)"), ("allowed.paths", "허용 경로"), ("allowed.count", "허용 경로 수"),
+        ("paths", "경로(경로 표기 → 거치는 채널 순서)"), ("allowed.paths", "허용 경로"), ("allowed.count", "허용 경로 수"),
         ("observed.available", "학습 기간 관측 있음"), ("observed.status", "초안 상태"),
         ("observed.transactions", "인터페이스로 정해진 거래 수"), ("observed.pathTransactions", "경로를 만든 거래 수"),
         ("observed.branchingTransactions", "갈라진 거래 수"), ("observed.distinctPaths", "관측 경로 수"),
@@ -339,14 +340,14 @@ KEY_LABELS: dict[str, tuple[tuple[str, str], ...]] = {
         ("observed.excluded", "경로를 만들지 못한 거래(사유별 건수)"),
         ("excludedTransactions", "경로를 만들지 못한 거래 수"), ("omitted", "표시하지 않은 경로(경로 수·거래 수)"),
         ("listComplete", "관측 목록이 잘리지 않음"),
-        ("comparison.notAllowedPaths", "허용 경로에 없는 관측 경로(처음 보는 경로)"),
+        ("comparison.notAllowedPaths", "허용 경로에 없는 관측 경로"),
         ("comparison.notAllowedCount", "허용 경로에 없는 관측 경로 수"),
         ("comparison.allowedNotInObservedList", "관측 목록에 없는 허용 경로"),
         ("comparison.observedListComplete", "관측 목록이 잘리지 않음")),
     "alert": (
-        ("kind=alert", "거래 1건의 판정 알림 근거"), ("alertKind", "알림 종류"), ("interface", "인터페이스"),
+        ("kind=alert", "이 거래의 판정 알림 근거"), ("alertKind", "알림 종류"), ("interface", "인터페이스"),
         ("registered", "정상 프로토콜 등록 여부"), ("enabled", "항목 켜짐"),
-        ("paths", "경로(경로 id → 거치는 채널 순서)"), ("allowed.paths", "허용 경로"), ("allowed.count", "허용 경로 수"),
+        ("paths", "경로(경로 표기 → 거치는 채널 순서)"), ("allowed.paths", "허용 경로"), ("allowed.count", "허용 경로 수"),
         ("routes", "이 거래의 경로"), ("matched", "허용 경로와 일치"), ("routeCount", "이 거래의 경로 수"),
         ("unmatchedCount", "허용 경로와 일치하지 않은 경로 수"), ("branching", "경로가 갈라짐"),
         ("routesReason", "경로를 만들지 못한 사유")),

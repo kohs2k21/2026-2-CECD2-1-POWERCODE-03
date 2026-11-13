@@ -245,10 +245,12 @@ for (const [truncatedBy, shown] of [["events", true], ["days", false]]) {
 {
   let stored = { decisionBasis: "final_any", minRiskLevel: "warning", includeUnrated: false, windowDays: 7 };
   let unreadReads = 0;
+  let failPut = false;
   const settingsBody = () => ({ notifications: { ...stored, isDefault: false, updatedAt: "2026-11-14T00:00:00.000000Z" }, widgetLayout: { layout: null, updatedAt: null } });
   routes = {
     "GET /api/me/settings": () => [200, settingsBody()],
     "PUT /api/me/settings": (_target, body) => {
+      if (failPut) return [503, { code: "notification_storage_unavailable" }];
       stored = body.notifications;
       return [200, settingsBody()];
     },
@@ -290,6 +292,18 @@ for (const [truncatedBy, shown] of [["events", true], ["days", false]]) {
   await act(async () => box.props.onCheckedChange(true));
   await wait(() => requests.filter((r) => r.method === "PUT").at(-1).body.notifications.includeUnrated === true, "unrated saved");
   assert.equal(requests.filter((r) => r.method === "PUT").at(-1).body.notifications.windowDays, 30);
+  // 저장 실패: 입력값(draft)은 그대로 두고 기존 오류 표시, 다시 저장할 수 있다. 서버 저장값(30)은 바뀌지 않는다.
+  failPut = true;
+  await act(async () => input().props.onChange({ target: { value: "14" } }));
+  await click(saveButton());
+  await wait(() => app.shown().includes("알림 설정을 저장하지 못했습니다"), "window days save failure shown");
+  assert.ok(app.shown().includes("저장된 설정을 그대로 유지합니다."));
+  assert.deepEqual([input().props.value, input().props["aria-invalid"], saveButton().props.disabled, stored.windowDays], ["14", undefined, false, 30],
+    "failed save keeps the typed value for a retry and the stored value on the server");
+  failPut = false;
+  await click(saveButton());
+  await wait(() => !app.shown().includes("알림 설정을 저장하지 못했습니다") && stored.windowDays === 14, "retry saves the typed value");
+  await wait(() => input().props.value === "14" && saveButton().props.disabled === true, "draft cleared after the retry");
   await app.cleanup();
 }
 

@@ -275,7 +275,7 @@ SELECT r.rolname,
 - **역할 스크립트 재적용 불필요**: 022 GRANT가 표 단위(`powercode_api` SELECT·INSERT·UPDATE)라 새 열에도 그대로 적용된다. 열 단위 GRANT를 쓰지 않으므로 `scripts/database-roles.sql` 변경 없음(다른 이유로 재적용해도 결과 같음)
 - **배포 순서: migration 026 → API → WebUI**. 기존 행은 7을 받고, 이 열을 모르는 이전 API의 INSERT는 DEFAULT, upsert는 이 열을 건드리지 않아 저장값 유지(먼저 적용해도 안전). 새 API는 이 열을 읽으므로 열이 없으면 알림·설정 조회가 503. 새 WebUI는 응답의 `windowDays`를 요구하므로 API보다 먼저 올리지 않는다
 - 의미: API가 알림 목록·미확인 수를 "지금 − `window_days`일" 이후 판정 이벤트로 좁힌다(기존 최근 5,000개 이벤트 상한은 요청 비용 상한으로 유지, `contracts/notifications.md` "알림 단위" 절). 기간 경계는 개수 범위(최대 5,000행) 안을 PK 역순으로 읽어 정하므로 `run_decision_events.created_at` 색인은 두지 않는다
-- 시험(`erd-v03-notification-window.mjs`, `erd-v03.mjs`가 호출): `erd026_upgrade`(001~025 + 역할 스크립트 + 기존 설정 행 → 026: 기존 행 7, 역할 스크립트 재적용 없이 실제 LOGIN API가 새 열 upsert·조회, 이전 API 형태 upsert는 저장값 유지), CHECK 경계(0·31·NULL 거부, 1·30 허용), DBML parity. API 경로는 `backend/tests/notifications.integration.mjs`
+- 시험(`erd-v03-notification-window.mjs`, `erd-v03.mjs`가 호출): `erd026_upgrade`(001~025 + 역할 스크립트 + 기존 설정 행 → 026: 기존 행 7, 역할 스크립트 재적용 없이 실제 LOGIN API가 새 열 upsert·조회, 이전 API 형태 upsert는 저장값 유지), CHECK 경계(0·31·NULL 거부, 1·30 허용), DBML parity. 2026-11-14 embedded PostgreSQL 17.10 1276 checks 통과(임시 폴더 D 드라이브). API 경로는 `backend/tests/notifications.integration.mjs`(CI 단계 "User settings and notifications API under runtime role", `powercode_api` 연결)
 - 함께 바꾼 기존 시험: `prepare-runtime-db.py` 목록에 026 추가, `erd022` API 문장 형태를 새 upsert(`window_days` 포함)로 맞춤
 
 ## 큐와 소유권

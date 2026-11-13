@@ -57,7 +57,8 @@ const parseWindowDays = (text: string) => (/^\d{1,2}$/.test(text.trim()) && isWi
 /**
  * 알림 대상(와이어프레임 #93 notifSettings): 알릴 판정 기준 3택 · 위험도 하한 · 위험도 미정 포함 · 알림 조회 기간(일). 계정별 서버 저장(PUT /api/me/settings).
  * 앞의 세 값은 바꾸면 바로 저장해 알림 목록·배지에 적용한다. 조회 기간은 숫자 입력이라 [저장]으로 저장한다(1~30 정수 밖이면 입력 오류 표시·저장 비활성).
- * 저장 중에는 입력을 잠그고, 실패하면 서버 값으로 되돌려 오류를 보인다. 저장 성공 뒤 알림 목록·배지를 다시 조회한다(useSaveMySettings).
+ * 저장 중에는 입력을 잠근다. 실패하면 오류를 보이고, 앞의 세 값은 서버 값으로 되돌리며 조회 기간은 입력한 값을 그대로 둬 다시 저장할 수 있게 한다
+ * (서버 저장값은 바뀌지 않음). 저장 성공 뒤 조회 기간 입력값을 비우고 알림 목록·배지를 다시 조회한다(useSaveMySettings).
  */
 const NotificationTargets = ({ currentUser }: { currentUser: AuthUser }) => {
   const settings = useMySettings();

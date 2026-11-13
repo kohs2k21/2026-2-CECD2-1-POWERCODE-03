@@ -80,6 +80,7 @@ async function query(text, params = []) {
     const found = database.jobs.filter((job) => job.id === params[0]);
     return rows(found.map(({ id, kind, status, errorCode, resultSummary }) => ({ id, kind, status, errorCode, resultSummary })));
   }
+  if (text.includes('FROM run_job_attempts')) return rows([]); // 작업 상세 시도 기록(operations-ui.md)
   throw new Error(`unexpected statement: ${text}`);
 }
 
@@ -310,7 +311,7 @@ test('a failed job keeps its result summary on GET /api/jobs/:id', async () => {
   Object.assign(database.jobs[0], { status: 'failed', errorCode: 'recommendation_all_rejected', resultSummary });
   const response = await fetch(`${base}/api/jobs/${created.body.id}`, { headers: { Authorization: `Bearer ${adminToken}` } });
   assert.equal(response.status, 200);
-  assert.deepEqual(await response.json(), { id: created.body.id, kind: 'recommend_thresholds', status: 'failed', errorCode: 'recommendation_all_rejected', resultSummary });
+  assert.deepEqual(await response.json(), { id: created.body.id, kind: 'recommend_thresholds', status: 'failed', errorCode: 'recommendation_all_rejected', resultSummary, attempts: [] });
 });
 
 test('abolished kinds (recommend_rule, recommend_feature) are refused with 422 and leave no job', async () => {

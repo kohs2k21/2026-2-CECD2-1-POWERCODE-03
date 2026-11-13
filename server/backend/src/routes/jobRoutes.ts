@@ -14,6 +14,7 @@ import { ThresholdRequestError, fixThresholdTargets, parseThresholdRequest, thre
   type ThresholdFixedInput, type ThresholdRequest } from './thresholdRecommendationContract.js';
 import { ComparisonError, enqueueComparison, parseComparisonRequest } from '../services/comparisonEvaluation.js';
 import { idempotencyKeyOf } from './comparisonRoutes.js';
+import { JobReadError, parseJobListQuery, readJobDetail, readJobPage } from '../services/jobReadModel.js';
 
 const router = Router();
 router.use(authenticateToken as any);
@@ -413,31 +414,21 @@ router.get('/feature-sets', route(async (req, res) => {
       ...featureSetCapability(row.members) })) });
 }));
 
+/** 작업 목록·상세(operations-ui.md '작업 목록·작업 상세'). 읽기 규칙은 services/jobReadModel.ts. */
+const reader = (req: AuthenticatedRequest) => ({ id: req.user!.id, admin: req.user!.userType === 'admin' });
+const readError = (error: unknown) => (error instanceof JobReadError ? new JobRequestError(error.code, error.status) : error);
+
 router.get('/', route(async (req, res) => {
-  const result = await getDatabasePool().query(
-    `SELECT id, kind, status, input_spec AS "inputSpec", attempt_count AS "attemptCount",
-            max_attempts AS "maxAttempts", next_run_at AS "nextRunAt",
-            result_summary AS "resultSummary", error_code AS "errorCode",
-            created_at AS "createdAt", finished_at AS "finishedAt"
-       FROM run_jobs WHERE requested_by_actor_id = $1 OR $2::boolean
-      ORDER BY created_at DESC LIMIT 50`,
-    [req.user!.id, req.user!.userType === 'admin'],
-  );
-  res.json({ items: result.rows });
+  let filter;
+  try { filter = parseJobListQuery(req.query as Record<string, unknown>); } catch (error) { throw readError(error); }
+  res.json(await readJobPage(getDatabasePool(), reader(req), filter).catch((error: unknown) => { throw readError(error); }));
 }));
 
 router.get('/:id', route(async (req, res) => {
   if (!uuid(req.params.id)) throw new JobRequestError('invalid_job_id');
-  const result = await getDatabasePool().query(
-    `SELECT id, kind, status, input_spec AS "inputSpec", attempt_count AS "attemptCount",
-            max_attempts AS "maxAttempts", next_run_at AS "nextRunAt",
-            result_summary AS "resultSummary", error_code AS "errorCode",
-            created_at AS "createdAt", finished_at AS "finishedAt"
-       FROM run_jobs WHERE id = $1 AND (requested_by_actor_id = $2 OR $3::boolean)`,
-    [req.params.id, req.user!.id, req.user!.userType === 'admin'],
-  );
-  if (!result.rowCount) throw new JobRequestError('job_not_found', 404);
-  res.json(result.rows[0]);
+  const job = await readJobDetail(getDatabasePool(), reader(req), req.params.id);
+  if (!job) throw new JobRequestError('job_not_found', 404);
+  res.json(job);
 }));
 
 router.post('/:id/recommendations/:index/adopt', route(async (req, res) => {

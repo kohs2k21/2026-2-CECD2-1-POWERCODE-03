@@ -139,10 +139,6 @@ export function fetchPipelineJob(id: string, signal?: AbortSignal): Promise<Pipe
   return httpClient.get(`/api/jobs/${encodeURIComponent(id)}`, { signal });
 }
 
-export async function fetchPipelineJobs(): Promise<PipelineJob[]> {
-  return (await httpClient.get<{ items: PipelineJob[] }>("/api/jobs")).items;
-}
-
 export function adoptSuggestedRule(jobId: string, index: number): Promise<{ id: string; ruleKey: string }> {
   return httpClient.post(`/api/jobs/${encodeURIComponent(jobId)}/recommendations/${index}/adopt`, {});
 }

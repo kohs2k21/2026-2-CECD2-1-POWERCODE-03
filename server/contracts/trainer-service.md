@@ -27,7 +27,7 @@ Status: current
 - train 접수 시 피처 이름·연산·깊이·타입/단위·requires_fit 검사; 미지원 정의 422, rule_only의 fit 필요 피처 422
 - 목록 최대 200개·최신순; hasMore=true이면 잘린 목록. 등록은 아래 입력 변수 세트 등록 규칙 절
 - `POST /api/jobs`: 기존 train/evaluate 필드·권한·멱등키 유지, train에 optional modelKey 추가
-- `GET /api/jobs`, `GET /api/jobs/:id`: 기존 attemptCount + maxAttempts/nextRunAt; 재시도 중 errorCode와 terminal failed 구분
+- `GET /api/jobs`, `GET /api/jobs/:id`: 기존 attemptCount + maxAttempts/nextRunAt; 재시도 중 errorCode와 terminal failed 구분. 목록 필터(`kind`·`status`)·커서·목록 `result` 연결 값·상세 `attempts`는 [operations-ui.md](operations-ui.md) 작업 목록·작업 상세 절(WebUI 읽기 확장)
 
 ## 입력 변수 세트 등록 규칙(operator_defined)
 

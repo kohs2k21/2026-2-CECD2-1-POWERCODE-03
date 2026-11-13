@@ -118,8 +118,8 @@ export function createNotificationRouter(database: () => Pool = getDatabasePool)
   router.post('/read', route(async (req, res) => {
     noQuery(req);
     const request = parseReadBody(req);
-    const result = await markNotificationsRead(database(), req.user!.id, request);
     const settings = await loadNotificationSettings(database(), req.user!.id);
+    const result = await markNotificationsRead(database(), req.user!.id, settings, request);
     res.json({ ...result, ...(await readUnreadCount(database(), req.user!.id, settings)) });
   }));
   errors(router);

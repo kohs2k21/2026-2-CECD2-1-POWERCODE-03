@@ -83,8 +83,10 @@ export async function userSettings022({ Client, port, connection, check, failure
         ON CONFLICT (actor_id,item_key) DO UPDATE SET read_seq=GREATEST(ops_user_notification_reads.read_seq,EXCLUDED.read_seq),read_at=clock_timestamp()`,
       [actor, key, 30 + index * 10]);
     }
-    const pruned = await api.query('DELETE FROM ops_user_notification_reads WHERE actor_id=$1 AND read_seq<=$2', [actor, 40]);
-    verdict(pruned.rowCount === 2, `${db}: api login prunes read marks at or below the cursor (DELETE)`, `rowCount=${pruned.rowCount}`);
+    // Same statement as markNotificationsRead: drop marks outside the event window (top - window) or at/below the read-all cursor (40).
+    const pruned = await api.query(`DELETE FROM ops_user_notification_reads WHERE actor_id=$1 AND (read_seq<=$2::bigint-$3::bigint
+      OR read_seq<=(SELECT read_through FROM ops_user_notification_cursors WHERE actor_id=$1))`, [actor, 5020, 5000]);
+    verdict(pruned.rowCount === 2, `${db}: api login prunes read marks outside the window or at or below the cursor (markNotificationsRead DELETE)`, `rowCount=${pruned.rowCount}`);
     await rejected(api, `${db}: api login cannot TRUNCATE read marks`, '42501', 'TRUNCATE ops_user_notification_reads');
     await rejected(api, `${db}: api login cannot DELETE settings`, '42501', 'DELETE FROM ops_user_notification_settings WHERE actor_id=$1', [actor]);
 

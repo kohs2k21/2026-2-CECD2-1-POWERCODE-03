@@ -16,8 +16,9 @@ import { RISK_RANK, type NotificationSettings } from './userSettings.js';
  *    알림(순번 갱신) = 처음 통과(opened), 앞선 통과보다 위험도 상승(risk_raised), 앞서 통과한 뒤 최종 없음(no_final)·이상 아닌 최종(withdrawn).
  *    근거 추가·최종 도착만으로는 순번을 바꾸지 않는다(D8: 같은 알림 내용만 갱신).
  * 3) 사건 항목(key incident:<흐름 첫 사건>): 통과한 구성원 판정(최종)마다 알림 — 첫 구성원 opened, 위험도 상승 risk_raised, 그 밖 grew.
- *    흐름 첫 사건 = 병합 대상(merged_into)·앞 구간(continues_from)을 끝까지 따라간 사건 중 opened_at이 가장 이른 것(사슬 INCIDENT_HEAD_DEPTH 단계까지).
- *    어긋난 연결(incidents-ui flags)은 따로 거르지 않는다. 링크는 사건 상세가 어느 사건 id든 흐름으로 풀어 준다.
+ *    흐름 = 구성원 사건에서 병합(양방향)·이어짐(양방향)으로 닿는 사건 전부(incidentReadModel resolveFlow와 같은 걸음, 고리는 UNION으로 끝남).
+ *    흐름 id = 닿은 사건 중 (opened_at, 병합 뿌리 id)가 가장 작은 사건의 병합 뿌리 = buildIncidentFlows의 첫 구간 id(사건 보기 화면 흐름 id와 같음).
+ *    병합 뿌리 = merged_into를 끝까지 따라간 사건(고리면 자기 자신). 어긋난 연결(incidents-ui flags)은 거르지 않는다(그런 흐름은 화면 id와 다를 수 있음).
  * 4) 읽음: 항목 순번 > max(모두 읽음 순번, 그 항목 읽음 순번)이면 미확인. 묶인 판정의 시각은 판정 이벤트 순번이므로 "모두 읽음" 뒤에 묶여도 다시 미확인이 되지 않는다.
  */
 type Queryable = Pick<Pool, 'query'>;
@@ -25,7 +26,6 @@ type Queryable = Pick<Pool, 'query'>;
 export const NOTIFICATION_WINDOW_EVENTS = 5000;
 export const NOTIFICATION_LIST_LIMITS = { default: 20, max: 50 } as const;
 export const NOTIFICATION_READ_ITEMS_MAX = 50;
-export const INCIDENT_HEAD_DEPTH = 500;
 export const NOTIFICATION_VIEWS = ['unread', 'all'] as const;
 export type NotificationView = typeof NOTIFICATION_VIEWS[number];
 export type NotificationCursor = { seq: string; key: string };
@@ -34,7 +34,7 @@ const ISO = (column: string) => `to_char(${column} AT TIME ZONE 'UTC','YYYY-MM-D
 const RATED = (risk: string) => `coalesce(${risk}->>'status'='rated' AND ${risk}->>'level' IN ('critical','warning','info'),false)`;
 
 /**
- * 공통 CTE. 인자: $1 범위 이벤트 수, $2 판정 기준, $3 하한 순위(1~3), $4 미정 포함, $5 actor_id, $6 사슬 깊이.
+ * 공통 CTE. 인자: $1 범위 이벤트 수, $2 판정 기준, $3 하한 순위(1~3), $4 미정 포함, $5 actor_id.
  * 결과 CTE `state`: kind, item_key, notify_seq, notified_at, reason, unread + 화면 값 열.
  */
 const STATE_CTE = `WITH RECURSIVE top AS (
@@ -57,6 +57,9 @@ const STATE_CTE = `WITH RECURSIVE top AS (
     coalesce('job:'||x.job_id::text,'decision:'||x.decision_id::text) AS item_key,
     CASE WHEN x.kind='final' THEN coalesce(x.status<>'unavailable' AND x.anomalous='true'::jsonb,false)
       ELSE x.kind IN ('first_anomaly','evidence_added') END AS anomaly,
+    -- 최종 판정의 이상 신호(analysis-ui signal): yes 이상 / no 이상 신호 없음(complete ∧ anomalous=false) / unknown 정상 여부 미확인.
+    CASE WHEN x.kind<>'final' THEN NULL WHEN x.status<>'unavailable' AND x.anomalous='true'::jsonb THEN 'yes'
+      WHEN x.status='complete' AND x.anomalous='false'::jsonb THEN 'no' ELSE 'unknown' END AS final_signal,
     CASE WHEN x.composite->>'grade' IN ('anomaly','anomaly_sign','normal','undetermined') THEN x.composite->>'grade' END AS grade,
     CASE WHEN ${RATED("x.composite->'risk'")} THEN x.composite->'risk'->>'level' END AS risk_level,
     (NOT ${RATED("x.composite->'risk'")} OR CASE WHEN jsonb_typeof(x.composite->'risk'->'unratedMethods')='array'
@@ -88,22 +91,33 @@ const STATE_CTE = `WITH RECURSIVE top AS (
     (array_agg(d.kind ORDER BY d.seq DESC))[1] AS last_event,(array_agg(d.job_id ORDER BY d.seq DESC))[1] AS job_id,
     (array_agg(d.decision_id ORDER BY d.seq DESC) FILTER (WHERE d.kind='final'))[1] AS decision_id,
     (array_agg(d.status ORDER BY d.seq DESC) FILTER (WHERE d.kind='final'))[1] AS completeness,
+    (array_agg(d.final_signal ORDER BY d.seq DESC) FILTER (WHERE d.kind='final'))[1] AS final_signal,
     (array_agg(d.grade ORDER BY d.seq DESC) FILTER (WHERE d.anomaly))[1] AS grade,
     (array_agg(d.risk_level ORDER BY d.seq DESC) FILTER (WHERE d.anomaly))[1] AS risk_level,
     coalesce((array_agg(d.has_unrated ORDER BY d.seq DESC) FILTER (WHERE d.anomaly))[1],false) AS has_unrated,
     NULL::uuid AS incident_id,NULL::integer AS members
   FROM dlast l JOIN dev d ON d.item_key=l.item_key GROUP BY l.item_key,l.notify_seq,l.notified_at,l.reason
-), up(start_id,id,depth) AS (
-  SELECT DISTINCT incident_id,incident_id,0 FROM mem
+), up(start_id,id) AS (
+  SELECT DISTINCT incident_id,incident_id FROM mem
   UNION
-  SELECT up.start_id,n.id,up.depth+1 FROM up CROSS JOIN LATERAL (
+  SELECT up.start_id,n.id FROM up CROSS JOIN LATERAL (
     SELECT e.target_incident_id FROM run_incident_events e WHERE e.incident_id=up.id AND e.kind='merged_into'
+    UNION ALL SELECT e.incident_id FROM run_incident_events e WHERE e.target_incident_id=up.id AND e.kind='merged_into'
     UNION ALL SELECT i.continues_from FROM run_incidents i WHERE i.id=up.id AND i.continues_from IS NOT NULL
-  ) n(id) WHERE up.depth<$6::integer
+    UNION ALL SELECT s.id FROM run_incidents s WHERE s.continues_from=up.id
+  ) n(id)
+), mroot(id,at) AS (
+  -- 닿은 사건마다 merged_into를 끝까지 따라간다(고리는 UNION으로 끝나고 끝 사건이 없으면 자기 자신을 뿌리로 쓴다).
+  SELECT DISTINCT id,id FROM up
+  UNION
+  SELECT m.id,e.target_incident_id FROM mroot m JOIN run_incident_events e ON e.incident_id=m.at AND e.kind='merged_into'
+), roots AS (
+  SELECT u.id,coalesce((SELECT m.at FROM mroot m WHERE m.id=u.id
+    AND NOT EXISTS (SELECT 1 FROM run_incident_events e WHERE e.incident_id=m.at AND e.kind='merged_into') LIMIT 1),u.id) AS root
+  FROM (SELECT DISTINCT id FROM up) u
 ), head AS (
-  SELECT DISTINCT ON (up.start_id) up.start_id,up.id AS head_id FROM up JOIN run_incidents i ON i.id=up.id
-  WHERE i.continues_from IS NULL AND NOT EXISTS (SELECT 1 FROM run_incident_events e WHERE e.incident_id=up.id AND e.kind='merged_into')
-  ORDER BY up.start_id,i.opened_at,i.id
+  SELECT DISTINCT ON (up.start_id) up.start_id,r.root AS head_id FROM up JOIN run_incidents i ON i.id=up.id JOIN roots r ON r.id=up.id
+  ORDER BY up.start_id,i.opened_at,r.root
 ), iev AS (
   SELECT coalesce(h.head_id,mem.incident_id) AS incident_id,ok.seq,ok.rank,ok.has_unrated,mem.added_at
   FROM mem JOIN ok ON ok.decision_id=mem.decision_id AND ok.kind='final' AND ok.pass LEFT JOIN head h ON h.start_id=mem.incident_id
@@ -114,7 +128,7 @@ const STATE_CTE = `WITH RECURSIVE top AS (
   SELECT 'incident'::text AS kind,'incident:'||incident_id::text AS item_key,max(seq) AS notify_seq,
     (array_agg(added_at ORDER BY seq DESC))[1] AS notified_at,
     (array_agg(CASE WHEN prior_n=0 THEN 'opened' WHEN rank>coalesce(prior_rank,0) THEN 'risk_raised' ELSE 'grew' END ORDER BY seq DESC))[1] AS reason,
-    NULL::text AS last_event,NULL::uuid AS job_id,NULL::uuid AS decision_id,NULL::text AS completeness,NULL::text AS grade,
+    NULL::text AS last_event,NULL::uuid AS job_id,NULL::uuid AS decision_id,NULL::text AS completeness,NULL::text AS final_signal,NULL::text AS grade,
     CASE max(rank) WHEN 3 THEN 'critical' WHEN 2 THEN 'warning' WHEN 1 THEN 'info' END AS risk_level,bool_or(has_unrated) AS has_unrated,
     incident_id,count(*)::integer AS members
   FROM iprior GROUP BY incident_id
@@ -127,7 +141,7 @@ const STATE_CTE = `WITH RECURSIVE top AS (
 )`;
 
 const baseParams = (actorId: string, settings: NotificationSettings, windowEvents: number) =>
-  [windowEvents, settings.decisionBasis, RISK_RANK[settings.minRiskLevel], settings.includeUnrated, actorId, INCIDENT_HEAD_DEPTH];
+  [windowEvents, settings.decisionBasis, RISK_RANK[settings.minRiskLevel], settings.includeUnrated, actorId];
 
 const encodeCursor = (value: NotificationCursor) => Buffer.from(JSON.stringify([value.seq, value.key]), 'utf8').toString('base64url');
 const ITEM_KEY = /^(incident|job|decision):[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
@@ -146,9 +160,14 @@ export function decodeCursor(value: string): NotificationCursor | null {
 
 type Row = Record<string, any>;
 const riskOf = (row: Row) => ({ riskStatus: row.risk_level ? 'rated' : 'unrated', riskLevel: row.risk_level ?? null, hasUnratedEvidence: Boolean(row.has_unrated) });
-/** 판정 항목 현재 단계(마지막 이벤트): 중간 판정 → 근거 추가 → 최종 / 대체됨(재처리 중) / 최종 없음 / 이상이 아닌 최종. */
-const stageOf = (row: Row) => ({ first_anomaly: 'interim', evidence_added: 'updated', superseded: 'superseded', no_final: 'no_final' } as Record<string, string>)[row.last_event]
-  ?? (row.reason === 'withdrawn' ? 'cleared' : 'final');
+/**
+ * 판정 항목 현재 단계. 최종 판정이 있으면 최종(철회면 cleared = 이상이 아닌 최종) — 재시도 대체 때 012 트리거가 새 시도 최종 뒤에
+ * 이전 시도 superseded를 기록하므로 마지막 이벤트 종류로 정하지 않는다. 최종이 없으면 마지막 이벤트: 중간 판정·근거 추가·대체됨(재처리 중)·최종 없음.
+ */
+const stageOf = (row: Row) => row.decision_id
+  ? (row.reason === 'withdrawn' ? 'cleared' : 'final')
+  : row.reason === 'withdrawn' ? 'no_final'
+  : (({ first_anomaly: 'interim', evidence_added: 'updated', superseded: 'superseded', no_final: 'no_final' } as Record<string, string>)[row.last_event] ?? 'interim');
 
 function itemOf(row: Row) {
   const base = { key: row.item_key as string, seq: row.seq_text as string, reason: row.reason as string, notifiedAt: row.notified_at as string, unread: Boolean(row.unread) };
@@ -158,7 +177,7 @@ function itemOf(row: Row) {
       criteria: { kind, value, longValue: valueHash !== null }, memberDecisions: row.members as number, ...riskOf(row) } };
   }
   return { ...base, type: 'decision' as const, decision: { detailId: (row.decision_id ?? row.job_id) as string, decisionId: row.decision_id ?? null,
-    jobId: row.job_id ?? null, stage: stageOf(row), completeness: row.completeness ?? null, grade: row.grade ?? null, ...riskOf(row),
+    jobId: row.job_id ?? null, stage: stageOf(row), completeness: row.completeness ?? null, finalSignal: row.final_signal ?? null, grade: row.grade ?? null, ...riskOf(row),
     processId: row.process_id ?? null, transactionId: row.transaction_id ?? null } };
 }
 
@@ -167,10 +186,10 @@ export async function readNotifications(db: Queryable, actorId: string, settings
   { view, limit, cursor, windowEvents = NOTIFICATION_WINDOW_EVENTS }: { view: NotificationView; limit: number; cursor: NotificationCursor | null; windowEvents?: number },
   now = () => new Date()) {
   const { rows: [row] } = await db.query(`${STATE_CTE}, filtered AS (
-      SELECT * FROM state WHERE $7::text='all' OR unread
+      SELECT * FROM state WHERE $6::text='all' OR unread
     ), page AS (
-      SELECT * FROM filtered WHERE $8::bigint IS NULL OR (notify_seq,item_key COLLATE "C")<($8::bigint,$9::text COLLATE "C")
-      ORDER BY notify_seq DESC,item_key COLLATE "C" DESC LIMIT $10
+      SELECT * FROM filtered WHERE $7::bigint IS NULL OR (notify_seq,item_key COLLATE "C")<($7::bigint,$8::text COLLATE "C")
+      ORDER BY notify_seq DESC,item_key COLLATE "C" DESC LIMIT $9
     ), shown AS (
       SELECT p.*,p.notify_seq::text AS seq_text,${ISO('p.notified_at')} AS notified_iso,${ISO('ri.opened_at')} AS opened_at,ri.group_key,dp.process_id,dp.transaction_id
       FROM page p LEFT JOIN run_incidents ri ON ri.id=p.incident_id
@@ -216,10 +235,12 @@ export type ReadRequest = { through: string } | { items: { key: string; seq: str
 /**
  * POST /api/notifications/read. 순번은 현재 최대 이벤트 id로 줄여 저장하고 줄이지 않는다(GREATEST).
  * - through: 모두 읽음(그 순번 이하 항목 전부). 항목 읽음 행 중 그 이하인 것은 지운다.
- * - items: 항목별 읽음(그 항목의 순번까지). 다시 알리면(순번이 커지면) 다시 미확인.
+ * - items: 항목별 읽음(그 항목의 순번까지). 다시 알리면(순번이 커지면) 다시 미확인. 요청자 설정 기준 지금 조회 범위에 있는 항목 키만 저장하고
+ *   (없는 키는 무시 → 사용자당 행 수는 범위 안 항목 수 이하), 순번은 그 항목의 현재 알림 순번 이하로 줄인다.
  * 어느 쪽이든 조회 범위 밖(최대 id − 범위 이하)으로 밀려난 항목 읽음 행을 지운다(사용자당 행 수 = 최근 알림 수 이하).
  */
-export async function markNotificationsRead(pool: Pool, actorId: string, request: ReadRequest, windowEvents = NOTIFICATION_WINDOW_EVENTS) {
+export async function markNotificationsRead(pool: Pool, actorId: string, settings: NotificationSettings, request: ReadRequest,
+  windowEvents = NOTIFICATION_WINDOW_EVENTS) {
   const client: PoolClient = await pool.connect();
   try {
     await client.query('BEGIN');
@@ -229,10 +250,15 @@ export async function markNotificationsRead(pool: Pool, actorId: string, request
         ON CONFLICT (actor_id) DO UPDATE SET read_through=GREATEST(ops_user_notification_cursors.read_through,EXCLUDED.read_through),updated_at=clock_timestamp()`,
       [actorId, request.through, top]);
     } else {
+      const { rows: present } = await client.query(`${STATE_CTE} SELECT item_key,notify_seq::text AS seq FROM state WHERE item_key=ANY($6::text[])`,
+        [...baseParams(actorId, settings, windowEvents), request.items.map((item) => item.key)]);
+      const current = new Map(present.map((row) => [row.item_key as string, row.seq as string]));
       for (const item of request.items) {
+        const seq = current.get(item.key);
+        if (seq === undefined) continue;
         await client.query(`INSERT INTO ops_user_notification_reads(actor_id,item_key,read_seq) VALUES($1,$2,least($3::bigint,$4::bigint))
           ON CONFLICT (actor_id,item_key) DO UPDATE SET read_seq=GREATEST(ops_user_notification_reads.read_seq,EXCLUDED.read_seq),read_at=clock_timestamp()`,
-        [actorId, item.key, item.seq, top]);
+        [actorId, item.key, item.seq, seq]);
       }
     }
     await client.query(`DELETE FROM ops_user_notification_reads WHERE actor_id=$1 AND (read_seq<=$2::bigint-$3::bigint

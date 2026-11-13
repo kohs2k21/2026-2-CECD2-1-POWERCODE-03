@@ -21,6 +21,7 @@ if (!['localhost', '127.0.0.1'].includes(parsed.hostname) || !/^\/qa_notificatio
 const here = path.dirname(fileURLToPath(import.meta.url));
 const backend = path.resolve(here, '..');
 const { readNotifications, readUnreadCount } = await import('../dist/services/notificationReadModel.js');
+const { readIncidentDetail } = await import('../dist/services/incidentReadModel.js');
 const temporary = await mkdtemp(path.join(os.tmpdir(), 'powercode-notifications-'));
 const pool = new pg.Pool({ connectionString: url });
 const apiUrl = new URL(url);
@@ -248,7 +249,14 @@ try {
   console.log('PASS keyset cursor walk');
 
   // 7) 읽음: 항목 1개 → 미확인 5, unread 보기에서 빠짐. 모두 읽음 → 0. 사용자별 분리.
-  const one = await ok('POST', '/api/notifications/read', user, { items: [{ key: raised.key, seq: raised.seq }] });
+  // 범위에 없는 항목 키는 저장하지 않는다(행 수 상한), 요청 순번은 그 항목의 현재 순번 이하로 줄인다.
+  const ghostKey = `job:${id()}`;
+  const ghost = await ok('POST', '/api/notifications/read', user, { items: [{ key: ghostKey, seq: raised.seq }] });
+  assert.equal(ghost.unreadCount, 6);
+  assert.equal(Number((await pool.query('SELECT count(*) AS n FROM ops_user_notification_reads WHERE item_key=$1', [ghostKey])).rows[0].n), 0, 'unknown item key ignored');
+  const one = await ok('POST', '/api/notifications/read', user, { items: [{ key: raised.key, seq: '9223372036854775807' }] });
+  assert.equal((await pool.query('SELECT read_seq::text AS n FROM ops_user_notification_reads WHERE item_key=$1', [raised.key])).rows[0].n, raised.seq,
+    'item read sequence is capped at the item notification sequence');
   assert.deepEqual([one.unreadCount, one.readThrough], [5, '0']);
   const unreadView = await list('view=unread&limit=50');
   assert.equal(unreadView.items.some((item) => item.key === raised.key), false);
@@ -313,6 +321,62 @@ try {
   assert.equal(windowed.items.find((item) => item.type === 'incident').incident.memberDecisions, 1, 'only in-window members count');
   assert.equal((await readUnreadCount(api, 'window-check', windowed.settings, 2)).unreadCount, 2);
   console.log('PASS event window bound');
+
+  // 11) 재시도 대체(012 트리거는 새 시도 최종 뒤에 이전 시도 superseded를 기록): 단계는 마지막 이벤트가 아니라 최종 판정으로 정한다.
+  //     사건 흐름 id: b가 a를 잇고 b가 n에 병합(n은 이어짐 없음, n이 가장 이름) → 사건 보기 흐름 id(n)와 같은 항목 1개.
+  const late = await pool.connect();
+  const R = {};
+  try {
+    await late.query('BEGIN');
+    const w = fixtureWriters(late, base.sourceId, base.configId, out);
+    const retried = async (name, finalEvidence) => {
+      const job = await w.detectJob(name, 2);
+      const first = await w.attempt(job, 1);
+      await w.interim(job, first, 'first_anomaly', v4({ level: 'warning' }));
+      await late.query(`UPDATE run_job_attempts SET status='expired' WHERE id=$1`, [first.id]);
+      const decision = await w.jobDecision(job, await w.attempt(job, 2), 'complete', finalEvidence);
+      return { job, decision };
+    };
+    R.cleared = await retried('retryNormal', v4({ anomalous: false, grade: 'normal' }));
+    R.final = await retried('retryAnomaly', v4({ level: 'warning' }));
+    R.da = await w.legacyDecision('flowA', 2, 'complete', v4({ level: 'warning' }));
+    R.dn = await w.legacyDecision('flowN', 1, 'complete', v4({ level: 'critical' }));
+    const run = id();
+    Object.assign(I, { fa: id(), fb: id(), fn: id() });
+    const incident = (key, groupKey, minutes, continuesFrom = null) => late.query(`INSERT INTO run_incidents(id,source_id,criteria,criteria_version,group_key,
+        time_basis,opened_at,continues_from,added_by_run) VALUES($1,$2,'{"gapSeconds":300}','incident-gap-v1',$3,'decided_at',clock_timestamp()-($4::double precision*interval '1 minute'),$5,$6)`,
+    [I[key], base.sourceId, groupKey, minutes, continuesFrom, run]);
+    await incident('fa', 'channel_id:CH-FLOW', 100);
+    await incident('fb', 'channel_id:CH-FLOW', 50, I.fa);
+    await incident('fn', 'channel_id:CH-FLOW', 120);
+    await late.query(`INSERT INTO run_incident_events(incident_id,kind,target_incident_id,added_by_run) VALUES($1,'merged_into',$2,$3)`, [I.fb, I.fn, run]);
+    for (const [key, decisionId] of [['fa', R.da], ['fn', R.dn]]) {
+      await late.query(`INSERT INTO run_incident_members(decision_id,incident_id,occurred_at,occurred_basis,added_by_run) VALUES($1,$2,clock_timestamp(),'decided_at',$3)`,
+        [decisionId, I[key], run]);
+    }
+    await late.query(`INSERT INTO run_incident_runs(id,source_id,criteria_version,cursor_from,cursor_to,added_members,opened_incidents,merged_incidents,started_at)
+      VALUES($1,$2,'incident-gap-v1',0,0,2,3,1,clock_timestamp())`, [run, base.sourceId]);
+    await late.query('COMMIT');
+  } finally { late.release(); }
+  for (const { job } of [R.cleared, R.final]) {
+    const kinds = (await pool.query(`SELECT event_kind FROM run_decision_events e LEFT JOIN run_decision_interims i ON i.id=e.interim_id
+      LEFT JOIN run_process_decisions d ON d.id=e.decision_id WHERE coalesce(i.job_id,d.job_id)=$1 ORDER BY e.id`, [job.id])).rows.map((row) => row.event_kind);
+    assert.deepEqual(kinds, ['first_anomaly', 'final', 'superseded'], 'fixture reproduces the trigger order (superseded after the new final)');
+  }
+  const retriedItems = byKey(await list('view=all&limit=50'));
+  const cleared = retriedItems[`job:${R.cleared.job.id}`];
+  assert.deepEqual([cleared.reason, cleared.decision.stage, cleared.decision.decisionId, cleared.decision.finalSignal],
+    ['withdrawn', 'cleared', R.cleared.decision, 'no'], 'normal retry final withdraws the interim notification');
+  const anomalous = retriedItems[`job:${R.final.job.id}`];
+  assert.deepEqual([anomalous.reason, anomalous.decision.stage, anomalous.decision.finalSignal, anomalous.decision.riskLevel],
+    ['opened', 'final', 'yes', 'warning'], 'anomalous retry final without its own interim is a final, not superseded');
+  const flowId = (await readIncidentDetail(api, I.fn)).id;
+  assert.equal(flowId, (await readIncidentDetail(api, I.fa)).id, 'a and n are one flow on the incidents screen');
+  assert.equal(flowId, I.fn, 'earliest segment is the merge group of n');
+  const flowKeys = Object.keys(retriedItems).filter((key) => [I.fa, I.fb, I.fn].some((incidentId) => key.endsWith(incidentId)));
+  assert.deepEqual(flowKeys, [`incident:${flowId}`], 'one item keyed by the incidents screen flow id');
+  assert.equal(retriedItems[`incident:${flowId}`].incident.memberDecisions, 2);
+  console.log('PASS retry supersede stage and incident flow id parity');
   console.log('PASS notifications integration');
 } finally {
   child?.kill();

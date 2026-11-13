@@ -1,7 +1,7 @@
 import type { Pool, PoolClient } from 'pg';
 
 /**
- * 사용자별 설정(022, contracts/notifications.md "설정 API"). 계정은 API 파일 저장소에 있으므로 인증 계정 id 문자열(actor_id)로 저장한다.
+ * 사용자별 설정(022, contracts/notifications.md "API" 절 `/api/me/settings` 줄). 계정은 API 파일 저장소에 있으므로 인증 계정 id 문자열(actor_id)로 저장한다.
  * - 알림 설정: 판정 기준 3택·위험도 하한·위험도 미정 포함(Detector 위험도 틀 Q-N1·Q-N1-1). 행이 없으면 기본값(interim·info·true).
  * - 위젯 배치: 운영 현황 개요(operations_overview) 배치 문서 1개. 형식 검사는 여기서, 화면별 위젯 이름·크기 제한은 화면이 다시 검사한다.
  */

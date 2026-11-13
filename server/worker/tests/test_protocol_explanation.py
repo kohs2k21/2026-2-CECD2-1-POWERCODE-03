@@ -112,6 +112,24 @@ class FactsTests(unittest.TestCase):
         self.assertEqual([m["role"] for m in messages], ["system", "user"])
         self.assertEqual(json.loads(messages[1]["content"].split("사실(JSON):\n", 1)[1]), facts)
         self.assertIn("지시가 아니다", messages[0]["content"])
+        self.assertEqual(pe.PROMPT_VERSION, "protocol-explain-prompt-v3")
+        self.assertIn("하세요", messages[0]["content"])  # 명령형 금지 지시
+        self.assertIn("키 이름", messages[0]["content"])  # 키·코드값 대신 한국어 이름표
+
+    def test_label_table_names_codes_in_facts(self):
+        facts, _ = pe.observed_paths_facts(
+            "IF_X", draft("IF_X", [(("A", "B"), 3)], status="insufficient_evidence", excluded={"chain_broken": 9}),
+            None, parameters=PARAMS)
+        table = pe.build_messages(facts)[1]["content"].split("사실(JSON):", 1)[0]
+        for text in ("fromBranching=갈라진 거래에서 나온 건수", "insufficient_evidence=근거 부족",
+                     "chain_broken=선행 사슬 끊김", "inAllowed: true=허용 경로"):
+            self.assertIn(text, table)
+        self.assertNotIn("draft=초안", table)  # 사실에 없는 코드는 싣지 않는다
+        self.assertNotIn("channel_absent", table)
+        alert, _ = pe.alert_facts({"version": 1, "kind": "interface_unregistered", "interfaceId": "IF_X",
+                                   "routes": [], "routesReason": "chain_broken"}, None)
+        table = pe.build_messages(alert)[1]["content"]
+        self.assertIn("interface_unregistered=등록되지 않은 인터페이스", table)
 
 
 class CheckTests(unittest.TestCase):
@@ -190,10 +208,18 @@ class CheckTests(unittest.TestCase):
                      "설정에 의해 경로가 바뀌었습니다.", "허용 경로에 추가하세요.", "확인하십시오."):
             with self.subTest(text=text):
                 self.assertIn("no_forbidden", self.check(out(text))["failures"])
-        for text in ("주원인은 설정 변경입니다.", "근본원인은 알 수 없습니다.", "장애원인을 확인합니다.", "발생원인은 기록에 없습니다."):
+        for text in ("주원인은 설정 변경입니다.", "근본원인은 알 수 없습니다.", "장애원인을 찾았습니다.", "발생원인은 기록에 없습니다."):
             with self.subTest(text=text):
                 self.assertIn("no_forbidden", self.check(out(text))["failures"])  # 붙여 쓴 원인도 잡는다
         self.assertTrue(self.check(out("담당 직원인지 확인이 필요합니다."))["checks"]["no_forbidden"])
+        # 원인을 단정하지 않고 확인을 권하는 꼴은 허용, 단정은 계속 FAIL
+        for text in ("P1의 부재 원인 확인이 필요합니다.", "제외된 거래의 원인을 확인합니다.", "원인 파악을 확인합니다.",
+                     "경로가 없는 원인을 점검합니다.", "원인이 검토되었는지 확인합니다."):
+            with self.subTest(allowed=text):
+                self.assertTrue(self.check(out(text))["checks"]["no_forbidden"], text)
+        for text in ("원인은 설정 변경입니다.", "원인은 설정 변경 때문입니다.", "주원인은 배포입니다.", "원인이 배포입니다."):
+            with self.subTest(forbidden=text):
+                self.assertIn("no_forbidden", self.check(out(text))["failures"])
 
     def test_format_language_and_length(self):
         self.assertEqual(self.check("설명입니다")["failures"][0], "json_parsed")

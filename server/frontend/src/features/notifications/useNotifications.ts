@@ -3,7 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { accountQueryKey, useAccountQuery } from "@/lib/query";
 import { useAuthSession } from "@/services/auth/AuthSessionProvider";
 import { getStoredToken } from "@/services/auth/session";
-import { consumeDecisionStream } from "@/services/api/decision-stream.api";
+import { DECISION_STREAM_RETRY_MS, subscribeDecisionStream } from "@/services/api/decision-stream-hub";
 import {
   markNotificationsRead,
   readMySettings,
@@ -24,7 +24,7 @@ export const mySettingsQueryName = "me-settings";
 export const NOTIFICATION_PAGE_SIZE = 20;
 /** 새 판정 이벤트가 몰려도 알림 다시 조회는 이 간격에 한 번(이벤트가 있을 때만, 주기 조회 아님). */
 export const NOTIFICATION_REFRESH_MS = 10_000;
-export const NOTIFICATION_RETRY_MS = 3_000;
+export const NOTIFICATION_RETRY_MS = DECISION_STREAM_RETRY_MS;
 
 /** 배지 숫자(서버 미확인 수). 화면 이동·패널 열기·새 판정 이벤트 때 다시 조회한다(주기 조회 없음). */
 export const useUnreadCount = () =>
@@ -122,31 +122,23 @@ export const useNotificationLiveUpdates = (latestSeq: string | undefined) => {
   const userId = user?.id;
   useEffect(() => {
     if (!userId || !ready) return;
-    const controller = new AbortController();
     const token = getStoredToken();
-    let after = startRef.current!;
-    let retry: ReturnType<typeof setTimeout> | undefined;
+    let stopped = false;
     let refresh: ReturnType<typeof setTimeout> | undefined;
-    const receive = (id: string) => {
-      if (token !== getStoredToken()) return controller.abort();
-      after = id;
-      refresh ??= setTimeout(() => {
-        refresh = undefined;
-        if (!controller.signal.aborted && token === getStoredToken()) invalidateRef.current();
-      }, NOTIFICATION_REFRESH_MS);
-    };
-    const connect = async () => {
-      try {
-        await consumeDecisionStream(controller.signal, after, (_value, id) => receive(id), undefined, (_event, id) => receive(id));
-      } catch {
-        // 연결 실패는 배지·목록 조회 결과로 드러난다(다시 연결만 한다).
-      }
-      if (!controller.signal.aborted && token === getStoredToken()) retry = setTimeout(() => void connect(), NOTIFICATION_RETRY_MS);
-    };
-    void connect();
+    // 이상 분석 목록과 같은 연결을 나눠 쓴다(decision-stream-hub). 연결 실패는 배지·목록 조회 결과로 드러난다(연결 쪽이 3초 뒤 다시 연결만 한다).
+    const unsubscribe = subscribeDecisionStream({
+      after: startRef.current!,
+      onEvent: () => {
+        if (token !== getStoredToken()) return;
+        refresh ??= setTimeout(() => {
+          refresh = undefined;
+          if (!stopped && token === getStoredToken()) invalidateRef.current();
+        }, NOTIFICATION_REFRESH_MS);
+      },
+    });
     return () => {
-      controller.abort();
-      if (retry) clearTimeout(retry);
+      stopped = true;
+      unsubscribe();
       if (refresh) clearTimeout(refresh);
     };
   }, [ready, userId]);

@@ -82,7 +82,7 @@ const requested = [];
 let streamFrames = [];
 globalThis.fetch = async (url, options = {}) => {
   const target = new URL(String(url), "http://local.test");
-  requested.push({ path: target.pathname, search: target.search, method: options.method ?? "GET", body: options.body, headers: options.headers });
+  requested.push({ path: target.pathname, search: target.search, method: options.method ?? "GET", body: options.body, headers: options.headers, signal: options.signal });
   if (target.pathname === "/api/auth/me") return json({ user: currentUser });
   if (target.pathname === "/api/pipeline/events") {
     const frames = streamFrames;
@@ -274,6 +274,24 @@ const listCalls = () => requested.filter((r) => r.path === "/api/analysis/decisi
   await tick(300);
   assert.equal(listCalls().length, before + 1, "no polling after the refetch");
   await app.cleanup();
+}
+
+// 2b) 알림 배지(상단)와 이상 분석 목록이 같은 판정 SSE를 나눠 쓴다: 열린 연결은 1개, 앞선 커서(배지 40)부터 받는다.
+{
+  requested.length = 0;
+  routes = {
+    "GET /api/analysis/decisions": () => json(listBody([item("d-1")])),
+    "GET /api/notifications/unread-count": () => json({ latestSeq: "40", unreadCount: 0 }),
+  };
+  const app = await mount("/analysis");
+  await wait(() => app.shown().includes("실시간 연결됨"), "live status shown with the bell mounted");
+  await wait(() => requested.some((r) => r.path === "/api/notifications/unread-count"), "bell read its cursor");
+  await tick(50);
+  const streams = () => requested.filter((r) => r.path === "/api/pipeline/events");
+  assert.equal(streams().filter((r) => !r.signal?.aborted).length, 1, "one open decision stream for bell + analysis");
+  assert.equal(streams().find((r) => !r.signal?.aborted).headers["Last-Event-ID"], "40", "shared stream starts at the earlier cursor");
+  await app.cleanup();
+  assert.ok(streams().every((r) => r.signal?.aborted), "unmount closes the shared stream");
 }
 
 // 3) 목록 조회 실패: 빈 목록이 아니라 오류(미연결)로 표시, 잘못된 쿼리는 기본값으로 replace

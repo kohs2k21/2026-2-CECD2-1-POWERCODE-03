@@ -1,9 +1,9 @@
--- 026: 프로토콜 경로 설명 작업 종류 explain_protocol (계약 server/contracts/protocol-explanation-job.md DB 영향 절). [초안 — 공통 계약, 사용자 승인 대상]
+-- 027: 프로토콜 경로 설명 작업 종류 explain_protocol (계약 server/contracts/protocol-explanation-job.md DB 영향 절). [초안 — 공통 계약, 사용자 승인 대상]
 -- 왜: 프로토콜 설정 상세(관측 경로)·프로토콜 알림 상세에서 관리자가 요청하는 대화형 LLM 설명. API가 llm_explanation 큐로 접수하고 LLM이 결과를 run_llm_results에 쓴다(explain과 같은 등급).
 --   run_jobs v03에 explain_protocol 분기(llm_explanation 큐·user producer·admin·llm_spec 필수·구성/manifest NULL, 판정은 알림 대상만)를 더하고, legacy(contract_version NULL) 금지 목록에도 넣어 v03 전용으로 만든다(017·021 방식).
 --   run_llm_results kind CHECK와 decision 분기, erd_v03_validate_job의 llm_spec 필수·LLM 완료 결과 필수 목록에 값을 더한다(017 방식).
--- 전제: 001~025 적용 뒤 1회 실행(psql -v ON_ERROR_STOP=1 -f), 기존 표·함수 소유자로 실행(CREATE OR REPLACE는 소유자만 가능). 자동 down migration 없음(enum 값은 지울 수 없다).
--- 기준: run_jobs_v03_contract는 021 재정의본, run_llm_results_kind_check·run_llm_results_check·erd_v03_validate_job은 017 재정의본(022~025는 이 넷을 건드리지 않는다). 표시한 값만 추가한다.
+-- 전제: 001~026 적용 뒤 1회 실행(psql -v ON_ERROR_STOP=1 -f), 기존 표·함수 소유자로 실행(CREATE OR REPLACE는 소유자만 가능). 자동 down migration 없음(enum 값은 지울 수 없다).
+-- 기준: run_jobs_v03_contract는 021 재정의본, run_llm_results_kind_check·run_llm_results_check·erd_v03_validate_job은 017 재정의본(022~026은 이 넷을 건드리지 않는다). 표시한 값만 추가한다.
 --   erd_v03_validate_result(004 + 013 search_path)는 재정의하지 않는다. 종류 목록이 없고 결과 kind·decision·config·llm_spec = 작업 값만 비교하므로 새 종류에 그대로 적용된다
 --   (결과 decision_id = 작업 input_decision_id: 알림 대상은 판정 id, 관측 경로 대상은 둘 다 NULL — worker trainer/runner.py _llm_result_decision_id).
 -- enum 커밋 분리(010·011·017·021 방식): 새 값은 트랜잭션 밖에서 먼저 커밋하고, 이 파일 안에서는 kind::text 비교로만 쓴다.
@@ -12,14 +12,14 @@
 --   enum만 남은 구간 주의: 021 CHECK의 legacy 분기는 이 값을 막지 않는다. 쓰기 코드가 없어 행이 생기지 않지만, 생기면 재실행의 CHECK 검증이 실패해 전체 ROLLBACK된다(반쪽 적용은 없음).
 -- 재실행: enum은 IF NOT EXISTS, CHECK는 같은 이름을 지우고 같은 정의로 다시 만들고, 함수는 CREATE OR REPLACE라 결과가 같다.
 -- 잠금(COMMIT까지 유지): run_jobs·run_llm_results에 ACCESS EXCLUSIVE, 읽기·쓰기 모두 대기. 표 재작성 없음. CHECK 검증으로 heap을 읽는다(run_jobs 1회, run_llm_results 2회).
---   적용 절차: 017·021과 같이 작업자(Detector·Collector·Trainer·LLM·API)를 멈추고 적용한다. 순서는 026 → 역할 스크립트 재적용(LLM 룰 세트 이력 SELECT) → LLM → API 배포.
---   기존 코드는 새 값을 쓰지 않아 026 뒤에도 수정 없이 동작한다.
--- NOT VALID를 쓰지 않는 근거: 새 조건은 이전 조건보다 넓기만 하고(legacy 금지 목록은 026 전에는 없던 값만 추가), 기존 행이 실패할 수 없다. 017·021과 같이 트랜잭션 안에서 바로 검증한다.
+--   적용 절차: 017·021과 같이 작업자(Detector·Collector·Trainer·LLM·API)를 멈추고 적용한다. 순서는 027 → 역할 스크립트 재적용(LLM 룰 세트 이력 SELECT) → LLM → API 배포.
+--   기존 코드는 새 값을 쓰지 않아 027 뒤에도 수정 없이 동작한다.
+-- NOT VALID를 쓰지 않는 근거: 새 조건은 이전 조건보다 넓기만 하고(legacy 금지 목록은 027 전에는 없던 값만 추가), 기존 행이 실패할 수 없다. 017·021과 같이 트랜잭션 안에서 바로 검증한다.
 -- 되돌리기: enum 값은 지울 수 없다. CHECK·함수는 021·017본 정의로 다시 만들 수 있으나 kind = explain_protocol 작업·결과 행이 하나도 없을 때만 가능하다.
 -- database-roles.sql 변경(이 PR): LLM이 사실을 만들 때 룰 세트 리비전을 읽으므로 GRANT SELECT ON ops_rule_set_revisions TO powercode_llm 한 줄.
 --   그 밖의 읽기(run_jobs·run_process_decisions·data_observations)와 쓰기(run_jobs·run_job_attempts UPDATE, run_llm_results INSERT, llm_explanation_jobs SELECT·UPDATE)는 이미 있다.
 --   API는 run_jobs INSERT·UPDATE와 powercode_queue.llm_explanation_jobs INSERT를 이미 가진다.
--- 바꾸지 않는 것과 근거(001~025 전체에서 kind 목록을 가진 함수·제약 확인):
+-- 바꾸지 않는 것과 근거(001~026 전체에서 kind 목록을 가진 함수·제약 확인):
 --   erd_v03_validate_job의 explain 전용 판정 구성 대조(IF NEW.kind = 'explain')는 이 kind에 적용하지 않는다. 프로토콜 판정은 v04(구성 NULL)라 구성 대조가 뜻이 없고, 작업 구성은 CHECK가 NULL로 고정한다.
 --   작업 실패 트리거(010 import_csv·011 evaluation_set·012 detect)와 011 evaluation_set·compare 보호 함수는 각자 자기 kind만 처리한다. powercode_queue.llm_explanation_jobs(006, training_jobs LIKE — payload 객체 CHECK만, kind 조건 없음)도 그대로다.
 ALTER TYPE job_kind ADD VALUE IF NOT EXISTS 'explain_protocol';

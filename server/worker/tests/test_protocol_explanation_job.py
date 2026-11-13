@@ -169,6 +169,9 @@ class SourceTests(unittest.TestCase):
                         "routesReason": "chain_broken", "ruleSetRevision": None}
         facts, _, revision = facts_of(alert_spec(), {"decision": (unregistered,)})
         self.assertEqual((facts["routesReason"]["label"], revision), ("선행 사슬 끊김", None))
+        # 근거의 룰 세트 버전 행이 없어도 미등록 알림은 허용 경로가 필요 없어 사실을 만든다(버전 값은 근거 그대로).
+        facts, _, revision = facts_of(alert_spec(), {"decision": ({**unregistered, "ruleSetRevision": 7},), "rules": None})
+        self.assertEqual((facts["registered"], facts["allowed"], revision), (False, None, 7))
 
     def test_missing_target_and_missing_facts_codes(self):
         not_found = [(observed_spec(), {"job": None, "rules": (RULES,)}),

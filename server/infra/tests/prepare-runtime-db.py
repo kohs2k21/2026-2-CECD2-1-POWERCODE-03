@@ -10,6 +10,8 @@ parsed=urlsplit(url)
 if parsed.hostname not in ('localhost','127.0.0.1') or parsed.path!='/postgres':
     raise SystemExit('only a local postgres admin URL is permitted')
 root=Path(__file__).resolve().parents[1]/'migrations'
+# 027(explain_protocol)은 아래 files 목록 끝(dev의 026) 뒤에 적용한다. 목록 끝 줄과 겹치지 않게 따로 둔다.
+later=('027_explain_protocol.sql',)
 files=('001_postgres_queues.sql','002_core_erd.sql','003_erd_v03_enums.sql','004_erd_v03_contracts.sql',
        '003_rule_versions_immutable.sql','004_feature_pipeline.sql','005_research_runtime.sql',
        '006_service_transition.sql','007_api_collection_metrics.sql','008_demo_replay.sql','009_switchable_inputs.sql',
@@ -17,14 +19,13 @@ files=('001_postgres_queues.sql','002_core_erd.sql','003_erd_v03_enums.sql','004
        '013_legacy_function_search_path.sql','014_analysis_workflow.sql','015_rule_set_revisions.sql','016_detect_v04_contract.sql',
        '017_recommend_thresholds.sql','018_decision_observation_index.sql',
        '019_incidents.sql','020_rule_set_hash_v3.sql','021_recommend_relations.sql','022_user_settings_notifications.sql',
-       '023_protocol_alert_actions.sql','024_relation_recheck_runs.sql','025_response_codes.sql',
-       '026_explain_protocol.sql')
+       '023_protocol_alert_actions.sql','024_relation_recheck_runs.sql','025_response_codes.sql')
 with psycopg.connect(url,autocommit=True) as admin:
     for name in ('qa_research_pipeline','qa_pipeline','qa_trainer_service','qa_metrics_service','qa_synthetic_service','qa_prepared_csv_service','qa_operations_service','qa_rule_set_service','qa_rule_set_models','qa_active_models_service','qa_analysis_service','qa_detection_decision','qa_notifications_service','qa_feature_sets_service','qa_response_codes_service'):
         # Existing QA databases fail here; no DROP or existing-schema changes.
         admin.execute(sql.SQL('CREATE DATABASE {}').format(sql.Identifier(name)))
         database_url=urlunsplit(parsed._replace(path='/'+name))
         with psycopg.connect(database_url,autocommit=True) as conn:
-            for file in files:
+            for file in files+later:
                 conn.execute((root/file).read_text(encoding='utf-8'))
         print(f'prepared fresh {name}')

@@ -45,7 +45,7 @@
 - 이력: v1 첫 안 → v2 기간 그대로 쓰기 → v3 GPU 1차(합성 4/8·실데이터 5/8)에서 키·코드값 노출(`identifiers_subset`)과
   명령형(`no_forbidden` directive)이 실패 원인이라 이름표·평서문 지시를 더함 → v4(운영 연결 `explain_protocol`,
   `server/contracts/protocol-explanation-job.md`) v3 GPU 결과(합성 7/8·실데이터 7/8·7/8)의 약점인 근거 부족 미언급을 고쳐
-  "초안 상태가 근거 부족이면 반드시 밝힌다" 지시를 더함
+  "초안 상태가 근거 부족이면 그 사실을 적는다" 지시를 더함(지시 문장에는 출력 금지 표현을 쓰지 않음)
 
 ## 3. 자동 점검(코드, 참/거짓) — PASS = 아래 전부
 

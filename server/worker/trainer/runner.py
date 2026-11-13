@@ -734,7 +734,7 @@ def _evaluate(conn: Any, job: dict[str, Any], root: Path | None,
     return {**completed, "_finalized": True}
 
 
-# 완료 때 run_llm_results 행을 함께 쓰는 v03 작업 종류(migration의 LLM 완료 결과 필수 목록과 같다 — 026 explain_protocol).
+# 완료 때 run_llm_results 행을 함께 쓰는 v03 작업 종류(migration의 LLM 완료 결과 필수 목록과 같다 — 027 explain_protocol).
 LLM_RESULT_KINDS = frozenset({"recommend_thresholds", "explain", "explain_protocol"})
 
 

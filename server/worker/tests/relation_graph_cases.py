@@ -27,11 +27,13 @@ def oid(n: int) -> str:
 
 
 def proc(n: int, process_id: str | None, depends: str | None, *, tx: str | None = "TX-1", retry: str | None = None,
-         focus: bool = False, status: str | None = "S", execution: int | None = None, fk: str | None = None) -> dict:
+         focus: bool = False, status: str | None = "S", execution: int | None = None, fk: str | None = None,
+         **extra) -> dict:
+    # extra: 기본 행에 없는 열(예: channelId). 주지 않으면 키 자체가 없다(TS undefined → 없음).
     return {"observationId": oid(n), "executionId": oid(1000 + (execution if execution is not None else n)),
             "revisionNo": "1", "transactionId": tx, "transactionObservationId": fk, "processId": process_id,
             "dependsOn": depends, "status": status, "responseCode": "0000" if status == "S" else "E1",
-            "totalCount": "1", "retryCount": retry, "focus": focus, "decisionId": None, "grade": None}
+            "totalCount": "1", "retryCount": retry, "focus": focus, "decisionId": None, "grade": None, **extra}
 
 
 def msg(n: int, process_id: str | None, direction: str | None, message_id: str | None, *, tx: str | None = "TX-1",
@@ -114,6 +116,23 @@ CASES = [
     case("ids with colon percent and verbatim spaces",
          processes=[proc(1, "A:1", "NONE", tx="T%1:x"), proc(2, " B ", "A:1", tx="T%1:x", focus=True)],
          messages=[msg(11, "A:1", "OUT", "M:1", tx="T%1:x"), msg(12, " B ", "IN", "M:1", tx="T%1:x")]),
+    # 단계 노드 channelId: 시도 원래 값이 모두 같고 값이 있을 때만 그 값(protocol-rules.md 3.2 6단계와 같은 기준).
+    case("channel same across retry attempts",
+         processes=[proc(1, A, "NONE", retry="0", channelId="CH_A"), proc(3, A, "NONE", retry="1", channelId="CH_A"),
+                    proc(2, B, A, focus=True, channelId=" CH_B ")]),
+    case("channel mixed across attempts",
+         processes=[proc(1, A, "NONE", retry="0", channelId="CH_A"), proc(3, A, "NONE", retry="1", channelId="CH_B"),
+                    proc(2, B, A, focus=True, retry="0", channelId="CH_A"), proc(4, B, A, retry="1", channelId=None)]),
+    case("channel absent values are one absent",
+         processes=[proc(1, A, "NONE", retry="0", channelId=None), proc(3, A, "NONE", retry="1", channelId=" \\N\t"),
+                    proc(4, A, "NONE", retry="2", channelId=""), proc(2, B, A, focus=True, channelId="\r\n")]),
+    case("channel whitespace variants are different values",
+         processes=[proc(1, A, "NONE", retry="0", channelId="CH_A"), proc(3, A, "NONE", retry="1", channelId="CH_A "),
+                    proc(2, B, A, focus=True, retry="0", channelId="\tCH_A"),
+                    proc(4, B, A, retry="1", channelId="\tCH_A")]),
+    case("channel on ambiguous bundle is null",
+         processes=[proc(1, A, "NONE", retry="0", channelId="CH_A"), proc(3, A, "NONE", retry="0", channelId="CH_A"),
+                    proc(2, B, A, focus=True, channelId="CH_A")]),
 ]
 
 PICK_CASES = [

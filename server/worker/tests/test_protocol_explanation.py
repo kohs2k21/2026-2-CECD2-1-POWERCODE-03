@@ -143,8 +143,10 @@ class CheckTests(unittest.TestCase):
         self.assertEqual(result["details"]["unknown_numbers"], ["55.5", "6", "6.2", "77"])
 
     def test_native_counter_excludes_repetition_words(self):
-        self.assertEqual(pe.numbers_in("다시 한 번 확인하고 두 번째 경로를 봅니다."), [])
+        self.assertEqual(pe.numbers_in("다시 한 번 확인하고 한번 더 보며 두 번째 경로를 봅니다."), [])
         self.assertEqual(pe.numbers_in("경로 세 개와 거래 열 건"), ["3", "10"])
+        self.assertEqual(pe.numbers_in("세 번 실패했습니다."), ["3"])  # 한 번만 관용 표현으로 뺀다
+        self.assertIn("numbers_subset", self.check(out("거래가 세 번 실패했습니다."))["failures"])
 
     def test_period_digits_are_not_counts(self):
         # 기간(2026-01-05~2026-01-19)의 5·19는 건수로 쓸 수 없다(관측 경로는 2개).
@@ -188,6 +190,9 @@ class CheckTests(unittest.TestCase):
                      "설정에 의해 경로가 바뀌었습니다.", "허용 경로에 추가하세요.", "확인하십시오."):
             with self.subTest(text=text):
                 self.assertIn("no_forbidden", self.check(out(text))["failures"])
+        for text in ("주원인은 설정 변경입니다.", "근본원인은 알 수 없습니다.", "장애원인을 확인합니다.", "발생원인은 기록에 없습니다."):
+            with self.subTest(text=text):
+                self.assertIn("no_forbidden", self.check(out(text))["failures"])  # 붙여 쓴 원인도 잡는다
         self.assertTrue(self.check(out("담당 직원인지 확인이 필요합니다."))["checks"]["no_forbidden"])
 
     def test_format_language_and_length(self):

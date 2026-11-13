@@ -196,6 +196,7 @@ def summary_row(case_id: str, spec: dict[str, Any], result: dict[str, Any], real
            "facts_match": result.get("facts_match"), "checks": checks.get("checks"), "coverage": checks.get("coverage"),
            "parse_mode": details.get("parse_mode"),
            "counts": {"unknown_numbers": len(details.get("unknown_numbers") or []),
+                      "unknown_dates": len(details.get("unknown_dates") or []),
                       "unknown_identifiers": len(details.get("unknown_identifiers") or []),
                       "unknown_paths": len(details.get("unknown_paths") or []),
                       "forbidden": len(details.get("forbidden") or []),
@@ -265,7 +266,7 @@ def write_summary(run_dir: Path, run: dict[str, Any], rows: list[dict[str, Any]]
             else:
                 lines.append("- (형식 불일치: raw_output.txt 참고)")
             bad = {k: v for k, v in (row.get("details") or {}).items()
-                   if k in ("unknown_numbers", "unknown_identifiers", "unknown_paths", "forbidden") and v}
+                   if k in ("unknown_numbers", "unknown_dates", "unknown_identifiers", "unknown_paths", "forbidden") and v}
             if bad:
                 lines.append(f"- 점검 실패 값: {json.dumps(bad, ensure_ascii=False)}")
             lines.append("")

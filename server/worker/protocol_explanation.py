@@ -22,7 +22,7 @@ from typing import Any, Iterable, Mapping, Sequence
 
 FACTS_FORMAT = "protocol-explain-facts-v1"
 OUTPUT_FORMAT = "protocol-explain-output-v1"
-PROMPT_VERSION = "protocol-explain-prompt-v1"
+PROMPT_VERSION = "protocol-explain-prompt-v2"  # v2: 규칙 2에 기간 그대로 쓰기
 MAX_FACT_PATHS = 20  # 사실에 싣는 관측 경로 수(허용 경로에 없는 경로를 먼저). 나머지는 omitted 건수로만
 MAX_ALLOWED_PATHS = 20  # 사실에 싣는 허용 경로 수
 EXPLANATION_MAX = 600
@@ -54,8 +54,8 @@ ALLOWED_TERMS = frozenset({"ESB", "PROCESS", "TRANSACTION", "PROCESS_ID", "DEPEN
                            "NONE", "JSON"})
 # 금지 표현: 원인 단정·추정·확신·지시. 사실에는 원인 정보가 없으므로 원인 서술은 모두 지어낸 것이다.
 FORBIDDEN_PATTERNS: tuple[tuple[str, str], ...] = (
-    # "원인"은 앞에 한글이 붙으면 다른 낱말(직원인지 등)이라 단어 앞 경계를 둔다.
-    ("cause", r"(?<![가-힣])원인"), ("cause", r"때문"), ("cause", r"(?:으)?로\s*인(?:해|하여|한)"), ("cause", r"탓"),
+    # "원인"은 붙여 쓴 합성어(주원인·근본원인·장애원인)도 잡고, "직원인지" 같은 특정 낱말만 뺀다.
+    ("cause", r"(?<!직)원인"), ("cause", r"때문"), ("cause", r"(?:으)?로\s*인(?:해|하여|한)"), ("cause", r"탓"),
     ("cause", r"유발"), ("cause", r"영향으로"), ("cause", r"에\s*의해"),
     ("speculation", r"추정"), ("speculation", r"것으로\s*보(?:입|인|임|여)"), ("speculation", r"보입니다"),
     ("speculation", r"처럼\s*보(?:입|인|임|여)"), ("speculation", r"일\s*수\s*있(?:습니다|다|음)"),
@@ -68,10 +68,11 @@ FORBIDDEN_PATTERNS: tuple[tuple[str, str], ...] = (
 _FORBIDDEN = tuple((kind, re.compile(pattern)) for kind, pattern in FORBIDDEN_PATTERNS)
 # 쉼표 천 단위를 먼저 본다. 둘째 대안은 쉼표 바로 뒤 숫자도 센다("6건,77건"의 77).
 _NUMBER = re.compile(r"(?<![0-9.])\d{1,3}(?:,\d{3})+(?:\.\d+)?|(?<![0-9.])\d+(?:\.\d+)?")
-# 고유어 수 + 단위(한 개·두 건·세 가지 …). 단위가 있어야 수로 본다. 번·번째는 뺀다("다시 한 번" 오탐).
+# 고유어 수 + 단위(한 개·두 건·세 번 …). 단위가 있어야 수로 본다. "한 번"·"한번"은 관용 표현이라 세지 않고,
+# 서수 "번째"도 건수가 아니라 세지 않는다.
 # 단독 고유어 수(하나·둘·셋)는 세지 않는다(README 한계).
 _NATIVE = {"한": 1, "두": 2, "세": 3, "네": 4, "다섯": 5, "여섯": 6, "일곱": 7, "여덟": 8, "아홉": 9, "열": 10}
-_NATIVE_NUMBER = re.compile(r"(?<![가-힣])(다섯|여섯|일곱|여덟|아홉|한|두|세|네|열)\s*(개|건|가지|곳|단계|종)")  # 단위 뒤 조사(개입니다·건이)는 허용
+_NATIVE_NUMBER = re.compile(r"(?<![가-힣])(다섯|여섯|일곱|여덟|아홉|한|두|세|네|열)\s*(개|건|가지|번(?!째)|곳|단계|종)")  # 단위 뒤 조사(개입니다·건이)는 허용
 # 날짜 표현: ISO(YYYY-MM-DD, 시각·초·소수·Z·오프셋 포함) / YYYY년 M월 D일 / M월 D일. 기간 값과 따로 대조한 뒤 지운다.
 _ISO_DATE = re.compile(r"(?<![0-9])(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2})(?::(\d{2})(?:\.\d+)?)?"
                        r"(?:Z|[+-]\d{2}:?\d{2})?)?(?![0-9])")
@@ -403,7 +404,8 @@ def canonical_number(text: str) -> str | None:
 
 def numbers_in(text: str) -> list[str]:
     found = [canonical_number(match.group(0)) for match in _NUMBER.finditer(text)]
-    found += [str(_NATIVE[match.group(1)]) for match in _NATIVE_NUMBER.finditer(text)]
+    found += [str(_NATIVE[match.group(1)]) for match in _NATIVE_NUMBER.finditer(text)
+              if not (match.group(1) == "한" and match.group(2) == "번")]
     return [value for value in found if value is not None]
 
 

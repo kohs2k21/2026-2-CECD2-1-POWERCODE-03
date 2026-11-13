@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useAccountQuery } from "@/lib/query";
 import { errorCode } from "@/features/detection/rules/ruleDraft";
-import { readComparison, readComparisonPage, type ComparisonDetail, type ComparisonItem } from "@/features/detection/evaluations/evaluationsApi";
+import { comparisonKey, readComparison, readComparisonPage, type ComparisonDetail, type ComparisonItem } from "@/features/detection/evaluations/evaluationsApi";
 import { readActiveHistory, readMethodStatus, readOperationalState, type ActiveHistoryItem, type MethodPeriod } from "./operationsApi";
 
 export const OPERATIONAL_STATE_QUERY = "operational-state";
@@ -45,7 +45,7 @@ export const useRecentComparisons = () =>
       const page = await readComparisonPage("all", null);
       const done = page.items.filter((item) => item.status === "succeeded").slice(0, COMPARISON_SCAN);
       const details: ComparisonDetail[] = [];
-      for (const item of done) details.push(await readComparison(item.comparisonId));
+      for (const item of done) details.push(await readComparison(comparisonKey(item)));
       return details;
     },
   });

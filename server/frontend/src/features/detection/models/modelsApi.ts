@@ -88,8 +88,8 @@ export type ModelVersionDetail = ModelVersion & {
 export type VersionPage = { items: ModelVersion[]; pagination: { limit: number; hasMore: boolean; nextCursor: string | null } };
 
 const PAGE_LIMIT = 50;
-export const readVersionPage = (tab: "active" | "all", cursor: string | null, signal?: AbortSignal) =>
-  httpClient.get<VersionPage>("/api/configurations", { params: { limit: PAGE_LIMIT, cursor: cursor ?? undefined, active: tab === "active" ? true : undefined }, signal });
+export const readVersionPage = (tab: "active" | "all", cursor: string | null, signal?: AbortSignal, limit = PAGE_LIMIT) =>
+  httpClient.get<VersionPage>("/api/configurations", { params: { limit, cursor: cursor ?? undefined, active: tab === "active" ? true : undefined }, signal });
 
 export const readVersion = (id: string, signal?: AbortSignal) =>
   httpClient.get<ModelVersionDetail>(`/api/configurations/${encodeURIComponent(id)}`, { signal });

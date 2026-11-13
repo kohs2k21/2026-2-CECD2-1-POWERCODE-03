@@ -12,6 +12,8 @@ import { parseSyntheticEvaluation, parseSyntheticRegistration, verifySyntheticBi
   SyntheticRequestError, type SyntheticEvaluation, type SyntheticBinding } from './syntheticEvaluationContract.js';
 import { ThresholdRequestError, fixThresholdTargets, parseThresholdRequest, thresholdLlmSpec,
   type ThresholdFixedInput, type ThresholdRequest } from './thresholdRecommendationContract.js';
+import { ComparisonError, enqueueComparison, parseComparisonRequest } from '../services/comparisonEvaluation.js';
+import { idempotencyKeyOf } from './comparisonRoutes.js';
 
 const router = Router();
 router.use(authenticateToken as any);
@@ -176,6 +178,14 @@ export function parseRequest(value: unknown, support: TrainingSupport = TRAINING
 }
 
 router.post('/', route(async (req, res) => {
+  // 비교 평가(config-comparison-evaluation.md v1): 검증·기준선 고정이 다른 작업과 달라 따로 처리한다. 응답 모양은 다른 작업과 같다.
+  if (req.body?.kind === 'compare') {
+    if (req.user!.userType !== 'admin') throw new JobRequestError('admin_required', 403);
+    const key = idempotencyKeyOf(req);
+    const { created, job } = await enqueueComparison(getDatabasePool(), parseComparisonRequest(req.body), req.user!.id, key);
+    res.status(created ? 201 : 200).json(job);
+    return;
+  }
   if (req.user!.userType !== 'admin' && ['recommend_feature','recommend_rule','recommend_thresholds','train','evaluate'].includes(req.body?.kind)) throw new JobRequestError('admin_required',403);
   const input = parseRequest(req.body);
   if (['recommend_feature', 'recommend_rule', 'recommend_thresholds', 'train', 'evaluate'].includes(input.kind) && req.user!.userType !== 'admin') {
@@ -459,7 +469,7 @@ router.post('/:id/recommendations/:index/adopt', route(async (req, res) => {
 }));
 
 router.use((error: unknown, _req: Request, res: Response, _next: NextFunction) => {
-  if (error instanceof JobRequestError || error instanceof SyntheticRequestError || error instanceof ThresholdRequestError) {
+  if (error instanceof JobRequestError || error instanceof SyntheticRequestError || error instanceof ThresholdRequestError || error instanceof ComparisonError) {
     res.status(error.status).json({ code: error.code });
     return;
   }

@@ -16,6 +16,7 @@ import ruleSetRouter from './routes/ruleSetRoutes.js';
 import preparedDatasetRouter from './routes/preparedDatasetRoutes.js';
 import { createMeRouter, createNotificationRouter } from './routes/notificationRoutes.js';
 import { createActiveModelRouter, createOperationalStateRouter } from './routes/activeModelRoutes.js';
+import { createComparisonRouter, createEvaluationSetRouter } from './routes/comparisonRoutes.js';
 import { checkDatabaseConnection } from './config/database.js';
 
 const app = express();
@@ -61,6 +62,8 @@ app.use('/api/inputs', inputRouter);
 app.use('/api/operations', operationsRouter);
 app.use('/api/active-models', createActiveModelRouter());
 app.use('/api/operational-state', createOperationalStateRouter());
+app.use('/api/evaluation-sets', createEvaluationSetRouter());
+app.use('/api/comparisons', createComparisonRouter());
 
 // 공통 오류 처리
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {

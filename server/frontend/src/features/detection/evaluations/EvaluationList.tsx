@@ -9,13 +9,15 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { errorCode } from "@/features/detection/rules/ruleDraft";
 import { DASH, numberText, stampText } from "@/features/operations/format";
 import { useUrlOption } from "@/hooks/useUrlState";
-import type { CompareVersion, ComparisonListItem, EvaluationSet } from "./evaluationsApi";
+import { comparisonKey, type CompareVersion, type ComparisonListItem, type EvaluationSet } from "./evaluationsApi";
 import { REC_STATE_LABELS, comparisonStatus, labelOf } from "./evaluationFormat";
 import { useCompareVersions, useComparisons, useEvaluationSets } from "./useEvaluations";
 
 const COLUMNS = ["비교", "평가 세트", "비교 모델", "완료", "상태", "교체 추천"];
 
 const RecommendationCell = ({ item, versions }: { item: ComparisonListItem; versions: CompareVersion[] | undefined }) => {
+  // 추천이 없으면 완료 뒤 사유(v1 `not_implemented_v1`)를 미연결로 보인다. 완료 전은 빈칸.
+  if (!item.recommendations) return <>{item.recommendationsReason ? `미연결 · ${item.recommendationsReason}` : DASH}</>;
   if (!item.recommendations.length) return <>{DASH}</>;
   const several = item.recommendations.length > 1;
   return (
@@ -34,7 +36,7 @@ const ComparisonRow = ({ item, sets, versions, returnTo }: { item: ComparisonLis
   const baselines = item.baselines.map((baseline) => labelOf(versions, baseline.configVersionId)).join(", ");
   return (
     <TableRow>
-      <TableCell><Link className="text-link underline-offset-2 hover:underline" to={paths.detectionEvaluation(item.comparisonId)} state={{ returnTo }}>{item.comparisonId.slice(0, 8)}</Link></TableCell>
+      <TableCell><Link className="text-link underline-offset-2 hover:underline" to={paths.detectionEvaluation(comparisonKey(item))} state={{ returnTo }}>{comparisonKey(item).slice(0, 8)}</Link></TableCell>
       <TableCell>{sets?.find((set) => set.id === item.evaluationSetId)?.displayName ?? item.evaluationSetId.slice(0, 8)}</TableCell>
       <TableCell className="whitespace-normal">{numberText(item.itemCount)}개{baselines ? ` (기준 운영 ${baselines})` : ""}</TableCell>
       <TableCell>{stampText(item.completedAt)}</TableCell>
@@ -71,7 +73,7 @@ export const ComparisonsCard = () => {
               <TableRow>{COLUMNS.map((title) => <TableHead key={title}>{title}</TableHead>)}</TableRow>
             </TableHeader>
             <TableBody>
-              {items.map((item) => <ComparisonRow key={item.comparisonId} item={item} sets={sets.data?.items} versions={versions.data} returnTo={location.pathname + location.search} />)}
+              {items.map((item) => <ComparisonRow key={comparisonKey(item)} item={item} sets={sets.data?.items} versions={versions.data} returnTo={location.pathname + location.search} />)}
             </TableBody>
           </Table>
         </div>

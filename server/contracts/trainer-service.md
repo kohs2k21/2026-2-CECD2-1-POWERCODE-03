@@ -1,3 +1,8 @@
+Created: 2026-10-17T01:49:42+09:00
+Updated: 2026-11-13T18:00:00+09:00
+Author: Claude Code (Trainer 세션 builder)
+Status: current
+
 # Trainer 서비스 계약 v1
 
 - 계약 버전: `trainer-service-v1`; 기존 `/api/jobs` 요청·상태·결과 필드 유지
@@ -20,9 +25,27 @@
 - `GET /api/jobs/feature-sets?sourceId=<uuid>`: `scope=global_registered_catalog`, sourceId, hasMore, items
 - items: `{id, contentHash, featureNames: string[], supported: boolean, reason: string|null}`; 등록된 공통 피처 카탈로그, 출처별 데이터 존재·학습 가능성 보장 아님
 - train 접수 시 피처 이름·연산·깊이·타입/단위·requires_fit 검사; 미지원 정의 422, rule_only의 fit 필요 피처 422
-- 목록 최대 200개·최신순; hasMore=true이면 잘린 목록, 등록 기능은 별도 범위
+- 목록 최대 200개·최신순; hasMore=true이면 잘린 목록. 등록은 아래 입력 변수 세트 등록 규칙 절
 - `POST /api/jobs`: 기존 train/evaluate 필드·권한·멱등키 유지, train에 optional modelKey 추가
 - `GET /api/jobs`, `GET /api/jobs/:id`: 기존 attemptCount + maxAttempts/nextRunAt; 재시도 중 errorCode와 terminal failed 구분
+
+## 입력 변수 세트 등록 규칙(operator_defined)
+
+화면이 필드를 골라 세트를 만드는 경로다. 옛 등록 경로(LLM `recommend_feature`)는 폐지됐다. Trainer가 규칙과 시험 벡터를 정하고, API(`server/backend/`)가 같은 행을 직접 INSERT한다(WebUI 세션 구현).
+
+- 고를 수 있는 필드: [ml-feature-fields.json](ml-feature-fields.json) `fields[]`(`ml-feature-fields-v1`, 목록 순서 고정). 계수 4종은 `{"op":"field","field":"P.<key>"}`, `elapsed_ms`·`error_ratio`는 소프트룰 등록 필드와 같은 AST의 `derived`(`provenance={"source":"ml-feature-fields-v1","field":<key>}`). 변수 이름 = 필드 키. 모두 `requires_fit=false`
+- 요청: 필드 키 1–32개. 검사 순서는 ① 목록이 아니거나 개수 밖(0·33개 이상) `invalid_feature_count` → ② 문자열이 아니거나 목록 밖 키 `unknown_feature_field` → ③ 중복 `duplicate_feature_field`(예: `["x","x"]`는 `unknown_feature_field`). 요청 순서는 무관하고 정의는 목록 순서로 정렬한다
+- `ml-feature-fields.json`의 `unit`·`label`은 화면 표시용이다. DB 열 값은 아래 규칙(계수 4종은 `output_type='decimal'`, `output_unit=NULL`)과 벡터를 따른다
+- 결측: 값이 없는 변수(END_TIME 없음 → `elapsed_ms`, TOTAL_COUNT 0 → `error_ratio`)는 0으로 채우지 않는다. 결측 변수가 하나라도 있는 행은 학습하지 않는다(`model_adapters.train_iforest`)
+- 정규 JSON: `json.dumps(value, sort_keys=True, separators=(",", ":"))`. 키 사전순, 공백 없음, ASCII 밖은 `\uXXXX`(목록 값은 ASCII만이라 이스케이프 차이 없음)
+- 세트 hash: `sha256_hex(utf8("operator_defined:" + 정규JSON(정의 배열)))`. `model_generated`만 접두가 없어 같은 정의라도 hash가 다르다
+- 변수 버전 hash: `sha256_hex(utf8(정규JSON(expression)))`, 종류 접두 없음
+- 중복 방지: 한 거래 안에서 `pg_advisory_xact_lock(81732, 1)`을 먼저 잡고, 같은 `content_hash` 세트가 있으면 그 id를 돌려준다(`ml_feature_sets.content_hash`에 UNIQUE가 없어 이 lock이 중복을 막는다)
+- 새 세트: `schema_version='numeric-process-v2'`, `transform_version='safe-dsl-v2'`, `output_schema`=정렬 뒤 이름 배열, `created_by_actor_id`=요청 관리자, `created_at=clock_timestamp()`(같은 hash가 여럿이면 `created_at`이 가장 이른 세트를 돌려준다). 새 변수 버전 행도 같은 `created_by_actor_id`
+- 변수 버전: 이름·식 hash·종류(`operator_defined`)가 같은 버전이 있으면 재사용(가장 낮은 version), 없으면 종류와 무관하게 이름별 `max(version)+1`. 열 값 `display_name`=이름, `output_type`=`expression.outputType`(없으면 `decimal`), `output_unit`=`expression.unit`(없으면 NULL), `value_policy={"missing":"null","zeroDivision":"null"}`, `availability_spec={"layer":"P","asOf":"observation"}`, `requires_fit=false`
+- 멤버: 전부 `model_input=true`, `output_position` 0..n-1, `output_name`=이름, `transform_settings={}`
+- 시험 벡터: [feature-set-hash-vectors.json](feature-set-hash-vectors.json)(사례별 요청·정렬된 정의·정규 JSON·세트 hash·멤버 열, 거절 요청). 생성은 `python -m trainer.feature_fields --write`, 대조는 `--check`와 `tests/test_ml_feature_fields.py`, DB 등록 대조는 `tests/integration_feature_set_registration.py`
+- API 몫(WebUI 세션): `POST /api/jobs/feature-sets {"fields":[...]}` → `{id, contentHash, featureNames, reused}`. 위 규칙대로 직접 INSERT하고 벡터와 같은 값을 내야 한다. 벡터 4건의 정의는 train 접수 검사(`featureSetCapability`)를 통과한다
 
 ## 완료 결과
 
@@ -79,6 +102,15 @@
 - 결과 끝 키 `protocolPathDrafts`(실험): 인터페이스별 train 분할 관측 채널 경로 초안(경로마다 거래 수·비율·`rare`·`fromBranching`·예시 참조 ≤ 5, 인터페이스 경로 거래 30 미만 `insufficient_evidence`, 자동 채택 없음), 인터페이스별 출력 경로 ≤ 64(거래 수 내림차순, 나머지는 `omittedPaths {paths, transactions}` — 경로별 거래 수 합이라 갈래 거래는 중복될 수 있음, 비율·상태는 자르기 전 기준), 거래 단위 제외 사유별 건수(`excludedReasons`)·행 단위 `transactionIdMissingRows`·`endpoint_mismatch` 정보 건수. 경로 정의·사유·상한은 Detector `protocol-rules.md` 3·9절(`trainer/protocol_paths.py`)
 - 거래 행 선택이 모호한(TRANSACTION 실행 재시도 번호 동률 등) 거래는 작업 오류가 아니라 후보별 `undetermined` 사유 `transaction_row_ambiguous`로 센다
 - 오류: 위 코드는 모두 `ValueError` → 재시도 없이 작업 `failed`(`errorCode`). 그 밖의 예외는 기존 학습 작업과 같이 시도 한도(3회) 안에서 재시도
+
+## 평가 세트·모델 버전 비교 작업 — `evaluation_set`·`compare`(v1, 11/13)
+
+- 요청·input_spec·결과 형식·실패 코드: [config-comparison-evaluation.md](config-comparison-evaluation.md) "v1 구현 범위(11/13)". DB는 migration 011 그대로
+- 꺼내기: training 큐. `trainer/runner.py` claim 목록(`job_kinds`)과 관리자 전용 목록(`_claim_job`)에 포함, `requester_role=admin`만(v03 작업만 허용은 011 DB 제약)
+- `evaluation_set` 완료: 세트 `ready`와 작업 성공을 한 트랜잭션에. `resultSummary = {evaluationSetId, evaluationSetContractVersion:"evaluation-set-v1", sourceId, snapshotId, purpose, status, contentHash, synthetic:null, generation}`. 작업이 실패하면 011 트리거가 세트를 같은 `error_code`로 `failed` 처리
+- `compare` 완료: 항목 평가 행(`run_evaluations`, `comparison_id`·`evaluation_set_id`)·비교 묶음·항목·작업 결과를 한 트랜잭션에 기록. `replacementRecommendations`는 null(`not_implemented_v1`). 전 항목 실패면 작업 `failed`(`comparison_all_items_failed`)이고 `result_summary`에 같은 요약을 남김
+- 항목 평가는 evaluate와 같은 핵심(`_version_context`·`_measure_version`)을 씀. v1·v2는 구성 정책·룰, v3는 접수 고정 운영 정책으로 평가하고, 고정 룰 세트 리비전은 적용하지 않고 hash 일치만 확인
+- 오류: 작업 수준 코드는 `ValueError` → 재시도 없이 `failed`. 항목 수준 코드는 그 항목만 `failed`이고 작업은 계속
 
 ## 책임·범위
 

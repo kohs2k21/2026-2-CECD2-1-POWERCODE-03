@@ -4,9 +4,8 @@ import React from "react";
 import { act, create } from "react-test-renderer";
 
 // 운영 설정·모델 교체 화면 통합(로컬 가짜 fetch만): 방법별 작동 상태 배지(정상·주의·점검 필요·첫 실행 대기), 판정 정책 비노출, 운영에서 제외·복원 요청 본문과
-// 결과·실패 안내, 모델 교체 3단계(개발 모드 비교 예시를 근거로 replace 본문, 추천 stale 거절), 운영 모드 비교 미연결이면 2단계에서 막힘.
+// 결과·실패 안내, 모델 교체 3단계(가짜 비교 API 응답을 근거로 replace 본문, 추천 stale 거절, v1 비교 결과로 3단계까지), 비교 API가 없으면 2단계에서 막힘.
 register("./svg-loader.mjs", import.meta.url);
-register("./dev-mode-loader.mjs", import.meta.url);
 globalThis.React = React;
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 await import("react-hot-toast");
@@ -38,7 +37,8 @@ const { RadioGroup } = await import("../src/components/ui/radio-group.tsx");
 const { AuthSessionProvider } = await import("../src/services/auth/AuthSessionProvider.tsx");
 const { appRoutes } = await import("../src/app/appRoutes.tsx");
 const { useDraftStore } = await import("../src/stores/draftStore.ts");
-const sample = await import("../src/features/detection/evaluations/evaluationsSample.ts");
+const sample = await import("./evaluations-sample.ts");
+const { evaluationResponse } = await import("./evaluations-fake-api.mjs");
 const { methodBadge } = await import("../src/features/detection/operations/methodStatus.ts");
 
 const catalog = JSON.parse(await readFile(new URL("../../contracts/method-catalog.json", import.meta.url), "utf8"));
@@ -111,11 +111,14 @@ const history = {
 
 const requested = [];
 let routes;
+const fake = { up: true };
 let currentUser;
 globalThis.fetch = async (url, options = {}) => {
   const target = new URL(String(url), "http://local.test");
   requested.push({ path: target.pathname, search: target.search, method: options.method ?? "GET", body: options.body ? JSON.parse(options.body) : undefined });
   if (target.pathname === "/api/auth/me") return json({ user: currentUser });
+  const evaluation = evaluationResponse(sample, fake, options.method ?? "GET", target, options.body ? JSON.parse(options.body) : undefined);
+  if (evaluation) return evaluation;
   const handler = routes[`${options.method ?? "GET"} ${target.pathname}`];
   return handler ? handler(target, options) : json({ code: "unavailable" }, 503);
 };
@@ -135,8 +138,8 @@ const wait = async (check, label, tries = 150) => {
   for (let i = 0; i < tries && !check(); i++) await tick();
   assert.ok(check(), label);
 };
-const mount = async (path, { dev = true, state } = {}) => {
-  globalThis.__EVALUATIONS_DEV__ = dev;
+const mount = async (path, { up = true, state } = {}) => {
+  fake.up = up;
   currentUser = { id: "admin-1", email: "admin@example.test", userType: "admin", createdAt: "2026-10-01T00:00:00Z" };
   storage.set("token", "token-admin");
   useDraftStore.getState().reset();
@@ -180,7 +183,7 @@ const posts = (path) => requested.filter((call) => call.method === "POST" && cal
 {
   operational = freshState();
   routes = baseRoutes();
-  const app = await mount("/detection/operations", { dev: false });
+  const app = await mount("/detection/operations", { up: false });
   await wait(() => app.row("ml:iforest").includes("1,440 ms"), "model row");
   assert.ok(app.shown().includes("룰 버전 13"));
   assert.ok(app.row("hard:process-status").startsWith("상태가 S가 아님") && app.row("hard:process-status").includes("정상"));
@@ -207,7 +210,7 @@ const posts = (path) => requested.filter((call) => call.method === "POST" && cal
       return json({ revision: 8, previousRevision: 7, models: [], changes: [{ type: "retired", configVersionId: V_ACTIVE, modelKey: "iforest" }], changedAt: iso(0), appliesFrom: "next_decision" });
     },
   });
-  const app = await mount("/detection/operations", { dev: false });
+  const app = await mount("/detection/operations", { up: false });
   await wait(() => app.button("운영에서 제외"), "retire button");
   await app.click("운영에서 제외");
   await wait(() => openDialog(app), "retire dialog");
@@ -221,7 +224,7 @@ const posts = (path) => requested.filter((call) => call.method === "POST" && cal
 
   operational = freshState();
   routes = baseRoutes({ [`POST /api/configurations/${V_ACTIVE}/applications`]: () => json({ code: "active_set_revision_conflict", currentRevision: 8 }, 409) });
-  const failing = await mount("/detection/operations", { dev: false });
+  const failing = await mount("/detection/operations", { up: false });
   await wait(() => failing.button("운영에서 제외"), "retire button");
   await failing.click("운영에서 제외");
   await approveDialog(failing);
@@ -239,7 +242,7 @@ const posts = (path) => requested.filter((call) => call.method === "POST" && cal
     "POST /api/active-models/restore": () => json({ revision: 8, previousRevision: 7, models: [{ ...model, configVersionId: V_PREVIOUS, displayName: "V3", activatedAtRevision: 8 }],
       changes: [{ type: "restored", configVersionId: V_PREVIOUS, modelKey: "iforest", previousConfigVersionId: V_ACTIVE }], changedAt: iso(0), appliesFrom: "next_decision" }),
   });
-  const app = await mount("/detection/operations", { dev: false });
+  const app = await mount("/detection/operations", { up: false });
   await wait(() => app.shown().includes("버전 6"), "history");
   await app.click("복원");
   await wait(() => openDialog(app), "restore dialog");
@@ -254,7 +257,7 @@ const posts = (path) => requested.filter((call) => call.method === "POST" && cal
   await app.cleanup();
 }
 
-// 4) 모델 교체 3단계(개발 모드 비교 예시): 1 선택 → 2 같은 평가 세트 비교 → 3 승인 → replace 본문, 운영 설정으로 돌아가 결과 안내.
+// 4) 모델 교체 3단계(가짜 비교 API): 1 선택 → 2 같은 평가 세트 비교 → 3 승인 → replace 본문, 운영 설정으로 돌아가 결과 안내.
 {
   operational = freshState();
   let replaceBody;
@@ -317,17 +320,60 @@ const posts = (path) => requested.filter((call) => call.method === "POST" && cal
   await app.cleanup();
 }
 
-// 6) 운영 모드: 비교 평가 조회가 연결되지 않아 2단계에서 막힌다(성공 대체 없음). 바로 3단계 주소는 2단계로.
+// 6) 비교 평가 API가 없는 서버(503): 2단계에서 막힌다(성공 대체 없음). 바로 3단계 주소는 2단계로.
 {
   operational = freshState();
   routes = baseRoutes();
   requested.length = 0;
-  const app = await mount("/detection/operations/replace?step=3", { dev: false, state: { targetVersionId: V_EXP7 } });
+  const app = await mount("/detection/operations/replace?step=3", { up: false, state: { targetVersionId: V_EXP7 } });
   await wait(() => app.shown().includes("비교 결과 미연결 · service_unavailable"), "not connected");
   await wait(() => app.router.state.location.search === "?step=2", "normalized to step 2");
   assert.equal(app.button("다음 · 승인·요청").props.disabled, true);
   assert.equal(posts(`/api/configurations/${V_EXP7}/applications`).length, 0);
   await app.cleanup();
+}
+
+// 7) v1 서버 비교 결과(교체 추천 없음 = not_implemented_v1): 운영 설정은 추천 미연결, 교체 2단계는 같은 세트 비교로 통과해 3단계까지.
+{
+  operational = freshState();
+  let replaceBody;
+  routes = baseRoutes({
+    [`POST /api/configurations/${V_EXP7}/applications`]: (_target, options) => {
+      replaceBody = JSON.parse(options.body);
+      return json({ revision: 8, previousRevision: 7, models: [{ ...model, configVersionId: V_EXP7, displayName: "실험 7", activatedAtRevision: 8 }],
+        changes: [{ type: "replaced", configVersionId: V_EXP7, modelKey: "iforest", previousConfigVersionId: V_ACTIVE }], changedAt: iso(0), appliesFrom: "next_decision" });
+    },
+  });
+  const v1Row = { ...sample.comparisons[1], comparisonId: sample.C_V1, jobId: "ab120000-1111-4222-8333-444455556666", recommendations: null, recommendationsReason: "not_implemented_v1" };
+  const saved = sample.comparisons.splice(0, sample.comparisons.length, v1Row);
+  const ops = await mount("/detection/operations");
+  await wait(() => ops.shown().includes("모델 교체 추천 미연결 · not_implemented_v1"), "v1 has no recommendations");
+  assert.equal(ops.link("수락하고 교체"), undefined);
+  await ops.cleanup();
+
+  const app = await mount("/detection/operations/replace?step=2", { state: { targetVersionId: V_EXP7 } });
+  await wait(() => app.shown().includes(`평가 세트 원본 검증 세트 10월 · ${sample.C_V1.slice(0, 8)}`), "v1 evidence");
+  assert.ok(app.shown().includes("45%") && app.shown().includes("70%"), "recall from the comparison");
+  assert.ok(app.shown().includes("평가 정책구성 정책 · ml_only"), "evaluation policy shown");
+  await app.go("다음 · 승인·요청");
+  await wait(() => app.shown().includes("바뀌지 않음 · 운영 룰 버전 13"), "step 3");
+  await act(async () => app.renderer.root.findAllByType(Checkbox).find((node) => node.props.id === "replace-approve").props.onCheckedChange(true));
+  await app.click("모델 교체");
+  await wait(() => app.router.state.location.pathname === "/detection/operations", "replaced");
+  assert.deepEqual(replaceBody, { operation: "replace", evaluationId: EVAL7, expectedRevision: 7, expectedActiveVersionId: V_ACTIVE });
+  await app.cleanup();
+
+  // 같은 세트 비교가 없으면 '+ 새 비교 평가'가 교체할 버전을 비교 화면으로 넘긴다.
+  sample.comparisons.splice(0, sample.comparisons.length);
+  const none = await mount("/detection/operations/replace?step=2", { state: { targetVersionId: V_EXP7 } });
+  await wait(() => none.link("+ 새 비교 평가"), "no evidence");
+  const entry = none.renderer.root.findAllByType(Link).find((node) => text(node.children) === "+ 새 비교 평가").props;
+  assert.deepEqual([entry.to, entry.state], ["/detection/evaluations?step=1", { compareVersionId: V_EXP7 }]);
+  await act(async () => { await none.router.navigate(entry.to, { state: entry.state }); });
+  await wait(() => useDraftStore.getState().drafts["/detection/evaluations"]?.value.versionIds?.includes(V_EXP7), "version handed to the comparison draft");
+  assert.equal(useDraftStore.getState().drafts["/detection/evaluations"].value.setFormOpen, true, "set form opens for the default set");
+  await none.cleanup();
+  sample.comparisons.splice(0, sample.comparisons.length, ...saved);
 }
 
 console.log("operations page tests passed: status badges, overview, retire, restore, replace 3 steps, stale, production block");

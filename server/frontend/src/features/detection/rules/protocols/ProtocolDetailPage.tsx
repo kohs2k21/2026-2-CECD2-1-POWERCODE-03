@@ -25,6 +25,8 @@ import type { DraftPath, ProtocolDrafts, ProtocolPath, ProtocolRuleRequest, Rule
 import { useRuleSet } from "../useRuleSet";
 import { useRuleSetSave } from "../useRuleSetSave";
 import { ChannelChain } from "./ChannelChain";
+import { ProtocolExplanationCard } from "./ProtocolExplanationCard";
+import { EXPLAIN_PATHS_BUTTON, observedPathsRequest } from "./protocolExplanation";
 import {
   APPLIES_FROM, CHANNEL_INPUT_HELP, DRAFT_BUTTON, DRAFT_LEAD, DRAFT_NOT_OBSERVED, FIRST_ENTRY_UNREGISTERED, PATHS_EMPTY_ISSUE, PATHS_MAX, STEPS_MAX,
   UNREGISTERED_RULE_ID, count, draftUnavailableText, parseChannelLines, pathIndex, pathReasonText, protocolEntry, ratioText, unregisteredRule,
@@ -180,6 +182,10 @@ const ProtocolEditor = ({ state, interfaceId, reload }: { state: RuleSetState; i
   const dirty = !entry || !samePaths(edit.paths, basePaths) || edit.enabled !== entry.enabled || edit.severity !== entry.severity;
   const issues = [...(edit.paths.length ? [] : [PATHS_EMPTY_ISSUE]), ...(edit.paths.length > PATHS_MAX ? [`허용 경로는 ${PATHS_MAX}개까지입니다`] : [])];
   const channelLists = edit.paths.map((path) => path.channels);
+  // 경로 설명(protocol-explanation-job.md 1절 관측 경로 대상): 초안을 읽었고 그 인터페이스가 초안에 있거나 현재 운영 버전에 등록돼 있을 때만.
+  // jobId = 초안을 만든 후보 작업, ruleSetRevision = 현재 운영 버전(저장된 허용 경로와 비교 — 편집 중인 값은 저장 전이라 쓰지 않음).
+  const explainRequest = available?.sourceId && (available.interface || entry)
+    ? observedPathsRequest(available.sourceId, available.job.id, interfaceId, state.revision) : null;
 
   // 저장·다른 화면 저장으로 운영 버전이 바뀌면 편집 중이 아닐 때만 새 상태로 맞춘다.
   useEffect(() => {
@@ -322,6 +328,9 @@ const ProtocolEditor = ({ state, interfaceId, reload }: { state: RuleSetState; i
           {drafts.data?.state === "protocol_drafts_unavailable" && <EmptyState>{draftUnavailableText(drafts.data)}</EmptyState>}
           {available && <DraftPanel drafts={available} current={channelLists} onAdd={addDraftPaths} />}
         </SectionCard>
+        {explainRequest && (
+          <ProtocolExplanationCard key={JSON.stringify(explainRequest)} request={explainRequest} itemLabel="경로 설명" buttonLabel={EXPLAIN_PATHS_BUTTON} />
+        )}
       </fieldset>
       {adding && (
         <AddPathDialog existing={channelLists} onCancel={() => setAdding(false)}

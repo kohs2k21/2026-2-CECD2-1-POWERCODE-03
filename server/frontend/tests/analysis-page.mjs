@@ -982,8 +982,89 @@ const explainCard = (app) => app.renderer.root.find((node) => node.type === "div
   await act(async () => renderer.unmount());
 }
 
+// 13) 프로토콜 알림 판정 상세(protocol-explanation-job.md 1절 알림 대상·11절): 관리자 + 최종 판정 + evidence.protocolReview(알림 목록과 같은 판별)일 때만
+// "LLM 설명" 칸 [설명 보기] → POST explain_protocol {sourceId, target:{kind:"alert", decisionId}} → 진행 중 → 결과(경로 칩·확인할 점·버전 N). 실패는 `설명 실패 · <코드>`.
+// 일반 사용자·프로토콜 근거 없음·형식이 다른 근거는 칸도 요청도 없다.
+{
+  const review = { version: 1, kind: "path_unmatched", interfaceId: "IF-ORD-1", protocolRuleId: "hard:proto-0000000a", ruleSetRevision: 15,
+    routes: [{ channels: ["CH-01", "CH-09"], pathKey: "CH-01:CH-09", matched: false }], routesReason: null, endpoints: { start: "CH-01", end: "CH-09", matchesRoutes: true, ambiguous: false } };
+  const protocolDetail = (id, protocolReview) => ({ ...item(id, { evidence: { ...item(id).evidence, ...(protocolReview === undefined ? {} : { protocolReview }) } }),
+    configuration: null, job: null, explanation: null });
+  const summary = { format: "protocol-explanation-v1", target: { kind: "alert", decisionId: "d-p1" }, interfaceId: "IF-ORD-1", ruleSetRevision: 15,
+    explanation: "인터페이스 IF-ORD-1의 거래 경로 P1은 버전 15 허용 경로에 없습니다.", reviewPoints: [], paths: { P1: ["CH-01", "CH-09"] },
+    facts: { format: "protocol-explain-facts-v1", kind: "alert", sha256: "d".repeat(64) }, check: { passed: true, failures: [], coverage: {} } };
+  let jobState = { status: "queued", errorCode: null, resultSummary: null };
+  const posted = [];
+  const protocolRoutes = (id, detail) => ({
+    "GET /api/analysis/decisions": () => json(listBody([item(id)])),
+    [`GET /api/analysis/decisions/${id}`]: () => json(detail),
+    [`GET /api/analysis/decisions/${id}/interims`]: () => json({ id, jobId: null, items: [] }),
+    [`GET /api/analysis/decisions/${id}/feedback`]: () => json({ items: [] }),
+    "GET /api/llm/status": () => json({ available: true, checkedAt: "2026-11-14T01:00:00.000Z", errorCode: null }),
+    "GET /api/jobs": () => json({ items: [], pagination: { limit: 100, hasMore: false, nextCursor: null } }),
+    "POST /api/jobs": (_target, init) => {
+      posted.push({ body: JSON.parse(init.body), key: new Headers(init.headers).get("Idempotency-Key") });
+      return json({ id: "pe-1", status: "queued", kind: "explain_protocol", inputSpec: JSON.parse(init.body) }, 201);
+    },
+    "GET /api/jobs/pe-1": () => json({ id: "pe-1", kind: "explain_protocol", status: jobState.status, inputSpec: {}, errorCode: jobState.errorCode,
+      resultSummary: jobState.resultSummary, attempts: [] }),
+  });
+  const protocolCard = (app) => app.renderer.root.findAll((node) => node.type === "div" && node.props["data-slot"] === "section-card" && node.props["aria-label"] === "LLM 설명")[0];
+  const decisionCard = (app) => app.renderer.root.findAll((node) => node.type === "div" && node.props["data-slot"] === "section-card" && text(node.children).startsWith("AI 판정 근거 요약"))[0];
+  const askButton = (app) => app.renderer.root.findAll((node) => node.type === "button" && text(node.children) === "설명 보기")[0];
+
+  requested.length = 0;
+  routes = protocolRoutes("d-p1", protocolDetail("d-p1", review));
+  const app = await mount("/analysis/d/d-p1", "admin");
+  await wait(() => Boolean(askButton(app)) && !askButton(app).props.disabled, "explain button on a protocol alert decision");
+  assert.ok(decisionCard(app), "decision explain card stays");
+  await act(async () => askButton(app).props.onClick());
+  await wait(() => text(protocolCard(app).children).includes("설명을 만드는 중입니다…"), "running");
+  assert.deepEqual(posted.map((p) => p.body), [{ kind: "explain_protocol", sourceId: "source-1", target: { kind: "alert", decisionId: "d-p1" } }], "alert target = decision id");
+  assert.ok(posted[0].key, "idempotency key");
+  jobState = { status: "succeeded", errorCode: null, resultSummary: summary };
+  await act(async () => app.client.invalidateQueries({ queryKey: ["protocol-explanation-job"] }));
+  await wait(() => text(protocolCard(app).children).includes("코드가 집계한 사실만으로 쓴 설명입니다 · 버전 15 기준"), "result with version note");
+  const shownText = text(protocolCard(app).children);
+  assert.ok(shownText.includes("인터페이스 IF-ORD-1의 거래 경로 P1CH-01CH-09은 버전 15 허용 경로에 없습니다."), shownText);
+  assert.ok(!shownText.includes("확인할 점"), "no review points → hidden");
+  assert.ok(!askButton(app), "no request button over a result");
+  await app.cleanup();
+
+  // 실패: `설명 실패 · <코드>`, 다시 요청할 수 있다.
+  jobState = { status: "failed", errorCode: "protocol_explanation_facts_unavailable", resultSummary: null };
+  routes = { ...protocolRoutes("d-p2", protocolDetail("d-p2", review)),
+    "GET /api/jobs": () => json({ items: [{ id: "pe-1", kind: "explain_protocol", status: "failed", inputSpec: { kind: "explain_protocol", sourceId: "source-1", target: { kind: "alert", decisionId: "d-p2" } },
+      attemptCount: 1, maxAttempts: 3, nextRunAt: null, errorCode: "protocol_explanation_facts_unavailable", resultConfigVersionId: null, createdAt: "2026-11-14T01:00:00.000000Z", finishedAt: null, result: null }],
+      pagination: { limit: 100, hasMore: false, nextCursor: null } }) };
+  const failed = await mount("/analysis/d/d-p2", "admin");
+  await wait(() => Boolean(protocolCard(failed)) && text(protocolCard(failed).children).includes("설명 실패 · protocol_explanation_facts_unavailable"), "failure code");
+  assert.equal(askButton(failed).props.disabled, false, "request again after a failure");
+  await failed.cleanup();
+
+  // 일반 사용자: 칸 없음, 설명 작업 목록도 읽지 않음.
+  requested.length = 0;
+  routes = protocolRoutes("d-p3", protocolDetail("d-p3", review));
+  const user = await mount("/analysis/d/d-p3", "user");
+  await wait(() => Boolean(decisionCard(user)), "detail shown");
+  await tick(30);
+  assert.ok(!protocolCard(user) && !askButton(user), "not shown to a non-admin");
+  assert.equal(requested.some((r) => r.path === "/api/jobs" && r.method === "GET"), false, "no explanation job lookup as a user");
+  await user.cleanup();
+
+  // 관리자라도 프로토콜 근거가 없거나 형식이 다르면(version 2·빈 interfaceId) 칸이 없다.
+  for (const [id, protocolReview] of [["d-p4", undefined], ["d-p5", { ...review, version: 2 }], ["d-p6", { ...review, interfaceId: "" }]]) {
+    routes = protocolRoutes(id, protocolDetail(id, protocolReview));
+    const plain = await mount(`/analysis/d/${id}`, "admin");
+    await wait(() => Boolean(decisionCard(plain)), "detail shown");
+    await tick(30);
+    assert.ok(!protocolCard(plain), `no protocol explanation for ${id}`);
+    await plain.cleanup();
+  }
+}
+
 assert.equal(requested.some((r) => r.path.startsWith("/api/anomaly/events/")), false, "removed anomaly detail/feedback API is never called");
 assert.ok(requested.every((r) => r.path.startsWith("/api/")), "only same-origin API paths");
 console.log("analysis page QA passed: default risk view, result/risk/workflow sidebar and view switch, unread dot, risk cell, row links, search URL, SSE cursor with interim events "
   + "and single refetch, error/empty states, detail/timeline/evidence, process flow tree, read mark, workflow transitions and 409, admin 로그 분류하기 dialog (save then change, save failure keeps state, change failure keeps dialog, no double save, no close while pending), records in the timeline, list cause line, "
-  + "v4 method tables, explain request/failure, blocked explain without polling, lookup failure blocks re-request, explain result typing only for a result arriving while watching (requested or watched queued job, no restart on refetch, sr-only full copy, existing result without motion, reduced motion = full text), final-only explain, 404, job→decision redirect, legacy address");
+  + "v4 method tables, explain request/failure, blocked explain without polling, lookup failure blocks re-request, explain result typing only for a result arriving while watching (requested or watched queued job, no restart on refetch, sr-only full copy, existing result without motion, reduced motion = full text), final-only explain, protocol alert explanation (admin + protocolReview only, alert target, result/failure), 404, job→decision redirect, legacy address");

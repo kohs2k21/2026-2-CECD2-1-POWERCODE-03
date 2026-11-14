@@ -1,5 +1,5 @@
 Created: 2026-11-14T18:00:00+09:00
-Updated: 2026-11-14T11:20:00+09:00
+Updated: 2026-11-14T15:00:00+09:00
 Author: Claude Code (LLM 세션 builder)
 Status: draft
 
@@ -8,8 +8,8 @@ Status: draft
 - 무엇: 프로토콜 설정 상세(관측 경로 vs 허용 경로)와 프로토콜 알림 상세에서 관리자가 요청하는 **대화형 LLM 설명**. LLM은 코드가 만든 사실을 한국어 문장 `{explanation, reviewPoints}`로 풀어 쓰기만 한다. 경로 집계·허용 여부·판정은 코드 값이다([protocol-rules.md](protocol-rules.md) 1절 "LLM은 설명만")
 - 근거: 시험 키트(`research/experiments/protocol-explain`, 기반 모델 Qwen3.6-27B NF4 어댑터 없음 + 프롬프트 v3 → 합성 7/8, 실데이터 7/8·7/8, 시험 사례 모두 60초 생성 상한 안, 지어낸 숫자·경로·표기 0건). 이 작업은 v3의 남은 실패(사유 이름표 뒤 "로 인해")와 약점(근거 부족 미언급)을 고친 **프롬프트 v4**로 시작한다(아래 프롬프트 절)
 - 합의(WebUI 총괄): 새 작업 종류 `explain_protocol`(기존 `explain` 입력 확장 아님) / 출력은 `{explanation, reviewPoints[≤3]}`이고 판정·숫자 필드 없음 / 대화형 상한(`LLM_EXPLANATION_WAIT_SECONDS` 10초·`LLM_EXPLANATION_SECONDS` 60초)과 GPU 차례는 `explain`과 같은 대화형 등급 / API 접수·검증과 화면은 WebUI·API 담당
-- 표기: **[확정]** 합의·코드 사실 / **[제안]** 이 초안이 정한 값 / **[승인 대상]** 공통 계약(migration·API 요청·큐 payload·결과 형식)이라 사용자 승인 뒤 확정 / **[확정 11/14 사용자]** 12절 결정 / **[후보]** 화면 문구(사용자 승인 대상)
-- 구현 위치(이 계약과 같은 PR): 워커 `server/worker/protocol_explanation_job.py`(작업), `protocol_explanation.py`(사실·이름표·프롬프트·점검 순수 함수, 키트와 공용), `generation_service.py`·`generation_client.py`(새 kind), `trainer/runner.py`(소비자 경로), migration `027_explain_protocol.sql`·역할 스크립트 1줄([확정 11/14 사용자], 9절). API 접수(`server/backend`)는 후속 변경에서 10절 표대로 구현했다(`routes/protocolExplanationContract.ts`·`routes/jobRoutes.ts`). 화면(`server/frontend`)은 다음 단계
+- 표기: **[확정]** 합의·코드 사실 / **[제안]** 이 초안이 정한 값 / **[승인 대상]** 공통 계약(migration·API 요청·큐 payload·결과 형식)이라 사용자 승인 뒤 확정 / **[확정 11/14 사용자]** 12절 결정·11절 화면 문구 / **[후보]** 7절 실패 문구·점검 사유 이름(화면에 쓰지 않음)
+- 구현 위치(이 계약과 같은 PR): 워커 `server/worker/protocol_explanation_job.py`(작업), `protocol_explanation.py`(사실·이름표·프롬프트·점검 순수 함수, 키트와 공용), `generation_service.py`·`generation_client.py`(새 kind), `trainer/runner.py`(소비자 경로), migration `027_explain_protocol.sql`·역할 스크립트 1줄([확정 11/14 사용자], 9절). API 접수(`server/backend`)는 후속 변경에서 10절 표대로 구현했다(`routes/protocolExplanationContract.ts`·`routes/jobRoutes.ts`). 화면(`server/frontend`)은 11절대로 구현했다(`features/detection/rules/protocols/ProtocolExplanationCard.tsx`, 프로토콜 설정 상세·판정 상세)
 
 ## 1. 요청 — `POST /api/jobs kind=explain_protocol` [승인 대상]
 
@@ -169,11 +169,12 @@ Status: draft
 | `services/jobReadModel.ts` `LISTABLE_JOB_KINDS` | `explain_protocol: 'llm_explanation'`(작업 목록 kind 필터·큐 조건) |
 | 작업 상세 | `resultSummary` 그대로(성공 = 6절 결과, 점검 실패 = 문장 없는 요약). 실패 코드 표시는 7절 |
 
-## 11. 화면 문구 [후보 — 사용자 승인 대상]
+## 11. 화면 문구 [확정 11/14 사용자]
 
 - 버튼: 프로토콜 설정 상세 [경로 설명 보기], 알림 상세 [설명 보기]. 진행 중 "설명을 만드는 중입니다…"
-- 결과 칸 제목 "LLM 설명"(본문 `explanation`), "확인할 점"(`reviewPoints` 목록, 없으면 칸 숨김). 경로 id(`P1`)는 `paths`로 채널 칩·화살표를 함께 보임. 아래 작은 글씨 "코드가 집계한 사실만으로 쓴 설명입니다 · 버전 N 기준"
-- 실패 코드 표시: 7절 후보 문구. 점검 실패는 사유 이름만 보이고 생성 문장은 보이지 않음
+- 결과 칸 제목 "LLM 설명"(본문 `explanation`), "확인할 점"(`reviewPoints` 목록, 없으면 칸 숨김). 경로 id(`P1`)는 `paths`로 채널 칩·화살표를 함께 보임(허용 경로 표시와 같은 부품). 아래 작은 글씨 "코드가 집계한 사실만으로 쓴 설명입니다 · 버전 N 기준"(N = 결과 `ruleSetRevision`)
+- 실패: 기존 `<항목> 실패 · <코드>` 형식(7절 코드 그대로, 7절 후보 문구는 쓰지 않음). 점검 실패는 `check.failures` 사유 코드를 ` · `로 이어 붙이고 생성 문장은 보이지 않음. 접수 거절(400·403·503)도 같은 형식. LLM 꺼짐은 기존 LLM 가용성 패턴(`<항목> · generation_service_unavailable`, 버튼 비활성). 항목 = 프로토콜 설정 상세 "경로 설명", 알림 상세 "설명"
+- 위치·조건(WebUI 구현): 프로토콜 설정 상세는 관측 경로 초안을 읽은 뒤, 그 인터페이스가 초안에 있거나 현재 운영 버전에 등록돼 있을 때 "LLM 설명" 칸(`jobId` = 초안 작업, `ruleSetRevision` = 현재 운영 버전). 알림 상세 = 판정 상세(알림에서 이동하는 화면)에서 관리자·최종 판정·`evidence.protocolReview`가 알림 목록과 같은 판별을 통과할 때(`decisionId` = 그 판정). 같은 대상의 기존 작업은 최근 `explain_protocol` 작업 100개(`GET /api/jobs?kind=explain_protocol`) 중 입력이 같은 작업(실패 아닌 최근 작업 먼저)을 이어서 보이고, 그 밖은 요청 때 서버 재사용(1절)이 돌려준다. 결과 형식이 6절과 다른 성공 작업은 `<항목> 실패 · protocol_explanation_result_unreadable`(화면 전용 코드)
 
 ## 12. 결정 결과 (11/14 사용자, WebUI 경유 — 추천안대로)
 
@@ -183,5 +184,5 @@ Status: draft
 | Q-P2 | `generation_service_unavailable` 재시도: 없음(즉시 실패) vs explain처럼 재시도 | **재시도 없이 실패** [확정 11/14 사용자] — 접수 가용성 차단(503)이 먼저 막고, 대화형이라 빨리 실패해 [다시 요청]이 낫다(현재 구현 그대로) |
 | Q-P3 | 큐: `llm_explanation` 재사용 vs 새 큐 | **재사용**(8절). 따로 묻지 않았고, 승인된 migration 027의 CHECK가 이 작업을 `llm_explanation` 큐로 고정하므로 그 승인으로 함께 정해짐 |
 | Q-P4 | migration 027·역할 GRANT 1줄 | **승인** [확정 11/14 사용자]. GRANT는 표 단위 SELECT. 대안 열 단위 `GRANT SELECT(revision, snapshot) ON ops_rule_set_revisions TO powercode_llm`(필요한 열만, 단 015 권한 시험이 열 권한을 보도록 바꿔야 하고 열이 늘면 다시 GRANT)은 **채택 안 함**. 실제 PostgreSQL 시험은 9절 미검증 줄대로 남음 |
-| Q-P5 | 화면 문구(11절)·실패 코드 문구(7절) | 미정 — 이번 결정 범위 밖. WebUI가 사용자 승인을 받아 확정(그때까지 [후보]) |
+| Q-P5 | 화면 문구(11절)·실패 코드 문구(7절) | 11절 화면 문구 **확정** [확정 11/14 사용자, WebUI 경유]. 실패는 코드 그대로 보이므로 7절 문구·점검 사유 이름은 [후보]로 남고 화면에 쓰지 않음 |
 | Q-P6 | API 접수에서 대상·사실 존재를 확인할지 | **확인하고 없으면 400** [확정 11/14 사용자] — 10절 접수 검증 행(코드 `protocol_explanation_target_not_found`·`protocol_explanation_facts_unavailable`), 워커 검사는 방어용으로 유지 |

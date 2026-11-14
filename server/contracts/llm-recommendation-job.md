@@ -1,5 +1,5 @@
 Created: 2026-10-21T00:00:00+09:00
-Updated: 2026-11-14T18:00:00+09:00
+Updated: 2026-11-15T12:00:00+09:00
 Author: Claude Code (Trainer 세션 builder, 6·7차 LLM 세션 builder)
 Status: draft
 
@@ -13,6 +13,7 @@ Status: draft
 - 5차 정정(11/13, LLM 세션): 설명 전용 소비자 추가, 생성 서비스 GPU 차례를 대화형 설명 우선으로 — `explain` 대기 상한 `LLM_EXPLANATION_WAIT_SECONDS`·오류 코드 `generation_busy` 추가(아래 GPU 차례 절). 작업 종류·결과 형식·추천 생성 시간·출력 한도는 그대로
 - 6차 정정(11/14, 사용자 결정·LLM 세션 초안): 생성 서비스 가용성 — `GET /api/llm/status` 신설, 꺼져 있으면 `POST /api/jobs`의 LLM 작업(`explain`·`recommend_thresholds`)을 503 `generation_service_unavailable`로 접수 거절(작업·멱등키 없음), 화면은 요청 버튼 비활성 + 코드(아래 가용성 절). 작업 형식·결과 형식은 그대로
 - 7차 개정 초안(11/14, LLM 세션): **Rule v3 경로(`llm_spec.model_version=rule_v3`) 추가**. 결과 형식 `threshold-recommendation-v1`은 그대로이고 필드만 추가(`heldWindowExclusion`, 항목 `basis`·`attempts`, `data.referenceRatio`·`referenceRows`·`currentRows`, `evidence.currentN`). 실행 중 진행률 `resultSummary.progress`. rule_v2 경로 동작은 그대로(진행률·`basis`·`heldWindowExclusion: null`만 추가). 아래 "Rule v3 경로" 절. API의 `llm_spec` 값 전환은 API·WebUI 세션 몫(변경점은 마이그레이션·코드 영향 절) — 반영됨(11/14, `llm_spec` 행·공용 예시 [llm-recommendation-job.example.json](llm-recommendation-job.example.json))
+- 9차 보강(11/15, 동작 설명만): Rule v3 필드 병렬 처리(선택, `LLM_REPLICA_GPUS`) — 아래 Rule v3 경로 절 "GPU 복제본". 작업·결과 형식·항목 내용과 순서·실패 코드는 그대로
 - 8차 정정(11/14, LLM 세션): `input_spec.ruleSetContentHashVersion`에 3 허용 — 룰 세트 hash v3([rule-set.md](rule-set.md) 룰 세트 v3 절)로 저장된 리비전에서도 작업이 `invalid_rule_set_reference`로 끝나지 않게 워커 검사를 1·2·3으로 넓힘. 작업·결과 형식은 그대로
 - 계약 버전: `threshold-recommendation-v1`. 근거 코드 origin/dev `7f24e03`: `worker/research_design.py:36-44`(summary·p95 `np.quantile` linear), `:154-199`(`rule_request` — 기준선 = train 분할·anomaly 라벨 제외 p95, `minimum_n 20`, 단위 `count|ratio|ms|s|us`), `:202-234`(`recommend_rules` — 변수당 LLM 1회 순차, 검증 탈락은 변수만 제외, `str(request["baseline"]["value"])`로 DSL 값 생성), `worker/generation_client.py:54-55`(`TimeoutError`를 `generation_service_unavailable`로 묶음), `backend/src/rules/ruleContract.ts:17`(DSL 십진수 정규식, 지수 표기 거부)
 - 상위 결정: 사용자 11/02 결정 — 임계값 산출 주체(8.1), AI 추천 단위 일괄 + 규칙별 수식(R5), 현재 코드 실행 조사(9.1), 화면 설계(9.2: (가)(나) 모두 담고 (가)로 먼저 연결). 절 번호는 총괄 기록 기준
@@ -157,6 +158,7 @@ Status: draft
 - 보류 창: 번들 입장 검사는 기간이 9/30~10/2 보류 창과 겹치면 거부한다. 워커는 겹치면 **회피 규칙**으로 진행한다: 해석된 START·END 시각의 [최소, 최대]가 창 `[2026-09-30T00:00+09:00, 2026-10-03T00:00Z)`(보류 날짜는 시간대 없는 KST 날짜라 하한을 KST로, 상한은 UTC로 둔 보수적 경계)와 겹치는 거래를 통째로 빼고, **창 뒤쪽(≥ 10/03 00:00Z)만** 남겨 나누며, 뒤쪽으로 나눌 수 없으면 **앞쪽(< 9/30 00:00 KST)만** 남긴다. 참조 기간은 첫 참조 시각부터 현재 시작까지라 창 양쪽 데이터를 함께 쓰면 기간이 창을 덮으므로 한쪽만 남긴다. 뺀 행(창 거래 행 + 버린 쪽 행) 수를 `heldWindowExclusion`에 적는다. 빼고 나서 한 필드 표본이 부족하면 그 필드 `no_applicable`, 어느 쪽도 나눌 수 없으면 작업 `failed` + `recommendation_input_empty`
 - 시간: 생성 시도 1회 상한 `LLM_RECOMMENDATION_SECONDS`(기본 240초, 시도 동안만 Base `generation_config.max_time`으로 둠). 끊긴 시도는 수리로 넘기지 않고 작업 `failed` + `generation_timeout`(위 실패 절 규칙). 필드 최대 6개 × 시도 2회라 최악 약 48분 + CPU 처리, 주말 실측 시도당 64~102초
 - GPU 차례: 생성 시도 1회마다 작업 차례를 따로 잡는다(설명이 시도 사이에 먼저 들어감). 시도가 길어 그 사이 설명 요청이 대기 상한 10초를 넘겨 `generation_busy`가 나는 일이 rule_v2보다 잦을 수 있다
+- GPU 복제본(9차, 선택): `LLM_REPLICA_GPUS`(override `infra/compose.llm-multi-gpu.yaml`)가 있으면 GPU마다 별도 프로세스에 같은 모델(같은 Rule v3 export, 어댑터 SHA 대조)을 올리고 한 작업의 필드를 비어 있는 실행기에 나눠 동시에 처리한다. 실행기 순서는 복제본 먼저, 주 프로세스(설명 담당 GPU)는 맨 뒤라 필드가 적으면 주 GPU를 설명에 비워 둔다. 결과 `items`는 직렬과 같은 필드 순서·내용이고 `adapterSha`도 같다. 진행률 `resultSummary.progress.processed`는 완료한 필드 수(필드 순서와 무관하게 하나씩 증가). 한 필드라도 작업 실패 예외가 나면 시작 안 한 필드는 돌리지 않고 실행 중인 필드를 기다린 뒤, 필드 순서상 가장 앞 필드의 실패 코드로 작업이 끝난다(직렬과 같은 코드 집합). 복제본 프로세스가 실행 중 죽으면 그 필드는 생성 장애(`GenerationUnavailable`, 내부 코드 `generation_failed`)로 이 시도가 끝나 기존 생성 장애와 같은 재시도 규칙을 따르고, 그 복제본은 이후 시도·작업에서 빠진다. 복제본 적재 실패·어댑터 불일치는 그 장만 끄고 시작 로그 `rule_v3_replica_disabled: <gpu> <코드>`, 준비 전·전부 꺼진 동안은 준비된 실행기(최소 주 프로세스)로만 돈다. 복제본은 Rule v3 필드만 받고 설명·rule_v2는 주 프로세스 그대로
 
 ### 결과 추가 필드(형식 버전 v1 유지)
 

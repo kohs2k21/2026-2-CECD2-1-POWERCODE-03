@@ -124,6 +124,8 @@ class DesignModel:
         self.model.load_adapter(str(self.root / "design/adapters/rule_v2"), adapter_name="rule", is_trainable=False)
         self.model.eval()
         self.gate = GenerationGate()
+        # Rule v3 필드를 나눠 받을 GPU 복제본(generation_replicas.ReplicaPool). llm_worker가 시작 뒤에 붙인다.
+        self.rule_v3_replicas = None
         # Rule v3(임계값 추천 rule_v3 경로)는 같은 Base를 공유한다. HTTP `/generate`에는 노출하지 않는다.
         self.attach_rule_v3(rule_v3_bundle, base)
 

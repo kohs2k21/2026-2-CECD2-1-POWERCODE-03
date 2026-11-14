@@ -6,6 +6,7 @@ import threading
 import unittest
 import uuid
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -223,8 +224,9 @@ class LlmWorkerMainTests(unittest.TestCase):
             self.assertEqual(role, "llm")
             self.assertTrue(restarted.wait(5), "explanation consumer was not restarted")
 
-        model, server = object(), MagicMock()
-        environment = {"DESIGN_MODEL_TOKEN": "t" * 32, "RESEARCH_BUNDLE_ROOT": "bundle", "RULE_MODEL_BASE_PATH": "base"}
+        model, server = SimpleNamespace(), MagicMock()
+        environment = {"DESIGN_MODEL_TOKEN": "t" * 32, "RESEARCH_BUNDLE_ROOT": "bundle", "RULE_MODEL_BASE_PATH": "base",
+                       "LLM_REPLICA_GPUS": ""}
         with patch.dict("os.environ", environment), patch.object(llm_worker, "load_dotenv"), \
                 patch.object(llm_worker, "EXPLANATION_RESTART_SECONDS", 0.01), \
                 patch("generation_service.DesignModel", return_value=model), \
@@ -239,6 +241,7 @@ class LlmWorkerMainTests(unittest.TestCase):
                 thread.join(5)
                 self.assertFalse(thread.is_alive())
         set_local_model.assert_called_once_with(model)
+        self.assertIsNone(model.rule_v3_replicas, "no replica GPUs configured")
         self.assertIn("llm", roles)
         self.assertGreaterEqual(roles.count("llm_explanation"), 2)
         self.assertIn("explanation consumer failed", logs.output[0])

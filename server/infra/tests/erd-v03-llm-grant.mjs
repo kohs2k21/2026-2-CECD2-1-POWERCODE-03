@@ -11,17 +11,26 @@ export const LLM_PREPARED_GRANT =
   'GRANT SELECT(created_job_id,status,validation_result),UPDATE(status,validation_result) ON data_prepared_datasets TO powercode_llm;';
 const GRANTED = [['SELECT','created_job_id'],['SELECT','status'],['SELECT','validation_result'],['UPDATE','status'],['UPDATE','validation_result']];
 
+// pg_queue.reconcile_dead_jobs statements for the training queue, read as text (no runtime import). Known f-string
+// placeholders are substituted: {_table(queue)} and the module constant {CLEAR_PROGRESS} (value read from the same file).
+// Callers assert no braces remain, so a new placeholder fails the test instead of reaching PostgreSQL.
+export async function reconcileStatements(infra) {
+  const pgQueue = await readFile(join(infra, '..', 'worker', 'pg_queue.py'), 'utf8');
+  const clearProgress = pgQueue.match(/^CLEAR_PROGRESS = "([^"\n]*)"$/m);
+  assert(clearProgress, 'pg_queue.CLEAR_PROGRESS constant present');
+  const start = pgQueue.indexOf('def reconcile_dead_jobs');
+  assert(start >= 0, 'pg_queue.reconcile_dead_jobs present');
+  const end = pgQueue.indexOf('\ndef ', start + 1);
+  return [...pgQueue.slice(start, end < 0 ? undefined : end).matchAll(/cur\.execute\(f"""([\s\S]*?)"""\)/g)]
+    .map(m => m[1].replaceAll('{_table(queue)}', 'powercode_queue.training_jobs').replaceAll('{CLEAR_PROGRESS}', clearProgress[1]));
+}
+
 export async function llmPreparedGrant81({ Client, port, connection, check, failures, migrations, rolesSql, insert, infra }) {
   const fail = (label, detail) => { failures.push(label); console.log(`FAIL ${label}${detail ? ': '+detail : ''}`); };
   const pass = (label, ok, detail) => ok ? check(label) : fail(label, detail);
 
   // Exact reconcile_dead_jobs SQL for the training queue.
-  const pgQueue = await readFile(join(infra, '..', 'worker', 'pg_queue.py'), 'utf8');
-  const start = pgQueue.indexOf('def reconcile_dead_jobs');
-  assert(start >= 0, 'pg_queue.reconcile_dead_jobs present');
-  const end = pgQueue.indexOf('\ndef ', start + 1);
-  const reconcile = [...pgQueue.slice(start, end < 0 ? undefined : end).matchAll(/cur\.execute\(f"""([\s\S]*?)"""\)/g)]
-    .map(m => m[1].replaceAll('{_table(queue)}', 'powercode_queue.training_jobs'));
+  const reconcile = await reconcileStatements(infra);
   assert.equal(reconcile.length, 2, 'reconcile_dead_jobs has the attempt-expiry and job-failure statements');
   assert(reconcile.every(s => !/[{}]/.test(s)), 'reconcile SQL fully substituted');
   assert.equal(rolesSql.split(LLM_PREPARED_GRANT).length, 2, 'database-roles.sql carries the #81 grant exactly once');

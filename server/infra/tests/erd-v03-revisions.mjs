@@ -235,10 +235,22 @@ export async function revisions015({ Client, port, connection, check, failures, 
         await rejected(`detector INSERT ${table} denied`, '42501', () => put(detector, table, table === POLICY ? policyRow(99) : table === RULE ? ruleRow(99) : activeRow(99)));
       }
       await rejected('api cannot lock the current row with FOR UPDATE (common advisory lock instead)', '42501', () => api.query(`SELECT revision FROM ${RULE} ORDER BY revision DESC LIMIT 1 FOR UPDATE`));
+      // Collector reads none of them. LLM reads rule set history only (explain_protocol, #180 grant in database-roles.sql) and writes nothing.
       for (const role of ['collector','llm']) {
         const denied = await openLogin(role);
-        try { for (const rel of [...TABLES, VIEW]) await rejected(`${role} SELECT ${rel} denied`, '42501', () => denied.query(`SELECT * FROM ${rel}`)); }
-        finally { await denied.end(); }
+        try {
+          for (const rel of [...TABLES, VIEW]) {
+            if (role === 'llm' && rel === RULE) {
+              const rows = await denied.query(`SELECT revision FROM ${RULE}`).then(r => r.rows, e => e);
+              verdict(Array.isArray(rows) && rows.length > 0, `llm SELECT ${RULE} allowed (explain_protocol, #180 grant)`, rows?.message ?? JSON.stringify(rows));
+            } else await rejected(`${role} SELECT ${rel} denied`, '42501', () => denied.query(`SELECT * FROM ${rel}`));
+          }
+          if (role === 'llm') {
+            await rejected(`llm INSERT ${RULE} denied`, '42501', () => put(denied, RULE, ruleRow(99)));
+            for (const [verb, sql] of [['UPDATE', `UPDATE ${RULE} SET note='x'`], ['DELETE', `DELETE FROM ${RULE}`]])
+              await rejected(`llm ${verb} ${RULE} denied`, '42501', () => denied.query(sql));
+          }
+        } finally { await denied.end(); }
       }
       // Trainer records the revisions in its results: it reads the view and writes nothing.
       const trainer = await openLogin('trainer');

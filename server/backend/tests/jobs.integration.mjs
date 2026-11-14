@@ -359,6 +359,8 @@ try {
   const review = { version: 1, kind: 'interface_unregistered', interfaceId: 'IF_SYN_NEW', protocolRuleId: null, ruleSetRevision: protocolRevision,
     routes: [{ channels: ['CH_N', 'CH_M'], pathKey: 'CH_N:CH_M', matched: false }], routesReason: null };
   const alertDecision = await decision({ protocolReview: review });
+  const unmatchedDecision = await decision({ protocolReview: { ...review, kind: 'path_unmatched', interfaceId: 'IF_REGISTERED_ONLY',
+    protocolRuleId: null, routes: [{ channels: ['CH_A', 'CH_C'], pathKey: 'CH_A:CH_C', matched: false }] } });
   const noReviewDecision = await decision({});
   const v2ReviewDecision = await decision({ protocolReview: { ...review, version: 2 } });
   const otherKindDecision = await decision({ protocolReview: { ...review, kind: 'path_matched' } });
@@ -373,6 +375,8 @@ try {
   const refuse = async (body, status, code, label, who = token) =>
     assert.deepEqual(await request(base, '/api/jobs', 'POST', who, body, refusedKey), { status, body: { code } }, label);
   await refuse(observed(), 403, 'admin_required', 'admin only', userToken);
+  await refuse({ ...observed(), sourceId: crypto.randomUUID() }, 404, 'source_not_found', 'unknown source (same as other /api/jobs kinds)');
+  assert.deepEqual(await request(base, '/api/jobs', 'POST', token, observed(), 'bad key!'), { status: 400, body: { code: 'invalid_idempotency_key' } }, 'idempotency key format');
   for (const [label, body] of [
     ['extra key', { ...observed(), decisionId: alertDecision }],
     ['extra target key', observed({ decisionId: alertDecision })],
@@ -406,12 +410,13 @@ try {
     ['protocolReview blank interface', alert(blankInterfaceDecision)],
   ]) await refuse(body, 400, 'protocol_explanation_facts_unavailable', label);
   assert.deepEqual(await protocolRows(), protocolBefore, 'refused explain_protocol requests leave no job or queue message');
-  // 정상 접수 3가지: 초안에만 있음, 룰 세트에만 등록, 알림. 거절에 쓴 멱등키로 바로 201(키가 남지 않았음).
+  // 정상 접수 4가지: 초안에만 있음, 룰 세트에만 등록, 알림 2종(미등록 인터페이스·처음 보는 경로). 거절에 쓴 멱등키로 바로 201(키가 남지 않았음).
   const fixed = Object.fromEntries(Object.entries(protocolExample.llmSpec).filter(([key]) => !['input_evidence_hash', 'reuse_key'].includes(key)));
   for (const [label, body, decisionId, key] of [
     ['observed in drafts only', observed(), null, refusedKey],
     ['registered only', observed({ interfaceId: 'IF_REGISTERED_ONLY', jobId: upperSourceJob }), null, crypto.randomUUID()],
     ['alert', alert(alertDecision), alertDecision, crypto.randomUUID()],
+    ['path_unmatched alert', alert(unmatchedDecision), unmatchedDecision, crypto.randomUUID()],
   ]) {
     const created = await request(base, '/api/jobs', 'POST', token, body, key);
     assert.equal(created.status, 201, `${label}: ${JSON.stringify(created.body)}`);
@@ -432,9 +437,9 @@ try {
     assert.deepEqual(Object.values(await request(base, '/api/jobs', 'POST', token, observed({ interfaceId: 'IF_SYN_ORDER' }), key)),
       [409, { code: 'idempotency_payload_conflict' }], `${label}: idempotency`);
   }
-  assert.deepEqual(await protocolRows(), { jobs: protocolBefore.jobs + 3, queued: protocolBefore.queued + 3 }, 'one job and one queue message per accepted target');
+  assert.deepEqual(await protocolRows(), { jobs: protocolBefore.jobs + 4, queued: protocolBefore.queued + 4 }, 'one job and one queue message per accepted target');
   const protocolList = await request(base, '/api/jobs?kind=explain_protocol', 'GET', token);
-  assert.deepEqual([protocolList.status, protocolList.body.items.length], [200, 3], 'job list kind filter');
+  assert.deepEqual([protocolList.status, protocolList.body.items.length], [200, 4], 'job list kind filter');
   console.log('job API integration passed: auth, idempotency, durable queue, role gate, feature-bound rule adoption, LLM availability gate, explain_protocol intake');
 } finally {
   await llmHealth.close();

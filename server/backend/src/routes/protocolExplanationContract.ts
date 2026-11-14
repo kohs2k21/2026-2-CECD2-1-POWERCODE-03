@@ -21,6 +21,7 @@ export const PROTOCOL_EXPLANATION_LLM_SPEC = {
 } as const;
 /** 워커 INTERFACE_ID_MAX(문자 수 = 코드 포인트 수, Python len과 같음). */
 const INTERFACE_ID_MAX = 512;
+// 워커보다 엄격한 곳(정상 데이터에서는 차이 없음): UUID는 기존 /api/jobs 정규식(워커 uuid.UUID는 버전·변형 자리를 보지 않음), 초안 version은 숫자 1만(워커는 Python `True == 1`로 JSON true도 받음).
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 /** jsonb에 담을 수 없는 문자(NUL·짝 없는 대리 문자). 저장 오류(503) 대신 형식 오류로 거절한다. */
 const NOT_STORABLE = /\u0000|[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/;

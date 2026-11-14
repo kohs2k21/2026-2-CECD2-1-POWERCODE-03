@@ -367,6 +367,7 @@ const listCalls = () => requested.filter((r) => r.path === "/api/analysis/decisi
   assert.ok(shown.includes("당시 운영 머신러닝 모델") && shown.includes("iforest(sklearn-iforest)"));
   assert.ok(!/3000|기한|탐지 모드|당시 룰 수|탐지 작업/.test(shown), "deadline number, policy and non-wireframe rows are not shown");
   assert.ok(!shown.includes("당시 룰 버전"), "rule revision row only when v4 evidence stores it");
+  assert.ok(!shown.includes("룰 변경 기록 보기") && !shown.includes("당시 머신러닝 모델") && !app.renderer.root.findAll((node) => node.props["data-admin-links"]).length, "admin links are admin only");
   // 섹션 이름·아이콘(사용자 11/04): AI 설명 → AI 판정 근거 요약(IconBrain), Process Flow(IconBinaryTree), 위험도 미정이면 판정 요약 아이콘 없음
   assert.ok(!shown.includes("AI 설명"), "old section name is gone");
   assert.deepEqual(iconNames(headingOf(app, "AI 판정 근거 요약")), ["brain"]);
@@ -493,9 +494,9 @@ const listCalls = () => requested.filter((r) => r.path === "/api/analysis/decisi
     { methodId: "hard:process-status", category: "hard", methodVersion: "process-status-hr-v1", status: "succeeded", anomalous: false, riskLevel: null, elapsedMs: 9.1, evidence: [] },
     { methodId: "soft:retry_count-1a2b3c4d", category: "soft", status: "succeeded", anomalous: true, severity: "warning", riskLevel: "warning", elapsedMs: 9.3,
       condition: { field: "retry_count", operator: "gte", threshold: "3", unit: "회" }, observedValue: "4", evidence: [] },
-    { methodId: "ml:iforest", category: "ml", status: "succeeded", anomalous: true, riskLevel: null, riskLevelReason: "level_undefined", elapsedMs: 21.7, score: 0.71,
+    { methodId: "ml:iforest", category: "ml", modelVersionId: "7f3a9c21-0000-4000-8000-000000000001", status: "succeeded", anomalous: true, riskLevel: null, riskLevelReason: "level_undefined", elapsedMs: 21.7, score: 0.71,
       scoreDetail: { raw: 0.71, threshold: "0.61", direction: "higher_is_anomaly", normalized: { kind: "threshold_ratio", value: 1.164 } }, evidence: [] },
-    { methodId: "ml:lof", category: "ml", status: "not_ready", anomalous: null, cause: "timeout", elapsedMs: 3001, evidence: [] },
+    { methodId: "ml:lof", category: "ml", modelVersionId: "0b12cd34-0000-4000-8000-000000000002", status: "not_ready", anomalous: null, cause: "timeout", elapsedMs: 3001, evidence: [] },
   ];
   const evidence = { schemaVersion: 4, anomalous: true, ruleSetRevision: 13, rules: [{ ruleKey: "process-status", result: "no_hit", observedStatus: "S" }],
     detectionPolicy: { version: 2, k: { hard: 1, soft: 1, ml: 2 }, deadlineMs: 3000 }, methodResults: methods,
@@ -546,6 +547,25 @@ const listCalls = () => requested.filter((r) => r.path === "/api/analysis/decisi
     `${stampTime("2026-11-03T02:09:00Z")}조치 기록 · admin@example.test재처리 확인`]);
   assert.equal(requested.filter((r) => r.method === "GET" && r.path.endsWith("/feedback")).length, 1, "admins read records with the detail");
   assert.equal(app.renderer.root.findByType(WorkflowRecordDialog).props.open, false);
+  // 종합 근거 설명 문단(와이어프레임 dCatsNote 문구 그대로)
+  assert.equal(text(app.renderer.root.find((node) => node.props["data-category-note"] === "true").children),
+    "세부 방법 → 대분류 → 종합. 대분류마다 결과를 정한 뒤 종합합니다. 이상 규칙 대분류가 이상이면 이상, 이상 징후 규칙·머신러닝 모델 대분류만 이상이면 이상 징후, 켠 대분류가 모두 정상 확인일 때만 이상 신호 없음, 그 밖은 정상 여부 미확인.");
+  // 관리자 링크(와이어프레임 dAdminLinks): 룰 변경 기록(룰 설정 변경 기록 영역) + ML 방법에 기록된 모델 버전마다 그 버전 상세(ID 앞 8자리, 전체 ID 툴팁). 관련 평가는 평가 ID가 없어 없음
+  const adminLinks = () => app.renderer.root.find((node) => node.type === "div" && node.props["data-admin-links"] === "true").findAll((node) => node.type === "a");
+  assert.deepEqual(adminLinks().map((a) => [text(a.children), a.props.href]), [
+    ["룰 변경 기록 보기", "/detection/rules#rules-history"],
+    ["당시 머신러닝 모델 7f3a9c21 보기", "/detection/models/7f3a9c21-0000-4000-8000-000000000001"],
+    ["당시 머신러닝 모델 0b12cd34 보기", "/detection/models/0b12cd34-0000-4000-8000-000000000002"],
+  ]);
+  assert.equal(adminLinks()[1].props.title, "7f3a9c21-0000-4000-8000-000000000001");
+  assert.ok(!app.shown().includes("관련 평가 보기"), "no evaluation link without a linked evaluation id");
+  // 당시 모델 → 모델 버전 상세: 탐지 설정 뒤로가기가 이 판정 상세로 돌아온다
+  await act(async () => adminLinks()[1].props.onClick({ button: 0, metaKey: false, altKey: false, ctrlKey: false, shiftKey: false, defaultPrevented: false, preventDefault() { this.defaultPrevented = true; } }));
+  await wait(() => app.router.state.location.pathname === "/detection/models/7f3a9c21-0000-4000-8000-000000000001", "model version detail opened");
+  assert.deepEqual(app.router.state.location.state, { returnTo: "/analysis/d/d-4" });
+  const backBar = () => app.renderer.root.findAll((node) => node.type === "a" && node.props["aria-label"] === "뒤로 · 판정 상세");
+  await wait(() => backBar().length === 1, "detection back bar returns to the decision");
+  assert.equal(backBar()[0].props.href, "/analysis/d/d-4");
   await app.cleanup();
 }
 

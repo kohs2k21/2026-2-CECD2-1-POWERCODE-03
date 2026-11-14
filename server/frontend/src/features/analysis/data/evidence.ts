@@ -117,6 +117,8 @@ export type MethodResult = {
   failureCode: string | null;
   elapsedMs: number | null;
   score: number | null;
+  /** ML만: 사용한 모델 버전 ID(detection-decision.md 6절 `modelVersionId` = 모델 버전 상세 주소의 versionId). 없으면 null. */
+  modelVersionId: string | null;
   /** ML만: 원점수·판정선·판정선 대비(threshold_ratio). 판정선은 저장 문자열 그대로. */
   scoreDetail: { raw: number | null; threshold: string | null; ratio: number | null } | null;
   /** 판단 안 함(not_applicable) 등 방법 evidence 요약의 reason 코드. */
@@ -185,6 +187,7 @@ export const readEvidenceV4 = (evidence: Record<string, unknown> | null | undefi
         anomalous: bool(m.anomalous), code: text(m.code), severity: text(m.severity), riskLevel: text(m.riskLevel),
         riskLevelReason: text(m.riskLevelReason),
         cause: text(m.cause), failureCode: text(m.failureCode), elapsedMs: finite(m.elapsedMs), score: finite(m.score),
+        modelVersionId: category === "ml" ? text(m.modelVersionId) : null,
         scoreDetail: detail ? { raw: finite(detail.raw), threshold, ratio: normalized } : null,
         reasons: list(m.evidence).flatMap((entry) => text(entry.reason) ?? []),
         condition: condition ? { field: text(condition.field), operator: text(condition.operator), threshold: text(condition.threshold), unit: text(condition.unit) } : null,

@@ -210,6 +210,14 @@ export const evidenceGroupLabels: Record<EvidenceGroup, string> = {
   soft: "이상 징후 규칙",
   ml: "머신러닝 모델",
 };
+/**
+ * 판정 상세 관리자 링크(와이어프레임 dAdminLinks 문구 그대로): `룰 변경 기록 보기`, 모델 버전마다 `당시 머신러닝 모델 <버전> 보기`.
+ * <버전>은 머신러닝 모델 화면의 버전 표시와 같은 ID 앞 8자리. 와이어프레임 `관련 평가 보기`는 판정 데이터에 연결된 평가 ID가 없어 두지 않는다.
+ */
+export const adminLinkLabels = {
+  ruleHistory: "룰 변경 기록 보기",
+  model: (modelVersionId: string) => `당시 ${evidenceGroupLabels.ml} ${modelVersionId.slice(0, 8)} 보기`,
+} as const;
 export const RELATION_VIOLATION = "규약 위반";
 export const RELATION_HELD = "관계 확인 보류";
 /** 관계 규칙 판정 kind 화면 이름(규칙 추천 kindLabels와 같은 표 — rule-candidates-ui.md 8절). */

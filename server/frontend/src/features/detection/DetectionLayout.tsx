@@ -10,16 +10,37 @@ import { hashId, useActiveSection, useDetectionScroll } from "./useDetectionScro
 
 export type DetectionReturnState = { returnTo?: string };
 
-/** 하위 화면(상세·모델 교체)에서 돌아갈 주소: 같은 탐지 설정 안에서 넘겨받은 주소, 없으면 들어온 카드 영역(룰 설정 하위 목록) 또는 해당 메뉴 첫 화면. */
+/** 판정 상세(이상 분석)의 관리자 링크에서 온 경우 돌아갈 이름표(판정 상세 머리 줄과 같은 이름). */
+const DECISION_DETAIL_LABEL = "판정 상세";
+const BASE = "https://local.invalid";
+/** 넘겨받은 주소가 판정 상세(`/analysis/d/<판정 ID>`)면 그 주소(쿼리·해시 포함), 아니면 null. 외부·프로토콜 상대 주소는 거부. */
+const decisionReturn = (returnTo: string) => {
+  if (!returnTo.startsWith(paths.analysis + "/d/") || returnTo.startsWith("//")) return null;
+  try {
+    const url = new URL(returnTo, BASE);
+    return url.origin === BASE && /^\/analysis\/d\/[^/]+$/.test(url.pathname) ? url.pathname + url.search + url.hash : null;
+  } catch {
+    return null;
+  }
+};
+
+/**
+ * 하위 화면(상세·모델 교체)에서 돌아갈 주소: 같은 탐지 설정 안에서 넘겨받은 주소 또는 판정 상세 관리자 링크에서 넘겨받은 판정 상세 주소,
+ * 없으면 들어온 카드 영역(룰 설정 하위 목록) 또는 해당 메뉴 첫 화면.
+ */
 export const detectionBackTarget = (pathname: string, state: unknown) => {
   const menu = detectionMenu.find((item) => pathname.startsWith(item.to + "/"));
   if (!menu) return null;
   const returnTo = (state as DetectionReturnState | null)?.returnTo;
+  if (typeof returnTo === "string") {
+    const decision = decisionReturn(returnTo);
+    if (decision) return { to: decision, label: DECISION_DETAIL_LABEL };
+  }
   const target =
     typeof returnTo === "string" &&
     returnTo.startsWith(paths.detection + "/") &&
     !returnTo.startsWith("//") &&
-    new URL(returnTo, "https://local.invalid").pathname !== pathname
+    new URL(returnTo, BASE).pathname !== pathname
       ? returnTo
       : (detectionParentSection[pathname] ?? menu.to);
   return { to: target, label: detectionMenu.find((item) => target.startsWith(item.to))?.label ?? menu.label };

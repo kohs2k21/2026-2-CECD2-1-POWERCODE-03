@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
+import { paths } from "@/app/routes";
 import { IconArrowLeft, IconArrowsMaximize, IconArrowsMinimize } from "@tabler/icons-react";
 import { DescriptionList } from "@/components/layout/DescriptionList";
 import { SectionCard } from "@/components/layout/SectionCard";
@@ -7,6 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ErrorState, LoadingState } from "@/components/ui/feedback";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import type { DetectionReturnState } from "@/features/detection/DetectionLayout";
+import { detectionSections, sectionPath } from "@/features/detection/detectionToc";
 import { ProtocolExplanationCard } from "@/features/detection/rules/protocols/ProtocolExplanationCard";
 import { EXPLAIN_ALERT_BUTTON, alertRequest, hasProtocolReview } from "@/features/detection/rules/protocols/protocolExplanation";
 import { useAuthSession } from "@/services/auth/AuthSessionProvider";
@@ -17,6 +20,7 @@ import {
   DASH,
   RELATION_HELD,
   UNAVAILABLE,
+  adminLinkLabels,
   completenessText,
   evidenceGroupLabels,
   legacyRuleLabel,
@@ -82,11 +86,36 @@ const resultNode = (detail: DecisionDetail, v4: EvidenceV4 | null) => {
 };
 
 /**
+ * 관리자 링크(와이어프레임 dAdminLinks, 판정 요약 아래): 룰 설정의 변경 기록 영역 + v4 ML 방법에 기록된 모델 버전마다 그 버전 상세.
+ * 모델 버전 상세는 판정 상세 주소를 returnTo로 넘겨 탐지 설정 뒤로가기가 이 판정으로 돌아온다(룰 설정은 메뉴 첫 화면이라 뒤로가기 줄이 없다).
+ * 관련 평가는 판정 데이터에 평가 ID가 없어 링크를 두지 않는다(추정 금지).
+ */
+const AdminLinks = ({ v4 }: { v4: EvidenceV4 | null }) => {
+  const location = useLocation();
+  const state: DetectionReturnState = { returnTo: location.pathname + location.search };
+  const versionIds = [...new Set((v4?.methodResults ?? []).flatMap((m) => (m.category === "ml" && m.modelVersionId ? [m.modelVersionId] : [])))];
+  return (
+    <div className="flex flex-wrap gap-2" data-admin-links="true">
+      <Button asChild variant="outline" size="sm">
+        <Link to={sectionPath(paths.detectionRules, detectionSections.rulesHistory)}>{adminLinkLabels.ruleHistory}</Link>
+      </Button>
+      {versionIds.map((id) => (
+        <Button key={id} asChild variant="outline" size="sm">
+          <Link to={paths.detectionModel(id)} state={state} title={id}>
+            {adminLinkLabels.model(id)}
+          </Link>
+        </Button>
+      ))}
+    </div>
+  );
+};
+
+/**
  * 판정 요약: 와이어프레임 판정 상세 항목(판정 ID·판정 시각·당시 룰 버전·당시 운영 머신러닝 모델·판정 단계·판정 결과·검사 완료·위험도·
  * 입력 출처·업무 분류·거래 ID·프로세스·인터페이스 · 채널·로그 상태 · 응답 코드) 중 저장값이 있는 것만 + 최종 판정의 판정 코드·이상 점수·수행 상태.
  * 처리 시간은 PROCESS 원천 속성이 없어 생략. 판정 기한·정책 k는 보이지 않는다(사용자 9.8·C23).
  */
-const SummaryCard = ({ detail }: { detail: DecisionDetail }) => {
+const SummaryCard = ({ detail, isAdmin }: { detail: DecisionDetail; isAdmin: boolean }) => {
   const evidence = readEvidence(detail.evidence);
   const v4 = readEvidenceV4(detail.evidence);
   const ruleSetRevision = v4?.ruleSetRevision ?? null;
@@ -145,6 +174,7 @@ const SummaryCard = ({ detail }: { detail: DecisionDetail }) => {
       <DescriptionList items={items.map((item) => ({ ...item, key: item.label }))} />
       {/* 와이어프레임 dRiskTable: 판정마다 기록된 위험도 단계표 버전(v4 composite.risk.levelTable이 있을 때만) */}
       {v4?.risk?.levelTable && <p className="text-xs text-muted-foreground">위험도 기준 표 {v4.risk.levelTable}</p>}
+      {isAdmin && <AdminLinks v4={v4} />}
     </SectionCard>
   );
 };
@@ -326,7 +356,7 @@ export const DecisionDetailView = ({
               <DecisionTimeline entries={mergeTimeline(timelineEntries(detail, interims.data), extra)} />
             )}
           </SectionCard>
-          <SummaryCard detail={detail} />
+          <SummaryCard detail={detail} isAdmin={isAdmin} />
           {(detail.kind === "final" || readEvidenceV4(detail.evidence)) && <EvidenceCard detail={detail} />}
         </>
       )}

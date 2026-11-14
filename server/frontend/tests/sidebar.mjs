@@ -142,6 +142,11 @@ assert.deepEqual(
   { to: "/detection/evaluations", label: "평가 결과" },
   "self return falls back to the menu page",
 );
+// 판정 상세 관리자 링크(당시 머신러닝 모델 보기)에서 온 경우: 뒤로가기는 그 판정 상세(목록 조건 쿼리 포함). 판정 상세 밖 이상 분석·외부·프로토콜 상대 주소는 거부
+assert.deepEqual(detectionBackTarget("/detection/models/v1", { returnTo: "/analysis/d/d-4?category=anomaly" }), { to: "/analysis/d/d-4?category=anomaly", label: "판정 상세" });
+for (const returnTo of ["/analysis", "/analysis/d/", "/analysis/d/d-4/flow", "//evil.test/analysis/d/d-4", "https://evil.test/analysis/d/d-4", "/analysis/d/../../x", "/analysis/incidents/i-1"])
+  assert.deepEqual(detectionBackTarget("/detection/models/v1", { returnTo }), { to: "/detection/models", label: "머신러닝 모델" }, `rejected ${returnTo}`);
+assert.equal(detectionBackTarget("/detection/rules", { returnTo: "/analysis/d/d-4" }), null, "menu page still has no back target");
 // 룰 설정 카드에서 들어가는 하위 목록: 넘겨받은 주소가 없어도(상세에서 돌아온 뒤·새로고침) 뒤로가기는 그 카드 영역
 assert.deepEqual(detectionBackTarget("/detection/rules/response-codes", null), { to: "/detection/rules#rules-response-codes", label: "룰 설정" });
 assert.deepEqual(detectionBackTarget("/detection/rules/protocols", null), { to: "/detection/rules#rules-protocols", label: "룰 설정" });

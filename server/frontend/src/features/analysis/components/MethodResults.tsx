@@ -6,6 +6,7 @@ import {
   DASH,
   RELATION_HELD,
   RELATION_VIOLATION,
+  categoryLabels,
   evidenceGroupLabels,
   handoffLabels,
   methodLabel,
@@ -15,6 +16,7 @@ import {
   responseCodeText,
   riskLevelLabels,
   runLabels,
+  signalLabels,
 } from "../labels";
 
 /**
@@ -25,6 +27,13 @@ import {
  */
 export const categoryNames: Record<MethodCategory, string> = { hard: "이상 규칙", soft: "이상 징후 규칙", ml: "머신러닝 모델" };
 const categoryOrder: MethodCategory[] = ["hard", "soft", "ml"];
+/**
+ * 종합 근거 설명 문단(와이어프레임 dCatsNote 문구 그대로). 용어는 화면 표의 대분류 이름·판정 결과 문구에서 가져온다.
+ * 종합 규칙은 detection-decision.md 등급 표(hard T → 이상, soft·ml만 T → 이상 징후, 켠 대분류 모두 N → 정상, 그 밖 미확인)와 같다.
+ */
+export const categoryNote =
+  `세부 방법 → 대분류 → 종합. 대분류마다 결과를 정한 뒤 종합합니다. ${categoryNames.hard} 대분류가 이상이면 ${categoryLabels.anomaly}, ` +
+  `${categoryNames.soft}·${categoryNames.ml} 대분류만 이상이면 ${categoryLabels.anomaly_sign}, 켠 대분류가 모두 정상 확인일 때만 ${signalLabels.no}, 그 밖은 ${signalLabels.unknown}.`;
 /** 와이어프레임 resultLabel(T/N/U/·) */
 const pending = (m: MethodResult) => m.status === "not_ready" && m.cause === "pending";
 const resultText = (m: MethodResult) => (m.anomalous === true ? (m.group === "relation" ? RELATION_VIOLATION : "이상") : m.anomalous === false ? "정상 확인" : pending(m) ? DASH : "미판정");
@@ -150,6 +159,7 @@ export const MethodResults = ({ evidence, observedStatus }: { evidence: Evidence
     <div className="grid gap-4">
       <div className="grid gap-2">
         <h3 className="text-sm font-medium">종합 근거</h3>
+        <p className="text-sm text-muted-foreground" data-category-note="true">{categoryNote}</p>
         <Table>
           <TableCaption>대분류 결과를 합산하거나 점수로 바꾸지 않습니다</TableCaption>
           <TableHeader>

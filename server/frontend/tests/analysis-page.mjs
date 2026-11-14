@@ -322,6 +322,43 @@ const listCalls = () => requested.filter((r) => r.path === "/api/analysis/decisi
   await workflowEntry.cleanup();
 }
 
+// 3b) 확인 결과별 완료·근거 구분(사용자 11/15): 관리자만 완료 아래 확인 결과 하위 항목(건수), 근거 선택은 주소·API에 반영(1쪽으로)
+{
+  const outcomeCounts = { ...counts, workflow_resolved: 4, workflow_resolved_actual_anomaly: 2, workflow_resolved_normal: 1, workflow_resolved_undetermined: 0 };
+  routes = { "GET /api/analysis/decisions": () => json({ ...listBody([item("d-1")]), counts: outcomeCounts }) };
+  requested.length = 0;
+  const admin = await mount("/analysis?category=workflow_resolved_normal&page=2", "admin");
+  await wait(() => admin.shown().includes("완료 · 정상 판정"), "outcome list heading");
+  await wait(() => admin.shown().includes("TX-d-1"), "outcome list rows");
+  assert.ok(listCalls()[0].search.includes("category=workflow_resolved_normal"), "outcome category reaches the API");
+  const side = admin.renderer.root.findByProps({ id: "analysis-categories" });
+  const subList = side.find((node) => node.props["data-slot"] === "side-nav-sub");
+  assert.deepEqual(subList.findAllByType("a").map((a) => [text(a.children), a.props["aria-current"]]),
+    [["실제 이상2", undefined], ["정상1", "page"], ["판단 불가0", undefined]], "sub items under 완료 with counts, current = page");
+  assert.ok(side.findAllByType("a").some((a) => text(a.children) === "완료4"), "완료 keeps its own count");
+  assert.deepEqual(iconNames(headingOf(admin, "완료 · 정상 판정")), ["circle-check"]);
+  assert.ok(subList.findAllByType("a")[0].props.href.includes("category=workflow_resolved_actual_anomaly") && !subList.findAllByType("a")[0].props.href.includes("page="));
+  // 근거 선택: 전체 + 판정 상세 근거 구분 이름
+  const basisTrigger = admin.renderer.root.find((node) => node.props["aria-labelledby"] === "analysis-basis-label" && node.props["data-slot"] === "select-trigger");
+  let basisSelect = basisTrigger;
+  while (basisSelect && !basisSelect.props.onValueChange) basisSelect = basisSelect.parent;
+  assert.equal(basisSelect.props.value, "all");
+  assert.equal(text(admin.renderer.root.find((node) => node.props.id === "analysis-basis-label").children), "근거");
+  await act(async () => basisSelect.props.onValueChange("relation"));
+  await wait(() => location(admin.router).includes("basis=relation"), "basis reaches the URL");
+  assert.equal(location(admin.router), "/analysis?category=workflow_resolved_normal&basis=relation", "basis keeps the category and resets the page");
+  await wait(() => listCalls().some((call) => call.search.includes("basis=relation") && call.search.includes("category=workflow_resolved_normal")), "basis reaches the API");
+  await admin.cleanup();
+  // user: 하위 항목 없음, 확인 결과별 주소는 완료로 replace(API에 확인 결과 분류를 보내지 않음)
+  requested.length = 0;
+  const user = await mount("/analysis?category=workflow_resolved_actual_anomaly&basis=ml", "user");
+  await wait(() => user.shown().includes("완료 판정"), "user falls back to 완료");
+  assert.equal(location(user.router), "/analysis?category=workflow_resolved&basis=ml");
+  assert.ok(listCalls().length > 0 && listCalls().every((call) => !call.search.includes("workflow_resolved_")), "user never requests an outcome category");
+  assert.equal(user.renderer.root.findByProps({ id: "analysis-categories" }).findAll((node) => node.props["data-slot"] === "side-nav-sub").length, 0);
+  await user.cleanup();
+}
+
 // 4) 상세(최종): 요약·판정 기록·근거, 설명 요청 → 작업 조회, 실패는 그대로 + 다시 요청
 {
   requested.length = 0;
@@ -1123,6 +1160,6 @@ const explainCard = (app) => app.renderer.root.find((node) => node.type === "div
 
 assert.equal(requested.some((r) => r.path.startsWith("/api/anomaly/events/")), false, "removed anomaly detail/feedback API is never called");
 assert.ok(requested.every((r) => r.path.startsWith("/api/")), "only same-origin API paths");
-console.log("analysis page QA passed: default risk view, result/risk/workflow sidebar and view switch, unread dot, risk cell, row links, search URL, SSE cursor with interim events "
+console.log("analysis page QA passed: default risk view, result/risk/workflow sidebar and view switch, admin-only outcome sub items under 완료 and basis select (URL + API), unread dot, risk cell, row links, search URL, SSE cursor with interim events "
   + "and single refetch, error/empty states, detail/timeline/evidence, process flow tree, read mark, workflow transitions and 409, admin 로그 분류하기 dialog (save then change, save failure keeps state, change failure keeps dialog, no double save, no close while pending), records in the timeline, list cause line, "
   + "v4 method tables, explain request/failure, blocked explain without polling, lookup failure blocks re-request, explain result typing only for a result arriving while watching (requested or watched queued job, no restart on refetch, sr-only full copy, existing result without motion, reduced motion = full text), final-only explain, protocol alert explanation (admin + protocolReview only, alert target, result/failure), 404, job→decision redirect, legacy address");

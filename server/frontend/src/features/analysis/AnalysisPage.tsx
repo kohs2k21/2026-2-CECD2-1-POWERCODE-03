@@ -8,8 +8,11 @@ import { SideNav, type SideNavGroup } from "@/components/layout/SideNav";
 import { paths } from "@/app/routes";
 import { getStored, setStored, storageKeys } from "@/lib/storage";
 import { motionTransition } from "@/lib/motion";
+import { useAuthSession } from "@/services/auth/AuthSessionProvider";
 import {
+  isOutcomeCategory,
   listSearch,
+  outcomeCategories,
   parseListSearch,
   resultCategories,
   riskCategories,
@@ -37,8 +40,11 @@ const isResult = (category: Category) => (resultCategories as readonly string[])
  * 사이드바(와이어프레임 analysisSide): 보기(위험도별 / 판정 결과별)에 따라 `위험도` 또는 `판정` 분류 + 아래 별도 구역 `분류함`(보류·완료).
  * 건수 = 서버 전체 기준(검색·필터와 무관). 다른 조건은 유지하고 페이지만 1로.
  * 분류 아이콘은 모든 그룹에 둔다(`icons.ts`, 사용자 11/05).
+ * activeId = SideNav 현재 항목(상세·사건 화면이면 null — 하위 항목도 현재 표시 없음).
+ * 관리자(admin=true)는 분류함 `완료` 아래에 확인 결과별 하위 항목(실제 이상·정상·판단 불가, 사용자 11/15)과 건수가 붙는다. 조사·조치 기록이 관리자 전용이라 user에게는 없다.
  */
-export const sidebarGroups = (params: ListParams, counts: DecisionList["counts"] | undefined, view: AnalysisView): SideNavGroup[] => {
+export const sidebarGroups = (params: ListParams, counts: DecisionList["counts"] | undefined, view: AnalysisView, admin = false,
+  activeId: string | null = params.category): SideNavGroup[] => {
   const item = (category: Category) => {
     const Icon = categoryIcons[category];
     return {
@@ -51,9 +57,20 @@ export const sidebarGroups = (params: ListParams, counts: DecisionList["counts"]
       muted: category === "risk_unrated" || undefined,
     };
   };
+  const outcomeSub = outcomeCategories.map((category) => ({
+    id: category,
+    label: categoryLabels[category],
+    count: counts?.[category] ?? undefined,
+    to: paths.analysis + listSearch({ ...params, category, page: 1 }),
+    current: activeId === category,
+    currentType: "page" as const,
+  }));
+  const workflowItems = workflowCategories.map((category) =>
+    admin && category === "workflow_resolved" ? { ...item(category), sub: outcomeSub } : item(category),
+  );
   return [
     view === "risk" ? { title: "위험도", items: riskCategories.map(item) } : { title: "판정", items: resultCategories.map(item) },
-    { title: "분류함", items: workflowCategories.map(item), separated: true },
+    { title: "분류함", items: workflowItems, separated: true },
   ];
 };
 
@@ -84,7 +101,13 @@ export const AnalysisPage = () => {
   const incidentFrom = useMemo(() => periodFrom(incidentQuery.period), [incidentQuery.period]);
   const incidentList = useIncidentList(incidentFrom, incidentQuery.cursor, incidentQuery.all, incidentsMode && !incidentId);
   const incidentDetail = useIncidentDetail(incidentsMode ? incidentId : "");
-  const { params, invalid } = parseListSearch(location.search);
+  const { user } = useAuthSession();
+  const isAdmin = user?.userType === "admin";
+  const parsed = parseListSearch(location.search);
+  // 확인 결과별 완료(관리자 전용) 주소를 user가 열면 완료로 replace(서버는 403).
+  const userOutcome = Boolean(user) && !isAdmin && isOutcomeCategory(parsed.params.category);
+  const params: ListParams = userOutcome ? { ...parsed.params, category: "workflow_resolved" } : parsed.params;
+  const invalid = parsed.invalid || userOutcome;
   const [isWide, setIsWide] = useState<boolean>(() => getStored(storageKeys.layoutWide("analysis"), false));
   const reduceMotion = useReducedMotion();
   // 보기: 위험도 분류면 위험도별, 판정 결과 분류면 판정 결과별, 분류함은 직전 보기를 유지한다.
@@ -150,7 +173,11 @@ export const AnalysisPage = () => {
     setIsWide(value);
     setStored(storageKeys.layoutWide("analysis"), value);
   };
-  const groups = useMemo(() => [...sidebarGroups(params, list.data?.counts, view), incidentNavGroup()], [params, list.data?.counts, view]);
+  const activeId = incidentsMode ? "incidents" : decisionId ? null : params.category;
+  const groups = useMemo(
+    () => [...sidebarGroups(params, list.data?.counts, view, isAdmin, activeId), incidentNavGroup()],
+    [params, list.data?.counts, view, isAdmin, activeId],
+  );
   // 와이어프레임 analysis-view: 보기를 바꾸면 그 보기의 전체 분류(위험도별 = 위험도 전체, 판정 결과별 = 전체)로, 1쪽.
   const viewSwitch = (
     <div role="group" aria-label="분류 보기" className="grid grid-cols-2 gap-1 px-1">
@@ -197,7 +224,7 @@ export const AnalysisPage = () => {
               transition={reduceMotion ? { duration: 0 } : motionTransition("layout", "standard")}
             >
               <div className="shrink-0 md:pr-6">
-                <SideNav label="판정 분류" menuId="analysis-categories" activeId={incidentsMode ? "incidents" : decisionId ? null : params.category} groups={groups} header={viewSwitch} />
+                <SideNav label="판정 분류" menuId="analysis-categories" activeId={activeId} groups={groups} header={viewSwitch} />
               </div>
             </motion.div>
           )}

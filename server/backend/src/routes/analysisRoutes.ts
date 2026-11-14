@@ -4,8 +4,8 @@ import { getDatabasePool } from '../config/database.js';
 import { authenticateToken, requireAdmin, AuthenticatedRequest } from '../middleware/auth.js';
 import { UserRepository } from '../repository/userRepository.js';
 import {
-  ANALYSIS_CATEGORIES, ANALYSIS_COMPLETENESS, ANALYSIS_PAGE_SIZES, ANALYSIS_QUERY_MAX, ANALYSIS_SIGNALS, ANALYSIS_SORTS,
-  readDecisionDetail, readDecisionFlow, readDecisionGraph, readDecisionInterims, readDecisionList, type AnalysisListFilter,
+  ANALYSIS_BASES, ANALYSIS_CATEGORIES, ANALYSIS_COMPLETENESS, ANALYSIS_PAGE_SIZES, ANALYSIS_QUERY_MAX, ANALYSIS_SIGNALS, ANALYSIS_SORTS,
+  isAdminCategory, readDecisionDetail, readDecisionFlow, readDecisionGraph, readDecisionInterims, readDecisionList, type AnalysisListFilter,
 } from '../services/analysisReadModel.js';
 import {
   AnalysisRequestError, FEEDBACK_KINDS, FEEDBACK_OUTCOMES, FEEDBACK_REASON_MAX, WORKFLOW_STATES,
@@ -20,7 +20,7 @@ import { registerIncidentRoutes } from './incidentRoutes.js';
  * - 기존 GET /api/pipeline/decisions·SSE /api/pipeline/events는 그대로 둔다.
  */
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const LIST_KEYS = ['category', 'q', 'signal', 'completeness', 'sort', 'page', 'pageSize'];
+const LIST_KEYS = ['category', 'q', 'signal', 'completeness', 'basis', 'sort', 'page', 'pageSize'];
 const single = (req: Request, key: string): string | undefined => {
   const value = req.query[key];
   if (value === undefined) return undefined;
@@ -50,6 +50,7 @@ export function parseListFilter(req: Request): AnalysisListFilter {
     q,
     signal: option(req, 'signal', ANALYSIS_SIGNALS, 'invalid_signal') ?? null,
     completeness: option(req, 'completeness', ANALYSIS_COMPLETENESS, 'invalid_completeness') ?? null,
+    basis: option(req, 'basis', ANALYSIS_BASES, 'invalid_basis') ?? null,
     sort: option(req, 'sort', ANALYSIS_SORTS, 'invalid_sort') ?? 'newest',
     page: Number(page),
     pageSize: Number(pageSize),
@@ -132,7 +133,11 @@ export function createAnalysisRouter(database: () => Pool = getDatabasePool, use
   };
 
   router.get('/decisions', route(async (req, res) => {
-    res.json(await readDecisionList(database(), parseListFilter(req), req.user!.id));
+    const filter = parseListFilter(req);
+    // 확인 결과별 완료 분류는 조사·조치 기록(관리자 전용)을 읽으므로 관리자만(requireAdmin과 같은 403 본문 code).
+    const admin = req.user!.userType === 'admin';
+    if (!admin && isAdminCategory(filter.category)) { res.status(403).json({ code: 'admin_required' }); return; }
+    res.json(await readDecisionList(database(), filter, req.user!.id, admin));
   }));
   router.get('/decisions/:id', route(async (req, res) => {
     found(res, await readDecisionDetail(database(), idOf(req), req.user!.id));

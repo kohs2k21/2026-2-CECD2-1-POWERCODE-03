@@ -15,8 +15,11 @@ export type SideNavItem = {
   /** 항목 아래 들여쓴 하위 목록(예: 탐지 설정 현재 메뉴의 화면 영역 목차). 펼칠 항목에만 넘긴다. */
   sub?: SideNavSubItem[];
 };
-/** 하위 목록 항목: 같은 화면 안 이동이면 replace(뒤로 가기에 쌓지 않음), current는 지금 보이는 영역(aria-current="location"). */
-export type SideNavSubItem = { id: string; label: ReactNode; to: To; replace?: boolean; current?: boolean };
+/**
+ * 하위 목록 항목: 같은 화면 안 이동이면 replace(뒤로 가기에 쌓지 않음), current는 지금 보이는 영역(aria-current="location").
+ * currentType="page"는 하위 항목이 별도 목록(예: 이상 분석 완료 아래 확인 결과별)이라 현재 항목을 aria-current="page"로 표시. count는 항목 오른쪽 건수.
+ */
+export type SideNavSubItem = { id: string; label: ReactNode; to: To; replace?: boolean; current?: boolean; currentType?: "page" | "location"; count?: number };
 /** separated: 위 그룹과 구분선으로 나눈 별도 구역(예: 이상 분석 분류함). */
 export type SideNavGroup = { title?: string; items: SideNavItem[]; separated?: boolean };
 
@@ -115,7 +118,7 @@ export const SideNav = ({
                           <Link
                             to={sub.to}
                             replace={sub.replace}
-                            aria-current={sub.current ? "location" : undefined}
+                            aria-current={sub.current ? (sub.currentType ?? "location") : undefined}
                             onClick={collapse}
                             className={cn(
                               "-ml-px flex min-h-8 items-center rounded-r-md border-l-2 border-transparent px-3 text-body text-muted-foreground transition-colors outline-none hover:bg-accent hover:text-accent-foreground focus-visible:ring-3 focus-visible:ring-ring/50",
@@ -123,6 +126,9 @@ export const SideNav = ({
                             )}
                           >
                             <span className="min-w-0 flex-1 truncate">{sub.label}</span>
+                            {typeof sub.count === "number" && (
+                              <span className={cn("text-xs font-semibold tabular-nums text-muted-foreground", sub.current && "text-foreground")}>{sub.count}</span>
+                            )}
                           </Link>
                         </li>
                       ))}

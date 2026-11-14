@@ -53,8 +53,8 @@
 | 평가 결과 | `tab` | `current` 현재 운영 모델 기준 / `all` 전체 평가 |
 | 평가 결과 | `step` | 새 비교 평가 `1` 평가 세트 / `2` 비교 모델 / `3` 요청 |
 | 모델 교체 | `step` | `1` 버전 선택 / `2` 비교 확인 / `3` 승인·요청 |
-| 이상 분석 | `category` | `all` / `anomaly` / `anomaly_sign` / `normal` / `in_progress` / `undetermined` / `failed_replaced`(판정 결과별 분류: 전체 / 이상 / 이상 징후 / 정상 / 판정 중·중간 판정 / 정상 여부 미확인 / 판정 실패·대체) |
-| 이상 분석 | `q`·`signal`·`completeness`·`sort`·`page`·`pageSize` | 검색어 / 이상 신호 `all`·`yes`·`no`·`unknown` / 검사 완료 `all`·`complete`·`partial`·`unavailable` / `newest`·`oldest` / 1~ / `10`·`5`·`20`. 판정 상세 주소도 같은 쿼리 유지(목록 복귀) |
+| 이상 분석 | `category` | `all` / `anomaly` / `anomaly_sign` / `normal` / `in_progress` / `undetermined` / `failed_replaced`(판정 결과별 분류: 전체 / 이상 / 이상 징후 / 정상 / 판정 중·중간 판정 / 정상 여부 미확인 / 판정 실패·대체). 분류함 `workflow_open`·`workflow_resolved`와 완료 아래 확인 결과별 `workflow_resolved_actual_anomaly`·`workflow_resolved_normal`·`workflow_resolved_undetermined`(admin만, user는 `workflow_resolved`로 replace). 위험도별 등 전체 값은 [analysis-ui.md](analysis-ui.md) 분류 절 |
+| 이상 분석 | `q`·`signal`·`completeness`·`basis`·`sort`·`page`·`pageSize` | 검색어 / 이상 신호 `all`·`yes`·`no`·`unknown` / 검사 완료 `all`·`complete`·`partial`·`unavailable` / 근거 `all`·`hard`·`relation`·`protocol`·`soft`·`ml` / `newest`·`oldest` / 1~ / `10`·`5`·`20`. 판정 상세 주소도 같은 쿼리 유지(목록 복귀) |
 | 사건 보기 | `period`·`all`·`cursor` | `all` 전체 / `24h` / `7d` / `30d`(최근 24시간·7일·30일) · `all=1` 모두 보기(없으면 거래 2건 이상만) · 직전 응답 커서(없으면 첫 쪽). 사건 상세 주소도 같은 쿼리 유지(목록 복귀) |
 
 - 탐지 설정 화면은 모두 내용이 있다(작업 목록·작업 상세 포함, [operations-ui.md](operations-ui.md)). 운영 현황·이상 분석·탐지 설정은 보이는 제목 줄 없음(ui.md 화면 제목). 목록 탭·작업 단계 화면은 각 하위 Issue에서 이 주소 규칙대로 붙임(도구 `hooks/useUrlState.ts`)

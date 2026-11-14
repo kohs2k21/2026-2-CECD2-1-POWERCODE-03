@@ -5,7 +5,7 @@ globalThis.window = { location: { origin: "http://local.test" }, localStorage: {
 const api = await import("../src/features/analysis/data/analysisApi.ts");
 const { readEvidence, readEvidenceV4 } = await import("../src/features/analysis/data/evidence.ts");
 const labels = await import("../src/features/analysis/labels.ts");
-const { pageWindow } = await import("../src/features/analysis/components/DecisionListView.tsx");
+const { basisLabel, listTitle, pageWindow } = await import("../src/features/analysis/components/DecisionListView.tsx");
 const { mergeTimeline, recordEntries, timelineEntries } = await import("../src/features/analysis/components/DecisionTimeline.tsx");
 const { sidebarGroups } = await import("../src/features/analysis/AnalysisPage.tsx");
 const { HttpError } = await import("../src/services/api/client.ts");
@@ -25,14 +25,27 @@ assert.deepEqual(["PROCESS_STATUS_H", "PROCESS_STATUS_Z", "HARD_SUCCESS_WITH_ERR
   ["상태 H 부분성공", "상태 Z 데이터없음", "성공 상태이나 오류 건수가 기록됨", "건수 합계 불일치", "OTHER_CODE"]);
 assert.equal(api.parseListSearch("?category=bogus").params.category, "risk_all", "invalid category falls back to the default");
 assert.equal(api.listSearch({ ...api.defaultListParams, category: "all" }), "?category=all", "result-view 전체 stays explicit in the URL");
-const full = api.parseListSearch("?category=anomaly&q=TX-1&signal=anomaly_sign&completeness=partial&sort=oldest&page=3&pageSize=20&tab=x");
+const full = api.parseListSearch("?category=anomaly&q=TX-1&signal=anomaly_sign&completeness=partial&basis=relation&sort=oldest&page=3&pageSize=20&tab=x");
 assert.deepEqual(full, {
-  params: { category: "anomaly", q: "TX-1", signal: "anomaly_sign", completeness: "partial", sort: "oldest", page: 3, pageSize: 20 },
+  params: { category: "anomaly", q: "TX-1", signal: "anomaly_sign", completeness: "partial", basis: "relation", sort: "oldest", page: 3, pageSize: 20 },
   invalid: false,
 });
-for (const category of ["anomaly_sign", "risk_all", "risk_critical", "risk_warning", "risk_info", "risk_unrated", "workflow_open", "workflow_resolved"])
+for (const category of ["anomaly_sign", "risk_all", "risk_critical", "risk_warning", "risk_info", "risk_unrated", "workflow_open", "workflow_resolved",
+  "workflow_resolved_actual_anomaly", "workflow_resolved_normal", "workflow_resolved_undetermined"])
   assert.equal(api.parseListSearch(`?category=${category}`).params.category, category, category);
-for (const bad of ["?category=risk", "?category=risk:all", "?signal=sign", "?completeness=done", "?sort=severity_desc", "?page=0", "?page=x", "?pageSize=50", `?q=${"a".repeat(101)}`]) {
+// 근거 구분(사용자 11/15): 판정 상세 근거 구분 다섯 개 + 전체(기본, 주소에서 생략)
+for (const basis of ["hard", "relation", "protocol", "soft", "ml"])
+  assert.deepEqual([api.parseListSearch(`?basis=${basis}`).params.basis, api.parseListSearch(`?basis=${basis}`).invalid], [basis, false], basis);
+assert.equal(api.listSearch({ ...api.defaultListParams, basis: "all" }), "", "basis 전체 is omitted from the URL");
+assert.deepEqual(api.basisOptions.map(basisLabel), ["전체", "이상 규칙", "관계 규칙", "정상 프로토콜", "이상 징후 규칙", "머신러닝 모델"],
+  "basis names = detail evidence group names, 전체 = existing filter wording");
+assert.deepEqual(api.basisOptions.slice(1).map((value) => labels.evidenceGroupLabels[value]), api.basisOptions.slice(1).map(basisLabel));
+// 확인 결과별 완료 이름 = 확인 결과 이름(#192), 목록 제목은 `완료 · <확인 결과>`
+assert.deepEqual(api.outcomeCategories.map((category) => labels.categoryLabels[category]),
+  api.outcomeCategories.map((category) => labels.feedbackOutcomeLabels[api.outcomeOfCategory[category]]));
+assert.deepEqual(api.outcomeCategories.map(listTitle), ["완료 · 실제 이상", "완료 · 정상", "완료 · 판단 불가"]);
+assert.equal(listTitle("normal"), "정상");
+for (const bad of ["?category=risk", "?category=risk:all", "?signal=sign", "?completeness=done", "?basis=rel", "?basis=규약 위반", "?sort=severity_desc", "?page=0", "?page=x", "?pageSize=50", `?q=${"a".repeat(101)}`]) {
   const parsed = api.parseListSearch(bad);
   assert.equal(parsed.invalid, true, bad);
 }
@@ -43,10 +56,10 @@ assert.equal(api.listSearch({ ...api.defaultListParams, q: "  tx  ", page: 2 }, 
 assert.deepEqual(api.parseListSearch(api.listSearch(full.params)).params, full.params, "round trip");
 // API 쿼리: 'all'·빈 검색·기본 정렬·1쪽은 보내지 않음, 페이지 크기는 항상
 assert.deepEqual(api.listApiParams(api.defaultListParams), {
-  category: "risk_all", q: undefined, signal: undefined, completeness: undefined, sort: undefined, page: undefined, pageSize: 10,
+  category: "risk_all", q: undefined, signal: undefined, completeness: undefined, basis: undefined, sort: undefined, page: undefined, pageSize: 10,
 });
 assert.equal(api.listApiParams({ ...api.defaultListParams, category: "all" }).category, undefined, "API default is all");
-assert.deepEqual(api.listApiParams(full.params), { category: "anomaly", q: "TX-1", signal: "anomaly_sign", completeness: "partial", sort: "oldest", page: 3, pageSize: 20 });
+assert.deepEqual(api.listApiParams(full.params), { category: "anomaly", q: "TX-1", signal: "anomaly_sign", completeness: "partial", basis: "relation", sort: "oldest", page: 3, pageSize: 20 });
 
 // 2) 응답 파서: 명시 필드만, 잘못된 값 버림, 알 수 없는 분류·단계는 응답 오류
 const raw = {
@@ -295,6 +308,19 @@ assert.deepEqual(groups.map((g) => [g.title, g.separated ?? false]), [["판정",
 assert.deepEqual(groups[0].items.map((i) => i.label), ["전체", "이상", "이상 징후", "정상", "판정 중·중간 판정", "정상 여부 미확인", "판정 실패·대체"], "wireframe CATS order + normal after anomaly sign");
 assert.deepEqual(groups[0].items.map((i) => i.count), [3, 1, undefined, undefined, 0, 1, 1], "a missing count is not shown as 0");
 assert.deepEqual(groups[1].items.map((i) => [i.id, i.label]), [["workflow_open", "보류"], ["workflow_resolved", "완료"]]);
+assert.equal(groups[1].items[1].sub, undefined, "user: no 확인 결과 sub items under 완료 (feedback is admin-only)");
+// 관리자: 완료 아래 확인 결과별(실제 이상·정상·판단 불가) + 건수, 다른 조건 유지·페이지 1, 현재 항목 aria-current=page
+const adminCounts = { ...list.counts, workflow_resolved: 5, workflow_resolved_actual_anomaly: 2, workflow_resolved_normal: 0, workflow_resolved_undetermined: null };
+const adminGroups = sidebarGroups({ ...full.params, category: "workflow_resolved_normal" }, adminCounts, "result", true);
+const resolvedItem = adminGroups[1].items[1];
+assert.deepEqual(resolvedItem.sub.map((s) => [s.id, s.label, s.count, s.current, s.currentType]), [
+  ["workflow_resolved_actual_anomaly", "실제 이상", 2, false, "page"], ["workflow_resolved_normal", "정상", 0, true, "page"],
+  ["workflow_resolved_undetermined", "판단 불가", undefined, false, "page"]], "a null count is not shown as 0");
+const outcomeLink = new URL(resolvedItem.sub[0].to, "http://local.test");
+assert.deepEqual([outcomeLink.searchParams.get("category"), outcomeLink.searchParams.get("basis"), outcomeLink.searchParams.get("q"), outcomeLink.searchParams.get("page")],
+  ["workflow_resolved_actual_anomaly", "relation", "TX-1", null]);
+assert.equal(sidebarGroups({ ...full.params, category: "workflow_resolved_normal" }, adminCounts, "result", true, null)[1].items[1].sub[1].current, false,
+  "detail open: no current sub item");
 const riskGroups = sidebarGroups(api.defaultListParams, { ...list.counts, risk_all: 4, risk_critical: 1, risk_warning: 1, risk_info: 0, risk_unrated: 2 }, "risk");
 assert.deepEqual(riskGroups[0].title, "위험도");
 assert.deepEqual(riskGroups[0].items.map((i) => [i.label, i.count]), [["전체", 4], ["위험", 1], ["주의", 1], ["참고", 0], ["위험도 미정", 2]], "wireframe RISK_CATS");

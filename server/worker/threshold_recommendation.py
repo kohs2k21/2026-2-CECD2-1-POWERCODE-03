@@ -41,6 +41,9 @@ RATIONALE_MAX = 500
 STATUSES = ("proposed", "request_evidence", "deferred", "no_applicable", "rejected")
 # 전 항목이 이 사유면 생성계 전체 문제로 보고 작업을 실패시킨다. 직렬화 실패는 데이터 사실이라 빠진다.
 GENERATION_REASONS = frozenset({"invalid_generation_output", "expected_target_mismatch", "factual_review_failed"})
+# 룰 세트 contentHashVersion으로 받는 값(rule-set.md, Detector `HASH_VERSIONS`와 같은 집합). 워커는 hash를
+# 다시 계산하지 않고 값을 결과 `ruleSet`에 그대로 옮기므로 버전별 직렬화 차이를 알 필요가 없다.
+RULE_SET_HASH_VERSIONS = (1, 2, 3)
 _HASH = re.compile(r"[0-9a-f]{64}")
 _CODE = re.compile(r"[a-z][a-z0-9_]{0,99}")
 
@@ -59,7 +62,7 @@ def _rule_set(spec: Mapping[str, Any]) -> dict[str, Any]:
     version = spec.get("ruleSetContentHashVersion")
     if isinstance(revision, bool) or not isinstance(revision, int) or revision < 0 or \
             not isinstance(content_hash, str) or not _HASH.fullmatch(content_hash) or \
-            isinstance(version, bool) or version not in (1, 2):
+            type(version) is not int or version not in RULE_SET_HASH_VERSIONS:
         raise ValueError("invalid_rule_set_reference")
     return {"revision": revision, "contentHash": content_hash, "contentHashVersion": version}
 

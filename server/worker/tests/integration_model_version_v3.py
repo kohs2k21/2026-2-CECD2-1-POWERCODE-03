@@ -1,4 +1,4 @@
-"""모델 버전 v3 산출·판독과 활성 집합·정책 리비전 읽기를 실제 DB·실제 IF 학습으로 확인한다.
+"""모델 버전 v3 산출·판독과 활성 집합·정책 리비전 읽기, 학습 제외 구간(선정 정책 v2)을 실제 DB·실제 IF 학습으로 확인한다.
 
 API는 v3 생성이 열리기 전이라 v1 정책 없는 train을 받지 않으므로 큐에 직접 넣는다. 고객 입력 없음.
 리비전 표는 append-only이고 다른 시험이 쓰지 않으므로 이미 쓴 QA DB에서도 다음 리비전을 이어 쓴다.
@@ -28,6 +28,7 @@ from trainer import runner
 from trainer.catalog import register_feature_set
 from trainer.model_version import content_hash
 from trainer.operational_state import DEFAULT_POLICY, read_operational_state
+from trainer.selection import intervals_hash, utc_text
 
 FIELD = {"op": "field", "field": "P.total_count"}
 DEFINITIONS = [{"name": "count_raw", "expression": FIELD},
@@ -37,9 +38,14 @@ SPEC_KEYS = {"schemaVersion", "contractVersion", "contentHashVersion", "sourceId
              "catalogVersion", "featureSetId", "trainingSnapshotId", "methods", "trainingSelection", "createdFrom"}
 
 
+# 원천별 첫 행 저장 시각. i번째 행은 start + i초에 저장된다(분할 블록 1행씩 → train = 0~699번).
+START = {}
+
+
 def seed(conn):
     sid = source(conn, "Model version v3 fixture")
     start = datetime.now(timezone.utc) - timedelta(hours=2)
+    START[str(sid)] = start
     for index in range(1000):
         raw = {"adapter_type": "A" if index % 2 else "B", "total_count": str(50 + index % 13),
                "success_count": str(50 + index % 13), "error_count": "0", "status": "S"}
@@ -228,8 +234,48 @@ def verify_fail_closed(conn, spec, version):
                "configVersionId": str(copy), "purpose": "validation"}
     status, code, _ = finish(conn, submit(conn, request, config=copy, snapshot=version["snapshotId"]))
     assert (status, code) == ("failed", "unsupported_config_schema"), (status, code)
-    status, code, _ = finish(conn, submit(conn, {**spec, "modelKey": "iforest", "excludedIntervals": []}))
+    # v1 구성 경로(detectionPolicy 있음)는 제외 구간을 기록할 자리가 없어 무시하지 않고 거절한다.
+    status, code, _ = finish(conn, submit(conn, {**spec, "modelKey": "iforest", "detectionPolicy": V1_POLICY,
+                                                 "excludedIntervals": []}))
     assert (status, code) == ("failed", "config_schema_not_supported_yet"), (status, code)
+
+
+def excluded_rows(spec, first, last):
+    """train 행 first..last번을 덮는 API 형식(UTC 밀리초) 구간 1개. 경계는 행 사이 0.5초 지점이다."""
+    start = START[spec["sourceId"]]
+    bound = lambda index: utc_text(start + timedelta(seconds=index - .5))  # utc_text가 밀리초로 자른다
+    return {"from": bound(first), "until": bound(last + 1), "reasonCode": "known_incident", "note": "장애"}
+
+
+def verify_excluded_intervals(conn, spec, artifact_root):
+    """구간 안 train 행은 fit·판정선·fit 연산에서 빠지고, 건수·hash·구간 목록이 구성·후보·결과·fit 참조에 남는다."""
+    interval = excluded_rows(spec, 100, 149)
+    result = succeeded(conn, {**spec, "modelKey": "iforest", "excludedIntervals": [interval]})
+    (config, stored_hash, _), models, _ = stored_config(conn, result["configVersionId"])
+    settings = models[0][4]
+    selection = config["trainingSelection"]
+    expected = {"policyVersion": "train-success-excluded-v2", "populationCount": 700, "selectedCount": 650, "excludedCount": 50,
+                "excludedExplicitAnomalyCount": 0, "excludedByIntervalCount": 50, "excludedTimeUnknownCount": 0,
+                "excludedIntervalCount": 1, "timeBasis": "persisted_at", "intervalTimeBasis": "persisted_at",
+                "excludedIntervalsHash": intervals_hash([interval])}
+    assert {key: selection.get(key) for key in expected} == expected, selection
+    assert selection["trainingPeriod"] == {"from": spec["from"], "until": spec["until"], "timeBasis": "persisted_at"}
+    assert selection == result["trainingSelection"] == settings["trainingSelection"], (selection, result["trainingSelection"])
+    assert settings["excludedIntervals"] == [interval] and "excludedIntervals" not in config
+    assert stored_hash == content_hash(config)
+    path = conn.execute("SELECT relative_path FROM ml_artifacts WHERE id=%s", (models[0][3],)).fetchone()[0]
+    conn.commit()
+    fit = joblib.load(artifact_root / path)
+    preprocessing = fit["preprocessing"]
+    counts = preprocessing["features"]["count_centered"]["referenceCounts"]
+    assert preprocessing["reference"]["trainingSelection"] == selection and sum(counts.values()) == 650, counts
+    # 구간이 train 행을 너무 많이 지우면 fit 전에 멈추고 건수를 남긴다(IF minTrainRows 600).
+    short = excluded_rows(spec, 100, 249)
+    status, code, summary = finish(conn, submit(conn, {**spec, "modelKey": "iforest", "excludedIntervals": [short]}))
+    assert (status, code) == ("failed", "train_rows_insufficient_after_exclusion"), (status, code)
+    assert summary["minTrainRows"] == 600 and summary["methodId"] == "ml:iforest", summary
+    assert (summary["trainingSelection"]["selectedCount"], summary["trainingSelection"]["excludedByIntervalCount"]) == (550, 150)
+    assert summary["trainingSelection"]["trainingPeriod"]["from"] == spec["from"]
 
 
 def main():
@@ -246,7 +292,8 @@ def main():
             verify_v3_evaluate(conn, spec, second, revision)
             verify_old_path(conn, spec)
             verify_fail_closed(conn, spec, second)
-    print("model version v3 integration passed: spec, hash, active set and policy revisions, v1 path, fail-closed")
+            verify_excluded_intervals(conn, spec, artifact_root)
+    print("model version v3 integration passed: spec, hash, active set and policy revisions, v1 path, fail-closed, excluded intervals")
 
 
 if __name__ == "__main__":

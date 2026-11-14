@@ -9,7 +9,7 @@ import numpy as np
 import model_adapters
 from detector.computation import compute, model_reference
 from trainer.metrics import measurement
-from trainer.selection import select_training
+from trainer.selection import select_training, stored_exclusion, training_times
 from trainer.synthetic_generation import fit_generator, generate
 from trainer.synthetic_metrics import PATHS, VERSION, prediction, score
 from trainer.synthetic_profiles import digest, validate_request
@@ -81,11 +81,30 @@ def generation_counts(trials):
             'failedGenerationTrials': measurement(counts['generation_failed'], 'count')}
 
 
-def _esb(conn, spec, context, rows, train, root, snapshot, baseline):
+def _training_eligibility(conn, context, snapshot_id):
+    """평가 대상 모델의 학습 선정 조건. v1 모델은 None, v2 모델은 `(제외 구간, train 행 시각)`이다."""
+    try:
+        exclusion = stored_exclusion(context['models'][0][5])
+    except ValueError as exc:
+        raise ValueError('synthetic_training_selection_invalid') from exc
+    if exclusion is None:
+        return None
+    return exclusion, training_times(conn, snapshot_id, exclusion.time_basis) if exclusion.intervals else None
+
+
+def _training_reference(train, eligibility):
+    """기준선 fit 행. 모델이 선정 정책 v2로 학습됐으면 같은 판단 함수로 제외 구간 행을 뺀다(v1 모델은 그대로)."""
+    if eligibility is None:
+        return train
+    return select_training(train, *eligibility)[0]
+
+
+def _esb(conn, spec, context, rows, train, root, snapshot, baseline, eligibility=None):
     base, parent_context = rows_for_generation(conn, rows, spec, snapshot)
+    # reference_reason의 S 검사는 그대로 두고, v2 모델이면 학습과 같은 구간 판단을 먼저 적용한다.
     fit = fit_generator([{'rowId': str(row_id), 'raw': raw, 'split': split,
                           'label': evidence.get('label') if isinstance(evidence, dict) else None}
-                         for row_id, raw, split, evidence in train])
+                         for row_id, raw, split, evidence in _training_reference(train, eligibility)])
     if baseline is None:
         baseline = {row['rowId']: prediction(compute(context, row['raw'], root)) for row in base}
     trials = []
@@ -124,9 +143,9 @@ def _esb(conn, spec, context, rows, train, root, snapshot, baseline):
     return artifact, metrics, summary_trials, counts
 
 
-def _adbench(spec, context, rows, train, root, reference):
+def _adbench(spec, context, rows, train, root, reference, eligibility=None):
     from trainer.synthetic_adbench import generate as generate_numeric, score as score_numeric
-    selected, selection = select_training(train)
+    selected, selection = select_training(train, *(eligibility or ()))
     prepared = []
     for row_id, raw, _, _ in selected:
         values, missing = model_adapters.transform_iforest_features(reference, context['definitions'], raw)
@@ -180,6 +199,7 @@ def evaluate(conn, spec, context, rows, root, job_id, *, baseline=None):
     snapshot = validate_source(conn, spec, profile)
     reference, manifest = _model_manifest(conn, spec, context, root)
     train = _train_rows(conn, manifest['trainingSnapshotId'])
+    eligibility = _training_eligibility(conn, context, manifest['trainingSnapshotId'])
     if {str(row[0]) for row in train} & {str(row[0]) for row in rows}:
         raise ValueError('synthetic_training_evaluation_overlap')
     with conn.cursor() as cur:
@@ -194,9 +214,9 @@ def evaluate(conn, spec, context, rows, root, job_id, *, baseline=None):
     conn.commit()
     original_hash = digest([(str(row[0]), row[1], row[2], row[3]) for row in rows])
     if profile['unit'] == 'PROCESS':
-        artifact, metrics, trials, statuses = _esb(conn, spec, context, rows, train, root, snapshot, baseline)
+        artifact, metrics, trials, statuses = _esb(conn, spec, context, rows, train, root, snapshot, baseline, eligibility)
     else:
-        artifact, metrics, trials, statuses = _adbench(spec, context, rows, train, root, reference)
+        artifact, metrics, trials, statuses = _adbench(spec, context, rows, train, root, reference, eligibility)
     if original_hash != digest([(str(row[0]), row[1], row[2], row[3]) for row in rows]):
         raise ValueError('synthetic_original_input_changed')
     model_reference(context, root)

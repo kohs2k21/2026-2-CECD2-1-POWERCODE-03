@@ -1,5 +1,5 @@
 Created: 2026-11-02T18:00:00+09:00
-Updated: 2026-11-05T16:30:00+09:00
+Updated: 2026-11-15T12:00:00+09:00
 Author: Claude Code (Trainer 세션 builder)
 Status: draft
 
@@ -60,8 +60,8 @@ Status: draft
   ],
   "trainingSelection": {"policyVersion": "train-success-excluded-v2", "split": "train", "populationCount": 48210,
                         "selectedCount": 47120, "excludedCount": 1090, "excludedExplicitAnomalyCount": 12,
-                        "excludedByIntervalCount": 1040, "excludedTimeUnknownCount": 0,
-                        "timeBasis": "esb_occurred_at", "excludedIntervalsHash": "a71c…",
+                        "excludedIntervalCount": 2, "excludedByIntervalCount": 1040, "excludedTimeUnknownCount": 0,
+                        "timeBasis": "esb_occurred_at", "intervalTimeBasis": "esb_occurred_at", "excludedIntervalsHash": "a71c…",
                         "trainingPeriod": {"from": "2026-10-01T00:00:00+09:00", "until": "2026-11-01T00:00:00+09:00", "timeBasis": "esb_occurred_at"},
                         "statusCounts": {"S": 47158, "F": 31, "P": 4, "N": 3}, "normalGroundTruth": false},
   "createdFrom": {"kind": "train", "trainJobId": "<job UUID>", "recommendationJobId": null}
@@ -85,7 +85,7 @@ Status: draft
 | `methods[].parameterSource` | `system` / `catalog_default` / `user` / `llm_proposed`(사람이 저장을 눌렀다는 뜻, 자동 적용 아님) [유지 #74] |
 | `methods[].artifacts` | 학습 후보(`kind=train` 성공)의 `ml_config_models` 행. 파일 복사 없음, artifact ID 재사용. 후보 없는 모델은 선택 불가 |
 | (없음) `detectionPolicy` | **v3 spec에 없음** [확정 11/02 Q-M1, Q-M2 귀결]: 모델 1개 = 버전 1개가 되면 `k:{hard,soft,ml}`를 어느 버전에도 둘 수 없으므로 **운영 설정 전역 값**으로 이동(아래 운영 설정 절). spec·hash 입력에 `detectionPolicy` 키가 있으면 400 `invalid_configuration_request`. **버전 판정 규칙**(운영 설정·v1 train 요청 공통): `version` 키가 **없을 때만** v1(`{mode, deadlineMs, combination}`), `version: 2`는 v2 객체, **`version: 1`은 400 `invalid_detection_policy`**(v1·v2 키 혼용 400 규칙과 일관) — #92 U12 [확정 11/03] |
-| `trainingSelection` | 그 버전의 학습 작업 값 복사(항상 값). **v2 확장 필드**(`excludedByIntervalCount`·`excludedTimeUnknownCount`·`timeBasis`·`excludedIntervalsHash`)와 **`trainingPeriod {from, until, timeBasis}`**(train 요청의 기간 — 수식 추천 기간 선택 "운영 모델 학습 시작 ~ 현재"의 입력, [llm-recommendation-job.md](llm-recommendation-job.md))는 [trainer-service.md](trainer-service.md) 변경 제안 절. 제외 구간 목록 자체는 spec이 아니라 학습 작업 `input_spec`·`ml_config_models.training_settings`에 저장(spec은 hash만, 응답 `models[].trainingSettings.excludedIntervals`로 노출). #132 구현 범위는 `train-success-only-v1` 값 + `trainingPeriod`이고 v2 확장 필드는 선정 정책 v2(#113 하위 4)에서 채움 |
+| `trainingSelection` | 그 버전의 학습 작업 값 복사(항상 값). **v2 확장 필드**(`excludedIntervalCount`·`excludedByIntervalCount`·`excludedTimeUnknownCount`·`timeBasis`·`intervalTimeBasis`·`excludedIntervalsHash`)와 **`trainingPeriod {from, until, timeBasis}`**(train 요청의 기간 — 수식 추천 기간 선택 "운영 모델 학습 시작 ~ 현재"의 입력, [llm-recommendation-job.md](llm-recommendation-job.md))는 [trainer-service.md](trainer-service.md) 변경 제안 절. 제외 구간 목록 자체는 spec이 아니라 학습 작업 `input_spec`·`ml_config_models.training_settings`에 저장(spec은 hash만, 응답 `models[].trainingSettings.excludedIntervals`로 노출). #132 구현 범위는 `train-success-only-v1` 값 + `trainingPeriod`. 요청에 `excludedIntervals` 키가 있으면 선정 정책 v2가 v2 확장 필드를 채움(키가 없으면 v1 값 그대로) [구현, trainer-service.md 선정 정책 v2 절] |
 | `createdFrom` | `{kind: "train"|"compose", trainJobId?, recommendationJobId?}` [유지 #74]. v3에서는 항상 `train`(`compose`는 조합 저장 경로가 없으므로 생성되지 않음 — Q-M5 확정; enum 값은 v1·v2 호환으로 유지). `recommendationJobId`는 모델 선택 추천(보류, [llm-recommendation-job.md](llm-recommendation-job.md))이 재개될 때만 값 |
 | `operationalEligibility`·`preparedDatasetId`·`preparedInputContract` | 기존 키 유지([prepared-csv-v1](prepared-csv-import.md)). prepared 계보 후보가 하나라도 있으면 버전 전체 `eligible=false` [유지 #74] |
 | (없음) `statusRulePolicy`·`ruleVersionIds` | **v3에 없음**(v1·v2 전용 파생 복사본). 판독기는 v3에서 이 키를 요구하지 않음 |
@@ -104,7 +104,7 @@ Status: draft
 - **임시 예외(#128, v3 산출 전)**: 아래 규칙은 v3 생성이 열린 뒤 적용한다. 그 전에는 `modelKey`·`parameters`와 v1 `detectionPolicy`를 함께 보내는 요청을 접수하고 schemaVersion 1 구성을 만든다(지금 서버가 받는 유일한 학습 형식, [models-ui.md](models-ui.md) 요청 본문)
 - **v3 train 요청에는 `ruleVersionIds`·`detectionPolicy`가 없음** [확정 11/02 Q-M1]: 정책은 운영 설정 전역 값이므로 v3 키(`modelKey`·`parameters`·`excludedIntervals`·`timeBasis`·`evaluationSetId` 중 하나라도)가 있는 요청에 `detectionPolicy` 키가 있으면 400 `invalid_detection_policy`. v1 형식 요청(`{mode, deadlineMs, combination}` 필수, v3 키 없음)은 v1·v2 구성 생성 경로로 계속 처리; v1 형식과 v2 객체 혼용도 400 [유지 #74 N16]
 - 성공 시 자동 비교 평가 접수(10/21 §4.8, [config-comparison-evaluation.md](config-comparison-evaluation.md) 자동 비교 절) — 비교 상대는 **같은 `modelKey`의 활성 버전**
-- 워커 판별 [#132 구현]: `detectionPolicy` 키가 없고 v3 키가 하나라도 있으면 schemaVersion 3을 만든다. 둘 다 있거나 v3 키가 없으면 schemaVersion 1·2 경로이고 리비전을 읽지 않는다. v3 요청의 `ruleVersionIds` 값은 `invalid_job_input`. 아직 적용하지 못하는 `excludedIntervals`·`timeBasis=esb_occurred_at`은 워커도 `config_schema_not_supported_yet`으로 끝낸다(무시해서 성공시키지 않음). `parameterSource`는 요청 `parameters`가 비어 있지 않으면 `user`, 그 밖(키 없음·`null`·빈 객체)은 `catalog_default`. prepared 학습은 schemaVersion 1 그대로
+- 워커 판별 [#132 구현]: `detectionPolicy` 키가 없고 v3 키가 하나라도 있으면 schemaVersion 3을 만든다. 둘 다 있거나 v3 키가 없으면 schemaVersion 1·2 경로이고 리비전을 읽지 않는다. v3 요청의 `ruleVersionIds` 값은 `invalid_job_input`. 아직 적용하지 못하는 `timeBasis=esb_occurred_at`(모든 경로)과 schemaVersion 1·2 경로의 `excludedIntervals`는 워커도 `config_schema_not_supported_yet`으로 끝낸다(무시해서 성공시키지 않음). schemaVersion 3 경로의 `excludedIntervals`는 선정 정책 v2로 적용한다([trainer-service.md](trainer-service.md) 선정 정책 v2 절). `parameterSource`는 요청 `parameters`가 비어 있지 않으면 `user`, 그 밖(키 없음·`null`·빈 객체)은 `catalog_default`. prepared 학습은 schemaVersion 1 그대로
 
 ### (B) 조합 저장 — `POST /api/configurations` [**폐기** — 확정 11/02 Q-M1·Q-M5: 조합 저장 경로 없음]
 
@@ -229,7 +229,7 @@ Status: draft
 ## 불변성·저장소(사실 + 확정 단위 추가분)
 
 - `ml_config_versions`·`ml_config_models`·`ml_config_rules`·`ml_artifacts`·`run_evaluations`는 **이미 UPDATE/DELETE 금지 트리거가 있음**(`004_feature_pipeline.sql:84-96` `pipeline_immutable` → `prevent_pipeline_immutable_mutation()`). #74 "선택: 불변 트리거 추가"는 **불필요**(PostgreSQL 세션 10/21 발견 사항 반영). 새 마이그레이션은 이 트리거를 유지해야 하며 spec 보정은 새 행으로만
-- `ml_config_models.training_settings`: **`methodId`·`methodVersion`·`parameters`(확정 파라미터 = 카탈로그 기본값 + 요청 값)는 #111에서 추가됨** — 기존 키(`snapshotId`·`split`·`featureNames`·`definitionsHash`·`splitVersion`·`thresholdPolicy`·`trainingSelection`) 유지, configuration_spec schemaVersion 1·2 틀 그대로, jsonb라 마이그레이션 없음. prepared 경로(`trainer/prepared_training.py`, `model_key` `iforest` 고정·`training_settings`에 세 키 없음)는 **아직 미반영**이며 후속에서 맞춤. v3 행은 `timeBasis`·`trainingPeriod`도 저장 [#132]. `excludedIntervals[]`는 추가 예정(같은 방식)
+- `ml_config_models.training_settings`: **`methodId`·`methodVersion`·`parameters`(확정 파라미터 = 카탈로그 기본값 + 요청 값)는 #111에서 추가됨** — 기존 키(`snapshotId`·`split`·`featureNames`·`definitionsHash`·`splitVersion`·`thresholdPolicy`·`trainingSelection`) 유지, configuration_spec schemaVersion 1·2 틀 그대로, jsonb라 마이그레이션 없음. prepared 경로(`trainer/prepared_training.py`, `model_key` `iforest` 고정·`training_settings`에 세 키 없음)는 **아직 미반영**이며 후속에서 맞춤. v3 행은 `timeBasis`·`trainingPeriod`도 저장 [#132]. 요청에 `excludedIntervals` 키가 있던 v3 행은 `excludedIntervals[{from, until, reasonCode, note}]`(UTC 밀리초·from 순)도 저장 [선정 정책 v2 구현]
 - `run_jobs.input_spec`(train)에 `parameters`·`excludedIntervals`·`timeBasis` 키 추가(jsonb). `detectionPolicy`는 v3 train `input_spec`에 **없음**
 - [확정 11/02 Q-M1, 이름은 가칭 — DB 세션 결정] `ops_active_model_set_revisions`(`revision bigint PK, snapshot jsonb(models[]), changes jsonb, note, restored_from_revision, changed_by_actor_id, changed_at`, append-only + 불변 트리거, r0 행은 빈 집합) / `ops_detection_policy_revisions`(`revision bigint PK ≥ 1, policy jsonb, note, restored_from_revision, saved_by_actor_id, saved_at`, append-only; 행 없음 = r0 기본 정책) / 현재 값은 최대 `revision` 행. 세 리비전(룰·활성 집합·정책)의 일관 읽기용 열 또는 뷰는 DB·Detector. `ops_system_state.active_config_version_id`는 v1·v2 운영 호환으로만 남김
 

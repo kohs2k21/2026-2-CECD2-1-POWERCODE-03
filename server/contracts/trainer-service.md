@@ -1,5 +1,5 @@
 Created: 2026-10-17T01:49:42+09:00
-Updated: 2026-11-14T18:00:00+09:00
+Updated: 2026-11-15T12:00:00+09:00
 Author: Claude Code (Trainer 세션 builder)
 Status: current
 
@@ -13,7 +13,7 @@ Status: current
 - 폐지 종류 `recommend_feature`·`recommend_rule`: 남은 작업은 워커가 실행 없이 `failed`·`job_kind_abolished`로 끝냄(재시도 없음, [llm-recommendation-job.md](llm-recommendation-job.md))
 - terminal failed 재실행: 새 idempotency key로 명시적 새 요청; 같은 key·같은 본문은 기존 job 반환, 다른 본문은 409
 - Web 멱등키: sessionStorage 정상 시 새로고침 후 재사용, 저장 실패 시 현재 페이지의 메모리에서만 유지; 저장 실패 후 새로고침한 경우 작업 이력 확인 후 재실행 여부 결정
-- 현행 갱신(Issue #128, 11/05): API가 카탈로그를 읽어 `methodCatalog`·`models`를 노출하고 `modelKey`·`parameters`를 접수 단계에서 검증한다(요청·발견 API 절). `excludedIntervals`·`esb_occurred_at`은 워커 지원 전이라 접수하지 않는다([models-ui.md](models-ui.md))
+- 현행 갱신(Issue #128, 11/05): API가 카탈로그를 읽어 `methodCatalog`·`models`를 노출하고 `modelKey`·`parameters`를 접수 단계에서 검증한다(요청·발견 API 절). `esb_occurred_at`은 워커 지원 전이라 접수하지 않는다. `excludedIntervals`는 워커가 모델 버전(v3) 학습에 적용하고(아래 선정 정책 v2 절), API 접수는 `TRAINING_EXCLUSION_SUPPORTED`가 false인 동안 막혀 있다([models-ui.md](models-ui.md))
 - 현행 갱신(Issue #116, 11/04 — #111 병합 반영): 워커의 카탈로그 기준 `modelKey`·`parameters` 검증과 오류 코드(요청·발견 API 절), `sr*` 셀 영구 `not_applicable`/`sr_removed`(완료 결과 절), `training_settings` 확장(학습·전처리 절). API 쪽 선차단 전환·`parameters` 전달은 API 구현 단계 몫 [제안]
 
 ## 요청·발견 API
@@ -21,7 +21,7 @@ Status: current
 - `GET /api/jobs/capabilities`: `contractVersion`, `methodCatalog`(`contracts/method-catalog.json` 전체, #128), `models[{key,displayName,supported}]`(`methods[]`에서 파생, `supported := executable.process`), `evaluationFamilies`, `fittedFeatures`, `snapshot`, `training.excludedIntervals`(학습 제외 구간 접수 가능 여부, #128 추가. 지금 false)
 - 모델 — API 현행(`jobRoutes.ts`, #128): 접수 단계에서 워커와 같은 카탈로그·같은 코드로 검증한다 — 카탈로그에 없는 키 422 `unsupported_model`, 실행 불가 422 `method_not_executable:<methodId>`, `parameterSchema` 위반 422 `method_parameters_invalid:<methodId>`. `parameters`는 `input_spec`으로 그대로 전달하고 `null`·생략은 키를 남기지 않는다. `modelKey` 생략 시 기존 IF
 - 모델 — 워커 현행 [#111 구현]: `trainer/runner.py`가 큐의 `input_spec`을 `methods.registry.resolve_training_method`로 카탈로그 기준 재검증 — 카탈로그에 없는 `modelKey` → `unsupported_model`, 등록됐지만 `executable.process=false` → `method_not_executable:<methodId>`, `parameters`가 카탈로그 `parameterSchema` 위반 → `method_parameters_invalid:<methodId>`(작업 `failed`의 `errorCode`, 형식 `코드` 또는 `코드:식별자`). `modelKey`·`parameters` 생략은 IF 기본값(확정 파라미터는 `training_settings.parameters`에 기록)
-- 학습 범위 — API 현행(#128): `timeBasis`는 `persisted_at`만 접수하고(키 생략과 같음) `esb_occurred_at`은 422 `config_schema_not_supported_yet`, `excludedIntervals`는 형식 검사 뒤 같은 코드로 거절한다. 워커가 두 키를 아직 적용하지 않아 받으면 제외되지 않은 채 성공하기 때문이다([models-ui.md](models-ui.md))
+- 학습 범위 — API 현행(#128): `timeBasis`는 `persisted_at`만 접수하고(키 생략과 같음) `esb_occurred_at`은 422 `config_schema_not_supported_yet`, `excludedIntervals`는 형식 검사 뒤 같은 코드로 거절한다(`TRAINING_EXCLUSION_SUPPORTED=false`). 워커는 `esb_occurred_at`을 아직 적용하지 않고, `excludedIntervals`는 모델 버전(v3) 학습만 적용한다 — v1·v2 구성 경로(`detectionPolicy`가 있는 요청)는 워커도 `config_schema_not_supported_yet`으로 끝낸다(무시해서 제외되지 않은 채 성공하지 않게)([models-ui.md](models-ui.md))
 - `rule_only`: modelKey 생략 필수; 지정 시 422 `model_not_selected`(API·워커 같은 코드). 워커는 카탈로그 검증을 `model_not_selected` 검사보다 먼저 수행하므로 **`rule_only` 요청에 잘못된 `parameters`가 있어도 `method_parameters_invalid:<methodId>`로 거절**(#111 동작)
 - `GET /api/jobs/feature-sets?sourceId=<uuid>`: `scope=global_registered_catalog`, sourceId, hasMore, items
 - items: `{id, contentHash, featureNames: string[], supported: boolean, reason: string|null}`; 등록된 공통 피처 카탈로그, 출처별 데이터 존재·학습 가능성 보장 아님
@@ -90,7 +90,7 @@ Status: current
 - Rule 전용 후보는 fit 필요 피처 미지원; ML/병렬 후보의 Rule은 같은 검증된 fit으로 계산 가능
 - 파일 이동 후 DB 확정 전 실패: 후보/성공 결과 미공개, attempt별 파일 경로 격리; 미등록 파일은 자동 재사용/활성화하지 않음
 - 기존 피처 계산·IF 파일 형식 호환 유지; 지원하지 않는 정의는 성공 대체 없음
-- 학습 후보 `ml_config_models.training_settings` [#111 구현]: 기존 키(`snapshotId`·`split`·`featureNames`·`definitionsHash`·`splitVersion`·`thresholdPolicy`·`trainingSelection`) 유지 + `methodId`·`methodVersion`·`parameters`(확정 파라미터 = 카탈로그 기본값 + 요청 값) 추가. configuration_spec schemaVersion 1·2 틀은 그대로, 마이그레이션 없음([model-version.md](model-version.md) 불변성·저장소 절). prepared 경로(`trainer/prepared_training.py`)는 아직 미반영 — 후속에서 맞춤. schemaVersion 3 행은 `timeBasis`·`trainingPeriod`도 저장하고 `trainingSelection.trainingPeriod`를 구성·결과에 남김. fit 참조에는 fit 필요 피처가 있을 때만 남음(그 밖에는 fit 참조 자체가 없음) [#132]
+- 학습 후보 `ml_config_models.training_settings` [#111 구현]: 기존 키(`snapshotId`·`split`·`featureNames`·`definitionsHash`·`splitVersion`·`thresholdPolicy`·`trainingSelection`) 유지 + `methodId`·`methodVersion`·`parameters`(확정 파라미터 = 카탈로그 기본값 + 요청 값) 추가. configuration_spec schemaVersion 1·2 틀은 그대로, 마이그레이션 없음([model-version.md](model-version.md) 불변성·저장소 절). prepared 경로(`trainer/prepared_training.py`)는 아직 미반영 — 후속에서 맞춤. schemaVersion 3 행은 `timeBasis`·`trainingPeriod`도 저장하고 `trainingSelection.trainingPeriod`를 구성·결과에 남김. 요청에 `excludedIntervals` 키가 있던 v3 행은 `excludedIntervals`(아래 선정 정책 v2 절)도 저장. fit 참조에는 fit 필요 피처가 있을 때만 남음(그 밖에는 fit 참조 자체가 없음) [#132]
 
 ## 규칙 관계 추천 후보 작업 — `recommend_relations`(실험 기능)
 
@@ -128,7 +128,7 @@ Status: current
 
 ## 변경 제안 — Issue #94 (룰·모델 분리, 학습 제외 구간; 위 현행 서술은 #94에서 수정하지 않음 — #111 병합분만 #116에서 현행 절에 반영)
 
-Created: 2026-11-02T18:00:00+09:00 / Updated: 2026-11-04T12:00:00+09:00 / Author: Claude Code (Trainer 세션 builder) / Status: draft(이 절만)
+Created: 2026-11-02T18:00:00+09:00 / Updated: 2026-11-15T12:00:00+09:00 / Author: Claude Code (Trainer 세션 builder) / Status: draft(이 절만 — "선정 정책 v2" 소절은 워커 구현 반영, 구간 비교 시각은 11/15 사용자 결정으로 학습 `timeBasis` 열)
 
 - 근거: 사용자 11/02 결정(학습 제외 구간, ESB 발생 시각 기준, 일별 거래량 그래프 위 구간 선택, 9.4 그래프 단위 월→일→시간→분), 10/28 전체 기획 보완안의 학습 흐름 Q-B1~B3(총괄 기록), #74 변경 제안 표 승계. 코드 변경 없음(계약만)
 - 2차 개정(11/02 9.4·WebUI 대조): v3 train 요청에서 `detectionPolicy` 제거(운영 설정 전역 값, [model-version.md](model-version.md)); 거래량 집계 `bucket ∈ {month, day, hour, minute}`와 단위별 범위 상한; `excludedIntervals[].reasonCode` 선택(기본 `other`); `trainingSelection.trainingPeriod` 추가
@@ -156,20 +156,24 @@ Created: 2026-11-02T18:00:00+09:00 / Updated: 2026-11-04T12:00:00+09:00 / Author
 | 키 | 규칙 |
 |---|---|
 | `timeBasis` | `persisted_at`(현행, 키 생략 시 기본 — 기존 요청 호환) / `esb_occurred_at`(`data_observations.source_log_occurred_at`). snapshot 기간 자르기 `[from, until)`의 기준(10/28 Q-B2 ★A "둘 다 선택"). 새 학습 화면은 거래량 그래프가 ESB 발생 시각 기준이므로 `esb_occurred_at`를 보냄 |
-| `excludedIntervals[]` | 0..32개. 각 `{from, until, reasonCode?, note?}`: ISO 8601(오프셋 필수), `from < until`, `[from, until)`가 요청 기간 안(밖이면 400 `excluded_interval_out_of_range`), 서로 겹치면 400 `excluded_interval_overlap`(서버 병합 없음 — **화면이 드래그 결과를 먼저 병합해 보낸 뒤** 보여 준 구간과 저장 구간이 같아야 함, WebUI 11/02). `reasonCode`는 **선택**, 생략 시 서버가 `other`로 저장; 값 ∈ `known_incident` / `maintenance` / `collection_anomaly` / `value_spike` / `other`. `note` ≤ 200자 선택. 구간 비교는 **항상 ESB 발생 시각**(`source_log_occurred_at`) 기준 [확정 11/02 Q7] — `timeBasis`와 무관 |
+| `excludedIntervals[]` | 0..32개. 각 `{from, until, reasonCode?, note?}`: ISO 8601(오프셋 필수), `from < until`, `[from, until)`가 요청 기간 안(밖이면 400 `excluded_interval_out_of_range`), 서로 겹치면 400 `excluded_interval_overlap`(서버 병합 없음 — **화면이 드래그 결과를 먼저 병합해 보낸 뒤** 보여 준 구간과 저장 구간이 같아야 함, WebUI 11/02). `reasonCode`는 **선택**, 생략 시 서버가 `other`로 저장; 값 ∈ `known_incident` / `maintenance` / `collection_anomaly` / `value_spike` / `other`. `note` ≤ 200자 선택. 구간 비교는 **학습 `timeBasis`와 같은 시각 열**(현행 `persisted_at`; `esb_occurred_at` 지원 뒤에는 그 열 `source_log_occurred_at`) [확정 11/15 사용자 결정 — 11/02 Q7 "항상 ESB 발생 시각"을 대체. `source_log_occurred_at`은 지금 채워지지 않는 열이라 그 기준으로는 구간 판단이 불가능] |
 | `evaluationSetId` | 선택. 학습 성공 뒤 자동 비교 평가(상대 = 같은 `modelKey`의 활성 버전)에 쓸 세트([config-comparison-evaluation.md](config-comparison-evaluation.md) 자동 비교 절). null이면 기본 세트 규칙 |
 | `modelKey`·`parameters` | #74 변경 제안 승계: 카탈로그 `ml:*` 키·`method_not_executable`·`parameters` 스키마 검증. 키 전부 생략(v3 키 없음) 시 현행 v1·v2 경로 |
 | (없음) `detectionPolicy` | **v3 요청에 없음**(2차 개정): 종합 판정 정책은 운영 설정 전역 값([model-version.md](model-version.md) 운영 설정 절)이며 모델 버전·학습 작업에 묶이지 않음. v3 키가 있는 요청에 `detectionPolicy`가 있으면 400 `invalid_detection_policy`. v1 형식 요청(`{mode, deadlineMs, combination}` 필수)은 현행 그대로 |
 | (없음) `ruleVersionIds` | v3 요청에는 없음. 룰은 룰 세트([rule-set.md](rule-set.md))가 판정 시점에 적용 |
 
-### 선정 정책 v2 — `train-success-excluded-v2` [제안]
+### 선정 정책 v2 — `train-success-excluded-v2` [구현 — 모델 버전(v3) 학습, `trainer/selection.py`]
 
-- 조건: snapshot **train 분할** ∧ `status = S` ∧ 명시 anomaly 라벨 아님(현행 `train-success-only-v1`) ∧ **ESB 발생 시각이 모든 제외 구간 밖** ∧ (제외 구간이 1개 이상이면) ESB 발생 시각 존재·`clock_status` 신뢰. 시각 없음·불신 행은 "구간 판단 불가"로 학습에서 제외하고 `excludedTimeUnknownCount`에 집계(Q-B2 A)
-- `policyVersion` 기록: 요청에 `excludedIntervals` 키가 있으면(빈 배열 포함) v2, 없으면 v1. 빈 배열 v2는 v1과 같은 행을 고르지만 `excludedIntervalsHash`가 빈 목록 hash로 남음
-- **validation/test 분할에는 적용하지 않음**(현행 원칙 유지, 10/28 5.2). 제외 구간을 평가 정답(이상 라벨)으로 바꾸지 않음
-- 적용 지점: 모델 fit·판정선 보정·fit 연산(`group_median`·`group_centered`)·합성 기준선 **두 경로**(ADBench `select_training`, ESB `fit_generator`) 모두 공용 판단 함수(`is_training_eligible(row, selection)` 가칭)로. `reference_reason`의 S 검사는 그대로 두고 기준선 fit에서만 추가 호출(10/28 5.2)
-- 최소 행: 제외 후 행 수가 최소 행·그룹·블록(`worker/VALIDATION.md:145`)·`minTrainRows`(카탈로그) 미만이면 작업 `failed` + `train_rows_insufficient_after_exclusion` + 건수. 사전 미리보기는 거래량 집계 API(아래)의 구간 밖 S 건수 합으로 근사(train 분할 비율 70%는 화면이 안내), 정확한 검사는 접수·실행 시
-- `trainingSelection` 확장(config·resultSummary·fit 참조에 저장, 기존 키 유지): `policyVersion`, `timeBasis`, `excludedIntervalCount`, `excludedByIntervalCount`, `excludedTimeUnknownCount`, `excludedIntervalsHash`(= `[{from, until}]`를 from 순 정렬한 compact JSON SHA-256, UTC 정규화), **`trainingPeriod {from, until, timeBasis}`**(요청 기간 그대로 — 모델 버전 목록·상세 응답에 노출되어 수식 추천 "운영 모델 학습 시작 ~ 현재"의 입력이 됨, [llm-recommendation-job.md](llm-recommendation-job.md)). 구간 목록 자체는 `run_jobs.input_spec`·`ml_config_models.training_settings.excludedIntervals`에 저장([model-version.md](model-version.md), 상세 응답 `models[].trainingSettings`로 노출)
+- 조건: snapshot **train 분할** ∧ `status = S` ∧ 명시 anomaly 라벨 아님(현행 `train-success-only-v1`) ∧ **행의 구간 비교 시각이 모든 제외 구간 `[from, until)` 밖**. 구간 비교 시각 = 학습 `timeBasis`와 같은 열(`intervalTimeBasis`, 11/15 사용자 결정; 현행 `persisted_at` = `data_observations.persisted_at`, 스냅샷 기간 자르기와 같은 열). 제외 구간이 1개 이상인데 시각이 없는 행은 "구간 판단 불가"로 학습에서 빼고 `excludedTimeUnknownCount`에 집계(`persisted_at`은 NOT NULL이라 현행 0). 판단 함수는 `exclusion_reason`(구 가칭 `is_training_eligible`) 하나
+- 적용 범위: `is_model_version_request`(v3 키가 있고 `detectionPolicy`가 없음)인 기간 지정 학습만. `detectionPolicy`가 있는 요청(v1·v2 구성 경로, `rule_only` 포함)에 `excludedIntervals`가 있으면 워커가 `config_schema_not_supported_yet`으로 끝냄(v1·v2 읽기 투영은 `excludedIntervalCount`를 0으로 고정하므로 기록할 자리가 없음). prepared 학습(`snapshotId`만, [prepared-csv-import.md](prepared-csv-import.md))은 허용 키 밖이라 `prepared_invalid_job_input`(기존 코드)
+- 워커 쪽 방어 검사: API가 400으로 거른 형식(0..32개, 오프셋 있는 ISO 8601, `from < until`, 요청 기간 안 — 기간은 밀리초로 잘라 비교, 겹침 없음·맞닿음 허용, `reasonCode` 허용 값, `note` ≤ 200자 또는 null, 키는 `from`·`until`·`reasonCode`·`note`만)이 큐에서 다시 틀리면 `invalid_job_input` 하나로 끝냄(API 코드 재사용 안 함). 구간 경계는 API 정규화와 같이 밀리초 정밀도만 받음. `excludedIntervals: null`도 `invalid_job_input`
+- `policyVersion` 기록: 요청에 `excludedIntervals` 키가 있으면(빈 배열 포함) v2, 없으면 v1. 빈 배열 v2는 v1과 같은 행을 고르지만 v2 필드(`excludedIntervalsHash` = 빈 목록 hash)가 남음. **키가 없는 요청의 결과는 지금과 같음**(v2 필드 없음)
+- **validation/test 분할에는 적용하지 않음**(현행 원칙 유지, 10/28 5.2). 제외 구간을 평가 정답(이상 라벨)으로 바꾸지 않음. snapshot 멤버십·분할도 바꾸지 않음
+- 적용 지점: 모델 fit·판정선 보정(어댑터 입력 = 선정 행)·fit 연산(`group_median`·`group_centered` 통계 = 선정 행) 모두 같은 선정 결과. 합성 기준선 **두 경로**(ADBench `select_training`, ESB `fit_generator`)는 평가 대상 모델의 `training_settings`(`trainingSelection.policyVersion`이 v2일 때 `excludedIntervals`·`trainingPeriod`·`intervalTimeBasis`)로 같은 조건을 되살려 같은 판단 함수로 기준 행을 거름. 저장 구간의 hash가 `excludedIntervalsHash`와 다르면 `synthetic_training_selection_invalid`. `reference_reason`의 S 검사는 그대로(ESB는 판단 함수로 먼저 거른 행에 `fit_generator`를 적용)
+- 최소 행: v2이고 선정 행 수(`selectedCount`)가 카탈로그 `inputRequirements.minTrainRows`(IF 600) 미만이면 fit 전에 작업 `failed` + `train_rows_insufficient_after_exclusion`(재시도 없음). `result_summary`에 실패 요약 `{snapshotId, splitCounts, methodId, minTrainRows, trainingSelection(v2 필드·trainingPeriod 포함)}`. snapshot 최소 행·그룹·블록(`worker/VALIDATION.md:145`)은 제외 전 멤버 기준이라 영향 없음. v1은 이 검사를 하지 않음(어댑터의 완전 행 검사 그대로). 사전 미리보기는 거래량 집계 API(아래)의 구간 밖 S 건수 합으로 근사(train 분할 비율 70%는 화면이 안내)
+- `trainingSelection` 확장(config·resultSummary·fit 참조·`training_settings`에 같은 값, 기존 키 유지): `policyVersion`, `timeBasis`(학습 기준), `intervalTimeBasis`(구간 비교에 실제로 쓴 열 이름, 현행 `timeBasis`와 같음), `excludedIntervalCount`, `excludedByIntervalCount`, `excludedTimeUnknownCount`, `excludedIntervalsHash`, **`trainingPeriod {from, until, timeBasis}`**(요청 기간 그대로 — 모델 버전 목록·상세 응답에 노출되어 수식 추천 "운영 모델 학습 시작 ~ 현재"의 입력이 됨, [llm-recommendation-job.md](llm-recommendation-job.md)). 제외 건수는 서로 겹치지 않음: `excludedCount` = S 아닌 행 + `excludedExplicitAnomalyCount` + `excludedTimeUnknownCount` + `excludedByIntervalCount`(S·라벨 정상 행만 구간 검사)
+- `excludedIntervalsHash`: 구간을 UTC `YYYY-MM-DDTHH:MM:SS.mmmZ`(API `toISOString()`과 같은 고정 길이)로 바꾸고 `from` 순으로 정렬한 `[{"from","until"}]`을 `json.dumps(obj, sort_keys=True, separators=(",", ":"), ensure_ascii=False)`의 UTF-8 바이트로 SHA-256 hex(소문자 64자). 빈 목록은 `[]`의 hash. 시험 벡터는 `worker/tests/test_training_selection.py`
+- 구간 목록 자체는 `run_jobs.input_spec`·`ml_config_models.training_settings.excludedIntervals`(`[{from, until, reasonCode, note}]`, 위 UTC 형식·from 순, `reasonCode` 생략은 `other`, `note` 생략은 null)에 저장([model-version.md](model-version.md), 상세 응답 `models[].trainingSettings`로 노출). configuration_spec에는 hash만. v3 내용 hash(`contentHashVersion: 2`)는 `trainingSelection`을 넣지 않지만 학습마다 artifact ID가 달라 다른 구간의 학습은 다른 hash가 됨
 - 학습 선정 개체(10/28 Q-B1 ★b `data_training_selections`)는 **이번 범위에서 보류**: 제외 구간은 train 요청에 포함(a′). snapshot 단독 생성(Q-B3 A/B)이 결정되면 `trainingSelectionId` 참조로 승격하고 평가 세트도 같은 개체를 참조 — 결정 질문 Q-T1
 
 ### 거래량 집계 API — #128 구현(구현에서 정한 값은 [models-ui.md](models-ui.md)), DB 인덱스는 아래 DB 요구

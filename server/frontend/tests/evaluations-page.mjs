@@ -426,6 +426,9 @@ const openDialog = (app) => app.renderer.root.findAllByType(Dialog).find((node) 
   assert.ok(shown.includes("6 / 3 / 4 / 1,175 · 비교 가능 1,188"));
   assert.ok(shown.includes("38 ms") && shown.includes("212 행/s") && shown.includes("미측정 · 기간을 지정한 별도 운영 보고에서 조회"));
   assert.ok(shown.includes("룰과 함께 판정 · 운영 룰 버전 13 고정"));
+  // 지표 비교 · 모델 단독의 ml.unavailableCount 행: 카드와 같은 이름·단위(사용자 11/14).
+  assert.ok(shown.includes("판정 실패 행12행0행"), "metric table names ml.unavailableCount as failed judgment rows");
+  assert.ok(!shown.includes("모델 미판정 행") && !shown.includes("12건"), "old row name and unit are gone");
   assert.ok(!/리비전|\br\d+\b/.test(shown), "version wording");
   await app.cleanup();
 }

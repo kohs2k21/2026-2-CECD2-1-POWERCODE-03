@@ -38,6 +38,17 @@ export const recommendationProgress = (summary: unknown): RecommendationProgress
   const [done, all] = [processed as number, total as number];
   return all > 0 && done >= 0 && done <= all ? { processed: done, total: all } : null;
 };
+/** 진행률 숫자 문구(사용자 11/14 승인): `처리 n/전체`. 진행률이 유효할 때만 쓴다. */
+export const progressText = ({ processed, total }: RecommendationProgress) => `처리 ${processed}/${total}`;
+/**
+ * Rule v3 보류 창 회피로 뺀 행 수(llm-recommendation-job.md 결과 추가 필드 최상위 `heldWindowExclusion`).
+ * 객체이고 `excludedRows`가 0 이상 정수일 때만 값, null·없음·형식이 다르면 null(표시하지 않음).
+ */
+export const heldWindowExcludedRows = (result: unknown): number | null => {
+  if (!record(result) || !record(result.heldWindowExclusion)) return null;
+  const rows = result.heldWindowExclusion.excludedRows;
+  return Number.isSafeInteger(rows) && (rows as number) >= 0 ? (rows as number) : null;
+};
 export type RecommendationResult = { recommendationContractVersion: string; items: RecommendationItem[]; [key: string]: unknown };
 
 const RECOMMENDATION_MONTHS = 3;

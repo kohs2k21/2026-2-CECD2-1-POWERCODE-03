@@ -205,21 +205,23 @@ const jobCalls = () => requested.filter((call) => call.path === "/api/jobs");
   assert.equal(progress.length, 1);
   assert.equal(progress[0].props.role, "progressbar");
   assert.equal(progress[0].props["aria-valuenow"], undefined);
+  assert.ok(!busy.shown().includes("처리 "), "no progress number text without progress");
   assert.ok(busy.shown().includes("시도 1 · 실행 중"));
   await busy.cleanup();
 
-  // AI 규칙 추천 진행률: 같은 이름의 progressbar에 값만 연결하고 숫자 문구는 두지 않는다.
+  // AI 규칙 추천 진행률: 같은 이름의 progressbar에 값 + 승인 문구 `처리 n/전체`(사용자 11/14).
   const recommend = await mount(`/detection/operations/jobs/${recommending.id}`);
   await wait(() => recommend.shown().includes("AI 규칙 추천 작업 dddddddd"), "recommendation running");
   const bar = recommend.renderer.root.findAll((node) => node.type === "div" && node.props["aria-label"] === "작업 진행 중");
   assert.equal(bar.length, 1);
   assert.deepEqual([bar[0].props.role, bar[0].props["aria-valuenow"], bar[0].props["aria-valuemin"], bar[0].props["aria-valuemax"]], ["progressbar", 1, 0, 4]);
-  assert.ok(!recommend.shown().includes("1/4"), "no progress number text");
+  assert.ok(recommend.shown().includes("처리 1/4"), "progress number text");
   await recommend.cleanup();
   const bad = await mount(`/detection/operations/jobs/${badProgress.id}`);
   await wait(() => bad.shown().includes("AI 규칙 추천 작업 eeeeeeee"), "bad progress");
   const badBar = bad.renderer.root.findAll((node) => node.type === "div" && node.props["aria-label"] === "작업 진행 중");
   assert.deepEqual([badBar.length, badBar[0].props.role, badBar[0].props["aria-valuenow"]], [1, "progressbar", undefined], "invalid progress keeps the value-less bar");
+  assert.ok(!bad.shown().includes("처리 ") && !bad.shown().includes("5/4"), "no progress number text for invalid progress");
   await bad.cleanup();
 
   const missing = await mount(`/detection/operations/jobs/${uuid("c")}`);

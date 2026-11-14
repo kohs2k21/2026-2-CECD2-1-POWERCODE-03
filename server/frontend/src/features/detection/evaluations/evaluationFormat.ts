@@ -1,7 +1,7 @@
 import { versionLabel } from "@/features/detection/models/VersionList";
 import { DASH, numberText, percentText } from "@/features/operations/format";
 import type { EvaluationItem } from "@/services/api/pipeline.api";
-import type { CompareVersion, ComparisonStatus, EvaluationPolicy, EvaluationSet, ItemCounts, Rate, RecommendationState } from "./evaluationsApi";
+import type { CompareVersion, ComparisonListItem, ComparisonStatus, EvaluationPolicy, EvaluationSet, ItemCounts, Rate, RecommendationState } from "./evaluationsApi";
 
 /** 평가 결과 화면 표시 형식. 서버 값을 옮기기만 하고 판정을 다시 계산하지 않는다. */
 export const ruleConditionText = (revision: number | null | undefined) => (revision === null || revision === undefined ? DASH : `운영 룰 버전 ${revision} 고정`);
@@ -42,6 +42,17 @@ export const comparisonStatus = (status: ComparisonStatus, failedCount: number) 
   if (status === "running") return { label: "진행 중", variant: "info" } as const;
   if (status === "failed") return { label: "실패", variant: "critical" } as const;
   return failedCount > 0 ? ({ label: "완료 · 일부 실패", variant: "warning" } as const) : ({ label: "완료", variant: "success" } as const);
+};
+
+/**
+ * 모델 버전 상세 평가 이력의 그 버전 결과(와이어프레임 `평가 실패`·`측정`·`미측정`). 완료 전·항목 없음은 비교 상태 표기 그대로.
+ * 실패 코드가 있으면 다른 실패 표기처럼 코드를 붙인다.
+ */
+export const versionResultStatus = (item: Pick<ComparisonListItem, "status" | "failedCount" | "versionResult">) => {
+  const result = item.versionResult;
+  if (!result || result.status === "pending") return comparisonStatus(item.status, item.failedCount);
+  if (result.status === "failed") return { label: result.errorCode ? `평가 실패 · ${result.errorCode}` : "평가 실패", variant: "critical" } as const;
+  return result.measurementStatus === "measured" ? ({ label: "측정", variant: "success" } as const) : ({ label: "미측정", variant: "warning" } as const);
 };
 
 export const labelOf = (versions: CompareVersion[] | undefined, id: string | null | undefined) => {

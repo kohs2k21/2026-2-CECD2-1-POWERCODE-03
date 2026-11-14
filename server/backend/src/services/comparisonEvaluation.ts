@@ -327,8 +327,9 @@ const statusOf = (row: ComparisonRow) => row.comparisonStatus ?? row.jobStatus;
 const baselinesOf = (row: ComparisonRow) => (Array.isArray(row.summary?.baselines) ? row.summary!.baselines : Array.isArray(row.input.baselines) ? row.input.baselines : [])
   .map((item: Record<string, unknown>) => ({ modelKey: item.modelKey, configVersionId: item.configVersionId }));
 
-type ActiveContext = { models: { configVersionId: string; modelKey: string }[]; revision: number; setStatus: Map<string, string> };
-async function activeContext(db: Queryable, setIds: string[]): Promise<ActiveContext> {
+export type ActiveContext = { models: { configVersionId: string; modelKey: string }[]; revision: number; setStatus: Map<string, string> };
+/** 추천 상태 파생에 쓰는 지금 운영 상태(활성 집합)와 세트 상태. 모델 버전 조회의 `latestComparison.recommendation`도 같은 값을 쓴다. */
+export async function activeContext(db: Queryable, setIds: string[]): Promise<ActiveContext> {
   const { rows: [state] } = await db.query(`SELECT active_model_set_revision::text AS revision, active_models AS models FROM ops_operational_state`);
   if (!state) throw new Error('operational_state_unavailable');
   const sets = setIds.length ? (await db.query<{ id: string; status: string }>(`SELECT id::text AS id, status FROM data_evaluation_sets WHERE id = ANY($1::uuid[])`, [setIds])).rows : [];
@@ -337,7 +338,7 @@ async function activeContext(db: Queryable, setIds: string[]): Promise<ActiveCon
 }
 
 /** 추천 상태는 저장하지 않고 조회 때 파생한다(계약 stale 절). v1은 추천이 없어(null) 상태도 없다. */
-const recommendationState = (rec: Record<string, any>, context: ActiveContext, setId: string) => {
+export const recommendationState = (rec: Record<string, any>, context: ActiveContext, setId: string) => {
   const target = typeof rec.targetVersionId === 'string' ? rec.targetVersionId.toLowerCase() : null;
   if (!target) return 'none';
   if (context.models.some((model) => model.configVersionId === target)) return 'applied';
@@ -355,7 +356,28 @@ const recommendationsOf = (row: ComparisonRow, context: ActiveContext) => {
   return { replacementRecommendations: null, replacementRecommendationsReason: reason };
 };
 
-const listItem = (row: ComparisonRow, context: ActiveContext) => {
+/**
+ * `configVersionId` 필터의 항목별 결과(모델 버전 상세 평가 이력). 완료 뒤는 저장된 `summary.items`의 그 버전 항목,
+ * 완료 전은 `pending`, 묶음 없이 작업이 실패했으면 작업 실패 코드. summary에 그 버전 항목이 없으면 null.
+ */
+const versionResultOf = (row: ComparisonRow, configVersionId: string) => {
+  const role = baselinesOf(row).some((item: { configVersionId: unknown }) => String(item.configVersionId).toLowerCase() === configVersionId) ? 'active' : 'candidate';
+  if (!row.summary) {
+    return row.jobStatus === 'failed'
+      ? { configVersionId, role, status: 'failed', errorCode: row.jobError, measurementStatus: null }
+      : { configVersionId, role, status: 'pending', errorCode: null, measurementStatus: null };
+  }
+  const items: Record<string, any>[] = Array.isArray(row.summary.items) ? row.summary.items : [];
+  const item = items.find((entry) => typeof entry?.configVersionId === 'string' && entry.configVersionId.toLowerCase() === configVersionId);
+  if (!item) return null;
+  const measurement = item.categoryResults?.ml?.measurementStatus;
+  return {
+    configVersionId, role: item.role === 'active' || item.role === 'candidate' ? item.role : role, status: item.status === 'succeeded' ? 'succeeded' : 'failed',
+    errorCode: typeof item.errorCode === 'string' ? item.errorCode : null, measurementStatus: typeof measurement === 'string' ? measurement : null,
+  };
+};
+
+const listItem = (row: ComparisonRow, context: ActiveContext, configVersionId: string | null) => {
   const { replacementRecommendations, replacementRecommendationsReason } = recommendationsOf(row, context);
   return {
     comparisonId: row.comparisonId, jobId: row.jobId, evaluationSetId: row.input.evaluationSetId ?? null, baselines: baselinesOf(row),
@@ -365,16 +387,18 @@ const listItem = (row: ComparisonRow, context: ActiveContext) => {
     succeededCount: count(row.summary?.succeededCount) ?? row.succeededCount, failedCount: count(row.summary?.failedCount) ?? row.failedCount, createdAt: row.createdAt, completedAt: row.completedAt ?? row.finishedAt,
     recommendations: replacementRecommendations?.map((rec: Record<string, any>) => ({ modelKey: rec.modelKey, targetVersionId: rec.targetVersionId ?? null, state: rec.recommendationState })) ?? null,
     recommendationsReason: replacementRecommendationsReason,
+    ...(configVersionId ? { versionResult: versionResultOf(row, configVersionId) } : {}),
   };
 };
 
 export function parseComparisonListQuery(query: Record<string, unknown>) {
-  if (Object.keys(query).some((key) => !['sourceId', 'evaluationSetId', 'modelKey', 'scope', 'limit', 'cursor'].includes(key))) throw new ComparisonError('unknown_comparison_filter');
+  if (Object.keys(query).some((key) => !['sourceId', 'evaluationSetId', 'configVersionId', 'modelKey', 'scope', 'limit', 'cursor'].includes(key))) throw new ComparisonError('unknown_comparison_filter');
   const { modelKey, scope } = query;
   if (modelKey !== undefined && (typeof modelKey !== 'string' || !/^[a-z][a-z0-9_-]{1,63}$/.test(modelKey))) throw new ComparisonError('invalid_model_key');
   if (scope !== undefined && scope !== 'current' && scope !== 'all') throw new ComparisonError('invalid_scope');
   return {
     sourceId: optionalUuid(query.sourceId, 'invalid_source_id'), evaluationSetId: optionalUuid(query.evaluationSetId, 'invalid_evaluation_set_id'),
+    configVersionId: optionalUuid(query.configVersionId, 'invalid_config_version_id'),
     modelKey: (modelKey as string | undefined) ?? null, scope: (scope as 'current' | 'all' | undefined) ?? 'all', limit: parseLimit(query.limit), cursor: decodeCursor(query.cursor),
   };
 }
@@ -382,6 +406,7 @@ export function parseComparisonListQuery(query: Record<string, unknown>) {
 /**
  * GET /api/comparisons: 비교 작업 최신순(완료 전 작업 포함 — 묶음은 완료 때 생기므로 `comparisonId` null).
  * `scope=current`(WebUI 탭): 접수 때 활성 집합 리비전이 지금과 같고 실패가 아닌 것.
+ * `configVersionId`(모델 버전 상세 평가 이력): 그 버전이 비교 항목(접수 때 넣은 기준 운영 버전 포함)인 작업만, 항목마다 `versionResult`.
  */
 export async function readComparisons(db: Queryable, filter: ReturnType<typeof parseComparisonListQuery>) {
   const { rows: [state] } = await db.query(`SELECT active_model_set_revision AS revision FROM ops_operational_state`);
@@ -393,11 +418,13 @@ export async function readComparisons(db: Queryable, filter: ReturnType<typeof p
         AND m.config_version_id::text IN (SELECT jsonb_array_elements_text(j.input_spec->'configVersionIds'))))
       AND (NOT $4::boolean OR ((j.input_spec->>'activeModelSetRevision')::bigint = $5::bigint AND COALESCE(c.status, j.status::text) <> 'failed'))
       AND ($6::timestamptz IS NULL OR (j.created_at, j.id) < ($6::timestamptz, $7::uuid))
+      AND ($9::text IS NULL OR j.input_spec->'configVersionIds' @> jsonb_build_array($9::text))
     ORDER BY j.created_at DESC, j.id DESC LIMIT $8`,
-  [filter.sourceId, filter.evaluationSetId, filter.modelKey, filter.scope === 'current', state?.revision ?? null, filter.cursor?.at ?? null, filter.cursor?.id ?? null, filter.limit + 1]);
+  [filter.sourceId, filter.evaluationSetId, filter.modelKey, filter.scope === 'current', state?.revision ?? null, filter.cursor?.at ?? null, filter.cursor?.id ?? null, filter.limit + 1,
+    filter.configVersionId]);
   const result = page(rows, filter.limit, (row) => ({ at: row.rawAt, id: row.jobId }));
   const context = await activeContext(db, [...new Set(result.items.map((row) => String(row.input.evaluationSetId)).filter(uuid))]);
-  return { items: result.items.map((row) => listItem(row, context)), pagination: result.pagination };
+  return { items: result.items.map((row) => listItem(row, context, filter.configVersionId)), pagination: result.pagination };
 }
 
 /**

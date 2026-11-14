@@ -14,7 +14,7 @@ import { DASH, msText, numberText, percentText, stampText } from "@/features/ope
 import { CAUSE_LABELS, hoursText, methodBadge, undecided } from "./methodStatus";
 import type { ActiveModel, MethodPeriod, MethodStatus, MethodStatusReport, OperationalState } from "./operationsApi";
 import { useMethodStatus } from "./useOperations";
-import { detectionSections } from "../detectionToc";
+import { detectionSections, sectionReturnTo } from "../detectionToc";
 
 const ML_TERM = "머신러닝 모델";
 const PERIODS: { id: MethodPeriod; label: string }[] = [{ id: "1h", label: "최근 1시간" }, { id: "24h", label: "최근 24시간" }];
@@ -150,7 +150,7 @@ export const OperationsOverview = ({ state, rules, fields, methods, onRetire }: 
                       <TableRow key={model.configVersionId} data-method={`ml:${model.modelKey}`}>
                         <TableCell>{methodName(methods, model.modelKey)}</TableCell>
                         <NameCell
-                          name={<Link className="text-link underline-offset-2 hover:underline" to={paths.detectionModel(model.configVersionId)} state={{ returnTo: location.pathname }}>{versionLabel({ id: model.configVersionId, displayName: model.displayName })}</Link>}
+                          name={<Link className="text-link underline-offset-2 hover:underline" to={paths.detectionModel(model.configVersionId)} state={{ returnTo: sectionReturnTo(location, detectionSections.operationsStatus) }}>{versionLabel({ id: model.configVersionId, displayName: model.displayName })}</Link>}
                           note={`적용 ${stampText(stat?.enabledSince)}`}
                         />
                         <StatCells method={stat} report={report} now={now} />

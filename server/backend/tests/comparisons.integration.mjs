@@ -243,6 +243,39 @@ try {
   assert.deepEqual([goneRow.status, goneRow.itemCount, goneRow.succeededCount, goneRow.failedCount], ['failed', 1, 0, 1]);
   assert.equal((await call(`/api/comparisons/${activeOnly.body.id}`, { token: admin })).body.items[0].errorCode, 'config_not_found');
 
+  // 11-2) 모델 버전 상세 평가 이력: configVersionId = 그 버전이 항목(접수 때 넣은 기준 운영 버전 포함)인 비교만, 항목마다 그 버전 결과
+  const historyOf = async (configId) => (await call(`/api/comparisons?configVersionId=${configId}`, { token: admin })).body.items;
+  assert.ok(!('versionResult' in pendingList.items[0]), 'no versionResult without the filter');
+  const aHistory = await historyOf(a.configId.toUpperCase());
+  assert.deepEqual(aHistory.map((item) => item.jobId), [activeOnly.body.id, jobId], 'baseline version: both comparisons, newest first');
+  assert.deepEqual(aHistory.map((item) => item.versionResult), [
+    { configVersionId: a.configId, role: 'active', status: 'failed', errorCode: 'config_not_found', measurementStatus: null },
+    { configVersionId: a.configId, role: 'active', status: 'succeeded', errorCode: null, measurementStatus: 'measured' },
+  ]);
+  assert.deepEqual((await historyOf(b.configId)).map((item) => [item.jobId, item.versionResult.role, item.versionResult.status, item.versionResult.measurementStatus]),
+    [[jobId, 'candidate', 'succeeded', 'measured']]);
+  const eifPending = await compare({ ...base, configVersionIds: [eif.configId] });
+  assert.equal(eifPending.status, 201);
+  assert.deepEqual((await historyOf(eif.configId)).map((item) => [item.jobId, item.status, item.versionResult]), [
+    [eifPending.body.id, 'queued', { configVersionId: eif.configId, role: 'candidate', status: 'pending', errorCode: null, measurementStatus: null }],
+    [noBaseline.body.id, 'failed', { configVersionId: eif.configId, role: 'candidate', status: 'failed', errorCode: 'training_evaluation_overlap', measurementStatus: null }],
+  ]);
+  // 묶음 없이 작업이 실패하면(Trainer 실행 실패) 작업 실패 코드
+  await pool.query(`UPDATE run_jobs SET status='failed',error_code='comparison_execution_failed',finished_at=clock_timestamp() WHERE id=$1`, [eifPending.body.id]);
+  assert.deepEqual((await historyOf(eif.configId))[0].versionResult, { configVersionId: eif.configId, role: 'candidate', status: 'failed', errorCode: 'comparison_execution_failed', measurementStatus: null });
+  assert.deepEqual(await historyOf(ruleOnly.configId), [], 'never compared');
+  assert.deepEqual((await call(`/api/comparisons?configVersionId=${b.configId}&modelKey=eif`, { token: admin })).body.items, [], 'filters combine');
+  assert.deepEqual(code(await call('/api/comparisons?configVersionId=x', { token: admin })), [400, 'invalid_config_version_id']);
+  // 모델 버전 조회 latestComparison: 그 버전이 들어간 가장 최근 비교(목록 상태 규칙 그대로). v1은 추천이 없어 recommendation null
+  const latestOf = async (configId) => (await call(`/api/configurations/${configId}`, { token: admin })).body.latestComparison;
+  const aLatest = await latestOf(a.configId);
+  assert.deepEqual({ ...aLatest, completedAt: typeof aLatest.completedAt }, { comparisonJobId: activeOnly.body.id, evaluationSetId: setId, status: 'failed', completedAt: 'string', auto: false, recommendation: null });
+  assert.deepEqual([(await latestOf(b.configId)).comparisonJobId, (await latestOf(b.configId)).status], [jobId, 'succeeded']);
+  assert.equal((await latestOf(ruleOnly.configId)), null);
+  const listed = (await call(`/api/configurations?sourceId=${sourceId}`, { token: admin })).body.items;
+  assert.deepEqual(listed.find((item) => item.id === eif.configId).latestComparison.comparisonJobId, eifPending.body.id, 'list carries the same value');
+  assert.equal(listed.find((item) => item.id === unknownSchema.configId).latestComparison, null);
+
   // 12) 모델 교체 3단계: 비교가 만든 B 평가가 운영 적용 gate 근거가 된다(B에는 다른 평가가 없다).
   const bEvaluation = items.find((item) => item.configVersionId === b.configId).evaluationId;
   const bVersion = (await call(`/api/configurations/${b.configId}`, { token: admin })).body;

@@ -163,6 +163,8 @@ const mount = async (path = "/detection/models", { keepDrafts = false, createNod
   return { renderer, router, shown, button, click, link, go, input, set, cleanup };
 };
 const search = (app) => app.router.state.location.search;
+/** 라우터 Link(문자열 주소)의 넘기는 state. */
+const routerLinks = (app, prefix) => app.renderer.root.findAll((node) => typeof node.type !== "string" && typeof node.props.to === "string" && node.props.to.startsWith(prefix) && node.props.state);
 const calls = (method, path) => requested.filter((call) => call.method === method && call.path === path);
 const queryPeriod = async (app, from = "2026-10-01", to = "2026-10-30") => {
   await wait(() => app.input("period-from"), "period inputs");
@@ -358,9 +360,12 @@ const tocSections = (app, menu) => detectionToc[menu].map(({ id }) => {
   assert.ok(current.includes("현재 운영 버전"), "URL tab marks the default");
   assert.equal(app.renderer.root.findAll((node) => node.type === "button" && text(node.children).includes("새 학습")).length, 0, "no header button");
   assert.ok(app.renderer.root.findAll((node) => node.type === "h2" && text(node.children) === "새 학습").length === 1, "the training area sits on the same screen");
+  // 버전 행 → 상세: 뒤로가기가 버전 영역으로 돌아온다(쿼리 유지)
+  assert.deepEqual(routerLinks(app, "/detection/models/").map((node) => [node.props.to, node.props.state.returnTo]), [[`/detection/models/${V1}`, "/detection/models#models-versions"]]);
   await app.go("전체 버전");
   await wait(() => app.shown().includes(V2.slice(0, 8)), "all versions");
   assert.equal(search(app), "?tab=all");
+  assert.equal(routerLinks(app, "/detection/models/")[0].props.state.returnTo, "/detection/models?tab=all#models-versions", "the tab stays in the return address");
   assert.ok(app.shown().includes("연구 중 · research"));
   assert.ok(!app.shown().includes(V3.slice(0, 8)), "rule-only configurations are not model versions");
   assert.ok(app.shown().includes("평가 전"));
@@ -482,9 +487,57 @@ const tocSections = (app, menu) => detectionToc[menu].map(({ id }) => {
   for (const expected of ["Isolation Forest · ml:iforest", "process-iforest-v1", "운영 중", "2026-10-01 00:00 ~ 2026-11-01 00:00 · 저장 시각 기준", "47,120건", "train-success-only-v1", "입력 변수 2개", "error_count, retry_count", "64", "m-1", "f-1", "value 0.58", "2026-10-03 09:00 ~ 2026-10-03 12:00 · DB 장애"]) {
     assert.ok(shown.includes(expected), expected);
   }
-  for (const excluded of ["새 비교 평가", "리비전"]) assert.ok(!shown.includes(excluded), `${excluded} is out of this screen`);
+  for (const excluded of ["새 비교 평가", "리비전", "자동 비교 평가"]) assert.ok(!shown.includes(excluded), `${excluded} is out of this screen`);
   assert.equal(app.button("이 버전으로 교체")?.props.disabled, true, "a version in operation cannot be the replacement (operations settings sub-issue 7)");
   await app.cleanup();
+}
+// 6-1) 버전 상세 평가 이력: 이 버전이 들어간 비교 평가(configVersionId 필터), 상태는 이 버전 결과(평가 실패·측정·미측정), 완료 전은 비교 상태
+{
+  const C = (n) => `${n}${n}${n}${n}${n}${n}${n}${n}-2222-4222-8222-222222222222`;
+  const row = (comparisonId, jobId, status, versionResult, overrides = {}) => ({
+    comparisonId, jobId, evaluationSetId: SET_OK, baselines: [{ modelKey: "iforest", configVersionId: V1 }], activeModelSetRevision: 7, status, errorCode: null,
+    itemCount: 2, succeededCount: status === "succeeded" ? 2 : 0, failedCount: 0, createdAt: "2026-11-10T00:00:00Z", completedAt: status === "queued" ? null : "2026-11-10T01:00:00Z",
+    recommendations: null, recommendationsReason: null, versionResult: versionResult && { configVersionId: V1, role: "active", errorCode: null, measurementStatus: null, ...versionResult }, ...overrides,
+  });
+  const items = [
+    row(null, C(1), "queued", { status: "pending" }),
+    row(C(2), C(3), "succeeded", { status: "succeeded", measurementStatus: "measured" }),
+    row(C(4), C(5), "succeeded", { status: "succeeded", measurementStatus: "unavailable" }, { evaluationSetId: SET_BAD }),
+    row(C(6), C(7), "failed", { status: "failed", errorCode: "training_evaluation_overlap" }),
+  ];
+  let comparisons = () => json(page(items));
+  routes = baseRoutes({
+    [`GET /api/configurations/${V1}`]: () => json(detail),
+    [`GET /api/jobs/${JOB}`]: () => json(job("succeeded")),
+    "GET /api/comparisons": () => comparisons(),
+    "GET /api/evaluation-sets": () => json({ items: [{ id: SET_OK, displayName: "10월 검증 분할" }] }),
+  });
+  const app = await mount(`/detection/models/${V1}?from=x`);
+  await wait(() => app.shown().includes("training_evaluation_overlap"), "history rows");
+  assert.equal(new URLSearchParams(calls("GET", "/api/comparisons").slice(-1)[0].search).get("configVersionId"), V1, "the server filters by this version");
+  const history = app.renderer.root.find((node) => node.type === "div" && node.props["aria-label"] === "평가 이력");
+  assert.deepEqual(history.findAll((node) => node.type === "th").map((node) => text(node.children)), ["비교", "평가 세트", "완료", "상태"]);
+  assert.deepEqual(history.findAll((node) => node.type === "tr").slice(1).map((tr) => tr.findAll((node) => node.type === "td").map((td) => text(td.children))), [
+    [C(1).slice(0, 8), "10월 검증 분할", "—", "대기"],
+    [C(2).slice(0, 8), "10월 검증 분할", "11/10 10:00", "측정"],
+    [C(4).slice(0, 8), SET_BAD.slice(0, 8), "11/10 10:00", "미측정"],
+    [C(6).slice(0, 8), "10월 검증 분할", "11/10 10:00", "평가 실패 · training_evaluation_overlap"],
+  ]);
+  // 행 → 평가 상세(완료 전은 작업 ID), 뒤로가기는 이 버전 상세(쿼리 유지)
+  assert.deepEqual(routerLinks(app, "/detection/evaluations/").map((node) => [node.props.to, node.props.state.returnTo]),
+    [C(1), C(2), C(4), C(6)].map((id) => [`/detection/evaluations/${id}`, `/detection/models/${V1}?from=x`]));
+  await app.cleanup();
+
+  comparisons = () => json(page([]));
+  const empty = await mount(`/detection/models/${V1}`);
+  await wait(() => empty.shown().includes("평가 이력 없음"), "empty history");
+  await empty.cleanup();
+
+  comparisons = () => json({ code: "comparison_storage_unavailable" }, 503);
+  const failed = await mount(`/detection/models/${V1}`);
+  await wait(() => failed.shown().includes("평가 조회 실패 · comparison_storage_unavailable"), "history failure is shown");
+  assert.ok(!failed.shown().includes("평가 이력 없음"), "a failure never looks like an empty history");
+  await failed.cleanup();
 }
 {
   routes = baseRoutes({ [`GET /api/configurations/${V1}`]: () => json({ code: "config_not_found" }, 404) });
@@ -775,6 +828,7 @@ const tocSections = (app, menu) => detectionToc[menu].map(({ id }) => {
   routes = baseRoutes({ [`GET /api/jobs/${JOB}`]: () => json(job("queued", { attemptCount: 1, errorCode: "training_worker_lost" })) });
   const app = await mount(`/detection/models?job=${JOB}`);
   await wait(() => app.shown().includes("재시도 대기 · training_worker_lost"), "retry wait is not a failure");
+  assert.deepEqual(routerLinks(app, "/detection/operations/jobs/").map((node) => node.props.state.returnTo), [`/detection/models?job=${JOB}#models-train`], "job link returns to the training area");
   await app.cleanup();
 }
 {

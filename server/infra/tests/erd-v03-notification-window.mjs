@@ -22,7 +22,10 @@ export async function notificationWindow026({ Client, port, connection, check, f
   let api;
   try {
     for (const sql of migrations.slice(0, idx)) await c.query(sql);
-    await c.query(rolesSql);
+    // Roles script as of 026: the 028 block grants on a table that does not exist yet.
+    const rolesTo026 = rolesSql.replace(/^-- 028: [\s\S]*?(?=^-- 024 )/m, '');
+    assert.notEqual(rolesTo026, rolesSql, 'database-roles.sql has the 028 grant block before the 024 block');
+    await c.query(rolesTo026);
     await c.query(`CREATE ROLE ${login.user} LOGIN PASSWORD '${login.password}' IN ROLE powercode_api`);
     api = new Client({ host:'127.0.0.1', port, user:login.user, password:login.password, database:db });
     await api.connect();

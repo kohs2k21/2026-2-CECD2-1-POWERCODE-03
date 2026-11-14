@@ -112,6 +112,10 @@ GRANT SELECT,INSERT,UPDATE,DELETE ON ops_user_notification_reads TO powercode_ap
 -- protocol alert read marks follow the 022 read-mark rules (pruned by the API). Detector does not read either table.
 GRANT SELECT,INSERT ON ops_protocol_alert_keeps TO powercode_api;
 GRANT SELECT,INSERT,UPDATE,DELETE ON ops_user_protocol_alert_reads TO powercode_api;
+-- 028: job notification read marks (WebUI, train/compare job finished). API only, same rules as the 022 read marks
+-- (pruned by the API). The 022 settings/cursor column additions are covered by the table-level 022 grants above.
+-- The API already reads run_jobs (job list). No other role reads it.
+GRANT SELECT,INSERT,UPDATE,DELETE ON ops_user_job_notification_reads TO powercode_api;
 -- 024 [제안]: relation recheck search runs (cursor). Append-only: Detector writes with SELECT,INSERT under
 -- pg_try_advisory_xact_lock(81742,0). No other role reads it.
 GRANT SELECT,INSERT ON run_recheck_runs TO powercode_detector;

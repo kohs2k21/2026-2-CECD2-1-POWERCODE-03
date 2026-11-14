@@ -1453,7 +1453,8 @@ Table ops_user_notification_settings {
   include_unrated boolean [not null]
   updated_at timestamptz [not null, default: `clock_timestamp()`]
   window_days integer [not null, default: 7]
-  Note: '022. 알림 설정(사용자당 1행, 행 없음 = 기본값 interim·info·true·7). decision_basis interim|final_any|final_complete, min_risk_level info|warning|critical. actor_id = 인증 계정 id 문자열(1~128자). 026 window_days = 알림 조회 기간(일, 1~30, 기본 7).'
+  include_jobs boolean [not null, default: true]
+  Note: '022. 알림 설정(사용자당 1행, 행 없음 = 기본값 interim·info·true·7·true). decision_basis interim|final_any|final_complete, min_risk_level info|warning|critical. actor_id = 인증 계정 id 문자열(1~128자). 026 window_days = 알림 조회 기간(일, 1~30, 기본 7). 028 include_jobs = 작업 알림 켜기(관리자만 적용).'
 }
 
 Table ops_user_widget_layouts {
@@ -1471,7 +1472,8 @@ Table ops_user_notification_cursors {
   actor_id text [pk]
   read_through bigint [not null]
   updated_at timestamptz [not null, default: `clock_timestamp()`]
-  Note: '022. 모두 읽음 순번(run_decision_events.id 기준, ≥ 0). 알림 순번이 이 값 이하인 항목은 읽음.'
+  jobs_read_through timestamptz
+  Note: '022. 모두 읽음 순번(run_decision_events.id 기준, ≥ 0). 알림 순번이 이 값 이하인 항목은 읽음. 028 jobs_read_through = 작업 알림 모두 읽음 경계(종료 시각, NULL = 없음).'
 }
 
 Table ops_user_notification_reads {
@@ -1505,6 +1507,18 @@ Table ops_user_protocol_alert_reads {
     (actor_id, item_key) [pk]
   }
   Note: '023. 프로토콜 알림 항목별 읽음(022 항목 읽음과 같은 규칙). item_key protocol:<sha256 64 hex>.'
+}
+
+// 028_job_notifications. Job notification (train/compare finished) read marks, API only (no FK to run_jobs: the API prunes rows).
+Table ops_user_job_notification_reads {
+  actor_id text [not null]
+  job_id uuid [not null]
+  read_through timestamptz [not null]
+  read_at timestamptz [not null, default: `clock_timestamp()`]
+  indexes {
+    (actor_id, job_id) [pk]
+  }
+  Note: '028. 작업 알림 항목별 읽음. 그 작업의 finished_at이 read_through 이하이면 읽음. API가 모두 읽음 경계 이하·30일보다 오래된 작업의 행을 지운다.'
 }
 
 Table run_recheck_runs {

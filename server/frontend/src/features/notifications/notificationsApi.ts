@@ -12,7 +12,8 @@ export type RiskFloor = (typeof riskFloors)[number];
 export const NOTIFICATION_WINDOW_DAYS = { default: 7, min: 1, max: 30 } as const;
 export const isWindowDays = (value: unknown): value is number =>
   typeof value === "number" && Number.isInteger(value) && value >= NOTIFICATION_WINDOW_DAYS.min && value <= NOTIFICATION_WINDOW_DAYS.max;
-export type NotificationSettings = { decisionBasis: DecisionBasis; minRiskLevel: RiskFloor; includeUnrated: boolean; windowDays: number };
+/** includeJobs: 작업 알림(학습·비교 평가 종료) 켜기. 서버는 관리자에게만 작업 알림을 만든다(설정 화면도 관리자만 보인다). */
+export type NotificationSettings = { decisionBasis: DecisionBasis; minRiskLevel: RiskFloor; includeUnrated: boolean; windowDays: number; includeJobs: boolean };
 export const notificationViews = ["unread", "all"] as const;
 export type NotificationView = (typeof notificationViews)[number];
 
@@ -68,9 +69,29 @@ export type ProtocolNotification = Base & {
     transactionId: string | null;
   };
 };
-export type NotificationItem = DecisionNotification | IncidentNotification | ProtocolNotification;
+/** 작업 알림(contracts/notifications.md "작업 알림" 절): 학습·비교 평가가 완료·실패로 끝난 작업 1건. 관리자만. */
+export type JobNotification = Base & {
+  type: "job";
+  reason: "finished";
+  job: {
+    id: string;
+    kind: "train" | "compare";
+    status: "succeeded" | "failed";
+    errorCode: string | null;
+    finishedAt: string;
+    /** 학습 결과 모델 버전(학습 완료만). */
+    configVersionId: string | null;
+    /** 비교 평가 실패 항목 수(비교 평가만, 없으면 null). */
+    failedCount: number | null;
+    /** 비교 평가 완료에 교체 추천 대상이 있음. */
+    replacementRecommended: boolean;
+  };
+};
+export type NotificationItem = DecisionNotification | IncidentNotification | ProtocolNotification | JobNotification;
 export type NotificationList = {
   latestSeq: string;
+  /** 작업 알림 대상 중 가장 늦은 종료 시각(모두 읽음 jobsThrough로 보냄). 작업 알림이 없거나 꺼졌으면 null. */
+  latestJobAt: string | null;
   readThrough: string;
   /** truncatedBy: 범위를 정한 쪽 — days(조회 기간) / events(최근 이벤트 수 상한) / null(잘림 없음). */
   window: { events: number; days: number; fromSeq: string; truncated: boolean; truncatedBy: "days" | "events" | null };
@@ -80,9 +101,9 @@ export type NotificationList = {
   nextCursor: string | null;
   items: NotificationItem[];
 };
-/** 종류별 미확인 수(합 = unreadCount). 상단 메뉴 이상 분석 배지 = decision + incident. 일반 사용자는 protocol 0. */
-export type UnreadByType = { decision: number; incident: number; protocol: number };
-export type UnreadCount = { latestSeq: string; unreadCount: number; unreadByType: UnreadByType };
+/** 종류별 미확인 수(합 = unreadCount). 상단 메뉴 이상 분석 배지 = decision + incident, 탐지 설정 배지 = job. 일반 사용자는 protocol·job 0. */
+export type UnreadByType = { decision: number; incident: number; protocol: number; job: number };
+export type UnreadCount = { latestSeq: string; latestJobAt: string | null; unreadCount: number; unreadByType: UnreadByType };
 export type StoredLayout = { version: number; items: { i: string; x: number; y: number; w: number; h: number }[] };
 export type MySettings = {
   notifications: NotificationSettings & { isDefault: boolean; updatedAt: string | null };
@@ -93,8 +114,12 @@ type Obj = Record<string, unknown>;
 const obj = (value: unknown): value is Obj => typeof value === "object" && value !== null && !Array.isArray(value);
 const str = (value: unknown) => (typeof value === "string" ? value : null);
 const SEQ = /^(0|[1-9]\d{0,18})$/;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+/** 작업 알림 시각(서버 형식 그대로: UTC 마이크로초 6자리). 형식이 다르면 null(모두 읽음에 보내지 않음). */
+const jobAt = (value: unknown) => (typeof value === "string" && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$/.test(value) ? value : null);
 const oneOf = <T extends string>(value: unknown, allowed: readonly T[]): T | null =>
   typeof value === "string" && (allowed as readonly string[]).includes(value) ? (value as T) : null;
+const count = (value: unknown): value is number => Number.isInteger(value) && (value as number) >= 0;
 const fail = (what: string): never => {
   throw new Error(`${what} 응답 형식을 확인할 수 없습니다.`);
 };
@@ -103,8 +128,8 @@ export const parseNotificationSettings = (value: unknown, what = "알림 설정"
   if (!obj(value)) return fail(what);
   const decisionBasis = oneOf(value.decisionBasis, decisionBases);
   const minRiskLevel = oneOf(value.minRiskLevel, riskFloors);
-  if (!decisionBasis || !minRiskLevel || typeof value.includeUnrated !== "boolean" || !isWindowDays(value.windowDays)) return fail(what);
-  return { decisionBasis, minRiskLevel, includeUnrated: value.includeUnrated, windowDays: value.windowDays };
+  if (!decisionBasis || !minRiskLevel || typeof value.includeUnrated !== "boolean" || !isWindowDays(value.windowDays) || typeof value.includeJobs !== "boolean") return fail(what);
+  return { decisionBasis, minRiskLevel, includeUnrated: value.includeUnrated, windowDays: value.windowDays, includeJobs: value.includeJobs };
 };
 
 const parseRisk = (value: Obj): Risk | null => {
@@ -150,6 +175,14 @@ export const parseNotificationItem = (value: unknown): NotificationItem | null =
       protocolRuleId: str(p.protocolRuleId), decisionId: p.decisionId, decisions: p.decisions as number,
       resolution: oneOf(p.resolution, ["kept", "added"] as const), keptAt: str(p.keptAt), processId: str(p.processId), transactionId: str(p.transactionId) } };
   }
+  if (value.type === "job" && obj(value.job) && value.reason === "finished" && /^work:/.test(value.key)) {
+    const j = value.job;
+    const kind = oneOf(j.kind, ["train", "compare"] as const);
+    const status = oneOf(j.status, ["succeeded", "failed"] as const);
+    if (!kind || !status || typeof j.id !== "string" || !UUID.test(j.id) || value.key !== `work:${j.id}`) return null;
+    return { ...base, type: "job", reason: "finished", job: { id: j.id, kind, status, errorCode: str(j.errorCode), finishedAt: str(j.finishedAt) ?? value.notifiedAt,
+      configVersionId: str(j.configVersionId), failedCount: count(j.failedCount) ? j.failedCount : null, replacementRecommended: j.replacementRecommended === true } };
+  }
   return null;
 };
 
@@ -159,6 +192,7 @@ export const parseNotificationList = (value: unknown): NotificationList => {
   const w = value.window;
   return {
     latestSeq: String(value.latestSeq),
+    latestJobAt: jobAt(value.latestJobAt),
     readThrough: String(value.readThrough),
     window: { events: Number(w.events) || 0, days: Number(w.days) || 0, fromSeq: String(w.fromSeq ?? "1"), truncated: w.truncated === true,
       truncatedBy: oneOf(w.truncatedBy, ["days", "events"] as const) },
@@ -170,16 +204,20 @@ export const parseNotificationList = (value: unknown): NotificationList => {
   };
 };
 
-const count = (value: unknown): value is number => Number.isInteger(value) && (value as number) >= 0;
 /** 배지 응답(미확인 수 조회·읽음·이상 유지 응답 공통). 종류별 수가 없거나 합이 맞지 않으면 형식 오류(배지 확인 불가). */
 export const parseUnreadCount = (value: unknown): UnreadCount => {
   if (!obj(value) || !SEQ.test(String(value.latestSeq)) || !count(value.unreadCount) || !obj(value.unreadByType)) return fail("알림 수");
-  const { decision, incident, protocol } = value.unreadByType;
-  if (!count(decision) || !count(incident) || !count(protocol) || decision + incident + protocol !== value.unreadCount) return fail("알림 수");
-  return { latestSeq: String(value.latestSeq), unreadCount: value.unreadCount, unreadByType: { decision, incident, protocol } };
+  const { decision, incident, protocol, job } = value.unreadByType;
+  if (!count(decision) || !count(incident) || !count(protocol) || !count(job) || decision + incident + protocol + job !== value.unreadCount) return fail("알림 수");
+  return { latestSeq: String(value.latestSeq), latestJobAt: jobAt(value.latestJobAt), unreadCount: value.unreadCount, unreadByType: { decision, incident, protocol, job } };
 };
 /** 상단 메뉴 이상 분석 배지 수: 판정·사건 알림 미확인(프로토콜 알림은 넣지 않음, 와이어프레임 badgeAnalysis = 판정 알림). */
 export const analysisUnread = (value: UnreadCount) => value.unreadByType.decision + value.unreadByType.incident;
+/** 상단 메뉴 탐지 설정 배지 수: 작업 알림 미확인(와이어프레임 badgeDetect, 관리자만 — 일반 사용자는 서버가 0). */
+export const detectionUnread = (value: UnreadCount) => value.unreadByType.job;
+/** 모두 읽음 본문: 판정 순번과(있으면) 작업 알림 경계를 같은 배지 응답에서 보낸다(본 것까지만 읽음). */
+export const readAllRequest = (value: Pick<UnreadCount, "latestSeq" | "latestJobAt">): ReadRequest =>
+  value.latestJobAt ? { through: value.latestSeq, jobsThrough: value.latestJobAt } : { through: value.latestSeq };
 
 const parseLayout = (value: unknown): StoredLayout | null => {
   if (!obj(value) || !Number.isInteger(value.version) || !Array.isArray(value.items)) return null;
@@ -198,7 +236,7 @@ export const readNotificationList = async (params: { view: NotificationView; cur
   parseNotificationList(await httpClient.get<unknown>("/api/notifications", {
     params: { view: params.view, limit: params.limit ?? 20, cursor: params.cursor ?? undefined }, signal }));
 export const readUnreadCount = async (signal?: AbortSignal) => parseUnreadCount(await httpClient.get<unknown>("/api/notifications/unread-count", { signal }));
-export type ReadRequest = { through: string } | { items: { key: string; seq: string }[] };
+export type ReadRequest = { through: string; jobsThrough?: string } | { items: { key: string; seq: string }[] };
 export const markNotificationsRead = async (body: ReadRequest) => {
   const value = await httpClient.post<unknown>("/api/notifications/read", body);
   const count = parseUnreadCount(value);

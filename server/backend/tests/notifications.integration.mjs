@@ -1,6 +1,7 @@
-// 사용자별 설정·알림 API(contracts/notifications.md) 통합 시험. 로컬 새 QA DB(qa_notifications*)에 001~026이 적용돼 있어야 한다.
+// 사용자별 설정·알림 API(contracts/notifications.md) 통합 시험. 로컬 새 QA DB(qa_notifications*)에 001~028이 적용돼 있어야 한다.
 // API 프로세스는 powercode_api 역할로 접속한다(연결 options role). 확인: 인증·400 code, 설정 기본값·저장·계정 분리, 알림 항목(묶이지 않은 판정·사건 흐름),
-// 판정 기준 3택·위험도 하한·미정 포함 필터, 알림 사유(opened·risk_raised·withdrawn·grew), 미확인(종류별 수 포함)·항목/모두 읽음·다시 알림, 커서, 조회 범위(이벤트 수·조회 기간 일). 실행 전 `npm run build`.
+// 판정 기준 3택·위험도 하한·미정 포함 필터, 알림 사유(opened·risk_raised·withdrawn·grew), 미확인(종류별 수 포함)·항목/모두 읽음·다시 알림, 커서, 조회 범위(이벤트 수·조회 기간 일),
+// 작업 알림(028: 학습·비교 평가 종료, 관리자만·설정 includeJobs, 종료 시각 기준 기간·읽음). 실행 전 `npm run build`.
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
 import { spawn } from 'node:child_process';
@@ -155,7 +156,7 @@ try {
   };
   const list = (query = 'view=all&limit=50', token = user) => ok('GET', `/api/notifications?${query}`, token);
   /** 목록(전체 보기, 한 쪽에 다 들어가는 크기)의 종류별 미확인 수 — 배지 unreadByType과 비교한다. */
-  const unreadTypes = (body) => Object.fromEntries(['decision', 'incident', 'protocol'].map((type) => [type, body.items.filter((item) => item.unread && item.type === type).length]));
+  const unreadTypes = (body) => Object.fromEntries(['decision', 'incident', 'protocol', 'job'].map((type) => [type, body.items.filter((item) => item.unread && item.type === type).length]));
   const byKey = (body) => Object.fromEntries(body.items.map((item) => [item.key, item]));
 
   // 3) 인증·형식 오류.
@@ -200,7 +201,7 @@ try {
 
   // 4) 설정: 기본값 → 저장 → 다시 읽기, 계정 분리.
   const defaults = await ok('GET', '/api/me/settings');
-  assert.deepEqual(defaults, { notifications: { decisionBasis: 'interim', minRiskLevel: 'info', includeUnrated: true, windowDays: 7, isDefault: true, updatedAt: null },
+  assert.deepEqual(defaults, { notifications: { decisionBasis: 'interim', minRiskLevel: 'info', includeUnrated: true, windowDays: 7, includeJobs: true, isDefault: true, updatedAt: null },
     widgetLayout: { layout: null, updatedAt: null } });
   const layout = { version: 2, items: [{ i: 'flow', x: 0, y: 0, w: 2, h: 3 }, { i: 'storage', x: 2, y: 0, w: 2, h: 2 }] };
   const savedLayout = await ok('PUT', '/api/me/settings', admin, { widgetLayout: layout });
@@ -226,10 +227,11 @@ try {
   assert.equal(all.total, 6);
   assert.equal(all.unreadCount, 6);
   const typed = await ok('GET', '/api/notifications/unread-count');
-  assert.deepEqual([typed.unreadCount, typed.unreadByType], [6, { decision: 5, incident: 1, protocol: 0 }], 'badge per-type counts: 5 unbundled decisions + 1 incident flow');
+  assert.deepEqual([typed.unreadCount, typed.unreadByType], [6, { decision: 5, incident: 1, protocol: 0, job: 0 }], 'badge per-type counts: 5 unbundled decisions + 1 incident flow');
   assert.equal(all.readThrough, '0');
   assert.deepEqual([all.window.truncated, all.window.truncatedBy, all.window.days, all.window.fromSeq], [false, null, 7, '1']);
-  assert.deepEqual(all.settings, { decisionBasis: 'interim', minRiskLevel: 'info', includeUnrated: true, windowDays: 7 });
+  assert.deepEqual(all.settings, { decisionBasis: 'interim', minRiskLevel: 'info', includeUnrated: true, windowDays: 7, includeJobs: true });
+  assert.equal(all.latestJobAt, null, 'no job notifications for a user account');
   const raisedEvents = await interimSeqs(J.raised.id);
   const raised = items[`job:${J.raised.id}`];
   assert.equal(raised.reason, 'risk_raised', 'warning interim → critical evidence_added raises risk');
@@ -274,7 +276,7 @@ try {
   assert.equal((await pool.query('SELECT read_seq::text AS n FROM ops_user_notification_reads WHERE item_key=$1', [raised.key])).rows[0].n, raised.seq,
     'item read sequence is capped at the item notification sequence');
   assert.deepEqual([one.unreadCount, one.readThrough], [5, '0']);
-  assert.deepEqual(one.unreadByType, { decision: 4, incident: 1, protocol: 0 }, 'read response carries per-type counts');
+  assert.deepEqual(one.unreadByType, { decision: 4, incident: 1, protocol: 0, job: 0 }, 'read response carries per-type counts');
   const unreadView = await list('view=unread&limit=50');
   assert.equal(unreadView.items.some((item) => item.key === raised.key), false);
   assert.equal(unreadView.total, 5);
@@ -282,7 +284,7 @@ try {
   assert.equal((await ok('GET', '/api/notifications/unread-count', admin)).unreadCount, 6, 'read state is per account');
   const allRead = await ok('POST', '/api/notifications/read', user, { through: all.latestSeq });
   assert.deepEqual([allRead.unreadCount, allRead.readThrough], [0, all.latestSeq]);
-  assert.deepEqual(allRead.unreadByType, { decision: 0, incident: 0, protocol: 0 });
+  assert.deepEqual(allRead.unreadByType, { decision: 0, incident: 0, protocol: 0, job: 0 });
   assert.equal(Number((await pool.query('SELECT count(*) AS n FROM ops_user_notification_reads')).rows[0].n), 0, 'read marks at or below the cursor are pruned');
   const back = await ok('POST', '/api/notifications/read', user, { through: '1' });
   assert.equal(back.readThrough, all.latestSeq, 'read cursor never moves back');
@@ -535,6 +537,125 @@ try {
   assert.equal(Number((await pool.query('SELECT count(*) AS n FROM ops_user_notification_reads WHERE item_key=$1', [`decision:${D.critical}`])).rows[0].n), 0,
     'an item outside the window is not stored as read');
   console.log('PASS notification window days: 1/7/30 days, truncatedBy, badge and read requests use the same window');
+
+  // 14) 작업 알림(028, contracts/notifications.md "작업 알림" 절): v03 training 큐 train·compare가 succeeded·failed로 끝난 것만, 관리자 ∧ includeJobs,
+  //     기간 = 종료 시각, 읽음 = 종료 시각 기준(모두 읽음은 latestJobAt을 jobsThrough로). 합성 작업 행(시험 전용 값).
+  const jobSettings = (over = {}) => ({ decisionBasis: 'interim', minRiskLevel: 'info', includeUnrated: true, windowDays: 7, includeJobs: true, ...over });
+  await ok('PUT', '/api/me/settings', admin, { notifications: jobSettings() });
+  const adminActor = adminId;
+  const jobRow = async (kind, { status, errorCode = null, summary = null, version = null, finishedAgo = null }) => {
+    const jobId = id();
+    await pool.query(`INSERT INTO run_jobs (id, kind, status, requested_by_actor_id, requester_role, idempotency_key, request_hash,
+        input_spec, max_attempts, attempt_count, next_run_at, created_at, contract_version, queue, producer_kind, producer_key)
+      VALUES ($1, $2::text::job_kind, 'queued', $3, 'admin', $4, $5, $6::jsonb, 3, 0, clock_timestamp(), clock_timestamp(), 'v03', 'training', 'user', $3)`,
+    [jobId, kind, adminActor, id(), id(), JSON.stringify({ kind })]);
+    if (status === 'queued') {
+      if (errorCode) await pool.query('UPDATE run_jobs SET error_code=$2 WHERE id=$1', [jobId, errorCode]);
+      return jobId;
+    }
+    const attemptId = id();
+    await pool.query(`INSERT INTO run_job_attempts (id, job_id, attempt_no, status, worker_id, lease_token, lease_until, started_at)
+      VALUES ($1, $2, 1, 'running', 'trainer-test', $3, clock_timestamp() + interval '10 minutes', clock_timestamp())`, [attemptId, jobId, id()]);
+    await pool.query(`UPDATE run_jobs SET status='running', attempt_count=1, current_attempt_id=$2 WHERE id=$1`, [jobId, attemptId]);
+    if (status === 'running') return jobId;
+    await pool.query(`UPDATE run_jobs SET status=$2::text::job_status, error_code=$3, result_summary=$4::jsonb, result_config_version_id=$5,
+        finished_at=clock_timestamp()-coalesce($6::double precision,0)*interval '1 day' WHERE id=$1`,
+    [jobId, status, errorCode, summary === null ? null : JSON.stringify(summary), version, finishedAgo]);
+    await pool.query(`UPDATE run_job_attempts SET status=$2::text::attempt_status, finished_at=clock_timestamp() WHERE id=$1`, [attemptId, status === 'succeeded' ? 'succeeded' : 'failed']);
+    return jobId;
+  };
+  const JB = {};
+  JB.oldFail = await jobRow('train', { status: 'failed', errorCode: 'worker_unavailable', finishedAgo: 10 });
+  JB.trainFail = await jobRow('train', { status: 'failed', errorCode: 'insufficient_complete_training_rows' });
+  JB.trainOk = await jobRow('train', { status: 'succeeded', version: base.configId, summary: { configVersionId: base.configId } });
+  JB.compareOk = await jobRow('compare', { status: 'succeeded', summary: { comparisonId: id(), itemCount: 3, failedCount: 1,
+    replacementRecommendations: [{ modelKey: 'iforest', targetVersionId: base.configId, baselineConfigVersionId: id() }] } });
+  JB.compareFail = await jobRow('compare', { status: 'failed', errorCode: 'comparison_all_items_failed' });
+  JB.running = await jobRow('train', { status: 'running' });
+  JB.retrying = await jobRow('compare', { status: 'queued', errorCode: 'trainer_unavailable' });
+  JB.evaluate = await jobRow('evaluate', { status: 'succeeded', summary: {} });
+  const jobItems = (body) => body.items.filter((item) => item.type === 'job');
+  const adminJobs = await list('view=all&limit=50', admin);
+  const shownJobs = byKey({ items: jobItems(adminJobs) });
+  assert.deepEqual(Object.keys(shownJobs).sort(), [JB.trainFail, JB.trainOk, JB.compareOk, JB.compareFail].map((jobId) => `work:${jobId}`).sort(),
+    'finished train/compare inside 7 days only (no running, retry wait, evaluate, 10-day-old job)');
+  assert.deepEqual(shownJobs[`work:${JB.trainFail}`].job, { id: JB.trainFail, kind: 'train', status: 'failed', errorCode: 'insufficient_complete_training_rows',
+    finishedAt: shownJobs[`work:${JB.trainFail}`].notifiedAt, configVersionId: null, failedCount: null, replacementRecommended: false });
+  assert.deepEqual([shownJobs[`work:${JB.trainOk}`].job.configVersionId, shownJobs[`work:${JB.trainOk}`].reason, shownJobs[`work:${JB.trainOk}`].unread], [base.configId, 'finished', true]);
+  assert.deepEqual([shownJobs[`work:${JB.compareOk}`].job.failedCount, shownJobs[`work:${JB.compareOk}`].job.replacementRecommended], [1, true]);
+  assert.deepEqual([shownJobs[`work:${JB.compareFail}`].job.errorCode, shownJobs[`work:${JB.compareFail}`].job.replacementRecommended], ['comparison_all_items_failed', false]);
+  assert.ok(jobItems(adminJobs).every((item) => BigInt(item.seq) <= BigInt(adminJobs.latestSeq)), 'job sort sequence is on the decision event axis');
+  assert.deepEqual(adminJobs.items.map((item) => BigInt(item.seq)), [...adminJobs.items.map((item) => BigInt(item.seq))].sort((a, b) => (a < b ? 1 : a > b ? -1 : 0)),
+    'mixed list stays in sequence order');
+  const lastFinished = (await pool.query(`SELECT to_char(max(finished_at) AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS at FROM run_jobs
+    WHERE kind IN ('train','compare') AND status IN ('succeeded','failed')`)).rows[0].at;
+  assert.equal(adminJobs.latestJobAt, lastFinished, 'latestJobAt = latest finished train/compare job');
+  const adminJobCount = await ok('GET', '/api/notifications/unread-count', admin);
+  assert.equal(adminJobCount.unreadByType.job, 4);
+  assert.deepEqual(adminJobCount.unreadByType, unreadTypes(adminJobs), 'per-type job count matches the list');
+  assert.equal(adminJobCount.unreadCount, Object.values(adminJobCount.unreadByType).reduce((sum, value) => sum + value, 0), 'sum includes jobs');
+  assert.equal(adminJobCount.latestJobAt, lastFinished);
+  // 커서: 작업 항목이 섞여도 2개씩 끝까지 읽으면 같은 순서.
+  const walkedJobs = [];
+  let jobCursor = null;
+  do {
+    const page = await list(`view=all&limit=2${jobCursor ? `&cursor=${jobCursor}` : ''}`, admin);
+    walkedJobs.push(...page.items.map((item) => item.key));
+    jobCursor = page.nextCursor;
+  } while (jobCursor);
+  assert.deepEqual(walkedJobs, adminJobs.items.map((item) => item.key), 'keyset walk with job items');
+  // 일반 사용자: 작업 항목·수 없음(includeJobs가 true여도).
+  const userCount = await ok('GET', '/api/notifications/unread-count', user);
+  assert.deepEqual([userCount.unreadByType.job, userCount.latestJobAt, jobItems(await list('view=all&limit=50', user)).length], [0, null, 0], 'job notifications are admin only');
+  await ok('POST', '/api/notifications/read', user, { items: [{ key: `work:${JB.trainOk}`, seq: '1' }] });
+  assert.equal(Number((await pool.query('SELECT count(*) AS n FROM ops_user_job_notification_reads')).rows[0].n), 0, 'a user cannot mark a job item');
+  // 설정 꺼짐: 목록·수에서 빠짐, latestJobAt null. 생략하면 저장값 유지.
+  assert.equal((await ok('PUT', '/api/me/settings', admin, { notifications: jobSettings({ includeJobs: false }) })).notifications.includeJobs, false);
+  assert.equal((await ok('PUT', '/api/me/settings', admin, { notifications: notif(7) })).notifications.includeJobs, false, 'omitted includeJobs keeps the stored value');
+  const off = await list('view=all&limit=50', admin);
+  assert.deepEqual([jobItems(off).length, off.latestJobAt, off.settings.includeJobs, (await ok('GET', '/api/notifications/unread-count', admin)).unreadByType.job], [0, null, false, 0]);
+  await ok('PUT', '/api/me/settings', admin, { notifications: jobSettings() });
+  for (const includeJobs of ['yes', null, 1]) {
+    await code('PUT', '/api/me/settings', 400, 'invalid_notification_settings', { notifications: jobSettings({ includeJobs }) }, admin);
+  }
+  // 기간: 30일이면 10일 전 작업도 보인다.
+  await ok('PUT', '/api/me/settings', admin, { notifications: jobSettings({ windowDays: 30 }) });
+  assert.ok(jobItems(await list('view=all&limit=50', admin)).some((item) => item.key === `work:${JB.oldFail}`), 'window 30 days shows the 10-day-old job');
+  assert.equal((await ok('GET', '/api/notifications/unread-count', admin)).unreadByType.job, 5);
+  await ok('PUT', '/api/me/settings', admin, { notifications: jobSettings() });
+  // 항목 읽음: 저장(종료 시각), 없는 키 무시.
+  const ghostWork = `work:${id()}`;
+  const readJob = await ok('POST', '/api/notifications/read', admin, { items: [{ key: `work:${JB.trainFail}`, seq: '9223372036854775807' }, { key: ghostWork, seq: '1' }] });
+  assert.equal(readJob.unreadByType.job, 3);
+  const jobMarks = (await pool.query('SELECT job_id::text AS j FROM ops_user_job_notification_reads WHERE actor_id=$1', [adminActor])).rows.map((row) => row.j);
+  assert.deepEqual(jobMarks, [JB.trainFail], 'only the listed job is stored');
+  assert.equal(jobItems(await list('view=unread&limit=50', admin)).some((item) => item.key === `work:${JB.trainFail}`), false);
+  // 모두 읽음 형식: jobsThrough는 through와 함께만, 서버 형식(마이크로초 6자리 UTC)만.
+  for (const bad of [{ jobsThrough: lastFinished }, { through: '1', jobsThrough: '2026-11-14T00:00:00Z' }, { through: '1', jobsThrough: '2026-02-30T00:00:00.000000Z' },
+    { through: '1', jobsThrough: lastFinished, extra: 1 }, { through: '1', jobsThrough: null }]) {
+    await code('POST', '/api/notifications/read', 400, 'invalid_read_request', bad, admin);
+  }
+  // through만(이전 화면): 작업 알림은 그대로 미확인.
+  const latestNow = (await ok('GET', '/api/notifications/unread-count', admin)).latestSeq;
+  assert.equal((await ok('POST', '/api/notifications/read', admin, { through: latestNow })).unreadByType.job, 3, 'read-all without jobsThrough leaves job items');
+  // 미래 시각을 보내도 경계는 지금 가장 늦은 종료 시각으로 줄인다 → 뒤에 끝난 작업은 다시 미확인.
+  const allJobsRead = await ok('POST', '/api/notifications/read', admin, { through: latestNow, jobsThrough: '2099-01-01T00:00:00.000000Z' });
+  assert.deepEqual([allJobsRead.unreadByType.job, allJobsRead.unreadCount], [0, 0]);
+  const cursorRow = (await pool.query(`SELECT to_char(jobs_read_through AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS at FROM ops_user_notification_cursors WHERE actor_id=$1`, [adminActor])).rows[0];
+  assert.equal(cursorRow.at, lastFinished, 'jobs read-all boundary is capped at the latest finished job');
+  assert.equal(Number((await pool.query('SELECT count(*) AS n FROM ops_user_job_notification_reads WHERE actor_id=$1', [adminActor])).rows[0].n), 0,
+    'job read marks at or below the boundary are pruned');
+  JB.later = await jobRow('compare', { status: 'succeeded', summary: { comparisonId: id(), itemCount: 2, failedCount: 0, replacementRecommendations: [{ modelKey: 'iforest', targetVersionId: null }] } });
+  const laterList = await list('view=unread&limit=50', admin);
+  assert.deepEqual(jobItems(laterList).map((item) => [item.key, item.job.failedCount, item.job.replacementRecommended]), [[`work:${JB.later}`, 0, false]],
+    'a job finished after read-all is unread again; null target is no recommendation');
+  // 경계를 되돌리지 않는다(GREATEST).
+  await ok('POST', '/api/notifications/read', admin, { through: '0', jobsThrough: '2000-01-01T00:00:00.000000Z' });
+  assert.equal((await pool.query(`SELECT to_char(jobs_read_through AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS at FROM ops_user_notification_cursors WHERE actor_id=$1`, [adminActor])).rows[0].at,
+    lastFinished, 'jobs boundary never moves back');
+  const finalRead = await ok('POST', '/api/notifications/read', admin, { through: laterList.latestSeq, jobsThrough: laterList.latestJobAt });
+  assert.equal(finalRead.unreadByType.job, 0);
+  console.log('PASS job notifications: train/compare finished only, admin only, includeJobs, window by finish time, item and read-all by finish time');
   console.log('PASS notifications integration');
 } finally {
   child?.kill();

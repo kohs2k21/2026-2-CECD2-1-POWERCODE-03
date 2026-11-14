@@ -18,7 +18,7 @@ import {
   type UnreadCount, keepProtocolAlert } from "./notificationsApi";
 
 /** 읽음·이상 유지 응답의 배지 값(미확인 수 조회와 같은 모양). */
-const countOf = ({ latestSeq, unreadCount, unreadByType }: UnreadCount): UnreadCount => ({ latestSeq, unreadCount, unreadByType });
+const countOf = ({ latestSeq, latestJobAt, unreadCount, unreadByType }: UnreadCount): UnreadCount => ({ latestSeq, latestJobAt, unreadCount, unreadByType });
 
 export const notificationListQueryName = "notifications-list";
 export const unreadCountQueryName = "notifications-unread";
@@ -145,6 +145,59 @@ export const useNotificationLiveUpdates = (latestSeq: string | undefined) => {
       if (refresh) clearTimeout(refresh);
     };
   }, [ready, userId]);
+};
+
+/** 작업 상태를 담은 조회(작업 목록·작업 상세·학습 진행·비교 평가 목록·상세). 행마다 [작업 ID, 상태]를 꺼낸다. */
+const JOB_STATUS_QUERIES: Record<string, (data: unknown) => [string, string][]> = {
+  jobs: (data) => rowsOf(data, "id"),
+  job: (data) => rowsOf([data], "id"),
+  "train-job": (data) => rowsOf([data], "id"),
+  comparisons: (data) => rowsOf(data, "jobId"),
+  comparison: (data) => rowsOf([data], "jobId"),
+};
+function rowsOf(data: unknown, idKey: string): [string, string][] {
+  const items = Array.isArray(data) ? data : data && typeof data === "object" && Array.isArray((data as { items?: unknown }).items) ? (data as { items: unknown[] }).items : [];
+  return items.flatMap((item) => {
+    const row = item as Record<string, unknown> | null;
+    return row && typeof row[idKey] === "string" && typeof row.status === "string" ? [[row[idKey] as string, row.status as string] as [string, string]] : [];
+  });
+}
+const IN_PROGRESS = new Set(["queued", "running"]);
+const FINISHED = new Set(["succeeded", "failed"]);
+
+/**
+ * 작업 알림 반영(새 연결 없음): 화면이 이미 다시 읽는 작업 조회(진행 중이면 5초 주기)에서 대기·실행 중이던 작업이 완료·실패로 바뀌면
+ * 알림 배지·목록을 다시 조회한다. 그 밖에는 화면 이동·패널 열기 때 반영된다.
+ */
+export const useRefreshOnJobFinish = () => {
+  const { user } = useAuthSession();
+  const cache = useQueryClient();
+  const userId = user?.id;
+  useEffect(() => {
+    if (!userId) return;
+    const seen = new Map<string, string>();
+    let pending = false;
+    const unsubscribe = cache.getQueryCache().subscribe((event) => {
+      if (event.type !== "updated" || event.action.type !== "success") return;
+      const [name, account] = event.query.queryKey as unknown[];
+      const read = typeof name === "string" ? JOB_STATUS_QUERIES[name] : undefined;
+      if (!read || account !== userId) return;
+      let finished = false;
+      for (const [id, status] of read(event.query.state.data)) {
+        if (FINISHED.has(status) && IN_PROGRESS.has(seen.get(id) ?? "")) finished = true;
+        seen.set(id, status);
+      }
+      if (!finished || pending) return;
+      // 같은 갱신 안에서 여러 조회가 끝나도 한 번만 다시 읽는다.
+      pending = true;
+      queueMicrotask(() => {
+        pending = false;
+        void cache.invalidateQueries({ queryKey: accountQueryKey(unreadCountQueryName, userId) });
+        void cache.invalidateQueries({ queryKey: accountQueryKey(notificationListQueryName, userId) });
+      });
+    });
+    return unsubscribe;
+  }, [cache, userId]);
 };
 
 /** 화면 이동 때 배지를 다시 조회한다(첫 마운트 제외). */

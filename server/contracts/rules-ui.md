@@ -75,7 +75,8 @@ Status: current
 - 와이어프레임에 기간 입력이 없어 `data`는 `{snapshotId: null, from: 3개월 전, until: 지금, timeBasis: "persisted_at"}`로 고정한다(수식 추천의 시간 기준과 같음). 출처가 여럿이면 머리글에 `출처` 선택
 - 버튼: 저장된 켜진 규칙이 없으면 비활성. 대상이 저장된 버전이라 미저장 변경이 있어도 비활성이고 `저장 후 추천`을 표시한다(계약 `ruleSetRevision`). 출처 조회 실패는 `출처 조회 실패 · <코드>`, 출처가 없으면 `저장된 데이터 출처가 없습니다.`로 이유를 표시. LLM 생성 서비스가 꺼져 있으면(`GET /api/llm/status`, 화면에 들어갈 때 1회 + 30초마다, [llm-recommendation-job.md](llm-recommendation-job.md) 가용성 절) 비활성 + `AI 규칙 추천 · generation_service_unavailable`, 실행 중이면 실행 줄에 코드를 덧붙인다(수식 추천은 막지 않음, 상태 조회 실패도 막지 않음 — 접수 503). 저장으로 버전이 바뀌면 결과를 닫되 실패 표시는 남긴다
 - 표시 대상은 LLM 원본 출력(state·basis·condition·reason)이 아니라 서버가 코드 계산값과 합친 `threshold-recommendation-v1`이다. 계약 필드는 그대로 받고 표시만 합친다
-- 실행 중: 진행 막대. 작업이 `running`이고 `resultSummary.progress{processed,total}`가 있으면(정수, `0 ≤ processed ≤ total`, `total > 0`) 막대 값을 `processed`/`total`로 둔다(`aria-valuenow`·`aria-valuemax`, 숫자 문구 없음). 없거나 형식이 다르면 값 없는 진행 표시 그대로([llm-recommendation-job.md](llm-recommendation-job.md) 진행률 절). 작업 상세(`작업 진행 중`)도 같다
+- 실행 중: 진행 막대. 작업이 `running`이고 `resultSummary.progress{processed,total}`가 있으면(정수, `0 ≤ processed ≤ total`, `total > 0`) 막대 값을 `processed`/`total`로 두고(`aria-valuenow`·`aria-valuemax`) 막대 아래에 `처리 n/전체`(예 `처리 2/6`, 사용자 11/14)를 표시한다. 없거나 형식이 다르면 값 없는 진행 표시 그대로이고 숫자 문구도 없다([llm-recommendation-job.md](llm-recommendation-job.md) 진행률 절). 작업 상세(`작업 진행 중`)도 같다
+- 결과 머리 줄(`완료` · `켜진 이상 징후 규칙 n개 · 제안 n건`): 결과 최상위 `heldWindowExclusion`이 객체면 이어서 `보류 기간 제외 · n행`(n = `excludedRows`, ko-KR 숫자 표기, 사용자 11/14). null·없음이면 표시하지 않는다(rule_v2는 항상 null). `from`·`until`은 표시하지 않는다
 - 실행 중 → 결과 표 5열(사용자 11/04) → `적용`
   - `선택`: 상태가 `제안`인 행만(기본 선택)
   - `규칙(대상 필드)`

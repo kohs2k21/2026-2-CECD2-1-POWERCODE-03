@@ -18,7 +18,8 @@ import { fetchPipelineJob, type PipelineJob } from "@/services/api/pipeline.api"
 import { useAuthSession } from "@/services/auth/AuthSessionProvider";
 import { SOFT_TERM, errorCode, numberLabel, operatorLabels, type DraftSoftRule, type RuleDraft } from "./ruleDraft";
 import {
-  basisLabel, parseRecommendation, recommendationProgress, recommendationRequest, recommendationRows, selectable, startRecommendation,
+  basisLabel, heldWindowExcludedRows, parseRecommendation, progressText, recommendationProgress, recommendationRequest, recommendationRows, selectable,
+  startRecommendation,
   type RecommendationResult, type RecommendationRow, type RecommendationStatus,
 } from "./ruleAiApi";
 import type { RuleSetState, SoftRuleField } from "./ruleSetApi";
@@ -88,7 +89,7 @@ export const useRuleAi = ({ state, dirty, reload }: { state: RuleSetState; dirty
   };
   return {
     run, setRun, start, sources: sources.data ?? [], sourcesReady: sources.isSuccess, sourcesError: sources.isError ? errorCode(sources.error) : null,
-    /** 실행 중 진행률(running일 때만, 형식이 맞을 때만). 숫자 문구는 두지 않고 진행 막대 값으로만 쓴다. */
+    /** 실행 중 진행률(running일 때만, 형식이 맞을 때만). 진행 막대 값과 `처리 n/전체` 문구로 쓴다. */
     progress: run.status === "running" && job.data?.status === "running" ? recommendationProgress(job.data.resultSummary) : null,
     sourceId, setSelectedSource, count, dirty, llmUnavailable: llm.unavailableCode,
     canStart: run.status !== "running" && run.status !== "readFailed" && count > 0 && !dirty && Boolean(sourceId) && !llm.unavailableCode,
@@ -192,7 +193,10 @@ export const RuleAiBox = ({
           <span>켜진 {SOFT_TERM} {run.count}개{ai.llmUnavailable ? ` · ${ai.llmUnavailable}` : ""}</span>
         </div>
         {ai.progress ? (
-          <Progress value={ai.progress.processed} max={ai.progress.total} aria-label="AI 규칙 추천 실행 중" />
+          <>
+            <Progress value={ai.progress.processed} max={ai.progress.total} aria-label="AI 규칙 추천 실행 중" />
+            <span data-ai-progress="" className="text-sm text-muted-foreground">{progressText(ai.progress)}</span>
+          </>
         ) : (
           <Progress value={100} className="animate-pulse" aria-label="AI 규칙 추천 실행 중" />
         )}
@@ -234,6 +238,7 @@ export const RuleAiBox = ({
   const rows = recommendationRows(run.result, state, draft);
   const proposed = rows.filter(selectable);
   const picked = proposed.filter((row) => !run.unpicked.includes(row.rule.key));
+  const heldExcluded = heldWindowExcludedRows(run.result);
   const pick = (key: string, value: boolean) =>
     ai.setRun({ ...run, unpicked: value ? run.unpicked.filter((item) => item !== key) : [...run.unpicked, key] });
   const apply = () => {
@@ -245,6 +250,7 @@ export const RuleAiBox = ({
       <div className={line}>
         <Badge variant="success">완료</Badge>
         <span className="text-muted-foreground">켜진 {SOFT_TERM} {rows.length}개 · 제안 {proposed.length}건</span>
+        {heldExcluded !== null && <span data-ai-held="" className="text-muted-foreground">보류 기간 제외 · {numberText(heldExcluded)}행</span>}
       </div>
       <Table aria-label="AI 규칙 추천">
         <TableHeader>

@@ -739,7 +739,7 @@ const calls = (method, path) => requested.filter((call) => call.method === metho
   const { readFile } = await import("node:fs/promises");
   const doc = await readFile(new URL("../../contracts/llm-recommendation-job.md", import.meta.url), "utf8");
   const contractResult = JSON.parse(doc.slice(doc.indexOf("## 결과 JSON")).split("```json")[1].split("```")[0]);
-  const { basisLabel, parseRecommendation, recommendationProgress } = await import("../src/features/detection/rules/ruleAiApi.ts");
+  const { basisLabel, heldWindowExcludedRows, parseRecommendation, progressText, recommendationProgress } = await import("../src/features/detection/rules/ruleAiApi.ts");
   const v3Result = JSON.parse(doc.slice(doc.indexOf("### 결과 추가 필드")).split("```json")[1].split("```")[0]);
   assert.deepEqual([basisLabel("train_reference_80_p95"), basisLabel("train_p95"), basisLabel(undefined), basisLabel("other"), basisLabel("toString")],
     ["기준 · 학습 기간 앞 80% p95", null, null, null, null], "only the Rule v3 basis has a label");
@@ -748,6 +748,13 @@ const calls = (method, path) => requested.filter((call) => call.method === metho
   for (const invalid of [null, {}, { progress: null }, { progress: { processed: 1 } }, { progress: { processed: 4, total: 3 } }, { progress: { processed: -1, total: 3 } },
     { progress: { processed: 0, total: 0 } }, { progress: { processed: 1.5, total: 3 } }, { progress: { processed: "1", total: 3 } }]) {
     assert.equal(recommendationProgress(invalid), null, JSON.stringify(invalid));
+  }
+  assert.equal(progressText({ processed: 2, total: 6 }), "처리 2/6", "approved progress wording (user 11/14)");
+  // 보류 창 제외(결과 최상위 heldWindowExclusion): 객체일 때만 행 수, null·없음·형식 다름은 표시 안 함.
+  assert.equal(heldWindowExcludedRows(v3Result), 9370);
+  assert.equal(heldWindowExcludedRows({ heldWindowExclusion: { from: "x", until: "y", excludedRows: 0 } }), 0);
+  for (const hidden of [contractResult, {}, null, { heldWindowExclusion: null }, { heldWindowExclusion: { excludedRows: -1 } }, { heldWindowExclusion: { excludedRows: "9370" } }, { heldWindowExclusion: [] }]) {
+    assert.equal(heldWindowExcludedRows(hidden), null, JSON.stringify(hidden));
   }
 
   const retryRule = { ...softRule, id: "soft:retry_count-91ab77e0", name: "재시도 3회 이상", field: "retry_count", operator: "gte", threshold: 3, unit: "count", severity: "info" };
@@ -802,6 +809,8 @@ const calls = (method, path) => requested.filter((call) => call.method === metho
   const row = (id) => rows().find((node) => node.props["data-ai-row"] === id);
   assert.deepEqual(rows().map((node) => node.props["data-ai-row"]), [softRule.id, ratioRule.id, retryRule.id, totalRule.id], "rows are the enabled rules listed in softRuleIds; same-field, off and result-less rules are not");
   assert.ok(text(box("done").children).includes("켜진 이상 징후 규칙 4개 · 제안 2건"));
+  assert.equal(contractResult.heldWindowExclusion, null);
+  assert.ok(!text(box("done").children).includes("보류 기간 제외") && box("done").findAll((node) => node.props["data-ai-held"] !== undefined).length === 0, "no held-window line when heldWindowExclusion is null");
   assert.equal(box("done").findAll((node) => node.type === "table" && node.props["aria-label"] === "AI 규칙 추천").length, 1);
   const heads = box("done").findAll((node) => node.type === "th").map((node) => text(node.children));
   assert.deepEqual(heads, ["선택", "규칙(대상 필드)", "임계값", "상태", "근거"], "five columns");
@@ -922,11 +931,11 @@ const calls = (method, path) => requested.filter((call) => call.method === metho
   await wait(() => reads === 1 && box("running"), "job is running");
   assert.ok(app.shown().includes("AI 규칙 추천 실행 중…") && !app.shown().includes("AI 임계값"), "running text uses the screen name");
   assert.ok(text(box("running").children).includes("켜진 이상 징후 규칙 6개"));
-  // 진행률(llm-recommendation-job.md 7차): 막대 값만 연결하고 숫자 문구는 두지 않는다.
+  // 진행률(llm-recommendation-job.md 7차): 막대 값 + 승인 문구 `처리 n/전체`(사용자 11/14).
   const bar = () => box("running").findAll((node) => node.type === "div" && node.props.role === "progressbar")[0];
   await wait(() => bar()?.props["aria-valuenow"] === 2, "progress value from the running job");
   assert.deepEqual([bar().props["aria-valuenow"], bar().props["aria-valuemax"], bar().props["aria-valuemin"], bar().props["aria-label"]], [2, 6, 0, "AI 규칙 추천 실행 중"]);
-  assert.ok(!text(box("running").children).includes("2/6") && !text(box("running").children).includes("처리"), "no progress number text");
+  assert.deepEqual(box("running").findAll((node) => node.type === "span" && node.props["data-ai-progress"] !== undefined).map((node) => text(node.children)), ["처리 2/6"], "progress number text");
   await wait(() => box("readFailed"), "a read failure after the 5 second poll", 800);
   assert.equal(reads, 2, "polled once more while running");
   assert.ok(text(box("readFailed").children).includes("AI 규칙 추천 조회 실패 · job_storage_unavailable"));
@@ -949,6 +958,7 @@ const calls = (method, path) => requested.filter((call) => call.method === metho
   const v3Row = text(row(softRule.id).children);
   assert.deepEqual(row(softRule.id).findAll((node) => node.type === "span" && node.props["data-ai-basis"] !== undefined).map((node) => text(node.children)), ["기준 · 학습 기간 앞 80% p95"]);
   assert.ok(v3Row.includes("> 5,000 ms → > 7,180 ms") && v3Row.includes("참조 기간 유효 값 30100개의 p95보다 큰"), v3Row);
+  assert.deepEqual(box("done").findAll((node) => node.type === "span" && node.props["data-ai-held"] !== undefined).map((node) => text(node.children)), ["보류 기간 제외 · 9,370행"], "held-window exclusion in the result summary");
   for (const hidden of ["train_reference_80_p95", "rule_v3", "baseline_…", "attempts", "currentN"]) assert.ok(!text(box("done").children).includes(hidden), `${hidden} is not on the screen`);
   for (const code of ["rule_v3_not_configured", "recommendation_rule_input_rejected", "rule_v3_model_failure", "generation_adapter_version_mismatch"]) {
     await app.click("닫기");

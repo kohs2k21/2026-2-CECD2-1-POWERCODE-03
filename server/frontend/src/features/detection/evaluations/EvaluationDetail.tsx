@@ -213,7 +213,7 @@ const Results = ({ detail, context }: { detail: ComparisonDetail; context: Conte
             ...decidableRow("정밀도 · 판정 가능 기준", (ml) => rateText(ml.decidable?.precision)),
             ["오탐률 · 완료 기준", (item) => cellOf(item, (ml) => rateText(ml.completeOnly.falsePositiveRate))],
             ...decidableRow("오탐률 · 판정 가능 기준", (ml) => rateText(ml.decidable?.falsePositiveRate)),
-            ["모델 미판정 행", (item) => cellOf(item, (ml) => `${numberText(ml.unavailableCount)}건`)],
+            ["판정 실패 행", (item) => cellOf(item, (ml) => `${numberText(ml.unavailableCount)}행`)],
           ]}
         />
       </SectionCard>

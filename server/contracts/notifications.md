@@ -32,9 +32,9 @@
 | 요청 | 응답·동작 |
 |---|---|
 | `GET /api/notifications?view=unread\|all&limit=1~50&cursor=` | 기본 `view=unread`·`limit=20`. `{observedAt, latestSeq, readThrough, window:{events,days,fromSeq,truncated,truncatedBy}, settings, unreadCount, total, nextCursor, items[]}`(`settings` = 아래 알림 설정 4값). 순번 내림차순 → 항목 키 내림차순 키셋, 커서 = 응답 `nextCursor` 그대로 |
-| `GET /api/notifications/unread-count` | `{latestSeq, unreadCount}`(배지) |
-| `POST /api/notifications/protocol-alerts/keep`(관리자) | 본문 `{interfaceId, pathKey \| null}`. 화면은 확인창 뒤에만 요청. [이상 유지] 기록(protocol-settings-ui.md 5절). 응답 `{key, keptThroughSeq, keptAt, keptBy, alreadyKept, latestSeq, unreadCount}`. 400 `invalid_protocol_keep_request`, 403 `admin_required`, 404 `protocol_alert_not_found` |
-| `POST /api/notifications/read` | 본문 `{"through":"<순번>"}`(모두 읽음) 또는 `{"items":[{"key","seq"}]}`(1~50개, 키 중복 금지). 모두 읽음 순번은 현재 최대 이벤트 id로 줄임. 항목은 요청자 설정 기준 지금 조회 범위에 있는 키만 저장(없는 키는 무시)하고 순번은 그 항목의 현재 알림 순번으로 줄임. 저장값은 되돌리지 않음(GREATEST). 응답 `{readThrough, latestSeq, unreadCount}` |
+| `GET /api/notifications/unread-count` | `{latestSeq, unreadCount, unreadByType:{decision, incident, protocol}}`(배지). `unreadByType` = 종류별 미확인 항목 수, 합 = `unreadCount`(같은 조회 범위·설정). 일반 사용자는 `protocol` 0 |
+| `POST /api/notifications/protocol-alerts/keep`(관리자) | 본문 `{interfaceId, pathKey \| null}`. 화면은 확인창 뒤에만 요청. [이상 유지] 기록(protocol-settings-ui.md 5절). 응답 `{key, keptThroughSeq, keptAt, keptBy, alreadyKept, latestSeq, unreadCount, unreadByType}`. 400 `invalid_protocol_keep_request`, 403 `admin_required`, 404 `protocol_alert_not_found` |
+| `POST /api/notifications/read` | 본문 `{"through":"<순번>"}`(모두 읽음) 또는 `{"items":[{"key","seq"}]}`(1~50개, 키 중복 금지). 모두 읽음 순번은 현재 최대 이벤트 id로 줄임. 항목은 요청자 설정 기준 지금 조회 범위에 있는 키만 저장(없는 키는 무시)하고 순번은 그 항목의 현재 알림 순번으로 줄임. 저장값은 되돌리지 않음(GREATEST). 응답 `{readThrough, latestSeq, unreadCount, unreadByType}` |
 | `GET /api/me/settings` | `{notifications:{decisionBasis,minRiskLevel,includeUnrated,windowDays,isDefault,updatedAt}, widgetLayout:{layout,updatedAt}}`. 저장값 없으면 기본값 `interim`·`info`·`true`·`7`(`isDefault=true`), 배치 `null` |
 | `PUT /api/me/settings` | 본문 `notifications`·`widgetLayout` 중 하나 이상(보낸 항목만 바꿈, 마지막 저장이 이김). `notifications` = `{decisionBasis, minRiskLevel, includeUnrated, windowDays?}`: `windowDays` 알림 조회 기간(일) 1~30 정수, 생략하면 저장값 유지(저장값이 없으면 7 — 026 이전 화면 호환), 그 밖 값은 400 `invalid_notification_settings`. 응답 = GET과 같은 전체 설정 |
 
@@ -48,7 +48,8 @@
 
 ## 화면
 
-- 배지: 서버 `unreadCount`(99 초과 `99+`), 버튼 이름 `알림 · 읽지 않음 N건`. 조회 실패는 `?` 배지·`알림 · 읽지 않은 수 확인 불가`(0으로 바꾸지 않음)
+- 배지: 서버 `unreadCount`(99 초과 `99+`), 버튼 이름 `알림 · 읽지 않음 N건`. 조회 실패는 `?` 배지·`알림 · 읽지 않은 수 확인 불가`(0으로 바꾸지 않음). `unreadByType`이 없거나 합이 맞지 않으면 조회 실패와 같다
+- 상단 메뉴 배지(와이어프레임 `badgeAnalysis`): 이상 분석 = `unreadByType.decision + incident`(프로토콜 제외, user·admin), 알림 버튼과 같은 조회·같은 다시 조회 흐름(새 연결 없음). 숫자만(99 초과 `99+`), 0·불러오기 전·조회 실패는 숨김(실패 표시는 알림 버튼 `?`). 메뉴 이름 `이상 분석 · 미확인 N건`(와이어프레임). 탐지 설정 배지(와이어프레임 `badgeDetect` = 작업 알림 미확인)는 작업 알림이 생길 때까지 없음
 - 배지 다시 조회: 화면 이동, 패널 열기, 읽음 표시 응답(그 전에 시작한 배지 조회는 취소해 읽기 전 값이 덮지 않음), 새 판정 이벤트(SSE `/api/pipeline/events?include=interims`를 `latestSeq` 다음부터, 이벤트가 있으면 10초에 한 번까지). 주기 조회 없음. 사건 묶음은 이벤트가 없어 다음 판정 이벤트·이동·패널 열기 때 반영
 - 패널: `읽지 않음`(기본)/`전체` 보기, `모두 읽음`(응답 `latestSeq`까지), 항목 `읽음 처리`·`이동`(이동하면 그 항목 읽음), `더 보기`(커서), 빈 목록 `읽지 않은 알림이 없습니다.`/`알림이 없습니다.`, 조회 실패는 오류 표시
 - 항목 문구: 판정 `이상|이상 징후 · 중간 판정|근거 추가|최종|이전 시도 대체됨[ · 위험도 상승]`, 철회 `철회 · 판정 실패(최종 없음)`·`철회 · 최종 판정불가|이상 신호 없음|정상 여부 미확인`(이상 분석 결과 문구), 대상 `거래 <ID> · 프로세스 <ID>`. 사건 `사건 · <기준> · 새 사건|판정 추가|위험도 상승`, `묶인 판정 N건`. 위험도 배지 위험/주의/참고/위험도 미정(철회는 생략)

@@ -334,11 +334,18 @@ export async function readNotifications(db: Queryable, actorId: string, settings
   };
 }
 
-/** GET /api/notifications/unread-count: 배지용. 목록과 같은 계산의 미확인 항목 수. */
+/**
+ * GET /api/notifications/unread-count: 배지용. 목록과 같은 계산의 미확인 항목 수와 종류별 수(unreadByType, 합 = unreadCount).
+ * 종류별 수는 상단 메뉴 배지(이상 분석 = decision + incident)가 쓴다. 프로토콜 항목이 없는 일반 사용자는 protocol 0.
+ */
 export async function readUnreadCount(db: Queryable, actorId: string, settings: NotificationSettings, windowEvents = NOTIFICATION_WINDOW_EVENTS, protocol = false) {
   const { rows: [row] } = await db.query(`${stateCte(protocol)}
-    SELECT (SELECT top::text FROM top) AS top,(SELECT count(*)::integer FROM state WHERE unread) AS unread`, baseParams(actorId, settings, windowEvents));
-  return { latestSeq: row.top as string, unreadCount: row.unread as number };
+    SELECT (SELECT top::text FROM top) AS top,c.*
+    FROM (SELECT count(*)::integer AS unread,count(*) FILTER (WHERE kind='decision')::integer AS decision,
+      count(*) FILTER (WHERE kind='incident')::integer AS incident,count(*) FILTER (WHERE kind='protocol')::integer AS protocol
+      FROM state WHERE unread) c`, baseParams(actorId, settings, windowEvents));
+  return { latestSeq: row.top as string, unreadCount: row.unread as number,
+    unreadByType: { decision: row.decision as number, incident: row.incident as number, protocol: row.protocol as number } };
 }
 
 export type ReadRequest = { through: string } | { items: { key: string; seq: string }[] };

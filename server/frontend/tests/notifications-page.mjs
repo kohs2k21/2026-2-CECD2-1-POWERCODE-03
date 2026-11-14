@@ -43,6 +43,9 @@ const listBody = (items, over = {}) => ({ observedAt: "2026-11-13T01:05:00.000Z"
   window: { events: 5000, days: 7, fromSeq: "1", truncated: false, truncatedBy: null },
   settings: { decisionBasis: "interim", minRiskLevel: "info", includeUnrated: true, windowDays: 7 }, unreadCount: items.filter((item) => item.unread).length, total: items.length, nextCursor: null, items, ...over });
 
+/** 배지 응답(종류별 수 포함, 합 = unreadCount). 종류를 주지 않으면 모두 판정 알림. */
+const unreadBody = (unreadCount, over = {}, byType = { decision: unreadCount, incident: 0, protocol: 0 }) => ({ latestSeq: "130", unreadCount, unreadByType: byType, ...over });
+
 // 1) 응답 해석·문구
 {
   assert.throws(() => api.parseNotificationList({ items: [] }), /알림 목록 응답/);
@@ -58,6 +61,10 @@ const listBody = (items, over = {}) => ({ observedAt: "2026-11-13T01:05:00.000Z"
     { events: 5000, days: 1, fromSeq: "9", truncated: true, truncatedBy: "days" });
   assert.equal(api.parseNotificationList(listBody([], { window: { events: 5000, days: 7, fromSeq: "1", truncated: false, truncatedBy: "x" } })).window.truncatedBy, null);
   assert.throws(() => api.parseUnreadCount({ latestSeq: "1", unreadCount: -1 }), /알림 수/);
+  assert.throws(() => api.parseUnreadCount({ latestSeq: "1", unreadCount: 1 }), /알림 수/, "per-type counts are required");
+  assert.throws(() => api.parseUnreadCount(unreadBody(3, {}, { decision: 1, incident: 1, protocol: 0 })), /알림 수/, "per-type counts must add up to the total");
+  assert.throws(() => api.parseUnreadCount(unreadBody(1, {}, { decision: 1, incident: -1, protocol: 1 })), /알림 수/);
+  assert.equal(api.analysisUnread(api.parseUnreadCount(unreadBody(7, {}, { decision: 2, incident: 1, protocol: 4 }))), 3, "analysis menu badge = decisions + incidents");
   const [decision, incident] = parsed.items;
   assert.deepEqual(labels.notificationText(decision), { headline: "이상 · 최종 · 위험도 상승", subject: "거래 TX-1 · 프로세스 P01" });
   assert.deepEqual(labels.notificationText(incident), { headline: "사건 · 응답코드 E500 · 판정 추가", subject: "묶인 판정 12건" });
@@ -121,7 +128,7 @@ const click = async (button) => act(async () => button.props.onClick?.({ prevent
 // 2-1) 배지: 서버 미확인 수, 99 초과 99+, 조회 실패는 확인 불가.
 for (const [count, status, label, badge] of [[3, 200, "알림 · 읽지 않음 3건", "3"], [120, 200, "알림 · 읽지 않음 120건", "99+"], [0, 200, "알림", null],
   [null, 503, "알림 · 읽지 않은 수 확인 불가", "?"]]) {
-  routes = { "GET /api/notifications/unread-count": () => [status, status === 200 ? { latestSeq: "130", unreadCount: count } : { code: "notification_storage_unavailable" }] };
+  routes = { "GET /api/notifications/unread-count": () => [status, status === 200 ? unreadBody(count) : { code: "notification_storage_unavailable" }] };
   const app = await mount(React.createElement(NotificationsBell));
   await wait(() => app.renderer.root.findAll((n) => n.type === "button" && n.props["aria-label"] === label).length === 1, `bell label ${label}`);
   const marks = app.renderer.root.findAll((n) => n.props?.["data-notification-badge"] !== undefined && typeof n.type === "string");
@@ -130,11 +137,37 @@ for (const [count, status, label, badge] of [[3, 200, "알림 · 읽지 않음 3
 }
 assert.ok(requests.some((r) => r.path === "/api/pipeline/events" && r.search === "?include=interims"), "bell listens to the decision stream for refreshes");
 
+// 2-1b) 상단 메뉴 이상 분석 배지(와이어프레임 badgeAnalysis): 알림 버튼과 같은 조회의 판정+사건 미확인(프로토콜 제외), 99 초과 99+,
+// 0·조회 실패·형식 오류는 숨김(실패는 알림 버튼 ?), 탐지 설정 배지는 없음(작업 알림 없음).
+{
+  const { TopNav } = await import("../src/features/navigation/TopNav.tsx");
+  const nav = (role) => React.createElement(TopNav, { pathname: "/operations", role, onLogout() {}, settingsPath: "/settings" });
+  for (const [role, status, body, badge, label, bell] of [
+    ["admin", 200, unreadBody(7, {}, { decision: 2, incident: 1, protocol: 4 }), "3", "이상 분석 · 미확인 3건", "알림 · 읽지 않음 7건"],
+    ["user", 200, unreadBody(150, {}, { decision: 140, incident: 10, protocol: 0 }), "99+", "이상 분석 · 미확인 150건", "알림 · 읽지 않음 150건"],
+    ["admin", 200, unreadBody(5, {}, { decision: 0, incident: 0, protocol: 5 }), null, undefined, "알림 · 읽지 않음 5건"],
+    ["user", 200, unreadBody(0), null, undefined, "알림"],
+    ["user", 503, { code: "notification_storage_unavailable" }, null, undefined, "알림 · 읽지 않은 수 확인 불가"],
+    ["user", 200, { latestSeq: "130", unreadCount: 2 }, null, undefined, "알림 · 읽지 않은 수 확인 불가"],
+  ]) {
+    routes = { "GET /api/notifications/unread-count": () => [status, body] };
+    const app = await mount(nav(role), role);
+    await wait(() => app.renderer.root.findAll((n) => n.type === "button" && n.props["aria-label"] === bell).length === 1, `bell ${bell}`);
+    const navBadges = app.renderer.root.findAll((n) => n.props?.["data-nav-badge"] !== undefined && typeof n.type === "string")
+      .map((n) => [n.props["data-nav-badge"], text(n.children), n.props["aria-hidden"]]);
+    assert.deepEqual(navBadges, badge === null ? [] : [["analysis", badge, "true"]], `menu badge for ${JSON.stringify(body)}`);
+    const analysisLink = app.renderer.root.findAll((n) => n.type === "a" && n.props.href === "/analysis")[0];
+    assert.equal(analysisLink.props["aria-label"], label);
+    assert.equal(app.renderer.root.findAll((n) => n.type === "a" && n.props.href === "/detection/operations").length, role === "admin" ? 1 : 0);
+    await app.cleanup();
+  }
+}
+
 // 2-2) 패널: 읽지 않음 기본, 항목 읽음 처리, 모두 읽음, 전체 보기, 더 보기, 이동 링크.
 {
   let unreadCount = 2;
   routes = {
-    "GET /api/notifications/unread-count": () => [200, { latestSeq: "130", unreadCount }],
+    "GET /api/notifications/unread-count": () => [200, unreadBody(unreadCount)],
     "GET /api/notifications": (target) => {
       const view = target.searchParams.get("view"), cursor = target.searchParams.get("cursor");
       if (cursor === "next-1") return [200, listBody([incidentItem({ key: `incident:${U1}`, unread: false, incident: { ...incidentItem().incident, id: U1 } })])];
@@ -143,7 +176,7 @@ assert.ok(requests.some((r) => r.path === "/api/pipeline/events" && r.search ===
     },
     "POST /api/notifications/read": (_target, body) => {
       unreadCount = "through" in body ? 0 : unreadCount - body.items.length;
-      return [200, { readThrough: "through" in body ? body.through : "0", latestSeq: "130", unreadCount }];
+      return [200, unreadBody(unreadCount, { readThrough: "through" in body ? body.through : "0" })];
     },
   };
   const app = await mount(React.createElement(NotificationPanels));
@@ -168,6 +201,7 @@ assert.ok(requests.some((r) => r.path === "/api/pipeline/events" && r.search ===
   await wait(() => requests.some((r) => r.method === "POST"), "item read sent");
   await tick(250);
   assert.equal(app.client.getQueryData(["notifications-unread", "user-1"]).unreadCount, 1, "stale count started before the read does not overwrite it");
+  assert.deepEqual(app.client.getQueryData(["notifications-unread", "user-1"]).unreadByType, { decision: 1, incident: 0, protocol: 0 }, "read response carries per-type counts for the menu badge");
   slow = false;
   assert.deepEqual(requests.filter((r) => r.method === "POST").at(-1).body, { items: [{ key: `job:${U1}`, seq: "120" }] });
   await click(buttons(app, "모두 읽음")[0]);
@@ -186,7 +220,7 @@ assert.ok(requests.some((r) => r.path === "/api/pipeline/events" && r.search ===
 
 // 2-3) 패널 오류: 목록 조회 실패는 빈 목록이 아니라 오류.
 {
-  routes = { "GET /api/notifications/unread-count": () => [200, { latestSeq: "1", unreadCount: 1 }] };
+  routes = { "GET /api/notifications/unread-count": () => [200, unreadBody(1, { latestSeq: "1" })] };
   const app = await mount(React.createElement(NotificationPanels));
   await wait(() => app.shown().includes("알림을 불러오지 못했습니다"), "list error shown");
   assert.ok(!app.shown().includes("읽지 않은 알림이 없습니다."));
@@ -196,7 +230,7 @@ assert.ok(requests.some((r) => r.path === "/api/pipeline/events" && r.search ===
 // 2-3b) 범위 안내: 최근 이벤트 수 상한이 범위를 정하면 이벤트 문구, 조회 기간이 정하면 기간 문구, 잘림 없으면 둘 다 없음.
 for (const truncatedBy of ["events", "days", null]) {
   routes = {
-    "GET /api/notifications/unread-count": () => [200, { latestSeq: "130", unreadCount: 1 }],
+    "GET /api/notifications/unread-count": () => [200, unreadBody(1)],
     "GET /api/notifications": () => [200, listBody([decisionItem()], { window: { events: 5000, days: 7, fromSeq: "40", truncated: truncatedBy !== null, truncatedBy } })],
   };
   const app = await mount(React.createElement(NotificationPanels));
@@ -257,7 +291,7 @@ for (const truncatedBy of ["events", "days", null]) {
     },
     "GET /api/notifications/unread-count": () => {
       unreadReads += 1;
-      return [200, { latestSeq: "130", unreadCount: 0 }];
+      return [200, unreadBody(0)];
     },
   };
   const user = { id: "user-1", email: "user@example.test", userType: "user", createdAt: "2026-10-01T00:00:00Z" };
@@ -326,10 +360,10 @@ for (const truncatedBy of ["events", "days", null]) {
   const items = [protocolItem(K1), protocolItem(K2, { kind: "interface_unregistered", interfaceId: "IF_SYN_NEW", pathKey: null, channels: null, routesReason: "chain_broken" }),
     protocolItem(K3, { interfaceId: "IF_SYN_B", resolution: "kept", unread: false })];
   routes = {
-    "GET /api/notifications/unread-count": () => [200, { latestSeq: "130", unreadCount: 2 }],
+    "GET /api/notifications/unread-count": () => [200, unreadBody(2, {}, { decision: 0, incident: 0, protocol: 2 })],
     "GET /api/notifications": () => [200, listBody(items)],
-    "POST /api/notifications/protocol-alerts/keep": () => [200, { key: K1, keptThroughSeq: "125", keptAt: "x", keptBy: "admin-1", alreadyKept: false, latestSeq: "130", unreadCount: 1 }],
-    "POST /api/notifications/read": () => [200, { readThrough: "0", latestSeq: "130", unreadCount: 1 }],
+    "POST /api/notifications/protocol-alerts/keep": () => [200, unreadBody(1, { key: K1, keptThroughSeq: "125", keptAt: "x", keptBy: "admin-1", alreadyKept: false }, { decision: 0, incident: 0, protocol: 1 })],
+    "POST /api/notifications/read": () => [200, unreadBody(1, { readThrough: "0" }, { decision: 0, incident: 0, protocol: 1 })],
   };
   const { useLocation } = await import("react-router-dom");
   let location;
@@ -362,4 +396,4 @@ for (const truncatedBy of ["events", "days", null]) {
   await app.cleanup();
 }
 
-console.log("notifications page QA passed: parsers and wording, bell badge (count, 99+, unknown), panel views/read/read-all/more/links/errors/range notice, notification settings save and failure, window days input (bounds, save, refresh), protocol alerts (wording, admin actions, add → detail, keep)");
+console.log("notifications page QA passed: parsers and wording, bell badge (count, 99+, unknown), analysis menu badge (decisions + incidents, 99+, hidden at 0/error), panel views/read/read-all/more/links/errors/range notice, notification settings save and failure, window days input (bounds, save, refresh), protocol alerts (wording, admin actions, add → detail, keep)");

@@ -80,7 +80,9 @@ export type NotificationList = {
   nextCursor: string | null;
   items: NotificationItem[];
 };
-export type UnreadCount = { latestSeq: string; unreadCount: number };
+/** 종류별 미확인 수(합 = unreadCount). 상단 메뉴 이상 분석 배지 = decision + incident. 일반 사용자는 protocol 0. */
+export type UnreadByType = { decision: number; incident: number; protocol: number };
+export type UnreadCount = { latestSeq: string; unreadCount: number; unreadByType: UnreadByType };
 export type StoredLayout = { version: number; items: { i: string; x: number; y: number; w: number; h: number }[] };
 export type MySettings = {
   notifications: NotificationSettings & { isDefault: boolean; updatedAt: string | null };
@@ -168,10 +170,16 @@ export const parseNotificationList = (value: unknown): NotificationList => {
   };
 };
 
+const count = (value: unknown): value is number => Number.isInteger(value) && (value as number) >= 0;
+/** 배지 응답(미확인 수 조회·읽음·이상 유지 응답 공통). 종류별 수가 없거나 합이 맞지 않으면 형식 오류(배지 확인 불가). */
 export const parseUnreadCount = (value: unknown): UnreadCount => {
-  if (!obj(value) || !SEQ.test(String(value.latestSeq)) || !Number.isInteger(value.unreadCount) || (value.unreadCount as number) < 0) return fail("알림 수");
-  return { latestSeq: String(value.latestSeq), unreadCount: value.unreadCount as number };
+  if (!obj(value) || !SEQ.test(String(value.latestSeq)) || !count(value.unreadCount) || !obj(value.unreadByType)) return fail("알림 수");
+  const { decision, incident, protocol } = value.unreadByType;
+  if (!count(decision) || !count(incident) || !count(protocol) || decision + incident + protocol !== value.unreadCount) return fail("알림 수");
+  return { latestSeq: String(value.latestSeq), unreadCount: value.unreadCount, unreadByType: { decision, incident, protocol } };
 };
+/** 상단 메뉴 이상 분석 배지 수: 판정·사건 알림 미확인(프로토콜 알림은 넣지 않음, 와이어프레임 badgeAnalysis = 판정 알림). */
+export const analysisUnread = (value: UnreadCount) => value.unreadByType.decision + value.unreadByType.incident;
 
 const parseLayout = (value: unknown): StoredLayout | null => {
   if (!obj(value) || !Number.isInteger(value.version) || !Array.isArray(value.items)) return null;

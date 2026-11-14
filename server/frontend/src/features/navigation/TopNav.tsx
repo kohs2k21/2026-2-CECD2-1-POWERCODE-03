@@ -3,9 +3,14 @@ import { IconActivity, IconBrain, IconHome, IconSettings, type Icon } from "@tab
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { observeHeight } from "@/lib/observeHeight";
+import { cn } from "@/lib/utils";
 import { activeTopNav, visibleTopNavItems, type TopNavId } from "@/app/routes";
 import type { UserRole } from "@/types/app";
 import { NotificationsBell } from "@/features/notifications/NotificationsBell";
+import { CountBadge } from "@/features/notifications/CountBadge";
+import { badgeText } from "@/features/notifications/notificationLabels";
+import { analysisUnread } from "@/features/notifications/notificationsApi";
+import { useUnreadCount } from "@/features/notifications/useNotifications";
 import inzentLogo from "./inzent_logo.svg";
 
 type TopNavProps = {
@@ -30,6 +35,10 @@ const pillIcon =
 export const TopNav = ({ pathname, role, onLogout, settingsPath }: TopNavProps) => {
   const active = activeTopNav(pathname);
   const header = useRef<HTMLElement>(null);
+  // 메뉴 배지(와이어프레임 badgeAnalysis): 알림 버튼과 같은 미확인 수 조회(같은 Query 캐시)의 판정·사건 수. 다시 조회는 알림 버튼 흐름(이동·패널·판정 이벤트)을 따른다.
+  // 0·불러오기 전·조회 실패는 숨김(실패 표시는 알림 버튼 `?`가 맡는다). 탐지 설정 배지(작업 알림)는 작업 알림이 생길 때까지 없음.
+  const unread = useUnreadCount();
+  const badges: Partial<Record<TopNavId, number>> = { analysis: unread.data && !unread.isError ? analysisUnread(unread.data) : 0 };
   // 고정 영역(사이드바·룰 설정 저장 줄)이 머리글 아래에 붙도록 실제 높이를 알린다. 좁은 화면에서는 메뉴가 둘째 줄로 내려가 높이가 달라진다.
   useEffect(() => observeHeight(header.current, "--top-nav-offset"), []);
   return (
@@ -57,11 +66,17 @@ export const TopNav = ({ pathname, role, onLogout, settingsPath }: TopNavProps) 
       >
         {visibleTopNavItems(role).map((item) => {
           const ItemIcon = navIcons[item.id];
+          const badge = badges[item.id] ?? 0;
           return (
-            <Button asChild variant="ghost" key={item.id} className={pillItem}>
-              <Link to={item.to} aria-current={active === item.id ? "page" : undefined}>
+            <Button asChild variant="ghost" key={item.id} className={cn(pillItem, "relative")}>
+              <Link
+                to={item.to}
+                aria-current={active === item.id ? "page" : undefined}
+                aria-label={badge ? `${item.label} · 미확인 ${badge}건` : undefined}
+              >
                 <ItemIcon aria-hidden="true" />
                 {item.label}
+                {badge > 0 && <CountBadge data-nav-badge={item.id}>{badgeText(badge)}</CountBadge>}
               </Link>
             </Button>
           );

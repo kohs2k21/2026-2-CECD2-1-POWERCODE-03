@@ -18,7 +18,8 @@ class ModelFailure(RuntimeError):
 
 PACKAGE = SimpleNamespace(io=SimpleNamespace(InputFailure=InputFailure, ModelFailure=ModelFailure))
 _ERRORS = {"timeout": lambda: TimeoutError("cut"), "input": lambda: InputFailure("bad input"),
-           "model": lambda: ModelFailure("bad model"), "other": lambda: KeyError("boom")}
+           "model": lambda: ModelFailure("bad model"), "value": lambda: ValueError("rule_v3_bad_value"),
+           "value_text": lambda: ValueError("Bundle says: bad row 3"), "other": lambda: KeyError("boom")}
 
 
 class FakeRuntime:

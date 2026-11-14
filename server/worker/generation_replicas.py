@@ -95,7 +95,9 @@ def _watch_parent() -> None:
 
 def _reply(runtime, paths: Mapping[str, Any], out: Any) -> tuple:
     package = runtime.package
-    # 순서는 `_item_v3`의 except 순서와 같다(TimeoutError → InputFailure → ModelFailure).
+    # 순서는 `_item_v3`의 except 순서와 같다(TimeoutError → InputFailure → ModelFailure). InputFailure가 ValueError
+    # 하위 클래스이므로 일반 ValueError는 그 뒤에 본다. ValueError는 주 프로세스 직접 실행처럼 작업 종료 실패가 되도록
+    # 같은 종류로 다시 올리고, 문구는 runner와 같은 기준(코드 꼴이 아니면 invalid_job_input)으로 정리해 보낸다.
     try:
         return ("ok", runtime.run_field(paths, out))
     except TimeoutError:
@@ -104,6 +106,8 @@ def _reply(runtime, paths: Mapping[str, Any], out: Any) -> tuple:
         return ("error", "input", str(exc))
     except package.io.ModelFailure as exc:
         return ("error", "model", str(exc))
+    except ValueError as exc:
+        return ("error", "value", _code(exc, "invalid_job_input"))
     except Exception as exc:
         log.error("rule_v3_replica_field_failed: %s", type(exc).__name__)
         return ("error", "failed", type(exc).__name__)
@@ -137,6 +141,15 @@ def serve_replica(conn, gpu: str, loader: Callable[[Sequence[str]], Any], roots:
                 conn.send(("error", "failed", "result_unpicklable"))
             except Exception:
                 return
+
+
+def _close(conn) -> None:
+    if conn is None:
+        return
+    try:
+        conn.close()
+    except Exception:
+        pass
 
 
 class ReplicaLost(RuntimeError):
@@ -191,6 +204,8 @@ class ReplicaRuntime:
                 raise self.package.io.InputFailure(message)
             if kind == "model":
                 raise self.package.io.ModelFailure(message)
+            if kind == "value":
+                raise ValueError(message if _CODE.fullmatch(message) else "invalid_job_input")
             raise GenerationUnavailable("generation_failed")
         self._lose("replica_protocol_error")
         raise GenerationUnavailable("generation_failed")
@@ -250,7 +265,7 @@ class ReplicaPool:
             thread.join(None if deadline is None else max(0.0, deadline - time.monotonic()))
 
     def _start_one(self, gpu: str) -> None:
-        process = None
+        process = parent_conn = None
         try:
             parent_conn, child_conn = self.context.Pipe(duplex=True)
             process = self.context.Process(target=serve_replica, args=(child_conn, gpu, self.loader, self.roots),
@@ -267,18 +282,14 @@ class ReplicaPool:
                     raise ReplicaLost("replica_start_timeout")
             message = parent_conn.recv()
         except ReplicaLost as exc:
-            self._terminate(process)
-            self.disable(None, str(exc), gpu)
+            self._give_up(gpu, process, parent_conn, str(exc))
             return
         except Exception as exc:
-            self._terminate(process)
-            self.disable(None, _code(exc, "replica_start_failed"), gpu)
+            self._give_up(gpu, process, parent_conn, _code(exc, "replica_start_failed"))
             return
         if isinstance(message, tuple) and len(message) == 2 and message[0] == "ready":
             if message[1] != self.expected_sha:
-                parent_conn.send(("stop",))
-                self._terminate(process)
-                self.disable(None, "rule_v3_adapter_mismatch", gpu)
+                self._give_up(gpu, process, parent_conn, "rule_v3_adapter_mismatch", stop=True)
                 return
             replica = ReplicaRuntime(gpu, process, parent_conn, message[1], self.package, self)
             with self._lock:
@@ -288,13 +299,26 @@ class ReplicaPool:
             if closed:  # 준비 중에 종료가 시작됐다
                 replica.stop()
                 self._terminate(process, STOP_SECONDS)
+                _close(parent_conn)
                 return
             log.info("rule_v3_replica_ready: %s", gpu)
             return
         code = message[1] if isinstance(message, tuple) and len(message) == 2 and message[0] == "failed" and \
             isinstance(message[1], str) and _CODE.fullmatch(message[1]) else "replica_start_failed"
-        self._terminate(process)
-        self.disable(None, code, gpu)
+        self._give_up(gpu, process, parent_conn, code)
+
+    def _give_up(self, gpu: str, process, conn, code: str, stop: bool = False) -> None:
+        """시작 실패 정리: (필요하면 멈춤 요청) → 프로세스 종료 → 파이프 닫기 → 끈 로그. 정리 중 오류가 나도 로그는 남긴다."""
+        try:
+            if stop and conn is not None:
+                try:
+                    conn.send(("stop",))
+                except Exception:  # 자식이 이미 끊었다(BrokenPipe 등)
+                    pass
+            self._terminate(process)
+            _close(conn)
+        finally:
+            self.disable(None, code, gpu)
 
     @staticmethod
     def _terminate(process, grace: float = 1.0) -> None:

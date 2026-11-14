@@ -6,17 +6,15 @@
 # - 복제본 적재 실패·어댑터 불일치는 그 장만 끄고 시작 로그에 rule_v3_replica_disabled: <gpu> <코드> 한 줄을 남긴다.
 #   준비 전이나 전부 꺼진 동안의 작업은 준비된 장(최소 주 GPU 하나)으로만 돈다. 결과 형식·내용은 직렬 실행과 같다.
 # - devices: 기본 compose의 목록에 더해지지 않도록 !override로 바꾼다(Compose 2.24.4 이상). 그냥 쓰면 장치 요청이
-#   두 개(기존 1장 + 4장)로 합쳐진다.
-# - 자원: 프로세스 4개가 각자 Base·LoRA·토크나이저·xgrammar 컴파일러를 올리므로 CPU·메모리 상한을 함께 올린다.
-#   기본값 cpus 16 = 프로세스당 4(기본 compose 1장 기준 LLM_CPUS 4와 같음). 메모리 128g = 프로세스당 32g로, 기존 1장 상한
-#   48g보다 작게 잡은 추정값이다(4bit 적재는 GPU로 바로 올라가 CPU 상주분이 작다는 가정, 4장 동시 적재 실측 전).
-#   서버 사양·실측에 맞게 LLM_MULTI_GPU_CPUS·LLM_MULTI_GPU_MEMORY로 바꾼다.
+#   두 개(기존 1장 + 4장)로 합쳐진다. device_ids를 0~3으로 고정하므로 GENERATION_GPU_ID는 이 override에서 쓰이지 않는다
+#   (주 GPU = 호스트 첫 장).
+# - 자원: 이 override는 CPU·메모리 상한을 바꾸지 않고 기본 compose의 LLM_CPUS·LLM_MEMORY를 그대로 물려받는다.
+#   프로세스 4개가 각자 Base·LoRA·토크나이저·xgrammar 컴파일러를 올리므로, 4장이면 LLM_CPUS·LLM_MEMORY를 장수에 맞게
+#   키운다(상한을 지원하는 호스트에서). 상한을 지원하지 않는 호스트는 기본 compose와 같은 방식으로 환경에서 따로 지정한다.
 services:
   llm:
     environment:
       LLM_REPLICA_GPUS: ${LLM_REPLICA_GPUS:-1,2,3}
-    cpus: ${LLM_MULTI_GPU_CPUS:-16}
-    mem_limit: ${LLM_MULTI_GPU_MEMORY:-128g}
     deploy:
       resources:
         reservations:

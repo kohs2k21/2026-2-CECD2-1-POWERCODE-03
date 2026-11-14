@@ -84,7 +84,8 @@ class CodeTests(unittest.TestCase):
     def test_child_codes(self):
         runtime = fakes.FakeRuntime()
         cases = {"timeout": ("error", "timeout", "generation_timeout"), "input": ("error", "input", "bad input"),
-                 "model": ("error", "model", "bad model")}
+                 "model": ("error", "model", "bad model"), "value": ("error", "value", "rule_v3_bad_value"),
+                 "value_text": ("error", "value", "invalid_job_input")}
         for action, expected in cases.items():
             with self.subTest(action):
                 self.assertEqual(replicas._reply(runtime, {"raise": action}, "o"), expected)
@@ -96,12 +97,15 @@ class CodeTests(unittest.TestCase):
     def test_parent_raises_same_kind_as_direct_runtime(self):
         runtime = fakes.FakeRuntime()
         expected = {"timeout": (TimeoutError, "generation_timeout"), "input": (fakes.InputFailure, "bad input"),
-                    "model": (fakes.ModelFailure, "bad model"), "other": (GenerationUnavailable, "generation_failed")}
+                    "model": (fakes.ModelFailure, "bad model"), "value": (ValueError, "rule_v3_bad_value"),
+                    "value_text": (ValueError, "invalid_job_input"),
+                    "other": (GenerationUnavailable, "generation_failed")}
         for action, (kind, message) in expected.items():
             with self.subTest(action):
-                if action != "other":  # 기타 예외만 직접 실행과 다르게 generation_failed로 묶는다
-                    with self.assertRaises(kind):
+                if action != "other":  # ValueError·번들 예외는 직접 실행과 같은 종류, 그 밖만 generation_failed로 묶는다
+                    with self.assertRaises(kind) as direct:
                         runtime.run_field({"raise": action}, "o")
+                    self.assertIs(type(direct.exception), kind)
                 with self.assertLogs("generation_replicas", "ERROR") if action == "other" else _nothing():
                     reply = replicas._reply(runtime, {"raise": action}, "o")
                 pool, replica = proxy(FakeConnection([reply]))
@@ -111,6 +115,43 @@ class CodeTests(unittest.TestCase):
                 self.assertEqual(str(caught.exception), message)
                 self.assertFalse(replica.lost, "field error keeps the replica")
                 self.assertEqual(pool.ready(), [replica])
+
+    def test_value_error_is_terminal_like_direct_run(self):
+        from trainer.runner import _terminal_error_code
+        runtime = fakes.FakeRuntime()
+        for action in ("value", "value_text"):
+            with self.subTest(action):
+                with self.assertRaises(ValueError) as direct:
+                    runtime.run_field({"raise": action}, "o")
+                _, replica = proxy(FakeConnection([replicas._reply(runtime, {"raise": action}, "o")]))
+                with self.assertRaises(ValueError) as relayed:
+                    replica.run_field({"raise": action}, Path("o"))
+                self.assertEqual(_terminal_error_code(relayed.exception), _terminal_error_code(direct.exception))
+
+    def test_adapter_mismatch_with_broken_pipe_still_logs(self):
+        class BrokenConnection(FakeConnection):
+            closed = False
+
+            def send(self, message):
+                raise BrokenPipeError()
+
+            def close(self):
+                self.closed = True
+
+        class StartedProcess(FakeProcess):
+            def start(self):
+                pass
+
+        conn = BrokenConnection([("ready", "b" * 64)])
+        child = BrokenConnection()
+        context = type("Context", (), {"Pipe": lambda self, duplex=True: (conn, child),
+                                       "Process": lambda self, **kwargs: StartedProcess()})()
+        pool = replicas.ReplicaPool(["1"], ["a", "b", "c"], fakes.SHA, fakes.PACKAGE, start_seconds=1, context=context)
+        with self.assertLogs("generation_replicas", "ERROR") as logs:
+            pool._start_one("1")
+        self.assertEqual(logs.output, ["ERROR:generation_replicas:rule_v3_replica_disabled: 1 rule_v3_adapter_mismatch"])
+        self.assertTrue(conn.closed)
+        self.assertEqual(pool.ready(), [])
 
     def test_result_values_survive(self):
         runtime = fakes.FakeRuntime()

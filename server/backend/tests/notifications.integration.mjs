@@ -1,6 +1,6 @@
 // 사용자별 설정·알림 API(contracts/notifications.md) 통합 시험. 로컬 새 QA DB(qa_notifications*)에 001~026이 적용돼 있어야 한다.
 // API 프로세스는 powercode_api 역할로 접속한다(연결 options role). 확인: 인증·400 code, 설정 기본값·저장·계정 분리, 알림 항목(묶이지 않은 판정·사건 흐름),
-// 판정 기준 3택·위험도 하한·미정 포함 필터, 알림 사유(opened·risk_raised·withdrawn·grew), 미확인·항목/모두 읽음·다시 알림, 커서, 조회 범위(이벤트 수·조회 기간 일). 실행 전 `npm run build`.
+// 판정 기준 3택·위험도 하한·미정 포함 필터, 알림 사유(opened·risk_raised·withdrawn·grew), 미확인(종류별 수 포함)·항목/모두 읽음·다시 알림, 커서, 조회 범위(이벤트 수·조회 기간 일). 실행 전 `npm run build`.
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
 import { spawn } from 'node:child_process';
@@ -154,6 +154,8 @@ try {
     assert.deepEqual([response.status, response.body?.code], [status, expected], `${method} ${route} ${JSON.stringify(body)}`);
   };
   const list = (query = 'view=all&limit=50', token = user) => ok('GET', `/api/notifications?${query}`, token);
+  /** 목록(전체 보기, 한 쪽에 다 들어가는 크기)의 종류별 미확인 수 — 배지 unreadByType과 비교한다. */
+  const unreadTypes = (body) => Object.fromEntries(['decision', 'incident', 'protocol'].map((type) => [type, body.items.filter((item) => item.unread && item.type === type).length]));
   const byKey = (body) => Object.fromEntries(body.items.map((item) => [item.key, item]));
 
   // 3) 인증·형식 오류.
@@ -223,6 +225,8 @@ try {
   assert.deepEqual(keys, wanted, JSON.stringify(all.items.map((item) => item.key)));
   assert.equal(all.total, 6);
   assert.equal(all.unreadCount, 6);
+  const typed = await ok('GET', '/api/notifications/unread-count');
+  assert.deepEqual([typed.unreadCount, typed.unreadByType], [6, { decision: 5, incident: 1, protocol: 0 }], 'badge per-type counts: 5 unbundled decisions + 1 incident flow');
   assert.equal(all.readThrough, '0');
   assert.deepEqual([all.window.truncated, all.window.truncatedBy, all.window.days, all.window.fromSeq], [false, null, 7, '1']);
   assert.deepEqual(all.settings, { decisionBasis: 'interim', minRiskLevel: 'info', includeUnrated: true, windowDays: 7 });
@@ -270,6 +274,7 @@ try {
   assert.equal((await pool.query('SELECT read_seq::text AS n FROM ops_user_notification_reads WHERE item_key=$1', [raised.key])).rows[0].n, raised.seq,
     'item read sequence is capped at the item notification sequence');
   assert.deepEqual([one.unreadCount, one.readThrough], [5, '0']);
+  assert.deepEqual(one.unreadByType, { decision: 4, incident: 1, protocol: 0 }, 'read response carries per-type counts');
   const unreadView = await list('view=unread&limit=50');
   assert.equal(unreadView.items.some((item) => item.key === raised.key), false);
   assert.equal(unreadView.total, 5);
@@ -277,6 +282,7 @@ try {
   assert.equal((await ok('GET', '/api/notifications/unread-count', admin)).unreadCount, 6, 'read state is per account');
   const allRead = await ok('POST', '/api/notifications/read', user, { through: all.latestSeq });
   assert.deepEqual([allRead.unreadCount, allRead.readThrough], [0, all.latestSeq]);
+  assert.deepEqual(allRead.unreadByType, { decision: 0, incident: 0, protocol: 0 });
   assert.equal(Number((await pool.query('SELECT count(*) AS n FROM ops_user_notification_reads')).rows[0].n), 0, 'read marks at or below the cursor are pruned');
   const back = await ok('POST', '/api/notifications/read', user, { through: '1' });
   assert.equal(back.readThrough, all.latestSeq, 'read cursor never moves back');
@@ -424,6 +430,11 @@ try {
   assert.deepEqual([newItem.protocol.channels, newItem.protocol.routesReason], [null, 'chain_broken']);
   // 관리자만: 일반 사용자 목록·배지·읽음 요청에는 프로토콜 항목이 없다.
   const userBefore = (await ok('GET', '/api/notifications/unread-count', user)).unreadCount;
+  assert.equal((await ok('GET', '/api/notifications/unread-count', user)).unreadByType.protocol, 0, 'user badge has no protocol count');
+  const adminTyped = await ok('GET', '/api/notifications/unread-count', admin);
+  assert.deepEqual(adminTyped.unreadByType, unreadTypes(await list('view=all&limit=50', admin)), 'admin per-type counts match the unread list items');
+  assert.equal(adminTyped.unreadByType.protocol, 2, 'admin badge counts both protocol items');
+  assert.equal(adminTyped.unreadCount, adminTyped.unreadByType.decision + adminTyped.unreadByType.incident + adminTyped.unreadByType.protocol);
   assert.equal((await list('view=all&limit=50', user)).items.filter((item) => item.type === 'protocol').length, 0, 'protocol items are admin only');
   await ok('POST', '/api/notifications/read', user, { items: [{ key: pathItem.key, seq: pathItem.seq }] });
   assert.equal(Number((await pool.query('SELECT count(*) AS n FROM ops_user_protocol_alert_reads')).rows[0].n), 0, 'a user cannot mark a protocol item');
@@ -440,6 +451,7 @@ try {
   }
   await code('POST', '/api/notifications/protocol-alerts/keep', 404, 'protocol_alert_not_found', { interfaceId: 'IF_SYN_A', pathKey: 'CH_A:CH_B' }, admin);
   const kept = await ok('POST', '/api/notifications/protocol-alerts/keep', admin, { interfaceId: 'IF_SYN_A', pathKey: 'CH_A:CH%3AX' });
+  assert.equal(kept.unreadByType.protocol, unreadTypes(await list('view=all&limit=50', admin)).protocol, 'keep response carries per-type counts');
   assert.deepEqual([kept.key, kept.alreadyKept, kept.keptBy], [pathItem.key, false, (await pool.query('SELECT kept_by_actor_id AS a FROM ops_protocol_alert_keeps')).rows[0].a]);
   assert.equal((await ok('POST', '/api/notifications/protocol-alerts/keep', admin, { interfaceId: 'IF_SYN_A', pathKey: 'CH_A:CH%3AX' })).alreadyKept, true);
   await writeProtocol('p6', 1.0, unmatched);
@@ -515,7 +527,9 @@ try {
   // 미확인 수·읽음 요청도 같은 범위: 기간 밖 항목은 세지 않고, 읽음 요청에서는 무시된다(행 없음).
   await ok('PUT', '/api/me/settings', admin, { notifications: notif(1) });
   const adminDay1 = await list('view=all&limit=50', admin);
-  assert.equal((await ok('GET', '/api/notifications/unread-count', admin)).unreadCount, adminDay1.items.filter((item) => item.unread).length, 'badge = unread items in the window');
+  const adminDay1Count = await ok('GET', '/api/notifications/unread-count', admin);
+  assert.equal(adminDay1Count.unreadCount, adminDay1.items.filter((item) => item.unread).length, 'badge = unread items in the window');
+  assert.deepEqual(adminDay1Count.unreadByType, unreadTypes(adminDay1), 'per-type counts use the same window');
   assert.equal(adminDay1.items.some((item) => early.includes(item.key)), false);
   await ok('POST', '/api/notifications/read', admin, { items: [{ key: `decision:${D.critical}`, seq: seqCritical }] });
   assert.equal(Number((await pool.query('SELECT count(*) AS n FROM ops_user_notification_reads WHERE item_key=$1', [`decision:${D.critical}`])).rows[0].n), 0,

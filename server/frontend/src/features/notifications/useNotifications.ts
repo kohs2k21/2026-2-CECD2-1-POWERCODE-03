@@ -17,6 +17,9 @@ import {
   type StoredLayout,
   type UnreadCount, keepProtocolAlert } from "./notificationsApi";
 
+/** 읽음·이상 유지 응답의 배지 값(미확인 수 조회와 같은 모양). */
+const countOf = ({ latestSeq, unreadCount, unreadByType }: UnreadCount): UnreadCount => ({ latestSeq, unreadCount, unreadByType });
+
 export const notificationListQueryName = "notifications-list";
 export const unreadCountQueryName = "notifications-unread";
 export const mySettingsQueryName = "me-settings";
@@ -59,7 +62,7 @@ export const useKeepProtocolAlert = () => {
   return useMutation({
     mutationFn: keepProtocolAlert,
     onSuccess: (result) => {
-      cache.setQueryData<UnreadCount>(accountQueryKey(unreadCountQueryName, user?.id), { latestSeq: result.latestSeq, unreadCount: result.unreadCount });
+      cache.setQueryData<UnreadCount>(accountQueryKey(unreadCountQueryName, user?.id), countOf(result));
       void cache.invalidateQueries({ queryKey: accountQueryKey(notificationListQueryName, user?.id) });
     },
     onError: invalidate,
@@ -81,7 +84,7 @@ export const useMarkNotificationsRead = () => {
       // 읽음 응답보다 먼저 시작한 배지 조회(이동·SSE로 시작)는 읽기 전 값을 돌려줄 수 있으므로 취소하고 응답값을 쓴다.
       await cache.cancelQueries({ queryKey: accountQueryKey(unreadCountQueryName, user?.id) });
       if (token !== getStoredToken()) return;
-      cache.setQueryData<UnreadCount>(accountQueryKey(unreadCountQueryName, user?.id), { latestSeq: result.latestSeq, unreadCount: result.unreadCount });
+      cache.setQueryData<UnreadCount>(accountQueryKey(unreadCountQueryName, user?.id), countOf(result));
       void cache.invalidateQueries({ queryKey: accountQueryKey(notificationListQueryName, user?.id) });
     },
     onError: invalidate,

@@ -4,6 +4,7 @@ import { useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import { CountBadge } from "./CountBadge";
 import { badgeText, bellLabel } from "./notificationLabels";
 import { KeepConfirmDialog, NotificationPanels } from "./NotificationPanels";
 import type { ProtocolNotification } from "./notificationsApi";
@@ -38,16 +39,9 @@ export const NotificationsBell = ({ triggerClassName }: { triggerClassName?: str
         <Button variant="ghost" size="icon" aria-label={label} title={label} className={cn("relative", triggerClassName)}>
           <IconBell aria-hidden="true" />
           {(Boolean(count) || unread.isError) && (
-            <span
-              aria-hidden="true"
-              data-notification-badge
-              className={cn(
-                "absolute -top-0.5 -right-0.5 grid h-count-badge min-w-count-badge place-items-center rounded-full px-1 text-count-badge font-semibold",
-                unread.isError ? "bg-muted text-muted-foreground" : "bg-destructive text-primary-foreground",
-              )}
-            >
+            <CountBadge data-notification-badge="" muted={unread.isError}>
               {unread.isError ? "?" : badgeText(count!)}
-            </span>
+            </CountBadge>
           )}
         </Button>
       </PopoverTrigger>

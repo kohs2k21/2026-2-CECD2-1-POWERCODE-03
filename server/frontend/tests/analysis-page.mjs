@@ -281,7 +281,7 @@ const listCalls = () => requested.filter((r) => r.path === "/api/analysis/decisi
   requested.length = 0;
   routes = {
     "GET /api/analysis/decisions": () => json(listBody([item("d-1")])),
-    "GET /api/notifications/unread-count": () => json({ latestSeq: "40", unreadCount: 0 }),
+    "GET /api/notifications/unread-count": () => json({ latestSeq: "40", unreadCount: 0, unreadByType: { decision: 0, incident: 0, protocol: 0 } }),
   };
   const app = await mount("/analysis");
   await wait(() => app.shown().includes("실시간 연결됨"), "live status shown with the bell mounted");

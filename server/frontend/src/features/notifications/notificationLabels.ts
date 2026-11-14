@@ -42,8 +42,8 @@ const protocolSubject = ({ protocol }: ProtocolNotification) =>
     `판정 ${protocol.decisions.toLocaleString("ko-KR")}건`].join(" · ");
 export const protocolResolutionLabels: Record<"kept" | "added", string> = { kept: "이상 유지됨", added: "정상 프로토콜에 추가됨" };
 
-/** 설정 › 알림 대상의 작업 알림 켜기(와이어프레임 notifJobs, 관리자만). */
-export const includeJobsLabel = "작업 알림(학습·비교 평가·모델 교체)";
+/** 설정 › 알림 대상의 작업 알림 켜기(와이어프레임 notifJobs에서 모델 교체 뺌 — 작업 행이 없어 알림 없음, 관리자만). */
+export const includeJobsLabel = "작업 알림(학습·비교 평가)";
 /** 알림 카드 분류 표시(와이어프레임 renderBell tag: 판정 = 이상 분석, 작업 = 탐지 설정). 프로토콜 알림은 프로토콜 설정. */
 export const notificationTag = (item: NotificationItem) =>
   item.type === "protocol" ? "프로토콜 설정" : item.type === "job" ? "탐지 설정" : "이상 분석";

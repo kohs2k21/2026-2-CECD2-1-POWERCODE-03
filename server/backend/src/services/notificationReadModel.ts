@@ -1,6 +1,6 @@
 import type { Pool, PoolClient } from 'pg';
 import { parseGroupKey } from './incidentReadModel.js';
-import { RISK_RANK, type NotificationSettings } from './userSettings.js';
+import { NOTIFICATION_WINDOW_DAYS, RISK_RANK, type NotificationSettings } from './userSettings.js';
 
 /**
  * 알림 목록·미확인 수·읽음 표시(contracts/notifications.md). 알림 항목은 저장하지 않고 읽을 때 만든다(사용자 11/13 "사건 단위 + 묶이지 않은 판정").
@@ -32,6 +32,12 @@ import { RISK_RANK, type NotificationSettings } from './userSettings.js';
  *    [이상 유지](023 ops_protocol_alert_keeps) 뒤에는 순번이 누른 시점 순번을 넘지 않고, 그 순번이 범위 밖이면 읽음으로 본다(읽음 행이 범위 정리로 지워져도)
  *    → 같은 묶음을 다시 알리지 않는다(목록에는 남김).
  *    항목 읽음은 023 ops_user_protocol_alert_reads(022 항목 읽음 표의 키 형식이 UUID로 고정이라 따로 둔다).
+ * 6) 작업 항목(key work:<run_jobs id>, 028, contracts/notifications.md "작업 알림" 절): v03 training 큐의 train·compare 작업 중 succeeded·failed로 끝난 것
+ *    (대기·실행 중·재시도 대기·blocked 제외). 관리자 ∧ 설정 includeJobs일 때만. 조회 기간 = 종료 시각(finished_at)이 지금 − windowDays일 이후(이벤트 수 상한과 무관).
+ *    작업 종료는 판정 이벤트 순번을 받지 않으므로 읽음은 종료 시각으로 판단한다: 미확인 = finished_at > max(모두 읽음 작업 경계 jobs_read_through, 항목 읽음 read_through).
+ *    목록 정렬 순번(seq) = 종료 시각 이전 마지막 판정 이벤트 순번(개수 범위 안, 없으면 0 — 범위가 밀려도 같은 값이라 커서가 흔들리지 않음)
+ *    — 정렬에만 쓰고 읽음 판단에는 쓰지 않는다. 범위 첫 이벤트보다 먼저 끝난 작업은 이벤트를 읽지 않고 바로 0(created_at으로 미리 거름).
+ *    "모두 읽음"은 판정 순번(through)과 함께 응답의 latestJobAt(작업 알림 대상 중 가장 늦은 종료 시각)을 jobsThrough로 받아 그 시각까지 읽음으로 둔다.
  */
 type Queryable = Pick<Pool, 'query'>;
 
@@ -95,7 +101,7 @@ const windowCte = `top AS (
  * protocol = 프로토콜 항목 포함(관리자만, 서버 값이라 SQL 문자열에 넣음).
  * 결과 CTE `state`: kind, item_key, notify_seq, notified_at, reason, unread + 화면 값 열(+ 프로토콜 항목 extra).
  */
-const stateCte = (protocol: boolean) => `WITH RECURSIVE ${windowCte}, ${protocolCte(protocol)}, ev AS (
+const stateCte = (protocol: boolean, jobs = false) => `WITH RECURSIVE ${windowCte}, ${protocolCte(protocol)}, ${jobCte(jobs)}, ev AS (
   SELECT e.id AS seq,e.event_kind AS kind,e.created_at,d.id AS decision_id,coalesce(d.job_id,i.job_id) AS job_id,d.status::text AS status,
     CASE WHEN e.event_kind='final' THEN d.evidence WHEN e.event_kind IN ('first_anomaly','evidence_added') THEN i.payload END AS snap
   FROM top JOIN run_decision_events e ON e.id>top.lo
@@ -202,22 +208,66 @@ const stateCte = (protocol: boolean) => `WITH RECURSIVE ${windowCte}, ${protocol
   FROM pkeyed p LEFT JOIN ops_protocol_alert_keeps k ON k.alert_key=p.item_key
   GROUP BY p.item_key,k.alert_key,k.kept_through_seq,k.kept_at,k.kept_by_actor_id
 ), items AS (
-  SELECT * FROM ditems UNION ALL SELECT * FROM iitems UNION ALL SELECT * FROM pitems
+  SELECT * FROM ditems UNION ALL SELECT * FROM iitems UNION ALL SELECT * FROM pitems UNION ALL SELECT * FROM jitems
 ), state AS (
   -- 이상 유지한 프로토콜 묶음: 순번(≤ 유지 순번)이 범위 밖이면 읽음(범위 정리로 읽음 행이 지워져도 다시 미확인이 되지 않는다).
-  SELECT items.*,items.notify_seq>greatest(coalesce(c.read_through,0),coalesce(rd.read_seq,0),coalesce(prd.read_seq,0))
-    AND NOT (items.kind='protocol' AND items.extra->>'keptAt' IS NOT NULL AND items.notify_seq<=(SELECT lo FROM top)) AS unread
+  -- 작업 항목: 판정 순번이 아니라 종료 시각으로 판단(6).
+  SELECT items.*,CASE WHEN items.kind='job'
+      THEN items.notified_at>coalesce(greatest(c.jobs_read_through,jr.read_through),'-infinity'::timestamptz)
+      ELSE items.notify_seq>greatest(coalesce(c.read_through,0),coalesce(rd.read_seq,0),coalesce(prd.read_seq,0))
+        AND NOT (items.kind='protocol' AND items.extra->>'keptAt' IS NOT NULL AND items.notify_seq<=(SELECT lo FROM top)) END AS unread
   FROM items LEFT JOIN ops_user_notification_cursors c ON c.actor_id=$5::text
   LEFT JOIN ops_user_notification_reads rd ON rd.actor_id=$5::text AND rd.item_key=items.item_key
   LEFT JOIN ops_user_protocol_alert_reads prd ON prd.actor_id=$5::text AND prd.item_key=items.item_key
+  LEFT JOIN ops_user_job_notification_reads jr ON items.kind='job' AND jr.actor_id=$5::text AND jr.job_id=(items.extra->>'id')::uuid
+)`;
+
+/**
+ * 작업 알림 대상(6). jobs = 관리자 ∧ includeJobs(서버 값이라 SQL 문자열에 넣음). 016 run_jobs_v03_queue_idx(queue,status,…) 앞부분으로 training 큐만 읽는다.
+ * `days` = 조회 기간(일) SQL 식, null이면 기간 없이(latestJobAt·모두 읽음 상한).
+ */
+const jobSourceWhere = (jobs: boolean, days: string | null) => `${jobs ? 'true' : 'false'} AND j.contract_version='v03' AND j.queue='training'
+    AND j.status IN ('succeeded','failed') AND j.kind IN ('train','compare') AND j.finished_at IS NOT NULL
+    ${days ? `AND j.finished_at>=now()-make_interval(days=>${days})` : ''}`;
+/**
+ * 작업 항목 CTE(stateCte 안, top 다음). 결과 열은 다른 항목 CTE와 같다(UNION ALL). 작업 값은 extra에:
+ * id·kind·status·errorCode·versionId(학습 결과 모델 버전)·failedCount(비교 평가 실패 항목 수)·recommended(비교 평가 교체 추천 대상이 있음 — 저장된 replacementRecommendations[].targetVersionId).
+ */
+const jobCte = (jobs: boolean) => `jsrc AS (
+  SELECT j.id,j.kind::text AS jkind,j.status::text AS jstatus,j.error_code,j.finished_at,
+    coalesce(j.result_config_version_id::text,CASE WHEN jsonb_typeof(j.result_summary)='object' AND jsonb_typeof(j.result_summary->'configVersionId')='string'
+      THEN j.result_summary->>'configVersionId' END) AS version_id,
+    CASE WHEN jsonb_typeof(j.result_summary->'failedCount')='number' THEN j.result_summary->'failedCount' END AS failed_count,
+    coalesce(jsonb_path_exists(j.result_summary,'strict $.replacementRecommendations[*] ? (@.targetVersionId.type() == "string")','{}',true),false) AS recommended
+  FROM run_jobs j WHERE ${jobSourceWhere(jobs, '$6::integer')}
+), jfirst AS (
+  -- 개수 범위 첫 이벤트 시각(PK 범위 첫 행 1개). 이보다 먼저 끝난 작업은 범위 안에 앞선 이벤트가 없다.
+  SELECT (SELECT e.created_at FROM run_decision_events e WHERE e.id>top.top-$1::bigint ORDER BY e.id LIMIT 1) AS at FROM top
+), jitems AS (
+  SELECT 'job'::text AS kind,'work:'||js.id::text AS item_key,
+    CASE WHEN jfirst.at IS NULL OR js.finished_at<jfirst.at THEN 0::bigint
+      ELSE coalesce((SELECT e.id FROM run_decision_events e WHERE e.id>top.top-$1::bigint AND e.created_at<=js.finished_at ORDER BY e.id DESC LIMIT 1),0) END AS notify_seq,
+    js.finished_at AS notified_at,'finished'::text AS reason,
+    NULL::text AS last_event,NULL::uuid AS job_id,NULL::uuid AS decision_id,NULL::text AS completeness,NULL::text AS final_signal,NULL::text AS grade,
+    NULL::text AS risk_level,false AS has_unrated,NULL::uuid AS incident_id,NULL::integer AS members,
+    jsonb_build_object('id',js.id,'kind',js.jkind,'status',js.jstatus,'errorCode',js.error_code,'versionId',js.version_id,
+      'failedCount',js.failed_count,'recommended',js.recommended) AS extra
+  FROM jsrc js CROSS JOIN top CROSS JOIN jfirst
 )`;
 
 const baseParams = (actorId: string, settings: NotificationSettings, windowEvents: number) =>
   [windowEvents, settings.decisionBasis, RISK_RANK[settings.minRiskLevel], settings.includeUnrated, actorId, settings.windowDays];
 
 const encodeCursor = (value: NotificationCursor) => Buffer.from(JSON.stringify([value.seq, value.key]), 'utf8').toString('base64url');
-const ITEM_KEY = /^((incident|job|decision):[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|protocol:[0-9a-f]{64})$/;
+const ITEM_KEY = /^((incident|job|decision|work):[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|protocol:[0-9a-f]{64})$/;
 const PROTOCOL_ITEM = /^protocol:[0-9a-f]{64}$/;
+const JOB_ITEM = /^work:/;
+/** 작업 알림 시각(latestJobAt·jobsThrough): UTC 마이크로초 6자리 고정 형식(서버가 응답에 낸 값 그대로). */
+const JOB_AT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$/;
+export const isJobAt = (value: unknown): value is string => typeof value === 'string' && JOB_AT.test(value)
+  && Number.isFinite(Date.parse(value)) && new Date(value).toISOString().slice(0, 23) === value.slice(0, 23);
+/** 작업 알림 대상 중 가장 늦은 종료 시각(기간 무관). 작업 알림이 없거나 꺼졌으면 NULL. */
+const latestJobAtSql = (jobs: boolean) => `(SELECT ${ISO('max(j.finished_at)')} FROM run_jobs j WHERE ${jobSourceWhere(jobs, null)})`;
 const SEQ = /^(0|[1-9]\d{0,18})$/;
 export const isItemKey = (value: unknown): value is string => typeof value === 'string' && ITEM_KEY.test(value);
 export const isSeq = (value: unknown): value is string => typeof value === 'string' && SEQ.test(value) && BigInt(value) <= 9223372036854775807n;
@@ -274,9 +324,22 @@ function protocolOf(row: Row, entries: ProtocolEntries) {
   };
 }
 
+/** 작업 항목(6). 문구에 필요한 값만: 종류·상태·오류 코드·종료 시각, 학습 결과 버전, 비교 평가 실패 항목 수·교체 추천 대상 있음. */
+function jobOf(row: Row, finishedAt: string) {
+  const extra = (row.extra ?? {}) as Record<string, unknown>;
+  return {
+    id: extra.id as string, kind: extra.kind as 'train' | 'compare', status: extra.status as 'succeeded' | 'failed',
+    errorCode: (extra.errorCode as string | null) ?? null, finishedAt,
+    configVersionId: extra.kind === 'train' ? (extra.versionId as string | null) ?? null : null,
+    failedCount: extra.kind === 'compare' && typeof extra.failedCount === 'number' ? extra.failedCount : null,
+    replacementRecommended: extra.kind === 'compare' && extra.status === 'succeeded' && extra.recommended === true,
+  };
+}
+
 function itemOf(row: Row, entries: ProtocolEntries) {
   const base = { key: row.item_key as string, seq: row.seq_text as string, reason: row.reason as string, notifiedAt: row.notified_at as string, unread: Boolean(row.unread) };
   if (row.kind === 'protocol') return { ...base, type: 'protocol' as const, protocol: protocolOf(row, entries) };
+  if (row.kind === 'job') return { ...base, type: 'job' as const, job: jobOf(row, base.notifiedAt) };
   if (row.kind === 'incident') {
     const { kind, value, valueHash } = parseGroupKey(row.group_key ?? '');
     return { ...base, type: 'incident' as const, incident: { id: row.incident_id as string, openedAt: row.opened_at as string | null,
@@ -289,10 +352,10 @@ function itemOf(row: Row, entries: ProtocolEntries) {
 
 /** GET /api/notifications. 최근 순번 → 항목 키 내림차순 키셋. view=unread면 미확인만. */
 export async function readNotifications(db: Queryable, actorId: string, settings: NotificationSettings,
-  { view, limit, cursor, windowEvents = NOTIFICATION_WINDOW_EVENTS, protocol = false }:
-    { view: NotificationView; limit: number; cursor: NotificationCursor | null; windowEvents?: number; protocol?: boolean },
+  { view, limit, cursor, windowEvents = NOTIFICATION_WINDOW_EVENTS, protocol = false, jobs = false }:
+    { view: NotificationView; limit: number; cursor: NotificationCursor | null; windowEvents?: number; protocol?: boolean; jobs?: boolean },
   now = () => new Date()) {
-  const { rows: [row] } = await db.query(`${stateCte(protocol)}, filtered AS (
+  const { rows: [row] } = await db.query(`${stateCte(protocol, jobs)}, filtered AS (
       SELECT * FROM state WHERE $7::text='all' OR unread
     ), page AS (
       SELECT * FROM filtered WHERE $8::bigint IS NULL OR (notify_seq,item_key COLLATE "C")<($8::bigint,$9::text COLLATE "C")
@@ -306,6 +369,7 @@ export async function readNotifications(db: Queryable, actorId: string, settings
       LEFT JOIN data_processes dp ON dp.observation_id=coalesce(pd.process_observation_id,pm.process_observation_id)
     )
     SELECT (SELECT top::text FROM top) AS top,(SELECT lo::text FROM top) AS lo,(SELECT by_days FROM top) AS by_days,
+      ${latestJobAtSql(jobs)} AS latest_job_at,
       (SELECT read_through::text FROM ops_user_notification_cursors WHERE actor_id=$5::text) AS read_through,
       (SELECT count(*)::integer FROM state WHERE unread) AS unread,
       (SELECT count(*)::integer FROM filtered) AS total,
@@ -322,6 +386,7 @@ export async function readNotifications(db: Queryable, actorId: string, settings
   return {
     observedAt: now().toISOString(),
     latestSeq: row.top as string,
+    latestJobAt: (row.latest_job_at as string | null) ?? null,
     readThrough: (row.read_through as string | null) ?? '0',
     // truncatedBy: 범위를 정한 쪽 — days(조회 기간보다 이른 이벤트가 있음) / events(기간 안 이벤트가 개수 상한을 넘음) / null(잘림 없음).
     window: { events: windowEvents, days: settings.windowDays, fromSeq: String(fromSeq), truncated,
@@ -336,19 +401,22 @@ export async function readNotifications(db: Queryable, actorId: string, settings
 
 /**
  * GET /api/notifications/unread-count: 배지용. 목록과 같은 계산의 미확인 항목 수와 종류별 수(unreadByType, 합 = unreadCount).
- * 종류별 수는 상단 메뉴 배지(이상 분석 = decision + incident)가 쓴다. 프로토콜 항목이 없는 일반 사용자는 protocol 0.
+ * 종류별 수는 상단 메뉴 배지(이상 분석 = decision + incident, 탐지 설정 = job)가 쓴다. 프로토콜·작업 항목이 없는 일반 사용자는 protocol·job 0.
  */
-export async function readUnreadCount(db: Queryable, actorId: string, settings: NotificationSettings, windowEvents = NOTIFICATION_WINDOW_EVENTS, protocol = false) {
-  const { rows: [row] } = await db.query(`${stateCte(protocol)}
-    SELECT (SELECT top::text FROM top) AS top,c.*
+export async function readUnreadCount(db: Queryable, actorId: string, settings: NotificationSettings, windowEvents = NOTIFICATION_WINDOW_EVENTS, protocol = false,
+  jobs = false) {
+  const { rows: [row] } = await db.query(`${stateCte(protocol, jobs)}
+    SELECT (SELECT top::text FROM top) AS top,${latestJobAtSql(jobs)} AS latest_job_at,c.*
     FROM (SELECT count(*)::integer AS unread,count(*) FILTER (WHERE kind='decision')::integer AS decision,
-      count(*) FILTER (WHERE kind='incident')::integer AS incident,count(*) FILTER (WHERE kind='protocol')::integer AS protocol
+      count(*) FILTER (WHERE kind='incident')::integer AS incident,count(*) FILTER (WHERE kind='protocol')::integer AS protocol,
+      count(*) FILTER (WHERE kind='job')::integer AS job
       FROM state WHERE unread) c`, baseParams(actorId, settings, windowEvents));
-  return { latestSeq: row.top as string, unreadCount: row.unread as number,
-    unreadByType: { decision: row.decision as number, incident: row.incident as number, protocol: row.protocol as number } };
+  return { latestSeq: row.top as string, latestJobAt: (row.latest_job_at as string | null) ?? null, unreadCount: row.unread as number,
+    unreadByType: { decision: row.decision as number, incident: row.incident as number, protocol: row.protocol as number, job: row.job as number } };
 }
 
-export type ReadRequest = { through: string } | { items: { key: string; seq: string }[] };
+/** through = 판정 순번 모두 읽음, jobsThrough = 작업 알림 모두 읽음 경계(응답 latestJobAt 그대로, 생략 가능). */
+export type ReadRequest = { through: string; jobsThrough?: string } | { items: { key: string; seq: string }[] };
 
 /**
  * POST /api/notifications/read. 순번은 현재 최대 이벤트 id로 줄여 저장하고 줄이지 않는다(GREATEST).
@@ -357,24 +425,39 @@ export type ReadRequest = { through: string } | { items: { key: string; seq: str
  *   (없는 키는 무시 → 사용자당 행 수는 범위 안 항목 수 이하), 순번은 그 항목의 현재 알림 순번 이하로 줄인다.
  * 어느 쪽이든 개수 범위 밖(최대 id − 범위 이하)으로 밀려난 항목 읽음 행을 지운다(사용자당 행 수 = 최근 알림 수 이하).
  * 조회 기간(windowDays)으로는 지우지 않는다: 기간을 늘리면 다시 보이는 항목이 읽음을 잃지 않게(행 수 상한은 개수 범위로 충분).
+ * 작업 항목(6): 모두 읽음은 jobsThrough(작업 알림 대상 중 가장 늦은 종료 시각 이하로 줄임, 줄이지 않음), 항목 읽음은 그 작업의 현재 종료 시각(요청 seq는 형식만 본다).
+ *   작업 읽음 행은 모두 읽음 경계 이하이거나 최대 조회 기간(30일)보다 오래된 것을 지운다(기간을 늘려도 다시 보일 수 없는 행만).
  */
 export async function markNotificationsRead(pool: Pool, actorId: string, settings: NotificationSettings, request: ReadRequest,
-  windowEvents = NOTIFICATION_WINDOW_EVENTS, protocol = false) {
+  windowEvents = NOTIFICATION_WINDOW_EVENTS, protocol = false, jobs = false) {
   const client: PoolClient = await pool.connect();
   try {
     await client.query('BEGIN');
     const { rows: [{ top }] } = await client.query('SELECT coalesce(max(id),0)::text AS top FROM run_decision_events');
     if ('through' in request) {
-      await client.query(`INSERT INTO ops_user_notification_cursors(actor_id,read_through) VALUES($1,least($2::bigint,$3::bigint))
-        ON CONFLICT (actor_id) DO UPDATE SET read_through=GREATEST(ops_user_notification_cursors.read_through,EXCLUDED.read_through),updated_at=clock_timestamp()`,
-      [actorId, request.through, top]);
+      // jobsThrough 생략($4 NULL)이면 작업 경계는 그대로(GREATEST는 NULL을 무시). 상한 = 지금 작업 알림 대상 중 가장 늦은 종료 시각.
+      await client.query(`INSERT INTO ops_user_notification_cursors(actor_id,read_through,jobs_read_through)
+        VALUES($1,least($2::bigint,$3::bigint),CASE WHEN $4::timestamptz IS NULL THEN NULL
+          ELSE (SELECT CASE WHEN max(j.finished_at) IS NOT NULL THEN least($4::timestamptz,max(j.finished_at)) END
+            FROM run_jobs j WHERE ${jobSourceWhere(jobs, null)}) END)
+        ON CONFLICT (actor_id) DO UPDATE SET read_through=GREATEST(ops_user_notification_cursors.read_through,EXCLUDED.read_through),
+          jobs_read_through=GREATEST(ops_user_notification_cursors.jobs_read_through,EXCLUDED.jobs_read_through),updated_at=clock_timestamp()`,
+      [actorId, request.through, top, request.jobsThrough ?? null]);
     } else {
-      const { rows: present } = await client.query(`${stateCte(protocol)} SELECT item_key,notify_seq::text AS seq FROM state WHERE item_key=ANY($7::text[])`,
+      const { rows: present } = await client.query(`${stateCte(protocol, jobs)} SELECT item_key,notify_seq::text AS seq,
+          ${ISO('notified_at')} AS at,extra->>'id' AS job_id FROM state WHERE item_key=ANY($7::text[])`,
         [...baseParams(actorId, settings, windowEvents), request.items.map((item) => item.key)]);
-      const current = new Map(present.map((row) => [row.item_key as string, row.seq as string]));
+      const current = new Map(present.map((row) => [row.item_key as string, row as Row]));
       for (const item of request.items) {
-        const seq = current.get(item.key);
-        if (seq === undefined) continue;
+        const found = current.get(item.key);
+        if (found === undefined) continue;
+        if (JOB_ITEM.test(item.key)) {
+          await client.query(`INSERT INTO ops_user_job_notification_reads(actor_id,job_id,read_through) VALUES($1,$2::uuid,$3::timestamptz)
+            ON CONFLICT (actor_id,job_id) DO UPDATE SET read_through=GREATEST(ops_user_job_notification_reads.read_through,EXCLUDED.read_through),read_at=clock_timestamp()`,
+          [actorId, found.job_id, found.at]);
+          continue;
+        }
+        const seq = found.seq as string;
         // 프로토콜 항목은 023 표(022 표의 키 형식은 UUID만), 그 밖은 022 표. 저장 규칙은 같다.
         const table = PROTOCOL_ITEM.test(item.key) ? 'ops_user_protocol_alert_reads' : 'ops_user_notification_reads';
         await client.query(`INSERT INTO ${table}(actor_id,item_key,read_seq) VALUES($1,$2,least($3::bigint,$4::bigint))
@@ -386,6 +469,8 @@ export async function markNotificationsRead(pool: Pool, actorId: string, setting
       await client.query(`DELETE FROM ${table} WHERE actor_id=$1 AND (read_seq<=$2::bigint-$3::bigint
         OR read_seq<=(SELECT read_through FROM ops_user_notification_cursors WHERE actor_id=$1))`, [actorId, top, windowEvents]);
     }
+    await client.query(`DELETE FROM ops_user_job_notification_reads WHERE actor_id=$1 AND (read_through<now()-make_interval(days=>$2::integer)
+      OR read_through<=(SELECT jobs_read_through FROM ops_user_notification_cursors WHERE actor_id=$1))`, [actorId, NOTIFICATION_WINDOW_DAYS.max]);
     const { rows: [cursor] } = await client.query('SELECT read_through::text AS n FROM ops_user_notification_cursors WHERE actor_id=$1', [actorId]);
     await client.query('COMMIT');
     return { readThrough: (cursor?.n as string | undefined) ?? '0' };

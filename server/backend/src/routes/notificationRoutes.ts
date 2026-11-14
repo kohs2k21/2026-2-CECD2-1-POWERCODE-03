@@ -3,10 +3,10 @@ import type { Pool } from 'pg';
 import { getDatabasePool } from '../config/database.js';
 import { authenticateToken, requireAdmin, AuthenticatedRequest } from '../middleware/auth.js';
 import {
-  NOTIFICATION_LIST_LIMITS, NOTIFICATION_READ_ITEMS_MAX, NOTIFICATION_VIEWS, decodeCursor, isItemKey, isSeq,
+  NOTIFICATION_LIST_LIMITS, NOTIFICATION_READ_ITEMS_MAX, NOTIFICATION_VIEWS, decodeCursor, isItemKey, isJobAt, isSeq,
   ProtocolAlertError, keepProtocolAlert, markNotificationsRead, readNotifications, readUnreadCount, type NotificationView, type ProtocolKeepRequest, type ReadRequest,
 } from '../services/notificationReadModel.js';
-import { SettingsRequestError, loadNotificationSettings, parseSettingsUpdate, readSettings, updateSettings } from '../services/userSettings.js';
+import { SettingsRequestError, loadNotificationSettings, parseSettingsUpdate, readSettings, updateSettings, type NotificationSettings } from '../services/userSettings.js';
 
 /**
  * 사용자별 설정·알림 API(contracts/notifications.md). user·admin 모두 자기 계정 것만 읽고 쓴다(요청 계정 = 인증 토큰의 계정 id).
@@ -45,12 +45,18 @@ export function parseNotificationQuery(req: Request) {
   return { view: view as NotificationView, limit: limitText === undefined ? NOTIFICATION_LIST_LIMITS.default : Number(limitText), cursor };
 }
 
-/** 읽음 본문: {"through": "<순번>"} 또는 {"items": [{"key": "<항목 키>", "seq": "<순번>"}, …]}(1~50개, 키 중복 금지). */
+/**
+ * 읽음 본문: {"through": "<순번>", "jobsThrough"?: "<작업 종료 시각>"} 또는 {"items": [{"key": "<항목 키>", "seq": "<순번>"}, …]}(1~50개, 키 중복 금지).
+ * jobsThrough = 응답 latestJobAt 그대로(UTC 마이크로초 6자리, 작업 알림 모두 읽음 경계).
+ */
 export function parseReadBody(req: Request): ReadRequest {
   const body = req.body;
   if (!req.is('application/json') || !plainObject(body)) throw new SettingsRequestError('invalid_read_request');
   const keys = Object.keys(body);
   if (keys.length === 1 && keys[0] === 'through' && isSeq(body.through)) return { through: body.through as string };
+  if (keys.length === 2 && keys.includes('through') && keys.includes('jobsThrough') && isSeq(body.through) && isJobAt(body.jobsThrough)) {
+    return { through: body.through as string, jobsThrough: body.jobsThrough as string };
+  }
   if (keys.length === 1 && keys[0] === 'items' && Array.isArray(body.items) && body.items.length >= 1 && body.items.length <= NOTIFICATION_READ_ITEMS_MAX) {
     const seen = new Set<string>();
     const items = body.items.map((item) => {
@@ -77,6 +83,8 @@ export function parseProtocolKeepBody(body: unknown): ProtocolKeepRequest {
 
 /** 프로토콜 알림은 관리자 목록·배지에만(명령이 관리자 전용, protocol-settings-ui.md 5절). */
 const isAdmin = (req: AuthenticatedRequest) => req.user?.userType === 'admin';
+/** 작업 알림(학습·비교 평가 종료)은 관리자 ∧ 설정 includeJobs일 때만(와이어프레임 notifJobs는 관리자 설정). */
+const withJobs = (req: AuthenticatedRequest, settings: NotificationSettings) => isAdmin(req) && settings.includeJobs;
 
 const route = (handler: (req: AuthenticatedRequest, res: Response) => Promise<void>) =>
   (req: Request, res: Response, next: NextFunction) => { void handler(req as AuthenticatedRequest, res).catch(next); };
@@ -121,12 +129,12 @@ export function createNotificationRouter(database: () => Pool = getDatabasePool)
   router.get('/', route(async (req, res) => {
     const query = parseNotificationQuery(req);
     const settings = await loadNotificationSettings(database(), req.user!.id);
-    res.json(await readNotifications(database(), req.user!.id, settings, { ...query, protocol: isAdmin(req) }));
+    res.json(await readNotifications(database(), req.user!.id, settings, { ...query, protocol: isAdmin(req), jobs: withJobs(req, settings) }));
   }));
   router.get('/unread-count', route(async (req, res) => {
     noQuery(req);
     const settings = await loadNotificationSettings(database(), req.user!.id);
-    res.json(await readUnreadCount(database(), req.user!.id, settings, undefined, isAdmin(req)));
+    res.json(await readUnreadCount(database(), req.user!.id, settings, undefined, isAdmin(req), withJobs(req, settings)));
   }));
   // 프로토콜 알림 [이상 유지](관리자, contracts/protocol-settings-ui.md 5절). 룰 세트·판정은 바꾸지 않는다.
   router.post('/protocol-alerts/keep', requireAdmin as any, route(async (req, res) => {
@@ -134,14 +142,15 @@ export function createNotificationRouter(database: () => Pool = getDatabasePool)
     if (!req.is('application/json')) throw new SettingsRequestError('invalid_protocol_keep_request');
     const result = await keepProtocolAlert(database(), req.user!.id, parseProtocolKeepBody(req.body));
     const settings = await loadNotificationSettings(database(), req.user!.id);
-    res.json({ ...result, ...(await readUnreadCount(database(), req.user!.id, settings, undefined, true)) });
+    res.json({ ...result, ...(await readUnreadCount(database(), req.user!.id, settings, undefined, true, withJobs(req, settings))) });
   }));
   router.post('/read', route(async (req, res) => {
     noQuery(req);
     const request = parseReadBody(req);
     const settings = await loadNotificationSettings(database(), req.user!.id);
-    const result = await markNotificationsRead(database(), req.user!.id, settings, request, undefined, isAdmin(req));
-    res.json({ ...result, ...(await readUnreadCount(database(), req.user!.id, settings, undefined, isAdmin(req))) });
+    const jobs = withJobs(req, settings);
+    const result = await markNotificationsRead(database(), req.user!.id, settings, request, undefined, isAdmin(req), jobs);
+    res.json({ ...result, ...(await readUnreadCount(database(), req.user!.id, settings, undefined, isAdmin(req), jobs)) });
   }));
   errors(router);
   return router;

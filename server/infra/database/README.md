@@ -290,6 +290,19 @@ SELECT r.rolname,
 - 되돌리기: enum 값은 지울 수 없다. CHECK·함수는 021·017본으로 다시 만들 수 있으나 `explain_protocol` 작업·결과 행이 없을 때만
 - 시험: `prepare-runtime-db.py`에 027 추가(dev 목록과 겹치지 않게 따로 둔 `later` 묶음, 병합 뒤 순서 …025·026·027 — CI가 한 문자열 실행으로 적용). 027 전용 `erd-v03-*.mjs` 시험은 아직 없다(미검증 — 실제 PostgreSQL 적용·재실행·역할 경계는 DB 세션 확인 대상)
 
+## 028 작업 알림 읽음·설정
+
+- 파일 `028_job_notifications.sql`, 022·026 적용 뒤 한 번 실행(023~025·027과 의존 없음)(`psql -v ON_ERROR_STOP=1 -f`), 022 표 소유자로 실행. 이어서 DBA가 `scripts/database-roles.sql` 재적용(새 표 GRANT 1줄). 단일 BEGIN..COMMIT, 함수·트리거·시퀀스·색인·enum 없음. 자동 down migration 없음(되돌리기 = `DROP TABLE ops_user_job_notification_reads` + 두 열 `DROP COLUMN`, 이전 API는 이 열·표를 읽지 않음). 다시 실행하면 이미 있는 열에서 실패해 전체 ROLLBACK(반쪽 적용 없음)
+- 바꾸는 것: 022 `ops_user_notification_settings.include_jobs boolean NOT NULL DEFAULT true`(작업 알림 켜기, 관리자에게만 적용), 022 `ops_user_notification_cursors.jobs_read_through timestamptz NULL`(작업 알림 모두 읽음 경계 = 종료 시각), 새 표 `ops_user_job_notification_reads(actor_id, job_id, read_through, read_at)`(작업 알림 항목 읽음, PK (actor_id, job_id), FK 없음 — run_jobs를 잠그지 않고 행은 API가 정리)
+- 잠금: 022 설정·순번 표에 ACCESS EXCLUSIVE를 잠깐(상수 DEFAULT·NULL 열이라 행 재작성 없음). 새 표는 FK가 없어 `run_jobs` 등 다른 표를 잠그지 않는다. 작업자를 멈출 필요 없음
+- 알림 항목은 저장하지 않는다: API가 `run_jobs`에서 v03 `training` 큐 `train`·`compare`의 `succeeded`·`failed` 작업을 읽을 때 만든다(`contracts/notifications.md` "작업 알림" 절). 읽음은 판정 이벤트 순번이 아니라 종료 시각(`finished_at`) 기준
+- `run_jobs` 색인 추가 없음: API 조건 `contract_version='v03' AND queue='training' AND status IN ('succeeded','failed')`가 016 `run_jobs_v03_queue_idx(queue,status,…)` 앞부분을 쓰고, training 큐 행은 사람이 요청한 작업뿐이라(판정 작업은 detection 큐) 수가 작다
+- 권한: `powercode_api` 새 표 SELECT·INSERT·UPDATE·DELETE(정리 DELETE). 두 열은 022 표 단위 GRANT가 그대로 덮는다. Detector·Collector·Trainer·LLM 권한 없음. API는 `run_jobs` SELECT를 이미 가진다(작업 목록)
+- **배포 순서: migration 028 → 역할 스크립트 재적용 → API → WebUI**. 기존 설정 행은 `include_jobs` true, 이 열을 모르는 이전 API의 upsert는 저장값을 건드리지 않아 먼저 적용해도 안전. 새 API는 새 열·표를 읽으므로 없으면 알림·설정 조회가 503(역할 스크립트 재적용 전에는 새 표 42501 → 503). 새 WebUI는 응답의 `includeJobs`·`unreadByType.job`을 요구하므로 API보다 먼저 올리지 않는다
+- 배포 사이 구간: 새 API가 먼저 올라가고 이전 WebUI가 남아 있는 동안, 관리자에게 미확인 작업 알림이 있으면 이전 화면은 종류별 수 합(판정·사건·프로토콜)이 `unreadCount`와 맞지 않아 알림 배지를 잠깐 `?`(확인 불가)로 보인다. WebUI 배포 뒤 사라진다
+- 시험(`erd-v03-job-notifications.mjs`, `erd-v03.mjs`가 호출): `erd028_upgrade`(001~027 + 027 시점 역할 스크립트 + 이전 API 문장으로 쓴 설정·순번 행 → 028: 기존 행 보존·새 열 기본값, 새 표 PK만·FK·트리거·색인 없음, `run_jobs` 색인 수 그대로, 역할 스크립트 재적용 전 새 표 42501, 재적용 뒤 역할 5개 권한 정확 일치, 실제 LOGIN API의 설정 upsert(생략 = 저장값 유지, 이전 문장 혼용)·경계 GREATEST·작업 읽음 upsert·정리 DELETE·`run_jobs` 읽기, TRUNCATE·다른 역할 42501, NOT NULL·CHECK 경계, 다시 실행 실패 뒤 상태 그대로, DBML parity). API 경로는 `backend/tests/notifications.integration.mjs` 14절(관리자만·includeJobs·종료 시각 기간·항목/모두 읽음·경계 상한·되돌리지 않음)
+- 함께 바꾼 기존 시험: `prepare-runtime-db.py` `later` 묶음에 028 추가, `erd-v03-notification-window.mjs`(026 시점 역할 스크립트)는 028 블록을 빼고 적용
+
 ## 큐와 소유권
 
 - 001의 `detection_logs/training_jobs`는 기존 물리 큐. 기존 Python helper의 payload·물리 lease 경로 보존
@@ -340,7 +353,7 @@ SELECT r.rolname,
 
 ## DBML과 SQL 대응
 
-- DBML은 001~026(024 [제안] 포함) 적용 후 최종 구조(컬럼·nullability·unique·FK·enum 순서). 물리 큐 5개도 명시. enum 순서는 PostgreSQL 추가 순서(`job_kind`의 `import_csv`는 explain 뒤)
+- DBML은 001~028(024 [제안] 포함) 적용 후 최종 구조(컬럼·nullability·unique·FK·enum 순서). 물리 큐 5개도 명시. enum 순서는 PostgreSQL 추가 순서(`job_kind`의 `import_csv`는 explain 뒤)
 - nullable FK는 `>?`, unique FK는 부모 `-` 자식 방향, nullable unique FK는 부모 `?-` 자식 방향으로 표시. 실제 FK 방향은 SQL/파싱 대응 시험으로 확인
 - attempt의 복합 FK 3개는 DBML의 exact-composite index 판정 한계로 `>`/`>?` 표시. 자식의 개별 PK/unique가 실제 1:1 제약을 보장한다는 주석 유지; 그림 경고를 없애려고 SQL 중복 인덱스를 추가하지 않음
 - `@dbml/core`는 현재 문법의 `dbmlv2` parser 사용. deprecated `dbml` parser는 optional 관계 문법을 지원하지 않음

@@ -9,7 +9,7 @@ import type { UserRole } from "@/types/app";
 import { NotificationsBell } from "@/features/notifications/NotificationsBell";
 import { CountBadge } from "@/features/notifications/CountBadge";
 import { badgeText } from "@/features/notifications/notificationLabels";
-import { analysisUnread } from "@/features/notifications/notificationsApi";
+import { analysisUnread, detectionUnread } from "@/features/notifications/notificationsApi";
 import { useUnreadCount } from "@/features/notifications/useNotifications";
 import inzentLogo from "./inzent_logo.svg";
 
@@ -35,10 +35,11 @@ const pillIcon =
 export const TopNav = ({ pathname, role, onLogout, settingsPath }: TopNavProps) => {
   const active = activeTopNav(pathname);
   const header = useRef<HTMLElement>(null);
-  // 메뉴 배지(와이어프레임 badgeAnalysis): 알림 버튼과 같은 미확인 수 조회(같은 Query 캐시)의 판정·사건 수. 다시 조회는 알림 버튼 흐름(이동·패널·판정 이벤트)을 따른다.
-  // 0·불러오기 전·조회 실패는 숨김(실패 표시는 알림 버튼 `?`가 맡는다). 탐지 설정 배지(작업 알림)는 작업 알림이 생길 때까지 없음.
+  // 메뉴 배지(와이어프레임 badgeAnalysis·badgeDetect): 알림 버튼과 같은 미확인 수 조회(같은 Query 캐시)의 판정·사건 수, 작업 알림 수(관리자만 — 탐지 설정 메뉴도 관리자만).
+  // 다시 조회는 알림 버튼 흐름(이동·패널·판정 이벤트·작업 종료)을 따른다. 0·불러오기 전·조회 실패는 숨김(실패 표시는 알림 버튼 `?`가 맡는다).
   const unread = useUnreadCount();
-  const badges: Partial<Record<TopNavId, number>> = { analysis: unread.data && !unread.isError ? analysisUnread(unread.data) : 0 };
+  const counted = unread.data && !unread.isError ? unread.data : null;
+  const badges: Partial<Record<TopNavId, number>> = { analysis: counted ? analysisUnread(counted) : 0, detection: counted ? detectionUnread(counted) : 0 };
   // 고정 영역(사이드바·룰 설정 저장 줄)이 머리글 아래에 붙도록 실제 높이를 알린다. 좁은 화면에서는 메뉴가 둘째 줄로 내려가 높이가 달라진다.
   useEffect(() => observeHeight(header.current, "--top-nav-offset"), []);
   return (

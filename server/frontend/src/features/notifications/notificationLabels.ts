@@ -1,5 +1,5 @@
 import { criteriaText } from "@/features/analysis/incidents/incidentLabels";
-import type { DecisionBasis, DecisionNotification, IncidentNotification, NotificationItem, NotificationView, ProtocolNotification, RiskFloor } from "./notificationsApi";
+import type { DecisionBasis, DecisionNotification, IncidentNotification, JobNotification, NotificationItem, NotificationView, ProtocolNotification, RiskFloor } from "./notificationsApi";
 
 /** 알림 패널·알림 설정 문구(와이어프레임 #93 bell·notifSettings, 화면 흐름 결정 2.2). */
 export const viewLabels: Record<NotificationView, string> = { unread: "읽지 않음", all: "전체" };
@@ -42,12 +42,31 @@ const protocolSubject = ({ protocol }: ProtocolNotification) =>
     `판정 ${protocol.decisions.toLocaleString("ko-KR")}건`].join(" · ");
 export const protocolResolutionLabels: Record<"kept" | "added", string> = { kept: "이상 유지됨", added: "정상 프로토콜에 추가됨" };
 
+/** 설정 › 알림 대상의 작업 알림 켜기(와이어프레임 notifJobs, 관리자만). */
+export const includeJobsLabel = "작업 알림(학습·비교 평가·모델 교체)";
+/** 알림 카드 분류 표시(와이어프레임 renderBell tag: 판정 = 이상 분석, 작업 = 탐지 설정). 프로토콜 알림은 프로토콜 설정. */
+export const notificationTag = (item: NotificationItem) =>
+  item.type === "protocol" ? "프로토콜 설정" : item.type === "job" ? "탐지 설정" : "이상 분석";
+/** 작업 ID·버전 ID는 작업 상세 제목과 같이 앞 8자리(operations-ui.md 작업 상세). */
+const shortId = (id: string) => id.slice(0, 8);
+/**
+ * 작업 알림 문구(와이어프레임 notifyJob): `학습 <ID> 실패 · <오류 코드>`, `학습 <ID> 완료 · 버전 <ID>`,
+ * `비교 평가 <ID> 완료[ · 일부 실패][ · 교체 추천 있음]`, `비교 평가 <ID> 실패 · <오류 코드>`. 값이 없는 조각은 뺀다.
+ */
+const jobHeadline = ({ job }: JobNotification) => {
+  const name = `${job.kind === "train" ? "학습" : "비교 평가"} ${shortId(job.id)}`;
+  if (job.status === "failed") return [`${name} 실패`, job.errorCode].filter(Boolean).join(" · ");
+  if (job.kind === "train") return [`${name} 완료`, job.configVersionId && `버전 ${shortId(job.configVersionId)}`].filter(Boolean).join(" · ");
+  return [`${name} 완료`, (job.failedCount ?? 0) > 0 && "일부 실패", job.replacementRecommended && "교체 추천 있음"].filter(Boolean).join(" · ");
+};
+
 export const notificationText = (item: NotificationItem) =>
   item.type === "decision" ? { headline: decisionHeadline(item), subject: decisionSubject(item) }
     : item.type === "incident" ? { headline: incidentHeadline(item), subject: incidentSubject(item) }
-      : { headline: protocolHeadline(item), subject: protocolSubject(item) };
+      : item.type === "job" ? { headline: jobHeadline(item), subject: "" }
+        : { headline: protocolHeadline(item), subject: protocolSubject(item) };
 export const notificationRisk = (item: NotificationItem) =>
   item.type === "decision" ? item.decision : item.type === "incident" ? item.incident : { riskStatus: "unrated" as const, riskLevel: null, hasUnratedEvidence: false };
-/** 철회 알림은 위험도 대신 철회만 보인다. 프로토콜 알림은 위험도 없음(판정 상세에서 확인). */
+/** 철회 알림은 위험도 대신 철회만 보인다. 프로토콜·작업 알림은 위험도 없음. */
 export const showsRisk = (item: NotificationItem) =>
-  item.type !== "protocol" && !(item.type === "decision" && (item.decision.stage === "no_final" || item.decision.stage === "cleared"));
+  item.type !== "protocol" && item.type !== "job" && !(item.type === "decision" && (item.decision.stage === "no_final" || item.decision.stage === "cleared"));

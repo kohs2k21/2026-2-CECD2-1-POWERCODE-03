@@ -2,7 +2,7 @@
 
 실행: RECHECK_TEST_ADMIN_URL=postgresql://postgres@127.0.0.1:<port>/postgres
       python server/worker/tests/integration_relation_recheck.py
-- 새 DB qa_relation_recheck를 만들고(이미 있으면 실패, DROP 없음) prepare-runtime-db.py와 같은 순서로 migration(024 포함)과
+- 새 DB qa_relation_recheck를 만들고(이미 있으면 실패, DROP 없음) prepare-runtime-db.py와 같은 순서(그 파일의 migration_names(), files + later)로 migration(024 포함)과
   scripts/database-roles.sql을 적용한다. 준비 데이터는 소유자로 넣고, 판정 시도와 탐색 주기 작업은 powercode_detector 역할로
   돌린다(권한 확인).
 - CSV 재생 순서(거래 행 T가 PROCESS보다 먼저 커밋)를 그대로 만든다: 첫 판정은 도착 확정 전이라 보류·deferred_to_transaction,
@@ -11,10 +11,10 @@
 from __future__ import annotations
 
 import dataclasses
+import importlib.util
 import json
 import os
 from pathlib import Path
-import re
 import sys
 import tempfile
 from unittest.mock import patch
@@ -45,9 +45,11 @@ HELD = {"ruleId": PRECEDES["id"], "kind": "precedes", "result": "held", "reason"
 
 
 def migration_files() -> list[str]:
-    text = (INFRA / "tests" / "prepare-runtime-db.py").read_text(encoding="utf-8")
-    block = re.search(r"files=\((.*?)\)\n", text, re.S).group(1)
-    files = re.findall(r"'([0-9]{3}_[a-z0-9_]+\.sql)'", block)
+    """prepare-runtime-db.py의 적용 순서(files + later)를 그 파일의 migration_names()로 받아 어긋나지 않게 한다(읽기만, DB 접속 없음)."""
+    spec = importlib.util.spec_from_file_location("prepare_runtime_db", INFRA / "tests" / "prepare-runtime-db.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    files = module.migration_names()
     # 024가 목록에 있어야 한다(뒤에 다른 migration이 더해져도 된다).
     assert "024_relation_recheck_runs.sql" in files, files[-3:]
     return files

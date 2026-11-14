@@ -8,11 +8,11 @@ import { CountBadge } from "./CountBadge";
 import { badgeText, bellLabel } from "./notificationLabels";
 import { KeepConfirmDialog, NotificationPanels } from "./NotificationPanels";
 import type { ProtocolNotification } from "./notificationsApi";
-import { useNotificationLiveUpdates, useRefreshOnNavigate, useUnreadCount } from "./useNotifications";
+import { useNotificationLiveUpdates, useRefreshOnJobFinish, useRefreshOnNavigate, useUnreadCount } from "./useNotifications";
 
 /**
  * 상단 알림 버튼(와이어프레임 #93 bell): 배지 = 서버 미확인 수(99 초과 99+), 누르면 알림 패널. 별도 알림 페이지는 폐지(/notifications → /analysis).
- * 배지는 화면 이동·패널 열기·새 판정 이벤트(SSE, 10초에 한 번까지) 때 다시 조회한다.
+ * 배지는 화면 이동·패널 열기·새 판정 이벤트(SSE, 10초에 한 번까지)·화면이 읽는 작업 조회에서 작업이 끝났을 때 다시 조회한다.
  */
 export const NotificationsBell = ({ triggerClassName }: { triggerClassName?: string }) => {
   const [open, setOpen] = useState(false);
@@ -22,6 +22,7 @@ export const NotificationsBell = ({ triggerClassName }: { triggerClassName?: str
   const unread = useUnreadCount();
   useNotificationLiveUpdates(unread.data?.latestSeq);
   useRefreshOnNavigate(location.key);
+  useRefreshOnJobFinish();
   useEffect(() => setOpen(false), [location.key]);
   const close = () => setOpen(false);
   const count = unread.data?.unreadCount;

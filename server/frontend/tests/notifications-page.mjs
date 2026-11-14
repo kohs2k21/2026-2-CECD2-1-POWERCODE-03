@@ -4,7 +4,8 @@ import React from "react";
 import { act, create } from "react-test-renderer";
 
 // 알림 패널·배지·알림 설정 화면 시험(contracts/notifications.md, 로컬 가짜 fetch만): 응답 해석·문구, 배지(서버 미확인 수·99+·확인 불가),
-// 패널(읽지 않음/전체·항목 읽음·모두 읽음·더 보기·이동 링크·빈 목록·오류·범위 안내), 설정 › 알림(불러오기·바로 저장·실패 시 서버 값 유지·알림 조회 기간 입력).
+// 패널(읽지 않음/전체·항목 읽음·모두 읽음·더 보기·이동 링크·빈 목록·오류·범위 안내), 설정 › 알림(불러오기·바로 저장·실패 시 서버 값 유지·알림 조회 기간 입력),
+// 작업 알림(문구·탐지 설정 메뉴 배지·작업 상세 링크·모두 읽음 jobsThrough·작업 종료 때 배지 다시 조회·관리자 설정 토글).
 register("./svg-loader.mjs", import.meta.url);
 globalThis.React = React;
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
@@ -41,10 +42,14 @@ const incidentItem = (over = {}) => ({ key: `incident:${U3}`, type: "incident", 
     riskStatus: "unrated", riskLevel: null, hasUnratedEvidence: true }, ...over });
 const listBody = (items, over = {}) => ({ observedAt: "2026-11-13T01:05:00.000Z", latestSeq: "130", readThrough: "0",
   window: { events: 5000, days: 7, fromSeq: "1", truncated: false, truncatedBy: null },
-  settings: { decisionBasis: "interim", minRiskLevel: "info", includeUnrated: true, windowDays: 7 }, unreadCount: items.filter((item) => item.unread).length, total: items.length, nextCursor: null, items, ...over });
+  settings: { decisionBasis: "interim", minRiskLevel: "info", includeUnrated: true, windowDays: 7, includeJobs: true }, unreadCount: items.filter((item) => item.unread).length, total: items.length, nextCursor: null, items, ...over });
 
 /** 배지 응답(종류별 수 포함, 합 = unreadCount). 종류를 주지 않으면 모두 판정 알림. */
-const unreadBody = (unreadCount, over = {}, byType = { decision: unreadCount, incident: 0, protocol: 0 }) => ({ latestSeq: "130", unreadCount, unreadByType: byType, ...over });
+const unreadBody = (unreadCount, over = {}, byType = { decision: unreadCount, incident: 0, protocol: 0, job: 0 }) => ({ latestSeq: "130", unreadCount, unreadByType: byType, ...over });
+const J1 = "44444444-4444-4444-8444-444444444444", V1 = "55555555-5555-4555-8555-555555555555";
+const jobItem = (over = {}, job = {}) => ({ key: `work:${J1}`, type: "job", seq: "119", reason: "finished", notifiedAt: "2026-11-13T01:01:30.123456Z", unread: true,
+  job: { id: J1, kind: "train", status: "failed", errorCode: "insufficient_complete_training_rows", finishedAt: "2026-11-13T01:01:30.123456Z",
+    configVersionId: null, failedCount: null, replacementRecommended: false, ...job }, ...over });
 
 // 1) 응답 해석·문구
 {
@@ -62,9 +67,38 @@ const unreadBody = (unreadCount, over = {}, byType = { decision: unreadCount, in
   assert.equal(api.parseNotificationList(listBody([], { window: { events: 5000, days: 7, fromSeq: "1", truncated: false, truncatedBy: "x" } })).window.truncatedBy, null);
   assert.throws(() => api.parseUnreadCount({ latestSeq: "1", unreadCount: -1 }), /알림 수/);
   assert.throws(() => api.parseUnreadCount({ latestSeq: "1", unreadCount: 1 }), /알림 수/, "per-type counts are required");
-  assert.throws(() => api.parseUnreadCount(unreadBody(3, {}, { decision: 1, incident: 1, protocol: 0 })), /알림 수/, "per-type counts must add up to the total");
-  assert.throws(() => api.parseUnreadCount(unreadBody(1, {}, { decision: 1, incident: -1, protocol: 1 })), /알림 수/);
-  assert.equal(api.analysisUnread(api.parseUnreadCount(unreadBody(7, {}, { decision: 2, incident: 1, protocol: 4 }))), 3, "analysis menu badge = decisions + incidents");
+  assert.throws(() => api.parseUnreadCount(unreadBody(3, {}, { decision: 1, incident: 1, protocol: 0, job: 0 })), /알림 수/, "per-type counts must add up to the total");
+  assert.throws(() => api.parseUnreadCount(unreadBody(1, {}, { decision: 1, incident: -1, protocol: 1, job: 0 })), /알림 수/);
+  assert.throws(() => api.parseUnreadCount(unreadBody(2, {}, { decision: 2, incident: 0, protocol: 0 })), /알림 수/, "job count is required");
+  assert.throws(() => api.parseUnreadCount(unreadBody(2, {}, { decision: 1, incident: 0, protocol: 0, job: 2 })), /알림 수/, "job count is part of the total");
+  const counted = api.parseUnreadCount(unreadBody(10, { latestJobAt: "2026-11-13T01:01:30.123456Z" }, { decision: 2, incident: 1, protocol: 4, job: 3 }));
+  assert.equal(api.analysisUnread(counted), 3, "analysis menu badge = decisions + incidents");
+  assert.equal(api.detectionUnread(counted), 3, "detection menu badge = job notifications");
+  assert.deepEqual(api.readAllRequest(counted), { through: "130", jobsThrough: "2026-11-13T01:01:30.123456Z" }, "read-all sends the job boundary of the same count");
+  assert.deepEqual(api.readAllRequest(api.parseUnreadCount(unreadBody(1, { latestJobAt: "2026-11-13" }))), { through: "130" }, "malformed job boundary is not sent");
+  assert.throws(() => api.parseNotificationList(listBody([], { settings: { decisionBasis: "interim", minRiskLevel: "info", includeUnrated: true, windowDays: 7 } })), /알림 목록/,
+    "includeJobs is required in the list settings");
+  // 작업 알림 문구(와이어프레임 notifyJob): 학습 실패·완료(버전), 비교 평가 완료(일부 실패·교체 추천 있음)·실패. ID는 앞 8자리.
+  const jobText = (job) => labels.notificationText(api.parseNotificationItem(jobItem({}, job))).headline;
+  assert.deepEqual([
+    jobText({}),
+    jobText({ errorCode: null }),
+    jobText({ status: "succeeded", errorCode: null, configVersionId: V1 }),
+    jobText({ status: "succeeded", errorCode: null }),
+    jobText({ kind: "compare", status: "succeeded", errorCode: null, failedCount: 1, replacementRecommended: true }),
+    jobText({ kind: "compare", status: "succeeded", errorCode: null, failedCount: 0, replacementRecommended: false }),
+    jobText({ kind: "compare", status: "failed", errorCode: "comparison_all_items_failed" }),
+  ], ["학습 44444444 실패 · insufficient_complete_training_rows", "학습 44444444 실패", "학습 44444444 완료 · 버전 55555555", "학습 44444444 완료",
+    "비교 평가 44444444 완료 · 일부 실패 · 교체 추천 있음", "비교 평가 44444444 완료", "비교 평가 44444444 실패 · comparison_all_items_failed"]);
+  const failedJob = api.parseNotificationItem(jobItem());
+  assert.deepEqual([labels.notificationText(failedJob).subject, labels.notificationTag(failedJob), labels.showsRisk(failedJob), notificationHref(failedJob)],
+    ["", "탐지 설정", false, `/detection/operations/jobs/${J1}`], "job card: one line, detection tag, no risk, job detail link");
+  assert.equal(api.parseNotificationItem(jobItem({ key: `work:${U1}` })), null, "job key must match the job id");
+  assert.equal(api.parseNotificationItem(jobItem({ reason: "opened" })), null);
+  assert.equal(api.parseNotificationItem(jobItem({}, { kind: "evaluate" })), null, "only train and compare jobs");
+  assert.equal(api.parseNotificationItem(jobItem({}, { status: "running" })), null, "only finished jobs");
+  assert.equal(labels.notificationTag(api.parseNotificationItem(decisionItem())), "이상 분석");
+  assert.equal(labels.includeJobsLabel, "작업 알림(학습·비교 평가·모델 교체)");
   const [decision, incident] = parsed.items;
   assert.deepEqual(labels.notificationText(decision), { headline: "이상 · 최종 · 위험도 상승", subject: "거래 TX-1 · 프로세스 P01" });
   assert.deepEqual(labels.notificationText(incident), { headline: "사건 · 응답코드 E500 · 판정 추가", subject: "묶인 판정 12건" });
@@ -82,9 +116,9 @@ const unreadBody = (unreadCount, over = {}, byType = { decision: unreadCount, in
   assert.deepEqual([notificationHref(decision), notificationHref(withdrawn), notificationHref(incident)], [`/analysis/d/${U2}`, `/analysis/d/${U1}`, `/analysis/incidents/${U3}`]);
   assert.deepEqual([labels.badgeText(7), labels.badgeText(99), labels.badgeText(100)], ["7", "99", "99+"]);
   assert.equal(labels.savedSettingsMessage("admin"), "관리자 계정 알림 설정 반영 · 알림 목록·배지에 바로 적용");
-  const settings = api.parseMySettings({ notifications: { decisionBasis: "final_any", minRiskLevel: "warning", includeUnrated: false, windowDays: 30, isDefault: false, updatedAt: "x" },
-    widgetLayout: { layout: null, updatedAt: null } });
-  assert.deepEqual([settings.notifications.decisionBasis, settings.notifications.windowDays, settings.widgetLayout.layout], ["final_any", 30, null]);
+  const settings = api.parseMySettings({ notifications: { decisionBasis: "final_any", minRiskLevel: "warning", includeUnrated: false, windowDays: 30, includeJobs: false,
+    isDefault: false, updatedAt: "x" }, widgetLayout: { layout: null, updatedAt: null } });
+  assert.deepEqual([settings.notifications.decisionBasis, settings.notifications.windowDays, settings.notifications.includeJobs, settings.widgetLayout.layout], ["final_any", 30, false, null]);
 }
 
 // 2) 화면: 가짜 fetch(계정 토큰별), SSE는 열린 채 이벤트 없음.
@@ -142,23 +176,29 @@ assert.ok(requests.some((r) => r.path === "/api/pipeline/events" && r.search ===
 {
   const { TopNav } = await import("../src/features/navigation/TopNav.tsx");
   const nav = (role) => React.createElement(TopNav, { pathname: "/operations", role, onLogout() {}, settingsPath: "/settings" });
-  for (const [role, status, body, badge, label, bell] of [
-    ["admin", 200, unreadBody(7, {}, { decision: 2, incident: 1, protocol: 4 }), "3", "이상 분석 · 미확인 3건", "알림 · 읽지 않음 7건"],
-    ["user", 200, unreadBody(150, {}, { decision: 140, incident: 10, protocol: 0 }), "99+", "이상 분석 · 미확인 150건", "알림 · 읽지 않음 150건"],
-    ["admin", 200, unreadBody(5, {}, { decision: 0, incident: 0, protocol: 5 }), null, undefined, "알림 · 읽지 않음 5건"],
+  for (const [role, status, body, badge, label, bell, detect = null] of [
+    ["admin", 200, unreadBody(7, {}, { decision: 2, incident: 1, protocol: 4, job: 0 }), "3", "이상 분석 · 미확인 3건", "알림 · 읽지 않음 7건"],
+    ["user", 200, unreadBody(150, {}, { decision: 140, incident: 10, protocol: 0, job: 0 }), "99+", "이상 분석 · 미확인 150건", "알림 · 읽지 않음 150건"],
+    ["admin", 200, unreadBody(5, {}, { decision: 0, incident: 0, protocol: 5, job: 0 }), null, undefined, "알림 · 읽지 않음 5건"],
     ["user", 200, unreadBody(0), null, undefined, "알림"],
     ["user", 503, { code: "notification_storage_unavailable" }, null, undefined, "알림 · 읽지 않은 수 확인 불가"],
     ["user", 200, { latestSeq: "130", unreadCount: 2 }, null, undefined, "알림 · 읽지 않은 수 확인 불가"],
+    // 탐지 설정 배지(와이어프레임 badgeDetect = 작업 알림 미확인): 관리자, 벨 합계에 포함, 메뉴 이름 `탐지 설정 · 미확인 N건`.
+    ["admin", 200, unreadBody(4, {}, { decision: 1, incident: 0, protocol: 1, job: 2 }), "1", "이상 분석 · 미확인 1건", "알림 · 읽지 않음 4건", ["2", "탐지 설정 · 미확인 2건"]],
+    ["admin", 200, unreadBody(120, {}, { decision: 0, incident: 0, protocol: 0, job: 120 }), null, undefined, "알림 · 읽지 않음 120건", ["99+", "탐지 설정 · 미확인 120건"]],
   ]) {
     routes = { "GET /api/notifications/unread-count": () => [status, body] };
     const app = await mount(nav(role), role);
     await wait(() => app.renderer.root.findAll((n) => n.type === "button" && n.props["aria-label"] === bell).length === 1, `bell ${bell}`);
     const navBadges = app.renderer.root.findAll((n) => n.props?.["data-nav-badge"] !== undefined && typeof n.type === "string")
       .map((n) => [n.props["data-nav-badge"], text(n.children), n.props["aria-hidden"]]);
-    assert.deepEqual(navBadges, badge === null ? [] : [["analysis", badge, "true"]], `menu badge for ${JSON.stringify(body)}`);
+    assert.deepEqual(navBadges, [...(badge === null ? [] : [["analysis", badge, "true"]]), ...(detect ? [["detection", detect[0], "true"]] : [])],
+      `menu badges for ${JSON.stringify(body)}`);
     const analysisLink = app.renderer.root.findAll((n) => n.type === "a" && n.props.href === "/analysis")[0];
     assert.equal(analysisLink.props["aria-label"], label);
-    assert.equal(app.renderer.root.findAll((n) => n.type === "a" && n.props.href === "/detection/operations").length, role === "admin" ? 1 : 0);
+    const detectionLinks = app.renderer.root.findAll((n) => n.type === "a" && n.props.href === "/detection/operations");
+    assert.equal(detectionLinks.length, role === "admin" ? 1 : 0);
+    if (detectionLinks.length) assert.equal(detectionLinks[0].props["aria-label"], detect ? detect[1] : undefined);
     await app.cleanup();
   }
 }
@@ -201,7 +241,7 @@ assert.ok(requests.some((r) => r.path === "/api/pipeline/events" && r.search ===
   await wait(() => requests.some((r) => r.method === "POST"), "item read sent");
   await tick(250);
   assert.equal(app.client.getQueryData(["notifications-unread", "user-1"]).unreadCount, 1, "stale count started before the read does not overwrite it");
-  assert.deepEqual(app.client.getQueryData(["notifications-unread", "user-1"]).unreadByType, { decision: 1, incident: 0, protocol: 0 }, "read response carries per-type counts for the menu badge");
+  assert.deepEqual(app.client.getQueryData(["notifications-unread", "user-1"]).unreadByType, { decision: 1, incident: 0, protocol: 0, job: 0 }, "read response carries per-type counts for the menu badge");
   slow = false;
   assert.deepEqual(requests.filter((r) => r.method === "POST").at(-1).body, { items: [{ key: `job:${U1}`, seq: "120" }] });
   await click(buttons(app, "모두 읽음")[0]);
@@ -242,7 +282,7 @@ for (const truncatedBy of ["events", "days", null]) {
 
 // 2-4) 설정 › 알림: 서버 값 표시, 바꾸면 바로 저장(알림 설정 3값 전부), 실패하면 서버 값 유지.
 {
-  let stored = { decisionBasis: "interim", minRiskLevel: "info", includeUnrated: true, windowDays: 7 };
+  let stored = { decisionBasis: "interim", minRiskLevel: "info", includeUnrated: true, windowDays: 7, includeJobs: true };
   let failPut = false;
   const settingsBody = () => ({ notifications: { ...stored, isDefault: false, updatedAt: "2026-11-13T00:00:00.000000Z" }, widgetLayout: { layout: null, updatedAt: null } });
   routes = {
@@ -261,7 +301,7 @@ for (const truncatedBy of ["events", "days", null]) {
   assert.ok(app.shown().includes("중간 판정부터") && app.shown().includes("최종(부분 포함)") && app.shown().includes("최종 완료만"));
   await act(async () => radio().props.onValueChange("final_complete"));
   await wait(() => app.shown().includes("관리자 계정 알림 설정 반영 · 알림 목록·배지에 바로 적용"), "saved status");
-  assert.deepEqual(requests.filter((r) => r.method === "PUT").at(-1).body, { notifications: { decisionBasis: "final_complete", minRiskLevel: "info", includeUnrated: true, windowDays: 7 } });
+  assert.deepEqual(requests.filter((r) => r.method === "PUT").at(-1).body, { notifications: { decisionBasis: "final_complete", minRiskLevel: "info", includeUnrated: true, windowDays: 7, includeJobs: true } });
   const select = app.renderer.root.findAll((n) => n.type === "select" && n.props.id === "notif-min-risk")[0];
   assert.deepEqual(select.findAllByType("option").map((o) => text(o.children)), ["위험", "주의 이상", "참고 이상"]);
   failPut = true;
@@ -273,12 +313,20 @@ for (const truncatedBy of ["events", "days", null]) {
   await act(async () => box.props.onCheckedChange(false));
   await wait(() => requests.filter((r) => r.method === "PUT").at(-1).body.notifications.includeUnrated === false, "unrated toggle saved");
   await wait(() => !app.shown().includes("알림 설정을 저장하지 못했습니다"), "error cleared after a successful save");
+  // 작업 알림 토글(관리자, 와이어프레임 notifJobs 문구): 바로 저장, 다른 값은 그대로.
+  const jobsBox = () => app.renderer.root.findAll((n) => typeof n.props?.onCheckedChange === "function" && n.props.id === "notif-jobs")[0];
+  const jobsLabel = app.renderer.root.findAll((n) => n.type === "label" && n.props.htmlFor === "notif-jobs")[0];
+  assert.deepEqual([text(jobsLabel.children), jobsBox().props.checked], ["작업 알림(학습·비교 평가·모델 교체)", true]);
+  await act(async () => jobsBox().props.onCheckedChange(false));
+  await wait(() => requests.filter((r) => r.method === "PUT").at(-1).body.notifications.includeJobs === false, "job notifications toggle saved");
+  assert.deepEqual(requests.filter((r) => r.method === "PUT").at(-1).body.notifications, { decisionBasis: "final_complete", minRiskLevel: "info", includeUnrated: false, windowDays: 7, includeJobs: false });
+  await wait(() => jobsBox().props.checked === false, "saved value shown");
   await app.cleanup();
 }
 
 // 2-4b) 설정 › 알림 › 알림 조회 기간: 라벨·단위만, 1~30 정수 밖이면 입력 오류 표시·저장 비활성, 저장하면 4값 전송·목록·배지 다시 조회.
 {
-  let stored = { decisionBasis: "final_any", minRiskLevel: "warning", includeUnrated: false, windowDays: 7 };
+  let stored = { decisionBasis: "final_any", minRiskLevel: "warning", includeUnrated: false, windowDays: 7, includeJobs: true };
   let unreadReads = 0;
   let failPut = false;
   const settingsBody = () => ({ notifications: { ...stored, isDefault: false, updatedAt: "2026-11-14T00:00:00.000000Z" }, widgetLayout: { layout: null, updatedAt: null } });
@@ -297,6 +345,7 @@ for (const truncatedBy of ["events", "days", null]) {
   const user = { id: "user-1", email: "user@example.test", userType: "user", createdAt: "2026-10-01T00:00:00Z" };
   const app = await mount(React.createElement(React.Fragment, null, React.createElement(NotificationsBell), React.createElement(NotificationSettings, { currentUser: user })));
   await wait(() => app.shown().includes("알림 조회 기간") && unreadReads === 1, "window days field and bell loaded");
+  assert.equal(app.renderer.root.findAll((n) => n.props?.id === "notif-jobs").length, 0, "job notification toggle is admin only");
   const input = () => app.renderer.root.findAll((n) => n.type === "input" && n.props.id === "notif-window-days")[0];
   const saveButton = () => buttons(app, "저장")[0];
   const label = app.renderer.root.findAll((n) => n.type === "label" && n.props.htmlFor === "notif-window-days")[0];
@@ -318,7 +367,7 @@ for (const truncatedBy of ["events", "days", null]) {
   await click(saveButton());
   await wait(() => requests.filter((r) => r.method === "PUT").length === putsBefore + 1, "window days saved");
   assert.deepEqual(requests.filter((r) => r.method === "PUT").at(-1).body,
-    { notifications: { decisionBasis: "final_any", minRiskLevel: "warning", includeUnrated: false, windowDays: 30 } }, "all four notification values are sent");
+    { notifications: { decisionBasis: "final_any", minRiskLevel: "warning", includeUnrated: false, windowDays: 30, includeJobs: true } }, "all notification values are sent");
   await wait(() => app.shown().includes("일반 사용자 계정 알림 설정 반영 · 알림 목록·배지에 바로 적용"), "saved status");
   await wait(() => unreadReads === 2, "bell count is read again after the save");
   assert.deepEqual([input().props.value, saveButton().props.disabled], ["30", true], "saved value shown, draft cleared");
@@ -396,4 +445,54 @@ for (const truncatedBy of ["events", "days", null]) {
   await app.cleanup();
 }
 
-console.log("notifications page QA passed: parsers and wording, bell badge (count, 99+, unknown), analysis menu badge (decisions + incidents, 99+, hidden at 0/error), panel views/read/read-all/more/links/errors/range notice, notification settings save and failure, window days input (bounds, save, refresh), protocol alerts (wording, admin actions, add → detail, keep)");
+// 2-6) 작업 알림 패널(관리자, 합성 값): 카드 문구·탐지 설정 표시·위험도 없음·작업 상세 링크, 항목 읽음은 work: 키, 모두 읽음은 jobsThrough 포함.
+{
+  let unreadCount = 2;
+  const latestJobAt = "2026-11-13T01:01:30.123456Z";
+  routes = {
+    "GET /api/notifications/unread-count": () => [200, unreadBody(unreadCount, { latestJobAt }, { decision: unreadCount ? 1 : 0, incident: 0, protocol: 0, job: unreadCount ? unreadCount - 1 : 0 })],
+    "GET /api/notifications": () => [200, listBody(unreadCount ? [decisionItem(), jobItem({}, { kind: "compare", status: "succeeded", errorCode: null, failedCount: 2, replacementRecommended: true })] : [],
+      { latestJobAt })],
+    "POST /api/notifications/read": (_target, body) => {
+      unreadCount = "through" in body ? 0 : unreadCount - body.items.length;
+      return [200, unreadBody(unreadCount, { latestJobAt, readThrough: "0" }, { decision: unreadCount ? 1 : 0, incident: 0, protocol: 0, job: 0 })];
+    },
+  };
+  const app = await mount(React.createElement(NotificationPanels), "admin");
+  await wait(() => app.shown().includes("비교 평가 44444444 완료 · 일부 실패 · 교체 추천 있음"), "job card rendered");
+  const card = app.renderer.root.findAll((n) => n.props?.["data-notification"] === `work:${J1}` && typeof n.type === "string")[0];
+  assert.ok(text(card.children).includes("탐지 설정") && !text(card.children).includes("위험도"), "job card: detection tag, no risk badge");
+  assert.deepEqual(card.findAll((n) => n.type === "a").map((a) => a.props.href), [`/detection/operations/jobs/${J1}`]);
+  const readButton = card.findAll((n) => n.type === "button" && text(n.children) === "읽음 처리")[0];
+  await click(readButton);
+  await wait(() => requests.filter((r) => r.method === "POST").at(-1)?.body?.items?.[0]?.key === `work:${J1}`, "job item read sent");
+  assert.deepEqual(requests.filter((r) => r.method === "POST").at(-1).body, { items: [{ key: `work:${J1}`, seq: "119" }] });
+  await click(buttons(app, "모두 읽음")[0]);
+  await wait(() => "through" in (requests.filter((r) => r.method === "POST").at(-1).body ?? {}), "read-all sent");
+  assert.deepEqual(requests.filter((r) => r.method === "POST").at(-1).body, { through: "130", jobsThrough: latestJobAt }, "read-all carries the job boundary");
+  await app.cleanup();
+}
+
+// 2-7) 작업 종료 반영(새 연결 없음): 화면이 읽는 작업 조회에서 대기·실행 중이던 작업이 완료·실패로 바뀌면 배지를 다시 조회한다. 처음 보는 완료 작업은 다시 조회하지 않는다.
+{
+  let reads = 0;
+  routes = { "GET /api/notifications/unread-count": () => { reads += 1; return [200, unreadBody(0)]; } };
+  const app = await mount(React.createElement(NotificationsBell), "admin");
+  await wait(() => reads === 1, "bell loaded");
+  const jobsKey = ["jobs", "admin-1", "all", "all"];
+  await act(async () => void app.client.setQueryData(jobsKey, { items: [{ id: J1, status: "running" }, { id: U1, status: "succeeded" }], nextCursor: null, pages: 1 }));
+  await tick(30);
+  assert.equal(reads, 1, "already finished or still running: no refresh");
+  await act(async () => void app.client.setQueryData(jobsKey, { items: [{ id: J1, status: "succeeded" }, { id: U1, status: "succeeded" }], nextCursor: null, pages: 1 }));
+  await wait(() => reads === 2, "running → succeeded refreshes the badge");
+  await act(async () => void app.client.setQueryData(["comparison", "admin-1", U2], { jobId: U2, status: "running" }));
+  await act(async () => void app.client.setQueryData(["comparison", "admin-1", U2], { jobId: U2, status: "failed" }));
+  await wait(() => reads === 3, "comparison detail running → failed refreshes the badge");
+  await act(async () => void app.client.setQueryData(["job", "other-1", U3], { id: U3, status: "running" }));
+  await act(async () => void app.client.setQueryData(["job", "other-1", U3], { id: U3, status: "failed" }));
+  await tick(30);
+  assert.equal(reads, 3, "another account's cache entry is ignored");
+  await app.cleanup();
+}
+
+console.log("notifications page QA passed: parsers and wording, bell badge (count, 99+, unknown), analysis menu badge (decisions + incidents, 99+, hidden at 0/error), panel views/read/read-all/more/links/errors/range notice, notification settings save and failure, window days input (bounds, save, refresh), protocol alerts (wording, admin actions, add → detail, keep), job notifications (wording, detection menu badge, job detail link, read-all jobsThrough, refresh on job finish, admin toggle)");

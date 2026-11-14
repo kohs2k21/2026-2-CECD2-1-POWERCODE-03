@@ -7,15 +7,16 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/feedback";
 import { riskLevelVariant, stampText } from "@/features/analysis/labels";
-import { emptyLabels, notificationRisk, notificationText, protocolResolutionLabels, riskText, showsRisk, viewLabels } from "./notificationLabels";
-import { notificationViews, type NotificationItem, type NotificationView, type ProtocolNotification } from "./notificationsApi";
+import { emptyLabels, notificationRisk, notificationTag, notificationText, protocolResolutionLabels, riskText, showsRisk, viewLabels } from "./notificationLabels";
+import { notificationViews, readAllRequest, type NotificationItem, type NotificationView, type ProtocolNotification } from "./notificationsApi";
 import { useKeepProtocolAlert, useMarkNotificationsRead, useNotificationPage, useUnreadCount } from "./useNotifications";
 import { ConfirmDialog } from "@/features/detection/rules/RuleDialogs";
 
-/** 항목 상세 주소: 판정 → 이상 분석 판정 상세(판정 ID 또는 최종 전 작업 ID), 사건 → 사건 상세(흐름 첫 사건 ID), 프로토콜 → 최근 판정 상세. */
+/** 항목 상세 주소: 판정 → 이상 분석 판정 상세(판정 ID 또는 최종 전 작업 ID), 사건 → 사건 상세(흐름 첫 사건 ID), 프로토콜 → 최근 판정 상세, 작업 → 작업 상세. */
 export const notificationHref = (item: NotificationItem) =>
   item.type === "decision" ? paths.analysisDecision(item.decision.detailId)
-    : item.type === "incident" ? paths.analysisIncident(item.incident.id) : paths.analysisDecision(item.protocol.decisionId);
+    : item.type === "incident" ? paths.analysisIncident(item.incident.id)
+      : item.type === "job" ? paths.detectionJob(item.job.id) : paths.analysisDecision(item.protocol.decisionId);
 /** 프로토콜 상세로 넘기는 값: 알림의 경로를 허용 경로 초안에 더해 연다(저장은 상세의 확인창 → 룰 세트 새 버전). */
 export type ProtocolAlertState = { returnTo?: string; alertPath?: { channels: string[]; decisionId: string } };
 
@@ -74,9 +75,9 @@ const NotificationRow = ({ item, onRead, onNavigate, onKeep, busy }: {
   return (
     <li data-notification={item.key} className="grid gap-1.5 rounded-md border border-foreground bg-card px-3 py-2 text-sm">
       <span className="font-medium">{headline}</span>
-      <span className="break-all text-muted-foreground">{subject}</span>
+      {subject && <span className="break-all text-muted-foreground">{subject}</span>}
       <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-        <Badge variant="outline">{item.type === "protocol" ? "프로토콜 설정" : "이상 분석"}</Badge>
+        <Badge variant="outline">{notificationTag(item)}</Badge>
         {showsRisk(item) && (
           <Badge variant={risk.riskStatus === "rated" && risk.riskLevel ? riskLevelVariant[risk.riskLevel] : "outline"}>{riskText(risk)}</Badge>
         )}
@@ -155,7 +156,7 @@ export const NotificationPanels = ({ onNavigate, onKeepRequest }: {
     if (item.unread) mark.mutate({ items: [{ key: item.key, seq: item.seq }] });
     onNavigate?.();
   };
-  const readAll = () => unread.data && mark.mutate({ through: unread.data.latestSeq }, { onSuccess: reset });
+  const readAll = () => unread.data && mark.mutate(readAllRequest(unread.data), { onSuccess: reset });
   return (
     <section className="grid gap-3" aria-label="알림 목록">
       <div className="flex flex-wrap items-center justify-between gap-2">

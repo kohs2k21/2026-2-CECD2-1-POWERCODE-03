@@ -98,7 +98,7 @@ const jobItem = (over = {}, job = {}) => ({ key: `work:${J1}`, type: "job", seq:
   assert.equal(api.parseNotificationItem(jobItem({}, { kind: "evaluate" })), null, "only train and compare jobs");
   assert.equal(api.parseNotificationItem(jobItem({}, { status: "running" })), null, "only finished jobs");
   assert.equal(labels.notificationTag(api.parseNotificationItem(decisionItem())), "이상 분석");
-  assert.equal(labels.includeJobsLabel, "작업 알림(학습·비교 평가·모델 교체)");
+  assert.equal(labels.includeJobsLabel, "작업 알림(학습·비교 평가)");
   const [decision, incident] = parsed.items;
   assert.deepEqual(labels.notificationText(decision), { headline: "이상 · 최종 · 위험도 상승", subject: "거래 TX-1 · 프로세스 P01" });
   assert.deepEqual(labels.notificationText(incident), { headline: "사건 · 응답코드 E500 · 판정 추가", subject: "묶인 판정 12건" });
@@ -313,10 +313,10 @@ for (const truncatedBy of ["events", "days", null]) {
   await act(async () => box.props.onCheckedChange(false));
   await wait(() => requests.filter((r) => r.method === "PUT").at(-1).body.notifications.includeUnrated === false, "unrated toggle saved");
   await wait(() => !app.shown().includes("알림 설정을 저장하지 못했습니다"), "error cleared after a successful save");
-  // 작업 알림 토글(관리자, 와이어프레임 notifJobs 문구): 바로 저장, 다른 값은 그대로.
+  // 작업 알림 토글(관리자, 와이어프레임 notifJobs에서 모델 교체 뺀 문구): 바로 저장, 다른 값은 그대로.
   const jobsBox = () => app.renderer.root.findAll((n) => typeof n.props?.onCheckedChange === "function" && n.props.id === "notif-jobs")[0];
   const jobsLabel = app.renderer.root.findAll((n) => n.type === "label" && n.props.htmlFor === "notif-jobs")[0];
-  assert.deepEqual([text(jobsLabel.children), jobsBox().props.checked], ["작업 알림(학습·비교 평가·모델 교체)", true]);
+  assert.deepEqual([text(jobsLabel.children), jobsBox().props.checked], ["작업 알림(학습·비교 평가)", true]);
   await act(async () => jobsBox().props.onCheckedChange(false));
   await wait(() => requests.filter((r) => r.method === "PUT").at(-1).body.notifications.includeJobs === false, "job notifications toggle saved");
   assert.deepEqual(requests.filter((r) => r.method === "PUT").at(-1).body.notifications, { decisionBasis: "final_complete", minRiskLevel: "info", includeUnrated: false, windowDays: 7, includeJobs: false });

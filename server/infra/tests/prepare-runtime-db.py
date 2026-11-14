@@ -5,10 +5,6 @@ from urllib.parse import urlsplit,urlunsplit
 import psycopg
 from psycopg import sql
 
-url=os.environ['RUNTIME_TEST_ADMIN_URL']
-parsed=urlsplit(url)
-if parsed.hostname not in ('localhost','127.0.0.1') or parsed.path!='/postgres':
-    raise SystemExit('only a local postgres admin URL is permitted')
 root=Path(__file__).resolve().parents[1]/'migrations'
 # 027(explain_protocol)·028(작업 알림)은 아래 files 목록 끝(dev의 026) 뒤에 적용한다. 목록 끝 줄과 겹치지 않게 따로 둔다.
 later=('027_explain_protocol.sql','028_job_notifications.sql')
@@ -21,12 +17,27 @@ files=('001_postgres_queues.sql','002_core_erd.sql','003_erd_v03_enums.sql','004
        '019_incidents.sql','020_rule_set_hash_v3.sql','021_recommend_relations.sql','022_user_settings_notifications.sql',
        '023_protocol_alert_actions.sql','024_relation_recheck_runs.sql','025_response_codes.sql',
        '026_notification_window_days.sql')
-with psycopg.connect(url,autocommit=True) as admin:
-    for name in ('qa_research_pipeline','qa_pipeline','qa_trainer_service','qa_metrics_service','qa_synthetic_service','qa_prepared_csv_service','qa_operations_service','qa_rule_set_service','qa_rule_set_models','qa_active_models_service','qa_analysis_service','qa_detection_decision','qa_notifications_service','qa_feature_sets_service','qa_response_codes_service'):
-        # Existing QA databases fail here; no DROP or existing-schema changes.
-        admin.execute(sql.SQL('CREATE DATABASE {}').format(sql.Identifier(name)))
-        database_url=urlunsplit(parsed._replace(path='/'+name))
-        with psycopg.connect(database_url,autocommit=True) as conn:
-            for file in files+later:
-                conn.execute((root/file).read_text(encoding='utf-8'))
-        print(f'prepared fresh {name}')
+def migration_names():
+    """적용 순서 그대로의 migration 파일 이름(files + later). 다른 시험(worker integration_*)이 이 목록을 그대로 쓴다.
+
+    이 파일을 모듈로 읽어도(importlib) DB에 접속하지 않는다. DB 준비는 직접 실행할 때만(main).
+    """
+    return list(files+later)
+
+def main():
+    url=os.environ['RUNTIME_TEST_ADMIN_URL']
+    parsed=urlsplit(url)
+    if parsed.hostname not in ('localhost','127.0.0.1') or parsed.path!='/postgres':
+        raise SystemExit('only a local postgres admin URL is permitted')
+    with psycopg.connect(url,autocommit=True) as admin:
+        for name in ('qa_research_pipeline','qa_pipeline','qa_trainer_service','qa_metrics_service','qa_synthetic_service','qa_prepared_csv_service','qa_operations_service','qa_rule_set_service','qa_rule_set_models','qa_active_models_service','qa_analysis_service','qa_detection_decision','qa_notifications_service','qa_feature_sets_service','qa_response_codes_service'):
+            # Existing QA databases fail here; no DROP or existing-schema changes.
+            admin.execute(sql.SQL('CREATE DATABASE {}').format(sql.Identifier(name)))
+            database_url=urlunsplit(parsed._replace(path='/'+name))
+            with psycopg.connect(database_url,autocommit=True) as conn:
+                for file in migration_names():
+                    conn.execute((root/file).read_text(encoding='utf-8'))
+            print(f'prepared fresh {name}')
+
+if __name__=='__main__':
+    main()

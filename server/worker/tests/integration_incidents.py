@@ -2,7 +2,7 @@
 
 실행: INCIDENTS_TEST_ADMIN_URL=postgresql://postgres@127.0.0.1:<port>/postgres
       python server/worker/tests/integration_incidents.py
-- 새 DB qa_incidents를 만들고(이미 있으면 실패, DROP 없음) prepare-runtime-db.py와 같은 순서(001~021)로 migration을
+- 새 DB qa_incidents를 만들고(이미 있으면 실패, DROP 없음) prepare-runtime-db.py와 같은 순서(그 파일의 migration_names(), files + later)로 migration을
   적용한 뒤 scripts/database-roles.sql을 적용한다. 준비 데이터는 소유자(postgres)로 넣고, 주기 작업은
   powercode_detector 권한만 받은 로그인 역할로 돌린다(권한 확인). 로그인 역할은 이 클러스터에만 만든다.
 """
@@ -10,10 +10,10 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 import hashlib
+import importlib.util
 import json
 import secrets
 from pathlib import Path
-import re
 import sys
 from unittest.mock import patch
 import os
@@ -45,10 +45,11 @@ def check(name: str, condition: bool, detail=None) -> None:
 
 
 def migration_files() -> list[str]:
-    """prepare-runtime-db.py의 files 튜플을 그대로 읽어 순서가 어긋나지 않게 한다."""
-    text = (INFRA / "tests" / "prepare-runtime-db.py").read_text(encoding="utf-8")
-    block = re.search(r"files=\((.*?)\)\n", text, re.S).group(1)
-    files = re.findall(r"'([0-9]{3}_[a-z0-9_]+\.sql)'", block)
+    """prepare-runtime-db.py의 적용 순서(files + later)를 그 파일의 migration_names()로 받아 어긋나지 않게 한다(읽기만, DB 접속 없음)."""
+    spec = importlib.util.spec_from_file_location("prepare_runtime_db", INFRA / "tests" / "prepare-runtime-db.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    files = module.migration_names()
     order = ["018_decision_observation_index.sql", "019_incidents.sql", "020_rule_set_hash_v3.sql", "021_recommend_relations.sql"]
     missing = [name for name in order if name not in files]
     assert not missing, (missing, files[-4:])

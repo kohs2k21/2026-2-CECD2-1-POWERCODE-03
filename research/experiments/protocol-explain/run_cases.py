@@ -233,7 +233,7 @@ def write_summary(run_dir: Path, run: dict[str, Any], rows: list[dict[str, Any]]
                "cases": rows}
     kit.write_json(run_dir / "summary.json", summary)
     names = ("json_parsed", "schema_ok", "length_ok", "numbers_subset", "identifiers_subset", "paths_in_facts",
-             "korean_ok", "no_forbidden")
+             "korean_ok", "no_forbidden", "status_consistent")
     lines = [f"# 프로토콜 경로 설명 시험 — {run['run_dir_name']}", "",
              f"- 통과 **{passed}/{len(rows)}** · 모드 {run['mode']} · 사례 {run['cases_kind']} · 상태 {run['status']}",
              f"- 프롬프트 {pe.PROMPT_VERSION} · 시간 상한 {run['parameters']['time_limit_seconds']}초 · "
@@ -266,7 +266,8 @@ def write_summary(run_dir: Path, run: dict[str, Any], rows: list[dict[str, Any]]
             else:
                 lines.append("- (형식 불일치: raw_output.txt 참고)")
             bad = {k: v for k, v in (row.get("details") or {}).items()
-                   if k in ("unknown_numbers", "unknown_dates", "unknown_identifiers", "unknown_paths", "forbidden") and v}
+                   if k in ("unknown_numbers", "unknown_dates", "unknown_identifiers", "unknown_paths", "forbidden",
+                           "status_claims") and v}
             if bad:
                 lines.append(f"- 점검 실패 값: {json.dumps(bad, ensure_ascii=False)}")
             lines.append("")

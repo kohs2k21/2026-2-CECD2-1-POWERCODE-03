@@ -130,7 +130,7 @@ class InputTests(unittest.TestCase):
                 job_module.parse_input(spec, LLM_SPEC)
 
     def test_llm_spec_must_name_this_prompt_and_format(self):
-        for key, value in (("prompt_version", "protocol-explain-prompt-v3"), ("output_schema_version", "x"),
+        for key, value in (("prompt_version", "protocol-explain-prompt-v4"), ("output_schema_version", "x"),
                            ("evidence_version", "saved-decision-v1"), ("model_version", "")):
             with self.subTest(key=key), self.assertRaisesRegex(ValueError, "^protocol_explanation_llm_spec_invalid$"):
                 job_module.parse_input(observed_spec(), {**LLM_SPEC, key: value})
@@ -259,7 +259,7 @@ class JobTests(unittest.TestCase):
                 run_job(observed_spec(), self.rows, error=error)
         with self.assertRaisesRegex(ValueError, "^generation_prompt_version_mismatch$"):
             run_job(observed_spec(), self.rows, receipt={"output": {}, "truncated": False,
-                                                         "promptVersion": "protocol-explain-prompt-v3"})
+                                                         "promptVersion": "protocol-explain-prompt-v4"})
 
     def test_alias_restore_is_one_pass_and_bounded(self):
         mapping = {"enabled": True, "interfaces": {"IF-01": "CH-02"}, "channels": {"CH-01": "A", "CH-02": "B",

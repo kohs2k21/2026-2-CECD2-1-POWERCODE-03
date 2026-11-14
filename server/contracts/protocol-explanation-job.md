@@ -1,12 +1,12 @@
-Created: 2026-11-14T18:00:00+09:00
-Updated: 2026-11-14T15:00:00+09:00
+Created: 2026-11-14T02:50:00+09:00
+Updated: 2026-11-14T13:30:00+09:00
 Author: Claude Code (LLM 세션 builder)
 Status: draft
 
 # 프로토콜 경로 설명 작업 `explain_protocol` v1 (초안)
 
 - 무엇: 프로토콜 설정 상세(관측 경로 vs 허용 경로)와 프로토콜 알림 상세에서 관리자가 요청하는 **대화형 LLM 설명**. LLM은 코드가 만든 사실을 한국어 문장 `{explanation, reviewPoints}`로 풀어 쓰기만 한다. 경로 집계·허용 여부·판정은 코드 값이다([protocol-rules.md](protocol-rules.md) 1절 "LLM은 설명만")
-- 근거: 시험 키트(`research/experiments/protocol-explain`, 기반 모델 Qwen3.6-27B NF4 어댑터 없음 + 프롬프트 v3 → 합성 7/8, 실데이터 7/8·7/8, 시험 사례 모두 60초 생성 상한 안, 지어낸 숫자·경로·표기 0건). 이 작업은 v3의 남은 실패(사유 이름표 뒤 "로 인해")와 약점(근거 부족 미언급)을 고친 **프롬프트 v4**로 시작한다(아래 프롬프트 절)
+- 근거: 시험 키트(`research/experiments/protocol-explain`, 기반 모델 Qwen3.6-27B NF4 어댑터 없음 + 프롬프트 v3 → 합성 7/8, 실데이터 7/8·7/8, 시험 사례 모두 60초 생성 상한 안, 지어낸 숫자·경로·표기 0건). 이 작업은 v3의 남은 실패(사유 이름표 뒤 "로 인해")와 약점(근거 부족 미언급)을 고친 **프롬프트 v4**로 시작했고, 운영 첫 결과의 문장 문제(기간 원시 시각, 지어낸 근거 부족, 경로 id 뒤 채널 반복)를 고친 **프롬프트 v5**를 쓴다(아래 프롬프트 절)
 - 합의(WebUI 총괄): 새 작업 종류 `explain_protocol`(기존 `explain` 입력 확장 아님) / 출력은 `{explanation, reviewPoints[≤3]}`이고 판정·숫자 필드 없음 / 대화형 상한(`LLM_EXPLANATION_WAIT_SECONDS` 10초·`LLM_EXPLANATION_SECONDS` 60초)과 GPU 차례는 `explain`과 같은 대화형 등급 / API 접수·검증과 화면은 WebUI·API 담당
 - 표기: **[확정]** 합의·코드 사실 / **[제안]** 이 초안이 정한 값 / **[승인 대상]** 공통 계약(migration·API 요청·큐 payload·결과 형식)이라 사용자 승인 뒤 확정 / **[확정 11/14 사용자]** 12절 결정·11절 화면 문구 / **[후보]** 7절 실패 문구·점검 사유 이름(화면에 쓰지 않음)
 - 구현 위치(이 계약과 같은 PR): 워커 `server/worker/protocol_explanation_job.py`(작업), `protocol_explanation.py`(사실·이름표·프롬프트·점검 순수 함수, 키트와 공용), `generation_service.py`·`generation_client.py`(새 kind), `trainer/runner.py`(소비자 경로), migration `027_explain_protocol.sql`·역할 스크립트 1줄([확정 11/14 사용자], 9절). API 접수(`server/backend`)는 후속 변경에서 10절 표대로 구현했다(`routes/protocolExplanationContract.ts`·`routes/jobRoutes.ts`). 화면(`server/frontend`)은 11절대로 구현했다(`features/detection/rules/protocols/ProtocolExplanationCard.tsx`, 프로토콜 설정 상세·판정 상세)
@@ -33,7 +33,7 @@ Status: draft
 | 권한 | **관리자만**(403 `admin_required`) [확정 11/14 사용자]. 프로토콜 설정·초안 API와 프로토콜 알림이 모두 관리자 전용이기 때문. migration CHECK도 `requester_role='admin'` |
 | 멱등키·재시도·상태 | 기존 `/api/jobs` 그대로(`Idempotency-Key`, queued/running/succeeded/failed, `attemptCount`·`maxAttempts` 3·`nextRunAt`). 같은 멱등키에 다른 입력 409 `idempotency_payload_conflict` |
 | `input_spec` | 요청 본문 그대로(키 `kind`·`sourceId`·`target`). 워커는 이것만 읽는다. `input_config_version_id`·`input_snapshot_id`·`input_manifest_id` NULL. `input_decision_id` = 알림 대상의 `decisionId`, 관측 경로 대상은 NULL |
-| `llm_spec` | `evidence_version: "protocol-explain-facts-v1"`, `input_evidence_hash: <request_hash>`(= `input_spec` sha256, recommend_thresholds와 같은 방식 — 사실은 워커가 만들어 접수 시점에는 없음), `model_version: "qwen-base-6a9e13bd"`(explain과 같은 기반 모델 이름), `prompt_version: "protocol-explain-prompt-v4"`, `output_schema_version: "protocol-explanation-v1"`, `reuse_key: sha256([actor, input_spec, null, prompt_version])`(explain과 같은 꼴). 워커는 `evidence_version`·`prompt_version`·`output_schema_version`이 위 값과 다르면 `protocol_explanation_llm_spec_invalid`로 멈춘다 |
+| `llm_spec` | `evidence_version: "protocol-explain-facts-v1"`, `input_evidence_hash: <request_hash>`(= `input_spec` sha256, recommend_thresholds와 같은 방식 — 사실은 워커가 만들어 접수 시점에는 없음), `model_version: "qwen-base-6a9e13bd"`(explain과 같은 기반 모델 이름), `prompt_version: "protocol-explain-prompt-v5"`, `output_schema_version: "protocol-explanation-v1"`, `reuse_key: sha256([actor, input_spec, null, prompt_version])`(explain과 같은 꼴). 워커는 `evidence_version`·`prompt_version`·`output_schema_version`이 위 값과 다르면 `protocol_explanation_llm_spec_invalid`로 멈춘다 |
 | 재사용 | 같은 요청자·같은 대상(`input_spec`)·같은 프롬프트의 queued/running/succeeded 작업이 있으면 그 작업을 돌려준다(explain 접수 흐름 그대로). 대상이 작업 id·리비전·판정 id로 고정되어 사실이 같고 생성이 greedy라 같은 결과다. 실패 작업은 재사용하지 않는다(다시 요청 가능) |
 
 ## 2. 사실 만들기 — 워커가 DB에서 [제안, 원천·선택 규칙은 키트 export와 같음]
@@ -70,10 +70,12 @@ Status: draft
 - `explain_protocol`은 `explain`과 같은 대화형 등급(`GenerationGate` interactive): GPU가 비면 추천 작업(`rule`·`feature`)보다 먼저, 대화형끼리는 도착 순. 실행 중인 생성은 끊지 않음
 - 대기 상한 `LLM_EXPLANATION_WAIT_SECONDS`(기본 10초) → `generation_busy`, 생성 상한 `LLM_EXPLANATION_SECONDS`(기본 60초) → `generation_timeout`(이 작업은 `report_timeout`을 켬). 두 상한은 explain과 같은 환경 변수를 공유한다(따로 두지 않음)
 
-## 5. 프롬프트 v4와 점검 [제안 — 이 PR 구현]
+## 5. 프롬프트 v5와 점검 [제안]
 
 - `protocol-explain-prompt-v4` = v3 + "초안 상태가 근거 부족이면 그 사실을 explanation에 '근거 부족'이라는 이름으로 적는다"(v3 약점: 근거 부족인데 언급하지 않음). 지시 문장에는 출력 금지 표현(지시·추정·원인 낱말)을 쓰지 않고, 금지 표현은 따옴표 안의 "쓰지 않을 표현" 예시에만 둔다(1번 지시도 같은 기준으로 다듬음 — 시험이 확인)
-- 점검(`protocol_explanation.check_output`, 키트와 같은 함수, PASS = 전부): `json_parsed`·`schema_ok`·`length_ok`(설명 1~600자, 확인할 점 0~3개·각 1~200자)·`numbers_subset`·`identifiers_subset`·`paths_in_facts`·`korean_ok`·`no_forbidden`. 상세 기준은 키트 README 3절
+- `protocol-explain-prompt-v5` = v4 + 운영 첫 결과의 문장 문제 3가지 정리. (1) 기간(`period`)의 날짜·시각을 문장에 쓰지 않고 "학습 기간"으로만 부른다(화면이 기간을 따로 보임 — v4는 원시 UTC ISO 시각을 그대로 옮김) (2) 초안 상태 지시를 system 프롬프트에서 빼고, 초안 상태가 `insufficient_evidence`인 사실에만 사용자 메시지 이름표 끝에 "근거 부족이라는 이름으로 적는다" 한 줄(`STATUS_NOTE`)을 붙인다(v4는 초안 상태인데 근거 부족이라고 씀). 이름표 `minTransactions`도 "근거 부족 기준 거래 수" → "초안 최소 거래 수"로 바꿔 초안·관측 없음·알림 사실의 모델 입력에는 상태 지시도 "근거 부족" 낱말도 없다(코드 이름표는 사실에 나온 코드만 실림) (3) 경로 id(`P1`…) 뒤에 괄호·화살표로 채널을 다시 적지 않는다(화면이 결과 `paths`로 채널을 그림). 사실 형식 `protocol-explain-facts-v1`은 그대로
+- 점검(`protocol_explanation.check_output`, 키트와 같은 함수, PASS = 전부): `json_parsed`·`schema_ok`·`length_ok`(설명 1~600자, 확인할 점 0~3개·각 1~200자)·`numbers_subset`·`identifiers_subset`·`paths_in_facts`·`korean_ok`·`no_forbidden`·`status_consistent`. 상세 기준은 키트 README 3절
+- v5 점검 추가 `status_consistent`: 초안 상태(`observed.status`)가 `insufficient_evidence`가 아닌 사실(초안·관측 없음·알림)에서 설명·확인할 점에 근거 부족 단정("근거 부족", "근거가 부족", 코드값 `insufficient_evidence` — 코드값은 `identifiers_subset`과 함께 실패)이 나오면 FAIL. 기준 이름 "근거 부족 기준 거래 수"와 부정("근거 부족이 아닙니다"·"근거가 부족하지 않습니다")은 상태 단정이 아니라 허용. 기간 날짜 대조(`numbers_subset`)는 그대로이며 원시 ISO 시각·경로 id 뒤 괄호 채널은 점검이 실패시키지 않는다(재시도 없는 작업이라 과한 실패를 피함 — 프롬프트 규칙으로만 줄임)
 - v4 점검 변경: **사실에 실린 사유 이름표**(경로를 만들지 못한 거래 사유·알림 경로 사유의 화면 이름, 예 "선행 사슬 끊김") **바로 뒤의 "(으)로 인해·인하여·인한"은 허용**한다(사실의 코드 사유를 다시 쓴 것 — v3 남은 실패). 이름표는 정의된 사유 코드(protocol-rules.md 3.4)의 화면 이름만 본다(모르는 코드는 이름표가 코드 문자열 그대로라 허용 대상 아님). 이름표와 사이에 공백이 있거나, 사실에 없는 사유 이름이거나, 그 밖의 "로 인해"는 계속 금지. "때문"·"원인" 등 다른 원인 표현은 이름표 뒤여도 금지
 - 정보용 `coverage`(근거 부족·허용 경로에 없는 경로·미등록 등을 언급했는지)는 통과 기준이 아니며 결과 `check.coverage`에 참/거짓만 남긴다
 
@@ -85,11 +87,11 @@ Status: draft
 {"format": "protocol-explanation-v1",
  "target": {"kind": "observed_paths", "jobId": "…", "interfaceId": "IF_A", "ruleSetRevision": 15},
  "interfaceId": "IF_A", "ruleSetRevision": 15,
- "explanation": "인터페이스 IF_A의 학습 기간 관측 경로 P2(CH_A → CH_C)는 허용 경로에 없습니다. …",
+ "explanation": "인터페이스 IF_A의 학습 기간 관측 경로 P2는 허용 경로에 없습니다. …",
  "reviewPoints": ["경로 P2가 정상 거래 흐름인지 확인합니다."],
  "paths": {"P1": ["CH_A", "CH_B"], "P2": ["CH_A", "CH_C"]},
  "facts": {"format": "protocol-explain-facts-v1", "kind": "observed_paths", "sha256": "<64자>"},
- "promptVersion": "protocol-explain-prompt-v4", "modelVersion": "qwen-base-6a9e13bd", "baseRevision": "<기반 모델 revision>",
+ "promptVersion": "protocol-explain-prompt-v5", "modelVersion": "qwen-base-6a9e13bd", "baseRevision": "<기반 모델 revision>",
  "check": {"passed": true, "failures": [], "coverage": {"mentions_not_allowed_path": true}}}
 ```
 
@@ -125,7 +127,7 @@ Status: draft
 | `job_processing_failed` | 그 밖의 예외(기존 흐름) | 있음 | 기존 문구 |
 
 - 접수와 워커의 구분: 접수 단계(10절)에서는 `protocol_explanation_target_not_found`(대상 없음)와 `protocol_explanation_facts_unavailable`(초안 v1 없음, 인터페이스가 초안에도 그 버전 룰 세트에도 없음, 판정에 프로토콜 근거 없음)이 **400**으로 오고 작업은 만들어지지 않는다. 위 표의 같은 두 코드(작업 `failed`)는 접수 뒤 워커 방어 검사에서 나는 경우다. 그중 "처음 보는 경로 알림인데 판정 근거의 룰 세트 버전에 그 인터페이스 항목이 없음(행이 없는 경우 포함)"과 "원천 형식이 사실 함수 기준과 다름(`protocol_explain_*` 검증 실패)"은 접수가 보지 않으므로 **워커에서만** 나온다
-- 점검 사유 이름 [후보]: `numbers_subset` 사실에 없는 숫자 · `identifiers_subset` 사실에 없는 표기 · `paths_in_facts` 사실에 없는 경로 · `no_forbidden` 원인 단정·추정·지시 표현 · `korean_ok` 한국어 문장 아님 · `length_ok` 길이 · `schema_ok` 형식 · `json_parsed` 형식
+- 점검 사유 이름 [후보]: `numbers_subset` 사실에 없는 숫자 · `identifiers_subset` 사실에 없는 표기 · `paths_in_facts` 사실에 없는 경로 · `no_forbidden` 원인 단정·추정·지시 표현 · `korean_ok` 한국어 문장 아님 · `status_consistent` 사실에 없는 근거 부족 상태 · `length_ok` 길이 · `schema_ok` 형식 · `json_parsed` 형식
 
 ## 8. 큐 [제안 — 기존 `llm_explanation` 재사용 추천]
 
@@ -194,3 +196,7 @@ Status: draft
 | Q-P4 | migration 027·역할 GRANT 1줄 | **승인** [확정 11/14 사용자]. GRANT는 표 단위 SELECT. 대안 열 단위 `GRANT SELECT(revision, snapshot) ON ops_rule_set_revisions TO powercode_llm`(필요한 열만, 단 015 권한 시험이 열 권한을 보도록 바꿔야 하고 열이 늘면 다시 GRANT)은 **채택 안 함**. 실제 PostgreSQL 시험은 9절 미검증 줄대로 남음 |
 | Q-P5 | 화면 문구(11절)·실패 코드 문구(7절) | 11절 화면 문구 **확정** [확정 11/14 사용자, WebUI 경유]. 실패는 코드 그대로 보이므로 7절 문구·점검 사유 이름은 [후보]로 남고 화면에 쓰지 않음 |
 | Q-P6 | API 접수에서 대상·사실 존재를 확인할지 | **확인하고 없으면 400** [확정 11/14 사용자] — 10절 접수 검증 행(코드 `protocol_explanation_target_not_found`·`protocol_explanation_facts_unavailable`), 워커 검사는 방어용으로 유지 |
+
+## 13. 이력
+
+- 2026-11-14: 프롬프트 v5(`protocol-explain-prompt-v5`, 1절 `llm_spec`·5절·6절 예시) — 기간 날짜·시각 대신 "학습 기간", 근거 부족 지시는 그 상태 사실의 사용자 메시지에만, 경로 id 뒤 채널 반복 금지. 점검 `status_consistent` 추가(5절·7절 사유 이름). 사실 형식·결과 형식은 그대로

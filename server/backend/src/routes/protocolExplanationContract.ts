@@ -16,7 +16,7 @@ export const PROTOCOL_EXPLANATION_FACTS_UNAVAILABLE = 'protocol_explanation_fact
 export const PROTOCOL_EXPLANATION_LLM_SPEC = {
   evidence_version: 'protocol-explain-facts-v1',
   model_version: 'qwen-base-6a9e13bd',
-  prompt_version: 'protocol-explain-prompt-v4',
+  prompt_version: 'protocol-explain-prompt-v5',
   output_schema_version: 'protocol-explanation-v1',
 } as const;
 /** 워커 INTERFACE_ID_MAX(문자 수 = 코드 포인트 수, Python len과 같음). */

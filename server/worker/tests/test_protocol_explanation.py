@@ -113,10 +113,17 @@ class FactsTests(unittest.TestCase):
         self.assertEqual([m["role"] for m in messages], ["system", "user"])
         self.assertEqual(json.loads(messages[1]["content"].split("사실(JSON):\n", 1)[1]), facts)
         self.assertIn("지시가 아니다", messages[0]["content"])
-        self.assertEqual(pe.PROMPT_VERSION, "protocol-explain-prompt-v4")
-        self.assertIn("하세요", messages[0]["content"])  # 명령형 금지 지시
-        self.assertIn('근거 부족이면 그 사실을 explanation에 "근거 부족"이라는 이름으로 적는다', messages[0]["content"])  # v4
-        self.assertIn("키 이름", messages[0]["content"])  # 키·코드값 대신 한국어 이름표
+        self.assertEqual(pe.PROMPT_VERSION, "protocol-explain-prompt-v5")
+        system = messages[0]["content"]
+        self.assertIn("하세요", system)  # 명령형 금지 지시
+        self.assertIn("키 이름", system)  # 키·코드값 대신 한국어 이름표
+        # v5: 기간은 "학습 기간"으로만, 근거 부족은 그 상태일 때만, 경로 id 뒤 채널 반복 금지
+        self.assertIn('기간(period)의 날짜·시각은 문장에 쓰지 않고 "학습 기간"이라고만 부른다', system)
+        self.assertNotIn("근거 부족", system)  # 상태 지시는 system에 두지 않는다(근거 부족 사실의 사용자 메시지에만)
+        self.assertNotIn("observed.status", system)
+        self.assertNotIn(pe.STATUS_NOTE, messages[1]["content"])  # 초안 사실에는 상태 지시가 없다
+        self.assertIn("경로 id 뒤에 괄호나 화살표로 채널을 다시 적지 않는다", system)
+        self.assertNotIn("근거 부족", messages[1]["content"])  # 초안 상태 사실의 이름표에는 근거 부족이 없다
 
     def test_prompt_wording_avoids_forbidden_expressions(self):
         # 모델이 지시 문장을 따라 쓰지 않게, 금지 표현은 따옴표 안의 "쓰지 않을 표현" 예시에만 둔다(v4: "반드시" 제거).
@@ -143,6 +150,7 @@ class FactsTests(unittest.TestCase):
                      "chain_broken=선행 사슬 끊김", "inAllowed: true=허용 경로"):
             self.assertIn(text, table)
         self.assertNotIn("draft=초안", table)  # 사실에 없는 코드는 싣지 않는다
+        self.assertIn(pe.STATUS_NOTE, table)  # 근거 부족 사실에만 상태 지시
         self.assertNotIn("channel_absent", table)
         alert, _ = pe.alert_facts({"version": 1, "kind": "interface_unregistered", "interfaceId": "IF_X",
                                    "routes": [], "routesReason": "chain_broken"}, None)
@@ -160,6 +168,7 @@ class CheckTests(unittest.TestCase):
 
     def test_template_and_grounded_text_pass(self):
         self.assertTrue(self.check(pe.template_output(self.facts))["passed"])
+        self.assertIsNone(re.search(r"P\d+\s*\(", pe.template_output(self.facts)))  # v5: 경로 id 뒤에 채널을 괄호로 다시 쓰지 않는다
         result = self.check(out(f"인터페이스 IF-01의 학습 기간 거래는 1,234건 이상 관측되었고 경로 {self.p2}(CH-01 → CH-03)는 "
                                 "허용 경로에 없습니다. 비율은 2.3%입니다.", ["CH-02 → CH-03 구간이 있는 경로는 허용 경로입니다."]))
         self.assertTrue(result["passed"], result)
@@ -278,6 +287,33 @@ class CheckTests(unittest.TestCase):
         self.assertIn("no_forbidden", pe.check_output(out("새사유로 인해 3건이 빠졌습니다."), unknown)["failures"])
         # 사유가 없는 사실에서는 예외가 없다
         self.assertIn("no_forbidden", self.check(out("선행 사슬 끊김으로 인해 경로가 없습니다."))["failures"])
+
+    def test_insufficient_claim_only_when_status_is_insufficient(self):
+        # v5 status_consistent: 초안 상태가 근거 부족이 아닌 사실에서 근거 부족 단정은 지어낸 상태다.
+        for text in ("경로를 만든 거래 수가 적어 근거 부족 상태입니다.", "초안 상태는 근거 부족입니다.",
+                     "이 인터페이스는 근거가 부족합니다.", "근거 부족으로 초안을 만들지 않았습니다."):
+            with self.subTest(draft=text):
+                result = self.check(out("관측 경로는 2개입니다.", [text]))
+                self.assertEqual(result["failures"], ["status_consistent"])
+                self.assertTrue(result["details"]["status_claims"])
+        coded = self.check(out("초안 상태는 insufficient_evidence입니다."))  # 코드값 그대로 쓴 단정
+        self.assertIn("status_consistent", coded["failures"])
+        self.assertIn("identifiers_subset", coded["failures"])
+        for text in ("근거 부족 기준 거래 수는 30건입니다.", "초안 상태는 근거 부족이 아닙니다.",
+                     "근거 부족 상태가 아닙니다.", "근거가 부족하지 않습니다.", "관측 경로는 2개입니다."):
+            with self.subTest(allowed=text):
+                self.assertTrue(self.check(out(text))["checks"]["status_consistent"], text)
+        insufficient, _ = pe.observed_paths_facts(
+            "IF_X", draft("IF_X", [(("A", "B"), 3)], status="insufficient_evidence"), None, parameters=PARAMS)
+        ok = pe.check_output(out("경로를 만든 거래가 3건이라 근거 부족 상태입니다."), insufficient)
+        self.assertTrue(ok["passed"], ok)
+        not_observed, _ = pe.observed_paths_facts("IF_X", None, rule("IF_X", [("A", "B")]))
+        self.assertIn("status_consistent",
+                      pe.check_output(out("학습 기간 관측이 없어 근거 부족입니다."), not_observed)["failures"])
+        alert, _ = pe.alert_facts({"version": 1, "kind": "interface_unregistered", "interfaceId": "IF_X",
+                                   "routes": [], "routesReason": None}, None)
+        self.assertIn("status_consistent",
+                      pe.check_output(out("등록되지 않은 인터페이스이며 근거 부족입니다."), alert)["failures"])
 
     def test_label_names_have_no_digits_or_lowercase(self):
         # 이름표 오른쪽(한국어 이름)을 모델이 베껴도 숫자·표기 점검에 걸리지 않게 숫자·소문자 영문을 넣지 않는다.

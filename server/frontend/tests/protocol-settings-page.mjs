@@ -437,7 +437,7 @@ const previewOk = (changes, warnings = []) => () => json({ valid: true, summary:
     explanation: "인터페이스 IF_SYN_ORDER의 관측 경로 P2는 허용 경로에 없습니다. P1은 허용 경로입니다. XP1·P9는 경로 id가 아닙니다.", reviewPoints,
     paths: { P1: ["CH_GW", "CH_ORDER", "CH_DB"], P2: ["CH_GW", "채널_외부", "CH_DB"] },
     facts: { format: "protocol-explain-facts-v1", kind: "observed_paths", sha256: "c".repeat(64) },
-    promptVersion: "protocol-explain-prompt-v4", modelVersion: "qwen-base-6a9e13bd", baseRevision: "r", check: { passed: true, failures: [], coverage: {} } });
+    promptVersion: "protocol-explain-prompt-v5", modelVersion: "qwen-base-6a9e13bd", baseRevision: "r", check: { passed: true, failures: [], coverage: {} } });
   const listItem = (id, status, extra = {}) => ({ id, kind: "explain_protocol", status, inputSpec: body, attemptCount: 1, maxAttempts: 3, nextRunAt: null, errorCode: null,
     resultConfigVersionId: null, createdAt: "2026-11-14T01:00:00.000000Z", finishedAt: null, result: null, ...extra });
   let jobs = [];

@@ -3,7 +3,7 @@ import type { Pool } from 'pg';
 import { resolveItem } from './analysisReadModel.js';
 
 /**
- * 이상 분석 처리 상태·조사·조치 기록·사용자별 읽음(analysis-ui.md, 014_analysis_workflow.sql).
+ * 이상 분석 처리 상태·조사·조치 기록(029 확인 결과 포함)·사용자별 읽음(analysis-ui.md, 014_analysis_workflow.sql·029_feedback_outcome.sql).
  * - 대상 키: detect 작업이 있으면 job_id(작업 항목과 그 최종 판정이 같은 대상), 작업 없는 이전 형식 판정이면 decision_id.
  * - 판정 값·evidence는 바꾸지 않는다. 조사·조치 기록은 확정 라벨·학습 입력이 아니다(다른 서비스 권한 없음).
  */
@@ -24,6 +24,9 @@ export const WORKFLOW_TRANSITIONS: Record<WorkflowState, readonly WorkflowState[
 export const FEEDBACK_KINDS = ['action', 'suspected-false-positive', 'insufficient-evidence'] as const;
 export type FeedbackKind = typeof FEEDBACK_KINDS[number];
 export const FEEDBACK_REASON_MAX = 2000;
+/** 확인 결과(029, 기획 "확인 결과(실제 이상·정상·판단 불가)"): actual-anomaly(실제 이상)·normal(정상)·undetermined(판단 불가). null = 미입력. */
+export const FEEDBACK_OUTCOMES = ['actual-anomaly', 'normal', 'undetermined'] as const;
+export type FeedbackOutcome = typeof FEEDBACK_OUTCOMES[number];
 
 const ISO = (column: string) => `to_char(${column} AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`;
 
@@ -64,19 +67,20 @@ export async function changeWorkflow(pool: Pick<Pool, 'connect'>, id: string, ac
   }
 }
 
-/** POST …/feedback: 조사·조치 기록 1건 추가(append-only, 요청자 기록). */
-export async function addFeedback(db: Queryable, id: string, actorId: string, request: { kind: FeedbackKind; reason: string }) {
+/** POST …/feedback: 조사·조치 기록 1건 추가(append-only, 요청자 기록). 확인 결과는 선택(null = 미입력). */
+export async function addFeedback(db: Queryable, id: string, actorId: string,
+  request: { kind: FeedbackKind; reason: string; outcome: FeedbackOutcome | null }) {
   const { itemId, target } = await targetOf(db, id);
-  const { rows: [row] } = await db.query(`INSERT INTO run_decision_feedback(id,${target.column},kind,reason,actor_id)
-    VALUES($1,$2,$3,$4,$5) RETURNING id,kind,reason,actor_id AS "actorId",${ISO('created_at')} AS "createdAt"`,
-  [crypto.randomUUID(), target.id, request.kind, request.reason, actorId]);
+  const { rows: [row] } = await db.query(`INSERT INTO run_decision_feedback(id,${target.column},kind,reason,actor_id,outcome)
+    VALUES($1,$2,$3,$4,$5,$6) RETURNING id,kind,reason,outcome,actor_id AS "actorId",${ISO('created_at')} AS "createdAt"`,
+  [crypto.randomUUID(), target.id, request.kind, request.reason, actorId, request.outcome]);
   return { id: itemId, item: row };
 }
 
 /** GET …/feedback: 그 판정 항목의 조사·조치 기록(최신순). */
 export async function listFeedback(db: Queryable, id: string) {
   const { itemId, target } = await targetOf(db, id);
-  const { rows } = await db.query(`SELECT id,kind,reason,actor_id AS "actorId",${ISO('created_at')} AS "createdAt"
+  const { rows } = await db.query(`SELECT id,kind,reason,outcome,actor_id AS "actorId",${ISO('created_at')} AS "createdAt"
     FROM run_decision_feedback WHERE ${target.column}=$1 ORDER BY created_at DESC,id DESC`, [target.id]);
   return { id: itemId, items: rows };
 }

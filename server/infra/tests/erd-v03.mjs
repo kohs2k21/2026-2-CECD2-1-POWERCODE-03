@@ -26,6 +26,7 @@ import { protocolAlerts023 } from './erd-v03-protocol-alerts.mjs';
 import { responseCodes025 } from './erd-v03-response-codes.mjs';
 import { notificationWindow026 } from './erd-v03-notification-window.mjs';
 import { jobNotifications028 } from './erd-v03-job-notifications.mjs';
+import { feedbackOutcome029 } from './erd-v03-feedback-outcome.mjs';
 
 const toolRoot = process.argv[2];
 assert(toolRoot, 'Pass an isolated temporary workspace containing the test dependencies');
@@ -276,6 +277,7 @@ try {
   await responseCodes025({ Client, port, connection, check, failures, migrations, migrationNames, rolesSql, parity });
   await notificationWindow026({ Client, port, connection, check, failures, migrations, migrationNames, rolesSql, parity });
   await jobNotifications028({ Client, port, connection, check, failures, migrations, migrationNames, rolesSql, parity });
+  await feedbackOutcome029({ Client, port, connection, check, failures, migrations, migrationNames, rolesSql, parity, insert });
   assert.equal(failures.length,0,failures.join('; '));
   console.log(`PASS ${checkCount} integration checks; no project runtime or customer data used`);
   passed = true;

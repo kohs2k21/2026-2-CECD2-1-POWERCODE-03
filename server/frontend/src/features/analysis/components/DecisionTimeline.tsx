@@ -1,6 +1,6 @@
 import type { DecisionDetail, FeedbackRecord, InterimHistory, InterimRecord } from "../data/analysisApi";
 import { readEvidenceV4 } from "../data/evidence";
-import { DASH, feedbackKindLabels, methodLabels, stampText } from "../labels";
+import { DASH, feedbackKindLabels, feedbackOutcomeLabels, feedbackOutcomeTitle, methodLabels, stampText } from "../labels";
 import { cn } from "@/lib/utils";
 
 /** 판정 기록 한 줄. `title`은 사유 코드 등(화면에는 표시 이름, 코드는 툴팁 — 와이어프레임 규칙). */
@@ -91,6 +91,7 @@ export const timelineEntries = (detail: DecisionDetail, history: InterimHistory 
 
 /**
  * 관리자 읽기 전용 줄(사용자 11/13 "판정 기록에 읽기전용으로"): 저장된 조사·조치 기록 `<유형> · <작성자 email>` + 사유.
+ * 확인 결과가 있으면 유형 뒤에 `확인 결과 <값>`(029), 미입력이면 줄에 두지 않는다.
  * 현재 업무 분류는 판정 요약에 있으므로 여기에 두지 않는다(변경 이력 API가 없어 마지막 변경만 보이면 이력처럼 읽힘).
  */
 export const recordEntries = (records: FeedbackRecord[]): TimelineEntry[] =>
@@ -98,7 +99,9 @@ export const recordEntries = (records: FeedbackRecord[]): TimelineEntry[] =>
     key: `record-${record.id}`,
     at: record.createdAt,
     tone: "record",
-    text: `${feedbackKindLabels[record.kind]} · ${record.actorEmail ?? record.actorId ?? DASH}`,
+    text: [feedbackKindLabels[record.kind], record.outcome && `${feedbackOutcomeTitle} ${feedbackOutcomeLabels[record.outcome]}`, record.actorEmail ?? record.actorId ?? DASH]
+      .filter(Boolean)
+      .join(" · "),
     note: record.reason,
   }));
 

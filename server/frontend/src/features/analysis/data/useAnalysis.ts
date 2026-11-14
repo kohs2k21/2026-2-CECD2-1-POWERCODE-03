@@ -18,6 +18,7 @@ import {
   saveDecisionFeedback,
   type DecisionDetail,
   type FeedbackKind,
+  type FeedbackOutcome,
   type ListParams,
   type WorkflowState,
 } from "./analysisApi";
@@ -75,7 +76,8 @@ export const useFeedbackSave = (id: string) => {
   const { user } = useAuthSession();
   const cache = useQueryClient();
   return useMutation({
-    mutationFn: ({ kind, reason }: { kind: FeedbackKind; reason: string }) => saveDecisionFeedback(id, kind, reason),
+    mutationFn: ({ kind, reason, outcome = null }: { kind: FeedbackKind; reason: string; outcome?: FeedbackOutcome | null }) =>
+      saveDecisionFeedback(id, kind, reason, outcome),
     onSuccess: () => void cache.invalidateQueries({ queryKey: accountQueryKey(feedbackQueryName, user?.id) }),
   });
 };

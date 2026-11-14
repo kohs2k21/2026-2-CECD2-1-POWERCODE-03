@@ -8,7 +8,7 @@ Reserved for versioned request, response, event, and worker contracts shared by 
 - `rules.md`는 버전별 Rule 초안 CRUD와 파생변수 참조 규칙을 정의한다.
 - `model_adapters.md`는 추후 제공할 변수 생성·Rule 추천·IF 모델의 연결 함수를 정의한다.
 - `operations-ui.md`는 운영 현황(`/operations`) 읽기 API(`/api/operations/*`)·위젯 배치와 이상 근거 상세·피드백 UI 경계를 정의한다.
-- `analysis-ui.md`는 이상 분석(`/analysis`, `/analysis/d/:decisionId`) 판정 목록·상세·중간 판정 기록·Process Flow 읽기 API와 처리 상태·읽음·조사·조치 기록 쓰기 API(`/api/analysis/*`, 014 표), 판정 결과별·위험도별·분류함 분류 매핑(저장 등급·위험도만), 실시간 반영(중간 판정 이벤트 포함)·설명 요청 화면 규칙을 정의한다(#105).
+- `analysis-ui.md`는 이상 분석(`/analysis`, `/analysis/d/:decisionId`) 판정 목록·상세·중간 판정 기록·Process Flow 읽기 API와 처리 상태·읽음·조사·조치 기록(확인 결과 포함) 쓰기 API(`/api/analysis/*`, 014 표·029 열), 판정 결과별·위험도별·분류함 분류 매핑(저장 등급·위험도만), 실시간 반영(중간 판정 이벤트 포함)·설명 요청 화면 규칙을 정의한다(#105).
 - `process-graph.md`는 실행 그래프 응답 형식 `{graph, nodes, edges}`(층 A 거래 내부 구현 `GET /api/analysis/decisions/:id/graph`, 층 B·C 어휘 예약)·고정 어휘·id 규칙·검증 상태를 정의한다(실험 기능). `process-graph-id-vectors.json`은 id·없음 판정 공용 시험 벡터다.
 - `relation-rules.md`는 거래 내부 관계 규칙·`hard:transaction-failed`·거래 행 도착 재판정·룰 세트 hash v3의 Detector 판정 설계, `protocol-rules.md`는 인터페이스별 허용 경로(프로토콜 규칙) 판정·알림 근거와 룰 세트 v3 판정 구현 계획을 정의한다(실험 기능, Detector 판정·재판정 구현 — 재판정 커서는 DB 024 [제안]). `protocol-path-vectors.json`은 프로토콜 경로 만들기(Detector·Trainer 공용) 시험 벡터다.
 - `incidents-ui.md`는 사건 보기(층 C) 읽기 API `GET /api/analysis/incidents`·`/:id`·`/:id/members`의 읽기 순서(병합 → 이어짐)·거래 기준 건수·해제 계산·오류 code와 화면 용어를 정의한다(실험 기능).

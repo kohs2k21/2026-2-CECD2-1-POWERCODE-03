@@ -62,8 +62,10 @@ try {
   // 쓰기 경로(API 역할): 처리 상태 이력 INSERT, 조사·조치 기록 INSERT·조회, 읽음 upsert.
   assert.equal((await changeWorkflow(api, J.v4Final.id, 'grant-user', { state: 'open', expectedState: 'detected' })).workflow.state, 'open');
   assert.equal((await changeWorkflow(api, D.anomaly.id, 'grant-user', { state: 'resolved', expectedState: 'detected' })).workflow.state, 'resolved');
-  assert.equal((await addFeedback(api, D.anomaly.id, 'grant-admin', { kind: 'action', reason: '권한 시험' })).item.kind, 'action');
-  assert.equal((await listFeedback(api, D.anomaly.id)).items.length, 1);
+  // 029 확인 결과 열: 표 단위 014 GRANT로 API 역할이 쓰고 읽는다.
+  const record = (await addFeedback(api, D.anomaly.id, 'grant-admin', { kind: 'action', reason: '권한 시험', outcome: 'normal' })).item;
+  assert.deepEqual([record.kind, record.reason, record.outcome], ['action', '권한 시험', 'normal']);
+  assert.deepEqual((await listFeedback(api, D.anomaly.id)).items.map((item) => item.outcome), ['normal']);
   const seen = list.items.find((item) => item.id === J.interim.id).occurredAt;
   assert.equal((await markRead(api, J.interim.id, 'grant-user', seen)).readAt, seen);
   assert.equal((await markRead(api, J.interim.id, 'grant-user', seen)).readAt, seen, 'upsert on conflict (read_at only)');

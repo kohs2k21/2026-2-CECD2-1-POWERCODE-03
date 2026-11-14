@@ -10,13 +10,18 @@ import {
   FEEDBACK_REASON_MAX,
   analysisWriteErrorTitle,
   feedbackKinds,
+  feedbackOutcomes,
   type DecisionDetail,
   type FeedbackKind,
+  type FeedbackOutcome,
   type WorkflowState,
 } from "../data/analysisApi";
 import { useFeedbackSave, useWorkflowChange } from "../data/useAnalysis";
 import { classifyIcon, workflowIcons } from "../icons";
-import { classifyLabel, feedbackKindLabels, workflowActions } from "../labels";
+import { DASH, classifyLabel, feedbackKindLabels, feedbackOutcomeLabels, feedbackOutcomeTitle, workflowActions } from "../labels";
+
+/** 확인 결과를 골랐는데 사유가 비었을 때(기록은 사유 1~2000자라 저장할 수 없음). 문구는 와이어프레임 feedbackBox 빈 사유 안내 그대로. */
+export const reasonRequiredText = "조사·조치 사유를 입력하세요.";
 
 /**
  * 대화상자 안 처리 버튼: 현재 상태에서 허용된 보류·완료(감지됨 = 처리 보류·처리 완료, 보류 = 처리 완료만). 주 버튼 = 처리 완료(workflowActions 주 버튼).
@@ -27,9 +32,13 @@ const recordActions = (state: WorkflowState) => workflowActions[state].filter(([
 export type WorkflowRecordBodyProps = {
   state: WorkflowState;
   kind: FeedbackKind;
+  outcome: FeedbackOutcome | null;
   reason: string;
   onKind: (kind: FeedbackKind) => void;
+  onOutcome: (outcome: FeedbackOutcome | null) => void;
   onReason: (reason: string) => void;
+  /** 확인 결과를 골랐는데 사유가 비어 처리 버튼을 막았다(reasonRequiredText 표시). */
+  reasonRequired: boolean;
   onSubmit: (to: WorkflowState) => void;
   pending: boolean;
   saveError: unknown;
@@ -37,10 +46,24 @@ export type WorkflowRecordBodyProps = {
 };
 
 /**
- * 로그 분류하기 대화상자 본문(사용자 11/13, 와이어프레임 feedbackBox 항목을 옮김): 기록 유형·조사·조치 사유(선택, 최대 2000자) + 처리 보류·처리 완료.
- * 처리 버튼은 사유가 있으면 먼저 기록을 저장한 뒤 처리 상태를 바꾼다. 저장된 기록은 상세 판정 기록에 읽기 전용으로 보인다. 닫기는 X·Esc(취소 버튼 없음).
+ * 로그 분류하기 대화상자 본문(사용자 11/13, 와이어프레임 feedbackBox 항목을 옮김): 기록 유형·확인 결과(선택, 029)·조사·조치 사유(선택, 최대 2000자) + 처리 보류·처리 완료.
+ * 처리 버튼은 사유가 있으면 먼저 기록을 저장한 뒤 처리 상태를 바꾼다. 확인 결과는 기록에 붙으므로 고르면 사유가 필요하다.
+ * 저장된 기록은 상세 판정 기록에 읽기 전용으로 보인다. 닫기는 X·Esc(취소 버튼 없음).
  */
-export const WorkflowRecordBody = ({ state, kind, reason, onKind, onReason, onSubmit, pending, saveError, changeError }: WorkflowRecordBodyProps) => (
+export const WorkflowRecordBody = ({
+  state,
+  kind,
+  outcome,
+  reason,
+  onKind,
+  onOutcome,
+  onReason,
+  reasonRequired,
+  onSubmit,
+  pending,
+  saveError,
+  changeError,
+}: WorkflowRecordBodyProps) => (
   <>
     <div className="grid gap-2">
       <Label htmlFor="analysis-feedback-kind">기록 유형</Label>
@@ -48,6 +71,22 @@ export const WorkflowRecordBody = ({ state, kind, reason, onKind, onReason, onSu
         {feedbackKinds.map((value) => (
           <NativeSelectOption key={value} value={value}>
             {feedbackKindLabels[value]}
+          </NativeSelectOption>
+        ))}
+      </NativeSelect>
+    </div>
+    <div className="grid gap-2">
+      <Label htmlFor="analysis-feedback-outcome">{feedbackOutcomeTitle}</Label>
+      <NativeSelect
+        id="analysis-feedback-outcome"
+        value={outcome ?? ""}
+        disabled={pending}
+        onChange={(event) => onOutcome((event.target.value || null) as FeedbackOutcome | null)}
+      >
+        <NativeSelectOption value="">{DASH}</NativeSelectOption>
+        {feedbackOutcomes.map((value) => (
+          <NativeSelectOption key={value} value={value}>
+            {feedbackOutcomeLabels[value]}
           </NativeSelectOption>
         ))}
       </NativeSelect>
@@ -62,8 +101,14 @@ export const WorkflowRecordBody = ({ state, kind, reason, onKind, onReason, onSu
         placeholder="확인한 사실과 조치 사유를 입력하세요."
         disabled={pending}
         value={reason}
+        aria-invalid={reasonRequired || undefined}
         onChange={(event) => onReason(event.target.value)}
       />
+      {reasonRequired && (
+        <span role="alert" className="text-sm text-destructive-text">
+          {reasonRequiredText}
+        </span>
+      )}
     </div>
     {Boolean(saveError) && <ErrorState title={analysisWriteErrorTitle(saveError, "피드백 저장")} />}
     {Boolean(changeError) && (
@@ -116,20 +161,29 @@ export const WorkflowActions = ({ detail, canRecord }: { detail: DecisionDetail;
   const save = useFeedbackSave(detail.id);
   const [open, setOpen] = useState(false);
   const [kind, setKind] = useState<FeedbackKind>("action");
+  const [outcome, setOutcome] = useState<FeedbackOutcome | null>(null);
   const [reason, setReason] = useState("");
+  const [reasonRequired, setReasonRequired] = useState(false);
   const pending = change.isPending || save.isPending;
   const state = detail.workflow.state;
   const openDialog = () => {
     change.reset();
     save.reset();
+    setReasonRequired(false);
     setOpen(true);
   };
   const submit = async (to: WorkflowState) => {
     const trimmed = reason.trim();
+    // 확인 결과는 기록(사유 필수)에 붙는다: 고른 채 사유가 비면 저장·상태 변경 없이 안내만(고른 값을 버리지 않는다).
+    if (outcome !== null && !trimmed) {
+      setReasonRequired(true);
+      return;
+    }
     try {
       if (trimmed) {
-        await save.mutateAsync({ kind, reason: trimmed });
+        await save.mutateAsync({ kind, reason: trimmed, outcome });
         setReason("");
+        setOutcome(null);
       }
       await change.mutateAsync(to);
       setOpen(false);
@@ -180,9 +234,18 @@ export const WorkflowActions = ({ detail, canRecord }: { detail: DecisionDetail;
           }}
           state={state}
           kind={kind}
+          outcome={outcome}
           reason={reason}
           onKind={setKind}
-          onReason={setReason}
+          onOutcome={(next) => {
+            setOutcome(next);
+            if (next === null) setReasonRequired(false);
+          }}
+          onReason={(next) => {
+            setReason(next);
+            if (next.trim()) setReasonRequired(false);
+          }}
+          reasonRequired={reasonRequired}
           onSubmit={(to) => void submit(to)}
           pending={pending}
           saveError={save.error}

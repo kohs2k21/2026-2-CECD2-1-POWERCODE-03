@@ -616,6 +616,13 @@ const listCalls = () => requested.filter((r) => r.path === "/api/analysis/decisi
   let body = await renderBody();
   assert.equal(body.root.findByProps({ id: "analysis-feedback-reason" }).props.maxLength, 2000);
   assert.ok(body.root.findByProps({ id: "analysis-feedback-kind" }));
+  // 확인 결과(029): 기록 유형 다음 선택, 기본 미입력(—), 값 3개는 기획 문구 그대로
+  const outcomeSelect = body.root.findByProps({ id: "analysis-feedback-outcome" });
+  assert.equal(outcomeSelect.props.value, "", "outcome starts unset");
+  assert.deepEqual(outcomeSelect.findAll((node) => node.type === "option").map((o) => [o.props.value, text(o.children)]),
+    [["", "—"], ["actual-anomaly", "실제 이상"], ["normal", "정상"], ["undetermined", "판단 불가"]]);
+  const labelsShown = body.root.findAll((node) => node.type === "label").map((l) => text(l.children));
+  assert.deepEqual(labelsShown, ["기록 유형", "확인 결과", "조사·조치 사유"], "field order");
   assert.ok(!text(body.toJSON()).includes("재처리 확인"), "records are not listed in the dialog (they live in the timeline)");
   assert.deepEqual(body.root.findAll((node) => node.type === "button").map((b) => text(b.children)), ["처리 보류", "처리 완료"], "no 취소 button");
   const variants = () => Object.fromEntries(body.root.findAll((node) => typeof node.type !== "string" && node.props["data-workflow-to"]).map((b) => [b.props["data-workflow-to"], b.props.variant]));
@@ -648,7 +655,7 @@ const listCalls = () => requested.filter((r) => r.path === "/api/analysis/decisi
   await act(async () => release());
   // 기록 저장(앞뒤 공백 제거) 다음 상태 변경. 409 → 대화상자 유지, 오류 그대로, 저장된 사유는 비움
   await wait(() => Boolean(dialog().props.changeError), "state change failure kept in the dialog");
-  assert.deepEqual(posts, [{ kind: "suspected-false-positive", reason: "배치 재처리" }]);
+  assert.deepEqual(posts, [{ kind: "suspected-false-positive", reason: "배치 재처리" }], "no outcome key when 확인 결과 is not chosen");
   assert.deepEqual(puts, [{ state: "resolved", expectedState: "detected" }]);
   const order = requested.filter((r) => r.method !== "GET" && r.path.startsWith("/api/analysis/decisions/d-5/") && !r.path.endsWith("/read")).map((r) => r.method);
   assert.deepEqual(order, ["POST", "POST", "PUT"], "failed save, then record saved before the state change");
@@ -682,6 +689,37 @@ const listCalls = () => requested.filter((r) => r.path === "/api/analysis/decisi
   body = await renderBody();
   assert.deepEqual(body.root.findAll((node) => node.type === "button").map((b) => text(b.children)), ["처리 완료"], "open state: the dialog offers only 처리 완료");
   await act(async () => body.unmount());
+  // 확인 결과(029): 고르고 사유가 비면 저장·상태 변경 없이 와이어프레임 안내 `조사·조치 사유를 입력하세요.`, 고른 값은 남는다.
+  // 사유를 넣으면 안내가 사라지고, 처리 완료 = 기록(확인 결과 포함) 저장 뒤 상태 변경, 저장 뒤 확인 결과·사유를 비운다. 판정 기록 줄에 `확인 결과 <값>`.
+  await act(async () => headerButton("로그 분류하기").props.onClick());
+  await act(async () => dialog().props.onOutcome("actual-anomaly"));
+  await act(async () => dialog().props.onReason("   "));
+  const putsBefore = puts.length;
+  await act(async () => dialog().props.onSubmit("resolved"));
+  assert.deepEqual([dialog().props.reasonRequired, dialog().props.open, dialog().props.outcome, posts.length, puts.length],
+    [true, true, "actual-anomaly", 1, putsBefore], "outcome without a reason sends nothing");
+  body = await renderBody();
+  assert.ok(text(body.toJSON()).includes("조사·조치 사유를 입력하세요."), "reason required text");
+  assert.equal(body.root.findByProps({ id: "analysis-feedback-reason" }).props["aria-invalid"], true);
+  await act(async () => body.unmount());
+  await act(async () => dialog().props.onReason("HUB 연결 오류 확인"));
+  assert.equal(dialog().props.reasonRequired, false, "typing a reason clears the notice");
+  await act(async () => dialog().props.onSubmit("resolved"));
+  await wait(() => dialog().props.open === false && app.shown().includes("업무 분류완료"), "saved with outcome, then resolved");
+  assert.deepEqual(posts[1], { kind: "suspected-false-positive", reason: "HUB 연결 오류 확인", outcome: "actual-anomaly" });
+  assert.deepEqual(puts.at(-1), { state: "resolved", expectedState: "open" });
+  await wait(() => records().some((r) => r.includes("오탐 의심 · 확인 결과 실제 이상 · admin@example.test")), "outcome shown in the timeline");
+  assert.deepEqual([dialog().props.outcome, dialog().props.reason], [null, ""], "outcome and memo cleared after the save");
+  // 확인 결과를 고른 뒤 다시 미입력(—)으로 돌리면 안내도 사라진다
+  await act(async () => headerButton("원래 상태로 복원").props.onClick());
+  await wait(() => app.shown().includes("업무 분류감지됨"), "restored again");
+  await act(async () => headerButton("로그 분류하기").props.onClick());
+  await act(async () => dialog().props.onOutcome("normal"));
+  await act(async () => dialog().props.onSubmit("open"));
+  assert.equal(dialog().props.reasonRequired, true);
+  await act(async () => dialog().props.onOutcome(null));
+  assert.equal(dialog().props.reasonRequired, false, "clearing the outcome clears the notice");
+  await act(async () => dialog().props.onOpenChange(false));
   await app.cleanup();
 }
 

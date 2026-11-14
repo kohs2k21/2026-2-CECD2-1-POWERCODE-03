@@ -439,11 +439,25 @@ export const parseGraph = (value: unknown, requested: string): DecisionGraph => 
 export const feedbackKinds = ["action", "suspected-false-positive", "insufficient-evidence"] as const;
 export type FeedbackKind = (typeof feedbackKinds)[number];
 export const FEEDBACK_REASON_MAX = 2000;
-export type FeedbackRecord = { id: string; kind: FeedbackKind; reason: string; actorId: string | null; actorEmail: string | null; createdAt: string | null };
+/** 확인 결과(029, 기획 "확인 결과(실제 이상·정상·판단 불가)"). null = 미입력. */
+export const feedbackOutcomes = ["actual-anomaly", "normal", "undetermined"] as const;
+export type FeedbackOutcome = (typeof feedbackOutcomes)[number];
+export type FeedbackRecord = {
+  id: string;
+  kind: FeedbackKind;
+  reason: string;
+  outcome: FeedbackOutcome | null;
+  actorId: string | null;
+  actorEmail: string | null;
+  createdAt: string | null;
+};
 const parseFeedbackRecord = (value: unknown): FeedbackRecord[] => {
   const kind = record(value) ? oneOf(value.kind, feedbackKinds) : null;
   if (!record(value) || !text(value.id) || !kind || typeof value.reason !== "string") return [];
-  return [{ id: value.id as string, kind, reason: value.reason, actorId: text(value.actorId), actorEmail: text(value.actorEmail), createdAt: time(value.createdAt) }];
+  // 확인 결과: 없음·null = 미입력. 알 수 없는 값은 미입력으로 바꾸지 않고 형식이 틀린 항목으로 버린다(기존 규칙).
+  const outcome = value.outcome === undefined || value.outcome === null ? null : oneOf(value.outcome, feedbackOutcomes);
+  if (outcome === null && value.outcome !== undefined && value.outcome !== null) return [];
+  return [{ id: value.id as string, kind, reason: value.reason, outcome, actorId: text(value.actorId), actorEmail: text(value.actorEmail), createdAt: time(value.createdAt) }];
 };
 export const parseFeedbackList = (value: unknown): { id: string; items: FeedbackRecord[] } => {
   if (!record(value) || !text(value.id) || !Array.isArray(value.items)) return fail("조사·조치 기록");
@@ -470,8 +484,10 @@ export const changeDecisionWorkflow = async (id: string, state: WorkflowState, e
   if (!workflow) return fail("업무 분류");
   return workflow;
 };
-export const saveDecisionFeedback = async (id: string, kind: FeedbackKind, reason: string) => {
-  const value = await httpClient.post<unknown>(`/api/analysis/decisions/${encodeURIComponent(id)}/feedback`, { kind, reason });
+/** 조사·조치 기록 저장. 확인 결과를 고르지 않았으면(null) outcome 키를 보내지 않는다(서버는 생략 = 미입력). */
+export const saveDecisionFeedback = async (id: string, kind: FeedbackKind, reason: string, outcome: FeedbackOutcome | null = null) => {
+  const value = await httpClient.post<unknown>(`/api/analysis/decisions/${encodeURIComponent(id)}/feedback`,
+    outcome === null ? { kind, reason } : { kind, reason, outcome });
   const [item] = record(value) ? parseFeedbackRecord(value.item) : [];
   return item ?? fail("조사·조치 기록");
 };

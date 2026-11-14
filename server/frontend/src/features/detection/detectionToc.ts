@@ -1,4 +1,4 @@
-import type { DetectionMenuId } from "@/app/routes";
+import { paths, type DetectionMenuId } from "@/app/routes";
 import { HARD_TERM, PROTOCOL_TERM, RELATION_TERM, SOFT_TERM } from "./rules/ruleDraft";
 import { RESPONSE_CODE_TERM } from "./rules/responsecodes/responseCodeLabels";
 
@@ -32,4 +32,17 @@ export const detectionToc: Record<DetectionMenuId, readonly DetectionSection[]> 
   rules: [s.rulesHard, s.rulesSoft, s.rulesRelation, s.rulesProtocols, s.rulesResponseCodes, s.rulesCandidates, s.rulesHistory],
   models: [s.modelsVersions, s.modelsTrain],
   evaluations: [s.evaluationsList, s.evaluationsNew],
+};
+
+/** 메뉴 첫 화면의 한 영역 주소(#영역 id). 하위 화면 뒤로가기가 그 영역으로 돌아가게 returnTo로 쓴다. */
+export const sectionPath = (menuPath: string, section: DetectionSection) => `${menuPath}#${section.id}`;
+
+/**
+ * 룰 설정 카드에서 들어가는 하위 목록 → 그 카드 영역. 뒤로가기 기본 대상이라 넘겨받은 returnTo가 없어도
+ * (상세에서 목록으로 돌아온 뒤·새로고침·주소 직접 입력) 목록의 뒤로가기는 카드 위치로 간다. 상세 화면은 기존대로 넘겨받은 주소를 따른다.
+ */
+export const detectionParentSection: Readonly<Record<string, string>> = {
+  [paths.detectionRuleProtocols]: sectionPath(paths.detectionRules, s.rulesProtocols),
+  [paths.detectionRuleResponseCodes]: sectionPath(paths.detectionRules, s.rulesResponseCodes),
+  [paths.detectionRuleCandidates]: sectionPath(paths.detectionRules, s.rulesCandidates),
 };

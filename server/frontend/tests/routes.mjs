@@ -272,6 +272,15 @@ for (const [path, search, expected] of legacy) {
     await act(async () => new Promise((resolve) => setTimeout(resolve, 150)));
     assert.deepEqual(calls.splice(0), [["into", "rules-soft", "start"]], "waits for the section to appear");
     await app.cleanup();
+    // 하위 목록의 고정 뒤로가기 → 룰 설정의 그 카드 영역: 경로가 바뀐 해시 이동이라 맨 위로 올린 뒤 영역으로
+    sections.set("rules-response-codes", fakeSection("rules-response-codes"));
+    const list = await mount("/detection/rules/response-codes");
+    const back = list.links().find((node) => node.props["aria-label"] === "뒤로 · 룰 설정");
+    assert.equal(back.props.href, "/detection/rules#rules-response-codes");
+    calls.length = 0;
+    await act(async () => list.router.navigate(back.props.href));
+    assert.deepEqual(calls.splice(0), [["top", 0, 0], ["into", "rules-response-codes", "start"]], "back returns to the card area");
+    await list.cleanup();
   } finally {
     delete globalThis.window.scrollTo;
     delete globalThis.document;

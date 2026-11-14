@@ -170,6 +170,13 @@ const tocSections = (app, menu) => detectionToc[menu].map(({ id }) => {
   // 규칙 추천 진입 카드(rule-candidates-ui.md): 이상 징후 규칙 아래·변경 기록 위, 후보 목록으로 가는 링크만.
   const entry = app.renderer.root.find((node) => node.props?.["aria-label"] === "규칙 추천" && node.props["data-slot"] === "section-card");
   assert.equal(entry.findAllByType("a").map((a) => [a.props.href, text(a.children)]).join(), "/detection/rules/candidates,후보 보기");
+  // 카드 → 하위 목록 링크는 돌아올 카드 영역을 넘긴다(하위 화면 고정 뒤로가기가 그 영역으로 스크롤)
+  const cardLinks = app.renderer.root.findAll((node) => typeof node.type !== "string" && typeof node.props.to === "string" && node.props.to.startsWith("/detection/rules/") && node.props.state);
+  assert.deepEqual(cardLinks.map((node) => [node.props.to, node.props.state.returnTo]), [
+    ["/detection/rules/protocols", "/detection/rules#rules-protocols"],
+    ...(cardLinks.length === 3 ? [["/detection/rules/response-codes", "/detection/rules#rules-response-codes"]] : []),
+    ["/detection/rules/candidates", "/detection/rules#rules-candidates"],
+  ]);
   assert.equal(app.renderer.root.findAll((node) => node.type === "table" && node.props["aria-label"] === "이상 규칙").length, 1, "table keeps a hidden name");
   assert.ok(shown.indexOf("START_TIME > END_TIME") < shown.indexOf(HARD_WARNING) && shown.indexOf(HARD_WARNING) < shown.indexOf("AI 규칙 추천"), "bottom of the hard rule section");
   for (const expected of ["변경자 admin@example.test", "켜진 규칙 · 이상 규칙 2/2 · 이상 징후 규칙 1/1", "STATUS ≠ S", "START_TIME > END_TIME (종료 시각이 없으면 판단하지 않음)",

@@ -5,12 +5,12 @@ import { SideNav } from "@/components/layout/SideNav";
 import { Button } from "@/components/ui/button";
 import { activeDetectionMenu, detectionMenu, paths } from "@/app/routes";
 import { observeHeight } from "@/lib/observeHeight";
-import { detectionToc } from "./detectionToc";
+import { detectionParentSection, detectionToc } from "./detectionToc";
 import { hashId, useActiveSection, useDetectionScroll } from "./useDetectionScroll";
 
 export type DetectionReturnState = { returnTo?: string };
 
-/** 하위 화면(상세·모델 교체)에서 돌아갈 주소: 같은 탐지 설정 안에서 넘겨받은 주소, 없으면 해당 메뉴 첫 화면. */
+/** 하위 화면(상세·모델 교체)에서 돌아갈 주소: 같은 탐지 설정 안에서 넘겨받은 주소, 없으면 들어온 카드 영역(룰 설정 하위 목록) 또는 해당 메뉴 첫 화면. */
 export const detectionBackTarget = (pathname: string, state: unknown) => {
   const menu = detectionMenu.find((item) => pathname.startsWith(item.to + "/"));
   if (!menu) return null;
@@ -21,7 +21,7 @@ export const detectionBackTarget = (pathname: string, state: unknown) => {
     !returnTo.startsWith("//") &&
     new URL(returnTo, "https://local.invalid").pathname !== pathname
       ? returnTo
-      : menu.to;
+      : (detectionParentSection[pathname] ?? menu.to);
   return { to: target, label: detectionMenu.find((item) => target.startsWith(item.to))?.label ?? menu.label };
 };
 

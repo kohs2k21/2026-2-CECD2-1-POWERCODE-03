@@ -305,9 +305,17 @@ class ParseJobTests(unittest.TestCase):
             recommendation.parse_job(job_spec(*[rule("elapsed_ms", 1, f"{index:08x}") for index in range(33)]), LLM_SPEC)
 
     def test_rule_set_reference_is_required(self):
-        for changes in ({"ruleSetContentHash": "9c40"}, {"ruleSetContentHashVersion": 3}, {"ruleSetRevision": True}):
-            with self.assertRaisesRegex(ValueError, "^invalid_rule_set_reference$"):
+        for changes in ({"ruleSetContentHash": "9c40"}, {"ruleSetContentHashVersion": 4}, {"ruleSetContentHashVersion": 0},
+                        {"ruleSetContentHashVersion": True}, {"ruleSetContentHashVersion": 3.0},
+                        {"ruleSetContentHashVersion": None}, {"ruleSetRevision": True}):
+            with self.subTest(changes=changes), self.assertRaisesRegex(ValueError, "^invalid_rule_set_reference$"):
                 recommendation.parse_job(job_spec(rule("elapsed_ms"), **changes), LLM_SPEC)
+
+    def test_rule_set_hash_versions_pass_through(self):
+        for version in (1, 2, 3):
+            with self.subTest(version=version):
+                plan = recommendation.parse_job(job_spec(rule("elapsed_ms"), ruleSetContentHashVersion=version), LLM_SPEC)
+                self.assertEqual(plan.rule_set, {"revision": 13, "contentHash": HASH, "contentHashVersion": version})
 
     def test_period_requires_persisted_time_basis(self):
         data = {"snapshotId": None, "from": "a", "until": "b", "timeBasis": "esb_occurred_at"}
@@ -363,6 +371,11 @@ class BundleCase(unittest.TestCase):
 
 
 class RecommendationResultTests(BundleCase):
+    def test_rule_set_hash_v3_copied_to_result(self):
+        plan = recommendation.parse_job(job_spec(rule("elapsed_ms"), ruleSetContentHashVersion=3), LLM_SPEC)
+        result = model_adapters.recommend_thresholds(plan, sample_rows(), SNAPSHOT, "persisted_at")
+        self.assertEqual(result["ruleSet"], {"revision": 13, "contentHash": HASH, "contentHashVersion": 3})
+
     def test_result_document(self):
         soft = [rule("elapsed_ms", 5000, "bbbbbbbb"), rule("elapsed_ms", 9000, "aaaaaaaa"), rule("error_ratio", 0.01),
                 rule("retry_count", 3), rule("total_count", 10000)]

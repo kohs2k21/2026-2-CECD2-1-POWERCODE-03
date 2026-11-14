@@ -30,7 +30,7 @@
     "evidence_version": "protocol-explain-facts-v1",
     "input_evidence_hash": "0000000000000000000000000000000000000000000000000000000000000000",
     "model_version": "qwen-base-6a9e13bd",
-    "prompt_version": "protocol-explain-prompt-v4",
+    "prompt_version": "protocol-explain-prompt-v5",
     "output_schema_version": "protocol-explanation-v1",
     "reuse_key": "1111111111111111111111111111111111111111111111111111111111111111"
   }

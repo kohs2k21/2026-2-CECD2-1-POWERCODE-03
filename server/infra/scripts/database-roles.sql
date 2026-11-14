@@ -90,7 +90,7 @@ GRANT INSERT ON run_decision_interims TO powercode_detector;
 GRANT SELECT,INSERT ON run_decision_workflow_events,run_decision_feedback TO powercode_api;
 GRANT SELECT,INSERT,UPDATE(read_at) ON run_decision_reads TO powercode_api;
 -- 015: operational revision history (rule set, active model set, detection policy). Append-only: API saves with
--- SELECT,INSERT under pg_advisory_xact_lock(81739,0), Detector and Trainer read. Collector and LLM have no access.
+-- SELECT,INSERT under pg_advisory_xact_lock(81739,0), Detector and Trainer read. Collector has no access; LLM reads the rule set table only (027 below).
 -- ops_operational_state is security_invoker, so its readers also need SELECT on the three tables.
 GRANT SELECT,INSERT ON ops_rule_set_revisions,ops_active_model_set_revisions,ops_detection_policy_revisions TO powercode_api;
 GRANT SELECT ON ops_rule_set_revisions,ops_active_model_set_revisions,ops_detection_policy_revisions TO powercode_detector,powercode_trainer;

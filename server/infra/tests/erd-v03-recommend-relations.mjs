@@ -6,9 +6,8 @@
 // result_summary values are test data; the database does not constrain their shape.
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
-import { readFile } from 'node:fs/promises';
-import { join } from 'node:path';
 import { catalog, delta, nameOf, statements } from './erd-v03-detect-v04.mjs';
+import { reconcileStatements } from './erd-v03-llm-grant.mjs';
 
 const KIND = 'recommend_relations';
 const CONTRACT = /run_jobs_v03_contract/;
@@ -27,13 +26,8 @@ export async function recommendRelations021({ Client, port, connection, check, f
     try { await run(); fail(label, 'accepted'); }
     catch (e) { verdict(e.code === codeWanted && why.test(`${e.constraint ?? ''} ${e.message}`), `${label} (${codeWanted})`, `${e.code} ${e.constraint ?? ''} ${e.message}`); }
   };
-  // pg_queue.reconcile_dead_jobs for the training queue, read as text (no runtime import), same extraction as erd-v03-llm-grant.mjs.
-  const pgQueue = await readFile(join(infra, '..', 'worker', 'pg_queue.py'), 'utf8');
-  const start = pgQueue.indexOf('def reconcile_dead_jobs');
-  assert(start >= 0, 'pg_queue.reconcile_dead_jobs present');
-  const end = pgQueue.indexOf('\ndef ', start + 1);
-  const reconcile = [...pgQueue.slice(start, end < 0 ? undefined : end).matchAll(/cur\.execute\(f"""([\s\S]*?)"""\)/g)]
-    .map(m => m[1].replaceAll('{_table(queue)}', 'powercode_queue.training_jobs'));
+  // pg_queue.reconcile_dead_jobs for the training queue, read as text (no runtime import), shared extraction from erd-v03-llm-grant.mjs.
+  const reconcile = await reconcileStatements(infra);
   assert(reconcile.length === 2 && reconcile.every(s => !/[{}]/.test(s)), 'reconcile_dead_jobs has two fully substituted statements');
 
   const db = 'erd021';

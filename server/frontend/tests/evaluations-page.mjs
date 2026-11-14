@@ -134,11 +134,18 @@ const openDialog = (app) => app.renderer.root.findAllByType(Dialog).find((node) 
   await stepped.cleanup();
 }
 
+const { detectionToc } = await import("../src/features/detection/detectionToc.ts");
+/** 목차 영역 id → 화면 영역 제목(없으면 null). 영역 제목은 목차 이름과 같아야 한다. */
+const tocSections = (app, menu) => detectionToc[menu].map(({ id }) => {
+  const card = app.renderer.root.findAll((node) => node.type === "div" && node.props.id === id && node.props["data-slot"] === "section-card")[0];
+  return [id, card ? text(card.findByType("h2").children) : null];
+});
 // 목록: 두 탭, 잘못된 탭 정규화, 상태·추천 표시, 커서 더 보기.
 {
   const app = await mount("/detection/evaluations");
   await wait(() => app.rows().length > 0, "current rows");
   assert.equal(app.rows().filter((row) => row.findAll((node) => node.type === "a").length).length, 3, "current tab hides failed and old comparisons");
+  assert.deepEqual(tocSections(app, "evaluations"), [["evaluations-list", "비교 평가"], ["evaluations-new", "새 비교 평가"]], "TOC targets carry the area titles");
   const shown = app.shown();
   assert.ok(shown.includes("진행 중") && shown.includes("완료 · 일부 실패"));
   assert.ok(shown.includes(`추천 ${short("7be19a34")} · 실험 7 · 현재 추천`));

@@ -69,7 +69,7 @@
   --top-nav-height: 64px;
   /* 실제 머리글 높이. 좁은 화면에서 두 줄이 되면 TopNav가 갱신한다. 고정 영역의 top 기준. */
   --top-nav-offset: var(--top-nav-height);
-  /* 머리글 아래 고정 줄의 실제 높이(룰 설정 저장 줄). 없으면 0. 입력칸 초점이 고정 영역 밑으로 가지 않게 scroll-padding에 쓴다. */
+  /* 머리글 아래 고정 줄의 실제 높이(룰 설정 저장 줄·탐지 설정 하위 화면 뒤로가기 줄 — 한 화면에 하나만). 없으면 0. 입력칸 초점이 고정 영역 밑으로 가지 않게 scroll-padding에 쓴다. */
   --sticky-block-height: 0px;
   --top-nav-columns: minmax(240px, 1fr) auto minmax(240px, 1fr);
 

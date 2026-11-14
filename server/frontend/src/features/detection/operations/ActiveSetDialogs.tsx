@@ -13,6 +13,7 @@ import { errorCode } from "@/features/detection/rules/ruleDraft";
 import { DASH, stampText } from "@/features/operations/format";
 import type { ActiveChange, ActiveHistoryItem, ActiveModel } from "./operationsApi";
 import type { useActiveHistory } from "./useOperations";
+import { detectionSections } from "../detectionToc";
 
 const ML_TERM = "머신러닝 모델";
 const KIND_LABELS: Record<ActiveChange["type"], string> = { activated: "모델 교체", replaced: "모델 교체", retired: "모델 운영 제외", restored: "모델 복원" };
@@ -25,7 +26,7 @@ export const modelsText = (models: ActiveModel[]) => (models.length ? models.map
 export const ActiveHistoryCard = ({ history, methods }: { history: ReturnType<typeof useActiveHistory>; methods: CatalogMethod[] | undefined }) => {
   const { first, items } = history;
   return (
-    <SectionCard title="모델 교체 이력">
+    <SectionCard id={detectionSections.operationsHistory.id} title={detectionSections.operationsHistory.label}>
       {first.isPending && <LoadingState>모델 교체 이력 조회 중…</LoadingState>}
       {first.isError && <ErrorState title={`모델 교체 이력 조회 실패 · ${errorCode(first.error)}`} onRetry={() => void first.refetch()} retryLabel="다시 조회" />}
       {first.data && items.length === 0 && <EmptyState>모델 교체 이력이 없습니다.</EmptyState>}

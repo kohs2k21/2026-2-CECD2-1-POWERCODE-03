@@ -142,4 +142,11 @@ assert.deepEqual(
   { to: "/detection/evaluations", label: "평가 결과" },
   "self return falls back to the menu page",
 );
+// 룰 설정 카드에서 들어가는 하위 목록: 넘겨받은 주소가 없어도(상세에서 돌아온 뒤·새로고침) 뒤로가기는 그 카드 영역
+assert.deepEqual(detectionBackTarget("/detection/rules/response-codes", null), { to: "/detection/rules#rules-response-codes", label: "룰 설정" });
+assert.deepEqual(detectionBackTarget("/detection/rules/protocols", null), { to: "/detection/rules#rules-protocols", label: "룰 설정" });
+assert.deepEqual(detectionBackTarget("/detection/rules/candidates", null), { to: "/detection/rules#rules-candidates", label: "룰 설정" });
+assert.deepEqual(detectionBackTarget("/detection/rules/candidates", { returnTo: "/detection/rules#rules-candidates" }), { to: "/detection/rules#rules-candidates", label: "룰 설정" }, "card link state");
+assert.deepEqual(detectionBackTarget("/detection/rules/response-codes/T001", null), { to: "/detection/rules", label: "룰 설정" }, "details keep the menu fallback");
+assert.deepEqual(detectionBackTarget("/detection/rules/response-codes/T001", { returnTo: "/detection/rules/response-codes" }), { to: "/detection/rules/response-codes", label: "룰 설정" }, "detail → list unchanged");
 console.log("sidebar QA passed: single SideNav landmark, group titles, aria-current, honest counts, mobile toggle, URL tabs without tab ARIA, detection back targets");

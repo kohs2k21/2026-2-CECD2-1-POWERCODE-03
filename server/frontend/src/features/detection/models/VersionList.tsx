@@ -14,6 +14,7 @@ import type { CatalogMethod, ModelVersion, TrainingPeriod } from "./modelsApi";
 import { fullText } from "./period";
 import { modelKeyOf } from "./trainDraft";
 import { useCapabilities, useVersions } from "./useModels";
+import { detectionSections } from "../detectionToc";
 
 export const TIME_BASIS_LABELS = { esb_occurred_at: "ESB 발생 시각 기준", persisted_at: "저장 시각 기준" } as const;
 export const periodText = (period: TrainingPeriod | null) =>
@@ -69,7 +70,7 @@ export const VersionsCard = () => {
   const capabilities = useCapabilities();
   const { first, items } = versions;
   return (
-    <SectionCard title="버전">
+    <SectionCard id={detectionSections.modelsVersions.id} title={detectionSections.modelsVersions.label}>
       <LinkTabs
         label="버전 보기"
         activeId={tab.value}

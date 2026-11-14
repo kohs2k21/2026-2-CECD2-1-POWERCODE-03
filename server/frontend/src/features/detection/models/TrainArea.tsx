@@ -22,6 +22,7 @@ import { DAY_MINUTES, minuteDay } from "./period";
 import { PeriodStep } from "./PeriodStep";
 import { draftFingerprint, freshDraft, jobBlocksRequest, modelKeyOf, readTrainDraft, readinessIssues, selectedMethod, trainRequest, writeTrainDraft, type PeriodDraft, type TrainDraft } from "./trainDraft";
 import { VERSIONS_QUERY, useCapabilities, useTrainJob } from "./useModels";
+import { detectionSections } from "../detectionToc";
 
 const STEPS = ["기간", "입력 변수", "모델·파라미터"];
 
@@ -162,7 +163,7 @@ export const TrainArea = () => {
   const ready = capabilities.data && sources.data && sourceId;
   return (
     <div ref={area}>
-      <SectionCard title="새 학습">
+      <SectionCard id={detectionSections.modelsTrain.id} title={detectionSections.modelsTrain.label}>
         {jobId && <TrainJobStatus jobId={jobId} returnTo={location.pathname + location.search} />}
         <StepLinks steps={STEPS} step={shownStep} maxStep={maxStep} hrefFor={hrefFor} />
         {(capabilities.isPending || sources.isPending) && <LoadingState>학습 조건 조회 중…</LoadingState>}

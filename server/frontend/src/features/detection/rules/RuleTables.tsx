@@ -18,6 +18,7 @@ import {
 } from "./ruleDraft";
 import { readRuleSetHistory, type HardRule, type HardRuleSeverity, type HistoryItem, type RuleSetState, type Severity, type SeverityByCode, type SoftRuleField } from "./ruleSetApi";
 import { useRestoreIsNoop, useRuleHistory } from "./useRuleSet";
+import { detectionSections } from "../detectionToc";
 
 const changedCell = (changed: boolean) => cn(changed && "bg-warning-soft");
 const SwitchCell = ({ checked, label, onChange }: { checked: boolean; label: string; onChange: (value: boolean) => void }) => (
@@ -107,7 +108,7 @@ const HardSeverityEditor = ({ name, severity, onChange }: { name: string; severi
 };
 
 export const HardRulesCard = ({ draft, onToggle, onSeverity }: { draft: RuleDraft; onToggle: (id: string, enabled: boolean) => void; onSeverity: (id: string, code: string | null, level: Severity) => void }) => (
-  <SectionCard title={HARD_TERM}>
+  <SectionCard id={detectionSections.rulesHard.id} title={HARD_TERM}>
     <Table aria-label={HARD_TERM}>
       <TableHeader>
         <TableRow><TableHead>규칙</TableHead><TableHead>조건</TableHead><TableHead>위험도</TableHead><TableHead>켜기</TableHead></TableRow>
@@ -149,7 +150,7 @@ export const RelationRulesCard = ({ draft, onToggle, onSeverity }: {
 }) => {
   const rules = draft.base.relationRules ?? [];
   return (
-    <SectionCard title={RELATION_TERM} aria-label={RELATION_TERM}>
+    <SectionCard id={detectionSections.rulesRelation.id} title={RELATION_TERM} aria-label={RELATION_TERM}>
       {rules.length === 0 ? (
         <EmptyState>{RELATION_TERM}: 표시할 항목이 없습니다.</EmptyState>
       ) : (
@@ -199,6 +200,7 @@ export const SoftRulesCard = ({
   const toggle = (key: string, show: boolean) => setOpen((keys) => (show ? [...keys.filter((item) => item !== key), key] : keys.filter((item) => item !== key)));
   return (
     <SectionCard
+      id={detectionSections.rulesSoft.id}
       title={<span className="whitespace-nowrap">{SOFT_TERM}</span>}
       action={
         <>
@@ -333,7 +335,7 @@ export const RuleHistoryCard = ({ state, disabled, onRevert }: { state: RuleSetS
     }
   };
   return (
-    <SectionCard title="변경 기록">
+    <SectionCard id={detectionSections.rulesHistory.id} title={detectionSections.rulesHistory.label}>
       {history.isPending && <LoadingState>변경 기록 조회 중…</LoadingState>}
       {history.isError && <ErrorState title={`변경 기록 조회 실패 · ${errorCode(history.error)}`} onRetry={() => void history.refetch()} retryLabel="다시 조회" />}
       {history.data && (

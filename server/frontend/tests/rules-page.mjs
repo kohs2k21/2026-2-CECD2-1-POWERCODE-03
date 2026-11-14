@@ -139,6 +139,12 @@ const SEVERITY_OPTIONS = [["critical", "위험"], ["warning", "주의"], ["info"
 const optionsOf = (select) => select.findAll((node) => node.type === "option").map((option) => [option.props.value, text(option.children)]);
 const calls = (method, path) => requested.filter((call) => call.method === method && call.path === path);
 
+const { detectionToc } = await import("../src/features/detection/detectionToc.ts");
+/** 목차 영역 id → 화면 영역 제목(없으면 null). 영역 제목은 목차 이름과 같아야 한다. */
+const tocSections = (app, menu) => detectionToc[menu].map(({ id }) => {
+  const card = app.renderer.root.findAll((node) => node.type === "div" && node.props.id === id && node.props["data-slot"] === "section-card")[0];
+  return [id, card ? text(card.findByType("h2").children) : null];
+});
 // 1) 표시: 머리글, byCode 코드별 위험도, 읽기 전용 조건, 이상 징후 규칙 입력, 변경 기록, 판정 정책 없음.
 {
   routes = baseRoutes();
@@ -147,6 +153,11 @@ const calls = (method, path) => requested.filter((call) => call.method === metho
   await wait(() => app.button("규칙 추가")?.props.disabled === false, "fields loaded");
   const shown = app.shown();
   // 이상 규칙 구역 하단 상시 경고(사용자 11/04): 모두 켜진 상태에서도 보이고, 규칙 이름이 없고, 경보 역할이 아니다.
+  // 사이드바 목차 대상: 영역마다 안정 id, 제목은 목차 이름 그대로(응답 코드 카드는 거래 실패 규칙이 있을 때만)
+  for (const [id, title] of tocSections(app, "rules")) {
+    if (id === "rules-response-codes" && title === null) continue;
+    assert.equal(title, detectionToc.rules.find((section) => section.id === id).label, id);
+  }
   assert.equal(hardWarning(app).length, 1, "warning is visible while every rule is on");
   assert.equal(hardWarning(app)[0].props.role, undefined, "always-on text is not an alert");
   assert.ok(hardWarning(app)[0].props.className.includes("text-warning-text"));
@@ -159,6 +170,13 @@ const calls = (method, path) => requested.filter((call) => call.method === metho
   // 규칙 추천 진입 카드(rule-candidates-ui.md): 이상 징후 규칙 아래·변경 기록 위, 후보 목록으로 가는 링크만.
   const entry = app.renderer.root.find((node) => node.props?.["aria-label"] === "규칙 추천" && node.props["data-slot"] === "section-card");
   assert.equal(entry.findAllByType("a").map((a) => [a.props.href, text(a.children)]).join(), "/detection/rules/candidates,후보 보기");
+  // 카드 → 하위 목록 링크는 돌아올 카드 영역을 넘긴다(하위 화면 고정 뒤로가기가 그 영역으로 스크롤)
+  const cardLinks = app.renderer.root.findAll((node) => typeof node.type !== "string" && typeof node.props.to === "string" && node.props.to.startsWith("/detection/rules/") && node.props.state);
+  assert.deepEqual(cardLinks.map((node) => [node.props.to, node.props.state.returnTo]), [
+    ["/detection/rules/protocols", "/detection/rules#rules-protocols"],
+    ...(cardLinks.length === 3 ? [["/detection/rules/response-codes", "/detection/rules#rules-response-codes"]] : []),
+    ["/detection/rules/candidates", "/detection/rules#rules-candidates"],
+  ]);
   assert.equal(app.renderer.root.findAll((node) => node.type === "table" && node.props["aria-label"] === "이상 규칙").length, 1, "table keeps a hidden name");
   assert.ok(shown.indexOf("START_TIME > END_TIME") < shown.indexOf(HARD_WARNING) && shown.indexOf(HARD_WARNING) < shown.indexOf("AI 규칙 추천"), "bottom of the hard rule section");
   for (const expected of ["변경자 admin@example.test", "켜진 규칙 · 이상 규칙 2/2 · 이상 징후 규칙 1/1", "STATUS ≠ S", "START_TIME > END_TIME (종료 시각이 없으면 판단하지 않음)",
@@ -1015,7 +1033,9 @@ const calls = (method, path) => requested.filter((call) => call.method === metho
   routes = baseRoutes({ "GET /api/rule-set": () => json({ code: "rule_set_storage_unavailable" }, 503) });
   const app = await mount();
   await wait(() => app.shown().includes("현재 운영 룰 조회 실패 · rule_set_storage_unavailable"), "error state");
-  assert.ok(!app.shown().includes("이상 규칙") && !app.shown().includes("변경 0건"), "no editor without data");
+  // 사이드바 목차(영역 이름)는 데이터와 무관하게 있으므로 본문만 본다.
+  const body = app.shown().replace(text(app.renderer.root.findByProps({ id: "detection-menu" })), "");
+  assert.ok(!body.includes("이상 규칙") && !body.includes("변경 0건"), "no editor without data");
   assert.ok(app.button("다시 조회"));
   await app.cleanup();
   routes = baseRoutes({ "GET /api/jobs/capabilities": () => json({ models: [] }) });

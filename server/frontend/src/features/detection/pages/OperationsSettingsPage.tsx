@@ -20,6 +20,7 @@ import { ActiveSetBannerView, changedBanner, failedBanner, type ActiveSetBanner 
 import { OperationsOverview } from "../operations/OperationsOverview";
 import { requestRestore, requestRetire, type ActiveHistoryItem, type ActiveModel } from "../operations/operationsApi";
 import { ACTIVE_HISTORY_QUERY, METHOD_STATUS_QUERY, OPERATIONAL_STATE_QUERY, useActiveHistory, useOperationalState, useRecentComparisons } from "../operations/useOperations";
+import { detectionSections } from "../detectionToc";
 
 /** 운영 모델이 바뀐 뒤 다시 읽을 조회(운영 상태·작동 상태·이력·모델 버전 운영 표시). */
 export const ACTIVE_SET_QUERIES = [OPERATIONAL_STATE_QUERY, METHOD_STATUS_QUERY, ACTIVE_HISTORY_QUERY, VERSIONS_QUERY, "model-version", "recent-comparisons"];
@@ -111,7 +112,7 @@ export const OperationsSettingsPage = () => {
       <div role="separator" aria-label="운영과 별도로 실행" className="flex items-center gap-3 text-xs text-muted-foreground">
         <span aria-hidden="true" className="h-px flex-1 bg-border" />운영과 별도로 실행<span aria-hidden="true" className="h-px flex-1 bg-border" />
       </div>
-      <SectionCard title="작업" description="학습·평가·비교 평가·AI 규칙 추천·규칙 추천 작업의 진행과 실패 사유"
+      <SectionCard id={detectionSections.operationsJobs.id} title={detectionSections.operationsJobs.label} description="학습·평가·비교 평가·AI 규칙 추천·규칙 추천 작업의 진행과 실패 사유"
         action={<Button asChild size="sm" variant="outline"><Link to={paths.detectionJobs} state={returnState}>작업 목록</Link></Button>} />
       {retiring && state.data && (
         <RetireDialog model={retiring} methods={methods} last={state.data.activeModelSet.models.length === 1} busy={busy}

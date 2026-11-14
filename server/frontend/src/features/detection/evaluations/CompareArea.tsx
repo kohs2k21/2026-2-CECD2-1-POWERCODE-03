@@ -19,6 +19,7 @@ import { ruleConditionText, setUnitLabel } from "./evaluationFormat";
 import { SetStep } from "./SetStep";
 import { TargetStep } from "./TargetStep";
 import { useCompareVersions, useEvaluationSets, useRuleRevision } from "./useEvaluations";
+import { detectionSections } from "../detectionToc";
 
 const STEPS = ["평가 세트", "비교 모델", "요청"];
 
@@ -90,7 +91,7 @@ export const CompareArea = () => {
   const models = [...included.map((version) => `${versionLabel(version)}(현재 운영)`), ...picked.map(versionLabel)].join(", ");
   return (
     <div ref={area}>
-      <SectionCard title="새 비교 평가">
+      <SectionCard id={detectionSections.evaluationsNew.id} title={detectionSections.evaluationsNew.label}>
         <StepLinks steps={STEPS} step={shownStep} maxStep={maxStep} hrefFor={hrefFor} />
         {(sets.isPending || versions.isPending) && <LoadingState>평가 조건 조회 중…</LoadingState>}
         {sets.isError && <ErrorState title={`평가 세트 조회 실패 · ${errorCode(sets.error)}`} onRetry={() => void sets.refetch()} retryLabel="다시 조회" />}

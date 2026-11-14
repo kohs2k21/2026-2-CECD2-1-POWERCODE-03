@@ -12,6 +12,7 @@ import { useUrlOption } from "@/hooks/useUrlState";
 import { comparisonKey, type CompareVersion, type ComparisonListItem, type EvaluationSet } from "./evaluationsApi";
 import { REC_STATE_LABELS, comparisonStatus, labelOf } from "./evaluationFormat";
 import { useCompareVersions, useComparisons, useEvaluationSets } from "./useEvaluations";
+import { detectionSections } from "../detectionToc";
 
 const COLUMNS = ["비교", "평가 세트", "비교 모델", "완료", "상태", "교체 추천"];
 
@@ -55,7 +56,7 @@ export const ComparisonsCard = () => {
   const versions = useCompareVersions();
   const { first, items } = list;
   return (
-    <SectionCard title="비교 평가">
+    <SectionCard id={detectionSections.evaluationsList.id} title={detectionSections.evaluationsList.label}>
       <LinkTabs
         label="평가 보기"
         activeId={tab.value}

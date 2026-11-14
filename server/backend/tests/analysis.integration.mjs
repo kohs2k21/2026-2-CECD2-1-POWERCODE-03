@@ -364,26 +364,41 @@ try {
   const evidenceBefore = (await pool.query('SELECT evidence,status FROM run_process_decisions WHERE id=$1', [D.anomaly.id])).rows[0];
   const saved = await request(base, feedbackRoute(D.anomaly.id), 'POST', admin, { kind: 'suspected-false-positive', reason: '  배치 재처리로 생긴 F 상태\n확인함  ' });
   assert.equal(saved.status, 201, JSON.stringify(saved.body));
-  assert.deepEqual([saved.body.id, saved.body.item.kind, saved.body.item.reason, saved.body.item.actorId, saved.body.item.actorEmail],
-    [D.anomaly.id, 'suspected-false-positive', '배치 재처리로 생긴 F 상태\n확인함', adminId, environment.SEED_ADMIN_EMAIL]);
+  assert.deepEqual([saved.body.id, saved.body.item.kind, saved.body.item.reason, saved.body.item.outcome, saved.body.item.actorId, saved.body.item.actorEmail],
+    [D.anomaly.id, 'suspected-false-positive', '배치 재처리로 생긴 F 상태\n확인함', null, adminId, environment.SEED_ADMIN_EMAIL], 'outcome key omitted = null (pre-029 screen body)');
   assert.ok(isoTime(saved.body.item.createdAt));
   const longest = 'ㄱ'.repeat(2000);
   assert.equal((await request(base, feedbackRoute(D.anomaly.id), 'POST', admin, { kind: 'action', reason: longest })).status, 201, '2000 characters allowed');
+  // 확인 결과(029): 실제 이상·정상·판단 불가 또는 null(미입력). 저장값 그대로 읽힌다.
+  const outcomes = [];
+  for (const outcome of ['actual-anomaly', 'normal', 'undetermined', null]) {
+    const response = await request(base, feedbackRoute(D.anomaly.id), 'POST', admin, { kind: 'action', reason: `확인 ${outcome}`, outcome });
+    assert.deepEqual([response.status, response.body.item.outcome], [201, outcome], `outcome ${outcome}`);
+    outcomes.push(outcome);
+  }
+  assert.deepEqual((await pool.query('SELECT outcome FROM run_decision_feedback WHERE reason LIKE $1 ORDER BY created_at', ['확인 %'])).rows.map((row) => row.outcome),
+    outcomes, 'stored outcome column');
   assert.deepEqual((await pool.query('SELECT evidence,status FROM run_process_decisions WHERE id=$1', [D.anomaly.id])).rows[0], evidenceBefore,
     'feedback does not change the decision');
   const feedbackList = (await request(base, feedbackRoute(D.anomaly.id), 'GET', admin)).body;
-  assert.deepEqual(feedbackList.items.map((item) => [item.kind, item.reason.length]), [['action', 2000], ['suspected-false-positive', 19]], 'newest first');
+  assert.deepEqual(feedbackList.items.map((item) => [item.kind, item.outcome, item.reason]).slice(0, 4), [['action', null, '확인 null'],
+    ['action', 'undetermined', '확인 undetermined'], ['action', 'normal', '확인 normal'], ['action', 'actual-anomaly', '확인 actual-anomaly']], 'newest first, outcome in GET');
+  assert.deepEqual(feedbackList.items.slice(4).map((item) => [item.kind, item.outcome, item.reason.length]), [['action', null, 2000], ['suspected-false-positive', null, 19]]);
+  assert.deepEqual(Object.keys(feedbackList.items[0]).sort(), ['actorEmail', 'actorId', 'createdAt', 'id', 'kind', 'outcome', 'reason']);
   assert.deepEqual((await request(base, feedbackRoute(D.normal.id), 'GET', admin)).body, { id: D.normal.id, items: [] });
   // 작업 항목 기록은 작업 ID 대상(최종 판정이 생겨도 이어짐).
   assert.equal((await request(base, feedbackRoute(J.v4Final.id), 'POST', admin, { kind: 'insufficient-evidence', reason: '모델 근거만 있음' })).body.id, D.v4Final.id);
   assert.equal((await request(base, feedbackRoute(D.v4Final.id), 'GET', admin)).body.items.length, 1);
   for (const body of [{ kind: 'action' }, { kind: 'action', reason: '   ' }, { kind: 'action', reason: 'ㄱ'.repeat(2001) }, { kind: 'label', reason: 'x' },
-    { kind: 'action', reason: 'x', label: true }, { kind: 'action', reason: 7 }, { kind: 'action', reason: 'a\u0000b' }]) {
+    { kind: 'action', reason: 'x', label: true }, { kind: 'action', reason: 7 }, { kind: 'action', reason: 'a\u0000b' },
+    { kind: 'action', reason: 'x', outcome: 'false-positive' }, { kind: 'action', reason: 'x', outcome: '' }, { kind: 'action', reason: 'x', outcome: 1 },
+    { kind: 'action', reason: 'x', outcome: ['normal'] }, { kind: 'action', reason: 'x', outcome: 'Normal' }, { kind: 'action', reason: 'x', outcome: 'normal', label: 1 },
+    { kind: 'action', outcome: 'normal' }, { kind: 'action', reason: '  ', outcome: 'normal' }]) {
     const response = await request(base, feedbackRoute(D.anomaly.id), 'POST', admin, body);
     assert.deepEqual([response.status, response.body?.code], [400, 'invalid_feedback_request'], JSON.stringify(body).slice(0, 60));
   }
   assert.equal((await request(base, feedbackRoute(crypto.randomUUID()), 'POST', admin, { kind: 'action', reason: 'x' })).status, 404);
-  assert.equal((await pool.query('SELECT count(*)::int AS n FROM run_decision_feedback')).rows[0].n, 3, 'rejected requests store nothing');
+  assert.equal((await pool.query('SELECT count(*)::int AS n FROM run_decision_feedback')).rows[0].n, 7, 'rejected requests store nothing');
   // 확정 라벨·학습 입력으로 쓰이지 않음: 라벨 근거 표에 아무것도 생기지 않는다.
   assert.equal((await pool.query('SELECT count(*)::int AS n FROM data_label_evidence')).rows[0].n, 0);
 

@@ -1202,11 +1202,12 @@ Table run_decision_feedback {
   reason text [not null]
   actor_id text [not null]
   created_at timestamptz [not null, default: `clock_timestamp()`]
+  outcome text
   indexes {
     (job_id, created_at) [name: 'run_decision_feedback_job_idx', note: 'partial: WHERE job_id IS NOT NULL']
     (decision_id, created_at) [name: 'run_decision_feedback_decision_idx', note: 'partial: WHERE decision_id IS NOT NULL']
   }
-  Note: '014. 조사·조치 기록, append-only(API SELECT·INSERT 권한만). kind action|suspected-false-positive|insufficient-evidence, reason 1~2000자. 확정 라벨·학습 입력 아님(Trainer·LLM·Detector 권한 없음).'
+  Note: '014. 조사·조치 기록, append-only(API SELECT·INSERT 권한만). kind action|suspected-false-positive|insufficient-evidence, reason 1~2000자. 029 outcome = 확인 결과 actual-anomaly(실제 이상)|normal(정상)|undetermined(판단 불가), NULL = 미입력. 확정 라벨·학습 입력 아님(Trainer·LLM·Detector 권한 없음).'
 }
 
 Table run_decision_reads {

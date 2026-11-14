@@ -1,5 +1,5 @@
 Created: 2026-10-12T02:06:03+09:00
-Updated: 2026-11-14T12:00:00+09:00
+Updated: 2026-11-14T18:00:00+09:00
 Author: contracts_page_reviewer
 Status: current
 
@@ -7,7 +7,7 @@ Status: current
 
 - Issue #32 기준: 최신 PostgreSQL·공통 규약·LLM 기획 반영. `schema.dbml`은 최종 목표 구조의 시각화, 실행 원본은 migration SQL
 - 목표 구조(Issue #32 당시): public 28테이블 + `powercode_queue` 기존 물리 큐 2테이블. 기존 public 24테이블 보존, BODY·BODY 연결·불변 입력·LLM 결과 4테이블만 추가
-- 현재 `schema.dbml`: 001~023 전체 + 024 [제안] + 025·026 반영(024·025·026 절) + 027 `job_kind` 값 1개(확정 11/14), public 73테이블 + `powercode_queue` 5테이블. 004_feature_pipeline·005~009 추가분 24테이블 보강, 011 3테이블·012 1테이블·014 3테이블·015 3테이블·019 4테이블·022 4테이블·023 2테이블·024 1테이블·025 2테이블 추가, 026은 022 표에 열 1개 추가. 013(#82)은 함수 설정만 바꿔 DBML 변경 없음
+- 현재 `schema.dbml`: 001~023 전체 + 024 [제안] + 025·026 반영(024·025·026 절) + 027 `job_kind` 값 1개(확정 11/14) + 028 + 029(014 표에 열 1개), public 73테이블 + `powercode_queue` 5테이블. 004_feature_pipeline·005~009 추가분 24테이블 보강, 011 3테이블·012 1테이블·014 3테이블·015 3테이블·019 4테이블·022 4테이블·023 2테이블·024 1테이블·025 2테이블 추가, 026은 022 표에 열 1개 추가. 013(#82)은 함수 설정만 바꿔 DBML 변경 없음
 - 기존 001/002 불변. 003/004는 서버 미적용; ERD 등록·SQL 검수와 실제 운영 적용 구분
 - PostgreSQL 17.11 실제 public24+queue2 존재 확인 기록과 정합. 서버 schema/version 이력 및 완전 DDL 일치는 별도 사전 확인 필요
 
@@ -303,6 +303,16 @@ SELECT r.rolname,
 - 시험(`erd-v03-job-notifications.mjs`, `erd-v03.mjs`가 호출): `erd028_upgrade`(001~027 + 027 시점 역할 스크립트 + 이전 API 문장으로 쓴 설정·순번 행 → 028: 기존 행 보존·새 열 기본값, 새 표 PK만·FK·트리거·색인 없음, `run_jobs` 색인 수 그대로, 역할 스크립트 재적용 전 새 표 42501, 재적용 뒤 역할 5개 권한 정확 일치, 실제 LOGIN API의 설정 upsert(생략 = 저장값 유지, 이전 문장 혼용)·경계 GREATEST·작업 읽음 upsert·정리 DELETE·`run_jobs` 읽기, TRUNCATE·다른 역할 42501, NOT NULL·CHECK 경계, 다시 실행 실패 뒤 상태 그대로, DBML parity). API 경로는 `backend/tests/notifications.integration.mjs` 14절(관리자만·includeJobs·종료 시각 기간·항목/모두 읽음·경계 상한·되돌리지 않음)
 - 함께 바꾼 기존 시험: `prepare-runtime-db.py` `later` 묶음에 028 추가, `erd-v03-notification-window.mjs`(026 시점 역할 스크립트)는 028 블록을 빼고 적용
 
+## 029 조사·조치 기록 확인 결과
+
+- 파일 `029_feedback_outcome.sql`, 014 적용 뒤 한 번 실행(015~028과 의존 없음)(`psql -v ON_ERROR_STOP=1 -f`), 014 표 소유자로 실행. 014 `run_decision_feedback`에 열 `outcome text NULL` + 이름 있는 CHECK `run_decision_feedback_outcome_check`(`actual-anomaly`·`normal`·`undetermined`, NULL = 미입력) 1개만 추가(새 표·함수·트리거·색인·enum 없음), 단일 BEGIN..COMMIT. 자동 down migration 없음(되돌리기 = `ALTER TABLE run_decision_feedback DROP COLUMN outcome`, 이전 API는 이 열을 읽지 않음). 다시 실행하면 이미 있는 열에서 실패해 전체 ROLLBACK(반쪽 적용 없음)
+- 왜: 이상 분석 › 판정 상세 `로그 분류하기`에서 관리자가 그 판정을 확인한 결과(실제 이상·정상·판단 불가)를 조사·조치 기록에 함께 남긴다(`contracts/analysis-ui.md` "조사·조치 기록" 절). 확정 라벨·학습 입력이 아니다(014와 같음)
+- 잠금: 이 표에만 ACCESS EXCLUSIVE를 잠깐(DEFAULT 없는 NULL 열이라 행 재작성 없음, CHECK 검사는 기존 기록 행만 — 사람이 남긴 기록이라 작다). `run_jobs`·`run_process_decisions`는 잠그지 않고 작업자를 멈출 필요 없음
+- **역할 스크립트 재적용 불필요**: 014 GRANT가 표 단위(`powercode_api` SELECT·INSERT)라 새 열에도 그대로 적용된다. `scripts/database-roles.sql` 변경 없음. Detector·Collector·Trainer·LLM 권한 없음 그대로
+- **배포 순서: migration 029 → API → WebUI**. 기존 기록은 NULL, 이 열을 모르는 이전 API의 INSERT는 열 목록을 명시하므로 NULL(먼저 적용해도 안전). 새 API는 이 열을 읽고 쓰므로 열이 없으면 조사·조치 기록 조회·저장이 503. 새 API는 이전 화면의 키 2개 본문을 그대로 받고, 새 WebUI는 응답 항목의 `outcome`이 없으면 미입력으로 읽는다(그래도 API보다 먼저 올리면 확인 결과 저장이 400이므로 순서를 지킨다)
+- 시험(`erd-v03-feedback-outcome.mjs`, `erd-v03.mjs`가 호출): `erd029_upgrade`(001~028 + 역할 스크립트 + 이전 API 문장으로 쓴 기록 → 029: 기존 기록 NULL, 열 형식·이름 있는 CHECK 1개·트리거 없음·014 색인 2개 그대로, 역할 스크립트 재적용 없이 실제 LOGIN API가 세 값·NULL 쓰기·읽기, 이전 API INSERT 혼용, 목록 밖 값 23514, API UPDATE·DELETE 42501, 다른 역할 4개 SELECT 42501, 다시 실행 42701 뒤 상태 그대로, DBML parity). API 경로는 `backend/tests/analysis.integration.mjs` 14절(세 값·null·생략, 잘못된 값 400)·`analysis-grants.integration.mjs`(API 역할로 확인 결과 쓰기·읽기)
+- 함께 바꾼 기존 시험: `prepare-runtime-db.py` `later` 묶음에 029 추가(`migration_names()`를 쓰는 worker 시험은 자동 반영, `erd-v03.mjs`는 migration 디렉터리를 이름 순으로 읽음)
+
 ## 큐와 소유권
 
 - 001의 `detection_logs/training_jobs`는 기존 물리 큐. 기존 Python helper의 payload·물리 lease 경로 보존
@@ -353,7 +363,7 @@ SELECT r.rolname,
 
 ## DBML과 SQL 대응
 
-- DBML은 001~028(024 [제안] 포함) 적용 후 최종 구조(컬럼·nullability·unique·FK·enum 순서). 물리 큐 5개도 명시. enum 순서는 PostgreSQL 추가 순서(`job_kind`의 `import_csv`는 explain 뒤)
+- DBML은 001~029(024 [제안] 포함) 적용 후 최종 구조(컬럼·nullability·unique·FK·enum 순서). 물리 큐 5개도 명시. enum 순서는 PostgreSQL 추가 순서(`job_kind`의 `import_csv`는 explain 뒤)
 - nullable FK는 `>?`, unique FK는 부모 `-` 자식 방향, nullable unique FK는 부모 `?-` 자식 방향으로 표시. 실제 FK 방향은 SQL/파싱 대응 시험으로 확인
 - attempt의 복합 FK 3개는 DBML의 exact-composite index 판정 한계로 `>`/`>?` 표시. 자식의 개별 PK/unique가 실제 1:1 제약을 보장한다는 주석 유지; 그림 경고를 없애려고 SQL 중복 인덱스를 추가하지 않음
 - `@dbml/core`는 현재 문법의 `dbmlv2` parser 사용. deprecated `dbml` parser는 optional 관계 문법을 지원하지 않음

@@ -383,6 +383,12 @@ assert.deepEqual(api.parseFeedbackList({ id: "d-1", items: [{ id: "f1", kind: "a
   { id: "f2", kind: "label", reason: "x" }] }).items.map((i) => i.id), ["f1"], "unknown feedback kinds dropped");
 assert.equal(api.analysisWriteErrorTitle(new HttpErrorClass("x", 409, "workflow_state_conflict"), "업무 분류"), "업무 분류 실패 · workflow_state_conflict");
 assert.deepEqual(labels.feedbackKindLabels, { action: "조치 기록", "suspected-false-positive": "오탐 의심", "insufficient-evidence": "근거 부족" });
+// 확인 결과(029, 기획 "확인 결과(실제 이상·정상·판단 불가)"): 없음·null = 미입력, 알 수 없는 값은 미입력으로 바꾸지 않고 그 기록을 버린다.
+assert.deepEqual([labels.feedbackOutcomeTitle, labels.feedbackOutcomeLabels], ["확인 결과", { "actual-anomaly": "실제 이상", normal: "정상", undetermined: "판단 불가" }]);
+assert.deepEqual(api.parseFeedbackList({ id: "d-1", items: [
+  { id: "f1", kind: "action", reason: "확인", outcome: "actual-anomaly" }, { id: "f2", kind: "action", reason: "확인", outcome: null },
+  { id: "f3", kind: "action", reason: "확인" }, { id: "f4", kind: "action", reason: "확인", outcome: "false-positive" }, { id: "f5", kind: "action", reason: "확인", outcome: 1 }] })
+  .items.map((i) => [i.id, i.outcome]), [["f1", "actual-anomaly"], ["f2", null], ["f3", null]], "outcome parsed, unknown outcome dropped");
 // 목록 이상 원인(사용자 11/13): 서버 causes 파서(대분류가 틀리면 버림) + 문구(기존 표시 이름) + 첫 원인 외 N건
 const cause = (overrides) => ({ category: "hard", methodId: null, ruleKey: null, code: null, observedStatus: null, fieldName: null, operator: null, threshold: null,
   unit: null, observedValue: null, modelName: null, score: null, scoreThreshold: null, ...overrides });
@@ -416,6 +422,12 @@ assert.deepEqual(extra.map((e) => [e.text, e.note]), [["오탐 의심 · a", "�
 assert.deepEqual(mergeTimeline([...base.slice(0, 1), { key: "progress", at: null, tone: "progress", text: "대기" }], extra).map((e) => e.key),
   ["i1", "record-f1", "record-f2", "progress"], "records sit before the in-progress line");
 assert.equal(recordEntries([]).length, 0, "no records, no extra lines");
+// 확인 결과가 있으면 유형 뒤 `확인 결과 <값>`, 미입력이면 줄에 없음
+assert.deepEqual(recordEntries([
+  { id: "f3", kind: "suspected-false-positive", reason: "정상 배치", outcome: "normal", actorId: "a", actorEmail: "admin@example.test", createdAt: "2026-11-03T02:00:00Z" },
+  { id: "f4", kind: "action", reason: "모름", outcome: "undetermined", actorId: "a", actorEmail: null, createdAt: "2026-11-03T02:01:00Z" },
+  { id: "f5", kind: "action", reason: "확인", outcome: null, actorId: "a", actorEmail: null, createdAt: "2026-11-03T02:02:00Z" },
+]).map((e) => e.text), ["오탐 의심 · 확인 결과 정상 · admin@example.test", "조치 기록 · 확인 결과 판단 불가 · a", "조치 기록 · a"]);
 // 오류 제목
 assert.equal(api.analysisErrorTitle(new HttpError("x", 404, "decision_not_found"), "판정 상세"), "판정 상세 · decision_not_found", "missing decision shows the error code as is");
 assert.equal(api.analysisErrorTitle(new HttpError("x", 503, "analysis_storage_unavailable"), "판정 목록"), "판정 목록 미연결");

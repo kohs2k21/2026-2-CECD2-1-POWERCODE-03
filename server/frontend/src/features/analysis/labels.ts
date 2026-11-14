@@ -4,6 +4,7 @@ import type {
   DecisionCause,
   DecisionItem,
   FeedbackKind,
+  FeedbackOutcome,
   HandoffResult,
   ItemSignal,
   ItemStage,
@@ -70,6 +71,13 @@ export const feedbackKindLabels: Record<FeedbackKind, string> = {
   action: "조치 기록",
   "suspected-false-positive": "오탐 의심",
   "insufficient-evidence": "근거 부족",
+};
+/** 조사·조치 기록의 확인 결과(기획 "확인 결과(실제 이상·정상·판단 불가)"). 고르지 않음 = 미입력(DASH). */
+export const feedbackOutcomeTitle = "확인 결과";
+export const feedbackOutcomeLabels: Record<FeedbackOutcome, string> = {
+  "actual-anomaly": "실제 이상",
+  normal: "정상",
+  undetermined: "판단 불가",
 };
 export const completenessFilterLabels: Record<CompletenessFilter, string> = {
   all: "전체",

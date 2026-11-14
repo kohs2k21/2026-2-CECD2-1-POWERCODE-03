@@ -8,8 +8,8 @@ import {
   readDecisionDetail, readDecisionFlow, readDecisionGraph, readDecisionInterims, readDecisionList, type AnalysisListFilter,
 } from '../services/analysisReadModel.js';
 import {
-  AnalysisRequestError, FEEDBACK_KINDS, FEEDBACK_REASON_MAX, WORKFLOW_STATES,
-  addFeedback, changeWorkflow, listFeedback, markRead, type FeedbackKind, type WorkflowState,
+  AnalysisRequestError, FEEDBACK_KINDS, FEEDBACK_OUTCOMES, FEEDBACK_REASON_MAX, WORKFLOW_STATES,
+  addFeedback, changeWorkflow, listFeedback, markRead, type FeedbackKind, type FeedbackOutcome, type WorkflowState,
 } from '../services/analysisWorkflow.js';
 import { registerIncidentRoutes } from './incidentRoutes.js';
 
@@ -93,14 +93,20 @@ export function parseWorkflowRequest(req: Request): { state: WorkflowState; expe
     expectedState: oneOf(body.expectedState, WORKFLOW_STATES, 'invalid_workflow_request'),
   };
 }
-export function parseFeedbackRequest(req: Request): { kind: FeedbackKind; reason: string } {
-  const body = bodyOf(req, ['kind', 'reason'], 'invalid_feedback_request');
+/**
+ * 조사·조치 기록: `{kind, reason}` 또는 확인 결과를 더한 `{kind, reason, outcome}`(029). outcome = actual-anomaly·normal·undetermined 또는 null(미입력),
+ * 키 생략도 null. 이전 화면(키 2개)은 그대로 받는다.
+ */
+export function parseFeedbackRequest(req: Request): { kind: FeedbackKind; reason: string; outcome: FeedbackOutcome | null } {
+  const withOutcome = plainObject(req.body) && Object.prototype.hasOwnProperty.call(req.body, 'outcome');
+  const body = bodyOf(req, withOutcome ? ['kind', 'reason', 'outcome'] : ['kind', 'reason'], 'invalid_feedback_request');
   const kind = oneOf(body.kind, FEEDBACK_KINDS, 'invalid_feedback_request');
+  const outcome = body.outcome === undefined || body.outcome === null ? null : oneOf(body.outcome, FEEDBACK_OUTCOMES, 'invalid_feedback_request');
   const reason = typeof body.reason === 'string' ? body.reason.trim() : '';
   if (!reason || [...reason].length > FEEDBACK_REASON_MAX || /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(reason)) {
     throw new AnalysisRequestError('invalid_feedback_request');
   }
-  return { kind, reason };
+  return { kind, reason, outcome };
 }
 
 /** 읽음 표시: `{occurredAt}` = 화면이 본 항목 시각(목록·상세 응답의 UTC ISO, 소수 6자리까지, Z 또는 ±hh:mm). */

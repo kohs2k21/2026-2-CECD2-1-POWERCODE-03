@@ -194,10 +194,21 @@ for (const [path, search, expected] of legacy) {
 {
   const app = await mount("/detection/rules");
   const side = app.renderer.root.findByProps({ id: "detection-menu" });
-  const menu = side.findAllByType("a");
+  const toc = side.findAll((node) => node.props["data-slot"] === "side-nav-sub");
+  const menu = side.findAllByType("a").filter((node) => !toc.some((list) => list.findAllByType("a").includes(node)));
   assert.deepEqual(menu.map((node) => text(node.children)), ["운영 설정", "룰 설정", "머신러닝 모델", "평가 결과"]);
   assert.deepEqual(menu.map((node) => node.props["aria-current"] ?? null), [null, "page", null, null]);
   assert.equal(app.links().filter((node) => String(node.props["aria-label"] ?? "").startsWith("뒤로")).length, 0, "menu pages have no back icon");
+  // 현재 메뉴(룰 설정)만 아래에 화면 영역 목차를 펼친다. 같은 화면 안 이동이라 replace, 주소는 #영역 id
+  assert.equal(toc.length, 1, "only the current menu shows its table of contents");
+  const tocLinks = toc[0].findAllByType("a");
+  assert.deepEqual(tocLinks.map((node) => text(node.children)), ["이상 규칙", "이상 징후 규칙", "관계 규칙", "프로토콜 설정", "응답 코드", "규칙 추천", "변경 기록"]);
+  assert.deepEqual(tocLinks.map((node) => node.props.href), [
+    "/detection/rules#rules-hard", "/detection/rules#rules-soft", "/detection/rules#rules-relation", "/detection/rules#rules-protocols",
+    "/detection/rules#rules-response-codes", "/detection/rules#rules-candidates", "/detection/rules#rules-history",
+  ]);
+  const order = side.findAll((node) => node.type === "a" || node.type === "ul");
+  assert.equal(order.indexOf(toc[0]), order.indexOf(menu[1]) + 1, "the list sits right under its menu item");
   const top = app.renderer.root.findByProps({ "aria-label": "주요 화면" }).findAllByType("a");
   assert.deepEqual(top.map((node) => text(node.children).trim()), ["운영 현황", "이상 분석", "탐지 설정"]);
   assert.deepEqual(top.map((node) => node.props["aria-current"] ?? null), [null, null, "page"], "only the current top menu item is marked");
@@ -210,7 +221,62 @@ for (const [path, search, expected] of legacy) {
   const back = app.links().find((node) => node.props["aria-label"] === "뒤로 · 머신러닝 모델");
   assert.ok(back, "detail page shows the back icon to its menu");
   assert.equal(back.props.href, "/detection/models");
+  // 뒤로가기 줄은 스크롤해도 머리글 아래 고정, 본문 열은 flex(grid면 sticky가 자기 행 안에서만 움직인다)
+  const bar = app.renderer.root.findByProps({ "data-detection-back": true });
+  assert.ok(["sticky", "top-(--top-nav-offset)", "z-(--z-sticky)", "bg-background"].every((name) => bar.props.className.split(" ").includes(name)), bar.props.className);
+  let column = bar.parent;
+  while (typeof column.type !== "string") column = column.parent;
+  assert.ok(column.props.className.split(" ").includes("flex-col") && !column.props.className.split(" ").includes("grid"), "sticky bar parent is a flex column");
+  // 하위 화면에서도 그 메뉴 목차를 보이고, 누르면 메뉴 첫 화면의 영역으로 이동(push — 뒤로 가기로 하위 화면에 돌아온다)
+  const toc = app.renderer.root.findByProps({ "data-slot": "side-nav-sub" }).findAllByType("a");
+  assert.deepEqual(toc.map((node) => [text(node.children), node.props.href]), [["버전", "/detection/models#models-versions"], ["새 학습", "/detection/models#models-train"]]);
+  assert.ok(toc.every((node) => node.props["aria-current"] === undefined), "no current section on a sub page");
   await app.cleanup();
+}
+{
+  // 첫 화면 목차는 지금 쿼리(탭·단계)를 지킨다
+  const app = await mount("/detection/models?tab=all");
+  const toc = app.renderer.root.findByProps({ "data-slot": "side-nav-sub" }).findAllByType("a");
+  assert.deepEqual(toc.map((node) => node.props.href), ["/detection/models?tab=all#models-versions", "/detection/models?tab=all#models-train"]);
+  await app.cleanup();
+}
+// 화면 이동 스크롤(useDetectionScroll): 경로가 바뀌면 맨 위, 해시면 그 영역, 쿼리만 바뀌면 그대로, 브라우저 뒤로(POP)는 건드리지 않음
+{
+  const calls = [];
+  const sections = new Map();
+  const fakeSection = (id) => ({ id, contains: () => false, compareDocumentPosition: () => 0, scrollIntoView: (options) => calls.push(["into", id, options.block]) });
+  globalThis.window.scrollTo = (x, y) => calls.push(["top", x, y]);
+  globalThis.Node = { DOCUMENT_POSITION_PRECEDING: 2 };
+  globalThis.document = { getElementById: (id) => sections.get(id) ?? null, querySelectorAll: () => [] };
+  try {
+    const app = await mount("/detection/rules");
+    assert.deepEqual(calls, [], "first load (POP) leaves the browser position");
+    await act(async () => app.router.navigate("/detection/rules/response-codes"));
+    assert.deepEqual(calls.splice(0), [["top", 0, 0]], "entering a sub page starts at the top");
+    await act(async () => app.router.navigate("/detection/rules/response-codes?q=1"));
+    assert.deepEqual(calls.splice(0), [], "query-only changes keep the position");
+    sections.set("rules-history", fakeSection("rules-history"));
+    await act(async () => app.router.navigate("/detection/rules#rules-history"));
+    assert.deepEqual(calls.splice(0), [["into", "rules-history", "start"]], "TOC from a sub page scrolls to the section");
+    await act(async () => app.router.navigate("/detection/rules#rules-response-codes", { replace: true }));
+    await tick();
+    assert.deepEqual(calls.splice(0), [], "a missing (conditional) section does nothing");
+    await act(async () => app.router.navigate("/detection/rules"));
+    assert.deepEqual(calls.splice(0), [["top", 0, 0]], "the menu item without a hash goes back to the top");
+    await act(async () => app.router.navigate(-1));
+    assert.deepEqual(calls.splice(0), [], "browser back is left to the browser");
+    // 늦게 생기는 영역: 조회가 끝나 대상이 생기면 그때 스크롤
+    await act(async () => app.router.navigate("/detection/rules#rules-soft"));
+    assert.deepEqual(calls.splice(0), []);
+    sections.set("rules-soft", fakeSection("rules-soft"));
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 150)));
+    assert.deepEqual(calls.splice(0), [["into", "rules-soft", "start"]], "waits for the section to appear");
+    await app.cleanup();
+  } finally {
+    delete globalThis.window.scrollTo;
+    delete globalThis.document;
+    delete globalThis.Node;
+  }
 }
 
 // 작업 영역 단계 도구(useUrlStep): 잘못된 step은 replace 정규화, 단계 이동 주소는 push라 뒤로 가기와 일치

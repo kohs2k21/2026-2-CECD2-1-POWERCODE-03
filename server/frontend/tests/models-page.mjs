@@ -328,6 +328,12 @@ const toStep3 = async (app) => {
   assert.notEqual(draftFingerprint({ ...ready, modelKey: "x" }), draftFingerprint(ready));
 }
 
+const { detectionToc } = await import("../src/features/detection/detectionToc.ts");
+/** 목차 영역 id → 화면 영역 제목(없으면 null). 영역 제목은 목차 이름과 같아야 한다. */
+const tocSections = (app, menu) => detectionToc[menu].map(({ id }) => {
+  const card = app.renderer.root.findAll((node) => node.type === "div" && node.props.id === id && node.props["data-slot"] === "section-card")[0];
+  return [id, card ? text(card.findByType("h2").children) : null];
+});
 // 3) 버전 목록: 기본 탭 현재 운영 버전, 룰 전용 행 제외, 머리글 '새 학습' 버튼 없음
 {
   routes = baseRoutes();
@@ -335,6 +341,7 @@ const toStep3 = async (app) => {
   await wait(() => app.shown().includes("Isolation Forest"), "active versions");
   const shown = app.shown();
   assert.ok(shown.includes("현재 운영 버전") && shown.includes("전체 버전"));
+  assert.deepEqual(tocSections(app, "models"), [["models-versions", "버전"], ["models-train", "새 학습"]], "TOC targets carry the area titles");
   assert.ok(shown.includes(V1.slice(0, 8)), "the active version is listed");
   assert.ok(!shown.includes(V2.slice(0, 8)), "versions out of operation stay on the other tab");
   assert.ok(shown.includes("운영 중") && shown.includes("지원 · supported") && shown.includes("평가 완료"));
@@ -350,7 +357,7 @@ const toStep3 = async (app) => {
   const current = app.renderer.root.findAll((node) => node.type === "a" && node.props["aria-current"] === "page").map((node) => text(node.children));
   assert.ok(current.includes("현재 운영 버전"), "URL tab marks the default");
   assert.equal(app.renderer.root.findAll((node) => node.type === "button" && text(node.children).includes("새 학습")).length, 0, "no header button");
-  assert.ok(shown.includes("새 학습"), "the training area sits on the same screen");
+  assert.ok(app.renderer.root.findAll((node) => node.type === "h2" && text(node.children) === "새 학습").length === 1, "the training area sits on the same screen");
   await app.go("전체 버전");
   await wait(() => app.shown().includes(V2.slice(0, 8)), "all versions");
   assert.equal(search(app), "?tab=all");

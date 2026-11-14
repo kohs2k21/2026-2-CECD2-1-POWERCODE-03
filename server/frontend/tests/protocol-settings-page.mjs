@@ -125,7 +125,8 @@ const previewOk = (changes, warnings = []) => () => json({ valid: true, summary:
     "GET /api/jobs/capabilities": () => json({ methodCatalog: { softRuleFields: [] } }),
   };
   const app = await mount(paths.detectionRules);
-  await wait(() => app.shown().includes("프로토콜 설정"), "entry card");
+  // 사이드바 목차에도 "프로토콜 설정"이 있으므로 카드 설명으로 기다린다.
+  await wait(() => app.shown().includes("인터페이스별 허용 경로"), "entry card");
   assert.ok(app.shown().includes("인터페이스별 허용 경로 · 정상 프로토콜 1개(켜짐 1개)"), app.shown().slice(0, 400));
   const link = app.renderer.root.findAll((n) => n.type === "a" && n.props.href === "/detection/rules/protocols");
   assert.equal(link.length, 1);

@@ -179,6 +179,12 @@ const pressDialog = async (app, label) => {
 };
 const posts = (path) => requested.filter((call) => call.method === "POST" && call.path === path);
 
+const { detectionToc } = await import("../src/features/detection/detectionToc.ts");
+/** 목차 영역 id → 화면 영역 제목(없으면 null). 영역 제목은 목차 이름과 같아야 한다. */
+const tocSections = (app, menu) => detectionToc[menu].map(({ id }) => {
+  const card = app.renderer.root.findAll((node) => node.type === "div" && node.props.id === id && node.props["data-slot"] === "section-card")[0];
+  return [id, card ? text(card.findByType("h2").children) : null];
+});
 // 1) 운영 설정 overview: 켜진 규칙만, 상태 배지, 판정 없이 실패, 모델 행, 이력. 판정 정책은 보이지 않는다.
 {
   operational = freshState();
@@ -186,6 +192,7 @@ const posts = (path) => requested.filter((call) => call.method === "POST" && cal
   const app = await mount("/detection/operations", { up: false });
   await wait(() => app.row("ml:iforest").includes("1,440 ms"), "model row");
   assert.ok(app.shown().includes("룰 버전 13"));
+  assert.deepEqual(tocSections(app, "operations"), [["operations-status", "운영 버전 상태"], ["operations-history", "모델 교체 이력"], ["operations-jobs", "작업"]], "TOC targets carry the area titles");
   assert.ok(app.row("hard:process-status").startsWith("상태가 S가 아님") && app.row("hard:process-status").includes("정상"));
   assert.ok(app.row("hard:negative-duration").includes("주의") && app.row("hard:negative-duration").includes("입력 형식 오류 6"));
   assert.ok(app.row("soft:error_ratio-1").includes("점검 필요") && app.row("soft:error_ratio-1").includes("미판정 15%"));

@@ -23,6 +23,7 @@ import {
 import { previewRuleSet, readRuleSetRevision, saveRuleSet, type RuleSetRequest, type RuleSetState, type Severity } from "../rules/ruleSetApi";
 import { useRuleSet, useSoftRuleFields } from "../rules/useRuleSet";
 import { RESPONSE_CODE_TERM, failedRule, summaryText } from "../rules/responsecodes/responseCodeLabels";
+import { detectionSections } from "../detectionToc";
 
 const RuleStatus = ({ state }: { state: RuleSetState }) => (
   <Card aria-label="현재 운영 룰">
@@ -45,6 +46,7 @@ const ResponseCodeCard = ({ state }: { state: RuleSetState }) => {
   if (!failed) return null;
   return (
     <SectionCard
+      id={detectionSections.rulesResponseCodes.id}
       title={RESPONSE_CODE_TERM}
       aria-label={RESPONSE_CODE_TERM}
       description={summaryText(failed.rule, failed.severity)}
@@ -248,6 +250,7 @@ const RulesEditor = ({ state, reload, onSavedStale }: {
         <RelationRulesCard draft={draft} onToggle={(id, enabled) => editRelation(id, { enabled })} onSeverity={(id, severity) => editRelation(id, { severity })} />
       </fieldset>
       <SectionCard
+        id={detectionSections.rulesProtocols.id}
         title={PROTOCOL_TERM}
         aria-label={PROTOCOL_TERM}
         description={`인터페이스별 허용 경로 · ${PROTOCOL_ITEM_TERM} ${state.protocolRules?.length ?? 0}개(켜짐 ${state.protocolRules?.filter((rule) => rule.enabled).length ?? 0}개)`}
@@ -262,8 +265,9 @@ const RulesEditor = ({ state, reload, onSavedStale }: {
       />
       <ResponseCodeCard state={state} />
       <SectionCard
-        title="규칙 추천"
-        aria-label="규칙 추천"
+        id={detectionSections.rulesCandidates.id}
+        title={detectionSections.rulesCandidates.label}
+        aria-label={detectionSections.rulesCandidates.label}
         description="Trainer 후보 작업 결과 · 관계 규칙(이상)·처리 시간(이상 징후) 후보 검토"
         action={
           <Button asChild size="sm" variant="outline">

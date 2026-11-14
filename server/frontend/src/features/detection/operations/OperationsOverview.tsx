@@ -14,6 +14,7 @@ import { DASH, msText, numberText, percentText, stampText } from "@/features/ope
 import { CAUSE_LABELS, hoursText, methodBadge, undecided } from "./methodStatus";
 import type { ActiveModel, MethodPeriod, MethodStatus, MethodStatusReport, OperationalState } from "./operationsApi";
 import { useMethodStatus } from "./useOperations";
+import { detectionSections } from "../detectionToc";
 
 const ML_TERM = "머신러닝 모델";
 const PERIODS: { id: MethodPeriod; label: string }[] = [{ id: "1h", label: "최근 1시간" }, { id: "24h", label: "최근 24시간" }];
@@ -92,7 +93,8 @@ export const OperationsOverview = ({ state, rules, fields, methods, onRetire }: 
   const models = state.activeModelSet.models;
   return (
     <SectionCard
-      title="운영 버전 상태"
+      id={detectionSections.operationsStatus.id}
+      title={detectionSections.operationsStatus.label}
       action={(
         <div role="group" aria-label="상태 기간" className="flex gap-1">
           {PERIODS.map((item) => (

@@ -55,7 +55,7 @@ export const scrollToSection = (id: string, waitMs = SECTION_WAIT_MS) => {
 
 /**
  * 탐지 설정 화면 이동 시 스크롤(라우터는 스크롤을 건드리지 않아 이전 화면 위치가 남는다 — 하위 화면이 중간부터 보이던 원인).
- * - 해시(#영역 id)가 있으면 그 영역으로(목차 클릭·다른 화면에서 목차 클릭 후 이동·해시 주소로 첫 진입)
+ * - 해시(#영역 id)가 있으면 그 영역으로(목차 클릭·다른 화면에서 목차 클릭 후 이동·해시 주소로 첫 진입). 다른 화면에서 온 이동이면 먼저 맨 위로
  * - 경로가 바뀌었거나 해시만 지운 이동이면 맨 위로. 쿼리만 바뀐 이동(탭·단계)은 그대로 둔다
  * - 브라우저 뒤로/앞으로(POP)는 건드리지 않는다: 브라우저 기본 위치 복원을 따른다
  * 페인트 전(layout effect)에 맨 위로 올려 중간 화면이 비치지 않게 하고, 자식의 작업 영역 스크롤(step 주소, passive effect)이 그 뒤에 이긴다.
@@ -70,9 +70,13 @@ export const useDetectionScroll = () => {
     if (!hasDom()) return;
     const target = hashId(location.hash);
     if (navigationType === "POP" && before) return;
-    if (target) return scrollToSection(target);
-    if (navigationType === "POP") return;
     const pathChanged = !before || before.pathname !== location.pathname;
+    if (target) {
+      // 다른 화면에서 온 해시 이동(하위 화면 → 첫 화면 목차)은 이전 위치를 먼저 지운다. 대상을 기다리는 동안 이전 화면 위치에 머물지 않게 한다.
+      if (before && pathChanged) window.scrollTo(0, 0);
+      return scrollToSection(target);
+    }
+    if (navigationType === "POP") return;
     const hashCleared = !!before && !!before.hash && before.search === location.search;
     if (pathChanged || hashCleared) window.scrollTo(0, 0);
   }, [location.key, location.pathname, location.search, location.hash, navigationType]);

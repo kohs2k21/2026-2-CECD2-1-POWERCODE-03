@@ -257,7 +257,7 @@ for (const [path, search, expected] of legacy) {
     assert.deepEqual(calls.splice(0), [], "query-only changes keep the position");
     sections.set("rules-history", fakeSection("rules-history"));
     await act(async () => app.router.navigate("/detection/rules#rules-history"));
-    assert.deepEqual(calls.splice(0), [["into", "rules-history", "start"]], "TOC from a sub page scrolls to the section");
+    assert.deepEqual(calls.splice(0), [["top", 0, 0], ["into", "rules-history", "start"]], "TOC from a sub page clears the old position, then scrolls to the section");
     await act(async () => app.router.navigate("/detection/rules#rules-response-codes", { replace: true }));
     await tick();
     assert.deepEqual(calls.splice(0), [], "a missing (conditional) section does nothing");

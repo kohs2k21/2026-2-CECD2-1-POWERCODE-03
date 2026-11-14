@@ -299,6 +299,7 @@ SELECT r.rolname,
 - `run_jobs` 색인 추가 없음: API 조건 `contract_version='v03' AND queue='training' AND status IN ('succeeded','failed')`가 016 `run_jobs_v03_queue_idx(queue,status,…)` 앞부분을 쓰고, training 큐 행은 사람이 요청한 작업뿐이라(판정 작업은 detection 큐) 수가 작다
 - 권한: `powercode_api` 새 표 SELECT·INSERT·UPDATE·DELETE(정리 DELETE). 두 열은 022 표 단위 GRANT가 그대로 덮는다. Detector·Collector·Trainer·LLM 권한 없음. API는 `run_jobs` SELECT를 이미 가진다(작업 목록)
 - **배포 순서: migration 028 → 역할 스크립트 재적용 → API → WebUI**. 기존 설정 행은 `include_jobs` true, 이 열을 모르는 이전 API의 upsert는 저장값을 건드리지 않아 먼저 적용해도 안전. 새 API는 새 열·표를 읽으므로 없으면 알림·설정 조회가 503(역할 스크립트 재적용 전에는 새 표 42501 → 503). 새 WebUI는 응답의 `includeJobs`·`unreadByType.job`을 요구하므로 API보다 먼저 올리지 않는다
+- 배포 사이 구간: 새 API가 먼저 올라가고 이전 WebUI가 남아 있는 동안, 관리자에게 미확인 작업 알림이 있으면 이전 화면은 종류별 수 합(판정·사건·프로토콜)이 `unreadCount`와 맞지 않아 알림 배지를 잠깐 `?`(확인 불가)로 보인다. WebUI 배포 뒤 사라진다
 - 시험(`erd-v03-job-notifications.mjs`, `erd-v03.mjs`가 호출): `erd028_upgrade`(001~027 + 027 시점 역할 스크립트 + 이전 API 문장으로 쓴 설정·순번 행 → 028: 기존 행 보존·새 열 기본값, 새 표 PK만·FK·트리거·색인 없음, `run_jobs` 색인 수 그대로, 역할 스크립트 재적용 전 새 표 42501, 재적용 뒤 역할 5개 권한 정확 일치, 실제 LOGIN API의 설정 upsert(생략 = 저장값 유지, 이전 문장 혼용)·경계 GREATEST·작업 읽음 upsert·정리 DELETE·`run_jobs` 읽기, TRUNCATE·다른 역할 42501, NOT NULL·CHECK 경계, 다시 실행 실패 뒤 상태 그대로, DBML parity). API 경로는 `backend/tests/notifications.integration.mjs` 14절(관리자만·includeJobs·종료 시각 기간·항목/모두 읽음·경계 상한·되돌리지 않음)
 - 함께 바꾼 기존 시험: `prepare-runtime-db.py` `later` 묶음에 028 추가, `erd-v03-notification-window.mjs`(026 시점 역할 스크립트)는 028 블록을 빼고 적용
 

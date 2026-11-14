@@ -82,12 +82,13 @@ const jobItem = (over = {}, job = {}) => ({ key: `work:${J1}`, type: "job", seq:
   const jobText = (job) => labels.notificationText(api.parseNotificationItem(jobItem({}, job))).headline;
   assert.deepEqual([
     jobText({}),
+    jobText({ errorCode: null }),
     jobText({ status: "succeeded", errorCode: null, configVersionId: V1 }),
     jobText({ status: "succeeded", errorCode: null }),
     jobText({ kind: "compare", status: "succeeded", errorCode: null, failedCount: 1, replacementRecommended: true }),
     jobText({ kind: "compare", status: "succeeded", errorCode: null, failedCount: 0, replacementRecommended: false }),
     jobText({ kind: "compare", status: "failed", errorCode: "comparison_all_items_failed" }),
-  ], ["학습 44444444 실패 · insufficient_complete_training_rows", "학습 44444444 완료 · 버전 55555555", "학습 44444444 완료",
+  ], ["학습 44444444 실패 · insufficient_complete_training_rows", "학습 44444444 실패", "학습 44444444 완료 · 버전 55555555", "학습 44444444 완료",
     "비교 평가 44444444 완료 · 일부 실패 · 교체 추천 있음", "비교 평가 44444444 완료", "비교 평가 44444444 실패 · comparison_all_items_failed"]);
   const failedJob = api.parseNotificationItem(jobItem());
   assert.deepEqual([labels.notificationText(failedJob).subject, labels.notificationTag(failedJob), labels.showsRisk(failedJob), notificationHref(failedJob)],

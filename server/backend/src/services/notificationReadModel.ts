@@ -35,7 +35,8 @@ import { NOTIFICATION_WINDOW_DAYS, RISK_RANK, type NotificationSettings } from '
  * 6) 작업 항목(key work:<run_jobs id>, 028, contracts/notifications.md "작업 알림" 절): v03 training 큐의 train·compare 작업 중 succeeded·failed로 끝난 것
  *    (대기·실행 중·재시도 대기·blocked 제외). 관리자 ∧ 설정 includeJobs일 때만. 조회 기간 = 종료 시각(finished_at)이 지금 − windowDays일 이후(이벤트 수 상한과 무관).
  *    작업 종료는 판정 이벤트 순번을 받지 않으므로 읽음은 종료 시각으로 판단한다: 미확인 = finished_at > max(모두 읽음 작업 경계 jobs_read_through, 항목 읽음 read_through).
- *    목록 정렬 순번(seq) = 종료 시각 이전 마지막 판정 이벤트 순번(개수 범위 안, 없으면 개수 범위 시작) — 정렬에만 쓰고 읽음 판단에는 쓰지 않는다.
+ *    목록 정렬 순번(seq) = 종료 시각 이전 마지막 판정 이벤트 순번(개수 범위 안, 없으면 0 — 범위가 밀려도 같은 값이라 커서가 흔들리지 않음)
+ *    — 정렬에만 쓰고 읽음 판단에는 쓰지 않는다. 범위 첫 이벤트보다 먼저 끝난 작업은 이벤트를 읽지 않고 바로 0(created_at으로 미리 거름).
  *    "모두 읽음"은 판정 순번(through)과 함께 응답의 latestJobAt(작업 알림 대상 중 가장 늦은 종료 시각)을 jobsThrough로 받아 그 시각까지 읽음으로 둔다.
  */
 type Queryable = Pick<Pool, 'query'>;
@@ -239,16 +240,19 @@ const jobCte = (jobs: boolean) => `jsrc AS (
     CASE WHEN jsonb_typeof(j.result_summary->'failedCount')='number' THEN j.result_summary->'failedCount' END AS failed_count,
     coalesce(jsonb_path_exists(j.result_summary,'strict $.replacementRecommendations[*] ? (@.targetVersionId.type() == "string")','{}',true),false) AS recommended
   FROM run_jobs j WHERE ${jobSourceWhere(jobs, '$6::integer')}
+), jfirst AS (
+  -- 개수 범위 첫 이벤트 시각(PK 범위 첫 행 1개). 이보다 먼저 끝난 작업은 범위 안에 앞선 이벤트가 없다.
+  SELECT (SELECT e.created_at FROM run_decision_events e WHERE e.id>top.top-$1::bigint ORDER BY e.id LIMIT 1) AS at FROM top
 ), jitems AS (
   SELECT 'job'::text AS kind,'work:'||js.id::text AS item_key,
-    coalesce((SELECT e.id FROM run_decision_events e WHERE e.id>top.top-$1::bigint AND e.created_at<=js.finished_at ORDER BY e.id DESC LIMIT 1),
-      greatest(top.top-$1::bigint,0)) AS notify_seq,
+    CASE WHEN jfirst.at IS NULL OR js.finished_at<jfirst.at THEN 0::bigint
+      ELSE coalesce((SELECT e.id FROM run_decision_events e WHERE e.id>top.top-$1::bigint AND e.created_at<=js.finished_at ORDER BY e.id DESC LIMIT 1),0) END AS notify_seq,
     js.finished_at AS notified_at,'finished'::text AS reason,
     NULL::text AS last_event,NULL::uuid AS job_id,NULL::uuid AS decision_id,NULL::text AS completeness,NULL::text AS final_signal,NULL::text AS grade,
     NULL::text AS risk_level,false AS has_unrated,NULL::uuid AS incident_id,NULL::integer AS members,
     jsonb_build_object('id',js.id,'kind',js.jkind,'status',js.jstatus,'errorCode',js.error_code,'versionId',js.version_id,
       'failedCount',js.failed_count,'recommended',js.recommended) AS extra
-  FROM jsrc js CROSS JOIN top
+  FROM jsrc js CROSS JOIN top CROSS JOIN jfirst
 )`;
 
 const baseParams = (actorId: string, settings: NotificationSettings, windowEvents: number) =>

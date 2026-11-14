@@ -33,7 +33,7 @@
 - 관리자만 ∧ 설정 `includeJobs`(기본 true). 일반 사용자 목록·배지·읽음 요청에는 없다(작업 화면이 관리자 전용). 요청자와 무관하게 모든 관리자에게 같은 작업이 보인다(작업 목록과 같음)
 - 항목 키 `work:<run_jobs id>`(`job:`은 판정 항목 키). 알림 시각 `notifiedAt` = 종료 시각(`finished_at`), 사유 `reason` = `finished`
 - 조회 기간: 종료 시각이 지금 − `windowDays`일 이후(판정 이벤트 5,000개 상한과 무관, `window`는 판정 이벤트 범위만 설명)
-- 정렬 순번 `seq` = 종료 시각 이전 마지막 판정 이벤트 순번(개수 범위 안, 없으면 개수 범위 시작). 목록 정렬·커서에만 쓰고 읽음 판단에는 쓰지 않는다(작업 종료는 판정 이벤트 순번을 받지 않음)
+- 정렬 순번 `seq` = 종료 시각 이전 마지막 판정 이벤트 순번(개수 범위 안, 없으면 `0` — 범위가 밀려도 같은 값이라 커서가 흔들리지 않음). 목록 정렬·커서에만 쓰고 읽음 판단에는 쓰지 않는다(작업 종료는 판정 이벤트 순번을 받지 않음)
 - 미확인 = 종료 시각 > max(작업 모두 읽음 경계, 그 작업 읽음 시각). 모두 읽음은 판정 순번(`through`)과 함께 응답 `latestJobAt`(작업 알림 대상 중 가장 늦은 종료 시각, 기간 무관)을 `jobsThrough`로 보낸다 — 화면이 본 응답까지만 읽음. 서버는 경계를 그때 가장 늦은 종료 시각 이하로 줄이고 되돌리지 않는다(GREATEST). 항목 읽음은 `{key:"work:…", seq}`(seq는 형식만 검사), 저장값 = 그 작업의 현재 종료 시각
 - 한계: 종료 시각은 작업자 트랜잭션 안의 `clock_timestamp()`라 커밋 순서와 몇 ms 어긋날 수 있다. 화면이 `latestJobAt`을 받은 뒤 그보다 이른 종료 시각으로 늦게 커밋된 작업은 그 모두 읽음에 포함된다(드묾, 판정 알림은 순번이라 없음)
 - 작업 읽음 행은 작업 모두 읽음 경계 이하이거나 최대 조회 기간(30일)보다 오래된 작업의 것을 지운다(읽음 요청 때)
@@ -56,7 +56,7 @@
 - `job`: `{id, kind:"train"|"compare", status:"succeeded"|"failed", errorCode, finishedAt, configVersionId(학습 결과 버전, 학습만), failedCount(비교 평가 실패 항목 수, 비교 평가만·없으면 null), replacementRecommended(비교 평가 완료에 저장된 교체 추천 대상 `targetVersionId`가 있음)}`. 바로가기 작업 상세 `/detection/operations/jobs/<id>`
 - 위젯 배치 `widgetLayout`: `{version:1~99, items:[{i,x,y,w,h}]}`, 0~32개, `i` 영문 소문자 시작 1~32자(중복 금지), x·y 0~999, w·h 1~99 정수. 위젯 이름·크기 제한은 화면이 읽을 때 다시 적용(`parseStoredLayout`)
 - 400 code: `invalid_view`·`invalid_limit`·`invalid_cursor`·`unknown_notification_filter`(알 수 없는 쿼리)·`invalid_read_request`·`invalid_settings_request`·`invalid_notification_settings`·`invalid_widget_layout`·`invalid_json`. 413 `request_too_large`(본문 16KB). 401 인증(auth.md). 저장소 오류 503 `notification_storage_unavailable`(성공·빈 목록 대체 없음)
-- 비용: 요청마다 범위 안 이벤트(최대 5,000행)를 PK 범위로 읽고 evidence·payload를 행마다 한 번 푼다. 기간 경계는 개수 범위 안을 PK 역순으로 읽어 정한다(`created_at` 색인 없음, 최대 5,000행). 사건 머리는 범위 안 사건만 재귀로 따라간다. 별도 쓰기 작업자 없음
+- 비용: 요청마다 범위 안 이벤트(최대 5,000행)를 PK 범위로 읽고 evidence·payload를 행마다 한 번 푼다. 기간 경계는 개수 범위 안을 PK 역순으로 읽어 정한다(`created_at` 색인 없음, 최대 5,000행). 사건 머리는 범위 안 사건만 재귀로 따라간다. 작업 항목(관리자·includeJobs)은 training 큐 작업을 016 큐 색인으로 읽고, 작업마다 정렬 순번을 PK 역순으로 찾는다 — 범위 첫 이벤트 시각보다 먼저 끝난 작업은 `created_at`으로 미리 걸러 읽지 않고, 그 밖은 종료 시각 뒤 이벤트 수만큼(최대 5,000행) 읽는다. 별도 쓰기 작업자 없음
 
 ## 화면
 

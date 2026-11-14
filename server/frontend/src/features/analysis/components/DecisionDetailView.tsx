@@ -7,6 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ErrorState, LoadingState } from "@/components/ui/feedback";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { ProtocolExplanationCard } from "@/features/detection/rules/protocols/ProtocolExplanationCard";
+import { EXPLAIN_ALERT_BUTTON, alertRequest, hasProtocolReview } from "@/features/detection/rules/protocols/protocolExplanation";
 import { useAuthSession } from "@/services/auth/AuthSessionProvider";
 import { analysisErrorTitle, type DecisionDetail, type DecisionFlow, type InterimHistory } from "../data/analysisApi";
 import { evidenceGroupOf, evidenceGroups, readEvidence, readEvidenceV4, type EvidenceV3, type EvidenceV4 } from "../data/evidence";
@@ -301,7 +303,13 @@ export const DecisionDetailView = ({
           )}
           <div className="grid gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] xl:items-start">
             <ProcessFlowCard key={`flow-${detail.id}`} query={flow} decisionId={detail.id} />
-            <ExplainPanel key={detail.id} detail={detail} />
+            <div className="grid min-w-0 gap-4">
+              <ExplainPanel key={detail.id} detail={detail} />
+              {/* 프로토콜 알림의 판정(evidence.protocolReview, 알림 목록과 같은 판별) · 관리자 · 최종 판정만(protocol-explanation-job.md 1절 알림 대상). */}
+              {isAdmin && detail.kind === "final" && detail.decisionId && detail.sourceId && hasProtocolReview(detail.evidence) && (
+                <ProtocolExplanationCard key={`protocol-${detail.id}`} request={alertRequest(detail.sourceId, detail.decisionId)} itemLabel="설명" buttonLabel={EXPLAIN_ALERT_BUTTON} />
+              )}
+            </div>
           </div>
           <SectionCard title="판정 기록" headingLevel={2}>
             {isAdmin && feedback.isError && (

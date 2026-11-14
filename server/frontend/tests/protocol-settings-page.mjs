@@ -87,7 +87,7 @@ let currentUser;
 const mount = async (path, userType = "admin", locationState = undefined) => {
   currentUser = { id: `${userType}-1`, email: `${userType}@example.test`, userType, createdAt: "2026-10-01T00:00:00Z" };
   storage.set("token", `token-${userType}`);
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity } } });
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity }, mutations: { gcTime: Infinity } } });
   const router = createMemoryRouter(appRoutes, { initialEntries: [locationState ? { pathname: path, state: locationState } : path] });
   let renderer;
   await act(async () => {
@@ -100,7 +100,7 @@ const mount = async (path, userType = "admin", locationState = undefined) => {
     assert.ok(buttons[index], `button ${label}`);
     await act(async () => buttons[index].props.onClick?.({ stopPropagation() {}, preventDefault() {} }));
   };
-  return { renderer, router, shown, cleanup, click };
+  return { renderer, router, client, shown, cleanup, click };
 };
 const byData = (app, key) => app.renderer.root.findAll((node) => node.props?.[key] !== undefined && typeof node.type === "string");
 const rowsOf = (app, key) => byData(app, key).map((row) => row.findAllByType("td").map((td) => text(td.children)));
@@ -423,6 +423,138 @@ const previewOk = (changes, warnings = []) => () => json({ valid: true, summary:
   await act(async () => again.router.navigate(paths.detectionRuleProtocol("IF_SYN_PAY"), { state: { alertPath: { channels: ["CH_GW", "CH_NEW"], decisionId: DECISION } } }));
   await wait(() => byData(again, "data-allowed-path").length === 2 && byData(again, "data-alert-path").length === 1, "same-route navigation adds the new alert path");
   await again.cleanup();
+}
+
+// 11) 경로 설명(protocol-explanation-job.md 1·6·7·11절): 초안을 읽은 뒤에만 "LLM 설명" 칸 [경로 설명 보기] → POST explain_protocol 관측 경로 대상
+// (jobId = 초안 작업, ruleSetRevision = 현재 운영 버전, 멱등키) → "설명을 만드는 중입니다…" → 결과(경로 id 칩·확인할 점·버전 N 안내).
+// 같은 대상의 기존 작업은 요청 없이 이어서 보이고(확인할 점 없으면 숨김), 실패는 `경로 설명 실패 · <코드>`(점검 실패 사유 코드 포함) + 새 키로 다시 요청,
+// 접수 거절은 코드 그대로, LLM 꺼짐은 버튼 비활성 + `경로 설명 · <코드>`, 초안에도 운영 버전에도 없는 인터페이스는 칸 없음.
+{
+  const EXPLAIN_JOB = "55555555-6666-4777-8888-999999999999";
+  const target = { kind: "observed_paths", jobId: draftJob.id, interfaceId: "IF_SYN_ORDER", ruleSetRevision: 30 };
+  const body = { kind: "explain_protocol", sourceId: "src-1", target };
+  const resultOf = (reviewPoints) => ({ format: "protocol-explanation-v1", target, interfaceId: "IF_SYN_ORDER", ruleSetRevision: 30,
+    explanation: "인터페이스 IF_SYN_ORDER의 관측 경로 P2는 허용 경로에 없습니다. P1은 허용 경로입니다. XP1·P9는 경로 id가 아닙니다.", reviewPoints,
+    paths: { P1: ["CH_GW", "CH_ORDER", "CH_DB"], P2: ["CH_GW", "채널_외부", "CH_DB"] },
+    facts: { format: "protocol-explain-facts-v1", kind: "observed_paths", sha256: "c".repeat(64) },
+    promptVersion: "protocol-explain-prompt-v4", modelVersion: "qwen-base-6a9e13bd", baseRevision: "r", check: { passed: true, failures: [], coverage: {} } });
+  const listItem = (id, status, extra = {}) => ({ id, kind: "explain_protocol", status, inputSpec: body, attemptCount: 1, maxAttempts: 3, nextRunAt: null, errorCode: null,
+    resultConfigVersionId: null, createdAt: "2026-11-14T01:00:00.000000Z", finishedAt: null, result: null, ...extra });
+  let jobs = [];
+  let jobState = { status: "queued", errorCode: null, resultSummary: null };
+  let llm = { available: true, checkedAt: "2026-11-14T01:00:00.000Z", errorCode: null };
+  let postReply = () => json({ id: EXPLAIN_JOB, status: "queued", kind: "explain_protocol", inputSpec: body }, 201);
+  const posted = [];
+  routes = {
+    "GET /api/rule-set": () => json(state(30)),
+    "GET /api/rule-set/protocol-drafts": (url) => json({ ...draftsHead, interface: url.searchParams.get("interfaceId") === "IF_SYN_ORDER" ? orderDraft : null }),
+    "GET /api/llm/status": () => json(llm),
+    "GET /api/jobs": () => json({ items: jobs, pagination: { limit: 100, hasMore: false, nextCursor: null } }),
+    "POST /api/jobs": (_url, init) => { posted.push({ body: JSON.parse(init.body), key: new Headers(init.headers).get("Idempotency-Key") }); return postReply(); },
+    [`GET /api/jobs/${EXPLAIN_JOB}`]: () => json({ ...listItem(EXPLAIN_JOB, jobState.status), ...jobState, attempts: [] }),
+  };
+  const card = (app) => app.renderer.root.findAll((n) => n.type === "div" && n.props["data-slot"] === "section-card" && n.props["aria-label"] === "LLM 설명")[0];
+  const explainButton = (app) => app.renderer.root.findAll((n) => n.type === "button" && text(n.children) === "경로 설명 보기")[0];
+  const openDrafts = async (app) => {
+    await wait(() => app.shown().includes("새 항목"), "detail");
+    assert.ok(!card(app), "no explanation box before the drafts are read");
+    await app.click("관측 경로로 초안 만들기");
+    await wait(() => Boolean(card(app)) && !card(app).findAll((n) => n.props?.["data-slot"] === "loading-state").length, "explanation box after drafts");
+  };
+
+  requested.length = 0;
+  const app = await mount(paths.detectionRuleProtocol("IF_SYN_ORDER"));
+  await openDrafts(app);
+  assert.equal(calls("GET", "/api/jobs").at(-1).search, "?kind=explain_protocol&limit=100", "existing jobs looked up by kind");
+  assert.equal(explainButton(app).props.disabled, false);
+  await act(async () => explainButton(app).props.onClick());
+  await wait(() => text(card(app).children).includes("설명을 만드는 중입니다…"), "running");
+  assert.deepEqual(posted.map((p) => p.body), [body], "observed_paths request: draft job, raw interface id, current version");
+  assert.match(posted[0].key, /^[0-9a-f-]{36}$/, "idempotency key");
+  const firstKey = posted[0].key;
+  await wait(() => calls("GET", `/api/jobs/${EXPLAIN_JOB}`).length > 0 && text(card(app).children).includes("설명을 만드는 중입니다…"), "queued job read");
+  await wait(() => !explainButton(app), "no second request while running");
+  assert.equal(byData(app, "data-explanation-result").length, 0);
+  jobState = { status: "succeeded", errorCode: null, resultSummary: resultOf(["경로 P2가 정상 거래 흐름인지 확인합니다."]) };
+  await act(async () => app.client.invalidateQueries({ queryKey: ["protocol-explanation-job"] }));
+  await wait(() => byData(app, "data-explanation-result").length === 1, "result shown");
+  const box = text(card(app).children);
+  assert.ok(box.startsWith("LLM 설명"), box);
+  assert.ok(!box.includes("설명을 만드는 중입니다…"));
+  const chips = byData(app, "data-explanation-path");
+  assert.deepEqual(chips.map((n) => n.props["data-explanation-path"]), ["P2", "P1", "P2"], "path ids from paths only (XP1·P9 stay text)");
+  assert.deepEqual(chips[0].findAll((n) => n.type === "span" && n.props["data-channel"] !== undefined).map((n) => n.props["data-channel"]), ["CH_GW", "채널_외부", "CH_DB"], "channel chips");
+  assert.ok(text(byData(app, "data-explanation-text")[0].children).includes("XP1·P9는 경로 id가 아닙니다."));
+  const points = text(byData(app, "data-review-points")[0].children);
+  assert.ok(points.startsWith("확인할 점") && points.endsWith("가 정상 거래 흐름인지 확인합니다."), points);
+  assert.equal(text(byData(app, "data-explanation-note")[0].children), "코드가 집계한 사실만으로 쓴 설명입니다 · 버전 30 기준");
+  assert.ok(!explainButton(app), "no request button over a result");
+  await app.cleanup();
+
+  // 같은 대상의 기존 성공 작업(다른 버전 대상 작업은 무시): 요청 없이 바로 보이고, 확인할 점이 없으면 그 칸을 숨긴다.
+  jobs = [listItem("66666666-6666-4666-8666-666666666666", "succeeded", { inputSpec: { ...body, target: { ...target, ruleSetRevision: 29 } } }), listItem(EXPLAIN_JOB, "succeeded")];
+  jobState = { status: "succeeded", errorCode: null, resultSummary: resultOf([]) };
+  posted.length = 0;
+  requested.length = 0;
+  const reused = await mount(paths.detectionRuleProtocol("IF_SYN_ORDER"));
+  await openDrafts(reused);
+  await wait(() => byData(reused, "data-explanation-result").length === 1, "existing result");
+  assert.equal(calls("GET", "/api/jobs/66666666-6666-4666-8666-666666666666").length, 0, "other target's job not read");
+  assert.equal(byData(reused, "data-review-points").length, 0, "no review points → box hidden");
+  assert.equal(posted.length, 0, "existing job shown without a request");
+  await reused.cleanup();
+
+  // 점검 실패: 코드 + 사유 코드, 문장 없음 → 다시 요청은 새 멱등키(같은 키는 실패 작업을 돌려준다).
+  jobs = [listItem(EXPLAIN_JOB, "failed")];
+  jobState = { status: "failed", errorCode: "protocol_explanation_check_failed",
+    resultSummary: { format: "protocol-explanation-v1", target, interfaceId: "IF_SYN_ORDER", ruleSetRevision: 30, check: { passed: false, failures: ["numbers_subset", "paths_in_facts"], coverage: {} } } };
+  const failed = await mount(paths.detectionRuleProtocol("IF_SYN_ORDER"));
+  await openDrafts(failed);
+  await wait(() => text(card(failed).children).includes("경로 설명 실패 · protocol_explanation_check_failed · numbers_subset · paths_in_facts"), "check failure codes");
+  assert.equal(byData(failed, "data-explanation-result").length, 0, "no sentence for a failed check");
+  jobState = { status: "queued", errorCode: null, resultSummary: null };
+  await act(async () => explainButton(failed).props.onClick());
+  await wait(() => posted.length === 1, "retry posted");
+  assert.deepEqual(posted[0].body, body);
+  assert.notEqual(posted[0].key, firstKey, "retry after a failure uses a new idempotency key");
+  await failed.cleanup();
+  jobState = { status: "failed", errorCode: "generation_busy", resultSummary: null };
+  const busy = await mount(paths.detectionRuleProtocol("IF_SYN_ORDER"));
+  await openDrafts(busy);
+  await wait(() => text(card(busy).children).includes("경로 설명 실패 · generation_busy"), "plain failure code");
+  assert.equal(explainButton(busy).props.disabled, false, "request again after a failure");
+  await busy.cleanup();
+
+  // 접수 거절(400): 코드 그대로, 다시 누를 수 있다.
+  jobs = [];
+  posted.length = 0;
+  postReply = () => json({ code: "protocol_explanation_facts_unavailable" }, 400);
+  const rejected = await mount(paths.detectionRuleProtocol("IF_SYN_ORDER"));
+  await openDrafts(rejected);
+  await act(async () => explainButton(rejected).props.onClick());
+  await wait(() => text(card(rejected).children).includes("경로 설명 실패 · protocol_explanation_facts_unavailable"), "rejection code");
+  assert.equal(explainButton(rejected).props.disabled, false);
+  await rejected.cleanup();
+
+  // LLM 꺼짐(#168): 버튼 비활성 + `경로 설명 · <코드>`, 요청 없음.
+  llm = { available: false, checkedAt: "2026-11-14T01:00:00.000Z", errorCode: "generation_service_unavailable" };
+  posted.length = 0;
+  const off = await mount(paths.detectionRuleProtocol("IF_SYN_ORDER"));
+  await openDrafts(off);
+  await wait(() => byData(off, "data-llm-unavailable").length === 1, "unavailable code");
+  assert.equal(text(byData(off, "data-llm-unavailable")[0].children), "경로 설명 · generation_service_unavailable");
+  assert.equal(explainButton(off).props.disabled, true, "button disabled while the generation service is off");
+  assert.equal(posted.length, 0);
+  await off.cleanup();
+  llm = { available: true, checkedAt: "2026-11-14T01:00:00.000Z", errorCode: null };
+
+  // 초안에도 운영 버전에도 없는 인터페이스: 설명할 사실이 없어 칸을 그리지 않는다(접수 400과 같은 조건).
+  const absent = await mount(paths.detectionRuleProtocol("IF_SYN_NONE"));
+  await wait(() => absent.shown().includes("새 항목"), "detail");
+  await absent.click("관측 경로로 초안 만들기");
+  await wait(() => absent.shown().includes(labels.DRAFT_NOT_OBSERVED), "not observed");
+  assert.ok(!card(absent), "no explanation box without facts");
+  await absent.cleanup();
 }
 
 console.log("protocol settings page tests passed");

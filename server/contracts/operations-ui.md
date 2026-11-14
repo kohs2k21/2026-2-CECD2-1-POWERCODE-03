@@ -52,6 +52,7 @@ Status: current
 - detector: `ops_pipeline_measurements(stage='detector')`. 실패 = 1시간 내 failed detect 작업 수(원천은 입력 manifest `source_id`)
 - judgmentStore: 저장 소요 미기록(`decision_committed_at` 미사용) → null
 - `endToEnd`: `{p50Ms:null, p95Ms:null, reason:'source_clock_unverified'}`
+  - Detector는 [detection-decision.md](detection-decision.md) 18절 조건이면 판정 행을 `measured`로 저장한다. API 집계 변경은 WebUI 몫
 
 ## GET /api/operations/source-fields?sourceId=&layer=T|P|M|B
 

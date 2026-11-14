@@ -1137,6 +1137,47 @@ def runtime_roles(conn, sid):
     print("PASS 실제 권한: collector가 v04 작업 생성, detector가 뷰 읽기·중간 기록·판정 저장")
 
 
+def source_latency(conn, sid):
+    """원천 → 판정 지연 열(detection-decision.md 18절). 출처 행은 Collector input_store.admit과 같은 모양으로 직접 넣는다."""
+    run_id = uuid.uuid4()
+    conn.execute("""INSERT INTO ops_input_runs(id,source_id,mode,settings,status)
+        VALUES(%s,%s,'api','{"pollSeconds":2}'::jsonb,'running')""", (run_id, sid))
+    conn.commit()
+    positions = iter(range(1000))
+
+    def judge(key, raw, phase):
+        seen, payload = v04_job(conn, sid, key, raw)
+        if phase is not None:
+            conn.execute("""INSERT INTO data_input_origins(observation_id,run_id,mode,position,namespace,ingest_phase)
+                VALUES(%s,%s,'api',%s,'integration',%s)""", (seen.observation_id, run_id, next(positions), phase))
+            conn.commit()
+        assert attempt(conn, payload) is None
+        row = conn.execute("""SELECT d.latency_status::text,d.source_latency_ms,d.source_log_occurred_at,
+                o.source_log_occurred_at,o.clock_status,
+                d.source_latency_ms = extract(epoch FROM d.decided_at-o.source_log_occurred_at)*1000
+            FROM run_process_decisions d JOIN data_observations o ON o.id=d.process_observation_id
+            WHERE d.job_id=%s""", (payload["jobId"],)).fetchone()
+        conn.commit()
+        return row
+
+    offset = {"start_time_raw": "2026-01-01 00:00:00+00:00", "end_time_raw": "2026-01-01 00:00:01+00:00"}
+    status, latency, copied, observed, clock, same_clock = judge("latency-live", offset, "live")
+    assert (status, clock) == ("measured", "offset") and observed is not None, (status, clock)
+    assert copied == observed and latency > 0 and same_clock is True, (copied, observed, latency)
+    # 원천 시계가 DB 시계보다 앞선 경우: 음수 원값 그대로 measured(집계에서 빼는 일은 API 몫)
+    future = {"start_time_raw": "2999-01-01 00:00:00+00:00", "end_time_raw": "2999-01-01 00:00:01+00:00"}
+    status, latency, copied, observed, _, same_clock = judge("latency-skew", future, "live")
+    assert status == "measured" and latency < 0 and copied == observed and same_clock is True, (status, latency)
+    # 조건 거짓: 첫 조회(initial), 시간대 가정(assumed_tz), 출처 행 없음 — 관측 원천 시각이 있어도 복사하지 않는다
+    for key, raw, phase, expected_clock in (("latency-initial", offset, "initial", "offset"),
+                                            ("latency-assumed", {}, "live", "assumed_tz"),
+                                            ("latency-no-origin", offset, None, "offset")):
+        status, latency, copied, observed, clock, _ = judge(key, raw, phase)
+        assert (status, latency, copied, clock) == ("unavailable", None, None, expected_clock), (key, status, clock)
+        assert observed is not None, key
+    print("PASS 원천 → 판정 지연: live·근거 있는 원천 시각만 measured(음수 포함), 그 밖은 unavailable·원천 시각 미복사")
+
+
 def observe_layer(conn, sid, layer, raw):
     """T·M 행(실행 1개·리비전 1). 탐지 큐에는 넣지 않는다."""
     execution_id, key = uuid.uuid4(), f"{layer}-{uuid.uuid4()}"
@@ -1395,6 +1436,7 @@ def main():
         conn.commit()
         pinning_and_fail_closed(conn, sid)
         evidence_and_columns(conn, sid, model_config, feature_set)
+        source_latency(conn, sid)
         interim_records(conn, sid, model_config)
         lease_loss(conn, sid)
         legacy_paths(conn, sid)

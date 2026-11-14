@@ -21,6 +21,7 @@ from detector.protocol_rules import PROTOCOL_PATH_VERSION
 from detector.relation_inputs import read_relation_inputs
 from detector.relation_plan import RelationPlan, needs_relation_inputs, plan_relations
 from detector.soft_rules import evaluate_soft_rule, in_scope, soft_rule_fields, unresolved_soft_result
+from detector.source_latency import decision_source_time
 from feature_fit import requires_fit
 from feature_runtime import calculate_features, input_manifest_hash
 from methods.registry import method_for_key
@@ -319,14 +320,23 @@ def run_attempt(conn: Any, message: Any, job: Mapping[str, Any], attempt_id: uui
                         ON CONFLICT DO NOTHING""", (observation.observation_id, context["featureSetId"],
                         input_manifest_hash(str(observation.observation_id), source_hash, context["featureHash"]),
                         json.dumps(values), json.dumps(missing)))
-            cur.execute("""INSERT INTO run_process_decisions
+            # 원천 → 판정 지연(detection-decision.md 18절): 조건이 참일 때만 관측 원천 시각을 복사하고 measured.
+            # decided_at과 지연은 같은 clock_timestamp() 한 번(MATERIALIZED CTE n)으로 계산한다. 음수도 그대로 measured.
+            occurred = decision_source_time(observation, rechecked=recheck is not None)
+            cur.execute("""WITH n AS MATERIALIZED (SELECT clock_timestamp() AS t)
+                INSERT INTO run_process_decisions
                 (id,execution_id,process_observation_id,config_version_id,input_manifest_hash,input_as_of,
-                status,rule_status,ml_status,decision_code,anomaly_score,evidence,decided_at,latency_status,
+                status,rule_status,ml_status,decision_code,anomaly_score,evidence,decided_at,
+                source_log_occurred_at,source_latency_ms,latency_status,
                 job_id,input_manifest_id,result_attempt_id,result_lease_token)
-                VALUES(%s,%s,%s,NULL,%s,%s,%s,%s,%s,%s,%s,%s::jsonb,clock_timestamp(),'unavailable',%s,%s,%s,%s)""",
+                VALUES(%s,%s,%s,NULL,%s,%s,%s,%s,%s,%s,%s,%s::jsonb,(SELECT t FROM n),
+                %s::timestamptz,extract(epoch FROM (SELECT t FROM n)-%s::timestamptz)*1000,
+                CASE WHEN %s::timestamptz IS NULL THEN 'unavailable' ELSE 'measured' END::measurement_status,
+                %s,%s,%s,%s)""",
                 (uuid.uuid4(), observation.execution_id, observation.observation_id, fixed[3], fixed[4],
                  columns["status"], columns["rule_status"], columns["ml_status"], columns["decision_code"],
-                 columns["anomaly_score"], json.dumps(evidence), job["id"], fixed[2], attempt_id, attempt_token))
+                 columns["anomaly_score"], json.dumps(evidence), occurred, occurred, occurred,
+                 job["id"], fixed[2], attempt_id, attempt_token))
             if recheck is None:
                 # 재판정은 측정 행을 넣지 않는다 [제안, relation-rules.md 6.4] — 같은 관측이 지연 집계에 두 번 들어가지 않게.
                 cur.execute("""INSERT INTO ops_pipeline_measurements(id,observation_id,stage,config_version_id,duration_ms)

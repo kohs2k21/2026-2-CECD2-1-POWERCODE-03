@@ -562,6 +562,7 @@
 | `evidence` | 11절 v4 | |
 
 - 판정 행은 불변이다(`004_erd_v03_contracts.sql:131-137`). 작업당 1행(`004:94` `job_id UNIQUE`)
+- 지연 열(`source_log_occurred_at`·`source_latency_ms`·`latency_status`)은 18절
 - 후속 메모: IF 외 ML의 `decision_code`는 둘째 모델 추가 전에 정한다(6절)
 
 ## 13. 중간 판정 기록 — 정본
@@ -745,8 +746,30 @@
 | D24 | v04 시도가 값 오류(`ValueError`)로 실패하면 그 코드(앞 100자)를 `run_jobs.error_code`·시도·큐 `last_error`·최종 없음 `reason_code`에 남긴다. 그 밖의 예외는 `detection_processing_failed`이고 v03은 기존 코드 그대로다 | Detector 결정. fail-closed 원인을 운영에서 구분하기 위함 |
 | D25 | 옛 메시지 복구(작업 없는 큐 메시지)를 v04로 바꿀 때 그 관측의 판정이 구성과 무관하게 하나라도 있으면 작업을 만들지 않는다. 메시지의 입력 hash는 v03과 같게 대조하고, 구성 없이 hash만 있으면 거부한다 | Detector 결정. v04 판정은 구성에 묶이지 않음 |
 
+## 18. 원천 발생 → 판정 지연 열 [합의 Collector·WebUI 11/15 — collector-metrics.md 3.3]
+
+- 대상: `run_process_decisions`의 기존 열 `source_log_occurred_at`·`source_latency_ms`·`latency_status`(002, 열 추가·migration 없음). 002 CHECK `(latency_status='unavailable' AND source_latency_ms IS NULL) OR (latency_status='measured' AND source_latency_ms IS NOT NULL)` 안에서 쓴다
+- 기록 경로: v04 판정 INSERT(`detector/attempt_v04.py` `run_attempt`). v03 경로(`detector/runner.py`)는 기존대로 늘 `unavailable`
+- `measured` 조건 — 모두 참일 때만(`detector/source_latency.py` `source_latency_measurable`)
+  1. 판정 PROCESS 관측 `data_observations.clock_status IN ('offset','verified_tz')`. `assumed_tz`·`unparsed`·`absent`·030 이전 `unknown`은 거짓
+  2. 그 관측의 출처 `data_input_origins.ingest_phase = 'live'`(출처 PK `observation_id` = 관측 `id`). `initial`·`replay`, 030 이전 출처(NULL), 출처 행 없음(옛 CSV 재생·시연·측정 경로)은 거짓
+  3. 관측 `revision_no = 1`. 2 이상·NULL은 거짓
+  4. 재판정 시도가 아님(`recheck_reference`가 None — evidence `relationRecheck` 없음, relation-rules.md 6.4). 재판정 판정은 늘 `unavailable`이라 같은 관측이 지연 집계에 두 번 들어가지 않는다
+  5. 관측 `source_log_occurred_at IS NOT NULL`
+- 값(조건 참)
+  - `source_log_occurred_at` = 관측 값 그대로 복사(Detector가 원문을 다시 해석하지 않음)
+  - `source_latency_ms` = `decided_at − source_log_occurred_at`(ms, numeric, 부호 있는 원값). `decided_at`과 같은 `clock_timestamp()` 한 번으로 INSERT 안에서 계산한다(DB 시계만, Detector 프로세스 시계와 섞지 않음)
+  - 음수(원천 시계가 DB 시계보다 앞섬)도 그대로 `measured`로 저장한다. 0으로 자르거나 버리지 않는다
+- 조건 거짓: `latency_status='unavailable'`, `source_latency_ms` NULL, `source_log_occurred_at` NULL. 관측에 원천 시각이 있어도 판정 행에는 복사하지 않는다(판정 행에 원천 시각 있음 ⇔ `measured`). 근거 없는 시각(`assumed_tz` 등)이 판정 쪽에서 검증된 시각처럼 읽히지 않게 하려는 것이고, 관측 값은 관측 행에서 읽는다. CHECK는 이 열을 묶지 않으므로 DB 제약이 아닌 Detector 규칙이다
+- 읽기 비용: 관측 원천 시각·출처 입력 구간은 큐 메시지의 관측을 읽는 기존 쿼리(`detector/input_reader.py`, 출처는 PK LEFT JOIN)에서 함께 읽는다. 판정마다 따로 조회하지 않는다
+- 집계(API·WebUI 몫, 이 절은 정의만): 원천별 최근 1시간 `measured` 판정의 `source_latency_ms`. 음수 표본은 분위수에서 빼고 `skewCount`로 센다. 0 이상 표본 없이 음수만 있으면 분위수 null + `reason:'source_clock_skew'`(collector-metrics.md 3.2와 같은 규칙)
+- collector-metrics.md 3.2 `sourceToStored`와 모집단이 같다(P·첫 revision·live·같은 근거). 두 지연의 차이가 판정 대기·처리 시간이다
+- 쓰지 않는 열: `decision_committed_at`(커밋 시각은 그 트랜잭션 안에서 알 수 없고 판정 행은 불변이라 뒤에 채울 수 없음 — `004_erd_v03_contracts.sql` `decision_v03_immutable`)
+- `ops_pipeline_measurements`(stage `detector`)에는 지연 상태 열이 없고 Detector 처리 소요(프로세스 단조 시계)만 기록한다. 이 절로 바뀌지 않는다
+
 ## 이력
 
+- 2026-11-15: 18절 원천 발생 → 판정 지연 열 추가(Collector·WebUI 합의 조건, v04 판정 INSERT에서 measured 기록, 음수 원값 저장, 재판정·v03 제외), 12절에 참조 한 줄
 - 2026-11-13: 룰 세트 v3 판정(protocol-rules.md 10절 1~7단계) 반영 — 3.1 `hard:rel-*`·`hard:proto-*` 형식, 4.1·4.2·4.3 내장 하드룰 4 → 6(`hard:transaction-failed`·`hard:unregistered-interface`, 목록 추가는 API v3 배포와 함께), 4.4 관계·프로토콜 하드룰(방법 버전·결과 코드), 11.4 `methodResults` 순서·`relationInputs`·`relationNotes`·`protocolReview`·`relationRecheck`·v3 투영 제외, 11.6 `capacity` 뜻 확장·세부 사유·새 시도 실패 코드, 11.7 상한. 모두 [제안](사용자 확정분은 표기 그대로)
 - 2026-11-05: `queues.md` v04 메시지 계약 반영에 맞춰 16절 대조 기준 `f959b24`·남은 요청 없음으로 정리, C28 선행 조건 중 조율 완료를 별도 문장으로 표기, D19에 v03 구성별 작업 명시
 - 2026-11-05: #112 재검토 2차 반영 — 상태 표기를 D1~D25로, 14절·15절 K9의 `capacity` 표현을 슬롯을 못 잡은 경우로 정정

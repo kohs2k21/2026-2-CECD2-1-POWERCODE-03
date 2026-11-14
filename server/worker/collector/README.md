@@ -64,3 +64,11 @@ docker compose exec collector python -m collector.report \
 `python -m collector.input_runner`는 DB 입력 선택을 읽어 API/CSV/paused 중 하나만 입고한다. `collector.input_cli`로 init/stage-csv/status/select를 실행할 수 있고 화면 운영 현황 수집 탭(`/operations?tab=collect`, 관리자)에서 같은 상태를 제어한다. 두 모드는 `input_contract.normalize`와 `input_store.admit`를 공유한다. 입고가 커밋된 뒤에는 그 tick 입고로 등록·재사용된 detect 작업(jobId 있음)만 `DETECTOR_DELIVERY_URL`의 `/detect`로 알린다(한 tick 최대 10건). 큐는 조회하지 않으며, 구성 대기 항목·상한 초과분·알림 실패는 Detector의 큐 polling이 처리한다. 피처·Rule·모델은 기존 운영 파이프라인에서 생성/선택하며 별도 데모 모델로 우회하지 않는다.
 
 네 파일 중 Message 모니터링과 BODY를 구분한다. CSV `\N`은 NULL, `PROCESS_DT`는 원문 시각 컬럼으로 투영한다. BODY는 현재 messageId 참조만 저장한다. API의 비어 있지 않은 로그 shape는 매핑 설정으로 연결한다. 설명과 실행 순서는 [SWITCHABLE_INPUTS.md](../../infra/SWITCHABLE_INPUTS.md)를 따른다. `api_runner` 단독 실행은 기존 API 수집 시험 경로로 남겨 두었으며 기본 컨테이너 명령은 아니다.
+
+## 운영 계측 (migration 030)
+
+정의·집계 SQL은 [collector-metrics.md](../../contracts/collector-metrics.md)가 정본이다.
+
+- `source_clock.py`: 입고 때 관측 원천 시각을 채운다(`trainer/source_time.py` `process_source_time` 재사용, END_TIME → START_TIME, `offset`·`verified_tz`·`assumed_tz`·`unparsed`·`absent`). `PROCESS_DT`는 쓰지 않는다. `ops_sources.clock_basis`는 운영자 CLI `input_cli clock-basis verify|reset`만 바꾼다
+- `input_runner.ingest_phase`: 출처 행 `ingest_phase`(csv `replay`, API 실행 시작·재개 뒤 첫 성공 조회 `initial`, 그 밖 `live`). API 관측 `api_received_at` = 응답 수신 시각(receipt `finished_at`), CSV는 NULL
+- `resource_sampler.py`: compose 서비스 `resources`(profile `resources`). 60초마다 `/proc/stat`·`/proc/meminfo` → `ops_resource_measurements`, 읽기 전용 바인드 경로 `statvfs` → `ops_storage_measurements`(`artifacts`, `compose.resources-db.yaml`을 주면 `database_data`). 값을 못 읽으면 측정 불가 행(사유 코드)이고 0·이전 값으로 채우지 않는다. 자원 24시간·저장공간 7일 보존 정리

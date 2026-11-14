@@ -5,6 +5,7 @@ import os
 import sys
 import psycopg
 from collector.input_store import ensure_source,stage_csv,switch
+from collector.source_clock import set_clock_basis,validate_actor,validate_timezone
 
 
 def main():
@@ -23,9 +24,27 @@ def main():
     choose.add_argument('--replay-id');choose.add_argument('--rate',type=float,default=10)
     choose.add_argument('--repeat',type=int,default=1);choose.add_argument('--poll-seconds',type=float,default=2)
     choose.add_argument('--restart',action='store_true');choose.add_argument('--config',help='Config UUID for validation, or active for approved global config')
+    # Source clock basis (contracts/collector-metrics.md 1.3). Operator decision only; Collector never sets it itself.
+    clock=commands.add_parser('clock-basis').add_subparsers(dest='clock_command',required=True)
+    verify=clock.add_parser('verify',help='Mark the source time zone verified after checking clockCheck')
+    verify.add_argument('--timezone',required=True,help='IANA time zone name, e.g. Asia/Seoul')
+    verify.add_argument('--actor',required=True,help='Operator id recorded as verifiedBy')
+    reset=clock.add_parser('reset',help='Return to unverified (assumed time zone)')
+    reset.add_argument('--actor',required=True,help='Operator id recorded as resetBy')
     args=parser.parse_args()
     try:
+        if args.command=='clock-basis':
+            # Validate before connecting so a typo never touches the database.
+            validate_actor(args.actor)
+            if args.clock_command=='verify':validate_timezone(args.timezone)
         with psycopg.connect(os.environ['DATABASE_URL'],connect_timeout=10) as conn:
+            if args.command=='clock-basis':
+                # Never creates a source: a typo in --source-key must not register a new one.
+                found=conn.execute('SELECT id FROM ops_sources WHERE dataset_key=%s',(args.source_key,)).fetchone()
+                if found is None:raise ValueError('input_source_not_initialized')
+                output=set_clock_basis(conn,found[0],verify_timezone=args.timezone if args.clock_command=='verify' else None,actor=args.actor)
+                conn.commit()
+                print(json.dumps(output,default=str,ensure_ascii=False));return 0
             sid=ensure_source(conn,args.source_key);conn.commit()
             if args.command=='stage-csv':
                 rid=stage_csv(conn,sid,args.replay_key,{k:getattr(args,a) for k,a in [('T','transaction'),('P','process'),('M','message'),('B','body')] if getattr(args,a)},args.limit_per_file)

@@ -7,8 +7,11 @@ import json
 import math
 import uuid
 from dataclasses import dataclass
+from datetime import datetime
 from decimal import Decimal, InvalidOperation
 from typing import Any, Literal, Mapping
+
+from collector import source_clock
 
 
 Layer = Literal["T", "P", "M"]
@@ -102,11 +105,15 @@ def ingest_observation(
     detection_eligible: bool = False,
     source_revision_token: str | None = None,
     benchmark_run_id: str | None = None,
+    api_received_at: datetime | None = None,
 ) -> IngestResult:
     """투영 관측값·계층별 행·변수 계산 메시지를 하나의 트랜잭션에 기록한다.
 
     호출자는 검증된 source, 버전이 반영된 dedup_key, 실행 식별과 revision을 제공한다.
     실행 식별이 불명확하면 관측값은 보존하되 변수 계산 큐에는 넣지 않는다.
+    원천 시각 열(`source_log_occurred_at`·`source_log_time_raw`·`clock_status`·`parsed_times`)은 같은 트랜잭션에서
+    원천 `clock_basis`를 읽어 채운다(contracts/collector-metrics.md 1.1). `api_received_at`은 API 조회 응답 수신 시각
+    (api_client receipt `finished_at`)이고 CSV·재생 경로는 None(NULL)이다.
     """
     if not isinstance(source_id, uuid.UUID) or not isinstance(dedup_key, str) or not dedup_key.strip():
         raise ValueError("source_id와 비어 있지 않은 dedup_key가 필요하다")
@@ -120,6 +127,8 @@ def ingest_observation(
         raise ValueError("검증된 실행 식별이 있는 PROCESS만 탐지 큐에 등록할 수 있다")
     if benchmark_run_id is not None and (not isinstance(benchmark_run_id, str) or not benchmark_run_id):
         raise ValueError("benchmark_run_id는 비어 있지 않은 문자열이어야 한다")
+    if api_received_at is not None and (not isinstance(api_received_at, datetime) or api_received_at.utcoffset() is None):
+        raise ValueError("api_received_at은 시간대 있는 datetime이어야 한다")
 
     allowed, missing = project_observation(layer, raw)
     typed, flags = _typed_values(layer, allowed)
@@ -131,18 +140,25 @@ def ingest_observation(
 
     with conn.transaction():
         with conn.cursor() as cur:
+            # 운영자 `clock-basis verify`는 다음 INSERT부터 반영된다(같은 트랜잭션의 원천 행 값).
+            cur.execute("SELECT clock_basis FROM ops_sources WHERE id = %s", (source_id,))
+            basis_row = cur.fetchone()
+            source_time = source_clock.resolve(allowed, basis_row[0] if basis_row else None)
             cur.execute(
                 """INSERT INTO data_observations
                      (id, source_id, layer, execution_id, revision_no, dedup_key, content_hash,
-                      source_revision_token, api_received_at, persisted_at, clock_status,
+                      source_revision_token, source_log_time_raw, source_log_occurred_at,
+                      api_received_at, persisted_at, clock_status,
                       parsed_times, allowed_values, quality_flags, missing_fields)
-                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s,
-                           clock_timestamp(), clock_timestamp(), 'unknown', '{}'::jsonb,
+                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                           %s, clock_timestamp(), %s, %s::jsonb,
                            %s::jsonb, %s::jsonb, %s::jsonb)
                    ON CONFLICT (source_id, layer, dedup_key) DO NOTHING
                    RETURNING id""",
                 (observation_id, source_id, layer, execution_id, revision_no,
-                 dedup_key, content_hash, source_revision_token, allowed_json,
+                 dedup_key, content_hash, source_revision_token,
+                 source_time.raw, source_time.occurred_at, api_received_at,
+                 source_time.clock_status, source_time.parsed_json(), allowed_json,
                  json.dumps(flags), json.dumps(missing)),
             )
             inserted = cur.fetchone()

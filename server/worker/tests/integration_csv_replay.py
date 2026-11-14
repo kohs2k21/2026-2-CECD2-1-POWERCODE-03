@@ -6,6 +6,7 @@ import os
 import sys
 import tempfile
 import uuid
+from datetime import datetime, timezone
 from pathlib import Path
 
 import psycopg
@@ -54,13 +55,26 @@ def main() -> None:
             cur.execute("SELECT id FROM ops_sources WHERE dataset_key = %s", (dataset_key,))
             source_id = cur.fetchone()[0]
             cur.execute(
-                """SELECT layer, allowed_values, clock_status FROM data_observations
+                """SELECT layer::text, allowed_values, clock_status, parsed_times, source_log_occurred_at,
+                          source_log_time_raw, api_received_at FROM data_observations
                      WHERE source_id = %s ORDER BY layer, dedup_key""",
                 (source_id,),
             )
             rows = cur.fetchall()
             assert len(rows) == 4
-            assert all(row[2] == "unknown" for row in rows)
+            # 030 source time (contracts/collector-metrics.md 1.1): T has START_TIME only and the csv-replay source is
+            # unverified -> assumed Asia/Seoul; P rows and the BODY reference (M) have no time columns -> absent.
+            # CSV replay leaves api_received_at NULL.
+            by_layer = {}
+            for row in rows:
+                by_layer.setdefault(row[0], []).append(row)
+            assert sorted((layer, len(items)) for layer, items in by_layer.items()) == [("M", 1), ("P", 2), ("T", 1)], by_layer
+            t = by_layer["T"][0]
+            assert t[2:6] == ("assumed_tz", {"rule": "source-time-v1", "field": "start", "basis": "assumed_tz"},
+                              datetime(2026, 10, 10, 3, tzinfo=timezone.utc), "2026-10-10 12:00:00"), t
+            for row in by_layer["P"] + by_layer["M"]:
+                assert row[2:6] == ("absent", {"rule": "source-time-v1"}, None, None), row
+            assert all(row[6] is None for row in rows)
             assert all("private-" not in str(row) for row in rows)
             assert any(row[0] == "M" and row[1] == {"message_id": "msg-1"} for row in rows)
             cur.execute(

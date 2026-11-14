@@ -5,6 +5,7 @@ import sys
 import unittest
 import uuid
 from contextlib import contextmanager
+from datetime import datetime,timezone
 from pathlib import Path
 from types import SimpleNamespace
 from unittest import mock
@@ -87,7 +88,8 @@ class Admission(unittest.TestCase):
         with mock.patch.object(input_store,'ingest_observation',return_value=saved),\
              mock.patch.object(input_store,'enqueue_observation',return_value=payload) as enqueue:
             outcome=input_store.admit(Connection(),uuid.uuid4(),uuid.uuid4(),'api','P',
-                {'transaction_id':'t','process_id':'p','retry_count':0},namespace='api')
+                {'transaction_id':'t','process_id':'p','retry_count':0},namespace='api',
+                phase='live',received_at=datetime(2026,11,15,tzinfo=timezone.utc))
         enqueue.assert_called_once()
         return outcome
 

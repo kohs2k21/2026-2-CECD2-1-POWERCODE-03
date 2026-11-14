@@ -1,0 +1,14 @@
+# resources 표본기에 PostgreSQL 데이터 디렉터리가 있는 파일시스템을 읽기 전용으로 보인다(contracts/collector-metrics.md 4절).
+# 사용: docker compose -f compose.yaml -f compose.resources-db.yaml --profile resources up -d resources
+# RESOURCE_DATABASE_DATA_HOST_PATH = DB 데이터 디렉터리(또는 그 상위 디렉터리)의 호스트 절대경로. 표본기는 그 마운트의 statvfs만 읽고
+# 안의 파일은 열지 않는다(디렉터리 권한이 막혀 있어도 마운트 지점 statvfs는 된다). 경로가 없으면 compose가 시작을 거부한다.
+services:
+  resources:
+    environment:
+      RESOURCE_DATABASE_DATA_PATH: /measure/database_data
+    volumes:
+      - type: bind
+        source: ${RESOURCE_DATABASE_DATA_HOST_PATH:?Set the existing database data directory absolute path}
+        target: /measure/database_data
+        read_only: true
+        bind: {create_host_path: false}

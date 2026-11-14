@@ -8,10 +8,12 @@
   `device_count()==1`·`cuda:0`이라 `DesignModel` 코드는 그대로다. 너무 늦게 바뀌어 여러 장이 보이면 `DesignModel`이
   `expose_one_bf16_gpu`로 거부하므로 잘못된 GPU를 쓰는 일 없이 그 복제본만 꺼진다.
 - 전달: 파이프(pickle). 번들 결과의 Decimal 등 값 형식이 JSON 왕복으로 바뀌지 않는다. 예외 클래스는 넘기지 않고
-  종류 코드로 바꿔 부모에서 같은 종류로 다시 올린다(`TimeoutError`, 번들 `InputFailure`·`ModelFailure`, 그 밖은
-  `GenerationUnavailable("generation_failed")`). 작업 폴더(`/tmp` 아래)는 같은 컨테이너라 경로만 넘긴다.
+  종류 코드로 바꿔 부모에서 같은 종류로 다시 올린다(`TimeoutError`, 번들 `InputFailure`·`ModelFailure`, `ValueError`,
+  그 밖은 `GenerationUnavailable("generation_failed")`). 작업 폴더(`/tmp` 아래)는 같은 컨테이너라 경로만 넘긴다.
 - 실패: 적재 실패·어댑터 SHA 불일치·시작 시간 초과면 그 복제본을 쓰지 않고 `rule_v3_replica_disabled: <gpu> <코드>`
   한 줄을 남긴다. llm 시작을 막지 않는다. 실행 중 자식이 죽으면 그 복제본을 빼고 그 필드는 `generation_failed`.
+- 진입점: `spawn` 자식은 부모의 `__main__` 모듈을 다시 import한다. 복제본을 띄우는 스크립트는 torch·모델 적재를
+  `if __name__ == "__main__":` 안에 둬야 한다(밖에 두면 자식이 주 GPU에 모델을 다시 올린다). `llm_worker`는 그렇게 되어 있다.
 - 대화형 생성(explain)은 주 프로세스만 처리한다. 복제본은 자기 `GenerationGate`를 가지며 Rule v3 필드만 받는다.
 - 종료: 자식은 daemon이라 부모가 정상 종료하면 multiprocessing이 끝낸다. 부모가 신호로 죽으면 자식의 감시 스레드가
   부모 종료를 보고 스스로 끝난다(컨테이너는 init이 끝나면 남은 프로세스도 함께 정리된다).

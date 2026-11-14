@@ -11,6 +11,8 @@
 # - 자원: 이 override는 CPU·메모리 상한을 바꾸지 않고 기본 compose의 LLM_CPUS·LLM_MEMORY를 그대로 물려받는다.
 #   프로세스 4개가 각자 Base·LoRA·토크나이저·xgrammar 컴파일러를 올리므로, 4장이면 LLM_CPUS·LLM_MEMORY를 장수에 맞게
 #   키운다(상한을 지원하는 호스트에서). 상한을 지원하지 않는 호스트는 기본 compose와 같은 방식으로 환경에서 따로 지정한다.
+#   메모리 상한은 CPU와 별개로 걸린다. 4bit 적재는 GPU로 바로 올라가 프로세스당 CPU 상주분이 작다(GPU 3장 시험에서
+#   컨테이너 전체가 기본 LLM_MEMORY의 일부만 썼다). 장수를 늘리면 LLM_MEMORY 여유를 다시 확인한다.
 services:
   llm:
     environment:

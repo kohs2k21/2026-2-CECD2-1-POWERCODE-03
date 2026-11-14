@@ -16,12 +16,16 @@ import { ComparisonError, enqueueComparison, parseComparisonRequest } from '../s
 import { idempotencyKeyOf } from './comparisonRoutes.js';
 import { JobReadError, parseJobListQuery, readJobDetail, readJobPage } from '../services/jobReadModel.js';
 import { GENERATION_SERVICE_UNAVAILABLE, LLM_JOB_KINDS, generationAvailability } from '../services/generationAvailability.js';
+import { INVALID_PROTOCOL_EXPLANATION_REQUEST, PROTOCOL_EXPLANATION_KIND, parseProtocolExplanationRequest, protocolExplanationDecisionId,
+  protocolExplanationLlmSpec, protocolExplanationProblem, type ProtocolExplanationInput, type ProtocolExplanationTarget } from './protocolExplanationContract.js';
 
 const router = Router();
 router.use(authenticateToken as any);
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const UTC_TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?Z$/;
-const KINDS = new Set(['recommend_thresholds', 'train', 'evaluate', 'explain']);
+const KINDS = new Set(['recommend_thresholds', 'train', 'evaluate', 'explain', PROTOCOL_EXPLANATION_KIND]);
+/** 관리자 전용 작업 종류. 본문 해석 전에 역할을 먼저 본다(explain_protocol: protocol-explanation-job.md 12절 Q-P1). */
+const ADMIN_KINDS = ['recommend_thresholds', 'train', 'evaluate', PROTOCOL_EXPLANATION_KIND];
 /**
  * 폐지된 작업 종류(llm-recommendation-job.md 폐지 표 — recommend_feature 10/21, recommend_rule 10/21·11/02). 신규 요청은 역할과 무관하게
  * 422 `job_kind_abolished`(작업·큐 메시지를 남기지 않음). 이미 끝난 작업의 읽기(GET /api/jobs, recommend_rule 결과 채택)는 그대로 둔다.
@@ -53,6 +57,7 @@ type JobInput = {
   excludedIntervals?: { from: string; until: string; reasonCode: string; note: string | null }[];
   syntheticEvaluation?: SyntheticEvaluation;
   syntheticProfileBinding?: SyntheticBinding;
+  target?: ProtocolExplanationTarget;
 } & Partial<Omit<ThresholdRequest, 'kind' | 'sourceId'> & ThresholdFixedInput>;
 
 /** 학습 모델·파라미터 접수 검증(trainer-service.md). 워커 `resolve_training_method`와 같은 카탈로그·같은 코드이고, 키 생략은 기본 IF다. */
@@ -92,6 +97,12 @@ export function parseRequest(value: unknown, support: TrainingSupport = TRAINING
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new JobRequestError('invalid_job_request');
   const body = value as Record<string, unknown>;
   if (typeof body.kind === 'string' && ABOLISHED_KINDS.has(body.kind)) throw new JobRequestError('job_kind_abolished', 422);
+  // explain_protocol은 sourceId를 포함한 모든 형식 위반이 자기 코드다(protocol-explanation-job.md 1절).
+  if (body.kind === PROTOCOL_EXPLANATION_KIND) {
+    const parsed = parseProtocolExplanationRequest(body);
+    if (!parsed) throw new JobRequestError(INVALID_PROTOCOL_EXPLANATION_REQUEST);
+    return parsed;
+  }
   if (typeof body.kind !== 'string' || !KINDS.has(body.kind) || !uuid(body.sourceId)) {
     throw new JobRequestError('invalid_job_request');
   }
@@ -191,9 +202,9 @@ router.post('/', route(async (req, res) => {
     res.status(created ? 201 : 200).json(job);
     return;
   }
-  if (req.user!.userType !== 'admin' && ['recommend_thresholds','train','evaluate'].includes(req.body?.kind)) throw new JobRequestError('admin_required',403);
+  if (req.user!.userType !== 'admin' && ADMIN_KINDS.includes(req.body?.kind)) throw new JobRequestError('admin_required',403);
   const input = parseRequest(req.body);
-  if (['recommend_thresholds', 'train', 'evaluate'].includes(input.kind) && req.user!.userType !== 'admin') {
+  if (ADMIN_KINDS.includes(input.kind) && req.user!.userType !== 'admin') {
     throw new JobRequestError('admin_required', 403);
   }
   const header = req.headers['idempotency-key'];
@@ -282,6 +293,12 @@ router.post('/', route(async (req, res) => {
       input.savedEvidenceJson = JSON.stringify(input.savedEvidence);
       requestHash = crypto.createHash('sha256').update(JSON.stringify(input)).digest('hex');
     }
+    const protocolExplanation = input.kind === PROTOCOL_EXPLANATION_KIND ? input as ProtocolExplanationInput : null;
+    if (protocolExplanation) {
+      // 접수 때 대상·사실을 확인한다(protocol-explanation-job.md 10절, 12절 Q-P6). 거절하면 작업·큐 메시지·멱등키를 남기지 않는다.
+      const problem = await protocolExplanationProblem(client, protocolExplanation);
+      if (problem) throw new JobRequestError(problem);
+    }
     const thresholds = input.kind === 'recommend_thresholds';
     if (thresholds) {
       const request = input as ThresholdRequest;
@@ -298,8 +315,11 @@ router.post('/', route(async (req, res) => {
     }
     const id = crypto.randomUUID();
     const explanation = input.kind === 'explain';
+    // 설명 큐(llm_explanation): explain·explain_protocol(protocol-explanation-job.md 8절).
+    const explanationQueue = explanation || protocolExplanation !== null;
     // 설명의 reuse_key는 폐지 전과 같은 배열([요청자, 입력, null, 'grounded-facts-v1'])이라 기존 작업 재사용이 그대로다.
-    const llmSpec = thresholds ? thresholdLlmSpec(input as ThresholdRequest & ThresholdFixedInput, requestHash, req.user!.id, idempotencyKey) : explanation ? {
+    const llmSpec = thresholds ? thresholdLlmSpec(input as ThresholdRequest & ThresholdFixedInput, requestHash, req.user!.id, idempotencyKey)
+      : protocolExplanation ? protocolExplanationLlmSpec(protocolExplanation, requestHash, req.user!.id) : explanation ? {
       evidence_version: 'saved-decision-v1',
       input_evidence_hash: crypto.createHash('sha256').update(input.savedEvidenceJson!).digest('hex'),
       model_version: 'qwen-base-6a9e13bd',
@@ -335,9 +355,10 @@ router.post('/', route(async (req, res) => {
        RETURNING id, status, kind, input_spec AS "inputSpec"`,
       [id, input.kind, req.user!.id, req.user!.userType, idempotencyKey,
         requestHash, input.configVersionId ?? null, input.snapshotId ?? null, JSON.stringify(input),
-        'v03', explanation ? 'llm_explanation' : thresholds ? 'llm_recommendation' : 'training',
+        'v03', explanationQueue ? 'llm_explanation' : thresholds ? 'llm_recommendation' : 'training',
         'user', req.user!.id,
-        llmSpec ? JSON.stringify(llmSpec) : null, input.decisionId ?? null],
+        llmSpec ? JSON.stringify(llmSpec) : null,
+        protocolExplanation ? protocolExplanationDecisionId(protocolExplanation) : input.decisionId ?? null],
     );
     let row = inserted.rows[0];
     if (!row) {
@@ -350,7 +371,7 @@ router.post('/', route(async (req, res) => {
       if (!row || row.request_hash !== requestHash) throw new JobRequestError('idempotency_payload_conflict', 409);
     } else {
       await client.query(
-        `INSERT INTO ${explanation ? 'powercode_queue.llm_explanation_jobs' : thresholds ? 'powercode_queue.llm_recommendation_jobs' : 'powercode_queue.training_jobs'} (id, payload)
+        `INSERT INTO ${explanationQueue ? 'powercode_queue.llm_explanation_jobs' : thresholds ? 'powercode_queue.llm_recommendation_jobs' : 'powercode_queue.training_jobs'} (id, payload)
          VALUES ($1, $2::jsonb)`,
         [crypto.randomUUID(), JSON.stringify({ schemaVersion: 1, jobId: id, enqueuedAt: new Date().toISOString() })],
       );

@@ -20,7 +20,7 @@ export const LISTABLE_JOB_KINDS: Record<string, string> = {
   evaluation_set: 'training', compare: 'training', recommend_relations: 'training',
   recommend_rule: 'llm_recommendation', recommend_feature: 'llm_recommendation',
   recommend_methods: 'llm_recommendation', recommend_thresholds: 'llm_recommendation',
-  explain: 'llm_explanation',
+  explain: 'llm_explanation', explain_protocol: 'llm_explanation',
 };
 export const JOB_STATUSES = ['queued', 'running', 'succeeded', 'failed', 'blocked'] as const;
 const LIMIT_DEFAULT = 50;

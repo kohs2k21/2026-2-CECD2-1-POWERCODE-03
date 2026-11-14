@@ -22,6 +22,9 @@ const pool = new pg.Pool({ connectionString: url });
 let child;
 // LLM 생성 서비스 가용성(llm-recommendation-job.md '생성 서비스 가용성' 절): 꺼진 상태로 시작해 LLM 작업 접수 거절을 본 뒤 켠다.
 const llmHealth = await startFakeLlmHealth('down');
+// 프로토콜 경로 설명 접수 예시(API·워커 시험 공용, protocol-explanation-job.md 1절)와 Trainer 초안 고정값(protocol-drafts.test.mjs와 같음).
+const protocolExample = JSON.parse(await readFile(path.join(backend, '../contracts/protocol-explanation-job.example.json'), 'utf8'));
+const protocolDrafts = JSON.parse(await readFile(path.join(backend, 'tests/fixtures/protocol-path-drafts.json'), 'utf8'));
 
 async function freePort() {
   const server = net.createServer();
@@ -218,7 +221,7 @@ try {
   const thresholdKey = crypto.randomUUID();
   // 생성 서비스 꺼짐: LLM 작업(recommend_thresholds·explain)만 503 generation_service_unavailable. 작업 행·큐 메시지·멱등키를 남기지 않는다.
   const llmRows = async () => (await pool.query(`SELECT
-      (SELECT count(*)::int FROM run_jobs WHERE kind::text IN ('recommend_thresholds','explain')) AS jobs,
+      (SELECT count(*)::int FROM run_jobs WHERE kind::text IN ('recommend_thresholds','explain','explain_protocol')) AS jobs,
       (SELECT count(*)::int FROM run_jobs WHERE idempotency_key=$1) AS keyed,
       (SELECT count(*)::int FROM powercode_queue.llm_recommendation_jobs) + (SELECT count(*)::int FROM powercode_queue.llm_explanation_jobs) AS queued`,
     [thresholdKey])).rows[0];
@@ -232,6 +235,12 @@ try {
   assert.deepEqual(await request(base, '/api/jobs', 'POST', userToken, { kind: 'explain', sourceId, decisionId: crypto.randomUUID() }, crypto.randomUUID()),
     { status: 503, body: { code: 'generation_service_unavailable' } }, 'explain is refused before the decision lookup');
   assert.equal((await request(base, '/api/jobs', 'POST', userToken, thresholds, thresholdKey)).status, 403, 'role gate still comes first');
+  // explain_protocol: 역할(403)·형식(400)이 가용성(503)보다 먼저, 대상 조회 전에 503(판정 id는 아무 값이어도 됨).
+  const protocolDown = { kind: 'explain_protocol', sourceId, target: { kind: 'alert', decisionId: crypto.randomUUID() } };
+  assert.deepEqual(await request(base, '/api/jobs', 'POST', userToken, protocolDown, thresholdKey), { status: 403, body: { code: 'admin_required' } });
+  assert.deepEqual(await request(base, '/api/jobs', 'POST', token, { ...protocolDown, extra: 1 }, thresholdKey), { status: 400, body: { code: 'invalid_protocol_explanation_request' } });
+  assert.deepEqual(await request(base, '/api/jobs', 'POST', token, protocolDown, thresholdKey), { status: 503, body: { code: 'generation_service_unavailable' } },
+    'explain_protocol is refused before the target lookup');
   assert.deepEqual(await llmRows(), llmBefore, 'refused LLM requests leave no job, queue message or idempotency key');
   assert.equal((await request(base, '/api/jobs', 'POST', token, synthetic, crypto.randomUUID())).status, 201, 'non-LLM jobs are not gated');
   assert.equal(llmHealth.state.hits, 1, 'one /health check served the status read and both refusals (10 s cache)');
@@ -304,7 +313,134 @@ try {
   assert.equal(savedValues.status, 200, JSON.stringify(savedValues.body));
   const reread = (await request(base, '/api/rule-set', 'GET', token)).body.softRules;
   for (const item of thresholdCases) assert.equal(decimalString(reread.find(rule => rule.name === item.name).threshold), item.threshold, item.name);
-  console.log('job API integration passed: auth, idempotency, durable queue, role gate, feature-bound rule adoption, LLM availability gate');
+  // 프로토콜 경로 설명 접수(protocol-explanation-job.md 1·10절). 합성 인터페이스·채널 값.
+  const protocolRuleSet = (await request(base, '/api/rule-set', 'GET', token)).body;
+  const protocolSaved = await request(base, '/api/rule-set', 'PUT', token, {
+    expectedRevision: protocolRuleSet.revision, hardRules: protocolRuleSet.hardRules.map(({ id, enabled, severity }) => ({ id, enabled, severity })),
+    softRules: [], relationRules: [],
+    protocolRules: [{ id: null, clientRef: 'reg', interfaceId: 'IF_REGISTERED_ONLY', paths: [{ channels: ['CH_A', 'CH_B'] }], severity: 'warning', enabled: true }],
+  });
+  assert.equal(protocolSaved.status, 200, JSON.stringify(protocolSaved.body));
+  const protocolRevision = (await request(base, '/api/rule-set', 'GET', token)).body.revision;
+  const relationJob = async (summary, { kind = 'recommend_relations', status = 'succeeded' } = {}) => {
+    const jobId = crypto.randomUUID(), attemptId = crypto.randomUUID();
+    await pool.query(`INSERT INTO run_jobs (id, kind, status, requested_by_actor_id, requester_role, idempotency_key, request_hash, input_snapshot_id, input_spec,
+        max_attempts, attempt_count, next_run_at, created_at, contract_version, queue, producer_kind, producer_key)
+      VALUES ($1,$2,'queued',$3,'admin',$4,$5,$6,$7::jsonb,3,0,clock_timestamp(),clock_timestamp(),'v03','training','user',$3)`,
+    [jobId, kind, actorId, `qa-${jobId}`, crypto.randomUUID(), snapshotId, JSON.stringify({ kind, snapshotId, sourceId })]);
+    if (status === 'succeeded') {
+      await pool.query(`INSERT INTO run_job_attempts(id,job_id,attempt_no,status,worker_id,lease_token,lease_until,started_at)
+        VALUES($1,$2,1,'running','qa-worker',$3,clock_timestamp() + interval '5 minutes',clock_timestamp())`, [attemptId, jobId, crypto.randomUUID()]);
+      await pool.query(`UPDATE run_jobs SET status='succeeded', current_attempt_id=$2, attempt_count=1, finished_at=clock_timestamp(), result_summary=$3::jsonb WHERE id=$1`,
+        [jobId, attemptId, JSON.stringify(summary)]);
+    }
+    return jobId;
+  };
+  const draftsJob = await relationJob({ sourceId, protocolPathDrafts: protocolDrafts });
+  const oldResultJob = await relationJob({ sourceId }); // 초안 집계 전 Trainer 결과(protocolPathDrafts 키 없음)
+  const draftsV2Job = await relationJob({ sourceId, protocolPathDrafts: { ...protocolDrafts, version: 2 } });
+  const otherSourceJob = await relationJob({ sourceId: otherSourceId, protocolPathDrafts: protocolDrafts });
+  const upperSourceJob = await relationJob({ sourceId: sourceId.toUpperCase(), protocolPathDrafts: protocolDrafts }); // 워커 _same_source: 같은 UUID
+  const queuedRelationJob = await relationJob(null, { status: 'queued' });
+  const decision = async (evidence) => {
+    const execution = crypto.randomUUID(), observation = crypto.randomUUID(), decisionId = crypto.randomUUID();
+    const hash = crypto.createHash('sha256').update(observation).digest('hex');
+    await pool.query(`INSERT INTO data_executions(id,source_id,layer,execution_key,key_parts,key_contract_version,first_observed_at)
+      VALUES($1,$2,'P',$3,'{}','v1',clock_timestamp())`, [execution, sourceId, `exec-${execution}`]);
+    await pool.query(`INSERT INTO data_observations(id,source_id,layer,execution_id,revision_no,dedup_key,content_hash,api_received_at,persisted_at,clock_status,
+        parsed_times,allowed_values,quality_flags,missing_fields) VALUES($1,$2,'P',$3,1,$4,$5,clock_timestamp(),clock_timestamp(),'unknown','{}','{}','[]','[]')`,
+    [observation, sourceId, execution, `P:${observation}`, hash]);
+    await pool.query(`INSERT INTO data_processes(observation_id,transaction_id,process_id,status) VALUES($1,$2,'P1','S')`, [observation, `TX-${observation}`]);
+    await pool.query(`INSERT INTO run_process_decisions(id,execution_id,process_observation_id,config_version_id,input_manifest_hash,status,rule_status,ml_status,
+        decision_code,evidence,decided_at,latency_status) VALUES($1,$2,$3,$4,$5,'complete','succeeded','succeeded',NULL,$6::jsonb,clock_timestamp(),'unavailable')`,
+    [decisionId, execution, observation, configVersionId, hash, JSON.stringify(evidence)]);
+    return decisionId;
+  };
+  const review = { version: 1, kind: 'interface_unregistered', interfaceId: 'IF_SYN_NEW', protocolRuleId: null, ruleSetRevision: protocolRevision,
+    routes: [{ channels: ['CH_N', 'CH_M'], pathKey: 'CH_N:CH_M', matched: false }], routesReason: null };
+  const alertDecision = await decision({ protocolReview: review });
+  const unmatchedDecision = await decision({ protocolReview: { ...review, kind: 'path_unmatched', interfaceId: 'IF_REGISTERED_ONLY',
+    protocolRuleId: null, routes: [{ channels: ['CH_A', 'CH_C'], pathKey: 'CH_A:CH_C', matched: false }] } });
+  const noReviewDecision = await decision({});
+  const v2ReviewDecision = await decision({ protocolReview: { ...review, version: 2 } });
+  const otherKindDecision = await decision({ protocolReview: { ...review, kind: 'path_matched' } });
+  const blankInterfaceDecision = await decision({ protocolReview: { ...review, interfaceId: '' } });
+  const observed = (target) => ({ ...protocolExample.observedPaths.request, sourceId,
+    target: { ...protocolExample.observedPaths.request.target, jobId: draftsJob, interfaceId: 'IF_SYN_PAY', ruleSetRevision: protocolRevision, ...target } });
+  const alert = (decisionId) => ({ ...protocolExample.alert.request, sourceId, target: { kind: 'alert', decisionId } });
+  const protocolRows = async () => (await pool.query(`SELECT (SELECT count(*)::int FROM run_jobs WHERE kind::text='explain_protocol') AS jobs,
+    (SELECT count(*)::int FROM powercode_queue.llm_explanation_jobs) AS queued`)).rows[0];
+  const protocolBefore = await protocolRows();
+  const refusedKey = crypto.randomUUID();
+  const refuse = async (body, status, code, label, who = token) =>
+    assert.deepEqual(await request(base, '/api/jobs', 'POST', who, body, refusedKey), { status, body: { code } }, label);
+  await refuse(observed(), 403, 'admin_required', 'admin only', userToken);
+  await refuse({ ...observed(), sourceId: crypto.randomUUID() }, 404, 'source_not_found', 'unknown source (same as other /api/jobs kinds)');
+  assert.deepEqual(await request(base, '/api/jobs', 'POST', token, observed(), 'bad key!'), { status: 400, body: { code: 'invalid_idempotency_key' } }, 'idempotency key format');
+  for (const [label, body] of [
+    ['extra key', { ...observed(), decisionId: alertDecision }],
+    ['extra target key', observed({ decisionId: alertDecision })],
+    ['missing target key', alert(undefined)],
+    ['unknown target kind', { ...observed(), target: { ...observed().target, kind: 'path' } }],
+    ['bad sourceId', { ...observed(), sourceId: 'not-a-uuid' }],
+    ['empty interfaceId', observed({ interfaceId: '' })],
+    ['long interfaceId', observed({ interfaceId: 'I'.repeat(513) })],
+    ['negative revision', observed({ ruleSetRevision: -1 })],
+    ['fractional revision', observed({ ruleSetRevision: 1.5 })],
+    ['string revision', observed({ ruleSetRevision: String(protocolRevision) })],
+    ['NUL in interfaceId', observed({ interfaceId: 'IF\u0000A' })],
+  ]) await refuse(body, 400, 'invalid_protocol_explanation_request', label);
+  for (const [label, body] of [
+    ['no such job', observed({ jobId: crypto.randomUUID() })],
+    ['not recommend_relations', observed({ jobId: syntheticJob.body.id })],
+    ['not succeeded', observed({ jobId: queuedRelationJob })],
+    ['other source', observed({ jobId: otherSourceJob })],
+    ['no such revision', observed({ ruleSetRevision: protocolRevision + 100 })],
+    ['no such decision', alert(crypto.randomUUID())],
+  ]) await refuse(body, 400, 'protocol_explanation_target_not_found', label);
+  for (const [label, body] of [
+    ['result without drafts', observed({ jobId: oldResultJob })],
+    ['drafts version 2', observed({ jobId: draftsV2Job })],
+    ['interface neither observed nor registered', observed({ interfaceId: 'IF_NOWHERE' })],
+    ['interface case differs', observed({ interfaceId: 'if_syn_pay' })],
+    ['registered only in another revision', observed({ interfaceId: 'IF_REGISTERED_ONLY', ruleSetRevision: protocolRuleSet.revision })],
+    ['decision without protocolReview', alert(noReviewDecision)],
+    ['protocolReview version 2', alert(v2ReviewDecision)],
+    ['protocolReview other kind', alert(otherKindDecision)],
+    ['protocolReview blank interface', alert(blankInterfaceDecision)],
+  ]) await refuse(body, 400, 'protocol_explanation_facts_unavailable', label);
+  assert.deepEqual(await protocolRows(), protocolBefore, 'refused explain_protocol requests leave no job or queue message');
+  // 정상 접수 4가지: 초안에만 있음, 룰 세트에만 등록, 알림 2종(미등록 인터페이스·처음 보는 경로). 거절에 쓴 멱등키로 바로 201(키가 남지 않았음).
+  const fixed = Object.fromEntries(Object.entries(protocolExample.llmSpec).filter(([key]) => !['input_evidence_hash', 'reuse_key'].includes(key)));
+  for (const [label, body, decisionId, key] of [
+    ['observed in drafts only', observed(), null, refusedKey],
+    ['registered only', observed({ interfaceId: 'IF_REGISTERED_ONLY', jobId: upperSourceJob }), null, crypto.randomUUID()],
+    ['alert', alert(alertDecision), alertDecision, crypto.randomUUID()],
+    ['path_unmatched alert', alert(unmatchedDecision), unmatchedDecision, crypto.randomUUID()],
+  ]) {
+    const created = await request(base, '/api/jobs', 'POST', token, body, key);
+    assert.equal(created.status, 201, `${label}: ${JSON.stringify(created.body)}`);
+    assert.deepEqual([created.body.kind, created.body.status, created.body.inputSpec], ['explain_protocol', 'queued', body], label);
+    const row = (await pool.query(`SELECT queue::text AS queue,contract_version,requester_role,producer_kind,request_hash,llm_spec,
+        input_config_version_id,input_snapshot_id,input_manifest_id,input_decision_id FROM run_jobs WHERE id=$1`, [created.body.id])).rows[0];
+    assert.deepEqual([row.queue, row.contract_version, row.requester_role, row.producer_kind, row.input_config_version_id, row.input_snapshot_id,
+      row.input_manifest_id, row.input_decision_id], ['llm_explanation', 'v03', 'admin', 'user', null, null, null, decisionId], label);
+    const canonical = JSON.stringify({ kind: body.kind, sourceId: body.sourceId, target: body.target });
+    const hash = crypto.createHash('sha256').update(canonical).digest('hex');
+    assert.deepEqual(row.llm_spec, { ...fixed, input_evidence_hash: hash, reuse_key: crypto.createHash('sha256')
+      .update(JSON.stringify([actorId, JSON.parse(canonical), null, fixed.prompt_version])).digest('hex') }, label);
+    assert.equal(row.request_hash, hash, label);
+    assert.equal((await pool.query(`SELECT count(*)::int AS count FROM powercode_queue.llm_explanation_jobs WHERE payload->>'jobId'=$1`, [created.body.id])).rows[0].count, 1, label);
+    // 같은 대상 재요청(다른 멱등키) = 같은 작업 재사용 200, 같은 멱등키에 다른 대상 409.
+    const again = await request(base, '/api/jobs', 'POST', token, body, crypto.randomUUID());
+    assert.deepEqual([again.status, again.body.id], [200, created.body.id], `${label}: reuse`);
+    assert.deepEqual(Object.values(await request(base, '/api/jobs', 'POST', token, observed({ interfaceId: 'IF_SYN_ORDER' }), key)),
+      [409, { code: 'idempotency_payload_conflict' }], `${label}: idempotency`);
+  }
+  assert.deepEqual(await protocolRows(), { jobs: protocolBefore.jobs + 4, queued: protocolBefore.queued + 4 }, 'one job and one queue message per accepted target');
+  const protocolList = await request(base, '/api/jobs?kind=explain_protocol', 'GET', token);
+  assert.deepEqual([protocolList.status, protocolList.body.items.length], [200, 4], 'job list kind filter');
+  console.log('job API integration passed: auth, idempotency, durable queue, role gate, feature-bound rule adoption, LLM availability gate, explain_protocol intake');
 } finally {
   await llmHealth.close();
   if (child && child.exitCode === null) {

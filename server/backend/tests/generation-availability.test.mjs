@@ -16,7 +16,7 @@ test('contract constants: default URL, 1.5 s timeout, 10 s cache, LLM job kinds,
   assert.equal(DEFAULT_LLM_HEALTH_URL, 'http://llm:8010/health');
   assert.equal(HEALTH_TIMEOUT_MS, 1500);
   assert.equal(AVAILABILITY_CACHE_MS, 10000);
-  assert.deepEqual([...LLM_JOB_KINDS].sort(), ['explain', 'recommend_thresholds']);
+  assert.deepEqual([...LLM_JOB_KINDS].sort(), ['explain', 'explain_protocol', 'recommend_thresholds']);
   assert.equal(GENERATION_SERVICE_UNAVAILABLE, 'generation_service_unavailable');
 });
 

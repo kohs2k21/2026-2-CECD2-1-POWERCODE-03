@@ -5,7 +5,7 @@ Status: current — 결정 반영(WebUI 11/15 Q1~Q8, Detector C1~C5). Collector 
 
 # Collector 운영 계측 계약
 
-- 목적: 운영 현황 화면의 `측정 불가` 중 Collector가 채우는 값(원천 발생 시각, 수집 지연·처리량, 시스템 자원)의 정의·저장·집계 SQL·API 필드. Collector는 `server/backend`를 고치지 않는다 — WebUI가 이 문서대로 `GET /api/operations/*`에 넣는다. 판정 쪽 시각은 Detector([detection-decision.md](detection-decision.md), Detector migration 031)
+- 목적: 운영 현황 화면의 `측정 불가` 중 Collector가 채우는 값(원천 발생 시각, 수집 지연·처리량, 시스템 자원)의 정의·저장·집계 SQL·API 필드. Collector는 `server/backend`를 고치지 않는다 — WebUI가 이 문서대로 `GET /api/operations/*`에 넣는다. 판정 쪽 시각은 Detector([detection-decision.md](detection-decision.md))
 - 근거 계약: [operations-ui.md](operations-ui.md) overview·collection·latency·storage 절, [trainer-service.md](trainer-service.md) 거래량 집계, [rules-ui.md](rules-ui.md) `timeBasis`, [incidents.md](incidents.md) 원본 시간대
 - 원칙: 계측하지 않은 값은 `null`(개요는 키 생략) + 사유 코드. 추정값·고정값·0 대체·성공 대체 금지([operations-ui.md](operations-ui.md) null 의미와 같다). 음수 지연을 0으로 자르지 않는다
 - 공통 창: 지연 집계는 기존 latency API 창 `1h`(`OPERATIONS_WINDOW`, `persisted_at >= clock_timestamp() - interval '1 hour'`)를 같이 쓴다. 분위수는 p50·p95(`percentile_cont`, 선형 보간)
@@ -119,7 +119,7 @@ SELECT (SELECT count(*) FROM v WHERE ms >= 0)::integer AS samples,
 
 ### 3.3 Detector 원천 → 판정 지연과의 관계
 
-- overview `endToEndLatencyMs`(p50 하나)와 latency `endToEnd`는 Detector 몫이다. Detector 측정 조건: 관측 `clock_status IN ('offset','verified_tz')` ∧ 출처 `ingest_phase='live'` ∧ 첫 revision ∧ 재판정 아님 ∧ `source_log_occurred_at` 있음. 판정의 `source_log_occurred_at`은 관측 값을 그대로 복사한다(다시 해석하지 않음). 음수 규칙(`skewCount`·`source_clock_skew`)도 3.2와 같다
+- overview `endToEndLatencyMs`(p50 하나)와 latency `endToEnd`는 Detector 몫이다. Detector 측정 조건: 관측 `clock_status IN ('offset','verified_tz')` ∧ 출처 `ingest_phase='live'` ∧ 첫 revision ∧ 재판정 아님 ∧ `source_log_occurred_at` 있음. Detector는 이 조건이 참(`latency_status='measured'`)일 때만 판정 행에 관측의 `source_log_occurred_at`을 그대로 복사한다(다시 해석하지 않음). 조건이 거짓이면 판정 행의 `source_log_occurred_at`·`source_latency_ms`는 NULL이고 `latency_status='unavailable'`이다(판정 행에 원천 시각 있음 ⇔ `measured`, [detection-decision.md](detection-decision.md) 18절). 원천 시각은 관측 행에서 읽는다. 음수 규칙(`skewCount`·`source_clock_skew`)도 3.2와 같다
 - 3.2와 모집단이 같아(P·첫 revision·live·같은 근거) 두 지연의 차이가 판정 대기·처리 시간이다
 
 ### 3.4 `clockCheck` — 시간대 가정 확인용 [확정 C3]

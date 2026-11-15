@@ -302,9 +302,9 @@ export async function seedCollectorMetrics(pool) {
           source_log_time_raw,source_log_occurred_at,api_received_at,persisted_at,clock_status,parsed_times,allowed_values,quality_flags,missing_fields)
         SELECT $1,$2,$3,$4,$5,$6,$7,CASE WHEN occurred IS NULL THEN NULL ELSE 'fixture' END,occurred,persisted,persisted,$8,
           '{"rule":"source-time-v1"}','{}','[]','[]'
-          FROM (SELECT p AS persisted,CASE WHEN $10::double precision IS NOT NULL THEN clock_timestamp()-make_interval(mins=>$10::double precision)
+          FROM (SELECT p AS persisted,CASE WHEN $10::double precision IS NOT NULL THEN clock_timestamp()-$10::double precision*interval '1 minute'
                        WHEN $9::double precision IS NULL THEN NULL ELSE p-make_interval(secs=>$9::double precision/1000) END AS occurred
-                  FROM (SELECT clock_timestamp()-make_interval(mins=>$11::double precision) AS p) t) x`,
+                  FROM (SELECT clock_timestamp()-$11::double precision*interval '1 minute' AS p) t) x`,
       [obs, s.sourceId, layer, exec, layer === 'P' ? revision : null, `${layer}:${obs}`, sha(obs), clockStatus, lagMs, occurredMinutesAgo, minutesAgo]);
       if (layer === 'P') await client.query(`INSERT INTO data_processes(observation_id,process_id,status) VALUES($1,'P00','S')`, [obs]);
       if (origin) await client.query(`INSERT INTO data_input_origins(observation_id,run_id,mode,position,namespace,ingest_phase)
@@ -323,7 +323,7 @@ export async function seedCollectorMetrics(pool) {
     };
     const store = async ({ obs }, durationMs, minutesAgo = 1) => client.query(`INSERT INTO ops_pipeline_measurements(id,observation_id,stage,
         config_version_id,duration_ms,measured_at)
-      VALUES($1,$2,'judgment_store',NULL,$3,clock_timestamp()-make_interval(mins=>$4::double precision))`, [id(), obs, durationMs, minutesAgo]);
+      VALUES($1,$2,'judgment_store',NULL,$3,clock_timestamp()-$4::double precision*interval '1 minute')`, [id(), obs, durationMs, minutesAgo]);
 
     const metrics = await source('metrics', { status: 'verified', timezone: 'Asia/Seoul', method: 'persist_lag_check',
       verifiedAt: '2026-11-15T00:00:00Z', verifiedBy: actor });

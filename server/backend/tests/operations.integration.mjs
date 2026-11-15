@@ -426,7 +426,7 @@ try {
   const failed = await request(base, '/api/operations/overview', 'GET', user);
   assert.equal(failed.status, 503);
   assert.equal(failed.body.code, 'operations_storage_unavailable');
-  console.log('operations read API integration passed: 401/user read/admin-only mutation, overview contract, collection, latency, fields, storage, trend across sources, v03/v04 detect jobs by input source, report with and without a configuration, 503');
+  console.log('operations read API integration passed: 401/user read/admin-only mutation, overview contract, collection, latency, fields, storage, trend across sources, v03/v04 detect jobs by input source, report with and without a configuration, source-time latency (judgment store, end-to-end, source-to-stored, clock check, skew), resources and disks, 503');
 } finally {
   await stopChild();
   await pool.end();

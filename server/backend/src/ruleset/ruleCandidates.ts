@@ -1,7 +1,7 @@
 import crypto from 'node:crypto';
 import type { Pool } from 'pg';
 import { softRuleField } from './methodCatalog.js';
-import { CONTENT_HASH_VERSION, RuleSetError, THRESHOLD_MAX_LENGTH, thresholdFixedDecimal } from './ruleSetContract.js';
+import { CONTENT_HASH_VERSION, RuleSetError, THRESHOLD_MAX_LENGTH, sourceValueValid, thresholdFixedDecimal } from './ruleSetContract.js';
 
 /**
  * 규칙 추천(층 B 관계 규칙·처리 시간 후보) 읽기·작업 요청 — contracts/rule-candidates-ui.md.
@@ -176,6 +176,22 @@ export async function latestRelationJobs(db: Queryable) {
   const [{ rows: [latest] }, { rows: [succeeded] }] = await Promise.all([
     db.query<JobRow>(`SELECT ${JOB_COLUMNS} FROM run_jobs WHERE ${KIND} ORDER BY created_at DESC, id DESC LIMIT 1`),
     db.query<JobRow>(`SELECT ${JOB_COLUMNS}, result_summary AS result FROM run_jobs WHERE ${LATEST_SUCCEEDED}`),
+  ]);
+  return { latest: latest ?? null, succeeded: succeeded ?? null };
+}
+/** 건수 요약용 결과 일부: 결과 전체 대신 후보 배열·관측 경로 초안만 꺼낸다(그래프·데이터 집계는 읽지 않는다). */
+export type RelationResultParts = JobRow & {
+  resultType: string | null; contractVersion: string | null; candidates: unknown; thresholdCandidates: unknown;
+  hasProtocolDrafts: boolean | null; protocolPathDrafts: unknown;
+};
+/** 가장 최근 작업(상태 무관)과 가장 최근 성공 작업의 결과 일부(RelationResultParts). 결과 작업 고르는 순서는 목록과 같다. */
+export async function latestRelationJobParts(db: Queryable) {
+  const [{ rows: [latest] }, { rows: [succeeded] }] = await Promise.all([
+    db.query<JobRow>(`SELECT ${JOB_COLUMNS} FROM run_jobs WHERE ${KIND} ORDER BY created_at DESC, id DESC LIMIT 1`),
+    db.query<RelationResultParts>(`SELECT ${JOB_COLUMNS}, jsonb_typeof(result_summary) AS "resultType",
+      result_summary->>'relationContractVersion' AS "contractVersion", result_summary->'candidates' AS candidates,
+      result_summary->'thresholdCandidates' AS "thresholdCandidates", (jsonb_typeof(result_summary) = 'object' AND (result_summary ? 'protocolPathDrafts')) AS "hasProtocolDrafts",
+      result_summary->'protocolPathDrafts' AS "protocolPathDrafts" FROM run_jobs WHERE ${LATEST_SUCCEEDED}`),
   ]);
   return { latest: latest ?? null, succeeded: succeeded ?? null };
 }
@@ -374,7 +390,7 @@ export async function readCandidateDetail(db: Queryable, candidateId: string) {
  * AI 규칙 추천(`recommend_thresholds`) 대상 처리 시간 후보 확인(llm-recommendation-job.md 10차 요청 표). 형식(`.t<번호>`·1~32개)은 호출 전에 본다.
  * 한 요청은 한 작업의 후보만(섞이면 422 `rule_candidate_job_mixed`), 성공한 `recommend_relations` 작업이면 최신이 아니어도 된다(결과·id 불변).
  * 작업·위치가 없으면 404 `rule_candidate_not_found`, 결과 머리·항목 모양은 목록과 같은 503. 자격 = `status: candidate`이고
- * `operator`·`threshold`가 있는 후보(아니면 422 `rule_candidate_not_eligible:<id>`). 후보 결과의 `snapshotId`를 함께 돌려준다(호출자가 요청과 대조).
+ * `operator`·`threshold`가 있고 범위 값이 `sourceValueValid`인 후보(아니면 422 `rule_candidate_not_eligible:<id>`). 후보 결과의 `snapshotId`를 함께 돌려준다(호출자가 요청과 대조).
  */
 export async function readRecommendationCandidates(db: Queryable, candidateIds: string[]) {
   const jobs = new Set(candidateIds.map((candidateId) => CANDIDATE_ID.exec(candidateId)![1].toLowerCase()));
@@ -388,7 +404,10 @@ export async function readRecommendationCandidates(db: Queryable, candidateIds: 
     const raw = result.thresholdCandidates[index];
     if (raw === undefined) throw new RuleSetError('rule_candidate_not_found', 404);
     const item = thresholdItem(row.id, index, raw);
-    if (item.status !== 'candidate' || item.operator === null || item.threshold === null) throw new RuleSetError(`rule_candidate_not_eligible:${candidateId}`, 422);
+    // 범위 값(processId·adapterType)도 룰 세트 저장과 같은 문자열 규칙(rule-set.md v3.6)이어야 한다 — 빈 값·없음 값(`\N`)이면 그 범위로 저장할 수 없다.
+    if (item.status !== 'candidate' || item.operator === null || item.threshold === null || !Object.values(item.scope).every(sourceValueValid)) {
+      throw new RuleSetError(`rule_candidate_not_eligible:${candidateId}`, 422);
+    }
     return { candidateId, field: item.field, scope: item.scope };
   });
   return { snapshotId: text(result.snapshotId) ? result.snapshotId : null, items };

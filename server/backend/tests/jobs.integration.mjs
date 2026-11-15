@@ -348,7 +348,8 @@ try {
     operator: threshold === null ? null : 'gt', threshold, displayThreshold: threshold, unit: 'ms', source: 'data_p95',
     evidence: { rows: 40, referenceRows: 40, n: 40, endTimeMissingReferenceRows: 0, unavailableReferenceRows: 0, p95: 704, min: 1, max: 900, quantileMethod: 'linear' } });
   const candidateJob = await relationJob({ relationContractVersion: 'relation-candidates-experimental-2', snapshotId, sourceId, candidates: [],
-    thresholdCandidates: [thresholdCandidate({ processId: 'IF_A_PR002', adapterType: 'HTTP' }, 'candidate', '704'), thresholdCandidate({ processId: 'IF_A_PR003' }, 'insufficient_evidence', null)],
+    thresholdCandidates: [thresholdCandidate({ processId: 'IF_A_PR002', adapterType: 'HTTP' }, 'candidate', '704'), thresholdCandidate({ processId: 'IF_A_PR003' }, 'insufficient_evidence', null),
+      thresholdCandidate({ processId: '', adapterType: 'HTTP' }, 'candidate', '704')],
     graph: { graph: {}, nodes: [], edges: [] }, data: { interfaceTransactions: {} }, parameters: {} });
   const candidateRuleSet = (await request(base, '/api/rule-set', 'GET', token)).body;
   assert.equal(candidateRuleSet.softRules.filter((rule) => rule.enabled).length, 0, 'no enabled anomaly-sign rule');
@@ -363,6 +364,7 @@ try {
   assert.deepEqual([candidateStored.queue, candidateStored.llm_spec.model_version, candidateStored.llm_spec.evidence_version], ['llm_recommendation', 'rule_v3', 'soft-rule-threshold-v3']);
   for (const [name, payload, status, code] of [
     ['not eligible', candidateRequest([`${candidateJob}.t1`]), 422, `rule_candidate_not_eligible:${candidateJob}.t1`],
+    ['empty scope value', candidateRequest([`${candidateJob}.t2`]), 422, `rule_candidate_not_eligible:${candidateJob}.t2`],
     ['not succeeded', candidateRequest([`${queuedRelationJob}.t0`]), 404, 'rule_candidate_not_found'],
     ['other snapshot', candidateRequest([`${candidateJob}.t0`], { snapshotId: readySnapshot }), 409, 'rule_candidate_snapshot_mismatch'],
     ['mixed jobs', candidateRequest([`${candidateJob}.t0`, `${draftsJob}.t0`]), 422, 'rule_candidate_job_mixed'],

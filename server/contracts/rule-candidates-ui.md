@@ -1,5 +1,5 @@
 Created: 2026-11-12T21:40:00+09:00
-Updated: 2026-11-15T21:00:00+09:00
+Updated: 2026-11-16T04:00:00+09:00
 Author: Claude Code(WebUI builder)
 Status: current — 실험 기능(층 B). Trainer `relation_candidates.py`(결과 계약 `relation-candidates-experimental-2`)·Detector `relation-rules.md`에 맞춤
 
@@ -54,6 +54,23 @@ Status: current — 실험 기능(층 B). Trainer `relation_candidates.py`(결�
 - 결과 머리 검사: `relationContractVersion`이 `relation-candidates-experimental-2`가 아니면 503 `rule_candidate_contract_unsupported`, 배열·건수 모양이 다르면 503 `rule_candidate_result_invalid`(해석하지 않음)
 - 저장소 오류 503 `rule_set_storage_unavailable`(룰 세트 라우터 공통)
 
+### 2-1. `GET /api/rule-set/candidates/summary`(관리자) — "추천 n건" 건수 요약(사용자 11/15 결정 1)
+
+- 쿼리 없음(키가 있으면 400 `unknown_candidate_filter`). 권한은 목록과 같다(토큰 없음 401, user 403 `admin_required`)
+- 결과 작업 = 2절과 같은 가장 최근 성공 작업, `latestJob` = 상태 무관 가장 최근 작업. 결과 JSON 전체가 아니라 `candidates`·`thresholdCandidates`·`protocolPathDrafts`만 꺼내 읽는다(그래프·데이터 집계는 읽지 않음). 현재 룰 세트(최대 버전)와 비교해 **아직 없는 것만** 센다
+- 응답:
+
+```json
+{"latestJob": {"id": "…", "status": "queued", …} , "job": {"id": "…", "status": "succeeded", …}, "ruleSetRevision": 14,
+ "counts": {"anomaly": 1, "relation": 3, "protocol": 2}}
+```
+
+- `counts.anomaly`: 처리 시간 후보 중 `status: candidate`이고 같은 `field` + scope 판정 키(7절 처리 시간 기준, 표시용 `interfaceId` 제외, 꺼진 규칙도 있음으로 봄)의 소프트룰이 없는 것
+- `counts.relation`: 관계 후보 중 `approvable`이고 같은 조건(7절 관계 기준 = 저장 검사 `relation_rule_condition_duplicate`와 같은 정규 조건)의 관계 규칙이 없는 것
+- `counts.protocol`: 관측 경로 초안 인터페이스 중 `status: draft`(근거 부족 제외)이고 아직 프로토콜 항목으로 등록되지 않은(꺼진 항목도 등록으로 봄) 것. 결과에 `protocolPathDrafts` 키가 없으면(옛 결과) 0
+- 결과 없음(작업 없음·성공 작업 없음): `job: null`, 건수 모두 0. 결과 해석은 2·4절과 같은 항목 검사·503 코드(`rule_candidate_contract_unsupported`·`rule_candidate_result_invalid`)와 초안 검사(`protocol_drafts_invalid`·`protocol_drafts_version_unsupported`) — 어느 하나라도 틀리면 건수 전체가 503(0으로 바꾸지 않음). 단 그래프·`data`·`parameters` 모양은 읽지 않으므로 보지 않는다(목록은 503일 수 있음)
+- `ruleSetRevision`: 비교한 룰 세트 버전(화면은 자기가 읽은 버전이 바뀌면 다시 읽는다)
+
 ## 3. 관계 후보 항목·후보 id
 
 - 후보 id: 관계 `<작업 id>.r<번호>`, 처리 시간 `<작업 id>.t<번호>` — 번호는 그 작업 결과 배열(`candidates`·`thresholdCandidates`)의 위치. 결과는 바뀌지 않으므로 고정. 새 작업이 생겨도 옛 id는 옛 결과를 가리킨다(상세 `isLatest:false`)
@@ -105,7 +122,7 @@ Status: current — 실험 기능(층 B). Trainer `relation_candidates.py`(결�
 
 - **추천 한 곳(사용자 11/15)**: 룰 설정 안에 흩어져 있던 추천(이상 징후 규칙 머리 [AI 규칙 추천], 규칙 행 [수식 추천], 후보 목록, 프로토콜 설정 목록 [후보 작업 요청]·관측 경로 초안 요약)을 이 화면에 모은다. 응답 코드는 추천 없음
 - 진입: 룰 설정 "규칙 추천" 카드(설명 = 아래 머리 설명 + [후보 보기], 사이드바 목차 "규칙 추천"은 이 카드). 룰 설정의 이상 징후 규칙·관계 규칙·프로토콜 설정 카드와 프로토콜 설정 목록에는 추천 명령 대신 링크 **"추천 n건 보기"** → 이상 징후 규칙 = `?tab=anomaly`, 관계 규칙 = `?tab=flow#recommend-relations`, 프로토콜 설정 카드·프로토콜 설정 목록 = `?tab=flow#recommend-paths`. 링크는 돌아올 곳(들어온 카드 `/detection/rules#<카드 id>`·프로토콜 설정 목록)을 `state.returnTo`로 넘긴다(상단 뒤로가기, 없으면 규칙 추천 카드)
-  - n(전체 인터페이스 합계, 인터페이스 선택과 무관, 현재 룰 세트에 이미 있는 것도 셈): 이상 징후 = `totals.thresholdApprovable`, 관계 규칙 = `totals.approvable`, 프로토콜 = 관측 경로 초안 인터페이스 중 `status: "draft"`(근거 부족 제외). 결과 없음은 0, 조회 전·실패는 `—`
+  - n(전체 인터페이스 합계, 인터페이스 선택과 무관): **현재 룰 세트에 아직 없는 것만**(사용자 11/15 결정 1) — 2-1절 건수 요약 API의 `counts.anomaly`·`counts.relation`·`counts.protocol`. 룰 설정 첫 화면·프로토콜 설정 목록·규칙 추천 탭이 이 API만 읽는다(룰 설정 첫 화면은 후보 목록·관측 경로 초안을 읽지 않음). 화면은 지금 읽은 룰 세트 버전을 조회 key에 넣어 저장·승인으로 버전이 바뀌면 다시 읽고, 버전을 알기 전에는 읽지 않는다. 최근 후보 작업이 대기·실행 중이면 5초마다, 후보 작업 접수 뒤에도 다시 읽는다. 결과 없음은 0, 조회 전·실패는 `—`
 - 목록 `/detection/rules/candidates?tab=<anomaly|flow>&interface=<id>`
   - 머리: 제목 "규칙 추천", 설명 "후보 → 근거(숫자는 코드, 문장은 LLM) → 승인하면 룰 세트 새 버전으로 저장", 오른쪽 [후보 작업 요청](아래 절), 결과 머리(후보 작업 완료 시각·기준 기간·전체 건수, 결과 작업과 다른 최근 작업이 있으면 그 상태)
   - 탭(URL 탭, `tab` 기본 `anomaly`, 잘못된 값은 replace): `이상 징후 · n`(이상 징후 n) / `실행 흐름 규칙 · n`(관계 규칙 n + 프로토콜 n). 탭 이동·인터페이스 선택은 들어올 때 받은 `state`(`returnTo`)를 그대로 실어 상단 뒤로가기 대상이 바뀌지 않는다(공용 `LinkTabs` 선택 prop `state`)
@@ -130,11 +147,11 @@ Status: current — 실험 기능(층 B). Trainer `relation_candidates.py`(결�
   - 최근 작업이 대기·실행 중이면 단추를 끄고 옆에 `후보 작업 진행 중`(같은 계산을 겹쳐 쌓지 않게 — 서버는 막지 않는다)
   - 저장 데이터셋이 없으면 "저장 데이터셋이 없습니다. 학습을 요청하면 학습 기간의 저장 데이터셋이 만들어집니다." + 링크 `머신러닝 모델 › 새 학습`(`/detection/models?step=1`, 학습 작업이 `process-v1` 스냅샷을 만든다)이고 [요청]은 꺼진다. 목록 조회 실패 `저장 데이터셋 조회 실패 · <코드>`, 접수 실패 `후보 작업 요청 실패 · <코드>`(확인창 안, 닫지 않음)
 - **AI 규칙 추천 대상 후보**(llm-recommendation-job.md 10차, 사용자 11/15 결정 1~6): 이상 징후 탭 [AI 규칙 추천]은 지금 보이는(선택한 인터페이스의) 처리 시간 후보 중 `candidate` 상태·제안 임계값이 있는 후보를 함께 보낸다 — 이상 징후 규칙이 0개여도 된다. 요청·결과 표·후보 행은 [rules-ui.md](rules-ui.md) AI 규칙 추천 절
-  - API 접수(`jobRoutes.ts` → `ruleCandidates.ts` `readRecommendationCandidates`): 후보 id는 3절 `.t<번호>`만, 한 성공 작업(최신이 아니어도 됨), 결과 머리·항목은 2·4절과 같은 해석·503 코드, 자격 = `status: candidate` + `operator`·`threshold` 있음, 후보 결과 `snapshotId` = 요청 `data.snapshotId`. 값은 워커가 후보 snapshot으로 다시 계산한다(Trainer 값을 보내지 않음)
+  - API 접수(`jobRoutes.ts` → `ruleCandidates.ts` `readRecommendationCandidates`): 후보 id는 3절 `.t<번호>`만, 한 성공 작업(최신이 아니어도 됨), 결과 머리·항목은 2·4절과 같은 해석·503 코드, 자격 = `status: candidate` + `operator`·`threshold` 있음 + 범위 값(`processId`·`adapterType`)이 저장 문자열 규칙(`sourceValueValid`, 빈 값·`\N` 아님 — 아니면 같은 `rule_candidate_not_eligible:<id>`), 후보 결과 `snapshotId` = 요청 `data.snapshotId`. 값은 워커가 후보 snapshot으로 다시 계산한다(Trainer 값을 보내지 않음)
   - 결과 후보 행 [승인]: 7절 흐름 그대로(상세를 읽어 승인됨·기준 미달·저장 형식 닫힘이면 입력창 없음, 범위 = 상세 `ruleDraft.scope`). 저장 임계값만 다르다: AI 제안이면 AI 값(`기준 · 학습 기간 앞 80% p95`), 아니면 Trainer 값(`ruleDraft.threshold`, `기준 · 학습 기간 전체 p95` — 새 문구, 사용자 확인 필요). 목록 행·상세 [승인]은 Trainer 값 그대로
 
 ## 9. 남은 결정·미검증
 
 - DB: 1절 enum·CHECK는 migration 021. 큰 스냅샷의 결과 JSON 크기·`result_summary` 읽기 비용(목록 조회마다 결과 전체를 읽음) 미측정 — 크면 결과 표(층 B 채택 단계 `run_pattern_*`) 또는 요약 열로 옮김
 - `relationNotes`(허용 분기 정보)를 화면에 보일지
-- 룰 설정 첫 화면도 카드 건수("추천 n건 보기")를 위해 목록(`interfaceId` 없음)·관측 경로 초안 요약을 읽는다(11/15) — 위 결과 읽기 비용이 룰 설정 진입에도 붙는다. 크면 건수 전용 요약으로 옮김
+- 카드 건수("추천 n건 보기")는 건수 요약(2-1절)으로 옮겼다(11/15) — 화면에는 건수만 오고 DB에서도 후보 배열·초안만 꺼낸다. 다만 jsonb 열 하나라 PostgreSQL은 값 전체를 풀어 읽는다(TOAST) — DB 읽기 비용까지 줄이려면 9절 첫 줄의 결과 표·요약 열 이동이 필요(미측정)

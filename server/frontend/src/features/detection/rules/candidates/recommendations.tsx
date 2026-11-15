@@ -3,11 +3,9 @@ import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { paths, urlOptions } from "@/app/routes";
 import type { DetectionReturnState } from "../../DetectionLayout";
-import type { ProtocolDrafts } from "../ruleSetApi";
-import { useProtocolDrafts } from "../protocols/useProtocolDrafts";
 import type { CandidateList } from "./candidateApi";
 import { recommendLinkText } from "./candidateLabels";
-import { useCandidateList } from "./useCandidates";
+import { useCandidateSummary } from "./useCandidates";
 
 /** 규칙 추천 탭에 넘기는 후보 결과 조회 상태. */
 export type CandidateView = {
@@ -27,23 +25,19 @@ export const recommendSections = { paths: "recommend-paths", relations: "recomme
 export const recommendPath = (tab: RecommendTab, section?: string) => `${paths.detectionRuleCandidates}?tab=${tab}${section ? `#${section}` : ""}`;
 
 /**
- * 탭·진입 링크 건수(후보 결과의 후보 기준 충족 건수 — 현재 룰 세트에 이미 있는 것도 센다. 전체 인터페이스 합계라 인터페이스 선택과 무관).
- * - 이상 징후: 처리 시간 후보 중 후보 상태(`totals.thresholdApprovable`)
- * - 단계 조건: 관계 후보 중 승인 가능(`totals.approvable`)
- * - 경로: 관측 경로 초안의 인터페이스 중 근거 부족이 아닌 것(`status: "draft"`)
+ * 탭·진입 링크 건수(건수 요약 API, rule-candidates-ui.md 8절 — 사용자 11/15 결정 1): 최근 성공 후보 결과 중 현재 룰 세트에 아직 없는 것만.
+ * 전체 인터페이스 합계라 인터페이스 선택과 무관하다. 큰 결과(그래프·후보 전체)는 읽지 않는다.
+ * - 이상 징후: 처리 시간 후보 중 후보 상태이고 같은 대상 필드·범위의 규칙이 없는 것
+ * - 관계 규칙: 승인 가능하고 같은 조건의 관계 규칙이 없는 것
+ * - 프로토콜: 관측 경로 초안 인터페이스 중 근거 부족이 아니고 아직 등록되지 않은 것
  * 조회 전·실패는 null(—), 결과 없음은 0.
  */
-export const anomalyCount = (list: CandidateList | undefined) => (list ? (list.result?.totals.thresholdApprovable ?? 0) : null);
-export const relationCount = (list: CandidateList | undefined) => (list ? (list.result?.totals.approvable ?? 0) : null);
-export const protocolCount = (drafts: ProtocolDrafts | undefined) =>
-  drafts ? (drafts.state === "available" ? drafts.interfaces.filter((item) => item.status === "draft").length : 0) : null;
 export const sumCount = (...values: (number | null)[]) => (values.some((value) => value === null) ? null : values.reduce<number>((total, value) => total + (value ?? 0), 0));
 
-/** 룰 설정 첫 화면 카드용 건수(후보 결과·관측 경로 초안을 읽는다 — 규칙 추천 화면과 같은 조회). */
-export const useRecommendationCounts = () => {
-  const list = useCandidateList(null);
-  const drafts = useProtocolDrafts(null);
-  return { anomaly: anomalyCount(list.data), relation: relationCount(list.data), protocol: protocolCount(drafts.data) };
+/** 건수 요약 조회. `revision` = 지금 화면이 읽은 룰 세트 버전(바뀌면 다시 읽는다, 모르면 읽지 않고 —). */
+export const useRecommendationCounts = (revision: number | undefined) => {
+  const counts = useCandidateSummary(revision).data?.counts;
+  return { anomaly: counts?.anomaly ?? null, relation: counts?.relation ?? null, protocol: counts?.protocol ?? null };
 };
 
 /** 카드의 "추천 n건 보기": 규칙 추천의 해당 탭(구역)으로. returnTo는 뒤로가기가 돌아올 곳(들어온 카드·목록). */

@@ -12,11 +12,12 @@ import { CandidateJobRequest, LatestCandidateJob } from "./CandidateJobRequest";
 import { CANDIDATES_TITLE, RECOMMEND_DESCRIPTION, TAB_ANOMALY, TAB_FLOW, candidateErrorTitle, n, tabText } from "./candidateLabels";
 import { AnomalyTab } from "./RecommendAnomalyTab";
 import { FlowTab } from "./RecommendFlowTab";
-import { anomalyCount, protocolCount, relationCount, sumCount, type CandidateView } from "./recommendations";
-import { candidateListQueryName, useCandidateList } from "./useCandidates";
+import { useRuleSet } from "../useRuleSet";
+import { sumCount, useRecommendationCounts, type CandidateView } from "./recommendations";
+import { candidateListQueryName, candidateSummaryQueryName, useCandidateList } from "./useCandidates";
 
-/** 후보 작업 접수 뒤 다시 읽을 조회: 규칙 추천 목록 + 같은 작업 결과의 관측 경로 초안(protocol-settings-ui.md 2절). */
-const JOB_REFRESH = [candidateListQueryName, protocolDraftsQueryName] as const;
+/** 후보 작업 접수 뒤 다시 읽을 조회: 규칙 추천 목록 + 같은 작업 결과의 관측 경로 초안(protocol-settings-ui.md 2절) + 탭 건수 요약. */
+const JOB_REFRESH = [candidateListQueryName, protocolDraftsQueryName, candidateSummaryQueryName] as const;
 
 /** 결과 머리: 작업 완료 시각·학습 스냅샷 기간 + 결과 작업과 다른 최근 작업 상태(대기·실패 등, 작업 상세로 링크). */
 const ResultHeader = ({ data, returnTo }: { data: CandidateList; returnTo: string }) => {
@@ -50,6 +51,8 @@ export const CandidateListPage = () => {
   const requested = search.get("interface");
   const query = useCandidateList(requested);
   const drafts = useProtocolDrafts(null);
+  const rules = useRuleSet();
+  const recommend = useRecommendationCounts(rules.data?.revision);
   const data = query.data;
   const onInterface = (id: string) => {
     const next = new URLSearchParams(search);
@@ -59,7 +62,7 @@ export const CandidateListPage = () => {
   // 하위 화면(후보 상세·프로토콜 상세·작업 상세)이 돌아올 주소 = 지금 주소(탭·인터페이스 + 들어온 구역 해시 `#recommend-relations` 등).
   const returnTo = location.pathname + location.search + location.hash;
   const view: CandidateView = { data, pending: query.isPending && !data, onInterface, detailState: { returnTo } };
-  const counts = { anomaly: anomalyCount(data), flow: sumCount(relationCount(data), protocolCount(drafts.data)) };
+  const counts = { anomaly: recommend.anomaly, flow: sumCount(recommend.relation, recommend.protocol) };
   return (
     <div className="grid min-w-0 gap-6">
       <ScreenTitle>{CANDIDATES_TITLE}</ScreenTitle>

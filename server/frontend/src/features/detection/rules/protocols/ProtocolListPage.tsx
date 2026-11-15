@@ -24,7 +24,7 @@ import {
   PROTOCOL_LIST_LEAD, UNREGISTERED_WITHOUT_ENTRIES, count, draftUnavailableText, protocolFeatureOn, unregisteredRule,
 } from "./protocolLabels";
 import { LatestCandidateJob } from "../candidates/CandidateJobRequest";
-import { RecommendLink, protocolCount, recommendSections } from "../candidates/recommendations";
+import { RecommendLink, recommendSections, useRecommendationCounts } from "../candidates/recommendations";
 import { useProtocolDrafts } from "./useProtocolDrafts";
 
 type Row = {
@@ -89,6 +89,7 @@ const AddInterfaceDialog = ({ taken, onAdd, onCancel }: { taken: Set<string>; on
 export const ProtocolListPage = () => {
   const rules = useRuleSet();
   const drafts = useProtocolDrafts(null);
+  const recommend = useRecommendationCounts(rules.data?.revision);
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [adding, setAdding] = useState(false);
@@ -140,7 +141,7 @@ export const ProtocolListPage = () => {
             action={
               <>
                 {/* 후보 작업 요청은 규칙 추천 화면 한 곳에서 한다(사용자 11/15). 여기는 그 경로 구역으로 가는 링크. */}
-                <RecommendLink count={protocolCount(drafts.data)} tab="flow" section={recommendSections.paths} returnTo={paths.detectionRuleProtocols} />
+                <RecommendLink count={recommend.protocol} tab="flow" section={recommendSections.paths} returnTo={paths.detectionRuleProtocols} />
                 <Button size="sm" variant="outline" onClick={() => setAdding(true)}>
                   <IconPlus aria-hidden="true" />
                   인터페이스 추가

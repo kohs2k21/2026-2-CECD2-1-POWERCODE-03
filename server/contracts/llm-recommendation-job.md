@@ -246,7 +246,7 @@ Status: draft
 |---|---|
 | `scope.candidateIds` | 선택 키, 생략·null = 후보 없음(현행). 배열은 중복 없는 `<jobId>.t<n>` 1~32개(관계 후보 `.r<n>`은 400 `invalid_job_request`) |
 | 조합 | `softRuleIds` 키 필수 유지. 후보가 있으면 `softRuleIds: []` 허용(소프트룰 0개 + 후보). 둘 다 비면 400 `soft_rules_empty` |
-| 자격 | 후보 `status=candidate`(n ≥ 30)이고 `operator`·`threshold`가 non-null인 것만, 아니면 422 `rule_candidate_not_eligible:<candidateId>` |
+| 자격 | 후보 `status=candidate`(n ≥ 30)이고 `operator`·`threshold`가 non-null이며 범위 값(`scope.processId`·`scope.adapterType`)이 룰 세트 저장과 같은 원천 값 규칙(`sourceValueValid` — 빈 값·공백만·`\N` 아님, 1~512자)인 것만, 아니면 422 `rule_candidate_not_eligible:<candidateId>`(범위 값 검사는 #215 검토 권고 2 — 그 범위로는 승인 저장도 거절되므로 접수에서 막는다) |
 | 출처 | 성공한 `recommend_relations` 작업이면 최신이 아니어도 됨(결과·id 불변). 한 요청은 한 작업의 후보만 — 섞이면 422 `rule_candidate_job_mixed`. 없으면 404 `rule_candidate_not_found`, 후보 결과 머리 이상은 기존 503 코드 |
 | snapshot | 후보가 있으면 `data.snapshotId` = 후보 결과 `snapshotId` 필수, 아니면 409 `rule_candidate_snapshot_mismatch`. 같은 요청의 소프트룰도 이 snapshot으로 계산 |
 | 상한 | 대상 ≤ 64(소프트룰 32 + 후보 32), **묶음 ≤ 32**. 묶음 33개 이상은 400 `soft_rule_limit_exceeded`(이름 유지, 뜻이 묶음 수로 바뀜). 자동으로 자르지 않고 화면이 나눠 고르게 한다 |

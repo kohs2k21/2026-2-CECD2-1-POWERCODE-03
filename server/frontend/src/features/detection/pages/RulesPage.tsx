@@ -92,7 +92,7 @@ const RulesEditor = ({ state, reload, onSavedStale }: {
   const changeCount = draftChangeCount(draft);
   const issues = draftIssues(draft, fieldName);
   const dirty = changeCount > 0;
-  const counts = useRecommendationCounts();
+  const counts = useRecommendationCounts(state.revision);
   /** 카드 → 규칙 추천: 뒤로가기가 그 카드 영역으로 돌아오게 한다. */
   const back = (section: { id: string; label: string }) => sectionPath(paths.detectionRules, section);
   // 저장 뒤에는 편집 여부와 상관없이 새 상태로 맞춘다.

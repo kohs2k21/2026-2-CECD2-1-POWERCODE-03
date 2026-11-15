@@ -14,6 +14,7 @@ import {
   enqueueCandidateJob, parseCandidateJobRequest, parseCandidateListQuery, readCandidateDetail, readCandidateList,
 } from '../ruleset/ruleCandidates.js';
 import { parseProtocolDraftQuery, readProtocolDrafts } from '../ruleset/protocolDrafts.js';
+import { readCandidateSummary } from '../ruleset/candidateSummary.js';
 
 /**
  * 룰 세트 API(rule-set.md)·규칙별 수식 추천(llm-recommendation-job.md).
@@ -97,7 +98,11 @@ export function createRuleSetRouter(database: () => Pool = getDatabasePool, user
   router.get('/candidates', admin, route(async (req, res) => {
     res.json(await readCandidateList(database(), parseCandidateListQuery(req.query as Record<string, unknown>)));
   }));
-  // `/candidates/:candidateId`보다 먼저: 'snapshots'가 후보 id로 읽히지 않게.
+  // `/candidates/:candidateId`보다 먼저: 'summary'·'snapshots'가 후보 id로 읽히지 않게.
+  router.get('/candidates/summary', admin, route(async (req, res) => {
+    if (Object.keys(req.query).length) throw new RuleSetError('unknown_candidate_filter');
+    res.json(await readCandidateSummary(database()));
+  }));
   router.get('/candidates/snapshots', admin, route(async (req, res) => {
     parseCandidateSnapshotQuery(req.query as Record<string, unknown>);
     res.json(await readCandidateSnapshots(database()));

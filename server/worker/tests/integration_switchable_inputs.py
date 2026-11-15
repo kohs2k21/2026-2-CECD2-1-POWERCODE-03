@@ -153,7 +153,11 @@ def main():
             assert paused_v3['configVersionId']==str(v3_config),paused_v3
             resume=call('/api/inputs/'+str(sid)+'/mode',{'mode':'csv','expectedRevision':paused_v3['revision'],'replayId':str(replay),'rate':10000,'repeat':1,'restart':True},admin)
             assert resume==(422,{'code':'config_schema_not_supported_yet'}),resume
+            keep_api=call('/api/inputs/'+str(sid)+'/mode',{'mode':'api','expectedRevision':paused_v3['revision'],'pollSeconds':2},admin)
+            assert keep_api==(422,{'code':'config_schema_not_supported_yet'}),('keeping a v3 pin cannot select api',keep_api)
             assert call('/api/inputs/'+str(sid)+'/mode',{'mode':'paused','expectedRevision':paused_v3['revision'],'configVersionId':str(v3_config)},admin)==(422,{'code':'config_schema_not_supported_yet'}),'a new pin is always checked'
+            held=call('/api/inputs?sourceId='+str(sid),token=admin)[1]['control']
+            assert (held['revision'],held['mode'],held['configVersionId'],held['runId'])==(paused_v3['revision'],'paused',str(v3_config),paused_v3['runId']),held
             second=change('csv',replayId=str(replay),rate=10000,repeat=1,restart=True,configVersionId=config)
             announced=send_csv(5)
             queued=conn.execute("""SELECT q.payload->>'jobId',q.payload->>'inputManifestHash' FROM powercode_queue.detection_logs q

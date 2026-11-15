@@ -482,6 +482,124 @@ class RecommendationV3Tests(Base):
         self.assertEqual(order, ["rule_0", "explain", "rule_1"])
 
 
+# ---- GPU 복제본 분배(generation_replicas 대리 객체와 같은 모양의 가짜 실행기) ----
+
+class ScriptedExecutor:
+    """복제본 대리 객체 모양(`run_field`·`adapter_sha`·`package`). 자기 가짜 모델로 실제 번들 흐름을 돌린다.
+
+    `script[field] = (지연 초, 예외 또는 None)`로 필드별 지연·예외를 넣는다.
+    """
+
+    def __init__(self, delay=0.0, script=None):
+        self.inner = runtime()
+        self.package = self.inner.package
+        self.adapter_sha = self.inner.adapter_sha
+        self.delay = delay
+        self.script = script or {}
+        self.fields: list[str] = []
+        self.threads: set[str] = set()
+
+    def run_field(self, paths, out):
+        field = Path(out).parent.name
+        self.fields.append(field)
+        self.threads.add(threading.current_thread().name)
+        delay, error = self.script.get(field, (self.delay, None))
+        time.sleep(delay)
+        if error is not None:
+            raise error
+        return self.inner.run_field(paths, out)
+
+
+class Pool:
+    def __init__(self, replicas):
+        self.replicas = replicas
+
+    def ready(self):
+        return list(self.replicas)
+
+
+class ParallelV3Tests(Base):
+    def use(self, replicas, local=None):
+        generation_client.set_local_model(SimpleNamespace(rule_v3=local or self.runtime,
+                                                          rule_v3_replicas=Pool(replicas)))
+
+    def test_no_ready_replica_keeps_serial_path(self):
+        serial = self.recommend()
+        self.models.calls.clear()
+        self.use([])
+        with patch.object(recommendation, "_run_fields", side_effect=AssertionError("parallel path")):
+            self.assertEqual(self.recommend(), serial)
+        self.assertEqual(len(self.models.calls), 5)
+
+    def test_parallel_matches_serial_in_order_with_caller_progress(self):
+        serial = self.recommend()
+        self.models.calls.clear()
+        replicas = [ScriptedExecutor(delay=0.05) for _ in range(3)]
+        self.use(replicas)
+        calls = []
+        result = self.recommend(progress=lambda done, total: calls.append((done, total, threading.current_thread())))
+        self.assertEqual(result, serial)
+        self.assertEqual([item["field"] for item in result["items"]], list(FIELDS))
+        self.assertEqual([(done, total) for done, total, _ in calls], [(n, 6) for n in range(7)])
+        self.assertTrue(all(thread is threading.main_thread() for _, _, thread in calls))
+        ran = sorted([field for replica in replicas for field in replica.fields] +
+                     [call for call in self.models.calls])
+        self.assertEqual(len(ran), 5, "every LLM field ran exactly once")
+        self.assertGreaterEqual(sum(bool(replica.fields) for replica in replicas), 2, "fields were spread")
+        self.assertTrue(all(name.startswith("rule-v3-field") for replica in replicas for name in replica.threads))
+
+    def test_local_runtime_is_last(self):
+        replicas = [ScriptedExecutor(), ScriptedExecutor()]
+        self.use(replicas)
+        item = self.item(self.recommend(None, "elapsed_ms", "total_count"), "elapsed_ms")
+        self.assertEqual(item["status"], "proposed")
+        self.assertEqual(self.models.calls, [], "main GPU stays free for explanations")
+        self.assertEqual(sorted(replicas[0].fields + replicas[1].fields), ["elapsed_ms", "total_count"])
+
+    def test_field_errors_map_like_serial(self):
+        from rule_v3_runtime import load
+        io_module = load(_EXPORT).io
+        for error, kind, code in ((TimeoutError("generation_timeout"), GenerationUnavailable, "generation_timeout"),
+                                  (io_module.InputFailure("x"), ValueError, "recommendation_rule_input_rejected"),
+                                  (io_module.ModelFailure("x"), ValueError, "rule_v3_model_failure"),
+                                  (GenerationUnavailable("generation_failed"), GenerationUnavailable,
+                                   "generation_failed")):
+            with self.subTest(code):
+                script = {"elapsed_ms": (0, error)}
+                self.use([ScriptedExecutor(script=script)], ScriptedExecutor(script=script))
+                with self.assertRaises(kind) as caught:
+                    self.recommend(None, "elapsed_ms", "total_count")
+                self.assertEqual(str(caught.exception), code)
+
+    def test_first_failure_in_field_order_and_rest_skipped(self):
+        from rule_v3_runtime import load
+        io_module = load(_EXPORT).io
+        script = {"elapsed_ms": (0.3, io_module.InputFailure("late")), "error_count": (0, TimeoutError("fast"))}
+        executors = [ScriptedExecutor(script=script) for _ in range(3)]  # 마지막이 주 프로세스 몫
+        self.use(executors[:2], executors[2])
+        calls = []
+        # 시간상 먼저 난 실패는 error_count(timeout)지만 필드 순서상 앞인 elapsed_ms의 실패가 올라간다.
+        with self.assertRaisesRegex(ValueError, "recommendation_rule_input_rejected"):
+            self.recommend(progress=lambda done, total: calls.append(done))
+        ran = [field for executor in executors for field in executor.fields]
+        self.assertEqual(len(ran), len(set(ran)))
+        # 실행기 3개라 동시에 시작한 앞 세 필드까지만 돌고, 나머지는 실패 뒤 시작하지 않는다.
+        self.assertLessEqual(set(ran), {"elapsed_ms", "error_count", "error_ratio"})
+        self.assertLessEqual({"elapsed_ms", "error_count"}, set(ran))
+        self.assertEqual(calls, [0])
+
+    def test_progress_failure_stops_remaining_fields(self):
+        executors = [ScriptedExecutor(delay=0.05) for _ in range(2)]
+        self.use(executors[:1], executors[1])
+
+        def progress(done, total):
+            if done == 1:
+                raise RuntimeError("training_ownership_lost")
+        with self.assertRaisesRegex(RuntimeError, "training_ownership_lost"):
+            self.recommend(progress=progress)
+        self.assertLess(sum(len(executor.fields) for executor in executors), 5)
+
+
 class RunnerV3Tests(Base):
     def setUp(self):
         super().setUp()

@@ -33,12 +33,18 @@ def consume_explanations(stop: threading.Event) -> None:
 def main():
     from generation_service import DesignModel, serve
     import generation_client
+    import generation_replicas
     load_dotenv(Path(__file__).parent / ".env")
     if len(os.environ.get("DESIGN_MODEL_TOKEN","")) < 32:
         raise ValueError("design_service_token_too_short")
     model = DesignModel(Path(os.environ["RESEARCH_BUNDLE_ROOT"]), Path(os.environ["RULE_MODEL_BASE_PATH"]),
                         Path(os.environ["RULE_V3_BUNDLE_ROOT"]) if os.environ.get("RULE_V3_BUNDLE_ROOT") else None)
     generation_client.set_local_model(model)
+    # 선택: LLM_REPLICA_GPUS가 있으면 GPU마다 Rule v3 복제본 프로세스를 백그라운드로 띄운다(준비된 것만 쓴다).
+    replicas = generation_replicas.start_from_env(model, (os.environ["RESEARCH_BUNDLE_ROOT"],
+                                                          os.environ["RULE_MODEL_BASE_PATH"],
+                                                          os.environ.get("RULE_V3_BUNDLE_ROOT") or None))
+    model.rule_v3_replicas = replicas
     server = serve(model, os.environ["DESIGN_MODEL_TOKEN"], host=os.environ.get("DESIGN_MODEL_HOST", "127.0.0.1"))
     threading.Thread(target=server.serve_forever, daemon=True).start()
     # 두 소비자가 같은 모델을 쓰고 GPU 차례(GenerationGate)가 설명을 먼저 넣는다. 각자 DB 연결을 연다.
@@ -50,6 +56,8 @@ def main():
         stop.set()
         server.shutdown()
         server.server_close()
+        if replicas is not None:
+            replicas.close()
 
 
 if __name__ == "__main__":

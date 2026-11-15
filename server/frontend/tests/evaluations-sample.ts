@@ -258,7 +258,7 @@ details.push({
 /**
  * 11/15 추천 결과 3건(정본 "교체 추천 v1 대응(11/15)"). 목록에는 없고 상세·시험이 넣는 행으로만 연다.
  * C_V4 근거 부족(후보 하나는 공통 행 없음, 하나는 항목 실패), C_V5 근거 부족(평가 세트가 validation 아님),
- * C_V6 교체 추천(한도를 정할 값이 없어 비용 미측정, 둘째 후보는 사전식 1단계에서 밀림).
+ * C_V6 교체 추천(후보 실행 비용 값이 없어 미측정, 둘째 후보는 사전식 1단계에서 밀림).
  */
 export const C_V4 = "8b4a0d53-6f7e-4a81-9c93-a4b526d7e8f9";
 export const C_V5 = "9c5b1e64-7a8f-4b92-8da4-b5c637e8f90a";
@@ -285,7 +285,7 @@ details.push({
   evaluationSet: { id: SET_ORIGINAL, contentHash: hash("c07a55e2"), purpose: "validation", rowCount: 1200, originalRowCount: 1200, syntheticRowCount: 0, synthetic: false },
   baselines: baseline(V_ACTIVE), ruleSet: { revision: 13, contentHash: hash("9c40e1aa") }, replacementRecommendationsReason: null,
   replacementRecommendations: [recommend(job("ab78"), "2026-11-15T12:00:00Z", "current", "iforest", "실험 7이 현재 운영 V4보다 모델 재현율 14/20(0.700) > 9/20(0.450)", V_ACTIVE, V_EXPERIMENT_7, null,
-    { costs: p95Cost(16.4, null, null), checks: { costLimit: "unmeasured" },
+    { costs: p95Cost(null, null, null), checks: { costLimit: "unmeasured" },
       candidates: [candidate(V_EXPERIMENT_6, "eligible_not_selected", null, "iforest", 1), candidate(V_EXPERIMENT_7, "selected")] })],
   items: [v1Item(V_ACTIVE, "active", 9, 11), v1Item(V_EXPERIMENT_6, "candidate", 12, 8), v1Item(V_EXPERIMENT_7, "candidate", 14, 6)],
 });

@@ -2,7 +2,7 @@ import { Link, useLocation } from "react-router-dom";
 import { paths } from "@/app/routes";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { DASH, msText, stampText } from "@/features/operations/format";
+import { msText, stampText } from "@/features/operations/format";
 import type { CompareVersion, Recommendation } from "./evaluationsApi";
 import { decisionLabel, isReplaceRecommended, labelOf } from "./evaluationFormat";
 
@@ -14,26 +14,25 @@ export const RecommendationUnconnected = ({ reason }: { reason: string }) => (
 );
 
 /**
- * 후보별 결과(11/15~): 제외 후보는 서버 사유 코드(`excludedReason`), 그 밖은 `outcome` 코드 그대로. 계약에 사유 표시 이름이 없어 코드를 옮긴다.
+ * 비교 모델별 결과(`candidates[]`, 11/15~): 제외 후보는 서버 사유 코드(`excludedReason`), 그 밖은 `outcome` 코드 그대로. 계약에 사유 표시 이름이 없어 코드를 옮긴다.
  * 예전 결과(키 없음)·후보 없음은 그리지 않는다.
  */
 const Candidates = ({ rec, versions }: { rec: Recommendation; versions: CompareVersion[] | undefined }) =>
   rec.candidates?.length ? (
     <ul className="mt-1 grid gap-0.5 text-muted-foreground" data-rec-candidates>
       {rec.candidates.map((candidate) => (
-        <li key={candidate.configVersionId} data-outcome={candidate.outcome}>후보 {labelOf(versions, candidate.configVersionId)} · {candidate.excludedReason ?? candidate.outcome}</li>
+        <li key={candidate.configVersionId} data-outcome={candidate.outcome}>비교 모델 {labelOf(versions, candidate.configVersionId)} · {candidate.excludedReason ?? candidate.outcome}</li>
       ))}
     </ul>
   ) : null;
 
-const msOrDash = (value: number | null | undefined) => (value === null || value === undefined ? DASH : msText(value));
-/** 실행 비용 한도(추천 대상 기준). 한도와 비교하지 못한 경우(`unmeasured`)는 통과로 적지 않고 미측정과 코드를 보인다. */
+/** 추천 대상의 실행 비용 값만(한도 비교 결과는 summary의 서버 문장에 있다). 값이 없으면 미측정. */
 const Costs = ({ rec }: { rec: Recommendation }) =>
   rec.costs?.length ? (
     <>
       {rec.costs.map((cost) => (
         <p key={cost.metric} className="text-muted-foreground" data-rec-cost={cost.outcome}>
-          행당 처리 시간 P95 {msOrDash(cost.target)} · 한도 {msOrDash(cost.limit)}{cost.outcome === "within_limit" ? "" : ` · 미측정 · ${cost.outcome}`}
+          행당 처리 시간 P95 {cost.target === null || cost.target === undefined ? "미측정" : msText(cost.target)}
         </p>
       ))}
     </>

@@ -419,9 +419,9 @@ const tocSections = (app, menu) => detectionToc[menu].map(({ id }) => {
   const shown = app.shown();
   assert.ok(shown.includes("2,000행 · 200행") && shown.includes("운영 룰 버전 13 고정 · 모든 모델에 같은 룰"));
   assert.ok(shown.includes("모델 교체 추천 · 해당 없음 · EIF 계열은 현재 운영 중인 버전이 없어 추천하지 않습니다"));
-  assert.ok(shown.includes("후보 c5e07b42 · EIF 실험 2 · item_failed:method_not_executable:ml:eif"), "excluded candidate shows the server code");
-  assert.ok(shown.includes("행당 처리 시간 P95 41 ms · 한도 76 ms") && !shown.includes("한도 76 ms · 미측정"), "cost within the limit");
-  assert.ok(shown.includes("후보 7be19a34 · 실험 7 · selected"));
+  assert.ok(shown.includes("비교 모델 c5e07b42 · EIF 실험 2 · item_failed:method_not_executable:ml:eif"), "excluded candidate shows the server code");
+  assert.deepEqual(app.renderer.root.findAll((node) => node.type === "p" && node.props["data-rec-cost"]).map((node) => text(node.children)), ["행당 처리 시간 P95 41 ms"], "cost value only");
+  assert.ok(shown.includes("비교 모델 7be19a34 · 실험 7 · selected"));
   assert.ok(shown.includes("모델 교체 추천 4d2f7c10 · V4 → 7be19a34 · 실험 7 · 시스템 추천 · 자동 교체 안 함"));
   assert.ok(shown.includes("실험 7이 현재 운영 V4보다 모델 재현율 12/18(0.667) > 9/18(0.500)"));
   assert.equal(app.link("수락하고 교체").props.href, "/detection/operations/replace");
@@ -574,30 +574,30 @@ const tocSections = (app, menu) => detectionToc[menu].map(({ id }) => {
 
   const keep = await mount(`/detection/evaluations/${saved[2].comparisonId}`);
   await wait(() => keep.shown().includes("모델 교체 추천 · 현재 유지 · 현재 운영 버전보다 모든 근거 지표에서 같거나 나은 후보가 없습니다."), "keep_current label + stored summary");
-  await wait(() => keep.shown().includes("후보 63c8d0f2 · 실험 6 · worse_on:ml.completeOnly.recall"), "keep_current candidate");
+  await wait(() => keep.shown().includes("비교 모델 63c8d0f2 · 실험 6 · worse_on:ml.completeOnly.recall"), "keep_current candidate");
   assert.equal(keep.link("수락하고 교체"), undefined, "no accept without a recommendation");
   await keep.cleanup();
 
   const weak = await mount(`/detection/evaluations/${sample.C_V4}`);
   await wait(() => weak.shown().includes("모델 교체 추천 · 근거 부족 · 실행 가능하고 판정 불가 행이 없는 후보가 없습니다."), "insufficient_evidence");
-  await wait(() => weak.shown().includes("후보 7be19a34 · 실험 7 · common_rows_empty"), "versions joined");
-  assert.ok(weak.shown().includes("후보 63c8d0f2 · 실험 6 · item_failed:training_evaluation_overlap"));
+  await wait(() => weak.shown().includes("비교 모델 7be19a34 · 실험 7 · common_rows_empty"), "versions joined");
+  assert.ok(weak.shown().includes("비교 모델 63c8d0f2 · 실험 6 · item_failed:training_evaluation_overlap"));
   assert.equal(weak.link("수락하고 교체"), undefined);
   assert.equal(weak.button("수락하고 교체"), undefined);
   assert.equal(weak.renderer.root.findAll((node) => node.type === "p" && node.props["data-rec-cost"]).length, 0, "no cost line without a recommendation");
   await weak.cleanup();
 
   const notValidation = await mount(`/detection/evaluations/${sample.C_V5}`);
-  await wait(() => notValidation.shown().includes("후보 7be19a34 · 실험 7 · evaluation_set_not_validation"), "set purpose exclusion code");
+  await wait(() => notValidation.shown().includes("비교 모델 7be19a34 · 실험 7 · evaluation_set_not_validation"), "set purpose exclusion code");
   await notValidation.cleanup();
 
   const unmeasured = await mount(`/detection/evaluations/${sample.C_V6}`);
   await wait(() => unmeasured.shown().includes("모델 교체 추천 4d2f7c10 · V4 → 7be19a34 · 실험 7 · 시스템 추천 · 자동 교체 안 함"), "recommend_replace block");
   const u = unmeasured.shown();
   assert.ok(u.includes("실험 7이 현재 운영 V4보다 모델 재현율 14/20(0.700) > 9/20(0.450)"), "stored summary as is");
-  assert.ok(u.includes("행당 처리 시간 P95 16 ms · 한도 — · 미측정 · unmeasured"), "unmeasured cost is not shown as passed");
-  assert.ok(!u.includes("(한도 내)"));
-  assert.ok(u.includes("후보 63c8d0f2 · 실험 6 · eligible_not_selected") && u.includes("후보 7be19a34 · 실험 7 · selected"));
+  assert.deepEqual(unmeasured.renderer.root.findAll((node) => node.type === "p" && node.props["data-rec-cost"]).map((node) => text(node.children)), ["행당 처리 시간 P95 미측정"], "unmeasured cost shows only 미측정");
+  assert.ok(!u.includes("unmeasured") && !u.includes("한도"));
+  assert.ok(u.includes("비교 모델 63c8d0f2 · 실험 6 · eligible_not_selected") && u.includes("비교 모델 7be19a34 · 실험 7 · selected"));
   assert.deepEqual(linkProps(unmeasured, "수락하고 교체").state.acceptedRecommendation, { comparisonJobId: sample.comparisonDetail(sample.C_V6).jobId, modelKey: "iforest", targetVersionId: "7be19a34-0c5d-4f82-b3a1-92d6e4f07c18" });
   for (const hidden of ["minLabeled", "checker_agreement_not_accuracy", "latencyFloorMs"]) assert.ok(!u.includes(hidden), `${hidden} not drawn`);
   await unmeasured.cleanup();

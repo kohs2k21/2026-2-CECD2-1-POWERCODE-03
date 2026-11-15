@@ -561,7 +561,8 @@ const tocSections = (app, menu) => detectionToc[menu].map(({ id }) => {
   const oldRow = { ...latestRow, comparisonId: sample.C_V1, jobId: "ab120000-1111-4222-8333-444455556666", recommendations: null, recommendationsReason: "not_implemented_v1" };
   sample.comparisons.push(sample.extraRow(sample.C_V4), sample.extraRow(sample.C_V6), saved[2], oldRow, draftShape);
   const list = await mount("/detection/evaluations?tab=all");
-  await wait(() => list.rows().length === 5 && list.shown().includes("실험 7"), "decision rows");
+  await wait(() => rowOf(list, sample.C_V4) && rowText(list, sample.C_V6).includes("실험 7"), "decision rows");
+  assert.equal(list.rows().filter((row) => row.findAll((node) => node.type === "a").length).length, 5);
   assert.ok(rowText(list, sample.C_V4).endsWith("근거 부족"), "insufficient_evidence");
   assert.ok(rowText(list, sample.C_V6).endsWith(`교체 추천 ${short("7be19a34")} · 실험 7 · 현재 추천`), "recommend_replace");
   assert.ok(rowText(list, saved[2].comparisonId).endsWith("현재 유지"), "keep_current");

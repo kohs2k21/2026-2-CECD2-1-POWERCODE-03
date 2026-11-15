@@ -271,6 +271,11 @@ const tabLinks = (app) => app.renderer.root.findAll((node) => node.type === "nav
   assert.deepEqual(app.renderer.root.findAll((node) => node.type === "span" && node.props["data-formula-basis"] !== undefined).map((node) => text(node.children)), ["기준 · 기간 전체 p95"]);
   const sent = calls("POST", "/api/rule-set/threshold-stats").at(-1).body;
   assert.deepEqual([sent.field, sent.statistic, sent.period], ["elapsed_ms", "p95", { mode: "recent_1m", timeBasis: "persisted_at" }]);
+  assert.equal(Object.hasOwn(sent, "scope"), false, "a global rule sends no scope (request as before)");
+  // (10차) 범위 있는 규칙은 판정 키만 scope로 보낸다(표시용 interfaceId 제외).
+  const { thresholdStatsScope } = await import("../src/features/detection/rules/ruleSetApi.ts");
+  assert.deepEqual(thresholdStatsScope(scopedRule.scope), { processId: "P2", adapterType: "HTTP" });
+  assert.deepEqual([thresholdStatsScope(null), thresholdStatsScope(undefined), thresholdStatsScope({ processId: "P1", processHubId: "H" })], [undefined, undefined, { processId: "P1", processHubId: "H" }]);
   assert.ok(app.renderer.root.find((node) => node.type === "strong" && node.props.title === "원값 7210.5"), "raw value tooltip");
   await app.click("적용");
   assert.equal(storedSoft(softRule.id).threshold, "7210.5", "apply fills the rules draft input");
@@ -555,6 +560,111 @@ const tabLinks = (app) => app.renderer.root.findAll((node) => node.type === "nav
   assert.notEqual(off.button("수식 추천").props.disabled, true, "formula recommendation is not gated");
   assert.equal(jobCalls().length, postsBefore, "no job request");
   await off.cleanup();
+}
+
+// 5-1) AI 규칙 추천 + 처리 시간 후보(llm-recommendation-job.md 10차): 이상 징후 규칙 0개여도 지금 보이는 후보(candidate 상태)로 요청,
+// 후보 결과 snapshot으로 계산, 후보만 있는 항목(softRuleIds 빈 배열)을 받음, 후보 행의 두 기준 표시, [승인] 저장 값(AI 제안이면 AI 값, 아니면 Trainer 값).
+{
+  const { parseRecommendation, candidateTargets } = await import("../src/features/detection/rules/ruleAiApi.ts");
+  const SOURCE_ID = "11111111-1111-4111-8111-111111111111";
+  const t0 = `${JOB}.t0`, t1 = `${JOB}.t1`, t2 = `${JOB}.t2`;
+  const aiItem = (scope, candidateIds, extra) => ({ field: "elapsed_ms", scope, softRuleIds: [], candidateIds, currentThreshold: null, unit: "ms", source: "data_p95",
+    basis: "train_reference_80_p95", attempts: 1, aiProposal: null, reviews: { schema: true, facts: true, expectedTarget: true },
+    evidence: { n: 96, min: 3, max: 990, p95: 790, quantileMethod: "linear_(n-1)*p", currentN: 24 }, ...extra });
+  const result = { recommendationContractVersion: "threshold-recommendation-v1", provider: "rule_v3", heldWindowExclusion: null,
+    items: [
+      aiItem({ processId: "P1", adapterType: "HTTP" }, [t0], { operator: "gt", threshold: "790", displayThreshold: "790", status: "proposed", rationale: "참조 기간 유효 값 96개의 p95보다 큰 처리 시간을 경고 후보로 봅니다." }),
+      aiItem({ processId: "P2", adapterType: "HTTP" }, [t1], { operator: null, threshold: null, displayThreshold: null, status: "no_applicable", attempts: 0,
+        rationale: "현재 기간에 이 범위의 유효 값이 없어 비교할 수 없습니다." }),
+    ],
+    counts: { targets: 2, proposed: 1, requestEvidence: 0, deferred: 0, noApplicable: 1, rejected: 0 } };
+  const empty = state(12, { softRules: [], counts: { hardEnabled: 1, hardTotal: 1, softEnabled: 0, softTotal: 0 } });
+  // 결과 검증: 후보만 있는 항목은 요청한 후보일 때만 통과, 규칙도 후보도 없는 항목은 실패.
+  assert.ok(parseRecommendation(result, empty, [t0, t1]), "candidate-only items pass when the candidates were requested");
+  assert.equal(parseRecommendation(result, empty, [t0]), null, "a candidate that was not requested fails");
+  assert.equal(parseRecommendation(result, empty), null, "candidate-only items fail when no candidate was requested");
+  assert.equal(parseRecommendation({ ...result, items: [{ ...result.items[0], candidateIds: [] }] }, empty, [t0]), null, "an item with neither rules nor candidates fails");
+  assert.equal(parseRecommendation({ ...result, items: [{ ...result.items[0], candidateIds: [1] }] }, empty, [t0]), null);
+  assert.equal(parseRecommendation({ ...result, items: [{ ...result.items[0], scope: { processId: 1 } }] }, empty, [t0]), null);
+  // 보낼 후보: candidate 상태 + 제안 값 있음, 후보 결과 snapshot이 있고 고른 출처와 같을 때만.
+  const list = { ...listBody().result, sourceId: SOURCE_ID };
+  assert.deepEqual(candidateTargets(list, SOURCE_ID)?.items.map((item) => item.candidateId), [t0, t1]);
+  assert.equal(candidateTargets({ ...list, sourceId: "other" }, SOURCE_ID), null, "another source's candidates are not sent");
+  assert.equal(candidateTargets({ ...list, snapshotId: null }, SOURCE_ID), null);
+  assert.equal(candidateTargets({ ...list, thresholdCandidates: [list.thresholdCandidates[2]] }, SOURCE_ID), null, "no eligible candidate");
+
+  let current = empty;
+  const detail = (index, processId, extra) => ({ ...thresholdDetail, threshold: threshold(index, processId, extra),
+    ruleDraft: { field: "elapsed_ms", operator: "gt", threshold: extra?.threshold ?? 812.5, unit: "ms", enabled: true, scope: { processId, adapterType: "HTTP", interfaceId: "IF-A" } } });
+  routes = baseRoutes({
+    "GET /api/rule-set": () => json(current),
+    "GET /api/rule-set/candidates": () => json({ ...listBody(), result: list }),
+    "POST /api/jobs": () => json({ id: "job-c1", kind: "recommend_thresholds", status: "queued", inputSpec: {} }, 202),
+    "GET /api/jobs/job-c1": () => json({ kind: "recommend_thresholds", status: "succeeded", inputSpec: {}, resultSummary: result }),
+    [`GET /api/rule-set/candidates/${t0}`]: () => json(detail(0, "P1")),
+    [`GET /api/rule-set/candidates/${t1}`]: () => json(detail(1, "P2", { threshold: 904, displayThreshold: "904" })),
+    "POST /api/rule-set/preview": () => json({ valid: true, summary: {}, hardDisabledAfterSave: [], changes: [{ type: "soft_added", id: null, clientRef: "candidate" }], warnings: [] }),
+    "PUT /api/rule-set": (_target, options) => {
+      const body = JSON.parse(options.body);
+      const revision = current.revision + 1;
+      current = state(revision, { softRules: body.softRules.map((rule, index) => ({ ...rule, id: rule.id ?? `soft:elapsed_ms-0000000${index}`, unit: "ms", createdAtRevision: revision, updatedAtRevision: revision })),
+        counts: { hardEnabled: 1, hardTotal: 1, softEnabled: body.softRules.length, softTotal: body.softRules.length } });
+      return json({ revision, contentHash: "e".repeat(64), appliedAt: "x", changes: [] });
+    },
+  });
+  const app = await mount();
+  await wait(() => byData(app, "data-threshold-row").length === 3 && app.button("AI 규칙 추천")?.props.disabled === false, "enabled with no anomaly-sign rule");
+  const box = () => app.renderer.root.findAll((node) => node.type === "div" && node.props["data-rule-ai"] === "done")[0];
+  await app.click("AI 규칙 추천");
+  await wait(() => box(), "candidate result");
+  const sent = calls("POST", "/api/jobs").at(-1).body;
+  assert.deepEqual([sent.scope, sent.data, sent.ruleSetRevision], [{ softRuleIds: null, candidateIds: [t0, t1] }, { snapshotId: "snap-1", from: null, until: null, timeBasis: null }, 12],
+    "visible candidate-status candidates, computed on the candidate result snapshot");
+  assert.ok(text(box().children).includes("켜진 이상 징후 규칙 0개 · 처리 시간(이상 징후) 후보 2개 · 제안 1건"), text(box().children));
+  assert.deepEqual(box().findAll((node) => node.type === "tr" && node.props["data-ai-group"] !== undefined).map((node) => text(node.children)), ["처리 시간(이상 징후) 후보"]);
+  const aiRow = (id) => rowOf(app, "data-ai-candidate-row", id);
+  const first = text(aiRow(t0).children);
+  for (const part of ["P1", "HTTP · 처리 시간 · elapsed_ms", "> 812.5 ms", "기준 · 학습 기간 전체 p95", "→ > 790 ms", "기준 · 학습 기간 앞 80% p95", "제안", "참조 기간 유효 값 96개"]) {
+    assert.ok(first.includes(part), `${part} in ${first}`);
+  }
+  const second = text(aiRow(t1).children);
+  assert.ok(second.includes("해당 없음") && second.includes("> 904 ms") && second.includes("기준 · 학습 기간 전체 p95") && !second.includes("→"), second);
+  assert.ok(second.includes("현재 기간에 이 범위의 유효 값이 없어 비교할 수 없습니다."));
+  assert.equal(aiRow(t2), undefined, "not-eligible candidates are not sent");
+  assert.equal(app.button("적용"), undefined, "no rule rows, nothing to apply");
+  // AI 제안 → AI 값으로 승인(기준 · 학습 기간 앞 80% p95).
+  const ask = () => app.renderer.root.findAll((node) => typeof node.props?.onNext === "function" && node.props.kind === "threshold")[0];
+  await act(async () => rowButton(aiRow(t0), "승인").props.onClick());
+  await wait(() => Boolean(ask()), "approve dialog");
+  assert.deepEqual([ask().props.defaultName, ask().props.note], ["처리 시간 P1 > 790 ms", "임계값 > 790 ms · 기준 · 학습 기간 앞 80% p95"]);
+  await act(async () => ask().props.onNext({ name: "P1 처리 시간", severity: "warning" }));
+  await wait(() => app.renderer.root.findAllByType(RuleSaveDialog).length === 1, "approve confirm");
+  assert.deepEqual(calls("POST", "/api/rule-set/preview").at(-1).body.softRules,
+    [{ id: null, clientRef: "candidate", name: "P1 처리 시간", field: "elapsed_ms", operator: "gt", threshold: 790, severity: "warning", enabled: true, scope: { processId: "P1", adapterType: "HTTP", interfaceId: "IF-A" } }]);
+  await act(async () => pendingOf(app).run(false));
+  await wait(() => app.shown().includes("운영에 적용됨 · 버전 13"), "saved");
+  // 승인 1건마다 새 버전 — 후보 결과는 닫히지 않고, 승인한 후보는 승인됨.
+  await wait(() => aiRow(t0) && rowButton(aiRow(t0), "승인").props.disabled === true, "approved candidate is off");
+  assert.ok(box(), "the candidate result stays after the version changes");
+  assert.equal(aiRow(t0).findAll((node) => node.props["data-approved"] !== undefined && typeof node.type === "string").length, 1);
+  // 제안이 아니면 Trainer 값으로 승인(기준 · 학습 기간 전체 p95, 지금 후보 승인 흐름과 같음).
+  await act(async () => rowButton(aiRow(t1), "승인").props.onClick());
+  await wait(() => Boolean(ask()), "second approve dialog");
+  assert.deepEqual([ask().props.defaultName, ask().props.note], ["처리 시간 P2 > 904 ms", "임계값 > 904 ms · 기준 · 학습 기간 전체 p95"]);
+  await act(async () => ask().props.onNext({ name: "P2 처리 시간", severity: "warning" }));
+  await wait(() => app.renderer.root.findAllByType(RuleSaveDialog).length === 1, "second confirm");
+  const added = calls("POST", "/api/rule-set/preview").at(-1).body.softRules.at(-1);
+  assert.deepEqual([added.threshold, added.operator, added.scope], [904, "gt", { processId: "P2", adapterType: "HTTP", interfaceId: "IF-A" }]);
+  await act(async () => pendingOf(app).run(false));
+  await app.cleanup();
+  // 후보 결과가 다른 출처면 후보를 보내지 않고, 규칙도 없으니 버튼은 꺼진다.
+  current = empty;
+  routes["GET /api/rule-set/candidates"] = () => json(listBody());
+  const other = await mount();
+  await wait(() => byData(other, "data-threshold-row").length === 3 && other.button("AI 규칙 추천"), "loaded");
+  await tick(30);
+  assert.equal(other.button("AI 규칙 추천").props.disabled, true, "no target");
+  await other.cleanup();
 }
 
 // 6) 실행 흐름 규칙 탭: 경로(관측 경로 초안 요약 + 등록 여부 → 프로토콜 상세), 단계 조건 행 [승인] → 저장, 이미 같은 조건이면 승인됨, 상세 조회 실패 코드

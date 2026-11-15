@@ -370,6 +370,30 @@ export async function readCandidateDetail(db: Queryable, candidateId: string) {
   };
 }
 
+/**
+ * AI 규칙 추천(`recommend_thresholds`) 대상 처리 시간 후보 확인(llm-recommendation-job.md 10차 요청 표). 형식(`.t<번호>`·1~32개)은 호출 전에 본다.
+ * 한 요청은 한 작업의 후보만(섞이면 422 `rule_candidate_job_mixed`), 성공한 `recommend_relations` 작업이면 최신이 아니어도 된다(결과·id 불변).
+ * 작업·위치가 없으면 404 `rule_candidate_not_found`, 결과 머리·항목 모양은 목록과 같은 503. 자격 = `status: candidate`이고
+ * `operator`·`threshold`가 있는 후보(아니면 422 `rule_candidate_not_eligible:<id>`). 후보 결과의 `snapshotId`를 함께 돌려준다(호출자가 요청과 대조).
+ */
+export async function readRecommendationCandidates(db: Queryable, candidateIds: string[]) {
+  const jobs = new Set(candidateIds.map((candidateId) => CANDIDATE_ID.exec(candidateId)![1].toLowerCase()));
+  if (jobs.size !== 1) throw new RuleSetError('rule_candidate_job_mixed', 422);
+  const [jobId] = jobs;
+  const { rows: [row] } = await db.query<JobRow>(`SELECT ${JOB_COLUMNS}, result_summary AS result FROM run_jobs WHERE id = $1 AND ${KIND} AND status = 'succeeded'`, [jobId]);
+  if (!row) throw new RuleSetError('rule_candidate_not_found', 404);
+  const result = checkResult(row.result);
+  const items = candidateIds.map((candidateId) => {
+    const index = Number(CANDIDATE_ID.exec(candidateId)![3]);
+    const raw = result.thresholdCandidates[index];
+    if (raw === undefined) throw new RuleSetError('rule_candidate_not_found', 404);
+    const item = thresholdItem(row.id, index, raw);
+    if (item.status !== 'candidate' || item.operator === null || item.threshold === null) throw new RuleSetError(`rule_candidate_not_eligible:${candidateId}`, 422);
+    return { candidateId, field: item.field, scope: item.scope };
+  });
+  return { snapshotId: text(result.snapshotId) ? result.snapshotId : null, items };
+}
+
 export function parseCandidateListQuery(query: Record<string, unknown>): string | null {
   if (Object.keys(query).some((key) => key !== 'interfaceId')) throw new RuleSetError('unknown_candidate_filter');
   const value = query.interfaceId;

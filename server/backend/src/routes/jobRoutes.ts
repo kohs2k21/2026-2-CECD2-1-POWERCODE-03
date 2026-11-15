@@ -10,8 +10,10 @@ import { mlMethod, parametersValid } from '../ruleset/methodCatalog.js';
 import { excludedIntervalsProblem, parseExcludedIntervals } from '../ruleset/thresholdStats.js';
 import { parseSyntheticEvaluation, parseSyntheticRegistration, verifySyntheticBinding, staticSpecHash,
   SyntheticRequestError, type SyntheticEvaluation, type SyntheticBinding } from './syntheticEvaluationContract.js';
-import { ThresholdRequestError, fixThresholdTargets, parseThresholdRequest, thresholdLlmSpec,
-  type ThresholdFixedInput, type ThresholdRequest } from './thresholdRecommendationContract.js';
+import { ThresholdRequestError, checkCandidateSnapshot, checkThresholdRevision, fixThresholdTargets, parseThresholdRequest, thresholdLlmSpec,
+  type CandidateTarget, type ThresholdFixedInput, type ThresholdRequest } from './thresholdRecommendationContract.js';
+import { readRecommendationCandidates } from '../ruleset/ruleCandidates.js';
+import { RuleSetError } from '../ruleset/ruleSetContract.js';
 import { ComparisonError, enqueueComparison, parseComparisonRequest } from '../services/comparisonEvaluation.js';
 import { idempotencyKeyOf } from './comparisonRoutes.js';
 import { JobReadError, parseJobListQuery, readJobDetail, readJobPage } from '../services/jobReadModel.js';
@@ -322,7 +324,21 @@ router.post('/', route(async (req, res) => {
           [snapshotId, input.sourceId, from, until]);
         if (!snapshot.rowCount) throw new JobRequestError('snapshot_conditions_mismatch', 409);
       }
-      Object.assign(input, fixThresholdTargets(request, await readCurrentSoftRules(client)));
+      const current = await readCurrentSoftRules(client);
+      checkThresholdRevision(request, current);
+      // (10차) 처리 시간 후보: 한 작업·자격·같은 snapshot을 접수에서 확인한다(llm-recommendation-job.md 10차 요청 표). 값은 워커가 다시 계산한다.
+      let candidates: CandidateTarget[] = [];
+      if (request.scope.candidateIds) {
+        try {
+          const found = await readRecommendationCandidates(client, request.scope.candidateIds);
+          checkCandidateSnapshot(request, found.snapshotId);
+          candidates = found.items;
+        } catch (error) {
+          if (error instanceof RuleSetError) throw new ThresholdRequestError(error.code, error.status);
+          throw error;
+        }
+      }
+      Object.assign(input, fixThresholdTargets(request, current, candidates));
       requestHash = crypto.createHash('sha256').update(JSON.stringify(input)).digest('hex');
     }
     const id = crypto.randomUUID();

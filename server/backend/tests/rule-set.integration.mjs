@@ -519,6 +519,26 @@ try {
   assert.equal(numpyCase.body.evidence.n, 22);
   assert.ok(Math.abs(numpyCase.body.evidence.p95 - 956.4999999999995) < 1e-9, `p95 ${numpyCase.body.evidence.p95}`);
   assert.deepEqual([numpyCase.body.threshold, numpyCase.body.displayThreshold], ['956.5', '956'], 'threshold keeps 15 digits, display rounds the raw value');
+  assert.equal(numpyCase.body.scope, null, 'no scope = the whole field');
+  // (10차) 적용 범위: 실행별 최신 관측의 원래 값(allowed_values)과 정확 일치(Detector in_scope와 같음). trim 없음, 값 없음·문자열 아님은 범위 밖.
+  const scopedSource = await seedRuleSetSource(pool, 'scoped');
+  const scopedRow = (duration, values) => addProcess(pool, scopedSource, { occurredAt: day(3), start: at(0), end: at(duration), values });
+  for (let index = 0; index < 20; index += 1) await scopedRow(100 + index, { process_id: 'P1', adapter_type: 'HTTP' });
+  for (let index = 0; index < 20; index += 1) await scopedRow(5000 + index, { process_id: 'P1', adapter_type: 'MQ' });
+  await scopedRow(90000, { process_id: 'P2', adapter_type: 'HTTP' });
+  await scopedRow(90000, { process_id: 'P1 ', adapter_type: 'HTTP' });
+  await scopedRow(90000, { process_id: 1, adapter_type: 'HTTP' });
+  await scopedRow(90000, { adapter_type: 'HTTP' });
+  const scopedReplaced = await scopedRow(100, { process_id: 'P1', adapter_type: 'HTTP' });
+  await addProcess(pool, scopedSource, { occurredAt: day(3), start: at(0), end: at(90000), values: { process_id: 'P2' }, execution: scopedReplaced.execution, revision: 2 });
+  const byAdapter = await statsOf(scopedSource, { field: 'elapsed_ms', statistic: 'max', period: windowRange, scope: { adapterType: 'HTTP', processId: 'P1' } });
+  assert.equal(byAdapter.status, 200, JSON.stringify(byAdapter.body));
+  assert.deepEqual([byAdapter.body.scope, byAdapter.body.evidence.n, byAdapter.body.evidence.max, byAdapter.body.evidence.scope],
+    [{ processId: 'P1', adapterType: 'HTTP' }, 20, 119, 'period'], 'exact match on the latest revision only');
+  const allAdapters = await statsOf(scopedSource, { field: 'elapsed_ms', statistic: 'max', period: windowRange, scope: { processId: 'P1' } });
+  assert.deepEqual([allAdapters.body.evidence.n, allAdapters.body.evidence.max], [40, 5019], 'no adapter key = every adapter of that step');
+  assert.equal((await statsOf(scopedSource, { field: 'elapsed_ms', period: windowRange })).body.evidence.n, 45, 'no scope keeps every row');
+  assert.equal((await statsOf(scopedSource, { field: 'elapsed_ms', period: windowRange, scope: { processId: 'P1', interfaceId: 'IF' } })).body.code, 'invalid_threshold_stats_request');
   for (const [payload, status, code] of [
     [{ field: 'elapsed_ms', statistic: 'toString', period: windowRange }, 400, 'invalid_threshold_stats_request'],
     [{ field: 'elapsed_ms', statistic: 'constructor', period: windowRange }, 400, 'invalid_threshold_stats_request'],

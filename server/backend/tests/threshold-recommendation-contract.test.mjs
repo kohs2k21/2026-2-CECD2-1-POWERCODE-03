@@ -22,7 +22,8 @@ Object.assign(process.env, {
 });
 const { default: jobRouter } = await import('../dist/routes/jobRoutes.js');
 const { UserRepository } = await import('../dist/repository/userRepository.js');
-const { THRESHOLD_EVIDENCE_VERSION, THRESHOLD_MODEL_VERSION, THRESHOLD_PROMPT_VERSION } = await import('../dist/routes/thresholdRecommendationContract.js');
+const { THRESHOLD_EVIDENCE_VERSION, THRESHOLD_MODEL_VERSION, THRESHOLD_PROMPT_VERSION, ThresholdRequestError, fixThresholdTargets, parseThresholdRequest } =
+  await import('../dist/routes/thresholdRecommendationContract.js');
 
 const contracts = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../contracts');
 const examples = JSON.parse(await readFile(path.join(contracts, 'llm-recommendation-job.example.json'), 'utf8'));
@@ -43,12 +44,33 @@ const body = (changes = {}) => ({
   mode: 'data_p95_with_llm_rationale', ...changes,
 });
 const period = (changes) => ({ data: { ...body().data, ...changes } });
+/** 저장되는 대상 선택: 후보를 보내지 않으면 `candidateIds: null`(10차). */
+const storedScope = (scope) => ({ candidateIds: null, ...scope });
+const softTarget = ({ id, field, threshold }, scope = null) => ({ kind: 'soft_rule', id, field, scope, threshold });
+
+// (10차) 처리 시간 후보: Trainer recommend_relations 성공 작업 결과(relation-candidates-experimental-2)의 thresholdCandidates.
+const RELATION_JOB = '44444444-4444-4444-8444-444444444444';
+const OTHER_JOB = '55555555-5555-4555-8555-555555555555';
+const thresholdCandidate = (processId, { adapterType, status = 'candidate', threshold = '704' } = {}) => ({
+  field: 'elapsed_ms', status, reason: null, scope: { processId, ...(adapterType ? { adapterType } : {}) }, display: { interfaceIds: ['IF-A'] },
+  operator: threshold === null ? null : 'gt', threshold, displayThreshold: threshold, unit: 'ms', source: 'data_p95',
+  evidence: { rows: 40, referenceRows: 40, n: 40, endTimeMissingReferenceRows: 0, unavailableReferenceRows: 0, p95: 704, min: 1, max: 900, quantileMethod: 'linear' },
+});
+const relationResult = (thresholdCandidates, snapshotId = SNAPSHOT) => ({
+  relationContractVersion: 'relation-candidates-experimental-2', snapshotId, sourceId: SOURCE, candidates: [], thresholdCandidates,
+  graph: { graph: {}, nodes: [], edges: [] }, data: { interfaceTransactions: {} }, parameters: {},
+});
+const CANDIDATES = [thresholdCandidate('P1', { adapterType: 'HTTP' }), thresholdCandidate('P2'), thresholdCandidate('P3', { status: 'insufficient_evidence', threshold: null })];
+const candidateBody = (candidateIds, changes = {}) => body({
+  scope: { softRuleIds: [], candidateIds }, data: { snapshotId: SNAPSHOT, from: null, until: null, timeBasis: null }, ...changes,
+});
 
 /** 라우터가 보내는 문장만 답하는 가짜 저장소. 모르는 문장은 오류라 503으로 드러난다. */
 const database = {};
 const reset = () => Object.assign(database, {
   sources: new Set([SOURCE]), revision: { revision: '13', contentHash: HASH, contentHashVersion: 2, snapshot: { hardRules: [], softRules: [ELAPSED, RATIO, OFF] } },
   snapshots: new Set(), jobs: [], queued: [], statements: [],
+  relationJobs: new Map([[RELATION_JOB, relationResult(CANDIDATES)]]),
 });
 const rows = (list) => ({ rows: list, rowCount: list.length });
 async function query(text, params = []) {
@@ -60,6 +82,11 @@ async function query(text, params = []) {
     return rows([{ note: null, changes: [], summary: {}, restoredFromRevision: null, actorId: 'system', savedAt: '2026-11-01T00:00:00.000000Z', ...database.revision }]);
   }
   if (text.includes('FROM data_snapshots')) return rows(database.snapshots.has(params[0]) ? [{}] : []);
+  if (text.includes("kind::text = 'recommend_relations'") && text.includes('WHERE id = $1')) {
+    const result = database.relationJobs.get(params[0]);
+    return rows(result === undefined ? [] : [{ id: params[0], status: 'succeeded', errorCode: null, createdAt: '2026-11-01T00:00:00.000000Z',
+      finishedAt: '2026-11-01T00:00:00.000000Z', inputSpec: { snapshotId: SNAPSHOT }, result }]);
+  }
   if (text.includes('FROM ml_feature_sets')) return rows([{}]);
   if (text.includes('INSERT INTO run_jobs')) {
     const [id, kind, actor, role, key, requestHash, configVersion, snapshot, inputSpec, version, queue, producerKind, producerKey, llmSpec, decision] = params;
@@ -138,9 +165,9 @@ test('accepted request stores the fixed input, the six llm_spec keys (Rule v3 pa
   assert.equal(created.body.status, 'queued');
   const [job] = database.jobs;
   assert.deepEqual(JSON.parse(job.inputSpec), {
-    ...body(), ruleSetContentHash: HASH, ruleSetContentHashVersion: 2,
-    targets: [{ id: ELAPSED.id, field: 'elapsed_ms', threshold: 5000 }, { id: RATIO.id, field: 'error_ratio', threshold: 0.01 }],
-  }, 'targets are the enabled rules and only id, field and threshold');
+    ...body(), scope: storedScope(body().scope), ruleSetContentHash: HASH, ruleSetContentHashVersion: 2,
+    targets: [softTarget(ELAPSED), softTarget(RATIO)],
+  }, 'targets are the enabled rules in the new shape: kind, id, field, scope and threshold');
   assert.deepEqual([job.configVersion, job.snapshot, job.decision], [null, null, null]);
   assert.deepEqual([job.version, job.queue, job.producerKind, job.producerKey, job.role, job.key], ['v03', 'llm_recommendation', 'user', adminId, 'admin', 'run-1']);
   assert.deepEqual(database.queued.map(({ table }) => table), ['llm_recommendation_jobs']);
@@ -148,7 +175,7 @@ test('accepted request stores the fixed input, the six llm_spec keys (Rule v3 pa
   assert.equal(database.queued[0].payload.jobId, job.id);
   assert.equal(job.requestHash, sha256(job.inputSpec), 'the request hash covers the fixed input');
   assert.deepEqual(JSON.parse(job.llmSpec), {
-    evidence_version: 'soft-rule-threshold-v2', input_evidence_hash: job.requestHash, model_version: 'rule_v3', prompt_version: 'feature-rule-spec-rule-v3-ko',
+    evidence_version: 'soft-rule-threshold-v3', input_evidence_hash: job.requestHash, model_version: 'rule_v3', prompt_version: 'feature-rule-spec-rule-v3-ko',
     output_schema_version: 'threshold-recommendation-v1',
     reuse_key: sha256(JSON.stringify([adminId, JSON.parse(job.inputSpec), 'run-1', 'feature-rule-spec-rule-v3-ko'])),
   });
@@ -163,6 +190,8 @@ test('the shared examples are what the API stores (server/worker/tests reads the
       contentHashVersion: example.currentRuleSet.contentHashVersion, snapshot: { hardRules: [], softRules: example.currentRuleSet.softRules },
     };
     database.snapshots.add(example.request.data.snapshotId);
+    // 후보 예시는 후보 작업 결과(고정값)를 함께 싣는다.
+    if (example.candidateJob) database.relationJobs = new Map([[example.candidateJob.id, example.candidateJob.resultSummary]]);
     assert.equal(adminId, examples.actorId, 'the first seeded account owns the example');
     assert.equal((await post(example.request, { key: examples.idempotencyKey })).status, 201, example.name);
     const [job] = database.jobs;
@@ -175,8 +204,97 @@ test('a subset scope keeps only its enabled rules and off or unknown ids drop ou
   const scope = { softRuleIds: [RATIO.id, OFF.id, 'soft:total_count-00000000'] };
   assert.equal((await post(body({ scope }))).status, 201);
   const input = JSON.parse(database.jobs[0].inputSpec);
-  assert.deepEqual(input.targets, [{ id: RATIO.id, field: 'error_ratio', threshold: 0.01 }]);
-  assert.deepEqual(input.scope, scope);
+  assert.deepEqual(input.targets, [softTarget(RATIO)]);
+  assert.deepEqual(input.scope, storedScope(scope));
+});
+
+test('a soft rule scope is written as its judging keys only, and a scoped rule is its own group', async () => {
+  const scoped = { ...rule('elapsed_ms', 7000, 'aaaaaaaa'), scope: { processId: 'P9', adapterType: 'HTTP', interfaceId: 'IF-A' } };
+  database.revision = { ...database.revision, contentHashVersion: 3, snapshot: { hardRules: [], softRules: [ELAPSED, scoped] } };
+  assert.equal((await post(body())).status, 201);
+  assert.deepEqual(JSON.parse(database.jobs[0].inputSpec).targets,
+    [softTarget(ELAPSED), softTarget(scoped, { processId: 'P9', adapterType: 'HTTP' })], 'interfaceId is display only');
+});
+
+test('candidates: accepted with no soft rule, fixed after the soft rules in request order, value left to the worker', async () => {
+  database.snapshots.add(SNAPSHOT);
+  database.revision = { ...database.revision, snapshot: { hardRules: [], softRules: [OFF] } };
+  const ids = [`${RELATION_JOB}.t1`, `${RELATION_JOB}.t0`];
+  const created = await post(candidateBody(ids), { key: 'run-c' });
+  assert.equal(created.status, 201, JSON.stringify(created.body));
+  const [job] = database.jobs;
+  const input = JSON.parse(job.inputSpec);
+  assert.deepEqual(input.scope, { softRuleIds: [], candidateIds: ids });
+  assert.deepEqual(input.data, { snapshotId: SNAPSHOT, from: null, until: null, timeBasis: null });
+  assert.deepEqual(input.targets, [
+    { kind: 'candidate', id: ids[0], field: 'elapsed_ms', scope: { processId: 'P2' }, threshold: null },
+    { kind: 'candidate', id: ids[1], field: 'elapsed_ms', scope: { processId: 'P1', adapterType: 'HTTP' }, threshold: null },
+  ]);
+  assert.equal(JSON.parse(job.llmSpec).evidence_version, 'soft-rule-threshold-v3');
+  assert.equal(job.requestHash, sha256(job.inputSpec));
+  // 켜진 소프트룰과 함께: 소프트룰(저장 순서) → 후보.
+  reset();
+  database.snapshots.add(SNAPSHOT);
+  assert.equal((await post(candidateBody([ids[1]], { scope: { softRuleIds: null, candidateIds: [ids[1]] } }))).status, 201);
+  assert.deepEqual(JSON.parse(database.jobs[0].inputSpec).targets.map(({ kind, id }) => [kind, id]),
+    [['soft_rule', ELAPSED.id], ['soft_rule', RATIO.id], ['candidate', ids[1]]]);
+});
+
+test('candidate id shape and count use the job request code', async () => {
+  database.snapshots.add(SNAPSHOT);
+  const t = (index) => `${RELATION_JOB}.t${index}`;
+  for (const candidateIds of [[], 'all', [1], [`${RELATION_JOB}.r0`], ['x.t0'], [`${RELATION_JOB}.t01`], [t(0), t(0)], [t(0), t(0).toUpperCase()],
+    Array.from({ length: 33 }, (_, index) => t(index))]) {
+    await rejected(candidateBody(candidateIds), 400, 'invalid_job_request');
+  }
+  await rejected(candidateBody([t(0)], { scope: { softRuleIds: [], candidateIds: [t(0)], extra: 1 } }), 400, 'invalid_job_request');
+});
+
+test('candidate lookup: one succeeded job, eligible candidates, the same snapshot', async () => {
+  database.snapshots.add(SNAPSHOT);
+  await rejected(candidateBody([`${RELATION_JOB}.t0`, `${OTHER_JOB}.t0`]), 422, 'rule_candidate_job_mixed');
+  await rejected(candidateBody([`${OTHER_JOB}.t0`]), 404, 'rule_candidate_not_found');
+  await rejected(candidateBody([`${RELATION_JOB}.t3`]), 404, 'rule_candidate_not_found');
+  await rejected(candidateBody([`${RELATION_JOB}.t0`, `${RELATION_JOB}.t2`]), 422, `rule_candidate_not_eligible:${RELATION_JOB}.t2`);
+  // 후보 결과와 다른 snapshot(그 snapshot은 준비됨), 기간만 보낸 요청 모두 409.
+  const other = '66666666-6666-4666-8666-666666666666';
+  database.snapshots.add(other);
+  await rejected(candidateBody([`${RELATION_JOB}.t0`], { data: { snapshotId: other } }), 409, 'rule_candidate_snapshot_mismatch');
+  await rejected(candidateBody([`${RELATION_JOB}.t0`], { data: body().data }), 409, 'rule_candidate_snapshot_mismatch');
+  // 결과 머리가 다르면 목록과 같은 503 코드.
+  database.relationJobs.set(RELATION_JOB, { ...relationResult(CANDIDATES), relationContractVersion: 'relation-candidates-experimental-1' });
+  await rejected(candidateBody([`${RELATION_JOB}.t0`]), 503, 'rule_candidate_contract_unsupported');
+  database.relationJobs.set(RELATION_JOB, relationResult([{ ...CANDIDATES[0], threshold: '7e2' }]));
+  await rejected(candidateBody([`${RELATION_JOB}.t0`]), 503, 'rule_candidate_result_invalid');
+  // 리비전 충돌은 후보 조회보다 먼저.
+  await rejected(candidateBody([`${OTHER_JOB}.t0`], { ruleSetRevision: 12 }), 409, 'rule_set_revision_conflict');
+  // 소프트룰도 후보도 없으면 현행 코드.
+  await rejected(body({ scope: { softRuleIds: [], candidateIds: null } }), 400, 'soft_rules_empty');
+});
+
+test('groups: a candidate with the same field and scope as a soft rule shares its group; more than 32 groups is refused', async () => {
+  database.snapshots.add(SNAPSHOT);
+  const same = { ...rule('elapsed_ms', 9000, 'bbbbbbbb'), scope: { processId: 'P2' } };
+  const many = Array.from({ length: 31 }, (_, index) => ({ ...rule('elapsed_ms', 9000, String(index).padStart(8, '0')), scope: { processId: `Q${index}` } }));
+  database.revision = { ...database.revision, contentHashVersion: 3, snapshot: { hardRules: [], softRules: [same, ...many] } };
+  // 32 묶음 = 31(Q) + 1(P2, 소프트룰·후보 함께) → 접수.
+  assert.equal((await post(candidateBody([`${RELATION_JOB}.t1`], { scope: { softRuleIds: null, candidateIds: [`${RELATION_JOB}.t1`] } }))).status, 201);
+  reset();
+  database.snapshots.add(SNAPSHOT);
+  database.revision = { ...database.revision, contentHashVersion: 3, snapshot: { hardRules: [], softRules: [same, ...many] } };
+  await rejected(candidateBody([`${RELATION_JOB}.t0`], { scope: { softRuleIds: null, candidateIds: [`${RELATION_JOB}.t0`] } }), 400, 'soft_rule_limit_exceeded');
+});
+
+test('rule_v2 (rollback path) refuses candidates and scoped targets but keeps plain soft rules', () => {
+  const current = { revision: 13, contentHash: HASH, contentHashVersion: 3, softRules: [ELAPSED] };
+  const request = parseThresholdRequest(body(), SOURCE);
+  assert.deepEqual(fixThresholdTargets(request, current, [], 'rule_v2').targets, [softTarget(ELAPSED)]);
+  const code = (fn) => { try { fn(); } catch (error) { return error instanceof ThresholdRequestError ? error.code : String(error); } return 'accepted'; };
+  assert.equal(code(() => fixThresholdTargets(request, current, [{ candidateId: `${RELATION_JOB}.t0`, field: 'elapsed_ms', scope: { processId: 'P1' } }], 'rule_v2')),
+    'recommendation_targets_require_rule_v3');
+  const scoped = { ...current, softRules: [{ ...ELAPSED, scope: { processId: 'P1' } }] };
+  assert.equal(code(() => fixThresholdTargets(request, scoped, [], 'rule_v2')), 'recommendation_targets_require_rule_v3');
+  assert.equal(code(() => fixThresholdTargets(request, scoped, [], 'rule_v3')), 'accepted');
 });
 
 test('stored hash and hash version pass through unchanged, including version 1 rows', async () => {
@@ -333,8 +451,8 @@ test('the contract names the value the API records', async () => {
   const contract = await readFile(path.join(contracts, 'llm-recommendation-job.md'), 'utf8');
   assert.ok(contract.includes(`prompt_version: '${THRESHOLD_PROMPT_VERSION}'`));
   assert.ok(contract.includes(`model_version: '${THRESHOLD_MODEL_VERSION}'`) && contract.includes(`evidence_version: '${THRESHOLD_EVIDENCE_VERSION}'`));
-  // 워커가 실행하는 두 조합 중 Rule v3 조합이다(llm-recommendation-job.md 7차 llm_spec 행).
-  assert.deepEqual([THRESHOLD_MODEL_VERSION, THRESHOLD_EVIDENCE_VERSION], ['rule_v3', 'soft-rule-threshold-v2']);
+  // 새 대상 모양을 실행하는 유일한 조합이다(llm-recommendation-job.md 10차 llm_spec 행).
+  assert.deepEqual([THRESHOLD_MODEL_VERSION, THRESHOLD_EVIDENCE_VERSION], ['rule_v3', 'soft-rule-threshold-v3']);
   assert.ok(examples.examples.every((example) => example.llm_spec.prompt_version === THRESHOLD_PROMPT_VERSION &&
     example.llm_spec.model_version === THRESHOLD_MODEL_VERSION && example.llm_spec.evidence_version === THRESHOLD_EVIDENCE_VERSION));
 });

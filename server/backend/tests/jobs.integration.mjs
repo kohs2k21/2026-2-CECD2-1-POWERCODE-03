@@ -253,7 +253,8 @@ try {
   assert.equal((await request(base, '/api/jobs', 'POST', token, { ...thresholds, ruleSetRevision: ruleSet.revision - 1 }, thresholdKey)).body.code, 'rule_set_revision_conflict');
   const thresholdJob = await request(base, '/api/jobs', 'POST', token, thresholds, thresholdKey);
   assert.equal(thresholdJob.status, 201);
-  assert.deepEqual(thresholdJob.body.inputSpec.targets, [{ id: enabled.id, field: 'elapsed_ms', threshold: 5000 }]);
+  assert.deepEqual(thresholdJob.body.inputSpec.targets, [{ kind: 'soft_rule', id: enabled.id, field: 'elapsed_ms', scope: null, threshold: 5000 }]);
+  assert.deepEqual(thresholdJob.body.inputSpec.scope, { softRuleIds: null, candidateIds: null });
   assert.equal(thresholdJob.body.inputSpec.ruleSetContentHash, ruleSet.contentHash);
   assert.equal(thresholdJob.body.inputSpec.ruleSetContentHashVersion, ruleSet.contentHashVersion);
   assert.equal((await request(base, '/api/jobs', 'POST', token, thresholds, thresholdKey)).body.id, thresholdJob.body.id);
@@ -263,7 +264,7 @@ try {
     ['llm_recommendation', 'v03', null, null, null]);
   assert.equal(stored.llm_spec.input_evidence_hash, stored.request_hash);
   assert.deepEqual([stored.llm_spec.model_version, stored.llm_spec.evidence_version, stored.llm_spec.prompt_version],
-    ['rule_v3', 'soft-rule-threshold-v2', 'feature-rule-spec-rule-v3-ko']);
+    ['rule_v3', 'soft-rule-threshold-v3', 'feature-rule-spec-rule-v3-ko']);
   assert.equal((await pool.query(`SELECT count(*)::int AS count FROM powercode_queue.llm_recommendation_jobs WHERE payload->>'jobId'=$1`,
     [thresholdJob.body.id])).rows[0].count, 1);
   const failedSummary = { recommendationContractVersion: 'threshold-recommendation-v1', items: [{ field: 'elapsed_ms', status: 'rejected', rejectedReason: 'factual_review_failed' }] };
@@ -342,6 +343,33 @@ try {
   const otherSourceJob = await relationJob({ sourceId: otherSourceId, protocolPathDrafts: protocolDrafts });
   const upperSourceJob = await relationJob({ sourceId: sourceId.toUpperCase(), protocolPathDrafts: protocolDrafts }); // 워커 _same_source: 같은 UUID
   const queuedRelationJob = await relationJob(null, { status: 'queued' });
+  // (10차) AI 규칙 추천 대상 처리 시간 후보(llm-recommendation-job.md 10차 요청 표): 이상 징후 규칙 0개(위 저장)에서도 접수, 실제 DB로 후보 작업·자격·snapshot 확인.
+  const thresholdCandidate = (scope, status, threshold) => ({ field: 'elapsed_ms', status, reason: null, scope, display: { interfaceIds: ['IF_A'] },
+    operator: threshold === null ? null : 'gt', threshold, displayThreshold: threshold, unit: 'ms', source: 'data_p95',
+    evidence: { rows: 40, referenceRows: 40, n: 40, endTimeMissingReferenceRows: 0, unavailableReferenceRows: 0, p95: 704, min: 1, max: 900, quantileMethod: 'linear' } });
+  const candidateJob = await relationJob({ relationContractVersion: 'relation-candidates-experimental-2', snapshotId, sourceId, candidates: [],
+    thresholdCandidates: [thresholdCandidate({ processId: 'IF_A_PR002', adapterType: 'HTTP' }, 'candidate', '704'), thresholdCandidate({ processId: 'IF_A_PR003' }, 'insufficient_evidence', null)],
+    graph: { graph: {}, nodes: [], edges: [] }, data: { interfaceTransactions: {} }, parameters: {} });
+  const candidateRuleSet = (await request(base, '/api/rule-set', 'GET', token)).body;
+  assert.equal(candidateRuleSet.softRules.filter((rule) => rule.enabled).length, 0, 'no enabled anomaly-sign rule');
+  const candidateRequest = (candidateIds, data = { snapshotId }) => ({ kind: 'recommend_thresholds', sourceId, ruleSetRevision: candidateRuleSet.revision,
+    scope: { softRuleIds: [], candidateIds }, data, mode: 'data_p95_with_llm_rationale' });
+  const candidateAccepted = await request(base, '/api/jobs', 'POST', token, candidateRequest([`${candidateJob}.t0`]), crypto.randomUUID());
+  assert.equal(candidateAccepted.status, 201, JSON.stringify(candidateAccepted.body));
+  assert.deepEqual(candidateAccepted.body.inputSpec.scope, { softRuleIds: [], candidateIds: [`${candidateJob}.t0`] });
+  assert.deepEqual(candidateAccepted.body.inputSpec.targets,
+    [{ kind: 'candidate', id: `${candidateJob}.t0`, field: 'elapsed_ms', scope: { processId: 'IF_A_PR002', adapterType: 'HTTP' }, threshold: null }]);
+  const candidateStored = (await pool.query('SELECT queue,llm_spec FROM run_jobs WHERE id=$1', [candidateAccepted.body.id])).rows[0];
+  assert.deepEqual([candidateStored.queue, candidateStored.llm_spec.model_version, candidateStored.llm_spec.evidence_version], ['llm_recommendation', 'rule_v3', 'soft-rule-threshold-v3']);
+  for (const [name, payload, status, code] of [
+    ['not eligible', candidateRequest([`${candidateJob}.t1`]), 422, `rule_candidate_not_eligible:${candidateJob}.t1`],
+    ['not succeeded', candidateRequest([`${queuedRelationJob}.t0`]), 404, 'rule_candidate_not_found'],
+    ['other snapshot', candidateRequest([`${candidateJob}.t0`], { snapshotId: readySnapshot }), 409, 'rule_candidate_snapshot_mismatch'],
+    ['mixed jobs', candidateRequest([`${candidateJob}.t0`, `${draftsJob}.t0`]), 422, 'rule_candidate_job_mixed'],
+    ['relation id', candidateRequest([`${candidateJob}.r0`]), 400, 'invalid_job_request'],
+  ]) {
+    assert.deepEqual(await request(base, '/api/jobs', 'POST', token, payload, crypto.randomUUID()), { status, body: { code } }, name);
+  }
   const decision = async (evidence) => {
     const execution = crypto.randomUUID(), observation = crypto.randomUUID(), decisionId = crypto.randomUUID();
     const hash = crypto.createHash('sha256').update(observation).digest('hex');

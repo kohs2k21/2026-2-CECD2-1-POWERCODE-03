@@ -137,7 +137,8 @@ const AnomalyCard = ({ view, approval, state, ai, rulesError, onRulesRetry }: {
       {rulesError && <ErrorState title={`현재 운영 룰 조회 실패 · ${rulesError}`} onRetry={onRulesRetry} retryLabel="다시 조회" />}
       {fields.isError && <ErrorState title={`등록 필드 조회 실패 · ${errorCode(fields.error)}`} />}
       {ai && state && draft && (
-        <RuleAiBox ai={ai} state={state} draft={draft} fields={fieldList} onApply={(updates) => stored.editSoft(updates)} />
+        <RuleAiBox ai={ai} state={state} draft={draft} fields={fieldList} onApply={(updates) => stored.editSoft(updates)}
+          approver={approval} available={view.data?.approval} />
       )}
       {approval.banner}
       {result && <InterfacePicker result={result} onInterface={view.onInterface} />}
@@ -188,11 +189,14 @@ const AnomalyCard = ({ view, approval, state, ai, rulesError, onRulesRetry }: {
   );
 };
 
-/** 룰 세트를 읽은 뒤: AI 규칙 추천 작업 상태를 붙인다(대상은 저장된 버전 — 룰 설정 초안에 미저장 변경이 있으면 `저장 후 추천`). */
+/**
+ * 룰 세트를 읽은 뒤: AI 규칙 추천 작업 상태를 붙인다(대상은 저장된 버전 — 룰 설정 초안에 미저장 변경이 있으면 `저장 후 추천`).
+ * (10차) 지금 보이는 처리 시간 후보(선택한 인터페이스)도 대상이라 이상 징후 규칙이 0개여도 추천할 수 있다.
+ */
 const AnomalyWithRules = ({ state, ...props }: Omit<Parameters<typeof AnomalyCard>[0], "ai"> & { state: RuleSetState; reload: () => Promise<RuleSetState | undefined> }) => {
   const { reload, ...rest } = props;
   const stored = useStoredRuleDraft(state);
-  const ai = useRuleAi({ state, dirty: stored.dirty, reload });
+  const ai = useRuleAi({ state, dirty: stored.dirty, reload, candidateResult: props.view.data?.result });
   return <AnomalyCard {...rest} state={state} ai={ai} />;
 };
 

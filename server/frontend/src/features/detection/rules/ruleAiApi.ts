@@ -1,4 +1,5 @@
 import { createPipelineJob } from "@/services/api/pipeline.api";
+import type { ThresholdCandidate } from "./candidates/candidateApi";
 import type { DraftSoftRule, RuleDraft } from "./ruleDraft";
 import type { RuleSetState, SoftRuleOperator } from "./ruleSetApi";
 
@@ -7,6 +8,10 @@ export type RecommendationStatus = "proposed" | "request_evidence" | "deferred" 
 export type RecommendationItem = {
   field: string;
   softRuleIds: string[];
+  /** (10차) 묶음에 든 처리 시간 후보 id. 옛 결과는 키가 없다(= 없음). */
+  candidateIds?: string[];
+  /** (10차) 묶음의 적용 범위 정규형, null = 필드 전체. 옛 결과는 키가 없다. */
+  scope?: Record<string, string> | null;
   currentThreshold: number | null;
   operator: SoftRuleOperator | null;
   threshold: string | null;
@@ -25,6 +30,11 @@ export type RecommendationItem = {
 /** 화면 기준 문구(사용자 11/14 승인). `train_p95`·basis 없음·모르는 값은 기준을 표시하지 않는다. */
 export const BASIS_LABELS: Record<string, string> = { train_reference_80_p95: "기준 · 학습 기간 앞 80% p95" };
 export const basisLabel = (basis: unknown) => (typeof basis === "string" && Object.hasOwn(BASIS_LABELS, basis) ? BASIS_LABELS[basis] : null);
+/**
+ * 처리 시간 후보의 Trainer 제안 임계값 기준(llm-recommendation-job.md 10차 결정 1·5: 후보 snapshot train 분할 전체 p95).
+ * AI 값(앞 80%)과 나란히 둘 때 기준 표시 없이 두지 않는다. 문구는 AI 기준 문구 계열을 따른 새 문구(사용자 확인 전).
+ */
+export const CANDIDATE_BASIS = "기준 · 학습 기간 전체 p95";
 
 /**
  * 실행 중 진행률(llm-recommendation-job.md 7차 '진행률' 절): running 동안 `resultSummary.progress{processed,total}`.
@@ -51,12 +61,34 @@ export const heldWindowExcludedRows = (result: unknown): number | null => {
 };
 export type RecommendationResult = { recommendationContractVersion: string; items: RecommendationItem[]; [key: string]: unknown };
 
+/**
+ * (10차) 함께 보낼 처리 시간 후보: 규칙 추천 화면에 지금 보이는 후보 결과(선택한 인터페이스)의 후보 중 `candidate` 상태이고 제안 임계값이 있는 것.
+ * 후보 결과의 snapshot으로 계산해야 하므로(접수 409 `rule_candidate_snapshot_mismatch`) snapshot이 있고, 고른 출처와 같은 출처의 결과일 때만 쓴다.
+ */
+export type CandidateTargets = { snapshotId: string; items: ThresholdCandidate[] };
+export const candidateTargets = (
+  result: { snapshotId: string | null; sourceId: string | null; thresholdCandidates: ThresholdCandidate[] } | null | undefined, sourceId: string,
+): CandidateTargets | null => {
+  if (!result?.snapshotId || !result.sourceId || !sourceId || result.sourceId.toLowerCase() !== sourceId.toLowerCase()) return null;
+  const items = result.thresholdCandidates.filter((item) => item.status === "candidate" && item.threshold !== null && item.operator !== null);
+  return items.length ? { snapshotId: result.snapshotId, items } : null;
+};
+
 const RECOMMENDATION_MONTHS = 3;
 /**
  * 와이어프레임에 기간 입력이 없어 고정한다: 최근 3개월, 수식 추천과 같은 저장 시각 기준(rules-ui.md).
- * 대상은 저장된 버전의 켜진 규칙 전체(`scope.softRuleIds: null`).
+ * 대상은 저장된 버전의 켜진 규칙 전체(`scope.softRuleIds: null`). (10차) 처리 시간 후보가 있으면 `scope.candidateIds`를 더하고
+ * 기간 대신 후보 결과의 snapshot으로 계산한다(같은 요청의 규칙도 그 snapshot). 후보가 없으면 요청은 10차 전과 같다.
  */
-export const recommendationRequest = (sourceId: string, revision: number, now = new Date()) => {
+export const recommendationRequest = (sourceId: string, revision: number, candidates: CandidateTargets | null = null, now = new Date()) => {
+  if (candidates) {
+    return {
+      kind: "recommend_thresholds", sourceId, ruleSetRevision: revision,
+      scope: { softRuleIds: null, candidateIds: candidates.items.map((item) => item.candidateId) },
+      data: { snapshotId: candidates.snapshotId, from: null, until: null, timeBasis: null },
+      mode: "data_p95_with_llm_rationale",
+    };
+  }
   const from = new Date(now);
   from.setMonth(from.getMonth() - RECOMMENDATION_MONTHS);
   return {
@@ -73,27 +105,35 @@ const DECIMAL = /^-?(?:0|[1-9]\d*)(?:\.\d+)?$/;
 const record = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null && !Array.isArray(value);
 const numberOrNull = (value: unknown) => value === null || (typeof value === "number" && Number.isFinite(value));
 const decimalText = (value: unknown) => typeof value === "string" && DECIMAL.test(value);
+const strings = (value: unknown) => Array.isArray(value) && value.every((id) => typeof id === "string");
 const validItem = (value: unknown) => {
   if (!record(value) || !record(value.evidence)) return false;
-  const { field, softRuleIds, unit, status, source, operator, threshold, displayThreshold, rationale, rejectedReason, evidence } = value;
-  if (typeof field !== "string" || typeof unit !== "string" || !Array.isArray(softRuleIds) || !softRuleIds.every((id) => typeof id === "string") ||
+  const { field, softRuleIds, candidateIds, scope, unit, status, source, operator, threshold, displayThreshold, rationale, rejectedReason, evidence } = value;
+  if (typeof field !== "string" || typeof unit !== "string" || !strings(softRuleIds) ||
       !STATUSES.includes(status as string) || !SOURCES.includes(source as string) || !(rationale === null || typeof rationale === "string") ||
       !(rejectedReason === undefined || typeof rejectedReason === "string")) return false;
+  // (10차) 추가 키는 없어도 되고(옛 결과), 있으면 형식을 본다.
+  if (!(candidateIds === undefined || strings(candidateIds)) ||
+      !(scope === undefined || scope === null || (record(scope) && Object.values(scope).every((item) => typeof item === "string")))) return false;
   if (typeof evidence.n !== "number" || !Number.isFinite(evidence.n) || !numberOrNull(evidence.min) || !numberOrNull(evidence.max) || !numberOrNull(evidence.p95)) return false;
   return status === "proposed"
     ? OPERATORS.includes(operator as string) && decimalText(threshold) && decimalText(displayThreshold)
     : operator === null && threshold === null && displayThreshold === null;
 };
+export const itemCandidates = (item: RecommendationItem) => item.candidateIds ?? [];
 /**
  * 작업 결과 검증. 항목 하나라도 계약과 다르면 null(화면은 성공으로 보이지 않게 실패로 표시). 대상 0건은 접수 단계 오류라 빈 결과도 null.
- * 대상은 저장된 켜진 규칙이므로 `softRuleIds`가 비었거나 그 밖의 id가 있으면 저장 상태 기준으로 null이다(편집 중 초안과 무관).
+ * 대상은 저장된 켜진 규칙 + 요청한 처리 시간 후보다: `softRuleIds`는 저장 상태 기준 켜진 규칙만, `candidateIds`는 요청한 후보만 있어야 하고
+ * 둘 다 빈 항목은 null이다(편집 중 초안과 무관). 후보만 있는 묶음은 `softRuleIds`가 비어 있다(10차).
  */
-export const parseRecommendation = (value: unknown, state: RuleSetState): RecommendationResult | null => {
+export const parseRecommendation = (value: unknown, state: RuleSetState, requested: readonly string[] = []): RecommendationResult | null => {
   if (!record(value) || value.recommendationContractVersion !== "threshold-recommendation-v1") return null;
   const { items } = value;
   if (!Array.isArray(items) || items.length === 0 || !items.every(validItem)) return null;
   const enabled = new Set(state.softRules.filter((rule) => rule.enabled).map((rule) => rule.id));
-  const matched = (items as RecommendationItem[]).every((item) => item.softRuleIds.length > 0 && item.softRuleIds.every((id) => enabled.has(id)));
+  const candidates = new Set(requested);
+  const matched = (items as RecommendationItem[]).every((item) => (item.softRuleIds.length > 0 || itemCandidates(item).length > 0) &&
+    item.softRuleIds.every((id) => enabled.has(id)) && itemCandidates(item).every((id) => candidates.has(id)));
   return matched ? (value as RecommendationResult) : null;
 };
 
@@ -111,3 +151,24 @@ export const recommendationRows = (result: RecommendationResult, state: RuleSetS
     return rule && item ? [{ rule, item }] : [];
   });
 export const selectable = (row: RecommendationRow) => row.item.status === "proposed";
+
+export type CandidateRow = { candidate: ThresholdCandidate; item: RecommendationItem };
+/** (10차) 후보 행 = 요청에 넣은 후보(요청 순서) 중 결과의 `candidateIds`에 든 후보. 같은 범위의 규칙과 한 묶음이면 그 규칙 행과 같은 항목을 본다. */
+export const candidateRows = (result: RecommendationResult, candidates: readonly ThresholdCandidate[]): CandidateRow[] =>
+  candidates.flatMap((candidate) => {
+    const item = result.items.find((entry) => itemCandidates(entry).includes(candidate.candidateId));
+    return item ? [{ candidate, item }] : [];
+  });
+/**
+ * (10차 결정 5) 후보 승인 값: AI가 `proposed`면 AI 값(학습 기간 앞 80% p95), 아니면 후보의 Trainer 값(학습 기간 전체 p95 — 지금 후보 승인 흐름과 같음).
+ * `ai`가 null이면 승인 흐름이 후보 상세의 저장 초안(`ruleDraft`) 값을 쓴다.
+ */
+export type CandidateApprovalValue = {
+  /** 승인 입력창에 값과 함께 보일 기준. AI 값인데 `basis`를 모르면 null(기준을 지어내지 않음). */
+  basis: string | null;
+  ai: { threshold: number; operator: SoftRuleOperator; displayThreshold: string } | null;
+};
+export const candidateApprovalValue = ({ item }: CandidateRow): CandidateApprovalValue =>
+  item.status === "proposed" && item.threshold !== null && item.operator !== null && item.displayThreshold !== null
+    ? { basis: basisLabel(item.basis), ai: { threshold: Number(item.threshold), operator: item.operator, displayThreshold: item.displayThreshold } }
+    : { basis: CANDIDATE_BASIS, ai: null };

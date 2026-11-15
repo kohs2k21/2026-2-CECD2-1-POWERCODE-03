@@ -176,9 +176,19 @@ export type ThresholdStatsRequest = {
   statistic: "p95";
   sourceId: string;
   period: { mode: PeriodMode; from?: string; until?: string; timeBasis?: "persisted_at" };
+  /** 적용 범위(판정 키만 — 표시용 interfaceId 없음). 생략 = 필드 전체(llm-recommendation-job.md 수식 추천 절 10차). */
+  scope?: Record<string, string>;
+};
+/** 규칙 scope → 수식 추천 요청 scope: 판정 키(processId·adapterType·processHubId) 중 값 있는 키만. 전역 규칙은 undefined(키 생략). */
+export const thresholdStatsScope = (scope: SoftRuleScope | undefined): Record<string, string> | undefined => {
+  if (!scope) return undefined;
+  const kept = (["processId", "adapterType", "processHubId"] as const).flatMap((key) => (scope[key] === undefined ? [] : [[key, scope[key]!] as const]));
+  return kept.length ? Object.fromEntries(kept) : undefined;
 };
 export type ThresholdStats = {
   field: string;
+  /** 계산에 쓴 적용 범위 확정값(10차). 옛 API는 키가 없다. */
+  scope?: Record<string, string> | null;
   operator: SoftRuleOperator | null;
   threshold: string | null;
   displayThreshold: string | null;

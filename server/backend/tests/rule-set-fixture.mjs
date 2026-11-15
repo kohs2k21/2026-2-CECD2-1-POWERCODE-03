@@ -13,7 +13,7 @@ export async function seedRuleSetSource(db, key = 'rule-set-fixture') {
 
 /** PROCESS 관측 1건. occurredAt = ESB 시각(source_log_occurred_at, null 허용), persistedAt 기본 현재. revision·execution으로 재도착을 만든다. */
 export async function addProcess(db, sourceId, {
-  occurredAt, persistedAt = null, status = 'S', start = null, end = null, counts = {}, execution = id(), revision = 1, label = null,
+  occurredAt, persistedAt = null, status = 'S', start = null, end = null, counts = {}, execution = id(), revision = 1, label = null, values = {},
 }) {
   const observation = id();
   if (execution) {
@@ -22,8 +22,8 @@ export async function addProcess(db, sourceId, {
   }
   await db.query(`INSERT INTO data_observations(id,source_id,layer,execution_id,revision_no,dedup_key,content_hash,source_log_occurred_at,
       api_received_at,persisted_at,clock_status,parsed_times,allowed_values,quality_flags,missing_fields)
-    VALUES($1,$2,'P',$3,$4,$5,$6,$7,clock_timestamp(),coalesce($8::timestamptz,clock_timestamp()),'unknown','{}','{}','[]','[]')`,
-  [observation, sourceId, execution, revision, `P:${observation}`, sha(observation), occurredAt, persistedAt]);
+    VALUES($1,$2,'P',$3,$4,$5,$6,$7,clock_timestamp(),coalesce($8::timestamptz,clock_timestamp()),'unknown','{}',$9::jsonb,'[]','[]')`,
+  [observation, sourceId, execution, revision, `P:${observation}`, sha(observation), occurredAt, persistedAt, JSON.stringify(values)]);
   await db.query(`INSERT INTO data_processes(observation_id,status,start_time_raw,end_time_raw,total_count,success_count,error_count,retry_count)
     VALUES($1,$2,$3,$4,$5,$6,$7,$8)`, [observation, status, start, end, counts.total ?? null, counts.success ?? null, counts.error ?? null, counts.retry ?? null]);
   for (const [index, value] of (Array.isArray(label) ? label : label ? [label] : []).entries()) {

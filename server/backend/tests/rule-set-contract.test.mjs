@@ -324,6 +324,15 @@ test('threshold-stats request parsing follows the contract', () => {
   assert.equal(parseThresholdStatsRequest(body(custom)).from, '2026-09-30T15:00:00.000Z', 'custom times are normalized to UTC');
   assert.equal(parseThresholdStatsRequest(body({ ...custom, from: '2024-02-29T00:00:00+20:00' })).from, '2024-02-28T04:00:00.000Z', 'leap day and any offset the database cannot parse are normalized');
   assert.equal(parseThresholdStatsRequest(body({ mode: 'recent_1m' })).timezone, 'Asia/Seoul');
+  // (10차) 적용 범위: 생략·null = 필드 전체, 값 있는 판정 키만(정규형 순서로 돌려줌), interfaceId·빈 값·없음 표기는 형식 오류.
+  assert.equal(parseThresholdStatsRequest(body(custom)).scope, null);
+  assert.equal(parseThresholdStatsRequest(body(custom, { scope: null })).scope, null);
+  assert.deepEqual(Object.entries(parseThresholdStatsRequest(body(custom, { scope: { processHubId: 'HUB', adapterType: 'HTTP', processId: 'P1' } })).scope),
+    [['processId', 'P1'], ['adapterType', 'HTTP'], ['processHubId', 'HUB']]);
+  for (const scope of [{}, { adapterType: 'HTTP' }, { processId: 'P1', interfaceId: 'IF-A' }, { processId: '' }, { processId: ' ' }, { processId: '\\N' },
+    { processId: 1 }, { processId: 'P1', adapterType: null }, [], 'P1']) {
+    assert.equal(code(() => parseThresholdStatsRequest(body(custom, { scope }))), 'invalid_threshold_stats_request', JSON.stringify(scope));
+  }
   for (const bad of [null, body(custom, { extra: 1 }), body(custom, { statistic: 'p50' }), body(custom, { sourceId: 'x' }), body({ mode: 'other' }), body({ mode: 'custom', from: custom.from }),
     body({ ...custom, from: '2026-10-01T00:00:00' }), body({ ...custom, from: custom.until, until: custom.from }), body({ mode: 'recent_1m', from: custom.from }),
     body({ mode: 'active_model_training_start', until: custom.until }), body({ mode: 'recent_3m', timezone: 'Mars/Base' }), body({ mode: 'recent_3m', timeBasis: 'other' }),

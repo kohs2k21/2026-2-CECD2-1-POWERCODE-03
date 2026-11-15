@@ -1,5 +1,5 @@
 {
-  "description": "recommend_thresholds 접수 예시. API 시험은 이 값대로 저장되는지, 워커 시험은 parse_job이 받는지 확인한다.",
+  "description": "recommend_thresholds 접수 예시. API 시험은 이 값대로 저장되는지, 워커 시험은 parse_job이 받는지 확인한다. candidates 예시는 처리 시간 후보만 대상(이상 징후 규칙 0개, 10차)이고 candidateJob은 접수 때 읽는 후보 작업 결과다.",
   "actorId": "1",
   "idempotencyKey": "example-run-1",
   "examples": [
@@ -68,7 +68,8 @@
         "sourceId": "11111111-1111-4111-8111-111111111111",
         "ruleSetRevision": 13,
         "scope": {
-          "softRuleIds": null
+          "softRuleIds": null,
+          "candidateIds": null
         },
         "data": {
           "snapshotId": null,
@@ -81,24 +82,28 @@
         "ruleSetContentHashVersion": 2,
         "targets": [
           {
+            "kind": "soft_rule",
             "id": "soft:elapsed_ms-3f9a2c1d",
             "field": "elapsed_ms",
+            "scope": null,
             "threshold": 5000
           },
           {
+            "kind": "soft_rule",
             "id": "soft:error_ratio-5d2e0b19",
             "field": "error_ratio",
+            "scope": null,
             "threshold": 0.01
           }
         ]
       },
       "llm_spec": {
-        "evidence_version": "soft-rule-threshold-v2",
-        "input_evidence_hash": "9df4ec47c764dd8ab698ba71264bfcc3012a35ffe885c79d9d94c2e52194ee99",
+        "evidence_version": "soft-rule-threshold-v3",
+        "input_evidence_hash": "4a03ab5fd0f736bb007430a3bcca7457d22cfdf3dafa7a50c9a1433368f67fb0",
         "model_version": "rule_v3",
         "prompt_version": "feature-rule-spec-rule-v3-ko",
         "output_schema_version": "threshold-recommendation-v1",
-        "reuse_key": "e7a86b4ad21c5dcc643b3e74e72601d32abf98a6a0681f64944d08e1db737746"
+        "reuse_key": "ee376b75423fb74edf66f0760256bd7fb80c5ca2128c0c1a44d5d15348d71c96"
       }
     },
     {
@@ -166,7 +171,8 @@
         "sourceId": "11111111-1111-4111-8111-111111111111",
         "ruleSetRevision": 13,
         "scope": {
-          "softRuleIds": null
+          "softRuleIds": null,
+          "candidateIds": null
         },
         "data": {
           "snapshotId": "22222222-2222-4222-8222-222222222222",
@@ -179,24 +185,226 @@
         "ruleSetContentHashVersion": 2,
         "targets": [
           {
+            "kind": "soft_rule",
             "id": "soft:elapsed_ms-3f9a2c1d",
             "field": "elapsed_ms",
+            "scope": null,
             "threshold": 5000
           },
           {
+            "kind": "soft_rule",
             "id": "soft:error_ratio-5d2e0b19",
             "field": "error_ratio",
+            "scope": null,
             "threshold": 0.01
           }
         ]
       },
       "llm_spec": {
-        "evidence_version": "soft-rule-threshold-v2",
-        "input_evidence_hash": "c081d945a2a4dc0f9e7f294c93dfa48d315bc9e95e8f10f2a4939e34e24dbf85",
+        "evidence_version": "soft-rule-threshold-v3",
+        "input_evidence_hash": "e15ef11d25f343c9a9de08a16969739f8c43d05a8351b0ffe161414e0dff5cc9",
         "model_version": "rule_v3",
         "prompt_version": "feature-rule-spec-rule-v3-ko",
         "output_schema_version": "threshold-recommendation-v1",
-        "reuse_key": "9e2b621825859da5519c266cdc1046a91fcf1d413065614e0aa9044586927e01"
+        "reuse_key": "3aad04b16b4da3afc4f7c740cc4bde54edb1b5cfdd567288b704a54957e8cf97"
+      }
+    },
+    {
+      "name": "candidates",
+      "currentRuleSet": {
+        "revision": 13,
+        "contentHash": "9c40a8f29c40a8f29c40a8f29c40a8f29c40a8f29c40a8f29c40a8f29c40a8f2",
+        "contentHashVersion": 3,
+        "softRules": [
+          {
+            "id": "soft:elapsed_ms-3f9a2c1d",
+            "name": "elapsed_ms rule",
+            "field": "elapsed_ms",
+            "operator": "gt",
+            "threshold": 5000,
+            "unit": "ms",
+            "severity": "warning",
+            "enabled": true,
+            "createdAtRevision": 1,
+            "updatedAtRevision": 13
+          },
+          {
+            "id": "soft:error_ratio-5d2e0b19",
+            "name": "error_ratio rule",
+            "field": "error_ratio",
+            "operator": "gt",
+            "threshold": 0.01,
+            "unit": "ratio",
+            "severity": "warning",
+            "enabled": true,
+            "createdAtRevision": 1,
+            "updatedAtRevision": 13
+          },
+          {
+            "id": "soft:retry_count-91ab77e0",
+            "name": "retry_count rule",
+            "field": "retry_count",
+            "operator": "gt",
+            "threshold": 3,
+            "unit": "count",
+            "severity": "warning",
+            "enabled": false,
+            "createdAtRevision": 1,
+            "updatedAtRevision": 13
+          }
+        ]
+      },
+      "candidateJob": {
+        "id": "44444444-4444-4444-8444-444444444444",
+        "resultSummary": {
+          "relationContractVersion": "relation-candidates-experimental-2",
+          "snapshotId": "22222222-2222-4222-8222-222222222222",
+          "sourceId": "11111111-1111-4111-8111-111111111111",
+          "candidates": [],
+          "thresholdCandidates": [
+            {
+              "field": "elapsed_ms",
+              "status": "candidate",
+              "reason": null,
+              "scope": {
+                "processId": "IF_A_PR002",
+                "adapterType": "HTTP"
+              },
+              "display": {
+                "interfaceIds": [
+                  "IF_A"
+                ]
+              },
+              "operator": "gt",
+              "threshold": "704",
+              "displayThreshold": "704",
+              "unit": "ms",
+              "source": "data_p95",
+              "evidence": {
+                "rows": 120,
+                "referenceRows": 118,
+                "n": 116,
+                "endTimeMissingReferenceRows": 2,
+                "unavailableReferenceRows": 0,
+                "p95": 704.0,
+                "min": 12.0,
+                "max": 1880.0,
+                "quantileMethod": "linear"
+              },
+              "limitation": null
+            },
+            {
+              "field": "elapsed_ms",
+              "status": "candidate",
+              "reason": null,
+              "scope": {
+                "processId": "IF_A_PR003"
+              },
+              "display": {
+                "interfaceIds": [
+                  "IF_A"
+                ]
+              },
+              "operator": "gt",
+              "threshold": "1520.5",
+              "displayThreshold": "1521",
+              "unit": "ms",
+              "source": "data_p95",
+              "evidence": {
+                "rows": 64,
+                "referenceRows": 64,
+                "n": 64,
+                "endTimeMissingReferenceRows": 0,
+                "unavailableReferenceRows": 0,
+                "p95": 1520.5,
+                "min": 40.0,
+                "max": 3100.0,
+                "quantileMethod": "linear"
+              },
+              "limitation": null
+            }
+          ],
+          "graph": {
+            "graph": {},
+            "nodes": [],
+            "edges": []
+          },
+          "data": {
+            "interfaceTransactions": {
+              "IF_A": 120
+            }
+          },
+          "parameters": {}
+        }
+      },
+      "request": {
+        "kind": "recommend_thresholds",
+        "sourceId": "11111111-1111-4111-8111-111111111111",
+        "ruleSetRevision": 13,
+        "scope": {
+          "softRuleIds": [],
+          "candidateIds": [
+            "44444444-4444-4444-8444-444444444444.t0",
+            "44444444-4444-4444-8444-444444444444.t1"
+          ]
+        },
+        "mode": "data_p95_with_llm_rationale",
+        "data": {
+          "snapshotId": "22222222-2222-4222-8222-222222222222",
+          "from": null,
+          "until": null,
+          "timeBasis": null
+        }
+      },
+      "input_spec": {
+        "kind": "recommend_thresholds",
+        "sourceId": "11111111-1111-4111-8111-111111111111",
+        "ruleSetRevision": 13,
+        "scope": {
+          "softRuleIds": [],
+          "candidateIds": [
+            "44444444-4444-4444-8444-444444444444.t0",
+            "44444444-4444-4444-8444-444444444444.t1"
+          ]
+        },
+        "data": {
+          "snapshotId": "22222222-2222-4222-8222-222222222222",
+          "from": null,
+          "until": null,
+          "timeBasis": null
+        },
+        "mode": "data_p95_with_llm_rationale",
+        "ruleSetContentHash": "9c40a8f29c40a8f29c40a8f29c40a8f29c40a8f29c40a8f29c40a8f29c40a8f2",
+        "ruleSetContentHashVersion": 3,
+        "targets": [
+          {
+            "kind": "candidate",
+            "id": "44444444-4444-4444-8444-444444444444.t0",
+            "field": "elapsed_ms",
+            "scope": {
+              "processId": "IF_A_PR002",
+              "adapterType": "HTTP"
+            },
+            "threshold": null
+          },
+          {
+            "kind": "candidate",
+            "id": "44444444-4444-4444-8444-444444444444.t1",
+            "field": "elapsed_ms",
+            "scope": {
+              "processId": "IF_A_PR003"
+            },
+            "threshold": null
+          }
+        ]
+      },
+      "llm_spec": {
+        "evidence_version": "soft-rule-threshold-v3",
+        "input_evidence_hash": "12a11a62f7a7ba35181e25e98922236f8c516ef6a6f2b1f7e340b0e9bd8b384c",
+        "model_version": "rule_v3",
+        "prompt_version": "feature-rule-spec-rule-v3-ko",
+        "output_schema_version": "threshold-recommendation-v1",
+        "reuse_key": "4c6bc54614ddd2a47dff56d3ba724371425bc3db8bae86f417d9c3a6867e6ccf"
       }
     }
   ]

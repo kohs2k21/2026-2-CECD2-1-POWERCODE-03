@@ -498,6 +498,37 @@ class CheckItemOrderTests(unittest.TestCase):
         self.assertEqual(self.check(source=uuid.UUID(SOURCE), keys=["iforest"], spec=self.spec), ("iforest", None))
 
 
+class RuleSetCheckTests(unittest.TestCase):
+    """작업 시작 때 고정 룰 세트 확인: Detector 판독 실패는 작업 실패 rule_set_revision_mismatch, 원인은 __cause__."""
+
+    class Conn(Connection):
+        def __init__(self, row):
+            super().__init__()
+            self.row = row
+
+        def fetchone(self):
+            return self.row
+
+    def check(self, row, content_hash):
+        conn = self.Conn(row)
+        comparison._check_rule_set(conn, {"ruleSetRevision": 2, "ruleSetContentHash": content_hash})
+        return conn
+
+    def test_detector_read_failures_end_the_job(self):
+        from detector.operational_state import rule_set_content_hash
+        snapshot = {"hardRules": [{"id": "hard:process-status", "enabled": True}], "softRules": []}
+        digest = rule_set_content_hash(snapshot, 1)
+        conn = self.check((digest, 1, snapshot), digest)
+        self.assertTrue(any("ops_rule_set_revisions" in sql for sql in conn.statements))
+        for row, content_hash, cause in ((None, digest, "rule_set_snapshot_unavailable"),
+                                         ((digest, 1, snapshot), "0" * 64, "rule_set_hash_mismatch"),
+                                         (("0" * 64, 1, snapshot), "0" * 64, "rule_set_hash_mismatch")):
+            with self.subTest(cause=cause, content_hash=content_hash[:4]):
+                with self.assertRaisesRegex(ValueError, "^rule_set_revision_mismatch$") as raised:
+                    self.check(row, content_hash)
+                self.assertEqual(str(raised.exception.__cause__), cause)
+
+
 class ClaimTests(unittest.TestCase):
     def test_trainer_claims_both_new_kinds(self):
         source = Path(runner.__file__).read_text(encoding="utf-8")

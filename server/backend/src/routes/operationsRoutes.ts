@@ -2,7 +2,7 @@ import { Router, Request, Response, NextFunction } from 'express';
 import type { Pool } from 'pg';
 import { getDatabasePool } from '../config/database.js';
 import { authenticateToken } from '../middleware/auth.js';
-import { isLayer, readCollection, readDecisionTrend, readLatency, readOverview, readSourceFields,
+import { isHourlyBasis, isLayer, readCollection, readDecisionTrend, readLatency, readOverview, readSourceFields,
   readStorage } from '../services/operationsReadModel.js';
 import { isMethodStatusPeriod, readMethodStatus } from '../services/methodStatusReadModel.js';
 
@@ -38,8 +38,12 @@ export function createOperationsRouter(database: () => Pool = getDatabasePool) {
     res.json(await readOverview(database()));
   }));
   router.get('/collection', route(async (req, res) => {
-    allowOnly(req, ['sourceId']);
-    found(res, await readCollection(database(), sourceIdOf(req)));
+    allowOnly(req, ['sourceId', 'hourlyBasis']);
+    const sourceId = sourceIdOf(req);
+    // 시간별 기준: 생략 = 저장 시각. 그 밖의 값은 알 수 없는 조건(collector-metrics.md 2절).
+    const basis = req.query.hourlyBasis ?? 'persisted_at';
+    if (!isHourlyBasis(basis)) throw new OperationsRequestError('unknown_operations_filter');
+    found(res, await readCollection(database(), sourceId, basis));
   }));
   router.get('/latency', route(async (req, res) => {
     allowOnly(req, ['sourceId']);

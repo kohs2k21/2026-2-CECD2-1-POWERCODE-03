@@ -154,12 +154,25 @@ assert.equal(latency.stages[1].p50Ms, null, "unreported stage is unmeasured");
 assert.equal(latency.stages[2].queuePending, 2);
 assert.equal(latency.endToEndP50Ms, null);
 assert.throws(() => reads.parseLatency({ observedAt: "2026-11-03T01:00:00Z" }));
+// 판정 저장 단계·원천 발생 → 판정이 측정되면 그 값을 그대로 쓴다(새 보조 값 skewCount·sourceToStored·clockCheck는 화면에 두지 않는다).
+const measuredLatency = reads.parseLatency({ observedAt: "2026-11-03T01:00:00Z", window: "1h", stages: [
+  { id: "judgmentStore", samples: 4, p50Ms: 3.5, p95Ms: 9, recentFailures: null, queuePending: null },
+], endToEnd: { window: "1h", samples: 3, p50Ms: 1200, p95Ms: 2400, skewCount: 1, reason: null } });
+assert.deepEqual([measuredLatency.stages[4].p50Ms, measuredLatency.stages[4].p95Ms, measuredLatency.stages[4].recentFailures], [3.5, 9, null]);
+assert.equal(measuredLatency.endToEndP50Ms, 1200);
 
 const fields = reads.parseSourceFields({ layer: "T", sampleSize: 10, sampleLimit: 1000, fields: [{ name: "retry_count", presentCount: 0, nullCount: 10, missingCount: 0, sample: "TX-1" }, { name: "bad" }],
   qualityFlags: [{ flag: "invalid_numeric:retry_count", count: 1 }] });
 assert.deepEqual(fields.fields, [{ name: "retry_count", presentCount: 0, nullCount: 10, missingCount: 0 }]);
 assert.throws(() => reads.parseSourceFields({ layer: "X", sampleSize: 1 }));
 assert.deepEqual(reads.parseStorage({ measuredAt: "2026-11-03T01:00:00Z", databaseBytes: 1024, disk: null }), { measuredAt: "2026-11-03T01:00:00Z", databaseBytes: 1024, disk: null });
+// 데이터 마운트 사용률 = used / (used + available): 예약 블록이 있어 capacity와 다를 때도 df Use%·개요 diskPercent와 같다.
+const measuredDisk = reads.parseStorage({ measuredAt: "2026-11-03T01:00:00Z", databaseBytes: 1024,
+  disk: { storageKey: "database_data", capacityBytes: 1000, usedBytes: 600, availableBytes: 200, warningState: "warning", measuredAt: "2026-11-03T01:00:00Z" } }).disk;
+assert.equal(reads.diskUsedRatio(measuredDisk), 0.75);
+assert.equal(reads.diskUsedRatio(null), null);
+assert.equal(reads.diskUsedRatio({ ...measuredDisk, availableBytes: null }), null, "missing available is unmeasured, not capacity-based");
+assert.equal(reads.diskUsedRatio({ ...measuredDisk, usedBytes: 0, availableBytes: 0 }), null);
 const trend = reads.parseTrend({ timezone: "Asia/Seoul", items: [{ day: "2026-11-03", decisionCount: 30, anomalySignalRatio: 0.069, unavailableRatio: 1.5 }, { day: "11/03", decisionCount: 1 }] });
 assert.deepEqual(trend.items, [{ day: "2026-11-03", decisionCount: 30, anomalySignalRatio: 0.069, unavailableRatio: null }]);
 assert.deepEqual(reads.parseTrend({ timezone: "Asia/Seoul", items: [] }), { timezone: "Asia/Seoul", items: [] });

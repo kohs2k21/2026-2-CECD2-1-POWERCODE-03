@@ -17,7 +17,8 @@ CONTRACT_VERSION = "model-version-v1"
 CONTENT_HASH_VERSION = 2
 READABLE_SCHEMA_VERSIONS = (1, 2, SCHEMA_VERSION)
 # 이 키가 하나라도 있고 detectionPolicy 키가 없는 train 요청이 v3 산출이다(model-version.md 생성 경로 (A)).
-# detectionPolicy가 함께 있으면 v3 생성이 열리기 전의 임시 예외로 schemaVersion 1을 만든다.
+# detectionPolicy가 함께 있으면 schemaVersion 1·2 경로다. API는 이 조합을 400 invalid_detection_policy로 막으므로
+# 큐에 직접 들어온 입력만 해당한다(model-version.md 생성 경로 (A), 워커 판별).
 REQUEST_KEYS = ("modelKey", "parameters", "excludedIntervals", "timeBasis", "evaluationSetId")
 DEFAULT_TIME_BASIS = "persisted_at"
 # 학습 요청에 이름 키가 없어 기간으로 만든다. 한국은 일광절약시간이 없어 고정 오프셋이다.

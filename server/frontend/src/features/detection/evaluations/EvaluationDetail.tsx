@@ -11,7 +11,7 @@ import { ErrorState, LoadingState } from "@/components/ui/feedback";
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { errorCode } from "@/features/detection/rules/ruleDraft";
 import { DASH, bytesText, msText, numberText } from "@/features/operations/format";
-import { comparisonKey, type CompareVersion, type ComparisonDetail, type ComparisonItem, type EvaluationSet, type PairwiseAgreement, type Rate } from "./evaluationsApi";
+import { comparisonKey, type BasisRates, type CompareVersion, type CompositeBasis, type ComparisonDetail, type ComparisonItem, type EvaluationSet, type PairwiseAgreement, type Rate } from "./evaluationsApi";
 import {
   comparisonStatus, costMetricText, countText, excludedText, fixedInfoText, labelOf, policyText, rateText, ruleConditionText, setKindLabel, setNote, setUnitLabel, truthRowLabels, valueOrReason,
 } from "./evaluationFormat";
@@ -21,8 +21,28 @@ import { useCompareVersions, useComparison, useEvaluationSet } from "./useEvalua
 const FAILED_CELL = "실패 · 결과 없음";
 const UNMEASURED_CELL = "미측정";
 
-/** 판정 가능 기준 값은 서버가 줄 때만 붙인다(v1 비교 결과에는 없다). */
-const decidable = (rate: Rate | undefined) => (rate ? ` · ${rateText(rate)} 판정 가능 기준` : "");
+const COMPLETE = "완료 기준";
+const DECIDABLE = "판정 가능 기준";
+/**
+ * 두 기준을 한 줄에 쓴다: `<값> 완료 기준 · <값> 판정 가능 기준`. 판정 가능 기준은 서버가 줄 때만 붙이고(v1 비교 결과에는 없다),
+ * 두 값이 같으면 값을 한 번만 쓴다(`<값> 완료 기준 · 판정 가능 기준`). `labelFirst`면 기준 이름을 값 앞에 쓴다(`완료 기준 <값>`).
+ */
+const bothBases = (complete: string, decidable: string | undefined, labelFirst = false) => {
+  const join = (value: string, basis: string) => (labelFirst ? `${basis} ${value}` : `${value} ${basis}`);
+  if (decidable === undefined) return join(complete, COMPLETE);
+  return decidable === complete ? join(complete, `${COMPLETE} · ${DECIDABLE}`) : `${join(complete, COMPLETE)} · ${join(decidable, DECIDABLE)}`;
+};
+const basesText = (complete: Rate, decidable: Rate | undefined) => bothBases(rateText(complete), decidable ? rateText(decidable) : undefined);
+type Row = [string, (item: ComparisonItem) => ReactNode];
+/**
+ * 표의 두 기준 행: `<지표> · 완료 기준`·`<지표> · 판정 가능 기준`. 판정 가능 기준이 어느 항목에도 없으면(`decidable` null) 그 행을 그리지 않고,
+ * 모든 항목의 두 칸이 같으면 한 행(`<지표> · 완료 기준 · 판정 가능 기준`)으로 합친다.
+ */
+const basisRows = (items: ComparisonItem[], label: string, complete: (item: ComparisonItem) => string, decidable: ((item: ComparisonItem) => string) | null): Row[] => {
+  if (!decidable) return [[`${label} · ${COMPLETE}`, complete]];
+  if (items.every((item) => complete(item) === decidable(item))) return [[`${label} · ${COMPLETE} · ${DECIDABLE}`, complete]];
+  return [[`${label} · ${COMPLETE}`, complete], [`${label} · ${DECIDABLE}`, decidable]];
+};
 const NORMAL_LABELS_UNAVAILABLE = "verified_normal_labels_unavailable";
 
 export type MatrixContext = { versions: CompareVersion[] | undefined; set: EvaluationSet | undefined };
@@ -35,13 +55,13 @@ const roleLabel = (item: ComparisonItem, versions: CompareVersion[] | undefined)
 };
 
 /** 표 칸 하나: 실패 항목과 측정 없는 항목은 지표 대신 상태를 쓴다. */
-const cellOf = (item: ComparisonItem, read: (ml: NonNullable<ComparisonItem["categoryResults"]>["ml"]) => ReactNode) => {
+const cellOf = <T extends ReactNode,>(item: ComparisonItem, read: (ml: NonNullable<ComparisonItem["categoryResults"]>["ml"]) => T): T | string => {
   if (item.status === "failed") return FAILED_CELL;
   const ml = item.categoryResults?.ml;
   return ml && ml.measurementStatus === "measured" ? read(ml) : UNMEASURED_CELL;
 };
 const compositeUnavailable = (item: ComparisonItem) => `${UNMEASURED_CELL} · ${item.reasonCodes?.find((code) => code.startsWith("composite_unavailable:")) ?? item.evaluationEnvelope?.rule_ml.reason ?? DASH}`;
-const withComposite = (item: ComparisonItem, read: (composite: NonNullable<ComparisonItem["composite"]>) => ReactNode) => {
+const withComposite = <T extends ReactNode,>(item: ComparisonItem, read: (composite: NonNullable<ComparisonItem["composite"]>) => T): T | string => {
   if (item.status === "failed") return FAILED_CELL;
   return item.composite ? read(item.composite) : compositeUnavailable(item);
 };
@@ -83,7 +103,7 @@ const excludedItems = (item: ComparisonItem): ListItem[] => {
   return value === null ? [] : [{ label: "평가 제외 행", value }];
 };
 
-const MetricTable = ({ items, versions, rows, caption }: { items: ComparisonItem[]; versions: CompareVersion[] | undefined; rows: [string, (item: ComparisonItem) => ReactNode][]; caption?: string }) => (
+const MetricTable = ({ items, versions, rows, caption }: { items: ComparisonItem[]; versions: CompareVersion[] | undefined; rows: Row[]; caption?: string }) => (
   <Table>
     {caption && <TableCaption>{caption}</TableCaption>}
     <TableHeader>
@@ -145,13 +165,13 @@ export const MatrixCard = ({ item, context, showReplace = true }: { item: Compar
       <DescriptionList
         className="sm:grid-cols-1 xl:grid-cols-1"
         items={[
-          { label: "재현율", value: `${rateText(ml.completeOnly.recall)} 완료 기준${decidable(ml.decidable?.recall)}` },
+          { label: "재현율", value: basesText(ml.completeOnly.recall, ml.decidable?.recall) },
           // 정상 확정 라벨이 없어서 null일 때만 그 문구를 붙인다. 다른 사유는 rateText가 사유 코드를 그대로 보인다.
-          { label: "정밀도", value: ml.completeOnly.precision.value === null ? `${rateText(ml.completeOnly.precision)}${ml.completeOnly.precision.reason === NORMAL_LABELS_UNAVAILABLE ? " · 정상 확정 라벨 없음" : ""}` : `${rateText(ml.completeOnly.precision)} 완료 기준${decidable(ml.decidable?.precision)}` },
-          { label: "오탐률", value: ml.completeOnly.falsePositiveRate.value === null ? rateText(ml.completeOnly.falsePositiveRate) : `${rateText(ml.completeOnly.falsePositiveRate)} 완료 기준${decidable(ml.decidable?.falsePositiveRate)}` },
+          { label: "정밀도", value: ml.completeOnly.precision.value === null ? `${rateText(ml.completeOnly.precision)}${ml.completeOnly.precision.reason === NORMAL_LABELS_UNAVAILABLE ? " · 정상 확정 라벨 없음" : ""}` : basesText(ml.completeOnly.precision, ml.decidable?.precision) },
+          { label: "오탐률", value: ml.completeOnly.falsePositiveRate.value === null ? rateText(ml.completeOnly.falsePositiveRate) : basesText(ml.completeOnly.falsePositiveRate, ml.decidable?.falsePositiveRate) },
           ...unlabeledItems(item),
           // 평가한 행 중 모델 판정이 실패한 행. 평가 전에 뺀 행(평가 제외 행)과 합치지 않는다.
-          { label: "판정 실패 행", value: `완료 기준 ${numberText(ml.unavailableCount)}행${ml.decidable ? ` · 판정 가능 기준 ${ml.decidable.unavailableCount === undefined ? DASH : `${numberText(ml.decidable.unavailableCount)}행`}` : ""}` },
+          { label: "판정 실패 행", value: bothBases(`${numberText(ml.unavailableCount)}행`, ml.decidable ? (ml.decidable.unavailableCount === undefined ? DASH : `${numberText(ml.decidable.unavailableCount)}행`) : undefined, true) },
           // 교체 버튼 바로 위에 둔다(제외 행이 있어도 적용 gate를 통과할 수 있어서).
           ...excludedItems(item),
         ]}
@@ -190,11 +210,14 @@ const Results = ({ detail, context }: { detail: ComparisonDetail; context: Conte
   // v1 서버는 룰+모델 종합·실행 비용을 내지 않는다(계약 v1 구현 범위). 그 값이 하나도 없으면 빈 표를 그리지 않는다.
   const withRules = items.some((item) => item.composite !== undefined || item.evaluationEnvelope);
   const withEnvelope = items.some((item) => item.evaluationEnvelope);
-  // 판정 가능 기준도 v1에는 없다. 어느 항목에도 없으면 그 행을 그리지 않는다.
+  // 판정 가능 기준도 v1에는 없다. 어느 항목에도 없으면 그 행을 그리지 않는다(룰+모델 종합의 판정 가능 기준은 Trainer #206부터).
   const withDecidable = items.some((item) => item.categoryResults?.ml.decidable);
-  type MlResult = NonNullable<ComparisonItem["categoryResults"]>["ml"];
-  const decidableRow = (label: string, read: (ml: MlResult) => ReactNode): [string, (item: ComparisonItem) => ReactNode][] =>
-    withDecidable ? [[label, (item) => cellOf(item, read)]] : [];
+  const withCompositeDecidable = items.some((item) => item.composite?.decidable);
+  const mlRows = (label: string, read: (basis: BasisRates) => string) =>
+    basisRows(items, label, (item) => cellOf(item, (ml) => read(ml.completeOnly)), withDecidable ? (item) => cellOf(item, (ml) => (ml.decidable ? read(ml.decidable) : DASH)) : null);
+  const compositeRows = (label: string, read: (basis: CompositeBasis) => string) =>
+    basisRows(items, label, (item) => withComposite(item, (composite) => read(composite.completeOnly)),
+      withCompositeDecidable ? (item) => withComposite(item, (composite) => (composite.decidable ? read(composite.decidable) : DASH)) : null);
   return (
     <>
       <SectionCard title="머신러닝 모델별 혼동행렬 · 모델 단독" description={note}>
@@ -207,12 +230,9 @@ const Results = ({ detail, context }: { detail: ComparisonDetail; context: Conte
           caption={withDecidable ? "완료 기준 = 모델 판정이 끝난 행 · 판정 가능 기준 = 결과가 있는 행(정상 여부 미확인 제외)" : "완료 기준 = 모델 판정이 끝난 행"}
           rows={[
             ["평가 정책", (item) => (item.status === "failed" ? FAILED_CELL : policyText(item.evaluationPolicy))],
-            ["재현율 · 완료 기준", (item) => cellOf(item, (ml) => rateText(ml.completeOnly.recall))],
-            ...decidableRow("재현율 · 판정 가능 기준", (ml) => rateText(ml.decidable?.recall)),
-            ["정밀도 · 완료 기준", (item) => cellOf(item, (ml) => rateText(ml.completeOnly.precision))],
-            ...decidableRow("정밀도 · 판정 가능 기준", (ml) => rateText(ml.decidable?.precision)),
-            ["오탐률 · 완료 기준", (item) => cellOf(item, (ml) => rateText(ml.completeOnly.falsePositiveRate))],
-            ...decidableRow("오탐률 · 판정 가능 기준", (ml) => rateText(ml.decidable?.falsePositiveRate)),
+            ...mlRows("재현율", (basis) => rateText(basis.recall)),
+            ...mlRows("정밀도", (basis) => rateText(basis.precision)),
+            ...mlRows("오탐률", (basis) => rateText(basis.falsePositiveRate)),
             ["판정 실패 행", (item) => cellOf(item, (ml) => `${numberText(ml.unavailableCount)}행`)],
           ]}
         />
@@ -230,10 +250,11 @@ const Results = ({ detail, context }: { detail: ComparisonDetail; context: Conte
             versions={versions}
             caption="모든 모델에 같은 룰 버전을 적용 · 점수로 합산하지 않습니다"
             rows={[
-              ["재현율 · 룰+모델 · 완료 기준", (item) => withComposite(item, (composite) => rateText(composite.completeOnly.recall))],
-              ["오탐률 · 룰+모델 · 완료 기준", (item) => withComposite(item, (composite) => rateText(composite.completeOnly.falsePositiveRate))],
-              ["경보 · 룰+모델 · 완료 기준", (item) => withComposite(item, (composite) => `${numberText(composite.completeOnly.hitCount)}건`)],
-              ["룰·머신러닝 모델 비교 · 둘 다 이상 / 룰만 / 모델만 / 둘 다 정상", ruleMlText],
+              ...compositeRows("재현율 · 룰+모델", (basis) => rateText(basis.recall)),
+              ...compositeRows("오탐률 · 룰+모델", (basis) => rateText(basis.falsePositiveRate)),
+              ...compositeRows("경보 · 룰+모델", (basis) => `${numberText(basis.hitCount)}건`),
+              // 룰·모델 교차표(evaluationEnvelope.rule_ml)가 어느 항목에도 없으면 그 행을 그리지 않는다(Trainer Q7 합의).
+              ...(withEnvelope ? [["룰·머신러닝 모델 비교 · 둘 다 이상 / 룰만 / 모델만 / 둘 다 정상", ruleMlText] as Row] : []),
             ]}
           />
         </SectionCard>

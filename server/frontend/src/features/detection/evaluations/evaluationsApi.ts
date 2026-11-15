@@ -89,8 +89,11 @@ export type ItemCounts = {
 };
 export type CompositeResult = {
   labelCounts: { anomalyLabelCount: number; normalLabelCount: number; unlabeledCount: number };
-  completeOnly: BasisRates & { confusion: Confusion; hitCount: number };
+  completeOnly: CompositeBasis;
+  /** 판정 가능 기준(종합 결과가 null이 아닌 행, Trainer #206~). 예전 결과에는 키가 없다. 키는 `completeOnly`와 같다. */
+  decidable?: CompositeBasis | null;
 };
+export type CompositeBasis = BasisRates & { confusion: Confusion; hitCount: number };
 export type EvaluationPolicy = { source: "accepted" | "configuration"; detectionPolicy: { mode?: string; deadlineMs?: number } | null; ruleCount: number | null };
 export type ComparisonItem = {
   configVersionId: string;

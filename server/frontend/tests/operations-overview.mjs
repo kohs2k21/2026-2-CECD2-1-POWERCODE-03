@@ -154,12 +154,17 @@ assert.equal(latency.stages[1].p50Ms, null, "unreported stage is unmeasured");
 assert.equal(latency.stages[2].queuePending, 2);
 assert.equal(latency.endToEndP50Ms, null);
 assert.throws(() => reads.parseLatency({ observedAt: "2026-11-03T01:00:00Z" }));
-// 판정 저장 단계·원천 발생 → 판정이 측정되면 그 값을 그대로 쓴다(새 보조 값 skewCount·sourceToStored·clockCheck는 화면에 두지 않는다).
+assert.equal(latency.sourceToStored, null, "no sourceToStored key (older API) is unmeasured");
+// 판정 저장 단계·원천 발생 → 판정·원천 → 저장이 측정되면 그 값을 그대로 쓴다(skewCount·clockCheck는 화면에 두지 않는다).
 const measuredLatency = reads.parseLatency({ observedAt: "2026-11-03T01:00:00Z", window: "1h", stages: [
   { id: "judgmentStore", samples: 4, p50Ms: 3.5, p95Ms: 9, recentFailures: null, queuePending: null },
-], endToEnd: { window: "1h", samples: 3, p50Ms: 1200, p95Ms: 2400, skewCount: 1, reason: null } });
+], endToEnd: { window: "1h", samples: 3, p50Ms: 1200, p95Ms: 2400, skewCount: 1, reason: null },
+  sourceToStored: { window: "1h", samples: 3, p50Ms: 850, p95Ms: 2400, skewCount: 0, excludedCounts: { unparsed: 0, absent: 0, legacyUnknown: 0 }, reason: null } });
 assert.deepEqual([measuredLatency.stages[4].p50Ms, measuredLatency.stages[4].p95Ms, measuredLatency.stages[4].recentFailures], [3.5, 9, null]);
 assert.equal(measuredLatency.endToEndP50Ms, 1200);
+assert.deepEqual(measuredLatency.sourceToStored, { p50Ms: 850, p95Ms: 2400, reason: null });
+assert.deepEqual(reads.parseLatency({ observedAt: "2026-11-03T01:00:00Z", window: "1h", stages: [],
+  sourceToStored: { samples: 0, p50Ms: null, p95Ms: -1, reason: "no_live_api_samples" } }).sourceToStored, { p50Ms: null, p95Ms: null, reason: "no_live_api_samples" });
 
 const fields = reads.parseSourceFields({ layer: "T", sampleSize: 10, sampleLimit: 1000, fields: [{ name: "retry_count", presentCount: 0, nullCount: 10, missingCount: 0, sample: "TX-1" }, { name: "bad" }],
   qualityFlags: [{ flag: "invalid_numeric:retry_count", count: 1 }] });
@@ -344,6 +349,8 @@ assert(dialogButton(view.renderer, "판정 추이 추가") && dialogButton(view.
 await act(async () => dialogButton(view.renderer, "저장공간 추가").props.onClick());
 assert.equal(view.renderer.root.findByType(Dialog).props.open, false, "adding closes the catalog");
 await wait(() => seen.some((url) => url.startsWith("/api/operations/storage")), "added storage widget fetches");
+// 개요에 cpuPercent·memoryPercent가 없으면(신선한 측정 없음 → 키 생략) 측정 불가.
+await wait(() => view.text().includes("CPU 측정 불가 · 메모리 측정 불가"), "storage widget shows unmeasured CPU and memory");
 await act(async () => findButton(view.renderer, "편집 취소").props.onClick());
 assert(view.text().includes("편집 취소 · 이전 배치 유지"));
 assert(!view.text().includes("PostgreSQL"), "cancel restores the saved layout");
@@ -357,12 +364,20 @@ assert.equal(view.renderer.root.findAll((node) => typeof node.type === "string" 
 await act(async () => view.renderer.unmount());
 // 옛 브라우저 배치(서버 저장 전 키): 서버에 배치가 없으면 그 배치를 쓰고 서버에 저장한 뒤 지운다. 서버에 배치가 있으면 지우기만 한다.
 storage.set(layout.legacyLayoutKey("admin-1"), JSON.stringify({ version: 2, items: [{ i: "queue", x: 0, y: 0, w: 2, h: 3 }, { i: "storage", x: 2, y: 0, w: 2, h: 2 }] }));
+// 저장공간 위젯의 CPU·메모리: 서버 값(0~100) 그대로. 한쪽만 있으면 다른 쪽은 측정 불가.
+bodies["/api/operations/overview"] = { ...overviewBody, cpuPercent: 42, memoryPercent: 63.5 };
 view = await renderAs("admin", "/operations");
+await wait(() => view.text().includes("CPU 42% · 메모리 63.5%"), "storage widget shows measured CPU and memory");
+await act(async () => view.renderer.unmount());
+bodies["/api/operations/overview"] = { ...overviewBody, memoryPercent: 7 };
+view = await renderAs("admin", "/operations");
+await wait(() => view.text().includes("CPU 측정 불가 · 메모리 7%"), "missing CPU alone is unmeasured");
 await wait(() => Boolean(serverLayouts["Bearer admin-token"]), "legacy layout saved to the server");
 assert.deepEqual(serverLayouts["Bearer admin-token"].items.map((item) => item.i), ["queue", "storage"]);
 await wait(() => !storage.has(layout.legacyLayoutKey("admin-1")), "legacy key removed after the server save");
 await wait(() => view.renderer.root.findAll((node) => typeof node.type === "string" && node.props?.["data-widget"]).length === 2, "legacy layout shown");
 await act(async () => view.renderer.unmount());
+bodies["/api/operations/overview"] = overviewBody;
 storage.set(layout.legacyLayoutKey("user-1"), JSON.stringify({ version: 2, items: [{ i: "queue", x: 0, y: 0, w: 2, h: 3 }] }));
 view = await renderAs("user", "/operations");
 await wait(() => !storage.has(layout.legacyLayoutKey("user-1")), "stale legacy key removed when the server has a layout");
@@ -385,6 +400,8 @@ assert(!seen.some((url) => url.startsWith("/api/inputs")), "users never call the
 assert(view.text().includes("수집 안 함 · 판정 입력 아님"));
 assert(view.text().includes("1,248 / 6,000행"));
 assert(!view.text().includes("boom"), "input error text is not shown from the read model");
+// 단계별 지연의 원천 → 저장: sourceToStored가 없으면 측정 불가(적체·실패 칸 없음).
+await wait(() => view.text().includes("원천 → 저장측정 불가측정 불가——"), "source-to-stored row unmeasured");
 await act(async () => view.renderer.unmount());
 
 // 관리자: 운영 설정 링크, 수집 탭 입력 모드 라디오(/api/inputs), 다른 계정 배치와 분리.
@@ -392,8 +409,12 @@ view = await renderAs("admin", "/operations");
 await wait(() => view.text().includes("운영 설정"), "admin sees 운영 설정 link");
 assert.equal(view.renderer.root.findAll((node) => node.props?.["data-widget"] === "trend").length, 1, "admin uses own (default) layout");
 await act(async () => view.renderer.unmount());
+const latencyBody = bodies["/api/operations/latency"];
+bodies["/api/operations/latency"] = { ...latencyBody, sourceToStored: { window: "1h", samples: 3, p50Ms: 850, p95Ms: 2400, skewCount: 0, reason: null } };
 view = await renderAs("admin", "/operations?tab=collect");
 await wait(() => view.renderer.root.findAllByType(RadioGroup).length === 1, "admin gets input mode radios");
+await wait(() => view.text().includes("원천 → 저장850 ms2,400 ms——"), "source-to-stored row measured");
+bodies["/api/operations/latency"] = latencyBody;
 assert(seen.some((url) => url.startsWith("/api/inputs?sourceId=src")));
 await act(async () => view.renderer.unmount());
 

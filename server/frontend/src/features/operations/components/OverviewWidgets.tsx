@@ -292,6 +292,17 @@ const CollectWidget = ({ source, collectHref }: { source: SourceState; collectHr
   );
 };
 
+/** CPU·메모리 사용률(개요 cpuPercent·memoryPercent, 0~100). 서버가 신선한 측정이 없으면 키를 생략하므로 그때는 측정 불가. */
+const resourceText = (percent: number | undefined) => (percent === undefined ? UNMEASURED : percentText(percent / 100));
+const ResourceUsage = () => {
+  const query = useOperationsQuery();
+  return (
+    <QueryState query={query} what="운영 관측">
+      {(data) => <p>CPU {resourceText(data.cpuPercent)} · 메모리 {resourceText(data.memoryPercent)}</p>}
+    </QueryState>
+  );
+};
+
 const StorageWidget = () => {
   const query = useStorageQuery();
   return (
@@ -307,6 +318,7 @@ const StorageWidget = () => {
               PostgreSQL {data.databaseBytes === null ? UNMEASURED : bytesText(data.databaseBytes)}
               {disk?.availableBytes != null ? ` · 여유 ${bytesText(disk.availableBytes)}` : ""}
             </p>
+            <ResourceUsage />
           </div>
         );
       }}

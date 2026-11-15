@@ -74,6 +74,8 @@ const measured = ({ id, modelKey = "iforest", role, confusion, completeOnly, dec
   categoryResults: { ml: { measurementStatus: "measured", methodCount: 1, confusion, unavailableCount, completeOnly, decidable } },
   evaluationEnvelope: { rule_ml: rules, execution_cost: itemCost, operational },
 });
+/** 룰+모델 종합의 판정 가능 기준이 완료 기준과 같은 경우(Trainer #206 `composite.decidable`). */
+const sameBases = (composite: NonNullable<ComparisonItem["composite"]>): NonNullable<ComparisonItem["composite"]> => ({ ...composite, decidable: { ...composite.completeOnly } });
 const failedItem = (id: string, modelKey: string, errorCode: string): ComparisonItem => ({ configVersionId: id, modelKey, role: "candidate", status: "failed", errorCode, evaluationId: null });
 
 const recommend = (comparisonJobId: string, generatedAt: string, recommendationState: RecommendationState, modelKey: string, summary: string, baseline: string | null, target: string | null, noRecommendationReason: string | null = null): Recommendation => ({
@@ -101,10 +103,11 @@ const details: ComparisonDetail[] = [
     ],
     items: [
       measured({ id: V_ACTIVE, role: "active", confusion: { tp: 9, fp: null, tn: null, fn: 9 }, unavailableCount: 12, completeOnly: esbRates(rate(9, 18, 0.9), 12), decidable: esbRates(rate(10, 19, 0.95), 6),
-        composite: { labelCounts: { anomalyLabelCount: 20, normalLabelCount: 0, unlabeledCount: 1180 }, completeOnly: { ...esbRates(rate(10, 18, 0.9), 12), confusion: { tp: 10, fp: null, tn: null, fn: 8 }, hitCount: 31 } },
+        composite: { labelCounts: { anomalyLabelCount: 20, normalLabelCount: 0, unlabeledCount: 1180 }, completeOnly: { ...esbRates(rate(10, 18, 0.9), 12), confusion: { tp: 10, fp: null, tn: null, fn: 8 }, hitCount: 31 },
+          decidable: { ...esbRates(rate(11, 19, 0.95), 6), confusion: { tp: 11, fp: null, tn: null, fn: 8 }, hitCount: 33 } },
         rules: ruleMl(6, 3, 4, 1175), itemCost: cost(37.9, 212, 409000000), reasonCodes: ["selected_paths_unavailable", "synthetic_set_evaluation"] }),
       measured({ id: V_EXPERIMENT_7, role: "candidate", confusion: { tp: 12, fp: null, tn: null, fn: 6 }, unavailableCount: 0, completeOnly: esbRates(rate(12, 18, 1)), decidable: esbRates(rate(12, 18, 1)),
-        composite: { labelCounts: { anomalyLabelCount: 20, normalLabelCount: 0, unlabeledCount: 1180 }, completeOnly: { ...esbRates(rate(13, 20, 1)), confusion: { tp: 13, fp: null, tn: null, fn: 7 }, hitCount: 29 } },
+        composite: sameBases({ labelCounts: { anomalyLabelCount: 20, normalLabelCount: 0, unlabeledCount: 1180 }, completeOnly: { ...esbRates(rate(13, 20, 1)), confusion: { tp: 13, fp: null, tn: null, fn: 7 }, hitCount: 29 } }),
         rules: ruleMl(8, 2, 4, 1186), itemCost: cost(41.2, 198, 412000000) }),
       failedItem(V_EIF, "eif", "method_not_executable:ml:eif"),
     ],
@@ -117,11 +120,11 @@ const details: ComparisonDetail[] = [
     items: [
       measured({ id: V_ACTIVE, role: "active", confusion: { tp: 14, fp: 3, tn: 80, fn: 6 }, unavailableCount: 0, reasonCodes: [],
         completeOnly: { recall: rate(14, 20, 1), precision: rate(14, 17, 1), falsePositiveRate: rate(3, 83, 1), unavailableCount: 0 }, decidable: { recall: rate(14, 20, 1), precision: rate(14, 17, 1), falsePositiveRate: rate(3, 83, 1), unavailableCount: 0 },
-        composite: { labelCounts: { anomalyLabelCount: 20, normalLabelCount: 83, unlabeledCount: 1097 }, completeOnly: { recall: rate(15, 20, 1), precision: rate(15, 19, 1), falsePositiveRate: rate(4, 83, 1), unavailableCount: 0, confusion: { tp: 15, fp: 4, tn: 79, fn: 5 }, hitCount: 22 } },
+        composite: sameBases({ labelCounts: { anomalyLabelCount: 20, normalLabelCount: 83, unlabeledCount: 1097 }, completeOnly: { recall: rate(15, 20, 1), precision: rate(15, 19, 1), falsePositiveRate: rate(4, 83, 1), unavailableCount: 0, confusion: { tp: 15, fp: 4, tn: 79, fn: 5 }, hitCount: 22 } }),
         rules: ruleMl(10, 4, 3, 1183), itemCost: cost(36.4, 220, 405000000) }),
       measured({ id: V_EXPERIMENT_6, role: "candidate", confusion: { tp: 13, fp: 4, tn: 79, fn: 7 }, unavailableCount: 0, reasonCodes: [],
         completeOnly: { recall: rate(13, 20, 1), precision: rate(13, 17, 1), falsePositiveRate: rate(4, 83, 1), unavailableCount: 0 }, decidable: { recall: rate(13, 20, 1), precision: rate(13, 17, 1), falsePositiveRate: rate(4, 83, 1), unavailableCount: 0 },
-        composite: { labelCounts: { anomalyLabelCount: 20, normalLabelCount: 83, unlabeledCount: 1097 }, completeOnly: { recall: rate(14, 20, 1), precision: rate(14, 19, 1), falsePositiveRate: rate(5, 83, 1), unavailableCount: 0, confusion: { tp: 14, fp: 5, tn: 78, fn: 6 }, hitCount: 23 } },
+        composite: sameBases({ labelCounts: { anomalyLabelCount: 20, normalLabelCount: 83, unlabeledCount: 1097 }, completeOnly: { recall: rate(14, 20, 1), precision: rate(14, 19, 1), falsePositiveRate: rate(5, 83, 1), unavailableCount: 0, confusion: { tp: 14, fp: 5, tn: 78, fn: 6 }, hitCount: 23 } }),
         rules: ruleMl(9, 5, 4, 1182), itemCost: cost(38.8, 205, 407000000) }),
     ],
   },
@@ -215,6 +218,25 @@ details.push({
     { a: V_ACTIVE, b: V_EXPERIMENT_6, comparableCount: 0, both: 0, aOnly: 0, bOnly: 0, neither: 0,
       agreementRate: { value: null, unit: "ratio", numerator: 0, denominator: 0, coverage: 0, reason: "no_comparable_rows" }, interpretation: "checker_agreement_not_accuracy" },
   ],
+});
+
+/**
+ * 룰+모델 종합(완료·판정 가능 기준)은 있고 evaluationEnvelope(룰·모델 교차표·실행 비용)는 없는 결과(Trainer #206 모양).
+ * 재현율·경보는 두 기준이 다르고 오탐률은 같다(정상 확정 라벨 없음). 목록에는 없고 상세로만 연다.
+ */
+export const C_V3 = "7a3f9c42-5e6d-4f70-8b82-93a415c6d7e8";
+const v3Item = (configVersionId: string, role: ComparisonItem["role"], tp: number, hits: number): ComparisonItem => ({
+  ...v1Item(configVersionId, role, tp, 20 - tp),
+  composite: { labelCounts: { anomalyLabelCount: 20, normalLabelCount: 0, unlabeledCount: 1180 },
+    completeOnly: { ...esbRates(rate(tp, 20, 0.9), 120), confusion: { tp, fp: null, tn: null, fn: 20 - tp }, hitCount: hits },
+    decidable: { ...esbRates(rate(tp + 1, 20, 0.95), 60), confusion: { tp: tp + 1, fp: null, tn: null, fn: 19 - tp }, hitCount: hits + 2 } },
+});
+details.push({
+  comparisonId: C_V3, jobId: job("de45"), status: "succeeded", completedAt: "2026-11-15T01:00:00Z",
+  evaluationSet: { id: SET_ORIGINAL, contentHash: hash("c07a55e2"), purpose: "validation", rowCount: 1200, originalRowCount: 1200, syntheticRowCount: 0, synthetic: false },
+  baselines: baseline(V_ACTIVE), ruleSet: { revision: 13, contentHash: hash("9c40e1aa") },
+  replacementRecommendations: null, replacementRecommendationsReason: "not_implemented_v1",
+  items: [v3Item(V_ACTIVE, "active", 9, 40), v3Item(V_EXPERIMENT_7, "candidate", 14, 44)],
 });
 
 const listRow = (comparisonId: string, row: Pick<ComparisonListItem, "evaluationSetId" | "activeModelSetRevision" | "completedAt"> & { itemCount: number }): ComparisonListItem => {

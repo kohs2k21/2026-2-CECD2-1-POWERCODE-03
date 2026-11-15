@@ -436,6 +436,18 @@ const tocSections = (app, menu) => detectionToc[menu].map(({ id }) => {
   assert.ok(shown.includes("6 / 3 / 4 / 1,175 · 비교 가능 1,188"));
   assert.ok(shown.includes("38 ms") && shown.includes("212 행/s") && shown.includes("미측정 · 기간을 지정한 별도 운영 보고에서 조회"));
   assert.ok(shown.includes("룰과 함께 판정 · 운영 룰 버전 13 고정"));
+  // 룰+모델 두 기준(Trainer #206 composite.decidable): 값이 다른 지표는 두 행, 모든 항목이 같은 지표는 한 행으로 합친다.
+  assert.ok(shown.includes("재현율 · 룰+모델 · 완료 기준55.56% (커버리지 90%)65% (커버리지 100%)실패 · 결과 없음재현율 · 룰+모델 · 판정 가능 기준57.89% (커버리지 95%)65% (커버리지 100%)실패 · 결과 없음"), "composite recall on both bases");
+  assert.ok(shown.includes("오탐률 · 룰+모델 · 완료 기준 · 판정 가능 기준정의 불가정의 불가실패 · 결과 없음"), "equal composite rows merge");
+  assert.ok(!shown.includes("오탐률 · 룰+모델 · 판정 가능 기준"));
+  assert.ok(shown.includes("경보 · 룰+모델 · 완료 기준31건29건실패 · 결과 없음경보 · 룰+모델 · 판정 가능 기준33건29건실패 · 결과 없음"), "composite alerts on both bases");
+  assert.ok(shown.includes("룰·머신러닝 모델 비교 · 둘 다 이상 / 룰만 / 모델만 / 둘 다 정상"), "rule/model cross table shown with the envelope");
+  // 모델 단독: 다른 지표는 두 행, 같은 지표(정밀도·오탐률)는 한 행. 카드는 같은 값을 한 번만 쓴다.
+  assert.ok(shown.includes("재현율 · 완료 기준50% (커버리지 90%)66.67% (커버리지 100%)실패 · 결과 없음재현율 · 판정 가능 기준52.63% (커버리지 95%)66.67% (커버리지 100%)실패 · 결과 없음"));
+  assert.ok(shown.includes("정밀도 · 완료 기준 · 판정 가능 기준정의 불가정의 불가실패 · 결과 없음") && !shown.includes("정밀도 · 판정 가능 기준"));
+  assert.ok(shown.includes("50% (커버리지 90%) 완료 기준 · 52.63% (커버리지 95%) 판정 가능 기준"), "card keeps both values when they differ");
+  assert.ok(shown.includes("66.67% (커버리지 100%) 완료 기준 · 판정 가능 기준"), "card writes an equal value once");
+  assert.ok(shown.includes("판정 실패 행완료 기준 12행 · 판정 가능 기준 6행") && shown.includes("판정 실패 행완료 기준 · 판정 가능 기준 0행"));
   // 지표 비교 · 모델 단독의 ml.unavailableCount 행: 카드와 같은 이름·단위(사용자 11/14).
   assert.ok(shown.includes("판정 실패 행12행0행"), "metric table names ml.unavailableCount as failed judgment rows");
   assert.ok(!shown.includes("모델 미판정 행") && !shown.includes("12건"), "old row name and unit are gone");
@@ -496,6 +508,30 @@ const tocSections = (app, menu) => detectionToc[menu].map(({ id }) => {
   assert.ok(text(pairs[1].children).includes("63c8d0f2만 이상") && text(pairs[1].children).includes("미측정 · no_comparable_rows"));
   assert.ok(!/리비전|r\d+/.test(v2Shown), "version wording");
   await v2.cleanup();
+
+  // 두 기준이 모든 항목에서 같으면(ml.decidable single_method_equals_complete_only·같은 composite) 지표마다 한 행.
+  const same = await mount(`/detection/evaluations/${sample.comparisons[2].comparisonId}`);
+  await wait(() => same.shown().includes("룰과 함께 판정") && same.shown().includes("4d2f7c10 · V4"), "same-basis detail");
+  const sameShown = same.shown();
+  for (const label of ["재현율 · 룰+모델", "오탐률 · 룰+모델", "경보 · 룰+모델", "재현율", "정밀도", "오탐률"]) {
+    assert.ok(sameShown.includes(`${label} · 완료 기준 · 판정 가능 기준`), `${label} merged`);
+    assert.ok(!sameShown.includes(`${label} · 판정 가능 기준`), `${label} has no separate decidable row`);
+  }
+  assert.ok(sameShown.includes("재현율 · 룰+모델 · 완료 기준 · 판정 가능 기준75% (커버리지 100%)70% (커버리지 100%)"));
+  assert.ok(sameShown.includes("경보 · 룰+모델 · 완료 기준 · 판정 가능 기준22건23건"));
+  await same.cleanup();
+
+  // 룰+모델 종합은 있고 evaluationEnvelope가 없는 결과: 룰·모델 교차표 행과 기타 지표를 그리지 않는다(Trainer Q7 합의).
+  const noEnvelope = await mount(`/detection/evaluations/${sample.C_V3}`);
+  await wait(() => noEnvelope.shown().includes("룰과 함께 판정 · 운영 룰 버전 13 고정") && noEnvelope.shown().includes("7be19a34 · 실험 7"), "composite without envelope");
+  const noEnvelopeShown = noEnvelope.shown();
+  assert.ok(noEnvelopeShown.includes("재현율 · 룰+모델 · 완료 기준45% (커버리지 90%)70% (커버리지 90%)재현율 · 룰+모델 · 판정 가능 기준50% (커버리지 95%)75% (커버리지 95%)"));
+  assert.ok(noEnvelopeShown.includes("오탐률 · 룰+모델 · 완료 기준 · 판정 가능 기준정의 불가정의 불가"));
+  assert.ok(noEnvelopeShown.includes("경보 · 룰+모델 · 완료 기준40건44건경보 · 룰+모델 · 판정 가능 기준42건46건"));
+  assert.ok(!noEnvelopeShown.includes("룰·머신러닝 모델 비교") && !noEnvelopeShown.includes("기타 지표"), "no cross-table row or cost table without the envelope");
+  assert.ok(!noEnvelopeShown.includes("미측정 · "), "no unmeasured placeholder rows");
+  assert.ok(!noEnvelopeShown.includes("재현율 · 판정 가능 기준") && noEnvelopeShown.includes("재현율 · 완료 기준"), "model-only table without ml.decidable keeps one basis");
+  await noEnvelope.cleanup();
 
   const applied = await mount(`/detection/evaluations/${C_ADBENCH}`);
   await wait(() => applied.shown().includes("이미 적용됨"), "applied");

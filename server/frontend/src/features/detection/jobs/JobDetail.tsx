@@ -15,7 +15,7 @@ import { parameterLabel } from "@/features/detection/models/trainDraft";
 import { progressText, recommendationProgress } from "@/features/detection/rules/ruleAiApi";
 import { errorCode } from "@/features/detection/rules/ruleDraft";
 import { DASH, numberText, stampText } from "@/features/operations/format";
-import { jobResultLink, jobStatusBadge, jobTarget, kindLabel, modelName, type JobNames } from "./jobFormat";
+import { jobResultLink, jobStatusBadge, jobTarget, kindLabel, modelName, recommendThresholdsPath, type JobNames } from "./jobFormat";
 import type { JobAttempt, JobDetail } from "./jobsApi";
 import { useJob, useJobNames } from "./useJobs";
 
@@ -102,7 +102,7 @@ const restart = (job: JobDetail): { to: string; label: string } | null => {
   if (job.kind === "train") return { to: `${paths.detectionModels}?step=1`, label: "새 학습" };
   if (job.kind === "compare" || job.kind === "evaluation_set") return { to: `${paths.detectionEvaluations}?step=1`, label: "새 비교 평가" };
   if (job.kind === "recommend_relations") return { to: paths.detectionRuleCandidates, label: "규칙 추천" };
-  if (job.kind === "recommend_thresholds") return { to: paths.detectionRules, label: "룰 설정" };
+  if (job.kind === "recommend_thresholds") return { to: recommendThresholdsPath, label: "규칙 추천" };
   return null;
 };
 

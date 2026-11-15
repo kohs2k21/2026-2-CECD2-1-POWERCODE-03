@@ -54,7 +54,7 @@ const { createMemoryRouter, RouterProvider } = await import("react-router-dom");
 const { AuthSessionProvider } = await import("../src/services/auth/AuthSessionProvider.tsx");
 const { appRoutes } = await import("../src/app/appRoutes.tsx");
 const { LIVE_REFRESH_MS } = await import("../src/features/analysis/data/useAnalysis.ts");
-const { WorkflowRecordBody, WorkflowRecordDialog } = await import("../src/features/analysis/components/DecisionWorkflow.tsx");
+const { FeedbackEditBody, FeedbackEditModal, WorkflowRecordBody, WorkflowRecordDialog } = await import("../src/features/analysis/components/DecisionWorkflow.tsx");
 
 const json = (body, status = 200) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 const item = (id, overrides = {}) => ({
@@ -581,7 +581,7 @@ const listCalls = () => requested.filter((r) => r.path === "/api/analysis/decisi
   await wait(() => app.renderer.root.findAll((node) => node.type === "li" && node.props["data-entry"] === "record").length === 1, "records in the timeline");
   const timeline = app.renderer.root.findAll((node) => node.type === "li").filter((node) => node.parent?.type === "ol" && node.parent.props.className?.includes("border-l"));
   assert.deepEqual(timeline.map((node) => text(node.children)), [`${stampTime("2026-11-03T01:02:03Z")}최종`,
-    `${stampTime("2026-11-03T02:09:00Z")}조치 기록 · admin@example.test재처리 확인`]);
+    `${stampTime("2026-11-03T02:09:00Z")}조치 기록 · admin@example.test수정재처리 확인`], "own record carries [수정] (4d)");
   assert.equal(requested.filter((r) => r.method === "GET" && r.path.endsWith("/feedback")).length, 1, "admins read records with the detail");
   assert.equal(app.renderer.root.findByType(WorkflowRecordDialog).props.open, false);
   // 종합 근거 설명 문단(와이어프레임 dCatsNote 문구 그대로)
@@ -656,7 +656,7 @@ const listCalls = () => requested.filter((r) => r.path === "/api/analysis/decisi
   assert.deepEqual(headerLabels(), ["로그 분류하기"]);
   assert.deepEqual(iconNames(headerButton("로그 분류하기")), ["tags"]);
   await wait(() => records().length === 1, "saved record shown in the timeline");
-  assert.ok(records()[0].endsWith("조치 기록 · admin@example.test재처리 확인"));
+  assert.ok(records()[0].endsWith("조치 기록 · admin@example.test수정재처리 확인"));
   assert.equal(dialog().props.open, false);
   // 로그 분류하기 → 대화상자(상태는 아직 그대로), X·Esc로 닫으면 요청 없음
   await act(async () => headerButton("로그 분류하기").props.onClick());
@@ -718,7 +718,7 @@ const listCalls = () => requested.filter((r) => r.path === "/api/analysis/decisi
   assert.deepEqual(order, ["POST", "POST", "PUT"], "failed save, then record saved before the state change");
   assert.deepEqual([dialog().props.open, dialog().props.reason], [true, ""], "dialog stays open, saved memo cleared");
   assert.ok(!app.shown().includes("업무 분류 실패"), "the error shows inside the dialog, not behind it");
-  await wait(() => records().length === 2 && records()[1].includes("오탐 의심 · admin@example.test배치 재처리"), "saved record refreshed in the timeline");
+  await wait(() => records().length === 2 && records()[1].includes("오탐 의심 · admin@example.test수정배치 재처리"), "saved record refreshed in the timeline");
   body = await renderBody();
   assert.ok(text(body.toJSON()).includes("업무 분류 실패 · workflow_state_conflict"), "error text pattern");
   await act(async () => body.unmount());
@@ -777,6 +777,90 @@ const listCalls = () => requested.filter((r) => r.path === "/api/analysis/decisi
   await act(async () => dialog().props.onOutcome(null));
   assert.equal(dialog().props.reasonRequired, false, "clearing the outcome clears the notice");
   await act(async () => dialog().props.onOpenChange(false));
+  await app.cleanup();
+}
+
+// 4d) 관리자 기록 수정(사용자 11/15, 032): 판정 기록의 내 기록 줄에만 [수정] → 같은 업무 분류 대화상자를 저장된 값으로 채워 연다 → [저장] = PUT(최초 기록 id 경로,
+//     expectedId = 본 판본). 처리 상태는 바꾸지 않음. 수정된 기록은 같은 자리에 `· 수정됨`(툴팁 = 수정 시각). 실패는 `피드백 수정 실패 · <코드>`, 빈 사유는 저장하지 않음.
+{
+  const detail = { ...item("d-6"), configuration: null, job: null, explanation: null, workflow: { state: "resolved", changedAt: "2026-11-03T02:10:00Z" } };
+  const feedback = [
+    { id: "f-2", originId: "f-2", kind: "action", reason: "다른 관리자 확인", outcome: null, actorId: "admin-2", actorEmail: "other@example.test",
+      createdAt: "2026-11-03T02:08:00Z", editedAt: null },
+    { id: "f-1", originId: "f-1", kind: "action", reason: "재처리 확인", outcome: "normal", actorId: "admin-1", actorEmail: "admin@example.test",
+      createdAt: "2026-11-03T02:05:00Z", editedAt: null },
+  ];
+  const puts = [];
+  let failNext = null;
+  routes = {
+    "GET /api/analysis/decisions": () => json(listBody([item("d-6")])),
+    "GET /api/analysis/decisions/d-6": () => json(detail),
+    "GET /api/analysis/decisions/d-6/interims": () => json({ id: "d-6", jobId: null, items: [] }),
+    "GET /api/analysis/decisions/d-6/flow": () => json({ id: "d-6", jobId: null, transaction: null, processes: [], messages: [], truncated: false }),
+    "PUT /api/analysis/decisions/d-6/read": () => json({ id: "d-6", readAt: "2026-11-03T02:00:00Z" }),
+    "GET /api/analysis/decisions/d-6/feedback": () => json({ id: "d-6", items: feedback }),
+    "PUT /api/analysis/decisions/d-6/feedback/f-1": (_t, options) => {
+      const body = JSON.parse(options.body);
+      puts.push(body);
+      if (failNext) { const code = failNext; failNext = null; return json({ code }, 409); }
+      const { expectedId: _seen, ...values } = body;
+      feedback[1] = { id: `f-1-v${puts.length}`, originId: "f-1", outcome: null, ...values, actorId: "admin-1", actorEmail: "admin@example.test",
+        createdAt: "2026-11-03T02:05:00Z", editedAt: "2026-11-03T03:00:00Z" };
+      return json({ id: "d-6", item: feedback[1] });
+    },
+  };
+  const app = await mount("/analysis/d/d-6", "admin");
+  const records = () => app.renderer.root.findAll((node) => node.type === "li" && node.props["data-entry"] === "record");
+  await wait(() => records().length === 2, "records in the timeline");
+  const editButtons = () => app.renderer.root.findAll((node) => node.type === "button" && node.props["data-feedback-edit"]);
+  assert.deepEqual(editButtons().map((button) => [button.props["data-feedback-edit"], text(button.children)]), [["f-1", "수정"]],
+    "only the requester's own record has [수정]");
+  const modal = () => app.renderer.root.findAllByType(FeedbackEditModal);
+  assert.equal(modal().length, 0);
+  await act(async () => editButtons()[0].props.onClick());
+  await wait(() => modal().length === 1, "edit dialog opened");
+  assert.deepEqual([modal()[0].props.kind, modal()[0].props.outcome, modal()[0].props.reason, modal()[0].props.canSave], ["action", "normal", "재처리 확인", false],
+    "filled with the stored values, nothing to save yet");
+  let body;
+  await act(async () => { body = create(React.createElement(FeedbackEditBody, modal()[0].props)); });
+  assert.deepEqual(body.root.findAll((node) => node.type === "button").map((button) => text(button.children)), ["저장"], "one [저장], no workflow buttons");
+  assert.equal(body.root.findByProps({ id: "analysis-feedback-edit-reason" }).props.value, "재처리 확인");
+  assert.equal(body.root.findByProps({ id: "analysis-feedback-edit-outcome" }).props.value, "normal");
+  await act(async () => body.unmount());
+  // 빈 사유: 저장하지 않고 빈 사유 안내.
+  await act(async () => modal()[0].props.onReason("   "));
+  await act(async () => modal()[0].props.onSave());
+  assert.deepEqual([modal()[0].props.reasonRequired, puts.length], [true, 0], "empty reason is not saved");
+  // 실패(409): 대화상자 유지, `피드백 수정 실패 · <코드>`.
+  await act(async () => modal()[0].props.onReason("  재처리 후 정상 확인  "));
+  assert.equal(modal()[0].props.reasonRequired, false);
+  await act(async () => modal()[0].props.onOutcome(null));
+  failNext = "feedback_edit_conflict";
+  await act(async () => modal()[0].props.onSave());
+  await wait(() => Boolean(modal()[0]?.props.error), "conflict kept in the dialog");
+  await act(async () => { body = create(React.createElement(FeedbackEditBody, modal()[0].props)); });
+  assert.ok(text(body.toJSON()).includes("피드백 수정 실패 · feedback_edit_conflict"));
+  await act(async () => body.unmount());
+  // 저장: 경로 = 최초 기록 id, expectedId = 연 판본, 확인 결과를 비우면 outcome 키 없음. 처리 상태는 바꾸지 않는다.
+  await act(async () => modal()[0].props.onSave());
+  await wait(() => modal().length === 0, "dialog closes after the save");
+  assert.deepEqual(puts, [{ kind: "action", reason: "재처리 후 정상 확인", expectedId: "f-1" }, { kind: "action", reason: "재처리 후 정상 확인", expectedId: "f-1" }]);
+  assert.equal(requested.filter((r) => r.method === "PUT" && r.path === "/api/analysis/decisions/d-6/workflow").length, 0, "edit does not change the workflow state");
+  await wait(() => text(records()[0].children).includes("수정됨"), "edited record re-read");
+  assert.deepEqual(records().map((node) => text(node.children)), [
+    `${stampTime("2026-11-03T02:05:00Z")}조치 기록 · admin@example.test · 수정됨수정재처리 후 정상 확인`,
+    `${stampTime("2026-11-03T02:08:00Z")}조치 기록 · other@example.test다른 관리자 확인`,
+  ], "same position (original time), edited marker, [수정] still on own record");
+  const editedLine = records()[0].find((node) => node.type === "span" && node.props.title);
+  assert.equal(editedLine.props.title, stampTime("2026-11-03T03:00:00Z"), "edit time in the tooltip");
+  // 다시 열면 새 판본 값과 새 expectedId.
+  await act(async () => editButtons()[0].props.onClick());
+  await wait(() => modal().length === 1, "reopened");
+  assert.deepEqual([modal()[0].props.reason, modal()[0].props.outcome], ["재처리 후 정상 확인", null]);
+  await act(async () => modal()[0].props.onKind("suspected-false-positive"));
+  await act(async () => modal()[0].props.onSave());
+  await wait(() => modal().length === 0, "second edit saved");
+  assert.deepEqual(puts.at(-1), { kind: "suspected-false-positive", reason: "재처리 후 정상 확인", expectedId: "f-1-v2" });
   await app.cleanup();
 }
 

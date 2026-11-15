@@ -1205,11 +1205,14 @@ Table run_decision_feedback {
   actor_id text [not null]
   created_at timestamptz [not null, default: `clock_timestamp()`]
   outcome text
+  supersedes_id uuid
+  origin_id uuid
   indexes {
     (job_id, created_at) [name: 'run_decision_feedback_job_idx', note: 'partial: WHERE job_id IS NOT NULL']
     (decision_id, created_at) [name: 'run_decision_feedback_decision_idx', note: 'partial: WHERE decision_id IS NOT NULL']
+    supersedes_id [unique, name: 'run_decision_feedback_supersedes_uniq', note: 'partial: WHERE supersedes_id IS NOT NULL']
   }
-  Note: '014. 조사·조치 기록, append-only(API SELECT·INSERT 권한만). kind action|suspected-false-positive|insufficient-evidence, reason 1~2000자. 029 outcome = 확인 결과 actual-anomaly(실제 이상)|normal(정상)|undetermined(판단 불가), NULL = 미입력. 확정 라벨·학습 입력 아님(Trainer·LLM·Detector 권한 없음).'
+  Note: '014. 조사·조치 기록, append-only(API SELECT·INSERT 권한만). kind action|suspected-false-positive|insufficient-evidence, reason 1~2000자. 029 outcome = 확인 결과 actual-anomaly(실제 이상)|normal(정상)|undetermined(판단 불가), NULL = 미입력. 032 수정 = 정정 행 추가: supersedes_id = 직전 판본, origin_id = 최초 기록(최초 기록은 둘 다 NULL, CHECK run_decision_feedback_correction_check로 함께 있거나 함께 없음), 현재 판본 = 가리키는 행이 없는 행. 확정 라벨·학습 입력 아님(Trainer·LLM·Detector 권한 없음).'
 }
 
 Table run_decision_reads {
@@ -1628,6 +1631,8 @@ Ref: run_decision_workflow_events.job_id >? run_jobs.id
 Ref: run_decision_workflow_events.decision_id >? run_process_decisions.id
 Ref: run_decision_feedback.job_id >? run_jobs.id
 Ref: run_decision_feedback.decision_id >? run_process_decisions.id
+Ref: run_decision_feedback.id ?- run_decision_feedback.supersedes_id
+Ref: run_decision_feedback.origin_id >? run_decision_feedback.id
 Ref: run_decision_reads.job_id >? run_jobs.id
 Ref: run_decision_reads.decision_id >? run_process_decisions.id
 // 015: restored_from_revision self references.

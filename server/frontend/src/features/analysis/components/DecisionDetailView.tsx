@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { paths } from "@/app/routes";
 import { IconArrowLeft, IconArrowsMaximize, IconArrowsMinimize } from "@tabler/icons-react";
@@ -38,7 +38,7 @@ import {
 import { riskLevelIconTone, riskLevelIcons } from "../icons";
 import { DecisionDiagnostics } from "./DecisionDiagnostics";
 import { DecisionTimeline, mergeTimeline, recordEntries, timelineEntries } from "./DecisionTimeline";
-import { WorkflowActions } from "./DecisionWorkflow";
+import { FeedbackEditDialog, WorkflowActions } from "./DecisionWorkflow";
 import { ExplainPanel } from "./ExplainPanel";
 import { MethodResults } from "./MethodResults";
 import { ProcessFlowCard } from "./ProcessFlowCard";
@@ -292,7 +292,11 @@ export const DecisionDetailView = ({
   useMarkRead(detail);
   // 관리자: 저장된 조사·조치 기록을 판정 기록에 읽기 전용으로 합친다(사용자 11/13). 일반 사용자는 읽기 권한이 없어 읽지 않는다.
   const feedback = useDecisionFeedback(detail?.id ?? "", isAdmin);
-  const extra = detail && isAdmin ? recordEntries(feedback.data?.items ?? []) : [];
+  // 기록 수정(사용자 11/15, 032): 관리자이면서 최초 작성자인 기록 줄에만 [수정]. 누르면 같은 업무 분류 대화상자를 저장된 값으로 연다.
+  const records = feedback.data?.items ?? [];
+  const extra = detail && isAdmin ? recordEntries(records, (record) => Boolean(user?.id) && record.actorId === user?.id) : [];
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const editing = detail && isAdmin && editingId ? records.find((record) => record.originId === editingId) : undefined;
   return (
     <div className="grid gap-4">
       <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
@@ -350,10 +354,13 @@ export const DecisionDetailView = ({
             ) : interims.isError && !interims.data ? (
               <>
                 <ErrorState title={analysisErrorTitle(interims.error, "판정 기록")} onRetry={() => void interims.refetch()} />
-                <DecisionTimeline entries={mergeTimeline(timelineEntries(detail, undefined), extra)} />
+                <DecisionTimeline entries={mergeTimeline(timelineEntries(detail, undefined), extra)} onEdit={setEditingId} />
               </>
             ) : (
-              <DecisionTimeline entries={mergeTimeline(timelineEntries(detail, interims.data), extra)} />
+              <DecisionTimeline entries={mergeTimeline(timelineEntries(detail, interims.data), extra)} onEdit={setEditingId} />
+            )}
+            {editing && detail && (
+              <FeedbackEditDialog key={editing.originId} decisionId={detail.id} record={editing} onClose={() => setEditingId(null)} />
             )}
           </SectionCard>
           <SummaryCard detail={detail} isAdmin={isAdmin} />

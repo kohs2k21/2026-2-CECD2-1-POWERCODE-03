@@ -1,10 +1,11 @@
 import type { DecisionDetail, FeedbackRecord, InterimHistory, InterimRecord } from "../data/analysisApi";
 import { readEvidenceV4 } from "../data/evidence";
 import { DASH, feedbackKindLabels, feedbackOutcomeLabels, feedbackOutcomeTitle, methodLabels, stampText } from "../labels";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 /** 판정 기록 한 줄. `title`은 사유 코드 등(화면에는 표시 이름, 코드는 툴팁 — 와이어프레임 규칙). */
-/** `note` = 조사·조치 사유(읽기 전용 기록 줄만, 줄바꿈 그대로). */
+/** `note` = 조사·조치 사유(읽기 전용 기록 줄만, 줄바꿈 그대로). `editId` = 요청자가 고칠 수 있는 기록(최초 작성자)의 기록 id — 그 줄에만 [수정]. */
 export type TimelineEntry = {
   key: string;
   at: string | null;
@@ -12,6 +13,7 @@ export type TimelineEntry = {
   text: string;
   title?: string;
   note?: string;
+  editId?: string;
 };
 
 const attempt = (record: InterimRecord) => (record.attemptNo === null ? "" : `시도 ${record.attemptNo} · `);
@@ -89,20 +91,31 @@ export const timelineEntries = (detail: DecisionDetail, history: InterimHistory 
   return entries;
 };
 
+/** 수정한 기록 줄 끝 표시(사용자 11/15 승인 문구). 수정 시각은 툴팁. */
+export const editedText = "수정됨";
+
 /**
  * 관리자 읽기 전용 줄(사용자 11/13 "판정 기록에 읽기전용으로"): 저장된 조사·조치 기록 `<유형> · <작성자 email>` + 사유.
- * 확인 결과가 있으면 유형 뒤에 `확인 결과 <값>`(029), 미입력이면 줄에 두지 않는다.
+ * 확인 결과가 있으면 유형 뒤에 `확인 결과 <값>`(029), 미입력이면 줄에 두지 않는다. 수정한 기록(032)은 끝에 `수정됨`(툴팁 = 수정 시각), 위치는 최초 기록 시각.
+ * `canEdit`이 참인 기록(요청자 = 최초 작성자)만 [수정](editId = 최초 기록 id).
  * 현재 업무 분류는 판정 요약에 있으므로 여기에 두지 않는다(변경 이력 API가 없어 마지막 변경만 보이면 이력처럼 읽힘).
  */
-export const recordEntries = (records: FeedbackRecord[]): TimelineEntry[] =>
+export const recordEntries = (records: FeedbackRecord[], canEdit: (record: FeedbackRecord) => boolean = () => false): TimelineEntry[] =>
   records.map((record) => ({
-    key: `record-${record.id}`,
+    key: `record-${record.originId}`,
     at: record.createdAt,
     tone: "record",
-    text: [feedbackKindLabels[record.kind], record.outcome && `${feedbackOutcomeTitle} ${feedbackOutcomeLabels[record.outcome]}`, record.actorEmail ?? record.actorId ?? DASH]
+    text: [
+      feedbackKindLabels[record.kind],
+      record.outcome && `${feedbackOutcomeTitle} ${feedbackOutcomeLabels[record.outcome]}`,
+      record.actorEmail ?? record.actorId ?? DASH,
+      record.editedAt && editedText,
+    ]
       .filter(Boolean)
       .join(" · "),
+    title: record.editedAt ? stampText(record.editedAt) : undefined,
     note: record.reason,
+    editId: canEdit(record) ? record.originId : undefined,
   }));
 
 /**
@@ -124,7 +137,8 @@ export const mergeTimeline = (base: TimelineEntry[], extra: TimelineEntry[]): Ti
   return [...merged, ...queue];
 };
 
-export const DecisionTimeline = ({ entries }: { entries: TimelineEntry[] }) => (
+/** `onEdit`: [수정]을 누른 기록 줄의 editId(최초 기록 id). 없으면 [수정]을 두지 않는다. */
+export const DecisionTimeline = ({ entries, onEdit }: { entries: TimelineEntry[]; onEdit?: (editId: string) => void }) => (
   <ol className="grid gap-2 border-l pl-4 text-sm">
     {entries.map((entry) => (
       <li
@@ -140,9 +154,26 @@ export const DecisionTimeline = ({ entries }: { entries: TimelineEntry[] }) => (
         <span className="text-xs text-muted-foreground tabular-nums">
           {entry.at ? stampText(entry.at) : entry.tone === "progress" ? "진행 중" : "—"}
         </span>
-        <span title={entry.title} className={entry.tone === "record" ? "text-muted-foreground" : undefined}>
-          {entry.text}
-        </span>
+        {entry.editId && onEdit ? (
+          <span className="flex flex-wrap items-center gap-2">
+            <span title={entry.title} className="text-muted-foreground">
+              {entry.text}
+            </span>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-6 px-2"
+              data-feedback-edit={entry.editId}
+              onClick={() => onEdit(entry.editId as string)}
+            >
+              수정
+            </Button>
+          </span>
+        ) : (
+          <span title={entry.title} className={entry.tone === "record" ? "text-muted-foreground" : undefined}>
+            {entry.text}
+          </span>
+        )}
         {entry.note && <span className="whitespace-pre-wrap break-words">{entry.note}</span>}
       </li>
     ))}

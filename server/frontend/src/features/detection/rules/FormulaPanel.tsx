@@ -17,8 +17,9 @@ const PERIODS: { mode: PeriodMode; label: string }[] = [
   { mode: "custom", label: "직접 지정" },
 ];
 /**
- * 최근·직접 지정은 저장 시각 기준으로 보낸다. 원천 시각(source_log_occurred_at)을 채우는 코드가 아직 없어 계약 기본값이면 표본이 항상 0건이고,
- * 학습 스냅샷도 persisted_at 기준이다. 활성 모델 기간은 서버가 학습 기간 투영의 기준을 쓴다. Collector가 원천 시각을 채우면 esb_occurred_at으로 바꾼다.
+ * 최근·직접 지정은 저장 시각 기준으로 보낸다. Collector는 migration 030 뒤 새 관측부터 원천 시각(source_log_occurred_at)을 채우지만
+ * 이전 관측은 보정 없이 NULL이라(collector-metrics.md 1.1) 원천 시각 기준이면 과거 기간 표본이 빠지고, 학습 스냅샷도 persisted_at 기준이다.
+ * 활성 모델 기간은 서버가 학습 기간 투영의 기준을 쓴다. esb_occurred_at 기본값 전환은 이 화면에서 따로 정한다(collector-metrics.md 1.1).
  */
 const periodRequest = (mode: PeriodMode, from: string, until: string) => {
   if (mode === "active_model_training_start") return { mode };

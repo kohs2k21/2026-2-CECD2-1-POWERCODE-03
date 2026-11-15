@@ -237,7 +237,8 @@ router.get('/metrics', requireAdmin as any, route(async (_req, res) => {
             percentile_cont(0.95) WITHIN GROUP (ORDER BY duration_ms::double precision) AS p95_ms,
             percentile_cont(0.99) WITHIN GROUP (ORDER BY duration_ms::double precision) AS p99_ms
        FROM ops_pipeline_measurements
-      WHERE measured_at >= clock_timestamp() - interval '1 hour' GROUP BY stage`,
+      -- judgment_store(031, 판정 저장 소요)는 운영 latency API judgmentStore가 원천별로 집계한다. 이 응답의 단계 목록은 그대로 둔다.
+      WHERE measured_at >= clock_timestamp() - interval '1 hour' AND stage IN ('feature','detector') GROUP BY stage`,
   );
   res.json({ queues: queues.rows, stages: stages.rows, window: '1h' });
 }));

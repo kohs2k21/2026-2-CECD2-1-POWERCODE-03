@@ -23,8 +23,8 @@ from trainer.source_time import process_source_time
 RULE = "source-time-v1"
 UNPARSED = "unparsed"
 ABSENT = "absent"
-# 지연 지표(원천 → 저장, 원천 → 판정)에 쓰는 근거. assumed_tz는 clockCheck에만 쓴다(계약 3.2·3.4).
-VERIFIED_STATUSES = ("offset", "verified_tz")
+# 지연 지표 표본 근거(계약 3.2·3.3, Q2: assumed_tz 포함).
+LATENCY_STATUSES = ("offset", "verified_tz", "assumed_tz")
 CLOCK_STATUSES = ("offset", "verified_tz", "assumed_tz", UNPARSED, ABSENT)
 VERIFY_METHOD = "persist_lag_check"
 _ZONE_NAME = re.compile(r"[A-Za-z][A-Za-z0-9_+\-]*(/[A-Za-z0-9_+\-]+)*")

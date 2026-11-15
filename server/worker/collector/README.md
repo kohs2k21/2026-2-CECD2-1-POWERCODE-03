@@ -69,6 +69,6 @@ docker compose exec collector python -m collector.report \
 
 정의·집계 SQL은 [collector-metrics.md](../../contracts/collector-metrics.md)가 정본이다.
 
-- `source_clock.py`: 입고 때 관측 원천 시각을 채운다(`trainer/source_time.py` `process_source_time` 재사용, END_TIME → START_TIME, `offset`·`verified_tz`·`assumed_tz`·`unparsed`·`absent`). `PROCESS_DT`는 쓰지 않는다. `ops_sources.clock_basis`는 운영자 CLI `input_cli clock-basis verify|reset`만 바꾼다
+- `source_clock.py`: 입고 때 관측 원천 시각을 채운다(`trainer/source_time.py` `process_source_time` 재사용, END_TIME → START_TIME, `offset`·`verified_tz`·`assumed_tz`·`unparsed`·`absent`). `PROCESS_DT`는 쓰지 않는다. `ops_sources.clock_basis`는 운영자 CLI `input_cli clock-basis verify|reset`만 바꾼다(배포 뒤 원천마다 한 번 `verify --timezone Asia/Seoul`, 계약 1.3). `assumed_tz`도 지연 지표 표본에 들어간다(계약 3.2 Q2)
 - `input_runner.ingest_phase`: 출처 행 `ingest_phase`(csv `replay`, API 실행 시작·재개 뒤 첫 성공 조회 `initial`, 그 밖 `live`). API 관측 `api_received_at` = 응답 수신 시각(receipt `finished_at`), CSV는 NULL
 - `resource_sampler.py`: compose 서비스 `resources`(profile `resources`). 60초마다 `/proc/stat`·`/proc/meminfo` → `ops_resource_measurements`, 읽기 전용 바인드 경로 `statvfs` → `ops_storage_measurements`(`artifacts`, `compose.resources-db.yaml`을 주면 `database_data`). 값을 못 읽으면 측정 불가 행(사유 코드)이고 0·이전 값으로 채우지 않는다. 자원 24시간·저장공간 7일 보존 정리

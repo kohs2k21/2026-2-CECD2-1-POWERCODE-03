@@ -58,7 +58,7 @@ B는 `source_layer='B'`, `data_message_bodies.collection_status='not_collected'`
 009_switchable_inputs.sql
 ```
 
-이후 migration은 [database README](database/README.md) 순서를 따른다. 030(Collector 운영 계측)은 새 Collector 코드보다 먼저 적용한다(입고가 `ingest_phase`·NULL `api_received_at`을 쓴다).
+이후 migration은 [database README](database/README.md) 순서를 따른다. 030(Collector 운영 계측)은 새 Collector 코드보다 먼저 적용한다(입고가 `ingest_phase`·NULL `api_received_at`을 쓴다). 새 Collector를 올린 뒤 원천마다 한 번 `clock-basis verify --timezone Asia/Seoul`을 실행한다(아래 원천 시간대 지정).
 
 백업/적용 이력을 확인해 **미적용 파일만** 실행한다. 기존 worker를 멈춘 상태에서 적용한다. 아래는 008까지 이미 적용한 DB의 추가 명령이다.
 
@@ -139,7 +139,7 @@ docker compose run --rm input select csv --expected-revision 3 --replay-id '<rep
 # 처음부터 재생할 때만 --restart. 운영 구성으로 돌아갈 때 --config active.
 ```
 
-원천 시간대 지정(운영자만, Collector는 스스로 바꾸지 않음 — [collector-metrics.md](../contracts/collector-metrics.md) 1.3). 운영 현황 latency `clockCheck`로 가정 시간대의 저장 지연을 확인한 뒤 실행하고, 그 뒤 입고되는 관측부터 반영된다. 원천이 아직 없으면 만들지 않고 `input_source_not_initialized`로 거절한다.
+원천 시간대 지정(운영자만, Collector는 스스로 바꾸지 않음 — [collector-metrics.md](../contracts/collector-metrics.md) 1.3). 운영 현황 latency `clockCheck`로 가정 시간대의 저장 지연을 확인한 뒤 실행하고, 그 뒤 입고되는 관측부터 반영된다. 원천이 아직 없으면 만들지 않고 `input_source_not_initialized`로 거절한다. 대상 원천은 KST(+09:00)로 확인돼 있어(사용자 11/15) 새 Collector 배포 뒤 원천마다 한 번 `verify --timezone Asia/Seoul`을 실행한다. 그 전에 저장된 `assumed_tz` 행도 지연 지표에 들어간다.
 
 ```bash
 docker compose run --rm input clock-basis verify --timezone Asia/Seoul --actor '<운영자 id>'
@@ -190,6 +190,6 @@ COLLECTOR_LOG_MAPPING_FILE=/input-contracts/customer-logs.json
 - T는 transactionId, P는 transactionId+processId, M은 transactionId+processId+messageId, B는 messageId를 사용하고 제공된 retry 값을 구분한다. 없는 retry를 0으로 만들지 않는다. 필수 식별자가 없는 P는 저장하되 탐지에 보내지 않고 부족 건수에 표시한다.
 - API는 같은 식별자의 허용 메타데이터가 같으면 중복 제거하고, 달라지면 새 관측을 추가한다. revision은 **로컬 수신 순서**이며 원천 최종 수정 버전이라는 뜻이 아니다.
 - CSV의 새 실행/반복 회차는 별도 namespace로 새 관측을 만든다. 모드를 바꿔도 모델을 선택하는 sourceId는 같고 원래 API 관측과 섞어 덮어쓰지 않는다.
-- API 측정은 실제 HTTP 호출 및 DB 입고 시간, CSV는 지정한 속도의 재생이다. 원천 발생 시각 지연은 030 이후 API `live` 관측이면서 원천 시각 근거가 `offset`·`verified_tz`인 표본만 잰다([collector-metrics.md](../contracts/collector-metrics.md) 3절). 도착 누락률·실제 정확도를 이 결과로 주장하지 않는다.
+- API 측정은 실제 HTTP 호출 및 DB 입고 시간, CSV는 지정한 속도의 재생이다. 원천 발생 시각 지연은 030 이후 API `live` 관측이면서 원천 시각 근거가 `offset`·`verified_tz`·`assumed_tz`(Asia/Seoul 가정)인 표본만 잰다([collector-metrics.md](../contracts/collector-metrics.md) 3절). 도착 누락률·실제 정확도를 이 결과로 주장하지 않는다.
 - 관측마다 원천 시각(END_TIME → START_TIME, `clock_status`)을 입고 때 채운다. API 관측의 `api_received_at`은 응답 수신 시각, CSV는 NULL이다. 출처 행의 `ingest_phase`는 csv `replay`, API 실행 시작·재개 뒤 첫 성공 조회 `initial`, 그 뒤 `live`다.
 - 모델/Rule/피처가 준비되지 않은 상황은 대기 또는 unavailable로 남긴다. 정상 판정이나 가짜 점수로 대체하지 않는다.

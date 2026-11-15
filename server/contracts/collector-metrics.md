@@ -39,11 +39,13 @@ Status: current — 결정 반영(WebUI 11/15 Q1~Q8, Detector C1~C5). Collector 
 
 ### 1.3 원천 시간대 검증 흐름 [확정 C2]
 
-1. 원천에 시간대가 없으면(문자열에 오프셋 없음) 관측은 `assumed_tz`로 저장된다. 지연 지표(3절)에서 빠지고 `excludedCounts.assumedTz`로만 센다
+1. 원천에 시간대가 없으면(문자열에 오프셋 없음) 관측은 `assumed_tz`로 저장된다. `Asia/Seoul` 가정 아래 지연 지표(3절)에 포함하고 화면에 따로 표시하지 않는다 [확정 Q2, 사용자 11/15]
 2. 운영자가 latency API `clockCheck`(3.4)를 본다 — `Asia/Seoul` 가정 아래 저장 지연이 작은 양수로 모이면 가정이 맞다는 근거, 몇 시간 단위로 치우치거나 음수가 많으면 다른 시간대
 3. 운영자가 Collector 컨테이너에서 지정한다: `docker compose run --rm input clock-basis verify --timezone <IANA> --actor <운영자 id>`. 시간대는 zoneinfo가 아는 IANA 이름만(경로·빈 값 거절, DB 접속 전 검사). 원천(`--source-key`)이 없으면 만들지 않고 `input_source_not_initialized`로 거절
-4. 그 뒤 INSERT되는 관측부터 `verified_tz`가 되어 지연 값이 나온다. 이전 관측은 `assumed_tz` 그대로(보정 없음)
+4. 그 뒤 INSERT되는 관측부터 가정 대신 지정 시간대로 해석해 `verified_tz`가 된다. 이전 관측은 `assumed_tz` 그대로(보정 없음, 지연 지표에는 계속 포함)
 5. 되돌리기: `clock-basis reset --actor <id>` → `{"status":"unknown","resetAt":…,"resetBy":…}`. 그 뒤 INSERT부터 다시 `assumed_tz`
+
+- 배포 [확정, 사용자 11/15]: 대상 원천의 시각과 서버는 KST(+09:00)로 확인됐다. 새 Collector를 올린 뒤 원천마다 한 번 `clock-basis verify --timezone Asia/Seoul --actor <운영자 id>`를 실행한다. 그 전에 저장된 행은 `assumed_tz`로 남고 Q2에 따라 지연 지표에 포함된다. 코드·migration에는 시간대를 고정하지 않는다
 
 - 저장 형태: `ops_sources.clock_basis = {"status":"verified","timezone":"<IANA>","method":"persist_lag_check","verifiedAt":"<UTC ISO8601, DB 시계>","verifiedBy":"<actor>"}`. 읽는 쪽(Collector·Detector·Trainer)은 `status`·`timezone`만 본다
 - Collector 실행 경로(`input_runner`·`input_store`·`storage`·`resource_sampler`)는 `clock_basis`를 바꾸지 않는다(시험으로 확인). CLI는 `powercode_collector` 역할로 실행되고 `ops_sources`에는 trigger가 없어 UPDATE 권한(002 GRANT)으로 충분하다 — migration 변경 없음
@@ -80,10 +82,10 @@ Status: current — 결정 반영(WebUI 11/15 Q1~Q8, Detector C1~C5). Collector 
 
 ### 3.2 `sourceToStored` — 원천 → 저장 지연
 
-- 표본 = 창 안 후보 관측 중 `clock_status IN ('offset','verified_tz')` 행의 부호 있는 원값 `persisted_at − source_log_occurred_at`(ms)
+- 표본 = 창 안 후보 관측 중 `clock_status IN ('offset','verified_tz','assumed_tz')` 행의 부호 있는 원값 `persisted_at − source_log_occurred_at`(ms)
 - 후보 관측: `o.source_id=$1 AND o.layer='P' AND o.revision_no=1 AND o.persisted_at>=clock_timestamp()-interval '1 hour' AND i.mode='api' AND i.ingest_phase='live'`(`data_input_origins i`). 실행 식별 없는 행(`revision_no` NULL)은 빠진다. 계층을 P로 둔 것은 Detector 원천 → 판정 지연(판정 = P)과 같은 모집단으로 비교하려는 것
 - 음수 표본(원천 시계가 DB 시계보다 앞섬)은 분위수에서 빼고 `skewCount`로 센다(Detector와 같은 규칙). 0으로 자르지 않는다
-- `assumed_tz` 포함 여부 [확정 Q2: 뺀다, 사용자 결정 남음 — Detector는 포함 의견]: 아래 SQL의 `verified` 조건 한 줄(`clock_status IN ('offset','verified_tz')`)에 `'assumed_tz'`를 더하면 포함으로 바뀐다. 그래서 `excludedCounts.assumedTz`를 늘 낸다
+- `assumed_tz` 포함 [확정 Q2, 사용자 11/15]: `Asia/Seoul` 가정으로 해석한 표본도 지연 지표에 넣고 화면에 따로 표시하지 않는다. 음수 규칙은 같다(분위수에서 빼고 `skewCount`, 음수만 있으면 null + `source_clock_skew`)
 
 ```sql
 WITH c AS (
@@ -94,12 +96,11 @@ WITH c AS (
      AND o.persisted_at >= clock_timestamp() - interval '1 hour' AND i.mode = 'api'
      AND (i.ingest_phase = 'live' OR i.ingest_phase IS NULL)),
 v AS (SELECT * FROM c WHERE ingest_phase = 'live'
-        AND clock_status IN ('offset','verified_tz') AND ms IS NOT NULL)   -- 포함 조건 한 줄
+        AND clock_status IN ('offset','verified_tz','assumed_tz') AND ms IS NOT NULL)
 SELECT (SELECT count(*) FROM v WHERE ms >= 0)::integer AS samples,
        (SELECT percentile_cont(.5)  WITHIN GROUP (ORDER BY ms) FROM v WHERE ms >= 0) AS p50,
        (SELECT percentile_cont(.95) WITHIN GROUP (ORDER BY ms) FROM v WHERE ms >= 0) AS p95,
        (SELECT count(*) FROM v WHERE ms < 0)::integer AS skew,
-       (SELECT count(*) FROM c WHERE ingest_phase='live' AND clock_status='assumed_tz')::integer AS assumed_tz,
        (SELECT count(*) FROM c WHERE ingest_phase='live' AND clock_status='unparsed')::integer AS unparsed,
        (SELECT count(*) FROM c WHERE ingest_phase='live' AND clock_status='absent')::integer AS absent,
        (SELECT count(*) FROM c WHERE ingest_phase IS NULL)::integer AS legacy_unknown;
@@ -109,22 +110,22 @@ SELECT (SELECT count(*) FROM v WHERE ms >= 0)::integer AS samples,
 
 ```json
 {"sourceToStored": {"window": "1h", "samples": 0, "p50Ms": null, "p95Ms": null, "skewCount": 0,
-  "excludedCounts": {"assumedTz": 0, "unparsed": 0, "absent": 0, "legacyUnknown": 0},
+  "excludedCounts": {"unparsed": 0, "absent": 0, "legacyUnknown": 0},
   "reason": "no_live_api_samples"}}
 ```
 
-- `reason`(분위수가 null일 때만, 그 밖 null) 순서: `samples > 0` → null / `skew > 0` → `source_clock_skew`(0 이상 표본 없이 음수만) / live 후보가 있음(`assumedTz + unparsed + absent > 0`) → `source_clock_unverified`(1.3 지정 전) / 그 밖 → `no_live_api_samples`(CSV 재생 중·일시정지·첫 조회만 있음·030 이전 행만 있음)
+- `reason`(분위수가 null일 때만, 그 밖 null) 순서: `samples > 0` → null / `skew > 0` → `source_clock_skew`(0 이상 표본 없이 음수만) / live 후보가 있음(`unparsed + absent > 0`) → `source_time_unavailable`(원천 시각이 없거나 해석 안 됨) / 그 밖 → `no_live_api_samples`(CSV 재생 중·일시정지·첫 조회만 있음·030 이전 행만 있음)
 - `excludedCounts`는 숫자만 낸다. 새 화면 문구는 두지 않는다 [확정 Q2]
 - 성능: 표본은 `(source_id, persisted_at)` 인덱스로 1시간 창만 읽고 출처 표는 PK로 찾는다. 새 인덱스 불필요
 
 ### 3.3 Detector 원천 → 판정 지연과의 관계
 
-- overview `endToEndLatencyMs`(p50 하나)와 latency `endToEnd`는 Detector 몫이다. Detector 측정 조건: 관측 `clock_status IN ('offset','verified_tz')` ∧ 출처 `ingest_phase='live'` ∧ 첫 revision ∧ 재판정 아님 ∧ `source_log_occurred_at` 있음. Detector는 이 조건이 참(`latency_status='measured'`)일 때만 판정 행에 관측의 `source_log_occurred_at`을 그대로 복사한다(다시 해석하지 않음). 조건이 거짓이면 판정 행의 `source_log_occurred_at`·`source_latency_ms`는 NULL이고 `latency_status='unavailable'`이다(판정 행에 원천 시각 있음 ⇔ `measured`, [detection-decision.md](detection-decision.md) 18절). 원천 시각은 관측 행에서 읽는다. 음수 규칙(`skewCount`·`source_clock_skew`)도 3.2와 같다
+- overview `endToEndLatencyMs`(p50 하나)와 latency `endToEnd`는 Detector 몫이다. Detector 측정 조건: 관측 `clock_status IN ('offset','verified_tz','assumed_tz')` ∧ 출처 `ingest_phase='live'` ∧ 첫 revision ∧ 재판정 아님 ∧ `source_log_occurred_at` 있음. Detector는 이 조건이 참(`latency_status='measured'`)일 때만 판정 행에 관측의 `source_log_occurred_at`을 그대로 복사한다(다시 해석하지 않음). 조건이 거짓이면 판정 행의 `source_log_occurred_at`·`source_latency_ms`는 NULL이고 `latency_status='unavailable'`이다(판정 행에 원천 시각 있음 ⇔ `measured`, [detection-decision.md](detection-decision.md) 18절). 원천 시각은 관측 행에서 읽는다. 음수 규칙(`skewCount`·`source_clock_skew`)도 3.2와 같다
 - 3.2와 모집단이 같아(P·첫 revision·live·같은 근거) 두 지연의 차이가 판정 대기·처리 시간이다
 
 ### 3.4 `clockCheck` — 시간대 가정 확인용 [확정 C3]
 
-- 지연 지표가 아니다. 1.3 2단계에서 운영자가 본다
+- 이 블록 자체는 지연 지표가 아니다(`assumed_tz` 표본은 3.2·3.3 지연 지표에도 들어간다). 1.3 2단계에서 운영자가 `Asia/Seoul` 가정을 확인할 때 본다
 - 표본 = 3.2 후보 중 `ingest_phase='live' AND clock_status='assumed_tz'`의 부호 있는 `ms`(음수 포함 그대로 분위수)
 
 ```json
@@ -186,7 +187,7 @@ SELECT r.cpu_status, r.cpu_percent, r.memory_status, r.memory_used_bytes, r.memo
 ## 5. 다른 계약 영향
 
 - 큐 payload([queues.md](queues.md)): 변경 없음
-- migration `030_collector_metrics.sql`: 1.2 인덱스, `api_received_at` NOT NULL 해제, `ingest_phase` 열·CHECK, 4.2 표. 역할 스크립트 재적용 필요. 배포 순서 migration 030 → 역할 스크립트 → Collector → WebUI storage API 4.3 반영(`disk` = `database_data`, `disks[]`) → `resources` 서비스(`infra/database/README.md` 030 절). 지금 `readStorage`는 키를 가리지 않고 가장 최근 measured 행을 골라, 반영 전에 켜면 `artifacts` 값이 `disk`로 보일 수 있다
+- migration `030_collector_metrics.sql`: 1.2 인덱스, `api_received_at` NOT NULL 해제, `ingest_phase` 열·CHECK, 4.2 표. 역할 스크립트 재적용 필요. 배포 순서 migration 030 → 역할 스크립트 → Collector → 원천마다 한 번 `clock-basis verify --timezone Asia/Seoul --actor <운영자 id>` → WebUI storage API 4.3 반영(`disk` = `database_data`, `disks[]`) → `resources` 서비스(`infra/database/README.md` 030 절). 지금 `readStorage`는 키를 가리지 않고 가장 최근 measured 행을 골라, 반영 전에 켜면 `artifacts` 값이 `disk`로 보일 수 있다
 - [operations-ui.md](operations-ui.md): collection·latency·storage·overview 필드는 이 문서 2~4절 — WebUI가 연결할 때 그 문서에 옮긴다
 - [rules-ui.md](rules-ui.md)·[models-ui.md](models-ui.md)·[trainer-service.md](trainer-service.md): `esb_occurred_at`은 030 이후 새 관측부터 값을 가진다. 기존 행은 `timeUnknownCount`로 남는다
 - [incidents.md](incidents.md): Detector가 원문을 직접 해석해 동작은 그대로. "원천 시각 열이 늘 NULL" 같은 현재 사실 문장은 030 이후 새 관측부터 달라진다
@@ -200,6 +201,5 @@ SELECT r.cpu_status, r.cpu_percent, r.memory_status, r.memory_used_bytes, r.memo
 ## 7. 열린 항목
 
 - `PROCESS_DT` 뜻 — 원천 담당자 확인. 확인 전에는 M도 END → START만 쓴다
-- `assumed_tz`를 지연 지표에 넣을지 — 사용자 결정(3.2 한 줄로 바뀜)
 - 첫 revision이 START_TIME만 있는 행(진행 중)은 원천 처리 시간이 지연에 섞인다. Detector와 같은 조건을 유지하고, 필요하면 두 쪽 모두 `parsed_times->>'field'='end'` 조건을 더한다
 - 대상 서버 `/proc` 범위(`host` 확인), DB 데이터 디렉터리 호스트 경로 — 배포 때 운영자 확인

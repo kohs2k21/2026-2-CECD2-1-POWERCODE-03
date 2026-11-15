@@ -13,6 +13,8 @@ export const JOB_KIND_LABELS: Record<string, string> = {
   recommend_thresholds: "AI 규칙 추천", recommend_relations: "규칙 추천",
 };
 export const kindLabel = (kind: string) => JOB_KIND_LABELS[kind] ?? kind;
+/** AI 규칙 추천 작업의 결과·다시 하기 화면: 규칙 추천 › 이상 징후 탭(AI 규칙 추천이 있는 곳, rule-candidates-ui.md 8절). */
+export const recommendThresholdsPath = `${paths.detectionRuleCandidates}?tab=anomaly`;
 
 /** 상태 탭(와이어프레임 전체·진행 중·완료·실패). 진행 중 = 대기 + 실행 중. blocked는 전체에만 보인다. */
 export type JobTab = (typeof urlOptions.jobsTab)[number];
@@ -109,7 +111,8 @@ export const jobResultLink = (job: Pick<JobListItem, "id" | "kind" | "status" | 
     case "evaluation_set":
       return { to: paths.detectionEvaluations, label: "평가 결과" };
     case "recommend_thresholds":
-      return { to: paths.detectionRules, label: "룰 설정" };
+      // AI 규칙 추천은 규칙 추천 › 이상 징후 탭에서 한다(rule-candidates-ui.md 8절, 사용자 11/15).
+      return { to: recommendThresholdsPath, label: "규칙 추천" };
     case "recommend_relations":
       return { to: paths.detectionRuleCandidates, label: "규칙 추천" };
     default:

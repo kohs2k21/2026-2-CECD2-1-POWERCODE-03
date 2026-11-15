@@ -337,7 +337,7 @@ export const RuleAiBox = ({
   const candidates = candidateRows(run.result, run.candidates);
   const proposed = rows.filter(selectable);
   const picked = proposed.filter((row) => !run.unpicked.includes(row.rule.key));
-  const proposedCount = proposed.length + candidates.filter(({ item }) => item.status === "proposed").length;
+  const proposedCount = rows.filter(({ item }) => item.status === "proposed").length + candidates.filter(({ item }) => item.status === "proposed").length;
   const heldExcluded = heldWindowExcludedRows(run.result);
   const pick = (key: string, value: boolean) =>
     ai.setRun({ ...run, unpicked: value ? run.unpicked.filter((item) => item !== key) : [...run.unpicked, key] });

@@ -4,9 +4,11 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
   CANDIDATE_ID, RELATION_CONTRACT_VERSION, approvalState, checkResult, parseCandidateJobRequest, parseCandidateListQuery,
-  enqueueCandidateJob, readCandidateDetail, readCandidateList, relationItem, relationJobUnavailable, relationRuleDraft, softRuleDraft, thresholdItem,
-  transactionOfRef,
+  enqueueCandidateJob, readCandidateDetail, readCandidateList, readRecommendationCandidates, relationItem, relationJobUnavailable, relationRuleDraft, softRuleDraft,
+  thresholdItem, transactionOfRef,
 } from '../dist/ruleset/ruleCandidates.js';
+import { readCandidateSummary } from '../dist/ruleset/candidateSummary.js';
+import { readFile } from 'node:fs/promises';
 import { CONTENT_HASH_VERSION, RuleSetError } from '../dist/ruleset/ruleSetContract.js';
 import crypto from 'node:crypto';
 const sha = (value) => crypto.createHash('sha256').update(value).digest('hex');
@@ -306,4 +308,57 @@ test('enqueue: unrelated DB errors are rethrown, not mapped to 503', async () =>
   await assert.rejects(enqueueCandidateJob(fakePool({ insertError: other }), { snapshotId: SNAP }, 'admin-1', null), (error) => error === other);
   const contract = Object.assign(new Error('violates check constraint'), { code: '23514', constraint: 'run_jobs_v03_contract' });
   await rejects(enqueueCandidateJob(fakePool({ insertError: contract }), { snapshotId: SNAP }, 'admin-1', null), 'relation_job_contract_unavailable', 503);
+});
+
+test('AI recommendation targets: empty or absent scope values are not eligible (rule-set.md v3.6 string rule)', async () => {
+  const thresholds = [threshold('P1', ['IF-A']), threshold('', ['IF-A']), threshold(' \t', ['IF-A']), threshold('P1', ['IF-A'], { scope: { processId: 'P1', adapterType: '\\N' } }),
+    threshold('P1', ['IF-A'], { scope: { processId: 'P1', adapterType: '' } }), threshold('P1', ['IF-A'], { scope: { processId: 'P1' } })];
+  const db = fakeDb({ byId: { [JOB]: { ...job(JOB), result: { ...result(), thresholdCandidates: thresholds } } } });
+  const ok = await readRecommendationCandidates(db, [`${JOB}.t0`, `${JOB}.t5`]);
+  assert.deepEqual(ok.items.map((item) => item.scope), [{ processId: 'P1', adapterType: 'HTTP' }, { processId: 'P1' }]);
+  for (const index of [1, 2, 3, 4]) {
+    await rejects(readRecommendationCandidates(db, [`${JOB}.t0`, `${JOB}.t${index}`]), `rule_candidate_not_eligible:${JOB}.t${index}`, 422);
+  }
+});
+
+test('summary: counts only what the current rule set does not have yet, without reading the whole result', async () => {
+  const drafts = JSON.parse(await readFile(new URL('./fixtures/protocol-path-drafts.json', import.meta.url), 'utf8'));
+  const parts = (value) => ({ ...job(JOB), resultType: 'object', contractVersion: value.relationContractVersion, candidates: value.candidates,
+    thresholdCandidates: value.thresholdCandidates, hasProtocolDrafts: 'protocolPathDrafts' in value, protocolPathDrafts: value.protocolPathDrafts ?? null });
+  const soft = (field, scope) => ({ id: `soft:${field}-0000000${scope?.processId ?? 'g'}`, name: 'r', field, operator: 'gt', threshold: 1, unit: 'ms', severity: 'warning', enabled: false,
+    createdAtRevision: 1, updatedAtRevision: 1, scope });
+  const fake = ({ succeeded, snapshot = {} }) => {
+    const calls = [];
+    return { calls, query: async (sql) => {
+      calls.push(sql);
+      if (sql.includes('ops_rule_set_revisions')) {
+        return { rows: [{ revision: '12', contentHash: 'h', contentHashVersion: 3, snapshot: { hardRules: [], softRules: [], relationRules: [], protocolRules: [], ...snapshot },
+          changes: [], summary: {}, note: null, restoredFromRevision: null, actorId: 'a', savedAt: 't' }] };
+      }
+      if (sql.includes("status = 'succeeded'")) return { rows: succeeded ? [succeeded] : [] };
+      return { rows: [job('99999999-2222-4333-8444-555555555555', { status: 'queued', finishedAt: null })] };
+    } };
+  };
+  // 아무 규칙도 없으면 목록 totals와 같다(처리 시간 candidate 2 · 승인 가능 관계 2 · draft 초안 2).
+  const fresh = await readCandidateSummary(fake({ succeeded: parts({ ...result(), protocolPathDrafts: drafts }) }));
+  assert.deepEqual([fresh.latestJob.status, fresh.job.id, fresh.ruleSetRevision, fresh.counts], ['queued', JOB, 12, { anomaly: 2, relation: 2, protocol: 2 }]);
+  // 이미 있는 조건은 뺀다: t0과 같은 field+scope(표시용 interfaceId·임계값·꺼짐 무관), r0(required_step IF-A)와 같은 조건, 등록된(꺼진) 프로토콜 항목.
+  const r0 = relationRuleDraft(relationItem(JOB, 0, result().candidates[0]), null);
+  const db = fake({ succeeded: parts({ ...result(), protocolPathDrafts: drafts }), snapshot: {
+    softRules: [soft('elapsed_ms', { processId: 'P1', adapterType: 'HTTP', interfaceId: 'IF-Z' }), soft('elapsed_ms', { processId: 'P9' }), soft('retry_count', { processId: 'P9', adapterType: 'HTTP' })],
+    relationRules: [{ ...r0, id: 'hard:rel-00000001', severity: 'warning', source: null, createdAtRevision: 1, updatedAtRevision: 1 }],
+    protocolRules: [{ id: 'hard:proto-00000001', interfaceId: 'IF_SYN_PAY', paths: [], severity: 'warning', enabled: false, source: null, createdAtRevision: 1, updatedAtRevision: 1 }],
+  } });
+  const body = await readCandidateSummary(db);
+  assert.deepEqual(body.counts, { anomaly: 1, relation: 1, protocol: 1 }, 't9(P9, HTTP) stays new: the P9 rule has no adapter; retry_count is another field');
+  const resultRead = db.calls.find((sql) => sql.includes("status = 'succeeded'"));
+  assert.ok(!/result_summary AS result/.test(resultRead) && /result_summary->'candidates'/.test(resultRead), 'only candidate arrays and drafts are read, not the graph');
+  // 결과 없음 0, 초안 키 없는 옛 결과는 프로토콜 0, 모양·버전 오류는 목록과 같은 503.
+  assert.deepEqual((await readCandidateSummary(fake({ succeeded: null }))).counts, { anomaly: 0, relation: 0, protocol: 0 });
+  assert.equal((await readCandidateSummary(fake({ succeeded: parts(result()) }))).counts.protocol, 0);
+  await rejects(readCandidateSummary(fake({ succeeded: { ...parts(result()), contractVersion: 'other' } })), 'rule_candidate_contract_unsupported', 503);
+  await rejects(readCandidateSummary(fake({ succeeded: { ...parts(result()), resultType: 'array' } })), 'rule_candidate_result_invalid', 503);
+  await rejects(readCandidateSummary(fake({ succeeded: { ...parts(result()), thresholdCandidates: null } })), 'rule_candidate_result_invalid', 503);
+  await rejects(readCandidateSummary(fake({ succeeded: parts({ ...result(), thresholdCandidates: [threshold('P1', ['IF-A'], { threshold: '1e3' })] }) })), 'rule_candidate_result_invalid', 503);
+  await rejects(readCandidateSummary(fake({ succeeded: parts({ ...result(), protocolPathDrafts: { ...drafts, version: 2 } }) })), 'protocol_drafts_version_unsupported', 503);
 });

@@ -150,7 +150,20 @@ export const recommendationRows = (result: RecommendationResult, state: RuleSetS
     const item = result.items.find((entry) => entry.softRuleIds.includes(saved.id));
     return rule && item ? [{ rule, item }] : [];
   });
-export const selectable = (row: RecommendationRow) => row.item.status === "proposed";
+/** 소프트룰 scope 판정 키 정규형(llm-recommendation-job.md 결과 `items[].scope`와 같은 모양): 값 있는 `processId`·`adapterType`·`processHubId`만, 없으면 null. */
+const scopeKey = (scope: unknown) => {
+  if (!record(scope)) return null;
+  const kept = (["processId", "adapterType", "processHubId"] as const).filter((key) => scope[key] !== undefined && scope[key] !== null).map((key) => [key, scope[key]]);
+  return kept.length ? JSON.stringify(kept) : null;
+};
+/**
+ * 결과 항목이 지금 그 규칙과 같은 대상인가: 대상 필드가 같고, (10차) 결과에 범위가 있으면 규칙 범위의 판정 키와도 같다(옛 결과는 범위 키가 없어 필드만 본다).
+ * 결과를 띄워 둔 사이 규칙이 바뀌었으면(다시 읽은 룰 세트·편집 초안) 그 행에는 값을 채우지 않는다(#215 검토 권고 1).
+ */
+export const sameTarget = ({ rule, item }: RecommendationRow) =>
+  item.field === rule.field && (item.scope === undefined || scopeKey(item.scope) === scopeKey(rule.scope));
+/** [적용]으로 채울 수 있는 행: 제안 상태이고 지금 규칙과 같은 대상. 아니면 다른 미제안 행과 같이 선택 칸이 꺼진다. */
+export const selectable = (row: RecommendationRow) => row.item.status === "proposed" && sameTarget(row);
 
 export type CandidateRow = { candidate: ThresholdCandidate; item: RecommendationItem };
 /** (10차) 후보 행 = 요청에 넣은 후보(요청 순서) 중 결과의 `candidateIds`에 든 후보. 같은 범위의 규칙과 한 묶음이면 그 규칙 행과 같은 항목을 본다. */

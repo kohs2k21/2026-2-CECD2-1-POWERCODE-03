@@ -7,6 +7,7 @@ import { DECISION_STREAM_RETRY_MS, subscribeDecisionStream } from "@/services/ap
 import { createPipelineJob, fetchPipelineJob, type PipelineJob } from "@/services/api/pipeline.api";
 import {
   changeDecisionWorkflow,
+  editDecisionFeedback,
   listApiParams,
   markDecisionRead,
   readDecisionDetail,
@@ -19,6 +20,7 @@ import {
   type DecisionDetail,
   type FeedbackKind,
   type FeedbackOutcome,
+  type FeedbackRecord,
   type ListParams,
   type WorkflowState,
 } from "./analysisApi";
@@ -79,6 +81,21 @@ export const useFeedbackSave = (id: string) => {
     mutationFn: ({ kind, reason, outcome = null }: { kind: FeedbackKind; reason: string; outcome?: FeedbackOutcome | null }) =>
       saveDecisionFeedback(id, kind, reason, outcome),
     onSuccess: () => void cache.invalidateQueries({ queryKey: accountQueryKey(feedbackQueryName, user?.id) }),
+  });
+};
+
+/**
+ * 조사·조치 기록 수정(관리자·최초 작성자, 032). 성공·실패 모두 기록 목록을 다시 읽고(충돌 409면 다른 판본이 보이게),
+ * 성공하면 목록(확인 결과별 완료 건수)도 다시 조회한다. 실패는 오류 그대로.
+ */
+export const useFeedbackEdit = (id: string) => {
+  const { user } = useAuthSession();
+  const cache = useQueryClient();
+  return useMutation({
+    mutationFn: ({ record, kind, reason, outcome }: { record: FeedbackRecord; kind: FeedbackKind; reason: string; outcome: FeedbackOutcome | null }) =>
+      editDecisionFeedback(id, record, kind, reason, outcome),
+    onSuccess: () => void cache.invalidateQueries({ queryKey: accountQueryKey(listQueryName, user?.id) }),
+    onSettled: () => void cache.invalidateQueries({ queryKey: accountQueryKey(feedbackQueryName, user?.id) }),
   });
 };
 

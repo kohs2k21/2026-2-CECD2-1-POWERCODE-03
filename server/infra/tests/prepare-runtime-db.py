@@ -6,9 +6,9 @@ import psycopg
 from psycopg import sql
 
 root=Path(__file__).resolve().parents[1]/'migrations'
-# 027(explain_protocol)·028(작업 알림)·029(확인 결과)·030(Collector 운영 계측)·031(판정 저장 소요 단계)은 아래 files 목록 끝(dev의 026) 뒤에 적용한다. 목록 끝 줄과 겹치지 않게 따로 둔다.
+# 027(explain_protocol)·028(작업 알림)·029(확인 결과)·030(Collector 운영 계측)·031(판정 저장 소요 단계)·032(조사·조치 기록 정정)은 아래 files 목록 끝(dev의 026) 뒤에 적용한다. 목록 끝 줄과 겹치지 않게 따로 둔다.
 later=('027_explain_protocol.sql','028_job_notifications.sql','029_feedback_outcome.sql','030_collector_metrics.sql',
-       '031_judgment_store_measurement.sql')
+       '031_judgment_store_measurement.sql','032_feedback_correction.sql')
 files=('001_postgres_queues.sql','002_core_erd.sql','003_erd_v03_enums.sql','004_erd_v03_contracts.sql',
        '003_rule_versions_immutable.sql','004_feature_pipeline.sql','005_research_runtime.sql',
        '006_service_transition.sql','007_api_collection_metrics.sql','008_demo_replay.sql','009_switchable_inputs.sql',

@@ -440,8 +440,8 @@ assert.equal(labels.causesLine({ causes: [], responseCode: null }), null, "no ca
 // 판정 기록 + 관리자 읽기 전용 기록(사용자 11/13): 시각 순으로 끼우고 진행 중 줄 앞, 업무 분류 상태 줄은 없음(판정 요약에 있음)
 const base = [{ key: "i1", at: "2026-11-03T01:00:00Z", tone: "provisional", text: "중간" }, { key: "final", at: "2026-11-03T01:05:00Z", tone: "final", text: "최종" }];
 const extra = recordEntries([
-  { id: "f2", kind: "suspected-false-positive", reason: "둘째\n줄", actorId: "a", actorEmail: null, createdAt: "2026-11-03T02:00:00Z" },
-  { id: "f1", kind: "action", reason: "첫째", actorId: "a", actorEmail: "admin@example.test", createdAt: "2026-11-03T01:02:00Z" },
+  { id: "f2", originId: "f2", kind: "suspected-false-positive", reason: "둘째\n줄", actorId: "a", actorEmail: null, createdAt: "2026-11-03T02:00:00Z" },
+  { id: "f1", originId: "f1", kind: "action", reason: "첫째", actorId: "a", actorEmail: "admin@example.test", createdAt: "2026-11-03T01:02:00Z" },
 ]);
 assert.deepEqual(mergeTimeline(base, extra).map((e) => e.key), ["i1", "record-f1", "final", "record-f2"]);
 assert.deepEqual(extra.map((e) => [e.text, e.note]), [["오탐 의심 · a", "둘째\n줄"], ["조치 기록 · admin@example.test", "첫째"]]);
@@ -450,10 +450,29 @@ assert.deepEqual(mergeTimeline([...base.slice(0, 1), { key: "progress", at: null
 assert.equal(recordEntries([]).length, 0, "no records, no extra lines");
 // 확인 결과가 있으면 유형 뒤 `확인 결과 <값>`, 미입력이면 줄에 없음
 assert.deepEqual(recordEntries([
-  { id: "f3", kind: "suspected-false-positive", reason: "정상 배치", outcome: "normal", actorId: "a", actorEmail: "admin@example.test", createdAt: "2026-11-03T02:00:00Z" },
-  { id: "f4", kind: "action", reason: "모름", outcome: "undetermined", actorId: "a", actorEmail: null, createdAt: "2026-11-03T02:01:00Z" },
-  { id: "f5", kind: "action", reason: "확인", outcome: null, actorId: "a", actorEmail: null, createdAt: "2026-11-03T02:02:00Z" },
+  { id: "f3", originId: "f3", kind: "suspected-false-positive", reason: "정상 배치", outcome: "normal", actorId: "a", actorEmail: "admin@example.test", createdAt: "2026-11-03T02:00:00Z" },
+  { id: "f4", originId: "f4", kind: "action", reason: "모름", outcome: "undetermined", actorId: "a", actorEmail: null, createdAt: "2026-11-03T02:01:00Z" },
+  { id: "f5", originId: "f5", kind: "action", reason: "확인", outcome: null, actorId: "a", actorEmail: null, createdAt: "2026-11-03T02:02:00Z" },
 ]).map((e) => e.text), ["오탐 의심 · 확인 결과 정상 · admin@example.test", "조치 기록 · 확인 결과 판단 불가 · a", "조치 기록 · a"]);
+// 기록 수정(032): originId(이전 API 응답이면 id)·editedAt 파싱, 수정한 기록은 끝에 `수정됨`(툴팁 = 수정 시각, 위치 = 최초 기록 시각), 고칠 수 있는 기록만 editId.
+assert.deepEqual(api.parseFeedbackList({ id: "d-1", items: [
+  { id: "v2", originId: "f1", kind: "action", reason: "고침", outcome: null, actorId: "a", createdAt: "2026-11-03T01:00:00Z", editedAt: "2026-11-03T03:00:00Z" },
+  { id: "f2", kind: "action", reason: "이전 API" }] }).items.map((i) => [i.id, i.originId, i.createdAt, i.editedAt]),
+[["v2", "f1", "2026-11-03T01:00:00Z", "2026-11-03T03:00:00Z"], ["f2", "f2", null, null]], "originId falls back to id, editedAt null when absent");
+const editable = recordEntries([
+  { id: "v2", originId: "f1", kind: "action", reason: "고침", outcome: "normal", actorId: "me", actorEmail: "me@example.test", createdAt: "2026-11-03T01:00:00Z", editedAt: "2026-11-03T03:00:00Z" },
+  { id: "f2", originId: "f2", kind: "action", reason: "남의 기록", outcome: null, actorId: "other", actorEmail: null, createdAt: "2026-11-03T01:30:00Z", editedAt: null },
+], (record) => record.actorId === "me");
+assert.deepEqual(editable.map((e) => [e.key, e.at, e.text, e.title, e.editId]), [
+  ["record-f1", "2026-11-03T01:00:00Z", "조치 기록 · 확인 결과 정상 · me@example.test · 수정됨", labels.stampText("2026-11-03T03:00:00Z"), "f1"],
+  ["record-f2", "2026-11-03T01:30:00Z", "조치 기록 · other", undefined, undefined]]);
+assert.equal(recordEntries([{ id: "f3", originId: "f3", kind: "action", reason: "x", outcome: null, actorId: "me", actorEmail: null, createdAt: null, editedAt: null }])[0].editId,
+  undefined, "no [수정] without canEdit");
+const editHtml = renderToStaticMarkup(React.createElement(DecisionTimeline, { entries: editable, onEdit: () => {} }));
+assert.equal((editHtml.match(/data-feedback-edit=/g) ?? []).length, 1, "[수정] only on the editable record");
+assert.ok(editHtml.includes(">수정</button>"));
+assert.ok(!renderToStaticMarkup(React.createElement(DecisionTimeline, { entries: editable })).includes("data-feedback-edit="), "no onEdit, no [수정]");
+assert.equal(api.analysisWriteErrorTitle(new HttpErrorClass("x", 409, "feedback_edit_conflict"), "피드백 수정"), "피드백 수정 실패 · feedback_edit_conflict");
 // 오류 제목
 assert.equal(api.analysisErrorTitle(new HttpError("x", 404, "decision_not_found"), "판정 상세"), "판정 상세 · decision_not_found", "missing decision shows the error code as is");
 assert.equal(api.analysisErrorTitle(new HttpError("x", 503, "analysis_storage_unavailable"), "판정 목록"), "판정 목록 미연결");

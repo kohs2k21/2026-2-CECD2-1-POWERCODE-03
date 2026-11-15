@@ -9,13 +9,14 @@ import {
 } from '../services/analysisReadModel.js';
 import {
   AnalysisRequestError, FEEDBACK_KINDS, FEEDBACK_OUTCOMES, FEEDBACK_REASON_MAX, WORKFLOW_STATES,
-  addFeedback, changeWorkflow, listFeedback, markRead, type FeedbackKind, type FeedbackOutcome, type WorkflowState,
+  addFeedback, changeWorkflow, editFeedback, listFeedback, markRead, type FeedbackKind, type FeedbackOutcome, type WorkflowState,
 } from '../services/analysisWorkflow.js';
 import { registerIncidentRoutes } from './incidentRoutes.js';
 
 /**
  * 이상 분석 API(analysis-ui.md).
  * - 읽기: user/admin 모두. 처리 상태 변경·읽음 표시: user/admin 모두(요청자 기록). 조사·조치 기록 읽기·쓰기: admin(와이어프레임 feedbackBox).
+ *   기록 수정(032 정정 행): admin이면서 최초 기록 작성자만. 삭제 없음.
  * - Bearer 인증만 쓰므로(쿠키 없음) 별도 CSRF 토큰은 없다(기존 쓰기 API와 같음). 본문은 JSON만, 16KB 상한.
  * - 기존 GET /api/pipeline/decisions·SSE /api/pipeline/events는 그대로 둔다.
  */
@@ -99,8 +100,18 @@ export function parseWorkflowRequest(req: Request): { state: WorkflowState; expe
  * 키 생략도 null. 이전 화면(키 2개)은 그대로 받는다.
  */
 export function parseFeedbackRequest(req: Request): { kind: FeedbackKind; reason: string; outcome: FeedbackOutcome | null } {
+  return feedbackFields(req, []);
+}
+/** 기록 수정(032): `{kind, reason, expectedId}` 또는 `{kind, reason, outcome, expectedId}`. 값 검사는 POST와 같고 expectedId = 화면이 본 현재 판본 id(UUID). */
+export function parseFeedbackEditRequest(req: Request) {
+  const fields = feedbackFields(req, ['expectedId']);
+  const expectedId = (req.body as Record<string, unknown>).expectedId;
+  if (typeof expectedId !== 'string' || !UUID.test(expectedId)) throw new AnalysisRequestError('invalid_feedback_request');
+  return { ...fields, expectedId: expectedId.toLowerCase() };
+}
+function feedbackFields(req: Request, extra: string[]): { kind: FeedbackKind; reason: string; outcome: FeedbackOutcome | null } {
   const withOutcome = plainObject(req.body) && Object.prototype.hasOwnProperty.call(req.body, 'outcome');
-  const body = bodyOf(req, withOutcome ? ['kind', 'reason', 'outcome'] : ['kind', 'reason'], 'invalid_feedback_request');
+  const body = bodyOf(req, [...(withOutcome ? ['kind', 'reason', 'outcome'] : ['kind', 'reason']), ...extra], 'invalid_feedback_request');
   const kind = oneOf(body.kind, FEEDBACK_KINDS, 'invalid_feedback_request');
   const outcome = body.outcome === undefined || body.outcome === null ? null : oneOf(body.outcome, FEEDBACK_OUTCOMES, 'invalid_feedback_request');
   const reason = typeof body.reason === 'string' ? body.reason.trim() : '';
@@ -172,6 +183,12 @@ export function createAnalysisRouter(database: () => Pool = getDatabasePool, use
     const id = idOf(req);
     const result = await addFeedback(database(), id, req.user!.id, parseFeedbackRequest(req));
     res.status(201).json({ id: result.id, item: await withActor(result.item) });
+  }));
+  router.put('/decisions/:id/feedback/:feedbackId', requireAdmin as any, route(async (req, res) => {
+    const id = idOf(req);
+    if (!UUID.test(req.params.feedbackId)) throw new AnalysisRequestError('invalid_feedback_id');
+    const result = await editFeedback(database(), id, req.params.feedbackId.toLowerCase(), req.user!.id, parseFeedbackEditRequest(req));
+    res.json({ id: result.id, item: await withActor(result.item) });
   }));
 
   // 사건 보기(층 C, contracts/incidents-ui.md): 읽기만, 같은 인증·오류 처리.

@@ -1,6 +1,6 @@
 // 이상 분석 API의 실제 읽기·쓰기 경로를 런타임 역할 powercode_api로 실행해 database-roles.sql 권한을 확인한다(014 포함).
 // 로컬·CI의 qa_analysis* DB만 허용. 역할 스크립트는 다른 CI 시험(integration_input_roles.py 등)과 같이 superuser로 적용한다.
-// 확인: API 역할로 목록·상세·판정 기록·Process Flow·처리 상태 변경·조사·조치 기록·읽음 성공, 이력·기록 UPDATE·DELETE 거부,
+// 확인: API 역할로 목록·상세·판정 기록·Process Flow·처리 상태 변경·조사·조치 기록(032 수정 포함)·읽음 성공, 이력·기록 UPDATE·DELETE 거부,
 // 읽음 행은 read_at만 갱신, Trainer·LLM·Detector·Collector는 014 표 접근 거부. 실행 전 `npm run build`.
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
@@ -17,7 +17,7 @@ if (!['localhost', '127.0.0.1'].includes(parsed.hostname) || !/^\/qa_analysis[a-
 }
 const here = path.dirname(fileURLToPath(import.meta.url));
 const { readDecisionList, readDecisionDetail, readDecisionInterims, readDecisionFlow, readDecisionGraph } = await import('../dist/services/analysisReadModel.js');
-const { changeWorkflow, addFeedback, listFeedback, markRead } = await import('../dist/services/analysisWorkflow.js');
+const { changeWorkflow, addFeedback, editFeedback, listFeedback, markRead } = await import('../dist/services/analysisWorkflow.js');
 const { readLatency } = await import('../dist/services/operationsReadModel.js');
 
 const admin = new pg.Pool({ connectionString: url });
@@ -66,6 +66,13 @@ try {
   const record = (await addFeedback(api, D.anomaly.id, 'grant-admin', { kind: 'action', reason: '권한 시험', outcome: 'normal' })).item;
   assert.deepEqual([record.kind, record.reason, record.outcome], ['action', '권한 시험', 'normal']);
   assert.deepEqual((await listFeedback(api, D.anomaly.id)).items.map((item) => item.outcome), ['normal']);
+  // 032 기록 수정: 정정 행 INSERT(UPDATE 권한 없이)와 현재 판본 조회·확인 결과 분류(자기 조인·NOT EXISTS)가 API 역할 권한만으로 동작한다.
+  const corrected = (await editFeedback(api, D.anomaly.id, record.id, 'grant-admin',
+    { kind: 'suspected-false-positive', reason: '권한 시험 정정', outcome: 'actual-anomaly', expectedId: record.id })).item;
+  assert.deepEqual([corrected.originId, corrected.reason, corrected.outcome, corrected.createdAt], [record.id, '권한 시험 정정', 'actual-anomaly', record.createdAt]);
+  assert.deepEqual((await listFeedback(api, D.anomaly.id)).items.map((item) => [item.id, item.outcome]), [[corrected.id, 'actual-anomaly']]);
+  const resolvedAnomaly = await readDecisionList(api, { category: 'workflow_resolved_actual_anomaly', q: '', signal: null, completeness: null, sort: 'newest', page: 1, pageSize: 50 }, 'grant-admin', true);
+  assert.deepEqual(resolvedAnomaly.items.map((item) => item.id), [D.anomaly.id], 'outcome category uses the corrected value');
   const seen = list.items.find((item) => item.id === J.interim.id).occurredAt;
   assert.equal((await markRead(api, J.interim.id, 'grant-user', seen)).readAt, seen);
   assert.equal((await markRead(api, J.interim.id, 'grant-user', seen)).readAt, seen, 'upsert on conflict (read_at only)');
@@ -93,7 +100,7 @@ try {
       ['run_decision_workflow_events', 'run_decision_feedback', 'run_decision_reads'].map((table) => [`${role}:${table}`, '42501']))),
   });
   console.log('analysis grants integration passed: powercode_api read/write paths (list, detail, interims, capped flow with true totals, '
-    + 'workflow, feedback, read upsert), API UPDATE/DELETE denied on history and records, read_at-only update, other roles denied on 014 tables');
+    + 'workflow, feedback, feedback correction, read upsert), API UPDATE/DELETE denied on history and records, read_at-only update, other roles denied on 014 tables');
 } finally {
   await api.end();
   await admin.end();

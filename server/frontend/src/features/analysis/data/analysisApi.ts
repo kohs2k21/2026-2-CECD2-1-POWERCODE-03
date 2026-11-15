@@ -462,14 +462,20 @@ export const FEEDBACK_REASON_MAX = 2000;
 /** 확인 결과(029, 기획 "확인 결과(실제 이상·정상·판단 불가)"). null = 미입력. */
 export const feedbackOutcomes = ["actual-anomaly", "normal", "undetermined"] as const;
 export type FeedbackOutcome = (typeof feedbackOutcomes)[number];
+/**
+ * 기록 1건 = 서버의 현재 판본(032 수정은 정정 행 추가). `id` = 이 판본(수정 요청의 expectedId), `originId` = 최초 기록(수정 경로 키, 이전 API 응답이면 id),
+ * `createdAt` = 최초 기록 시각(판정 기록 위치), `editedAt` = 수정 시각(수정 안 했으면 null), `actorId` = 최초 작성자(수정은 작성자만).
+ */
 export type FeedbackRecord = {
   id: string;
+  originId: string;
   kind: FeedbackKind;
   reason: string;
   outcome: FeedbackOutcome | null;
   actorId: string | null;
   actorEmail: string | null;
   createdAt: string | null;
+  editedAt: string | null;
 };
 const parseFeedbackRecord = (value: unknown): FeedbackRecord[] => {
   const kind = record(value) ? oneOf(value.kind, feedbackKinds) : null;
@@ -477,7 +483,8 @@ const parseFeedbackRecord = (value: unknown): FeedbackRecord[] => {
   // 확인 결과: 없음·null = 미입력. 알 수 없는 값은 미입력으로 바꾸지 않고 형식이 틀린 항목으로 버린다(기존 규칙).
   const outcome = value.outcome === undefined || value.outcome === null ? null : oneOf(value.outcome, feedbackOutcomes);
   if (outcome === null && value.outcome !== undefined && value.outcome !== null) return [];
-  return [{ id: value.id as string, kind, reason: value.reason, outcome, actorId: text(value.actorId), actorEmail: text(value.actorEmail), createdAt: time(value.createdAt) }];
+  return [{ id: value.id as string, originId: text(value.originId) ?? (value.id as string), kind, reason: value.reason, outcome,
+    actorId: text(value.actorId), actorEmail: text(value.actorEmail), createdAt: time(value.createdAt), editedAt: time(value.editedAt) }];
 };
 export const parseFeedbackList = (value: unknown): { id: string; items: FeedbackRecord[] } => {
   if (!record(value) || !text(value.id) || !Array.isArray(value.items)) return fail("조사·조치 기록");
@@ -508,6 +515,17 @@ export const changeDecisionWorkflow = async (id: string, state: WorkflowState, e
 export const saveDecisionFeedback = async (id: string, kind: FeedbackKind, reason: string, outcome: FeedbackOutcome | null = null) => {
   const value = await httpClient.post<unknown>(`/api/analysis/decisions/${encodeURIComponent(id)}/feedback`,
     outcome === null ? { kind, reason } : { kind, reason, outcome });
+  const [item] = record(value) ? parseFeedbackRecord(value.item) : [];
+  return item ?? fail("조사·조치 기록");
+};
+/**
+ * 조사·조치 기록 수정(032, 최초 작성자 관리자만): 경로 = 최초 기록 id, expectedId = 화면이 본 현재 판본 id(그 사이 바뀌었으면 409 feedback_edit_conflict).
+ * 확인 결과를 비우면(null) outcome 키를 보내지 않는다(서버는 생략 = 미입력). 삭제는 없다.
+ */
+export const editDecisionFeedback = async (id: string, target: Pick<FeedbackRecord, "id" | "originId">, kind: FeedbackKind, reason: string,
+  outcome: FeedbackOutcome | null) => {
+  const value = await httpClient.put<unknown>(`/api/analysis/decisions/${encodeURIComponent(id)}/feedback/${encodeURIComponent(target.originId)}`,
+    outcome === null ? { kind, reason, expectedId: target.id } : { kind, reason, outcome, expectedId: target.id });
   const [item] = record(value) ? parseFeedbackRecord(value.item) : [];
   return item ?? fail("조사·조치 기록");
 };

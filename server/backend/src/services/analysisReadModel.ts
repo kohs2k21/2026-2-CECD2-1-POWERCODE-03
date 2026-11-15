@@ -59,7 +59,8 @@ export type AnalysisListFilter = {
  * job_status, transaction_id, process_id, transaction_observation_id, channel_id, process_status, response_code(interfaceId는 TX_INTERFACE_SQL),
  * grade, risk_status, risk_level, workflow_state, workflow_changed_at, feedback_outcome, basis_methods.
  * - feedback_outcome: 그 대상(작업 → job_id, 작업 없는 판정 → decision_id, 처리 상태와 같은 대상)의 조사·조치 기록 중
- *   확인 결과가 있는 가장 최근 기록의 확인 결과(029). 확인 결과 없는 기록(null = 미입력)은 건너뛴다. 순서는 GET …/feedback 최신순과 같음(created_at·id 내림차순).
+ *   확인 결과가 있는 가장 최근 기록의 확인 결과(029). 확인 결과 없는 기록(null = 미입력)은 건너뛴다. 기록마다 현재 판본만 쓴다(032 정정 행, 고친 뒤 값).
+ *   순서는 GET …/feedback 최신순과 같음(최초 기록 시각·최초 기록 id 내림차순 — 옛 기록을 고쳐도 뒤에 남긴 기록의 확인 결과를 덮지 않는다).
  * - basis_methods: 이상 신호(signal=yes)이고 저장 evidence v4일 때만 composite.basisMethods 배열(판정 상세 `근거 …`와 같은 조건), 그 밖 null.
  *
  * - final: 최종 판정 행. signal은 운영 리포트(operational-v1)와 같은 규칙 — 이상 = status<>unavailable ∧ anomalous=true,
@@ -107,8 +108,10 @@ const ITEMS_CTE = `replaced AS (
   SELECT DISTINCT ON (coalesce(job_id,decision_id)) coalesce(job_id,decision_id) AS target,to_state,created_at
   FROM run_decision_workflow_events ORDER BY coalesce(job_id,decision_id),seq DESC
 ), feedback AS (
-  SELECT DISTINCT ON (coalesce(job_id,decision_id)) coalesce(job_id,decision_id) AS target,outcome
-  FROM run_decision_feedback WHERE outcome IS NOT NULL ORDER BY coalesce(job_id,decision_id),created_at DESC,id DESC
+  SELECT DISTINCT ON (coalesce(f.job_id,f.decision_id)) coalesce(f.job_id,f.decision_id) AS target,f.outcome
+  FROM run_decision_feedback f LEFT JOIN run_decision_feedback o ON o.id=f.origin_id
+  WHERE f.outcome IS NOT NULL AND NOT EXISTS (SELECT 1 FROM run_decision_feedback n WHERE n.supersedes_id=f.id)
+  ORDER BY coalesce(f.job_id,f.decision_id),coalesce(o.created_at,f.created_at) DESC,coalesce(f.origin_id,f.id) DESC
 ), fields AS (
   -- evidence(판정당 수 KB, TOAST 압축)는 행마다 한 번만 풀어 최상위 키 3개만 꺼낸다. ->마다 다시 풀면 판정이 많을 때 목록 1회가 수 초 걸린다.
   -- 객체가 아닌 evidence는 빈 객체로 본다(->가 NULL을 주던 것과 같음). jsonb_path_query_first(strict, silent)는 객체면 그대로, 아니면 NULL.

@@ -7,7 +7,7 @@ Status: current
 
 - Issue #32 기준: 최신 PostgreSQL·공통 규약·LLM 기획 반영. `schema.dbml`은 최종 목표 구조의 시각화, 실행 원본은 migration SQL
 - 목표 구조(Issue #32 당시): public 28테이블 + `powercode_queue` 기존 물리 큐 2테이블. 기존 public 24테이블 보존, BODY·BODY 연결·불변 입력·LLM 결과 4테이블만 추가
-- 현재 `schema.dbml`: 001~023 전체 + 024 [제안] + 025·026 반영(024·025·026 절) + 027 `job_kind` 값 1개(확정 11/14) + 028 + 029(014 표에 열 1개) + 030(002·009 표 열·인덱스, 새 표 1개) + 031(004 표 CHECK 2개, DBML Note만), public 74테이블 + `powercode_queue` 5테이블. 004_feature_pipeline·005~009 추가분 24테이블 보강, 011 3테이블·012 1테이블·014 3테이블·015 3테이블·019 4테이블·022 4테이블·023 2테이블·024 1테이블·025 2테이블 추가, 026은 022 표에 열 1개 추가. 013(#82)은 함수 설정만 바꿔 DBML 변경 없음
+- 현재 `schema.dbml`: 001~023 전체 + 024 [제안] + 025·026 반영(024·025·026 절) + 027 `job_kind` 값 1개(확정 11/14) + 028 + 029(014 표에 열 1개) + 030(002·009 표 열·인덱스, 새 표 1개) + 031(004 표 CHECK 2개, DBML Note만) + 032(014 표에 열 2개·자기 참조 FK 2개·부분 UNIQUE 색인 1개), public 74테이블 + `powercode_queue` 5테이블. 004_feature_pipeline·005~009 추가분 24테이블 보강, 011 3테이블·012 1테이블·014 3테이블·015 3테이블·019 4테이블·022 4테이블·023 2테이블·024 1테이블·025 2테이블 추가, 026은 022 표에 열 1개 추가. 013(#82)은 함수 설정만 바꿔 DBML 변경 없음
 - 기존 001/002 불변. 003/004는 서버 미적용; ERD 등록·SQL 검수와 실제 운영 적용 구분
 - PostgreSQL 17.11 실제 public24+queue2 존재 확인 기록과 정합. 서버 schema/version 이력 및 완전 DDL 일치는 별도 사전 확인 필요
 
@@ -338,6 +338,20 @@ SELECT r.rolname,
 - 시험(`erd-v03-judgment-store.mjs`, `erd-v03.mjs`가 호출): `erd031_upgrade`(001~030 + 이전 문장으로 쓴 feature·detector 행 → 031 한 문자열: 031 전 `judgment_store` 23514, 카탈로그는 두 CHECK만 변경·같은 이름·검증됨, 기존 행 불변, `judgment_store` 구성 NULL·있음 허용, feature 구성 NULL·다른 stage 값 23514, 재실행 같은 카탈로그, 남은 migration 뒤 DBML parity), `erd031_fresh`(001~끝 한 번에, 두 CHECK 정의가 upgrade와 같음, DBML parity). Detector 경로는 `worker/tests/integration_detection_decision.py` `judgment_store`(첫 판정 1행·측정 INSERT 실패 강제 시 판정·작업 성공)·`integration_relation_recheck.py`(재판정은 측정 행 없음)
 - 함께 바꾼 기존 시험: `prepare-runtime-db.py` `later` 묶음에 031 추가, `integration_relation_recheck.py`의 측정 행 수 검사를 단계별로
 
+## 032 조사·조치 기록 수정(정정 행)
+
+- 파일 `032_feedback_correction.sql`, 031까지 적용 뒤 한 번 실행(014·029 외 의존 없음)(`psql -v ON_ERROR_STOP=1 -f`), 014 표 소유자로 실행. 014 `run_decision_feedback`에 열 `supersedes_id uuid NULL`·`origin_id uuid NULL`(둘 다 같은 표 `id` FK) + 이름 있는 CHECK `run_decision_feedback_correction_check`(두 열 함께 있거나 함께 없음, 자기 자신 참조 금지) + 부분 UNIQUE 색인 `run_decision_feedback_supersedes_uniq`(`supersedes_id IS NOT NULL`) 1개만 추가(새 표·함수·트리거·enum 없음), 단일 BEGIN..COMMIT
+- 왜: 이상 분석 › 판정 상세 판정 기록의 조사·조치 기록 [수정](사용자 11/15, `contracts/analysis-ui.md` "조사·조치 기록" 절). 삭제는 넣지 않는다(기록 보존)
+- 의미: 기존 행은 고치지 않는다. 수정 = 고친 값(유형·사유·확인 결과)을 담은 새 행(정정 행, 작성자 = 수정한 관리자 = 최초 작성자, 시각 = 수정 시각)을 추가하고 `supersedes_id` = 직전 판본, `origin_id` = 최초 기록을 넣는다. 최초 기록은 둘 다 NULL. 현재 판본 = 그 행을 `supersedes_id`로 가리키는 행이 없는 행. UNIQUE 때문에 한 판본은 한 번만 바뀌어 사슬이 한 줄이고, 같은 판본을 동시에 고치면 한쪽만 성공(23505 → API 409 `feedback_edit_conflict`)
+- API 검사(DB 검사 아님): 정정 행이 원래 기록과 같은 대상(`job_id`/`decision_id`)인지, `origin_id`가 사슬의 첫 행인지. `job_id`·`decision_id` 중 하나가 늘 NULL이라 복합 FK(MATCH SIMPLE)로는 검사되지 않고, 트리거는 두지 않는다
+- 읽기: 목록(GET …/feedback)과 확인 결과별 완료 분류(`analysisReadModel.ts` `feedback` CTE)는 현재 판본만 쓰고, 순서는 최초 기록 시각(`coalesce(origin.created_at, created_at)`)·최초 기록 id 내림차순. 그래서 옛 기록을 고쳐도 목록 위치가 그대로이고 뒤에 남긴 기록의 확인 결과를 덮지 않는다
+- 잠금: 이 표에만 ACCESS EXCLUSIVE를 잠깐(DEFAULT 없는 NULL 열이라 행 재작성 없음, CHECK 검사·색인 생성은 기존 기록 행만 — 사람이 남긴 기록이라 작다). `run_jobs`·`run_process_decisions`는 잠그지 않고 작업자를 멈출 필요 없음
+- **역할 스크립트 재적용 불필요**: 014 GRANT가 표 단위(`powercode_api` SELECT·INSERT)라 새 열에도 그대로 적용된다. UPDATE·DELETE 권한은 여전히 없다(append-only 유지). `scripts/database-roles.sql` 변경 없음. Detector·Collector·Trainer·LLM 권한 없음 그대로
+- **배포 순서: migration 032 → 바로 새 API → WebUI**. 이 열을 모르는 이전 API의 INSERT는 열 목록을 명시하므로 NULL(최초 기록)을 넣어 먼저 적용해도 안전하다. 새 API는 이 열을 읽으므로 열이 없으면 조사·조치 기록 조회·저장과 이상 분석 목록이 503. 정정 행은 새 API만 만들지만, 이전 API가 남아 있는 동안 정정 행이 생기면 이전 API는 그 행을 따로 된 기록으로 보여 주고 확인 결과 계산에도 넣으므로 032 다음 바로 새 API를 올린다. 새 WebUI를 API보다 먼저 올리면 [수정] 저장이 404이므로 순서를 지킨다
+- 자동 down migration 없음(되돌리기 = 정정 행이 생기기 전에만 `DROP INDEX run_decision_feedback_supersedes_uniq`·`ALTER TABLE run_decision_feedback DROP CONSTRAINT run_decision_feedback_correction_check, DROP COLUMN supersedes_id, DROP COLUMN origin_id`. 정정 행이 생긴 뒤 되돌리면 이전 판본과 정정 행이 모두 따로 된 기록으로 보인다). 다시 실행하면 이미 있는 열에서 42701로 실패해 전체 ROLLBACK(반쪽 적용 없음)
+- 시험(`erd-v03-feedback-correction.mjs`, `erd-v03.mjs`가 호출): `erd032_upgrade`(001~031 + 역할 스크립트 + 이전 API 문장으로 쓴 기록 → 032: 기존 기록 두 열 NULL, 열 형식·FK 2개·이름 있는 CHECK·부분 UNIQUE 색인·트리거 없음, 역할 스크립트 재적용 없이 실제 LOGIN API가 정정 행 쓰기·읽기, 이전 API INSERT 혼용, 한 판본 두 번 정정 23505, 한 열만·자기 참조 23514, 없는 행 참조 23503, API UPDATE·DELETE 42501, 다른 역할 4개 SELECT 42501, 다시 실행 42701 뒤 상태 그대로, DBML parity). API 경로는 `backend/tests/analysis.integration.mjs`(수정·권한·충돌·목록·확인 결과 분류)·`analysis-grants.integration.mjs`(API 역할로 정정 행 쓰기·읽기)
+- 함께 바꾼 기존 시험: `prepare-runtime-db.py` `later` 묶음에 032 추가
+
 ## 큐와 소유권
 
 - 001의 `detection_logs/training_jobs`는 기존 물리 큐. 기존 Python helper의 payload·물리 lease 경로 보존
@@ -388,7 +402,7 @@ SELECT r.rolname,
 
 ## DBML과 SQL 대응
 
-- DBML은 001~031(024 [제안] 포함) 적용 후 최종 구조(컬럼·nullability·unique·FK·enum 순서). 물리 큐 5개도 명시. enum 순서는 PostgreSQL 추가 순서(`job_kind`의 `import_csv`는 explain 뒤)
+- DBML은 001~032(024 [제안] 포함) 적용 후 최종 구조(컬럼·nullability·unique·FK·enum 순서). 물리 큐 5개도 명시. enum 순서는 PostgreSQL 추가 순서(`job_kind`의 `import_csv`는 explain 뒤)
 - nullable FK는 `>?`, unique FK는 부모 `-` 자식 방향, nullable unique FK는 부모 `?-` 자식 방향으로 표시. 실제 FK 방향은 SQL/파싱 대응 시험으로 확인
 - attempt의 복합 FK 3개는 DBML의 exact-composite index 판정 한계로 `>`/`>?` 표시. 자식의 개별 PK/unique가 실제 1:1 제약을 보장한다는 주석 유지; 그림 경고를 없애려고 SQL 중복 인덱스를 추가하지 않음
 - `@dbml/core`는 현재 문법의 `dbmlv2` parser 사용. deprecated `dbml` parser는 optional 관계 문법을 지원하지 않음

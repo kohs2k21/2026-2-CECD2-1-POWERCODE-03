@@ -93,6 +93,15 @@ const ReplaceAction = ({ version }: { version: ModelVersionDetail }) => {
     : <Button size="sm" variant="outline" disabled>이 버전으로 교체</Button>;
 };
 
+/**
+ * 와이어프레임 '+ 새 비교 평가': 평가 결과 새 비교 평가 1단계로 가며 이 버전을 비교 모델로 미리 고른다. 모델 교체 화면과 같은 state `compareVersionId`를
+ * 새 비교 평가 영역이 받아 비교 평가 초안(compareDraft.ts `writeCompareDraft`)에 넣는다. 비교 모델로 고를 수 있는 버전(실행 가능·운영 중 아님)일 때만 누를 수 있다.
+ */
+const CompareAction = ({ version }: { version: ModelVersionDetail }) =>
+  version.executable && !version.active
+    ? <Button asChild size="sm" variant="outline"><Link to={`${paths.detectionEvaluations}?step=1`} state={{ compareVersionId: version.id }}>+ 새 비교 평가</Link></Button>
+    : <Button size="sm" variant="outline" disabled>+ 새 비교 평가</Button>;
+
 const VersionBody = ({ version }: { version: ModelVersionDetail }) => {
   const location = useLocation();
   const capabilities = useCapabilities();
@@ -111,7 +120,7 @@ const VersionBody = ({ version }: { version: ModelVersionDetail }) => {
   };
   return (
     <>
-      <SectionCard title={`버전 ${versionLabel(version)}`} action={version.modelKey ? <ReplaceAction version={version} /> : undefined}>
+      <SectionCard title={`버전 ${versionLabel(version)}`} action={version.modelKey ? <><ReplaceAction version={version} /><CompareAction version={version} /></> : undefined}>
         <DescriptionList
           items={[
             { label: "모델", value: `${methodName(capabilities.data?.methodCatalog.methods, version.modelKey)}${method ? ` · ${method.methodId}` : ""}` },
@@ -161,7 +170,7 @@ const VersionBody = ({ version }: { version: ModelVersionDetail }) => {
   );
 };
 
-/** 모델 버전 상세: 조회만 한다. 교체는 머리 오른쪽 `이 버전으로 교체`(모델 교체 2단계), 평가 이력은 이 버전이 들어간 비교 평가. */
+/** 모델 버전 상세: 조회만 한다. 머리 오른쪽 `이 버전으로 교체`(모델 교체 2단계)·`+ 새 비교 평가`(평가 결과 새 비교 평가, 이 버전을 비교 모델로), 평가 이력은 이 버전이 들어간 비교 평가. */
 export const ModelVersionDetailPage = () => {
   const { versionId = "" } = useParams();
   const version = useAccountQuery({ name: "model-version", params: [versionId], adminOnly: true, staleTime: 0, read: (signal) => readVersion(versionId, signal) });

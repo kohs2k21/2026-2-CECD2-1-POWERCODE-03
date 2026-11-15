@@ -197,6 +197,10 @@ const previewOk = (changes, warnings = []) => () => json({ valid: true, summary:
     "GET /api/rule-set/protocol-drafts": () => json(phase === "queued" ? { state: "protocol_drafts_unavailable", reason: "not_in_result", latestJob: { ...newJob, status: "queued", finishedAt: null }, job: draftJob }
       : phase === "failed" ? { state: "protocol_drafts_unavailable", reason: "not_in_result", latestJob: { ...newJob, status: "failed", errorCode: "relation_snapshot_not_ready" }, job: draftJob }
         : { ...draftsHead, latestJob: newJob, job: newJob, snapshotId: "snap-2" }),
+    // 건수는 건수 요약 API(rule-candidates-ui.md 2-1절)가 센다 — 화면은 초안 목록으로 다시 세지 않는다.
+    "GET /api/rule-set/candidates/summary": () => json(phase === "queued"
+      ? { latestJob: { ...newJob, status: "queued", finishedAt: null }, job: null, ruleSetRevision: 12, counts: { anomaly: 0, relation: 0, protocol: 0 } }
+      : { latestJob: newJob, job: newJob, ruleSetRevision: 12, counts: { anomaly: 0, relation: 0, protocol: 2 } }),
   };
   const app = await mount(paths.detectionRuleProtocols);
   await wait(() => byData(app, "data-latest-job").length === 1, "queued job shown");
@@ -204,14 +208,15 @@ const previewOk = (changes, warnings = []) => () => json({ valid: true, summary:
   assert.equal(byData(app, "data-candidate-running").length, 0);
   const recommend = () => app.renderer.root.findAll((n) => typeof n.type !== "string" && n.props?.["data-recommend-link"] === "flow")[0];
   assert.deepEqual([recommend().props.to, recommend().props.state], ["/detection/rules/candidates?tab=flow#recommend-paths", { returnTo: "/detection/rules/protocols" }], "link to the paths section of rule recommendations");
-  assert.equal(text(recommend().children), "추천 0건 보기", "no draft yet: zero");
+  await wait(() => text(recommend().children) === "추천 0건 보기", "no draft yet: zero");
   const latest = byData(app, "data-latest-job")[0];
   assert.ok(text(latest.children).startsWith("최근 작업 대기"), text(latest.children));
   assert.equal(latest.findAllByType("a")[0].props.href, `/detection/operations/jobs/${NEW_JOB}`, "job detail link");
   phase = "succeeded";
   await wait(() => byData(app, "data-protocol-row").length === 2 && byData(app, "data-latest-job").length === 0, "drafts table filled after polling", 800);
   assert.equal(byData(app, "data-drafts-unavailable").length, 0);
-  assert.equal(text(recommend().children), "추천 2건 보기", "draft interfaces (status draft) are counted");
+  await wait(() => text(recommend().children) === "추천 2건 보기", "summary count re-read while the job runs", 800);
+  assert.deepEqual(calls("GET", "/api/rule-set/candidates/summary").at(-1).search, "", "summary has no query");
   await app.cleanup();
   phase = "failed";
   const failed = await mount(paths.detectionRuleProtocols);

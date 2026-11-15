@@ -170,6 +170,9 @@ try {
   await code('GET', '/api/notifications?limit=51', 400, 'invalid_limit');
   await code('GET', '/api/notifications?cursor=%%%', 400, 'invalid_cursor');
   await code('GET', `/api/notifications?cursor=${Buffer.from('["1","flow:x"]').toString('base64url')}`, 400, 'invalid_cursor');
+  // 옛 커서 [순번, 항목 키](알림 시각 없음)·시각 형식 오류는 거절(정렬 키 = 커서 키).
+  await code('GET', `/api/notifications?cursor=${Buffer.from(JSON.stringify(['1', `job:${crypto.randomUUID()}`])).toString('base64url')}`, 400, 'invalid_cursor');
+  await code('GET', `/api/notifications?cursor=${Buffer.from(JSON.stringify(['1', '2026-11-14T00:00:00Z', `job:${crypto.randomUUID()}`])).toString('base64url')}`, 400, 'invalid_cursor');
   await code('GET', '/api/notifications?sort=old', 400, 'unknown_notification_filter');
   await code('GET', '/api/notifications/unread-count?view=all', 400, 'unknown_notification_filter');
   await code('GET', '/api/me/settings?x=1', 400, 'unknown_notification_filter');
@@ -587,6 +590,21 @@ try {
   assert.ok(jobItems(adminJobs).every((item) => BigInt(item.seq) <= BigInt(adminJobs.latestSeq)), 'job sort sequence is on the decision event axis');
   assert.deepEqual(adminJobs.items.map((item) => BigInt(item.seq)), [...adminJobs.items.map((item) => BigInt(item.seq))].sort((a, b) => (a < b ? 1 : a > b ? -1 : 0)),
     'mixed list stays in sequence order');
+  // 판정 이벤트가 멈춘 뒤 끝난 작업 4개는 순번이 모두 같다(동점) → 알림 시각(종료 시각) 최신 먼저. 키(UUID) 순서가 아니다.
+  const tiedJobs = jobItems(adminJobs);
+  assert.equal(new Set(tiedJobs.map((item) => item.seq)).size, 1, 'jobs finished after the last decision event share one sort sequence');
+  assert.deepEqual(tiedJobs.map((item) => item.key), [JB.compareFail, JB.compareOk, JB.trainOk, JB.trainFail].map((jobId) => `work:${jobId}`),
+    'tied job items are newest finish first');
+  // 전체 목록: (순번, 알림 시각) 내림차순 — 같은 순번의 판정·사건 항목보다 그 뒤에 끝난 작업이 먼저.
+  const sortKeyOf = (item) => [BigInt(item.seq), item.notifiedAt];
+  for (let index = 1; index < adminJobs.items.length; index += 1) {
+    const [prevSeq, prevAt] = sortKeyOf(adminJobs.items[index - 1]);
+    const [seq, at] = sortKeyOf(adminJobs.items[index]);
+    assert.ok(prevSeq > seq || (prevSeq === seq && prevAt >= at), `list sorted by sequence then notification time at ${index}`);
+  }
+  const tieSeq = tiedJobs[0].seq;
+  const tieOthers = adminJobs.items.filter((item) => item.type !== 'job' && item.seq === tieSeq);
+  assert.ok(tieOthers.every((item) => item.notifiedAt <= tiedJobs.at(-1).notifiedAt), 'jobs come before the same-sequence decision items');
   const lastFinished = (await pool.query(`SELECT to_char(max(finished_at) AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS at FROM run_jobs
     WHERE kind IN ('train','compare') AND status IN ('succeeded','failed')`)).rows[0].at;
   assert.equal(adminJobs.latestJobAt, lastFinished, 'latestJobAt = latest finished train/compare job');
@@ -604,6 +622,17 @@ try {
     jobCursor = page.nextCursor;
   } while (jobCursor);
   assert.deepEqual(walkedJobs, adminJobs.items.map((item) => item.key), 'keyset walk with job items');
+  // 한 개씩: 동점 순번 묶음 안에서도 커서가 빠짐·중복 없이 이어진다.
+  const walkedOne = [];
+  let oneCursor = null;
+  do {
+    const page = await list(`view=all&limit=1${oneCursor ? `&cursor=${oneCursor}` : ''}`, admin);
+    walkedOne.push(...page.items.map((item) => item.key));
+    oneCursor = page.nextCursor;
+  } while (oneCursor);
+  assert.deepEqual(walkedOne, adminJobs.items.map((item) => item.key), 'limit 1 keyset walk across tied sequences');
+  // unread 보기도 같은 순서(동점 작업 최신 먼저).
+  assert.deepEqual(jobItems(await list('view=unread&limit=50', admin)).map((item) => item.key), tiedJobs.map((item) => item.key), 'unread view keeps the same order');
   // 일반 사용자: 작업 항목·수 없음(includeJobs가 true여도).
   const userCount = await ok('GET', '/api/notifications/unread-count', user);
   assert.deepEqual([userCount.unreadByType.job, userCount.latestJobAt, jobItems(await list('view=all&limit=50', user)).length], [0, null, 0], 'job notifications are admin only');
@@ -655,7 +684,7 @@ try {
     lastFinished, 'jobs boundary never moves back');
   const finalRead = await ok('POST', '/api/notifications/read', admin, { through: laterList.latestSeq, jobsThrough: laterList.latestJobAt });
   assert.equal(finalRead.unreadByType.job, 0);
-  console.log('PASS job notifications: train/compare finished only, admin only, includeJobs, window by finish time, item and read-all by finish time');
+  console.log('PASS job notifications: train/compare finished only, admin only, includeJobs, window by finish time, item and read-all by finish time, tied sequence newest first');
   console.log('PASS notifications integration');
 } finally {
   child?.kill();

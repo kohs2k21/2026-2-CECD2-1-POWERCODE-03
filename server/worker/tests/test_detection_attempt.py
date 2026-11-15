@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import ast
 from concurrent.futures import Future
+from contextlib import nullcontext
+import inspect
 from datetime import datetime, timezone
 import hashlib
 import json
@@ -21,13 +23,16 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from detector import jobs
+from detector.attempt_v04 import judge_row
+from detector.decision import decide
 from detector.evidence_v4 import PinnedRevisions, build_evidence
 from detector.hard_rules import (HARD_RULES, PROCESS_STATUS, V3_HARD_RULE_IDS, read_hard_rule_snapshot,
                                  unresolved_hard_result)
 from detector.method_results import method_result, ml_method_result, unresolved_result
 from detector.method_runner import MethodOutcome, MethodTask, execute_methods
-from detector.operational_state import pin_operational_state, rule_set_content_hash
+from detector.operational_state import pin_fixed_state, pin_operational_state, rule_set_content_hash
 from detector.policy import _POOLS, _SLOTS, parse_policy_v2
+from detector.relation_plan import plan_relations
 from detector.soft_rules import soft_rule_fields, unresolved_soft_result
 from detector.input_reader import ProcessObservation
 from detector.source_latency import decision_source_time, source_latency_measurable
@@ -87,6 +92,33 @@ class FakeConn:
 
     def cursor(self):
         return FakeCursor(self)
+
+
+class RecordingConn(FakeConn):
+    """FakeConn + 실행한 문장 기록(judge_row가 DB를 쓰지 않는지 본다)."""
+
+    def __init__(self, **options):
+        super().__init__(**options)
+        self.statements = []
+
+    def cursor(self):
+        conn = self
+
+        class Recording(FakeCursor):
+            def execute(self, sql, params=None):
+                conn.statements.append(sql)
+                super().execute(sql, params)
+        return Recording(self)
+
+    def execute(self, sql, params=None):
+        self.statements.append(sql)
+
+    def transaction(self):
+        self.statements.append("BEGIN")
+        return nullcontext()
+
+    def commit(self):
+        self.statements.append("COMMIT")
 
 
 class RuleSetHash(unittest.TestCase):
@@ -197,6 +229,54 @@ class Pinning(unittest.TestCase):
                   "deadlineMs": 3000}
         with self.assertRaisesRegex(ValueError, "combination_k_out_of_range:hard"):
             pin_operational_state(FakeConn(policy_revision=1, policy=policy))
+
+
+class FixedPinning(unittest.TestCase):
+    """pin_fixed_state: 운영 뷰 대신 주어진 리비전 값으로 같은 검사(비교 평가 종합용)."""
+
+    def test_same_state_as_operational_view(self):
+        model = str(uuid.uuid4())
+        conn = FakeConn(models=[{"configVersionId": model, "modelKey": "iforest"}], content=snapshot(soft_rules=[SOFT]))
+        digest, version, _ = conn.stored
+        fixed = pin_fixed_state(conn, 1, digest, 0, None, [{"configVersionId": model, "modelKey": "iforest"}],
+                                active_model_set_revision=0)
+        self.assertEqual(fixed, pin_operational_state(conn))
+        self.assertEqual(version, 2)
+
+    def test_hash_mismatch_fails_closed(self):
+        conn = FakeConn()
+        with self.assertRaisesRegex(ValueError, "^rule_set_hash_mismatch$"):
+            pin_fixed_state(conn, 1, "0" * 64, 0, None, [], active_model_set_revision=0)
+        # 저장 hash는 맞아도 스냅샷을 그 행의 hash 버전 규칙으로 다시 계산한 값이 다르면 실패(v3 행도 같은 경로).
+        content = V3_VECTORS["c"]
+        wrong = rule_set_content_hash(content, 2)
+        with self.assertRaisesRegex(ValueError, "^rule_set_hash_mismatch$"):
+            pin_fixed_state(FakeConn(stored=(wrong, 3, content)), 1, wrong, 0, None, [], active_model_set_revision=0)
+        with self.assertRaisesRegex(ValueError, "^rule_set_snapshot_unavailable$"):
+            pin_fixed_state(FakeConn(stored=None), 1, conn.stored[0], 0, None, [], active_model_set_revision=0)
+
+
+class JudgeRow(unittest.TestCase):
+    """judge_row = 방법 과제 → execute_methods → decide. DB를 읽거나 쓰지 않는다."""
+
+    def setUp(self):
+        wait_for_free_slots("ml")
+        wait_for_free_slots("rule")
+
+    def test_no_database_access_and_same_decision(self):
+        conn = RecordingConn(content=snapshot(soft_rules=[SOFT]))
+        state = pin_operational_state(conn)
+        conn.statements.clear()
+        raw = {"status": "F", "total_count": "10", "success_count": "9", "error_count": "1", "elapsed_ms": "9000"}
+        judgment = judge_row(state, [], raw, None, plan_relations(state, None, raw), started_at=time.monotonic())
+        self.assertEqual(conn.statements, [], "judge_row는 연결을 받지 않고 DB를 쓰지 않는다")
+        decided = judgment.decided
+        self.assertEqual(decided, decide(state.policy, judgment.execution.methods))
+        self.assertEqual([method["methodId"] for method in decided["methodResults"]],
+                         [*state.hard_rules.enabled_ids, SOFT["id"]])
+        self.assertEqual(decided["composite"]["grade"], "anomaly")
+        self.assertIn(PROCESS_STATUS, decided["composite"]["basisMethods"])
+        self.assertNotIn("conn", inspect.signature(judge_row).parameters)
 
 
 RULE_SET_MD = WORKER.parents[0] / "contracts" / "rule-set.md"

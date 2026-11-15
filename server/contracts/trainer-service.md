@@ -1,5 +1,5 @@
 Created: 2026-10-17T01:49:42+09:00
-Updated: 2026-11-15T12:00:00+09:00
+Updated: 2026-11-15T18:00:00+09:00
 Author: Claude Code (Trainer 세션 builder)
 Status: current
 
@@ -156,7 +156,7 @@ Created: 2026-11-02T18:00:00+09:00 / Updated: 2026-11-15T12:00:00+09:00 / Author
 | 키 | 규칙 |
 |---|---|
 | `timeBasis` | `persisted_at`(현행, 키 생략 시 기본 — 기존 요청 호환) / `esb_occurred_at`(`data_observations.source_log_occurred_at`). snapshot 기간 자르기 `[from, until)`의 기준(10/28 Q-B2 ★A "둘 다 선택"). 새 학습 화면은 거래량 그래프가 ESB 발생 시각 기준이므로 `esb_occurred_at`를 보냄 |
-| `excludedIntervals[]` | 0..32개. 각 `{from, until, reasonCode?, note?}`: ISO 8601(오프셋 필수), `from < until`, `[from, until)`가 요청 기간 안(밖이면 400 `excluded_interval_out_of_range`), 서로 겹치면 400 `excluded_interval_overlap`(서버 병합 없음 — **화면이 드래그 결과를 먼저 병합해 보낸 뒤** 보여 준 구간과 저장 구간이 같아야 함, WebUI 11/02). `reasonCode`는 **선택**, 생략 시 서버가 `other`로 저장; 값 ∈ `known_incident` / `maintenance` / `collection_anomaly` / `value_spike` / `other`. `note` ≤ 200자 선택. 구간 비교는 **학습 `timeBasis`와 같은 시각 열**(현행 `persisted_at`; `esb_occurred_at` 지원 뒤에는 그 열 `source_log_occurred_at`) [확정 11/15 사용자 결정 — 11/02 Q7 "항상 ESB 발생 시각"을 대체. `source_log_occurred_at`은 지금 채워지지 않는 열이라 그 기준으로는 구간 판단이 불가능] |
+| `excludedIntervals[]` | 0..32개. 각 `{from, until, reasonCode?, note?}`: ISO 8601(오프셋 필수), `from < until`, `[from, until)`가 요청 기간 안(밖이면 400 `excluded_interval_out_of_range`), 서로 겹치면 400 `excluded_interval_overlap`(서버 병합 없음 — **화면이 드래그 결과를 먼저 병합해 보낸 뒤** 보여 준 구간과 저장 구간이 같아야 함, WebUI 11/02). `reasonCode`는 **선택**, 생략 시 서버가 `other`로 저장; 값 ∈ `known_incident` / `maintenance` / `collection_anomaly` / `value_spike` / `other`. `note` ≤ 200자 선택. 구간 비교는 **학습 `timeBasis`와 같은 시각 열**(현행 `persisted_at`; `esb_occurred_at` 지원 뒤에는 그 열 `source_log_occurred_at`) [확정 11/15 사용자 결정 — 11/02 Q7 "항상 ESB 발생 시각"을 대체. `source_log_occurred_at`은 migration 030 뒤 새 관측부터 채워지고(원천 시각을 못 읽으면 NULL) 그 전 관측은 NULL로 남아(보정 없음, [collector-metrics.md](collector-metrics.md) 1.1) 그 기준만으로는 기존 기간의 구간 판단이 불가능] |
 | `evaluationSetId` | 선택. 학습 성공 뒤 자동 비교 평가(상대 = 같은 `modelKey`의 활성 버전)에 쓸 세트([config-comparison-evaluation.md](config-comparison-evaluation.md) 자동 비교 절). null이면 기본 세트 규칙 |
 | `modelKey`·`parameters` | #74 변경 제안 승계: 카탈로그 `ml:*` 키·`method_not_executable`·`parameters` 스키마 검증. 키 전부 생략(v3 키 없음) 시 현행 v1·v2 경로 |
 | (없음) `detectionPolicy` | **v3 요청에 없음**(2차 개정): 종합 판정 정책은 운영 설정 전역 값([model-version.md](model-version.md) 운영 설정 절)이며 모델 버전·학습 작업에 묶이지 않음. v3 키가 있는 요청에 `detectionPolicy`가 있으면 400 `invalid_detection_policy`. v1 형식 요청(`{mode, deadlineMs, combination}` 필수)은 현행 그대로 |
@@ -182,7 +182,7 @@ Created: 2026-11-02T18:00:00+09:00 / Updated: 2026-11-15T12:00:00+09:00 / Author
 - 응답: `{sourceId, timeBasis, bucket, timezone, from, until, totalCount, timeUnknownCount, buckets: [{bucketStart, processCount, statusCounts: {S, F, P, N, other}}]}`. 빈 버킷은 0으로 채움(그래프 연속), `bucketStart`는 `timezone` 기준 경계(월은 1일 00:00, 일은 00:00, 시·분은 정각)를 UTC ISO로
 - 기준: PROCESS 관측(`data_processes` ⋈ `data_observations`), `timeBasis=esb_occurred_at`이면 `source_log_occurred_at`(null은 `timeUnknownCount`로 분리, 버킷에 넣지 않음). revision 중복은 Backend 보고 규칙(execution별 최신 revision 1개)과 동일 — snapshot 멤버 규칙과 일치. UTC/시간대 규약은 [Backend 보고 계약](../backend/README.md)
 - 단위·한도 [확정 11/02 9.4 "월 → 일 → 시간 → 분"; 상한은 제안, WebUI 11/02 대조값]: `month` 범위 제한 없음 / `day` ≤ 3년(1096일) / `hour` ≤ 92일 / `minute` ≤ 7일 — 초과 400 `volume_range_too_large` + `{bucket, maxDays}`. 화면 확대·축소(마우스 휠, 주식 차트처럼)는 보이는 범위에 맞는 단위로 **재조회**(범위가 그 단위 상한 안이면 더 작은 단위 허용). 한 응답의 버킷 수 상한은 단위 상한에서 파생(minute 7일 = 10,080개)
-- DB 요구: `data_observations(source_id, source_log_occurred_at)` 인덱스(현재 `persisted_at` 인덱스만, `002_core_erd.sql:51`). 재생(CSV) 데이터는 `persisted_at`이 재생 시각이라 ESB 시각 기준이 의미 있음(10/28 5.1)
+- DB 요구: `data_observations(source_id, source_log_occurred_at)` 인덱스 — migration 030의 부분 인덱스 `data_observations_source_occurred_idx`(`WHERE source_log_occurred_at IS NOT NULL`, [collector-metrics.md](collector-metrics.md) 1.2)로 충족. `source_log_occurred_at >= $1` 같은 조건은 `IS NOT NULL`을 함의해 이 인덱스를 쓰고, 시각 없는 행(`timeUnknownCount`)은 인덱스 밖이다. 재생(CSV) 데이터는 `persisted_at`이 재생 시각이라 ESB 시각 기준이 의미 있음(10/28 5.1)
 - 용도: 새 학습 "기간 단계"(조회 범위 → [조회] → 일별 그래프 → 드래그/두 번 클릭으로 제외 구간 N개). 그래프는 선택 보조일 뿐, 제외 구간 자동 확정 없음
 
 ### capabilities·완료 결과 — #74 변경 제안 승계(모델 단위)

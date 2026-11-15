@@ -38,13 +38,16 @@ ROWS = 2000
 FOREIGN_ROWS = 1000
 # 시간순 70/15/15에서 validation(1400..1699)에 드는 행 1개를 TOTAL_COUNT 0·실패(F)로 둔다(학습 선택은 S만이라 학습에 안 쓰임).
 ZERO_TOTAL_INDEX = 1552
+# 같은 validation 구간의 상태 F 행 1개(건수는 정상이라 평가에서 빠지지 않음). r1 룰 세트의 상태 하드룰이 T로 잡아
+# 종합(composite)의 hitCount에 들어간다. 학습 선택은 S만이라 학습에 쓰이지 않는다.
+STATUS_F_INDEX = 1553
 
 
 def stamp(moment):
     return moment.isoformat().replace("+00:00", "Z")
 
 
-def seed(conn, name, rows, zero_total=None):
+def seed(conn, name, rows, zero_total=None, status_failed=None):
     sid = source(conn, name)
     start = datetime.now(timezone.utc) - timedelta(hours=2)
     for index in range(rows):
@@ -53,6 +56,8 @@ def seed(conn, name, rows, zero_total=None):
                "success_count": str(50 + index % 13), "error_count": "0", "status": "S"}
         if index == zero_total:
             raw.update(total_count="0", success_count="0", error_count="0", status="F")
+        if index == status_failed:
+            raw.update(status="F")
         # 라벨은 일부 행에만(이상 4%·정상 일부, 나머지는 라벨 없음) — 정상 라벨 유무 null 규칙을 실제 값으로 본다.
         label = "anomaly" if anomalous else "normal" if index % 5 == 1 else None
         observe(conn, sid, f"compare-{sid}-{index}", raw, label, persisted=start + timedelta(seconds=index))
@@ -193,6 +198,27 @@ def comparison_rows(conn, job_id):
     return comparison, evaluations, items
 
 
+def verify_composite(item, spec):
+    """종합(`composite`) v1: 고정 r1 룰 세트(상태 하드룰 켬) + 고정 정책 + 항목 모델 1개. 상태 F 행이 하드 T라
+    판정 가능 기준 hitCount ≥ 1, 두 기준 불변식, 모집단 = 항목 모집단(제외 행 제외)."""
+    composite, counts, ml = item["composite"], item["counts"], item["categoryResults"]["ml"]
+    assert composite is not None and not any(code.startswith("composite_unavailable:") for code in item["reasonCodes"]), item
+    assert (composite["metricVersion"], composite["ruleSetRevision"], composite["detectionPolicyRevision"],
+            composite["relationInputs"]) == ("comparison-composite-v1", spec["ruleSetRevision"],
+                                             spec["detectionPolicyRevision"], "not_used"), composite
+    population = composite["populationCount"]
+    assert population == counts["populationCount"] and sum(composite["labelCounts"].values()) == population, composite
+    complete, decidable = composite["completeOnly"], composite["decidable"]
+    assert decidable["hitCount"] >= complete["hitCount"] and decidable["hitCount"] >= 1, composite
+    assert decidable["unavailableCount"] <= complete["unavailableCount"], composite
+    for basis in (complete, decidable):
+        assert abs(basis["coverage"] - (population - basis["unavailableCount"]) / population) < 1e-12, basis
+        assert all(type(value) is int for value in basis["confusion"].values()), basis
+    assert decidable["biasNote"] == "partial_true_included_none_excluded" and "biasNote" not in complete, composite
+    assert ml["decidable"]["biasNote"] == "single_method_equals_complete_only", ml["decidable"]
+    assert {key: ml["decidable"][key] for key in ("recall", "precision", "falsePositiveRate")} == ml["completeOnly"], ml
+
+
 def verify_compare(conn, fixture, set_id, generation, active, candidate, version3, foreign, overlapping):
     # 1. 운영(v1) + 후보(v1) + 후보(v3) → 성공, 비교 1행·평가 3행·항목 3행. v3는 접수 고정 정책, v1은 구성 정책으로 평가.
     spec = compare_spec(conn, fixture, set_id, [active, candidate, version3], active)
@@ -238,6 +264,9 @@ def verify_compare(conn, fixture, set_id, generation, active, candidate, version
             assert pinned == spec["detectionPolicy"] and pinned["deadlineMs"] == 2500, (pinned, spec)
         else:
             assert policy["source"] == "configuration" and policy["detectionPolicy"]["mode"] == "ml_only", policy
+        verify_composite(item, spec)
+    print("composite sample (active item):", json.dumps(summary["items"][0]["composite"], ensure_ascii=False))
+    print("ml.decidable sample (active item):", json.dumps(summary["items"][0]["categoryResults"]["ml"]["decidable"]))
     # 성공 3항목 → 쌍 3개, 항목 순서(활성 먼저). 비교 가능 행 = 두 항목 모두 판정한 행(제외 행 빠짐).
     order = [item["configVersionId"] for item in summary["items"]]
     pairs = summary["pairwiseAgreement"]
@@ -273,7 +302,8 @@ def main():
     with tempfile.TemporaryDirectory(prefix="powercode-compare-") as directory:
         os.environ["ARTIFACT_ROOT"] = str(Path(directory).resolve())
         with psycopg.connect(dsn) as conn:
-            fixture = seed(conn, "Compare evaluation fixture", ROWS, zero_total=ZERO_TOTAL_INDEX)
+            fixture = seed(conn, "Compare evaluation fixture", ROWS, zero_total=ZERO_TOTAL_INDEX,
+                           status_failed=STATUS_F_INDEX)
             foreign_fixture = seed(conn, "Compare evaluation other source", FOREIGN_ROWS)
             active = train(conn, fixture, -1, ROWS + 10)
             candidate = train(conn, fixture, -1, ROWS + 10)
@@ -290,7 +320,7 @@ def main():
             verify_compare(conn, fixture, set_id, generation, active["configVersionId"], candidate["configVersionId"],
                            version3["configVersionId"], foreign["configVersionId"], overlapping["configVersionId"])
     print("compare evaluation integration passed: evaluation set, v1 active + v1/v3 candidates compare (1 excluded row, "
-          "pairwise agreement), item failures, all-failed")
+          "pairwise agreement, composite with fixed r1 rule set + status F row), item failures, all-failed")
 
 
 if __name__ == "__main__":

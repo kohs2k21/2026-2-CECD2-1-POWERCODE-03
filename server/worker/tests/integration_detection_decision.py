@@ -31,6 +31,7 @@ from detector.hard_rules import HARD_RULES, V3_HARD_RULE_IDS, read_hard_rule_sna
 from detector.jobs import claim_waiting_input, enqueue_observation
 from detector.operational_state import rule_set_content_hash
 from detector.relation_inputs import read_relation_inputs
+from detector.relation_plan import needs_relation_inputs, plan_relations
 from detector.runner import process_detection_message
 from detector.status_rule import default_policy
 from feature_fit import definitions_hash, fit_features, transform
@@ -1483,6 +1484,83 @@ def rule_set_v3_protocol(conn, sid):
     print("PASS (v3) 저장 검증을 거치지 않은 프로토콜 항목은 시도 실패(invalid_protocol_rule)")
 
 
+def judge_row_matches_v04(conn, sid, model_config):
+    """비교 평가 종합 경로(pin_fixed_state → load_models → plan_relations → judge_row)가 같은 입력에서 v04 시도가
+    저장한 판정과 같다: methodResults(elapsedMs 제외)·categoryResults·composite(firstAnomalyElapsedMs 제외)·relationNotes.
+    하드 6종(내장 4 + transaction-failed·unregistered-interface)·소프트·모델·hard:rel-*·hard:proto-*와 보류 기록을 함께 본다."""
+    tx_failed = {"id": "hard:transaction-failed", "enabled": True,
+                 "severity": {"byCode": {"E901": "critical"}, "default": "warning"}}
+    unregistered = {"id": "hard:unregistered-interface", "enabled": True, "severity": "warning"}
+    precedes = {"id": "hard:rel-0000000d", "kind": "precedes", "scope": {"adapterType": "HTTP"},
+                "from": {"processId": "IF_J_PR001"}, "to": {"processId": "IF_J_PR002"}, "match": None,
+                "severity": "critical", "enabled": True}
+    entry = {"id": "hard:proto-0000000d", "interfaceId": "IF_J", "severity": "critical", "enabled": True,
+             "paths": [{"channels": ["CH_A", "CH_B"]}]}
+    save_rule_set(conn, hard=[*hard_rules(), tx_failed, unregistered], soft=[ELAPSED_SOFT], version=3,
+                  extra={"relationRules": [precedes], "protocolRules": [entry]})
+    save_models(conn, [active(model_config)])
+    save_policy(conn, policy(deadline=LONG_DEADLINE))
+
+    def without(item, key):
+        return {name: value for name, value in item.items() if name != key}
+
+    def compare(raw, key):
+        seen, payload = v04_job(conn, sid, key, raw)
+        stored = judged(conn, payload)[5]
+        view = conn.execute("""SELECT rule_set_revision,rule_set_content_hash,detection_policy_revision,detection_policy,
+            active_models,active_model_set_revision FROM ops_operational_state""").fetchone()
+        values = conn.execute("SELECT allowed_values FROM data_observations WHERE id=%s",
+                              (seen.observation_id,)).fetchone()[0]
+        state = operational_state.pin_fixed_state(conn, view[0], view[1], view[2], view[3], view[4],
+                                                  active_model_set_revision=view[5])
+        assert state == operational_state.pin_operational_state(conn), "고정 값 판독 = 운영 뷰 판독"
+        models = attempt_v04.load_models(conn, state, sid)
+        inputs = read_relation_inputs(conn, sid, seen.observation_id) if needs_relation_inputs(state, values) else None
+        conn.commit()
+        plan = plan_relations(state, inputs, values)
+        decided = attempt_v04.judge_row(state, models, values, ROOT, plan, started_at=time.monotonic()).decided
+        assert [without(item, "elapsedMs") for item in decided["methodResults"]] == \
+            [without(item, "elapsedMs") for item in stored["methodResults"]], (decided["methodResults"], stored["methodResults"])
+        assert decided["categoryResults"] == stored["categoryResults"], (decided["categoryResults"], stored["categoryResults"])
+        assert without(decided["composite"], "firstAnomalyElapsedMs") == without(stored["composite"], "firstAnomalyElapsedMs")
+        assert (decided["composite"]["firstAnomalyElapsedMs"] is None) == (stored["composite"]["firstAnomalyElapsedMs"] is None)
+        assert plan.evidence_fields().get("relationNotes", []) == stored.get("relationNotes", []), stored.get("relationNotes")
+        return stored
+
+    transaction = f"TXJ-{uuid.uuid4()}"
+    base = {"transaction_id": transaction, "process_id": "IF_J_PR002", "depend_process_id": "IF_J_PR001",
+            "adapter_type": "HTTP", "channel_id": "CH_C"}
+    held = compare(base, "judge-row-held")
+    notes = {(note["ruleId"], note["result"], note["reason"]) for note in held["relationNotes"]}
+    assert ("hard:transaction-failed", "held", "transaction_pending") in notes, notes
+    assert any(result == "deferred_to_transaction" for _, result, _ in notes), notes
+    print("PASS judge_row = v04 저장 판정(거래 행 전: transaction_pending·deferred_to_transaction 보류 기록 같음)")
+
+    observe(conn, sid, f"judge-row-pred-{uuid.uuid4()}", {**RAW, **base, "process_id": "IF_J_PR001",
+                                                          "depend_process_id": "NONE", "channel_id": "CH_A"})
+    tx_row = observe_layer(conn, sid, "T", {"transaction_id": transaction, "status": "F", "response_code": "E901",
+                                            "retry_count": "0", "interface_id": "IF_J", "start_channel_id": "CH_A",
+                                            "end_channel_id": "CH_B"})
+    other = f"TXJ-{uuid.uuid4()}"
+    tx_other = observe_layer(conn, sid, "T", {"transaction_id": other, "status": "S", "response_code": "0000",
+                                              "retry_count": "0", "interface_id": "IF_J_NEW"})
+    conn.execute("UPDATE data_observations SET persisted_at=clock_timestamp()-interval '1 minute' WHERE id = ANY(%s)",
+                 ([tx_row.observation_id, tx_other.observation_id],))
+    conn.commit()
+    full = compare({**base, "retry_count": "1", "end_time_raw": "2026-01-01 00:00:09"}, "judge-row-full")
+    lone = compare({"transaction_id": other, "process_id": "IF_K_PR001", "depend_process_id": "NONE",
+                    "channel_id": "CH_A"}, "judge-row-unregistered")
+    seen_ids = {item["methodId"] for evidence in (full, lone) for item in evidence["methodResults"]}
+    expected = {*(rule["id"] for rule in V2_HARD_RULES), tx_failed["id"], unregistered["id"], precedes["id"], entry["id"],
+                ELAPSED_SOFT["id"], "ml:iforest"}
+    assert expected <= seen_ids, expected - seen_ids
+    assert full["composite"]["grade"] == "anomaly", full["composite"]
+    save_rule_set(conn)
+    save_models(conn, [])
+    save_policy(conn, policy())
+    print("PASS judge_row = v04 저장 판정(하드 6종·소프트·모델·hard:rel-*·hard:proto-*, pin_fixed_state = 운영 뷰 판독)")
+
+
 def main():
     dsn = os.environ.get("PIPELINE_TEST_DATABASE_URL")
     parsed = urlsplit(dsn or "")
@@ -1509,6 +1587,7 @@ def main():
         rule_set_v3_transaction(conn, sid)
         rule_set_v3_relations(conn, sid)
         rule_set_v3_protocol(conn, sid)
+        judge_row_matches_v04(conn, sid, model_config)
     print("PASS integration_detection_decision")
 
 

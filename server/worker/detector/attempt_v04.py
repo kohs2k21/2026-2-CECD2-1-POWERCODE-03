@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from functools import cached_property
 import json
 import logging
 from pathlib import Path
@@ -20,6 +21,7 @@ from detector.hard_rules import hard_rule_runners, unresolved_hard_result
 from detector.method_results import ml_method_result, unresolved_result
 from detector.method_runner import MethodExecution, MethodOutcome, MethodTask, execute_methods
 from detector.operational_state import ActiveModel, PinnedState, pin_operational_state
+from detector.policy import PolicyV2
 from detector.protocol_rules import PROTOCOL_PATH_VERSION
 from detector.relation_inputs import read_relation_inputs
 from detector.relation_plan import RelationPlan, needs_relation_inputs, plan_relations
@@ -43,8 +45,8 @@ class _Model:
     load_error: str | None = None
 
 
-def _load_models(conn: Any, state: PinnedState, source_id: uuid.UUID) -> list[_Model]:
-    """모델 하나를 읽지 못해도 다른 방법의 결과는 지우지 않는다. 그 모델만 미판정이 된다."""
+def load_models(conn: Any, state: PinnedState, source_id: uuid.UUID) -> list[_Model]:
+    """모델 하나를 읽지 못해도 다른 방법의 결과는 지우지 않는다. 그 모델만 미판정이 된다(v04 시도·비교 평가 종합 공용)."""
     models = []
     for active in state.active_models:
         try:
@@ -155,6 +157,32 @@ def _tasks(state: PinnedState, models: list[_Model], raw: Mapping[str, Any], roo
     return [*(hard_task(rule_id, run) for rule_id, run in hard),
             *(soft_task(rule) for rule in state.soft_rules if in_scope(rule, raw)),
             *(ml_task(model) for model in models)]
+
+
+@dataclass(frozen=True)
+class RowJudgment:
+    """판정 1건의 방법 실행 결과. decided는 decide(methodResults·categoryResults·composite)이며 처음 읽을 때 계산한다
+    (v04 시도는 build_evidence가 같은 decide를 부르므로 읽지 않는다 — 시도 경로의 계산·예외 순서가 그대로다)."""
+    policy: PolicyV2
+    execution: MethodExecution
+
+    @cached_property
+    def decided(self) -> dict[str, Any]:
+        return decide(self.policy, self.execution.methods)
+
+
+def judge_row(state: PinnedState, models: list[_Model], raw: Mapping[str, Any], root: Any,
+              relation: RelationPlan | None, *, started_at: float,
+              on_progress: Callable[[list[dict[str, Any]]], None] | None = None) -> RowJudgment:
+    """판정 1건 = 방법 과제(_tasks) → execute_methods(기한·슬롯 부족·시간 초과 처리) → decide. DB를 읽거나 쓰지 않는다.
+
+    입력은 호출자가 고정해 넘긴다: state(pin_operational_state·pin_fixed_state), models(load_models), raw(판정 관측
+    원래 값), relation(relation_plan.plan_relations — 관계 입력 읽기와 보류·deferred 분류는 그 전에 끝남). 중간 판정
+    기록은 하지 않는다. v04 시도만 on_progress로 InterimRecorder를 넘기고, 비교 평가는 넘기지 않는다.
+    """
+    execution = execute_methods(_tasks(state, models, raw, root, relation), state.policy.deadline_ms,
+                                started_at=started_at, on_progress=on_progress)
+    return RowJudgment(state.policy, execution)
 
 
 class InterimRecorder:
@@ -280,7 +308,7 @@ def run_attempt(conn: Any, message: Any, job: Mapping[str, Any], attempt_id: uui
         raise ValueError("input_manifest_mismatch")
     recheck = recheck_reference(conn, observation, fixed)
     state = pin_operational_state(conn)
-    models = _load_models(conn, state, observation.source_id)
+    models = load_models(conn, state, observation.source_id)
     # 관계 입력은 운영 상태 고정과 같은 트랜잭션에서 한 번 읽는다(relation-rules.md 3.2). 필요 없는 판정은 읽지 않는다.
     raw = observation.allowed_values
     relation = plan_relations(state, read_relation_inputs(conn, observation.source_id, observation.observation_id)
@@ -292,8 +320,8 @@ def run_attempt(conn: Any, message: Any, job: Mapping[str, Any], attempt_id: uui
         source_mode = cur.fetchone()
     conn.commit()
     recorder = InterimRecorder(conn, state, message, job["id"], attempt_id, attempt_token, started_at=started)
-    execution = execute_methods(_tasks(state, models, observation.allowed_values, root, relation),
-                                state.policy.deadline_ms, started_at=started, on_progress=recorder)
+    execution = judge_row(state, models, observation.allowed_values, root, relation, started_at=started,
+                          on_progress=recorder).execution
     methods = execution.methods
     if heartbeat.lost:
         raise RuntimeError("detection_lease_lost")

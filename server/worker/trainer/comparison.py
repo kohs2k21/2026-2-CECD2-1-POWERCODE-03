@@ -4,7 +4,9 @@
 (`data_evaluation_sets`·`run_config_comparisons`·`run_config_comparison_items`·`run_evaluations` 계보 열).
 
 v1 범위: 합성 없는 세트만, 작업당 modelKey 1종(기준선 0..1개), 항목 평가는 evaluate와 같은 핵심
-(`runner._version_context`·`runner._measure_version`)을 그대로 쓴다. 교체 추천·composite·methodResults는 만들지 않는다.
+(`runner._version_context`·`runner._measure_version`)을 그대로 쓴다. 항목 `composite`(룰+모델 종합)는 같은 평가 대상 행을
+고정 룰 세트·고정 정책·항목 모델 1개로 Detector 판정 함수에 한 번 더 넣어 집계한다(`trainer/comparison_composite.py`).
+교체 추천·methodResults·categoryResults.hard/soft는 만들지 않는다.
 """
 from __future__ import annotations
 
@@ -19,6 +21,7 @@ from methods.registry import method_for_key
 from trainer.lease import lock_training_ownership
 from trainer.model_version import read_schema_version
 from trainer.metrics import measurement
+from trainer import comparison_composite
 from trainer.operational_state import ActiveModel, OperationalState, _policy
 from telemetry import percentile
 
@@ -222,14 +225,16 @@ def ml_category(measured_ml: Mapping[str, Any]) -> dict[str, Any]:
     skipped·unavailable은 null + 그 분기 사유(`ml_path_not_selected`·`ml_results_unavailable`)."""
     if not measured_ml["selected"]:
         return {"measurementStatus": "skipped", "methodCount": 1, "confusion": None, "unavailableCount": None,
-                "completeOnly": None, "reason": "ml_path_not_selected", **_unlabeled_null("ml_path_not_selected")}
+                "completeOnly": None, "decidable": None, "reason": "ml_path_not_selected",
+                **_unlabeled_null("ml_path_not_selected")}
     labels, confusion = measured_ml["labelCounts"], measured_ml["confusion"]
     population = measured_ml["populationCount"]
     unavailable = population - measured_ml["succeededCount"]
     if not measured_ml["succeededCount"]:
         missing = {"value": None, "numerator": None, "denominator": None, "reason": "ml_results_unavailable"}
+        complete = {"recall": dict(missing), "precision": dict(missing), "falsePositiveRate": dict(missing)}
         return {"measurementStatus": "unavailable", "methodCount": 1, "confusion": None, "unavailableCount": unavailable,
-                "completeOnly": {"recall": dict(missing), "precision": dict(missing), "falsePositiveRate": dict(missing)},
+                "completeOnly": complete, "decidable": _ml_decidable(complete, unavailable),
                 **_unlabeled_null("ml_results_unavailable")}
     anomaly, normal = labels["anomaly"] > 0, labels["normal"] > 0
     cells = {"tp": confusion["tp"] if anomaly else None, "fp": confusion["fp"] if normal else None,
@@ -244,14 +249,32 @@ def ml_category(measured_ml: Mapping[str, Any]) -> dict[str, Any]:
         precision = _ratio(cells["tp"], cells["tp"] + cells["fp"], "no_predicted_anomalies")
     fpr = _ratio(cells["fp"], None if not normal else cells["fp"] + cells["tn"],
                  NORMAL_LABELS_UNAVAILABLE if not normal else "no_scored_normal_rows")
+    complete = {"recall": recall, "precision": precision, "falsePositiveRate": fpr}
     return {"measurementStatus": "measured", "methodCount": 1, "confusion": cells, "unavailableCount": unavailable,
-            "completeOnly": {"recall": recall, "precision": precision, "falsePositiveRate": fpr},
+            "completeOnly": complete, "decidable": _ml_decidable(complete, unavailable),
             **unlabeled_measures(measured_ml)}
 
 
+ML_DECIDABLE_BIAS_NOTE = "single_method_equals_complete_only"
+
+
+def _ml_decidable(complete: Mapping[str, Any], unavailable: int) -> dict[str, Any]:
+    """`categoryResults.ml.decidable`. ML 방법은 1개이고 succeeded가 아니면 `anomalous`가 None이라(method_results)
+    판정 가능 행 = 완료 행 — 값은 `completeOnly`와 같고 그렇다는 것을 biasNote로 표시한다."""
+    return {"basis": "decidable", **{name: dict(value) for name, value in complete.items()},
+            "unavailableCount": unavailable, "biasNote": ML_DECIDABLE_BIAS_NOTE}
+
+
 def succeeded_item(config_id: uuid.UUID, model_key: str, role: str, evaluation_id: uuid.UUID,
-                   measured: Mapping[str, Any]) -> dict[str, Any]:
+                   measured: Mapping[str, Any], composite: tuple[dict[str, Any] | None, str | None] = (None, None)
+                   ) -> dict[str, Any]:
+    """composite = comparison_composite.judge_item 결과. 사유가 있으면 `composite: null` + 항목 reasonCodes에
+    `composite_unavailable:<사유>`(평가 경로의 reasonCodes 뒤)."""
     summary = measured["summary"]
+    value, unavailable = composite
+    reasons = list(summary["reasonCodes"])
+    if unavailable is not None:
+        reasons.append(comparison_composite.UNAVAILABLE_PREFIX + unavailable)
     evidence = measured["policyEvidence"]
     # 항목 평가에 실제 쓴 정책. v3는 접수 고정 운영 정책(ML만), v1·v2는 구성에 저장된 정책·룰이다(evaluate와 같음).
     applied = {"source": "accepted" if "detectionPolicyRevision" in evidence else "configuration",
@@ -259,11 +282,12 @@ def succeeded_item(config_id: uuid.UUID, model_key: str, role: str, evaluation_i
     return {"configVersionId": str(config_id), "modelKey": model_key, "role": role, "status": "succeeded",
             "errorCode": None, "evaluationId": str(evaluation_id), "metricVersion": METRIC_VERSION,
             "evaluationPolicy": applied,
-            "applicability": summary["applicability"], "reasonCodes": list(summary["reasonCodes"]),
+            "applicability": summary["applicability"], "reasonCodes": reasons,
             "counts": {**{key: summary[key] for key in ("populationCount", "scoredCount", "unavailableCount",
                                                         "unlabeledCount", "excludedCount")},
                        "excludedReasons": dict(summary["excludedReasons"])},
             "categoryResults": {"ml": ml_category({**measured["ml"], "populationCount": summary["populationCount"]})},
+            "composite": value,
             # `_measure_version`의 `cost_family` 결과 그대로(평가한 행 기준, 제외 행 미포함). 실패 항목에는 없다.
             "executionCost": measured["executionCost"]}
 
@@ -413,13 +437,26 @@ def _load_set(conn: Any, plan: Mapping[str, Any]) -> dict[str, Any]:
 
 
 def _check_rule_set(conn: Any, plan: Mapping[str, Any]) -> None:
-    """v1 항목 평가는 룰 세트를 적용하지 않는다(v3 = ML만, v1·v2 = 구성 저장 룰). 고정 리비전은 기록용이며
-    저장소의 그 리비전 hash와 같은지만 확인한다 — 다르면 접수 값이 잘못된 것이므로 작업을 끝낸다."""
-    with conn.cursor() as cur:
-        cur.execute("SELECT content_hash FROM ops_rule_set_revisions WHERE revision=%s", (plan["ruleSetRevision"],))
-        row = cur.fetchone()
-    if row is None or row[0] != plan["ruleSetContentHash"]:
-        raise ValueError("rule_set_revision_mismatch")
+    """고정 룰 세트 리비전은 항목 ML 평가·applicability에는 적용하지 않고 `composite`에만 쓴다. 작업 시작 때 Detector
+    판독(`read_rule_set_snapshot` — 행 없음·hash·hash 버전 v3 fail-closed·버전별 구조 검사)으로 한 번 확인하고, 어긋나면
+    접수 값이 잘못된 것이므로 작업을 끝낸다(`rule_set_revision_mismatch`)."""
+    from detector.operational_state import read_rule_set_snapshot
+    try:
+        read_rule_set_snapshot(conn, plan["ruleSetRevision"], plan["ruleSetContentHash"])
+    except ValueError as exc:
+        raise ValueError("rule_set_revision_mismatch") from exc
+
+
+def item_composite(conn: Any, plan: Mapping[str, Any], spec: Mapping[str, Any], config_id: uuid.UUID, model_key: str,
+                   context: Mapping[str, Any], rows: Sequence[Any], root: Any) -> tuple[dict[str, Any] | None, str | None]:
+    """항목 `composite`. 평가 대상 행 = `_measure_version`과 같은 제외 판정(`_inputs_undefined_check`, 같은 문맥·행이라
+    결과가 같다)으로 뺀 뒤 행 — 제외 행은 종합에서도 세지 않는다. 정책 값은 접수 input_spec 그대로(운영 뷰 형식)."""
+    from trainer import runner
+    undefined = runner._inputs_undefined_check(context)
+    evaluated = [row for row in rows if undefined is None or not undefined(row[1])]
+    return comparison_composite.judge_item(conn, plan=plan, policy_value=spec.get("detectionPolicy"),
+                                           config_id=config_id, model_key=model_key, source_id=plan["sourceId"],
+                                           rows=evaluated, root=root)
 
 
 def execute_compare(conn: Any, job: dict[str, Any], root: Any, message: Any,
@@ -470,11 +507,12 @@ def execute_compare(conn: Any, job: dict[str, Any], root: Any, message: Any,
             conn.rollback()
             items.append(failed_item(config_id, model_key, role, _item_code("evaluation_failed", exc)))
             continue
+        composite = item_composite(conn, plan, job["input"], config_id, model_key, context, rows, root)
         evaluation_id = uuid.uuid4()
         evaluation_spec = {**runner._evaluation_spec(measured, METRIC_VERSION, purpose),
                            "evaluationSetId": str(evaluation_set["id"]), "evaluationSetContentHash": content_hash}
         evaluations.append((evaluation_id, config_id, evaluation_spec, measured))
-        items.append(succeeded_item(config_id, model_key, role, evaluation_id, measured))
+        items.append(succeeded_item(config_id, model_key, role, evaluation_id, measured, composite))
         predictions.append((str(config_id), measured["ml"]["predictions"]))
     succeeded = any(item["status"] == "succeeded" for item in items)
     summary = build_summary(comparison_id=comparison_id, plan=plan, evaluation_set=evaluation_set, items=items,

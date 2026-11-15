@@ -131,6 +131,18 @@ class MlCategoryNullRuleTests(unittest.TestCase):
                          ("unavailable", None, 10))
         self.assertEqual(missing["completeOnly"]["recall"]["reason"], "ml_results_unavailable")
 
+    def test_ml_decidable_equals_complete_only(self):
+        """ML 방법 1개: 판정 가능 기준 = 완료 기준(같은 값 + biasNote), skipped이면 null, unavailable이면 같은 사유."""
+        measured = comparison.ml_category(measured_ml(tp=3, fp=1, tn=4, fn=1, anomaly=4, normal=5, succeeded=9))
+        decidable = measured["decidable"]
+        self.assertEqual({key: decidable[key] for key in ("recall", "precision", "falsePositiveRate")},
+                         measured["completeOnly"])
+        self.assertEqual((decidable["basis"], decidable["unavailableCount"], decidable["biasNote"]),
+                         ("decidable", 1, "single_method_equals_complete_only"))
+        self.assertIsNone(comparison.ml_category(measured_ml(selected=False))["decidable"])
+        missing = comparison.ml_category(measured_ml(succeeded=0, anomaly=2))["decidable"]
+        self.assertEqual((missing["recall"]["reason"], missing["unavailableCount"]), ("ml_results_unavailable", 10))
+
     def test_unlabeled_measures_null_rules(self):
         skipped = comparison.ml_category(measured_ml(selected=False))
         self.assertIsNone(skipped["predictedAnomalyCount"])
@@ -353,11 +365,16 @@ class CompareExecutionTests(unittest.TestCase):
             return ("broken" if str(config_id) in broken else "ok"), None
 
         message = type("Message", (), {"created_at": None})()
+
+        def composite_stub(conn, plan, spec, config_id, *_):
+            # 종합 집계는 test_comparison_composite가 본다. 여기서는 항목에 붙는 자리와 사유 코드만 본다.
+            return (None, "all_rows_excluded") if str(config_id) == CANDIDATE_A else ({"populationCount": 2}, None)
         with patch.object(comparison, "_load_set", return_value=loaded), patch.object(comparison, "_check_rule_set"), \
              patch.object(comparison, "set_members", return_value=set_rows), patch.object(comparison, "check_item", check), \
              patch.object(runner, "_snapshot_rows", return_value=rows), patch.object(runner, "queue_wait_ms", return_value=0.0), \
              patch.object(runner, "_version_context", context), patch.object(runner, "_measure_version", fake_measure), \
              patch.object(comparison, "lock_training_ownership", return_value=True), \
+             patch.object(comparison, "item_composite", composite_stub), \
              patch.object(runner, "_finish", lambda *args, **kwargs: finished.append((args[5], args[6], kwargs))):
             result = comparison.execute_compare(conn, {"id": uuid.uuid4(), "input": spec()}, None, message,
                                                 uuid.uuid4(), uuid.uuid4())
@@ -381,6 +398,14 @@ class CompareExecutionTests(unittest.TestCase):
                          {"source": "configuration", "detectionPolicy": {"mode": "ml_only"}, "ruleCount": None})
         self.assertEqual(result["items"][0]["counts"]["excludedCount"], 0)
         self.assertEqual(result["items"][0]["counts"]["excludedReasons"], {})
+        # 종합은 성공 항목에만(실패 항목에는 키가 없다), ML 판정 가능 기준은 완료 기준과 같은 값 + biasNote.
+        self.assertEqual(result["items"][0]["composite"], {"populationCount": 2})
+        self.assertTrue(all("composite" not in item for item in result["items"][1:]))
+        ml = result["items"][0]["categoryResults"]["ml"]
+        self.assertEqual({key: ml["decidable"][key] for key in ("recall", "precision", "falsePositiveRate")},
+                         ml["completeOnly"])
+        self.assertEqual((ml["decidable"]["basis"], ml["decidable"]["biasNote"], ml["decidable"]["unavailableCount"]),
+                         ("decidable", "single_method_equals_complete_only", ml["unavailableCount"]))
         # 실행 비용은 성공 항목에만, `_measure_version` 값 그대로.
         self.assertEqual(result["items"][0]["executionCost"], {"metricVersion": "execution-cost-v1", "context": "ok"})
         self.assertTrue(all("executionCost" not in item for item in result["items"][1:]))
@@ -402,6 +427,11 @@ class CompareExecutionTests(unittest.TestCase):
                          [(ACTIVE, CANDIDATE_A), (ACTIVE, CANDIDATE_B), (CANDIDATE_A, CANDIDATE_B)])
         self.assertEqual([(pair["comparableCount"], pair["both"], pair["neither"], pair["agreementRate"]["coverage"])
                           for pair in pairs], [(2, 1, 1, 1.0)] * 3)
+        # 종합 사유는 항목 reasonCodes 뒤에 붙고 composite는 null(항목은 성공 그대로).
+        candidate = next(item for item in result["items"] if item["configVersionId"] == CANDIDATE_A)
+        self.assertEqual((candidate["status"], candidate["composite"], candidate["reasonCodes"]),
+                         ("succeeded", None, ["labels_unavailable", "composite_unavailable:all_rows_excluded"]))
+        self.assertEqual(result["items"][0]["reasonCodes"], ["labels_unavailable"])
 
     def test_all_items_failing_fails_the_job_with_the_summary(self):
         checks = {ACTIVE: ("iforest", "prepared_not_comparable"), CANDIDATE_A: (None, "config_not_found"),

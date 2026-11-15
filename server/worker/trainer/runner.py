@@ -30,7 +30,7 @@ from trainer.model_version import (SCHEMA_VERSION, build_spec, check_training_sc
                                    is_model_version_request, read_model_key, read_schema_version, training_period)
 from trainer.operational_state import read_operational_state
 from trainer.snapshot import build_snapshot
-from trainer.selection import select_training
+from trainer.selection import select_training, training_times
 from trainer.workspace import cleanup_orphan_workspaces, training_workspace
 from detector.status_rule import default_policy
 from telemetry import cost_family, queue_wait_ms
@@ -166,10 +166,25 @@ def _definitions(conn: Any, feature_set_id: uuid.UUID) -> list[dict[str, Any]]:
     return validate_definitions([{"name": row[0], "expression": row[2]} for row in rows])
 
 
-def _training_inputs(conn, snapshot_id, feature_set_id):
+class TrainingRowsInsufficient(ValueError):
+    """선정 정책 v2 적용 뒤 학습 행이 모델 최소 행(카탈로그 `inputRequirements.minTrainRows`)보다 적다."""
+    code = "train_rows_insufficient_after_exclusion"
+
+    def __init__(self, selection: dict[str, Any], min_rows: int):
+        super().__init__(self.code)
+        self.selection, self.min_rows = selection, min_rows
+
+
+def _training_inputs(conn, snapshot_id, feature_set_id, exclusion=None, min_rows=None):
     definitions = _definitions(conn, feature_set_id)
-    observations, selection = select_training(_snapshot_rows(conn, snapshot_id, 'train'))
+    rows = _snapshot_rows(conn, snapshot_id, 'train')
+    # 구간이 있을 때만 시각을 읽는다. 빈 목록 v2는 v1과 같은 행을 고른다.
+    times = training_times(conn, snapshot_id, exclusion.time_basis) if exclusion is not None and exclusion.intervals else None
+    observations, selection = select_training(rows, exclusion, times)
     conn.commit()
+    if exclusion is not None and isinstance(min_rows, int) and selection['selectedCount'] < min_rows:
+        # fit 연산 통계·모델 fit 전에 멈춘다. v1 선정은 이 검사를 하지 않는다(어댑터 자체 검사 그대로).
+        raise TrainingRowsInsufficient(selection, min_rows)
     references = [{'raw': raw, 'label': labels.get('label') if isinstance(labels, dict) else None}
                   for _, raw, _, labels in observations]
     state = fit_features(definitions, references, snapshot_id=snapshot_id) if any(
@@ -260,7 +275,7 @@ def _execute(conn: Any, job: dict[str, Any], attempt_id: uuid.UUID,
         from trainer.prepared_execution import maybe_execute
         prepared_result = maybe_execute(conn,job,artifact_root,message,attempt_id,attempt_token)
         if prepared_result is not None: return prepared_result
-    training_method = training_parameters = operational = None
+    training_method = training_parameters = operational = exclusion = None
     model_version_request = kind == 'train' and is_model_version_request(spec)
     if kind == 'train':
         # 카탈로그 기준 검증: 미등록 키 unsupported_model / 실행 불가 method_not_executable:<id> /
@@ -268,7 +283,8 @@ def _execute(conn: Any, job: dict[str, Any], attempt_id: uuid.UUID,
         training_method, training_parameters = resolve_training_method(spec)
         if spec.get('detectionPolicy', {}).get('mode') == 'rule_only' and 'modelKey' in spec:
             raise ValueError('model_not_selected')
-        check_training_scope(spec)
+        # 모델 버전 학습의 선정 정책 v2 조건(제외 구간). 형식이 틀리면 스냅샷을 만들기 전에 멈춘다.
+        exclusion = check_training_scope(spec)
         if model_version_request:
             # 시도 시작에 고정한다. 읽을 수 없으면 긴 학습을 돌리기 전에 멈춘다.
             operational = read_operational_state(conn)
@@ -410,7 +426,17 @@ def _execute(conn: Any, job: dict[str, Any], attempt_id: uuid.UUID,
         if artifact_root is None:
             raise model_adapters.ModelNotConfigured("artifact_root_not_configured")
         preprocessing_started = time.monotonic()
-        prepared, names, preprocessing, definition_digest, selection = _training_inputs(conn, snapshot.id, feature_set_id)
+        try:
+            prepared, names, preprocessing, definition_digest, selection = _training_inputs(
+                conn, snapshot.id, feature_set_id, exclusion, training_method.input_requirements.get("minTrainRows"))
+        except TrainingRowsInsufficient as short:
+            # 재시도해도 같은 행이므로 종료 실패. 화면이 건수를 보이도록 선정 요약을 남긴다.
+            short.selection['trainingPeriod'] = training_period(spec)
+            _finish(conn, message, job, attempt_id, attempt_token, None, short.code, True,
+                    failure_summary={"snapshotId": str(snapshot.id), "splitCounts": snapshot.counts,
+                                     "methodId": training_method.method_id, "minTrainRows": short.min_rows,
+                                     "trainingSelection": short.selection})
+            return {"_finalized": True}
         preprocessing_ms = (time.monotonic()-preprocessing_started)*1000
         period = None
         if model_version_request:
@@ -470,6 +496,9 @@ def _execute(conn: Any, job: dict[str, Any], attempt_id: uuid.UUID,
                                      "parameters": training_parameters}
                 if model_version_request:
                     training_settings.update(timeBasis=period["timeBasis"], trainingPeriod=period)
+                if exclusion is not None:
+                    # 구간 목록 자체는 여기에만 남는다(구성 spec은 trainingSelection.excludedIntervalsHash만).
+                    training_settings["excludedIntervals"] = exclusion.settings()
                 with conn.cursor() as cur:
                     cur.execute(
                         """INSERT INTO ml_config_versions

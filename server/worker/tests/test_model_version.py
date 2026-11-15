@@ -64,10 +64,20 @@ class RequestRouteTests(unittest.TestCase):
         self.assertFalse(model_version.is_model_version_request({"modelKey": "iforest", "detectionPolicy": policy}))
 
     def test_keys_the_trainer_cannot_apply_are_not_ignored(self):
-        for request in ({"excludedIntervals": []}, {"timeBasis": "esb_occurred_at"}):
+        policy = {"mode": "ml_only", "deadlineMs": 3000, "combination": "selected_path"}
+        # esb_occurred_at은 모든 경로, 제외 구간은 v1·v2 구성 경로(detectionPolicy 있음)에서 아직 적용하지 못한다.
+        for request in ({"timeBasis": "esb_occurred_at"}, {"timeBasis": "esb_occurred_at", "excludedIntervals": []},
+                        {"detectionPolicy": policy, "modelKey": "iforest", "excludedIntervals": []}):
             with self.assertRaisesRegex(ValueError, "^config_schema_not_supported_yet$"):
                 model_version.check_training_scope(request)
-        model_version.check_training_scope({"timeBasis": "persisted_at", "modelKey": "iforest"})
+        self.assertIsNone(model_version.check_training_scope({"timeBasis": "persisted_at", "modelKey": "iforest"}))
+
+    def test_model_version_request_carries_the_excluded_intervals(self):
+        request = {"modelKey": "iforest", "from": PERIOD["from"], "until": PERIOD["until"], "excludedIntervals": []}
+        exclusion = model_version.check_training_scope(request)
+        self.assertEqual((exclusion.intervals, exclusion.time_basis), ((), "persisted_at"))
+        with self.assertRaisesRegex(ValueError, "^invalid_job_input$"):
+            model_version.check_training_scope({**request, "excludedIntervals": None})
 
     def test_rules_do_not_ride_on_a_model_version_request(self):
         with self.assertRaisesRegex(ValueError, "^invalid_job_input$"):

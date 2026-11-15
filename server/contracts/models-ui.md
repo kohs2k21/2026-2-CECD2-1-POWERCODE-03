@@ -1,5 +1,5 @@
 Created: 2026-11-05T15:00:00+09:00
-Updated: 2026-11-13T19:00:00+09:00
+Updated: 2026-11-15T12:00:00+09:00
 Author: #128 Claude Code(WebUI builder)
 Status: current
 
@@ -69,7 +69,7 @@ Status: current
 
 | 항목 | 현재 동작 | 풀리는 조건 |
 |---|---|---|
-| 제외 구간 | `capabilities.training.excludedIntervals=false`. API는 `excludedIntervals` 키가 있으면(빈 배열 포함) 형식 검사(400 `excluded_interval_out_of_range`·`excluded_interval_overlap`·`invalid_job_request`) 뒤 422 `config_schema_not_supported_yet`. 워커가 키를 무시해 제외되지 않은 채 성공하는 것을 막는다. 화면은 구간 선택은 그대로 두고 준비 검사에서 막는다 | Trainer 선정 정책 v2(#113 하위) 병합 뒤 `trainerContract.ts` `TRAINING_EXCLUSION_SUPPORTED` 값만 true로(접수·capabilities·화면이 함께 풀리고, 구간은 UTC·`reasonCode` 기본 `other`·`note`로 `input_spec`에 실린다) |
+| 제외 구간 | `capabilities.training.excludedIntervals=false`. API는 `excludedIntervals` 키가 있으면(빈 배열 포함) 형식 검사(400 `excluded_interval_out_of_range`·`excluded_interval_overlap`·`invalid_job_request`) 뒤 422 `config_schema_not_supported_yet`. 화면은 구간 선택은 그대로 두고 준비 검사에서 막는다. 워커는 선정 정책 v2(trainer-service.md)를 **모델 버전(v3) 학습 요청**(`detectionPolicy` 없음)에만 적용하고, `detectionPolicy`가 있는 요청(지금 화면이 보내는 `LEGACY_POLICY` 형식)의 `excludedIntervals`는 워커도 `config_schema_not_supported_yet`으로 끝낸다 | 워커 지원은 구현됨(v3 학습). 남은 단계: `trainerContract.ts` `TRAINING_EXCLUSION_SUPPORTED`를 true로(접수·capabilities·화면이 함께 풀리고, 구간은 UTC·`reasonCode` 기본 `other`·`note`로 `input_spec`에 실린다). 단 지금 API는 train에 `detectionPolicy`를 필수로 받고 화면도 보내므로, 구간 학습이 실제로 돌려면 v3 train 요청(`detectionPolicy` 없음) 접수·전송이 함께 열려야 한다(아래 '모델 버전 v3' 행) |
 | 학습 기간 ESB 시각 기준 | Trainer 스냅샷은 `persisted_at`만 지원(`capabilities.snapshot.timeBasis`). `timeBasis=esb_occurred_at`은 422 `config_schema_not_supported_yet`. 화면 거래량 그래프는 학습이 실제로 쓰는 기준으로 조회·표시한다(`거래량 · 저장 시각 기준`). 값이 `esb_occurred_at`로 바뀌면 그래프 문구·조회·요청이 함께 바뀌고 `timeBasis`가 `input_spec`에 실린다 | Trainer `timeBasis` 지원 뒤 `snapshot.timeBasis` |
 | 모델 버전 v3 | 학습 결과는 schemaVersion 1 구성이다. 조회는 v1·v2 투영과 v3 읽기를 모두 구현했다 | Trainer #113 하위 3 |
 | 버전 이름 | 학습 요청에 이름 키가 없어 입력칸을 두지 않는다. 목록은 ID 앞 8자리 + `displayName`(있을 때) | 요청 계약 |
@@ -86,7 +86,7 @@ Status: current
 
 ## 후속
 
-- 제외 구간 건수 기준: 계약은 구간 비교가 항상 ESB 시각(trainer-service.md `excludedIntervals`)이고, 화면의 구간별 건수는 그래프와 같은 `timeBasis`로 조회한다. 지금은 제외 구간 학습이 막혀 있어 차이가 드러나지 않는다. Trainer가 저장 시각 기간 + ESB 시각 제외 구간 조합을 허용하면 건수 조회를 `esb_occurred_at`로 나눈다
+- 제외 구간 건수 기준: 구간 비교는 학습 `timeBasis`와 같은 시각 열이다(trainer-service.md `excludedIntervals`, 11/15 사용자 결정 — 이전의 '항상 ESB 시각'을 대체). 화면의 구간별 건수도 그래프와 같은 `timeBasis`로 조회하므로 학습과 같은 기준이다(현행 `persisted_at`). `esb_occurred_at` 지원 뒤에는 학습·구간·건수가 함께 그 열로 바뀐다
 
 ## 구현에서 정한 값(계약에 코드가 없는 곳)
 

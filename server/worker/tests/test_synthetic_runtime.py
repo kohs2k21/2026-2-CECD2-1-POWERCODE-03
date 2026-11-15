@@ -30,6 +30,7 @@ class SyntheticRuntimeTests(unittest.TestCase):
         with patch.object(synthetic_execution, 'validate_source', return_value={}), \
              patch.object(synthetic_execution, '_model_manifest', return_value=({}, {'trainingSnapshotId': 'fixture'})), \
              patch.object(synthetic_execution, '_train_rows', return_value=[]), \
+             patch.object(synthetic_execution, '_training_eligibility', return_value=None), \
              patch.object(synthetic_execution, '_esb', return_value=({}, {'generated': measurement(0, 'count')}, [], Counter({'generation_failed': 1}))), \
              patch.object(synthetic_execution, '_adbench', return_value=({}, {'generated': measurement(0, 'count')}, [], Counter({'generation_failed': 1}))), \
              patch.object(synthetic_execution, 'model_reference'), \

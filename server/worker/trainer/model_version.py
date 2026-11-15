@@ -10,6 +10,7 @@ import json
 from typing import Any, Mapping
 
 from methods.registry import CATALOG_VERSION, MlMethod
+from trainer.selection import Exclusion, parse_exclusion
 
 SCHEMA_VERSION = 3
 CONTRACT_VERSION = "model-version-v1"
@@ -28,12 +29,25 @@ def is_model_version_request(spec: Mapping[str, Any]) -> bool:
     return "detectionPolicy" not in spec and any(key in spec for key in REQUEST_KEYS)
 
 
-def check_training_scope(spec: Mapping[str, Any]) -> None:
-    """Trainer가 아직 적용하지 못하는 키는 무시해서 성공시키지 않는다(API와 같은 코드)."""
-    if spec.get("excludedIntervals") is not None or spec.get("timeBasis", DEFAULT_TIME_BASIS) != DEFAULT_TIME_BASIS:
+def check_training_scope(spec: Mapping[str, Any]) -> Exclusion | None:
+    """Trainer가 적용하지 못하는 키는 무시해서 성공시키지 않는다(API와 같은 코드).
+
+    학습 제외 구간은 모델 버전(v3) 학습만 적용한다(선정 정책 v2). v1·v2 구성 경로(`detectionPolicy`가 있는 요청)는
+    구간을 기록할 자리가 없어 지금처럼 `config_schema_not_supported_yet`으로 끝낸다. 반환은 v2 선정 조건이고
+    `excludedIntervals` 키가 없으면(v1 선정 정책) None이다.
+    """
+    if spec.get("timeBasis", DEFAULT_TIME_BASIS) != DEFAULT_TIME_BASIS:
         raise ValueError("config_schema_not_supported_yet")
-    if is_model_version_request(spec) and spec.get("ruleVersionIds"):
+    model_version = is_model_version_request(spec)
+    if not model_version:
+        if spec.get("excludedIntervals") is not None:
+            raise ValueError("config_schema_not_supported_yet")
+        return None
+    if spec.get("ruleVersionIds"):
         raise ValueError("invalid_job_input")
+    if "excludedIntervals" not in spec:
+        return None
+    return parse_exclusion(spec["excludedIntervals"], spec, spec.get("timeBasis", DEFAULT_TIME_BASIS))
 
 
 def training_period(spec: Mapping[str, Any]) -> dict[str, str]:

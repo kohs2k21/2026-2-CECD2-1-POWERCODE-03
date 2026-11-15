@@ -76,11 +76,13 @@ try {
   }
   assert.ok((await read('/api/operations/storage')).body.databaseBytes > 0);
 
-  // 측정 행은 API가 읽기만 하고 다른 런타임 역할은 접근하지 않는다.
+  // 측정 행은 API가 읽고 Collector 표본기가 쓰고 지운다. Detector·Trainer·LLM은 접근하지 않는다.
   const { rows: privileges } = await admin.query(`SELECT r AS role,p AS privilege
-    FROM unnest(ARRAY['powercode_api','powercode_collector','powercode_detector','powercode_trainer','powercode_llm']) r
-    CROSS JOIN unnest(ARRAY['SELECT','INSERT','UPDATE','DELETE']) p WHERE has_table_privilege(r,'ops_storage_measurements',p)`);
-  assert.deepEqual(privileges, [{ role: 'powercode_api', privilege: 'SELECT' }]);
+    FROM unnest(ARRAY['powercode_api','powercode_collector','powercode_detector','powercode_trainer','powercode_llm']) WITH ORDINALITY AS a(r,ri)
+    CROSS JOIN unnest(ARRAY['SELECT','INSERT','UPDATE','DELETE']) WITH ORDINALITY AS b(p,pi)
+    WHERE has_table_privilege(r,'ops_storage_measurements',p) ORDER BY ri,pi`);
+  assert.deepEqual(privileges, [{ role: 'powercode_api', privilege: 'SELECT' }, { role: 'powercode_collector', privilege: 'SELECT' },
+    { role: 'powercode_collector', privilege: 'INSERT' }, { role: 'powercode_collector', privilege: 'DELETE' }]);
 
   // 역할은 다른 세션에서 볼 수 없으므로 권한을 빼서 확인한다. 서버 연결이 소유자로 돌면 여기서 200이 나온다.
   await admin.query('REVOKE SELECT ON ops_storage_measurements FROM powercode_api');
@@ -88,7 +90,7 @@ try {
   assert.deepEqual([revoked.status, revoked.body.code], [503, 'operations_storage_unavailable'], 'the server connection runs as powercode_api');
   await admin.query(rolesSql);
   assert.equal((await read('/api/operations/storage')).status, 200);
-  console.log('operations grants passed: six read routes 200 through the server as powercode_api, storage measurements SELECT for API only, revoked grant gives 503');
+  console.log('operations grants passed: six read routes 200 through the server as powercode_api, storage measurements SELECT for API, SELECT/INSERT/DELETE for Collector sampler, revoked grant gives 503');
 } finally {
   await stopChild();
   await api.end();

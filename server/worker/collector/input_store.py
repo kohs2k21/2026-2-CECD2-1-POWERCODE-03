@@ -3,6 +3,7 @@ import json
 import uuid
 from pathlib import Path
 from collector.input_contract import csv_records,digest,identity
+from collector import source_clock
 from collector.storage import ingest_observation
 from detector.jobs import enqueue_observation
 
@@ -110,8 +111,17 @@ def switch(conn,source,*,mode,expected_revision,actor,settings=None,config='keep
         'configVersionId':str(chosen) if chosen else None}
 
 
-def admit(conn,source,run_id,mode,layer,raw,*,namespace,position=None,config=None):
-    """Called with the control locked. Arrival revisions are not source update versions."""
+INGEST_PHASES=('live','initial','replay')
+
+
+def admit(conn,source,run_id,mode,layer,raw,*,namespace,position=None,config=None,phase=None,received_at=None):
+    """Called with the control locked. Arrival revisions are not source update versions.
+
+    phase: data_input_origins.ingest_phase (csv='replay'; api='initial' for a run's first successful poll after
+    start/resume, otherwise 'live'). received_at: API response receipt finished_at; CSV passes None (NULL).
+    """
+    if phase not in INGEST_PHASES or (phase=='replay')!=(mode=='csv'):raise ValueError('invalid_ingest_phase')
+    if (received_at is None)!=(mode=='csv'):raise ValueError('api_received_at_mode_mismatch')
     parts=identity(layer,raw);raw_hash=digest(raw)
     execution=None;revision=None
     if parts:
@@ -126,24 +136,25 @@ def admit(conn,source,run_id,mode,layer,raw,*,namespace,position=None,config=Non
         dedup=f'input:{execution}:{revision}'
     else:dedup=f'input-unidentified:{source}:{namespace}:{layer}:{raw_hash}'
     if layer=='B':
-        # BODY reference only. It is never misclassified as an M monitoring row.
-        oid=uuid.uuid4()
+        # BODY reference only. It is never misclassified as an M monitoring row. It carries no source time (absent).
+        oid=uuid.uuid4();no_time=source_clock.absent()
         inserted=conn.execute("""INSERT INTO data_observations(id,source_id,layer,execution_id,revision_no,dedup_key,content_hash,
             api_received_at,persisted_at,clock_status,parsed_times,allowed_values,quality_flags,missing_fields)
-            VALUES(%s,%s,'B',%s,%s,%s,%s,clock_timestamp(),clock_timestamp(),'unknown','{}',%s::jsonb,
+            VALUES(%s,%s,'B',%s,%s,%s,%s,%s,clock_timestamp(),%s,%s::jsonb,%s::jsonb,
             '["body_values_not_collected"]','[]') ON CONFLICT DO NOTHING RETURNING id""",
-            (oid,source,execution,revision,dedup,raw_hash,json.dumps(raw))).fetchone()
+            (oid,source,execution,revision,dedup,raw_hash,received_at,no_time.clock_status,no_time.parsed_json(),json.dumps(raw))).fetchone()
         if not inserted:return {'created':False,'identified':parts is not None}
         conn.execute("""INSERT INTO data_message_bodies(observation_id,source_id,message_id,collection_status,field_states,
             representation,access_policy_version,retention_policy_version)
             VALUES(%s,%s,%s,'not_collected','{"message_in":"unknown","message_out":"unknown","message_body":"unknown"}',
             'unknown','metadata-only-v1','metadata-history-v1')""",(oid,source,raw['message_id']))
     else:
-        saved=ingest_observation(conn,source_id=source,layer=layer,dedup_key=dedup,raw=raw,execution_id=execution,revision_no=revision)
+        saved=ingest_observation(conn,source_id=source,layer=layer,dedup_key=dedup,raw=raw,execution_id=execution,revision_no=revision,
+            api_received_at=received_at)
         oid=saved.observation_id
         if not saved.created:return {'created':False,'identified':parts is not None}
-    conn.execute('INSERT INTO data_input_origins(observation_id,run_id,mode,position,namespace) VALUES(%s,%s,%s,%s,%s)',
-        (oid,run_id,mode,position,namespace))
+    conn.execute('INSERT INTO data_input_origins(observation_id,run_id,mode,position,namespace,ingest_phase) VALUES(%s,%s,%s,%s,%s,%s)',
+        (oid,run_id,mode,position,namespace,phase))
     outcome={'created':True,'identified':parts is not None,'observationId':str(oid)}
     if layer=='P' and execution:
         payload=enqueue_observation(conn,oid,config_id=config)

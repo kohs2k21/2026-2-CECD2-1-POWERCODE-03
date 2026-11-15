@@ -7,6 +7,7 @@ Reserved for versioned request, response, event, and worker contracts shared by 
 - `queues.md`는 PostgreSQL 변수·탐지·학습 큐의 전달 계약을 정의한다.
 - `rules.md`는 버전별 Rule 초안 CRUD와 파생변수 참조 규칙을 정의한다.
 - `model_adapters.md`는 추후 제공할 변수 생성·Rule 추천·IF 모델의 연결 함수를 정의한다.
+- `collector-metrics.md`는 Collector 운영 계측 — 관측 원천 발생 시각 열 채우기(`clock_status`·`parsed_times` 값 목록)·원천 시간대 지정 CLI(`clock-basis`)·입력 구간(`ingest_phase`)·원천 → 저장 지연(`sourceToStored`·`clockCheck`)·시스템 자원 표본기(`ops_resource_measurements`, migration 030)와 WebUI가 `/api/operations/*`에 넣을 집계 SQL을 정의한다.
 - `operations-ui.md`는 운영 현황(`/operations`) 읽기 API(`/api/operations/*`)·위젯 배치와 이상 근거 상세·피드백 UI 경계를 정의한다.
 - `analysis-ui.md`는 이상 분석(`/analysis`, `/analysis/d/:decisionId`) 판정 목록·상세·중간 판정 기록·Process Flow 읽기 API와 처리 상태·읽음·조사·조치 기록(확인 결과 포함) 쓰기 API(`/api/analysis/*`, 014 표·029 열), 판정 결과별·위험도별·분류함 분류 매핑(저장 등급·위험도만), 실시간 반영(중간 판정 이벤트 포함)·설명 요청 화면 규칙을 정의한다(#105).
 - `process-graph.md`는 실행 그래프 응답 형식 `{graph, nodes, edges}`(층 A 거래 내부 구현 `GET /api/analysis/decisions/:id/graph`, 층 B·C 어휘 예약)·고정 어휘·id 규칙·검증 상태를 정의한다(실험 기능). `process-graph-id-vectors.json`은 id·없음 판정 공용 시험 벡터다.

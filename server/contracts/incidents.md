@@ -57,9 +57,9 @@ Status: current — 실험 기능(층 C). DB migration 019·WebUI 사건 보기�
 
 ## 3. 구성원 시각(`occurred_at`)과 시각 출처(`occurred_basis`)
 
-- `source_log_occurred_at`은 지금 코드에서 채우는 곳이 없어 늘 NULL이므로 쓰지 않는다 [합의 DB]
+- `source_log_occurred_at`은 쓰지 않는다 [합의 DB]. migration 030 이후 Collector가 새 관측부터 채우지만([collector-metrics.md](collector-metrics.md) 1.1) 기존 관측은 NULL이고 판정 행 값은 Detector가 복사하기 전까지 비어 있다 — 사건 묶음은 원문 열을 직접 해석한다
 - **원천 시각은 한국 시각(Asia/Seoul)으로 본다** [확정 11/12 사용자]. 고객 측 확인 뒤 바뀔 수 있음(바뀌면 가정 시간대·기준 문서를 바꾼다, 9절)
-- **현재 사실**: 모든 수집 경로가 `ops_sources.clock_basis.status`를 여전히 `unknown`으로 넣는다(`collector/replay_csv.py`, `collector/input_store.py` `ensure_source`, `collector/api_runner.py`). 그래서 지금은 시간대 없는 원문 구성원이 모두 가정 시간대 `Asia/Seoul`로 읽힌다(`process_time_raw`). `decided_at` 대체는 해석 실패·범위 넘침·없음일 때만 남는다
+- **현재 사실**: 모든 수집 경로가 `ops_sources.clock_basis.status`를 여전히 `unknown`으로 넣는다(`collector/replay_csv.py`, `collector/input_store.py` `ensure_source`, `collector/api_runner.py`). 운영자가 `clock-basis verify`로 지정하기 전까지 그대로다([collector-metrics.md](collector-metrics.md) 1.3). 그래서 지금은 시간대 없는 원문 구성원이 모두 가정 시간대 `Asia/Seoul`로 읽힌다(`process_time_raw`). `decided_at` 대체는 해석 실패·범위 넘침·없음일 때만 남는다
 - Detector는 수집기 코드·원본 설정(`ops_sources.clock_basis`)을 바꾸지 않는다. 가정은 층 C 사건 시각 계산에만 쓰며, Detector의 다른 부분(하드룰 `hard_rules._time`·판정·지연 계산 등)의 시각 해석은 바뀌지 않는다
 - 순서 [제안]: PROCESS `END_TIME` → 없거나 해석 실패면 `START_TIME` → 둘 다 못 쓰면 `decided_at`
   - 없음 판정·해석은 하드룰과 같다: 없음은 `method_results.source_absent`, 해석은 `derived_expression.evaluate`의 열 해석(`hard_rules._time`이 쓰는 것, `datetime.fromisoformat`)
@@ -201,7 +201,7 @@ Status: current — 실험 기능(층 C). DB migration 019·WebUI 사건 보기�
 1. **판정 규칙 한계(사용자 결정으로 올림)**: 대리 지표상 거래 단위 장애의 PROCESS 행이 END_TIME 없는 N뿐인 경우가 있다. 이때 현재 규칙으로는 이상 판정이 없어 층 C가 그 장애를 묶지 못한다(수치는 Git 밖 측정 기록). 판정 근거에 거래 실패를 넣을지는 판정 계약(`detection-decision.md`) 쪽 사용자 결정
 2. v3 판정에는 등급이 없어 구성원이 아니다. v04 전환 시점까지 층 C 결과는 거의 비어 있다
 3. 성공 코드 목록은 데이터에서 본 값뿐이다. 고객 코드 사전 필요
-4. 원본 시간대: 원천 시각을 한국 시각으로 보기로 했다 [확정 11/12 사용자]. 검증되지 않은 원본(지금 전부 `clock_basis.status = unknown`)의 시간대 없는 원문에 `Asia/Seoul`을 붙여 `process_time_raw`로 쓰고 `criteria.assumedTimezone`에 남긴다(3절). 배포 전 초안이라 `incident-gap-v1` 안에서 반영했다(9절). 남은 것: 고객 측이 원천 시각 기준을 확인하면 가정을 유지·변경한다(고객 측 확인 뒤 바뀔 수 있음, 배포 뒤 바뀌면 기준 버전을 올린다). 원본 `clock_basis`를 `verified`로 채우는 일은 수집기 쪽 결정이고 Detector가 하지 않는다
+4. 원본 시간대: 원천 시각을 한국 시각으로 보기로 했다 [확정 11/12 사용자]. 검증되지 않은 원본(지금 전부 `clock_basis.status = unknown`)의 시간대 없는 원문에 `Asia/Seoul`을 붙여 `process_time_raw`로 쓰고 `criteria.assumedTimezone`에 남긴다(3절). 배포 전 초안이라 `incident-gap-v1` 안에서 반영했다(9절). 남은 것: 고객 측이 원천 시각 기준을 확인하면 가정을 유지·변경한다(고객 측 확인 뒤 바뀔 수 있음, 배포 뒤 바뀌면 기준 버전을 올린다). 원본 `clock_basis`를 `verified`로 채우는 일은 운영자 CLI `clock-basis verify`([collector-metrics.md](collector-metrics.md) 1.3)이고 Detector·Collector 실행 경로가 하지 않는다
     - 배포 전 결정: 가정 시간대는 IANA 시간대 자료(`tzdata` 또는 OS zoneinfo)가 있어야 한다. `tzdata`는 `worker/requirements.txt` 직접 의존성이 아니고 다른 패키지(pandas·python-dateutil 등)의 의존성으로만 들어온다(Windows venv에서 확인, 컨테이너 이미지는 미확인). 자료가 없으면 기본 기준을 만드는 시점(모듈 import, 작업 시작)에 `invalid_incident_assumed_timezone`으로 멈춘다. 공용 워커 의존성 파일에 직접 넣을지는 배포 전에 정한다
 5. (닫힘, 11/14 WebUI·Detector 합의) 키가 바뀐 리비전의 실행이 두 사건에서 세어지는 문제: 실행은 자리 묶음 한 곳에서만 센다(8절 구성원 수)
 6. 전환형 입력 경로(api·csv 입력)의 재시도 거래(TRANSACTION 실행 2개 이상)와 실행 식별 불가 행이 섞인 거래는 응답코드 키가 없다(2.3). csv 입력은 실행 키에 이름공간 `csv:{run}:{position//count}`가 들어가 반복·재실행만으로도 같은 거래가 실행 2개 이상이 된다(재시도가 아니어도 응답코드 키 없음 → channel). CSV 재생 경로(csv-replay)만 재시도가 리비전이라 해당 없음. 최신 재시도 1건을 고르는 규칙, 또는 판정 PROCESS와 같은 이름공간의 TRANSACTION만 후보로 보는 규칙(`data_input_origins.namespace`)이 필요한지는 판정 행 측정 뒤

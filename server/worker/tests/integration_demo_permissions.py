@@ -1,5 +1,6 @@
 """Local-only role boundaries and read-only capture from the initial schema."""
 import contextlib,io,json,os,tempfile,uuid
+from datetime import datetime,timezone
 from pathlib import Path
 import psycopg
 import sys
@@ -23,12 +24,15 @@ with psycopg.connect(admin,autocommit=True) as c:c.execute(sql.SQL('CREATE DATAB
 with psycopg.connect(legacy,autocommit=True) as c:
     for name in ('001_postgres_queues.sql','002_core_erd.sql'):c.execute(((infra/'migrations')/name).read_text())
 sid=uuid.uuid4()
+# The legacy DB simulates a source system with only 001/002 (no 030), where api_received_at is still NOT NULL.
+# ingest_observation leaves it NULL by default (CSV/replay, contracts/collector-metrics.md 1.1), so pass a receipt time here.
+received=datetime.now(timezone.utc)
 with psycopg.connect(legacy) as c:
     c.execute("INSERT INTO ops_sources(id,dataset_key,display_name,ingestion_method,schema_version,clock_basis,field_catalog,created_at) VALUES(%s,%s,'legacy','original','v1','{}','{}',clock_timestamp())",(sid,str(sid)))
     for i in range(1000):
         eid=uuid.uuid4()
         c.execute("INSERT INTO data_executions(id,source_id,layer,execution_key,key_parts,key_contract_version,first_observed_at) VALUES(%s,%s,'P',%s,'{}','legacy',clock_timestamp())",(eid,sid,str(i)))
-        ingest_observation(c,source_id=sid,layer='P',dedup_key=str(i),raw={'status':'S','success_count':10+i%50,'error_count':i%3,'total_count':100+i%50},execution_id=eid,revision_no=1)
+        ingest_observation(c,source_id=sid,layer='P',dedup_key=str(i),raw={'status':'S','success_count':10+i%50,'error_count':i%3,'total_count':100+i%50},execution_id=eid,revision_no=1,api_received_at=received)
 assert len(list(postgres_rows(legacy,sid,10000)))==1000
 with psycopg.connect(dsn) as c:
     c.execute((infra/'scripts/demo-role.sql').read_text())

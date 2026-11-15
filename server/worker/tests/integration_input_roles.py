@@ -6,6 +6,8 @@ import psycopg
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 from collector.input_store import ensure_source,stage_csv,switch
 from collector.input_runner import tick,read_state
+from collector import resource_sampler
+from collector.source_clock import set_clock_basis
 
 def main():
     dsn=os.environ['DATABASE_URL'];p=urlsplit(dsn)
@@ -32,5 +34,20 @@ def main():
         except psycopg.errors.InsufficientPrivilege:conn.rollback()
         else:raise AssertionError('collector can read BODY values')
         print('PASS: restricted Collector initialization, frozen four-file replay, T/P/M/B admission and BODY value read denied')
+        # 030: operator clock-basis CLI path and the resources sampler run under the same restricted role.
+        changed=set_clock_basis(conn,source,verify_timezone='Asia/Seoul',actor='role-test');conn.commit()
+        assert changed['clockBasis']['status']=='verified' and changed['clockBasis']['verifiedBy']=='role-test',changed
+        sampler=resource_sampler.Sampler(proc_root=Path(temp)/'no-proc',disks={'database_data':None,'artifacts':temp})
+        resource_sampler.store(conn,sampler.resource_row(),sampler.disk_rows())
+        saved=conn.execute("""SELECT cpu_status::text,cpu_reason_code,memory_status::text FROM ops_resource_measurements
+            ORDER BY measured_at DESC LIMIT 1""").fetchone()
+        disks=dict(conn.execute("""SELECT DISTINCT ON (storage_key) storage_key,reason_code FROM ops_storage_measurements
+            WHERE target_kind='filesystem' ORDER BY storage_key,measured_at DESC""").fetchall());conn.commit()
+        assert saved==('unavailable','proc_stat_unavailable','unavailable'),saved
+        assert disks['database_data']=='mount_not_visible',disks
+        try:conn.execute('UPDATE ops_resource_measurements SET scope=%s',('host',));conn.commit()
+        except psycopg.errors.InsufficientPrivilege:conn.rollback()
+        else:raise AssertionError('collector can update resource samples')
+        print('PASS: collector role sets clock_basis, stores unavailable resource/disk samples, cannot update samples')
 
 if __name__=='__main__':main()

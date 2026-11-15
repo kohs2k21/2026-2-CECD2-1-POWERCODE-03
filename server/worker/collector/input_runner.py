@@ -17,12 +17,25 @@ from collector.telemetry import store_sample,store_snapshot,monitor_preview
 
 def read_state(conn,source):
     row=conn.execute("""SELECT c.mode,c.revision,c.run_id,c.config_version_id,r.settings,r.next_position,r.status,
-        r.last_attempt_at,r.last_success_at,r.replay_id,p.record_count
+        r.last_attempt_at,r.last_success_at,r.replay_id,p.record_count,c.updated_at
         FROM ops_input_controls c LEFT JOIN ops_input_runs r ON r.id=c.run_id
         LEFT JOIN data_input_replays p ON p.id=r.replay_id WHERE c.source_id=%s""",(source,)).fetchone()
     conn.commit()
     if row is None:raise ValueError('input_source_not_initialized')
-    return dict(zip(('mode','revision','run','config','settings','position','status','attempt','success','replay','count'),row))
+    return dict(zip(('mode','revision','run','config','settings','position','status','attempt','success','replay','count','switched'),row))
+
+
+def ingest_phase(old):
+    """data_input_origins.ingest_phase for this tick (contracts/collector-metrics.md 3.1).
+
+    csv -> 'replay'. api -> 'initial' when the run has no committed successful poll yet, or the last one is older than
+    the latest mode switch (pause -> resume reuses the run): the response then holds transactions that were already
+    running before collection (re)started. Otherwise 'live'. The fence re-checks revision and next_position under
+    lock in the admission transaction, so `success`/`switched` read here are the values that transaction sees.
+    """
+    if old['mode']=='csv':return 'replay'
+    if old['success'] is None or (old['switched'] is not None and old['success']<old['switched']):return 'initial'
+    return 'live'
 
 
 def fence(conn,source,old):
@@ -72,8 +85,10 @@ def tick(conn,source,*,api_factory=from_environment,mapping=None,collect_catalog
         with conn.transaction():
             if not fence(conn,source,old):return {'discarded':'input_mode_changed','wait':0}
             namespace='api' if old['mode']=='api' else f'csv:{old["run"]}:{old["position"]//old["count"]}'
+            phase=ingest_phase(old);received=receipt['finished_at'] if old['mode']=='api' else None
             outcomes=[admit(conn,source,old['run'],old['mode'],layer,raw,namespace=namespace,
-                position=old['position'] if old['mode']=='csv' else None,config=old['config']) for layer,raw in records]
+                position=old['position'] if old['mode']=='csv' else None,config=old['config'],
+                phase=phase,received_at=received) for layer,raw in records]
             if old['mode']=='api':
                 snapshot,created=store_snapshot(conn,source,'in-progress',monitor_preview(values),
                     'mapped-arrival-snapshot-v1',receipt['finished_at'])

@@ -152,6 +152,37 @@ services:
         read_only: true
         bind: {create_host_path: false}
 
+  # 시스템 자원 표본기(contracts/collector-metrics.md 4절). migration 030 + 역할 스크립트 + WebUI storage API의 database_data·disks[] 반영 뒤에
+  # `--profile resources`로 켠다(반영 전 readStorage는 키를 가리지 않아 artifacts 값이 disk로 보일 수 있다).
+  # /proc(컨테이너 기본 procfs)·읽기 전용 바인드 경로의 statvfs만 읽는다. Docker 소켓 없음, 쓰기 마운트 없음.
+  # DB 데이터 디렉터리 디스크는 compose.resources-db.yaml을 함께 줄 때만 바인드된다. 없으면 database_data = unavailable(mount_not_visible).
+  resources:
+    <<: *worker
+    profiles: [resources]
+    command: [python, -m, collector.resource_sampler]
+    cpus: ${RESOURCES_CPUS:-0.1}
+    mem_limit: ${RESOURCES_MEMORY:-128m}
+    networks: [database]
+    # 쓰기 없는 표본기: 루트 파일시스템 읽기 전용, 권한 상승·capability 없음. 파일을 쓰지 않지만(이미지 PYTHONDONTWRITEBYTECODE=1) /tmp만 tmpfs로 둔다.
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    tmpfs: [/tmp]
+    environment:
+      DATABASE_URL: ${COLLECTOR_DATABASE_URL:-${DATABASE_URL:?Set DATABASE_URL}}
+      RESOURCE_SAMPLE_SECONDS: "60"
+      RESOURCE_PROC_SCOPE: ${RESOURCE_PROC_SCOPE:-host_proc_unverified}
+      RESOURCE_ARTIFACTS_PATH: /measure/artifacts
+      RESOURCE_DATABASE_DATA_PATH: ""
+    volumes:
+      - type: bind
+        source: ${ARTIFACT_ROOT_PATH:?Set existing artifact directory}
+        target: /measure/artifacts
+        read_only: true
+        bind: {create_host_path: false}
+    healthcheck:
+      disable: true
+
   input:
     <<: *worker
     profiles: [tools]

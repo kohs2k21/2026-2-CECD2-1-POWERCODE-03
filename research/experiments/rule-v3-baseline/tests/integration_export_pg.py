@@ -42,8 +42,10 @@ def _execution(conn, source_id, layer, key):
 
 
 def _ingest(conn, source_id, layer, key, raw, persisted_at):
+    # 전제 DB가 001~022(030 이전)라 api_received_at이 아직 NOT NULL이다. 기본값(NULL, collector-metrics.md 1.1) 대신 시각을 준다.
     observation = ingest_observation(conn, source_id=source_id, layer=layer, dedup_key=f"rv3:{source_id}:{key}",
-                                     raw=raw, execution_id=_execution(conn, source_id, layer, key), revision_no=1)
+                                     raw=raw, execution_id=_execution(conn, source_id, layer, key), revision_no=1,
+                                     api_received_at=persisted_at)
     conn.execute("UPDATE data_observations SET persisted_at=%s WHERE id=%s", (persisted_at, observation.observation_id))
     return observation.observation_id
 

@@ -27,6 +27,7 @@ import { responseCodes025 } from './erd-v03-response-codes.mjs';
 import { notificationWindow026 } from './erd-v03-notification-window.mjs';
 import { jobNotifications028 } from './erd-v03-job-notifications.mjs';
 import { feedbackOutcome029 } from './erd-v03-feedback-outcome.mjs';
+import { collectorMetrics030 } from './erd-v03-collector-metrics.mjs';
 
 const toolRoot = process.argv[2];
 assert(toolRoot, 'Pass an isolated temporary workspace containing the test dependencies');
@@ -42,6 +43,10 @@ const migrations = await Promise.all(migrationNames.map(n => readFile(join(infra
 const idx011 = migrationNames.findIndex(n => n.startsWith('011_'));
 assert(idx011 > 0, '011 migration must be present');
 const rolesSql = await readFile(join(infra, 'scripts/database-roles.sql'), 'utf8');
+// Roles script as of 029: the 030 block grants on ops_resource_measurements, which does not exist before 030.
+// Scenarios that apply the roles script at a pre-030 state (026·028·029) get this version.
+const rolesBefore030 = rolesSql.replace(/^-- 030: [\s\S]*?(?=^-- #78-Q10)/m, '');
+assert.notEqual(rolesBefore030, rolesSql, 'database-roles.sql has the 030 grant block before #78-Q10');
 const demoRoleSql = await readFile(join(infra, 'scripts/demo-role.sql'), 'utf8');
 const v03Admin = {contract_version:'v03',status:'queued',producer_kind:'user',producer_key:'admin78',requested_by_actor_id:'admin78',
   requester_role:'admin',max_attempts:3,attempt_count:0};
@@ -275,9 +280,10 @@ try {
   await userSettings022({ Client, port, connection, check, failures, migrations, migrationNames, rolesSql, parity });
   await protocolAlerts023({ Client, port, connection, check, failures, migrations, migrationNames, rolesSql, parity });
   await responseCodes025({ Client, port, connection, check, failures, migrations, migrationNames, rolesSql, parity });
-  await notificationWindow026({ Client, port, connection, check, failures, migrations, migrationNames, rolesSql, parity });
-  await jobNotifications028({ Client, port, connection, check, failures, migrations, migrationNames, rolesSql, parity });
-  await feedbackOutcome029({ Client, port, connection, check, failures, migrations, migrationNames, rolesSql, parity, insert });
+  await notificationWindow026({ Client, port, connection, check, failures, migrations, migrationNames, rolesSql: rolesBefore030, parity });
+  await jobNotifications028({ Client, port, connection, check, failures, migrations, migrationNames, rolesSql: rolesBefore030, parity });
+  await feedbackOutcome029({ Client, port, connection, check, failures, migrations, migrationNames, rolesSql: rolesBefore030, parity, insert });
+  await collectorMetrics030({ Client, port, connection, check, failures, migrations, migrationNames, rolesSql, parity, insert });
   assert.equal(failures.length,0,failures.join('; '));
   console.log(`PASS ${checkCount} integration checks; no project runtime or customer data used`);
   passed = true;

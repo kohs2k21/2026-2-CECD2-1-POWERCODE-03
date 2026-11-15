@@ -125,6 +125,12 @@ GRANT USAGE ON SEQUENCE run_recheck_runs_seq_seq TO powercode_detector;
 -- Per-code severity lives in the rule set (hard:transaction-failed), so Detector does not read either table.
 GRANT SELECT,INSERT,UPDATE ON ops_response_codes TO powercode_api;
 GRANT SELECT,INSERT ON ops_response_code_changes TO powercode_api;
+-- 030: Collector operations metrics (contracts/collector-metrics.md). The resources sampler service connects with the
+-- collector role (same session owner, no new login to provision): it appends resource/disk samples and prunes its own
+-- old rows (DELETE, no UPDATE). The API reads both tables (ops_storage_measurements SELECT is granted above).
+-- data_input_origins.ingest_phase and data_observations source time columns are covered by the 009/002 table grants.
+GRANT SELECT,INSERT,DELETE ON ops_resource_measurements,ops_storage_measurements TO powercode_collector;
+GRANT SELECT ON ops_resource_measurements TO powercode_api;
 -- #78-Q10 defense in depth: no session temp tables through PUBLIC in the database this script runs in
 -- (runtime code uses none). The database owner, superusers and explicit TEMP grantees keep TEMP.
 DO $$ BEGIN

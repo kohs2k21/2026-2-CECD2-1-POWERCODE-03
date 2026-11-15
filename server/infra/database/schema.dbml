@@ -195,9 +195,9 @@ Table data_observations {
   source_log_occurred_at timestamptz
   source_updated_time_raw text
   source_updated_at timestamptz
-  api_received_at timestamptz [not null]
+  api_received_at timestamptz [note: '030: NULL 허용. API 조회 응답 수신 시각만, CSV 재생은 NULL']
   persisted_at timestamptz [not null]
-  clock_status text [not null]
+  clock_status text [not null, note: 'contracts/collector-metrics.md 2.1: offset|verified_tz|assumed_tz|unparsed|absent, 030 이전 행 unknown']
   parsed_times jsonb [not null]
   allowed_values jsonb [not null]
   quality_flags jsonb [not null]
@@ -207,6 +207,7 @@ Table data_observations {
     (execution_id, revision_no) [unique]
     (id, source_id) [unique]
     (id, execution_id) [unique]
+    (source_id, source_log_occurred_at) [name: 'data_observations_source_occurred_idx', note: '030 부분 인덱스 WHERE source_log_occurred_at IS NOT NULL']
   }
   Note: 'append-only 관측. 실행키 검증 불가 행은 execution_id/revision_no NULL로 품질 보존. source revision이 없으면 재등장/지연 순서의 완전 복원 보장 안 함; dedup 정책 버전 검증 필요. 수집시각으로 원천 수정 순서 확정 금지.'
 }
@@ -1107,10 +1108,11 @@ Table data_input_origins {
   position bigint
   namespace text [not null]
   created_at timestamptz [not null, default: `clock_timestamp()`]
+  ingest_phase text [note: '030: live|initial|replay(csv), 030 이전 행 NULL. CHECK NOT VALID']
   indexes {
     (run_id) [name: 'input_origins_run_idx']
   }
-  Note: '009. 관측의 입력 출처(api|csv). 불변.'
+  Note: '009. 관측의 입력 출처(api|csv). 불변. 030 ingest_phase(지연 표본은 live만).'
 }
 
 // 011_config_comparison_recommendation: evaluation sets and configuration comparisons (#74/#78).
@@ -1508,6 +1510,25 @@ Table ops_user_protocol_alert_reads {
     (actor_id, item_key) [pk]
   }
   Note: '023. 프로토콜 알림 항목별 읽음(022 항목 읽음과 같은 규칙). item_key protocol:<sha256 64 hex>.'
+}
+
+// 030_collector_metrics. System resource samples (Collector resources service, 60 s, 24 h retention), API reads only.
+Table ops_resource_measurements {
+  id uuid [pk]
+  scope text [not null, note: 'host_proc_unverified|host']
+  cpu_status measurement_status [not null]
+  cpu_percent float8
+  cpu_reason_code text
+  sample_interval_ms float8
+  memory_status measurement_status [not null]
+  memory_used_bytes bigint
+  memory_total_bytes bigint
+  memory_reason_code text
+  measured_at timestamptz [not null, default: `clock_timestamp()`]
+  indexes {
+    (measured_at) [name: 'ops_resource_measurements_time_idx']
+  }
+  Note: '030. CPU(/proc/stat 두 표본 차이)·메모리(/proc/meminfo) 지표별 상태. 측정 불가 = 값 NULL + 사유 코드. contracts/collector-metrics.md 4절.'
 }
 
 // 028_job_notifications. Job notification (train/compare finished) read marks, API only (no FK to run_jobs: the API prunes rows).

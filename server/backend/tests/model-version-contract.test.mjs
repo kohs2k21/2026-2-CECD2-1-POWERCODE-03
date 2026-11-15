@@ -195,6 +195,13 @@ test('application eligibility reports the first failed gate', () => {
   assert.equal(eligible({}, { unavailableEvaluation: true }).reason, 'method_results_unavailable');
   assert.equal(eligible({ operationalEligibility: { eligible: false, reason: 'prepared_detector_reproduction_unverified' } }, { eligibleEvaluationId: 'e1' }).reason, 'operational_ineligible');
   assert.equal(eligible({}, { modelKeys: ['minibatch_kmeans'], eligibleEvaluationId: 'e1' }).reason, 'not_executable');
+  // 활성 집합 gate와 같은 schemaVersion 범위(1·2·3). 그 밖은 평가가 있어도 적격이 아니다.
+  for (const schemaVersion of [2, 3]) {
+    assert.equal(eligible({ schemaVersion, methods: [{ methodId: 'ml:iforest', enabled: true }] }, { eligibleEvaluationId: 'e1' }).eligible, true, String(schemaVersion));
+  }
+  for (const schemaVersion of [4, null, undefined]) {
+    assert.deepEqual(eligible({ schemaVersion }, { eligibleEvaluationId: 'e1' }), { eligible: false, evaluationId: null, reason: 'config_schema_not_supported_yet' }, String(schemaVersion));
+  }
 });
 test('active state fills active and activeSince', () => {
   const version = projectVersion(row({ schemaVersion: 1 }), new Map([['11111111-1111-4111-8111-111111111111', { revision: 7, at: '2026-11-01T02:00:00.000Z' }]]));

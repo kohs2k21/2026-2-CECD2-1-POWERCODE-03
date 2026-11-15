@@ -164,7 +164,7 @@ export function parseActiveSetRequest(body: unknown): ActiveSetRequest {
 
 type GatedVersion = { configVersionId: string; modelKey: string; displayName: string | null; evaluationId: string };
 /** 활성화할 수 있는 구성 schemaVersion. 워커 `READABLE_SCHEMA_VERSIONS`(1·2·3)와 같다. 2는 룰 전용(모델 없음)이 대부분이라 보통 아래 모델 수 검사에서 걸린다. */
-const ACTIVATABLE_SCHEMA_VERSIONS: unknown[] = [1, 2, 3];
+export const ACTIVATABLE_SCHEMA_VERSIONS: readonly unknown[] = [1, 2, 3];
 
 /**
  * 기술 무결성 gate(model-version.md 활성 집합 절, 기존 configRoutes 검사를 모델 1개 기준으로): 모델 1개·카탈로그 실행 가능·prepared 아님·

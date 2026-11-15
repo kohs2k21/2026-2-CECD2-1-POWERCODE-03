@@ -2,10 +2,12 @@ import type { Pool, PoolClient } from 'pg';
 import { ML_METHODS, mlMethod, modelKeyOf } from '../ruleset/methodCatalog.js';
 import { realCalendarTime } from '../ruleset/thresholdStats.js';
 import { activeContext, recommendationState, type ActiveContext } from './comparisonEvaluation.js';
+import { ACTIVATABLE_SCHEMA_VERSIONS } from './activeModelSet.js';
 
 /**
  * 모델 버전 조회 GET /api/configurations·GET /api/configurations/:id(model-version.md 조회). 저장된 구성을 바꾸지 않고 응답만 만든다.
- * 지금 저장된 행은 schemaVersion 1·2뿐이라 v1·v2 투영을 쓰고, v3 행은 spec 값을 읽는다. `executable`은 저장하지 않고 응답 시 카탈로그로 계산한다.
+ * schemaVersion 1·2 행은 v1·v2 투영을 쓰고, v3 행(새 학습)은 spec 값을 읽는다. `executable`은 저장하지 않고 응답 시 카탈로그로 계산한다.
+ * 운영 적용 가능 판단(`applicationEligibility`)은 활성 집합 gate와 같이 schemaVersion 1·2·3 밖이면 적격으로 표시하지 않는다.
  */
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const UTC_MICROSECONDS = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$/;
@@ -152,7 +154,8 @@ export function projectVersion(row: VersionRow, active: ActiveState, comparisons
   const executable = methods.length > 0 && methods.every((method: { enabled: boolean; executable: { process: boolean } }) => !method.enabled || method.executable.process);
   const operational = operationalEligibility(spec);
   const applicationEligibility =
-    !operational.eligible ? { eligible: false, evaluationId: null, reason: 'operational_ineligible' }
+    !ACTIVATABLE_SCHEMA_VERSIONS.includes(spec.schemaVersion) ? { eligible: false, evaluationId: null, reason: 'config_schema_not_supported_yet' }
+    : !operational.eligible ? { eligible: false, evaluationId: null, reason: 'operational_ineligible' }
       : !executable ? { eligible: false, evaluationId: null, reason: 'not_executable' }
         : row.eligibleEvaluationId ? { eligible: true, evaluationId: row.eligibleEvaluationId, reason: null }
           : { eligible: false, evaluationId: null, reason: row.unavailableEvaluation ? 'method_results_unavailable' : 'no_eligible_evaluation' };

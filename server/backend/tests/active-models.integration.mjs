@@ -234,6 +234,15 @@ try {
 
   // 9) v1·v2 단일 구성 경로는 그대로(본문에 expectedActiveVersionId가 있는 apply·restore).
   assert.deepEqual(code(await apply(a.configId, { operation: 'apply', evaluationId: a.evaluationId, expectedRevision: 99, expectedActiveVersionId: null })), [409, 'active_config_changed']);
+  // v3 모델 버전은 단일 구성 칸에 넣지 않는다(v03 판독이 legacy 정책으로 읽음). 활성 집합 경로만 쓴다.
+  const legacyState = async () => (await pool.query('SELECT active_config_version_id AS id,revision FROM ops_system_state WHERE id=1')).rows[0] ?? null;
+  const stateBefore = await legacyState();
+  for (const operation of ['apply', 'restore']) {
+    assert.deepEqual(code(await apply(v3.configId, { operation, evaluationId: v3.evaluationId, expectedRevision: Number(stateBefore?.revision ?? 0), expectedActiveVersionId: stateBefore?.id ?? null })),
+      [422, 'config_schema_not_supported_yet'], operation);
+  }
+  assert.deepEqual(await legacyState(), stateBefore, 'the legacy single-config state is unchanged');
+  assert.equal((await pool.query('SELECT count(*)::int AS count FROM run_applications WHERE target_config_version_id=$1', [v3.configId])).rows[0].count, 0);
 
   // 10) 방법별 운영 상태: 지금 켜진 규칙·활성 모델마다 기간 안 v4 결과를 센다. 이전 모델 버전 결과·옛 판정은 따로.
   const state = await stateOf();

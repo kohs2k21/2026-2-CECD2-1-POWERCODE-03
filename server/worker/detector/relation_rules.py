@@ -303,8 +303,9 @@ def _parsed(rows: tuple[Mapping[str, Any], ...], column: str) -> list[datetime |
     """처리 시간(datetime_diff)과 같은 해석. 시간대 있는 값과 없는 값이 섞이면 비교할 수 없어 모두 해석 불가로 둔다.
 
     relation-rules.md 3.1은 관측 `parsed_times`를 적었지만 수집은 그 열에 시각 값을 두지 않는다(030 이전 `'{}'`, 이후
-    해석 근거만 — collector-metrics.md 1.1). 관측 `source_log_occurred_at`은 030 이후 새 관측부터 채워지지만 시간대를
-    가정한 값(`assumed_tz`)이 섞이고 이전 관측은 NULL이라, 여기서는 원천 시각 문자열을 쓴다(백엔드 thresholdStats와 같은 이유).
+    해석 근거만 — collector-metrics.md 1.1). 관측 `source_log_occurred_at`은 030 이후 새 관측부터 채워지지만 이전 관측은
+    NULL이고, 이 함수는 처리 시간과 같은 원문 해석(시간대 표기 유무를 그대로 둠)을 따라야 하므로 원천 시각 문자열을 쓴다
+    (백엔드 thresholdStats와 같은 이유). 표기 없는 원천 시각을 KST로 해석한 `assumed_tz` 값을 쓰지 않는 것도 이 일관성 때문이다.
     """
     raw_key, row_key = _TIME_KEYS[column]
     values = [evaluate_derived({"op": "column", "table": TABLE, "column": column}, {raw_key: row.get(row_key)})

@@ -3,11 +3,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import json
+import logging
 from pathlib import Path
 import re
 import time
 from typing import Any, Callable, Mapping
 import uuid
+
+import psycopg
 
 import model_adapters
 from detector.computation import load_model_context, model_reference
@@ -29,6 +32,7 @@ from telemetry import cost_family
 from trainer.lease import lock_training_ownership
 
 ML_RESULT_CODES = {"iforest": "IF_ANOMALY"}
+LOGGER = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -308,6 +312,8 @@ def run_attempt(conn: Any, message: Any, job: Mapping[str, Any], attempt_id: uui
                               relation={**relation.evidence_fields(),
                                         **({"relationRecheck": recheck} if recheck is not None else {})})
     columns = decision_columns(evidence)
+    # 판정 저장 소요(detection-decision.md 19절): 판정 쓰기 트랜잭션 진입 → COMMIT 완료, Detector 단조 시계.
+    store_started = time.monotonic()
     with conn.transaction():
         if not lock_training_ownership(conn, message, job["id"], attempt_id, attempt_token):
             raise RuntimeError("detection_lease_lost")
@@ -344,3 +350,24 @@ def run_attempt(conn: Any, message: Any, job: Mapping[str, Any], attempt_id: uui
                     (uuid.uuid4(), observation.observation_id, (time.monotonic() - started) * 1000))
         finish(conn, message, job, attempt_id, attempt_token,
                {"status": columns["status"], "executionCost": telemetry, "checkers": evidence["checkers"]}, None, True)
+    # 바깥 트랜잭션 블록이 끝나며 COMMIT됐다. 호출 전에 열린 트랜잭션이 있었다면(블록이 savepoint) 여기서 COMMIT한다.
+    conn.commit()
+    if recheck is None:
+        record_judgment_store(conn, observation.observation_id, (time.monotonic() - store_started) * 1000)
+
+
+def record_judgment_store(conn: Any, observation_id: uuid.UUID, duration_ms: float) -> bool:
+    """판정 COMMIT 뒤 별도 짧은 트랜잭션으로 stage `judgment_store` 1행(detector 행과 같은 열 — 구성 NULL).
+
+    실패해도 판정·작업은 이미 커밋됐으므로 시도를 실패로 바꾸지 않는다. 로그만 남기고 표본을 버린다.
+    측정 표본은 장애 때 잃어도 되므로 비동기 커밋(판정마다 WAL flush 대기를 하나 더 만들지 않음).
+    """
+    try:
+        with conn.transaction():
+            conn.execute("SET LOCAL synchronous_commit = off")
+            conn.execute("""INSERT INTO ops_pipeline_measurements(id,observation_id,stage,config_version_id,duration_ms)
+                VALUES(%s,%s,'judgment_store',NULL,%s)""", (uuid.uuid4(), observation_id, duration_ms))
+    except psycopg.Error as exc:
+        LOGGER.warning("judgment_store measurement skipped for observation %s: %s", observation_id, type(exc).__name__)
+        return False
+    return True

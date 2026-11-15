@@ -1,5 +1,5 @@
 Created: 2026-10-12T02:06:03+09:00
-Updated: 2026-11-14T18:00:00+09:00
+Updated: 2026-11-15T12:25:00+09:00
 Author: contracts_page_reviewer
 Status: current
 
@@ -7,7 +7,7 @@ Status: current
 
 - Issue #32 기준: 최신 PostgreSQL·공통 규약·LLM 기획 반영. `schema.dbml`은 최종 목표 구조의 시각화, 실행 원본은 migration SQL
 - 목표 구조(Issue #32 당시): public 28테이블 + `powercode_queue` 기존 물리 큐 2테이블. 기존 public 24테이블 보존, BODY·BODY 연결·불변 입력·LLM 결과 4테이블만 추가
-- 현재 `schema.dbml`: 001~023 전체 + 024 [제안] + 025·026 반영(024·025·026 절) + 027 `job_kind` 값 1개(확정 11/14) + 028 + 029(014 표에 열 1개) + 030(002·009 표 열·인덱스, 새 표 1개), public 74테이블 + `powercode_queue` 5테이블. 004_feature_pipeline·005~009 추가분 24테이블 보강, 011 3테이블·012 1테이블·014 3테이블·015 3테이블·019 4테이블·022 4테이블·023 2테이블·024 1테이블·025 2테이블 추가, 026은 022 표에 열 1개 추가. 013(#82)은 함수 설정만 바꿔 DBML 변경 없음
+- 현재 `schema.dbml`: 001~023 전체 + 024 [제안] + 025·026 반영(024·025·026 절) + 027 `job_kind` 값 1개(확정 11/14) + 028 + 029(014 표에 열 1개) + 030(002·009 표 열·인덱스, 새 표 1개) + 031(004 표 CHECK 2개, DBML Note만), public 74테이블 + `powercode_queue` 5테이블. 004_feature_pipeline·005~009 추가분 24테이블 보강, 011 3테이블·012 1테이블·014 3테이블·015 3테이블·019 4테이블·022 4테이블·023 2테이블·024 1테이블·025 2테이블 추가, 026은 022 표에 열 1개 추가. 013(#82)은 함수 설정만 바꿔 DBML 변경 없음
 - 기존 001/002 불변. 003/004는 서버 미적용; ERD 등록·SQL 검수와 실제 운영 적용 구분
 - PostgreSQL 17.11 실제 public24+queue2 존재 확인 기록과 정합. 서버 schema/version 이력 및 완전 DDL 일치는 별도 사전 확인 필요
 
@@ -145,7 +145,7 @@ SELECT r.rolname,
 - `run_jobs.contract_version = 'v04'`: detect만 허용, `input_config_version_id` NULL 필수, manifest는 v03 형식 그대로. 중복 방지 `run_jobs_v04_detect_idx`(kind, input_manifest_id), 멱등 키 `run_jobs_v04_producer_key_idx`, 큐 `run_jobs_v04_queue_idx`. v03 인덱스·규칙 변경 없음. 입력 불변·버전 고정·성공 전 판정 필수·lease 검사는 v03과 같음. 한 manifest에 v03 작업과 v04 작업이 함께 있는 것은 막지 않음(버전 전환 구간)
 - `run_process_decisions.config_version_id` NULL 허용, 구성 NULL은 v04 작업의 판정만: 작업 없는 행은 CHECK `decisions_config_required`, 작업 있는 INSERT는 `erd_v03_validate_result`의 판정 구성 = 작업 구성 비교(v04 판정에 구성을 넣어도 거부), legacy 행의 구성을 지우거나 작업에 붙이는 UPDATE는 트리거 `decision_config_kept`가 거부(v03·v04 작업 모두, 다른 열 UPDATE는 허용). 4열 UNIQUE가 NULL을 막지 못하는 빈틈은 부분 UNIQUE `run_process_decisions_no_config_idx`
 - explain: 판정 구성이 NULL이면 작업 `input_config_version_id`·`run_llm_results.config_version_id`도 NULL, 그 밖에는 지금처럼 일치 요구. explain 작업 자체는 v03
-- `ops_pipeline_measurements.config_version_id`: detector 단계만 NULL 허용(CHECK `ops_pipeline_measurements_config_check`), feature 단계는 필수. 측정 행에 작업 참조가 없어 v04 작업까지 좁히지 못함. `run_decision_interims`는 구성 열이 없어 `validate_decision_interim`의 버전 조건만 고침. `data_feature_materializations`·`ops_input_controls` 변경 없음
+- `ops_pipeline_measurements.config_version_id`: detector 단계만 NULL 허용(CHECK `ops_pipeline_measurements_config_check`, 031에서 `judgment_store` 단계도 NULL 허용), feature 단계는 필수. 측정 행에 작업 참조가 없어 v04 작업까지 좁히지 못함. `run_decision_interims`는 구성 열이 없어 `validate_decision_interim`의 버전 조건만 고침. `data_feature_materializations`·`ops_input_controls` 변경 없음
 - 재정의 함수 3개(`erd_v03_validate_job`·`erd_v03_validate_result`·`validate_decision_interim`): 원본 최신판 기준으로 표시한 줄만 변경, `search_path` 설정·SECURITY INVOKER·소유자 유지. SECURITY DEFINER 함수 2개는 버전 조건이 없어 변경 없음
 - 룰 세트: `content_hash_version smallint`(016: 1 또는 2, 020 이후 1·2·3, 열 기본값은 계속 2). 기존 행 1(fast default), 열 기본값 2 → 열을 생략한 저장도 2. 시스템 행 r1 = 하드룰 4개 켬·내장 기본 severity·소프트룰 없음(`contracts/detection-decision.md` 4.3 값), `content_hash_version = 2`, `content_hash = de6a2ad8d0dcee189f36852a279263d3408f826632b95b4f14a97406b801bed0`(`contracts/rule-set.md` v2 정규 객체), `saved_by_actor_id = system`, `note` NULL, `changes`는 새 규칙 2개의 `hard_enabled`
 - r1 삽입 조건: 최대 리비전이 0일 때만. 저장된 리비전이 있으면 `RAISE EXCEPTION`으로 016 전체가 되돌아감(메시지에 사유·조치). 이 검사가 파일 맨 앞쪽이라 큰 표를 잠그기 전에 멈춘다. API 공통 잠금 81739는 잡지 않음(표 ACCESS EXCLUSIVE를 쥔 채 기다리면 API 저장과 교착, 표 잠금만으로 직렬화됨)
@@ -188,7 +188,7 @@ SELECT r.rolname,
 - 실험 기능(층 C 거래 간 사건 묶음)
 - 파일 `019_incidents.sql`, 018 이후 한 번 실행(`psql -v ON_ERROR_STOP=1 -f`), 기존 표 소유자로 실행 뒤 DBA가 `scripts/database-roles.sql` 재적용. 새 표 4개·트리거 4개만, 새 함수 없음, 단일 BEGIN..COMMIT. FK 생성이 `ops_sources`·`run_process_decisions`에 짧은 SHARE ROW EXCLUSIVE(014와 같음). 자동 down migration 없음
 - 표(층 C, Detector 쓰기·API 읽기): `run_incident_runs`(Detector 주기 실행 1회 = 1행, 실행 트랜잭션 끝에 INSERT, 읽은 커서 범위·건수 3종), `run_incidents`(묶음, `criteria` 객체·`criteria_version`·`group_key`·`time_basis`·`opened_at` = 첫 구성원 발생 시각, `continues_from` = 1시간 구간으로 끊긴 앞 구간), `run_incident_members`(`decision_id` PK = 판정 1건은 최대 1개 묶음, `occurred_at`·`occurred_basis`), `run_incident_events`(병합 기록 `merged_into`만, identity id)
-- 시각 기준: `time_basis`·`occurred_basis` 모두 `process_time_raw`·`decided_at`·`source_log_occurred_at` 중 하나(CHECK). 원문 시각 해석에 실패한 구성원은 `decided_at`으로 대체되므로 구성원 `occurred_basis`가 묶음 `time_basis`와 다를 수 있음. 현재 코드는 `run_process_decisions.source_log_occurred_at`·`decision_committed_at`을 쓰지 않음(값 NULL), `run_process_decisions`에 `decided_at`으로 시작하는 인덱스도 없음
+- 시각 기준: `time_basis`·`occurred_basis` 모두 `process_time_raw`·`decided_at`·`source_log_occurred_at` 중 하나(CHECK). 원문 시각 해석에 실패한 구성원은 `decided_at`으로 대체되므로 구성원 `occurred_basis`가 묶음 `time_basis`와 다를 수 있음. 사건 묶음 코드는 `run_process_decisions.source_log_occurred_at`·`decision_committed_at`을 읽지 않음. Detector는 `source_log_occurred_at`을 지연 `measured` 판정에만 채우고(`contracts/detection-decision.md` 18절 — 관측 `clock_status` offset·verified_tz·assumed_tz ∧ `live` ∧ 첫 revision ∧ 재판정 아님, 그 밖 NULL) `decision_committed_at`은 쓰지 않음(NULL). `run_process_decisions`에 `decided_at`으로 시작하는 인덱스도 없음
 - 멱등·무결성: `run_incidents` UNIQUE `(source_id, criteria_version, group_key, opened_at)`, 구성원은 `INSERT … ON CONFLICT (decision_id) DO NOTHING`, `merged_into`는 대상 필수·자기 대상 금지·묶음당 1건(partial UNIQUE), `continues_from`은 자기 참조 금지·앞 구간당 다음 구간 1개(partial UNIQUE, 사슬 일직선). 이어짐은 이벤트 종류로 두지 않음. 커서 `cursor_from ≥ 0`·`cursor_to ≥ cursor_from`, 건수 ≥ 0, `finished_at ≥ started_at`. 끝 시각·구성원 수·해제 여부는 저장하지 않고 읽을 때 계산
 - 실행 FK: 묶음·구성원·이벤트의 `added_by_run` → `run_incident_runs(id)`는 DEFERRABLE INITIALLY DEFERRED. 실행 행을 같은 트랜잭션 마지막에 넣고, 끝내 없으면 COMMIT이 23503으로 실패해 전체가 되돌아감
 - 최근 목록 인덱스: `run_incidents_recent_idx (source_id, opened_at DESC, id DESC)`. WebUI 장애 목록·상세가 원천별 `ORDER BY opened_at DESC, id DESC`(id = 페이지 넘김 안정 순서)로 읽기 위함, 4열 UNIQUE만으로는 이 순서를 못 탐
@@ -326,6 +326,18 @@ SELECT r.rolname,
 - 시험(`erd-v03-collector-metrics.mjs`, `erd-v03.mjs`가 호출): `erd030_upgrade`(001~029 + 029 시점 역할 스크립트 + 이전 Collector 문장으로 쓴 관측·출처 → 030: 기존 행 유지, `api_received_at` nullable, 부분 인덱스 정의·VALID, CHECK `NOT VALID`·새 행 검사(23514), 역할 스크립트 재적용 전 새 표 42501·후 역할 5개 권한 정확 일치, 자원 행 CHECK 경계, collector UPDATE 42501·DELETE 가능, api 읽기, collector `clock_basis` UPDATE, 다시 실행 42P07 뒤 상태 그대로, DBML parity)
 - 함께 바꾼 기존 시험: `prepare-runtime-db.py` `later` 묶음에 030 추가. `erd-v03.mjs`는 026·028·029 시나리오(030 이전 상태에서 역할 스크립트 적용)에 030 블록을 뺀 역할 스크립트를 넘긴다
 
+## 031 판정 저장 소요 측정 단계
+
+- 파일 `031_judgment_store_measurement.sql`, 030까지 적용 뒤 한 번 실행(`psql -v ON_ERROR_STOP=1 -f`), 004 표 소유자로 실행. 문장 1개(`ALTER TABLE` 안의 DROP·ADD 4개가 함께 성공·실패, 020과 같이 BEGIN..COMMIT 없음), 새 표·열·함수·트리거·인덱스·권한 변경 없음(`scripts/database-roles.sql` 재적용 불필요 — detector INSERT는 기존 GRANT), 자동 down migration 없음. 재실행해도 결과 같음(같은 이름·같은 정의)
+- 왜: Detector가 판정 저장 소요(판정 쓰기 트랜잭션 진입 → COMMIT 완료)를 `ops_pipeline_measurements`에 stage `judgment_store`로 남긴다(`contracts/detection-decision.md` 19절, 사용자 11/15 D1 A안). 판정 행은 불변이고 커밋 시각은 그 트랜잭션 안에서 알 수 없어 판정 행에 두지 않는다
+- 변경: ① `ops_pipeline_measurements_stage_check`(004 열 CHECK의 자동 이름)를 같은 이름으로 `('feature','detector')` → `('feature','detector','judgment_store')` ② `ops_pipeline_measurements_config_check`(016)를 같은 이름으로 `config_version_id IS NOT NULL OR stage = 'detector'` → `… OR stage IN ('detector','judgment_store')`. feature는 계속 구성 필수
+- 잠금: 문장 동안 `ops_pipeline_measurements`에 ACCESS EXCLUSIVE, 새 CHECK 검증으로 표 heap을 읽음(행 수에 비례 — 보존 정책이 없어 판정 수만큼 쌓인 표, 크기 미측정). 그동안 Detector 판정 트랜잭션(detector 측정 행 INSERT)·Feature 워커·API 운영 조회가 기다린다. 적용 전 `pg_relation_size('ops_pipeline_measurements')`로 크기를 보고 크면 Detector를 멈추고 적용. 새 조건이 이전보다 넓어 검증 실패 없음
+- 배포 순서: migration 031 → Detector. 031 전에 새 Detector가 돌면 측정 INSERT만 23514로 실패하고 Detector는 경고 로그만 남긴 채 판정·작업을 성공시킨다(표본만 없음). 이전 Detector는 031 뒤에도 그대로(detector·feature 조건 불변). API `/api/pipeline` 단계별 집계(`pipelineRoutes.ts`, `GROUP BY stage`)에는 `judgment_store` 행이 새 단계로 나타난다. 운영 latency API `judgmentStore` 반영은 WebUI 몫
+- 되돌림: `judgment_store` 행이 생기기 전에만 두 CHECK를 004·016 정의로 되돌릴 수 있다(생긴 뒤에는 그 행을 지워야 함 — 측정 표본이라 판정에 영향 없음)
+- 보존: 첫 판정마다 측정 행이 1개 → 2개. 이 표 보존 정책은 여전히 없음(범위 밖, 남은 위험)
+- 시험(`erd-v03-judgment-store.mjs`, `erd-v03.mjs`가 호출): `erd031_upgrade`(001~030 + 이전 문장으로 쓴 feature·detector 행 → 031 한 문자열: 031 전 `judgment_store` 23514, 카탈로그는 두 CHECK만 변경·같은 이름·검증됨, 기존 행 불변, `judgment_store` 구성 NULL·있음 허용, feature 구성 NULL·다른 stage 값 23514, 재실행 같은 카탈로그, 남은 migration 뒤 DBML parity), `erd031_fresh`(001~끝 한 번에, 두 CHECK 정의가 upgrade와 같음, DBML parity). Detector 경로는 `worker/tests/integration_detection_decision.py` `judgment_store`(첫 판정 1행·측정 INSERT 실패 강제 시 판정·작업 성공)·`integration_relation_recheck.py`(재판정은 측정 행 없음)
+- 함께 바꾼 기존 시험: `prepare-runtime-db.py` `later` 묶음에 031 추가, `integration_relation_recheck.py`의 측정 행 수 검사를 단계별로
+
 ## 큐와 소유권
 
 - 001의 `detection_logs/training_jobs`는 기존 물리 큐. 기존 Python helper의 payload·물리 lease 경로 보존
@@ -376,7 +388,7 @@ SELECT r.rolname,
 
 ## DBML과 SQL 대응
 
-- DBML은 001~030(024 [제안] 포함) 적용 후 최종 구조(컬럼·nullability·unique·FK·enum 순서). 물리 큐 5개도 명시. enum 순서는 PostgreSQL 추가 순서(`job_kind`의 `import_csv`는 explain 뒤)
+- DBML은 001~031(024 [제안] 포함) 적용 후 최종 구조(컬럼·nullability·unique·FK·enum 순서). 물리 큐 5개도 명시. enum 순서는 PostgreSQL 추가 순서(`job_kind`의 `import_csv`는 explain 뒤)
 - nullable FK는 `>?`, unique FK는 부모 `-` 자식 방향, nullable unique FK는 부모 `?-` 자식 방향으로 표시. 실제 FK 방향은 SQL/파싱 대응 시험으로 확인
 - attempt의 복합 FK 3개는 DBML의 exact-composite index 판정 한계로 `>`/`>?` 표시. 자식의 개별 PK/unique가 실제 1:1 제약을 보장한다는 주석 유지; 그림 경고를 없애려고 SQL 중복 인덱스를 추가하지 않음
 - `@dbml/core`는 현재 문법의 `dbmlv2` parser 사용. deprecated `dbml` parser는 optional 관계 문법을 지원하지 않음

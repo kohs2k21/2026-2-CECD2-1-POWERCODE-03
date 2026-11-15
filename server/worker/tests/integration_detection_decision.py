@@ -1168,14 +1168,78 @@ def source_latency(conn, sid):
     future = {"start_time_raw": "2999-01-01 00:00:00+00:00", "end_time_raw": "2999-01-01 00:00:01+00:00"}
     status, latency, copied, observed, _, same_clock = judge("latency-skew", future, "live")
     assert status == "measured" and latency < 0 and copied == observed and same_clock is True, (status, latency)
-    # 조건 거짓: 첫 조회(initial), 시간대 가정(assumed_tz), 출처 행 없음 — 관측 원천 시각이 있어도 복사하지 않는다
+    # 시간대 표기 없는 원천 시각: Collector가 KST로 해석한 assumed_tz도 measured(사용자 11/15 Q2)
+    status, latency, copied, observed, clock, same_clock = judge("latency-assumed", {}, "live")
+    assert (status, clock) == ("measured", "assumed_tz") and copied == observed and same_clock is True, (status, clock)
+    # 조건 거짓: 첫 조회(initial), 출처 행 없음 — 관측 원천 시각이 있어도 복사하지 않는다
     for key, raw, phase, expected_clock in (("latency-initial", offset, "initial", "offset"),
-                                            ("latency-assumed", {}, "live", "assumed_tz"),
                                             ("latency-no-origin", offset, None, "offset")):
         status, latency, copied, observed, clock, _ = judge(key, raw, phase)
         assert (status, latency, copied, clock) == ("unavailable", None, None, expected_clock), (key, status, clock)
         assert observed is not None, key
-    print("PASS 원천 → 판정 지연: live·근거 있는 원천 시각만 measured(음수 포함), 그 밖은 unavailable·원천 시각 미복사")
+    print("PASS 원천 → 판정 지연: live·원천 시각(offset·verified_tz·assumed_tz)만 measured(음수 포함), "
+          "그 밖은 unavailable·원천 시각 미복사")
+
+
+def measurements(conn, observation_id):
+    rows = conn.execute("""SELECT stage,config_version_id,duration_ms,measured_at FROM ops_pipeline_measurements
+        WHERE observation_id=%s ORDER BY measured_at""", (observation_id,)).fetchall()
+    conn.commit()
+    return rows
+
+
+def judgment_store(conn, sid):
+    """판정 저장 소요(detection-decision.md 19절, migration 031). 재판정 제외는 integration_relation_recheck.py가 본다."""
+    seen, payload = v04_job(conn, sid, "store")
+    row = judged(conn, payload)
+    assert row is not None
+    rows = measurements(conn, seen.observation_id)
+    assert [item[0] for item in rows] == ["detector", "judgment_store"], rows
+    _, config_id, duration, measured_at = rows[1]
+    # 판정 COMMIT 뒤 별도 트랜잭션이라 detector 행(판정과 같은 트랜잭션)보다 늦다
+    assert config_id is None and duration >= 0 and measured_at > rows[0][3], rows
+    committed = conn.execute("""SELECT d.decided_at < m.measured_at FROM run_process_decisions d
+        JOIN ops_pipeline_measurements m ON m.observation_id=d.process_observation_id AND m.stage='judgment_store'
+        WHERE d.job_id=%s""", (payload["jobId"],)).fetchone()[0]
+    conn.commit()
+    assert committed is True
+    # 다른 단계 값은 여전히 거부(031 CHECK), feature 단계는 구성 필수
+    for stage, code in (("judgment-store", "23514"), ("feature", "23514")):
+        try:
+            conn.execute("""INSERT INTO ops_pipeline_measurements(id,observation_id,stage,config_version_id,duration_ms)
+                VALUES(%s,%s,%s,NULL,1)""", (uuid.uuid4(), seen.observation_id, stage))
+            raise AssertionError(f"{stage} accepted")
+        except psycopg.Error as exc:
+            assert exc.sqlstate == code, (stage, exc.sqlstate)
+        conn.rollback()
+
+    # 측정 INSERT 실패를 실제 DB 오류로 강제한다: judgment_store 행만 막는 시험용 트리거
+    conn.execute("""CREATE FUNCTION qa_reject_judgment_store() RETURNS trigger LANGUAGE plpgsql AS $$
+        BEGIN IF NEW.stage='judgment_store' THEN RAISE EXCEPTION 'qa judgment_store rejected'; END IF; RETURN NEW; END $$""")
+    conn.execute("""CREATE TRIGGER qa_reject_judgment_store BEFORE INSERT ON ops_pipeline_measurements
+        FOR EACH ROW EXECUTE FUNCTION qa_reject_judgment_store()""")
+    conn.commit()
+    try:
+        seen, payload = v04_job(conn, sid, "store-fail")
+        with patch.object(attempt_v04.LOGGER, "warning") as warned:
+            failure = attempt(conn, payload)
+        assert failure is None, repr(failure)
+        assert warned.call_count == 1 and "judgment_store" in warned.call_args[0][0], warned.call_args
+        assert decision(conn, payload) is not None
+        state = job_state(conn, payload)
+        assert (state[1], state[4]) == ("succeeded", None), state
+        assert [item[0] for item in measurements(conn, seen.observation_id)] == ["detector"]
+    finally:
+        conn.rollback()
+        conn.execute("DROP TRIGGER qa_reject_judgment_store ON ops_pipeline_measurements")
+        conn.execute("DROP FUNCTION qa_reject_judgment_store()")
+        conn.commit()
+    # 같은 연결로 다음 판정도 측정된다(실패한 측정 트랜잭션이 연결 상태를 남기지 않음)
+    seen, payload = v04_job(conn, sid, "store-after")
+    judged(conn, payload)
+    assert [item[0] for item in measurements(conn, seen.observation_id)] == ["detector", "judgment_store"]
+    print("PASS 판정 저장 소요: 첫 판정마다 COMMIT 뒤 judgment_store 1행(구성 NULL), 다른 단계 거부, "
+          "측정 INSERT 실패는 로그만 남기고 판정·작업 성공 유지")
 
 
 def observe_layer(conn, sid, layer, raw):
@@ -1437,6 +1501,7 @@ def main():
         pinning_and_fail_closed(conn, sid)
         evidence_and_columns(conn, sid, model_config, feature_set)
         source_latency(conn, sid)
+        judgment_store(conn, sid)
         interim_records(conn, sid, model_config)
         lease_loss(conn, sid)
         legacy_paths(conn, sid)

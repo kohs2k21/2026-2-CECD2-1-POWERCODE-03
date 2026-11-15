@@ -690,7 +690,8 @@ class SourceLatencyCondition(unittest.TestCase):
         return source_latency_measurable(**values)
 
     def test_clock_status(self):
-        for status, expected in (("offset", True), ("verified_tz", True), ("assumed_tz", False), ("unparsed", False),
+        # assumed_tz = 시간대 표기 없는 원천 시각을 KST로 해석한 시각(사용자 11/15 Q2) — 포함
+        for status, expected in (("offset", True), ("verified_tz", True), ("assumed_tz", True), ("unparsed", False),
                                  ("absent", False), ("unknown", False), (None, False)):
             with self.subTest(status=status):
                 self.assertIs(self.measurable(clock_status=status), expected)
@@ -724,11 +725,69 @@ class SourceLatencyCondition(unittest.TestCase):
         self.assertIs(decision_source_time(observation(), rechecked=False), self.AT)
         self.assertIsNone(decision_source_time(observation(), rechecked=True))
         # 조건이 거짓이면 관측에 값이 있어도 판정 행에 복사하지 않는다
-        self.assertIsNone(decision_source_time(observation(clock_status="assumed_tz"), rechecked=False))
+        self.assertIs(decision_source_time(observation(clock_status="assumed_tz"), rechecked=False), self.AT)
+        self.assertIsNone(decision_source_time(observation(clock_status="unparsed"), rechecked=False))
         self.assertIsNone(decision_source_time(observation(ingest_phase=None), rechecked=False))
         # 기본값(새 열을 모르는 생성자)은 unavailable
         legacy = ProcessObservation(uuid.uuid4(), uuid.uuid4(), uuid.uuid4(), 1, {}, [], "offset")
         self.assertIsNone(decision_source_time(legacy, rechecked=False))
+
+
+class _MeasureTransaction:
+    def __init__(self, conn):
+        self.conn = conn
+
+    def __enter__(self):
+        self.conn.events.append("begin")
+        return self
+
+    def __exit__(self, kind, *_):
+        self.conn.events.append("rollback" if kind else "commit")
+        return False
+
+
+class _MeasureConn:
+    """record_judgment_store가 쓰는 transaction()·execute()만 흉내 낸다. fail이 있으면 INSERT에서 그 예외를 낸다."""
+
+    def __init__(self, fail=None):
+        self.events, self.fail = [], fail
+
+    def transaction(self):
+        return _MeasureTransaction(self)
+
+    def execute(self, sql, params=None):
+        if "INSERT" in sql and self.fail is not None:
+            raise self.fail
+        self.events.append((" ".join(sql.split()), params))
+
+
+class JudgmentStoreMeasurement(unittest.TestCase):
+    """판정 저장 소요 측정 행(detection-decision.md 19절). 실제 COMMIT 순서·재판정 제외는 integration 시험이 본다."""
+
+    def test_row_shape(self):
+        from detector.attempt_v04 import record_judgment_store
+        conn, observation = _MeasureConn(), uuid.uuid4()
+        self.assertIs(record_judgment_store(conn, observation, 12.5), True)
+        self.assertEqual(conn.events[0], "begin")
+        self.assertEqual(conn.events[1], ("SET LOCAL synchronous_commit = off", None))
+        sql, params = conn.events[2]
+        # detector 행과 같은 열(id, observation_id, stage, config_version_id NULL, duration_ms)
+        self.assertIn("INSERT INTO ops_pipeline_measurements(id,observation_id,stage,config_version_id,duration_ms)", sql)
+        self.assertIn("'judgment_store',NULL", sql)
+        self.assertEqual(params[1:], (observation, 12.5))
+        self.assertEqual(conn.events[3], "commit")
+
+    def test_insert_failure_is_logged_not_raised(self):
+        import psycopg
+        from detector.attempt_v04 import record_judgment_store
+        conn = _MeasureConn(fail=psycopg.errors.CheckViolation("031 not applied"))
+        with self.assertLogs("detector.attempt_v04", level="WARNING") as logs:
+            self.assertIs(record_judgment_store(conn, uuid.uuid4(), 1.0), False)
+        self.assertEqual(conn.events[-1], "rollback")
+        self.assertIn("CheckViolation", logs.output[0])
+        # DB 오류가 아닌 예외(코드 결함)는 숨기지 않는다
+        with self.assertRaises(TypeError):
+            record_judgment_store(_MeasureConn(fail=TypeError("bug")), uuid.uuid4(), 1.0)
 
 
 if __name__ == "__main__":

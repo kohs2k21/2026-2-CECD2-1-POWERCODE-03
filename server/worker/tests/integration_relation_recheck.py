@@ -194,10 +194,11 @@ def main():
         assert (b_rows[1][2], precedes["anomalous"], precedes["evidence"][0]["violation"]) == (
             "REL_PRECEDES", True, "predecessor_missing"), precedes
         assert b_new["composite"]["basisMethods"] == [PRECEDES["id"]], b_new["composite"]
-        measured = conn.execute("SELECT count(*) FROM ops_pipeline_measurements WHERE observation_id=ANY(%s)",
-                                ([a2, b2],)).fetchone()[0]
+        measured = dict(conn.execute("""SELECT stage,count(*) FROM ops_pipeline_measurements WHERE observation_id=ANY(%s)
+            GROUP BY stage""", ([a2, b2],)).fetchall())
         conn.commit()
-        assert measured == 2, measured  # 첫 판정 측정 행만(재판정은 측정 행 없음)
+        # 첫 판정 측정 행만(재판정은 detector·judgment_store 행 모두 없음, detection-decision.md 19절)
+        assert measured == {"detector": 2, "judgment_store": 2}, measured
         print("PASS 재판정 시도: 새 판정 행 추가(옛 행 그대로) — A 필수 단계 없음 → REL_REQUIRED_STEP, "
               "B 선행 없음 → REL_PRECEDES(predecessor_missing), relationRecheck 기록, 측정 행 없음")
 

@@ -460,85 +460,87 @@ try {
   assert.deepEqual(await outcomeIds('workflow_resolved_actual_anomaly'), []);
   assert.equal((await list('', admin)).counts.workflow_resolved_actual_anomaly, 0);
 
-  // 14c) 기록 수정(032): 원래 행은 그대로 두고 정정 행을 추가한다. 최초 기록 작성자인 관리자만, 목록은 현재 판본만·최초 기록 위치 그대로,
-  //      확인 결과별 완료는 고친 값으로 최초 기록 시각 기준 가장 최근 확인 결과. 삭제 경로 없음.
-  const editRoute = (itemId, feedbackId) => `${feedbackRoute(itemId)}/${feedbackId}`;
-  const edit = (itemId, feedbackId, body, token = admin) => request(base, editRoute(itemId, feedbackId), 'PUT', token, body);
-  const anomalyRecords = async () => (await request(base, feedbackRoute(D.anomaly.id), 'GET', admin)).body.items;
-  const beforeEdit = await anomalyRecords();
-  const byReason = (items, reason) => items.find((item) => item.reason === reason);
-  const rowsBefore = (await pool.query('SELECT id,kind,reason,outcome,actor_id,created_at FROM run_decision_feedback ORDER BY id')).rows;
-  assert.equal((await workflow(D.anomaly.id, { state: 'resolved', expectedState: 'detected' })).status, 200);
-  assert.deepEqual(await outcomeIds('workflow_resolved_actual_anomaly'), [D.anomaly.id], 'before edit: 재확인 (actual-anomaly) is the latest outcome');
-  // 가장 최근 확인 결과 기록의 확인 결과를 지우면 그 앞 기록(확인 undetermined)이 쓰인다.
-  const recheck = byReason(beforeEdit, '재확인');
-  const edited = await edit(D.anomaly.id, recheck.id, { kind: 'suspected-false-positive', reason: '  재확인 정정\n줄바꿈  ', outcome: null, expectedId: recheck.id });
-  assert.equal(edited.status, 200, JSON.stringify(edited.body));
-  assert.deepEqual([edited.body.id, edited.body.item.originId, edited.body.item.kind, edited.body.item.reason, edited.body.item.outcome,
-    edited.body.item.actorId, edited.body.item.actorEmail, edited.body.item.createdAt],
-  [D.anomaly.id, recheck.id, 'suspected-false-positive', '재확인 정정\n줄바꿈', null, adminId, environment.SEED_ADMIN_EMAIL, recheck.createdAt]);
-  assert.notEqual(edited.body.item.id, recheck.id, 'a new version row');
-  assert.ok(isoTime(edited.body.item.editedAt) && edited.body.item.editedAt > recheck.createdAt);
-  const afterEdit = await anomalyRecords();
-  assert.deepEqual(afterEdit.map((item) => item.originId), beforeEdit.map((item) => item.originId), 'same records, same positions (original time)');
-  assert.deepEqual(afterEdit[beforeEdit.indexOf(recheck)], edited.body.item, 'GET shows the current version only');
-  assert.deepEqual([await outcomeIds('workflow_resolved_actual_anomaly'), await outcomeIds('workflow_resolved_undetermined')], [[], [D.anomaly.id]],
-    'outcome cleared by the edit: the earlier record with an outcome is used');
-  // 옛 기록(확인 normal)을 고쳐도 그 뒤 기록(확인 undetermined)의 확인 결과를 덮지 않는다.
-  const older = byReason(beforeEdit, '확인 normal');
-  assert.equal((await edit(D.anomaly.id, older.id, { kind: 'action', reason: '확인 normal', outcome: 'actual-anomaly', expectedId: older.id })).status, 200);
-  assert.deepEqual([await outcomeIds('workflow_resolved_actual_anomaly'), await outcomeIds('workflow_resolved_undetermined')], [[], [D.anomaly.id]],
-    'editing an older record does not override a newer outcome');
-  const newer = byReason(beforeEdit, '확인 undetermined');
-  assert.equal((await edit(D.anomaly.id, newer.id, { kind: 'action', reason: '확인 undetermined → normal', outcome: 'normal', expectedId: newer.id })).status, 200);
-  const editedCounts = await list('?category=workflow_resolved_normal', admin);
-  assert.deepEqual([ids(editedCounts).includes(D.anomaly.id), editedCounts.counts.workflow_resolved_undetermined, editedCounts.counts.workflow_resolved_actual_anomaly],
-    [true, 0, 0], 'badge counts use the edited values');
-  // 정정의 정정: 현재 판본을 expectedId로. 옛 판본 id는 충돌, 정정 행 id를 경로에 쓰면 없음.
-  const second = await edit(D.anomaly.id, recheck.id, { kind: 'action', reason: '재확인 두 번째 정정', outcome: 'actual-anomaly', expectedId: edited.body.item.id });
-  assert.deepEqual([second.status, second.body.item.originId, second.body.item.createdAt], [200, recheck.id, recheck.createdAt]);
-  assert.deepEqual(await outcomeIds('workflow_resolved_actual_anomaly'), [D.anomaly.id], 'latest record (재확인) has an outcome again');
-  const stale = await edit(D.anomaly.id, recheck.id, { kind: 'action', reason: 'x', expectedId: edited.body.item.id });
-  assert.deepEqual([stale.status, stale.body.code], [409, 'feedback_edit_conflict'], 'stale expected version');
-  const viaVersion = await edit(D.anomaly.id, second.body.item.id, { kind: 'action', reason: 'x', expectedId: second.body.item.id });
-  assert.deepEqual([viaVersion.status, viaVersion.body.code], [404, 'feedback_not_found'], 'path key is the original record id');
-  // 동시 수정: 같은 판본을 동시에 두 번 고치면 한쪽만 성공한다.
-  const olderCurrent = byReason(await anomalyRecords(), '확인 normal');
-  const racedEdits = await Promise.all([1, 2].map((n) => edit(D.anomaly.id, older.id, { kind: 'action', reason: `동시 ${n}`, expectedId: olderCurrent.id })));
-  assert.deepEqual(racedEdits.map((response) => response.status).sort(), [200, 409], JSON.stringify(racedEdits.map((response) => response.body)));
-  assert.equal(racedEdits.find((response) => response.status === 409).body.code, 'feedback_edit_conflict');
-  // 권한: user 403 admin_required, 다른 관리자가 남긴 기록 403 feedback_author_required.
-  const otherAuthor = crypto.randomUUID();
-  await pool.query(`INSERT INTO run_decision_feedback(id,decision_id,kind,reason,actor_id) VALUES($1,$2,'action','다른 관리자 기록','qa-other-admin')`,
-    [otherAuthor, D.anomaly.id]);
-  const notAuthor = await edit(D.anomaly.id, otherAuthor, { kind: 'action', reason: '바꿈', expectedId: otherAuthor });
-  assert.deepEqual([notAuthor.status, notAuthor.body.code], [403, 'feedback_author_required']);
-  const asUser = await edit(D.anomaly.id, recheck.id, { kind: 'action', reason: '바꿈', expectedId: second.body.item.id }, user);
-  assert.deepEqual([asUser.status, asUser.body.code], [403, 'admin_required']);
-  // 다른 판정 항목의 기록·없는 기록 404, 잘못된 기록 id 400, 본문 검사 400.
-  const v4Record = (await request(base, feedbackRoute(D.v4Final.id), 'GET', admin)).body.items[0];
-  assert.deepEqual([(await edit(D.anomaly.id, v4Record.id, { kind: 'action', reason: 'x', expectedId: v4Record.id })).body.code], ['feedback_not_found']);
-  assert.deepEqual([(await edit(D.anomaly.id, crypto.randomUUID(), { kind: 'action', reason: 'x', expectedId: recheck.id })).status], [404]);
-  assert.deepEqual([(await edit(crypto.randomUUID(), recheck.id, { kind: 'action', reason: 'x', expectedId: recheck.id })).body.code], ['decision_not_found']);
-  assert.deepEqual([(await edit(D.anomaly.id, 'nope', { kind: 'action', reason: 'x', expectedId: recheck.id })).body.code], ['invalid_feedback_id']);
-  const current = second.body.item.id;
-  for (const body of [{ kind: 'action', reason: 'x' }, { kind: 'action', reason: 'x', expectedId: 'x' }, { kind: 'action', reason: 'x', expectedId: 7 },
-    { kind: 'action', reason: '  ', expectedId: current }, { kind: 'label', reason: 'x', expectedId: current },
-    { kind: 'action', reason: 'x', outcome: 'Normal', expectedId: current }, { kind: 'action', reason: 'x', expectedId: current, label: 1 },
-    { reason: 'x', expectedId: current }]) {
-    const response = await edit(D.anomaly.id, recheck.id, body);
-    assert.deepEqual([response.status, response.body?.code], [400, 'invalid_feedback_request'], JSON.stringify(body).slice(0, 60));
+  {
+    // 14c) 기록 수정(032): 원래 행은 그대로 두고 정정 행을 추가한다. 최초 기록 작성자인 관리자만, 목록은 현재 판본만·최초 기록 위치 그대로,
+    //      확인 결과별 완료는 고친 값으로 최초 기록 시각 기준 가장 최근 확인 결과. 삭제 경로 없음.
+    const editRoute = (itemId, feedbackId) => `${feedbackRoute(itemId)}/${feedbackId}`;
+    const edit = (itemId, feedbackId, body, token = admin) => request(base, editRoute(itemId, feedbackId), 'PUT', token, body);
+    const anomalyRecords = async () => (await request(base, feedbackRoute(D.anomaly.id), 'GET', admin)).body.items;
+    const beforeEdit = await anomalyRecords();
+    const byReason = (items, reason) => items.find((item) => item.reason === reason);
+    const rowsBefore = (await pool.query('SELECT id,kind,reason,outcome,actor_id,created_at FROM run_decision_feedback ORDER BY id')).rows;
+    assert.equal((await workflow(D.anomaly.id, { state: 'resolved', expectedState: 'detected' })).status, 200);
+    assert.deepEqual(await outcomeIds('workflow_resolved_actual_anomaly'), [D.anomaly.id], 'before edit: 재확인 (actual-anomaly) is the latest outcome');
+    // 가장 최근 확인 결과 기록의 확인 결과를 지우면 그 앞 기록(확인 undetermined)이 쓰인다.
+    const recheck = byReason(beforeEdit, '재확인');
+    const edited = await edit(D.anomaly.id, recheck.id, { kind: 'suspected-false-positive', reason: '  재확인 정정\n줄바꿈  ', outcome: null, expectedId: recheck.id });
+    assert.equal(edited.status, 200, JSON.stringify(edited.body));
+    assert.deepEqual([edited.body.id, edited.body.item.originId, edited.body.item.kind, edited.body.item.reason, edited.body.item.outcome,
+      edited.body.item.actorId, edited.body.item.actorEmail, edited.body.item.createdAt],
+    [D.anomaly.id, recheck.id, 'suspected-false-positive', '재확인 정정\n줄바꿈', null, adminId, environment.SEED_ADMIN_EMAIL, recheck.createdAt]);
+    assert.notEqual(edited.body.item.id, recheck.id, 'a new version row');
+    assert.ok(isoTime(edited.body.item.editedAt) && edited.body.item.editedAt > recheck.createdAt);
+    const afterEdit = await anomalyRecords();
+    assert.deepEqual(afterEdit.map((item) => item.originId), beforeEdit.map((item) => item.originId), 'same records, same positions (original time)');
+    assert.deepEqual(afterEdit[beforeEdit.indexOf(recheck)], edited.body.item, 'GET shows the current version only');
+    assert.deepEqual([await outcomeIds('workflow_resolved_actual_anomaly'), await outcomeIds('workflow_resolved_undetermined')], [[], [D.anomaly.id]],
+      'outcome cleared by the edit: the earlier record with an outcome is used');
+    // 옛 기록(확인 normal)을 고쳐도 그 뒤 기록(확인 undetermined)의 확인 결과를 덮지 않는다.
+    const older = byReason(beforeEdit, '확인 normal');
+    assert.equal((await edit(D.anomaly.id, older.id, { kind: 'action', reason: '확인 normal', outcome: 'actual-anomaly', expectedId: older.id })).status, 200);
+    assert.deepEqual([await outcomeIds('workflow_resolved_actual_anomaly'), await outcomeIds('workflow_resolved_undetermined')], [[], [D.anomaly.id]],
+      'editing an older record does not override a newer outcome');
+    const newer = byReason(beforeEdit, '확인 undetermined');
+    assert.equal((await edit(D.anomaly.id, newer.id, { kind: 'action', reason: '확인 undetermined → normal', outcome: 'normal', expectedId: newer.id })).status, 200);
+    const editedCounts = await list('?category=workflow_resolved_normal', admin);
+    assert.deepEqual([ids(editedCounts).includes(D.anomaly.id), editedCounts.counts.workflow_resolved_undetermined, editedCounts.counts.workflow_resolved_actual_anomaly],
+      [true, 0, 0], 'badge counts use the edited values');
+    // 정정의 정정: 현재 판본을 expectedId로. 옛 판본 id는 충돌, 정정 행 id를 경로에 쓰면 없음.
+    const second = await edit(D.anomaly.id, recheck.id, { kind: 'action', reason: '재확인 두 번째 정정', outcome: 'actual-anomaly', expectedId: edited.body.item.id });
+    assert.deepEqual([second.status, second.body.item.originId, second.body.item.createdAt], [200, recheck.id, recheck.createdAt]);
+    assert.deepEqual(await outcomeIds('workflow_resolved_actual_anomaly'), [D.anomaly.id], 'latest record (재확인) has an outcome again');
+    const stale = await edit(D.anomaly.id, recheck.id, { kind: 'action', reason: 'x', expectedId: edited.body.item.id });
+    assert.deepEqual([stale.status, stale.body.code], [409, 'feedback_edit_conflict'], 'stale expected version');
+    const viaVersion = await edit(D.anomaly.id, second.body.item.id, { kind: 'action', reason: 'x', expectedId: second.body.item.id });
+    assert.deepEqual([viaVersion.status, viaVersion.body.code], [404, 'feedback_not_found'], 'path key is the original record id');
+    // 동시 수정: 같은 판본을 동시에 두 번 고치면 한쪽만 성공한다.
+    const olderCurrent = byReason(await anomalyRecords(), '확인 normal');
+    const racedEdits = await Promise.all([1, 2].map((n) => edit(D.anomaly.id, older.id, { kind: 'action', reason: `동시 ${n}`, expectedId: olderCurrent.id })));
+    assert.deepEqual(racedEdits.map((response) => response.status).sort(), [200, 409], JSON.stringify(racedEdits.map((response) => response.body)));
+    assert.equal(racedEdits.find((response) => response.status === 409).body.code, 'feedback_edit_conflict');
+    // 권한: user 403 admin_required, 다른 관리자가 남긴 기록 403 feedback_author_required.
+    const otherAuthor = crypto.randomUUID();
+    await pool.query(`INSERT INTO run_decision_feedback(id,decision_id,kind,reason,actor_id) VALUES($1,$2,'action','다른 관리자 기록','qa-other-admin')`,
+      [otherAuthor, D.anomaly.id]);
+    const notAuthor = await edit(D.anomaly.id, otherAuthor, { kind: 'action', reason: '바꿈', expectedId: otherAuthor });
+    assert.deepEqual([notAuthor.status, notAuthor.body.code], [403, 'feedback_author_required']);
+    const asUser = await edit(D.anomaly.id, recheck.id, { kind: 'action', reason: '바꿈', expectedId: second.body.item.id }, user);
+    assert.deepEqual([asUser.status, asUser.body.code], [403, 'admin_required']);
+    // 다른 판정 항목의 기록·없는 기록 404, 잘못된 기록 id 400, 본문 검사 400.
+    const v4Record = (await request(base, feedbackRoute(D.v4Final.id), 'GET', admin)).body.items[0];
+    assert.deepEqual([(await edit(D.anomaly.id, v4Record.id, { kind: 'action', reason: 'x', expectedId: v4Record.id })).body.code], ['feedback_not_found']);
+    assert.deepEqual([(await edit(D.anomaly.id, crypto.randomUUID(), { kind: 'action', reason: 'x', expectedId: recheck.id })).status], [404]);
+    assert.deepEqual([(await edit(crypto.randomUUID(), recheck.id, { kind: 'action', reason: 'x', expectedId: recheck.id })).body.code], ['decision_not_found']);
+    assert.deepEqual([(await edit(D.anomaly.id, 'nope', { kind: 'action', reason: 'x', expectedId: recheck.id })).body.code], ['invalid_feedback_id']);
+    const current = second.body.item.id;
+    for (const body of [{ kind: 'action', reason: 'x' }, { kind: 'action', reason: 'x', expectedId: 'x' }, { kind: 'action', reason: 'x', expectedId: 7 },
+      { kind: 'action', reason: '  ', expectedId: current }, { kind: 'label', reason: 'x', expectedId: current },
+      { kind: 'action', reason: 'x', outcome: 'Normal', expectedId: current }, { kind: 'action', reason: 'x', expectedId: current, label: 1 },
+      { reason: 'x', expectedId: current }]) {
+      const response = await edit(D.anomaly.id, recheck.id, body);
+      assert.deepEqual([response.status, response.body?.code], [400, 'invalid_feedback_request'], JSON.stringify(body).slice(0, 60));
+    }
+    assert.equal((await request(base, editRoute(D.anomaly.id, recheck.id), 'DELETE', admin)).status, 404, 'no delete route');
+    // 보존: 기존 행은 하나도 바뀌지 않고, 성공한 수정 수(5)만큼 정정 행 + 직접 넣은 기록 1행만 늘었다.
+    const rowsAfter = (await pool.query('SELECT id,kind,reason,outcome,actor_id,created_at FROM run_decision_feedback ORDER BY id')).rows;
+    assert.deepEqual(rowsAfter.filter((row) => rowsBefore.some((old) => old.id === row.id)), rowsBefore, 'original rows unchanged');
+    assert.equal(rowsAfter.length, rowsBefore.length + 5 + 1);
+    const chain = (await pool.query('SELECT reason,supersedes_id,origin_id FROM run_decision_feedback WHERE origin_id=$1 ORDER BY created_at', [recheck.id])).rows;
+    assert.deepEqual(chain.map((row) => [row.reason, row.supersedes_id, row.origin_id]),
+      [['재확인 정정\n줄바꿈', recheck.id, recheck.id], ['재확인 두 번째 정정', edited.body.item.id, recheck.id]], 'linear chain to the original');
+    assert.equal((await pool.query('SELECT count(*)::int AS n FROM data_label_evidence')).rows[0].n, 0);
+    assert.equal((await workflow(D.anomaly.id, { state: 'detected', expectedState: 'resolved' })).status, 200);
   }
-  assert.equal((await request(base, editRoute(D.anomaly.id, recheck.id), 'DELETE', admin)).status, 404, 'no delete route');
-  // 보존: 기존 행은 하나도 바뀌지 않고, 성공한 수정 수(5)만큼 정정 행 + 직접 넣은 기록 1행만 늘었다.
-  const rowsAfter = (await pool.query('SELECT id,kind,reason,outcome,actor_id,created_at FROM run_decision_feedback ORDER BY id')).rows;
-  assert.deepEqual(rowsAfter.filter((row) => rowsBefore.some((old) => old.id === row.id)), rowsBefore, 'original rows unchanged');
-  assert.equal(rowsAfter.length, rowsBefore.length + 5 + 1);
-  const chain = (await pool.query('SELECT reason,supersedes_id,origin_id FROM run_decision_feedback WHERE origin_id=$1 ORDER BY created_at', [recheck.id])).rows;
-  assert.deepEqual(chain.map((row) => [row.reason, row.supersedes_id, row.origin_id]),
-    [['재확인 정정\n줄바꿈', recheck.id, recheck.id], ['재확인 두 번째 정정', edited.body.item.id, recheck.id]], 'linear chain to the original');
-  assert.equal((await pool.query('SELECT count(*)::int AS n FROM data_label_evidence')).rows[0].n, 0);
-  assert.equal((await workflow(D.anomaly.id, { state: 'detected', expectedState: 'resolved' })).status, 200);
 
   // 15) 사용자별 읽음: 상세를 열면(PUT …/read {occurredAt}) 그 사용자에게만 화면이 본 항목 시각까지 확인됨.
   //     그 뒤 생긴 중간 판정·최종 판정(더 늦은 occurredAt)은 미확인으로 남는다(열람 경합에서도).

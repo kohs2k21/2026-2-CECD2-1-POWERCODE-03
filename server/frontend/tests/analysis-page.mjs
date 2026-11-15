@@ -581,7 +581,7 @@ const listCalls = () => requested.filter((r) => r.path === "/api/analysis/decisi
   await wait(() => app.renderer.root.findAll((node) => node.type === "li" && node.props["data-entry"] === "record").length === 1, "records in the timeline");
   const timeline = app.renderer.root.findAll((node) => node.type === "li").filter((node) => node.parent?.type === "ol" && node.parent.props.className?.includes("border-l"));
   assert.deepEqual(timeline.map((node) => text(node.children)), [`${stampTime("2026-11-03T01:02:03Z")}최종`,
-    `${stampTime("2026-11-03T02:09:00Z")}조치 기록 · admin@example.test재처리 확인`]);
+    `${stampTime("2026-11-03T02:09:00Z")}조치 기록 · admin@example.test수정재처리 확인`], "own record carries [수정] (4d)");
   assert.equal(requested.filter((r) => r.method === "GET" && r.path.endsWith("/feedback")).length, 1, "admins read records with the detail");
   assert.equal(app.renderer.root.findByType(WorkflowRecordDialog).props.open, false);
   // 종합 근거 설명 문단(와이어프레임 dCatsNote 문구 그대로)

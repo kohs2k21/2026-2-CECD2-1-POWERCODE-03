@@ -676,6 +676,22 @@ class ScriptedExecutor:
         return self.inner.run_field(paths, out)
 
 
+class FailingReplica(ScriptedExecutor):
+    """첫 생성 묶음에서 꺼지는 복제본(대리 객체가 OOM·자식 종료를 `ReplicaUnavailable`로 올리는 모양). 꺼진 뒤 또 받으면 시험 실패."""
+
+    def __init__(self, rerun_on_main=True, code="replica_out_of_memory"):
+        super().__init__()
+        self.rerun_on_main = rerun_on_main
+        self.code = code
+
+    def run_field(self, paths, out):
+        from generation_replicas import ReplicaUnavailable
+        self.fields.append(rule_v3_check.case_field(paths))
+        if len(self.fields) > 1:
+            raise AssertionError("disabled replica got another group")
+        raise ReplicaUnavailable(self.code, rerun_on_main=self.rerun_on_main)
+
+
 class Pool:
     def __init__(self, replicas):
         self.replicas = replicas
@@ -769,6 +785,46 @@ class ParallelV3Tests(Base):
         self.assertLessEqual(set(ran), {"elapsed_ms", "error_count", "error_ratio"})
         self.assertLessEqual({"elapsed_ms", "error_count"}, set(ran))
         self.assertEqual(calls, [0])
+
+    def test_replica_out_of_memory_reruns_group_elsewhere(self):
+        serial = self.recommend()
+        failing = FailingReplica()
+        others = [ScriptedExecutor(delay=0.05) for _ in range(2)]
+        local = ScriptedExecutor(delay=0.05)
+        self.use([failing, *others], local)
+        calls = []
+        result = self.recommend(progress=lambda done, total: calls.append((done, total)))
+        self.assertEqual(result, serial, "same items, order and content as serial")
+        self.assertEqual(calls, [(n, 6) for n in range(7)], "a re-run group is counted once")
+        [lost] = failing.fields
+        ran = [field for executor in (*others, local) for field in executor.fields]
+        self.assertEqual(sorted(ran), sorted(set(ran)), "every other group ran once")
+        self.assertEqual(len(ran), 5)
+        self.assertIn(lost, ran, "the failed group ran again on another executor")
+
+    def test_out_of_memory_everywhere_fails_like_today_with_bounded_attempts(self):
+        failing = [FailingReplica(), FailingReplica()]
+        local = ScriptedExecutor(script={field: (0, GenerationUnavailable("generation_failed")) for field in FIELDS})
+        self.use(failing, local)
+        with self.assertRaises(GenerationUnavailable) as caught:
+            self.recommend(None, "elapsed_ms", "total_count")
+        self.assertEqual(str(caught.exception), "generation_failed")
+        self.assertEqual([len(replica.fields) for replica in failing], [1, 1], "each replica tried once, then dropped")
+        self.assertLessEqual(len(local.fields), 2)
+        self.assertLessEqual(sum(len(replica.fields) for replica in failing) + len(local.fields), 4)
+
+    def test_lost_replica_reruns_only_on_other_replicas(self):
+        serial = self.recommend(None, "elapsed_ms")
+        lost, other, local = FailingReplica(False, "replica_exited"), ScriptedExecutor(), ScriptedExecutor()
+        self.use([lost, other], local)
+        self.assertEqual(self.recommend(None, "elapsed_ms"), serial)
+        self.assertEqual((lost.fields, other.fields, local.fields), (["elapsed_ms"], ["elapsed_ms"], []))
+        # 남은 복제본이 없으면 주 프로세스로 보내지 않고 기존처럼 generation_failed
+        lost, local = FailingReplica(False, "replica_exited"), ScriptedExecutor()
+        self.use([lost], local)
+        with self.assertRaisesRegex(GenerationUnavailable, "generation_failed"):
+            self.recommend(None, "elapsed_ms")
+        self.assertEqual((lost.fields, local.fields), (["elapsed_ms"], []))
 
     def test_progress_failure_stops_remaining_fields(self):
         executors = [ScriptedExecutor(delay=0.05) for _ in range(2)]

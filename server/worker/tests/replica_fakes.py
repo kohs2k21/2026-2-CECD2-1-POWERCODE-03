@@ -16,10 +16,31 @@ class ModelFailure(RuntimeError):
     pass
 
 
+class OutOfMemoryError(RuntimeError):
+    """`torch.cuda.OutOfMemoryError`와 같은 이름(torch 없이)."""
+
+
+def _wrapped_oom():
+    try:
+        raise OutOfMemoryError("CUDA out of memory. Tried to allocate 20.00 MiB")
+    except OutOfMemoryError as exc:
+        error = ModelFailure("generation crashed")
+        error.__cause__ = exc
+        return error
+
+
 PACKAGE = SimpleNamespace(io=SimpleNamespace(InputFailure=InputFailure, ModelFailure=ModelFailure))
 _ERRORS = {"timeout": lambda: TimeoutError("cut"), "input": lambda: InputFailure("bad input"),
            "model": lambda: ModelFailure("bad model"), "value": lambda: ValueError("rule_v3_bad_value"),
-           "value_text": lambda: ValueError("Bundle says: bad row 3"), "other": lambda: KeyError("boom")}
+           "value_text": lambda: ValueError("Bundle says: bad row 3"), "other": lambda: KeyError("boom"),
+           "oom": lambda: OutOfMemoryError("CUDA out of memory. Tried to allocate 20.00 MiB"),
+           "oom_text": lambda: RuntimeError("CUDA error: out of memory"), "oom_wrapped": _wrapped_oom}
+LOW_MEMORY_GPU = "4"
+
+
+def free_mb():
+    """시작 여유 메모리 가짜 측정(MiB): `LOW_MEMORY_GPU`만 모자라다."""
+    return 1000 if os.environ.get("CUDA_VISIBLE_DEVICES") == LOW_MEMORY_GPU else 30000
 
 
 class FakeRuntime:

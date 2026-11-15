@@ -11,7 +11,17 @@
   종류 코드로 바꿔 부모에서 같은 종류로 다시 올린다(`TimeoutError`, 번들 `InputFailure`·`ModelFailure`, `ValueError`,
   그 밖은 `GenerationUnavailable("generation_failed")`). 작업 폴더(`/tmp` 아래)는 같은 컨테이너라 경로만 넘긴다.
 - 실패: 적재 실패·어댑터 SHA 불일치·시작 시간 초과면 그 복제본을 쓰지 않고 `rule_v3_replica_disabled: <gpu> <코드>`
-  한 줄을 남긴다. llm 시작을 막지 않는다. 실행 중 자식이 죽으면 그 복제본을 빼고 그 필드는 `generation_failed`.
+  한 줄을 남긴다. llm 시작을 막지 않는다.
+- 시작 여유 메모리: 자식은 GPU를 바꾼 뒤·모델 적재 전에 그 GPU 여유 메모리(`torch.cuda.mem_get_info`)를 보고
+  `LLM_REPLICA_MIN_FREE_MB`(MiB, 기본 20480) 미만이면 적재하지 않고 `replica_insufficient_memory`로 끝난다(그 장만 꺼짐).
+  기본값 = 모델 적재 약 18GiB + 생성 중 최고점 1~2GiB + 여유. 0이면 보지 않는다. 시작 뒤 다른 프로세스가 그 GPU로
+  옮겨 오는 일은 이 검사로 막을 수 없어 아래 실행 중 장애 처리가 맡는다.
+- 실행 중 장애: 자식이 CUDA 메모리 부족(`OutOfMemoryError`, 또는 `__cause__` 사슬의 그것)이면 `oom` 코드로 알리고,
+  부모는 그 복제본을 끄고(`replica_out_of_memory`) 프로세스를 끝내 GPU 메모리를 돌려준 뒤 `ReplicaUnavailable`을 올린다.
+  자식이 죽거나 파이프가 끊기면 `replica_exited`로 끄고 같은 예외를 올리되, 그 묶음 때문에 죽었을 수 있으므로 주
+  프로세스로는 다시 보내지 않는다(`rerun_on_main=False`). 묶음을 다른 실행기에서 다시 돌리는 일은
+  `threshold_recommendation._run_groups`가 한다. 받을 실행기가 없으면 이 예외는 기존과 같은 `generation_failed`다.
+  꺼진 복제본은 llm을 다시 시작할 때까지 돌아오지 않는다.
 - 진입점: `spawn` 자식은 부모의 `__main__` 모듈을 다시 import한다. 복제본을 띄우는 스크립트는 torch·모델 적재를
   `if __name__ == "__main__":` 안에 둬야 한다(밖에 두면 자식이 주 GPU에 모델을 다시 올린다). `llm_worker`는 그렇게 되어 있다.
 - 대화형 생성(explain)은 주 프로세스만 처리한다. 복제본은 자기 `GenerationGate`를 가지며 Rule v3 필드만 받는다.
@@ -29,9 +39,14 @@ import time
 from pathlib import Path
 from typing import Any, Callable, Mapping, Sequence
 
+from generation_client import GenerationUnavailable
+
 ENV_GPUS = "LLM_REPLICA_GPUS"
 ENV_START_SECONDS = "LLM_REPLICA_START_SECONDS"
 DEFAULT_START_SECONDS = 1800.0  # Base 4bit 적재 + LoRA 3개 + xgrammar 컴파일러. 넘기면 그 복제본만 끈다
+ENV_MIN_FREE_MB = "LLM_REPLICA_MIN_FREE_MB"
+# MiB. 모델 적재 약 18GiB + 생성 중 최고점 1~2GiB + 여유. 미만이면 그 복제본은 적재하지 않는다. 0 = 검사 안 함
+DEFAULT_MIN_FREE_MB = 20480
 POLL_SECONDS = 1.0
 STOP_SECONDS = 10.0
 _CODE = re.compile(r"[a-z][a-z0-9_]{0,99}")
@@ -49,6 +64,44 @@ def _start_seconds() -> float:
     except ValueError:
         return DEFAULT_START_SECONDS
     return value if value > 0 else DEFAULT_START_SECONDS
+
+
+def _min_free_mb() -> int:
+    try:
+        value = int(os.environ.get(ENV_MIN_FREE_MB, DEFAULT_MIN_FREE_MB))
+    except ValueError:
+        return DEFAULT_MIN_FREE_MB
+    return value if value >= 0 else DEFAULT_MIN_FREE_MB
+
+
+class ReplicaUnavailable(GenerationUnavailable):
+    """복제본이 이 묶음을 끝내지 못하고 꺼졌다(메모리 부족·자식 종료). 결과를 내지 않았으므로 다른 실행기에서 다시
+    돌릴 수 있다. `rerun_on_main`이 False면 주 프로세스로는 보내지 않는다. 받을 곳이 없으면 기존 `generation_failed`."""
+
+    def __init__(self, code: str, rerun_on_main: bool):
+        super().__init__("generation_failed")
+        self.code = code
+        self.rerun_on_main = rerun_on_main
+
+
+def gpu_free_mb() -> int:
+    """자식 기본 여유 메모리 측정(MiB). `CUDA_VISIBLE_DEVICES`를 바꾼 뒤라 `cuda:0` = 그 복제본 GPU다."""
+    import torch
+    free, _ = torch.cuda.mem_get_info()
+    return int(free // (1024 * 1024))
+
+
+def _out_of_memory(exc: BaseException | None) -> bool:
+    """CUDA 메모리 부족인가. torch를 import하지 않고 이름(`torch.cuda.OutOfMemoryError`)·문구로 보며 `__cause__` 사슬도 본다."""
+    for _ in range(8):
+        if exc is None:
+            return False
+        text = str(exc).lower()
+        if type(exc).__name__ == "OutOfMemoryError" or \
+                (isinstance(exc, RuntimeError) and "out of memory" in text and "cuda" in text):
+            return True
+        exc = exc.__cause__
+    return False
 
 
 def parse_gpus(value: str | None, main_visible: str | None) -> tuple[list[str], list[tuple[str, str]]]:
@@ -97,28 +150,55 @@ def _watch_parent() -> None:
 
 def _reply(runtime, paths: Mapping[str, Any], out: Any) -> tuple:
     package = runtime.package
-    # 순서는 `_item_v3`의 except 순서와 같다(TimeoutError → InputFailure → ModelFailure). InputFailure가 ValueError
+    # CUDA 메모리 부족을 가장 먼저 본다(번들이 감싸 올린 경우 포함). 부모가 이 복제본을 끄고 묶음을 다른 실행기로 보낸다.
+    # 그다음 순서는 `_item_v3`의 except 순서와 같다(TimeoutError → InputFailure → ModelFailure). InputFailure가 ValueError
     # 하위 클래스이므로 일반 ValueError는 그 뒤에 본다. ValueError는 주 프로세스 직접 실행처럼 작업 종료 실패가 되도록
     # 같은 종류로 다시 올리고, 문구는 runner와 같은 기준(코드 꼴이 아니면 invalid_job_input)으로 정리해 보낸다.
     try:
         return ("ok", runtime.run_field(paths, out))
-    except TimeoutError:
-        return ("error", "timeout", "generation_timeout")
-    except package.io.InputFailure as exc:
-        return ("error", "input", str(exc))
-    except package.io.ModelFailure as exc:
-        return ("error", "model", str(exc))
-    except ValueError as exc:
-        return ("error", "value", _code(exc, "invalid_job_input"))
     except Exception as exc:
+        if _out_of_memory(exc):
+            log.error("rule_v3_replica_field_failed: %s", type(exc).__name__)
+            return ("error", "oom", "replica_out_of_memory")
+        if isinstance(exc, TimeoutError):
+            return ("error", "timeout", "generation_timeout")
+        if isinstance(exc, package.io.InputFailure):
+            return ("error", "input", str(exc))
+        if isinstance(exc, package.io.ModelFailure):
+            return ("error", "model", str(exc))
+        if isinstance(exc, ValueError):
+            return ("error", "value", _code(exc, "invalid_job_input"))
         log.error("rule_v3_replica_field_failed: %s", type(exc).__name__)
         return ("error", "failed", type(exc).__name__)
 
 
-def serve_replica(conn, gpu: str, loader: Callable[[Sequence[str]], Any], roots: Sequence[str]) -> None:
-    """자식 프로세스 본체. 첫 메시지로 준비(`ready`, adapter_sha)나 실패 코드를 보내고 필드 요청을 하나씩 처리한다."""
+def _memory_gate(gpu: str, min_free_mb: int, probe: Callable[[], int] | None) -> str | None:
+    """적재 전 여유 메모리 검사. 모자라거나 잴 수 없으면 실패 코드, 통과면 None."""
+    if min_free_mb <= 0:
+        return None
+    try:
+        free = int((probe or gpu_free_mb)())
+    except Exception as exc:
+        log.error("rule_v3_replica_memory_check_failed: %s %s", gpu, type(exc).__name__)
+        return "replica_memory_check_failed"
+    if free < min_free_mb:
+        log.error("rule_v3_replica_free_memory: %s %d MiB < %d MiB", gpu, free, min_free_mb)
+        return "replica_insufficient_memory"
+    return None
+
+
+def serve_replica(conn, gpu: str, loader: Callable[[Sequence[str]], Any], roots: Sequence[str],
+                  min_free_mb: int = 0, probe: Callable[[], int] | None = None) -> None:
+    """자식 프로세스 본체. 첫 메시지로 준비(`ready`, adapter_sha)나 실패 코드를 보내고 필드 요청을 하나씩 처리한다.
+
+    적재 전에 그 GPU 여유 메모리를 본다(`min_free_mb` MiB 미만이면 적재하지 않고 실패 코드). `probe`는 시험용 측정 함수.
+    """
     os.environ["CUDA_VISIBLE_DEVICES"] = gpu  # torch·CUDA 초기화 전에 바꾼다(모듈 머리말)
     _watch_parent()
+    code = _memory_gate(gpu, min_free_mb, probe)
+    if code is not None:
+        conn.send(("failed", code))
+        return
     try:
         runtime = loader(roots)
         conn.send(("ready", runtime.adapter_sha))
@@ -178,21 +258,24 @@ class ReplicaRuntime:
         return self._conn.recv()
 
     def _lose(self, code: str) -> None:
+        """복제본을 끄고(이후 시도·작업에서 빠짐) 멈춤 요청 → 프로세스 종료 → 파이프 닫기. 그 GPU 메모리가 풀린다."""
         self.lost = True
         self._pool.disable(self, code)
+        self.stop()
         ReplicaPool._terminate(self._process)
+        _close(self._conn)
 
     def run_field(self, paths: Mapping[str, Path], out: Path) -> dict[str, Any]:
-        from generation_client import GenerationUnavailable
         with self._lock:
-            if self.lost:
-                raise GenerationUnavailable("generation_failed")
+            if self.lost:  # 이 묶음은 이 복제본에서 돌지 않았다
+                raise ReplicaUnavailable("replica_lost", rerun_on_main=True)
             try:
                 self._conn.send(("run", dict(paths), out))
                 reply = self._receive()
             except (EOFError, OSError, ReplicaLost):
+                # 그 묶음 때문에 죽었을 수 있어(네이티브 오류 등) 주 프로세스로는 다시 보내지 않는다
                 self._lose("replica_exited")
-                raise GenerationUnavailable("generation_failed") from None
+                raise ReplicaUnavailable("replica_exited", rerun_on_main=False) from None
             except Exception:  # 응답을 부모에서 풀 수 없다. 메시지는 소비됐으므로 복제본은 계속 쓴다
                 log.error("rule_v3_replica_result_unreadable: %s", self.gpu)
                 raise GenerationUnavailable("generation_failed") from None
@@ -200,6 +283,10 @@ class ReplicaRuntime:
             return reply[1]
         if isinstance(reply, tuple) and len(reply) == 3 and reply[0] == "error":
             kind, message = reply[1], str(reply[2])
+            if kind == "oom":
+                with self._lock:
+                    self._lose("replica_out_of_memory")
+                raise ReplicaUnavailable("replica_out_of_memory", rerun_on_main=True)
             if kind == "timeout":
                 raise TimeoutError("generation_timeout")
             if kind == "input":
@@ -224,13 +311,15 @@ class ReplicaPool:
 
     def __init__(self, gpus: Sequence[str], roots: Sequence[str], expected_sha: str, package, *,
                  loader: Callable[[Sequence[str]], Any] = load_design_runtime, start_seconds: float | None = None,
-                 context=None):
+                 context=None, min_free_mb: int | None = None, probe: Callable[[], int] | None = None):
         self.gpus = list(gpus)
         self.roots = [str(root) for root in roots]
         self.expected_sha = expected_sha
         self.package = package
         self.loader = loader
         self.start_seconds = _start_seconds() if start_seconds is None else start_seconds
+        self.min_free_mb = _min_free_mb() if min_free_mb is None else min_free_mb
+        self.probe = probe  # None = 자식에서 gpu_free_mb(torch). spawn으로 넘기므로 모듈 최상위 함수여야 한다
         self.context = context or multiprocessing.get_context("spawn")
         self._lock = threading.Lock()
         self._ready: dict[str, ReplicaRuntime] = {}
@@ -270,7 +359,8 @@ class ReplicaPool:
         process = parent_conn = None
         try:
             parent_conn, child_conn = self.context.Pipe(duplex=True)
-            process = self.context.Process(target=serve_replica, args=(child_conn, gpu, self.loader, self.roots),
+            process = self.context.Process(target=serve_replica,
+                                           args=(child_conn, gpu, self.loader, self.roots, self.min_free_mb, self.probe),
                                            name=f"rule-v3-replica-{gpu}", daemon=True)
             process.start()
             child_conn.close()  # 자식이 죽으면 부모 쪽 recv가 EOF를 받게 한다

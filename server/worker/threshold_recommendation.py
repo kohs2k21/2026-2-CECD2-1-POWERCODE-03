@@ -12,7 +12,6 @@ from __future__ import annotations
 import json
 import math
 import os
-import queue
 import re
 import shutil
 import tempfile
@@ -24,6 +23,7 @@ from typing import Any, Callable, Mapping, Sequence
 
 from detector.soft_rules import SCOPE_COLUMNS, in_scope
 from generation_client import GenerationRejected
+from generation_replicas import ReplicaUnavailable
 from methods.registry import SOFT_RULE_FIELDS_BY_ID, SoftRuleField
 from research_bundle import policy
 from research_design import adapter_sha, checked_generate, rule_request, summary
@@ -407,32 +407,83 @@ def _v3_executors(runtime: Any) -> list[Any]:
     return [*replicas, runtime]
 
 
+class _Executors:
+    """비어 있는 실행기. 목록 앞쪽(복제본)부터 주고 맨 뒤(주 프로세스)는 `main_ok`일 때만 준다. 뺀 실행기는 돌아오지 않는다."""
+
+    def __init__(self, executors: Sequence[Any]):
+        self._executors = list(executors)
+        self._main = len(self._executors) - 1
+        self._free = set(range(len(self._executors)))
+        self._live = set(self._free)
+        self._changed = threading.Condition()
+
+    def take(self, main_ok: bool) -> tuple[int, Any] | None:
+        """받을 수 있는 실행기가 비면 그것을, 모두 바쁘면 기다리고, 남은 실행기가 없으면 None."""
+        with self._changed:
+            while True:
+                usable = {index for index in self._live if main_ok or index != self._main}
+                if not usable:
+                    return None
+                free = usable & self._free
+                if free:
+                    index = min(free)
+                    self._free.discard(index)
+                    return index, self._executors[index]
+                self._changed.wait()
+
+    def give(self, index: int) -> None:
+        with self._changed:
+            self._free.add(index)
+            self._changed.notify_all()
+
+    def drop(self, index: int) -> None:
+        with self._changed:
+            self._live.discard(index)
+            self._changed.notify_all()
+
+
 def _run_groups(executors: Sequence[Any], groups: Sequence[Any],
                 run: Callable[[Any, Any], dict[str, Any]], progress: Progress | None) -> list[dict[str, Any]]:
     """묶음을 실행기에 나눠 동시에 돌린다. 결과는 `groups` 순서, `progress`는 이 함수를 부른 스레드에서만 부른다.
 
-    묶음마다 비어 있는 실행기 중 목록 앞쪽(복제본)을 먼저 잡는다. 한 묶음이라도 예외면 시작 안 한 묶음은 취소하고
-    실행 중인 묶음이 끝나길 기다린 뒤, 묶음 순서상 가장 앞의 실패 예외를 올린다(직렬 실행과 같은 종류의 실패).
+    묶음마다 비어 있는 실행기 중 목록 앞쪽(복제본)을 먼저 잡는다. `executors`의 맨 뒤는 주 프로세스 runtime이다.
+    복제본이 묶음을 끝내지 못하고 꺼지면(`ReplicaUnavailable`: GPU 메모리 부족·자식 종료) 그 실행기를 이 작업에서 빼고
+    같은 묶음을 남은 실행기에서 다시 돌린다(자식 종료는 주 프로세스 제외). 뺀 실행기는 다시 쓰지 않으므로 묶음마다
+    실행기당 최대 1회, 작업 전체 재실행은 복제본 수 이하다. 받을 실행기가 없으면 그 예외(`generation_failed`)가 실패다.
+    재실행은 같은 작업 스레드 안이라 진행률은 묶음당 한 번만 센다.
+    그 밖의 예외는 기존대로: 시작 안 한 묶음은 취소하고 실행 중인 묶음이 끝나길 기다린 뒤, 묶음 순서상 가장 앞의 실패
+    예외를 올린다(직렬 실행과 같은 종류의 실패).
     """
-    free: queue.PriorityQueue = queue.PriorityQueue()
-    for index, executor in enumerate(executors):
-        free.put((index, executor))
+    free = _Executors(executors)
     # 실패를 본 작업 스레드가 바로 세운다. 주 스레드의 취소보다 먼저, 이미 꺼낸 다음 묶음도 돌리지 않게 한다.
     abort = threading.Event()
 
     def task(group: Any) -> dict[str, Any] | None:
-        if abort.is_set():
-            return None
-        index, executor = free.get()
-        try:
+        main_ok = True
+        unavailable = ReplicaUnavailable("replica_none_left", rerun_on_main=False)  # 실행기가 처음부터 없을 때
+        while True:
             if abort.is_set():
                 return None
-            return run(executor, group)
-        except BaseException:
-            abort.set()
-            raise
-        finally:
-            free.put((index, executor))
+            taken = free.take(main_ok)
+            if taken is None:  # 다시 돌릴 실행기가 없다. 마지막 복제본 장애가 이 묶음의 실패다
+                abort.set()
+                raise unavailable
+            index, executor = taken
+            dropped = False
+            try:
+                if abort.is_set():
+                    return None
+                return run(executor, group)
+            except ReplicaUnavailable as exc:
+                dropped = True
+                free.drop(index)
+                unavailable, main_ok = exc, main_ok and exc.rerun_on_main
+            except BaseException:
+                abort.set()
+                raise
+            finally:
+                if not dropped:
+                    free.give(index)
 
     total = len(groups)
     pool = ThreadPoolExecutor(max_workers=max(1, min(len(executors), total)), thread_name_prefix="rule-v3-group")
@@ -587,6 +638,9 @@ def _recommend_v3(plan: ThresholdPlan, rows: Sequence[Sequence[Any]], snapshot_i
 
     def run(executor: Any, entry: tuple[int, TargetGroup]) -> dict[str, Any]:
         index, group = entry
+        # 복제본 장애 뒤 다시 돌 때 앞 시도의 묶음 폴더(g<index>)를 지운다. 앞 실행기는 이미 끝났고(종료 확인 뒤 예외)
+        # 폴더 경로는 프롬프트에 들어가지 않으므로 결과는 같다. 첫 시도에는 폴더가 없다.
+        shutil.rmtree(work / f"g{index}", ignore_errors=True)
         return _item_v3(executor, group, index, sides[group.scope_key], work, snapshot_id)
 
     try:

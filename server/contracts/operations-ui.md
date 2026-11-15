@@ -1,5 +1,5 @@
 Created: 2026-10-09T23:47:02.2964769+09:00
-Updated: 2026-11-15T19:20:00+09:00
+Updated: 2026-11-15T19:40:40+09:00
 Author: frontend_operations_builder / #103·#105·운영 설정 하위 7·운영 계측 연결 Claude Code(WebUI builder)
 Status: current
 

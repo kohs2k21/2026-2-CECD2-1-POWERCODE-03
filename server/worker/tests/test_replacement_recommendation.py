@@ -4,6 +4,7 @@
 """
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from pathlib import Path
 import re
 import sys
@@ -134,6 +135,13 @@ class ReasonOrderTests(unittest.TestCase):
                                              (C3, "excluded", "item_failed:evaluation_failed:model_unavailable", None)])
         self.assertEqual(element["summary"], "실행 가능하고 판정 불가 행이 없는 후보가 없습니다.")
 
+    def test_failed_candidate_of_another_model_key_is_dropped(self):
+        # R18: 다른 modelKey 후보는 이 원소의 후보 목록에 넣지 않는다 — 그 후보뿐이면 no_candidates.
+        items = [item(ACTIVE, "active"), item(C1, status="failed", error="method_not_executable:ml:eif", model_key="eif")]
+        element = one(items, {ACTIVE: predict(LABELED, tp=5)}, LABELED)
+        self.assertEqual((element["noRecommendationReason"], element["decision"], element["candidates"]),
+                         ("no_candidates", "not_applicable", []))
+
     def test_set_purpose_other_than_validation_excludes_candidates(self):
         element = one([item(ACTIVE, "active"), item(C1)],
                       {ACTIVE: predict(LABELED, tp=5), C1: predict(LABELED, tp=9)}, LABELED, purpose="test")
@@ -148,6 +156,10 @@ class ReasonOrderTests(unittest.TestCase):
                          ["no_candidate_better_than_active", "cost_limit_exceeded"])
         self.assertEqual([code for code, value in rr.DECISIONS.items() if value == "not_applicable"],
                          ["active_missing", "no_candidates"])
+        self.assertEqual({code for code, value in rr.DECISIONS.items() if value == "insufficient_evidence"},
+                         {"active_item_failed", "active_results_unavailable", "all_candidates_failed",
+                          "all_candidates_ineligible", "basis_metrics_unavailable"})
+        self.assertEqual([code for code, value in rr.DECISIONS.items() if value == "recommend_replace"], [None])
         # PRD 3절 문구 그대로(버전 표기에 "리비전"·"r<번호>" 없음).
         for text in rr.NO_RECOMMENDATION_SUMMARY.values():
             self.assertNotIn("리비전", text)
@@ -225,12 +237,19 @@ class LabeledBasisTests(unittest.TestCase):
             "mlUnavailableCount": {"baseline": 0, "candidate": 0}, "itemP95Ms": {"baseline": 11.3, "candidate": 21.3}}]})
 
     def test_unlabeled_evidence_never_changes_the_decision(self):
-        labels = label_rows(0, 0, 30)
-        disagree = {"a": ACTIVE, "b": C1, "comparableCount": 30, "both": 0, "aOnly": 10, "bOnly": 0, "neither": 20}
-        for pairwise in ((), [disagree]):
-            element = one([item(ACTIVE, "active"), item(C1)], {ACTIVE: predict(labels), C1: predict(labels)}, labels,
-                          pairwise=pairwise)
-            self.assertEqual(element["decision"], "insufficient_evidence")
+        # 라벨 있는 세트: pairwise 값이 달라도 원소는 unlabeledEvidence 복사값만 다르다(판단 불변).
+        agree = {"a": ACTIVE, "b": C1, "comparableCount": 37, "both": 10, "aOnly": 0, "bOnly": 0, "neither": 27}
+        disagree = {"a": ACTIVE, "b": C1, "comparableCount": 37, "both": 0, "aOnly": 20, "bOnly": 17, "neither": 0}
+        cases = (({ACTIVE: predict(LABELED, tp=8, fp=4), C1: predict(LABELED, tp=10, fp=2)}, "recommend_replace"),
+                 ({ACTIVE: predict(LABELED, tp=8, fp=4), C1: predict(LABELED, tp=6, fp=2)}, "keep_current"))
+        for predictions, decision in cases:
+            results = [one([item(ACTIVE, "active"), item(C1)], predictions, LABELED, pairwise=pairwise)
+                       for pairwise in ((), [agree], [disagree])]
+            self.assertEqual({result["decision"] for result in results}, {decision})
+            stripped = [{key: value for key, value in result.items() if key != "unlabeledEvidence"} for result in results]
+            self.assertEqual(stripped[0], stripped[1])
+            self.assertEqual(stripped[0], stripped[2])
+            self.assertEqual([result["unlabeledEvidence"]["pairs"][0]["baselineOnly"] for result in results], [None, 0, 20])
 
     def test_minimum_samples(self):
         # anomaly 9 < 10: recall만 제외, precision·FPR로 비교.
@@ -307,6 +326,11 @@ class CostTests(unittest.TestCase):
         self.assertEqual(element["noRecommendationReason"], "cost_limit_exceeded")
         element = one([item(ACTIVE, "active", p95=100.0), item(C1, p95=140.0)], better, LABELED, deadline=300)
         self.assertEqual((element["decision"], element["costs"][0]["limit"]), ("recommend_replace", 150.0))
+        # 활성 p95·정책 기한 둘 다 없으면 한도 없음 — 통과로 적지 않고 미측정, 추천은 허용, 지연 구절 생략.
+        element = one([item(ACTIVE, "active", p95=None), item(C1, p95=20.0)], better, LABELED, deadline=None)
+        self.assertEqual((element["decision"], element["checks"]["costLimit"], element["costs"][0]["limit"],
+                          element["costs"][0]["outcome"]), ("recommend_replace", "unmeasured", None, "unmeasured"))
+        self.assertNotIn("지연 P95", element["summary"])
         # 활성 미측정 → 절대 한도만.
         element = one([item(ACTIVE, "active", p95=None), item(C1, p95=1400.0)], better, LABELED)
         self.assertEqual((element["decision"], element["costs"][0]["limit"]), ("recommend_replace", 1500.0))
@@ -331,6 +355,14 @@ class MultiCandidateTests(unittest.TestCase):
         # 2 fp 작은 쪽
         element = self.pick(predict(LABELED, tp=10, fp=2), predict(LABELED, tp=10, fp=3))
         self.assertEqual(outcomes(element), [(C1, "selected", None, None), (C2, "eligible_not_selected", None, 2)])
+        # 3 precision 큰 쪽: anomaly 라벨 9 < 10이라 recall이 빠지고 fp가 같아 정밀도로 가른다.
+        labels = label_rows(9, 20)
+        element = one([item(ACTIVE, "active"), item(C1), item(C2)],
+                      {ACTIVE: predict(labels, tp=3, fp=6), C1: predict(labels, tp=5, fp=2),
+                       C2: predict(labels, tp=7, fp=2)}, labels)
+        self.assertEqual([row["metric"] for row in element["basis"]],
+                         ["ml.completeOnly.precision", "ml.completeOnly.falsePositiveRate"])
+        self.assertEqual(outcomes(element), [(C1, "eligible_not_selected", None, 3), (C2, "selected", None, None)])
         # 5 itemP95Ms 작은 쪽(1~4 동등)
         same = predict(LABELED, tp=10, fp=2)
         element = self.pick(same, dict(same), p95=(30.0, 20.0))
@@ -340,6 +372,11 @@ class MultiCandidateTests(unittest.TestCase):
                             versions={C1: {"createdAt": "2026-11-10T00:00:00Z"}, C2: {"createdAt": "2026-11-02T00:00:00Z"}})
         self.assertEqual(outcomes(element), [(C1, "eligible_not_selected", None, 6), (C2, "selected", None, None)])
         self.assertEqual(element["targetVersionId"], C2)
+        # DB가 주는 datetime(timestamptz) 값 그대로도 비교한다.
+        element = self.pick(same, dict(same), versions={
+            C1: {"createdAt": datetime(2026, 11, 3, 9, 0, tzinfo=timezone.utc)},
+            C2: {"createdAt": datetime(2026, 11, 3, 8, 59, 59, 999999, tzinfo=timezone.utc)}})
+        self.assertEqual(outcomes(element), [(C1, "eligible_not_selected", None, 6), (C2, "selected", None, None)])
         # 6단계까지 같으면 항목 순서 앞쪽, 뒤는 lostAt 6
         element = self.pick(same, dict(same))
         self.assertEqual(outcomes(element), [(C1, "selected", None, None), (C2, "eligible_not_selected", None, 6)])
@@ -359,6 +396,22 @@ class ShapeTests(unittest.TestCase):
         self.assertEqual(rr.version_name(C1, "iforest", {C1: {"displayName": "  "}}), "Isolation Forest 버전 33333333")
         self.assertEqual(rr.version_name(C1, "iforest", {C1: {"displayName": "IF 11/01~11/07"}}), "IF 11/01~11/07")
         self.assertEqual(rr.version_name(C1, "unknown_key", {}), "unknown_key 버전 33333333")
+
+    def test_subject_particle_follows_the_last_character(self):
+        cases = {"Isolation Forest 버전 3222f105": "가", "Isolation Forest 버전 3222f100": "이", "Isolation Forest 버전 3222105f": "가",
+                 "Isolation Forest 버전 33333332": "가", "IF 버전 aaaaaaaL": "이", "IF 11/01~11/07": "이",
+                 "아이에프 모델": "이", "아이에프 버전 하나": "가", "버전(가)": "이(가)", "버전 ①": "이(가)", "": "이(가)"}
+        for name, particle in cases.items():
+            with self.subTest(name=name):
+                self.assertEqual(rr.subject_particle(name), particle)
+        for digit, particle in zip("0123456789", "이이가이가가이이이가"):
+            self.assertEqual(rr.subject_particle(f"v{digit}"), particle)
+        # summary에 실제로 쓰인다: 대상 이름 끝 "f100"(영) → 이, "105f"(에프) → 가. 5(오)는 받침이 없어 가.
+        for target, expected in (("3222f100-aaaa-4aaa-8aaa-aaaaaaaaaaaa", "Isolation Forest 버전 3222f100이 현재 운영"),
+                                 ("3222105f-aaaa-4aaa-8aaa-aaaaaaaaaaaa", "Isolation Forest 버전 3222105f가 현재 운영")):
+            element = one([item(ACTIVE, "active"), item(target)],
+                          {ACTIVE: predict(LABELED, tp=8, fp=4), target: predict(LABELED, tp=10, fp=2)}, LABELED)
+            self.assertTrue(element["summary"].startswith(expected), element["summary"])
 
     def test_thresholds_and_fixed_keys_are_recorded(self):
         element = one([item(ACTIVE, "active")], {ACTIVE: predict(LABELED, tp=5)}, LABELED)

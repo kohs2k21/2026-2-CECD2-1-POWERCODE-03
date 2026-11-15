@@ -97,6 +97,24 @@ def version_name(config_id: str, model_key: str | None, versions: Mapping[str, M
     return f"{catalog} 버전 {config_id[:8]}"
 
 
+_DIGIT_WITH_FINAL = frozenset("013678")
+_LATIN_WITH_FINAL = frozenset("lmnr")
+
+
+def subject_particle(name: str) -> str:
+    """이름 끝 글자를 한국어로 읽었을 때 받침이 있으면 "이", 없으면 "가"(WebUI 승인 11/15).
+    숫자 0·1·3·6·7·8 → 이, 2·4·5·9 → 가. 라틴 문자(대소문자 무관) l·m·n·r → 이, 그 밖(16진 a~f 포함) → 가.
+    한글 음절은 종성 유무. 그 밖의 글자(공백·기호·빈 이름 등) → "이(가)"."""
+    last = name[-1:]
+    if last.isdigit() and last.isascii():
+        return "이" if last in _DIGIT_WITH_FINAL else "가"
+    if last.isascii() and last.isalpha():
+        return "이" if last.lower() in _LATIN_WITH_FINAL else "가"
+    if "가" <= last <= "힣":
+        return "이" if (ord(last) - 0xAC00) % 28 else "가"
+    return "이(가)"
+
+
 # ---------- 항목 값 읽기(이미 계산된 값만) ----------
 
 def _number(value: Any) -> float | None:
@@ -349,13 +367,14 @@ def _element(*, model_key: str, comparison_id: str, job_id: str, evaluation_set:
             entry.update(outcome="eligible_not_selected", excludedReason=None, lostAt=lost[item["configVersionId"]])
     config = target["configVersionId"]
     p95 = _item_p95(target)
-    cost_outcome = "unmeasured" if p95 is None else "within_limit"
+    # 한도를 정할 값(활성 p95·정책 기한)이 둘 다 없으면 통과로 적지 않고 미측정으로 둔다(추천은 R6처럼 허용).
+    cost_outcome = "unmeasured" if p95 is None or limit is None else "within_limit"
     element.update(
         targetVersionId=config, targetEvaluationId=target.get("evaluationId"), reason=SELECTED_REASON,
         basis=rows_of[config],
         checks={"itemStatus": "succeeded", "executable": True,
                 "methodUnavailableCount": _ml(target).get("unavailableCount"), "applicability": "valid",
-                "costLimit": "unmeasured" if p95 is None else "passed"},
+                "costLimit": "unmeasured" if cost_outcome == "unmeasured" else "passed"},
         costs=[{"metric": "execution_cost.itemP95Ms", "target": p95, "baseline": baseline_p95, "limit": limit,
                 "limitRule": COST_LIMIT_RULE, "outcome": cost_outcome}],
         references=[{"metric": f"composite.{basis}.recall", "target": _composite_recall(target, basis),
@@ -363,7 +382,9 @@ def _element(*, model_key: str, comparison_id: str, job_id: str, evaluation_set:
                     for basis in ("completeOnly", "decidable")
                     if isinstance(target.get("composite"), Mapping) and isinstance(active.get("composite"), Mapping)])
     finish(None)
-    element["summary"] = _summary(target, active, rows_of[config], p95, model_key, versions)
+    # "(한도 내)"는 한도와 비교한 경우에만 적는다(후보 미측정·한도 없음이면 지연 구절 생략).
+    element["summary"] = _summary(target, active, rows_of[config], p95 if cost_outcome == "within_limit" else None,
+                                  model_key, versions)
     return element
 
 
@@ -401,12 +422,14 @@ def _select(passing: Sequence[Mapping[str, Any]], rates: Mapping[str, Mapping[st
 
 def _summary(target: Mapping[str, Any], active: Mapping[str, Any], basis: Sequence[Mapping[str, Any]],
              p95: float | None, model_key: str, versions: Mapping[str, Mapping[str, Any]]) -> str:
-    """R13 틀: "{대상}이 현재 운영 {현재}보다 {지표} {target} > {baseline}, 지연 P95 {ms}ms(한도 내)". 엄격 우위 행만 쓰고
-    낮을수록 좋은 지표(오탐률)는 `<`로 적는다. 후보 지연이 미측정이면 지연 구절을 넣지 않는다."""
+    """R13 틀: "{대상}이/가 현재 운영 {현재}보다 {지표} {target} > {baseline}, 지연 P95 {ms}ms(한도 내)"(조사는
+    `subject_particle`). 엄격 우위 행만 쓰고
+    낮을수록 좋은 지표(오탐률)는 `<`로 적는다. `p95`가 None(후보 미측정 또는 한도 없음)이면 지연 구절을 넣지 않는다."""
     parts = [f"{_LABEL[row['metric']]} {_rate_text(row['target'])} "
              f"{'<' if row['direction'] == 'lower_is_better' else '>'} {_rate_text(row['baseline'])}"
              for row in basis if row["outcome"] == "better"]
-    text = (f"{version_name(target['configVersionId'], model_key, versions)}이 현재 운영 "
+    target_name = version_name(target["configVersionId"], model_key, versions)
+    text = (f"{target_name}{subject_particle(target_name)} 현재 운영 "
             f"{version_name(active['configVersionId'], model_key, versions)}보다 " + ", ".join(parts))
     return text + (f", 지연 P95 {_ms_text(p95)}ms(한도 내)" if p95 is not None else "")
 

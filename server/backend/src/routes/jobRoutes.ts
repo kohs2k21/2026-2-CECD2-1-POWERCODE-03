@@ -68,6 +68,12 @@ function checkTrainingMethod(modelKey: unknown, parameters: unknown): void {
   if (!parametersValid(method, parameters)) throw new JobRequestError(`method_parameters_invalid:${method.methodId}`, 422);
 }
 
+/**
+ * 이 키가 하나라도 있는 기간 지정 train은 모델 버전(v3) 학습이다(model-version.md 생성 경로 (A), 워커 `REQUEST_KEYS`와 같은 판별).
+ * `evaluationSetId`는 계약의 v3 키지만 API가 아직 받지 않는다(허용 키 밖이라 400 `invalid_job_request`).
+ */
+const MODEL_VERSION_TRAIN_KEYS = ['modelKey', 'parameters', 'excludedIntervals', 'timeBasis'] as const;
+
 type TrainingSupport = { timeBasis: string; excludedIntervals: boolean };
 const TRAINING_SUPPORT: TrainingSupport = { timeBasis: TRAINER_CAPABILITIES.snapshot.timeBasis, excludedIntervals: TRAINING_EXCLUSION_SUPPORTED };
 
@@ -154,7 +160,18 @@ export function parseRequest(value: unknown, support: TrainingSupport = TRAINING
     input.until = body.until;
     if (!uuid(body.featureSetId)) throw new JobRequestError('feature_set_required');
     input.featureSetId = body.featureSetId;
-    if (body.kind === 'train') {
+    if (body.kind === 'train' && MODEL_VERSION_TRAIN_KEYS.some((key) => body[key] !== undefined)) {
+      // 모델 버전(v3) 학습(model-version.md 생성 경로 (A)): 종합 판정 정책은 운영 설정 전역 값이고 룰은 룰 세트가 판정 시점에 적용한다.
+      if (body.detectionPolicy !== undefined) throw new JobRequestError('invalid_detection_policy');
+      if (body.ruleVersionIds !== undefined) throw new JobRequestError('invalid_job_request');
+      checkTrainingMethod(body.modelKey, body.parameters);
+      Object.assign(input, trainingScope(body, { from: body.from, until: body.until }, support));
+      // 워커는 input_spec에 v3 키가 있어야 v3로 판별한다(`trainer/model_version.py` is_model_version_request).
+      // `timeBasis=persisted_at`·`parameters: null`은 남기지 않으므로 modelKey를 항상 싣는다(생략은 기본 IF).
+      input.modelKey = (body.modelKey ?? 'iforest') as string;
+      if (body.parameters !== undefined && body.parameters !== null) input.parameters = body.parameters as Record<string, unknown>;
+    } else if (body.kind === 'train') {
+      // v1 형식(v3 키 없음): v1·v2 구성 생성 경로. 정책은 지금처럼 필수다.
       const policy = body.detectionPolicy as JobInput['detectionPolicy'];
       if (!policy || typeof policy !== 'object' || Array.isArray(policy) ||
           Object.keys(policy).some(key => !['mode','deadlineMs','combination'].includes(key)) ||
@@ -164,13 +181,8 @@ export function parseRequest(value: unknown, support: TrainingSupport = TRAINING
         throw new JobRequestError('detection_policy_required');
       }
       input.detectionPolicy = policy;
-      // 워커와 같은 순서: 카탈로그 검증이 model_not_selected보다 먼저다.
-      checkTrainingMethod(body.modelKey, body.parameters);
-      if (policy.mode === 'rule_only' && body.modelKey !== undefined) throw new JobRequestError('model_not_selected', 422);
-      Object.assign(input, trainingScope(body, { from: body.from, until: body.until }, support));
-      // Omission keeps the historical request hash and default IF recipe.
-      if (body.modelKey !== undefined) input.modelKey = body.modelKey as string;
-      if (body.parameters !== undefined && body.parameters !== null) input.parameters = body.parameters as Record<string, unknown>;
+      // 키 생략은 기본 IF다. 워커와 같은 카탈로그로 실행 가능 여부를 본다.
+      checkTrainingMethod(undefined, undefined);
       const rules = body.ruleVersionIds ?? [];
       if (!Array.isArray(rules) || rules.length > 32 || !rules.every(uuid) || new Set(rules).size !== rules.length) {
         throw new JobRequestError('invalid_rule_versions');

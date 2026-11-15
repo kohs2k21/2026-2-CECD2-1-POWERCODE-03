@@ -5,10 +5,11 @@ import { SYNTHETIC_PROFILES, SYNTHETIC_CATALOG_VERSION, staticSpecHash } from '.
 export const TRAINER_CONTRACT = 'trainer-service-v1';
 export const EVALUATION_FAMILIES = ['rule_ml', 'synthetic', 'execution_cost', 'operational'] as const;
 /**
- * 학습 제외 구간은 Trainer가 아직 적용하지 않는다(trainer-service.md 변경 제안, #113 하위). 받아 두면 제외되지 않은 채 학습이 성공하므로 지원 전에는 접수하지 않는다.
- * 지원되면 이 값만 바꾼다(접수·capabilities·화면이 함께 풀린다). 학습 기간 기준은 아래 `snapshot.timeBasis` 하나만 지원한다.
+ * 학습 제외 구간: Trainer가 모델 버전(v3) 학습에 선정 정책 v2로 적용한다(trainer-service.md 선정 정책 v2 절). `excludedIntervals`는 v3 키라
+ * 이 값을 실은 요청은 v3 학습으로만 접수된다(`detectionPolicy`가 함께 오면 400 `invalid_detection_policy`). false로 두면 접수·capabilities·화면이
+ * 함께 닫힌다. 학습 기간 기준은 아래 `snapshot.timeBasis` 하나만 지원한다.
  */
-export const TRAINING_EXCLUSION_SUPPORTED = false as boolean;
+export const TRAINING_EXCLUSION_SUPPORTED = true as boolean;
 export const TRAINER_CAPABILITIES = {
   contractVersion: TRAINER_CONTRACT,
   methodCatalog: METHOD_CATALOG,

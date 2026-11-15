@@ -127,7 +127,7 @@ const PROCESS_COLUMNS: Record<string, string> = {
 };
 /**
  * 카탈로그 원천 식 → SQL(문자열은 모두 위 상수·카탈로그 값, 요청 값이 들어가지 않는다). 시각은 worker/derived_expression.py처럼 원천 시각 문자열로 계산한다
- * (collector는 parsed_times를 비워 둔다). 시간대 유무가 섞이면 파이썬도 뺄 수 없어(TypeError → None) 값 없음이다.
+ * (collector의 parsed_times에는 해석 근거만 있고 시각 값은 없다 — collector-metrics.md 1.1). 시간대 유무가 섞이면 파이썬도 뺄 수 없어(TypeError → None) 값 없음이다.
  */
 function fieldExpression(field: SoftRuleField): string {
   if (field.source.kind === 'column') return PROCESS_COLUMNS[field.source.column];

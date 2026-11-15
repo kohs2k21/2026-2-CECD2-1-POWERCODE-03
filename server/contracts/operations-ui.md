@@ -1,6 +1,6 @@
 Created: 2026-10-09T23:47:02.2964769+09:00
-Updated: 2026-11-15T12:25:00+09:00
-Author: frontend_operations_builder / #103·#105·운영 설정 하위 7 Claude Code(WebUI builder)
+Updated: 2026-11-15T21:00:00+09:00
+Author: frontend_operations_builder / #103·#105·운영 설정 하위 7·운영 계측 연결 Claude Code(WebUI builder)
 Status: current
 
 # 운영 관측 · 이상 근거 조회 UI 계약
@@ -10,7 +10,7 @@ Status: current
 - 인증: 기존 Bearer·401 세션 정리·403 권한 부족; 서버의 사용자 권한 검사 필수
 - 권한: `/api/operations/*`는 user/admin 모두 GET만(집계만), 쓰기 경로 없음. 입력 모드 변경은 기존 관리자 전용 `POST /api/inputs/:sourceId/mode`(user 403)
 - 데이터: 운영 집계·구성 버전·판정 근거만 허용; 원본 값·BODY·고객 로그·인증값·오류 원문(`last_error`)·입력 설정 원본 반환 제외
-- 저장소: 기존 테이블만 조회(마이그레이션·스키마 변경 없음). 조회 실패 503 `operations_storage_unavailable`(오류 원문 미노출), 잘못된 요청 400(`invalid_source_id`·`invalid_layer`·`invalid_days`·`unknown_operations_filter`), 없는 원천 404 `source_not_found`
+- 저장소: 기존 테이블만 조회(이 API는 마이그레이션·스키마를 바꾸지 않는다 — 030·031 표·열은 Collector·Detector 계약). 조회 실패 503 `operations_storage_unavailable`(오류 원문 미노출), 잘못된 요청 400(`invalid_source_id`·`invalid_layer`·`invalid_days`·`unknown_operations_filter`), 없는 원천 404 `source_not_found`
 - 화면 오류 제목: 404 `source_not_found` = `<항목> · 원천 없음`, 그 외 404·503 = `<항목> 미연결`, 기타 = 조회 실패
 - null 의미: 저장·계측되지 않은 값은 `null`(개요는 키 생략) = 화면 `측정 불가`/`—`. 0은 실제로 센 모집단이 0일 때만. 고정값·추정값·성공 대체 금지
 - 조회(공통): 계정별 query key·AbortSignal·세션 변경 지연 응답 제외(`useAccountQuery`); 자동 재시도·포커스/재연결 재조회 없음, 수동 새로고침(`운영 관측 새로고침`). 예외: 수집 현황은 입력 실행 `running`일 때만 5초(`RUNNING_POLL_MS`)
@@ -21,8 +21,9 @@ Status: current
 - 필수: `observedAt` ISO 시각(DB 시계), `maxAgeMs` 서버 신선도 정책의 양수 ms(현재 60000)
 - 선택: `activeConfigurationVersion`, `endToEndLatencyMs`, `queueWaitP95Ms`, `collectorEps`, `cpuPercent`, `memoryPercent`, `diskPercent`, `alertDeliverySuccessPercent`, `activeConfiguration`, `operationalState`
 - 수치: 유한·0 이상, Percent 항목 100 이하
-- 현재 제공: `collectorEps` = 최근 60초 저장 관측 수/60(전 계층). `queueWaitP95Ms` = 전체 원천 detect 작업 생성 → 첫 시도 시작 최근 1시간 p95(표본 없으면 생략). cpu·memory·disk·알림 전달률은 계측 없음 → 키 생략
-- `endToEndLatencyMs`: ESB 로그 발생 → 판정 저장 실측(최근 1시간 `latency_status=measured` 중앙값); API 수신 시각 기준 재기산 금지. Detector는 [detection-decision.md](detection-decision.md) 18절 조건(관측 `clock_status` offset·verified_tz·assumed_tz(KST로 해석한 시각) ∧ 출처 `live` ∧ 첫 revision ∧ 재판정 아님 ∧ 원천 시각 있음)일 때만 `measured`로 저장하고 그 밖은 `unavailable`. 1시간 `measured` 판정이 없으면 키 생략 = 화면 `원천 발생 → 판정: 측정 불가`. 현재 API는 음수 표본까지 넣은 중앙값을 쓰고 그 중앙값이 음수일 때만 키를 뺀다(`operationsReadModel.ts` `num()`). 음수 표본을 분위수에서 빼는 집계(18절, `skewCount`)는 아직 반영 전이며 WebUI 몫
+- 현재 제공: `collectorEps` = 최근 60초 저장 관측 수/60(전 계층). `queueWaitP95Ms` = 전체 원천 detect 작업 생성 → 첫 시도 시작 최근 1시간 p95(표본 없으면 생략). 알림 전달률은 계측 없음 → 키 생략
+- 자원([collector-metrics.md](collector-metrics.md) 4.3, migration 030 표본기): 신선 = `measured_at`이 DB 시계 −180초 ~ +5초. `cpuPercent` = 신선한 최신 `ops_resource_measurements` 행이 `cpu_status='measured'`일 때 `cpu_percent`, `memoryPercent` = 같은 행이 `memory_status='measured'`일 때 `memory_used_bytes/memory_total_bytes×100`, `diskPercent` = `storage_key='database_data'`(`target_kind='filesystem'`) 최신 행이 신선하고 `measured`일 때 `used/(used+available)×100`(`artifacts`로 대신하지 않음, 최신 행이 측정 불가·오래됨이면 이전 measured 행으로 거슬러 가지 않음). 그 밖은 키 생략. 화면: 와이어프레임에 cpu·memory 자리가 없어 표시하지 않는다(API만)
+- `endToEndLatencyMs`: ESB 로그 발생 → 판정 저장 실측(전체 원천 최근 1시간 `latency_status=measured` 판정의 `source_latency_ms` 중 0 이상만의 중앙값); API 수신 시각 기준 재기산 금지. Detector는 [detection-decision.md](detection-decision.md) 18절 조건(관측 `clock_status` offset·verified_tz·assumed_tz(KST로 해석한 시각) ∧ 출처 `live` ∧ 첫 revision ∧ 재판정 아님 ∧ 원천 시각 있음)일 때만 `measured`로 저장하고 그 밖은 `unavailable`. 음수 표본(원천 시계가 DB 시계보다 앞섬)은 분위수에서 뺀다(개수는 latency `endToEnd.skewCount`). 0 이상 `measured` 판정이 없으면 키 생략 = 화면 `원천 발생 → 판정: 측정 불가`
 - `activeConfiguration`: `ops_system_state` 운영 포인터. 없으면 `null`(운영 구성 없음). 객체 `configVersionId`, `sourceId`, `revision`, `changedAt`, `detectionMode`(`configuration_spec.detectionPolicy.mode`), `ruleCount`(`ml_config_rules`), `ruleSeverityCounts`(info/warning/critical), `models[]`(`modelKey`, `adapterName`). #94 룰 세트·활성 모델 집합 구현 후 그 기준으로 교체
 - `operationalState`: 구성 없이(v04) 운영되는 기준 — `ops_operational_state` 뷰(한 문장 = 한 스냅샷) `ruleSetRevision`, `activeModelSetRevision`, `models[]`(활성 집합 `modelKey`만). 뷰 행이 없으면 `null`(확인 불가). 화면: `activeConfiguration`이 `null`이고 룰 세트 버전이 있으면 머리 `현재 운영: 룰 버전 N · 머신러닝 모델 …|없음`, 현재 운영 위젯 `룰 · 버전 N`·`머신러닝 모델 · …|없음`. 구성이 있으면 기존 구성 표시 그대로, 둘 다 없으면 `운영 구성 없음`
 - `stages` 선택 키: `collector`, `redaction`, `observationQueue`, `detector`, `judgmentStore`
@@ -38,9 +39,13 @@ Status: current
 
 - 허용: user/admin(입력 모드는 읽기 전용 요약). 수집 탭 카드·개요 `수집 요약` 위젯
 - `source`: `id`, `datasetKey`, `displayName`, `ingestionMethod`
-- `input`: 입력 전환 미등록 원천이면 `null`. `mode` api/csv/paused, `revision`, `status`(현재 실행 running/paused/completed/failed 또는 null), `updatedAt`, `workerHeartbeatAt`, `csv`(`replayKey`, `recordCount`, `rate` 초당 행, `repeat`, `position`, `total`=recordCount×repeat) 또는 null, `api`(`pollSeconds`) 또는 null. `lastError`·설정 원본 미포함(관리자는 `/api/inputs`)
-- `layers[]`: T/P/M/B 4행 고정. `storedCount`(누적), `lastMinuteCount`(최근 1분 저장), `lastPersistedAt`, `revisionArrivalCount`(`revision_no>1`). 해당 계층 관측이 없으면 0·null(전수 집계). BODY 값은 수집하지 않음(B는 참조 행 수만) — 화면 `수집 안 함 · 판정 입력 아님`
-- `hourly`: `{layer:'T', basis:'persisted_at', items[24]}` 최근 24시간 시간별 T 저장 건수(마지막 = 진행 중인 현재 시간). 원천 로그 시각이 아닌 저장 시각 기준
+- 쿼리: `sourceId`(필수), `hourlyBasis`(선택: `persisted_at` 기본 · `source_event`, 그 밖의 값 400 `unknown_operations_filter`)
+- `input`: 입력 전환 미등록 원천이면 `null`. `mode` api/csv/paused, `revision`, `status`(현재 실행 running/paused/completed/failed 또는 null), `updatedAt`, `workerHeartbeatAt`, `csv`(`replayKey`, `recordCount`, `rate` 초당 행, `repeat`, `position`, `total`=recordCount×repeat, `actualRate`) 또는 null, `api`(`pollSeconds`, `lastSuccessAt`, `lastAttemptAt`, `sinceLastSuccessMs`) 또는 null. `lastError`·`error_code`·설정 원본 미포함(관리자는 `/api/inputs`)
+  - `api.lastSuccessAt`·`lastAttemptAt` = 현재 실행(`ops_input_controls.run_id`)의 `ops_input_runs.last_success_at`·`last_attempt_at`, 없으면 null. `sinceLastSuccessMs` = DB 시계 − `last_success_at`(ms), 성공 없음 null
+  - `csv.actualRate` = 실행 `status='running'`일 때만 이 원천 최근 60초 저장 관측 수/60(행/초, 전 계층, 저장 0이면 0), 그 밖 null. 목표 `rate`와 비교용([collector-metrics.md](collector-metrics.md) 2절)
+  - 화면: 와이어프레임 입력 모드 카드에 이 값들의 자리가 없어 표시하지 않는다(API만)
+- `layers[]`: T/P/M/B 4행 고정. `storedCount`(누적), `lastMinuteCount`(최근 1분 저장), `lastPersistedAt`, `revisionArrivalCount`(`revision_no>1`), `sourceTimeKnownCount`(`source_log_occurred_at` 있는 관측 수), `lastSourceEventAt`(`max(source_log_occurred_at)`). 해당 계층 관측이 없으면 0·null(전수 집계). BODY 값은 수집하지 않음(B는 참조 행 수만) — 화면 `수집 안 함 · 판정 입력 아님`. 원천 시각 두 값은 화면 자리가 없어 API만
+- `hourly`: 기본 `{layer:'T', basis:'persisted_at', items[24]}` 최근 24시간 시간별 T 저장 건수(마지막 = 진행 중인 현재 시간), 저장 시각 기준. `hourlyBasis=source_event`이면 `{layer:'T', basis:'source_log_occurred_at', items[24], timeUnknownCount}` — 칸 = 원천 발생 시각이 그 시간에 드는 T 관측 수(030 부분 인덱스), `timeUnknownCount` = 같은 24시간 창에 저장됐지만 원천 시각이 없는 T 관측 수. CSV 재생은 원천 시각이 과거라 칸이 비는 것이 정상(0 = 실제로 센 0). 화면은 기본(저장 시각)만 부른다
 - `history[]`: 최근 입력 실행 10건(`ops_input_runs`) `id`, `createdAt`, `mode` api/csv, `replayKey`, `status`, `lastSuccessAt`, `acceptedCount`. 모드 전환 감사 이력 테이블이 없어 실행 단위 이력
 
 ## GET /api/operations/latency?sourceId=
@@ -50,10 +55,13 @@ Status: current
 - collector·persist: 고객 API 조회 표본(`ops_api_poll_samples.duration_ms`·`db_commit_ms`). CSV 재생은 표본 없음 → null. collector 실패 = `error_code` 있는 표본 수(표본 없으면 null)
 - detectionQueue: 대기 = detect 작업 생성 → 첫 시도 시작(`run_jobs`·`run_job_attempts`). 작업의 원천은 입력 manifest `source_id`(v03·v04 공통). `queuePending`·`oldestWaitMs` = 해당 원천 `detection_logs` pending. 원천 범위는 `payload.sourceId`, sourceId 없는 이전 CSV 재생 메시지는 `payload.observationId`의 관측 원천으로 확인(`pg_queue.py` claim 범위와 같은 규칙, 누락 없음)
 - detector: `ops_pipeline_measurements(stage='detector')`. 실패 = 1시간 내 failed detect 작업 수(원천은 입력 manifest `source_id`)
-- judgmentStore: `ops_pipeline_measurements(stage='judgment_store')`(migration 031). Detector가 첫 판정마다 판정 쓰기 트랜잭션 진입 → COMMIT 완료를 단조 시계로 재서 COMMIT 뒤 1행을 쓴다(재판정 제외, [detection-decision.md](detection-decision.md) 19절). 원천별 최근 1시간 분위수·표본 수, 실패 수 null. 031 적용 전·표본 없음은 `samples 0`·분위수 null. 현재 API는 `samples 0`·null 고정이며 이 행을 읽는 집계 반영은 WebUI 몫
-- `endToEnd`: `{p50Ms:null, p95Ms:null, reason:'source_clock_unverified'}`
-  - Detector는 [detection-decision.md](detection-decision.md) 18절 조건(`assumed_tz` 포함)이면 판정 행을 `measured`로 저장한다. 현재 API는 위 고정값이며 집계 변경(음수 제외·`skewCount`·`reason:'source_clock_skew'`)은 WebUI 몫
+- judgmentStore: `ops_pipeline_measurements(stage='judgment_store')`(migration 031). Detector가 첫 판정마다 판정 쓰기 트랜잭션 진입 → COMMIT 완료를 단조 시계로 재서 COMMIT 뒤 1행을 쓴다(재판정 제외, [detection-decision.md](detection-decision.md) 19절). 원천(관측 `source_id`)별 최근 1시간(`measured_at`) `duration_ms` p50·p95·표본 수, 실패 수 null. 031 적용 전·표본 없음은 `samples 0`·분위수 null. 화면 `판정 저장` 줄
+- `endToEnd`: `{window:'1h', samples, p50Ms, p95Ms, skewCount, reason}` — 이 원천 관측의 최근 1시간(`decided_at`) `latency_status='measured'` 판정 `source_latency_ms`(부호 있는 원값). 0 이상만 분위수·`samples`, 음수는 `skewCount`(0으로 자르지 않음). `reason`(분위수 null일 때만, 그 밖 null): 음수만 있음 `source_clock_skew` / 표본 없음 `source_time_unavailable`
+  - Detector는 [detection-decision.md](detection-decision.md) 18절 조건(`assumed_tz` 포함)이면 판정 행을 `measured`로 저장한다. 화면은 `원천 발생 → 판정: <p50>`만(와이어프레임 문구), p95·`skewCount`·`reason`은 API만
   - 관측 저장 → 판정(DB 시계 내부 구간) 줄은 두지 않는다(사용자 결정 11/15)
+  - 비용: `decided_at` 인덱스가 없어 판정 표를 훑는다(method-status와 같은 한계, 인덱스는 DB 세션 결정)
+- `sourceToStored`: 원천 → 저장 지연, [collector-metrics.md](collector-metrics.md) 3.2 그대로 — `{window:'1h', samples, p50Ms, p95Ms, skewCount, excludedCounts:{unparsed, absent, legacyUnknown}, reason}`. 후보 = P·`revision_no=1`·최근 1시간 `persisted_at`·출처 `mode='api'`, 표본 = 후보 중 `ingest_phase='live'` ∧ `clock_status IN (offset, verified_tz, assumed_tz)`의 `persisted_at − source_log_occurred_at`. 0 이상만 분위수, 음수는 `skewCount`. `reason`: 표본 있음 null / 음수만 `source_clock_skew` / live 후보에 원천 시각 없음(`unparsed + absent > 0`) `source_time_unavailable` / 그 밖 `no_live_api_samples`. 화면 자리가 없어 API만(새 문구 없음, 사용자 Q2)
+- `clockCheck`: 시간대 가정 확인용, [collector-metrics.md](collector-metrics.md) 3.4 — `{window:'1h', assumedTimezone:'Asia/Seoul', sourceClockBasisStatus, sampleCount, p50Ms, p95Ms, negativeRatio}`. 표본 = `sourceToStored` 후보 중 live ∧ `assumed_tz`의 부호 있는 ms(음수 포함 분위수). `sourceClockBasisStatus` = `ops_sources.clock_basis->>'status'`(없으면 null), `negativeRatio` = 음수/`sampleCount`, `sampleCount` 0이면 세 값 null. 지연 지표가 아니며 화면 자리가 없어 API만
 
 ## GET /api/operations/source-fields?sourceId=&layer=T|P|M|B
 
@@ -65,7 +73,10 @@ Status: current
 ## GET /api/operations/storage
 
 - 허용: user/admin. `measuredAt`, `databaseBytes` = `pg_database_size(current_database())` 실측
-- `disk`: `ops_storage_measurements` 최신 measured 행(`capacityBytes`, `usedBytes`, `availableBytes`, `warningState`, `measuredAt`). 현재 기록하는 작업 없음 → `null` = 화면 `데이터 마운트 · 측정 불가`
+- 측정 행: Collector `resources` 표본기([collector-metrics.md](collector-metrics.md) 4.1·4.3)의 `ops_storage_measurements`(`target_kind='filesystem'`). 키마다 최신 행 하나만 보고(`DISTINCT ON (storage_key)`), 신선 = DB 시계 −180초 ~ +5초. 최신 행이 측정 불가·오래됨이면 이전 measured 행으로 거슬러 가지 않는다
+- `disks[]`: 키 `database_data`, `artifacts` 순서 2개 고정 `{storageKey, status, filesystemKey, capacityBytes, usedBytes, availableBytes, warningState, reasonCode, measuredAt}`. 행 없음 `status:'unavailable', reasonCode:'not_measured'`(값·`filesystemKey`·`measuredAt` null), 오래됨(미래 포함) `status:'unavailable', reasonCode:'measurement_stale'`(값 null, `filesystemKey`·`measuredAt`은 그 행 값) — 두 사유는 API가 붙이고 `warningState:'unknown'`. 신선한 행은 표본기 값·사유(`mount_not_visible`·`statvfs_failed` 등) 그대로
+- `disk`: `disks[]`의 `database_data`가 `measured`일 때 `{storageKey, capacityBytes, usedBytes, availableBytes, warningState, measuredAt}`, 아니면 `null`(`artifacts`로 대신하지 않음) = 화면 `데이터 마운트 · 측정 불가`
+- 화면(저장공간 위젯): `데이터 마운트 <used/(used+available)> 사용`(df Use%·개요 `diskPercent`와 같은 분모)·`PostgreSQL <databaseBytes> · 여유 <availableBytes>`. `artifacts`·`warningState`·`reasonCode`는 화면 자리가 없어 API만
 
 ## GET /api/operations/decision-trend?days=1..14
 
@@ -97,12 +108,12 @@ Status: current
 
 | 경우 | 값 |
 |---|---|
-| v1·v2 단일 구성 경로와 같은 주소 | `POST /api/configurations/:id/applications` 본문이 `apply`·`restore` + `expectedActiveVersionId` 키면 기존 v1·v2(`ops_system_state`·`run_applications`) 경로, 그 밖은 활성 집합 |
+| v1·v2 단일 구성 경로와 같은 주소 | `POST /api/configurations/:id/applications` 본문이 `apply`·`restore` + `expectedActiveVersionId` 키면 기존 v1·v2(`ops_system_state`·`run_applications`) 경로, 그 밖은 활성 집합. 단일 구성 경로와 입력 구성 고정(`POST /api/inputs/:sourceId/mode` `configVersionId`)은 schemaVersion 1·2만 받고 그 밖(v3 포함)은 422 `config_schema_not_supported_yet`으로 거절한다(v3는 활성 집합으로만, [model-version.md](model-version.md) 활성 집합 절). 기존 고정을 유지한 `paused`는 검사하지 않고, `GET /api/inputs` 후보 목록은 schemaVersion 1·2만 싣는다. 운영자 CLI `input select --config`도 같은 규칙이다 |
 | 응답 | 200 `{revision, previousRevision, models[], changes[], changedAt, appliesFrom:"next_decision"}`(동기 적용, 작업 행 없음) |
 | 근거 기록 | 변경 항목 `changes[].gate`(평가 ID·추천 수락·조작 시점 룰 세트 `{revision, contentHash, contentHashVersion}`·정책 리비전·집합 before/after). 응답·이력에는 `evaluationId`·`acceptedRecommendation`만 |
 | 멱등키 | 형식 400 `invalid_idempotency_key`, 같은 키 다른 본문 409 `idempotency_payload_conflict`. 재전송 보장은 프로세스 메모리(룰 세트 저장과 같음), 재시작 뒤는 `expectedRevision`이 막음 |
 | 형식 오류 | 400 `invalid_application_request`(키 집합 정확 일치, `note` 500자) |
-| gate 실패 | 404 `config_not_found`, 422 `config_schema_not_supported_yet`(v3), 409 `model_artifacts_not_ready`(모델 행 1개 아님·산출물 행 불일치), 409 `method_not_executable:ml:<key>`(카탈로그), 409 `prepared_detector_reproduction_unverified`, 409 `evaluation_gate_not_met`. 산출물 파일 hash는 API가 볼 수 없어 Detector가 시도마다 검증 |
+| gate 실패 | 404 `config_not_found`, 422 `config_schema_not_supported_yet`(schemaVersion이 1·2·3이 아님 — v3는 v04 활성 집합 로더에서 허용), 409 `model_artifacts_not_ready`(모델 행 1개 아님·산출물 행 불일치), 409 `method_not_executable:ml:<key>`(카탈로그), 409 `prepared_detector_reproduction_unverified`, 409 `evaluation_gate_not_met`. 산출물 파일 hash는 API가 볼 수 없어 Detector가 시도마다 검증 |
 | 바뀌는 것이 없음 | 409 `active_model_set_unchanged`(같은 버전으로 replace, 지금과 같은 집합으로 restore) |
 | restore 대상 | 현재 리비전 이상 422 `invalid_target_revision`, 없음 404 `active_model_set_revision_not_found`. gate는 그 집합의 모든 버전(그대로 남는 버전 포함)에 다시 건다 |
 | 이력 목록 | 항목에 `snapshot.models`(그 리비전 집합)도 둔다(복원 선택창), 변경 항목에 `displayName`·`previousDisplayName`(구성 행 값). 400 `unknown_active_model_filter`·`invalid_limit`·`invalid_cursor`·`invalid_revision` |

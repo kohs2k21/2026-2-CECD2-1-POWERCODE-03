@@ -148,17 +148,15 @@ export const parameterPayload = (method: CatalogMethod, values: Record<string, s
   Object.fromEntries(parameterRows(method).filter((row) => !row.fixed && parameterValue(row, values).trim() !== "").map((row) => [row.key, Number(parameterValue(row, values))]));
 
 /**
- * 판정 정책은 화면에 없고(사용자 11/02), 학습 요청에서도 빠질 값이다(model-version.md v3). 지금 서버는 v1 형식 요청만 받아
- * 모델 단독 값을 고정해 보낸다. v3 산출(#113)이 열리면 이 키를 뺀다.
+ * 모델 버전(v3) 학습 요청(model-version.md 생성 경로 (A)). 판정 정책은 화면에 없고(사용자 11/02) 운영 설정 전역 값을 따르므로 보내지 않는다
+ * (v3 요청에 `detectionPolicy`가 있으면 서버가 400 `invalid_detection_policy`). `modelKey`가 v3 키라 항상 v3로 접수된다.
  */
-const LEGACY_POLICY = { mode: "ml_only", deadlineMs: 3000, combination: "selected_path" } as const;
-
 export const trainRequest = ({ sourceId, draft, method, timeBasis }: { sourceId: string; draft: TrainDraft; method: CatalogMethod; timeBasis: TimeBasis }) => {
   const [from, until] = draft.period.query!;
   const modelKey = modelKeyOf(method);
   return {
     kind: "train", sourceId, from: toUtc(from), until: toUtc(until), featureSetId: draft.featureSetId, modelKey,
-    parameters: parameterPayload(method, draft.params[modelKey]), detectionPolicy: LEGACY_POLICY,
+    parameters: parameterPayload(method, draft.params[modelKey]),
     // 키 생략이 서버 기본(persisted_at)이다. 구간이 없으면 키도 없다.
     ...(timeBasis === "persisted_at" ? {} : { timeBasis }),
     ...(draft.period.excluded.length ? { excludedIntervals: draft.period.excluded.map(([start, end]) => ({ from: toUtc(start), until: toUtc(end) })) } : {}),

@@ -52,14 +52,14 @@ async function stopChild() {
 }
 
 /** 모델 버전 1개: 산출물(model·fit) + 학습 작업 + (선택) 적격 검증 평가. 합성 값만 쓴다. */
-async function seedVersion(sourceId, { modelKey = 'iforest', evaluation = true, artifacts = true, schemaVersion = 2, name = null } = {}) {
+async function seedVersion(sourceId, { modelKey = 'iforest', evaluation = true, artifacts = true, schemaVersion = 2, name = null, spec = {} } = {}) {
   const configId = id(), featureSet = id(), snapshot = id(), job = id(), model = id(), fit = id();
   await pool.query(`INSERT INTO ml_feature_sets(id,schema_version,transform_version,output_schema,content_hash,created_by_actor_id,created_at)
     VALUES($1,1,'t1','{}',$2,'fixture',clock_timestamp())`, [featureSet, sha(featureSet)]);
   await pool.query(`INSERT INTO data_snapshots(id,source_id,status,observation_cutoff_at,selection_spec,split_spec,schema_version,created_by_actor_id,created_at,ready_at)
     VALUES($1,$2,'ready',clock_timestamp(),'{}','{}','v1','fixture',clock_timestamp(),clock_timestamp())`, [snapshot, sourceId]);
   await pool.query(`INSERT INTO ml_config_versions(id,source_id,configuration_spec,explanation_spec,content_hash,created_by_actor_id,created_at)
-    VALUES($1,$2,$3::jsonb,'{}',$4,'fixture',clock_timestamp())`, [configId, sourceId, JSON.stringify({ schemaVersion, displayName: name }), sha(configId)]);
+    VALUES($1,$2,$3::jsonb,'{}',$4,'fixture',clock_timestamp())`, [configId, sourceId, JSON.stringify({ ...spec, schemaVersion, displayName: name }), sha(configId)]);
   await pool.query(`INSERT INTO run_jobs(id,kind,status,requested_by_actor_id,requester_role,request_hash,input_spec,max_attempts,attempt_count,next_run_at,result_config_version_id,created_at,finished_at)
     VALUES($1,'train','succeeded','fixture','admin',$2,'{}',1,1,clock_timestamp(),$3,clock_timestamp(),clock_timestamp())`, [job, sha(job), configId]);
   if (artifacts) {
@@ -138,7 +138,10 @@ try {
   const noEvaluation = await seedVersion(sourceId, { evaluation: false });
   const noArtifacts = await seedVersion(sourceId, { artifacts: false });
   const research = await seedVersion(sourceId, { modelKey: 'minibatch_kmeans' });
-  const v3 = await seedVersion(sourceId, { schemaVersion: 3 });
+  const v3 = await seedVersion(sourceId, { schemaVersion: 3, name: 'V3', spec: { methods: [{ methodId: 'ml:iforest', kind: 'ml', enabled: true }] } });
+  const unknownSchema = await seedVersion(sourceId, { schemaVersion: 4 });
+  // noSchema: schemaVersion 값이 null인 구성(키 자체가 없는 경우는 model-version-contract 단위 시험이 applicationEligibility로 확인).
+  const noSchema = await seedVersion(sourceId, { schemaVersion: null });
 
   // 3) 형식·gate 거절은 집합을 바꾸지 않는다.
   assert.deepEqual(code(await apply(a.configId, { operation: 'apply', expectedRevision: 0 })), [400, 'invalid_application_request'], 'evaluationId is required');
@@ -150,7 +153,9 @@ try {
   assert.deepEqual(code(await apply(a.configId, { operation: 'apply', evaluationId: b.evaluationId, expectedRevision: 0 })), [409, 'evaluation_gate_not_met'], 'another version evaluation');
   assert.deepEqual(code(await apply(noArtifacts.configId, { operation: 'apply', evaluationId: noArtifacts.evaluationId, expectedRevision: 0 })), [409, 'model_artifacts_not_ready']);
   assert.deepEqual(code(await apply(research.configId, { operation: 'apply', evaluationId: research.evaluationId, expectedRevision: 0 })), [409, 'method_not_executable:ml:minibatch_kmeans']);
-  assert.deepEqual(code(await apply(v3.configId, { operation: 'apply', evaluationId: v3.evaluationId, expectedRevision: 0 })), [422, 'config_schema_not_supported_yet']);
+  // 판독할 수 없는 구성(schemaVersion 4·null)은 운영에 올리지 않는다(fail-closed). v3는 아래 10c에서 실제로 교체한다.
+  assert.deepEqual(code(await apply(unknownSchema.configId, { operation: 'apply', evaluationId: unknownSchema.evaluationId, expectedRevision: 0 })), [422, 'config_schema_not_supported_yet']);
+  assert.deepEqual(code(await apply(noSchema.configId, { operation: 'apply', evaluationId: noSchema.evaluationId, expectedRevision: 0 })), [422, 'config_schema_not_supported_yet']);
   const conflict = await apply(a.configId, { operation: 'apply', evaluationId: a.evaluationId, expectedRevision: 5 });
   assert.deepEqual(code(conflict), [409, 'active_set_revision_conflict']);
   assert.equal(conflict.body.currentRevision, 0);
@@ -230,6 +235,19 @@ try {
 
   // 9) v1·v2 단일 구성 경로는 그대로(본문에 expectedActiveVersionId가 있는 apply·restore).
   assert.deepEqual(code(await apply(a.configId, { operation: 'apply', evaluationId: a.evaluationId, expectedRevision: 99, expectedActiveVersionId: null })), [409, 'active_config_changed']);
+  // v3 모델 버전은 단일 구성 칸에 넣지 않는다(v03 판독이 legacy 정책으로 읽음). 활성 집합 경로만 쓴다.
+  const legacyState = async () => (await pool.query('SELECT active_config_version_id AS id,revision FROM ops_system_state WHERE id=1')).rows[0] ?? null;
+  const stateBefore = await legacyState();
+  for (const operation of ['apply', 'restore']) {
+    assert.deepEqual(code(await apply(v3.configId, { operation, evaluationId: v3.evaluationId, expectedRevision: Number(stateBefore?.revision ?? 0), expectedActiveVersionId: stateBefore?.id ?? null })),
+      [422, 'config_schema_not_supported_yet'], operation);
+  }
+  for (const other of [unknownSchema, noSchema]) {
+    assert.deepEqual(code(await apply(other.configId, { operation: 'apply', evaluationId: other.evaluationId, expectedRevision: Number(stateBefore?.revision ?? 0), expectedActiveVersionId: stateBefore?.id ?? null })),
+      [422, 'config_schema_not_supported_yet'], 'the legacy path takes schemaVersion 1·2 only (4 and null refused)');
+  }
+  assert.deepEqual(await legacyState(), stateBefore, 'the legacy single-config state is unchanged');
+  assert.equal((await pool.query('SELECT count(*)::int AS count FROM run_applications WHERE target_config_version_id=$1', [v3.configId])).rows[0].count, 0);
 
   // 10) 방법별 운영 상태: 지금 켜진 규칙·활성 모델마다 기간 안 v4 결과를 센다. 이전 모델 버전 결과·옛 판정은 따로.
   const state = await stateOf();
@@ -277,6 +295,17 @@ try {
   assert.equal(dropResearch.status, 200, JSON.stringify(dropResearch.body));
   assert.deepEqual(dropResearch.body.models.map((model) => model.configVersionId), [b.configId], 'the kept version passes the gate again');
   assert.deepEqual(dropResearch.body.changes, [{ type: 'retired', configVersionId: research.configId, modelKey: 'minibatch_kmeans' }]);
+
+  // 10c) 모델 버전(v3)은 v04 활성 집합 로더가 읽으므로 같은 gate로 교체된다. 버전 상세의 적용 가능 판단도 같은 결과다.
+  const v3Before = (await call(`/api/configurations/${v3.configId}`, { token: admin })).body;
+  assert.equal(v3Before.schemaVersion, 3);
+  assert.deepEqual(v3Before.applicationEligibility, { eligible: true, evaluationId: v3.evaluationId, reason: null }, 'detail eligibility matches the gate');
+  const v3Replaced = await apply(v3.configId, { operation: 'replace', evaluationId: v3.evaluationId, expectedRevision: dropResearch.body.revision, expectedActiveVersionId: b.configId });
+  assert.equal(v3Replaced.status, 200, JSON.stringify(v3Replaced.body));
+  assert.deepEqual(v3Replaced.body.models.map((model) => [model.configVersionId, model.displayName]), [[v3.configId, 'V3']]);
+  assert.deepEqual(v3Replaced.body.changes, [{ type: 'replaced', configVersionId: v3.configId, modelKey: 'iforest', previousConfigVersionId: b.configId }]);
+  const v3After = (await call(`/api/configurations/${v3.configId}`, { token: admin })).body;
+  assert.deepEqual([v3After.active, v3After.activeSince.revision], [true, v3Replaced.body.revision]);
 
   // 11) 저장소 실패는 503(빈 집합·성공 대체 없음).
   await stopChild();

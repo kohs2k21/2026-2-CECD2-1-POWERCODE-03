@@ -64,9 +64,12 @@ class InputContracts(unittest.TestCase):
         self.assertEqual(conn.updates,[])
         conn=Connection(None);self.assertIsNone(pin(conn,None)['configVersionId']) # --config active
         conn=Connection((2,),pinned='old');self.assertEqual(pin(conn,'keep')['configVersionId'],'old')
-        conn=Connection((3,)) # pausing admits nothing, so an explicit v3 pin is not refused for schema
-        self.assertEqual(pin(conn,'c',mode='paused')['configVersionId'],'c')
-        conn=Connection((3,),pinned='old');self.assertEqual(pin(conn,'keep',mode='paused')['configVersionId'],'old')
+        conn=Connection((3,)) # a newly specified config is checked even when pausing (same as the API)
+        with self.assertRaisesRegex(ValueError,'^config_schema_not_supported_yet$'):pin(conn,'c',mode='paused')
+        self.assertEqual(conn.updates,[])
+        conn=Connection((2,));self.assertEqual(pin(conn,'c',mode='paused')['configVersionId'],'c')
+        conn=Connection((3,),pinned='old') # only a pause that keeps the existing pin is not checked
+        self.assertEqual(pin(conn,'keep',mode='paused')['configVersionId'],'old')
         conn=Connection((3,),pinned='old') # ...but resuming with the kept v3 config is refused
         with self.assertRaisesRegex(ValueError,'^config_schema_not_supported_yet$'):pin(conn,'keep')
         self.assertEqual(conn.updates,[])

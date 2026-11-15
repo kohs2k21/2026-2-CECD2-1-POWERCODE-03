@@ -14,9 +14,10 @@ import {
   type DecisionDetail,
   type FeedbackKind,
   type FeedbackOutcome,
+  type FeedbackRecord,
   type WorkflowState,
 } from "../data/analysisApi";
-import { useFeedbackSave, useWorkflowChange } from "../data/useAnalysis";
+import { useFeedbackEdit, useFeedbackSave, useWorkflowChange } from "../data/useAnalysis";
 import { classifyIcon, workflowIcons } from "../icons";
 import { DASH, classifyLabel, feedbackKindLabels, feedbackOutcomeLabels, feedbackOutcomeTitle, workflowActions } from "../labels";
 
@@ -45,6 +46,61 @@ export type WorkflowRecordBodyProps = {
   changeError: unknown;
 };
 
+type RecordFieldsProps = Pick<WorkflowRecordBodyProps, "kind" | "outcome" | "reason" | "onKind" | "onOutcome" | "onReason" | "reasonRequired" | "pending"> & {
+  /** 입력 id 접두(로그 분류하기 `analysis-feedback`, 기록 수정 `analysis-feedback-edit`). */
+  idPrefix?: string;
+};
+/** 기록 입력 칸(로그 분류하기·기록 수정 공통): 기록 유형·확인 결과(선택, 029)·조사·조치 사유(최대 2000자) + 빈 사유 안내. */
+const RecordFields = ({ kind, outcome, reason, onKind, onOutcome, onReason, reasonRequired, pending, idPrefix = "analysis-feedback" }: RecordFieldsProps) => (
+  <>
+    <div className="grid gap-2">
+      <Label htmlFor={`${idPrefix}-kind`}>기록 유형</Label>
+      <NativeSelect id={`${idPrefix}-kind`} value={kind} disabled={pending} onChange={(event) => onKind(event.target.value as FeedbackKind)}>
+        {feedbackKinds.map((value) => (
+          <NativeSelectOption key={value} value={value}>
+            {feedbackKindLabels[value]}
+          </NativeSelectOption>
+        ))}
+      </NativeSelect>
+    </div>
+    <div className="grid gap-2">
+      <Label htmlFor={`${idPrefix}-outcome`}>{feedbackOutcomeTitle}</Label>
+      <NativeSelect
+        id={`${idPrefix}-outcome`}
+        value={outcome ?? ""}
+        disabled={pending}
+        onChange={(event) => onOutcome((event.target.value || null) as FeedbackOutcome | null)}
+      >
+        <NativeSelectOption value="">{DASH}</NativeSelectOption>
+        {feedbackOutcomes.map((value) => (
+          <NativeSelectOption key={value} value={value}>
+            {feedbackOutcomeLabels[value]}
+          </NativeSelectOption>
+        ))}
+      </NativeSelect>
+    </div>
+    <div className="grid gap-2">
+      <Label htmlFor={`${idPrefix}-reason`}>조사·조치 사유</Label>
+      <Textarea
+        id={`${idPrefix}-reason`}
+        rows={3}
+        className="max-h-60"
+        maxLength={FEEDBACK_REASON_MAX}
+        placeholder="확인한 사실과 조치 사유를 입력하세요."
+        disabled={pending}
+        value={reason}
+        aria-invalid={reasonRequired || undefined}
+        onChange={(event) => onReason(event.target.value)}
+      />
+      {reasonRequired && (
+        <span role="alert" className="text-sm text-destructive-text">
+          {reasonRequiredText}
+        </span>
+      )}
+    </div>
+  </>
+);
+
 /**
  * 로그 분류하기 대화상자 본문(사용자 11/13, 와이어프레임 feedbackBox 항목을 옮김): 기록 유형·확인 결과(선택, 029)·조사·조치 사유(선택, 최대 2000자) + 처리 보류·처리 완료.
  * 처리 버튼은 사유가 있으면 먼저 기록을 저장한 뒤 처리 상태를 바꾼다. 확인 결과는 기록에 붙으므로 고르면 사유가 필요하다.
@@ -65,51 +121,7 @@ export const WorkflowRecordBody = ({
   changeError,
 }: WorkflowRecordBodyProps) => (
   <>
-    <div className="grid gap-2">
-      <Label htmlFor="analysis-feedback-kind">기록 유형</Label>
-      <NativeSelect id="analysis-feedback-kind" value={kind} disabled={pending} onChange={(event) => onKind(event.target.value as FeedbackKind)}>
-        {feedbackKinds.map((value) => (
-          <NativeSelectOption key={value} value={value}>
-            {feedbackKindLabels[value]}
-          </NativeSelectOption>
-        ))}
-      </NativeSelect>
-    </div>
-    <div className="grid gap-2">
-      <Label htmlFor="analysis-feedback-outcome">{feedbackOutcomeTitle}</Label>
-      <NativeSelect
-        id="analysis-feedback-outcome"
-        value={outcome ?? ""}
-        disabled={pending}
-        onChange={(event) => onOutcome((event.target.value || null) as FeedbackOutcome | null)}
-      >
-        <NativeSelectOption value="">{DASH}</NativeSelectOption>
-        {feedbackOutcomes.map((value) => (
-          <NativeSelectOption key={value} value={value}>
-            {feedbackOutcomeLabels[value]}
-          </NativeSelectOption>
-        ))}
-      </NativeSelect>
-    </div>
-    <div className="grid gap-2">
-      <Label htmlFor="analysis-feedback-reason">조사·조치 사유</Label>
-      <Textarea
-        id="analysis-feedback-reason"
-        rows={3}
-        className="max-h-60"
-        maxLength={FEEDBACK_REASON_MAX}
-        placeholder="확인한 사실과 조치 사유를 입력하세요."
-        disabled={pending}
-        value={reason}
-        aria-invalid={reasonRequired || undefined}
-        onChange={(event) => onReason(event.target.value)}
-      />
-      {reasonRequired && (
-        <span role="alert" className="text-sm text-destructive-text">
-          {reasonRequiredText}
-        </span>
-      )}
-    </div>
+    <RecordFields kind={kind} outcome={outcome} reason={reason} onKind={onKind} onOutcome={onOutcome} onReason={onReason} reasonRequired={reasonRequired} pending={pending} />
     {Boolean(saveError) && <ErrorState title={analysisWriteErrorTitle(saveError, "피드백 저장")} />}
     {Boolean(changeError) && (
       <span role="alert" className="text-sm text-destructive-text">
@@ -146,6 +158,85 @@ export const WorkflowRecordDialog = ({
     <WorkflowRecordBody {...body} />
   </Modal>
 );
+
+/** 기록 수정 실패 제목(사용자 11/15 승인 문구): `피드백 수정 실패 · <오류 코드>`(피드백 저장 실패와 같은 형식). */
+export const feedbackEditErrorTitle = (error: unknown) => analysisWriteErrorTitle(error, "피드백 수정");
+
+export type FeedbackEditBodyProps = Pick<WorkflowRecordBodyProps, "kind" | "outcome" | "reason" | "onKind" | "onOutcome" | "onReason" | "reasonRequired" | "pending"> & {
+  /** 값이 저장된 것과 달라 저장할 수 있다. */
+  canSave: boolean;
+  onSave: () => void;
+  error: unknown;
+};
+/** 기록 수정 대화상자 본문: 같은 입력 칸 + `피드백 수정 실패 · <코드>` + [저장]. */
+export const FeedbackEditBody = ({ canSave, onSave, error, ...fields }: FeedbackEditBodyProps) => (
+  <>
+    <RecordFields idPrefix="analysis-feedback-edit" {...fields} />
+    {Boolean(error) && <ErrorState title={feedbackEditErrorTitle(error)} />}
+    <DialogFooter>
+      <Button disabled={fields.pending || !canSave} data-feedback-edit-save="true" onClick={onSave}>
+        저장
+      </Button>
+    </DialogFooter>
+  </>
+);
+/** 기록 수정 대화상자 껍데기: 로그 분류하기와 같은 `업무 분류` 제목·설명, Esc·바깥 클릭·X = 닫기(처리 중에는 닫지 않음). */
+export const FeedbackEditModal = ({ onOpenChange, ...body }: FeedbackEditBodyProps & { onOpenChange: (open: boolean) => void }) => (
+  <Modal isOpen onOpenChange={onOpenChange} size="md" title="업무 분류" description="선택은 확정 라벨이나 자동 학습으로 반영되지 않습니다.">
+    <FeedbackEditBody {...body} />
+  </Modal>
+);
+
+/**
+ * 조사·조치 기록 수정(사용자 11/15, 032): 판정 기록 줄의 [수정]이 같은 `업무 분류` 대화상자를 저장된 값으로 채워 연다.
+ * 처리 상태 버튼 대신 [저장] 하나 — 처리 상태는 바꾸지 않는다. 수정은 기록을 고치는 것이라 사유가 비면 저장하지 않고 빈 사유 안내를 보인다.
+ * 값이 저장된 것과 같으면 [저장]을 막는다. 저장에 성공하면 닫고, 실패(다른 판본이 먼저 저장됨 409 등)는 대화상자 안에 오류 그대로.
+ * 서버는 기존 기록을 고치지 않고 정정 기록을 추가한다(삭제 없음).
+ * 연 때의 판본을 고정해 보낸다(expectedId): 그 사이 다른 판본이 저장돼 409가 나면 다시 눌러도 덮어쓰지 않고, 닫고 다시 열면 새 판본 값으로 채워진다.
+ */
+export const FeedbackEditDialog = ({ decisionId, record: opened, onClose }: { decisionId: string; record: FeedbackRecord; onClose: () => void }) => {
+  const edit = useFeedbackEdit(decisionId);
+  const [record] = useState(opened);
+  const [kind, setKind] = useState<FeedbackKind>(record.kind);
+  const [outcome, setOutcome] = useState<FeedbackOutcome | null>(record.outcome);
+  const [reason, setReason] = useState(record.reason);
+  const [reasonRequired, setReasonRequired] = useState(false);
+  const pending = edit.isPending;
+  const trimmed = reason.trim();
+  const save = async () => {
+    if (!trimmed) {
+      setReasonRequired(true);
+      return;
+    }
+    try {
+      await edit.mutateAsync({ record, kind, reason: trimmed, outcome });
+      onClose();
+    } catch {
+      // 실패는 대화상자 안에 오류 그대로 보인다.
+    }
+  };
+  return (
+    <FeedbackEditModal
+      onOpenChange={(next) => {
+        if (!next && !pending) onClose();
+      }}
+      kind={kind}
+      outcome={outcome}
+      reason={reason}
+      onKind={setKind}
+      onOutcome={setOutcome}
+      onReason={(next) => {
+        setReason(next);
+        if (next.trim()) setReasonRequired(false);
+      }}
+      reasonRequired={reasonRequired}
+      pending={pending}
+      canSave={!(kind === record.kind && outcome === record.outcome && trimmed === record.reason)}
+      onSave={() => void save()}
+      error={edit.error}
+    />
+  );
+};
 
 /**
  * 처리 상태 버튼(와이어프레임 dWorkflow, 아이콘은 #100 이전 상세 화면과 같은 `icons.ts` workflowIcons).

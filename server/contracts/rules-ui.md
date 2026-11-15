@@ -1,5 +1,5 @@
 Created: 2026-11-04T22:00:00+09:00
-Updated: 2026-11-14T15:00:00+09:00
+Updated: 2026-11-15T12:00:00+09:00
 Author: #109 Claude Code(WebUI builder)
 Status: current
 
@@ -97,7 +97,7 @@ Status: current
 - `해당 없음`(표본 20건 미만 `최소 기준 미달`, 값이 모두 같으면 `분산 없음`), `거부`(`threshold_serialization_failed`), 실패는 코드 그대로, 입력칸 유지
 - 화면은 항상 `statistic: p95`. 응답 `operator`(1차 항상 `gt`)를 `조건`으로 보여 주며 규칙 조건은 바꾸지 않는다(Q-L4 "화면 조건과 다르면 사람이 조정")
 - 표본: 학습 스냅샷과 같은 순서로 PROCESS 관측(실행 식별 있음)에 기간을 먼저 적용하고 그 안에서 실행별 최신 revision(`revision_no`, `persisted_at`, `id` 내림차순)을 고른 뒤, `status=S`, 최신 라벨이 anomaly가 아닌 행, 필드 값이 있는 행. 기간 밖의 새 revision은 영향이 없다
-- 제외 구간(`excludedIntervals`)은 선택된 `timeBasis`의 시각 열에 적용한다(`evidence.exclusionRule`의 건수와 실제가 맞게). trainer-service.md의 "항상 ESB 발생 시각"과 다른 점이며 원천 시각이 비어 있는 동안의 구현이다. 화면은 지금 제외 구간을 보내지 않는다
+- 제외 구간(`excludedIntervals`)은 선택된 `timeBasis`의 시각 열에 적용한다(`evidence.exclusionRule`의 건수와 실제가 맞게). 학습 제외 구간도 11/15 사용자 결정으로 학습 `timeBasis`와 같은 시각 열에 적용하므로(trainer-service.md `excludedIntervals[]`, 이전의 "항상 ESB 발생 시각"을 대체) 임계값 통계와 같은 기준이다. 화면은 지금 제외 구간을 보내지 않는다
 - 값 계산: `elapsed_ms`는 `worker/derived_expression.py`와 같이 `data_processes.start_time_raw`·`end_time_raw`로 계산한다(collector는 `parsed_times`에 시각 값을 두지 않음, [collector-metrics.md](collector-metrics.md) 1.1). ISO 형식이 아니거나 해석 불가, 시간대 유무가 섞인 행은 값 없음으로 제외
 - `threshold`는 저장 가능한 값으로 만든다: 숫자 필드는 유효숫자 15자리로 반올림, 정수 필드는 반올림 정수(15자리로 줄이지 않음). 원값은 `evidence.p95`. 계산 구현이 AI 규칙 추천과 달라 같은 원값도 `threshold` 끝자리뿐 아니라 `status`까지 다를 수 있다(양쪽이 값을 낸 경우 둘 다 저장은 통과, [llm-recommendation-job.md](llm-recommendation-job.md) 수식 추천 절)
 - `timeBasis`: API는 `esb_occurred_at`(계약 기본) / `persisted_at`을 받는다. **화면은 최근 1·3개월·직접 지정에 `persisted_at`을 보낸다**: `data_observations.source_log_occurred_at`은 migration 030 이후 새 관측부터 채워져([collector-metrics.md](collector-metrics.md) 1.1, 기존 행 보정 없음) 기본값으로는 그 이전 기간 표본이 0건이고, 학습 스냅샷 기준도 `persisted_at`이다(`GET /api/jobs/capabilities` `snapshot.timeBasis`). mode (a)는 화면이 보내지 않고 v1·v2 투영값 `persisted_at`을 쓴다

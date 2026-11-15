@@ -9,9 +9,12 @@ from __future__ import annotations
 import json
 import math
 import os
+import queue
 import re
 import shutil
 import tempfile
+import threading
+from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Mapping, Sequence
@@ -287,6 +290,76 @@ def _v3_runtime() -> Any:
     return runtime
 
 
+def _v3_executors(runtime: Any) -> list[Any]:
+    """필드 실행기: 준비된 GPU 복제본(generation_replicas) + 주 프로세스 runtime(맨 뒤).
+
+    필드가 적으면 복제본부터 써서 주 GPU를 대화형 설명(explain)에 비워 둔다. 복제본이 없으면 [runtime] 하나다.
+    """
+    import generation_client
+    pool = getattr(generation_client.local_model(), "rule_v3_replicas", None)
+    replicas = list(pool.ready()) if pool is not None else []
+    return [*replicas, runtime]
+
+
+def _run_fields(executors: Sequence[Any], fields: Sequence[SoftRuleField],
+                run: Callable[[Any, SoftRuleField], dict[str, Any]], progress: Progress | None) -> list[dict[str, Any]]:
+    """필드를 실행기에 나눠 동시에 돌린다. 결과는 `fields` 순서, `progress`는 이 함수를 부른 스레드에서만 부른다.
+
+    필드마다 비어 있는 실행기 중 목록 앞쪽(복제본)을 먼저 잡는다. 한 필드라도 예외면 시작 안 한 필드는 취소하고
+    실행 중인 필드가 끝나길 기다린 뒤, 필드 순서상 가장 앞의 실패 예외를 올린다(직렬 실행과 같은 종류의 실패).
+    """
+    free: queue.PriorityQueue = queue.PriorityQueue()
+    for index, executor in enumerate(executors):
+        free.put((index, executor))
+    # 실패를 본 작업 스레드가 바로 세운다. 주 스레드의 취소보다 먼저, 이미 꺼낸 다음 필드도 돌리지 않게 한다.
+    abort = threading.Event()
+
+    def task(field: SoftRuleField) -> dict[str, Any] | None:
+        if abort.is_set():
+            return None
+        index, executor = free.get()
+        try:
+            if abort.is_set():
+                return None
+            return run(executor, field)
+        except BaseException:
+            abort.set()
+            raise
+        finally:
+            free.put((index, executor))
+
+    total = len(fields)
+    pool = ThreadPoolExecutor(max_workers=max(1, min(len(executors), total)), thread_name_prefix="rule-v3-field")
+    try:
+        futures = [pool.submit(task, field) for field in fields]
+        pending, completed, failed = set(futures), 0, False
+        while pending:
+            done, pending = wait(pending, return_when=FIRST_COMPLETED)
+            for future in done:
+                if future.cancelled():
+                    continue
+                if future.exception() is not None:
+                    if not failed:
+                        failed = True
+                        for other in pending:
+                            other.cancel()
+                elif not failed and future.result() is not None:  # None = 실패 뒤 건너뛴 필드
+                    completed += 1
+                    if progress:
+                        progress(completed, total)
+    except BaseException:
+        abort.set()
+        raise
+    finally:
+        # 진행률 기록 실패 등으로 여기서 나가도 남은 필드를 돌리지 않는다. 실행 중인 필드는 끝까지 기다린다.
+        pool.shutdown(wait=True, cancel_futures=True)
+    if failed:
+        for future in futures:
+            if not future.cancelled() and future.exception() is not None:
+                raise future.exception()
+    return [future.result() for future in futures]
+
+
 def _korean_reason(count: int, rows: int, constant: Any) -> str | None:
     """LLM을 부르지 않는 데이터 사실(계약: 값 없음·표본 부족·분산 없음 → no_applicable). 코드가 쓰는 한국어 문장."""
     if count == 0:
@@ -374,6 +447,7 @@ def _recommend_v3(plan: ThresholdPlan, rows: Sequence[Sequence[Any]], snapshot_i
                   source_tz: str | None, progress: Progress | None) -> dict[str, Any]:
     import rule_v3_capture as capture
     runtime = _v3_runtime()
+    executors = _v3_executors(runtime)
     fields = [SOFT_RULE_FIELDS_BY_ID[name] for name in sorted(plan.targets)]
     try:
         # 보류 창과 겹치면 키트 회피 규칙으로 행을 빼고 진행한다(뺀 행 수는 heldWindowExclusion).
@@ -384,13 +458,21 @@ def _recommend_v3(plan: ThresholdPlan, rows: Sequence[Sequence[Any]], snapshot_i
     # 행 값 CSV·번들 산출물은 컨테이너 임시 폴더에만 두고 작업이 끝나면 지운다.
     work = Path(tempfile.mkdtemp(prefix="rule-v3-"))
     try:
-        items = []
-        for field in fields:
+        if len(executors) == 1:
+            items = []
+            for field in fields:
+                if progress:
+                    progress(len(items), len(fields))
+                items.append(_item_v3(runtime, plan, field, split, work, snapshot_id))
             if progress:
                 progress(len(items), len(fields))
-            items.append(_item_v3(runtime, plan, field, split, work, snapshot_id))
-        if progress:
-            progress(len(items), len(fields))
+        else:
+            # GPU 복제본이 있으면 필드를 나눠 동시에 처리한다. 항목 내용·순서는 직렬과 같다.
+            if progress:
+                progress(0, len(fields))
+            items = _run_fields(executors, fields,
+                                lambda executor, field: _item_v3(executor, plan, field, split, work, snapshot_id),
+                                progress)
     finally:
         shutil.rmtree(work, ignore_errors=True)
     counts = split["counts"]

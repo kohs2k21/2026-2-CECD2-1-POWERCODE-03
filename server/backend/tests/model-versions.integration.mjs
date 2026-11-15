@@ -309,10 +309,10 @@ try {
   assert.equal(emptyIntervals.status, 201);
   assert.deepEqual(emptyIntervals.body.inputSpec.excludedIntervals, [], 'an empty list is kept: it selects policy v2');
   // v1 형식(v3 키 없음)은 그대로 v1·v2 구성 경로로 접수된다.
-  const legacy = await post({ ...train, modelKey: undefined, parameters: undefined, detectionPolicy: legacyPolicy });
-  assert.equal(legacy.status, 201, JSON.stringify(legacy.body));
-  assert.deepEqual(legacy.body.inputSpec.detectionPolicy, legacyPolicy);
-  assert.equal('modelKey' in legacy.body.inputSpec, false);
+  const legacyTrain = await post({ ...train, modelKey: undefined, parameters: undefined, detectionPolicy: legacyPolicy });
+  assert.equal(legacyTrain.status, 201, JSON.stringify(legacyTrain.body));
+  assert.deepEqual(legacyTrain.body.inputSpec.detectionPolicy, legacyPolicy);
+  assert.equal('modelKey' in legacyTrain.body.inputSpec, false);
   console.log('model version API integration passed: catalog, volume, version list and detail, training request under powercode_api');
 } finally {
   if (child && child.exitCode === null) {

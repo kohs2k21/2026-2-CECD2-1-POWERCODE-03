@@ -134,6 +134,30 @@ def main():
             assert all(evaluated['metrics'][key] is None for key in ('precision','recall','falsePositiveRate'))
             assert evaluated['metrics']['reason']=='labels_unavailable' and 'labels_unavailable' in evaluated['reasonCodes']
             config=trained['configVersionId']
+            # 입력 구성 고정은 v03 경로라 schemaVersion 1·2만 받는다. v3 모델 버전은 거절하고 제어 상태를 바꾸지 않는다.
+            v3_config=uuid.uuid4()
+            conn.execute("""INSERT INTO ml_config_versions(id,source_id,configuration_spec,explanation_spec,content_hash,created_by_actor_id,created_at)
+                VALUES(%s,%s,%s::jsonb,'{}'::jsonb,%s,'fixture',clock_timestamp())""",
+                (v3_config,sid,json.dumps({'schemaVersion':3,'contractVersion':'model-version-v1','methods':[]}),uuid.uuid4().hex*2));conn.commit()
+            before=call('/api/inputs?sourceId='+str(sid),token=admin)[1]['control']
+            refused=call('/api/inputs/'+str(sid)+'/mode',{'mode':'csv','expectedRevision':before['revision'],'replayId':str(replay),'rate':10000,'repeat':1,
+                'restart':True,'configVersionId':str(v3_config)},admin)
+            assert refused==(422,{'code':'config_schema_not_supported_yet'}),refused
+            after=call('/api/inputs?sourceId='+str(sid),token=admin)[1]['control']
+            assert (after['revision'],after['configVersionId'],after['runId'],after['mode'])==(before['revision'],before['configVersionId'],before['runId'],before['mode']),(before,after)
+            listed=[item['id'] for item in call('/api/inputs?sourceId='+str(sid),token=admin)[1]['configurations']]
+            assert config in listed and str(v3_config) not in listed,listed
+            # API 밖(CLI 등)에서 이미 v3가 고정된 원천: 고정을 유지한 일시정지는 되고, 그 고정으로 재개하는 요청은 거절된다.
+            conn.execute('UPDATE ops_input_controls SET config_version_id=%s WHERE source_id=%s',(v3_config,sid));conn.commit()
+            paused_v3=change('paused')
+            assert paused_v3['configVersionId']==str(v3_config),paused_v3
+            resume=call('/api/inputs/'+str(sid)+'/mode',{'mode':'csv','expectedRevision':paused_v3['revision'],'replayId':str(replay),'rate':10000,'repeat':1,'restart':True},admin)
+            assert resume==(422,{'code':'config_schema_not_supported_yet'}),resume
+            keep_api=call('/api/inputs/'+str(sid)+'/mode',{'mode':'api','expectedRevision':paused_v3['revision'],'pollSeconds':2},admin)
+            assert keep_api==(422,{'code':'config_schema_not_supported_yet'}),('keeping a v3 pin cannot select api',keep_api)
+            assert call('/api/inputs/'+str(sid)+'/mode',{'mode':'paused','expectedRevision':paused_v3['revision'],'configVersionId':str(v3_config)},admin)==(422,{'code':'config_schema_not_supported_yet'}),'a new pin is always checked'
+            held=call('/api/inputs?sourceId='+str(sid),token=admin)[1]['control']
+            assert (held['revision'],held['mode'],held['configVersionId'],held['runId'])==(paused_v3['revision'],'paused',str(v3_config),paused_v3['runId']),held
             second=change('csv',replayId=str(replay),rate=10000,repeat=1,restart=True,configVersionId=config)
             announced=send_csv(5)
             queued=conn.execute("""SELECT q.payload->>'jobId',q.payload->>'inputManifestHash' FROM powercode_queue.detection_logs q

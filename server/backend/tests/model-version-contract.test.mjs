@@ -46,19 +46,50 @@ test('parameters follow the same subset as the worker registry', () => {
   assert.equal(parametersValid(mlMethod('minibatch_kmeans'), { quantile: 0.5 }), true, 'number type allows decimals');
   assert.equal(parametersValid(mlMethod('minibatch_kmeans'), { quantile: 1.5 }), false);
 });
-test('training exclusion stays closed until the Trainer applies it', () => {
-  assert.equal(TRAINING_EXCLUSION_SUPPORTED, false);
+test('training exclusion is open: the Trainer applies it to model version (v3) training', () => {
+  assert.equal(TRAINING_EXCLUSION_SUPPORTED, true);
   assert.equal(TRAINER_CAPABILITIES.snapshot.timeBasis, 'persisted_at');
   assert.deepEqual(TRAINER_CAPABILITIES.training, { excludedIntervals: TRAINING_EXCLUSION_SUPPORTED }, 'the screen reads the same value the API enforces');
 });
 
-const trainBody = {
+const legacyPolicy = { mode: 'ml_only', deadlineMs: 3000, combination: 'selected_path' };
+const bareTrain = {
   kind: 'train', sourceId: '22222222-2222-4222-8222-222222222222', from: '2026-09-30T15:00:00Z', until: '2026-10-31T15:00:00Z', featureSetId: '33333333-3333-4333-8333-333333333333',
-  detectionPolicy: { mode: 'ml_only', deadlineMs: 3000, combination: 'selected_path' },
 };
+const trainBody = { ...bareTrain, modelKey: 'iforest' };
+const legacyBody = { ...bareTrain, detectionPolicy: legacyPolicy };
 const opened = { timeBasis: 'esb_occurred_at', excludedIntervals: true };
-const refusedScope = (body, support, status, code) => assert.throws(() => parseRequest({ ...trainBody, ...body }, support), (error) => error instanceof JobRequestError && error.status === status && error.code === code);
-test('once the Trainer supports them, accepted intervals and time basis reach the job input', () => {
+const refusedBody = (body, support, status, code) => assert.throws(() => parseRequest(body, support),
+  (error) => error instanceof JobRequestError && error.status === status && error.code === code, JSON.stringify(body));
+const refusedScope = (body, support, status, code) => refusedBody({ ...trainBody, ...body }, support, status, code);
+test('a v3 key makes a model version request: no detectionPolicy, no rules (model-version.md generation path A)', () => {
+  for (const extra of [{ modelKey: 'iforest' }, { parameters: { n_estimators: 64 } }, { parameters: null }, { timeBasis: 'persisted_at' }, { excludedIntervals: [] }]) {
+    refusedBody({ ...bareTrain, ...extra, detectionPolicy: legacyPolicy }, undefined, 400, 'invalid_detection_policy');
+    refusedBody({ ...bareTrain, ...extra, detectionPolicy: { mode: 'rule_only', deadlineMs: 3000, combination: 'selected_path' } }, undefined, 400, 'invalid_detection_policy');
+    refusedBody({ ...bareTrain, ...extra, ruleVersionIds: [] }, undefined, 400, 'invalid_job_request');
+    const input = parseRequest({ ...bareTrain, ...extra });
+    assert.equal('detectionPolicy' in input, false);
+    assert.equal('ruleVersionIds' in input, false);
+    // 워커는 input_spec의 v3 키로 판별한다. persisted_at·null parameters는 남지 않아도 modelKey가 남는다.
+    assert.equal(input.modelKey, 'iforest', JSON.stringify(extra));
+  }
+  assert.deepEqual(parseRequest({ ...trainBody, parameters: { n_estimators: 64 } }).parameters, { n_estimators: 64 });
+  assert.deepEqual(parseRequest({ ...trainBody, parameters: {} }).parameters, {}, 'an empty object is passed as sent (worker: catalog_default)');
+  refusedScope({ modelKey: 'minibatch_kmeans' }, undefined, 422, 'method_not_executable:ml:minibatch_kmeans');
+  refusedScope({ modelKey: null }, undefined, 422, 'unsupported_model');
+  refusedScope({ parameters: { n_estimators: 1 } }, undefined, 422, 'method_parameters_invalid:ml:iforest');
+  refusedScope({ evaluationSetId: '44444444-4444-4444-8444-444444444444' }, undefined, 400, 'invalid_job_request');
+});
+test('a request without v3 keys keeps the v1 form: detectionPolicy is still required', () => {
+  refusedBody(bareTrain, undefined, 400, 'detection_policy_required');
+  const input = parseRequest(legacyBody);
+  assert.deepEqual(input.detectionPolicy, legacyPolicy);
+  assert.deepEqual(input.ruleVersionIds, []);
+  assert.equal('modelKey' in input, false, 'omission keeps the historical request hash');
+  refusedBody({ ...legacyBody, detectionPolicy: { ...legacyPolicy, deadlineMs: 50 } }, undefined, 400, 'detection_policy_required');
+  refusedBody({ ...legacyBody, ruleVersionIds: ['44444444-4444-4444-8444-444444444444'] }, undefined, 400, 'ml_only_rules_not_selected');
+});
+test('accepted intervals and time basis reach the job input', () => {
   const input = parseRequest({ ...trainBody, timeBasis: 'esb_occurred_at', excludedIntervals: [
     { from: '2026-10-03T02:00:00+09:00', until: '2026-10-03T06:30:00+09:00', reasonCode: 'known_incident', note: 'DB 장애' },
     { from: '2026-10-20T22:00:00+09:00', until: '2026-10-21T01:00:00+09:00' },
@@ -68,11 +99,13 @@ test('once the Trainer supports them, accepted intervals and time basis reach th
     { from: '2026-10-02T17:00:00.000Z', until: '2026-10-02T21:30:00.000Z', reasonCode: 'known_incident', note: 'DB 장애' },
     { from: '2026-10-20T13:00:00.000Z', until: '2026-10-20T16:00:00.000Z', reasonCode: 'other', note: null },
   ], 'UTC, default reason, nothing dropped');
-  assert.deepEqual(parseRequest({ ...trainBody, excludedIntervals: [] }, { timeBasis: 'persisted_at', excludedIntervals: true }).excludedIntervals, [], 'an empty list is kept: it selects policy v2');
-  assert.equal('timeBasis' in parseRequest({ ...trainBody, timeBasis: 'persisted_at' }, { timeBasis: 'persisted_at', excludedIntervals: true }), false);
+  assert.deepEqual(parseRequest({ ...trainBody, excludedIntervals: [] }).excludedIntervals, [], 'an empty list is kept: it selects policy v2');
+  assert.equal(parseRequest({ ...trainBody, excludedIntervals: [{ from: '2026-10-03T00:00:00Z', until: '2026-10-04T00:00:00Z' }] }).excludedIntervals.length, 1, 'the default support accepts intervals');
+  assert.equal('timeBasis' in parseRequest({ ...trainBody, timeBasis: 'persisted_at' }), false);
   assert.equal('excludedIntervals' in parseRequest(trainBody, opened), false, 'no key, no intervals');
   refusedScope({ excludedIntervals: [{ from: '2026-09-01T00:00:00Z', until: '2026-09-02T00:00:00Z' }] }, opened, 400, 'excluded_interval_out_of_range');
   refusedScope({ excludedIntervals: [{ from: '2026-10-03T00:00:00Z', until: '2026-10-04T00:00:00Z' }, { from: '2026-10-03T12:00:00Z', until: '2026-10-05T00:00:00Z' }] }, opened, 400, 'excluded_interval_overlap');
+  refusedScope({ excludedIntervals: null }, undefined, 400, 'invalid_job_request');
 });
 test('note: null belongs to the training request only', () => {
   const interval = { from: '2026-10-03T00:00:00Z', until: '2026-10-04T00:00:00Z', note: null };
@@ -81,10 +114,10 @@ test('note: null belongs to the training request only', () => {
   assert.equal(parseThresholdStatsRequest({ ...stats, excludedIntervals: [{ ...interval, note: 'x' }] }).excludedIntervals.length, 1);
   assert.throws(() => parseThresholdStatsRequest({ ...stats, excludedIntervals: [interval] }), (error) => error instanceof RuleSetError && error.code === 'invalid_threshold_stats_request');
 });
-test('until then both are refused, not dropped', () => {
+test('what the Trainer cannot apply is refused, not dropped', () => {
   const inside = { from: '2026-10-03T00:00:00Z', until: '2026-10-04T00:00:00Z' };
-  refusedScope({ excludedIntervals: [inside] }, undefined, 422, 'config_schema_not_supported_yet');
   refusedScope({ timeBasis: 'esb_occurred_at' }, undefined, 422, 'config_schema_not_supported_yet');
+  refusedScope({ excludedIntervals: [inside] }, { timeBasis: 'persisted_at', excludedIntervals: false }, 422, 'config_schema_not_supported_yet');
   refusedScope({ excludedIntervals: [inside] }, { timeBasis: 'esb_occurred_at', excludedIntervals: false }, 422, 'config_schema_not_supported_yet');
 });
 
@@ -162,6 +195,13 @@ test('application eligibility reports the first failed gate', () => {
   assert.equal(eligible({}, { unavailableEvaluation: true }).reason, 'method_results_unavailable');
   assert.equal(eligible({ operationalEligibility: { eligible: false, reason: 'prepared_detector_reproduction_unverified' } }, { eligibleEvaluationId: 'e1' }).reason, 'operational_ineligible');
   assert.equal(eligible({}, { modelKeys: ['minibatch_kmeans'], eligibleEvaluationId: 'e1' }).reason, 'not_executable');
+  // 활성 집합 gate와 같은 schemaVersion 범위(1·2·3). 그 밖은 평가가 있어도 적격이 아니다.
+  for (const schemaVersion of [2, 3]) {
+    assert.equal(eligible({ schemaVersion, methods: [{ methodId: 'ml:iforest', enabled: true }] }, { eligibleEvaluationId: 'e1' }).eligible, true, String(schemaVersion));
+  }
+  for (const schemaVersion of [4, null, undefined]) {
+    assert.deepEqual(eligible({ schemaVersion }, { eligibleEvaluationId: 'e1' }), { eligible: false, evaluationId: null, reason: 'config_schema_not_supported_yet' }, String(schemaVersion));
+  }
 });
 test('active state fills active and activeSince', () => {
   const version = projectVersion(row({ schemaVersion: 1 }), new Map([['11111111-1111-4111-8111-111111111111', { revision: 7, at: '2026-11-01T02:00:00.000Z' }]]));

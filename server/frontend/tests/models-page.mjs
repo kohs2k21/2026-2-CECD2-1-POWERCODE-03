@@ -776,8 +776,8 @@ const tocSections = (app, menu) => detectionToc[menu].map(({ id }) => {
   const [post] = calls("POST", "/api/jobs");
   assert.deepEqual(post.body, {
     kind: "train", sourceId: SOURCE, from: "2026-09-30T15:00:00.000Z", until: "2026-10-30T15:00:00.000Z", featureSetId: SET_OK, modelKey: "iforest",
-    parameters: { n_estimators: 256, max_samples: 512, random_state: 42 }, detectionPolicy: { mode: "ml_only", deadlineMs: 3000, combination: "selected_path" },
-  });
+    parameters: { n_estimators: 256, max_samples: 512, random_state: 42 },
+  }, "a model version (v3) request: the detection policy is the global operations value, never sent");
   assert.ok(new Headers(post.headers).get("Idempotency-Key"), "the request carries an idempotency key");
   const jobStatus = () => app.renderer.root.findAll((node) => typeof node.type === "string" && node.props["data-job-status"])[0]?.props["data-job-status"];
   await wait(() => jobStatus() === "queued", "queued is not success");
@@ -1701,6 +1701,7 @@ const runningJobs = (s) => [...s.jobs.values()].filter((entry) => entry.status =
   await wait(() => app.shown().includes("학습 요청 실패 · config_schema_not_supported_yet"), "server refusal shown");
   const [post] = calls("POST", "/api/jobs").slice(-1);
   assert.deepEqual(post.body.excludedIntervals, [{ from: "2026-10-02T15:00:00.000Z", until: "2026-10-03T15:00:00.000Z" }]);
+  assert.equal("detectionPolicy" in post.body, false, "intervals ride on a v3 request only");
   assert.equal(search(app).includes("job="), false, "no job was registered");
   assert.equal(useDraftStore.getState().drafts["/detection/models"]?.dirty, true, "the draft stays");
   await app.cleanup();

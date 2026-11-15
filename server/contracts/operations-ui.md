@@ -108,12 +108,12 @@ Status: current
 
 | 경우 | 값 |
 |---|---|
-| v1·v2 단일 구성 경로와 같은 주소 | `POST /api/configurations/:id/applications` 본문이 `apply`·`restore` + `expectedActiveVersionId` 키면 기존 v1·v2(`ops_system_state`·`run_applications`) 경로, 그 밖은 활성 집합 |
+| v1·v2 단일 구성 경로와 같은 주소 | `POST /api/configurations/:id/applications` 본문이 `apply`·`restore` + `expectedActiveVersionId` 키면 기존 v1·v2(`ops_system_state`·`run_applications`) 경로, 그 밖은 활성 집합. 단일 구성 경로와 입력 구성 고정(`POST /api/inputs/:sourceId/mode` `configVersionId`)은 schemaVersion 1·2만 받고 그 밖(v3 포함)은 422 `config_schema_not_supported_yet`으로 거절한다(v3는 활성 집합으로만, [model-version.md](model-version.md) 활성 집합 절) |
 | 응답 | 200 `{revision, previousRevision, models[], changes[], changedAt, appliesFrom:"next_decision"}`(동기 적용, 작업 행 없음) |
 | 근거 기록 | 변경 항목 `changes[].gate`(평가 ID·추천 수락·조작 시점 룰 세트 `{revision, contentHash, contentHashVersion}`·정책 리비전·집합 before/after). 응답·이력에는 `evaluationId`·`acceptedRecommendation`만 |
 | 멱등키 | 형식 400 `invalid_idempotency_key`, 같은 키 다른 본문 409 `idempotency_payload_conflict`. 재전송 보장은 프로세스 메모리(룰 세트 저장과 같음), 재시작 뒤는 `expectedRevision`이 막음 |
 | 형식 오류 | 400 `invalid_application_request`(키 집합 정확 일치, `note` 500자) |
-| gate 실패 | 404 `config_not_found`, 422 `config_schema_not_supported_yet`(v3), 409 `model_artifacts_not_ready`(모델 행 1개 아님·산출물 행 불일치), 409 `method_not_executable:ml:<key>`(카탈로그), 409 `prepared_detector_reproduction_unverified`, 409 `evaluation_gate_not_met`. 산출물 파일 hash는 API가 볼 수 없어 Detector가 시도마다 검증 |
+| gate 실패 | 404 `config_not_found`, 422 `config_schema_not_supported_yet`(schemaVersion이 1·2·3이 아님 — v3는 v04 활성 집합 로더에서 허용), 409 `model_artifacts_not_ready`(모델 행 1개 아님·산출물 행 불일치), 409 `method_not_executable:ml:<key>`(카탈로그), 409 `prepared_detector_reproduction_unverified`, 409 `evaluation_gate_not_met`. 산출물 파일 hash는 API가 볼 수 없어 Detector가 시도마다 검증 |
 | 바뀌는 것이 없음 | 409 `active_model_set_unchanged`(같은 버전으로 replace, 지금과 같은 집합으로 restore) |
 | restore 대상 | 현재 리비전 이상 422 `invalid_target_revision`, 없음 404 `active_model_set_revision_not_found`. gate는 그 집합의 모든 버전(그대로 남는 버전 포함)에 다시 건다 |
 | 이력 목록 | 항목에 `snapshot.models`(그 리비전 집합)도 둔다(복원 선택창), 변경 항목에 `displayName`·`previousDisplayName`(구성 행 값). 400 `unknown_active_model_filter`·`invalid_limit`·`invalid_cursor`·`invalid_revision` |

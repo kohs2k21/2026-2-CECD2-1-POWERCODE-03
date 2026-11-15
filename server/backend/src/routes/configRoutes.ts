@@ -6,6 +6,7 @@ import { hasStatusRulePolicy } from '../services/statusRulePolicy.js';
 import { ConfigurationQueryError, parseConfigurationQuery, readConfiguration, readConfigurations } from '../services/configurationReadModel.js';
 import { ActiveSetError, isLegacyApplication } from '../services/activeModelSet.js';
 import { handleActiveSetChange } from './activeModelRoutes.js';
+import { LEGACY_CONFIG_REFUSED, legacyConfigRefused } from '../services/legacyConfig.js';
 
 const router = Router();
 router.use(authenticateToken as any);
@@ -80,6 +81,8 @@ router.post('/:id/applications', requireAdmin as any, route(async (req, res) => 
   const client = await getDatabasePool().connect();
   try {
     await client.query('BEGIN');
+    // 단일 구성 칸(ops_system_state)은 v03 판독이라 schemaVersion 1·2만 받는다(services/legacyConfig.ts). v3는 활성 집합으로만 운영한다.
+    if (await legacyConfigRefused(client, req.params.id)) throw new ConfigError(LEGACY_CONFIG_REFUSED, 422);
     await client.query(
       `INSERT INTO ops_system_state (id, active_config_version_id, active_application_id,
                                     revision, detector_state, changed_at)

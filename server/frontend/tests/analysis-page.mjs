@@ -656,7 +656,7 @@ const listCalls = () => requested.filter((r) => r.path === "/api/analysis/decisi
   assert.deepEqual(headerLabels(), ["로그 분류하기"]);
   assert.deepEqual(iconNames(headerButton("로그 분류하기")), ["tags"]);
   await wait(() => records().length === 1, "saved record shown in the timeline");
-  assert.ok(records()[0].endsWith("조치 기록 · admin@example.test재처리 확인"));
+  assert.ok(records()[0].endsWith("조치 기록 · admin@example.test수정재처리 확인"));
   assert.equal(dialog().props.open, false);
   // 로그 분류하기 → 대화상자(상태는 아직 그대로), X·Esc로 닫으면 요청 없음
   await act(async () => headerButton("로그 분류하기").props.onClick());
@@ -718,7 +718,7 @@ const listCalls = () => requested.filter((r) => r.path === "/api/analysis/decisi
   assert.deepEqual(order, ["POST", "POST", "PUT"], "failed save, then record saved before the state change");
   assert.deepEqual([dialog().props.open, dialog().props.reason], [true, ""], "dialog stays open, saved memo cleared");
   assert.ok(!app.shown().includes("업무 분류 실패"), "the error shows inside the dialog, not behind it");
-  await wait(() => records().length === 2 && records()[1].includes("오탐 의심 · admin@example.test배치 재처리"), "saved record refreshed in the timeline");
+  await wait(() => records().length === 2 && records()[1].includes("오탐 의심 · admin@example.test수정배치 재처리"), "saved record refreshed in the timeline");
   body = await renderBody();
   assert.ok(text(body.toJSON()).includes("업무 분류 실패 · workflow_state_conflict"), "error text pattern");
   await act(async () => body.unmount());

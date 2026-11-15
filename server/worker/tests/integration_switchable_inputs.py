@@ -134,6 +134,17 @@ def main():
             assert all(evaluated['metrics'][key] is None for key in ('precision','recall','falsePositiveRate'))
             assert evaluated['metrics']['reason']=='labels_unavailable' and 'labels_unavailable' in evaluated['reasonCodes']
             config=trained['configVersionId']
+            # 입력 구성 고정은 v03 경로라 schemaVersion 1·2만 받는다. v3 모델 버전은 거절하고 제어 상태를 바꾸지 않는다.
+            v3_config=uuid.uuid4()
+            conn.execute("""INSERT INTO ml_config_versions(id,source_id,configuration_spec,explanation_spec,content_hash,created_by_actor_id,created_at)
+                VALUES(%s,%s,%s::jsonb,'{}'::jsonb,%s,'fixture',clock_timestamp())""",
+                (v3_config,sid,json.dumps({'schemaVersion':3,'contractVersion':'model-version-v1','methods':[]}),uuid.uuid4().hex*2));conn.commit()
+            before=call('/api/inputs?sourceId='+str(sid),token=admin)[1]['control']
+            refused=call('/api/inputs/'+str(sid)+'/mode',{'mode':'csv','expectedRevision':before['revision'],'replayId':str(replay),'rate':10000,'repeat':1,
+                'restart':True,'configVersionId':str(v3_config)},admin)
+            assert refused==(422,{'code':'config_schema_not_supported_yet'}),refused
+            after=call('/api/inputs?sourceId='+str(sid),token=admin)[1]['control']
+            assert (after['revision'],after['configVersionId'],after['runId'],after['mode'])==(before['revision'],before['configVersionId'],before['runId'],before['mode']),(before,after)
             second=change('csv',replayId=str(replay),rate=10000,repeat=1,restart=True,configVersionId=config)
             announced=send_csv(5)
             queued=conn.execute("""SELECT q.payload->>'jobId',q.payload->>'inputManifestHash' FROM powercode_queue.detection_logs q

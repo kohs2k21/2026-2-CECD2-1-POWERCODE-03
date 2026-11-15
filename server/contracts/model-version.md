@@ -1,5 +1,5 @@
 Created: 2026-11-02T18:00:00+09:00
-Updated: 2026-11-15T15:00:00+09:00
+Updated: 2026-11-15T13:35:00+09:00
 Author: Claude Code (Trainer 세션 builder)
 Status: draft
 
@@ -176,7 +176,7 @@ Status: draft
 - `trainingSelection.trainingPeriod`·`excludedIntervalCount`를 목록에도 노출(수식 추천 기간 선택·학습 흐름 화면용, WebUI 11/02 대조 결과). 제외 구간 목록 자체는 `GET /:id`의 `models[].trainingSettings.excludedIntervals`
 - `latestComparison.recommendation`은 **이 버전의 `modelKey`에 대한** 추천([config-comparison-evaluation.md](config-comparison-evaluation.md) `replacementRecommendations[]` 중 같은 `modelKey` 항목)
 - 버전 단위 `executable`: 활성 방법 전부 `executable.process=true`일 때만 true, 응답 시점 재계산. false는 저장 뒤 어댑터 소실·deprecated에서만 [유지 #74]
-- `applicationEligibility` [유지 #74]: 기술 무결성 gate(`purpose=validation ∧ applicability=valid ∧ scored_count>0 ∧ unavailable_count=0 ∧ prepared 아님`)를 만족하는 가장 최근 적격 평가 1건 + `executable=true` → `{eligible: true, evaluationId}`; 아니면 사유(`no_eligible_evaluation` / `method_results_unavailable` / `operational_ineligible` / `not_executable`)
+- `applicationEligibility` [유지 #74]: 기술 무결성 gate(`purpose=validation ∧ applicability=valid ∧ scored_count>0 ∧ unavailable_count=0 ∧ prepared 아님`)를 만족하는 가장 최근 적격 평가 1건 + `executable=true` → `{eligible: true, evaluationId}`; 아니면 사유(`config_schema_not_supported_yet` / `no_eligible_evaluation` / `method_results_unavailable` / `operational_ineligible` / `not_executable`). `config_schema_not_supported_yet` = 구성 schemaVersion이 1·2·3 밖(키 없음·`null` 포함, 활성 집합 gate와 같은 범위)이며 가장 먼저 검사한다. 그다음 `operational_ineligible` → `not_executable` → 평가 사유 순
 - v1·v2 행의 읽기 투영 [유지 #74, 축소]: `ml_config_models` → `ml:iforest`; `detectionPolicy.mode` → `requestedMode`. `statusRulePolicy`·`ml_config_rules`는 투영 결과에 `legacyRules: {statusRule: true, ruleVersionIds: [...]}`로만 표시(새 체계 `hard:*`·`soft:*`로 번역하지 않음). **`trainingSelection.trainingPeriod` 투영**: 그 행을 만든 train 작업 `run_jobs.input_spec`의 `from`·`until`이 있으면 `{from, until, timeBasis: "persisted_at"}`(v1·v2는 `persisted_at` 기준), 없으면(snapshot 직접 지정 등) **null** — 수식 추천 (a) 모드가 v1·v2 활성 행에서 이 값을 읽음([llm-recommendation-job.md](llm-recommendation-job.md)); `excludedIntervalCount`는 항상 0
 - `latestComparison.auto`: 자동 비교 평가가 만든 작업이면 true [제안]
 - `GET /api/configurations/:id`: 기존 `{id, sourceId, configurationSpec, contentHash, createdAt}` 유지 + `schemaVersion`, `displayName`, `requestedMode`, `active`, `methods[]`(파라미터·artifacts 포함), `models[]`(`ml_config_models` 행: `modelKey, featureSetId, modelArtifactId, fitArtifactId, adapterSpec, trainingSettings(excludedIntervals 포함), thresholdSpec`). `rules[]`는 v1·v2 행에만(legacy)
@@ -187,7 +187,7 @@ Status: draft
 
 - **활성 집합 상태**(시스템 전역 1개): `{revision, models: [{configVersionId, modelKey, displayName, activatedAtRevision}], changedAt, changedBy}`. `revision`은 정수 단조 증가(r0 = 비어 있음, 마이그레이션 시드 불필요), 변경마다 **집합 전체 스냅샷**을 이력에 저장(룰 세트 [rule-set.md](rule-set.md)와 같은 패턴 — 버전 없음, append-only). 현행 `ops_system_state.revision`·`active_config_version_id`(단일)는 v1·v2 운영용으로 남기고 활성 집합은 새 저장소(아래 저장소 절, 이름은 DB 세션)
 - **제약**: 같은 `modelKey`의 버전은 동시에 최대 1개(Detector 11/02 합의). 위반 저장은 422 `active_model_key_duplicate:<modelKey>`. 집합 순서 = 활성화 순서(`activatedAtRevision` 오름차순), evidence `methodResults[]`의 ML 순서와 같음
-- **조작** — `POST /api/configurations/:id/applications`(경로·멱등키·응답 형식은 `configRoutes.ts:58-170` 유지, `operation` 값 확장)
+- **조작** — `POST /api/configurations/:id/applications`(경로·멱등키·응답 형식은 `configRoutes.ts`의 `POST /:id/applications` 처리 유지, `operation` 값 확장)
 
 | `operation` | 의미 | 본문 | 검증·gate |
 |---|---|---|---|
@@ -200,10 +200,10 @@ Status: draft
 - 공통: `expectedRevision` ≠ 현재 활성 집합 리비전 → 409 `active_set_revision_conflict` + `{currentRevision, changedAt, changedBy}`. 성공 응답 `{revision, previousRevision, models[], changes: [{type: activated|replaced|retired|restored, configVersionId, modelKey, previousConfigVersionId?}], appliesFrom: "next_decision"}`. 실패 시 집합 불변(트랜잭션 1개)
 - gate = 기술 무결성만 [유지 #74]: 해당 버전의 `purpose=validation` 평가 `applicability='valid' AND scored_count>0 AND unavailable_count=0` + prepared 아님 + 버전 `executable=true` + 산출물 경로·hash 검증. 최종 관문은 사람 수락. 자동 교체·자동 활성화·자동 빼기 금지
 - `evaluationId`에 비교 평가가 만든 버전별 `run_evaluations` 행 허용. `acceptedRecommendation: {comparisonJobId, modelKey, targetVersionId}`(mismatch 400 `accepted_recommendation_mismatch`, stale 400 `accepted_recommendation_stale` — **stale 기준은 같은 `modelKey`의 활성 변경**: 그 `modelKey`의 현재 활성 버전 ≠ 추천의 `baselineConfigVersionId`(빼기로 활성 없음 포함) 또는 평가 세트가 `ready`가 아님; 다른 `modelKey`의 활성화·빼기만으로는 stale이 아님 — Detector 11/02 Q-E4 확정, [config-comparison-evaluation.md](config-comparison-evaluation.md) stale 절) [유지 #74 N22·R10, 기준만 전환]
-- v3 준비 검사(Detector 소유, 요구만): 활성 집합의 `ml:*`마다 artifact·fit·feature set 일치(현행 `model_key='iforest'` 1행 고정 `configRoutes.ts:117-126`·`applications.py:13-32`를 집합 N행으로). **`ml_config_rules` 0행이 정상**(v1·v2 경로는 그대로)
+- v3 준비 검사(Detector 소유, 요구만): 활성 집합의 `ml:*`마다 artifact·fit·feature set 일치(현행 `model_key='iforest'` 1행 고정 `configRoutes.ts` 단일 구성 적용의 모델 산출물 검사·`detector/applications.py`의 단일 구성 적용 검사를 집합 N행으로). **`ml_config_rules` 0행이 정상**(v1·v2 경로는 그대로)
 - `gate_evidence` `gateVersion: 2`에 `comparisonJobId`·`evaluationSetId`·`acceptedRecommendation`·`recommendationRuleVersion` + **조작 시점 룰 세트 `{revision, contentHash, contentHashVersion}`(행 값 그대로)·정책 `detectionPolicyRevision`·활성 집합 `{before: revision, after: revision}`** 기록 [제안] — 이력에서 "그때 룰·정책·집합이 무엇이었는지" 추적
 - 활성 집합 변경은 **룰 세트·정책에 영향 없음**(각각 별도 리비전). 복원이 룰·정책을 되돌리지 않음
-- v1·v2 단일 구성 경로(본문이 `apply`·`restore` + `expectedActiveVersionId` 키, `ops_system_state`·`run_applications`) [구현]: schemaVersion 3 구성은 422 `config_schema_not_supported_yet`으로 받지 않는다. v3가 `ops_system_state.active_config_version_id`에 들어가면 v03 판독(`load_context`·`parse_policy`)이 정책·룰 없는 구성을 legacy 기본값(parallel, 룰 없음)으로 조용히 읽기 때문이다. v3는 활성 집합 조작으로만 운영한다. v1·v2 적용은 그대로
+- v1·v2 단일 구성 경로(본문이 `apply`·`restore` + `expectedActiveVersionId` 키, `ops_system_state`·`run_applications`) [구현]: schemaVersion 1·2만 받고 그 밖(v3·키 없음 포함)은 422 `config_schema_not_supported_yet`으로 받지 않는다. 입력 구성 고정(`POST /api/inputs/:sourceId/mode`의 `configVersionId` → `ops_input_controls.config_version_id`)도 같은 규칙이다(`null` = 운영 구성 선택은 그대로, 공용 검사 `backend/src/services/legacyConfig.ts`). v3가 `ops_system_state.active_config_version_id`에 들어가면 v03 판독(`load_context`·`parse_policy`)이 정책·룰 없는 구성을 legacy 기본값(parallel, 룰 없음)으로 조용히 읽기 때문이다. 고정된 입력 작업은 v04 모드에서도 v03 경로로 가므로 같은 문제가 생긴다. 따라서 v3는 단일 구성 적용·복원과 입력 구성 고정 어느 쪽으로도 운영에 쓸 수 없고, 활성 집합 조작으로만 운영한다. v1·v2 적용·복원·고정은 그대로
 - 이력 — `GET /api/active-models/history?limit=&cursor=`(로그인 사용자): `{items: [{revision, changedAt, changedBy, note, restoredFromRevision, changes[], summary: {activated, replaced, retired}}], pagination}`; `GET /api/active-models/history/:revision`은 + `snapshot.models[]`. append-only
 - **일관 읽기 요구사항**(Detector 11/02 회신·합의): 판정 시도 시작 시 **(룰 세트 `revision`·`contentHash`·`contentHashVersion`, 활성 집합 `revision`(+ 모델 목록), 정책 `revision`(+ 정책 값)) 세 가지**를 **한 번에 일관되게** 읽을 수 있어야 함 — 운영 상태 조회 **응답 한 건**이 셋을 함께 담음. **고정 단위는 시도(attempt)** [확정 11/03 #92 U5]: 세 리비전은 시도마다 그 시도 시작 시점에 한 번에 새로 읽음(재시도는 이전 시도의 리비전을 이어 쓰지 않음; 작업 생성·큐 payload에 고정하는 작업 단위 안은 채택되지 않음 — #92 10절)
 
@@ -237,7 +237,7 @@ Status: draft
 ## schemaVersion 3 판독 규칙 — fail-closed [유지 #74 B1]
 
 - `schemaVersion`을 모르는 판독기는 그 구성을 읽지 않고 `unsupported_config_schema`로 실패. v3를 v1 규칙(IF 1개·mode 분기)으로 조용히 해석 금지
-- worker `parse_policy`(`policy.py:30-31`, 키 집합 정확 일치)는 v2 객체를 만나면 예외 → 자동 fail-closed. TS `configRoutes.ts:107`(`mode ?? 'parallel'`)·`inputRoutes.ts:22`는 `schemaVersion` 분기 추가 필요(v3 spec에는 `detectionPolicy`가 없으므로 정책은 운영 설정에서 읽음)
+- worker `parse_policy`(`policy.py:30-31`, 키 집합 정확 일치)는 v2 객체를 만나면 예외 → 자동 fail-closed. TS `configRoutes.ts` 단일 구성 적용의 정책 모드 읽기(`mode ?? 'parallel'`)·`inputRoutes.ts` 입력 구성 목록 조회는 `schemaVersion` 분기 추가 필요(v3 spec에는 `detectionPolicy`가 없으므로 정책은 운영 설정에서 읽음)
 - 소비처 목록(#74 표 그대로): `detector/computation.py:17-60`, `detector/policy.py:26-37`, `detector/applications.py:35-55`, `trainer/runner.py:340-341·459`, `trainer/service_contract.py:21-33`, `configRoutes.ts:107`, `inputRoutes.ts:22`, `reportRoutes.ts:97-123`
 - 허용 [구현]: v3 생성(train)은 워커(#132)가 만들고 API `POST /api/jobs`가 v3 train 요청을 접수한다(생성 경로 (A)). v3 활성화는 v04 활성 집합 로더에서 허용한다 — Detector `computation.load_model_context`는 구성의 `featureSetId`와 `ml_config_models` 1행만 쓴다. API 활성화 gate(`activeModelSet.ts`)는 schemaVersion 1·2·3만 받고 그 밖의 값(키 없음·`null` 포함)은 422 `config_schema_not_supported_yet`(fail-closed)
 - Trainer 판독 [#132 구현]: 평가·결과 조립·prepared 평가가 `trainer/model_version.py`로 `schemaVersion` 1·2·3만 읽고 그 밖(키 없음 포함)은 `unsupported_config_schema`. v3는 형식(`contractVersion`·`contentHashVersion`·`methods` 1개·`enabled`·`detectionPolicy` 없음)까지 맞아야 읽음

@@ -241,6 +241,10 @@ try {
     assert.deepEqual(code(await apply(v3.configId, { operation, evaluationId: v3.evaluationId, expectedRevision: Number(stateBefore?.revision ?? 0), expectedActiveVersionId: stateBefore?.id ?? null })),
       [422, 'config_schema_not_supported_yet'], operation);
   }
+  for (const other of [unknownSchema, noSchema]) {
+    assert.deepEqual(code(await apply(other.configId, { operation: 'apply', evaluationId: other.evaluationId, expectedRevision: Number(stateBefore?.revision ?? 0), expectedActiveVersionId: stateBefore?.id ?? null })),
+      [422, 'config_schema_not_supported_yet'], 'the legacy path takes schemaVersion 1·2 only');
+  }
   assert.deepEqual(await legacyState(), stateBefore, 'the legacy single-config state is unchanged');
   assert.equal((await pool.query('SELECT count(*)::int AS count FROM run_applications WHERE target_config_version_id=$1', [v3.configId])).rows[0].count, 0);
 

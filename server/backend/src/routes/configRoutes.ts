@@ -6,6 +6,7 @@ import { hasStatusRulePolicy } from '../services/statusRulePolicy.js';
 import { ConfigurationQueryError, parseConfigurationQuery, readConfiguration, readConfigurations } from '../services/configurationReadModel.js';
 import { ActiveSetError, isLegacyApplication } from '../services/activeModelSet.js';
 import { handleActiveSetChange } from './activeModelRoutes.js';
+import { LEGACY_CONFIG_REFUSED, legacyConfigRefused } from '../services/legacyConfig.js';
 
 const router = Router();
 router.use(authenticateToken as any);
@@ -80,10 +81,8 @@ router.post('/:id/applications', requireAdmin as any, route(async (req, res) => 
   const client = await getDatabasePool().connect();
   try {
     await client.query('BEGIN');
-    // v3 모델 버전은 활성 집합(v04 로더)으로만 운영한다. 단일 구성 칸(ops_system_state)에 들어가면 v03 판독이 정책 없는 구성을
-    // legacy 기본값(parallel, 룰 없음)으로 읽으므로 받지 않는다(model-version.md 활성 집합 절). v1·v2 적용은 그대로.
-    const target = await client.query(`SELECT configuration_spec->'schemaVersion' AS "schemaVersion" FROM ml_config_versions WHERE id=$1`, [req.params.id]);
-    if (target.rows[0]?.schemaVersion === 3) throw new ConfigError('config_schema_not_supported_yet', 422);
+    // 단일 구성 칸(ops_system_state)은 v03 판독이라 schemaVersion 1·2만 받는다(services/legacyConfig.ts). v3는 활성 집합으로만 운영한다.
+    if (await legacyConfigRefused(client, req.params.id)) throw new ConfigError(LEGACY_CONFIG_REFUSED, 422);
     await client.query(
       `INSERT INTO ops_system_state (id, active_config_version_id, active_application_id,
                                     revision, detector_state, changed_at)

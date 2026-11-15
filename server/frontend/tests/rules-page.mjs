@@ -145,6 +145,8 @@ const tocSections = (app, menu) => detectionToc[menu].map(({ id }) => {
   const card = app.renderer.root.findAll((node) => node.type === "div" && node.props.id === id && node.props["data-slot"] === "section-card")[0];
   return [id, card ? text(card.findByType("h2").children) : null];
 });
+/** 룰 설정 카드 → 하위 목록 링크(라우터 Link, 넘기는 state가 있는 것). */
+const cardLinks = (app) => app.renderer.root.findAll((node) => typeof node.type !== "string" && typeof node.props.to === "string" && node.props.to.startsWith("/detection/rules/") && node.props.state);
 // 1) 표시: 머리글, byCode 코드별 위험도, 읽기 전용 조건, 이상 징후 규칙 입력, 변경 기록, 판정 정책 없음.
 {
   routes = baseRoutes();
@@ -171,10 +173,9 @@ const tocSections = (app, menu) => detectionToc[menu].map(({ id }) => {
   const entry = app.renderer.root.find((node) => node.props?.["aria-label"] === "규칙 추천" && node.props["data-slot"] === "section-card");
   assert.equal(entry.findAllByType("a").map((a) => [a.props.href, text(a.children)]).join(), "/detection/rules/candidates,후보 보기");
   // 카드 → 하위 목록 링크는 돌아올 카드 영역을 넘긴다(하위 화면 고정 뒤로가기가 그 영역으로 스크롤)
-  const cardLinks = app.renderer.root.findAll((node) => typeof node.type !== "string" && typeof node.props.to === "string" && node.props.to.startsWith("/detection/rules/") && node.props.state);
-  assert.deepEqual(cardLinks.map((node) => [node.props.to, node.props.state.returnTo]), [
+  // 거래 실패 규칙(byCode 위험도)이 없는 상태라 응답 코드 카드·링크는 없다(있는 상태는 아래 1-1)
+  assert.deepEqual(cardLinks(app).map((node) => [node.props.to, node.props.state.returnTo]), [
     ["/detection/rules/protocols", "/detection/rules#rules-protocols"],
-    ...(cardLinks.length === 3 ? [["/detection/rules/response-codes", "/detection/rules#rules-response-codes"]] : []),
     ["/detection/rules/candidates", "/detection/rules#rules-candidates"],
   ]);
   assert.equal(app.renderer.root.findAll((node) => node.type === "table" && node.props["aria-label"] === "이상 규칙").length, 1, "table keeps a hidden name");
@@ -205,6 +206,22 @@ const tocSections = (app, menu) => detectionToc[menu].map(({ id }) => {
   assert.ok(app.shown().includes("버전 7 상태로 되돌림 · 이상 규칙 켜기 1건"), "restored revision shows its source");
   assert.ok(app.shown().includes("최초 적용"), "r0 summary");
   assert.equal(app.renderer.root.findAll((node) => node.type === "button" && text(node.children) === "이 상태로 되돌리기").length, 2, "every revision except the current one");
+  await app.cleanup();
+}
+
+// 1-1) 거래 실패 규칙(byCode 위험도)이 있으면 응답 코드 카드가 생기고, 카드 → 하위 목록 링크 3개 모두 돌아올 카드 영역을 넘긴다
+{
+  const failedRule = { id: "hard:transaction-failed", methodVersion: "transaction-failed-v1", displayName: "거래 실패", conditionText: "응답 코드가 실패",
+    severity: { byCode: { E901: "critical" }, default: "warning" }, enabled: true, editable: ["enabled", "severity"] };
+  routes = baseRoutes({ "GET /api/rule-set": () => json(state(12, { hardRules: [...hardRules(), failedRule], counts: { hardEnabled: 3, hardTotal: 3, softEnabled: 1, softTotal: 1 } })) });
+  const app = await mount();
+  await wait(() => cardLinks(app).length === 3, "response code card");
+  assert.deepEqual(cardLinks(app).map((node) => [node.props.to, node.props.state]), [
+    ["/detection/rules/protocols", { returnTo: "/detection/rules#rules-protocols" }],
+    ["/detection/rules/response-codes", { returnTo: "/detection/rules#rules-response-codes" }],
+    ["/detection/rules/candidates", { returnTo: "/detection/rules#rules-candidates" }],
+  ]);
+  assert.equal(tocSections(app, "rules").find(([id]) => id === "rules-response-codes")[1], detectionToc.rules.find((section) => section.id === "rules-response-codes").label, "the card carries the TOC title");
   await app.cleanup();
 }
 

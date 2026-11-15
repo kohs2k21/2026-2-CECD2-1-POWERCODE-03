@@ -203,6 +203,14 @@ const tocSections = (app, menu) => detectionToc[menu].map(({ id }) => {
   assert.ok(app.shown().includes("2a91e6d7 · V3 → 4d2f7c10 · V4"));
   assert.ok(!/정책|deadlineMs|category-k-of-n/.test(app.shown()), "the detection policy is not shown");
   assert.ok(app.shown().includes("모델 교체 추천 미연결 · service_unavailable"), "production has no comparison sample");
+  // 하위 화면 뒤로가기는 들어온 영역으로: 운영 버전 상태의 모델 버전 링크·모델 교체 → 운영 버전 상태, 작업 목록 → 작업
+  const returns = app.renderer.root.findAll((node) => typeof node.type !== "string" && typeof node.props.to === "string" && node.props.state?.returnTo !== undefined)
+    .map((node) => [node.props.to, node.props.state.returnTo]);
+  assert.deepEqual(returns, [
+    ["/detection/operations/replace", "/detection/operations#operations-status"],
+    [`/detection/models/${V_ACTIVE}`, "/detection/operations#operations-status"],
+    ["/detection/operations/jobs", "/detection/operations#operations-jobs"],
+  ]);
   await app.click("최근 24시간");
   await wait(() => requested.some((call) => call.path === "/api/operations/method-status" && call.search === "?period=24h"), "24h read");
   await app.cleanup();

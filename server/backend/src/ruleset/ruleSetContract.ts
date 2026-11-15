@@ -211,7 +211,7 @@ const relationCondition = (rule: { kind: unknown; scope: unknown; from: unknown;
   kind: rule.kind, scope: canonicalRelationScope(rule.kind, rule.scope), from: processRefOf(rule.from), to: processRefOf(rule.to),
   match: plainObject(rule.match) ? { from: rule.match.from, to: rule.match.to, key: rule.match.key } : rule.match ?? null,
 });
-const relationConditionKey = (rule: Parameters<typeof relationCondition>[0]) => canonicalJson(relationCondition(rule));
+export const relationConditionKey = (rule: Parameters<typeof relationCondition>[0]) => canonicalJson(relationCondition(rule));
 const channelsOf = (path: unknown): unknown => (plainObject(path) ? path.channels : path);
 const sortedChannelLists = (paths: unknown[]) => {
   const lists = paths.map(channelsOf);

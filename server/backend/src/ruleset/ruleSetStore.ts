@@ -86,6 +86,13 @@ export async function readCurrentSoftRules(db: Queryable) {
   return { revision, contentHash, contentHashVersion, softRules: currentSnapshot(row).softRules };
 }
 
+/** 현재 리비전의 번호와 소프트·관계·프로토콜 규칙. 규칙 추천 건수에서 이미 있는 조건을 빼는 데 쓴다(rule-candidates-ui.md 8절 건수 요약). */
+export async function readCurrentRules(db: Queryable) {
+  const row = await latest(db);
+  const { softRules, relationRules, protocolRules } = currentSnapshot(row);
+  return { revision: Number(row.revision), softRules, relationRules, protocolRules };
+}
+
 /** 현재 리비전의 내장 하드룰 1개(켜짐·위험도, 내장 목록 해석 그대로). 응답 코드 목록·상세의 코드별 위험도 표시용(response-codes-ui.md 3절). */
 export async function readCurrentHardRule(db: Queryable, id: string) {
   const row = await latest(db);

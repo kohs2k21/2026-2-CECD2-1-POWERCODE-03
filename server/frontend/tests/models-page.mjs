@@ -489,9 +489,17 @@ const tocSections = (app, menu) => detectionToc[menu].map(({ id }) => {
   for (const expected of ["Isolation Forest · ml:iforest", "process-iforest-v1", "운영 중", "2026-10-01 00:00 ~ 2026-11-01 00:00 · 저장 시각 기준", "47,120건", "train-success-only-v1", "입력 변수 2개", "error_count, retry_count", "64", "m-1", "f-1", "value 0.58", "2026-10-03 09:00 ~ 2026-10-03 12:00 · DB 장애"]) {
     assert.ok(shown.includes(expected), expected);
   }
-  for (const excluded of ["새 비교 평가", "리비전", "자동 비교 평가"]) assert.ok(!shown.includes(excluded), `${excluded} is out of this screen`);
+  for (const excluded of ["리비전", "자동 비교 평가"]) assert.ok(!shown.includes(excluded), `${excluded} is out of this screen`);
   assert.equal(app.button("이 버전으로 교체")?.props.disabled, true, "a version in operation cannot be the replacement (operations settings sub-issue 7)");
+  assert.equal(app.button("+ 새 비교 평가")?.props.disabled, true, "a version in operation is not a comparison candidate (compareDraft pickedVersions)");
   await app.cleanup();
+  // 와이어프레임 '+ 새 비교 평가': 고를 수 있는 버전이면 새 비교 평가 1단계로, 이 버전을 비교 모델로(모델 교체와 같은 state compareVersionId → 비교 초안).
+  routes = baseRoutes({ [`GET /api/configurations/${V1}`]: () => json({ ...detail, active: false, activeSince: null }) });
+  const candidate = await mount(`/detection/models/${V1}`);
+  await wait(() => routerLinks(candidate, "/detection/evaluations?step=1").length === 1, "new comparison link");
+  const compare = routerLinks(candidate, "/detection/evaluations?step=1")[0];
+  assert.deepEqual([text(compare.props.children), compare.props.state], ["+ 새 비교 평가", { compareVersionId: V1 }]);
+  await candidate.cleanup();
 }
 // 6-1) 버전 상세 평가 이력: 이 버전이 들어간 비교 평가(configVersionId 필터), 상태는 이 버전 결과(평가 실패·측정·미측정), 완료 전은 비교 상태
 {

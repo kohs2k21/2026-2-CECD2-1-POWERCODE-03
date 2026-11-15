@@ -34,7 +34,7 @@ const { createMemoryRouter, RouterProvider } = await import("react-router-dom");
 const { AuthSessionProvider } = await import("../src/services/auth/AuthSessionProvider.tsx");
 const { appRoutes } = await import("../src/app/appRoutes.tsx");
 const { NativeSelect } = await import("../src/components/ui/native-select.tsx");
-const { jobStatusBadge, jobTarget } = await import("../src/features/detection/jobs/jobFormat.ts");
+const { jobResultLink, jobStatusBadge, jobTarget } = await import("../src/features/detection/jobs/jobFormat.ts");
 
 const catalog = JSON.parse(await readFile(new URL("../../contracts/method-catalog.json", import.meta.url), "utf8"));
 const json = (body, status = 200) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
@@ -58,6 +58,9 @@ assert.equal(jobTarget({ kind: "train", inputSpec: {} }, {}), "iforest", "omitte
 assert.equal(jobTarget(compare, { setName: () => "검증 세트 10월" }), "검증 세트 10월 · 모델 2개");
 assert.equal(jobTarget({ kind: "recommend_thresholds", inputSpec: { ruleSetRevision: 13, data: { from: "2026-10-01T00:00:00Z", until: "2026-11-01T00:00:00Z" } } }), "룰 버전 13 · 10/01 ~ 11/01");
 assert.deepEqual(jobStatusBadge(relation), { label: "재시도 대기", variant: "warning" });
+// AI 규칙 추천 결과는 규칙 추천 › 이상 징후 탭(AI 규칙 추천이 있는 곳)으로, 이름은 기존 "규칙 추천"(사용자 11/15).
+assert.deepEqual(jobResultLink({ id: uuid("f"), kind: "recommend_thresholds", status: "succeeded", resultConfigVersionId: null, inputSpec: {} }, null),
+  { to: "/detection/rules/candidates?tab=anomaly", label: "규칙 추천" });
 assert.deepEqual(jobStatusBadge(compare, 1), { label: "완료 · 일부 실패", variant: "warning" });
 assert.deepEqual(jobStatusBadge({ ...train, status: "blocked" }), { label: "blocked", variant: "outline" });
 

@@ -91,6 +91,8 @@ const drafts = { state: "available", latestJob: draftJob, job: draftJob, snapsho
   interfaces: [summary("IF_SYN_ORDER"), summary("IF_SYN_PAY", { distinctPaths: 2, pathTransactions: 47 }), summary("IF_SYN_THIN", { status: "insufficient_evidence", distinctPaths: 1, pathTransactions: 4 })] };
 const protocolEntry = { id: "hard:proto-0000000a", interfaceId: "IF_SYN_PAY", paths: [{ channels: ["CH_GW", "CH_PAY"], source: null }], severity: "critical", enabled: true, source: null, createdAtRevision: 3, updatedAtRevision: 3 };
 
+/** 건수 요약(rule-candidates-ui.md 2-1절): 서버가 현재 룰 세트에 아직 없는 것만 센 값. 화면은 그대로 보인다. */
+const summaryBody = (counts = { anomaly: 2, relation: 2, protocol: 2 }, extra = {}) => ({ latestJob: job, job, ruleSetRevision: 12, counts, ...extra });
 const requested = [];
 let routes = {};
 let currentUser;
@@ -110,6 +112,7 @@ const baseRoutes = (overrides = {}) => ({
   "GET /api/pipeline/sources": () => json({ items: [{ id: "11111111-1111-4111-8111-111111111111", datasetKey: "ds", displayName: "출처", createdAt: "2026-10-01T00:00:00Z" }] }),
   "GET /api/rule-set/candidates": () => json(listBody()),
   "GET /api/rule-set/protocol-drafts": () => json(drafts),
+  "GET /api/rule-set/candidates/summary": () => json(summaryBody()),
   ...overrides,
 });
 const calls = (method, path) => requested.filter((call) => call.method === method && call.path === path);
@@ -155,17 +158,20 @@ const tabLinks = (app) => app.renderer.root.findAll((node) => node.type === "nav
 
 // 1) 머리·탭·건수, 이상 징후 탭 처리 시간 후보 행(새 규칙·승인됨), 기존 규칙 행, 뒤로가기
 {
-  routes = baseRoutes({ "GET /api/rule-set": () => json(state(12, { softRules: [softRule, scopedRule], counts: { hardEnabled: 1, hardTotal: 1, softEnabled: 2, softTotal: 2 } })) });
+  routes = baseRoutes({ "GET /api/rule-set": () => json(state(12, { softRules: [softRule, scopedRule], counts: { hardEnabled: 1, hardTotal: 1, softEnabled: 2, softTotal: 2 } })),
+    // t1(P2·HTTP)은 scopedRule과 같은 조건이라 서버 건수에서 빠진다(이상 징후 1).
+    "GET /api/rule-set/candidates/summary": () => json(summaryBody({ anomaly: 1, relation: 2, protocol: 2 })) });
   const app = await mount({ pathname: HUB, state: { returnTo: "/detection/rules#rules-soft" } });
   await wait(() => byData(app, "data-threshold-row").length === 3 && byData(app, "data-rule").length === 2, "both kinds of rows");
   const shown = app.shown();
   assert.ok(shown.includes(labels.RECOMMEND_DESCRIPTION), "approved description sentence");
   assert.equal(labels.RECOMMEND_DESCRIPTION, "후보 → 근거(숫자는 코드, 문장은 LLM) → 승인하면 룰 세트 새 버전으로 저장");
   assert.ok(app.button(labels.JOB_REQUEST), "candidate job request lives here");
-  // 탭: 밑줄 링크(주소 tab), 건수 = 처리 시간 후보(후보 상태) / 관계 승인 가능 + 경로 초안(근거 부족 제외).
+  // 탭: 밑줄 링크(주소 tab), 건수 = 건수 요약 API(아직 룰 세트에 없는 처리 시간 후보 / 관계 후보 + 경로 초안).
   await wait(() => !tabLinks(app).some((node) => text(node.children).includes("—")), "tab counts loaded");
+  assert.equal(calls("GET", "/api/rule-set/candidates/summary").at(-1)?.search, "", "tab counts come from the summary API");
   assert.deepEqual(tabLinks(app).map((node) => [text(node.children), node.props.href, node.props["aria-current"] ?? null]), [
-    ["이상 징후 · 2", `${HUB}?tab=anomaly`, "page"], ["실행 흐름 규칙 · 4", `${HUB}?tab=flow`, null],
+    ["이상 징후 · 1", `${HUB}?tab=anomaly`, "page"], ["실행 흐름 규칙 · 4", `${HUB}?tab=flow`, null],
   ]);
   // 한 표에 두 묶음: 처리 시간 후보 → 이상 징후 규칙.
   const table = app.renderer.root.findAll((node) => node.type === "table" && node.props["aria-label"] === "이상 징후")[0];
@@ -344,7 +350,19 @@ const tabLinks = (app) => app.renderer.root.findAll((node) => node.type === "nav
   const doc = await readFile(new URL("../../contracts/llm-recommendation-job.md", import.meta.url), "utf8");
   const contractResult = JSON.parse(doc.slice(doc.indexOf("## 결과 JSON")).split("```json")[1].split("```")[0]);
   const v3Result = JSON.parse(doc.slice(doc.indexOf("### 결과 추가 필드")).split("```json")[1].split("```")[0]);
-  const { basisLabel, heldWindowExcludedRows, parseRecommendation, progressText, recommendationProgress } = await import("../src/features/detection/rules/ruleAiApi.ts");
+  const { basisLabel, heldWindowExcludedRows, parseRecommendation, progressText, recommendationProgress, sameTarget, selectable } = await import("../src/features/detection/rules/ruleAiApi.ts");
+  // 결과를 띄워 둔 사이 규칙이 바뀌면(#215 검토 권고 1) 그 행은 [적용] 대상이 아니다: 대상 필드가 다르거나, (10차) 결과 범위가 규칙 범위 판정 키와 다르면.
+  {
+    const rule = { key: "k", field: "elapsed_ms", scope: { processId: "P1", adapterType: "HTTP", interfaceId: "IF-A" } };
+    const item = (extra) => ({ field: "elapsed_ms", status: "proposed", ...extra });
+    assert.equal(selectable({ rule, item: item({ scope: { processId: "P1", adapterType: "HTTP" } }) }), true, "same field and scope (display interfaceId ignored)");
+    assert.equal(selectable({ rule, item: item({}) }), true, "old result without scope: field only");
+    assert.equal(selectable({ rule, item: item({ field: "retry_count", scope: { processId: "P1", adapterType: "HTTP" } }) }), false, "field changed");
+    assert.equal(selectable({ rule, item: item({ scope: { processId: "P1" } }) }), false, "scope changed");
+    assert.equal(selectable({ rule, item: item({ scope: null }) }), false, "result for the whole field, rule now scoped");
+    assert.equal(sameTarget({ rule: { ...rule, scope: null }, item: item({ scope: null }) }), true, "unscoped rule and result");
+    assert.equal(selectable({ rule, item: item({ status: "deferred", scope: { processId: "P1", adapterType: "HTTP" } }) }), false, "not proposed");
+  }
   assert.deepEqual([basisLabel("train_reference_80_p95"), basisLabel("train_p95"), basisLabel(undefined), basisLabel("other"), basisLabel("toString")],
     ["기준 · 학습 기간 앞 80% p95", null, null, null, null], "only the Rule v3 basis has a label");
   assert.deepEqual(recommendationProgress({ progress: { processed: 0, total: 3 } }), { processed: 0, total: 3 });
@@ -717,23 +735,35 @@ const tabLinks = (app) => app.renderer.root.findAll((node) => node.type === "nav
   await app.cleanup();
 }
 
-// 7) 룰 설정 카드·프로토콜 목록의 "추천 n건 보기" 건수: 이상 징후 = 처리 시간 후보(후보 상태), 관계 규칙 = 승인 가능 관계 후보, 프로토콜 = 근거 부족이 아닌 경로 초안
+// 7) 룰 설정 카드·프로토콜 목록의 "추천 n건 보기" 건수(사용자 11/15 결정 1): 건수 요약 API 값 그대로 — 현재 룰 세트에 아직 없는 처리 시간 후보·관계 후보·경로 초안.
+//    룰 설정 첫 화면은 후보 목록·관측 경로 초안(큰 결과)을 읽지 않는다. 결과 없음 0, 조회 실패 —.
 {
-  routes = baseRoutes();
+  routes = baseRoutes({ "GET /api/rule-set/candidates/summary": () => json(summaryBody({ anomaly: 1, relation: 3, protocol: 0 })) });
+  const before = requested.length;
   const app = await mount(RULES);
   const links = () => app.renderer.root.findAll((node) => node.type === "a" && node.props["data-recommend-link"]);
   await wait(() => links().length === 3 && !links().some((node) => text(node.children).includes("—")), "counts loaded");
   assert.deepEqual(links().map((node) => [text(node.children), node.props.href]), [
-    ["추천 2건 보기", `${HUB}?tab=anomaly`], ["추천 2건 보기", `${HUB}?tab=flow#recommend-relations`], ["추천 2건 보기", `${HUB}?tab=flow#recommend-paths`],
+    ["추천 1건 보기", `${HUB}?tab=anomaly`], ["추천 3건 보기", `${HUB}?tab=flow#recommend-relations`], ["추천 0건 보기", `${HUB}?tab=flow#recommend-paths`],
   ]);
+  const read = requested.slice(before).map((call) => call.path);
+  assert.ok(read.includes("/api/rule-set/candidates/summary") && !read.includes("/api/rule-set/candidates") && !read.includes("/api/rule-set/protocol-drafts"),
+    `only the summary is read for the counts: ${read.join(", ")}`);
   assert.ok(!app.shown().includes("AI 규칙 추천") && !app.shown().includes("수식 추천"), "recommendation commands left the rules page");
   await app.cleanup();
   // 결과 없음은 0건(값 없음이 아님).
-  routes = baseRoutes({ "GET /api/rule-set/candidates": () => json({ latestJob: null, approval, result: null }), "GET /api/rule-set/protocol-drafts": () => json({ state: "protocol_drafts_unavailable", reason: "no_result", latestJob: null }) });
+  routes = baseRoutes({ "GET /api/rule-set/candidates/summary": () => json(summaryBody({ anomaly: 0, relation: 0, protocol: 0 }, { latestJob: null, job: null })) });
   const none = await mount(RULES);
   await wait(() => none.renderer.root.findAll((node) => node.type === "a" && node.props["data-recommend-link"]).every((node) => text(node.children) === "추천 0건 보기")
     && none.renderer.root.findAll((node) => node.type === "a" && node.props["data-recommend-link"]).length === 3, "zero counts");
   await none.cleanup();
+  // 조회 실패는 —(0으로 바꾸지 않음).
+  routes = baseRoutes({ "GET /api/rule-set/candidates/summary": () => json({ code: "rule_candidate_result_invalid" }, 503) });
+  const failed = await mount(RULES);
+  await wait(() => calls("GET", "/api/rule-set/candidates/summary").length > 0 && failed.renderer.root.findAll((node) => node.type === "a" && node.props["data-recommend-link"]).length === 3, "links shown");
+  await tick(50);
+  assert.ok(failed.renderer.root.findAll((node) => node.type === "a" && node.props["data-recommend-link"]).every((node) => text(node.children) === "추천 —건 보기"), "failure stays —");
+  await failed.cleanup();
 }
 // 8) 겹침 거부(Trainer scope_overlaps_adapter_groups, 사용자 11/15 문구): 행·상세 같은 승인 불가 줄, 사유 이름표. 승인 불가 줄 순서는 행·상세 공통
 //    (승인됨 → 기준 미달·겹침 → 저장 형식 닫힘).

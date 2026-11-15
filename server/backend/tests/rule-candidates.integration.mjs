@@ -27,6 +27,7 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const backend = path.resolve(here, '..');
 const { readCandidateList, readCandidateDetail, RELATION_CONTRACT_VERSION } = await import('../dist/ruleset/ruleCandidates.js');
 const { readProtocolDrafts } = await import('../dist/ruleset/protocolDrafts.js');
+const { readCandidateSummary } = await import('../dist/ruleset/candidateSummary.js');
 // Trainer protocol_paths.py를 합성 거래로 실행한 출력(protocol-drafts.test.mjs와 같은 고정값).
 const protocolDrafts = JSON.parse(await readFile(path.join(here, 'fixtures/protocol-path-drafts.json'), 'utf8'));
 const temporary = await mkdtemp(path.join(os.tmpdir(), 'powercode-rule-candidates-'));
@@ -168,7 +169,7 @@ try {
 
   // 1) 권한: 토큰 없음 401, user 403(읽기·요청 모두).
   assert.equal((await request(base, '/api/rule-set/candidates')).status, 401);
-  for (const [route, options] of [['/api/rule-set/candidates', {}], [`/api/rule-set/candidates/${id()}.r0`, {}], ['/api/rule-set/candidates/snapshots', {}],
+  for (const [route, options] of [['/api/rule-set/candidates', {}], ['/api/rule-set/candidates/summary', {}], [`/api/rule-set/candidates/${id()}.r0`, {}], ['/api/rule-set/candidates/snapshots', {}],
     ['/api/rule-set/candidates/jobs', { method: 'POST', body: { snapshotId: seeded.snapshotId } }]]) {
     const response = await request(base, route, user, options);
     assert.deepEqual([response.status, response.body?.code], [403, 'admin_required'], route);
@@ -197,6 +198,10 @@ try {
   // 2) 결과 없음 — enum 값이 없어도 kind::text 비교라 503이 아니라 result null.
   const empty = await request(base, '/api/rule-set/candidates', admin);
   assert.deepEqual([empty.status, empty.body], [200, { latestJob: null, approval: { available: true, reason: null, contentHashVersion: 3 }, result: null }]);
+  const emptySummary = await request(base, '/api/rule-set/candidates/summary', admin);
+  assert.deepEqual([emptySummary.status, emptySummary.body.latestJob, emptySummary.body.job, emptySummary.body.counts, typeof emptySummary.body.ruleSetRevision],
+    [200, null, null, { anomaly: 0, relation: 0, protocol: 0 }, 'number'], 'summary without a result: zero counts');
+  assert.deepEqual(Object.values(await request(base, '/api/rule-set/candidates/summary?x=1', admin)), [400, { code: 'unknown_candidate_filter' }]);
 
   // 3) 작업 요청: 형식 400, 스냅샷 409. 021 전: enum 없음 503 → enum만 추가(v03 CHECK 그대로) 503. 021 적용 DB는 503 단계 없음.
   assert.deepEqual([(await enqueue({ snapshotId: 'x' })).body.code], ['invalid_candidate_job_request']);
@@ -256,6 +261,9 @@ try {
   assert.deepEqual([thresholdDetail.body.threshold.threshold, thresholdDetail.body.ruleDraft.threshold], [704, 704], 'ruleDraft.threshold = PUT /api/rule-set number');
   assert.deepEqual(Object.values(await request(base, '/api/rule-set/candidates?interfaceId=IF-Z', admin)), [404, { code: 'rule_candidate_interface_not_found' }]);
   assert.deepEqual(Object.values(await request(base, '/api/rule-set/candidates?x=1', admin)), [400, { code: 'unknown_candidate_filter' }]);
+  // 건수 요약(8절): 실제 jsonb 꺼내기(후보 배열·초안 키 있음 여부). 이 결과에는 protocolPathDrafts 키가 없다 → 프로토콜 0.
+  const summary = await request(base, '/api/rule-set/candidates/summary', admin);
+  assert.deepEqual([summary.status, summary.body.job?.id, summary.body.counts], [200, jobId, { anomaly: 1, relation: 1, protocol: 0 }], JSON.stringify(summary.body));
   const detail = await request(base, `/api/rule-set/candidates/${jobId}.r0`, admin);
   assert.equal(detail.status, 200, JSON.stringify(detail.body));
   assert.deepEqual(detail.body.counterexamples, [
@@ -294,6 +302,10 @@ try {
   assert.deepEqual(draftOne.body.interface.paths[0].channels, ['CH_GW', 'CH_PAY', 'CH_BANK:01', 'CH_PAY']);
   assert.deepEqual(Object.values(await request(base, '/api/rule-set/protocol-drafts?x=1', admin)), [400, { code: 'unknown_protocol_draft_filter' }]);
   assert.equal((await readProtocolDrafts(api, 'IF_SYN_ORDER')).interface.paths.length, 5, 'API role reads the same result');
+  const draftSummary = await request(base, '/api/rule-set/candidates/summary', admin);
+  assert.deepEqual([draftSummary.status, draftSummary.body.job?.id, draftSummary.body.counts], [200, draftJob, { anomaly: 1, relation: 1, protocol: 2 }],
+    'draft interfaces (not insufficient_evidence) are counted');
+  assert.deepEqual((await readCandidateSummary(api)).counts, draftSummary.body.counts, 'API role reads the summary too');
   console.log('rule candidates integration passed');
 } finally {
   child?.kill();

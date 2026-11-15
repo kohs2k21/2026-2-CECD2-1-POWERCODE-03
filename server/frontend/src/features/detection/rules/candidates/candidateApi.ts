@@ -226,6 +226,25 @@ export const parseCandidateDetail = (value: unknown): CandidateDetail => {
   };
 };
 
+/** 건수 요약(rule-candidates-ui.md 8절): 최근 성공 결과 중 현재 룰 세트에 아직 없는 후보 수. 결과 없음은 0(서버), 형식이 틀리면 오류. */
+export type CandidateSummary = {
+  latestJob: CandidateJob | null;
+  job: CandidateJob | null;
+  ruleSetRevision: number;
+  counts: { anomaly: number; relation: number; protocol: number };
+};
+export const parseCandidateSummary = (value: unknown): CandidateSummary => {
+  if (!object(value) || !count(value.ruleSetRevision) || !object(value.counts)) return fail("추천 건수");
+  const c = value.counts as Json;
+  if (!["anomaly", "relation", "protocol"].every((key) => count(c[key]))) fail("추천 건수");
+  return {
+    latestJob: value.latestJob === null ? null : jobOf(value.latestJob), job: value.job === null ? null : jobOf(value.job),
+    ruleSetRevision: value.ruleSetRevision as number, counts: { anomaly: c.anomaly as number, relation: c.relation as number, protocol: c.protocol as number },
+  };
+};
+
+export const readCandidateSummary = async (signal?: AbortSignal) =>
+  parseCandidateSummary(await httpClient.get<unknown>("/api/rule-set/candidates/summary", { signal }));
 export const readCandidateList = async (interfaceId: string | null, signal?: AbortSignal) =>
   parseCandidateList(await httpClient.get<unknown>("/api/rule-set/candidates", { signal, params: { interfaceId: interfaceId ?? undefined } }));
 export const readCandidateDetail = async (candidateId: string, signal?: AbortSignal) =>

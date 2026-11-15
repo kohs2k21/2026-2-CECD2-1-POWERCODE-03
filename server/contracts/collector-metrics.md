@@ -1,7 +1,7 @@
 Created: 2026-11-15T03:55:00+09:00
 Updated: 2026-11-15T18:00:00+09:00
 Author: Collector Claude Code(builder)
-Status: current — 결정 반영(WebUI 11/15 Q1~Q8, Detector C1~C5). Collector 코드·migration 030 구현. API·화면 연결은 WebUI
+Status: current — 결정 반영(WebUI·Detector 세션 합의 11/15, 사용자 결정 11/15). Collector 코드·migration 030 구현. API·화면 연결은 WebUI
 
 # Collector 운영 계측 계약
 
@@ -12,11 +12,11 @@ Status: current — 결정 반영(WebUI 11/15 Q1~Q8, Detector C1~C5). Collector 
 
 ## 1. 원천 발생 시각(ESB 시각)
 
-### 1.1 저장 열 — 관측 INSERT 때 채운다 [확정 C1]
+### 1.1 저장 열 — 관측 INSERT 때 채운다 [합의 11/15]
 
 - 시점: Collector가 관측을 INSERT하는 같은 트랜잭션(`collector/storage.py` `ingest_observation` — 공유 입력 `input_store.admit`, 이전 CSV 재생 `replay_csv.py`, 시연·측정 경로가 모두 이 함수). B 참조 행(`input_store.admit` B 분기)은 늘 `absent`
 - 해석 규칙: `trainer/source_time.py` `process_source_time`을 그대로 부른다(`collector/source_clock.py`, 시간대 읽기도 Trainer와 같은 `rule_v3_capture.source_timezone`). T·P·M 모두 `end_time_raw` → `start_time_raw`. 오프셋이 있으면 그대로, 없으면 원천 `ops_sources.clock_basis.status='verified'`의 `timezone`, 그 밖은 `Asia/Seoul` 가정. Detector 사건 묶음 `occurred_time`과 같은 시각이 나온다(시험 `test_collector_metrics.py`)
-- M의 `process_datetime_raw`(`PROCESS_DT`)는 뜻이 확인되지 않아 쓰지 않는다 [확정 Q1, 열린 항목 7절]
+- M의 `process_datetime_raw`(`PROCESS_DT`)는 뜻이 확인되지 않아 쓰지 않는다(열린 항목 7절)
 - `clock_basis`는 INSERT 트랜잭션 안에서 매번 읽는다. 운영자가 시간대를 지정하면(1.3) 그 뒤 INSERT부터 반영되고 이미 저장된 관측은 바뀌지 않는다
 
 | 열 | 값 |
@@ -25,27 +25,27 @@ Status: current — 결정 반영(WebUI 11/15 Q1~Q8, Detector C1~C5). Collector 
 | `source_log_time_raw` | 해석에 쓴 원문 문자열 그대로. `unparsed`는 해석하지 못한 원문(END 먼저, 문자열만), `absent`는 NULL |
 | `clock_status` | `offset`·`verified_tz`·`assumed_tz`(해석 근거) / `unparsed`(값은 있으나 해석 실패 — 형식 불일치, 검증됐지만 시간대 이름이 없거나 잘못됨) / `absent`(두 열 모두 값 없음 — NULL·빈 문자열·공백·`\N`, B 포함). 030 이전 행은 `unknown`(시각 없음)으로 남는다 |
 | `parsed_times` | 시각 있음 `{"rule":"source-time-v1","field":"end"\|"start","basis":"offset"\|"verified_tz"\|"assumed_tz"}`, 시각 없음 `{"rule":"source-time-v1"}`. 시각 값 자체는 두지 않는다(정본은 위 열). 030 이전 행은 `{}` |
-| `api_received_at` | API 조회 응답 수신 시각 = `api_client` receipt `finished_at` [확정 C5]. CSV 재생·이전 재생·시연 경로는 NULL(030에서 NOT NULL 해제). 이전 `api_runner.py`는 관측을 저장하지 않아(스냅샷만) 해당 없음 |
+| `api_received_at` | API 조회 응답 수신 시각 = `api_client` receipt `finished_at`. CSV 재생·이전 재생·시연 경로는 NULL(030에서 NOT NULL 해제). 이전 `api_runner.py`는 관측을 저장하지 않아(스냅샷만) 해당 없음 |
 | `source_updated_*` | 원천 수정 시각이 없어 NULL |
 
 - 값 목록은 이 계약이 정본. `clock_status`에 CHECK를 두지 않는다(030 이전 `unknown` 행과 표 전체 검사 잠금 회피)
-- 기존 행 보정(backfill) 없음 [확정 Q8]: 고정된 관측은 UPDATE가 막히고(004 `erd_v03_protect_observation`), 일부만 보정하면 기준이 섞인다. `esb_occurred_at` 기본값 전환은 이 범위 밖(각 화면 세션 판단)
+- 기존 행 보정(backfill) 없음: 고정된 관측은 UPDATE가 막히고(004 `erd_v03_protect_observation`), 일부만 보정하면 기준이 섞인다. `esb_occurred_at` 기본값 전환은 이 범위 밖(각 화면 세션 판단)
 
-### 1.2 인덱스 — migration 030 [확정 Q7]
+### 1.2 인덱스 — migration 030 [합의 11/15]
 
 - `data_observations_source_occurred_idx ON data_observations(source_id, source_log_occurred_at) WHERE source_log_occurred_at IS NOT NULL`
 - 용도: 거래량 집계·수식 추천 `esb_occurred_at`([trainer-service.md](trainer-service.md) DB 요구), 2.3 `hourlyBasis=source_event`. `source_log_occurred_at >= $1` 같은 조건이 `IS NOT NULL`을 함의해 이 부분 인덱스를 쓴다
 - 일반 `CREATE INDEX`(018과 같은 근거). 적용 중 관측 INSERT가 기다리므로 WebUI가 Collector 입력을 일시정지하고 백업한 뒤 적용한다. 기존 행은 모두 NULL이라 항목 0개지만 표 전체를 한 번 읽는다(시간 ∝ 표 크기, 측정은 `infra/database/README.md` 030 절)
 
-### 1.3 원천 시간대 검증 흐름 [확정 C2]
+### 1.3 원천 시간대 검증 흐름 [합의 11/15]
 
-1. 원천에 시간대가 없으면(문자열에 오프셋 없음) 관측은 `assumed_tz`로 저장된다. `Asia/Seoul` 가정 아래 지연 지표(3절)에 포함하고 화면에 따로 표시하지 않는다 [확정 Q2, 사용자 11/15]
+1. 원천에 시간대가 없으면(문자열에 오프셋 없음) 관측은 `assumed_tz`로 저장된다. `Asia/Seoul` 가정 아래 지연 지표(3절)에 포함하고 화면에 따로 표시하지 않는다 [사용자 결정 11/15]
 2. 운영자가 latency API `clockCheck`(3.4)를 본다 — `Asia/Seoul` 가정 아래 저장 지연이 작은 양수로 모이면 가정이 맞다는 근거, 몇 시간 단위로 치우치거나 음수가 많으면 다른 시간대
 3. 운영자가 Collector 컨테이너에서 지정한다: `docker compose run --rm input clock-basis verify --timezone <IANA> --actor <운영자 id>`. 시간대는 zoneinfo가 아는 IANA 이름만(경로·빈 값 거절, DB 접속 전 검사). 원천(`--source-key`)이 없으면 만들지 않고 `input_source_not_initialized`로 거절
 4. 그 뒤 INSERT되는 관측부터 가정 대신 지정 시간대로 해석해 `verified_tz`가 된다. 이전 관측은 `assumed_tz` 그대로(보정 없음, 지연 지표에는 계속 포함)
 5. 되돌리기: `clock-basis reset --actor <id>` → `{"status":"unknown","resetAt":…,"resetBy":…}`. 그 뒤 INSERT부터 다시 `assumed_tz`
 
-- 배포 [확정, 사용자 11/15]: 대상 원천의 시각과 서버는 KST(+09:00)로 확인됐다. 새 Collector를 올린 뒤 원천마다 한 번 `clock-basis verify --timezone Asia/Seoul --actor <운영자 id>`를 실행한다. 그 전에 저장된 행은 `assumed_tz`로 남고 Q2에 따라 지연 지표에 포함된다. 코드·migration에는 시간대를 고정하지 않는다
+- 배포 [사용자 결정 11/15]: 대상 원천의 시각과 서버는 KST(+09:00)로 확인됐다. 새 Collector를 올린 뒤 원천마다 한 번 `clock-basis verify --timezone Asia/Seoul --actor <운영자 id>`를 실행한다. 그 전에 저장된 행은 `assumed_tz`로 남고 1단계 사용자 결정(`assumed_tz` 포함)에 따라 지연 지표에 포함된다. 코드·migration에는 시간대를 고정하지 않는다
 
 - 저장 형태: `ops_sources.clock_basis = {"status":"verified","timezone":"<IANA>","method":"persist_lag_check","verifiedAt":"<UTC ISO8601, DB 시계>","verifiedBy":"<actor>"}`. 읽는 쪽(Collector·Detector·Trainer)은 `status`·`timezone`만 본다
 - Collector 실행 경로(`input_runner`·`input_store`·`storage`·`resource_sampler`)는 `clock_basis`를 바꾸지 않는다(시험으로 확인). CLI는 `powercode_collector` 역할로 실행되고 `ops_sources`에는 trigger가 없어 UPDATE 권한(002 GRANT)으로 충분하다 — migration 변경 없음
@@ -63,11 +63,11 @@ Status: current — 결정 반영(WebUI 11/15 Q1~Q8, Detector C1~C5). Collector 
 | `hourly`(쿼리 `hourlyBasis=source_event`일 때만) | 기본 `persisted_at`은 지금과 같다. `source_event`이면 `{layer:'T', basis:'source_log_occurred_at', items[24], timeUnknownCount}`: 칸 조건 `o.source_id=$1 AND o.layer='T' AND o.source_log_occurred_at>=h.hour_start AND o.source_log_occurred_at<h.hour_start+interval '1 hour'`(1.2 인덱스). `timeUnknownCount` = 같은 24시간 창에 `persisted_at`이 들고 `source_log_occurred_at IS NULL`인 T 관측 수. 다른 값은 400 `unknown_operations_filter` |
 
 - CSV 재생은 원천 시각이 과거라 최근 24시간 ESB 시각 칸이 비는 것이 정상이다(0 = 실제로 센 0)
-- CSV 재생 collector·persist 단계 소요는 범위 밖, 새 저장 없음 [확정 Q6] — latency `stages` collector·persist는 지금처럼 CSV에서 null
+- CSV 재생 collector·persist 단계 소요는 범위 밖, 새 저장 없음 — latency `stages` collector·persist는 지금처럼 CSV에서 null
 
 ## 3. 수집 지연 — `GET /api/operations/latency?sourceId=` 추가 필드
 
-### 3.1 입력 구간 `data_input_origins.ingest_phase` [확정 C4, migration 030]
+### 3.1 입력 구간 `data_input_origins.ingest_phase` [합의 11/15, migration 030]
 
 | 값 | 언제 |
 |---|---|
@@ -85,7 +85,7 @@ Status: current — 결정 반영(WebUI 11/15 Q1~Q8, Detector C1~C5). Collector 
 - 표본 = 창 안 후보 관측 중 `clock_status IN ('offset','verified_tz','assumed_tz')` 행의 부호 있는 원값 `persisted_at − source_log_occurred_at`(ms)
 - 후보 관측: `o.source_id=$1 AND o.layer='P' AND o.revision_no=1 AND o.persisted_at>=clock_timestamp()-interval '1 hour' AND i.mode='api' AND i.ingest_phase='live'`(`data_input_origins i`). 실행 식별 없는 행(`revision_no` NULL)은 빠진다. 계층을 P로 둔 것은 Detector 원천 → 판정 지연(판정 = P)과 같은 모집단으로 비교하려는 것
 - 음수 표본(원천 시계가 DB 시계보다 앞섬)은 분위수에서 빼고 `skewCount`로 센다(Detector와 같은 규칙). 0으로 자르지 않는다
-- `assumed_tz` 포함 [확정 Q2, 사용자 11/15]: `Asia/Seoul` 가정으로 해석한 표본도 지연 지표에 넣고 화면에 따로 표시하지 않는다. 음수 규칙은 같다(분위수에서 빼고 `skewCount`, 음수만 있으면 null + `source_clock_skew`)
+- `assumed_tz` 포함 [사용자 결정 11/15]: `Asia/Seoul` 가정으로 해석한 표본도 지연 지표에 넣고 화면에 따로 표시하지 않는다. 음수 규칙은 같다(분위수에서 빼고 `skewCount`, 음수만 있으면 null + `source_clock_skew`)
 
 ```sql
 WITH c AS (
@@ -115,7 +115,7 @@ SELECT (SELECT count(*) FROM v WHERE ms >= 0)::integer AS samples,
 ```
 
 - `reason`(분위수가 null일 때만, 그 밖 null) 순서: `samples > 0` → null / `skew > 0` → `source_clock_skew`(0 이상 표본 없이 음수만) / live 후보가 있음(`unparsed + absent > 0`) → `source_time_unavailable`(원천 시각이 없거나 해석 안 됨) / 그 밖 → `no_live_api_samples`(CSV 재생 중·일시정지·첫 조회만 있음·030 이전 행만 있음)
-- `excludedCounts`는 숫자만 낸다. 새 화면 문구는 두지 않는다 [확정 Q2]
+- `excludedCounts`는 숫자만 낸다. 새 화면 문구는 두지 않는다
 - 성능: 표본은 `(source_id, persisted_at)` 인덱스로 1시간 창만 읽고 출처 표는 PK로 찾는다. 새 인덱스 불필요
 
 ### 3.3 Detector 원천 → 판정 지연과의 관계
@@ -123,7 +123,7 @@ SELECT (SELECT count(*) FROM v WHERE ms >= 0)::integer AS samples,
 - overview `endToEndLatencyMs`(p50 하나)와 latency `endToEnd`는 Detector 몫이다. Detector 측정 조건: 관측 `clock_status IN ('offset','verified_tz','assumed_tz')` ∧ 출처 `ingest_phase='live'` ∧ 첫 revision ∧ 재판정 아님 ∧ `source_log_occurred_at` 있음. Detector는 이 조건이 참(`latency_status='measured'`)일 때만 판정 행에 관측의 `source_log_occurred_at`을 그대로 복사한다(다시 해석하지 않음). 조건이 거짓이면 판정 행의 `source_log_occurred_at`·`source_latency_ms`는 NULL이고 `latency_status='unavailable'`이다(판정 행에 원천 시각 있음 ⇔ `measured`, [detection-decision.md](detection-decision.md) 18절). 원천 시각은 관측 행에서 읽는다. 음수 규칙(`skewCount`·`source_clock_skew`)도 3.2와 같다
 - 3.2와 모집단이 같아(P·첫 revision·live·같은 근거) 두 지연의 차이가 판정 대기·처리 시간이다
 
-### 3.4 `clockCheck` — 시간대 가정 확인용 [확정 C3]
+### 3.4 `clockCheck` — 시간대 가정 확인용 [합의 11/15]
 
 - 이 블록 자체는 지연 지표가 아니다(`assumed_tz` 표본은 3.2·3.3 지연 지표에도 들어간다). 1.3 2단계에서 운영자가 `Asia/Seoul` 가정을 확인할 때 본다
 - 표본 = 3.2 후보 중 `ingest_phase='live' AND clock_status='assumed_tz'`의 부호 있는 `ms`(음수 포함 그대로 분위수)
@@ -137,7 +137,7 @@ SELECT (SELECT count(*) FROM v WHERE ms >= 0)::integer AS samples,
 
 ## 4. 시스템 자원
 
-### 4.1 표본기 [확정 Q4]
+### 4.1 표본기 [합의 11/15]
 
 - 별도 compose 서비스 `resources`(`python -m collector.resource_sampler`, profile `resources`, CPU 0.1·메모리 128m, `database` 네트워크만, 루트 파일시스템 읽기 전용·`cap_drop: [ALL]`·`no-new-privileges`·`/tmp` tmpfs). WebUI storage API 4.3 반영 뒤 켠다(5절 배포 순서). DB 역할은 `powercode_collector` 재사용(같은 세션 소유, 새 로그인 불필요). Docker 소켓·외부 명령 없음
 - 주기 60초(`RESOURCE_SAMPLE_SECONDS`, 10~3600). 매 주기 한 트랜잭션: 자원 1행 + 디스크 키별 1행 + 보존 정리(자원 24시간, 저장공간 7일 — `storage_key IN ('database_data','artifacts') AND target_kind='filesystem'`만 지운다). `measured_at`은 DB 시계
@@ -151,7 +151,7 @@ SELECT (SELECT count(*) FROM v WHERE ms >= 0)::integer AS samples,
 
 - 범위: 일반 Docker에서 컨테이너 안 `/proc/stat`·`/proc/meminfo`는 호스트 전체 값이지만 lxcfs 등이 있으면 컨테이너 값이다. 대상 서버에서 확인하기 전에는 `scope='host_proc_unverified'`, 운영자가 확인한 뒤 `RESOURCE_PROC_SCOPE=host`
 - 디스크 키: `artifacts`(산출물 루트, 기본 바인드) / `database_data`(DB 데이터 디렉터리가 있는 파일시스템 — `compose.resources-db.yaml`을 함께 줄 때만 바인드, `RESOURCE_DATABASE_DATA_HOST_PATH`). 없으면 `unavailable`·`mount_not_visible`
-- `ops_storage_measurements` 값(002 표 재사용): `target_kind='filesystem'`, `filesystem_key='dev:<st_dev>'`(같은 파일시스템 중복 합산 금지용), `database_bytes` NULL(API가 `pg_database_size`로 실측), `writer_access_verified=false`, `warning_spec_version='disk-warning-v1'`, `warning_state` = `normal` / `warning`(80% 이상) / `critical`(90% 이상) / `unknown`(측정 불가) [확정 Q5 — 기존 계약·와이어프레임에 값이 없어 80/90]
+- `ops_storage_measurements` 값(002 표 재사용): `target_kind='filesystem'`, `filesystem_key='dev:<st_dev>'`(같은 파일시스템 중복 합산 금지용), `database_bytes` NULL(API가 `pg_database_size`로 실측), `writer_access_verified=false`, `warning_spec_version='disk-warning-v1'`, `warning_state` = `normal` / `warning`(80% 이상) / `critical`(90% 이상) / `unknown`(측정 불가) — 기존 계약·와이어프레임에 값이 없어 80/90으로 정했다(합의 11/15)
 
 ### 4.2 `ops_resource_measurements` — migration 030
 
@@ -171,7 +171,7 @@ SELECT (SELECT count(*) FROM v WHERE ms >= 0)::integer AS samples,
 - overview(키 생략 규칙 그대로):
   - `cpuPercent` = 신선한 최신 `ops_resource_measurements` 행이 `cpu_status='measured'`일 때 `cpu_percent`
   - `memoryPercent` = 같은 행이 `memory_status='measured'`일 때 `memory_used_bytes / memory_total_bytes × 100`
-  - `diskPercent` = `storage_key='database_data'` 신선한 최신 행이 `measured`일 때 `used_bytes / (used_bytes + available_bytes) × 100` [확정 Q3]. `artifacts` 값으로 대신하지 않는다
+  - `diskPercent` = `storage_key='database_data'` 신선한 최신 행이 `measured`일 때 `used_bytes / (used_bytes + available_bytes) × 100`. `artifacts` 값으로 대신하지 않는다
 
 ```sql
 SELECT r.cpu_status, r.cpu_percent, r.memory_status, r.memory_used_bytes, r.memory_total_bytes, r.measured_at
@@ -180,7 +180,7 @@ SELECT r.cpu_status, r.cpu_percent, r.memory_status, r.memory_used_bytes, r.memo
  ORDER BY r.measured_at DESC LIMIT 1;
 ```
 
-- storage [확정 Q3]:
+- storage:
   - `disk` = `database_data` 신선한 최신 measured 행(기존 필드 모양 `capacityBytes`·`usedBytes`·`availableBytes`·`warningState`·`measuredAt`), 아니면 null. 지금 구현의 "모든 키 중 최신 measured 행"을 이 조건으로 좁힌다
   - `disks[]` = 키 `database_data`, `artifacts` 순서로 2개 고정. 키마다 최신 행(`DISTINCT ON (storage_key) … ORDER BY storage_key, measured_at DESC`, 002 `ops_storage_measurements_time_idx`): `{storageKey, status, filesystemKey, capacityBytes, usedBytes, availableBytes, warningState, reasonCode, measuredAt}`. 행이 없으면 `status:'unavailable', reasonCode:'not_measured'`, 오래되면 `status:'unavailable', reasonCode:'measurement_stale'`(값 null, `measuredAt`은 그 행 시각) — 두 사유는 API가 붙이는 값
 

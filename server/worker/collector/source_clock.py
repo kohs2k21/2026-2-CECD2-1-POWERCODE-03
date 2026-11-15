@@ -23,7 +23,7 @@ from trainer.source_time import process_source_time
 RULE = "source-time-v1"
 UNPARSED = "unparsed"
 ABSENT = "absent"
-# 지연 지표 표본 근거(계약 3.2·3.3, Q2: assumed_tz 포함).
+# 지연 지표 표본 근거(계약 3.2·3.3, 사용자 결정 11/15: assumed_tz 포함).
 LATENCY_STATUSES = ("offset", "verified_tz", "assumed_tz")
 CLOCK_STATUSES = ("offset", "verified_tz", "assumed_tz", UNPARSED, ABSENT)
 VERIFY_METHOD = "persist_lag_check"

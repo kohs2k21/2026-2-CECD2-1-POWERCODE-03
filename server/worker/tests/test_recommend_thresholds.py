@@ -434,23 +434,40 @@ class TargetShapeTests(unittest.TestCase):
                                       for group in plan.groups], [("elapsed_ms", None, (), 5000)])
 
 
+def example_candidate(index):
+    """공용 예시 candidates의 후보 id(후보 작업 결과 위치)."""
+    return f"44444444-4444-4444-8444-444444444444.t{index}"
+
+
 class ApiExampleTests(unittest.TestCase):
     """API 시험이 그대로 저장되는지 확인하는 예시를 워커가 받는다(tests/threshold-recommendation-contract.test.mjs)."""
 
     def test_api_examples_pass_parse_job(self):
         path = REPOSITORY / "server/contracts/llm-recommendation-job.example.json"
         examples = json.loads(path.read_text(encoding="utf-8"))["examples"]
-        self.assertEqual([example["name"] for example in examples], ["period", "snapshot"])
+        self.assertEqual([example["name"] for example in examples], ["period", "snapshot", "candidates"])
+        # 10차: API는 새 대상 모양(kind·scope)과 soft-rule-threshold-v3를 기록한다.
+        expected = {
+            "period": [("elapsed_ms", None, ()), ("error_ratio", None, ())],
+            "snapshot": [("elapsed_ms", None, ()), ("error_ratio", None, ())],
+            # 이상 징후 규칙 없이 처리 시간 후보만: 후보마다 범위 묶음 1건, 값은 워커가 다시 계산.
+            "candidates": [("elapsed_ms", {"processId": "IF_A_PR002", "adapterType": "HTTP"}, (example_candidate(0),)),
+                           ("elapsed_ms", {"processId": "IF_A_PR003"}, (example_candidate(1),))],
+        }
         for example in examples:
             spec, llm_spec = example["input_spec"], example["llm_spec"]
+            self.assertEqual((llm_spec["model_version"], llm_spec["evidence_version"]), ("rule_v3", "soft-rule-threshold-v3"))
             plan = recommendation.parse_job(spec, llm_spec)
             self.assertEqual(plan.mode, recommendation.MODE_DATA_P95)
+            self.assertEqual(plan.provider, "rule_v3")
             self.assertEqual(plan.rule_set, {"revision": spec["ruleSetRevision"], "contentHash": spec["ruleSetContentHash"],
                                              "contentHashVersion": spec["ruleSetContentHashVersion"]})
-            # 옛 대상 모양(kind·scope 없음) = 범위 없는 소프트룰 묶음, 필드당 1건.
-            self.assertEqual([(group.field, group.scope, group.candidates) for group in plan.groups],
-                             [("elapsed_ms", None, ()), ("error_ratio", None, ())])
-            self.assertEqual(plan.groups[0].current_threshold, 5000)
+            self.assertEqual([(group.field, group.scope, group.candidates) for group in plan.groups], expected[example["name"]],
+                             example["name"])
+            if example["name"] != "candidates":
+                self.assertEqual(plan.groups[0].current_threshold, 5000)
+            else:
+                self.assertTrue(all(group.current_threshold is None and not group.rules for group in plan.groups))
             self.assertEqual(set(llm_spec), set(LLM_SPEC))
 
 

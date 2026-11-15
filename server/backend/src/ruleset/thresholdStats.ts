@@ -1,5 +1,5 @@
 import type { Pool } from 'pg';
-import { RuleSetError, SIGNIFICANT_DIGITS_MAX, THRESHOLD_MAX_LENGTH, decimalString, thresholdFixedDecimal } from './ruleSetContract.js';
+import { RuleSetError, SIGNIFICANT_DIGITS_MAX, THRESHOLD_MAX_LENGTH, decimalString, sourceValueValid, thresholdFixedDecimal } from './ruleSetContract.js';
 import { softRuleField, type SoftRuleField } from './methodCatalog.js';
 
 /**
@@ -27,9 +27,18 @@ const TIME_BASES = { esb_occurred_at: 'o.source_log_occurred_at', persisted_at: 
 type TimeBasis = keyof typeof TIME_BASES;
 const REASON_CODES = ['known_incident', 'maintenance', 'collection_anomaly', 'value_spike', 'other'];
 
+/**
+ * (10차) 적용 범위 판정 키 → PROCESS 관측 원래 값 열(`data_observations.allowed_values`). Detector `in_scope`(worker/detector/soft_rules.py
+ * `SCOPE_COLUMNS`)가 읽는 같은 원래 값이라 trim·빈 값 처리 차이 없이 같은 행이 고른다.
+ */
+const SCOPE_COLUMNS = [['processId', 'process_id'], ['adapterType', 'adapter_type'], ['processHubId', 'process_hub_id']] as const;
+type StatsScope = Partial<Record<(typeof SCOPE_COLUMNS)[number][0], string>> | null;
+
 export type ThresholdStatsRequest = {
   field: string; statistic: Statistic; sourceId: string; mode: PeriodMode; from: string | null; until: string | null;
   timeBasis: TimeBasis | null; timezone: string; excludedIntervals: { from: string; until: string }[];
+  /** 적용 범위 정규형(키 순서 processId·adapterType·processHubId, 값 있는 키만) 또는 null(필드 전체). */
+  scope: StatsScope;
 };
 const plainObject = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value);
 const allowed = (value: Record<string, unknown>, keys: string[]) => Object.keys(value).every((key) => keys.includes(key));
@@ -65,10 +74,22 @@ export function excludedIntervalsProblem(intervals: { from: string; until: strin
   return null;
 }
 
+/**
+ * (10차) 요청 `scope`: 소프트룰 scope 정규형(`processId` 필수, `adapterType`·`processHubId` 선택, 값 있는 키만, 표시용 `interfaceId` 없음) 또는
+ * null·생략. 값은 룰 세트 저장 검증과 같은 원천 값 규칙(빈 값·`\N` 아님, 길이). 고쳐 쓰지 않고 형식 오류로 둔다.
+ */
+function parseScope(value: unknown): StatsScope {
+  if (value === undefined || value === null) return null;
+  if (!plainObject(value) || !('processId' in value) || !allowed(value, SCOPE_COLUMNS.map(([key]) => key)) ||
+      !Object.values(value).every(sourceValueValid)) throw invalid();
+  return Object.fromEntries(SCOPE_COLUMNS.filter(([key]) => key in value).map(([key]) => [key, value[key] as string]));
+}
+
 /** 요청 형식 검사(400). 필드 등록 여부는 422 soft_rule_field_unknown. */
 export function parseThresholdStatsRequest(body: unknown): ThresholdStatsRequest {
-  if (!plainObject(body) || !allowed(body, ['field', 'statistic', 'period', 'sourceId', 'excludedIntervals'])) throw invalid();
+  if (!plainObject(body) || !allowed(body, ['field', 'statistic', 'period', 'sourceId', 'excludedIntervals', 'scope'])) throw invalid();
   const { field, statistic = 'p95', period, sourceId, excludedIntervals = [] } = body;
+  const scope = parseScope(body.scope);
   if (typeof field !== 'string' || typeof statistic !== 'string' || !Object.hasOwn(STATISTICS, statistic) || typeof sourceId !== 'string' || !UUID.test(sourceId) ||
       !plainObject(period) || !allowed(period, ['mode', 'from', 'until', 'timeBasis', 'timezone'])) throw invalid();
   const { mode, from, until, timeBasis, timezone = 'Asia/Seoul' } = period;
@@ -80,7 +101,7 @@ export function parseThresholdStatsRequest(body: unknown): ThresholdStatsRequest
   return {
     field, statistic: statistic as Statistic, sourceId: sourceId.toLowerCase(), mode: mode as PeriodMode,
     from: mode === 'custom' ? utc(from as string) : null, until: mode === 'custom' ? utc(until as string) : null,
-    timeBasis: (timeBasis as TimeBasis | undefined) ?? null, timezone, excludedIntervals: intervals,
+    timeBasis: (timeBasis as TimeBasis | undefined) ?? null, timezone, excludedIntervals: intervals, scope,
   };
 }
 
@@ -141,18 +162,24 @@ function fieldExpression(field: SoftRuleField): string {
 type Sample = { n: number; min: number | null; max: number | null; p95: number | null; statistic: number | null };
 async function measure(pool: Pool, field: SoftRuleField, request: ThresholdStatsRequest, period: ResolvedPeriod, sampled: boolean): Promise<Sample> {
   const time = TIME_BASES[period.timeBasis];
+  const parameters: unknown[] = [request.sourceId, period.from, period.until, JSON.stringify(request.excludedIntervals), ...(sampled ? [request.timezone] : [])];
   const picked = sampled
     ? `SELECT v FROM (SELECT v,row_number() OVER (PARTITION BY date_trunc('day',occurred,$5) ORDER BY id) AS rank FROM valid) ranked WHERE rank<=${DAILY_SAMPLE_MAX}`
     : 'SELECT v FROM valid';
+  // (10차) 적용 범위: 값 있는 키마다 실행별 최신 관측의 원래 값과 정확 일치(Detector in_scope와 같음 — 문자열이 아니거나 없으면 범위 밖). 값은 매개변수로만 넣는다.
+  const scoped = SCOPE_COLUMNS.filter(([key]) => request.scope?.[key] !== undefined).map(([key, column]) => {
+    parameters.push(request.scope![key]);
+    return ` AND jsonb_typeof(l.av->'${column}')='string' AND l.av->>'${column}'=$${parameters.length}::text`;
+  }).join('');
   const sql = `WITH candidates AS (
-      SELECT o.id,o.execution_id,o.revision_no,o.persisted_at,${time} AS occurred FROM data_observations o
+      SELECT o.id,o.execution_id,o.revision_no,o.persisted_at,${time} AS occurred,o.allowed_values AS av FROM data_observations o
       WHERE o.source_id=$1 AND o.layer='P' AND o.execution_id IS NOT NULL AND ${time}>=$2::timestamptz AND ${time}<$3::timestamptz
     ), latest AS (
-      SELECT DISTINCT ON (execution_id) id,occurred FROM candidates ORDER BY execution_id,revision_no DESC,persisted_at DESC,id DESC
+      SELECT DISTINCT ON (execution_id) id,occurred,av FROM candidates ORDER BY execution_id,revision_no DESC,persisted_at DESC,id DESC
     ), base AS (
       SELECT l.id,l.occurred,(${fieldExpression(field)})::float8 AS v
       FROM latest l JOIN data_processes p ON p.observation_id=l.id
-      WHERE p.status='S'
+      WHERE p.status='S'${scoped}
         AND (SELECT e.label FROM data_label_evidence e WHERE e.observation_id=l.id ORDER BY e.revision_no DESC LIMIT 1) IS DISTINCT FROM 'anomaly'
         AND NOT EXISTS(SELECT 1 FROM jsonb_to_recordset($4::jsonb) AS x("from" timestamptz,until timestamptz)
           WHERE l.occurred>=x."from" AND l.occurred<x.until)
@@ -163,7 +190,6 @@ async function measure(pool: Pool, field: SoftRuleField, request: ThresholdStats
   try {
     await client.query('BEGIN READ ONLY');
     await client.query(`SET LOCAL statement_timeout=${STATEMENT_TIMEOUT_MS}`);
-    const parameters = [request.sourceId, period.from, period.until, JSON.stringify(request.excludedIntervals), ...(sampled ? [request.timezone] : [])];
     const { rows: [row] } = await client.query<Sample>(sql, parameters);
     await client.query('COMMIT');
     return row;
@@ -206,7 +232,8 @@ export async function computeThresholdStats(pool: Pool, request: ThresholdStatsR
     exclusionRule: `status=S, explicit anomaly labels excluded, excludedIntervals=${request.excludedIntervals.length}`, scope: 'period',
     period: { mode: request.mode, from: period.from, until: period.until, timeBasis: period.timeBasis, resolvedFrom: period.resolvedFrom },
   };
-  const base = { field: field.fieldId, statistic: request.statistic, unit: field.unit, source: 'data_p95', evidence, rationale: null };
+  // (10차) 최상위 `scope` = 계산에 쓴 적용 범위 확정값(정규형 또는 null). `evidence.scope: "period"`(표본 구분)와는 다른 자리다.
+  const base = { field: field.fieldId, statistic: request.statistic, scope: request.scope, unit: field.unit, source: 'data_p95', evidence, rationale: null };
   const closed = { ...base, operator: null, threshold: null, displayThreshold: null };
   if (sample.n < MINIMUM_N || sample.min === sample.max || sample.statistic === null) return { ...closed, status: 'no_applicable' };
   const threshold = thresholdText(sample.statistic, field);

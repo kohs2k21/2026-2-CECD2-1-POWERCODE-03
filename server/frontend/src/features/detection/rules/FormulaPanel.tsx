@@ -8,7 +8,7 @@ import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select"
 import { useSourcesQuery } from "@/features/operations/data/inputs";
 import { numberText } from "@/features/operations/format";
 import { errorCode, operatorLabels, type DraftSoftRule } from "./ruleDraft";
-import { readThresholdStats, type PeriodMode, type SoftRuleField, type ThresholdStats } from "./ruleSetApi";
+import { readThresholdStats, thresholdStatsScope, type PeriodMode, type SoftRuleField, type ThresholdStats } from "./ruleSetApi";
 
 const PERIODS: { mode: PeriodMode; label: string }[] = [
   { mode: "active_model_training_start", label: "운영 머신러닝 모델 학습 기간 시작 ~ 현재" },
@@ -63,8 +63,9 @@ export const FormulaPanel = ({
   const [selectedSource, setSelectedSource] = useState("");
   const sourceId = sources.data?.find((source) => source.id === selectedSource)?.id ?? sources.data?.[0]?.id ?? "";
   const calculate = useMutation({
+    // 범위가 있는 규칙은 그 범위 행으로만 계산한다(Detector 판정과 같은 행). 전역 규칙은 scope를 보내지 않는다(이전 요청과 같음).
     mutationFn: () => readThresholdStats({
-      field: rule.field, statistic: "p95", sourceId, period: periodRequest(mode, from, until),
+      field: rule.field, statistic: "p95", sourceId, period: periodRequest(mode, from, until), scope: thresholdStatsScope(rule.scope),
     }),
   });
   const close = <Button size="sm" variant="outline" onClick={onClose}>닫기</Button>;

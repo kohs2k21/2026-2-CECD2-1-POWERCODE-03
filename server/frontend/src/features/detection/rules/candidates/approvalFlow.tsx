@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DialogFooter } from "@/components/ui/dialog";
@@ -10,6 +10,7 @@ import { RELATION_TERM, SOFT_TERM, requestFromState, severities, severityLabels 
 import type { RelationRuleRequest, RuleSetRequest, RuleSetState, Severity, SoftRuleRequest } from "../ruleSetApi";
 import { useRuleSet } from "../useRuleSet";
 import { useRuleSetSave } from "../useRuleSetSave";
+import type { CandidateApprovalValue } from "../ruleAiApi";
 import { readCandidateDetail, type CandidateDetail } from "./candidateApi";
 import { approvalRequest, approvedRelation, approvedThreshold } from "./candidateApproval";
 import { APPROVED_TEXT, NOT_APPROVABLE, approvalBlockedText, candidateErrorTitle, kindLabels, pathText, thresholdText } from "./candidateLabels";
@@ -20,14 +21,17 @@ import { APPROVED_TEXT, NOT_APPROVABLE, approvalBlockedText, candidateErrorTitle
  */
 
 /** 승인 입력: 관계 규칙은 위험도, 처리 시간 규칙은 이름·위험도(id는 서버가 발급). 다음 → 서버 미리보기 확인창 → 저장. */
-export const ApproveDialog = ({ kind, defaultName, onNext, onCancel }: {
+export const ApproveDialog = ({ kind, defaultName, onNext, onCancel, note }: {
   kind: "relation" | "threshold"; defaultName: string; onNext: (values: { name: string; severity: Severity }) => void; onCancel: () => void;
+  /** 저장할 값 안내(AI 규칙 추천 결과의 후보 행에서 열 때 — 임계값과 그 기준). */
+  note?: ReactNode;
 }) => {
   const [name, setName] = useState(defaultName);
   // 관계 규칙은 이상 규칙(하드) 기본 위험도 = 위험, 처리 시간 후보는 이상 징후 규칙 기본 = 주의(규칙 추가 창과 같음).
   const [severity, setSeverity] = useState<Severity>(kind === "relation" ? "critical" : "warning");
   return (
     <Modal isOpen onOpenChange={(open) => { if (!open) onCancel(); }} title={`${kind === "relation" ? RELATION_TERM : SOFT_TERM} 승인`}>
+      {note && <p data-approve-value="" className="text-sm text-muted-foreground">{note}</p>}
       <div className="grid gap-4 sm:grid-cols-2">
         {kind === "threshold" && (
           <div className="grid gap-2">
@@ -65,16 +69,26 @@ export const useApproval = () => {
 };
 export type ApprovalFlow = ReturnType<typeof useApproval>;
 
-/** 처리 시간 후보 승인 입력창의 기본 이름. */
-export const defaultApproveName = (detail: CandidateDetail) =>
-  detail.type === "threshold" ? `처리 시간 ${detail.threshold.scope.processId} ${thresholdText(detail.threshold)}` : "";
+/** 저장할 임계값 문구: AI 값이 있으면 그 값, 없으면 후보의 Trainer 값(상세의 제안 임계값). */
+const approvalThresholdText = (detail: CandidateDetail & { type: "threshold" }, value?: CandidateApprovalValue | null) =>
+  value?.ai ? thresholdText({ operator: value.ai.operator, displayThreshold: value.ai.displayThreshold, unit: detail.threshold.unit }) : thresholdText(detail.threshold);
+/** 처리 시간 후보 승인 입력창의 기본 이름. AI 규칙 추천 결과에서 열면 저장할 값(`value`)으로 짓는다. */
+export const defaultApproveName = (detail: CandidateDetail, value?: CandidateApprovalValue | null) =>
+  detail.type === "threshold" ? `처리 시간 ${detail.threshold.scope.processId} ${approvalThresholdText(detail, value)}` : "";
+/** AI 규칙 추천 결과의 후보 행에서 연 승인 입력창의 값 안내: `임계값 <값> · <기준>`(기준을 모르면 값만). */
+export const approvalValueNote = (detail: CandidateDetail, value: CandidateApprovalValue | null) =>
+  detail.type === "threshold" && value ? `임계값 ${approvalThresholdText(detail, value)}${value.basis ? ` · ${value.basis}` : ""}` : null;
 
 /** 이미 같은 조건의 규칙이 현재 룰 세트에 있는가(승인됨). 처리 시간은 저장할 조건이 없으면 false. */
 export const approvedDetail = (state: RuleSetState, detail: CandidateDetail) =>
   detail.type === "relation" ? approvedRelation(state, detail.ruleDraft) : detail.ruleDraft ? approvedThreshold(state, detail.ruleDraft) : false;
 
-/** 승인 입력을 받아 저장 요청에 새 규칙 1개를 더하고 확인창을 연다. */
-export const submitApproval = (approval: ApprovalFlow, state: RuleSetState, detail: CandidateDetail, { name, severity }: { name: string; severity: Severity }) => {
+/**
+ * 승인 입력을 받아 저장 요청에 새 규칙 1개를 더하고 확인창을 연다. 처리 시간 후보의 조건·임계값은 상세의 저장 초안(Trainer 값)이고,
+ * AI 규칙 추천 결과에서 AI가 제안한 값으로 승인하면(`value.ai`, llm-recommendation-job.md 10차 결정 5) 그 값으로 바꾼다. 범위는 그대로.
+ */
+export const submitApproval = (approval: ApprovalFlow, state: RuleSetState, detail: CandidateDetail, { name, severity }: { name: string; severity: Severity },
+  value?: CandidateApprovalValue | null) => {
   if (detail.type === "relation") {
     const item = detail.relation;
     approval.submit(state, (request) => approvalRequest(request, { relation: { ...(detail.ruleDraft as unknown as RelationRuleRequest), id: null, clientRef: "candidate", severity, enabled: true } }),
@@ -84,7 +98,8 @@ export const submitApproval = (approval: ApprovalFlow, state: RuleSetState, deta
   if (!detail.ruleDraft) return;
   const draft = detail.ruleDraft as unknown as Omit<SoftRuleRequest, "id" | "name" | "severity">;
   approval.submit(state, (request) => approvalRequest(request, {
-    soft: { id: null, clientRef: "candidate", name, field: draft.field, operator: draft.operator, threshold: draft.threshold, severity, enabled: true, scope: draft.scope },
+    soft: { id: null, clientRef: "candidate", name, field: draft.field, operator: value?.ai?.operator ?? draft.operator, threshold: value?.ai?.threshold ?? draft.threshold,
+      severity, enabled: true, scope: draft.scope },
   }), `${SOFT_TERM} 승인 · ${detail.threshold.scope.processId}`);
 };
 
@@ -103,6 +118,8 @@ export const useRowApproval = () => {
   const [asking, setAsking] = useState<CandidateDetail | null>(null);
   const [loading, setLoading] = useState<string | null>(null);
   const [note, setNote] = useState<RowNote | null>(null);
+  /** AI 규칙 추천 결과의 후보 행에서 연 승인의 저장 값(없으면 상세의 Trainer 값, 목록·상세와 같음). */
+  const [value, setValue] = useState<CandidateApprovalValue | null>(null);
   const start = async (candidateId: string) => {
     if (!approval.state) return;
     setLoading(candidateId);
@@ -132,16 +149,20 @@ export const useRowApproval = () => {
     stateError: approval.stateError,
     busy: approval.save.busy || loading !== null,
     loading,
-    start: (candidateId: string) => void start(candidateId),
+    /** `value`: AI 규칙 추천 결과의 후보 행에서 열 때만(저장 값·기준). 목록 행·상세는 생략(Trainer 값). */
+    start: (candidateId: string, approvalValue?: CandidateApprovalValue) => {
+      setValue(approvalValue ?? null);
+      void start(candidateId);
+    },
     noteFor,
     banner: approval.save.banner,
     dialogs: (
       <>
         {asking && approval.state && (
-          <ApproveDialog kind={asking.type} defaultName={defaultApproveName(asking)} onCancel={() => setAsking(null)}
+          <ApproveDialog kind={asking.type} defaultName={defaultApproveName(asking, value)} note={approvalValueNote(asking, value)} onCancel={() => setAsking(null)}
             onNext={(values) => {
               setAsking(null);
-              submitApproval(approval, approval.state!, asking, values);
+              submitApproval(approval, approval.state!, asking, values, value);
             }} />
         )}
         {approval.save.dialog}

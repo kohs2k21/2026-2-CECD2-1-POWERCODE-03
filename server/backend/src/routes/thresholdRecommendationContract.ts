@@ -1,10 +1,11 @@
 import crypto from 'node:crypto';
-import type { SoftRule } from '../ruleset/ruleSetContract.js';
+import { canonicalSoftScope, type SoftRule } from '../ruleset/ruleSetContract.js';
 import { SOFT_RULE, softRuleField } from '../ruleset/methodCatalog.js';
+import { CANDIDATE_ID } from '../ruleset/ruleCandidates.js';
 
 /**
  * 소프트룰 임계값 추천 접수(llm-recommendation-job.md `recommend_thresholds`)의 순수 규칙: 요청 형식, 대상 고정, llm_spec.
- * DB를 읽지 않는다. 호출자가 현재 룰 세트 리비전을 넘긴다.
+ * DB를 읽지 않는다. 호출자가 현재 룰 세트 리비전과 접수 때 확인한 처리 시간 후보를 넘긴다.
  */
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const UTC_TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?Z$/;
@@ -14,12 +15,17 @@ const MODE_DATA_P95 = 'data_p95_with_llm_rationale';
 const MODE_AI_PROPOSAL = 'ai_proposal';
 const TIME_BASIS_SNAPSHOT = 'persisted_at';
 const TIME_BASES: readonly unknown[] = [TIME_BASIS_SNAPSHOT, 'esb_occurred_at'];
+/** (10차) 상한: 후보 id 1~32개, 결과 묶음(필드 × 적용 범위) ≤ 32. 대상은 소프트룰 32 + 후보 32라 64를 넘지 않는다. */
+const CANDIDATES_MAX = 32;
+const GROUPS_MAX = 32;
 /**
  * Rule v3 경로(llm-recommendation-job.md 7차 'Rule v3 경로' 절). 워커는 `(model_version, evidence_version)`으로 경로를 고르고
  * rule_v2 조합도 그대로 받으므로 이 세 값만 바꾸면 전환·되돌림이 된다. API는 번들을 읽지 않아 프롬프트는 고정 이름을 기록한다.
+ * (10차) `targets[]`를 새 모양 `{kind, id, field, scope, threshold}`로 기록하므로 evidence_version은 v3다 — 새 모양을 모르는 옛 워커는
+ * 조용히 틀리지 않고 `recommendation_llm_spec_invalid`로 실패한다. rule_v2로 되돌리면 짝은 `soft-rule-threshold-v1`이다.
  */
 export const THRESHOLD_MODEL_VERSION = 'rule_v3';
-export const THRESHOLD_EVIDENCE_VERSION = 'soft-rule-threshold-v2';
+export const THRESHOLD_EVIDENCE_VERSION = 'soft-rule-threshold-v3';
 export const THRESHOLD_PROMPT_VERSION = 'feature-rule-spec-rule-v3-ko';
 
 export class ThresholdRequestError extends Error {
@@ -28,14 +34,21 @@ export class ThresholdRequestError extends Error {
 const malformed = () => new ThresholdRequestError('invalid_job_request');
 
 export type ThresholdRequest = {
-  kind: 'recommend_thresholds'; sourceId: string; ruleSetRevision: number; scope: { softRuleIds: string[] | null };
+  kind: 'recommend_thresholds'; sourceId: string; ruleSetRevision: number;
+  /** 대상 선택. `candidateIds` 생략·null = 후보 없음(10차 전과 같음). input_spec에는 늘 두 키가 함께 있다. */
+  scope: { softRuleIds: string[] | null; candidateIds: string[] | null };
   data: { snapshotId: string | null; from: string | null; until: string | null; timeBasis: string | null };
   mode: string;
 };
+/** 적용 범위 정규형(판정 키 중 값 있는 키만) 또는 null(필드 전체). 요청 `scope`(대상 선택)와 이름만 같고 뜻이 다르다. */
+export type TargetScope = Record<string, string> | null;
+export type ThresholdTarget = { kind: 'soft_rule' | 'candidate'; id: string; field: string; scope: TargetScope; threshold: number | null };
 export type ThresholdFixedInput = {
   ruleSetContentHash: string; ruleSetContentHashVersion: number;
-  targets: { id: string; field: string; threshold: number }[];
+  targets: ThresholdTarget[];
 };
+/** 접수 때 확인한 처리 시간 후보(ruleCandidates.readRecommendationCandidates). 값은 워커가 다시 계산하므로 id·필드·범위만 쓴다. */
+export type CandidateTarget = { candidateId: string; field: string; scope: { processId: string; adapterType?: string } };
 export type CurrentRuleSet = { revision: number; contentHash: string; contentHashVersion: number; softRules: SoftRule[] };
 
 const plainObject = (value: unknown): value is Record<string, unknown> =>
@@ -48,14 +61,18 @@ const instant = (value: unknown): value is string =>
 /** 기존 작업 종류와 같은 기간 규칙: UTC 표기, from < until, 366일 이내. */
 const validPeriod = (from: unknown, until: unknown) =>
   instant(from) && instant(until) && Date.parse(from) < Date.parse(until) && Date.parse(until) - Date.parse(from) <= PERIOD_MS_MAX;
+/** 처리 시간 후보 id `<작업 id>.t<번호>`만. 관계 후보 `.r<번호>`는 대상이 아니다(400). */
+const thresholdCandidateId = (id: unknown): id is string => typeof id === 'string' && CANDIDATE_ID.exec(id)?.[2].toLowerCase() === 't';
 
 function parseScope(value: unknown): ThresholdRequest['scope'] {
-  if (!plainObject(value) || !('softRuleIds' in value) || !keysWithin(value, ['softRuleIds'])) throw malformed();
-  const { softRuleIds } = value;
-  if (softRuleIds === null) return { softRuleIds: null };
-  if (!Array.isArray(softRuleIds) || softRuleIds.length > SOFT_RULE.maxRules || new Set(softRuleIds).size !== softRuleIds.length ||
-      !softRuleIds.every((id) => typeof id === 'string' && SOFT_RULE_ID.test(id))) throw malformed();
-  return { softRuleIds };
+  if (!plainObject(value) || !('softRuleIds' in value) || !keysWithin(value, ['softRuleIds', 'candidateIds'])) throw malformed();
+  const { softRuleIds, candidateIds = null } = value;
+  if (softRuleIds !== null && (!Array.isArray(softRuleIds) || softRuleIds.length > SOFT_RULE.maxRules || new Set(softRuleIds).size !== softRuleIds.length ||
+      !softRuleIds.every((id) => typeof id === 'string' && SOFT_RULE_ID.test(id)))) throw malformed();
+  // (10차) 후보는 선택 키. 배열이면 1~32개, 중복 없음(대소문자 무시 — 같은 후보를 두 번 세지 않게).
+  if (candidateIds !== null && (!Array.isArray(candidateIds) || !candidateIds.length || candidateIds.length > CANDIDATES_MAX ||
+      !candidateIds.every(thresholdCandidateId) || new Set(candidateIds.map((id) => id.toLowerCase())).size !== candidateIds.length)) throw malformed();
+  return { softRuleIds: softRuleIds as string[] | null, candidateIds: candidateIds as string[] | null };
 }
 
 function parseData(value: unknown): ThresholdRequest['data'] {
@@ -88,21 +105,49 @@ export function parseThresholdRequest(body: Record<string, unknown>, sourceId: s
   return { kind: 'recommend_thresholds', sourceId, ruleSetRevision: ruleSetRevision as number, scope, data, mode: MODE_DATA_P95 };
 }
 
-/**
- * 요청 리비전을 현재 리비전과 대조하고 그 리비전의 켜진 소프트룰을 대상으로 고정한다.
- * hash와 버전은 리비전 행의 값 그대로다(재계산 없음). 없는 리비전도 현재와 다르므로 같은 409다.
- */
-export function fixThresholdTargets(request: ThresholdRequest, current: CurrentRuleSet): ThresholdFixedInput {
+/** 요청 리비전 = 현재 리비전. 없는 리비전도 현재와 다르므로 같은 409다. 후보 조회보다 먼저 본다. */
+export function checkThresholdRevision(request: ThresholdRequest, current: CurrentRuleSet): void {
   if (request.ruleSetRevision !== current.revision) throw new ThresholdRequestError('rule_set_revision_conflict', 409);
+}
+
+/**
+ * (10차) 후보가 있으면 `data.snapshotId` = 후보 결과 `snapshotId`여야 한다(같은 요청의 소프트룰도 이 snapshot으로 계산). 기간만 보낸 요청도 409.
+ * snapshot id는 UUID라 대소문자를 구분하지 않는다.
+ */
+export function checkCandidateSnapshot(request: ThresholdRequest, candidateSnapshotId: string | null): void {
+  const requested = request.data.snapshotId;
+  if (!requested || !candidateSnapshotId || requested.toLowerCase() !== candidateSnapshotId.toLowerCase()) {
+    throw new ThresholdRequestError('rule_candidate_snapshot_mismatch', 409);
+  }
+}
+
+/** 범위 정규형: 판정 키(processId·adapterType·processHubId) 중 값 있는 키만, 이 순서. 표시용 interfaceId는 뺀다. 없으면 null. */
+const targetScope = (scope: unknown): TargetScope => canonicalSoftScope(scope) as TargetScope;
+const groupKey = ({ field, scope }: Pick<ThresholdTarget, 'field' | 'scope'>) => JSON.stringify([field, scope]);
+
+/**
+ * 그 리비전의 켜진 소프트룰과 접수 때 확인한 후보를 대상으로 고정한다(llm-recommendation-job.md 10차 `input_spec.targets[]` 표).
+ * 순서: 소프트룰(저장 순서) → 후보(요청 순서). 소프트룰 `threshold`는 현재 값, 후보는 null(워커가 다시 계산).
+ * hash와 버전은 리비전 행의 값 그대로다(재계산 없음). 묶음 = 같은 (필드, 범위 정규형) — 결과 항목 1건이고 32개까지(자르지 않고 400).
+ * `modelVersion`이 rule_v3가 아니면(rule_v2 되돌림) 후보·범위 있는 대상은 400 — 되돌린 경로가 필드 전체 p95로 조용히 틀리지 않게.
+ */
+export function fixThresholdTargets(request: ThresholdRequest, current: CurrentRuleSet, candidates: CandidateTarget[] = [],
+  modelVersion: string = THRESHOLD_MODEL_VERSION): ThresholdFixedInput {
+  checkThresholdRevision(request, current);
   const selected = request.scope.softRuleIds;
   const rules = current.softRules.filter((rule) => rule.enabled && (selected === null || selected.includes(rule.id)));
-  if (!rules.length) throw new ThresholdRequestError('soft_rules_empty');
+  if (!rules.length && !candidates.length) throw new ThresholdRequestError('soft_rules_empty');
   const unknown = rules.find((rule) => !softRuleField(rule.field));
   if (unknown) throw new ThresholdRequestError(`soft_rule_field_unknown:${unknown.field}`, 422);
-  return {
-    ruleSetContentHash: current.contentHash, ruleSetContentHashVersion: current.contentHashVersion,
-    targets: rules.map(({ id, field, threshold }) => ({ id, field, threshold })),
-  };
+  const targets: ThresholdTarget[] = [
+    ...rules.map(({ id, field, scope, threshold }): ThresholdTarget => ({ kind: 'soft_rule', id, field, scope: targetScope(scope), threshold })),
+    ...candidates.map(({ candidateId, field, scope }): ThresholdTarget => ({ kind: 'candidate', id: candidateId, field, scope: targetScope(scope), threshold: null })),
+  ];
+  if (modelVersion !== 'rule_v3' && targets.some((target) => target.kind === 'candidate' || target.scope !== null)) {
+    throw new ThresholdRequestError('recommendation_targets_require_rule_v3');
+  }
+  if (new Set(targets.map(groupKey)).size > GROUPS_MAX) throw new ThresholdRequestError('soft_rule_limit_exceeded');
+  return { ruleSetContentHash: current.contentHash, ruleSetContentHashVersion: current.contentHashVersion, targets };
 }
 
 /**

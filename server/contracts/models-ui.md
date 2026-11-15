@@ -1,5 +1,5 @@
 Created: 2026-11-05T15:00:00+09:00
-Updated: 2026-11-15T12:45:00+09:00
+Updated: 2026-11-15T19:20:00+09:00
 Author: #128 Claude Code(WebUI builder)
 Status: current
 
@@ -20,7 +20,7 @@ Status: current
 | 학습 작업 | 접수되면 주소에 `job=<작업 ID>`를 두고 영역 맨 위에 상태를 표시(새로고침해도 이어짐). 대기·실행 중만 5초 조회 |
 | 버전 상세 | 모델·상태·운영·방법 버전·학습 작업 / 학습 기간·건수·선정 정책·제외 구간 / 입력 변수 / 학습 파라미터 / 산출물(파일 ID·hash·판정선) / 평가 이력(이 버전이 들어간 비교 평가, [evaluations-ui.md](evaluations-ui.md) 화면 절). 머리 오른쪽 `이 버전으로 교체`(운영 설정 하위 7): 실행 가능·운영 중 아님·`applicationEligibility.eligible`일 때만 눌리고 모델 교체 2단계로 간다([operations-ui.md](operations-ui.md) 운영 설정·모델 교체 절). 그 옆 `+ 새 비교 평가`(와이어프레임 문구): 실행 가능·운영 중 아님일 때만 눌리고 평가 결과 새 비교 평가 1단계(`/detection/evaluations?step=1`)로 가며 이 버전을 비교 모델로 미리 고른다(모델 교체 화면과 같은 state `compareVersionId` → 비교 평가 초안, 세트가 없으면 세트 양식을 연다 — [evaluations-ui.md](evaluations-ui.md) 모델 교체 2단계 줄과 같은 흐름) |
 
-- 머리글 '새 학습' 버튼, 교체·비교 평가 버튼 없음
+- 버전 목록 화면 머리글에는 '새 학습' 버튼, 교체·비교 평가 버튼 없음(버전 상세 머리의 `이 버전으로 교체`·`+ 새 비교 평가`는 위 표 버전 상세 줄)
 
 ## 와이어프레임에서 뺀 항목
 

@@ -1,5 +1,5 @@
 Created: 2026-10-21T00:00:00+09:00
-Updated: 2026-11-16T03:00:00+09:00
+Updated: 2026-11-15T19:20:00+09:00
 Author: Claude Code (Trainer 세션 builder, 6·7·10차 LLM 세션 builder, 10차 PR ② WebUI builder)
 Status: draft
 

@@ -33,6 +33,11 @@ export type EvaluationSet = {
 
 export type ComparisonStatus = "queued" | "running" | "succeeded" | "failed";
 export type RecommendationState = "current" | "applied" | "stale" | "none";
+/**
+ * 추천 분류(Trainer 저장값, 정본 "교체 추천 v1 대응(11/15)"): 사유 코드에서 결정적으로 정해진다. 추천이 있으면 `recommend_replace`만이다.
+ * 추천 계산 전 결과(11/15 이전)에는 없다(목록 null).
+ */
+export type RecommendationDecision = "recommend_replace" | "keep_current" | "insufficient_evidence" | "not_applicable";
 export type ComparisonListItem = {
   /** 비교 묶음은 완료 때 생긴다. 완료 전은 null이고 화면은 작업 ID로 연다. */
   comparisonId: string | null;
@@ -47,7 +52,7 @@ export type ComparisonListItem = {
   failedCount: number;
   completedAt: string | null;
   /** 교체 추천. 없으면 null이고 완료 뒤에는 `recommendationsReason`(v1 `not_implemented_v1`)이 있다. */
-  recommendations: { modelKey: string; targetVersionId: string | null; state: RecommendationState }[] | null;
+  recommendations: { modelKey: string; targetVersionId: string | null; state: RecommendationState; decision?: RecommendationDecision | null }[] | null;
   recommendationsReason?: string | null;
   /** `configVersionId` 필터로 읽을 때만: 그 버전의 항목 결과(모델 버전 상세 평가 이력). summary에 그 항목이 없으면 null. */
   versionResult?: VersionResult | null;
@@ -125,17 +130,37 @@ export type PairwiseAgreement = {
   agreementRate: Rate;
   interpretation: string;
 };
+/** 추천 원소의 후보 1개. 제외 후보는 첫 실패 사유 코드(`excludedReason`, 예 `item_failed:<코드>`·`common_rows_empty`·`evaluation_set_not_validation`). */
+export type RecommendationCandidate = {
+  configVersionId: string;
+  modelKey: string | null;
+  outcome: "selected" | "excluded" | "eligible_not_selected" | "eligible_not_compared";
+  excludedReason: string | null;
+  lostAt: number | null;
+};
+/** 실행 비용 한도 확인(추천 대상 기준). 한도를 정할 값이 없거나 후보 값이 없으면 `outcome: "unmeasured"`(통과로 적지 않음). */
+export type RecommendationCost = { metric: string; target: number | null; baseline: number | null; limit: number | null; limitRule?: string; outcome: "within_limit" | "unmeasured" };
+/** 무라벨 근거(판단에 쓰지 않는 복사값). 화면 표시 규칙이 계약에 없어 그리지 않는다. */
+export type UnlabeledEvidence = { interpretation: string; pairs: Record<string, unknown>[] };
 export type Recommendation = {
   modelKey: string;
   comparisonJobId: string;
   baselineConfigVersionId: string | null;
   targetVersionId: string | null;
   targetEvaluationId: string | null;
-  /** 서버가 만든 한글 1줄. 추천 없음이면 사유 문구다. */
+  /** 서버가 만든 한글 1줄. 추천 없음이면 사유 문구다. 화면은 다시 만들지 않는다. */
   summary: string;
   noRecommendationReason: string | null;
   generatedAt?: string;
   recommendationState: RecommendationState;
+  /** 11/15~. 추천 계산 전 결과(초안 모양)에는 없다. */
+  decision?: RecommendationDecision | null;
+  candidates?: RecommendationCandidate[];
+  costs?: RecommendationCost[];
+  checks?: { costLimit?: "passed" | "unmeasured"; [key: string]: unknown } | null;
+  unlabeledEvidence?: UnlabeledEvidence;
+  /** 사용한 임계값 기록. 화면 표시 규칙이 계약에 없어 그리지 않는다. */
+  thresholds?: Record<string, unknown>;
 };
 /** `GET /api/comparisons/:id`(비교 ID 또는 작업 ID). 완료 전에는 접수 때 고정한 값과 접수 항목만 있다. */
 export type ComparisonDetail = {

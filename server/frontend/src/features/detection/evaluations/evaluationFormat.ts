@@ -1,7 +1,7 @@
 import { versionLabel } from "@/features/detection/models/VersionList";
 import { DASH, numberText, percentText } from "@/features/operations/format";
 import type { EvaluationItem } from "@/services/api/pipeline.api";
-import type { CompareVersion, ComparisonListItem, ComparisonStatus, EvaluationPolicy, EvaluationSet, ItemCounts, Rate, RecommendationState } from "./evaluationsApi";
+import type { CompareVersion, ComparisonListItem, ComparisonStatus, EvaluationPolicy, EvaluationSet, ItemCounts, Rate, RecommendationDecision, RecommendationState } from "./evaluationsApi";
 
 /** 평가 결과 화면 표시 형식. 서버 값을 옮기기만 하고 판정을 다시 계산하지 않는다. */
 export const ruleConditionText = (revision: number | null | undefined) => (revision === null || revision === undefined ? DASH : `운영 룰 버전 ${revision} 고정`);
@@ -37,6 +37,13 @@ export const fixedInfoText = (set: EvaluationSet, full = false) => {
 
 export const SET_STATUS_LABELS = { queued: "대기", ready: "준비", failed: "실패" } as const;
 export const REC_STATE_LABELS: Record<RecommendationState, string> = { current: "현재 추천", applied: "이미 적용됨", stale: "지난 추천", none: "추천 없음" };
+/** 추천 분류 표시 이름(사용자 승인 11/15). */
+export const DECISION_LABELS: Record<RecommendationDecision, string> = { recommend_replace: "교체 추천", keep_current: "현재 유지", insufficient_evidence: "근거 부족", not_applicable: "해당 없음" };
+/** 모르는 분류 값은 코드를 그대로 보인다. */
+export const decisionLabel = (decision: string) => DECISION_LABELS[decision as RecommendationDecision] ?? decision;
+/** 추천 있음: 분류가 `recommend_replace`이거나, 분류가 없는 예전 모양에서 대상이 있을 때. */
+export const isReplaceRecommended = (rec: { decision?: string | null; targetVersionId: string | null }) =>
+  rec.decision ? rec.decision === "recommend_replace" : rec.targetVersionId !== null;
 export const comparisonStatus = (status: ComparisonStatus, failedCount: number) => {
   if (status === "queued") return { label: "대기", variant: "info" } as const;
   if (status === "running") return { label: "진행 중", variant: "info" } as const;

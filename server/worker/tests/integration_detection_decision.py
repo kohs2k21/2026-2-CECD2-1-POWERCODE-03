@@ -508,6 +508,23 @@ def evidence_and_columns(conn, sid, model_config, feature_set):
     assert row[5]["anomalous"] is None, "모델 미판정인데 정상이 되면 안 된다"
     print("PASS (b) 다른 source 모델은 not_configured와 사유를 남기고 정상이 되지 않음")
 
+    # 모르는 schemaVersion 구성은 모델 행이 있어도 읽지 않는다. 그 모델만 미판정이고 룰 결과는 남는다.
+    unknown = config(conn, sid, {"schemaVersion": 4, "featureSetId": str(feature_set)})
+    conn.execute("""INSERT INTO ml_config_models(config_version_id,model_key,feature_set_id,model_artifact_id,fit_artifact_id,
+        adapter_spec,training_settings,threshold_spec) SELECT %s,model_key,feature_set_id,model_artifact_id,fit_artifact_id,
+        adapter_spec,training_settings,threshold_spec FROM ml_config_models WHERE config_version_id=%s""", (unknown, model_config))
+    conn.commit()
+    save_models(conn, [active(unknown)])
+    _, payload = v04_job(conn, sid, "model-unknown-schema")
+    row = judged(conn, payload)
+    model = method(row[5], "ml:iforest")
+    assert (model["status"], model["cause"], model["evidence"]) == (
+        "not_ready", "not_configured", [{"reason": "unsupported_config_schema"}]), model
+    assert model["modelVersionId"] == str(unknown) and row[0] == "partial" and row[5]["anomalous"] is None, row[:3]
+    assert method(row[5], "hard:process-status")["status"] == "succeeded", row[5]["methodResults"]
+    save_models(conn, [active(model_config)])
+    print("PASS (b) 모르는 schemaVersion 모델은 unsupported_config_schema로 그 모델만 미판정")
+
     # 산출물 파일이 없으면 준비 안 됨, 있는데 내용이 다르면 실패다.
     path = conn.execute("""SELECT a.relative_path FROM ml_config_models c JOIN ml_artifacts a ON a.id=c.model_artifact_id
         WHERE c.config_version_id=%s""", (model_config,)).fetchone()[0]

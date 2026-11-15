@@ -140,6 +140,12 @@ export const parseStorage = (value: unknown): StorageView => {
       : null,
   };
 };
+/** 데이터 마운트 사용률(0~1): used / (used + available) — df Use%와 같은 분모(collector-metrics.md 4.1, 개요 diskPercent와 같음). */
+export const diskUsedRatio = (disk: StorageView["disk"]): number | null => {
+  if (!disk || disk.usedBytes === null || disk.availableBytes === null) return null;
+  const whole = disk.usedBytes + disk.availableBytes;
+  return whole > 0 ? disk.usedBytes / whole : null;
+};
 
 export type TrendView = { timezone: string;
   items: { day: string; decisionCount: number; anomalySignalRatio: number | null; unavailableRatio: number | null }[] };

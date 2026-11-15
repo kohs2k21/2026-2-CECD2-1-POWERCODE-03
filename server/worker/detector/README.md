@@ -23,7 +23,7 @@ v04 시도 1회의 순서.
 3. 결과가 도착할 때마다 `attempt_v04.py`의 `InterimRecorder`가 첫 이상·근거 추가를 `run_decision_interims`에 쓴다. 미도착 방법이 없으면 쓰지 않는다(판정 행이 최종이다). 대체됨·최종 없음은 DB 트리거가 쓴다.
 4. `build_evidence`와 `decision_columns`로 판정 행을 저장한다. 하드룰 입력 `HardRuleSelection`은 `read_hard_rule_snapshot`으로만 만들고 판정과 evidence가 같은 객체를 쓴다. v3 판정은 `relationInputs`·`relationNotes`(관계 입력을 읽은 판정), `protocolReview`(프로토콜 방법이 T), `relationRecheck`(재판정)를 더한다(`../../contracts/detection-decision.md` 11.4). 재판정 판정은 `ops_pipeline_measurements` 행을 넣지 않는다.
 
-소프트룰 필드 정의는 `methods/registry.py`의 `SOFT_RULE_FIELDS`를 쓴다. 모델을 읽지 못하거나 다른 source의 모델이면 그 모델만 `not_configured`로 미판정이 되고 다른 방법 결과는 남는다. 산출물 파일이 없어도 `not_configured`이고, 파일이 변조됐으면 `failed`·`artifact_invalid`다.
+소프트룰 필드 정의는 `methods/registry.py`의 `SOFT_RULE_FIELDS`를 쓴다. 모델을 읽지 못하거나 다른 source의 모델이면 그 모델만 `not_configured`로 미판정이 되고 다른 방법 결과는 남는다. 모델 버전 구성은 `schemaVersion` 정수 1·3만 읽고 그 밖(키 없음 포함)은 `unsupported_config_schema` 사유로 같은 미판정이다(`../../contracts/model-version.md` schemaVersion 3 판독 규칙 절). v03 경로(`load_context`)는 `schemaVersion`을 보지 않는다. 산출물 파일이 없어도 `not_configured`이고, 파일이 변조됐으면 `failed`·`artifact_invalid`다.
 
 방법 스레드는 공유 상태에 쓰지 않는다. 측정값·변수값은 결과와 함께 돌려주고, 기한 안에 채택된 결과의 값만 evidence·`data_feature_materializations`에 쓴다.
 

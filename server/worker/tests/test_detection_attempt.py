@@ -15,6 +15,7 @@ import re
 import sys
 import threading
 import time
+from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 import uuid
@@ -22,15 +23,16 @@ import uuid
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from detector import jobs
+from detector import attempt_v04, jobs
 from detector.attempt_v04 import judge_row
+from detector.computation import load_model_context
 from detector.decision import decide
 from detector.evidence_v4 import PinnedRevisions, build_evidence
 from detector.hard_rules import (HARD_RULES, PROCESS_STATUS, V3_HARD_RULE_IDS, read_hard_rule_snapshot,
                                  unresolved_hard_result)
 from detector.method_results import method_result, ml_method_result, unresolved_result
 from detector.method_runner import MethodOutcome, MethodTask, execute_methods
-from detector.operational_state import pin_fixed_state, pin_operational_state, rule_set_content_hash
+from detector.operational_state import ActiveModel, pin_fixed_state, pin_operational_state, rule_set_content_hash
 from detector.policy import _POOLS, _SLOTS, parse_policy_v2
 from detector.relation_plan import plan_relations
 from detector.soft_rules import soft_rule_fields, unresolved_soft_result
@@ -699,6 +701,76 @@ class UnresolvedShapes(unittest.TestCase):
         self.assertEqual(method["condition"], {"field": "elapsed_ms", "operator": "gt", "threshold": "8000", "unit": "ms"})
         self.assertIsNone(method["observedValue"])
         self.assertIsNone(unresolved_soft_result({**SOFT, "threshold": "x"}, "timeout")["condition"]["threshold"])
+
+
+class _ScriptedCursor:
+    """load_model_context가 차례로 읽는 행(구성 → 모델 → 변수 세트 hash → 변수 구성원)을 돌려준다."""
+
+    def __init__(self, conn):
+        self.conn = conn
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_):
+        return False
+
+    def execute(self, sql, params=None):
+        self.conn.executed.append(sql)
+
+    def fetchone(self):
+        return self.conn.answers.pop(0)
+
+    def fetchall(self):
+        return self.conn.answers.pop(0)
+
+
+class _ScriptedConn:
+    def __init__(self, source_id, spec):
+        model = ("fs-1", "m.joblib", "a" * 64, "f.joblib", "b" * 64, {"featureNames": ["count_total"]}, {}, "iforest")
+        self.answers = [(source_id, spec), [model], ("c" * 64,),
+                        [("count_total", {"op": "field", "field": "P.total_count"}, False)]]
+        self.executed = []
+
+    def cursor(self):
+        return _ScriptedCursor(self)
+
+
+class ModelSchemaVersion(unittest.TestCase):
+    """활성 집합 모델은 schemaVersion 1·3만 읽는다(model-version.md schemaVersion 3 판독 규칙)."""
+
+    def test_v1_and_v3_are_read(self):
+        source_id = uuid.uuid4()
+        for version in (1, 3):
+            conn = _ScriptedConn(source_id, {"schemaVersion": version, "featureSetId": "fs-1"})
+            context = load_model_context(conn, uuid.uuid4(), "iforest", source_id)
+            self.assertEqual((context["featureSetId"], context["featureHash"]), ("fs-1", "c" * 64))
+            self.assertEqual([item["name"] for item in context["definitions"]], ["count_total"])
+
+    def test_other_schemas_fail_closed_before_models(self):
+        source_id = uuid.uuid4()
+        for spec in ({"schemaVersion": 2}, {"schemaVersion": 4}, {"schemaVersion": 0}, {"schemaVersion": "3"},
+                     {"schemaVersion": True}, {"schemaVersion": 3.0}, {"schemaVersion": None}, {"featureSetId": "fs-1"},
+                     [], None):
+            conn = _ScriptedConn(source_id, spec)
+            with self.subTest(spec=spec), self.assertRaisesRegex(ValueError, "^unsupported_config_schema$"):
+                load_model_context(conn, uuid.uuid4(), "iforest", source_id)
+            self.assertEqual(len(conn.executed), 1, "모델 행을 읽기 전에 멈춘다")
+
+    def test_source_check_comes_first(self):
+        conn = _ScriptedConn(uuid.uuid4(), {"schemaVersion": 4})
+        with self.assertRaisesRegex(ValueError, "^config_source_mismatch$"):
+            load_model_context(conn, uuid.uuid4(), "iforest", uuid.uuid4())
+
+    def test_load_error_leaves_only_that_model_unresolved(self):
+        active = ActiveModel(uuid.uuid4(), "iforest")
+        state = SimpleNamespace(active_models=(active,))
+        with patch.object(attempt_v04, "load_model_context", side_effect=ValueError("unsupported_config_schema")):
+            [model] = attempt_v04.load_models(object(), state, uuid.uuid4())
+        self.assertIsNone(model.context)
+        result = attempt_v04._run_model(model, {}, None).result
+        self.assertEqual((result["status"], result["cause"], result["anomalous"], result["evidence"]),
+                         ("not_ready", "not_configured", None, [{"reason": "unsupported_config_schema"}]))
 
 
 class ScoreTypes(unittest.TestCase):

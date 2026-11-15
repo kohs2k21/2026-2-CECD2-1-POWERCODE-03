@@ -257,3 +257,110 @@ export async function seedV04Decisions(pool, { sourceId, configId, runId }) {
   }
   return { ruleOnlySource };
 }
+
+/**
+ * Collector·Detector 운영 계측 시험용(collector-metrics.md 2~4절, detection-decision.md 18·19절). 기존 원천과 섞이지 않게 새 원천 2개를 쓴다.
+ * - 계측 원천(api 실행 running, 원천 시간대 verified): P 관측의 원천 → 저장 지연 원값 2000·4000·6000(assumed)·-1000(assumed) ms + 제외 대상
+ *   (unparsed·absent·030 이전 출처·initial·revision 2·2시간 전), measured 판정 1000·3000·5000·-500 ms + unavailable + 2시간 전,
+ *   판정 저장 소요 2·4·10 ms + 2시간 전, T 관측(원천 시각 30분 전·3일 전·없음).
+ * - 음수만 있는 원천: live 관측 -2000 ms 하나와 measured 판정 -300 ms 하나.
+ * 자원·저장공간 표본은 전역 표라 이 함수가 넣지 않는다(시험이 단계별로 넣는다).
+ * @param {import('pg').Pool} pool
+ */
+export async function seedCollectorMetrics(pool) {
+  const actor = 'operations-fixture';
+  const client = await pool.connect();
+  const created = {};
+  try {
+    await client.query('BEGIN');
+    const source = async (name, clockBasis) => {
+      const sourceId = id(), runId = id(), configId = id();
+      await client.query(`INSERT INTO ops_sources(id,dataset_key,display_name,ingestion_method,schema_version,clock_basis,field_catalog,created_at)
+        VALUES($1,$2,$2,'switchable-input','arrival-snapshot-v1',$3::jsonb,'{"layers":["T","P"]}',clock_timestamp())`,
+      [sourceId, `operations-${name}-${sourceId}`, JSON.stringify(clockBasis)]);
+      await client.query(`INSERT INTO ops_input_runs(id,source_id,mode,replay_id,settings,status,next_position,accepted_count,
+          last_attempt_at,last_success_at,created_at)
+        VALUES($1,$2,'api',NULL,'{"pollSeconds":2}','running',3,10,clock_timestamp()-interval '1 second',
+          clock_timestamp()-interval '3 seconds',clock_timestamp()-interval '3 hours')`, [runId, sourceId]);
+      await client.query(`INSERT INTO ops_input_controls(source_id,mode,revision,run_id,updated_by_actor_id,worker_heartbeat_at)
+        VALUES($1,'api',2,$2,$3,clock_timestamp())`, [sourceId, runId, actor]);
+      await client.query(`INSERT INTO ml_config_versions(id,source_id,configuration_spec,explanation_spec,content_hash,created_by_actor_id,created_at)
+        VALUES($1,$2,'{}','{}',$3,$4,clock_timestamp())`, [configId, sourceId, sha(configId), actor]);
+      return { sourceId, runId, configId };
+    };
+    // 관측 1행(+출처). lagMs = persisted_at − source_log_occurred_at(원값), occurredMinutesAgo는 원천 시각을 지금 기준으로 직접 준다. 둘 다 없으면 원천 시각 없음.
+    const observe = async (s, { layer = 'P', clockStatus, lagMs = null, phase = 'live', mode = 'api', minutesAgo = 1, revision = 1, execution = null,
+      origin = true, occurredMinutesAgo = null }) => {
+      const obs = id();
+      let exec = null;
+      if (layer === 'P') {
+        exec = execution ?? id();
+        if (!execution) await client.query(`INSERT INTO data_executions(id,source_id,layer,execution_key,key_parts,key_contract_version,first_observed_at)
+          VALUES($1,$2,'P',$3,'{}','v1',clock_timestamp())`, [exec, s.sourceId, `exec-${exec}`]);
+      }
+      await client.query(`INSERT INTO data_observations(id,source_id,layer,execution_id,revision_no,dedup_key,content_hash,
+          source_log_time_raw,source_log_occurred_at,api_received_at,persisted_at,clock_status,parsed_times,allowed_values,quality_flags,missing_fields)
+        SELECT $1,$2,$3,$4,$5,$6,$7,CASE WHEN occurred IS NULL THEN NULL ELSE 'fixture' END,occurred,persisted,persisted,$8,
+          '{"rule":"source-time-v1"}','{}','[]','[]'
+          FROM (SELECT p AS persisted,CASE WHEN $10::double precision IS NOT NULL THEN clock_timestamp()-$10::double precision*interval '1 minute'
+                       WHEN $9::double precision IS NULL THEN NULL ELSE p-make_interval(secs=>$9::double precision/1000) END AS occurred
+                  FROM (SELECT clock_timestamp()-$11::double precision*interval '1 minute' AS p) t) x`,
+      [obs, s.sourceId, layer, exec, layer === 'P' ? revision : null, `${layer}:${obs}`, sha(obs), clockStatus, lagMs, occurredMinutesAgo, minutesAgo]);
+      if (layer === 'P') await client.query(`INSERT INTO data_processes(observation_id,process_id,status) VALUES($1,'P00','S')`, [obs]);
+      if (origin) await client.query(`INSERT INTO data_input_origins(observation_id,run_id,mode,position,namespace,ingest_phase)
+        VALUES($1,$2,$3,NULL,'fixture',$4)`, [obs, s.runId, mode, phase]);
+      return { obs, execution: exec };
+    };
+    // 판정 1행(구성 있는 v03 모양, 작업 없음). latencyMs가 null이면 unavailable(원천 시각·지연 NULL), 아니면 measured 원값.
+    const decide = async (s, { obs, execution }, latencyMs, secondsAgo = 5) => {
+      await client.query(`INSERT INTO run_process_decisions(id,execution_id,process_observation_id,config_version_id,input_manifest_hash,
+          status,rule_status,ml_status,anomaly_score,evidence,decided_at,source_log_occurred_at,source_latency_ms,latency_status)
+        SELECT $1,$2,$3,$4,$5,'complete','succeeded','succeeded',0.1,'{"anomalous":false}',d,
+          CASE WHEN $6::numeric IS NULL THEN NULL ELSE d-make_interval(secs=>($6::numeric/1000)::double precision) END,$6::numeric,
+          (CASE WHEN $6::numeric IS NULL THEN 'unavailable' ELSE 'measured' END)::measurement_status
+          FROM (SELECT clock_timestamp()-make_interval(secs=>$7::double precision) AS d) t`,
+      [id(), execution, obs, s.configId, sha(`decision:${obs}`), latencyMs, secondsAgo]);
+    };
+    const store = async ({ obs }, durationMs, minutesAgo = 1) => client.query(`INSERT INTO ops_pipeline_measurements(id,observation_id,stage,
+        config_version_id,duration_ms,measured_at)
+      VALUES($1,$2,'judgment_store',NULL,$3,clock_timestamp()-$4::double precision*interval '1 minute')`, [id(), obs, durationMs, minutesAgo]);
+
+    const metrics = await source('metrics', { status: 'verified', timezone: 'Asia/Seoul', method: 'persist_lag_check',
+      verifiedAt: '2026-11-15T00:00:00Z', verifiedBy: actor });
+    const verified = await observe(metrics, { clockStatus: 'verified_tz', lagMs: 2000 });
+    const offset = await observe(metrics, { clockStatus: 'offset', lagMs: 4000 });
+    const assumed = await observe(metrics, { clockStatus: 'assumed_tz', lagMs: 6000 });
+    const ahead = await observe(metrics, { clockStatus: 'assumed_tz', lagMs: -1000 });
+    const unparsed = await observe(metrics, { clockStatus: 'unparsed' });
+    const absent = await observe(metrics, { clockStatus: 'absent' });
+    await observe(metrics, { clockStatus: 'unknown', phase: null });
+    await observe(metrics, { clockStatus: 'verified_tz', lagMs: 100, phase: 'initial' });
+    await observe(metrics, { clockStatus: 'verified_tz', lagMs: 100, revision: 2, execution: verified.execution });
+    await observe(metrics, { clockStatus: 'verified_tz', lagMs: 100, minutesAgo: 120 });
+    await decide(metrics, verified, 1000);
+    await decide(metrics, offset, 3000);
+    await decide(metrics, assumed, 5000);
+    await decide(metrics, ahead, -500);
+    await decide(metrics, unparsed, null);
+    // 창(1시간) 밖 measured 판정: 시각 조건만 시험한다.
+    await decide(metrics, absent, 100, 7200);
+    for (const [index, duration] of [2, 4, 10].entries()) await store([verified, offset, assumed][index], duration);
+    await store(ahead, 500, 120);
+    await observe(metrics, { layer: 'T', clockStatus: 'verified_tz', occurredMinutesAgo: 30, origin: false });
+    await observe(metrics, { layer: 'T', clockStatus: 'verified_tz', occurredMinutesAgo: 3 * 24 * 60, origin: false });
+    await observe(metrics, { layer: 'T', clockStatus: 'absent', origin: false });
+    created.metrics = metrics;
+
+    const skewOnly = await source('skew', { status: 'unknown' });
+    const early = await observe(skewOnly, { clockStatus: 'assumed_tz', lagMs: -2000 });
+    await decide(skewOnly, early, -300);
+    created.skewOnly = skewOnly;
+    await client.query('COMMIT');
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+  return { metricsSource: created.metrics.sourceId, skewSource: created.skewOnly.sourceId };
+}

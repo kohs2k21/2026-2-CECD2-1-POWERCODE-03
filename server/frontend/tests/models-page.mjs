@@ -44,6 +44,8 @@ const { AuthSessionProvider } = await import("../src/services/auth/AuthSessionPr
 const { appRoutes } = await import("../src/app/appRoutes.tsx");
 const { useDraftStore } = await import("../src/stores/draftStore.ts");
 const period = await import("../src/features/detection/models/period.ts");
+// 화면 시각 칸은 공용 stampText(보는 사람의 지역 시각)다. 기대값도 같은 함수로 만들어 실행 환경 시간대와 무관하게 한다.
+const { stampText } = await import("../src/features/operations/format.ts");
 const draftModule = await import("../src/features/detection/models/trainDraft.ts");
 const { Dialog } = await import("../src/components/ui/dialog.tsx");
 
@@ -519,9 +521,9 @@ const tocSections = (app, menu) => detectionToc[menu].map(({ id }) => {
   assert.deepEqual(history.findAll((node) => node.type === "th").map((node) => text(node.children)), ["비교", "평가 세트", "완료", "상태"]);
   assert.deepEqual(history.findAll((node) => node.type === "tr").slice(1).map((tr) => tr.findAll((node) => node.type === "td").map((td) => text(td.children))), [
     [C(1).slice(0, 8), "10월 검증 분할", "—", "대기"],
-    [C(2).slice(0, 8), "10월 검증 분할", "11/10 10:00", "측정"],
-    [C(4).slice(0, 8), SET_BAD.slice(0, 8), "11/10 10:00", "미측정"],
-    [C(6).slice(0, 8), "10월 검증 분할", "11/10 10:00", "평가 실패 · training_evaluation_overlap"],
+    [C(2).slice(0, 8), "10월 검증 분할", stampText("2026-11-10T01:00:00Z"), "측정"],
+    [C(4).slice(0, 8), SET_BAD.slice(0, 8), stampText("2026-11-10T01:00:00Z"), "미측정"],
+    [C(6).slice(0, 8), "10월 검증 분할", stampText("2026-11-10T01:00:00Z"), "평가 실패 · training_evaluation_overlap"],
   ]);
   // 행 → 평가 상세(완료 전은 작업 ID), 뒤로가기는 이 버전 상세(쿼리 유지)
   assert.deepEqual(routerLinks(app, "/detection/evaluations/").map((node) => [node.props.to, node.props.state.returnTo]),

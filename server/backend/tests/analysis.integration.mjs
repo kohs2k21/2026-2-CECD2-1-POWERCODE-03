@@ -504,9 +504,9 @@ try {
   assert.deepEqual([viaVersion.status, viaVersion.body.code], [404, 'feedback_not_found'], 'path key is the original record id');
   // 동시 수정: 같은 판본을 동시에 두 번 고치면 한쪽만 성공한다.
   const olderCurrent = byReason(await anomalyRecords(), '확인 normal');
-  const raced = await Promise.all([1, 2].map((n) => edit(D.anomaly.id, older.id, { kind: 'action', reason: `동시 ${n}`, expectedId: olderCurrent.id })));
-  assert.deepEqual(raced.map((response) => response.status).sort(), [200, 409], JSON.stringify(raced.map((response) => response.body)));
-  assert.equal(raced.find((response) => response.status === 409).body.code, 'feedback_edit_conflict');
+  const racedEdits = await Promise.all([1, 2].map((n) => edit(D.anomaly.id, older.id, { kind: 'action', reason: `동시 ${n}`, expectedId: olderCurrent.id })));
+  assert.deepEqual(racedEdits.map((response) => response.status).sort(), [200, 409], JSON.stringify(racedEdits.map((response) => response.body)));
+  assert.equal(racedEdits.find((response) => response.status === 409).body.code, 'feedback_edit_conflict');
   // 권한: user 403 admin_required, 다른 관리자가 남긴 기록 403 feedback_author_required.
   const otherAuthor = crypto.randomUUID();
   await pool.query(`INSERT INTO run_decision_feedback(id,decision_id,kind,reason,actor_id) VALUES($1,$2,'action','다른 관리자 기록','qa-other-admin')`,

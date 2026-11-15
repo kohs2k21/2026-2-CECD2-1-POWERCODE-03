@@ -1,5 +1,5 @@
 Created: 2026-10-21T00:00:00+09:00
-Updated: 2026-11-14T21:00:00+09:00
+Updated: 2026-11-15T18:00:00+09:00
 Author: Claude Code (Trainer 세션 builder)
 Status: draft
 
@@ -18,7 +18,7 @@ Status: draft
 
 - 상태: Trainer 구현(`trainer/comparison.py`, 공유 평가 핵심 `trainer/runner.py` `_version_context`·`_measure_version`), API·화면은 WebUI 세션. 저장은 migration 011 그대로(새 migration 없음). 아래 초안 절은 v1 이후 목표로 남김
 - 구현: 합성 없는 세트만, **작업당 modelKey 1종**(기준선 0..1개), 모델 버전 schemaVersion **1·2·3**(운영 버전은 v1·v2 — 화면 학습이 v1을 만듦), `replacementRecommendations: null`
-- 미구현: 합성 세트(`synthetic` 요청·산출물 `evaluation-sets/...json`), 한 작업의 여러 modelKey·`baselines[]` 2개 이상, `replacementRecommendations[]`, `composite`·`methodResults[]`·`categoryResults.hard/soft`·`evaluationEnvelope`, `comparison-methods-v1` 지표 버전, 조회 시 파생 필드(`recommendationState`·`ruleSetCurrent`), §4.8 자동 비교 평가
+- 미구현: 합성 세트(`synthetic` 요청·산출물 `evaluation-sets/...json`), 한 작업의 여러 modelKey·`baselines[]` 2개 이상, `replacementRecommendations[]`, `methodResults[]`·`categoryResults.hard/soft`·`evaluationEnvelope`, `comparison-methods-v1` 지표 버전, 조회 시 파생 필드(`recommendationState`·`ruleSetCurrent`), §4.8 자동 비교 평가
 
 ### 평가 세트 생성(`kind=evaluation_set`)
 
@@ -39,7 +39,7 @@ Status: draft
 
 - 작업 실패(재시도 없음): `invalid_job_input`, `comparison_configs_required`, `comparison_too_many_configs`, `comparison_model_key_mixed`(baselines 2개 이상 또는 실행 중 다른 modelKey 발견), `detection_policy_unavailable`·`invalid_detection_policy`·`unsupported_detection_policy`(고정 정책 판독, `operational_state._check_policy`), `evaluation_set_not_ready`, `evaluation_set_source_mismatch`, `synthetic_set_unsupported`, `rule_set_revision_mismatch`, `evaluation_set_changed`(세트 행 재계산 hash 불일치), 기준선 버전 자체가 `config_not_found`·`config_source_mismatch`(기준선 열을 채울 수 없음), `comparison_all_items_failed`
 - 순서: 활성 먼저, 후보는 UUID 문자열 정렬. 항목마다 evaluate와 같은 핵심(`_version_context`·`_measure_version`)으로 세트 행 전체를 평가. **v1·v2는 구성에 저장된 정책·룰 그대로**(evaluate v1·v2와 같음), **v3는 접수 고정 `detectionPolicy.deadlineMs`로 ML만**(시도 시작 판독 아님, 예열 포함). 재학습·운영 변경 없음
-- 룰 세트: 고정 리비전은 **적용하지 않고 기록만**(v3는 ML만, v1·v2는 구성 룰). Trainer는 `ops_rule_set_revisions`의 그 리비전 hash = `ruleSetContentHash`만 확인. 항목 ML 결과는 룰과 무관하므로 `rule_set_stale` 판정은 두지 않음
+- 룰 세트: 고정 리비전은 항목 ML 평가·`applicability`에는 **적용하지 않고**(v3는 ML만, v1·v2는 구성 룰) 항목 **`composite`에만 적용**(Detector v04 판정 경로, 항목 모델 1개, 아래 "종합(`composite`) v1"). 작업 시작 때 Detector 판독(`operational_state.read_rule_set_snapshot` — 리비전 행 없음·저장 hash/hash 버전 불일치·그 행 hash 버전 규칙(v3 포함)으로 다시 계산한 hash 불일치·버전별 구조 검사)으로 확인하고 실패하면 작업 실패 `rule_set_revision_mismatch`. 항목 ML 결과는 룰과 무관하므로 `rule_set_stale` 판정은 두지 않음
 - 항목 실패(그 항목만 `failed`, 나머지 계속; 검사 순서 = 표 순서)
 
 | 코드 | 조건 |
@@ -76,9 +76,25 @@ Status: draft
      "completeOnly": {"recall": {"value": 1.0, "numerator": 12, "denominator": 12, "reason": null},
                       "precision": {"value": 0.706, "numerator": 12, "denominator": 17, "reason": null},
                       "falsePositiveRate": {"value": 0.083, "numerator": 5, "denominator": 60, "reason": null}},
+     "decidable": {"basis": "decidable", "recall": {"value": 1.0, "numerator": 12, "denominator": 12, "reason": null},
+                   "precision": {"value": 0.706, "numerator": 12, "denominator": 17, "reason": null},
+                   "falsePositiveRate": {"value": 0.083, "numerator": 5, "denominator": 60, "reason": null},
+                   "unavailableCount": 0, "biasNote": "single_method_equals_complete_only"},
      "predictedAnomalyCount": 34,
      "predictedAnomalyRate": {"value": 0.114, "unit": "ratio", "numerator": 34, "denominator": 299, "coverage": 1.0, "reason": null},
      "scoreQuantiles": {"p50": 0.518, "p95": 0.565, "p99": 0.565, "count": 299, "reason": null}}},
+   "composite": {"metricVersion": "comparison-composite-v1", "ruleSetRevision": 1, "detectionPolicyRevision": 1, "populationCount": 299,
+     "labelCounts": {"anomalyLabelCount": 12, "normalLabelCount": 60, "unlabeledCount": 227}, "relationInputs": "not_used",
+     "completeOnly": {"basis": "complete_only", "confusion": {"tp": 12, "fp": 6, "tn": 50, "fn": 0},
+       "recall": {"value": 1.0, "unit": "ratio", "numerator": 12, "denominator": 12, "coverage": 1.0, "reason": null},
+       "precision": {"value": 0.667, "unit": "ratio", "numerator": 12, "denominator": 18, "coverage": null, "reason": null},
+       "falsePositiveRate": {"value": 0.107, "unit": "ratio", "numerator": 6, "denominator": 56, "coverage": 0.933, "reason": null},
+       "coverage": 0.95, "unavailableCount": 15, "hitCount": 39},
+     "decidable": {"basis": "decidable", "confusion": {"tp": 12, "fp": 7, "tn": 50, "fn": 0},
+       "recall": {"value": 1.0, "unit": "ratio", "numerator": 12, "denominator": 12, "coverage": 1.0, "reason": null},
+       "precision": {"value": 0.632, "unit": "ratio", "numerator": 12, "denominator": 19, "coverage": null, "reason": null},
+       "falsePositiveRate": {"value": 0.123, "unit": "ratio", "numerator": 7, "denominator": 57, "coverage": 0.95, "reason": null},
+       "coverage": 0.97, "unavailableCount": 9, "hitCount": 45, "biasNote": "partial_true_included_none_excluded"}},
    "executionCost": {"status": "measured", "reason": null, "metricVersion": "execution-cost-v1",
      "metrics": {"itemP50Ms": {"value": 15.0, "unit": "ms", "numerator": null, "denominator": null, "coverage": null, "reason": null},
                  "itemP95Ms": {"value": 16.0, "unit": "ms", "numerator": null, "denominator": null, "coverage": null, "reason": null}, "…": "…"},
@@ -163,6 +179,29 @@ Status: draft
 | `categoryResults.ml.unavailableCount`(기존 "제외 행") | 판정 실패 행 |
 
 - 기존 "제외 행"(= `ml.unavailableCount`) 라벨은 "판정 실패 행"으로 바꾼다(사용자 승인 2026-11-14, 위 표에 포함). "평가 제외 행"과 두 줄로 구분한다
+
+### 종합(`composite`) v1 (11/15) [확정 — WebUI·Detector 합의]
+
+항목 `composite`는 "그 모델 버전을 지금 룰 세트와 함께 운영했다면 종합 판정이 어땠는가"의 참고 값이다(`composite_reference_only`, 추천 근거 아님). 구현: `trainer/comparison_composite.py`, `trainer/comparison.py` `item_composite`.
+
+- 대상: 비교 작업의 **성공 항목마다**. 단독 evaluate에는 없다. 실패 항목·이 절 이전 결과에는 키가 없다
+- 입력(모든 항목 같은 룰·정책, v1·v2·v3 항목 모두): 항목 ML 평가와 **같은 평가 대상 행**(평가 제외 행을 뺀 뒤 — 제외 행은 종합에서도 세지 않는다) × 접수 고정 룰 세트 리비전 × 접수 고정 정책(`detectionPolicy`) × **그 항목 모델 1개**(활성 집합의 다른 모델은 넣지 않는다). 항목 `applicability`·`counts`·`evaluationPolicy`·`executionCost`는 지금처럼 항목 평가 경로 기준이다
+- 계산: 행마다 Detector v04 판정 경로를 그대로 부른다 — `operational_state.pin_fixed_state`(고정 값으로 운영 뷰 판독과 같은 검사), `attempt_v04.load_models`, 관계 입력이 필요한 판정만 `relation_inputs.read_relation_inputs` → `relation_plan.plan_relations`, `attempt_v04.judge_row`(방법 실행·기한 처리·`decision.decide`; DB 쓰기·중간 판정 기록 없음). 기한 = 고정 정책 `deadlineMs`, 각 행 판정 시작부터. 보류·적용 안 함(`held`·`deferred_to_transaction`·`transaction_pending`)과 슬롯 부족(`capacity`)·시간 초과는 운영과 같은 결과다. Trainer는 행별 종합 `status`·`anomalous`와 라벨로 칸만 센다(판정 로직 재구현 없음). 행별 판정은 작업 메모리에만 둔다
+- 관계 입력 `relationInputs`: `"not_used"`(관계 입력이 필요한 판정 0행) / `"read_at_comparison_run"`(관계 규칙·`hard:transaction-failed`·프로토콜 기능이 켜져 있어 1행 이상에서 같은 거래의 행을 읽음). readAt = 그 행을 읽을 때의 DB `clock_timestamp()`(비교 실행 시점, 시도 시작 판독과 같은 규칙). 거래 행 도착 확정 = 그 거래의 모든 실행(최신 리비전) `persisted_at ≤ readAt − 30s`. 거래·메시지 행은 세트 content hash 밖이라 같은 세트를 다시 비교해도 같은 값을 보장하지 않는다
+- 두 기준(결과 절 Q7 C 확정과 같음, 항상 병기): `completeOnly` = 종합 `status = complete`(모든 방법 succeeded) 행, `decidable` = 종합 `anomalous`가 null이 아닌 행(partial이어도 T면 포함, None만 뺌). 두 기준의 키는 같다: `basis`, `confusion{tp,fp,tn,fn}`, `recall`·`precision`·`falsePositiveRate`(measurement `{value, unit:"ratio", numerator, denominator, coverage, reason}`), `coverage`, `unavailableCount`, `hitCount`(라벨 무관 종합 T 행 수). `decidable`에만 `biasNote: "partial_true_included_none_excluded"`
+- 비율: `recall` = tp/(tp+fn), `coverage` = (tp+fn)/`anomalyLabelCount` / `precision` = tp/(tp+fp), `coverage` null / `falsePositiveRate` = fp/(fp+tn), `coverage` = (fp+tn)/`normalLabelCount`. null 규칙은 `categoryResults.ml`과 같다: normal 라벨 0 → `fp`·`tn`·`precision`·`falsePositiveRate` null + `verified_normal_labels_unavailable`, anomaly 라벨 0 → `tp`·`fn`·`recall` null + `verified_anomaly_labels_unavailable`(`precision`은 normal 사유가 먼저). 분모 0 → `value: null` + `no_scored_anomaly_rows`·`no_predicted_anomalies`·`no_scored_normal_rows`
+- 불변식: `composite.populationCount` = 항목 `counts.populationCount`(따라서 + `counts.excludedCount` = 세트 `rowCount`) / `labelCounts` 세 값의 합 = `populationCount` / 각 기준 `coverage` = (`populationCount` − `unavailableCount`) / `populationCount` / complete ⊆ decidable(`decidable.unavailableCount ≤ completeOnly.unavailableCount`, `decidable.hitCount ≥ completeOnly.hitCount`). `composite.completeOnly.unavailableCount`는 항목 `counts.unavailableCount`(항목 평가 경로)와 다른 양이다
+- `composite: null` + 항목 `reasonCodes` 끝에 `composite_unavailable:<code>`(항목은 `succeeded` 그대로, ML 단독 결과·평가 행 불변, `run_evaluations.reason_codes`에는 넣지 않음): `policy_k_exceeds_single_model`(고정 정책 `k.ml` > 1 — 결과 절 정책 k > n 규칙, 먼저 본다) / `all_rows_excluded`(평가 대상 0행) / 종합 준비·행 판정에서 Detector가 낸 코드(예 `load_models`의 `model_unavailable`·`config_source_mismatch`·`unsupported_config_schema`(schemaVersion 1·3만 판독, [model-version.md](model-version.md)), `pin_fixed_state`의 `combination_k_out_of_range:hard`·`detection_policy_unavailable`, 관계 입력의 `relation_focus_unavailable`). 코드 형식이 아닌 문구면 `composite_preparation_failed`. ValueError가 아닌 예외(DB 연결·권한 오류 등)는 종합 null로 바꾸지 않는다 — 비교 작업 시도 전체가 실패하고(`job_processing_failed`, 결과 미공개) Trainer 작업 재시도 규칙대로 다시 실행된다
+- 행마다 모델 산출물·변수가 맞지 않는 경우(`artifact_invalid`·`feature_unavailable` 등)는 준비 실패가 아니라 그 행의 ML 방법 결과다(운영과 같음 — 그 행은 partial/unavailable). v3 항목은 그 전에 항목 평가 예열에서 항목 실패가 된다
+- 룰 세트 스냅샷 판독 실패는 종합 null이 아니라 작업 시작 때 작업 실패 `rule_set_revision_mismatch`(실행 절)
+- 저장: `summary.items[].composite`(작업 `result_summary`·`run_config_comparisons.summary`)와 `categoryResults.ml.decidable`만. `run_evaluations.metrics`·migration 변경 없음
+- 실행 시간: 항목·행마다 판정을 한 번 더 한다(ML 채점 포함, 룰 과제는 행당 ms 미만) → 비교 작업 전체가 약 1.6~2배(추정). 비교는 사람이 요청하는 비동기 작업이라 실행 시간 증가를 받아들임(사용자 결정). 관계 입력이 필요한 판정은 행마다 SQL 최대 4문장이 더해진다. 항목 `executionCost`는 항목 평가 경로만 잰 값 그대로다(종합 시간 미포함)
+- 미룸(이번 범위 밖 — 행마다 방법 수 n이 바뀔 때 skipped 행 집계 규칙이 아직 없음): `categoryResults.hard/soft`, `methodResults[]`, `evaluationEnvelope`(룰·모델 교차표 `rule_ml`)
+
+**`categoryResults.ml.decidable`**
+
+- `{basis: "decidable", recall, precision, falsePositiveRate, unavailableCount, biasNote: "single_method_equals_complete_only"}` — 비율 모양은 `completeOnly`와 같다(`{value, numerator, denominator, reason}`)
+- ML 방법은 1개이고 succeeded가 아니면 `anomalous`가 null이므로 판정 가능 행 = 완료 행 → 값은 `completeOnly`와 같고 `unavailableCount` = `ml.unavailableCount`. `measurementStatus: "skipped"`면 `decidable: null`, `"unavailable"`이면 `completeOnly`와 같은 사유(`ml_results_unavailable`)
 
 ## 평가 세트 `evaluation-set-v1`
 
@@ -313,14 +352,18 @@ Status: draft
      "applicability": "unmeasured", "reasonCodes": ["selected_paths_unavailable", "synthetic_set_evaluation"],
      "counts": {"populationCount": 1200, "scoredCount": 1188, "unavailableCount": 12, "unlabeledCount": 1180},
      "composite": {
-       "detectionPolicyRevision": 2,
-       "labelCounts": {"anomalyLabelCount": 20, "normalLabelCount": 0, "unlabeledCount": 1180},
+       "metricVersion": "comparison-composite-v1", "ruleSetRevision": 13, "detectionPolicyRevision": 2, "populationCount": 1200,
+       "labelCounts": {"anomalyLabelCount": 20, "normalLabelCount": 0, "unlabeledCount": 1180}, "relationInputs": "not_used",
        "completeOnly": {"basis": "complete_only", "confusion": {"tp": 10, "fp": null, "tn": null, "fn": 8},
                         "precision": {"value": null, "unit": "ratio", "numerator": null, "denominator": null, "coverage": null, "reason": "verified_normal_labels_unavailable"},
                         "recall": {"value": 0.556, "unit": "ratio", "numerator": 10, "denominator": 18, "coverage": 0.9, "reason": null},
                         "falsePositiveRate": {"value": null, "unit": "ratio", "numerator": null, "denominator": null, "coverage": null, "reason": "verified_normal_labels_unavailable"},
                         "coverage": 0.99, "unavailableCount": 12, "hitCount": 31},
-       "decidable": {"basis": "decidable", "confusion": {"tp": 11, "fp": null, "tn": null, "fn": 8}, "coverage": 0.995, "unavailableCount": 6,
+       "decidable": {"basis": "decidable", "confusion": {"tp": 11, "fp": null, "tn": null, "fn": 8},
+                     "precision": {"value": null, "unit": "ratio", "numerator": null, "denominator": null, "coverage": null, "reason": "verified_normal_labels_unavailable"},
+                     "recall": {"value": 0.579, "unit": "ratio", "numerator": 11, "denominator": 19, "coverage": 0.95, "reason": null},
+                     "falsePositiveRate": {"value": null, "unit": "ratio", "numerator": null, "denominator": null, "coverage": null, "reason": "verified_normal_labels_unavailable"},
+                     "coverage": 0.995, "unavailableCount": 6, "hitCount": 37,
                      "biasNote": "partial_true_included_none_excluded"}},
      "categoryResults": {
        "hard": {"measurementStatus": "measured", "ruleCount": 2, "confusion": {"tp": 7, "fp": null, "tn": null, "fn": 13}, "unavailableCount": 0},
@@ -347,14 +390,18 @@ Status: draft
      "applicability": "valid", "reasonCodes": ["synthetic_set_evaluation"],
      "counts": {"populationCount": 1200, "scoredCount": 1200, "unavailableCount": 0, "unlabeledCount": 1180},
      "composite": {
-       "detectionPolicyRevision": 2,
-       "labelCounts": {"anomalyLabelCount": 20, "normalLabelCount": 0, "unlabeledCount": 1180},
+       "metricVersion": "comparison-composite-v1", "ruleSetRevision": 13, "detectionPolicyRevision": 2, "populationCount": 1200,
+       "labelCounts": {"anomalyLabelCount": 20, "normalLabelCount": 0, "unlabeledCount": 1180}, "relationInputs": "not_used",
        "completeOnly": {"basis": "complete_only", "confusion": {"tp": 13, "fp": null, "tn": null, "fn": 7},
                         "precision": {"value": null, "unit": "ratio", "numerator": null, "denominator": null, "coverage": null, "reason": "verified_normal_labels_unavailable"},
                         "recall": {"value": 0.65, "unit": "ratio", "numerator": 13, "denominator": 20, "coverage": 1, "reason": null},
                         "falsePositiveRate": {"value": null, "unit": "ratio", "numerator": null, "denominator": null, "coverage": null, "reason": "verified_normal_labels_unavailable"},
                         "coverage": 1, "unavailableCount": 0, "hitCount": 29},
-       "decidable": {"basis": "decidable", "confusion": {"tp": 13, "fp": null, "tn": null, "fn": 7}, "coverage": 1, "unavailableCount": 0,
+       "decidable": {"basis": "decidable", "confusion": {"tp": 13, "fp": null, "tn": null, "fn": 7},
+                     "precision": {"value": null, "unit": "ratio", "numerator": null, "denominator": null, "coverage": null, "reason": "verified_normal_labels_unavailable"},
+                     "recall": {"value": 0.65, "unit": "ratio", "numerator": 13, "denominator": 20, "coverage": 1, "reason": null},
+                     "falsePositiveRate": {"value": null, "unit": "ratio", "numerator": null, "denominator": null, "coverage": null, "reason": "verified_normal_labels_unavailable"},
+                     "coverage": 1, "unavailableCount": 0, "hitCount": 29,
                      "biasNote": "partial_true_included_none_excluded"}},
      "categoryResults": "<active 항목과 같은 형식, 생략>",
      "methodResults": "<active 항목과 같은 형식, 생략>",

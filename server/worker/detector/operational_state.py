@@ -222,37 +222,68 @@ def _active_models(items: Any) -> tuple[ActiveModel, ...]:
     return tuple(models)
 
 
-def pin_operational_state(conn: Any) -> PinnedState:
-    """뷰 한 문장으로 세 리비전을 읽고 그 룰 세트 리비전의 스냅샷을 대조한다(리비전 행은 불변)."""
+# 호출자가 hash 버전을 주지 않으면 리비전 행의 content_hash_version을 쓴다(None과 구별하는 표지).
+_HASH_VERSION_FROM_ROW = object()
+
+
+def read_rule_set_snapshot(conn: Any, revision: Any, content_hash: Any,
+                           hash_version: Any = _HASH_VERSION_FROM_ROW) -> tuple[Mapping[str, Any], Any]:
+    """룰 세트 리비전 1개의 스냅샷을 읽어 대조한다(리비전 행은 불변). (스냅샷, hash 버전)을 돌려준다.
+
+    검사(fail-closed): 행 없음 → rule_set_snapshot_unavailable, 저장 hash ≠ content_hash·저장 hash 버전 ≠ hash_version·
+    그 버전 규칙으로 다시 계산한 hash ≠ content_hash → rule_set_hash_mismatch, 그 뒤 버전별 구조 검사(check_rule_set_version).
+    hash_version을 주지 않으면(운영 뷰가 아닌 고정 리비전 판독) 그 행의 hash 버전으로 다시 계산한다.
+    """
     with conn.cursor() as cur:
-        cur.execute("""SELECT rule_set_revision,rule_set_content_hash,rule_set_content_hash_version,
-                              active_model_set_revision,active_models,detection_policy_revision,detection_policy
-                         FROM ops_operational_state""")
-        rows = cur.fetchall()
-        if len(rows) != 1:
-            raise ValueError("operational_state_unavailable")
-        rule_revision, rule_hash, hash_version, model_revision, models, policy_revision, policy_value = rows[0]
         cur.execute("""SELECT content_hash,content_hash_version,snapshot FROM ops_rule_set_revisions
-                        WHERE revision=%s""", (rule_revision,))
+                        WHERE revision=%s""", (revision,))
         stored = cur.fetchone()
     if stored is None:
         raise ValueError("rule_set_snapshot_unavailable")
-    if stored[0] != rule_hash or stored[1] != hash_version or rule_set_content_hash(stored[2], hash_version) != rule_hash:
+    version = stored[1] if hash_version is _HASH_VERSION_FROM_ROW else hash_version
+    if stored[0] != content_hash or stored[1] != version or rule_set_content_hash(stored[2], version) != content_hash:
         raise ValueError("rule_set_hash_mismatch")
-    check_rule_set_version(stored[2], hash_version)
+    check_rule_set_version(stored[2], version)
+    return stored[2], version
+
+
+def pin_fixed_state(conn: Any, rule_set_revision: Any, rule_set_hash: Any, policy_revision: Any, policy_value: Any,
+                    active_models: Any, *, active_model_set_revision: Any,
+                    rule_set_hash_version: Any = _HASH_VERSION_FROM_ROW) -> PinnedState:
+    """주어진 리비전 값으로 운영 상태를 고정한다. 운영 뷰를 읽지 않을 뿐 pin_operational_state와 같은 검사를 한다.
+
+    입력 형식은 운영 뷰 열과 같다: policy_value = detection_policy(jsonb, 리비전 0이면 NULL), active_models =
+    [{configVersionId, modelKey}, …]. 비교 평가(Trainer)가 접수 때 고정한 값으로 부른다.
+    """
+    snapshot, hash_version = read_rule_set_snapshot(conn, rule_set_revision, rule_set_hash, rule_set_hash_version)
     policy = _policy(policy_revision, policy_value)
-    relation_rules = read_relation_rules(stored[2].get("relationRules", [])) if hash_version == 3 else ()
-    protocol_rules = read_protocol_rules(stored[2].get("protocolRules", [])) if hash_version == 3 else ()
+    relation_rules = read_relation_rules(snapshot.get("relationRules", [])) if hash_version == 3 else ()
+    protocol_rules = read_protocol_rules(snapshot.get("protocolRules", [])) if hash_version == 3 else ()
     judged = tuple(rule for rule in relation_rules if rule.kind in JUDGMENT_KINDS)
     protocols = tuple(rule for rule in protocol_rules if rule.enabled)
     # 판정 규칙의 위험도를 하드룰 선택과 같은 객체에 고정한다(evidence 대조가 같은 값을 본다).
-    hard_rules = read_hard_rule_snapshot(stored[2]["hardRules"], tuple((rule.id, rule.severity) for rule in judged),
+    hard_rules = read_hard_rule_snapshot(snapshot["hardRules"], tuple((rule.id, rule.severity) for rule in judged),
                                          tuple((rule.id, rule.severity) for rule in protocols))
-    state = PinnedState(policy, PinnedRevisions(rule_revision, rule_hash, policy_revision, model_revision),
-                        hard_rules, _soft_rules(stored[2]["softRules"]), _active_models(models), relation_rules,
+    state = PinnedState(policy, PinnedRevisions(rule_set_revision, rule_set_hash, policy_revision,
+                                                active_model_set_revision),
+                        hard_rules, _soft_rules(snapshot["softRules"]), _active_models(active_models), relation_rules,
                         protocol_rules)
     ensure_executable(policy, [*state.hard_rules.enabled_ids, *(rule.id for rule in judged),
                                *(rule.id for rule in protocols),
                                *(rule["id"] for rule in state.soft_rules),
                                *(model.method_id for model in state.active_models)])
     return state
+
+
+def pin_operational_state(conn: Any) -> PinnedState:
+    """뷰 한 문장으로 세 리비전을 읽고 그 값으로 pin_fixed_state를 부른다(같은 트랜잭션, 리비전 행은 불변)."""
+    with conn.cursor() as cur:
+        cur.execute("""SELECT rule_set_revision,rule_set_content_hash,rule_set_content_hash_version,
+                              active_model_set_revision,active_models,detection_policy_revision,detection_policy
+                         FROM ops_operational_state""")
+        rows = cur.fetchall()
+    if len(rows) != 1:
+        raise ValueError("operational_state_unavailable")
+    rule_revision, rule_hash, hash_version, model_revision, models, policy_revision, policy_value = rows[0]
+    return pin_fixed_state(conn, rule_revision, rule_hash, policy_revision, policy_value, models,
+                           active_model_set_revision=model_revision, rule_set_hash_version=hash_version)

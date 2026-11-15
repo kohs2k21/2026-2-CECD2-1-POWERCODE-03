@@ -94,6 +94,21 @@ def _check_hard_rules(methods: list[Mapping[str, Any]], hard_rules: HardRuleSele
         raise ValueError("hard_rule_selection_mismatch")
 
 
+def check_final(methods: list[Mapping[str, Any]], hard_rules: HardRuleSelection,
+                evaluated_hard_ids: Iterable[str] | None = None) -> None:
+    """최종 판정 확인. 운영 v04 시도(build_evidence)와 비교 평가가 같은 확인을 쓴다.
+
+    methods: decide(...)["methodResults"](decide가 정렬한 순서 그대로). hard_rules: 방법을 평가한 HardRuleSelection.
+    evaluated_hard_ids: 이 판정에서 과제로 평가한 하드룰(relation_plan의 hard_ids, 없으면 켜진 내장 규칙 전부).
+    미도착 방법(cause=pending)이 있으면 final_decision_has_pending_method, 하드룰 대조가 어긋나면
+    hard_rule_selection_mismatch(ValueError). 이 순서로 본다.
+    """
+    if any(method["cause"] == "pending" for method in methods):
+        raise ValueError("final_decision_has_pending_method")
+    _check_hard_rules(methods, hard_rules,
+                      hard_rules.enabled_ids if evaluated_hard_ids is None else tuple(evaluated_hard_ids))
+
+
 def _protocol_hit(methods: list[Mapping[str, Any]], review: Mapping[str, Any]) -> bool:
     """protocolReview가 가리키는 방법(항목 id, 미등록이면 내장 규칙)이 최종 결과에서 T인가."""
     method_id = review.get("protocolRuleId") or UNREGISTERED_INTERFACE
@@ -121,10 +136,7 @@ def build_evidence(policy: PolicyV2, method_results: Iterable[Mapping[str, Any]]
     """
     decided = decide(policy, method_results)
     methods, categories = decided["methodResults"], decided["categoryResults"]
-    if any(method["cause"] == "pending" for method in methods):
-        raise ValueError("final_decision_has_pending_method")
-    _check_hard_rules(methods, hard_rules,
-                      hard_rules.enabled_ids if evaluated_hard_ids is None else tuple(evaluated_hard_ids))
+    check_final(methods, hard_rules, evaluated_hard_ids)
     status_method = next((method for method in methods if method["methodId"] == PROCESS_STATUS), None)
     status_policy = status_rule_policy(source_id, hard_rules) if status_method else None
     rule_methods = [method for method in methods if method["category"] != "ml"]

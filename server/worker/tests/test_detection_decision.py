@@ -9,7 +9,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from detector.decision import component_status, decide, decision_columns, ensure_executable, requested_mode
-from detector.evidence_v4 import INTERIM_EVIDENCE_VERSION, PinnedRevisions, build_evidence, build_interim_payload
+from detector.evidence_v4 import (INTERIM_EVIDENCE_VERSION, PinnedRevisions, build_evidence, build_interim_payload,
+                                  check_final)
 from detector.hard_rules import (COUNT_CONSERVATION, HARD_RULES, NEGATIVE_DURATION, PROCESS_STATUS, STATUS_LEVELS,
                                  SUCCESS_WITH_ERROR, evaluate_count_conservation, evaluate_hard_rules,
                                  evaluate_negative_duration, evaluate_process_status, evaluate_success_with_error,
@@ -1367,6 +1368,21 @@ class EvidenceV4(unittest.TestCase):
                        (True, HASH, 0, 3), (1, HASH, "0", 3), (1, HASH, 0, None)):
             with self.subTest(values=values), self.assertRaisesRegex(ValueError, "^invalid_pinned_revisions$"):
                 PinnedRevisions(*values)
+
+    def test_check_final_is_the_final_check_build_evidence_runs(self):
+        methods = decide(policy(), stamped(hard(raw("F"))))["methodResults"]
+        self.assertIsNone(check_final(methods, selection()))
+        self.assertIsNone(check_final(methods, selection(), [method["methodId"] for method in methods]))
+        pending = decide(policy(), stamped(hard(raw("F"))) + [unresolved_result("ml:iforest", "v", "pending")])
+        # 미도착 방법 확인이 하드룰 대조보다 먼저다(build_evidence와 같은 순서).
+        with self.assertRaisesRegex(ValueError, "^final_decision_has_pending_method$"):
+            check_final(pending["methodResults"], selection((PROCESS_STATUS,)))
+        for other, evaluated in ((selection((PROCESS_STATUS,)), None),
+                                 (selection(ALL_HARD, {"PROCESS_STATUS_F": "info"}), None),
+                                 (selection(), (PROCESS_STATUS,))):
+            with self.subTest(evaluated=evaluated):
+                with self.assertRaisesRegex(ValueError, "^hard_rule_selection_mismatch$"):
+                    check_final(methods, other, evaluated)
 
     def test_inputs_are_not_mutated(self):
         methods = self.example_methods()

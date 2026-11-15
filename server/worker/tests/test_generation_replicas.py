@@ -4,6 +4,7 @@
 """
 from __future__ import annotations
 
+import os
 import sys
 import unittest
 from decimal import Decimal
@@ -91,6 +92,12 @@ class CodeTests(unittest.TestCase):
                 self.assertEqual(replicas._reply(runtime, {"raise": action}, "o"), expected)
         with self.assertLogs("generation_replicas", "ERROR"):
             self.assertEqual(replicas._reply(runtime, {"raise": "other"}, "o"), ("error", "failed", "KeyError"))
+        # CUDA 메모리 부족: 이름(OutOfMemoryError)·문구·번들이 감싼 원인 사슬 모두 같은 oom 코드. 감싼 ModelFailure보다 먼저 본다
+        for action in ("oom", "oom_text", "oom_wrapped"):
+            with self.subTest(action):
+                with self.assertLogs("generation_replicas", "ERROR"):
+                    self.assertEqual(replicas._reply(runtime, {"raise": action}, "o"),
+                                     ("error", "oom", "replica_out_of_memory"))
         ok = replicas._reply(runtime, {}, "o")
         self.assertEqual(ok[0], "ok")
 
@@ -167,15 +174,79 @@ class CodeTests(unittest.TestCase):
             with self.subTest(name):
                 pool, replica = proxy(connection, process)
                 with self.assertLogs("generation_replicas", "ERROR") as logs:
-                    with self.assertRaisesRegex(GenerationUnavailable, "generation_failed"):
+                    with self.assertRaisesRegex(GenerationUnavailable, "generation_failed") as caught:
                         replica.run_field({}, Path("o"))
+                if name == "garbage":  # 규약 위반은 기존대로 작업 실패(다시 돌리지 않음)
+                    self.assertNotIsInstance(caught.exception, replicas.ReplicaUnavailable)
+                else:  # 자식 종료: 다른 복제본에서만 다시 돌릴 수 있다
+                    self.assertIsInstance(caught.exception, replicas.ReplicaUnavailable)
+                    self.assertFalse(caught.exception.rerun_on_main)
                 self.assertTrue(replica.lost)
+                self.assertFalse(process.alive)
                 self.assertEqual(pool.ready(), [])
                 code = "replica_protocol_error" if name == "garbage" else "replica_exited"
                 self.assertEqual(pool.disabled, {"1": code})
                 self.assertEqual(logs.output, [f"ERROR:generation_replicas:rule_v3_replica_disabled: 1 {code}"])
-                with self.assertRaisesRegex(GenerationUnavailable, "generation_failed"):
+                with self.assertRaisesRegex(GenerationUnavailable, "generation_failed") as again:
                     replica.run_field({}, Path("o"))
+                self.assertTrue(again.exception.rerun_on_main, "a lost replica did not run this group")
+
+    def test_out_of_memory_disables_and_stops_replica(self):
+        runtime = fakes.FakeRuntime()
+        with self.assertLogs("generation_replicas", "ERROR"):
+            reply = replicas._reply(runtime, {"raise": "oom"}, "o")
+        connection, process = FakeConnection([reply]), FakeProcess()
+        pool, replica = proxy(connection, process)
+        with self.assertLogs("generation_replicas", "ERROR") as logs:
+            with self.assertRaises(replicas.ReplicaUnavailable) as caught:
+                replica.run_field({}, Path("o"))
+        self.assertEqual(str(caught.exception), "generation_failed")  # 받을 곳이 없으면 기존 생성 장애와 같다
+        self.assertTrue(caught.exception.rerun_on_main)
+        self.assertEqual(logs.output, ["ERROR:generation_replicas:rule_v3_replica_disabled: 1 replica_out_of_memory"])
+        self.assertEqual(pool.disabled, {"1": "replica_out_of_memory"})
+        self.assertEqual(pool.ready(), [])
+        self.assertEqual(connection.sent[-1], ("stop",))
+        self.assertFalse(process.alive, "process ended so its GPU memory is released")
+
+
+class GateTests(unittest.TestCase):
+    """적재 전 여유 메모리 검사(자식 본체를 이 프로세스에서 직접 부른다)."""
+
+    def serve(self, min_free_mb, probe):
+        from unittest.mock import patch
+        loaded = []
+
+        def loader(roots):
+            loaded.append(roots)
+            return fakes.FakeRuntime()
+        connection = FakeConnection([EOFError()])
+        with patch.dict("os.environ", {"CUDA_VISIBLE_DEVICES": "0"}):
+            replicas.serve_replica(connection, "4", loader, ["a"], min_free_mb, probe)
+        return connection.sent, loaded
+
+    def test_low_free_memory_skips_loading(self):
+        with self.assertLogs("generation_replicas", "ERROR") as logs:
+            sent, loaded = self.serve(20480, fakes.free_mb)
+        self.assertEqual((sent, loaded), ([("failed", "replica_insufficient_memory")], []))
+        self.assertEqual(logs.output, ["ERROR:generation_replicas:rule_v3_replica_free_memory: 4 1000 MiB < 20480 MiB"])
+
+    def test_probe_failure_or_disabled_gate(self):
+        def broken():
+            raise RuntimeError("no device")
+        with self.assertLogs("generation_replicas", "ERROR"):
+            self.assertEqual(self.serve(20480, broken), ([("failed", "replica_memory_check_failed")], []))
+        self.assertEqual(self.serve(0, broken), ([("ready", fakes.SHA)], [["a"]]))
+        self.assertEqual(self.serve(1000, fakes.free_mb), ([("ready", fakes.SHA)], [["a"]]))
+
+    def test_threshold_from_env(self):
+        from unittest.mock import patch
+        for value, expected in ((None, 20480), ("0", 0), ("16384", 16384), ("x", 20480), ("-1", 20480)):
+            with self.subTest(value):
+                env = {} if value is None else {replicas.ENV_MIN_FREE_MB: value}
+                with patch.dict("os.environ", env):
+                    if value is None:
+                        os.environ.pop(replicas.ENV_MIN_FREE_MB, None)
+                    self.assertEqual(replicas._min_free_mb(), expected)
 
 
 class _nothing:
@@ -187,21 +258,32 @@ class _nothing:
 
 
 class SpawnTests(unittest.TestCase):
-    """실제 spawn 자식 3개(가짜 적재기): 준비·적재 실패·어댑터 불일치, 왕복, 자식 종료."""
+    """실제 spawn 자식 5개(가짜 적재기·가짜 여유 메모리): 준비·적재 실패·어댑터 불일치·여유 메모리 부족, 왕복,
+    생성 중 메모리 부족, 자식 종료."""
 
     def test_pool_round_trip(self):
-        pool = replicas.ReplicaPool(["1", "2", "3"], ["a", "b", "c"], fakes.SHA, fakes.PACKAGE,
-                                    loader=fakes.load, start_seconds=120)
+        pool = replicas.ReplicaPool(["1", "2", "3", "4", "5"], ["a", "b", "c"], fakes.SHA, fakes.PACKAGE,
+                                    loader=fakes.load, start_seconds=120, min_free_mb=20480, probe=fakes.free_mb)
         self.addCleanup(pool.close)
         with self.assertLogs("generation_replicas", "ERROR") as logs:
             pool.start()
             pool.wait_started(180)
         self.assertEqual(sorted(logs.output), [
             "ERROR:generation_replicas:rule_v3_replica_disabled: 2 qwen_base_metadata_mismatch",
-            "ERROR:generation_replicas:rule_v3_replica_disabled: 3 rule_v3_adapter_mismatch"])
-        self.assertEqual(pool.disabled, {"2": "qwen_base_metadata_mismatch", "3": "rule_v3_adapter_mismatch"})
-        [replica] = pool.ready()
-        self.assertEqual((replica.gpu, replica.adapter_sha), ("1", fakes.SHA))
+            "ERROR:generation_replicas:rule_v3_replica_disabled: 3 rule_v3_adapter_mismatch",
+            "ERROR:generation_replicas:rule_v3_replica_disabled: 4 replica_insufficient_memory"])
+        self.assertEqual(pool.disabled, {"2": "qwen_base_metadata_mismatch", "3": "rule_v3_adapter_mismatch",
+                                         "4": "replica_insufficient_memory"})
+        replica, spare = pool.ready()
+        self.assertEqual((replica.gpu, replica.adapter_sha, spare.gpu), ("1", fakes.SHA, "5"))
+        # 생성 중 메모리 부족: 그 복제본만 꺼지고 프로세스가 끝난다. 나머지는 계속 쓴다
+        with self.assertLogs("generation_replicas", "ERROR") as logs:
+            with self.assertRaises(replicas.ReplicaUnavailable) as caught:
+                spare.run_field({"raise": "oom"}, Path("out"))
+        self.assertTrue(caught.exception.rerun_on_main)
+        self.assertEqual(logs.output, ["ERROR:generation_replicas:rule_v3_replica_disabled: 5 replica_out_of_memory"])
+        self.assertFalse(spare._process.is_alive())
+        self.assertEqual(pool.ready(), [replica])
         result = replica.run_field({"application": Path("x.csv")}, Path("out"))
         # 자식은 자기 GPU 하나만 본다. Decimal은 표기까지 그대로 온다.
         self.assertEqual(result["result"]["gpu"], "1")

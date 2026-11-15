@@ -3,8 +3,12 @@
 # - 주 프로세스는 그대로 CUDA_VISIBLE_DEVICES "0"(컨테이너 안 첫 장)만 보고 설명(explain)·rule_v2·Rule v3를 처리한다.
 #   LLM_REPLICA_GPUS의 장마다 자식 프로세스가 같은 모델을 따로 올린다(server/worker/generation_replicas.py).
 #   번호는 컨테이너 안 번호(아래 device_ids로 노출한 장이 0..3으로 보인다)이고 주 프로세스 번호와 겹치면 쓰지 않는다.
-# - 복제본 적재 실패·어댑터 불일치는 그 장만 끄고 시작 로그에 rule_v3_replica_disabled: <gpu> <코드> 한 줄을 남긴다.
-#   준비 전이나 전부 꺼진 동안의 작업은 준비된 장(최소 주 GPU 하나)으로만 돈다. 결과 형식·내용은 직렬 실행과 같다.
+# - LLM_REPLICA_GPUS는 시작할 때마다 호스트 nvidia-smi로 확인해 다른 계정·서비스 프로세스가 없는 장만 적는다
+#   (예 LLM_REPLICA_GPUS=2,3 docker compose ... up -d llm). 아래 기본값 1,2,3을 확인 없이 쓰지 않는다.
+# - 복제본 적재 실패·어댑터 불일치·적재 전 여유 메모리 부족(LLM_REPLICA_MIN_FREE_MB, MiB, 기본 20480)은 그 장만 끄고
+#   시작 로그에 rule_v3_replica_disabled: <gpu> <코드> 한 줄을 남긴다. 생성 중 메모리 부족이면 그 복제본을 끄고 그 묶음을
+#   남은 장에서 다시 돌린다(server/worker/DEPLOYMENT.md). 준비 전이나 전부 꺼진 동안의 작업은 준비된 장(최소 주 GPU
+#   하나)으로만 돈다. 결과 형식·내용은 직렬 실행과 같다.
 # - devices: 기본 compose의 목록에 더해지지 않도록 !override로 바꾼다(Compose 2.24.4 이상). 그냥 쓰면 장치 요청이
 #   두 개(기존 1장 + 4장)로 합쳐진다. device_ids를 0~3으로 고정하므로 GENERATION_GPU_ID는 이 override에서 쓰이지 않는다
 #   (주 GPU = 호스트 첫 장).
@@ -17,6 +21,7 @@ services:
   llm:
     environment:
       LLM_REPLICA_GPUS: ${LLM_REPLICA_GPUS:-1,2,3}
+      LLM_REPLICA_MIN_FREE_MB: ${LLM_REPLICA_MIN_FREE_MB:-20480}
     deploy:
       resources:
         reservations:

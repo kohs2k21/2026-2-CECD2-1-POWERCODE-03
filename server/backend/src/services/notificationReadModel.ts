@@ -37,7 +37,10 @@ import { NOTIFICATION_WINDOW_DAYS, RISK_RANK, type NotificationSettings } from '
  *    작업 종료는 판정 이벤트 순번을 받지 않으므로 읽음은 종료 시각으로 판단한다: 미확인 = finished_at > max(모두 읽음 작업 경계 jobs_read_through, 항목 읽음 read_through).
  *    목록 정렬 순번(seq) = 종료 시각 이전 마지막 판정 이벤트 순번(개수 범위 안, 없으면 0 — 범위가 밀려도 같은 값이라 커서가 흔들리지 않음)
  *    — 정렬에만 쓰고 읽음 판단에는 쓰지 않는다. 범위 첫 이벤트보다 먼저 끝난 작업은 이벤트를 읽지 않고 바로 0(created_at으로 미리 거름).
+ *    판정 이벤트가 멈춘 뒤 끝난 작업들은 순번이 모두 같으므로 목록은 순번 다음에 알림 시각(notified_at)으로 정렬한다(7).
  *    "모두 읽음"은 판정 순번(through)과 함께 응답의 latestJobAt(작업 알림 대상 중 가장 늦은 종료 시각)을 jobsThrough로 받아 그 시각까지 읽음으로 둔다.
+ * 7) 목록 정렬·커서: 순번 내림차순 → 알림 시각 내림차순 → 항목 키 내림차순(C 정렬) 키셋. 커서 = [순번, 알림 시각(UTC 마이크로초 6자리), 항목 키] — 정렬 키와 같다.
+ *    순번이 같은 항목(작업끼리, 같은 순번 판정 뒤에 끝난 작업, 한 판정의 프로토콜 묶음 여러 개)은 알림 시각 최신 먼저, 시각까지 같으면 키.
  */
 type Queryable = Pick<Pool, 'query'>;
 
@@ -46,7 +49,7 @@ export const NOTIFICATION_LIST_LIMITS = { default: 20, max: 50 } as const;
 export const NOTIFICATION_READ_ITEMS_MAX = 50;
 export const NOTIFICATION_VIEWS = ['unread', 'all'] as const;
 export type NotificationView = typeof NOTIFICATION_VIEWS[number];
-export type NotificationCursor = { seq: string; key: string };
+export type NotificationCursor = { seq: string; at: string; key: string };
 
 const ISO = (column: string) => `to_char(${column} AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`;
 const RATED = (risk: string) => `coalesce(${risk}->>'status'='rated' AND ${risk}->>'level' IN ('critical','warning','info'),false)`;
@@ -258,11 +261,11 @@ const jobCte = (jobs: boolean) => `jsrc AS (
 const baseParams = (actorId: string, settings: NotificationSettings, windowEvents: number) =>
   [windowEvents, settings.decisionBasis, RISK_RANK[settings.minRiskLevel], settings.includeUnrated, actorId, settings.windowDays];
 
-const encodeCursor = (value: NotificationCursor) => Buffer.from(JSON.stringify([value.seq, value.key]), 'utf8').toString('base64url');
+const encodeCursor = (value: NotificationCursor) => Buffer.from(JSON.stringify([value.seq, value.at, value.key]), 'utf8').toString('base64url');
 const ITEM_KEY = /^((incident|job|decision|work):[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|protocol:[0-9a-f]{64})$/;
 const PROTOCOL_ITEM = /^protocol:[0-9a-f]{64}$/;
 const JOB_ITEM = /^work:/;
-/** 작업 알림 시각(latestJobAt·jobsThrough): UTC 마이크로초 6자리 고정 형식(서버가 응답에 낸 값 그대로). */
+/** 작업 알림 시각(latestJobAt·jobsThrough)·커서 알림 시각: UTC 마이크로초 6자리 고정 형식(서버가 응답에 낸 값 그대로). */
 const JOB_AT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$/;
 export const isJobAt = (value: unknown): value is string => typeof value === 'string' && JOB_AT.test(value)
   && Number.isFinite(Date.parse(value)) && new Date(value).toISOString().slice(0, 23) === value.slice(0, 23);
@@ -271,12 +274,14 @@ const latestJobAtSql = (jobs: boolean) => `(SELECT ${ISO('max(j.finished_at)')} 
 const SEQ = /^(0|[1-9]\d{0,18})$/;
 export const isItemKey = (value: unknown): value is string => typeof value === 'string' && ITEM_KEY.test(value);
 export const isSeq = (value: unknown): value is string => typeof value === 'string' && SEQ.test(value) && BigInt(value) <= 9223372036854775807n;
-/** 커서 = 응답 nextCursor 그대로(base64url JSON [순번, 항목 키]). 형식이 다르면 null. */
+/** 커서 = 응답 nextCursor 그대로(base64url JSON [순번, 알림 시각, 항목 키] — 정렬 키, 7). 형식이 다르면(옛 [순번, 항목 키] 포함) null. */
 export function decodeCursor(value: string): NotificationCursor | null {
   if (value.length > 256 || !/^[A-Za-z0-9_-]+$/.test(value)) return null;
   try {
     const parsed = JSON.parse(Buffer.from(value, 'base64url').toString('utf8'));
-    if (Array.isArray(parsed) && parsed.length === 2 && isSeq(parsed[0]) && isItemKey(parsed[1])) return { seq: parsed[0], key: parsed[1] };
+    if (Array.isArray(parsed) && parsed.length === 3 && isSeq(parsed[0]) && isJobAt(parsed[1]) && isItemKey(parsed[2])) {
+      return { seq: parsed[0], at: parsed[1], key: parsed[2] };
+    }
   } catch { /* 아래 null */ }
   return null;
 }
@@ -350,7 +355,7 @@ function itemOf(row: Row, entries: ProtocolEntries) {
     processId: row.process_id ?? null, transactionId: row.transaction_id ?? null } };
 }
 
-/** GET /api/notifications. 최근 순번 → 항목 키 내림차순 키셋. view=unread면 미확인만. */
+/** GET /api/notifications. 순번 → 알림 시각 → 항목 키 내림차순 키셋(7). view=unread면 미확인만. */
 export async function readNotifications(db: Queryable, actorId: string, settings: NotificationSettings,
   { view, limit, cursor, windowEvents = NOTIFICATION_WINDOW_EVENTS, protocol = false, jobs = false }:
     { view: NotificationView; limit: number; cursor: NotificationCursor | null; windowEvents?: number; protocol?: boolean; jobs?: boolean },
@@ -358,8 +363,9 @@ export async function readNotifications(db: Queryable, actorId: string, settings
   const { rows: [row] } = await db.query(`${stateCte(protocol, jobs)}, filtered AS (
       SELECT * FROM state WHERE $7::text='all' OR unread
     ), page AS (
-      SELECT * FROM filtered WHERE $8::bigint IS NULL OR (notify_seq,item_key COLLATE "C")<($8::bigint,$9::text COLLATE "C")
-      ORDER BY notify_seq DESC,item_key COLLATE "C" DESC LIMIT $10
+      SELECT * FROM filtered WHERE $8::bigint IS NULL
+        OR (notify_seq,notified_at,item_key COLLATE "C")<($8::bigint,$11::timestamptz,$9::text COLLATE "C")
+      ORDER BY notify_seq DESC,notified_at DESC,item_key COLLATE "C" DESC LIMIT $10
     ), shown AS (
       SELECT p.*,p.notify_seq::text AS seq_text,${ISO('p.notified_at')} AS notified_iso,${ISO('ri.opened_at')} AS opened_at,ri.group_key,dp.process_id,dp.transaction_id
       FROM page p LEFT JOIN run_incidents ri ON ri.id=p.incident_id
@@ -374,8 +380,8 @@ export async function readNotifications(db: Queryable, actorId: string, settings
       (SELECT count(*)::integer FROM state WHERE unread) AS unread,
       (SELECT count(*)::integer FROM filtered) AS total,
       (SELECT coalesce(jsonb_agg(to_jsonb(s)-'notified_at'||jsonb_build_object('notified_at',s.notified_iso)
-        ORDER BY s.notify_seq DESC,s.item_key COLLATE "C" DESC),'[]'::jsonb) FROM shown s) AS items`,
-  [...baseParams(actorId, settings, windowEvents), view, cursor?.seq ?? null, cursor?.key ?? null, limit + 1]);
+        ORDER BY s.notify_seq DESC,s.notified_at DESC,s.item_key COLLATE "C" DESC),'[]'::jsonb) FROM shown s) AS items`,
+  [...baseParams(actorId, settings, windowEvents), view, cursor?.seq ?? null, cursor?.key ?? null, limit + 1, cursor?.at ?? null]);
   const rows = row.items as Row[];
   const page = rows.slice(0, limit);
   const entries = page.some((item) => item.kind === 'protocol') ? await currentProtocolEntries(db) : new Map();
@@ -394,7 +400,8 @@ export async function readNotifications(db: Queryable, actorId: string, settings
     settings,
     unreadCount: row.unread as number,
     total: row.total as number,
-    nextCursor: rows.length > limit && last ? encodeCursor({ seq: last.seq_text as string, key: last.item_key as string }) : null,
+    // 알림 시각은 items 안에서 이미 ISO(마이크로초) 문자열이다(notified_iso로 바꿔 넣음) — 커서 비교 값과 정확히 같다.
+    nextCursor: rows.length > limit && last ? encodeCursor({ seq: last.seq_text as string, at: last.notified_at as string, key: last.item_key as string }) : null,
     items: page.map((item) => itemOf(item, entries)),
   };
 }

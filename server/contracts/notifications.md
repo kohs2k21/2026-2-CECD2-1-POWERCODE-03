@@ -33,7 +33,7 @@
 - 관리자만 ∧ 설정 `includeJobs`(기본 true). 일반 사용자 목록·배지·읽음 요청에는 없다(작업 화면이 관리자 전용). 요청자와 무관하게 모든 관리자에게 같은 작업이 보인다(작업 목록과 같음)
 - 항목 키 `work:<run_jobs id>`(`job:`은 판정 항목 키). 알림 시각 `notifiedAt` = 종료 시각(`finished_at`), 사유 `reason` = `finished`
 - 조회 기간: 종료 시각이 지금 − `windowDays`일 이후(판정 이벤트 5,000개 상한과 무관, `window`는 판정 이벤트 범위만 설명)
-- 정렬 순번 `seq` = 종료 시각 이전 마지막 판정 이벤트 순번(개수 범위 안, 없으면 `0` — 범위가 밀려도 같은 값이라 커서가 흔들리지 않음). 목록 정렬·커서에만 쓰고 읽음 판단에는 쓰지 않는다(작업 종료는 판정 이벤트 순번을 받지 않음)
+- 정렬 순번 `seq` = 종료 시각 이전 마지막 판정 이벤트 순번(개수 범위 안, 없으면 `0` — 범위가 밀려도 같은 값이라 커서가 흔들리지 않음). 목록 정렬·커서에만 쓰고 읽음 판단에는 쓰지 않는다(작업 종료는 판정 이벤트 순번을 받지 않음). 판정 이벤트가 멈춘 뒤 끝난 작업들은 순번이 같으므로 목록은 순번 다음에 알림 시각으로 정렬한다(API 표 목록 정렬)
 - 미확인 = 종료 시각 > max(작업 모두 읽음 경계, 그 작업 읽음 시각). 모두 읽음은 판정 순번(`through`)과 함께 응답 `latestJobAt`(작업 알림 대상 중 가장 늦은 종료 시각, 기간 무관)을 `jobsThrough`로 보낸다 — 화면이 본 응답까지만 읽음. 서버는 경계를 그때 가장 늦은 종료 시각 이하로 줄이고 되돌리지 않는다(GREATEST). 항목 읽음은 `{key:"work:…", seq}`(seq는 형식만 검사), 저장값 = 그 작업의 현재 종료 시각
 - 한계: 종료 시각은 작업자 트랜잭션 안의 `clock_timestamp()`라 커밋 순서와 몇 ms 어긋날 수 있다. 화면이 `latestJobAt`을 받은 뒤 그보다 이른 종료 시각으로 늦게 커밋된 작업은 그 모두 읽음에 포함된다(드묾, 판정 알림은 순번이라 없음)
 - 작업 읽음 행은 작업 모두 읽음 경계 이하이거나 최대 조회 기간(30일)보다 오래된 작업의 것을 지운다(읽음 요청 때)
@@ -42,7 +42,7 @@
 
 | 요청 | 응답·동작 |
 |---|---|
-| `GET /api/notifications?view=unread\|all&limit=1~50&cursor=` | 기본 `view=unread`·`limit=20`. `{observedAt, latestSeq, latestJobAt, readThrough, window:{events,days,fromSeq,truncated,truncatedBy}, settings, unreadCount, total, nextCursor, items[]}`(`settings` = 아래 알림 설정 5값, `latestJobAt` = 작업 알림 절, 없거나 꺼졌으면 null). 순번 내림차순 → 항목 키 내림차순 키셋, 커서 = 응답 `nextCursor` 그대로 |
+| `GET /api/notifications?view=unread\|all&limit=1~50&cursor=` | 기본 `view=unread`·`limit=20`. `{observedAt, latestSeq, latestJobAt, readThrough, window:{events,days,fromSeq,truncated,truncatedBy}, settings, unreadCount, total, nextCursor, items[]}`(`settings` = 아래 알림 설정 5값, `latestJobAt` = 작업 알림 절, 없거나 꺼졌으면 null). 정렬 = 순번 내림차순 → 알림 시각 `notifiedAt` 내림차순 → 항목 키 내림차순(C 정렬) 키셋(순번이 같은 작업끼리·같은 순번 판정 뒤에 끝난 작업·한 판정의 프로토콜 묶음은 최신 먼저). 커서 = 응답 `nextCursor` 그대로(base64url JSON `[순번, 알림 시각(UTC 마이크로초 6자리), 항목 키]` = 정렬 키, 옛 `[순번, 항목 키]` 커서는 400 `invalid_cursor`) |
 | `GET /api/notifications/unread-count` | `{latestSeq, latestJobAt, unreadCount, unreadByType:{decision, incident, protocol, job}}`(배지). `unreadByType` = 종류별 미확인 항목 수, 합 = `unreadCount`(같은 조회 범위·설정). 일반 사용자는 `protocol`·`job` 0, 관리자도 `includeJobs=false`면 `job` 0 |
 | `POST /api/notifications/protocol-alerts/keep`(관리자) | 본문 `{interfaceId, pathKey \| null}`. 화면은 확인창 뒤에만 요청. [이상 유지] 기록(protocol-settings-ui.md 5절). 응답 `{key, keptThroughSeq, keptAt, keptBy, alreadyKept, latestSeq, unreadCount, unreadByType}`. 400 `invalid_protocol_keep_request`, 403 `admin_required`, 404 `protocol_alert_not_found` |
 | `POST /api/notifications/read` | 본문 `{"through":"<순번>"[, "jobsThrough":"<latestJobAt>"]}`(모두 읽음, `jobsThrough`는 UTC 마이크로초 6자리 `YYYY-MM-DDTHH:MM:SS.ffffffZ`만) 또는 `{"items":[{"key","seq"}]}`(1~50개, 키 중복 금지). 모두 읽음 순번은 현재 최대 이벤트 id로, 작업 경계는 지금 가장 늦은 작업 종료 시각으로 줄임. 항목은 요청자 설정 기준 지금 조회 범위에 있는 키만 저장(없는 키는 무시)하고 순번은 그 항목의 현재 알림 순번으로 줄임. 저장값은 되돌리지 않음(GREATEST). 응답 `{readThrough, latestSeq, unreadCount, unreadByType}` |

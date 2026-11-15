@@ -41,8 +41,10 @@ const { layoutReducer, defaultWidgetLayout, availableWidgets, sanitizeLayout, co
 const noOverlap = (items) => items.every((a) => items.every((b) => !collides(a, b)));
 const inBounds = (items) => items.every((item) => item.x >= 0 && item.x + item.w <= GRID_COLUMNS && item.y >= 0);
 const at = (items, id) => items.find((item) => item.i === id);
-assert.deepEqual(readingOrder(defaultWidgetLayout), ["flow", "recent", "trend", "active", "queue", "collect"]);
-assert.deepEqual(availableWidgets(defaultWidgetLayout), ["storage"], "storage is only in the add catalog by default");
+assert.deepEqual(readingOrder(defaultWidgetLayout), ["flow", "recent", "trend", "active", "queue", "collect", "storage"]);
+assert.deepEqual(availableWidgets(defaultWidgetLayout), [], "storage (CPU·memory) is in the default layout");
+assert.deepEqual(at(defaultWidgetLayout, "storage"), { i: "storage", x: 0, y: 6, w: 2, h: 3 }, "storage takes the first cell of the third row");
+assert.deepEqual([widgetSizes.storage.w, widgetSizes.storage.h], [2, 3], "storage default height fits the CPU·memory line");
 assert(noOverlap(defaultWidgetLayout) && inBounds(defaultWidgetLayout));
 // 겹친 배치: 우선 위젯은 자리 유지, 나머지는 아래로 밀린 뒤 위로 붙는다.
 const overlapped = compactLayout([{ i: "flow", x: 0, y: 0, w: 2, h: 3 }, { i: "recent", x: 1, y: 1, w: 2, h: 3 }, { i: "trend", x: 4, y: 5, w: 2, h: 3 }], "recent");
@@ -57,7 +59,7 @@ assert.deepEqual(sanitizeLayout([{ i: "bogus", x: 0, y: 0, w: 2, h: 2 }, { i: "f
   [{ i: "queue", x: 0, y: 0, w: 2, h: 3 }], "unknown, malformed and duplicate entries are dropped");
 assert.equal(sanitizeLayout({ flow: true }), null);
 // 제거·추가: 빈 칸 채우기, 추가는 위에서부터 첫 빈 칸 또는 놓은 칸, 중복 없음.
-const removed = layoutReducer(defaultWidgetLayout, { type: "remove", id: "trend" });
+const removed = layoutReducer(layoutReducer(defaultWidgetLayout, { type: "remove", id: "storage" }), { type: "remove", id: "trend" });
 assert.deepEqual(availableWidgets(removed), ["trend", "storage"]);
 const storageAdded = layoutReducer(removed, { type: "add", id: "storage" });
 assert.deepEqual([at(removed, "collect").x, at(removed, "collect").y], [4, 0], "removal compacts the column upward");
@@ -72,7 +74,7 @@ assert.equal(layoutReducer(dropped, { type: "add", id: "trend" }), dropped, "no 
 const moved = layoutReducer(defaultWidgetLayout, { type: "move", id: "recent", direction: -1 });
 assert.deepEqual(readingOrder(moved).slice(0, 2), ["recent", "flow"]);
 assert.equal(layoutReducer(defaultWidgetLayout, { type: "move", id: "flow", direction: -1 }), defaultWidgetLayout, "first cannot move forward");
-assert.equal(layoutReducer(defaultWidgetLayout, { type: "move", id: "collect", direction: 1 }), defaultWidgetLayout, "last cannot move back");
+assert.equal(layoutReducer(defaultWidgetLayout, { type: "move", id: "storage", direction: 1 }), defaultWidgetLayout, "last cannot move back");
 // 격자 라이브러리 결과(change): 검증만, 같은 배치면 같은 배열(편집 초안 갱신 반복 방지).
 assert.equal(layoutReducer(defaultWidgetLayout, { type: "change", layout: defaultWidgetLayout.map((item) => ({ ...item, moved: false, minW: 2 })) }), defaultWidgetLayout);
 const resized = layoutReducer(defaultWidgetLayout, { type: "change", layout: defaultWidgetLayout.map((item) => (item.i === "collect" ? { ...item, h: 5 } : item)) });
@@ -307,7 +309,9 @@ assert(view.text().includes("6.9%"));
   assert(view.text().includes(stamp("2026-11-03T00:58:00.000Z")), "recent decision shows date and time");
   assert(view.text().includes(`수집 · ${stamp("2026-11-03T00:59:00.000Z")}`), "stage flow shows date and time");
 }
-assert(!seen.some((url) => url.startsWith("/api/operations/storage")), "storage widget is not placed → not fetched");
+// 저장공간은 기본 배치에 있다: CPU·메모리 줄(개요에 cpuPercent·memoryPercent가 없으면 키 생략 → 측정 불가).
+assert(seen.some((url) => url.startsWith("/api/operations/storage")), "default storage widget fetches");
+await wait(() => view.text().includes("CPU 측정 불가 · 메모리 측정 불가"), "default layout shows CPU and memory");
 
 // 위젯 편집(좁은 화면·격자 측정 전 = 한 줄 배치, 키보드 버튼 경로): 제거 → 저장 / 다시 편집 → 위젯 추가 목록 → 추가 → 취소.
 const { Dialog } = await import("../src/components/ui/dialog.tsx");
@@ -336,30 +340,28 @@ await act(async () => findButton(view.renderer, "배치 저장").props.onClick()
 await wait(() => Boolean(serverLayouts["Bearer user-token"]), "layout saved to the server");
 const savedValue = serverLayouts["Bearer user-token"];
 assert.equal(savedValue.version, 2);
-assert.deepEqual(readingOrder(savedValue.items), ["recent", "flow", "collect", "active", "queue"], "removal compacts, keyboard move swaps");
+assert.deepEqual(readingOrder(savedValue.items), ["recent", "flow", "collect", "active", "queue", "storage"], "removal compacts, keyboard move swaps");
 assert(noOverlap(savedValue.items) && inBounds(savedValue.items));
-await wait(() => view.text().includes("배치 저장됨 · 일반 사용자 계정 · 위젯 5개"), "saved status");
+await wait(() => view.text().includes("배치 저장됨 · 일반 사용자 계정 · 위젯 6개"), "saved status");
 assert(!view.text().includes("배치를 저장하지 못했습니다"), "failure alert cleared after a successful save");
 assert.equal(useDraftStore.getState().drafts["/operations"], undefined, "saved edit clears the draft");
 await act(async () => findButton(view.renderer, "위젯 편집").props.onClick());
 assert.equal(view.renderer.root.findByType(Dialog).props.open, false);
 await act(async () => findButton(view.renderer, "위젯 추가").props.onClick());
 assert.equal(view.renderer.root.findByType(Dialog).props.open, true, "위젯 추가 opens the catalog");
-assert(dialogButton(view.renderer, "판정 추이 추가") && dialogButton(view.renderer, "저장공간 추가"));
-await act(async () => dialogButton(view.renderer, "저장공간 추가").props.onClick());
+assert(dialogButton(view.renderer, "판정 추이 추가") && !dialogButton(view.renderer, "저장공간 추가"), "only removed widgets are in the catalog");
+await act(async () => dialogButton(view.renderer, "판정 추이 추가").props.onClick());
 assert.equal(view.renderer.root.findByType(Dialog).props.open, false, "adding closes the catalog");
-await wait(() => seen.some((url) => url.startsWith("/api/operations/storage")), "added storage widget fetches");
-// 개요에 cpuPercent·memoryPercent가 없으면(신선한 측정 없음 → 키 생략) 측정 불가.
-await wait(() => view.text().includes("CPU 측정 불가 · 메모리 측정 불가"), "storage widget shows unmeasured CPU and memory");
+await wait(() => view.renderer.root.findAll((node) => typeof node.type === "string" && node.props?.["data-widget"] === "trend").length === 1, "added trend widget shown");
 await act(async () => findButton(view.renderer, "편집 취소").props.onClick());
 assert(view.text().includes("편집 취소 · 이전 배치 유지"));
-assert(!view.text().includes("PostgreSQL"), "cancel restores the saved layout");
-assert.equal(serverLayouts["Bearer user-token"].items.length, 5);
+assert.equal(view.renderer.root.findAll((node) => typeof node.type === "string" && node.props?.["data-widget"] === "trend").length, 0, "cancel restores the saved layout");
+assert.equal(serverLayouts["Bearer user-token"].items.length, 6);
 await act(async () => view.renderer.unmount());
 
-// 다시 열면 서버 배치(5개)를 그대로 그린다. 배치를 불러오지 못하면 기본 배치 + 안내, 편집은 막는다.
+// 다시 열면 서버 배치(6개)를 그대로 그린다. 배치를 불러오지 못하면 기본 배치 + 안내, 편집은 막는다.
 view = await renderAs("user", "/operations");
-await wait(() => view.renderer.root.findAll((node) => typeof node.type === "string" && node.props?.["data-widget"]).length === 5, "server layout restored");
+await wait(() => view.renderer.root.findAll((node) => typeof node.type === "string" && node.props?.["data-widget"]).length === 6, "server layout restored");
 assert.equal(view.renderer.root.findAll((node) => typeof node.type === "string" && node.props?.["data-widget"] === "trend").length, 0);
 await act(async () => view.renderer.unmount());
 // 옛 브라우저 배치(서버 저장 전 키): 서버에 배치가 없으면 그 배치를 쓰고 서버에 저장한 뒤 지운다. 서버에 배치가 있으면 지우기만 한다.
@@ -381,7 +383,7 @@ bodies["/api/operations/overview"] = overviewBody;
 storage.set(layout.legacyLayoutKey("user-1"), JSON.stringify({ version: 2, items: [{ i: "queue", x: 0, y: 0, w: 2, h: 3 }] }));
 view = await renderAs("user", "/operations");
 await wait(() => !storage.has(layout.legacyLayoutKey("user-1")), "stale legacy key removed when the server has a layout");
-assert.equal(serverLayouts["Bearer user-token"].items.length, 5, "server layout kept");
+assert.equal(serverLayouts["Bearer user-token"].items.length, 6, "server layout kept");
 await act(async () => view.renderer.unmount());
 delete serverLayouts["Bearer admin-token"];
 settingsMode = "all";

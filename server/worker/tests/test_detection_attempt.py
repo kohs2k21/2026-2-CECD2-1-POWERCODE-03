@@ -690,7 +690,7 @@ class SourceLatencyCondition(unittest.TestCase):
         return source_latency_measurable(**values)
 
     def test_clock_status(self):
-        # assumed_tz = 시간대 표기 없는 원천 시각을 KST로 해석한 시각(사용자 11/15 Q2) — 포함
+        # assumed_tz = 시간대 표기 없는 원천 시각을 KST로 해석한 시각(사용자 결정 11/15) — 포함
         for status, expected in (("offset", True), ("verified_tz", True), ("assumed_tz", True), ("unparsed", False),
                                  ("absent", False), ("unknown", False), (None, False)):
             with self.subTest(status=status):

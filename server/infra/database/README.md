@@ -329,7 +329,7 @@ SELECT r.rolname,
 ## 031 판정 저장 소요 측정 단계
 
 - 파일 `031_judgment_store_measurement.sql`, 030까지 적용 뒤 한 번 실행(`psql -v ON_ERROR_STOP=1 -f`), 004 표 소유자로 실행. 문장 1개(`ALTER TABLE` 안의 DROP·ADD 4개가 함께 성공·실패, 020과 같이 BEGIN..COMMIT 없음), 새 표·열·함수·트리거·인덱스·권한 변경 없음(`scripts/database-roles.sql` 재적용 불필요 — detector INSERT는 기존 GRANT), 자동 down migration 없음. 재실행해도 결과 같음(같은 이름·같은 정의)
-- 왜: Detector가 판정 저장 소요(판정 쓰기 트랜잭션 진입 → COMMIT 완료)를 `ops_pipeline_measurements`에 stage `judgment_store`로 남긴다(`contracts/detection-decision.md` 19절, 사용자 11/15 D1 A안). 판정 행은 불변이고 커밋 시각은 그 트랜잭션 안에서 알 수 없어 판정 행에 두지 않는다
+- 왜: Detector가 판정 저장 소요(판정 쓰기 트랜잭션 진입 → COMMIT 완료)를 `ops_pipeline_measurements`에 stage `judgment_store`로 남긴다(`contracts/detection-decision.md` 19절, 사용자 결정 11/15: migration을 더해 Detector가 COMMIT까지 잰다). 판정 행은 불변이고 커밋 시각은 그 트랜잭션 안에서 알 수 없어 판정 행에 두지 않는다
 - 변경: ① `ops_pipeline_measurements_stage_check`(004 열 CHECK의 자동 이름)를 같은 이름으로 `('feature','detector')` → `('feature','detector','judgment_store')` ② `ops_pipeline_measurements_config_check`(016)를 같은 이름으로 `config_version_id IS NOT NULL OR stage = 'detector'` → `… OR stage IN ('detector','judgment_store')`. feature는 계속 구성 필수
 - 잠금: 문장 동안 `ops_pipeline_measurements`에 ACCESS EXCLUSIVE, 새 CHECK 검증으로 표 heap을 읽음(행 수에 비례 — 보존 정책이 없어 판정 수만큼 쌓인 표, 크기 미측정). 그동안 Detector 판정 트랜잭션(detector 측정 행 INSERT)·Feature 워커·API 운영 조회가 기다린다. 적용 전 `pg_relation_size('ops_pipeline_measurements')`로 크기를 보고 크면 Detector를 멈추고 적용. 새 조건이 이전보다 넓어 검증 실패 없음
 - 배포 순서: migration 031 → Detector. 031 전에 새 Detector가 돌면 측정 INSERT만 23514로 실패하고 Detector는 경고 로그만 남긴 채 판정·작업을 성공시킨다(표본만 없음). 이전 Detector는 031 뒤에도 그대로(detector·feature 조건 불변). API `/api/pipeline` 단계별 집계(`pipelineRoutes.ts`, `GROUP BY stage`)에는 `judgment_store` 행이 새 단계로 나타난다. 운영 latency API `judgmentStore` 반영은 WebUI 몫

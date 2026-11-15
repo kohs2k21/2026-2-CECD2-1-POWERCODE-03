@@ -22,7 +22,7 @@ Status: current
 - 선택: `activeConfigurationVersion`, `endToEndLatencyMs`, `queueWaitP95Ms`, `collectorEps`, `cpuPercent`, `memoryPercent`, `diskPercent`, `alertDeliverySuccessPercent`, `activeConfiguration`, `operationalState`
 - 수치: 유한·0 이상, Percent 항목 100 이하
 - 현재 제공: `collectorEps` = 최근 60초 저장 관측 수/60(전 계층). `queueWaitP95Ms` = 전체 원천 detect 작업 생성 → 첫 시도 시작 최근 1시간 p95(표본 없으면 생략). cpu·memory·disk·알림 전달률은 계측 없음 → 키 생략
-- `endToEndLatencyMs`: ESB 로그 발생 → 판정 저장 실측(최근 1시간 `latency_status=measured` 중앙값); API 수신 시각 기준 재기산 금지. Detector는 [detection-decision.md](detection-decision.md) 18절 조건(관측 `clock_status` offset·verified_tz·assumed_tz(KST로 해석한 시각) ∧ 출처 `live` ∧ 첫 revision ∧ 재판정 아님 ∧ 원천 시각 있음)일 때만 `measured`로 저장하고 그 밖은 `unavailable`. 1시간 `measured` 판정이 없으면 키 생략 = 화면 `원천 발생 → 판정: 측정 불가`. 음수 표본 처리(분위수 제외·`skewCount`)는 API 몫(18절 집계)
+- `endToEndLatencyMs`: ESB 로그 발생 → 판정 저장 실측(최근 1시간 `latency_status=measured` 중앙값); API 수신 시각 기준 재기산 금지. Detector는 [detection-decision.md](detection-decision.md) 18절 조건(관측 `clock_status` offset·verified_tz·assumed_tz(KST로 해석한 시각) ∧ 출처 `live` ∧ 첫 revision ∧ 재판정 아님 ∧ 원천 시각 있음)일 때만 `measured`로 저장하고 그 밖은 `unavailable`. 1시간 `measured` 판정이 없으면 키 생략 = 화면 `원천 발생 → 판정: 측정 불가`. 현재 API는 음수 표본까지 넣은 중앙값을 쓰고 그 중앙값이 음수일 때만 키를 뺀다(`operationsReadModel.ts` `num()`). 음수 표본을 분위수에서 빼는 집계(18절, `skewCount`)는 아직 반영 전이며 WebUI 몫
 - `activeConfiguration`: `ops_system_state` 운영 포인터. 없으면 `null`(운영 구성 없음). 객체 `configVersionId`, `sourceId`, `revision`, `changedAt`, `detectionMode`(`configuration_spec.detectionPolicy.mode`), `ruleCount`(`ml_config_rules`), `ruleSeverityCounts`(info/warning/critical), `models[]`(`modelKey`, `adapterName`). #94 룰 세트·활성 모델 집합 구현 후 그 기준으로 교체
 - `operationalState`: 구성 없이(v04) 운영되는 기준 — `ops_operational_state` 뷰(한 문장 = 한 스냅샷) `ruleSetRevision`, `activeModelSetRevision`, `models[]`(활성 집합 `modelKey`만). 뷰 행이 없으면 `null`(확인 불가). 화면: `activeConfiguration`이 `null`이고 룰 세트 버전이 있으면 머리 `현재 운영: 룰 버전 N · 머신러닝 모델 …|없음`, 현재 운영 위젯 `룰 · 버전 N`·`머신러닝 모델 · …|없음`. 구성이 있으면 기존 구성 표시 그대로, 둘 다 없으면 `운영 구성 없음`
 - `stages` 선택 키: `collector`, `redaction`, `observationQueue`, `detector`, `judgmentStore`
@@ -53,7 +53,7 @@ Status: current
 - judgmentStore: `ops_pipeline_measurements(stage='judgment_store')`(migration 031). Detector가 첫 판정마다 판정 쓰기 트랜잭션 진입 → COMMIT 완료를 단조 시계로 재서 COMMIT 뒤 1행을 쓴다(재판정 제외, [detection-decision.md](detection-decision.md) 19절). 원천별 최근 1시간 분위수·표본 수, 실패 수 null. 031 적용 전·표본 없음은 `samples 0`·분위수 null. 현재 API는 `samples 0`·null 고정이며 이 행을 읽는 집계 반영은 WebUI 몫
 - `endToEnd`: `{p50Ms:null, p95Ms:null, reason:'source_clock_unverified'}`
   - Detector는 [detection-decision.md](detection-decision.md) 18절 조건(`assumed_tz` 포함)이면 판정 행을 `measured`로 저장한다. 현재 API는 위 고정값이며 집계 변경(음수 제외·`skewCount`·`reason:'source_clock_skew'`)은 WebUI 몫
-  - 관측 저장 → 판정(DB 시계 내부 구간) 줄은 두지 않는다(D3, 사용자 11/15)
+  - 관측 저장 → 판정(DB 시계 내부 구간) 줄은 두지 않는다(사용자 결정 11/15)
 
 ## GET /api/operations/source-fields?sourceId=&layer=T|P|M|B
 

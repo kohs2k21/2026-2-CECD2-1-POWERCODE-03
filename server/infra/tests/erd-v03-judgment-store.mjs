@@ -42,7 +42,10 @@ export async function judgmentStore031({ connection, check, failures, migrations
     await measure(c, observation, 'feature', config);
     await measure(c, observation, 'detector', null);
     // With a config so only the stage CHECK can fail (CHECKs are evaluated in name order: config_check would fire first for NULL).
-    await no(c, `${db}: before 031 stage judgment_store rejected`, STAGE_CHECK, () => measure(c, observation, 'judgment_store', config));
+    // no() uses SAVEPOINT, which needs an open transaction block.
+    await c.query('BEGIN');
+    try { await no(c, `${db}: before 031 stage judgment_store rejected`, STAGE_CHECK, () => measure(c, observation, 'judgment_store', config)); }
+    finally { await c.query('ROLLBACK'); }
     const rows = async () => (await c.query(`SELECT row_to_json(x)::text AS r FROM ${TABLE} x ORDER BY stage`)).rows.map(r => r.r);
     const before = await catalog(c), rowsBefore = await rows();
 

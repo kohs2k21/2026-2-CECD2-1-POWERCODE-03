@@ -1168,7 +1168,7 @@ def source_latency(conn, sid):
     future = {"start_time_raw": "2999-01-01 00:00:00+00:00", "end_time_raw": "2999-01-01 00:00:01+00:00"}
     status, latency, copied, observed, _, same_clock = judge("latency-skew", future, "live")
     assert status == "measured" and latency < 0 and copied == observed and same_clock is True, (status, latency)
-    # 시간대 표기 없는 원천 시각: Collector가 KST로 해석한 assumed_tz도 measured(사용자 11/15 Q2)
+    # 시간대 표기 없는 원천 시각: Collector가 KST로 해석한 assumed_tz도 measured(사용자 결정 11/15)
     status, latency, copied, observed, clock, same_clock = judge("latency-assumed", {}, "live")
     assert (status, clock) == ("measured", "assumed_tz") and copied == observed and same_clock is True, (status, clock)
     # 조건 거짓: 첫 조회(initial), 출처 행 없음 — 관측 원천 시각이 있어도 복사하지 않는다

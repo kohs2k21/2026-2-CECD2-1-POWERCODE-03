@@ -22,7 +22,7 @@
 | `/detection/operations/jobs/:jobId` | 작업 상세 | admin |
 | `/detection/operations/replace` | 모델 교체(전체 페이지 단계 흐름) | admin |
 | `/detection/rules` | 탐지 설정 › 룰 설정([rules-ui.md](rules-ui.md)) | admin |
-| `/detection/rules/candidates` | 룰 설정 › 규칙 추천 목록(쿼리 `interface`, [rule-candidates-ui.md](rule-candidates-ui.md)) | admin |
+| `/detection/rules/candidates` | 룰 설정 › 규칙 추천(룰 설정의 추천 한 곳 — 탭 이상 징후 / 실행 흐름 규칙, 쿼리 `tab`·`interface`, [rule-candidates-ui.md](rule-candidates-ui.md) 8절) | admin |
 | `/detection/rules/candidates/:candidateId` | 규칙 추천 후보 상세 | admin |
 | `/detection/rules/protocols` | 룰 설정 › 프로토콜 설정 목록(정상 프로토콜 = 인터페이스별 허용 경로, [protocol-settings-ui.md](protocol-settings-ui.md)) | admin |
 | `/detection/rules/protocols/:interfaceId` | 프로토콜 설정 인터페이스 상세 | admin |
@@ -51,6 +51,8 @@
 | 작업 목록 | `status` | `all` 전체 / `running` 진행 중(대기·실행 중) / `done` 완료 / `failed` 실패 |
 | 작업 목록 | `kind` | `all` 전체 종류 / `train` 학습 / `evaluate` 평가 / `evaluation_set` 평가 세트 / `compare` 비교 평가 / `recommend_thresholds` AI 규칙 추천 / `recommend_relations` 규칙 추천 |
 | 평가 결과 | `tab` | `current` 현재 운영 모델 기준 / `all` 전체 평가 |
+| 규칙 추천 | `tab` | `anomaly` 이상 징후 / `flow` 실행 흐름 규칙. 실행 흐름 규칙의 구역 해시 `#recommend-paths`(경로)·`#recommend-relations`(단계 조건) |
+| 규칙 추천 | `interface` | 후보 결과의 인터페이스 ID(없으면 서버 기본 = 첫 인터페이스, 두 탭 공통) |
 | 평가 결과 | `step` | 새 비교 평가 `1` 평가 세트 / `2` 비교 모델 / `3` 요청 |
 | 모델 교체 | `step` | `1` 버전 선택 / `2` 비교 확인 / `3` 승인·요청 |
 | 이상 분석 | `category` | `all` / `anomaly` / `anomaly_sign` / `normal` / `in_progress` / `undetermined` / `failed_replaced`(판정 결과별 분류: 전체 / 이상 / 이상 징후 / 정상 / 판정 중·중간 판정 / 정상 여부 미확인 / 판정 실패·대체). 분류함 `workflow_open`·`workflow_resolved`와 완료 아래 확인 결과별 `workflow_resolved_actual_anomaly`·`workflow_resolved_normal`·`workflow_resolved_undetermined`(admin만, user는 `workflow_resolved`로 replace). 위험도별 등 전체 값은 [analysis-ui.md](analysis-ui.md) 분류 절 |

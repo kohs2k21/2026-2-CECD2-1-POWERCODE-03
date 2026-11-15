@@ -29,6 +29,7 @@ export const countLabels: Record<keyof Counts, string> = { applicable: "적용",
 export const PAIR_LISTED = "인계 짝";
 export const PAIR_WARNING = "짝 선행 규칙이 없어 선행이 다르면 인계를 확인하지 않습니다.";
 export const APPROVE = "승인";
+export const NOT_APPROVABLE = "승인 불가 · 후보 기준 미달";
 export const approvalBlockedText = (reason: string | null) =>
   reason === "rule_set_hash_v3_pending"
     ? "아직 저장 불가 · 관계 규칙·단계별 범위 저장(룰 세트 형식 3)은 Detector 지원 배포 뒤 열립니다"
@@ -109,3 +110,21 @@ export const SNAPSHOT_FIELD = "저장 데이터셋";
 export const SNAPSHOT_CURRENT = "현재 결과";
 export const SNAPSHOTS_EMPTY = "저장 데이터셋이 없습니다. 학습을 요청하면 학습 기간의 저장 데이터셋이 만들어집니다.";
 export const SNAPSHOTS_EMPTY_LINK = "머신러닝 모델 › 새 학습";
+
+/**
+ * 규칙 추천 화면 한 곳(룰 설정 안의 추천 UI 통합, 사용자 11/15 승인 화면안·문구). 그 밖의 문구는 기존 화면 문구를 그대로 쓴다.
+ * 근거 문장의 "숫자는 코드, 문장은 LLM": 제안 임계값은 코드 계산 p95(THRESHOLD_BASIS), LLM은 근거 문장만(llm-recommendation-job.md).
+ */
+export const RECOMMEND_DESCRIPTION = "후보 → 근거(숫자는 코드, 문장은 LLM) → 승인하면 룰 세트 새 버전으로 저장";
+export const TAB_ANOMALY = "이상 징후";
+export const TAB_FLOW = "실행 흐름 규칙";
+export const PATH_SECTION = "경로(정상 프로토콜)";
+export const STEP_SECTION = "단계 조건(관계 규칙)";
+export const NEW_RULE = "새 규칙";
+/** 승인 상태 이름(rule-candidates-ui.md 7절 "승인됨"). 상세의 승인 줄은 뒤에 이유 문장을 붙인다. */
+export const APPROVED = "승인됨";
+export const APPROVED_TEXT = `${APPROVED} · 현재 룰 세트에 같은 조건의 규칙이 있습니다`;
+/** 건수를 모르면(조회 전·실패) 값 없음 표시(—). 0은 결과가 없거나 후보가 없는 것이다. */
+const countText = (value: number | null) => (value === null ? "—" : n(value));
+export const recommendLinkText = (value: number | null) => `추천 ${countText(value)}건 보기`;
+export const tabText = (label: string, value: number | null) => `${label} · ${countText(value)}`;

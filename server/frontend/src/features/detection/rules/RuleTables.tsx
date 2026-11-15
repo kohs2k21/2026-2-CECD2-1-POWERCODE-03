@@ -1,4 +1,4 @@
-import { Fragment, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { IconPlus } from "@tabler/icons-react";
 import { SectionCard } from "@/components/layout/SectionCard";
 import { Badge } from "@/components/ui/badge";
@@ -10,7 +10,6 @@ import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DASH, stampText } from "@/features/operations/format";
 import { cn } from "@/lib/utils";
-import { FormulaPanel } from "./FormulaPanel";
 import {
   HARD_TERM, RELATION_TERM, SOFT_TERM, codeLabel, defaultLevel, errorCode, historySummary, nameChanged, operatorLabels, operators, relationKindLabels, relationPathText,
   severities, severityBadge, severityChanged, severityGroups, severityLabels, thresholdChanged,
@@ -145,12 +144,15 @@ export const HardRulesCard = ({ draft, onToggle, onSeverity }: { draft: RuleDraf
 );
 
 /** 관계 규칙(규칙 추천 승인으로 추가, relation-rules.md). 조건은 승인 때 고정이라 켜기·위험도만 편집한다. */
-export const RelationRulesCard = ({ draft, onToggle, onSeverity }: {
-  draft: RuleDraft; onToggle: (id: string, enabled: boolean) => void; onSeverity: (id: string, level: Severity) => void;
+export const RelationRulesCard = ({ draft, recommend, onToggle, onSeverity }: {
+  draft: RuleDraft;
+  /** 규칙 추천(단계 조건) 링크. */
+  recommend: ReactNode;
+  onToggle: (id: string, enabled: boolean) => void; onSeverity: (id: string, level: Severity) => void;
 }) => {
   const rules = draft.base.relationRules ?? [];
   return (
-    <SectionCard id={detectionSections.rulesRelation.id} title={RELATION_TERM} aria-label={RELATION_TERM}>
+    <SectionCard id={detectionSections.rulesRelation.id} title={RELATION_TERM} aria-label={RELATION_TERM} action={recommend}>
       {rules.length === 0 ? (
         <EmptyState>{RELATION_TERM}: 표시할 항목이 없습니다.</EmptyState>
       ) : (
@@ -184,112 +186,93 @@ export const RelationRulesCard = ({ draft, onToggle, onSeverity }: {
   );
 };
 
+/** 이상 징후 규칙 편집 표. 추천(AI 규칙 추천·수식 추천)은 규칙 추천 화면에 있고 머리에는 그 링크만 둔다(사용자 11/15). */
 export const SoftRulesCard = ({
-  draft, fields, fieldsError, aiControls, aiBox, onEdit, onAdd, onDelete,
+  draft, fields, fieldsError, recommend, onEdit, onAdd, onDelete,
 }: {
   draft: RuleDraft;
   fields: SoftRuleField[];
   fieldsError: string | null;
-  aiControls: ReactNode;
-  aiBox: ReactNode;
+  /** 규칙 추천(이상 징후) 링크. */
+  recommend: ReactNode;
   onEdit: (key: string, patch: Partial<DraftSoftRule>) => void;
   onAdd: () => void;
   onDelete: (rule: DraftSoftRule) => void;
-}) => {
-  const [open, setOpen] = useState<string[]>([]);
-  const toggle = (key: string, show: boolean) => setOpen((keys) => (show ? [...keys.filter((item) => item !== key), key] : keys.filter((item) => item !== key)));
-  return (
-    <SectionCard
-      id={detectionSections.rulesSoft.id}
-      title={<span className="whitespace-nowrap">{SOFT_TERM}</span>}
-      action={
-        <>
-          {aiControls}
-          <Button size="sm" variant="outline" disabled={!fields.length} onClick={onAdd}>
-            <IconPlus aria-hidden="true" />
-            규칙 추가
-          </Button>
-        </>
-      }
-    >
-      {fieldsError && <ErrorState title={`등록 필드 조회 실패 · ${fieldsError}`} />}
-      {aiBox}
-      {draft.soft.length === 0 ? (
-        <EmptyState>{SOFT_TERM}: 표시할 항목이 없습니다.</EmptyState>
-      ) : (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              {["규칙", "대상 필드", "조건", "임계값", "단위", "위험도", "켜기", "추천·삭제"].map((title) => <TableHead key={title}>{title}</TableHead>)}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {draft.soft.map((rule) => {
-              const field = fields.find((item) => item.fieldId === rule.field);
-              const base = draft.base.softRules.find((item) => item.id === rule.id);
-              const name = rule.name || field?.displayName || rule.field;
-              return (
-                <Fragment key={rule.key}>
-                  <TableRow data-rule={rule.key} className={cn(!rule.enabled && "text-muted-foreground")}>
-                    <TableCell className={changedCell(!base || nameChanged(rule, base))}>
-                      <span className="flex items-center gap-1">
-                        <Input className="w-44" maxLength={120} aria-label="규칙 이름" value={rule.name} onChange={(event) => onEdit(rule.key, { name: event.target.value })} />
-                        {!base && <Badge variant="info">추가</Badge>}
-                      </span>
-                    </TableCell>
-                    <TableCell data-field={rule.field}>
-                      <span className="grid">
-                        {field?.displayName ?? rule.field}
-                        <span className="text-xs text-muted-foreground">{rule.field}</span>
-                      </span>
-                    </TableCell>
-                    <TableCell className={changedCell(!base || base.operator !== rule.operator)}>
-                      <div className="w-20">
-                        <NativeSelect aria-label={`${name} 조건`} value={rule.operator} onChange={(event) => onEdit(rule.key, { operator: event.target.value as DraftSoftRule["operator"] })}>
-                          {operators.map((item) => <NativeSelectOption key={item} value={item}>{operatorLabels[item]}</NativeSelectOption>)}
-                        </NativeSelect>
-                      </div>
-                    </TableCell>
-                    <TableCell className={changedCell(!base || thresholdChanged(rule, base))}>
-                      <Input className="w-28" type="number" step="any" aria-label={`${name} 임계값`} value={rule.threshold} onChange={(event) => onEdit(rule.key, { threshold: event.target.value })} />
-                    </TableCell>
-                    <TableCell>{field?.unit ?? DASH}</TableCell>
-                    <TableCell className={changedCell(!base || base.severity !== rule.severity)}>
-                      <div className="w-20">
-                        <NativeSelect aria-label={`${name} 위험도`} value={rule.severity} onChange={(event) => onEdit(rule.key, { severity: event.target.value as DraftSoftRule["severity"] })}>
-                          {severities.map((item) => <NativeSelectOption key={item} value={item}>{severityLabels[item]}</NativeSelectOption>)}
-                        </NativeSelect>
-                      </div>
-                    </TableCell>
-                    <TableCell className={changedCell(!base || base.enabled !== rule.enabled)}>
-                      <SwitchCell checked={rule.enabled} label={`${name} 켜기`} onChange={(value) => onEdit(rule.key, { enabled: value })} />
-                    </TableCell>
-                    <TableCell>
-                      <span className="flex gap-1">
-                        <Button size="sm" variant="outline" onClick={() => toggle(rule.key, true)}>수식 추천</Button>
-                        <Button size="sm" variant="outline" onClick={() => onDelete(rule)}>삭제</Button>
-                      </span>
-                    </TableCell>
-                  </TableRow>
-                  {open.includes(rule.key) && (
-                    <TableRow data-formula={rule.key}>
-                      <TableCell colSpan={8} className="whitespace-normal">
-                        <FormulaPanel
-                          rule={rule} field={field} onClose={() => toggle(rule.key, false)}
-                          onApply={(threshold) => { onEdit(rule.key, { threshold }); toggle(rule.key, false); }}
-                        />
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </Fragment>
-              );
-            })}
-          </TableBody>
-        </Table>
-      )}
-    </SectionCard>
-  );
-};
+}) => (
+  <SectionCard
+    id={detectionSections.rulesSoft.id}
+    title={<span className="whitespace-nowrap">{SOFT_TERM}</span>}
+    action={
+      <>
+        {recommend}
+        <Button size="sm" variant="outline" disabled={!fields.length} onClick={onAdd}>
+          <IconPlus aria-hidden="true" />
+          규칙 추가
+        </Button>
+      </>
+    }
+  >
+    {fieldsError && <ErrorState title={`등록 필드 조회 실패 · ${fieldsError}`} />}
+    {draft.soft.length === 0 ? (
+      <EmptyState>{SOFT_TERM}: 표시할 항목이 없습니다.</EmptyState>
+    ) : (
+      <Table>
+        <TableHeader>
+          <TableRow>
+            {["규칙", "대상 필드", "조건", "임계값", "단위", "위험도", "켜기", "삭제"].map((title) => <TableHead key={title}>{title}</TableHead>)}
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {draft.soft.map((rule) => {
+            const field = fields.find((item) => item.fieldId === rule.field);
+            const base = draft.base.softRules.find((item) => item.id === rule.id);
+            const name = rule.name || field?.displayName || rule.field;
+            return (
+              <TableRow key={rule.key} data-rule={rule.key} className={cn(!rule.enabled && "text-muted-foreground")}>
+                <TableCell className={changedCell(!base || nameChanged(rule, base))}>
+                  <span className="flex items-center gap-1">
+                    <Input className="w-44" maxLength={120} aria-label="규칙 이름" value={rule.name} onChange={(event) => onEdit(rule.key, { name: event.target.value })} />
+                    {!base && <Badge variant="info">추가</Badge>}
+                  </span>
+                </TableCell>
+                <TableCell data-field={rule.field}>
+                  <span className="grid">
+                    {field?.displayName ?? rule.field}
+                    <span className="text-xs text-muted-foreground">{rule.field}</span>
+                  </span>
+                </TableCell>
+                <TableCell className={changedCell(!base || base.operator !== rule.operator)}>
+                  <div className="w-20">
+                    <NativeSelect aria-label={`${name} 조건`} value={rule.operator} onChange={(event) => onEdit(rule.key, { operator: event.target.value as DraftSoftRule["operator"] })}>
+                      {operators.map((item) => <NativeSelectOption key={item} value={item}>{operatorLabels[item]}</NativeSelectOption>)}
+                    </NativeSelect>
+                  </div>
+                </TableCell>
+                <TableCell className={changedCell(!base || thresholdChanged(rule, base))}>
+                  <Input className="w-28" type="number" step="any" aria-label={`${name} 임계값`} value={rule.threshold} onChange={(event) => onEdit(rule.key, { threshold: event.target.value })} />
+                </TableCell>
+                <TableCell>{field?.unit ?? DASH}</TableCell>
+                <TableCell className={changedCell(!base || base.severity !== rule.severity)}>
+                  <div className="w-20">
+                    <NativeSelect aria-label={`${name} 위험도`} value={rule.severity} onChange={(event) => onEdit(rule.key, { severity: event.target.value as DraftSoftRule["severity"] })}>
+                      {severities.map((item) => <NativeSelectOption key={item} value={item}>{severityLabels[item]}</NativeSelectOption>)}
+                    </NativeSelect>
+                  </div>
+                </TableCell>
+                <TableCell className={changedCell(!base || base.enabled !== rule.enabled)}>
+                  <SwitchCell checked={rule.enabled} label={`${name} 켜기`} onChange={(value) => onEdit(rule.key, { enabled: value })} />
+                </TableCell>
+                <TableCell>
+                  <Button size="sm" variant="outline" onClick={() => onDelete(rule)}>삭제</Button>
+                </TableCell>
+              </TableRow>
+            );
+          })}
+        </TableBody>
+      </Table>
+    )}
+  </SectionCard>
+);
 
 const HistoryRow = ({ item, state, disabled, onRevert }: { item: HistoryItem; state: RuleSetState; disabled: boolean; onRevert: (revision: number) => void }) => {
   const current = state.revision;

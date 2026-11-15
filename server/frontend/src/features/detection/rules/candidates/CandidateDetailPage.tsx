@@ -1,31 +1,22 @@
-import { useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { Link, useLocation, useParams } from "react-router-dom";
 import { DescriptionList } from "@/components/layout/DescriptionList";
 import { ScreenTitle } from "@/components/layout/PageHeader";
 import { SectionCard } from "@/components/layout/SectionCard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { DialogFooter } from "@/components/ui/dialog";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/feedback";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Modal } from "@/components/ui/Modal";
-import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { paths } from "@/app/routes";
 import { stampText } from "@/features/operations/format";
 import type { DetectionReturnState } from "../../DetectionLayout";
 import type { Approval, CandidateDetail, ResultHead } from "./candidateApi";
 import {
-  APPROVE, CANDIDATES_TITLE, PAIR_WARNING, THRESHOLD_BASIS, adapterText, approvalBlockedText, candidateErrorTitle, countLabels, kindLabels, limitationText, n, pathText, rateText,
+  APPROVE, APPROVED_TEXT, CANDIDATES_TITLE, NOT_APPROVABLE, PAIR_WARNING, THRESHOLD_BASIS, adapterText, approvalBlockedText, candidateErrorTitle, countLabels, kindLabels, limitationText, n, pathText, rateText,
   reasonText, relationStatusBadge, relationStatusLabels, thresholdStatusLabels, thresholdText,
 } from "./candidateLabels";
 import { useCandidateDetail } from "./useCandidates";
-import { RELATION_TERM, SOFT_TERM, requestFromState, severities, severityLabels } from "../ruleDraft";
-import type { RelationRuleRequest, RuleSetRequest, RuleSetState, Severity, SoftRuleRequest } from "../ruleSetApi";
-import { useRuleSet } from "../useRuleSet";
-import { useRuleSetSave } from "../useRuleSetSave";
-import { approvalRequest, approvedRelation, approvedThreshold } from "./candidateApproval";
+import { ApproveDialog, approvedDetail, defaultApproveName, submitApproval, useApproval } from "./approvalFlow";
 
 type Relation = Extract<CandidateDetail, { type: "relation" }>;
 type Threshold = Extract<CandidateDetail, { type: "threshold" }>;
@@ -63,56 +54,11 @@ const ApproveBar = ({ approval, approvable, approved, busy, onApprove }: {
     <Button size="sm" disabled={!approval.available || !approvable || approved !== false || busy} aria-describedby="approve-state" onClick={onApprove}>{APPROVE}</Button>
     <span id="approve-state" className="text-muted-foreground">
       {approved
-        ? <Badge variant="success" data-approved>승인됨 · 현재 룰 세트에 같은 조건의 규칙이 있습니다</Badge>
-        : !approvable ? "승인 불가 · 후보 기준 미달" : approval.available ? (approved === null ? "현재 룰 세트 확인 중" : "승인하면 룰 세트 새 버전으로 저장되고 되돌리기할 수 있습니다") : approvalBlockedText(approval.reason)}
+        ? <Badge variant="success" data-approved>{APPROVED_TEXT}</Badge>
+        : !approvable ? NOT_APPROVABLE : approval.available ? (approved === null ? "현재 룰 세트 확인 중" : "승인하면 룰 세트 새 버전으로 저장되고 되돌리기할 수 있습니다") : approvalBlockedText(approval.reason)}
     </span>
   </div>
 );
-
-/** 승인 입력: 관계 규칙은 위험도, 처리 시간 규칙은 이름·위험도(id는 서버가 발급). 다음 → 서버 미리보기 확인창 → 저장. */
-const ApproveDialog = ({ kind, defaultName, onNext, onCancel }: {
-  kind: "relation" | "threshold"; defaultName: string; onNext: (values: { name: string; severity: Severity }) => void; onCancel: () => void;
-}) => {
-  const [name, setName] = useState(defaultName);
-  // 관계 규칙은 이상 규칙(하드) 기본 위험도 = 위험, 처리 시간 후보는 이상 징후 규칙 기본 = 주의(규칙 추가 창과 같음).
-  const [severity, setSeverity] = useState<Severity>(kind === "relation" ? "critical" : "warning");
-  return (
-    <Modal isOpen onOpenChange={(open) => { if (!open) onCancel(); }} title={`${kind === "relation" ? RELATION_TERM : SOFT_TERM} 승인`}>
-      <div className="grid gap-4 sm:grid-cols-2">
-        {kind === "threshold" && (
-          <div className="grid gap-2">
-            <Label htmlFor="approve-name">규칙 이름</Label>
-            <Input id="approve-name" maxLength={120} value={name} onChange={(event) => setName(event.target.value)} />
-          </div>
-        )}
-        <div className="grid gap-2">
-          <Label htmlFor="approve-severity">위험도</Label>
-          <NativeSelect id="approve-severity" value={severity} onChange={(event) => setSeverity(event.target.value as Severity)}>
-            {severities.map((item) => <NativeSelectOption key={item} value={item}>{severityLabels[item]}</NativeSelectOption>)}
-          </NativeSelect>
-        </div>
-      </div>
-      <DialogFooter>
-        <Button variant="outline" onClick={onCancel}>돌아가기</Button>
-        <Button disabled={kind === "threshold" && !name.trim()} onClick={() => onNext({ name: name.trim(), severity })}>다음</Button>
-      </DialogFooter>
-    </Modal>
-  );
-};
-
-/** 승인 흐름: 현재 룰 세트를 읽어 승인 여부를 판단하고, 승인은 현재 상태 + 새 규칙 1개를 저장한다. */
-const useApproval = () => {
-  const rules = useRuleSet();
-  const reload = async () => {
-    const result = await rules.refetch();
-    return result.isError ? undefined : result.data;
-  };
-  const save = useRuleSetSave({ state: rules.data, reload });
-  const [asking, setAsking] = useState(false);
-  const submit = (state: RuleSetState, add: (request: RuleSetRequest) => RuleSetRequest, title: string) =>
-    void save.open((confirm) => add(requestFromState(state, confirm)), { title, actionText: "승인하고 적용" });
-  return { state: rules.data, stateError: rules.isError, save, asking, setAsking, submit };
-};
 
 const draftValue = (value: unknown) => (value === null || value === undefined ? "—" : typeof value === "object" ? JSON.stringify(value) : String(value));
 /** 승인 때 룰 세트에 들어갈 조건(서버 ruleDraft). id·위험도·이름은 승인 때 정한다. */
@@ -138,7 +84,7 @@ const RelationView = ({ detail }: { detail: Relation }) => {
   const location = useLocation();
   const item = detail.relation;
   const approval = useApproval();
-  const approved = approval.state ? approvedRelation(approval.state, detail.ruleDraft) : null;
+  const approved = approval.state ? approvedDetail(approval.state, detail) : null;
   const returnState: DetectionReturnState = { returnTo: (location.state as DetectionReturnState | null)?.returnTo ?? paths.detectionRuleCandidates };
   return (
     <>
@@ -173,10 +119,9 @@ const RelationView = ({ detail }: { detail: Relation }) => {
       </SectionCard>
       {approval.asking && approval.state && (
         <ApproveDialog kind="relation" defaultName="" onCancel={() => approval.setAsking(false)}
-          onNext={({ severity }) => {
+          onNext={(values) => {
             approval.setAsking(false);
-            approval.submit(approval.state!, (request) => approvalRequest(request, { relation: { ...(detail.ruleDraft as unknown as RelationRuleRequest), id: null, clientRef: "candidate", severity, enabled: true } }),
-              `${RELATION_TERM} 승인 · ${kindLabels[item.kind]} ${pathText(item)}`);
+            submitApproval(approval, approval.state!, detail, values);
           }} />
       )}
       {approval.save.dialog}
@@ -227,7 +172,7 @@ const RelationView = ({ detail }: { detail: Relation }) => {
 const ThresholdView = ({ detail }: { detail: Threshold }) => {
   const item = detail.threshold;
   const approval = useApproval();
-  const approved = approval.state && detail.ruleDraft ? approvedThreshold(approval.state, detail.ruleDraft) : approval.state ? false : null;
+  const approved = approval.state ? approvedDetail(approval.state, detail) : null;
   const e = item.evidence;
   const value = (v: number | null) => (v === null ? "—" : `${v.toLocaleString("ko-KR")} ${item.unit}`.trim());
   return (
@@ -256,13 +201,10 @@ const ThresholdView = ({ detail }: { detail: Threshold }) => {
         {approval.save.banner}
       </SectionCard>
       {approval.asking && approval.state && detail.ruleDraft && (
-        <ApproveDialog kind="threshold" defaultName={`처리 시간 ${item.scope.processId} ${thresholdText(item)}`} onCancel={() => approval.setAsking(false)}
-          onNext={({ name, severity }) => {
+        <ApproveDialog kind="threshold" defaultName={defaultApproveName(detail)} onCancel={() => approval.setAsking(false)}
+          onNext={(values) => {
             approval.setAsking(false);
-            const draft = detail.ruleDraft as unknown as Omit<SoftRuleRequest, "id" | "name" | "severity">;
-            approval.submit(approval.state!, (request) => approvalRequest(request, {
-              soft: { id: null, clientRef: "candidate", name, field: draft.field, operator: draft.operator, threshold: draft.threshold, severity, enabled: true, scope: draft.scope },
-            }), `${SOFT_TERM} 승인 · ${item.scope.processId}`);
+            submitApproval(approval, approval.state!, detail, values);
           }} />
       )}
       {approval.save.dialog}

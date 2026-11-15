@@ -29,6 +29,8 @@ export type RelationCandidate = {
 };
 export type ThresholdCandidate = {
   candidateId: string;
+  /** 대상 필드(API가 Trainer 값 그대로, 지금은 처리 시간 `elapsed_ms`만). 승인됨 판단(같은 field + scope)에 쓴다. */
+  field: string | null;
   status: ThresholdStatus;
   reason: string | null;
   scope: { processId: string; adapterType?: string };
@@ -139,7 +141,7 @@ export const parseThreshold = (value: unknown): ThresholdCandidate => {
   if (!["n", "rows", "referenceRows", "endTimeMissingReferenceRows", "unavailableReferenceRows"].every((key) => count(e[key]))) fail("처리 시간 후보");
   const scope = v.scope as Json;
   return {
-    candidateId: v.candidateId as string, status: v.status as ThresholdStatus, reason: str(v.reason),
+    candidateId: v.candidateId as string, field: str(v.field), status: v.status as ThresholdStatus, reason: str(v.reason),
     scope: { processId: scope.processId as string, ...(str(scope.adapterType) ? { adapterType: scope.adapterType as string } : {}) },
     interfaceIds: (v.interfaceIds as unknown[]).filter((x): x is string => typeof x === "string"),
     operator: str(v.operator), threshold: num(v.threshold), displayThreshold: str(v.displayThreshold), unit: str(v.unit) ?? "", source: str(v.source),

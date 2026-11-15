@@ -101,8 +101,8 @@ const RequestDialog = ({ currentSnapshotId, refreshQueryNames, onClose }: { curr
 
 /**
  * 목록 머리 명령: [후보 작업 요청]. 후보 작업이 대기·실행 중이면 끈다(같은 계산을 겹쳐 쌓지 않음 — 서버는 막지 않는다).
- * refreshQueryNames: 접수 뒤 다시 읽을 조회 이름(기본 규칙 추천 목록). 프로토콜 설정은 관측 경로 초안을 넘긴다 —
- * 초안도 같은 recommend_relations 결과에서 온다(protocol-settings-ui.md 2절).
+ * refreshQueryNames: 접수 뒤 다시 읽을 조회 이름(기본 규칙 추천 목록). 규칙 추천 화면은 관측 경로 초안도 넘긴다 —
+ * 초안도 같은 recommend_relations 결과에서 온다(protocol-settings-ui.md 2절). 요청 단추는 규칙 추천 화면에만 있다(사용자 11/15).
  */
 export const CandidateJobRequest = ({ latestJob, currentSnapshotId, refreshQueryNames = [candidateListQueryName] }: {
   latestJob: CandidateJob | null | undefined;

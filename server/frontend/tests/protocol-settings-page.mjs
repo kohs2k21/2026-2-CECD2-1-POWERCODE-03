@@ -184,58 +184,40 @@ const previewOk = (changes, warnings = []) => () => json({ valid: true, summary:
   await app.cleanup();
 }
 
-// 4-1) 목록에서 후보 작업 요청(규칙 추천과 같은 확인창·API) → 진행 중 상태·5초 조회 → 성공하면 초안 표가 들어온다, 실패는 `실패 · <코드>`
+// 4-1) 후보 작업 요청은 규칙 추천 화면 한 곳(사용자 11/15): 목록에는 [후보 작업 요청] 대신 "추천 n건 보기"(규칙 추천 › 실행 흐름 규칙 › 경로).
+// 초안 상태 줄의 최근 작업(대기·실패)은 그대로 보이고, 대기·실행 중이면 5초 조회 → 성공하면 초안 표가 들어온다, 실패는 `실패 · <코드>`
 {
-  const { Dialog } = await import("../src/components/ui/dialog.tsx");
-  const { NativeSelect } = await import("../src/components/ui/native-select.tsx");
   const candidateLabels = await import("../src/features/detection/rules/candidates/candidateLabels.ts");
-  const elements = (node) => (Array.isArray(node) ? node.flatMap(elements) : React.isValidElement(node) ? [node, ...elements(node.props.children)] : []);
-  const openDialog = (app) => app.renderer.root.findAllByType(Dialog).find((node) => node.props.open);
-  const dialogPart = (app, match) => elements(openDialog(app)?.props.children ?? []).find(match);
   const pageButton = (app, label) => app.renderer.root.findAll((n) => n.type === "button" && text(n.children) === label)[0];
-  const SNAP = "33333333-4444-4555-8666-777777777777";
   const NEW_JOB = "44444444-5555-4666-8777-888888888888";
-  const newJob = { ...draftJob, id: NEW_JOB, snapshotId: SNAP };
-  let phase = "old";
-  const posted = [];
+  const newJob = { ...draftJob, id: NEW_JOB, snapshotId: "snap-2" };
+  let phase = "queued";
   routes = {
     "GET /api/rule-set": () => json(state()),
-    "GET /api/rule-set/protocol-drafts": () => json(phase === "old" ? { state: "protocol_drafts_unavailable", reason: "not_in_result", latestJob: draftJob, job: draftJob }
-      : phase === "queued" ? { state: "protocol_drafts_unavailable", reason: "not_in_result", latestJob: { ...newJob, status: "queued", finishedAt: null }, job: draftJob }
-        : phase === "failed" ? { state: "protocol_drafts_unavailable", reason: "not_in_result", latestJob: { ...newJob, status: "failed", errorCode: "relation_snapshot_not_ready" }, job: draftJob }
-          : { ...draftsHead, latestJob: newJob, job: newJob, snapshotId: SNAP }),
-    "GET /api/rule-set/candidates/snapshots": () => json({ items: [{ id: SNAP, sourceId: "src-1", createdAt: "2026-11-13T01:00:00.000000Z", readyAt: null, from: "2026-10-01T00:00:00Z", until: "2026-11-01T00:00:00Z" }] }),
-    "POST /api/rule-set/candidates/jobs": (_target, init) => {
-      posted.push({ body: JSON.parse(init.body), key: new Headers(init.headers).get("Idempotency-Key") });
-      phase = "queued";
-      return json({ id: NEW_JOB, status: "queued", kind: "recommend_relations", inputSpec: { kind: "recommend_relations", snapshotId: SNAP, sourceId: "src-1" } }, 201);
-    },
+    "GET /api/rule-set/protocol-drafts": () => json(phase === "queued" ? { state: "protocol_drafts_unavailable", reason: "not_in_result", latestJob: { ...newJob, status: "queued", finishedAt: null }, job: draftJob }
+      : phase === "failed" ? { state: "protocol_drafts_unavailable", reason: "not_in_result", latestJob: { ...newJob, status: "failed", errorCode: "relation_snapshot_not_ready" }, job: draftJob }
+        : { ...draftsHead, latestJob: newJob, job: newJob, snapshotId: "snap-2" }),
   };
   const app = await mount(paths.detectionRuleProtocols);
-  await wait(() => byData(app, "data-drafts-unavailable").length === 1 && Boolean(pageButton(app, candidateLabels.JOB_REQUEST)), "request button next to the unavailable reason");
-  assert.equal(byData(app, "data-latest-job").length, 0, "latest job is the result job");
-  await act(async () => pageButton(app, candidateLabels.JOB_REQUEST).props.onClick());
-  await wait(() => Boolean(dialogPart(app, (n) => n.type === NativeSelect)), "dialog lists saved datasets");
-  await act(async () => dialogPart(app, (n) => typeof n.props.onClick === "function" && n.props.children === candidateLabels.JOB_REQUEST_SUBMIT).props.onClick());
-  await wait(() => !openDialog(app), "dialog closes after acceptance");
-  assert.deepEqual(posted.map((p) => p.body), [{ snapshotId: SNAP }], "same request body as rule candidates (snapshotId only)");
-  assert.ok(posted[0].key, "idempotency key");
-  await wait(() => byData(app, "data-latest-job").length === 1, "drafts re-read: queued job shown");
+  await wait(() => byData(app, "data-latest-job").length === 1, "queued job shown");
+  assert.equal(pageButton(app, candidateLabels.JOB_REQUEST), undefined, "no request button on the protocol list");
+  assert.equal(byData(app, "data-candidate-running").length, 0);
+  const recommend = () => app.renderer.root.findAll((n) => typeof n.type !== "string" && n.props?.["data-recommend-link"] === "flow")[0];
+  assert.deepEqual([recommend().props.to, recommend().props.state], ["/detection/rules/candidates?tab=flow#recommend-paths", { returnTo: "/detection/rules/protocols" }], "link to the paths section of rule recommendations");
+  assert.equal(text(recommend().children), "추천 0건 보기", "no draft yet: zero");
   const latest = byData(app, "data-latest-job")[0];
   assert.ok(text(latest.children).startsWith("최근 작업 대기"), text(latest.children));
   assert.equal(latest.findAllByType("a")[0].props.href, `/detection/operations/jobs/${NEW_JOB}`, "job detail link");
-  assert.equal(pageButton(app, candidateLabels.JOB_REQUEST).props.disabled, true, "no second request while a candidate job runs");
-  assert.equal(text(byData(app, "data-candidate-running")[0].children), candidateLabels.JOB_REQUEST_RUNNING);
   phase = "succeeded";
   await wait(() => byData(app, "data-protocol-row").length === 2 && byData(app, "data-latest-job").length === 0, "drafts table filled after polling", 800);
   assert.equal(byData(app, "data-drafts-unavailable").length, 0);
+  assert.equal(text(recommend().children), "추천 2건 보기", "draft interfaces (status draft) are counted");
   await app.cleanup();
   phase = "failed";
   const failed = await mount(paths.detectionRuleProtocols);
   await wait(() => byData(failed, "data-latest-job").length === 1, "failed job shown");
   assert.ok(text(byData(failed, "data-latest-job")[0].children).startsWith("최근 작업 실패 · relation_snapshot_not_ready"), "failure keeps the code; old reason stays");
   assert.equal(byData(failed, "data-drafts-unavailable").length, 1);
-  assert.equal(pageButton(failed, candidateLabels.JOB_REQUEST).props.disabled, false, "request is available again after failure");
   await failed.cleanup();
 }
 

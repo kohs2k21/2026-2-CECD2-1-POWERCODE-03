@@ -23,12 +23,9 @@ import { useRuleSetSave } from "../useRuleSetSave";
 import {
   PROTOCOL_LIST_LEAD, UNREGISTERED_WITHOUT_ENTRIES, count, draftUnavailableText, protocolFeatureOn, unregisteredRule,
 } from "./protocolLabels";
-import { CandidateJobRequest, LatestCandidateJob } from "../candidates/CandidateJobRequest";
-import { candidateListQueryName } from "../candidates/useCandidates";
-import { protocolDraftsQueryName, useProtocolDrafts } from "./useProtocolDrafts";
-
-/** 후보 작업 접수 뒤 다시 읽을 조회: 관측 경로 초안 + 같은 작업 결과를 쓰는 규칙 추천 목록. */
-const DRAFT_JOB_REFRESH = [protocolDraftsQueryName, candidateListQueryName] as const;
+import { LatestCandidateJob } from "../candidates/CandidateJobRequest";
+import { RecommendLink, protocolCount, recommendSections } from "../candidates/recommendations";
+import { useProtocolDrafts } from "./useProtocolDrafts";
 
 type Row = {
   interfaceId: string;
@@ -85,7 +82,10 @@ const AddInterfaceDialog = ({ taken, onAdd, onCancel }: { taken: Set<string>; on
   );
 };
 
-/** 룰 설정 › 프로토콜 설정 목록(contracts/protocol-settings-ui.md 3절): 등록 항목 + 학습 기간에 관측된 미등록 인터페이스, 검색, 행 → 상세. */
+/**
+ * 룰 설정 › 프로토콜 설정 목록(contracts/protocol-settings-ui.md 3절): 등록 항목 + 학습 기간에 관측된 미등록 인터페이스, 검색, 행 → 상세.
+ * 초안 상태 줄의 최근 후보 작업은 그대로 보이고(진행 중이면 5초 조회), 작업 요청은 규칙 추천 화면에서 한다.
+ */
 export const ProtocolListPage = () => {
   const rules = useRuleSet();
   const drafts = useProtocolDrafts(null);
@@ -139,9 +139,8 @@ export const ProtocolListPage = () => {
             }
             action={
               <>
-                {drafts.data && (
-                  <CandidateJobRequest latestJob={drafts.data.latestJob} currentSnapshotId={available?.snapshotId ?? null} refreshQueryNames={DRAFT_JOB_REFRESH} />
-                )}
+                {/* 후보 작업 요청은 규칙 추천 화면 한 곳에서 한다(사용자 11/15). 여기는 그 경로 구역으로 가는 링크. */}
+                <RecommendLink count={protocolCount(drafts.data)} tab="flow" section={recommendSections.paths} returnTo={paths.detectionRuleProtocols} />
                 <Button size="sm" variant="outline" onClick={() => setAdding(true)}>
                   <IconPlus aria-hidden="true" />
                   인터페이스 추가

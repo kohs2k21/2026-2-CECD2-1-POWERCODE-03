@@ -1,5 +1,5 @@
 Created: 2026-10-21T00:00:00+09:00
-Updated: 2026-11-02T20:00:00+09:00
+Updated: 2026-11-15T13:30:00+09:00
 Author: Claude Code (Trainer 세션 builder)
 Status: draft (호환 안내 — 내용은 분리된 두 계약으로 이동)
 
@@ -22,6 +22,6 @@ Status: draft (호환 안내 — 내용은 분리된 두 계약으로 이동)
 
 ## #74에서 그대로 가져온 것(모델 단위)
 
-- 내용 hash(`contentHashVersion: 2`), 파라미터 변경=재학습, 기술 무결성 gate + 비교 + 사람 수락·자동 교체 금지, `acceptedRecommendation`·stale 400, schemaVersion fail-closed(`unsupported_config_schema`), v3 허용 시점(Detector v3 로더 병합 뒤)
+- 내용 hash(`contentHashVersion: 2`), 파라미터 변경=재학습, 기술 무결성 gate + 비교 + 사람 수락·자동 교체 금지, `acceptedRecommendation`·stale 400, schemaVersion fail-closed(`unsupported_config_schema`), v3 허용 시점(현행 기준은 [model-version.md](model-version.md) schemaVersion 3 판독 규칙 절)
 - #74에서 **가져오지 않은 것**(사용자 11/02 Q-M1 확정 — 모델 1개 = 버전 1개, 조합 저장 경로 없음): 조합 저장 동기 API·검증 코드, `enabled:false` 보존, 중복 재저장 안내(`duplicateOf`, 학습 = 버전이라 재저장 자체가 없음 — model-version.md Q-M5)
 - 저장소 사실: `ml_config_versions` 등은 `004_feature_pipeline.sql:84-96`의 `pipeline_immutable` 트리거로 이미 불변 — #74 "선택: 불변 트리거"는 불필요

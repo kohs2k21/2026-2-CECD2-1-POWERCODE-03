@@ -4,6 +4,7 @@ import json
 import math
 import time
 from pathlib import Path
+from typing import Mapping
 
 import model_adapters
 from detector.artifacts import verified_artifact_path
@@ -39,6 +40,19 @@ def _feature_definitions(cur, feature_id):
     return validate_definitions([{"name": item[0], "expression": item[1]} for item in members]), found[0]
 
 
+# v04 활성 집합이 읽는 구성 schemaVersion. 1은 ML 후보(train·prepared), 3은 모델 버전(ML 1개)이다.
+# 2는 rule_only 구성이라 모델이 없고, 그 밖(키 없음 포함)은 판독하지 않는다(model-version.md 판독 규칙).
+MODEL_SCHEMA_VERSIONS = (1, 3)
+
+
+def read_model_schema_version(spec):
+    """모르는 구성을 v1 규칙으로 조용히 읽지 않는다. True·"3"·3.0도 정수 3이 아니므로 거절한다."""
+    version = spec.get("schemaVersion") if isinstance(spec, Mapping) else None
+    if type(version) is not int or version not in MODEL_SCHEMA_VERSIONS:
+        raise ValueError("unsupported_config_schema")
+    return version
+
+
 def load_model_context(conn, config_id, model_key, source_id):
     """활성 집합의 모델 버전 1개를 읽는다. 구성의 판정 정책·룰은 보지 않는다(v04는 운영 상태를 쓴다)."""
     with conn.cursor() as cur:
@@ -46,6 +60,7 @@ def load_model_context(conn, config_id, model_key, source_id):
         row = cur.fetchone()
         if row is None or row[0] != source_id:
             raise ValueError("config_source_mismatch")
+        read_model_schema_version(row[1])
         models = _model_rows(cur, config_id, model_key)
         if len(models) != 1:
             raise ValueError("model_unavailable")

@@ -2,7 +2,8 @@
 
 판정은 Detector 함수를 그대로 부른다: 고정 리비전 판독·검사 `operational_state.pin_fixed_state`, 모델 준비
 `attempt_v04.load_models`, 관계 입력 `relation_inputs.read_relation_inputs`·`relation_plan.plan_relations`, 행 판정
-`attempt_v04.judge_row`(방법 실행 + `decision.decide`). 여기서는 행별 종합 `status`·`anomalous`와 라벨로 칸을 센다
+`attempt_v04.judge_row`(방법 실행 + `decision.decide`), 최종 판정 확인 `evidence_v4.check_final`(운영 v04
+`build_evidence`와 같은 확인). 여기서는 행별 종합 `status`·`anomalous`와 라벨로 칸을 센다
 (판정 로직을 다시 구현하지 않는다). 행별 판정은 작업 메모리에만 두고 저장하지 않는다.
 """
 from __future__ import annotations
@@ -106,9 +107,16 @@ def judge_item(conn: Any, *, plan: Mapping[str, Any], policy_value: Any, config_
 
     rows = 평가 대상 행(`_measure_version`과 같은 제외 뒤 행, (observation_id, allowed_values, split, label_evidence)).
     입력: 접수 때 고정한 룰 세트 리비전·hash, 정책 리비전·값(운영 뷰와 같은 형식), 항목 모델 1개만(활성 집합의 다른
-    모델은 넣지 않음). 준비·행 판정에서 Detector가 ValueError를 내면 종합만 null이다(항목은 그대로 성공).
+    모델은 넣지 않음). 준비·행 판정·행별 최종 판정 확인(check_final)에서 Detector가 ValueError를 내면 종합만 null이다
+    (항목은 그대로 성공). 한 행이라도 확인에 실패하면 운영에서는 그 시도 판정이 남지 않으므로 항목 종합 전체를 null로 둔다.
+
+    active_model_set_revision: pin_fixed_state가 요구하는 값이라 접수 때 고정한 운영 활성 집합 리비전을 넘긴다. 실제 판정
+    모델 집합(항목 모델 1개)과 뜻이 다르지만 이 값은 운영 evidence·중간 판정 기록에서만 출력되고, 이 경로는 둘 다 만들지
+    않아 결과(composite)에 나가지 않는다(state.revisions 중 rule_set_revision은 relation_plan이 이 경로에서도 쓴다).
+    PinnedRevisions 검사는 그대로 받아, 값이 음이 아닌 정수가 아니면 invalid_pinned_revisions로 종합 null이다.
     """
     from detector.attempt_v04 import judge_row, load_models
+    from detector.evidence_v4 import check_final
     from detector.operational_state import pin_fixed_state
     from detector.relation_inputs import read_relation_inputs
     from detector.relation_plan import needs_relation_inputs, plan_relations
@@ -143,7 +151,10 @@ def judge_item(conn: Any, *, plan: Mapping[str, Any], policy_value: Any, config_
                 conn.commit()
                 relation_used = True
             relation = plan_relations(state, inputs, raw)
-            composite = judge_row(state, models, raw, root, relation, started_at=started).decided["composite"]
+            decided = judge_row(state, models, raw, root, relation, started_at=started).decided
+            # 운영 build_evidence와 같은 인자: decide가 정렬한 methodResults, 방법을 평가한 하드룰 선택, 이 판정의 hard_ids.
+            check_final(decided["methodResults"], state.hard_rules, relation.hard_ids)
+            composite = decided["composite"]
             judged.append((composite["status"], composite["anomalous"], _label(label_evidence)))
     except ValueError as exc:
         conn.rollback()

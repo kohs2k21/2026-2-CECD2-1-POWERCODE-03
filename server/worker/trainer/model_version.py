@@ -18,7 +18,9 @@ CONTENT_HASH_VERSION = 2
 READABLE_SCHEMA_VERSIONS = (1, 2, SCHEMA_VERSION)
 # 이 키가 하나라도 있고 detectionPolicy 키가 없는 train 요청이 v3 산출이다(model-version.md 생성 경로 (A)).
 # detectionPolicy가 함께 있으면 schemaVersion 1·2 경로다. API는 이 조합을 400 invalid_detection_policy로 막으므로
-# 큐에 직접 들어온 입력만 해당한다(model-version.md 생성 경로 (A), 워커 판별).
+# 큐에 직접 들어온 입력만 해당한다(model-version.md 생성 경로 (A), 워커 판별). evaluationSetId는 계약의 v3 키지만 API가
+# 아직 받지 않아(jobRoutes.ts 허용 키 밖) detectionPolicy 유무와 관계없이 400 invalid_job_request이므로, 워커가 보는
+# evaluationSetId 요청도 큐에 직접 들어온 입력뿐이다.
 REQUEST_KEYS = ("modelKey", "parameters", "excludedIntervals", "timeBasis", "evaluationSetId")
 DEFAULT_TIME_BASIS = "persisted_at"
 # 학습 요청에 이름 키가 없어 기간으로 만든다. 한국은 일광절약시간이 없어 고정 오프셋이다.

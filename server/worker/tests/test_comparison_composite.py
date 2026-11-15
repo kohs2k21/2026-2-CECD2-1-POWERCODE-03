@@ -168,6 +168,42 @@ class JudgeItemTests(unittest.TestCase):
         self.assertEqual(value["decidable"]["confusion"], {"tp": 1, "fp": None, "tn": None, "fn": 0})
         self.assertEqual(len(self.conn.statements), 1, "고정 리비전 1회 판독 뒤 행 판정은 DB를 읽지 않는다(관계 규칙 없음)")
 
+    def test_check_final_runs_per_row_with_sorted_method_results(self):
+        """행마다 운영 build_evidence와 같은 인자로 check_final을 부르고, 정상 행은 통과해 결과가 그대로다."""
+        from detector import attempt_v04, decision, evidence_v4
+        rows = [(uuid.UUID(int=1), {**RAW, "status": "F"}, "validation", {"label": "anomaly"}),
+                (uuid.UUID(int=2), RAW, "validation", None)]
+        expected = self.judge(rows)
+        judgments, real_judge_row = [], attempt_v04.judge_row
+
+        def judge_row(*args, **kwargs):
+            judgments.append(real_judge_row(*args, **kwargs))
+            return judgments[-1]
+
+        with patch("detector.attempt_v04.judge_row", side_effect=judge_row), patch(
+                "detector.evidence_v4.check_final", wraps=evidence_v4.check_final) as spy:
+            self.assertEqual(self.judge(rows), expected)
+        self.assertEqual((spy.call_count, len(judgments)), (2, 2))
+        for call, judgment in zip(spy.call_args_list, judgments):
+            methods, hard_rules, hard_ids = call.args
+            # decide가 정렬한 methodResults 그 객체(정렬 전 execution.methods가 아님) · 하드룰 선택 · 이 판정의 hard_ids.
+            # 이 fixture는 과제 순서가 이미 _rank 순이라 정렬 비교만으로는 구분되지 않아 같은 객체인지 본다.
+            self.assertIs(methods, judgment.decided["methodResults"])
+            self.assertIsNot(methods, judgment.execution.methods)
+            self.assertEqual(methods, sorted(methods, key=decision._rank))
+            self.assertIn("ml:iforest", [method["methodId"] for method in methods])
+            self.assertTrue(isinstance(hard_ids, tuple) and set(hard_ids) <= set(hard_rules.enabled_ids))
+
+    def test_check_final_failure_on_one_row_nulls_whole_item(self):
+        rows = [(uuid.UUID(int=1), RAW, "validation", {"label": "normal"}),
+                (uuid.UUID(int=2), {**RAW, "status": "F"}, "validation", {"label": "anomaly"})]
+        with patch("detector.evidence_v4.check_final",
+                   side_effect=[None, ValueError("hard_rule_selection_mismatch")]) as fake:
+            self.assertEqual(self.judge(rows), (None, "hard_rule_selection_mismatch"))
+        self.assertEqual(fake.call_count, 2)
+        with patch("detector.evidence_v4.check_final", side_effect=ValueError("final_decision_has_pending_method")):
+            self.assertEqual(self.judge(rows), (None, "final_decision_has_pending_method"))
+
     def test_null_branches(self):
         self.assertEqual(self.judge([], plan={**self.plan, "detectionPolicy": {**DEFAULT_POLICY, "k": {
             "hard": 1, "soft": 1, "ml": 2}}}), (None, "policy_k_exceeds_single_model"))

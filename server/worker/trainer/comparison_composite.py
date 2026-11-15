@@ -111,8 +111,9 @@ def judge_item(conn: Any, *, plan: Mapping[str, Any], policy_value: Any, config_
     (항목은 그대로 성공). 한 행이라도 확인에 실패하면 운영에서는 그 시도 판정이 남지 않으므로 항목 종합 전체를 null로 둔다.
 
     active_model_set_revision: pin_fixed_state가 요구하는 값이라 접수 때 고정한 운영 활성 집합 리비전을 넘긴다. 실제 판정
-    모델 집합(항목 모델 1개)과 뜻이 다르지만 state.revisions는 운영 evidence·중간 판정 기록에만 쓰이고, 이 경로는 둘 다
-    만들지 않아 결과(composite)에 나가지 않는다.
+    모델 집합(항목 모델 1개)과 뜻이 다르지만 이 값은 운영 evidence·중간 판정 기록에서만 출력되고, 이 경로는 둘 다 만들지
+    않아 결과(composite)에 나가지 않는다(state.revisions 중 rule_set_revision은 relation_plan이 이 경로에서도 쓴다).
+    PinnedRevisions 검사는 그대로 받아, 값이 음이 아닌 정수가 아니면 invalid_pinned_revisions로 종합 null이다.
     """
     from detector.attempt_v04 import judge_row, load_models
     from detector.evidence_v4 import check_final

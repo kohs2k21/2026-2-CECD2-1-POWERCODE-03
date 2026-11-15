@@ -170,16 +170,26 @@ class JudgeItemTests(unittest.TestCase):
 
     def test_check_final_runs_per_row_with_sorted_method_results(self):
         """행마다 운영 build_evidence와 같은 인자로 check_final을 부르고, 정상 행은 통과해 결과가 그대로다."""
-        from detector import decision, evidence_v4
+        from detector import attempt_v04, decision, evidence_v4
         rows = [(uuid.UUID(int=1), {**RAW, "status": "F"}, "validation", {"label": "anomaly"}),
                 (uuid.UUID(int=2), RAW, "validation", None)]
         expected = self.judge(rows)
-        with patch("detector.evidence_v4.check_final", wraps=evidence_v4.check_final) as spy:
+        judgments, real_judge_row = [], attempt_v04.judge_row
+
+        def judge_row(*args, **kwargs):
+            judgments.append(real_judge_row(*args, **kwargs))
+            return judgments[-1]
+
+        with patch("detector.attempt_v04.judge_row", side_effect=judge_row), patch(
+                "detector.evidence_v4.check_final", wraps=evidence_v4.check_final) as spy:
             self.assertEqual(self.judge(rows), expected)
-        self.assertEqual(spy.call_count, 2)
-        for call in spy.call_args_list:
+        self.assertEqual((spy.call_count, len(judgments)), (2, 2))
+        for call, judgment in zip(spy.call_args_list, judgments):
             methods, hard_rules, hard_ids = call.args
-            # decide가 정렬한 methodResults(정렬 전 execution.methods가 아님) · 하드룰 선택 · 이 판정의 hard_ids.
+            # decide가 정렬한 methodResults 그 객체(정렬 전 execution.methods가 아님) · 하드룰 선택 · 이 판정의 hard_ids.
+            # 이 fixture는 과제 순서가 이미 _rank 순이라 정렬 비교만으로는 구분되지 않아 같은 객체인지 본다.
+            self.assertIs(methods, judgment.decided["methodResults"])
+            self.assertIsNot(methods, judgment.execution.methods)
             self.assertEqual(methods, sorted(methods, key=decision._rank))
             self.assertIn("ml:iforest", [method["methodId"] for method in methods])
             self.assertTrue(isinstance(hard_ids, tuple) and set(hard_ids) <= set(hard_rules.enabled_ids))

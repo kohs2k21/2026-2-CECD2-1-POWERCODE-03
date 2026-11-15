@@ -404,4 +404,42 @@ const tocSections = (app, menu) => detectionToc[menu].map(({ id }) => {
   sample.comparisons.splice(0, sample.comparisons.length, ...saved);
 }
 
+// 8) 교체 추천 카드(사용자 11/15): modelKey마다 가장 최근 추천 원소 중 교체 추천(`recommend_replace`)만. 현재 유지·근거 부족·해당 없음이면 카드 없음.
+{
+  operational = freshState();
+  routes = baseRoutes();
+  const saved = sample.comparisons.splice(0);
+  const latestRow = saved[1];
+  const settle = async (app, id) => {
+    await wait(() => requested.some((call) => call.path === `/api/comparisons/${id}`), `detail ${id} read`);
+    await wait(() => app.row("ml:iforest").includes("1,440 ms") && !app.shown().includes("모델 교체 추천 조회 중"), "card settled");
+  };
+
+  sample.comparisons.push(latestRow);
+  requested.length = 0;
+  const shown = await mount("/detection/operations");
+  await settle(shown, latestRow.comparisonId);
+  await wait(() => shown.shown().includes("모델 교체 추천 4d2f7c10 · V4 → 7be19a34 · 실험 7 · 시스템 추천 · 자동 교체 안 함"), "recommend_replace shown");
+  assert.ok(!shown.shown().includes("해당 없음") && !shown.shown().includes("EIF 계열"), "not_applicable element is not shown");
+  assert.ok(shown.link("수락하고 교체"), "accept from the card");
+  await shown.cleanup();
+
+  // 같은 종류의 더 최근 결과가 근거 부족이면 그 앞 추천도 보이지 않는다(eif는 해당 없음).
+  sample.comparisons.splice(0, sample.comparisons.length, sample.extraRow(sample.C_V4), latestRow);
+  requested.length = 0;
+  const newer = await mount("/detection/operations");
+  await settle(newer, latestRow.comparisonId);
+  assert.ok(!newer.shown().includes("모델 교체 추천"), "no card for insufficient_evidence / not_applicable");
+  assert.equal(newer.link("수락하고 교체"), undefined);
+  await newer.cleanup();
+
+  sample.comparisons.splice(0, sample.comparisons.length, saved[2]);
+  requested.length = 0;
+  const keep = await mount("/detection/operations");
+  await settle(keep, saved[2].comparisonId);
+  assert.ok(!keep.shown().includes("모델 교체 추천") && !keep.shown().includes("현재 유지"), "no card for keep_current");
+  await keep.cleanup();
+  sample.comparisons.splice(0, sample.comparisons.length, ...saved);
+}
+
 console.log("operations page tests passed: status badges, overview, retire, restore, replace 3 steps, stale, production block");

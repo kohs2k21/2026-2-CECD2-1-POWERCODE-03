@@ -1,5 +1,5 @@
 import type { EvaluationItem } from "@/services/api/pipeline.api";
-import type { BasisRates, CompareVersion, ComparisonDetail, ComparisonItem, ComparisonListItem, ComparisonTab, Confusion, EvaluationSet, EvaluationSnapshot, Rate, Recommendation, RecommendationState } from "../src/features/detection/evaluations/evaluationsApi.ts";
+import type { BasisRates, CompareVersion, ComparisonDetail, ComparisonItem, ComparisonListItem, ComparisonTab, Confusion, EvaluationSet, EvaluationSnapshot, Rate, Recommendation, RecommendationCandidate, RecommendationDecision, RecommendationState } from "../src/features/detection/evaluations/evaluationsApi.ts";
 
 /** 평가 결과 화면 시험용 예시 데이터(값은 config-comparison-evaluation.md 예시와 와이어프레임 #93). 시험의 가짜 API가 응답으로 돌려준다. 앱 소스에는 없다. */
 const SOURCE = "5c0f8a11-7e21-4a6c-9b1d-2f64a7c0e101";
@@ -78,9 +78,22 @@ const measured = ({ id, modelKey = "iforest", role, confusion, completeOnly, dec
 const sameBases = (composite: NonNullable<ComparisonItem["composite"]>): NonNullable<ComparisonItem["composite"]> => ({ ...composite, decidable: { ...composite.completeOnly } });
 const failedItem = (id: string, modelKey: string, errorCode: string): ComparisonItem => ({ configVersionId: id, modelKey, role: "candidate", status: "failed", errorCode, evaluationId: null });
 
-const recommend = (comparisonJobId: string, generatedAt: string, recommendationState: RecommendationState, modelKey: string, summary: string, baseline: string | null, target: string | null, noRecommendationReason: string | null = null): Recommendation => ({
+/** 11/15 Trainer 모양(정본 "교체 추천 v1 대응"): decision·candidates·costs·unlabeledEvidence·thresholds. `extra`로 원소 키를 덮는다. */
+const recommend = (comparisonJobId: string, generatedAt: string, recommendationState: RecommendationState, modelKey: string, summary: string, baseline: string | null, target: string | null, noRecommendationReason: string | null = null, extra: Partial<Recommendation> = {}): Recommendation => ({
   modelKey, comparisonJobId, baselineConfigVersionId: baseline, targetVersionId: target, targetEvaluationId: target ? `${target.slice(0, 8)}-0000-4000-8000-000000000000` : null, summary, noRecommendationReason, generatedAt, recommendationState,
+  decision: decisionOf(noRecommendationReason), candidates: target ? [candidate(target, "selected")] : [],
+  costs: [], unlabeledEvidence: { interpretation: "checker_agreement_not_accuracy", pairs: [] },
+  thresholds: { minLabeledAnomalyCount: 10, minLabeledNormalCount: 10, latencyFloorMs: 50 }, ...extra,
 });
+/** Trainer `DECISIONS`(replacement_recommendation.py)와 같은 분류. */
+const decisionOf = (reason: string | null): RecommendationDecision =>
+  reason === null ? "recommend_replace"
+    : ["no_candidate_better_than_active", "cost_limit_exceeded"].includes(reason) ? "keep_current"
+      : ["active_missing", "no_candidates"].includes(reason) ? "not_applicable" : "insufficient_evidence";
+const candidate = (configVersionId: string, outcome: RecommendationCandidate["outcome"], excludedReason: string | null = null, modelKey = "iforest", lostAt: number | null = null): RecommendationCandidate =>
+  ({ configVersionId, modelKey, outcome, excludedReason, lostAt });
+const p95Cost = (target: number | null, baseline: number | null, limit: number | null) =>
+  [{ metric: "execution_cost.itemP95Ms", target, baseline, limit, limitRule: "max(latencyFloorMs, baseline*latencyP95RelativeLimit) and deadlineMs*latencyDeadlineRatio", outcome: target === null || limit === null ? "unmeasured" as const : "within_limit" as const }];
 
 const C_RUNNING = "3fa1c7e2-90b4-4d68-a2e1-5c7d0f9b1a10";
 const C_LATEST = "b84e6d15-27a0-4c3f-9e71-0d6f3a1c8e22";
@@ -98,8 +111,10 @@ const details: ComparisonDetail[] = [
     evaluationSet: { id: SET_ESB, contentHash: hash("4be2d190"), purpose: "validation", rowCount: 2000, originalRowCount: 1800, syntheticRowCount: 200, synthetic: true },
     baselines: baseline(V_ACTIVE), ruleSet: { revision: 13, contentHash: hash("9c40e1aa") },
     replacementRecommendations: [
-      recommend(job("bb22"), "2026-11-05T02:20:00Z", "none", "eif", "EIF 계열은 현재 운영 중인 버전이 없어 추천하지 않습니다", null, null, "active_missing"),
-      recommend(job("bb22"), "2026-11-05T02:20:00Z", "current", "iforest", "실험 7이 현재 운영 V4보다 모델 재현율 12/18(0.667) > 9/18(0.500), P04 sev1 모델 탐지율 12/18 > 10/18, 지연 P95 41ms(한도 내)", V_ACTIVE, V_EXPERIMENT_7),
+      recommend(job("bb22"), "2026-11-05T02:20:00Z", "none", "eif", "EIF 계열은 현재 운영 중인 버전이 없어 추천하지 않습니다", null, null, "active_missing",
+        { candidates: [candidate(V_EIF, "excluded", "item_failed:method_not_executable:ml:eif", "eif")] }),
+      recommend(job("bb22"), "2026-11-05T02:20:00Z", "current", "iforest", "실험 7이 현재 운영 V4보다 모델 재현율 12/18(0.667) > 9/18(0.500), P04 sev1 모델 탐지율 12/18 > 10/18, 지연 P95 41ms(한도 내)", V_ACTIVE, V_EXPERIMENT_7, null,
+        { costs: p95Cost(41.2, 37.9, 75.8) }),
     ],
     items: [
       measured({ id: V_ACTIVE, role: "active", confusion: { tp: 9, fp: null, tn: null, fn: 9 }, unavailableCount: 12, completeOnly: esbRates(rate(9, 18, 0.9), 12), decidable: esbRates(rate(10, 19, 0.95), 6),
@@ -116,7 +131,8 @@ const details: ComparisonDetail[] = [
     comparisonId: C_ORIGINAL, jobId: job("cc33"), status: "succeeded",
     evaluationSet: { id: SET_ORIGINAL, contentHash: hash("c07a55e2"), purpose: "validation", rowCount: 1200, originalRowCount: 1200, syntheticRowCount: 0, synthetic: false },
     baselines: baseline(V_ACTIVE), ruleSet: { revision: 12, contentHash: hash("71d2b6f0") },
-    replacementRecommendations: [recommend(job("cc33"), "2026-11-03T06:00:00Z", "none", "iforest", "현재 운영 모델보다 모든 근거 지표에서 같거나 나은 버전이 없습니다.", V_ACTIVE, null, "no_candidate_better_than_active")],
+    replacementRecommendations: [recommend(job("cc33"), "2026-11-03T06:00:00Z", "none", "iforest", "현재 운영 버전보다 모든 근거 지표에서 같거나 나은 후보가 없습니다.", V_ACTIVE, null, "no_candidate_better_than_active",
+      { candidates: [candidate(V_EXPERIMENT_6, "excluded", "worse_on:ml.completeOnly.recall")] })],
     items: [
       measured({ id: V_ACTIVE, role: "active", confusion: { tp: 14, fp: 3, tn: 80, fn: 6 }, unavailableCount: 0, reasonCodes: [],
         completeOnly: { recall: rate(14, 20, 1), precision: rate(14, 17, 1), falsePositiveRate: rate(3, 83, 1), unavailableCount: 0 }, decidable: { recall: rate(14, 20, 1), precision: rate(14, 17, 1), falsePositiveRate: rate(3, 83, 1), unavailableCount: 0 },
@@ -239,13 +255,50 @@ details.push({
   items: [v3Item(V_ACTIVE, "active", 9, 40), v3Item(V_EXPERIMENT_7, "candidate", 14, 44)],
 });
 
+/**
+ * 11/15 추천 결과 3건(정본 "교체 추천 v1 대응(11/15)"). 목록에는 없고 상세·시험이 넣는 행으로만 연다.
+ * C_V4 근거 부족(후보 하나는 공통 행 없음, 하나는 항목 실패), C_V5 근거 부족(평가 세트가 validation 아님),
+ * C_V6 교체 추천(후보 실행 비용 값이 없어 미측정, 둘째 후보는 사전식 1단계에서 밀림).
+ */
+export const C_V4 = "8b4a0d53-6f7e-4a81-9c93-a4b526d7e8f9";
+export const C_V5 = "9c5b1e64-7a8f-4b92-8da4-b5c637e8f90a";
+export const C_V6 = "ad6c2f75-8b90-4ca3-9eb5-c6d748f90a1b";
+const v4Items = [v1Item(V_ACTIVE, "active", 9, 11), v1Item(V_EXPERIMENT_7, "candidate", 14, 6), failedItem(V_EXPERIMENT_6, "iforest", "training_evaluation_overlap")];
+details.push({
+  comparisonId: C_V4, jobId: job("ef56"), status: "succeeded", completedAt: "2026-11-15T10:00:00Z",
+  evaluationSet: { id: SET_ORIGINAL, contentHash: hash("c07a55e2"), purpose: "validation", rowCount: 1200, originalRowCount: 1200, syntheticRowCount: 0, synthetic: false },
+  baselines: baseline(V_ACTIVE), ruleSet: { revision: 13, contentHash: hash("9c40e1aa") }, replacementRecommendationsReason: null,
+  replacementRecommendations: [recommend(job("ef56"), "2026-11-15T10:00:00Z", "none", "iforest", "실행 가능하고 판정 불가 행이 없는 후보가 없습니다.", V_ACTIVE, null, "all_candidates_ineligible",
+    { candidates: [candidate(V_EXPERIMENT_6, "excluded", "item_failed:training_evaluation_overlap"), candidate(V_EXPERIMENT_7, "excluded", "common_rows_empty")] })],
+  items: v4Items,
+});
+details.push({
+  comparisonId: C_V5, jobId: job("fa67"), status: "succeeded", completedAt: "2026-11-15T11:00:00Z",
+  evaluationSet: { id: SET_FAILED, contentHash: hash("c07a55e2"), purpose: "test", rowCount: 1200, originalRowCount: 1200, syntheticRowCount: 0, synthetic: false },
+  baselines: baseline(V_ACTIVE), ruleSet: { revision: 13, contentHash: hash("9c40e1aa") }, replacementRecommendationsReason: null,
+  replacementRecommendations: [recommend(job("fa67"), "2026-11-15T11:00:00Z", "none", "iforest", "실행 가능하고 판정 불가 행이 없는 후보가 없습니다.", V_ACTIVE, null, "all_candidates_ineligible",
+    { candidates: [candidate(V_EXPERIMENT_7, "excluded", "evaluation_set_not_validation")] })],
+  items: [v1Item(V_ACTIVE, "active", 9, 11), v1Item(V_EXPERIMENT_7, "candidate", 14, 6)],
+});
+details.push({
+  comparisonId: C_V6, jobId: job("ab78"), status: "succeeded", completedAt: "2026-11-15T12:00:00Z",
+  evaluationSet: { id: SET_ORIGINAL, contentHash: hash("c07a55e2"), purpose: "validation", rowCount: 1200, originalRowCount: 1200, syntheticRowCount: 0, synthetic: false },
+  baselines: baseline(V_ACTIVE), ruleSet: { revision: 13, contentHash: hash("9c40e1aa") }, replacementRecommendationsReason: null,
+  replacementRecommendations: [recommend(job("ab78"), "2026-11-15T12:00:00Z", "current", "iforest", "실험 7이 현재 운영 V4보다 모델 재현율 14/20(0.700) > 9/20(0.450)", V_ACTIVE, V_EXPERIMENT_7, null,
+    { costs: p95Cost(null, null, null), checks: { costLimit: "unmeasured" },
+      candidates: [candidate(V_EXPERIMENT_6, "eligible_not_selected", null, "iforest", 1), candidate(V_EXPERIMENT_7, "selected")] })],
+  items: [v1Item(V_ACTIVE, "active", 9, 11), v1Item(V_EXPERIMENT_6, "candidate", 12, 8), v1Item(V_EXPERIMENT_7, "candidate", 14, 6)],
+});
+/** 시험이 목록에 넣을 행(목록 기본 행 수·탭 시험을 바꾸지 않게 따로 만든다). */
+export const extraRow = (comparisonId: string) => listRow(comparisonId, { evaluationSetId: SET_ORIGINAL, activeModelSetRevision: ACTIVE_REVISION, completedAt: comparisonDetail(comparisonId)!.completedAt ?? null, itemCount: comparisonDetail(comparisonId)!.items!.length });
+
 const listRow = (comparisonId: string, row: Pick<ComparisonListItem, "evaluationSetId" | "activeModelSetRevision" | "completedAt"> & { itemCount: number }): ComparisonListItem => {
   const detail = details.find((item) => item.comparisonId === comparisonId)!;
   const items = detail.items ?? [];
   return {
     comparisonId, jobId: detail.jobId, status: detail.status, baselines: detail.baselines ?? baseline(V_ACTIVE),
     succeededCount: items.filter((item) => item.status === "succeeded").length, failedCount: items.filter((item) => item.status === "failed").length,
-    recommendations: (detail.replacementRecommendations ?? []).map((rec) => ({ modelKey: rec.modelKey, targetVersionId: rec.targetVersionId, state: rec.recommendationState })),
+    recommendations: (detail.replacementRecommendations ?? []).map((rec) => ({ modelKey: rec.modelKey, targetVersionId: rec.targetVersionId, state: rec.recommendationState, decision: rec.decision ?? null })),
     ...row,
   };
 };

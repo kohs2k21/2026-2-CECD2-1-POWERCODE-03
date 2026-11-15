@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { ErrorState, LoadingState } from "@/components/ui/feedback";
 import { paths } from "@/app/routes";
 import { RecommendationBlock, RecommendationUnconnected } from "@/features/detection/evaluations/RecommendationBlock";
-import { comparisonKey } from "@/features/detection/evaluations/evaluationsApi";
+import { comparisonKey, type ComparisonDetail, type Recommendation } from "@/features/detection/evaluations/evaluationsApi";
 import { ruleConditionText } from "@/features/detection/evaluations/evaluationFormat";
 import { useCompareVersions } from "@/features/detection/evaluations/useEvaluations";
 import { VERSIONS_QUERY, useCapabilities } from "@/features/detection/models/useModels";
@@ -26,7 +26,10 @@ import { detectionSections, sectionReturnTo } from "../detectionToc";
 export const ACTIVE_SET_QUERIES = [OPERATIONAL_STATE_QUERY, METHOD_STATUS_QUERY, ACTIVE_HISTORY_QUERY, VERSIONS_QUERY, "model-version", "recent-comparisons"];
 export type OperationsState = DetectionReturnState & { activeSetBanner?: ActiveSetBanner };
 
-/** 교체 추천 카드(와이어프레임 opsRec): 가장 최근 완료 비교 평가의 modelKey별 추천. 비교 평가 조회가 연결되지 않았으면 미연결로 보인다. */
+/**
+ * 교체 추천 카드(와이어프레임 opsRec): modelKey마다 가장 최근 완료 비교 평가의 추천 원소 중 분류가 `recommend_replace`인 것만(사용자 11/15).
+ * 현재 유지·근거 부족·해당 없음은 보이지 않는다(그때는 카드 없음). 비교 평가 조회가 연결되지 않았거나 최근 결과가 모두 추천 계산 전이면 미연결로 보인다.
+ */
 const Recommendations = () => {
   const recent = useRecentComparisons();
   const versions = useCompareVersions();
@@ -35,14 +38,21 @@ const Recommendations = () => {
     const unconnected = recent.error instanceof HttpError && (recent.error.status === 404 || recent.error.status === 503);
     return <ErrorState title={unconnected ? `모델 교체 추천 미연결 · ${errorCode(recent.error)}` : `모델 교체 추천 조회 실패 · ${errorCode(recent.error)}`} onRetry={() => void recent.refetch()} retryLabel="다시 조회" />;
   }
-  const latest = recent.data?.find((detail) => detail.replacementRecommendations?.length);
-  if (!latest) {
-    // 최근 완료 비교가 추천을 만들지 않았으면(v1 `not_implemented_v1`) 미연결로 보인다. 비교가 없으면 아무것도 없다.
+  // 최신순 비교에서 modelKey마다 처음 나온 원소(= 그 종류의 가장 최근 추천 계산 결과).
+  const latest = new Map<string, { rec: Recommendation; detail: ComparisonDetail }>();
+  for (const detail of recent.data ?? []) for (const rec of detail.replacementRecommendations ?? []) if (!latest.has(rec.modelKey)) latest.set(rec.modelKey, { rec, detail });
+  if (!latest.size) {
+    // 최근 완료 비교가 추천을 만들지 않았으면(추천 계산 전 결과 `not_implemented_v1`) 미연결로 보인다. 비교가 없으면 아무것도 없다.
     const reason = recent.data?.find((detail) => !detail.replacementRecommendations && detail.replacementRecommendationsReason)?.replacementRecommendationsReason;
     return reason ? <RecommendationUnconnected reason={reason} /> : null;
   }
-  const where = `${comparisonKey(latest).slice(0, 8)} · ${ruleConditionText(latest.ruleSet?.revision)}`;
-  return <div className="grid gap-2">{latest.replacementRecommendations!.map((rec) => <RecommendationBlock key={rec.modelKey} rec={rec} versions={versions.data} where={where} />)}</div>;
+  const shown = [...latest.values()].filter(({ rec }) => rec.decision === "recommend_replace");
+  if (!shown.length) return null;
+  return (
+    <div className="grid gap-2">
+      {shown.map(({ rec, detail }) => <RecommendationBlock key={rec.modelKey} rec={rec} versions={versions.data} where={`${comparisonKey(detail).slice(0, 8)} · ${ruleConditionText(detail.ruleSet?.revision)}`} />)}
+    </div>
+  );
 };
 
 /**

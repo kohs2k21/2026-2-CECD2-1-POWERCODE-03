@@ -10,23 +10,25 @@ import { errorCode } from "@/features/detection/rules/ruleDraft";
 import { DASH, numberText, stampText } from "@/features/operations/format";
 import { useUrlOption } from "@/hooks/useUrlState";
 import { comparisonKey, type CompareVersion, type ComparisonListItem, type EvaluationSet } from "./evaluationsApi";
-import { REC_STATE_LABELS, comparisonStatus, labelOf } from "./evaluationFormat";
+import { REC_STATE_LABELS, comparisonStatus, decisionLabel, labelOf } from "./evaluationFormat";
 import { useCompareVersions, useComparisons, useEvaluationSets } from "./useEvaluations";
 import { detectionSections, sectionReturnTo } from "../detectionToc";
 
 const COLUMNS = ["비교", "평가 세트", "비교 모델", "완료", "상태", "교체 추천"];
 
 const RecommendationCell = ({ item, versions }: { item: ComparisonListItem; versions: CompareVersion[] | undefined }) => {
-  // 추천이 없으면 완료 뒤 사유(v1 `not_implemented_v1`)를 미연결로 보인다. 완료 전은 빈칸.
+  // 추천 배열이 없으면 완료 뒤 사유(추천 계산 전 결과 `not_implemented_v1`)를 미연결로 보인다. 완료 전은 빈칸.
   if (!item.recommendations) return <>{item.recommendationsReason ? `미연결 · ${item.recommendationsReason}` : DASH}</>;
   if (!item.recommendations.length) return <>{DASH}</>;
   const several = item.recommendations.length > 1;
   return (
     <span className="grid justify-items-start gap-1">
-      {item.recommendations.map(({ modelKey, targetVersionId, state }) => {
+      {item.recommendations.map(({ modelKey, targetVersionId, state, decision }) => {
         const prefix = several ? `${modelKey} · ` : "";
+        // 분류(11/15~)가 있으면 그 표시 이름. 추천 계산 전 모양(분류 없음)은 기존 표시 그대로.
+        if (decision && decision !== "recommend_replace") return <span key={modelKey} data-decision={decision}>{prefix}{decisionLabel(decision)}</span>;
         if (state === "none") return <span key={modelKey}>{prefix}{REC_STATE_LABELS.none}</span>;
-        return <Badge key={modelKey} variant={state === "current" ? "info" : "secondary"}>{prefix}추천 {labelOf(versions, targetVersionId)} · {REC_STATE_LABELS[state]}</Badge>;
+        return <Badge key={modelKey} variant={state === "current" ? "info" : "secondary"} data-decision={decision ?? undefined}>{prefix}{decision ? `${decisionLabel(decision)} ` : "추천 "}{labelOf(versions, targetVersionId)} · {REC_STATE_LABELS[state]}</Badge>;
       })}
     </span>
   );

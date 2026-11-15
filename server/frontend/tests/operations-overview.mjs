@@ -254,7 +254,8 @@ bodies = {
   "/api/me/settings": settingsRoute,
   "/api/operations/overview": overviewBody,
   "/api/pipeline/sources": { items: [{ id: "src", datasetKey: "k", displayName: "d", createdAt: "2026-11-01T00:00:00Z" }] },
-  "/api/pipeline/decisions": { items: [{ id: "decision-0001", sourceId: "src", processObservationId: "o", configVersionId: "cfg", status: "complete", ruleStatus: "succeeded", mlStatus: "succeeded", decisionCode: "R1", anomalyScore: "0.9", decidedAt: "2026-11-03T00:58:00.000Z", evidence: { anomalous: true } }] },
+  "/api/pipeline/decisions": { items: [{ id: "decision-0001", sourceId: "src", processObservationId: "o", configVersionId: "cfg", status: "complete", ruleStatus: "succeeded", mlStatus: "succeeded", decisionCode: "R1", anomalyScore: "0.9", decidedAt: "2026-11-03T00:58:00.000Z", evidence: { anomalous: true } },
+    { id: "decision-0002", sourceId: "src", processObservationId: "o2", configVersionId: "cfg", status: "complete", ruleStatus: "succeeded", mlStatus: "succeeded", decisionCode: "PROCESS_STATUS_F", anomalyScore: "0.9", decidedAt: "2026-11-03T00:57:00.000Z", evidence: { anomalous: true } }] },
   "/api/operations/decision-trend": { timezone: "Asia/Seoul", items: [{ day: "2026-11-03", decisionCount: 30, anomalySignalRatio: 0.069, unavailableRatio: 0.033 }] },
   "/api/operations/collection": collectionBody,
   "/api/operations/latency": { observedAt: "2026-11-03T01:00:00Z", window: "1h", stages: [{ id: "detectionQueue", samples: 0, p50Ms: null, p95Ms: null, queuePending: 2 }], endToEnd: { p50Ms: null } },
@@ -308,6 +309,14 @@ assert(view.text().includes("6.9%"));
   const stamp = (iso) => { const at = new Date(iso); return `${two(at.getMonth() + 1)}/${two(at.getDate())} ${two(at.getHours())}:${two(at.getMinutes())}:${two(at.getSeconds())}`; };
   assert(view.text().includes(stamp("2026-11-03T00:58:00.000Z")), "recent decision shows date and time");
   assert(view.text().includes(`수집 · ${stamp("2026-11-03T00:59:00.000Z")}`), "stage flow shows date and time");
+}
+// 최근 판정 판정 코드: 판정 요약과 같은 이름표(원래 코드는 툴팁), 이름표 없는 코드(R1)는 원래 코드 그대로·툴팁 없음.
+{
+  const titled = view.renderer.root.findAll((node) => node.type === "span" && node.props.title === "PROCESS_STATUS_F");
+  assert.equal(titled.length, 1, "labelled code keeps the raw code in the tooltip");
+  assert.equal(textOf(titled[0].children), "상태 F 실패");
+  assert(view.text().includes("이상 확인 · R1") && !view.text().includes("· PROCESS_STATUS_F"), "unlabelled code stays raw, labelled code is not shown raw");
+  assert.equal(view.renderer.root.findAll((node) => node.type === "span" && node.props.title === "R1").length, 0);
 }
 // 저장공간은 기본 배치에 있다: CPU·메모리 줄(개요에 cpuPercent·memoryPercent가 없으면 키 생략 → 측정 불가).
 assert(seen.some((url) => url.startsWith("/api/operations/storage")), "default storage widget fetches");

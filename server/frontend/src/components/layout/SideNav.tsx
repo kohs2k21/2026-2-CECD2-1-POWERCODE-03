@@ -1,6 +1,6 @@
 import { Fragment, useId, useRef, useState, type ReactNode } from "react";
 import { Link, type To } from "react-router-dom";
-import { AnimatePresence, motion, useReducedMotion, type Variants } from "motion/react";
+import { AnimatePresence, motion, useIsPresent, useReducedMotion, type Variants } from "motion/react";
 import { IconMenu2 } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
 import { motionClasses, motionTransition } from "@/lib/motion";
@@ -40,7 +40,8 @@ export type SideNavGroup = { title?: string; items: SideNavItem[]; separated?: b
  *   aside는 layoutRoot: 고정(sticky) 사이드바라 렌더 사이 페이지 스크롤(화면 이동 시 맨 위로·목차 해시 스크롤)이 위치 변화로 잡히지 않게 사이드바 기준으로 잰다.
  *   동작 줄이기면 길이 0(useReducedMotion, 앱 MotionConfig reducedMotion="user"), 메뉴 누름(motionClasses.press 97%)은 버튼과 같이 styles.css 미디어쿼리가 전환 길이를 없앤다.
  */
-const SUB_HEIGHT = motionTransition("slow", "standard");
+// 목록 높이가 바뀌면 아래 메뉴가 밀리는 배치 전환이라 ui.md `layout`(320ms) 토큰.
+const SUB_HEIGHT = motionTransition("layout", "standard");
 const subListVariants = (reduce: boolean): Variants => ({
   open: {
     height: "auto",
@@ -68,6 +69,22 @@ const INDICATOR = motionTransition("base", "standard");
  * DOM 없는 환경(시험 렌더러·서버 렌더)에서 켜면 오류가 난다. 브라우저에서는 늘 켜진다.
  */
 const canMeasureLayout = () => typeof document !== "undefined" && document.documentElement != null;
+
+/**
+ * 하위 목록 펼침·접힘(AnimatePresence 직접 자식). 접히는 중(퇴장)인 이전 목록은 inert: 남은 링크의 aria-current·클릭·초점이 없게 한다.
+ * 그룹 간격(gap-1.5)은 바깥 -mt-1.5 + 안쪽 pt-1.5로 높이 안에 넣어 다 접힌 뒤 사라질 때 간격만큼 튀지 않게 한다(그룹은 flex — grid 행은 음수 여백으로 줄지 않는다).
+ * 움직이는 동안만 overflow hidden(끝나면 초점 테두리가 잘리지 않게 visible).
+ */
+const SubListMotion = ({ variants, children }: { variants: Variants; children: ReactNode }) => {
+  const present = useIsPresent();
+  return (
+    <motion.div className="-mt-1.5" variants={variants} initial="collapsed" animate="open" exit="collapsed">
+      <div className="pt-1.5" inert={!present}>
+        {children}
+      </div>
+    </motion.div>
+  );
+};
 
 export const SideNav = ({
   label,
@@ -131,7 +148,7 @@ export const SideNav = ({
         {heading && <h2 className="px-3 text-group text-muted-foreground">{heading}</h2>}
         {header}
         {groups.map((group, index) => (
-          <section key={group.title ?? index} className={cn("grid gap-1.5", group.separated && "border-t pt-3")}>
+          <section key={group.title ?? index} className={cn("flex flex-col gap-1.5", group.separated && "border-t pt-3")}>
             {group.title && <GroupTitle className="px-3 text-group text-muted-foreground">{group.title}</GroupTitle>}
             {group.items.map((item) => {
               const current = item.id === activeId;
@@ -164,51 +181,38 @@ export const SideNav = ({
                   </Link>
                   <AnimatePresence initial={false}>
                     {item.sub && item.sub.length > 0 && (
-                      /*
-                        높이 0↔auto 펼침·접힘. 그룹 격자 간격(gap-1.5)은 바깥 -mt-1.5 + 안쪽 pt-1.5로 높이 안에 넣어
-                        다 접힌 뒤 사라질 때 간격만큼 튀지 않게 한다. 움직이는 동안만 overflow hidden(끝나면 초점 테두리가 잘리지 않게 visible).
-                      */
-                      <motion.div
-                        key="sub"
-                        className="-mt-1.5"
-                        variants={listVariants}
-                        initial="collapsed"
-                        animate="open"
-                        exit="collapsed"
-                      >
-                        <div className="pt-1.5">
-                          <ul data-slot="side-nav-sub" className="ml-6 grid gap-0.5 border-l">
-                            {item.sub.map((sub) => (
-                              <motion.li key={sub.id} variants={itemVariants}>
-                                <Link
-                                  to={sub.to}
-                                  replace={sub.replace}
-                                  aria-current={sub.current ? (sub.currentType ?? "location") : undefined}
-                                  onClick={collapse}
-                                  className={cn(
-                                    "relative -ml-px flex min-h-8 items-center rounded-r-md border-l-2 border-transparent px-3 text-body text-muted-foreground transition-colors outline-none hover:bg-accent hover:text-accent-foreground focus-visible:ring-3 focus-visible:ring-ring/50",
-                                    sub.current && "font-semibold text-foreground",
-                                  )}
-                                >
-                                  {/* 현재 영역 왼쪽 선(테두리 자리 2px): 목록마다 layoutId 하나라 현재 영역이 바뀌면 선이 미끄러진다. */}
-                                  {sub.current && (
-                                    <motion.span
-                                      layoutId={measure ? `${navId}-${item.id}-sub-current` : undefined}
-                                      aria-hidden="true"
-                                      className="absolute inset-y-0 -left-0.5 w-0.5 bg-foreground"
-                                      transition={reduceMotion ? { duration: 0 } : INDICATOR}
-                                    />
-                                  )}
-                                  <span className="min-w-0 flex-1 truncate">{sub.label}</span>
-                                  {typeof sub.count === "number" && (
-                                    <span className={cn("text-xs font-semibold tabular-nums text-muted-foreground", sub.current && "text-foreground")}>{sub.count}</span>
-                                  )}
-                                </Link>
-                              </motion.li>
-                            ))}
-                          </ul>
-                        </div>
-                      </motion.div>
+                      <SubListMotion key="sub" variants={listVariants}>
+                        <ul data-slot="side-nav-sub" className="ml-6 grid gap-0.5 border-l">
+                          {item.sub.map((sub) => (
+                            <motion.li key={sub.id} variants={itemVariants}>
+                              <Link
+                                to={sub.to}
+                                replace={sub.replace}
+                                aria-current={sub.current ? (sub.currentType ?? "location") : undefined}
+                                onClick={collapse}
+                                className={cn(
+                                  "relative -ml-px flex min-h-8 items-center rounded-r-md border-l-2 border-transparent px-3 text-body text-muted-foreground transition-colors outline-none hover:bg-accent hover:text-accent-foreground focus-visible:ring-3 focus-visible:ring-ring/50",
+                                  sub.current && "font-semibold text-foreground",
+                                )}
+                              >
+                                {/* 현재 영역 왼쪽 선(테두리 자리 2px): 목록마다 layoutId 하나라 현재 영역이 바뀌면 선이 미끄러진다. */}
+                                {sub.current && (
+                                  <motion.span
+                                    layoutId={measure ? `${navId}-${item.id}-sub-current` : undefined}
+                                    aria-hidden="true"
+                                    className="absolute inset-y-0 -left-0.5 w-0.5 bg-foreground"
+                                    transition={reduceMotion ? { duration: 0 } : INDICATOR}
+                                  />
+                                )}
+                                <span className="min-w-0 flex-1 truncate">{sub.label}</span>
+                                {typeof sub.count === "number" && (
+                                  <span className={cn("text-xs font-semibold tabular-nums text-muted-foreground", sub.current && "text-foreground")}>{sub.count}</span>
+                                )}
+                              </Link>
+                            </motion.li>
+                          ))}
+                        </ul>
+                      </SubListMotion>
                     )}
                   </AnimatePresence>
                 </Fragment>

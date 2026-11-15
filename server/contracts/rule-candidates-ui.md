@@ -63,6 +63,7 @@ Status: current — 실험 기능(층 B). Trainer `relation_candidates.py`(결�
 ## 4. 처리 시간(이상 징후) 후보 항목
 
 - `candidateId`, `status`(`candidate`·`insufficient_evidence`·`no_variation`·`rejected`), `reason`, `scope{processId, adapterType?}`(Detector 4절 대조 키), `interfaceIds`(표시용), `operator`, `threshold`(JSON number 또는 null, 아래), `displayThreshold`, `unit`, `source`(`data_p95` = 코드가 계산한 기준 표본 p95, LLM 제안 아님), `evidence{n, rows, referenceRows, endTimeMissingReferenceRows, unavailableReferenceRows, p95, min, max, quantileMethod}`, `limitation`(Trainer 한계 문구 한 줄, 없으면 null). 새 Trainer 결과의 `limitationRefs`(내부 경로·식)와 `evidence.note`는 내보내지 않는다(옛·새 모양 모두 읽음)
+- `reason` `scope_overlaps_adapter_groups`(`status: rejected`): 같은 단계에 adapter별 후보가 있어, adapter 없는 범위 `{processId}`가 Detector에서 그 adapter 행까지 덮으므로 거부. `operator`·`threshold`·`displayThreshold`는 null, `evidence`는 그대로(정보). 겹침은 adapter별 후보의 상태와 무관하게 그 후보가 있으면 성립하고, 다른 판정(표본 부족·분산 없음)보다 먼저 본다
 - `threshold`: Trainer 결과는 방법 카탈로그 `softRule.thresholdSerialization: "fixed-decimal-string"`대로 고정소수 **문자열**(`"704"`, worker `threshold_values.fixed_threshold`)이다. API는 룰 세트 저장 검증과 같은 규칙(40자·DSL 숫자 `-?(0|[1-9]\d*)(\.\d+)?`·유효숫자 15자리·정수 필드 정수·number 왕복 시 같은 문자열, worker `threshold_valid`)을 통과한 문자열만 **number로 바꿔** 낸다 — 왕복 불변이라 값 손실이 없고, `PUT /api/rule-set` 소프트룰 `threshold`(number)와 같은 형식이다. 옛 결과의 finite number도 그대로 읽는다. 규칙에 어긋난 문자열(`"1e3"`·`"+1"`·`"704.0"`·`""`·`"abc"`)·그 밖의 형식은 503 `rule_candidate_result_invalid`. 화면 표시는 `displayThreshold`(문자열)를 쓰고, 프론트 해석은 number·null 외 값을 응답 형식 오류로 본다
 
 ## 5. `GET /api/rule-set/candidates/:candidateId`

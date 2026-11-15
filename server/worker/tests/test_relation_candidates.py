@@ -546,6 +546,35 @@ class ThresholdTests(unittest.TestCase):
     def test_scope_omits_null_adapter(self):
         items = threshold_candidates(self.rows(30, adapter=None), {})
         self.assertEqual(items[0]["scope"], {"processId": "IF_A_PR001"})
+        # 같은 단계에 adapter 묶음이 없으면 {processId} = 그 단계 전체 행이라 그대로 후보.
+        self.assertEqual((len(items), items[0]["status"], items[0]["reason"]), (1, "candidate", None))
+        self.assertIsNotNone(items[0]["threshold"])
+
+    def test_null_adapter_scope_rejected_when_adapter_group_exists(self):
+        # Detector는 adapterType 없는 scope를 그 단계의 모든 adapter 행에 적용하므로 adapter 없는 행만의 p95는 거부.
+        items = threshold_candidates(self.rows(30, adapter=None) + self.rows(30, adapter="HTTP", tx_prefix="TH"), {})
+        self.assertEqual([item["scope"] for item in items],
+                         [{"processId": "IF_A_PR001"}, {"processId": "IF_A_PR001", "adapterType": "HTTP"}])
+        bare, http = items
+        self.assertEqual((bare["status"], bare["reason"]), ("rejected", "scope_overlaps_adapter_groups"))
+        self.assertEqual((bare["operator"], bare["threshold"], bare["displayThreshold"]), (None, None, None))
+        expected = float(np.quantile([100 + index * 10 for index in range(30)], .95))
+        self.assertEqual((bare["evidence"]["n"], bare["evidence"]["p95"]), (30, expected))  # 근거는 정보로 남김
+        self.assertEqual((http["status"], http["reason"], http["threshold"]), ("candidate", None, "375.5"))
+
+    def test_null_adapter_scope_rejected_even_if_adapter_group_insufficient(self):
+        # 겹침은 adapter 묶음의 존재로 정한다(Detector 적용 범위는 행 존재로 겹침). 상태는 보지 않는다.
+        items = threshold_candidates(self.rows(30, adapter=None) + self.rows(5, adapter="HTTP", tx_prefix="TH"), {})
+        bare, http = items
+        self.assertEqual((bare["status"], bare["reason"], bare["threshold"]),
+                         ("rejected", "scope_overlaps_adapter_groups", None))
+        self.assertEqual((http["scope"], http["status"]),
+                         ({"processId": "IF_A_PR001", "adapterType": "HTTP"}, "insufficient_evidence"))
+        # 다른 단계의 adapter 묶음은 겹침이 아니다.
+        other = threshold_candidates(self.rows(30, adapter=None) + self.rows(30, "IF_A_PR002", tx_prefix="TH"), {})
+        self.assertEqual([(item["scope"], item["status"]) for item in other],
+                         [({"processId": "IF_A_PR001"}, "candidate"),
+                          ({"processId": "IF_A_PR002", "adapterType": "DB"}, "candidate")])
 
     def test_p95_matches_existing_basis_and_support_rule(self):
         rows = self.rows(30) + self.rows(29, "IF_A_PR002")

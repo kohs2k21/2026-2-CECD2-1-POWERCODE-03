@@ -357,8 +357,10 @@ class CompareExecutionTests(unittest.TestCase):
                   "generation": {"rowCount": 2, "originalRowCount": 2, "syntheticRowCount": 0}}
         order = []
 
-        def check(conn, config_id, *_):
+        def check(conn, config_id, *_, versions=None):
             order.append(str(config_id))
+            if versions is not None and checks[str(config_id)][1] != "config_not_found":
+                versions[str(config_id)] = {"createdAt": None, "displayName": None}
             return checks[str(config_id)]
 
         def context(conn, config_id, source_id, pinned=None):
@@ -389,8 +391,19 @@ class CompareExecutionTests(unittest.TestCase):
                          [(ACTIVE, "active", "succeeded", None),
                           (CANDIDATE_A, "candidate", "failed", "training_evaluation_overlap"),
                           (CANDIDATE_B, "candidate", "failed", "evaluation_failed:model_feature_schema_mismatch")])
-        self.assertEqual(result["replacementRecommendations"], None)
-        self.assertEqual(result["replacementRecommendationsReason"], "not_implemented_v1")
+        # 교체 추천: 후보 둘 다 실패 → 원소 1개, 근거 부족. 저장 사유 자리는 null(배열이 있음).
+        self.assertEqual(result["replacementRecommendationsReason"], None)
+        [recommendation] = result["replacementRecommendations"]
+        self.assertEqual((recommendation["modelKey"], recommendation["noRecommendationReason"], recommendation["decision"],
+                          recommendation["targetVersionId"], recommendation["baselineConfigVersionId"],
+                          recommendation["baselineEvaluationId"], recommendation["baselineActiveRevision"]),
+                         ("iforest", "all_candidates_failed", "insufficient_evidence", None, ACTIVE,
+                          result["items"][0]["evaluationId"], 4))
+        self.assertEqual([(entry["configVersionId"], entry["outcome"], entry["excludedReason"])
+                          for entry in recommendation["candidates"]],
+                         [(CANDIDATE_A, "excluded", "item_failed:training_evaluation_overlap"),
+                          (CANDIDATE_B, "excluded", "item_failed:evaluation_failed:model_feature_schema_mismatch")])
+        self.assertEqual(recommendation["comparisonId"], result["comparisonId"])
         self.assertEqual(result["ruleSet"], {"revision": 2, "contentHash": HASH, "fixedAt": "accepted"})
         self.assertEqual(result["evaluationSet"]["synthetic"], False)
         self.assertEqual(result["items"][0]["categoryResults"]["ml"]["confusion"], {"tp": 1, "fp": None, "tn": None, "fn": 0})
@@ -432,6 +445,16 @@ class CompareExecutionTests(unittest.TestCase):
         self.assertEqual((candidate["status"], candidate["composite"], candidate["reasonCodes"]),
                          ("succeeded", None, ["labels_unavailable", "composite_unavailable:all_rows_excluded"]))
         self.assertEqual(result["items"][0]["reasonCodes"], ["labels_unavailable"])
+        # 라벨 없는 세트: 교집합은 만들어지지만 근거 지표가 없어 근거 부족, 무라벨 근거는 판정 일치 값 복사.
+        [recommendation] = result["replacementRecommendations"]
+        self.assertEqual((recommendation["noRecommendationReason"], recommendation["decision"],
+                          recommendation["comparedRowCount"], recommendation["comparedLabelCounts"]),
+                         ("basis_metrics_unavailable", "insufficient_evidence", 2,
+                          {"anomalyLabelCount": 0, "normalLabelCount": 0}))
+        self.assertEqual([entry["outcome"] for entry in recommendation["candidates"]], ["eligible_not_compared"] * 2)
+        self.assertEqual([(pair["candidate"], pair["comparableCount"], pair["both"], pair["neither"])
+                          for pair in recommendation["unlabeledEvidence"]["pairs"]],
+                         [(CANDIDATE_A, 2, 1, 1), (CANDIDATE_B, 2, 1, 1)])
 
     def test_all_items_failing_fails_the_job_with_the_summary(self):
         checks = {ACTIVE: ("iforest", "prepared_not_comparable"), CANDIDATE_A: (None, "config_not_found"),
@@ -440,6 +463,12 @@ class CompareExecutionTests(unittest.TestCase):
         self.assertEqual(finished[0][0:2], (None, "comparison_all_items_failed"))
         self.assertEqual(finished[0][2]["failure_summary"]["failedCount"], 3)
         self.assertEqual(result["succeededCount"], 0)
+        # 전 항목 실패 묶음에도 추천 원소를 남긴다: 활성이 먼저 걸린다.
+        [recommendation] = result["replacementRecommendations"]
+        self.assertEqual((recommendation["noRecommendationReason"], recommendation["decision"], recommendation["summary"]),
+                         ("active_item_failed", "insufficient_evidence",
+                          "현재 운영 버전의 평가가 실패해 비교할 수 없습니다(사유: prepared_not_comparable)."))
+        self.assertEqual(finished[0][2]["failure_summary"]["replacementRecommendations"], [recommendation])
         # 없는 버전은 FK 때문에 항목 표에 넣지 않고 summary에만 남긴다.
         self.assertEqual(sum("run_config_comparison_items" in sql for sql in statements), 2)
         self.assertFalse(any("INSERT INTO run_evaluations" in sql for sql in statements))
@@ -460,7 +489,8 @@ class ItemConnection(Connection):
 
     def __init__(self, *, source, keys, spec, training_schema="process-v1", overlap=False):
         super().__init__()
-        self.answers = {"ml_config_versions": (source, spec), "data_snapshots": (training_schema,), "EXISTS": (overlap,)}
+        self.answers = {"ml_config_versions": (source, spec, "2026-11-01T00:00:00Z", spec.get("displayName")),
+                        "data_snapshots": (training_schema,), "EXISTS": (overlap,)}
         self.keys = keys
 
     def fetchone(self):
@@ -496,6 +526,13 @@ class CheckItemOrderTests(unittest.TestCase):
         self.assertEqual(self.check(source=uuid.UUID(SOURCE), keys=["iforest"], spec=self.spec, overlap=True),
                          ("iforest", "training_evaluation_overlap"))
         self.assertEqual(self.check(source=uuid.UUID(SOURCE), keys=["iforest"], spec=self.spec), ("iforest", None))
+
+    def test_version_facts_are_recorded_from_the_same_read(self):
+        versions = {}
+        conn = ItemConnection(source=uuid.UUID(SOURCE), keys=["iforest"], spec={**self.spec, "displayName": "IF 11/01~11/07"})
+        comparison.check_item(conn, self.config, uuid.UUID(SOURCE), self.snapshot, "validation", versions=versions)
+        self.assertEqual(versions, {CANDIDATE_A: {"createdAt": "2026-11-01T00:00:00Z", "displayName": "IF 11/01~11/07"}})
+        self.assertIn("configuration_spec->>'displayName'", conn.statements[0])
 
 
 class RuleSetCheckTests(unittest.TestCase):

@@ -1,5 +1,5 @@
 // 비교 평가 v1(config-comparison-evaluation.md v1 구현 범위, evaluations-ui.md) 통합 시험: 평가 세트 접수·조회, compare 접수 검증·기준선 고정,
-// 비교 목록·상세(완료 전·완료 뒤·추천 미구현 사유), 비교가 만든 평가로 운영 적용 gate 통과(모델 교체 3단계).
+// 비교 목록·상세(완료 전·완료 뒤·추천 계산 전 결과의 저장 사유·추천 원소와 decision), 비교가 만든 평가로 운영 적용 gate 통과(모델 교체 3단계).
 // API는 운영과 같은 powercode_api 역할로 붙는다. Trainer 쪽 처리는 comparison-fixture.mjs가 흉내 낸다(시험 전용).
 // 로컬 전용 새 QA 데이터베이스(qa_comparisons*)만 허용한다. 실행 전 `npm run build`.
 import assert from 'node:assert/strict';
@@ -209,7 +209,7 @@ try {
   const pendingRow = pendingList.items.find((item) => item.jobId === jobId);
   assert.deepEqual([pendingRow.comparisonId, pendingRow.status, pendingRow.itemCount, pendingRow.recommendations], [null, 'queued', 2, null]);
 
-  // 10) Trainer가 결과 기록(흉내): 묶음 + 항목 평가 + 작업 성공. 교체 추천은 v1에 없음.
+  // 10) Trainer가 결과 기록(흉내): 묶음 + 항목 평가 + 작업 성공. 추천 계산 전(11/15 이전) 결과 모양: null + 저장 사유.
   const { comparisonId, items } = await completeComparison(pool, jobId, { [a.configId]: { tp: 9, fn: 11 }, [b.configId]: { tp: 14, fn: 6 } });
   const detail = await call(`/api/comparisons/${comparisonId}`, { token: admin });
   assert.equal(detail.status, 200);
@@ -285,6 +285,42 @@ try {
   assert.equal(replaced.status, 200, JSON.stringify(replaced.body));
   assert.deepEqual(replaced.body.models.map((model) => model.configVersionId), [b.configId]);
   assert.ok(!(await call('/api/comparisons?scope=current', { token: admin })).body.items.some((item) => item.jobId === jobId), 'active set changed: no longer current');
+
+  // 12-1) 추천 계산 뒤 결과 모양(Trainer replacement_recommendation): 원소 그대로 + 조회 때 상태, 목록은 decision 포함.
+  // 운영 버전이 B로 바뀐 뒤 A를 후보로 비교 → 기준선 B. 추천 원소는 Trainer 저장값 모양(필드 일부)으로 흉내 낸다.
+  const recompare = await compare({ ...base, configVersionIds: [a.configId] });
+  assert.equal(recompare.status, 201, JSON.stringify(recompare.body));
+  const replacedRevision = recompare.body.inputSpec.activeModelSetRevision;
+  const element = (comparisonId, recItems, decision, target) => ({
+    modelKey: 'iforest', ruleVersion: 'replacement-recommendation-v1', decision, comparisonId, comparisonJobId: recompare.body.id,
+    evaluationSetId: setId, baselineConfigVersionId: b.configId,
+    baselineEvaluationId: recItems.find((entry) => entry.configVersionId === b.configId).evaluationId, baselineActiveRevision: replacedRevision,
+    targetVersionId: target, targetEvaluationId: target ? recItems.find((entry) => entry.configVersionId === target).evaluationId : null,
+    summary: target ? 'Isolation Forest 버전 aaaaaaaa이 현재 운영 Isolation Forest 버전 bbbbbbbb보다 모델 재현율 14/20(0.700) > 9/20(0.450)' : '현재 운영 버전보다 모든 근거 지표에서 같거나 나은 후보가 없습니다.',
+    reason: target ? 'better_than_active_on_all_basis_metrics' : null, noRecommendationReason: target ? null : 'no_candidate_better_than_active',
+    comparedRowCount: 1200, comparedLabelCounts: { anomalyLabelCount: 20, normalLabelCount: 0 }, basis: [], excludedMetrics: [], checks: null, costs: [],
+    candidates: [{ configVersionId: a.configId, modelKey: 'iforest', outcome: target ? 'selected' : 'excluded', excludedReason: target ? null : 'worse_on:ml.completeOnly.recall', lostAt: null }],
+    references: [], unlabeledEvidence: { interpretation: 'checker_agreement_not_accuracy', pairs: [] }, thresholds: {}, generatedAt: '2026-11-15T00:00:00.000Z',
+  });
+  const recommended = await completeComparison(pool, recompare.body.id, { [b.configId]: { tp: 9, fn: 11 }, [a.configId]: { tp: 14, fn: 6 } },
+    { recommendations: (comparisonId, recItems) => [element(comparisonId, recItems, 'recommend_replace', a.configId)] });
+  const recDetail = (await call(`/api/comparisons/${recompare.body.id}`, { token: admin })).body;
+  assert.equal(recDetail.replacementRecommendationsReason, null);
+  assert.deepEqual(recDetail.replacementRecommendations, [{ ...element(recommended.comparisonId, recommended.items, 'recommend_replace', a.configId), recommendationState: 'current' }]);
+  const recRow = (await call(`/api/comparisons?evaluationSetId=${setId}`, { token: admin })).body.items.find((item) => item.jobId === recompare.body.id);
+  assert.deepEqual([recRow.recommendations, recRow.recommendationsReason],
+    [[{ modelKey: 'iforest', targetVersionId: a.configId, state: 'current', decision: 'recommend_replace' }], null]);
+  assert.deepEqual((await latestOf(a.configId)).recommendation, { modelKey: 'iforest', targetVersionId: a.configId, state: 'current' }, 'model version summary reads the same element');
+  // 추천 없음 원소(유지): 상태 none, 목록 decision keep_current. 예전 결과(10번)의 목록 칸은 그대로 null + 저장 사유.
+  const keepJob = await compare({ ...base, configVersionIds: [a.configId] });
+  await completeComparison(pool, keepJob.body.id, { [b.configId]: { tp: 9, fn: 11 }, [a.configId]: { tp: 5, fn: 15 } },
+    { recommendations: (comparisonId, recItems) => [{ ...element(comparisonId, recItems, 'keep_current', null), comparisonJobId: keepJob.body.id }] });
+  const keepRows = (await call(`/api/comparisons?evaluationSetId=${setId}`, { token: admin })).body.items;
+  assert.deepEqual(keepRows.find((item) => item.jobId === keepJob.body.id).recommendations,
+    [{ modelKey: 'iforest', targetVersionId: null, state: 'none', decision: 'keep_current' }]);
+  assert.deepEqual((await call(`/api/comparisons/${keepJob.body.id}`, { token: admin })).body.replacementRecommendations[0].recommendationState, 'none');
+  const oldRow = keepRows.find((item) => item.jobId === jobId);
+  assert.deepEqual([oldRow.recommendations, oldRow.recommendationsReason], [null, 'not_implemented_v1'], 'stored v1 placeholder result stays readable');
 
   // 13) 활성 집합이 가리키는 기준선 버전이 없으면 접수 때 409(Trainer는 작업 실패로 끝낸다)
   await pushActiveModels(pool, [{ configVersionId: id(), modelKey: 'iforest' }]);

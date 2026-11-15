@@ -22,7 +22,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from integration_research_pipeline import observe, source
 from pg_queue import enqueue
-from trainer import runner
+from trainer import replacement_recommendation, runner
 from trainer.catalog import register_feature_set
 from trainer.operational_state import DEFAULT_POLICY, read_operational_state
 
@@ -237,7 +237,7 @@ def verify_compare(conn, fixture, set_id, generation, active, candidate, version
                                                                     (version3, "candidate", "succeeded")}
     summary = result
     assert summary == comparison[0][4] and summary["comparisonId"] == str(comparison[0][0])
-    assert summary["comparisonContractVersion"] == "config-comparison-v1" and summary["replacementRecommendations"] is None
+    assert summary["comparisonContractVersion"] == "config-comparison-v1" and summary["replacementRecommendationsReason"] is None
     assert [item["configVersionId"] for item in summary["items"]] == [active] + sorted([candidate, version3]), summary["items"]
     assert summary["evaluationSet"]["contentHash"] == conn.execute("SELECT content_hash FROM data_evaluation_sets WHERE id=%s", (set_id,)).fetchone()[0]
     conn.commit()
@@ -274,6 +274,7 @@ def verify_compare(conn, fixture, set_id, generation, active, candidate, version
     for pair in pairs:
         assert pair["comparableCount"] == evaluated == pair["both"] + pair["aOnly"] + pair["bOnly"] + pair["neither"], pair
         assert pair["agreementRate"]["denominator"] == evaluated and pair["interpretation"] == "checker_agreement_not_accuracy", pair
+    verify_recommendation(summary, generation, evaluated, active, sorted([candidate, version3]))
     # 2. 다른 source 후보 1개는 그 항목만 실패, 나머지는 성공.
     job_id, (status, code, result) = run_compare(conn, compare_spec(conn, fixture, set_id, [active, foreign], active))
     assert (status, code) == ("succeeded", None), (status, code)
@@ -282,10 +283,12 @@ def verify_compare(conn, fixture, set_id, generation, active, candidate, version
     comparison, evaluations, items = comparison_rows(conn, job_id)
     assert len(evaluations) == 1 and len(items) == 2, (evaluations, items)
     assert result["pairwiseAgreement"] == [] and "executionCost" not in result["items"][1], result
+    assert reason_of(result) == ("all_candidates_failed", "insufficient_evidence"), result["replacementRecommendations"]
     # 3. 학습 train이 세트 행과 겹치는 후보는 training_evaluation_overlap.
     job_id, (status, code, result) = run_compare(conn, compare_spec(conn, fixture, set_id, [active, overlapping], active))
     states = {item["configVersionId"]: (item["status"], item["errorCode"]) for item in result["items"]}
     assert (status, code) == ("succeeded", None) and states[overlapping] == ("failed", "training_evaluation_overlap"), states
+    assert reason_of(result) == ("all_candidates_failed", "insufficient_evidence"), result["replacementRecommendations"]
     # 4. 기준선 없이 전부 실패 → 작업 failed, 실패 묶음과 항목 사유는 남는다.
     job_id, (status, code, result) = run_compare(conn, compare_spec(conn, fixture, set_id, [foreign, overlapping], None))
     assert (status, code) == ("failed", "comparison_all_items_failed"), (status, code)
@@ -293,6 +296,44 @@ def verify_compare(conn, fixture, set_id, generation, active, candidate, version
     assert len(comparison) == 1 and comparison[0][1] == "failed" and comparison[0][2] is None, comparison
     assert evaluations == [] and len(items) == 2 and all(item[2] == "failed" for item in items), items
     assert result["failedCount"] == 2
+    # 전 항목 실패 묶음에도 추천 원소가 남는다(기준선 없음이 먼저). 저장 summary와 작업 결과가 같다.
+    assert reason_of(result) == ("active_missing", "not_applicable"), result["replacementRecommendations"]
+    assert comparison[0][4]["replacementRecommendations"] == result["replacementRecommendations"]
+    reasons = [entry["excludedReason"] for entry in result["replacementRecommendations"][0]["candidates"]]
+    assert reasons == [f"item_failed:{item['errorCode']}" for item in result["items"]], reasons
+
+
+def reason_of(summary):
+    [element] = summary["replacementRecommendations"]
+    return element["noRecommendationReason"], element["decision"]
+
+
+def verify_recommendation(summary, generation, evaluated, active, candidates):
+    """라벨 있는 세트의 교체 추천: 공통 교집합 = 평가한 행 전부(제외 행 1개 빠짐), 근거 지표 3종 모두 최소 표본 이상.
+    결정은 실제 IF 판정에 따르므로 값을 고정하지 않고 사유·결정 대응과 근거 숫자의 출처만 확인한다."""
+    [element] = summary["replacementRecommendations"]
+    reason = element["noRecommendationReason"]
+    assert element["decision"] == replacement_recommendation.decision_for(reason), element
+    assert reason in (None, "no_candidate_better_than_active", "cost_limit_exceeded"), element
+    assert (element["modelKey"], element["ruleVersion"], element["baselineConfigVersionId"]) == (
+        "iforest", "replacement-recommendation-v1", active), element
+    assert element["baselineEvaluationId"] == summary["items"][0]["evaluationId"], element
+    assert element["comparedRowCount"] == evaluated, element
+    assert element["comparedLabelCounts"] == {"anomalyLabelCount": generation["truthCount"],
+                                              "normalLabelCount": generation["normalLabelCount"]}, element
+    assert element["excludedMetrics"] == [], element
+    assert [entry["configVersionId"] for entry in element["candidates"]] == candidates, element
+    assert element["summary"] and "리비전" not in element["summary"], element
+    # 공통 교집합 = 각 항목 전 판정 행이므로 다시 센 활성 recall 분자는 항목 ML 혼동행렬의 tp와 같다.
+    active_ml = summary["items"][0]["categoryResults"]["ml"]
+    if element["basis"]:
+        assert element["basis"][0]["baseline"]["numerator"] == active_ml["confusion"]["tp"], (element, active_ml)
+    pairs = {(pair["a"], pair["b"]): pair for pair in summary["pairwiseAgreement"]}
+    for evidence in element["unlabeledEvidence"]["pairs"]:
+        pair = pairs[(evidence["baseline"], evidence["candidate"])]
+        assert (evidence["both"], evidence["baselineOnly"], evidence["candidateOnly"], evidence["neither"]) == (
+            pair["both"], pair["aOnly"], pair["bOnly"], pair["neither"]), (evidence, pair)
+    print("replacement recommendation sample:", json.dumps(element, ensure_ascii=False))
 
 
 def main():
@@ -320,7 +361,8 @@ def main():
             verify_compare(conn, fixture, set_id, generation, active["configVersionId"], candidate["configVersionId"],
                            version3["configVersionId"], foreign["configVersionId"], overlapping["configVersionId"])
     print("compare evaluation integration passed: evaluation set, v1 active + v1/v3 candidates compare (1 excluded row, "
-          "pairwise agreement, composite with fixed r1 rule set + status F row), item failures, all-failed")
+          "pairwise agreement, composite with fixed r1 rule set + status F row, labeled replacement recommendation), "
+          "item failures, all-failed")
 
 
 if __name__ == "__main__":

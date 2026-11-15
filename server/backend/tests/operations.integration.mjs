@@ -9,7 +9,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import pg from 'pg';
-import { seedDetectJobs, seedOperationsFixture, seedV04Decisions } from './operations-fixture.mjs';
+import { seedCollectorMetrics, seedDetectJobs, seedOperationsFixture, seedV04Decisions } from './operations-fixture.mjs';
 
 const url = process.env.PIPELINE_TEST_DATABASE_URL;
 if (!url) throw new Error('PIPELINE_TEST_DATABASE_URL is required');
@@ -115,7 +115,9 @@ try {
   assert.equal(collection.input.mode, 'csv');
   assert.equal(collection.input.revision, 7);
   assert.equal(collection.input.status, 'running');
-  assert.deepEqual(collection.input.csv, { replayKey: 'synthetic-s1', recordCount: 3000, rate: 10, repeat: 2, position: 1248, total: 6000 });
+  // actualRate: 실행 running → 최근 60초 저장 관측(T 3 + P 5, M·B는 1분 이상 전)/60.
+  assert.deepEqual(collection.input.csv, { replayKey: 'synthetic-s1', recordCount: 3000, rate: 10, repeat: 2, position: 1248, total: 6000,
+    actualRate: 8 / 60 });
   assert.equal(collection.input.api, null);
   assert.equal('lastError' in collection.input, false);
   const layer = (name) => collection.layers.find((item) => item.layer === name);
@@ -127,11 +129,24 @@ try {
   assert.equal(layer('M').storedCount, 5);
   assert.equal(layer('B').storedCount, 1);
   assert.ok(isoTime(layer('P').lastPersistedAt));
+  for (const name of ['T', 'P', 'M', 'B']) assert.deepEqual([layer(name).sourceTimeKnownCount, layer(name).lastSourceEventAt], [0, null], `030 이전 모양 ${name}`);
+  assert.equal(collection.hourly.basis, 'persisted_at');
+  assert.equal('timeUnknownCount' in collection.hourly, false);
   assert.equal(collection.hourly.items.length, 24);
   assert.equal(collection.hourly.items.reduce((sum, item) => sum + item.count, 0), fixture.transactions);
   assert.ok(Date.parse(collection.hourly.items[23].hourStart) <= Date.now());
   assert.deepEqual(collection.history.map((item) => [item.mode, item.status]), [['csv', 'running'], ['csv', 'completed'], ['api', 'paused']]);
   assert.equal(collection.history[0].replayKey, 'synthetic-s1');
+  // hourlyBasis=source_event: 원천 발생 시각 칸(모두 0 = 원천 시각 없음), 원천 시각 없는 T는 timeUnknownCount. 그 밖의 값은 400.
+  const bySourceEvent = (await request(base, `/api/operations/collection?sourceId=${sid}&hourlyBasis=source_event`, 'GET', user)).body;
+  assert.deepEqual([bySourceEvent.hourly.layer, bySourceEvent.hourly.basis, bySourceEvent.hourly.items.length], ['T', 'source_log_occurred_at', 24]);
+  assert.equal(bySourceEvent.hourly.items.reduce((sum, item) => sum + item.count, 0), 0);
+  assert.equal(bySourceEvent.hourly.timeUnknownCount, fixture.transactions);
+  assert.equal((await request(base, `/api/operations/collection?sourceId=${sid}&hourlyBasis=persisted_at`, 'GET', user)).body.hourly.basis, 'persisted_at');
+  for (const value of ['source', 'SOURCE_EVENT', '']) {
+    const bad = await request(base, `/api/operations/collection?sourceId=${sid}&hourlyBasis=${value}`, 'GET', user);
+    assert.deepEqual([bad.status, bad.body.code], [400, 'unknown_operations_filter'], `hourlyBasis=${value}`);
+  }
 
   // 5) 단계별 지연: 계측된 단계만 수치, 판정 저장·원천 발생→판정은 null.
   const latency = (await request(base, `/api/operations/latency?sourceId=${sid}`, 'GET', user)).body;
@@ -148,9 +163,14 @@ try {
   assert.equal(stage('detector').samples, fixture.decisions);
   assert.ok(stage('detector').p95Ms > stage('detector').p50Ms);
   assert.equal(stage('detector').recentFailures, 0);
-  assert.equal(stage('judgmentStore').p50Ms, null);
-  assert.equal(latency.endToEnd.p50Ms, null);
-  assert.equal(latency.endToEnd.reason, 'source_clock_unverified');
+  // 판정 저장 표본(031) 없음 → samples 0·null. measured 판정 없음 → 원천 발생 → 판정 null.
+  assert.deepEqual([stage('judgmentStore').samples, stage('judgmentStore').p50Ms, stage('judgmentStore').recentFailures], [0, null, null]);
+  assert.deepEqual(latency.endToEnd, { window: '1h', samples: 0, p50Ms: null, p95Ms: null, skewCount: 0, reason: 'source_time_unavailable' });
+  // CSV 재생 원천: API 입력 후보가 없어 원천 → 저장은 no_live_api_samples, 시간대 확인 표본 0.
+  assert.deepEqual(latency.sourceToStored, { window: '1h', samples: 0, p50Ms: null, p95Ms: null, skewCount: 0,
+    excludedCounts: { unparsed: 0, absent: 0, legacyUnknown: 0 }, reason: 'no_live_api_samples' });
+  assert.deepEqual(latency.clockCheck, { window: '1h', assumedTimezone: 'Asia/Seoul', sourceClockBasisStatus: 'unknown',
+    sampleCount: 0, p50Ms: null, p95Ms: null, negativeRatio: null });
 
   // 6) 원본 필드: 이름·제공/결측 건수만, 값 없음.
   const fields = (await request(base, `/api/operations/source-fields?sourceId=${sid}&layer=T`, 'GET', user)).body;
@@ -165,6 +185,8 @@ try {
   const storage = (await request(base, '/api/operations/storage', 'GET', user)).body;
   assert.ok(storage.databaseBytes > 0);
   assert.equal(storage.disk, null);
+  assert.deepEqual(storage.disks, ['database_data', 'artifacts'].map((storageKey) => ({ storageKey, status: 'unavailable', filesystemKey: null,
+    capacityBytes: null, usedBytes: null, availableBytes: null, warningState: 'unknown', reasonCode: 'not_measured', measuredAt: null })));
 
   // 8) 판정 추이: 전 원천의 일별 판정 수·비율(운영 리포트 구성 생략 경로 재사용). 판정 없는 날도 나온다.
   const trend = (await request(base, '/api/operations/decision-trend?days=3', 'GET', user)).body;
@@ -279,6 +301,118 @@ try {
   const noActive = (await request(base, '/api/operations/decision-trend?days=3', 'GET', user)).body;
   assert.deepEqual(noActive.items, allSources.items, 'the trend does not depend on the active configuration');
   assert.equal('reason' in noActive, false);
+
+  // 8d) Collector·Detector 운영 계측(collector-metrics.md 2~4절, detection-decision.md 18·19절). 새 원천 2개라 위 집계와 섞이지 않는다.
+  const { metricsSource, skewSource } = await seedCollectorMetrics(pool);
+  const metricsCollection = (await request(base, `/api/operations/collection?sourceId=${metricsSource}`, 'GET', user)).body;
+  assert.equal(metricsCollection.input.mode, 'api');
+  assert.equal(metricsCollection.input.csv, null);
+  const api = metricsCollection.input.api;
+  assert.deepEqual(Object.keys(api).sort(), ['lastAttemptAt', 'lastSuccessAt', 'pollSeconds', 'sinceLastSuccessMs'], 'no error text or code');
+  assert.ok(isoTime(api.lastSuccessAt) && isoTime(api.lastAttemptAt) && Date.parse(api.lastAttemptAt) > Date.parse(api.lastSuccessAt));
+  assert.ok(api.sinceLastSuccessMs >= 3000 && api.sinceLastSuccessMs < 60000, `since last success ${api.sinceLastSuccessMs}`);
+  const metricsLayer = (name) => metricsCollection.layers.find((item) => item.layer === name);
+  assert.deepEqual([metricsLayer('P').storedCount, metricsLayer('P').sourceTimeKnownCount], [10, 7], 'P: unparsed·absent·legacy have no source time');
+  assert.deepEqual([metricsLayer('T').storedCount, metricsLayer('T').sourceTimeKnownCount], [3, 2]);
+  assert.ok(Date.parse(metricsLayer('T').lastSourceEventAt) < Date.now() - 29 * 60000, 'latest source event, not persisted time');
+  const metricsHourly = (await request(base, `/api/operations/collection?sourceId=${metricsSource}&hourlyBasis=source_event`, 'GET', user)).body.hourly;
+  assert.equal(metricsHourly.items.reduce((sum, item) => sum + item.count, 0), 1, 'source event 30 minutes ago; the one 3 days ago is outside 24 hours');
+  assert.equal(metricsHourly.timeUnknownCount, 1);
+
+  const metricsLatency = (await request(base, `/api/operations/latency?sourceId=${metricsSource}`, 'GET', user)).body;
+  const metricsStage = (name) => metricsLatency.stages.find((item) => item.id === name);
+  // 판정 저장 소요 2·4·10 ms(2시간 전 500 ms 제외): p95 = 4 + 0.9 × 6.
+  assert.deepEqual([metricsStage('judgmentStore').samples, metricsStage('judgmentStore').p50Ms, metricsStage('judgmentStore').recentFailures], [3, 4, null]);
+  assert.ok(Math.abs(metricsStage('judgmentStore').p95Ms - 9.4) < 1e-9);
+  // 원천 발생 → 판정: measured 1000·3000·5000, 음수 -500은 skewCount, unavailable·2시간 전은 빠진다.
+  const { p95Ms: endToEndP95, ...endToEnd } = metricsLatency.endToEnd;
+  assert.deepEqual(endToEnd, { window: '1h', samples: 3, p50Ms: 3000, skewCount: 1, reason: null });
+  assert.ok(Math.abs(endToEndP95 - 4800) < 1e-6, `p95 = 3000 + 0.9 × 2000, got ${endToEndP95}`);
+  // 원천 → 저장: live·첫 revision·API·1시간·시각 있음 2000·4000·6000(assumed 포함), -1000은 skewCount. initial·revision 2·2시간 전은 아예 빠진다.
+  const toStored = metricsLatency.sourceToStored;
+  assert.deepEqual([toStored.samples, toStored.skewCount, toStored.excludedCounts, toStored.reason],
+    [3, 1, { unparsed: 1, absent: 1, legacyUnknown: 1 }, null]);
+  assert.ok(Math.abs(toStored.p50Ms - 4000) < 1 && Math.abs(toStored.p95Ms - 5800) < 1, JSON.stringify(toStored));
+  // 시간대 확인: assumed_tz 6000·-1000(음수 포함 그대로), 원천 설정 상태는 verified.
+  const check = metricsLatency.clockCheck;
+  assert.deepEqual([check.assumedTimezone, check.sourceClockBasisStatus, check.sampleCount, check.negativeRatio], ['Asia/Seoul', 'verified', 2, 0.5]);
+  assert.ok(Math.abs(check.p50Ms - 2500) < 1 && Math.abs(check.p95Ms - 5650) < 1, JSON.stringify(check));
+  // 음수만 있는 원천: 분위수 null + source_clock_skew(0으로 자르지 않음).
+  const skewLatency = (await request(base, `/api/operations/latency?sourceId=${skewSource}`, 'GET', user)).body;
+  assert.deepEqual(skewLatency.endToEnd, { window: '1h', samples: 0, p50Ms: null, p95Ms: null, skewCount: 1, reason: 'source_clock_skew' });
+  assert.deepEqual([skewLatency.sourceToStored.samples, skewLatency.sourceToStored.p50Ms, skewLatency.sourceToStored.skewCount,
+    skewLatency.sourceToStored.reason], [0, null, 1, 'source_clock_skew']);
+  assert.deepEqual([skewLatency.clockCheck.sampleCount, skewLatency.clockCheck.p50Ms, skewLatency.clockCheck.negativeRatio,
+    skewLatency.clockCheck.sourceClockBasisStatus], [1, -2000, 1, 'unknown'], 'clock check keeps the sign');
+  // 원천 시각 없는 live 후보만 있으면 source_time_unavailable(새 원천에 해석 실패 live 관측 하나).
+  const blindSource = crypto.randomUUID();
+  await pool.query(`INSERT INTO ops_sources(id,dataset_key,display_name,ingestion_method,schema_version,clock_basis,field_catalog,created_at)
+    VALUES($1,$2,$2,'switchable-input','arrival-snapshot-v1','{"status":"unknown"}','{"layers":["P"]}',clock_timestamp())`, [blindSource, `operations-blind-${blindSource}`]);
+  const blindRun = crypto.randomUUID(), blindExecution = crypto.randomUUID(), blindObservation = crypto.randomUUID();
+  await pool.query(`INSERT INTO ops_input_runs(id,source_id,mode,replay_id,settings,status,next_position,accepted_count,created_at)
+    VALUES($1,$2,'api',NULL,'{"pollSeconds":2}','running',1,1,clock_timestamp())`, [blindRun, blindSource]);
+  await pool.query(`INSERT INTO data_executions(id,source_id,layer,execution_key,key_parts,key_contract_version,first_observed_at)
+    VALUES($1,$2,'P',$3,'{}','v1',clock_timestamp())`, [blindExecution, blindSource, `exec-${blindExecution}`]);
+  await pool.query(`INSERT INTO data_observations(id,source_id,layer,execution_id,revision_no,dedup_key,content_hash,api_received_at,persisted_at,
+      clock_status,parsed_times,allowed_values,quality_flags,missing_fields)
+    VALUES($1,$2,'P',$3,1,$4,$5,clock_timestamp(),clock_timestamp(),'unparsed','{"rule":"source-time-v1"}','{}','[]','[]')`,
+  [blindObservation, blindSource, blindExecution, `P:${blindObservation}`, blindObservation]);
+  await pool.query(`INSERT INTO data_input_origins(observation_id,run_id,mode,position,namespace,ingest_phase) VALUES($1,$2,'api',NULL,'fixture','live')`,
+    [blindObservation, blindRun]);
+  const blindLatency = (await request(base, `/api/operations/latency?sourceId=${blindSource}`, 'GET', user)).body;
+  assert.deepEqual([blindLatency.sourceToStored.samples, blindLatency.sourceToStored.excludedCounts.unparsed, blindLatency.sourceToStored.reason],
+    [0, 1, 'source_time_unavailable']);
+
+  // 개요 원천 발생 → 판정: 전 원천 measured 중 0 이상만의 중앙값(1000·3000·5000 → 3000, 음수 -500·-300 제외).
+  const measuredOverview = (await request(base, '/api/operations/overview', 'GET', user)).body;
+  assert.equal(measuredOverview.endToEndLatencyMs, 3000);
+  for (const field of ['cpuPercent', 'memoryPercent', 'diskPercent']) assert.equal(field in measuredOverview, false, `${field}: no resource sample yet`);
+  // /api/pipeline/metrics 단계 목록은 그대로(judgment_store는 운영 latency API에서만).
+  const pipelineMetrics = await request(base, '/api/pipeline/metrics', 'GET', admin);
+  assert.equal(pipelineMetrics.status, 200);
+  assert.ok(pipelineMetrics.body.stages.every((item) => ['feature', 'detector'].includes(item.stage)), JSON.stringify(pipelineMetrics.body.stages));
+  assert.ok(pipelineMetrics.body.stages.some((item) => item.stage === 'detector'));
+
+  // 8e) 자원·저장공간 표본(collector-metrics.md 4.3): 신선한(180초) 최신 행만, 측정 불가·오래됨은 값 없음, database_data만 disk·diskPercent.
+  const resource = (secondsAgo, cpu, memoryUsed) => pool.query(`INSERT INTO ops_resource_measurements(id,scope,cpu_status,cpu_percent,cpu_reason_code,
+      sample_interval_ms,memory_status,memory_used_bytes,memory_total_bytes,memory_reason_code,measured_at)
+    VALUES($1,'host_proc_unverified',$2::measurement_status,$3::double precision,$4,$5::double precision,$6::measurement_status,$7::bigint,$8::bigint,$9,
+      clock_timestamp()-make_interval(secs=>$10::double precision))`,
+  [crypto.randomUUID(), cpu === null ? 'unavailable' : 'measured', cpu, cpu === null ? 'cpu_first_sample' : null, cpu === null ? null : 60000,
+    memoryUsed === null ? 'unavailable' : 'measured', memoryUsed, memoryUsed === null ? null : 4096, memoryUsed === null ? 'meminfo_unavailable' : null, secondsAgo]);
+  const disk = (key, secondsAgo, used, available, reason = null) => pool.query(`INSERT INTO ops_storage_measurements(id,storage_key,filesystem_key,target_kind,
+      status,capacity_bytes,used_bytes,available_bytes,database_bytes,writer_access_verified,warning_spec_version,warning_state,reason_code,measured_at)
+    VALUES($1,$2,$3,'filesystem',$4::measurement_status,$5::bigint,$6::bigint,$7::bigint,NULL,false,'disk-warning-v1',$8,$9,
+      clock_timestamp()-make_interval(secs=>$10::double precision))`,
+  [crypto.randomUUID(), key, reason ? null : `dev:${key.length}`, reason ? 'unavailable' : 'measured', reason ? null : 1000, used, available,
+    reason ? 'unknown' : 'warning', reason, secondsAgo]);
+  await resource(600, 99, 4000);
+  await resource(30, 37.5, 1024);
+  await disk('database_data', 90, 100, 900);
+  await disk('database_data', 30, 600, 200);
+  await disk('artifacts', 600, 10, 990);
+  const withResources = (await request(base, '/api/operations/overview', 'GET', user)).body;
+  assert.deepEqual([withResources.cpuPercent, withResources.memoryPercent, withResources.diskPercent], [37.5, 25, 75],
+    'latest fresh rows; disk uses used/(used+available)');
+  const measuredStorage = (await request(base, '/api/operations/storage', 'GET', user)).body;
+  assert.deepEqual(measuredStorage.disk, { storageKey: 'database_data', capacityBytes: 1000, usedBytes: 600, availableBytes: 200,
+    warningState: 'warning', measuredAt: measuredStorage.disks[0].measuredAt });
+  assert.deepEqual(measuredStorage.disks.map((item) => [item.storageKey, item.status, item.reasonCode, item.usedBytes]),
+    [['database_data', 'measured', null, 600], ['artifacts', 'unavailable', 'measurement_stale', null]]);
+  assert.ok(isoTime(measuredStorage.disks[1].measuredAt), 'stale row keeps its own time');
+  assert.equal(measuredStorage.disks[0].filesystemKey, 'dev:13');
+  // 최신 행이 측정 불가면 그 사유 그대로, 이전 measured 행으로 거슬러 가지 않는다. CPU 첫 표본은 CPU만 측정 불가.
+  await resource(5, null, 2048);
+  await disk('database_data', 5, null, null, 'mount_not_visible');
+  const unmeasured = (await request(base, '/api/operations/overview', 'GET', user)).body;
+  assert.deepEqual(['cpuPercent' in unmeasured, unmeasured.memoryPercent, 'diskPercent' in unmeasured], [false, 50, false]);
+  const unmeasuredStorage = (await request(base, '/api/operations/storage', 'GET', user)).body;
+  assert.equal(unmeasuredStorage.disk, null);
+  assert.deepEqual([unmeasuredStorage.disks[0].status, unmeasuredStorage.disks[0].reasonCode, unmeasuredStorage.disks[0].usedBytes],
+    ['unavailable', 'mount_not_visible', null]);
+  // 미래 시각(DB 시계 + 5초 초과) 행은 신선하지 않다.
+  await pool.query(`UPDATE ops_resource_measurements SET measured_at=clock_timestamp()+interval '1 minute' WHERE measured_at>=clock_timestamp()-interval '10 seconds'`);
+  assert.equal((await request(base, '/api/operations/overview', 'GET', user)).body.cpuPercent, 37.5, 'future row skipped, previous fresh row used');
 
   // 9) 저장소 실패는 503(성공·빈 값 대체 없음).
   await stopChild();

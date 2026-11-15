@@ -16,7 +16,7 @@ import {
   useTrendQuery,
 } from "../data/useOperationsQuery";
 import type { WidgetId } from "../data/widgetLayout";
-import { readErrorTitle } from "../data/operationsReads";
+import { diskUsedRatio, readErrorTitle } from "../data/operationsReads";
 import { inputModeLabel } from "./inputModeText";
 import { DASH, UNMEASURED, bytesText, dayText, durationText, msText, numberText, percentText, stampText } from "../format";
 
@@ -298,7 +298,7 @@ const StorageWidget = () => {
     <QueryState query={query} what="저장공간">
       {(data) => {
         const disk = data.disk;
-        const used = disk?.capacityBytes && disk.usedBytes !== null ? disk.usedBytes / disk.capacityBytes : null;
+        const used = diskUsedRatio(disk);
         return (
           <div className="grid gap-2 text-sm">
             <p>데이터 마운트 {used === null ? `· ${UNMEASURED}` : `${percentText(used)} 사용`}</p>

@@ -172,6 +172,7 @@
 - 거래 행이 와야 판정할 수 있는 결과(수집 미완료 보류·적용 안 함·`deferred_to_transaction`)는 방법 결과가 아니라 evidence `relationNotes`에 두고 n에 넣지 않는다(relation-rules.md 3.3·5절). 그 밖의 보류(데이터 문제·입력 상한)는 방법 결과 `not_ready` + 기존 cause(11.6) + `evidence: [{reason}]`
 - 거래 행 도착(도착 확정, 최소 지연 30초) 뒤 보류 판정은 Detector 재판정 탐색이 1회 다시 판정한다(새 판정 행 추가, relation-rules.md 6절)
 - 판정마다 과제로 만든 하드룰 = 켜진 내장 규칙(조건부 2개는 그 판정에서 평가한 때만) + 그 판정에서 고른 관계·프로토콜 규칙. evidence 대조(`hard_rule_selection_mismatch`)도 이 집합을 쓴다(relation-rules.md 9절)
+- 최종 판정 확인 = `evidence_v4.check_final(methodResults, hardRules, evaluatedHardIds)`: ① 미도착 방법(`cause=pending`)이 있으면 `final_decision_has_pending_method` ② 위 하드룰 대조가 어긋나면 `hard_rule_selection_mismatch`(이 순서, `ValueError`). 운영 v04 시도(`build_evidence`)와 설정 비교 평가가 같은 함수를 쓴다
 
 ## 5. 소프트룰(화면: 이상 징후 규칙) 실행 의미
 

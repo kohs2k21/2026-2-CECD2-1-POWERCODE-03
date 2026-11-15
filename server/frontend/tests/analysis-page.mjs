@@ -864,6 +864,76 @@ const listCalls = () => requested.filter((r) => r.path === "/api/analysis/decisi
   await app.cleanup();
 }
 
+// 4e) 판정 요약 판정 코드: AI 판정 근거 요약(#208)과 같은 결과 코드 이름표, 원래 코드는 툴팁. 이름표가 없는 코드는 원래 코드 그대로(툴팁 없음).
+{
+  const ddOf = (app, label) => {
+    const dt = app.renderer.root.find((node) => node.type === "dt" && text(node.children) === label);
+    return dt.parent.findByType("dd");
+  };
+  for (const [code, shown, title] of [["PROCESS_STATUS_F", "상태 F 실패", "PROCESS_STATUS_F"], ["NEW_CODE", "NEW_CODE", undefined]]) {
+    const detail = { ...item("d-7", { decisionCode: code }), configuration: null, job: null, explanation: null };
+    routes = {
+      "GET /api/analysis/decisions": () => json(listBody([item("d-7")])),
+      "GET /api/analysis/decisions/d-7": () => json(detail),
+      "GET /api/analysis/decisions/d-7/interims": () => json({ id: "d-7", jobId: null, items: [] }),
+      "PUT /api/analysis/decisions/d-7/read": () => json({ id: "d-7", readAt: "2026-11-03T02:00:00Z" }),
+    };
+    const app = await mount("/analysis/d/d-7");
+    await wait(() => app.shown().includes("판정 코드"), "summary rendered");
+    const dd = ddOf(app, "판정 코드");
+    assert.equal(text(dd.children), shown, `decision code ${code} shown as its label`);
+    assert.equal(dd.findAll((node) => node.type === "span" && node.props.title)[0]?.props.title, title, `raw code ${code} in the tooltip only when labelled`);
+    await app.cleanup();
+  }
+}
+
+// 4f) 기록 수정 대화상자: 같은 화면(재마운트 없음)에서 판정이 바뀌면 닫힌다 — 다른 판정에 갔다가 돌아와도 다시 열리지 않음(#219 검토 권고).
+{
+  const { DecisionDetailView } = await import("../src/features/analysis/components/DecisionDetailView.tsx");
+  const own = { id: "f-1", originId: "f-1", kind: "action", reason: "재처리 확인", outcome: null, actorId: "admin-1", actorEmail: "admin@example.test",
+    createdAt: "2026-11-03T02:05:00Z", editedAt: null };
+  const details = Object.fromEntries(["d-8", "d-9"].map((id) => [id, { ...item(id), configuration: null, job: null, explanation: null,
+    workflow: { state: "resolved", changedAt: "2026-11-03T02:10:00Z" } }]));
+  routes = {
+    "GET /api/analysis/decisions/d-8/feedback": () => json({ id: "d-8", items: [own] }),
+    "GET /api/analysis/decisions/d-9/feedback": () => json({ id: "d-9", items: [{ ...own, id: "f-9", originId: "f-9" }] }),
+    "PUT /api/analysis/decisions/d-8/read": () => json({ id: "d-8", readAt: "2026-11-03T02:00:00Z" }),
+    "PUT /api/analysis/decisions/d-9/read": () => json({ id: "d-9", readAt: "2026-11-03T02:00:00Z" }),
+  };
+  const ready = (data) => ({ data, isPending: false, isError: false, error: null, refetch: () => {} });
+  let show;
+  const Harness = () => {
+    const [id, setId] = React.useState("d-8");
+    show = setId;
+    const detail = details[id];
+    return React.createElement(DecisionDetailView, { id: "d-8", query: ready(detail), interims: ready({ id, jobId: null, items: [] }),
+      flow: ready({ id, jobId: null, transaction: null, processes: [], messages: [], truncated: false }), backHref: "/analysis", isWide: false, onToggleWide: () => {} });
+  };
+  currentUser = { id: "admin-1", email: "admin@example.test", userType: "admin", createdAt: "2026-10-01T00:00:00Z" };
+  storage.set("token", "token-admin");
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity }, mutations: { gcTime: Infinity } } });
+  const router = createMemoryRouter([{ path: "*", element: React.createElement(Harness) }], { initialEntries: ["/analysis/d/d-8"] });
+  let renderer;
+  await act(async () => {
+    renderer = create(React.createElement(QueryClientProvider, { client }, React.createElement(AuthSessionProvider, null, React.createElement(RouterProvider, { router }))));
+  });
+  const editButtons = () => renderer.root.findAll((node) => node.type === "button" && node.props["data-feedback-edit"]);
+  const modal = () => renderer.root.findAllByType(FeedbackEditModal);
+  await wait(() => editButtons().map((b) => b.props["data-feedback-edit"]).join() === "f-1", "own record on d-8");
+  await act(async () => editButtons()[0].props.onClick());
+  await wait(() => modal().length === 1, "edit dialog opened on d-8");
+  await act(async () => show("d-9"));
+  await wait(() => editButtons().map((b) => b.props["data-feedback-edit"]).join() === "f-9", "own record on d-9");
+  assert.equal(modal().length, 0, "dialog closed after moving to another decision");
+  await act(async () => show("d-8"));
+  await wait(() => editButtons().map((b) => b.props["data-feedback-edit"]).join() === "f-1", "back on d-8");
+  await tick(50);
+  assert.equal(modal().length, 0, "dialog stays closed after coming back");
+  await act(async () => renderer.unmount());
+  router.dispose();
+  client.clear();
+}
+
 // 5) 상세(최종 전): 설명 요청 막힘, 진행 중 기록 / 404 / 작업 ID로 열었는데 최종 판정이 있으면 판정 ID 주소로 교체
 {
   const pendingDetail = { ...item("j-2", { kind: "interim", stage: "updated", signal: "yes", grade: "anomaly_sign", decisionId: null, jobId: "j-2", status: null, ruleStatus: null, mlStatus: null,

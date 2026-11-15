@@ -5,6 +5,7 @@ import { paths } from "@/app/routes";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/feedback";
 import { Progress } from "@/components/ui/progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { resultCodeLabel } from "@/features/analysis/labels";
 import { useAuthSession } from "@/services/auth/AuthSessionProvider";
 import type { ProcessDecision } from "@/services/api/pipeline.api";
 import { operationsFreshness, type ActiveConfiguration, type OperationsOverview } from "../data/operations";
@@ -123,6 +124,11 @@ const FlowWidget = () => {
 
 const decisionResult = (decision: ProcessDecision) =>
   decision.evidence?.anomalous === true ? "이상 확인" : decision.evidence?.anomalous === false ? "선택 경로 정상" : "정상 여부 미확인";
+/** 판정 코드: 판정 상세 판정 요약과 같은 결과 코드 이름표(`상태 F 실패`), 원래 코드는 툴팁. 이름표가 없는 코드는 원래 코드 그대로(툴팁 없음). */
+const decisionCodeNode = (code: string): ReactNode => {
+  const name = resultCodeLabel(code);
+  return name === code ? code : <span title={code}>{name}</span>;
+};
 
 const RecentWidget = () => {
   const query = useRecentDecisionsQuery();
@@ -138,7 +144,7 @@ const RecentWidget = () => {
                 </Link>
                 <span>
                   {decisionResult(decision)}
-                  {decision.decisionCode ? ` · ${decision.decisionCode}` : ""}
+                  {decision.decisionCode && <> · {decisionCodeNode(decision.decisionCode)}</>}
                 </span>
                 <span className="text-muted-foreground">{stampText(decision.decidedAt, true)}</span>
               </li>

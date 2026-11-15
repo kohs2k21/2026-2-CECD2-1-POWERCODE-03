@@ -104,8 +104,10 @@ const rate = (numerator, denominator) => (denominator ? { value: numerator / den
 /**
  * 비교 결과 기록(Trainer compare 처리 흉내, 011 주석의 순서): 비교 묶음 → 항목별 run_evaluations → 항목 → 작업 성공(resultSummary = summary).
  * results: { [configVersionId]: { tp, fn, fp?, tn?, error? } } — error가 있으면 그 항목은 실패.
+ * recommendations: 없으면 추천 계산 전 결과 모양(null + `not_implemented_v1`), 함수면 (comparisonId, items) → 원소 배열
+ * (Trainer `replacement_recommendation` 결과 모양, `replacementRecommendationsReason: null`).
  */
-export async function completeComparison(db, jobId, results) {
+export async function completeComparison(db, jobId, results, { recommendations = null } = {}) {
   const { rows: [job] } = await db.query('SELECT input_spec AS input FROM run_jobs WHERE id=$1', [jobId]);
   const input = job.input;
   const { rows: [set] } = await db.query(`SELECT snapshot_id::text AS "snapshotId",purpose::text AS purpose,content_hash AS "contentHash",generation FROM data_evaluation_sets WHERE id=$1`, [input.evaluationSetId]);
@@ -135,7 +137,9 @@ export async function completeComparison(db, jobId, results) {
     ruleSet: { revision: input.ruleSetRevision, contentHash: input.ruleSetContentHash, fixedAt: 'accepted' },
     detectionPolicy: { revision: input.detectionPolicyRevision, policy: input.detectionPolicy, fixedAt: 'accepted' },
     items, itemCount: items.length, succeededCount: items.filter((item) => item.status === 'succeeded').length, failedCount: items.filter((item) => item.status === 'failed').length,
-    replacementRecommendations: null, replacementRecommendationsReason: 'not_implemented_v1',
+    ...(recommendations
+      ? { replacementRecommendations: recommendations(comparisonId, items), replacementRecommendationsReason: null }
+      : { replacementRecommendations: null, replacementRecommendationsReason: 'not_implemented_v1' }),
   };
   await transaction(db, async (tx) => {
     const attempt = await claim(tx, jobId);

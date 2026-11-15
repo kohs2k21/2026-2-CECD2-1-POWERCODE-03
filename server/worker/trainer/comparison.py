@@ -6,10 +6,12 @@
 v1 범위: 합성 없는 세트만, 작업당 modelKey 1종(기준선 0..1개), 항목 평가는 evaluate와 같은 핵심
 (`runner._version_context`·`runner._measure_version`)을 그대로 쓴다. 항목 `composite`(룰+모델 종합)는 같은 평가 대상 행을
 고정 룰 세트·고정 정책·항목 모델 1개로 Detector 판정 함수에 한 번 더 넣어 집계한다(`trainer/comparison_composite.py`).
-교체 추천·methodResults·categoryResults.hard/soft는 만들지 않는다.
+교체 추천(`replacementRecommendations[]`)은 저장 트랜잭션 전에 작업 메모리의 행별 ML 판정·라벨로 1회 계산한다
+(`trainer/replacement_recommendation.py`). methodResults·categoryResults.hard/soft는 만들지 않는다.
 """
 from __future__ import annotations
 
+from datetime import datetime, timezone
 import hashlib
 import json
 import re
@@ -21,7 +23,7 @@ from methods.registry import method_for_key
 from trainer.lease import lock_training_ownership
 from trainer.model_version import read_schema_version
 from trainer.metrics import measurement
-from trainer import comparison_composite
+from trainer import comparison_composite, replacement_recommendation
 from trainer.operational_state import ActiveModel, OperationalState, _policy
 from telemetry import percentile
 
@@ -324,8 +326,9 @@ def pairwise_agreement(predictions: Sequence[tuple[str, Mapping[str, bool]]], ro
 
 
 def build_summary(*, comparison_id: uuid.UUID, plan: Mapping[str, Any], evaluation_set: Mapping[str, Any],
-                  items: Sequence[Mapping[str, Any]],
-                  pairwise: Sequence[Mapping[str, Any]] = ()) -> dict[str, Any]:
+                  items: Sequence[Mapping[str, Any]], pairwise: Sequence[Mapping[str, Any]] = (),
+                  recommendations: Sequence[Mapping[str, Any]] = ()) -> dict[str, Any]:
+    """`recommendations` = `replacement_recommendation.recommend` 결과(modelKey를 알 수 없는 작업은 `[]`)."""
     from trainer.service_contract import CONTRACT_VERSION
     return {"serviceContractVersion": CONTRACT_VERSION, "comparisonContractVersion": COMPARISON_CONTRACT_VERSION,
             "comparisonId": str(comparison_id),
@@ -340,7 +343,7 @@ def build_summary(*, comparison_id: uuid.UUID, plan: Mapping[str, Any], evaluati
             "detectionPolicy": {"revision": plan["detectionPolicyRevision"], "policy": plan["detectionPolicy"],
                                 "fixedAt": "accepted"},
             "manualApprovalRequired": True,
-            "replacementRecommendations": None, "replacementRecommendationsReason": "not_implemented_v1",
+            "replacementRecommendations": list(recommendations), "replacementRecommendationsReason": None,
             "itemCount": len(items), "succeededCount": sum(item["status"] == "succeeded" for item in items),
             "failedCount": sum(item["status"] == "failed" for item in items),
             "items": list(items), "pairwiseAgreement": list(pairwise)}
@@ -355,8 +358,11 @@ def _item_code(prefix: str, exc: BaseException) -> str:
 
 
 def _config_rows(conn: Any, config_id: uuid.UUID) -> tuple[Any, list[str]]:
+    """버전 행 (source_id, configuration_spec, created_at, displayName)과 모델 키 목록. 생성 시각·표시 이름은 교체 추천의
+    사전식 6단계·summary 버전 이름에 쓴다(불변 값; displayName은 v3 구성에만 있다)."""
     with conn.cursor() as cur:
-        cur.execute("SELECT source_id, configuration_spec FROM ml_config_versions WHERE id=%s", (config_id,))
+        cur.execute("""SELECT source_id, configuration_spec, created_at, configuration_spec->>'displayName'
+                         FROM ml_config_versions WHERE id=%s""", (config_id,))
         config = cur.fetchone()
         cur.execute("SELECT model_key FROM ml_config_models WHERE config_version_id=%s ORDER BY model_key", (config_id,))
         keys = [row[0] for row in cur.fetchall()]
@@ -382,11 +388,14 @@ def training_overlap(conn: Any, training_snapshot_id: Any, snapshot_id: Any, pur
 
 
 def check_item(conn: Any, config_id: uuid.UUID, source_id: uuid.UUID, snapshot_id: Any,
-               purpose: str) -> tuple[str | None, str | None]:
-    """항목 실행 전 검사. (modelKey, 실패 코드) — 실패 코드가 None이면 평가로 넘어간다. 순서가 곧 우선순위다."""
+               purpose: str, versions: dict[str, dict[str, Any]] | None = None) -> tuple[str | None, str | None]:
+    """항목 실행 전 검사. (modelKey, 실패 코드) — 실패 코드가 None이면 평가로 넘어간다. 순서가 곧 우선순위다.
+    `versions`를 주면 버전 행이 있을 때 `{createdAt, displayName}`을 기록한다(교체 추천 입력, 같은 조회 재사용)."""
     config, keys = _config_rows(conn, config_id)
     if config is None:
         return None, "config_not_found"
+    if versions is not None:
+        versions[str(config_id)] = {"createdAt": config[2], "displayName": config[3]}
     model_key = keys[0] if len(keys) == 1 else None
     if config[0] != source_id:
         return model_key, "config_source_mismatch"
@@ -477,11 +486,12 @@ def execute_compare(conn: Any, job: dict[str, Any], root: Any, message: Any,
     comparison_id = uuid.uuid4()
     items: list[dict[str, Any]] = []
     evaluations: list[tuple[uuid.UUID, uuid.UUID, dict[str, Any], dict[str, Any]]] = []
-    # 성공 항목의 행별 ML 판정(작업 메모리에만, DB에 쓰지 않음) — pairwiseAgreement용.
+    # 성공 항목의 행별 ML 판정(작업 메모리에만, DB에 쓰지 않음) — pairwiseAgreement·교체 추천용.
     predictions: list[tuple[str, Mapping[str, bool]]] = []
+    versions: dict[str, dict[str, Any]] = {}
     for config_id in plan["order"]:
         role = "active" if config_id == plan["baseline"] else "candidate"
-        model_key, error = check_item(conn, config_id, plan["sourceId"], snapshot_id, purpose)
+        model_key, error = check_item(conn, config_id, plan["sourceId"], snapshot_id, purpose, versions=versions)
         conn.commit()
         if error is None and model_key is not None:
             # 작업당 modelKey 1종(v1). API 검증을 지난 뒤 바뀔 수 없는 값이라 어긋나면 작업 자체를 끝낸다.
@@ -515,8 +525,17 @@ def execute_compare(conn: Any, job: dict[str, Any], root: Any, message: Any,
         items.append(succeeded_item(config_id, model_key, role, evaluation_id, measured, composite))
         predictions.append((str(config_id), measured["ml"]["predictions"]))
     succeeded = any(item["status"] == "succeeded" for item in items)
+    pairwise = pairwise_agreement(predictions, evaluation_set["generation"]["rowCount"])
+    # 교체 추천: 저장 트랜잭션 전 1회(전 항목 실패 묶음에도 남김). 행 라벨은 세트 행의 label_evidence(evaluate와 같은 읽기).
+    labels = {str(row[0]): row[3].get("label") if isinstance(row[3], Mapping) else None for row in rows}
+    recommendations = replacement_recommendation.recommend(
+        comparison_id=str(comparison_id), job_id=str(job["id"]), evaluation_set=evaluation_set,
+        baselines=plan["baselines"], active_revision=plan["activeModelSetRevision"], items=items,
+        predictions=dict(predictions), labels=labels, pairwise=pairwise,
+        deadline_ms=plan["detectionPolicy"].get("deadlineMs"), versions=versions,
+        generated_at=datetime.now(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z"))
     summary = build_summary(comparison_id=comparison_id, plan=plan, evaluation_set=evaluation_set, items=items,
-                            pairwise=pairwise_agreement(predictions, evaluation_set["generation"]["rowCount"]))
+                            pairwise=pairwise, recommendations=recommendations)
     with conn.transaction():
         if not lock_training_ownership(conn, message, job["id"], attempt_id, attempt_token):
             raise RuntimeError("training_ownership_lost")

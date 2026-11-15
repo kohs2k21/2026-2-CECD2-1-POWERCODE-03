@@ -5,7 +5,8 @@ import type { Pool, PoolClient } from 'pg';
  * 평가 세트(evaluation-set-v1)·모델 버전 비교(config-comparison-v1) API 쪽 구현(config-comparison-evaluation.md v1 구현 범위).
  * API는 접수·검증·조회만 한다. 세트 생성과 비교 평가 실행·결과 기록은 Trainer가 한다(같은 training 큐).
  * - 세트: 합성 없는 원본 분할만(`synthetic: null`). 합성 요청은 400 `synthetic_set_unsupported`.
- * - 비교: 후보 모델 종류 1개, 같은 종류의 현재 운영 버전을 접수 시점에 고정해 넣는다. 교체 추천은 v1에 없다(`not_implemented_v1`).
+ * - 비교: 후보 모델 종류 1개, 같은 종류의 현재 운영 버전을 접수 시점에 고정해 넣는다. 교체 추천은 Trainer가 결과에 저장한 값을 그대로 돌려주고
+ *   상태(`recommendationState`)만 조회 때 붙인다. 추천 계산 전 결과(11/15 이전)는 null + 저장 사유(`not_implemented_v1`).
  */
 type Queryable = Pick<Pool, 'query'>;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -337,7 +338,7 @@ export async function activeContext(db: Queryable, setIds: string[]): Promise<Ac
   return { models, revision: Number(state.revision), setStatus: new Map(sets.map((set) => [set.id, set.status])) };
 }
 
-/** 추천 상태는 저장하지 않고 조회 때 파생한다(계약 stale 절). v1은 추천이 없어(null) 상태도 없다. */
+/** 추천 상태는 저장하지 않고 조회 때 파생한다(계약 stale 절). 추천 없음 원소(`targetVersionId` null)는 `none`. */
 export const recommendationState = (rec: Record<string, any>, context: ActiveContext, setId: string) => {
   const target = typeof rec.targetVersionId === 'string' ? rec.targetVersionId.toLowerCase() : null;
   if (!target) return 'none';
@@ -385,7 +386,8 @@ const listItem = (row: ComparisonRow, context: ActiveContext, configVersionId: s
     // 완료 뒤는 Trainer summary의 수(접수 뒤 지워진 구성 `config_not_found`는 항목 표에 없고 summary.items에만 있다). 없으면 항목 표에서 센다.
     itemCount: count(row.summary?.itemCount) ?? (Array.isArray(row.input.configVersionIds) ? row.input.configVersionIds.length : 0),
     succeededCount: count(row.summary?.succeededCount) ?? row.succeededCount, failedCount: count(row.summary?.failedCount) ?? row.failedCount, createdAt: row.createdAt, completedAt: row.completedAt ?? row.finishedAt,
-    recommendations: replacementRecommendations?.map((rec: Record<string, any>) => ({ modelKey: rec.modelKey, targetVersionId: rec.targetVersionId ?? null, state: rec.recommendationState })) ?? null,
+    // `decision`은 Trainer가 사유 코드에서 정해 저장한 분류(교체 추천·유지·근거 부족·해당 없음). 추천 계산 전 결과에는 없어 null.
+    recommendations: replacementRecommendations?.map((rec: Record<string, any>) => ({ modelKey: rec.modelKey, targetVersionId: rec.targetVersionId ?? null, state: rec.recommendationState, decision: typeof rec.decision === 'string' ? rec.decision : null })) ?? null,
     recommendationsReason: replacementRecommendationsReason,
     ...(configVersionId ? { versionResult: versionResultOf(row, configVersionId) } : {}),
   };

@@ -1,5 +1,5 @@
 Created: 2026-10-17T01:49:42+09:00
-Updated: 2026-11-15T18:00:00+09:00
+Updated: 2026-11-15T23:40:00+09:00
 Author: Claude Code (Trainer 세션 builder)
 Status: current
 
@@ -111,7 +111,7 @@ Status: current
 - 요청·input_spec·결과 형식·실패 코드: [config-comparison-evaluation.md](config-comparison-evaluation.md) "v1 구현 범위(11/13)". DB는 migration 011 그대로
 - 꺼내기: training 큐. `trainer/runner.py` claim 목록(`job_kinds`)과 관리자 전용 목록(`_claim_job`)에 포함, `requester_role=admin`만(v03 작업만 허용은 011 DB 제약)
 - `evaluation_set` 완료: 세트 `ready`와 작업 성공을 한 트랜잭션에. `resultSummary = {evaluationSetId, evaluationSetContractVersion:"evaluation-set-v1", sourceId, snapshotId, purpose, status, contentHash, synthetic:null, generation}`. 작업이 실패하면 011 트리거가 세트를 같은 `error_code`로 `failed` 처리
-- `compare` 완료: 항목 평가 행(`run_evaluations`, `comparison_id`·`evaluation_set_id`)·비교 묶음·항목·작업 결과를 한 트랜잭션에 기록. `replacementRecommendations`는 null(`not_implemented_v1`). 전 항목 실패면 작업 `failed`(`comparison_all_items_failed`)이고 `result_summary`에 같은 요약을 남김
+- `compare` 완료: 항목 평가 행(`run_evaluations`, `comparison_id`·`evaluation_set_id`)·비교 묶음·항목·작업 결과를 한 트랜잭션에 기록. `replacementRecommendations[]`(11/15, 원소 0..1개)는 저장 트랜잭션 전 작업 메모리의 행별 ML 판정·라벨로 1회 계산(`trainer/replacement_recommendation.py`, config-comparison-evaluation.md "교체 추천 v1 대응(11/15)" 절), `replacementRecommendationsReason`은 null. 11/15 이전 결과는 null(`not_implemented_v1`) 그대로. 전 항목 실패면 작업 `failed`(`comparison_all_items_failed`)이고 `result_summary`에 같은 요약을 남김
 - 항목 평가는 evaluate와 같은 핵심(`_version_context`·`_measure_version`)을 씀. v1·v2는 구성 정책·룰, v3는 접수 고정 운영 정책으로 평가하고, 고정 룰 세트 리비전은 적용하지 않고 hash 일치만 확인
 - 11/14 추가: 항목 `counts.excludedCount`·`excludedReasons`(모델 입력 미정의 행 평가 전 제외), 성공 항목 `executionCost`(`cost_family` 그대로), `categoryResults.ml`의 `predictedAnomalyCount`·`predictedAnomalyRate`·`scoreQuantiles`, 최상위 `pairwiseAgreement`(성공 항목 쌍별 ML 판정 일치, 교집합 행 기준, 정확도 아님). 정의·null 규칙·확정 표시 이름은 config-comparison-evaluation.md "평가 제외 행·무라벨 지표·버전 간 판정 일치(11/14)" 절
 - 오류: 작업 수준 코드는 `ValueError` → 재시도 없이 `failed`. 항목 수준 코드는 그 항목만 `failed`이고 작업은 계속
@@ -198,7 +198,7 @@ Created: 2026-11-02T18:00:00+09:00 / Updated: 2026-11-15T12:00:00+09:00 / Author
 | `rule_ml` 가족 `hrBoth/hrRuleOnly/…`·`sr*` 셀 | `hr`은 "룰(hard+soft 조합 결과)"로 읽고 이름은 유지(기존 결과 변경 금지). `sr*` 셀은 영구 `not_applicable/sr_removed`(SR 폐기 — #111 반영 완료, 현행 절 `sr*` 항목과 동일) — 새 metricVersion에서 제거 검토 |
 | "병렬/rule_only/ml_only 선택 모드·기한·수동 승인 보존" | v1 구성에 한함; v3는 활성 모델 집합 리비전 + 룰 세트 리비전 + 운영 설정 `detectionPolicy` 리비전(세 가지, evidence v4 `activeModelSetRevision`·`ruleSetRevision`·`detectionPolicyRevision`) 보존 |
 | "기존 Rule 또는 HR을 SR로 별칭 처리하지 않음" | 유지하되 SR 폐기 뒤에는 "등록 Rule(`rule:*`)·상태 HR(`hr:*`) 결과를 `hard:*`/`soft:*`로 **자동 번역하지 않음**(v1·v2 행은 읽기 투영만, [model-version.md](model-version.md) 조회 절)"으로 보완 |
-| `kind=compare` 결과 | `replacementRecommendations[]`(modelKey별, 같은 종류끼리만)는 `replacement-recommendation-v1`로 완료 시 1회 계산·불변; `resultSummary.ruleSet{revision, contentHash}`·`detectionPolicy{revision, policy}`·`activeModelSetRevision` 기록 |
+| `kind=compare` 결과 | `replacementRecommendations[]`(modelKey별, 같은 종류끼리만)는 `replacement-recommendation-v1`로 완료 시 1회 계산·불변(v1 구현 11/15 — 위 비교 작업 절); `resultSummary.ruleSet{revision, contentHash}`·`detectionPolicy{revision, policy}`·`activeModelSetRevision` 기록 |
 
 ### PostgreSQL 세션이 찾은 계약 누락 3건 — 명시(10/21 인수인계 4절)
 

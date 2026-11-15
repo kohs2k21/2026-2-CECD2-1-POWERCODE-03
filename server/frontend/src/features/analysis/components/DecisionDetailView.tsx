@@ -29,6 +29,7 @@ import {
   resultVariant,
   riskLevelLabels,
   riskLevelVariant,
+  ruleResultLabels,
   runLabels,
   stageLabels,
   stampText,
@@ -42,7 +43,6 @@ import { ExplainPanel } from "./ExplainPanel";
 import { MethodResults } from "./MethodResults";
 import { ProcessFlowCard } from "./ProcessFlowCard";
 
-const ruleResultLabels: Record<string, string> = { hit: "이상", no_hit: "정상 확인", unavailable: "미판정", not_applicable: "해당 없음" };
 const severityLabels: Record<string, string> = { critical: "위험", warning: "주의", info: "참고" };
 const run = (status: string | null) => (status ? (runLabels[status] ?? status) : DASH);
 

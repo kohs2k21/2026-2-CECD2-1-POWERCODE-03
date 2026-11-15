@@ -270,6 +270,15 @@ export const methodLabel = (methodId: string): string | null => {
 /** v3 evidence rules[].ruleKey 표시 이름(detection-decision.md 3.2·U6): 상태 규칙 = 이상 규칙, 그 밖의 등록 Rule = 이상 징후 규칙(과거 등록 Rule). */
 export const legacyRuleLabel = (ruleKey: string) =>
   ruleKey === "process-status" ? (methodLabel("hard:process-status") as string) : "이상 징후 규칙(과거 등록 Rule)";
+/**
+ * 판정 evidence rules[].ruleKey 표시 이름. v3 판정은 legacyRuleLabel(판정 상세 Rule 판정 근거 표와 같음).
+ * v4 판정의 rules[]는 내장 이상 규칙(`hard:<ruleKey>`)과 이상 징후 규칙(`soft:<ruleKey>`)의 투영이라(Detector evidence_v4.py `_rule_entry`)
+ * 세부 방법별 결과 표와 같은 방법 이름을 쓴다.
+ */
+export const ruleKeyLabel = (ruleKey: string, v4: boolean) =>
+  !v4 ? legacyRuleLabel(ruleKey) : (methodLabel(hardRuleNames[`hard:${ruleKey}`] ? `hard:${ruleKey}` : `soft:${ruleKey}`) as string);
+/** v3 rules[].result 표시(판정 상세 Rule 판정 근거 표). */
+export const ruleResultLabels: Record<string, string> = { hit: "이상", no_hit: "정상 확인", unavailable: "미판정", not_applicable: "해당 없음" };
 /** 방법 ID 목록 → 표시 이름 목록(중복 제거, 알 수 없는 접두 제외). */
 export const methodLabels = (methodIds: string[]) => [...new Set(methodIds.flatMap((id) => methodLabel(id) ?? []))];
 

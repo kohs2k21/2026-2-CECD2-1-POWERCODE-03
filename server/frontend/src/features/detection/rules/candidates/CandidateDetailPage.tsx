@@ -10,13 +10,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { paths } from "@/app/routes";
 import { stampText } from "@/features/operations/format";
 import type { DetectionReturnState } from "../../DetectionLayout";
-import type { Approval, CandidateDetail, ResultHead } from "./candidateApi";
+import type { CandidateDetail, ResultHead } from "./candidateApi";
 import {
-  APPROVE, APPROVED_TEXT, CANDIDATES_TITLE, NOT_APPROVABLE, PAIR_WARNING, THRESHOLD_BASIS, adapterText, approvalBlockedText, candidateErrorTitle, countLabels, kindLabels, limitationText, n, pathText, rateText,
+  APPROVE, CANDIDATES_TITLE, PAIR_WARNING, THRESHOLD_BASIS, adapterText, candidateErrorTitle, countLabels, kindLabels, limitationText, n, pathText, rateText,
   reasonText, relationStatusBadge, relationStatusLabels, thresholdStatusLabels, thresholdText,
 } from "./candidateLabels";
 import { useCandidateDetail } from "./useCandidates";
-import { ApproveDialog, approvedDetail, defaultApproveName, submitApproval, useApproval } from "./approvalFlow";
+import { ApproveDialog, approvalBlock, approvedDetail, defaultApproveName, submitApproval, useApproval } from "./approvalFlow";
 
 type Relation = Extract<CandidateDetail, { type: "relation" }>;
 type Threshold = Extract<CandidateDetail, { type: "threshold" }>;
@@ -44,21 +44,24 @@ const Tally = ({ title, values }: { title: string; values: Record<string, number
 };
 
 /**
- * 승인 = 룰 세트 저장(새 버전, 되돌리기 대상, rule-candidates-ui.md 7절). 저장 형식 3 전에는 단추를 끄고 사유를 그대로 보인다.
- * 이미 같은 조건의 규칙이 룰 세트에 있으면 "승인됨"(별도 플래그 없음 — relation-rules.md 2절 같은 규칙의 기준).
+ * 승인 = 룰 세트 저장(새 버전, 되돌리기 대상, rule-candidates-ui.md 7절). 막는 이유는 목록 행 [승인]과 같은 approvalBlock 순서
+ * (승인됨 → 기준 미달·겹침 거부 → 저장 형식 닫힘)로 한 줄. 이미 같은 조건의 규칙이 룰 세트에 있으면 "승인됨"(relation-rules.md 2절 같은 규칙의 기준).
  */
-const ApproveBar = ({ approval, approvable, approved, busy, onApprove }: {
-  approval: Approval; approvable: boolean; approved: boolean | null; busy: boolean; onApprove: () => void;
-}) => (
-  <div data-approve-bar className="flex flex-wrap items-center gap-3 text-sm">
-    <Button size="sm" disabled={!approval.available || !approvable || approved !== false || busy} aria-describedby="approve-state" onClick={onApprove}>{APPROVE}</Button>
-    <span id="approve-state" className="text-muted-foreground">
-      {approved
-        ? <Badge variant="success" data-approved>{APPROVED_TEXT}</Badge>
-        : !approvable ? NOT_APPROVABLE : approval.available ? (approved === null ? "현재 룰 세트 확인 중" : "승인하면 룰 세트 새 버전으로 저장되고 되돌리기할 수 있습니다") : approvalBlockedText(approval.reason)}
-    </span>
-  </div>
-);
+const ApproveBar = ({ detail, approved, busy, onApprove }: {
+  detail: CandidateDetail; approved: boolean | null; busy: boolean; onApprove: () => void;
+}) => {
+  const block = approvalBlock(detail, approved);
+  return (
+    <div data-approve-bar className="flex flex-wrap items-center gap-3 text-sm">
+      <Button size="sm" disabled={block !== null || approved !== false || busy} aria-describedby="approve-state" onClick={onApprove}>{APPROVE}</Button>
+      <span id="approve-state" className="text-muted-foreground">
+        {block?.kind === "approved"
+          ? <Badge variant="success" data-approved>{block.text}</Badge>
+          : block ? block.text : approved === null ? "현재 룰 세트 확인 중" : "승인하면 룰 세트 새 버전으로 저장되고 되돌리기할 수 있습니다"}
+      </span>
+    </div>
+  );
+};
 
 const draftValue = (value: unknown) => (value === null || value === undefined ? "—" : typeof value === "object" ? JSON.stringify(value) : String(value));
 /** 승인 때 룰 세트에 들어갈 조건(서버 ruleDraft). id·위험도·이름은 승인 때 정한다. */
@@ -114,7 +117,7 @@ const RelationView = ({ detail }: { detail: Relation }) => {
             </Link>
           </p>
         )}
-        <ApproveBar approval={detail.approval} approvable={item.approvable} approved={approved} busy={approval.save.busy} onApprove={() => approval.setAsking(true)} />
+        <ApproveBar detail={detail} approved={approved} busy={approval.save.busy} onApprove={() => approval.setAsking(true)} />
         {approval.save.banner}
       </SectionCard>
       {approval.asking && approval.state && (
@@ -192,12 +195,11 @@ const ThresholdView = ({ detail }: { detail: Threshold }) => {
             { label: "END_TIME 없음(기준 표본)", value: `${n(e.endTimeMissingReferenceRows)}건` },
             { label: "계산 불가(기준 표본)", value: `${n(e.unavailableReferenceRows)}건` },
             { label: "최소 · 최대 · p95", value: `${value(e.min)} · ${value(e.max)} · ${value(e.p95)}` },
-            ...(item.reason ? [{ label: "사유", value: item.reason }] : []),
+            ...(item.reason ? [{ label: "사유", value: reasonText(item.reason) }] : []),
           ]}
         />
         {item.limitation && <p data-threshold-limitation className="text-sm text-muted-foreground">한계(Trainer) · {limitationText(item.limitation)}</p>}
-        <ApproveBar approval={detail.approval} approvable={item.status === "candidate" && detail.ruleDraft !== null} approved={approved} busy={approval.save.busy}
-          onApprove={() => approval.setAsking(true)} />
+        <ApproveBar detail={detail} approved={approved} busy={approval.save.busy} onApprove={() => approval.setAsking(true)} />
         {approval.save.banner}
       </SectionCard>
       {approval.asking && approval.state && detail.ruleDraft && (

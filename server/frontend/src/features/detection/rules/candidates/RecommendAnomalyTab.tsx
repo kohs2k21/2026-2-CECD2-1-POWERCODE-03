@@ -18,7 +18,7 @@ import { useRowApproval, type RowApproval } from "./approvalFlow";
 import type { Approval, ThresholdCandidate } from "./candidateApi";
 import { approvedThreshold } from "./candidateApproval";
 import {
-  APPROVE, APPROVED, NEW_RULE, TAB_ANOMALY, THRESHOLD_BASIS, THRESHOLD_SECTION, limitationTexts, n, thresholdStatusLabels, thresholdText,
+  APPROVE, APPROVED, NEW_RULE, SCOPE_OVERLAPS_ADAPTER_GROUPS, TAB_ANOMALY, THRESHOLD_BASIS, THRESHOLD_SECTION, limitationTexts, n, notApprovableText, thresholdStatusLabels, thresholdText,
 } from "./candidateLabels";
 import { InterfacePicker } from "./InterfacePicker";
 import type { CandidateView } from "./recommendations";
@@ -39,6 +39,7 @@ const NoteRow = ({ children }: { children: ReactNode }) => (
 /**
  * (a) Trainer 처리 시간(이상 징후) 후보 행: 근거 칸은 Trainer 결과에 있는 값만(제안 임계값의 근거·근거 건수·END_TIME 없음).
  * 현재 룰 세트에 같은 조건(field + scope 판정 키)이 없으면 "새 규칙", 있으면 "승인됨"(rule-candidates-ui.md 7절). [승인]은 후보 상세와 같은 흐름.
+ * 겹침 거부(`scope_overlaps_adapter_groups`)는 [승인]이 꺼져 누를 수 없으므로 상세와 같은 승인 불가 줄을 미리 보인다(승인됨이면 승인됨이 먼저 — approvalBlock 순서).
  */
 const ThresholdRow = ({ item, state, approval, available, detailState }: {
   item: ThresholdCandidate; state: RuleSetState | undefined; approval: RowApproval; available: Approval; detailState: CandidateView["detailState"];
@@ -46,6 +47,7 @@ const ThresholdRow = ({ item, state, approval, available, detailState }: {
   const approved = state && item.field ? approvedThreshold(state, { field: item.field, scope: item.scope }) : null;
   const proposed = item.status === "candidate" && item.threshold !== null;
   const canApprove = available.available && proposed && approved === false && !approval.busy;
+  const overlap = !approved && item.reason === SCOPE_OVERLAPS_ADAPTER_GROUPS ? notApprovableText(item.reason) : null;
   return (
     <TableRow data-threshold-row={item.candidateId}>
       <TableCell className="whitespace-normal">
@@ -74,7 +76,7 @@ const ThresholdRow = ({ item, state, approval, available, detailState }: {
       <TableCell>
         <span className="grid justify-items-start gap-1">
           <Button size="sm" disabled={!canApprove} onClick={() => approval.start(item.candidateId)}>{APPROVE}</Button>
-          {approval.noteFor(item.candidateId)}
+          {approval.noteFor(item.candidateId) ?? (overlap && <span data-row-approve-note className="text-xs text-muted-foreground">{overlap}</span>)}
         </span>
       </TableCell>
     </TableRow>

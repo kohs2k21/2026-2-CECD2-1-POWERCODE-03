@@ -41,6 +41,7 @@ const ResultHeader = ({ data, returnTo }: { data: CandidateList; returnTo: strin
 /**
  * 탐지 설정 › 룰 설정 › 규칙 추천(contracts/rule-candidates-ui.md 8절): 룰 설정 안의 추천을 한 곳에 모은 화면.
  * 머리(설명·[후보 작업 요청]·결과 머리) + 탭(주소 `tab`) 이상 징후 / 실행 흐름 규칙. 주소 `interface`로 인터페이스 선택, 행 → 후보 상세·프로토콜 상세.
+ * 탭 이동·인터페이스 선택은 들어올 때 받은 state(returnTo)를 그대로 실어 상단 뒤로가기 대상이 바뀌지 않는다.
  */
 export const CandidateListPage = () => {
   const [search, setSearch] = useSearchParams();
@@ -55,7 +56,8 @@ export const CandidateListPage = () => {
     next.set("interface", id);
     setSearch(next, { state: location.state });
   };
-  const returnTo = location.pathname + location.search;
+  // 하위 화면(후보 상세·프로토콜 상세·작업 상세)이 돌아올 주소 = 지금 주소(탭·인터페이스 + 들어온 구역 해시 `#recommend-relations` 등).
+  const returnTo = location.pathname + location.search + location.hash;
   const view: CandidateView = { data, pending: query.isPending && !data, onInterface, detailState: { returnTo } };
   const counts = { anomaly: anomalyCount(data), flow: sumCount(relationCount(data), protocolCount(drafts.data)) };
   return (
@@ -81,6 +83,7 @@ export const CandidateListPage = () => {
       <LinkTabs
         label={CANDIDATES_TITLE}
         activeId={tab.value}
+        state={location.state}
         tabs={[
           { id: "anomaly", label: tabText(TAB_ANOMALY, counts.anomaly), to: tab.hrefFor("anomaly") },
           { id: "flow", label: tabText(TAB_FLOW, counts.flow), to: tab.hrefFor("flow") },

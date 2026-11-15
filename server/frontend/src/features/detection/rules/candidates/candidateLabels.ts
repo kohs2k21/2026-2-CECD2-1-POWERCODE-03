@@ -30,11 +30,16 @@ export const PAIR_LISTED = "인계 짝";
 export const PAIR_WARNING = "짝 선행 규칙이 없어 선행이 다르면 인계를 확인하지 않습니다.";
 export const APPROVE = "승인";
 export const NOT_APPROVABLE = "승인 불가 · 후보 기준 미달";
+/** Trainer 처리 시간 후보 reason(status rejected): adapter 없는 범위가 같은 단계의 adapter별 후보와 겹쳐 거부(rule-candidates-ui.md 4절). */
+export const SCOPE_OVERLAPS_ADAPTER_GROUPS = "scope_overlaps_adapter_groups";
+/** 승인 불가 줄(행·상세 공통): 겹침 거부면 그 사유(사용자 11/15 승인 문구), 그 밖은 기준 미달. */
+export const notApprovableText = (reason: string | null) =>
+  reason === SCOPE_OVERLAPS_ADAPTER_GROUPS ? "승인 불가 · 같은 단계에 어댑터별 후보가 있음" : NOT_APPROVABLE;
 export const approvalBlockedText = (reason: string | null) =>
   reason === "rule_set_hash_v3_pending"
     ? "아직 저장 불가 · 관계 규칙·단계별 범위 저장(룰 세트 형식 3)은 Detector 지원 배포 뒤 열립니다"
     : `아직 저장 불가 · ${reason ?? "사유 없음"}`;
-/** 위반·보류 사유(Trainer REASON_VOCABULARY 키). 모르는 값은 코드 그대로. */
+/** 위반·보류 사유(Trainer REASON_VOCABULARY 키) + 처리 시간 후보 거부 사유(Trainer `reason`). 모르는 값은 코드 그대로. */
 export const reasonLabels: Record<string, string> = {
   step_absent: "필수 단계 없음",
   successor_is_start_step: "후행이 시작 단계(DEPEND NONE)",
@@ -53,6 +58,7 @@ export const reasonLabels: Record<string, string> = {
   multiple_messages: "메시지 여러 건",
   excluded_transaction_suffix: "제외 끝자리 거래",
   unkeyed_rows: "PROCESS_ID 없는 행",
+  [SCOPE_OVERLAPS_ADAPTER_GROUPS]: "어댑터별 후보와 범위가 겹침(이 범위는 모든 어댑터에 적용됨)",
 };
 export const reasonText = (code: string | null) => (code === null ? "—" : reasonLabels[code] ?? code);
 

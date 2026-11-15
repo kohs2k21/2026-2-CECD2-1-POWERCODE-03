@@ -139,6 +139,8 @@ docker compose run --rm input select csv --expected-revision 3 --replay-id '<rep
 # 처음부터 재생할 때만 --restart. 운영 구성으로 돌아갈 때 --config active.
 ```
 
+`--config <id>`는 화면·API 고정과 같이 `schemaVersion`이 숫자 1·2인 단일 구성만 받는다. schemaVersion 3 구성은 운영 모델 세트로만 실행되므로 그 밖의 값(3, 누락, 문자열 등)은 `config_schema_not_supported_yet`으로 거절하고 입력 제어를 바꾸지 않는다. 기본값(유지)으로 api·csv를 시작할 때도 이미 고정된 구성을 같은 기준으로 검사한다. `select paused`는 입고가 없으므로 schemaVersion으로 거절하지 않는다(원천 일치 검사는 그대로).
+
 원천 시간대 지정(운영자만, Collector는 스스로 바꾸지 않음 — [collector-metrics.md](../contracts/collector-metrics.md) 1.3). 운영 현황 latency `clockCheck`로 가정 시간대의 저장 지연을 확인한 뒤 실행하고, 그 뒤 입고되는 관측부터 반영된다. 원천이 아직 없으면 만들지 않고 `input_source_not_initialized`로 거절한다. 대상 원천은 KST(+09:00)로 확인돼 있어(사용자 11/15) 새 Collector 배포 뒤 원천마다 한 번 `verify --timezone Asia/Seoul`을 실행한다. 그 전에 저장된 `assumed_tz` 행도 지연 지표에 들어간다.
 
 ```bash

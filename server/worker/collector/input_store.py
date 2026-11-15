@@ -77,8 +77,12 @@ def switch(conn,source,*,mode,expected_revision,actor,settings=None,config='keep
     if row[0]!=expected_revision:raise ValueError('input_revision_conflict')
     chosen=row[2] if config=='keep' else config
     if chosen:
-        if not conn.execute('SELECT 1 FROM ml_config_versions WHERE id=%s AND source_id=%s',(chosen,source)).fetchone():
-            raise ValueError('input_config_source_mismatch')
+        found=conn.execute("SELECT configuration_spec->'schemaVersion' FROM ml_config_versions WHERE id=%s AND source_id=%s",(chosen,source)).fetchone()
+        if not found:raise ValueError('input_config_source_mismatch')
+        # The effective config (explicit or kept) that will run must be a legacy single config (JSON number 1|2); v3 runs
+        # only through the active model set. Pausing admits nothing, so it is not refused for schema.
+        if mode!='paused' and (type(found[0]) not in (int,float) or found[0] not in (1,2)):
+            raise ValueError('config_schema_not_supported_yet')
     if row[1]:conn.execute("UPDATE ops_input_runs SET status='paused' WHERE id=%s AND status='running'",(row[1],))
     run_id=row[1]
     if mode!='paused':

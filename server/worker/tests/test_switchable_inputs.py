@@ -39,4 +39,38 @@ class InputContracts(unittest.TestCase):
             list(mapped_api_records([{'interfaceId':'I','revision':1,'processInfo':[{'processId':'p'}]}]))
         self.assertEqual(list(mapped_api_records([{'layer':'P','values':{'PROCESS_ID':'p','ERROR_COUNT':1}}]))[0][1]['error_count'],1)
 
+    def test_explicit_config_pin_accepts_only_legacy_schema_versions(self):
+        from collector.input_store import switch
+        class Result:
+            def __init__(self,row):self.row=row
+            def fetchone(self):return self.row
+        class Connection:
+            # config: None = no row for (id, source); otherwise (schemaVersion as psycopg decodes jsonb,).
+            def __init__(self,config,pinned=None):self.config=config;self.pinned=pinned;self.updates=[]
+            def execute(self,sql,params=()):
+                if 'FROM ops_input_controls' in sql:return Result((0,None,self.pinned))
+                if 'FROM ml_config_versions' in sql:return Result(self.config)
+                if sql.lstrip().startswith('UPDATE ops_input_controls'):self.updates.append(params)
+                return Result(None)
+        def pin(conn,config,mode='api'):return switch(conn,'s',mode=mode,expected_revision=0,actor='t',settings={'pollSeconds':2},config=config)
+        for value in (1,2,2.0):
+            conn=Connection((value,));self.assertEqual(pin(conn,'c')['configVersionId'],'c');self.assertEqual(conn.updates[0][2],'c')
+        for value in (3,None,'2',True,0,[2],{'v':2}):
+            conn=Connection((value,))
+            with self.assertRaisesRegex(ValueError,'^config_schema_not_supported_yet$'):pin(conn,'c')
+            self.assertEqual(conn.updates,[],value)
+        conn=Connection(None) # Wrong source keeps precedence over the schema check.
+        with self.assertRaisesRegex(ValueError,'^input_config_source_mismatch$'):pin(conn,'c')
+        self.assertEqual(conn.updates,[])
+        conn=Connection(None);self.assertIsNone(pin(conn,None)['configVersionId']) # --config active
+        conn=Connection((2,),pinned='old');self.assertEqual(pin(conn,'keep')['configVersionId'],'old')
+        conn=Connection((3,)) # pausing admits nothing, so an explicit v3 pin is not refused for schema
+        self.assertEqual(pin(conn,'c',mode='paused')['configVersionId'],'c')
+        conn=Connection((3,),pinned='old');self.assertEqual(pin(conn,'keep',mode='paused')['configVersionId'],'old')
+        conn=Connection((3,),pinned='old') # ...but resuming with the kept v3 config is refused
+        with self.assertRaisesRegex(ValueError,'^config_schema_not_supported_yet$'):pin(conn,'keep')
+        self.assertEqual(conn.updates,[])
+        conn=Connection(None) # ...but the source match still applies when paused
+        with self.assertRaisesRegex(ValueError,'^input_config_source_mismatch$'):pin(conn,'c',mode='paused')
+
 if __name__=='__main__':unittest.main()

@@ -59,6 +59,32 @@ def main():
                 with files[layer].open('w',newline='') as f:w=csv.writer(f);w.writerow(headers);w.writerows(rows)
             replay=stage_csv(conn,sid,'reference',files);conn.commit()
             assert stage_csv(conn,sid,'reference',files)==replay;conn.commit()
+            # CLI pin (input_store.switch): only legacy single configs (schemaVersion JSON number 1|2); v3 runs only via the active model set.
+            pin_source=ensure_source(conn,'pin-guard-'+uuid.uuid4().hex[:10]);conn.commit()
+            def pin_config(source,spec):
+                cid=uuid.uuid4()
+                conn.execute("""INSERT INTO ml_config_versions(id,source_id,configuration_spec,explanation_spec,content_hash,created_by_actor_id,created_at)
+                    VALUES(%s,%s,%s::jsonb,'{}','pin-guard',%s,clock_timestamp())""",(cid,source,json.dumps(spec),'pin-guard-test'));conn.commit()
+                return cid
+            def pin(config,mode='api'):
+                revision,pinned=conn.execute('SELECT revision,config_version_id FROM ops_input_controls WHERE source_id=%s',(pin_source,)).fetchone();conn.commit()
+                try:out=switch(conn,pin_source,mode=mode,expected_revision=revision,actor='pin-guard-test',settings={'pollSeconds':2},config=config);conn.commit();return out
+                except ValueError as exc:
+                    conn.rollback()
+                    assert conn.execute('SELECT revision,config_version_id FROM ops_input_controls WHERE source_id=%s',(pin_source,)).fetchone()==(revision,pinned);conn.commit()
+                    return str(exc)
+            for version in (1,2):
+                cid=pin_config(pin_source,{'schemaVersion':version});assert pin(cid)['configVersionId']==str(cid),version
+            for spec in ({'schemaVersion':3},{},{'schemaVersion':'2'},{'schemaVersion':True}):
+                assert pin(pin_config(pin_source,spec))=='config_schema_not_supported_yet',spec
+            assert pin(pin_config(sid,{'schemaVersion':3}))=='input_config_source_mismatch'
+            assert pin(None)['configVersionId'] is None
+            # Pausing admits nothing: an explicit v3 pin is not refused for schema, but the source match still applies.
+            v3=pin_config(pin_source,{'schemaVersion':3});assert pin(v3,'paused')['configVersionId']==str(v3)
+            assert pin(pin_config(sid,{'schemaVersion':1}),'paused')=='input_config_source_mismatch'
+            # Resuming with the kept v3 config is refused (pin() also asserts the control row is unchanged); pausing again is not.
+            assert pin('keep')=='config_schema_not_supported_yet'
+            assert pin('keep','paused')['configVersionId']==str(v3)
             sock=socket.socket();sock.bind(('127.0.0.1',0));port=sock.getsockname()[1];sock.close()
             # Windows Node는 SYSTEMROOT 없이 소켓을 열지 못한다(listen UNKNOWN -4094). 비밀값 없는 OS 변수만 전달한다.
             env={**{key:os.environ[key] for key in ('SYSTEMROOT','TEMP','TMP') if key in os.environ},

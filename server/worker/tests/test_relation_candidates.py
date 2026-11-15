@@ -561,6 +561,10 @@ class ThresholdTests(unittest.TestCase):
         expected = float(np.quantile([100 + index * 10 for index in range(30)], .95))
         self.assertEqual((bare["evidence"]["n"], bare["evidence"]["p95"]), (30, expected))  # 근거는 정보로 남김
         self.assertEqual((http["status"], http["reason"], http["threshold"]), ("candidate", None, "375.5"))
+        # 입력 순서와 무관: adapter 행을 먼저 넣고 bare 행을 나중에 넣어도 같은 결과.
+        bare_rows, http_rows = self.rows(30, adapter=None), self.rows(30, adapter="HTTP", tx_prefix="TH")
+        self.assertEqual(threshold_candidates(http_rows + bare_rows, {}), threshold_candidates(bare_rows + http_rows, {}))
+        self.assertEqual(threshold_candidates(http_rows + bare_rows, {})[0]["reason"], "scope_overlaps_adapter_groups")
 
     def test_null_adapter_scope_rejected_even_if_adapter_group_insufficient(self):
         # 겹침은 adapter 묶음의 존재로 정한다(Detector 적용 범위는 행 존재로 겹침). 상태는 보지 않는다.
@@ -570,6 +574,13 @@ class ThresholdTests(unittest.TestCase):
                          ("rejected", "scope_overlaps_adapter_groups", None))
         self.assertEqual((http["scope"], http["status"]),
                          ({"processId": "IF_A_PR001", "adapterType": "HTTP"}, "insufficient_evidence"))
+        # 겹침은 표본 판정보다 먼저: bare 묶음이 (a) 30행 미만이거나 (b) 값이 모두 같아도 겹침 사유로 거부.
+        constant = [P(f"TC-{index:04d}", "IF_A_PR001", adapter=None) for index in range(30)]
+        for label, bare_rows in (("insufficient", self.rows(29, adapter=None)), ("constant", constant)):
+            with self.subTest(bare=label):
+                first = threshold_candidates(bare_rows + self.rows(30, adapter="HTTP", tx_prefix="TH"), {})[0]
+                self.assertEqual((first["scope"], first["status"], first["reason"], first["threshold"]),
+                                 ({"processId": "IF_A_PR001"}, "rejected", "scope_overlaps_adapter_groups", None))
         # 다른 단계의 adapter 묶음은 겹침이 아니다.
         other = threshold_candidates(self.rows(30, adapter=None) + self.rows(30, "IF_A_PR002", tx_prefix="TH"), {})
         self.assertEqual([(item["scope"], item["status"]) for item in other],

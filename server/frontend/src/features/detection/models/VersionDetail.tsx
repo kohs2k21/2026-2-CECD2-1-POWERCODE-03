@@ -4,8 +4,12 @@ import { DescriptionList } from "@/components/layout/DescriptionList";
 import { ScreenTitle } from "@/components/layout/PageHeader";
 import { SectionCard } from "@/components/layout/SectionCard";
 import { Button } from "@/components/ui/button";
-import { ErrorState, LoadingState } from "@/components/ui/feedback";
+import { Badge } from "@/components/ui/badge";
+import { EmptyState, ErrorState, LoadingState } from "@/components/ui/feedback";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { comparisonKey } from "@/features/detection/evaluations/evaluationsApi";
+import { versionResultStatus } from "@/features/detection/evaluations/evaluationFormat";
+import { useEvaluationSets, useVersionComparisons } from "@/features/detection/evaluations/useEvaluations";
 import { errorCode } from "@/features/detection/rules/ruleDraft";
 import { DASH, numberText, stampText } from "@/features/operations/format";
 import { useAccountQuery } from "@/lib/query";
@@ -37,6 +41,48 @@ const ParametersCard = ({ parameters }: { parameters: Record<string, unknown> | 
     ) : <p className="text-sm text-muted-foreground">이 버전에는 파라미터 기록이 없습니다.</p>}
   </SectionCard>
 );
+
+const HISTORY_COLUMNS = ["비교", "평가 세트", "완료", "상태"];
+
+/**
+ * 와이어프레임 '평가 이력': 이 버전이 비교 항목(기준 운영 버전으로 들어간 비교 포함)인 비교 평가, 최신순. 상태는 이 버전의 결과
+ * (`평가 실패`·`측정`·`미측정`, 완료 전은 비교 상태). 행의 비교 링크는 평가 상세로 가고 뒤로가기는 이 버전 상세로 돌아온다.
+ */
+const EvaluationHistoryCard = ({ versionId }: { versionId: string }) => {
+  const location = useLocation();
+  const history = useVersionComparisons(versionId);
+  const sets = useEvaluationSets();
+  const { first, items } = history;
+  const returnTo = location.pathname + location.search;
+  return (
+    <SectionCard title="평가 이력" headingLevel={3}>
+      {first.isPending && <LoadingState>평가 조회 중…</LoadingState>}
+      {first.isError && <ErrorState title={`평가 조회 실패 · ${errorCode(first.error)}`} onRetry={() => void first.refetch()} retryLabel="다시 조회" />}
+      {first.data && items.length === 0 && !history.cursor && <EmptyState>평가 이력 없음</EmptyState>}
+      {items.length > 0 && (
+        <div className="max-h-80 overflow-auto" tabIndex={0} aria-label="평가 이력">
+          <Table>
+            <TableHeader><TableRow>{HISTORY_COLUMNS.map((title) => <TableHead key={title}>{title}</TableHead>)}</TableRow></TableHeader>
+            <TableBody>
+              {items.map((item) => {
+                const status = versionResultStatus(item);
+                return (
+                  <TableRow key={comparisonKey(item)}>
+                    <TableCell><Link className="text-link underline-offset-2 hover:underline" to={paths.detectionEvaluation(comparisonKey(item))} state={{ returnTo }}>{comparisonKey(item).slice(0, 8)}</Link></TableCell>
+                    <TableCell>{sets.data?.items.find((set) => set.id === item.evaluationSetId)?.displayName ?? item.evaluationSetId.slice(0, 8)}</TableCell>
+                    <TableCell>{stampText(item.completedAt)}</TableCell>
+                    <TableCell><Badge variant={status.variant}>{status.label}</Badge></TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+      {history.cursor && <div><Button size="sm" variant="outline" disabled={history.loading} onClick={() => void history.loadMore()}>더 보기</Button></div>}
+    </SectionCard>
+  );
+};
 
 /** 와이어프레임 '이 버전으로 교체': 교체 2단계(비교 확인)로 간다. 실행 가능·운영 중 아님·운영 적용 평가 있음일 때만 누를 수 있다. */
 const ReplaceAction = ({ version }: { version: ModelVersionDetail }) => {
@@ -110,11 +156,12 @@ const VersionBody = ({ version }: { version: ModelVersionDetail }) => {
           ]}
         />
       </SectionCard>
+      <EvaluationHistoryCard versionId={version.id} />
     </>
   );
 };
 
-/** 모델 버전 상세: 조회만 한다. 교체·복원은 하위 7, 평가 이력은 하위 6에서 붙인다. */
+/** 모델 버전 상세: 조회만 한다. 교체는 머리 오른쪽 `이 버전으로 교체`(모델 교체 2단계), 평가 이력은 이 버전이 들어간 비교 평가. */
 export const ModelVersionDetailPage = () => {
   const { versionId = "" } = useParams();
   const version = useAccountQuery({ name: "model-version", params: [versionId], adminOnly: true, staleTime: 0, read: (signal) => readVersion(versionId, signal) });

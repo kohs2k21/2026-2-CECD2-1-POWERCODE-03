@@ -6,7 +6,7 @@ Status: current
 # 머신러닝 모델 화면·모델 버전 조회 구현 계약
 
 - 범위: `/detection/models`·`/detection/models/:versionId` 관리자 화면(#128, 상위 #101 하위 5). 화면 기준 와이어프레임 #93 `section[data-view="detect-models"]`·`detect-model`. 요청·응답 정본은 [model-version.md](model-version.md) 조회 절, [trainer-service.md](trainer-service.md), [method-catalog.md](method-catalog.md)
-- 제외: 활성화·교체·복원(하위 7), 평가·비교(하위 6), 입력 변수 AI 추천
+- 제외: 활성화·교체·복원(하위 7), 비교 평가 요청(평가 결과 화면 [evaluations-ui.md](evaluations-ui.md)), 입력 변수 AI 추천
 - 연결: 조회 `backend/src/services/configurationReadModel.ts`, 거래량 `services/volumeReport.ts`, 카탈로그 `ruleset/methodCatalog.ts`(`contracts/method-catalog.json`을 읽기만 함), 입력 변수 세트 등록 `routes/featureSetRoutes.ts`·`routes/featureSetContract.ts`(`contracts/ml-feature-fields.json`을 읽기만 함), 화면 `frontend/src/features/detection/models/`
 - 판단 없음: 화면·API는 조회·요청·표시만 한다. 실행 가능 여부·선정·학습은 카탈로그·Trainer 소관
 - 용어: '모델 버전'은 그대로 쓴다. 판정 정책은 화면에 없다
@@ -18,7 +18,7 @@ Status: current
 | 버전 | URL 탭 `tab=active|all`(기본 현재 운영 버전) + 높이 고정 자체 스크롤. 열: 버전·모델·상태·운영·입력 변수·학습 파라미터·판정선·최근 평가·생성(`modelSummary`, 값이 없으면 `없음`). 파라미터는 고정 값을 뺀 `키=값`, 판정선은 넷째 자리까지(원값은 상세). 두 탭 모두 최신순 커서 `더 보기`, 현재 운영 버전은 `active=true`. 룰 전용 구성(`modelKey` null)은 모델 버전이 아니라 표시하지 않는다 |
 | 새 학습 | 같은 화면 아래, 머리글 버튼 없음. `step=1|2|3`(이전·다음과 단계 표시는 Link push. 단계 표시는 갈 수 있는 단계만 링크이고 앞 단계가 끝나지 않은 단계는 비활성, 다른 주소값은 유지). 앞 단계가 끝나지 않은 주소는 가까운 유효 단계로 replace. `step`이 주소에 있으면 영역으로 스크롤 |
 | 학습 작업 | 접수되면 주소에 `job=<작업 ID>`를 두고 영역 맨 위에 상태를 표시(새로고침해도 이어짐). 대기·실행 중만 5초 조회 |
-| 버전 상세 | 모델·상태·운영·방법 버전·학습 작업 / 학습 기간·건수·선정 정책·제외 구간 / 입력 변수 / 학습 파라미터 / 산출물(파일 ID·hash·판정선). 머리 오른쪽 `이 버전으로 교체`(운영 설정 하위 7): 실행 가능·운영 중 아님·`applicationEligibility.eligible`일 때만 눌리고 모델 교체 2단계로 간다([operations-ui.md](operations-ui.md) 운영 설정·모델 교체 절) |
+| 버전 상세 | 모델·상태·운영·방법 버전·학습 작업 / 학습 기간·건수·선정 정책·제외 구간 / 입력 변수 / 학습 파라미터 / 산출물(파일 ID·hash·판정선) / 평가 이력(이 버전이 들어간 비교 평가, [evaluations-ui.md](evaluations-ui.md) 화면 절). 머리 오른쪽 `이 버전으로 교체`(운영 설정 하위 7): 실행 가능·운영 중 아님·`applicationEligibility.eligible`일 때만 눌리고 모델 교체 2단계로 간다([operations-ui.md](operations-ui.md) 운영 설정·모델 교체 절) |
 
 - 머리글 '새 학습' 버튼, 교체·비교 평가 버튼 없음
 
@@ -33,7 +33,7 @@ Status: current
 | 2단계 | AI 추천 | #128 범위 밖 |
 | 3단계 | 버전 이름·전처리 선택 | 학습 요청에 키가 없음 |
 | 3단계 | 다른 모델 파라미터 목록 | 선택한 모델만 표시(사용자 11/05) |
-| 상세 | 평가 이력·자동 비교 평가·새 비교 평가 | 하위 6 |
+| 상세 | 자동 비교 평가·새 비교 평가 | 자동 비교 작업 접수 경로(queues.md 자동 비교 평가)가 없다. 새 비교 평가는 평가 결과 화면에서 한다 |
 
 ## 새 학습 단계
 
@@ -109,7 +109,7 @@ Status: current
 | ESB 기준에서 시각 없는 행 | 저장 시각이 기간 안이면 `timeUnknownCount`로만 센다 |
 | `statusCounts.other` | S·F·P·N 외 전부(Z·H·미정 포함) |
 | `active`·`activeSince` | 활성 집합의 값만(`activeSince` = 포함된 리비전·시각). 활성 집합 저장 경로(하위 7) 구현 뒤에는 v1·v2 운영의 `ops_system_state.active_config_version_id`를 운영 중으로 보지 않는다(교체·복원 기준과 같게) |
-| `latestComparison` | 비교 평가 조회 전(하위 6)이라 항상 null |
+| `latestComparison` | 그 버전이 작업 입력 `configVersionIds`(기준 운영 버전 포함)에 있는 가장 최근(접수순) 비교 작업, 없으면 null. `status`·`completedAt`은 `GET /api/comparisons`와 같은 규칙(묶음이 있으면 그 상태·완료 시각, 없으면 작업 상태·종료 시각). `auto` = 작업 멱등키가 `auto-compare:`로 시작(queues.md 자동 비교 평가 키 형식, 지금은 그 경로가 없어 항상 false). `recommendation` = 저장된 `replacementRecommendations` 중 이 버전 `modelKey` 항목 + 조회 때 파생한 `state`, 추천이 없으면(v1 `not_implemented_v1`) null. 화면은 아직 쓰지 않는다 |
 | 카탈로그에 없는 모델 키 | `status: "unknown"`, `executable` 전부 false, `executableReason: "method_not_in_catalog"` |
 | 모델 없는 구성 | `modelKey` null, `executable` false |
 | `method_not_executable` 판단 | 카탈로그 `executable.process`(워커는 어댑터 존재까지 본다. 카탈로그 시험이 둘을 맞춘다) |

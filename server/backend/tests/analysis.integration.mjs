@@ -97,10 +97,14 @@ try {
 
   // 2) 분류 건수(DB 전체 기준)와 매핑: 운영 리포트와 같은 이상 신호 규칙 + 작업·중간 기록 상태.
   const all = await list('?pageSize=20');
+  // 확인 결과별 완료(사용자 11/15)는 관리자만: user 응답은 null, 관리자는 건수.
   const counts0 = { all: 15, anomaly: 3, anomaly_sign: 3, normal: 3, in_progress: 2, undetermined: 3, failed_replaced: 3,
-    risk_all: 6, risk_critical: 1, risk_warning: 1, risk_info: 1, risk_unrated: 3, workflow_open: 0, workflow_resolved: 0 };
+    risk_all: 6, risk_critical: 1, risk_warning: 1, risk_info: 1, risk_unrated: 3, workflow_open: 0, workflow_resolved: 0,
+    workflow_resolved_actual_anomaly: null, workflow_resolved_normal: null, workflow_resolved_undetermined: null };
   assert.deepEqual(all.counts, counts0);
   assert.deepEqual(Object.keys(all.counts), Object.keys(counts0), 'sidebar order (result view with normal after anomaly sign, risk view, workflow box)');
+  assert.deepEqual((await list('', admin)).counts, { ...counts0, workflow_resolved_actual_anomaly: 0, workflow_resolved_normal: 0, workflow_resolved_undetermined: 0 },
+    'admin sees outcome counts');
   assert.equal(all.total, 15);
   assert.equal(all.items.length, 15);
   assert.ok(isoTime(all.observedAt) && isoTime(all.latestDecidedAt));
@@ -196,6 +200,26 @@ try {
   assert.deepEqual(ids(await list('?category=anomaly&signal=no')), []);
   const filtered = await list('?category=undetermined&signal=no');
   assert.deepEqual([filtered.total, filtered.counts.all], [0, 15], 'counts ignore filters and search');
+  // 근거 구분(사용자 11/15): 이상 신호 v4 항목의 저장 composite.basisMethods(판정 상세 `근거 …`와 같음). v3·이상 신호 아님은 어느 구분에도 들지 않는다.
+  // v4Final·v4Info = 이상 징후 규칙, v4MlOnly = 머신러닝 모델, 중간 판정(J.interim 근거 추가) = 이상 규칙 + 이상 징후 규칙.
+  assert.deepEqual(ids(await list('?basis=soft&pageSize=20')), [D.v4Final.id, D.v4Info.id, J.interim.id].sort());
+  assert.deepEqual(ids(await list('?basis=ml&pageSize=20')), [D.v4MlOnly.id]);
+  assert.deepEqual(ids(await list('?basis=hard&pageSize=20')), [J.interim.id], 'hard:process-status is a built-in 이상 규칙');
+  assert.deepEqual([(await list('?basis=relation')).total, (await list('?basis=protocol')).total], [0, 0]);
+  assert.deepEqual(ids(await list('?category=anomaly_sign&basis=soft&pageSize=20')), [D.v4Final.id, D.v4Info.id].sort(), 'basis combines with the category');
+  assert.deepEqual(ids(await list('?basis=soft&completeness=partial&pageSize=20')), [D.v4Final.id], 'basis combines with other filters');
+  assert.deepEqual((await list('?basis=relation')).counts, counts0, 'counts ignore the basis filter');
+  // 근거 구분 SQL = 화면 evidenceGroupOf(evidence.ts) 규칙: 대분류 + hard 방법 id 형식(관계 규칙 hard:rel-<8 hex>, 프로토콜 hard:proto-<8 hex>·미등록 인터페이스).
+  {
+    const { BASIS_METHOD_SQL } = await import('../dist/services/analysisReadModel.js');
+    const samples = { 'hard:process-status': 'hard', 'hard:transaction-failed': 'hard', 'hard:rel-0a1b2c3d': 'relation', 'hard:rel-0A1B2C3D': 'hard',
+      'hard:rel-0a1b2c3': 'hard', 'hard:rel-0a1b2c3d9': 'hard', 'hard:proto-89abcdef': 'protocol', 'hard:unregistered-interface': 'protocol',
+      'soft:elapsed_ms-3f9a2c1d': 'soft', soft: 'soft', 'ml:iforest': 'ml', 'other:x': null, '': null };
+    const groupSql = Object.entries(BASIS_METHOD_SQL).map(([group, sql]) => `CASE WHEN ${sql} THEN '${group}' END`).join(',');
+    const { rows } = await pool.query(`SELECT m,array_remove(ARRAY[${groupSql}],NULL) AS groups FROM unnest($1::text[]) m`, [Object.keys(samples)]);
+    assert.deepEqual(Object.fromEntries(rows.map((row) => [row.m, row.groups])),
+      Object.fromEntries(Object.entries(samples).map(([m, group]) => [m, group ? [group] : []])), 'each method id falls in exactly one evidence group');
+  }
 
   // 6) 검색: 판정 ID·작업 ID·거래 ID·프로세스 ID·인터페이스 ID 부분 일치(대소문자 무시), 특수 문자는 그대로.
   assert.deepEqual(ids(await list(`?q=${encodeURIComponent(D.normal.tx.toLowerCase())}`)), [D.normal.id]);
@@ -217,6 +241,15 @@ try {
   await bad('?category=no', 'invalid_category');
   await bad('?signal=sign', 'invalid_signal');
   await bad('?completeness=done', 'invalid_completeness');
+  await bad('?basis=rel', 'invalid_basis');
+  await bad('?basis=Soft', 'invalid_basis');
+  await bad('?basis=soft&basis=ml', 'invalid_basis');
+  // 확인 결과별 완료는 관리자만(조사·조치 기록과 같은 권한): user 403, 400 검사가 먼저.
+  for (const category of ['workflow_resolved_actual_anomaly', 'workflow_resolved_normal', 'workflow_resolved_undetermined']) {
+    const response = await request(base, `/api/analysis/decisions?category=${category}`, 'GET', user);
+    assert.deepEqual([response.status, response.body?.code], [403, 'admin_required'], category);
+  }
+  await bad('?category=workflow_resolved_normal&basis=x', 'invalid_basis');
   await bad('?sort=severity', 'invalid_sort');
   await bad('?page=0', 'invalid_page');
   await bad('?page=1.5', 'invalid_page');
@@ -401,6 +434,29 @@ try {
   assert.equal((await pool.query('SELECT count(*)::int AS n FROM run_decision_feedback')).rows[0].n, 7, 'rejected requests store nothing');
   // 확정 라벨·학습 입력으로 쓰이지 않음: 라벨 근거 표에 아무것도 생기지 않는다.
   assert.equal((await pool.query('SELECT count(*)::int AS n FROM data_label_evidence')).rows[0].n, 0);
+
+  // 14b) 확인 결과별 완료(사용자 11/15): 완료 ∧ 그 대상의 확인 결과가 있는 가장 최근 기록. 뒤에 확인 결과 없이 남긴 기록은 바꾸지 않는다.
+  //      D.anomaly 기록(최신순): null, undetermined, normal, actual-anomaly, … → 판단 불가. 확인 결과가 없는 완료(J.pending)는 완료에만.
+  const outcomeIds = async (category) => ids(await list(`?category=${category}&pageSize=20`, admin));
+  assert.deepEqual(await outcomeIds('workflow_resolved_undetermined'), [], 'not resolved yet');
+  assert.equal((await workflow(D.anomaly.id, { state: 'resolved', expectedState: 'detected' })).status, 200);
+  assert.deepEqual([await outcomeIds('workflow_resolved_undetermined'), await outcomeIds('workflow_resolved_normal'), await outcomeIds('workflow_resolved_actual_anomaly')],
+    [[D.anomaly.id], [], []], 'latest record with an outcome; a later record without one does not clear it');
+  assert.deepEqual(await outcomeIds('workflow_resolved'), [D.anomaly.id, J.pending.id].sort(), 'resolved without an outcome stays in 완료 only');
+  // 작업 항목은 작업 ID 대상(처리 상태와 같은 대상). 새 확인 결과가 앞선 확인 결과를 대신한다.
+  assert.equal((await request(base, feedbackRoute(J.pending.id), 'POST', admin, { kind: 'action', reason: '정상 확인', outcome: 'normal' })).status, 201);
+  assert.equal((await request(base, feedbackRoute(D.anomaly.id), 'POST', admin, { kind: 'action', reason: '재확인', outcome: 'actual-anomaly' })).status, 201);
+  const outcomeList = await list('?category=workflow_resolved_normal', admin);
+  assert.deepEqual(ids(outcomeList), [J.pending.id]);
+  assert.deepEqual([await outcomeIds('workflow_resolved_actual_anomaly'), await outcomeIds('workflow_resolved_undetermined')], [[D.anomaly.id], []]);
+  assert.deepEqual([outcomeList.counts.workflow_resolved, outcomeList.counts.workflow_resolved_actual_anomaly, outcomeList.counts.workflow_resolved_normal,
+    outcomeList.counts.workflow_resolved_undetermined], [2, 1, 1, 0], 'badge counts match the lists');
+  assert.deepEqual((await list('?category=workflow_resolved_actual_anomaly&basis=soft', admin)).total, 0, 'outcome category combines with the basis filter (v3 has no basis)');
+  assert.deepEqual([(await list()).counts.workflow_resolved_normal, (await list()).counts.workflow_resolved], [null, 2], 'user: no outcome counts');
+  // 확인 결과는 완료에서만: 처리 상태를 되돌리면 확인 결과별 완료에서 빠진다(기록은 남음).
+  assert.equal((await workflow(D.anomaly.id, { state: 'detected', expectedState: 'resolved' })).status, 200);
+  assert.deepEqual(await outcomeIds('workflow_resolved_actual_anomaly'), []);
+  assert.equal((await list('', admin)).counts.workflow_resolved_actual_anomaly, 0);
 
   // 15) 사용자별 읽음: 상세를 열면(PUT …/read {occurredAt}) 그 사용자에게만 화면이 본 항목 시각까지 확인됨.
   //     그 뒤 생긴 중간 판정·최종 판정(더 늦은 occurredAt)은 미확인으로 남는다(열람 경합에서도).

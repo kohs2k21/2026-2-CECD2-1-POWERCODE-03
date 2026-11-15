@@ -22,7 +22,7 @@ import { DAY_MINUTES, minuteDay } from "./period";
 import { PeriodStep } from "./PeriodStep";
 import { draftFingerprint, freshDraft, jobBlocksRequest, modelKeyOf, readTrainDraft, readinessIssues, selectedMethod, trainRequest, writeTrainDraft, type PeriodDraft, type TrainDraft } from "./trainDraft";
 import { VERSIONS_QUERY, useCapabilities, useTrainJob } from "./useModels";
-import { detectionSections } from "../detectionToc";
+import { detectionSections, sectionReturnTo } from "../detectionToc";
 
 const STEPS = ["기간", "입력 변수", "모델·파라미터"];
 
@@ -164,7 +164,7 @@ export const TrainArea = () => {
   return (
     <div ref={area}>
       <SectionCard id={detectionSections.modelsTrain.id} title={detectionSections.modelsTrain.label}>
-        {jobId && <TrainJobStatus jobId={jobId} returnTo={location.pathname + location.search} />}
+        {jobId && <TrainJobStatus jobId={jobId} returnTo={sectionReturnTo(location, detectionSections.modelsTrain)} />}
         <StepLinks steps={STEPS} step={shownStep} maxStep={maxStep} hrefFor={hrefFor} />
         {(capabilities.isPending || sources.isPending) && <LoadingState>학습 조건 조회 중…</LoadingState>}
         {capabilities.isError && <ErrorState title={`방법 카탈로그 조회 실패 · ${errorCode(capabilities.error)}`} onRetry={() => void capabilities.refetch()} retryLabel="다시 조회" />}

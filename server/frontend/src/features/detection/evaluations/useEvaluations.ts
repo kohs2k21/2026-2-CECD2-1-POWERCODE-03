@@ -1,18 +1,18 @@
 import { useRef, useState } from "react";
 import { useAccountQuery } from "@/lib/query";
-import { comparisonKey, readCompareVersions, readComparison, readComparisonPage, readEvaluationSet, readEvaluationSets, readRuleRevision, readSnapshots, type ComparisonListItem, type ComparisonStatus, type ComparisonTab } from "./evaluationsApi";
+import { comparisonKey, readCompareVersions, readComparison, readComparisonPage, readEvaluationSet, readEvaluationSets, readRuleRevision, readSnapshots, readVersionComparisonPage, type ComparisonListItem, type ComparisonPage, type ComparisonStatus, type ComparisonTab } from "./evaluationsApi";
 
 export const EVALUATION_SETS_QUERY = "evaluation-sets";
 const inProgress = (status: ComparisonStatus | undefined) => status === "queued" || status === "running";
 
 /** 앞쪽부터 `pages`쪽을 읽어 합친다. 쪽 사이에 새 평가가 들어와 밀린 행은 한 번만 둔다. */
-const readLoadedPages = async (tab: ComparisonTab, pages: number) => {
+const readLoadedPages = async (readPage: (cursor: string | null) => Promise<ComparisonPage>, pages: number) => {
   const rows = new Map<string, ComparisonListItem>();
-  let page = await readComparisonPage(tab, null);
+  let page = await readPage(null);
   page.items.forEach((item) => rows.set(comparisonKey(item), item));
   let read = 1;
   while (read < pages && page.pagination.nextCursor) {
-    page = await readComparisonPage(tab, page.pagination.nextCursor);
+    page = await readPage(page.pagination.nextCursor);
     page.items.forEach((item) => rows.set(comparisonKey(item), item));
     read += 1;
   }
@@ -28,12 +28,29 @@ export const useComparisons = (tab: ComparisonTab) => {
   const [loading, setLoading] = useState(false);
   const first = useAccountQuery({
     name: "comparisons", params: [tab], adminOnly: true, staleTime: 0,
-    read: () => readLoadedPages(tab, pages.current[tab]),
+    read: () => readLoadedPages((cursor) => readComparisonPage(tab, cursor), pages.current[tab]),
     isRunning: (list) => Boolean(list?.items.some((item) => inProgress(item.status))),
   });
   const loadMore = async () => {
     // 지금 읽어 둔 쪽 기준이다. 앞선 `더 보기`가 실패했으면 그 쪽부터 다시 읽는다.
     pages.current[tab] = (first.data?.pages ?? 1) + 1;
+    setLoading(true);
+    await first.refetch();
+    setLoading(false);
+  };
+  return { first, items: first.data?.items ?? [], cursor: first.data?.nextCursor ?? null, loading, loadMore };
+};
+/** 모델 버전 상세 평가 이력(`configVersionId` 필터). 목록과 같은 쪽 단위 재조회·진행 중 5초 조회. */
+export const useVersionComparisons = (configVersionId: string) => {
+  const pages = useRef(1);
+  const [loading, setLoading] = useState(false);
+  const first = useAccountQuery({
+    name: "version-comparisons", params: [configVersionId], adminOnly: true, staleTime: 0,
+    read: () => readLoadedPages((cursor) => readVersionComparisonPage(configVersionId, cursor), pages.current),
+    isRunning: (list) => Boolean(list?.items.some((item) => inProgress(item.status))),
+  });
+  const loadMore = async () => {
+    pages.current = (first.data?.pages ?? 1) + 1;
     setLoading(true);
     await first.refetch();
     setLoading(false);

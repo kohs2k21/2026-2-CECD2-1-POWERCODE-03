@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any
 
 from pg_queue import ClaimedMessage
@@ -18,6 +19,10 @@ class ProcessObservation:
     allowed_values: dict[str, Any]
     quality_flags: list[str]
     clock_status: str
+    # 원천 발생 시각(Collector가 저장, 030 이후 새 관측)과 출처 입력 구간(출처 행 없음·030 이전은 None).
+    # 판정 지연 열에만 쓴다(detection-decision.md 18절). 출처 행은 관측당 1개(PK)이고 불변이다(009 trigger).
+    source_log_occurred_at: datetime | None = None
+    ingest_phase: str | None = None
 
 
 def load_process_observation(conn: Any, message: ClaimedMessage) -> ProcessObservation:
@@ -32,9 +37,11 @@ def load_process_observation(conn: Any, message: ClaimedMessage) -> ProcessObser
     with conn.cursor() as cur:
         cur.execute(
             """SELECT o.id, o.source_id, o.execution_id, o.revision_no,
-                      o.allowed_values, o.quality_flags, o.clock_status
+                      o.allowed_values, o.quality_flags, o.clock_status,
+                      o.source_log_occurred_at, i.ingest_phase
                  FROM data_observations AS o
                  JOIN data_processes AS p ON p.observation_id = o.id
+                 LEFT JOIN data_input_origins AS i ON i.observation_id = o.id
                 WHERE o.id = %s AND o.layer = 'P' AND o.execution_id IS NOT NULL""",
             (observation_id,),
         )

@@ -141,6 +141,18 @@ test('v1 rows project to the contract shape without rewriting them', () => {
   assert.equal(version.activeSince, null);
   assert.equal(version.latestComparison, null);
 });
+test('latestComparison: stored comparison as listed, recommendation of this modelKey with a derived state', () => {
+  const target = '44444444-4444-4444-8444-444444444444', baseline = '55555555-5555-4555-8555-555555555555', set = '66666666-6666-4666-8666-666666666666';
+  const stored = { jobId: 'j1', jobStatus: 'succeeded', comparisonStatus: 'succeeded', evaluationSetId: set, completedAt: '2026-11-14T00:00:00.000000Z', idempotencyKey: 'k',
+    recommendations: [{ modelKey: 'eif', targetVersionId: baseline }, { modelKey: 'iforest', targetVersionId: target, baselineConfigVersionId: baseline }] };
+  const context = { models: [{ configVersionId: baseline, modelKey: 'iforest' }], revision: 3, setStatus: new Map([[set, 'ready']]) };
+  assert.deepEqual(projectVersion(row({ schemaVersion: 1 }, { latestComparison: stored }), new Map(), context).latestComparison, {
+    comparisonJobId: 'j1', evaluationSetId: set, status: 'succeeded', completedAt: '2026-11-14T00:00:00.000000Z', auto: false,
+    recommendation: { modelKey: 'iforest', targetVersionId: target, state: 'current' },
+  });
+  const pending = projectVersion(row({ schemaVersion: 1 }, { latestComparison: { ...stored, jobStatus: 'queued', comparisonStatus: null, completedAt: null, recommendations: null, idempotencyKey: 'auto-compare:x:y' } }), new Map()).latestComparison;
+  assert.deepEqual([pending.status, pending.auto, pending.recommendation], ['queued', true, null], 'job status before completion; auto from the queue contract key');
+});
 test('modelSummary reports stored values only', () => {
   const summary = (spec, modelSummary) => projectVersion(row(spec, { modelSummary }), new Map()).modelSummary;
   assert.deepEqual(summary({ schemaVersion: 1 }, row({}).modelSummary), { featureCount: 2, parameters: { n_estimators: 64 }, thresholdValue: '0.58' });

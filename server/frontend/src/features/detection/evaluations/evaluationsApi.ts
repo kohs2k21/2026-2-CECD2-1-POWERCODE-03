@@ -49,6 +49,16 @@ export type ComparisonListItem = {
   /** 교체 추천. 없으면 null이고 완료 뒤에는 `recommendationsReason`(v1 `not_implemented_v1`)이 있다. */
   recommendations: { modelKey: string; targetVersionId: string | null; state: RecommendationState }[] | null;
   recommendationsReason?: string | null;
+  /** `configVersionId` 필터로 읽을 때만: 그 버전의 항목 결과(모델 버전 상세 평가 이력). summary에 그 항목이 없으면 null. */
+  versionResult?: VersionResult | null;
+};
+/** 비교 안 한 버전의 결과. `pending` = 완료 전, `measurementStatus`는 모델 단독 결과(`categoryResults.ml.measurementStatus`)이고 완료 전·실패는 null. */
+export type VersionResult = {
+  configVersionId: string;
+  role: "active" | "candidate";
+  status: "pending" | "succeeded" | "failed";
+  errorCode: string | null;
+  measurementStatus: string | null;
 };
 
 /** 측정값 하나. 값이 null이면 `reason`이 있다(미측정은 null+사유). */
@@ -175,6 +185,9 @@ export const comparisonKey = (item: Pick<ComparisonListItem, "comparisonId" | "j
 
 export const readComparisonPage = (tab: ComparisonTab, cursor: string | null, signal?: AbortSignal): Promise<ComparisonPage> =>
   httpClient.get<ComparisonPage>("/api/comparisons", { params: { scope: tab, limit: PAGE_LIMIT, cursor: cursor ?? undefined }, signal });
+/** 모델 버전 상세 평가 이력: 그 버전이 비교 항목(접수 때 넣은 기준 운영 버전 포함)인 비교 작업, 최신순. */
+export const readVersionComparisonPage = (configVersionId: string, cursor: string | null, signal?: AbortSignal): Promise<ComparisonPage> =>
+  httpClient.get<ComparisonPage>("/api/comparisons", { params: { configVersionId, limit: PAGE_LIMIT, cursor: cursor ?? undefined }, signal });
 export const readComparison = (id: string, signal?: AbortSignal): Promise<ComparisonDetail> =>
   httpClient.get<ComparisonDetail>(`/api/comparisons/${encodeURIComponent(id)}`, { signal });
 export const readEvaluationSets = (signal?: AbortSignal): Promise<{ items: EvaluationSet[] }> =>

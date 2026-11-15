@@ -154,9 +154,12 @@ const tocSections = (app, menu) => detectionToc[menu].map(({ id }) => {
   assert.equal(noneText.props["data-slot"], undefined, "no recommendation is plain text, not a badge");
   assert.ok(shown.includes("3개 (기준 운영 4d2f7c10 · V4)"));
   assert.equal(app.link("현재 운영 모델 기준").props["aria-current"], "page");
+  // 비교 행 → 평가 상세: 뒤로가기가 비교 평가 영역으로 돌아온다(탭 쿼리 유지)
+  assert.equal(linkProps(app, short(C_LATEST)).state.returnTo, "/detection/evaluations#evaluations-list");
   await app.go("전체 평가");
   await wait(() => app.shown().includes("이미 적용됨"), "all rows");
   assert.equal(search(app), "?tab=all");
+  assert.equal(linkProps(app, short(C_LATEST)).state.returnTo, "/detection/evaluations?tab=all#evaluations-list");
   assert.ok(rowText(app, C_FAILED).includes("실패") && !rowText(app, C_FAILED).includes("일부 실패"), "failed comparison row");
   assert.ok(rowText(app, C_LATEST).includes("완료 · 일부 실패"));
   assert.ok(!app.shown().includes(short(C_ESB_OLD)), "second page not loaded");

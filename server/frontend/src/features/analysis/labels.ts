@@ -32,6 +32,10 @@ export const categoryLabels: Record<Category, string> = {
   risk_unrated: "위험도 미정",
   workflow_open: "보류",
   workflow_resolved: "완료",
+  // 완료 아래 확인 결과별(사용자 11/15): 확인 결과 이름 그대로(feedbackOutcomeLabels와 같은 문구)
+  workflow_resolved_actual_anomaly: "실제 이상",
+  workflow_resolved_normal: "정상",
+  workflow_resolved_undetermined: "판단 불가",
 };
 export const signalLabels: Record<ItemSignal, string> = {
   yes: "이상",

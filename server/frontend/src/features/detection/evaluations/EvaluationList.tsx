@@ -12,7 +12,7 @@ import { useUrlOption } from "@/hooks/useUrlState";
 import { comparisonKey, type CompareVersion, type ComparisonListItem, type EvaluationSet } from "./evaluationsApi";
 import { REC_STATE_LABELS, comparisonStatus, labelOf } from "./evaluationFormat";
 import { useCompareVersions, useComparisons, useEvaluationSets } from "./useEvaluations";
-import { detectionSections } from "../detectionToc";
+import { detectionSections, sectionReturnTo } from "../detectionToc";
 
 const COLUMNS = ["비교", "평가 세트", "비교 모델", "완료", "상태", "교체 추천"];
 
@@ -74,7 +74,7 @@ export const ComparisonsCard = () => {
               <TableRow>{COLUMNS.map((title) => <TableHead key={title}>{title}</TableHead>)}</TableRow>
             </TableHeader>
             <TableBody>
-              {items.map((item) => <ComparisonRow key={comparisonKey(item)} item={item} sets={sets.data?.items} versions={versions.data} returnTo={location.pathname + location.search} />)}
+              {items.map((item) => <ComparisonRow key={comparisonKey(item)} item={item} sets={sets.data?.items} versions={versions.data} returnTo={sectionReturnTo(location, detectionSections.evaluationsList)} />)}
             </TableBody>
           </Table>
         </div>

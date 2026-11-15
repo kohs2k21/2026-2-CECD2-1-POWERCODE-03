@@ -154,4 +154,7 @@ assert.deepEqual(detectionBackTarget("/detection/rules/candidates", null), { to:
 assert.deepEqual(detectionBackTarget("/detection/rules/candidates", { returnTo: "/detection/rules#rules-candidates" }), { to: "/detection/rules#rules-candidates", label: "룰 설정" }, "card link state");
 assert.deepEqual(detectionBackTarget("/detection/rules/response-codes/T001", null), { to: "/detection/rules", label: "룰 설정" }, "details keep the menu fallback");
 assert.deepEqual(detectionBackTarget("/detection/rules/response-codes/T001", { returnTo: "/detection/rules/response-codes" }), { to: "/detection/rules/response-codes", label: "룰 설정" }, "detail → list unchanged");
+// 다른 메뉴 영역에서 들어간 하위 화면: 쿼리와 영역 해시를 그대로 돌아간다(영역 주소는 sectionReturnTo)
+assert.deepEqual(detectionBackTarget("/detection/models/v1", { returnTo: "/detection/models?tab=all#models-versions" }), { to: "/detection/models?tab=all#models-versions", label: "머신러닝 모델" });
+assert.deepEqual(detectionBackTarget("/detection/evaluations/e1", { returnTo: "/detection/models/v1" }), { to: "/detection/models/v1", label: "머신러닝 모델" }, "evaluation detail from a version detail");
 console.log("sidebar QA passed: single SideNav landmark, group titles, aria-current, honest counts, mobile toggle, URL tabs without tab ARIA, detection back targets");

@@ -20,7 +20,7 @@ import { ActiveSetBannerView, changedBanner, failedBanner, type ActiveSetBanner 
 import { OperationsOverview } from "../operations/OperationsOverview";
 import { requestRestore, requestRetire, type ActiveHistoryItem, type ActiveModel } from "../operations/operationsApi";
 import { ACTIVE_HISTORY_QUERY, METHOD_STATUS_QUERY, OPERATIONAL_STATE_QUERY, useActiveHistory, useOperationalState, useRecentComparisons } from "../operations/useOperations";
-import { detectionSections } from "../detectionToc";
+import { detectionSections, sectionReturnTo } from "../detectionToc";
 
 /** 운영 모델이 바뀐 뒤 다시 읽을 조회(운영 상태·작동 상태·이력·모델 버전 운영 표시). */
 export const ACTIVE_SET_QUERIES = [OPERATIONAL_STATE_QUERY, METHOD_STATUS_QUERY, ACTIVE_HISTORY_QUERY, VERSIONS_QUERY, "model-version", "recent-comparisons"];
@@ -64,7 +64,9 @@ export const OperationsSettingsPage = () => {
   const [restoring, setRestoring] = useState(false);
   const [busy, setBusy] = useState(false);
   const methods = capabilities.data?.methodCatalog.methods;
-  const returnState = { returnTo: location.pathname + location.search } satisfies DetectionReturnState;
+  // 하위 화면 뒤로가기는 들어온 영역으로: 모델 교체(운영 버전 상태 위 명령) → 운영 버전 상태, 작업 목록 → 작업
+  const replaceState = { returnTo: sectionReturnTo(location, detectionSections.operationsStatus) } satisfies DetectionReturnState;
+  const jobsState = { returnTo: sectionReturnTo(location, detectionSections.operationsJobs) } satisfies DetectionReturnState;
 
   // 넘겨받은 안내는 한 번만 보인다(새로고침·뒤로 가기에서 다시 뜨지 않게 주소 state를 비운다).
   useEffect(() => {
@@ -98,7 +100,7 @@ export const OperationsSettingsPage = () => {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-section-title">운영</h2>
         <div className="flex flex-wrap gap-2">
-          <Button asChild><Link to={paths.detectionReplace} state={returnState}>모델 교체</Link></Button>
+          <Button asChild><Link to={paths.detectionReplace} state={replaceState}>모델 교체</Link></Button>
           <Button variant="outline" disabled={!state.data || !history.first.data} onClick={() => setRestoring(true)}>복원</Button>
         </div>
       </div>
@@ -113,7 +115,7 @@ export const OperationsSettingsPage = () => {
         <span aria-hidden="true" className="h-px flex-1 bg-border" />운영과 별도로 실행<span aria-hidden="true" className="h-px flex-1 bg-border" />
       </div>
       <SectionCard id={detectionSections.operationsJobs.id} title={detectionSections.operationsJobs.label} description="학습·평가·비교 평가·AI 규칙 추천·규칙 추천 작업의 진행과 실패 사유"
-        action={<Button asChild size="sm" variant="outline"><Link to={paths.detectionJobs} state={returnState}>작업 목록</Link></Button>} />
+        action={<Button asChild size="sm" variant="outline"><Link to={paths.detectionJobs} state={jobsState}>작업 목록</Link></Button>} />
       {retiring && state.data && (
         <RetireDialog model={retiring} methods={methods} last={state.data.activeModelSet.models.length === 1} busy={busy}
           onCancel={() => setRetiring(null)} onConfirm={() => void retire(retiring)} />

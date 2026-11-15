@@ -14,7 +14,7 @@ import type { CatalogMethod, ModelVersion, TrainingPeriod } from "./modelsApi";
 import { fullText } from "./period";
 import { modelKeyOf } from "./trainDraft";
 import { useCapabilities, useVersions } from "./useModels";
-import { detectionSections } from "../detectionToc";
+import { detectionSections, sectionReturnTo } from "../detectionToc";
 
 export const TIME_BASIS_LABELS = { esb_occurred_at: "ESB 발생 시각 기준", persisted_at: "저장 시각 기준" } as const;
 export const periodText = (period: TrainingPeriod | null) =>
@@ -89,7 +89,7 @@ export const VersionsCard = () => {
             </TableHeader>
             <TableBody>
               {items.map((version) => (
-                <VersionRow key={version.id} version={version} methods={capabilities.data?.methodCatalog.methods} returnTo={location.pathname + location.search} />
+                <VersionRow key={version.id} version={version} methods={capabilities.data?.methodCatalog.methods} returnTo={sectionReturnTo(location, detectionSections.modelsVersions)} />
               ))}
             </TableBody>
           </Table>

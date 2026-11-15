@@ -3,11 +3,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import json
+import logging
 from pathlib import Path
 import re
 import time
 from typing import Any, Callable, Mapping
 import uuid
+
+import psycopg
 
 import model_adapters
 from detector.computation import load_model_context, model_reference
@@ -21,6 +24,7 @@ from detector.protocol_rules import PROTOCOL_PATH_VERSION
 from detector.relation_inputs import read_relation_inputs
 from detector.relation_plan import RelationPlan, needs_relation_inputs, plan_relations
 from detector.soft_rules import evaluate_soft_rule, in_scope, soft_rule_fields, unresolved_soft_result
+from detector.source_latency import decision_source_time
 from feature_fit import requires_fit
 from feature_runtime import calculate_features, input_manifest_hash
 from methods.registry import method_for_key
@@ -28,6 +32,7 @@ from telemetry import cost_family
 from trainer.lease import lock_training_ownership
 
 ML_RESULT_CODES = {"iforest": "IF_ANOMALY"}
+LOGGER = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -307,6 +312,8 @@ def run_attempt(conn: Any, message: Any, job: Mapping[str, Any], attempt_id: uui
                               relation={**relation.evidence_fields(),
                                         **({"relationRecheck": recheck} if recheck is not None else {})})
     columns = decision_columns(evidence)
+    # 판정 저장 소요(detection-decision.md 19절): 판정 쓰기 트랜잭션 진입 → COMMIT 완료, Detector 단조 시계.
+    store_started = time.monotonic()
     with conn.transaction():
         if not lock_training_ownership(conn, message, job["id"], attempt_id, attempt_token):
             raise RuntimeError("detection_lease_lost")
@@ -319,14 +326,23 @@ def run_attempt(conn: Any, message: Any, job: Mapping[str, Any], attempt_id: uui
                         ON CONFLICT DO NOTHING""", (observation.observation_id, context["featureSetId"],
                         input_manifest_hash(str(observation.observation_id), source_hash, context["featureHash"]),
                         json.dumps(values), json.dumps(missing)))
-            cur.execute("""INSERT INTO run_process_decisions
+            # 원천 → 판정 지연(detection-decision.md 18절): 조건이 참일 때만 관측 원천 시각을 복사하고 measured.
+            # decided_at과 지연은 같은 clock_timestamp() 한 번(MATERIALIZED CTE n)으로 계산한다. 음수도 그대로 measured.
+            occurred = decision_source_time(observation, rechecked=recheck is not None)
+            cur.execute("""WITH n AS MATERIALIZED (SELECT clock_timestamp() AS t)
+                INSERT INTO run_process_decisions
                 (id,execution_id,process_observation_id,config_version_id,input_manifest_hash,input_as_of,
-                status,rule_status,ml_status,decision_code,anomaly_score,evidence,decided_at,latency_status,
+                status,rule_status,ml_status,decision_code,anomaly_score,evidence,decided_at,
+                source_log_occurred_at,source_latency_ms,latency_status,
                 job_id,input_manifest_id,result_attempt_id,result_lease_token)
-                VALUES(%s,%s,%s,NULL,%s,%s,%s,%s,%s,%s,%s,%s::jsonb,clock_timestamp(),'unavailable',%s,%s,%s,%s)""",
+                VALUES(%s,%s,%s,NULL,%s,%s,%s,%s,%s,%s,%s,%s::jsonb,(SELECT t FROM n),
+                %s::timestamptz,extract(epoch FROM (SELECT t FROM n)-%s::timestamptz)*1000,
+                CASE WHEN %s::timestamptz IS NULL THEN 'unavailable' ELSE 'measured' END::measurement_status,
+                %s,%s,%s,%s)""",
                 (uuid.uuid4(), observation.execution_id, observation.observation_id, fixed[3], fixed[4],
                  columns["status"], columns["rule_status"], columns["ml_status"], columns["decision_code"],
-                 columns["anomaly_score"], json.dumps(evidence), job["id"], fixed[2], attempt_id, attempt_token))
+                 columns["anomaly_score"], json.dumps(evidence), occurred, occurred, occurred,
+                 job["id"], fixed[2], attempt_id, attempt_token))
             if recheck is None:
                 # 재판정은 측정 행을 넣지 않는다 [제안, relation-rules.md 6.4] — 같은 관측이 지연 집계에 두 번 들어가지 않게.
                 cur.execute("""INSERT INTO ops_pipeline_measurements(id,observation_id,stage,config_version_id,duration_ms)
@@ -334,3 +350,24 @@ def run_attempt(conn: Any, message: Any, job: Mapping[str, Any], attempt_id: uui
                     (uuid.uuid4(), observation.observation_id, (time.monotonic() - started) * 1000))
         finish(conn, message, job, attempt_id, attempt_token,
                {"status": columns["status"], "executionCost": telemetry, "checkers": evidence["checkers"]}, None, True)
+    # 바깥 트랜잭션 블록이 끝나며 COMMIT됐다. 호출 전에 열린 트랜잭션이 있었다면(블록이 savepoint) 여기서 COMMIT한다.
+    conn.commit()
+    if recheck is None:
+        record_judgment_store(conn, observation.observation_id, (time.monotonic() - store_started) * 1000)
+
+
+def record_judgment_store(conn: Any, observation_id: uuid.UUID, duration_ms: float) -> bool:
+    """판정 COMMIT 뒤 별도 짧은 트랜잭션으로 stage `judgment_store` 1행(detector 행과 같은 열 — 구성 NULL).
+
+    실패해도 판정·작업은 이미 커밋됐으므로 시도를 실패로 바꾸지 않는다. 로그만 남기고 표본을 버린다.
+    측정 표본은 장애 때 잃어도 되므로 비동기 커밋(판정마다 WAL flush 대기를 하나 더 만들지 않음).
+    """
+    try:
+        with conn.transaction():
+            conn.execute("SET LOCAL synchronous_commit = off")
+            conn.execute("""INSERT INTO ops_pipeline_measurements(id,observation_id,stage,config_version_id,duration_ms)
+                VALUES(%s,%s,'judgment_store',NULL,%s)""", (uuid.uuid4(), observation_id, duration_ms))
+    except psycopg.Error as exc:
+        LOGGER.warning("judgment_store measurement skipped for observation %s: %s", observation_id, type(exc).__name__)
+        return False
+    return True

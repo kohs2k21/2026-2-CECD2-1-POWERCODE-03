@@ -1,4 +1,5 @@
 import { HttpError, httpClient } from "@/services/api/client";
+import type { EvidenceGroup } from "./evidence";
 
 /**
  * 이상 분석 읽기 API(analysis-ui.md) 요청·응답. 명시한 필드만 복사하고 형식이 틀린 값은 버린다(null = 확인 불가).
@@ -13,17 +14,32 @@ export const resultCategories = ["all", "anomaly", "anomaly_sign", "normal", "in
 export const riskCategories = ["risk_all", "risk_critical", "risk_warning", "risk_info", "risk_unrated"] as const;
 /** 분류함(와이어프레임 WORKFLOW: 보류 / 완료). 두 보기 모두에서 아래 별도 구역. */
 export const workflowCategories = ["workflow_open", "workflow_resolved"] as const;
-export const categories = [...resultCategories, ...riskCategories, ...workflowCategories] as const;
+/**
+ * 분류함 `완료` 아래 확인 결과별 완료(사용자 11/15): 그 확인 결과(가장 최근 확인 결과 기록)로 기록된 완료 판정. 관리자만(조사·조치 기록이 관리자 전용).
+ * 확인 결과가 없는 완료는 `완료`에서만 보인다.
+ */
+export const outcomeCategories = ["workflow_resolved_actual_anomaly", "workflow_resolved_normal", "workflow_resolved_undetermined"] as const;
+export type OutcomeCategory = (typeof outcomeCategories)[number];
+export const outcomeOfCategory: Record<OutcomeCategory, FeedbackOutcome> = {
+  workflow_resolved_actual_anomaly: "actual-anomaly",
+  workflow_resolved_normal: "normal",
+  workflow_resolved_undetermined: "undetermined",
+};
+export const isOutcomeCategory = (category: string): category is OutcomeCategory => (outcomeCategories as readonly string[]).includes(category);
+export const categories = [...resultCategories, ...riskCategories, ...workflowCategories, ...outcomeCategories] as const;
 /** 검색 필터 이상 신호(와이어프레임 fSignal: 전체 / 이상 / 이상 징후 / 이상 신호 없음 / 정상 여부 미확인). */
 export const signalFilterOptions = ["all", "anomaly", "anomaly_sign", "no", "unknown"] as const;
 /** 주소에서 받는 값: 위 + 이전 주소의 `yes`(이상 신호 있음 = 이상 + 이상 징후, 서버도 그대로 받음). */
 export const signals = [...signalFilterOptions, "yes"] as const;
 export const completenessOptions = ["all", "complete", "partial", "unavailable"] as const;
+/** 근거 구분 선택(판정 상세 `근거 …`와 같은 구분·순서, evidence.ts evidenceGroups). all = 거르지 않음. */
+export const basisOptions = ["all", "hard", "relation", "protocol", "soft", "ml"] as const satisfies readonly ("all" | EvidenceGroup)[];
 export const sorts = ["newest", "oldest"] as const;
 export const pageSizes = ["10", "5", "20"] as const;
 export type Category = (typeof categories)[number];
 export type SignalFilter = (typeof signals)[number];
 export type CompletenessFilter = (typeof completenessOptions)[number];
+export type BasisFilter = (typeof basisOptions)[number];
 export type Sort = (typeof sorts)[number];
 
 export type ListParams = {
@@ -31,13 +47,14 @@ export type ListParams = {
   q: string;
   signal: SignalFilter;
   completeness: CompletenessFilter;
+  basis: BasisFilter;
   sort: Sort;
   page: number;
   pageSize: number;
 };
 /** 기본 분류 = 위험도별 전체(와이어프레임 analysisCat 'risk:all', 사용자 11/03). 판정 결과별 전체는 주소에 `category=all`로 남는다. */
 export const defaultListParams: ListParams = {
-  category: "risk_all", q: "", signal: "all", completeness: "all", sort: "newest", page: 1, pageSize: 10,
+  category: "risk_all", q: "", signal: "all", completeness: "all", basis: "all", sort: "newest", page: 1, pageSize: 10,
 };
 
 /** 화면 주소 쿼리 → 목록 조건. 잘못된 값은 기본값(invalid=true면 화면이 replace로 정규화). */
@@ -54,6 +71,7 @@ export const parseListSearch = (search: string | URLSearchParams): { params: Lis
   const category = pick("category", categories, defaultListParams.category);
   const signal = pick("signal", signals);
   const completeness = pick("completeness", completenessOptions);
+  const basis = pick("basis", basisOptions);
   const sort = pick("sort", sorts);
   const pageSize = Number(pick("pageSize", pageSizes));
   const rawPage = query.get("page");
@@ -64,7 +82,7 @@ export const parseListSearch = (search: string | URLSearchParams): { params: Lis
   }
   const q = (query.get("q") ?? "").slice(0, 100);
   if ((query.get("q") ?? "").length > 100) invalid = true;
-  return { params: { category, q, signal, completeness, sort, page, pageSize }, invalid };
+  return { params: { category, q, signal, completeness, basis, sort, page, pageSize }, invalid };
 };
 
 /** 목록 조건 → 화면 주소 쿼리(기본값은 생략, 다른 쿼리는 보존). */
@@ -75,6 +93,7 @@ export const listSearch = (params: ListParams, base: string | URLSearchParams = 
   set("q", params.q.trim(), "");
   set("signal", params.signal, "all");
   set("completeness", params.completeness, "all");
+  set("basis", params.basis, "all");
   set("sort", params.sort, defaultListParams.sort);
   set("page", String(params.page), "1");
   set("pageSize", String(params.pageSize), String(defaultListParams.pageSize));
@@ -88,6 +107,7 @@ export const listApiParams = (params: ListParams) => ({
   q: params.q.trim() || undefined,
   signal: params.signal === "all" ? undefined : params.signal,
   completeness: params.completeness === "all" ? undefined : params.completeness,
+  basis: params.basis === "all" ? undefined : params.basis,
   sort: params.sort === "newest" ? undefined : params.sort,
   page: params.page === 1 ? undefined : params.page,
   pageSize: params.pageSize,

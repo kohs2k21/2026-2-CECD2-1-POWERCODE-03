@@ -155,6 +155,22 @@ def main():
             time.sleep(.11);dup=tick(conn,sid,api_factory=factory,collect_catalog=False);assert dup['duplicates']==1,dup
             assert dup['detectJobs']==[],dup
             api_decisions=decide_run(api_run['runId']);assert api_decisions==1
+            # 030 (contracts/collector-metrics.md): source time columns, ingest_phase and API receipt time.
+            csv_rows=conn.execute("""SELECT o.layer::text,o.clock_status,o.api_received_at,i.ingest_phase,o.parsed_times FROM data_observations o
+                JOIN data_input_origins i ON i.observation_id=o.id WHERE i.run_id=%s""",(second['runId'],)).fetchall();conn.commit()
+            assert csv_rows and all(r[1]=='absent' and r[2] is None and r[3]=='replay' and r[4]=={'rule':'source-time-v1'} for r in csv_rows),csv_rows[:3]
+            first_api=conn.execute("""SELECT i.ingest_phase,o.api_received_at,o.clock_status FROM data_observations o
+                JOIN data_input_origins i ON i.observation_id=o.id WHERE i.run_id=%s""",(api_run['runId'],)).fetchall()
+            sample=conn.execute("SELECT max(finished_at) FROM ops_api_poll_samples WHERE source_id=%s AND endpoint='in-progress' AND error_code IS NULL",(sid,)).fetchone()[0];conn.commit()
+            assert len(first_api)==1 and first_api[0][0]=='initial' and first_api[0][2]=='absent' and first_api[0][1] is not None,first_api
+            assert first_api[0][1]<=sample,(first_api,sample)
+            state['records']=[{'layer':'P','values':{'TRANSACTION_ID':'api-live-2','PROCESS_ID':'p','RETRY_COUNT':0,'ERROR_COUNT':1,'TOTAL_COUNT':100,
+                'STATUS':'S','START_TIME':'2026-11-15 09:59:00','END_TIME':'2026-11-15T10:00:00+09:00'}}]
+            time.sleep(.11);live=tick(conn,sid,api_factory=factory,collect_catalog=False);assert live['accepted']==1,live
+            row=conn.execute("""SELECT i.ingest_phase,o.clock_status,o.source_log_occurred_at,o.source_log_time_raw,o.parsed_times FROM data_observations o
+                JOIN data_input_origins i ON i.observation_id=o.id WHERE i.run_id=%s AND o.revision_no=1 ORDER BY o.persisted_at DESC LIMIT 1""",(api_run['runId'],)).fetchone();conn.commit()
+            assert row==('live','offset',datetime(2026,11,15,1,tzinfo=timezone.utc),'2026-11-15T10:00:00+09:00',
+                {'rule':'source-time-v1','field':'end','basis':'offset'}),row
             all_results=conn.execute("SELECT d.config_version_id,d.rule_status,d.ml_status,d.evidence FROM run_process_decisions d JOIN data_observations o ON o.id=d.process_observation_id WHERE o.source_id=%s",(sid,)).fetchall();conn.commit()
             assert all(str(r[0])==config and r[1:3]==('succeeded','succeeded') for r in all_results),all_results
             assert {r[3]['input']['mode'] for r in all_results}=={'api','csv'}

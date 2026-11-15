@@ -1,6 +1,7 @@
 import type { Pool, PoolClient } from 'pg';
 import { ML_METHODS, mlMethod, modelKeyOf } from '../ruleset/methodCatalog.js';
 import { realCalendarTime } from '../ruleset/thresholdStats.js';
+import { activeContext, recommendationState, type ActiveContext } from './comparisonEvaluation.js';
 
 /**
  * 모델 버전 조회 GET /api/configurations·GET /api/configurations/:id(model-version.md 조회). 저장된 구성을 바꾸지 않고 응답만 만든다.
@@ -110,14 +111,42 @@ function modelSummary(spec: Spec, stored: StoredSummary | null) {
   };
 }
 
+/** 그 버전이 항목(기준 운영 버전 포함)인 가장 최근 비교 작업. 없으면 null. */
+type StoredComparison = {
+  jobId: string; jobStatus: string; comparisonStatus: string | null; evaluationSetId: string | null; completedAt: string | null;
+  idempotencyKey: string | null; recommendations: unknown;
+};
 export type VersionRow = {
   id: string; sourceId: string; spec: Spec; contentHash: string; createdAt: string | Date; modelKeys: string[]; modelSummary: StoredSummary | null;
   trainJobId: string | null; trainInput: TrainInput; latestEvaluation: Record<string, unknown> | null;
-  eligibleEvaluationId: string | null; unavailableEvaluation: boolean;
+  eligibleEvaluationId: string | null; unavailableEvaluation: boolean; latestComparison?: StoredComparison | null;
 };
 
+/** 자동 비교 평가 작업의 멱등키 형식(queues.md 자동 비교 평가: `auto-compare:<configVersionId>:<evaluationSetId>`). */
+const AUTO_COMPARE_KEY = 'auto-compare:';
+/**
+ * `latestComparison`(model-version.md 조회 절): 상태는 비교 목록과 같은 규칙(묶음이 있으면 그 값, 없으면 작업 상태).
+ * `recommendation`은 저장된 추천 중 이 버전의 `modelKey` 항목이고 상태는 조회 때 파생한다. 추천이 없으면(v1 `not_implemented_v1`) null.
+ */
+function latestComparisonOf(stored: StoredComparison | null | undefined, modelKey: string | null, context: ActiveContext | null) {
+  if (!stored) return null;
+  const rec = Array.isArray(stored.recommendations) && modelKey
+    ? (stored.recommendations as Record<string, any>[]).find((item) => item?.modelKey === modelKey) ?? null : null;
+  return {
+    comparisonJobId: stored.jobId, evaluationSetId: stored.evaluationSetId, status: stored.comparisonStatus ?? stored.jobStatus, completedAt: stored.completedAt,
+    auto: typeof stored.idempotencyKey === 'string' && stored.idempotencyKey.startsWith(AUTO_COMPARE_KEY),
+    recommendation: rec && context && stored.evaluationSetId
+      ? { modelKey: rec.modelKey, targetVersionId: rec.targetVersionId ?? null, state: recommendationState(rec, context, stored.evaluationSetId) } : null,
+  };
+}
+/** 추천이 저장된 비교가 있을 때만 운영 상태를 읽는다(v1은 추천이 없어 읽지 않는다). */
+async function comparisonContext(db: Pick<PoolClient, 'query'>, rows: VersionRow[]) {
+  const sets = rows.filter((row) => Array.isArray(row.latestComparison?.recommendations)).map((row) => row.latestComparison!.evaluationSetId).filter((id): id is string => typeof id === 'string' && UUID.test(id));
+  return sets.length ? activeContext(db, [...new Set(sets)]) : null;
+}
+
 /** 목록·상세 공통 투영(model-version.md 조회 절). */
-export function projectVersion(row: VersionRow, active: ActiveState) {
+export function projectVersion(row: VersionRow, active: ActiveState, comparisons: ActiveContext | null = null) {
   const { spec } = row;
   const methods = specMethods(spec, row.modelKeys);
   const executable = methods.length > 0 && methods.every((method: { enabled: boolean; executable: { process: boolean } }) => !method.enabled || method.executable.process);
@@ -128,20 +157,23 @@ export function projectVersion(row: VersionRow, active: ActiveState) {
         : row.eligibleEvaluationId ? { eligible: true, evaluationId: row.eligibleEvaluationId, reason: null }
           : { eligible: false, evaluationId: null, reason: row.unavailableEvaluation ? 'method_results_unavailable' : 'no_eligible_evaluation' };
   const since = active.get(row.id) ?? null;
+  const modelKey = methods[0]?.methodId.slice(3) ?? null;
   return {
     id: row.id, sourceId: row.sourceId, schemaVersion: spec.schemaVersion ?? null, displayName: spec.displayName ?? null, contentHash: row.contentHash,
-    contentHashVersion: spec.contentHashVersion ?? 1, createdAt: row.createdAt, requestedMode: requestedMode(spec), modelKey: methods[0]?.methodId.slice(3) ?? null,
+    contentHashVersion: spec.contentHashVersion ?? 1, createdAt: row.createdAt, requestedMode: requestedMode(spec), modelKey,
     active: since !== null, activeSince: since,
     createdFrom: spec.createdFrom ?? { kind: 'train', trainJobId: row.trainJobId, recommendationJobId: null },
     executable, methods, trainingSelection: trainingSelection(spec, row.trainInput), operationalEligibility: operational, applicationEligibility,
-    modelSummary: modelSummary(spec, row.modelSummary), latestEvaluation: row.latestEvaluation, latestComparison: null,
+    modelSummary: modelSummary(spec, row.modelSummary), latestEvaluation: row.latestEvaluation,
+    latestComparison: latestComparisonOf(row.latestComparison, modelKey, comparisons),
     ...(v3(spec) ? {} : { legacyRules: { statusRule: spec.statusRulePolicy !== undefined, ruleVersionIds: spec.ruleVersionIds ?? [] } }),
   };
 }
 
 const VERSION_COLUMNS = `c.id,c.source_id AS "sourceId",c.configuration_spec AS spec,c.content_hash AS "contentHash",c.created_at AS "createdAt",
   to_char(c.created_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS "cursorCreatedAt",COALESCE(m.keys,'{}') AS "modelKeys",m.summary AS "modelSummary",
-  j.id AS "trainJobId",j.input_spec AS "trainInput",e.summary AS "latestEvaluation",g.id AS "eligibleEvaluationId",COALESCE(u.found,false) AS "unavailableEvaluation"`;
+  j.id AS "trainJobId",j.input_spec AS "trainInput",e.summary AS "latestEvaluation",g.id AS "eligibleEvaluationId",COALESCE(u.found,false) AS "unavailableEvaluation",
+  lc.summary AS "latestComparison"`;
 const VERSION_JOINS = `LEFT JOIN LATERAL (SELECT array_agg(model_key ORDER BY model_key) AS keys,(array_agg(jsonb_build_object('featureNames',training_settings->'featureNames',
       'parameters',training_settings->'parameters','thresholdValue',threshold_spec->'value') ORDER BY model_key))[1] AS summary
     FROM ml_config_models WHERE config_version_id=c.id) m ON true
@@ -152,7 +184,13 @@ const VERSION_JOINS = `LEFT JOIN LATERAL (SELECT array_agg(model_key ORDER BY mo
   LEFT JOIN LATERAL (SELECT x.id FROM run_evaluations x WHERE x.config_version_id=c.id AND x.purpose='validation' AND x.applicability='valid'
       AND x.scored_count>0 AND x.unavailable_count=0 AND NOT EXISTS(SELECT 1 FROM data_prepared_datasets d WHERE d.snapshot_id=x.snapshot_id)
     ORDER BY x.completed_at DESC,x.id DESC LIMIT 1) g ON true
-  LEFT JOIN LATERAL (SELECT true AS found FROM run_evaluations x WHERE x.config_version_id=c.id AND x.purpose='validation' AND x.applicability='valid' AND x.unavailable_count>0 LIMIT 1) u ON true`;
+  LEFT JOIN LATERAL (SELECT true AS found FROM run_evaluations x WHERE x.config_version_id=c.id AND x.purpose='validation' AND x.applicability='valid' AND x.unavailable_count>0 LIMIT 1) u ON true
+  LEFT JOIN LATERAL (SELECT jsonb_build_object('jobId',cj.id::text,'jobStatus',cj.status::text,'comparisonStatus',cc.status,'evaluationSetId',cj.input_spec->>'evaluationSetId',
+      'completedAt',to_char(COALESCE(cc.completed_at,cj.finished_at) AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),'idempotencyKey',cj.idempotency_key,
+      'recommendations',cc.summary->'replacementRecommendations') AS summary
+    FROM run_jobs cj LEFT JOIN run_config_comparisons cc ON cc.job_id=cj.id
+    WHERE cj.kind='compare' AND cj.input_spec->'configVersionIds' @> jsonb_build_array(c.id::text)
+    ORDER BY cj.created_at DESC,cj.id DESC LIMIT 1) lc ON true`;
 
 async function readOnly<T>(pool: Pick<Pool, 'connect'>, read: (client: PoolClient) => Promise<T>): Promise<T> {
   const client = await pool.connect() as PoolClient;
@@ -186,8 +224,9 @@ export function readConfigurations(pool: Pick<Pool, 'connect'>, query: Configura
       [query.sourceId, query.after?.createdAt ?? null, query.after?.id ?? null, query.createdFrom, query.modelKey, query.executable, runnable, query.active, [...active.keys()], query.limit + 1]);
     const page = rows.slice(0, query.limit);
     const hasMore = rows.length > query.limit, last = page.at(-1);
+    const comparisons = await comparisonContext(client, page);
     return {
-      items: page.map((row) => projectVersion(row, active)),
+      items: page.map((row) => projectVersion(row, active, comparisons)),
       pagination: {
         limit: query.limit, hasMore,
         nextCursor: hasMore && last ? Buffer.from(JSON.stringify({ createdAt: last.cursorCreatedAt, id: last.id })).toString('base64url') : null,
@@ -224,7 +263,7 @@ export function readConfiguration(pool: Pick<Pool, 'connect'>, id: string) {
       `SELECT model_key AS "modelKey",feature_set_id AS "featureSetId",model_artifact_id AS "modelArtifactId",fit_artifact_id AS "fitArtifactId",
          adapter_spec AS "adapterSpec",training_settings AS "trainingSettings",threshold_spec AS "thresholdSpec"
        FROM ml_config_models WHERE config_version_id=$1 ORDER BY model_key`, [id]);
-    const version = projectVersion(row, active);
+    const version = projectVersion(row, active, await comparisonContext(client, [row]));
     const rules = v3(row.spec) ? {} : {
       rules: (await client.query(`SELECT rule_version_id AS "ruleVersionId",evaluation_order AS "evaluationOrder" FROM ml_config_rules WHERE config_version_id=$1 ORDER BY evaluation_order`, [id])).rows,
     };

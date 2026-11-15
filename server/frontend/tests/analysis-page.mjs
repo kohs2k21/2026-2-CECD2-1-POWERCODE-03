@@ -863,6 +863,8 @@ const explainSummary = {
     { id: "fact_5", name: "rules", value: [{ reason: null, result: "hit", ruleKey: "process-status", version: "process-status-hr-v1", sourceId: "source-1", observedStatus: "F", severity: "critical" }] },
     { id: "fact_6", name: "models", value: [{ modelKey: "iforest", anomalous: false }] },
     { id: "fact_7", name: "extra", value: { mode: "api", note: null, scope: { a: 1 } } },
+    { id: "fact_8", name: "configVersionId", value: "config-1" },
+    { id: "fact_9", name: "inputManifestHash", value: "e".repeat(64) },
   ],
   nextChecks: [{ code: "review_rule_threshold", text: "적중한 Rule의 승인 기준과 입력값을 확인하세요." }],
   causeStatus: "unconfirmed", contributionStatus: "not_computed",
@@ -870,13 +872,13 @@ const explainSummary = {
 const explainFull = "anomalous: true검사 완료: 완료수행 상태: Rule 완료수행 상태: ML 꺼짐판정 코드: 상태 F 실패"
   + "Rule 판정 근거이상 규칙(상태가 S가 아님) · 이상 · 상태 F · 위험도 위험ML 판정 근거iforest · 정상 확인extra: mode api · scope (a 1)"
   + "확인할 것(원인 후보)적중한 Rule의 승인 기준과 입력값을 확인하세요.";
-const explainRoutes = (id, detail, jobState) => ({
+const explainRoutes = (id, detail, jobState, summary = explainSummary) => ({
   "GET /api/analysis/decisions": () => json(listBody([item(id)])),
   [`GET /api/analysis/decisions/${id}`]: () => json(detail),
   [`GET /api/analysis/decisions/${id}/interims`]: () => json({ id, jobId: null, items: [] }),
   "POST /api/jobs": () => json({ id: `explain-${id}`, status: "queued", kind: "explain", inputSpec: {} }, 201),
   [`GET /api/jobs/explain-${id}`]: () => json({ id: `explain-${id}`, kind: "explain", status: jobState.status, inputSpec: {}, errorCode: null,
-    resultSummary: jobState.status === "succeeded" ? explainSummary : null }),
+    resultSummary: jobState.status === "succeeded" ? summary : null }),
 });
 const typingNodes = (app) => app.renderer.root.findAll((node) => node.type === "div" && node.props["data-typing"] === "true");
 const srOnlyNodes = (app) => app.renderer.root.findAll((node) => node.type === "div" && node.props.className === "sr-only");
@@ -926,8 +928,9 @@ const explainCard = (app) => app.renderer.root.find((node) => node.type === "div
   assert.equal(entrance[0].props["data-entrance"], "none", "existing result has no entrance motion (initial=false)");
   assert.notEqual(entrance[0].props.style?.opacity, 0, "existing result is not faded in from 0");
   assert.ok(text(explainCard(app).children).includes(explainFull), "existing result shown in full at once");
-  for (const raw of ["ruleStatus", "succeeded", "PROCESS_STATUS_F", '"ruleKey"', "{"]) assert.ok(!text(explainCard(app).children).includes(raw), `no raw ${raw}`);
+  for (const raw of ["ruleStatus", "succeeded", "PROCESS_STATUS_F", '"ruleKey"', "{", "configVersionId", "config-1", "inputManifestHash", "eeee"]) assert.ok(!text(explainCard(app).children).includes(raw), `no raw ${raw}`);
   assert.equal(app.renderer.root.findAll((node) => node.type === "li" && node.props.title === "ruleStatus").length, 1, "original key kept as a tooltip");
+  assert.equal(app.renderer.root.findAll((node) => node.type === "li" && /configVersionId|inputManifestHash/.test(node.props.title ?? "")).length, 0, "internal ids not even as tooltips");
   assert.equal(app.renderer.root.findAll((node) => node.props["data-slot"] === "explain-progress").length, 0);
   await app.cleanup();
 }
@@ -948,8 +951,23 @@ const explainCard = (app) => app.renderer.root.find((node) => node.type === "div
   assert.equal(factView({ name: "anomalyScore", value: null }, true).head, "이상 점수: —");
   assert.equal(factView({ name: "ruleStatus", value: "blocked" }, true).head, "수행 상태: Rule blocked");
   assert.equal(factView({ name: "status", value: "partial" }, true).head, "검사 완료: 부분");
-  assert.equal(factView({ name: "inputManifestHash", value: "abc" }, true).head, "inputManifestHash: abc");
+  assert.equal(factView({ name: "constructor", value: "x" }, true).head, "constructor: x", "own keys only");
+  assert.equal(factView({ name: "status", value: "toString" }, true).head, "검사 완료: toString");
   assert.deepEqual(factView({ name: "list", value: [{ a: [1, 2], b: "x" }, 3] }, true).items, ["a (1, 2) · b x", "3"]);
+}
+
+// 5d1b) LLM이 내부 식별자 근거(configVersionId·inputManifestHash)만 고른 결과: 근거 목록 없이 확인할 것만
+{
+  const summary = { ...explainSummary, facts: explainSummary.facts.filter((fact) => ["configVersionId", "inputManifestHash"].includes(fact.name)) };
+  const detail = { ...item("d-9h"), configuration: null, job: null, explanation: { jobId: "explain-d-9h", status: "succeeded", errorCode: null, createdAt: null } };
+  routes = explainRoutes("d-9h", detail, { status: "succeeded" }, summary);
+  const app = await mount("/analysis/d/d-9h");
+  await wait(() => app.shown().includes("설명 작업 완료"), "hidden-only result loaded");
+  const card = text(explainCard(app).children);
+  assert.ok(card.includes("확인할 것(원인 후보)적중한 Rule의 승인 기준과 입력값을 확인하세요."), "only next checks");
+  assert.ok(!card.includes("configVersionId") && !card.includes("inputManifestHash"), "internal ids hidden");
+  assert.equal(explainCard(app).findAll((node) => node.type === "ul" && String(node.props.className).includes("list-disc")).length, 1, "no fact list, only the checks list");
+  await app.cleanup();
 }
 
 // 5d2) v04 판정(구성 없음): 당시 모델 줄만 빠지고 나머지 요약·설명 요청은 같다. 없는 값을 다른 문구로 채우지 않는다.

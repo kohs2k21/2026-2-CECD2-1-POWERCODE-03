@@ -14,7 +14,7 @@ import type { DecisionDetail } from "../data/analysisApi";
 import { analysisErrorTitle } from "../data/analysisApi";
 import { readEvidence, readEvidenceV4 } from "../data/evidence";
 import { jobPending, useExplainJob } from "../data/useAnalysis";
-import { factView, type FactView } from "../explainFacts";
+import { factView, shownFacts, type FactView } from "../explainFacts";
 import { useTypewriter } from "../hooks/useTypewriter";
 import { jobStatusLabels } from "../labels";
 
@@ -132,7 +132,7 @@ const factLength = ({ view }: FactEntry) => view.head.length + view.items.reduce
  */
 const ExplainResult = ({ summary, fresh, v4 }: { summary: ExplainSummary; fresh: boolean; v4: boolean }) => {
   const reduceMotion = useReducedMotion();
-  const facts = (summary?.facts ?? []).map((fact) => ({ id: fact.id, name: fact.name, view: factView(fact, v4) }));
+  const facts = shownFacts(summary?.facts ?? []).map((fact) => ({ id: fact.id, name: fact.name, view: factView(fact, v4) }));
   const checks = summary?.nextChecks ?? [];
   const total = facts.reduce((sum, fact) => sum + factLength(fact), 0) + checks.reduce((sum, check) => sum + check.text.length, 0);
   const [typing] = useState(fresh && !reduceMotion && total > 0);

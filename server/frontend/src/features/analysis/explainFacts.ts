@@ -17,8 +17,13 @@ import {
  * - 이름·값은 판정 상세에 이미 있는 이름표(판정 요약·Rule/ML 판정 근거 표·세부 방법별 결과)를 쓴다. 원래 키는 툴팁
  * - 이름표가 없는 키·값은 원래 값 그대로. 객체·배열은 JSON 대신 `키 값 · 키 값` 축약(값 없는 키는 생략)
  * - 배열 값(rules·models 등)은 항목마다 한 줄
+ * - 판정 상세에도 나오지 않는 내부 식별자(configVersionId·inputManifestHash)는 보이지 않는다(툴팁·타자 효과 글자 수에서도 제외)
  */
 export type FactView = { head: string; items: string[] };
+
+const hiddenFactNames = new Set(["configVersionId", "inputManifestHash"]);
+/** 화면에 보일 근거만(저장 순서 그대로). 모두 빠지면 빈 목록 — 근거 목록 없이 확인할 것만 보인다. */
+export const shownFacts = <T extends { name: string }>(facts: T[]) => facts.filter((fact) => !hiddenFactNames.has(fact.name));
 
 const factNames: Record<string, string> = {
   decisionId: "판정 ID",
@@ -45,7 +50,7 @@ export const briefValue = (value: unknown): string => {
 };
 
 const label = (labels: Record<string, string>, value: unknown) =>
-  typeof value === "string" && value in labels ? labels[value] : briefValue(value);
+  typeof value === "string" && Object.hasOwn(labels, value) ? labels[value] : briefValue(value);
 
 /** Rule 판정 근거 한 줄: `방법 · 결과 · 상태 F · 위험도 위험`(+ 사유 코드). 이상일 때만 위험도(세부 방법별 결과 표와 같음). */
 const ruleItem = (entry: unknown, v4: boolean) => {
@@ -83,7 +88,7 @@ const scalarValue = (name: string, value: unknown) => {
 
 /** 근거 한 건 → 제목 줄 + 항목 줄. 배열 값은 제목(이름)만 두고 항목마다 한 줄, 빈 배열은 `이름: —`. */
 export const factView = (fact: { name: string; value: unknown }, v4: boolean): FactView => {
-  const head = factNames[fact.name] ?? fact.name;
+  const head = Object.hasOwn(factNames, fact.name) ? factNames[fact.name] : fact.name;
   const { value } = fact;
   if (Array.isArray(value)) {
     if (!value.length) return { head: `${head}: ${DASH}`, items: [] };

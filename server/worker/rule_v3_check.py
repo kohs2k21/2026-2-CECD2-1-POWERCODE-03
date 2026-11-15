@@ -64,10 +64,18 @@ def synthetic_rows(count: int = 200, seed: int = 20261115) -> list[tuple[Any, di
 
 
 def plan_for(provider: str, fields=FIELDS):
-    from threshold_recommendation import ThresholdPlan, MODE_DATA_P95
-    targets = {field: [{"id": f"soft:{field}-check", "field": field, "threshold": None}] for field in fields}
+    """필드마다 범위 없는 소프트룰 1개(= 결과 항목 1건, 옛 대상 모양과 같은 묶음)."""
+    from threshold_recommendation import MODE_DATA_P95, TargetGroup, ThresholdPlan
+    groups = tuple(TargetGroup(field, None, ({"id": f"soft:{field}-check", "field": field, "threshold": None},))
+                   for field in sorted(fields))
     return ThresholdPlan(MODE_DATA_P95, {"revision": 0, "contentHash": HASH, "contentHashVersion": 2},
-                         targets, provider)
+                         groups, provider)
+
+
+def case_field(paths) -> str:
+    """묶음 폴더(`g<n>/case`) 이름 대신 번들 제안 파일의 필드를 읽는다(`proposal_id` = `soft_rule_<field>`)."""
+    proposal = json.loads(Path(paths["proposal"]).read_text(encoding="utf-8"))
+    return proposal["proposal_id"].removeprefix("soft_rule_")
 
 
 def error_summary(exc: BaseException) -> dict[str, Any]:
@@ -85,7 +93,7 @@ def run_v3(model, rows, snapshot_id, source_tz=None, fields=FIELDS) -> dict[str,
     original = runtime.run_field
 
     def recorded(paths, out):
-        field = Path(paths["proposal"]).parent.parent.name
+        field = case_field(paths)  # 이 확인은 필드마다 묶음 1건이라 필드로 모은다
         started = time.monotonic()
         try:
             return original(paths, out)

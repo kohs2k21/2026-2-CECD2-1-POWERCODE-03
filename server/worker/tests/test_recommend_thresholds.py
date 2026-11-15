@@ -284,13 +284,16 @@ class ParseJobTests(unittest.TestCase):
     def test_targets_group_by_field_in_id_order(self):
         first, second = rule("elapsed_ms", 9000, "bbbbbbbb"), rule("elapsed_ms", 5000, "aaaaaaaa")
         plan = recommendation.parse_job(job_spec(first, second, rule("total_count")), LLM_SPEC)
-        self.assertEqual([item["id"] for item in plan.targets["elapsed_ms"]], [second["id"], first["id"]])
+        self.assertEqual([(group.field, group.scope, group.candidates) for group in plan.groups],
+                         [("elapsed_ms", None, ()), ("total_count", None, ())])
+        self.assertEqual([item["id"] for item in plan.groups[0].rules], [second["id"], first["id"]])
+        self.assertEqual(plan.groups[0].current_threshold, 5000)
         self.assertEqual(plan.rule_set, {"revision": 13, "contentHash": HASH, "contentHashVersion": 2})
 
     def test_scope_limits_targets(self):
         keep = rule("elapsed_ms")
         spec = job_spec(keep, rule("total_count"), scope={"softRuleIds": [keep["id"]]})
-        self.assertEqual(list(recommendation.parse_job(spec, LLM_SPEC).targets), ["elapsed_ms"])
+        self.assertEqual([group.field for group in recommendation.parse_job(spec, LLM_SPEC).groups], ["elapsed_ms"])
         with self.assertRaisesRegex(ValueError, "^soft_rules_empty$"):
             recommendation.parse_job(job_spec(keep, scope={"softRuleIds": ["soft:other-00000000"]}), LLM_SPEC)
 
@@ -301,8 +304,11 @@ class ParseJobTests(unittest.TestCase):
             recommendation.parse_job(job_spec(rule("nope")), LLM_SPEC)
         with self.assertRaisesRegex(ValueError, "^invalid_recommendation_targets$"):
             recommendation.parse_job(job_spec(rule("elapsed_ms"), rule("elapsed_ms")), LLM_SPEC)
-        with self.assertRaisesRegex(ValueError, "^soft_rule_limit_exceeded$"):
-            recommendation.parse_job(job_spec(*[rule("elapsed_ms", 1, f"{index:08x}") for index in range(33)]), LLM_SPEC)
+        # 10차: 상한은 묶음 수(≤ 32)와 대상 수(≤ 64). 같은 필드 룰 33개는 묶음 1개다.
+        same = recommendation.parse_job(job_spec(*[rule("elapsed_ms", 1, f"{index:08x}") for index in range(33)]), LLM_SPEC)
+        self.assertEqual((len(same.groups), len(same.groups[0].rules)), (1, 33))
+        with self.assertRaisesRegex(ValueError, "^invalid_recommendation_targets$"):
+            recommendation.parse_job(job_spec(*[rule("elapsed_ms", 1, f"{index:08x}") for index in range(65)]), LLM_SPEC)
 
     def test_rule_set_reference_is_required(self):
         for changes in ({"ruleSetContentHash": "9c40"}, {"ruleSetContentHashVersion": 4}, {"ruleSetContentHashVersion": 0},
@@ -326,6 +332,108 @@ class ParseJobTests(unittest.TestCase):
             recommendation.parse_job(job_spec(rule("elapsed_ms"), data={"snapshotId": None, "from": None, "until": None}), LLM_SPEC)
 
 
+LLM_SPEC_V3_SCOPE = {**LLM_SPEC, "evidence_version": "soft-rule-threshold-v3", "model_version": "rule_v3"}
+SCOPE_A = {"processId": "IF_A_PR002", "adapterType": "HTTP"}
+
+
+def soft(field, scope=None, suffix="00000000", threshold=5):
+    return {"kind": "soft_rule", "id": f"soft:{field}-{suffix}", "field": field, "scope": scope, "threshold": threshold}
+
+
+def candidate(field, scope, number, job="33333333-3333-4333-8333-333333333333"):
+    return {"kind": "candidate", "id": f"{job}.t{number}", "field": field, "scope": scope, "threshold": None}
+
+
+class TargetShapeTests(unittest.TestCase):
+    """10차 대상 모양: `{kind, id, field, scope, threshold}`, (필드, scope) 묶음, 묶음 ≤ 32·대상 ≤ 64."""
+
+    def parse(self, *targets, llm_spec=LLM_SPEC_V3_SCOPE, **scope):
+        return recommendation.parse_job(job_spec(*targets, scope={"softRuleIds": None, **scope}), llm_spec)
+
+    def test_groups_merge_soft_rules_and_candidates_by_field_and_scope(self):
+        plan = self.parse(soft("elapsed_ms", SCOPE_A, "bbbbbbbb", 9000), soft("elapsed_ms"),
+                          candidate("elapsed_ms", {"adapterType": "HTTP", "processId": "IF_A_PR002"}, 7),
+                          candidate("elapsed_ms", {"processId": "IF_B"}, 3), soft("elapsed_ms", SCOPE_A, "aaaaaaaa", 5000),
+                          candidateIds=["33333333-3333-4333-8333-333333333333.t7",
+                                        "33333333-3333-4333-8333-333333333333.t3"])
+        self.assertEqual([(group.field, group.scope) for group in plan.groups],
+                         [("elapsed_ms", None), ("elapsed_ms", {"processId": "IF_A_PR002", "adapterType": "HTTP"}),
+                          ("elapsed_ms", {"processId": "IF_B"})])
+        merged = plan.groups[1]
+        self.assertEqual([rule["id"] for rule in merged.rules], ["soft:elapsed_ms-aaaaaaaa", "soft:elapsed_ms-bbbbbbbb"])
+        self.assertEqual(merged.candidates, ("33333333-3333-4333-8333-333333333333.t7",))
+        self.assertEqual(merged.current_threshold, 5000)
+        only = plan.groups[2]
+        self.assertEqual((only.rules, only.candidates, only.current_threshold),
+                         ((), ("33333333-3333-4333-8333-333333333333.t3",), None))
+
+    def test_candidates_only_with_empty_soft_rule_ids(self):
+        plan = self.parse(soft("elapsed_ms"), candidate("elapsed_ms", SCOPE_A, 1), softRuleIds=[],
+                          candidateIds=["33333333-3333-4333-8333-333333333333.t1"])
+        self.assertEqual([(group.rules, group.candidates) for group in plan.groups],
+                         [((), ("33333333-3333-4333-8333-333333333333.t1",))])
+        with self.assertRaisesRegex(ValueError, "^soft_rules_empty$"):
+            self.parse(soft("elapsed_ms"), candidate("elapsed_ms", SCOPE_A, 1), softRuleIds=[], candidateIds=[])
+
+    def test_candidate_selection_rules(self):
+        # candidateIds 생략·null인데 후보 대상이 있음 / 후보에 값 / 모르는 kind / 배열 아님
+        for targets, scope in (((candidate("elapsed_ms", SCOPE_A, 1),), {}),
+                               (({**candidate("elapsed_ms", SCOPE_A, 1), "threshold": 7},), {"candidateIds": []}),
+                               (({**soft("elapsed_ms"), "kind": "hard_rule"},), {}),
+                               ((soft("elapsed_ms"),), {"candidateIds": "x"})):
+            with self.subTest(targets=targets, scope=scope), \
+                    self.assertRaisesRegex(ValueError, "^invalid_recommendation_targets$"):
+                self.parse(*targets, **scope)
+
+    def test_scope_must_be_the_rule_set_normal_form(self):
+        for scope in ({}, {"adapterType": "HTTP"}, {"processId": "P", "interfaceId": "IF"}, {"processId": None},
+                      {"processId": "P", "adapterType": None}, {"processId": ""}, {"processId": 1}, ["P"], "P"):
+            with self.subTest(scope=scope), self.assertRaisesRegex(ValueError, "^invalid_recommendation_targets$"):
+                self.parse(soft("elapsed_ms", scope))
+        plan = self.parse(soft("elapsed_ms", {"processHubId": "H", "adapterType": "A", "processId": "P"}))
+        self.assertEqual(list(plan.groups[0].scope), ["processId", "adapterType", "processHubId"])
+
+    def test_limits_count_groups_and_targets(self):
+        scopes = [{"processId": f"P{index:02d}"} for index in range(33)]
+        plan = self.parse(*[soft("elapsed_ms", scope, f"{index:08x}") for index, scope in enumerate(scopes[:32])])
+        self.assertEqual(len(plan.groups), 32)
+        with self.assertRaisesRegex(ValueError, "^soft_rule_limit_exceeded$"):
+            self.parse(*[soft("elapsed_ms", scope, f"{index:08x}") for index, scope in enumerate(scopes)])
+        # 대상 64개(소프트룰 32 + 후보 32)는 받고 65개는 거절한다.
+        rules = [soft("elapsed_ms", SCOPE_A, f"{index:08x}") for index in range(32)]
+        candidates = [candidate("elapsed_ms", SCOPE_A, index) for index in range(33)]
+        ids = [item["id"] for item in candidates]
+        plan = self.parse(*rules, *candidates[:32], candidateIds=ids)
+        self.assertEqual((len(plan.groups), len(plan.groups[0].rules), len(plan.groups[0].candidates)), (1, 32, 32))
+        with self.assertRaisesRegex(ValueError, "^invalid_recommendation_targets$"):
+            self.parse(*rules, *candidates, candidateIds=ids)
+
+    def test_new_shape_needs_rule_v3_scope_evidence(self):
+        scoped, chosen = soft("elapsed_ms", SCOPE_A), candidate("elapsed_ms", None, 1)
+        for target, scope in ((scoped, {}), (chosen, {"candidateIds": [chosen["id"]]})):
+            with self.subTest(target["kind"]):
+                with self.assertRaisesRegex(ValueError, "^recommendation_targets_require_rule_v3$"):
+                    self.parse(target, llm_spec=LLM_SPEC, **scope)
+                with self.assertRaisesRegex(ValueError, "^recommendation_llm_spec_invalid$"):
+                    self.parse(target, llm_spec={**LLM_SPEC_V3_SCOPE, "evidence_version": "soft-rule-threshold-v2"},
+                               **scope)
+                self.assertEqual(len(self.parse(target, **scope).groups), 1)
+        # rule_v2와 새 evidence_version은 짝이 아니다.
+        with self.assertRaisesRegex(ValueError, "^recommendation_llm_spec_invalid$"):
+            self.parse(soft("elapsed_ms"), llm_spec={**LLM_SPEC, "evidence_version": "soft-rule-threshold-v3"})
+
+    def test_old_shape_is_accepted_by_every_evidence_version(self):
+        old = rule("elapsed_ms", 5000)
+        explicit = soft("elapsed_ms", None, threshold=5000)
+        for llm_spec in (LLM_SPEC, {**LLM_SPEC_V3_SCOPE, "evidence_version": "soft-rule-threshold-v2"},
+                         LLM_SPEC_V3_SCOPE):
+            for target in (old, explicit):
+                with self.subTest(llm_spec=llm_spec["evidence_version"], keys=sorted(target)):
+                    plan = self.parse(target, llm_spec=llm_spec)
+                    self.assertEqual([(group.field, group.scope, group.candidates, group.current_threshold)
+                                      for group in plan.groups], [("elapsed_ms", None, (), 5000)])
+
+
 class ApiExampleTests(unittest.TestCase):
     """API 시험이 그대로 저장되는지 확인하는 예시를 워커가 받는다(tests/threshold-recommendation-contract.test.mjs)."""
 
@@ -339,8 +447,10 @@ class ApiExampleTests(unittest.TestCase):
             self.assertEqual(plan.mode, recommendation.MODE_DATA_P95)
             self.assertEqual(plan.rule_set, {"revision": spec["ruleSetRevision"], "contentHash": spec["ruleSetContentHash"],
                                              "contentHashVersion": spec["ruleSetContentHashVersion"]})
-            self.assertEqual(sorted(plan.targets), ["elapsed_ms", "error_ratio"])
-            self.assertEqual(plan.targets["elapsed_ms"][0]["threshold"], 5000)
+            # 옛 대상 모양(kind·scope 없음) = 범위 없는 소프트룰 묶음, 필드당 1건.
+            self.assertEqual([(group.field, group.scope, group.candidates) for group in plan.groups],
+                             [("elapsed_ms", None, ()), ("error_ratio", None, ())])
+            self.assertEqual(plan.groups[0].current_threshold, 5000)
             self.assertEqual(set(llm_spec), set(LLM_SPEC))
 
 
@@ -394,6 +504,9 @@ class RecommendationResultTests(BundleCase):
                                             "noApplicable": 1, "rejected": 1})
         items = {item["field"]: item for item in result["items"]}
         self.assertEqual(list(items), ["elapsed_ms", "error_ratio", "retry_count", "total_count"])
+        # 10차 추가 키: 옛 대상 모양이면 범위 없음·후보 없음
+        self.assertEqual({(json.dumps(item["scope"]), json.dumps(item["candidateIds"])) for item in result["items"]},
+                         {("null", "[]")})
         self.assertTrue(all(frontend_valid(item) for item in result["items"]))
         self.assertFalse(recommendation.all_rejected(result))
         json.dumps(result, allow_nan=False)

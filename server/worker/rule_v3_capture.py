@@ -1,13 +1,14 @@
 """Rule v3 묶음 입력(approved-metadata-capture1.0) 작성. 주말 시험 키트의 사례 배치를 서비스 필드 6종만 옮겼다.
 
-한 필드 = 폴더 하나:
+결과 항목 1건(필드 × 범위 묶음) = 폴더 하나(`threshold_recommendation`이 `g<n>/case`로 만든다):
 
-    <field>/reference/{capture.json, PROCESS.csv, authority.json}    # 참조 = train 앞 80%(split "train")
-    <field>/application/{capture.json, PROCESS.csv, authority.json}  # 현재 = train 뒤 20%(split "application")
-    <field>/proposal.json, request.json, rule_plan.json
+    case/reference/{capture.json, PROCESS.csv, authority.json}    # 참조 = train 앞 80%(split "train")
+    case/application/{capture.json, PROCESS.csv, authority.json}  # 현재 = train 뒤 20%(split "application")
+    case/proposal.json, request.json, rule_plan.json
 
 - 표본: status=S, 명시 anomaly 라벨 제외(`threshold_recommendation.reference_sample`과 같음)
-- 분할: 원천 시각(END 먼저) 거래 묶음 → 블록 단위 80/20(`trainer.source_time.cut_reference_current`)
+- 분할: 원천 시각(END 먼저) 거래 묶음 → 블록 단위 80/20(`trainer.source_time.cut_reference_current`). 분할은 작업당
+  1회이고, 범위가 있는 묶음은 나눈 뒤 쪽마다 행을 Detector `in_scope`로 거른다(정규화 행의 `SCOPE_KEYS` 원래 값)
 - 보류 창: 번들 입장 검사가 거부하는 기간(9/30~10/2)과 겹치면 주말 시험 키트 export의 회피 규칙을 그대로 쓴다
   (`split_avoiding_held`). 겹치는 거래를 통째로 빼고 창 뒤쪽만, 안 되면 앞쪽만 남긴다. 뺀 행 수는 결과에 표시한다
 - 시각 열은 원문이 아니라 `process_source_time`으로 해석한 UTC 고정 형식, 숫자 열은 `derived_expression.number`.
@@ -30,6 +31,7 @@ from typing import Any, Iterable, Mapping, Sequence
 from zoneinfo import ZoneInfo
 
 from derived_expression import number as service_number
+from detector.soft_rules import SCOPE_COLUMNS
 from trainer.source_time import cut_reference_current, format_utc, group_by_transaction, process_source_time
 
 MINIMUM_N = 20
@@ -38,6 +40,9 @@ UNIT_POINTER = "/unit_count"
 TIME_COLUMNS = ("START_TIME", "END_TIME")
 COUNT_COLUMNS = {"TOTAL_COUNT": "total_count", "SUCCESS_COUNT": "success_count",
                  "ERROR_COUNT": "error_count", "RETRY_COUNT": "retry_count"}
+# 범위(scope) 대조 열(Detector `in_scope`와 같은 열). 정규화 행에 원래 값을 그대로(trim·변환 없이) 함께 둔다.
+# 소문자 키라 CSV 열(대문자)과 겹치지 않고 `write_capture`는 필드 열만 쓰므로 번들 입력에 들어가지 않는다.
+SCOPE_KEYS = tuple(column for _, column in SCOPE_COLUMNS)
 RAW_KEYS = {"START_TIME": "start_time_raw", "END_TIME": "end_time_raw", **COUNT_COLUMNS}
 AUTHORITY = {"unit_count": {"name": "count",
                             "meaning": "PROCESS counter unit declared by the service soft-rule field catalog (unit=count)."},
@@ -91,8 +96,9 @@ def eligible(raw: Mapping[str, Any], label_evidence: Any) -> bool:
     return raw.get("status") == "S" and label != "anomaly"
 
 
-def normalize_row(raw: Mapping[str, Any], source_tz: str | None) -> dict[str, str]:
-    out: dict[str, str] = {}
+def normalize_row(raw: Mapping[str, Any], source_tz: str | None) -> dict[str, Any]:
+    """번들 CSV 열 값(문자열) + 범위 대조용 원래 값(`SCOPE_KEYS`, 행에 있는 값 그대로)."""
+    out: dict[str, Any] = {key: raw.get(key) for key in SCOPE_KEYS}
     for column in TIME_COLUMNS:
         raw_value = raw.get(RAW_KEYS[column])
         value, _, _ = process_source_time(raw_value, None, source_tz) if column == "START_TIME" else \
@@ -316,7 +322,11 @@ def rule_plan_for(field: str) -> dict[str, Any]:
 
 
 def write_case(case_dir: Path, field: str, split: Mapping[str, Any], identity: Mapping[str, Any]) -> dict[str, Path]:
-    """필드 폴더 하나를 쓰고 번들에 넘길 경로를 돌려준다. 폴더가 이미 있으면 실패한다."""
+    """묶음 폴더 하나를 쓰고 번들에 넘길 경로를 돌려준다. 폴더가 이미 있으면 실패한다.
+
+    `split`의 행은 그 묶음 범위로 이미 거른 것이다. 폴더 경로는 번들 입력(프롬프트)에 들어가지 않고,
+    `identity`(dataset_id 등)는 번들 `source_version` hash를 거쳐 Rule 입력 ID에 반영된다.
+    """
     case_dir.mkdir(parents=True, exist_ok=False)
     for side, rows, period, name in (("reference", split["reference"], split["reference_period"], "train"),
                                      ("application", split["current"], split["current_period"], "application")):

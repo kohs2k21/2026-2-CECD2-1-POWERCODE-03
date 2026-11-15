@@ -12,7 +12,7 @@ import { useRuleSet } from "../useRuleSet";
 import { useRuleSetSave } from "../useRuleSetSave";
 import { readCandidateDetail, type CandidateDetail } from "./candidateApi";
 import { approvalRequest, approvedRelation, approvedThreshold } from "./candidateApproval";
-import { APPROVED_TEXT, NOT_APPROVABLE, approvalBlockedText, candidateErrorTitle, kindLabels, pathText, thresholdText } from "./candidateLabels";
+import { APPROVED_TEXT, approvalBlockedText, candidateErrorTitle, kindLabels, notApprovableText, pathText, thresholdText } from "./candidateLabels";
 
 /**
  * 규칙 추천 승인 흐름(rule-candidates-ui.md 7절) — 후보 상세와 규칙 추천 화면의 행 [승인]이 같이 쓴다.
@@ -88,15 +88,27 @@ export const submitApproval = (approval: ApprovalFlow, state: RuleSetState, deta
   }), `${SOFT_TERM} 승인 · ${detail.threshold.scope.processId}`);
 };
 
-/** 후보 상세 기준 승인 가능(상세 승인 줄과 같은 조건): 저장 형식이 열려 있고, 관계는 approvable, 처리 시간은 후보 상태 + 저장할 조건이 있음. */
+/** 후보 자체의 승인 가능: 관계는 approvable, 처리 시간은 후보 상태 + 저장할 조건이 있음(저장 형식과 무관). */
 const detailApprovable = (detail: CandidateDetail) =>
   detail.type === "relation" ? detail.relation.approvable : detail.threshold.status === "candidate" && detail.ruleDraft !== null;
+
+export type ApprovalBlock = { kind: "approved" | "blocked"; text: string };
+/**
+ * 승인을 막는 이유 한 줄(후보 상세 승인 줄과 목록 행 [승인]이 같이 쓴다). 순서: 승인됨 → 후보 기준 미달(겹침 거부면 그 사유) → 저장 형식 닫힘.
+ * 후보 자체의 이유를 저장 형식보다 먼저 보인다(형식이 열려도 승인할 수 없는 후보임을 알린다). null = 승인 가능(또는 승인됨 판단 전).
+ */
+export const approvalBlock = (detail: CandidateDetail, approved: boolean | null): ApprovalBlock | null => {
+  if (approved) return { kind: "approved", text: APPROVED_TEXT };
+  if (!detailApprovable(detail)) return { kind: "blocked", text: notApprovableText(detail.type === "threshold" ? detail.threshold.reason : null) };
+  if (!detail.approval.available) return { kind: "blocked", text: approvalBlockedText(detail.approval.reason) };
+  return null;
+};
 
 type RowNote = { candidateId: string; kind: "approved" | "blocked" | "error"; text: string };
 
 /**
  * 목록 행 [승인]: 목록 응답에는 저장할 조건(ruleDraft)이 없어 누르면 그 후보 상세(GET /api/rule-set/candidates/:id)를 읽고 상세와 같은 흐름을 연다.
- * 이미 같은 조건이 있으면(승인됨)·저장 형식이 닫혀 있으면·기준 미달이면 입력창을 열지 않고 그 행에 상세와 같은 문구를 보인다. 상세 조회 실패는 코드 그대로.
+ * 승인됨·기준 미달·저장 형식 닫힘(approvalBlock 순서)이면 입력창을 열지 않고 그 행에 상세와 같은 문구를 보인다. 상세 조회 실패는 코드 그대로.
  */
 export const useRowApproval = () => {
   const approval = useApproval();
@@ -110,9 +122,8 @@ export const useRowApproval = () => {
     approval.save.clearBanner();
     try {
       const detail = await readCandidateDetail(candidateId);
-      if (approvedDetail(approval.state, detail)) setNote({ candidateId, kind: "approved", text: APPROVED_TEXT });
-      else if (!detail.approval.available) setNote({ candidateId, kind: "blocked", text: approvalBlockedText(detail.approval.reason) });
-      else if (!detailApprovable(detail)) setNote({ candidateId, kind: "blocked", text: NOT_APPROVABLE });
+      const block = approvalBlock(detail, approvedDetail(approval.state, detail));
+      if (block) setNote({ candidateId, ...block });
       else setAsking(detail);
     } catch (error) {
       setNote({ candidateId, kind: "error", text: candidateErrorTitle(error, "후보 상세") });

@@ -1,5 +1,5 @@
 Created: 2026-11-12T21:40:00+09:00
-Updated: 2026-11-15T18:00:00+09:00
+Updated: 2026-11-15T21:00:00+09:00
 Author: Claude Code(WebUI builder)
 Status: current — 실험 기능(층 B). Trainer `relation_candidates.py`(결과 계약 `relation-candidates-experimental-2`)·Detector `relation-rules.md`에 맞춤
 
@@ -63,7 +63,7 @@ Status: current — 실험 기능(층 B). Trainer `relation_candidates.py`(결�
 ## 4. 처리 시간(이상 징후) 후보 항목
 
 - `candidateId`, `status`(`candidate`·`insufficient_evidence`·`no_variation`·`rejected`), `reason`, `scope{processId, adapterType?}`(Detector 4절 대조 키), `interfaceIds`(표시용), `operator`, `threshold`(JSON number 또는 null, 아래), `displayThreshold`, `unit`, `source`(`data_p95` = 코드가 계산한 기준 표본 p95, LLM 제안 아님), `evidence{n, rows, referenceRows, endTimeMissingReferenceRows, unavailableReferenceRows, p95, min, max, quantileMethod}`, `limitation`(Trainer 한계 문구 한 줄, 없으면 null). 새 Trainer 결과의 `limitationRefs`(내부 경로·식)와 `evidence.note`는 내보내지 않는다(옛·새 모양 모두 읽음)
-- `reason` `scope_overlaps_adapter_groups`(`status: rejected`): 같은 단계에 adapter별 후보가 있어, adapter 없는 범위 `{processId}`가 Detector에서 그 adapter 행까지 덮으므로 거부. `operator`·`threshold`·`displayThreshold`는 null, `evidence`는 그대로(정보). 겹침은 adapter별 후보의 상태와 무관하게 그 후보가 있으면 성립하고, 다른 판정(표본 부족·분산 없음)보다 먼저 본다
+- `reason` `scope_overlaps_adapter_groups`(`status: rejected`): 같은 단계에 adapter별 후보가 있어, adapter 없는 범위 `{processId}`가 Detector에서 그 adapter 행까지 덮으므로 거부. `operator`·`threshold`·`displayThreshold`는 null, `evidence`는 그대로(정보). 겹침은 adapter별 후보의 상태와 무관하게 그 후보가 있으면 성립하고, 다른 판정(표본 부족·분산 없음)보다 먼저 본다. 화면 문구(사용자 11/15): 승인 불가 줄 **"승인 불가 · 같은 단계에 어댑터별 후보가 있음"**(다른 승인 불가는 "승인 불가 · 후보 기준 미달" 그대로), 사유 이름 **"어댑터별 후보와 범위가 겹침(이 범위는 모든 어댑터에 적용됨)"**(`candidateLabels.ts` `notApprovableText`·`reasonLabels`)
 - `threshold`: Trainer 결과는 방법 카탈로그 `softRule.thresholdSerialization: "fixed-decimal-string"`대로 고정소수 **문자열**(`"704"`, worker `threshold_values.fixed_threshold`)이다. API는 룰 세트 저장 검증과 같은 규칙(40자·DSL 숫자 `-?(0|[1-9]\d*)(\.\d+)?`·유효숫자 15자리·정수 필드 정수·number 왕복 시 같은 문자열, worker `threshold_valid`)을 통과한 문자열만 **number로 바꿔** 낸다 — 왕복 불변이라 값 손실이 없고, `PUT /api/rule-set` 소프트룰 `threshold`(number)와 같은 형식이다. 옛 결과의 finite number도 그대로 읽는다. 규칙에 어긋난 문자열(`"1e3"`·`"+1"`·`"704.0"`·`""`·`"abc"`)·그 밖의 형식은 503 `rule_candidate_result_invalid`. 화면 표시는 `displayThreshold`(문자열)를 쓰고, 프론트 해석은 number·null 외 값을 응답 형식 오류로 본다
 
 ## 5. `GET /api/rule-set/candidates/:candidateId`
@@ -98,6 +98,7 @@ Status: current — 실험 기능(층 B). Trainer `relation_candidates.py`(결�
 - 두 필드는 **룰 세트 hash v3에서만** 저장한다(rule-set.md v3.7). **`approval.available = (CONTENT_HASH_VERSION >= 3)`** — API v3(이 브랜치)에서 `true`, 2로 되돌린 배포(첫 v3 행 전에만 가능)에서만 `false` + 사유 `rule_set_hash_v3_pending`
 - 화면 흐름: [승인] → 입력(관계: 위험도, 기본 위험 / 처리 시간: 이름·위험도, 기본 주의) → 서버 미리보기 확인창(변경 요약·`warnings[]` — 짝 없는 `message_handoff`면 `relation_handoff_without_precedes` 문장) → 저장 → 다시 읽기
 - **"승인됨"**: 별도 플래그 없이 현재 룰 세트에 같은 조건이 있으면 승인됨(단추 꺼짐). 관계 = rule-set.md v3.3 정규 객체의 `kind`·`scope`(required_step `{interfaceId}`, 그 밖 `adapterType`만)·`from`·`to`·`match`가 같음(표시용 `scope.interfaceId` 제외 — 서버 `relation_rule_condition_duplicate`와 같은 기준). 처리 시간 = 같은 `field` + 같은 `scope` 판정 키(`processId`·`adapterType`·`processHubId`)의 소프트룰이 있음(임계값은 비교하지 않음 — 범위가 같은 규칙은 룰 설정에서 임계값을 고친다)
+- **승인 불가 줄 순서**(후보 상세 승인 줄과 목록 행 [승인]이 같은 판단 `approvalFlow.tsx` `approvalBlock`): 승인됨 → 후보 기준 미달(겹침 거부면 4절 그 문구) → 저장 형식 닫힘(`아직 저장 불가 · …`). 후보 자체의 이유를 먼저 보인다(형식이 열려도 승인할 수 없는 후보)
 - 저장 거절(422 등)은 코드 그대로 안내, 운영 룰은 그대로
 
 ## 8. 화면 — 탐지 설정 › 룰 설정 › 규칙 추천
@@ -107,17 +108,18 @@ Status: current — 실험 기능(층 B). Trainer `relation_candidates.py`(결�
   - n(전체 인터페이스 합계, 인터페이스 선택과 무관, 현재 룰 세트에 이미 있는 것도 셈): 이상 징후 = `totals.thresholdApprovable`, 관계 규칙 = `totals.approvable`, 프로토콜 = 관측 경로 초안 인터페이스 중 `status: "draft"`(근거 부족 제외). 결과 없음은 0, 조회 전·실패는 `—`
 - 목록 `/detection/rules/candidates?tab=<anomaly|flow>&interface=<id>`
   - 머리: 제목 "규칙 추천", 설명 "후보 → 근거(숫자는 코드, 문장은 LLM) → 승인하면 룰 세트 새 버전으로 저장", 오른쪽 [후보 작업 요청](아래 절), 결과 머리(후보 작업 완료 시각·기준 기간·전체 건수, 결과 작업과 다른 최근 작업이 있으면 그 상태)
-  - 탭(URL 탭, `tab` 기본 `anomaly`, 잘못된 값은 replace): `이상 징후 · n`(이상 징후 n) / `실행 흐름 규칙 · n`(관계 규칙 n + 프로토콜 n)
+  - 탭(URL 탭, `tab` 기본 `anomaly`, 잘못된 값은 replace): `이상 징후 · n`(이상 징후 n) / `실행 흐름 규칙 · n`(관계 규칙 n + 프로토콜 n). 탭 이동·인터페이스 선택은 들어올 때 받은 `state`(`returnTo`)를 그대로 실어 상단 뒤로가기 대상이 바뀌지 않는다(공용 `LinkTabs` 선택 prop `state`)
+  - 하위 화면(후보 상세·프로토콜 상세·작업 상세)에 넘기는 돌아올 주소 = 지금 주소(경로 + 쿼리 + 해시 — `#recommend-relations` 등 들어온 구역으로 돌아온다)
   - 인터페이스 선택(주소 `interface`, 두 탭 공통. 처리 시간 후보·관계 후보 구역 위. 인터페이스가 수백 개일 수 있어 검색 선택: 트리거 `<ID> · 승인 가능 N` → 팝오버 검색 입력 `인터페이스 ID 검색`(부분 일치·대소문자 무시) + 목록(ID · 승인 가능 N, 받은 순서), 일치 없음 `일치하는 인터페이스가 없습니다.`)
 - **이상 징후 탭**: 카드 "이상 징후" 한 표(열 규칙(대상 필드) · 임계값 · 근거 · 상태 · 명령)에 두 묶음
-  - (a) **처리 시간(이상 징후) 후보**(Trainer 결과): 단계(→ 후보 상세)·어댑터·여러 인터페이스 공통 · 제안 임계값(근거 "기준 표본 p95(코드 계산)") · 근거(`근거 건수 n · END_TIME 없음 m` — Trainer 결과에 있는 값만, LLM 문장 없음) · 상태 + 배지(후보 상태이고 현재 룰 세트에 같은 조건(7절 처리 시간 기준)이 없으면 **"새 규칙"**, 있으면 "승인됨") · [승인](7절 흐름 — 목록 응답에 저장할 조건이 없어 누르면 후보 상세를 읽고 입력창을 연다. 이미 같은 조건이 있으면·저장 형식이 닫혀 있으면·기준 미달이면 입력창 없이 그 행에 상세와 같은 문구, 상세 조회 실패는 `후보 상세 조회 실패 · <코드>`). 표 아래 Trainer 한계 문구("한계(Trainer) · …"; 문구에 내부 경로(`.py` 또는 `trainer/foo`처럼 소문자·`_` 단어 뒤 `/`; `S/F`·`건/분`은 경로 아님)가 있으면(옛 결과) Trainer 새 결과 `limitation` 원문 전체인 고정 문장 "종료 시각(END_TIME)이 없는 실행은 처리 시간 계산에서 제외됩니다. 늦게 끝난 단계는 잡지만, 끝나지 않고 멈춘 단계는 잡지 못합니다."(`candidateLabels.ts` `END_TIME_LIMITATION`, 근거: Trainer 한계 + 화면에 내부 경로·식별자를 보이지 않는 문구 규칙)로 바꾸고 같은 문장은 한 번만)·인터페이스 없는 후보 수. 이상 징후 규칙이 0개이거나 룰 세트 조회가 실패해도 보인다(그때는 새 규칙·승인됨 판단 없이 [승인] 꺼짐)
+  - (a) **처리 시간(이상 징후) 후보**(Trainer 결과): 단계(→ 후보 상세)·어댑터·여러 인터페이스 공통 · 제안 임계값(근거 "기준 표본 p95(코드 계산)") · 근거(`근거 건수 n · END_TIME 없음 m` — Trainer 결과에 있는 값만, LLM 문장 없음) · 상태 + 배지(후보 상태이고 현재 룰 세트에 같은 조건(7절 처리 시간 기준)이 없으면 **"새 규칙"**, 있으면 "승인됨") · [승인](7절 흐름 — 목록 응답에 저장할 조건이 없어 누르면 후보 상세를 읽고 입력창을 연다. 승인됨·기준 미달·저장 형식 닫힘(7절 순서)이면 입력창 없이 그 행에 상세와 같은 문구, 상세 조회 실패는 `후보 상세 조회 실패 · <코드>`. 겹침 거부 행은 [승인]이 꺼져 있어 그 승인 불가 줄(4절)을 처음부터 보인다 — 승인됨이면 승인됨이 먼저). 표 아래 Trainer 한계 문구("한계(Trainer) · …"; 문구에 내부 경로(`.py` 또는 `trainer/foo`처럼 소문자·`_` 단어 뒤 `/`; `S/F`·`건/분`은 경로 아님)가 있으면(옛 결과) Trainer 새 결과 `limitation` 원문 전체인 고정 문장 "종료 시각(END_TIME)이 없는 실행은 처리 시간 계산에서 제외됩니다. 늦게 끝난 단계는 잡지만, 끝나지 않고 멈춘 단계는 잡지 못합니다."(`candidateLabels.ts` `END_TIME_LIMITATION`, 근거: Trainer 한계 + 화면에 내부 경로·식별자를 보이지 않는 문구 규칙)로 바꾸고 같은 문장은 한 번만)·인터페이스 없는 후보 수. 이상 징후 규칙이 0개이거나 룰 세트 조회가 실패해도 보인다(그때는 새 규칙·승인됨 판단 없이 [승인] 꺼짐)
   - (b) **이상 징후 규칙**(기존 규칙의 임계값 재추천): 규칙(이름·대상 필드) · 현재 조건·임계값(룰 설정 편집 초안 값, 바뀐 값 강조) · `—` · 켜짐/꺼짐 · [수식 추천](규칙 행에서 옮김, rules-ui.md "수식 추천" 절 그대로)
   - 카드 머리 [AI 규칙 추천](이상 징후 규칙 머리에서 옮김, rules-ui.md "AI 규칙 추천" 절 그대로 — LLM 꺼짐 표기 `AI 규칙 추천 · <코드>`, 진행률 `처리 n/전체`, 기준·근거, 결과 표 → [적용])
   - [적용](AI·수식)은 전과 같이 **룰 설정 입력칸만** 채운다: 룰 설정 편집 초안(세션 초안 저장소, 룰 설정 화면이 들어올 때 이어 씀)에 값을 넣고 서버에 저장하지 않는다. 저장은 룰 설정 저장 줄. 초안에 미저장 변경이 있으면 AI 규칙 추천은 `저장 후 추천`(대상은 저장된 버전)
 - **실행 흐름 규칙 탭**: 두 구역
   - **경로(정상 프로토콜)**(`#recommend-paths`): 관측 경로 초안 상태 줄(protocol-settings-ui.md 2절 — 조회 중·조회 실패 코드·초안 없음 사유·`관측 경로 초안 · 후보 작업 완료 … · 기준 기간 …`) + 검색(인터페이스 ID 부분 일치) + 표(인터페이스 · 허용 경로 수(등록 항목) · 상태(켜짐/꺼짐/미등록) · 학습 기간 관측(경로 N개 · 거래 M건 · 근거 부족)). 행 = 초안의 인터페이스, 행 → 프로토콜 상세 `/detection/rules/protocols/:interfaceId`(돌아올 곳 = 이 탭). 경로 선택·승인 저장·LLM 경로 설명은 상세의 기존 흐름 그대로
   - **단계 조건(관계 규칙)**(`#recommend-relations`): 인터페이스 선택 + 패턴 그래프(React Flow + dagre, 실행 순서 보기와 같은 상자·노드 폭, 읽기 전용) — 노드 = 단계 ID·어댑터·관측 거래 수, 간선 = `precedes`만, 이름 = 선행 충족률 + 후보 표(종류 · 경로·단계 · 어댑터 · 적용 · 충족 · 위반 · 보류 · 충족률 · 상태 · 승인 가능 · [승인](처리 시간 행과 같은 흐름, 승인 가능이 아니면 꺼짐))
-- 상세 `/detection/rules/candidates/:candidateId`: 건수·충족률·판정 시점, 사유별 건수, 대표 반례(→ 판정 상세 "실행 순서 보기", 판정 없으면 "판정 없음"), 짝 선행 관계 링크, 승인 시 저장할 조건, [승인](7절 흐름, 승인됨이면 꺼짐). 상단 뒤로가기 = 넘겨받은 목록 주소(없으면 룰 설정)
+- 상세 `/detection/rules/candidates/:candidateId`: 건수·충족률·판정 시점, 사유별 건수, 대표 반례(→ 판정 상세 "실행 순서 보기", 판정 없으면 "판정 없음"), 짝 선행 관계 링크, 승인 시 저장할 조건, [승인](7절 흐름, 승인됨이면 꺼짐, 승인 불가 줄은 7절 순서). 처리 시간 후보의 사유 칸은 사유 이름(4절, 모르는 값은 코드 그대로). 상단 뒤로가기 = 넘겨받은 목록 주소(없으면 룰 설정)
 - 용어 근거: 종류 이름 "필수 단계·선행 관계·허용 분기·메시지 인계"(relation-rules.md 2절 kind의 화면 이름), 상태 기준 Trainer `candidate_status`(30건·99%·95%), 건수 이름 "적용·충족·위반·보류"(Trainer `applicable`·`satisfied`·`violated`·`undetermined`의 화면 이름), 판정 시점 Detector 2절 `evaluatedAt`
 - `message_handoff`이고 `pairApprovable:false`이면 문장 "짝 선행 규칙이 없어 선행이 다르면 인계를 확인하지 않습니다."(Detector 4절 경고 문장 그대로)
 - 충족률 표기: 한 자리 내림(99.96% → "99.9%"), 0과 1 사이 값은 0.1%~99.9%, 정확히 0·1만 "0%"·"100%"

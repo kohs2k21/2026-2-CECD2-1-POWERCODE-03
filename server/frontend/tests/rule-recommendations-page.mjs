@@ -625,5 +625,80 @@ const tabLinks = (app) => app.renderer.root.findAll((node) => node.type === "nav
     && none.renderer.root.findAll((node) => node.type === "a" && node.props["data-recommend-link"]).length === 3, "zero counts");
   await none.cleanup();
 }
+// 8) 겹침 거부(Trainer scope_overlaps_adapter_groups, 사용자 11/15 문구): 행·상세 같은 승인 불가 줄, 사유 이름표. 승인 불가 줄 순서는 행·상세 공통
+//    (승인됨 → 기준 미달·겹침 → 저장 형식 닫힘).
+{
+  const OVERLAP = "승인 불가 · 같은 단계에 어댑터별 후보가 있음";
+  const overlap = threshold(3, "P4", { status: "rejected", reason: "scope_overlaps_adapter_groups", scope: { processId: "P4" }, operator: null, threshold: null, displayThreshold: null });
+  const list = listBody();
+  list.result.thresholdCandidates.push(overlap);
+  const closed = { available: false, reason: "rule_set_hash_v3_pending", contentHashVersion: 2 };
+  routes = baseRoutes({
+    "GET /api/rule-set/candidates": () => json(list),
+    [`GET /api/rule-set/candidates/${JOB}.t3`]: () => json({ ...head, isLatest: true, approval: closed, type: "threshold", threshold: overlap, ruleDraft: null }),
+    // 목록은 저장 형식이 열려 있지만 상세에서 기준 미달 + 형식 닫힘: 기준 미달이 먼저.
+    [`GET /api/rule-set/candidates/${JOB}.r0`]: () => json({ ...relationDetail, approval: closed, relation: { ...relationDetail.relation, status: "not_candidate", approvable: false } }),
+  });
+  assert.equal(labels.notApprovableText("scope_overlaps_adapter_groups"), OVERLAP);
+  assert.equal(labels.notApprovableText(null), labels.NOT_APPROVABLE, "other cases keep the existing sentence");
+  assert.equal(labels.reasonText("scope_overlaps_adapter_groups"), "어댑터별 후보와 범위가 겹침(이 범위는 모든 어댑터에 적용됨)");
+  const app = await mount(HUB);
+  await wait(() => byData(app, "data-threshold-row").length === 4, "overlap row listed");
+  const t3 = rowOf(app, "data-threshold-row", `${JOB}.t3`);
+  assert.equal(rowButton(t3, "승인").props.disabled, true);
+  assert.equal(text(t3.findAll((node) => node.props["data-row-approve-note"] !== undefined && typeof node.type === "string")[0].children), OVERLAP, "row shows the overlap reason");
+  assert.ok(text(t3.children).includes("모든 어댑터") && text(t3.children).includes("제외"));
+  const t2 = rowOf(app, "data-threshold-row", `${JOB}.t2`);
+  assert.equal(t2.findAll((node) => node.props["data-row-approve-note"] !== undefined && typeof node.type === "string").length, 0, "insufficient evidence row unchanged");
+  await act(async () => app.router.navigate(`${HUB}?tab=flow`));
+  await wait(() => byData(app, "data-candidate-row").length === 3 && rowButton(rowOf(app, "data-candidate-row", `${JOB}.r0`), "승인").props.disabled === false, "flow rows");
+  await act(async () => rowButton(rowOf(app, "data-candidate-row", `${JOB}.r0`), "승인").props.onClick());
+  await wait(() => byData(app, "data-row-approve-note").length === 1, "row note after detail read");
+  assert.equal(text(byData(app, "data-row-approve-note")[0].children), labels.NOT_APPROVABLE, "row order: below criteria before the closed storage format (same as detail)");
+  await app.cleanup();
+  // 상세: 저장 형식이 닫혀 있어도 겹침 사유가 먼저, 사유 칸은 이름표.
+  const detail = await mount(`${HUB}/${JOB}.t3`);
+  await wait(() => byData(detail, "data-approve-bar").length === 1, "overlap detail");
+  assert.ok(text(byData(detail, "data-approve-bar")[0].children).includes(OVERLAP), text(byData(detail, "data-approve-bar")[0].children));
+  assert.ok(!text(byData(detail, "data-approve-bar")[0].children).includes("저장 불가"));
+  assert.equal(detail.button("승인").props.disabled, true);
+  assert.ok(detail.shown().includes("사유어댑터별 후보와 범위가 겹침(이 범위는 모든 어댑터에 적용됨)") && !detail.shown().includes("scope_overlaps_adapter_groups"));
+  await detail.cleanup();
+  const relationBlocked = await mount(`${HUB}/${JOB}.r0`);
+  await wait(() => byData(relationBlocked, "data-approve-bar").length === 1, "relation detail");
+  assert.ok(text(byData(relationBlocked, "data-approve-bar")[0].children).includes(labels.NOT_APPROVABLE), "detail: same order as the row");
+  await relationBlocked.cleanup();
+}
+
+// 9) 뒤로가기: 탭을 바꿔도 들어올 때 받은 돌아올 주소 유지, 하위 화면으로 넘기는 돌아올 주소에 지금 구역 해시 포함
+{
+  routes = baseRoutes({ [`GET /api/rule-set/candidates/${JOB}.r0`]: () => json(relationDetail) });
+  const click = (node) => act(async () => node.props.onClick({ button: 0, metaKey: false, altKey: false, ctrlKey: false, shiftKey: false, defaultPrevented: false, preventDefault() { this.defaultPrevented = true; } }));
+  const backHref = (app) => app.renderer.root.findAll((node) => node.type === "a" && String(node.props["aria-label"] ?? "").startsWith("뒤로"))[0]?.props.href;
+  const entry = `${HUB}?tab=flow#recommend-relations`;
+  const app = await mount({ pathname: HUB, search: "?tab=flow", hash: "#recommend-relations", state: { returnTo: "/detection/rules#rules-relation" } });
+  await wait(() => byData(app, "data-candidate-row").length === 3 && byData(app, "data-path-row").length === 3, "flow tab from the relation card");
+  const pathLink = rowOf(app, "data-path-row", "IF_SYN_ORDER").findAll((node) => typeof node.type !== "string" && node.props.to === "/detection/rules/protocols/IF_SYN_ORDER")[0];
+  assert.deepEqual(pathLink.props.state, { returnTo: entry }, "protocol detail returns to this section");
+  // 탭 이동(링크 클릭) 전후 상단 뒤로가기 = 들어온 카드.
+  assert.equal(backHref(app), "/detection/rules#rules-relation");
+  await click(tabLinks(app)[0]);
+  await wait(() => at(app.router) === `${HUB}?tab=anomaly`, "anomaly tab");
+  assert.deepEqual(app.router.state.location.state, { returnTo: "/detection/rules#rules-relation" }, "tab switch keeps the incoming state");
+  assert.equal(backHref(app), "/detection/rules#rules-relation", "back target kept after a tab switch");
+  await click(tabLinks(app)[1]);
+  await wait(() => at(app.router) === `${HUB}?tab=flow`, "flow tab again");
+  assert.equal(backHref(app), "/detection/rules#rules-relation");
+  await app.cleanup();
+  // 구역 해시로 들어와 후보 상세로 → 상세 뒤로가기는 그 구역(해시 포함).
+  const again = await mount({ pathname: HUB, search: "?tab=flow", hash: "#recommend-relations", state: { returnTo: "/detection/rules#rules-relation" } });
+  await wait(() => byData(again, "data-candidate-row").length === 3, "flow rows");
+  const link = rowOf(again, "data-candidate-row", `${JOB}.r0`).findAll((node) => node.type === "a" && node.props.href === `${HUB}/${JOB}.r0`)[0];
+  await click(link);
+  await wait(() => at(again.router) === `${HUB}/${JOB}.r0`, "candidate detail");
+  assert.equal(backHref(again), entry, "detail back returns to the section with its hash");
+  await again.cleanup();
+}
+
 console.log("rule recommendations page tests passed");
 process.exit(0);

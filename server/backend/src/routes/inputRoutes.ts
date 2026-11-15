@@ -2,6 +2,7 @@ import {Router,Request,Response,NextFunction} from 'express';
 import crypto from 'node:crypto';
 import {getDatabasePool} from '../config/database.js';
 import {authenticateToken,requireAdmin,AuthenticatedRequest} from '../middleware/auth.js';
+import {LEGACY_CONFIG_REFUSED,legacyConfigRefused} from '../services/legacyConfig.js';
 const router=Router();
 router.use(authenticateToken as any,requireAdmin as any);
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -19,8 +20,10 @@ router.get('/',route(async(req,res)=>{
    FROM ops_input_controls c LEFT JOIN ops_input_runs r ON r.id=c.run_id WHERE c.source_id=$1`,[sid]);
  const replays=await pool.query(`SELECT id,replay_key AS "replayKey",record_count::float8 AS "recordCount",layer_counts AS "layerCounts"
    FROM data_input_replays WHERE source_id=$1 AND status='ready' ORDER BY created_at DESC LIMIT 50`,[sid]);
+ // 고정 후보는 schemaVersion 1·2만(services/legacyConfig.ts LEGACY_CONFIG_SCHEMA_VERSIONS와 같은 범위). v3는 활성 집합으로만 운영한다.
  const configs=await pool.query(`SELECT c.id,c.configuration_spec->'detectionPolicy'->>'mode' AS mode,c.created_at AS "createdAt"
-   FROM ml_config_versions c WHERE source_id=$1 ORDER BY created_at DESC LIMIT 50`,[sid]);
+   FROM ml_config_versions c WHERE source_id=$1 AND configuration_spec->'schemaVersion' IN ('1'::jsonb,'2'::jsonb)
+   ORDER BY created_at DESC LIMIT 50`,[sid]);
  const counts=await pool.query('SELECT layer::text,count(*)::integer AS count FROM data_observations WHERE source_id=$1 GROUP BY layer',[sid]);
  const resume=await pool.query("SELECT settings,next_position::float8 AS position,status FROM ops_input_runs WHERE source_id=$1 AND mode='csv' AND status<>'failed' ORDER BY created_at DESC LIMIT 1",[sid]);
  res.json({storedCounts:Object.fromEntries(counts.rows.map(r=>[r.layer,r.count])),csvResume:resume.rows[0]??null,enabled:state.rowCount===1,sourceId:sid,control:state.rows[0]??null,replays:replays.rows,configurations:configs.rows});
@@ -43,6 +46,9 @@ router.post('/:sourceId/mode',route(async(req,res)=>{
   if(Number(state.revision)!==b.expectedRevision)throw new InputError('input_revision_conflict',409);
   const config=b.configVersionId===undefined?state.config_version_id:b.configVersionId;
   if(config && !(await client.query('SELECT 1 FROM ml_config_versions WHERE id=$1 AND source_id=$2',[config,sid])).rowCount)throw new InputError('input_config_source_mismatch',409);
+  // 고정 구성은 v03 경로로 판정되므로 schemaVersion 1·2만 받는다(v3는 활성 집합으로만). null(운영 구성 선택)은 그대로.
+  // 기존 고정을 유지한 채 일시정지하는 요청은 검사하지 않는다(이미 v3가 고정된 원천도 멈출 수 있어야 한다). 새로 지정하는 구성은 항상 검사한다.
+  if(config && (b.mode!=='paused' || b.configVersionId!==undefined) && await legacyConfigRefused(client,config))throw new InputError(LEGACY_CONFIG_REFUSED,422);
   if(b.mode==='csv' && !(await client.query("SELECT 1 FROM data_input_replays WHERE id=$1 AND source_id=$2 AND status='ready'",[settings.replayId,sid])).rowCount)throw new InputError('csv_replay_not_ready',409);
   if(state.run_id)await client.query("UPDATE ops_input_runs SET status='paused' WHERE id=$1 AND status='running'",[state.run_id]);
   let run=state.run_id;

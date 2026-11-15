@@ -14,8 +14,8 @@ const DISPLAY_NAME_MAX = 120;
 /** 활성 포함 총 상한(config-comparison-evaluation.md Q-L=A). */
 export const COMPARISON_MAX_CONFIGS = 8;
 /**
- * 비교할 수 있는 구성 schemaVersion. 지금 저장되는 모델 버전은 v1·v2이고(학습 요청이 v1 정책을 보냄), 운영 적용 gate도 v1·v2만 받는다.
- * 그래서 v1 구현은 1·2·3 + 모델 행 1개를 받는다(config-comparison-evaluation.md v1 구현 범위). v3만 받게 바꿀 때는 이 값만 고친다.
+ * 비교할 수 있는 구성 schemaVersion. 새 학습은 v3 모델 버전을 만들고(학습 요청이 v3 형식), 이전 v1·v2 버전도 남아 있다. 활성 집합 gate도
+ * 1·2·3을 받으므로 v1 구현은 1·2·3 + 모델 행 1개를 받는다(config-comparison-evaluation.md v1 구현 범위). v3만 받게 바꿀 때는 이 값만 고친다.
  */
 export const COMPARABLE_SCHEMA_VERSIONS: readonly number[] = [1, 2, 3];
 export const RECOMMENDATIONS_NOT_IMPLEMENTED = 'not_implemented_v1';

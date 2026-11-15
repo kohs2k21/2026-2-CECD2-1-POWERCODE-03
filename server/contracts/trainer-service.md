@@ -1,5 +1,5 @@
 Created: 2026-10-17T01:49:42+09:00
-Updated: 2026-11-15T12:00:00+09:00
+Updated: 2026-11-15T12:45:00+09:00
 Author: Claude Code (Trainer 세션 builder)
 Status: current
 
@@ -13,16 +13,17 @@ Status: current
 - 폐지 종류 `recommend_feature`·`recommend_rule`: 남은 작업은 워커가 실행 없이 `failed`·`job_kind_abolished`로 끝냄(재시도 없음, [llm-recommendation-job.md](llm-recommendation-job.md))
 - terminal failed 재실행: 새 idempotency key로 명시적 새 요청; 같은 key·같은 본문은 기존 job 반환, 다른 본문은 409
 - Web 멱등키: sessionStorage 정상 시 새로고침 후 재사용, 저장 실패 시 현재 페이지의 메모리에서만 유지; 저장 실패 후 새로고침한 경우 작업 이력 확인 후 재실행 여부 결정
-- 현행 갱신(Issue #128, 11/05): API가 카탈로그를 읽어 `methodCatalog`·`models`를 노출하고 `modelKey`·`parameters`를 접수 단계에서 검증한다(요청·발견 API 절). `esb_occurred_at`은 워커 지원 전이라 접수하지 않는다. `excludedIntervals`는 워커가 모델 버전(v3) 학습에 적용하고(아래 선정 정책 v2 절), API 접수는 `TRAINING_EXCLUSION_SUPPORTED`가 false인 동안 막혀 있다([models-ui.md](models-ui.md))
+- 현행 갱신(Issue #128, 11/05): API가 카탈로그를 읽어 `methodCatalog`·`models`를 노출하고 `modelKey`·`parameters`를 접수 단계에서 검증한다(요청·발견 API 절). `esb_occurred_at`은 워커 지원 전이라 접수하지 않는다. `excludedIntervals`는 워커가 모델 버전(v3) 학습에 적용하고(아래 선정 정책 v2 절), API는 `TRAINING_EXCLUSION_SUPPORTED=true`로 v3 train 요청에서 접수한다(학습 범위 항목, [models-ui.md](models-ui.md))
 - 현행 갱신(Issue #116, 11/04 — #111 병합 반영): 워커의 카탈로그 기준 `modelKey`·`parameters` 검증과 오류 코드(요청·발견 API 절), `sr*` 셀 영구 `not_applicable`/`sr_removed`(완료 결과 절), `training_settings` 확장(학습·전처리 절). API 쪽 선차단 전환·`parameters` 전달은 API 구현 단계 몫 [제안]
 
 ## 요청·발견 API
 
-- `GET /api/jobs/capabilities`: `contractVersion`, `methodCatalog`(`contracts/method-catalog.json` 전체, #128), `models[{key,displayName,supported}]`(`methods[]`에서 파생, `supported := executable.process`), `evaluationFamilies`, `fittedFeatures`, `snapshot`, `training.excludedIntervals`(학습 제외 구간 접수 가능 여부, #128 추가. 지금 false)
+- `GET /api/jobs/capabilities`: `contractVersion`, `methodCatalog`(`contracts/method-catalog.json` 전체, #128), `models[{key,displayName,supported}]`(`methods[]`에서 파생, `supported := executable.process`), `evaluationFamilies`, `fittedFeatures`, `snapshot`, `training.excludedIntervals`(학습 제외 구간 접수 가능 여부, #128 추가. 지금 true)
 - 모델 — API 현행(`jobRoutes.ts`, #128): 접수 단계에서 워커와 같은 카탈로그·같은 코드로 검증한다 — 카탈로그에 없는 키 422 `unsupported_model`, 실행 불가 422 `method_not_executable:<methodId>`, `parameterSchema` 위반 422 `method_parameters_invalid:<methodId>`. `parameters`는 `input_spec`으로 그대로 전달하고 `null`·생략은 키를 남기지 않는다. `modelKey` 생략 시 기존 IF
 - 모델 — 워커 현행 [#111 구현]: `trainer/runner.py`가 큐의 `input_spec`을 `methods.registry.resolve_training_method`로 카탈로그 기준 재검증 — 카탈로그에 없는 `modelKey` → `unsupported_model`, 등록됐지만 `executable.process=false` → `method_not_executable:<methodId>`, `parameters`가 카탈로그 `parameterSchema` 위반 → `method_parameters_invalid:<methodId>`(작업 `failed`의 `errorCode`, 형식 `코드` 또는 `코드:식별자`). `modelKey`·`parameters` 생략은 IF 기본값(확정 파라미터는 `training_settings.parameters`에 기록)
-- 학습 범위 — API 현행(#128): `timeBasis`는 `persisted_at`만 접수하고(키 생략과 같음) `esb_occurred_at`은 422 `config_schema_not_supported_yet`, `excludedIntervals`는 형식 검사 뒤 같은 코드로 거절한다(`TRAINING_EXCLUSION_SUPPORTED=false`). 워커는 `esb_occurred_at`을 아직 적용하지 않고, `excludedIntervals`는 모델 버전(v3) 학습만 적용한다 — v1·v2 구성 경로(`detectionPolicy`가 있는 요청)는 워커도 `config_schema_not_supported_yet`으로 끝낸다(무시해서 제외되지 않은 채 성공하지 않게)([models-ui.md](models-ui.md))
-- `rule_only`: modelKey 생략 필수; 지정 시 422 `model_not_selected`(API·워커 같은 코드). 워커는 카탈로그 검증을 `model_not_selected` 검사보다 먼저 수행하므로 **`rule_only` 요청에 잘못된 `parameters`가 있어도 `method_parameters_invalid:<methodId>`로 거절**(#111 동작)
+- 요청 형식 — API 현행: 기간 지정 train에 v3 키(`modelKey`·`parameters`·`excludedIntervals`·`timeBasis`)가 하나라도 있으면 모델 버전(v3) 학습 요청이고, `detectionPolicy` 키가 있으면 400 `invalid_detection_policy`, `ruleVersionIds` 키가 있으면 400 `invalid_job_request`([model-version.md](model-version.md) 생성 경로 (A)). `input_spec`에 `modelKey`를 항상 싣는다(생략이면 `iforest`). v3 키가 없는 요청은 지금처럼 `detectionPolicy` 필수(400 `detection_policy_required`)이고 v1·v2 구성 경로로 간다. 화면은 v3 요청만 보낸다
+- 학습 범위 — API 현행: `timeBasis`는 `persisted_at`만 접수하고(키 생략과 같음) `esb_occurred_at`은 422 `config_schema_not_supported_yet`. `excludedIntervals`는 형식 검사(아래 `excludedIntervals[]` 행의 400 코드, 형식 위반·`null`은 `invalid_job_request`) 뒤 UTC·`reasonCode` 기본 `other`·`note` 기본 `null`로 `input_spec`에 싣는다(`TRAINING_EXCLUSION_SUPPORTED=true`; false로 돌리면 형식 검사 뒤 422 `config_schema_not_supported_yet`). `excludedIntervals`는 v3 키라 v1·v2 구성 경로로 들어가지 않는다. 워커는 `esb_occurred_at`을 아직 적용하지 않고, `excludedIntervals`는 모델 버전(v3) 학습만 적용한다 — v1·v2 구성 경로(`detectionPolicy`가 있는 요청)는 워커도 `config_schema_not_supported_yet`으로 끝낸다(무시해서 제외되지 않은 채 성공하지 않게)([models-ui.md](models-ui.md))
+- `rule_only`: v1 형식에 한함. `modelKey`·`parameters`는 v3 키라 `rule_only` 정책과 함께 오면 API는 400 `invalid_detection_policy`로 거절한다. 워커(큐에 직접 들어온 입력)는 지금처럼 `modelKey` 지정 시 `model_not_selected`, 잘못된 `parameters`는 카탈로그 검증이 먼저라 `method_parameters_invalid:<methodId>`(#111 동작)
 - `GET /api/jobs/feature-sets?sourceId=<uuid>`: `scope=global_registered_catalog`, sourceId, hasMore, items
 - items: `{id, contentHash, featureNames: string[], supported: boolean, reason: string|null}`; 등록된 공통 피처 카탈로그, 출처별 데이터 존재·학습 가능성 보장 아님
 - train 접수 시 피처 이름·연산·깊이·타입/단위·requires_fit 검사; 미지원 정의 422, rule_only의 fit 필요 피처 422

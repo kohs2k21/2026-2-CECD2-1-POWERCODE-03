@@ -157,8 +157,11 @@ def verify(service, conn, spec):
     assert any(x['id']==spec['featureSetId'] and x['supported'] for x in catalog['items'])
     assert request('/api/jobs/feature-sets?sourceId='+str(uuid.uuid4()))[0]==404
     assert service.request('/api/jobs',spec,service.user)[0]==403
-    assert request('/api/jobs',{**spec,'modelKey':'kmeans'})[0]==422
-    assert request('/api/jobs',{**spec,'modelKey':'iforest','detectionPolicy':{'mode':'rule_only','deadlineMs':1000,'combination':'selected_path'}})[0]==422
+    # v3 키(modelKey 등)가 있으면 모델 버전 학습이라 detectionPolicy를 받지 않는다(model-version.md 생성 경로 (A)).
+    v3={key:value for key,value in spec.items() if key!='detectionPolicy'}
+    assert request('/api/jobs',{**v3,'modelKey':'kmeans'})[0]==422
+    mixed=request('/api/jobs',{**spec,'modelKey':'iforest','detectionPolicy':{'mode':'rule_only','deadlineMs':1000,'combination':'selected_path'}})
+    assert mixed[0]==400 and mixed[1]['code']=='invalid_detection_policy',mixed
     before=conn.execute('SELECT * FROM ops_system_state').fetchall();conn.commit()
     key=str(uuid.uuid4())
     status,first=request('/api/jobs',spec,key)
@@ -166,7 +169,7 @@ def verify(service, conn, spec):
     identifier=first['id']
     duplicate_status,duplicate=request('/api/jobs',spec,key)
     assert duplicate_status==200 and duplicate['id']==identifier and duplicate['inputSpec']==first['inputSpec']
-    assert request('/api/jobs',{**spec,'modelKey':'iforest'},key)[0]==409
+    assert request('/api/jobs',{**spec,'detectionPolicy':{**spec['detectionPolicy'],'deadlineMs':29000}},key)[0]==409
     assert service.request('/api/jobs/'+identifier,token=service.user)[0]==404
     assert conn.execute("SELECT count(*) FROM powercode_queue.training_jobs WHERE payload->>'jobId'=%s",(identifier,)).fetchone()[0]==1;conn.commit()
     service.worker()

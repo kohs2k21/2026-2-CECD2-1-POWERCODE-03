@@ -69,7 +69,7 @@ try {
   const capabilities = (await get('/api/jobs/capabilities')).body;
   assert.deepEqual(capabilities.methodCatalog, catalog);
   assert.deepEqual(capabilities.models.map((model) => [model.key, model.supported]), [['iforest', true], ['minibatch_kmeans', false], ['eif', false]]);
-  assert.deepEqual(capabilities.training, { excludedIntervals: false });
+  assert.deepEqual(capabilities.training, { excludedIntervals: true });
 
   // 거래량: ESB 시각 기준, 실행별 최신 revision, 시각 없음 분리, 상태별 건수, 빈 버킷 0
   const sourceId = await seedRuleSetSource(pool, 'models');
@@ -240,8 +240,10 @@ try {
     VALUES($1,$2,1,'Error count','test','{"op":"field","field":"P.error_count"}','decimal','{}','{}',false,$3,'fixture',clock_timestamp())`, [featureVersionId, `k_${featureVersionId.replaceAll('-', '')}`, sha(featureVersionId)]);
   await pool.query(`INSERT INTO ml_feature_set_members(feature_set_id,feature_version_id,model_input,output_position,output_name,transform_settings)
     VALUES($1,$2,true,0,'error_count','{}')`, [featureSetId, featureVersionId]);
+  // 화면이 보내는 모델 버전(v3) 학습 요청: 정책은 운영 설정 전역 값이라 보내지 않는다(model-version.md 생성 경로 (A)).
   const train = { kind: 'train', sourceId, from: '2026-09-30T15:00:00.000Z', until: '2026-10-01T15:00:00.000Z', featureSetId,
-    detectionPolicy: { mode: 'ml_only', deadlineMs: 3000, combination: 'selected_path' }, modelKey: 'iforest', parameters: { n_estimators: 64, random_state: 7 } };
+    modelKey: 'iforest', parameters: { n_estimators: 64, random_state: 7 } };
+  const legacyPolicy = { mode: 'ml_only', deadlineMs: 3000, combination: 'selected_path' };
   const post = (body, token = admin, key) => call('/api/jobs', { method: 'POST', token, body, key });
   const refused = async (extra, status, code) => {
     const response = await post({ ...train, ...extra });
@@ -255,14 +257,15 @@ try {
   await refused({ parameters: { n_estimators: 1 } }, 422, 'method_parameters_invalid:ml:iforest');
   await refused({ parameters: { unknown: 1 } }, 422, 'method_parameters_invalid:ml:iforest');
   await refused({ parameters: 'x' }, 422, 'method_parameters_invalid:ml:iforest');
-  await refused({ detectionPolicy: { mode: 'rule_only', deadlineMs: 3000, combination: 'selected_path' } }, 422, 'model_not_selected');
-  await refused({ modelKey: undefined, detectionPolicy: { mode: 'rule_only', deadlineMs: 3000, combination: 'selected_path' }, parameters: { n_estimators: 1 } }, 422, 'method_parameters_invalid:ml:iforest');
+  await refused({ detectionPolicy: legacyPolicy }, 400, 'invalid_detection_policy');
+  await refused({ detectionPolicy: { mode: 'rule_only', deadlineMs: 3000, combination: 'selected_path' } }, 400, 'invalid_detection_policy');
+  await refused({ modelKey: undefined, detectionPolicy: { mode: 'rule_only', deadlineMs: 3000, combination: 'selected_path' }, parameters: { n_estimators: 1 } }, 400, 'invalid_detection_policy');
+  await refused({ ruleVersionIds: [] }, 400, 'invalid_job_request');
+  await refused({ modelKey: undefined, parameters: undefined }, 400, 'detection_policy_required');
   await refused({ timeBasis: 'decided_at' }, 400, 'invalid_job_request');
   await refused({ timeBasis: 'esb_occurred_at' }, 422, 'config_schema_not_supported_yet');
   const inside = { from: '2026-10-01T00:00:00Z', until: '2026-10-01T01:00:00Z' };
-  await refused({ excludedIntervals: [inside] }, 422, 'config_schema_not_supported_yet');
-  await refused({ excludedIntervals: [] }, 422, 'config_schema_not_supported_yet');
-  await refused({ excludedIntervals: [{ ...inside, reasonCode: 'known_incident', note: null }] }, 422, 'config_schema_not_supported_yet');
+  await refused({ excludedIntervals: null }, 400, 'invalid_job_request');
   await refused({ excludedIntervals: [{ from: '2026-09-01T00:00:00Z', until: '2026-09-02T00:00:00Z' }] }, 400, 'excluded_interval_out_of_range');
   await refused({ excludedIntervals: [inside, { from: '2026-10-01T00:30:00Z', until: '2026-10-01T02:00:00Z' }] }, 400, 'excluded_interval_overlap');
   await refused({ excludedIntervals: [{ ...inside, reasonCode: 'other_reason' }] }, 400, 'invalid_job_request');
@@ -287,10 +290,29 @@ try {
   const read = await get(`/api/jobs/${accepted.body.id}`);
   assert.equal(read.body.status, 'queued');
   assert.equal(read.body.attemptCount, 0);
-  const explicit = await post({ ...train, timeBasis: 'persisted_at', parameters: null });
+  assert.equal('detectionPolicy' in accepted.body.inputSpec, false, 'v3 input carries no policy');
+  assert.equal('ruleVersionIds' in accepted.body.inputSpec, false);
+  const explicit = await post({ ...train, modelKey: undefined, timeBasis: 'persisted_at', parameters: null });
   assert.equal(explicit.status, 201);
   assert.equal('timeBasis' in explicit.body.inputSpec, false, 'persisted_at equals the omitted key');
   assert.equal('parameters' in explicit.body.inputSpec, false);
+  assert.equal(explicit.body.inputSpec.modelKey, 'iforest', 'the stored input stays a v3 request for the worker');
+  // 제외 구간: v3 학습에서 접수. UTC·reasonCode 기본 other·note null로 실린다(trainer-service.md 선정 정책 v2).
+  const withIntervals = await post({ ...train, excludedIntervals: [{ ...inside, note: 'DB 장애' }, { from: '2026-10-01T11:00:00+09:00', until: '2026-10-01T03:00:00Z', reasonCode: 'maintenance', note: null }] });
+  assert.equal(withIntervals.status, 201, JSON.stringify(withIntervals.body));
+  assert.deepEqual(withIntervals.body.inputSpec.excludedIntervals, [
+    { from: '2026-10-01T00:00:00.000Z', until: '2026-10-01T01:00:00.000Z', reasonCode: 'other', note: 'DB 장애' },
+    { from: '2026-10-01T02:00:00.000Z', until: '2026-10-01T03:00:00.000Z', reasonCode: 'maintenance', note: null },
+  ]);
+  assert.equal('detectionPolicy' in withIntervals.body.inputSpec, false);
+  const emptyIntervals = await post({ ...train, parameters: { n_estimators: 66 }, excludedIntervals: [] });
+  assert.equal(emptyIntervals.status, 201);
+  assert.deepEqual(emptyIntervals.body.inputSpec.excludedIntervals, [], 'an empty list is kept: it selects policy v2');
+  // v1 형식(v3 키 없음)은 그대로 v1·v2 구성 경로로 접수된다.
+  const legacy = await post({ ...train, modelKey: undefined, parameters: undefined, detectionPolicy: legacyPolicy });
+  assert.equal(legacy.status, 201, JSON.stringify(legacy.body));
+  assert.deepEqual(legacy.body.inputSpec.detectionPolicy, legacyPolicy);
+  assert.equal('modelKey' in legacy.body.inputSpec, false);
   console.log('model version API integration passed: catalog, volume, version list and detail, training request under powercode_api');
 } finally {
   if (child && child.exitCode === null) {

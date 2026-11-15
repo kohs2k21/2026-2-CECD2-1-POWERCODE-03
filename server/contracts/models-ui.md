@@ -1,5 +1,5 @@
 Created: 2026-11-05T15:00:00+09:00
-Updated: 2026-11-15T12:00:00+09:00
+Updated: 2026-11-15T12:45:00+09:00
 Author: #128 Claude Code(WebUI builder)
 Status: current
 
@@ -52,26 +52,32 @@ Status: current
 - 요청 실패 코드는 초안에 둔다(응답을 받은 화면과 지금 화면이 달라도 표시). 다시 요청하면 지운다
 - 응답은 `requestKey`가 같은 초안에만 적는다. 버린 초안이나 그 뒤 새로 쓴 초안에는 적히지 않는다
 
-## 학습 요청 본문 — 지금 서버가 받는 형식
+## 학습 요청 본문 — 모델 버전(v3) 학습
 
 ```json
 {"kind": "train", "sourceId": "<첫 출처>", "from": "<UTC>", "until": "<UTC>", "featureSetId": "<세트>", "modelKey": "iforest",
  "parameters": {"n_estimators": 256, "max_samples": 512, "random_state": 42},
- "detectionPolicy": {"mode": "ml_only", "deadlineMs": 3000, "combination": "selected_path"}}
+ "excludedIntervals": [{"from": "<UTC>", "until": "<UTC>"}]}
 ```
 
-- `parameters`: 조정 가능한 키만 숫자로 보낸다. 고정 값은 워커가 기본값으로 채운다
-- `detectionPolicy`: v1 형식 필수값이라 모델 단독 값을 고정해 보낸다(화면에 없음). v3 요청에는 없는 키이므로 v3 산출이 열리면 뺀다(`features/detection/models/trainDraft.ts` `LEGACY_POLICY`)
+- 화면은 모델 버전(v3) 학습 요청만 보낸다([model-version.md](model-version.md) 생성 경로 (A)). `modelKey`가 v3 키라 항상 v3로 접수되고, 성공 결과는 schemaVersion 3 구성(= 모델 버전)이다(`features/detection/models/trainDraft.ts` `trainRequest`)
+- `modelKey`: 선택한 모델(`methodId`의 접두 뒤). `parameters`: 조정 가능한 키만 숫자로 보낸다. 고정 값은 워커가 기본값으로 채운다
+- `detectionPolicy`·`ruleVersionIds`: 보내지 않는다. 종합 판정 정책은 운영 설정 전역 값, 룰은 룰 세트가 판정 시점에 적용한다(화면에 없음, 사용자 11/02)
 - `timeBasis`: `capabilities.snapshot.timeBasis`가 `persisted_at`이면 키 생략, 다른 값이면 그 값을 보낸다
-- `excludedIntervals`: 구간이 있을 때만 UTC로 보낸다
+- `excludedIntervals`: 구간이 있을 때만 UTC `{from, until}`로 보낸다. `reasonCode`·`note`는 화면 입력이 없어 보내지 않고 서버가 `other`·`null`로 싣는다. `capabilities.training.excludedIntervals=true`(`trainerContract.ts` `TRAINING_EXCLUSION_SUPPORTED`)이고, API는 형식 검사(400 `excluded_interval_out_of_range`·`excluded_interval_overlap`·`invalid_job_request`, [trainer-service.md](trainer-service.md) `excludedIntervals` 행) 뒤 접수하며, 워커가 선정 정책 v2로 적용한다(trainer-service.md 선정 정책 v2 절). 값이 false로 돌아가면 접수는 422 `config_schema_not_supported_yet`, 화면은 준비 검사에서 막는다
+- API 판별(`backend/src/routes/jobRoutes.ts`): 기간 지정 train에 `modelKey`·`parameters`·`excludedIntervals`·`timeBasis` 중 하나라도 있으면 v3 요청이다. 여기에 `detectionPolicy`가 있으면 400 `invalid_detection_policy`, `ruleVersionIds`가 있으면 400 `invalid_job_request`. v3 키가 없는 요청은 지금처럼 `detectionPolicy` 필수(없으면 400 `detection_policy_required`)이고 v1·v2 구성 경로로 간다. v3 요청의 `input_spec`에는 `modelKey`를 항상 싣는다(생략이면 `iforest` — `timeBasis=persisted_at`·`parameters: null`은 남기지 않으므로 워커가 v3로 판별할 키를 남긴다). `evaluationSetId`는 아직 접수하지 않는다(400 `invalid_job_request`)
+
+## 학습 결과 표시
+
+- 버전 상세 `학습 기간` 카드: `제외 구간 N구간`은 `trainingSelection.excludedIntervalCount`, 구간 목록은 `models[].trainingSettings.excludedIntervals`(시각 ~ 시각 · 메모). `선정 정책`은 `trainingSelection.policyVersion` 그대로(구간 키가 있던 학습은 `train-success-excluded-v2`)
+- `excludedByIntervalCount`·`excludedTimeUnknownCount`·`excludedIntervalsHash` 등 선정 정책 v2의 다른 필드는 표시 자리·문구가 없어 표시하지 않는다(응답에는 있음)
+- 학습 작업 실패 `train_rows_insufficient_after_exclusion`(구간을 뺀 뒤 학습 행이 `minTrainRows` 미만)은 다른 실패와 같이 `실패 · <코드>`로 보인다. 실패 요약의 `trainingSelection`은 표시하지 않는다
 
 ## 지금 서버가 지원하지 않는 것
 
 | 항목 | 현재 동작 | 풀리는 조건 |
 |---|---|---|
-| 제외 구간 | `capabilities.training.excludedIntervals=false`. API는 `excludedIntervals` 키가 있으면(빈 배열 포함) 형식 검사(400 `excluded_interval_out_of_range`·`excluded_interval_overlap`·`invalid_job_request`) 뒤 422 `config_schema_not_supported_yet`. 화면은 구간 선택은 그대로 두고 준비 검사에서 막는다. 워커는 선정 정책 v2(trainer-service.md)를 **모델 버전(v3) 학습 요청**(`detectionPolicy` 없음)에만 적용하고, `detectionPolicy`가 있는 요청(지금 화면이 보내는 `LEGACY_POLICY` 형식)의 `excludedIntervals`는 워커도 `config_schema_not_supported_yet`으로 끝낸다 | 워커 지원은 구현됨(v3 학습). 남은 단계: `trainerContract.ts` `TRAINING_EXCLUSION_SUPPORTED`를 true로(접수·capabilities·화면이 함께 풀리고, 구간은 UTC·`reasonCode` 기본 `other`·`note`로 `input_spec`에 실린다). 단 지금 API는 train에 `detectionPolicy`를 필수로 받고 화면도 보내므로, 구간 학습이 실제로 돌려면 v3 train 요청(`detectionPolicy` 없음) 접수·전송이 함께 열려야 한다(아래 '모델 버전 v3' 행) |
 | 학습 기간 ESB 시각 기준 | Trainer 스냅샷은 `persisted_at`만 지원(`capabilities.snapshot.timeBasis`). `timeBasis=esb_occurred_at`은 422 `config_schema_not_supported_yet`. 화면 거래량 그래프는 학습이 실제로 쓰는 기준으로 조회·표시한다(`거래량 · 저장 시각 기준`). 값이 `esb_occurred_at`로 바뀌면 그래프 문구·조회·요청이 함께 바뀌고 `timeBasis`가 `input_spec`에 실린다 | Trainer `timeBasis` 지원 뒤 `snapshot.timeBasis` |
-| 모델 버전 v3 | 학습 결과는 schemaVersion 1 구성이다. 조회는 v1·v2 투영과 v3 읽기를 모두 구현했다 | Trainer #113 하위 3 |
 | 버전 이름 | 학습 요청에 이름 키가 없어 입력칸을 두지 않는다. 목록은 ID 앞 8자리 + `displayName`(있을 때) | 요청 계약 |
 
 ## 입력 변수 세트 등록 API

@@ -108,7 +108,7 @@ Status: current
 
 | 경우 | 값 |
 |---|---|
-| v1·v2 단일 구성 경로와 같은 주소 | `POST /api/configurations/:id/applications` 본문이 `apply`·`restore` + `expectedActiveVersionId` 키면 기존 v1·v2(`ops_system_state`·`run_applications`) 경로, 그 밖은 활성 집합. 단일 구성 경로와 입력 구성 고정(`POST /api/inputs/:sourceId/mode` `configVersionId`)은 schemaVersion 1·2만 받고 그 밖(v3 포함)은 422 `config_schema_not_supported_yet`으로 거절한다(v3는 활성 집합으로만, [model-version.md](model-version.md) 활성 집합 절) |
+| v1·v2 단일 구성 경로와 같은 주소 | `POST /api/configurations/:id/applications` 본문이 `apply`·`restore` + `expectedActiveVersionId` 키면 기존 v1·v2(`ops_system_state`·`run_applications`) 경로, 그 밖은 활성 집합. 단일 구성 경로와 입력 구성 고정(`POST /api/inputs/:sourceId/mode` `configVersionId`)은 schemaVersion 1·2만 받고 그 밖(v3 포함)은 422 `config_schema_not_supported_yet`으로 거절한다(v3는 활성 집합으로만, [model-version.md](model-version.md) 활성 집합 절). 기존 고정을 유지한 `paused`는 검사하지 않고, `GET /api/inputs` 후보 목록은 schemaVersion 1·2만 싣는다. 운영자 CLI `input select --config`도 같은 규칙이다 |
 | 응답 | 200 `{revision, previousRevision, models[], changes[], changedAt, appliesFrom:"next_decision"}`(동기 적용, 작업 행 없음) |
 | 근거 기록 | 변경 항목 `changes[].gate`(평가 ID·추천 수락·조작 시점 룰 세트 `{revision, contentHash, contentHashVersion}`·정책 리비전·집합 before/after). 응답·이력에는 `evaluationId`·`acceptedRecommendation`만 |
 | 멱등키 | 형식 400 `invalid_idempotency_key`, 같은 키 다른 본문 409 `idempotency_payload_conflict`. 재전송 보장은 프로세스 메모리(룰 세트 저장과 같음), 재시작 뒤는 `expectedRevision`이 막음 |

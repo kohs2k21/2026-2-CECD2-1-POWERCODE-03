@@ -851,13 +851,25 @@ const listCalls = () => requested.filter((r) => r.path === "/api/analysis/decisi
 
 // 5d~5f) 설명 결과 표시: 이미 있던 결과는 바로 전체, 보는 중 도착한 결과는 타자 효과(화면 읽기용 전체 사본 + aria-hidden 사본),
 // 동작 줄이기 설정이면 효과 없이 전체. 결과 형식은 worker/explanation.py validate_output(facts·nextChecks).
+// 근거(facts = 설명 입력 savedEvidence 최상위 키)는 판정 상세 이름표로: 영문 키·JSON 대신 이름표, 배열은 항목마다 한 줄, 모르는 키는 원래 이름 + 축약 값.
 const explainSummary = {
   decisionId: "d-9",
-  facts: [{ id: "fact_0", name: "anomalous", value: true }, { id: "fact_1", name: "decisionCode", value: "PROCESS_STATUS_F" }],
+  facts: [
+    { id: "fact_0", name: "anomalous", value: true },
+    { id: "fact_1", name: "status", value: "complete" },
+    { id: "fact_2", name: "ruleStatus", value: "succeeded" },
+    { id: "fact_3", name: "mlStatus", value: "skipped" },
+    { id: "fact_4", name: "decisionCode", value: "PROCESS_STATUS_F" },
+    { id: "fact_5", name: "rules", value: [{ reason: null, result: "hit", ruleKey: "process-status", version: "process-status-hr-v1", sourceId: "source-1", observedStatus: "F", severity: "critical" }] },
+    { id: "fact_6", name: "models", value: [{ modelKey: "iforest", anomalous: false }] },
+    { id: "fact_7", name: "extra", value: { mode: "api", note: null, scope: { a: 1 } } },
+  ],
   nextChecks: [{ code: "review_rule_threshold", text: "적중한 Rule의 승인 기준과 입력값을 확인하세요." }],
   causeStatus: "unconfirmed", contributionStatus: "not_computed",
 };
-const explainFull = "anomalous: truedecisionCode: PROCESS_STATUS_F확인할 것(원인 후보)적중한 Rule의 승인 기준과 입력값을 확인하세요.";
+const explainFull = "anomalous: true검사 완료: 완료수행 상태: Rule 완료수행 상태: ML 꺼짐판정 코드: 상태 F 실패"
+  + "Rule 판정 근거이상 규칙(상태가 S가 아님) · 이상 · 상태 F · 위험도 위험ML 판정 근거iforest · 정상 확인extra: mode api · scope (a 1)"
+  + "확인할 것(원인 후보)적중한 Rule의 승인 기준과 입력값을 확인하세요.";
 const explainRoutes = (id, detail, jobState) => ({
   "GET /api/analysis/decisions": () => json(listBody([item(id)])),
   [`GET /api/analysis/decisions/${id}`]: () => json(detail),
@@ -914,8 +926,30 @@ const explainCard = (app) => app.renderer.root.find((node) => node.type === "div
   assert.equal(entrance[0].props["data-entrance"], "none", "existing result has no entrance motion (initial=false)");
   assert.notEqual(entrance[0].props.style?.opacity, 0, "existing result is not faded in from 0");
   assert.ok(text(explainCard(app).children).includes(explainFull), "existing result shown in full at once");
+  for (const raw of ["ruleStatus", "succeeded", "PROCESS_STATUS_F", '"ruleKey"', "{"]) assert.ok(!text(explainCard(app).children).includes(raw), `no raw ${raw}`);
+  assert.equal(app.renderer.root.findAll((node) => node.type === "li" && node.props.title === "ruleStatus").length, 1, "original key kept as a tooltip");
   assert.equal(app.renderer.root.findAll((node) => node.props["data-slot"] === "explain-progress").length, 0);
   await app.cleanup();
+}
+
+// 5d1) 근거 표시 규칙(explainFacts.ts): v4 판정은 세부 방법별 결과의 방법 이름, 빈 배열·값 없음은 —, 모르는 코드·값은 원래 값
+{
+  const { factView } = await import("../src/features/analysis/explainFacts.ts");
+  const rules = [{ ruleKey: "transaction-failed", version: "transaction-failed-hr-v1", result: "hit", severity: "warning" },
+    { ruleKey: "elapsed_ms-3f9a2c1d", version: 13, result: "no_hit" }, { ruleKey: "process-status", result: "not_applicable", reason: "status_unknown" }];
+  assert.deepEqual(factView({ name: "rules", value: rules }, true), { head: "Rule 판정 근거",
+    items: ["이상 규칙(거래 실패) · 이상 · 위험도 주의", "이상 징후 규칙 · 정상 확인", "이상 규칙(상태가 S가 아님) · 해당 없음 · status_unknown"] });
+  assert.deepEqual(factView({ name: "rules", value: [rules[1]] }, false).items, ["이상 징후 규칙(과거 등록 Rule) · 정상 확인"], "v3 = Rule 판정 근거 표 이름");
+  assert.deepEqual(factView({ name: "models", value: [{ modelKey: "iforest", anomalous: true }, { modelKey: "lof", anomalous: null }] }, true).items,
+    ["머신러닝 모델(iforest) · 이상", "머신러닝 모델(lof) · 미판정"]);
+  assert.deepEqual(factView({ name: "rules", value: [] }, true), { head: "Rule 판정 근거: —", items: [] });
+  assert.equal(factView({ name: "decisionCode", value: "REL_PRECEDES" }, true).head.startsWith("판정 코드: 규약 위반 · "), true);
+  assert.equal(factView({ name: "decisionCode", value: "NEW_CODE" }, true).head, "판정 코드: NEW_CODE");
+  assert.equal(factView({ name: "anomalyScore", value: null }, true).head, "이상 점수: —");
+  assert.equal(factView({ name: "ruleStatus", value: "blocked" }, true).head, "수행 상태: Rule blocked");
+  assert.equal(factView({ name: "status", value: "partial" }, true).head, "검사 완료: 부분");
+  assert.equal(factView({ name: "inputManifestHash", value: "abc" }, true).head, "inputManifestHash: abc");
+  assert.deepEqual(factView({ name: "list", value: [{ a: [1, 2], b: "x" }, 3] }, true).items, ["a (1, 2) · b x", "3"]);
 }
 
 // 5d2) v04 판정(구성 없음): 당시 모델 줄만 빠지고 나머지 요약·설명 요청은 같다. 없는 값을 다른 문구로 채우지 않는다.
@@ -1162,4 +1196,4 @@ assert.equal(requested.some((r) => r.path.startsWith("/api/anomaly/events/")), f
 assert.ok(requested.every((r) => r.path.startsWith("/api/")), "only same-origin API paths");
 console.log("analysis page QA passed: default risk view, result/risk/workflow sidebar and view switch, admin-only outcome sub items under 완료 and basis select (URL + API), unread dot, risk cell, row links, search URL, SSE cursor with interim events "
   + "and single refetch, error/empty states, detail/timeline/evidence, process flow tree, read mark, workflow transitions and 409, admin 로그 분류하기 dialog (save then change, save failure keeps state, change failure keeps dialog, no double save, no close while pending), records in the timeline, list cause line, "
-  + "v4 method tables, explain request/failure, blocked explain without polling, lookup failure blocks re-request, explain result typing only for a result arriving while watching (requested or watched queued job, no restart on refetch, sr-only full copy, existing result without motion, reduced motion = full text), final-only explain, protocol alert explanation (admin + protocolReview only, alert target, result/failure), 404, job→decision redirect, legacy address");
+  + "v4 method tables, explain request/failure, blocked explain without polling, lookup failure blocks re-request, explain facts with detail-screen labels (no raw keys or JSON), explain result typing only for a result arriving while watching (requested or watched queued job, no restart on refetch, sr-only full copy, existing result without motion, reduced motion = full text), final-only explain, protocol alert explanation (admin + protocolReview only, alert target, result/failure), 404, job→decision redirect, legacy address");

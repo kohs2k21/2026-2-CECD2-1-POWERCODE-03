@@ -12,13 +12,13 @@ import type { PipelineJob } from "@/services/api/pipeline.api";
 import { motionTransition } from "@/lib/motion";
 import type { DecisionDetail } from "../data/analysisApi";
 import { analysisErrorTitle } from "../data/analysisApi";
-import { readEvidence } from "../data/evidence";
+import { readEvidence, readEvidenceV4 } from "../data/evidence";
 import { jobPending, useExplainJob } from "../data/useAnalysis";
+import { factView, type FactView } from "../explainFacts";
 import { useTypewriter } from "../hooks/useTypewriter";
 import { jobStatusLabels } from "../labels";
 
 const errorText = (reason: unknown) => (reason instanceof Error ? reason.message : String(reason));
-const factValue = (value: unknown) => (typeof value === "string" ? value : JSON.stringify(value));
 
 /**
  * AI 판정 근거 요약(POST /api/jobs {kind:"explain"} + GET /api/jobs/:id). 최종 판정만 요청할 수 있다.
@@ -96,7 +96,9 @@ const ExplainBody = ({ detail }: { detail: DecisionDetail }) => {
           <span className="block h-full w-1/3 animate-progress-slide rounded-full bg-info-text motion-reduce:w-full motion-reduce:animate-none" />
         </div>
       )}
-      {current?.status === "succeeded" && <ExplainResult key={current.id} summary={current.resultSummary} fresh={fresh} />}
+      {current?.status === "succeeded" && (
+        <ExplainResult key={current.id} summary={current.resultSummary} fresh={fresh} v4={readEvidenceV4(detail.evidence) !== null} />
+      )}
       {request.isError && <ErrorState title={errorText(request.error)} />}
       {(!current || failed) && (
         <div className="flex flex-wrap items-center gap-2">
@@ -117,21 +119,22 @@ const ExplainBody = ({ detail }: { detail: DecisionDetail }) => {
 };
 
 type ExplainSummary = PipelineJob["resultSummary"];
-type ExplainFacts = NonNullable<NonNullable<ExplainSummary>["facts"]>;
 type ExplainChecks = NonNullable<NonNullable<ExplainSummary>["nextChecks"]>;
-const factLine = (fact: ExplainFacts[number]) => `${fact.name}: ${factValue(fact.value)}`;
+type FactEntry = { id: string; name: string; view: FactView };
+const factLength = ({ view }: FactEntry) => view.head.length + view.items.reduce((sum, item) => sum + item.length, 0);
 
 /**
- * 설명 결과(저장된 근거 facts + 확인할 것 nextChecks). 새로 도착한 결과는 #100 이전 상세 화면(AnimatedPanel)처럼 아래에서 떠오르며
+ * 설명 결과(저장된 근거 facts + 확인할 것 nextChecks). 근거는 판정 상세의 이름표로 보인다(explainFacts.ts, 원래 키는 툴팁).
+ * 새로 도착한 결과는 #100 이전 상세 화면(AnimatedPanel)처럼 아래에서 떠오르며
  * 나타나고, 항목을 차례로 타자 효과(#100 이전 TypewriterText, 12ms/글자)로 보인다. 이미 있던 결과(처음 열기·재방문)는 움직임 없이 바로 보인다.
  * 동작 줄이기 설정이면 효과 없이 전체를 바로 보인다. 타자 효과 중에도 화면 읽기 프로그램에는 숨김 사본으로 전체 문장을
  * 한 번에 제공하고, 글자가 늘어나는 사본은 aria-hidden.
  */
-const ExplainResult = ({ summary, fresh }: { summary: ExplainSummary; fresh: boolean }) => {
+const ExplainResult = ({ summary, fresh, v4 }: { summary: ExplainSummary; fresh: boolean; v4: boolean }) => {
   const reduceMotion = useReducedMotion();
-  const facts = summary?.facts ?? [];
+  const facts = (summary?.facts ?? []).map((fact) => ({ id: fact.id, name: fact.name, view: factView(fact, v4) }));
   const checks = summary?.nextChecks ?? [];
-  const total = [...facts.map(factLine), ...checks.map((check) => check.text)].reduce((sum, line) => sum + line.length, 0);
+  const total = facts.reduce((sum, fact) => sum + factLength(fact), 0) + checks.reduce((sum, check) => sum + check.text.length, 0);
   const [typing] = useState(fresh && !reduceMotion && total > 0);
   const { shown, done } = useTypewriter(total, typing);
   // 마운트할 때 한 번 정한다(재렌더로 바뀌지 않음). 이미 있던 결과·동작 줄이기 = initial false(움직임 없음).
@@ -160,8 +163,10 @@ const ExplainResult = ({ summary, fresh }: { summary: ExplainSummary; fresh: boo
   );
 };
 
-/** `shown`(보이는 글자 수)이 있으면 facts → nextChecks 순서로 그만큼만 보인다(아직 닿지 않은 항목·제목은 숨김). 없으면 전체. */
-const ExplainLines = ({ facts, checks, shown }: { facts: ExplainFacts; checks: ExplainChecks; shown?: number }) => {
+/**
+ * `shown`(보이는 글자 수)이 있으면 facts(제목 줄 → 항목 줄) → nextChecks 순서로 그만큼만 보인다(아직 닿지 않은 항목·제목은 숨김). 없으면 전체.
+ */
+const ExplainLines = ({ facts, checks, shown }: { facts: FactEntry[]; checks: ExplainChecks; shown?: number }) => {
   let offset = 0;
   const cut = (line: string) => {
     const start = offset;
@@ -169,14 +174,30 @@ const ExplainLines = ({ facts, checks, shown }: { facts: ExplainFacts; checks: E
     if (shown === undefined) return line;
     return shown > start ? line.slice(0, shown - start) : null;
   };
-  const factItems = facts.map((fact) => ({ key: fact.id, text: cut(factLine(fact)) })).filter((entry) => entry.text !== null);
+  const factItems = facts
+    .map((fact) => ({
+      key: fact.id,
+      name: fact.name,
+      text: cut(fact.view.head),
+      items: fact.view.items.map((item, index) => ({ key: index, text: cut(item) })).filter((entry) => entry.text !== null),
+    }))
+    .filter((entry) => entry.text !== null);
   const checkItems = checks.map((check) => ({ key: check.code, text: cut(check.text) })).filter((entry) => entry.text !== null);
   return (
     <>
       {factItems.length ? (
         <ul className="grid list-disc gap-1 pl-5 wrap-anywhere">
           {factItems.map((entry) => (
-            <li key={entry.key}>{entry.text}</li>
+            <li key={entry.key} title={entry.name}>
+              {entry.text}
+              {entry.items.length ? (
+                <ul className="grid list-[circle] gap-1 pl-5">
+                  {entry.items.map((item) => (
+                    <li key={item.key}>{item.text}</li>
+                  ))}
+                </ul>
+              ) : null}
+            </li>
           ))}
         </ul>
       ) : null}

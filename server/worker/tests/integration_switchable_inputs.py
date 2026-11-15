@@ -145,6 +145,15 @@ def main():
             assert refused==(422,{'code':'config_schema_not_supported_yet'}),refused
             after=call('/api/inputs?sourceId='+str(sid),token=admin)[1]['control']
             assert (after['revision'],after['configVersionId'],after['runId'],after['mode'])==(before['revision'],before['configVersionId'],before['runId'],before['mode']),(before,after)
+            listed=[item['id'] for item in call('/api/inputs?sourceId='+str(sid),token=admin)[1]['configurations']]
+            assert config in listed and str(v3_config) not in listed,listed
+            # API 밖(CLI 등)에서 이미 v3가 고정된 원천: 고정을 유지한 일시정지는 되고, 그 고정으로 재개하는 요청은 거절된다.
+            conn.execute('UPDATE ops_input_controls SET config_version_id=%s WHERE source_id=%s',(v3_config,sid));conn.commit()
+            paused_v3=change('paused')
+            assert paused_v3['configVersionId']==str(v3_config),paused_v3
+            resume=call('/api/inputs/'+str(sid)+'/mode',{'mode':'csv','expectedRevision':paused_v3['revision'],'replayId':str(replay),'rate':10000,'repeat':1,'restart':True},admin)
+            assert resume==(422,{'code':'config_schema_not_supported_yet'}),resume
+            assert call('/api/inputs/'+str(sid)+'/mode',{'mode':'paused','expectedRevision':paused_v3['revision'],'configVersionId':str(v3_config)},admin)==(422,{'code':'config_schema_not_supported_yet'}),'a new pin is always checked'
             second=change('csv',replayId=str(replay),rate=10000,repeat=1,restart=True,configVersionId=config)
             announced=send_csv(5)
             queued=conn.execute("""SELECT q.payload->>'jobId',q.payload->>'inputManifestHash' FROM powercode_queue.detection_logs q

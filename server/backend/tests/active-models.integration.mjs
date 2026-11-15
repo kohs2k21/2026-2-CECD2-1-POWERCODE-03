@@ -140,6 +140,7 @@ try {
   const research = await seedVersion(sourceId, { modelKey: 'minibatch_kmeans' });
   const v3 = await seedVersion(sourceId, { schemaVersion: 3, name: 'V3', spec: { methods: [{ methodId: 'ml:iforest', kind: 'ml', enabled: true }] } });
   const unknownSchema = await seedVersion(sourceId, { schemaVersion: 4 });
+  // noSchema: schemaVersion 값이 null인 구성(키 자체가 없는 경우는 model-version-contract 단위 시험이 applicationEligibility로 확인).
   const noSchema = await seedVersion(sourceId, { schemaVersion: null });
 
   // 3) 형식·gate 거절은 집합을 바꾸지 않는다.
@@ -152,7 +153,7 @@ try {
   assert.deepEqual(code(await apply(a.configId, { operation: 'apply', evaluationId: b.evaluationId, expectedRevision: 0 })), [409, 'evaluation_gate_not_met'], 'another version evaluation');
   assert.deepEqual(code(await apply(noArtifacts.configId, { operation: 'apply', evaluationId: noArtifacts.evaluationId, expectedRevision: 0 })), [409, 'model_artifacts_not_ready']);
   assert.deepEqual(code(await apply(research.configId, { operation: 'apply', evaluationId: research.evaluationId, expectedRevision: 0 })), [409, 'method_not_executable:ml:minibatch_kmeans']);
-  // 판독할 수 없는 구성은 운영에 올리지 않는다(fail-closed). v3는 아래 10c에서 실제로 교체한다.
+  // 판독할 수 없는 구성(schemaVersion 4·null)은 운영에 올리지 않는다(fail-closed). v3는 아래 10c에서 실제로 교체한다.
   assert.deepEqual(code(await apply(unknownSchema.configId, { operation: 'apply', evaluationId: unknownSchema.evaluationId, expectedRevision: 0 })), [422, 'config_schema_not_supported_yet']);
   assert.deepEqual(code(await apply(noSchema.configId, { operation: 'apply', evaluationId: noSchema.evaluationId, expectedRevision: 0 })), [422, 'config_schema_not_supported_yet']);
   const conflict = await apply(a.configId, { operation: 'apply', evaluationId: a.evaluationId, expectedRevision: 5 });
@@ -243,7 +244,7 @@ try {
   }
   for (const other of [unknownSchema, noSchema]) {
     assert.deepEqual(code(await apply(other.configId, { operation: 'apply', evaluationId: other.evaluationId, expectedRevision: Number(stateBefore?.revision ?? 0), expectedActiveVersionId: stateBefore?.id ?? null })),
-      [422, 'config_schema_not_supported_yet'], 'the legacy path takes schemaVersion 1·2 only');
+      [422, 'config_schema_not_supported_yet'], 'the legacy path takes schemaVersion 1·2 only (4 and null refused)');
   }
   assert.deepEqual(await legacyState(), stateBefore, 'the legacy single-config state is unchanged');
   assert.equal((await pool.query('SELECT count(*)::int AS count FROM run_applications WHERE target_config_version_id=$1', [v3.configId])).rows[0].count, 0);

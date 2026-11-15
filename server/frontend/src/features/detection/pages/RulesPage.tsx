@@ -12,7 +12,6 @@ import { observeHeight } from "@/lib/observeHeight";
 import { stampText } from "@/features/operations/format";
 import { HttpError } from "@/services/api/client";
 import { useDraftStore } from "@/stores/draftStore";
-import { RuleAiBox, RuleAiControls, useRuleAi } from "../rules/RuleAiPanel";
 import { RuleBanner, type Banner } from "../rules/RuleBanner";
 import { ConfirmDialog, RuleAddDialog, RuleSaveDialog, type PendingSave } from "../rules/RuleDialogs";
 import { HardRulesCard, RelationRulesCard, RuleHistoryCard, SoftRulesCard } from "../rules/RuleTables";
@@ -23,7 +22,9 @@ import {
 import { previewRuleSet, readRuleSetRevision, saveRuleSet, type RuleSetRequest, type RuleSetState, type Severity } from "../rules/ruleSetApi";
 import { useRuleSet, useSoftRuleFields } from "../rules/useRuleSet";
 import { RESPONSE_CODE_TERM, failedRule, summaryText } from "../rules/responsecodes/responseCodeLabels";
-import { detectionParentSection, detectionSections } from "../detectionToc";
+import { RECOMMEND_DESCRIPTION } from "../rules/candidates/candidateLabels";
+import { RecommendLink, recommendSections, useRecommendationCounts } from "../rules/candidates/recommendations";
+import { detectionParentSection, detectionSections, sectionPath } from "../detectionToc";
 import type { DetectionReturnState } from "../DetectionLayout";
 
 const RuleStatus = ({ state }: { state: RuleSetState }) => (
@@ -91,7 +92,9 @@ const RulesEditor = ({ state, reload, onSavedStale }: {
   const changeCount = draftChangeCount(draft);
   const issues = draftIssues(draft, fieldName);
   const dirty = changeCount > 0;
-  const ai = useRuleAi({ state, dirty, reload });
+  const counts = useRecommendationCounts();
+  /** 카드 → 규칙 추천: 뒤로가기가 그 카드 영역으로 돌아오게 한다. */
+  const back = (section: { id: string; label: string }) => sectionPath(paths.detectionRules, section);
   // 저장 뒤에는 편집 여부와 상관없이 새 상태로 맞춘다.
   const resetOnNext = useRef(false);
   const stickyBlock = useRef<HTMLDivElement>(null);
@@ -247,11 +250,14 @@ const RulesEditor = ({ state, reload, onSavedStale }: {
         <HardRulesCard draft={draft} onToggle={toggleHard} onSeverity={setHardSeverity} />
         <SoftRulesCard
           draft={draft} fields={fieldList} fieldsError={fields.isError ? errorCode(fields.error) : null}
-          aiControls={<RuleAiControls ai={ai} />}
-          aiBox={<RuleAiBox ai={ai} state={state} draft={draft} fields={fieldList} onApply={(updates) => updates.forEach(({ key, patch }) => editSoft(key, patch))} />}
+          recommend={<RecommendLink count={counts.anomaly} tab="anomaly" returnTo={back(detectionSections.rulesSoft)} />}
           onEdit={editSoft} onAdd={() => setAdding(true)} onDelete={setDeleting}
         />
-        <RelationRulesCard draft={draft} onToggle={(id, enabled) => editRelation(id, { enabled })} onSeverity={(id, severity) => editRelation(id, { severity })} />
+        <RelationRulesCard
+          draft={draft}
+          recommend={<RecommendLink count={counts.relation} tab="flow" section={recommendSections.relations} returnTo={back(detectionSections.rulesRelation)} />}
+          onToggle={(id, enabled) => editRelation(id, { enabled })} onSeverity={(id, severity) => editRelation(id, { severity })}
+        />
       </fieldset>
       <SectionCard
         id={detectionSections.rulesProtocols.id}
@@ -259,12 +265,15 @@ const RulesEditor = ({ state, reload, onSavedStale }: {
         aria-label={PROTOCOL_TERM}
         description={`인터페이스별 허용 경로 · ${PROTOCOL_ITEM_TERM} ${state.protocolRules?.length ?? 0}개(켜짐 ${state.protocolRules?.filter((rule) => rule.enabled).length ?? 0}개)`}
         action={
-          <Button asChild size="sm" variant="outline">
-            <Link to={paths.detectionRuleProtocols} state={cardReturn(paths.detectionRuleProtocols)}>
-              설정 보기
-              <IconChevronRight aria-hidden="true" />
-            </Link>
-          </Button>
+          <>
+            <RecommendLink count={counts.protocol} tab="flow" section={recommendSections.paths} returnTo={back(detectionSections.rulesProtocols)} />
+            <Button asChild size="sm" variant="outline">
+              <Link to={paths.detectionRuleProtocols} state={cardReturn(paths.detectionRuleProtocols)}>
+                설정 보기
+                <IconChevronRight aria-hidden="true" />
+              </Link>
+            </Button>
+          </>
         }
       />
       <ResponseCodeCard state={state} />
@@ -272,7 +281,7 @@ const RulesEditor = ({ state, reload, onSavedStale }: {
         id={detectionSections.rulesCandidates.id}
         title={detectionSections.rulesCandidates.label}
         aria-label={detectionSections.rulesCandidates.label}
-        description="Trainer 후보 작업 결과 · 관계 규칙(이상)·처리 시간(이상 징후) 후보 검토"
+        description={RECOMMEND_DESCRIPTION}
         action={
           <Button asChild size="sm" variant="outline">
             <Link to={paths.detectionRuleCandidates} state={cardReturn(paths.detectionRuleCandidates)}>

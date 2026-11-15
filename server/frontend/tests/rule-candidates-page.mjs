@@ -4,7 +4,7 @@ import React from "react";
 import { act, create } from "react-test-renderer";
 
 // 규칙 추천(contracts/rule-candidates-ui.md) 화면 시험(로컬 가짜 fetch만): 응답 해석·충족률 표기·주소, 룰 설정 진입 카드,
-// 목록(작업 머리·인터페이스 선택 주소·관계 후보 표 열·처리 시간 표 열·한계 문구·패턴 그래프 간선 이름), 결과 없음,
+// 목록(작업 머리·탭·인터페이스 선택 주소·관계 후보 표 열(실행 흐름 규칙 탭)·처리 시간 후보 행(이상 징후 탭)·한계 문구·패턴 그래프 간선 이름), 결과 없음,
 // 상세(관계: 건수·짝 경고 문장·짝 링크·반례 → 판정 상세·승인 꺼짐 사유 / 처리 시간: 근거·한계·초안), 조회 실패 code, 일반 사용자 접근 불가,
 // 후보 작업 요청(확인창 저장 데이터셋 선택 → 접수·같은 키 재전송 → 진행 중 단추 꺼짐·5초 조회 → 새 결과, 데이터셋 없음·조회 실패·요청 실패 code).
 register("./svg-loader.mjs", import.meta.url);
@@ -162,7 +162,7 @@ const mount = async (path, userType = "admin") => {
 const at = (router) => router.state.location.pathname + router.state.location.search;
 const byData = (app, key) => app.renderer.root.findAll((node) => node.props?.[key] !== undefined && typeof node.type === "string");
 const rowsOf = (app, key) => byData(app, key).map((row) => row.findAllByType("td").map((td) => text(td.children)));
-const headsOf = (app, label) => app.renderer.root.findAll((n) => n.type === "table" && n.props["aria-label"] === label)[0].findAllByType("th").map((th) => text(th.children));
+const headsOf = (app, label) => app.renderer.root.findAll((n) => n.type === "table" && n.props["aria-label"] === label)[0].findAllByType("thead")[0].findAllByType("th").map((th) => text(th.children));
 
 // 2) 룰 설정 진입 카드 → 목록
 {
@@ -176,28 +176,21 @@ const headsOf = (app, label) => app.renderer.root.findAll((n) => n.type === "tab
   await app.cleanup();
 }
 {
-  const app = await mount(paths.detectionRuleCandidates);
+  // 실행 흐름 규칙 탭: 단계 조건(관계 규칙) 구역에 관계 후보 표(열 그대로 + 행 [승인]).
+  const app = await mount(`${paths.detectionRuleCandidates}?tab=flow`);
   await wait(() => byData(app, "data-candidate-row").length === 4, "relation rows rendered");
   assert.ok(!requested.filter((r) => r.path === "/api/rule-set/candidates").at(-1).search.includes("interfaceId"), "no interface in address → server default");
   const jobLine = text(byData(app, "data-candidate-job")[0].children);
   assert.ok(jobLine.includes("관계 후보 4건(승인 가능 3)") && jobLine.includes("처리 시간 후보 2건(후보 1)") && jobLine.includes("최근 작업 실패 · relation_snapshot_not_ready"), jobLine);
-  assert.deepEqual(headsOf(app, "관계 규칙 후보 표"), ["종류", "경로·단계", "어댑터", "적용", "충족", "위반", "보류", "충족률", "상태", "승인 가능"]);
+  assert.deepEqual(headsOf(app, "관계 규칙 후보 표"), ["종류", "경로·단계", "어댑터", "적용", "충족", "위반", "보류", "충족률", "상태", "승인 가능", ""]);
   assert.deepEqual(rowsOf(app, "data-candidate-row"), [
-    ["필수 단계", "P1", "—", "1,000", "999", "1", "—", "99.9%", "후보", "가능"],
-    ["선행 관계", "P1 → P2", "HTTP", "1,000", "900", "100", "3", "90.0%", "기준 미달인계 짝", "불가"],
-    ["메시지 인계", "P1 → P2", "HTTP", "1,000", "970", "30", "—", "97.0%", "검토 필요", "가능"],
-    ["선행 관계", "P1 → P3", "모든 어댑터", "2", "2", "—", "—", "100%", "근거 부족", "불가"],
+    ["필수 단계", "P1", "—", "1,000", "999", "1", "—", "99.9%", "후보", "가능", "승인"],
+    ["선행 관계", "P1 → P2", "HTTP", "1,000", "900", "100", "3", "90.0%", "기준 미달인계 짝", "불가", "승인"],
+    ["메시지 인계", "P1 → P2", "HTTP", "1,000", "970", "30", "—", "97.0%", "검토 필요", "가능", "승인"],
+    ["선행 관계", "P1 → P3", "모든 어댑터", "2", "2", "—", "—", "100%", "근거 부족", "불가", "승인"],
   ]);
-  assert.deepEqual(headsOf(app, "처리 시간(이상 징후) 후보 표"), ["단계", "어댑터", "제안 임계값", "근거 건수", "END_TIME 없음", "상태"]);
-  assert.deepEqual(rowsOf(app, "data-threshold-row"), [
-    ["P1", "HTTP", "> 812.5 ms기준 표본 p95(코드 계산)", "120", "10", "후보"],
-    ["P2인터페이스 2곳 공통", "모든 어댑터", "—", "120", "10", "근거 부족"],
-  ]);
-  assert.deepEqual(byData(app, "data-threshold-limitation").map((n) => text(n.children)),
-    ["한계(Trainer) · END_TIME이 없으면 평가하지 않는다. 끝나지 않고 멈춘 단계는 잡지 못한다.", `한계(Trainer) · ${labels.END_TIME_LIMITATION}`, `한계(Trainer) · ${SLASH_LIMITATION}`],
-    "Trainer sentence as-is; texts with internal paths replaced by one fixed sentence; S/F·건/분 kept");
-  assert.ok(!app.shown().includes("registry.py") && !app.shown().includes("workers/"), "no internal path on screen");
-  assert.ok(text(byData(app, "data-threshold-unassigned")[0].children).includes("2건"));
+  // 저장 형식 3 전(approval.available=false)·룰 세트 조회 실패면 행 [승인]은 모두 꺼진다.
+  assert.ok(byData(app, "data-candidate-row").every((row) => row.findAllByType("button")[0].props.disabled === true), "approve is off");
   const link = byData(app, "data-candidate-row")[2].findAllByType("a")[0];
   assert.equal(link.props.href, `/detection/rules/candidates/${JOB}.r2`);
   const trigger = app.renderer.root.findAll((n) => n.type === "button" && n.props["data-slot"] === "combobox-trigger")[0];
@@ -210,9 +203,29 @@ const headsOf = (app, label) => app.renderer.root.findAll((n) => n.type === "tab
   assert.equal(filterComboboxOptions(many, "%").length, 0, "no wildcard");
   const select = app.renderer.root.findAll((n) => typeof n.props?.onValueChange === "function" && n.props.value === "IF-A")[0];
   await act(async () => select.props.onValueChange("IF-B"));
-  await wait(() => at(app.router) === "/detection/rules/candidates?interface=IF-B", "interface in address");
+  await wait(() => at(app.router) === "/detection/rules/candidates?tab=flow&interface=IF-B", "interface in address (tab kept)");
   await wait(() => requested.filter((r) => r.path === "/api/rule-set/candidates").at(-1).search === "?interfaceId=IF-B", "interface sent to API");
   await wait(() => app.shown().includes("이 인터페이스의 관계 규칙 후보가 없습니다."), "empty interface");
+  await app.cleanup();
+}
+{
+  // 이상 징후 탭(기본): 처리 시간 후보 행 — 단계(어댑터·공통) · 제안 임계값(근거 코드 p95) · 근거(Trainer 값) · 상태 · [승인]. 한계 문구·인터페이스 없는 후보 수.
+  const app = await mount(paths.detectionRuleCandidates);
+  await wait(() => byData(app, "data-threshold-row").length === 2, "threshold rows rendered");
+  assert.deepEqual(headsOf(app, "이상 징후"), ["규칙(대상 필드)", "임계값", "근거", "상태", ""]);
+  assert.deepEqual(rowsOf(app, "data-threshold-row"), [
+    ["P1HTTP", "> 812.5 ms기준 표본 p95(코드 계산)", "근거 건수 120 · END_TIME 없음 10", "후보", "승인"],
+    ["P2모든 어댑터 · 인터페이스 2곳 공통", "—", "근거 건수 120 · END_TIME 없음 10", "근거 부족", "승인"],
+  ]);
+  assert.deepEqual(byData(app, "data-threshold-limitation").map((n) => text(n.children)),
+    ["한계(Trainer) · END_TIME이 없으면 평가하지 않는다. 끝나지 않고 멈춘 단계는 잡지 못한다.", `한계(Trainer) · ${labels.END_TIME_LIMITATION}`, `한계(Trainer) · ${SLASH_LIMITATION}`],
+    "Trainer sentence as-is; texts with internal paths replaced by one fixed sentence; S/F·건/분 kept");
+  assert.ok(!app.shown().includes("registry.py") && !app.shown().includes("workers/"), "no internal path on screen");
+  assert.ok(text(byData(app, "data-threshold-unassigned")[0].children).includes("2건"));
+  assert.equal(byData(app, "data-threshold-row")[0].findAllByType("a")[0].props.href, `/detection/rules/candidates/${JOB}.t0`);
+  // 룰 세트를 못 읽으면(이 시험은 503) 새 규칙·승인됨 판단이 없고 [승인]은 꺼진다. 처리 시간 후보는 그래도 보인다.
+  assert.equal(byData(app, "data-new-rule").length, 0);
+  assert.ok(app.shown().includes("현재 운영 룰 조회 실패 · rule_set_storage_unavailable"));
   await app.cleanup();
 }
 // 3) 결과 없음·조회 실패
@@ -313,7 +326,7 @@ const snapshots = [
   };
   requested.length = 0;
   const app = await mount(paths.detectionRuleCandidates);
-  await wait(() => byData(app, "data-candidate-row").length === 4, "list rendered");
+  await wait(() => byData(app, "data-threshold-row").length === 2, "list rendered");
   assert.ok(!requested.some((r) => r.path === "/api/rule-set/candidates/snapshots"), "saved datasets are read only when the dialog opens");
   assert.equal(byData(app, "data-latest-job").length, 0, "latest job is the result job");
   await act(async () => pageButton(app, labels.JOB_REQUEST).props.onClick());
@@ -328,9 +341,12 @@ const snapshots = [
   await act(async () => dialogButton(app, labels.JOB_REQUEST_SUBMIT).props.onClick());
   await wait(() => Boolean(dialogPart(app, (n) => n.props["data-candidate-request-error"] !== undefined)), "request error shown");
   assert.equal(elementText(dialogPart(app, (n) => n.props["data-candidate-request-error"] !== undefined)), `${labels.JOB_REQUEST} 실패 · snapshot_not_ready`);
+  const draftReads = requested.filter((r) => r.path === "/api/rule-set/protocol-drafts").length;
   await act(async () => dialogButton(app, labels.JOB_REQUEST_SUBMIT).props.onClick());
   await wait(() => !openDialog(app), "dialog closes after acceptance");
   assert.deepEqual(posted.map((p) => [p.method, p.body]), [["POST", { snapshotId: SNAP_NEW }], ["POST", { snapshotId: SNAP_NEW }]], "snapshotId only (Trainer defaults)");
+  // 접수되면 규칙 추천 목록과 같은 작업 결과의 관측 경로 초안을 다시 읽는다(프로토콜 설정 목록에 있던 요청을 이 화면 한 곳으로 모음).
+  await wait(() => requested.filter((r) => r.path === "/api/rule-set/protocol-drafts").length > draftReads, "protocol drafts re-read after acceptance");
   assert.ok(posted[0].key && posted[0].key === posted[1].key, "same key for the resend in one dialog");
   await wait(() => byData(app, "data-latest-job").length === 1, "list re-read: queued job shown");
   const latest = byData(app, "data-latest-job")[0];

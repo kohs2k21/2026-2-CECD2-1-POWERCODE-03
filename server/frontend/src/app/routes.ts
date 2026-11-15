@@ -20,7 +20,10 @@ export const paths = {
   detectionJob: (jobId: string) => `/detection/operations/jobs/${encodeURIComponent(jobId)}`,
   detectionReplace: "/detection/operations/replace",
   detectionRules: "/detection/rules",
-  /** 규칙 추천(층 B 후보 검토, contracts/rule-candidates-ui.md): 목록 → 후보 상세. */
+  /**
+   * 규칙 추천(룰 설정의 추천 한 곳, contracts/rule-candidates-ui.md 8절): 탭(주소 `tab`) 이상 징후 / 실행 흐름 규칙 → 후보 상세·프로토콜 상세.
+   * 쿼리 `interface`는 후보 결과의 인터페이스 선택(두 탭 공통).
+   */
   detectionRuleCandidates: "/detection/rules/candidates",
   detectionRuleCandidate: (candidateId: string) => `/detection/rules/candidates/${encodeURIComponent(candidateId)}`,
   /** 프로토콜 설정(정상 프로토콜 = 인터페이스별 허용 경로, contracts/protocol-settings-ui.md): 목록 → 인터페이스 상세. */
@@ -73,6 +76,8 @@ export const urlOptions = {
   evaluationsTab: ["current", "all"],
   jobsTab: ["all", "running", "done", "failed"],
   jobsKind: ["all", "train", "evaluate", "evaluation_set", "compare", "recommend_thresholds", "recommend_relations"],
+  /** 규칙 추천 탭: 이상 징후(처리 시간 후보·임계값 재추천) / 실행 흐름 규칙(경로·단계 조건). */
+  ruleCandidatesTab: ["anomaly", "flow"],
 } as const;
 /** 작업 영역 단계 수(navigation.md). 단계 화면은 각 하위 Issue에서 붙인다. */
 export const workStepCount = { train: 3, compare: 3, replace: 3 } as const;

@@ -152,6 +152,9 @@ assert.deepEqual(detectionBackTarget("/detection/rules/response-codes", null), {
 assert.deepEqual(detectionBackTarget("/detection/rules/protocols", null), { to: "/detection/rules#rules-protocols", label: "룰 설정" });
 assert.deepEqual(detectionBackTarget("/detection/rules/candidates", null), { to: "/detection/rules#rules-candidates", label: "룰 설정" });
 assert.deepEqual(detectionBackTarget("/detection/rules/candidates", { returnTo: "/detection/rules#rules-candidates" }), { to: "/detection/rules#rules-candidates", label: "룰 설정" }, "card link state");
+// 룰 설정 카드의 "추천 n건 보기"(규칙 추천 탭으로) → 들어온 카드로 돌아간다.
+assert.deepEqual(detectionBackTarget("/detection/rules/candidates", { returnTo: "/detection/rules#rules-soft" }), { to: "/detection/rules#rules-soft", label: "룰 설정" }, "recommend link from the soft rule card");
+assert.deepEqual(detectionBackTarget("/detection/rules/candidates", { returnTo: "/detection/rules/protocols" }), { to: "/detection/rules/protocols", label: "룰 설정" }, "recommend link from the protocol list");
 assert.deepEqual(detectionBackTarget("/detection/rules/response-codes/T001", null), { to: "/detection/rules", label: "룰 설정" }, "details keep the menu fallback");
 assert.deepEqual(detectionBackTarget("/detection/rules/response-codes/T001", { returnTo: "/detection/rules/response-codes" }), { to: "/detection/rules/response-codes", label: "룰 설정" }, "detail → list unchanged");
 // 다른 메뉴 영역에서 들어간 하위 화면: 쿼리와 영역 해시를 그대로 돌아간다(영역 주소는 sectionReturnTo)

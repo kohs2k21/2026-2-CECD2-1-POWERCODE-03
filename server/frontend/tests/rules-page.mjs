@@ -4,7 +4,7 @@ import React from "react";
 import { act, create } from "react-test-renderer";
 
 // 룰 설정 화면 통합(로컬 가짜 fetch만, 외부 요청 없음): 현재 상태·이상 규칙·이상 징후 규칙 표시, 초안 변경 건수, 저장 확인창(서버 요약·확인 체크),
-// 성공·실패·리비전 충돌, 되돌리기 본문, 수식 추천·AI 규칙 추천(적용은 입력칸만), 조회 실패, 판정 정책 미노출.
+// 성공·실패·리비전 충돌, 되돌리기 본문, 조회 실패, 판정 정책 미노출, 카드의 규칙 추천 링크(수식 추천·AI 규칙 추천은 규칙 추천 화면 — rule-recommendations-page.mjs).
 register("./svg-loader.mjs", import.meta.url);
 globalThis.React = React;
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
@@ -169,17 +169,26 @@ const cardLinks = (app) => app.renderer.root.findAll((node) => typeof node.type 
   assert.ok(stickyBox.props.className.includes("sticky") && stickyBox.props.className.includes("bg-background"));
   assert.ok(shown.indexOf("변경 0건") < shown.indexOf("STATUS ≠ S"), "save bar is above the hard rules");
   assert.ok(!shown.includes("시스템 내장 목록"), "no caption line under the table");
-  // 규칙 추천 진입 카드(rule-candidates-ui.md): 이상 징후 규칙 아래·변경 기록 위, 후보 목록으로 가는 링크만.
+  // 규칙 추천 진입 카드(rule-candidates-ui.md 8절): 이상 징후 규칙 아래·변경 기록 위, 규칙 추천 화면으로 가는 링크만. 설명은 규칙 추천 화면 머리와 같은 문장.
   const entry = app.renderer.root.find((node) => node.props?.["aria-label"] === "규칙 추천" && node.props["data-slot"] === "section-card");
   assert.equal(entry.findAllByType("a").map((a) => [a.props.href, text(a.children)]).join(), "/detection/rules/candidates,후보 보기");
-  // 카드 → 하위 목록 링크는 돌아올 카드 영역을 넘긴다(하위 화면 고정 뒤로가기가 그 영역으로 스크롤)
-  // 거래 실패 규칙(byCode 위험도)이 없는 상태라 응답 코드 카드·링크는 없다(있는 상태는 아래 1-1)
+  assert.ok(text(entry.children).includes("후보 → 근거(숫자는 코드, 문장은 LLM) → 승인하면 룰 세트 새 버전으로 저장"), "entry description");
+  // 카드 → 하위 목록·규칙 추천 링크는 돌아올 카드 영역을 넘긴다(하위 화면 고정 뒤로가기가 그 영역으로 스크롤)
+  // 이상 징후 규칙·관계 규칙·프로토콜 설정 카드에는 "추천 n건 보기"(해당 탭·구역). 거래 실패 규칙이 없는 상태라 응답 코드 카드·링크는 없다(있는 상태는 아래 1-1)
   assert.deepEqual(cardLinks(app).map((node) => [node.props.to, node.props.state.returnTo]), [
+    ["/detection/rules/candidates?tab=anomaly", "/detection/rules#rules-soft"],
+    ["/detection/rules/candidates?tab=flow#recommend-relations", "/detection/rules#rules-relation"],
+    ["/detection/rules/candidates?tab=flow#recommend-paths", "/detection/rules#rules-protocols"],
     ["/detection/rules/protocols", "/detection/rules#rules-protocols"],
     ["/detection/rules/candidates", "/detection/rules#rules-candidates"],
   ]);
+  // 후보 결과·관측 경로 초안 조회가 실패(이 시험은 경로 없음 → 503)하면 건수는 0이 아니라 값 없음(—).
+  assert.deepEqual(app.renderer.root.findAll((node) => node.type === "a" && node.props["data-recommend-link"]).map((node) => text(node.children)), ["추천 —건 보기", "추천 —건 보기", "추천 —건 보기"]);
+  // 추천 명령(AI 규칙 추천·규칙 행 수식 추천)은 규칙 추천 화면으로 옮겼다. 이상 징후 규칙 표 마지막 열은 삭제만.
+  for (const moved of ["AI 규칙 추천", "수식 추천", "저장 후 추천"]) assert.ok(!shown.includes(moved), `${moved} is not on the rules page`);
+  assert.deepEqual(app.renderer.root.find((node) => node.type === "tr" && node.props["data-rule"] === softRule.id).findAll((node) => node.type === "button").map((node) => text(node.children)).filter(Boolean), ["삭제"], "switch + delete only");
   assert.equal(app.renderer.root.findAll((node) => node.type === "table" && node.props["aria-label"] === "이상 규칙").length, 1, "table keeps a hidden name");
-  assert.ok(shown.indexOf("START_TIME > END_TIME") < shown.indexOf(HARD_WARNING) && shown.indexOf(HARD_WARNING) < shown.indexOf("AI 규칙 추천"), "bottom of the hard rule section");
+  assert.ok(shown.indexOf("START_TIME > END_TIME") < shown.indexOf(HARD_WARNING) && shown.indexOf(HARD_WARNING) < shown.indexOf("규칙 추가"), "bottom of the hard rule section");
   for (const expected of ["변경자 admin@example.test", "켜진 규칙 · 이상 규칙 2/2 · 이상 징후 규칙 1/1", "STATUS ≠ S", "START_TIME > END_TIME (종료 시각이 없으면 판단하지 않음)",
     "처리 시간elapsed_ms", "변경 0건 · 저장하면 바로 운영에 적용됩니다"]) assert.ok(shown.includes(expected), expected);
   for (const forbidden of ["AI 임계값 추천", "판정 정책", "기준 k", "하드룰", "소프트룰", "리비전", "r12", "r10", "r0"]) assert.ok(!shown.includes(forbidden), `${forbidden} is not on the screen`);
@@ -209,14 +218,17 @@ const cardLinks = (app) => app.renderer.root.findAll((node) => typeof node.type 
   await app.cleanup();
 }
 
-// 1-1) 거래 실패 규칙(byCode 위험도)이 있으면 응답 코드 카드가 생기고, 카드 → 하위 목록 링크 3개 모두 돌아올 카드 영역을 넘긴다
+// 1-1) 거래 실패 규칙(byCode 위험도)이 있으면 응답 코드 카드가 생기고, 카드 → 하위 목록·규칙 추천 링크 모두 돌아올 카드 영역을 넘긴다
 {
   const failedRule = { id: "hard:transaction-failed", methodVersion: "transaction-failed-v1", displayName: "거래 실패", conditionText: "응답 코드가 실패",
     severity: { byCode: { E901: "critical" }, default: "warning" }, enabled: true, editable: ["enabled", "severity"] };
   routes = baseRoutes({ "GET /api/rule-set": () => json(state(12, { hardRules: [...hardRules(), failedRule], counts: { hardEnabled: 3, hardTotal: 3, softEnabled: 1, softTotal: 1 } })) });
   const app = await mount();
-  await wait(() => cardLinks(app).length === 3, "response code card");
+  await wait(() => cardLinks(app).length === 6, "response code card");
   assert.deepEqual(cardLinks(app).map((node) => [node.props.to, node.props.state]), [
+    ["/detection/rules/candidates?tab=anomaly", { returnTo: "/detection/rules#rules-soft" }],
+    ["/detection/rules/candidates?tab=flow#recommend-relations", { returnTo: "/detection/rules#rules-relation" }],
+    ["/detection/rules/candidates?tab=flow#recommend-paths", { returnTo: "/detection/rules#rules-protocols" }],
     ["/detection/rules/protocols", { returnTo: "/detection/rules#rules-protocols" }],
     ["/detection/rules/response-codes", { returnTo: "/detection/rules#rules-response-codes" }],
     ["/detection/rules/candidates", { returnTo: "/detection/rules#rules-candidates" }],
@@ -670,80 +682,6 @@ const cardLinks = (app) => app.renderer.root.findAll((node) => typeof node.type 
   await app.cleanup();
 }
 
-// 7) 수식 추천: 기간 선택 → 계산 → 적용은 입력칸만(서버 저장 없음). 해당 없음·오류는 코드·사유 표시.
-{
-  let stats = () => json({ field: "elapsed_ms", statistic: "p95", operator: "gt", threshold: "7210.5", displayThreshold: "7211", unit: "ms", source: "data_p95", status: "proposed", rationale: null,
-    evidence: { n: 51230, min: 12, max: 184233, p95: 7210.5, quantileMethod: "percentile_cont", scope: "period", period: { mode: "recent_1m", from: "2026-10-04T00:00:00Z", until: "2026-11-04T00:00:00Z", timeBasis: "esb_occurred_at", resolvedFrom: null } } });
-  routes = baseRoutes({ "POST /api/rule-set/threshold-stats": () => stats() });
-  const app = await mount();
-  await wait(() => app.shown().includes("현재 운영 버전 12"), "header");
-  const savesBefore = calls("PUT", "/api/rule-set").length;
-  await app.click("수식 추천");
-  await wait(() => app.shown().includes("수식 추천 기준 기간") && app.button("계산")?.props.disabled === false, "formula row");
-  const periods = app.renderer.root.findByProps({ id: `formula-period-${softRule.id}`, "data-slot": "native-select" });
-  assert.deepEqual(periods.findAllByType("option").map((option) => text(option.children)), ["운영 머신러닝 모델 학습 기간 시작 ~ 현재", "최근 1개월", "최근 3개월", "직접 지정"]);
-  await act(async () => periods.props.onChange({ target: { value: "recent_1m" } }));
-  await app.click("계산");
-  await wait(() => app.shown().includes("수식 추천 · 데이터 p95 7211 ms"), "result");
-  assert.ok(app.shown().includes("표본 51,230건") && app.shown().includes("(최근 1개월) · LLM 미사용"));
-  // 수식 추천 기준 문구(사용자 11/14): 기간 전체 p95.
-  assert.deepEqual(app.renderer.root.findAll((node) => node.type === "span" && node.props["data-formula-basis"] !== undefined).map((node) => text(node.children)), ["기준 · 기간 전체 p95"]);
-  const sent = calls("POST", "/api/rule-set/threshold-stats").at(-1).body;
-  assert.deepEqual([sent.field, sent.statistic, sent.period], ["elapsed_ms", "p95", { mode: "recent_1m", timeBasis: "persisted_at" }]);
-  assert.equal(app.renderer.root.find((node) => node.type === "strong" && node.props.title === "원값 7210.5") !== undefined, true, "raw value tooltip");
-  await app.click("적용");
-  assert.equal(app.renderer.root.findAll((node) => node.type === "input" && node.props["aria-label"] === `${softRule.name} 임계값`)[0].props.value, "7210.5");
-  assert.ok(app.shown().includes("변경 1건"));
-  assert.equal(calls("PUT", "/api/rule-set").length, savesBefore, "apply only fills the input");
-  await app.click("수식 추천");
-  await wait(() => app.button("계산")?.props.disabled === false, "formula row reopened");
-  stats = () => json({ field: "elapsed_ms", statistic: "p95", operator: null, threshold: null, displayThreshold: null, unit: "ms", source: "data_p95", status: "no_applicable", rationale: null,
-    evidence: { n: 3, min: 1, max: 2, p95: 2, period: { mode: "active_model_training_start", from: "2026-10-04T00:00:00Z", until: "2026-11-04T00:00:00Z" } } });
-  await app.click("계산");
-  await wait(() => app.shown().includes("해당 없음"), "no_applicable");
-  assert.deepEqual(calls("POST", "/api/rule-set/threshold-stats").at(-1).body.period, { mode: "active_model_training_start" }, "server picks the basis for the model period");
-  assert.ok(app.shown().includes("최소 기준 미달") && app.shown().includes("표본 3건"));
-  assert.equal(app.button("적용"), undefined, "nothing to apply");
-  await app.click("다시 시도");
-  stats = () => json({ code: "active_model_missing" }, 422);
-  await wait(() => app.button("계산")?.props.disabled === false, "back to the period choice");
-  await app.click("계산");
-  await wait(() => app.shown().includes("수식 추천 실패 · active_model_missing · 입력칸은 그대로입니다."), "error code shown");
-  await app.cleanup();
-}
-
-// 7b) 수식 추천 직접 지정: 두 시각을 넣어야 계산할 수 있고, 화면 입력이 오프셋 있는 시각과 저장 시각 기준으로 요청에 들어간다. 최근 3개월도 같은 기준.
-{
-  const stats = () => json({ field: "elapsed_ms", statistic: "p95", operator: "gt", threshold: "10", displayThreshold: "10", unit: "ms", source: "data_p95", status: "proposed", rationale: null,
-    evidence: { n: 30, min: 1, max: 20, p95: 10, period: { mode: "custom", from: "2026-10-01T00:00:00Z", until: "2026-10-02T00:00:00Z" } } });
-  routes = baseRoutes({ "POST /api/rule-set/threshold-stats": () => stats() });
-  const app = await mount();
-  await wait(() => app.shown().includes("현재 운영 버전 12"), "header");
-  await app.click("수식 추천");
-  await wait(() => app.button("계산")?.props.disabled === false, "formula row");
-  const select = () => app.renderer.root.findByProps({ id: `formula-period-${softRule.id}`, "data-slot": "native-select" });
-  const dateInput = (label) => app.renderer.root.findByProps({ "aria-label": label, "data-slot": "input" });
-  await act(async () => select().props.onChange({ target: { value: "custom" } }));
-  assert.equal(app.button("계산").props.disabled, true, "both times are required");
-  await act(async () => dateInput("시작").props.onChange({ target: { value: "2026-10-01T09:00" } }));
-  assert.equal(app.button("계산").props.disabled, true);
-  await act(async () => dateInput("종료").props.onChange({ target: { value: "2026-10-02T09:30" } }));
-  assert.equal(app.button("계산").props.disabled, false);
-  await app.click("계산");
-  await wait(() => app.shown().includes("수식 추천 · 데이터 p95 10 ms"), "custom result");
-  assert.deepEqual(calls("POST", "/api/rule-set/threshold-stats").at(-1).body.period, {
-    mode: "custom", from: new Date("2026-10-01T09:00").toISOString(), until: new Date("2026-10-02T09:30").toISOString(), timeBasis: "persisted_at",
-  });
-  await app.click("닫기");
-  await app.click("수식 추천");
-  await wait(() => app.button("계산")?.props.disabled === false, "formula row reopened");
-  await act(async () => select().props.onChange({ target: { value: "recent_3m" } }));
-  await app.click("계산");
-  await wait(() => calls("POST", "/api/rule-set/threshold-stats").at(-1).body.period.mode === "recent_3m", "recent 3 months requested");
-  assert.deepEqual(calls("POST", "/api/rule-set/threshold-stats").at(-1).body.period, { mode: "recent_3m", timeBasis: "persisted_at" });
-  await app.cleanup();
-}
-
 // 7c) 삭제: 확인창 전에는 초안이 그대로고, 돌아가기는 유지, 삭제는 초안에서만 빼며 저장 요청에서 빠진다.
 {
   routes = baseRoutes({ "POST /api/rule-set/preview": () => json({ valid: true, summary: {}, hardDisabledAfterSave: [], changes: [{ type: "soft_removed", id: softRule.id, name: softRule.name }] }) });
@@ -767,282 +705,6 @@ const cardLinks = (app) => app.renderer.root.findAll((node) => typeof node.type 
   await wait(() => app.renderer.root.findAllByType(RuleSaveDialog).length === 1, "confirmation");
   assert.deepEqual(calls("POST", "/api/rule-set/preview").at(-1).body.softRules, [], "removed rule is not in the request");
   await app.cleanup();
-}
-
-// 7d) AI 규칙 추천: 계약 경로 요청, softRuleIds로만 연결, 제안만 선택, 적용은 입력칸만, 결과 검증, 작업 실패와 조회 실패 구분, 버전 변경, 서버 거절.
-{
-  const { readFile } = await import("node:fs/promises");
-  const doc = await readFile(new URL("../../contracts/llm-recommendation-job.md", import.meta.url), "utf8");
-  const contractResult = JSON.parse(doc.slice(doc.indexOf("## 결과 JSON")).split("```json")[1].split("```")[0]);
-  const { basisLabel, heldWindowExcludedRows, parseRecommendation, progressText, recommendationProgress } = await import("../src/features/detection/rules/ruleAiApi.ts");
-  const v3Result = JSON.parse(doc.slice(doc.indexOf("### 결과 추가 필드")).split("```json")[1].split("```")[0]);
-  assert.deepEqual([basisLabel("train_reference_80_p95"), basisLabel("train_p95"), basisLabel(undefined), basisLabel("other"), basisLabel("toString")],
-    ["기준 · 학습 기간 앞 80% p95", null, null, null, null], "only the Rule v3 basis has a label");
-  assert.deepEqual(recommendationProgress({ progress: { processed: 0, total: 3 } }), { processed: 0, total: 3 });
-  assert.deepEqual(recommendationProgress({ progress: { processed: 3, total: 3 } }), { processed: 3, total: 3 });
-  for (const invalid of [null, {}, { progress: null }, { progress: { processed: 1 } }, { progress: { processed: 4, total: 3 } }, { progress: { processed: -1, total: 3 } },
-    { progress: { processed: 0, total: 0 } }, { progress: { processed: 1.5, total: 3 } }, { progress: { processed: "1", total: 3 } }]) {
-    assert.equal(recommendationProgress(invalid), null, JSON.stringify(invalid));
-  }
-  assert.equal(progressText({ processed: 2, total: 6 }), "처리 2/6", "approved progress wording (user 11/14)");
-  // 보류 창 제외(결과 최상위 heldWindowExclusion): 객체일 때만 행 수, null·없음·형식 다름은 표시 안 함.
-  assert.equal(heldWindowExcludedRows(v3Result), 9370);
-  assert.equal(heldWindowExcludedRows({ heldWindowExclusion: { from: "x", until: "y", excludedRows: 0 } }), 0);
-  for (const hidden of [contractResult, {}, null, { heldWindowExclusion: null }, { heldWindowExclusion: { excludedRows: -1 } }, { heldWindowExclusion: { excludedRows: "9370" } }, { heldWindowExclusion: [] }]) {
-    assert.equal(heldWindowExcludedRows(hidden), null, JSON.stringify(hidden));
-  }
-
-  const retryRule = { ...softRule, id: "soft:retry_count-91ab77e0", name: "재시도 3회 이상", field: "retry_count", operator: "gte", threshold: 3, unit: "count", severity: "info" };
-  const offRule = { ...softRule, id: "soft:error_ratio-0000aaaa", name: "꺼진 비율 규칙", field: "error_ratio", threshold: 0.02, unit: "ratio", enabled: false };
-  const noResultRule = { ...softRule, id: "soft:success_count-11112222", name: "결과 없는 규칙", field: "success_count", operator: "lt", threshold: 2, unit: "count" };
-  const ratioRule = { ...softRule, id: "soft:error_ratio-5d2e0b19", name: "오류 비율 규칙", field: "error_ratio", threshold: 0.01, unit: "ratio" };
-  const totalRule = { ...softRule, id: "soft:total_count-0a1b2c3d", name: "총 건수 규칙", field: "total_count", threshold: 10000, unit: "count" };
-  const sameFieldRule = { ...softRule, id: "soft:elapsed_ms-99999999", name: "같은 필드 다른 규칙", threshold: 9000 };
-  const current = state(12, { softRules: [softRule, ratioRule, retryRule, totalRule, offRule, noResultRule, sameFieldRule], counts: { hardEnabled: 2, hardTotal: 2, softEnabled: 6, softTotal: 7 } });
-  assert.ok(parseRecommendation(contractResult, current), "contract example passes validation");
-  assert.equal(parseRecommendation(contractResult, state(12, { softRules: [softRule] })), null, "ids are not aligned by field: another rule's id fails validation");
-
-  const jobs = new Map();
-  let nextJob = 0;
-  const addJob = (body) => {
-    const id = `job-${++nextJob}`;
-    jobs.set(id, body);
-    return id;
-  };
-  const succeeded = (resultSummary) => () => json({ kind: "recommend_thresholds", status: "succeeded", inputSpec: {}, resultSummary });
-  const failedJob = (errorCode) => () => json({ kind: "recommend_thresholds", status: "failed", inputSpec: {}, errorCode });
-  let jobResponse = succeeded(contractResult);
-  const jobGets = (id) => calls("GET", `/api/jobs/${id}`).length;
-  routes = baseRoutes({
-    "GET /api/rule-set": () => json(current),
-    "POST /api/jobs": () => json({ id: addJob(jobResponse), kind: "recommend_thresholds", status: "queued", inputSpec: {} }, 202),
-  });
-  const realFetch = globalThis.fetch;
-  globalThis.fetch = async (url, options = {}) => {
-    const target = new URL(String(url), "http://local.test");
-    const match = /^\/api\/jobs\/(job-\d+)$/.exec(target.pathname);
-    if (!match) return realFetch(url, options);
-    requested.push({ path: target.pathname, method: "GET" });
-    const body = await jobs.get(match[1])();
-    return body;
-  };
-  const before = calls("POST", "/api/jobs").length;
-  const jobCalls = () => calls("POST", "/api/jobs");
-  const app = await mount();
-  await wait(() => app.button("AI 규칙 추천")?.props.disabled === false, "button enabled");
-  const box = (name) => app.renderer.root.findAll((node) => node.type === "div" && node.props["data-rule-ai"] === name)[0];
-  const thresholdOf = (name) => app.renderer.root.findAll((node) => node.type === "input" && node.props["aria-label"] === `${name} 임계값`)[0].props.value;
-  await app.click("AI 규칙 추천");
-  await wait(() => box("running") || box("done"), "started");
-  await wait(() => box("done"), "result table");
-  const sent = jobCalls().at(-1).body;
-  assert.equal(jobCalls().length, before + 1);
-  assert.deepEqual([sent.kind, sent.ruleSetRevision, sent.scope, sent.mode, sent.data.snapshotId, sent.data.timeBasis],
-    ["recommend_thresholds", 12, { softRuleIds: null }, "data_p95_with_llm_rationale", null, "persisted_at"]);
-  assert.ok(Date.parse(sent.data.from) < Date.parse(sent.data.until) && Date.parse(sent.data.until) - Date.parse(sent.data.from) <= 92 * 86400000);
-  const rows = () => app.renderer.root.findAll((node) => node.type === "tr" && node.props["data-ai-row"] !== undefined);
-  const row = (id) => rows().find((node) => node.props["data-ai-row"] === id);
-  assert.deepEqual(rows().map((node) => node.props["data-ai-row"]), [softRule.id, ratioRule.id, retryRule.id, totalRule.id], "rows are the enabled rules listed in softRuleIds; same-field, off and result-less rules are not");
-  assert.ok(text(box("done").children).includes("켜진 이상 징후 규칙 4개 · 제안 2건"));
-  assert.equal(contractResult.heldWindowExclusion, null);
-  assert.ok(!text(box("done").children).includes("보류 기간 제외") && box("done").findAll((node) => node.props["data-ai-held"] !== undefined).length === 0, "no held-window line when heldWindowExclusion is null");
-  assert.equal(box("done").findAll((node) => node.type === "table" && node.props["aria-label"] === "AI 규칙 추천").length, 1);
-  const heads = box("done").findAll((node) => node.type === "th").map((node) => text(node.children));
-  assert.deepEqual(heads, ["선택", "규칙(대상 필드)", "임계값", "상태", "근거"], "five columns");
-  const proposed = text(row(softRule.id).children);
-  assert.ok(proposed.includes("> 5,000 ms → > 7,211 ms"), proposed);
-  assert.ok(proposed.includes("데이터 p95 · 표본 46,980 · min 12 · max 184,233 · p95 7,210.5"), "source leads the evidence line");
-  assert.ok(proposed.includes("The 95th percentile of 46,980 successful process durations"), "rationale stays as returned");
-  assert.equal(contractResult.items[0].basis, "train_p95");
-  assert.equal(box("done").findAll((node) => node.props["data-ai-basis"] !== undefined).length, 0, "train_p95 and a missing basis show no basis line");
-  assert.ok(!text(box("done").children).includes("기준 ·"));
-  for (const hidden of ["m_…", "b_…", "linear_(n-1)*p", "explicit anomaly labels", "reviews", "rule_v2"]) assert.ok(!text(box("done").children).includes(hidden), `${hidden} is not on the screen`);
-  assert.ok(row(softRule.id).findAll((node) => node.type === "span" && node.props.title === "원값 7210.5").length === 1, "raw value tooltip");
-  assert.ok(text(row(retryRule.id).children).includes("해당 없음") && text(row(retryRule.id).children).includes("All reference values are 0"));
-  assert.ok(text(row(retryRule.id).children).includes("≥ 3 count") && !text(row(retryRule.id).children).includes("→"), "non-proposed rows show only the current value");
-  assert.ok(text(row(totalRule.id).children).includes("거부") && text(row(totalRule.id).children).includes("invalid_generation_output"), "reason is in the status cell");
-  const checkbox = (id) => row(id).findAll((node) => node.props["aria-label"]?.endsWith(" 선택") && node.props.onCheckedChange)[0];
-  assert.deepEqual([checkbox(softRule.id).props.disabled, checkbox(ratioRule.id).props.disabled, checkbox(retryRule.id).props.disabled, checkbox(totalRule.id).props.disabled], [false, false, true, true], "only proposed rows are selectable");
-  // 선택 해제하면 적용 불가, 다시 고르면 적용. 적용은 고른 규칙의 입력칸만 바꾼다.
-  await act(async () => checkbox(softRule.id).props.onCheckedChange(false));
-  await act(async () => checkbox(ratioRule.id).props.onCheckedChange(false));
-  assert.equal(app.button("적용").props.disabled, true);
-  assert.ok(text(box("done").children).includes("선택 0건"));
-  await act(async () => checkbox(softRule.id).props.onCheckedChange(true));
-  const saves = calls("PUT", "/api/rule-set").length;
-  await app.click("적용");
-  assert.equal(thresholdOf(softRule.name), "7210.5");
-  assert.equal(thresholdOf(sameFieldRule.name), "9000", "same field but not listed: untouched");
-  assert.equal(thresholdOf(retryRule.name), "3", "not proposed: input untouched");
-  assert.equal(thresholdOf(offRule.name), "0.02", "off rule untouched");
-  assert.equal(thresholdOf(noResultRule.name), "2", "rule without a result untouched");
-  assert.equal(thresholdOf(ratioRule.name), "0.01", "unselected proposal untouched");
-  assert.ok(app.shown().includes("변경 1건"));
-  assert.ok(text(box("applied").children).includes(`1건을 입력칸에 채움(${softRule.name}) · 저장해야 운영에 반영됩니다`));
-  assert.equal(calls("PUT", "/api/rule-set").length, saves, "apply does not save");
-  assert.equal(app.renderer.root.findAll((node) => node.type === "select" && node.props["aria-label"] === `${softRule.name} 위험도`)[0].props.value, "warning", "severity stays with the person");
-  // 미저장 변경이 있으면 저장된 버전 기준 작업을 시작하지 않는다.
-  assert.equal(app.button("AI 규칙 추천").props.disabled, true);
-  assert.ok(app.shown().includes("저장 후 추천"));
-  await app.click("닫기");
-  const setRuleThreshold = async (name, value) => act(async () => app.renderer.root.findAll((node) => node.type === "input" && node.props["aria-label"] === `${name} 임계값`)[0].props.onChange({ target: { value } }));
-  await setRuleThreshold(softRule.name, "5000");
-  await wait(() => app.button("AI 규칙 추천").props.disabled === false, "clean draft can run again");
-
-  // 작업 실패: 전체 실패 표시, 입력칸 그대로, 다시 시도는 새 작업. 시간 초과는 따로.
-  jobResponse = failedJob("generation_service_unavailable");
-  await app.click("AI 규칙 추천");
-  await wait(() => box("failed"), "job failure");
-  assert.ok(text(box("failed").children).includes("추천 실패 · generation_service_unavailable · 작업 전체가 실패해 부분 결과가 없습니다. 입력칸은 그대로입니다."));
-  assert.equal(rows().length, 0, "no partial result");
-  assert.equal(thresholdOf(softRule.name), "5000");
-  jobResponse = failedJob("generation_timeout");
-  const postsBeforeRetry = jobCalls().length;
-  await app.click("다시 시도");
-  await wait(() => box("failed") && text(box("failed").children).includes("시간 초과 · generation_timeout"), "timeout is separate");
-  assert.equal(jobCalls().length, postsBeforeRetry + 1, "retry after a failed job is a new request");
-
-  // 결과가 계약과 다르면 실패로 끝나고 페이지 오류가 나지 않는다.
-  const validItem = contractResult.items[0];
-  const invalidResults = [
-    { ...contractResult, items: [] }, { ...contractResult, items: [null] }, { ...contractResult, items: "x" }, { items: [validItem] }, null,
-    { ...contractResult, items: [{ ...validItem, evidence: {} }] }, { ...contractResult, items: [{ ...validItem, evidence: null }] },
-    { ...contractResult, items: [{ ...validItem, threshold: undefined }] }, { ...contractResult, items: [{ ...validItem, threshold: 7210.5 }] },
-    { ...contractResult, items: [{ ...validItem, threshold: "1e5" }] }, { ...contractResult, items: [{ ...validItem, displayThreshold: null }] },
-    { ...contractResult, items: [{ ...validItem, status: "unknown" }] }, { ...contractResult, items: [{ ...validItem, source: "unknown" }] },
-    { ...contractResult, items: [{ ...validItem, operator: "eq" }] }, { ...contractResult, items: [{ ...validItem, softRuleIds: "x" }] },
-    { ...contractResult, items: [{ ...validItem, status: "no_applicable" }] },
-    { ...contractResult, items: [{ ...contractResult.items[2], status: "unknown" }] },
-    { ...contractResult, items: [{ ...validItem, evidence: { ...validItem.evidence, n: "46980" } }] }, { ...contractResult, items: [{ ...validItem, evidence: { ...validItem.evidence, n: undefined } }] },
-    { ...contractResult, items: [{ ...validItem, softRuleIds: [] }] }, { ...contractResult, items: [{ ...validItem, softRuleIds: ["soft:elapsed_ms-00000000"] }] },
-    { ...contractResult, items: [{ ...validItem, softRuleIds: [offRule.id] }] },
-  ];
-  for (const invalid of invalidResults) {
-    assert.equal(parseRecommendation(invalid, current), null, JSON.stringify(invalid)?.slice(0, 120));
-    jobResponse = succeeded(invalid);
-    const posts = jobCalls().length;
-    await app.click("다시 시도");
-    await wait(() => jobCalls().length === posts + 1 && box("failed") && text(box("failed").children).includes("recommendation_result_invalid"), "invalid result fails");
-    assert.equal(rows().length, 0);
-  }
-
-  // 충돌: 재조회로 버전이 바뀌어도 실패 표시가 남고, 다시 시도는 새 버전으로 요청한다.
-  const conflictRoute = routes["POST /api/jobs"];
-  routes["POST /api/jobs"] = () => {
-    routes["GET /api/rule-set"] = () => json({ ...current, revision: 14 });
-    return json({ code: "rule_set_revision_conflict", currentRevision: 14 }, 409);
-  };
-  await app.click("다시 시도");
-  await wait(() => app.shown().includes("현재 운영 버전 14"), "conflict reloads the rule set");
-  await tick(30);
-  assert.ok(box("failed") && text(box("failed").children).includes("추천 실패 · rule_set_revision_conflict"), "failure stays after the revision changes");
-  routes["POST /api/jobs"] = conflictRoute;
-  jobResponse = succeeded(contractResult);
-  await app.click("다시 시도");
-  await wait(() => box("done"), "result after conflict");
-  assert.equal(jobCalls().at(-1).body.ruleSetRevision, 14, "retry uses the new revision");
-  // 저장으로 버전이 바뀌면 이전 버전 기준 결과는 닫힌다.
-  routes["GET /api/rule-set"] = () => json({ ...current, revision: 15 });
-  routes["POST /api/rule-set/preview"] = () => json({ valid: true, summary: {}, hardDisabledAfterSave: [], changes: [{ type: "soft_updated", id: softRule.id, name: softRule.name, diff: { threshold: [5000, 5100] } }] });
-  routes["PUT /api/rule-set"] = () => json({ revision: 15, previousRevision: 14, contentHash: "c".repeat(64), appliedAt: "2026-11-02T08:20:05Z", appliesFrom: "next_decision", changes: [], summary: {} });
-  await setRuleThreshold(softRule.name, "5100");
-  await app.click("저장");
-  await wait(() => app.renderer.root.findAllByType(RuleSaveDialog).length === 1, "confirmation");
-  await act(async () => pendingOf(app).run(false));
-  await wait(() => app.shown().includes("운영에 적용됨 · 버전 15"), "saved");
-  await tick(30);
-  assert.equal(Boolean(box("done")), false, "results of the previous revision are closed");
-
-  // 진행 중은 5초마다 조회한다. 조회 실패는 작업 실패가 아니고 조회가 멈추며, 다시 시도는 같은 작업을 읽고 새 작업을 만들지 않는다.
-  let reads = 0;
-  jobResponse = () => {
-    reads += 1;
-    if (reads === 1) return json({ kind: "recommend_thresholds", status: "running", inputSpec: {}, resultSummary: { progress: { processed: 2, total: 6 } } });
-    if (reads === 2) return json({ code: "job_storage_unavailable" }, 503);
-    return succeeded(contractResult)();
-  };
-  const postsBeforePoll = jobCalls().length;
-  await app.click("AI 규칙 추천");
-  await wait(() => reads === 1 && box("running"), "job is running");
-  assert.ok(app.shown().includes("AI 규칙 추천 실행 중…") && !app.shown().includes("AI 임계값"), "running text uses the screen name");
-  assert.ok(text(box("running").children).includes("켜진 이상 징후 규칙 6개"));
-  // 진행률(llm-recommendation-job.md 7차): 막대 값 + 승인 문구 `처리 n/전체`(사용자 11/14).
-  const bar = () => box("running").findAll((node) => node.type === "div" && node.props.role === "progressbar")[0];
-  await wait(() => bar()?.props["aria-valuenow"] === 2, "progress value from the running job");
-  assert.deepEqual([bar().props["aria-valuenow"], bar().props["aria-valuemax"], bar().props["aria-valuemin"], bar().props["aria-label"]], [2, 6, 0, "AI 규칙 추천 실행 중"]);
-  assert.deepEqual(box("running").findAll((node) => node.type === "span" && node.props["data-ai-progress"] !== undefined).map((node) => text(node.children)), ["처리 2/6"], "progress number text");
-  await wait(() => box("readFailed"), "a read failure after the 5 second poll", 800);
-  assert.equal(reads, 2, "polled once more while running");
-  assert.ok(text(box("readFailed").children).includes("AI 규칙 추천 조회 실패 · job_storage_unavailable"));
-  assert.equal(Boolean(box("failed")), false, "a read failure is not a job failure");
-  assert.equal(app.button("AI 규칙 추천").props.disabled, true, "no new job while the old one may be alive");
-  await act(async () => new Promise((resolve) => setTimeout(resolve, 5600)));
-  assert.equal(reads, 2, "polling stops after a read failure");
-  await app.click("다시 시도");
-  await wait(() => box("done"), "same job is read again");
-  assert.equal(reads, 3);
-  assert.equal(jobCalls().length, postsBeforePoll + 1, "retry of a read creates no new job");
-
-  // Rule v3 결과(계약 7차 예시): 기준 문구와 한국어 근거. Rule v3 실패 코드는 기존 형식 그대로.
-  await app.click("닫기");
-  await wait(() => app.button("AI 규칙 추천").props.disabled === false, "closed before rule v3");
-  jobResponse = succeeded(v3Result);
-  await app.click("AI 규칙 추천");
-  await wait(() => box("done"), "rule v3 result");
-  assert.deepEqual(rows().map((node) => node.props["data-ai-row"]), [softRule.id]);
-  const v3Row = text(row(softRule.id).children);
-  assert.deepEqual(row(softRule.id).findAll((node) => node.type === "span" && node.props["data-ai-basis"] !== undefined).map((node) => text(node.children)), ["기준 · 학습 기간 앞 80% p95"]);
-  assert.ok(v3Row.includes("> 5,000 ms → > 7,180 ms") && v3Row.includes("참조 기간 유효 값 30100개의 p95보다 큰"), v3Row);
-  assert.deepEqual(box("done").findAll((node) => node.type === "span" && node.props["data-ai-held"] !== undefined).map((node) => text(node.children)), ["보류 기간 제외 · 9,370행"], "held-window exclusion in the result summary");
-  for (const hidden of ["train_reference_80_p95", "rule_v3", "baseline_…", "attempts", "currentN"]) assert.ok(!text(box("done").children).includes(hidden), `${hidden} is not on the screen`);
-  for (const code of ["rule_v3_not_configured", "recommendation_rule_input_rejected", "rule_v3_model_failure", "generation_adapter_version_mismatch"]) {
-    await app.click("닫기");
-    await wait(() => app.button("AI 규칙 추천").props.disabled === false, `closed before ${code}`);
-    jobResponse = failedJob(code);
-    await app.click("AI 규칙 추천");
-    await wait(() => box("failed") && text(box("failed").children).includes(`추천 실패 · ${code} · 작업 전체가 실패해 부분 결과가 없습니다.`), code);
-  }
-
-  // 서버 거절: 코드 그대로, 예시로 대체하지 않음.
-  routes["POST /api/jobs"] = () => json({ code: "invalid_job_request" }, 400);
-  await app.click("닫기");
-  await wait(() => app.button("AI 규칙 추천").props.disabled === false, "closed");
-  await app.click("AI 규칙 추천");
-  await wait(() => box("failed") && text(box("failed").children).includes("추천 실패 · invalid_job_request"), "server rejection shown");
-  assert.equal(rows().length, 0, "a rejected request shows no result rows");
-  assert.ok(!app.shown().includes("The 95th percentile"));
-  await app.cleanup();
-  globalThis.fetch = realFetch;
-
-  // 켜진 규칙이 없으면 비활성.
-  routes = baseRoutes({ "GET /api/rule-set": () => json(state(12, { softRules: [{ ...softRule, enabled: false }] })) });
-  const none = await mount();
-  await wait(() => none.shown().includes("현재 운영 버전 12"), "header");
-  await wait(() => calls("GET", "/api/pipeline/sources").length > 0, "sources requested");
-  await tick(30);
-  assert.equal(none.button("AI 규칙 추천").props.disabled, true);
-  await none.cleanup();
-  // 출처 조회 실패·출처 없음은 이유를 표시한다.
-  routes = baseRoutes({ "GET /api/pipeline/sources": () => json({ code: "sources_unavailable" }, 503) });
-  const noRead = await mount();
-  await wait(() => noRead.shown().includes("출처 조회 실패 · sources_unavailable"), "source read failure reason");
-  assert.equal(noRead.button("AI 규칙 추천").props.disabled, true);
-  await noRead.cleanup();
-  routes = baseRoutes({ "GET /api/pipeline/sources": () => json({ items: [] }) });
-  const noSource = await mount();
-  await wait(() => noSource.shown().includes("저장된 데이터 출처가 없습니다."), "no source reason");
-  assert.equal(noSource.button("AI 규칙 추천").props.disabled, true);
-  await noSource.cleanup();
-  // LLM 생성 서비스 꺼짐(GET /api/llm/status available=false, llm-recommendation-job.md '생성 서비스 가용성' 절): 버튼 비활성 + 코드 그대로.
-  // 수식 추천(LLM 없음)은 막지 않는다. 상태 조회 실패(이 파일의 다른 시험처럼 경로 없음 → 503)면 위 시험처럼 막지 않는다.
-  routes = baseRoutes({ "GET /api/llm/status": () => json({ available: false, checkedAt: "2026-11-14T01:00:00.000Z", errorCode: "generation_service_unavailable" }) });
-  const postsBefore = calls("POST", "/api/jobs").length;
-  const off = await mount();
-  await wait(() => off.shown().includes("AI 규칙 추천 · generation_service_unavailable"), "unavailable code shown");
-  assert.equal(off.button("AI 규칙 추천").props.disabled, true, "AI rule recommendation disabled while the generation service is off");
-  assert.notEqual(off.button("수식 추천").props.disabled, true, "formula recommendation is not gated");
-  assert.equal(calls("POST", "/api/jobs").length, postsBefore, "no job request");
-  await off.cleanup();
 }
 
 // 8) 조회 실패는 빈 룰로 보이지 않는다.

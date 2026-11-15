@@ -25,6 +25,7 @@ import {
   evidenceGroupLabels,
   legacyRuleLabel,
   methodLabels,
+  resultCodeLabel,
   resultText,
   resultVariant,
   riskLevelLabels,
@@ -73,6 +74,11 @@ const riskNode = (detail: DecisionDetail, v4: EvidenceV4 | null): ReactNode => {
       {unrated && <> · 단계 없는 근거 {unrated}</>}
     </>
   );
+};
+/** 판정 코드: AI 판정 근거 요약(explainFacts)과 같은 결과 코드 이름표(`상태 F 실패`), 원래 코드는 툴팁. 이름표가 없는 코드는 원래 코드 그대로. */
+const decisionCodeNode = (code: string): ReactNode => {
+  const name = resultCodeLabel(code);
+  return name === code ? code : <span title={code}>{name}</span>;
 };
 /**
  * 판정 결과 + 근거 구분(와이어프레임 `이상 · 근거 이상 규칙`): v4 basisMethods의 근거 구분 이름(내장 이상 규칙·관계 규칙·정상 프로토콜·이상 징후 규칙·머신러닝 모델).
@@ -150,7 +156,7 @@ const SummaryCard = ({ detail, isAdmin }: { detail: DecisionDetail; isAdmin: boo
   );
   if (final)
     items.push(
-      { label: "판정 코드", value: detail.decisionCode ?? DASH },
+      { label: "판정 코드", value: detail.decisionCode ? decisionCodeNode(detail.decisionCode) : DASH },
       { label: "이상 점수", value: detail.anomalyScore ?? DASH },
       { label: "수행 상태", value: `Rule ${run(detail.ruleStatus)} · ML ${run(detail.mlStatus)}` },
     );
@@ -296,6 +302,12 @@ export const DecisionDetailView = ({
   const records = feedback.data?.items ?? [];
   const extra = detail && isAdmin ? recordEntries(records, (record) => Boolean(user?.id) && record.actorId === user?.id) : [];
   const [editingId, setEditingId] = useState<string | null>(null);
+  // 판정이 바뀌면 수정 대화상자를 닫는다(다른 판정에 갔다가 돌아와도 닫은 대화상자가 다시 열리지 않게). 렌더 중 이전 값 비교로 초기화.
+  const [editingFor, setEditingFor] = useState(detail?.id);
+  if (editingFor !== detail?.id) {
+    setEditingFor(detail?.id);
+    setEditingId(null);
+  }
   const editing = detail && isAdmin && editingId ? records.find((record) => record.originId === editingId) : undefined;
   return (
     <div className="grid gap-4">

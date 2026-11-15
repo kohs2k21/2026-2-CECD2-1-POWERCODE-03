@@ -34,6 +34,7 @@ import generation_client
 import model_adapters
 import research_bundle
 import rule_v3_capture as capture
+import rule_v3_check
 import rule_v3_runtime as v3
 import threshold_recommendation as recommendation
 from generation_client import GenerationUnavailable
@@ -109,6 +110,7 @@ class FakeLocalModels:
         self.base = base
         self.script: dict[str, str] = {}
         self.calls: list[str] = []
+        self.messages: list = []  # 시도마다 받은 프롬프트(프롬프트 불변 시험)
         self.max_time_seen: list = []
         self.on_call = None
         self.adapter_sha = json.loads((_EXPORT / "model_manifest.json").read_text(encoding="utf-8"))["Rule"]["weight_sha256"]
@@ -119,6 +121,7 @@ class FakeLocalModels:
         dest.mkdir(parents=True, exist_ok=True)
         receipt = budget.reserve(kind, call)
         self.calls.append(call)
+        self.messages.append(messages)
         self.max_time_seen.append(self._config().max_time)
         if self.on_call:
             self.on_call(call)
@@ -415,11 +418,16 @@ class RecommendationV3Tests(Base):
                 self.assertEqual((item["status"], item["rejectedReason"]), ("rejected", "factual_review_failed"))
                 self.assertEqual(item["reviews"], {"schema": True, "facts": False, "expectedTarget": True})
 
-    def test_deferred_keeps_closed_fields(self):
+    def test_current_side_without_values_is_no_applicable_before_the_bundle(self):
+        # 10차: 현재 쪽 유효 값 0개는 번들·LLM 호출 전에 코드가 no_applicable로 끝낸다(이전: 번들 결정 deferred).
         data = rows(48) + [observation(index, end=False) for index in range(48, 60)]
-        item = self.item(self.recommend(data, "elapsed_ms"), "elapsed_ms")
-        self.assertEqual((item["status"], item["operator"], item["threshold"]), ("deferred", None, None))
-        self.assertEqual(item["evidence"]["currentN"], 0)
+        with patch.object(capture, "write_case", side_effect=AssertionError("bundle input written")):
+            item = self.item(self.recommend(data, "elapsed_ms"), "elapsed_ms")
+        self.assertEqual((item["status"], item["operator"], item["threshold"], item["attempts"]),
+                         ("no_applicable", None, None, 0))
+        self.assertEqual(item["rationale"], "현재 기간에 유효 값이 없어 비교할 수 없습니다.")
+        self.assertEqual((item["evidence"]["currentN"], item["evidence"]["n"]), (0, 48))
+        self.assertEqual(self.models.calls, [])
         self.assertTrue(frontend_valid(item))
 
     def test_timeout_fails_the_job_without_repair(self):
@@ -482,6 +490,164 @@ class RecommendationV3Tests(Base):
         self.assertEqual(order, ["rule_0", "explain", "rule_1"])
 
 
+# ---- 10차: 범위(scope)별 p95·후보 대상 ----
+
+LLM_SPEC_V3_SCOPE = {**LLM_SPEC_V3, "evidence_version": "soft-rule-threshold-v3"}
+SCOPE_A = {"processId": "IF_A_PR002", "adapterType": "HTTP"}
+SCOPE_B = {"processId": "IF_B_PR001"}
+JOB = "33333333-3333-4333-8333-333333333333"
+
+
+def soft(field, scope=None, suffix="00000000", threshold=5):
+    return {"kind": "soft_rule", "id": f"soft:{field}-{suffix}", "field": field, "scope": scope, "threshold": threshold}
+
+
+def candidate(field, scope, number):
+    return {"kind": "candidate", "id": f"{JOB}.t{number}", "field": field, "scope": scope, "threshold": None}
+
+
+def scoped_plan(*targets, **scope):
+    ids = [target["id"] for target in targets if target["kind"] == "candidate"]
+    spec = job_spec(*targets, scope={"softRuleIds": None, "candidateIds": ids, **scope})
+    return recommendation.parse_job(spec, LLM_SPEC_V3_SCOPE)
+
+
+def mixed_rows(count=120):
+    """짝수 행 = SCOPE_A(IF_A_PR002/HTTP), 홀수 행 = SCOPE_B(IF_B_PR001/MQ). 처리 시간은 행 번호로 늘어난다."""
+    return [observation(index, process_id="IF_A_PR002" if index % 2 == 0 else "IF_B_PR001",
+                        adapter_type="HTTP" if index % 2 == 0 else "MQ", process_hub_id="HUB")
+            for index in range(count)]
+
+
+class ScopeV3Tests(Base):
+    def run_plan(self, plan, data, **options):
+        return recommendation.recommend(plan, data, SNAPSHOT, "persisted_at", source_tz=None, **options)
+
+    def test_same_field_scopes_get_their_own_reference_p95(self):
+        data = mixed_rows()
+        plan = scoped_plan(soft("elapsed_ms", None, "aaaaaaaa", 5000), soft("elapsed_ms", SCOPE_A, "bbbbbbbb", 7000),
+                           candidate("elapsed_ms", SCOPE_A, 2), candidate("elapsed_ms", SCOPE_B, 5))
+        calls = []
+        result = self.run_plan(plan, data, progress=lambda done, total: calls.append((done, total)))
+        self.assertEqual(calls, [(n, 3) for n in range(4)])
+        self.assertEqual([(item["field"], item["scope"]) for item in result["items"]],
+                         [("elapsed_ms", None), ("elapsed_ms", SCOPE_A), ("elapsed_ms", SCOPE_B)])
+        self.assertEqual([(item["softRuleIds"], item["candidateIds"], item["currentThreshold"]) for item in result["items"]],
+                         [(["soft:elapsed_ms-aaaaaaaa"], [], 5000),
+                          (["soft:elapsed_ms-bbbbbbbb"], [f"{JOB}.t2"], 7000),
+                          ([], [f"{JOB}.t5"], None)])
+        split = capture.split_sample(data, None)
+        meta = SOFT_RULE_FIELDS_BY_ID["elapsed_ms"]
+        thresholds = set()
+        for item, process in zip(result["items"], (None, "IF_A_PR002", "IF_B_PR001")):
+            reference = [row for row in split["reference"] if process is None or row["process_id"] == process]
+            current = [row for row in split["current"] if process is None or row["process_id"] == process]
+            p95 = capture.p95([capture.field_value("elapsed_ms", row) for row in reference])
+            self.assertEqual((item["status"], item["attempts"], item["basis"]), ("proposed", 1, "train_reference_80_p95"))
+            self.assertEqual((item["evidence"]["n"], item["evidence"]["currentN"]), (len(reference), len(current)))
+            self.assertEqual(item["threshold"], fixed_threshold(p95, meta.value_type, meta.display_precision,
+                                                                meta.display_precision_mode))
+            self.assertTrue(frontend_valid(item))
+            thresholds.add(item["threshold"])
+        self.assertEqual(len(thresholds), 3, "each scope has its own p95")
+        self.assertEqual(result["data"]["referenceRows"] + result["data"]["currentRows"], 120, "split once for the job")
+        self.assertEqual(result["counts"]["targets"], 3)
+
+    def test_small_or_reference_only_scope_is_no_applicable_without_the_bundle(self):
+        late = [observation(index, process_id="IF_A_PR002", adapter_type="HTTP") for index in range(100)]
+        few = [observation(index, process_id="IF_C", transaction_id=f"c{index}", start=datetime(2026, 10, 10, 9, 0, 30))
+               for index in range(0, 100, 10)]
+        # 앞 80%(참조)에만 있는 범위: 처음 60분에만 행이 있다.
+        early = [observation(index, process_id="IF_D", transaction_id=f"d{index}", start=datetime(2026, 10, 10, 9, 0, 40))
+                 for index in range(60)]
+        plan = scoped_plan(soft("elapsed_ms", {"processId": "IF_C"}, "cccccccc"),
+                           soft("elapsed_ms", {"processId": "IF_D"}, "dddddddd"),
+                           candidate("elapsed_ms", SCOPE_A, 1))
+        written = []
+        original = capture.write_case
+        with patch.object(capture, "write_case", side_effect=lambda *a, **k: written.append(a[3]) or original(*a, **k)):
+            result = self.run_plan(plan, late + few + early)
+        items = {item["scope"]["processId"]: item for item in result["items"]}
+        self.assertEqual((items["IF_C"]["status"], items["IF_C"]["attempts"]), ("no_applicable", 0))
+        self.assertLess(items["IF_C"]["evidence"]["n"], 20)
+        self.assertIn("20개에 못 미칩니다", items["IF_C"]["rationale"])
+        reference_only = items["IF_D"]
+        self.assertEqual((reference_only["status"], reference_only["attempts"], reference_only["evidence"]["currentN"]),
+                         ("no_applicable", 0, 0))
+        self.assertGreaterEqual(reference_only["evidence"]["n"], 20)
+        self.assertEqual(reference_only["rationale"], "현재 기간에 이 범위의 유효 값이 없어 비교할 수 없습니다.")
+        self.assertEqual(items["IF_A_PR002"]["status"], "proposed")
+        self.assertEqual(len(written), 1, "only the scope with both sides reaches the bundle")
+        self.assertEqual(len(self.models.calls), 1)
+        self.assertFalse(recommendation.all_rejected(result))
+
+    def test_work_folders_and_dataset_ids_are_per_group_without_scope_values(self):
+        plan = scoped_plan(soft("elapsed_ms"), soft("elapsed_ms", SCOPE_A, "aaaaaaaa"),
+                           soft("elapsed_ms", SCOPE_B, "bbbbbbbb"), soft("total_count", SCOPE_A, "cccccccc"))
+        written = []
+        original = capture.write_case
+        with patch.object(capture, "write_case",
+                          side_effect=lambda case, field, split, identity: written.append(
+                              (case.parent.name + "/" + case.name, identity["dataset_id"])) or
+                          original(case, field, split, identity)):
+            self.run_plan(plan, mixed_rows())
+        self.assertEqual(written, [("g0/case", f"snapshot_{SNAPSHOT}_elapsed_ms"),
+                                   ("g1/case", f"snapshot_{SNAPSHOT}_elapsed_ms_g1"),
+                                   ("g2/case", f"snapshot_{SNAPSHOT}_elapsed_ms_g2"),
+                                   ("g3/case", f"snapshot_{SNAPSHOT}_total_count_g3")])
+        self.assertFalse(any(value in text for text in sum(written, ()) for value in ("IF_A", "IF_B", "HTTP")))
+
+    def test_unscoped_prompt_is_the_same_as_before_groups(self):
+        """범위 없는 묶음의 번들 입력·프롬프트 = 묶음 도입 전 이름(`<field>/case`, dataset_id `snapshot_<id>_<field>`)."""
+        data = rows()
+        self.recommend(data, "elapsed_ms")
+        grouped = list(self.models.messages)
+        with tempfile.TemporaryDirectory() as tmp:
+            before = runtime()
+            split = capture.split_sample(data, None)
+            paths = capture.write_case(Path(tmp) / "elapsed_ms" / "case", "elapsed_ms", split,
+                                       {"dataset_id": f"snapshot_{SNAPSHOT}_elapsed_ms",
+                                        "origin": "snapshot train members, source-time split", "field": "elapsed_ms"})
+            before.run_field(paths, Path(tmp) / "elapsed_ms" / "rule")
+        self.assertEqual(len(grouped), 1)
+        self.assertEqual(grouped, before.models.messages)
+
+    def test_scope_filter_is_the_detector_rule(self):
+        """Detector `in_scope` 시험(test_relation_rules SoftScope)과 같은 사례. 원천 행과 정규화 행 모두 같은 판정."""
+        from detector.soft_rules import in_scope
+        own = {"status": "S", "process_id": "IF_A_PR002", "adapter_type": "HTTP", "process_hub_id": "HUB",
+               "transaction_id": "TX-1", "start_time_raw": "2026-10-10T09:00:00", "end_time_raw": "2026-10-10T09:00:01"}
+        cases = [(SCOPE_A, own, True), (SCOPE_A, {**own, "process_id": " IF_A_PR002"}, False),
+                 (SCOPE_A, {**own, "adapter_type": None}, False), (SCOPE_A, {**own, "process_id": "\\N"}, False),
+                 (SCOPE_A, {**own, "adapter_type": 1}, False), (SCOPE_A, {**own, "adapter_type": "http"}, False),
+                 (SCOPE_A, {key: value for key, value in own.items() if key != "adapter_type"}, False),
+                 ({"processId": "IF_A_PR002"}, {**own, "adapter_type": "MQ"}, True),  # 없는 키는 대조하지 않음
+                 ({"processId": "IF_A_PR002"}, {**own, "adapter_type": None}, True),
+                 ({"processId": "IF_A_PR002", "processHubId": "HUB"}, own, True),
+                 ({"processId": "IF_A_PR002", "processHubId": "HUB"}, {**own, "process_hub_id": "HUB2"}, False),
+                 ({"processId": "IF_A_PR002", "processHubId": "HUB"}, {**own, "process_hub_id": " \\N "}, False)]
+        for scope, raw, expected in cases:
+            with self.subTest(scope=scope, raw=raw):
+                self.assertEqual(in_scope({"scope": scope}, raw), expected)
+                self.assertEqual(bool(recommendation.scoped([raw], scope, lambda row: row)), expected)
+                normalized = capture.normalize_row(raw, None)
+                self.assertEqual(bool(recommendation.scoped([normalized], scope, lambda row: row)), expected)
+        self.assertIs(recommendation.scoped(cases, None, lambda row: row), cases)
+
+    def test_gpu_check_plan_is_one_unscoped_group_per_field(self):
+        checked = rule_v3_check.plan_for("rule_v3", ("total_count", "elapsed_ms"))
+        self.assertEqual([(group.field, group.scope, len(group.rules)) for group in checked.groups],
+                         [("elapsed_ms", None, 1), ("total_count", None, 1)])
+        self.assertEqual(recommendation.recommend(checked, rows(), SNAPSHOT, "persisted_at")["counts"]["proposed"], 2)
+
+    def test_old_shape_and_old_evidence_version_keep_the_result(self):
+        old = recommendation.recommend(plan("elapsed_ms", "total_count"), rows(), SNAPSHOT, "persisted_at")
+        new = self.run_plan(scoped_plan(soft("elapsed_ms"), soft("total_count")), rows())
+        self.assertEqual(old, new)
+        self.assertEqual({(json.dumps(item["scope"]), json.dumps(item["candidateIds"])) for item in old["items"]},
+                         {("null", "[]")})
+
+
 # ---- GPU 복제본 분배(generation_replicas 대리 객체와 같은 모양의 가짜 실행기) ----
 
 class ScriptedExecutor:
@@ -500,7 +666,7 @@ class ScriptedExecutor:
         self.threads: set[str] = set()
 
     def run_field(self, paths, out):
-        field = Path(out).parent.name
+        field = rule_v3_check.case_field(paths)  # 작업 폴더는 묶음 번호(g<n>)라 제안 파일에서 필드를 읽는다
         self.fields.append(field)
         self.threads.add(threading.current_thread().name)
         delay, error = self.script.get(field, (self.delay, None))
@@ -527,7 +693,7 @@ class ParallelV3Tests(Base):
         serial = self.recommend()
         self.models.calls.clear()
         self.use([])
-        with patch.object(recommendation, "_run_fields", side_effect=AssertionError("parallel path")):
+        with patch.object(recommendation, "_run_groups", side_effect=AssertionError("parallel path")):
             self.assertEqual(self.recommend(), serial)
         self.assertEqual(len(self.models.calls), 5)
 
@@ -546,7 +712,23 @@ class ParallelV3Tests(Base):
                      [call for call in self.models.calls])
         self.assertEqual(len(ran), 5, "every LLM field ran exactly once")
         self.assertGreaterEqual(sum(bool(replica.fields) for replica in replicas), 2, "fields were spread")
-        self.assertTrue(all(name.startswith("rule-v3-field") for replica in replicas for name in replica.threads))
+        self.assertTrue(all(name.startswith("rule-v3-group") for replica in replicas for name in replica.threads))
+
+    def test_parallel_groups_match_serial_with_group_progress(self):
+        targets = (soft("elapsed_ms"), soft("elapsed_ms", SCOPE_A, "aaaaaaaa"), candidate("elapsed_ms", SCOPE_B, 1),
+                   soft("total_count", SCOPE_B, "bbbbbbbb"))
+        serial = recommendation.recommend(scoped_plan(*targets), mixed_rows(), SNAPSHOT, "persisted_at")
+        replicas = [ScriptedExecutor(delay=0.05) for _ in range(2)]
+        self.use(replicas)
+        calls = []
+        result = recommendation.recommend(scoped_plan(*targets), mixed_rows(), SNAPSHOT, "persisted_at",
+                                          progress=lambda done, total: calls.append((done, total)))
+        self.assertEqual(result, serial)
+        self.assertEqual([(item["field"], item["scope"]) for item in result["items"]],
+                         [("elapsed_ms", None), ("elapsed_ms", SCOPE_A), ("elapsed_ms", SCOPE_B), ("total_count", SCOPE_B)])
+        self.assertEqual(calls, [(n, 4) for n in range(5)])
+        local = len(self.models.calls) - len(serial["items"])  # 직렬 실행 뒤 주 프로세스가 더 돈 묶음
+        self.assertEqual(sum(len(replica.fields) for replica in replicas) + local, 4, "every group ran exactly once")
 
     def test_local_runtime_is_last(self):
         replicas = [ScriptedExecutor(), ScriptedExecutor()]

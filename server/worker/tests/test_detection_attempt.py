@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import ast
 from concurrent.futures import Future
+from datetime import datetime, timezone
 import hashlib
 import json
 import os
@@ -28,6 +29,8 @@ from detector.method_runner import MethodOutcome, MethodTask, execute_methods
 from detector.operational_state import pin_operational_state, rule_set_content_hash
 from detector.policy import _POOLS, _SLOTS, parse_policy_v2
 from detector.soft_rules import soft_rule_fields, unresolved_soft_result
+from detector.input_reader import ProcessObservation
+from detector.source_latency import decision_source_time, source_latency_measurable
 
 WORKER = Path(__file__).resolve().parents[1]
 CATALOG = WORKER.parents[0] / "contracts" / "method-catalog.json"
@@ -674,6 +677,117 @@ class ContractSetting(unittest.TestCase):
         with patch.dict(os.environ, {"DETECT_JOB_CONTRACT": "v05"}):
             with self.assertRaisesRegex(ValueError, "invalid_detect_job_contract"):
                 jobs.job_contract_setting()
+
+
+
+class SourceLatencyCondition(unittest.TestCase):
+    """판정 지연 measured 조건(detection-decision.md 18절). 기본값은 모두 참인 경우."""
+    AT = datetime(2026, 1, 1, 0, 0, 1, tzinfo=timezone.utc)
+
+    def measurable(self, **over):
+        values = {"clock_status": "offset", "ingest_phase": "live", "revision_no": 1,
+                  "source_log_occurred_at": self.AT, "rechecked": False, **over}
+        return source_latency_measurable(**values)
+
+    def test_clock_status(self):
+        # assumed_tz = 시간대 표기 없는 원천 시각을 KST로 해석한 시각(사용자 결정 11/15) — 포함
+        for status, expected in (("offset", True), ("verified_tz", True), ("assumed_tz", True), ("unparsed", False),
+                                 ("absent", False), ("unknown", False), (None, False)):
+            with self.subTest(status=status):
+                self.assertIs(self.measurable(clock_status=status), expected)
+
+    def test_ingest_phase(self):
+        # None = 출처 행 없음(옛 CSV 재생·시연 경로) 또는 030 이전 출처 행
+        for phase, expected in (("live", True), ("initial", False), ("replay", False), (None, False)):
+            with self.subTest(phase=phase):
+                self.assertIs(self.measurable(ingest_phase=phase), expected)
+
+    def test_revision(self):
+        for revision, expected in ((1, True), (2, False), (None, False), (True, False), ("1", False)):
+            with self.subTest(revision=revision):
+                self.assertIs(self.measurable(revision_no=revision), expected)
+
+    def test_recheck_and_missing_source_time(self):
+        self.assertIs(self.measurable(rechecked=True), False)
+        self.assertIs(self.measurable(source_log_occurred_at=None), False)
+
+    def test_negative_latency_is_not_filtered(self):
+        # 원천 시각이 판정 시각보다 늦어도(원천 시계가 앞섬) 조건은 시각 값을 보지 않는다 — 음수도 measured로 저장
+        self.assertIs(self.measurable(source_log_occurred_at=datetime(2999, 1, 1, tzinfo=timezone.utc)), True)
+
+    def test_copy_only_when_measured(self):
+        def observation(**over):
+            values = {"observation_id": uuid.uuid4(), "source_id": uuid.uuid4(), "execution_id": uuid.uuid4(),
+                      "revision_no": 1, "allowed_values": {}, "quality_flags": [], "clock_status": "verified_tz",
+                      "source_log_occurred_at": self.AT, "ingest_phase": "live", **over}
+            return ProcessObservation(**values)
+
+        self.assertIs(decision_source_time(observation(), rechecked=False), self.AT)
+        self.assertIsNone(decision_source_time(observation(), rechecked=True))
+        # 조건이 거짓이면 관측에 값이 있어도 판정 행에 복사하지 않는다
+        self.assertIs(decision_source_time(observation(clock_status="assumed_tz"), rechecked=False), self.AT)
+        self.assertIsNone(decision_source_time(observation(clock_status="unparsed"), rechecked=False))
+        self.assertIsNone(decision_source_time(observation(ingest_phase=None), rechecked=False))
+        # 기본값(새 열을 모르는 생성자)은 unavailable
+        legacy = ProcessObservation(uuid.uuid4(), uuid.uuid4(), uuid.uuid4(), 1, {}, [], "offset")
+        self.assertIsNone(decision_source_time(legacy, rechecked=False))
+
+
+class _MeasureTransaction:
+    def __init__(self, conn):
+        self.conn = conn
+
+    def __enter__(self):
+        self.conn.events.append("begin")
+        return self
+
+    def __exit__(self, kind, *_):
+        self.conn.events.append("rollback" if kind else "commit")
+        return False
+
+
+class _MeasureConn:
+    """record_judgment_store가 쓰는 transaction()·execute()만 흉내 낸다. fail이 있으면 INSERT에서 그 예외를 낸다."""
+
+    def __init__(self, fail=None):
+        self.events, self.fail = [], fail
+
+    def transaction(self):
+        return _MeasureTransaction(self)
+
+    def execute(self, sql, params=None):
+        if "INSERT" in sql and self.fail is not None:
+            raise self.fail
+        self.events.append((" ".join(sql.split()), params))
+
+
+class JudgmentStoreMeasurement(unittest.TestCase):
+    """판정 저장 소요 측정 행(detection-decision.md 19절). 실제 COMMIT 순서·재판정 제외는 integration 시험이 본다."""
+
+    def test_row_shape(self):
+        from detector.attempt_v04 import record_judgment_store
+        conn, observation = _MeasureConn(), uuid.uuid4()
+        self.assertIs(record_judgment_store(conn, observation, 12.5), True)
+        self.assertEqual(conn.events[0], "begin")
+        self.assertEqual(conn.events[1], ("SET LOCAL synchronous_commit = off", None))
+        sql, params = conn.events[2]
+        # detector 행과 같은 열(id, observation_id, stage, config_version_id NULL, duration_ms)
+        self.assertIn("INSERT INTO ops_pipeline_measurements(id,observation_id,stage,config_version_id,duration_ms)", sql)
+        self.assertIn("'judgment_store',NULL", sql)
+        self.assertEqual(params[1:], (observation, 12.5))
+        self.assertEqual(conn.events[3], "commit")
+
+    def test_insert_failure_is_logged_not_raised(self):
+        import psycopg
+        from detector.attempt_v04 import record_judgment_store
+        conn = _MeasureConn(fail=psycopg.errors.CheckViolation("031 not applied"))
+        with self.assertLogs("detector.attempt_v04", level="WARNING") as logs:
+            self.assertIs(record_judgment_store(conn, uuid.uuid4(), 1.0), False)
+        self.assertEqual(conn.events[-1], "rollback")
+        self.assertIn("CheckViolation", logs.output[0])
+        # DB 오류가 아닌 예외(코드 결함)는 숨기지 않는다
+        with self.assertRaises(TypeError):
+            record_judgment_store(_MeasureConn(fail=TypeError("bug")), uuid.uuid4(), 1.0)
 
 
 if __name__ == "__main__":

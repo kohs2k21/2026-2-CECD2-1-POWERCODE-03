@@ -820,6 +820,8 @@ def threshold_candidates(processes: Sequence[ProcessRow], interface_by_transacti
             continue
         adapter = None if graph_value_absent(row.adapter_type) else row.adapter_type
         groups[(row.process_id, adapter)].append(row)
+    # 같은 단계에 adapter별 묶음이 있으면 adapter 없는 묶음은 Detector에서 adapter 행까지 덮으므로 거부(묶음 존재 기준).
+    with_adapter_groups = {process_id for process_id, adapter in groups if adapter is not None}
     items: list[dict[str, Any]] = []
     for (process_id, adapter) in sorted(groups, key=lambda key: (key[0], key[1] is not None, key[1] or "")):
         rows = groups[(process_id, adapter)]
@@ -830,7 +832,9 @@ def threshold_candidates(processes: Sequence[ProcessRow], interface_by_transacti
         interfaces = sorted({value for value in (interface_by_transaction.get(row.transaction_id) for row in rows
                                                  if row.transaction_id is not None) if value is not None})
         status, threshold, display, reason = "candidate", None, None, None
-        if measured["valid_count"] < MIN_APPLICABLE:
+        if adapter is None and process_id in with_adapter_groups:
+            status, reason = "rejected", "scope_overlaps_adapter_groups"
+        elif measured["valid_count"] < MIN_APPLICABLE:
             status = "insufficient_evidence"
         elif measured["variation"] == "constant":
             status, reason = "no_variation", "all reference values are equal"

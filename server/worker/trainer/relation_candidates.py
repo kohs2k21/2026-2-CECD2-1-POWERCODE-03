@@ -963,6 +963,10 @@ THRESHOLD_LIMITATION_REFS = (
 THRESHOLD_EVIDENCE_NOTE = (
     "rows = scope 묶음의 train 행(실행마다 최신 리비전), referenceRows = 그중 status=S이고 명시 이상 라벨이 아닌 행. "
     "endTimeMissingReferenceRows·unavailableReferenceRows는 referenceRows 안에서 END_TIME 없음·계산 불가로 빠진 행 수")
+# 같은 단계에 adapter별 묶음이 있으면 adapter 없는 묶음 {processId}는 거부한다. Detector `soft_rules.in_scope`는
+# scope에 adapterType이 없으면 그 단계의 모든 adapter 행에 적용하므로, adapter 없는 행만으로 낸 p95가
+# adapter 행까지 판정하게 된다. 겹침은 묶음 존재(행 존재)로 정하고 adapter 묶음의 상태는 보지 않는다.
+THRESHOLD_SCOPE_OVERLAP_REASON = "scope_overlaps_adapter_groups"
 
 
 @dataclass
@@ -1047,13 +1051,17 @@ class ThresholdAccumulator:
         from threshold_values import ThresholdSerializationError, display_threshold, fixed_threshold
 
         elapsed = self.field
+        with_adapter_groups = {process_id for process_id, adapter in self.groups if adapter is not None}
         items: list[dict[str, Any]] = []
         for (process_id, adapter) in sorted(self.groups, key=lambda key: (key[0], key[1] is not None, key[1] or "")):
             group = self.groups[(process_id, adapter)]
             measured = value_summary(group.values)
             interfaces = sorted(group.interfaces)
             status, threshold, display, reason = "candidate", None, None, None
-            if measured["valid_count"] < MIN_APPLICABLE:
+            # 겹침을 표본 판정보다 먼저 본다: 표본이 충분해도 적용 범위가 틀려 승인할 수 없다. evidence는 그대로 남긴다.
+            if adapter is None and process_id in with_adapter_groups:
+                status, reason = "rejected", THRESHOLD_SCOPE_OVERLAP_REASON
+            elif measured["valid_count"] < MIN_APPLICABLE:
                 status = "insufficient_evidence"
             elif measured["variation"] == "constant":
                 status, reason = "no_variation", "all reference values are equal"

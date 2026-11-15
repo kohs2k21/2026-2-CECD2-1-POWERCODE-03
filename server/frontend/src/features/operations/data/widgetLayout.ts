@@ -29,9 +29,10 @@ export const widgetSizes: Record<WidgetId, SizeRule> = {
   active: { w: 2, h: 3, minW: 2, minH: 2, maxW: 6, maxH: 6 },
   queue: { w: 2, h: 3, minW: 2, minH: 3, maxW: 6, maxH: 6 },
   collect: { w: 2, h: 3, minW: 2, minH: 2, maxW: 6, maxH: 6 },
-  storage: { w: 2, h: 2, minW: 2, minH: 2, maxW: 6, maxH: 6 },
+  // 3칸: 데이터 마운트·막대·PostgreSQL·CPU·메모리 네 줄이 스크롤 없이 들어가는 높이(다른 기본 위젯과 같음).
+  storage: { w: 2, h: 3, minW: 2, minH: 2, maxW: 6, maxH: 6 },
 };
-/** 기본 배치: 저장공간은 추가 목록에만 둔다. */
+/** 기본 배치: 2열 × 3행 위젯 6개 + 3행 첫 칸 저장공간(CPU·메모리 포함, 사용자 11/15). 저장된 개인 배치는 바꾸지 않는다. */
 export const defaultWidgetLayout: readonly WidgetPlacement[] = [
   { i: "flow", x: 0, y: 0, w: 2, h: 3 },
   { i: "recent", x: 2, y: 0, w: 2, h: 3 },
@@ -39,6 +40,7 @@ export const defaultWidgetLayout: readonly WidgetPlacement[] = [
   { i: "active", x: 0, y: 3, w: 2, h: 3 },
   { i: "queue", x: 2, y: 3, w: 2, h: 3 },
   { i: "collect", x: 4, y: 3, w: 2, h: 3 },
+  { i: "storage", x: 0, y: 6, w: 2, h: 3 },
 ];
 
 const isWidgetId = (value: unknown): value is WidgetId => typeof value === "string" && (widgetIds as readonly string[]).includes(value);

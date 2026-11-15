@@ -83,7 +83,9 @@ export const latencyStageIds = ["collector", "persist", "detectionQueue", "detec
 export type LatencyStageId = (typeof latencyStageIds)[number];
 export type LatencyStage = { id: LatencyStageId; samples: number; p50Ms: number | null; p95Ms: number | null;
   queuePending: number | null; oldestWaitMs: number | null; recentFailures: number | null };
-export type LatencyView = { observedAt: string; window: string; stages: LatencyStage[]; endToEndP50Ms: number | null };
+/** 원천 → 저장 지연(collector-metrics.md 3.2 `sourceToStored`). 값이 없으면 null이고 `reason`에 서버 사유 코드가 있다. 키가 없으면(예전 API) null. */
+export type SourceToStored = { p50Ms: number | null; p95Ms: number | null; reason: string | null };
+export type LatencyView = { observedAt: string; window: string; stages: LatencyStage[]; endToEndP50Ms: number | null; sourceToStored: SourceToStored | null };
 
 export const parseLatency = (value: unknown): LatencyView => {
   if (!record(value) || !timestamp(value.observedAt) || !Array.isArray(value.stages)) fail("단계별 지연");
@@ -97,6 +99,9 @@ export const parseLatency = (value: unknown): LatencyView => {
         oldestWaitMs: ms(row.oldestWaitMs), recentFailures: count(row.recentFailures) };
     }),
     endToEndP50Ms: record(v.endToEnd) ? ms(v.endToEnd.p50Ms) : null,
+    sourceToStored: record(v.sourceToStored)
+      ? { p50Ms: ms(v.sourceToStored.p50Ms), p95Ms: ms(v.sourceToStored.p95Ms), reason: text(v.sourceToStored.reason) }
+      : null,
   };
 };
 

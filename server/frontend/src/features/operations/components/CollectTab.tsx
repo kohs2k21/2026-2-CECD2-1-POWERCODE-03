@@ -101,6 +101,14 @@ const StageLatency = ({ sourceId }: { sourceId: string }) => {
                   <TableCell>{stage.recentFailures === null ? DASH : `${numberText(stage.recentFailures)}건`}</TableCell>
                 </TableRow>
               ))}
+              {/* 원천 → 저장(sourceToStored): 단계가 아니라 원천 발생부터 저장까지 걸린 시간. 적체·실패 칸은 없다. */}
+              <TableRow>
+                <TableCell className="font-medium">원천 → 저장</TableCell>
+                <TableCell>{data.sourceToStored?.p50Ms == null ? UNMEASURED : msText(data.sourceToStored.p50Ms)}</TableCell>
+                <TableCell>{data.sourceToStored?.p95Ms == null ? UNMEASURED : msText(data.sourceToStored.p95Ms)}</TableCell>
+                <TableCell>{DASH}</TableCell>
+                <TableCell>{DASH}</TableCell>
+              </TableRow>
             </TableBody>
           </Table>
           <p className="text-sm">

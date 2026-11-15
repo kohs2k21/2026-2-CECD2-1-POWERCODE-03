@@ -15,12 +15,24 @@ type Queryable = Pick<Pool, 'query'>;
 // 사이드바 분류(와이어프레임 #93 CATS·RISK_CATS·WORKFLOW 순서).
 // - 판정 결과별: 전체 / 이상 / 이상 징후 / 정상 / 판정 중·중간 판정 / 정상 여부 미확인 / 판정 실패·대체. 정상 = 이상 신호 없음(signal=no, 사용자 11/13).
 // - 위험도별: 전체(이상 신호 있음) / 위험 / 주의 / 참고 / 위험도 미정.
-// - 분류함: 보류 / 완료(처리 상태, 014).
+// - 분류함: 보류 / 완료(처리 상태, 014) + 완료 아래 확인 결과별 완료(029 확인 결과 실제 이상·정상·판단 불가, 사용자 11/15, 관리자만).
 export const ANALYSIS_CATEGORIES = [
   'all', 'anomaly', 'anomaly_sign', 'normal', 'in_progress', 'undetermined', 'failed_replaced',
   'risk_all', 'risk_critical', 'risk_warning', 'risk_info', 'risk_unrated',
   'workflow_open', 'workflow_resolved',
+  'workflow_resolved_actual_anomaly', 'workflow_resolved_normal', 'workflow_resolved_undetermined',
 ] as const;
+/**
+ * 확인 결과별 완료 분류: 조사·조치 기록(관리자만 읽는다)의 확인 결과로 거르므로 관리자만 요청할 수 있고(그 밖 403 admin_required),
+ * 관리자가 아니면 건수도 null이다(user에게 확인 결과를 건수로도 보이지 않는다).
+ */
+export const ANALYSIS_ADMIN_CATEGORIES = ['workflow_resolved_actual_anomaly', 'workflow_resolved_normal', 'workflow_resolved_undetermined'] as const;
+/**
+ * 근거 구분(판정 상세 `판정 결과 · 근거 …`와 같은 구분, 화면 evidence.ts evidenceGroupOf): 저장된 v4 composite.basisMethods의 방법 id로 정한다.
+ * hard = 그 밖의 내장 이상 규칙, relation = 관계 규칙 `hard:rel-<8 hex>`, protocol = 프로토콜 항목 `hard:proto-<8 hex>` + `hard:unregistered-interface`,
+ * soft·ml = 대분류 그대로.
+ */
+export const ANALYSIS_BASES = ['hard', 'relation', 'protocol', 'soft', 'ml'] as const;
 // yes = 이상 신호 있음(이상 + 이상 징후), anomaly = 이상(저장 등급이 이상 징후가 아닌 이상 신호), anomaly_sign = 이상 징후.
 export const ANALYSIS_SIGNALS = ['yes', 'anomaly', 'anomaly_sign', 'no', 'unknown'] as const;
 export const ANALYSIS_COMPLETENESS = ['complete', 'partial', 'unavailable'] as const;
@@ -34,6 +46,8 @@ export type AnalysisListFilter = {
   q: string;
   signal: typeof ANALYSIS_SIGNALS[number] | null;
   completeness: typeof ANALYSIS_COMPLETENESS[number] | null;
+  /** 근거 구분(없으면 거르지 않음). */
+  basis?: typeof ANALYSIS_BASES[number] | null;
   sort: typeof ANALYSIS_SORTS[number];
   page: number;
   pageSize: number;
@@ -42,7 +56,11 @@ export type AnalysisListFilter = {
 /**
  * 판정 항목 공통 CTE. 열: kind, id, decision_id, job_id, source_id, process_observation_id, config_version_id,
  * status, rule_status, ml_status, decision_code, anomaly_score, evidence, occurred_at, decided_at, signal, stage,
- * job_status, transaction_id, process_id, transaction_observation_id, channel_id, process_status, response_code(interfaceId는 TX_INTERFACE_SQL).
+ * job_status, transaction_id, process_id, transaction_observation_id, channel_id, process_status, response_code(interfaceId는 TX_INTERFACE_SQL),
+ * grade, risk_status, risk_level, workflow_state, workflow_changed_at, feedback_outcome, basis_methods.
+ * - feedback_outcome: 그 대상(작업 → job_id, 작업 없는 판정 → decision_id, 처리 상태와 같은 대상)의 조사·조치 기록 중
+ *   확인 결과가 있는 가장 최근 기록의 확인 결과(029). 확인 결과 없는 기록(null = 미입력)은 건너뛴다. 순서는 GET …/feedback 최신순과 같음(created_at·id 내림차순).
+ * - basis_methods: 이상 신호(signal=yes)이고 저장 evidence v4일 때만 composite.basisMethods 배열(판정 상세 `근거 …`와 같은 조건), 그 밖 null.
  *
  * - final: 최종 판정 행. signal은 운영 리포트(operational-v1)와 같은 규칙 — 이상 = status<>unavailable ∧ anomalous=true,
  *   정상 = complete ∧ anomalous=false, 그 밖(부분+false·판정불가·anomalous 없음/null) = 정상 여부 미확인.
@@ -88,12 +106,16 @@ const ITEMS_CTE = `replaced AS (
 ), workflow AS (
   SELECT DISTINCT ON (coalesce(job_id,decision_id)) coalesce(job_id,decision_id) AS target,to_state,created_at
   FROM run_decision_workflow_events ORDER BY coalesce(job_id,decision_id),seq DESC
+), feedback AS (
+  SELECT DISTINCT ON (coalesce(job_id,decision_id)) coalesce(job_id,decision_id) AS target,outcome
+  FROM run_decision_feedback WHERE outcome IS NOT NULL ORDER BY coalesce(job_id,decision_id),created_at DESC,id DESC
 ), fields AS (
   -- evidence(판정당 수 KB, TOAST 압축)는 행마다 한 번만 풀어 최상위 키 3개만 꺼낸다. ->마다 다시 풀면 판정이 많을 때 목록 1회가 수 초 걸린다.
   -- 객체가 아닌 evidence는 빈 객체로 본다(->가 NULL을 주던 것과 같음). jsonb_path_query_first(strict, silent)는 객체면 그대로, 아니면 NULL.
   SELECT b.*,e.anomalous AS ev_anomalous,
     coalesce(e."schemaVersion"='4'::jsonb AND jsonb_typeof(e.composite)='object',false) AS is_v4,
-    e.composite->>'grade' AS ev_grade,e.composite->'risk'->>'status' AS ev_risk_status,e.composite->'risk'->>'level' AS ev_risk_level
+    e.composite->>'grade' AS ev_grade,e.composite->'risk'->>'status' AS ev_risk_status,e.composite->'risk'->>'level' AS ev_risk_level,
+    e.composite->'basisMethods' AS ev_basis
   FROM base b CROSS JOIN LATERAL jsonb_to_record(coalesce(
     jsonb_path_query_first(b.evidence,'strict $ ? (@.type() == "object")','{}',true),'{}')) AS e(anomalous jsonb,"schemaVersion" jsonb,composite jsonb)
 ), v4 AS (
@@ -111,9 +133,11 @@ const ITEMS_CTE = `replaced AS (
          ELSE 'unrated' END AS risk_status,
     CASE WHEN b.item_signal='yes' AND b.is_v4 AND b.ev_risk_status='rated' AND b.ev_risk_level IN ('critical','warning','info')
          THEN b.ev_risk_level END AS risk_level,
-    coalesce(w.to_state,'detected') AS workflow_state,w.created_at AS workflow_changed_at
+    coalesce(w.to_state,'detected') AS workflow_state,w.created_at AS workflow_changed_at,fb.outcome AS feedback_outcome,
+    CASE WHEN b.item_signal='yes' AND b.is_v4 AND jsonb_typeof(b.ev_basis)='array' THEN b.ev_basis END AS basis_methods
   FROM v4 b LEFT JOIN data_processes p ON p.observation_id=b.process_observation_id
   LEFT JOIN workflow w ON w.target=coalesce(b.job_id,b.decision_id)
+  LEFT JOIN feedback fb ON fb.target=coalesce(b.job_id,b.decision_id)
 )`;
 
 /** 분류 조건(SQL). 분류끼리 겹칠 수 있다(예: 대체된 최종 판정은 이상 신호 분류와 판정 실패·대체 분류에 모두 든다). */
@@ -135,7 +159,28 @@ const CATEGORY_SQL: Record<AnalysisCategory, string> = {
   risk_unrated: "risk_status='unrated'",
   workflow_open: "workflow_state='open'",
   workflow_resolved: "workflow_state='resolved'",
+  // 완료 ∧ 확인 결과(가장 최근 확인 결과 기록). 확인 결과가 없는 완료는 완료에만 든다.
+  workflow_resolved_actual_anomaly: "workflow_state='resolved' AND feedback_outcome='actual-anomaly'",
+  workflow_resolved_normal: "workflow_state='resolved' AND feedback_outcome='normal'",
+  workflow_resolved_undetermined: "workflow_state='resolved' AND feedback_outcome='undetermined'",
 };
+export const isAdminCategory = (key: AnalysisCategory) => (ANALYSIS_ADMIN_CATEGORIES as readonly string[]).includes(key);
+/**
+ * 근거 구분 조건(`m` = 방법 id 문자열). 화면 evidenceGroupOf(evidence.ts)와 같은 규칙: 첫 `:` 앞 대분류, hard는 방법 id로 나눈다.
+ * 문자열이 아닌 배열 원소는 버린다(화면 strings()와 같음).
+ */
+const RELATION_ID = "m ~ '^hard:rel-[0-9a-f]{8}$'";
+const PROTOCOL_ID = "(m ~ '^hard:proto-[0-9a-f]{8}$' OR m='hard:unregistered-interface')";
+export const BASIS_METHOD_SQL: Record<typeof ANALYSIS_BASES[number], string> = {
+  hard: `(split_part(m,':',1)='hard' AND NOT ${RELATION_ID} AND NOT ${PROTOCOL_ID})`,
+  relation: RELATION_ID,
+  protocol: PROTOCOL_ID,
+  soft: "split_part(m,':',1)='soft'",
+  ml: "split_part(m,':',1)='ml'",
+};
+/** 근거 구분 필터: basis_methods(이상 신호 v4만, 그 밖 null → 일치 없음) 원소 중 하나라도 그 구분이면. 배열은 판정당 몇 개뿐이다. */
+const BASIS_SQL = (basis: typeof ANALYSIS_BASES[number]) => `EXISTS (SELECT 1 FROM jsonb_array_elements(i.basis_methods) x(v)
+  CROSS JOIN LATERAL (SELECT x.v#>>'{}' AS m) t WHERE jsonb_typeof(x.v)='string' AND ${BASIS_METHOD_SQL[basis]})`;
 const SIGNAL_SQL: Record<typeof ANALYSIS_SIGNALS[number], string> = {
   yes: "signal='yes'",
   anomaly: CATEGORY_SQL.anomaly,
@@ -304,8 +349,12 @@ export function decisionCauses(item: { signal: string; evidence: unknown; anomal
   ];
 }
 
-/** GET /api/analysis/decisions: 분류별 건수(전체 기준) + 조건에 맞는 한 페이지. */
-export async function readDecisionList(db: Pick<Pool, 'connect'>, filter: AnalysisListFilter, actorId: string) {
+/**
+ * GET /api/analysis/decisions: 분류별 건수(전체 기준) + 조건에 맞는 한 페이지.
+ * admin=false면 확인 결과별 완료 분류 건수는 null이고 그 분류 요청은 거절한다(라우터가 먼저 403으로 막는다).
+ */
+export async function readDecisionList(db: Pick<Pool, 'connect'>, filter: AnalysisListFilter, actorId: string, admin = false) {
+  if (!admin && isAdminCategory(filter.category)) throw new Error('admin_required');
   const conditions = [CATEGORY_SQL[filter.category]];
   const values: unknown[] = [];
   let searchCte = '';
@@ -319,11 +368,13 @@ export async function readDecisionList(db: Pick<Pool, 'connect'>, filter: Analys
   }
   if (filter.signal) conditions.push(SIGNAL_SQL[filter.signal]);
   if (filter.completeness) { values.push(filter.completeness); conditions.push(`status=$${values.length}`); }
+  if (filter.basis) conditions.push(BASIS_SQL(filter.basis));
   values.push(actorId);
   const actor = `$${values.length}`;
   values.push(filter.pageSize, (filter.page - 1) * filter.pageSize);
   const direction = filter.sort === 'oldest' ? 'ASC' : 'DESC';
-  const counts = ANALYSIS_CATEGORIES.map((key) => `'${key}',count(*) FILTER (WHERE ${CATEGORY_SQL[key]})::integer`).join(',');
+  const counts = ANALYSIS_CATEGORIES.filter((key) => admin || !isAdminCategory(key))
+    .map((key) => `'${key}',count(*) FILTER (WHERE ${CATEGORY_SQL[key]})::integer`).join(',');
   const client = await db.connect();
   try {
     // 건수·페이지·SSE 커서를 한 스냅샷에서 읽는다(건수와 목록이 서로 다른 시점이 되지 않게).
@@ -345,7 +396,7 @@ export async function readDecisionList(db: Pick<Pool, 'connect'>, filter: Analys
     return {
       observedAt: new Date().toISOString(),
       // jsonb는 키 순서를 보존하지 않으므로 분류 순서(사이드바 순서)대로 다시 담는다.
-      counts: Object.fromEntries(ANALYSIS_CATEGORIES.map((key) => [key, row.counts[key]])), total: row.total, page: filter.page, pageSize: filter.pageSize,
+      counts: Object.fromEntries(ANALYSIS_CATEGORIES.map((key) => [key, row.counts[key] ?? null])), total: row.total, page: filter.page, pageSize: filter.pageSize,
       latestDecidedAt: row.latestDecidedAt ?? null, latestEventId: row.latestEventId,
       items: row.items.map((item: { signal: string; evidence: unknown; anomalyScore: unknown }) => ({ ...item, causes: decisionCauses(item) })),
     };

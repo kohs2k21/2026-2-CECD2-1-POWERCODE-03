@@ -6,10 +6,20 @@ import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/feedback";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { analysisErrorTitle, sorts, type DecisionList, type ListParams, type Sort } from "../data/analysisApi";
+import {
+  analysisErrorTitle,
+  basisOptions,
+  isOutcomeCategory,
+  sorts,
+  type BasisFilter,
+  type Category,
+  type DecisionList,
+  type ListParams,
+  type Sort,
+} from "../data/analysisApi";
 import type { LiveStatus } from "../data/useAnalysis";
 import { categoryIcons } from "../icons";
-import { categoryLabels, sortLabels, stampText } from "../labels";
+import { categoryLabels, completenessFilterLabels, evidenceGroupLabels, sortLabels, stampText } from "../labels";
 import { DecisionFilterDialog } from "./DecisionFilterDialog";
 import { DecisionRow } from "./DecisionRow";
 
@@ -22,6 +32,12 @@ const liveVariant: Record<LiveStatus, "success" | "secondary" | "warning"> = {
   open: "success",
   retrying: "warning",
 };
+
+/** 근거 구분 선택 이름: 판정 상세 근거 구분 이름 그대로, 거르지 않음은 목록 필터의 `전체`. */
+export const basisLabel = (value: BasisFilter) => (value === "all" ? completenessFilterLabels.all : evidenceGroupLabels[value]);
+/** 목록 제목 분류 이름: 완료 아래 확인 결과별은 `완료 · <확인 결과>`(판정 결과별 `정상`과 구분). */
+export const listTitle = (category: Category) =>
+  isOutcomeCategory(category) ? `${categoryLabels.workflow_resolved} · ${categoryLabels[category]}` : categoryLabels[category];
 
 /** 페이지 번호 창: 7쪽 이하면 모두, 그 이상이면 첫·끝·현재 앞뒤 1쪽과 생략(null). */
 export const pageWindow = (current: number, total: number): (number | null)[] => {
@@ -78,7 +94,8 @@ export const DecisionListView = ({
   // 적용 중인 필터는 검색 필터 대화상자 안의 선택값으로만 보인다(와이어프레임 요약 줄에 필터 요약 없음).
   // 목록 제목 아이콘(#100 이전 목록 제목의 분류 아이콘). 이전 화면에 대응 분류가 없으면 아이콘 없음.
   const CategoryIcon = categoryIcons[params.category];
-  const narrowed = Boolean(params.q.trim()) || params.signal !== "all" || params.completeness !== "all" || params.category !== "all";
+  const narrowed =
+    Boolean(params.q.trim()) || params.signal !== "all" || params.completeness !== "all" || params.basis !== "all" || params.category !== "all";
 
   let body: ReactNode;
   if (query.isPending && !data) body = <LoadingState />;
@@ -93,7 +110,7 @@ export const DecisionListView = ({
         <header className="flex items-center justify-between gap-3">
           <h2 className="flex min-w-0 items-center gap-2 text-section-title">
             <CategoryIcon aria-hidden="true" className="size-4.5 shrink-0" />
-            {categoryLabels[params.category]} 판정
+            {listTitle(params.category)} 판정
           </h2>
           <Button
             variant="outline"
@@ -125,6 +142,22 @@ export const DecisionListView = ({
             completeness={params.completeness}
             onChange={(next) => onChange({ ...next, page: 1 })}
           />
+          {/* 근거 구분(사용자 11/15): 판정 상세 `판정 결과 · 근거 …`와 같은 구분으로 거른다(저장 v4 종합 근거, 이상 신호만). */}
+          <span className="text-sm text-muted-foreground" id="analysis-basis-label">
+            근거
+          </span>
+          <Select value={params.basis} onValueChange={(value) => onChange({ basis: value as BasisFilter, page: 1 })}>
+            <SelectTrigger size="sm" aria-labelledby="analysis-basis-label">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {basisOptions.map((value) => (
+                <SelectItem key={value} value={value}>
+                  {basisLabel(value)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <span className="text-sm text-muted-foreground" id="analysis-sort-label">
             정렬
           </span>

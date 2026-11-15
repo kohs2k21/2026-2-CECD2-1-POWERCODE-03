@@ -37,6 +37,10 @@ export const categoryIcons: Record<Category, Icon> = {
   risk_unrated: IconHelpCircle,
   workflow_open: IconFolderOpen,
   workflow_resolved: IconCircleCheck,
+  // 완료 아래 확인 결과별: 사이드바 하위 항목은 아이콘 없이 보이고, 목록 제목은 완료와 같은 아이콘
+  workflow_resolved_actual_anomaly: IconCircleCheck,
+  workflow_resolved_normal: IconCircleCheck,
+  workflow_resolved_undetermined: IconCircleCheck,
 };
 
 /** 위험도 단계 아이콘(이전 화면 심각도 Critical·Warning·Info). */

@@ -84,6 +84,44 @@ assert.equal(plain.findAllByType("h3").length, 0);
 await act(async () => renderer.unmount());
 noHeadingRouter.dispose();
 
+// 1-1b) 움직임(사용자 11/15): 처음 그린 하위 목록은 펼친 상태 그대로(움직임 없음), 메뉴를 바꾸면 새 목록은 높이 0·투명에서 펼쳐 시작한다.
+// 현재 표시(메뉴 배경·목차 왼쪽 선)는 현재 항목에만 하나, 메뉴 항목은 누름 피드백(press). 시험 렌더러는 DOM이 없어 퇴장 애니메이션이 끝나지 않으므로 접힘 완료는 보지 않는다.
+{
+  let choose;
+  const MotionProbe = () => {
+    const [id, setId] = React.useState("a");
+    choose = setId;
+    const item = (key) => ({
+      id: key, label: key, to: `/x?m=${key}`,
+      sub: key === id ? [{ id: `${key}1`, label: `${key}1`, to: `/x#${key}1`, current: true }, { id: `${key}2`, label: `${key}2`, to: `/x#${key}2` }] : undefined,
+    });
+    return React.createElement(SideNav, { label: "움직임", menuId: "side-motion", activeId: id, groups: [{ items: [item("a"), item("b")] }] });
+  };
+  const motionRouter = createMemoryRouter([{ path: "/x", element: React.createElement(MotionProbe) }], { initialEntries: ["/x"] });
+  await act(async () => {
+    renderer = create(React.createElement(RouterProvider, { router: motionRouter }));
+  });
+  const subLists = () => renderer.root.findAll((node) => node.type === "ul" && node.props["data-slot"] === "side-nav-sub");
+  const listStyle = (list) => list.parent.parent.props.style;
+  const markers = (link) => link.findAll((node) => node.type === "span" && node.props["aria-hidden"] === "true").map((node) => node.props.className);
+  assert.equal(subLists().length, 1);
+  assert.equal(listStyle(subLists()[0]).height, "auto", "first render: list already open (no entrance motion)");
+  assert.equal(listStyle(subLists()[0]).opacity, 1);
+  const menuLinks = () => renderer.root.findAllByType("a").filter((node) => node.props.href.startsWith("/x?m="));
+  assert.ok(menuLinks().every((node) => node.props.className.includes("active:not-disabled:scale-97")), "menu items use the shared press feedback");
+  assert.deepEqual(menuLinks().map((node) => markers(node).length), [1, 0], "one current background, on the current menu only");
+  assert.ok(!menuLinks()[0].props.className.split(" ").includes("bg-accent"), "current background comes from the sliding marker");
+  await act(async () => choose("b"));
+  const entering = subLists().find((list) => list.findAllByType("a")[0].props.href === "/x#b1");
+  assert.ok(entering, "new menu's list is rendered");
+  assert.equal(listStyle(entering).height, "0px", "new list opens from height 0");
+  assert.equal(listStyle(entering).opacity, 0);
+  assert.deepEqual(menuLinks().map((node) => markers(node).length), [0, 1], "current background moved to the new menu");
+  assert.equal(markers(entering.findAllByType("a")[0]).length, 1, "current section line in the new list");
+  await act(async () => renderer.unmount());
+  motionRouter.dispose();
+}
+
 // 1-2) 클래스 병합: 글자 크기 토큰(tokens.css --text-*)은 글자 색 클래스와 겹치지 않는다. 토큰 목록은 tokens.css와 일치.
 assert.equal(cn("text-menu text-muted-foreground"), "text-menu text-muted-foreground");
 assert.equal(cn("px-3 text-group text-muted-foreground"), "px-3 text-group text-muted-foreground");

@@ -196,7 +196,8 @@ for (const [path, search, expected] of legacy) {
   const side = app.renderer.root.findByProps({ id: "detection-menu" });
   const toc = side.findAll((node) => node.props["data-slot"] === "side-nav-sub");
   const menu = side.findAllByType("a").filter((node) => !toc.some((list) => list.findAllByType("a").includes(node)));
-  assert.deepEqual(menu.map((node) => text(node.children)), ["운영 설정", "룰 설정", "머신러닝 모델", "평가 결과"]);
+  // 현재 항목은 배경 표시(빈 span, 미끄러지는 현재 표시)가 앞에 붙어 text()의 공백 연결이 앞 공백을 만든다.
+  assert.deepEqual(menu.map((node) => text(node.children).trim()), ["운영 설정", "룰 설정", "머신러닝 모델", "평가 결과"]);
   assert.deepEqual(menu.map((node) => node.props["aria-current"] ?? null), [null, "page", null, null]);
   assert.equal(app.links().filter((node) => String(node.props["aria-label"] ?? "").startsWith("뒤로")).length, 0, "menu pages have no back icon");
   // 현재 메뉴(룰 설정)만 아래에 화면 영역 목차를 펼친다. 같은 화면 안 이동이라 replace, 주소는 #영역 id

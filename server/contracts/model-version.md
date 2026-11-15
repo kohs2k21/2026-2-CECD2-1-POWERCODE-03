@@ -1,5 +1,5 @@
 Created: 2026-11-02T18:00:00+09:00
-Updated: 2026-11-15T12:45:00+09:00
+Updated: 2026-11-15T13:30:00+09:00
 Author: Claude Code (Trainer 세션 builder)
 Status: draft
 
@@ -238,7 +238,7 @@ Status: draft
 - `schemaVersion`을 모르는 판독기는 그 구성을 읽지 않고 `unsupported_config_schema`로 실패. v3를 v1 규칙(IF 1개·mode 분기)으로 조용히 해석 금지
 - worker `parse_policy`(`policy.py:30-31`, 키 집합 정확 일치)는 v2 객체를 만나면 예외 → 자동 fail-closed. TS `configRoutes.ts:107`(`mode ?? 'parallel'`)·`inputRoutes.ts:22`는 `schemaVersion` 분기 추가 필요(v3 spec에는 `detectionPolicy`가 없으므로 정책은 운영 설정에서 읽음)
 - 소비처 목록(#74 표 그대로): `detector/computation.py:17-60`, `detector/policy.py:26-37`, `detector/applications.py:35-55`, `trainer/runner.py:340-341·459`, `trainer/service_contract.py:21-33`, `configRoutes.ts:107`, `inputRoutes.ts:22`, `reportRoutes.ts:97-123`
-- 허용 시점: v3 생성(train)·활성화는 Detector v3 로더(#92 후속 구현)가 병합된 뒤. 그 전에는 422 `config_schema_not_supported_yet`. 워커는 #132에서 v3를 만들 수 있고, API `POST /api/jobs`는 학습 제외 구간 개방과 함께 v3 train 요청을 접수한다(생성 경로 (A) 임시 예외 종료). **활성화 gate(`activeModelSet.ts` v3 422)는 그대로**라 새로 학습한 v3 버전은 이 gate가 풀릴 때까지 운영 교체할 수 없다
+- 허용 [구현]: v3 생성(train)은 워커(#132)가 만들고 API `POST /api/jobs`가 v3 train 요청을 접수한다(생성 경로 (A)). v3 활성화는 v04 활성 집합 로더에서 허용한다 — Detector `computation.load_model_context`는 구성의 `featureSetId`와 `ml_config_models` 1행만 쓴다. API 활성화 gate(`activeModelSet.ts`)는 schemaVersion 1·2·3만 받고 그 밖의 값(키 없음·`null` 포함)은 422 `config_schema_not_supported_yet`(fail-closed)
 - Trainer 판독 [#132 구현]: 평가·결과 조립·prepared 평가가 `trainer/model_version.py`로 `schemaVersion` 1·2·3만 읽고 그 밖(키 없음 포함)은 `unsupported_config_schema`. v3는 형식(`contractVersion`·`contentHashVersion`·`methods` 1개·`enabled`·`detectionPolicy` 없음)까지 맞아야 읽음
 - v3 `kind=evaluate` [#132 구현]: 구성에 룰·정책이 없으므로 **그 모델 1개만** 평가한다(`ml_only`·`selected_path`, 행 기한은 운영 설정 `deadlineMs`). 측정 전에 산출물을 행 기한 밖에서 한 번 검증·적재하고(`ValueError`는 그 코드로 작업 실패, 그 밖의 예외는 재시도 뒤 `job_processing_failed`) 첫 행을 결과 없이 한 번 돌린다. 측정 행은 운영과 같은 기한 값·판단 코드를 쓰며, 시계 기준점은 다르다(Detector는 처리 시작 시각, Trainer는 `compute` 호출). 예열 시간은 `totalMs`에 들어가고 `evaluationMs`·행 분위수에는 들어가지 않는다. 활성화 gate의 기술 무결성 근거로 쓰는 범위이고, 룰 세트·정책 조합 `composite` 평가는 비교 평가([config-comparison-evaluation.md](config-comparison-evaluation.md)) 몫
 - 리비전 기록 [#132 구현]: v3 train·evaluate는 시도 시작에 뷰 `ops_operational_state` 한 문장으로 활성 집합·정책을 읽어 `resultSummary.activeModelSetRevision`·`resultSummary.detectionPolicy {revision, policy, fixedAt: "attempt_start"}`에 싣고, 평가는 `run_evaluations.evaluation_spec`·`metrics`·`ruleMlComparison.details`에 `activeModelSetRevision`·`detectionPolicyRevision`·`detectionPolicy`(정책 값 복사)를 남긴다. 읽을 수 없으면 값을 지어내지 않고 작업 실패(`operational_state_unavailable` 등). 활성 집합 변경 규칙(`detection_methods_empty`, 같은 `modelKey` 1개)은 API 몫이라 검사하지 않음. 운영 역할 `powercode_trainer`는 이 뷰와 세 표를 SELECT만 한다(`scripts/database-roles.sql`, 뷰가 `security_invoker`라 세 표 모두 필요)

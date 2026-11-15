@@ -163,6 +163,8 @@ export function parseActiveSetRequest(body: unknown): ActiveSetRequest {
 // ---------- gate ----------
 
 type GatedVersion = { configVersionId: string; modelKey: string; displayName: string | null; evaluationId: string };
+/** 활성화할 수 있는 구성 schemaVersion. 워커 `READABLE_SCHEMA_VERSIONS`(1·2·3)와 같다. 2는 룰 전용(모델 없음)이 대부분이라 보통 아래 모델 수 검사에서 걸린다. */
+const ACTIVATABLE_SCHEMA_VERSIONS: unknown[] = [1, 2, 3];
 
 /**
  * 기술 무결성 gate(model-version.md 활성 집합 절, 기존 configRoutes 검사를 모델 1개 기준으로): 모델 1개·카탈로그 실행 가능·prepared 아님·
@@ -173,8 +175,9 @@ async function gateVersion(db: Queryable, configVersionId: string, evaluationId:
   const { rows: [config] } = await db.query<{ spec: Record<string, any> }>('SELECT configuration_spec AS spec FROM ml_config_versions WHERE id=$1', [configVersionId]);
   if (!config) throw new ActiveSetError('config_not_found', 404);
   const spec = config.spec ?? {};
-  // v3 활성화는 Detector v3 로더 병합 뒤(model-version.md schemaVersion 3 판독 규칙 절 허용 시점).
-  if (spec.schemaVersion === 3) throw new ActiveSetError('config_schema_not_supported_yet', 422);
+  // 판독 가능한 구성만 운영에 올린다(fail-closed, model-version.md schemaVersion 3 판독 규칙 절). v3는 v04 활성 집합 로더가 읽는다
+  // (구성의 featureSetId와 ml_config_models 1행). 그 밖의 값(키 없음 포함)은 거절한다.
+  if (!ACTIVATABLE_SCHEMA_VERSIONS.includes(spec.schemaVersion)) throw new ActiveSetError('config_schema_not_supported_yet', 422);
   const { rows: models } = await db.query<{ modelKey: string }>('SELECT model_key AS "modelKey" FROM ml_config_models WHERE config_version_id=$1', [configVersionId]);
   if (models.length !== 1) throw new ActiveSetError('model_artifacts_not_ready', 409);
   const modelKey = models[0].modelKey;

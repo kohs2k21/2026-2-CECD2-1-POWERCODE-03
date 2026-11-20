@@ -962,6 +962,14 @@ const listCalls = () => requested.filter((r) => r.path === "/api/analysis/decisi
   await wait(() => location(resolved.router) === "/analysis/d/d-9?page=2", "job id replaced by the decision id");
   assert.equal(resolved.router.state.historyAction, "REPLACE");
   await resolved.cleanup();
+  // 알림 페이지에서 연 작업 ID 상세: 판정 ID로 replace해도 돌아가기 state가 남아 "알림으로"(navigation.md 휴대폰 폭).
+  const fromAlerts = await mount("/analysis");
+  await act(async () => fromAlerts.router.navigate("/analysis/d/j-9", { state: { returnTo: "/notifications?view=all" } }));
+  await wait(() => location(fromAlerts.router) === "/analysis/d/d-9", "job id replaced by the decision id");
+  assert.deepEqual(fromAlerts.router.state.location.state, { returnTo: "/notifications?view=all" }, "return state survives the replace");
+  await wait(() => fromAlerts.renderer.root.findAll((n) => n.type === "a" && text(n.children) === "알림으로")[0]?.props.href === "/notifications?view=all",
+    "alerts back link after the replace");
+  await fromAlerts.cleanup();
 }
 
 // 5b) 설명 작업 blocked: 저장된 상태 그대로, 요청 중 표시·주기 조회 없음

@@ -319,8 +319,8 @@ export const DecisionDetailView = ({
               {backLabel}
             </Link>
           </Button>
-          {/* 좁은 폭에서 "판정 상세"가 두 줄로 꺾이지 않게(거래 ID가 말줄임으로 줄어든다). */}
-          <span className="shrink-0 text-muted-foreground">판정 상세</span>
+          {/* 휴대폰 폭에서 "판정 상세"가 두 줄로 꺾이지 않게(거래 ID가 말줄임으로 줄어든다). PC 배치는 그대로. */}
+          <span className="text-muted-foreground max-md:shrink-0">판정 상세</span>
           <span className="text-muted-foreground" aria-hidden="true">
             /
           </span>

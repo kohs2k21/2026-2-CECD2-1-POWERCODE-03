@@ -6,6 +6,8 @@ import type { UserRole } from "@/types/app";
  */
 export const paths = {
   login: "/login",
+  /** 알림 전체 페이지(휴대폰 첫 화면, contracts/notifications.md 화면). PC는 상단 알림 버튼의 작은 창을 쓴다. */
+  notifications: "/notifications",
   operations: "/operations",
   analysis: "/analysis",
   analysisDecision: (decisionId: string) => `/analysis/d/${encodeURIComponent(decisionId)}`,
@@ -71,6 +73,8 @@ export const activeDetectionMenu = (pathname: string): DetectionMenuId | null =>
 /** URL 선택값(탭·단계·항목). 첫 값이 기본값. */
 export const urlOptions = {
   operationsTab: ["overview", "collect"],
+  /** 알림 페이지 보기(notifications.md 패널 보기와 같은 값). */
+  notificationsView: ["unread", "all"],
   settingsSection: ["notifications", "integrations", "display", "profile"],
   modelsTab: ["active", "all"],
   evaluationsTab: ["current", "all"],
@@ -112,13 +116,12 @@ export const withSearchParam = (search: string | URLSearchParams, key: string, v
 };
 
 /**
- * 옛 주소 → 새 주소(replace). 폐지 화면: /notifications 페이지, /detection/pipeline,
+ * 옛 주소 → 새 주소(replace). 폐지 화면: /detection/pipeline,
  * 탐지 관리 실험·운영 그룹(create·evaluation·versions·collection), 저장된 탐지 판정(/analysis/process-decisions → 이상 분석, #105).
  */
 export const legacyRedirect = (pathname: string, search: string): string | null => {
   const params = new URLSearchParams(search);
   switch (pathname.replace(/\/+$/, "") || "/") {
-    case "/notifications":
     case "/analysis/process-decisions":
       return paths.analysis;
     case "/detection":
@@ -137,6 +140,7 @@ export const legacyRedirect = (pathname: string, search: string): string | null 
 };
 
 const appPathPatterns: RegExp[] = [
+  /^\/notifications$/,
   /^\/operations$/,
   /^\/analysis$/,
   /^\/analysis\/d\/[^/]+$/,
@@ -174,9 +178,12 @@ export const safeReturnPath = (value: unknown, fallback: string = paths.operatio
     return fallback;
   }
 };
-export const loginReturnPath = (value: unknown, role: UserRole) => {
-  const path = safeReturnPath(value);
+/** 첫 화면: 휴대폰 폭이면 알림 페이지, 그 밖은 운영 현황(navigation.md 기본 경로). */
+export const homePath = (mobile: boolean) => (mobile ? paths.notifications : paths.operations);
+/** 로그인 복귀 주소. 돌아갈 주소가 없거나 허용되지 않으면 fallback(첫 화면). 일반 사용자의 탐지 설정 주소도 fallback. */
+export const loginReturnPath = (value: unknown, role: UserRole, fallback: string = paths.operations) => {
+  const path = safeReturnPath(value, fallback);
   return role !== "admin" && new URL(path, "https://local.invalid").pathname.startsWith(paths.detection)
-    ? paths.operations
+    ? fallback
     : path;
 };

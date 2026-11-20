@@ -1,4 +1,4 @@
-import { Navigate, type RouteObject } from "react-router-dom";
+import type { RouteObject } from "react-router-dom";
 import { AnalysisPage } from "@/features/analysis/AnalysisPage";
 import { DetectionLayout } from "@/features/detection/DetectionLayout";
 import { ModelVersionDetailPage } from "@/features/detection/models/VersionDetail";
@@ -16,15 +16,15 @@ import { ProtocolDetailPage } from "@/features/detection/rules/protocols/Protoco
 import { ProtocolListPage } from "@/features/detection/rules/protocols/ProtocolListPage";
 import { ResponseCodeDetailPage } from "@/features/detection/rules/responsecodes/ResponseCodeDetailPage";
 import { ResponseCodeListPage } from "@/features/detection/rules/responsecodes/ResponseCodeListPage";
+import { NotificationsPage } from "@/features/notifications/NotificationsPage";
 import { OperationsPage } from "@/features/operations/OperationsPage";
 import { SettingsPage } from "@/features/settings/SettingsPage";
 import { AppLayout } from "./AppLayout";
 import { paths } from "./routes";
-import { AdminGate, LegacyRedirect, LoginRoute, NotFoundRoute, SessionGate } from "./SessionRoutes";
+import { AdminGate, HomeRedirect, LegacyRedirect, LoginRoute, NotFoundRoute, SessionGate } from "./SessionRoutes";
 
 /** 폐지한 옛 주소(navigation.md). 새 주소로 replace 이동. */
 export const legacyPaths = [
-  "/notifications",
   "/analysis/process-decisions",
   "/detection",
   "/detection/pipeline",
@@ -42,7 +42,8 @@ export const appRoutes: RouteObject[] = [
       {
         element: <AppLayout />,
         children: [
-          { path: "/", element: <Navigate to={paths.operations} replace /> },
+          { path: "/", element: <HomeRedirect /> },
+          { path: paths.notifications, element: <NotificationsPage /> },
           { path: paths.operations, element: <OperationsPage /> },
           { path: paths.analysis, element: <AnalysisPage /> },
           { path: "/analysis/d/:decisionId", element: <AnalysisPage /> },

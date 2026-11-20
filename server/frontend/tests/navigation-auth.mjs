@@ -189,7 +189,12 @@ assert.equal(
   "/detection/models?tab=all&step=2",
 );
 assert.equal(loginReturnPath("/detection/models", "user"), "/operations");
-assert.equal(safeReturnPath("/notifications?filter=tasks"), "/analysis");
+assert.equal(safeReturnPath("/notifications?filter=tasks"), "/notifications?filter=tasks", "the alerts page is an app address again");
+// 첫 화면 기본값(휴대폰 = 알림 페이지): 돌아갈 주소가 없거나 허용되지 않을 때, 일반 사용자의 탐지 설정 주소일 때 쓴다.
+assert.equal(loginReturnPath(undefined, "admin", "/notifications"), "/notifications");
+assert.equal(loginReturnPath("https://evil.example/x", "user", "/notifications"), "/notifications");
+assert.equal(loginReturnPath("/detection/models", "user", "/notifications"), "/notifications");
+assert.equal(loginReturnPath("/analysis/d/d-1", "user", "/notifications"), "/analysis/d/d-1", "a return address still wins");
 
 storage.set("token", "test-token");
 let resolveMe;

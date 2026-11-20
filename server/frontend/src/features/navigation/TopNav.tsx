@@ -31,6 +31,7 @@ const pillIcon =
 /**
  * 상단 메뉴(origin/dev 935e5eb 모양 유지): 좌측 로고·제목 / 가운데 정렬 메뉴 / 우측 로그아웃·알림·설정.
  * 반투명 배경 + 흐림, 1100px 이하는 메뉴를 둘째 줄로, 700px 이하는 크기를 줄인다.
+ * 휴대폰 폭(768px 미만, navigation.md 휴대폰)은 주요 화면 메뉴·설정을 숨기고 로그아웃·알림(알림 페이지 링크)만 둔다.
  */
 export const TopNav = ({ pathname, role, onLogout, settingsPath }: TopNavProps) => {
   const active = activeTopNav(pathname);
@@ -63,7 +64,7 @@ export const TopNav = ({ pathname, role, onLogout, settingsPath }: TopNavProps) 
       </div>
       <nav
         aria-label="주요 화면"
-        className="flex items-center justify-center gap-2 justify-self-center max-nav-stack:col-span-full max-nav-stack:row-start-2 max-nav-stack:flex-wrap max-nav-stack:justify-self-start max-nav-compact:w-full max-nav-compact:justify-start max-nav-compact:gap-1"
+        className="flex items-center justify-center gap-2 justify-self-center max-md:hidden max-nav-stack:col-span-full max-nav-stack:row-start-2 max-nav-stack:flex-wrap max-nav-stack:justify-self-start max-nav-compact:w-full max-nav-compact:justify-start max-nav-compact:gap-1"
       >
         {visibleTopNavItems(role).map((item) => {
           const ItemIcon = navIcons[item.id];
@@ -88,7 +89,7 @@ export const TopNav = ({ pathname, role, onLogout, settingsPath }: TopNavProps) 
           로그아웃
         </Button>
         <NotificationsBell triggerClassName={pillIcon} />
-        <Button asChild variant="ghost" size="icon" className={pillIcon}>
+        <Button asChild variant="ghost" size="icon" className={cn(pillIcon, "max-md:hidden")}>
           <Link to={settingsPath} aria-label="설정" aria-current={active === "settings" ? "page" : undefined}>
             <IconSettings aria-hidden="true" />
           </Link>

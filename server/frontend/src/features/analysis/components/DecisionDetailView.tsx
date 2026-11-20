@@ -286,7 +286,7 @@ export const DecisionDetailView = ({
   interims: Query<InterimHistory>;
   flow: Query<DecisionFlow>;
   backHref: string;
-  /** 돌아가기 이름표: 판정 목록 = "목록", 사건 화면에서 온 경우 = "사건으로". */
+  /** 돌아가기 이름표: 판정 목록 = "목록", 사건 화면에서 온 경우 = "사건으로", 알림 페이지에서 온 경우 = "알림으로". */
   backLabel?: string;
   isWide: boolean;
   onToggleWide: (value: boolean) => void;
@@ -319,7 +319,8 @@ export const DecisionDetailView = ({
               {backLabel}
             </Link>
           </Button>
-          <span className="text-muted-foreground">판정 상세</span>
+          {/* 좁은 폭에서 "판정 상세"가 두 줄로 꺾이지 않게(거래 ID가 말줄임으로 줄어든다). */}
+          <span className="shrink-0 text-muted-foreground">판정 상세</span>
           <span className="text-muted-foreground" aria-hidden="true">
             /
           </span>
@@ -331,6 +332,7 @@ export const DecisionDetailView = ({
           <Button
           variant="outline"
           size="icon-sm"
+          className="max-md:hidden"
           onClick={() => onToggleWide(!isWide)}
           aria-label={isWide ? "콤팩트 화면으로 보기" : "넓은 화면으로 보기"}
         >

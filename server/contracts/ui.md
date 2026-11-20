@@ -1,5 +1,5 @@
 Created: 2026-10-08T12:53:45+09:00
-Updated: 2026-11-13T18:00:00+09:00
+Updated: 2026-11-21T03:00:00+09:00
 Author: frontend_lead · Claude Code(#100)
 Status: current
 
@@ -10,6 +10,7 @@ Status: current
 - 공통 부품 재사용; 화면별 중복 구현·동일 색상/크기 하드코딩 복제 금지. import는 `@/` 별칭
 - 기본 부품(`frontend/src/components/ui/`): button, badge, card, tabs, table, select, native-select, combobox, input, textarea, label, checkbox, radio-group, switch, dialog, Modal, popover, tooltip, separator, skeleton, scroll-area, alert, feedback
 - 화면 골격 부품(`frontend/src/components/layout/`): AppShell, ScreenTitle(`PageHeader.tsx`), SectionCard, SideNav(사이드바 한 벌), LinkTabs(URL 탭), DescriptionList, NavigationGuard. 주소 선택값 도구: `hooks/useUrlState.ts`(useUrlOption·useUrlStep)
+- 휴대폰 폭(사용자 11/21): 768px 미만 = Tailwind `max-md`. 배치는 `max-md:` 클래스로만 바꿔 PC(768px 이상) DOM·배치를 그대로 둔다. 동작이 달라지는 곳(첫 화면·알림 버튼)만 `hooks/useIsMobile.ts`(같은 기준 matchMedia, 없으면 PC). 휴대폰 범위는 알림 → 판정·사건 상세뿐(navigation.md 휴대폰 폭), `SectionCard` 좌우 안쪽 여백은 휴대폰에서 16px. 하단 시트·서랍은 쓰지 않는다
 - 공통 토큰: `frontend/src/lib/tokens.css` 한 벌 — 원천 값(`--ink`, `--canvas` 등 기존 별칭 이름) → shadcn 의미 변수(`--background`, `--primary`, `--muted-foreground` 등) → Tailwind `@theme`(예: `bg-primary`, `text-muted-foreground`, `bg-warning-soft`, `text-page-title`). 새 색·크기는 이 파일에만 추가
 - 화면 제목(사용자 11/03, 설정은 11/05): 운영 현황·이상 분석·탐지 설정·설정은 보이는 제목 줄을 두지 않음(상단 메뉴·사이드바의 현재 표시로 위치 확인). 화면 낭독기·문서 구조용 `ScreenTitle`(sr-only h1)만 두고, 제목 줄 옆 명령은 본문 첫 영역(오른쪽 정렬 줄·첫 카드 머리)으로. 탐지 설정 하위 화면의 상단 뒤로가기 아이콘은 유지. 설정의 `저장 미지원`은 내용 영역 오른쪽 위
 - 탐지 설정 타이포그래피: 이상 분석 기준; 사이드바 실폭 264px·메뉴 최소 높이 48px·사이드바 제목(`heading`)·그룹 제목 13px/600/18px 흐린 글자(`text-group`, 제목 있으면 제목 h2·그룹 h3, 없으면 그룹 h2)·메뉴 글자 14px/21px 500, 현재 항목 600(`text-menu` + 현재 `font-semibold`, URL 탭 같음)·페이지 제목 28px/600/36px(`text-page-title`)·로그인 화면 제목 22px/600/30px(`text-auth-title`, 375px 폭에서도 한 줄), 섹션 제목 15/22(`text-section-title`), 공통 Pretendard 상속

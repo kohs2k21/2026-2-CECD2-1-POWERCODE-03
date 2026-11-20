@@ -11,6 +11,7 @@
 | 경로 | 화면 | 접근 |
 |---|---|---|
 | `/login` | 로그인 | 미인증 |
+| `/notifications` | 알림(휴대폰 첫 화면, 상단 알림 패널과 같은 목록, [notifications.md](notifications.md) 화면) | user / admin |
 | `/operations` | 운영 현황 | user / admin |
 | `/analysis` | 이상 분석 › 판정 목록 | user / admin |
 | `/analysis/d/:decisionId` | 이상 분석 › PROCESS 판정 상세(판정 ID 또는 최종 판정 전 detect 작업 ID, [analysis-ui.md](analysis-ui.md)) | user / admin |
@@ -33,8 +34,8 @@
 | `/detection/evaluations` | 탐지 설정 › 평가 결과(비교 평가 목록 + 같은 화면 새 비교 평가) | admin |
 | `/detection/evaluations/:evaluationId` | 평가 상세 | admin |
 
-- 상단 메뉴: 운영 현황 / 이상 분석 / 탐지 설정(admin만 표시). 우측 알림 패널(미확인 배지)·설정·로그아웃. 이상 분석 메뉴 미확인 배지(판정·사건 알림)·탐지 설정 메뉴 미확인 배지(작업 알림, admin), [notifications.md](notifications.md) 화면
-- 기본 경로 `/`: 운영 현황. 탐지 설정 첫 진입 `/detection`: 운영 설정
+- 상단 메뉴: 운영 현황 / 이상 분석 / 탐지 설정(admin만 표시). 우측 알림 패널(미확인 배지)·설정·로그아웃(휴대폰 폭은 아래 "휴대폰 폭"). 이상 분석 메뉴 미확인 배지(판정·사건 알림)·탐지 설정 메뉴 미확인 배지(작업 알림, admin), [notifications.md](notifications.md) 화면
+- 기본 경로 `/`: 운영 현황(휴대폰 폭은 `/notifications`, 아래 "휴대폰 폭"). 탐지 설정 첫 진입 `/detection`: 운영 설정
 - 탐지 설정 사이드바 4메뉴: 운영 설정 · 룰 설정 · 머신러닝 모델 · 평가 결과. 상세·모델 교체 화면도 해당 메뉴를 현재 메뉴로 표시
 - 탐지 설정 하위 화면(상세·모델 교체) 상단: 뒤로가기 아이콘(이름 `뒤로 · <메뉴>`). 탐지 설정 안에서 넘겨받은 `state.returnTo`가 있으면 그 주소, 넘겨받은 주소가 판정 상세(`/analysis/d/<판정 ID>`, 쿼리·해시 포함 — 판정 상세 관리자 링크, [analysis-ui.md](analysis-ui.md))면 그 주소(이름 `뒤로 · 판정 상세`), 없거나 그 밖의 탐지 설정 밖·외부·프로토콜 상대(`//`)·자기 자신이면 해당 메뉴 첫 화면
 - 일반 사용자의 탐지 설정 직접 진입: 관리자 권한 안내(메뉴 숨김과 서버 API 권한 검사는 각각 적용)
@@ -44,6 +45,7 @@
 | 화면 | 쿼리 | 값(첫 값이 기본) |
 |---|---|---|
 | 운영 현황 | `tab` | `overview` 개요 / `collect` 수집 |
+| 알림 | `view` | `unread` 읽지 않음 / `all` 전체(바꾸면 replace — 뒤로 가기에 쌓지 않음) |
 | 설정 | `section` | `notifications` / `integrations` / `display` / `profile`(알림 설정 · 연동 관리 · 화면/위젯 · 사용자 환경). `notifications`·`display`는 계정별 서버 저장(바꾸면 바로 저장, [notifications.md](notifications.md)), 그 밖은 `저장 미지원` |
 | 머신러닝 모델 | `tab` | `active` 현재 운영 버전 / `all` 전체 버전 |
 | 머신러닝 모델 | `step` | 새 학습 `1` 기간 / `2` 입력 변수 / `3` 모델·파라미터 |
@@ -68,7 +70,6 @@
 
 | 옛 주소 | 새 주소 |
 |---|---|
-| `/notifications`(모든 쿼리) | `/analysis` |
 | `/analysis/process-decisions`(모든 쿼리) | `/analysis`(저장된 탐지 판정 화면을 이상 분석에 합침, #105) |
 | `/detection`, `/detection/pipeline`, `/detection/versions` | `/detection/operations` |
 | `/detection/create?tab=rules` | `/detection/rules` |
@@ -76,8 +77,18 @@
 | `/detection/evaluation` | `/detection/evaluations` |
 | `/detection/collection` | `/operations?tab=collect` |
 
-- 폐지 화면: `/notifications` 알림 전체 페이지(알림은 상단 패널), `/detection/pipeline` 학습·탐지 운영, 탐지 관리 실험·운영 그룹(생성·평가·운영 버전·수집), `/analysis/process-decisions` 저장된 탐지 판정(#105)
+- 폐지 화면: `/detection/pipeline` 학습·탐지 운영, 탐지 관리 실험·운영 그룹(생성·평가·운영 버전·수집), `/analysis/process-decisions` 저장된 탐지 판정(#105)
 - 로그인 복귀 주소의 옛 주소도 같은 표로 바꿔 허용
+- `/notifications`는 #100에서 폐지해 `/analysis`로 넘기던 주소였으나 휴대폰 알림 화면으로 다시 쓴다(사용자 11/21). 옛 링크는 이제 알림 페이지가 열린다
+
+## 휴대폰 폭(사용자 11/21)
+
+- 기준: 폭 768px 미만(Tailwind `max-md`, [ui.md](ui.md) 휴대폰 폭). 휴대폰에서 쓰는 화면은 알림(`/notifications`) → 판정 상세·사건 상세뿐. 그 밖의 화면(운영 현황·이상 분석 목록·사건 목록·탐지 설정·설정)은 PC 전용이며 휴대폰에서 열면 안내 없이 그대로 보인다
+- 첫 화면: 기본 경로 `/`와 돌아갈 주소가 없는(또는 허용되지 않는) 로그인 뒤 이동은 `/notifications`. 폭은 이동하는 그 순간 한 번만 본다. 돌아갈 주소가 있으면 그 주소(기존 규칙)
+- 상단 메뉴: 로고·제목·로그아웃·알림 버튼만. 주요 화면 메뉴·설정 아이콘은 숨김. 알림 버튼은 작은 창 대신 `/notifications` 링크(배지·이름 같음, 그 화면에서 `aria-current=page`) — 어느 화면에서든 알림으로 돌아가는 길
+- 알림 페이지의 바로가기는 그 주소(쿼리 포함)를 `state.returnTo`로 넘긴다. 판정 상세·사건 상세는 이 값이 알림 페이지 주소일 때 돌아가기를 `알림으로`(그 주소)로 보인다([analysis-ui.md](analysis-ui.md)·[incidents-ui.md](incidents-ui.md)). 판정 작업 ID → 판정 ID, 뒤 구간 사건 ID → 흐름 ID replace에도 이 state를 유지한다
+- 상세(판정·사건)에서는 분류 사이드바 메뉴 버튼과 넓게 보기 버튼을 숨긴다. 섹션 순서는 PC와 같다
+- 웹 앱 정보: `public/manifest.webmanifest`(이름 `ESB 이상 징후 탐지 대시보드`, 짧은 이름 `ESB 알림`, 시작 주소 `/notifications`, 단독 창) + iOS 홈 화면 메타(`apple-mobile-web-app-*`, 아이콘 `public/icons/`). 서비스 워커·오프라인 없음. HTTP 배포에서 Android는 설치(단독 창)가 되지 않고 바로가기만 된다
 
 ## 상태 책임
 

@@ -204,8 +204,12 @@ CLEAR_PROGRESS = "result_summary = CASE WHEN kind::text = 'recommend_thresholds'
 
 def reconcile_dead_jobs(conn: Any, queue: QueueName) -> None:
     """Expire exhausted crashed attempts; a dead queue item must not look running forever."""
-    # 비용: queued/running 작업(또는 만료된 running 시도) × dead 큐 행 순차 탐색. 큐에 jobId 색인이 없어 uuid 비교로 바꿔도 줄지 않는다.
+    # 비용(training·LLM 큐): queued/running 작업(또는 만료된 running 시도) × dead 큐 행 순차 탐색. 큐에 jobId 색인이 없어
+    # uuid 비교로 바꿔도 줄지 않는다. detection 큐는 큐 id = jobId라 아래 _reconcile_detection이 pkey로 찾는다.
     if queue == "feature":
+        return
+    if queue == "detection":
+        _reconcile_detection(conn)
         return
     with conn.cursor() as cur:
         cur.execute(f"""UPDATE run_job_attempts a SET status='expired',finished_at=clock_timestamp(),error_code='queue_exhausted'
@@ -215,5 +219,24 @@ def reconcile_dead_jobs(conn: Any, queue: QueueName) -> None:
         cur.execute(f"""UPDATE run_jobs j SET status='failed',error_code='queue_exhausted',finished_at=clock_timestamp(),{CLEAR_PROGRESS}
             WHERE j.status IN ('queued','running') AND EXISTS(SELECT 1 FROM {_table(queue)} q
               WHERE q.status='dead' AND q.payload->>'jobId'=j.id::text)
+              AND NOT EXISTS(SELECT 1 FROM run_job_attempts a WHERE a.id=j.current_attempt_id
+                AND a.status='running' AND a.lease_until>clock_timestamp())""")
+
+
+def _reconcile_detection(conn: Any) -> None:
+    """reconcile_dead_jobs의 detection 큐 문장. 위 두 문장과 같고 EXISTS에 `q.id=j.id`만 더한다(조건이 좁아지기만 한다).
+
+    detection 큐 행은 넣는 모든 경로에서 큐 id = jobId다(detector/jobs.py enqueue_observation·enqueue_recheck, jobId 없는
+    옛 메시지는 uuid5 id). 그래서 같은 행 집합을 pkey Index Cond로 찾고, 비용이 dead 행 수와 무관하다(큐 순차 탐색 반복 없음).
+    """
+    with conn.cursor() as cur:
+        cur.execute("""UPDATE run_job_attempts a SET status='expired',finished_at=clock_timestamp(),error_code='queue_exhausted'
+            FROM run_jobs j WHERE a.id=j.current_attempt_id AND a.job_id=j.id AND a.status='running'
+              AND a.lease_until<=clock_timestamp() AND EXISTS(SELECT 1 FROM powercode_queue.detection_logs q
+              WHERE q.id=j.id AND q.status='dead' AND q.payload->>'jobId'=j.id::text)""")
+        cur.execute("UPDATE run_jobs j SET status='failed',error_code='queue_exhausted',finished_at=clock_timestamp(),"
+                    + CLEAR_PROGRESS + """
+            WHERE j.status IN ('queued','running') AND EXISTS(SELECT 1 FROM powercode_queue.detection_logs q
+              WHERE q.id=j.id AND q.status='dead' AND q.payload->>'jobId'=j.id::text)
               AND NOT EXISTS(SELECT 1 FROM run_job_attempts a WHERE a.id=j.current_attempt_id
                 AND a.status='running' AND a.lease_until>clock_timestamp())""")

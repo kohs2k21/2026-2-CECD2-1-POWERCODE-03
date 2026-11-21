@@ -365,5 +365,31 @@ class ClaimExpireOptionTest(unittest.TestCase):
         self.assertEqual(params, (3,))
 
 
+
+class ReconcileSqlTest(unittest.TestCase):
+    """detection 큐 대조만 q.id=j.id(pkey)를 더하고, training·LLM 큐 문장은 그대로다."""
+
+    def _sql(self, queue: str) -> list[str]:
+        sink: list = []
+        conn = SimpleNamespace(cursor=lambda: ClaimExpireOptionTest._Cursor(sink))
+        pg_queue.reconcile_dead_jobs(conn, queue)
+        return [" ".join(sql.split()) for sql, _ in sink]
+
+    def test_detection_adds_pkey_condition_only(self) -> None:
+        statements = self._sql("detection")
+        self.assertEqual(len(statements), 2)
+        for sql in statements:
+            self.assertIn("FROM powercode_queue.detection_logs q WHERE q.id=j.id AND q.status='dead' "
+                          "AND q.payload->>'jobId'=j.id::text)", sql)
+        self.assertIn(pg_queue.CLEAR_PROGRESS, statements[1])
+        # 다른 큐: 같은 문장에서 q.id=j.id만 빠진 것
+        training = self._sql("training")
+        self.assertEqual([sql.replace("powercode_queue.training_jobs", "powercode_queue.detection_logs") for sql in training],
+                         [sql.replace("q.id=j.id AND ", "") for sql in statements])
+        self.assertTrue(all("q.id=j.id" not in sql for sql in training))
+
+    def test_feature_queue_is_skipped(self) -> None:
+        self.assertEqual(self._sql("feature"), [])
+
 if __name__ == "__main__":
     unittest.main()

@@ -241,14 +241,14 @@ END $$`],
  PERFORM t.interim(job, a1, 'first_anomaly');
  UPDATE run_job_attempts SET lease_until = clock_timestamp() - interval '1 second' WHERE id=(a1->>'id')::uuid;
  INSERT INTO powercode_queue.detection_logs(id, payload, status, attempts) VALUES (job, jsonb_build_object('jobId', job::text), 'dead', 3);
- -- pg_queue.reconcile_dead_jobs statements for the detection queue.
+ -- pg_queue.reconcile_dead_jobs statements for the detection queue (_reconcile_detection: queue id = jobId, pkey lookup).
  UPDATE run_job_attempts a SET status='expired',finished_at=clock_timestamp(),error_code='queue_exhausted'
    FROM run_jobs j WHERE a.id=j.current_attempt_id AND a.job_id=j.id AND a.status='running'
      AND a.lease_until<=clock_timestamp() AND EXISTS(SELECT 1 FROM powercode_queue.detection_logs q
-     WHERE q.status='dead' AND q.payload->>'jobId'=j.id::text);
+     WHERE q.id=j.id AND q.status='dead' AND q.payload->>'jobId'=j.id::text);
  UPDATE run_jobs j SET status='failed',error_code='queue_exhausted',finished_at=clock_timestamp()
    WHERE j.status IN ('queued','running') AND EXISTS(SELECT 1 FROM powercode_queue.detection_logs q
-     WHERE q.status='dead' AND q.payload->>'jobId'=j.id::text)
+     WHERE q.id=j.id AND q.status='dead' AND q.payload->>'jobId'=j.id::text)
      AND NOT EXISTS(SELECT 1 FROM run_job_attempts a WHERE a.id=j.current_attempt_id
        AND a.status='running' AND a.lease_until>clock_timestamp());
  PERFORM t.ok('S8 failure path 3 (dead queue reconcile): no_final(attempt-1, queue_exhausted)', EXISTS (SELECT 1 FROM run_decision_interims WHERE attempt_id=(a1->>'id')::uuid AND kind='no_final' AND reason_code='queue_exhausted'));

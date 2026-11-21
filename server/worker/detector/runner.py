@@ -157,7 +157,8 @@ def process_detection_message(conn: Any, message: ClaimedMessage, root: Path | N
         heartbeat.stop()
 
 
-# dead 큐 행 대조(reconcile_dead_jobs)는 색인 없는 순차 탐색이라 반복마다 부르지 않고 이 간격마다 한 번 부른다.
+# dead 큐 행 대조(reconcile_dead_jobs)는 반복마다 부르지 않고 이 간격마다 한 번 부른다. detection 큐 대조는 큐 id = jobId라
+# pkey로 찾으므로(pg_queue._reconcile_detection) 한 번 비용이 작지만, 대기 작업 전체를 훑는 문장이라 주기는 그대로 둔다.
 RECONCILE_SECONDS = 30.0
 # 다중 작업자(run_workers): 직전 반복에서 메시지를 처리했으면 신청·활성 구성·원천 조회와 feature 복구를 이 간격마다만 한다.
 FIXED_REFRESH_SECONDS = 1.0

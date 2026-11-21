@@ -30,7 +30,7 @@ python -m collector.replay_csv \
 - 인증: `COLLECTOR_ACCESS_TOKEN → ACCESS_TOKEN → TOKEN` 또는 `COLLECTOR_ACCESS_TOKEN_FILE`의 **토큰 문자열만 있는 파일**. 모든 호출에 Bearer 헤더를 넣는다. 토큰 발급/갱신 API는 미제공이다.
 - 포트 1112 설정, 1114 진행 중 캐시. HTTP는 `COLLECTOR_HTTP_HOST`의 정확한 호스트만 허용하고 redirect를 따르지 않는다.
 - `COLLECTOR_SOURCE_KEY`는 고정 원천 식별자. 원천별 session advisory lock으로 Collector 중복 실행을 막는다.
-- 기본 1초 start-to-start 목표 간격, 겹치지 않는 요청, 10초 HTTP timeout. 요청이 느리면 실제 간격이 늘어나며 측정에 그대로 남는다.
+- 기본 2초 start-to-start 목표 간격, 겹치지 않는 요청, 10초 HTTP timeout. 요청이 느리면 실제 간격이 늘어나며 측정에 그대로 남는다.
 - `ops_api_catalog`: 안전하게 투영된 설정의 불변 버전. 설정 revision의 내용이 달라지면 해당 페이지 전체 저장·checkpoint 전진을 취소한다.
 - `data_api_snapshots`: 설정·진행 중 응답의 허용 필드 snapshot. 같은 snapshot은 중복 제거한다. unknown 필드 개수만 저장하며 원문 BODY·SQL·토큰은 제외한다.
 - `ops_api_poll_state`: 성공한 페이지 checkpoint와 조회/매핑 상태.

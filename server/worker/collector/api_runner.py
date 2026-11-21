@@ -113,7 +113,7 @@ def run(*,once=False):
             if not cur.fetchone()[0]:
                 raise RuntimeError("collector_source_already_running")
         conn.commit()
-        interval=float(os.environ.get("COLLECTOR_POLL_SECONDS","1"))
+        interval=float(os.environ.get("COLLECTOR_POLL_SECONDS","2"))
         if not .1 <= interval <= 3600:
             raise ValueError("invalid_collector_poll_interval")
         while True:

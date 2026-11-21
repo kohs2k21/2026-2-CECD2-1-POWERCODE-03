@@ -27,6 +27,9 @@ def configure_capacity(concurrent: int) -> None:
 
     같은 값이면 아무것도 하지 않는다. 잡혀 있는 슬롯이 있으면(판정 진행 중) 바꾸지 않고 RuntimeError
     (`detection_capacity_busy`)다. 표(_POOLS·_SLOTS)는 같은 dict를 고쳐 쓰므로 가져다 쓴 모듈도 새 값을 본다.
+    판정과 동시에 부르면 안 된다: 바쁨 검사는 부르는 순간의 슬롯만 보므로, 검사 뒤 슬롯을 잡은 판정은 옛 슬롯을 쥔 채
+    새 풀에 넣거나 닫힌 옛 풀에 넣다 실패할 수 있다(method_runner는 슬롯과 풀을 따로 읽음). 판정 작업자·직접 전달 서버를
+    띄우기 전에만 부른다(service.main·run_workers).
     """
     global _capacity
     if type(concurrent) is not int or concurrent < 1:

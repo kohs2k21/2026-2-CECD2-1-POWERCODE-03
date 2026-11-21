@@ -4,6 +4,7 @@ import json
 import os
 import threading
 import uuid
+from contextlib import contextmanager
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 import psycopg
@@ -12,10 +13,59 @@ from detector.runner import process_detection_message, run_workers, worker_count
 from pg_queue import claim, fail
 
 
+class DeliveryConnection:
+    """직접 전달이 다시 쓰는 연결 1개. 호출자(serve의 capacity)가 동시에 한 요청만 use()하도록 보장한다.
+
+    - 처음 use()할 때 연다. 닫혔거나 끊긴(broken) 연결이면 새로 연다.
+    - 끝날 때는 예전 `with psycopg.connect(...)`와 같이 정상 종료면 COMMIT, 예외면 ROLLBACK해 열린 트랜잭션을 남기지 않는다
+      (본문이 매번 COMMIT하므로 보통 남은 트랜잭션이 없다). 연결 닫기만 하지 않는다.
+    - 연결 오류(psycopg.OperationalError·InterfaceError)·끊긴 연결이거나 COMMIT·ROLLBACK이 실패하면 연결을 닫아 다음
+      요청에서 새로 연다. 본문 예외와 COMMIT 실패는 그대로 올려 응답 코드를 지금과 같게 둔다.
+    """
+
+    def __init__(self, database_url, connect=None):
+        self.database_url, self.connect = database_url, connect
+        self.conn = None
+
+    def close(self):
+        conn, self.conn = self.conn, None
+        if conn is not None:
+            try:
+                conn.close()
+            except Exception:
+                pass
+
+    @contextmanager
+    def use(self):
+        if self.conn is None or self.conn.closed or self.conn.broken:
+            self.close()
+            self.conn = (self.connect or psycopg.connect)(self.database_url)
+        conn = self.conn
+        try:
+            yield conn
+        except BaseException as exc:
+            if isinstance(exc, (psycopg.OperationalError, psycopg.InterfaceError)) or conn.closed or conn.broken:
+                self.close()
+            else:
+                try:
+                    conn.rollback()
+                except Exception:
+                    self.close()
+            raise
+        try:
+            conn.commit()
+        except BaseException:
+            self.close()
+            raise
+
+
 def serve(database_url, root, token, host="127.0.0.1", port=8011):
     if len(token) < 32:
         raise ValueError("detector_delivery_token_too_short")
     capacity = threading.BoundedSemaphore(1)
+    # 직접 전달 연결 1개를 POST마다 다시 쓴다(POST마다 새 연결을 열지 않음). capacity를 쥔 동안에만 쓰므로 한 번에 한 요청만
+    # 쓴다. 처음 쓸 때 열고, 연결 오류·끊김이면 닫고 다음 요청에서 새로 연다. 요청이 끝나면 열린 트랜잭션을 남기지 않는다.
+    delivery = DeliveryConnection(database_url)
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *args):
             pass
@@ -43,7 +93,7 @@ def serve(database_url, root, token, host="127.0.0.1", port=8011):
                 if not 0 < length <= 4096:
                     raise ValueError("invalid_delivery")
                 payload=json.loads(self.rfile.read(length));job_id=uuid.UUID(payload["jobId"])
-                with psycopg.connect(database_url) as conn:
+                with delivery.use() as conn:
                     with conn.cursor() as cur:
                         cur.execute("SELECT input_spec FROM run_jobs WHERE id=%s AND kind='detect'",(job_id,))
                         row=cur.fetchone()
@@ -76,7 +126,8 @@ def main():
     threading.Thread(target=server.serve_forever,daemon=True).start()
     try:
         # 작업자 하나가 죽으면 WorkerFailed가 올라와 HTTP 서버를 닫고 0이 아닌 코드로 끝난다(컨테이너 재시작).
-        run_workers(database_url,root,workers=workers,poll_seconds=.25)
+        # 큐가 비었을 때 대기 0.1초(유휴 반복도 고정 단계 조회를 하므로 더 줄이면 빈 조회가 그만큼 는다).
+        run_workers(database_url,root,workers=workers,poll_seconds=.1)
     finally:
         server.shutdown();server.server_close()
 

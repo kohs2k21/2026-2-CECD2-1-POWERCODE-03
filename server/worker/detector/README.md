@@ -22,6 +22,7 @@ v04 시도 1회의 순서.
 2. `method_runner.py`가 방법 단위로 실행한다. 룰은 슬롯 1개에서 차례로, 모델은 모델마다 슬롯 1개로 돈다. 기한(`deadlineMs`)을 넘긴 결과는 버리고 `cause=timeout`에 판정 시점 측정값 `elapsedMs`를 남긴다. 슬롯이 없으면 `capacity`다.
 3. 결과가 도착할 때마다 `attempt_v04.py`의 `InterimRecorder`가 첫 이상·근거 추가를 `run_decision_interims`에 쓴다. 미도착 방법이 없으면 쓰지 않는다(판정 행이 최종이다). 대체됨·최종 없음은 DB 트리거가 쓴다.
 4. `build_evidence`와 `decision_columns`로 판정 행을 저장한다. 하드룰 입력 `HardRuleSelection`은 `read_hard_rule_snapshot`으로만 만들고 판정과 evidence가 같은 객체를 쓴다. v3 판정은 `relationInputs`·`relationNotes`(관계 입력을 읽은 판정), `protocolReview`(프로토콜 방법이 T), `relationRecheck`(재판정)를 더한다(`../../contracts/detection-decision.md` 11.4). 재판정 판정은 `ops_pipeline_measurements` 행을 넣지 않는다.
+5. 성공 저장 트랜잭션 하나의 순서: 소유권 잠금 확인(`lock_training_ownership`, 작업·시도·큐 행 `FOR UPDATE`) → 변수 캐시 INSERT → `finish.py` `finish_detect_success`가 pipeline 한 묶음으로 detector 측정 행 INSERT(첫 판정만) → 판정 INSERT → 시도 `succeeded` → 작업 `succeeded`(`result_summary`) → 큐 ack를 보내고 Sync 한 번으로 결과를 받는다 → ack가 1행이 아니면 `training_queue_lease_lost`로 ROLLBACK → COMMIT → COMMIT 뒤 `judgment_store` 측정 행(첫 판정만, 별도 트랜잭션). 판정 INSERT가 잡는 전역 잠금 81736 구간의 클라이언트 왕복은 묶음 1번 + COMMIT 1번이다. trainer `_finish`와 같은 값을 쓰지만 두 번째 소유권 확인과 중첩 savepoint는 하지 않는다. 첫 확인의 행 잠금이 COMMIT까지 유지되고, 남는 변화인 임대 만료는 판정 INSERT 트리거·작업 완료 트리거(시도 임대)와 ack 조건(큐 임대)이 다시 보기 때문이다. 묶음 안 문장이 트리거 예외·제약 위반으로 실패하면 뒤 문장은 실행되지 않고 그 오류가 예외로 올라와 ROLLBACK되며, 호출자(`runner.py`)가 지금처럼 trainer `_finish`로 시도 실패를 기록한다. detector 측정 행은 판정 INSERT 앞으로 옮겨 그 단계의 끝이 판정 INSERT·완료 문장 앞으로 조금 당겨졌다. 실패 경로와 v03 경로는 trainer `_finish` 그대로다.
 
 소프트룰 필드 정의는 `methods/registry.py`의 `SOFT_RULE_FIELDS`를 쓴다. 모델을 읽지 못하거나 다른 source의 모델이면 그 모델만 `not_configured`로 미판정이 되고 다른 방법 결과는 남는다. 모델 버전 구성은 `schemaVersion` 정수 1·3만 읽고 그 밖(키 없음 포함)은 `unsupported_config_schema` 사유로 같은 미판정이다(`../../contracts/model-version.md` schemaVersion 3 판독 규칙 절). v03 경로(`load_context`)는 `schemaVersion`을 보지 않는다. 산출물 파일이 없어도 `not_configured`이고, 파일이 변조됐으면 `failed`·`artifact_invalid`다.
 
@@ -29,11 +30,11 @@ v04 시도 1회의 순서.
 
 시도가 값 오류로 실패하면 원인 코드(`rule_set_hash_mismatch` 등, v3 추가 코드는 `../../contracts/detection-decision.md` 11.6)가 `run_jobs.error_code`, 시도, 큐 `last_error`에 남는다. v03은 기존대로 `detection_processing_failed`다.
 
-큐 재시도를 다 쓴(dead) detection 행의 작업을 `failed`·`queue_exhausted`로, 그 작업의 만료된 시도를 `expired`로 바꾸는 정리(`pg_queue.reconcile_dead_jobs`)는 판정 루프 반복마다가 아니라 첫 반복에서 한 번, 그 뒤로는 직전 정리에서 30초(`runner.RECONCILE_SECONDS`)가 지난 반복에서 한 번 돈다. 그래서 dead가 된 뒤 작업 상태가 바뀌기까지 그 간격과 반복 한 번만큼 늦을 수 있다. detection 큐의 대조 문장은 큐 id = jobId(넣는 모든 경로)라 EXISTS에 `q.id=j.id`를 더해 큐 pkey로 찾는다(`pg_queue._reconcile_detection`). 그래서 비용이 dead 큐 행 수에 비례하지 않는다. training·LLM 큐 문장은 그대로다.
+큐 재시도를 다 쓴(dead) detection 행의 작업을 `failed`·`queue_exhausted`로, 그 작업의 만료된 시도를 `expired`로 바꾸는 정리(`pg_queue.reconcile_dead_jobs`)는 판정 루프 반복마다가 아니라 첫 반복에서 한 번, 그 뒤로는 직전 정리에서 30초(`runner.RECONCILE_SECONDS`)가 지난 반복에서 한 번 돈다. 그래서 dead가 된 뒤 작업 상태가 바뀌기까지 그 간격과 반복 한 번만큼 늦을 수 있다. detection 큐의 대조 문장은 큐 id = jobId(넣는 모든 경로: `jobs.enqueue_observation`·`enqueue_observations`·`enqueue_recheck`)라 EXISTS에 `q.id=j.id`를 더해 큐 pkey로 찾는다(`pg_queue._reconcile_detection`). 그래서 비용이 dead 큐 행 수에 비례하지 않는다. training·LLM 큐 문장은 그대로다.
 
 ## 판정 작업자 수(서비스)
 
-`python -m detector.service`(Compose `detector`)는 직접 전달 HTTP 서버 1개와 판정 루프 `DETECTOR_WORKERS`개(`runner.run_workers`, 스레드, 작업자마다 DB 연결 1개)를 돌린다. `python -m detector.runner`(`run()`, 통합 시험·`compose.demo.yaml`)는 지금처럼 단일 루프다.
+`python -m detector.service`(Compose `detector`)는 직접 전달 HTTP 서버 1개와 판정 루프 `DETECTOR_WORKERS`개(`runner.run_workers`, 스레드, 작업자마다 DB 연결 1개)를 돌린다. 큐가 비었을 때 작업자는 0.1초 기다린다(`service.main`의 `poll_seconds`, `run()` 기본 1초는 그대로). 직접 전달(`POST /detect`)은 한 번에 1건(`capacity`)이고 연결 1개를 요청마다 다시 쓴다(`service.DeliveryConnection` — 처음 쓸 때 열고, 연결 오류·끊김이면 닫고 다음 요청에서 다시 연다, 요청마다 COMMIT/ROLLBACK으로 열린 트랜잭션을 남기지 않음). `/health`는 요청마다 짧은 연결을 연다. `python -m detector.runner`(`run()`, 통합 시험·`compose.demo.yaml`)는 지금처럼 단일 루프다.
 
 - `DETECTOR_WORKERS`: 1~8 정수, 없으면 4. 범위 밖이거나 정수가 아니면 시작하자마자 실패한다. Compose에서 바꾸려면 `detector` 환경에 `DETECTOR_WORKERS: ${DETECTOR_WORKERS:-4}`를 넣는다(지금 compose 파일에는 없다)
 - 작업자들은 같은 큐를 `FOR UPDATE SKIP LOCKED`로 나눠 가진다. 결과 저장은 작업 행·시도·큐 임대 토큰을 잠금 확인하므로 작업자 수와 무관하게 작업마다 판정은 하나다(`../../contracts/queues.md`)
@@ -42,11 +43,11 @@ v04 시도 1회의 순서.
 - 방법 실행 슬롯: 룰 레인·모델 슬롯과 실행 풀(`policy.py` `_SLOTS`·`_POOLS`)은 프로세스 전체가 함께 쓰고 비차단으로 잡으므로, 슬롯 수가 동시 판정 수보다 적으면 겹친 판정의 룰·모델이 `capacity`(미판정)로 끝난다. 그래서 서비스는 시작 때(HTTP 서버를 열기 전) `policy.configure_capacity(작업자 수 + 1)`로 룰·ML 슬롯을 동시 판정 수(기본 5, +1은 직접 전달 몫)에 맞춘다. 그 밖의 프로세스(Trainer 비교 평가, 단일 `run()`)는 기본 2 그대로다(`../../contracts/detection-decision.md` D20)
 - 모델이 켜져 있으면 ML 채점이 동시에 최대 슬롯 수(기본 5)만큼 돌 수 있어 채점 CPU가 단일 루프 때보다 최대 그 배수까지 늘 수 있다(컨테이너 `cpus` 기본 2)
 - 작업자 하나가 예외로 끝나면 traceback을 stderr 로그에 남기고 나머지를 멈추고(전체 최대 10초 대기) HTTP 서버를 닫은 뒤 0이 아닌 코드로 끝난다(컨테이너 재시작). 시작 단계 `prepare_active`는 작업자를 띄우기 전에 한 번만 한다
-- 처리량 상한 [추정, 미측정]: 판정 INSERT 트리거(`publish_decision_event`, migration 012)가 전역 advisory lock `(81736, 0)`을 COMMIT까지 잡아 판정 이벤트 순서를 커밋 순서로 맞춘다(`../../contracts/pipeline.md` SSE). 그래서 판정 INSERT부터 COMMIT까지는 작업자 수와 무관하게 한 번에 하나씩 지나간다. 중간 판정 기록 INSERT(`publish_decision_interim_event`, migration 012:200)도 같은 잠금을 잡아 이 줄에 함께 선다. 이 구간이 3~4.5ms라면 상한은 초당 약 220~330건이다. 이보다 높이려면 이벤트 순번 방식을 바꿔야 하고 계약·migration 결정이 필요하다
+- 처리량 상한 [추정, 미측정]: 판정 INSERT 트리거(`publish_decision_event`, migration 012)가 전역 advisory lock `(81736, 0)`을 COMMIT까지 잡아 판정 이벤트 순서를 커밋 순서로 맞춘다(`../../contracts/pipeline.md` SSE). 그래서 판정 INSERT부터 COMMIT까지는 작업자 수와 무관하게 한 번에 하나씩 지나간다. v04 성공 저장은 이 구간의 문장을 pipeline으로 묶어 클라이언트 왕복을 2번(묶음·COMMIT)으로 줄였다(위 v04 순서 5). 중간 판정 기록 INSERT(`publish_decision_interim_event`, migration 012:200)도 같은 잠금을 잡아 이 줄에 함께 선다. 이 구간이 3~4.5ms라면 상한은 초당 약 220~330건이다. 이보다 높이려면 이벤트 순번 방식을 바꿔야 하고 계약·migration 결정이 필요하다
 
 ## detect 작업 생성 전환
 
-detect 작업은 `jobs.py`의 `enqueue_observation` 한 곳에서만 만든다. 호출자는 Collector(`collector/storage.py`, `collector/input_store.py`), 데모(`demo/runtime.py`), Detector의 옛 메시지 복구(`runner.py`)다. 새 작업의 계약 버전은 환경 변수 `DETECT_JOB_CONTRACT`(`v03`, `v04`)가 정한다. 값이 없으면 코드 기본은 `v03`이고, `compose.yaml`·`compose.demo.yaml`의 기본은 `v04`다(아래 전환 순서 1의 선행 조건 충족, 11/13).
+첫 판정 detect 작업은 `jobs.py`의 `enqueue_observations`(일괄, `pg_queue.enqueue_many` 한 문장)에서만 만든다. `enqueue_observation`은 관측 1개짜리 호출이다. 호출자는 Collector(`collector/storage.py`, `collector/input_store.py` `admit_batch` — 묶음 입고는 `enqueue_observations`를 직접 부른다), 데모(`demo/runtime.py`), Detector의 옛 메시지 복구(`runner.py`)다. 두 형태 모두 큐 id = payload `jobId`(작업 id)다. 재판정 작업은 `enqueue_recheck`가 같은 규칙으로 만든다. 새 작업의 계약 버전은 환경 변수 `DETECT_JOB_CONTRACT`(`v03`, `v04`)가 정한다. 값이 없으면 코드 기본은 `v03`이고, `compose.yaml`·`compose.demo.yaml`의 기본은 `v04`다(아래 전환 순서 1의 선행 조건 충족, 11/13).
 
 - `v03`: 지금과 같다. 구성이 없는 입력은 대기한다.
 - `v04`: 승인 운영 경로의 입력은 구성 없이 v04 작업이 된다. 입력 제어나 호출자가 승인 구성이 아닌 구성을 고정한 입력(input-validation, 데모)은 v03으로 남는다. 구성을 기다리던 입력도 v04 작업으로 바뀐다.

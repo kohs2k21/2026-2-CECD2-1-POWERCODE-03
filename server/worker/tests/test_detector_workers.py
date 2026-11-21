@@ -226,6 +226,7 @@ class ServiceMainTest(unittest.TestCase):
         seen = {}
         self._main({"DETECTOR_WORKERS": "3"}, lambda *_a, **k: seen.update(k))
         self.assertEqual(seen["workers"], 3)
+        self.assertEqual(seen["poll_seconds"], .1)  # 큐가 비었을 때 대기(유휴 반복도 고정 단계를 하므로 더 줄이지 않음)
         self.assertEqual(self.configured, [4])  # HTTP 서버(직접 전달)를 열기 전에 슬롯을 맞춘다
 
     def test_invalid_workers_fails_before_http_server(self) -> None:

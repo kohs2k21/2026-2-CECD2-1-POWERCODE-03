@@ -4,8 +4,8 @@ import uuid
 from pathlib import Path
 from collector.input_contract import csv_records,digest,identity
 from collector import source_clock
-from collector.storage import ingest_observation
-from detector.jobs import enqueue_observation
+from collector.storage import NUMERIC_FIELDS,TABLES,TEXT_FIELDS,check_received_at,prepare_projection
+from detector.jobs import enqueue_observations
 
 # Replay order inside one transaction group. The source writes the TRANSACTION row only after
 # all of its PROCESS rows, and Detector treats T arrival as "transaction complete", so T goes last.
@@ -116,53 +116,181 @@ def switch(conn,source,*,mode,expected_revision,actor,settings=None,config='keep
 
 
 INGEST_PHASES=('live','initial','replay')
+BODY_QUALITY_FLAGS='["body_values_not_collected"]'
+SAME_DEDUP_CONFLICT='같은 dedup_key에 다른 내용·실행 식별·revision이 있다'
 
 
 def admit(conn,source,run_id,mode,layer,raw,*,namespace,position=None,config=None,phase=None,received_at=None):
+    """One record through the shared batch path (`admit_batch`)."""
+    return admit_batch(conn,source,run_id,mode,[(layer,raw)],namespace=namespace,position=position,config=config,
+        phase=phase,received_at=received_at)[0]
+
+
+def plan_records(source,namespace,records):
+    """Pure first pass: identity, arrival hash and execution key of every record, in input order."""
+    plans=[]
+    for layer,raw in records:
+        parts=identity(layer,raw)
+        plan={'layer':layer,'raw':raw,'parts':parts,'rawHash':digest(raw),'execution':None}
+        if parts:
+            key=json.dumps([namespace,layer,parts],ensure_ascii=False,separators=(',',':'))
+            plan.update(execution=uuid.uuid5(uuid.NAMESPACE_URL,f'input-execution:{source}:{key}'),executionKey=key,
+                keyParts=json.dumps({'namespace':namespace,'identity':parts,'revisionBasis':'local_arrival'}))
+        plans.append(plan)
+    return plans
+
+
+def assign_revisions(plans,latest,*,source,namespace,stored_hash):
+    """Pure second pass, in input order: what admitting the records one at a time would decide.
+
+    latest: {execution: (revision_no, content_hash)} of the newest stored observation before this batch.
+    stored_hash(plan): the content_hash the row would be stored with. A row is a duplicate when the newest
+    revision of its execution (including rows planned earlier in this batch) has its arrival hash; otherwise it gets
+    the next revision. Unidentified rows use the content-hash dedup key; a repeat inside the batch is not inserted twice.
+    Sets plan['action'] to 'duplicate' | 'repeat' | 'insert' and plan['revision'], plan['dedup'], plan['contentHash'].
+    """
+    state=dict(latest);seen={}
+    for plan in plans:
+        execution=plan['execution']
+        if execution:
+            newest=state.get(execution)
+            if newest and newest[1]==plan['rawHash']:
+                plan['action']='duplicate';continue
+            plan['revision']=(newest[0] if newest else 0)+1
+            plan['dedup']=f'input:{execution}:{plan["revision"]}'
+        else:
+            plan['revision']=None
+            plan['dedup']=f'input-unidentified:{source}:{namespace}:{plan["layer"]}:{plan["rawHash"]}'
+        plan['contentHash']=stored_hash(plan)
+        key=(plan['layer'],plan['dedup'])
+        if key in seen:
+            if plan['layer']!='B' and seen[key]!=(plan['contentHash'],execution,plan['revision']):raise ValueError(SAME_DEDUP_CONFLICT)
+            plan['action']='repeat';continue
+        seen[key]=(plan['contentHash'],execution,plan['revision'])
+        plan['action']='insert'
+        if execution:state[execution]=(plan['revision'],plan['contentHash'])
+    return plans
+
+
+def _project(plan,basis):
+    """Stored column values. B is a body reference only (absent time, raw JSON); T/P/M use the storage projection."""
+    if plan['layer']=='B':
+        no_time=source_clock.absent()
+        plan.update(values=json.dumps(plan['raw']),flags=BODY_QUALITY_FLAGS,missing='[]',time=no_time)
+        return plan['rawHash']
+    projected=prepare_projection(plan['layer'],plan['raw'],plan['execution'])
+    plan.update(projection=projected,values=projected.allowed_json,flags=json.dumps(projected.flags),
+        missing=json.dumps(projected.missing),time=source_clock.resolve(projected.allowed,basis))
+    return projected.content_hash
+
+
+def _text(values):
+    return [None if value is None else str(value) for value in values]
+
+
+def admit_batch(conn,source,run_id,mode,records,*,namespace,position=None,config=None,phase=None,received_at=None):
     """Called with the control locked. Arrival revisions are not source update versions.
 
+    Same outcomes as admitting `records` one by one in order (revisions, duplicates, dedup keys, unidentified rows,
+    B references, source time, origins, detect jobs for new identified P), with a fixed number of statements per call.
     phase: data_input_origins.ingest_phase (csv='replay'; api='initial' for a run's first successful poll after
     start/resume, otherwise 'live'). received_at: API response receipt finished_at; CSV passes None (NULL).
+    Returns one outcome per record: {'created','identified'} plus 'observationId' and 'detectJob' when created.
     """
+    records=list(records)
+    if not records:return []
     if phase not in INGEST_PHASES or (phase=='replay')!=(mode=='csv'):raise ValueError('invalid_ingest_phase')
     if (received_at is None)!=(mode=='csv'):raise ValueError('api_received_at_mode_mismatch')
-    parts=identity(layer,raw);raw_hash=digest(raw)
-    execution=None;revision=None
-    if parts:
-        key=json.dumps([namespace,layer,parts],ensure_ascii=False,separators=(',',':'))
-        execution=uuid.uuid5(uuid.NAMESPACE_URL,f'input-execution:{source}:{key}')
+    plans=plan_records(source,namespace,records)
+    basis=None
+    if any(plan['layer']!='B' for plan in plans):
+        check_received_at(received_at)
+        # Operator `clock-basis verify` applies from the next admission transaction (contracts/collector-metrics.md 1.1).
+        row=conn.execute('SELECT clock_basis FROM ops_sources WHERE id=%s',(source,)).fetchone()
+        basis=row[0] if row else None
+    executions={}
+    for plan in plans:
+        if plan['execution'] and plan['execution'] not in executions:executions[plan['execution']]=plan
+    latest={}
+    if executions:
+        chosen=list(executions.values())
         conn.execute("""INSERT INTO data_executions(id,source_id,layer,execution_key,key_parts,key_contract_version,first_observed_at)
-            VALUES(%s,%s,%s,%s,%s::jsonb,'arrival-snapshot-v1',clock_timestamp()) ON CONFLICT DO NOTHING""",
-            (execution,source,layer,key,json.dumps({'namespace':namespace,'identity':parts,'revisionBasis':'local_arrival'})))
-        latest=conn.execute('SELECT id,revision_no,content_hash FROM data_observations WHERE execution_id=%s ORDER BY revision_no DESC LIMIT 1',(execution,)).fetchone()
-        if latest and latest[2]==raw_hash:return {'created':False,'identified':True}
-        revision=(latest[1] if latest else 0)+1
-        dedup=f'input:{execution}:{revision}'
-    else:dedup=f'input-unidentified:{source}:{namespace}:{layer}:{raw_hash}'
-    if layer=='B':
-        # BODY reference only. It is never misclassified as an M monitoring row. It carries no source time (absent).
-        oid=uuid.uuid4();no_time=source_clock.absent()
-        inserted=conn.execute("""INSERT INTO data_observations(id,source_id,layer,execution_id,revision_no,dedup_key,content_hash,
-            api_received_at,persisted_at,clock_status,parsed_times,allowed_values,quality_flags,missing_fields)
-            VALUES(%s,%s,'B',%s,%s,%s,%s,%s,clock_timestamp(),%s,%s::jsonb,%s::jsonb,
-            '["body_values_not_collected"]','[]') ON CONFLICT DO NOTHING RETURNING id""",
-            (oid,source,execution,revision,dedup,raw_hash,received_at,no_time.clock_status,no_time.parsed_json(),json.dumps(raw))).fetchone()
-        if not inserted:return {'created':False,'identified':parts is not None}
+            SELECT u.id,%s,u.layer::source_layer,u.execution_key,u.key_parts::jsonb,'arrival-snapshot-v1',clock_timestamp()
+            FROM unnest(%s::uuid[],%s::text[],%s::text[],%s::text[]) AS u(id,layer,execution_key,key_parts) ON CONFLICT DO NOTHING""",
+            (source,_text(executions),[p['layer'] for p in chosen],[p['executionKey'] for p in chosen],[p['keyParts'] for p in chosen]))
+        rows=conn.execute("""SELECT e.id,l.revision_no,l.content_hash FROM unnest(%s::uuid[]) AS e(id)
+            CROSS JOIN LATERAL (SELECT o.revision_no,o.content_hash FROM data_observations o WHERE o.execution_id=e.id
+              ORDER BY o.revision_no DESC LIMIT 1) l""",(_text(executions),)).fetchall()
+        latest={row[0]:(row[1],row[2]) for row in rows}
+    assign_revisions(plans,latest,source=source,namespace=namespace,stored_hash=lambda plan:_project(plan,basis))
+    planned=[plan for plan in plans if plan['action']=='insert']
+    for plan in planned:plan['id']=uuid.uuid4()
+    inserted=set()
+    if planned:
+        times=[plan['time'] for plan in planned]
+        rows=conn.execute("""INSERT INTO data_observations(id,source_id,layer,execution_id,revision_no,dedup_key,content_hash,
+            source_revision_token,source_log_time_raw,source_log_occurred_at,api_received_at,persisted_at,clock_status,
+            parsed_times,allowed_values,quality_flags,missing_fields)
+            SELECT u.id,%s,u.layer::source_layer,u.execution_id,u.revision_no,u.dedup_key,u.content_hash,NULL,u.time_raw,
+              u.occurred_at::timestamptz,%s::timestamptz,clock_timestamp(),u.clock_status,u.parsed_times::jsonb,
+              u.allowed_values::jsonb,u.quality_flags::jsonb,u.missing_fields::jsonb
+            FROM unnest(%s::uuid[],%s::text[],%s::uuid[],%s::bigint[],%s::text[],%s::text[],%s::text[],%s::text[],%s::text[],
+              %s::text[],%s::text[],%s::text[],%s::text[])
+              AS u(id,layer,execution_id,revision_no,dedup_key,content_hash,time_raw,occurred_at,clock_status,parsed_times,
+                   allowed_values,quality_flags,missing_fields)
+            ON CONFLICT DO NOTHING RETURNING id""",
+            (source,received_at,_text(p['id'] for p in planned),[p['layer'] for p in planned],_text(p['execution'] for p in planned),
+             _text(p['revision'] for p in planned),[p['dedup'] for p in planned],[p['contentHash'] for p in planned],
+             [t.raw for t in times],[None if t.occurred_at is None else t.occurred_at.isoformat() for t in times],
+             [t.clock_status for t in times],[t.parsed_json() for t in times],[p['values'] for p in planned],
+             [p['flags'] for p in planned],[p['missing'] for p in planned])).fetchall()
+        inserted={row[0] for row in rows}
+    check=[]
+    for plan in planned:
+        if plan['id'] in inserted:continue
+        # A planned revision is the next one under the control lock, so it cannot already exist.
+        if plan['execution']:raise ValueError('observation_revision_conflict')
+        plan['action']='existing'
+        if plan['layer']!='B':check.append(plan)
+    if check:
+        rows=conn.execute("""SELECT o.layer::text,o.dedup_key,o.content_hash,o.execution_id,o.revision_no,o.source_revision_token
+            FROM data_observations o JOIN unnest(%s::text[],%s::text[]) AS u(layer,dedup_key)
+              ON o.source_id=%s AND o.layer::text=u.layer AND o.dedup_key=u.dedup_key""",
+            ([p['layer'] for p in check],[p['dedup'] for p in check],source)).fetchall()
+        existing={(row[0],row[1]):row[2:] for row in rows}
+        for plan in check:
+            if existing.get((plan['layer'],plan['dedup']))!=(plan['contentHash'],None,None,None):raise ValueError(SAME_DEDUP_CONFLICT)
+    created=[plan for plan in planned if plan['id'] in inserted]
+    for layer,table in TABLES.items():
+        subset=[plan for plan in created if plan['layer']==layer]
+        if not subset:continue
+        columns=TEXT_FIELDS[layer]+NUMERIC_FIELDS[layer]
+        casts=['%s::uuid[]']+['%s::text[]']*len(TEXT_FIELDS[layer])+['%s::numeric[]']*len(NUMERIC_FIELDS[layer])
+        conn.execute(f"INSERT INTO {table} (observation_id, {', '.join(columns)}) SELECT * FROM unnest({', '.join(casts)})",
+            (_text(p['id'] for p in subset),*([p['projection'].typed[field] for p in subset] for field in columns)))
+    bodies=[plan for plan in created if plan['layer']=='B']
+    if bodies:
         conn.execute("""INSERT INTO data_message_bodies(observation_id,source_id,message_id,collection_status,field_states,
             representation,access_policy_version,retention_policy_version)
-            VALUES(%s,%s,%s,'not_collected','{"message_in":"unknown","message_out":"unknown","message_body":"unknown"}',
-            'unknown','metadata-only-v1','metadata-history-v1')""",(oid,source,raw['message_id']))
-    else:
-        saved=ingest_observation(conn,source_id=source,layer=layer,dedup_key=dedup,raw=raw,execution_id=execution,revision_no=revision,
-            api_received_at=received_at)
-        oid=saved.observation_id
-        if not saved.created:return {'created':False,'identified':parts is not None}
-    conn.execute('INSERT INTO data_input_origins(observation_id,run_id,mode,position,namespace,ingest_phase) VALUES(%s,%s,%s,%s,%s,%s)',
-        (oid,run_id,mode,position,namespace,phase))
-    outcome={'created':True,'identified':parts is not None,'observationId':str(oid)}
-    if layer=='P' and execution:
-        payload=enqueue_observation(conn,oid,config_id=config)
+            SELECT u.id,%s,u.message_id,'not_collected'::body_collection_status,
+              '{"message_in":"unknown","message_out":"unknown","message_body":"unknown"}'::jsonb,
+              'unknown'::body_representation,'metadata-only-v1','metadata-history-v1'
+            FROM unnest(%s::uuid[],%s::text[]) AS u(id,message_id)""",
+            (source,_text(p['id'] for p in bodies),[p['raw']['message_id'] for p in bodies]))
+    if created:
+        conn.execute("""INSERT INTO data_input_origins(observation_id,run_id,mode,position,namespace,ingest_phase)
+            SELECT u.id,%s,%s,%s::bigint,%s,%s FROM unnest(%s::uuid[]) AS u(id)""",
+            (run_id,mode,position,namespace,phase,_text(p['id'] for p in created)))
+    detect=[plan for plan in created if plan['layer']=='P' and plan['execution']]
+    for plan,payload in zip(detect,enqueue_observations(conn,[plan['id'] for plan in detect],config_id=config) if detect else []):
         # Only a payload with jobId is a registered detect job; waiting-config items are left to recovery polling.
         if payload.get('jobId'):
-            outcome['detectJob']={'jobId':payload['jobId'],'inputManifestHash':payload['inputManifestHash']}
-    return outcome
+            plan['detectJob']={'jobId':payload['jobId'],'inputManifestHash':payload['inputManifestHash']}
+    outcomes=[]
+    for plan in plans:
+        outcome={'created':plan['action']=='insert','identified':plan['parts'] is not None}
+        if outcome['created']:
+            outcome['observationId']=str(plan['id'])
+            if 'detectJob' in plan:outcome['detectJob']=plan['detectJob']
+        outcomes.append(outcome)
+    return outcomes

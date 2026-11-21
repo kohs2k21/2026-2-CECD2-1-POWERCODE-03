@@ -61,7 +61,11 @@ docker compose exec collector python -m collector.report \
 
 ## API / 네 CSV 공통 입고 (현재 기본)
 
-`python -m collector.input_runner`는 DB 입력 선택을 읽어 API/CSV/paused 중 하나만 입고한다. `collector.input_cli`로 init/stage-csv/status/select를 실행할 수 있고 화면 운영 현황 수집 탭(`/operations?tab=collect`, 관리자)에서 같은 상태를 제어한다. 두 모드는 `input_contract.normalize`와 `input_store.admit`를 공유한다. 입고가 커밋된 뒤에는 그 tick 입고로 등록·재사용된 detect 작업(jobId 있음)만 `DETECTOR_DELIVERY_URL`의 `/detect`로 알린다(한 tick 최대 10건). 큐는 조회하지 않으며, 구성 대기 항목·상한 초과분·알림 실패는 Detector의 큐 polling이 처리한다. 피처·Rule·모델은 기존 운영 파이프라인에서 생성/선택하며 별도 데모 모델로 우회하지 않는다.
+`python -m collector.input_runner`는 DB 입력 선택을 읽어 API/CSV/paused 중 하나만 입고한다. `collector.input_cli`로 init/stage-csv/status/select를 실행할 수 있고 화면 운영 현황 수집 탭(`/operations?tab=collect`, 관리자)에서 같은 상태를 제어한다. 두 모드는 `input_contract.normalize`와 `input_store.admit_batch`를 공유한다. 한 tick(API 응답 하나, CSV 한 행)의 행은 한 트랜잭션에서 묶음 SQL로 입고한다: 실행 등록·실행별 최신 revision 조회·관측·계층 행·BODY 참조·출처·detect 작업·큐 메시지를 행 수와 무관한 고정 문장 수로 넣는다. 결과는 행을 순서대로 하나씩 입고할 때와 같다(같은 응답 안 같은 실행의 여러 행도 순서대로 revision, 최신 revision과 같은 내용은 중복, 식별 불가 행은 내용 hash dedup). 원천 `clock_basis`는 입고 트랜잭션마다 한 번 읽는다. `tests/integration_batch_admission.py`가 이전 행 단위 경로와 정규화 결과를 비교할 수 있다.
+
+API 조회 간격은 시작 기준이다(직전 조회 시작 + `pollSeconds`). 조회가 간격보다 길면 다음 조회를 바로 한 번 시작하고 밀린 횟수를 몰아서 보내지 않는다. 프로세스를 새로 띄운 직후 첫 간격만 저장된 `last_attempt_at`(직전 tick 끝) 기준이다. CSV 속도(`last_success_at` 기준)와 저장 열의 뜻은 그대로다.
+
+입고가 커밋된 뒤에는 그 tick 입고로 등록·재사용된 detect 작업(jobId 있음)만 `DETECTOR_DELIVERY_URL`의 `/detect`로 알린다. 알림은 조회 루프 밖 전송 스레드 하나가 보내므로 Detector가 느려도 다음 조회가 늦어지지 않는다. 대기 알림은 메모리에 최대 256건이고 넘치는 알림은 버린다(이미 커밋된 작업이라 큐에 남는다). Detector `/detect`는 한 번에 한 작업만 처리하고 바쁘면 바로 `queued`로 답하므로 tick당 상한을 두지 않았다. 큐는 조회하지 않으며, 구성 대기 항목·버린 알림·알림 실패는 Detector의 큐 polling이 처리한다. 전달 주소·토큰 설정이 거절되면 시작할 때 `deliveryError`를 한 번 출력하고 직접 전달 없이 수집한다. 피처·Rule·모델은 기존 운영 파이프라인에서 생성/선택하며 별도 데모 모델로 우회하지 않는다.
 
 네 파일 중 Message 모니터링과 BODY를 구분한다. CSV `\N`은 NULL, `PROCESS_DT`는 원문 시각 컬럼으로 투영한다. BODY는 현재 messageId 참조만 저장한다. API의 비어 있지 않은 로그 shape는 매핑 설정으로 연결한다. 설명과 실행 순서는 [SWITCHABLE_INPUTS.md](../../infra/SWITCHABLE_INPUTS.md)를 따른다. `api_runner` 단독 실행은 기존 API 수집 시험 경로로 남겨 두었으며 기본 컨테이너 명령은 아니다.
 

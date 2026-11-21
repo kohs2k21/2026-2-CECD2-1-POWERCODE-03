@@ -11,7 +11,7 @@ from dotenv import load_dotenv
 from collector.api_client import from_environment,SourceUnavailable
 from collector.api_runner import catalog_page
 from collector.input_contract import mapped_api_records
-from collector.input_store import ensure_source,admit
+from collector.input_store import ensure_source,admit_batch
 from collector.telemetry import store_sample,store_snapshot,monitor_preview
 
 
@@ -45,17 +45,31 @@ def fence(conn,source,old):
     return owned==(old['position'],'running')
 
 
-def tick(conn,source,*,api_factory=from_environment,mapping=None,collect_catalog=True):
+def remaining_wait(old,interval,schedule,*,now=None,monotonic=None):
+    """Seconds until the next tick is due (<=0: due now).
+
+    csv: end-to-end pacing from the last committed row (`last_success_at`), unchanged.
+    api: start-to-start. `schedule` (kept by the runner process) holds the monotonic start of this run's last poll,
+    so the next poll is due at that start + pollSeconds; an overrun poll is followed immediately by one poll, never a
+    catch-up burst. Without an in-process start (new process, other run) the stored `last_attempt_at` is used.
+    """
+    now=now or datetime.now(timezone.utc)
+    if old['mode']=='api' and schedule is not None and schedule.get('run')==old['run'] and schedule.get('started') is not None:
+        return schedule['started']+interval-(time.monotonic() if monotonic is None else monotonic)
+    last=old['success'] if old['mode']=='csv' else old['attempt']
+    return interval-(now-last).total_seconds() if last else 0
+
+
+def tick(conn,source,*,api_factory=from_environment,mapping=None,collect_catalog=True,schedule=None):
     old=read_state(conn,source)
     if old['mode']=='paused' or old['status']!='running':return {'idle':True,'wait':.5}
     interval=1/old['settings']['rate'] if old['mode']=='csv' else old['settings']['pollSeconds']
-    last=old['success'] if old['mode']=='csv' else old['attempt']
-    if last:
-        remaining=interval-(datetime.now(timezone.utc)-last).total_seconds()
-        if remaining>0:return {'idle':True,'wait':min(.5,remaining)}
+    remaining=remaining_wait(old,interval,schedule)
+    if remaining>0:return {'idle':True,'wait':min(.5,remaining)}
     api=None;receipt=None;values=None
     try:
         if old['mode']=='api':
+            if schedule is not None:schedule.update(run=old['run'],started=time.monotonic())
             api=api_factory()
             if collect_catalog:
                 try:
@@ -86,9 +100,9 @@ def tick(conn,source,*,api_factory=from_environment,mapping=None,collect_catalog
             if not fence(conn,source,old):return {'discarded':'input_mode_changed','wait':0}
             namespace='api' if old['mode']=='api' else f'csv:{old["run"]}:{old["position"]//old["count"]}'
             phase=ingest_phase(old);received=receipt['finished_at'] if old['mode']=='api' else None
-            outcomes=[admit(conn,source,old['run'],old['mode'],layer,raw,namespace=namespace,
+            outcomes=admit_batch(conn,source,old['run'],old['mode'],records,namespace=namespace,
                 position=old['position'] if old['mode']=='csv' else None,config=old['config'],
-                phase=phase,received_at=received) for layer,raw in records]
+                phase=phase,received_at=received)
             if old['mode']=='api':
                 snapshot,created=store_snapshot(conn,source,'in-progress',monitor_preview(values),
                     'mapped-arrival-snapshot-v1',receipt['finished_at'])
@@ -106,8 +120,10 @@ def tick(conn,source,*,api_factory=from_environment,mapping=None,collect_catalog
                 (sum(o['created'] for o in outcomes),sum(not o['created'] for o in outcomes),
                  sum(not o['identified'] for o in outcomes),old['run']))
             conn.execute('UPDATE ops_input_controls SET worker_heartbeat_at=clock_timestamp() WHERE source_id=%s',(source,))
+        wait=min(.5,interval)
+        if old['mode']=='api' and schedule is not None:wait=max(0,min(wait,remaining_wait(old,interval,schedule)))
         return {'accepted':sum(o['created'] for o in outcomes),'duplicates':sum(not o['created'] for o in outcomes),
-            'detectJobs':[o['detectJob'] for o in outcomes if o.get('detectJob')],'wait':min(.5,interval)}
+            'detectJobs':[o['detectJob'] for o in outcomes if o.get('detectJob')],'wait':wait}
     except Exception as exc:
         conn.rollback()
         code=str(exc) if isinstance(exc,(ValueError,SourceUnavailable)) and str(exc).replace('_','').isalnum() else type(exc).__name__
@@ -128,36 +144,88 @@ def tick(conn,source,*,api_factory=from_environment,mapping=None,collect_catalog
         return {'errorCode':code,'wait':min(5,max(.5,interval))}
 
 
-DELIVERY_LIMIT=10
+# Pending direct-delivery notices held in memory. Detector's /detect serves one job at a time and answers 202
+# "queued" at once when busy, so notices beyond what it takes are cheap no-ops; the bound only caps memory and how
+# stale a notice can get. Overflow is dropped: those jobs are already committed and Detector queue polling claims them.
+DELIVERY_CAPACITY=256
+DELIVERY_TIMEOUT=2
+DELIVERY_HOSTS=frozenset({'detector','127.0.0.1','localhost'})
 
 
-def delivery(jobs,*,limit=DELIVERY_LIMIT):
-    """After-commit optimization only: notify Detector of detect jobs this tick committed.
-
-    Reads no database queue. Jobs beyond `limit`, waiting-config items and failed POSTs
-    stay in the durable queue, which Detector polling claims. Returns the number of POSTs attempted.
-    """
-    import urllib.request
-    from generation_client import NoRedirect
+def delivery_target():
+    """(url, token) for direct delivery, or None when DETECTOR_DELIVERY_URL is unset. Rejected settings raise."""
     from urllib.parse import urlsplit
     url=os.environ.get('DETECTOR_DELIVERY_URL','')
     token=os.environ.get('DETECTOR_DELIVERY_TOKEN','')
+    if not url:return None
     parsed=urlsplit(url)
-    if not url:
-        return 0
-    if parsed.scheme not in ('http','https') or parsed.hostname not in {'detector','127.0.0.1','localhost'} or parsed.username or parsed.password or parsed.query or parsed.fragment or len(token)<32:
+    if parsed.scheme not in ('http','https') or parsed.hostname not in DELIVERY_HOSTS or parsed.username or parsed.password or parsed.query or parsed.fragment or len(token)<32:
         raise ValueError('detector_delivery_configuration_rejected')
-    sent=0
-    for job in list(jobs)[:limit]:
-        request=urllib.request.Request(url.rstrip('/')+'/detect',data=json.dumps({'jobId':job['jobId'],
-            'inputManifestHash':job['inputManifestHash']}).encode(),headers={'Authorization':'Bearer '+token,'Content-Type':'application/json'})
-        sent+=1
+    return url.rstrip('/')+'/detect',token
+
+
+class Delivery:
+    """After-commit optimization only: tell Detector about detect jobs a tick has committed, off the poll loop.
+
+    Reads no database queue. `offer` never blocks: jobs that do not fit stay in the durable queue, which Detector
+    polling claims, as do failed or slow POSTs. One background sender posts {jobId, inputManifestHash} in order.
+    """
+    def __init__(self,url,token,*,capacity=DELIVERY_CAPACITY,timeout=DELIVERY_TIMEOUT):
+        import queue
+        import threading
+        self.url,self.token,self.timeout=url,token,timeout
+        self.pending=queue.Queue(maxsize=capacity)
+        self.offered=0;self.dropped=0;self.sent=0
+        self.thread=threading.Thread(target=self._send_forever,name='detector-delivery',daemon=True)
+        self.thread.start()
+
+    @classmethod
+    def from_environment(cls,**kwargs):
+        target=delivery_target()
+        return cls(*target,**kwargs) if target else None
+
+    def offer(self,jobs):
+        """Queue committed jobs for delivery without waiting. Returns how many were queued."""
+        import queue
+        queued=0
+        for job in jobs:
+            try:self.pending.put_nowait({'jobId':job['jobId'],'inputManifestHash':job['inputManifestHash']})
+            except queue.Full:
+                self.dropped+=1;continue
+            queued+=1
+        self.offered+=queued
+        return queued
+
+    def post(self,job):
+        import urllib.request
+        from generation_client import NoRedirect
+        request=urllib.request.Request(self.url,data=json.dumps(job).encode(),
+            headers={'Authorization':'Bearer '+self.token,'Content-Type':'application/json'})
         try:
-            with urllib.request.build_opener(NoRedirect()).open(request,timeout=2) as response:
+            with urllib.request.build_opener(NoRedirect()).open(request,timeout=self.timeout) as response:
                 response.read(4096)
-        except (OSError,TimeoutError):
-            pass
-    return sent
+        except (OSError,TimeoutError,ValueError):
+            pass # durable queue polling remains authoritative
+
+    def _send_forever(self):
+        while True:
+            job=self.pending.get()
+            try:
+                self.post(job);self.sent+=1
+            except Exception:
+                pass
+            finally:
+                self.pending.task_done()
+
+    def drain(self,timeout):
+        """Wait up to `timeout` seconds for queued notices to be sent (used by --once)."""
+        deadline=time.monotonic()+timeout
+        with self.pending.all_tasks_done:
+            while self.pending.unfinished_tasks:
+                left=deadline-time.monotonic()
+                if left<=0:return False
+                self.pending.all_tasks_done.wait(left)
+        return True
 
 
 def run(once=False):
@@ -165,20 +233,27 @@ def run(once=False):
     dsn=os.environ['DATABASE_URL'];key=os.environ['COLLECTOR_SOURCE_KEY']
     mapping_path=os.environ.get('COLLECTOR_LOG_MAPPING_FILE')
     mapping=json.loads(Path(mapping_path).read_text()) if mapping_path else None
+    try:notifier=Delivery.from_environment()
+    except ValueError as exc:
+        # Collection continues; Detector queue polling still claims every committed job.
+        print(json.dumps({'deliveryError':str(exc)}),flush=True);notifier=None
+    schedule={}
     with psycopg.connect(dsn,connect_timeout=10) as conn:
         source=ensure_source(conn,key);conn.commit()
         if not conn.execute('SELECT pg_try_advisory_lock(81735,hashtext(%s))',(str(source),)).fetchone()[0]:
             raise RuntimeError('collector_source_already_running')
         conn.commit()
         while True:
-            result=tick(conn,source,mapping=mapping)
+            result=tick(conn,source,mapping=mapping,schedule=schedule)
             if result.get('errorCode'):print(json.dumps({'inputError':result['errorCode']}),flush=True)
             # tick commits its admission transaction before returning; never announce work that is not yet durable.
-            if result.get('detectJobs') and conn.info.transaction_status==TransactionStatus.IDLE:
-                try:delivery(result['detectJobs'])
-                except Exception:pass # durable queue polling remains authoritative
-            if once:return
-            time.sleep(result.get('wait',.5))
+            if notifier and result.get('detectJobs') and conn.info.transaction_status==TransactionStatus.IDLE:
+                notifier.offer(result['detectJobs'])
+            if once:
+                if notifier:notifier.drain(DELIVERY_TIMEOUT+1)
+                return
+            wait=result.get('wait',.5)
+            if wait>0:time.sleep(wait)
 
 if __name__=='__main__':
     parser=argparse.ArgumentParser();parser.add_argument('--once',action='store_true')

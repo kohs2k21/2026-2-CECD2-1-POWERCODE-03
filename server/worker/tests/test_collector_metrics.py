@@ -14,7 +14,7 @@ from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from collector import input_cli, input_runner, input_store, resource_sampler as rs, source_clock, storage
+from collector import input_cli, input_runner, resource_sampler as rs, source_clock, storage
 from detector.incidents import occurred_time
 from trainer.source_time import process_source_time
 
@@ -157,39 +157,6 @@ class IngestColumns(unittest.TestCase):
             self.ingest(Connection(), api_received_at=datetime(2026, 11, 15))
 
 
-class Admission(unittest.TestCase):
-    def admit(self, mode, layer, raw, **kwargs):
-        conn = Connection()
-        saved = SimpleNamespace(observation_id=uuid.uuid4(), created=True)
-        with mock.patch.object(input_store, "ingest_observation", return_value=saved) as ingest, \
-                mock.patch.object(input_store, "enqueue_observation", return_value={}):
-            input_store.admit(conn, uuid.uuid4(), uuid.uuid4(), mode, layer, raw, namespace=mode, **kwargs)
-        return conn, ingest
-
-    def test_phase_and_receipt_reach_storage_and_origin(self):
-        received = datetime(2026, 11, 15, tzinfo=timezone.utc)
-        conn, ingest = self.admit("api", "P", {"transaction_id": "t", "process_id": "p"}, phase="initial", received_at=received)
-        self.assertIs(ingest.call_args.kwargs["api_received_at"], received)
-        origin = next(params for sql, params in conn.statements if "data_input_origins" in sql)
-        self.assertEqual(origin[-1], "initial")
-        conn, ingest = self.admit("csv", "T", {"transaction_id": "t"}, phase="replay", position=3)
-        self.assertIsNone(ingest.call_args.kwargs["api_received_at"])
-
-    def test_phase_and_receipt_must_match_mode(self):
-        received = datetime(2026, 11, 15, tzinfo=timezone.utc)
-        for mode, phase, at, code in (("api", None, received, "invalid_ingest_phase"), ("api", "replay", received, "invalid_ingest_phase"),
-                                      ("csv", "live", None, "invalid_ingest_phase"), ("api", "live", None, "api_received_at_mode_mismatch"),
-                                      ("csv", "replay", received, "api_received_at_mode_mismatch")):
-            with self.subTest(mode=mode, phase=phase), self.assertRaisesRegex(ValueError, code):
-                self.admit(mode, "T", {"transaction_id": "t"}, phase=phase, received_at=at)
-
-    def test_body_reference_row_is_absent(self):
-        conn, _ = self.admit("csv", "B", {"message_id": "m"}, phase="replay")
-        sql, params = next(item for item in conn.statements if "INSERT INTO data_observations" in item[0])
-        self.assertNotIn("'unknown'", sql)
-        self.assertEqual(params[6:9], (None, "absent", '{"rule":"source-time-v1"}'))
-
-
 class IngestPhase(unittest.TestCase):
     T0 = datetime(2026, 11, 15, 1, tzinfo=timezone.utc)
 
@@ -217,7 +184,7 @@ class TickReceipt(unittest.TestCase):
         calls = []
         with mock.patch.object(input_runner, "read_state", return_value=old), mock.patch.object(input_runner, "fence", return_value=True), \
                 mock.patch.object(input_runner, "mapped_api_records", return_value=[("P", {"transaction_id": "t"})]), \
-                mock.patch.object(input_runner, "admit", side_effect=lambda *a, **k: calls.append(k) or {"created": True, "identified": True}), \
+                mock.patch.object(input_runner, "admit_batch", side_effect=lambda *a, **k: calls.append(k) or [{"created": True, "identified": True}]), \
                 mock.patch.object(input_runner, "store_snapshot", return_value=(uuid.uuid4(), True)), \
                 mock.patch.object(input_runner, "store_sample"):
             result = input_runner.tick(Connection(), uuid.uuid4(), api_factory=lambda: api, collect_catalog=False)

@@ -60,6 +60,21 @@ def enqueue(conn: Any, queue: QueueName, payload: dict[str, Any], *, message_id:
     return message_id
 
 
+def enqueue_many(conn: Any, queue: QueueName, items: list[tuple[dict[str, Any], uuid.UUID]]) -> None:
+    """`enqueue`를 여러 메시지에 한 문장으로 적용한다(같은 표·같은 ON CONFLICT). 호출자 트랜잭션에서 커밋한다."""
+    if not items:
+        return
+    if not all(isinstance(payload, dict) for payload, _ in items):
+        raise ValueError("payload must be an object")
+    with conn.cursor() as cur:
+        cur.execute(
+            f"""INSERT INTO {_table(queue)} (id, payload)
+                SELECT u.id, u.payload::jsonb FROM unnest(%s::uuid[], %s::text[]) AS u(id, payload)
+                ON CONFLICT (id) DO NOTHING""",
+            ([str(message_id) for _, message_id in items], [json.dumps(payload) for payload, _ in items]),
+        )
+
+
 def claim(conn: Any, queue: QueueName, *, lease_seconds: int = 60,
           max_attempts: int = 3, benchmark_run_id: str | None = None,
           source_id: str | None = None, job_kinds: tuple[str, ...] | None = None,

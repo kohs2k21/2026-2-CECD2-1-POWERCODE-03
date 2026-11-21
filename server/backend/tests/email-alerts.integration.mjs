@@ -169,23 +169,27 @@ try {
   // 3) 시험 데이터 쓰기 도구.
   const client = await pool.connect();
   const out = { decisions: {}, jobs: {} };
-  const sourceId = id(), configId = id();
-  await client.query(`INSERT INTO ops_sources(id,dataset_key,display_name,ingestion_method,schema_version,clock_basis,field_catalog,created_at)
-    VALUES($1,$2,$2,'switchable-input','arrival-snapshot-v1','{"status":"unknown"}','{"layers":["T","P","M","B"]}',clock_timestamp())`, [sourceId, `email-${sourceId}`]);
-  await client.query(`INSERT INTO ml_config_versions(id,source_id,configuration_spec,explanation_spec,content_hash,created_by_actor_id,created_at)
-    VALUES($1,$2,'{}','{}',$3,'email-fixture',clock_timestamp())`, [configId, sourceId, sha(configId)]);
-  const w = fixtureWriters(client, sourceId, configId, out);
+  /** 원본 1개(+ 구성 버전)와 그 원본의 판정 쓰기 도구. */
+  const newSource = async () => {
+    const source = id(), config = id();
+    await client.query(`INSERT INTO ops_sources(id,dataset_key,display_name,ingestion_method,schema_version,clock_basis,field_catalog,created_at)
+      VALUES($1,$2,$2,'switchable-input','arrival-snapshot-v1','{"status":"unknown"}','{"layers":["T","P","M","B"]}',clock_timestamp())`, [source, `email-${source}`]);
+    await client.query(`INSERT INTO ml_config_versions(id,source_id,configuration_spec,explanation_spec,content_hash,created_by_actor_id,created_at)
+      VALUES($1,$2,'{}','{}',$3,'email-fixture',clock_timestamp())`, [config, source, sha(config)]);
+    return { sourceId: source, writers: fixtureWriters(client, source, config, out) };
+  };
+  const { sourceId, writers: w } = await newSource();
   let serial = 0;
   const decision = async (level = 'critical', minutes = 5) => { serial += 1; return w.legacyDecision(`d${serial}`, minutes, 'complete', v4({ level })); };
   const seqOf = async (decisionId) => (await pool.query('SELECT id::text AS n FROM run_decision_events WHERE decision_id=$1', [decisionId])).rows[0].n;
   /** 사건 묶음 작업 1회차(019 순서: 사건 → 구성원 → 병합 → 실행 행, 한 트랜잭션). cursorTo = 이 회차가 읽은 마지막 이벤트. */
-  const incidentRun = async ({ incidents = [], members = [], merges = [], cursorTo }) => {
+  const incidentRun = async ({ incidents = [], members = [], merges = [], cursorTo, criteriaVersion = 'incident-gap-v1' }) => {
     const run = id();
     await client.query('BEGIN');
     for (const i of incidents) {
       await client.query(`INSERT INTO run_incidents(id,source_id,criteria,criteria_version,group_key,time_basis,opened_at,continues_from,added_by_run)
-        VALUES($1,$2,'{"gapSeconds":300}','incident-gap-v1',$3,'decided_at',clock_timestamp()-($4::double precision*interval '1 minute'),$5,$6)`,
-      [i.id, sourceId, i.groupKey ?? 'response_code:E500', i.minutesAgo ?? 5, i.continuesFrom ?? null, run]);
+        VALUES($1,$2,'{"gapSeconds":300}',$7,$3,'decided_at',clock_timestamp()-($4::double precision*interval '1 minute'),$5,$6)`,
+      [i.id, sourceId, i.groupKey ?? 'response_code:E500', i.minutesAgo ?? 5, i.continuesFrom ?? null, run, criteriaVersion]);
     }
     for (const [incidentId, decisionId] of members) {
       await client.query(`INSERT INTO run_incident_members(decision_id,incident_id,occurred_at,occurred_basis,added_by_run) VALUES($1,$2,clock_timestamp(),'decided_at',$3)`,
@@ -195,7 +199,7 @@ try {
       await client.query(`INSERT INTO run_incident_events(incident_id,kind,target_incident_id,added_by_run) VALUES($1,'merged_into',$2,$3)`, [from, to, run]);
     }
     await client.query(`INSERT INTO run_incident_runs(id,source_id,criteria_version,cursor_from,cursor_to,added_members,opened_incidents,merged_incidents,started_at)
-      VALUES($1,$2,'incident-gap-v1',0,$3,$4,$5,$6,clock_timestamp())`, [run, sourceId, cursorTo, members.length, incidents.length, merges.length]);
+      VALUES($1,$2,$7,0,$3,$4,$5,$6,clock_timestamp())`, [run, sourceId, cursorTo, members.length, incidents.length, merges.length, criteriaVersion]);
     await client.query('COMMIT');
   };
   const latest = async () => (await pool.query('SELECT coalesce(max(id),0)::text AS n FROM run_decision_events')).rows[0].n;
@@ -425,6 +429,23 @@ try {
     } finally { holder.release(); }
     assert.equal((await scan()).status, 'completed');
     console.log('PASS scan lock');
+
+    // 16) 사건 묶음 경계 = 기준 버전마다 최신 cursor_to의 최댓값. 이전 버전(v0)의 cursor_to가 더 커도 그 값까지 판단한다.
+    const latestV1 = (await pool.query(`SELECT max(cursor_to)::text AS n FROM run_incident_runs WHERE source_id=$1 AND criteria_version='incident-gap-v1'`, [sourceId])).rows[0].n;
+    const dV0 = await decision('critical');
+    const iV0 = id();
+    await incidentRun({ incidents: [{ id: iV0, groupKey: 'response_code:V0' }], members: [[iV0, dV0]], cursorTo: await seqOf(dV0), criteriaVersion: 'incident-gap-v0' });
+    assert.ok(BigInt(latestV1) < BigInt(await seqOf(dV0)), 'the newer version boundary is behind the decision');
+    const crossVersion = await scan();
+    assert.deepEqual([crossVersion.waiting, crossVersion.queued], [false, 1], 'the older version run with the larger cursor_to sets the boundary');
+    assert.ok((await deliveries()).some((r) => r.alert_key === `incident:${iV0}`));
+    // 사건 묶음 실행 행이 하나도 없는 원본의 판정은 소속을 알 수 없으므로 기다린다(다른 원본의 경계를 쓰지 않음).
+    const other = await newSource();
+    const dOther = await other.writers.legacyDecision('other-source', 1, 'complete', v4({ level: 'critical' }));
+    const noRuns = await scan();
+    assert.deepEqual([noRuns.waiting, noRuns.queued], [true, 0], 'a source without incident runs waits');
+    assert.ok(BigInt(noRuns.processedThrough) < BigInt(await seqOf(dOther)));
+    console.log('PASS boundary across criteria versions, source without runs waits');
   } finally {
     client.release();
   }

@@ -44,7 +44,7 @@ CREATE TABLE ops_email_alert_settings (
  CONSTRAINT ops_email_alert_settings_password_check CHECK (smtp_password_enc IS NULL OR smtp_username IS NOT NULL),
  CONSTRAINT ops_email_alert_settings_transport_check CHECK ((transport_result IS NULL) = (transport_checked_at IS NULL)
    AND (transport_error_code IS NULL OR transport_result IN ('auth_failed','error'))),
- CONSTRAINT ops_email_alert_settings_enabled_check CHECK (NOT enabled OR (smtp_host IS NOT NULL AND smtp_port IS NOT NULL
+ CONSTRAINT ops_email_alert_settings_enable_requires CHECK (NOT enabled OR (smtp_host IS NOT NULL AND smtp_port IS NOT NULL
    AND smtp_security IS NOT NULL AND from_address IS NOT NULL AND public_base_url IS NOT NULL
    AND jsonb_array_length(recipients) >= 1 AND (notify_incidents OR notify_decisions)))
 );
@@ -69,7 +69,7 @@ CREATE TABLE ops_email_alerts (
  created_at timestamptz NOT NULL DEFAULT clock_timestamp(),
  updated_at timestamptz NOT NULL DEFAULT clock_timestamp(),
  CONSTRAINT ops_email_alerts_key_unique UNIQUE (alert_key),
- CONSTRAINT ops_email_alerts_kind_check CHECK ((kind = 'incident') = (alert_key LIKE 'incident:%')),
+ CONSTRAINT ops_email_alerts_kind_key_match CHECK ((kind = 'incident') = (alert_key LIKE 'incident:%')),
  CONSTRAINT ops_email_alerts_seq_check CHECK (last_seq >= first_seq)
 );
 

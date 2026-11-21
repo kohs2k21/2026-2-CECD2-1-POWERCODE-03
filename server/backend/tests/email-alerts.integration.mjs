@@ -430,18 +430,24 @@ try {
     assert.equal((await scan()).status, 'completed');
     console.log('PASS scan lock');
 
-    // 16) 사건 묶음 경계 = 기준 버전마다 최신 cursor_to의 최댓값. 이전 버전(v0)의 cursor_to가 더 커도 그 값까지 판단한다.
+    // 16) 사건 묶음 경계 = 원본별, 기준 버전마다 최신 cursor_to의 최댓값. 이전 버전(v0)의 cursor_to가 더 커도 그 값까지 판단한다.
+    //     v0 회차(큰 cursor_to)를 먼저, v1 회차(작은 cursor_to)를 나중에 넣는다 → "마지막에 넣은 회차"로 경계를 정하는 구현은 기다리게 되어 실패한다.
     const latestV1 = (await pool.query(`SELECT max(cursor_to)::text AS n FROM run_incident_runs WHERE source_id=$1 AND criteria_version='incident-gap-v1'`, [sourceId])).rows[0].n;
     const dV0 = await decision('critical');
     const iV0 = id();
     await incidentRun({ incidents: [{ id: iV0, groupKey: 'response_code:V0' }], members: [[iV0, dV0]], cursorTo: await seqOf(dV0), criteriaVersion: 'incident-gap-v0' });
+    await incidentRun({ cursorTo: latestV1 });
     assert.ok(BigInt(latestV1) < BigInt(await seqOf(dV0)), 'the newer version boundary is behind the decision');
+    const lastRun = (await pool.query(`SELECT criteria_version,cursor_to::text AS c FROM run_incident_runs WHERE source_id=$1 ORDER BY finished_at DESC LIMIT 1`, [sourceId])).rows[0];
+    assert.deepEqual([lastRun.criteria_version, lastRun.c], ['incident-gap-v1', latestV1], 'the most recently inserted run is the lower-cursor v1 run');
     const crossVersion = await scan();
     assert.deepEqual([crossVersion.waiting, crossVersion.queued], [false, 1], 'the older version run with the larger cursor_to sets the boundary');
     assert.ok((await deliveries()).some((r) => r.alert_key === `incident:${iV0}`));
     // 사건 묶음 실행 행이 하나도 없는 원본의 판정은 소속을 알 수 없으므로 기다린다(다른 원본의 경계를 쓰지 않음).
+    // 첫 원본에 그 판정 순번 이상의 cursor_to 회차를 넣어 둔다 → 원본을 가리지 않고 경계를 정하는 구현은 이 판정을 처리해 실패한다.
     const other = await newSource();
     const dOther = await other.writers.legacyDecision('other-source', 1, 'complete', v4({ level: 'critical' }));
+    await incidentRun({ cursorTo: await seqOf(dOther) });
     const noRuns = await scan();
     assert.deepEqual([noRuns.waiting, noRuns.queued], [true, 0], 'a source without incident runs waits');
     assert.ok(BigInt(noRuns.processedThrough) < BigInt(await seqOf(dOther)));

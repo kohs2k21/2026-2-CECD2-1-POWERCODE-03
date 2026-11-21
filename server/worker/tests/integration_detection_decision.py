@@ -602,6 +602,65 @@ def evidence_and_columns(conn, sid, model_config, feature_set):
     return revision
 
 
+def queue_status(conn, payload):
+    row = conn.execute("SELECT status FROM powercode_queue.detection_logs WHERE id=%s", (payload["jobId"],)).fetchone()
+    conn.commit()
+    return row[0]
+
+
+def success_store_pipeline(conn, sid):
+    """v04 성공 저장 묶음(detector/finish.py): 묶음 안 오류·ack 0행은 측정 행까지 ROLLBACK, 같은 연결의 다음 판정은 정상."""
+    import detector.finish as finish
+    # 판정 INSERT를 실제 DB 오류로 막는다(묶음에서 측정 INSERT 뒤, 완료·ack 앞). 시험 동안만 있는 트리거.
+    conn.execute("""CREATE FUNCTION qa_reject_decision() RETURNS trigger LANGUAGE plpgsql AS $$
+        BEGIN RAISE EXCEPTION 'qa decision rejected'; END $$""")
+    conn.execute("""CREATE TRIGGER qa_reject_decision BEFORE INSERT ON run_process_decisions
+        FOR EACH ROW EXECUTE FUNCTION qa_reject_decision()""")
+    conn.commit()
+    try:
+        seen, payload = v04_job(conn, sid, "pipeline-trigger")
+        failure = attempt(conn, payload)
+    finally:
+        conn.rollback()
+        conn.execute("DROP TRIGGER qa_reject_decision ON run_process_decisions")
+        conn.execute("DROP FUNCTION qa_reject_decision()")
+        conn.commit()
+    assert isinstance(failure, psycopg.errors.RaiseException) and "qa decision rejected" in str(failure), repr(failure)
+    assert decision(conn, payload) is None and measurements(conn, seen.observation_id) == []
+    state = job_state(conn, payload)
+    assert (state[1], state[4]) == ("queued", "detection_processing_failed"), state
+    assert queue_status(conn, payload) == "pending" and conn.pgconn.pipeline_status == 0
+
+    # ack가 0행(큐 임대를 잃은 것과 같음): 다른 lease_token으로 ack 문장을 만든다.
+    real_statement = finish.acknowledge_statement
+
+    def other_token(queue, message):
+        sql, params = real_statement(queue, message)
+        return sql, (params[0], uuid.uuid4())
+
+    seen, payload = v04_job(conn, sid, "pipeline-ack")
+    with patch.object(finish, "acknowledge_statement", other_token):
+        failure = attempt(conn, payload)
+    assert isinstance(failure, RuntimeError) and str(failure) == "training_queue_lease_lost", repr(failure)
+    assert decision(conn, payload) is None and measurements(conn, seen.observation_id) == []
+    state = job_state(conn, payload)
+    assert (state[1], state[4]) == ("queued", "detection_processing_failed"), state
+    assert queue_status(conn, payload) == "pending"
+
+    # 같은 연결로 다음 판정: 판정 1행, 측정 detector → judgment_store, 작업·시도 succeeded, 큐 done.
+    seen, payload = v04_job(conn, sid, "pipeline-after")
+    assert judged(conn, payload) is not None
+    assert [item[0] for item in measurements(conn, seen.observation_id)] == ["detector", "judgment_store"]
+    state = job_state(conn, payload)
+    assert (state[1], state[4]) == ("succeeded", None), state
+    attempt_row = conn.execute("""SELECT a.status::text,a.error_code,a.finished_at IS NOT NULL FROM run_jobs j
+        JOIN run_job_attempts a ON a.id=j.current_attempt_id WHERE j.id=%s""", (payload["jobId"],)).fetchone()
+    conn.commit()
+    assert attempt_row == ("succeeded", None, True), attempt_row
+    assert queue_status(conn, payload) == "done"
+    print("PASS 성공 저장 묶음: 묶음 안 트리거 오류·ack 0행은 측정 행까지 ROLLBACK·시도 실패, 다음 판정은 시도·작업·큐 완료")
+
+
 def interim_records(conn, sid, model_config):
     save_policy(conn, policy(deadline=LONG_DEADLINE))
     save_rule_set(conn, soft=[ELAPSED_SOFT])
@@ -1597,6 +1656,7 @@ def main():
         evidence_and_columns(conn, sid, model_config, feature_set)
         source_latency(conn, sid)
         judgment_store(conn, sid)
+        success_store_pipeline(conn, sid)
         interim_records(conn, sid, model_config)
         lease_loss(conn, sid)
         legacy_paths(conn, sid)

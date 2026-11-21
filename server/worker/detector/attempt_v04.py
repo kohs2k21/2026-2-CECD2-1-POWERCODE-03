@@ -17,6 +17,7 @@ import model_adapters
 from detector.computation import load_model_context, model_reference
 from detector.decision import decide, decision_columns, requested_mode
 from detector.evidence_v4 import INTERIM_EVIDENCE_VERSION, build_evidence, build_interim_payload
+from detector.finish import finish_detect_success
 from detector.hard_rules import hard_rule_runners, unresolved_hard_result
 from detector.method_results import ml_method_result, unresolved_result
 from detector.method_runner import MethodExecution, MethodOutcome, MethodTask, execute_methods
@@ -300,10 +301,10 @@ def recheck_reference(conn: Any, observation: Any, fixed: tuple) -> dict[str, An
 
 
 def run_attempt(conn: Any, message: Any, job: Mapping[str, Any], attempt_id: uuid.UUID, attempt_token: uuid.UUID,
-                observation: Any, fixed: tuple, root: Any, *, started: float, queue_wait: float, heartbeat: Any,
-                finish: Callable[..., None]) -> None:
+                observation: Any, fixed: tuple, root: Any, *, started: float, queue_wait: float, heartbeat: Any) -> None:
     """고정 입력 fixed = (input_spec, 구성, manifest id, manifest hash, input_as_of[, readiness]). 실패는 호출자가 시도 실패로
-    처리한다. 재판정 시도(readiness.relation)도 운영 상태·관계 입력을 이 시도 시작 때 다시 고정한다(relation-rules.md 6.3)."""
+    처리한다(trainer `_finish` 실패 분기). 재판정 시도(readiness.relation)도 운영 상태·관계 입력을 이 시도 시작 때 다시
+    고정한다(relation-rules.md 6.3). 성공 저장의 시도·작업 완료·ack는 detector/finish.py가 판정 INSERT와 한 묶음으로 쓴다."""
     if fixed[1] is not None or "configVersionId" in fixed[0]:
         raise ValueError("input_manifest_mismatch")
     recheck = recheck_reference(conn, observation, fixed)
@@ -354,30 +355,34 @@ def run_attempt(conn: Any, message: Any, job: Mapping[str, Any], attempt_id: uui
                         ON CONFLICT DO NOTHING""", (observation.observation_id, context["featureSetId"],
                         input_manifest_hash(str(observation.observation_id), source_hash, context["featureHash"]),
                         json.dumps(values), json.dumps(missing)))
-            # 원천 → 판정 지연(detection-decision.md 18절): 조건이 참일 때만 관측 원천 시각을 복사하고 measured.
-            # decided_at과 지연은 같은 clock_timestamp() 한 번(MATERIALIZED CTE n)으로 계산한다. 음수도 그대로 measured.
-            occurred = decision_source_time(observation, rechecked=recheck is not None)
-            cur.execute("""WITH n AS MATERIALIZED (SELECT clock_timestamp() AS t)
-                INSERT INTO run_process_decisions
-                (id,execution_id,process_observation_id,config_version_id,input_manifest_hash,input_as_of,
-                status,rule_status,ml_status,decision_code,anomaly_score,evidence,decided_at,
-                source_log_occurred_at,source_latency_ms,latency_status,
-                job_id,input_manifest_id,result_attempt_id,result_lease_token)
-                VALUES(%s,%s,%s,NULL,%s,%s,%s,%s,%s,%s,%s,%s::jsonb,(SELECT t FROM n),
-                %s::timestamptz,extract(epoch FROM (SELECT t FROM n)-%s::timestamptz)*1000,
-                CASE WHEN %s::timestamptz IS NULL THEN 'unavailable' ELSE 'measured' END::measurement_status,
-                %s,%s,%s,%s)""",
-                (uuid.uuid4(), observation.execution_id, observation.observation_id, fixed[3], fixed[4],
-                 columns["status"], columns["rule_status"], columns["ml_status"], columns["decision_code"],
-                 columns["anomaly_score"], json.dumps(evidence), occurred, occurred, occurred,
-                 job["id"], fixed[2], attempt_id, attempt_token))
-            if recheck is None:
-                # 재판정은 측정 행을 넣지 않는다 [제안, relation-rules.md 6.4] — 같은 관측이 지연 집계에 두 번 들어가지 않게.
-                cur.execute("""INSERT INTO ops_pipeline_measurements(id,observation_id,stage,config_version_id,duration_ms)
-                    VALUES(%s,%s,'detector',NULL,%s)""",
-                    (uuid.uuid4(), observation.observation_id, (time.monotonic() - started) * 1000))
-        finish(conn, message, job, attempt_id, attempt_token,
-               {"status": columns["status"], "executionCost": telemetry, "checkers": evidence["checkers"]}, None, True)
+        # 원천 → 판정 지연(detection-decision.md 18절): 조건이 참일 때만 관측 원천 시각을 복사하고 measured.
+        # decided_at과 지연은 같은 clock_timestamp() 한 번(MATERIALIZED CTE n)으로 계산한다. 음수도 그대로 measured.
+        occurred = decision_source_time(observation, rechecked=recheck is not None)
+        before = []
+        if recheck is None:
+            # 재판정은 측정 행을 넣지 않는다 [제안, relation-rules.md 6.4] — 같은 관측이 지연 집계에 두 번 들어가지 않게.
+            # 판정 INSERT(잠금 81736) 앞에 둔다. detector 단계의 끝이 판정 INSERT·완료 문장 앞으로 조금 당겨진다.
+            before.append(("""INSERT INTO ops_pipeline_measurements(id,observation_id,stage,config_version_id,duration_ms)
+                VALUES(%s,%s,'detector',NULL,%s)""",
+                (uuid.uuid4(), observation.observation_id, (time.monotonic() - started) * 1000)))
+        before.append(("""WITH n AS MATERIALIZED (SELECT clock_timestamp() AS t)
+            INSERT INTO run_process_decisions
+            (id,execution_id,process_observation_id,config_version_id,input_manifest_hash,input_as_of,
+            status,rule_status,ml_status,decision_code,anomaly_score,evidence,decided_at,
+            source_log_occurred_at,source_latency_ms,latency_status,
+            job_id,input_manifest_id,result_attempt_id,result_lease_token)
+            VALUES(%s,%s,%s,NULL,%s,%s,%s,%s,%s,%s,%s,%s::jsonb,(SELECT t FROM n),
+            %s::timestamptz,extract(epoch FROM (SELECT t FROM n)-%s::timestamptz)*1000,
+            CASE WHEN %s::timestamptz IS NULL THEN 'unavailable' ELSE 'measured' END::measurement_status,
+            %s,%s,%s,%s)""",
+            (uuid.uuid4(), observation.execution_id, observation.observation_id, fixed[3], fixed[4],
+             columns["status"], columns["rule_status"], columns["ml_status"], columns["decision_code"],
+             columns["anomaly_score"], json.dumps(evidence), occurred, occurred, occurred,
+             job["id"], fixed[2], attempt_id, attempt_token)))
+        # 측정·판정 INSERT와 시도·작업 완료·ack를 pipeline 한 묶음으로 보낸다(detector/finish.py — 잠금 구간 왕복 2회).
+        finish_detect_success(conn, message, job, attempt_id,
+                              {"status": columns["status"], "executionCost": telemetry, "checkers": evidence["checkers"]},
+                              before)
     # 바깥 트랜잭션 블록이 끝나며 COMMIT됐다. 호출 전에 열린 트랜잭션이 있었다면(블록이 savepoint) 여기서 COMMIT한다.
     conn.commit()
     if recheck is None:

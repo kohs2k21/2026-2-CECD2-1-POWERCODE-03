@@ -24,7 +24,7 @@ async function harness(options) {
       if(!ok)backpressure++;
       return ok;
     };
-    tasks.push(streamDecisionEvents(res,{after:'0',pollMs:10,...options}).catch(error=>{errors.push(error);res.destroy();}));
+    tasks.push(streamDecisionEvents(res,{after:'0',pollMs:10,authorizeMs:0,...options}).catch(error=>{errors.push(error);res.destroy();}));
   });
   await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
   return {
@@ -139,4 +139,81 @@ test('event names come from the caller (interim records) and default to decision
     await reader.cancel();
     assert.match(text,/^id: 1\nevent: decision\n/m,'without eventName the existing frame name is kept');
   }finally{await plain.close();}
+});
+
+class RecordingResponse extends EventEmitter {
+  destroyed=false;writableEnded=false;frames=[];
+  setHeader(){} flushHeaders(){}
+  write(frame){assert(!this.writableEnded);this.frames.push(frame);return true;}
+  end(){this.writableEnded=true;this.emit('finish');}
+  destroy(){this.destroyed=true;this.emit('close');}
+}
+const ids=frames=>frames.flatMap(frame=>/^id: (\d+)\n/.exec(frame)?.[1]??[]);
+const page=(after,count)=>Array.from({length:count},(_,i)=>({eventId:String(Number(after)+i+1)}));
+
+test('a full page is re-read with the advanced cursor in the same tick, then one keepalive',async()=>{
+  const response=new RecordingResponse(),reads=[];
+  const sizes={'0':100,'100':100,'200':30};
+  await streamDecisionEvents(response,{after:'0',pollMs:60_000,authorize:async()=>true,
+    readEvents:async after=>{reads.push(after);return page(after,sizes[after]??0);}});
+  try{
+    assert.deepEqual(reads,['0','100','200'],'stops re-reading once a page is not full');
+    assert.deepEqual(ids(response.frames),page('0',230).map(e=>e.eventId));
+    assert.equal(response.frames.at(-1),': keepalive\n\n');
+    assert.equal(response.frames.filter(f=>f.startsWith(':')).length,1);
+  }finally{response.destroy();}
+});
+
+test('re-reads per tick are capped and the rest continues on the next tick in cursor order',{timeout:5000},async()=>{
+  const response=new RecordingResponse(),reads=[];
+  await streamDecisionEvents(response,{after:'0',pollMs:20,pageSize:2,maxPagesPerTick:3,authorize:async()=>true,
+    readEvents:async after=>{reads.push(after);return Number(after)<10?page(after,2):[];}});
+  try{
+    assert.deepEqual(reads,['0','2','4'],'first tick stops after maxPagesPerTick full pages');
+    assert.deepEqual(ids(response.frames),['1','2','3','4','5','6']);
+    while(reads.length<6)await delay(5);
+    assert.deepEqual(reads.slice(0,6),['0','2','4','6','8','10']);
+    await delay(5);
+    assert.deepEqual(ids(response.frames),Array.from({length:10},(_,i)=>String(i+1)),'no gap or duplicate across ticks');
+  }finally{response.destroy();}
+});
+
+test('authorization is re-checked on its own interval, not on every read, and revocation ends the stream',{timeout:5000},async()=>{
+  const response=new RecordingResponse();let clock=0,checks=0,reads=0,allow=true;
+  const running=streamDecisionEvents(response,{after:'0',pollMs:5,authorizeMs:900,now:()=>clock,
+    authorize:async()=>{checks++;return allow;},readEvents:async()=>{reads++;return [];}});
+  await running;
+  try{
+    await delay(40);
+    assert.equal(checks,1,'reads within the interval reuse the last check');
+    assert(reads>3,`reads keep their own short period (reads=${reads})`);
+    clock=899;await delay(20);assert.equal(checks,1);
+    clock=900;await delay(20);assert.equal(checks,2,'checked again once the interval passed');
+    allow=false;clock=1800;
+    while(!response.writableEnded)await delay(5);
+    const readsAtEnd=reads;await delay(20);
+    assert.equal(checks,3);assert.equal(reads,readsAtEnd,'no reads after revocation');
+  }finally{response.destroy();}
+});
+
+test('token expiry is checked before every page and send without a DB re-check',async()=>{
+  const response=new RecordingResponse();let checks=0,expired=false;const reads=[];
+  await streamDecisionEvents(response,{after:'0',pollMs:60_000,pageSize:2,maxPagesPerTick:5,authorizeMs:60_000,
+    tokenValid:()=>!expired,authorize:async()=>{checks++;return true;},
+    readEvents:async after=>{reads.push(after);if(after==='2')expired=true;return page(after,2);}});
+  assert.deepEqual(reads,['0','2'],'no page is read after the token expired');
+  assert.deepEqual(ids(response.frames),['1','2'],'events of the page read at expiry are not sent');
+  assert.equal(checks,1,'expiry needs no DB re-check');
+  assert.equal(response.writableEnded,true);
+  assert(!response.frames.some(f=>f.startsWith(':')),'no keepalive after expiry');
+});
+
+test('authorization is re-checked between pages of one tick when the interval passes mid-tick',async()=>{
+  const response=new RecordingResponse();let clock=0;const calls=[];
+  await streamDecisionEvents(response,{after:'0',pollMs:60_000,pageSize:1,maxPagesPerTick:3,authorizeMs:900,now:()=>clock,
+    authorize:async()=>{calls.push('auth');return calls.filter(c=>c==='auth').length===1;},
+    readEvents:async after=>{calls.push('read:'+after);clock+=500;return page(after,1);}});
+  assert.deepEqual(calls,['auth','read:0','read:1','auth']);
+  assert.deepEqual(ids(response.frames),['1','2'],'no event is written after the failed check');
+  assert.equal(response.writableEnded,true);
 });

@@ -186,15 +186,20 @@ def renew_lease(conn: Any, queue: QueueName, message: ClaimedMessage, *, lease_s
         return cur.rowcount == 1
 
 
-def acknowledge(conn: Any, queue: QueueName, message: ClaimedMessage) -> bool:
-    with conn.cursor() as cur:
-        cur.execute(
-            f"""UPDATE {_table(queue)} SET status = 'done', completed_at = clock_timestamp(),
+def acknowledge_statement(queue: QueueName, message: ClaimedMessage) -> tuple[str, tuple[Any, ...]]:
+    """ack 문장과 인자. 맞은 행이 정확히 1개여야 ack 성공이다(acknowledge, detector/finish.py pipeline 묶음 공용)."""
+    return (
+        f"""UPDATE {_table(queue)} SET status = 'done', completed_at = clock_timestamp(),
                 lease_until = NULL, lease_token = NULL
                 WHERE id = %s AND status = 'leased' AND lease_token = %s
                   AND lease_until > clock_timestamp()""",
-            (message.id, message.lease_token),
-        )
+        (message.id, message.lease_token),
+    )
+
+
+def acknowledge(conn: Any, queue: QueueName, message: ClaimedMessage) -> bool:
+    with conn.cursor() as cur:
+        cur.execute(*acknowledge_statement(queue, message))
         return cur.rowcount == 1
 
 
@@ -244,8 +249,9 @@ def reconcile_dead_jobs(conn: Any, queue: QueueName) -> None:
 def _reconcile_detection(conn: Any) -> None:
     """reconcile_dead_jobs의 detection 큐 문장. 위 두 문장과 같고 EXISTS에 `q.id=j.id`만 더한다(조건이 좁아지기만 한다).
 
-    detection 큐 행은 넣는 모든 경로에서 큐 id = jobId다(detector/jobs.py enqueue_observation·enqueue_recheck, jobId 없는
-    옛 메시지는 uuid5 id). 그래서 같은 행 집합을 pkey Index Cond로 찾고, 비용이 dead 행 수와 무관하다(큐 순차 탐색 반복 없음).
+    detection 큐 행은 넣는 모든 경로에서 큐 id = jobId다(detector/jobs.py enqueue_observations — 관측 1개짜리
+    enqueue_observation과 Collector input_store.admit_batch의 묶음 입고가 함께 쓰는 enqueue_many 한 문장 —, enqueue_recheck.
+    jobId 없는 옛 메시지·대기 행은 uuid5 id). 그래서 같은 행 집합을 pkey Index Cond로 찾고, 비용이 dead 행 수와 무관하다(큐 순차 탐색 반복 없음).
     """
     with conn.cursor() as cur:
         cur.execute("""UPDATE run_job_attempts a SET status='expired',finished_at=clock_timestamp(),error_code='queue_exhausted'

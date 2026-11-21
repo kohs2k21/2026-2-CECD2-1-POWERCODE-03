@@ -35,7 +35,7 @@ router.post('/:sourceId/mode',route(async(req,res)=>{
    !['api','csv','paused'].includes(b.mode)||!Number.isSafeInteger(b.expectedRevision)||b.expectedRevision<0||
    (b.restart!==undefined && typeof b.restart!=='boolean')||
    (b.configVersionId!==undefined && b.configVersionId!==null && !uuid(b.configVersionId)))throw new InputError('invalid_input_request');
- const settings=b.mode==='api'?{pollSeconds:b.pollSeconds??2}:b.mode==='csv'?{replayId:b.replayId,rate:b.rate??10,repeat:b.repeat??1}:{};
+ const settings=b.mode==='api'?{pollSeconds:b.pollSeconds??1}:b.mode==='csv'?{replayId:b.replayId,rate:b.rate??10,repeat:b.repeat??1}:{};
  if(b.mode==='api' && (typeof settings.pollSeconds!=='number'||!Number.isFinite(settings.pollSeconds)||settings.pollSeconds<.1||settings.pollSeconds>3600))throw new InputError('invalid_api_poll_seconds');
  if(b.mode==='csv' && (!uuid(settings.replayId)||typeof settings.rate!=='number'||!Number.isFinite(settings.rate)||settings.rate<.1||settings.rate>10000||!Number.isInteger(settings.repeat)||settings.repeat!<1||settings.repeat!>100))throw new InputError('invalid_csv_settings');
  const client=await getDatabasePool().connect();

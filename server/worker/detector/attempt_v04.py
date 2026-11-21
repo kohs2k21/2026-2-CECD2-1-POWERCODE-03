@@ -1,4 +1,4 @@
-"""v04 detect 작업의 시도 1회: 운영 상태 고정 → 방법 단위 실행 → 중간 판정 기록 → 최종 판정 저장."""
+"""v04 detect 작업의 시도 1회: 운영 상태 고정 → 방법 단위 실행 → 중간 판정 기록(prepare_attempt) → 최종 판정 저장(save_attempt 한 건, save_batch 여러 건)."""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -17,7 +17,7 @@ import model_adapters
 from detector.computation import load_model_context, model_reference
 from detector.decision import decide, decision_columns, requested_mode
 from detector.evidence_v4 import INTERIM_EVIDENCE_VERSION, build_evidence, build_interim_payload
-from detector.finish import finish_detect_success
+from detector.finish import BatchItem, BatchRejected, finish_detect_batch, finish_detect_success
 from detector.hard_rules import hard_rule_runners, unresolved_hard_result
 from detector.method_results import ml_method_result, unresolved_result
 from detector.method_runner import MethodExecution, MethodOutcome, MethodTask, execute_methods
@@ -300,11 +300,43 @@ def recheck_reference(conn: Any, observation: Any, fixed: tuple) -> dict[str, An
     return {"recheckedDecisionId": decision_id, "transactionObservationId": rows[-1]["observation_id"]}
 
 
-def run_attempt(conn: Any, message: Any, job: Mapping[str, Any], attempt_id: uuid.UUID, attempt_token: uuid.UUID,
-                observation: Any, fixed: tuple, root: Any, *, started: float, queue_wait: float, heartbeat: Any) -> None:
-    """고정 입력 fixed = (input_spec, 구성, manifest id, manifest hash, input_as_of[, readiness]). 실패는 호출자가 시도 실패로
-    처리한다(trainer `_finish` 실패 분기). 재판정 시도(readiness.relation)도 운영 상태·관계 입력을 이 시도 시작 때 다시
-    고정한다(relation-rules.md 6.3). 성공 저장의 시도·작업 완료·ack는 detector/finish.py가 판정 INSERT와 한 묶음으로 쓴다."""
+@dataclass
+class PendingSave:
+    """판정·evidence까지 끝내고 저장만 남은 v04 시도 1건(prepare_attempt 결과). 임대 갱신(heartbeat) 정지는 호출자 몫이다.
+
+    telemetry는 evidence["telemetry"]와 같은 객체다. 저장 문장을 만들 때(_success_statements) 묶음 크기 키를 넣거나 뺀다.
+    """
+    message: Any
+    job: Mapping[str, Any]
+    attempt_id: uuid.UUID
+    attempt_token: uuid.UUID
+    observation: Any
+    fixed: tuple
+    started: float
+    execution: MethodExecution
+    source_hash: Any
+    recheck: dict[str, Any] | None
+    telemetry: dict[str, Any]
+    evidence: dict[str, Any]
+    columns: dict[str, Any]
+    heartbeat: Any
+
+
+# 여러 건을 한 트랜잭션으로 저장한 판정의 evidence `telemetry.details` 키(detection-decision.md 19절). 값 = 그 트랜잭션의
+# 판정 수(2 이상). 한 건씩 저장한 판정(묶음 실패 뒤 한 건씩 다시 저장한 판정 포함)에는 키를 두지 않는다.
+# `batchSize`(처리량 throughput의 행 수 — 판정은 늘 1)와 다른 값이다.
+STORE_BATCH_KEY = "judgmentStoreBatchSize"
+
+
+def prepare_attempt(conn: Any, message: Any, job: Mapping[str, Any], attempt_id: uuid.UUID, attempt_token: uuid.UUID,
+                    observation: Any, fixed: tuple, root: Any, *, started: float, queue_wait: float,
+                    heartbeat: Any) -> PendingSave:
+    """run_attempt의 저장 앞 단계. 고정 입력 fixed = (input_spec, 구성, manifest id, manifest hash, input_as_of[, readiness]).
+
+    고정 입력 확인 → 재판정 참조 확인 → 운영 상태 고정 → 방법 실행(중간 판정 기록) → evidence·판정 열. 판정 행·작업 완료는
+    쓰지 않는다(save_attempt·save_batch 몫). 실패는 지금처럼 예외로 올리고 호출자가 시도 실패로 처리한다(trainer `_finish`
+    실패 분기). 재판정 시도(readiness.relation)도 운영 상태·관계 입력을 이 시도 시작 때 다시 고정한다(relation-rules.md 6.3).
+    """
     if fixed[1] is not None or "configVersionId" in fixed[0]:
         raise ValueError("input_manifest_mismatch")
     recheck = recheck_reference(conn, observation, fixed)
@@ -341,31 +373,54 @@ def run_attempt(conn: Any, message: Any, job: Mapping[str, Any], attempt_id: uui
                               relation={**relation.evidence_fields(),
                                         **({"relationRecheck": recheck} if recheck is not None else {})})
     columns = decision_columns(evidence)
-    # 판정 저장 소요(detection-decision.md 19절): 판정 쓰기 트랜잭션 진입 → COMMIT 완료, Detector 단조 시계.
-    store_started = time.monotonic()
-    with conn.transaction():
-        if not lock_training_ownership(conn, message, job["id"], attempt_id, attempt_token):
-            raise RuntimeError("detection_lease_lost")
-        with conn.cursor() as cur:
-            for context, values, missing in (item["features"] for item in execution.measured.values() if "features" in item):
-                # 이 캐시 키에는 모델·fit 식별이 없어 fit이 필요한 값은 남기지 않는다.
-                if context["featureSetId"] and not any(requires_fit(item["expression"]) for item in context["definitions"]):
-                    cur.execute("""INSERT INTO data_feature_materializations(observation_id,feature_set_id,
+    return PendingSave(message, job, attempt_id, attempt_token, observation, fixed, started, execution, source_hash,
+                       recheck, telemetry, evidence, columns, heartbeat)
+
+
+def _feature_statements(pending: PendingSave) -> list[tuple[str, tuple[Any, ...]]]:
+    """변수 캐시 INSERT 문장. 이 캐시 키에는 모델·fit 식별이 없어 fit이 필요한 값은 남기지 않는다."""
+    observation = pending.observation
+    statements = []
+    for context, values, missing in (item["features"] for item in pending.execution.measured.values()
+                                     if "features" in item):
+        if context["featureSetId"] and not any(requires_fit(item["expression"]) for item in context["definitions"]):
+            statements.append(("""INSERT INTO data_feature_materializations(observation_id,feature_set_id,
                         input_manifest_hash,values_json,missing_names) VALUES(%s,%s,%s,%s::jsonb,%s::jsonb)
                         ON CONFLICT DO NOTHING""", (observation.observation_id, context["featureSetId"],
-                        input_manifest_hash(str(observation.observation_id), source_hash, context["featureHash"]),
-                        json.dumps(values), json.dumps(missing)))
-        # 원천 → 판정 지연(detection-decision.md 18절): 조건이 참일 때만 관측 원천 시각을 복사하고 measured.
-        # decided_at과 지연은 같은 clock_timestamp() 한 번(MATERIALIZED CTE n)으로 계산한다. 음수도 그대로 measured.
-        occurred = decision_source_time(observation, rechecked=recheck is not None)
-        before = []
-        if recheck is None:
-            # 재판정은 측정 행을 넣지 않는다 [제안, relation-rules.md 6.4] — 같은 관측이 지연 집계에 두 번 들어가지 않게.
-            # 판정 INSERT(잠금 81736) 앞에 둔다. detector 단계의 끝이 판정 INSERT·완료 문장 앞으로 조금 당겨진다.
-            before.append(("""INSERT INTO ops_pipeline_measurements(id,observation_id,stage,config_version_id,duration_ms)
+                        input_manifest_hash(str(observation.observation_id), pending.source_hash, context["featureHash"]),
+                        json.dumps(values), json.dumps(missing))))
+    return statements
+
+
+def _success_statements(pending: PendingSave, store_batch_size: int | None = None
+                        ) -> tuple[tuple[str, tuple[Any, ...]] | None, tuple[str, tuple[Any, ...]], dict[str, Any]]:
+    """(detector 측정 INSERT 또는 None(재판정), 판정 INSERT, 작업 result_summary). 측정 소요는 이 함수를 부른 시각까지다.
+    한 건 저장(save_attempt)은 소유권 확인·변수 캐시 INSERT 뒤, 측정·판정 INSERT를 보내기 직전이다. 묶음 저장(save_batch)은
+    묶음 트랜잭션에 들어간 직후 소유권 확인(첫 묶음 1단계) 전이라, 앞선 건의 판정을 기다린 시간은 detector 단계에 들고
+    소유권 확인·변수 캐시 INSERT 시간은 들지 않는다.
+
+    store_batch_size: 여러 건을 한 트랜잭션으로 저장하면 그 판정 수를 telemetry.details[STORE_BATCH_KEY]에 넣고, None(한 건
+    저장)이면 키를 뺀다. evidence·result_summary가 같은 telemetry 객체를 쓰므로 둘 다 같은 값이다.
+    """
+    observation, fixed, recheck, columns, job = (pending.observation, pending.fixed, pending.recheck, pending.columns,
+                                                 pending.job)
+    details = pending.telemetry.get("details")
+    if isinstance(details, dict):
+        if store_batch_size is None:
+            details.pop(STORE_BATCH_KEY, None)
+        else:
+            details[STORE_BATCH_KEY] = store_batch_size
+    # 원천 → 판정 지연(detection-decision.md 18절): 조건이 참일 때만 관측 원천 시각을 복사하고 measured.
+    # decided_at과 지연은 같은 clock_timestamp() 한 번(MATERIALIZED CTE n)으로 계산한다. 음수도 그대로 measured.
+    occurred = decision_source_time(observation, rechecked=recheck is not None)
+    measurement = None
+    if recheck is None:
+        # 재판정은 측정 행을 넣지 않는다 [제안, relation-rules.md 6.4] — 같은 관측이 지연 집계에 두 번 들어가지 않게.
+        # 판정 INSERT(잠금 81736) 앞에 둔다. detector 단계의 끝이 판정 INSERT·완료 문장 앞으로 조금 당겨진다.
+        measurement = ("""INSERT INTO ops_pipeline_measurements(id,observation_id,stage,config_version_id,duration_ms)
                 VALUES(%s,%s,'detector',NULL,%s)""",
-                (uuid.uuid4(), observation.observation_id, (time.monotonic() - started) * 1000)))
-        before.append(("""WITH n AS MATERIALIZED (SELECT clock_timestamp() AS t)
+                       (uuid.uuid4(), observation.observation_id, (time.monotonic() - pending.started) * 1000))
+    decision = ("""WITH n AS MATERIALIZED (SELECT clock_timestamp() AS t)
             INSERT INTO run_process_decisions
             (id,execution_id,process_observation_id,config_version_id,input_manifest_hash,input_as_of,
             status,rule_status,ml_status,decision_code,anomaly_score,evidence,decided_at,
@@ -375,18 +430,80 @@ def run_attempt(conn: Any, message: Any, job: Mapping[str, Any], attempt_id: uui
             %s::timestamptz,extract(epoch FROM (SELECT t FROM n)-%s::timestamptz)*1000,
             CASE WHEN %s::timestamptz IS NULL THEN 'unavailable' ELSE 'measured' END::measurement_status,
             %s,%s,%s,%s)""",
-            (uuid.uuid4(), observation.execution_id, observation.observation_id, fixed[3], fixed[4],
-             columns["status"], columns["rule_status"], columns["ml_status"], columns["decision_code"],
-             columns["anomaly_score"], json.dumps(evidence), occurred, occurred, occurred,
-             job["id"], fixed[2], attempt_id, attempt_token)))
+                (uuid.uuid4(), observation.execution_id, observation.observation_id, fixed[3], fixed[4],
+                 columns["status"], columns["rule_status"], columns["ml_status"], columns["decision_code"],
+                 columns["anomaly_score"], json.dumps(pending.evidence), occurred, occurred, occurred,
+                 job["id"], fixed[2], pending.attempt_id, pending.attempt_token))
+    result = {"status": columns["status"], "executionCost": pending.telemetry, "checkers": pending.evidence["checkers"]}
+    return measurement, decision, result
+
+
+def save_attempt(conn: Any, pending: PendingSave) -> None:
+    """한 건 저장(run_attempt의 저장 단계). 실패는 예외로 올리고 호출자가 시도 실패로 처리한다."""
+    message, job = pending.message, pending.job
+    # 판정 저장 소요(detection-decision.md 19절): 판정 쓰기 트랜잭션 진입 → COMMIT 완료, Detector 단조 시계.
+    store_started = time.monotonic()
+    with conn.transaction():
+        if not lock_training_ownership(conn, message, job["id"], pending.attempt_id, pending.attempt_token):
+            raise RuntimeError("detection_lease_lost")
+        with conn.cursor() as cur:
+            for sql, params in _feature_statements(pending):
+                cur.execute(sql, params)
+        measurement, decision, result = _success_statements(pending)
         # 측정·판정 INSERT와 시도·작업 완료·ack를 pipeline 한 묶음으로 보낸다(detector/finish.py — 잠금 구간 왕복 2회).
-        finish_detect_success(conn, message, job, attempt_id,
-                              {"status": columns["status"], "executionCost": telemetry, "checkers": evidence["checkers"]},
-                              before)
+        finish_detect_success(conn, message, job, pending.attempt_id, result,
+                              [*([measurement] if measurement is not None else []), decision])
     # 바깥 트랜잭션 블록이 끝나며 COMMIT됐다. 호출 전에 열린 트랜잭션이 있었다면(블록이 savepoint) 여기서 COMMIT한다.
     conn.commit()
-    if recheck is None:
-        record_judgment_store(conn, observation.observation_id, (time.monotonic() - store_started) * 1000)
+    if pending.recheck is None:
+        record_judgment_store(conn, pending.observation.observation_id, (time.monotonic() - store_started) * 1000)
+
+
+def run_attempt(conn: Any, message: Any, job: Mapping[str, Any], attempt_id: uuid.UUID, attempt_token: uuid.UUID,
+                observation: Any, fixed: tuple, root: Any, *, started: float, queue_wait: float, heartbeat: Any) -> None:
+    """시도 1회 = prepare_attempt(판정) → save_attempt(한 건 저장). 성공 저장의 시도·작업 완료·ack는 detector/finish.py가
+    판정 INSERT와 한 묶음으로 쓴다. 여러 건을 한 트랜잭션으로 저장하는 경로는 save_batch(runner 다중 작업자)다."""
+    save_attempt(conn, prepare_attempt(conn, message, job, attempt_id, attempt_token, observation, fixed, root,
+                                       started=started, queue_wait=queue_wait, heartbeat=heartbeat))
+
+
+def save_batch(conn: Any, pendings: list[PendingSave]) -> bool:
+    """첫 판정 여러 건(2건 이상, 재판정 없음)을 트랜잭션 하나(pipeline 두 묶음)로 저장하고 COMMIT을 한 번 한다.
+
+    전역 잠금 81736 획득·COMMIT(WAL flush)이 판정마다가 아니라 묶음마다 한 번이다. 문장·순서는 detector/finish.py
+    finish_detect_batch(판정 INSERT는 pendings 순서 = 임대 순서라 판정 이벤트도 그 순서다).
+    - 성공: True. COMMIT 뒤 judgment_store 행을 판정마다 1행씩 한 트랜잭션으로 쓴다. 값은 모두 이 묶음 저장 소요(진입 →
+      COMMIT 완료)이고, 묶음 크기는 각 판정 evidence `telemetry.details.judgmentStoreBatchSize`에 남는다.
+    - 실패(소유권 행 없음·ack 0행·DB 오류·그 밖의 예외): 묶음 전체를 ROLLBACK하고 False(아무것도 남지 않음). 호출자가
+      각 건을 save_attempt(한 건 저장)로 다시 저장하므로 문제가 있는 건만 지금과 같은 원인 코드로 실패·유실된다.
+    """
+    if len(pendings) < 2 or any(item.recheck is not None for item in pendings):
+        raise ValueError("save_batch_requires_first_decisions")
+    size = len(pendings)
+    # 판정 저장 소요(19절): 묶음 트랜잭션 진입 → COMMIT 완료. 묶음 안 판정마다 같은 값이다.
+    store_started = time.monotonic()
+    try:
+        with conn.transaction():
+            items = []
+            for item in pendings:
+                measurement, decision, result = _success_statements(item, size)
+                items.append(BatchItem(item.message, item.job, item.attempt_id, item.attempt_token,
+                                       _feature_statements(item), measurement, decision, result))
+            finish_detect_batch(conn, items)
+        conn.commit()
+    except Exception as exc:  # noqa: BLE001 - 어떤 실패든 묶음 전체를 되돌리고 한 건씩 저장으로 넘긴다
+        if isinstance(exc, (psycopg.Error, BatchRejected)):
+            LOGGER.warning("detector batch store of %s decisions rolled back; saving one by one: %s", size,
+                           type(exc).__name__)
+        else:
+            # DB 오류·확인 실패가 아닌 예외는 묶음 경로의 코드 결함일 수 있어 traceback을 남긴다(한 건씩 저장은 그대로 한다).
+            LOGGER.error("detector batch store of %s decisions failed unexpectedly; saving one by one", size,
+                         exc_info=exc)
+        conn.rollback()
+        return False
+    record_judgment_stores(conn, [item.observation.observation_id for item in pendings],
+                           (time.monotonic() - store_started) * 1000)
+    return True
 
 
 def record_judgment_store(conn: Any, observation_id: uuid.UUID, duration_ms: float) -> bool:
@@ -402,5 +519,25 @@ def record_judgment_store(conn: Any, observation_id: uuid.UUID, duration_ms: flo
                 VALUES(%s,%s,'judgment_store',NULL,%s)""", (uuid.uuid4(), observation_id, duration_ms))
     except psycopg.Error as exc:
         LOGGER.warning("judgment_store measurement skipped for observation %s: %s", observation_id, type(exc).__name__)
+        return False
+    return True
+
+
+def record_judgment_stores(conn: Any, observation_ids: list[uuid.UUID], duration_ms: float) -> bool:
+    """묶음 저장(save_batch) COMMIT 뒤 record_judgment_store를 판정 수만큼 한 트랜잭션·한 문장으로 한다.
+
+    행마다 record_judgment_store와 같은 열·값 규칙이다(stage `judgment_store`, 구성 NULL, duration_ms = 묶음 저장 소요로 모두
+    같음). 같은 비동기 커밋, 같은 실패 처리(DB 오류면 경고 로그만 남기고 묶음의 표본을 모두 버림, 판정·작업은 그대로).
+    """
+    try:
+        with conn.transaction():
+            conn.execute("SET LOCAL synchronous_commit = off")
+            conn.execute("""INSERT INTO ops_pipeline_measurements(id,observation_id,stage,config_version_id,duration_ms)
+                SELECT u.id,u.observation_id,'judgment_store',NULL,%s
+                  FROM unnest(%s::uuid[],%s::uuid[]) AS u(id,observation_id)""",
+                         (duration_ms, [uuid.uuid4() for _ in observation_ids], list(observation_ids)))
+    except psycopg.Error as exc:
+        LOGGER.warning("judgment_store measurements skipped for %s observations: %s", len(observation_ids),
+                       type(exc).__name__)
         return False
     return True

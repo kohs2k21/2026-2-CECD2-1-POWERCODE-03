@@ -200,6 +200,12 @@ test('SMTP error classification: codes only, transient vs permanent, transport s
   }
   assert.deepEqual(s({ code: 'EDNS' }), ['smtp_connection_failed', true, 'error', false]);
   assert.deepEqual(s({ code: 'ESOCKET', originalCode: 'CERT_HAS_EXPIRED' }), ['smtp_tls_failed', false, 'error', false], 'TLS certificate errors stay permanent');
+  assert.deepEqual(s({ code: 'ETLS' }), ['smtp_tls_failed', false, 'error', false], 'STARTTLS negotiation failure stays permanent');
+  assert.deepEqual(s({ code: 'ESOCKET', originalCode: 'ERR_TLS_CERT_ALTNAME_INVALID' }), ['smtp_tls_failed', false, 'error', false]);
+  // TLS 레코드 오류: 보내기 중이면 그 행만 결과 모름(transport null → 묶음을 멈추지 않음), 연결 확인이면 영구 TLS 실패.
+  assert.deepEqual(s({ code: 'ESOCKET', originalCode: 'ERR_SSL_DECRYPTION_FAILED_OR_BAD_RECORD_MAC' }), ['smtp_result_unknown', false, null, true]);
+  assert.deepEqual(s({ code: 'ERR_OSSL_BAD_DECRYPT' }), ['smtp_result_unknown', false, null, true]);
+  assert.deepEqual(c({ code: 'ESOCKET', originalCode: 'ERR_SSL_DECRYPTION_FAILED_OR_BAD_RECORD_MAC' }), ['smtp_tls_failed', false, 'error', null]);
   assert.deepEqual(s({ code: 'EENVELOPE', responseCode: 451 }), ['smtp_temporary_failure', true, null, false], '4xx reply = not accepted, retry');
   assert.deepEqual(s({ code: 'EMESSAGE', responseCode: 554 }), ['smtp_message_failed', false, null, false]);
   assert.deepEqual(s({ code: 'EAUTH', responseCode: 535 }), ['smtp_auth_failed', false, 'auth_failed', false]);

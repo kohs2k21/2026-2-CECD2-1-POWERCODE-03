@@ -25,14 +25,23 @@ type Row = Record<string, any>;
 const ISO = (column: string) => `to_char(${column} AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`;
 const RATED = (risk: string) => `coalesce(${risk}->>'status'='rated' AND ${risk}->>'level' IN ('critical','warning','info'),false)`;
 
-const BATCH_SQL = `WITH top AS (SELECT coalesce(max(id),0) AS top FROM run_decision_events),
+const BATCH_SQL = `WITH RECURSIVE top AS (SELECT coalesce(max(id),0) AS top FROM run_decision_events),
 ev AS (
   SELECT e.id AS seq,d.id AS decision_id,d.job_id,d.status::text AS status,d.evidence,d.decided_at,d.process_observation_id,ex.source_id
   FROM run_decision_events e JOIN run_process_decisions d ON d.id=e.decision_id JOIN data_executions ex ON ex.id=d.execution_id
   WHERE e.id>$1::bigint AND e.event_kind='final' ORDER BY e.id LIMIT $2
+), vers(source_id,v) AS (
+  -- 원본별 사건 묶음 경계 = 기준 버전마다 최신 cursor_to의 최댓값. 구성원 여부(m)와 같은 문장(같은 스냅숏)에서 읽어야
+  -- "경계 안인데 구성원이 아직 안 보임"이 생기지 않는다. 기준 버전 목록은 run_incident_runs_cursor_idx(source_id, criteria_version, cursor_to DESC)
+  -- 앞 두 열을 건너뛰며 읽고(버전마다 색인 1번), 버전마다 ORDER BY cursor_to DESC LIMIT 1 — 실행 행 전체를 훑지 않는다.
+  SELECT s.source_id,(SELECT min(r.criteria_version) FROM run_incident_runs r WHERE r.source_id=s.source_id) FROM (SELECT DISTINCT source_id FROM ev) s
+  UNION ALL
+  SELECT vers.source_id,(SELECT min(r.criteria_version) FROM run_incident_runs r WHERE r.source_id=vers.source_id AND r.criteria_version>vers.v)
+  FROM vers WHERE vers.v IS NOT NULL
 ), w AS (
-  -- 원본별 사건 묶음 경계. 구성원 여부(m)와 같은 문장(같은 스냅숏)에서 읽어야 "경계 안인데 구성원이 아직 안 보임"이 생기지 않는다.
-  SELECT s.source_id,(SELECT max(r.cursor_to) FROM run_incident_runs r WHERE r.source_id=s.source_id) AS w FROM (SELECT DISTINCT source_id FROM ev) s
+  SELECT vers.source_id,max(t.cursor_to) AS w FROM vers CROSS JOIN LATERAL (
+    SELECT r.cursor_to FROM run_incident_runs r WHERE r.source_id=vers.source_id AND r.criteria_version=vers.v ORDER BY r.cursor_to DESC LIMIT 1) t
+  WHERE vers.v IS NOT NULL GROUP BY vers.source_id
 ), x AS (
   SELECT ev.*,f.anomalous,CASE WHEN f."schemaVersion"='4'::jsonb AND jsonb_typeof(f.composite)='object' THEN f.composite END AS composite
   FROM ev CROSS JOIN LATERAL jsonb_to_record(coalesce(

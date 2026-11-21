@@ -64,10 +64,17 @@ export function parseRecipients(value: unknown): string[] {
 }
 
 const BLOCKED = new net.BlockList();
-// 연결하면 안 되는 주소: 지정 안 됨·루프백(컨테이너 자신)·링크 로컬(클라우드 메타데이터 포함)·멀티캐스트·예약. 사설 대역은 내부 메일 중계 때문에 허용한다.
-for (const [address, prefix] of [['0.0.0.0', 8], ['127.0.0.0', 8], ['169.254.0.0', 16], ['224.0.0.0', 4], ['240.0.0.0', 4]] as const) BLOCKED.addSubnet(address, prefix, 'ipv4');
-for (const [address, prefix] of [['::', 128], ['::1', 128], ['fe80::', 10], ['ff00::', 8]] as const) BLOCKED.addSubnet(address, prefix, 'ipv6');
-/** IP 주소가 연결 금지 대역인가(IPv4 대응 IPv6 ::ffff:a.b.c.d는 IPv4로 본다). IP가 아니면 false. */
+// 연결하면 안 되는 주소: 지정 안 됨·루프백(컨테이너 자신)·링크 로컬·클라우드 메타데이터(169.254.169.254는 링크 로컬, AWS IPv6 fd00:ec2::254,
+// Alibaba 100.100.100.200)·멀티캐스트·예약, IPv4를 품은 IPv6 형식(IPv4 호환 ::/96, IPv4 변환 ::ffff:0:0:0/96, NAT64 64:ff9b::/96 — 안의 IPv4가
+// 루프백·메타데이터일 수 있어 통째로 막는다). 사설 대역은 내부 메일 중계 때문에 허용한다.
+// IPv4 대응 IPv6(::ffff:a.b.c.d, ::ffff:7f00:1)는 BlockList가 IPv4 규칙으로 검사한다(아래 정규식은 점 표기를 한 번 더 확인).
+for (const [address, prefix] of [['0.0.0.0', 8], ['127.0.0.0', 8], ['169.254.0.0', 16], ['100.100.100.200', 32], ['224.0.0.0', 4], ['240.0.0.0', 4]] as const) {
+  BLOCKED.addSubnet(address, prefix, 'ipv4');
+}
+for (const [address, prefix] of [['::', 96], ['::ffff:0:0:0', 96], ['64:ff9b::', 96], ['fd00:ec2::254', 128], ['fe80::', 10], ['ff00::', 8]] as const) {
+  BLOCKED.addSubnet(address, prefix, 'ipv6');
+}
+/** IP 주소가 연결 금지 대역인가(IPv4 대응 IPv6는 IPv4로 본다). IP가 아니면 false. */
 export function isBlockedAddress(address: string): boolean {
   const mapped = /^::ffff:(\d{1,3}(?:\.\d{1,3}){3})$/i.exec(address);
   if (mapped) return BLOCKED.check(mapped[1], 'ipv4');

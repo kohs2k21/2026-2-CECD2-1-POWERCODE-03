@@ -69,7 +69,7 @@ def _input_origins(conn, observation_ids):
     """입력 출처 일괄 조회 {observation_id(UUID): (mode, run_id)}. 출처 표가 없거나 조회할 관측이 없으면 {}."""
     if not observation_ids or not conn.execute("SELECT to_regclass('public.data_input_origins')").fetchone()[0]:
         return {}
-    rows=conn.execute('SELECT observation_id,mode,run_id FROM data_input_origins WHERE observation_id = ANY(%s::uuid[])',
+    rows=conn.execute('SELECT observation_id,mode,run_id FROM data_input_origins WHERE observation_id = ANY(%b::uuid[])',
         ([str(value) for value in observation_ids],)).fetchall()
     return {row[0]:(row[1],row[2]) for row in rows}
 
@@ -93,6 +93,7 @@ def enqueue_observations(conn, observation_ids, *, config_id=None, benchmark_run
 
     관측 하나씩 부를 때와 같은 행·payload를 만든다(계약·구성 결정, manifest, 잠금, 반대 계약 작업 재사용, 출처, 작업, 큐 메시지).
     문장 수만 관측 수와 무관하게 줄인다. 계약·구성은 원천마다 한 번 정한다(같은 호출자 트랜잭션 안).
+    배열 인자는 binary 형식(%b)이다(값·형 변환은 text 배열과 같다).
     관측 하나라도 판정 입력이 아니면(P가 아니거나 실행 식별 없음) 아무것도 넣지 않고 detect_input_unavailable.
     """
     ids = list(observation_ids)
@@ -102,7 +103,7 @@ def enqueue_observations(conn, observation_ids, *, config_id=None, benchmark_run
     if len(set(keys)) != len(keys):
         raise ValueError("duplicate_detect_input")
     with conn.cursor() as cur:
-        cur.execute("SELECT id,source_id,execution_id,content_hash,persisted_at FROM data_observations WHERE id = ANY(%s::uuid[]) AND layer='P'",
+        cur.execute("SELECT id,source_id,execution_id,content_hash,persisted_at FROM data_observations WHERE id = ANY(%b::uuid[]) AND layer='P'",
                     ([str(key) for key in keys],))
         found = {row[0]: row[1:] for row in cur.fetchall()}
         observations = [found.get(key) for key in keys]
@@ -142,17 +143,17 @@ def enqueue_observations(conn, observation_ids, *, config_id=None, benchmark_run
             cur.execute("""INSERT INTO run_input_manifests(id,source_id,execution_id,process_observation_id,
                 message_observation_refs,readiness,input_as_of,contract_version,content_hash,created_at)
                 SELECT u.id,u.source_id,u.execution_id,u.observation_id,'[]'::jsonb,%s::jsonb,u.as_of,'v03',u.content_hash,clock_timestamp()
-                FROM unnest(%s::uuid[],%s::uuid[],%s::uuid[],%s::uuid[],%s::timestamptz[],%s::text[])
+                FROM unnest(%b::uuid[],%b::uuid[],%b::uuid[],%b::uuid[],%b::timestamptz[],%b::text[])
                   AS u(id,source_id,execution_id,observation_id,as_of,content_hash)
                 ON CONFLICT DO NOTHING""",
                 (json.dumps({"process": "ready", "transaction": "unknown", "messages": "unknown", "body": "not_collected"}),
                  [str(p["manifestId"]) for p in made], [str(p["source"]) for p in made], [str(p["execution"]) for p in made],
                  [str(p["observationId"]) for p in made], [p["asOf"] for p in made], [p["manifestHash"] for p in made]))
             # Same per-manifest lock as one call at a time, taken in input order.
-            cur.execute("SELECT pg_advisory_xact_lock(%s,hashtext(m.id)) FROM unnest(%s::text[]) WITH ORDINALITY AS m(id,n) ORDER BY m.n",
+            cur.execute("SELECT pg_advisory_xact_lock(%s,hashtext(m.id)) FROM unnest(%b::text[]) WITH ORDINALITY AS m(id,n) ORDER BY m.n",
                         (MANIFEST_LOCK_CLASS, [str(p["manifestId"]) for p in made]))
             cur.execute("""SELECT input_manifest_id,contract_version,id,input_spec FROM run_jobs WHERE kind='detect'
-                AND input_manifest_id = ANY(%s::uuid[])""", ([str(p["manifestId"]) for p in made],))
+                AND input_manifest_id = ANY(%b::uuid[])""", ([str(p["manifestId"]) for p in made],))
             jobs = {}
             for manifest_id, version, job_id, spec in cur.fetchall():
                 jobs.setdefault((manifest_id, version), (job_id, spec))
@@ -186,7 +187,7 @@ def enqueue_observations(conn, observation_ids, *, config_id=None, benchmark_run
                     max_attempts,attempt_count,next_run_at,created_at)
                     SELECT u.id,'detect','queued',u.request_hash,u.input_spec::jsonb,u.config_id,u.manifest_id,u.contract,
                       'detection','system',u.producer_key,u.idempotency_key,3,0,clock_timestamp(),clock_timestamp()
-                    FROM unnest(%s::uuid[],%s::text[],%s::text[],%s::uuid[],%s::uuid[],%s::text[],%s::text[],%s::text[])
+                    FROM unnest(%b::uuid[],%b::text[],%b::text[],%b::uuid[],%b::uuid[],%b::text[],%b::text[],%b::text[])
                       AS u(id,request_hash,input_spec,config_id,manifest_id,contract,producer_key,idempotency_key)
                     ON CONFLICT DO NOTHING""",
                     ([str(p["eventId"]) for p in new], [p["manifestHash"] for p in new], [json.dumps(p["payload"]) for p in new],

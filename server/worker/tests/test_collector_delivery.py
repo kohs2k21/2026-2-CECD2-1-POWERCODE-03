@@ -16,7 +16,9 @@ from psycopg.pq import TransactionStatus
 from collector import input_runner
 
 TOKEN='t'*32
-ENV={'DETECTOR_DELIVERY_URL':'http://detector:8011','DETECTOR_DELIVERY_TOKEN':TOKEN}
+# Empty limit settings mean the defaults; set them so a value in the caller's environment cannot leak in.
+ENV={'DETECTOR_DELIVERY_URL':'http://detector:8011','DETECTOR_DELIVERY_TOKEN':TOKEN,
+     'DETECTOR_DELIVERY_PER_TICK':'','DETECTOR_DELIVERY_MAX_AGE_SECONDS':''}
 
 
 class Opener:
@@ -50,11 +52,17 @@ def job(i):
     return {'jobId':str(uuid.UUID(int=i)),'inputManifestHash':f'{i:064x}'}
 
 
+class Clock:
+    """Manual monotonic clock: a notice's age is exactly what the test sets, never real elapsed time."""
+    def __init__(self,now=0.0):self.now=now
+    def __call__(self):return self.now
+
+
 class Delivery(unittest.TestCase):
-    def deliver(self,jobs,env=ENV,capacity=input_runner.DELIVERY_CAPACITY,**kwargs):
+    def deliver(self,jobs,env=ENV,capacity=input_runner.DELIVERY_CAPACITY,clock=None,**kwargs):
         opener=Opener(**kwargs)
         with mock.patch.dict(os.environ,env,clear=False),mock.patch('urllib.request.build_opener',return_value=opener):
-            notifier=input_runner.Delivery.from_environment(capacity=capacity)
+            notifier=input_runner.Delivery.from_environment(capacity=capacity,clock=clock or Clock())
             queued=notifier.offer(jobs)
             self.assertTrue(notifier.drain(5))
         return notifier,queued,opener.requests
@@ -70,7 +78,7 @@ class Delivery(unittest.TestCase):
     def test_offer_never_blocks_and_overflow_is_dropped(self):
         gate=threading.Event();opener=Opener(gate=gate)
         with mock.patch.dict(os.environ,ENV),mock.patch('urllib.request.build_opener',return_value=opener):
-            notifier=input_runner.Delivery.from_environment(capacity=3)
+            notifier=input_runner.Delivery.from_environment(capacity=3,per_tick=20,clock=Clock())
             # Hold the sender inside a POST of job 0 so the queue really fills: it is empty and nothing drains it.
             self.assertEqual(notifier.offer([job(0)]),1)
             self.assertTrue(opener.entered.wait(5))
@@ -79,13 +87,73 @@ class Delivery(unittest.TestCase):
             self.assertLess(time.monotonic()-started,.5)   # a stuck Detector does not hold the caller
             gate.set();self.assertTrue(notifier.drain(5))
         # exactly the capacity is accepted (jobs 1-3); the 7 others are dropped and stay in the DB queue only
-        self.assertEqual((queued,notifier.dropped),(3,7))
+        self.assertEqual((queued,notifier.overflow,notifier.capped),(3,7,0))
         self.assertEqual([json.loads(r.data)['jobId'] for r,_ in opener.requests],[job(i)['jobId'] for i in range(4)])
 
     def test_many_jobs_are_all_posted_in_order(self):
-        _,queued,requests=self.deliver([job(i) for i in range(25)])
+        _,queued,requests=self.deliver([job(i) for i in range(25)],env={**ENV,'DETECTOR_DELIVERY_PER_TICK':'25'})
         self.assertEqual(queued,25)
         self.assertEqual([json.loads(r.data)['jobId'] for r,_ in requests],[job(i)['jobId'] for i in range(25)])
+
+    def test_defaults(self):
+        with mock.patch.dict(os.environ,ENV):
+            self.assertEqual(input_runner.delivery_limits(),(8,.2))
+
+    def test_per_tick_cap_offers_the_first_jobs_only(self):
+        notifier,queued,requests=self.deliver([job(i) for i in range(20)])
+        # default cap 8: jobs 0-7 are posted in order, 8-19 are left to Detector queue polling
+        self.assertEqual(queued,8)
+        self.assertEqual([json.loads(r.data)['jobId'] for r,_ in requests],[job(i)['jobId'] for i in range(8)])
+        self.assertEqual(notifier.counters(),{'offered':8,'capped':12,'overflow':0,'stale':0,'sent':8,'failed':0})
+
+    def test_cap_applies_per_offer(self):
+        opener=Opener()
+        with mock.patch.dict(os.environ,{**ENV,'DETECTOR_DELIVERY_PER_TICK':'2'}),mock.patch('urllib.request.build_opener',return_value=opener):
+            notifier=input_runner.Delivery.from_environment(clock=Clock())
+            self.assertEqual([notifier.offer([job(1),job(2),job(3)]),notifier.offer([job(4)])],[2,1])
+            self.assertTrue(notifier.drain(5))
+        self.assertEqual([json.loads(r.data)['jobId'] for r,_ in opener.requests],[job(i)['jobId'] for i in (1,2,4)])
+        self.assertEqual((notifier.offered,notifier.capped),(3,1))
+
+    def test_zero_per_tick_posts_nothing(self):
+        notifier,queued,requests=self.deliver([job(1),job(2)],env={**ENV,'DETECTOR_DELIVERY_PER_TICK':'0'})
+        self.assertEqual((queued,requests),(0,[]))
+        self.assertEqual(notifier.counters(),{'offered':0,'capped':2,'overflow':0,'stale':0,'sent':0,'failed':0})
+
+    def test_stale_notices_are_skipped(self):
+        gate=threading.Event();opener=Opener(gate=gate);clock=Clock(0.0)
+        with mock.patch.dict(os.environ,ENV),mock.patch('urllib.request.build_opener',return_value=opener):
+            notifier=input_runner.Delivery.from_environment(clock=clock)
+            self.assertEqual(notifier.offer([job(0)]),1)
+            self.assertTrue(opener.entered.wait(5))          # the sender is inside the POST of job 0
+            self.assertEqual(notifier.offer([job(1),job(2)]),2)   # stamped at 0.0
+            clock.now=.2                                   # exactly the max age: still sent
+            gate.set();self.assertTrue(notifier.drain(5))
+            gate.clear();opener.entered.clear()
+            self.assertEqual(notifier.offer([job(3)]),1)      # stamped at 0.2; held while job 3 is posted
+            self.assertTrue(opener.entered.wait(5))
+            self.assertEqual(notifier.offer([job(4),job(5)]),2)   # stamped at 0.2
+            clock.now=.41                                  # older than 0.2 s when the sender reaches them
+            gate.set();self.assertTrue(notifier.drain(5))
+        self.assertEqual([json.loads(r.data)['jobId'] for r,_ in opener.requests],[job(i)['jobId'] for i in range(4)])
+        self.assertEqual(notifier.counters(),{'offered':6,'capped':0,'overflow':0,'stale':2,'sent':4,'failed':0})
+
+    def test_max_age_from_environment(self):
+        clock=Clock()
+        with mock.patch.dict(os.environ,{**ENV,'DETECTOR_DELIVERY_MAX_AGE_SECONDS':'1.5'}),\
+             mock.patch('urllib.request.build_opener',return_value=Opener()):
+            notifier=input_runner.Delivery.from_environment(clock=clock)
+        self.assertEqual(notifier.max_age,1.5)
+
+    def test_limits_are_validated(self):
+        for key,value,code in (('DETECTOR_DELIVERY_PER_TICK','-1','per_tick'),('DETECTOR_DELIVERY_PER_TICK','257','per_tick'),
+                               ('DETECTOR_DELIVERY_PER_TICK','2.5','per_tick'),('DETECTOR_DELIVERY_PER_TICK','x','per_tick'),
+                               ('DETECTOR_DELIVERY_MAX_AGE_SECONDS','0','max_age'),('DETECTOR_DELIVERY_MAX_AGE_SECONDS','-1','max_age'),
+                               ('DETECTOR_DELIVERY_MAX_AGE_SECONDS','nan','max_age'),('DETECTOR_DELIVERY_MAX_AGE_SECONDS','inf','max_age'),
+                               ('DETECTOR_DELIVERY_MAX_AGE_SECONDS','61','max_age'),('DETECTOR_DELIVERY_MAX_AGE_SECONDS','x','max_age')):
+            with self.subTest(key=key,value=value),mock.patch.dict(os.environ,{**ENV,key:value}):
+                with self.assertRaisesRegex(ValueError,f'detector_delivery_{code}_rejected'):
+                    input_runner.Delivery.from_environment()
 
     def test_empty_url_disables_delivery(self):
         with mock.patch.dict(os.environ,{'DETECTOR_DELIVERY_URL':''}):
@@ -100,13 +168,15 @@ class Delivery(unittest.TestCase):
 
     def test_network_failure_is_ignored(self):
         notifier,queued,requests=self.deliver([job(1),job(2)],fail=True)
-        self.assertEqual((queued,len(requests),notifier.sent),(2,2,2))
+        self.assertEqual((queued,len(requests),notifier.sent,notifier.failed),(2,2,2,2))
 
 
 class RunLoop(unittest.TestCase):
     def run_once(self,result,status=TransactionStatus.IDLE,env=None):
         conn=Connection(status);opener=Opener()
+        # A generous max age: the real clock runs here, and these tests are not about staleness.
         env={**(ENV if env is None else env),'DATABASE_URL':'postgresql://unused','COLLECTOR_SOURCE_KEY':'k'}
+        env['DETECTOR_DELIVERY_MAX_AGE_SECONDS']=env.get('DETECTOR_DELIVERY_MAX_AGE_SECONDS') or '60'
         out=[]
         with mock.patch.dict(os.environ,env),mock.patch.object(input_runner,'load_dotenv'),\
              mock.patch.object(input_runner.psycopg,'connect',return_value=conn),\
@@ -132,6 +202,17 @@ class RunLoop(unittest.TestCase):
     def test_uncommitted_connection_is_not_announced(self):
         _,requests,_=self.run_once({'accepted':1,'duplicates':0,'detectJobs':[job(1)]},status=TransactionStatus.INTRANS)
         self.assertEqual(requests,[])
+
+    def test_once_reports_counters(self):
+        _,requests,out=self.run_once({'accepted':3,'duplicates':0,'detectJobs':[job(i) for i in range(10)]})
+        self.assertEqual(len(requests),8)
+        self.assertEqual(json.loads(out[-1]),{'delivery':{'offered':8,'capped':2,'overflow':0,'stale':0,'sent':8,'failed':0}})
+
+    def test_rejected_limits_keep_collecting(self):
+        _,requests,out=self.run_once({'accepted':1,'duplicates':0,'detectJobs':[job(1)]},
+            env={**ENV,'DETECTOR_DELIVERY_PER_TICK':'-1'})
+        self.assertEqual(requests,[])
+        self.assertEqual(json.loads(out[0]),{'deliveryError':'detector_delivery_per_tick_rejected'})
 
     def test_rejected_configuration_keeps_collecting(self):
         _,requests,out=self.run_once({'accepted':1,'duplicates':0,'detectJobs':[job(1)]},

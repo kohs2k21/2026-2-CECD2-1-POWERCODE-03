@@ -134,7 +134,7 @@ docker compose run --rm input status
 # 아래 revision/replayId는 status 출력의 실제 값으로 바꾼다.
 docker compose run --rm input select csv --expected-revision 0 --replay-id '<replayId>' --rate 100 --repeat 1
 docker compose run --rm input select paused --expected-revision 1
-docker compose run --rm input select api --expected-revision 2 --poll-seconds 2
+docker compose run --rm input select api --expected-revision 2 --poll-seconds 1
 # 기본은 기존 선택 구성을 유지한다. 후보를 지정하거나 운영 구성을 선택할 수 있다.
 docker compose run --rm input select csv --expected-revision 3 --replay-id '<replayId>' --rate 100 --repeat 1 --config '<configVersionId>'
 # 처음부터 재생할 때만 --restart. 운영 구성으로 돌아갈 때 --config active.

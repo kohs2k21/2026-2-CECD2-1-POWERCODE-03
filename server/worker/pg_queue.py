@@ -61,7 +61,10 @@ def enqueue(conn: Any, queue: QueueName, payload: dict[str, Any], *, message_id:
 
 
 def enqueue_many(conn: Any, queue: QueueName, items: list[tuple[dict[str, Any], uuid.UUID]]) -> None:
-    """`enqueue`를 여러 메시지에 한 문장으로 적용한다(같은 표·같은 ON CONFLICT). 호출자 트랜잭션에서 커밋한다."""
+    """`enqueue`를 여러 메시지에 한 문장으로 적용한다(같은 표·같은 ON CONFLICT). 호출자 트랜잭션에서 커밋한다.
+
+    배열 인자는 binary 형식(%b)이다. 값·형 변환은 text 배열과 같고 원소마다 인용하는 Python 비용만 없다.
+    """
     if not items:
         return
     if not all(isinstance(payload, dict) for payload, _ in items):
@@ -69,7 +72,7 @@ def enqueue_many(conn: Any, queue: QueueName, items: list[tuple[dict[str, Any], 
     with conn.cursor() as cur:
         cur.execute(
             f"""INSERT INTO {_table(queue)} (id, payload)
-                SELECT u.id, u.payload::jsonb FROM unnest(%s::uuid[], %s::text[]) AS u(id, payload)
+                SELECT u.id, u.payload::jsonb FROM unnest(%b::uuid[], %b::text[]) AS u(id, payload)
                 ON CONFLICT (id) DO NOTHING""",
             ([str(message_id) for _, message_id in items], [json.dumps(payload) for payload, _ in items]),
         )

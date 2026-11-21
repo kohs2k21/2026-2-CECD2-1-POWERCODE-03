@@ -5,7 +5,7 @@
 - 새 DB qa_detector_workers를 만들고(이미 있으면 실패, DROP 없음) prepare-runtime-db.py와 같은 순서로 migration과
   scripts/database-roles.sql을 적용한다. 준비 데이터는 소유자로 넣고, 작업자 연결은 powercode_detector 역할로 연다.
 - v04 detect 작업 50건을 작업자 4개가 처리한다. 작업마다 판정 1건·성공 시도 1번·큐 done, 판정 이벤트(final) 수 = 판정 수,
-  중복 없음, 처리한 작업자가 둘 이상인지 본다. 시도를 다 쓴 채 임대가 끝난 큐 행 1개는 0번 작업자의 주기 정리가
+  중복 없음, 처리한 작업자가 둘 이상인지, 방법 결과에 슬롯 부족(capacity)이 없는지 본다. 시도를 다 쓴 채 임대가 끝난 큐 행 1개는 0번 작업자의 주기 정리가
   dead로 바꾸고 그 작업을 failed·queue_exhausted로 바꾸는지 본다(claim 안의 dead 처리를 건너뛰는 경로).
 """
 from __future__ import annotations
@@ -27,7 +27,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import integration_detection_decision as base  # noqa: E402
 from integration_relation_recheck import migration_files  # noqa: E402
 from integration_research_pipeline import source  # noqa: E402
-from detector import runner  # noqa: E402
+from detector import policy, runner  # noqa: E402
 
 INFRA = Path(__file__).resolve().parents[2] / "infra"
 DATABASE = "qa_detector_workers"
@@ -139,7 +139,12 @@ def main():
             JOIN run_process_decisions d ON d.id=e.decision_id WHERE e.event_kind='final' AND d.job_id=ANY(%s)""",
                               (jobs,)).fetchone()
         assert events == (JOBS, JOBS), events
+        causes = conn.execute("""SELECT m->>'cause', count(*) FROM run_process_decisions d,
+            jsonb_array_elements(d.evidence->'methodResults') m WHERE d.job_id=ANY(%s) GROUP BY 1""", (jobs,)).fetchall()
         conn.commit()
+        # 슬롯 = 작업자 수 + 1이라 겹친 판정도 슬롯 부족(capacity) 미판정이 없다(detection-decision.md D20).
+        assert causes and all(cause != "capacity" for cause, _count in causes), causes
+        assert policy.capacity() == WORKERS + 1, policy.capacity()
         assert len(seen) == JOBS, len(seen)
         assert len(set(seen)) > 1, set(seen)
         print(f"PASS 작업마다 판정 1건·성공 시도 1번·큐 done(시도 1), 판정 이벤트 {JOBS}건, 중복 없음, "

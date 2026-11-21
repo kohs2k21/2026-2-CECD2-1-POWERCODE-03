@@ -7,6 +7,7 @@ import uuid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 import psycopg
+from detector.policy import configure_capacity
 from detector.runner import process_detection_message, run_workers, worker_count
 from pg_queue import claim, fail
 
@@ -67,6 +68,8 @@ def main():
     load_dotenv(Path(__file__).resolve().parents[1]/".env")
     # 작업자 수는 HTTP 서버를 열기 전에 검사한다(잘못된 값이면 바로 실패).
     workers=worker_count(os.environ.get("DETECTOR_WORKERS"))
+    # 직접 전달도 판정하므로 슬롯은 HTTP 서버를 열기 전에 맞춘다(run_workers의 같은 호출은 같은 값이라 그대로 둔다).
+    configure_capacity(workers+1)
     database_url=os.environ["DATABASE_URL"]
     root=Path(os.environ["ARTIFACT_ROOT"]) if os.environ.get("ARTIFACT_ROOT") else None
     server=serve(database_url,root,os.environ["DETECTOR_DELIVERY_TOKEN"],os.environ.get("DETECTOR_HOST","127.0.0.1"))

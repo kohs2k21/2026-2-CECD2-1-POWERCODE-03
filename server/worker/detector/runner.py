@@ -18,6 +18,7 @@ from dotenv import load_dotenv
 import model_adapters
 from feature_fit import requires_fit
 from detector.input_reader import load_process_observation
+from detector.policy import configure_capacity
 from feature_worker import active_config, active_source
 from pg_queue import ClaimedMessage, acknowledge, claim, fail
 from telemetry import cost_family, queue_wait_ms
@@ -314,13 +315,16 @@ def run_workers(database_url: str, root: Path | None, *, workers: int, poll_seco
     """판정 루프 workers개를 스레드로 돌린다. 작업자마다 연결이 따로다.
 
     - 시작 단계 prepare_active는 작업자를 띄우기 전에 한 번만 한다.
+    - 방법 실행 슬롯(policy.configure_capacity)을 동시 판정 수 = workers + 1(직접 전달 몫)로 맞춘다. 슬롯이 동시 판정보다
+      적으면 겹친 판정의 룰·모델이 capacity(미판정)로 끝난다(detection-decision.md D20).
     - dead 처리·정리는 0번 작업자만 reconcile_seconds마다 한다. 모든 작업자의 detection claim은 dead 처리 UPDATE를 건너뛴다.
-    - 작업자 하나가 예외로 끝나면 stop을 세워 나머지를 멈추고(현재 반복을 끝낸 뒤, 최대 join_seconds 대기)
-      WorkerFailed를 올린다. stop이 밖에서 세워지면 같은 방식으로 멈추고 정상 반환한다.
+    - 작업자 하나가 예외로 끝나면 traceback을 로그(stderr)에 남기고 stop을 세워 나머지를 멈추고(현재 반복을 끝낸 뒤,
+      전체 최대 join_seconds 대기) WorkerFailed를 올린다. stop이 밖에서 세워지면 같은 방식으로 멈추고 정상 반환한다.
     """
     if not 1 <= workers <= MAX_WORKERS:
         raise ValueError(f"invalid_detector_workers: 1~{MAX_WORKERS} 정수여야 한다")
     stop = stop or threading.Event()
+    configure_capacity(workers + 1)
     with psycopg.connect(database_url) as conn:
         _prepare(conn, root)
     failures: list[tuple[int, BaseException]] = []
@@ -336,6 +340,7 @@ def run_workers(database_url: str, root: Path | None, *, workers: int, poll_seco
                     if not loop.iterate():
                         stop.wait(poll_seconds)
         except BaseException as exc:  # noqa: BLE001 - 어떤 종료든 프로세스 실패로 올린다
+            LOGGER.error("detector worker %s failed", index, exc_info=exc)
             failures.append((index, exc))
             stop.set()
 
@@ -347,11 +352,11 @@ def run_workers(database_url: str, root: Path | None, *, workers: int, poll_seco
         stop.wait()
     finally:
         stop.set()
+        limit = time.monotonic() + join_seconds
         for thread in threads:
-            thread.join(join_seconds)
+            thread.join(max(0.0, limit - time.monotonic()))
     if failures:
         index, exc = failures[0]
-        LOGGER.error("detector worker %s failed: %s", index, type(exc).__name__)
         raise WorkerFailed(f"detector_worker_failed:{index}") from exc
 
 

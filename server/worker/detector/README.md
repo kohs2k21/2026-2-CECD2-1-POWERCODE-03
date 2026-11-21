@@ -39,8 +39,10 @@ v04 시도 1회의 순서.
 - 작업자들은 같은 큐를 `FOR UPDATE SKIP LOCKED`로 나눠 가진다. 결과 저장은 작업 행·시도·큐 임대 토큰을 잠금 확인하므로 작업자 수와 무관하게 작업마다 판정은 하나다(`../../contracts/queues.md`)
 - 정리 담당은 0번 작업자 하나다. 첫 반복과 그 뒤 30초마다 임대가 끝난 채 시도를 다 쓴 큐 행을 dead로 바꾸고(`pg_queue.expire_exhausted_leases`) 이어서 `reconcile_dead_jobs`를 부른다. 작업자들의 claim은 이 dead 처리 UPDATE를 건너뛴다(`claim(expire_exhausted=False)`). 그런 행은 claim 조건(`attempts < max_attempts`)에서 이미 빠지므로 다시 임대되지 않고, dead 표시만 최대 30초 늦다
 - 건너뛰기: 직전 반복에서 메시지를 처리한 작업자는 신청 claim·활성 구성·원천 조회와 과거 feature 복구를 마지막 실행 뒤 1초(`runner.FIXED_REFRESH_SECONDS`)가 지난 반복에서만 한다. 큐가 빈 반복 다음에는 매번 한다. 그래서 적체 중에는 과거 feature 복구가 작업자마다 약 1초에 1건으로 줄고, 원천 범위 claim은 1초 안에 읽은 원천을 쓴다
-- 작업자 하나가 예외로 끝나면 나머지를 멈추고 HTTP 서버를 닫은 뒤 0이 아닌 코드로 끝난다(컨테이너 재시작). 시작 단계 `prepare_active`는 작업자를 띄우기 전에 한 번만 한다
-- 처리량 상한 [추정, 미측정]: 판정 INSERT 트리거(`publish_decision_event`, migration 012)가 전역 advisory lock `(81736, 0)`을 COMMIT까지 잡아 판정 이벤트 순서를 커밋 순서로 맞춘다(`../../contracts/pipeline.md` SSE). 그래서 판정 INSERT부터 COMMIT까지는 작업자 수와 무관하게 한 번에 하나씩 지나간다. 이 구간이 3~4.5ms라면 상한은 초당 약 220~330건이다. 이보다 높이려면 이벤트 순번 방식을 바꿔야 하고 계약·migration 결정이 필요하다
+- 방법 실행 슬롯: 룰 레인·모델 슬롯과 실행 풀(`policy.py` `_SLOTS`·`_POOLS`)은 프로세스 전체가 함께 쓰고 비차단으로 잡으므로, 슬롯 수가 동시 판정 수보다 적으면 겹친 판정의 룰·모델이 `capacity`(미판정)로 끝난다. 그래서 서비스는 시작 때(HTTP 서버를 열기 전) `policy.configure_capacity(작업자 수 + 1)`로 룰·ML 슬롯을 동시 판정 수(기본 5, +1은 직접 전달 몫)에 맞춘다. 그 밖의 프로세스(Trainer 비교 평가, 단일 `run()`)는 기본 2 그대로다(`../../contracts/detection-decision.md` D20)
+- 모델이 켜져 있으면 ML 채점이 동시에 최대 슬롯 수(기본 5)만큼 돌 수 있어 채점 CPU가 단일 루프 때보다 최대 그 배수까지 늘 수 있다(컨테이너 `cpus` 기본 2)
+- 작업자 하나가 예외로 끝나면 traceback을 stderr 로그에 남기고 나머지를 멈추고(전체 최대 10초 대기) HTTP 서버를 닫은 뒤 0이 아닌 코드로 끝난다(컨테이너 재시작). 시작 단계 `prepare_active`는 작업자를 띄우기 전에 한 번만 한다
+- 처리량 상한 [추정, 미측정]: 판정 INSERT 트리거(`publish_decision_event`, migration 012)가 전역 advisory lock `(81736, 0)`을 COMMIT까지 잡아 판정 이벤트 순서를 커밋 순서로 맞춘다(`../../contracts/pipeline.md` SSE). 그래서 판정 INSERT부터 COMMIT까지는 작업자 수와 무관하게 한 번에 하나씩 지나간다. 중간 판정 기록 INSERT(`publish_decision_interim_event`, migration 012:200)도 같은 잠금을 잡아 이 줄에 함께 선다. 이 구간이 3~4.5ms라면 상한은 초당 약 220~330건이다. 이보다 높이려면 이벤트 순번 방식을 바꿔야 하고 계약·migration 결정이 필요하다
 
 ## detect 작업 생성 전환
 

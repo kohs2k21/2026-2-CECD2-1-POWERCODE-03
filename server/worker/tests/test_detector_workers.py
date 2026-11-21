@@ -9,13 +9,19 @@ import os
 from pathlib import Path
 import sys
 import threading
+import time
 from types import SimpleNamespace
 import unittest
 from unittest.mock import MagicMock, patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import pg_queue
-from detector import applications, jobs, runner, service
+from detector import applications, jobs, policy, runner, service
+from detector.method_runner import MethodOutcome, MethodTask, execute_methods
+
+
+def _reset_capacity() -> None:
+    policy.configure_capacity(policy.DEFAULT_CAPACITY)
 
 
 class _FakeConn:
@@ -112,6 +118,9 @@ class SkipFixedStepsTest(unittest.TestCase):
 
 
 class RunWorkersTest(unittest.TestCase):
+    def tearDown(self) -> None:
+        _reset_capacity()
+
     def _run(self, harness: _Harness, *, workers: int, stop_after: float = .3, **kwargs) -> None:
         stop = threading.Event()
         timer = threading.Timer(stop_after, stop.set)
@@ -130,6 +139,7 @@ class RunWorkersTest(unittest.TestCase):
         harness = _Harness()
         self._run(harness, workers=3, reconcile_seconds=.05)
         self.assertEqual(harness.names("prepare"), ["MainThread"])
+        self.assertEqual(policy.capacity(), 4)  # 작업자 3 + 직접 전달 1
         self.assertEqual(set(harness.names("reconcile")), {"detector-worker-0"})
         self.assertEqual(set(harness.names("expire")), {"detector-worker-0"})
         self.assertGreaterEqual(len(harness.names("reconcile")), 2)
@@ -177,6 +187,9 @@ class RunWorkersTest(unittest.TestCase):
 
 
 class ServiceMainTest(unittest.TestCase):
+    def setUp(self) -> None:
+        self.configured: list[int] = []
+
     def _main(self, env: dict[str, str], run_workers) -> MagicMock:
         server = MagicMock()
         base = {"DATABASE_URL": "postgresql://unit-test", "DETECTOR_DELIVERY_TOKEN": "t" * 32}
@@ -186,6 +199,7 @@ class ServiceMainTest(unittest.TestCase):
             enter(patch("dotenv.load_dotenv", lambda *_a, **_k: None))
             enter(patch.object(service, "serve", MagicMock(return_value=server)))
             enter(patch.object(service, "run_workers", run_workers))
+            enter(patch.object(service, "configure_capacity", self.configured.append))
             service.main()
         return server
 
@@ -202,6 +216,7 @@ class ServiceMainTest(unittest.TestCase):
             enter(patch("dotenv.load_dotenv", lambda *_a, **_k: None))
             enter(patch.object(service, "serve", MagicMock(return_value=server)))
             enter(patch.object(service, "run_workers", failing))
+            enter(patch.object(service, "configure_capacity", self.configured.append))
             with self.assertRaises(runner.WorkerFailed):
                 service.main()
         server.shutdown.assert_called_once()
@@ -211,6 +226,7 @@ class ServiceMainTest(unittest.TestCase):
         seen = {}
         self._main({"DETECTOR_WORKERS": "3"}, lambda *_a, **k: seen.update(k))
         self.assertEqual(seen["workers"], 3)
+        self.assertEqual(self.configured, [4])  # HTTP 서버(직접 전달)를 열기 전에 슬롯을 맞춘다
 
     def test_invalid_workers_fails_before_http_server(self) -> None:
         serve = MagicMock()
@@ -223,6 +239,85 @@ class ServiceMainTest(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "invalid_detector_workers"):
                 service.main()
         serve.assert_not_called()
+
+
+class CapacityTest(unittest.TestCase):
+    """슬롯 수 = 동시 판정 수. 겹침은 가짜 룰 과제와 Barrier·Event로 강제한다."""
+
+    def tearDown(self) -> None:
+        _reset_capacity()
+
+    @staticmethod
+    def _rule(run) -> MethodTask:
+        return MethodTask("hard:fake", "rule", run,
+                          lambda cause, **_k: {"methodId": "hard:fake", "status": "not_ready", "cause": cause})
+
+    def _judge(self, run) -> dict:
+        return execute_methods([self._rule(run)], 5000, started_at=time.monotonic()).methods[0]
+
+    def test_default_is_two(self) -> None:
+        self.assertEqual((policy.DEFAULT_CAPACITY, policy.capacity()), (2, 2))
+        self.assertEqual([policy._SLOTS[name]._value for name in ("rule", "ml")], [2, 2])
+        self.assertEqual([policy._POOLS[name]._max_workers for name in ("rule", "ml")], [2, 2])
+
+    def _overlap(self, concurrent: int) -> list[dict]:
+        """concurrent건을 동시에 판정한다. 모든 룰 과제가 함께 안에 들어올 때까지 서로 기다린다(못 들어오면 capacity)."""
+        inside = threading.Barrier(concurrent, timeout=5)
+        results: list[dict] = []
+
+        def run() -> MethodOutcome:
+            inside.wait()
+            return MethodOutcome({"methodId": "hard:fake", "status": "succeeded"})
+
+        threads = [threading.Thread(target=lambda: results.append(self._judge(run))) for _ in range(concurrent)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join(10)
+        return results
+
+    def test_configured_capacity_covers_concurrent_judgments(self) -> None:
+        policy.configure_capacity(5)
+        self.assertEqual([policy._SLOTS[name]._value for name in ("rule", "ml")], [5, 5])
+        results = self._overlap(5)
+        self.assertEqual([item["status"] for item in results], ["succeeded"] * 5)
+        self.assertEqual([policy._SLOTS[name]._value for name in ("rule", "ml")], [5, 5])
+
+    def test_one_more_than_capacity_gets_capacity(self) -> None:
+        policy.configure_capacity(3)
+        release, entered = threading.Event(), threading.Semaphore(0)
+
+        def held() -> MethodOutcome:
+            entered.release()
+            release.wait(5)
+            return MethodOutcome({"methodId": "hard:fake", "status": "succeeded"})
+
+        results: list[dict] = []
+        threads = [threading.Thread(target=lambda: results.append(self._judge(held))) for _ in range(3)]
+        for thread in threads:
+            thread.start()
+        for _ in range(3):
+            self.assertTrue(entered.acquire(timeout=5))
+        extra = self._judge(lambda: MethodOutcome({"methodId": "hard:fake", "status": "succeeded"}))
+        release.set()
+        for thread in threads:
+            thread.join(10)
+        self.assertEqual(extra["cause"], "capacity")
+        self.assertEqual([item["status"] for item in results], ["succeeded"] * 3)
+
+    def test_reconfigure_rules(self) -> None:
+        with self.assertRaisesRegex(ValueError, "invalid_detection_capacity"):
+            policy.configure_capacity(0)
+        rule = policy._SLOTS["rule"]
+        policy.configure_capacity(2)  # 같은 값: 그대로
+        self.assertIs(policy._SLOTS["rule"], rule)
+        self.assertTrue(rule.acquire(blocking=False))
+        try:
+            with self.assertRaisesRegex(RuntimeError, "detection_capacity_busy"):
+                policy.configure_capacity(3)
+            self.assertIs(policy._SLOTS["rule"], rule)
+        finally:
+            rule.release()
 
 
 class ClaimExpireOptionTest(unittest.TestCase):

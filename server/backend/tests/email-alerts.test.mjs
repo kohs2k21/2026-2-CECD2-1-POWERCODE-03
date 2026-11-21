@@ -46,6 +46,12 @@ test('SMTP host: hostname or IP only; loopback, link-local, multicast and localh
   }
   assert.equal(config.isBlockedAddress('192.168.0.10'), false);
   assert.equal(config.isBlockedAddress('::ffff:169.254.1.1'), true);
+  // 클라우드 메타데이터·IPv4를 품은 IPv6 형식(IPv4 호환·변환·NAT64)·16진 IPv4 대응 주소.
+  for (const blocked of ['100.100.100.200', 'fd00:ec2::254', '::127.0.0.1', '::ffff:0:7f00:1', '64:ff9b::7f00:1', '64:ff9b::808:808', '::ffff:7f00:1']) {
+    assert.equal(config.isBlockedAddress(blocked), true, blocked);
+    assert.equal(code(() => config.parseSmtpHost(blocked)), 'smtp_host_blocked', blocked);
+  }
+  for (const allowed of ['100.100.100.201', 'fd00::254', '::ffff:8.8.8.8', '2001:db8::25']) assert.equal(config.isBlockedAddress(allowed), false, allowed);
 });
 
 test('dashboard URL: http(s) origin + optional path, trailing slash removed; no credentials, query, fragment or other schemes', () => {
@@ -121,6 +127,15 @@ test('key source: env key wins (invalid env is an error, no fallback), file key 
     if (process.platform !== 'win32') assert.equal(fs.statSync(file).mode & 0o777, 0o600);
     const reread = box.createKeySource({ envKey: undefined, filePath: file }).load(false);
     assert.equal(reread.id, created.id, 'the same key is read back');
+    assert.deepEqual(fs.readdirSync(path.dirname(file)), ['settings-secret.key'], 'no temporary file is left behind');
+    assert.match(fs.readFileSync(file, 'utf8'), /^[A-Za-z0-9+/]{43}=\n$/, 'complete key line');
+    // 이미 있으면(다른 프로세스가 먼저 걸었음) 새로 만들지 않고 그 키를 쓴다.
+    const second = box.createKeySource({ envKey: undefined, filePath: file }).load(true);
+    assert.equal(second.id, created.id);
+    // 만들 수 없는 곳(파일 아래 경로): null, 반쪽 파일·임시 파일 없음.
+    const blocker = path.join(dir, 'blocker');
+    fs.writeFileSync(blocker, '');
+    assert.equal(box.createKeySource({ envKey: undefined, filePath: path.join(blocker, 'k.key') }).load(true) ?? null, null);
     fs.writeFileSync(file, 'garbage\n');
     assert.equal(code(() => box.createKeySource({ envKey: undefined, filePath: file }).load(false)), 'email_secret_key_invalid');
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
@@ -168,6 +183,29 @@ test('SMTP error classification: codes only, transient vs permanent, transport s
   assert.deepEqual(c({ code: 'EPROTOCOL', responseCode: 503 }), ['smtp_rejected', false, null, 503]);
   assert.deepEqual(c(new Error('boom')), ['smtp_error', true, 'error', null]);
   assert.deepEqual(c(null), ['smtp_error', true, 'error', null]);
+  // 보내기 중(stage send): 연결 전으로 확실한 실패만 다시 시도, 연결 뒤 응답 번호 없는 끊김·소켓 시간 초과는 결과 모름(다시 보내지 않음).
+  const s = (error) => { const e = transport.classifySmtpError(error, 'send'); return [e.code, e.transient, e.transport, e.uncertain]; };
+  assert.deepEqual(s({ code: 'ETIMEDOUT', timeoutType: 'SOCKET_TIMEOUT' }), ['smtp_result_unknown', false, null, true]);
+  assert.deepEqual(s({ code: 'ETIMEDOUT' }), ['smtp_result_unknown', false, null, true], 'timeout without a phase is treated as after connect');
+  assert.deepEqual(s({ code: 'ESOCKET', originalCode: 'ECONNRESET' }), ['smtp_result_unknown', false, null, true]);
+  assert.deepEqual(s({ code: 'ESOCKET', originalCode: 'EPIPE' }), ['smtp_result_unknown', false, null, true]);
+  assert.deepEqual(s({ code: 'ECONNECTION' }), ['smtp_result_unknown', false, null, true], 'connection closed without a reply');
+  assert.deepEqual(s({ code: 'ESTREAM' }), ['smtp_result_unknown', false, null, true]);
+  assert.deepEqual(s(new Error('boom')), ['smtp_result_unknown', false, null, true]);
+  for (const timeoutType of ['CONNECT_TIMEOUT', 'GREETING_TIMEOUT', 'UPGRADE_TIMEOUT']) {
+    assert.deepEqual(s({ code: 'ETIMEDOUT', timeoutType }), ['smtp_timeout', true, 'error', false], timeoutType);
+  }
+  for (const original of ['ECONNREFUSED', 'EHOSTUNREACH', 'ENETUNREACH']) {
+    assert.deepEqual(s({ code: 'ESOCKET', originalCode: original }), ['smtp_connection_failed', true, 'error', false], original);
+  }
+  assert.deepEqual(s({ code: 'EDNS' }), ['smtp_connection_failed', true, 'error', false]);
+  assert.deepEqual(s({ code: 'ESOCKET', originalCode: 'CERT_HAS_EXPIRED' }), ['smtp_tls_failed', false, 'error', false], 'TLS certificate errors stay permanent');
+  assert.deepEqual(s({ code: 'EENVELOPE', responseCode: 451 }), ['smtp_temporary_failure', true, null, false], '4xx reply = not accepted, retry');
+  assert.deepEqual(s({ code: 'EMESSAGE', responseCode: 554 }), ['smtp_message_failed', false, null, false]);
+  assert.deepEqual(s({ code: 'EAUTH', responseCode: 535 }), ['smtp_auth_failed', false, 'auth_failed', false]);
+  // 연결 확인(stage verify)은 메일이 없으므로 같은 끊김을 일시 실패로 본다.
+  assert.deepEqual(c({ code: 'ETIMEDOUT', timeoutType: 'SOCKET_TIMEOUT' }), ['smtp_timeout', true, 'error', null]);
+  assert.deepEqual(c({ code: 'ESOCKET', originalCode: 'ECONNRESET' }), ['smtp_connection_failed', true, 'error', null]);
   const own = new transport.SmtpError('smtp_host_blocked', false, 'error');
   assert.equal(transport.classifySmtpError(own), own);
 });
@@ -178,6 +216,8 @@ test('retry policy: 1/5/15/60 minutes for transient failures, failed after 5 att
     [['retrying', 60_000], ['retrying', 300_000], ['retrying', 900_000], ['retrying', 3_600_000]]);
   assert.equal(outbox.failureOutcome(transient, 5).status, 'failed');
   assert.equal(outbox.failureOutcome(new transport.SmtpError('smtp_auth_failed', false, 'auth_failed'), 1).status, 'failed');
+  const unknown = outbox.failureOutcome(transport.classifySmtpError({ code: 'ETIMEDOUT', timeoutType: 'SOCKET_TIMEOUT' }, 'send'), 1);
+  assert.deepEqual([unknown.status, unknown.delayMs, unknown.error.code], ['unknown', null, 'smtp_result_unknown'], 'result unknown is never retried');
 });
 
 test('incident mail: subject, plain + HTML body, escaped values, KST start, link, suppressed lines; no transaction ids', () => {

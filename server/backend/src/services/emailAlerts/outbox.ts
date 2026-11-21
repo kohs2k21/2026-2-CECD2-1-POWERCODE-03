@@ -10,6 +10,7 @@ import { SmtpError, classifySmtpError, type MailTransport, type TransportFactory
  * sending·lease_until을 커밋한 뒤 보낸다(API 프로세스가 여럿이어도 한 행은 한 곳만).
  * - 성공 sent. 일시 실패는 1·5·15·60분 뒤 다시(최대 MAX_ATTEMPTS번), 그 뒤·영구 실패는 failed. 코드만 남긴다(서버 응답 원문 없음).
  * - 보내는 중 멈춘 행(lease 지남 — 프로세스 종료 등)은 unknown(확인 불가)으로 바꾸고 다시 보내지 않는다(사용자 11/21: 중복 없음, 누락 가능).
+ *   보내는 도중 응답 번호 없이 연결이 끊기거나 응답이 없으면(서버가 이미 받았을 수 있음) 그 행도 unknown(smtp_result_unknown)으로 두고 다시 보내지 않는다(transport.ts classifySmtpError).
  * - 연결 단계 실패(접속·TLS·인증)면 그 묶음의 남은 행도 같은 결과로 두고 멈춘다(같은 실패를 행마다 시간 제한까지 기다리지 않게).
  * - 연결 확인 결과(설정 transport_*)를 발송 결과로 갱신한다: 성공 ok, 인증 실패 auth_failed, 연결·TLS 오류 error. 받는 사람 거절은 남기지 않는다.
  * - 설정이 꺼져 있으면 보내지 않는다(끌 때 대기 행은 실패로 바뀐다, settingsStore).
@@ -23,9 +24,10 @@ export const TEST_INTERVAL_SECONDS = 30;
 export const TEST_TIMEOUT_MS = 20_000;
 const ISO = (column: string) => `to_char(${column} AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`;
 
-export type Outcome = { status: 'sent'; smtpCode: number | null } | { status: 'retrying' | 'failed'; error: SmtpError; delayMs: number | null };
-/** 실패 → 다음 상태. attempts = 이번 시도까지 센 수. */
+export type Outcome = { status: 'sent'; smtpCode: number | null } | { status: 'retrying' | 'failed' | 'unknown'; error: SmtpError; delayMs: number | null };
+/** 실패 → 다음 상태. attempts = 이번 시도까지 센 수. 결과 모름(uncertain)은 다시 보내지 않고 unknown. */
 export function failureOutcome(error: SmtpError, attempts: number): Outcome {
+  if (error.uncertain) return { status: 'unknown', error, delayMs: null };
   if (error.transient && attempts < MAX_ATTEMPTS) return { status: 'retrying', error, delayMs: RETRY_DELAYS_MS[Math.min(attempts, RETRY_DELAYS_MS.length) - 1] };
   return { status: 'failed', error, delayMs: null };
 }
@@ -35,7 +37,7 @@ async function finalize(db: Pick<Pool, 'query'>, id: string, outcome: Outcome) {
   await db.query(`UPDATE ops_email_deliveries SET status=$2,error_code=$3,smtp_code=$4,lease_until=NULL,
       next_attempt_at=CASE WHEN $2='retrying' THEN clock_timestamp()+($5::integer*interval '1 millisecond') END,
       sent_at=CASE WHEN $2='sent' THEN clock_timestamp() END,
-      finished_at=CASE WHEN $2 IN ('sent','failed') THEN clock_timestamp() END
+      finished_at=CASE WHEN $2 IN ('sent','failed','unknown') THEN clock_timestamp() END
     WHERE id=$1 AND status='sending'`,
   [id, outcome.status, error?.code ?? null, outcome.status === 'sent' ? outcome.smtpCode : error?.smtpCode ?? null, outcome.status === 'sent' ? null : outcome.delayMs]);
 }
@@ -53,11 +55,11 @@ const transportOutcome = async (db: Pick<Pool, 'query'>, settings: SettingsRow, 
 };
 
 export type SendDeps = { factory: TransportFactory; keys: KeySource };
-export type SendSummary = { recovered: number; sent: number; retrying: number; failed: number };
+export type SendSummary = { recovered: number; sent: number; retrying: number; failed: number; unknown: number };
 
 /** 주기 작업의 발송 단계. */
 export async function sendDue(pool: Pool, { factory, keys }: SendDeps, limit = CLAIM_LIMIT): Promise<SendSummary> {
-  const summary: SendSummary = { recovered: await recoverStale(pool), sent: 0, retrying: 0, failed: 0 };
+  const summary: SendSummary = { recovered: await recoverStale(pool), sent: 0, retrying: 0, failed: 0, unknown: 0 };
   const settings = await loadSettingsRow(pool);
   if (!settings?.enabled) return summary;
   const { rows } = await pool.query(`WITH due AS (SELECT id FROM ops_email_deliveries WHERE status IN ('queued','retrying') AND next_attempt_at<=clock_timestamp()
@@ -88,7 +90,8 @@ export async function sendDue(pool: Pool, { factory, keys }: SendDeps, limit = C
         await finalize(pool, row.id, outcome); count(outcome);
         lastTransport = null;
       } catch (error) {
-        const failure = classifySmtpError(error);
+        // 보내기 중 실패: 연결 뒤 응답 없이 끊기면 결과 모름(unknown, 다시 보내지 않음, 연결 상태에도 남기지 않음 — 다음 행은 새 연결로 계속).
+        const failure = classifySmtpError(error, 'send');
         const outcome = failureOutcome(failure, row.attempts);
         await finalize(pool, row.id, outcome); count(outcome);
         if (failure.transport) { lastTransport = failure; await failAll(index + 1, failure); break; }
@@ -104,9 +107,9 @@ export async function sendDue(pool: Pool, { factory, keys }: SendDeps, limit = C
 export class TestSendError extends Error {
   constructor(readonly code: string, readonly status: number) { super(code); }
 }
-const withTimeout = <T>(promise: Promise<T>, ms: number) => {
+const withTimeout = <T>(promise: Promise<T>, ms: number, timeoutError: () => SmtpError = () => new SmtpError('smtp_timeout', true, 'error')) => {
   let timer: ReturnType<typeof setTimeout> | undefined;
-  return Promise.race([promise, new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new SmtpError('smtp_timeout', true, 'error')), ms); })])
+  return Promise.race([promise, new Promise<never>((_, reject) => { timer = setTimeout(() => reject(timeoutError()), ms); })])
     .finally(() => clearTimeout(timer));
 };
 
@@ -138,16 +141,19 @@ export async function sendTest(pool: Pool, actorId: string, to: string, { factor
   }
   let outcome: Outcome;
   let transport: MailTransport | null = null;
+  let sending = false;
   try {
     const config = smtpConfigOf(settings, keys);
     transport = await factory(config);
     const message = renderMessage({ type: 'test' }, { to: recipient, baseUrl: settings.public_base_url, deliveryId: id, fromAddress: config.fromAddress });
-    const sent = await withTimeout(transport.send(message), TEST_TIMEOUT_MS);
+    sending = true;
+    // 시간 제한에 걸려도 보내기는 이미 시작됐으므로 결과 모름(서버가 받았을 수 있음).
+    const sent = await withTimeout(transport.send(message), TEST_TIMEOUT_MS, () => new SmtpError('smtp_result_unknown', false, null, null, true));
     outcome = { status: 'sent', smtpCode: sent.smtpCode };
     await transportOutcome(pool, settings, null);
   } catch (error) {
-    const failure = classifySmtpError(error);
-    outcome = { status: 'failed', error: failure, delayMs: null };
+    const failure = classifySmtpError(error, sending ? 'send' : 'verify');
+    outcome = failure.uncertain ? { status: 'unknown', error: failure, delayMs: null } : { status: 'failed', error: failure, delayMs: null };
     await transportOutcome(pool, settings, failure);
   } finally {
     transport?.close();

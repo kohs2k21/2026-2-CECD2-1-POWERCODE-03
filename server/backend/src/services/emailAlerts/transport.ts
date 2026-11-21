@@ -26,9 +26,13 @@ export type TransportFactory = (config: SmtpConfig) => Promise<MailTransport>;
 export const FROM_NAME = 'ESB 알림';
 export const SMTP_TIMEOUTS = { connection: 10_000, greeting: 10_000, socket: 20_000, dns: 5_000 } as const;
 
-/** 전송 계층 실패. transient = 다시 시도할 만함, transport = 연결 확인 결과에 남길 상태(null = 받는 사람·메시지 문제라 남기지 않음). */
+/**
+ * 전송 계층 실패. transient = 다시 시도할 만함, transport = 연결 확인 결과에 남길 상태(null = 받는 사람·메시지 문제라 남기지 않음),
+ * uncertain = 서버가 메일을 이미 받았는지 알 수 없음(보내는 중 연결이 끊김·응답 없음) → 다시 보내지 않고 확인 불가로 둔다(사용자 11/21: 중복 없음, 누락 가능).
+ */
 export class SmtpError extends Error {
-  constructor(readonly code: string, readonly transient: boolean, readonly transport: 'auth_failed' | 'error' | null, readonly smtpCode: number | null = null) { super(code); }
+  constructor(readonly code: string, readonly transient: boolean, readonly transport: 'auth_failed' | 'error' | null, readonly smtpCode: number | null = null,
+    readonly uncertain = false) { super(code); }
 }
 
 type Lookup = (host: string) => Promise<{ address: string; family: number }[]>;
@@ -82,7 +86,7 @@ export function createNodemailerFactory(lookup: Lookup = defaultLookup): Transpo
     const transporter = nodemailer.createTransport(nodemailerOptions(config, address));
     return {
       async verify() {
-        try { await transporter.verify(); } catch (error) { throw classifySmtpError(error); }
+        try { await transporter.verify(); } catch (error) { throw classifySmtpError(error, 'verify'); }
       },
       async send(message) {
         try {
@@ -93,7 +97,7 @@ export function createNodemailerFactory(lookup: Lookup = defaultLookup): Transpo
           });
           if (Array.isArray(info.rejected) && info.rejected.length) throw new SmtpError('smtp_recipient_rejected', false, null);
           return { smtpCode: responseCode(info.response) };
-        } catch (error) { throw classifySmtpError(error); }
+        } catch (error) { throw classifySmtpError(error, 'send'); }
       },
       close() { transporter.close(); },
     };
@@ -104,27 +108,41 @@ const responseCode = (value: unknown) => {
   const code = typeof value === 'string' ? Number(/^(\d{3})/.exec(value)?.[1]) : typeof value === 'number' ? value : NaN;
   return Number.isInteger(code) && code >= 200 && code <= 599 ? code : null;
 };
-const CONNECTION = new Set(['ECONNECTION', 'ESOCKET', 'ECONNREFUSED', 'ECONNRESET', 'EHOSTUNREACH', 'ENETUNREACH', 'EPIPE', 'EDNS', 'ENOTFOUND', 'EAI_AGAIN']);
-const TIMEOUT = new Set(['ETIMEDOUT', 'CONNECT_TIMEOUT', 'GREETING_TIMEOUT', 'SOCKET_TIMEOUT']);
+
+/** 연결 전(접속 거절·경로 없음·이름 풀기) 시스템 오류 — 서버와 대화를 시작하지 않았으므로 다시 보내도 중복이 아니다. */
+const PRE_CONNECT = new Set(['ECONNREFUSED', 'EHOSTUNREACH', 'ENETUNREACH', 'EADDRNOTAVAIL', 'ENOTFOUND', 'EAI_AGAIN', 'EDNS']);
+/** 인사(greeting)를 받기 전·STARTTLS 협상 중 시간 초과(nodemailer timeoutType). 메일 내용을 보내기 전 단계다. */
+const PRE_DATA_TIMEOUTS = new Set(['CONNECT_TIMEOUT', 'GREETING_TIMEOUT', 'UPGRADE_TIMEOUT']);
+/** 연결 뒤 대화 중 끊김·소켓 오류. 응답 번호가 없으면 어느 단계였는지 알 수 없다. */
+const NETWORK = new Set(['ECONNECTION', 'ESOCKET', 'ECONNRESET', 'EPIPE', 'ESTREAM', 'EPROTOCOL', 'ETIMEDOUT']);
 const TLS = /^(ETLS|EREQUIRETLS|CERT_|ERR_TLS_|ERR_SSL_|UNABLE_TO_|DEPTH_ZERO_|SELF_SIGNED_|ERR_OSSL)/;
 
 /**
- * 오류 → 코드. 일시(다시 시도) = 연결·시간 초과·이름 풀기 실패·4xx 응답. 영구 = 인증 실패(535 등)·TLS·인증서·5xx 응답·메시지 오류.
+ * 오류 → 코드. stage = 'send'(메일 보내기 중) | 'verify'(연결 확인, 메일 없음).
+ * - 영구: 인증 실패(EAUTH)·TLS·인증서(originalCode 포함)·5xx 응답·메시지 오류. 일시(다시 시도): 4xx 응답, 연결 전 실패(PRE_CONNECT, 연결·인사·STARTTLS 시간 초과).
+ * - **결과 모름(send만)**: 응답 번호 없이 연결 뒤 끊김·소켓 오류·소켓 시간 초과(SOCKET_TIMEOUT)·알 수 없는 오류 → smtp_result_unknown, uncertain(다시 보내지 않음).
+ *   nodemailer는 연결 뒤 네트워크 오류마다 command를 'CONN'으로만 붙이고(단계 정보 없음) 모든 시간 초과를 ETIMEDOUT + timeoutType으로 낸다.
+ *   그래서 DATA 시작 여부는 알 수 없고, 연결 전으로 확실한 경우(timeoutType·originalCode)만 다시 보낸다. 연결 직후 인사 전에 닫힌 경우도 결과 모름으로 본다(보수적).
  * 서버 응답 원문(err.message·err.response)은 버린다. 응답 번호(3자리)만 남긴다.
  */
-export function classifySmtpError(error: unknown): SmtpError {
+export function classifySmtpError(error: unknown, stage: 'send' | 'verify' = 'verify'): SmtpError {
   if (error instanceof SmtpError) return error;
-  const e = (error ?? {}) as { code?: unknown; originalCode?: unknown; responseCode?: unknown };
+  const e = (error ?? {}) as { code?: unknown; originalCode?: unknown; responseCode?: unknown; timeoutType?: unknown };
   const code = typeof e.code === 'string' ? e.code : '';
-  // nodemailer는 시스템 오류 코드(인증서 오류 등)를 originalCode로 옮기고 code에 단계(ESOCKET 등)를 넣는다.
+  // nodemailer는 시스템 오류 코드(인증서 오류·ECONNREFUSED 등)를 originalCode로 옮기고 code에 단계(ESOCKET 등)를 넣는다.
   const original = typeof e.originalCode === 'string' ? e.originalCode : '';
+  const timeoutType = typeof e.timeoutType === 'string' ? e.timeoutType : '';
   const smtpCode = responseCode(e.responseCode);
   if (code === 'EAUTH' || code === 'ENOAUTH') return new SmtpError('smtp_auth_failed', false, 'auth_failed', smtpCode);
   if (TLS.test(code) || TLS.test(original)) return new SmtpError('smtp_tls_failed', false, 'error', smtpCode);
-  if (TIMEOUT.has(code)) return new SmtpError('smtp_timeout', true, 'error', smtpCode);
-  if (CONNECTION.has(code)) return new SmtpError('smtp_connection_failed', true, 'error', smtpCode);
   if (code === 'EMESSAGE' || code === 'EFILEACCESS' || code === 'EURLACCESS') return new SmtpError('smtp_message_failed', false, null, smtpCode);
+  // 서버가 응답 번호로 거절했다 = 받지 않았다(결과가 확실).
   if (smtpCode !== null && smtpCode >= 500) return new SmtpError(code === 'EENVELOPE' ? 'smtp_recipient_rejected' : 'smtp_rejected', false, null, smtpCode);
   if (smtpCode !== null && smtpCode >= 400) return new SmtpError('smtp_temporary_failure', true, null, smtpCode);
+  if (code === 'ETIMEDOUT' && PRE_DATA_TIMEOUTS.has(timeoutType)) return new SmtpError('smtp_timeout', true, 'error', smtpCode);
+  if (PRE_CONNECT.has(code) || PRE_CONNECT.has(original)) return new SmtpError('smtp_connection_failed', true, 'error', smtpCode);
+  if (stage === 'send') return new SmtpError('smtp_result_unknown', false, null, smtpCode, true);
+  if (code === 'ETIMEDOUT') return new SmtpError('smtp_timeout', true, 'error', smtpCode);
+  if (NETWORK.has(code)) return new SmtpError('smtp_connection_failed', true, 'error', smtpCode);
   return new SmtpError('smtp_error', true, 'error', smtpCode);
 }

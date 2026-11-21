@@ -348,7 +348,31 @@ try {
     assert.equal(recovered.recovered, 1);
     const staleRow = (await pool.query('SELECT status,error_code FROM ops_email_deliveries WHERE id=$1', [stale])).rows[0];
     assert.deepEqual([staleRow.status, staleRow.error_code, fake.sent.length], ['unknown', 'send_interrupted', sentBefore], 'interrupted sends are marked unknown and not re-sent');
-    console.log('PASS retry, permanent failure, batch stop, auth status, interrupted send → unknown');
+    // 보내는 도중 응답 없이 끊김(소켓 시간 초과) → 결과 모름, 다시 보내지 않음. 같은 묶음의 다음 행은 계속 보낸다. 연결 시간 초과는 다시 시도.
+    await pool.query(`UPDATE ops_email_deliveries SET created_at=created_at-interval '2 hours'`);
+    const dUnknown = await decision('critical');
+    const iUnknown = id();
+    await incidentRun({ incidents: [{ id: iUnknown, groupKey: 'response_code:UNKNOWN' }], members: [[iUnknown, dUnknown]], cursorTo: await seqOf(dUnknown) });
+    assert.equal((await scan()).queued, 1);
+    fake.plan.push({ code: 'ETIMEDOUT', timeoutType: 'SOCKET_TIMEOUT' });
+    const sentBeforeUnknown = fake.sent.length;
+    const unknownRun = await send();
+    assert.deepEqual([unknownRun.unknown, unknownRun.sent, fake.sent.length], [1, 1, sentBeforeUnknown + 1]);
+    rows = (await deliveries()).filter((r) => r.alert_key === `incident:${iUnknown}`);
+    const unknownRow = rows.find((r) => r.status === 'unknown');
+    assert.deepEqual([unknownRow.error_code, unknownRow.attempts], ['smtp_result_unknown', 1]);
+    assert.equal((await pool.query('SELECT next_attempt_at FROM ops_email_deliveries WHERE id=$1', [unknownRow.id])).rows[0].next_attempt_at, null);
+    await pool.query(`UPDATE ops_email_deliveries SET next_attempt_at=clock_timestamp() WHERE id=$1`, [unknownRow.id]).catch(() => {});
+    const again2 = await send();
+    assert.deepEqual([again2.sent, again2.unknown, fake.sent.length], [0, 0, sentBeforeUnknown + 1], 'an unknown result is never picked up again');
+    const dConnect = await decision('critical');
+    const iConnect = id();
+    await incidentRun({ incidents: [{ id: iConnect, groupKey: 'response_code:CONNECT' }], members: [[iConnect, dConnect]], cursorTo: await seqOf(dConnect) });
+    assert.equal((await scan()).queued, 1);
+    fake.plan.push({ code: 'ETIMEDOUT', timeoutType: 'CONNECT_TIMEOUT' });
+    const connectRun = await send();
+    assert.deepEqual([connectRun.retrying, connectRun.unknown], [2, 0], 'a connect timeout is retried (batch stops, both retry)');
+    console.log('PASS retry, permanent failure, batch stop, auth status, interrupted send → unknown, result unknown never retried');
 
     // 12) 시험 발송.
     await code('POST', '/api/email-alerts/test', 404, 'email_recipient_not_listed', { to: 'stranger@example.test' });

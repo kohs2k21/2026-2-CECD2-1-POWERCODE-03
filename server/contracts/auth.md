@@ -1,5 +1,5 @@
 Created: 2026-10-08T11:52:10+09:00
-Updated: 2026-10-08T11:52:10+09:00
+Updated: 2026-11-21T14:40:00+09:00
 Author: backend_lead
 Status: current
 
@@ -77,6 +77,7 @@ Status: current
 | POST /api/anomaly/evaluate-risk | user/admin | 로그 배열 위험도 계산; [별도 계약](anomaly.md) |
 | GET /api/anomaly/realtime-stream | user/admin | 인증 SSE; [별도 계약](anomaly.md) |
 | POST /api/anomaly/logs | admin | 기존 단건 ingest; [별도 계약](anomaly.md) |
+| GET·PUT /api/email-alerts/settings, POST /api/email-alerts/test, GET /api/email-alerts/deliveries | admin | 메일 알림 설정·시험 발송·발송 기록; [별도 계약](email-alerts.md). 계정 저장소와 무관(받는 사람은 별도 주소 목록) |
 
 - user 관리 API: authenticateToken → requireAdmin 순서, 유효 일반 사용자는 `403 admin_required`; `/me`는 일반 사용자 본인 조회에 재사용
 - PUT 요청: `{ "email"?: string, "password"?: string, "userType"?: "user" | "admin" }`, 최소 한 필드 필수. 빈/형식 오류/지원 외 필드 `400 invalid_user_update`

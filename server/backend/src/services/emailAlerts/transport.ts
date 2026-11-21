@@ -120,14 +120,21 @@ const PRE_CONNECT = new Set(['ECONNREFUSED', 'EHOSTUNREACH', 'ENETUNREACH', 'EAD
 const PRE_DATA_TIMEOUTS = new Set(['CONNECT_TIMEOUT', 'GREETING_TIMEOUT', 'UPGRADE_TIMEOUT']);
 /** 연결 뒤 대화 중 끊김·소켓 오류. 응답 번호가 없으면 어느 단계였는지 알 수 없다. */
 const NETWORK = new Set(['ECONNECTION', 'ESOCKET', 'ECONNRESET', 'EPIPE', 'ESTREAM', 'EPROTOCOL', 'ETIMEDOUT']);
-/** TLS 협상·인증서 오류(연결 직후·STARTTLS 단계 — 메일 내용 전). 보내기 중이어도 영구 실패. */
-const TLS_HANDSHAKE = /^(ETLS|EREQUIRETLS|CERT_|ERR_TLS_|UNABLE_TO_|DEPTH_ZERO_|SELF_SIGNED_)/;
-/** TLS 레코드 계층 오류(OpenSSL ERR_SSL_*·ERR_OSSL_*). 연결 뒤 아무 때나(DATA 중 포함) 날 수 있어 보내기 중이면 결과 모름. */
-const TLS_STREAM = /^(ERR_SSL_|ERR_OSSL)/;
+/**
+ * TLS 오류(협상·인증서·OpenSSL ERR_SSL_*·ERR_OSSL_*). 기본은 영구 실패 — 잘못된 포트·보안 방식(평문 서버에 TLS 접속 → ERR_SSL_WRONG_VERSION_NUMBER),
+ * 프로토콜·암호 불일치(…_ALERT_HANDSHAKE_FAILURE·…_ALERT_PROTOCOL_VERSION·UNSUPPORTED_PROTOCOL) 같은 설정 문제가 여기 든다.
+ */
+const TLS = /^(ETLS|EREQUIRETLS|CERT_|ERR_TLS_|ERR_SSL_|ERR_OSSL|UNABLE_TO_|DEPTH_ZERO_|SELF_SIGNED_)/;
+/**
+ * 협상이 끝난 뒤 레코드 계층에서만 나는 이유(허용 목록). Node는 OpenSSL 이유 문자열을 ERR_SSL_<대문자·밑줄>로 바꾼다(Node 22 = OpenSSL 3.0의 이유 표):
+ * "decryption failed or bad record mac"(받은 레코드의 MAC·복호 실패), "decryption failed", "sslv3 alert bad record mac"·"tlsv1 alert decryption failed"(상대가 보낸 경고).
+ * 보내기 중이면 DATA 도중일 수 있어 결과 모름. 그 밖의 ERR_SSL_*·ERR_OSSL_*는 TLS(영구)로 둔다.
+ */
+const TLS_RECORD = /^ERR_SSL_((\w+_)?BAD_RECORD_MAC|DECRYPTION_FAILED(_OR_BAD_RECORD_MAC)?|TLSV1_ALERT_DECRYPTION_FAILED)$/;
 
 /**
  * 오류 → 코드. stage = 'send'(메일 보내기 중) | 'verify'(연결 확인, 메일 없음).
- * - 영구: 인증 실패(EAUTH)·TLS 협상·인증서(originalCode 포함)·5xx 응답·메시지 오류. TLS 레코드 오류(ERR_SSL_*)는 연결 확인에서만 영구, 보내기 중이면 결과 모름. 일시(다시 시도): 4xx 응답, 연결 전 실패(PRE_CONNECT, 연결·인사·STARTTLS 시간 초과).
+ * - 영구: 인증 실패(EAUTH)·TLS 협상·인증서(originalCode 포함)·5xx 응답·메시지 오류. TLS 오류 중 협상 뒤 레코드 MAC·복호 실패(TLS_RECORD 허용 목록)만 보내기 중이면 결과 모름(연결 확인에서는 영구). 일시(다시 시도): 4xx 응답, 연결 전 실패(PRE_CONNECT, 연결·인사·STARTTLS 시간 초과).
  * - **결과 모름(send만)**: 응답 번호 없이 연결 뒤 끊김·소켓 오류·소켓 시간 초과(SOCKET_TIMEOUT)·알 수 없는 오류 → smtp_result_unknown, uncertain(다시 보내지 않음).
  *   nodemailer는 연결 뒤 네트워크 오류마다 command를 'CONN'으로만 붙이고(단계 정보 없음) 모든 시간 초과를 ETIMEDOUT + timeoutType으로 낸다.
  *   그래서 DATA 시작 여부는 알 수 없고, 연결 전으로 확실한 경우(timeoutType·originalCode)만 다시 보낸다. 연결 직후 인사 전에 닫힌 경우도 결과 모름으로 본다(보수적).
@@ -142,11 +149,12 @@ export function classifySmtpError(error: unknown, stage: 'send' | 'verify' = 've
   const timeoutType = typeof e.timeoutType === 'string' ? e.timeoutType : '';
   const smtpCode = responseCode(e.responseCode);
   if (code === 'EAUTH' || code === 'ENOAUTH') return new SmtpError('smtp_auth_failed', false, 'auth_failed', smtpCode);
-  if (TLS_HANDSHAKE.test(code) || TLS_HANDSHAKE.test(original)) return new SmtpError('smtp_tls_failed', false, 'error', smtpCode);
-  if (TLS_STREAM.test(code) || TLS_STREAM.test(original)) {
+  if (TLS_RECORD.test(code) || TLS_RECORD.test(original)) {
     // 보내기 중: 그 행만 결과 모름(다시 보내지 않음, 연결 상태에 남기지 않음 → 같은 묶음의 다음 행은 새 연결로 계속). 연결 확인: 영구 TLS 실패.
     return stage === 'send' ? new SmtpError('smtp_result_unknown', false, null, smtpCode, true) : new SmtpError('smtp_tls_failed', false, 'error', smtpCode);
   }
+  // 그 밖의 TLS 오류(협상·인증서·버전·암호 불일치 등): 보내기 중이어도 영구, 연결 상태 error(설정 문제를 결과 모름으로 숨기지 않음).
+  if (TLS.test(code) || TLS.test(original)) return new SmtpError('smtp_tls_failed', false, 'error', smtpCode);
   if (code === 'EMESSAGE' || code === 'EFILEACCESS' || code === 'EURLACCESS') return new SmtpError('smtp_message_failed', false, null, smtpCode);
   // 서버가 응답 번호로 거절했다 = 받지 않았다(결과가 확실).
   if (smtpCode !== null && smtpCode >= 500) return new SmtpError(code === 'EENVELOPE' ? 'smtp_recipient_rejected' : 'smtp_rejected', false, null, smtpCode);

@@ -204,7 +204,16 @@ test('SMTP error classification: codes only, transient vs permanent, transport s
   assert.deepEqual(s({ code: 'ESOCKET', originalCode: 'ERR_TLS_CERT_ALTNAME_INVALID' }), ['smtp_tls_failed', false, 'error', false]);
   // TLS 레코드 오류: 보내기 중이면 그 행만 결과 모름(transport null → 묶음을 멈추지 않음), 연결 확인이면 영구 TLS 실패.
   assert.deepEqual(s({ code: 'ESOCKET', originalCode: 'ERR_SSL_DECRYPTION_FAILED_OR_BAD_RECORD_MAC' }), ['smtp_result_unknown', false, null, true]);
-  assert.deepEqual(s({ code: 'ERR_OSSL_BAD_DECRYPT' }), ['smtp_result_unknown', false, null, true]);
+  for (const record of ['ERR_SSL_SSLV3_ALERT_BAD_RECORD_MAC', 'ERR_SSL_DECRYPTION_FAILED', 'ERR_SSL_TLSV1_ALERT_DECRYPTION_FAILED']) {
+    assert.deepEqual(s({ code: 'ESOCKET', originalCode: record }), ['smtp_result_unknown', false, null, true], record);
+  }
+  // 협상 실패·설정 문제(잘못된 포트·보안 방식, 버전·암호 불일치)는 보내기 중이어도 영구 TLS 실패 + 연결 상태 error(결과 모름으로 숨기지 않음).
+  // 평문 SMTP에 TLS로 접속한 실제 nodemailer 오류 모양: code ESOCKET, originalCode ERR_SSL_WRONG_VERSION_NUMBER, command CONN.
+  for (const handshake of ['ERR_SSL_WRONG_VERSION_NUMBER', 'ERR_SSL_SSLV3_ALERT_HANDSHAKE_FAILURE', 'ERR_SSL_TLSV1_ALERT_PROTOCOL_VERSION',
+    'ERR_SSL_UNSUPPORTED_PROTOCOL', 'ERR_SSL_TLSV1_ALERT_DECRYPT_ERROR', 'ERR_SSL_PACKET_LENGTH_TOO_LONG']) {
+    assert.deepEqual(s({ code: 'ESOCKET', originalCode: handshake, command: 'CONN' }), ['smtp_tls_failed', false, 'error', false], handshake);
+  }
+  assert.deepEqual(s({ code: 'ERR_OSSL_BAD_DECRYPT' }), ['smtp_tls_failed', false, 'error', false], 'other OpenSSL errors stay permanent');
   assert.deepEqual(c({ code: 'ESOCKET', originalCode: 'ERR_SSL_DECRYPTION_FAILED_OR_BAD_RECORD_MAC' }), ['smtp_tls_failed', false, 'error', null]);
   assert.deepEqual(s({ code: 'EENVELOPE', responseCode: 451 }), ['smtp_temporary_failure', true, null, false], '4xx reply = not accepted, retry');
   assert.deepEqual(s({ code: 'EMESSAGE', responseCode: 554 }), ['smtp_message_failed', false, null, false]);

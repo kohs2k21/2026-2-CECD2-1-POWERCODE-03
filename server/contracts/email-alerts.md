@@ -1,5 +1,5 @@
 Created: 2026-11-21T14:40:00+09:00
-Updated: 2026-11-21T18:00:00+09:00
+Updated: 2026-11-21T19:30:00+09:00
 Author: Claude Code(WebUI builder)
 Status: current — API·DB(migration 033) 구현. 설정 화면은 후속 PR(화면 문구 승인 뒤)
 
@@ -45,7 +45,7 @@ Status: current — API·DB(migration 033) 구현. 설정 화면은 후속 PR(�
 - 상태: `queued` 대기 → `sending` 보내는 중(lease 5분) → `sent` 보냄 | `retrying` 다시 시도 대기 | `failed` 실패 | `unknown` 확인 불가(다시 보내지 않음) | `suppressed` 발송 제한으로 생략
 - 가져오기: 보낼 차례인 행 최대 10건을 `FOR UPDATE SKIP LOCKED`로 `sending`·시도 수 +1·lease를 커밋한 뒤 보낸다. 설정이 꺼져 있으면 보내지 않는다
 - 다시 시도(1·5·15·60분 뒤, 5번째 시도까지): **연결 전으로 확실한 실패**만 — 접속 거절·경로 없음(`ECONNREFUSED`·`EHOSTUNREACH`·`ENETUNREACH`·`EADDRNOTAVAIL`)·이름 풀기 실패, 연결·인사·STARTTLS 협상 시간 초과(nodemailer `timeoutType` = `CONNECT_TIMEOUT`·`GREETING_TIMEOUT`·`UPGRADE_TIMEOUT`), 서버의 4xx 응답(받지 않았다는 응답). 5번째 뒤와 영구 실패(인증·TLS·인증서·5xx·받는 사람 거절·메시지 오류·설정·키 문제)는 `failed`
-- **결과 모름 → `unknown`(`smtp_result_unknown`), 다시 보내지 않음**: 보내는 중 **응답 번호 없이** 연결 뒤 끊김(`ECONNRESET`·`EPIPE`·소켓 오류·연결 닫힘)·소켓 시간 초과(`SOCKET_TIMEOUT`, 단계 없는 시간 초과 포함)·스트림 오류·알 수 없는 오류, 시험 발송의 20초 제한 초과. 서버가 이미 받았을 수 있어서다(사용자 11/21: 중복 없음, 누락 가능). TLS 협상·인증서 오류(`ETLS`·`CERT_*`·`ERR_TLS_*` 등, `originalCode` 포함)는 메일 내용 전 단계라 영구 실패로 두고, 연결 뒤 TLS 레코드 오류(`ERR_SSL_*`·`ERR_OSSL_*`)는 DATA 중에도 날 수 있어 보내기 중이면 그 행만 결과 모름(연결 확인에서는 영구 TLS 실패)
+- **결과 모름 → `unknown`(`smtp_result_unknown`), 다시 보내지 않음**: 보내는 중 **응답 번호 없이** 연결 뒤 끊김(`ECONNRESET`·`EPIPE`·소켓 오류·연결 닫힘)·소켓 시간 초과(`SOCKET_TIMEOUT`, 단계 없는 시간 초과 포함)·스트림 오류·알 수 없는 오류, 시험 발송의 20초 제한 초과. 서버가 이미 받았을 수 있어서다(사용자 11/21: 중복 없음, 누락 가능). TLS 오류(`ETLS`·`EREQUIRETLS`·`CERT_*`·`ERR_TLS_*`·`ERR_SSL_*`·`ERR_OSSL_*` 등, `originalCode` 포함)는 **기본 영구 실패**(`smtp_tls_failed`, 연결 상태 `error`)다 — 잘못된 포트·보안 방식(평문 서버에 TLS 접속 → `ERR_SSL_WRONG_VERSION_NUMBER`)·버전·암호 불일치(`…_ALERT_HANDSHAKE_FAILURE`·`…_ALERT_PROTOCOL_VERSION`·`UNSUPPORTED_PROTOCOL`) 같은 설정 문제를 결과 모름으로 숨기지 않기 위해서다. 예외는 협상이 끝난 뒤 레코드 계층에서만 나는 MAC·복호 실패(허용 목록: `ERR_SSL_DECRYPTION_FAILED_OR_BAD_RECORD_MAC`·`ERR_SSL_DECRYPTION_FAILED`·`ERR_SSL_SSLV3_ALERT_BAD_RECORD_MAC`·`ERR_SSL_TLSV1_ALERT_DECRYPTION_FAILED`, Node 22 = OpenSSL 3.0 이유 문자열) — DATA 중에도 날 수 있어 보내기 중이면 그 행만 결과 모름(연결 확인에서는 영구 TLS 실패)
   - 판단 근거: nodemailer는 연결 뒤 네트워크 오류에 단계 정보를 남기지 않고(`command`가 늘 `CONN`) 모든 시간 초과를 `ETIMEDOUT` + `timeoutType`으로 낸다. 그래서 DATA를 시작했는지는 알 수 없고, 연결 전으로 확실한 경우만 다시 보낸다(연결 직후 인사 전에 닫힌 경우도 결과 모름 — 보수적)
   - 결과 모름은 연결 상태(전송 상태)에 남기지 않고, 같은 묶음의 다음 행은 계속 보낸다(행마다 새 연결)
   - 연결 확인(메일 없음)에서는 같은 끊김·시간 초과를 일시 실패(`smtp_connection_failed`·`smtp_timeout`)로 본다

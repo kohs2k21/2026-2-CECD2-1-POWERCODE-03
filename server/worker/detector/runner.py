@@ -81,7 +81,7 @@ def process_detection_message(conn: Any, message: ClaimedMessage, root: Path | N
         if job["contractVersion"] == "v04":
             from detector.attempt_v04 import run_attempt
             run_attempt(conn, message, job, attempt_id, attempt_token, observation, fixed, root,
-                        started=started, queue_wait=queue_wait, heartbeat=heartbeat, finish=_finish)
+                        started=started, queue_wait=queue_wait, heartbeat=heartbeat)
             return
         config_id = fixed[1]
         context = load_context(conn, config_id, observation.source_id)

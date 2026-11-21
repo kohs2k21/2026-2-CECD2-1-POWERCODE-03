@@ -50,7 +50,6 @@ const {
 
 // 1) 옛 주소 넘김 표
 const legacy = [
-  ["/notifications", "?filter=tasks", "/analysis"],
   ["/analysis/process-decisions", "", "/analysis"],
   ["/detection", "", "/detection/operations"],
   ["/detection/pipeline", "", "/detection/operations"],
@@ -88,7 +87,13 @@ assert.deepEqual(detectionMenu.map((item) => item.label), ["운영 설정", "룰
 assert.deepEqual(visibleTopNavItems("user").map((item) => item.label), ["운영 현황", "이상 분석"]);
 assert.deepEqual(visibleTopNavItems("admin").map((item) => item.label), ["운영 현황", "이상 분석", "탐지 설정"]);
 assert.equal(isAppPath("/detection/pipeline"), false);
-assert.equal(isAppPath("/notifications"), false);
+// 알림 페이지(휴대폰 첫 화면): 옛 주소 넘김에서 빠지고 앱 주소가 됐다(navigation.md).
+assert.equal(legacyRedirect("/notifications", "?filter=tasks"), null, "/notifications is a page again");
+assert.equal(isAppPath("/notifications"), true);
+assert.equal(isAppPath("/notifications/x"), false);
+assert.equal(safeReturnPath("/notifications?view=all"), "/notifications?view=all");
+assert.equal(routes.homePath(true), "/notifications");
+assert.equal(routes.homePath(false), "/operations");
 assert.equal(safeReturnPath("/detection/collection"), "/operations?tab=collect");
 
 // 3) 실제 라우트 표 렌더(로컬 가짜 fetch만, 외부 요청 없음)
@@ -187,7 +192,33 @@ for (const [path, search, expected] of legacy) {
 {
   const app = await mount("/");
   assert.equal(location(app.router), "/operations");
+  // PC 폭: 알림 버튼은 작은 창(버튼), 주요 화면 메뉴·설정은 보인다(휴대폰 폭에서만 숨김 클래스).
+  assert.equal(app.links().filter((node) => node.props.href === "/notifications").length, 0, "desktop bell is not a link");
+  assert.ok(app.renderer.root.findByProps({ "aria-label": "주요 화면" }).props.className.split(" ").includes("max-md:hidden"));
   await app.cleanup();
+}
+// 휴대폰 폭(matchMedia 일치): 첫 화면 = 알림 페이지(replace), 알림 버튼 = 알림 페이지 링크(그 페이지에서 aria-current), 설정 링크는 휴대폰에서 숨김.
+{
+  const query = { matches: true, addEventListener() {}, removeEventListener() {} };
+  globalThis.window.matchMedia = () => query;
+  try {
+    const app = await mount("/");
+    assert.equal(location(app.router), "/notifications");
+    assert.equal(app.router.state.historyAction, "REPLACE");
+    assert.equal(app.h1(), "알림", "the page shows its title");
+    const bell = app.links().find((node) => node.props.href === "/notifications");
+    assert.ok(bell && bell.props["aria-label"].startsWith("알림"), "bell links to the alerts page");
+    assert.equal(bell.props["aria-current"], "page");
+    const settings = app.links().find((node) => node.props["aria-label"] === "설정");
+    assert.ok(settings.parent && String(settings.props.className).includes("max-md:hidden"), "settings is hidden on phones");
+    await app.cleanup();
+    const other = await mount("/analysis/d/decision-1");
+    const otherBell = other.links().find((node) => node.props.href === "/notifications");
+    assert.equal(otherBell.props["aria-current"], undefined, "not current on other screens");
+    await other.cleanup();
+  } finally {
+    delete globalThis.window.matchMedia;
+  }
 }
 
 // 탐지 설정 사이드바 4메뉴·aria-current·하위 화면 뒤로가기 아이콘

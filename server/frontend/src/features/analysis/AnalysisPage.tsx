@@ -8,6 +8,7 @@ import { SideNav, type SideNavGroup } from "@/components/layout/SideNav";
 import { paths } from "@/app/routes";
 import { getStored, setStored, storageKeys } from "@/lib/storage";
 import { motionTransition } from "@/lib/motion";
+import { cn } from "@/lib/utils";
 import { useAuthSession } from "@/services/auth/AuthSessionProvider";
 import {
   isOutcomeCategory,
@@ -80,10 +81,27 @@ export const incidentNavGroup = (): SideNavGroup => ({
   separated: true,
   items: [{ id: "incidents", label: incidentNavLabel, icon: <IconTimelineEvent aria-hidden="true" />, to: paths.analysisIncidents }],
 });
-/** 판정 상세의 돌아가기: 사건 화면에서 온 경우만 그 주소(state.returnTo, 이름표 "사건으로"), 그 밖은 판정 목록("목록"). */
-const incidentReturn = (state: unknown) => {
+const returnToOf = (state: unknown) => {
   const value = state && typeof state === "object" ? (state as { returnTo?: unknown }).returnTo : undefined;
-  return typeof value === "string" && value.startsWith(paths.analysisIncidents) ? value : null;
+  return typeof value === "string" ? value : null;
+};
+/** 알림 페이지 주소(`/notifications`, 쿼리 포함)만. `/notifications-x` 같은 다른 주소는 아니다. */
+const isNotificationsPath = (value: string) => value === paths.notifications || value.startsWith(paths.notifications + "?");
+/** 알림 페이지에서 연 상세의 돌아가기(state.returnTo, 이름표 "알림으로"). 판정·사건 상세 공통. */
+export const NOTIFICATIONS_BACK_LABEL = "알림으로";
+const notificationsReturn = (state: unknown) => {
+  const value = returnToOf(state);
+  return value && isNotificationsPath(value) ? value : null;
+};
+/**
+ * 판정 상세의 돌아가기: 사건 화면에서 왔으면 그 주소("사건으로"), 알림 페이지에서 왔으면 그 주소("알림으로"),
+ * 그 밖은 판정 목록("목록"). 넘겨받은 주소가 이 두 곳이 아니면 무시한다.
+ */
+const decisionReturn = (state: unknown): { href: string; label: string } | null => {
+  const value = returnToOf(state);
+  if (value?.startsWith(paths.analysisIncidents)) return { href: value, label: "사건으로" };
+  if (value && isNotificationsPath(value)) return { href: value, label: NOTIFICATIONS_BACK_LABEL };
+  return null;
 };
 
 /**
@@ -139,8 +157,8 @@ export const AnalysisPage = () => {
   const resolvedIncident = incidentDetail.data?.id;
   useEffect(() => {
     if (incidentId && resolvedIncident && resolvedIncident !== incidentId)
-      navigate({ pathname: paths.analysisIncident(resolvedIncident), search: location.search }, { replace: true });
-  }, [incidentId, location.search, navigate, resolvedIncident]);
+      navigate({ pathname: paths.analysisIncident(resolvedIncident), search: location.search }, { replace: true, state: location.state });
+  }, [incidentId, location.search, location.state, navigate, resolvedIncident]);
   const onIncidentChange = useCallback(
     (next: { period?: IncidentPeriod; cursor?: string | null; all?: boolean }) => {
       const current = parseIncidentSearch(location.search);
@@ -155,12 +173,12 @@ export const AnalysisPage = () => {
     },
     [location.search, navigate],
   );
-  // 작업 ID로 연 상세에 최종 판정이 생기면 판정 ID 주소로 바꾼다.
+  // 작업 ID로 연 상세에 최종 판정이 생기면 판정 ID 주소로 바꾼다(돌아가기 state 유지).
   const resolvedId = detail.data?.id;
   useEffect(() => {
     if (decisionId && resolvedId && resolvedId !== decisionId)
-      navigate({ pathname: paths.analysisDecision(resolvedId), search: location.search }, { replace: true });
-  }, [decisionId, location.search, navigate, resolvedId]);
+      navigate({ pathname: paths.analysisDecision(resolvedId), search: location.search }, { replace: true, state: location.state });
+  }, [decisionId, location.search, location.state, navigate, resolvedId]);
 
   const onChange = useCallback(
     (next: Partial<ListParams>, replace = false) => {
@@ -203,6 +221,8 @@ export const AnalysisPage = () => {
     </div>
   );
   const search = listSearch(params, location.search);
+  const back = decisionReturn(location.state);
+  const incidentBack = notificationsReturn(location.state);
 
   return (
     <div className="grid gap-6">
@@ -217,7 +237,8 @@ export const AnalysisPage = () => {
           {!isWide && (
             <motion.div
               key="side-nav"
-              className="shrink-0 overflow-clip md:flex md:justify-end md:self-stretch"
+              // 휴대폰 폭의 상세(판정·사건)는 분류 메뉴 버튼을 숨긴다(목록은 휴대폰 범위 밖이라 그대로).
+              className={cn("shrink-0 overflow-clip md:flex md:justify-end md:self-stretch", (decisionId || incidentId) && "max-md:hidden")}
               initial={{ width: 0, opacity: 0 }}
               animate={{ width: "auto", opacity: 1 }}
               exit={{ width: 0, opacity: 0 }}
@@ -238,7 +259,8 @@ export const AnalysisPage = () => {
               <IncidentDetailView
                 key={incidentId}
                 query={incidentDetail}
-                backHref={paths.analysisIncidents + incidentSearch(incidentQuery)}
+                backHref={incidentBack ?? paths.analysisIncidents + incidentSearch(incidentQuery)}
+                backLabel={incidentBack ? NOTIFICATIONS_BACK_LABEL : undefined}
                 isWide={isWide}
                 onToggleWide={onToggleWide}
               />
@@ -261,8 +283,8 @@ export const AnalysisPage = () => {
               query={detail}
               interims={interims}
               flow={flow}
-              backHref={incidentReturn(location.state) ?? paths.analysis + search}
-              backLabel={incidentReturn(location.state) ? "사건으로" : "목록"}
+              backHref={back?.href ?? paths.analysis + search}
+              backLabel={back?.label ?? "목록"}
               isWide={isWide}
               onToggleWide={onToggleWide}
             />

@@ -321,6 +321,32 @@ const byData = (app, key) => app.renderer.root.findAll((node) => node.props?.[ke
   assert.equal(app.renderer.root.findAll((n) => n.type === "a" && text(n.children) === "사건으로")[0].props.href, "/analysis/incidents/f-1?period=30d");
   await act(async () => app.router.navigate("/analysis/d/d-2", { state: { returnTo: "https://example.test/x" } }));
   await wait(() => app.renderer.root.findAll((n) => n.type === "a" && text(n.children) === "목록")[0]?.props.href === "/analysis", "foreign returnTo is ignored");
+  // 알림 페이지에서 연 상세(navigation.md 휴대폰): 돌아가기 "알림으로"(그 주소, 보기 쿼리 포함). 비슷한 다른 주소는 무시.
+  await act(async () => app.router.navigate("/analysis/d/d-3", { state: { returnTo: "/notifications?view=all" } }));
+  await wait(() => app.renderer.root.findAll((n) => n.type === "a" && text(n.children) === "알림으로")[0]?.props.href === "/notifications?view=all", "alerts back link");
+  await act(async () => app.router.navigate("/analysis/d/d-4", { state: { returnTo: "/notificationsx" } }));
+  await wait(() => app.renderer.root.findAll((n) => n.type === "a" && text(n.children) === "목록")[0]?.props.href === "/analysis", "look-alike returnTo is ignored");
+  // 상세(판정·사건)는 휴대폰 폭에서 분류 메뉴를 숨긴다(목록은 그대로). 넓게 보기 버튼도 휴대폰에서 숨김.
+  const sideWrap = () => app.renderer.root.findAll((n) => typeof n.props?.className === "string" && n.props.className.includes("overflow-clip") && n.props.className.includes("shrink-0"))[0];
+  assert.ok(sideWrap().props.className.split(" ").includes("max-md:hidden"), "detail hides the category menu on phones");
+  const wide = app.renderer.root.findAll((n) => n.type === "button" && String(n.props["aria-label"] ?? "").includes("화면으로 보기"))[0];
+  assert.ok(wide.props.className.split(" ").includes("max-md:hidden"), "wide toggle is hidden on phones");
+  await act(async () => app.router.navigate("/analysis"));
+  await wait(() => !sideWrap().props.className.split(" ").includes("max-md:hidden"), "list keeps the category menu");
+  await app.cleanup();
+}
+// 4b) 알림 페이지에서 연 사건 상세: 뒤 구간 id → 흐름 id로 replace해도 돌아가기 state가 남아 "알림으로".
+{
+  routes = {
+    "/api/analysis/incidents/seg-2": () => json(detailBody("f-1", "seg-2")),
+    "/api/analysis/incidents/f-1": () => json(detailBody("f-1")),
+    "/api/analysis/incidents/f-1/members": () => json({ id: "f-1", requestedId: "f-1", total: 0, nextCursor: null, items: [] }),
+  };
+  const app = await mount("/analysis");
+  await act(async () => app.router.navigate("/analysis/incidents/seg-2", { state: { returnTo: "/notifications" } }));
+  await wait(() => at(app.router) === "/analysis/incidents/f-1", "replaced by the flow id");
+  await wait(() => app.renderer.root.findAll((n) => n.type === "a" && text(n.children) === "알림으로")[0]?.props.href === "/notifications", "incident back to alerts");
+  assert.equal(app.renderer.root.findAll((n) => n.type === "a" && text(n.children) === "사건 목록").length, 0);
   await app.cleanup();
 }
 

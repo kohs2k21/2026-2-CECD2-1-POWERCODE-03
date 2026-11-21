@@ -5,7 +5,8 @@ import { useAuthSession } from "@/services/auth/AuthSessionProvider";
 import { HttpError } from "@/services/api/client";
 import { Button } from "@/components/ui/button";
 import { LoadingState } from "@/components/ui/feedback";
-import { legacyRedirect, loginReturnPath, paths } from "./routes";
+import { isMobileViewport } from "@/hooks/useIsMobile";
+import { homePath, legacyRedirect, loginReturnPath, paths } from "./routes";
 
 const CenteredState = ({ children, role }: { children: ReactNode; role?: "alert" }) => (
   <main role={role} className="flex min-h-screen flex-col items-center justify-center gap-4 bg-background p-6 text-center">
@@ -72,8 +73,9 @@ export const LoginRoute = () => {
         <LoadingState>로그인 상태를 확인하는 중...</LoadingState>
       </CenteredState>
     );
+  // 돌아갈 주소가 없으면 첫 화면(휴대폰 폭 = 알림 페이지). 폭은 이동하는 그 순간 한 번만 본다.
   if (session.user)
-    return <Navigate to={loginReturnPath(location.state?.returnTo, session.user.userType)} replace />;
+    return <Navigate to={loginReturnPath(location.state?.returnTo, session.user.userType, homePath(isMobileViewport()))} replace />;
   return (
     <AuthPage
       onLoginSuccess={session.login}
@@ -84,6 +86,9 @@ export const LoginRoute = () => {
     />
   );
 };
+
+/** 기본 경로 `/`: 휴대폰 폭이면 알림 페이지, 그 밖은 운영 현황(navigation.md 기본 경로). */
+export const HomeRedirect = () => <Navigate to={homePath(isMobileViewport())} replace />;
 
 /** 폐지한 옛 주소를 새 주소로 replace 이동(navigation.md 옛 주소 넘김). */
 export const LegacyRedirect = () => {

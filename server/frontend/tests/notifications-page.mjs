@@ -31,6 +31,7 @@ const api = await import("../src/features/notifications/notificationsApi.ts");
 const labels = await import("../src/features/notifications/notificationLabels.ts");
 const { NotificationPanels, notificationHref } = await import("../src/features/notifications/NotificationPanels.tsx");
 const { NotificationsBell } = await import("../src/features/notifications/NotificationsBell.tsx");
+const { NotificationsPage } = await import("../src/features/notifications/NotificationsPage.tsx");
 const { NotificationSettings } = await import("../src/features/settings/sections/NotificationSettings.tsx");
 
 const U1 = "11111111-1111-4111-8111-111111111111", U2 = "22222222-2222-4222-8222-222222222222", U3 = "33333333-3333-4333-8333-333333333333";
@@ -141,7 +142,7 @@ const wait = async (check, label, tries = 300) => {
   for (let i = 0; i < tries && !check(); i++) await tick();
   assert.ok(check(), label);
 };
-const mount = async (element, role = "user") => {
+const mount = async (element, role = "user", initialEntries = undefined) => {
   let session;
   const Probe = () => {
     session = useAuthSession();
@@ -150,7 +151,7 @@ const mount = async (element, role = "user") => {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity }, mutations: { gcTime: Infinity } } });
   let renderer;
   await act(async () => {
-    renderer = create(React.createElement(MemoryRouter, null, React.createElement(QueryClientProvider, { client },
+    renderer = create(React.createElement(MemoryRouter, initialEntries ? { initialEntries } : null, React.createElement(QueryClientProvider, { client },
       React.createElement(AuthSessionProvider, null, React.createElement(Probe), element))));
   });
   await act(async () => session.login({ token: `${role}-token`, user: { id: `${role}-1`, email: `${role}@example.test`, userType: role, createdAt: "2026-10-01T00:00:00Z" } }));
@@ -221,9 +222,9 @@ assert.ok(requests.some((r) => r.path === "/api/pipeline/events" && r.search ===
   };
   const app = await mount(React.createElement(NotificationPanels));
   await wait(() => app.renderer.root.findAll((n) => n.props?.["data-notification"] && typeof n.type === "string").length === 2, "unread items rendered");
-  // 카드: 읽음/읽지 않음 모두 흰 배경(bg-card)·검은 테두리(border-foreground), 읽지 않음 구분은 "읽지 않음" 글자만.
+  // 카드: 읽음/읽지 않음 모두 흰 배경(bg-card)·다른 카드와 같은 회색 테두리(border = --border 토큰, 사용자 11/21), 읽지 않음 구분은 "읽지 않음" 글자만.
   const cardClasses = () => new Set(app.renderer.root.findAll((n) => n.props?.["data-notification"] && typeof n.type === "string").map((n) => n.props.className));
-  assert.deepEqual([...cardClasses()], ["grid gap-1.5 rounded-md border border-foreground bg-card px-3 py-2 text-sm"], "unread cards: white with black border");
+  assert.deepEqual([...cardClasses()], ["grid gap-1.5 rounded-md border bg-card px-3 py-2 text-sm"], "unread cards: white with the default gray border");
   assert.equal(new URLSearchParams(requests.filter((r) => r.path === "/api/notifications").at(-1).search).get("view"), "unread", "unread is the default view");
   assert.ok(app.shown().includes("이상 · 최종 · 위험도 상승") && app.shown().includes("사건 · 응답코드 E500 · 판정 추가") && app.shown().includes("위험도 미정"));
   const links = app.renderer.root.findAll((n) => n.type === "a").map((a) => a.props.href);
@@ -253,9 +254,44 @@ assert.ok(requests.some((r) => r.path === "/api/pipeline/events" && r.search ===
   await wait(() => app.renderer.root.findAll((n) => n.props?.["data-notification"] && typeof n.type === "string").length === 3, "all view rendered");
   await click(buttons(app, "더 보기")[0]);
   await wait(() => app.renderer.root.findAll((n) => n.props?.["data-notification"] && typeof n.type === "string").length === 4, "next page appended");
-  assert.deepEqual([...cardClasses()], ["grid gap-1.5 rounded-md border border-foreground bg-card px-3 py-2 text-sm"], "read and unread cards share one style");
+  assert.deepEqual([...cardClasses()], ["grid gap-1.5 rounded-md border bg-card px-3 py-2 text-sm"], "read and unread cards share one style");
   assert.ok(requests.some((r) => r.search.includes("cursor=next-1")));
   await app.cleanup();
+}
+
+// 2-2b) 알림 페이지(/notifications, 휴대폰 첫 화면): 같은 패널 본문, 보기 = 주소 view(replace), 버튼 기본 크기, 바로가기에 돌아가기 state.
+{
+  routes = {
+    "GET /api/notifications/unread-count": () => [200, unreadBody(1)],
+    "GET /api/notifications": (target) => [200, listBody(target.searchParams.get("view") === "all" ? [decisionItem(), incidentItem({ unread: false })] : [decisionItem()])],
+  };
+  const { useLocation, useNavigationType } = await import("react-router-dom");
+  let where;
+  const Where = () => {
+    const location = useLocation();
+    where = { at: location.pathname + location.search, type: useNavigationType() };
+    return null;
+  };
+  const app = await mount(React.createElement(React.Fragment, null, React.createElement(NotificationsPage), React.createElement(Where)), "user", ["/notifications?view=all"]);
+  const cards = () => app.renderer.root.findAll((n) => n.props?.["data-notification"] && typeof n.type === "string");
+  await wait(() => cards().length === 2, "all view from the address");
+  assert.equal(app.renderer.root.findAllByType("h1").map((h) => text(h.children)).join(), "알림", "visible page title");
+  assert.equal(buttons(app, "전체")[0].props["aria-pressed"], true);
+  assert.ok(buttons(app, "모두 읽음")[0].props.className.split(" ").includes("h-9"), "page buttons use the default size");
+  assert.ok(buttons(app, "읽음 처리")[0].props.className.split(" ").includes("h-9"));
+  const linkStates = app.renderer.root.findAll((n) => typeof n.type !== "string" && n.props?.to && n.props.state).map((n) => [n.props.to, n.props.state]);
+  assert.deepEqual(linkStates, [[`/analysis/d/${U2}`, { returnTo: "/notifications?view=all" }], [`/analysis/incidents/${U3}`, { returnTo: "/notifications?view=all" }]],
+    "links carry the alerts page as the return address");
+  await click(buttons(app, "읽지 않음")[0]);
+  await wait(() => where.at === "/notifications?view=unread" && cards().length === 1, "view switch writes the address");
+  assert.equal(where.type, "REPLACE", "view switch does not pile up history");
+  await app.cleanup();
+  // 패널(기본)은 지금 그대로: 작은 버튼, 바로가기 state 없음.
+  const panel = await mount(React.createElement(NotificationPanels));
+  await wait(() => panel.renderer.root.findAll((n) => n.props?.["data-notification"] && typeof n.type === "string").length === 1, "panel rendered");
+  assert.ok(buttons(panel, "모두 읽음")[0].props.className.split(" ").includes("h-8"), "panel keeps small buttons");
+  assert.equal(panel.renderer.root.findAll((n) => typeof n.type !== "string" && n.props?.to && n.props.state).length, 0, "panel links carry no state");
+  await panel.cleanup();
 }
 
 // 2-3) 패널 오류: 목록 조회 실패는 빈 목록이 아니라 오류.
@@ -495,4 +531,4 @@ for (const truncatedBy of ["events", "days", null]) {
   await app.cleanup();
 }
 
-console.log("notifications page QA passed: parsers and wording, bell badge (count, 99+, unknown), analysis menu badge (decisions + incidents, 99+, hidden at 0/error), panel views/read/read-all/more/links/errors/range notice, notification settings save and failure, window days input (bounds, save, refresh), protocol alerts (wording, admin actions, add → detail, keep), job notifications (wording, detection menu badge, job detail link, read-all jobsThrough, refresh on job finish, admin toggle)");
+console.log("notifications page QA passed: alerts page (address view, default-size buttons, return state), parsers and wording, bell badge (count, 99+, unknown), analysis menu badge (decisions + incidents, 99+, hidden at 0/error), panel views/read/read-all/more/links/errors/range notice, notification settings save and failure, window days input (bounds, save, refresh), protocol alerts (wording, admin actions, add → detail, keep), job notifications (wording, detection menu badge, job detail link, read-all jobsThrough, refresh on job finish, admin toggle)");

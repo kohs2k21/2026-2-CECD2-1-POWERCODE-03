@@ -179,9 +179,9 @@ class LoopBatchClaimTest(unittest.TestCase):
             enter(patch.object(runner, "claim", claim))
             enter(patch("detector.jobs.claim_waiting_input", lambda _conn: calls.append(("waiting",))))
             enter(patch.object(runner, "process_detection_batch",
-                               lambda _conn, messages, _root: calls.append(("batch", list(messages)))))
+                               lambda _conn, messages, _root, **_k: calls.append(("batch", list(messages)))))
             enter(patch.object(runner, "process_detection_message",
-                               lambda _conn, message, _root: calls.append(("single", message))))
+                               lambda _conn, message, _root, **_k: calls.append(("single", message))))
             enter(patch.object(runner, "time", SimpleNamespace(monotonic=lambda: 0.5)))
             processed = loop.iterate()
         return processed, calls
@@ -464,7 +464,7 @@ class ProcessBatchTest(unittest.TestCase):
         log: list = []
         pendings: dict = {}
 
-        def process(_conn, message, _root, pending):
+        def process(_conn, message, _root, pending, _heartbeats=None):
             kind = kinds[message.id]
             log.append(("process", names[message.id]))
             if kind == "fail":

@@ -17,10 +17,16 @@ API/CSV를 같은 전체 피처·Rule·모델 경로로 실행하는 최신 절�
 
 자원 한도는 초기 설정값이다. 서버 RAM·실측 사용량에 맞춰 변경한다. 한도는 `.env`의 `<서비스>_CPUS`·`<서비스>_MEMORY`(예: `INCIDENTS_CPUS=1`, `INCIDENTS_MEMORY=1g`, `DETECTOR_CPUS`·`TRAINER_CPUS`·`LLM_CPUS`·`COLLECTOR_CPUS`와 각 `_MEMORY`)로 바꾼다. CPU cgroup 컨트롤러가 위임되지 않은 rootless Docker에서는 CPU 한도를 걸면 컨테이너 생성이 실패하므로 해당 서비스의 `*_CPUS=0`(CPU 한도 없음)으로 둔다. 메모리 한도는 그대로 둔다. GPU 2·3의 기존 임베딩 작업은 관리 대상에 포함하지 않았다. Trainer는 LLM 준비 상태에 의존하지 않는다. 파생변수 계산은 공통 코드이고 독립 feature 컨테이너는 제거했다. monitor는 `monitoring`, 1분 window는 `windows`, bundle·migrate는 `tools` 선택 프로필이다.
 
-`detector` 서비스(`detector.service`)의 판정 처리량은 `.env`의 두 값으로 바꾼다. 범위 밖이거나 정수가 아니면 컨테이너가 시작하자마자 실패한다(자세한 동작은 `../worker/detector/README.md` "판정 작업자 수(서비스)"·"묶음 저장").
+`detector` 서비스(`detector.service`)의 판정 처리량은 `.env`의 세 값으로 바꾼다. 범위 밖이거나 정수가 아니면 컨테이너가 시작하자마자 실패한다(자세한 동작은 `../worker/detector/README.md` "판정 작업자 수(서비스)"·"판정 프로세스 수"·"묶음 저장").
 
-- `DETECTOR_WORKERS`: 판정 루프(작업자) 수, 작업자마다 DB 연결 1개. 1~8 정수, 기본 4
+- `DETECTOR_WORKERS`: 프로세스 1개 안의 판정 루프(작업자) 수, 작업자마다 DB 연결 1개. 1~8 정수, 기본 4
 - `DETECTOR_BATCH_SIZE`: 작업자 1개가 detect 메시지를 한 번에 임대하고 한 트랜잭션으로 저장하는 최대 수. 1~64 정수, 기본 8. `1`이면 묶음 저장을 끄고 한 건씩 저장한다
+- `DETECTOR_PROCESSES`: 판정 프로세스 수. 1~8 정수, 기본 1(지금처럼 한 프로세스). 2 이상이면 컨테이너 안에서 자식 프로세스를 그 수 - 1개 더 띄우고 각자 `DETECTOR_WORKERS`개를 돌리므로 판정 루프는 모두 `DETECTOR_PROCESSES × DETECTOR_WORKERS`개다. 직접 전달 HTTP 서버는 첫 프로세스에만 있다. 자식 하나가 끝나면 컨테이너 전체가 0이 아닌 코드로 끝나 다시 시작된다
+- `DETECTOR_PROCESSES` > 1일 때 자원(늘리기 전에 확인):
+  - DB 연결: 프로세스마다 작업자 수 + 1(시작 때 잠깐) + 임대 갱신 연결(작업자마다 최대 1개, 20초를 넘긴 시도가 처음 생길 때 열고 계속 쓴다). 첫 프로세스는 직접 전달 연결 1개·직접 전달 임대 갱신 연결 최대 1개·`/health` 요청마다 짧은 연결이 더 있다. 대략 `DETECTOR_PROCESSES × (DETECTOR_WORKERS + 1)` + 직접 전달·갱신 연결이고, 최대는 약 `DETECTOR_PROCESSES × (2 × DETECTOR_WORKERS + 1) + 2`다. PostgreSQL 기본 `max_connections`는 100이고 API·Collector·Trainer·LLM·incidents 등 다른 서비스와 함께 쓴다
+  - 메모리: 프로세스마다 같은 모듈·활성 모델 산출물을 따로 적재하므로 컨테이너 메모리가 프로세스 수만큼 는다. `DETECTOR_MEMORY`(기본 4g)를 함께 늘린다
+  - CPU: 판정 CPU는 대부분 GIL을 잡은 채 쓰므로 프로세스 하나가 쓰는 CPU는 약 1코어 남짓이다 [추정]. `DETECTOR_CPUS`(기본 2)를 프로세스 수 이상으로 함께 늘린다
+  - 정지: SIGTERM 뒤 약 7초 안에 자식까지 멈추고(남으면 SIGTERM·SIGKILL) 끝나므로 docker stop 기본 유예 10초 안이다
 
 ## 서버에서 준비
 

@@ -17,6 +17,11 @@ API/CSV를 같은 전체 피처·Rule·모델 경로로 실행하는 최신 절�
 
 자원 한도는 초기 설정값이다. 서버 RAM·실측 사용량에 맞춰 변경한다. 한도는 `.env`의 `<서비스>_CPUS`·`<서비스>_MEMORY`(예: `INCIDENTS_CPUS=1`, `INCIDENTS_MEMORY=1g`, `DETECTOR_CPUS`·`TRAINER_CPUS`·`LLM_CPUS`·`COLLECTOR_CPUS`와 각 `_MEMORY`)로 바꾼다. CPU cgroup 컨트롤러가 위임되지 않은 rootless Docker에서는 CPU 한도를 걸면 컨테이너 생성이 실패하므로 해당 서비스의 `*_CPUS=0`(CPU 한도 없음)으로 둔다. 메모리 한도는 그대로 둔다. GPU 2·3의 기존 임베딩 작업은 관리 대상에 포함하지 않았다. Trainer는 LLM 준비 상태에 의존하지 않는다. 파생변수 계산은 공통 코드이고 독립 feature 컨테이너는 제거했다. monitor는 `monitoring`, 1분 window는 `windows`, bundle·migrate는 `tools` 선택 프로필이다.
 
+`detector` 서비스(`detector.service`)의 판정 처리량은 `.env`의 두 값으로 바꾼다. 범위 밖이거나 정수가 아니면 컨테이너가 시작하자마자 실패한다(자세한 동작은 `../worker/detector/README.md` "판정 작업자 수(서비스)"·"묶음 저장").
+
+- `DETECTOR_WORKERS`: 판정 루프(작업자) 수, 작업자마다 DB 연결 1개. 1~8 정수, 기본 4
+- `DETECTOR_BATCH_SIZE`: 작업자 1개가 detect 메시지를 한 번에 임대하고 한 트랜잭션으로 저장하는 최대 수. 1~64 정수, 기본 8. `1`이면 묶음 저장을 끄고 한 건씩 저장한다
+
 ## 서버에서 준비
 
 Docker Engine·Compose v2·NVIDIA Container Toolkit은 호스트에 필요하다. Python·Node·pnpm은 이미지 안에 설치된다. CPU와 LLM 이미지 모두 Python 3.12를 사용한다.

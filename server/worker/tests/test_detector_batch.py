@@ -563,6 +563,26 @@ class ProcessBatchTest(unittest.TestCase):
         # 처음 건부터 renew_seconds(0)마다 남은 건을 연장한다. b는 연장 실패라 시작하지 않는다(시도 없음 — 할 일 없음).
         self.assertEqual(log, [("process", "a"), ("process", "c"), ("save_batch", ["a", "c"])])
 
+    def test_fail_pending_rolls_back_before_heartbeat_stop_when_finish_raises(self) -> None:
+        # 시도 실패 기록(_finish)이 예외면 행 잠금을 먼저 풀고(ROLLBACK) heartbeat를 멈춘 뒤 큐 fail(그 예외가 사유)을 한다.
+        log: list = []
+        message = _message()
+        item = SimpleNamespace(message=message, job={"id": uuid.uuid4()}, attempt_id=uuid.uuid4(),
+                               attempt_token=uuid.uuid4(), heartbeat=MagicMock())
+        item.heartbeat.stop.side_effect = lambda: log.append(("stop",))
+
+        def record(*_args):
+            log.append(("attempt_failed",))
+            raise psycopg.OperationalError("finish failed")
+
+        conn = SimpleNamespace(commit=lambda: log.append(("commit",)), rollback=lambda: log.append(("rollback",)))
+        with patch.object(runner, "_record_attempt_failure", record), \
+                patch.object(runner, "fail", lambda _c, _q, _m, reason: log.append(("fail", reason))):
+            runner._fail_pending(conn, item, psycopg.errors.RaiseException("rejected"))
+        # 두 번째 ROLLBACK은 _fail_message(한 건 경로 iterate의 큐 fail)의 것이다.
+        self.assertEqual(log, [("attempt_failed",), ("rollback",), ("stop",), ("rollback",),
+                               ("fail", "detection_failed"), ("commit",)])
+
 
 # ---------------------------------------------------------------- _process_message 자격
 

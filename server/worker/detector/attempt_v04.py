@@ -394,8 +394,10 @@ def _feature_statements(pending: PendingSave) -> list[tuple[str, tuple[Any, ...]
 
 def _success_statements(pending: PendingSave, store_batch_size: int | None = None
                         ) -> tuple[tuple[str, tuple[Any, ...]] | None, tuple[str, tuple[Any, ...]], dict[str, Any]]:
-    """(detector 측정 INSERT 또는 None(재판정), 판정 INSERT, 작업 result_summary). 측정 소요는 이 함수를 부른 시각까지다
-    (판정 INSERT 직전. 묶음 저장이면 앞선 건의 판정을 기다린 시간도 detector 단계에 든다).
+    """(detector 측정 INSERT 또는 None(재판정), 판정 INSERT, 작업 result_summary). 측정 소요는 이 함수를 부른 시각까지다.
+    한 건 저장(save_attempt)은 소유권 확인·변수 캐시 INSERT 뒤, 측정·판정 INSERT를 보내기 직전이다. 묶음 저장(save_batch)은
+    묶음 트랜잭션에 들어간 직후 소유권 확인(첫 묶음 1단계) 전이라, 앞선 건의 판정을 기다린 시간은 detector 단계에 들고
+    소유권 확인·변수 캐시 INSERT 시간은 들지 않는다.
 
     store_batch_size: 여러 건을 한 트랜잭션으로 저장하면 그 판정 수를 telemetry.details[STORE_BATCH_KEY]에 넣고, None(한 건
     저장)이면 키를 뺀다. evidence·result_summary가 같은 telemetry 객체를 쓰므로 둘 다 같은 값이다.

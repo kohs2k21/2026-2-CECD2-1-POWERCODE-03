@@ -31,6 +31,17 @@ v04 시도 1회의 순서.
 
 큐 재시도를 다 쓴(dead) detection 행의 작업을 `failed`·`queue_exhausted`로, 그 작업의 만료된 시도를 `expired`로 바꾸는 정리(`pg_queue.reconcile_dead_jobs`)는 판정 루프 반복마다가 아니라 첫 반복에서 한 번, 그 뒤로는 직전 정리에서 30초(`runner.RECONCILE_SECONDS`)가 지난 반복에서 한 번 돈다. 그래서 dead가 된 뒤 작업 상태가 바뀌기까지 그 간격과 반복 한 번만큼 늦을 수 있다.
 
+## 판정 작업자 수(서비스)
+
+`python -m detector.service`(Compose `detector`)는 직접 전달 HTTP 서버 1개와 판정 루프 `DETECTOR_WORKERS`개(`runner.run_workers`, 스레드, 작업자마다 DB 연결 1개)를 돌린다. `python -m detector.runner`(`run()`, 통합 시험·`compose.demo.yaml`)는 지금처럼 단일 루프다.
+
+- `DETECTOR_WORKERS`: 1~8 정수, 없으면 4. 범위 밖이거나 정수가 아니면 시작하자마자 실패한다. Compose에서 바꾸려면 `detector` 환경에 `DETECTOR_WORKERS: ${DETECTOR_WORKERS:-4}`를 넣는다(지금 compose 파일에는 없다)
+- 작업자들은 같은 큐를 `FOR UPDATE SKIP LOCKED`로 나눠 가진다. 결과 저장은 작업 행·시도·큐 임대 토큰을 잠금 확인하므로 작업자 수와 무관하게 작업마다 판정은 하나다(`../../contracts/queues.md`)
+- 정리 담당은 0번 작업자 하나다. 첫 반복과 그 뒤 30초마다 임대가 끝난 채 시도를 다 쓴 큐 행을 dead로 바꾸고(`pg_queue.expire_exhausted_leases`) 이어서 `reconcile_dead_jobs`를 부른다. 작업자들의 claim은 이 dead 처리 UPDATE를 건너뛴다(`claim(expire_exhausted=False)`). 그런 행은 claim 조건(`attempts < max_attempts`)에서 이미 빠지므로 다시 임대되지 않고, dead 표시만 최대 30초 늦다
+- 건너뛰기: 직전 반복에서 메시지를 처리한 작업자는 신청 claim·활성 구성·원천 조회와 과거 feature 복구를 마지막 실행 뒤 1초(`runner.FIXED_REFRESH_SECONDS`)가 지난 반복에서만 한다. 큐가 빈 반복 다음에는 매번 한다. 그래서 적체 중에는 과거 feature 복구가 작업자마다 약 1초에 1건으로 줄고, 원천 범위 claim은 1초 안에 읽은 원천을 쓴다
+- 작업자 하나가 예외로 끝나면 나머지를 멈추고 HTTP 서버를 닫은 뒤 0이 아닌 코드로 끝난다(컨테이너 재시작). 시작 단계 `prepare_active`는 작업자를 띄우기 전에 한 번만 한다
+- 처리량 상한 [추정, 미측정]: 판정 INSERT 트리거(`publish_decision_event`, migration 012)가 전역 advisory lock `(81736, 0)`을 COMMIT까지 잡아 판정 이벤트 순서를 커밋 순서로 맞춘다(`../../contracts/pipeline.md` SSE). 그래서 판정 INSERT부터 COMMIT까지는 작업자 수와 무관하게 한 번에 하나씩 지나간다. 이 구간이 3~4.5ms라면 상한은 초당 약 220~330건이다. 이보다 높이려면 이벤트 순번 방식을 바꿔야 하고 계약·migration 결정이 필요하다
+
 ## detect 작업 생성 전환
 
 detect 작업은 `jobs.py`의 `enqueue_observation` 한 곳에서만 만든다. 호출자는 Collector(`collector/storage.py`, `collector/input_store.py`), 데모(`demo/runtime.py`), Detector의 옛 메시지 복구(`runner.py`)다. 새 작업의 계약 버전은 환경 변수 `DETECT_JOB_CONTRACT`(`v03`, `v04`)가 정한다. 값이 없으면 코드 기본은 `v03`이고, `compose.yaml`·`compose.demo.yaml`의 기본은 `v04`다(아래 전환 순서 1의 선행 조건 충족, 11/13).

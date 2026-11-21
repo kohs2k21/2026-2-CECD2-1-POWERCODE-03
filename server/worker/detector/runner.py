@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import os
+import threading
 import time
 import uuid
 from pathlib import Path
@@ -19,6 +21,8 @@ from detector.input_reader import load_process_observation
 from feature_worker import active_config, active_source
 from pg_queue import ClaimedMessage, acknowledge, claim, fail
 from telemetry import cost_family, queue_wait_ms
+
+LOGGER = logging.getLogger(__name__)
 
 
 def process_detection_message(conn: Any, message: ClaimedMessage, root: Path | None) -> None:
@@ -154,75 +158,201 @@ def process_detection_message(conn: Any, message: ClaimedMessage, root: Path | N
 
 # dead 큐 행 대조(reconcile_dead_jobs)는 색인 없는 순차 탐색이라 반복마다 부르지 않고 이 간격마다 한 번 부른다.
 RECONCILE_SECONDS = 30.0
+# 다중 작업자(run_workers): 직전 반복에서 메시지를 처리했으면 신청·활성 구성·원천 조회와 feature 복구를 이 간격마다만 한다.
+FIXED_REFRESH_SECONDS = 1.0
+# DETECTOR_WORKERS 기본값과 허용 범위.
+DEFAULT_WORKERS = 4
+MAX_WORKERS = 8
+
+
+class _Loop:
+    """판정 루프 한 개(연결 1개). run()과 run_workers()의 작업자가 같은 반복을 쓴다.
+
+    - fixed_refresh_seconds None: 고정 단계(신청·활성 구성·원천 조회·feature 복구)를 반복마다 한다(run()).
+      값이 있으면 직전 반복에서 메시지를 처리했을 때 마지막 고정 단계 뒤 그 간격이 지난 반복에서만 한다.
+      직전 반복이 비었으면(큐가 빔) 반복마다 한다. 건너뛴 반복의 원천 범위 claim은 마지막으로 읽은 원천을 쓴다.
+    - reconcile: 이 루프가 dead 정리(reconcile_dead_jobs)를 맡는지. 첫 반복과 그 뒤 reconcile_seconds마다.
+    - expire_in_claim False: detection claim 안의 dead 처리 UPDATE를 건너뛰고, 정리를 맡은 루프가 정리 주기마다
+      정리 직전에 expire_exhausted_leases를 부른다.
+    시각(time.monotonic)은 반복마다 한 번 읽는다.
+    """
+
+    def __init__(self, conn: Any, root: Path | None, worker_id: str, *, reconcile: bool = True,
+                 reconcile_seconds: float = RECONCILE_SECONDS, expire_in_claim: bool = True,
+                 fixed_refresh_seconds: float | None = None) -> None:
+        self.conn, self.root, self.worker_id = conn, root, worker_id
+        self.reconcile, self.reconcile_seconds = reconcile, reconcile_seconds
+        self.expire_in_claim, self.fixed_refresh_seconds = expire_in_claim, fixed_refresh_seconds
+        self.last_reconcile: float | None = None
+        self.last_fixed: float | None = None
+        self.busy = False
+        self.config_id: Any = None
+        self.source_id: Any = None
+
+    def fixed_due(self, now: float) -> bool:
+        return (self.fixed_refresh_seconds is None or not self.busy or self.last_fixed is None
+                or now - self.last_fixed >= self.fixed_refresh_seconds)
+
+    def _fixed(self, now: float) -> None:
+        from detector.applications import process_application_once
+        conn = self.conn
+        process_application_once(conn, self.root, self.worker_id)
+        conn.commit()
+        self.config_id = active_config(conn)
+        conn.commit()
+        self.source_id = active_source(conn, self.config_id) if self.config_id else None
+        conn.commit()
+        self.last_fixed = now
+        # Keep a bounded recovery step so historical waiting inputs also make progress.
+        if self.source_id:
+            from feature_worker import process_feature_message
+            legacy = claim(conn, "feature", source_id=str(self.source_id))
+            conn.commit()
+            if legacy:
+                try:
+                    process_feature_message(conn, legacy, self.config_id)
+                    conn.commit()
+                except Exception:
+                    conn.rollback()
+                    fail(conn, "feature", legacy, reason="feature_bridge_failed")
+                    conn.commit()
+
+    def _claim(self) -> ClaimedMessage | None:
+        conn = self.conn
+        expire = {} if self.expire_in_claim else {"expire_exhausted": False}
+        # Fixed jobs keep their pinned config even if the active source changes.
+        message = claim(conn, "detection", job_kinds=("detect",), **expire)
+        conn.commit()
+        if message is None and self.source_id:
+            message = claim(conn, "detection", source_id=str(self.source_id), **expire)
+            conn.commit()
+        if message is None:
+            from detector.jobs import claim_waiting_input
+            message = claim_waiting_input(conn)
+            conn.commit()
+        return message
+
+    def _maintain(self, now: float) -> None:
+        if not self.reconcile or (self.last_reconcile is not None and now - self.last_reconcile < self.reconcile_seconds):
+            return
+        from pg_queue import expire_exhausted_leases, reconcile_dead_jobs
+        if not self.expire_in_claim:
+            expire_exhausted_leases(self.conn, "detection")
+            self.conn.commit()
+        reconcile_dead_jobs(self.conn, "detection")
+        self.conn.commit()
+        self.last_reconcile = now
+
+    def iterate(self) -> bool:
+        """반복 1회. 메시지를 처리(성공·실패 무관)했으면 True, 가져올 메시지가 없었으면 False."""
+        conn = self.conn
+        now = time.monotonic()
+        if self.fixed_due(now):
+            self._fixed(now)
+        message = self._claim()
+        self._maintain(now)
+        self.busy = message is not None
+        if message is None:
+            return False
+        try:
+            process_detection_message(conn, message, self.root)
+            conn.commit()
+        except Exception as exc:
+            conn.rollback()
+            reason = str(exc) if isinstance(exc, ValueError) else "detection_failed"
+            fail(conn, "detection", message, reason=reason[:100])
+            conn.commit()
+        return True
+
+
+def _prepare(conn: Any, root: Path | None) -> None:
+    from detector.applications import prepare_active
+    try:
+        prepare_active(conn, root)
+        conn.commit()
+    except (model_adapters.ModelNotConfigured, ValueError):
+        conn.rollback()
+        # Rule path remains available when model preparation fails.
 
 
 def run(*, once: bool = False, poll_seconds: float = 1.0, reconcile_seconds: float = RECONCILE_SECONDS) -> None:
+    """단일 루프(연결 1개). 고정 단계는 반복마다, claim 안 dead 처리도 그대로다(통합 시험·compose.demo.yaml이 쓴다)."""
     load_dotenv(Path(__file__).resolve().parents[1] / ".env")
     database_url = os.environ.get("DATABASE_URL")
     if not database_url:
         raise SystemExit("DATABASE_URL이 필요하다")
     root = Path(os.environ["ARTIFACT_ROOT"]) if os.environ.get("ARTIFACT_ROOT") else None
-    from detector.applications import prepare_active, process_application_once
     worker_id = f"detector-{uuid.uuid4()}"
-    last_reconcile: float | None = None
     with psycopg.connect(database_url) as conn:
-        try:
-            prepare_active(conn, root)
-            conn.commit()
-        except (model_adapters.ModelNotConfigured, ValueError):
-            conn.rollback()
-            # Rule path remains available when model preparation fails.
+        _prepare(conn, root)
+        loop = _Loop(conn, root, worker_id, reconcile_seconds=reconcile_seconds)
         while True:
-            process_application_once(conn, root, worker_id)
-            conn.commit()
-            config_id = active_config(conn)
-            conn.commit()
-            source_id = active_source(conn, config_id) if config_id else None
-            conn.commit()
-            # Keep a bounded recovery step so historical waiting inputs also make progress.
-            if source_id:
-                from feature_worker import process_feature_message
-                legacy = claim(conn, "feature", source_id=str(source_id))
-                conn.commit()
-                if legacy:
-                    try:
-                        process_feature_message(conn, legacy, config_id)
-                        conn.commit()
-                    except Exception:
-                        conn.rollback()
-                        fail(conn, "feature", legacy, reason="feature_bridge_failed")
-                        conn.commit()
-            # Fixed jobs keep their pinned config even if the active source changes.
-            message = claim(conn, "detection", job_kinds=("detect",))
-            conn.commit()
-            if message is None and source_id:
-                message = claim(conn, "detection", source_id=str(source_id))
-                conn.commit()
-            if message is None:
-                from detector.jobs import claim_waiting_input
-                message=claim_waiting_input(conn)
-                conn.commit()
-            now = time.monotonic()
-            if last_reconcile is None or now - last_reconcile >= reconcile_seconds:
-                from pg_queue import reconcile_dead_jobs
-                reconcile_dead_jobs(conn,"detection")
-                conn.commit()
-                last_reconcile = now
-            if message is None:
-                if once:
-                    return
-                time.sleep(poll_seconds)
-                continue
-            try:
-                process_detection_message(conn, message, root)
-                conn.commit()
-            except Exception as exc:
-                conn.rollback()
-                reason = str(exc) if isinstance(exc, ValueError) else "detection_failed"
-                fail(conn, "detection", message, reason=reason[:100])
-                conn.commit()
+            processed = loop.iterate()
             if once:
                 return
+            if not processed:
+                time.sleep(poll_seconds)
+
+
+def worker_count(value: str | None) -> int:
+    """DETECTOR_WORKERS 값. 없으면 DEFAULT_WORKERS, 1~MAX_WORKERS 정수 문자열이 아니면 시작 실패(ValueError)."""
+    if value is None:
+        return DEFAULT_WORKERS
+    if not (value.isascii() and value.isdigit()) or not 1 <= int(value) <= MAX_WORKERS:
+        raise ValueError(f"invalid_detector_workers: 1~{MAX_WORKERS} 정수여야 한다")
+    return int(value)
+
+
+class WorkerFailed(RuntimeError):
+    """작업자 스레드 하나가 예외로 끝났다. 남은 작업자를 멈춘 뒤 호출자에게 올려 프로세스를 실패로 끝낸다."""
+
+
+def run_workers(database_url: str, root: Path | None, *, workers: int, poll_seconds: float = .25,
+                reconcile_seconds: float = RECONCILE_SECONDS,
+                fixed_refresh_seconds: float = FIXED_REFRESH_SECONDS,
+                stop: threading.Event | None = None, join_seconds: float = 10.0) -> None:
+    """판정 루프 workers개를 스레드로 돌린다. 작업자마다 연결이 따로다.
+
+    - 시작 단계 prepare_active는 작업자를 띄우기 전에 한 번만 한다.
+    - dead 처리·정리는 0번 작업자만 reconcile_seconds마다 한다. 모든 작업자의 detection claim은 dead 처리 UPDATE를 건너뛴다.
+    - 작업자 하나가 예외로 끝나면 stop을 세워 나머지를 멈추고(현재 반복을 끝낸 뒤, 최대 join_seconds 대기)
+      WorkerFailed를 올린다. stop이 밖에서 세워지면 같은 방식으로 멈추고 정상 반환한다.
+    """
+    if not 1 <= workers <= MAX_WORKERS:
+        raise ValueError(f"invalid_detector_workers: 1~{MAX_WORKERS} 정수여야 한다")
+    stop = stop or threading.Event()
+    with psycopg.connect(database_url) as conn:
+        _prepare(conn, root)
+    failures: list[tuple[int, BaseException]] = []
+    base_id = f"detector-{uuid.uuid4()}"
+
+    def work(index: int) -> None:
+        try:
+            with psycopg.connect(database_url) as conn:
+                loop = _Loop(conn, root, f"{base_id}-{index}", reconcile=index == 0,
+                             reconcile_seconds=reconcile_seconds, expire_in_claim=False,
+                             fixed_refresh_seconds=fixed_refresh_seconds)
+                while not stop.is_set():
+                    if not loop.iterate():
+                        stop.wait(poll_seconds)
+        except BaseException as exc:  # noqa: BLE001 - 어떤 종료든 프로세스 실패로 올린다
+            failures.append((index, exc))
+            stop.set()
+
+    threads = [threading.Thread(target=work, args=(index,), name=f"detector-worker-{index}", daemon=True)
+               for index in range(workers)]
+    for thread in threads:
+        thread.start()
+    try:
+        stop.wait()
+    finally:
+        stop.set()
+        for thread in threads:
+            thread.join(join_seconds)
+    if failures:
+        index, exc = failures[0]
+        LOGGER.error("detector worker %s failed: %s", index, type(exc).__name__)
+        raise WorkerFailed(f"detector_worker_failed:{index}") from exc
 
 
 if __name__ == "__main__":

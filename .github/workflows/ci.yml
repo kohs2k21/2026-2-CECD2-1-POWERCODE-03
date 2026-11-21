@@ -183,6 +183,10 @@ jobs:
         env:
           RECHECK_TEST_ADMIN_URL: postgresql://postgres:local-ci-only@127.0.0.1:5432/postgres
         run: python server/worker/tests/integration_relation_recheck.py
+      - name: Detector multiple workers on one detection queue
+        env:
+          WORKERS_TEST_ADMIN_URL: postgresql://postgres:local-ci-only@127.0.0.1:5432/postgres
+        run: python server/worker/tests/integration_detector_workers.py
       - name: Incident grouping job (layer C)
         env:
           INCIDENTS_TEST_ADMIN_URL: postgresql://postgres:local-ci-only@127.0.0.1:5432/postgres

@@ -63,8 +63,13 @@ def enqueue(conn: Any, queue: QueueName, payload: dict[str, Any], *, message_id:
 def claim(conn: Any, queue: QueueName, *, lease_seconds: int = 60,
           max_attempts: int = 3, benchmark_run_id: str | None = None,
           source_id: str | None = None, job_kinds: tuple[str, ...] | None = None,
-          message_id: uuid.UUID | None = None) -> ClaimedMessage | None:
-    """메시지 하나를 임대하고 다른 소비자가 잠근 행은 건너뛴다."""
+          message_id: uuid.UUID | None = None, expire_exhausted: bool = True) -> ClaimedMessage | None:
+    """메시지 하나를 임대하고 다른 소비자가 잠근 행은 건너뛴다.
+
+    expire_exhausted=False면 임대가 끝난 채 시도를 다 쓴 행을 dead로 바꾸는 UPDATE를 건너뛴다. 아래 picked 조건이
+    `attempts < max_attempts`라 그런 행은 어차피 다시 임대되지 않는다. 대신 호출자가 `expire_exhausted_leases`를
+    주기적으로 불러야 dead가 되고 `reconcile_dead_jobs` 대상이 된다(Detector 다중 작업자의 0번 작업자).
+    """
     if lease_seconds < 1 or max_attempts < 1:
         raise ValueError("lease_seconds and max_attempts must be positive")
     if benchmark_run_id is not None and not benchmark_run_id:
@@ -103,14 +108,8 @@ def claim(conn: Any, queue: QueueName, *, lease_seconds: int = 60,
         scope_params += (message_id,)
     token = uuid.uuid4()
     with conn.cursor() as cur:
-        cur.execute(
-            f"""UPDATE {_table(queue)}
-                   SET status = 'dead', lease_until = NULL, lease_token = NULL,
-                       last_error = 'lease_expired_max_attempts'
-                 WHERE status = 'leased' AND lease_until <= clock_timestamp()
-                   AND attempts >= %s{scope_sql}""",
-            (max_attempts, *scope_params),
-        )
+        if expire_exhausted:
+            _expire(cur, queue, max_attempts, scope_sql, scope_params)
         cur.execute(
             f"""
             WITH picked AS (
@@ -131,6 +130,27 @@ def claim(conn: Any, queue: QueueName, *, lease_seconds: int = 60,
         )
         row = cur.fetchone()
     return ClaimedMessage(*row, queue=queue) if row else None
+
+
+def _expire(cur: Any, queue: QueueName, max_attempts: int, scope_sql: str = "", scope_params: tuple = ()) -> int:
+    cur.execute(
+        f"""UPDATE {_table(queue)}
+               SET status = 'dead', lease_until = NULL, lease_token = NULL,
+                   last_error = 'lease_expired_max_attempts'
+             WHERE status = 'leased' AND lease_until <= clock_timestamp()
+               AND attempts >= %s{scope_sql}""",
+        (max_attempts, *scope_params),
+    )
+    return cur.rowcount
+
+
+def expire_exhausted_leases(conn: Any, queue: QueueName, *, max_attempts: int = 3) -> int:
+    """claim(expire_exhausted=False)만 쓰는 소비자용: 임대가 끝났고 시도를 다 쓴 행 전부를 dead로 바꾼다(범위 없음).
+    claim 안의 같은 UPDATE와 문장·조건이 같다. 호출자가 커밋한다. 바꾼 행 수를 돌려준다."""
+    if max_attempts < 1:
+        raise ValueError("max_attempts must be positive")
+    with conn.cursor() as cur:
+        return _expire(cur, queue, max_attempts)
 
 
 def renew_lease(conn: Any, queue: QueueName, message: ClaimedMessage, *, lease_seconds: int = 60) -> bool:

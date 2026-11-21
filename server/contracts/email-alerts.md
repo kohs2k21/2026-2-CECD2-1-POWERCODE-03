@@ -1,11 +1,11 @@
 Created: 2026-11-21T14:40:00+09:00
-Updated: 2026-11-21T19:30:00+09:00
+Updated: 2026-11-21T23:30:00+09:00
 Author: Claude Code(WebUI builder)
-Status: current — API·DB(migration 033) 구현. 설정 화면은 후속 PR(화면 문구 승인 뒤)
+Status: current — API·DB(migration 033)·설정 화면(설정 › 연동 관리 메일 알림 카드, 11절) 구현
 
 # 메일 알림 계약
 
-- 범위: 알림을 WebUI 알림 패널과 함께 **메일로도** 보낸다(사용자 11/21). 이 문서는 감지·중복 방지·발송·재시도·제한·SMTP 설정·비밀번호 저장·API·메일 내용을 정한다. 설정 화면 규칙은 후속 PR에서 이 문서에 더한다
+- 범위: 알림을 WebUI 알림 패널과 함께 **메일로도** 보낸다(사용자 11/21). 이 문서는 감지·중복 방지·발송·재시도·제한·SMTP 설정·비밀번호 저장·API·메일 내용·설정 화면(11절)을 정한다
 - 사용자 결정(11/21): 기본 = 사건 단위 + 위험도 `위험`, 설정에서 바꿈 / 받는 사람 = 관리자가 넣는 주소 목록(계정과 무관) / SMTP·받는 사람·대시보드 주소를 모두 WebUI 설정에서 넣는다(서버 환경 변수 없음) / 보내는 때 = 새 사건 + 위험도 상승만 / 새 알림 시간당 10건, 넘으면 생략하고 다음 메일에 생략 수 / 고를 수 있는 종류 = 사건 + 묶이지 않은 판정(기본 꺼짐) / 보내는 중 멈춘 발송은 확인 불가로 두고 다시 보내지 않음
 - 레거시(4ec85af `emailService.ts`)에서 SMTP 연결 생각만 가져왔다. 버린 것: 실패를 콘솔 출력·성공으로 바꾸는 동작, `rejectUnauthorized:false`, 값·코드 로그
 - 구현: `backend/src/services/emailAlerts/`(`config.ts` 값 검사, `secretBox.ts` 비밀번호 암호화, `transport.ts` SMTP, `settingsStore.ts` 설정·전송 상태, `scan.ts` 감지, `outbox.ts` 발송·시험 발송·연결 확인·정리, `template.ts` 메일 문구, `runner.ts` 주기 작업), 경로 `backend/src/routes/emailAlertRoutes.ts`, 저장 migration `033_email_alerts.sql`(`infra/database/README.md` 033 절)
@@ -110,3 +110,20 @@ Status: current — API·DB(migration 033) 구현. 설정 화면은 후속 PR(�
 - 통합(`backend/tests/email-alerts.integration.mjs`, CI "Email alerts API and runner under runtime role", 실제 PostgreSQL + `powercode_api` + **가짜 전송**): 2~8절 흐름 전체
 - DB(`infra/tests/erd-v03-email-alerts.mjs`): 033 표·권한·CHECK
 - 실제 메일 발송·실제 SMTP 서버 연결은 시험하지 않았다(사용자 승인 뒤 설정 화면 [시험 발송]으로)
+- 화면(`frontend/tests/settings-email.mjs`, 가짜 fetch만): 관리자/일반 사용자, 켜기 잠금, 받는 사람 검사, 저장 실패 시 서버 값 유지·키 오류 문구, 비밀번호 비노출, 저장 결과, 시험 발송 확인·결과, 발송 상태 문구, 사건 묶음 처리 대기
+
+## 11. 설정 화면(설정 › 연동 관리 › `이메일 (SMTP) 연동` 카드, 문구 사용자 승인 11/21)
+
+- 구현: `frontend/src/features/settings/email/`(`emailAlertsApi.ts` 요청·응답·받는 사람 검사·처리 대기 판단, `emailAlertLabels.ts` 문구, `useEmailAlerts.ts` 조회·저장, `EmailAlertsCard.tsx` 카드). PC 화면(휴대폰 최적화 없음)
+- 관리자만: 일반 사용자는 카드에 `메일 알림 설정은 관리자만 바꿀 수 있습니다.` 한 줄만 보이고 메일 알림 API를 부르지 않는다. 조회 key는 계정별(`email-alert-settings`·`email-alert-deliveries`), 주기 조회 없음 — 저장·시험 발송 뒤 다시 조회
+- 카드 설명 `위험 사건 알림을 메일로 보냅니다.`. 연동 관리 상단 `저장 미지원`은 두지 않는다(이 카드에 자체 [저장], Slack·Webhook 카드는 카드 안 미지원 표시, `navigation.md` 설정 행)
+- 전송 상태 배지(`transport.status`): `configured` 설정됨 · `not_configured` 미설정 · `invalid` 설정 오류 · `auth_failed` 인증 실패 · `error` 연결 오류. 옆에 `마지막 확인 <시각>`(checkedAt 있을 때), 코드가 있으면 ` · <code>`
+- `메일 알림 켜기` 스위치: 꺼진 상태에서 켜기는 전송 상태가 설정됨·인증 실패·연결 오류일 때만(5절 켜기 전제, 아니면 API 409). 끄기는 언제나
+- SMTP 입력: `SMTP 호스트`, `포트`(응답 `limits.ports` 선택, 빈 값 = 없음), `보안`(`TLS 접속` / `STARTTLS 필수`, 빈 값 = 없음), `발신 계정`(SMTP 계정), `비밀번호`, `보내는 주소`, `대시보드 주소`(도움말 `메일 링크 앞부분 (예: http://서버:8080)`). 값 검사는 서버(오류 코드 표시)
+- 비밀번호(6절 쓰기 전용): 입력칸은 늘 비어 있고 새 값만 받는다. 저장된 비밀번호가 있으면 자리표시 `저장됨 · 바꿀 때만 입력`과 [비밀번호 지우기](다음 저장에 `password:null`). 입력 없으면 `password` 생략(유지). 발신 계정이 비면 비밀번호 칸을 잠그고 보내지 않는다(서버가 함께 지움)
+- 규칙: `보낼 알림` = `사건`·`묶이지 않은 판정` 체크, `위험도 하한` = 알림 설정과 같은 `위험`·`주의 이상`·`참고 이상`
+- `받는 사람` 목록 `N/10`(응답 `limits.recipients`), [추가]·[삭제](이름 `<주소> 삭제`). 추가할 때 검사(7절과 같은 규칙, 앞뒤 공백 제거·도메인 소문자): `메일 주소 형식이 아닙니다.` · `이미 있는 주소입니다.`(대소문자 무시) · `최대 10개까지 넣을 수 있습니다.`
+- [저장]: 입력값 전체를 PUT(8절). 바뀐 것이 없거나 저장 중이면 잠금(저장 중에는 입력도 잠금). 성공하면 응답으로 화면을 바꾸고 결과 줄 — `verify.result` ok `저장됨 · 연결 확인 성공` / auth_failed·error `저장됨 · 연결 확인 실패 · <code>` / skipped `저장됨`. 실패하면 서버 값(전송 상태·저장값)은 그대로 두고 입력값은 남겨 다시 저장할 수 있게 하며 `메일 알림 설정을 저장하지 못했습니다` + 코드(키 오류 `email_secret_key_unavailable`·`email_secret_key_invalid`는 `암호화 키를 쓸 수 없어 비밀번호를 저장하지 못했습니다.`)
+- [시험 발송](받는 사람마다): 저장된 받는 사람이고 켤 수 있는 전송 상태일 때만. 확인 창 `<주소>로 시험 메일을 보냅니다.` [보내기]/[취소]. 결과 줄 — sent `시험 발송 완료` / failed `시험 발송 실패 · <errorCode>` / unknown `확인 불가`(발송 상태 문구 그대로, 실패·성공으로 바꾸지 않음) / 요청 오류(404·409·429·503) `시험 발송 실패 · <code>`
+- `최근 발송` 표(20건): `시각`(만든 시각) · `종류`(`사건`·`판정`·`시험`) · `받는 사람` · `결과`. 상태 문구 queued `대기` · sending `보내는 중` · sent `보냄` · retrying `다시 시도 대기` · failed `실패` · unknown `확인 불가` · suppressed `발송 제한으로 생략`. 없으면 `보낸 메일이 없습니다.`
+- `사건 묶음 처리 대기 중`(2절 사건 소속 확정): 켜져 있고 처리 경계 < 최신 판정 순번인데, 주기 작업이 다시 돈 뒤(`lastTickAt` 바뀜)에도 경계가 같은 자리에 5분 이상 머물면 표시. 응답에 "언제부터 머물렀나"가 없어 화면이 본 조회 사이(계정별, 화면을 다시 열어도 이어서)에서만 잰다 — 처음 본 조회에서는 표시하지 않는다

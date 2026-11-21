@@ -454,7 +454,9 @@ const puts = () => requests.filter((r) => r.method === "PUT");
 }
 
 // 2-4b) 켜진 상태: (b) 호스트·비밀번호를 비우면 저장 잠금(API 409), 끄면 저장 가능. 켜짐 + 설정 오류(키로 못 푸는 비밀번호)도 끄기는 된다.
-for (const transport of [{ status: "configured", code: null, checkedAt: "2026-11-21T01:02:03.000000Z" }, { status: "invalid", code: "smtp_password_unreadable", checkedAt: null }]) {
+// 받는 사람·보낼 알림을 비운 채로도 끄면 저장된다(enabled:false는 API가 목록을 보지 않음).
+const okTransport = { status: "configured", code: null, checkedAt: "2026-11-21T01:02:03.000000Z" };
+for (const [transport, mode] of [[okTransport, "smtp"], [{ status: "invalid", code: "smtp_password_unreadable", checkedAt: null }, "invalid"], [okTransport, "empty"]]) {
   let stored = configured({ enabled: true, transport });
   routes = {
     "GET /api/email-alerts/settings": () => [200, stored],
@@ -468,7 +470,11 @@ for (const transport of [{ status: "configured", code: null, checkedAt: "2026-11
   const app = await mount(integrations);
   await wait(() => emailSwitch(app)?.props["aria-checked"] === true, `enabled loaded (${transport.status})`);
   assert.equal(emailSwitch(app).props.disabled, false, "turning off is always possible");
-  if (transport.status === "configured") {
+  if (mode === "empty") {
+    await click(byLabel(app, "ops@example.test 삭제")[0]);
+    await setKind(app, "incident", false);
+    assert.equal(buttons(app, "저장")[0].props.disabled, true, "(b) empty lists while enabled cannot be saved");
+  } else if (mode === "smtp") {
     // 켜진 채 받는 사람·보낼 알림을 비우면 SMTP와 같이 [저장] 잠금, 끄기는 그대로 가능.
     await click(byLabel(app, "ops@example.test 삭제")[0]);
     assert.ok(app.shown().includes("0/10"));
@@ -495,6 +501,9 @@ for (const transport of [{ status: "configured", code: null, checkedAt: "2026-11
   assert.equal(buttons(app, "저장")[0].props.disabled, false, "turning off can be saved");
   await click(buttons(app, "저장")[0]);
   await wait(() => puts().length === 1 && puts()[0].body.enabled === false, "disable saved");
+  if (mode === "empty") {
+    assert.deepEqual([puts()[0].body.recipients, puts()[0].body.rules.kinds], [[], []], "off is saved with empty recipients and kinds");
+  }
   await app.cleanup();
 }
 

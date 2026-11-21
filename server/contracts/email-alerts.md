@@ -1,5 +1,5 @@
 Created: 2026-11-21T14:40:00+09:00
-Updated: 2026-11-21T23:30:00+09:00
+Updated: 2026-11-21T22:01:43+09:00
 Author: Claude Code(WebUI builder)
 Status: current — API·DB(migration 033)·설정 화면(설정 › 연동 관리 메일 알림 카드, 11절) 구현
 

@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import type { AuthUser } from "@/types/auth";
+import { EmailAlertsCard } from "../email/EmailAlertsCard";
 import { integrationMeta, type IntegrationMetaConfig } from "../settingsConfig";
 
 const disabledReason = "서버 연동을 지원하지 않아 URL 입력, 연결 설정, 테스트를 사용할 수 없습니다.";
@@ -51,20 +53,13 @@ const IntegrationCard = ({ meta, children }: { meta: IntegrationMetaConfig; chil
   );
 };
 
-export const IntegrationsSettings = () => (
+/** 연동 관리: 메일 알림은 관리자 설정(EmailAlertsCard, 자체 [저장]). Slack·Webhook은 서버 연동이 없어 입력·테스트를 잠근다. */
+export const IntegrationsSettings = ({ currentUser }: { currentUser: AuthUser }) => (
   <div className="grid gap-4">
     <IntegrationCard meta={integrationMeta.slack}>
       <DisabledField label="WEBHOOK URL" type="password" action={<TestUnsupported />} />
     </IntegrationCard>
-    <IntegrationCard meta={integrationMeta.email}>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <DisabledField label="SMTP 호스트" />
-        <DisabledField label="포트" />
-        <div className="sm:col-span-2">
-          <DisabledField label="발신 계정" action={<TestUnsupported />} />
-        </div>
-      </div>
-    </IntegrationCard>
+    <EmailAlertsCard currentUser={currentUser} />
     <IntegrationCard meta={integrationMeta.webhook}>
       <DisabledField label="엔드포인트 URL" action={<TestUnsupported />} />
     </IntegrationCard>

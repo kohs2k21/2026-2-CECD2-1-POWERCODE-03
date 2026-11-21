@@ -14,7 +14,6 @@ export type SettingsToggleConfig = {
 };
 
 export type SeverityChannelConfig = {
-  description: string;
   label: string;
   severity: "critical" | "warning" | "info";
   subLabel: string;
@@ -27,25 +26,13 @@ export type IntegrationMetaConfig = {
   titleLabel: string;
 };
 
+/** 위험도별 알림 채널 카드 설명(세 줄을 한 줄로, 사용자 승인 11/21). 메일 알림은 연동 관리에서 설정한다. */
+export const severityChannelDescription = "위험도별 알림 채널은 지원하지 않습니다. 메일 알림은 연동 관리에서 설정합니다.";
+
 export const severityChannelSettings: SeverityChannelConfig[] = [
-  {
-    severity: "critical",
-    label: "위험",
-    subLabel: "Critical",
-    description: "위험도별 알림 채널과 외부 전송은 현재 서버에서 지원하지 않습니다.",
-  },
-  {
-    severity: "warning",
-    label: "주의",
-    subLabel: "Warning",
-    description: "위험도별 알림 채널과 외부 전송은 현재 서버에서 지원하지 않습니다.",
-  },
-  {
-    severity: "info",
-    label: "참고",
-    subLabel: "Info",
-    description: "위험도별 알림 채널과 외부 전송은 현재 서버에서 지원하지 않습니다.",
-  },
+  { severity: "critical", label: "위험", subLabel: "Critical" },
+  { severity: "warning", label: "주의", subLabel: "Warning" },
+  { severity: "info", label: "참고", subLabel: "Info" },
 ];
 
 export const notificationTimeSettings: SettingsToggleConfig[] = [
@@ -115,7 +102,7 @@ export const integrationMeta = {
   email: {
     title: "이메일 (SMTP) 연동",
     titleLabel: "SMTP 아웃바운드 서버",
-    description: "이메일 알림 연동은 현재 서버에서 지원하지 않습니다.",
+    description: "위험 사건 알림을 메일로 보냅니다.",
     icon: IconMail,
   },
   webhook: {

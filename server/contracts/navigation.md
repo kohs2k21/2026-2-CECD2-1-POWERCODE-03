@@ -46,7 +46,7 @@
 |---|---|---|
 | 운영 현황 | `tab` | `overview` 개요 / `collect` 수집 |
 | 알림 | `view` | `unread` 읽지 않음 / `all` 전체(바꾸면 replace — 뒤로 가기에 쌓지 않음) |
-| 설정 | `section` | `notifications` / `integrations` / `display` / `profile`(알림 설정 · 연동 관리 · 화면/위젯 · 사용자 환경). `notifications`·`display`는 계정별 서버 저장(바꾸면 바로 저장, [notifications.md](notifications.md)), 그 밖은 `저장 미지원` |
+| 설정 | `section` | `notifications` / `integrations` / `display` / `profile`(알림 설정 · 연동 관리 · 화면/위젯 · 사용자 환경). `notifications`·`display`는 계정별 서버 저장(바꾸면 바로 저장, [notifications.md](notifications.md)). `integrations`는 메일 알림 카드에 자체 [저장](관리자, [email-alerts.md](email-alerts.md) 11절), Slack·Webhook 카드는 카드 안 미지원 표시 — 상단 `저장 미지원` 없음. `profile`만 상단 `저장 미지원` |
 | 머신러닝 모델 | `tab` | `active` 현재 운영 버전 / `all` 전체 버전 |
 | 머신러닝 모델 | `step` | 새 학습 `1` 기간 / `2` 입력 변수 / `3` 모델·파라미터 |
 | 머신러닝 모델 | `job` | 접수한 학습 작업 ID(없으면 생략). 영역 맨 위에 진행 상태를 표시 |

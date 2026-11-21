@@ -9,7 +9,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 import psycopg
 from detector.policy import configure_capacity
-from detector.runner import process_detection_message, run_workers, worker_count
+from detector.runner import batch_size, process_detection_message, run_workers, worker_count
 from pg_queue import claim, fail
 
 
@@ -118,6 +118,8 @@ def main():
     load_dotenv(Path(__file__).resolve().parents[1]/".env")
     # 작업자 수는 HTTP 서버를 열기 전에 검사한다(잘못된 값이면 바로 실패).
     workers=worker_count(os.environ.get("DETECTOR_WORKERS"))
+    # 묶음 크기(DETECTOR_BATCH_SIZE, 기본 8)도 같은 때 검사한다. 직접 전달은 늘 한 건이다.
+    batch=batch_size(os.environ.get("DETECTOR_BATCH_SIZE"))
     # 직접 전달도 판정하므로 슬롯은 HTTP 서버를 열기 전에 맞춘다(run_workers의 같은 호출은 같은 값이라 그대로 둔다).
     configure_capacity(workers+1)
     database_url=os.environ["DATABASE_URL"]
@@ -127,7 +129,7 @@ def main():
     try:
         # 작업자 하나가 죽으면 WorkerFailed가 올라와 HTTP 서버를 닫고 0이 아닌 코드로 끝난다(컨테이너 재시작).
         # 큐가 비었을 때 대기 0.1초(유휴 반복도 고정 단계 조회를 하므로 더 줄이면 빈 조회가 그만큼 는다).
-        run_workers(database_url,root,workers=workers,poll_seconds=.1)
+        run_workers(database_url,root,workers=workers,poll_seconds=.1,batch_size=batch)
     finally:
         server.shutdown();server.server_close()
 

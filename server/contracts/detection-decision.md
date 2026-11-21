@@ -774,18 +774,24 @@
 ## 19. 판정 저장 소요 측정 행 [확정 사용자 결정 11/15: migration을 더해 Detector가 COMMIT까지 잰다 — migration 031]
 
 - 대상: `ops_pipeline_measurements` stage `judgment_store`(031이 stage CHECK에 추가, `config_version_id` NULL 허용 단계를 `detector`·`judgment_store`로). 판정 행에 두지 않는 이유는 18절 "쓰지 않는 열"과 같다(커밋 시각은 트랜잭션 안에서 알 수 없고 판정 행은 불변)
-- 기록 경로: v04 판정(`detector/attempt_v04.py` `run_attempt`, `record_judgment_store`). v03 경로(`detector/runner.py`)는 쓰지 않는다
-- 구간: 판정 쓰기 트랜잭션 진입 직전(`with conn.transaction()` 앞) → 그 트랜잭션 COMMIT이 돌아온 직후. 포함: 소유권 잠금 확인, 변수 캐시 INSERT, 판정 INSERT(검증·이벤트 트리거, 전역 advisory lock 81736 대기 포함), detector 측정 행 INSERT, 작업·시도 완료·큐 ack(`finish`), COMMIT
+- 기록 경로: v04 판정. 한 건 저장은 `detector/attempt_v04.py` `save_attempt`(`run_attempt`의 저장 단계) → `record_judgment_store`, 여러 건 묶음 저장(다중 작업자 `DETECTOR_BATCH_SIZE` ≥ 2)은 `save_batch` → `record_judgment_stores`. v03 경로(`detector/runner.py`)는 쓰지 않는다
+- 저장 단위: 한 건 저장은 판정 1건 = 판정 쓰기 트랜잭션 1개. 묶음 저장은 작업자가 한 번에 임대한 메시지 중 v04 첫 판정 여러 건(2건 이상, 임대 순서) = 트랜잭션 1개·COMMIT 1번. 재판정 시도·v03·옛 메시지 복구는 늘 한 건 저장이다. 묶음이 실패하면(소유권 확인 행 없음·ack 0행·DB 오류 등) 묶음 전체를 ROLLBACK하고 각 건을 한 건 저장으로 다시 저장한다
+- 구간: 판정 쓰기 트랜잭션 진입 직전(`with conn.transaction()` 앞) → 그 트랜잭션 COMMIT이 돌아온 직후. 묶음 저장이면 묶음 트랜잭션의 같은 구간이고, 묶음 안 판정마다 이 묶음 값을 그대로 기록한다(판정 하나의 몫으로 나누지 않음). 묶음 실패 뒤 한 건 저장으로 다시 저장한 판정은 그 한 건 저장의 구간이다(되돌린 묶음 시간은 넣지 않음)
+- 포함(실제 순서, Detector 저장 문장 `detector/finish.py`, pipeline 묶음으로 보냄)
+  - 한 건 저장: 소유권 잠금 확인(`lock_training_ownership`, 작업·시도·큐 행 `FOR UPDATE`) → 변수 캐시 INSERT → `finish_detect_success`(pipeline 한 묶음·Sync 1번): detector 측정 행 INSERT → 판정 INSERT(검증·이벤트 트리거, 전역 advisory lock 81736 대기 포함) → 시도·작업 완료 → 큐 ack → COMMIT
+  - 묶음 저장: `finish_detect_batch`(pipeline 두 묶음·Sync 2번): 모든 건의 소유권 잠금 확인 → 모든 건의 변수 캐시 INSERT → 모든 건의 detector 측정 행 INSERT → Sync 뒤 소유권 결과 확인(하나라도 없으면 판정 INSERT 전에 묶음 실패, 잠금 81736 전) → 건마다 판정 INSERT → 시도·작업 완료 → 큐 ack(임대 순서, 판정 이벤트 순번도 이 순서) → Sync 뒤 ack 결과 확인 → COMMIT 1번. 건마다의 문장 순서는 한 건 저장과 같다
+- 묶음 크기 기록: 묶음 저장한 판정의 evidence `telemetry.details.judgmentStoreBatchSize`(정수, 그 트랜잭션의 판정 수 ≥ 2). evidence `telemetry`와 같은 객체인 작업 `result_summary.executionCost.details`에도 같은 값이 있다. 한 건 저장한 판정(묶음 실패 뒤 다시 저장한 판정 포함)에는 키가 없다(없음 = 한 건 저장). `telemetry.details.batchSize`(`throughput` 행 수, 판정은 늘 1)와 다른 값이다. `ops_pipeline_measurements`에는 열을 더하지 않는다(migration 없음). 같은 묶음의 `judgment_store` 행은 `duration_ms`가 같다
 - 시계: Detector 프로세스 단조 시계(`time.monotonic()`, ms). `detector` 단계와 같은 시계이고 DB 시계와 섞지 않는다
 - 표본 단위: 첫 판정 1건 = 1행. 재판정 시도(`recheck_reference`가 None 아님)는 쓰지 않는다 — `detector` 측정 행과 같은 규칙(relation-rules.md 6.4)이라 두 단계의 관측 모집단이 같다. revision 번호로는 거르지 않는다(`detector` 행과 같음)
 - 행: `id` 새 uuid, `observation_id` = 판정한 PROCESS 관측, `stage='judgment_store'`, `config_version_id` NULL, `duration_ms` = 위 구간, `measured_at` DB 기본값(`clock_timestamp()`). `detector` 행과 같은 열 목록이다
-- 쓰기: 판정 COMMIT **뒤** 별도 짧은 트랜잭션에서 1행 INSERT(`SET LOCAL synchronous_commit = off` — 측정 표본은 장애 때 잃어도 되고, 판정마다 WAL flush 대기를 하나 더 만들지 않는다)
+- 쓰기: 판정 COMMIT **뒤** 별도 짧은 트랜잭션에서 1행 INSERT(`SET LOCAL synchronous_commit = off` — 측정 표본은 장애 때 잃어도 되고, 판정마다 WAL flush 대기를 하나 더 만들지 않는다). 묶음 저장이면 판정 수만큼의 행(판정마다 1행)을 같은 방식의 트랜잭션 하나·문장 하나로 넣는다
 - 실패: 측정 INSERT가 DB 오류로 실패하면 경고 로그만 남기고 표본을 버린다. 판정·작업은 이미 커밋됐으므로 시도 실패로 바꾸지 않는다(031 적용 전 새 Detector가 돌아도 판정은 멈추지 않는다). DB 오류가 아닌 예외는 숨기지 않는다
 - 집계(API·WebUI 몫, 이 절은 정의만): 원천별 최근 1시간 p50·p95·표본 수(latency API `judgmentStore`, 원천은 관측 `source_id`). 표본 없으면 분위수 null. 실패 수는 null(저장 실패는 시도 실패로 `detector` 행 실패 수에 이미 잡힌다)
 - 보존: `ops_pipeline_measurements`에는 보존 정책이 없다. 첫 판정마다 측정 행이 1개 → 2개로 는다(보존 정책은 이번 범위 밖, 남은 위험)
 
 ## 이력
 
+- 2026-11-22: 19절 묶음 저장(사용자 승인 S3, 결정 D2): 다중 작업자가 v04 첫 판정 여러 건을 트랜잭션 1개로 저장할 때 판정마다의 `judgment_store` 값 = 묶음 저장 소요, 묶음 크기는 evidence `telemetry.details.judgmentStoreBatchSize`, 묶음 실패 뒤 한 건 저장 규칙. "포함"을 실제 순서(detector 측정 행 INSERT가 판정 INSERT 앞, Detector 저장 문장 `detector/finish.py`)로 정정. 다른 계약·migration·API 변경 없음
 - 2026-11-15: 18절 측정 조건에 `assumed_tz`(KST로 해석한 시각) 포함(사용자 결정), `clock_status`는 Collector 값을 그대로 쓴다는 문장, 음수 표본 처리·관측 저장 → 판정 줄의 몫 정리(사용자 결정). 19절 판정 저장 소요 측정 행 추가(사용자 결정: migration + Detector가 COMMIT까지 측정, migration 031, 첫 판정만, COMMIT 뒤 별도 트랜잭션, 실패 무시)
 - 2026-11-15: 18절 원천 발생 → 판정 지연 열 추가(Collector·WebUI 합의 조건, v04 판정 INSERT에서 measured 기록, 음수 원값 저장, 재판정·v03 제외), 12절에 참조 한 줄
 - 2026-11-13: 룰 세트 v3 판정(protocol-rules.md 10절 1~7단계) 반영 — 3.1 `hard:rel-*`·`hard:proto-*` 형식, 4.1·4.2·4.3 내장 하드룰 4 → 6(`hard:transaction-failed`·`hard:unregistered-interface`, 목록 추가는 API v3 배포와 함께), 4.4 관계·프로토콜 하드룰(방법 버전·결과 코드), 11.4 `methodResults` 순서·`relationInputs`·`relationNotes`·`protocolReview`·`relationRecheck`·v3 투영 제외, 11.6 `capacity` 뜻 확장·세부 사유·새 시도 실패 코드, 11.7 상한. 모두 [제안](사용자 확정분은 표기 그대로)

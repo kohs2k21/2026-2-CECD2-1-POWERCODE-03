@@ -20,13 +20,21 @@ from feature_fit import requires_fit
 from detector.input_reader import load_process_observation
 from detector.policy import configure_capacity
 from feature_worker import active_config, active_source
-from pg_queue import ClaimedMessage, acknowledge, claim, fail
+from pg_queue import ClaimedMessage, acknowledge, claim, claim_many, fail, renew_lease
 from telemetry import cost_family, queue_wait_ms
 
 LOGGER = logging.getLogger(__name__)
 
 
 def process_detection_message(conn: Any, message: ClaimedMessage, root: Path | None) -> None:
+    """메시지 1건을 판정하고 저장한다(한 건 경로). 실패는 시도 실패를 기록한 뒤 예외로 올린다(호출자가 큐 fail)."""
+    _process_message(conn, message, root, None)
+
+
+def _process_message(conn: Any, message: ClaimedMessage, root: Path | None, pending: list | None) -> None:
+    """pending이 None이면 한 건 경로 그대로다. 목록이면(묶음) v04 첫 판정만 저장 직전에서 멈추고 PendingSave를 목록에
+    넣는다(그 건의 heartbeat는 멈추지 않고 넘긴다 — 정지는 process_detection_batch 몫). 그 밖(옛 메시지 복구·v03·재판정
+    시도)은 목록에 넣지 않고 한 건 경로와 똑같이 끝까지 처리한다. 목록에 넣기 전까지의 실패는 한 건 경로와 같은 처리다."""
     from detector.computation import load_context, compute, legacy_feature_hash
     from detector.jobs import detect_contract,enqueue_observation,input_config
     from trainer.runner import _claim_job, _finish
@@ -69,6 +77,7 @@ def process_detection_message(conn: Any, message: ClaimedMessage, root: Path | N
     heartbeat = TrainingLeaseHeartbeat(lambda: psycopg.connect(os.environ["DATABASE_URL"]),
         message,job["id"],attempt_id,attempt_token)
     heartbeat.start()
+    deferred = False
     try:
         with conn.cursor() as cur:
             # readiness(6번째)는 v04 재판정 시도만 읽는다(readiness.relation, relation-rules.md 6.3). v03 경로는 앞 5개만 쓴다.
@@ -79,9 +88,18 @@ def process_detection_message(conn: Any, message: ClaimedMessage, root: Path | N
                     ("sourceId","observationId","configVersionId","inputManifestHash","inputManifestId")):
                 raise ValueError("input_manifest_mismatch")
         if job["contractVersion"] == "v04":
-            from detector.attempt_v04 import run_attempt
-            run_attempt(conn, message, job, attempt_id, attempt_token, observation, fixed, root,
-                        started=started, queue_wait=queue_wait, heartbeat=heartbeat)
+            from detector.attempt_v04 import prepare_attempt, run_attempt, save_attempt
+            if pending is None:
+                run_attempt(conn, message, job, attempt_id, attempt_token, observation, fixed, root,
+                            started=started, queue_wait=queue_wait, heartbeat=heartbeat)
+                return
+            prepared = prepare_attempt(conn, message, job, attempt_id, attempt_token, observation, fixed, root,
+                                       started=started, queue_wait=queue_wait, heartbeat=heartbeat)
+            if prepared.recheck is not None:
+                save_attempt(conn, prepared)  # 재판정 시도는 묶지 않는다(= run_attempt)
+                return
+            pending.append(prepared)
+            deferred = True
             return
         config_id = fixed[1]
         context = load_context(conn, config_id, observation.source_id)
@@ -146,15 +164,126 @@ def process_detection_message(conn: Any, message: ClaimedMessage, root: Path | N
             _finish(conn,message,job,attempt_id,attempt_token,{"status":result["status"],
                     'executionCost': telemetry, 'checkers': checkers},None,True)
     except Exception as exc:
-        conn.rollback()
-        # _finish가 큐 임대를 비우므로 run()의 fail은 효력이 없다. v04 fail-closed 원인은 여기서 남긴다.
-        failure = str(exc)[:100] if job["contractVersion"] == "v04" and isinstance(exc, ValueError) \
-            else "detection_processing_failed"
-        _finish(conn,message,job,attempt_id,attempt_token,None,failure,False)
-        conn.commit()
+        _record_attempt_failure(conn, message, job, attempt_id, attempt_token, exc)
         raise
     finally:
-        heartbeat.stop()
+        if not deferred:
+            heartbeat.stop()
+
+
+def _record_attempt_failure(conn: Any, message: ClaimedMessage, job: dict, attempt_id: uuid.UUID,
+                            attempt_token: uuid.UUID, exc: Exception) -> None:
+    """시도 실패 기록(trainer `_finish` 실패 분기). _finish가 실패하면 그 예외가 올라간다."""
+    from trainer.runner import _finish
+    conn.rollback()
+    # _finish가 큐 임대를 비우므로 run()의 fail은 효력이 없다. v04 fail-closed 원인은 여기서 남긴다.
+    failure = str(exc)[:100] if job["contractVersion"] == "v04" and isinstance(exc, ValueError) \
+        else "detection_processing_failed"
+    _finish(conn,message,job,attempt_id,attempt_token,None,failure,False)
+    conn.commit()
+
+
+def _fail_message(conn: Any, message: ClaimedMessage, exc: Exception) -> None:
+    """판정 루프의 큐 실패 처리(한 건 경로 iterate와 같음). 시도 실패를 이미 기록했으면 큐 임대가 비어 효력이 없다."""
+    conn.rollback()
+    reason = str(exc) if isinstance(exc, ValueError) else "detection_failed"
+    fail(conn, "detection", message, reason=reason[:100])
+    conn.commit()
+
+
+def _fail_pending(conn: Any, item: Any, exc: Exception) -> None:
+    """묶음에 넣은 건의 저장 실패 = 한 건 경로에서 저장이 실패했을 때와 같은 처리, 같은 순서다.
+
+    한 건 경로: _process_message의 except(ROLLBACK → 시도 실패 기록) → finally(heartbeat 정지) → iterate의 큐 fail.
+    여기서도 시도 실패 기록 → 그 건의 heartbeat 정지 → 큐 fail 순서로 한다. 큐 fail이 DB 오류로 끝나 그 트랜잭션이 행 잠금을
+    쥔 채 남아도, 그 건의 heartbeat(같은 큐 행을 갱신하려고 기다릴 수 있음)는 이미 멈췄으므로 정지(join)가 막히지 않는다.
+    """
+    try:
+        _record_attempt_failure(conn, item.message, item.job, item.attempt_id, item.attempt_token, exc)
+    except Exception as finish_exc:  # noqa: BLE001 - 한 건 경로처럼 _finish 예외가 큐 fail 사유가 된다
+        exc = finish_exc
+        _rollback_quietly(conn)  # 한 건 경로 iterate의 큐 fail 앞 ROLLBACK과 같은 자리(heartbeat 정지 전으로 당김)
+    item.heartbeat.stop()
+    _fail_message(conn, item.message, exc)
+
+
+def _rollback_quietly(conn: Any) -> None:
+    """열린 트랜잭션의 행 잠금을 푼다. 연결이 끊겨 ROLLBACK이 실패하면 서버가 이미 트랜잭션을 끝낸 것이라 넘어간다."""
+    try:
+        conn.rollback()
+    except Exception:  # noqa: BLE001
+        pass
+
+
+# 묶음 claim 뒤 아직 시작하지 않은 메시지의 큐 임대를 이 간격마다 연장한다(시작한 건은 자기 heartbeat가 20초마다 연장).
+LEASE_RENEW_SECONDS = 20.0
+
+
+def _renew_waiting(conn: Any, messages: list[ClaimedMessage]) -> list[ClaimedMessage]:
+    """아직 시작하지 않은 메시지의 큐 임대를 연장한다. 연장하지 못한 메시지(임대가 이미 끝남 — 다른 소비자가 가져갈 수
+    있다)는 이 묶음에서 뺀다. 그 메시지는 아직 시도를 만들지 않았으므로 할 일이 없다."""
+    kept = []
+    for message in messages:
+        if renew_lease(conn, "detection", message):
+            kept.append(message)
+        else:
+            LOGGER.warning("detection lease expired before batch item started: %s", message.id)
+    conn.commit()
+    return kept
+
+
+def process_detection_batch(conn: Any, messages: list[ClaimedMessage], root: Path | None, *,
+                            renew_seconds: float = LEASE_RENEW_SECONDS) -> None:
+    """한 번에 임대한 메시지 여러 건(임대 순서)을 처리한다. 저장 직전까지는 건마다 한 건 경로와 같다.
+
+    - 건마다 차례로 _process_message: 작업 claim(시도 행)·heartbeat 시작·입력 manifest 확인·재판정 참조·운영 상태 고정·
+      방법 실행·중간 판정 기록·evidence. v04 첫 판정은 저장 직전에서 멈춰 모으고, 그 밖은 그 자리에서 끝까지 처리한다.
+      어느 건의 실패도 그 건만 한 건 경로와 같은 처리(시도 실패 기록 → 큐 fail)를 하고 다음 건으로 간다.
+    - 아직 시작하지 않은 건의 큐 임대는 renew_seconds마다 연장한다(앞 건 판정이 길어도 claim 때 받은 60초 임대가 끝나지
+      않게). 연장에 실패한 건은 뺀다.
+    - 모은 건: heartbeat가 소유권 상실을 알린 건은 한 건 경로의 같은 확인처럼 detection_lease_lost로 실패 처리한다.
+      남은 건이 2건 이상이면 save_batch(트랜잭션 1개·COMMIT 1번). 실패하면(전체 ROLLBACK) 각 건을 임대 순서대로
+      save_attempt(한 건 저장)로 다시 저장하고, 실패한 건만 한 건 경로와 같은 처리를 한다. 1건이면 바로 save_attempt.
+    - 모은 건의 heartbeat는 어느 경로든(예외 포함) finally에서 모두 멈춘다(이미 멈춘 건은 다시 불러도 바로 끝난다).
+      예외로 나갈 때는 먼저 ROLLBACK해 이 연결이 쥔 행 잠금을 푼다. heartbeat 갱신이 그 행을 기다리면 정지(join)가 끝나지
+      않기 때문이다(한 건 경로도 except의 ROLLBACK 뒤 finally에서 heartbeat를 멈춘다).
+    """
+    from detector.attempt_v04 import save_attempt, save_batch
+    pending: list = []
+    try:
+        waiting = list(messages)
+        renewed_at = time.monotonic()
+        while waiting:
+            if time.monotonic() - renewed_at >= renew_seconds:
+                waiting = _renew_waiting(conn, waiting)
+                renewed_at = time.monotonic()
+                if not waiting:
+                    break
+            message = waiting.pop(0)
+            try:
+                _process_message(conn, message, root, pending)
+                conn.commit()
+            except Exception as exc:  # noqa: BLE001 - 한 건 경로 iterate와 같은 실패 처리
+                _fail_message(conn, message, exc)
+        live = []
+        for item in pending:
+            if item.heartbeat.lost:
+                _fail_pending(conn, item, RuntimeError("detection_lease_lost"))
+            else:
+                live.append(item)
+        if len(live) >= 2 and save_batch(conn, live):
+            return
+        for item in live:
+            try:
+                save_attempt(conn, item)
+            except Exception as exc:  # noqa: BLE001 - 한 건 경로와 같은 실패 처리
+                _fail_pending(conn, item, exc)
+    except BaseException:
+        _rollback_quietly(conn)
+        raise
+    finally:
+        for item in pending:
+            item.heartbeat.stop()
 
 
 # dead 큐 행 대조(reconcile_dead_jobs)는 반복마다 부르지 않고 이 간격마다 한 번 부른다. detection 큐 대조는 큐 id = jobId라
@@ -165,6 +294,9 @@ FIXED_REFRESH_SECONDS = 1.0
 # DETECTOR_WORKERS 기본값과 허용 범위.
 DEFAULT_WORKERS = 4
 MAX_WORKERS = 8
+# DETECTOR_BATCH_SIZE(작업자 1개가 한 번에 임대·저장하는 detect 메시지 수) 기본값과 허용 범위. 1이면 한 건 경로 그대로다.
+DEFAULT_BATCH_SIZE = 8
+MAX_BATCH_SIZE = 64
 
 
 class _Loop:
@@ -176,12 +308,18 @@ class _Loop:
     - reconcile: 이 루프가 dead 정리(reconcile_dead_jobs)를 맡는지. 첫 반복과 그 뒤 reconcile_seconds마다.
     - expire_in_claim False: detection claim 안의 dead 처리 UPDATE를 건너뛰고, 정리를 맡은 루프가 정리 주기마다
       정리 직전에 expire_exhausted_leases를 부른다.
+    - batch_size: 첫 claim(detect 작업)이 한 번에 임대할 최대 수. 1이면 claim 한 건(지금 경로 그대로), 2 이상이면
+      claim_many로 지금 있는 것만 최대 그만큼 가져온다(채우려고 기다리지 않음). 원천 범위·대기 입력 claim은 늘 한 건이다.
+      가져온 것이 2건 이상일 때만 process_detection_batch, 1건이면 한 건 경로다.
     시각(time.monotonic)은 반복마다 한 번 읽는다.
     """
 
     def __init__(self, conn: Any, root: Path | None, worker_id: str, *, reconcile: bool = True,
                  reconcile_seconds: float = RECONCILE_SECONDS, expire_in_claim: bool = True,
-                 fixed_refresh_seconds: float | None = None) -> None:
+                 fixed_refresh_seconds: float | None = None, batch_size: int = 1) -> None:
+        if type(batch_size) is not int or not 1 <= batch_size <= MAX_BATCH_SIZE:
+            raise ValueError(f"invalid_detector_batch_size: 1~{MAX_BATCH_SIZE} 정수여야 한다")
+        self.batch_size = batch_size
         self.conn, self.root, self.worker_id = conn, root, worker_id
         self.reconcile, self.reconcile_seconds = reconcile, reconcile_seconds
         self.expire_in_claim, self.fixed_refresh_seconds = expire_in_claim, fixed_refresh_seconds
@@ -219,12 +357,20 @@ class _Loop:
                     fail(conn, "feature", legacy, reason="feature_bridge_failed")
                     conn.commit()
 
-    def _claim(self) -> ClaimedMessage | None:
+    def _claim(self) -> list[ClaimedMessage]:
+        """임대한 메시지 목록(임대 순서). 비었으면 가져올 것이 없었다."""
         conn = self.conn
         expire = {} if self.expire_in_claim else {"expire_exhausted": False}
         # Fixed jobs keep their pinned config even if the active source changes.
-        message = claim(conn, "detection", job_kinds=("detect",), **expire)
-        conn.commit()
+        if self.batch_size > 1:
+            messages = claim_many(conn, "detection", limit=self.batch_size, job_kinds=("detect",), **expire)
+            conn.commit()
+            if messages:
+                return messages
+            message = None
+        else:
+            message = claim(conn, "detection", job_kinds=("detect",), **expire)
+            conn.commit()
         if message is None and self.source_id:
             message = claim(conn, "detection", source_id=str(self.source_id), **expire)
             conn.commit()
@@ -232,7 +378,7 @@ class _Loop:
             from detector.jobs import claim_waiting_input
             message = claim_waiting_input(conn)
             conn.commit()
-        return message
+        return [message] if message is not None else []
 
     def _maintain(self, now: float) -> None:
         if not self.reconcile or (self.last_reconcile is not None and now - self.last_reconcile < self.reconcile_seconds):
@@ -251,19 +397,20 @@ class _Loop:
         now = time.monotonic()
         if self.fixed_due(now):
             self._fixed(now)
-        message = self._claim()
+        messages = self._claim()
         self._maintain(now)
-        self.busy = message is not None
-        if message is None:
+        self.busy = bool(messages)
+        if not messages:
             return False
+        if len(messages) > 1:
+            process_detection_batch(conn, messages, self.root)
+            return True
+        message = messages[0]
         try:
             process_detection_message(conn, message, self.root)
             conn.commit()
         except Exception as exc:
-            conn.rollback()
-            reason = str(exc) if isinstance(exc, ValueError) else "detection_failed"
-            fail(conn, "detection", message, reason=reason[:100])
-            conn.commit()
+            _fail_message(conn, message, exc)
         return True
 
 
@@ -305,13 +452,22 @@ def worker_count(value: str | None) -> int:
     return int(value)
 
 
+def batch_size(value: str | None) -> int:
+    """DETECTOR_BATCH_SIZE 값. 없으면 DEFAULT_BATCH_SIZE, 1~MAX_BATCH_SIZE 정수 문자열이 아니면 시작 실패(ValueError)."""
+    if value is None:
+        return DEFAULT_BATCH_SIZE
+    if not (value.isascii() and value.isdigit()) or not 1 <= int(value) <= MAX_BATCH_SIZE:
+        raise ValueError(f"invalid_detector_batch_size: 1~{MAX_BATCH_SIZE} 정수여야 한다")
+    return int(value)
+
+
 class WorkerFailed(RuntimeError):
     """작업자 스레드 하나가 예외로 끝났다. 남은 작업자를 멈춘 뒤 호출자에게 올려 프로세스를 실패로 끝낸다."""
 
 
 def run_workers(database_url: str, root: Path | None, *, workers: int, poll_seconds: float = .25,
                 reconcile_seconds: float = RECONCILE_SECONDS,
-                fixed_refresh_seconds: float = FIXED_REFRESH_SECONDS,
+                fixed_refresh_seconds: float = FIXED_REFRESH_SECONDS, batch_size: int = 1,
                 stop: threading.Event | None = None, join_seconds: float = 10.0) -> None:
     """판정 루프 workers개를 스레드로 돌린다. 작업자마다 연결이 따로다.
 
@@ -319,11 +475,16 @@ def run_workers(database_url: str, root: Path | None, *, workers: int, poll_seco
     - 방법 실행 슬롯(policy.configure_capacity)을 동시 판정 수 = workers + 1(직접 전달 몫)로 맞춘다. 슬롯이 동시 판정보다
       적으면 겹친 판정의 룰·모델이 capacity(미판정)로 끝난다(detection-decision.md D20).
     - dead 처리·정리는 0번 작업자만 reconcile_seconds마다 한다. 모든 작업자의 detection claim은 dead 처리 UPDATE를 건너뛴다.
+    - batch_size: 작업자마다 detect 메시지를 한 번에 최대 그만큼 임대하고, v04 첫 판정은 트랜잭션 하나로 저장한다(_Loop).
+      1이면 한 건 경로 그대로다. 서비스는 DETECTOR_BATCH_SIZE(기본 8)를 넘긴다. 판정은 작업자 안에서 차례로 하므로 동시
+      판정 수(슬롯)는 그대로 workers + 1이다.
     - 작업자 하나가 예외로 끝나면 traceback을 로그(stderr)에 남기고 stop을 세워 나머지를 멈추고(현재 반복을 끝낸 뒤,
       전체 최대 join_seconds 대기) WorkerFailed를 올린다. stop이 밖에서 세워지면 같은 방식으로 멈추고 정상 반환한다.
     """
     if not 1 <= workers <= MAX_WORKERS:
         raise ValueError(f"invalid_detector_workers: 1~{MAX_WORKERS} 정수여야 한다")
+    if type(batch_size) is not int or not 1 <= batch_size <= MAX_BATCH_SIZE:
+        raise ValueError(f"invalid_detector_batch_size: 1~{MAX_BATCH_SIZE} 정수여야 한다")
     stop = stop or threading.Event()
     configure_capacity(workers + 1)
     with psycopg.connect(database_url) as conn:
@@ -336,7 +497,7 @@ def run_workers(database_url: str, root: Path | None, *, workers: int, poll_seco
             with psycopg.connect(database_url) as conn:
                 loop = _Loop(conn, root, f"{base_id}-{index}", reconcile=index == 0,
                              reconcile_seconds=reconcile_seconds, expire_in_claim=False,
-                             fixed_refresh_seconds=fixed_refresh_seconds)
+                             fixed_refresh_seconds=fixed_refresh_seconds, batch_size=batch_size)
                 while not stop.is_set():
                     if not loop.iterate():
                         stop.wait(poll_seconds)

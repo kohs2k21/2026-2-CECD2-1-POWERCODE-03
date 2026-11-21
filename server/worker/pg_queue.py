@@ -88,6 +88,42 @@ def claim(conn: Any, queue: QueueName, *, lease_seconds: int = 60,
     `attempts < max_attempts`라 그런 행은 어차피 다시 임대되지 않는다. 대신 호출자가 `expire_exhausted_leases`를
     주기적으로 불러야 dead가 되고 `reconcile_dead_jobs` 대상이 된다(Detector 다중 작업자의 0번 작업자).
     """
+    rows = _claim_rows(conn, queue, 1, lease_seconds=lease_seconds, max_attempts=max_attempts,
+                       benchmark_run_id=benchmark_run_id, source_id=source_id, job_kinds=job_kinds,
+                       message_id=message_id, expire_exhausted=expire_exhausted)
+    return ClaimedMessage(*rows[0][:5], queue=queue) if rows else None
+
+
+# claim_many 한 번에 임대할 수 있는 최대 행 수(Detector DETECTOR_BATCH_SIZE 상한과 같다).
+MAX_CLAIM_BATCH = 64
+
+
+def claim_many(conn: Any, queue: QueueName, *, limit: int, lease_seconds: int = 60,
+               max_attempts: int = 3, benchmark_run_id: str | None = None,
+               source_id: str | None = None, job_kinds: tuple[str, ...] | None = None,
+               expire_exhausted: bool = True) -> list[ClaimedMessage]:
+    """지금 임대할 수 있는 행을 최대 limit개 한 문장으로 임대한다. 채우려고 기다리지 않는다(없으면 빈 목록).
+
+    행마다 claim과 같은 조건·의미다: 같은 picked 조건(pending·만료 임대 중 `attempts < max_attempts`)과 범위,
+    `FOR UPDATE SKIP LOCKED`, 행마다 새 lease_token 하나(행끼리 다름)·attempts + 1·lease_until = 지금 + lease_seconds.
+    limit=1이면 claim과 같은 행을 고른다. 돌려주는 순서(= 임대 순서)는 claim의 고르는 순서(available_at, created_at)이고
+    같은 값끼리는 id 순이다. UPDATE … RETURNING은 순서를 보장하지 않으므로 RETURNING한 available_at으로 다시 정렬한다.
+    """
+    if type(limit) is not int or not 1 <= limit <= MAX_CLAIM_BATCH:
+        raise ValueError(f"limit must be an integer 1..{MAX_CLAIM_BATCH}")
+    rows = _claim_rows(conn, queue, limit, lease_seconds=lease_seconds, max_attempts=max_attempts,
+                       benchmark_run_id=benchmark_run_id, source_id=source_id, job_kinds=job_kinds,
+                       message_id=None, expire_exhausted=expire_exhausted, per_row_token=True)
+    rows.sort(key=lambda row: (row[5], row[4], str(row[0])))
+    return [ClaimedMessage(*row[:5], queue=queue) for row in rows]
+
+
+def _claim_rows(conn: Any, queue: QueueName, limit: int, *, lease_seconds: int, max_attempts: int,
+                benchmark_run_id: str | None, source_id: str | None, job_kinds: tuple[str, ...] | None,
+                message_id: uuid.UUID | None, expire_exhausted: bool, per_row_token: bool = False) -> list[tuple]:
+    """claim·claim_many 공용. per_row_token=False(claim)면 문장·인자가 예전 claim과 같다(LIMIT 1, 토큰 인자 1개).
+    per_row_token=True면 행마다 gen_random_uuid()로 토큰을 만든다(PostgreSQL 13+ 내장). 행 = (id, payload, attempts,
+    lease_token, created_at[, available_at])."""
     if lease_seconds < 1 or max_attempts < 1:
         raise ValueError("lease_seconds and max_attempts must be positive")
     if benchmark_run_id is not None and not benchmark_run_id:
@@ -124,12 +160,13 @@ def claim(conn: Any, queue: QueueName, *, lease_seconds: int = 60,
     if message_id is not None:
         scope_sql += " AND id = %s"
         scope_params += (message_id,)
-    token = uuid.uuid4()
     with conn.cursor() as cur:
         if expire_exhausted:
             _expire(cur, queue, max_attempts, scope_sql, scope_params)
-        cur.execute(
-            f"""
+        if not per_row_token:
+            token = uuid.uuid4()
+            cur.execute(
+                f"""
             WITH picked AS (
               SELECT id FROM {_table(queue)}
               WHERE ((status = 'pending' AND available_at <= clock_timestamp())
@@ -144,10 +181,29 @@ def claim(conn: Any, queue: QueueName, *, lease_seconds: int = 60,
               FROM picked WHERE q.id = picked.id
             RETURNING q.id, q.payload, q.attempts, q.lease_token, q.created_at
             """,
-            (max_attempts, *scope_params, token, lease_seconds),
+                (max_attempts, *scope_params, token, lease_seconds),
+            )
+            row = cur.fetchone()
+            return [row] if row else []
+        cur.execute(
+            f"""
+            WITH picked AS (
+              SELECT id FROM {_table(queue)}
+              WHERE ((status = 'pending' AND available_at <= clock_timestamp())
+                 OR (status = 'leased' AND lease_until <= clock_timestamp() AND attempts < %s))
+                {scope_sql}
+              ORDER BY available_at, created_at
+              FOR UPDATE SKIP LOCKED LIMIT %s
+            )
+            UPDATE {_table(queue)} AS q
+               SET status = 'leased', attempts = attempts + 1,
+                   lease_token = gen_random_uuid(), lease_until = clock_timestamp() + (%s * interval '1 second')
+              FROM picked WHERE q.id = picked.id
+            RETURNING q.id, q.payload, q.attempts, q.lease_token, q.created_at, q.available_at
+            """,
+            (max_attempts, *scope_params, limit, lease_seconds),
         )
-        row = cur.fetchone()
-    return ClaimedMessage(*row, queue=queue) if row else None
+        return list(cur.fetchall())
 
 
 def _expire(cur: Any, queue: QueueName, max_attempts: int, scope_sql: str = "", scope_params: tuple = ()) -> int:

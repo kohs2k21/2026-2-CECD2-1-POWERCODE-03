@@ -4,7 +4,7 @@ import React from "react";
 import { act, create } from "react-test-renderer";
 
 // 설정 › 연동 관리 › 메일 알림 시험(contracts/email-alerts.md 8·11절, 로컬 가짜 fetch만 — 실제 SMTP·메일 없음):
-// 관리자/일반 사용자, 전송 상태 문구·잠긴 켜기, 받는 사람 검사(형식·중복·최대 10), 저장 실패 시 서버 값 유지·키 오류 문구, 비밀번호 비노출,
+// 관리자/일반 사용자, 전송 상태 문구·잠긴 켜기(받는 사람·보낼 알림 0개 포함), 조회 실패 제목+코드, 받는 사람 검사(형식·중복·최대 10), 저장 실패 시 서버 값 유지·키 오류 문구, 비밀번호 비노출,
 // 저장 결과(연결 확인 성공·실패·확인 안 함), 시험 발송 확인·결과 3종·요청 오류, 최근 발송 상태 문구, 사건 묶음 처리 대기, 연동 관리 상단 저장 미지원 없음.
 register("./svg-loader.mjs", import.meta.url);
 globalThis.React = React;
@@ -132,6 +132,10 @@ const delivery = (status, over = {}) => ({ id: `d-${status}`, kind: "incident", 
     username: "", password: "", passwordCleared: false, fromAddress: "f@example.test", publicBaseUrl: "http://x:8080" };
   assert.equal(canEnable(full, empty), true, "(a) first setup with complete inputs, nothing saved yet");
   for (const key of ["host", "port", "security", "fromAddress", "publicBaseUrl"]) assert.equal(canEnable({ ...full, [key]: "" }, empty), false, `missing ${key}`);
+  // 받는 사람·보낼 알림이 비면 API 400(email_recipients_required·email_kinds_required)과 같이 잠금.
+  assert.equal(canEnable({ ...full, recipients: [] }, empty), false, "no recipients");
+  assert.equal(canEnable({ ...full, kinds: [] }, empty), false, "no alert kinds");
+  assert.equal(canEnable({ ...full, kinds: ["decision"] }, empty), true, "one kind is enough");
   assert.equal(canEnable({ ...full, username: "mailer" }, empty), false, "account without a password");
   assert.equal(canEnable({ ...full, username: "mailer", password: "pw" }, empty), true, "account with a new password");
   const saved = api.parseEmailAlertSettings(configured({ enabled: true }));
@@ -140,6 +144,8 @@ const delivery = (status, over = {}) => ({ id: `d-${status}`, kind: "incident", 
   assert.equal(canEnable(savedDraft, saved), true);
   assert.equal(canEnable({ ...savedDraft, host: "" }, saved), false, "(b) clearing the host while enabled");
   assert.equal(canEnable({ ...savedDraft, passwordCleared: true }, saved), false, "(b) clearing the password while enabled");
+  assert.equal(canEnable({ ...savedDraft, recipients: [] }, saved), false, "(b) clearing the recipients while enabled");
+  assert.equal(canEnable({ ...savedDraft, kinds: [] }, saved), false, "(b) clearing the alert kinds while enabled");
   assert.equal(canEnable({ ...savedDraft, host: "other.example.test" }, saved), true, "changed host keeps the readable saved password");
   const unreadable = api.parseEmailAlertSettings(configured({ enabled: true, transport: { status: "invalid", code: "smtp_password_unreadable", checkedAt: null } }));
   assert.equal(canEnable(savedDraft, unreadable), false, "same SMTP values: saved invalid state blocks");
@@ -205,6 +211,11 @@ const inputFor = (app, label) => {
   return app.renderer.root.findAll((node) => (node.type === "input" || node.type === "select") && node.props.id === target.props.htmlFor)[0];
 };
 const recipientInput = (app) => inputFor(app, "받는 사람");
+// 보낼 알림 체크(사건 incident · 묶이지 않은 판정 decision): 화면 Checkbox의 onCheckedChange를 그대로 부른다.
+const setKind = async (app, kind, checked) => {
+  const box = app.renderer.root.findAll((node) => node.props.id === `email-kind-${kind}` && typeof node.props.onCheckedChange === "function")[0];
+  await act(async () => box.props.onCheckedChange(checked));
+};
 const type = async (input, value) => act(async () => input.props.onChange({ target: { value } }));
 const puts = () => requests.filter((r) => r.method === "PUT");
 
@@ -253,14 +264,22 @@ const puts = () => requests.filter((r) => r.method === "PUT");
   for (const name of ["email-alert-settings", "email-alert-deliveries"]) {
     assert.equal(app.client.getQueryCache().find({ queryKey: [name, "admin-1"] }).options.refetchInterval, false, `${name}: no refetch interval`);
   }
-  // (a) 처음 설정: 저장 전이라도 입력값이 다 차면 켤 수 있다(API가 받음). 대시보드 주소가 비면 잠김.
+  // (a) 처음 설정: 저장 전이라도 입력값이 다 차면 켤 수 있다(API가 받음). 대시보드 주소·받는 사람·보낼 알림이 비면 잠김.
   await type(inputFor(app, "SMTP 호스트"), "smtp.example.test");
   await type(inputFor(app, "포트"), "465");
   await type(inputFor(app, "보안"), "tls");
   await type(inputFor(app, "보내는 주소"), "alerts@example.test");
   assert.equal(emailSwitch(app).props.disabled, true, "dashboard address still missing");
   await type(inputFor(app, "대시보드 주소"), "http://dashboard.example.test:8080");
+  assert.equal(emailSwitch(app).props.disabled, true, "0 recipients: switch locked (API 400 email_recipients_required)");
+  await type(recipientInput(app), "ops@example.test");
+  await click(buttons(app, "추가")[0]);
+  assert.ok(app.shown().includes("1/10"));
   assert.equal(emailSwitch(app).props.disabled, false, "(a) complete inputs unlock the switch before saving");
+  await setKind(app, "incident", false);
+  assert.equal(emailSwitch(app).props.disabled, true, "0 alert kinds: switch locked (API 400 email_kinds_required)");
+  await setKind(app, "decision", true);
+  assert.equal(emailSwitch(app).props.disabled, false, "one kind and one recipient unlock again");
   await type(inputFor(app, "발신 계정"), "mailer");
   assert.equal(emailSwitch(app).props.disabled, true, "account without a password locks again");
   await type(inputFor(app, "비밀번호"), "pw-1");
@@ -450,6 +469,17 @@ for (const transport of [{ status: "configured", code: null, checkedAt: "2026-11
   await wait(() => emailSwitch(app)?.props["aria-checked"] === true, `enabled loaded (${transport.status})`);
   assert.equal(emailSwitch(app).props.disabled, false, "turning off is always possible");
   if (transport.status === "configured") {
+    // 켜진 채 받는 사람·보낼 알림을 비우면 SMTP와 같이 [저장] 잠금, 끄기는 그대로 가능.
+    await click(byLabel(app, "ops@example.test 삭제")[0]);
+    assert.ok(app.shown().includes("0/10"));
+    assert.equal(buttons(app, "저장")[0].props.disabled, true, "(b) 0 recipients while enabled cannot be saved");
+    assert.equal(emailSwitch(app).props.disabled, false, "0 recipients: turning off still possible");
+    await type(recipientInput(app), "ops@example.test");
+    await click(buttons(app, "추가")[0]);
+    await setKind(app, "incident", false);
+    assert.equal(buttons(app, "저장")[0].props.disabled, true, "(b) 0 alert kinds while enabled cannot be saved");
+    assert.equal(emailSwitch(app).props.disabled, false, "0 alert kinds: turning off still possible");
+    await setKind(app, "incident", true);
     await type(inputFor(app, "SMTP 호스트"), "");
     assert.equal(buttons(app, "저장")[0].props.disabled, true, "(b) cleared host while enabled cannot be saved");
     await type(inputFor(app, "SMTP 호스트"), "smtp.example.test");
@@ -468,7 +498,8 @@ for (const transport of [{ status: "configured", code: null, checkedAt: "2026-11
   await app.cleanup();
 }
 
-// 2-4c) 조회 실패: 설정·최근 발송 모두 코드만 제목(승인 문구 대기), 다시 시도. 응답 형식 오류·연결 실패도 코드.
+// 2-4c) 조회 실패: 제목은 승인 문구(설정 `메일 알림 설정을 불러오지 못했습니다` · 최근 발송 `최근 발송을 불러오지 못했습니다`), 본문에 코드, 다시 시도.
+// 응답 형식 오류·연결 실패도 코드.
 for (const [settingsRoute, deliveriesRoute, settingsCode, deliveriesCode] of [
   [() => [503, { code: "email_alert_storage_unavailable" }], null, "email_alert_storage_unavailable", null],
   [() => [200, { enabled: "yes" }], null, "invalid_response", null],
@@ -485,7 +516,10 @@ for (const [settingsRoute, deliveriesRoute, settingsCode, deliveriesCode] of [
     const app = await mount(integrations);
     const alerts = () => app.renderer.root.findAll((n) => n.type === "div" && n.props.role === "alert").map((n) => text(n.children));
     const expected = settingsCode ?? deliveriesCode;
-    await wait(() => alerts().some((line) => line.startsWith(expected)), `load failure ${expected}`);
+    const title = settingsCode ? "메일 알림 설정을 불러오지 못했습니다" : "최근 발송을 불러오지 못했습니다";
+    await wait(() => alerts().some((line) => line.startsWith(title) && line.includes(expected)), `load failure ${title} + ${expected}`);
+    assert.ok(!alerts().some((line) => line.startsWith(expected)), "the code is not the title any more");
+    assert.equal(alerts().length, 1, "one failure box");
     assert.ok(buttons(app, "다시 시도").length >= 1, "retry offered");
     assert.ok(!app.shown().includes("Failed to fetch") && !app.shown().includes("응답 형식"), "no raw message");
     if (settingsCode) assert.ok(!app.shown().includes("메일 알림 켜기"), "no form without settings");

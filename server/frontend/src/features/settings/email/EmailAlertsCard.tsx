@@ -105,15 +105,18 @@ const sameDraft = (a: Draft, b: Draft) => JSON.stringify(updateOf(a)) === JSON.s
 
 /**
  * 켜진 채로 저장할 수 있는 입력값인가 — API가 enabled=true 저장마다(이미 켜져 있어도) 보낸 값으로 하는 검사와 같다
- * (settingsStore.updateEmailSettings: 보낸 SMTP 값의 설정 상태가 configured가 아니면 409 email_transport_not_configured, 대시보드 주소 없으면 400).
+ * (config.parseSettingsUpdate: 보낼 알림이 없으면 400 email_kinds_required, 받는 사람이 없으면 400 email_recipients_required;
+ * settingsStore.updateEmailSettings: 보낸 SMTP 값의 설정 상태가 configured가 아니면 409 email_transport_not_configured, 대시보드 주소 없으면 400).
+ * - 보낼 알림이 하나 이상, 받는 사람이 한 명 이상이다
  * - 호스트·포트·보안·보내는 주소·대시보드 주소가 있다
  * - 발신 계정이 있으면 새 비밀번호를 넣었거나, 저장된 비밀번호를 지우지 않고 그대로 쓴다
  * - 저장된 비밀번호를 그대로 쓸 때 지금 키로 풀 수 없으면(전송 상태 코드, 키는 화면이 모름) 안 된다. SMTP 값이 저장값과 같으면
  *   저장된 전송 상태가 곧 보낸 값의 상태다(설정 오류면 안 됨, 인증 실패·연결 오류는 막지 않음)
- * 받는 사람·보낼 알림이 비면 API 400(코드 표시) — 여기서는 보지 않는다. 끄기는 언제나 저장할 수 있다.
+ * 끄기는 언제나 저장할 수 있다.
  */
 export const canEnable = (draft: Draft, server: EmailAlertSettings) => {
   const update = updateOf(draft);
+  if (update.rules.kinds.length === 0 || update.recipients.length === 0) return false;
   const { smtp } = update;
   if (!smtp.host || smtp.port === null || !smtp.security || !smtp.fromAddress || !update.publicBaseUrl) return false;
   const saved = server.smtp;
@@ -284,7 +287,9 @@ const RecentDeliveries = () => {
       {deliveries.isPending ? (
         <LoadingState />
       ) : deliveries.isError ? (
-        <ErrorState title={errorCodeOf(deliveries.error)} onRetry={() => void deliveries.refetch()} />
+        <ErrorState title={emailText.recentLoadError} onRetry={() => void deliveries.refetch()}>
+          {errorCodeOf(deliveries.error)}
+        </ErrorState>
       ) : deliveries.data.items.length === 0 ? (
         <EmptyState>{emailText.recentEmpty}</EmptyState>
       ) : (
@@ -323,7 +328,13 @@ const EmailAlertsForm = ({ currentUser }: { currentUser: AuthUser }) => {
   const lagging = useProcessingLag(currentUser.id, settings.data, settings.dataUpdatedAt);
   const switchId = useId();
   if (settings.isPending) return <LoadingState />;
-  if (settings.isError) return <ErrorState title={errorCodeOf(settings.error)} onRetry={() => void settings.refetch()} />;
+  if (settings.isError) {
+    return (
+      <ErrorState title={emailText.settingsLoadError} onRetry={() => void settings.refetch()}>
+        {errorCodeOf(settings.error)}
+      </ErrorState>
+    );
+  }
   const server = settings.data;
   const base = draftOf(server);
   const value = draft ?? base;

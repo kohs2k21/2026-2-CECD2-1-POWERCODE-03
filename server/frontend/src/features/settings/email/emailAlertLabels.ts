@@ -19,6 +19,8 @@ export const emailText = {
   remove: "삭제",
   save: "저장",
   saveError: "메일 알림 설정을 저장하지 못했습니다",
+  settingsLoadError: "메일 알림 설정을 불러오지 못했습니다",
+  recentLoadError: "최근 발송을 불러오지 못했습니다",
   keyError: "암호화 키를 쓸 수 없어 비밀번호를 저장하지 못했습니다.",
   testSend: "시험 발송",
   testSendGo: "보내기",

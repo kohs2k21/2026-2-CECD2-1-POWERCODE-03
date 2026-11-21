@@ -18,6 +18,10 @@ class _StopLoop(Exception):
     pass
 
 
+class _TooManyIterations(AssertionError):
+    """반복 시각을 읽지 않는 회귀에서 무한 루프 대신 실패한다."""
+
+
 class _FakeConn:
     def commit(self) -> None:
         pass
@@ -27,17 +31,21 @@ class _FakeConn:
 
 
 class ReconcileIntervalTest(unittest.TestCase):
-    def _run(self, *, clock: list[float], once: bool, reconcile_seconds: float = 30.0) -> list[float]:
+    def _run(self, *, clock: list[float], once: bool) -> list[float]:
         """메시지 없는 반복을 clock 길이만큼 돌리고, 정리가 불린 시각 목록을 돌려준다."""
         ticks = iter(clock)
         now = {"t": None}
         calls: list[float] = []
+        sleeps = {"n": 0}
 
         def monotonic() -> float:
             now["t"] = next(ticks)
             return now["t"]
 
         def sleep(_seconds: float) -> None:
+            sleeps["n"] += 1
+            if sleeps["n"] > len(clock):
+                raise _TooManyIterations(f"sleep {sleeps['n']}회 > 시계 틱 {len(clock)}개")
             if now["t"] == clock[-1]:
                 raise _StopLoop
 
@@ -61,7 +69,7 @@ class ReconcileIntervalTest(unittest.TestCase):
                 runner.run(once=True)
             else:
                 with self.assertRaises(_StopLoop):
-                    runner.run(reconcile_seconds=reconcile_seconds)
+                    runner.run()
         return calls
 
     def test_first_iteration_then_only_after_interval(self) -> None:

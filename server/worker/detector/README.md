@@ -29,7 +29,7 @@ v04 시도 1회의 순서.
 
 시도가 값 오류로 실패하면 원인 코드(`rule_set_hash_mismatch` 등, v3 추가 코드는 `../../contracts/detection-decision.md` 11.6)가 `run_jobs.error_code`, 시도, 큐 `last_error`에 남는다. v03은 기존대로 `detection_processing_failed`다.
 
-큐 재시도를 다 쓴(dead) detection 행의 작업을 `failed`·`queue_exhausted`로, 만료된 시도를 `expired`로 바꾸는 정리(`pg_queue.reconcile_dead_jobs`)는 판정 루프 반복마다가 아니라 첫 반복에서 한 번, 그 뒤로는 직전 정리에서 30초(`runner.RECONCILE_SECONDS`)가 지난 반복에서 한 번 돈다. 그래서 dead가 된 뒤 작업 상태가 바뀌기까지 그 간격과 반복 한 번만큼 늦을 수 있다.
+큐 재시도를 다 쓴(dead) detection 행의 작업을 `failed`·`queue_exhausted`로, 그 작업의 만료된 시도를 `expired`로 바꾸는 정리(`pg_queue.reconcile_dead_jobs`)는 판정 루프 반복마다가 아니라 첫 반복에서 한 번, 그 뒤로는 직전 정리에서 30초(`runner.RECONCILE_SECONDS`)가 지난 반복에서 한 번 돈다. 그래서 dead가 된 뒤 작업 상태가 바뀌기까지 그 간격과 반복 한 번만큼 늦을 수 있다.
 
 ## detect 작업 생성 전환
 

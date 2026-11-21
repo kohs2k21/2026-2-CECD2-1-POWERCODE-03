@@ -83,7 +83,7 @@ Status: current
 - PUT 요청: `{ "email"?: string, "password"?: string, "userType"?: "user" | "admin" }`, 최소 한 필드 필수. 빈/형식 오류/지원 외 필드 `400 invalid_user_update`
 - 정규화 email 중복: `400 email_already_in_use`; 대상 계정 없음 `404 { message }`
 - 일반 사용자 본인 계정 수정 API·새 학습/평가/적용 API를 현재 구현으로 주장하지 않음. 향후 관리자 기능에도 서버 권한 검사 필요
-- SSE: 최초 인증 실패는 JSON `401`이며 스트림 미개방. 개방 후 만료 시 종료, 송신 전 계정/email/role 재검사; 탈락하면 이벤트 미전달. Bearer 헤더 가능한 기존 연결 방식 유지
+- SSE: 최초 인증 실패는 JSON `401`이며 스트림 미개방. 개방 후 만료 시 종료. 토큰 만료는 송신마다, 계정·email·role DB 재확인은 약 1초 간격(종료 지연은 이전과 같음); 탈락하면 이후 이벤트 미전달. Bearer 헤더 가능한 기존 연결 방식 유지
 - 메모리 SSE의 영속 재생·중단 중 이벤트 복구 지원 없음; 연결/수신/표시/재연결 별도 검증
 
 ## 비활성 계정 생성

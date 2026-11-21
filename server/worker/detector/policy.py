@@ -7,8 +7,44 @@ import threading
 import time
 from typing import Callable
 
-_POOLS = {name: ThreadPoolExecutor(max_workers=2, thread_name_prefix="detection-"+name) for name in ("rule","ml")}
-_SLOTS = {name: threading.BoundedSemaphore(2) for name in ("rule","ml")}
+# 방법 실행 슬롯(룰 레인·모델) 수 = 프로세스의 동시 판정 수. 기본 2는 폴링 1 + 직접 전달 1(단일 run(), Trainer 비교 평가).
+# Detector 서비스(runner.run_workers)는 시작 때 configure_capacity(작업자 수 + 1)로 바꾼다(detection-decision.md D20).
+DEFAULT_CAPACITY = 2
+_LANES = ("rule", "ml")
+_POOLS = {name: ThreadPoolExecutor(max_workers=DEFAULT_CAPACITY, thread_name_prefix="detection-"+name) for name in _LANES}
+_SLOTS = {name: threading.BoundedSemaphore(DEFAULT_CAPACITY) for name in _LANES}
+_CAPACITY_LOCK = threading.Lock()
+_capacity = DEFAULT_CAPACITY
+
+
+def capacity() -> int:
+    """지금 룰·ML 슬롯 수(둘이 같다)."""
+    return _capacity
+
+
+def configure_capacity(concurrent: int) -> None:
+    """룰·ML 슬롯과 실행 풀을 동시 판정 수 concurrent개로 다시 만든다. 프로세스 시작 때 판정 전에 한 번 부른다.
+
+    같은 값이면 아무것도 하지 않는다. 잡혀 있는 슬롯이 있으면(판정 진행 중) 바꾸지 않고 RuntimeError
+    (`detection_capacity_busy`)다. 표(_POOLS·_SLOTS)는 같은 dict를 고쳐 쓰므로 가져다 쓴 모듈도 새 값을 본다.
+    """
+    global _capacity
+    if type(concurrent) is not int or concurrent < 1:
+        raise ValueError("invalid_detection_capacity")
+    with _CAPACITY_LOCK:
+        if concurrent == _capacity:
+            return
+        if any(_SLOTS[name]._value != _capacity for name in _LANES):
+            raise RuntimeError("detection_capacity_busy")
+        old = [_POOLS[name] for name in _LANES]
+        for name in _LANES:
+            _SLOTS[name] = threading.BoundedSemaphore(concurrent)
+            _POOLS[name] = ThreadPoolExecutor(max_workers=concurrent, thread_name_prefix="detection-"+name)
+        _capacity = concurrent
+    for pool in old:
+        pool.shutdown(wait=False)
+
+
 POLICY_V2_KEYS = frozenset({"category-k-of-n-or-v1"})
 # 운영 설정을 저장한 적이 없는 상태(리비전 0)의 내장 기본 정책.
 DEFAULT_POLICY_V2 = {"version": 2, "policyKey": "category-k-of-n-or-v1", "k": {"hard": 1, "soft": 1, "ml": 1},
@@ -92,19 +128,22 @@ def execute(policy: Policy, rule: Callable, ml: Callable, *, started_at: float |
     futures = {}
     started = time.monotonic() if started_at is None else started_at
     deadline = started + policy.deadline_ms / 1000
-    def guarded(callback, name):
+    slots = {}
+    def guarded(callback, slot):
         try:
             return {**callback(),"_completedAt":time.monotonic()}
         except Exception:
             return {"status": "failed", "anomalous": None, "evidence": [{"reason": "component_failed"}],"_completedAt":time.monotonic()}
         finally:
-            _SLOTS[name].release()
+            slot.release()
     for name, callback in selected.items():
+        slot = _SLOTS[name]
         if time.monotonic() >= deadline:
             results[name] = {"status":"not_ready","anomalous":None,"evidence":[{"reason":"deadline_exceeded"}]}
-        elif _SLOTS[name].acquire(blocking=False):
-            future = _POOLS[name].submit(guarded, callback, name)
+        elif slot.acquire(blocking=False):
+            future = _POOLS[name].submit(guarded, callback, slot)
             futures[future] = name
+            slots[future] = slot
         else:
             results[name] = {"status": "not_ready", "anomalous": None, "evidence": [{"reason": "worker_busy"}]}
     done, pending = wait(futures, timeout=max(0, policy.deadline_ms / 1000 - (time.monotonic() - started)))
@@ -116,7 +155,7 @@ def execute(policy: Policy, rule: Callable, ml: Callable, *, started_at: float |
     for future in pending:
         # Cancelled-before-start tasks must return their capacity here.
         if future.cancel():
-            _SLOTS[futures[future]].release()
+            slots[future].release()
         results[futures[future]] = {"status": "not_ready", "anomalous": None, "evidence": [{"reason": "deadline_exceeded"}]}
     complete = all(results[name]["status"] == "succeeded" for name in selected)
     has_result = any(results[name]["status"] == "succeeded" or results[name].get("anomalous") is True for name in selected)

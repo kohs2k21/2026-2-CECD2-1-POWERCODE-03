@@ -7,7 +7,8 @@ import uuid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 import psycopg
-from detector.runner import run, process_detection_message
+from detector.policy import configure_capacity
+from detector.runner import process_detection_message, run_workers, worker_count
 from pg_queue import claim, fail
 
 
@@ -65,12 +66,17 @@ def serve(database_url, root, token, host="127.0.0.1", port=8011):
 def main():
     from dotenv import load_dotenv
     load_dotenv(Path(__file__).resolve().parents[1]/".env")
+    # 작업자 수는 HTTP 서버를 열기 전에 검사한다(잘못된 값이면 바로 실패).
+    workers=worker_count(os.environ.get("DETECTOR_WORKERS"))
+    # 직접 전달도 판정하므로 슬롯은 HTTP 서버를 열기 전에 맞춘다(run_workers의 같은 호출은 같은 값이라 그대로 둔다).
+    configure_capacity(workers+1)
     database_url=os.environ["DATABASE_URL"]
     root=Path(os.environ["ARTIFACT_ROOT"]) if os.environ.get("ARTIFACT_ROOT") else None
     server=serve(database_url,root,os.environ["DETECTOR_DELIVERY_TOKEN"],os.environ.get("DETECTOR_HOST","127.0.0.1"))
     threading.Thread(target=server.serve_forever,daemon=True).start()
     try:
-        run(poll_seconds=.25)
+        # 작업자 하나가 죽으면 WorkerFailed가 올라와 HTTP 서버를 닫고 0이 아닌 코드로 끝난다(컨테이너 재시작).
+        run_workers(database_url,root,workers=workers,poll_seconds=.25)
     finally:
         server.shutdown();server.server_close()
 

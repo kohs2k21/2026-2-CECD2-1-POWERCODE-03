@@ -63,8 +63,13 @@ def enqueue(conn: Any, queue: QueueName, payload: dict[str, Any], *, message_id:
 def claim(conn: Any, queue: QueueName, *, lease_seconds: int = 60,
           max_attempts: int = 3, benchmark_run_id: str | None = None,
           source_id: str | None = None, job_kinds: tuple[str, ...] | None = None,
-          message_id: uuid.UUID | None = None) -> ClaimedMessage | None:
-    """메시지 하나를 임대하고 다른 소비자가 잠근 행은 건너뛴다."""
+          message_id: uuid.UUID | None = None, expire_exhausted: bool = True) -> ClaimedMessage | None:
+    """메시지 하나를 임대하고 다른 소비자가 잠근 행은 건너뛴다.
+
+    expire_exhausted=False면 임대가 끝난 채 시도를 다 쓴 행을 dead로 바꾸는 UPDATE를 건너뛴다. 아래 picked 조건이
+    `attempts < max_attempts`라 그런 행은 어차피 다시 임대되지 않는다. 대신 호출자가 `expire_exhausted_leases`를
+    주기적으로 불러야 dead가 되고 `reconcile_dead_jobs` 대상이 된다(Detector 다중 작업자의 0번 작업자).
+    """
     if lease_seconds < 1 or max_attempts < 1:
         raise ValueError("lease_seconds and max_attempts must be positive")
     if benchmark_run_id is not None and not benchmark_run_id:
@@ -103,14 +108,8 @@ def claim(conn: Any, queue: QueueName, *, lease_seconds: int = 60,
         scope_params += (message_id,)
     token = uuid.uuid4()
     with conn.cursor() as cur:
-        cur.execute(
-            f"""UPDATE {_table(queue)}
-                   SET status = 'dead', lease_until = NULL, lease_token = NULL,
-                       last_error = 'lease_expired_max_attempts'
-                 WHERE status = 'leased' AND lease_until <= clock_timestamp()
-                   AND attempts >= %s{scope_sql}""",
-            (max_attempts, *scope_params),
-        )
+        if expire_exhausted:
+            _expire(cur, queue, max_attempts, scope_sql, scope_params)
         cur.execute(
             f"""
             WITH picked AS (
@@ -131,6 +130,27 @@ def claim(conn: Any, queue: QueueName, *, lease_seconds: int = 60,
         )
         row = cur.fetchone()
     return ClaimedMessage(*row, queue=queue) if row else None
+
+
+def _expire(cur: Any, queue: QueueName, max_attempts: int, scope_sql: str = "", scope_params: tuple = ()) -> int:
+    cur.execute(
+        f"""UPDATE {_table(queue)}
+               SET status = 'dead', lease_until = NULL, lease_token = NULL,
+                   last_error = 'lease_expired_max_attempts'
+             WHERE status = 'leased' AND lease_until <= clock_timestamp()
+               AND attempts >= %s{scope_sql}""",
+        (max_attempts, *scope_params),
+    )
+    return cur.rowcount
+
+
+def expire_exhausted_leases(conn: Any, queue: QueueName, *, max_attempts: int = 3) -> int:
+    """claim(expire_exhausted=False)만 쓰는 소비자용: 임대가 끝났고 시도를 다 쓴 행 전부를 dead로 바꾼다(범위 없음).
+    claim 안의 같은 UPDATE와 문장·조건이 같다. 호출자가 커밋한다. 바꾼 행 수를 돌려준다."""
+    if max_attempts < 1:
+        raise ValueError("max_attempts must be positive")
+    with conn.cursor() as cur:
+        return _expire(cur, queue, max_attempts)
 
 
 def renew_lease(conn: Any, queue: QueueName, message: ClaimedMessage, *, lease_seconds: int = 60) -> bool:
@@ -184,8 +204,12 @@ CLEAR_PROGRESS = "result_summary = CASE WHEN kind::text = 'recommend_thresholds'
 
 def reconcile_dead_jobs(conn: Any, queue: QueueName) -> None:
     """Expire exhausted crashed attempts; a dead queue item must not look running forever."""
-    # 비용: queued/running 작업(또는 만료된 running 시도) × dead 큐 행 순차 탐색. 큐에 jobId 색인이 없어 uuid 비교로 바꿔도 줄지 않는다.
+    # 비용(training·LLM 큐): queued/running 작업(또는 만료된 running 시도) × dead 큐 행 순차 탐색. 큐에 jobId 색인이 없어
+    # uuid 비교로 바꿔도 줄지 않는다. detection 큐는 큐 id = jobId라 아래 _reconcile_detection이 pkey로 찾는다.
     if queue == "feature":
+        return
+    if queue == "detection":
+        _reconcile_detection(conn)
         return
     with conn.cursor() as cur:
         cur.execute(f"""UPDATE run_job_attempts a SET status='expired',finished_at=clock_timestamp(),error_code='queue_exhausted'
@@ -195,5 +219,24 @@ def reconcile_dead_jobs(conn: Any, queue: QueueName) -> None:
         cur.execute(f"""UPDATE run_jobs j SET status='failed',error_code='queue_exhausted',finished_at=clock_timestamp(),{CLEAR_PROGRESS}
             WHERE j.status IN ('queued','running') AND EXISTS(SELECT 1 FROM {_table(queue)} q
               WHERE q.status='dead' AND q.payload->>'jobId'=j.id::text)
+              AND NOT EXISTS(SELECT 1 FROM run_job_attempts a WHERE a.id=j.current_attempt_id
+                AND a.status='running' AND a.lease_until>clock_timestamp())""")
+
+
+def _reconcile_detection(conn: Any) -> None:
+    """reconcile_dead_jobs의 detection 큐 문장. 위 두 문장과 같고 EXISTS에 `q.id=j.id`만 더한다(조건이 좁아지기만 한다).
+
+    detection 큐 행은 넣는 모든 경로에서 큐 id = jobId다(detector/jobs.py enqueue_observation·enqueue_recheck, jobId 없는
+    옛 메시지는 uuid5 id). 그래서 같은 행 집합을 pkey Index Cond로 찾고, 비용이 dead 행 수와 무관하다(큐 순차 탐색 반복 없음).
+    """
+    with conn.cursor() as cur:
+        cur.execute("""UPDATE run_job_attempts a SET status='expired',finished_at=clock_timestamp(),error_code='queue_exhausted'
+            FROM run_jobs j WHERE a.id=j.current_attempt_id AND a.job_id=j.id AND a.status='running'
+              AND a.lease_until<=clock_timestamp() AND EXISTS(SELECT 1 FROM powercode_queue.detection_logs q
+              WHERE q.id=j.id AND q.status='dead' AND q.payload->>'jobId'=j.id::text)""")
+        cur.execute("UPDATE run_jobs j SET status='failed',error_code='queue_exhausted',finished_at=clock_timestamp(),"
+                    + CLEAR_PROGRESS + """
+            WHERE j.status IN ('queued','running') AND EXISTS(SELECT 1 FROM powercode_queue.detection_logs q
+              WHERE q.id=j.id AND q.status='dead' AND q.payload->>'jobId'=j.id::text)
               AND NOT EXISTS(SELECT 1 FROM run_job_attempts a WHERE a.id=j.current_attempt_id
                 AND a.status='running' AND a.lease_until>clock_timestamp())""")

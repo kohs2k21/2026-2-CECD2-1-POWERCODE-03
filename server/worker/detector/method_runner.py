@@ -61,14 +61,15 @@ def execute_methods(tasks: Iterable[MethodTask], deadline_ms: int, *, started_at
             outcome = MethodOutcome(task.unresolved("failure", status="failed", failure_code="exception"))
         arrivals.put((task, outcome, time.monotonic()))
 
-    def run_lane(name: str, group: list[MethodTask]) -> None:
+    def run_lane(slot: Any, group: list[MethodTask]) -> None:
         try:
             for task in group:
                 if time.monotonic() >= deadline:
                     return
                 run_one(task)
         finally:
-            _SLOTS[name].release()
+            # 잡은 세마포어 객체 그대로 돌려준다(policy.configure_capacity가 표를 바꿔도 다른 세마포어를 올리지 않게).
+            slot.release()
 
     def accept(item: tuple[MethodTask, MethodOutcome, float]) -> None:
         task, outcome, completed = item
@@ -91,11 +92,12 @@ def execute_methods(tasks: Iterable[MethodTask], deadline_ms: int, *, started_at
     futures = []
     try:
         for name, group in lanes:
+            slot = _SLOTS[name]
             if time.monotonic() >= deadline:
                 for task in group:
                     settle(task, "timeout")
-            elif _SLOTS[name].acquire(blocking=False):
-                futures.append((_POOLS[name].submit(run_lane, name, group), name))
+            elif slot.acquire(blocking=False):
+                futures.append((_POOLS[name].submit(run_lane, slot, group), slot))
             else:
                 for task in group:
                     settle(task, "capacity")
@@ -116,8 +118,8 @@ def execute_methods(tasks: Iterable[MethodTask], deadline_ms: int, *, started_at
             if task.method_id not in results:
                 settle(task, "timeout")
     finally:
-        for future, name in futures:
+        for future, slot in futures:
             # 시작 전에 취소된 작업은 run_lane이 돌지 않으므로 여기서 슬롯을 돌려준다.
             if future.cancel():
-                _SLOTS[name].release()
+                slot.release()
     return MethodExecution([results[task.method_id] for task in tasks], adopted)

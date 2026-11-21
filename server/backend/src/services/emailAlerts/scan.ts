@@ -30,6 +30,9 @@ ev AS (
   SELECT e.id AS seq,d.id AS decision_id,d.job_id,d.status::text AS status,d.evidence,d.decided_at,d.process_observation_id,ex.source_id
   FROM run_decision_events e JOIN run_process_decisions d ON d.id=e.decision_id JOIN data_executions ex ON ex.id=d.execution_id
   WHERE e.id>$1::bigint AND e.event_kind='final' ORDER BY e.id LIMIT $2
+), w AS (
+  -- 원본별 사건 묶음 경계. 구성원 여부(m)와 같은 문장(같은 스냅숏)에서 읽어야 "경계 안인데 구성원이 아직 안 보임"이 생기지 않는다.
+  SELECT s.source_id,(SELECT max(r.cursor_to) FROM run_incident_runs r WHERE r.source_id=s.source_id) AS w FROM (SELECT DISTINCT source_id FROM ev) s
 ), x AS (
   SELECT ev.*,f.anomalous,CASE WHEN f."schemaVersion"='4'::jsonb AND jsonb_typeof(f.composite)='object' THEN f.composite END AS composite
   FROM ev CROSS JOIN LATERAL jsonb_to_record(coalesce(
@@ -39,13 +42,14 @@ ev AS (
     coalesce(x.status<>'unavailable' AND x.anomalous='true'::jsonb,false) AS anomaly,
     CASE WHEN ${RATED("x.composite->'risk'")} THEN CASE x.composite->'risk'->>'level' WHEN 'critical' THEN 3 WHEN 'warning' THEN 2 ELSE 1 END ELSE 0 END AS rank,
     CASE WHEN x.composite->>'grade' IN ('anomaly','anomaly_sign') THEN x.composite->>'grade' END AS grade,
-    m.incident_id,dp.process_id
+    m.incident_id,dp.process_id,w.w
   FROM x LEFT JOIN run_incident_members m ON m.decision_id=x.decision_id
   LEFT JOIN data_processes dp ON dp.observation_id=x.process_observation_id
+  LEFT JOIN w ON w.source_id=x.source_id
 )
 SELECT (SELECT top::text FROM top) AS top,
   coalesce((SELECT jsonb_agg(jsonb_build_object('seq',r.seq::text,'decisionId',r.decision_id,'jobId',r.job_id,'sourceId',r.source_id,'decidedAt',r.decided_at,
-    'anomaly',r.anomaly,'rank',r.rank,'grade',r.grade,'incidentId',r.incident_id,'processId',r.process_id) ORDER BY r.seq) FROM r),'[]'::jsonb) AS rows`;
+    'anomaly',r.anomaly,'rank',r.rank,'grade',r.grade,'incidentId',r.incident_id,'processId',r.process_id,'boundary',r.w::text) ORDER BY r.seq) FROM r),'[]'::jsonb) AS rows`;
 
 /** 사건 하나에서 닿는 흐름(notificationReadModel stateCte up·mroot·roots·head와 같은 걸음): 머리 id와 사건 id 전부. */
 const FLOW_SQL = `WITH RECURSIVE up(id) AS (
@@ -100,20 +104,11 @@ export async function runScan(pool: Pool, { batch = SCAN_BATCH, perHour = NEW_AL
     const { rows: [scan] } = await client.query(BATCH_SQL, [cursor.seq, batch]);
     const rows = scan.rows as Row[];
     const minRank = RISK_RANK[settings.min_risk_level];
-    const boundaries = new Map<string, bigint | null>();
-    const boundary = async (sourceId: string) => {
-      if (!boundaries.has(sourceId)) {
-        const { rows: [w] } = await client.query('SELECT max(cursor_to)::text AS w FROM run_incident_runs WHERE source_id=$1', [sourceId]);
-        boundaries.set(sourceId, w.w === null ? null : BigInt(w.w));
-      }
-      return boundaries.get(sourceId)!;
-    };
     let through = BigInt(cursor.seq);
     for (const row of rows) {
       const seq = BigInt(row.seq);
       if (row.anomaly && row.rank >= minRank && (settings.notify_incidents || settings.notify_decisions)) {
-        const w = await boundary(row.sourceId);
-        if (w === null || seq > w) { result.waiting = true; break; }
+        if (row.boundary === null || seq > BigInt(row.boundary)) { result.waiting = true; break; }
         const notified = row.incidentId
           ? (settings.notify_incidents ? await incidentAlert(client, row) : null)
           : (settings.notify_decisions ? await decisionAlert(client, row) : null);

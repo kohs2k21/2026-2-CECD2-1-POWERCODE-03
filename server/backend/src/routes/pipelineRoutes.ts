@@ -3,7 +3,7 @@ import { getDatabasePool } from '../config/database.js';
 import { authenticateToken, AuthenticatedRequest, requireAdmin } from '../middleware/auth.js';
 import crypto from 'node:crypto';
 import { UserRepository } from '../repository/userRepository.js';
-import { streamDecisionEvents } from '../services/decisionStream.js';
+import { DECISION_STREAM_PAGE_SIZE, streamDecisionEvents } from '../services/decisionStream.js';
 import reportRoutes from './reportRoutes.js';
 
 const router = Router();
@@ -27,8 +27,11 @@ router.get('/events', route(async (req, res) => {
   const include = req.query.include;
   if (include !== undefined && include !== 'interims') { res.status(400).json({code:'invalid_event_include'});return; }
   const interims = include === 'interims';
+  // 0.25초 주기로 읽고, 한 번에 LIMIT(pageSize)건이 꽉 차면 같은 주기 안에서 커서를 이어 다시 읽는다(주기당 상한 있음).
+  // 사용자·권한 확인은 조회 주기와 따로 약 1초 간격(decisionStream 기본값).
   await streamDecisionEvents(res, {
     after: cursor,
+    pageSize: DECISION_STREAM_PAGE_SIZE,
     authorize: async () => {
       const user = await UserRepository.getInstance().getById(req.user!.id);
       return !!user && user.userType === req.user!.userType && user.email === req.user!.email &&
@@ -51,7 +54,7 @@ router.get('/events', route(async (req, res) => {
           LEFT JOIN run_input_manifests m ON m.id=j.input_manifest_id
           WHERE e.id>$1::bigint AND ($2::boolean OR e.event_kind='final')
             AND ((e.event_kind='final' AND d.id IS NOT NULL) OR (e.event_kind<>'final' AND i.id IS NOT NULL))
-          ORDER BY e.id LIMIT 100`,[after, interims]);
+          ORDER BY e.id LIMIT ${DECISION_STREAM_PAGE_SIZE}`,[after, interims]);
       return result.rows.map((row) => row.eventKind === 'final'
         ? { eventId: row.eventId, eventKind: 'final', id: row.id, status: row.status, configVersionId: row.configVersionId,
             ruleStatus: row.ruleStatus, mlStatus: row.mlStatus, decisionCode: row.decisionCode, anomalyScore: row.anomalyScore,

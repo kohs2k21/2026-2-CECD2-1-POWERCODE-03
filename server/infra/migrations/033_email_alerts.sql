@@ -26,7 +26,8 @@ CREATE TABLE ops_email_alert_settings (
  notify_incidents boolean NOT NULL,
  notify_decisions boolean NOT NULL,
  min_risk_level text NOT NULL CHECK (min_risk_level IN ('info','warning','critical')),
- recipients jsonb NOT NULL CHECK (jsonb_typeof(recipients) = 'array' AND jsonb_array_length(recipients) <= 10),
+-- recipients: jsonb_array_length는 배열이 아니면 CHECK 위반이 아니라 22023 오류를 낸다(AND는 계산 순서를 보장하지 않음) → CASE로 배열일 때만 길이를 잰다.
+ recipients jsonb NOT NULL CHECK (CASE WHEN jsonb_typeof(recipients) = 'array' THEN jsonb_array_length(recipients) <= 10 ELSE false END),
  smtp_host text CHECK (smtp_host <> '' AND length(smtp_host) <= 253),
  smtp_port integer CHECK (smtp_port IN (25,465,587,2525)),
  smtp_security text CHECK (smtp_security IN ('tls','starttls')),
@@ -46,7 +47,7 @@ CREATE TABLE ops_email_alert_settings (
    AND (transport_error_code IS NULL OR transport_result IN ('auth_failed','error'))),
  CONSTRAINT ops_email_alert_settings_enable_requires CHECK (NOT enabled OR (smtp_host IS NOT NULL AND smtp_port IS NOT NULL
    AND smtp_security IS NOT NULL AND from_address IS NOT NULL AND public_base_url IS NOT NULL
-   AND jsonb_array_length(recipients) >= 1 AND (notify_incidents OR notify_decisions)))
+   AND CASE WHEN jsonb_typeof(recipients) = 'array' THEN jsonb_array_length(recipients) >= 1 ELSE false END AND (notify_incidents OR notify_decisions)))
 );
 
 -- 2. 처리 경계(1행). processed_through_seq = run_decision_events.id(006·012 identity, id 순서 = 커밋 순서).

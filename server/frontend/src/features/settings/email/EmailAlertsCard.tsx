@@ -18,6 +18,7 @@ import {
   alertKinds,
   checkRecipient,
   errorCodeOf,
+  passwordKeyCodes,
   riskLevels,
   transportUsable,
   type AlertKind,
@@ -101,6 +102,29 @@ export const updateOf = (draft: Draft): EmailAlertSettingsUpdate => {
   };
 };
 const sameDraft = (a: Draft, b: Draft) => JSON.stringify(updateOf(a)) === JSON.stringify(updateOf(b));
+
+/**
+ * 켜진 채로 저장할 수 있는 입력값인가 — API가 enabled=true 저장마다(이미 켜져 있어도) 보낸 값으로 하는 검사와 같다
+ * (settingsStore.updateEmailSettings: 보낸 SMTP 값의 설정 상태가 configured가 아니면 409 email_transport_not_configured, 대시보드 주소 없으면 400).
+ * - 호스트·포트·보안·보내는 주소·대시보드 주소가 있다
+ * - 발신 계정이 있으면 새 비밀번호를 넣었거나, 저장된 비밀번호를 지우지 않고 그대로 쓴다
+ * - 저장된 비밀번호를 그대로 쓸 때 지금 키로 풀 수 없으면(전송 상태 코드, 키는 화면이 모름) 안 된다. SMTP 값이 저장값과 같으면
+ *   저장된 전송 상태가 곧 보낸 값의 상태다(설정 오류면 안 됨, 인증 실패·연결 오류는 막지 않음)
+ * 받는 사람·보낼 알림이 비면 API 400(코드 표시) — 여기서는 보지 않는다. 끄기는 언제나 저장할 수 있다.
+ */
+export const canEnable = (draft: Draft, server: EmailAlertSettings) => {
+  const update = updateOf(draft);
+  const { smtp } = update;
+  if (!smtp.host || smtp.port === null || !smtp.security || !smtp.fromAddress || !update.publicBaseUrl) return false;
+  const saved = server.smtp;
+  const sameSmtp = smtp.host === saved.host && smtp.port === saved.port && smtp.security === saved.security && smtp.username === saved.username
+    && smtp.fromAddress === saved.fromAddress && smtp.password === undefined;
+  if (sameSmtp) return transportUsable(server.transport.status);
+  if (smtp.username === null || typeof smtp.password === "string") return true;
+  const keepsSaved = smtp.password === undefined && saved.passwordSet;
+  if (!keepsSaved) return false;
+  return !(server.transport.status === "invalid" && (passwordKeyCodes as readonly (string | null)[]).includes(server.transport.code));
+};
 
 const Field = ({ label, help, children }: { label: string; help?: string; children: (id: string, helpId: string | undefined) => ReactNode }) => {
   const id = useId();
@@ -192,9 +216,9 @@ const Recipients = ({
                     </Button>
                   </div>
                 </div>
-                {outcome?.kind === "result" && (
+                {outcome && (
                   <p role="status" className="text-xs text-muted-foreground" data-test-result={address}>
-                    {outcome.text}
+                    {outcome.kind === "pending" ? deliveryStatusLabels.sending : outcome.text}
                   </p>
                 )}
               </li>
@@ -294,6 +318,8 @@ const EmailAlertsForm = ({ currentUser }: { currentUser: AuthUser }) => {
   const save = useSaveEmailAlertSettings();
   const [draft, setDraft] = useState<Draft | null>(null);
   const [status, setStatus] = useState("");
+  // 저장 실패 코드. 저장 요청 상태(PUT 본문 — 새 비밀번호 포함)는 끝나면 바로 지우고(save.reset) 코드만 남긴다.
+  const [saveError, setSaveError] = useState<string | null>(null);
   const lagging = useProcessingLag(currentUser.id, settings.data, settings.dataUpdatedAt);
   const switchId = useId();
   if (settings.isPending) return <LoadingState />;
@@ -309,14 +335,17 @@ const EmailAlertsForm = ({ currentUser }: { currentUser: AuthUser }) => {
   };
   const submit = () => {
     setStatus("");
+    setSaveError(null);
     save.mutate(updateOf(value), {
       onSuccess: ({ saved }) => {
         setDraft(null);
         setStatus(verifyText(saved.verify));
       },
+      onError: (error) => setSaveError(errorCodeOf(error)),
+      onSettled: () => save.reset(),
     });
   };
-  const usable = transportUsable(server.transport.status);
+  const enableOk = canEnable(value, server);
   const detail = transportDetail(server.transport.checkedAt, server.transport.code, stampText);
   const passwordShown = server.smtp.passwordSet && !value.passwordCleared;
   const noUsername = !value.username.trim();
@@ -335,8 +364,8 @@ const EmailAlertsForm = ({ currentUser }: { currentUser: AuthUser }) => {
           <Switch
             id={switchId}
             checked={value.enabled}
-            // 꺼진 상태에서 켜기는 보낼 수 있는 전송 상태일 때만(API 409 email_transport_not_configured와 같음). 끄기는 언제나.
-            disabled={locked || (!value.enabled && !usable)}
+            // 켜기는 입력값이 켜진 채로 저장될 수 있을 때만(canEnable = API 409·400 조건). 끄기는 언제나.
+            disabled={locked || (!value.enabled && !enableOk)}
             onCheckedChange={(checked) => change({ enabled: checked })}
           />
         </div>
@@ -456,13 +485,11 @@ const EmailAlertsForm = ({ currentUser }: { currentUser: AuthUser }) => {
         <p role="status" className="text-sm text-muted-foreground">
           {locked ? "" : status}
         </p>
-        <Button disabled={locked || !dirty} onClick={submit}>
+        <Button disabled={locked || !dirty || (value.enabled && !enableOk)} onClick={submit}>
           {emailText.save}
         </Button>
       </div>
-      {save.isError && !locked && (
-        <ErrorState title={emailText.saveError}>{saveErrorDetail(errorCodeOf(save.error))}</ErrorState>
-      )}
+      {saveError && !locked && <ErrorState title={emailText.saveError}>{saveErrorDetail(saveError)}</ErrorState>}
 
       <RecentDeliveries />
     </div>

@@ -33,11 +33,13 @@ const useRefreshEmail = () => {
   };
 };
 
-/** 저장: 성공하면 설정 캐시를 응답값으로 바꾸고 발송 목록을 다시 조회한다. 실패하면 캐시(서버 값)를 그대로 둔다. */
+/** 저장: 성공하면 설정 캐시를 응답값으로 바꾸고 발송 목록을 다시 조회한다. 실패하면 캐시(서버 값)를 그대로 둔다. 요청 상태는 gcTime 0(본문에 비밀번호). */
 export const useSaveEmailAlertSettings = () => {
   const { user } = useAuthSession();
   const cache = useQueryClient();
   return useMutation({
+    // 요청 본문(새 비밀번호 포함)을 캐시에 남기지 않는다: 화면이 끝나면 reset하고, 관찰자가 없으면 바로 지운다.
+    gcTime: 0,
     mutationFn: async (body: EmailAlertSettingsUpdate) => {
       const token = getStoredToken();
       return { saved: await saveEmailAlertSettings(body), token };
@@ -53,7 +55,8 @@ export const useSaveEmailAlertSettings = () => {
 /** 시험 발송(받는 사람 1명). 결과와 상관없이 끝나면 설정(전송 상태)·발송 목록을 다시 조회한다. */
 export const useSendTestEmail = () => {
   const refresh = useRefreshEmail();
-  return useMutation({ mutationFn: (to: string) => sendTestEmail(to), onSettled: refresh });
+  // 결과는 화면 줄에 남기므로 요청 상태는 보관하지 않는다(gcTime 0).
+  return useMutation({ gcTime: 0, mutationFn: (to: string) => sendTestEmail(to), onSettled: refresh });
 };
 
 /** 계정별 처리 경계 관찰(화면을 다시 열어도 이어서 잰다). 계정이 바뀌면 key가 달라 섞이지 않는다. */

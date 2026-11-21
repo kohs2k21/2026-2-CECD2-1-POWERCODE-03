@@ -50,24 +50,31 @@ const strOrNull = (value: unknown) => (typeof value === "string" ? value : null)
 const SEQ = /^(0|[1-9]\d{0,18})$/;
 const oneOf = <T extends string>(value: unknown, allowed: readonly T[]): T | null =>
   typeof value === "string" && (allowed as readonly string[]).includes(value) ? (value as T) : null;
-const fail = (what: string): never => {
-  throw new Error(`${what} 응답 형식을 확인할 수 없습니다.`);
+/** 응답 형식 오류. 화면에는 다른 오류처럼 코드(`invalid_response`)만 보인다(승인되지 않은 문장 없음). */
+export class ResponseFormatError extends Error {
+  readonly code = "invalid_response";
+  constructor() {
+    super("invalid_response");
+    this.name = "ResponseFormatError";
+  }
+}
+const fail = (): never => {
+  throw new ResponseFormatError();
 };
-const WHAT = "메일 알림 설정";
 
 export const parseEmailAlertSettings = (value: unknown): EmailAlertSettings => {
   if (!obj(value) || typeof value.enabled !== "boolean" || !obj(value.rules) || !obj(value.smtp) || !obj(value.transport) || !obj(value.processing)
-    || !obj(value.limits) || !Array.isArray(value.recipients)) return fail(WHAT);
+    || !obj(value.limits) || !Array.isArray(value.recipients)) return fail();
   const { rules, smtp, transport, processing, limits } = value;
   const minRiskLevel = oneOf(rules.minRiskLevel, riskLevels);
-  if (!Array.isArray(rules.kinds) || !minRiskLevel) return fail(WHAT);
+  if (!Array.isArray(rules.kinds) || !minRiskLevel) return fail();
   const kinds = alertKinds.filter((kind) => (rules.kinds as unknown[]).includes(kind));
   const status = oneOf(transport.status, transportStatuses);
-  if (!status || typeof smtp.passwordSet !== "boolean" || typeof processing.latestSeq !== "string" || !SEQ.test(processing.latestSeq)) return fail(WHAT);
+  if (!status || typeof smtp.passwordSet !== "boolean" || typeof processing.latestSeq !== "string" || !SEQ.test(processing.latestSeq)) return fail();
   const through = processing.processedThroughSeq;
-  if (through !== null && (typeof through !== "string" || !SEQ.test(through))) return fail(WHAT);
+  if (through !== null && (typeof through !== "string" || !SEQ.test(through))) return fail();
   const recipientMax = limits.recipients;
-  if (!Number.isInteger(recipientMax) || (recipientMax as number) < 1 || !Array.isArray(limits.ports) || !Array.isArray(limits.security)) return fail(WHAT);
+  if (!Number.isInteger(recipientMax) || (recipientMax as number) < 1 || !Array.isArray(limits.ports) || !Array.isArray(limits.security)) return fail();
   return {
     enabled: value.enabled,
     rules: { kinds, minRiskLevel },
@@ -95,13 +102,13 @@ export const parseEmailAlertSettings = (value: unknown): EmailAlertSettings => {
 
 const parseVerify = (value: unknown): VerifyResult => {
   const result = obj(value) ? oneOf(value.result, ["ok", "auth_failed", "error", "skipped"] as const) : null;
-  if (!obj(value) || !result) return fail(WHAT);
+  if (!obj(value) || !result) return fail();
   return { result, code: strOrNull(value.code) };
 };
 
 export const parseTestSendResult = (value: unknown): TestSendResult => {
   const status = obj(value) ? oneOf(value.status, ["sent", "failed", "unknown"] as const) : null;
-  if (!obj(value) || !status || typeof value.deliveryId !== "string") return fail("시험 발송");
+  if (!obj(value) || !status || typeof value.deliveryId !== "string") return fail();
   return { deliveryId: value.deliveryId, status, errorCode: strOrNull(value.errorCode), smtpCode: Number.isInteger(value.smtpCode) ? (value.smtpCode as number) : null,
     finishedAt: strOrNull(value.finishedAt) };
 };
@@ -115,7 +122,7 @@ const parseDelivery = (value: unknown): Delivery | null => {
   return { id: value.id, kind, recipient: value.recipient, status, errorCode: strOrNull(value.errorCode), createdAt: value.createdAt };
 };
 export const parseDeliveryList = (value: unknown): DeliveryList => {
-  if (!obj(value) || !Array.isArray(value.items)) return fail("최근 발송");
+  if (!obj(value) || !Array.isArray(value.items)) return fail();
   return { items: value.items.map(parseDelivery).filter((item): item is Delivery => item !== null), nextCursor: strOrNull(value.nextCursor) };
 };
 
@@ -132,12 +139,21 @@ export const sendTestEmail = async (to: string) => parseTestSendResult(await htt
 export const readRecentDeliveries = async (signal?: AbortSignal) =>
   parseDeliveryList(await httpClient.get<unknown>("/api/email-alerts/deliveries", { signal, params: { limit: RECENT_DELIVERY_LIMIT } }));
 
-/** 오류 코드(서버 code, 없으면 http_<상태>). 화면에는 코드만 보인다(서버 원문 없음). */
+/**
+ * 화면에 보이는 오류 코드: 서버 code(없으면 http_<상태>), 응답 형식 오류 invalid_response, fetch 실패(TypeError — 연결 안 됨·CORS 등) network_error,
+ * 그 밖 request_failed. 오류 원문(브라우저·서버 메시지)은 보이지 않는다.
+ */
 export const errorCodeOf = (error: unknown) =>
-  error instanceof HttpError ? (error.code ?? `http_${error.status}`) : error instanceof Error ? error.message : "request_failed";
+  error instanceof HttpError ? (error.code ?? `http_${error.status}`)
+    : error instanceof ResponseFormatError ? error.code
+      : error instanceof TypeError ? "network_error"
+        : "request_failed";
 
-/** 켤 수 있는 전송 상태(contracts/email-alerts.md 5절 "켜기 전제", 아니면 409 email_transport_not_configured). */
+/** 시험 발송을 받을 수 있는 저장된 전송 상태(contracts/email-alerts.md 5절 — 확인 실패는 막지 않음, 아니면 409 email_transport_not_configured). */
 export const transportUsable = (status: TransportStatus) => status === "configured" || status === "auth_failed" || status === "error";
+
+/** 저장된 비밀번호를 지금 키로 풀 수 없다는 전송 상태 코드(contracts/email-alerts.md 5·6절). 저장된 비밀번호를 그대로 쓰면 켤 수 없다. */
+export const passwordKeyCodes = ["email_secret_key_unavailable", "email_secret_key_invalid", "smtp_password_unreadable"] as const;
 
 /**
  * 받는 사람 주소 검사(서버 normalizeEmail과 같은 규칙, contracts/email-alerts.md 7절): ASCII local@domain, 도메인 라벨 2개 이상·끝 라벨 숫자만 아님,

@@ -144,12 +144,19 @@ def tick(conn,source,*,api_factory=from_environment,mapping=None,collect_catalog
         return {'errorCode':code,'wait':min(5,max(.5,interval))}
 
 
-# Pending direct-delivery notices held in memory. Detector's /detect serves one job at a time and answers 202
-# "queued" at once when busy, so notices beyond what it takes are cheap no-ops; the bound only caps memory and how
-# stale a notice can get. Overflow is dropped: those jobs are already committed and Detector queue polling claims them.
+# Pending direct-delivery notices held in memory. The bound only caps memory; overflow is dropped because those jobs are
+# already committed and Detector queue polling claims them.
 DELIVERY_CAPACITY=256
 DELIVERY_TIMEOUT=2
 DELIVERY_HOSTS=frozenset({'detector','127.0.0.1','localhost'})
+# Notices offered per tick. Detector's /detect takes one job at a time and answers "queued" when busy, so a long burst of
+# notices mostly opens connections that change nothing; jobs past the cap stay with Detector queue polling.
+DELIVERY_PER_TICK=8
+# A notice that waited longer than this is skipped: by then Detector's idle queue poll (a fraction of a second) has normally
+# claimed the job already, so the POST would only miss.
+DELIVERY_MAX_AGE_SECONDS=.2
+# Continuous mode prints the delivery counters at most this often, and only when they changed.
+DELIVERY_REPORT_SECONDS=60
 
 
 def delivery_target():
@@ -164,39 +171,72 @@ def delivery_target():
     return url.rstrip('/')+'/detect',token
 
 
+def delivery_limits():
+    """(per_tick, max_age_seconds) from DETECTOR_DELIVERY_PER_TICK / DETECTOR_DELIVERY_MAX_AGE_SECONDS. Rejected values raise.
+
+    per_tick: integer 0..DELIVERY_CAPACITY; 0 offers nothing (direct delivery effectively off, queue polling only).
+    max_age: seconds, 0 < value <= 60.
+    """
+    import math
+    raw=os.environ.get('DETECTOR_DELIVERY_PER_TICK','').strip()
+    try:per_tick=int(raw) if raw else DELIVERY_PER_TICK
+    except ValueError:raise ValueError('detector_delivery_per_tick_rejected') from None
+    if not 0<=per_tick<=DELIVERY_CAPACITY:raise ValueError('detector_delivery_per_tick_rejected')
+    raw=os.environ.get('DETECTOR_DELIVERY_MAX_AGE_SECONDS','').strip()
+    try:max_age=float(raw) if raw else DELIVERY_MAX_AGE_SECONDS
+    except ValueError:raise ValueError('detector_delivery_max_age_rejected') from None
+    if not math.isfinite(max_age) or not 0<max_age<=60:raise ValueError('detector_delivery_max_age_rejected')
+    return per_tick,max_age
+
+
 class Delivery:
     """After-commit optimization only: tell Detector about detect jobs a tick has committed, off the poll loop.
 
-    Reads no database queue. `offer` never blocks: jobs that do not fit stay in the durable queue, which Detector
-    polling claims, as do failed or slow POSTs. One background sender posts {jobId, inputManifestHash} in order.
+    Reads no database queue. `offer` never blocks: it queues at most `per_tick` jobs of one tick, and jobs past that cap
+    or past the memory bound stay in the durable queue, which Detector polling claims, as do failed or slow POSTs. One
+    background sender posts {jobId, inputManifestHash} in order and skips notices older than `max_age` seconds
+    (monotonic clock, stamped at offer time). Counters: offered (queued), capped, overflow (dropped, queue full),
+    stale (skipped by age), sent (POST attempted), failed (POST failed).
     """
-    def __init__(self,url,token,*,capacity=DELIVERY_CAPACITY,timeout=DELIVERY_TIMEOUT):
+    def __init__(self,url,token,*,capacity=DELIVERY_CAPACITY,timeout=DELIVERY_TIMEOUT,per_tick=DELIVERY_PER_TICK,
+                 max_age=DELIVERY_MAX_AGE_SECONDS,clock=time.monotonic):
         import queue
         import threading
         self.url,self.token,self.timeout=url,token,timeout
+        self.per_tick,self.max_age,self.clock=per_tick,max_age,clock
         self.pending=queue.Queue(maxsize=capacity)
-        self.offered=0;self.dropped=0;self.sent=0
+        # Each counter has one writer: offer() updates the first three, the sender thread the rest.
+        self.offered=0;self.capped=0;self.overflow=0;self.stale=0;self.sent=0;self.failed=0
         self.thread=threading.Thread(target=self._send_forever,name='detector-delivery',daemon=True)
         self.thread.start()
 
     @classmethod
     def from_environment(cls,**kwargs):
         target=delivery_target()
-        return cls(*target,**kwargs) if target else None
+        if not target:return None
+        per_tick,max_age=delivery_limits()
+        return cls(*target,**{'per_tick':per_tick,'max_age':max_age,**kwargs})
+
+    def counters(self):
+        return {'offered':self.offered,'capped':self.capped,'overflow':self.overflow,'stale':self.stale,
+                'sent':self.sent,'failed':self.failed}
 
     def offer(self,jobs):
-        """Queue committed jobs for delivery without waiting. Returns how many were queued."""
+        """Queue up to `per_tick` committed jobs of one tick without waiting. Returns how many were queued."""
         import queue
-        queued=0
-        for job in jobs:
-            try:self.pending.put_nowait({'jobId':job['jobId'],'inputManifestHash':job['inputManifestHash']})
+        jobs=list(jobs)
+        self.capped+=max(0,len(jobs)-self.per_tick)
+        queued=0;now=self.clock()
+        for job in jobs[:self.per_tick]:
+            try:self.pending.put_nowait((now,{'jobId':job['jobId'],'inputManifestHash':job['inputManifestHash']}))
             except queue.Full:
-                self.dropped+=1;continue
+                self.overflow+=1;continue
             queued+=1
         self.offered+=queued
         return queued
 
     def post(self,job):
+        """One POST. Returns False when it failed; the durable queue stays authoritative either way."""
         import urllib.request
         from generation_client import NoRedirect
         request=urllib.request.Request(self.url,data=json.dumps(job).encode(),
@@ -205,20 +245,24 @@ class Delivery:
             with urllib.request.build_opener(NoRedirect()).open(request,timeout=self.timeout) as response:
                 response.read(4096)
         except (OSError,TimeoutError,ValueError):
-            pass # durable queue polling remains authoritative
+            return False
+        return True
 
     def _send_forever(self):
         while True:
-            job=self.pending.get()
+            offered_at,job=self.pending.get()
             try:
-                self.post(job);self.sent+=1
+                if self.clock()-offered_at>self.max_age:
+                    self.stale+=1;continue
+                self.sent+=1
+                if not self.post(job):self.failed+=1
             except Exception:
-                pass
+                self.failed+=1
             finally:
                 self.pending.task_done()
 
     def drain(self,timeout):
-        """Wait up to `timeout` seconds for queued notices to be sent (used by --once)."""
+        """Wait up to `timeout` seconds for queued notices to be sent or skipped (used by --once)."""
         deadline=time.monotonic()+timeout
         with self.pending.all_tasks_done:
             while self.pending.unfinished_tasks:
@@ -237,7 +281,7 @@ def run(once=False):
     except ValueError as exc:
         # Collection continues; Detector queue polling still claims every committed job.
         print(json.dumps({'deliveryError':str(exc)}),flush=True);notifier=None
-    schedule={}
+    schedule={};reported=(time.monotonic(),notifier.counters() if notifier else None)
     with psycopg.connect(dsn,connect_timeout=10) as conn:
         source=ensure_source(conn,key);conn.commit()
         if not conn.execute('SELECT pg_try_advisory_lock(81735,hashtext(%s))',(str(source),)).fetchone()[0]:
@@ -250,8 +294,14 @@ def run(once=False):
             if notifier and result.get('detectJobs') and conn.info.transaction_status==TransactionStatus.IDLE:
                 notifier.offer(result['detectJobs'])
             if once:
-                if notifier:notifier.drain(DELIVERY_TIMEOUT+1)
+                if notifier:
+                    notifier.drain(DELIVERY_TIMEOUT+1)
+                    print(json.dumps({'delivery':notifier.counters()}),flush=True)
                 return
+            if notifier and time.monotonic()-reported[0]>=DELIVERY_REPORT_SECONDS:
+                counters=notifier.counters()
+                if counters!=reported[1]:print(json.dumps({'delivery':counters}),flush=True)
+                reported=(time.monotonic(),counters)
             wait=result.get('wait',.5)
             if wait>0:time.sleep(wait)
 

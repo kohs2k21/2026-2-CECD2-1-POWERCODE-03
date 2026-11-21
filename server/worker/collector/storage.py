@@ -38,6 +38,7 @@ TABLES: dict[Layer, str] = {
     "P": "data_processes",
     "M": "data_messages",
 }
+_FIELDS: dict[Layer, tuple[str, ...]] = {layer: TEXT_FIELDS[layer] + NUMERIC_FIELDS[layer] for layer in TABLES}
 
 
 @dataclass(frozen=True)
@@ -59,9 +60,10 @@ def _scalar(value: Any) -> str | int | float | bool | None:
 
 def project_observation(layer: Layer, raw: Mapping[str, Any]) -> tuple[dict[str, Any], list[str]]:
     """허용 필드만 새 객체로 복사하고 미제공 필드를 기록한다."""
-    if layer not in TABLES or not isinstance(raw, Mapping):
+    # type(...) is dict first: the ABC isinstance check is slow and every JSON object is a dict.
+    if layer not in TABLES or not (type(raw) is dict or isinstance(raw, Mapping)):
         raise ValueError("유효한 T/P/M 계층과 객체 형태의 원천값이 필요하다")
-    fields = TEXT_FIELDS[layer] + NUMERIC_FIELDS[layer]
+    fields = _FIELDS[layer]
     allowed = {field: _scalar(raw[field]) for field in fields if field in raw}
     missing = [field for field in fields if field not in raw]
     return allowed, missing
@@ -93,6 +95,10 @@ def _typed_values(layer: Layer, allowed: Mapping[str, Any]) -> tuple[dict[str, A
     return typed, flags
 
 
+# json.dumps(allowed, sort_keys=True, separators=(",", ":"), ensure_ascii=False) with one reused encoder (same text).
+_ALLOWED_JSON = json.JSONEncoder(sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+
+
 @dataclass(frozen=True)
 class Projection:
     """한 관측의 저장 값. `ingest_observation`과 공유 입력 일괄 입고(`input_store.admit_batch`)가 같은 값을 쓴다."""
@@ -110,7 +116,7 @@ def prepare_projection(layer: Layer, raw: Mapping[str, Any], execution_id: uuid.
     typed, flags = _typed_values(layer, allowed)
     if execution_id is None:
         flags.append("execution_identity_unverified")
-    allowed_json = json.dumps(allowed, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    allowed_json = _ALLOWED_JSON.encode(allowed)
     content_hash = hashlib.sha256(allowed_json.encode("utf-8")).hexdigest()
     return Projection(allowed, missing, typed, flags, allowed_json, content_hash)
 

@@ -9,16 +9,31 @@ from collector.storage import project_observation
 
 ALIASES={'process_dt':'process_datetime_raw','process_hub':'process_hub_id'}
 LAYERS=('T','P','M','B')
+# json.dumps(value, **same options) builds this encoder on every call; reusing one gives the same text.
+_DIGEST_JSON=json.JSONEncoder(sort_keys=True,ensure_ascii=False,allow_nan=False,separators=(',',':'))
+# Source key -> stored field name. The same few keys repeat on every row of a response; bounded so unexpected keys
+# cannot grow it without limit (keys past the bound are computed every time, with the same result).
+_FIELD_NAMES={}
+_FIELD_NAME_LIMIT=4096
 
 
 def digest(value):
-    return hashlib.sha256(json.dumps(value,sort_keys=True,ensure_ascii=False,allow_nan=False,separators=(',',':')).encode()).hexdigest()
+    return hashlib.sha256(_DIGEST_JSON.encode(value).encode()).hexdigest()
+
+
+def field_name(key):
+    """`_canonical_header` then ALIASES: the stored field name of a source key (pure function of the key)."""
+    name=_FIELD_NAMES.get(key)
+    if name is None:
+        canonical=_canonical_header(key)
+        name=ALIASES.get(canonical,canonical)
+        if len(_FIELD_NAMES)<_FIELD_NAME_LIMIT:_FIELD_NAMES[key]=name
+    return name
 
 
 def normalize(layer,raw):
     if layer not in LAYERS or not isinstance(raw,dict):raise ValueError('input_record_contract_rejected')
-    fields={ALIASES.get(_canonical_header(k),_canonical_header(k)):(None if v=='\\N' else v)
-        for k,v in raw.items() if isinstance(k,str)}
+    fields={field_name(k):(None if v=='\\N' else v) for k,v in raw.items() if isinstance(k,str)}
     if layer=='B':
         # Explicitly track a body reference; raw message values never enter the model or staging table.
         value={'message_id':fields.get('message_id')}

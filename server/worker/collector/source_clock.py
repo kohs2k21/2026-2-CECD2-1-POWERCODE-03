@@ -13,6 +13,7 @@ import json
 import re
 from dataclasses import dataclass
 from datetime import datetime
+from functools import lru_cache
 from typing import Any, Mapping
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -38,7 +39,13 @@ class SourceTime:
     parsed_times: dict[str, str]
 
     def parsed_json(self) -> str:
-        return json.dumps(self.parsed_times, sort_keys=True, separators=(",", ":"))
+        # parsed_times holds only rule/field/basis strings, so a handful of distinct values repeat on every row.
+        return _parsed_json(tuple(sorted(self.parsed_times.items())))
+
+
+@lru_cache(maxsize=64)
+def _parsed_json(items: tuple[tuple[str, str], ...]) -> str:
+    return json.dumps(dict(items), sort_keys=True, separators=(",", ":"))
 
 
 def resolve(values: Mapping[str, Any], clock_basis: Any) -> SourceTime:

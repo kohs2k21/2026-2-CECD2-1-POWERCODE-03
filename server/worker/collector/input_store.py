@@ -88,7 +88,7 @@ def switch(conn,source,*,mode,expected_revision,actor,settings=None,config='keep
     if mode!='paused':
         settings=settings or {}
         if mode=='api':
-            interval=settings.get('pollSeconds',2)
+            interval=settings.get('pollSeconds',1)
             if type(interval) not in (int,float) or not .1<=interval<=3600:raise ValueError('invalid_api_poll_seconds')
             settings={'pollSeconds':interval};replay=None
         else:
@@ -126,6 +126,10 @@ def admit(conn,source,run_id,mode,layer,raw,*,namespace,position=None,config=Non
         phase=phase,received_at=received_at)[0]
 
 
+# Same text as json.dumps(value, ensure_ascii=False, separators=(',',':')), one reused encoder.
+_KEY_JSON=json.JSONEncoder(ensure_ascii=False,separators=(',',':'))
+
+
 def plan_records(source,namespace,records):
     """Pure first pass: identity, arrival hash and execution key of every record, in input order."""
     plans=[]
@@ -133,7 +137,7 @@ def plan_records(source,namespace,records):
         parts=identity(layer,raw)
         plan={'layer':layer,'raw':raw,'parts':parts,'rawHash':digest(raw),'execution':None}
         if parts:
-            key=json.dumps([namespace,layer,parts],ensure_ascii=False,separators=(',',':'))
+            key=_KEY_JSON.encode([namespace,layer,parts])
             plan.update(execution=uuid.uuid5(uuid.NAMESPACE_URL,f'input-execution:{source}:{key}'),executionKey=key,
                 keyParts=json.dumps({'namespace':namespace,'identity':parts,'revisionBasis':'local_arrival'}))
         plans.append(plan)
@@ -184,6 +188,8 @@ def _project(plan,basis):
     return projected.content_hash
 
 
+# Array parameters below are sent in binary format (%b): the same element values and casts as text arrays, without
+# psycopg quoting every element in Python. Numbers stay text (str(Decimal)) and are cast on the server, as before.
 def _text(values):
     return [None if value is None else str(value) for value in values]
 
@@ -216,9 +222,9 @@ def admit_batch(conn,source,run_id,mode,records,*,namespace,position=None,config
         chosen=list(executions.values())
         conn.execute("""INSERT INTO data_executions(id,source_id,layer,execution_key,key_parts,key_contract_version,first_observed_at)
             SELECT u.id,%s,u.layer::source_layer,u.execution_key,u.key_parts::jsonb,'arrival-snapshot-v1',clock_timestamp()
-            FROM unnest(%s::uuid[],%s::text[],%s::text[],%s::text[]) AS u(id,layer,execution_key,key_parts) ON CONFLICT DO NOTHING""",
+            FROM unnest(%b::uuid[],%b::text[],%b::text[],%b::text[]) AS u(id,layer,execution_key,key_parts) ON CONFLICT DO NOTHING""",
             (source,_text(executions),[p['layer'] for p in chosen],[p['executionKey'] for p in chosen],[p['keyParts'] for p in chosen]))
-        rows=conn.execute("""SELECT e.id,l.revision_no,l.content_hash FROM unnest(%s::uuid[]) AS e(id)
+        rows=conn.execute("""SELECT e.id,l.revision_no,l.content_hash FROM unnest(%b::uuid[]) AS e(id)
             CROSS JOIN LATERAL (SELECT o.revision_no,o.content_hash FROM data_observations o WHERE o.execution_id=e.id
               ORDER BY o.revision_no DESC LIMIT 1) l""",(_text(executions),)).fetchall()
         latest={row[0]:(row[1],row[2]) for row in rows}
@@ -234,8 +240,8 @@ def admit_batch(conn,source,run_id,mode,records,*,namespace,position=None,config
             SELECT u.id,%s,u.layer::source_layer,u.execution_id,u.revision_no,u.dedup_key,u.content_hash,NULL,u.time_raw,
               u.occurred_at::timestamptz,%s::timestamptz,clock_timestamp(),u.clock_status,u.parsed_times::jsonb,
               u.allowed_values::jsonb,u.quality_flags::jsonb,u.missing_fields::jsonb
-            FROM unnest(%s::uuid[],%s::text[],%s::uuid[],%s::bigint[],%s::text[],%s::text[],%s::text[],%s::text[],%s::text[],
-              %s::text[],%s::text[],%s::text[],%s::text[])
+            FROM unnest(%b::uuid[],%b::text[],%b::uuid[],%b::bigint[],%b::text[],%b::text[],%b::text[],%b::text[],%b::text[],
+              %b::text[],%b::text[],%b::text[],%b::text[])
               AS u(id,layer,execution_id,revision_no,dedup_key,content_hash,time_raw,occurred_at,clock_status,parsed_times,
                    allowed_values,quality_flags,missing_fields)
             ON CONFLICT DO NOTHING RETURNING id""",
@@ -254,7 +260,7 @@ def admit_batch(conn,source,run_id,mode,records,*,namespace,position=None,config
         if plan['layer']!='B':check.append(plan)
     if check:
         rows=conn.execute("""SELECT o.layer::text,o.dedup_key,o.content_hash,o.execution_id,o.revision_no,o.source_revision_token
-            FROM data_observations o JOIN unnest(%s::text[],%s::text[]) AS u(layer,dedup_key)
+            FROM data_observations o JOIN unnest(%b::text[],%b::text[]) AS u(layer,dedup_key)
               ON o.source_id=%s AND o.layer::text=u.layer AND o.dedup_key=u.dedup_key""",
             ([p['layer'] for p in check],[p['dedup'] for p in check],source)).fetchall()
         existing={(row[0],row[1]):row[2:] for row in rows}
@@ -265,9 +271,11 @@ def admit_batch(conn,source,run_id,mode,records,*,namespace,position=None,config
         subset=[plan for plan in created if plan['layer']==layer]
         if not subset:continue
         columns=TEXT_FIELDS[layer]+NUMERIC_FIELDS[layer]
-        casts=['%s::uuid[]']+['%s::text[]']*len(TEXT_FIELDS[layer])+['%s::numeric[]']*len(NUMERIC_FIELDS[layer])
+        # Numbers go as text and are cast on the server, exactly as the text array form did (numeric input of str(Decimal)).
+        casts=['%b::uuid[]']+['%b::text[]']*len(TEXT_FIELDS[layer])+['%b::text[]::numeric[]']*len(NUMERIC_FIELDS[layer])
         conn.execute(f"INSERT INTO {table} (observation_id, {', '.join(columns)}) SELECT * FROM unnest({', '.join(casts)})",
-            (_text(p['id'] for p in subset),*([p['projection'].typed[field] for p in subset] for field in columns)))
+            (_text(p['id'] for p in subset),*([p['projection'].typed[field] for p in subset] for field in TEXT_FIELDS[layer]),
+             *(_text(p['projection'].typed[field] for p in subset) for field in NUMERIC_FIELDS[layer])))
     bodies=[plan for plan in created if plan['layer']=='B']
     if bodies:
         conn.execute("""INSERT INTO data_message_bodies(observation_id,source_id,message_id,collection_status,field_states,
@@ -275,11 +283,11 @@ def admit_batch(conn,source,run_id,mode,records,*,namespace,position=None,config
             SELECT u.id,%s,u.message_id,'not_collected'::body_collection_status,
               '{"message_in":"unknown","message_out":"unknown","message_body":"unknown"}'::jsonb,
               'unknown'::body_representation,'metadata-only-v1','metadata-history-v1'
-            FROM unnest(%s::uuid[],%s::text[]) AS u(id,message_id)""",
+            FROM unnest(%b::uuid[],%b::text[]) AS u(id,message_id)""",
             (source,_text(p['id'] for p in bodies),[p['raw']['message_id'] for p in bodies]))
     if created:
         conn.execute("""INSERT INTO data_input_origins(observation_id,run_id,mode,position,namespace,ingest_phase)
-            SELECT u.id,%s,%s,%s::bigint,%s,%s FROM unnest(%s::uuid[]) AS u(id)""",
+            SELECT u.id,%s,%s,%s::bigint,%s,%s FROM unnest(%b::uuid[]) AS u(id)""",
             (run_id,mode,position,namespace,phase,_text(p['id'] for p in created)))
     detect=[plan for plan in created if plan['layer']=='P' and plan['execution']]
     for plan,payload in zip(detect,enqueue_observations(conn,[plan['id'] for plan in detect],config_id=config) if detect else []):

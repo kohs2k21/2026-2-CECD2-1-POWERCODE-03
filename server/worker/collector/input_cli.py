@@ -22,7 +22,7 @@ def main():
     choose=commands.add_parser('select');choose.add_argument('mode',choices=['api','csv','paused'])
     choose.add_argument('--expected-revision',required=True,type=int)
     choose.add_argument('--replay-id');choose.add_argument('--rate',type=float,default=10)
-    choose.add_argument('--repeat',type=int,default=1);choose.add_argument('--poll-seconds',type=float,default=2)
+    choose.add_argument('--repeat',type=int,default=1);choose.add_argument('--poll-seconds',type=float,default=1)
     choose.add_argument('--restart',action='store_true');choose.add_argument('--config',help='Config UUID for validation, or active for approved global config')
     # Source clock basis (contracts/collector-metrics.md 1.3). Operator decision only; Collector never sets it itself.
     clock=commands.add_parser('clock-basis').add_subparsers(dest='clock_command',required=True)

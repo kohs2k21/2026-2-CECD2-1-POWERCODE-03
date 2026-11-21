@@ -205,6 +205,22 @@ def dump(conn, source):
     return json.loads(text)
 
 
+def queue_identity(conn):
+    """Detection queue ids: a job message id is its run_jobs id and jobId (input_spec and payload); a waiting-config
+    message id is uuid5(NAMESPACE_URL, "waiting-config:<observationId>") as detector/jobs.py builds it."""
+    jobs = conn.execute("""SELECT count(*), count(*) FILTER (WHERE j.id IS NULL OR j.input_spec->>'jobId' IS DISTINCT FROM j.id::text
+            OR q.payload->>'jobId' IS DISTINCT FROM j.id::text OR q.payload->>'eventId' IS DISTINCT FROM q.id::text)
+        FROM powercode_queue.detection_logs q LEFT JOIN run_jobs j ON j.id=q.id WHERE q.payload ? 'jobId'""").fetchone()
+    waiting = conn.execute("""SELECT q.id, q.payload FROM powercode_queue.detection_logs q WHERE NOT (q.payload ? 'jobId')""").fetchall()
+    wrong = [str(qid) for qid, payload in waiting
+             if qid != uuid.uuid5(uuid.NAMESPACE_URL, f"waiting-config:{payload['observationId']}") or payload["eventId"] != str(qid)]
+    orphan = conn.execute("""SELECT count(*) FROM run_jobs j WHERE j.kind='detect' AND NOT EXISTS
+        (SELECT 1 FROM powercode_queue.detection_logs q WHERE q.id=j.id)""").fetchone()[0]
+    conn.commit()
+    return {"jobMessages": jobs[0], "jobIdMismatches": jobs[1], "jobsWithoutMessage": orphan,
+            "waitingMessages": len(waiting), "waitingIdMismatches": wrong}
+
+
 def scenario(worker_dir, dsn):
     sys.path.insert(0, str(worker_dir))
     import psycopg
@@ -218,6 +234,7 @@ def scenario(worker_dir, dsn):
             output[key] = {"ticks": ticks, **dump(conn, source)}
         source, ticks = drive_csv(modules, conn, "batch-csv", folder)
         output["batch-csv"] = {"ticks": ticks, **dump(conn, source)}
+        output["queueIdentity"] = queue_identity(conn)
     return output
 
 
@@ -260,6 +277,9 @@ def check_expectations(result):
     assert len(replay["ticks"]) == 12 and sum(t["accepted"] for t in replay["ticks"]) == 10, replay["ticks"]
     assert [item["origin"][2] for item in replay["observations"]] == [0, 2, 3, 4, 5, 6, 8, 9, 10, 11], replay["observations"]
     assert replay["runs"][0][1:6] == ["completed", 12, 10, 2, 0], replay["runs"]
+    # 8 API v04 jobs + 4 CSV jobs (2 identified P per cycle x 2 cycles); 8 waiting-config messages from the v03 source
+    assert result["queueIdentity"] == {"jobMessages": 12, "jobIdMismatches": 0, "jobsWithoutMessage": 0,
+                                       "waitingMessages": 8, "waitingIdMismatches": []}, result["queueIdentity"]
 
 
 def measure(worker_dir, dsn, rows):

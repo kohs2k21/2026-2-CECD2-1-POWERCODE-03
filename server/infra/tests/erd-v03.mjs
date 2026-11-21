@@ -30,6 +30,7 @@ import { feedbackOutcome029 } from './erd-v03-feedback-outcome.mjs';
 import { collectorMetrics030 } from './erd-v03-collector-metrics.mjs';
 import { judgmentStore031 } from './erd-v03-judgment-store.mjs';
 import { feedbackCorrection032 } from './erd-v03-feedback-correction.mjs';
+import { emailAlerts033 } from './erd-v03-email-alerts.mjs';
 
 const toolRoot = process.argv[2];
 assert(toolRoot, 'Pass an isolated temporary workspace containing the test dependencies');
@@ -49,6 +50,10 @@ const rolesSql = await readFile(join(infra, 'scripts/database-roles.sql'), 'utf8
 // Scenarios that apply the roles script at a pre-030 state (026·028·029) get this version.
 const rolesBefore030 = rolesSql.replace(/^-- 030: [\s\S]*?(?=^-- #78-Q10)/m, '');
 assert.notEqual(rolesBefore030, rolesSql, 'database-roles.sql has the 030 grant block before #78-Q10');
+// Roles script as of 032: the 033 block (right before #78-Q10, after 030) grants on the email alert tables, which do not exist before 033.
+// Scenarios that apply the roles script at a 030~032 state get this version (rolesBefore030 above already cuts it with the 030 block).
+const rolesBefore033 = rolesSql.replace(/^-- 033: [\s\S]*?(?=^-- #78-Q10)/m, '');
+assert.notEqual(rolesBefore033, rolesSql, 'database-roles.sql has the 033 grant block before #78-Q10');
 const demoRoleSql = await readFile(join(infra, 'scripts/demo-role.sql'), 'utf8');
 const v03Admin = {contract_version:'v03',status:'queued',producer_kind:'user',producer_key:'admin78',requested_by_actor_id:'admin78',
   requester_role:'admin',max_attempts:3,attempt_count:0};
@@ -285,9 +290,10 @@ try {
   await notificationWindow026({ Client, port, connection, check, failures, migrations, migrationNames, rolesSql: rolesBefore030, parity });
   await jobNotifications028({ Client, port, connection, check, failures, migrations, migrationNames, rolesSql: rolesBefore030, parity });
   await feedbackOutcome029({ Client, port, connection, check, failures, migrations, migrationNames, rolesSql: rolesBefore030, parity, insert });
-  await collectorMetrics030({ Client, port, connection, check, failures, migrations, migrationNames, rolesSql, parity, insert });
+  await collectorMetrics030({ Client, port, connection, check, failures, migrations, migrationNames, rolesSql: rolesBefore033, parity, insert });
   await judgmentStore031({ connection, check, failures, migrations, migrationNames, parity, insert });
-  await feedbackCorrection032({ Client, port, connection, check, failures, migrations, migrationNames, rolesSql, parity, insert });
+  await feedbackCorrection032({ Client, port, connection, check, failures, migrations, migrationNames, rolesSql: rolesBefore033, parity, insert });
+  await emailAlerts033({ Client, port, connection, check, failures, migrations, migrationNames, rolesSql, rolesBefore033, parity, insert });
   assert.equal(failures.length,0,failures.join('; '));
   console.log(`PASS ${checkCount} integration checks; no project runtime or customer data used`);
   passed = true;

@@ -115,7 +115,7 @@ export const integrationMeta = {
   email: {
     title: "이메일 (SMTP) 연동",
     titleLabel: "SMTP 아웃바운드 서버",
-    description: "이메일 알림 연동은 현재 서버에서 지원하지 않습니다.",
+    description: "위험 사건 알림을 메일로 보냅니다.",
     icon: IconMail,
   },
   webhook: {

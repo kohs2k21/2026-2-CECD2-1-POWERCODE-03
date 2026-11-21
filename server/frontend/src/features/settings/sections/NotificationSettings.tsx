@@ -22,7 +22,7 @@ import {
 import { useMySettings, useSaveMySettings } from "@/features/notifications/useNotifications";
 import type { AuthUser } from "@/types/auth";
 import { SettingRow } from "../components/SettingRow";
-import { notificationTimeSettings, severityChannelSettings, type SeverityChannelConfig } from "../settingsConfig";
+import { notificationTimeSettings, severityChannelDescription, severityChannelSettings, type SeverityChannelConfig } from "../settingsConfig";
 
 const severityTag = {
   critical: { variant: "critical", Icon: IconFlame },
@@ -30,7 +30,7 @@ const severityTag = {
   info: { variant: "info", Icon: IconInfoCircle },
 } as const;
 
-const SeverityChannelRow = ({ severity, label, subLabel, description }: SeverityChannelConfig) => {
+const SeverityChannelRow = ({ severity, label, subLabel }: SeverityChannelConfig) => {
   const { variant, Icon } = severityTag[severity];
   return (
     <div className="grid gap-1 border-b py-3 last:border-b-0">
@@ -44,7 +44,6 @@ const SeverityChannelRow = ({ severity, label, subLabel, description }: Severity
         </div>
         <Badge variant="outline">미지원</Badge>
       </div>
-      <p className="text-sm text-muted-foreground">{description}</p>
     </div>
   );
 };
@@ -180,7 +179,7 @@ export const NotificationSettings = ({ currentUser }: { currentUser: AuthUser })
     <SectionCard title="알림 대상">
       <NotificationTargets currentUser={currentUser} />
     </SectionCard>
-    <SectionCard title="위험도별 알림 채널 지원">
+    <SectionCard title="위험도별 알림 채널 지원" description={severityChannelDescription}>
       <div>
         {severityChannelSettings.map((setting) => (
           <SeverityChannelRow key={setting.severity} {...setting} />

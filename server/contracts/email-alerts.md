@@ -1,5 +1,5 @@
 Created: 2026-11-21T14:40:00+09:00
-Updated: 2026-11-21T14:40:00+09:00
+Updated: 2026-11-21T16:30:00+09:00
 Author: Claude Code(WebUI builder)
 Status: current — API·DB(migration 033) 구현. 설정 화면은 후속 PR(화면 문구 승인 뒤)
 
@@ -22,15 +22,17 @@ Status: current — API·DB(migration 033) 구현. 설정 화면은 후속 PR(�
 
 - 처리 경계 = `ops_email_alert_cursor.processed_through_seq`(`run_decision_events.id`, id 순서 = 커밋 순서). 회차마다 경계 다음의 **최종** 판정 이벤트를 id 순으로 최대 500건 읽는다. 중간 판정 기록은 보지 않는다(사건 구성원은 최종 판정)
 - 규칙: 이상(`status<>unavailable` ∧ `evidence.anomalous=true`) ∧ 저장된 v4 `composite.risk`가 `rated`이고 위험도 ≥ 하한. 알림 패널의 판정 기준 "최종(부분 포함)" + 위험도 미정 제외와 같다(`notifications.md` 이벤트 판단). 위험도 미정은 보내지 않는다
-- **사건 소속 확정**: 규칙을 통과한 판정은 그 원본(`data_executions.source_id`)의 사건 묶음 경계 W = `run_incident_runs` 최대 `cursor_to`(끝 포함, `incidents.md` 2.1)가 그 이벤트 id 이상일 때만 판단한다. 묶음 작업은 같은 트랜잭션에서 그 범위의 구성원을 넣으므로 W 안이면 소속이 정해져 있다. 아직이면 거기서 멈추고(경계를 그 앞에 둠) 다음 회차에 다시 본다. 규칙을 통과하지 못한 판정은 기다리지 않는다
+- **사건 소속 확정**: 규칙을 통과한 판정은 그 원본(`data_executions.source_id`)의 사건 묶음 경계 W = 기준 버전마다 최신 `cursor_to`의 최댓값(끝 포함, `incidents.md` 2.1)이 그 이벤트 id 이상일 때만 판단한다. W는 구성원 여부와 **같은 문장(같은 스냅숏)**에서 읽는다(따로 읽으면 사이에 커밋된 묶음 회차의 구성원을 놓친다). 읽기는 `run_incident_runs_cursor_idx`로 기준 버전을 건너뛰며 버전마다 1행(`ORDER BY cursor_to DESC LIMIT 1`)만 본다. 묶음 작업은 같은 트랜잭션에서 그 범위의 구성원을 넣으므로 W 안이면 소속이 정해져 있다. 아직이면 거기서 멈추고(경계를 그 앞에 둠) 다음 회차에 다시 본다. 규칙을 통과하지 못한 판정은 기다리지 않는다
   - 사건 묶음 작업(`incidents` 서비스)이 멈추면 W가 멈춰 메일도 멈춘다(설정 응답 `processing`으로 보임). 실패를 성공으로 바꾸지 않는다
   - 한계: 기준 버전(`criteria_version`)이 바뀐 직후에는 W가 옛 버전의 큰 `cursor_to`일 수 있다(원본별 최대값). 새 버전이 아직 읽지 않은 판정은 묶이지 않은 판정으로 판단될 수 있다(드묾, `incidents.md` 열린 항목 12와 같은 축)
 - 구성원이면 **사건 흐름 알림**(설정 `incident`), 아니면 **묶이지 않은 판정 알림**(설정 `decision`, 키 `job:<detect 작업 id>` 또는 작업 없는 판정 `decision:<판정 id>` — `notifications.md` 항목 키와 같음)
+  - **알림 패널과 다른 점(묶음 단위)**: 패널은 작업 하나의 최종 판정 중 하나라도 사건 구성원이면 그 작업 항목(`job:`)을 통째로 숨기고 중간 판정도 본다. 메일은 **최종 판정마다** 따로 판단한다 — 같은 작업의 재시도 최종 판정 중 구성원이 아닌 것은 묶이지 않은 판정 메일이 될 수 있고(작업 키는 같아 위험 단계별로 한 번), 중간 판정은 보지 않는다
   - 흐름 = 구성원 사건에서 병합(양방향)·이어짐(양방향)으로 닿는 사건 전부, 흐름 id = 알림 패널과 같은 머리(닿은 사건 중 `(opened_at, 병합 뿌리 id)`가 가장 작은 사건의 병합 뿌리). 알림 대상 키 `incident:<흐름 id>`
   - **흐름 머리가 바뀌어도 다시 보내지 않는다**: 흐름의 사건을 모두 `ops_email_alert_incidents`에 알림 대상과 매어 둔다. 흐름의 어느 사건이든 이미 매여 있으면 그 알림 대상을 쓴다(나중에 더 이른 사건과 병합돼 머리가 바뀐 경우). 둘 이상이면 먼저 만든 것
 - 보내는 때(위험 단계 = 참고 1·주의 2·위험 3): 알림 대상이 처음 생길 때 `opened`, 보낸 단계보다 높은 단계가 올 때 `risk_raised`. 구성원이 늘기만 하면 보내지 않는다. 사건 위험도 = 통과한 구성원 위험도 최고값(알림 패널과 같음)
 - 켜기(꺼짐 → 켜짐): 경계를 그때의 최대 판정 이벤트 순번으로 옮긴다(지난 판정은 보내지 않음). 규칙 변경은 그 뒤 판정부터
 - 경계 이동과 알림 대상·대기 행 INSERT는 한 트랜잭션이다. 재시작해도 같은 범위를 다시 판단하지 않는다
+- **정리 뒤 다시 보냄**: 알림 대상은 30일 동안 갱신(구성원·위험 판정)이 없으면 매핑과 함께 지운다. 그 뒤 같은 흐름에 규칙을 통과한 구성원이 오면 새 알림 대상이 되어 `새 사건`으로 다시 보낸다(한 달 넘게 조용하던 흐름을 다시 알리는 것으로 본다). 발송 기록은 90일 남는다
 
 ## 3. 중복 방지·발송 제한
 
@@ -40,17 +42,21 @@ Status: current — API·DB(migration 033) 구현. 설정 화면은 후속 PR(�
 
 ## 4. 발송·재시도
 
-- 상태: `queued` 대기 → `sending` 보내는 중(lease 5분) → `sent` 보냄 | `retrying` 다시 시도 대기 | `failed` 실패 | `unknown` 확인 불가 | `suppressed` 발송 제한으로 생략
+- 상태: `queued` 대기 → `sending` 보내는 중(lease 5분) → `sent` 보냄 | `retrying` 다시 시도 대기 | `failed` 실패 | `unknown` 확인 불가(다시 보내지 않음) | `suppressed` 발송 제한으로 생략
 - 가져오기: 보낼 차례인 행 최대 10건을 `FOR UPDATE SKIP LOCKED`로 `sending`·시도 수 +1·lease를 커밋한 뒤 보낸다. 설정이 꺼져 있으면 보내지 않는다
-- 일시 실패(연결·시간 초과·이름 풀기 실패·4xx)는 1·5·15·60분 뒤 다시, 5번째 시도까지. 그 뒤와 영구 실패(인증·TLS·인증서·5xx·받는 사람 거절·메시지 오류·설정·키 문제)는 `failed`
+- 다시 시도(1·5·15·60분 뒤, 5번째 시도까지): **연결 전으로 확실한 실패**만 — 접속 거절·경로 없음(`ECONNREFUSED`·`EHOSTUNREACH`·`ENETUNREACH`·`EADDRNOTAVAIL`)·이름 풀기 실패, 연결·인사·STARTTLS 협상 시간 초과(nodemailer `timeoutType` = `CONNECT_TIMEOUT`·`GREETING_TIMEOUT`·`UPGRADE_TIMEOUT`), 서버의 4xx 응답(받지 않았다는 응답). 5번째 뒤와 영구 실패(인증·TLS·인증서·5xx·받는 사람 거절·메시지 오류·설정·키 문제)는 `failed`
+- **결과 모름 → `unknown`(`smtp_result_unknown`), 다시 보내지 않음**: 보내는 중 **응답 번호 없이** 연결 뒤 끊김(`ECONNRESET`·`EPIPE`·소켓 오류·연결 닫힘)·소켓 시간 초과(`SOCKET_TIMEOUT`, 단계 없는 시간 초과 포함)·스트림 오류·알 수 없는 오류, 시험 발송의 20초 제한 초과. 서버가 이미 받았을 수 있어서다(사용자 11/21: 중복 없음, 누락 가능). TLS 인증서 오류는 `originalCode`로 가려 영구 실패로 둔다
+  - 판단 근거: nodemailer는 연결 뒤 네트워크 오류에 단계 정보를 남기지 않고(`command`가 늘 `CONN`) 모든 시간 초과를 `ETIMEDOUT` + `timeoutType`으로 낸다. 그래서 DATA를 시작했는지는 알 수 없고, 연결 전으로 확실한 경우만 다시 보낸다(연결 직후 인사 전에 닫힌 경우도 결과 모름 — 보수적)
+  - 결과 모름은 연결 상태(전송 상태)에 남기지 않고, 같은 묶음의 다음 행은 계속 보낸다(행마다 새 연결)
+  - 연결 확인(메일 없음)에서는 같은 끊김·시간 초과를 일시 실패(`smtp_connection_failed`·`smtp_timeout`)로 본다
 - 연결 단계 실패(접속·TLS·인증)면 그 묶음의 남은 행도 같은 결과로 두고 멈춘다(같은 실패를 행마다 기다리지 않게)
-- **보내는 중 멈춤**: lease가 지난 `sending` 행은 `unknown`(`send_interrupted`)으로 바꾸고 다시 보내지 않는다(중복 없음, 누락 가능 — 사용자 11/21). SMTP가 받은 뒤 기록 전에 멈춘 경우와 구분할 수 없어서다
-- 오류는 코드만 저장한다(`error_code` + SMTP 응답 번호 `smtp_code`). 서버 응답 원문·주소·비밀은 저장하지 않는다. 코드: `smtp_auth_failed`·`smtp_tls_failed`·`smtp_timeout`·`smtp_connection_failed`·`smtp_host_unresolved`·`smtp_host_blocked`·`smtp_recipient_rejected`·`smtp_rejected`·`smtp_temporary_failure`·`smtp_message_failed`·`smtp_error`·`smtp_not_configured`·`smtp_settings_incomplete`·`smtp_password_missing`·`smtp_password_unreadable`·`email_secret_key_unavailable`·`email_secret_key_invalid`·`send_interrupted`·`email_alerts_disabled`·`email_recipient_removed`
+- **보내는 중 멈춤**: lease가 지난 `sending` 행(프로세스 종료 등)은 `unknown`(`send_interrupted`)으로 바꾸고 다시 보내지 않는다(중복 없음, 누락 가능 — 사용자 11/21). SMTP가 받은 뒤 기록 전에 멈춘 경우와 구분할 수 없어서다
+- 오류는 코드만 저장한다(`error_code` + SMTP 응답 번호 `smtp_code`). 서버 응답 원문·주소·비밀은 저장하지 않는다. 코드: `smtp_result_unknown`·`smtp_auth_failed`·`smtp_tls_failed`·`smtp_timeout`·`smtp_connection_failed`·`smtp_host_unresolved`·`smtp_host_blocked`·`smtp_recipient_rejected`·`smtp_rejected`·`smtp_temporary_failure`·`smtp_message_failed`·`smtp_error`·`smtp_not_configured`·`smtp_settings_incomplete`·`smtp_password_missing`·`smtp_password_unreadable`·`email_secret_key_unavailable`·`email_secret_key_invalid`·`send_interrupted`·`email_alerts_disabled`·`email_recipient_removed`
 
 ## 5. SMTP·전송 상태
 
 - 설정 값(관리자, 8절 PUT): 호스트 = 호스트 이름 또는 IP(꺾쇠 없이)만 — 주소 형식(`smtp://`)·경로·포트 붙임·계정(`@`)은 형식 오류. 포트 = **25·465·587·2525만**(표준 SMTP 포트, 다른 포트로 내부 서비스를 두드리지 못하게. 033 CHECK). 보안 = `tls`(접속부터 TLS) | `starttls`(STARTTLS 필수 — 서버가 안 주면 실패, 평문으로 내려가지 않음). **평문 SMTP 없음**(비밀번호를 평문으로 보내지 않게). 계정 없음 = 인증 없이 보냄(내부 중계, 그래도 TLS 필수)
-- 연결 대상 보호: 금지 대역(지정 안 됨 0.0.0.0/8·::, 루프백 127/8·::1, 링크 로컬 169.254/16·fe80::/10(클라우드 메타데이터 포함), 멀티캐스트·예약 224/4·240/4·ff00::/8, IPv4 대응 IPv6 포함)과 `localhost`는 저장 때 `smtp_host_blocked`. 사설 대역은 허용(내부 메일 중계). 호스트 이름은 보낼 때마다 직접 풀어(5초) 금지 대역 주소를 빼고 남은 첫 주소에 연결한다. 인증서는 원래 이름으로 검사(SNI·servername) — 확인과 연결 사이에 이름이 바뀌어도 확인한 주소로만 간다
+- 연결 대상 보호: 금지 대역 — 지정 안 됨 0.0.0.0/8, 루프백 127/8, 링크 로컬 169.254/16(AWS·GCP·Azure 메타데이터 169.254.169.254 포함)·fe80::/10, 클라우드 메타데이터 100.100.100.200(Alibaba)·fd00:ec2::254(AWS IPv6), 멀티캐스트·예약 224/4·240/4·ff00::/8, IPv4를 품은 IPv6 형식 통째로(IPv4 호환 ::/96 — ::·::1 포함, IPv4 변환 ::ffff:0:0:0/96, NAT64 64:ff9b::/96), IPv4 대응 IPv6(::ffff:a.b.c.d·16진 표기)는 안의 IPv4로 검사 — 와 `localhost`는 저장 때 `smtp_host_blocked`. 사설 대역은 허용(내부 메일 중계). 호스트 이름은 보낼 때마다 직접 풀어(5초) 금지 대역 주소를 빼고 남은 첫 주소에 연결한다. 인증서는 원래 이름으로 검사(SNI·servername) — 확인과 연결 사이에 이름이 바뀌어도 확인한 주소로만 간다
 - 전송: nodemailer SMTP 1개(연결 풀·프록시·다른 전송 없음), 인증서 검사 켬(TLS 1.2 이상), 연결·인사 10초·소켓 20초, 메시지의 파일·URL 읽기 끔. 보내는 사람 = `ESB 알림 <보내는 주소>`, 머리말 `Auto-Submitted: auto-generated`
 - 전송 상태(`transport.status`, 설정에서 만듦): `not_configured`(호스트 없음) / `invalid`(값 빠짐 `smtp_settings_incomplete`, 계정은 있는데 비밀번호 없음 `smtp_password_missing`, 키 없음·틀림 `email_secret_key_unavailable`·`email_secret_key_invalid`, 지금 키로 풀 수 없는 비밀번호 `smtp_password_unreadable`) / `configured`. 그 위에 마지막 연결 확인·발송 결과: `auth_failed`(인증 실패) / `error`(연결·TLS 등, `code`). 확인 결과는 그 결과를 낸 SMTP 설정일 때만 남는다(SMTP 값이 바뀌면 지움). 발송·시험 발송 성공은 `configured`로 되돌린다. 받는 사람 거절은 전송 상태를 바꾸지 않는다
 - 저장 직후 연결 확인: SMTP 값(호스트·포트·보안·계정·비밀번호·보내는 주소)이 바뀌었고 보낼 수 있는 설정이면 접속·TLS·로그인까지 해 본다(메일은 보내지 않음, 20초 안). **실패해도 저장값은 그대로 둔다** — 일시 장애일 수 있고 관리자가 값을 다시 넣지 않아도 되게. 결과는 응답 `verify`와 전송 상태로 보인다(성공으로 바꾸지 않음)
@@ -62,7 +68,7 @@ Status: current — API·DB(migration 033) 구현. 설정 화면은 후속 PR(�
 - 저장 형식: AES-256-GCM, 쓸 때마다 새 무작위 IV(12바이트), AAD = 용도 이름. `v1.<키 id 8 hex>.<IV>.<tag>.<암호문>`(base64url). 키 id = sha256(키) 앞 8자리(키가 바뀌었는지 풀기 전에 안다). DB는 이 형식만 받는다(033 CHECK — 평문 저장 불가)
 - 키는 DB 밖(DB 백업만으로 풀 수 없음). 출처(앞이 이김):
   1. 환경 변수 `SETTINGS_SECRET_KEY`(base64 32바이트). 형식이 틀리면 `email_secret_key_invalid`(파일로 넘어가지 않음)
-  2. 키 파일 `SETTINGS_SECRET_KEY_FILE`, 기본 = API 데이터 폴더(`USER_DATA_PATH`와 같은 폴더, compose `AUTH_DATA_DIR` → `/app/data/settings-secret.key`). 없으면 **비밀번호를 처음 저장할 때 한 번 만든다**(배타 생성, 권한 0600, 동시 생성은 먼저 만든 키를 다시 읽음). 읽기·상태 확인은 만들지 않는다
+  2. 키 파일 `SETTINGS_SECRET_KEY_FILE`, 기본 = API 데이터 폴더(`USER_DATA_PATH`와 같은 폴더, compose `AUTH_DATA_DIR` → `/app/data/settings-secret.key`). 없으면 **비밀번호를 처음 저장할 때 한 번 만든다**: 같은 폴더의 임시 파일(권한 0600)에 다 쓰고 fsync한 뒤 `link`로 제자리에 건다(원자적 — 도중에 멈춰도 빈·반쪽 키 파일이 남지 않음, 임시 파일은 지움). 이미 있으면(`EEXIST`, 동시 생성) 먼저 걸린 완성된 키를 읽는다. 읽기·상태 확인은 만들지 않는다
   - 근거: 운영 부담이 가장 적다(설정할 값 없음, 이미 영속 bind mount인 계정 폴더). 키와 암호문이 다른 저장소(파일 / DB)에 나뉜다
 - 키가 없고 만들 수도 없으면 비밀번호 저장은 503 `email_secret_key_unavailable`(아무것도 바꾸지 않음). 평문 저장·성공 대체 없음
 - 교체·분실: 새 키(파일 교체 또는 환경 변수)로 API를 다시 시작한 뒤 비밀번호를 다시 넣는다. 그 전까지 전송 상태 `invalid`·`smtp_password_unreadable`, 발송은 실패로 기록. 옛 키로 푸는 기능은 없다. 키 파일은 `users.json`과 함께 백업한다
@@ -79,11 +85,14 @@ Status: current — API·DB(migration 033) 구현. 설정 화면은 후속 PR(�
 |---|---|
 | `GET /api/email-alerts/settings` | `{enabled, rules:{kinds:("incident"\|"decision")[], minRiskLevel:"info"\|"warning"\|"critical"}, recipients[], smtp:{host, port, security:"tls"\|"starttls"\|null, username, passwordSet, fromAddress}, publicBaseUrl, transport:{status, code, checkedAt}, processing:{processedThroughSeq, latestSeq, armedAt, lastTickAt}, rateLimit:{newAlertsPerHour:10, newAlertsLastHour}, limits:{recipients:10, ports:[25,465,587,2525], security:["tls","starttls"]}, isDefault, updatedAt, updatedBy}`. 저장값 없으면 꺼짐·`["incident"]`·`critical`·받는 사람 없음·SMTP 없음(`isDefault:true`). 순번은 문자열(bigint) |
 | `PUT /api/email-alerts/settings` | 본문 `{enabled, rules:{kinds, minRiskLevel}, recipients[], smtp:{host, port, security, username, fromAddress[, password]}, publicBaseUrl}` 전체(값 `null` = 비움, `password`만 생략 가능 — 6절). 마지막 저장이 이김. 응답 = GET + `verify:{result:"ok"\|"auth_failed"\|"error"\|"skipped", code}`(5절) |
-| `POST /api/email-alerts/test` | 본문 `{to}` — **저장된 받는 사람 중 하나만**(대소문자 무시). 시험 메일 1통을 바로 보내고(20초 안) 결과를 그대로 돌려준다: 200 `{deliveryId, status:"sent"\|"failed", errorCode, smtpCode, finishedAt}`(실패도 200 + `failed`, 성공 대체 없음). 전체 30초에 1번. 켜기와 무관(켜기 전 확인용). 발송 기록에 `kind:"test"`로 남음 |
+| `POST /api/email-alerts/test` | 본문 `{to}` — **저장된 받는 사람 중 하나만**(대소문자 무시). 시험 메일 1통을 바로 보내고(20초 안) 결과를 그대로 돌려준다: 200 `{deliveryId, status:"sent"\|"failed"\|"unknown", errorCode, smtpCode, finishedAt}`(실패도 200 + `failed`, 보내는 중 끊김·20초 초과는 `unknown` + `smtp_result_unknown` — 받았는지 모름, 성공 대체 없음). 전체 30초에 1번. 켜기와 무관(켜기 전 확인용). 발송 기록에 `kind:"test"`로 남음 |
 | `GET /api/email-alerts/deliveries?limit=1~50&cursor=` | 최근 발송(만든 시각 → id 내림차순, 기본 20). `{items:[{id, kind:"incident"\|"decision"\|"test", reason:"opened"\|"risk_raised"\|"test", alertKey, targetId(흐름 id·판정 id), riskLevel, recipient, status, attempts, errorCode, smtpCode, createdAt, sentAt, finishedAt, nextAttemptAt(다시 시도 대기일 때만)}], nextCursor}`. 메일 본문·payload는 내지 않음 |
 
 - 400 code: `invalid_email_settings`(모양·모르는 키)·`invalid_email_recipient`(+`index`)·`duplicate_email_recipient`(+`index`)·`too_many_email_recipients`·`email_recipients_required`·`email_kinds_required`·`invalid_smtp_host`·`smtp_host_blocked`·`invalid_smtp_port`·`invalid_smtp_security`·`invalid_smtp_username`·`invalid_smtp_password`·`invalid_email_from`·`invalid_public_base_url`·`public_base_url_required`·`invalid_test_request`·`unknown_email_alert_filter`·`invalid_limit`·`invalid_cursor`·`invalid_json`. 413 `request_too_large`(본문 16KB)
+- 본문 파서 400 code(공통): `unsupported_charset`·`unsupported_encoding`·`request_aborted`·그 밖 4xx `invalid_request`
+- 401 `authentication_required`·`invalid_token`·`token_expired`·`token_revoked`, 403 `admin_required`(auth.md)
 - 404 `email_recipient_not_listed`, 409 `email_transport_not_configured`(켜기·시험 발송인데 보낼 수 없는 설정), 429 `email_test_rate_limited`, 503 `email_secret_key_unavailable`·`email_secret_key_invalid`(비밀번호 저장)·`email_alert_storage_unavailable`(저장소 오류, 원문 비노출)
+- 발송 기록 `errorCode`(`/deliveries`·`/test` 응답)는 4절 코드 목록(`smtp_result_unknown`·`send_interrupted` 포함). 시험 발송 결과 `errorCode`는 그중 전송 코드와 설정·키 코드(`smtp_not_configured`·`smtp_password_unreadable`·`email_secret_key_unavailable` 등)
 - 시각은 UTC 마이크로초(`…T01:02:03.000000Z`). 발송 목록 커서 = base64url JSON `[만든 시각, 발송 id]`
 
 ## 9. 메일 내용(`template.ts`, 새 문구 — 사용자 승인 대상)

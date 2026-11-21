@@ -1,5 +1,5 @@
 Created: 2026-11-21T14:40:00+09:00
-Updated: 2026-11-21T16:30:00+09:00
+Updated: 2026-11-21T18:00:00+09:00
 Author: Claude Code(WebUI builder)
 Status: current — API·DB(migration 033) 구현. 설정 화면은 후속 PR(화면 문구 승인 뒤)
 
@@ -45,7 +45,7 @@ Status: current — API·DB(migration 033) 구현. 설정 화면은 후속 PR(�
 - 상태: `queued` 대기 → `sending` 보내는 중(lease 5분) → `sent` 보냄 | `retrying` 다시 시도 대기 | `failed` 실패 | `unknown` 확인 불가(다시 보내지 않음) | `suppressed` 발송 제한으로 생략
 - 가져오기: 보낼 차례인 행 최대 10건을 `FOR UPDATE SKIP LOCKED`로 `sending`·시도 수 +1·lease를 커밋한 뒤 보낸다. 설정이 꺼져 있으면 보내지 않는다
 - 다시 시도(1·5·15·60분 뒤, 5번째 시도까지): **연결 전으로 확실한 실패**만 — 접속 거절·경로 없음(`ECONNREFUSED`·`EHOSTUNREACH`·`ENETUNREACH`·`EADDRNOTAVAIL`)·이름 풀기 실패, 연결·인사·STARTTLS 협상 시간 초과(nodemailer `timeoutType` = `CONNECT_TIMEOUT`·`GREETING_TIMEOUT`·`UPGRADE_TIMEOUT`), 서버의 4xx 응답(받지 않았다는 응답). 5번째 뒤와 영구 실패(인증·TLS·인증서·5xx·받는 사람 거절·메시지 오류·설정·키 문제)는 `failed`
-- **결과 모름 → `unknown`(`smtp_result_unknown`), 다시 보내지 않음**: 보내는 중 **응답 번호 없이** 연결 뒤 끊김(`ECONNRESET`·`EPIPE`·소켓 오류·연결 닫힘)·소켓 시간 초과(`SOCKET_TIMEOUT`, 단계 없는 시간 초과 포함)·스트림 오류·알 수 없는 오류, 시험 발송의 20초 제한 초과. 서버가 이미 받았을 수 있어서다(사용자 11/21: 중복 없음, 누락 가능). TLS 인증서 오류는 `originalCode`로 가려 영구 실패로 둔다
+- **결과 모름 → `unknown`(`smtp_result_unknown`), 다시 보내지 않음**: 보내는 중 **응답 번호 없이** 연결 뒤 끊김(`ECONNRESET`·`EPIPE`·소켓 오류·연결 닫힘)·소켓 시간 초과(`SOCKET_TIMEOUT`, 단계 없는 시간 초과 포함)·스트림 오류·알 수 없는 오류, 시험 발송의 20초 제한 초과. 서버가 이미 받았을 수 있어서다(사용자 11/21: 중복 없음, 누락 가능). TLS 협상·인증서 오류(`ETLS`·`CERT_*`·`ERR_TLS_*` 등, `originalCode` 포함)는 메일 내용 전 단계라 영구 실패로 두고, 연결 뒤 TLS 레코드 오류(`ERR_SSL_*`·`ERR_OSSL_*`)는 DATA 중에도 날 수 있어 보내기 중이면 그 행만 결과 모름(연결 확인에서는 영구 TLS 실패)
   - 판단 근거: nodemailer는 연결 뒤 네트워크 오류에 단계 정보를 남기지 않고(`command`가 늘 `CONN`) 모든 시간 초과를 `ETIMEDOUT` + `timeoutType`으로 낸다. 그래서 DATA를 시작했는지는 알 수 없고, 연결 전으로 확실한 경우만 다시 보낸다(연결 직후 인사 전에 닫힌 경우도 결과 모름 — 보수적)
   - 결과 모름은 연결 상태(전송 상태)에 남기지 않고, 같은 묶음의 다음 행은 계속 보낸다(행마다 새 연결)
   - 연결 확인(메일 없음)에서는 같은 끊김·시간 초과를 일시 실패(`smtp_connection_failed`·`smtp_timeout`)로 본다
@@ -68,7 +68,7 @@ Status: current — API·DB(migration 033) 구현. 설정 화면은 후속 PR(�
 - 저장 형식: AES-256-GCM, 쓸 때마다 새 무작위 IV(12바이트), AAD = 용도 이름. `v1.<키 id 8 hex>.<IV>.<tag>.<암호문>`(base64url). 키 id = sha256(키) 앞 8자리(키가 바뀌었는지 풀기 전에 안다). DB는 이 형식만 받는다(033 CHECK — 평문 저장 불가)
 - 키는 DB 밖(DB 백업만으로 풀 수 없음). 출처(앞이 이김):
   1. 환경 변수 `SETTINGS_SECRET_KEY`(base64 32바이트). 형식이 틀리면 `email_secret_key_invalid`(파일로 넘어가지 않음)
-  2. 키 파일 `SETTINGS_SECRET_KEY_FILE`, 기본 = API 데이터 폴더(`USER_DATA_PATH`와 같은 폴더, compose `AUTH_DATA_DIR` → `/app/data/settings-secret.key`). 없으면 **비밀번호를 처음 저장할 때 한 번 만든다**: 같은 폴더의 임시 파일(권한 0600)에 다 쓰고 fsync한 뒤 `link`로 제자리에 건다(원자적 — 도중에 멈춰도 빈·반쪽 키 파일이 남지 않음, 임시 파일은 지움). 이미 있으면(`EEXIST`, 동시 생성) 먼저 걸린 완성된 키를 읽는다. 읽기·상태 확인은 만들지 않는다
+  2. 키 파일 `SETTINGS_SECRET_KEY_FILE`, 기본 = API 데이터 폴더(`USER_DATA_PATH`와 같은 폴더, compose `AUTH_DATA_DIR` → `/app/data/settings-secret.key`). 없으면 **비밀번호를 처음 저장할 때 한 번 만든다**: 같은 폴더의 임시 파일(권한 0600)에 다 쓰고 fsync한 뒤 `link`로 제자리에 건다(원자적 — 도중에 멈춰도 빈·반쪽 키 파일이 남지 않음, 임시 파일은 지움). 이미 있으면(`EEXIST`, 동시 생성) 먼저 걸린 완성된 키를 읽는다. 읽기·상태 확인은 만들지 않는다. 데이터 폴더가 하드 링크를 지원하지 않으면 키 파일을 만들 수 없어 비밀번호 저장이 `email_secret_key_unavailable`로 실패한다 → `SETTINGS_SECRET_KEY`를 쓴다
   - 근거: 운영 부담이 가장 적다(설정할 값 없음, 이미 영속 bind mount인 계정 폴더). 키와 암호문이 다른 저장소(파일 / DB)에 나뉜다
 - 키가 없고 만들 수도 없으면 비밀번호 저장은 503 `email_secret_key_unavailable`(아무것도 바꾸지 않음). 평문 저장·성공 대체 없음
 - 교체·분실: 새 키(파일 교체 또는 환경 변수)로 API를 다시 시작한 뒤 비밀번호를 다시 넣는다. 그 전까지 전송 상태 `invalid`·`smtp_password_unreadable`, 발송은 실패로 기록. 옛 키로 푸는 기능은 없다. 키 파일은 `users.json`과 함께 백업한다

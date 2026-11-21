@@ -42,6 +42,7 @@ Base는 Qwen3.6-27B revision `6a9e13bd6fc8f0983b9b99948120bc37f49c13e9`을 사�
 메일 알림의 SMTP 호스트·계정·비밀번호·받는 사람·대시보드 주소는 모두 관리자가 WebUI 설정에서 넣는다(`.env`에 SMTP 값을 두지 않음, [contracts/email-alerts.md](../contracts/email-alerts.md)). DB에는 비밀번호 암호문만 저장되고, 푸는 키는 DB 밖에 둔다.
 - 기본: 비밀번호를 처음 저장할 때 api가 `AUTH_DATA_DIR` 안 `settings-secret.key`(권한 0600, `users.json`과 같은 폴더)를 한 번 만든다. 이 폴더는 bind mount라 컨테이너를 다시 만들어도 남는다. `users.json`을 백업할 때 이 파일도 함께 보관한다(Git·DB에 넣지 않음)
 - 선택: `.env`의 `SETTINGS_SECRET_KEY`(base64 32바이트, 예 `openssl rand -base64 32`)가 있으면 파일 대신 그 값을 쓴다. 형식이 틀리면 비밀번호 저장이 `email_secret_key_invalid`로 실패한다
+- 키 파일은 임시 파일을 하드 링크로 걸어 만든다. `AUTH_DATA_DIR` 마운트가 하드 링크를 지원하지 않으면(일부 네트워크·FUSE 파일 시스템) 비밀번호 저장이 `email_secret_key_unavailable`로 실패하므로 `SETTINGS_SECRET_KEY`를 넣는다
 - 키 교체·분실: 새 키를 넣고(파일 교체 또는 `SETTINGS_SECRET_KEY`) api를 다시 시작한 뒤 설정에서 SMTP 비밀번호를 다시 넣는다. 그 전까지 전송 상태는 `invalid · smtp_password_unreadable`이고 메일은 실패로 기록된다(성공으로 바꾸지 않음)
 
 ## Collector 인증·연결

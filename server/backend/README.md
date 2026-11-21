@@ -42,6 +42,8 @@ Bearer tokens are accepted through request headers. Tokens in query strings are 
 
 `/api/me/settings`(GET·PUT)는 요청 계정의 알림 설정(판정 기준·위험도 하한·위험도 미정 포함)과 운영 현황 위젯 배치를, `/api/notifications`(목록·`/unread-count`·`POST /read`)는 사건 단위 + 묶이지 않은 판정 알림과 계정별 읽음 상태를 다룬다(migration 022 필요, [notifications.md](../contracts/notifications.md)). 통합 시험: `npm run build` 후 `PIPELINE_TEST_DATABASE_URL=<로컬 새 qa_notifications* DB> node tests/notifications.integration.mjs`(database-roles.sql을 적용하고 서버 DB 연결을 `powercode_api`로 띄움).
 
+`/api/email-alerts`(관리자만: 설정 GET·PUT, `POST /test` 시험 발송, `GET /deliveries` 발송 기록)는 사건 단위 위험 알림의 메일 발송 설정을 다루고, API 프로세스 안 주기 작업(30초)이 감지·발송한다(migration 033 필요, [email-alerts.md](../contracts/email-alerts.md)). SMTP·받는 사람·대시보드 주소는 모두 설정 API로 넣고(환경 변수 없음), SMTP 비밀번호는 `SETTINGS_SECRET_KEY` 또는 API 데이터 폴더의 `settings-secret.key`로 암호화해 저장한다. 통합 시험(가짜 전송, 실제 메일 없음): `npm run build` 후 `PIPELINE_TEST_DATABASE_URL=<로컬 새 qa_email_alerts* DB> node tests/email-alerts.integration.mjs`.
+
 ## 룰 세트 API
 
 `/api/rule-set`은 이상 규칙 켜기·끄기와 이상 징후 규칙의 현재 상태·저장 즉시 적용·미리보기·변경 이력·되돌리기를 제공하고, `POST /api/rule-set/threshold-stats`는 규칙별 수식 추천(LLM 없음)을 계산한다. 조회·이력은 로그인 사용자, 저장·미리보기·수식 추천은 관리자 전용이다. `ops_rule_set_revisions`(마이그레이션 015)가 필요하다. 계약은 `server/contracts/rule-set.md`, 화면 규칙·구현 값은 `server/contracts/rules-ui.md`. 시험: `tests/rule-set-contract.test.mjs`(단위), `tests/rule-set.integration.mjs`·`tests/rule-set-grants.integration.mjs`(로컬 `qa_rule_set*` DB).

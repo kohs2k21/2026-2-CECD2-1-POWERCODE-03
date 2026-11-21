@@ -131,6 +131,10 @@ GRANT SELECT,INSERT ON ops_response_code_changes TO powercode_api;
 -- data_input_origins.ingest_phase and data_observations source time columns are covered by the 009/002 table grants.
 GRANT SELECT,INSERT,DELETE ON ops_resource_measurements,ops_storage_measurements TO powercode_collector;
 GRANT SELECT ON ops_resource_measurements TO powercode_api;
+-- 033: email alerts (contracts/email-alerts.md). API only: admin settings and the scan cursor are replaced in place,
+-- alert targets/deliveries are written by the API runner and pruned by it (DELETE). The API already reads
+-- run_decision_events, run_process_decisions, data_executions, data_processes and the 019 incident tables. No other role reads them.
+GRANT SELECT,INSERT,UPDATE,DELETE ON ops_email_alert_settings,ops_email_alert_cursor,ops_email_alerts,ops_email_alert_incidents,ops_email_deliveries TO powercode_api;
 -- #78-Q10 defense in depth: no session temp tables through PUBLIC in the database this script runs in
 -- (runtime code uses none). The database owner, superusers and explicit TEMP grantees keep TEMP.
 DO $$ BEGIN

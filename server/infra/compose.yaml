@@ -32,6 +32,8 @@ services:
       ARTIFACT_ROOT: /artifacts
       SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-}
       SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-}
+      # 메일 알림 SMTP 비밀번호 암호화 키(선택, base64 32바이트). 비우면 /app/data/settings-secret.key를 처음 저장할 때 만들어 쓴다(contracts/email-alerts.md).
+      SETTINGS_SECRET_KEY: ${SETTINGS_SECRET_KEY:-}
     volumes:
       - type: bind
         source: ${AUTH_DATA_DIR:?Set the existing user data directory}

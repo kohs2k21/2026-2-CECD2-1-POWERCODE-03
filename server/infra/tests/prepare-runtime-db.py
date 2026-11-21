@@ -6,9 +6,9 @@ import psycopg
 from psycopg import sql
 
 root=Path(__file__).resolve().parents[1]/'migrations'
-# 027(explain_protocol)·028(작업 알림)·029(확인 결과)·030(Collector 운영 계측)·031(판정 저장 소요 단계)·032(조사·조치 기록 정정)은 아래 files 목록 끝(dev의 026) 뒤에 적용한다. 목록 끝 줄과 겹치지 않게 따로 둔다.
+# 027(explain_protocol)·028(작업 알림)·029(확인 결과)·030(Collector 운영 계측)·031(판정 저장 소요 단계)·032(조사·조치 기록 정정)·033(메일 알림)은 아래 files 목록 끝(dev의 026) 뒤에 적용한다. 목록 끝 줄과 겹치지 않게 따로 둔다.
 later=('027_explain_protocol.sql','028_job_notifications.sql','029_feedback_outcome.sql','030_collector_metrics.sql',
-       '031_judgment_store_measurement.sql','032_feedback_correction.sql')
+       '031_judgment_store_measurement.sql','032_feedback_correction.sql','033_email_alerts.sql')
 files=('001_postgres_queues.sql','002_core_erd.sql','003_erd_v03_enums.sql','004_erd_v03_contracts.sql',
        '003_rule_versions_immutable.sql','004_feature_pipeline.sql','005_research_runtime.sql',
        '006_service_transition.sql','007_api_collection_metrics.sql','008_demo_replay.sql','009_switchable_inputs.sql',
@@ -31,7 +31,7 @@ def main():
     if parsed.hostname not in ('localhost','127.0.0.1') or parsed.path!='/postgres':
         raise SystemExit('only a local postgres admin URL is permitted')
     with psycopg.connect(url,autocommit=True) as admin:
-        for name in ('qa_research_pipeline','qa_pipeline','qa_trainer_service','qa_metrics_service','qa_synthetic_service','qa_prepared_csv_service','qa_operations_service','qa_rule_set_service','qa_rule_set_models','qa_active_models_service','qa_analysis_service','qa_detection_decision','qa_notifications_service','qa_feature_sets_service','qa_response_codes_service'):
+        for name in ('qa_research_pipeline','qa_pipeline','qa_trainer_service','qa_metrics_service','qa_synthetic_service','qa_prepared_csv_service','qa_operations_service','qa_rule_set_service','qa_rule_set_models','qa_active_models_service','qa_analysis_service','qa_detection_decision','qa_notifications_service','qa_feature_sets_service','qa_response_codes_service','qa_email_alerts_service'):
             # Existing QA databases fail here; no DROP or existing-schema changes.
             admin.execute(sql.SQL('CREATE DATABASE {}').format(sql.Identifier(name)))
             database_url=urlunsplit(parsed._replace(path='/'+name))

@@ -1,5 +1,5 @@
 Created: 2026-10-12T02:06:03+09:00
-Updated: 2026-11-15T12:25:00+09:00
+Updated: 2026-11-21T14:25:00+09:00
 Author: contracts_page_reviewer
 Status: current
 
@@ -7,7 +7,7 @@ Status: current
 
 - Issue #32 기준: 최신 PostgreSQL·공통 규약·LLM 기획 반영. `schema.dbml`은 최종 목표 구조의 시각화, 실행 원본은 migration SQL
 - 목표 구조(Issue #32 당시): public 28테이블 + `powercode_queue` 기존 물리 큐 2테이블. 기존 public 24테이블 보존, BODY·BODY 연결·불변 입력·LLM 결과 4테이블만 추가
-- 현재 `schema.dbml`: 001~023 전체 + 024 [제안] + 025·026 반영(024·025·026 절) + 027 `job_kind` 값 1개(확정 11/14) + 028 + 029(014 표에 열 1개) + 030(002·009 표 열·인덱스, 새 표 1개) + 031(004 표 CHECK 2개, DBML Note만) + 032(014 표에 열 2개·자기 참조 FK 2개·부분 UNIQUE 색인 1개), public 74테이블 + `powercode_queue` 5테이블. 004_feature_pipeline·005~009 추가분 24테이블 보강, 011 3테이블·012 1테이블·014 3테이블·015 3테이블·019 4테이블·022 4테이블·023 2테이블·024 1테이블·025 2테이블 추가, 026은 022 표에 열 1개 추가. 013(#82)은 함수 설정만 바꿔 DBML 변경 없음
+- 현재 `schema.dbml`: 001~023 전체 + 024 [제안] + 025·026 반영(024·025·026 절) + 027 `job_kind` 값 1개(확정 11/14) + 028 + 029(014 표에 열 1개) + 030(002·009 표 열·인덱스, 새 표 1개) + 031(004 표 CHECK 2개, DBML Note만) + 032(014 표에 열 2개·자기 참조 FK 2개·부분 UNIQUE 색인 1개) + 033(새 표 5개), public 80테이블 + `powercode_queue` 5테이블(DBML 파싱 기준, 033 전 75). 004_feature_pipeline·005~009 추가분 24테이블 보강, 011 3테이블·012 1테이블·014 3테이블·015 3테이블·019 4테이블·022 4테이블·023 2테이블·024 1테이블·025 2테이블 추가, 026은 022 표에 열 1개 추가. 013(#82)은 함수 설정만 바꿔 DBML 변경 없음
 - 기존 001/002 불변. 003/004는 서버 미적용; ERD 등록·SQL 검수와 실제 운영 적용 구분
 - PostgreSQL 17.11 실제 public24+queue2 존재 확인 기록과 정합. 서버 schema/version 이력 및 완전 DDL 일치는 별도 사전 확인 필요
 
@@ -197,7 +197,7 @@ SELECT r.rolname,
 - 읽기 기준(DB 강제 아님): 실행별 최신 판정 = `PARTITION BY d.execution_id ORDER BY o.revision_no DESC NULLS LAST, d.decided_at DESC, d.event_sequence DESC`. 해제·구성원 수는 읽을 때 계산
 - append-only: 4표 모두 `BEFORE UPDATE OR DELETE OR TRUNCATE FOR EACH STATEMENT` 트리거(004 `erd_v03_immutable()` 재사용, 015 방식. 006 행 단위보다 TRUNCATE·0행 문장까지 넓게 거부) + 권한 SELECT·INSERT만. 신뢰 경계는 015와 같음
 - 권한: `powercode_detector` 4표 SELECT·INSERT + `run_incident_events_id_seq` USAGE(006 `run_decision_events`와 같은 형식), `powercode_api` 4표 SELECT. Trainer·LLM·Collector 권한 없음
-- advisory lock 분류(코드 grep 확인): 81732 Trainer 카탈로그, 81733 파이프라인 관측, 81734 API `jobRoutes.ts` LLM 재사용 키, 81735 Collector 원천·창 감시와 API `preparedDatasetRoutes.ts` 준비 CSV, 81736 판정 이벤트, 81737 데모 실행, 81738 Collector input_store, 81739 룰 세트·활성 집합·정책 저장, 81740 Detector manifest, 81741 장애 묶음(019), 81742 관계 규칙 재판정 탐색(024 [제안]), 94732 API ruleRepository
+- advisory lock 분류(코드 grep 확인): 81732 Trainer 카탈로그, 81733 파이프라인 관측, 81734 API `jobRoutes.ts` LLM 재사용 키, 81735 Collector 원천·창 감시와 API `preparedDatasetRoutes.ts` 준비 CSV, 81736 판정 이벤트, 81737 데모 실행, 81738 Collector input_store, 81739 룰 세트·활성 집합·정책 저장, 81740 Detector manifest, 81741 장애 묶음(019), 81742 관계 규칙 재판정 탐색(024 [제안]), 81743 API 메일 알림 주기 작업(0)·시험 발송(1)(033), 94732 API ruleRepository
 - 시험(`erd-v03-incidents.mjs`, `erd-v03.mjs`가 호출): `erd019`(001~018 + 019 한 문자열, 제약·partial UNIQUE·지연 FK·트리거 카탈로그, 역할 5개 권한 정확 일치, 실제 LOGIN Detector 쓰기·읽기와 API 읽기·INSERT 거부, 실행 행 마지막 커밋 성공·실행 행 없음 COMMIT 23503, 중복 판정 ON CONFLICT 0행·일반 INSERT 23505, 병합 2회·자기 대상·대상 없음, 이어짐 중복·자기 참조, 시각 기준 값, 커서 역순, 비객체 기준, 런타임 역할 UPDATE·DELETE 42501, 소유자 UPDATE·DELETE·TRUNCATE P0001). 함께 바꾼 기존 시험: 015 시점에 역할 스크립트를 적용하는 `erd110_fresh`는 019 GRANT 블록을 빼고 적용, 017·018 문장 단위 DB(`erd124_upgrade`·`erd124_rollback`·`erd124_single`·`erd129_upgrade`)는 parity 전에 이후 파일까지 적용, `prepare-runtime-db.py` 목록에 019 추가
 
 ## 020 룰 세트 hash 버전 3 허용
@@ -352,6 +352,20 @@ SELECT r.rolname,
 - 시험(`erd-v03-feedback-correction.mjs`, `erd-v03.mjs`가 호출): `erd032_upgrade`(001~031 + 역할 스크립트 + 이전 API 문장으로 쓴 기록 → 032: 기존 기록 두 열 NULL, 열 형식·FK 2개·이름 있는 CHECK·부분 UNIQUE 색인·트리거 없음, 역할 스크립트 재적용 없이 실제 LOGIN API가 정정 행 쓰기·읽기, 이전 API INSERT 혼용, 한 판본 두 번 정정 23505, 한 열만·자기 참조 23514, 없는 행 참조 23503, API UPDATE·DELETE 42501, 다른 역할 4개 SELECT 42501, 다시 실행 42701 뒤 상태 그대로, DBML parity). API 경로는 `backend/tests/analysis.integration.mjs`(수정·권한·충돌·목록·확인 결과 분류)·`analysis-grants.integration.mjs`(API 역할로 정정 행 쓰기·읽기)
 - 함께 바꾼 기존 시험: `prepare-runtime-db.py` `later` 묶음에 032 추가
 
+## 033 메일 알림
+
+- 파일 `033_email_alerts.sql`, 032까지 적용 뒤 한 번 실행(`psql -v ON_ERROR_STOP=1 -f`), 기존 표 소유자로 실행. 이어서 DBA가 `scripts/database-roles.sql` 재적용(새 표 GRANT 1줄). 새 표 5개만(함수·트리거·시퀀스·enum 없음), 단일 BEGIN..COMMIT. FK는 새 표끼리만 있어 기존 표(`run_incidents`·`run_decision_events` 등)를 잠그지 않고 작업자를 멈출 필요 없음. 자동 down migration 없음(되돌리기 = 새 표 5개 DROP, 이전 API는 이 표를 읽지 않음). 다시 실행하면 이미 있는 표에서 42P07로 실패해 전체 ROLLBACK
+- 왜: 사건 단위 위험 알림을 메일로도 보냄(사용자 11/21, `contracts/email-alerts.md`). SMTP·받는 사람·대시보드 주소까지 모두 관리자가 WebUI 설정에서 넣는다(서버 환경 변수 없음)
+- 표(API만 읽고 씀): `ops_email_alert_settings`(시스템 전역 1행 `id=1`: 켜기·알림 종류 2개·위험도 하한·받는 사람 jsonb 배열 10개 이하·SMTP 호스트·포트·보안·계정·암호화된 비밀번호·보내는 주소·대시보드 주소·마지막 연결 확인 결과), `ops_email_alert_cursor`(주기 작업 처리 경계 1행), `ops_email_alerts`(알림 대상 = 사건 흐름 또는 묶이지 않은 판정, 키 형식은 알림 항목 키와 같음), `ops_email_alert_incidents`(사건 → 알림 대상, 흐름 머리가 바뀌어도 다시 보내지 않게), `ops_email_deliveries`(발송 1건 = 알림 대상·위험 단계·받는 사람, 시험 발송 포함)
+- DB가 막는 것: SMTP 포트 25·465·587·2525만, 보안 `tls`·`starttls`만(평문 없음), 비밀번호는 `v1.<키 id>.<IV>.<tag>.<암호문>` 형식만(평문 저장 불가), 대시보드 주소 http(s)·쿼리 없음, 켜기 전제(SMTP·보내는 주소·대시보드 주소·받는 사람 1명 이상·알림 종류 1개 이상), 발송 상태별 필수 열, payload 객체·8KB 이하
+- 중복 방지: `ops_email_deliveries` UNIQUE `(alert_id, risk_rank, recipient)` — 같은 알림 대상의 같은 위험 단계는 한 사람에게 한 번만 대기열에 들어간다. 주기 작업은 처리 경계 이동과 알림 대상·대기 행 INSERT를 한 트랜잭션에서 `pg_try_advisory_xact_lock(81743, 0)` 아래 한다(API 프로세스가 여럿이어도 한 곳만). 보낼 때는 `FOR UPDATE SKIP LOCKED`로 가져와 `sending`·`lease_until`을 커밋한 뒤 보낸다. 보내는 중 멈춘 행(lease 지남)은 `unknown`(확인 불가)으로 바꾸고 다시 보내지 않는다(사용자 11/21)
+- 비밀: SMTP 비밀번호는 API가 AES-256-GCM(쓸 때마다 새 IV)으로 암호화한 문자열만 저장한다. 키는 DB에 없다(API 환경 변수 `SETTINGS_SECRET_KEY` 또는 API 데이터 폴더의 `settings-secret.key`, `contracts/email-alerts.md` "비밀번호 저장" 절). DB 백업만으로는 비밀번호를 풀 수 없고, 키를 잃으면 비밀번호를 다시 넣는다
+- 정리: API 주기 작업이 하루 한 번 90일 지난 발송 행, 30일 동안 갱신 없는 알림 대상(매핑 함께 삭제, 발송 행은 `alert_id` NULL로 남음)을 지운다
+- 권한: `powercode_api` 새 표 5개 SELECT·INSERT·UPDATE·DELETE. Detector·Collector·Trainer·LLM 권한 없음. API는 감지에 쓰는 `run_decision_events`·`run_process_decisions`·`data_executions`·`data_processes`·019 사건 표 SELECT를 이미 가진다
+- **배포 순서: migration 033 → 역할 스크립트 재적용 → API**. 이전 API는 새 표를 읽지 않아 먼저 적용해도 안전. 역할 스크립트 재적용 전에 새 API가 뜨면 메일 알림 설정 API가 503이고 주기 작업은 회차마다 실패를 코드 한 줄로 남긴다(알림 패널·다른 API 영향 없음)
+- 시험(`erd-v03-email-alerts.mjs`, `erd-v03.mjs`가 호출): `erd033_upgrade`(001~032 + 032 시점 역할 스크립트 → 033: PK·FK 2개(cascade·set null)·UNIQUE 2개·부분 색인·트리거 없음, 기존 표 색인 수 그대로, 역할 스크립트 재적용 전 42501, 재적용 뒤 역할 5개 권한 정확 일치, 실제 LOGIN API의 설정 upsert·켜기 CHECK·연결 확인 기록·경계 설정·알림 대상 ON CONFLICT·발송 once key·SKIP LOCKED 가져오기·정리 DELETE, TRUNCATE·다른 역할 42501, CHECK 경계(포트·보안·비밀번호 형식·주소·받는 사람·payload·상태별 열), 다시 실행 42P07 뒤 상태 그대로, DBML parity). API 경로는 `backend/tests/email-alerts.integration.mjs`(CI 단계 "Email alerts API and runner under runtime role")
+- 함께 바꾼 기존 시험: `prepare-runtime-db.py` `later` 묶음에 033·`qa_email_alerts_service` 추가, `erd-v03.mjs`에 `rolesBefore033`(033 블록을 뺀 역할 스크립트)을 두고 030~032 시점에 역할 스크립트를 적용하는 `collectorMetrics030`·`feedbackCorrection032`에 넘김(026·028·029의 `rolesBefore030`은 030 블록과 함께 033 블록도 뺌)
+
 ## 큐와 소유권
 
 - 001의 `detection_logs/training_jobs`는 기존 물리 큐. 기존 Python helper의 payload·물리 lease 경로 보존
@@ -402,7 +416,7 @@ SELECT r.rolname,
 
 ## DBML과 SQL 대응
 
-- DBML은 001~032(024 [제안] 포함) 적용 후 최종 구조(컬럼·nullability·unique·FK·enum 순서). 물리 큐 5개도 명시. enum 순서는 PostgreSQL 추가 순서(`job_kind`의 `import_csv`는 explain 뒤)
+- DBML은 001~033(024 [제안] 포함) 적용 후 최종 구조(컬럼·nullability·unique·FK·enum 순서). 물리 큐 5개도 명시. enum 순서는 PostgreSQL 추가 순서(`job_kind`의 `import_csv`는 explain 뒤)
 - nullable FK는 `>?`, unique FK는 부모 `-` 자식 방향, nullable unique FK는 부모 `?-` 자식 방향으로 표시. 실제 FK 방향은 SQL/파싱 대응 시험으로 확인
 - attempt의 복합 FK 3개는 DBML의 exact-composite index 판정 한계로 `>`/`>?` 표시. 자식의 개별 PK/unique가 실제 1:1 제약을 보장한다는 주석 유지; 그림 경고를 없애려고 SQL 중복 인덱스를 추가하지 않음
 - `@dbml/core`는 현재 문법의 `dbmlv2` parser 사용. deprecated `dbml` parser는 optional 관계 문법을 지원하지 않음

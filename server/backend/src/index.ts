@@ -16,10 +16,12 @@ import ruleSetRouter from './routes/ruleSetRoutes.js';
 import responseCodeRouter from './routes/responseCodeRoutes.js';
 import preparedDatasetRouter from './routes/preparedDatasetRoutes.js';
 import { createMeRouter, createNotificationRouter } from './routes/notificationRoutes.js';
+import { createEmailAlertRouter, defaultEmailDeps } from './routes/emailAlertRoutes.js';
+import { startEmailAlertRunner } from './services/emailAlerts/runner.js';
 import { createActiveModelRouter, createOperationalStateRouter } from './routes/activeModelRoutes.js';
 import { createComparisonRouter, createEvaluationSetRouter } from './routes/comparisonRoutes.js';
 import llmRouter from './routes/llmRoutes.js';
-import { checkDatabaseConnection } from './config/database.js';
+import { checkDatabaseConnection, getDatabasePool } from './config/database.js';
 
 const app = express();
 
@@ -40,6 +42,9 @@ app.use('/api/response-codes', responseCodeRouter);
 // 사용자별 설정·알림 API도 자체 JSON 파서(16KB)·오류 형식을 쓴다.
 app.use('/api/me', createMeRouter());
 app.use('/api/notifications', createNotificationRouter());
+// 메일 알림 API(관리자)도 자체 JSON 파서(16KB)·오류 형식을 쓴다. 주기 작업(감지·발송)과 같은 전송·키 출처를 쓴다.
+const emailDeps = defaultEmailDeps();
+app.use('/api/email-alerts', createEmailAlertRouter({ deps: emailDeps }));
 app.use(express.json());
 
 // 상태 확인 API
@@ -83,4 +88,6 @@ app.listen(PORT, () => {
   console.log(`  User Management Service running on:`);
   console.log(`  http://localhost:${PORT}`);
   console.log(`==========================================`);
+  // 메일 알림 주기 작업(contracts/email-alerts.md). 설정이 꺼져 있으면 회차마다 설정만 읽고 끝난다. DB 없이 띄운 API(계정만)에서는 돌리지 않는다.
+  if (process.env.DATABASE_URL?.trim()) startEmailAlertRunner({ database: getDatabasePool, deps: emailDeps });
 });

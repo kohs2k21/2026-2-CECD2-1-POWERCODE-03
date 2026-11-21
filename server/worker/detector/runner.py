@@ -152,7 +152,11 @@ def process_detection_message(conn: Any, message: ClaimedMessage, root: Path | N
         heartbeat.stop()
 
 
-def run(*, once: bool = False, poll_seconds: float = 1.0) -> None:
+# dead 큐 행 대조(reconcile_dead_jobs)는 색인 없는 순차 탐색이라 반복마다 부르지 않고 이 간격마다 한 번 부른다.
+RECONCILE_SECONDS = 30.0
+
+
+def run(*, once: bool = False, poll_seconds: float = 1.0, reconcile_seconds: float = RECONCILE_SECONDS) -> None:
     load_dotenv(Path(__file__).resolve().parents[1] / ".env")
     database_url = os.environ.get("DATABASE_URL")
     if not database_url:
@@ -160,6 +164,7 @@ def run(*, once: bool = False, poll_seconds: float = 1.0) -> None:
     root = Path(os.environ["ARTIFACT_ROOT"]) if os.environ.get("ARTIFACT_ROOT") else None
     from detector.applications import prepare_active, process_application_once
     worker_id = f"detector-{uuid.uuid4()}"
+    last_reconcile: float | None = None
     with psycopg.connect(database_url) as conn:
         try:
             prepare_active(conn, root)
@@ -197,9 +202,12 @@ def run(*, once: bool = False, poll_seconds: float = 1.0) -> None:
                 from detector.jobs import claim_waiting_input
                 message=claim_waiting_input(conn)
                 conn.commit()
-            from pg_queue import reconcile_dead_jobs
-            reconcile_dead_jobs(conn,"detection")
-            conn.commit()
+            now = time.monotonic()
+            if last_reconcile is None or now - last_reconcile >= reconcile_seconds:
+                from pg_queue import reconcile_dead_jobs
+                reconcile_dead_jobs(conn,"detection")
+                conn.commit()
+                last_reconcile = now
             if message is None:
                 if once:
                     return

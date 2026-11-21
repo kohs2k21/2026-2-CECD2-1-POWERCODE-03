@@ -29,7 +29,8 @@ const { MemoryRouter } = await import("react-router-dom");
 const { AuthSessionProvider, useAuthSession } = await import("../src/services/auth/AuthSessionProvider.tsx");
 const api = await import("../src/features/settings/email/emailAlertsApi.ts");
 const labels = await import("../src/features/settings/email/emailAlertLabels.ts");
-const { TestSendConfirm, updateOf } = await import("../src/features/settings/email/EmailAlertsCard.tsx");
+const { TestSendConfirm, canEnable, updateOf } = await import("../src/features/settings/email/EmailAlertsCard.tsx");
+const { HttpError } = await import("../src/services/api/client.ts");
 const { resetProcessingObservations } = await import("../src/features/settings/email/useEmailAlerts.ts");
 const { IntegrationsSettings } = await import("../src/features/settings/sections/IntegrationsSettings.tsx");
 const { NotificationSettings } = await import("../src/features/settings/sections/NotificationSettings.tsx");
@@ -117,8 +118,36 @@ const delivery = (status, over = {}) => ({ id: `d-${status}`, kind: "incident", 
   assert.deepEqual(updateOf({ ...draft, host: "", port: "", security: "", username: "", fromAddress: "", publicBaseUrl: "" }).smtp,
     { host: null, port: null, security: null, username: null, fromAddress: null });
   // 응답 해석: 머리 값이 틀리면 오류, 비밀번호 값은 받아도 버린다.
-  assert.throws(() => api.parseEmailAlertSettings({ enabled: true }), /메일 알림 설정 응답/);
-  assert.throws(() => api.parseEmailAlertSettings(settingsBody({ transport: { status: "ok" } })), /메일 알림 설정 응답/);
+  // 응답 형식 오류는 문장 없이 코드(invalid_response)만. 오류 원문(브라우저 fetch 메시지 등)은 코드로 바꾼다.
+  for (const broken of [() => api.parseEmailAlertSettings({ enabled: true }), () => api.parseEmailAlertSettings(settingsBody({ transport: { status: "ok" } })),
+    () => api.parseTestSendResult({ status: "maybe" }), () => api.parseDeliveryList({ list: [] })]) {
+    assert.throws(broken, (error) => error instanceof api.ResponseFormatError && error.message === "invalid_response" && api.errorCodeOf(error) === "invalid_response");
+  }
+  assert.deepEqual([api.errorCodeOf(new HttpError("x", 409, "email_transport_not_configured")), api.errorCodeOf(new HttpError("PUT failed: 502", 502)),
+    api.errorCodeOf(new TypeError("Failed to fetch")), api.errorCodeOf(new Error("boom")), api.errorCodeOf("x")],
+  ["email_transport_not_configured", "http_502", "network_error", "request_failed", "request_failed"], "no raw messages");
+  // 켜기 잠금 = API 409·400 조건(보낸 값 기준, 이미 켜져 있어도). 끄기는 언제나.
+  const empty = api.parseEmailAlertSettings(settingsBody());
+  const full = { enabled: false, kinds: ["incident"], minRiskLevel: "critical", recipients: ["a@example.test"], host: "smtp.example.test", port: "587", security: "starttls",
+    username: "", password: "", passwordCleared: false, fromAddress: "f@example.test", publicBaseUrl: "http://x:8080" };
+  assert.equal(canEnable(full, empty), true, "(a) first setup with complete inputs, nothing saved yet");
+  for (const key of ["host", "port", "security", "fromAddress", "publicBaseUrl"]) assert.equal(canEnable({ ...full, [key]: "" }, empty), false, `missing ${key}`);
+  assert.equal(canEnable({ ...full, username: "mailer" }, empty), false, "account without a password");
+  assert.equal(canEnable({ ...full, username: "mailer", password: "pw" }, empty), true, "account with a new password");
+  const saved = api.parseEmailAlertSettings(configured({ enabled: true }));
+  const savedDraft = { ...full, enabled: true, host: "smtp.example.test", port: "587", security: "starttls", username: "mailer", fromAddress: "alerts@example.test",
+    publicBaseUrl: "http://dashboard.example.test:8080" };
+  assert.equal(canEnable(savedDraft, saved), true);
+  assert.equal(canEnable({ ...savedDraft, host: "" }, saved), false, "(b) clearing the host while enabled");
+  assert.equal(canEnable({ ...savedDraft, passwordCleared: true }, saved), false, "(b) clearing the password while enabled");
+  assert.equal(canEnable({ ...savedDraft, host: "other.example.test" }, saved), true, "changed host keeps the readable saved password");
+  const unreadable = api.parseEmailAlertSettings(configured({ enabled: true, transport: { status: "invalid", code: "smtp_password_unreadable", checkedAt: null } }));
+  assert.equal(canEnable(savedDraft, unreadable), false, "same SMTP values: saved invalid state blocks");
+  assert.equal(canEnable({ ...savedDraft, host: "other.example.test" }, unreadable), false, "kept unreadable password blocks even with other values changed");
+  assert.equal(canEnable({ ...savedDraft, password: "new" }, unreadable), true, "a new password replaces the unreadable one");
+  for (const status of ["auth_failed", "error"]) {
+    assert.equal(canEnable(savedDraft, api.parseEmailAlertSettings(configured({ transport: { status, code: "smtp_x", checkedAt: "x" } }))), true, `${status} does not block`);
+  }
   const parsed = api.parseEmailAlertSettings(configured({ smtp: { ...configured().smtp, password: SECRET } }));
   assert.ok(!JSON.stringify(parsed).includes(SECRET), "a stray password field is dropped");
   assert.deepEqual(api.parseDeliveryList({ items: [delivery("sent"), delivery("bounced"), { id: "x" }], nextCursor: null }).items.map((item) => item.id), ["d-sent"]);
@@ -154,7 +183,8 @@ const mount = async (render, role = "admin", initialEntries = undefined) => {
     const { user } = useAuthSession();
     return user ? render(user) : null;
   };
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity }, mutations: { gcTime: Infinity } } });
+  // 요청 상태 보존(mutations gcTime)은 기본값 그대로 — 저장 본문(비밀번호)이 남지 않는지 화면 설정으로 확인한다.
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity } } });
   let renderer;
   await act(async () => {
     renderer = create(React.createElement(MemoryRouter, initialEntries ? { initialEntries } : null, React.createElement(QueryClientProvider, { client },
@@ -216,11 +246,29 @@ const puts = () => requests.filter((r) => r.method === "PUT");
   assert.equal(buttons(app, "비밀번호 지우기").length, 0);
   assert.ok(app.shown().includes("메일 링크 앞부분 (예: http://서버:8080)"));
   assert.equal(buttons(app, "저장")[0].props.disabled, true, "nothing to save");
+  // 주기 조회 없음: 조회 설정과 시간이 지나도 요청 수가 그대로.
+  const reads = requests.filter((r) => r.method === "GET").length;
+  await tick(400);
+  assert.equal(requests.filter((r) => r.method === "GET").length, reads, "no polling");
+  for (const name of ["email-alert-settings", "email-alert-deliveries"]) {
+    assert.equal(app.client.getQueryCache().find({ queryKey: [name, "admin-1"] }).options.refetchInterval, false, `${name}: no refetch interval`);
+  }
+  // (a) 처음 설정: 저장 전이라도 입력값이 다 차면 켤 수 있다(API가 받음). 대시보드 주소가 비면 잠김.
+  await type(inputFor(app, "SMTP 호스트"), "smtp.example.test");
+  await type(inputFor(app, "포트"), "465");
+  await type(inputFor(app, "보안"), "tls");
+  await type(inputFor(app, "보내는 주소"), "alerts@example.test");
+  assert.equal(emailSwitch(app).props.disabled, true, "dashboard address still missing");
+  await type(inputFor(app, "대시보드 주소"), "http://dashboard.example.test:8080");
+  assert.equal(emailSwitch(app).props.disabled, false, "(a) complete inputs unlock the switch before saving");
+  await type(inputFor(app, "발신 계정"), "mailer");
+  assert.equal(emailSwitch(app).props.disabled, true, "account without a password locks again");
+  await type(inputFor(app, "비밀번호"), "pw-1");
+  assert.equal(emailSwitch(app).props.disabled, false);
   for (const status of ["invalid", "configured", "auth_failed", "error"]) {
     const body = settingsBody({ transport: { status, code: status === "configured" ? null : "smtp_x", checkedAt: null } });
     app.client.setQueryData(["email-alert-settings", "admin-1"], api.parseEmailAlertSettings(body));
     await tick();
-    assert.equal(emailSwitch(app).props.disabled, status === "invalid", `switch lock for ${status}`);
     assert.ok(app.shown().includes(labels.transportLabels[status]), `badge for ${status}`);
   }
   await app.cleanup();
@@ -289,6 +337,8 @@ const puts = () => requests.filter((r) => r.method === "PUT");
   assert.ok(app.shown().includes("설정됨"), "status badge still from the server");
   assert.ok(app.shown().includes("2/10"), "draft kept for another try");
   assert.equal(buttons(app, "저장")[0].props.disabled, false);
+  await tick();
+  assert.ok(!JSON.stringify(app.client.getMutationCache().getAll().map((m) => m.state.variables)).includes(SECRET), "failed save body not kept either");
   // 다른 오류는 코드 그대로.
   putStatus = [409, "email_transport_not_configured"];
   await click(buttons(app, "저장")[0]);
@@ -313,6 +363,8 @@ const puts = () => requests.filter((r) => r.method === "PUT");
   assert.ok(!app.shown().includes("메일 알림 설정을 저장하지 못했습니다"), "error cleared");
   assert.deepEqual([password().props.value, password().props.placeholder], ["", "저장됨 · 바꿀 때만 입력"]);
   assert.ok(!app.json().includes(SECRET), "password never rendered after save");
+  await tick();
+  assert.ok(!JSON.stringify(app.client.getMutationCache().getAll().map((m) => m.state.variables)).includes(SECRET), "save body (password) not kept in the mutation cache");
   assert.ok(requests.filter((r) => r.path === "/api/email-alerts/deliveries").length >= 2, "deliveries read again after save");
 
   // 확인 안 함(SMTP 값 그대로) → `저장됨`, 연결 확인 성공 → `저장됨 · 연결 확인 성공`.
@@ -352,8 +404,19 @@ const puts = () => requests.filter((r) => r.method === "PUT");
   assert.equal(confirm().props.address, null);
   assert.equal(requests.filter((r) => r.method === "POST").length, 0, "cancel sends nothing");
   const resultLine = () => app.renderer.root.findAll((n) => n.props?.["data-test-result"] === "ops@example.test" && n.type === "p").map((n) => text(n.children))[0];
+  // 보내는 중(최대 20초): 발송 상태 문구 `보내는 중`, 그동안 시험 발송 버튼 잠금.
+  let finish;
+  next = new Promise((resolve) => { finish = resolve; });
+  await click(buttons(app, "시험 발송")[0]);
+  await act(async () => confirm().props.onSend(confirm().props.address));
+  await wait(() => resultLine() === "보내는 중", "pending line");
+  assert.equal(buttons(app, "시험 발송")[0].props.disabled, true, "one test at a time");
+  finish([200, { deliveryId: "t0", status: "sent", errorCode: null, smtpCode: 250, finishedAt: "x" }]);
+  await wait(() => resultLine() === "시험 발송 완료", "pending resolved");
   const cases = [
     [[200, { deliveryId: "t1", status: "sent", errorCode: null, smtpCode: 250, finishedAt: "x" }], "시험 발송 완료"],
+    [[404, { code: "email_recipient_not_listed" }], "시험 발송 실패 · email_recipient_not_listed"],
+    [[409, { code: "email_transport_not_configured" }], "시험 발송 실패 · email_transport_not_configured"],
     [[200, { deliveryId: "t2", status: "failed", errorCode: "smtp_recipient_rejected", smtpCode: 550, finishedAt: "x" }], "시험 발송 실패 · smtp_recipient_rejected"],
     [[200, { deliveryId: "t3", status: "unknown", errorCode: "smtp_result_unknown", smtpCode: null, finishedAt: "x" }], "확인 불가"],
     [[429, { code: "email_test_rate_limited" }], "시험 발송 실패 · email_test_rate_limited"],
@@ -366,9 +429,71 @@ const puts = () => requests.filter((r) => r.method === "PUT");
     await wait(() => resultLine() === expected, `test result ${expected}`);
     await wait(() => settingsReads > reads, "settings read again after a test send");
   }
-  assert.deepEqual(requests.filter((r) => r.method === "POST").map((r) => r.body), Array(4).fill({ to: "ops@example.test" }));
+  assert.deepEqual(requests.filter((r) => r.method === "POST").map((r) => r.body), Array(7).fill({ to: "ops@example.test" }));
   assert.equal(labels.testConfirmText(confirm().props.address ?? "ops@example.test"), "ops@example.test로 시험 메일을 보냅니다.");
   await app.cleanup();
+}
+
+// 2-4b) 켜진 상태: (b) 호스트·비밀번호를 비우면 저장 잠금(API 409), 끄면 저장 가능. 켜짐 + 설정 오류(키로 못 푸는 비밀번호)도 끄기는 된다.
+for (const transport of [{ status: "configured", code: null, checkedAt: "2026-11-21T01:02:03.000000Z" }, { status: "invalid", code: "smtp_password_unreadable", checkedAt: null }]) {
+  let stored = configured({ enabled: true, transport });
+  routes = {
+    "GET /api/email-alerts/settings": () => [200, stored],
+    "GET /api/email-alerts/deliveries": () => [200, { items: [], nextCursor: null }],
+    "PUT /api/email-alerts/settings": (_target, body) => {
+      stored = configured({ ...stored, enabled: body.enabled });
+      return [200, { ...stored, verify: { result: "skipped", code: null } }];
+    },
+  };
+  requests.length = 0;
+  const app = await mount(integrations);
+  await wait(() => emailSwitch(app)?.props["aria-checked"] === true, `enabled loaded (${transport.status})`);
+  assert.equal(emailSwitch(app).props.disabled, false, "turning off is always possible");
+  if (transport.status === "configured") {
+    await type(inputFor(app, "SMTP 호스트"), "");
+    assert.equal(buttons(app, "저장")[0].props.disabled, true, "(b) cleared host while enabled cannot be saved");
+    await type(inputFor(app, "SMTP 호스트"), "smtp.example.test");
+    await click(buttons(app, "비밀번호 지우기")[0]);
+    assert.equal(buttons(app, "저장")[0].props.disabled, true, "(b) cleared password while enabled cannot be saved");
+  } else {
+    await act(async () => inputFor(app, "위험도 하한").props.onChange({ target: { value: "warning" } }));
+    assert.equal(buttons(app, "저장")[0].props.disabled, true, "enabled + invalid: other changes cannot be saved while on");
+  }
+  await act(async () => emailSwitch(app).props.onClick({ preventDefault() {}, stopPropagation() {}, isPropagationStopped: () => false }));
+  assert.equal(emailSwitch(app).props["aria-checked"], false);
+  assert.equal(emailSwitch(app).props.disabled, true, "cannot turn back on with these inputs");
+  assert.equal(buttons(app, "저장")[0].props.disabled, false, "turning off can be saved");
+  await click(buttons(app, "저장")[0]);
+  await wait(() => puts().length === 1 && puts()[0].body.enabled === false, "disable saved");
+  await app.cleanup();
+}
+
+// 2-4c) 조회 실패: 설정·최근 발송 모두 코드만 제목(승인 문구 대기), 다시 시도. 응답 형식 오류·연결 실패도 코드.
+for (const [settingsRoute, deliveriesRoute, settingsCode, deliveriesCode] of [
+  [() => [503, { code: "email_alert_storage_unavailable" }], null, "email_alert_storage_unavailable", null],
+  [() => [200, { enabled: "yes" }], null, "invalid_response", null],
+  [() => [200, configured()], () => [503, { code: "email_alert_storage_unavailable" }], null, "email_alert_storage_unavailable"],
+  [() => [200, configured()], "network", null, "network_error"],
+]) {
+  routes = { "GET /api/email-alerts/settings": settingsRoute };
+  if (deliveriesRoute && deliveriesRoute !== "network") routes["GET /api/email-alerts/deliveries"] = deliveriesRoute;
+  const realFetch = globalThis.fetch;
+  if (deliveriesRoute === "network") {
+    globalThis.fetch = async (url, options) => (String(url).includes("/deliveries") ? Promise.reject(new TypeError("Failed to fetch")) : realFetch(url, options));
+  }
+  try {
+    const app = await mount(integrations);
+    const alerts = () => app.renderer.root.findAll((n) => n.type === "div" && n.props.role === "alert").map((n) => text(n.children));
+    const expected = settingsCode ?? deliveriesCode;
+    await wait(() => alerts().some((line) => line.startsWith(expected)), `load failure ${expected}`);
+    assert.ok(buttons(app, "다시 시도").length >= 1, "retry offered");
+    assert.ok(!app.shown().includes("Failed to fetch") && !app.shown().includes("응답 형식"), "no raw message");
+    if (settingsCode) assert.ok(!app.shown().includes("메일 알림 켜기"), "no form without settings");
+    else assert.ok(app.shown().includes("메일 알림 켜기") && app.shown().includes("최근 발송"), "form stays when only deliveries fail");
+    await app.cleanup();
+  } finally {
+    globalThis.fetch = realFetch;
+  }
 }
 
 // 2-5) 최근 발송: 상태 7종 문구·종류 문구·열 이름.

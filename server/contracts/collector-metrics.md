@@ -14,10 +14,11 @@ Status: current — 결정 반영(WebUI·Detector 세션 합의 11/15, 사용자
 
 ### 1.1 저장 열 — 관측 INSERT 때 채운다 [합의 11/15]
 
-- 시점: Collector가 관측을 INSERT하는 같은 트랜잭션(`collector/storage.py` `ingest_observation` — 공유 입력 `input_store.admit`, 이전 CSV 재생 `replay_csv.py`, 시연·측정 경로가 모두 이 함수). B 참조 행(`input_store.admit` B 분기)은 늘 `absent`
+- 시점: Collector가 관측을 INSERT하는 같은 트랜잭션. 공유 입력(API·CSV)은 `collector/input_store.py` `admit_batch`(tick 하나의 행을 한 트랜잭션에서 묶어 입고), 이전 CSV 재생 `replay_csv.py`와 시연·측정 경로는 `collector/storage.py` `ingest_observation`이다. 두 경로는 같은 투영(`storage.prepare_projection`)과 같은 원천 시각 규칙(`source_clock.resolve`)을 쓴다. B 참조 행(`admit_batch` B 분기)은 늘 `absent`
 - 해석 규칙: `trainer/source_time.py` `process_source_time`을 그대로 부른다(`collector/source_clock.py`, 시간대 읽기도 Trainer와 같은 `rule_v3_capture.source_timezone`). T·P·M 모두 `end_time_raw` → `start_time_raw`. 오프셋이 있으면 그대로, 없으면 원천 `ops_sources.clock_basis.status='verified'`의 `timezone`, 그 밖은 `Asia/Seoul` 가정. Detector 사건 묶음 `occurred_time`과 같은 시각이 나온다(시험 `test_collector_metrics.py`)
 - M의 `process_datetime_raw`(`PROCESS_DT`)는 뜻이 확인되지 않아 쓰지 않는다(열린 항목 7절)
-- `clock_basis`는 INSERT 트랜잭션 안에서 매번 읽는다. 운영자가 시간대를 지정하면(1.3) 그 뒤 INSERT부터 반영되고 이미 저장된 관측은 바뀌지 않는다
+- `clock_basis`는 INSERT 트랜잭션 안에서 읽는다. 운영자가 시간대를 지정하면(1.3) 그 뒤 INSERT부터 반영되고 이미 저장된 관측은 바뀌지 않는다
+- 공유 입력은 `ops_sources.clock_basis`를 입고 트랜잭션(tick)마다 한 번 읽으므로 `clock-basis verify`는 다음 tick부터 반영된다
 
 | 열 | 값 |
 |---|---|

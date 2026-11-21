@@ -11,6 +11,8 @@ Bearer 인증, 목록 POST와 상세/진행 중 GET은 첨부 API 명세를 따�
 
 Collector 실시간성은 HTTP p50/p95/p99·오류율·빈 응답 비율·DB 저장 p95·실제 조회 간격을 측정한다. 원천 발생 지연은 NULL이다. `collector.report`는 DB만 읽고 추가 고객 API 부하를 만들지 않는다. SLO 숫자는 호출자가 지정하며 샘플 부족/기준 초과는 실패로 반환한다.
 
+공유 입력 Collector(`input_runner`)는 API 조회를 시작 기준 간격(`pollSeconds`)으로 하고, 한 응답의 행을 한 트랜잭션에서 묶음 SQL로 입고한다(행 단위로 하나씩 입고할 때와 같은 revision·중복·작업·큐 결과). 커밋된 detect 작업의 직접 알림은 조회 루프 밖에서 보내며 정본은 늘 DB 큐다([collector README](../worker/collector/README.md)).
+
 ## API 작업
 
 `POST /api/jobs`:

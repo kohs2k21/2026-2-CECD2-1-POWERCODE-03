@@ -4,7 +4,7 @@ from datetime import timezone
 import json
 import os
 import uuid
-from pg_queue import enqueue
+from pg_queue import enqueue, enqueue_many
 from feature_worker import active_config
 
 JOB_CONTRACTS = ('v03', 'v04')
@@ -65,6 +65,15 @@ def claim_waiting_input(conn):
     return None
 
 
+def _input_origins(conn, observation_ids):
+    """입력 출처 일괄 조회 {observation_id(UUID): (mode, run_id)}. 출처 표가 없거나 조회할 관측이 없으면 {}."""
+    if not observation_ids or not conn.execute("SELECT to_regclass('public.data_input_origins')").fetchone()[0]:
+        return {}
+    rows=conn.execute('SELECT observation_id,mode,run_id FROM data_input_origins WHERE observation_id = ANY(%s::uuid[])',
+        ([str(value) for value in observation_ids],)).fetchall()
+    return {row[0]:(row[1],row[2]) for row in rows}
+
+
 def _input_origin(conn, observation_id, approved):
     """입력 출처(data_input_origins). approved는 출처가 있을 때만 부르는 함수(활성 구성 조회를 그때만 한다)."""
     if not conn.execute("SELECT to_regclass('public.data_input_origins')").fetchone()[0]:
@@ -76,59 +85,119 @@ def _input_origin(conn, observation_id, approved):
 
 
 def enqueue_observation(conn, observation_id, *, config_id=None, benchmark_run_id=None):
+    return enqueue_observations(conn, [observation_id], config_id=config_id, benchmark_run_id=benchmark_run_id)[0]
+
+
+def enqueue_observations(conn, observation_ids, *, config_id=None, benchmark_run_id=None):
+    """`enqueue_observation`의 일괄 형태. 입력 순서대로 관측마다 payload 하나를 돌려준다.
+
+    관측 하나씩 부를 때와 같은 행·payload를 만든다(계약·구성 결정, manifest, 잠금, 반대 계약 작업 재사용, 출처, 작업, 큐 메시지).
+    문장 수만 관측 수와 무관하게 줄인다. 계약·구성은 원천마다 한 번 정한다(같은 호출자 트랜잭션 안).
+    관측 하나라도 판정 입력이 아니면(P가 아니거나 실행 식별 없음) 아무것도 넣지 않고 detect_input_unavailable.
+    """
+    ids = list(observation_ids)
+    if not ids:
+        return []
+    keys = [uuid.UUID(str(value)) for value in ids]
+    if len(set(keys)) != len(keys):
+        raise ValueError("duplicate_detect_input")
     with conn.cursor() as cur:
-        cur.execute("SELECT source_id,execution_id,content_hash,persisted_at FROM data_observations WHERE id=%s AND layer='P'", (observation_id,))
-        observation = cur.fetchone()
-        if observation is None or observation[1] is None:
+        cur.execute("SELECT id,source_id,execution_id,content_hash,persisted_at FROM data_observations WHERE id = ANY(%s::uuid[]) AND layer='P'",
+                    ([str(key) for key in keys],))
+        found = {row[0]: row[1:] for row in cur.fetchall()}
+        observations = [found.get(key) for key in keys]
+        if any(observation is None or observation[1] is None for observation in observations):
             raise ValueError("detect_input_unavailable")
-        source, execution, content_hash, as_of = observation
-        contract = detect_contract(conn, source, config_id)
-        config_id = None if contract == 'v04' else config_id or input_config(conn, source)
-        if config_id is not None:
-            cur.execute("SELECT source_id FROM ml_config_versions WHERE id=%s", (config_id,))
-            config = cur.fetchone()
-            if config is None or config[0] != source:
-                config_id = None
-        if contract == 'v03' and config_id is None:
-            # Recovery binds a config only when this source has an approved active config.
-            event_id = uuid.uuid5(uuid.NAMESPACE_URL, f"waiting-config:{observation_id}")
-            payload = {"schemaVersion": 1, "eventId": str(event_id), "sourceId": str(source),
-                       "observationId": str(observation_id)}
-        else:
+        decided = {}
+
+        def decide(source):
+            # 관측 하나씩 부를 때 매번 하던 결정과 같다. 호출자의 config_id는 원천마다 그대로 다시 쓴다.
+            if source not in decided:
+                contract = detect_contract(conn, source, config_id)
+                chosen = None if contract == 'v04' else config_id or input_config(conn, source)
+                if chosen is not None:
+                    cur.execute("SELECT source_id FROM ml_config_versions WHERE id=%s", (chosen,))
+                    config = cur.fetchone()
+                    if config is None or config[0] != source:
+                        chosen = None
+                decided[source] = (contract, chosen)
+            return decided[source]
+
+        plans = []
+        for observation_id, (source, execution, content_hash, as_of) in zip(ids, observations):
+            contract, chosen = decide(source)
+            if contract == 'v03' and chosen is None:
+                # Recovery binds a config only when this source has an approved active config.
+                event_id = uuid.uuid5(uuid.NAMESPACE_URL, f"waiting-config:{observation_id}")
+                plans.append({"eventId": event_id, "payload": {"schemaVersion": 1, "eventId": str(event_id), "sourceId": str(source),
+                                                               "observationId": str(observation_id)}})
+                continue
             manifest_hash = hashlib.sha256(json.dumps(["process-input-v1", str(source), str(observation_id),
                 str(execution), content_hash, as_of.astimezone(timezone.utc).isoformat()], separators=(",", ":")).encode()).hexdigest()
             manifest_id = uuid.uuid5(uuid.NAMESPACE_URL, f"manifest:{manifest_hash}")
+            plans.append({"observationId": observation_id, "source": source, "execution": execution, "asOf": as_of,
+                          "contract": contract, "config": chosen, "manifestHash": manifest_hash, "manifestId": manifest_id})
+        made = [plan for plan in plans if "manifestId" in plan]
+        if made:
             cur.execute("""INSERT INTO run_input_manifests(id,source_id,execution_id,process_observation_id,
                 message_observation_refs,readiness,input_as_of,contract_version,content_hash,created_at)
-                VALUES(%s,%s,%s,%s,'[]'::jsonb,%s::jsonb,%s,'v03',%s,clock_timestamp()) ON CONFLICT DO NOTHING""",
-                (manifest_id,source,execution,observation_id,json.dumps({"process": "ready", "transaction": "unknown", "messages": "unknown", "body": "not_collected"}),as_of,manifest_hash))
-            cur.execute("SELECT pg_advisory_xact_lock(%s,hashtext(%s))", (MANIFEST_LOCK_CLASS, str(manifest_id)))
-            cur.execute("""SELECT id,input_spec FROM run_jobs WHERE kind='detect' AND input_manifest_id=%s
-                AND contract_version=%s LIMIT 1""", (manifest_id, 'v04' if contract == 'v03' else 'v03'))
-            existing = cur.fetchone()
-            if existing:
-                # 전환 전후로 같은 입력이 다시 들어와도 판정은 먼저 만든 작업 하나다.
-                event_id, payload = existing
-            else:
-                event_id = uuid.uuid5(uuid.NAMESPACE_URL, f"detect:{manifest_id}:{config_id or contract}")
+                SELECT u.id,u.source_id,u.execution_id,u.observation_id,'[]'::jsonb,%s::jsonb,u.as_of,'v03',u.content_hash,clock_timestamp()
+                FROM unnest(%s::uuid[],%s::uuid[],%s::uuid[],%s::uuid[],%s::timestamptz[],%s::text[])
+                  AS u(id,source_id,execution_id,observation_id,as_of,content_hash)
+                ON CONFLICT DO NOTHING""",
+                (json.dumps({"process": "ready", "transaction": "unknown", "messages": "unknown", "body": "not_collected"}),
+                 [str(p["manifestId"]) for p in made], [str(p["source"]) for p in made], [str(p["execution"]) for p in made],
+                 [str(p["observationId"]) for p in made], [p["asOf"] for p in made], [p["manifestHash"] for p in made]))
+            # Same per-manifest lock as one call at a time, taken in input order.
+            cur.execute("SELECT pg_advisory_xact_lock(%s,hashtext(m.id)) FROM unnest(%s::text[]) WITH ORDINALITY AS m(id,n) ORDER BY m.n",
+                        (MANIFEST_LOCK_CLASS, [str(p["manifestId"]) for p in made]))
+            cur.execute("""SELECT input_manifest_id,contract_version,id,input_spec FROM run_jobs WHERE kind='detect'
+                AND input_manifest_id = ANY(%s::uuid[])""", ([str(p["manifestId"]) for p in made],))
+            jobs = {}
+            for manifest_id, version, job_id, spec in cur.fetchall():
+                jobs.setdefault((manifest_id, version), (job_id, spec))
+            new = []
+            for plan in made:
+                existing = jobs.get((plan["manifestId"], 'v04' if plan["contract"] == 'v03' else 'v03'))
+                if existing:
+                    # 전환 전후로 같은 입력이 다시 들어와도 판정은 먼저 만든 작업 하나다.
+                    plan["eventId"], plan["payload"] = existing
+                    continue
+                event_id = uuid.uuid5(uuid.NAMESPACE_URL, f"detect:{plan['manifestId']}:{plan['config'] or plan['contract']}")
                 payload = {"schemaVersion": 1, "eventId": str(event_id), "jobId": str(event_id),
-                           "sourceId": str(source), "observationId": str(observation_id),
-                           "inputManifestHash": manifest_hash, "inputManifestId": str(manifest_id)}
-                if contract == 'v03':
-                    payload["configVersionId"] = str(config_id)
-                origin = _input_origin(conn, observation_id, lambda: contract == 'v04' or config_id == active_config(conn))
+                           "sourceId": str(plan["source"]), "observationId": str(plan["observationId"]),
+                           "inputManifestHash": plan["manifestHash"], "inputManifestId": str(plan["manifestId"])}
+                if plan["contract"] == 'v03':
+                    payload["configVersionId"] = str(plan["config"])
+                plan["eventId"], plan["payload"] = event_id, payload
+                new.append(plan)
+            origins = _input_origins(conn, [plan["observationId"] for plan in new])
+            approved = {}
+            for plan in new:
+                origin = origins.get(uuid.UUID(str(plan["observationId"])))
                 if origin:
-                    payload['inputOrigin'] = origin
+                    if plan["source"] not in approved:
+                        approved[plan["source"]] = plan["contract"] == 'v04' or plan["config"] == active_config(conn)
+                    plan["payload"]['inputOrigin'] = {'mode': origin[0], 'runId': str(origin[1]),
+                        'configurationScope': 'approved-active' if approved[plan["source"]] else 'input-validation'}
+            if new:
                 cur.execute("""INSERT INTO run_jobs(id,kind,status,request_hash,input_spec,input_config_version_id,
                     input_manifest_id,contract_version,queue,producer_kind,producer_key,idempotency_key,
                     max_attempts,attempt_count,next_run_at,created_at)
-                    VALUES(%s,'detect','queued',%s,%s::jsonb,%s,%s,%s,'detection','system',%s,%s,3,0,
-                    clock_timestamp(),clock_timestamp()) ON CONFLICT DO NOTHING""",
-                    (event_id,manifest_hash,json.dumps(payload),config_id,manifest_id,contract,str(source),str(event_id)))
+                    SELECT u.id,'detect','queued',u.request_hash,u.input_spec::jsonb,u.config_id,u.manifest_id,u.contract,
+                      'detection','system',u.producer_key,u.idempotency_key,3,0,clock_timestamp(),clock_timestamp()
+                    FROM unnest(%s::uuid[],%s::text[],%s::text[],%s::uuid[],%s::uuid[],%s::text[],%s::text[],%s::text[])
+                      AS u(id,request_hash,input_spec,config_id,manifest_id,contract,producer_key,idempotency_key)
+                    ON CONFLICT DO NOTHING""",
+                    ([str(p["eventId"]) for p in new], [p["manifestHash"] for p in new], [json.dumps(p["payload"]) for p in new],
+                     [None if p["config"] is None else str(p["config"]) for p in new], [str(p["manifestId"]) for p in new],
+                     [p["contract"] for p in new], [str(p["source"]) for p in new], [str(p["eventId"]) for p in new]))
+    payloads = [plan["payload"] for plan in plans]
     if benchmark_run_id:
-        payload["benchmarkRunId"] = benchmark_run_id
-    enqueue(conn, "detection", payload, message_id=event_id)
-    return payload
+        for payload in payloads:
+            payload["benchmarkRunId"] = benchmark_run_id
+    enqueue_many(conn, "detection", [(plan["payload"], plan["eventId"]) for plan in plans])
+    return payloads
 
 
 # 재판정(relation-rules.md 6.3): manifest hash 입력에 관련 행을 넣지 않는다. 1회 키 = PROCESS 관측(같은 관측이면 hash가 같아

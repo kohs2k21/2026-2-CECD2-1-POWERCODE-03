@@ -93,6 +93,33 @@ def _typed_values(layer: Layer, allowed: Mapping[str, Any]) -> tuple[dict[str, A
     return typed, flags
 
 
+@dataclass(frozen=True)
+class Projection:
+    """한 관측의 저장 값. `ingest_observation`과 공유 입력 일괄 입고(`input_store.admit_batch`)가 같은 값을 쓴다."""
+    allowed: dict[str, Any]
+    missing: list[str]
+    typed: dict[str, Any]
+    flags: list[str]
+    allowed_json: str
+    content_hash: str
+
+
+def prepare_projection(layer: Layer, raw: Mapping[str, Any], execution_id: uuid.UUID | None) -> Projection:
+    """허용 필드 투영·열 값·품질 표시·content_hash(allowed_values JSON의 sha256)."""
+    allowed, missing = project_observation(layer, raw)
+    typed, flags = _typed_values(layer, allowed)
+    if execution_id is None:
+        flags.append("execution_identity_unverified")
+    allowed_json = json.dumps(allowed, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    content_hash = hashlib.sha256(allowed_json.encode("utf-8")).hexdigest()
+    return Projection(allowed, missing, typed, flags, allowed_json, content_hash)
+
+
+def check_received_at(api_received_at: datetime | None) -> None:
+    if api_received_at is not None and (not isinstance(api_received_at, datetime) or api_received_at.utcoffset() is None):
+        raise ValueError("api_received_at은 시간대 있는 datetime이어야 한다")
+
+
 def ingest_observation(
     conn: Any,
     *,
@@ -127,15 +154,11 @@ def ingest_observation(
         raise ValueError("검증된 실행 식별이 있는 PROCESS만 탐지 큐에 등록할 수 있다")
     if benchmark_run_id is not None and (not isinstance(benchmark_run_id, str) or not benchmark_run_id):
         raise ValueError("benchmark_run_id는 비어 있지 않은 문자열이어야 한다")
-    if api_received_at is not None and (not isinstance(api_received_at, datetime) or api_received_at.utcoffset() is None):
-        raise ValueError("api_received_at은 시간대 있는 datetime이어야 한다")
+    check_received_at(api_received_at)
 
-    allowed, missing = project_observation(layer, raw)
-    typed, flags = _typed_values(layer, allowed)
-    if execution_id is None:
-        flags.append("execution_identity_unverified")
-    allowed_json = json.dumps(allowed, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
-    content_hash = hashlib.sha256(allowed_json.encode("utf-8")).hexdigest()
+    projected = prepare_projection(layer, raw, execution_id)
+    allowed, missing, typed, flags = projected.allowed, projected.missing, projected.typed, projected.flags
+    allowed_json, content_hash = projected.allowed_json, projected.content_hash
     observation_id = uuid.uuid4()
 
     with conn.transaction():

@@ -3,6 +3,7 @@ import json
 import time
 from datetime import datetime,timezone
 import os
+import threading
 from pathlib import Path
 from urllib.parse import urlsplit, quote
 from urllib.request import Request, build_opener
@@ -12,14 +13,31 @@ from generation_client import NoRedirect
 class SourceUnavailable(RuntimeError):
     pass
 
+
+_opener=None
+_opener_lock=threading.Lock()
+
+
+def shared_opener():
+    """One no-redirect opener per process. build_opener creates an HTTPSHandler whose default SSL context loads the CA
+    store, so building it per client (the runners build a client every tick) cost CPU on every poll. Certificate
+    verification is unchanged: it is the same default context, created once."""
+    global _opener
+    if _opener is None:
+        with _opener_lock:
+            if _opener is None:
+                _opener=build_opener(NoRedirect())
+    return _opener
+
+
 class CustomerAPI:
-    def __init__(self, configuration_url, monitoring_url, token, *, allowed_http_host="", timeout=10):
+    def __init__(self, configuration_url, monitoring_url, token, *, allowed_http_host="", timeout=10, opener=None):
         self.configuration_url = self._base(configuration_url, allowed_http_host)
         self.monitoring_url = self._base(monitoring_url, allowed_http_host)
         if not isinstance(token,str) or not token.strip() or any(c in token for c in "\r\n"):
             raise ValueError("collector_token_required")
         self.token, self.timeout = token, timeout
-        self.opener = build_opener(NoRedirect())
+        self.opener = opener if opener is not None else shared_opener()
         self.last_receipt = None
 
     @staticmethod

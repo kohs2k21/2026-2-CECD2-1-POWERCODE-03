@@ -3,6 +3,7 @@ import argparse
 import json
 import os
 import time
+import urllib.request
 from datetime import datetime,timezone
 from pathlib import Path
 import psycopg
@@ -13,6 +14,7 @@ from collector.api_runner import catalog_page
 from collector.input_contract import mapped_api_records
 from collector.input_store import ensure_source,admit_batch
 from collector.telemetry import store_sample,store_snapshot,monitor_preview
+from generation_client import NoRedirect
 
 
 def read_state(conn,source):
@@ -204,6 +206,8 @@ class Delivery:
         import threading
         self.url,self.token,self.timeout=url,token,timeout
         self.per_tick,self.max_age,self.clock=per_tick,max_age,clock
+        # Built once: build_opener loads the default CA store (HTTPS context) each call. Only the sender thread uses it.
+        self.opener=urllib.request.build_opener(NoRedirect())
         self.pending=queue.Queue(maxsize=capacity)
         # Each counter has one writer: offer() updates the first three, the sender thread the rest.
         self.offered=0;self.capped=0;self.overflow=0;self.stale=0;self.sent=0;self.failed=0
@@ -237,12 +241,10 @@ class Delivery:
 
     def post(self,job):
         """One POST. Returns False when it failed; the durable queue stays authoritative either way."""
-        import urllib.request
-        from generation_client import NoRedirect
         request=urllib.request.Request(self.url,data=json.dumps(job).encode(),
             headers={'Authorization':'Bearer '+self.token,'Content-Type':'application/json'})
         try:
-            with urllib.request.build_opener(NoRedirect()).open(request,timeout=self.timeout) as response:
+            with self.opener.open(request,timeout=self.timeout) as response:
                 response.read(4096)
         except (OSError,TimeoutError,ValueError):
             return False
@@ -281,6 +283,9 @@ def run(once=False):
     except ValueError as exc:
         # Collection continues; Detector queue polling still claims every committed job.
         print(json.dumps({'deliveryError':str(exc)}),flush=True);notifier=None
+    except OSError:
+        # Building the HTTP opener (TLS context) failed: same fallback, queue polling only.
+        print(json.dumps({'deliveryError':'detector_delivery_unavailable'}),flush=True);notifier=None
     schedule={};reported=(time.monotonic(),notifier.counters() if notifier else None)
     with psycopg.connect(dsn,connect_timeout=10) as conn:
         source=ensure_source(conn,key);conn.commit()

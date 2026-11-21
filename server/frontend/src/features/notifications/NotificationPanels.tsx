@@ -83,7 +83,7 @@ const NotificationRow = ({ item, onRead, onNavigate, onKeep, busy, size, linkSta
   const risk = notificationRisk(item);
   const { user } = useAuthSession();
   return (
-    <li data-notification={item.key} className="grid gap-1.5 rounded-md border border-foreground bg-card px-3 py-2 text-sm">
+    <li data-notification={item.key} className="grid gap-1.5 rounded-md border bg-card px-3 py-2 text-sm">
       <span className="font-medium">{headline}</span>
       {subject && <span className="break-all text-muted-foreground">{subject}</span>}
       <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">

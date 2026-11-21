@@ -196,6 +196,18 @@ test('authorization is re-checked on its own interval, not on every read, and re
   }finally{response.destroy();}
 });
 
+test('token expiry is checked before every page and send without a DB re-check',async()=>{
+  const response=new RecordingResponse();let checks=0,expired=false;const reads=[];
+  await streamDecisionEvents(response,{after:'0',pollMs:60_000,pageSize:2,maxPagesPerTick:5,authorizeMs:60_000,
+    tokenValid:()=>!expired,authorize:async()=>{checks++;return true;},
+    readEvents:async after=>{reads.push(after);if(after==='2')expired=true;return page(after,2);}});
+  assert.deepEqual(reads,['0','2'],'no page is read after the token expired');
+  assert.deepEqual(ids(response.frames),['1','2'],'events of the page read at expiry are not sent');
+  assert.equal(checks,1,'expiry needs no DB re-check');
+  assert.equal(response.writableEnded,true);
+  assert(!response.frames.some(f=>f.startsWith(':')),'no keepalive after expiry');
+});
+
 test('authorization is re-checked between pages of one tick when the interval passes mid-tick',async()=>{
   const response=new RecordingResponse();let clock=0;const calls=[];
   await streamDecisionEvents(response,{after:'0',pollMs:60_000,pageSize:1,maxPagesPerTick:3,authorizeMs:900,now:()=>clock,

@@ -28,14 +28,14 @@ router.get('/events', route(async (req, res) => {
   if (include !== undefined && include !== 'interims') { res.status(400).json({code:'invalid_event_include'});return; }
   const interims = include === 'interims';
   // 0.25초 주기로 읽고, 한 번에 LIMIT(pageSize)건이 꽉 차면 같은 주기 안에서 커서를 이어 다시 읽는다(주기당 상한 있음).
-  // 사용자·권한 확인은 조회 주기와 따로 약 1초 간격(decisionStream 기본값).
   await streamDecisionEvents(res, {
     after: cursor,
     pageSize: DECISION_STREAM_PAGE_SIZE,
+    // 토큰 만료는 DB 없이 페이지 조회·송신마다, 계정·email·role DB 재확인은 약 1초 간격.
+    tokenValid: () => req.tokenExpiresAt === undefined || Date.now() < req.tokenExpiresAt,
     authorize: async () => {
       const user = await UserRepository.getInstance().getById(req.user!.id);
-      return !!user && user.userType === req.user!.userType && user.email === req.user!.email &&
-        (req.tokenExpiresAt === undefined || Date.now() < req.tokenExpiresAt);
+      return !!user && user.userType === req.user!.userType && user.email === req.user!.email;
     },
     eventName: (event) => event.eventKind === 'final' ? 'decision' : 'interim',
     readEvents: async (after) => {

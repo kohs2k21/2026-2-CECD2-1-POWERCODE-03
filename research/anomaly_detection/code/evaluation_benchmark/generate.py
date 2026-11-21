@@ -564,11 +564,11 @@ def main():
     parser.add_argument("--inputs",type=Path,required=True)
     parser.add_argument("--output",type=Path,required=True)
     parser.add_argument("--cases-per-scenario",type=int,default=5000)
-    parser.add_argument("--hard-cases",type=int,default=1000)
     parser.add_argument("--seed",type=int,default=20261010)
-    parser.add_argument("--only",choices=(*SCENARIOS,"mixed_hard"))
+    active = ("individual_delay", "group_delay", "time_burst", "input_stop", "gradual_degradation")
+    parser.add_argument("--only",choices=active)
     args = parser.parse_args()
-    if args.cases_per_scenario < 1 or args.hard_cases < 1:
+    if args.cases_per_scenario < 1:
         parser.error("Case counts must be positive; counts are never silently reduced")
     bundle = json.loads(args.inputs.read_text(encoding="utf-8"))
     catalog = Catalog(bundle)
@@ -583,9 +583,9 @@ def main():
     root.add("reference_history_windows.csv",history)
     root.add("reference_profiles.csv",list(catalog.profiles.values()))
     root.add("adapter_source_coverage.csv",bundle["eligible_adapter_coverage"])
-    datasets = (args.only,) if args.only else (*SCENARIOS,"mixed_hard")
+    datasets = (args.only,) if args.only else active
     for dataset in datasets:
-        n = args.hard_cases if dataset=="mixed_hard" else args.cases_per_scenario
+        n = args.cases_per_scenario
         writer = StreamTables(args.output / dataset,TABLES)
         coverage,periods,fingerprints,event_counts = Counter(),Counter(),set(),Counter()
         for i in range(n):
@@ -614,11 +614,10 @@ def main():
             "process_rows":writer.counts["processes.csv"],"normal_process_rows":writer.counts["normal_processes.csv"],
             "event_count":writer.counts["events.csv"],"target_adapters":len(coverage),"unique_content_cases":len(fingerprints)}])
     root.close({"benchmark_version":"esb-process-synthetic-v2","datasets":list(datasets),"seed":args.seed,
-                "cases_per_scenario":args.cases_per_scenario,"hard_cases":args.hard_cases,
+                "cases_per_scenario":args.cases_per_scenario,
                 "source_audit":bundle["source_audit"],"frozen_policy":bundle["policy"],"untouched_hashes":bundle["untouched_hashes"],
                 "excluded_workflow_reasons":bundle["excluded_workflow_reasons"],"source_sampling":bundle["sampling"],
                 "eligible_adapters":catalog.adapter_names,"delay_supported_adapters":sorted(catalog.delay_by_adapter),
-                "relation_supported_adapters":sorted(catalog.relation_by_adapter),
                 "history_assumption":"14 prior days of bounded, synthetic normal arrivals, not original collection gaps or claimed production traffic"})
 
 

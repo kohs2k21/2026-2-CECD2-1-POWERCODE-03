@@ -1,0 +1,35 @@
+{
+  "independent_metrics_recomputed": true,
+  "raw_serving_smoke_checks": [
+    {
+      "algorithm": "if",
+      "raw_Process_predict": true,
+      "prefix_causal": true,
+      "unknown_adapter_finite": true,
+      "save_load_identical": true,
+      "no_runtime_data_reads": true,
+      "research_only_not_promoted": true
+    },
+    {
+      "algorithm": "kmeans",
+      "raw_Process_predict": true,
+      "prefix_causal": true,
+      "unknown_adapter_finite": true,
+      "save_load_identical": true,
+      "no_runtime_data_reads": true,
+      "research_only_not_promoted": true
+    },
+    {
+      "algorithm": "lof",
+      "raw_Process_predict": true,
+      "prefix_causal": true,
+      "unknown_adapter_finite": true,
+      "save_load_identical": true,
+      "no_runtime_data_reads": true,
+      "research_only_not_promoted": true
+    }
+  ],
+  "all_targets_met": false,
+  "published": false,
+  "external_blind_test": false
+}

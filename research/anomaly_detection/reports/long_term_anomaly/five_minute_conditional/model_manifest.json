@@ -1,0 +1,10 @@
+{
+  "models_sha256": "5dd4ada4b78c1a4cdb02b6d2b6c66062f2876f4a501b8c9c5d1ec38bf5859117",
+  "selection_sha256": "ae18871dfc20925340a59314e1bdb15383016c2a2968fab73957e717203178b0",
+  "normal_only_density_fit": true,
+  "development_labels_used_for_hyperparameters": true,
+  "test_used_for_selection": false,
+  "native_benchmark_manifest_sha256": "7055c3ece57e323d4547d986e61dd63320c22952327474eef4b830401d05955f",
+  "runtime_sha256": "e0d4dd65e6ef6817281fac332997a288390a6b864b09a8b49aa9f30d5e2a1d98",
+  "old_hourly_test_modified": false
+}

@@ -1,0 +1,28 @@
+{
+  "source": "reports\\shared_model_v2_final4",
+  "model_sha256": "e4e58b8491b2f8807dfeeb389c59e4f5ed120a20f7ee7b859492118c29089eba",
+  "all_three_F1_at_least_55_percent": true,
+  "all_three_FPR_no_increase": true,
+  "originals_preserved": true,
+  "files": {
+    "models.joblib": "e4e58b8491b2f8807dfeeb389c59e4f5ed120a20f7ee7b859492118c29089eba",
+    "selection.json": "ee88320aa540eae586c73bb6ee42726cd46e3a95f9bf1fc1e735f9b77dff9863",
+    "preparation.json": "5f88cee9b088071b3077cd4c72423b100fa0560352de7ea6e7de0fba0a424315",
+    "summary.json": "2f12c44d054618e7128f71c68d5d47f13bd06b6e15b3c8ef6d973983857a6c96",
+    "analysis_samples.joblib": "ccfdc016f658699d11625a56580b2a4f8ed7589ee6b546735fe59c54ee8309b0",
+    "fresh_confirmation_v2.json": "d6c7614557a1fe964e214640218756788671ede1d92736a0d27b714d8d7b3b8d",
+    "fresh_confirmation_v2_inputs.json": "926af61ece060a655de46cc319190b014093faa912b20608ac9b5a6864fd14a7",
+    "fresh_confirmation_v2_inputs.joblib": "290c61937c5d103e726236ab4f1606af362eb465639fe7fadf90edabb74c18da",
+    "adbench_results.json": "f25bdca4788a8997f8548e75cebe00a7e684d858cff2e409fe1fd5e73fbafc93",
+    "adbench_scores.npz": "e21fc0acf917407fe4887ab2c547e81c8e11626311ad00c14c77c643bceaa133",
+    "individual_delay_scores.npz": "4decdb31daf7e75b4e0b7d3e46a99bfcd7eac10432fbd1dd09bcb77e743945d4",
+    "group_delay_scores.npz": "39a7b79a3e0c7fae8edae7dda7dcff7c2c7b494c6144a42ecf793603a029b6a4",
+    "column_relation_scores.npz": "88979a506268f554430eec8a8fc5e8df3d30f2be9341b56a1d9207105b85f2bf",
+    "time_burst_scores.npz": "9a2aec94879286e48824f0735a5961aa09d8d5abbbbc53036b85287ddeb8583e",
+    "input_stop_scores.npz": "59d400679f631781e2e19ba62ad7628853e5faa98ddfb88db41912ae097f96a9",
+    "gradual_degradation_scores.npz": "d232af1dd38d082e3b238c8541b6fceebae410afb7cdda62f672c4222b5ccf55",
+    "mixed_hard_scores.npz": "f30c8eec5961c25eea4f8ec9820d20992f54af6ba5fee4cc86cfa9aa5d8454a3"
+  },
+  "production_deployed": false,
+  "GitHub_pushed": false
+}

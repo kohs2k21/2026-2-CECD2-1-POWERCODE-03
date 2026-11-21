@@ -1,0 +1,7 @@
+{
+  "current_release": "reports/shared_model_v6/release",
+  "notebook": "code/shared_model_v6/result.ipynb",
+  "all_pooled_targets_met": true,
+  "all_task_recall_60pct_claimed": false,
+  "ADBench_unchanged": true
+}

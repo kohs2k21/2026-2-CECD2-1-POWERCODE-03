@@ -1,0 +1,50 @@
+{
+  "integrity_passed": true,
+  "checks": {
+    "all_frozen_benchmark_files_unchanged": true,
+    "frozen_generator_and_protocol_unchanged": true,
+    "all_three_raw_process_sources_unchanged": true,
+    "models_thresholds_and_prediction_seal_consistent": true,
+    "no_cross_split_case_or_reference_context_overlap": true,
+    "no_label_scenario_severity_columns_in_model_inputs": true,
+    "all_model_scenario_and_pooled_metrics_independently_recomputed": true,
+    "validated_api_reproduces_six_saved_cases_without_file_io": true,
+    "unknown_identifiers_need_no_lookup_or_routing": true
+  },
+  "split_sizes": {
+    "train": {
+      "cases": 64,
+      "hour_rows": 64512
+    },
+    "calibration": {
+      "cases": 48,
+      "hour_rows": 48384
+    },
+    "development": {
+      "cases": 288,
+      "hour_rows": 290304
+    },
+    "test": {
+      "cases": 576,
+      "hour_rows": 580608
+    }
+  },
+  "api_cases_tested": [
+    "LT-test-0385",
+    "LT-test-0097",
+    "LT-test-0001",
+    "LT-test-0289",
+    "LT-test-0193",
+    "LT-test-0481"
+  ],
+  "six_api_cases_seconds": 3.7392461000126787,
+  "primary_goal_met": true,
+  "model_bytes": 1246,
+  "median": {
+    "accuracy": 0.9433267259674454,
+    "precision": 0.8049394551240698,
+    "recall": 0.8557303723466865,
+    "f1": 0.8280947292887944
+  },
+  "maximum_scenario_fpr": 0.04792143542789633
+}

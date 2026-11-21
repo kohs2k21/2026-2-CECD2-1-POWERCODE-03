@@ -15,9 +15,11 @@ from evaluation_benchmark.generate import Case
 from process_anomaly_pipeline.config import PipelineConfig
 from process_anomaly_pipeline.data import chronological_split, prepare
 from .models import WINDOW_FEATURES
+from .scope import ACTIVE_TASKS
 
 ROOT = Path(__file__).resolve().parents[2]
 POINT_DATASETS = {"individual_delay", "group_delay", "column_relation", "mixed_hard"}
+# Serialized scenario_bits in historical caches use these positions. NEVER renumber.
 SCENARIOS = ("individual_delay", "group_delay", "column_relation", "time_burst", "input_stop", "gradual_degradation")
 KEYS = ["transactionId", "processId", "retryCount"]
 WINDOW_KEYS = ["case_id", "scope", "window_start", "window_end"]
@@ -40,9 +42,10 @@ def sha256(path):
 def verify_benchmark(root, source_cache):
     manifest = json.loads((root/"manifest.json").read_text(encoding="utf-8"))
     validation = json.loads((root/"validation.json").read_text(encoding="utf-8"))
-    if not validation.get("passed") or validation.get("coverage") != "all_seven_datasets":
-        raise ValueError("An all-seven-dataset validation report is required")
-    if manifest["datasets"] != [*SCENARIOS, "mixed_hard"]:
+    expected_coverage = "all_five_active_datasets" if manifest["datasets"] == list(ACTIVE_TASKS) else "all_seven_datasets"
+    if not validation.get("passed") or validation.get("coverage") != expected_coverage:
+        raise ValueError("A complete, scope-matching validation report is required")
+    if manifest["datasets"] not in (list(ACTIVE_TASKS), [*SCENARIOS, "mixed_hard"]):
         raise ValueError("Unexpected benchmark datasets")
     for folder in [root, *(root/name for name in manifest["datasets"])]:
         info = json.loads((folder/"manifest.json").read_text(encoding="utf-8"))

@@ -52,7 +52,7 @@ def canonical_column(name):
 
 
 def data_directory():
-    return Path(__file__).resolve().parents[2] / "data"
+    return Path(__file__).resolve().parent.parent / "data"
 
 
 def inspect_source(path):

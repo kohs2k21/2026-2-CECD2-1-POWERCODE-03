@@ -1,0 +1,18 @@
+{
+  "objective": "For each 1/4/8/12/24h input length, scenario medians of Accuracy, Precision, Recall, F1 >=0.65 with pooled and scenario FPR <=0.06",
+  "analysis_hours": [1, 4, 8, 12, 24],
+  "normal_reference_hours": 672,
+  "monitoring_history_outside_selected_batch": false,
+  "batch_state_carry": false,
+  "input_frequency_hours": 1,
+  "benchmark_or_labels_modified": false,
+  "metrics_unit": "Original observed hourly labels, without point adjustment or label expansion",
+  "fit": "Per-group normal reference distributions; global parameters fit on normal train/calibration only",
+  "selection": "Development only; signed/asymmetric normal-tail statistics and nonparametric normal density; per-length development parameter selection allowed",
+  "false_positive_cap_development": 0.05,
+  "test_status": "Previously reported test population reused; iterative research, not an independent blind test",
+  "sources": [
+    "https://www.itl.nist.gov/div898/handbook/eda/section3/eda35h.htm",
+    "https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.gaussian_kde.html"
+  ]
+}

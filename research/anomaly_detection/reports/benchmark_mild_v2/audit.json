@@ -1,0 +1,599 @@
+{
+  "passed": true,
+  "csv_files": 67,
+  "all_original_cases_preserved": true,
+  "parent_exactly_reconstructed": true,
+  "normal_controls_byte_identical": true,
+  "mixed_hard_byte_identical": true,
+  "hard_rule_validation": {
+    "passed": true,
+    "coverage": "all_seven_datasets",
+    "datasets": {
+      "individual_delay": {
+        "anomaly_cases": 5000,
+        "normal_cases": 5000,
+        "events": 5000,
+        "actual_rule_validation": {
+          "processes.csv": {
+            "rows": 32911,
+            "unique_pk": 32911,
+            "rule_hits": {
+              "status_failed": 0,
+              "tx_success_all_process_failed": 0,
+              "process_count_mismatch": 0,
+              "success_with_error": 0,
+              "count_conservation": 0,
+              "final_missing_end": 0,
+              "missing_sql_required": 0,
+              "negative_duration": 0,
+              "invalid_count_domain": 0,
+              "statistical_tail": 0,
+              "invalid_input": 0
+            },
+            "unknown_rule_flags": {
+              "status_failed": 0,
+              "tx_success_all_process_failed": 0,
+              "process_count_mismatch": 0,
+              "success_with_error": 0,
+              "count_conservation": 0,
+              "final_missing_end": 0,
+              "missing_sql_required": 0,
+              "negative_duration": 0,
+              "invalid_count_domain": 0,
+              "statistical_tail": 0,
+              "invalid_input": 0
+            },
+            "quantile_exceedances": {
+              "p99_duration_ms_exceed": 0,
+              "p99_9_duration_ms_exceed": 0,
+              "p99_totalCount_exceed": 0,
+              "p99_9_totalCount_exceed": 0,
+              "p99_retryCount_exceed": 0,
+              "p99_9_retryCount_exceed": 0
+            }
+          },
+          "normal_processes.csv": {
+            "rows": 32911,
+            "unique_pk": 32911,
+            "rule_hits": {
+              "status_failed": 0,
+              "tx_success_all_process_failed": 0,
+              "process_count_mismatch": 0,
+              "success_with_error": 0,
+              "count_conservation": 0,
+              "final_missing_end": 0,
+              "missing_sql_required": 0,
+              "negative_duration": 0,
+              "invalid_count_domain": 0,
+              "statistical_tail": 0,
+              "invalid_input": 0
+            },
+            "unknown_rule_flags": {
+              "status_failed": 0,
+              "tx_success_all_process_failed": 0,
+              "process_count_mismatch": 0,
+              "success_with_error": 0,
+              "count_conservation": 0,
+              "final_missing_end": 0,
+              "missing_sql_required": 0,
+              "negative_duration": 0,
+              "invalid_count_domain": 0,
+              "statistical_tail": 0,
+              "invalid_input": 0
+            },
+            "quantile_exceedances": {
+              "p99_duration_ms_exceed": 0,
+              "p99_9_duration_ms_exceed": 0,
+              "p99_totalCount_exceed": 0,
+              "p99_9_totalCount_exceed": 0,
+              "p99_retryCount_exceed": 0,
+              "p99_9_retryCount_exceed": 0
+            }
+          }
+        }
+      },
+      "group_delay": {
+        "anomaly_cases": 5000,
+        "normal_cases": 5000,
+        "events": 5000,
+        "actual_rule_validation": {
+          "processes.csv": {
+            "rows": 576666,
+            "unique_pk": 576666,
+            "rule_hits": {
+              "status_failed": 0,
+              "tx_success_all_process_failed": 0,
+              "process_count_mismatch": 0,
+              "success_with_error": 0,
+              "count_conservation": 0,
+              "final_missing_end": 0,
+              "missing_sql_required": 0,
+              "negative_duration": 0,
+              "invalid_count_domain": 0,
+              "statistical_tail": 0,
+              "invalid_input": 0
+            },
+            "unknown_rule_flags": {
+              "status_failed": 0,
+              "tx_success_all_process_failed": 0,
+              "process_count_mismatch": 0,
+              "success_with_error": 0,
+              "count_conservation": 0,
+              "final_missing_end": 0,
+              "missing_sql_required": 0,
+              "negative_duration": 0,
+              "invalid_count_domain": 0,
+              "statistical_tail": 0,
+              "invalid_input": 0
+            },
+            "quantile_exceedances": {
+              "p99_duration_ms_exceed": 0,
+              "p99_9_duration_ms_exceed": 0,
+              "p99_totalCount_exceed": 0,
+              "p99_9_totalCount_exceed": 0,
+              "p99_retryCount_exceed": 0,
+              "p99_9_retryCount_exceed": 0
+            }
+          },
+          "normal_processes.csv": {
+            "rows": 576666,
+            "unique_pk": 576666,
+            "rule_hits": {
+              "status_failed": 0,
+              "tx_success_all_process_failed": 0,
+              "process_count_mismatch": 0,
+              "success_with_error": 0,
+              "count_conservation": 0,
+              "final_missing_end": 0,
+              "missing_sql_required": 0,
+              "negative_duration": 0,
+              "invalid_count_domain": 0,
+              "statistical_tail": 0,
+              "invalid_input": 0
+            },
+            "unknown_rule_flags": {
+              "status_failed": 0,
+              "tx_success_all_process_failed": 0,
+              "process_count_mismatch": 0,
+              "success_with_error": 0,
+              "count_conservation": 0,
+              "final_missing_end": 0,
+              "missing_sql_required": 0,
+              "negative_duration": 0,
+              "invalid_count_domain": 0,
+              "statistical_tail": 0,
+              "invalid_input": 0
+            },
+            "quantile_exceedances": {
+              "p99_duration_ms_exceed": 0,
+              "p99_9_duration_ms_exceed": 0,
+              "p99_totalCount_exceed": 0,
+              "p99_9_totalCount_exceed": 0,
+              "p99_retryCount_exceed": 0,
+              "p99_9_retryCount_exceed": 0
+            }
+          }
+        }
+      },
+      "column_relation": {
+        "anomaly_cases": 5000,
+        "normal_cases": 5000,
+        "events": 5000,
+        "actual_rule_validation": {
+          "processes.csv": {
+            "rows": 42163,
+            "unique_pk": 42163,
+            "rule_hits": {
+              "status_failed": 0,
+              "tx_success_all_process_failed": 0,
+              "process_count_mismatch": 0,
+              "success_with_error": 0,
+              "count_conservation": 0,
+              "final_missing_end": 0,
+              "missing_sql_required": 0,
+              "negative_duration": 0,
+              "invalid_count_domain": 0,
+              "statistical_tail": 0,
+              "invalid_input": 0
+            },
+            "unknown_rule_flags": {
+              "status_failed": 0,
+              "tx_success_all_process_failed": 0,
+              "process_count_mismatch": 0,
+              "success_with_error": 0,
+              "count_conservation": 0,
+              "final_missing_end": 0,
+              "missing_sql_required": 0,
+              "negative_duration": 0,
+              "invalid_count_domain": 0,
+              "statistical_tail": 0,
+              "invalid_input": 0
+            },
+            "quantile_exceedances": {
+              "p99_duration_ms_exceed": 0,
+              "p99_9_duration_ms_exceed": 0,
+              "p99_totalCount_exceed": 0,
+              "p99_9_totalCount_exceed": 0,
+              "p99_retryCount_exceed": 0,
+              "p99_9_retryCount_exceed": 0
+            }
+          },
+          "normal_processes.csv": {
+            "rows": 42163,
+            "unique_pk": 42163,
+            "rule_hits": {
+              "status_failed": 0,
+              "tx_success_all_process_failed": 0,
+              "process_count_mismatch": 0,
+              "success_with_error": 0,
+              "count_conservation": 0,
+              "final_missing_end": 0,
+              "missing_sql_required": 0,
+              "negative_duration": 0,
+              "invalid_count_domain": 0,
+              "statistical_tail": 0,
+              "invalid_input": 0
+            },
+            "unknown_rule_flags": {
+              "status_failed": 0,
+              "tx_success_all_process_failed": 0,
+              "process_count_mismatch": 0,
+              "success_with_error": 0,
+              "count_conservation": 0,
+              "final_missing_end": 0,
+              "missing_sql_required": 0,
+              "negative_duration": 0,
+              "invalid_count_domain": 0,
+              "statistical_tail": 0,
+              "invalid_input": 0
+            },
+            "quantile_exceedances": {
+              "p99_duration_ms_exceed": 0,
+              "p99_9_duration_ms_exceed": 0,
+              "p99_totalCount_exceed": 0,
+              "p99_9_totalCount_exceed": 0,
+              "p99_retryCount_exceed": 0,
+              "p99_9_retryCount_exceed": 0
+            }
+          }
+        }
+      },
+      "time_burst": {
+        "anomaly_cases": 5000,
+        "normal_cases": 5000,
+        "events": 5000,
+        "actual_rule_validation": {
+          "processes.csv": {
+            "rows": 834294,
+            "unique_pk": 834294,
+            "rule_hits": {
+              "status_failed": 0,
+              "tx_success_all_process_failed": 0,
+              "process_count_mismatch": 0,
+              "success_with_error": 0,
+              "count_conservation": 0,
+              "final_missing_end": 0,
+              "missing_sql_required": 0,
+              "negative_duration": 0,
+              "invalid_count_domain": 0,
+              "statistical_tail": 0,
+              "invalid_input": 0
+            },
+            "unknown_rule_flags": {
+              "status_failed": 0,
+              "tx_success_all_process_failed": 0,
+              "process_count_mismatch": 0,
+              "success_with_error": 0,
+              "count_conservation": 0,
+              "final_missing_end": 0,
+              "missing_sql_required": 0,
+              "negative_duration": 0,
+              "invalid_count_domain": 0,
+              "statistical_tail": 0,
+              "invalid_input": 0
+            },
+            "quantile_exceedances": {
+              "p99_duration_ms_exceed": 0,
+              "p99_9_duration_ms_exceed": 0,
+              "p99_totalCount_exceed": 0,
+              "p99_9_totalCount_exceed": 0,
+              "p99_retryCount_exceed": 0,
+              "p99_9_retryCount_exceed": 0
+            }
+          },
+          "normal_processes.csv": {
+            "rows": 509996,
+            "unique_pk": 509996,
+            "rule_hits": {
+              "status_failed": 0,
+              "tx_success_all_process_failed": 0,
+              "process_count_mismatch": 0,
+              "success_with_error": 0,
+              "count_conservation": 0,
+              "final_missing_end": 0,
+              "missing_sql_required": 0,
+              "negative_duration": 0,
+              "invalid_count_domain": 0,
+              "statistical_tail": 0,
+              "invalid_input": 0
+            },
+            "unknown_rule_flags": {
+              "status_failed": 0,
+              "tx_success_all_process_failed": 0,
+              "process_count_mismatch": 0,
+              "success_with_error": 0,
+              "count_conservation": 0,
+              "final_missing_end": 0,
+              "missing_sql_required": 0,
+              "negative_duration": 0,
+              "invalid_count_domain": 0,
+              "statistical_tail": 0,
+              "invalid_input": 0
+            },
+            "quantile_exceedances": {
+              "p99_duration_ms_exceed": 0,
+              "p99_9_duration_ms_exceed": 0,
+              "p99_totalCount_exceed": 0,
+              "p99_9_totalCount_exceed": 0,
+              "p99_retryCount_exceed": 0,
+              "p99_9_retryCount_exceed": 0
+            }
+          }
+        }
+      },
+      "input_stop": {
+        "anomaly_cases": 5000,
+        "normal_cases": 5000,
+        "events": 5000,
+        "actual_rule_validation": {
+          "processes.csv": {
+            "rows": 587169,
+            "unique_pk": 587169,
+            "rule_hits": {
+              "status_failed": 0,
+              "tx_success_all_process_failed": 0,
+              "process_count_mismatch": 0,
+              "success_with_error": 0,
+              "count_conservation": 0,
+              "final_missing_end": 0,
+              "missing_sql_required": 0,
+              "negative_duration": 0,
+              "invalid_count_domain": 0,
+              "statistical_tail": 0,
+              "invalid_input": 0
+            },
+            "unknown_rule_flags": {
+              "status_failed": 0,
+              "tx_success_all_process_failed": 0,
+              "process_count_mismatch": 0,
+              "success_with_error": 0,
+              "count_conservation": 0,
+              "final_missing_end": 0,
+              "missing_sql_required": 0,
+              "negative_duration": 0,
+              "invalid_count_domain": 0,
+              "statistical_tail": 0,
+              "invalid_input": 0
+            },
+            "quantile_exceedances": {
+              "p99_duration_ms_exceed": 0,
+              "p99_9_duration_ms_exceed": 0,
+              "p99_totalCount_exceed": 0,
+              "p99_9_totalCount_exceed": 0,
+              "p99_retryCount_exceed": 0,
+              "p99_9_retryCount_exceed": 0
+            }
+          },
+          "normal_processes.csv": {
+            "rows": 816930,
+            "unique_pk": 816930,
+            "rule_hits": {
+              "status_failed": 0,
+              "tx_success_all_process_failed": 0,
+              "process_count_mismatch": 0,
+              "success_with_error": 0,
+              "count_conservation": 0,
+              "final_missing_end": 0,
+              "missing_sql_required": 0,
+              "negative_duration": 0,
+              "invalid_count_domain": 0,
+              "statistical_tail": 0,
+              "invalid_input": 0
+            },
+            "unknown_rule_flags": {
+              "status_failed": 0,
+              "tx_success_all_process_failed": 0,
+              "process_count_mismatch": 0,
+              "success_with_error": 0,
+              "count_conservation": 0,
+              "final_missing_end": 0,
+              "missing_sql_required": 0,
+              "negative_duration": 0,
+              "invalid_count_domain": 0,
+              "statistical_tail": 0,
+              "invalid_input": 0
+            },
+            "quantile_exceedances": {
+              "p99_duration_ms_exceed": 0,
+              "p99_9_duration_ms_exceed": 0,
+              "p99_totalCount_exceed": 0,
+              "p99_9_totalCount_exceed": 0,
+              "p99_retryCount_exceed": 0,
+              "p99_9_retryCount_exceed": 0
+            }
+          }
+        }
+      },
+      "gradual_degradation": {
+        "anomaly_cases": 5000,
+        "normal_cases": 5000,
+        "events": 5000,
+        "actual_rule_validation": {
+          "processes.csv": {
+            "rows": 949806,
+            "unique_pk": 949806,
+            "rule_hits": {
+              "status_failed": 0,
+              "tx_success_all_process_failed": 0,
+              "process_count_mismatch": 0,
+              "success_with_error": 0,
+              "count_conservation": 0,
+              "final_missing_end": 0,
+              "missing_sql_required": 0,
+              "negative_duration": 0,
+              "invalid_count_domain": 0,
+              "statistical_tail": 0,
+              "invalid_input": 0
+            },
+            "unknown_rule_flags": {
+              "status_failed": 0,
+              "tx_success_all_process_failed": 0,
+              "process_count_mismatch": 0,
+              "success_with_error": 0,
+              "count_conservation": 0,
+              "final_missing_end": 0,
+              "missing_sql_required": 0,
+              "negative_duration": 0,
+              "invalid_count_domain": 0,
+              "statistical_tail": 0,
+              "invalid_input": 0
+            },
+            "quantile_exceedances": {
+              "p99_duration_ms_exceed": 0,
+              "p99_9_duration_ms_exceed": 0,
+              "p99_totalCount_exceed": 0,
+              "p99_9_totalCount_exceed": 0,
+              "p99_retryCount_exceed": 0,
+              "p99_9_retryCount_exceed": 0
+            }
+          },
+          "normal_processes.csv": {
+            "rows": 949806,
+            "unique_pk": 949806,
+            "rule_hits": {
+              "status_failed": 0,
+              "tx_success_all_process_failed": 0,
+              "process_count_mismatch": 0,
+              "success_with_error": 0,
+              "count_conservation": 0,
+              "final_missing_end": 0,
+              "missing_sql_required": 0,
+              "negative_duration": 0,
+              "invalid_count_domain": 0,
+              "statistical_tail": 0,
+              "invalid_input": 0
+            },
+            "unknown_rule_flags": {
+              "status_failed": 0,
+              "tx_success_all_process_failed": 0,
+              "process_count_mismatch": 0,
+              "success_with_error": 0,
+              "count_conservation": 0,
+              "final_missing_end": 0,
+              "missing_sql_required": 0,
+              "negative_duration": 0,
+              "invalid_count_domain": 0,
+              "statistical_tail": 0,
+              "invalid_input": 0
+            },
+            "quantile_exceedances": {
+              "p99_duration_ms_exceed": 0,
+              "p99_9_duration_ms_exceed": 0,
+              "p99_totalCount_exceed": 0,
+              "p99_9_totalCount_exceed": 0,
+              "p99_retryCount_exceed": 0,
+              "p99_9_retryCount_exceed": 0
+            }
+          }
+        }
+      },
+      "mixed_hard": {
+        "anomaly_cases": 1000,
+        "normal_cases": 1000,
+        "events": 6000,
+        "actual_rule_validation": {
+          "processes.csv": {
+            "rows": 218806,
+            "unique_pk": 218806,
+            "rule_hits": {
+              "status_failed": 0,
+              "tx_success_all_process_failed": 0,
+              "process_count_mismatch": 0,
+              "success_with_error": 0,
+              "count_conservation": 0,
+              "final_missing_end": 0,
+              "missing_sql_required": 0,
+              "negative_duration": 0,
+              "invalid_count_domain": 0,
+              "statistical_tail": 0,
+              "invalid_input": 0
+            },
+            "unknown_rule_flags": {
+              "status_failed": 0,
+              "tx_success_all_process_failed": 0,
+              "process_count_mismatch": 0,
+              "success_with_error": 0,
+              "count_conservation": 0,
+              "final_missing_end": 0,
+              "missing_sql_required": 0,
+              "negative_duration": 0,
+              "invalid_count_domain": 0,
+              "statistical_tail": 0,
+              "invalid_input": 0
+            },
+            "quantile_exceedances": {
+              "p99_duration_ms_exceed": 0,
+              "p99_9_duration_ms_exceed": 0,
+              "p99_totalCount_exceed": 0,
+              "p99_9_totalCount_exceed": 0,
+              "p99_retryCount_exceed": 0,
+              "p99_9_retryCount_exceed": 0
+            }
+          },
+          "normal_processes.csv": {
+            "rows": 213446,
+            "unique_pk": 213446,
+            "rule_hits": {
+              "status_failed": 0,
+              "tx_success_all_process_failed": 0,
+              "process_count_mismatch": 0,
+              "success_with_error": 0,
+              "count_conservation": 0,
+              "final_missing_end": 0,
+              "missing_sql_required": 0,
+              "negative_duration": 0,
+              "invalid_count_domain": 0,
+              "statistical_tail": 0,
+              "invalid_input": 0
+            },
+            "unknown_rule_flags": {
+              "status_failed": 0,
+              "tx_success_all_process_failed": 0,
+              "process_count_mismatch": 0,
+              "success_with_error": 0,
+              "count_conservation": 0,
+              "final_missing_end": 0,
+              "missing_sql_required": 0,
+              "negative_duration": 0,
+              "invalid_count_domain": 0,
+              "statistical_tail": 0,
+              "invalid_input": 0
+            },
+            "quantile_exceedances": {
+              "p99_duration_ms_exceed": 0,
+              "p99_9_duration_ms_exceed": 0,
+              "p99_totalCount_exceed": 0,
+              "p99_9_totalCount_exceed": 0,
+              "p99_retryCount_exceed": 0,
+              "p99_9_retryCount_exceed": 0
+            }
+          }
+        }
+      }
+    },
+    "untouched_source_and_model_hashes": true,
+    "anomaly_cases": 31000,
+    "normal_cases": 31000
+  },
+  "manifest_sha256": "4f5469a098b82372d78499a8e9d9e7541dd58dba61a826626006dc6dc5627e93"
+}

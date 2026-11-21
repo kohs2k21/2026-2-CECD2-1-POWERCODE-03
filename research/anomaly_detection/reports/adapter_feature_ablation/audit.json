@@ -1,0 +1,30 @@
+{
+  "passed": true,
+  "decision_counts_recomputed_from_saved_scores": true,
+  "per_adapter_counts_sum_to_pooled": true,
+  "single_estimator_no_experts": true,
+  "benchmark_manifest_unchanged": true,
+  "v18_models_unchanged": true,
+  "notebook_executed_code_cells": 9,
+  "notebook_errors": 0,
+  "test_threshold_tuning": false,
+  "all_decisions": 2167766,
+  "serving_smoke_test": {
+    "in_memory_normal_stream_minutes": 13,
+    "algorithms": 3,
+    "raw_process_to_features_to_prediction_passed": true
+  },
+  "summary_sha256": "eee65a4b6a78218d6efbc2f306b246eb3c1d8ecabf90bc37232157918b4b0b51",
+  "source_sha256": {
+    "audit.py": "a15f1eb9bdc2aaf325950bfd5c1d37ddb29035a44e457339fd7aec2e406c5aae",
+    "diagnose.py": "6333f48268188a7487c6048fc3c4fbfcac422976fd7acb1a73ac2cfcfe0828bb",
+    "execute_notebook.py": "2050fa7ccb867d621a92faca7112381e64d7e85cd1a67f66124c41fb8627f417",
+    "features.py": "712401b8d6e93fd9c6ac84f5656803f5771664d61a0fd1f433088d3460848e42",
+    "inference.py": "b2c634773c9254b9425ad5b19afc06765079fff2c8b771770ec88d0a6e2a5805",
+    "models.py": "f2e97e652f54779633d2efaa178b40ce8bdf10f2ea4326521dc114506012f69d",
+    "report.py": "444fc61426a39d5c9e8acb20dcddd3c8ea1ca59be4feeb107666b349d304b663",
+    "run.py": "1cb9cc41ef0163451eafb2271653585a9e2d1ea4f53336b270e26d355381b02e",
+    "test_ablation.py": "42556b7250d3d53d96fb62363642447b4e07445afbba89dd4c59add63b55e1bc",
+    "__init__.py": "8cf2687accdf771dc6c33d704da3d0eef9ab17fad3b0264d2c9402ea2858c5c2"
+  }
+}

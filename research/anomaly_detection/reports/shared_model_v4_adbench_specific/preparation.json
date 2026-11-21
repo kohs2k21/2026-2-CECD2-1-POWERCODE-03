@@ -1,0 +1,75 @@
+{
+  "protocol": "ADBench-specific normal training; distinct from same-service-model transfer",
+  "source_population": "unused rows of the exact official generator populations used for fixed evaluation",
+  "fixed_npz_sha256": "9f168a006c9015762ad8e4bfaac5352acebe84a65ef27ae99342c868b855edb5",
+  "fixed_samples_reconstructed_exactly": 1000,
+  "test_vectors_in_fit_or_calibration": 0,
+  "numerical_duplicates_removed_across_partitions": true,
+  "training_normal_only": true,
+  "generator_source_model_shared_with_test": true,
+  "independent_production_generalization": false,
+  "modes_not_input_features": true,
+  "provenance": {
+    "package": "adbench",
+    "version": "0.1.11",
+    "source_sha256": "d9d88ca651499c19e13ad00ed2b2b4a4414bd35fa404f1105b7b4d5951ba51d3",
+    "method": "generate_realistic_synthetic",
+    "method_ast_sha256": "59840a823ad7cbe7295016aa203d311a063021c9d6f92964f1b5385cab86d36b",
+    "source_url": "https://github.com/Minqi824/ADBench/blob/main/adbench/datasets/data_generator.py",
+    "unmodified_official_leaf_method": true,
+    "DL_utils_not_imported": true,
+    "copulas_compatibility": "copy tau_mat to writable array at train_vine entry for pandas3; unchanged numeric values"
+  },
+  "modes": [
+    {
+      "mode": "global",
+      "reproduced_fixed_samples": 250,
+      "unused_normal": 1400,
+      "unused_anomaly": 350,
+      "split_rows": {
+        "train": 979,
+        "calibration": 211,
+        "development": 560
+      }
+    },
+    {
+      "mode": "local",
+      "reproduced_fixed_samples": 250,
+      "unused_normal": 1400,
+      "unused_anomaly": 350,
+      "split_rows": {
+        "train": 979,
+        "calibration": 211,
+        "development": 560
+      }
+    },
+    {
+      "mode": "cluster",
+      "reproduced_fixed_samples": 250,
+      "unused_normal": 1400,
+      "unused_anomaly": 350,
+      "split_rows": {
+        "train": 979,
+        "calibration": 211,
+        "development": 560
+      }
+    },
+    {
+      "mode": "dependency",
+      "reproduced_fixed_samples": 250,
+      "unused_normal": 1400,
+      "unused_anomaly": 350,
+      "split_rows": {
+        "train": 979,
+        "calibration": 211,
+        "development": 560
+      }
+    }
+  ],
+  "rows": {
+    "train": 3916,
+    "calibration": 844,
+    "development": 2240
+  },
+  "development_sha256": "943a2ac81e5b5a8d6b3f684c4c1144c335d21b386de1cb5f545697f54ba9599e"
+}

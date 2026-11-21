@@ -1,0 +1,61 @@
+{
+  "stages": {
+    "parent": {
+      "recounted": true,
+      "benchmark_sha256": "7f2dc4351af6166416f7694df97fb2050cab8d348e5b29d8451fcc36031f3b36"
+    },
+    "adjusted": {
+      "recounted": true,
+      "benchmark_sha256": "4f5469a098b82372d78499a8e9d9e7541dd58dba61a826626006dc6dc5627e93"
+    },
+    "difficulty_only": {
+      "recounted": true,
+      "benchmark_sha256": "4f5469a098b82372d78499a8e9d9e7541dd58dba61a826626006dc6dc5627e93"
+    }
+  },
+  "nine_metric_counts_recounted": true,
+  "code_sha256": {
+    "code\\model_research_v15\\data.py": "660598022109b844344d365f58c73d99d6537129e8da17fd8c9bc66d9f9a9bcb",
+    "code\\model_research_v15\\evaluate.py": "532347e699014a7c7aea51578bce91f8a2cbd0dfe4f7054cf60a952b25579580",
+    "code\\model_research_v15\\features.py": "e3fb7574d5c226940a2a2d0d6f11ca679e6d6e98b40d3a4aef48637057a3b3d7",
+    "code\\model_research_v15\\inference.py": "7d24e9d255f75dd0f2e4c4362352dc7e7e41a6070a0315cba6501cd5d60db587",
+    "code\\model_research_v15\\models.py": "cc896b0c66a37a1f3df91253ca55f4436a3612e473d20258bf18b848e57cb46a",
+    "code\\model_research_v15\\run.py": "85970ae63423766a27b3015063c9c53a4c9a5019e47a83a20332d4052f39e485",
+    "code\\model_research_v15\\test_research.py": "58b4850e350e0bceccf02e5a1b04aeb46b04d8037f24e2b75c81aa5e7d2155e9",
+    "code\\model_research_v15\\__init__.py": "81d88c60279d0fc7690502282eb432d6a81444372fa89a859b6a5a7c49c5407e",
+    "code\\model_research_v16\\models.py": "2149301700825a98d9df4afe7c18a048df82c5567262f9a6019296b2aa0166dc",
+    "code\\model_research_v16\\run.py": "f0b87e781ccc9a6604d122566b52de7f67ef27f791d09e0033676c246372ee0c",
+    "code\\model_research_v16\\__init__.py": "3131771f6c05098fc669532f156e512e0f38ecc396142541a8393a54bf999a3f",
+    "code\\model_research_v17\\confirm.py": "b77f2a3a3b97bf59d74af65a904698989c578083ce7c0e816fa24d03854f30ca",
+    "code\\model_research_v17\\evaluate.py": "f05710694e9d85cc0fa025a0a87c4b4cd9fa1dd8c06ad220f28066c07a91952e",
+    "code\\model_research_v17\\features.py": "ac06491986422694d80fdd84425c5564040a74bbf838c2c180199c9616cd5098",
+    "code\\model_research_v17\\inference.py": "bb1688b7d1d1e14fa58810690d1a48eef29ed4fbaa0d3ad50122461031c75a13",
+    "code\\model_research_v17\\models.py": "2117f11ccb10c5b4fe7be177c556475f43003612782dab5d7938cd143ada3d8a",
+    "code\\model_research_v17\\run.py": "d8ba5cd8ad5003b8896fdbdabdb15ae5fb4ccf94377bc012495df21225ac47f0",
+    "code\\model_research_v17\\__init__.py": "a8fef7ccd9573868c8dfbeb2a0b4bf0d75261ee7938a059d12efc0018b974044",
+    "code\\model_research_v18\\audit.py": "065f68cdd8018d1dd245f7a3529f99763dc66dff8785472f1bf20a1d0f7ba3de",
+    "code\\model_research_v18\\build_notebook.py": "7750882a5c98a618b8e17c88ef042b551171d66e2ef18f869b64024d4d99061b",
+    "code\\model_research_v18\\confirm.py": "c5eaffffe8dbbefe9d7a4547fd09f27279d44a148320be160786f121cdbfc652",
+    "code\\model_research_v18\\evaluate.py": "87f62df5154b6eb84f13a88bf228a0efe444dd0c3f746a8952f2f92b3bd704a3",
+    "code\\model_research_v18\\inference.py": "4bcc865a01c717c5161ee84e0213ee0c77587e16bed00ff377ab21764fdd557f",
+    "code\\model_research_v18\\models.py": "332bb479960d6fda7d751a5f6b9d4077868e48ce7fd0c928646e2454df24d01d",
+    "code\\model_research_v18\\report.py": "3f019ba262155209029b4332d97d73bdeb95c733fdadea93b7acea82782f2d7f",
+    "code\\model_research_v18\\run.py": "796c66faa3eef5048f4f917cf8c47942851fac068fa9290ed42ae96598d6ebe4",
+    "code\\model_research_v18\\test_research.py": "0f17856575fa7ab4d03b5c116066dbc9e55b9ed62de52f484af15be1622f4529",
+    "code\\model_research_v18\\write_results.py": "5e11db79261837233c76174f34655ce03443402878d5a829034217e5f63160ab",
+    "code\\model_research_v18\\__init__.py": "63a9e482300f27c646f9d40180151e9f60772488e0411566051b3cd200e2c0d5"
+  },
+  "exact_fallback_all_algorithms": true,
+  "portable_equality_algorithms": [
+    "if",
+    "kmeans",
+    "lof"
+  ],
+  "calibration_and_all_search_cases_disjoint": true,
+  "original_serving_models_unchanged": true,
+  "benchmark_activation_verified": true,
+  "hard_and_normal_controls_unchanged": true,
+  "hard_same_model_predictions_and_features_metadata_exact": true,
+  "production_auto_deployed": false,
+  "github_uploaded": false
+}

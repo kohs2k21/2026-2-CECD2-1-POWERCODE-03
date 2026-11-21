@@ -1,0 +1,1021 @@
+{
+  "seed": 20261023,
+  "references": {
+    "Wilks_1941": "https://doi.org/10.1214/aoms/1177731788",
+    "Hyndman_Fan_1996": "https://robjhyndman.com/publications/quantiles/"
+  },
+  "old_30_rule_scientifically_validated": false,
+  "tail_seen_formula_under_continuous_IID": "1 - 0.95**n",
+  "minimum_for_95pct_probability_of_one_upper_tail_observation": 59,
+  "not_a_minimum_for_precise_P95_estimation": true,
+  "theory": [
+    {
+      "n": 2,
+      "tail_seen_probability": 0.09750000000000003,
+      "expected_upper_tail_observations": 0.1,
+      "equal_tailed_95pct_quantile_CI": {
+        "lower_rank": 1,
+        "upper_rank": null,
+        "finite_both_ends": false
+      }
+    },
+    {
+      "n": 3,
+      "tail_seen_probability": 0.1426250000000001,
+      "expected_upper_tail_observations": 0.15000000000000002,
+      "equal_tailed_95pct_quantile_CI": {
+        "lower_rank": 2,
+        "upper_rank": null,
+        "finite_both_ends": false
+      }
+    },
+    {
+      "n": 6,
+      "tail_seen_probability": 0.2649081093750002,
+      "expected_upper_tail_observations": 0.30000000000000004,
+      "equal_tailed_95pct_quantile_CI": {
+        "lower_rank": 4,
+        "upper_rank": null,
+        "finite_both_ends": false
+      }
+    },
+    {
+      "n": 7,
+      "tail_seen_probability": 0.3016627039062503,
+      "expected_upper_tail_observations": 0.35000000000000003,
+      "equal_tailed_95pct_quantile_CI": {
+        "lower_rank": 5,
+        "upper_rank": null,
+        "finite_both_ends": false
+      }
+    },
+    {
+      "n": 9,
+      "tail_seen_probability": 0.3697505902753909,
+      "expected_upper_tail_observations": 0.45,
+      "equal_tailed_95pct_quantile_CI": {
+        "lower_rank": 7,
+        "upper_rank": null,
+        "finite_both_ends": false
+      }
+    },
+    {
+      "n": 30,
+      "tail_seen_probability": 0.7853612360570628,
+      "expected_upper_tail_observations": 1.5,
+      "equal_tailed_95pct_quantile_CI": {
+        "lower_rank": 26,
+        "upper_rank": null,
+        "finite_both_ends": false
+      }
+    },
+    {
+      "n": 59,
+      "tail_seen_probability": 0.9515054747505769,
+      "expected_upper_tail_observations": 2.95,
+      "equal_tailed_95pct_quantile_CI": {
+        "lower_rank": 52,
+        "upper_rank": null,
+        "finite_both_ends": false
+      }
+    },
+    {
+      "n": 72,
+      "tail_seen_probability": 0.9751057193808106,
+      "expected_upper_tail_observations": 3.6,
+      "equal_tailed_95pct_quantile_CI": {
+        "lower_rank": 64,
+        "upper_rank": 72,
+        "finite_both_ends": true
+      }
+    },
+    {
+      "n": 100,
+      "tail_seen_probability": 0.994079470779666,
+      "expected_upper_tail_observations": 5.0,
+      "equal_tailed_95pct_quantile_CI": {
+        "lower_rank": 90,
+        "upper_rank": 100,
+        "finite_both_ends": true
+      }
+    }
+  ],
+  "adapter_support": [
+    {
+      "adapter": "DATA.DECRYPTOR",
+      "prototype_rows": 2,
+      "source_workflows": 2,
+      "current_delay_eligible_keys": 0,
+      "below_30_even_after_adapter_pooling": true
+    },
+    {
+      "adapter": "DATA.ENCRYPTOR",
+      "prototype_rows": 2,
+      "source_workflows": 2,
+      "current_delay_eligible_keys": 0,
+      "below_30_even_after_adapter_pooling": true
+    },
+    {
+      "adapter": "DATA.MAPPER",
+      "prototype_rows": 22,
+      "source_workflows": 22,
+      "current_delay_eligible_keys": 0,
+      "below_30_even_after_adapter_pooling": true
+    },
+    {
+      "adapter": "DATA.TRANSFORMER",
+      "prototype_rows": 50,
+      "source_workflows": 50,
+      "current_delay_eligible_keys": 20,
+      "below_30_even_after_adapter_pooling": false
+    },
+    {
+      "adapter": "DB.DELETER",
+      "prototype_rows": 3,
+      "source_workflows": 3,
+      "current_delay_eligible_keys": 0,
+      "below_30_even_after_adapter_pooling": true
+    },
+    {
+      "adapter": "DB.EXECUTOR",
+      "prototype_rows": 2003,
+      "source_workflows": 2003,
+      "current_delay_eligible_keys": 8,
+      "below_30_even_after_adapter_pooling": false
+    },
+    {
+      "adapter": "DB.READER",
+      "prototype_rows": 3298,
+      "source_workflows": 3298,
+      "current_delay_eligible_keys": 96,
+      "below_30_even_after_adapter_pooling": false
+    },
+    {
+      "adapter": "DB.UPDATER",
+      "prototype_rows": 43,
+      "source_workflows": 43,
+      "current_delay_eligible_keys": 9,
+      "below_30_even_after_adapter_pooling": false
+    },
+    {
+      "adapter": "DB.WRITER",
+      "prototype_rows": 3297,
+      "source_workflows": 3286,
+      "current_delay_eligible_keys": 101,
+      "below_30_even_after_adapter_pooling": false
+    },
+    {
+      "adapter": "FILE.EXECUTOR",
+      "prototype_rows": 9,
+      "source_workflows": 9,
+      "current_delay_eligible_keys": 0,
+      "below_30_even_after_adapter_pooling": true
+    },
+    {
+      "adapter": "FILE.READER",
+      "prototype_rows": 2071,
+      "source_workflows": 2071,
+      "current_delay_eligible_keys": 26,
+      "below_30_even_after_adapter_pooling": false
+    },
+    {
+      "adapter": "FILE.WRITER",
+      "prototype_rows": 2081,
+      "source_workflows": 2081,
+      "current_delay_eligible_keys": 29,
+      "below_30_even_after_adapter_pooling": false
+    },
+    {
+      "adapter": "GATEWAY.INVOKER",
+      "prototype_rows": 13,
+      "source_workflows": 13,
+      "current_delay_eligible_keys": 0,
+      "below_30_even_after_adapter_pooling": true
+    },
+    {
+      "adapter": "GATEWAY.RECEIVER",
+      "prototype_rows": 3,
+      "source_workflows": 3,
+      "current_delay_eligible_keys": 0,
+      "below_30_even_after_adapter_pooling": true
+    },
+    {
+      "adapter": "OBJECT.READER",
+      "prototype_rows": 7,
+      "source_workflows": 7,
+      "current_delay_eligible_keys": 0,
+      "below_30_even_after_adapter_pooling": true
+    },
+    {
+      "adapter": "OBJECT.WRITER",
+      "prototype_rows": 6,
+      "source_workflows": 6,
+      "current_delay_eligible_keys": 0,
+      "below_30_even_after_adapter_pooling": true
+    },
+    {
+      "adapter": "QUEUE.EXECUTOR",
+      "prototype_rows": 8,
+      "source_workflows": 8,
+      "current_delay_eligible_keys": 0,
+      "below_30_even_after_adapter_pooling": true
+    },
+    {
+      "adapter": "QUEUE.PUBLISHER",
+      "prototype_rows": 8,
+      "source_workflows": 8,
+      "current_delay_eligible_keys": 0,
+      "below_30_even_after_adapter_pooling": true
+    },
+    {
+      "adapter": "QUEUE.SUBSCRIBER",
+      "prototype_rows": 8,
+      "source_workflows": 8,
+      "current_delay_eligible_keys": 0,
+      "below_30_even_after_adapter_pooling": true
+    },
+    {
+      "adapter": "SERVICE.EXECUTOR",
+      "prototype_rows": 5876,
+      "source_workflows": 5875,
+      "current_delay_eligible_keys": 34,
+      "below_30_even_after_adapter_pooling": false
+    },
+    {
+      "adapter": "SERVICE.INVOKER",
+      "prototype_rows": 27,
+      "source_workflows": 26,
+      "current_delay_eligible_keys": 0,
+      "below_30_even_after_adapter_pooling": true
+    }
+  ],
+  "delay_supported_adapters": [
+    "DATA.TRANSFORMER",
+    "DB.EXECUTOR",
+    "DB.READER",
+    "DB.UPDATER",
+    "DB.WRITER",
+    "FILE.READER",
+    "FILE.WRITER",
+    "SERVICE.EXECUTOR"
+  ],
+  "traffic_supported_adapters": [
+    "DATA.DECRYPTOR",
+    "DATA.ENCRYPTOR",
+    "DATA.MAPPER",
+    "DATA.TRANSFORMER",
+    "DB.DELETER",
+    "DB.EXECUTOR",
+    "DB.READER",
+    "DB.UPDATER",
+    "DB.WRITER",
+    "FILE.EXECUTOR",
+    "FILE.READER",
+    "FILE.WRITER",
+    "GATEWAY.INVOKER",
+    "GATEWAY.RECEIVER",
+    "OBJECT.READER",
+    "OBJECT.WRITER",
+    "QUEUE.EXECUTOR",
+    "QUEUE.PUBLISHER",
+    "QUEUE.SUBSCRIBER",
+    "SERVICE.EXECUTOR",
+    "SERVICE.INVOKER"
+  ],
+  "synthetic_history": {
+    "minute_rows": 20160,
+    "weekday_hour_strata": 48,
+    "minimum_minutes_per_stratum": 240,
+    "maximum_minutes_per_stratum": 600,
+    "Adapter_specific_original_arrival_distribution_estimated": false,
+    "minimum_source_workflows_to_clone": 1,
+    "cloning_increases_independent_evidence": false,
+    "origin": "14-day synthetic bounded Poisson, weekday/hour conditions",
+    "real_idle_collection_failure_and_outage_distinguished": false
+  },
+  "sensitivity": {
+    "aggregate": [
+      {
+        "sample_size": 10,
+        "groups": 11,
+        "repeats_per_group": 200,
+        "median_group_median_error_percent": 9.5033428844317,
+        "median_group_P95_error_percent": 59.02867268041229,
+        "median_group_holdout_exceedance_percent": 9.375
+      },
+      {
+        "sample_size": 30,
+        "groups": 11,
+        "repeats_per_group": 200,
+        "median_group_median_error_percent": 5.308092056421632,
+        "median_group_P95_error_percent": 23.09523809523809,
+        "median_group_holdout_exceedance_percent": 7.638888888888889
+      },
+      {
+        "sample_size": 59,
+        "groups": 11,
+        "repeats_per_group": 200,
+        "median_group_median_error_percent": 4.212806933076537,
+        "median_group_P95_error_percent": 16.534482758620733,
+        "median_group_holdout_exceedance_percent": 6.41025641025641
+      },
+      {
+        "sample_size": 72,
+        "groups": 11,
+        "repeats_per_group": 200,
+        "median_group_median_error_percent": 3.8228213769860373,
+        "median_group_P95_error_percent": 13.746418338108917,
+        "median_group_holdout_exceedance_percent": 6.41025641025641
+      },
+      {
+        "sample_size": 100,
+        "groups": 11,
+        "repeats_per_group": 200,
+        "median_group_median_error_percent": 3.675974963890207,
+        "median_group_P95_error_percent": 10.02865329512894,
+        "median_group_holdout_exceedance_percent": 6.41025641025641
+      }
+    ],
+    "per_group": [
+      {
+        "adapter": "DB.EXECUTOR",
+        "process": "IF_RELEASE_DB_TEST01_PR001",
+        "totalCount": 1,
+        "source_workflows": 1995,
+        "sample_size": 10,
+        "fit_pool_P95_ms": 63.0,
+        "median_relative_error_percent": 11.825396825396831,
+        "P95_relative_error_percent": 249.1507936507932,
+        "holdout_exceedance_median_percent": 9.181969949916526,
+        "holdout_exceedance_P95_percent": 25.208681135225376
+      },
+      {
+        "adapter": "DB.EXECUTOR",
+        "process": "IF_RELEASE_DB_TEST01_PR001",
+        "totalCount": 1,
+        "source_workflows": 1995,
+        "sample_size": 30,
+        "fit_pool_P95_ms": 63.0,
+        "median_relative_error_percent": 8.650793650793656,
+        "P95_relative_error_percent": 23.09523809523809,
+        "holdout_exceedance_median_percent": 8.514190317195327,
+        "holdout_exceedance_P95_percent": 15.358931552587645
+      },
+      {
+        "adapter": "DB.EXECUTOR",
+        "process": "IF_RELEASE_DB_TEST01_PR001",
+        "totalCount": 1,
+        "source_workflows": 1995,
+        "sample_size": 59,
+        "fit_pool_P95_ms": 63.0,
+        "median_relative_error_percent": 7.698412698412666,
+        "P95_relative_error_percent": 17.944444444444407,
+        "holdout_exceedance_median_percent": 7.178631051752922,
+        "holdout_exceedance_P95_percent": 12.687813021702837
+      },
+      {
+        "adapter": "DB.EXECUTOR",
+        "process": "IF_RELEASE_DB_TEST01_PR001",
+        "totalCount": 1,
+        "source_workflows": 1995,
+        "sample_size": 72,
+        "fit_pool_P95_ms": 63.0,
+        "median_relative_error_percent": 5.2777777777777715,
+        "P95_relative_error_percent": 14.857142857142865,
+        "holdout_exceedance_median_percent": 6.51085141903172,
+        "holdout_exceedance_P95_percent": 12.687813021702837
+      },
+      {
+        "adapter": "DB.EXECUTOR",
+        "process": "IF_RELEASE_DB_TEST01_PR001",
+        "totalCount": 1,
+        "source_workflows": 1995,
+        "sample_size": 100,
+        "fit_pool_P95_ms": 63.0,
+        "median_relative_error_percent": 4.444444444444462,
+        "P95_relative_error_percent": 11.28571428571427,
+        "holdout_exceedance_median_percent": 5.843071786310518,
+        "holdout_exceedance_P95_percent": 10.01669449081803
+      },
+      {
+        "adapter": "DB.READER",
+        "process": "IF_DB2DB_101_PR001",
+        "totalCount": 462,
+        "source_workflows": 257,
+        "sample_size": 10,
+        "fit_pool_P95_ms": 155.2,
+        "median_relative_error_percent": 28.39884020618552,
+        "P95_relative_error_percent": 59.02867268041229,
+        "holdout_exceedance_median_percent": 10.256410256410255,
+        "holdout_exceedance_P95_percent": 30.76923076923077
+      },
+      {
+        "adapter": "DB.READER",
+        "process": "IF_DB2DB_101_PR001",
+        "totalCount": 462,
+        "source_workflows": 257,
+        "sample_size": 30,
+        "fit_pool_P95_ms": 155.2,
+        "median_relative_error_percent": 18.97551546391749,
+        "P95_relative_error_percent": 42.87854381443276,
+        "holdout_exceedance_median_percent": 8.974358974358974,
+        "holdout_exceedance_P95_percent": 16.666666666666664
+      },
+      {
+        "adapter": "DB.READER",
+        "process": "IF_DB2DB_101_PR001",
+        "totalCount": 462,
+        "source_workflows": 257,
+        "sample_size": 59,
+        "fit_pool_P95_ms": 155.2,
+        "median_relative_error_percent": 13.46649484536072,
+        "P95_relative_error_percent": 34.213917525773155,
+        "holdout_exceedance_median_percent": 6.41025641025641,
+        "holdout_exceedance_P95_percent": 11.538461538461538
+      },
+      {
+        "adapter": "DB.READER",
+        "process": "IF_DB2DB_101_PR001",
+        "totalCount": 462,
+        "source_workflows": 257,
+        "sample_size": 72,
+        "fit_pool_P95_ms": 155.2,
+        "median_relative_error_percent": 13.20876288659803,
+        "P95_relative_error_percent": 37.14561855670105,
+        "holdout_exceedance_median_percent": 6.41025641025641,
+        "holdout_exceedance_P95_percent": 10.320512820512798
+      },
+      {
+        "adapter": "DB.READER",
+        "process": "IF_DB2DB_101_PR001",
+        "totalCount": 462,
+        "source_workflows": 257,
+        "sample_size": 100,
+        "fit_pool_P95_ms": 155.2,
+        "median_relative_error_percent": 8.698453608247442,
+        "P95_relative_error_percent": 29.755154639175245,
+        "holdout_exceedance_median_percent": 6.41025641025641,
+        "holdout_exceedance_P95_percent": 10.256410256410255
+      },
+      {
+        "adapter": "DB.READER",
+        "process": "IF_DB2DB_103_PR001",
+        "totalCount": 1000,
+        "source_workflows": 668,
+        "sample_size": 10,
+        "fit_pool_P95_ms": 104.69999999999999,
+        "median_relative_error_percent": 9.5033428844317,
+        "P95_relative_error_percent": 91.68576886341909,
+        "holdout_exceedance_median_percent": 10.945273631840797,
+        "holdout_exceedance_P95_percent": 27.93532338308455
+      },
+      {
+        "adapter": "DB.READER",
+        "process": "IF_DB2DB_103_PR001",
+        "totalCount": 1000,
+        "source_workflows": 668,
+        "sample_size": 30,
+        "fit_pool_P95_ms": 104.69999999999999,
+        "median_relative_error_percent": 6.9006685768863445,
+        "P95_relative_error_percent": 36.97946513849078,
+        "holdout_exceedance_median_percent": 9.45273631840796,
+        "holdout_exceedance_P95_percent": 15.92039800995025
+      },
+      {
+        "adapter": "DB.READER",
+        "process": "IF_DB2DB_103_PR001",
+        "totalCount": 1000,
+        "source_workflows": 668,
+        "sample_size": 59,
+        "fit_pool_P95_ms": 104.69999999999999,
+        "median_relative_error_percent": 4.489016236867229,
+        "P95_relative_error_percent": 18.467048710601205,
+        "holdout_exceedance_median_percent": 7.960199004975125,
+        "holdout_exceedance_P95_percent": 15.422885572139302
+      },
+      {
+        "adapter": "DB.READER",
+        "process": "IF_DB2DB_103_PR001",
+        "totalCount": 1000,
+        "source_workflows": 668,
+        "sample_size": 72,
+        "fit_pool_P95_ms": 104.69999999999999,
+        "median_relative_error_percent": 4.250238777459411,
+        "P95_relative_error_percent": 13.746418338108917,
+        "holdout_exceedance_median_percent": 7.960199004975125,
+        "holdout_exceedance_P95_percent": 13.930348258706468
+      },
+      {
+        "adapter": "DB.READER",
+        "process": "IF_DB2DB_103_PR001",
+        "totalCount": 1000,
+        "source_workflows": 668,
+        "sample_size": 100,
+        "fit_pool_P95_ms": 104.69999999999999,
+        "median_relative_error_percent": 4.154727793696283,
+        "P95_relative_error_percent": 10.02865329512894,
+        "holdout_exceedance_median_percent": 7.462686567164179,
+        "holdout_exceedance_P95_percent": 11.940298507462686
+      },
+      {
+        "adapter": "DB.WRITER",
+        "process": "IF_DB2DB_101_PR002",
+        "totalCount": 462,
+        "source_workflows": 257,
+        "sample_size": 10,
+        "fit_pool_P95_ms": 216.09999999999994,
+        "median_relative_error_percent": 37.609902822767225,
+        "P95_relative_error_percent": 133.47639981490036,
+        "holdout_exceedance_median_percent": 7.6923076923076925,
+        "holdout_exceedance_P95_percent": 28.205128205128204
+      },
+      {
+        "adapter": "DB.WRITER",
+        "process": "IF_DB2DB_101_PR002",
+        "totalCount": 462,
+        "source_workflows": 257,
+        "sample_size": 30,
+        "fit_pool_P95_ms": 216.09999999999994,
+        "median_relative_error_percent": 31.200832947709387,
+        "P95_relative_error_percent": 128.99120777417846,
+        "holdout_exceedance_median_percent": 7.6923076923076925,
+        "holdout_exceedance_P95_percent": 15.384615384615385
+      },
+      {
+        "adapter": "DB.WRITER",
+        "process": "IF_DB2DB_101_PR002",
+        "totalCount": 462,
+        "source_workflows": 257,
+        "sample_size": 59,
+        "fit_pool_P95_ms": 216.09999999999994,
+        "median_relative_error_percent": 24.849606663581376,
+        "P95_relative_error_percent": 78.8130495141138,
+        "holdout_exceedance_median_percent": 6.41025641025641,
+        "holdout_exceedance_P95_percent": 11.538461538461538
+      },
+      {
+        "adapter": "DB.WRITER",
+        "process": "IF_DB2DB_101_PR002",
+        "totalCount": 462,
+        "source_workflows": 257,
+        "sample_size": 72,
+        "fit_pool_P95_ms": 216.09999999999994,
+        "median_relative_error_percent": 16.242480333178978,
+        "P95_relative_error_percent": 61.68787598334115,
+        "holdout_exceedance_median_percent": 6.41025641025641,
+        "holdout_exceedance_P95_percent": 10.256410256410255
+      },
+      {
+        "adapter": "DB.WRITER",
+        "process": "IF_DB2DB_101_PR002",
+        "totalCount": 462,
+        "source_workflows": 257,
+        "sample_size": 100,
+        "fit_pool_P95_ms": 216.09999999999994,
+        "median_relative_error_percent": 8.260064784821658,
+        "P95_relative_error_percent": 49.58352614530306,
+        "holdout_exceedance_median_percent": 6.41025641025641,
+        "holdout_exceedance_P95_percent": 8.974358974358974
+      },
+      {
+        "adapter": "DB.WRITER",
+        "process": "IF_DB2DB_103_PR002",
+        "totalCount": 1000,
+        "source_workflows": 668,
+        "sample_size": 10,
+        "fit_pool_P95_ms": 1038.4999999999998,
+        "median_relative_error_percent": 7.320654790563296,
+        "P95_relative_error_percent": 83.44607607125647,
+        "holdout_exceedance_median_percent": 8.955223880597014,
+        "holdout_exceedance_P95_percent": 28.35820895522388
+      },
+      {
+        "adapter": "DB.WRITER",
+        "process": "IF_DB2DB_103_PR002",
+        "totalCount": 1000,
+        "source_workflows": 668,
+        "sample_size": 30,
+        "fit_pool_P95_ms": 1038.4999999999998,
+        "median_relative_error_percent": 5.062590274434264,
+        "P95_relative_error_percent": 47.32065479056322,
+        "holdout_exceedance_median_percent": 6.467661691542288,
+        "holdout_exceedance_P95_percent": 11.965174129353224
+      },
+      {
+        "adapter": "DB.WRITER",
+        "process": "IF_DB2DB_103_PR002",
+        "totalCount": 1000,
+        "source_workflows": 668,
+        "sample_size": 59,
+        "fit_pool_P95_ms": 1038.4999999999998,
+        "median_relative_error_percent": 4.212806933076537,
+        "P95_relative_error_percent": 21.782859894077916,
+        "holdout_exceedance_median_percent": 4.975124378109453,
+        "holdout_exceedance_P95_percent": 10.945273631840797
+      },
+      {
+        "adapter": "DB.WRITER",
+        "process": "IF_DB2DB_103_PR002",
+        "totalCount": 1000,
+        "source_workflows": 668,
+        "sample_size": 72,
+        "fit_pool_P95_ms": 1038.4999999999998,
+        "median_relative_error_percent": 3.8228213769860373,
+        "P95_relative_error_percent": 15.60014443909484,
+        "holdout_exceedance_median_percent": 4.975124378109453,
+        "holdout_exceedance_P95_percent": 11.442786069651742
+      },
+      {
+        "adapter": "DB.WRITER",
+        "process": "IF_DB2DB_103_PR002",
+        "totalCount": 1000,
+        "source_workflows": 668,
+        "sample_size": 100,
+        "fit_pool_P95_ms": 1038.4999999999998,
+        "median_relative_error_percent": 3.675974963890207,
+        "P95_relative_error_percent": 17.703659123736184,
+        "holdout_exceedance_median_percent": 4.975124378109453,
+        "holdout_exceedance_P95_percent": 8.955223880597014
+      },
+      {
+        "adapter": "FILE.READER",
+        "process": "IF_CALLBACK_TEST_01_PR001",
+        "totalCount": 10485760,
+        "source_workflows": 1985,
+        "sample_size": 10,
+        "fit_pool_P95_ms": 725.0,
+        "median_relative_error_percent": 14.868965517241389,
+        "P95_relative_error_percent": 30.496206896551723,
+        "holdout_exceedance_median_percent": 8.89261744966443,
+        "holdout_exceedance_P95_percent": 25.897651006711392
+      },
+      {
+        "adapter": "FILE.READER",
+        "process": "IF_CALLBACK_TEST_01_PR001",
+        "totalCount": 10485760,
+        "source_workflows": 1985,
+        "sample_size": 30,
+        "fit_pool_P95_ms": 725.0,
+        "median_relative_error_percent": 9.31379310344828,
+        "P95_relative_error_percent": 21.630689655172407,
+        "holdout_exceedance_median_percent": 5.704697986577181,
+        "holdout_exceedance_P95_percent": 15.461409395973146
+      },
+      {
+        "adapter": "FILE.READER",
+        "process": "IF_CALLBACK_TEST_01_PR001",
+        "totalCount": 10485760,
+        "source_workflows": 1985,
+        "sample_size": 59,
+        "fit_pool_P95_ms": 725.0,
+        "median_relative_error_percent": 8.006896551724171,
+        "P95_relative_error_percent": 16.534482758620733,
+        "holdout_exceedance_median_percent": 5.369127516778524,
+        "holdout_exceedance_P95_percent": 11.753355704697983
+      },
+      {
+        "adapter": "FILE.READER",
+        "process": "IF_CALLBACK_TEST_01_PR001",
+        "totalCount": 10485760,
+        "source_workflows": 1985,
+        "sample_size": 72,
+        "fit_pool_P95_ms": 725.0,
+        "median_relative_error_percent": 7.651724137930998,
+        "P95_relative_error_percent": 16.709655172413783,
+        "holdout_exceedance_median_percent": 4.1107382550335565,
+        "holdout_exceedance_P95_percent": 12.080536912751679
+      },
+      {
+        "adapter": "FILE.READER",
+        "process": "IF_CALLBACK_TEST_01_PR001",
+        "totalCount": 10485760,
+        "source_workflows": 1985,
+        "sample_size": 100,
+        "fit_pool_P95_ms": 725.0,
+        "median_relative_error_percent": 5.958620689655179,
+        "P95_relative_error_percent": 15.015172413793106,
+        "holdout_exceedance_median_percent": 4.194630872483222,
+        "holdout_exceedance_P95_percent": 10.74664429530201
+      },
+      {
+        "adapter": "FILE.WRITER",
+        "process": "IF_CALLBACK_TEST_01_PR002",
+        "totalCount": 10485760,
+        "source_workflows": 1985,
+        "sample_size": 10,
+        "fit_pool_P95_ms": 1228.1999999999998,
+        "median_relative_error_percent": 7.2769092981599,
+        "P95_relative_error_percent": 18.14830646474515,
+        "holdout_exceedance_median_percent": 9.815436241610737,
+        "holdout_exceedance_P95_percent": 29.203020134228186
+      },
+      {
+        "adapter": "FILE.WRITER",
+        "process": "IF_CALLBACK_TEST_01_PR002",
+        "totalCount": 10485760,
+        "source_workflows": 1985,
+        "sample_size": 30,
+        "fit_pool_P95_ms": 1228.1999999999998,
+        "median_relative_error_percent": 4.61447646963035,
+        "P95_relative_error_percent": 11.131330402214612,
+        "holdout_exceedance_median_percent": 6.7114093959731544,
+        "holdout_exceedance_P95_percent": 15.78859060402684
+      },
+      {
+        "adapter": "FILE.WRITER",
+        "process": "IF_CALLBACK_TEST_01_PR002",
+        "totalCount": 10485760,
+        "source_workflows": 1985,
+        "sample_size": 59,
+        "fit_pool_P95_ms": 1228.1999999999998,
+        "median_relative_error_percent": 3.317863540140061,
+        "P95_relative_error_percent": 8.557645334636057,
+        "holdout_exceedance_median_percent": 6.208053691275168,
+        "holdout_exceedance_P95_percent": 11.795302013422802
+      },
+      {
+        "adapter": "FILE.WRITER",
+        "process": "IF_CALLBACK_TEST_01_PR002",
+        "totalCount": 10485760,
+        "source_workflows": 1985,
+        "sample_size": 72,
+        "fit_pool_P95_ms": 1228.1999999999998,
+        "median_relative_error_percent": 3.5906204201269896,
+        "P95_relative_error_percent": 8.193087445041538,
+        "holdout_exceedance_median_percent": 6.208053691275168,
+        "holdout_exceedance_P95_percent": 11.577181208053691
+      },
+      {
+        "adapter": "FILE.WRITER",
+        "process": "IF_CALLBACK_TEST_01_PR002",
+        "totalCount": 10485760,
+        "source_workflows": 1985,
+        "sample_size": 100,
+        "fit_pool_P95_ms": 1228.1999999999998,
+        "median_relative_error_percent": 2.4303859306301834,
+        "P95_relative_error_percent": 7.805731965477941,
+        "holdout_exceedance_median_percent": 5.5369127516778525,
+        "holdout_exceedance_P95_percent": 9.748322147651
+      },
+      {
+        "adapter": "SERVICE.EXECUTOR",
+        "process": "IF_CLAUDE_CREATE_001_PR001",
+        "totalCount": 1,
+        "source_workflows": 1039,
+        "sample_size": 10,
+        "fit_pool_P95_ms": 134.69999999999993,
+        "median_relative_error_percent": 11.340014847809904,
+        "P95_relative_error_percent": 395.3025241276905,
+        "holdout_exceedance_median_percent": 11.858974358974358,
+        "holdout_exceedance_P95_percent": 31.41025641025641
+      },
+      {
+        "adapter": "SERVICE.EXECUTOR",
+        "process": "IF_CLAUDE_CREATE_001_PR001",
+        "totalCount": 1,
+        "source_workflows": 1039,
+        "sample_size": 30,
+        "fit_pool_P95_ms": 134.69999999999993,
+        "median_relative_error_percent": 5.308092056421632,
+        "P95_relative_error_percent": 189.9127691165545,
+        "holdout_exceedance_median_percent": 10.256410256410255,
+        "holdout_exceedance_P95_percent": 17.371794871794847
+      },
+      {
+        "adapter": "SERVICE.EXECUTOR",
+        "process": "IF_CLAUDE_CREATE_001_PR001",
+        "totalCount": 1,
+        "source_workflows": 1039,
+        "sample_size": 59,
+        "fit_pool_P95_ms": 134.69999999999993,
+        "median_relative_error_percent": 3.4892353377876697,
+        "P95_relative_error_percent": 12.026726057906437,
+        "holdout_exceedance_median_percent": 9.615384615384617,
+        "holdout_exceedance_P95_percent": 12.580128205128178
+      },
+      {
+        "adapter": "SERVICE.EXECUTOR",
+        "process": "IF_CLAUDE_CREATE_001_PR001",
+        "totalCount": 1,
+        "source_workflows": 1039,
+        "sample_size": 72,
+        "fit_pool_P95_ms": 134.69999999999993,
+        "median_relative_error_percent": 3.1365998515219085,
+        "P95_relative_error_percent": 11.284335560504886,
+        "holdout_exceedance_median_percent": 9.615384615384617,
+        "holdout_exceedance_P95_percent": 12.5
+      },
+      {
+        "adapter": "SERVICE.EXECUTOR",
+        "process": "IF_CLAUDE_CREATE_001_PR001",
+        "totalCount": 1,
+        "source_workflows": 1039,
+        "sample_size": 100,
+        "fit_pool_P95_ms": 134.69999999999993,
+        "median_relative_error_percent": 1.9487750556792358,
+        "P95_relative_error_percent": 7.165924276169289,
+        "holdout_exceedance_median_percent": 9.615384615384617,
+        "holdout_exceedance_P95_percent": 12.5
+      },
+      {
+        "adapter": "SERVICE.EXECUTOR",
+        "process": "IF_CLAUDE_DELETE_001_PR001",
+        "totalCount": 1,
+        "source_workflows": 959,
+        "sample_size": 10,
+        "fit_pool_P95_ms": 145.0,
+        "median_relative_error_percent": 9.293103448275858,
+        "P95_relative_error_percent": 46.97586206896519,
+        "holdout_exceedance_median_percent": 9.375,
+        "holdout_exceedance_P95_percent": 32.65625
+      },
+      {
+        "adapter": "SERVICE.EXECUTOR",
+        "process": "IF_CLAUDE_DELETE_001_PR001",
+        "totalCount": 1,
+        "source_workflows": 959,
+        "sample_size": 30,
+        "fit_pool_P95_ms": 145.0,
+        "median_relative_error_percent": 5.068965517241395,
+        "P95_relative_error_percent": 16.975862068965476,
+        "holdout_exceedance_median_percent": 7.638888888888889,
+        "holdout_exceedance_P95_percent": 17.01388888888889
+      },
+      {
+        "adapter": "SERVICE.EXECUTOR",
+        "process": "IF_CLAUDE_DELETE_001_PR001",
+        "totalCount": 1,
+        "source_workflows": 959,
+        "sample_size": 59,
+        "fit_pool_P95_ms": 145.0,
+        "median_relative_error_percent": 3.6206896551724235,
+        "P95_relative_error_percent": 13.065517241379208,
+        "holdout_exceedance_median_percent": 7.291666666666667,
+        "holdout_exceedance_P95_percent": 11.493055555555543
+      },
+      {
+        "adapter": "SERVICE.EXECUTOR",
+        "process": "IF_CLAUDE_DELETE_001_PR001",
+        "totalCount": 1,
+        "source_workflows": 959,
+        "sample_size": 72,
+        "fit_pool_P95_ms": 145.0,
+        "median_relative_error_percent": 3.2931034482758754,
+        "P95_relative_error_percent": 9.532758620689695,
+        "holdout_exceedance_median_percent": 6.944444444444445,
+        "holdout_exceedance_P95_percent": 9.375
+      },
+      {
+        "adapter": "SERVICE.EXECUTOR",
+        "process": "IF_CLAUDE_DELETE_001_PR001",
+        "totalCount": 1,
+        "source_workflows": 959,
+        "sample_size": 100,
+        "fit_pool_P95_ms": 145.0,
+        "median_relative_error_percent": 3.0344827586206935,
+        "P95_relative_error_percent": 7.932758620689634,
+        "holdout_exceedance_median_percent": 6.944444444444445,
+        "holdout_exceedance_P95_percent": 9.027777777777777
+      },
+      {
+        "adapter": "SERVICE.EXECUTOR",
+        "process": "IF_TEST_HA_FAILOVER_PR001",
+        "totalCount": 1,
+        "source_workflows": 1912,
+        "sample_size": 10,
+        "fit_pool_P95_ms": 5987.0,
+        "median_relative_error_percent": 0.10773342241522997,
+        "P95_relative_error_percent": 4.519250041757126,
+        "holdout_exceedance_median_percent": 10.714285714285715,
+        "holdout_exceedance_P95_percent": 26.53310104529609
+      },
+      {
+        "adapter": "SERVICE.EXECUTOR",
+        "process": "IF_TEST_HA_FAILOVER_PR001",
+        "totalCount": 1,
+        "source_workflows": 1912,
+        "sample_size": 30,
+        "fit_pool_P95_ms": 5987.0,
+        "median_relative_error_percent": 0.06514113913478597,
+        "P95_relative_error_percent": 0.44763654584934326,
+        "holdout_exceedance_median_percent": 7.142857142857142,
+        "holdout_exceedance_P95_percent": 15.853658536585366
+      },
+      {
+        "adapter": "SERVICE.EXECUTOR",
+        "process": "IF_TEST_HA_FAILOVER_PR001",
+        "totalCount": 1,
+        "source_workflows": 1912,
+        "sample_size": 59,
+        "fit_pool_P95_ms": 5987.0,
+        "median_relative_error_percent": 0.0476031401369619,
+        "P95_relative_error_percent": 0.36930015032571156,
+        "holdout_exceedance_median_percent": 6.620209059233449,
+        "holdout_exceedance_P95_percent": 12.020905923344948
+      },
+      {
+        "adapter": "SERVICE.EXECUTOR",
+        "process": "IF_TEST_HA_FAILOVER_PR001",
+        "totalCount": 1,
+        "source_workflows": 1912,
+        "sample_size": 72,
+        "fit_pool_P95_ms": 5987.0,
+        "median_relative_error_percent": 0.042592283280443996,
+        "P95_relative_error_percent": 0.4242525471855626,
+        "holdout_exceedance_median_percent": 7.142857142857142,
+        "holdout_exceedance_P95_percent": 12.020905923344948
+      },
+      {
+        "adapter": "SERVICE.EXECUTOR",
+        "process": "IF_TEST_HA_FAILOVER_PR001",
+        "totalCount": 1,
+        "source_workflows": 1912,
+        "sample_size": 100,
+        "fit_pool_P95_ms": 5987.0,
+        "median_relative_error_percent": 0.033405712376816436,
+        "P95_relative_error_percent": 0.3031985969600743,
+        "holdout_exceedance_median_percent": 6.620209059233449,
+        "holdout_exceedance_P95_percent": 9.40766550522648
+      },
+      {
+        "adapter": "SERVICE.EXECUTOR",
+        "process": "SERVICE_DELAY_TEST_PR001",
+        "totalCount": 1,
+        "source_workflows": 1633,
+        "sample_size": 10,
+        "fit_pool_P95_ms": 7054.0,
+        "median_relative_error_percent": 0.0893110292032915,
+        "P95_relative_error_percent": 0.23334278423589175,
+        "holdout_exceedance_median_percent": 5.918367346938775,
+        "holdout_exceedance_P95_percent": 23.877551020408163
+      },
+      {
+        "adapter": "SERVICE.EXECUTOR",
+        "process": "SERVICE_DELAY_TEST_PR001",
+        "totalCount": 1,
+        "source_workflows": 1633,
+        "sample_size": 30,
+        "fit_pool_P95_ms": 7054.0,
+        "median_relative_error_percent": 0.052098100368581333,
+        "P95_relative_error_percent": 0.23603629146582983,
+        "holdout_exceedance_median_percent": 4.489795918367347,
+        "holdout_exceedance_P95_percent": 10.704081632653029
+      },
+      {
+        "adapter": "SERVICE.EXECUTOR",
+        "process": "SERVICE_DELAY_TEST_PR001",
+        "totalCount": 1,
+        "source_workflows": 1633,
+        "sample_size": 59,
+        "fit_pool_P95_ms": 7054.0,
+        "median_relative_error_percent": 0.051034873830449516,
+        "P95_relative_error_percent": 0.1461582081088768,
+        "holdout_exceedance_median_percent": 3.877551020408163,
+        "holdout_exceedance_P95_percent": 9.795918367346939
+      },
+      {
+        "adapter": "SERVICE.EXECUTOR",
+        "process": "SERVICE_DELAY_TEST_PR001",
+        "totalCount": 1,
+        "source_workflows": 1633,
+        "sample_size": 72,
+        "fit_pool_P95_ms": 7054.0,
+        "median_relative_error_percent": 0.03863056421888161,
+        "P95_relative_error_percent": 0.13127303657499273,
+        "holdout_exceedance_median_percent": 3.877551020408163,
+        "holdout_exceedance_P95_percent": 7.551020408163265
+      },
+      {
+        "adapter": "SERVICE.EXECUTOR",
+        "process": "SERVICE_DELAY_TEST_PR001",
+        "totalCount": 1,
+        "source_workflows": 1633,
+        "sample_size": 100,
+        "fit_pool_P95_ms": 7054.0,
+        "median_relative_error_percent": 0.02835270768358378,
+        "P95_relative_error_percent": 0.11411964842642729,
+        "holdout_exceedance_median_percent": 3.877551020408163,
+        "holdout_exceedance_P95_percent": 7.551020408163265
+      }
+    ],
+    "normal_archive_is_filtered_and_not_frequency_representative": true,
+    "IID_or_production_coverage_established": false,
+    "not_a_blind_model_performance_experiment": true
+  },
+  "proposed_not_activated": {
+    "support_unit": "distinct source workflows, not cloned rows",
+    "59_is_only_a_one_sided_tail_observation_screen": true,
+    "require_quantile_uncertainty_and_hard_rule_headroom_checks": true,
+    "traffic_requires_real_collection_coverage_and_activity_schedule_validation": true,
+    "new_empirical_policy_or_benchmark_not_activated": true
+  },
+  "input_hashes": {
+    "reports\\evaluation_v2_work\\inputs.json": "438d64008d831d7417e72023abd2ab9fc00ac6b24eb480d2f7db0a35c55e31d7",
+    "data\\evaluation\\manifest.json": "55b7af7c11e613255518f20edd89e5decff8d30cbc2c3ac5c9a115305ac9a683",
+    "code\\evaluation_benchmark\\generate.py": "44c7b067859fd81686039a7a00359b7f50b14c6bfea6b03c00a2903c4dd82b5d",
+    "reports\\shared_model_v7\\release\\handoff\\if_shared.joblib": "e673edb10cb86632eff437e4ea0864707375d4a96f128a6a873f198c4836a290",
+    "reports\\shared_model_v7\\release\\handoff\\kmeans_shared.joblib": "9293ea4bd6ff85589e3ed20d6aeb01b4bbb4b610ce3d19e79c15daef7fdd5689",
+    "reports\\shared_model_v7\\release\\handoff\\lof_shared.joblib": "53f104b27674260b0b9dec51dcbde351a1eb4d2e3c894c2b831214c734fa22ba"
+  },
+  "protected_input_hashes_unchanged": true
+}

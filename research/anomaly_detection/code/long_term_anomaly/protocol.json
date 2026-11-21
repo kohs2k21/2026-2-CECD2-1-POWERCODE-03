@@ -1,0 +1,74 @@
+{
+  "schema_version": 1,
+  "seed": 20261019,
+  "task": "offline retrospective hourly long-horizon anomaly detection",
+  "context_hours": 672,
+  "monitor_hours": 336,
+  "train_normal_cases": 64,
+  "calibration_normal_cases": 48,
+  "development_pairs_per_scenario": 24,
+  "test_pairs_per_scenario": 48,
+  "source_generator_fit_fraction": 0.6,
+  "channels": ["log_requests", "log_duration_ms", "log_items_per_process"],
+  "normal_ar1_clip": [0.0, 0.85],
+  "normal_daily_random_walk_sigma": 0.035,
+  "normal_six_week_slope_max_sigma": 0.35,
+  "normal_short_spike_probability": 0.006,
+  "normal_short_spike_sigma": 2.5,
+  "normal_temporary_shift_sigma": [0.15, 0.5],
+  "scenario_definitions": {
+    "long_latency_shift": {
+      "description_ko": "3~6일 동안 소요시간 수준이 지속적으로 높아짐",
+      "duration_hours": [72, 144],
+      "magnitude_sigma": [1.2, 2.4],
+      "channel": 1
+    },
+    "gradual_degradation": {
+      "description_ko": "4~7일에 걸쳐 소요시간이 서서히 증가",
+      "duration_hours": [96, 168],
+      "magnitude_sigma": [2.5, 4.0],
+      "channel": 1
+    },
+    "sustained_overload": {
+      "description_ko": "3~6일 동안 시간당 요청 수가 평소보다 많음",
+      "duration_hours": [72, 144],
+      "magnitude_sigma": [1.2, 2.4],
+      "channel": 0
+    },
+    "sustained_input_drop": {
+      "description_ko": "3~6일 동안 수집은 정상인데 시간당 입력이 줄어듦",
+      "duration_hours": [72, 144],
+      "magnitude_sigma": [1.5, 2.8],
+      "channel": 0
+    },
+    "daily_pattern_change": {
+      "description_ko": "7일 동안 평소와 다른 하루 주기의 요청 패턴이 반복됨",
+      "duration_hours": [168, 168],
+      "magnitude_sigma": [1.4, 2.6],
+      "channel": 0
+    },
+    "volatility_growth": {
+      "description_ko": "3~6일 동안 평균보다 소요시간의 변동성이 커짐",
+      "duration_hours": [72, 144],
+      "magnitude_sigma": [2.0, 3.5],
+      "channel": 1
+    }
+  },
+  "evaluation": {
+    "unit": "one observed hour in the 14-day monitoring horizon",
+    "context_in_metrics": false,
+    "label_expansion_or_point_adjustment": false,
+    "positive_metrics": ["accuracy", "precision", "recall", "f1"],
+    "median_minimum": 0.7,
+    "false_positive_rate_maximum": 0.06,
+    "threshold_selection": "normal calibration and development only; one frozen threshold per model",
+    "test_usage": "once after model selection; read-only report thereafter"
+  },
+  "limitations": [
+    "These are custom semi-synthetic long sequences, not an official ADBench dataset.",
+    "Synthetic AR continuity is assumed; gaps between real exports are never filled as real traffic zeros.",
+    "Success status is a normal candidate filter, not proof of operational normality.",
+    "Retrospective scores may use later hours within the supplied monitoring batch.",
+    "Event parameters and labels are not detector inputs."
+  ]
+}

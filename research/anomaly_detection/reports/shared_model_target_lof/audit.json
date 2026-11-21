@@ -1,0 +1,132 @@
+{
+  "passed": true,
+  "requirements": [
+    {
+      "algorithm": "if",
+      "f1": 0.5500623773548693,
+      "f1_target": 0.4,
+      "normal_false_positive_rate": 0.03153168286561869,
+      "passed": true
+    },
+    {
+      "algorithm": "kmeans",
+      "f1": 0.5009255765901406,
+      "f1_target": 0.5,
+      "normal_false_positive_rate": 0.02424523410369345,
+      "passed": true
+    },
+    {
+      "algorithm": "lof",
+      "f1": 0.530374601400724,
+      "f1_target": 0.5,
+      "normal_false_positive_rate": 0.02476485482536152,
+      "passed": true
+    }
+  ],
+  "all_decisions": 2167766,
+  "normal": 1785918,
+  "anomaly": 381848,
+  "all_original_benchmark_csv_hashes_verified": true,
+  "original_models_and_results_preserved": true,
+  "truth_and_case_alignment_equal": true,
+  "metrics_independently_recomputed": true,
+  "IF_and_kmeans_unchanged": true,
+  "single_estimator_each": true,
+  "adapter_experts": false,
+  "development_case_sets_disjoint": true,
+  "adapter_numeric_sensitivity": [
+    {
+      "algorithm": "if",
+      "active_adapter_features": 9,
+      "score_change_for_changed_adapter_feature": 1.153693148177468
+    },
+    {
+      "algorithm": "kmeans",
+      "active_adapter_features": 9,
+      "score_change_for_changed_adapter_feature": 1.4082557311357797
+    },
+    {
+      "algorithm": "lof",
+      "active_adapter_features": 9,
+      "score_change_for_changed_adapter_feature": 0.48171132802963257
+    }
+  ],
+  "fresh_seed": 41200042,
+  "fresh_confirmation_used_for_reselection": false,
+  "fresh_truth_key_alignment_verified": true,
+  "notebook_executed_code_cells": 6,
+  "notebook_errors": 0,
+  "figures": [
+    {
+      "file": "comparison.png",
+      "sha256": "9066111b0249dcaf6da369a11970b00ae28ade3b442e5e585e2304b602aaad1b"
+    },
+    {
+      "file": "if_threshold.png",
+      "sha256": "9d4436ae8ba5285e5321dd2c2c780f1eeaf49b29a9eb0f4b916f604a6b6986c8"
+    },
+    {
+      "file": "inputs.png",
+      "sha256": "c06d85c4171bd24db59cc9f3dee5d2e419bcce7559caeb464c80df71874dd446"
+    },
+    {
+      "file": "kmeans_threshold.png",
+      "sha256": "ac1229e31520a058c58f6feecfbb602984dd6be033031c4e907aa3b21be580ef"
+    },
+    {
+      "file": "lof_threshold.png",
+      "sha256": "82fb3bc1bef7695f4ab59f890ec6fc0c0ae59c7c61ff489c20228a38a13fdb81"
+    },
+    {
+      "file": "metrics.png",
+      "sha256": "eea404ebd8beb73d66b907bc14b0991d32023bab53bd3fad2d98c0230d12342c"
+    },
+    {
+      "file": "scenarios.png",
+      "sha256": "59db4e61b966329866be37c44e544e5582a831740f4c2bddc56bcd73fa3cdca1"
+    }
+  ],
+  "serving": [
+    {
+      "algorithm": "if",
+      "raw_Process_prediction": true,
+      "prefix_causal": true,
+      "unknown_adapter_finite_global_reference": true,
+      "saved_model_sha256_verified": true
+    },
+    {
+      "algorithm": "kmeans",
+      "raw_Process_prediction": true,
+      "prefix_causal": true,
+      "unknown_adapter_finite_global_reference": true,
+      "saved_model_sha256_verified": true
+    },
+    {
+      "algorithm": "lof",
+      "raw_Process_prediction": true,
+      "prefix_causal": true,
+      "unknown_adapter_finite_global_reference": true,
+      "saved_model_sha256_verified": true
+    }
+  ],
+  "stateful_worker_implemented": false,
+  "model_sha256": "e518f221c3727147a43708b5fe3de8493a9961b717b96ca634c09fe8e9ca4949",
+  "summary_sha256": "f88d783810a8b41bc7f9eb974e30b98e7a3cf2397d5cc9a37189785292ea19a0",
+  "source_sha256": {
+    "audit.py": "15c4b3adf156005ad3c98f6dcc1687594fabd296cb6458e41975f542de76b15b",
+    "calibration.py": "d6658e2bce3e5d3d2a844c3dba1011899d74771449e6071ada8776044364c85a",
+    "confirm.py": "20e50ee544ca304cb9ad76ae066e0300834b55c21d3cc8e5b842ad78e65bc87d",
+    "current_features.py": "8a463078e5ceb12d32f8ecbfee6b9ac789dfce9150ce368438fdd3b92fcc6e91",
+    "evaluate_refined.py": "3a521665b34f8e7c0a31a00641dc1486c1a51d158eeecbc9ce7e07bc0f220d79",
+    "features.py": "0e19cd27cc1439a8c2b5f793531a5c5181dea766598a77b93505ea91b33b26eb",
+    "inference.py": "da6bc832ba3d1ddf169cc2b937ce949c8e2a9c906063d088e386cbb38fb06512",
+    "models.py": "38d04e2a0a1b66db9fcc3abf08489c26ea0f4ae6d4526d776b9eca4204d4e69f",
+    "refine_lof.py": "a38accd6d1a645a9c3f63bc32c13817888efdc4bc8ac28dc1c34bd4eaa675572",
+    "report.py": "480688bcc8eababe1b0ea4af3f4db5e0445ce590bd2327d1f352bcb5701eadcd",
+    "run.py": "66ccf2877c64f8e3c5c931f5d67a109f3c9ec69fb9391ec1420574ea87b8f173",
+    "run_calibration.py": "a5323fc9d9cd69fbeb85aaed68957fd1a0c9c1a64448256311d80896503a3a6c",
+    "run_current.py": "8099487bb9061723f08146236f37c60fd5ba91579dd5ea613f64e80f5d36bf84",
+    "test_target.py": "f8d14ebbb7be43208c38a0168466ed0a8bb4137a99032727d93a9d97eed348ad",
+    "__init__.py": "5954bab559d1a379e0f98793bcbe835534fb4b217bb1c094f02417965dfdd231"
+  }
+}

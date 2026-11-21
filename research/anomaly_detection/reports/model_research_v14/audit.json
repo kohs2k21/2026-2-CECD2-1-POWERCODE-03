@@ -1,0 +1,50 @@
+{
+  "metric_counts_recounted": true,
+  "nine_strategy_margin_flag_equal": true,
+  "unsupported_adapter_exact_fallback": true,
+  "kmeans_v12_predictions_identical": true,
+  "portable_score_equality_algorithms": [
+    "if",
+    "kmeans",
+    "lof"
+  ],
+  "original_models_unchanged": true,
+  "current_benchmark_sha256": "7f2dc4351af6166416f7694df97fb2050cab8d348e5b29d8451fcc36031f3b36",
+  "benchmark_unchanged_from_start": true,
+  "selection_sha256": "3493a9166ddfe51a53714426c47bcabd7ff7006068cf90e006f6f5ba751ac82c",
+  "normal_diversity_provenance": {
+    "sha256": "dd712baae7a0020f9fab55f6028d21c546404c88fee5dd6f0440159d637c4155",
+    "partitions": {
+      "train": {
+        "old_windows": 9593,
+        "additional_windows": 32560,
+        "additional_streams": 540,
+        "sampled_source_templates": 1012,
+        "available_source_templates": 4448,
+        "minutes_per_stream": 60
+      },
+      "calibration": {
+        "old_windows": 11558,
+        "additional_windows": 21686,
+        "additional_streams": 360,
+        "sampled_source_templates": 485,
+        "available_source_templates": 1952,
+        "minutes_per_stream": 60
+      },
+      "threshold": {
+        "old_windows": 10358,
+        "additional_windows": 19272,
+        "additional_streams": 320,
+        "sampled_source_templates": 494,
+        "available_source_templates": 1917,
+        "minutes_per_stream": 60
+      }
+    },
+    "reserved_validation_templates_used": false,
+    "final_controls_used": false,
+    "normal_source_partition_disjoint": true,
+    "synthetic_cadence": true,
+    "new_independent_source_rows_created": false
+  },
+  "selected_model_sha256": "6e309b6d13c5beddba9cd5e35eab704a176a4a47181e2fc18a26fb19a75c71bc"
+}

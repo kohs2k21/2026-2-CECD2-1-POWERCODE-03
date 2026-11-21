@@ -227,5 +227,14 @@ def execute():
 
 
 if __name__=='__main__':
-    p=argparse.ArgumentParser();p.add_argument('--execute',action='store_true');args=p.parse_args();build()
-    if args.execute:execute()
+    p=argparse.ArgumentParser();p.add_argument('--execute',action='store_true')
+    p.add_argument('--historical-v12',action='store_true',help='Explicitly rebuild the historical v12 report')
+    args=p.parse_args()
+    if args.historical_v12:
+        build()
+        if args.execute:execute()
+    else:
+        sys.path.insert(0,str(ROOT/'code'))
+        from model_research_v18.build_notebook import build as latest_build, execute as latest_execute
+        latest_build()
+        if args.execute:latest_execute()

@@ -56,7 +56,10 @@ export function createKeySource({ envKey, filePath, warn = () => {} }: KeySource
       const read = (): SecretKey | null => {
         let text: string;
         try { text = fs.readFileSync(filePath, 'utf8'); } catch (error) {
-          if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null;
+          // 없음 = ENOENT, 또는 경로 중간이 파일이라 있을 수 없음 = ENOTDIR(Linux. Windows는 같은 경우 ENOENT). 둘 다 "키 파일 없음"이고,
+          // 만들기(create)는 그 뒤 폴더 만들기에서 실패해 null이 된다. 그 밖의 읽기 오류(권한·EISDIR 등)는 키를 쓸 수 없음.
+          const code = (error as NodeJS.ErrnoException).code;
+          if (code === 'ENOENT' || code === 'ENOTDIR') return null;
           throw new SecretBoxError('email_secret_key_unavailable');
         }
         const key = decodeKey(text);

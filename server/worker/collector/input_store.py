@@ -88,7 +88,7 @@ def switch(conn,source,*,mode,expected_revision,actor,settings=None,config='keep
     if mode!='paused':
         settings=settings or {}
         if mode=='api':
-            interval=settings.get('pollSeconds',2)
+            interval=settings.get('pollSeconds',1)
             if type(interval) not in (int,float) or not .1<=interval<=3600:raise ValueError('invalid_api_poll_seconds')
             settings={'pollSeconds':interval};replay=None
         else:

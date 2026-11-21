@@ -121,7 +121,7 @@ export function InputControls({ sourceId }: { sourceId: string }) {
   const [replay, setReplay] = useState("");
   const [rate, setRate] = useState(10);
   const [repeat, setRepeat] = useState(1);
-  const [poll, setPoll] = useState(2);
+  const [poll, setPoll] = useState(1);
   const [restart, setRestart] = useState(false);
   const [config, setConfig] = useState("");
   const [actionError, setActionError] = useState("");
@@ -154,7 +154,7 @@ export function InputControls({ sourceId }: { sourceId: string }) {
     setReplay(control.settings?.replayId ?? state?.csvResume?.settings.replayId ?? state?.replays[0]?.id ?? "");
     setRate(control.settings?.rate ?? state?.csvResume?.settings.rate ?? 10);
     setRepeat(control.settings?.repeat ?? state?.csvResume?.settings.repeat ?? 1);
-    setPoll(control.settings?.pollSeconds ?? 2);
+    setPoll(control.settings?.pollSeconds ?? 1);
     setAsk({ target, expectedRevision: control.revision });
   };
   const confirm = () => {

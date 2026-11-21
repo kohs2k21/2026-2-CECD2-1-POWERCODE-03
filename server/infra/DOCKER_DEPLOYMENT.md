@@ -113,7 +113,7 @@ web만 공개 포트 8080을 가진다. api·Detector 직접 전달·LLM 생성 
 
 ## 지속 수집하면서 실시간성 테스트
 
-Collector는 기본 2초 목표 간격으로 겹치지 않게 요청한다. 느린 응답을 따라잡기 위한 병렬 폭주를 만들지 않는다. 페이지·snapshot 저장과 checkpoint는 함께 커밋한다. 수신→그 트랜잭션 commit 시간도 측정하고 각 호출의 sample은 별도로 append한다. sample 저장 직전 프로세스가 중단되면 해당 호출의 측정값이 누락될 수 있지만 이미 커밋한 데이터·checkpoint는 유지된다.
+Collector는 기본 1초 목표 간격으로 겹치지 않게 요청한다. 느린 응답을 따라잡기 위한 병렬 폭주를 만들지 않는다. 페이지·snapshot 저장과 checkpoint는 함께 커밋한다. 수신→그 트랜잭션 commit 시간도 측정하고 각 호출의 sample은 별도로 append한다. sample 저장 직전 프로세스가 중단되면 해당 호출의 측정값이 누락될 수 있지만 이미 커밋한 데이터·checkpoint는 유지된다.
 
 다른 터미널에서 추가 고객 API 호출 없이 Collector의 DB 측정값을 관찰한다:
 

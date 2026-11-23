@@ -1,1 +1,3 @@
 *.safetensors -diff -merge
+# Unified diff context contains required blank markers.
+integration/backend.patch -whitespace

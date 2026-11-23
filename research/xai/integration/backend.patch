@@ -1,0 +1,82 @@
+--- a/server/backend/src/routes/jobRoutes.ts
++++ b/server/backend/src/routes/jobRoutes.ts
+@@ -293,8 +293,11 @@
+     }
+     if (input.kind === 'explain') {
+       const saved = await client.query(`SELECT d.id,d.config_version_id,d.status,d.rule_status,d.ml_status,
+-        d.decision_code,d.anomaly_score,d.evidence,d.input_manifest_hash
++        d.decision_code,d.anomaly_score,d.evidence,d.input_manifest_hash,
++        d.process_observation_id,o.source_id,p.transaction_id,p.process_id,p.status AS process_status,
++        p.start_time_raw,p.end_time_raw,p.total_count::text,p.success_count::text,p.error_count::text
+         FROM run_process_decisions d JOIN data_observations o ON o.id=d.process_observation_id
++        JOIN data_processes p ON p.observation_id=d.process_observation_id
+         WHERE d.id=$1 AND o.source_id=$2`, [input.decisionId,input.sourceId]);
+       if (!saved.rowCount) throw new JobRequestError('decision_not_found',404);
+       const decision = saved.rows[0];
+@@ -304,7 +307,20 @@
+         decisionCode: decision.decision_code, anomalyScore: decision.anomaly_score === null ? null : String(decision.anomaly_score),
+         inputManifestHash: decision.input_manifest_hash,
+         rules: decision.evidence.rules ?? [], models: decision.evidence.models ?? []};
++      // v4: preserve all HR/SR/ML methods, category k and native severity. Legacy jobs unchanged.
++      if (decision.evidence?.schemaVersion === 4) {
++        input.savedEvidence = {decisionId: decision.id, sourceId: decision.source_id,
++          processObservationId: decision.process_observation_id, transactionId: decision.transaction_id,
++          processId: decision.process_id, status: decision.status, inputManifestHash: decision.input_manifest_hash,
++          evidence: decision.evidence,
++          processInput: {observationId: decision.process_observation_id, status: decision.process_status,
++            start_time_raw: decision.start_time_raw, end_time_raw: decision.end_time_raw,
++            total_count: decision.total_count, success_count: decision.success_count, error_count: decision.error_count}};
++      }
+       input.savedEvidenceJson = JSON.stringify(input.savedEvidence);
++      if (Buffer.byteLength(input.savedEvidenceJson, 'utf8') > 256000) {
++        throw new JobRequestError('explanation_input_too_large', 422);
++      }
+       requestHash = crypto.createHash('sha256').update(JSON.stringify(input)).digest('hex');
+     }
+     const protocolExplanation = input.kind === PROTOCOL_EXPLANATION_KIND ? input as ProtocolExplanationInput : null;
+@@ -343,18 +359,26 @@
+     }
+     const id = crypto.randomUUID();
+     const explanation = input.kind === 'explain';
++    const serviceExplanation = explanation &&
++      (input.savedEvidence?.evidence as Record<string, unknown> | undefined)?.schemaVersion === 4;
+     // 설명 큐(llm_explanation): explain·explain_protocol(protocol-explanation-job.md 8절).
+     const explanationQueue = explanation || protocolExplanation !== null;
+     // 설명의 reuse_key는 폐지 전과 같은 배열([요청자, 입력, null, 'grounded-facts-v1'])이라 기존 작업 재사용이 그대로다.
+     const llmSpec = thresholds ? thresholdLlmSpec(input as ThresholdRequest & ThresholdFixedInput, requestHash, req.user!.id, idempotencyKey)
+-      : protocolExplanation ? protocolExplanationLlmSpec(protocolExplanation, requestHash, req.user!.id) : explanation ? {
++      : protocolExplanation ? protocolExplanationLlmSpec(protocolExplanation, requestHash, req.user!.id) : explanation ? (serviceExplanation ? {
++      evidence_version: 'saved-detector-v4-service/1.0.0',
++      input_evidence_hash: crypto.createHash('sha256').update(input.savedEvidenceJson!).digest('hex'),
++      model_version: 'code-grounded-v1', prompt_version: 'xai-service-code/1.0.0',
++      output_schema_version: 'xai-service-report/1.0.0',
++      reuse_key: crypto.createHash('sha256').update(JSON.stringify([req.user!.id, input, null, 'xai-service-code/1.0.0'])).digest('hex'),
++    } : {
+       evidence_version: 'saved-decision-v1',
+       input_evidence_hash: crypto.createHash('sha256').update(input.savedEvidenceJson!).digest('hex'),
+       model_version: 'qwen-base-6a9e13bd',
+       prompt_version: 'grounded-facts-v1',
+       output_schema_version: 'fact-ids-checks-v1',
+       reuse_key: crypto.createHash('sha256').update(JSON.stringify([req.user!.id, input, null, 'grounded-facts-v1'])).digest('hex'),
+-    } : null;
++    }) : null;
+     if (llmSpec) {
+       await client.query('SELECT pg_advisory_xact_lock(81734,hashtext($1))',[llmSpec.reuse_key]);
+       // Check caller idempotency before evidence-based reuse.
+--- a/server/worker/explanation.py
++++ b/server/worker/explanation.py
+@@ -31,6 +31,14 @@
+ 
+ 
+ def explain(job):
++    if job.get("llmSpec", {}).get("evidence_version") == "saved-detector-v4-service/1.0.0":
++        from pathlib import Path
++        import sys
++        xai_root = Path(__file__).resolve().parents[2] / "research/xai"
++        if str(xai_root) not in sys.path:
++            sys.path.insert(0, str(xai_root))
++        from service_bridge.worker import explain_job
++        return explain_job(job)
+     # Store exact bytes as text as PostgreSQL jsonb reorders object keys.
+     raw = job["input"]["savedEvidenceJson"]
+     if not isinstance(raw,str) or len(raw.encode())>256000:

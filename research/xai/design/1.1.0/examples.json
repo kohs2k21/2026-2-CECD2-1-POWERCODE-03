@@ -1,0 +1,767 @@
+[
+  {
+    "kind": "illustrative_contract_fixture_not_training_data_or_inference",
+    "input": {
+      "schema_version": "xai-evidence/1.1.0",
+      "packet_id": "XAI-EXAMPLE-001",
+      "scope": {
+        "kind": "transaction",
+        "transaction_ref": "DEMO-T1",
+        "grain": "P",
+        "entity_ref": "DEMO-T1/DEMO-P"
+      },
+      "decision": {
+        "id": "DECISION-1",
+        "sha256": "90d400e6bdf634582b330b530a79f5eb378c87122382bdbbb82ab3d34bd3596c",
+        "state": "warning",
+        "policy": "research_or",
+        "detector_version": "1.1.0",
+        "basis_method_ids": [
+          "sr:latency",
+          "ml:kmeans:P"
+        ]
+      },
+      "severity": {
+        "status": "rated",
+        "level": "warning",
+        "label": "주의",
+        "label_table_version": "xai-three-level-v2",
+        "policy_version": "EXAMPLE-NOT-APPROVED",
+        "policy_sha256": "ce76b2588ed583a0e36bc7b5a24dcc4d747c5411dd10020b805bd744737bb51d",
+        "determined_by": [
+          "sr:latency"
+        ],
+        "unrated_methods": [
+          "ml:kmeans:P"
+        ],
+        "known_level_is_lower_bound": true,
+        "source_risk_ref": null
+      },
+      "source_refs": [
+        {
+          "source_id": "S1",
+          "snapshot_sha256": "0aae6cb16ac61d8713912cb201a1f3c067d15e0bc4c459138ec863c2f2542681",
+          "table": "P",
+          "source_row_id": "1",
+          "transaction_ref": "DEMO-T1",
+          "process_ref": "DEMO-P",
+          "message_ref": null
+        },
+        {
+          "source_id": "S2",
+          "snapshot_sha256": "0aae6cb16ac61d8713912cb201a1f3c067d15e0bc4c459138ec863c2f2542681",
+          "table": "T",
+          "source_row_id": "1",
+          "transaction_ref": "DEMO-T1",
+          "process_ref": null,
+          "message_ref": null
+        }
+      ],
+      "facts": [
+        {
+          "id": "E1",
+          "kind": "rule_comparison",
+          "state": "warning",
+          "required": true,
+          "source_refs": [
+            "S1"
+          ],
+          "payload": {
+            "method_id": "sr:latency",
+            "role": "numeric_SR",
+            "rule_id": "DEMO-SR-LATENCY",
+            "rule_sha256": "4030b426544ad0685cd95deaeda303bc861e2e3874e495c02d7622f6b9c4076d",
+            "feature_id": "p_elapsed",
+            "definition_sha256": "da087e8e9f6e851f785f4ff23edc25172bdca77741f2cf23aba0ed4f102f128f",
+            "feature_name": "프로세스 처리시간",
+            "observed": "12",
+            "operator": "gt",
+            "threshold": "3",
+            "unit": {
+              "status": "known",
+              "symbol": "초"
+            },
+            "reference": {
+              "kind": "baseline",
+              "id": "DEMO-REFERENCE",
+              "sha256": "2b701773a8ff1b10062d18ca485d0a8cf0f370f51cdb494eb00c394522a01f2c"
+            }
+          }
+        },
+        {
+          "id": "E2",
+          "kind": "ml_score",
+          "state": "warning",
+          "required": true,
+          "source_refs": [
+            "S1"
+          ],
+          "payload": {
+            "method_id": "ml:kmeans:P",
+            "algorithm": "K-means",
+            "model_sha256": "60004475a0d9191f084451639a09a5aa95d3e34b95b6470be43d491c3d918694",
+            "preprocessor_sha256": "5b0cd59830b0a2cb089490bc0a08d3dd21483e9106fa097efcc4520490df7ba0",
+            "feature_space_sha256": "5813d65a3e777e37efc6438aebfa0b49579bafb3aa5eeb3dfb78515d100d3bd6",
+            "score_name": "경고 기준 대비 점수 차이",
+            "score": "0.27",
+            "threshold": "0",
+            "operator": "gt",
+            "score_direction": "larger_is_more_anomalous",
+            "score_grain": "P"
+          }
+        },
+        {
+          "id": "E3",
+          "kind": "observation",
+          "state": "context",
+          "required": false,
+          "source_refs": [
+            "S2"
+          ],
+          "payload": {
+            "field_name": "같은 거래의 최종 상태",
+            "value": "S(성공)",
+            "unit": {
+              "status": "not_applicable",
+              "symbol": null
+            }
+          }
+        }
+      ],
+      "allowed_checks": [
+        "review_source_operation",
+        "review_rule_threshold",
+        "review_model_baseline",
+        "review_input_completeness",
+        "review_recovery_history"
+      ],
+      "provenance": {
+        "kind": "illustrative_fixture",
+        "evidence_snapshot_sha256": "398f84b4a722bd0607896d741a752a8ce1bfeb35e9978b8a8c4800de7e3de684"
+      }
+    },
+    "target_plan": {
+      "schema_version": "xai-plan/1.0.0",
+      "packet_id": "XAI-EXAMPLE-001",
+      "items": [
+        {
+          "template_id": "rule_comparison",
+          "evidence_id": "E1"
+        },
+        {
+          "template_id": "ml_score",
+          "evidence_id": "E2"
+        }
+      ],
+      "next_check_codes": [
+        "review_source_operation"
+      ]
+    }
+  },
+  {
+    "kind": "illustrative_contract_fixture_not_training_data_or_inference",
+    "input": {
+      "schema_version": "xai-evidence/1.1.0",
+      "packet_id": "XAI-EXAMPLE-002",
+      "scope": {
+        "kind": "transaction",
+        "transaction_ref": "DEMO-T2",
+        "grain": "P",
+        "entity_ref": "DEMO-T2/DEMO-P"
+      },
+      "decision": {
+        "id": "DECISION-2",
+        "sha256": "87f3e24871f9dac2d3b4d6963ab9d286024723d21e744ae52549df8f2c519ef0",
+        "state": "warning",
+        "policy": "research_or",
+        "detector_version": "1.1.0",
+        "basis_method_ids": [
+          "ml:if:P"
+        ]
+      },
+      "severity": {
+        "status": "unrated",
+        "level": null,
+        "label": "심각도 미정",
+        "label_table_version": "xai-three-level-v2",
+        "policy_version": "EXAMPLE-NOT-APPROVED",
+        "policy_sha256": "ce76b2588ed583a0e36bc7b5a24dcc4d747c5411dd10020b805bd744737bb51d",
+        "determined_by": [],
+        "unrated_methods": [
+          "ml:if:P"
+        ],
+        "known_level_is_lower_bound": false,
+        "source_risk_ref": null
+      },
+      "source_refs": [
+        {
+          "source_id": "S1",
+          "snapshot_sha256": "8a204fe4e007dd6f69afec8941e813deba36e23c8742e43a3c7609ad60681df9",
+          "table": "P",
+          "source_row_id": "1",
+          "transaction_ref": "DEMO-T2",
+          "process_ref": "DEMO-P",
+          "message_ref": null
+        }
+      ],
+      "facts": [
+        {
+          "id": "E1",
+          "kind": "ml_score",
+          "state": "warning",
+          "required": true,
+          "source_refs": [
+            "S1"
+          ],
+          "payload": {
+            "method_id": "ml:if:P",
+            "algorithm": "IF",
+            "model_sha256": "010230ab1cbf75bf52b5ed9b171933d5ae0c81e71be3922668d8c9a98028c48c",
+            "preprocessor_sha256": "5b0cd59830b0a2cb089490bc0a08d3dd21483e9106fa097efcc4520490df7ba0",
+            "feature_space_sha256": "5813d65a3e777e37efc6438aebfa0b49579bafb3aa5eeb3dfb78515d100d3bd6",
+            "score_name": "경고 기준 대비 점수 차이",
+            "score": "0.18",
+            "threshold": "0",
+            "operator": "gt",
+            "score_direction": "larger_is_more_anomalous",
+            "score_grain": "P"
+          }
+        }
+      ],
+      "allowed_checks": [
+        "review_source_operation",
+        "review_rule_threshold",
+        "review_model_baseline",
+        "review_input_completeness",
+        "review_recovery_history"
+      ],
+      "provenance": {
+        "kind": "illustrative_fixture",
+        "evidence_snapshot_sha256": "abad2c8c4c6e70206e7752b4de6fba02153d028e8cde89c523d4b9b74fa8440c"
+      }
+    },
+    "target_plan": {
+      "schema_version": "xai-plan/1.0.0",
+      "packet_id": "XAI-EXAMPLE-002",
+      "items": [
+        {
+          "template_id": "ml_score",
+          "evidence_id": "E1"
+        }
+      ],
+      "next_check_codes": [
+        "review_model_baseline"
+      ]
+    }
+  },
+  {
+    "kind": "illustrative_contract_fixture_not_training_data_or_inference",
+    "input": {
+      "schema_version": "xai-evidence/1.1.0",
+      "packet_id": "XAI-EXAMPLE-003",
+      "scope": {
+        "kind": "transaction",
+        "transaction_ref": "DEMO-T3",
+        "grain": "P",
+        "entity_ref": "DEMO-T3/DEMO-P"
+      },
+      "decision": {
+        "id": "DECISION-3",
+        "sha256": "62fcd709985b35aa67e664f7ffc538ed580b45fa862ba6be218aa90e299e4bd3",
+        "state": "unavailable",
+        "policy": "research_or",
+        "detector_version": "1.1.0",
+        "basis_method_ids": []
+      },
+      "severity": {
+        "status": "not_applicable",
+        "level": null,
+        "label": "해당 없음",
+        "label_table_version": "xai-three-level-v2",
+        "policy_version": "EXAMPLE-NOT-APPROVED",
+        "policy_sha256": "ce76b2588ed583a0e36bc7b5a24dcc4d747c5411dd10020b805bd744737bb51d",
+        "determined_by": [],
+        "unrated_methods": [],
+        "known_level_is_lower_bound": false,
+        "source_risk_ref": null
+      },
+      "source_refs": [
+        {
+          "source_id": "S1",
+          "snapshot_sha256": "6a5ff2fdb3e0e884b2b005b11997e9aae0ed37a649a01a1c31f1710d55ed17dd",
+          "table": "P",
+          "source_row_id": "1",
+          "transaction_ref": "DEMO-T3",
+          "process_ref": "DEMO-P",
+          "message_ref": null
+        }
+      ],
+      "facts": [
+        {
+          "id": "E1",
+          "kind": "unavailable",
+          "state": "unavailable",
+          "required": true,
+          "source_refs": [
+            "S1"
+          ],
+          "payload": {
+            "method_id": "sr:latency",
+            "check_name": "프로세스 처리시간 규칙",
+            "reason_code": "source_missing",
+            "missing_fields": [
+              "P.START_TIME"
+            ]
+          }
+        }
+      ],
+      "allowed_checks": [
+        "review_source_operation",
+        "review_rule_threshold",
+        "review_model_baseline",
+        "review_input_completeness",
+        "review_recovery_history"
+      ],
+      "provenance": {
+        "kind": "illustrative_fixture",
+        "evidence_snapshot_sha256": "f187ae84c95f93ac752addd1a9dabb8b48720875b1532965b7655c4ee95321c5"
+      }
+    },
+    "target_plan": {
+      "schema_version": "xai-plan/1.0.0",
+      "packet_id": "XAI-EXAMPLE-003",
+      "items": [
+        {
+          "template_id": "unavailable",
+          "evidence_id": "E1"
+        }
+      ],
+      "next_check_codes": [
+        "review_input_completeness"
+      ]
+    }
+  },
+  {
+    "kind": "illustrative_contract_fixture_not_training_data_or_inference",
+    "input": {
+      "schema_version": "xai-evidence/1.1.0",
+      "packet_id": "XAI-EXAMPLE-004",
+      "scope": {
+        "kind": "single_method",
+        "transaction_ref": "DEMO-T4",
+        "grain": "P",
+        "entity_ref": "DEMO-T4/DEMO-P"
+      },
+      "decision": {
+        "id": "DECISION-4",
+        "sha256": "6f180282f1b2ba154005eaa33c33b953ae3c08d1413009fcf550fa2362d9ac39",
+        "state": "warning",
+        "policy": "research_or",
+        "detector_version": "1.1.0",
+        "basis_method_ids": [
+          "sr:ratio-alternative"
+        ]
+      },
+      "severity": {
+        "status": "rated",
+        "level": "info",
+        "label": "참고",
+        "label_table_version": "xai-three-level-v2",
+        "policy_version": "EXAMPLE-NOT-APPROVED",
+        "policy_sha256": "ce76b2588ed583a0e36bc7b5a24dcc4d747c5411dd10020b805bd744737bb51d",
+        "determined_by": [
+          "sr:ratio-alternative"
+        ],
+        "unrated_methods": [],
+        "known_level_is_lower_bound": false,
+        "source_risk_ref": null
+      },
+      "source_refs": [
+        {
+          "source_id": "S1",
+          "snapshot_sha256": "9a88c526694159439333edaf23ce90997f47fc86b2fd877d22416f0a13697f09",
+          "table": "P",
+          "source_row_id": "1",
+          "transaction_ref": "DEMO-T4",
+          "process_ref": "DEMO-P",
+          "message_ref": null
+        }
+      ],
+      "facts": [
+        {
+          "id": "E1",
+          "kind": "ratio_alternative",
+          "state": "warning",
+          "required": true,
+          "source_refs": [
+            "S1"
+          ],
+          "payload": {
+            "method_id": "sr:ratio-alternative",
+            "original_rule_id": "DEMO-RATIO",
+            "alternative_rule_id": "DEMO-COUNT-ALTERNATIVE",
+            "alternative_rule_sha256": "40f3cb1f2dc9684216a94a62a93288ffdbd4b8d672db1f59c4a07d4ab42227cd",
+            "denominator": "0",
+            "alternative_feature_name": "전체 건수 - 실패 건수",
+            "alternative_value": "2",
+            "operator": "gt",
+            "threshold": "1",
+            "unit": {
+              "status": "known",
+              "symbol": "건"
+            },
+            "reference": {
+              "kind": "baseline",
+              "id": "DEMO-REFERENCE",
+              "sha256": "2b701773a8ff1b10062d18ca485d0a8cf0f370f51cdb494eb00c394522a01f2c"
+            }
+          }
+        }
+      ],
+      "allowed_checks": [
+        "review_source_operation",
+        "review_rule_threshold",
+        "review_model_baseline",
+        "review_input_completeness",
+        "review_recovery_history"
+      ],
+      "provenance": {
+        "kind": "illustrative_fixture",
+        "evidence_snapshot_sha256": "7b95c17edd71465efb1c0bed4793158eb29ca478230706160d9fa82d14c3f1fb"
+      }
+    },
+    "target_plan": {
+      "schema_version": "xai-plan/1.0.0",
+      "packet_id": "XAI-EXAMPLE-004",
+      "items": [
+        {
+          "template_id": "ratio_alternative",
+          "evidence_id": "E1"
+        }
+      ],
+      "next_check_codes": [
+        "review_source_operation"
+      ]
+    }
+  },
+  {
+    "kind": "illustrative_contract_fixture_not_training_data_or_inference",
+    "input": {
+      "schema_version": "xai-evidence/1.1.0",
+      "packet_id": "XAI-EXAMPLE-005",
+      "scope": {
+        "kind": "transaction",
+        "transaction_ref": "DEMO-T5",
+        "grain": "P",
+        "entity_ref": "DEMO-T5/DEMO-P"
+      },
+      "decision": {
+        "id": "DECISION-5",
+        "sha256": "11eaf8daeeee5563ea489b6c0e5f20e51ec9710926549d1b7a4b007e3a592c02",
+        "state": "warning",
+        "policy": "research_or",
+        "detector_version": "1.1.0",
+        "basis_method_ids": [
+          "sr:status-review"
+        ]
+      },
+      "severity": {
+        "status": "rated",
+        "level": "info",
+        "label": "참고",
+        "label_table_version": "xai-three-level-v2",
+        "policy_version": "EXAMPLE-NOT-APPROVED",
+        "policy_sha256": "ce76b2588ed583a0e36bc7b5a24dcc4d747c5411dd10020b805bd744737bb51d",
+        "determined_by": [
+          "sr:status-review"
+        ],
+        "unrated_methods": [],
+        "known_level_is_lower_bound": false,
+        "source_risk_ref": null
+      },
+      "source_refs": [
+        {
+          "source_id": "S1",
+          "snapshot_sha256": "0da7e523cebf2c03da7b0b4ffe86073a5aef0c53d2b6565a1d3c268d56d08a5c",
+          "table": "P",
+          "source_row_id": "1",
+          "transaction_ref": "DEMO-T5",
+          "process_ref": "DEMO-P",
+          "message_ref": null
+        },
+        {
+          "source_id": "S2",
+          "snapshot_sha256": "0da7e523cebf2c03da7b0b4ffe86073a5aef0c53d2b6565a1d3c268d56d08a5c",
+          "table": "T",
+          "source_row_id": "1",
+          "transaction_ref": "DEMO-T5",
+          "process_ref": null,
+          "message_ref": null
+        }
+      ],
+      "facts": [
+        {
+          "id": "E1",
+          "kind": "logical_rule",
+          "state": "warning",
+          "required": true,
+          "source_refs": [
+            "S1",
+            "S2"
+          ],
+          "payload": {
+            "method_id": "sr:status-review",
+            "role": "logical_SR",
+            "rule_id": "DEMO-STATUS-REVIEW",
+            "rule_sha256": "67f60e237a529559a512455b4eb6e24ad9da50cd5af280d2966a6321000dbbba",
+            "condition_id": "DEMO-T-S-P-F",
+            "approved_statement": "거래는 S(성공)이며 하위 프로세스에 F(실패) 기록이 있는 조합",
+            "matched_values": [
+              {
+                "field_ref": "T.STATUS",
+                "value": "S"
+              },
+              {
+                "field_ref": "P.STATUS",
+                "value": "F"
+              }
+            ],
+            "reference": {
+              "kind": "rule_spec",
+              "id": "DEMO-LOGIC-SPEC",
+              "sha256": "8b66f819669f65a74d14797098b58adc44fa7ecb389db4ef35edfee04f16b2f4"
+            }
+          }
+        }
+      ],
+      "allowed_checks": [
+        "review_source_operation",
+        "review_rule_threshold",
+        "review_model_baseline",
+        "review_input_completeness",
+        "review_recovery_history"
+      ],
+      "provenance": {
+        "kind": "illustrative_fixture",
+        "evidence_snapshot_sha256": "b65855fc3818ce85813ab04cecad4b21eaa85358cc79a55773d879ea0dc35e91"
+      }
+    },
+    "target_plan": {
+      "schema_version": "xai-plan/1.0.0",
+      "packet_id": "XAI-EXAMPLE-005",
+      "items": [
+        {
+          "template_id": "logical_rule",
+          "evidence_id": "E1"
+        }
+      ],
+      "next_check_codes": [
+        "review_source_operation"
+      ]
+    }
+  },
+  {
+    "kind": "illustrative_contract_fixture_not_training_data_or_inference",
+    "input": {
+      "schema_version": "xai-evidence/1.1.0",
+      "packet_id": "XAI-EXAMPLE-006",
+      "scope": {
+        "kind": "transaction",
+        "transaction_ref": "DEMO-T6",
+        "grain": "P",
+        "entity_ref": "DEMO-T6/DEMO-P"
+      },
+      "decision": {
+        "id": "DECISION-6",
+        "sha256": "cabc5e675f64dab8f324bf37c46ab5696ccdb925acda8e7fb1856ce94ab71825",
+        "state": "warning",
+        "policy": "research_or",
+        "detector_version": "1.1.0",
+        "basis_method_ids": [
+          "sr:latency-critical"
+        ]
+      },
+      "severity": {
+        "status": "rated",
+        "level": "critical",
+        "label": "위험",
+        "label_table_version": "xai-three-level-v2",
+        "policy_version": "EXAMPLE-NOT-APPROVED",
+        "policy_sha256": "ce76b2588ed583a0e36bc7b5a24dcc4d747c5411dd10020b805bd744737bb51d",
+        "determined_by": [
+          "sr:latency-critical"
+        ],
+        "unrated_methods": [],
+        "known_level_is_lower_bound": false,
+        "source_risk_ref": null
+      },
+      "source_refs": [
+        {
+          "source_id": "S1",
+          "snapshot_sha256": "2dd818a4c5465fefa0245c661d780063fe487703d560066589e8aa4f9a665675",
+          "table": "P",
+          "source_row_id": "1",
+          "transaction_ref": "DEMO-T6",
+          "process_ref": "DEMO-P",
+          "message_ref": null
+        }
+      ],
+      "facts": [
+        {
+          "id": "E1",
+          "kind": "rule_comparison",
+          "state": "warning",
+          "required": true,
+          "source_refs": [
+            "S1"
+          ],
+          "payload": {
+            "method_id": "sr:latency-critical",
+            "role": "numeric_SR",
+            "rule_id": "DEMO-SR-CRITICAL",
+            "rule_sha256": "dfe115ab452a84a264a9da106d18cd5a10929a1629595b4fe949fbfdf4e08440",
+            "feature_id": "p_elapsed",
+            "definition_sha256": "da087e8e9f6e851f785f4ff23edc25172bdca77741f2cf23aba0ed4f102f128f",
+            "feature_name": "프로세스 처리시간",
+            "observed": "60",
+            "operator": "gt",
+            "threshold": "30",
+            "unit": {
+              "status": "known",
+              "symbol": "초"
+            },
+            "reference": {
+              "kind": "baseline",
+              "id": "DEMO-REFERENCE",
+              "sha256": "2b701773a8ff1b10062d18ca485d0a8cf0f370f51cdb494eb00c394522a01f2c"
+            }
+          }
+        }
+      ],
+      "allowed_checks": [
+        "review_source_operation",
+        "review_rule_threshold",
+        "review_model_baseline",
+        "review_input_completeness",
+        "review_recovery_history"
+      ],
+      "provenance": {
+        "kind": "illustrative_fixture",
+        "evidence_snapshot_sha256": "31cfde885b537faad2c69ab23bbc8e2f4bdd3c2b5a62e72848ae71513dc83b44"
+      }
+    },
+    "target_plan": {
+      "schema_version": "xai-plan/1.0.0",
+      "packet_id": "XAI-EXAMPLE-006",
+      "items": [
+        {
+          "template_id": "rule_comparison",
+          "evidence_id": "E1"
+        }
+      ],
+      "next_check_codes": [
+        "review_source_operation"
+      ]
+    }
+  },
+  {
+    "kind": "illustrative_contract_fixture_not_training_data_or_inference",
+    "input": {
+      "schema_version": "xai-evidence/1.1.0",
+      "packet_id": "XAI-EXAMPLE-007",
+      "scope": {
+        "kind": "transaction",
+        "transaction_ref": "DEMO-T7",
+        "grain": "P",
+        "entity_ref": "DEMO-T7/DEMO-P"
+      },
+      "decision": {
+        "id": "DECISION-7",
+        "sha256": "6d1d263dfba5655bc3acea25badb7eedf490a2812dbe7448d1dfcad8f4a1a7c2",
+        "state": "nonwarning",
+        "policy": "research_or",
+        "detector_version": "1.1.0",
+        "basis_method_ids": []
+      },
+      "severity": {
+        "status": "not_applicable",
+        "level": null,
+        "label": "해당 없음",
+        "label_table_version": "xai-three-level-v2",
+        "policy_version": "EXAMPLE-NOT-APPROVED",
+        "policy_sha256": "ce76b2588ed583a0e36bc7b5a24dcc4d747c5411dd10020b805bd744737bb51d",
+        "determined_by": [],
+        "unrated_methods": [],
+        "known_level_is_lower_bound": false,
+        "source_risk_ref": null
+      },
+      "source_refs": [
+        {
+          "source_id": "S1",
+          "snapshot_sha256": "8edfe579889f6a65793efa6c8cfe71f25c7f6a78e1c3af933f1584702eadb929",
+          "table": "P",
+          "source_row_id": "1",
+          "transaction_ref": "DEMO-T7",
+          "process_ref": "DEMO-P",
+          "message_ref": null
+        }
+      ],
+      "facts": [
+        {
+          "id": "E1",
+          "kind": "rule_comparison",
+          "state": "nonwarning",
+          "required": true,
+          "source_refs": [
+            "S1"
+          ],
+          "payload": {
+            "method_id": "sr:latency",
+            "role": "numeric_SR",
+            "rule_id": "DEMO-SR-LATENCY",
+            "rule_sha256": "4030b426544ad0685cd95deaeda303bc861e2e3874e495c02d7622f6b9c4076d",
+            "feature_id": "p_elapsed",
+            "definition_sha256": "da087e8e9f6e851f785f4ff23edc25172bdca77741f2cf23aba0ed4f102f128f",
+            "feature_name": "프로세스 처리시간",
+            "observed": "1",
+            "operator": "gt",
+            "threshold": "3",
+            "unit": {
+              "status": "known",
+              "symbol": "초"
+            },
+            "reference": {
+              "kind": "baseline",
+              "id": "DEMO-REFERENCE",
+              "sha256": "2b701773a8ff1b10062d18ca485d0a8cf0f370f51cdb494eb00c394522a01f2c"
+            }
+          }
+        }
+      ],
+      "allowed_checks": [
+        "review_source_operation",
+        "review_rule_threshold",
+        "review_model_baseline",
+        "review_input_completeness",
+        "review_recovery_history"
+      ],
+      "provenance": {
+        "kind": "illustrative_fixture",
+        "evidence_snapshot_sha256": "ffe7191c215942bbc235b5eca22dfc46996e114a54fc0f28c331a0059c40dfaa"
+      }
+    },
+    "target_plan": {
+      "schema_version": "xai-plan/1.0.0",
+      "packet_id": "XAI-EXAMPLE-007",
+      "items": [
+        {
+          "template_id": "rule_comparison",
+          "evidence_id": "E1"
+        }
+      ],
+      "next_check_codes": [
+        "review_source_operation"
+      ]
+    }
+  }
+]

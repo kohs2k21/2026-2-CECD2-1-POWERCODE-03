@@ -1,0 +1,13 @@
+{
+  "existing_research_preserved": true,
+  "transplanted_function": {
+    "name": "projected_view",
+    "source": "research/xai/improve_explanations.py",
+    "function_source_sha256": "6b6f4efbc39dcf456f9c958b00abbf13a808be512d006e42f6b60e26c38b99fd",
+    "unchanged": true,
+    "scope": "pure projection only; private dataset-dependent preparation CLI excluded"
+  },
+  "original_files_changed": false,
+  "real_customer_rows_bundled": 0,
+  "LLM_GPU_calls_during_publication": 0
+}

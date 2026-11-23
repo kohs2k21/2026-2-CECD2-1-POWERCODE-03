@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "const": "xai-input-rejection/1.0.0"
+    },
+    "packet_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "status": {
+      "const": "input_rejected"
+    },
+    "error_code": {
+      "enum": [
+        "source_integrity_error",
+        "source_binding_error",
+        "decision_mismatch",
+        "severity_configuration_error",
+        "invalid_packet"
+      ]
+    },
+    "message_code": {
+      "const": "explanation_input_requires_review"
+    },
+    "detector_decision_unchanged": {
+      "const": true
+    }
+  },
+  "required": [
+    "schema_version",
+    "packet_id",
+    "status",
+    "error_code",
+    "message_code",
+    "detector_decision_unchanged"
+  ],
+  "additionalProperties": false
+}

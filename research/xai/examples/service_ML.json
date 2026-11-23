@@ -1,0 +1,286 @@
+{
+  "decisionId": "30000000-0000-4000-8000-000000000001",
+  "sourceId": "10000000-0000-4000-8000-000000000001",
+  "processObservationId": "20000000-0000-4000-8000-000000000001",
+  "transactionId": "synthetic-tx",
+  "processId": "synthetic-process",
+  "status": "complete",
+  "inputManifestHash": "95fb516f6788b92b6829d731457e97f8454d6f23b33a015dbffb8af29de64b0b",
+  "evidence": {
+    "schemaVersion": 4,
+    "rules": [
+      {
+        "ruleKey": "process-status",
+        "version": "process-status-hr-v2",
+        "sourceId": "10000000-0000-4000-8000-000000000001",
+        "observedStatus": "S",
+        "result": "no_hit",
+        "severity": null,
+        "reason": null
+      },
+      {
+        "ruleKey": "negative-duration",
+        "version": "negative-duration-v1",
+        "result": "no_hit"
+      },
+      {
+        "ruleKey": "success-with-error",
+        "version": "success-with-error-v1",
+        "result": "no_hit"
+      },
+      {
+        "ruleKey": "count-conservation",
+        "version": "count-conservation-v1",
+        "result": "no_hit"
+      }
+    ],
+    "models": [
+      {
+        "modelKey": "iforest",
+        "anomalous": true
+      }
+    ],
+    "checkers": {
+      "hr": {
+        "status": "succeeded",
+        "anomalous": false,
+        "evidence": [
+          {
+            "ruleKey": "process-status",
+            "version": "process-status-hr-v2",
+            "sourceId": "10000000-0000-4000-8000-000000000001",
+            "observedStatus": "S",
+            "result": "no_hit",
+            "severity": null,
+            "reason": null
+          }
+        ]
+      },
+      "sr": {
+        "status": "skipped",
+        "anomalous": null,
+        "evidence": []
+      },
+      "ml": {
+        "status": "succeeded",
+        "anomalous": true,
+        "evidence": [
+          {
+            "modelKey": "iforest",
+            "anomalous": true
+          }
+        ]
+      }
+    },
+    "anomalous": true,
+    "requestedMode": "parallel",
+    "actualPaths": [
+      "rule",
+      "ml"
+    ],
+    "detectionPolicy": {
+      "version": 2,
+      "policyKey": "category-k-of-n-or-v1",
+      "k": {
+        "hard": 1,
+        "soft": 1,
+        "ml": 1
+      },
+      "deadlineMs": 3000
+    },
+    "detectionPolicyRevision": 1,
+    "activeModelSetRevision": 1,
+    "ruleSeverities": [],
+    "ruleSetRevision": 1,
+    "ruleSetHash": "7789315a39cb34c0b2044f4352edc110384c8f33e14b08c8a1dd4420bbcc69a3",
+    "methodResults": [
+      {
+        "methodId": "hard:process-status",
+        "category": "hard",
+        "methodVersion": "process-status-hr-v2",
+        "status": "succeeded",
+        "anomalous": false,
+        "code": null,
+        "severity": null,
+        "riskLevel": null,
+        "riskLevelReason": null,
+        "cause": null,
+        "failureCode": null,
+        "elapsedMs": 1.0,
+        "evidence": [
+          {
+            "observedStatus": "S",
+            "result": "no_hit"
+          }
+        ]
+      },
+      {
+        "methodId": "hard:negative-duration",
+        "category": "hard",
+        "methodVersion": "negative-duration-v1",
+        "status": "succeeded",
+        "anomalous": false,
+        "code": null,
+        "severity": null,
+        "riskLevel": null,
+        "riskLevelReason": null,
+        "cause": null,
+        "failureCode": null,
+        "elapsedMs": 2.0,
+        "evidence": [
+          {
+            "result": "no_hit"
+          }
+        ]
+      },
+      {
+        "methodId": "hard:success-with-error",
+        "category": "hard",
+        "methodVersion": "success-with-error-v1",
+        "status": "succeeded",
+        "anomalous": false,
+        "code": null,
+        "severity": null,
+        "riskLevel": null,
+        "riskLevelReason": null,
+        "cause": null,
+        "failureCode": null,
+        "elapsedMs": 3.0,
+        "evidence": [
+          {
+            "result": "no_hit"
+          }
+        ]
+      },
+      {
+        "methodId": "hard:count-conservation",
+        "category": "hard",
+        "methodVersion": "count-conservation-v1",
+        "status": "succeeded",
+        "anomalous": false,
+        "code": null,
+        "severity": null,
+        "riskLevel": null,
+        "riskLevelReason": null,
+        "cause": null,
+        "failureCode": null,
+        "elapsedMs": 4.0,
+        "evidence": [
+          {
+            "result": "no_hit"
+          }
+        ]
+      },
+      {
+        "methodId": "ml:iforest",
+        "category": "ml",
+        "methodVersion": "if-1",
+        "status": "succeeded",
+        "anomalous": true,
+        "code": "ML_IFOREST",
+        "severity": null,
+        "riskLevel": null,
+        "riskLevelReason": "level_undefined",
+        "cause": null,
+        "failureCode": null,
+        "elapsedMs": 5.0,
+        "evidence": [],
+        "modelVersionId": "50000000-0000-4000-8000-000000000001",
+        "score": 0.75,
+        "scoreDetail": {
+          "raw": 0.75,
+          "threshold": "0.5",
+          "direction": "higher_is_anomaly",
+          "thresholdPolicy": "reference-p99",
+          "normalized": {
+            "kind": "threshold_ratio",
+            "value": 1.5
+          }
+        }
+      }
+    ],
+    "categoryResults": {
+      "hard": {
+        "n": 4,
+        "k": 1,
+        "result": "normal",
+        "status": "succeeded",
+        "anomalous": false
+      },
+      "soft": {
+        "n": 0,
+        "k": 1,
+        "result": "skipped",
+        "status": "skipped",
+        "anomalous": null
+      },
+      "ml": {
+        "n": 1,
+        "k": 1,
+        "result": "anomalous",
+        "status": "succeeded",
+        "anomalous": true
+      }
+    },
+    "composite": {
+      "policy": {
+        "version": 2,
+        "policyKey": "category-k-of-n-or-v1",
+        "k": {
+          "hard": 1,
+          "soft": 1,
+          "ml": 1
+        }
+      },
+      "status": "complete",
+      "anomalous": true,
+      "grade": "anomaly_sign",
+      "basisMethods": [
+        "ml:iforest"
+      ],
+      "firstAnomalyElapsedMs": 5.0,
+      "risk": {
+        "policy": "risk-max-v1",
+        "levelTable": "method-defined-v2",
+        "status": "unrated",
+        "level": null,
+        "determinedBy": [],
+        "unratedMethods": [
+          "ml:iforest"
+        ]
+      }
+    },
+    "outcomes": {
+      "classificationVersion": "detector-outcomes-v1"
+    },
+    "telemetry": {
+      "scope": "synthetic_integration_fixture"
+    },
+    "statusRulePolicy": {
+      "version": "process-status-hr-v2",
+      "sourceId": "10000000-0000-4000-8000-000000000001",
+      "mapping": {
+        "S": "no_hit",
+        "F": "critical",
+        "P": "warning",
+        "N": "info",
+        "H": "info",
+        "Z": "warning"
+      }
+    },
+    "observation": {
+      "id": "20000000-0000-4000-8000-000000000001",
+      "revisionNo": 1
+    },
+    "inputManifestHash": "95fb516f6788b92b6829d731457e97f8454d6f23b33a015dbffb8af29de64b0b"
+  },
+  "processInput": {
+    "observationId": "20000000-0000-4000-8000-000000000001",
+    "status": "S",
+    "start_time_raw": "2026-08-10 10:00:00",
+    "end_time_raw": "2026-08-10 10:00:01",
+    "total_count": "3",
+    "success_count": "3",
+    "error_count": "0"
+  }
+}

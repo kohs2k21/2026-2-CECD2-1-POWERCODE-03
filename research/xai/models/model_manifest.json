@@ -1,0 +1,56 @@
+{
+  "contract": "xai-model-delivery/1.0.0",
+  "issue": 237,
+  "base": {
+    "repo_id": "Qwen/Qwen3.6-27B",
+    "revision": "6a9e13bd6fc8f0983b9b99948120bc37f49c13e9",
+    "bundled": false
+  },
+  "adapter": {
+    "path": "models/xai_summary_lora_v1",
+    "weights_file": "adapter_model.safetensors",
+    "weights_sha256": "c8f98ff98bdb32d75932b3efaa2b44c04e3a7707fff265babae2add0e2b2766e",
+    "bytes": 95136344,
+    "published_config_sha256": "dc946960cd29d32fbbe91753d018bf25916e5034dfcb60b192a79225de2fbdfe",
+    "original_config_sha256": "d255a42bb500bebf61e3655861f2e78289a61ecdad16a007fe367fe2d460e9d2",
+    "weights_changed": false,
+    "config_change": "replace developer local Base path with pinned model repo/revision"
+  },
+  "training": {
+    "method": "QLoRA supervised fine-tuning",
+    "train_cases": 64,
+    "validation_cases": 12,
+    "test_cases": 16,
+    "teacher": "AI/code-verified silver; not expert incident labels",
+    "selected_epoch": 2,
+    "selection": "validation answer-token-weighted NLL",
+    "lora_rank": 8,
+    "lora_alpha": 16,
+    "lora_dropout": 0.05,
+    "epochs": 2,
+    "optimizer_steps": 32,
+    "trainable_parameters": 23760896,
+    "optimizer": "AdamW",
+    "learning_rate": 0.0001,
+    "seed": 42,
+    "loss": "assistant answer plus EOS only"
+  },
+  "runtime": {
+    "recommended_output": "xai-evidence-selection/1.0.0",
+    "model_role": "select existing evidence IDs only",
+    "code_role": "verify provenance, retain all details, render values/decisions/severity/follow-up guidance",
+    "default_service": "code only; no automatic GPU call",
+    "portable_wrapper_GPU_reevaluated": false
+  },
+  "source": {
+    "original_training_date": "2026-11-17",
+    "last_actual_generation_date": "2026-11-20",
+    "service_code_date": "2026-11-23"
+  },
+  "limits": {
+    "actual_cause_truth": false,
+    "independent_enterprise_reviews": 0,
+    "LLM_superiority": "not_established",
+    "chat": false
+  }
+}

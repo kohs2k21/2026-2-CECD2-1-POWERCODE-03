@@ -1,0 +1,11 @@
+{
+  "status": "passed",
+  "summary": "Ran 100 tests in 4.027s",
+  "wall_seconds": 4.939766915049404,
+  "scope": "portable published files and synthetic inputs only; no customer datasets",
+  "new_model_training": 0,
+  "new_model_GPU_calls": 0,
+  "model_wrapper_GPU_reexecution": false,
+  "production_DB_or_JWT_server_test": false,
+  "TypeScript_check": false
+}

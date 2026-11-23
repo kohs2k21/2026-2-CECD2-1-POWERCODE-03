@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "const": "xai-plan/1.0.0"
+    },
+    "packet_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "template_id": {
+            "enum": [
+              "rule_comparison",
+              "logical_rule",
+              "ml_score",
+              "unavailable",
+              "ratio_alternative",
+              "observation",
+              "ml_attribution"
+            ]
+          },
+          "evidence_id": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "template_id",
+          "evidence_id"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 1
+    },
+    "next_check_codes": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "review_source_operation",
+          "review_rule_threshold",
+          "review_model_baseline",
+          "review_input_completeness",
+          "review_recovery_history"
+        ]
+      },
+      "minItems": 0,
+      "maxItems": 3,
+      "uniqueItems": true
+    }
+  },
+  "required": [
+    "schema_version",
+    "packet_id",
+    "items",
+    "next_check_codes"
+  ],
+  "additionalProperties": false
+}

@@ -1,7 +1,9 @@
 """Grounded explanation: only saved facts and bounded, explicitly tentative checks."""
 import hashlib
 import json
+import logging
 from generation_client import generate
+from ml_attribution_text import INVALID as ATTRIBUTION_INVALID, VERSION as ATTRIBUTION_VERSION, render as render_attribution
 
 CHECKS = {
     "review_input_completeness": "입력 결측·수집 상태를 확인하세요.",
@@ -12,11 +14,49 @@ CHECKS = {
 
 
 def facts_for(evidence):
+    # methodResults 원본은 모델에 넘기지 않는다(기여도는 코드가 만든 ml_attribution 사실로 대신). 키가 없는 근거는 이전과 같다.
+    items = [(key, value) for key, value in evidence.items() if key != "methodResults"]
     return [{"id": f"fact_{index}", "name": key, "value": value}
-            for index, (key, value) in enumerate(evidence.items())]
+            for index, (key, value) in enumerate(items)]
 
 
-def validate_output(output, facts):
+# 근거의 ML 기여도 상태(methodResults[ml].attribution.status) → 결과 contributionStatus. 키가 없으면 not_computed,
+# 읽을 수 없는 기록(형식 어긋남·모르는 version)은 unreadable(Detector 계산 실패 failed와 구분).
+CONTRIBUTION = {"succeeded": "computed", "failed": "failed", "unreadable": "unreadable", "skipped": "skipped"}
+PRECEDENCE = ("succeeded", "failed", "unreadable", "skipped")
+ATTRIBUTION_FACT = "ml_attribution"
+
+
+def attribution_fact(evidence, index):
+    """근거에 기여도가 있는 ML 방법 결과가 있으면 (계산 성공분 사실 또는 None, contributionStatus).
+
+    사실은 하나(name ml_attribution)이고 값은 계산 성공한 ML 방법마다 코드가 저장값으로 만든 문장과 쓴 수치다.
+    상태가 여럿이면 computed > failed > unreadable > skipped. 기여도 키가 하나도 없으면 (None, not_computed) — 이전 동작 그대로.
+    읽을 수 없는 기여도는 사실에서 빼고 unreadable로 센다(경고 explanation_attribution_invalid). 설명 작업은 계속한다.
+    """
+    methods = evidence.get("methodResults") if isinstance(evidence, dict) else None
+    # 항목 키: methodId·category·score·attribution. score는 문장의 허용 오차 기준(없으면 기여도 원점수).
+    found = [(m.get("methodId"), m.get("score"), m["attribution"]) for m in (methods if isinstance(methods, list) else ())
+             if isinstance(m, dict) and m.get("category") == "ml" and "attribution" in m]
+    statuses, value = set(), []
+    for method, score, attribution in found:
+        status = attribution.get("status") if isinstance(attribution, dict) else None
+        try:
+            if status not in ("succeeded", "failed", "skipped") or attribution.get("version") != ATTRIBUTION_VERSION:
+                raise ValueError(ATTRIBUTION_INVALID)
+            if status == "succeeded":
+                value.append({"methodId": method, **render_attribution(attribution, score)})
+        except ValueError as error:
+            if str(error) != ATTRIBUTION_INVALID:
+                raise
+            logging.getLogger(__name__).warning("%s: %s", ATTRIBUTION_INVALID, method)
+            status = "unreadable"
+        statuses.add(status)
+    status = next((CONTRIBUTION[s] for s in PRECEDENCE if s in statuses), "not_computed")
+    return ({"id": f"fact_{index}", "name": ATTRIBUTION_FACT, "value": value} if value else None), status
+
+
+def validate_output(output, facts, required=(), contribution_status="not_computed"):
     if not isinstance(output, dict) or set(output) != {"factIds", "nextChecks"}:
         raise ValueError("explanation_schema_rejected")
     ids, checks = output["factIds"], output["nextChecks"]
@@ -25,9 +65,10 @@ def validate_output(output, facts):
         raise ValueError("explanation_unknown_fact")
     if not isinstance(checks, list) or len(checks) > 4 or any(not isinstance(v,str) or v not in CHECKS for v in checks) or len(set(checks)) != len(checks):
         raise ValueError("explanation_unknown_check")
-    return {"facts": [f for f in facts if f["id"] in ids],
+    # required: 코드가 만든 사실(기여도 문장)은 모델이 고르지 않아도 결과에 넣는다(사실 순서 그대로).
+    return {"facts": [f for f in facts if f["id"] in ids or f["id"] in required],
             "nextChecks": [{"code": code,"text": CHECKS[code]} for code in checks],
-            "causeStatus": "unconfirmed", "contributionStatus": "not_computed"}
+            "causeStatus": "unconfirmed", "contributionStatus": contribution_status}
 
 
 def explain(job):
@@ -42,7 +83,11 @@ def explain(job):
     if digest != job["llmSpec"]["input_evidence_hash"]:
         raise ValueError("explanation_evidence_hash_mismatch")
     facts = facts_for(evidence)
+    extra, contribution = attribution_fact(evidence, len(facts))
+    if extra is not None:
+        facts.append(extra)
     receipt = generate("explain", {"facts": facts, "allowedChecks": list(CHECKS)})
     if receipt.get("truncated") is not False or not isinstance(receipt.get("output"),dict):
         raise ValueError("explanation_generation_incomplete")
-    return {"decisionId": job["input"]["decisionId"], **validate_output(receipt["output"], facts)}
+    required = (extra["id"],) if extra is not None else ()
+    return {"decisionId": job["input"]["decisionId"], **validate_output(receipt["output"], facts, required, contribution)}

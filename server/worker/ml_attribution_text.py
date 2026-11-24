@@ -133,7 +133,7 @@ def _value(text: str) -> str:
 
 
 def _percent(share: Any) -> str:
-    return format((_decimal(share) * 100).quantize(Decimal(1), rounding=ROUND_HALF_UP), "f") + "%"
+    return format(_unsigned_zero((_decimal(share) * 100).quantize(Decimal(1), rounding=ROUND_HALF_UP)), "f") + "%"
 
 
 def _name(feature: str) -> str:

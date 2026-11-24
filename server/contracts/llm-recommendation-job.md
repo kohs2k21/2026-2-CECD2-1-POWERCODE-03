@@ -1,5 +1,5 @@
 Created: 2026-10-21T00:00:00+09:00
-Updated: 2026-11-15T19:20:00+09:00
+Updated: 2026-11-25T12:00:00+09:00
 Author: Claude Code (Trainer 세션 builder, 6·7·10차 LLM 세션 builder, 10차 PR ② WebUI builder)
 Status: draft
 
@@ -16,6 +16,7 @@ Status: draft
 - 9차 보강(11/15, 동작 설명만): Rule v3 필드 병렬 처리(선택, `LLM_REPLICA_GPUS`) — 아래 Rule v3 경로 절 "GPU 복제본". 작업·결과 형식·항목 내용과 순서·실패 코드는 그대로
 - 11차 보강(11/16, 동작 설명만): GPU 복제본이 생성 중 메모리 부족·프로세스 종료로 꺼지면 그 묶음을 남은 실행기에서 다시 돌리고, 적재 전 여유 메모리 검사(`LLM_REPLICA_MIN_FREE_MB`)를 더함 — 아래 "GPU 복제본". 작업·결과 형식·항목 내용과 순서·실패 코드 집합은 그대로
 - 10차 개정(11/15 사용자 결정 1~6, LLM 세션): **이상 징후 후보 대상 + 범위(scope)별 p95**. Trainer `recommend_relations`의 처리 시간 후보(`thresholdCandidates[]`)도 대상이 되고(요청 `scope.candidateIds`), 결과 항목 1건은 필드가 아니라 **(필드, 적용 범위 `scope`) 묶음**이다. `input_spec.targets[]` 새 모양 `{kind, id, field, scope, threshold}`, rule_v3 새 `llm_spec.evidence_version: soft-rule-threshold-v3`, 결과 `items[]`에 `scope`·`candidateIds[]` 추가(형식 버전 v1 유지), 상한 = 묶음 ≤ 32·대상 ≤ 64, 현재 쪽 유효 값 0개는 코드가 `no_applicable`, `threshold-stats` 요청 `scope`. 숫자는 여전히 코드 계산(후보도 워커가 다시 계산)이고 LLM은 상태·문장만. 아래 "10차" 절. **구현 상태: 워커는 PR ①로 구현(옛·새 모양 모두 받음), API 접수·후보 조회·`threshold-stats` `scope`·화면·공용 예시 json은 PR ②로 구현** — PR ② 뒤 API는 모든 `recommend_thresholds` 작업에 새 대상 모양과 `soft-rule-threshold-v3`를 기록한다(10차 절)
+- 12차 개정(11/25, LLM 세션 — AI 근거 요약 `evidence-summary-v1` 워커 쪽): `explain` 새 형식(`llm_spec.evidence_version` `summary-sentences-v1`)은 생성 서비스 새 종류 `polish_explanation`(경량 다듬기 모델, 평문)으로 코드 문장을 한 문단으로 다듬고 워커가 확인한다. 생성 실패는 재시도 없는 실패(`generation_busy`·`generation_timeout`도 바로 `failed`), 새 오류 코드 `llm_model_mismatch`, `/health` 본문에 `polishModel`. 아래 "AI 근거 요약 다듬기" 절. 이전 형식(`saved-decision-v1`) 작업 동작은 그대로
 - 8차 정정(11/14, LLM 세션): `input_spec.ruleSetContentHashVersion`에 3 허용 — 룰 세트 hash v3([rule-set.md](rule-set.md) 룰 세트 v3 절)로 저장된 리비전에서도 작업이 `invalid_rule_set_reference`로 끝나지 않게 워커 검사를 1·2·3으로 넓힘. 작업·결과 형식은 그대로
 - 계약 버전: `threshold-recommendation-v1`. 근거 코드 origin/dev `7f24e03`: `worker/research_design.py:36-44`(summary·p95 `np.quantile` linear), `:154-199`(`rule_request` — 기준선 = train 분할·anomaly 라벨 제외 p95, `minimum_n 20`, 단위 `count|ratio|ms|s|us`), `:202-234`(`recommend_rules` — 변수당 LLM 1회 순차, 검증 탈락은 변수만 제외, `str(request["baseline"]["value"])`로 DSL 값 생성), `worker/generation_client.py:54-55`(`TimeoutError`를 `generation_service_unavailable`로 묶음), `backend/src/rules/ruleContract.ts:17`(DSL 십진수 정규식, 지수 표기 거부)
 - 상위 결정: 사용자 11/02 결정 — 임계값 산출 주체(8.1), AI 추천 단위 일괄 + 규칙별 수식(R5), 현재 코드 실행 조사(9.1), 화면 설계(9.2: (가)(나) 모두 담고 (가)로 먼저 연결). 절 번호는 총괄 기록 기준
@@ -30,7 +31,7 @@ Status: draft
 | `recommend_feature` | 폐지 유지 [확정 10/21] | 신규 요청은 API가 422 `job_kind_abolished`로 거절(11/13). 입력 변수 세트는 필드 선택 등록(`POST /api/jobs/feature-sets`, trainer-service.md) |
 | `recommend_methods` | **보류** [제안] | #74 "등록 방법 중 선택 추천"의 ML 선택 부분. 모델 카탈로그·레지스트리·IF 파라미터화 Issue 뒤 재검토. `job_kind` 값(011)·`run_llm_results.kind` CHECK는 유지, API 접수·worker 분기는 구현하지 않음. 폐지가 아니라 "현 단계 범위 밖" |
 | `recommend_thresholds` | **신규** | 이 문서 |
-| `explain` | 작업 형식 변경 없음 | GPU 차례 우선·대기 상한·`generation_busy`는 아래 GPU 차례 절 |
+| `explain` | (12차) 새 형식 `summary-sentences-v1` 추가, 이전 형식 `saved-decision-v1` 그대로 | GPU 차례 우선·대기 상한·`generation_busy`는 아래 GPU 차례 절, 새 형식은 아래 "AI 근거 요약 다듬기" 절 |
 
 - 폐지 두 종류의 남은 대기·임대 작업은 워커가 실행 없이(LLM 호출·스냅샷 없음) 재시도 없는 `failed`·`job_kind_abolished`로 끝낸다. 기존 `run_llm_results` 행은 읽기 보존
 
@@ -287,14 +288,46 @@ Status: draft
 - GPU 생성은 한 번에 하나(`generation_service.GenerationGate`). GPU가 비면 기다리는 `explain`(대화형)을 `rule`·`feature` 생성(작업: `recommend_*`·`recommend_thresholds`)보다 먼저 넣고, 같은 등급은 도착 순. 실행 중인 생성은 끊지 않음
 - 대기 상한: `explain`만 `LLM_EXPLANATION_WAIT_SECONDS`(기본 10초). 생성 시간 상한 `LLM_EXPLANATION_SECONDS`(기본 60초)와 따로 셈. 작업 대기는 상한 없음(생성 상한 `LLM_RECOMMENDATION_SECONDS` 기본 240초·출력 한도 그대로)
 - 상한 초과: `generation_busy` — HTTP 503 본문 `{"code":"generation_busy"}`(장애 503 `generation_failed`와 본문 코드로 구분), 클라이언트와 같은 프로세스 호출 모두 `GenerationUnavailable("generation_busy")`. 요청 검증·토큰 예산 거부는 대기 전에 판단(422 그대로)
-- 작업 결과: `explain` 작업은 `error_code` `generation_busy`로 재시도(다른 재시도 실패의 `job_processing_failed`와 같은 흐름 — 5초 뒤 다시 대기, 최대 시도 3회 뒤 `failed` + `generation_busy`). 화면은 오류 코드를 그대로 보임
+- 작업 결과: 이전 형식(`saved-decision-v1`) `explain` 작업은 `error_code` `generation_busy`로 재시도(다른 재시도 실패의 `job_processing_failed`와 같은 흐름 — 5초 뒤 다시 대기, 최대 시도 3회 뒤 `failed` + `generation_busy`). 화면은 오류 코드를 그대로 보임. (12차) 새 형식(`summary-sentences-v1`)은 재시도 없이 바로 `failed` + `generation_busy`(아래 "AI 근거 요약 다듬기" 절)
+- (12차) `polish_explanation`도 대화형 등급이다(같은 차례·대기 상한·생성 시간 상한 `LLM_EXPLANATION_SECONDS`·출력 512 토큰). 모델만 기반 모델이 아니라 따로 적재한 다듬기 모델이다
 - 소비자: `llm_worker`는 같은 모델로 두 소비자를 돌림 — 주 소비자(역할 `llm`, 기존 교대 소비 `llm_recommendation`↔`llm_explanation` 그대로)와 설명 전용 소비자(역할 `llm_explanation`, `llm_explanation` 큐 + 이전 `training` 큐의 `explain`만, 자기 큐만 정리). 추천 생성이 GPU를 쓰는 동안 설명 전용 소비자가 받은 설명은 다음 차례에 먼저 들어감. 설명 전용 소비자가 예외로 끝나면 기록 후 5초 뒤 다시 시작하고, 그동안 설명은 주 소비자가 처리
 - 같은 순서가 HTTP `/generate` 요청에도 적용됨(한 프로세스 안의 모든 생성 호출)
+
+## AI 근거 요약 다듬기 — `explain` `summary-sentences-v1` [12차, 워커 쪽]
+
+설명 작업의 새 형식이다. 백엔드가 저장 근거로 코드 문장을 만들고(문장 틀·문구는 백엔드), 워커는 경량 모델로 한 문단으로 다듬은 뒤 사실 보존을 확인만 한다. 문장 생성·근거 고르기·확인할 것 고르기는 LLM이 하지 않는다. 화면 동작·판정 상세 응답·접수 재사용은 [analysis-ui.md](analysis-ui.md)와 백엔드 계약 몫이다.
+
+- `llm_spec`: `evidence_version` `summary-sentences-v1`, `prompt_version` `evidence-polish-v1`(지시문 + 아래 확인 규칙 집합, 하나라도 바꾸면 올림), `output_schema_version` `evidence-polish-result-v1`, `model_version` = 접수 때 생성 서비스 `/health`의 `polishModel`. 워커는 앞의 셋이 이 값이 아니거나 `model_version`이 빈 문자열이면 `explanation_input_rejected`
+- 접수 입력(`input_spec`): `kind`(`explain`)·`sourceId`·`decisionId`·`configVersionId`·`templateVersion`(빈 문자열 아님), `sentences`(문자열 1~8개, 각 300자·합 1,200자 이하 — 코드 포인트, 빈 문장·줄바꿈·사용 영역 문자 U+E000–U+F8FF 없음), `stateWords`(판정 낱말 순서열), `valueTokens`(0~16개, 각 1~120자, 각각 어떤 문장에 그대로 있음), 선택 `allowedNumbers`(숫자 문자열 — 쉼표·소수 허용, 단위 없음). 그 밖의 키가 있으면 거부. 워커는 원천 근거를 읽지 않고 `input_evidence_hash`를 다시 확인하지 않는다
+- 워커 흐름: ① 입력 형식 확인 ② 코드 문단(`codeText` = `sentences`를 공백 1칸으로 이음)에서 아래 가림·순서열을 직접 뽑아 `stateWords`(순서열)·`allowedNumbers`(정규화한 숫자의 다중집합)와 대조 — 다르면 `explanation_input_rejected` ③ `polish_explanation` 호출(입력 `{sentences}`만) ④ 출력(앞뒤 공백 제거)을 확인 규칙으로 검사
+- 생성 서비스 `polish_explanation`: 평문 출력(JSON 아님), 탐욕 생성. 응답 `{output: 문자열, truncated, modelVersion, promptVersion}`. `modelVersion` = `<모델 이름>@<모델 폴더 hash 앞 8자리>`(폴더 안 모든 파일의 상대 경로·SHA-256 목록의 SHA-256, 시작 때 1회). 다듬기 모델을 적재하지 않았으면(설정 없음·적재 실패, 시작 로그 `polish_disabled: <코드>`) 이 종류만 생성 서비스 꺼짐이고 `/health`는 `polishModel: null`
+- 가림(추출 전에 이 순서로, 각 단계 안에서는 긴 것 먼저, 토큰마다 사용 영역 자리표 한 글자): (가) `valueTokens` 원문 (나) 시각 `\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:\d{2})?)?` (다) 이름표 `처리량(TOTAL_COUNT)`·`SUCCESS_COUNT`·`ERROR_COUNT`·`RETRY_COUNT`·`오류 비율 값`·`처리 시간`·`이상 규칙`·`이상 징후 규칙`·`관계 규칙`·`머신러닝 모델`·`정상 프로토콜`(라틴으로 시작·끝나는 이름표는 앞뒤에 `[A-Za-z0-9_]`가 붙으면 가리지 않음) (라) 라틴 식별자 `[A-Za-z](?:[A-Za-z0-9_]|[.:\-](?=[A-Za-z0-9_]))*` — 단 숫자 바로 뒤(공백 0~1칸)의 `ms`(뒤에 `[A-Za-z0-9_]` 없음)는 단위로 남김. 입력·출력에 원래 있던 사용 영역 문자는 자리표와 섞이지 않게 비문자로 바꿈(출력이면 검사 4 실패)
+- 순서열(가린 문자열에서): 판정 낱말 `이상 신호 없음`·`정상 여부 미확인`·`이상 징후`·`평가 불가`·`이상`·`정상`(긴 것 먼저) / 숫자 `-?[0-9][0-9,]*(\.[0-9]+)?` + 바로 뒤(공백 0~1칸) 단위 `ms`·`%`·`초`·`분`·`시간`·`개`의 `(숫자, 단위)` 쌍(정규화: 쉼표 제거, 소수부 끝 0·끝 점 제거, 정수부 앞 0·부호 보존, 단위 없으면 빈 문자열) / 순서 낱말(부분 문자열) `이번`·`평소`·`기준`·`길어`·`짧아`·`커서`·`작아`·`늦어`·`높아`·`낮아`·`달라`·`같아`·`지연`·`단축`·`벗어나`·`해당해`·`없어`·`않`·`아니`·`못`
+- 확인 규칙(이 순서, 첫 실패 코드만): 1 `polish_empty`(빈 출력) 2 `polish_multi_paragraph`(줄바꿈) 3 `polish_too_long`(코드 포인트 수 > `L + min(60, ⌈0.2·L⌉)`, L = `codeText` 길이) 4 `polish_not_korean`(가린 문자열에서 숫자의 부호·단위 `ms`를 뺀 뒤 한글·ASCII 숫자·공백·기호·자리표 밖 문자 — 라틴·한자·가나·제어 문자 등) 5 `polish_markup`(허용 밖 기호. 허용 = `. , ( )` + 가린 코드 문단에 있는 `≥ > ≤ < → · — % ~`. 코드 문단이 그렇게 시작하지 않는데 줄머리 목록 기호로 시작해도 실패) 6 `polish_name_changed`(가림 토큰 (종류, 원문) 다중집합이 다름) 7 `polish_number_changed`(`(숫자, 단위)` 순서열이 다름) 8 `polish_state_changed`(판정 낱말 순서열이 다름) 9 `polish_direction_changed`(순서 낱말 순서열이 다름) 10 `polish_forbidden`(아래 패턴 중 하나라도 코드 문단보다 많이 나옴)
+- 금지 패턴: `원인`·`장애`·`때문`·`인해`·`인한`(앞 글자 `확`이면 제외)·`탓`·`추정`·`가능성`·`보장`·`위험`·`주의`·`심각`·`문제`·`필요`·`권장`·`하세요`·`바랍니다`·`참고용`·`담당자`·`아닙니다`·`많다`·`많아`·`많은`·`적다`·`적어`·`적은`, `건`(앞이 숫자·공백이고 뒤가 한글이 아닐 때만)
+- 확인 규칙의 통과·실패·기대 대체 예는 공용 벡터 [evidence-polish-check-vectors.json](evidence-polish-check-vectors.json)(워커 시험 `test_evidence_polish`가 읽음). 활용 바꿈(`길었고`)·절 순서 바꿈·ISO가 아닌 원천 시각 값 바꿈은 확인 실패(코드 문장 표시)가 맞는 동작이다
+
+| 상황 | 작업 | 결과 |
+|---|---|---|
+| 확인 통과 | `succeeded` | `paragraph.source=llm`, `check={status:"passed", code:null}` |
+| 확인 실패 | `succeeded` | `paragraph = {text: codeText, source: "code"}`, `check={status:"failed", code:<첫 실패 코드>}` |
+| 출력 잘림(출력 한도) | `succeeded` | 코드 문장, `check={status:"not_run", code:"generation_incomplete"}`(검사 안 함) |
+| 생성 서비스 꺼짐·연결 실패·다듬기 모델 없음 | `failed` `generation_service_unavailable` | 없음 |
+| GPU 차례 대기 초과 | `failed` `generation_busy`(재시도 없음) | 없음 |
+| 생성 시간 초과 | `failed` `generation_timeout` | 없음 |
+| 생성 응답 모델 id ≠ `model_version` | `failed` `llm_model_mismatch` | 없음 |
+| 생성 응답 지시문 버전 ≠ `prompt_version` | `failed` `generation_prompt_version_mismatch` | 없음 |
+| 생성 요청 거부(토큰 예산 등)·응답 형식 어긋남 | `failed` `generation_contract_rejected` | 없음 |
+| 입력 형식·재계산 불일치·`llm_spec` 고정 값 다름 | `failed` `explanation_input_rejected` | 없음 |
+
+- 결과(`result_summary` = `run_llm_results.output`): `{outputSchemaVersion: "evidence-polish-result-v1", decisionId, templateVersion, codeText, paragraph: {text, source}, check: {status, code}, modelVersion}`(`modelVersion` = `llm_spec.model_version`). 이전 형식 결과(`facts`·`nextChecks`·`causeStatus`·`contributionStatus`)와는 `outputSchemaVersion` 유무로 가른다
+- 실패는 모두 워커가 종료 실패로 끝낸다(재시도 없음). 접수 쪽 `run_jobs.max_attempts = 1`과 같은 결과다
+- 배포: 다듬기 모델은 선택 override `infra/compose.evidence-polish.yaml`로 켠다(환경 변수는 그 파일과 `infra/DOCKER_DEPLOYMENT.md`). 첫 배포 모델은 하나이고, 바꾸면 `model_version`이 바뀌어 재사용 키가 갈린다
 
 ## 생성 서비스 가용성 — 꺼져 있으면 LLM 작업 접수 거절 [확정 사용자 11/14]
 
 - 배경: 생성 서비스(`llm` 컨테이너)가 꺼져 있으면 LLM 작업이 소비자 없이 `queued`로 남고 화면은 `요청 중`을 계속 보인다. 사용자 결정 = 요청 버튼 비활성 + 상태 코드, 안내 문구 추가 없음
-- API 내부 확인: `GET ${LLM_HEALTH_URL:-http://llm:8010/health}`, 제한 1.5초(연결부터 응답 본문까지 전체). 가용 = HTTP 200이고 본문 `status`가 `"ready"`(`generation_service.serve`의 `/health` 응답). 연결 거부·DNS 실패·시간 초과·200 아님(3xx는 따라가지 않음)·본문 형식 틀림(JSON 아님·4KB 초과·`status`가 다름)은 모두 꺼짐
+- API 내부 확인: `GET ${LLM_HEALTH_URL:-http://llm:8010/health}`, 제한 1.5초(연결부터 응답 본문까지 전체). 가용 = HTTP 200이고 본문 `status`가 `"ready"`(`generation_service.serve`의 `/health` 응답 `{"status":"ready","polishModel":<다듬기 모델 id 또는 null>}`, (12차) `polishModel`은 AI 근거 요약 다듬기 절). 연결 거부·DNS 실패·시간 초과·200 아님(3xx는 따라가지 않음)·본문 형식 틀림(JSON 아님·4KB 초과·`status`가 다름)은 모두 꺼짐
 - 의미: `llm_worker`는 모델을 적재한 뒤에야 HTTP를 띄우고 주 소비자가 끝나면 프로세스도 끝난다 → `/health` 200 = 모델 적재 + 소비자 살아 있음. 적재 중(`/health` 없음)은 꺼짐
 - 캐시: 가용·꺼짐 결과 모두 확인이 끝난 시각부터 10초(API 프로세스 메모리, 재시작하면 비어 있음). 확인 중에 들어온 요청은 같은 확인을 기다린다 — 동시 요청이 몰려도 `/health`는 한 번
 - `GET /api/llm/status`(로그인 사용자, 역할 무관, 미인증 401) → `{"available": boolean, "checkedAt": "<ISO>", "errorCode": null | "generation_service_unavailable"}`. `available=false`면 `errorCode`는 늘 `generation_service_unavailable`. `checkedAt`은 그 결과를 얻은 확인 시각(캐시된 결과면 캐시된 시각). `Cache-Control: no-store`

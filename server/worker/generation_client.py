@@ -9,6 +9,10 @@ import urllib.parse
 import urllib.request
 
 
+# AI 근거 요약 다듬기(평문 출력). evidence_polish.GENERATION_KIND와 같은 값(이 모듈은 가볍게 두려고 import하지 않음).
+POLISH_KIND = "polish_explanation"
+
+
 class GenerationUnavailable(RuntimeError):
     pass
 
@@ -50,7 +54,7 @@ def _rejection_code(error: urllib.error.HTTPError) -> str:
 def generate(kind: str, payload: dict, *, report_timeout: bool = False) -> dict:
     """`report_timeout`은 시간 초과를 `generation_timeout`으로 받을 호출만 켠다. 기존 작업은 이전 분류 그대로다."""
     if _LOCAL_MODEL is not None:
-        from generation_service import GenerationBusy
+        from generation_service import GenerationBusy, PolishModelUnavailable
         try:
             if not report_timeout:
                 return _LOCAL_MODEL.generate(kind, payload)
@@ -60,6 +64,8 @@ def generate(kind: str, payload: dict, *, report_timeout: bool = False) -> dict:
                 raise GenerationUnavailable("generation_timeout") from exc
         except GenerationBusy as exc:
             raise GenerationUnavailable("generation_busy") from exc
+        except PolishModelUnavailable as exc:  # 다듬기 모델을 적재하지 않음 = 그 기능의 생성 서비스 꺼짐
+            raise GenerationUnavailable("generation_service_unavailable") from exc
     url = os.environ.get("DESIGN_MODEL_URL", "")
     token = os.environ.get("DESIGN_MODEL_TOKEN", "")
     parsed = urllib.parse.urlsplit(url)
@@ -68,7 +74,7 @@ def generate(kind: str, payload: dict, *, report_timeout: bool = False) -> dict:
     http_hosts = {"127.0.0.1", "localhost"}
     if internal_host:
         http_hosts.add(internal_host)
-    if kind not in {"feature", "rule", "explain", "explain_protocol"} or not token or not (
+    if kind not in {"feature", "rule", "explain", "explain_protocol", POLISH_KIND} or not token or not (
         parsed.scheme == "https" or parsed.scheme == "http" and parsed.hostname in http_hosts
     ) or parsed.username or parsed.password or parsed.query or parsed.fragment:
         raise GenerationUnavailable("generation_service_not_configured")
@@ -96,6 +102,11 @@ def generate(kind: str, payload: dict, *, report_timeout: bool = False) -> dict:
         timed_out = isinstance(exc, TimeoutError) or isinstance(getattr(exc, "reason", None), TimeoutError)
         raise GenerationUnavailable("generation_timeout" if report_timeout and timed_out
                                     else "generation_service_unavailable") from exc
+    if kind == POLISH_KIND:
+        # 다듬기는 평문 출력이고 잘림도 결과다(워커가 코드 문장으로 완료).
+        if not isinstance(result, dict) or not isinstance(result.get("truncated"), bool) or not isinstance(result.get("output"), str):
+            raise ValueError("invalid_generation_response")
+        return result
     if not isinstance(result, dict) or result.get("truncated") is not False or not isinstance(result.get("output"), dict):
         raise ValueError("invalid_generation_response")
     return result

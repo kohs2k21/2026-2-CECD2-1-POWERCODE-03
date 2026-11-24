@@ -1,0 +1,2332 @@
+{
+  "promptVersion": "evidence-polish-v1",
+  "templateVersion": "evidence-template-v1",
+  "description": "AI 근거 요약 다듬기 확인(4.2) 공용 벡터 (b). 설명용 합성 수치만 쓴다. expected.stateWords·numbers·orderWords·maskedTokens는 코드 문장 쪽 추출값, source·code는 candidate(다듬은 문단) 확인 결과다. kind: pass / fail / expected_fallback(대체가 맞는 경우).",
+  "cases": [
+    {
+      "id": "pass_ml_two_sentences",
+      "kind": "pass",
+      "sentences": [
+        "머신러닝 모델이 이번 처리 시간 4,200 ms를 평소 값 800 ms와 비교했고, 더 길어 판단에 가장 크게 영향을 주었습니다(영향 62%).",
+        "다음으로 처리량(TOTAL_COUNT)·ERROR_COUNT·오류 비율 값이 평소와 달라 영향을 주었습니다(영향 31%)."
+      ],
+      "valueTokens": [],
+      "candidate": "머신러닝 모델은 이번 처리 시간 4,200 ms를 평소 값 800 ms와 비교했고, 더 길어서 판단에 가장 크게 영향을 주었습니다(영향 62%). 처리량(TOTAL_COUNT)·ERROR_COUNT·오류 비율 값도 평소와 달라 영향을 주었습니다(영향 31%).",
+      "expected": {
+        "source": "llm",
+        "code": null,
+        "stateWords": [],
+        "numbers": [
+          [
+            "4200",
+            "ms"
+          ],
+          [
+            "800",
+            "ms"
+          ],
+          [
+            "62",
+            "%"
+          ],
+          [
+            "31",
+            "%"
+          ]
+        ],
+        "orderWords": [
+          "이번",
+          "평소",
+          "길어",
+          "평소",
+          "달라"
+        ],
+        "maskedTokens": [
+          [
+            "label",
+            "ERROR_COUNT"
+          ],
+          [
+            "label",
+            "머신러닝 모델"
+          ],
+          [
+            "label",
+            "오류 비율 값"
+          ],
+          [
+            "label",
+            "처리 시간"
+          ],
+          [
+            "label",
+            "처리량(TOTAL_COUNT)"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "pass_hard_success_with_error",
+      "kind": "pass",
+      "sentences": [
+        "이상 규칙이 처리 상태 S와 ERROR_COUNT를 함께 확인했고, 성공 상태인데 ERROR_COUNT가 0보다 커서 이상으로 판단했습니다."
+      ],
+      "valueTokens": [],
+      "candidate": "이상 규칙은 처리 상태 S와 ERROR_COUNT를 함께 확인했고, 성공 상태인데 ERROR_COUNT가 0보다 커서 이상으로 판단했습니다.",
+      "expected": {
+        "source": "llm",
+        "code": null,
+        "stateWords": [
+          "이상"
+        ],
+        "numbers": [
+          [
+            "0",
+            ""
+          ]
+        ],
+        "orderWords": [
+          "커서"
+        ],
+        "maskedTokens": [
+          [
+            "identifier",
+            "S"
+          ],
+          [
+            "label",
+            "ERROR_COUNT"
+          ],
+          [
+            "label",
+            "ERROR_COUNT"
+          ],
+          [
+            "label",
+            "이상 규칙"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "pass_mixed_soft_and_ml",
+      "kind": "pass",
+      "sentences": [
+        "이상 징후 규칙이 이번 처리 시간 4,200 ms를 기준 3,000 ms와 비교했고, 기준(≥)에 해당해 이상 징후로 판단했습니다.",
+        "머신러닝 모델이 이번 처리 시간 4,200 ms를 평소 값 800 ms와 비교했고, 더 길어 판단에 가장 크게 영향을 주었습니다(영향 62%).",
+        "다음으로 처리량(TOTAL_COUNT)·ERROR_COUNT·오류 비율 값이 평소와 달라 영향을 주었습니다(영향 31%)."
+      ],
+      "valueTokens": [],
+      "candidate": "이상 징후 규칙은 이번 처리 시간 4,200 ms를 기준 3,000 ms와 비교했고, 기준(≥)에 해당해 이상 징후로 판단했습니다. 머신러닝 모델은 이번 처리 시간 4,200 ms를 평소 값 800 ms와 비교했고, 더 길어서 판단에 가장 크게 영향을 주었습니다(영향 62%). 처리량(TOTAL_COUNT)·ERROR_COUNT·오류 비율 값도 평소와 달라 영향을 주었습니다(영향 31%).",
+      "expected": {
+        "source": "llm",
+        "code": null,
+        "stateWords": [
+          "이상 징후"
+        ],
+        "numbers": [
+          [
+            "4200",
+            "ms"
+          ],
+          [
+            "3000",
+            "ms"
+          ],
+          [
+            "4200",
+            "ms"
+          ],
+          [
+            "800",
+            "ms"
+          ],
+          [
+            "62",
+            "%"
+          ],
+          [
+            "31",
+            "%"
+          ]
+        ],
+        "orderWords": [
+          "이번",
+          "기준",
+          "기준",
+          "해당해",
+          "이번",
+          "평소",
+          "길어",
+          "평소",
+          "달라"
+        ],
+        "maskedTokens": [
+          [
+            "label",
+            "ERROR_COUNT"
+          ],
+          [
+            "label",
+            "머신러닝 모델"
+          ],
+          [
+            "label",
+            "오류 비율 값"
+          ],
+          [
+            "label",
+            "이상 징후 규칙"
+          ],
+          [
+            "label",
+            "처리 시간"
+          ],
+          [
+            "label",
+            "처리 시간"
+          ],
+          [
+            "label",
+            "처리량(TOTAL_COUNT)"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "pass_number_forms_4200_equal",
+      "kind": "pass",
+      "sentences": [
+        "머신러닝 모델이 이번 처리 시간 4,200 ms를 평소 값 800 ms와 비교했고, 더 길어 판단에 가장 크게 영향을 주었습니다(영향 62%).",
+        "다음으로 처리량(TOTAL_COUNT)·ERROR_COUNT·오류 비율 값이 평소와 달라 영향을 주었습니다(영향 31%)."
+      ],
+      "valueTokens": [],
+      "candidate": "머신러닝 모델은 이번 처리 시간 4200 ms를 평소 값 800 ms와 비교했고, 더 길어서 판단에 가장 크게 영향을 주었습니다(영향 62%). 처리량(TOTAL_COUNT)·ERROR_COUNT·오류 비율 값도 평소와 달라 영향을 주었습니다(영향 31%).",
+      "expected": {
+        "source": "llm",
+        "code": null,
+        "stateWords": [],
+        "numbers": [
+          [
+            "4200",
+            "ms"
+          ],
+          [
+            "800",
+            "ms"
+          ],
+          [
+            "62",
+            "%"
+          ],
+          [
+            "31",
+            "%"
+          ]
+        ],
+        "orderWords": [
+          "이번",
+          "평소",
+          "길어",
+          "평소",
+          "달라"
+        ],
+        "maskedTokens": [
+          [
+            "label",
+            "ERROR_COUNT"
+          ],
+          [
+            "label",
+            "머신러닝 모델"
+          ],
+          [
+            "label",
+            "오류 비율 값"
+          ],
+          [
+            "label",
+            "처리 시간"
+          ],
+          [
+            "label",
+            "처리량(TOTAL_COUNT)"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "pass_number_forms_4200_0_equal",
+      "kind": "pass",
+      "sentences": [
+        "머신러닝 모델이 이번 처리 시간 4,200 ms를 평소 값 800 ms와 비교했고, 더 길어 판단에 가장 크게 영향을 주었습니다(영향 62%).",
+        "다음으로 처리량(TOTAL_COUNT)·ERROR_COUNT·오류 비율 값이 평소와 달라 영향을 주었습니다(영향 31%)."
+      ],
+      "valueTokens": [],
+      "candidate": "머신러닝 모델은 이번 처리 시간 4200.0 ms를 평소 값 800 ms와 비교했고, 더 길어서 판단에 가장 크게 영향을 주었습니다(영향 62%). 처리량(TOTAL_COUNT)·ERROR_COUNT·오류 비율 값도 평소와 달라 영향을 주었습니다(영향 31%).",
+      "expected": {
+        "source": "llm",
+        "code": null,
+        "stateWords": [],
+        "numbers": [
+          [
+            "4200",
+            "ms"
+          ],
+          [
+            "800",
+            "ms"
+          ],
+          [
+            "62",
+            "%"
+          ],
+          [
+            "31",
+            "%"
+          ]
+        ],
+        "orderWords": [
+          "이번",
+          "평소",
+          "길어",
+          "평소",
+          "달라"
+        ],
+        "maskedTokens": [
+          [
+            "label",
+            "ERROR_COUNT"
+          ],
+          [
+            "label",
+            "머신러닝 모델"
+          ],
+          [
+            "label",
+            "오류 비율 값"
+          ],
+          [
+            "label",
+            "처리 시간"
+          ],
+          [
+            "label",
+            "처리량(TOTAL_COUNT)"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "pass_ms_without_space_is_unit",
+      "kind": "pass",
+      "sentences": [
+        "머신러닝 모델이 이번 처리 시간 4,200 ms를 평소 값 800 ms와 비교했고, 더 길어 판단에 가장 크게 영향을 주었습니다(영향 62%).",
+        "다음으로 처리량(TOTAL_COUNT)·ERROR_COUNT·오류 비율 값이 평소와 달라 영향을 주었습니다(영향 31%)."
+      ],
+      "valueTokens": [],
+      "candidate": "머신러닝 모델은 이번 처리 시간 4,200 ms를 평소 값 800ms와 비교했고, 더 길어서 판단에 가장 크게 영향을 주었습니다(영향 62%). 처리량(TOTAL_COUNT)·ERROR_COUNT·오류 비율 값도 평소와 달라 영향을 주었습니다(영향 31%).",
+      "expected": {
+        "source": "llm",
+        "code": null,
+        "stateWords": [],
+        "numbers": [
+          [
+            "4200",
+            "ms"
+          ],
+          [
+            "800",
+            "ms"
+          ],
+          [
+            "62",
+            "%"
+          ],
+          [
+            "31",
+            "%"
+          ]
+        ],
+        "orderWords": [
+          "이번",
+          "평소",
+          "길어",
+          "평소",
+          "달라"
+        ],
+        "maskedTokens": [
+          [
+            "label",
+            "ERROR_COUNT"
+          ],
+          [
+            "label",
+            "머신러닝 모델"
+          ],
+          [
+            "label",
+            "오류 비율 값"
+          ],
+          [
+            "label",
+            "처리 시간"
+          ],
+          [
+            "label",
+            "처리량(TOTAL_COUNT)"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "pass_ratio_0_1250_equals_0_125",
+      "kind": "pass",
+      "sentences": [
+        "머신러닝 모델이 이번 오류 비율 값 0.1250를 평소 값 0와 비교했고, 더 높아 판단에 가장 크게 영향을 주었습니다(영향 40%)."
+      ],
+      "valueTokens": [],
+      "candidate": "머신러닝 모델은 이번 오류 비율 값 0.125를 평소 값 0와 비교했고, 더 높아 판단에 가장 크게 영향을 주었습니다(영향 40%).",
+      "expected": {
+        "source": "llm",
+        "code": null,
+        "stateWords": [],
+        "numbers": [
+          [
+            "0.125",
+            ""
+          ],
+          [
+            "0",
+            ""
+          ],
+          [
+            "40",
+            "%"
+          ]
+        ],
+        "orderWords": [
+          "이번",
+          "평소",
+          "높아"
+        ],
+        "maskedTokens": [
+          [
+            "label",
+            "머신러닝 모델"
+          ],
+          [
+            "label",
+            "오류 비율 값"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "pass_iso_time_digits_not_numbers",
+      "kind": "pass",
+      "sentences": [
+        "이상 규칙이 시작 시각 2026-11-25T09:00:00Z와 종료 시각 2026-11-25T08:59:58Z를 비교했고, 시작이 더 늦어 이상으로 판단했습니다."
+      ],
+      "valueTokens": [],
+      "candidate": "이상 규칙은 시작 시각 2026-11-25T09:00:00Z와 종료 시각 2026-11-25T08:59:58Z를 비교했고, 시작이 더 늦어 이상으로 판단했습니다.",
+      "expected": {
+        "source": "llm",
+        "code": null,
+        "stateWords": [
+          "이상"
+        ],
+        "numbers": [],
+        "orderWords": [
+          "늦어"
+        ],
+        "maskedTokens": [
+          [
+            "label",
+            "이상 규칙"
+          ],
+          [
+            "time",
+            "2026-11-25T08:59:58Z"
+          ],
+          [
+            "time",
+            "2026-11-25T09:00:00Z"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "pass_identifier_trailing_dot_not_absorbed",
+      "kind": "pass",
+      "sentences": [
+        "이상 규칙이 이번 거래의 인터페이스 IF-001을 프로토콜 설정 목록과 비교했고, 목록에 없어 이상으로 판단했습니다."
+      ],
+      "valueTokens": [],
+      "candidate": "이상 규칙은 이번 거래의 인터페이스를 프로토콜 설정 목록과 비교했고, 목록에 없어 이상으로 판단했습니다. 대상은 IF-001.",
+      "expected": {
+        "source": "llm",
+        "code": null,
+        "stateWords": [
+          "이상"
+        ],
+        "numbers": [],
+        "orderWords": [
+          "이번",
+          "없어"
+        ],
+        "maskedTokens": [
+          [
+            "identifier",
+            "IF-001"
+          ],
+          [
+            "label",
+            "이상 규칙"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "pass_korean_value_token_kept",
+      "kind": "pass",
+      "sentences": [
+        "관계 규칙이 이 거래의 실행 단계를 필수 단계 승인 확인 2단계과 비교했고, 없어 이상으로 판단했습니다."
+      ],
+      "valueTokens": [
+        "승인 확인 2단계"
+      ],
+      "candidate": "관계 규칙은 이 거래의 실행 단계를 필수 단계 승인 확인 2단계과 비교했고, 없어 이상으로 판단했습니다.",
+      "expected": {
+        "source": "llm",
+        "code": null,
+        "stateWords": [
+          "이상"
+        ],
+        "numbers": [],
+        "orderWords": [
+          "없어"
+        ],
+        "maskedTokens": [
+          [
+            "label",
+            "관계 규칙"
+          ],
+          [
+            "value",
+            "승인 확인 2단계"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "pass_condition_and_confirm_words_not_forbidden",
+      "kind": "pass",
+      "sentences": [
+        "이상 규칙이 처리 상태 S와 ERROR_COUNT를 함께 확인했고, 성공 상태인데 ERROR_COUNT가 0보다 커서 이상으로 판단했습니다."
+      ],
+      "valueTokens": [],
+      "candidate": "이상 규칙이 처리 상태 S와 ERROR_COUNT를 함께 확인해 보니, 성공 상태인데 ERROR_COUNT가 0보다 커서 조건상 이상으로 판단했습니다.",
+      "expected": {
+        "source": "llm",
+        "code": null,
+        "stateWords": [
+          "이상"
+        ],
+        "numbers": [
+          [
+            "0",
+            ""
+          ]
+        ],
+        "orderWords": [
+          "커서"
+        ],
+        "maskedTokens": [
+          [
+            "identifier",
+            "S"
+          ],
+          [
+            "label",
+            "ERROR_COUNT"
+          ],
+          [
+            "label",
+            "ERROR_COUNT"
+          ],
+          [
+            "label",
+            "이상 규칙"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "pass_state_words_and_uneval",
+      "kind": "pass",
+      "sentences": [
+        "머신러닝 모델이 이번 값들을 학습 데이터의 평소 값과 비교했고, 판정선을 벗어나 이상 징후로 판단했습니다.",
+        "일부 검사(관계 규칙)는 결과를 내지 못해 평가 불가입니다."
+      ],
+      "valueTokens": [],
+      "candidate": "머신러닝 모델은 이번 값들을 학습 데이터의 평소 값과 비교했고, 판정선을 벗어나 이상 징후로 판단했습니다. 일부 검사(관계 규칙)는 결과를 내지 못해 평가 불가입니다.",
+      "expected": {
+        "source": "llm",
+        "code": null,
+        "stateWords": [
+          "이상 징후",
+          "평가 불가"
+        ],
+        "numbers": [],
+        "orderWords": [
+          "이번",
+          "평소",
+          "벗어나",
+          "못"
+        ],
+        "maskedTokens": [
+          [
+            "label",
+            "관계 규칙"
+          ],
+          [
+            "label",
+            "머신러닝 모델"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "pass_trailing_newline_is_trimmed",
+      "kind": "pass",
+      "sentences": [
+        "이상 규칙이 처리 상태 S와 ERROR_COUNT를 함께 확인했고, 성공 상태인데 ERROR_COUNT가 0보다 커서 이상으로 판단했습니다."
+      ],
+      "valueTokens": [],
+      "candidate": "이상 규칙은 처리 상태 S와 ERROR_COUNT를 함께 확인했고, 성공 상태인데 ERROR_COUNT가 0보다 커서 이상으로 판단했습니다.\n",
+      "expected": {
+        "source": "llm",
+        "code": null,
+        "stateWords": [
+          "이상"
+        ],
+        "numbers": [
+          [
+            "0",
+            ""
+          ]
+        ],
+        "orderWords": [
+          "커서"
+        ],
+        "maskedTokens": [
+          [
+            "identifier",
+            "S"
+          ],
+          [
+            "label",
+            "ERROR_COUNT"
+          ],
+          [
+            "label",
+            "ERROR_COUNT"
+          ],
+          [
+            "label",
+            "이상 규칙"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "pass_transaction_code_0000",
+      "kind": "pass",
+      "sentences": [
+        "이상 규칙이 거래 상태 F와 응답 코드 E01을 성공 코드(0000·S)와 비교했고, 성공 코드가 아니어서 이상으로 판단했습니다."
+      ],
+      "valueTokens": [
+        "E01",
+        "F"
+      ],
+      "candidate": "이상 규칙은 거래 상태 F와 응답 코드 E01을 성공 코드(0000·S)와 비교했고, 성공 코드가 아니어서 이상으로 판단했습니다.",
+      "expected": {
+        "source": "llm",
+        "code": null,
+        "stateWords": [
+          "이상"
+        ],
+        "numbers": [
+          [
+            "0000",
+            ""
+          ]
+        ],
+        "orderWords": [
+          "아니"
+        ],
+        "maskedTokens": [
+          [
+            "identifier",
+            "S"
+          ],
+          [
+            "label",
+            "이상 규칙"
+          ],
+          [
+            "value",
+            "E01"
+          ],
+          [
+            "value",
+            "F"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "pass_normal_sentence",
+      "kind": "pass",
+      "sentences": [
+        "켠 검사가 모두 정상으로 끝났습니다."
+      ],
+      "valueTokens": [],
+      "candidate": "켠 검사는 모두 정상으로 끝났습니다.",
+      "expected": {
+        "source": "llm",
+        "code": null,
+        "stateWords": [
+          "정상"
+        ],
+        "numbers": [],
+        "orderWords": [],
+        "maskedTokens": []
+      }
+    },
+    {
+      "id": "fail_empty",
+      "kind": "fail",
+      "sentences": [
+        "이상 규칙이 처리 상태 S와 ERROR_COUNT를 함께 확인했고, 성공 상태인데 ERROR_COUNT가 0보다 커서 이상으로 판단했습니다."
+      ],
+      "valueTokens": [],
+      "candidate": "  ",
+      "expected": {
+        "source": "code",
+        "code": "polish_empty",
+        "stateWords": [
+          "이상"
+        ],
+        "numbers": [
+          [
+            "0",
+            ""
+          ]
+        ],
+        "orderWords": [
+          "커서"
+        ],
+        "maskedTokens": [
+          [
+            "identifier",
+            "S"
+          ],
+          [
+            "label",
+            "ERROR_COUNT"
+          ],
+          [
+            "label",
+            "ERROR_COUNT"
+          ],
+          [
+            "label",
+            "이상 규칙"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "fail_multi_paragraph",
+      "kind": "fail",
+      "sentences": [
+        "머신러닝 모델이 이번 처리 시간 4,200 ms를 평소 값 800 ms와 비교했고, 더 길어 판단에 가장 크게 영향을 주었습니다(영향 62%).",
+        "다음으로 처리량(TOTAL_COUNT)·ERROR_COUNT·오류 비율 값이 평소와 달라 영향을 주었습니다(영향 31%)."
+      ],
+      "valueTokens": [],
+      "candidate": "머신러닝 모델은 이번 처리 시간 4,200 ms를 평소 값 800 ms와 비교했고, 더 길어서 판단에 가장 크게 영향을 주었습니다(영향 62%).\n처리량(TOTAL_COUNT)·ERROR_COUNT·오류 비율 값도 평소와 달라 영향을 주었습니다(영향 31%).",
+      "expected": {
+        "source": "code",
+        "code": "polish_multi_paragraph",
+        "stateWords": [],
+        "numbers": [
+          [
+            "4200",
+            "ms"
+          ],
+          [
+            "800",
+            "ms"
+          ],
+          [
+            "62",
+            "%"
+          ],
+          [
+            "31",
+            "%"
+          ]
+        ],
+        "orderWords": [
+          "이번",
+          "평소",
+          "길어",
+          "평소",
+          "달라"
+        ],
+        "maskedTokens": [
+          [
+            "label",
+            "ERROR_COUNT"
+          ],
+          [
+            "label",
+            "머신러닝 모델"
+          ],
+          [
+            "label",
+            "오류 비율 값"
+          ],
+          [
+            "label",
+            "처리 시간"
+          ],
+          [
+            "label",
+            "처리량(TOTAL_COUNT)"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "fail_multi_paragraph_cr",
+      "kind": "fail",
+      "sentences": [
+        "머신러닝 모델이 이번 처리 시간 4,200 ms를 평소 값 800 ms와 비교했고, 더 길어 판단에 가장 크게 영향을 주었습니다(영향 62%).",
+        "다음으로 처리량(TOTAL_COUNT)·ERROR_COUNT·오류 비율 값이 평소와 달라 영향을 주었습니다(영향 31%)."
+      ],
+      "valueTokens": [],
+      "candidate": "머신러닝 모델은 이번 처리 시간 4,200 ms를 평소 값 800 ms와 비교했고, 더 길어서 판단에 가장 크게 영향을 주었습니다(영향 62%).\r처리량(TOTAL_COUNT)·ERROR_COUNT·오류 비율 값도 평소와 달라 영향을 주었습니다(영향 31%).",
+      "expected": {
+        "source": "code",
+        "code": "polish_multi_paragraph",
+        "stateWords": [],
+        "numbers": [
+          [
+            "4200",
+            "ms"
+          ],
+          [
+            "800",
+            "ms"
+          ],
+          [
+            "62",
+            "%"
+          ],
+          [
+            "31",
+            "%"
+          ]
+        ],
+        "orderWords": [
+          "이번",
+          "평소",
+          "길어",
+          "평소",
+          "달라"
+        ],
+        "maskedTokens": [
+          [
+            "label",
+            "ERROR_COUNT"
+          ],
+          [
+            "label",
+            "머신러닝 모델"
+          ],
+          [
+            "label",
+            "오류 비율 값"
+          ],
+          [
+            "label",
+            "처리 시간"
+          ],
+          [
+            "label",
+            "처리량(TOTAL_COUNT)"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "fail_too_long",
+      "kind": "fail",
+      "sentences": [
+        "이상 규칙이 처리 상태 S와 ERROR_COUNT를 함께 확인했고, 성공 상태인데 ERROR_COUNT가 0보다 커서 이상으로 판단했습니다."
+      ],
+      "valueTokens": [],
+      "candidate": "이상 규칙은 처리 상태 S와 ERROR_COUNT를 함께 확인했고, 성공 상태인데 ERROR_COUNT가 0보다 커서 이상으로 판단했습니다. 판단은 그대로입니다.판단은 그대로입니다.판단은 그대로입니다.판단은 그대로입니다.",
+      "expected": {
+        "source": "code",
+        "code": "polish_too_long",
+        "stateWords": [
+          "이상"
+        ],
+        "numbers": [
+          [
+            "0",
+            ""
+          ]
+        ],
+        "orderWords": [
+          "커서"
+        ],
+        "maskedTokens": [
+          [
+            "identifier",
+            "S"
+          ],
+          [
+            "label",
+            "ERROR_COUNT"
+          ],
+          [
+            "label",
+            "ERROR_COUNT"
+          ],
+          [
+            "label",
+            "이상 규칙"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "fail_not_korean_han",
+      "kind": "fail",
+      "sentences": [
+        "이상 규칙이 처리 상태 S와 ERROR_COUNT를 함께 확인했고, 성공 상태인데 ERROR_COUNT가 0보다 커서 이상으로 판단했습니다."
+      ],
+      "valueTokens": [],
+      "candidate": "이상 규칙은 處理 상태 S와 ERROR_COUNT를 함께 확인했고, 성공 상태인데 ERROR_COUNT가 0보다 커서 이상으로 판단했습니다.",
+      "expected": {
+        "source": "code",
+        "code": "polish_not_korean",
+        "stateWords": [
+          "이상"
+        ],
+        "numbers": [
+          [
+            "0",
+            ""
+          ]
+        ],
+        "orderWords": [
+          "커서"
+        ],
+        "maskedTokens": [
+          [
+            "identifier",
+            "S"
+          ],
+          [
+            "label",
+            "ERROR_COUNT"
+          ],
+          [
+            "label",
+            "ERROR_COUNT"
+          ],
+          [
+            "label",
+            "이상 규칙"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "fail_not_korean_raw_private_use_char",
+      "kind": "fail",
+      "sentences": [
+        "이상 규칙이 처리 상태 S와 ERROR_COUNT를 함께 확인했고, 성공 상태인데 ERROR_COUNT가 0보다 커서 이상으로 판단했습니다."
+      ],
+      "valueTokens": [],
+      "candidate": "이상 규칙은 처리 상태 S와 ERROR_COUNT를 함께 확인했고, 성공 상태인데 ERROR_COUNT가 0보다 커서 이상으로 판단했습니다.",
+      "expected": {
+        "source": "code",
+        "code": "polish_not_korean",
+        "stateWords": [
+          "이상"
+        ],
+        "numbers": [
+          [
+            "0",
+            ""
+          ]
+        ],
+        "orderWords": [
+          "커서"
+        ],
+        "maskedTokens": [
+          [
+            "identifier",
+            "S"
+          ],
+          [
+            "label",
+            "ERROR_COUNT"
+          ],
+          [
+            "label",
+            "ERROR_COUNT"
+          ],
+          [
+            "label",
+            "이상 규칙"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "fail_markup_asterisk",
+      "kind": "fail",
+      "sentences": [
+        "이상 규칙이 처리 상태 S와 ERROR_COUNT를 함께 확인했고, 성공 상태인데 ERROR_COUNT가 0보다 커서 이상으로 판단했습니다."
+      ],
+      "valueTokens": [],
+      "candidate": "**이상 규칙은** 처리 상태 S와 ERROR_COUNT를 함께 확인했고, 성공 상태인데 ERROR_COUNT가 0보다 커서 이상으로 판단했습니다.",
+      "expected": {
+        "source": "code",
+        "code": "polish_markup",
+        "stateWords": [
+          "이상"
+        ],
+        "numbers": [
+          [
+            "0",
+            ""
+          ]
+        ],
+        "orderWords": [
+          "커서"
+        ],
+        "maskedTokens": [
+          [
+            "identifier",
+            "S"
+          ],
+          [
+            "label",
+            "ERROR_COUNT"
+          ],
+          [
+            "label",
+            "ERROR_COUNT"
+          ],
+          [
+            "label",
+            "이상 규칙"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "fail_markup_symbol_not_in_code",
+      "kind": "fail",
+      "sentences": [
+        "이상 규칙이 처리 상태 S와 ERROR_COUNT를 함께 확인했고, 성공 상태인데 ERROR_COUNT가 0보다 커서 이상으로 판단했습니다."
+      ],
+      "valueTokens": [],
+      "candidate": "이상 규칙은 처리 상태 S와 ERROR_COUNT를 함께 확인했고 → 성공 상태인데 ERROR_COUNT가 0보다 커서 이상으로 판단했습니다.",
+      "expected": {
+        "source": "code",
+        "code": "polish_markup",
+        "stateWords": [
+          "이상"
+        ],
+        "numbers": [
+          [
+            "0",
+            ""
+          ]
+        ],
+        "orderWords": [
+          "커서"
+        ],
+        "maskedTokens": [
+          [
+            "identifier",
+            "S"
+          ],
+          [
+            "label",
+            "ERROR_COUNT"
+          ],
+          [
+            "label",
+            "ERROR_COUNT"
+          ],
+          [
+            "label",
+            "이상 규칙"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "fail_markup_list_head",
+      "kind": "fail",
+      "sentences": [
+        "이상 규칙이 처리 상태 S와 ERROR_COUNT를 함께 확인했고, 성공 상태인데 ERROR_COUNT가 0보다 커서 이상으로 판단했습니다."
+      ],
+      "valueTokens": [],
+      "candidate": "· 이상 규칙은 처리 상태 S와 ERROR_COUNT를 함께 확인했고, 성공 상태인데 ERROR_COUNT가 0보다 커서 이상으로 판단했습니다.",
+      "expected": {
+        "source": "code",
+        "code": "polish_markup",
+        "stateWords": [
+          "이상"
+        ],
+        "numbers": [
+          [
+            "0",
+            ""
+          ]
+        ],
+        "orderWords": [
+          "커서"
+        ],
+        "maskedTokens": [
+          [
+            "identifier",
+            "S"
+          ],
+          [
+            "label",
+            "ERROR_COUNT"
+          ],
+          [
+            "label",
+            "ERROR_COUNT"
+          ],
+          [
+            "label",
+            "이상 규칙"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "fail_name_dropped_label",
+      "kind": "fail",
+      "sentences": [
+        "머신러닝 모델이 이번 처리 시간 4,200 ms를 평소 값 800 ms와 비교했고, 더 길어 판단에 가장 크게 영향을 주었습니다(영향 62%).",
+        "다음으로 처리량(TOTAL_COUNT)·ERROR_COUNT·오류 비율 값이 평소와 달라 영향을 주었습니다(영향 31%)."
+      ],
+      "valueTokens": [],
+      "candidate": "머신러닝 모델은 이번 처리 시간 4,200 ms를 평소 값 800 ms와 비교했고, 더 길어서 판단에 가장 크게 영향을 주었습니다(영향 62%). 처리량(TOTAL_COUNT)·오류 비율 값도 평소와 달라 영향을 주었습니다(영향 31%).",
+      "expected": {
+        "source": "code",
+        "code": "polish_name_changed",
+        "stateWords": [],
+        "numbers": [
+          [
+            "4200",
+            "ms"
+          ],
+          [
+            "800",
+            "ms"
+          ],
+          [
+            "62",
+            "%"
+          ],
+          [
+            "31",
+            "%"
+          ]
+        ],
+        "orderWords": [
+          "이번",
+          "평소",
+          "길어",
+          "평소",
+          "달라"
+        ],
+        "maskedTokens": [
+          [
+            "label",
+            "ERROR_COUNT"
+          ],
+          [
+            "label",
+            "머신러닝 모델"
+          ],
+          [
+            "label",
+            "오류 비율 값"
+          ],
+          [
+            "label",
+            "처리 시간"
+          ],
+          [
+            "label",
+            "처리량(TOTAL_COUNT)"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "fail_name_changed_label_spacing",
+      "kind": "fail",
+      "sentences": [
+        "머신러닝 모델이 이번 처리 시간 4,200 ms를 평소 값 800 ms와 비교했고, 더 길어 판단에 가장 크게 영향을 주었습니다(영향 62%).",
+        "다음으로 처리량(TOTAL_COUNT)·ERROR_COUNT·오류 비율 값이 평소와 달라 영향을 주었습니다(영향 31%)."
+      ],
+      "valueTokens": [],
+      "candidate": "머신러닝 모델은 이번 처리시간 4,200 ms를 평소 값 800 ms와 비교했고, 더 길어서 판단에 가장 크게 영향을 주었습니다(영향 62%). 처리량(TOTAL_COUNT)·ERROR_COUNT·오류 비율 값도 평소와 달라 영향을 주었습니다(영향 31%).",
+      "expected": {
+        "source": "code",
+        "code": "polish_name_changed",
+        "stateWords": [],
+        "numbers": [
+          [
+            "4200",
+            "ms"
+          ],
+          [
+            "800",
+            "ms"
+          ],
+          [
+            "62",
+            "%"
+          ],
+          [
+            "31",
+            "%"
+          ]
+        ],
+        "orderWords": [
+          "이번",
+          "평소",
+          "길어",
+          "평소",
+          "달라"
+        ],
+        "maskedTokens": [
+          [
+            "label",
+            "ERROR_COUNT"
+          ],
+          [
+            "label",
+            "머신러닝 모델"
+          ],
+          [
+            "label",
+            "오류 비율 값"
+          ],
+          [
+            "label",
+            "처리 시간"
+          ],
+          [
+            "label",
+            "처리량(TOTAL_COUNT)"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "fail_name_korean_value_token_deleted",
+      "kind": "fail",
+      "sentences": [
+        "관계 규칙이 이 거래의 실행 단계를 필수 단계 승인 확인 2단계과 비교했고, 없어 이상으로 판단했습니다."
+      ],
+      "valueTokens": [
+        "승인 확인 2단계"
+      ],
+      "candidate": "관계 규칙은 이 거래의 실행 단계를 필수 단계와 비교했고, 없어 이상으로 판단했습니다.",
+      "expected": {
+        "source": "code",
+        "code": "polish_name_changed",
+        "stateWords": [
+          "이상"
+        ],
+        "numbers": [],
+        "orderWords": [
+          "없어"
+        ],
+        "maskedTokens": [
+          [
+            "label",
+            "관계 규칙"
+          ],
+          [
+            "value",
+            "승인 확인 2단계"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "fail_name_iso_time_changed",
+      "kind": "fail",
+      "sentences": [
+        "이상 규칙이 시작 시각 2026-11-25T09:00:00Z와 종료 시각 2026-11-25T08:59:58Z를 비교했고, 시작이 더 늦어 이상으로 판단했습니다."
+      ],
+      "valueTokens": [],
+      "candidate": "이상 규칙이 시작 시각 2026-11-25T09:00:00Z와 종료 시각 2026-11-25T08:59:59Z를 비교했고, 시작이 더 늦어 이상으로 판단했습니다.",
+      "expected": {
+        "source": "code",
+        "code": "polish_name_changed",
+        "stateWords": [
+          "이상"
+        ],
+        "numbers": [],
+        "orderWords": [
+          "늦어"
+        ],
+        "maskedTokens": [
+          [
+            "label",
+            "이상 규칙"
+          ],
+          [
+            "time",
+            "2026-11-25T08:59:58Z"
+          ],
+          [
+            "time",
+            "2026-11-25T09:00:00Z"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "fail_number_unit_ms_to_seconds",
+      "kind": "fail",
+      "sentences": [
+        "머신러닝 모델이 이번 처리 시간 4,200 ms를 평소 값 800 ms와 비교했고, 더 길어 판단에 가장 크게 영향을 주었습니다(영향 62%).",
+        "다음으로 처리량(TOTAL_COUNT)·ERROR_COUNT·오류 비율 값이 평소와 달라 영향을 주었습니다(영향 31%)."
+      ],
+      "valueTokens": [],
+      "candidate": "머신러닝 모델은 이번 처리 시간 4,200초를 평소 값 800 ms와 비교했고, 더 길어서 판단에 가장 크게 영향을 주었습니다(영향 62%). 처리량(TOTAL_COUNT)·ERROR_COUNT·오류 비율 값도 평소와 달라 영향을 주었습니다(영향 31%).",
+      "expected": {
+        "source": "code",
+        "code": "polish_number_changed",
+        "stateWords": [],
+        "numbers": [
+          [
+            "4200",
+            "ms"
+          ],
+          [
+            "800",
+            "ms"
+          ],
+          [
+            "62",
+            "%"
+          ],
+          [
+            "31",
+            "%"
+          ]
+        ],
+        "orderWords": [
+          "이번",
+          "평소",
+          "길어",
+          "평소",
+          "달라"
+        ],
+        "maskedTokens": [
+          [
+            "label",
+            "ERROR_COUNT"
+          ],
+          [
+            "label",
+            "머신러닝 모델"
+          ],
+          [
+            "label",
+            "오류 비율 값"
+          ],
+          [
+            "label",
+            "처리 시간"
+          ],
+          [
+            "label",
+            "처리량(TOTAL_COUNT)"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "fail_number_this_usual_swapped",
+      "kind": "fail",
+      "sentences": [
+        "머신러닝 모델이 이번 처리 시간 4,200 ms를 평소 값 800 ms와 비교했고, 더 길어 판단에 가장 크게 영향을 주었습니다(영향 62%).",
+        "다음으로 처리량(TOTAL_COUNT)·ERROR_COUNT·오류 비율 값이 평소와 달라 영향을 주었습니다(영향 31%)."
+      ],
+      "valueTokens": [],
+      "candidate": "머신러닝 모델은 이번 처리 시간 800 ms를 평소 값 4,200 ms와 비교했고, 더 길어서 판단에 가장 크게 영향을 주었습니다(영향 62%). 처리량(TOTAL_COUNT)·ERROR_COUNT·오류 비율 값도 평소와 달라 영향을 주었습니다(영향 31%).",
+      "expected": {
+        "source": "code",
+        "code": "polish_number_changed",
+        "stateWords": [],
+        "numbers": [
+          [
+            "4200",
+            "ms"
+          ],
+          [
+            "800",
+            "ms"
+          ],
+          [
+            "62",
+            "%"
+          ],
+          [
+            "31",
+            "%"
+          ]
+        ],
+        "orderWords": [
+          "이번",
+          "평소",
+          "길어",
+          "평소",
+          "달라"
+        ],
+        "maskedTokens": [
+          [
+            "label",
+            "ERROR_COUNT"
+          ],
+          [
+            "label",
+            "머신러닝 모델"
+          ],
+          [
+            "label",
+            "오류 비율 값"
+          ],
+          [
+            "label",
+            "처리 시간"
+          ],
+          [
+            "label",
+            "처리량(TOTAL_COUNT)"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "fail_number_leading_zeros_kept",
+      "kind": "fail",
+      "sentences": [
+        "이상 규칙이 거래 상태 F와 응답 코드 E01을 성공 코드(0000·S)와 비교했고, 성공 코드가 아니어서 이상으로 판단했습니다."
+      ],
+      "valueTokens": [
+        "E01",
+        "F"
+      ],
+      "candidate": "이상 규칙이 거래 상태 F와 응답 코드 E01을 성공 코드(0·S)와 비교했고, 성공 코드가 아니어서 이상으로 판단했습니다.",
+      "expected": {
+        "source": "code",
+        "code": "polish_number_changed",
+        "stateWords": [
+          "이상"
+        ],
+        "numbers": [
+          [
+            "0000",
+            ""
+          ]
+        ],
+        "orderWords": [
+          "아니"
+        ],
+        "maskedTokens": [
+          [
+            "identifier",
+            "S"
+          ],
+          [
+            "label",
+            "이상 규칙"
+          ],
+          [
+            "value",
+            "E01"
+          ],
+          [
+            "value",
+            "F"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "fail_number_added",
+      "kind": "fail",
+      "sentences": [
+        "이상 규칙이 처리 상태 S와 ERROR_COUNT를 함께 확인했고, 성공 상태인데 ERROR_COUNT가 0보다 커서 이상으로 판단했습니다."
+      ],
+      "valueTokens": [],
+      "candidate": "이상 규칙은 처리 상태 S와 ERROR_COUNT를 2개를 함께 확인했고, 성공 상태인데 ERROR_COUNT가 0보다 커서 이상으로 판단했습니다.",
+      "expected": {
+        "source": "code",
+        "code": "polish_number_changed",
+        "stateWords": [
+          "이상"
+        ],
+        "numbers": [
+          [
+            "0",
+            ""
+          ]
+        ],
+        "orderWords": [
+          "커서"
+        ],
+        "maskedTokens": [
+          [
+            "identifier",
+            "S"
+          ],
+          [
+            "label",
+            "ERROR_COUNT"
+          ],
+          [
+            "label",
+            "ERROR_COUNT"
+          ],
+          [
+            "label",
+            "이상 규칙"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "fail_state_sign_to_anomaly",
+      "kind": "fail",
+      "sentences": [
+        "이상 징후 규칙이 이번 처리 시간 4,200 ms를 기준 3,000 ms와 비교했고, 기준(≥)에 해당해 이상 징후로 판단했습니다."
+      ],
+      "valueTokens": [],
+      "candidate": "이상 징후 규칙은 이번 처리 시간 4,200 ms를 기준 3,000 ms와 비교했고, 기준(≥)에 해당해 이상으로 판단했습니다.",
+      "expected": {
+        "source": "code",
+        "code": "polish_state_changed",
+        "stateWords": [
+          "이상 징후"
+        ],
+        "numbers": [
+          [
+            "4200",
+            "ms"
+          ],
+          [
+            "3000",
+            "ms"
+          ]
+        ],
+        "orderWords": [
+          "이번",
+          "기준",
+          "기준",
+          "해당해"
+        ],
+        "maskedTokens": [
+          [
+            "label",
+            "이상 징후 규칙"
+          ],
+          [
+            "label",
+            "처리 시간"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "fail_state_added",
+      "kind": "fail",
+      "sentences": [
+        "이상 규칙이 처리 상태 S와 ERROR_COUNT를 함께 확인했고, 성공 상태인데 ERROR_COUNT가 0보다 커서 이상으로 판단했습니다."
+      ],
+      "valueTokens": [],
+      "candidate": "이상 규칙은 처리 상태 S와 ERROR_COUNT를 함께 확인했고, 정상 성공 상태인데 ERROR_COUNT가 0보다 커서 이상으로 판단했습니다.",
+      "expected": {
+        "source": "code",
+        "code": "polish_state_changed",
+        "stateWords": [
+          "이상"
+        ],
+        "numbers": [
+          [
+            "0",
+            ""
+          ]
+        ],
+        "orderWords": [
+          "커서"
+        ],
+        "maskedTokens": [
+          [
+            "identifier",
+            "S"
+          ],
+          [
+            "label",
+            "ERROR_COUNT"
+          ],
+          [
+            "label",
+            "ERROR_COUNT"
+          ],
+          [
+            "label",
+            "이상 규칙"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "fail_direction_longer_to_shorter",
+      "kind": "fail",
+      "sentences": [
+        "머신러닝 모델이 이번 처리 시간 4,200 ms를 평소 값 800 ms와 비교했고, 더 길어 판단에 가장 크게 영향을 주었습니다(영향 62%).",
+        "다음으로 처리량(TOTAL_COUNT)·ERROR_COUNT·오류 비율 값이 평소와 달라 영향을 주었습니다(영향 31%)."
+      ],
+      "valueTokens": [],
+      "candidate": "머신러닝 모델은 이번 처리 시간 4,200 ms를 평소 값 800 ms와 비교했고, 더 짧아서 판단에 가장 크게 영향을 주었습니다(영향 62%). 처리량(TOTAL_COUNT)·ERROR_COUNT·오류 비율 값도 평소와 달라 영향을 주었습니다(영향 31%).",
+      "expected": {
+        "source": "code",
+        "code": "polish_direction_changed",
+        "stateWords": [],
+        "numbers": [
+          [
+            "4200",
+            "ms"
+          ],
+          [
+            "800",
+            "ms"
+          ],
+          [
+            "62",
+            "%"
+          ],
+          [
+            "31",
+            "%"
+          ]
+        ],
+        "orderWords": [
+          "이번",
+          "평소",
+          "길어",
+          "평소",
+          "달라"
+        ],
+        "maskedTokens": [
+          [
+            "label",
+            "ERROR_COUNT"
+          ],
+          [
+            "label",
+            "머신러닝 모델"
+          ],
+          [
+            "label",
+            "오류 비율 값"
+          ],
+          [
+            "label",
+            "처리 시간"
+          ],
+          [
+            "label",
+            "처리량(TOTAL_COUNT)"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "fail_direction_this_usual_order",
+      "kind": "fail",
+      "sentences": [
+        "머신러닝 모델이 이번 처리 시간 4,200 ms를 평소 값 800 ms와 비교했고, 더 길어 판단에 가장 크게 영향을 주었습니다(영향 62%).",
+        "다음으로 처리량(TOTAL_COUNT)·ERROR_COUNT·오류 비율 값이 평소와 달라 영향을 주었습니다(영향 31%)."
+      ],
+      "valueTokens": [],
+      "candidate": "머신러닝 모델은 처리 시간 4,200 ms를 평소 값 800 ms와 이번에 비교했고, 더 길어서 판단에 가장 크게 영향을 주었습니다(영향 62%). 처리량(TOTAL_COUNT)·ERROR_COUNT·오류 비율 값도 평소와 달라 영향을 주었습니다(영향 31%).",
+      "expected": {
+        "source": "code",
+        "code": "polish_direction_changed",
+        "stateWords": [],
+        "numbers": [
+          [
+            "4200",
+            "ms"
+          ],
+          [
+            "800",
+            "ms"
+          ],
+          [
+            "62",
+            "%"
+          ],
+          [
+            "31",
+            "%"
+          ]
+        ],
+        "orderWords": [
+          "이번",
+          "평소",
+          "길어",
+          "평소",
+          "달라"
+        ],
+        "maskedTokens": [
+          [
+            "label",
+            "ERROR_COUNT"
+          ],
+          [
+            "label",
+            "머신러닝 모델"
+          ],
+          [
+            "label",
+            "오류 비율 값"
+          ],
+          [
+            "label",
+            "처리 시간"
+          ],
+          [
+            "label",
+            "처리량(TOTAL_COUNT)"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "fail_direction_negation_added",
+      "kind": "fail",
+      "sentences": [
+        "이상 규칙이 처리 상태 S와 ERROR_COUNT를 함께 확인했고, 성공 상태인데 ERROR_COUNT가 0보다 커서 이상으로 판단했습니다."
+      ],
+      "valueTokens": [],
+      "candidate": "이상 규칙은 처리 상태 S와 ERROR_COUNT를 함께 확인했고, 성공 상태인데 ERROR_COUNT가 0보다 커서 이상으로 판단하지 않 판단했습니다.",
+      "expected": {
+        "source": "code",
+        "code": "polish_direction_changed",
+        "stateWords": [
+          "이상"
+        ],
+        "numbers": [
+          [
+            "0",
+            ""
+          ]
+        ],
+        "orderWords": [
+          "커서"
+        ],
+        "maskedTokens": [
+          [
+            "identifier",
+            "S"
+          ],
+          [
+            "label",
+            "ERROR_COUNT"
+          ],
+          [
+            "label",
+            "ERROR_COUNT"
+          ],
+          [
+            "label",
+            "이상 규칙"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "fail_forbidden_cause",
+      "kind": "fail",
+      "sentences": [
+        "이상 규칙이 처리 상태 S와 ERROR_COUNT를 함께 확인했고, 성공 상태인데 ERROR_COUNT가 0보다 커서 이상으로 판단했습니다."
+      ],
+      "valueTokens": [],
+      "candidate": "이상 규칙은 처리 상태 S와 ERROR_COUNT를 함께 확인했고, 성공 상태인데 ERROR_COUNT가 0보다 커서 그 때문에 이상으로 판단했습니다.",
+      "expected": {
+        "source": "code",
+        "code": "polish_forbidden",
+        "stateWords": [
+          "이상"
+        ],
+        "numbers": [
+          [
+            "0",
+            ""
+          ]
+        ],
+        "orderWords": [
+          "커서"
+        ],
+        "maskedTokens": [
+          [
+            "identifier",
+            "S"
+          ],
+          [
+            "label",
+            "ERROR_COUNT"
+          ],
+          [
+            "label",
+            "ERROR_COUNT"
+          ],
+          [
+            "label",
+            "이상 규칙"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "fail_forbidden_count_word",
+      "kind": "fail",
+      "sentences": [
+        "이상 규칙이 처리 상태 S와 ERROR_COUNT를 함께 확인했고, 성공 상태인데 ERROR_COUNT가 0보다 커서 이상으로 판단했습니다."
+      ],
+      "valueTokens": [],
+      "candidate": "이상 규칙은 처리 상태 S와 ERROR_COUNT를 함께 확인했고, 성공 상태인데 ERROR_COUNT가 0건 넘게 커서 이상으로 판단했습니다.",
+      "expected": {
+        "source": "code",
+        "code": "polish_forbidden",
+        "stateWords": [
+          "이상"
+        ],
+        "numbers": [
+          [
+            "0",
+            ""
+          ]
+        ],
+        "orderWords": [
+          "커서"
+        ],
+        "maskedTokens": [
+          [
+            "identifier",
+            "S"
+          ],
+          [
+            "label",
+            "ERROR_COUNT"
+          ],
+          [
+            "label",
+            "ERROR_COUNT"
+          ],
+          [
+            "label",
+            "이상 규칙"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "fail_forbidden_advice",
+      "kind": "fail",
+      "sentences": [
+        "이상 규칙이 처리 상태 S와 ERROR_COUNT를 함께 확인했고, 성공 상태인데 ERROR_COUNT가 0보다 커서 이상으로 판단했습니다."
+      ],
+      "valueTokens": [],
+      "candidate": "이상 규칙은 처리 상태 S와 ERROR_COUNT를 함께 확인했고, 성공 상태인데 ERROR_COUNT가 0보다 커서 이상으로 판단했습니다. 확인이 필요합니다.",
+      "expected": {
+        "source": "code",
+        "code": "polish_forbidden",
+        "stateWords": [
+          "이상"
+        ],
+        "numbers": [
+          [
+            "0",
+            ""
+          ]
+        ],
+        "orderWords": [
+          "커서"
+        ],
+        "maskedTokens": [
+          [
+            "identifier",
+            "S"
+          ],
+          [
+            "label",
+            "ERROR_COUNT"
+          ],
+          [
+            "label",
+            "ERROR_COUNT"
+          ],
+          [
+            "label",
+            "이상 규칙"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "fail_forbidden_due_to",
+      "kind": "fail",
+      "sentences": [
+        "이상 규칙이 처리 상태 S와 ERROR_COUNT를 함께 확인했고, 성공 상태인데 ERROR_COUNT가 0보다 커서 이상으로 판단했습니다."
+      ],
+      "valueTokens": [],
+      "candidate": "이상 규칙은 처리 상태 S와 ERROR_COUNT를 함께 확인했고, 성공 상태인데 ERROR_COUNT가 0보다 커서 그로 인해 이상으로 판단했습니다.",
+      "expected": {
+        "source": "code",
+        "code": "polish_forbidden",
+        "stateWords": [
+          "이상"
+        ],
+        "numbers": [
+          [
+            "0",
+            ""
+          ]
+        ],
+        "orderWords": [
+          "커서"
+        ],
+        "maskedTokens": [
+          [
+            "identifier",
+            "S"
+          ],
+          [
+            "label",
+            "ERROR_COUNT"
+          ],
+          [
+            "label",
+            "ERROR_COUNT"
+          ],
+          [
+            "label",
+            "이상 규칙"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "fallback_conjugation_long_past",
+      "kind": "expected_fallback",
+      "sentences": [
+        "머신러닝 모델이 이번 처리 시간 4,200 ms를 평소 값 800 ms와 비교했고, 더 길어 판단에 가장 크게 영향을 주었습니다(영향 62%).",
+        "다음으로 처리량(TOTAL_COUNT)·ERROR_COUNT·오류 비율 값이 평소와 달라 영향을 주었습니다(영향 31%)."
+      ],
+      "valueTokens": [],
+      "candidate": "머신러닝 모델은 이번 처리 시간 4,200 ms를 평소 값 800 ms와 비교했고, 더 길었고 판단에 가장 크게 영향을 주었습니다(영향 62%). 처리량(TOTAL_COUNT)·ERROR_COUNT·오류 비율 값도 평소와 달라 영향을 주었습니다(영향 31%).",
+      "expected": {
+        "source": "code",
+        "code": "polish_direction_changed",
+        "stateWords": [],
+        "numbers": [
+          [
+            "4200",
+            "ms"
+          ],
+          [
+            "800",
+            "ms"
+          ],
+          [
+            "62",
+            "%"
+          ],
+          [
+            "31",
+            "%"
+          ]
+        ],
+        "orderWords": [
+          "이번",
+          "평소",
+          "길어",
+          "평소",
+          "달라"
+        ],
+        "maskedTokens": [
+          [
+            "label",
+            "ERROR_COUNT"
+          ],
+          [
+            "label",
+            "머신러닝 모델"
+          ],
+          [
+            "label",
+            "오류 비율 값"
+          ],
+          [
+            "label",
+            "처리 시간"
+          ],
+          [
+            "label",
+            "처리량(TOTAL_COUNT)"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "fallback_conjugation_long_plain",
+      "kind": "expected_fallback",
+      "sentences": [
+        "머신러닝 모델이 이번 처리 시간 4,200 ms를 평소 값 800 ms와 비교했고, 더 길어 판단에 가장 크게 영향을 주었습니다(영향 62%).",
+        "다음으로 처리량(TOTAL_COUNT)·ERROR_COUNT·오류 비율 값이 평소와 달라 영향을 주었습니다(영향 31%)."
+      ],
+      "valueTokens": [],
+      "candidate": "머신러닝 모델은 이번 처리 시간 4,200 ms를 평소 값 800 ms와 비교했고, 더 길다는 점이 판단에 가장 크게 영향을 주었습니다(영향 62%). 처리량(TOTAL_COUNT)·ERROR_COUNT·오류 비율 값도 평소와 달라 영향을 주었습니다(영향 31%).",
+      "expected": {
+        "source": "code",
+        "code": "polish_direction_changed",
+        "stateWords": [],
+        "numbers": [
+          [
+            "4200",
+            "ms"
+          ],
+          [
+            "800",
+            "ms"
+          ],
+          [
+            "62",
+            "%"
+          ],
+          [
+            "31",
+            "%"
+          ]
+        ],
+        "orderWords": [
+          "이번",
+          "평소",
+          "길어",
+          "평소",
+          "달라"
+        ],
+        "maskedTokens": [
+          [
+            "label",
+            "ERROR_COUNT"
+          ],
+          [
+            "label",
+            "머신러닝 모델"
+          ],
+          [
+            "label",
+            "오류 비율 값"
+          ],
+          [
+            "label",
+            "처리 시간"
+          ],
+          [
+            "label",
+            "처리량(TOTAL_COUNT)"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "fallback_conjugation_bigger_since",
+      "kind": "expected_fallback",
+      "sentences": [
+        "이상 규칙이 처리 상태 S와 ERROR_COUNT를 함께 확인했고, 성공 상태인데 ERROR_COUNT가 0보다 커서 이상으로 판단했습니다."
+      ],
+      "valueTokens": [],
+      "candidate": "이상 규칙은 처리 상태 S와 ERROR_COUNT를 함께 확인했고, 성공 상태인데 ERROR_COUNT가 0보다 크므로 이상으로 판단했습니다.",
+      "expected": {
+        "source": "code",
+        "code": "polish_direction_changed",
+        "stateWords": [
+          "이상"
+        ],
+        "numbers": [
+          [
+            "0",
+            ""
+          ]
+        ],
+        "orderWords": [
+          "커서"
+        ],
+        "maskedTokens": [
+          [
+            "identifier",
+            "S"
+          ],
+          [
+            "label",
+            "ERROR_COUNT"
+          ],
+          [
+            "label",
+            "ERROR_COUNT"
+          ],
+          [
+            "label",
+            "이상 규칙"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "fallback_clause_reorder_two_evidence",
+      "kind": "expected_fallback",
+      "sentences": [
+        "머신러닝 모델이 이번 처리 시간 4,200 ms를 평소 값 800 ms와 비교했고, 더 길어 판단에 가장 크게 영향을 주었습니다(영향 62%).",
+        "다음으로 처리량(TOTAL_COUNT)·ERROR_COUNT·오류 비율 값이 평소와 달라 영향을 주었습니다(영향 31%)."
+      ],
+      "valueTokens": [],
+      "candidate": "처리량(TOTAL_COUNT)·ERROR_COUNT·오류 비율 값이 평소와 달라 영향을 주었고(영향 31%), 머신러닝 모델은 이번 처리 시간 4,200 ms를 평소 값 800 ms와 비교했고, 더 길어 판단에 가장 크게 영향을 주었습니다(영향 62%).",
+      "expected": {
+        "source": "code",
+        "code": "polish_number_changed",
+        "stateWords": [],
+        "numbers": [
+          [
+            "4200",
+            "ms"
+          ],
+          [
+            "800",
+            "ms"
+          ],
+          [
+            "62",
+            "%"
+          ],
+          [
+            "31",
+            "%"
+          ]
+        ],
+        "orderWords": [
+          "이번",
+          "평소",
+          "길어",
+          "평소",
+          "달라"
+        ],
+        "maskedTokens": [
+          [
+            "label",
+            "ERROR_COUNT"
+          ],
+          [
+            "label",
+            "머신러닝 모델"
+          ],
+          [
+            "label",
+            "오류 비율 값"
+          ],
+          [
+            "label",
+            "처리 시간"
+          ],
+          [
+            "label",
+            "처리량(TOTAL_COUNT)"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "fallback_clause_reorder_this_usual",
+      "kind": "expected_fallback",
+      "sentences": [
+        "머신러닝 모델이 이번 처리 시간 4,200 ms를 평소 값 800 ms와 비교했고, 더 길어 판단에 가장 크게 영향을 주었습니다(영향 62%).",
+        "다음으로 처리량(TOTAL_COUNT)·ERROR_COUNT·오류 비율 값이 평소와 달라 영향을 주었습니다(영향 31%)."
+      ],
+      "valueTokens": [],
+      "candidate": "머신러닝 모델은 평소 값 800 ms와 이번 처리 시간 4,200 ms를 비교했고, 더 길어서 판단에 가장 크게 영향을 주었습니다(영향 62%). 처리량(TOTAL_COUNT)·ERROR_COUNT·오류 비율 값도 평소와 달라 영향을 주었습니다(영향 31%).",
+      "expected": {
+        "source": "code",
+        "code": "polish_number_changed",
+        "stateWords": [],
+        "numbers": [
+          [
+            "4200",
+            "ms"
+          ],
+          [
+            "800",
+            "ms"
+          ],
+          [
+            "62",
+            "%"
+          ],
+          [
+            "31",
+            "%"
+          ]
+        ],
+        "orderWords": [
+          "이번",
+          "평소",
+          "길어",
+          "평소",
+          "달라"
+        ],
+        "maskedTokens": [
+          [
+            "label",
+            "ERROR_COUNT"
+          ],
+          [
+            "label",
+            "머신러닝 모델"
+          ],
+          [
+            "label",
+            "오류 비율 값"
+          ],
+          [
+            "label",
+            "처리 시간"
+          ],
+          [
+            "label",
+            "처리량(TOTAL_COUNT)"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "fallback_non_iso_time_value_token_changed",
+      "kind": "expected_fallback",
+      "sentences": [
+        "이상 규칙이 시작 시각 20261125 090000와 종료 시각 20261125 085958를 비교했고, 시작이 더 늦어 이상으로 판단했습니다."
+      ],
+      "valueTokens": [
+        "20261125 090000",
+        "20261125 085958"
+      ],
+      "candidate": "이상 규칙은 시작 시각 2026-11-25 09:00:00와 종료 시각 20261125 085958를 비교했고, 시작이 더 늦어 이상으로 판단했습니다.",
+      "expected": {
+        "source": "code",
+        "code": "polish_name_changed",
+        "stateWords": [
+          "이상"
+        ],
+        "numbers": [],
+        "orderWords": [
+          "늦어"
+        ],
+        "maskedTokens": [
+          [
+            "label",
+            "이상 규칙"
+          ],
+          [
+            "value",
+            "20261125 085958"
+          ],
+          [
+            "value",
+            "20261125 090000"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "fallback_ms_followed_by_letters_is_identifier",
+      "kind": "expected_fallback",
+      "sentences": [
+        "머신러닝 모델이 이번 처리 시간 800 ms를 평소 값 700 ms와 비교했고, 더 길어 판단에 가장 크게 영향을 주었습니다(영향 50%)."
+      ],
+      "valueTokens": [],
+      "candidate": "머신러닝 모델이 이번 처리 시간 800 msg를 평소 값 700 ms와 비교했고, 더 길어 판단에 가장 크게 영향을 주었습니다(영향 50%).",
+      "expected": {
+        "source": "code",
+        "code": "polish_name_changed",
+        "stateWords": [],
+        "numbers": [
+          [
+            "800",
+            "ms"
+          ],
+          [
+            "700",
+            "ms"
+          ],
+          [
+            "50",
+            "%"
+          ]
+        ],
+        "orderWords": [
+          "이번",
+          "평소",
+          "길어"
+        ],
+        "maskedTokens": [
+          [
+            "label",
+            "머신러닝 모델"
+          ],
+          [
+            "label",
+            "처리 시간"
+          ]
+        ]
+      }
+    }
+  ]
+}

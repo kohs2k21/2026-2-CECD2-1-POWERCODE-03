@@ -1,0 +1,16 @@
+# 선택: AI 근거 요약 다듬기(explain summary-sentences-v1, 생성 종류 polish_explanation)의 경량 모델을 켠다.
+#   docker compose -f compose.yaml -f compose.evidence-polish.yaml up -d llm   # rule-v3 override와 함께 써도 된다
+# 모델 폴더는 서버에 이미 있는 것만 읽기 전용으로 붙인다(새 내려받기 없음, HF_HUB_OFFLINE). 이름은 모델 id 앞부분이다.
+# 적재에 실패하거나 이 override가 없으면 llm은 다듬기 없이 뜨고(/health polishModel null, 시작 로그 polish_disabled 한 줄),
+# 다듬기 작업만 generation_service_unavailable로 실패한다.
+services:
+  llm:
+    environment:
+      LLM_POLISH_MODEL_ROOT: /polish-model
+      LLM_POLISH_MODEL_NAME: ${LLM_POLISH_MODEL_NAME:?Set the polish model name, e.g. Qwen/Qwen3.5-2B}
+    volumes:
+      - type: bind
+        source: ${POLISH_MODEL_PATH:?Set the existing polish model folder}
+        target: /polish-model
+        read_only: true
+        bind: {create_host_path: false}

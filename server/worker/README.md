@@ -6,7 +6,7 @@
 - 검증된 관측 입력(CSV 등): 관측 + 불변 manifest + detect job + detection 큐를 같은 트랜잭션에 저장한다. 승인 구성이 없는 입력은 대기하고 나중에 해당 원천의 활성 구성으로 job을 고정한다.
 - Detector: 공통 파생변수 계산, Rule 전용/ML 전용/병렬, deadline, 현재 임대 token 검증, 결과·event·ack의 원자적 확정. 직접 전달과 polling이 같은 PG item을 claim한다.
 - Trainer: train/evaluate만 소비, 동일 조건 snapshot 재사용·재시도 고정, 실제 CPU IF 산출물. LLM 준비 상태에 의존하지 않는다.
-- LLM: 추천과 요청 설명을 별도 큐에서 bounded 교대 처리. Base 하나와 feature_v5/rule_v2 adapter를 공유한다. 출처·DSL·saved fact output 검증 후만 결과를 저장한다.
+- LLM: 추천과 요청 설명을 별도 큐에서 bounded 교대 처리. Base 하나와 feature_v5/rule_v2 adapter를 공유한다. 출처·DSL 검증 후만 추천 결과를 저장한다. 설명(AI 근거 요약)은 백엔드 코드 문장을 따로 적재한 경량 모델(선택)로 다듬고 `evidence_polish.py`가 사실 보존을 확인한다(실패면 코드 문장).
 
 실제 모델 연결은 `model_adapters.py`, 공통 계산은 `feature_runtime.py`다. v12 IF/K-means는 `window_worker.py`에서 별도 연속 1분 이력으로 실행한다. GPU 모델 생성이 없으면 추천 성공을 만들지 않는다. 설명의 원인·기여도·SHAP을 만들어 내지 않는다.
 

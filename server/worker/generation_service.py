@@ -13,14 +13,19 @@ from contextlib import contextmanager
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
+import evidence_polish
 import protocol_explanation
 from research_bundle import sha, verify
 
 # 대화형 생성(사용자가 화면에서 기다림): GPU 차례 우선·대기 상한, 어댑터 없이 기반 모델, 설명 시간·출력 한도.
 # explain_protocol은 explain과 같은 등급이다(contracts/protocol-explanation-job.md GPU 차례 절).
-INTERACTIVE_KINDS = frozenset({"explain", "explain_protocol"})
+# polish_explanation(AI 근거 요약 다듬기)도 같은 등급이지만 기반 모델이 아니라 따로 적재한 경량 다듬기 모델을 쓴다.
+POLISH_KIND = evidence_polish.GENERATION_KIND
+INTERACTIVE_KINDS = frozenset({"explain", "explain_protocol", POLISH_KIND})
 GENERATION_KINDS = frozenset({"feature", "rule"}) | INTERACTIVE_KINDS
 INTERACTIVE_OUTPUT_TOKENS = 512
+# 다듬기 입력은 코드 문장 1,200자 이하라 지시문을 더해도 이 안에 든다.
+POLISH_MAX_INPUT_TOKENS = 2048
 
 
 def stopped_by_time(generated: int, budget: int, finished: bool, elapsed: float, limit: float) -> bool:
@@ -36,6 +41,31 @@ class GenerationBusy(RuntimeError):
 
     def __init__(self):
         super().__init__("generation_busy")
+
+
+class PolishModelUnavailable(RuntimeError):
+    """다듬기 모델을 적재하지 않았다(설정 없음·적재 실패). 작업에는 생성 서비스 꺼짐으로 보인다."""
+
+    def __init__(self):
+        super().__init__("polish_model_not_configured")
+
+
+def _polish_model_file(relative: Path) -> bool:
+    """모델 산출물 파일인가. 내려받기·버전 관리 부산물(숨김 경로 `.cache/`·`.git*`·`.huggingface/`, `*.lock`·`*.incomplete`)은 뺀다."""
+    return not any(part.startswith(".") for part in relative.parts) and not relative.name.endswith((".lock", ".incomplete"))
+
+
+def polish_model_id(path: Path, name: str) -> str:
+    """`<이름>@<산출물 hash 앞 8자리>`. hash = 폴더 안 모델 파일의 (상대 경로, SHA-256) 목록의 SHA-256(시작 때 1회).
+    내려받기 부산물은 넣지 않는다(같은 가중치가 캐시·잠금 파일 때문에 다른 id가 되지 않게)."""
+    import hashlib
+    listing = hashlib.sha256()
+    files = sorted(item for item in path.rglob("*") if item.is_file() and _polish_model_file(item.relative_to(path)))
+    if not files:
+        raise ValueError("polish_model_files_missing")
+    for item in files:
+        listing.update(f"{item.relative_to(path).as_posix()}\t{sha(item)}\n".encode())
+    return f"{name}@{listing.hexdigest()[:8]}"
 
 
 class GenerationGate:
@@ -97,7 +127,8 @@ class GenerationGate:
 
 
 class DesignModel:
-    def __init__(self, bundle: Path, base: Path, rule_v3_bundle: Path | None = None):
+    def __init__(self, bundle: Path, base: Path, rule_v3_bundle: Path | None = None,
+                 polish_model: Path | None = None, polish_name: str | None = None):
         self.root = verify(bundle)
         self.manifest = json.loads((self.root / "design/manifest.json").read_text())
         for name, expected in self.manifest["base"]["metadata_sha256"].items():
@@ -128,6 +159,66 @@ class DesignModel:
         self.rule_v3_replicas = None
         # Rule v3(임계값 추천 rule_v3 경로)는 같은 Base를 공유한다. HTTP `/generate`에는 노출하지 않는다.
         self.attach_rule_v3(rule_v3_bundle, base)
+        self.attach_polish(polish_model, polish_name)
+
+    def attach_polish(self, path: Path | None, name: str | None) -> None:
+        """선택 기능(AI 근거 요약 다듬기). 경량 모델을 BF16으로 따로 올린다. 붙이지 못해도 다른 생성은 그대로 뜨고,
+        `polish_explanation`만 생성 서비스 꺼짐으로 실패한다(시작 로그 `polish_disabled: <코드>` 한 줄)."""
+        self.polish = None
+        self.polish_model_id = None
+        self.polish_error = None
+        if path is None:
+            return
+        try:
+            if not name:
+                raise ValueError("polish_model_name_missing")
+            model_id = polish_model_id(Path(path), name)
+            from transformers import AutoTokenizer, Qwen3_5ForConditionalGeneration
+            tokenizer = AutoTokenizer.from_pretrained(str(path), local_files_only=True)
+            model = Qwen3_5ForConditionalGeneration.from_pretrained(
+                str(path), local_files_only=True, dtype=self.torch.bfloat16, device_map={"": 0},
+                attn_implementation="sdpa", low_cpu_mem_usage=True)
+            for parameter in model.parameters():
+                parameter.requires_grad_(False)
+            model.eval()
+            self.polish = (tokenizer, model)
+            self.polish_model_id = model_id
+        except Exception as exc:  # 구성 오류를 숨기지 않도록 시작 로그에 한 줄 남긴다
+            self.polish_error = str(exc) if _CODE.fullmatch(str(exc)) else type(exc).__name__
+            logging.getLogger(__name__).error("polish_disabled: %s", self.polish_error)
+
+    def generate_polish(self, value: dict, report_timeout: bool = False) -> dict:
+        """코드 문장 → 한 문단(평문). 대화형 등급 GPU 차례·대기 상한·생성 시간 상한·출력 512 토큰은 explain과 같다."""
+        sentences = value.get("sentences")
+        if (set(value) != {"sentences"} or not isinstance(sentences, list) or not sentences
+                or any(not isinstance(item, str) for item in sentences)):
+            raise ValueError("invalid_generation_request")
+        if getattr(self, "polish", None) is None:
+            raise PolishModelUnavailable()
+        tokenizer, model = self.polish
+        text = tokenizer.apply_chat_template(evidence_polish.build_messages(sentences), tokenize=False,
+                                             add_generation_prompt=True, enable_thinking=False)
+        ids = tokenizer(text, add_special_tokens=False)["input_ids"]
+        if len(ids) > POLISH_MAX_INPUT_TOKENS:
+            raise ValueError("generation_token_budget_exceeded")
+        budget = INTERACTIVE_OUTPUT_TOKENS
+        limit = float(os.environ.get("LLM_EXPLANATION_SECONDS", "60"))
+        wait = float(os.environ.get("LLM_EXPLANATION_WAIT_SECONDS", "10"))
+        with self.gate.slot(True, wait), self.torch.no_grad():
+            self.torch.manual_seed(42)
+            tensor = self.torch.tensor([ids], device="cuda:0")
+            started = time.monotonic()
+            output = model.generate(input_ids=tensor, attention_mask=self.torch.ones_like(tensor),
+                                    max_new_tokens=budget, do_sample=False, use_cache=True,
+                                    pad_token_id=tokenizer.eos_token_id, max_time=limit)
+            elapsed = time.monotonic() - started
+        tail = output[0, len(ids):]
+        finished = bool((tail == tokenizer.eos_token_id).any())
+        if report_timeout and stopped_by_time(len(tail), budget, finished, elapsed, limit):
+            raise TimeoutError("generation_timeout")
+        return {"output": tokenizer.decode(tail, skip_special_tokens=True),
+                "truncated": len(tail) >= budget and not finished,
+                "modelVersion": self.polish_model_id, "promptVersion": evidence_polish.PROMPT_VERSION}
 
     def attach_rule_v3(self, bundle: Path | None, base: Path) -> None:
         """선택 기능. 붙이지 못해도 설명·rule_v2는 그대로 뜨고, v3 작업만 rule_v3_not_configured로 실패한다."""
@@ -145,6 +236,8 @@ class DesignModel:
     def generate(self, kind: str, value: dict, report_timeout: bool = False) -> dict:
         if kind not in GENERATION_KINDS or not isinstance(value, dict):
             raise ValueError("invalid_generation_request")
+        if kind == POLISH_KIND:
+            return self.generate_polish(value, report_timeout)
         interactive = kind in INTERACTIVE_KINDS
         if kind == "explain_protocol":
             # 프롬프트는 서버 코드(protocol_explanation.py)가 사실에서 만든다. 입력은 사실 하나뿐이고, 형식이 다르면 대기 전에 거부한다.
@@ -195,6 +288,12 @@ class DesignModel:
         return receipt
 
 
+def polish_options() -> dict:
+    """다듬기 모델 설정(선택): `LLM_POLISH_MODEL_ROOT`(폴더)·`LLM_POLISH_MODEL_NAME`(예 Qwen/Qwen3.5-2B)."""
+    root = os.environ.get("LLM_POLISH_MODEL_ROOT", "")
+    return {"polish_model": Path(root) if root else None, "polish_name": os.environ.get("LLM_POLISH_MODEL_NAME") or None}
+
+
 def serve(model, token: str, host: str = "127.0.0.1", port: int = 8010):
     if len(token) < 32:
         raise ValueError("design_service_token_too_short")
@@ -212,7 +311,8 @@ def serve(model, token: str, host: str = "127.0.0.1", port: int = 8010):
 
         def do_GET(self):
             if self.path == "/health":
-                self.respond(200, {"status": "ready"})
+                # polishModel: 다듬기 모델 id(적재 안 했으면 null). API가 explain 접수 때 llm_spec.model_version에 넣는다.
+                self.respond(200, {"status": "ready", "polishModel": getattr(model, "polish_model_id", None)})
             else:
                 self.respond(404, {"code": "not_found"})
 
@@ -237,6 +337,8 @@ def serve(model, token: str, host: str = "127.0.0.1", port: int = 8010):
             except GenerationBusy:
                 # 장애(generation_failed)와 같은 상태 코드이고, 본문 코드로 재시도 가능한 대기 초과를 구분한다.
                 self.respond(503, {"code": "generation_busy"})
+            except PolishModelUnavailable:
+                self.respond(503, {"code": "polish_model_not_configured"})
             except TimeoutError:
                 self.respond(504, {"code": "generation_timeout"})
             except (KeyError, ValueError, TypeError):
@@ -250,6 +352,7 @@ if __name__ == "__main__":
     from dotenv import load_dotenv
     load_dotenv(Path(__file__).parent / ".env")
     model = DesignModel(Path(os.environ["RESEARCH_BUNDLE_ROOT"]), Path(os.environ["RULE_MODEL_BASE_PATH"]),
-                        Path(os.environ["RULE_V3_BUNDLE_ROOT"]) if os.environ.get("RULE_V3_BUNDLE_ROOT") else None)
+                        Path(os.environ["RULE_V3_BUNDLE_ROOT"]) if os.environ.get("RULE_V3_BUNDLE_ROOT") else None,
+                        **polish_options())
     serve(model, os.environ["DESIGN_MODEL_TOKEN"],
           host=os.environ.get("DESIGN_MODEL_HOST", "127.0.0.1")).serve_forever()

@@ -52,6 +52,8 @@ def keep(attribution, k, cleared=None, scores=None):
     for item, score in zip(attribution["counterfactual"], scores or ()):
         item["scoreAfter"] = score
     attribution["clearedAtK"] = cleared
+    for k, item in enumerate(attribution["counterfactual"], 1):
+        item["warningAfterReplacement"] = cleared is None or k < cleared
     return attribution
 
 
@@ -131,7 +133,7 @@ class SentenceTests(unittest.TestCase):
         attribution = example()
         attribution["players"][2].update(phi=0.175, share=0.175 / 0.31)  # E와 동률, φ가 더 작은 T가 앞에 저장돼 있어도 다시 정렬하지 않는다
         attribution["topK"] = ["total_count", "elapsed_ms", "error_count"]
-        attribution["clearedAtK"] = None
+        keep(attribution, 3)
         text = render(attribution)
         self.assertEqual([item["playerId"] for item in text["topK"]], ["total_count", "elapsed_ms", "error_count"])
         self.assertIn("변수는 처리량(TOTAL_COUNT) 5%, 처리 시간 56%, ERROR_COUNT 56% 순입니다.", text["summary"])
@@ -199,6 +201,48 @@ class SentenceTests(unittest.TestCase):
         attribution.update(scoreActual=0.6203)
         attribution["counterfactual"][0]["scoreAfter"] = 0.5
         self.assertIn("(값 0.6203, 판정선 0.6200)", render(attribution)["summary"])
+
+    def test_score_equal_to_threshold_is_worded(self):
+        # 1위만 바꾼 점수 = 판정선(이산 점수), 2개를 바꿔야 해소: 자릿수를 늘리지 않고 `판정선과 같아`
+        text = render(keep(example(), 2, cleared=2, scores=[0.62, 0.41]))
+        self.assertIn("(값 0.710, 판정선 0.620)", text["summary"])
+        self.assertTrue(text["counterfactual"].endswith(
+            "ERROR_COUNT만 바꾸면 원점수가 판정선과 같아 여전히 판정선 기준 이상 범위에 남습니다."))
+        # 해소되지 않음: 마지막 반사실 점수 = 판정선
+        text = render(keep(example(), 1, scores=[0.62 + 1e-12]))
+        self.assertEqual(text["counterfactual"], "상위 1개 변수를 학습 데이터 중앙값으로 바꾸면 원점수가 판정선과 같아져 "
+                                                 "여전히 판정선 기준 이상 범위에 남습니다.")
+        # 원점수 = 판정선: 요약은 숫자 대신 `판정선과 같음`, 다른 점수만으로 자릿수를 정한다
+        attribution = keep(example(), 1, cleared=1, scores=[0.51])
+        attribution.update(scoreActual=0.62)
+        self.assertIn("머신러닝 모델 원점수(판정선과 같음, 판정선 0.620)를 이상 쪽으로", render(attribution)["summary"])
+        # tol 밖의 근접 값은 이전처럼 자릿수를 늘린다
+        attribution.update(scoreActual=0.6200004)
+        self.assertIn("(값 0.620000, 판정선 0.620000)", render(attribution)["summary"])
+
+    def test_threshold_equal_follows_stored_warning(self):
+        # 판정선과 같지만 저장된 warningAfterReplacement=false → 해소 문장 + `판정선과 같아져`
+        text = render(keep(example(), 1, cleared=1, scores=[0.62]))
+        self.assertEqual(text["counterfactual"], "ERROR_COUNT(단위 미확인)만 학습 데이터 중앙값(0)으로 바꾸면 원점수가 판정선과 "
+                                                 "같아져 머신러닝 모델 기준으로는 이상으로 보지 않았을 것입니다.")
+        text = render(keep(example(), 2, cleared=2, scores=[0.65, 0.62]))
+        self.assertIn("ERROR_COUNT·처리 시간을 함께 학습 데이터 중앙값으로 바꾸면 원점수가 판정선과 같아져 머신러닝 모델 기준으로는 "
+                      "이상으로 보지 않았을 것입니다. ERROR_COUNT만 바꾸면 원점수는 0.650으로", text["counterfactual"])
+        # clearedAtK가 저장된 warningAfterReplacement와 어긋나면 읽을 수 없는 기록
+        attribution = keep(example(), 2, cleared=2)
+        attribution["clearedAtK"] = 1
+        with self.assertRaisesRegex(ValueError, f"^{INVALID}$"):
+            render(attribution)
+
+    def test_threshold_equality_uses_method_score_tolerance_and_other_digits(self):
+        attribution = keep(example(), 1, scores=[0.6203])
+        attribution.update(scoreActual=0.62 + 5e-9)
+        # tol: 방법 score 0.71 → 1e-9라 5e-9 차이는 같지 않음, 방법 score 10 → 1e-8이라 같음
+        self.assertIn("(값 0.620000, 판정선 0.620000)", render(attribution, 0.71)["summary"])
+        text = render(attribution, 10.0)
+        # 원점수는 `판정선과 같음`이라 자릿수 판단에서 빠지고, 반사실 0.6203만으로 넷째 자리
+        self.assertIn("원점수(판정선과 같음, 판정선 0.6200)", text["summary"])
+        self.assertIn("(값 0.6203)", text["counterfactual"])
 
     def test_baseline_warning_note(self):
         attribution = example()

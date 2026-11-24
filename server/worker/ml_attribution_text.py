@@ -21,6 +21,7 @@ UNCONFIRMED = frozenset({"total_count", "success_count", "error_count", "retry_c
 UNITS = {"elapsed_ms": "ms"}
 UNCONFIRMED_MARK = "(단위 미확인)"
 USUAL = "평소 값과 다름"
+SAME = "판정선과 같음"
 WORDS = {"higher_is_anomaly": ("올린", "낮아져"), "lower_is_anomaly": ("내린", "높아져")}
 LIMITATION = "기여도는 모델이 점수를 매긴 방식에 대한 분석이며 실제 장애 원인이 아닙니다. 원인은 원천 시스템 운영 로그로 확인하세요."
 NO_TOP = "원점수를 이상 쪽으로 움직인 변수를 찾지 못했습니다."
@@ -241,19 +242,27 @@ def _render(attribution: Mapping[str, Any], method_score: Any) -> dict[str, Any]
             or not isinstance(cf, list) or len(cf) != len(top_ids)):
         raise ValueError(INVALID)
     top = [by_id[i] for i in top_ids]
-    cleared = attribution.get("clearedAtK")
-    if cleared is not None and (isinstance(cleared, bool) or not isinstance(cleared, int) or not 1 <= cleared <= len(cf)):
+    # 문장 갈래는 저장된 warningAfterReplacement를 따른다(clearedAtK = 처음 false가 되는 k, 어긋나면 읽을 수 없는 기록).
+    warnings = [item["warningAfterReplacement"] for item in cf]
+    if any(not isinstance(flag, bool) for flag in warnings):
+        raise ValueError(INVALID)
+    cleared = next((k for k, flag in enumerate(warnings, 1) if not flag), None)
+    if attribution.get("clearedAtK") != cleared or isinstance(attribution.get("clearedAtK"), bool):
         raise ValueError(INVALID)
     after = [_finite(item["scoreAfter"]) for item in cf]
     shown = ([after[cleared - 1]] + ([after[0]] if cleared > 1 else [])) if cleared else after[-1:]
-    digits = _digits(threshold, [score, *shown])
-    value, line = _fixed(score, digits), _fixed(threshold, digits)
+    # 판정선과 |차| ≤ tol인 보이는 점수는 숫자 대신 `판정선과 같음`(자릿수 늘리기 대상에서도 뺀다).
+    line_value = float(_decimal(threshold))
+    same = lambda number: abs(number - line_value) <= tol  # noqa: E731
+    digits = _digits(threshold, [number for number in (score, *shown) if not same(number)])
+    line = _fixed(threshold, digits)
+    shown_value = lambda number: SAME if same(number) else f"값 {_fixed(number, digits)}"  # noqa: E731
 
     notes: list[str] = []
     if not top:
         summary = NO_TOP
     else:
-        head = f"머신러닝 모델 원점수(값 {value}, 판정선 {line})를 이상 쪽으로 {raise_word} 변수는 "
+        head = f"머신러닝 모델 원점수({shown_value(score)}, 판정선 {line})를 이상 쪽으로 {raise_word} 변수는 "
         if len(top) == 1:
             # 양수 1개 + scale 1: `{이름}뿐입니다(평소 값과 다름).`
             summary = (head + top[0].name + f"뿐입니다({USUAL})." if top[0].usual_alone()
@@ -273,18 +282,24 @@ def _render(attribution: Mapping[str, Any], method_score: Any) -> dict[str, Any]
         notes.append(BASELINE_WARNING)
 
     counterfactual = None
+    # 해소 문장의 점수 부분: 판정선과 같으면 `판정선과 같아져`, 아니면 `판정선보다 {낮아져}(값 …)`.
+    lowered = lambda number: ("원점수가 판정선과 같아져" if same(number)  # noqa: E731
+                              else f"원점수가 판정선보다 {lower_word}({shown_value(number)})")
     if cleared == 1:
-        counterfactual = (f"{top[0].replaced_alone()} 원점수가 판정선보다 {lower_word}(값 {_fixed(after[0], digits)}) "
-                          "머신러닝 모델 기준으로는 이상으로 보지 않았을 것입니다.")
+        counterfactual = f"{top[0].replaced_alone()} {lowered(after[0])} 머신러닝 모델 기준으로는 이상으로 보지 않았을 것입니다."
     elif cleared:
         together = "·".join(player.mention() for player in top[:cleared])
         first = _fixed(after[0], digits)
-        counterfactual = (f"{together}{josa(together, '을/를')} 함께 학습 데이터 중앙값으로 바꾸면 원점수가 판정선보다 "
-                          f"{lower_word}(값 {_fixed(after[cleared - 1], digits)}) 머신러닝 모델 기준으로는 이상으로 보지 않았을 것입니다. "
-                          f"{top[0].name}만 바꾸면 원점수는 {first}{josa(first, '으로/로')} 여전히 판정선 기준 이상 범위에 남습니다.")
+        alone = (f"{top[0].name}만 바꾸면 원점수가 판정선과 같아 여전히 판정선 기준 이상 범위에 남습니다." if same(after[0])
+                 else f"{top[0].name}만 바꾸면 원점수는 {first}{josa(first, '으로/로')} 여전히 판정선 기준 이상 범위에 남습니다.")
+        counterfactual = (f"{together}{josa(together, '을/를')} 함께 학습 데이터 중앙값으로 바꾸면 {lowered(after[cleared - 1])} "
+                          f"머신러닝 모델 기준으로는 이상으로 보지 않았을 것입니다. {alone}")
+    elif cf and same(after[-1]):
+        counterfactual = (f"상위 {len(cf)}개 변수를 학습 데이터 중앙값으로 바꾸면 원점수가 판정선과 같아져 여전히 판정선 기준 "
+                          "이상 범위에 남습니다.")
     elif cf:
         counterfactual = (f"상위 {len(cf)}개 변수를 학습 데이터 중앙값으로 바꿔도 원점수가 판정선 기준 이상 범위에 남습니다"
-                          f"(값 {_fixed(after[-1], digits)}).")
+                          f"({shown_value(after[-1])}).")
 
     return {"summary": summary, "notes": notes, "counterfactual": counterfactual, "limitation": LIMITATION,
             "scoreActual": score, "scoreBaseline": _finite(attribution["scoreBaseline"]), "threshold": threshold,

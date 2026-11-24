@@ -205,22 +205,25 @@ def _digits(threshold: str, scores: list[Any]) -> int:
 
 
 def tolerance(score: float) -> float:
-    """음수·동률 판단 허용 오차: max(1e-9, 1e-9·|score|), score = attribution의 원점수(scoreActual). 계약 계산 방법 절과 같은 식."""
+    """음수·0·동률 판단 허용 오차: max(1e-9, 1e-9·|score|). score = 같은 ML 방법 결과 항목의 score(없으면 기여도의
+    원점수 scoreActual). φ < −tol 음수, |φ| ≤ tol 0. 동률은 저장된 topK·players[] 순서를 그대로 쓴다(다시 정렬하지 않음)."""
     return max(1e-9, 1e-9 * abs(score))
 
 
-def render(attribution: Mapping[str, Any]) -> dict[str, Any]:
+def render(attribution: Mapping[str, Any], score: Any = None) -> dict[str, Any]:
     """`status=succeeded` 기여도 → 문장(summary·notes·counterfactual·limitation)과 문장에 쓴 저장 수치.
+
+    score: 같은 ML 방법 결과 항목의 `score`(허용 오차 기준). None이면 기여도의 scoreActual.
 
     형식이 계약과 다르면 ValueError(explanation_attribution_invalid). 성공으로 바꾸지 않는다.
     """
     try:
-        return _render(attribution)
+        return _render(attribution, score)
     except (KeyError, TypeError, AttributeError, IndexError):
         raise ValueError(INVALID) from None
 
 
-def _render(attribution: Mapping[str, Any]) -> dict[str, Any]:
+def _render(attribution: Mapping[str, Any], method_score: Any) -> dict[str, Any]:
     if (attribution.get("version") != VERSION or attribution.get("status") != "succeeded"
             or attribution.get("direction") not in WORDS):
         raise ValueError(INVALID)
@@ -229,7 +232,7 @@ def _render(attribution: Mapping[str, Any]) -> dict[str, Any]:
     if not isinstance(threshold, str):
         raise ValueError(INVALID)
     score = _finite(attribution["scoreActual"])
-    tol = tolerance(score)
+    tol = tolerance(score if method_score is None else _finite(method_score))
     players = [_Player(raw) for raw in attribution["players"]]
     by_id = {player.id: player for player in players}
     top_ids, cf = attribution["topK"], attribution["counterfactual"]

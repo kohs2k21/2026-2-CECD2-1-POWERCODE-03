@@ -118,9 +118,23 @@ class SentenceTests(unittest.TestCase):
         self.assertEqual(render(attribution)["notes"], [])
         attribution["players"][0]["phi"] = -1.1e-9
         self.assertEqual(len(render(attribution)["notes"]), 1)
-        attribution.update(scoreActual=20.0)  # 허용 오차 2e-8: 같은 φ는 음수로 보지 않는다
+        # 방법 결과 score가 있으면 그것이 기준: 허용 오차 2e-8이라 같은 φ는 0으로 본다(|φ| ≤ tol).
+        self.assertEqual(render(attribution, 20.0)["notes"], [])
+        self.assertEqual(len(render(attribution, None)["notes"]), 1)
+        attribution.update(scoreActual=20.0)  # score가 없으면 기여도 원점수가 기준
         attribution["counterfactual"][0]["scoreAfter"] = 0.51
         self.assertEqual(render(attribution)["notes"], [])
+        with self.assertRaisesRegex(ValueError, f"^{INVALID}$"):
+            render(attribution, float("nan"))
+
+    def test_ties_keep_stored_order(self):
+        attribution = example()
+        attribution["players"][2].update(phi=0.175, share=0.175 / 0.31)  # E와 동률, φ가 더 작은 T가 앞에 저장돼 있어도 다시 정렬하지 않는다
+        attribution["topK"] = ["total_count", "elapsed_ms", "error_count"]
+        attribution["clearedAtK"] = None
+        text = render(attribution)
+        self.assertEqual([item["playerId"] for item in text["topK"]], ["total_count", "elapsed_ms", "error_count"])
+        self.assertIn("변수는 처리량(TOTAL_COUNT) 5%, 처리 시간 56%, ERROR_COUNT 56% 순입니다.", text["summary"])
 
     def test_cleared_at_two_with_josa(self):
         text = render(keep(example(), 2, cleared=2, scores=[0.65, 0.41]))
@@ -229,9 +243,10 @@ class ExplanationJobTests(unittest.TestCase):
             result = explanation.explain(self.job(evidence))
         return result, generate.call_args.args
 
-    def saved(self, *attributions):
-        methods = [{"methodId": "rule:x", "category": "soft", "anomalous": False}]
-        methods += [{"methodId": f"ml:m{i}", "category": "ml", "anomalous": True, "attribution": a}
+    def saved(self, *attributions, score=0.71):
+        """API가 넘길 methodResults 항목 형태(methodId·category·score·attribution)."""
+        methods = [{"methodId": "rule:x", "category": "soft", "score": None}]
+        methods += [{"methodId": f"ml:m{i}", "category": "ml", "score": score, "attribution": a}
                     for i, a in enumerate(attributions)]
         return {"decisionId": "d", "status": "complete", "methodResults": methods}
 
@@ -263,6 +278,14 @@ class ExplanationJobTests(unittest.TestCase):
         # 모델이 그 사실을 골라도 한 번만.
         result, _ = self.run_job(evidence, picked=("fact_3", "fact_0"))
         self.assertEqual([fact["id"] for fact in result["facts"]], ["fact_0", "fact_3"])
+
+    def test_method_score_sets_tolerance(self):
+        attribution = keep(example(), 2, cleared=1)
+        attribution["players"][0]["phi"] = -1.1e-9
+        notes = lambda score: self.run_job(self.saved(attribution, score=score))[0]["facts"][-1]["value"][0]["notes"]
+        self.assertEqual(len(notes(0.71)), 1)
+        self.assertEqual(notes(20.0), [])  # 같은 항목 score 기준 허용 오차 2e-8
+        self.assertEqual(len(notes(None)), 1)  # score 없음 → 기여도 원점수 0.71 기준
 
     def test_skipped_and_failed_status_without_fact(self):
         skipped = {"version": "baseline-shapley-v1", "status": "skipped", "reason": "not_anomalous"}

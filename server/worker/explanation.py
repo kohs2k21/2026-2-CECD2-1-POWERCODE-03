@@ -33,16 +33,17 @@ def attribution_fact(evidence, index):
     읽을 수 없는 기여도는 사실에서 빼고 unreadable로 센다(경고 explanation_attribution_invalid). 설명 작업은 계속한다.
     """
     methods = evidence.get("methodResults") if isinstance(evidence, dict) else None
-    found = [(m.get("methodId"), m["attribution"]) for m in (methods if isinstance(methods, list) else ())
+    # 항목 키: methodId·category·score·attribution. score는 문장의 허용 오차 기준(없으면 기여도 원점수).
+    found = [(m.get("methodId"), m.get("score"), m["attribution"]) for m in (methods if isinstance(methods, list) else ())
              if isinstance(m, dict) and m.get("category") == "ml" and "attribution" in m]
     statuses, value = set(), []
-    for method, attribution in found:
+    for method, score, attribution in found:
         status = attribution.get("status") if isinstance(attribution, dict) else None
         try:
             if status not in ("succeeded", "failed", "skipped") or attribution.get("version") != ATTRIBUTION_VERSION:
                 raise ValueError(ATTRIBUTION_INVALID)
             if status == "succeeded":
-                value.append({"methodId": method, **render_attribution(attribution)})
+                value.append({"methodId": method, **render_attribution(attribution, score)})
         except ValueError as error:
             if str(error) != ATTRIBUTION_INVALID:
                 raise

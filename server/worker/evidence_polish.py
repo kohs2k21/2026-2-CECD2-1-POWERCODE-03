@@ -177,8 +177,10 @@ def parse_input(spec: Any) -> dict[str, Any]:
     """접수 입력(3.1) 형식 확인 + 워커가 직접 뽑은 순서열과 접수 목록 대조. 어긋나면 `explanation_input_rejected`."""
     if not isinstance(spec, Mapping) or not INPUT_KEYS <= set(spec) or set(spec) - INPUT_KEYS - OPTIONAL_INPUT_KEYS:
         raise ValueError(INPUT_REJECTED)
-    if spec["kind"] != "explain" or not all(_text(spec[key]) for key in ("sourceId", "decisionId", "configVersionId",
-                                                                        "templateVersion")):
+    if spec["kind"] != "explain" or not all(_text(spec[key]) for key in ("sourceId", "decisionId", "templateVersion")):
+        raise ValueError(INPUT_REJECTED)
+    # 판정 구성: 구성 없는 판정(v04)은 null. 키는 늘 있어야 하고, 값은 빈 문자열이 아닌 문자열 또는 null.
+    if spec["configVersionId"] is not None and not _text(spec["configVersionId"]):
         raise ValueError(INPUT_REJECTED)
     sentences, state_words, value_tokens = spec["sentences"], spec["stateWords"], spec["valueTokens"]
     if (not isinstance(sentences, list) or not 1 <= len(sentences) <= MAX_SENTENCES

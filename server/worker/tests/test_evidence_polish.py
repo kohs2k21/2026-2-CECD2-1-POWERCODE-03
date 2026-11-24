@@ -152,6 +152,10 @@ class InputTests(unittest.TestCase):
         self.rejected({**base, "savedEvidence": {}})
         self.rejected({**base, "kind": "explain_protocol"})
         self.rejected({**base, "decisionId": ""})
+        # 구성 없는 판정(v04): configVersionId null은 받고, 빈 문자열·숫자는 거부(키 없음은 위 missing에서 거부).
+        ep.parse_input({**base, "configVersionId": None})
+        self.rejected({**base, "configVersionId": ""})
+        self.rejected({**base, "configVersionId": 1})
         self.rejected(spec([]))
         self.rejected(spec(["가."] * 9))
         self.rejected(spec(["가" * 301]))
@@ -222,6 +226,13 @@ class ExplainPolishJobTests(unittest.TestCase):
         self.assertEqual(result["check"], {"status": "passed", "code": None})
         self.assertEqual(result["modelVersion"], MODEL)
         self.assertEqual(result["outputSchemaVersion"], "evidence-polish-result-v1")
+
+    def test_config_less_decision_and_backend_key_set(self):
+        # 백엔드 접수 키 집합(allowedNumbers 없음)과 같고, 구성 없는 판정(configVersionId null)도 다듬는다.
+        self.assertEqual(ep.INPUT_KEYS, {"kind", "sourceId", "decisionId", "configVersionId", "templateVersion",
+                                         "sentences", "stateWords", "valueTokens"})
+        result, _ = self.run_job(self.receipt(), value=job({**spec(), "configVersionId": None}))
+        self.assertEqual(result["paragraph"], {"text": HARD_GOOD, "source": "llm"})
 
     def test_check_failure_completes_with_code_text(self):
         result, _ = self.run_job(self.receipt(HARD_GOOD.replace("커서", "작아")))

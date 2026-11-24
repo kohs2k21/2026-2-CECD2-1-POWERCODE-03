@@ -249,3 +249,36 @@ def score_iforest(model_reference: Mapping[str, Any], features: Mapping[str, Any
     if not math.isfinite(value):
         raise ValueError("invalid_model_score")
     return float(value)
+
+
+ATTRIBUTION_BASELINE_KIND = "train_median_robust_scaler_center"
+
+
+def attribution_baseline(model_reference: Mapping[str, Any]) -> dict[str, Any]:
+    """기여도 기준값(detection-decision.md 6.1): fit 산출물 RobustScaler `center_`(변수 단위, fit 분할의 열별 중앙값).
+
+    `scaleIsUnit`은 열별 `scale_ == 1.0`(IQR 0이라 sklearn이 1로 둔 경우 포함, `with_scaling=False`면 모두 참)이다.
+    중심값이 없거나(`with_centering=False`) 유한하지 않으면 ValueError — 기여도는 `skipped`/`baseline_unavailable`.
+    """
+    _forest, scaler, names = _prepared(model_reference)
+    center = getattr(scaler, "center_", None)
+    if center is None or len(center) != len(names) or not np.isfinite(np.asarray(center, dtype=np.float64)).all():
+        raise ValueError("attribution_baseline_unavailable")
+    scale = getattr(scaler, "scale_", None)
+    unit = [True] * len(names) if scale is None else [bool(float(value) == 1.0) for value in scale]
+    return {"kind": ATTRIBUTION_BASELINE_KIND, "values": [float(value) for value in center], "scaleIsUnit": unit}
+
+
+def score_iforest_batch(model_reference: Mapping[str, Any], matrix: Sequence[Sequence[float]]) -> list[float]:
+    """여러 행(변수 단위, featureNames 열 순서)을 같은 scaler·forest로 한 번에 점수(-score_samples) 매긴다.
+
+    `score_iforest`와 같은 식이다. 점수 하나라도 유한하지 않으면 ValueError.
+    """
+    forest, scaler, names = _prepared(model_reference)
+    values = np.asarray(matrix, dtype=np.float64)
+    if values.ndim != 2 or values.shape[1] != len(names):
+        raise ValueError("feature_schema_mismatch")
+    scores = -forest.score_samples(scaler.transform(values))
+    if not np.isfinite(scores).all():
+        raise ValueError("invalid_model_score")
+    return [float(score) for score in scores]

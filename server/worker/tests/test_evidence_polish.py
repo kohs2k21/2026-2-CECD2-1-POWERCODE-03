@@ -238,7 +238,9 @@ class ExplainPolishJobTests(unittest.TestCase):
                             (GenerationUnavailable("generation_service_unavailable"), "generation_service_unavailable"),
                             (GenerationUnavailable("generation_service_not_configured"), "generation_service_unavailable"),
                             (GenerationRejected(), "generation_contract_rejected"),
-                            (ValueError("generation_token_budget_exceeded"), "generation_contract_rejected")):
+                            (ValueError("generation_token_budget_exceeded"), "generation_contract_rejected"),
+                            (RuntimeError("CUDA error: device-side assert"), "generation_service_unavailable"),
+                            (KeyError("input_ids"), "generation_service_unavailable")):
             with self.subTest(code=code, error=type(error).__name__), self.assertRaisesRegex(ValueError, f"^{code}$"):
                 self.run_job(error=error)
 
@@ -387,8 +389,21 @@ class PolishGenerationServiceTests(unittest.TestCase):
             self.assertEqual(first, polish_model_id(root, "Qwen/Qwen3.5-2B"))
             (root / "config.json").write_text('{"x":1}')
             self.assertNotEqual(first, polish_model_id(root, "Qwen/Qwen3.5-2B"))
+            # 내려받기·버전 관리 부산물은 hash에 들어가지 않는다.
+            current = polish_model_id(root, "Qwen/Qwen3.5-2B")
+            (root / ".cache/huggingface").mkdir(parents=True)
+            (root / ".cache/huggingface/download.lock").write_text("x")
+            (root / ".gitattributes").write_text("*.bin filter=lfs")
+            (root / ".git").mkdir()
+            (root / ".git/HEAD").write_text("ref")
+            (root / "weights.bin.lock").write_text("")
+            (root / "part.incomplete").write_text("")
+            self.assertEqual(current, polish_model_id(root, "Qwen/Qwen3.5-2B"))
+            (root / "tokenizer.json").write_text("{}")
+            self.assertNotEqual(current, polish_model_id(root, "Qwen/Qwen3.5-2B"))
             empty = root / "empty"
             empty.mkdir()
+            (empty / ".gitattributes").write_text("x")
             with self.assertRaisesRegex(ValueError, "^polish_model_files_missing$"):
                 polish_model_id(empty, "m")
             model = DesignModel.__new__(DesignModel)

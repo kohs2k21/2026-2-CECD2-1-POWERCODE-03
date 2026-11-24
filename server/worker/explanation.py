@@ -74,6 +74,10 @@ def _polish_receipt(sentences):
         raise ValueError(code if code in POLISH_GENERATION_CODES else "generation_service_unavailable") from exc
     except ValueError as exc:  # 같은 프로세스 경로의 요청 거부·토큰 예산, HTTP 응답 형식 어긋남
         raise ValueError("generation_contract_rejected") from exc
+    except Exception as exc:
+        # 같은 프로세스 경로의 예상 밖 오류(CUDA 등)도 재시도하지 않는다. 재시도 경로로 가면 다음 시도가
+        # max_attempts(1)로 끝나 오류 코드가 max_attempts로 덮인다.
+        raise ValueError("generation_service_unavailable") from exc
 
 
 def explain_polish(job):

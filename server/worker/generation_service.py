@@ -50,11 +50,17 @@ class PolishModelUnavailable(RuntimeError):
         super().__init__("polish_model_not_configured")
 
 
+def _polish_model_file(relative: Path) -> bool:
+    """모델 산출물 파일인가. 내려받기·버전 관리 부산물(숨김 경로 `.cache/`·`.git*`·`.huggingface/`, `*.lock`·`*.incomplete`)은 뺀다."""
+    return not any(part.startswith(".") for part in relative.parts) and not relative.name.endswith((".lock", ".incomplete"))
+
+
 def polish_model_id(path: Path, name: str) -> str:
-    """`<이름>@<산출물 hash 앞 8자리>`. hash = 폴더 안 모든 파일의 (상대 경로, SHA-256) 목록의 SHA-256(시작 때 1회)."""
+    """`<이름>@<산출물 hash 앞 8자리>`. hash = 폴더 안 모델 파일의 (상대 경로, SHA-256) 목록의 SHA-256(시작 때 1회).
+    내려받기 부산물은 넣지 않는다(같은 가중치가 캐시·잠금 파일 때문에 다른 id가 되지 않게)."""
     import hashlib
     listing = hashlib.sha256()
-    files = sorted(item for item in path.rglob("*") if item.is_file())
+    files = sorted(item for item in path.rglob("*") if item.is_file() and _polish_model_file(item.relative_to(path)))
     if not files:
         raise ValueError("polish_model_files_missing")
     for item in files:

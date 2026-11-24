@@ -253,6 +253,9 @@ assert.deepEqual([roundHalfUp("-0.0004", 3), roundHalfUp("-0.0005", 3), roundHal
 assert.ok(sentences({ direction: "lower_is_anomaly", scoreActual: -0.0001, threshold: "-0.62" }).summary.includes("(값 0.000, 판정선 -0.620)"));
 assert.equal(groupDigits("1".repeat(1001)), "1".repeat(1001), "over-long number text is kept as is");
 assert.equal(groupDigits("1".repeat(1000)).length, 1000 + 333);
+// 값이 0인 음수 표기의 실제값은 부호 없이(설명 워커와 같음), 0이 아닌 음수는 그대로
+assert.deepEqual(["-0", "-0.0", "-0E+3", "-0.001", "-1,000"].map(groupDigits), ["0", "0.0", "0", "-0.001", "-1,000"]);
+assert.equal(attributionTableRows(read(base({ players: [T, { ...E, actual: { error_count: "-0.0" } }, L] })))[0].members[0].actual, "0.0(단위 미확인)");
 // 이름표는 자기 키만(상속 속성 이름을 집지 않음)
 assert.deepEqual(["constructor", "__proto__", "toString"].map(text.featureName), ["constructor", "__proto__", "toString"]);
 
@@ -291,4 +294,7 @@ for (const shown of [example.summary, example.counterfactual, LIMIT, "학습 데
 for (const hidden of ["평소 값 1", "평소 값 0", "baseline-shapley-v1", "Shapley", "리비전", "not_anomalous", "exception", "too_many_players", "총 건수", "오류율", "재시도 수", "error_count<", ">error_count"])
   assert.ok(!html.includes(hidden), `hidden ${hidden}`);
 assert.ok(!/\d건|건 /.test(html.replace(/조건/g, "")), "no 건 unit word");
+// 설명 결과의 기여도 사실(ml_attribution) 이름표
+const { factView } = await import("../src/features/analysis/explainFacts.ts");
+assert.deepEqual(factView({ name: "ml_attribution", value: [{ methodId: "ml:iforest", summary: example.summary }] }, true), { head: "기여도", items: [example.summary] });
 console.log("ml-attribution: ok");

@@ -4,8 +4,9 @@ import { SCALE_UNIT_BASELINE, UNIT_UNKNOWN, attributionFeatureLabel, medianText 
 /**
  * 기여도 문장 만들기(detection-decision.md "6.1 ML 기여도" 절 표시 규칙 + analysis-ui.md 판정 상세 기여도 보충 규칙).
  * 저장값만 쓰고 새 수치를 계산하지 않는다(반올림·% 변환·지수 표기 펼치기·천 단위 쉼표만).
- * 설명 작업의 기여도 문장(worker `ml_attribution_text.py`)과 문장 틀은 같고, 의도된 차이는 값 표기(지수 펼치기·천 단위 쉼표·`800 ms` 띄어쓰기)와
- * 비율 없음 안내의 위치(설명은 요약 문장 끝, 화면은 별도 안내 줄)다.
+ * 설명 작업의 기여도 문장(worker `ml_attribution_text.py`)과 문장 틀·값 표기(지수 펼치기·천 단위 쉼표·`800 ms`·0인 음수의 부호 없음)가 같다.
+ * 의도된 차이는 비율 없음 안내의 위치(설명은 요약 문장 끝, 화면은 별도 안내 줄)뿐이다. 계약상 오지 않는 입력(share null이 일부 참가자만)에서는
+ * 화면이 그 참가자만 비율을 빼고 설명은 모두 뺀다.
  * - 원점수·판정선·보이는 반사실 점수: 소수 셋째 자리 half-up. 셋째 자리에서 원점수나 보이는 반사실 점수가 판정선과 같은 글자면 함께 자릿수를 늘린다(최대 여섯째)
  * - 판정선과 |차| ≤ tol인 보이는 점수는 숫자 대신 `판정선과 같음`(자릿수 늘리기 대상에서 뺀다)
  * - 비율: share × 100 정수 half-up. 표시 비율 합은 보정하지 않는다
@@ -62,12 +63,16 @@ export const roundHalfUp = (raw: string, digits: number, shift = 0): string => {
   const body = digits > 0 ? `${text.slice(0, -digits)}.${text.slice(-digits)}` : text;
   return rounded === 0n ? body : `${sign}${body}`;
 };
-/** 정수 부분에 천 단위 쉼표(화면 숫자 표기와 같게 소수 부분은 그대로, 자리 값은 바꾸지 않음). 지수 표기는 먼저 펼친다. 10진 표기가 아니면 원문 그대로. */
+/**
+ * 정수 부분에 천 단위 쉼표(화면 숫자 표기와 같게 소수 부분은 그대로, 자리 값은 바꾸지 않음). 지수 표기는 먼저 펼친다.
+ * 값이 0인 음수 표기(`-0`·`-0.0`)는 부호 없이. 10진 표기가 아니면 원문 그대로.
+ */
 export const groupDigits = (raw: string): string => {
   if (raw.length > NUMBER_TEXT_LIMIT) return raw;
   const value = expandExponent(raw);
   const m = /^([+-]?)(\d+)(\.\d+)?$/.exec(value);
-  return m ? `${m[1] === "-" ? "-" : ""}${m[2].replace(/\B(?=(\d{3})+(?!\d))/g, ",")}${m[3] ?? ""}` : raw;
+  const zero = m !== null && /^[0.]*$/.test(`${m[2]}${m[3] ?? ""}`);
+  return m ? `${m[1] === "-" && !zero ? "-" : ""}${m[2].replace(/\B(?=(\d{3})+(?!\d))/g, ",")}${m[3] ?? ""}` : raw;
 };
 export const percentText = (share: number) => `${roundHalfUp(plainNumber(share), 0, 2)}%`;
 

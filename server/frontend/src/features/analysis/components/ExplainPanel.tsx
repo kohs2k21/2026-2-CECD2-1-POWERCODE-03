@@ -132,7 +132,11 @@ const factLength = ({ view }: FactEntry) => view.head.length + view.items.reduce
  */
 const ExplainResult = ({ summary, fresh, v4 }: { summary: ExplainSummary; fresh: boolean; v4: boolean }) => {
   const reduceMotion = useReducedMotion();
-  const facts = shownFacts(summary?.facts ?? []).map((fact) => ({ id: fact.id, name: fact.name, view: factView(fact, v4) }));
+  // 보일 문장이 없는 기여도 사실(view null)은 줄·타자 효과 글자 수에서 뺀다
+  const facts = shownFacts(summary?.facts ?? []).flatMap((fact) => {
+    const view = factView(fact, v4);
+    return view ? [{ id: fact.id, name: fact.name, view }] : [];
+  });
   const checks = summary?.nextChecks ?? [];
   const total = facts.reduce((sum, fact) => sum + factLength(fact), 0) + checks.reduce((sum, check) => sum + check.text.length, 0);
   const [typing] = useState(fresh && !reduceMotion && total > 0);

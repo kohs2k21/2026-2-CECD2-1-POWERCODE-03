@@ -1135,6 +1135,35 @@ const explainCard = (app) => app.renderer.root.find((node) => node.type === "div
   await app.cleanup();
 }
 
+// 5d1c) 기여도 사실(ml_attribution, 워커 explanation.py attribution_fact): 머리 `기여도` 아래 워커가 만든 문장만(summary → notes → counterfactual → limitation).
+// 수치·내부 값(scoreActual·direction·topK·phi·playerId)과 methodId 문자열은 보이지 않는다. 문장이 하나도 없으면 줄 자체가 없다.
+{
+  const { factView, attributionItems } = await import("../src/features/analysis/explainFacts.ts");
+  const method = (methodId, over = {}) => ({ methodId, summary: `요약 ${methodId}`, notes: [`안내1 ${methodId}`, `안내2 ${methodId}`], counterfactual: `반사실 ${methodId}`,
+    limitation: "한계 문장", scoreActual: 0.71, scoreBaseline: 0.4, threshold: "0.62", direction: "higher_is_anomaly", clearedAtK: 1, counterfactualScores: [0.51],
+    topK: [{ playerId: "error_count", features: ["error_count"], phi: 0.175, share: 0.5645, thresholdGapShare: null }], ...over });
+  assert.deepEqual(factView({ name: "ml_attribution", value: [method("ml:iforest")] }, true),
+    { head: "기여도", items: ["요약 ml:iforest", "안내1 ml:iforest", "안내2 ml:iforest", "반사실 ml:iforest", "한계 문장"] });
+  assert.deepEqual(attributionItems([method("ml:iforest", { notes: [], counterfactual: null })]), ["요약 ml:iforest", "한계 문장"], "no notes, no counterfactual");
+  assert.deepEqual(attributionItems([method("ml:iforest"), method("ml:lof", { notes: undefined })]), ["머신러닝 모델(iforest)", "요약 ml:iforest", "안내1 ml:iforest",
+    "안내2 ml:iforest", "반사실 ml:iforest", "한계 문장", "머신러닝 모델(lof)", "요약 ml:lof", "반사실 ml:lof", "한계 문장"], "two methods: method display name line first");
+  assert.deepEqual(attributionItems([method("ml:iforest"), method("bogus", { summary: 3, notes: [1, null], counterfactual: {}, limitation: "" })]),
+    ["요약 ml:iforest", "안내1 ml:iforest", "안내2 ml:iforest", "반사실 ml:iforest", "한계 문장"], "element without sentences is skipped (one method left → no name line)");
+  for (const value of ["문장", [], {}, null, [1, "x", null], [{ scoreActual: 0.7, topK: [] }]]) assert.equal(factView({ name: "ml_attribution", value }, true), null, JSON.stringify(value));
+
+  const summary = { ...explainSummary, facts: [explainSummary.facts[1], { id: "fact_10", name: "ml_attribution", value: [method("ml:iforest")] },
+    { id: "fact_11", name: "ml_attribution", value: [{ scoreActual: 0.7 }] }] };
+  const detail = { ...item("d-9a"), configuration: null, job: null, explanation: { jobId: "explain-d-9a", status: "succeeded", errorCode: null, createdAt: null } };
+  routes = explainRoutes("d-9a", detail, { status: "succeeded" }, summary);
+  const app = await mount("/analysis/d/d-9a");
+  await wait(() => app.shown().includes("설명 작업 완료"), "attribution result loaded");
+  const card = text(explainCard(app).children);
+  assert.ok(card.includes("검사 완료: 완료기여도요약 ml:iforest안내1 ml:iforest안내2 ml:iforest반사실 ml:iforest한계 문장확인할 것(원인 후보)"), card);
+  for (const raw of ["phi", "higher_is_anomaly", "playerId", "topK", "scoreActual", "0.71", "0.5645", "counterfactualScores", "methodId"]) assert.ok(!card.includes(raw), `no raw ${raw}`);
+  assert.equal(explainCard(app).findAll((node) => node.type === "li" && node.props.title === "ml_attribution").length, 1, "fact without sentences has no line");
+  await app.cleanup();
+}
+
 // 5d2) v04 판정(구성 없음): 당시 모델 줄만 빠지고 나머지 요약·설명 요청은 같다. 없는 값을 다른 문구로 채우지 않는다.
 {
   requested.length = 0;

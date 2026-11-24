@@ -725,11 +725,10 @@ try {
   assert.ok(!v04Final.evidence.methodResults.some((method) => method.cause === 'pending'), 'a final decision has no pending method');
   const v04Normal = (await detail(D4.replaced.id)).body;
   assert.deepEqual([v04Normal.evidence.schemaVersion, v04Normal.mlStatus, Number(v04Normal.anomalyScore)], [4, 'succeeded', 0.3]);
-  // ML 방법 결과의 기여도(attribution)는 판정 상세 evidence에 저장값 그대로 실린다(목록 원인 요약에는 없음).
+  // ML 방법 결과의 기여도(attribution)는 판정 상세 evidence에 저장값 그대로 실린다.
   const mlOf = (body) => body.evidence.methodResults.filter((method) => method.category === 'ml');
   assert.deepEqual(mlOf(v04Final).map((method) => method.attribution), [V04_ATTRIBUTION.final]);
   assert.deepEqual(mlOf(v04Normal).map((method) => method.attribution), [V04_ATTRIBUTION.replaced]);
-  assert.ok(!JSON.stringify(v04ById.get(D4.final.id).causes).includes('attribution'), 'list causes do not carry attribution');
   assert.equal((await detail(J4.final.id)).body.id, D4.final.id, 'job id resolves to its final decision');
   const v04Pending = (await detail(J4.pending.id)).body;
   assert.deepEqual([v04Pending.kind, v04Pending.configuration, v04Pending.job.status], ['pending', null, 'queued']);

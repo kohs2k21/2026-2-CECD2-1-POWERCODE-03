@@ -69,8 +69,8 @@ export const MlAttribution = ({ attribution }: { attribution: Attribution }) => 
         </Table>
       )}
       {sentences.counterfactual && <p className="text-sm" data-attribution="counterfactual">{sentences.counterfactual}</p>}
-      {notes.map((note) => (
-        <p key={note} className="text-sm text-muted-foreground" data-attribution="note">{note}</p>
+      {notes.map((note, index) => (
+        <p key={index} className="text-sm text-muted-foreground" data-attribution="note">{note}</p>
       ))}
       <p className="text-sm text-muted-foreground" data-attribution="limitation">{sentences.limitation}</p>
     </div>

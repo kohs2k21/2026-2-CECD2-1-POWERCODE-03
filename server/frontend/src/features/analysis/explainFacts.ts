@@ -18,6 +18,7 @@ import {
  * - 이름표가 없는 키·값은 원래 값 그대로. 객체·배열은 JSON 대신 `키 값 · 키 값` 축약(값 없는 키는 생략)
  * - 배열 값(rules·models 등)은 항목마다 한 줄
  * - 판정 상세에도 나오지 않는 내부 식별자(configVersionId·inputManifestHash)는 보이지 않는다(툴팁·타자 효과 글자 수에서도 제외)
+ * - 기여도 사실(`ml_attribution`, 워커 explanation.py `attribution_fact`)은 워커가 만든 문장만 보인다(수치·내부 값은 숨김, attributionItems)
  */
 export type FactView = { head: string; items: string[] };
 
@@ -34,6 +35,7 @@ const factNames: Record<string, string> = {
   anomalyScore: "이상 점수",
   rules: "Rule 판정 근거",
   models: "ML 판정 근거",
+  ml_attribution: "기여도", // 워커가 기여도 저장값으로 만든 사실(explanation.py ATTRIBUTION_FACT)
 };
 
 /** 이름표 없는 값의 읽을 수 있는 축약. 문자열은 그대로, 값 없음은 —. */
@@ -86,10 +88,36 @@ const scalarValue = (name: string, value: unknown) => {
   }
 };
 
-/** 근거 한 건 → 제목 줄 + 항목 줄. 배열 값은 제목(이름)만 두고 항목마다 한 줄, 빈 배열은 `이름: —`. */
-export const factView = (fact: { name: string; value: unknown }, v4: boolean): FactView => {
+/**
+ * 기여도 사실의 항목 줄: ML 방법마다 워커 `ml_attribution_text.render`가 내는 순서(summary → notes[] → counterfactual → limitation)로
+ * 문장 문자열만 그대로 옮긴다. scoreActual·threshold·direction·topK 등 수치·내부 값과 methodId 문자열은 보이지 않는다.
+ * ML 방법이 둘 이상이면 방법마다 먼저 판정 상세의 방법 표시 이름(`머신러닝 모델(<key>)`) 한 줄. 모양이 어긋난 원소·문장은 건너뛴다.
+ */
+const ATTRIBUTION_FACT = "ml_attribution";
+const sentence = (v: unknown): string[] => (typeof v === "string" && v ? [v] : []);
+export const attributionItems = (value: unknown): string[] => {
+  const methods = Array.isArray(value)
+    ? value.flatMap((entry) => {
+        if (!record(entry)) return [];
+        const lines = [...sentence(entry.summary), ...(Array.isArray(entry.notes) ? entry.notes.flatMap(sentence) : []), ...sentence(entry.counterfactual),
+          ...sentence(entry.limitation)];
+        return lines.length ? [{ name: typeof entry.methodId === "string" ? methodLabel(entry.methodId) : null, lines }] : [];
+      })
+    : [];
+  return methods.flatMap((method) => (methods.length > 1 && method.name ? [method.name, ...method.lines] : method.lines));
+};
+
+/**
+ * 근거 한 건 → 제목 줄 + 항목 줄. 배열 값은 제목(이름)만 두고 항목마다 한 줄, 빈 배열은 `이름: —`.
+ * 보일 문장이 하나도 없는 기여도 사실은 null(줄 자체를 두지 않음 — 내부 키가 드러나는 기본 축약으로 떨어지지 않게).
+ */
+export const factView = (fact: { name: string; value: unknown }, v4: boolean): FactView | null => {
   const head = Object.hasOwn(factNames, fact.name) ? factNames[fact.name] : fact.name;
   const { value } = fact;
+  if (fact.name === ATTRIBUTION_FACT) {
+    const items = attributionItems(value);
+    return items.length ? { head, items } : null;
+  }
   if (Array.isArray(value)) {
     if (!value.length) return { head: `${head}: ${DASH}`, items: [] };
     const item = fact.name === "rules" ? (entry: unknown) => ruleItem(entry, v4) : fact.name === "models" ? (entry: unknown) => modelItem(entry, v4) : briefValue;

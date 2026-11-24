@@ -286,6 +286,12 @@ export async function seedAnalysisFixture(pool, options = {}) {
   return out;
 }
 
+/** v04 fixture ML 방법 결과의 기여도(미완료 ML → method_unresolved, 정상 ML → not_anomalous). */
+export const V04_ATTRIBUTION = {
+  final: { version: 'baseline-shapley-v1', status: 'skipped', reason: 'method_unresolved' },
+  replaced: { version: 'baseline-shapley-v1', status: 'skipped', reason: 'not_anomalous' },
+};
+
 /**
  * v04 작업·판정(구성 없음, 016)을 같은 원천에 덧붙인다. v03 fixture의 작업 항목과 같은 다섯 상태:
  * 최종 판정, 이전 시도가 대체된 최종 판정, 열린 중간 기록, 대기, 중간 기록 뒤 실패(최종 없음).
@@ -298,23 +304,27 @@ export async function seedAnalysisV04Fixture(pool, { sourceId }) {
   const { detectJob, attempt, interim, jobDecision, failJob } = fixtureWriters(client, sourceId, null, out);
   const modelVersionId = id();
   const interimOf = (name) => v04Interim(name, modelVersionId);
-  /** 판정 행 열 값과 evidence는 Detector 출력 표본 그대로다. */
-  const finish = async (job, att, name) => {
+  /**
+   * 판정 행 열 값과 evidence는 Detector 출력 표본 그대로다. `attribution`을 주면 ML 방법 결과에 기여도 키를 더한다
+   * (detection-decision.md "6.1 ML 기여도" 절 `attribution` — 판정 상세·설명 접수 입력이 그대로 옮기는지 확인용).
+   */
+  const finish = async (job, att, name, attribution) => {
     const { rows: [{ asOf }] } = await client.query('SELECT input_as_of AS "asOf" FROM run_input_manifests WHERE id=$1', [job.manifest]);
     const { columns, evidence } = v04Final(name, { sourceId, observationId: job.obs, inputAsOf: asOf.toISOString(), manifestHash: job.hash, modelVersionId });
+    if (attribution) for (const method of evidence.methodResults) if (method.category === 'ml') method.attribution = attribution;
     return jobDecision(job, att, columns.status, evidence, columns.decision_code,
       { ruleStatus: columns.rule_status, mlStatus: columns.ml_status, score: columns.anomaly_score });
   };
   try {
     await client.query('BEGIN');
     const finalJob = await detectJob('final', 6, 'v04');
-    out.decisions.final = { ...finalJob, id: await finish(finalJob, await attempt(finalJob, 1), 'signPartial'), jobId: finalJob.id };
+    out.decisions.final = { ...finalJob, id: await finish(finalJob, await attempt(finalJob, 1), 'signPartial', V04_ATTRIBUTION.final), jobId: finalJob.id };
 
     const replacedJob = await detectJob('replaced', 5, 'v04');
     const r1 = await attempt(replacedJob, 1);
     await interim(replacedJob, r1, 'first_anomaly', interimOf('sign'));
     await client.query(`UPDATE run_job_attempts SET status='expired' WHERE id=$1`, [r1.id]);
-    out.decisions.replaced = { ...replacedJob, id: await finish(replacedJob, await attempt(replacedJob, 2), 'normalComplete'), jobId: replacedJob.id };
+    out.decisions.replaced = { ...replacedJob, id: await finish(replacedJob, await attempt(replacedJob, 2), 'normalComplete', V04_ATTRIBUTION.replaced), jobId: replacedJob.id };
 
     const interimJob = await detectJob('interim', 4, 'v04');
     const i1 = await attempt(interimJob, 1);

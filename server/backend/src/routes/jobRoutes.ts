@@ -17,6 +17,7 @@ import { RuleSetError } from '../ruleset/ruleSetContract.js';
 import { ComparisonError, enqueueComparison, parseComparisonRequest } from '../services/comparisonEvaluation.js';
 import { idempotencyKeyOf } from './comparisonRoutes.js';
 import { JobReadError, parseJobListQuery, readJobDetail, readJobPage } from '../services/jobReadModel.js';
+import { buildSavedEvidence } from '../services/explainEvidence.js';
 import { GENERATION_SERVICE_UNAVAILABLE, LLM_JOB_KINDS, generationAvailability } from '../services/generationAvailability.js';
 import { INVALID_PROTOCOL_EXPLANATION_REQUEST, PROTOCOL_EXPLANATION_KIND, parseProtocolExplanationRequest, protocolExplanationDecisionId,
   protocolExplanationLlmSpec, protocolExplanationProblem, type ProtocolExplanationInput, type ProtocolExplanationTarget } from './protocolExplanationContract.js';
@@ -299,11 +300,8 @@ router.post('/', route(async (req, res) => {
       if (!saved.rowCount) throw new JobRequestError('decision_not_found',404);
       const decision = saved.rows[0];
       input.configVersionId = decision.config_version_id;
-      input.savedEvidence = {decisionId: decision.id, configVersionId: decision.config_version_id,
-        status: decision.status, ruleStatus: decision.rule_status, mlStatus: decision.ml_status,
-        decisionCode: decision.decision_code, anomalyScore: decision.anomaly_score === null ? null : String(decision.anomaly_score),
-        inputManifestHash: decision.input_manifest_hash,
-        rules: decision.evidence.rules ?? [], models: decision.evidence.models ?? []};
+      // 저장 근거 + 기여도가 있는 ML 방법 결과(없으면 methodResults 키 없음, services/explainEvidence.ts)
+      input.savedEvidence = buildSavedEvidence(decision);
       input.savedEvidenceJson = JSON.stringify(input.savedEvidence);
       requestHash = crypto.createHash('sha256').update(JSON.stringify(input)).digest('hex');
     }

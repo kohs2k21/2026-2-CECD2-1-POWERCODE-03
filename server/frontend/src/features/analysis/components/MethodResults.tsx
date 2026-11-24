@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { pathReasonLabels, pathReasonText } from "@/features/detection/rules/protocols/protocolLabels";
 import { reasonLabels as relationReasonLabels } from "@/features/detection/rules/candidates/candidateLabels";
@@ -18,11 +19,14 @@ import {
   runLabels,
   signalLabels,
 } from "../labels";
+import { MlAttribution } from "./MlAttribution";
 
 /**
  * 종합 근거(대분류) + 관계 확인 보류 + 세부 방법별 결과(와이어프레임 dCats·dMethods). evidence v4 저장값만 읽는다(재계산 없음, detection-decision.md D7).
  * 정책 값(k·deadlineMs·composite.policy)은 보이지 않는다(C23·사용자 9.8). 방법은 표시 이름, 방법 ID는 툴팁.
  * 세부 방법은 근거 구분(내장 이상 규칙 → 관계 규칙 → 정상 프로토콜 → 이상 징후 규칙 → 머신러닝 모델) 순으로 묶는다. 관계 규칙 위반은 결과 "규약 위반"(relation-rules.md 1절).
+ * 머신러닝 모델 행 아래에는 저장된 기여도(`attribution`)를 한 줄 더 둔다(목록 화면에는 없다). 키가 있으면 상태와 무관하게 보이고,
+ * 키가 없으면(`기여도 미계산`) 최종 판정의 실행 상태 완료(succeeded) ML 행에만 둔다 — 중간 판정 기록·미완료·실패 행은 키가 없어도 줄이 없다.
  * relationNotes의 수집 미완료 보류(`held`)는 종합 판정에 들지 않지만 "관계 확인 보류"로 함께 보인다(relation-rules.md 5절 위험 — 보류가 정상으로 묻히지 않게).
  */
 export const categoryNames: Record<MethodCategory, string> = { hard: "이상 규칙", soft: "이상 징후 규칙", ml: "머신러닝 모델" };
@@ -149,7 +153,11 @@ const categoryResultText = (result: string | null, methods: MethodResult[]) =>
             : "미판정"
           : (result ?? DASH);
 
-export const MethodResults = ({ evidence, observedStatus }: { evidence: EvidenceV4; observedStatus: string | null }) => {
+/** 기여도 줄을 둘지: 키가 있으면 항상, 키가 없으면 최종 판정의 succeeded ML 행만. */
+const attributionShown = (m: MethodResult, final: boolean) =>
+  m.attribution !== null && (m.attribution.status !== "absent" || (final && m.status === "succeeded"));
+
+export const MethodResults = ({ evidence, observedStatus, final = false }: { evidence: EvidenceV4; observedStatus: string | null; final?: boolean }) => {
   const methods = evidence.methodResults;
   // 근거 구분 순으로 묶되 같은 구분 안은 저장 순서 그대로(Detector 순서: 내장 → 관계 → 프로토콜)
   const grouped = methods.map((m, index) => ({ m, index })).sort((a, b) => groupRank(a.m) - groupRank(b.m) || a.index - b.index).map(({ m }) => m);
@@ -229,19 +237,28 @@ export const MethodResults = ({ evidence, observedStatus }: { evidence: Evidence
             {grouped.map((m) => {
               const reason = reasonCell(m);
               return (
-                <TableRow key={m.methodId} data-method={m.methodId} data-group={m.group}>
-                  <TableCell>{categoryNames[m.category]}</TableCell>
-                  <TableHead scope="row" className="h-auto font-normal" title={m.methodId}>
-                    {methodName(m)}
-                  </TableHead>
-                  <TableCell title={m.status ?? undefined}>{runText(m)}</TableCell>
-                  <TableCell>{resultText(m)}</TableCell>
-                  <TableCell>{measured(m, observedStatus)}</TableCell>
-                  <TableCell>{criterion(m)}</TableCell>
-                  <TableCell title={m.anomalous === true && !m.riskLevel ? (m.riskLevelReason ?? undefined) : undefined}>{levelText(m)}</TableCell>
-                  <TableCell>{m.elapsedMs === null ? DASH : `${number(m.elapsedMs)} ms`}</TableCell>
-                  <TableCell title={reason.title}>{reason.text}</TableCell>
-                </TableRow>
+                <Fragment key={m.methodId}>
+                  <TableRow data-method={m.methodId} data-group={m.group}>
+                    <TableCell>{categoryNames[m.category]}</TableCell>
+                    <TableHead scope="row" className="h-auto font-normal" title={m.methodId}>
+                      {methodName(m)}
+                    </TableHead>
+                    <TableCell title={m.status ?? undefined}>{runText(m)}</TableCell>
+                    <TableCell>{resultText(m)}</TableCell>
+                    <TableCell>{measured(m, observedStatus)}</TableCell>
+                    <TableCell>{criterion(m)}</TableCell>
+                    <TableCell title={m.anomalous === true && !m.riskLevel ? (m.riskLevelReason ?? undefined) : undefined}>{levelText(m)}</TableCell>
+                    <TableCell>{m.elapsedMs === null ? DASH : `${number(m.elapsedMs)} ms`}</TableCell>
+                    <TableCell title={reason.title}>{reason.text}</TableCell>
+                  </TableRow>
+                  {m.attribution && attributionShown(m, final) && (
+                    <TableRow data-attribution-of={m.methodId}>
+                      <TableCell colSpan={9}>
+                        <MlAttribution attribution={m.attribution} />
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </Fragment>
               );
             })}
           </TableBody>

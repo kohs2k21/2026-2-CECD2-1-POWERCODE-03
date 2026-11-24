@@ -1,4 +1,5 @@
 import { record } from "./analysisApi";
+import { readAttribution, type Attribution } from "./attribution";
 
 /**
  * 판정 evidence 읽기. 저장된 값만 읽고 다시 계산하지 않는다(형식이 틀린 항목은 버림).
@@ -121,6 +122,8 @@ export type MethodResult = {
   modelVersionId: string | null;
   /** ML만: 원점수·판정선·판정선 대비(threshold_ratio). 판정선은 저장 문자열 그대로. */
   scoreDetail: { raw: number | null; threshold: string | null; ratio: number | null } | null;
+  /** ML만: 기여도(detection-decision.md "6.1 ML 기여도" 절 `attribution`, 키 없음 = absent). ML이 아니면 null. */
+  attribution: Attribution | null;
   /** 판단 안 함(not_applicable) 등 방법 evidence 요약의 reason 코드. */
   reasons: string[];
   condition: { field: string | null; operator: string | null; threshold: string | null; unit: string | null } | null;
@@ -189,6 +192,7 @@ export const readEvidenceV4 = (evidence: Record<string, unknown> | null | undefi
         cause: text(m.cause), failureCode: text(m.failureCode), elapsedMs: finite(m.elapsedMs), score: finite(m.score),
         modelVersionId: category === "ml" ? text(m.modelVersionId) : null,
         scoreDetail: detail ? { raw: finite(detail.raw), threshold, ratio: normalized } : null,
+        attribution: category === "ml" ? readAttribution(m) : null,
         reasons: list(m.evidence).flatMap((entry) => text(entry.reason) ?? []),
         condition: condition ? { field: text(condition.field), operator: text(condition.operator), threshold: text(condition.threshold), unit: text(condition.unit) } : null,
         observedValue: text(m.observedValue),

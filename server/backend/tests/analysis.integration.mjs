@@ -11,7 +11,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import pg from 'pg';
 import { startFakeLlmHealth } from './fake-llm-health.mjs';
-import { seedAnalysisFixture, seedAnalysisV04Fixture, seedParentlessDecisions } from './analysis-fixture.mjs';
+import { V04_ATTRIBUTION, seedAnalysisFixture, seedAnalysisV04Fixture, seedParentlessDecisions } from './analysis-fixture.mjs';
 
 const url = process.env.PIPELINE_TEST_DATABASE_URL;
 if (!url) throw new Error('PIPELINE_TEST_DATABASE_URL is required');
@@ -303,6 +303,10 @@ try {
   // 10) 설명 작업: 요청자 본인의 최근 explain 작업만 상세에 연결(다른 계정에는 보이지 않음).
   const job = await request(base, '/api/jobs', 'POST', user, { kind: 'explain', sourceId: fixture.sourceId, decisionId: D.normal.id });
   assert.equal(job.status, 201);
+  // 기여도 없는 판정: 저장 근거 키와 순서는 이전 그대로(methodResults 키 없음). inputSpec 객체는 jsonb에서 되읽어 키 순서가 바뀌므로
+  // 순서를 보존한 savedEvidenceJson 문자열로 비교한다(입력 hash의 원본)
+  assert.deepEqual(Object.keys(JSON.parse(job.body.inputSpec.savedEvidenceJson)), ['decisionId', 'configVersionId', 'status', 'ruleStatus', 'mlStatus', 'decisionCode',
+    'anomalyScore', 'inputManifestHash', 'rules', 'models']);
   const linked = (await detail(D.normal.id)).body.explanation;
   assert.deepEqual([linked.jobId, linked.status], [job.body.id, 'queued']);
   assert.equal((await detail(D.normal.id, admin)).body.explanation, null);
@@ -721,6 +725,11 @@ try {
   assert.ok(!v04Final.evidence.methodResults.some((method) => method.cause === 'pending'), 'a final decision has no pending method');
   const v04Normal = (await detail(D4.replaced.id)).body;
   assert.deepEqual([v04Normal.evidence.schemaVersion, v04Normal.mlStatus, Number(v04Normal.anomalyScore)], [4, 'succeeded', 0.3]);
+  // ML 방법 결과의 기여도(attribution)는 판정 상세 evidence에 저장값 그대로 실린다(목록 원인 요약에는 없음).
+  const mlOf = (body) => body.evidence.methodResults.filter((method) => method.category === 'ml');
+  assert.deepEqual(mlOf(v04Final).map((method) => method.attribution), [V04_ATTRIBUTION.final]);
+  assert.deepEqual(mlOf(v04Normal).map((method) => method.attribution), [V04_ATTRIBUTION.replaced]);
+  assert.ok(!JSON.stringify(v04ById.get(D4.final.id).causes).includes('attribution'), 'list causes do not carry attribution');
   assert.equal((await detail(J4.final.id)).body.id, D4.final.id, 'job id resolves to its final decision');
   const v04Pending = (await detail(J4.pending.id)).body;
   assert.deepEqual([v04Pending.kind, v04Pending.configuration, v04Pending.job.status], ['pending', null, 'queued']);
@@ -740,6 +749,9 @@ try {
     [null, null, D4.final.id]);
   assert.deepEqual([v04Explain.body.inputSpec.savedEvidence.mlStatus, v04Explain.body.inputSpec.savedEvidence.anomalyScore], ['not_ready', null]);
   assert.ok(v04Explain.body.inputSpec.savedEvidence.rules.length > 0);
+  // 기여도가 있는 ML 방법 결과만 네 키로(저장값 그대로: 미완료 ML의 score null 포함), 다른 대분류는 빠진다
+  assert.deepEqual(v04Explain.body.inputSpec.savedEvidence.methodResults, [{ methodId: 'ml:iforest', category: 'ml', score: null, attribution: V04_ATTRIBUTION.final }]);
+  assert.equal(JSON.parse(v04Explain.body.inputSpec.savedEvidenceJson).methodResults.length, 1);
   const explainRow = (await pool.query(`SELECT contract_version,queue,input_config_version_id,input_decision_id,llm_spec FROM run_jobs WHERE id=$1`, [v04Explain.body.id])).rows[0];
   assert.deepEqual([explainRow.contract_version, explainRow.queue, explainRow.input_config_version_id, explainRow.input_decision_id],
     ['v03', 'llm_explanation', null, D4.final.id]);

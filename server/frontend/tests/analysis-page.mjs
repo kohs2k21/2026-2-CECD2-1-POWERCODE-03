@@ -573,6 +573,9 @@ const listCalls = () => requested.filter((r) => r.path === "/api/analysis/decisi
   assert.equal(row("soft:retry_count-1a2b3c4d"), "이상 징후 규칙이상 징후 규칙완료이상retry_count 4 회retry_count ≥ 3 회주의9.3 ms—");
   assert.equal(row("ml:iforest"), "머신러닝 모델머신러닝 모델(iforest)완료이상원점수 0.71 · 판정선 대비 1.16배판정선 0.61단계 없음21.7 ms—");
   assert.equal(row("ml:lof"), "머신러닝 모델머신러닝 모델(lof)미완료미판정———3,001 ms기한 초과");
+  // 판정 상세(최종 판정)는 MethodResults에 final을 넘긴다: 키 없는 완료 ML 행에만 `기여도 미계산`, 미완료 ML 행에는 줄 없음
+  const attributionRows = app.renderer.root.findAll((node) => node.type === "tr" && node.props["data-attribution-of"]);
+  assert.deepEqual(attributionRows.map((node) => [node.props["data-attribution-of"], text(node.children)]), [["ml:iforest", "기여도 미계산"]]);
   assert.ok(shown.includes("이상 징후 규칙1개1000이상") && shown.includes("머신러닝 모델2개1010미판정"), "category table from stored results");
   assert.ok(!/3000|k=|ml: 2/.test(shown), "policy values (deadline, k) are not shown");
   assert.ok(shown.includes("원래 상태로 복원") && !shown.includes("처리 보류") && !shown.includes("로그 분류하기"), "resolved state offers only restore");

@@ -199,7 +199,7 @@ const EvidenceCard = ({ detail }: { detail: DecisionDetail }) => {
     <SectionCard title="판정 근거" headingLevel={2}>
       {detail.kind === "final" && <DecisionDiagnostics decision={detail} />}
       {v4 ? (
-        <MethodResults evidence={v4} observedStatus={observedStatus} />
+        <MethodResults evidence={v4} observedStatus={observedStatus} final={detail.kind === "final"} />
       ) : (
         <LegacyEvidence rules={rules} models={models} />
       )}

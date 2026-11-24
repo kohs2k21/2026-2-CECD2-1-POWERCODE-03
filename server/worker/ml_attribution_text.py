@@ -69,9 +69,9 @@ def _final_sound(word: str) -> tuple[bool, bool]:
     if "가" <= last <= "힣":
         final = (ord(last) - 0xAC00) % 28
         return final != 0, final == 8
-    if last.isdigit():
+    if last in _DIGIT:
         start = len(word)
-        while start > 0 and (word[start - 1].isdigit() or word[start - 1] == "."):
+        while start > 0 and word[start - 1] in "0123456789.":
             start -= 1
         return _number_sound(word[start:])
     upper = word.upper()
@@ -219,7 +219,8 @@ def render(attribution: Mapping[str, Any], score: Any = None) -> dict[str, Any]:
     """
     try:
         return _render(attribution, score)
-    except (KeyError, TypeError, AttributeError, IndexError):
+    except (KeyError, TypeError, AttributeError, IndexError, ArithmeticError):
+        # ArithmeticError: 아주 큰 유한 값의 Decimal 반올림(InvalidOperation) 등 — 읽을 수 없는 기록으로 본다.
         raise ValueError(INVALID) from None
 
 

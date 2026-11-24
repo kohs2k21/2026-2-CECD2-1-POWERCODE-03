@@ -218,7 +218,7 @@ class SentenceTests(unittest.TestCase):
     def test_invalid_attribution_is_rejected(self):
         broken = []
         for change in (lambda a: a.update(direction="sideways"), lambda a: a.update(topK=["missing"]),
-                       lambda a: a.update(version="baseline-shapley-v2"),
+                       lambda a: a.update(version="baseline-shapley-v2"), lambda a: a.update(scoreActual=1e30),
                        lambda a: a["players"][0].update(phi=float("nan")), lambda a: a.pop("players"),
                        lambda a: a["players"][1]["actual"].pop("error_count")):
             attribution = example()
@@ -250,6 +250,21 @@ class ExplanationJobTests(unittest.TestCase):
                     for i, a in enumerate(attributions)]
         return {"decisionId": "d", "status": "complete", "methodResults": methods}
 
+    def test_old_evidence_facts_are_unchanged(self):
+        evidence = {"decisionId": "d", "status": "complete", "rules": [], "models": [{"modelKey": "m", "anomalous": True}]}
+        self.assertEqual(explanation.facts_for(evidence),
+                         [{"id": f"fact_{i}", "name": k, "value": v} for i, (k, v) in enumerate(evidence.items())])
+        with_methods = {"decisionId": "d", "methodResults": [], "status": "complete"}
+        self.assertEqual(explanation.facts_for(with_methods), [{"id": "fact_0", "name": "decisionId", "value": "d"},
+                                                               {"id": "fact_1", "name": "status", "value": "complete"}])
+
+    def test_huge_number_is_unreadable_and_job_continues(self):
+        huge = dict(example(), scoreActual=1e30)
+        with self.assertLogs("explanation", "WARNING"):
+            result, args = self.run_job(self.saved(huge))
+        self.assertEqual(result["contributionStatus"], "unreadable")
+        self.assertNotIn("ml_attribution", [fact["name"] for fact in args[1]["facts"]])
+
     def test_without_attribution_is_unchanged(self):
         for evidence in ({"decisionId": "d", "rules": [], "models": [{"modelKey": "m", "anomalous": True}]},
                          {"decisionId": "d", "methodResults": [{"methodId": "ml:m", "category": "ml"}]}):
@@ -268,16 +283,17 @@ class ExplanationJobTests(unittest.TestCase):
         result, args = self.run_job(evidence)
         sent = args[1]["facts"]
         self.assertEqual(sent[:-1], explanation.facts_for(evidence))
-        self.assertEqual((sent[-1]["id"], sent[-1]["name"]), ("fact_3", "ml_attribution"))
+        self.assertEqual((sent[-1]["id"], sent[-1]["name"]), ("fact_2", "ml_attribution"))
+        self.assertEqual([fact["name"] for fact in sent], ["decisionId", "status", "ml_attribution"])  # methodResults 원본 없음
         self.assertEqual(result["contributionStatus"], "computed")
         # 모델이 fact_0만 골라도 코드가 만든 기여도 사실은 결과에 들어간다.
-        self.assertEqual([fact["id"] for fact in result["facts"]], ["fact_0", "fact_3"])
+        self.assertEqual([fact["id"] for fact in result["facts"]], ["fact_0", "fact_2"])
         value = result["facts"][1]["value"]
         self.assertEqual([(v["methodId"], v["summary"], v["counterfactual"], v["limitation"]) for v in value],
                          [("ml:m0", SUMMARY, COUNTERFACTUAL, LIMITATION)])
         # 모델이 그 사실을 골라도 한 번만.
-        result, _ = self.run_job(evidence, picked=("fact_3", "fact_0"))
-        self.assertEqual([fact["id"] for fact in result["facts"]], ["fact_0", "fact_3"])
+        result, _ = self.run_job(evidence, picked=("fact_2", "fact_0"))
+        self.assertEqual([fact["id"] for fact in result["facts"]], ["fact_0", "fact_2"])
 
     def test_method_score_sets_tolerance(self):
         attribution = keep(example(), 2, cleared=1)

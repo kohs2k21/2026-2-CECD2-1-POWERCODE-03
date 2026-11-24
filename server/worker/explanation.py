@@ -14,8 +14,10 @@ CHECKS = {
 
 
 def facts_for(evidence):
+    # methodResults 원본은 모델에 넘기지 않는다(기여도는 코드가 만든 ml_attribution 사실로 대신). 키가 없는 근거는 이전과 같다.
+    items = [(key, value) for key, value in evidence.items() if key != "methodResults"]
     return [{"id": f"fact_{index}", "name": key, "value": value}
-            for index, (key, value) in enumerate(evidence.items())]
+            for index, (key, value) in enumerate(items)]
 
 
 # 근거의 ML 기여도 상태(methodResults[ml].attribution.status) → 결과 contributionStatus. 키가 없으면 not_computed,

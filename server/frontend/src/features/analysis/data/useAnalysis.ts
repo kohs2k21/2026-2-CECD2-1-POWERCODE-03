@@ -216,7 +216,10 @@ export const useEvidencePolish = (detail: DecisionDetail): string | null => {
   const { id, decisionId, sourceId } = detail;
   // 캐시된 판정 상세(같은 판정, 주소가 작업 id여도)에 다듬기 상태를 반영한다 — 다시 들어왔을 때 다시 요청하거나 코드 문단이 잠깐 보이지 않게.
   const patchDetail = useCallback((patch: Partial<DecisionDetail>) =>
-    cache.setQueriesData<DecisionDetail>({ queryKey: [detailQueryName] }, (old) => (old && old.id === id ? { ...old, ...patch } : old)), [cache, id]);
+    cache.setQueriesData<DecisionDetail>(
+      // predicate로 같은 판정의 쿼리만 고른다(판정 id·작업 id 주소). 다른 판정 상세의 신선도·무효화 표시를 건드리지 않는다
+      { queryKey: [detailQueryName], predicate: (query) => (query.state.data as DecisionDetail | undefined)?.id === id },
+      (old) => (old ? { ...old, ...patch } : old)), [cache, id]);
   useEffect(() => {
     if (!shouldRequest || requested.current === id) return;
     requested.current = id;

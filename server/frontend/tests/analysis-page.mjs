@@ -1223,6 +1223,14 @@ const polishedReads = (id) => requested.filter((r) => r.path === `/api/analysis/
   assert.match(new Headers(post.headers).get("Idempotency-Key"), /^[0-9a-f-]{36}$/, "a new idempotency key per request");
   assert.equal(paragraphOf(app), code, "code paragraph while waiting");
   await wait(() => polishedReads("d-ep1") >= 1, "polished read after the request");
+  // 다른 판정(B)의 상세 쿼리: 무효화돼 있던 상태가 A의 패치로 바뀌지 않아야 한다(신선도·무효화 표시 그대로)
+  const detailQueryA = app.client.getQueryCache().findAll({ queryKey: ["analysis-decision"] }).find((q) => q.state.data?.id === "d-ep1");
+  const keyB = [...detailQueryA.queryKey.slice(0, -1), "d-other"];
+  app.client.setQueryData(keyB, summaryDetail("d-other", mixed));
+  await act(async () => app.client.invalidateQueries({ queryKey: keyB, refetchType: "none" }));
+  const stateB = () => { const q = app.client.getQueryCache().find({ queryKey: keyB, exact: true }); return [q.state.isInvalidated, q.state.dataUpdatedAt]; };
+  const beforeB = stateB();
+  assert.equal(beforeB[0], true, "B starts invalidated");
   const pollQuery = app.client.getQueryCache().findAll({ queryKey: ["analysis-decision-polished"] })[0];
   const interval = (query) => { const value = query.observers[0].options.refetchInterval; return typeof value === "function" ? value(query) : value; };
   assert.equal(interval(pollQuery), 5000, "5 s polling while pending");
@@ -1232,6 +1240,7 @@ const polishedReads = (id) => requested.filter((r) => r.path === `/api/analysis/
   const cachedDetail = app.client.getQueryCache().findAll({ queryKey: ["analysis-decision"] }).map((q) => q.state.data).find((d) => d?.id === "d-ep1");
   assert.deepEqual([cachedDetail.polishState, cachedDetail.polished?.text, cachedDetail.polishRequestable], ["done", polishedText, false],
     "detail cache updated: re-entry shows the polished paragraph at once and sends no request");
+  assert.deepEqual(stateB(), beforeB, "patching decision A leaves decision B's query (isInvalidated, dataUpdatedAt) untouched");
   assert.equal(blockText(cardOf(app)[0], "line"), `${mixed.summaryLine.prefix}${mixed.summaryLine.text}`, "other blocks unchanged");
   assert.deepEqual(cardOf(app)[0].findAll((node) => node.type === "li").map((li) => text(li.children)), mixed.checks.map((c) => c.text));
   await act(async () => app.client.invalidateQueries({ queryKey: ["analysis-decision"] }));

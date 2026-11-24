@@ -55,10 +55,12 @@ export type PolishInput = {
  */
 const LINE_BREAK = /[\n\r\v\f\x1c-\x1e\x85\u2028\u2029]/;
 const PRIVATE_USE = /[\uE000-\uF8FF]/;
+/** 공백만인 문장: JS trim() 공백에 Python str.strip()만 공백으로 보는 U+001C–U+001F·U+0085를 더한다(워커와 같거나 엄격). */
+const blank = (s: string) => !s.replace(/[\x1c-\x1f\x85]/g, '').trim();
 export const polishInputProblem = (sentences: string[], valueTokens: string[]): string | null => {
   const L = POLISH_LIMITS;
   if (!sentences.length || sentences.length > L.sentences) return 'sentence_count';
-  if (sentences.some((s) => !s.trim() || length(s) > L.sentenceLength)) return 'sentence_length';
+  if (sentences.some((s) => blank(s) || length(s) > L.sentenceLength)) return 'sentence_length';
   if (sentences.reduce((sum, s) => sum + length(s), 0) > L.totalLength) return 'total_length';
   if (sentences.some((s) => LINE_BREAK.test(s) || PRIVATE_USE.test(s))) return 'sentence_character';
   if (valueTokens.length > L.valueTokens) return 'value_token_count';

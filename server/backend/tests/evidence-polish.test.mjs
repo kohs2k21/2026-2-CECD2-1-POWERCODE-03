@@ -90,10 +90,10 @@ test('worker-rejected input is filtered before intake (one function for intake a
   const { polishInputProblem } = await import('../dist/services/evidencePolish.js');
   assert.equal(polishInputProblem([SENTENCE], ['F']), null);
   for (const [sentences, tokens, code] of [[[], [], 'sentence_count'], [['  '], [], 'sentence_length'], [[`${SENTENCE}\n`], [], 'sentence_character'],
-    [['가 나'], [], 'sentence_character'], [['가\u0085나'], [], 'sentence_character'], [['가\u000b나'], [], 'sentence_character'], [['가나'], [], 'sentence_character'],
-    [['가나'], [], 'sentence_character'], [['앞 문장.', '뒤 문장.'], ['문장. 뒤'], 'value_token'], [[SENTENCE], Array(17).fill('F'), 'value_token_count']])
+    [['가\u2028나'], [], 'sentence_character'], [['가\u0085나'], [], 'sentence_character'], [['가\u000b나'], [], 'sentence_character'], [['가\uE000나'], [], 'sentence_character'],
+    [['가\uF8FF나'], [], 'sentence_character'], [['\u001F'], [], 'sentence_length'], [['\u001C \u0085'], [], 'sentence_length'], [['앞 문장.', '뒤 문장.'], ['문장. 뒤'], 'value_token'], [[SENTENCE], Array(17).fill('F'), 'value_token_count']])
     assert.equal(polishInputProblem(sentences, tokens), code, JSON.stringify(sentences));
-  assert.equal(buildPolishInput(DECISION, summary({ sentences: ['가나'], stateWords: [], valueTokens: [] })), null);
+  assert.equal(buildPolishInput(DECISION, summary({ sentences: ['가\uE001나'], stateWords: [], valueTokens: [] })), null);
 });
 
 test('polishRequestable: only a polishable decision with state none and a ready polish model', async () => {

@@ -16,7 +16,7 @@ from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import explanation
-from ml_attribution_text import INVALID, LIMITATION, josa, render
+from ml_attribution_text import INVALID, LIMITATION, josa, render, tolerance
 
 SUMMARY = ("머신러닝 모델 원점수(값 0.710, 판정선 0.620)를 이상 쪽으로 올린 변수는 "
            "ERROR_COUNT 56%, 처리 시간 39%, 처리량(TOTAL_COUNT) 5% 순입니다.")
@@ -83,7 +83,7 @@ class SentenceTests(unittest.TestCase):
         attribution = keep(example(), 1, cleared=1)
         attribution["players"][1]["scaleIsUnit"] = {"error_count": True}
         self.assertEqual(render(attribution)["summary"], "머신러닝 모델 원점수(값 0.710, 판정선 0.620)를 이상 쪽으로 "
-                                                         "올린 변수는 ERROR_COUNT(평소 값과 다름)뿐입니다.")
+                                                         "올린 변수는 ERROR_COUNT뿐입니다(평소 값과 다름).")
 
     def test_no_positive_player(self):
         text = render(keep(example(), 0))
@@ -104,6 +104,24 @@ class SentenceTests(unittest.TestCase):
         self.assertEqual(render(attribution)["notes"],
                          ["처리량(TOTAL_COUNT)은 원점수를 정상 쪽으로 움직였습니다. 그래서 다른 변수 비율 합이 100%를 넘을 수 있습니다."])
 
+    def test_several_negative_players_are_comma_separated(self):
+        attribution = keep(example(), 1, cleared=1)
+        attribution["players"][0]["phi"] = -0.02
+        attribution["players"][2]["phi"] = -0.01
+        self.assertEqual(render(attribution)["notes"],
+                         ["처리량(TOTAL_COUNT), 처리 시간은 원점수를 정상 쪽으로 움직였습니다. 그래서 다른 변수 비율 합이 100%를 넘을 수 있습니다."])
+
+    def test_negative_uses_score_tolerance(self):
+        self.assertEqual((tolerance(0.71), tolerance(-20.0)), (1e-9, 2e-8))
+        attribution = keep(example(), 2, cleared=1)
+        attribution["players"][0]["phi"] = -0.9e-9  # |φ| < max(1e-9, 1e-9·0.71)
+        self.assertEqual(render(attribution)["notes"], [])
+        attribution["players"][0]["phi"] = -1.1e-9
+        self.assertEqual(len(render(attribution)["notes"]), 1)
+        attribution.update(scoreActual=20.0)  # 허용 오차 2e-8: 같은 φ는 음수로 보지 않는다
+        attribution["counterfactual"][0]["scoreAfter"] = 0.51
+        self.assertEqual(render(attribution)["notes"], [])
+
     def test_cleared_at_two_with_josa(self):
         text = render(keep(example(), 2, cleared=2, scores=[0.65, 0.41]))
         self.assertEqual(text["counterfactual"],
@@ -112,6 +130,7 @@ class SentenceTests(unittest.TestCase):
                          "여전히 판정선 기준 이상 범위에 남습니다.")
         text = render(keep(example(), 2, cleared=2, scores=[0.651, 0.41]))
         self.assertIn("원점수는 0.651로 여전히", text["counterfactual"])
+        self.assertNotIn("(단위 미확인)", text["counterfactual"])  # 값이 없는 이름 나열
 
     def test_grouped_members_with_scale_one(self):
         group = {"playerId": "group:total_count", "features": ["total_count", "error_count", "error_ratio"],
@@ -139,6 +158,7 @@ class SentenceTests(unittest.TestCase):
         text = render(attribution)
         self.assertIn("변수는 ERROR_COUNT 평소 값과 다름 56%, 처리 시간 39%", text["summary"])
         self.assertTrue(text["counterfactual"].startswith("ERROR_COUNT만 학습 데이터 중앙값으로 바꾸면 원점수가"))
+        self.assertNotIn("(단위 미확인)", text["counterfactual"])  # 값이 없는 단독 scale 1 반사실
         # scaleIsUnit 키가 없는 기록은 미적용(숫자 그대로).
         attribution["players"][1].pop("scaleIsUnit")
         self.assertEqual(render(attribution)["counterfactual"], COUNTERFACTUAL)
@@ -184,6 +204,7 @@ class SentenceTests(unittest.TestCase):
     def test_invalid_attribution_is_rejected(self):
         broken = []
         for change in (lambda a: a.update(direction="sideways"), lambda a: a.update(topK=["missing"]),
+                       lambda a: a.update(version="baseline-shapley-v2"),
                        lambda a: a["players"][0].update(phi=float("nan")), lambda a: a.pop("players"),
                        lambda a: a["players"][1]["actual"].pop("error_count")):
             attribution = example()
@@ -246,25 +267,29 @@ class ExplanationJobTests(unittest.TestCase):
     def test_skipped_and_failed_status_without_fact(self):
         skipped = {"version": "baseline-shapley-v1", "status": "skipped", "reason": "not_anomalous"}
         failed = {"version": "baseline-shapley-v1", "status": "failed", "failureCode": "exception", "computeMs": 0.1}
+        unreadable = {"version": "baseline-shapley-v9", "status": "skipped", "reason": "not_anomalous"}
         for attributions, status in (((skipped,), "skipped"), ((failed,), "failed"), ((skipped, failed), "failed"),
-                                     ((skipped, example()), "computed")):
-            with self.subTest(status=status):
+                                     ((skipped, unreadable), "unreadable"), ((unreadable, failed), "failed"),
+                                     ((skipped, example()), "computed"), ((unreadable, example()), "computed")):
+            with self.subTest(status=status, attributions=attributions):
                 evidence = self.saved(*attributions)
-                result, args = self.run_job(evidence)
+                with patch.object(explanation.logging.getLogger("explanation"), "warning"):
+                    result, args = self.run_job(evidence)
                 self.assertEqual(result["contributionStatus"], status)
                 extra = len(args[1]["facts"]) - len(explanation.facts_for(evidence))
                 self.assertEqual(extra, 1 if status == "computed" else 0)
 
-    def test_invalid_attribution_is_failed_without_fact(self):
+    def test_invalid_attribution_is_unreadable_without_fact(self):
         broken = copy.deepcopy(example())
         broken["direction"] = None
-        for attribution in ({"status": "unknown"}, "succeeded", broken):
+        other_version = dict(example(), version="baseline-shapley-v2")
+        for attribution in ({"version": "baseline-shapley-v1", "status": "unknown"}, "succeeded", broken, other_version):
             with self.subTest(attribution=attribution):
                 evidence = self.saved(attribution)
                 with self.assertLogs("explanation", "WARNING") as logs:
                     result, args = self.run_job(evidence)
                 self.assertEqual(logs.output, ["WARNING:explanation:explanation_attribution_invalid: ml:m0"])
-                self.assertEqual(result["contributionStatus"], "failed")
+                self.assertEqual(result["contributionStatus"], "unreadable")
                 self.assertEqual(args[1]["facts"], explanation.facts_for(evidence))
                 self.assertNotIn("ml_attribution", [fact["name"] for fact in result["facts"]])
         # 다른 ML 결과의 계산 성공분은 그대로 사실이 된다.

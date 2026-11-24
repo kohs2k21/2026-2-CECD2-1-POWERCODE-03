@@ -11,6 +11,7 @@ from decimal import ROUND_HALF_UP, Decimal
 from typing import Any, Mapping
 
 INVALID = "explanation_attribution_invalid"
+VERSION = "baseline-shapley-v1"
 
 # 변수 이름표(계약 최종 표). 표에 없는 변수는 변수 이름 그대로.
 NAMES = {"total_count": "처리량(TOTAL_COUNT)", "success_count": "SUCCESS_COUNT", "error_count": "ERROR_COUNT",
@@ -171,13 +172,13 @@ class _Player:
             parts.append(f"{_name(feature)} {_actual(feature, self.raw)} · {reference}")
         return ", ".join(parts)
 
-    def summary(self, particle: bool = False) -> str:
-        """요약 속 이름. 뒤에 조사(`뿐` 등)가 바로 붙으면 `평소 값과 다름`을 괄호로 넣는다."""
+    def usual_alone(self) -> bool:
+        return not self.group and _usual(self.features[0], self.raw)
+
+    def summary(self) -> str:
         if self.group:
             return f"{self.name}({self.members()})"
-        if not _usual(self.features[0], self.raw):
-            return self.name
-        return f"{self.name}({USUAL})" if particle else f"{self.name} {USUAL}"
+        return f"{self.name} {USUAL}" if self.usual_alone() else self.name
 
     def mention(self) -> str:
         """반사실 문장 속 이름(묶음은 구성원 괄호를 함께)."""
@@ -203,6 +204,11 @@ def _digits(threshold: str, scores: list[Any]) -> int:
     return 6
 
 
+def tolerance(score: float) -> float:
+    """음수·동률 판단 허용 오차: max(1e-9, 1e-9·|score|), score = attribution의 원점수(scoreActual). 계약 계산 방법 절과 같은 식."""
+    return max(1e-9, 1e-9 * abs(score))
+
+
 def render(attribution: Mapping[str, Any]) -> dict[str, Any]:
     """`status=succeeded` 기여도 → 문장(summary·notes·counterfactual·limitation)과 문장에 쓴 저장 수치.
 
@@ -215,14 +221,15 @@ def render(attribution: Mapping[str, Any]) -> dict[str, Any]:
 
 
 def _render(attribution: Mapping[str, Any]) -> dict[str, Any]:
-    if attribution.get("status") != "succeeded" or attribution.get("direction") not in WORDS:
+    if (attribution.get("version") != VERSION or attribution.get("status") != "succeeded"
+            or attribution.get("direction") not in WORDS):
         raise ValueError(INVALID)
     raise_word, lower_word = WORDS[attribution["direction"]]
     threshold = attribution["threshold"]
     if not isinstance(threshold, str):
         raise ValueError(INVALID)
     score = _finite(attribution["scoreActual"])
-    tol = max(1e-9, 1e-9 * abs(score))
+    tol = tolerance(score)
     players = [_Player(raw) for raw in attribution["players"]]
     by_id = {player.id: player for player in players}
     top_ids, cf = attribution["topK"], attribution["counterfactual"]
@@ -244,14 +251,16 @@ def _render(attribution: Mapping[str, Any]) -> dict[str, Any]:
     else:
         head = f"머신러닝 모델 원점수(값 {value}, 판정선 {line})를 이상 쪽으로 {raise_word} 변수는 "
         if len(top) == 1:
-            summary = head + top[0].summary(particle=True) + "뿐입니다."
+            # 양수 1개 + scale 1: `{이름}뿐입니다(평소 값과 다름).`
+            summary = (head + top[0].name + f"뿐입니다({USUAL})." if top[0].usual_alone()
+                       else head + top[0].summary() + "뿐입니다.")
         elif any(player.share is None for player in top):
             summary = head + ", ".join(player.summary() for player in top) + " 순입니다. " + NO_SHARE
         else:
             summary = head + ", ".join(f"{p.summary()} {_percent(p.share)}" for p in top) + " 순입니다."
     negative = [player for player in players if player.phi < -tol]
     if negative:
-        names = "·".join(player.name for player in negative)
+        names = ", ".join(player.name for player in negative)  # `·`는 묶음 구성원 구분자
         notes.append(f"{names}{josa(names, '은/는')} 원점수를 정상 쪽으로 움직였습니다. 그래서 다른 변수 비율 합이 100%를 넘을 수 있습니다.")
     for player in players:
         if player.group:

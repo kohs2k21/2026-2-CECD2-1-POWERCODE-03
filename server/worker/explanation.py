@@ -1,6 +1,7 @@
 """Grounded explanation: only saved facts and bounded, explicitly tentative checks."""
 import hashlib
 import json
+import logging
 from generation_client import generate
 from ml_attribution_text import INVALID as ATTRIBUTION_INVALID, render as render_attribution
 
@@ -27,15 +28,26 @@ def attribution_fact(evidence, index):
 
     사실은 하나(name ml_attribution)이고 값은 계산 성공한 ML 방법마다 코드가 저장값으로 만든 문장과 쓴 수치다.
     상태가 여럿이면 computed > failed > skipped. 기여도 키가 하나도 없으면 (None, not_computed) — 이전 동작 그대로.
+    형식이 계약과 다른 기여도는 사실에서 빼고 failed로 센다(경고 explanation_attribution_invalid). 설명 작업은 계속한다.
     """
     methods = evidence.get("methodResults") if isinstance(evidence, dict) else None
     found = [(m.get("methodId"), m["attribution"]) for m in (methods if isinstance(methods, list) else ())
              if isinstance(m, dict) and m.get("category") == "ml" and "attribution" in m]
-    if any(not isinstance(a, dict) or a.get("status") not in CONTRIBUTION for _, a in found):
-        raise ValueError(ATTRIBUTION_INVALID)
-    statuses = {a["status"] for _, a in found}
+    statuses, value = set(), []
+    for method, attribution in found:
+        status = attribution.get("status") if isinstance(attribution, dict) else None
+        try:
+            if status not in CONTRIBUTION:
+                raise ValueError(ATTRIBUTION_INVALID)
+            if status == "succeeded":
+                value.append({"methodId": method, **render_attribution(attribution)})
+        except ValueError as error:
+            if str(error) != ATTRIBUTION_INVALID:
+                raise
+            logging.getLogger(__name__).warning("%s: %s", ATTRIBUTION_INVALID, method)
+            status = "failed"
+        statuses.add(status)
     status = next((CONTRIBUTION[s] for s in ("succeeded", "failed", "skipped") if s in statuses), "not_computed")
-    value = [{"methodId": method, **render_attribution(a)} for method, a in found if a["status"] == "succeeded"]
     return ({"id": f"fact_{index}", "name": ATTRIBUTION_FACT, "value": value} if value else None), status
 
 

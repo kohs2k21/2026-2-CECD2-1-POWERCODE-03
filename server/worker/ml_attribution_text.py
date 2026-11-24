@@ -171,10 +171,13 @@ class _Player:
             parts.append(f"{_name(feature)} {_actual(feature, self.raw)} · {reference}")
         return ", ".join(parts)
 
-    def summary(self) -> str:
+    def summary(self, particle: bool = False) -> str:
+        """요약 속 이름. 뒤에 조사(`뿐` 등)가 바로 붙으면 `평소 값과 다름`을 괄호로 넣는다."""
         if self.group:
             return f"{self.name}({self.members()})"
-        return self.name + (" " + USUAL if _usual(self.features[0], self.raw) else "")
+        if not _usual(self.features[0], self.raw):
+            return self.name
+        return f"{self.name}({USUAL})" if particle else f"{self.name} {USUAL}"
 
     def mention(self) -> str:
         """반사실 문장 속 이름(묶음은 구성원 괄호를 함께)."""
@@ -241,7 +244,7 @@ def _render(attribution: Mapping[str, Any]) -> dict[str, Any]:
     else:
         head = f"머신러닝 모델 원점수(값 {value}, 판정선 {line})를 이상 쪽으로 {raise_word} 변수는 "
         if len(top) == 1:
-            summary = head + top[0].summary() + "뿐입니다."
+            summary = head + top[0].summary(particle=True) + "뿐입니다."
         elif any(player.share is None for player in top):
             summary = head + ", ".join(player.summary() for player in top) + " 순입니다. " + NO_SHARE
         else:

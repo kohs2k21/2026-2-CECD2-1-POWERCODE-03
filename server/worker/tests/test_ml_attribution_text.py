@@ -79,6 +79,12 @@ class SentenceTests(unittest.TestCase):
                                           "ERROR_COUNT뿐입니다.")
         self.assertNotIn("100%", text["summary"])
 
+    def test_single_positive_scale_one_uses_parentheses(self):
+        attribution = keep(example(), 1, cleared=1)
+        attribution["players"][1]["scaleIsUnit"] = {"error_count": True}
+        self.assertEqual(render(attribution)["summary"], "머신러닝 모델 원점수(값 0.710, 판정선 0.620)를 이상 쪽으로 "
+                                                         "올린 변수는 ERROR_COUNT(평소 값과 다름)뿐입니다.")
+
     def test_no_positive_player(self):
         text = render(keep(example(), 0))
         self.assertEqual(text["summary"], "원점수를 이상 쪽으로 움직인 변수를 찾지 못했습니다.")
@@ -249,13 +255,23 @@ class ExplanationJobTests(unittest.TestCase):
                 extra = len(args[1]["facts"]) - len(explanation.facts_for(evidence))
                 self.assertEqual(extra, 1 if status == "computed" else 0)
 
-    def test_invalid_attribution_fails_the_job(self):
+    def test_invalid_attribution_is_failed_without_fact(self):
         broken = copy.deepcopy(example())
         broken["direction"] = None
         for attribution in ({"status": "unknown"}, "succeeded", broken):
-            with self.subTest(attribution=attribution), self.assertRaisesRegex(ValueError, f"^{INVALID}$"):
-                self.run_job(self.saved(attribution))
-
+            with self.subTest(attribution=attribution):
+                evidence = self.saved(attribution)
+                with self.assertLogs("explanation", "WARNING") as logs:
+                    result, args = self.run_job(evidence)
+                self.assertEqual(logs.output, ["WARNING:explanation:explanation_attribution_invalid: ml:m0"])
+                self.assertEqual(result["contributionStatus"], "failed")
+                self.assertEqual(args[1]["facts"], explanation.facts_for(evidence))
+                self.assertNotIn("ml_attribution", [fact["name"] for fact in result["facts"]])
+        # 다른 ML 결과의 계산 성공분은 그대로 사실이 된다.
+        with self.assertLogs("explanation", "WARNING"):
+            result, _ = self.run_job(self.saved(broken, example()))
+        self.assertEqual(result["contributionStatus"], "computed")
+        self.assertEqual([v["methodId"] for v in result["facts"][-1]["value"]], ["ml:m1"])
 
 if __name__ == "__main__":
     unittest.main()

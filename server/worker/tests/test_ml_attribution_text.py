@@ -126,8 +126,10 @@ class SentenceTests(unittest.TestCase):
         attribution.update(scoreActual=20.0)  # score가 없으면 기여도 원점수가 기준
         attribution["counterfactual"][0]["scoreAfter"] = 0.51
         self.assertEqual(render(attribution)["notes"], [])
-        with self.assertRaisesRegex(ValueError, f"^{INVALID}$"):
-            render(attribution, float("nan"))
+        # 방법 score가 숫자가 아니면 형식 오류가 아니라 기여도 원점수(20.0)로 대체
+        for bad in (float("nan"), "0.71", True):
+            with self.subTest(score=bad):
+                self.assertEqual(render(attribution, bad)["notes"], [])
 
     def test_ties_keep_stored_order(self):
         attribution = example()
@@ -182,7 +184,23 @@ class SentenceTests(unittest.TestCase):
     def test_ms_value_unit_in_counterfactual(self):
         attribution = example()
         attribution["topK"] = ["elapsed_ms", "error_count", "total_count"]
-        self.assertTrue(render(attribution)["counterfactual"].startswith("처리 시간만 학습 데이터 중앙값(800ms)으로 바꾸면"))
+        self.assertTrue(render(attribution)["counterfactual"].startswith("처리 시간만 학습 데이터 중앙값(800 ms)으로 바꾸면"))
+
+    def test_value_notation(self):
+        group = {"playerId": "group:total_count", "features": ["total_count", "elapsed_ms", "error_ratio"],
+                 "actual": {"total_count": "1.048576E+7", "elapsed_ms": "9.5E+3", "error_ratio": "-0.0"},
+                 "baseline": {"total_count": 10485760.0, "elapsed_ms": 1234.5, "error_ratio": -0.0},
+                 "phi": 0.19, "share": 0.19 / 0.31, "thresholdGapShare": 0.19 / 0.22}
+        attribution = keep(example(), 1, cleared=1)
+        attribution["players"] = [group]
+        attribution["topK"] = ["group:total_count"]
+        self.assertIn("(처리량(TOTAL_COUNT) 10,485,760(단위 미확인) · 중앙값 10,485,760, 처리 시간 9,500 ms · 중앙값 1,234.5 ms, "
+                      "오류 비율 값 0.0 · 중앙값 0)", render(attribution)["summary"])
+
+    def test_negative_zero_score_has_no_sign(self):
+        attribution = keep(example(), 1, scores=[-0.0001])
+        attribution.update(direction="lower_is_anomaly", scoreActual=-0.71, threshold="-0.62")
+        self.assertIn("(값 0.000)", render(attribution)["counterfactual"])
 
     def test_lower_is_anomaly_words(self):
         attribution = keep(example(), 1, cleared=1, scores=[-0.51])

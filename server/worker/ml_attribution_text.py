@@ -18,7 +18,7 @@ NAMES = {"total_count": "처리량(TOTAL_COUNT)", "success_count": "SUCCESS_COUN
          "retry_count": "RETRY_COUNT", "error_ratio": "오류 비율 값", "elapsed_ms": "처리 시간"}
 # 건수 계열은 단위 미확정: 값이 함께 나오는 곳에서만 `(단위 미확인)`. 처리 시간은 ms.
 UNCONFIRMED = frozenset({"total_count", "success_count", "error_count", "retry_count"})
-UNITS = {"elapsed_ms": "ms"}
+UNITS = {"elapsed_ms": " ms"}  # 단위는 한 칸 띄움
 UNCONFIRMED_MARK = "(단위 미확인)"
 USUAL = "평소 값과 다름"
 SAME = "판정선과 같음"
@@ -111,16 +111,25 @@ def _decimal(value: Any) -> Decimal:
     return Decimal(repr(_finite(value)))
 
 
+def _unsigned_zero(number: Decimal) -> Decimal:
+    """반올림 결과가 0인 음수는 부호 없이(-0.000 → 0.000)."""
+    return number.copy_abs() if number == 0 else number
+
+
 def _fixed(value: Any, digits: int) -> str:
-    return format(_decimal(value).quantize(Decimal(1).scaleb(-digits), rounding=ROUND_HALF_UP), "f")
+    return format(_unsigned_zero(_decimal(value).quantize(Decimal(1).scaleb(-digits), rounding=ROUND_HALF_UP)), "f")
 
 
 def _plain(value: Any) -> str:
-    """기준값(number) 표기: 반올림 없이 지수 없는 십진수, 정수면 소수점 없이(100.0 → 100)."""
+    """기준값(number) 표기: 반올림 없이 지수 펼침, 정수면 소수점 없이(100.0 → 100), 정수부 천 단위 쉼표."""
     number = _decimal(value)
-    if number == number.to_integral_value():
-        return format(number.quantize(Decimal(1)), "f")
-    return format(number.normalize(), "f")
+    number = number.quantize(Decimal(1)) if number == number.to_integral_value() else number.normalize()
+    return format(_unsigned_zero(number), ",f")
+
+
+def _value(text: str) -> str:
+    """실제값(저장 문자열) 표기: 자릿수는 그대로 두고 지수 펼침(9.5E+3 → 9,500), 정수부 천 단위 쉼표."""
+    return format(_unsigned_zero(_decimal(text)), ",f")
 
 
 def _percent(share: Any) -> str:
@@ -135,7 +144,7 @@ def _actual(feature: str, player: Mapping[str, Any]) -> str:
     value = player["actual"].get(feature)
     if not isinstance(value, str) or not value:
         raise ValueError(INVALID)
-    return value + (UNCONFIRMED_MARK if feature in UNCONFIRMED else UNITS.get(feature, ""))
+    return _value(value) + (UNCONFIRMED_MARK if feature in UNCONFIRMED else UNITS.get(feature, ""))
 
 
 def _baseline(feature: str, player: Mapping[str, Any]) -> str:
@@ -214,7 +223,7 @@ def tolerance(score: float) -> float:
 def render(attribution: Mapping[str, Any], score: Any = None) -> dict[str, Any]:
     """`status=succeeded` 기여도 → 문장(summary·notes·counterfactual·limitation)과 문장에 쓴 저장 수치.
 
-    score: 같은 ML 방법 결과 항목의 `score`(허용 오차 기준). None이면 기여도의 scoreActual.
+    score: 같은 ML 방법 결과 항목의 `score`(허용 오차 기준). 유한한 숫자가 아니면 기여도의 scoreActual.
 
     형식이 계약과 다르면 ValueError(explanation_attribution_invalid). 성공으로 바꾸지 않는다.
     """
@@ -234,7 +243,10 @@ def _render(attribution: Mapping[str, Any], method_score: Any) -> dict[str, Any]
     if not isinstance(threshold, str):
         raise ValueError(INVALID)
     score = _finite(attribution["scoreActual"])
-    tol = tolerance(score if method_score is None else _finite(method_score))
+    # 방법 score가 유한한 숫자가 아니면(없음·문자열 등) 기여도 원점수로 대체한다(형식 오류 아님).
+    usable = (isinstance(method_score, (int, float)) and not isinstance(method_score, bool)
+              and math.isfinite(method_score))
+    tol = tolerance(float(method_score) if usable else score)
     players = [_Player(raw) for raw in attribution["players"]]
     by_id = {player.id: player for player in players}
     top_ids, cf = attribution["topK"], attribution["counterfactual"]

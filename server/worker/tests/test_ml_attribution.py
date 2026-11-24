@@ -316,7 +316,8 @@ class StoredShape(unittest.TestCase):
     def test_size_cap_fails(self):
         _, result = run_example()
         self.assertLess(attribution.encoded_size(result), attribution.MAX_BYTES)
-        with patch.object(attribution, "MAX_BYTES", attribution.encoded_size(result) - 1):
+        # computeMs(실측 시간) 자릿수만큼 실행마다 크기가 몇 바이트 달라지므로 그보다 넉넉히 작은 상한을 쓴다.
+        with patch.object(attribution, "MAX_BYTES", attribution.encoded_size(result) - 256):
             _, capped = run_example()
         self.assertEqual((capped["status"], capped["failureCode"]), ("failed", "size_exceeded"))
 

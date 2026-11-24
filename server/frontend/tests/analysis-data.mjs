@@ -88,7 +88,7 @@ assert.equal(api.parseList({ ...listBody, counts: { all: -1 } }).counts.all, nul
 assert.throws(() => api.parseList({ items: [] }), /판정 목록 응답/);
 // 상세: 요청 ID와 다른 판정은 거절, 작업 ID로 요청해 그 작업의 최종 판정이 온 경우는 허용
 const detailBody = { ...raw, configuration: { id: "c-1", createdAt: null, detectionMode: "parallel", ruleCount: 2, models: [{ modelKey: "iforest", adapterName: "sklearn-iforest" }, { bad: 1 }] },
-  job: { id: "j-1", status: "succeeded", attemptCount: 2, maxAttempts: 3, errorCode: null, createdAt: null, finishedAt: null }, explanation: null };
+  job: { id: "j-1", status: "succeeded", attemptCount: 2, maxAttempts: 3, errorCode: null, createdAt: null, finishedAt: null } };
 const detail = api.parseDetail(detailBody, "d-1");
 assert.deepEqual(detail.configuration.models, [{ modelKey: "iforest", adapterName: "sklearn-iforest" }]);
 assert.deepEqual(detail.workflow, { state: "open", changedAt: null }, "workflow falls back to the item state");
@@ -186,10 +186,16 @@ assert.equal(labels.completenessText({ ...item, status: null, kind: "pending" })
 assert.equal(labels.completenessText({ ...item, status: "unavailable" }), "판정불가");
 assert.equal(labels.stampText(null), "—");
 
-// 설명 작업 진행 중 = queued·running만(blocked는 주기 조회·요청 중 표시 없음)
-const { jobPending } = await import("../src/features/analysis/data/useAnalysis.ts");
-assert.deepEqual(["queued", "running", "blocked", "succeeded", "failed"].map((status) => jobPending({ status })), [true, true, false, false, false]);
-assert.equal(jobPending(undefined), false);
+// 다듬은 문단·상태(판정 상세·GET …/polished): 모르는 상태는 none, 문단이 문자열이 아니거나 source가 다르면 null(코드 문단 그대로). 자동 요청 가능은 true일 때만
+assert.deepEqual(api.parsePolish({ polishState: "done", polished: { text: "문단", source: "llm", check: { status: "passed" }, modelVersion: "m" } }),
+  { polishState: "done", polished: { text: "문단", source: "llm" } });
+for (const bad of [null, {}, { polishState: "running" }, { polishState: "done", polished: { text: 3, source: "llm" } }, { polishState: "done", polished: { text: " ", source: "llm" } },
+  { polishState: "pending", polished: { text: "x", source: "model" } }])
+  assert.equal(api.parsePolish(bad).polished, null, JSON.stringify(bad));
+assert.equal(api.parsePolish({ polishState: "running" }).polishState, "none");
+assert.deepEqual([detail.polishState, detail.polished, detail.polishRequestable, "explanation" in detail], ["none", null, false, false]);
+assert.equal(api.parseDetail({ ...detailBody, polishRequestable: "yes" }, "d-1").polishRequestable, false, "only boolean true");
+assert.equal(api.parseDetail({ ...detailBody, polishRequestable: true, polishState: "none" }, "d-1").polishRequestable, true);
 
 // 6) 페이지 창
 assert.deepEqual(pageWindow(1, 1), [1]);

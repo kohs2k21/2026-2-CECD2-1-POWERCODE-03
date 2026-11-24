@@ -38,8 +38,6 @@ export type PipelineJob = {
     dataContract?: Record<string, unknown>;
     modelManifest?: Record<string, unknown> | null;
     evaluationEnvelope?: Record<string, EvaluationItem>;
-    facts?: {id: string; name: string; value: unknown}[];
-    nextChecks?: {code: string; text: string}[];
     featureSetId?: string;
     featureNames?: string[];
     materializedCount?: number;

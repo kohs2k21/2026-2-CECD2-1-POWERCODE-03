@@ -46,7 +46,7 @@ try {
   // 읽기 경로(ITEMS_CTE·상세·판정 기록·흐름)는 API 역할 SELECT 권한만으로 동작한다.
   const list = await readDecisionList(api, { category: 'all', q: '', signal: null, completeness: null, sort: 'newest', page: 1, pageSize: 50 }, 'grant-user');
   assert.ok(list.items.some((item) => item.id === D.v4Info.id) && list.counts.risk_info >= 1);
-  assert.equal((await readDecisionDetail(api, D.anomaly.id, 'grant-user')).workflow.state, 'detected');
+  assert.equal((await readDecisionDetail(api, D.anomaly.id)).workflow.state, 'detected');
   assert.equal((await readDecisionInterims(api, J.interim.id)).items.length, 2);
   const capped = await readDecisionFlow(api, D.anomaly.id, { processes: 1, messages: 2 });
   assert.deepEqual([capped.processes.length, capped.messages.length, capped.truncated, capped.counts], [1, 2, true, { processes: 2, messages: 3, errors: 1 }],

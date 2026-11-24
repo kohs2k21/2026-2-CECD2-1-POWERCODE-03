@@ -1,6 +1,8 @@
 import type { Pool } from 'pg';
 import { buildInstanceGraph, GRAPH_ABSENT_SQL, GRAPH_RETRY_LIMIT, graphValueAbsent, pickTransactionRow, type GraphTransactionRow } from './processGraph.js';
 import { mlMethod, softRuleField } from '../ruleset/methodCatalog.js';
+import { buildEvidenceSummary, evidenceSummaryNeeds, type EvidenceSummary, type ObservedFields } from './evidenceSummary.js';
+import { POLISH_OUTPUT_SCHEMA_VERSION, POLISH_PROMPT_VERSION, polishEvidenceHash, polishInputFor, polishRequestableOf, polishStateOf, readPolished, type PolishItem, type PolishState, type Polished } from './evidencePolish.js';
 
 /**
  * 이상 분석(/analysis) 판정 목록·상세·중간 판정 기록·Process Flow 읽기(analysis-ui.md).
@@ -422,8 +424,56 @@ export async function resolveItem(db: Queryable, id: string) {
   return row?.item ?? null;
 }
 
-/** GET /api/analysis/decisions/:id: 판정 항목 + 당시 구성 요약 + detect 작업 요약 + 요청자 본인의 최근 설명 작업. */
-export async function readDecisionDetail(db: Queryable, id: string, actorId: string) {
+/** 근거 요약을 위해 더 읽는 값(같은 질의 안): $1 판정 관측 id(시각·건수 하드룰이 근거일 때만), $2 룰 세트 리비전(관계 규칙이 근거일 때만). */
+const SUMMARY_CONTEXT_SQL = (observation: string, revision: string) => `
+      (SELECT jsonb_build_object('revisionNo',o.revision_no,'status',p.status,'startTimeRaw',p.start_time_raw,'endTimeRaw',p.end_time_raw,
+         'totalCount',p.total_count::text,'successCount',p.success_count::text,'errorCount',p.error_count::text,'retryCount',p.retry_count::text)
+         FROM data_processes p JOIN data_observations o ON o.id=p.observation_id WHERE p.observation_id=${observation}::uuid) AS observed,
+      (SELECT r.snapshot->'relationRules' FROM ops_rule_set_revisions r WHERE r.revision=${revision}::bigint) AS "relationRules"`;
+type SummaryItem = { evidence: unknown; processObservationId: string | null; interfaceId?: string | null };
+const summaryParams = (item: SummaryItem) => {
+  const needs = evidenceSummaryNeeds(item.evidence);
+  return [needs.observed ? item.processObservationId : null, needs.ruleSetRevision];
+};
+const summaryOf = (item: SummaryItem, context: { observed?: unknown; relationRules?: unknown }) =>
+  buildEvidenceSummary({ evidence: item.evidence, observedFields: (context.observed ?? null) as ObservedFields | null,
+    relationRules: context.relationRules ?? null, interfaceId: item.interfaceId ?? null });
+/** 판정 항목(resolveItem 결과) → 근거 요약. 질의 1회(필요한 값이 없으면 두 하위 질의는 비어 있다). */
+export async function readEvidenceSummary(db: Queryable, item: SummaryItem): Promise<EvidenceSummary | null> {
+  if (!buildEvidenceSummary({ evidence: item.evidence })) return null;
+  const { rows: [context] } = await db.query(`SELECT ${SUMMARY_CONTEXT_SQL('$1', '$2')}`, summaryParams(item));
+  return summaryOf(item, context);
+}
+
+/**
+ * 다듬은 문단(polished)·상태(polishState): 이상 신호가 있는 최종 판정이고 다듬기 입력을 만들 수 있을 때만 조회한다.
+ * 같은 판정·같은 입력 hash(틀 버전 포함)·현재 지시문·결과 형식 버전인 최근 완료 결과 → done, 같은 조건의 진행 중 작업 → pending, 그 밖 none.
+ * 모델 버전은 조건에 넣지 않는다. 요청자를 보지 않는다(판정마다 공유). 생성 서비스 상태를 묻지 않는다.
+ */
+export async function readDecisionPolish(db: Queryable, item: PolishItem, summary: EvidenceSummary | null)
+  : Promise<{ polishState: PolishState; polished: Polished | null; input: ReturnType<typeof polishInputFor> }> {
+  const input = polishInputFor(item, summary);
+  if (!input || !summary) return { polishState: 'none', polished: null, input: null };
+  // 진행 중 작업: 설명 큐(contract_version v03 + queue llm_explanation)로 좁혀 run_jobs_v03_queue_idx(queue,status,…) WHERE contract_version='v03'을 탄다.
+  const { rows: [row] } = await db.query(`SELECT
+      (SELECT jsonb_build_object('output',r.output,'modelVersion',r.model_version) FROM run_llm_results r
+        WHERE r.kind='explain' AND r.decision_id=$1 AND r.input_evidence_hash=$2 AND r.prompt_version=$3 AND r.output_schema_version=$4
+        ORDER BY r.completed_at DESC,r.id DESC LIMIT 1) AS result,
+      EXISTS(SELECT 1 FROM run_jobs j WHERE j.contract_version='v03' AND j.queue='llm_explanation' AND j.status IN ('queued','running')
+        AND j.kind='explain' AND j.input_decision_id=$1
+        AND j.llm_spec->>'input_evidence_hash'=$2 AND j.llm_spec->>'prompt_version'=$3 AND j.llm_spec->>'output_schema_version'=$4) AS pending`,
+  [item.decisionId, polishEvidenceHash(input), POLISH_PROMPT_VERSION, POLISH_OUTPUT_SCHEMA_VERSION]);
+  const polished = row?.result ? readPolished(row.result.output, { decisionId: input.decisionId, templateVersion: summary.templateVersion }, row.result.modelVersion) : null;
+  return { polishState: polishStateOf(polished, row?.pending === true), polished, input };
+}
+
+/**
+ * GET /api/analysis/decisions/:id: 판정 항목 + 당시 구성 요약 + detect 작업 요약 + AI 판정 근거 요약(evidenceSummary) + 다듬은 문단(polished·polishState)
+ * + 자동 요청 가능 여부(polishRequestable).
+ * 근거 요약에 필요한 값만 더 읽는다(같은 질의 안): 판정 관측 행의 시각·건수·revision(시각·건수 하드룰이 근거일 때, evidence observation.revisionNo와 같을 때만 쓴다),
+ * 고정 룰 세트 리비전의 relationRules(관계 규칙이 근거일 때). 다듬은 문단은 판정마다 공유(요청자 무관)한 결과다. 목록 응답에는 근거 요약이 없다.
+ */
+export async function readDecisionDetail(db: Queryable, id: string, polishReady = false) {
   const item = await resolveItem(db, id);
   if (!item) return null;
   const { rows: [context] } = await db.query(`SELECT
@@ -436,15 +486,23 @@ export async function readDecisionDetail(db: Queryable, id: string, actorId: str
       (SELECT jsonb_build_object('id',j.id,'status',j.status,'attemptCount',j.attempt_count,'maxAttempts',j.max_attempts,
          'errorCode',j.error_code,'createdAt',to_char(j.created_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),
          'finishedAt',to_char(j.finished_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'))
-         FROM run_jobs j WHERE j.id=$2) AS job,
-      (SELECT jsonb_build_object('jobId',j.id,'status',j.status,'errorCode',j.error_code,
-         'createdAt',to_char(j.created_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'))
-         FROM run_jobs j WHERE j.kind='explain' AND j.input_decision_id=$3 AND j.requested_by_actor_id=$4
-         ORDER BY j.created_at DESC,j.id DESC LIMIT 1) AS explanation`,
-  [item.configVersionId, item.jobId, item.decisionId, actorId]);
+         FROM run_jobs j WHERE j.id=$2) AS job,${SUMMARY_CONTEXT_SQL('$3', '$4')}`,
+  [item.configVersionId, item.jobId, ...summaryParams(item)]);
+  const evidenceSummary = summaryOf(item, context);
+  const { polishState, polished, input } = await readDecisionPolish(db, item, evidenceSummary);
+  // polishRequestable: 화면이 지금 다듬기를 자동 요청해도 되는지(다듬을 수 있는 판정 + 결과·진행 중 작업 없음 + 생성 서비스가 다듬기 모델을 알림).
+  // 생성 서비스 상태는 마지막 확인 값만 쓴다(polishReady, 이 읽기에서 묻지 않음). 모르면 false(요청하지 않음).
   return { ...item, configuration: context.configuration ?? null, job: context.job ?? null,
-    explanation: context.explanation ?? null,
-    workflow: { state: item.workflowState, changedAt: item.workflowChangedAt ?? null } };
+    workflow: { state: item.workflowState, changedAt: item.workflowChangedAt ?? null }, evidenceSummary, polishState, polished,
+    polishRequestable: polishRequestableOf(input, polishState, polishReady) };
+}
+
+/** GET /api/analysis/decisions/:id/polished: 다듬은 문단·상태만(화면이 pending 동안 주기적으로 읽는다). */
+export async function readDecisionPolished(db: Queryable, id: string) {
+  const item = await resolveItem(db, id);
+  if (!item) return null;
+  const { polishState, polished } = await readDecisionPolish(db, item, await readEvidenceSummary(db, item));
+  return { polishState, polished };
 }
 
 /** GET /api/analysis/decisions/:id/interims: 그 판정·작업의 중간 판정 기록(시도 순, 시도 안 순번 순). */

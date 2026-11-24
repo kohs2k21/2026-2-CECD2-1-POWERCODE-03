@@ -60,6 +60,23 @@ export const riskLevelVariant: Record<RiskLevel, "critical" | "warning" | "secon
   warning: "warning",
   info: "secondary",
 };
+/**
+ * 판정 상세 `AI 판정 근거 요약` 카드의 화면 글자(제목·표 머리·툴팁). 문장·값은 서버 evidenceSummary 문자열을 그대로 쓴다.
+ * 평소 값 열 머리 툴팁 = 평소 값의 정의. 건수 계열 값(단위 미확인)은 값에 덧말을 붙이지 않고 이번 값 열 머리·그 칸 툴팁으로 안내한다.
+ */
+export const evidenceSummaryLabels = {
+  title: "AI 판정 근거 요약",
+  ruleCondition: "규칙 조건",
+  observed: "이번 값",
+  result: "결과",
+  mlVariable: "모델이 본 변수",
+  usual: "평소 값",
+  usualTooltip: "학습 데이터 중앙값",
+  impact: "영향",
+  checks: "확인할 것",
+  unitUnknownHead: "단위 미확인 값 포함",
+  unitUnknownCell: "단위 미확인",
+} as const;
 /** 업무 분류(와이어프레임 dFields): 감지됨 / 보류 / 완료. */
 export const workflowLabels: Record<WorkflowState, string> = { detected: "감지됨", open: "보류", resolved: "완료" };
 /** 처리 상태 버튼(와이어프레임 dWorkflow): 현재 상태별 [다음 상태, 문구, 주 버튼]. */

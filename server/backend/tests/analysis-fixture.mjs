@@ -75,7 +75,8 @@ const mlNormal = { ...mlHit, anomalous: false, code: null, riskLevelReason: null
 export const fixtureWriters = (client, sourceId, configId, out) => {
   let serial = 0;
   /** PROCESS 관측 1건(+ 짝 TRANSACTION). 검색 대상: 거래 ID·프로세스 ID·인터페이스 ID. */
-  const process = async (minutesAgo, label) => {
+  /** values(선택): PROCESS 상태·건수 열 `{status, successCount, errorCount, totalCount}`(근거 요약 값 읽기 시험용). 없으면 이전과 같다. */
+  const process = async (minutesAgo, label, values = null) => {
     serial += 1;
     const tx = `TX-${label}-${serial}`, processId = `P${String(serial % 7).padStart(2, '0')}`, iface = `IF-ORD-${(serial % 3) + 1}`;
     const execution = id(), obs = id(), txObs = id();
@@ -89,8 +90,10 @@ export const fixtureWriters = (client, sourceId, configId, out) => {
       [observation, sourceId, layer, exec, exec ? 1 : null, `${layer}:${observation}`, sha(observation), minutesAgo + 0.5]);
     }
     await client.query(`INSERT INTO data_transactions(observation_id,transaction_id,interface_id,status) VALUES($1,$2,$3,'S')`, [txObs, tx, iface]);
-    await client.query(`INSERT INTO data_processes(observation_id,transaction_observation_id,transaction_id,process_id,channel_id,status,response_code)
-      VALUES($1,$2,$3,$4,'CH-01',$5,$6)`, [obs, txObs, tx, processId, label === 'anomaly' ? 'F' : 'S', label === 'anomaly' ? 'E500' : '0000']);
+    await client.query(`INSERT INTO data_processes(observation_id,transaction_observation_id,transaction_id,process_id,channel_id,status,response_code,
+        success_count,error_count,total_count)
+      VALUES($1,$2,$3,$4,'CH-01',$5,$6,$7,$8,$9)`, [obs, txObs, tx, processId, values?.status ?? (label === 'anomaly' ? 'F' : 'S'), label === 'anomaly' ? 'E500' : '0000',
+      values?.successCount ?? null, values?.errorCount ?? null, values?.totalCount ?? null]);
     return { obs, execution, txObs, tx, processId, iface };
   };
   /** 이전 형식 판정(작업 없음). */
@@ -105,8 +108,8 @@ export const fixtureWriters = (client, sourceId, configId, out) => {
     return decisionId;
   };
   /** detect 작업(시도 없음, queued). v04는 구성 없이 만들고 manifest에 TRANSACTION을 고정하지 않는다(016, detector/jobs.py). */
-  const detectJob = async (name, minutesAgo, contract = 'v03') => {
-    const p = await process(minutesAgo, name);
+  const detectJob = async (name, minutesAgo, contract = 'v03', values = null) => {
+    const p = await process(minutesAgo, name, values);
     const manifest = id(), job = id(), hash = sha(`manifest:${p.obs}`), v04 = contract === 'v04', config = v04 ? null : configId;
     const inputTx = v04 ? null : p.txObs;
     await client.query(`INSERT INTO run_input_manifests(id,source_id,execution_id,process_observation_id,transaction_observation_id,
@@ -152,6 +155,38 @@ export const fixtureWriters = (client, sourceId, configId, out) => {
   };
   return { legacyDecision, detectJob, attempt, interim, jobDecision, failJob };
 };
+
+/**
+ * 근거 요약 값 읽기(판정 관측 행의 건수·revision)를 보는 v04 판정 1건: 성공 상태인데 ERROR_COUNT가 기록된 PROCESS(상태 S, ERROR_COUNT 3).
+ * evidence는 Detector 표본(anomalyComplete)에서 근거 방법만 hard:success-with-error로 바꾼 것이다. 목록 건수를 바꾸므로 건수 단언이 끝난 뒤에 넣는다.
+ * @param {import('pg').Pool} pool
+ * @param {{sourceId: string}} fixture
+ */
+export async function seedSummaryValueDecision(pool, { sourceId }) {
+  const client = await pool.connect();
+  const out = { decisions: {}, jobs: {} };
+  const { detectJob, attempt, jobDecision } = fixtureWriters(client, sourceId, null, out);
+  try {
+    await client.query('BEGIN');
+    const job = await detectJob('summaryValue', 1, 'v04', { status: 'S', successCount: 7, errorCount: 3, totalCount: 10 });
+    const { rows: [{ asOf }] } = await client.query('SELECT input_as_of AS "asOf" FROM run_input_manifests WHERE id=$1', [job.manifest]);
+    const { evidence } = v04Final('anomalyComplete', { sourceId, observationId: job.obs, inputAsOf: asOf.toISOString(), manifestHash: job.hash, modelVersionId: id() });
+    for (const method of evidence.methodResults) {
+      if (method.methodId === 'hard:process-status') Object.assign(method, { anomalous: false, code: null, severity: null, riskLevel: null, evidence: [{ observedStatus: 'S', result: 'no_hit' }] });
+      if (method.methodId === 'hard:success-with-error') Object.assign(method, { anomalous: true, code: 'HARD_SUCCESS_WITH_ERROR', severity: 'critical', riskLevel: 'critical', evidence: [{ result: 'hit' }] });
+    }
+    Object.assign(evidence.composite, { basisMethods: ['hard:success-with-error'] });
+    Object.assign(evidence.composite.risk, { determinedBy: ['hard:success-with-error'] });
+    const decisionId = await jobDecision(job, await attempt(job, 1), 'complete', evidence, 'HARD_SUCCESS_WITH_ERROR');
+    await client.query('COMMIT');
+    return { id: decisionId, jobId: job.id, obs: job.obs };
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+}
 
 /**
  * @param {import('pg').Pool} pool
@@ -286,12 +321,6 @@ export async function seedAnalysisFixture(pool, options = {}) {
   return out;
 }
 
-/** v04 fixture ML 방법 결과의 기여도(미완료 ML → method_unresolved, 정상 ML → not_anomalous). */
-export const V04_ATTRIBUTION = {
-  final: { version: 'baseline-shapley-v1', status: 'skipped', reason: 'method_unresolved' },
-  replaced: { version: 'baseline-shapley-v1', status: 'skipped', reason: 'not_anomalous' },
-};
-
 /**
  * v04 작업·판정(구성 없음, 016)을 같은 원천에 덧붙인다. v03 fixture의 작업 항목과 같은 다섯 상태:
  * 최종 판정, 이전 시도가 대체된 최종 판정, 열린 중간 기록, 대기, 중간 기록 뒤 실패(최종 없음).
@@ -304,27 +333,23 @@ export async function seedAnalysisV04Fixture(pool, { sourceId }) {
   const { detectJob, attempt, interim, jobDecision, failJob } = fixtureWriters(client, sourceId, null, out);
   const modelVersionId = id();
   const interimOf = (name) => v04Interim(name, modelVersionId);
-  /**
-   * 판정 행 열 값과 evidence는 Detector 출력 표본 그대로다. `attribution`을 주면 ML 방법 결과에 기여도 키를 더한다
-   * (detection-decision.md "6.1 ML 기여도" 절 `attribution` — 판정 상세·설명 접수 입력이 그대로 옮기는지 확인용).
-   */
-  const finish = async (job, att, name, attribution) => {
+  /** 판정 행 열 값과 evidence는 Detector 출력 표본 그대로다. */
+  const finish = async (job, att, name) => {
     const { rows: [{ asOf }] } = await client.query('SELECT input_as_of AS "asOf" FROM run_input_manifests WHERE id=$1', [job.manifest]);
     const { columns, evidence } = v04Final(name, { sourceId, observationId: job.obs, inputAsOf: asOf.toISOString(), manifestHash: job.hash, modelVersionId });
-    if (attribution) for (const method of evidence.methodResults) if (method.category === 'ml') method.attribution = attribution;
     return jobDecision(job, att, columns.status, evidence, columns.decision_code,
       { ruleStatus: columns.rule_status, mlStatus: columns.ml_status, score: columns.anomaly_score });
   };
   try {
     await client.query('BEGIN');
     const finalJob = await detectJob('final', 6, 'v04');
-    out.decisions.final = { ...finalJob, id: await finish(finalJob, await attempt(finalJob, 1), 'signPartial', V04_ATTRIBUTION.final), jobId: finalJob.id };
+    out.decisions.final = { ...finalJob, id: await finish(finalJob, await attempt(finalJob, 1), 'signPartial'), jobId: finalJob.id };
 
     const replacedJob = await detectJob('replaced', 5, 'v04');
     const r1 = await attempt(replacedJob, 1);
     await interim(replacedJob, r1, 'first_anomaly', interimOf('sign'));
     await client.query(`UPDATE run_job_attempts SET status='expired' WHERE id=$1`, [r1.id]);
-    out.decisions.replaced = { ...replacedJob, id: await finish(replacedJob, await attempt(replacedJob, 2), 'normalComplete', V04_ATTRIBUTION.replaced), jobId: replacedJob.id };
+    out.decisions.replaced = { ...replacedJob, id: await finish(replacedJob, await attempt(replacedJob, 2), 'normalComplete'), jobId: replacedJob.id };
 
     const interimJob = await detectJob('interim', 4, 'v04');
     const i1 = await attempt(interimJob, 1);

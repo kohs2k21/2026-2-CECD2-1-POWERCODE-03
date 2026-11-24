@@ -1,5 +1,5 @@
 // 시험용 가짜 LLM /health(llm-recommendation-job.md '생성 서비스 가용성' 절). 실제 llm 컨테이너·GPU를 부르지 않는다.
-// mode: ready(200 {"status":"ready"}) / down(503) / loading(200 {"status":"loading"}) / garbage(200 JSON 아님) / hang(응답 없음)
+// mode: ready(200 {"status":"ready","polishModel":"fixture-polish-model"} — 다듬기 모델 id는 설명 작업 접수가 llm_spec.model_version에 넣는다) / down(503) / loading(200 {"status":"loading"}) / garbage(200 JSON 아님) / hang(응답 없음)
 import http from 'node:http';
 
 export async function startFakeLlmHealth(mode = 'ready', { delayMs = 0 } = {}) {
@@ -10,7 +10,7 @@ export async function startFakeLlmHealth(mode = 'ready', { delayMs = 0 } = {}) {
       if (request.url !== '/health') { response.writeHead(404).end(); return; }
       if (state.mode === 'hang') return;
       const json = (status, body) => response.writeHead(status, { 'Content-Type': 'application/json' }).end(body);
-      if (state.mode === 'ready') json(200, '{"status":"ready"}');
+      if (state.mode === 'ready') json(200, '{"status":"ready","polishModel":"fixture-polish-model"}');
       else if (state.mode === 'loading') json(200, '{"status":"loading"}');
       else if (state.mode === 'garbage') json(200, 'not json');
       else json(503, '{"code":"unavailable"}');

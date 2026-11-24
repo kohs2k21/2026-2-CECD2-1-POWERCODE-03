@@ -11,7 +11,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import pg from 'pg';
 import { startFakeLlmHealth } from './fake-llm-health.mjs';
-import { V04_ATTRIBUTION, seedAnalysisFixture, seedAnalysisV04Fixture, seedParentlessDecisions } from './analysis-fixture.mjs';
+import { seedAnalysisFixture, seedAnalysisV04Fixture, seedParentlessDecisions, seedSummaryValueDecision } from './analysis-fixture.mjs';
 
 const url = process.env.PIPELINE_TEST_DATABASE_URL;
 if (!url) throw new Error('PIPELINE_TEST_DATABASE_URL is required');
@@ -268,7 +268,8 @@ try {
   assert.deepEqual([normalDetail.configuration.ruleCount, normalDetail.configuration.detectionMode, normalDetail.configuration.id],
     [1, 'parallel', fixture.configId]);
   assert.equal(normalDetail.job, null, 'legacy decision has no detect job');
-  assert.equal(normalDetail.explanation, null);
+  assert.deepEqual([normalDetail.evidenceSummary, normalDetail.polishState, normalDetail.polished, 'explanation' in normalDetail], [null, 'none', null, false],
+    'v3 decision: no evidence summary, nothing to polish, no per-requester explanation link');
   assert.equal(normalDetail.evidence.schemaVersion, 3);
   const v4Detail = (await detail(D.v4Final.id)).body;
   assert.deepEqual([v4Detail.job.id, v4Detail.job.status, v4Detail.job.attemptCount, v4Detail.job.maxAttempts], [J.v4Final.id, 'succeeded', 1, 3]);
@@ -300,16 +301,20 @@ try {
   assert.deepEqual((await interims(J.pending.id)).items, []);
   assert.equal((await request(base, `/api/analysis/decisions/${crypto.randomUUID()}/interims`, 'GET', user)).status, 404);
 
-  // 10) 설명 작업: 요청자 본인의 최근 explain 작업만 상세에 연결(다른 계정에는 보이지 않음).
-  const job = await request(base, '/api/jobs', 'POST', user, { kind: 'explain', sourceId: fixture.sourceId, decisionId: D.normal.id });
-  assert.equal(job.status, 201);
-  // 기여도 없는 판정: 저장 근거 키와 순서는 이전 그대로(methodResults 키 없음). inputSpec 객체는 jsonb에서 되읽어 키 순서가 바뀌므로
-  // 순서를 보존한 savedEvidenceJson 문자열로 비교한다(입력 hash의 원본)
-  assert.deepEqual(Object.keys(JSON.parse(job.body.inputSpec.savedEvidenceJson)), ['decisionId', 'configVersionId', 'status', 'ruleStatus', 'mlStatus', 'decisionCode',
-    'anomalyScore', 'inputManifestHash', 'rules', 'models']);
-  const linked = (await detail(D.normal.id)).body.explanation;
-  assert.deepEqual([linked.jobId, linked.status], [job.body.id, 'queued']);
-  assert.equal((await detail(D.normal.id, admin)).body.explanation, null);
+  // 10) 설명(다듬기) 작업: 다듬을 근거 요약이 없는 판정(v3·이상 아님)은 접수하지 않는다(409). 작업 행이 생기지 않는다.
+  for (const decisionId of [D.normal.id, D.anomaly.id]) {
+    const refused = await request(base, '/api/jobs', 'POST', user, { kind: 'explain', sourceId: fixture.sourceId, decisionId });
+    assert.deepEqual([refused.status, refused.body.code], [409, 'explanation_not_applicable'], decisionId);
+  }
+  // 있는 다른 원천 + 이 원천의 판정 → 404 decision_not_found(원천 없음 404 source_not_found와 다른 분기). 대문자 id도 같은 판정으로 해석한다.
+  const otherSourceId = crypto.randomUUID();
+  await pool.query(`INSERT INTO ops_sources(id,dataset_key,display_name,ingestion_method,schema_version,clock_basis,field_catalog,created_at)
+    VALUES($1,$2,$2,'switchable-input','arrival-snapshot-v1','{"status":"unknown"}','{"layers":["T","P","M","B"]}',clock_timestamp())`, [otherSourceId, `other-${otherSourceId}`]);
+  const otherSource = await request(base, '/api/jobs', 'POST', user, { kind: 'explain', sourceId: otherSourceId, decisionId: D.normal.id });
+  assert.deepEqual([otherSource.status, otherSource.body.code], [404, 'decision_not_found'], 'the decision must belong to the requested source');
+  const upper = await request(base, '/api/jobs', 'POST', user, { kind: 'explain', sourceId: fixture.sourceId.toUpperCase(), decisionId: D.normal.id.toUpperCase() });
+  assert.deepEqual([upper.status, upper.body.code], [409, 'explanation_not_applicable'], 'upper-case ids resolve to the same decision (not 404)');
+  assert.equal((await pool.query(`SELECT count(*)::int AS n FROM run_jobs WHERE kind='explain'`)).rows[0].n, 0);
   // 기존 판정 API·SSE 경로는 그대로.
   assert.equal((await request(base, '/api/pipeline/decisions?limit=3', 'GET', user)).body.items.length, 3);
 
@@ -723,15 +728,19 @@ try {
   assert.deepEqual([v04Final.status, v04Final.ruleStatus, v04Final.mlStatus, v04Final.anomalyScore, v04Final.evidence.schemaVersion, v04Final.evidence.checkers.sr.status],
     ['partial', 'succeeded', 'not_ready', null, 4, 'skipped']);
   assert.ok(!v04Final.evidence.methodResults.some((method) => method.cause === 'pending'), 'a final decision has no pending method');
+  // AI 판정 근거 요약(evidenceSummary, 상세만): 소프트룰(RETRY_COUNT) 주 근거 + 기한 초과 ML은 평가 불가. 객체 키 순서에는 기대지 않는다
+  const summary = v04Final.evidenceSummary;
+  assert.deepEqual([summary.templateVersion, summary.summaryLine.prefix, summary.summaryLine.kind, summary.sentences.length, summary.checks.map((c) => c.code),
+    summary.table.map((row) => [row.kind, row.result]), summary.contributionStatus, summary.stateWords, summary.valueTokens],
+    ['evidence-template-v1', '주의', 'soft_count', 2, ['soft_count', 'unresolved'], [['rule', '이상 징후'], ['rule', '평가 불가']], 'not_computed', ['이상 징후', '평가 불가'], []]);
+  assert.equal(summary.notice, 'AI 근거 요약은 참고용이며, 최종 판단은 담당자 확인이 필요합니다.');
+  assert.ok(!('evidenceSummary' in v04ById.get(D4.final.id)), 'list items carry no evidence summary');
   const v04Normal = (await detail(D4.replaced.id)).body;
   assert.deepEqual([v04Normal.evidence.schemaVersion, v04Normal.mlStatus, Number(v04Normal.anomalyScore)], [4, 'succeeded', 0.3]);
-  // ML 방법 결과의 기여도(attribution)는 판정 상세 evidence에 저장값 그대로 실린다.
-  const mlOf = (body) => body.evidence.methodResults.filter((method) => method.category === 'ml');
-  assert.deepEqual(mlOf(v04Final).map((method) => method.attribution), [V04_ATTRIBUTION.final]);
-  assert.deepEqual(mlOf(v04Normal).map((method) => method.attribution), [V04_ATTRIBUTION.replaced]);
+  assert.deepEqual([v04Normal.evidenceSummary.summaryLine.prefix, v04Normal.evidenceSummary.table, v04Normal.evidenceSummary.checks], ['이상 신호 없음', [], []]);
   assert.equal((await detail(J4.final.id)).body.id, D4.final.id, 'job id resolves to its final decision');
   const v04Pending = (await detail(J4.pending.id)).body;
-  assert.deepEqual([v04Pending.kind, v04Pending.configuration, v04Pending.job.status], ['pending', null, 'queued']);
+  assert.deepEqual([v04Pending.kind, v04Pending.configuration, v04Pending.job.status, v04Pending.evidenceSummary], ['pending', null, 'queued', null]);
   assert.deepEqual((await interims(D4.replaced.id)).items.map((item) => [item.attemptNo, item.kind, item.supersededByAttemptNo]),
     [[1, 'first_anomaly', null], [1, 'superseded', 2]]);
   assert.deepEqual((await interims(J4.noFinal.id)).items.map((item) => [item.kind, item.reasonCode]),
@@ -741,37 +750,65 @@ try {
   assert.equal((await pool.query('SELECT count(*)::int AS n FROM run_decision_workflow_events WHERE job_id=$1', [J4.final.id])).rows[0].n, 1);
   assert.equal((await markRead(J4.interim.id, { occurredAt: v04ById.get(J4.interim.id).occurredAt })).status, 200);
   assert.equal(await unread(J4.interim.id, user), false);
-  // 판정 설명: 구성이 빈 판정도 같은 경로로 요청한다. 작업 구성은 판정과 같게 비고, 같은 근거는 재사용한다.
+  // 판정 설명(다듬기, summary-sentences-v1): 서버가 판정 상세와 같은 근거 요약으로 접수 입력을 만든다. 구성이 빈 판정은 구성 null.
+  // 재사용은 요청자와 무관하게 판정마다 공유하고, 생성할 수 없어 실패한 작업은 10분 동안 그 작업을 돌려준다(새 작업 없음).
+  const v04Summary = v04Final.evidenceSummary;
   const v04Explain = await request(base, '/api/jobs', 'POST', user, { kind: 'explain', sourceId: fixture.sourceId, decisionId: D4.final.id });
   assert.equal(v04Explain.status, 201, JSON.stringify(v04Explain.body));
-  assert.deepEqual([v04Explain.body.inputSpec.configVersionId, v04Explain.body.inputSpec.savedEvidence.configVersionId, v04Explain.body.inputSpec.savedEvidence.decisionId],
-    [null, null, D4.final.id]);
-  assert.deepEqual([v04Explain.body.inputSpec.savedEvidence.mlStatus, v04Explain.body.inputSpec.savedEvidence.anomalyScore], ['not_ready', null]);
-  assert.ok(v04Explain.body.inputSpec.savedEvidence.rules.length > 0);
-  // 기여도가 있는 ML 방법 결과만 네 키로(저장값 그대로: 미완료 ML의 score null 포함), 다른 대분류는 빠진다
-  assert.deepEqual(v04Explain.body.inputSpec.savedEvidence.methodResults, [{ methodId: 'ml:iforest', category: 'ml', score: null, attribution: V04_ATTRIBUTION.final }]);
-  assert.equal(JSON.parse(v04Explain.body.inputSpec.savedEvidenceJson).methodResults.length, 1);
-  const explainRow = (await pool.query(`SELECT contract_version,queue,input_config_version_id,input_decision_id,llm_spec FROM run_jobs WHERE id=$1`, [v04Explain.body.id])).rows[0];
-  assert.deepEqual([explainRow.contract_version, explainRow.queue, explainRow.input_config_version_id, explainRow.input_decision_id],
-    ['v03', 'llm_explanation', null, D4.final.id]);
-  const v04Reused = await request(base, '/api/jobs', 'POST', user, { kind: 'explain', sourceId: fixture.sourceId, decisionId: D4.final.id });
-  assert.deepEqual([v04Reused.status, v04Reused.body.id], [200, v04Explain.body.id], 'same saved evidence reuses the job');
+  const explainInput = v04Explain.body.inputSpec;
+  assert.deepEqual([explainInput.kind, explainInput.sourceId, explainInput.decisionId, explainInput.configVersionId, explainInput.templateVersion],
+    ['explain', fixture.sourceId, D4.final.id, null, v04Summary.templateVersion]);
+  assert.deepEqual([explainInput.sentences, explainInput.stateWords, explainInput.valueTokens], [v04Summary.sentences, v04Summary.stateWords, v04Summary.valueTokens]);
+  assert.ok(!('savedEvidence' in explainInput) && !('savedEvidenceJson' in explainInput), 'no saved evidence in the new input');
+  const explainRow = (await pool.query(`SELECT contract_version,queue,input_config_version_id,input_decision_id,llm_spec,max_attempts FROM run_jobs WHERE id=$1`, [v04Explain.body.id])).rows[0];
+  assert.deepEqual([explainRow.contract_version, explainRow.queue, explainRow.input_config_version_id, explainRow.input_decision_id, explainRow.max_attempts],
+    ['v03', 'llm_explanation', null, D4.final.id, 1]);
+  const spec = explainRow.llm_spec;
+  assert.deepEqual([spec.evidence_version, spec.model_version, spec.prompt_version, spec.output_schema_version],
+    ['summary-sentences-v1', 'fixture-polish-model', 'evidence-polish-v1', 'evidence-polish-result-v1']);
+  assert.ok(/^[0-9a-f]{64}$/.test(spec.input_evidence_hash) && /^[0-9a-f]{64}$/.test(spec.reuse_key));
+  for (const token of [user, admin]) {
+    const reused = await request(base, '/api/jobs', 'POST', token, { kind: 'explain', sourceId: fixture.sourceId, decisionId: D4.final.id });
+    assert.deepEqual([reused.status, reused.body.id], [200, v04Explain.body.id], 'shared per decision (requester is not in the key)');
+  }
   assert.equal((await pool.query(`SELECT count(*)::int AS n FROM powercode_queue.llm_explanation_jobs WHERE payload->>'jobId'=$1`, [v04Explain.body.id])).rows[0].n, 1);
-  const v04Linked = (await detail(D4.final.id)).body.explanation;
-  assert.deepEqual([v04Linked.jobId, v04Linked.status], [v04Explain.body.id, 'queued']);
-  // LLM 작업자가 쓰는 순서(trainer/runner.py `_finish`)대로 결과를 저장한다: 결과 구성도 NULL로 받아야 한다.
-  const explainAttempt = crypto.randomUUID(), explainLease = crypto.randomUUID(), spec = explainRow.llm_spec;
+  const polishedOf = async (itemId) => (await request(base, `/api/analysis/decisions/${itemId}/polished`, 'GET', user)).body;
+  const pendingDetail04 = (await detail(D4.final.id)).body;
+  assert.deepEqual([pendingDetail04.polishState, pendingDetail04.polished], ['pending', null]);
+  assert.deepEqual(await polishedOf(D4.final.id), { polishState: 'pending', polished: null });
+  assert.deepEqual(await polishedOf(J4.final.id), { polishState: 'pending', polished: null }, 'job id resolves to its decision');
+  assert.deepEqual(await polishedOf(D4.replaced.id), { polishState: 'none', polished: null }, 'normal decision: nothing to polish');
+  // 생성할 수 없어 실패: 10분 안에는 그 실패 작업(200), 지나면 새 작업(201). 실패는 상태 none(코드 문단 그대로)
+  await pool.query(`UPDATE run_jobs SET status='failed',error_code='generation_busy',finished_at=clock_timestamp() WHERE id=$1`, [v04Explain.body.id]);
+  assert.deepEqual(await polishedOf(D4.final.id), { polishState: 'none', polished: null });
+  const cooled = await request(base, '/api/jobs', 'POST', admin, { kind: 'explain', sourceId: fixture.sourceId, decisionId: D4.final.id });
+  assert.deepEqual([cooled.status, cooled.body.id, cooled.body.status], [200, v04Explain.body.id, 'failed'], 'failed job inside the cooldown');
+  await pool.query(`UPDATE run_jobs SET finished_at=clock_timestamp()-interval '11 minutes' WHERE id=$1`, [v04Explain.body.id]);
+  const retried = await request(base, '/api/jobs', 'POST', user, { kind: 'explain', sourceId: fixture.sourceId, decisionId: D4.final.id });
+  assert.equal(retried.status, 201, 'a new job after the cooldown');
+  assert.notEqual(retried.body.id, v04Explain.body.id);
+  // LLM 작업자가 쓰는 순서대로 결과를 저장한다(결과 구성도 NULL). 결과 형식 evidence-polish-result-v1 → 상세·가벼운 조회가 done + polished
+  const retriedSpec = (await pool.query('SELECT llm_spec FROM run_jobs WHERE id=$1', [retried.body.id])).rows[0].llm_spec;
+  assert.deepEqual([retriedSpec.reuse_key, retriedSpec.input_evidence_hash], [spec.reuse_key, spec.input_evidence_hash]);
+  const explainAttempt = crypto.randomUUID(), explainLease = crypto.randomUUID();
   await pool.query(`INSERT INTO run_job_attempts(id,job_id,attempt_no,status,worker_id,lease_token,lease_until,started_at)
-    VALUES($1,$2,1,'running','fixture-llm',$3,clock_timestamp()+interval '60 seconds',clock_timestamp())`, [explainAttempt, v04Explain.body.id, explainLease]);
-  await pool.query(`UPDATE run_jobs SET status='running',current_attempt_id=$2,attempt_count=1 WHERE id=$1`, [v04Explain.body.id, explainAttempt]);
+    VALUES($1,$2,1,'running','fixture-llm',$3,clock_timestamp()+interval '60 seconds',clock_timestamp())`, [explainAttempt, retried.body.id, explainLease]);
+  await pool.query(`UPDATE run_jobs SET status='running',current_attempt_id=$2,attempt_count=1 WHERE id=$1`, [retried.body.id, explainAttempt]);
+  const polishOutput = { outputSchemaVersion: 'evidence-polish-result-v1', decisionId: D4.final.id, templateVersion: v04Summary.templateVersion,
+    codeText: v04Summary.sentences.join(' '), paragraph: { text: '다듬은 문단입니다.', source: 'llm' }, check: { status: 'passed', code: null }, modelVersion: 'fixture-polish-model' };
   await pool.query(`INSERT INTO run_llm_results(id,job_id,kind,decision_id,config_version_id,evidence_version,input_evidence_hash,model_version,prompt_version,
       output_schema_version,reuse_key,output,created_attempt_id,lease_token,completed_at)
-    VALUES($1,$2,'explain',$3,NULL,$4,$5,$6,$7,$8,$9,'{"facts":[]}',$10,$11,clock_timestamp())`,
-  [crypto.randomUUID(), v04Explain.body.id, D4.final.id, spec.evidence_version, spec.input_evidence_hash, spec.model_version, spec.prompt_version,
-    spec.output_schema_version, spec.reuse_key, explainAttempt, explainLease]);
+    VALUES($1,$2,'explain',$3,NULL,$4,$5,$6,$7,$8,$9,$10::jsonb,$11,$12,clock_timestamp())`,
+  [crypto.randomUUID(), retried.body.id, D4.final.id, retriedSpec.evidence_version, retriedSpec.input_evidence_hash, retriedSpec.model_version, retriedSpec.prompt_version,
+    retriedSpec.output_schema_version, retriedSpec.reuse_key, JSON.stringify(polishOutput), explainAttempt, explainLease]);
   await pool.query(`UPDATE run_job_attempts SET status='succeeded',finished_at=clock_timestamp() WHERE id=$1`, [explainAttempt]);
-  await pool.query(`UPDATE run_jobs SET status='succeeded',finished_at=clock_timestamp() WHERE id=$1`, [v04Explain.body.id]);
-  assert.equal((await request(base, `/api/jobs/${v04Explain.body.id}`, 'GET', user)).body.status, 'succeeded');
+  await pool.query(`UPDATE run_jobs SET status='succeeded',finished_at=clock_timestamp() WHERE id=$1`, [retried.body.id]);
+  const expectedPolished = { text: '다듬은 문단입니다.', source: 'llm', check: { status: 'passed', code: null }, modelVersion: 'fixture-polish-model' };
+  assert.deepEqual(await polishedOf(D4.final.id), { polishState: 'done', polished: expectedPolished });
+  const done = (await detail(D4.final.id, admin)).body;
+  assert.deepEqual([done.polishState, done.polished], ['done', expectedPolished], 'shared result visible to another account');
+  const afterDone = await request(base, '/api/jobs', 'POST', admin, { kind: 'explain', sourceId: fixture.sourceId, decisionId: D4.final.id });
+  assert.deepEqual([afterDone.status, afterDone.body.id], [200, retried.body.id], 'completed result is reused');
   // 실시간 흐름·기존 판정 API: 구성이 null인 판정을 빠뜨리거나 거절하지 않는다.
   const v04Stream = await readStream('?include=interims', beforeV04.latestEventId);
   assert.deepEqual(v04Stream.frames.map((f) => `${f.name}:${f.data.eventKind}`).sort(), ['decision:final', 'decision:final', 'interim:evidence_added', 'interim:first_anomaly',
@@ -799,6 +836,14 @@ try {
     assert.deepEqual(ids(await list(`?q=${q}`)), expected, `parentless search ${q}`);
   }
 
+  // 10-2) 근거 요약 값 읽기: 시각·건수 하드룰 근거는 판정 관측 행 값(revision이 evidence와 같을 때)을 표에 싣는다. 건수 단언이 끝난 뒤 판정을 더한다.
+  const valued = await seedSummaryValueDecision(pool, fixture);
+  const valuedSummary = (await detail(valued.id)).body.evidenceSummary;
+  assert.deepEqual([valuedSummary.summaryLine.prefix, valuedSummary.summaryLine.kind], ['위험', 'hard_success_with_error']);
+  const valuedRow = valuedSummary.table.find((row) => row.methodId === 'hard:success-with-error');
+  assert.deepEqual(valuedRow.observed.map((o) => [o.name, o.value, o.unitUnknown]), [['상태', 'S', false], ['ERROR_COUNT', '3', true]], 'observation row value read');
+  assert.equal((await request(base, `/api/analysis/decisions/${valued.id}/polished`, 'GET', user)).body.polishState, 'none');
+
   // 11) 저장소 실패는 503(성공·빈 목록 대체 없음).
   await stopChild();
   const failingBase = await startServer({ ...environment, DATABASE_URL: 'postgresql://nobody:none@127.0.0.1:1/qa_analysis_missing' });
@@ -812,7 +857,7 @@ try {
     assert.deepEqual([failed.status, failed.body.code], [503, 'analysis_storage_unavailable'], `${method} ${route}`);
   }
   console.log('analysis API integration passed: 401/user+admin read, category mapping and counts (result/risk/workflow), sort, pages, filters, '
-    + 'search, 400 validation, detail resolution, interim history, own explain job link, stored grade/risk, workflow transitions/conflicts, '
+    + 'search, 400 validation, detail resolution, interim history, shared polish state, explain intake (409, shared reuse, cooldown), summary value read, stored grade/risk, workflow transitions/conflicts, '
     + 'admin-only feedback, feedback edits (correction rows, author only, conflicts), per-user read marks, process flow without BODY, SSE interim events, v04 items and explanations without a configuration, 503');
 } finally {
   await stopChild();

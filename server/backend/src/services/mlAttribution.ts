@@ -1,11 +1,9 @@
-import { record } from "./analysisApi";
-
 /**
  * ML 방법 결과의 기여도(`methodResults[ml].attribution`, detection-decision.md "6.1 ML 기여도" 절 저장 형식) 읽기.
- * 저장값만 읽고 다시 계산하지 않는다. 화면은 반올림·% 변환만 한다(attributionText.ts).
+ * 저장값만 읽고 다시 계산하지 않는다. AI 판정 근거 요약(evidenceSummary.ts)이 반올림·% 변환만 한다(koreanText.ts).
  * - 키 없음 → `absent`(이전 판정 = 기여도 미계산)
- * - `skipped`·`failed` → 사유·코드(알 수 없는 코드는 null — 내부 코드 문자열을 화면에 보이지 않는다)
- * - `succeeded` → 표시에 쓰는 키를 모두 검사한다. 하나라도 형식이 어긋나거나 모르는 `version`·`status`면 `unreadable`(화면 `기여도 표시 불가`)
+ * - `skipped`·`failed` → 사유·코드(알 수 없는 코드는 null)
+ * - `succeeded` → 저장 형식 키를 모두 검사한다. 하나라도 형식이 어긋나거나 모르는 `version`·`status`면 `unreadable`(요약 `기여도 표시 불가`)
  * - `players[].scaleIsUnit`은 선택 키: 없거나 형식이 다르면 그 구성원에 규칙을 적용하지 않는다(나머지는 정상 표시)
  */
 export const ATTRIBUTION_VERSION = "baseline-shapley-v1";
@@ -21,6 +19,8 @@ export const attributionFailureCodes = [
 ] as const;
 export type AttributionReason = (typeof attributionReasons)[number];
 export type AttributionFailureCode = (typeof attributionFailureCodes)[number];
+const record = (v: unknown): v is Record<string, unknown> => Boolean(v) && typeof v === "object" && !Array.isArray(v);
+
 export type AttributionDirection = "higher_is_anomaly" | "lower_is_anomaly";
 
 export type AttributionPlayer = {

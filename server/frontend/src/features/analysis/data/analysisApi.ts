@@ -202,8 +202,32 @@ export type DecisionDetail = DecisionItem & {
     createdAt: string | null;
     finishedAt: string | null;
   };
-  explanation: null | { jobId: string; status: string; errorCode: string | null; createdAt: string | null };
   workflow: { state: WorkflowState; changedAt: string | null };
+  /** AI 판정 근거 요약(서버가 저장 근거로 만든 다섯 블록, analysis-ui.md). 만들 수 없는 판정이면 null(카드 없음). */
+  evidenceSummary: EvidenceSummary | null;
+} & DecisionPolish & {
+  /** 지금 다듬기를 자동 요청해도 되는지(서버가 판정·결과·생성 서비스 상태로 정함). 모르면 false. */
+  polishRequestable: boolean;
+};
+/** 블록 2 다듬은 문단(판정마다 공유). source=code면 코드 문단 그대로 쓴다. */
+export type Polished = { text: string; source: "llm" | "code" };
+export type PolishState = "pending" | "done" | "none";
+/** GET …/polished 응답(판정 상세의 같은 두 키). */
+export type DecisionPolish = { polishState: PolishState; polished: Polished | null };
+/** evidenceSummary: 화면은 문자열을 그대로 그린다(문장을 만들거나 숫자를 다시 계산하지 않음). */
+/** 이번 값 칸 하나: 이름(없으면 null) + 값 + 단위(없으면 null). unitUnknown = 건수 계열(열 머리 툴팁으로 안내). */
+export type EvidenceSummaryObserved = { name: string | null; value: string; unit: string | null; unitUnknown: boolean };
+export type EvidenceSummaryRuleRow = { kind: "rule"; methodId: string; condition: string; observed: EvidenceSummaryObserved[]; result: string };
+export type EvidenceSummaryMlMember = { name: string; actual: string; usual: string; unit: string | null; unitUnknown: boolean };
+export type EvidenceSummaryMlRow = { kind: "ml"; methodId: string; playerId: string; members: EvidenceSummaryMlMember[]; impactPercent: string };
+export type EvidenceSummary = {
+  templateVersion: string;
+  summaryLine: { prefix: string; prefixKind: "risk" | "grade" | "signal"; text: string; kind: string };
+  sentences: string[];
+  table: (EvidenceSummaryRuleRow | EvidenceSummaryMlRow)[];
+  checks: { code: string; text: string }[];
+  notice: string;
+  contributionNote: string | null;
 };
 export type InterimRecord = {
   id: string;
@@ -278,6 +302,41 @@ export const parseList = (value: unknown): DecisionList => {
     items: value.items.map(parseItem),
   };
 };
+const strings = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is string => typeof x === "string" && x !== "") : []);
+const prefixKinds = ["risk", "grade", "signal"] as const;
+/** 근거 요약 읽기: 한 줄 요약·안내가 없으면 null(카드 없음). 모양이 어긋난 문장·행·구성원은 건너뛴다. */
+export const parseEvidenceSummary = (v: unknown): EvidenceSummary | null => {
+  if (!record(v) || !record(v.summaryLine) || !text(v.summaryLine.prefix) || !text(v.summaryLine.text) || !text(v.notice)) return null;
+  const line = v.summaryLine;
+  const table = (Array.isArray(v.table) ? v.table : []).flatMap((row): EvidenceSummary["table"] => {
+    if (!record(row) || !text(row.methodId)) return [];
+    if (row.kind === "rule" && typeof row.condition === "string" && Array.isArray(row.observed) && typeof row.result === "string") {
+      const observed = row.observed.flatMap((o) => (record(o) && typeof o.value === "string"
+        ? [{ name: text(o.name), value: o.value, unit: text(o.unit), unitUnknown: o.unitUnknown === true }] : []));
+      return [{ kind: "rule", methodId: row.methodId as string, condition: row.condition, observed, result: row.result }];
+    }
+    if (row.kind !== "ml" || !text(row.playerId) || typeof row.impactPercent !== "string" || !Array.isArray(row.members)) return [];
+    const members = row.members.flatMap((m) => (record(m) && typeof m.name === "string" && typeof m.actual === "string" && typeof m.usual === "string"
+      ? [{ name: m.name, actual: m.actual, usual: m.usual, unit: text(m.unit), unitUnknown: m.unitUnknown === true }] : []));
+    return members.length ? [{ kind: "ml", methodId: row.methodId as string, playerId: row.playerId as string, members, impactPercent: row.impactPercent }] : [];
+  });
+  return {
+    templateVersion: text(v.templateVersion) ?? "",
+    summaryLine: { prefix: line.prefix as string, prefixKind: oneOf(line.prefixKind, prefixKinds) ?? "signal", text: line.text as string, kind: text(line.kind) ?? "" },
+    sentences: strings(v.sentences),
+    table,
+    checks: (Array.isArray(v.checks) ? v.checks : []).flatMap((c) => (record(c) && text(c.text) ? [{ code: text(c.code) ?? "", text: c.text as string }] : [])).slice(0, 2),
+    notice: v.notice as string,
+    contributionNote: text(v.contributionNote),
+  };
+};
+const polishStates = ["pending", "done", "none"] as const;
+/** 다듬은 문단·상태 읽기: 모르는 상태는 none, 문단이 문자열이 아니면 null(코드 문단 그대로). */
+export const parsePolish = (v: unknown): DecisionPolish => {
+  const p = record(v) && record(v.polished) ? v.polished : null;
+  const polished = p && typeof p.text === "string" && p.text.trim() && (p.source === "llm" || p.source === "code") ? { text: p.text, source: p.source as Polished["source"] } : null;
+  return { polishState: (record(v) ? oneOf(v.polishState, polishStates) : null) ?? "none", polished };
+};
 export const parseDetail = (value: unknown, requested: string): DecisionDetail => {
   const item = parseItem(value);
   const v = value as Record<string, unknown>;
@@ -285,7 +344,6 @@ export const parseDetail = (value: unknown, requested: string): DecisionDetail =
   if (!sameId(item.id, requested) && !sameId(item.jobId, requested)) return fail("판정 상세");
   const c = record(v.configuration) ? v.configuration : null;
   const j = record(v.job) ? v.job : null;
-  const e = record(v.explanation) ? v.explanation : null;
   return {
     ...item,
     configuration: c && text(c.id) ? {
@@ -296,11 +354,13 @@ export const parseDetail = (value: unknown, requested: string): DecisionDetail =
       id: j.id as string, status: j.status as string, attemptCount: count(j.attemptCount), maxAttempts: count(j.maxAttempts),
       errorCode: text(j.errorCode), createdAt: time(j.createdAt), finishedAt: time(j.finishedAt),
     } : null,
-    explanation: e && text(e.jobId) && text(e.status) ? { jobId: e.jobId as string, status: e.status as string, errorCode: text(e.errorCode), createdAt: time(e.createdAt) } : null,
     workflow: {
       state: (record(v.workflow) ? oneOf(v.workflow.state, workflowStates) : null) ?? item.workflowState,
       changedAt: record(v.workflow) ? time(v.workflow.changedAt) : null,
     },
+    evidenceSummary: parseEvidenceSummary(v.evidenceSummary),
+    ...parsePolish(v),
+    polishRequestable: v.polishRequestable === true,
   };
 };
 const interimKinds = ["first_anomaly", "evidence_added", "superseded", "no_final"] as const;
@@ -493,6 +553,9 @@ export const parseFeedbackList = (value: unknown): { id: string; items: Feedback
 
 export const readDecisionList = async (params: ListParams, signal?: AbortSignal) =>
   parseList(await httpClient.get<unknown>("/api/analysis/decisions", { signal, params: listApiParams(params) }));
+/** 다듬은 문단·상태만(판정 상세와 같은 권한). */
+export const readDecisionPolished = async (id: string, signal?: AbortSignal): Promise<DecisionPolish> =>
+  parsePolish(await httpClient.get<unknown>(`/api/analysis/decisions/${encodeURIComponent(id)}/polished`, { signal }));
 export const readDecisionDetail = async (id: string, signal?: AbortSignal) =>
   parseDetail(await httpClient.get<unknown>(`/api/analysis/decisions/${encodeURIComponent(id)}`, { signal }), id);
 export const readDecisionInterims = async (id: string, signal?: AbortSignal) =>

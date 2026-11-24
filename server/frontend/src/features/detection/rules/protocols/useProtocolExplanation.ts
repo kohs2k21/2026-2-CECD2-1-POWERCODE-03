@@ -15,7 +15,7 @@ export const protocolExplanationJobQueryName = "protocol-explanation-job";
 export const explanationPending = (job: Pick<JobDetail, "status"> | undefined) => job?.status === "queued" || job?.status === "running";
 
 /**
- * 프로토콜 경로 설명 작업(관리자). 판정 설명(useExplainJob)과 같은 흐름이다.
+ * 프로토콜 경로 설명 작업(관리자): 요청 → 작업 조회(진행 중일 때만 5초 주기).
  * - 기존 결과: 최근 `explain_protocol` 작업 목록에서 같은 대상(입력 = 요청 본문)의 작업을 찾아 이어서 보여 준다(화면에 들어올 때마다 다시 읽음).
  *   목록 밖의 옛 작업은 요청하면 서버가 재사용해 돌려준다(protocol-explanation-job.md 1절 재사용)
  * - 요청: POST /api/jobs + `Idempotency-Key`(같은 계정·같은 본문 = 같은 키, job-idempotency). 보이는 작업이 실패면 새 키로 다시 요청한다

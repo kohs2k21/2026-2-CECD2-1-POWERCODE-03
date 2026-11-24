@@ -38,7 +38,7 @@ IF는 기존 train 내부 fit/보정 P99를 사용한다. validation/test 평가
 
 새 탐지 구성은 rule_only / ml_only / parallel 모드, 100~30000ms 마감, 명시적 결합 정책을 갖는다. 모델 부족 때 Rule 결과를 유지하고 partial/unavailable을 저장한다. 미선택 경로만 skipped다. 뒤늦은 계산은 최종 저장 판정을 갱신하지 않는다. 과거 정책 없는 구성은 legacy 호환 설정을 근거에 표시한다.
 
-설명은 사용자 요청 후 saved facts만 사용하고 모델 output을 fact ID·허용 점검 항목으로 검증한다. 근거 없는 원인·기여도·SHAP을 생성하지 않는다. 추천은 관리자, 설명은 인증 사용자 권한이다. PG recommendation/explanation 큐를 분리하고 한 GPU에서 bounded 교대 처리한다.
+설명(AI 근거 요약)은 백엔드가 만든 코드 문장만 경량 다듬기 모델에 넘기고, 출력을 숫자·이름·판정·방향 낱말 보존 규칙으로 확인한다(실패·잘림이면 코드 문장, 이전 형식 작업은 fact ID·허용 점검 항목 검증 그대로). 다듬기 모델 설정은 [Docker 배포](../infra/DOCKER_DEPLOYMENT.md). 근거 없는 원인·기여도·SHAP을 생성하지 않는다. 추천은 관리자, 설명은 인증 사용자 권한이다. PG recommendation/explanation 큐를 분리하고 한 GPU에서 bounded 교대 처리한다.
 
 서버 접속·실제 고객 API 호출·GPU 적재는 이번 로컬 구현 검증에서 실행하지 않았다. [검증 기록](VALIDATION.md)을 참고한다.
 

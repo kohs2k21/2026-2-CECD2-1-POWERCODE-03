@@ -18,8 +18,16 @@ from pg_queue import claim,enqueue
 from trainer.runner import run
 import generation_client
 
+POLISH_SENTENCE='이상 규칙이 처리 상태 S와 ERROR_COUNT를 함께 확인했고, 성공 상태인데 ERROR_COUNT가 0보다 커서 이상으로 판단했습니다.'
+POLISH_MODEL='test-polish@00000000'
+
 class Fixtures:
-    def generate(self,kind,request):
+    def generate(self,kind,request,report_timeout=False):
+        if kind=='polish_explanation':
+            # AI 근거 요약 다듬기(새 형식): 평문 한 문단, 모델 id·지시문 버전을 함께 돌려준다.
+            assert request=={'sentences':[POLISH_SENTENCE]} and report_timeout is True
+            return {'truncated':False,'output':POLISH_SENTENCE.replace('규칙이','규칙은'),'modelVersion':POLISH_MODEL,
+                    'promptVersion':'evidence-polish-v1'}
         assert kind=='explain'
         return {'truncated':False,'output':{'factIds':[f['id'] for f in request['facts']],'nextChecks':['review_input_completeness']}}
 
@@ -121,6 +129,37 @@ def main():
             cur.execute('SELECT output,decision_id FROM run_llm_results WHERE job_id=%s',(explanation,));output=cur.fetchone()
             assert output[0]['causeStatus']=='unconfirmed' and output[1]==decision_id
         conn.commit()
+        # 새 형식(summary-sentences-v1): 재시도 없음(max_attempts 1), 결과 행 계보 = llm_spec, 결과 문단 source=llm.
+        polish=uuid.uuid4();polish_input={'kind':'explain','sourceId':str(sid),'decisionId':str(decision_id),
+            'configVersionId':trained['configVersionId'],'templateVersion':'evidence-template-v1','sentences':[POLISH_SENTENCE],
+            'stateWords':['이상'],'valueTokens':[]}
+        polish_llm={'evidence_version':'summary-sentences-v1','input_evidence_hash':hashlib.sha256(b'polish').hexdigest(),
+            'model_version':POLISH_MODEL,'prompt_version':'evidence-polish-v1','output_schema_version':'evidence-polish-result-v1',
+            'reuse_key':hashlib.sha256(str(polish).encode()).hexdigest()}
+        with conn.cursor() as cur:
+            cur.execute("""INSERT INTO run_jobs(id,kind,status,requested_by_actor_id,requester_role,idempotency_key,
+                request_hash,input_spec,input_config_version_id,input_decision_id,contract_version,queue,
+                producer_kind,producer_key,llm_spec,max_attempts,attempt_count,next_run_at,created_at)
+                VALUES(%s,'explain','queued','test-user','user',%s,%s,%s::jsonb,%s,%s,'v03','llm_explanation',
+                'user','test-user',%s::jsonb,1,0,clock_timestamp(),clock_timestamp())""",
+                (polish,str(polish),polish_llm['input_evidence_hash'],json.dumps(polish_input),trained['configVersionId'],decision_id,
+                 json.dumps(polish_llm)))
+        polish_message=enqueue(conn,'llm_explanation',{'schemaVersion':1,'jobId':str(polish)});conn.commit()
+        generation_client.set_local_model(Fixtures())
+        try:
+            msg=claim(conn,'llm_explanation',message_id=polish_message);conn.commit()
+            owned,attempt,token=_claim_job(conn,msg,'fixture-llm');conn.commit()
+            result=_execute(conn,owned,attempt,None,msg,token);conn.commit()
+            _finish(conn,msg,owned,attempt,token,result,None,True);conn.commit()
+        finally:generation_client.set_local_model(None)
+        with conn.cursor() as cur:
+            cur.execute("""SELECT r.output,r.model_version,r.evidence_version,j.status FROM run_llm_results r JOIN run_jobs j ON j.id=r.job_id
+                WHERE r.job_id=%s""",(polish,));row=cur.fetchone()
+            assert row[0]['outputSchemaVersion']=='evidence-polish-result-v1' and row[0]['paragraph']['source']=='llm', row
+            assert row[0]['check']=={'status':'passed','code':None} and row[0]['modelVersion']==POLISH_MODEL==row[1], row
+            assert row[2]=='summary-sentences-v1' and row[3]=='succeeded', row
+        conn.commit()
+        print('PASS: explain summary-sentences-v1 polish result stored with llm_spec lineage')
         # Reclaimed attempt fences the old owner; direct delivery and poll share exact queue id.
         new=observe(conn,sid,test_key+'-direct-fenced',{'status':'S','error_count':'90','total_count':'100'})
         incoming=enqueue_observation(conn,new.observation_id,config_id=trained['configVersionId']);conn.commit()

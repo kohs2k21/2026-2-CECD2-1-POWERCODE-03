@@ -31,14 +31,15 @@ def consume_explanations(stop: threading.Event) -> None:
 
 
 def main():
-    from generation_service import DesignModel, serve
+    from generation_service import DesignModel, polish_options, serve
     import generation_client
     import generation_replicas
     load_dotenv(Path(__file__).parent / ".env")
     if len(os.environ.get("DESIGN_MODEL_TOKEN","")) < 32:
         raise ValueError("design_service_token_too_short")
     model = DesignModel(Path(os.environ["RESEARCH_BUNDLE_ROOT"]), Path(os.environ["RULE_MODEL_BASE_PATH"]),
-                        Path(os.environ["RULE_V3_BUNDLE_ROOT"]) if os.environ.get("RULE_V3_BUNDLE_ROOT") else None)
+                        Path(os.environ["RULE_V3_BUNDLE_ROOT"]) if os.environ.get("RULE_V3_BUNDLE_ROOT") else None,
+                        **polish_options())
     generation_client.set_local_model(model)
     # 선택: LLM_REPLICA_GPUS가 있으면 GPU마다 Rule v3 복제본 프로세스를 백그라운드로 띄운다(준비된 것만 쓴다).
     replicas = generation_replicas.start_from_env(model, (os.environ["RESEARCH_BUNDLE_ROOT"],

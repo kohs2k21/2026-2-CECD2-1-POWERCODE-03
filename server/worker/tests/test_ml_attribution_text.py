@@ -202,6 +202,11 @@ class SentenceTests(unittest.TestCase):
         attribution.update(direction="lower_is_anomaly", scoreActual=-0.71, threshold="-0.62")
         self.assertIn("(값 0.000)", render(attribution)["counterfactual"])
 
+    def test_negative_zero_percent_has_no_sign(self):
+        attribution = example()
+        attribution["players"][0]["share"] = -0.004
+        self.assertIn("처리량(TOTAL_COUNT) 0% 순입니다.", render(attribution)["summary"])
+
     def test_lower_is_anomaly_words(self):
         attribution = keep(example(), 1, cleared=1, scores=[-0.51])
         attribution.update(direction="lower_is_anomaly", scoreActual=-0.71, threshold="-0.62")

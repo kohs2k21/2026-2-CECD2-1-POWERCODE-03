@@ -8,6 +8,8 @@ Python 연결 지점은 `server/worker/model_adapters.py`이다. feature_v5·rul
 | `recommend_rules(rows, feature_set_id, definitions)` | 버전 고정 변수값과 결측 목록이 있는 train 행 | `{suggestions,reviews,provider}`. suggestions에는 측정·조건·모델의 evidenceSpec을 보존한다. `P.*` 또는 해당 변수셋의 `F.*`만 허용한다. 추천은 초안이며 사용자 채택 후 버전을 생성한다. |
 | `train_iforest(rows, feature_names, output_directory)` | 스냅샷의 train 분할과 고정 열 순서 | 임시 디렉터리의 `modelPath`, `fitPath`, `formatVersion`, `runtimeVersion`, `thresholdSpec`. 반환 파일은 허용 경로로 원자 이동하고 해시·크기·참조를 기록한다. |
 | `score_iforest(model_reference, features)` | 검증된 model/fit 참조와 같은 열 순서의 수치 변수 | 유한한 점수 하나. 결측·스키마 불일치는 판정 불가로 기록한다. 점수 방향과 임계값은 학습 산출물에 명시한다. |
+| `attribution_baseline(model_reference)` | 검증된 model/fit 참조 | 기여도 기준값 `{kind: "train_median_robust_scaler_center", values, scaleIsUnit}`. `values` = fit RobustScaler `center_`(변수 단위, `featureNames` 순), `scaleIsUnit` = 열별 `scale_ == 1.0`. 중심값이 없거나 유한하지 않으면 ValueError(`detection-decision.md` 6.1 `baseline_unavailable`) |
+| `score_iforest_batch(model_reference, matrix)` | 검증된 참조와 `featureNames` 열 순서의 행렬(변수 단위) | 행마다 `score_iforest`와 같은 식의 점수 목록(한 번에 변환·점수). 유한하지 않은 점수가 있으면 ValueError. 기여도 연합 점수용(`detection-decision.md` 6.1) |
 | `prepare_iforest(model_reference)` | 활성화할 model/fit 경로와 해시 검증 결과 | 로드·호환성 확인에 성공하면 반환한다. 실패하면 활성 포인터를 바꾸지 않는다. 운영 구현은 같은 프로세스에서 로드된 모델을 재사용해야 한다. |
 
 신뢰되지 않은 `.joblib`/pickle 파일은 로드하지 않는다. 모델, fit, 버전, 학습 스냅샷, 변수셋, 열 순서가 모두 일치해야 한다. 데이터 전처리 통계는 train 분할로만 적합시키고 validation/test에는 고정 변환만 적용한다. 원천 BODY·인증정보·원문 response message는 모델 입력에 포함하지 않는다.

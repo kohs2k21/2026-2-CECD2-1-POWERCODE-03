@@ -14,6 +14,7 @@ import uuid
 import psycopg
 
 import model_adapters
+from detector.attribution import attach_attributions
 from detector.computation import load_model_context, model_reference
 from detector.decision import decide, decision_columns, requested_mode
 from detector.evidence_v4 import INTERIM_EVIDENCE_VERSION, build_evidence, build_interim_payload
@@ -80,7 +81,11 @@ def _artifacts_present(row: tuple, root: Any) -> bool:
 
 
 def _run_model(model: _Model, raw: Mapping[str, Any], root: Any) -> MethodOutcome:
-    """정상으로 바꾸지 않는다. 산출물이 없으면 not_configured, 있는데 맞지 않으면 artifact_invalid다."""
+    """정상으로 바꾸지 않는다. 산출물이 없으면 not_configured, 있는데 맞지 않으면 artifact_invalid다.
+
+    측정값의 `reference`(기한 안에서 검증한 모델 참조)는 기여도 계산(detector/attribution.py)이 다시 쓴다 — 기한 초과면
+    `features`와 함께 버려진다(method_runner 채택 규칙).
+    """
     active, context = model.active, model.context
 
     def unresolved(cause: str, **outcome: Any) -> MethodOutcome:
@@ -119,7 +124,7 @@ def _run_model(model: _Model, raw: Mapping[str, Any], root: Any) -> MethodOutcom
         ml_method_result(active.method_id, method.method_version, str(active.config_version_id), score, row[6],
                          row[5].get("thresholdPolicy"), code=ML_RESULT_CODES[active.model_key]),
         {"preprocessMs": (scored - began) * 1000, "inferenceMs": (time.monotonic() - scored) * 1000,
-         "features": (context, values, missing)})
+         "features": (context, values, missing), "reference": reference})
 
 
 def _tasks(state: PinnedState, models: list[_Model], raw: Mapping[str, Any], root: Any,
@@ -358,6 +363,9 @@ def prepare_attempt(conn: Any, message: Any, job: Mapping[str, Any], attempt_id:
     methods = execution.methods
     if heartbeat.lost:
         raise RuntimeError("detection_lease_lost")
+    # ML 기여도(detection-decision.md 6.1): 판정 기한 밖에서 ML 결과마다 attribution 키만 더한다. 판정·종합·중간 판정
+    # 기록은 그대로이고, 예외는 attribution.status=failed로 흡수한다. 소요는 totalMs·detector 단계 측정에 포함된다.
+    attach_attributions(methods, execution.measured)
     telemetry = _telemetry(execution, observation, started=started, queue_wait=queue_wait)
     demo = None
     if source_mode and source_mode[0] == "demo-replay":

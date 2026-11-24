@@ -226,6 +226,73 @@
 - 위험도: ML은 단계 정의가 없다 [확정 10/22 Q-R4-1·11/02 C17]. T인 ML 결과는 `riskLevel=null`, `riskLevelReason="level_undefined"`, N·U 결과는 둘 다 `null`(9.1 채움 규칙 [제안 D9])
 - `modelVersionId`: 사용한 모델 버전 참조. 모델 버전 식별 형식은 [#94]
 
+### 6.1 ML 기여도 `methodResults[ml].attribution` — `baseline-shapley-v1` [확정 11/24 사용자 방향 승인, 결정 A1~A4]
+
+- 무엇: ML 방법이 이상(T)으로 판정한 행에서, 학습 기준값 대비 각 변수(묶음)가 원점수를 이상 쪽으로 민 양(정확 Shapley). 저장값만으로 화면·설명이 문장을 만든다. **기여도는 모델이 점수를 매긴 방식에 대한 분석이며 실제 장애 원인이 아니다**
+- 계산 위치·시점 [코드 `detector/attribution.py`, `attempt_v04.prepare_attempt`]
+  - `judge_row` 뒤·`heartbeat.lost` 확인 뒤, `_telemetry`·`build_evidence` 앞. 단건·묶음 저장 공통. 비교 평가(`judge_row`만 쓰는 경로)와 v03(`computation.compute`)은 계산하지 않는다
+  - **방법 기한(`deadlineMs`) 밖**, 호출 스레드에서 실행. 방법 `elapsedMs`·`composite.firstAnomalyElapsedMs`·중간 판정 기록 payload는 바뀌지 않는다(payload에는 `attribution`이 없음)
+  - **판정 불변**: `status`·`anomalous`·`score`·`scoreDetail`·`categoryResults`·`composite`·판정 행 열을 바꾸지 않는다. 계산·무결성 확인·직렬화 확인을 한 보호 구간에서 하고 모든 예외는 `attribution.status=failed`로 흡수(시도 계속)
+  - 입력: `_run_model`이 기한 안에서 검증한 모델 참조를 측정값 `reference`로 더하고(채택 규칙은 `features`와 같음 — 기한 초과면 함께 버림), 기여도는 그 참조·변수값·context만 쓴다. 새 DB 읽기·새 산출물·산출물 hash 재계산 없음
+  - 소요는 `attribution.computeMs`에만 기록(telemetry durations 키 추가 없음). `totalMs`·detector 단계 측정·원천 → 판정 지연(18절)에는 그대로 포함된다
+- 계산 방법
+  1. 기준값 m = fit 산출물 RobustScaler `center_`(변수 단위) = `train_iforest`의 fit 분할(라벨 anomaly·결측 행 제외 → 분할 시드로 섞음 → 판정선 보정 행 제외) 열별 중앙값. `baselineKind: "train_median_robust_scaler_center"`
+  2. 참가자 g개(아래 묶음 규칙). 연합 S마다 S의 변수는 실제값 x, 나머지는 m인 벡터. 행 순서 = 비트마스크 오름차순(비트 i = 참가자 i). 2^g행을 **한 번에** 같은 scaler·forest로 점수(`-score_samples`) → v(S)
+  3. 방향 정규화: s = 점수(`higher_is_anomaly`) 또는 −점수(`lower_is_anomaly`), 판정선도 같게. φ_i = Σ_{S∌i} |S|!(g−|S|−1)!/g! · (s(S∪{i}) − s(S)), 합은 마스크 오름차순 `math.fsum`, 가중치는 정수 계승 → float 1회 나눗셈
+  4. 무결성(둘 다 통과해야 `succeeded`): ① 재현 — |v(전체) − 방법 결과 `score`| ≤ tol, 아니면 `score_not_reproduced` ② 효율성 — |Σφ − (s(전체) − s(∅))| ≤ tol, 아니면 `efficiency_mismatch`. tol = max(1e-9, 1e-9·|score|)
+  5. 반사실: 이미 계산한 v(전체 − 상위 k개)를 다시 쓴다(추가 점수 계산 없음). 판정선 비교는 `ml_method_result`와 같은 식(방향 포함)
+  - 모델 어댑터 조건(`model_adapters.md`): 기준값 벡터·종류(`attribution_baseline`)와 행렬 점수 함수(`score_iforest_batch`). scaler 변환 뒤 기준값은 0벡터라 연합을 변환 공간에서 만들어도 같다(시험으로 확인)
+- 참가자 묶음 `source-field-union-v1` [결정 A4: 식 기준 묶음만]
+  - ① 원천 키 표기 `P.<관측 키>`: `field`는 그 키, `derived` 열 `TOTAL_COUNT` → `P.total_count`, `START_TIME`·`END_TIME` → `P.start_time_raw`·`P.end_time_raw`(`derived_expression.FIELDS`)
+  - ② 원천 집합: `field` → {그 키}. `derived` → AST의 **모든 `column` 잎**(연산자 종류와 무관), `literal`은 원천 없음. `add`·`subtract`·`ratio` → 양쪽 합집합. `group_centered` → `value`의 원천, `group_median` → 원천 없음. 그룹 키(`groupBy`)는 값이 아니라 조건이라 **원천이 아니다**
+  - ③ 원천 집합이 겹치는 변수끼리 union-find로 한 참가자. 원천이 빈 변수는 단독
+  - ④ 참가자 순서 = 구성원 중 가장 앞 `featureNames` 위치, 구성원도 `featureNames` 순. `playerId` = 단독이면 변수 이름, 묶음이면 `group:<첫 구성원 이름>`
+  - 같은 정의 = 같은 묶음(결정적). 묶으면 정의상 함께 움직이는 값을 따로 바꾸는 벡터가 줄지만 묶음 안 구성원별 몫은 나누지 않는다(화면이 구성원별 실제값 대 기준값을 함께 보임). 묶음 기준값(열별 중앙값 조합)이 서로 맞는 값이라는 보장은 없다. 데이터 의미로만 엮인 변수(예 성공 수와 전체 수의 합 관계)는 묶지 않는다
+- 저장 형식 — ML 방법 결과 항목의 추가 키 `attribution`(**모든 ML 결과에 둠**, 결정 A1). 기존 키 의미·값 불변, `schemaVersion` 4 유지
+
+| 키 | 형식 | 뜻 |
+|---|---|---|
+| `version` | `"baseline-shapley-v1"` | 계산 방법 버전 |
+| `status` | `succeeded` / `skipped` / `failed` | |
+| `reason` | 문자열 | `skipped`일 때만: `not_anomalous`(succeeded·N) · `method_unresolved`(not_ready·failed) · `too_many_players`(참가자 > 12, 결정 A2) · `baseline_unavailable`(학습 중앙값 없음) |
+| `failureCode` | 문자열 | `failed`일 때만: `reference_unavailable` · `score_not_reproduced` · `efficiency_mismatch` · `invalid_score` · `non_finite_value` · `size_exceeded` · `exception`. 방법 `failureCode`(11.6)와 별개 목록 |
+| `baselineKind` | `"train_median_robust_scaler_center"` | 기준값 종류 |
+| `grouping` | `"source-field-union-v1"` | 묶음 규칙 |
+| `scoreActual`, `scoreBaseline` | number | v(전체) = f(x), v(∅) = f(m)(원래 방향) |
+| `threshold`, `direction` | 문자열, 문자열 | `scoreDetail` 복사 |
+| `baselineWarning` | bool | f(m)도 판정선을 넘음(비율 해석 주의) |
+| `efficiencyError` | number | Σφ − (s(x) − s(m)) |
+| `players[]` | 배열(≤ 12) | `{playerId, features[], actual{이름: 문자열}, baseline{이름: number}, scaleIsUnit{이름: bool}, phi, share, thresholdGapShare}` |
+| `players[].actual` | 객체 | 변수값 문자열(`calculate_features`/`transform`이 낸 Decimal 표기, 지수 표기 가능) |
+| `players[].baseline` | 객체 | 구성원별 `center_` 값 |
+| `players[].scaleIsUnit` | 객체 | 구성원별 RobustScaler `scale_ == 1.0`(IQR 0이라 1로 둔 경우 포함). 화면 `평소 값과 다름` 규칙용 |
+| `players[].phi` | number | s 기준 기여(이상 쪽 양수) |
+| `players[].share` | number 또는 `null` | φ / (s(x) − s(m)). 분모 ≤ tol이면 `null`. 음수 φ가 있으면 다른 참가자의 share 합이 1을 넘을 수 있음 |
+| `players[].thresholdGapShare` | number 또는 `null` | φ / (s(판정선) − s(m)). 분모 ≤ tol이면 `null`(기준값이 판정선을 넘는 경우 포함) |
+| `topK[]` | `playerId` 배열(0~3) | φ > tol인 참가자, (−φ, 참가자 순서) 정렬 |
+| `counterfactual[]` | 배열(= `topK` 길이) | k번째 = `{replaced: topK[:k], scoreAfter, warningAfterReplacement}` |
+| `clearedAtK` | 정수 또는 `null` | `warningAfterReplacement=false`가 처음 되는 k |
+| `pins` | 객체 | 추적용 기록(비교 검사 아님): `{modelArtifactHash, fitArtifactHash, featureNamesHash}` = 기한 안에서 검증한 산출물 `content_hash` 2개와 `featureNames` JSON(구분자 `,`·`:`) SHA-256 |
+| `computeMs` | number | 측정값(결정성 비교 제외) |
+
+- `skipped` = `{version, status, reason}`만. `failed` = `{version, status, failureCode, computeMs}`만. 키 없음 = 이 기능 이전 판정(화면 `기여도 미계산`)
+- 숫자: 점수·φ·비율·기준값·`computeMs`는 JSON number(반올림 없이 float 그대로), 판정선·실제값은 문자열
+- 직렬화(판정 불변 보장): 보호 구간 안에서 모든 값을 Python 기본형(유한한 `float`, numpy 값 금지)으로 바꾸고 `json.dumps(attribution, allow_nan=False, ensure_ascii=False, separators=(',',':'))`의 UTF-8 바이트가 **16,384B** 이하일 때만 붙인다. NaN·Infinity면 `non_finite_value`, 초과면 `size_exceeded`. 판정 행 evidence 직렬화(보호 구간 밖)에서 jsonb 거절로 판정을 잃지 않게 하려는 것이다
+- 상한: 참가자 g ≤ 12(연합 4,096행), 변수 수가 아니라 묶은 뒤 참가자 수 기준. 최악 크기는 변수 32개·참가자 12개에서 약 13KB, 6변수(참가자 4개)에서 약 2.2KB
+- 결정성: 같은 산출물 + 같은 변수 정의 + 같은 실제값 → `computeMs`를 뺀 정규 JSON(`sort_keys=True`, 구분자 `,`·`:`)이 바이트 단위로 같다(jsonb는 키 순서를 바꾸므로 정규 JSON으로 비교)
+- 결측: ML은 변수 하나라도 없으면 이미 `not_ready`/`feature_unavailable`이라 `method_unresolved`다
+- 표시 규칙(판독 쪽 — 화면 `analysis-ui.md`, 설명 `explanation.py`가 저장값만으로 문장을 만든다)
+  - 화면 용어 `머신러닝 모델`·`원점수`·`판정선`·`기여도`, 기준값은 `학습 데이터 중앙값`. 방향 낱말은 `direction`으로 고른다(`higher_is_anomaly` 올린/낮아져, `lower_is_anomaly` 내린/높아져)
+  - 반올림: 원점수·판정선은 소수 셋째 자리. 단 셋째 자리에서 원점수 또는 반사실 점수가 판정선과 같은 글자가 되면 같은 글자가 아니게 될 때까지 자릿수를 늘린다(최대 여섯째 자리). 비율은 정수 %(half-up)
+  - 양수 기여 참가자가 하나뿐(`topK` 길이 1)이면 `… 변수는 {top1}뿐입니다.`로 쓰고 `100%` 비율 문장을 만들지 않는다
+  - 음수 φ가 있으면 그 변수는 원점수를 정상 쪽으로 움직였다고 쓰고, 그래서 다른 변수 비율 합이 100%를 넘을 수 있다고 밝힌다(보정하지 않음)
+  - 이름표: total_count `처리량(TOTAL_COUNT)`, success_count `SUCCESS_COUNT`, error_count `ERROR_COUNT`, retry_count `RETRY_COUNT`, error_ratio `오류 비율 값`, elapsed_ms `처리 시간`(ms). 앞의 건수 계열 4개는 단위가 확인되지 않아 값이 함께 나오는 곳(반사실·묶음 괄호·표)에서만 `(단위 미확인)`을 붙이고 요약 문장은 이름만 쓴다. `총 건수`·`건`·`오류율`·`재시도 수` 낱말은 쓰지 않는다. 이름표 목록 관리는 화면 쪽
+  - `scaleIsUnit=true` 구성원은 기준값 숫자를 쓰지 않는다: 요약 `{이름} 평소 값과 다름 {share}%`, 표·묶음 괄호는 실제값 그대로 두고 `중앙값 {baseline}` 자리에 `평소 값과 다름`, 반사실은 단독 참가자면 `{top1}만 학습 데이터 중앙값으로 바꾸면 …`(`({baseline})` 생략), 묶음이면 `true`인 구성원만 `평소 값과 다름`. 키 없는 기록은 미적용
+  - 예(설명용 수치, 참가자 3개·`scaleIsUnit` 모두 false): `머신러닝 모델 원점수(값 0.710, 판정선 0.620)를 이상 쪽으로 올린 변수는 ERROR_COUNT 56%, 처리 시간 39%, 처리량(TOTAL_COUNT) 5% 순입니다.` / `ERROR_COUNT(단위 미확인)만 학습 데이터 중앙값(0)으로 바꾸면 원점수가 판정선보다 낮아져(값 0.510) 머신러닝 모델 기준으로는 이상으로 보지 않았을 것입니다.` — 이 수치(φ 0.175·0.120·0.015, 반사실 0.51)는 단위 시험 `test_ml_attribution`의 계산 예시와 같다
+  - 묶음은 구성원별 실제값 대 기준값을 함께 보이고 `같은 원천 값을 쓰는 변수라 한 묶음으로 계산했습니다.`를 붙인다. `baselineWarning`이면 비율 해석 주의 문장을 붙인다
+  - 한계 문장(항상): `기여도는 모델이 점수를 매긴 방식에 대한 분석이며 실제 장애 원인이 아닙니다. 원인은 원천 시스템 운영 로그로 확인하세요.`
+  - 상태: 키 없음 `기여도 미계산` · `skipped` `기여도 계산 안 함` · `failed` `기여도 계산 실패`. 판정 상세 ML 행에만 보인다(결정 A3, 목록 화면 제외)
+
 ## 7. `detectionPolicy` v2와 조합 규칙
 
 ### 7.1 형태 [객체 형태 확정 10/21 C9, `k`의 대분류 키 확정 11/03 U1]
@@ -436,6 +503,7 @@
      "scoreDetail": {"raw": 0.53, "threshold": "0.61", "direction": "higher_is_anomaly",
                      "thresholdPolicy": "train-internal-p99-v1",
                      "normalized": {"kind": "threshold_ratio", "value": 0.869}},
+     "attribution": {"version": "baseline-shapley-v1", "status": "skipped", "reason": "not_anomalous"},
      "evidence": []}
   ],
   "categoryResults": {
@@ -526,6 +594,7 @@
 | `evidence` | 요약 객체 배열 | 원천 값 전체를 복사하지 않음 |
 | `condition`, `observedValue` | 소프트룰만. 시도에서 쓴 정의와 관측값(문자열) | |
 | `modelVersionId`, `score`, `scoreDetail` | ML만. 6절 | |
+| `attribution` | ML만. 객체(6.1) | 모든 ML 결과에 둔다(이상 T만 계산, 그 밖은 `skipped`). 키가 없으면 이 기능 이전 판정 [확정 11/24 결정 A1] |
 
 ### 11.6 원인 분류 `detector-outcomes-v1` [제안 D6 — #66 계측 계획 흡수, 원인 코드 이름 확정 11/03 U10]
 
@@ -550,6 +619,7 @@
 
 - 소프트룰 최대 32개(#94와 일치, 현행 등록 Rule 상한 `jobRoutes.ts:108`과 같음 — 확대는 두 세션 합의. 룰 세트 v3에서 **상향 확정 11/12 사용자**, 값은 Detector 성능 확인 뒤 — relation-rules.md 4절), 하드룰은 내장 목록 수(v1·v2 4개, v3 6개) + 룰 세트 v3의 관계 규칙·프로토콜 항목(항목 수 상한은 API 저장 검증, rule-set.md v3.6 — 한 판정의 프로토콜 방법은 많아야 1개), ML은 [#94] 동시 운영 상한
 - `methodResults[].evidence`는 요약만 둔다
+- `methodResults[ml].attribution`: 참가자 ≤ 12(넘으면 `skipped`/`too_many_players`), 직렬화 크기 ≤ 16,384B(넘으면 `failed`/`size_exceeded`) — 6.1
 
 ## 12. 판정 행 열 매핑 (`run_process_decisions`, 열 추가 없음)
 
@@ -791,6 +861,7 @@
 
 ## 이력
 
+- 2026-11-25: 6.1 ML 기여도 `methodResults[ml].attribution`(`baseline-shapley-v1`, 사용자 방향 승인 11/24·결정 A1~A4) 추가 — 계산 위치(`prepare_attempt`, 기한 밖, 판정 불변), 정확 Shapley·재현·효율성 확인, 묶음 규칙 `source-field-union-v1`, 저장 형식(`scaleIsUnit` 포함)·`skipped`/`failed` 코드·직렬화·크기 상한, 표시 규칙. 11.2 예시·11.5·11.7에 한 줄씩. 추가 키만이며 `schemaVersion` 4·판정 행 열·migration·큐 payload 변경 없음
 - 2026-11-22: 19절 묶음 저장(사용자 승인 S3, 결정 D2): 다중 작업자가 v04 첫 판정 여러 건을 트랜잭션 1개로 저장할 때 판정마다의 `judgment_store` 값 = 묶음 저장 소요, 묶음 크기는 evidence `telemetry.details.judgmentStoreBatchSize`, 묶음 실패 뒤 한 건 저장 규칙. "포함"을 실제 순서(detector 측정 행 INSERT가 판정 INSERT 앞, Detector 저장 문장 `detector/finish.py`)로 정정. 다른 계약·migration·API 변경 없음
 - 2026-11-15: 18절 측정 조건에 `assumed_tz`(KST로 해석한 시각) 포함(사용자 결정), `clock_status`는 Collector 값을 그대로 쓴다는 문장, 음수 표본 처리·관측 저장 → 판정 줄의 몫 정리(사용자 결정). 19절 판정 저장 소요 측정 행 추가(사용자 결정: migration + Detector가 COMMIT까지 측정, migration 031, 첫 판정만, COMMIT 뒤 별도 트랜잭션, 실패 무시)
 - 2026-11-15: 18절 원천 발생 → 판정 지연 열 추가(Collector·WebUI 합의 조건, v04 판정 INSERT에서 measured 기록, 음수 원값 저장, 재판정·v03 제외), 12절에 참조 한 줄

@@ -436,6 +436,7 @@ def evidence_and_columns(conn, sid, model_config, feature_set):
     assert model["scoreDetail"]["thresholdPolicy"] == "train-internal-p99-v1", model
     assert model["scoreDetail"]["raw"] == model["score"] and abs(float(score) - model["score"]) < 1e-9, (score, model)
     assert model["anomalous"] is False and model["riskLevel"] is None, model
+    assert model["attribution"] == {"version": "baseline-shapley-v1", "status": "skipped", "reason": "not_anomalous"}
     composite = evidence["composite"]
     assert (composite["status"], composite["anomalous"], composite["grade"]) == ("complete", True, "anomaly_sign"), composite
     assert composite["risk"] == {"policy": "risk-max-v1", "levelTable": "method-defined-v2", "status": "rated",
@@ -659,6 +660,48 @@ def success_store_pipeline(conn, sid):
     assert attempt_row == ("succeeded", None, True), attempt_row
     assert queue_status(conn, payload) == "done"
     print("PASS 성공 저장 묶음: 묶음 안 트리거 오류·ack 0행은 측정 행까지 ROLLBACK·시도 실패, 다음 판정은 시도·작업·큐 완료")
+
+
+def ml_attribution(conn, sid, model_config):
+    """ML 기여도(detection-decision.md 6.1): 이상 T인 ML 결과만 계산해 methodResults[ml].attribution에 저장한다.
+    계산 예외는 attribution.failed로 흡수되고 판정 행·방법 결과는 그대로 저장된다."""
+    save_policy(conn, policy(deadline=LONG_DEADLINE))
+    save_rule_set(conn)
+    # 합성 학습값이 격자라 범위 밖 행의 점수가 판정선(p99)에 머문다. 같은 산출물·낮춘 판정선의 구성으로 이상 T를 만든다.
+    lowered = config(conn, sid, conn.execute("SELECT configuration_spec FROM ml_config_versions WHERE id=%s",
+                                             (model_config,)).fetchone()[0])
+    conn.execute("""INSERT INTO ml_config_models(config_version_id,model_key,feature_set_id,model_artifact_id,fit_artifact_id,
+        adapter_spec,training_settings,threshold_spec) SELECT %s,model_key,feature_set_id,model_artifact_id,fit_artifact_id,
+        adapter_spec,training_settings,threshold_spec || '{"value": "0.5"}'::jsonb FROM ml_config_models
+        WHERE config_version_id=%s""", (lowered, model_config))
+    conn.commit()
+    save_models(conn, [active(lowered)])
+    far = {"total_count": "5000", "success_count": "4000", "error_count": "1000"}
+    _, payload = v04_job(conn, sid, "ml-attribution", far)
+    row = judged(conn, payload)
+    model = method(row[5], "ml:iforest")
+    assert model["status"] == "succeeded" and model["anomalous"] is True, model
+    found = model["attribution"]
+    assert found["status"] == "succeeded" and found["version"] == "baseline-shapley-v1", found
+    assert found["scoreActual"] == model["score"] and found["threshold"] == model["scoreDetail"]["threshold"], found
+    assert [player["playerId"] for player in found["players"]] == ["count_total", "count_error"], found["players"]
+    assert abs(found["efficiencyError"]) <= max(1e-9, 1e-9 * abs(model["score"])), found
+    assert found["topK"] and len(found["counterfactual"]) == len(found["topK"]), found
+    assert type(found["computeMs"]) is float and "attribution" not in json.dumps(row[5]["telemetry"])
+    assert "ml:iforest" in row[5]["composite"]["basisMethods"], row[5]["composite"]
+
+    # 같은 입력에서 기여도 계산이 예외를 내도 판정·방법 결과는 같고 attribution만 failed다.
+    _, payload = v04_job(conn, sid, "ml-attribution-broken", far)
+    with patch.object(model_adapters, "score_iforest_batch", side_effect=RuntimeError("attribution_broken")):
+        broken = judged(conn, payload)
+    failed = method(broken[5], "ml:iforest")
+    assert failed["attribution"]["status"] == "failed" and failed["attribution"]["failureCode"] == "exception", failed
+    assert set(failed["attribution"]) == {"version", "status", "failureCode", "computeMs"}, failed["attribution"]
+    keep = ("status", "anomalous", "score", "scoreDetail", "code", "cause", "failureCode")
+    assert {key: failed[key] for key in keep} == {key: model[key] for key in keep}, (failed, model)
+    assert broken[:5] == row[:5] and broken[5]["composite"]["basisMethods"] == row[5]["composite"]["basisMethods"]
+    save_models(conn, [])
+    print("PASS ML 기여도: 이상 T만 계산·저장(재현·효율성), 계산 예외는 attribution.failed로만 남고 판정 불변")
 
 
 def interim_records(conn, sid, model_config):
@@ -1595,8 +1638,10 @@ def judge_row_matches_v04(conn, sid, model_config):
         conn.commit()
         plan = plan_relations(state, inputs, values)
         decided = attempt_v04.judge_row(state, models, values, ROOT, plan, started_at=time.monotonic()).decided
+        # 기여도(attribution)는 v04 시도만 계산한다(비교 평가 경로는 계산하지 않음, detection-decision.md 6.1).
         assert [without(item, "elapsedMs") for item in decided["methodResults"]] == \
-            [without(item, "elapsedMs") for item in stored["methodResults"]], (decided["methodResults"], stored["methodResults"])
+            [without(without(item, "elapsedMs"), "attribution") for item in stored["methodResults"]], \
+            (decided["methodResults"], stored["methodResults"])
         assert decided["categoryResults"] == stored["categoryResults"], (decided["categoryResults"], stored["categoryResults"])
         assert without(decided["composite"], "firstAnomalyElapsedMs") == without(stored["composite"], "firstAnomalyElapsedMs")
         assert (decided["composite"]["firstAnomalyElapsedMs"] is None) == (stored["composite"]["firstAnomalyElapsedMs"] is None)
@@ -1657,6 +1702,7 @@ def main():
         source_latency(conn, sid)
         judgment_store(conn, sid)
         success_store_pipeline(conn, sid)
+        ml_attribution(conn, sid, model_config)
         interim_records(conn, sid, model_config)
         lease_loss(conn, sid)
         legacy_paths(conn, sid)

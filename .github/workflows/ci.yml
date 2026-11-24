@@ -1,7 +1,12 @@
 name: ci
 
 on:
+  # 기능 브랜치는 PR 실행만 받는다. push는 병합 결과(dev·main)만 검사해 PR push마다 push·pull_request 두 번 도는 중복을 없앤다.
   push:
+    branches:
+      - dev
+      - main
+  # closed·ready_for_review·converted_to_draft는 코드 변경이 없지만, ci 완료(workflow_run)로 notion-sync를 바로 깨우는 신호라 유지한다.
   pull_request:
     types:
       - opened
@@ -127,8 +132,62 @@ jobs:
         run: npm run bundle
         working-directory: automation/webhook
 
+  # worker-runtime(수 분 소요) 실행 여부만 정한다. 다른 job은 조건 없이 그대로 돈다.
+  changes:
+    name: changes
+    runs-on: ubuntu-latest
+    outputs:
+      worker-runtime: ${{ steps.filter.outputs.worker-runtime }}
+    steps:
+      # PR 실행의 기본 checkout은 병합 시험 commit(refs/pull/N/merge)이다. 첫 부모가 대상 브랜치 끝이라 깊이 2면 PR 변경 파일을 구할 수 있다.
+      - name: Check out PR merge commit with its base parent
+        if: github.event_name == 'pull_request' && github.event.action != 'closed'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # actions/checkout v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 2
+
+      - name: Decide worker-runtime from changed paths
+        id: filter
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          EVENT_ACTION: ${{ github.event.action }}
+          # worker-runtime이 실제로 읽거나 실행하는 경로: worker 코드·requirements, infra migration·nginx·DB 준비, contracts schema,
+          # backend build·integration 시험, research bundle 원천(LFS 가중치 포함), 이 workflow 자체.
+          WORKER_RUNTIME_PATHS: '^(server/(worker|infra|contracts|backend)/|research/|\.gitattributes$|\.github/workflows/ci\.yml$)'
+        run: |
+          decide() {
+            echo "worker-runtime=$1" >> "$GITHUB_OUTPUT"
+            echo "worker-runtime: $1 ($2)" | tee -a "$GITHUB_STEP_SUMMARY"
+          }
+          if [ "$EVENT_NAME" != "pull_request" ]; then
+            decide true "$EVENT_NAME $GITHUB_REF always runs"
+            exit 0
+          fi
+          # closed는 코드 변경이 없다. 병합분은 뒤이은 dev·main push 실행이 전부 검사하므로 건너뛴다(ci는 성공으로 끝나 notion-sync 신호 유지).
+          if [ "$EVENT_ACTION" = "closed" ]; then
+            decide false "pull_request closed, merged code is checked by the dev/main push run"
+            exit 0
+          fi
+          # 병합 commit이 아니거나 diff를 못 구하면 건너뛰지 않고 실행한다. --no-renames: 이동한 파일은 옛 경로·새 경로를 모두 본다.
+          # core.quotePath=false: 한글 등 비ASCII 경로를 따옴표·8진 escape 없이 그대로 출력해 경로 정규식과 맞춘다.
+          changed_files="$RUNNER_TEMP/changed-files.txt"
+          if ! git rev-parse --verify --quiet HEAD^2 >/dev/null || ! git -c core.quotePath=false diff --name-only --no-renames HEAD^1 HEAD > "$changed_files"; then
+            decide true "changed paths unavailable, running for safety"
+            exit 0
+          fi
+          echo "changed files: $(grep -c . "$changed_files" || true)"
+          # -m 20: 일치 경로를 최대 20개만 보여 준다(pipe 없이 pipefail 영향 회피).
+          if grep -E -m 20 "$WORKER_RUNTIME_PATHS" "$changed_files"; then
+            decide true "runtime paths changed"
+          else
+            decide false "no runtime path changed"
+          fi
+
   worker-runtime:
     name: worker-runtime
+    needs: changes
+    if: needs.changes.outputs.worker-runtime == 'true'
     runs-on: ubuntu-latest
     services:
       postgres:

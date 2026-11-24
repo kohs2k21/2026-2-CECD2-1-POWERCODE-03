@@ -254,7 +254,10 @@ export const MethodResults = ({ evidence, observedStatus, final = false }: { evi
                   {m.attribution && attributionShown(m, final) && (
                     <TableRow data-attribution-of={m.methodId}>
                       <TableCell colSpan={9}>
-                        <MlAttribution attribution={m.attribution} />
+                        {/* w-0 min-w-full: 기여도 내용(긴 문장·안쪽 표)이 위 표의 자동 열 폭 계산에 들어가지 않고 칸 전체 폭만 쓴다 */}
+                        <div className="w-0 min-w-full" data-attribution-box="">
+                          <MlAttribution attribution={m.attribution} />
+                        </div>
                       </TableCell>
                     </TableRow>
                   )}

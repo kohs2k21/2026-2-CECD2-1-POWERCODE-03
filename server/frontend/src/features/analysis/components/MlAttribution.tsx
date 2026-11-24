@@ -57,12 +57,13 @@ export const MlAttribution = ({ attribution }: { attribution: Attribution }) => 
           <TableBody>
             {rows.map((row) => (
               <TableRow key={row.playerId} data-attribution-player="true">
-                <TableHead scope="row" className="h-auto font-normal">
+                {/* 묶음 참가자는 구성원 줄이 여럿이라 모든 칸을 위 맞춤(머리 칸도 본문 칸과 같은 위 여백) */}
+                <TableHead scope="row" className="h-auto py-2 align-top font-normal">
                   {row.members.map((m) => <div key={m.feature}>{m.name}</div>)}
                 </TableHead>
-                <TableCell>{row.members.map((m) => <div key={m.feature}>{m.actual}</div>)}</TableCell>
-                <TableCell>{row.members.map((m) => <div key={m.feature}>{m.baseline}</div>)}</TableCell>
-                <TableCell>{row.share ?? DASH}</TableCell>
+                <TableCell className="align-top">{row.members.map((m) => <div key={m.feature}>{m.actual}</div>)}</TableCell>
+                <TableCell className="align-top">{row.members.map((m) => <div key={m.feature}>{m.baseline}</div>)}</TableCell>
+                <TableCell className="align-top">{row.share ?? DASH}</TableCell>
               </TableRow>
             ))}
           </TableBody>

@@ -1,7 +1,7 @@
 # CI·Notion 동기화
 
 - `ci.yml`: `dev`·`main` push와 PR에서 frontend/backend/automation/webhook 테스트, PR 대상 `dev`·승격 대상 `main` 모두 검사. 기능 브랜치 push는 PR 실행만(중복 실행 없음)
-- `ci.yml` worker-runtime: `dev`·`main` push는 항상 실행. PR은 `changes` job이 병합 시험 commit 기준 변경 경로를 보고 `server/worker`·`server/infra`·`server/contracts`·`server/backend`·`research`·`.gitattributes`·`ci.yml` 중 하나가 바뀐 경우만 실행(아니면 skipped, 경로를 못 구하면 실행)
+- `ci.yml` worker-runtime: `dev`·`main` push는 항상 실행. PR은 `changes` job이 병합 시험 commit 기준 변경 경로를 보고 `server/worker`·`server/infra`·`server/contracts`·`server/backend`·`research`·`.gitattributes`·`ci.yml` 중 하나가 바뀐 경우만 실행(아니면 skipped, 경로를 못 구하면 실행). PR `closed`는 skipped(병합분은 dev·main push 실행이 검사)
 - `notion-sync.yml`: `2-59/5 * * * *`(UTC 매시2·7·12…57분, 5분 간격) 예약, CI 성공 후, 수동 실행 지원. 0분 회피, 실제 실행은 GitHub 지연·누락 가능
 - 자격증명 사용: 지정 저장소의 검토된 `main` 코드만 실행, checkout `main`·persist-credentials false 유지. PR 코드·산출물 미사용
 - 체크포인트: 고정 main sync job에 `cache-mode: write` 명시, 상위 PR CI 완료 후에도 상태 저장 허용. 캐시에는 SQLite 매핑 데이터만 보관, 실행 코드·자격증명 미보관. 원격 소유 marker가 dev 이관 완료인 동일 작업의 오래된 main checkpoint만 복구

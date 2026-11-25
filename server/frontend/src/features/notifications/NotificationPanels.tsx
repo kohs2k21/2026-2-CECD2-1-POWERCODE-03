@@ -11,6 +11,7 @@ import { emptyLabels, notificationRisk, notificationTag, notificationText, proto
 import { notificationViews, readAllRequest, type NotificationItem, type NotificationView, type ProtocolNotification } from "./notificationsApi";
 import { useKeepProtocolAlert, useMarkNotificationsRead, useNotificationPage, useUnreadCount } from "./useNotifications";
 import { ConfirmDialog } from "@/features/detection/rules/RuleDialogs";
+import { NotificationConnectionStatus } from "./NotificationLiveFeedback";
 
 /** 항목 상세 주소: 판정 → 이상 분석 판정 상세(판정 ID 또는 최종 전 작업 ID), 사건 → 사건 상세(흐름 첫 사건 ID), 프로토콜 → 최근 판정 상세, 작업 → 작업 상세. */
 export const notificationHref = (item: NotificationItem) =>
@@ -184,6 +185,7 @@ export const NotificationPanels = ({ onNavigate, onKeepRequest, variant = "panel
   const readAll = () => unread.data && mark.mutate(readAllRequest(unread.data), { onSuccess: reset });
   return (
     <section className="grid gap-3" aria-label="알림 목록">
+      <NotificationConnectionStatus />
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div role="group" aria-label="알림 보기" className="inline-flex rounded-md border p-0.5">
           {notificationViews.map((value) => (

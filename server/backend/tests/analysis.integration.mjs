@@ -11,7 +11,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import pg from 'pg';
 import { startFakeLlmHealth } from './fake-llm-health.mjs';
-import { seedAnalysisFixture, seedAnalysisV04Fixture, seedParentlessDecisions, seedSummaryValueDecision } from './analysis-fixture.mjs';
+import { seedAnalysisFixture, seedAnalysisV04Fixture, seedParentlessDecisions, seedResponseMeaningDecisions, seedSummaryValueDecision } from './analysis-fixture.mjs';
 
 const url = process.env.PIPELINE_TEST_DATABASE_URL;
 if (!url) throw new Error('PIPELINE_TEST_DATABASE_URL is required');
@@ -732,7 +732,7 @@ try {
   const summary = v04Final.evidenceSummary;
   assert.deepEqual([summary.templateVersion, summary.summaryLine.prefix, summary.summaryLine.kind, summary.sentences.length, summary.checks.map((c) => c.code),
     summary.table.map((row) => [row.kind, row.result]), summary.contributionStatus, summary.stateWords, summary.valueTokens],
-    ['evidence-template-v1', '주의', 'soft_count', 2, ['soft_count', 'unresolved'], [['rule', '이상 징후'], ['rule', '평가 불가']], 'not_computed', ['이상 징후', '평가 불가'], []]);
+    ['evidence-template-v2', '주의', 'soft_count', 2, ['soft_count', 'unresolved'], [['rule', '이상 징후'], ['rule', '평가 불가']], 'not_computed', ['이상 징후', '평가 불가'], []]);
   assert.equal(summary.notice, 'AI 근거 요약은 참고용이며, 최종 판단은 담당자 확인이 필요합니다.');
   assert.ok(!('evidenceSummary' in v04ById.get(D4.final.id)), 'list items carry no evidence summary');
   const v04Normal = (await detail(D4.replaced.id)).body;
@@ -765,7 +765,7 @@ try {
     ['v03', 'llm_explanation', null, D4.final.id, 1]);
   const spec = explainRow.llm_spec;
   assert.deepEqual([spec.evidence_version, spec.model_version, spec.prompt_version, spec.output_schema_version],
-    ['summary-sentences-v1', 'fixture-polish-model', 'evidence-polish-v1', 'evidence-polish-result-v1']);
+    ['summary-sentences-v1', 'fixture-polish-model', 'evidence-polish-v2', 'evidence-polish-result-v1']);
   assert.ok(/^[0-9a-f]{64}$/.test(spec.input_evidence_hash) && /^[0-9a-f]{64}$/.test(spec.reuse_key));
   for (const token of [user, admin]) {
     const reused = await request(base, '/api/jobs', 'POST', token, { kind: 'explain', sourceId: fixture.sourceId, decisionId: D4.final.id });
@@ -841,8 +841,24 @@ try {
   const valuedSummary = (await detail(valued.id)).body.evidenceSummary;
   assert.deepEqual([valuedSummary.summaryLine.prefix, valuedSummary.summaryLine.kind], ['위험', 'hard_success_with_error']);
   const valuedRow = valuedSummary.table.find((row) => row.methodId === 'hard:success-with-error');
-  assert.deepEqual(valuedRow.observed.map((o) => [o.name, o.value, o.unitUnknown]), [['상태', 'S', false], ['ERROR_COUNT', '3', true]], 'observation row value read');
+  assert.deepEqual(valuedRow.observed.map((o) => [o.name, o.value, o.unitUnknown]), [['상태', 'S(성공)', false], ['오류 건수(ERROR_COUNT)', '3', true]],
+    'observation row value read');
   assert.equal((await request(base, `/api/analysis/decisions/${valued.id}/polished`, 'GET', user)).body.polishState, 'none');
+  // 10-3) 근거 요약 응답 코드 뜻: 거래 실패 근거의 코드가 사전(ops_response_codes)에 있으면 확인할 것(40자 + …)·표 이번 값(전체)에 뜻, 없으면 v1 확인할 것 문장.
+  // 뜻은 문단·다듬기 입력에 들어가지 않는다(두 판정의 문단 모양이 같음).
+  const meaning = await seedResponseMeaningDecisions(pool, fixture);
+  const withMeaning = (await detail(meaning.ids.withMeaning)).body.evidenceSummary;
+  const withoutMeaning = (await detail(meaning.ids.withoutMeaning)).body.evidenceSummary;
+  const failedRow = (s) => s.table.find((row) => row.methodId === 'hard:transaction-failed');
+  const shortMeaning = `${[...meaning.meaning].slice(0, 40).join('')}…`;
+  assert.deepEqual([withMeaning.summaryLine.kind, withMeaning.checks[0].text, failedRow(withMeaning).observed.map((o) => o.value)],
+    ['hard_transaction_failed', `해당 업무 시스템에서 응답 코드 ${meaning.codes.withMeaning}(${shortMeaning})이 나온 경위를 확인하세요(화면: 위 표 이번 값).`,
+      ['F(실패)', `${meaning.codes.withMeaning}(${meaning.meaning})`]], 'dictionary meaning: check line capped, table in full');
+  assert.deepEqual([withoutMeaning.checks[0].text, failedRow(withoutMeaning).observed.map((o) => o.value)],
+    [`응답 코드 ${meaning.codes.withoutMeaning}의 의미를 응답 코드 설정에서 확인하세요.`, ['F(실패)', meaning.codes.withoutMeaning]], 'no dictionary entry: v1 check line');
+  assert.ok(!withMeaning.sentences.join(' ').includes(meaning.meaning.slice(0, 6)), 'meaning stays out of the paragraph (polish input unchanged)');
+  assert.deepEqual(withMeaning.valueTokens, [meaning.codes.withMeaning]);
+  assert.equal(withMeaning.sentences[0].replace(meaning.codes.withMeaning, 'X'), withoutMeaning.sentences[0].replace(meaning.codes.withoutMeaning, 'X'));
 
   // 11) 저장소 실패는 503(성공·빈 목록 대체 없음).
   await stopChild();

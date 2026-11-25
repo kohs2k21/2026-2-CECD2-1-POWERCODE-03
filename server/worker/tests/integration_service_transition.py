@@ -18,7 +18,7 @@ from pg_queue import claim,enqueue
 from trainer.runner import run
 import generation_client
 
-POLISH_SENTENCE='이상 규칙이 처리 상태 S와 ERROR_COUNT를 함께 확인했고, 성공 상태인데 ERROR_COUNT가 0보다 커서 이상으로 판단했습니다.'
+POLISH_SENTENCE='이상 규칙은 처리 상태가 S(성공)인데 오류 건수(ERROR_COUNT)가 0보다 커서 이상으로 판단했습니다.'
 POLISH_MODEL='test-polish@00000000'
 
 class Fixtures:
@@ -26,8 +26,8 @@ class Fixtures:
         if kind=='polish_explanation':
             # AI 근거 요약 다듬기(새 형식): 평문 한 문단, 모델 id·지시문 버전을 함께 돌려준다.
             assert request=={'sentences':[POLISH_SENTENCE]} and report_timeout is True
-            return {'truncated':False,'output':POLISH_SENTENCE.replace('규칙이','규칙은'),'modelVersion':POLISH_MODEL,
-                    'promptVersion':'evidence-polish-v1'}
+            return {'truncated':False,'output':POLISH_SENTENCE.replace('S(성공)인데','S(성공)이지만'),'modelVersion':POLISH_MODEL,
+                    'promptVersion':'evidence-polish-v2'}
         assert kind=='explain'
         return {'truncated':False,'output':{'factIds':[f['id'] for f in request['facts']],'nextChecks':['review_input_completeness']}}
 
@@ -131,10 +131,10 @@ def main():
         conn.commit()
         # 새 형식(summary-sentences-v1): 재시도 없음(max_attempts 1), 결과 행 계보 = llm_spec, 결과 문단 source=llm.
         polish=uuid.uuid4();polish_input={'kind':'explain','sourceId':str(sid),'decisionId':str(decision_id),
-            'configVersionId':trained['configVersionId'],'templateVersion':'evidence-template-v1','sentences':[POLISH_SENTENCE],
+            'configVersionId':trained['configVersionId'],'templateVersion':'evidence-template-v2','sentences':[POLISH_SENTENCE],
             'stateWords':['이상'],'valueTokens':[]}
         polish_llm={'evidence_version':'summary-sentences-v1','input_evidence_hash':hashlib.sha256(b'polish').hexdigest(),
-            'model_version':POLISH_MODEL,'prompt_version':'evidence-polish-v1','output_schema_version':'evidence-polish-result-v1',
+            'model_version':POLISH_MODEL,'prompt_version':'evidence-polish-v2','output_schema_version':'evidence-polish-result-v1',
             'reuse_key':hashlib.sha256(str(polish).encode()).hexdigest()}
         with conn.cursor() as cur:
             cur.execute("""INSERT INTO run_jobs(id,kind,status,requested_by_actor_id,requester_role,idempotency_key,

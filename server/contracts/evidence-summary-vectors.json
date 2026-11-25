@@ -1,5 +1,5 @@
 {
- "templateVersion": "evidence-template-v1",
+ "templateVersion": "evidence-template-v2",
  "notice": "AI 근거 요약은 참고용이며, 최종 판단은 담당자 확인이 필요합니다.",
  "cases": [
   {
@@ -57,11 +57,11 @@
     "summaryLine": {
      "prefix": "위험",
      "prefixKind": "risk",
-     "text": "성공 상태인데 ERROR_COUNT가 기록되었습니다",
+     "text": "성공 상태인데 오류 건수가 기록되었습니다",
      "kind": "hard_success_with_error"
     },
     "sentences": [
-     "이상 규칙이 처리 상태 S와 ERROR_COUNT를 함께 확인했고, 성공 상태인데 ERROR_COUNT가 0보다 커서 이상으로 판단했습니다."
+     "이상 규칙은 처리 상태가 S(성공)인데 오류 건수(ERROR_COUNT)가 0보다 커서 이상으로 판단했습니다."
     ],
     "stateWords": [
      "이상"
@@ -75,12 +75,12 @@
       "observed": [
        {
         "name": "상태",
-        "value": "S",
+        "value": "S(성공)",
         "unit": null,
         "unitUnknown": false
        },
        {
-        "name": "ERROR_COUNT",
+        "name": "오류 건수(ERROR_COUNT)",
         "value": "3",
         "unit": null,
         "unitUnknown": true
@@ -92,7 +92,7 @@
     "checks": [
      {
       "code": "hard_success_with_error",
-      "text": "원천 시스템에서 성공 처리에 ERROR_COUNT가 기록된 경위를 확인하세요."
+      "text": "해당 업무 시스템에서 성공 처리에 오류 건수(ERROR_COUNT)가 기록된 경위를 확인하세요(화면: 위 표 이번 값)."
      }
     ],
     "contributionStatus": "not_computed",
@@ -227,12 +227,12 @@
     "summaryLine": {
      "prefix": "이상 징후",
      "prefixKind": "grade",
-     "text": "평소 처리 시간과 비교하여 지연이 확인됩니다",
+     "text": "처리 시간이 평소보다 깁니다",
      "kind": "ml_elapsed_longer"
     },
     "sentences": [
-     "머신러닝 모델이 이번 처리 시간 4,200 ms를 평소 값 800 ms와 비교했고, 더 길어 판단에 가장 크게 영향을 주었습니다(영향 62%).",
-     "다음으로 처리량(TOTAL_COUNT)·ERROR_COUNT·오류 비율 값이 평소와 달라 영향을 주었습니다(영향 31%)."
+     "머신러닝 모델 판단에는 평소 800 ms보다 긴 처리 시간 4,200 ms가 가장 크게 영향을 주었습니다(62%).",
+     "다음으로 평소와 다른 처리량(TOTAL_COUNT)·오류 건수(ERROR_COUNT)·오류 비율이 영향을 주었습니다(31%)."
     ],
     "stateWords": [],
     "valueTokens": [],
@@ -266,14 +266,14 @@
         "unitUnknown": true
        },
        {
-        "name": "ERROR_COUNT",
+        "name": "오류 건수(ERROR_COUNT)",
         "actual": "15",
         "usual": "0",
         "unit": null,
         "unitUnknown": true
        },
        {
-        "name": "오류 비율 값",
+        "name": "오류 비율",
         "actual": "0.125",
         "usual": "0",
         "unit": null,
@@ -440,13 +440,13 @@
     "summaryLine": {
      "prefix": "주의",
      "prefixKind": "risk",
-     "text": "처리 시간이 기준 ≥ 3,000 ms에 해당합니다",
+     "text": "처리 시간이 기준 3,000 ms를 넘었습니다",
      "kind": "soft_elapsed"
     },
     "sentences": [
-     "이상 징후 규칙이 이번 처리 시간 4,200 ms를 기준 3,000 ms와 비교했고, 기준(≥)에 해당해 이상 징후로 판단했습니다.",
-     "머신러닝 모델이 이번 처리 시간 4,200 ms를 평소 값 800 ms와 비교했고, 더 길어 판단에 가장 크게 영향을 주었습니다(영향 62%).",
-     "다음으로 처리량(TOTAL_COUNT)·ERROR_COUNT·오류 비율 값이 평소와 달라 영향을 주었습니다(영향 31%)."
+     "이상 징후 규칙은 처리 시간이 4,200 ms로 기준 3,000 ms를 넘어 이상 징후로 판단했습니다.",
+     "머신러닝 모델 판단에는 평소 800 ms보다 긴 처리 시간 4,200 ms가 가장 크게 영향을 주었습니다(62%).",
+     "다음으로 평소와 다른 처리량(TOTAL_COUNT)·오류 건수(ERROR_COUNT)·오류 비율이 영향을 주었습니다(31%)."
     ],
     "stateWords": [
      "이상 징후"
@@ -496,14 +496,14 @@
         "unitUnknown": true
        },
        {
-        "name": "ERROR_COUNT",
+        "name": "오류 건수(ERROR_COUNT)",
         "actual": "15",
         "usual": "0",
         "unit": null,
         "unitUnknown": true
        },
        {
-        "name": "오류 비율 값",
+        "name": "오류 비율",
         "actual": "0.125",
         "usual": "0",
         "unit": null,
@@ -515,7 +515,7 @@
     "checks": [
      {
       "code": "soft_elapsed",
-      "text": "처리 시간 기준 값이 지금 운영에 맞는지 규칙 설정에서 확인하세요."
+      "text": "해당 업무 시스템에서 처리 시간이 나온 경위를 먼저 보고, 그다음 기준이 지금 운영에 맞는지 규칙 설정에서 확인하세요(화면: 위 표 이번 값)."
      },
      {
       "code": "ml_elapsed_longer",
@@ -577,17 +577,17 @@
     "summaryLine": {
      "prefix": "위험",
      "prefixKind": "risk",
-     "text": "처리 상태가 S가 아닌 F로 기록되었습니다",
+     "text": "처리 상태가 F(실패)로 기록되었습니다",
      "kind": "hard_process_status"
     },
     "sentences": [
-     "이상 규칙이 이번 처리 상태 F를 성공 상태 S와 비교했고, 달라 이상으로 판단했습니다."
+     "이상 규칙은 처리 상태가 F(실패)여서 이상으로 판단했습니다."
     ],
     "stateWords": [
      "이상"
     ],
     "valueTokens": [
-     "F"
+     "F(실패)"
     ],
     "table": [
      {
@@ -597,7 +597,7 @@
       "observed": [
        {
         "name": null,
-        "value": "F",
+        "value": "F(실패)",
         "unit": null,
         "unitUnknown": false
        }
@@ -608,7 +608,7 @@
     "checks": [
      {
       "code": "hard_process_status",
-      "text": "원천 시스템에서 이 처리의 상태 F 기록 내용을 확인하세요."
+      "text": "원본 로그에서 이 처리의 상태 F(실패) 기록을 확인하세요(화면: Process Flow › 선택 노드 원본 정보 STATUS)."
      }
     ],
     "contributionStatus": "not_computed",
@@ -666,17 +666,17 @@
     "summaryLine": {
      "prefix": "참고",
      "prefixKind": "risk",
-     "text": "처리 상태가 S가 아닌 N으로 기록되었습니다",
+     "text": "처리 상태가 N(미처리)으로 기록되었습니다",
      "kind": "hard_process_status"
     },
     "sentences": [
-     "이상 규칙이 이번 처리 상태 N을 성공 상태 S와 비교했고, 달라 이상으로 판단했습니다."
+     "이상 규칙은 처리 상태가 N(미처리)이어서 이상으로 판단했습니다."
     ],
     "stateWords": [
      "이상"
     ],
     "valueTokens": [
-     "N"
+     "N(미처리)"
     ],
     "table": [
      {
@@ -686,7 +686,7 @@
       "observed": [
        {
         "name": null,
-        "value": "N",
+        "value": "N(미처리)",
         "unit": null,
         "unitUnknown": false
        }
@@ -697,7 +697,7 @@
     "checks": [
      {
       "code": "hard_process_status",
-      "text": "원천 시스템에서 이 처리의 상태 N 기록 내용을 확인하세요."
+      "text": "원본 로그에서 이 처리의 상태 N(미처리) 기록을 확인하세요(화면: Process Flow › 선택 노드 원본 정보 STATUS)."
      }
     ],
     "contributionStatus": "not_computed",
@@ -763,15 +763,12 @@
      "kind": "hard_negative_duration"
     },
     "sentences": [
-     "이상 규칙이 시작 시각 2026-01-01 10:00:09와 종료 시각 2026-01-01 10:00:05를 비교했고, 시작이 더 늦어 이상으로 판단했습니다."
+     "이상 규칙은 시작 시각이 종료 시각보다 늦어 이상으로 판단했습니다."
     ],
     "stateWords": [
      "이상"
     ],
-    "valueTokens": [
-     "2026-01-01 10:00:09",
-     "2026-01-01 10:00:05"
-    ],
+    "valueTokens": [],
     "table": [
      {
       "kind": "rule",
@@ -797,7 +794,7 @@
     "checks": [
      {
       "code": "hard_negative_duration",
-      "text": "원천 시스템의 시작·종료 시각 기록(시간대 포함)을 확인하세요."
+      "text": "원본 로그의 시작·종료 시각 기록(시간대 포함)을 확인하세요(화면: 위 표 이번 값)."
      }
     ],
     "contributionStatus": "not_computed",
@@ -858,7 +855,7 @@
      "kind": "hard_negative_duration"
     },
     "sentences": [
-     "이상 규칙이 시작 시각과 종료 시각을 비교했고, 시작이 더 늦어 이상으로 판단했습니다."
+     "이상 규칙은 시작 시각이 종료 시각보다 늦어 이상으로 판단했습니다."
     ],
     "stateWords": [
      "이상"
@@ -889,7 +886,7 @@
     "checks": [
      {
       "code": "hard_negative_duration",
-      "text": "원천 시스템의 시작·종료 시각 기록(시간대 포함)을 확인하세요."
+      "text": "원본 로그의 시작·종료 시각 기록(시간대 포함)을 확인하세요(화면: 위 표 이번 값)."
      }
     ],
     "contributionStatus": "not_computed",
@@ -955,7 +952,7 @@
      "kind": "hard_negative_duration"
     },
     "sentences": [
-     "이상 규칙이 시작 시각과 종료 시각을 비교했고, 시작이 더 늦어 이상으로 판단했습니다."
+     "이상 규칙은 시작 시각이 종료 시각보다 늦어 이상으로 판단했습니다."
     ],
     "stateWords": [
      "이상"
@@ -986,7 +983,7 @@
     "checks": [
      {
       "code": "hard_negative_duration",
-      "text": "원천 시스템의 시작·종료 시각 기록(시간대 포함)을 확인하세요."
+      "text": "원본 로그의 시작·종료 시각 기록(시간대 포함)을 확인하세요(화면: 위 표 이번 값)."
      }
     ],
     "contributionStatus": "not_computed",
@@ -1049,11 +1046,11 @@
     "summaryLine": {
      "prefix": "위험",
      "prefixKind": "risk",
-     "text": "처리량(TOTAL_COUNT)이 SUCCESS_COUNT와 ERROR_COUNT의 합과 다릅니다",
+     "text": "처리량이 성공 건수와 오류 건수의 합과 다릅니다",
      "kind": "hard_count_conservation"
     },
     "sentences": [
-     "이상 규칙이 처리량(TOTAL_COUNT)을 SUCCESS_COUNT와 ERROR_COUNT의 합과 비교했고, 두 값이 달라 이상으로 판단했습니다."
+     "이상 규칙은 처리량(TOTAL_COUNT)이 성공 건수(SUCCESS_COUNT)와 오류 건수(ERROR_COUNT)의 합과 달라 이상으로 판단했습니다."
     ],
     "stateWords": [
      "이상"
@@ -1066,19 +1063,19 @@
       "condition": "TOTAL_COUNT ≠ SUCCESS_COUNT + ERROR_COUNT",
       "observed": [
        {
-        "name": "TOTAL_COUNT",
+        "name": "처리량(TOTAL_COUNT)",
         "value": "1,200",
         "unit": null,
         "unitUnknown": true
        },
        {
-        "name": "SUCCESS_COUNT",
+        "name": "성공 건수(SUCCESS_COUNT)",
         "value": "1,000",
         "unit": null,
         "unitUnknown": true
        },
        {
-        "name": "ERROR_COUNT",
+        "name": "오류 건수(ERROR_COUNT)",
         "value": "150",
         "unit": null,
         "unitUnknown": true
@@ -1090,7 +1087,7 @@
     "checks": [
      {
       "code": "hard_count_conservation",
-      "text": "원천 시스템의 TOTAL_COUNT·SUCCESS_COUNT·ERROR_COUNT 집계 방식을 확인하세요."
+      "text": "해당 업무 시스템의 처리량(TOTAL_COUNT)·성공 건수(SUCCESS_COUNT)·오류 건수(ERROR_COUNT) 집계 방식을 확인하세요(화면: 위 표 이번 값)."
      }
     ],
     "contributionStatus": "not_computed",
@@ -1148,11 +1145,11 @@
     "summaryLine": {
      "prefix": "주의",
      "prefixKind": "risk",
-     "text": "거래가 실패 상태(F), 응답 코드 E901로 기록되었습니다",
+     "text": "거래가 F(실패), 응답 코드 E901로 기록되었습니다",
      "kind": "hard_transaction_failed"
     },
     "sentences": [
-     "이상 규칙이 거래 상태 F와 응답 코드 E901을 성공 코드(0000·S)와 비교했고, 성공 코드가 아니어서 이상으로 판단했습니다."
+     "이상 규칙은 거래 상태가 F(실패)이고 응답 코드 E901이 성공 코드가 아니어서 이상으로 판단했습니다."
     ],
     "stateWords": [
      "이상"
@@ -1168,7 +1165,7 @@
       "observed": [
        {
         "name": null,
-        "value": "F",
+        "value": "F(실패)",
         "unit": null,
         "unitUnknown": false
        },
@@ -1255,7 +1252,7 @@
      "kind": "hard_unregistered_interface"
     },
     "sentences": [
-     "이상 규칙이 이번 거래의 인터페이스 IF_NEW를 프로토콜 설정 목록과 비교했고, 목록에 없어 이상으로 판단했습니다."
+     "이상 규칙은 인터페이스 IF_NEW가 프로토콜 설정에 없어 이상으로 판단했습니다."
     ],
     "stateWords": [
      "이상"
@@ -1282,7 +1279,7 @@
     "checks": [
      {
       "code": "hard_unregistered_interface",
-      "text": "인터페이스 IF_NEW가 새로 추가된 것인지 프로토콜 설정에서 확인하세요."
+      "text": "인터페이스 IF_NEW가 새로 추가된 것인지 프로토콜 설정에서 확인하세요(화면: 판정 요약 › 인터페이스 · 채널)."
      }
     ],
     "contributionStatus": "not_computed",
@@ -1365,11 +1362,11 @@
     "summaryLine": {
      "prefix": "위험",
      "prefixKind": "risk",
-     "text": "처리 경로가 허용 경로와 다릅니다",
+     "text": "처리 경로가 허용 경로에 없습니다",
      "kind": "hard_protocol_path"
     },
     "sentences": [
-     "이상 규칙이 이번 처리 경로를 인터페이스 IF_A의 허용 경로와 비교했고, 맞는 경로가 없어 이상으로 판단했습니다."
+     "이상 규칙은 처리 경로가 인터페이스 IF_A의 허용 경로에 없어 이상으로 판단했습니다."
     ],
     "stateWords": [
      "이상"
@@ -1396,7 +1393,7 @@
     "checks": [
      {
       "code": "hard_protocol_path",
-      "text": "이번 경로가 허용 경로에서 빠진 것인지 프로토콜 설정에서 확인하세요."
+      "text": "처리 경로가 허용 경로에서 빠진 것인지 프로토콜 설정에서 확인하세요(화면: Process Flow › 실행 순서)."
      }
     ],
     "contributionStatus": "not_computed",
@@ -1503,11 +1500,11 @@
     "summaryLine": {
      "prefix": "위험",
      "prefixKind": "risk",
-     "text": "처리 경로가 허용 경로와 다릅니다",
+     "text": "처리 경로가 허용 경로에 없습니다",
      "kind": "hard_protocol_path"
     },
     "sentences": [
-     "이상 규칙이 이번 처리 경로를 인터페이스 IF_A의 허용 경로와 비교했고, 맞는 경로가 없어 이상으로 판단했습니다."
+     "이상 규칙은 처리 경로가 인터페이스 IF_A의 허용 경로에 없어 이상으로 판단했습니다."
     ],
     "stateWords": [
      "이상"
@@ -1534,7 +1531,7 @@
     "checks": [
      {
       "code": "hard_protocol_path",
-      "text": "이번 경로가 허용 경로에서 빠진 것인지 프로토콜 설정에서 확인하세요."
+      "text": "처리 경로가 허용 경로에서 빠진 것인지 프로토콜 설정에서 확인하세요(화면: Process Flow › 실행 순서)."
      }
     ],
     "contributionStatus": "not_computed",
@@ -1638,11 +1635,11 @@
     "summaryLine": {
      "prefix": "위험",
      "prefixKind": "risk",
-     "text": "정해진 앞 단계 없이 처리되었습니다",
+     "text": "정해진 앞 단계와 다르게 처리되었습니다",
      "kind": "relation_precedes"
     },
     "sentences": [
-     "관계 규칙이 이 단계의 앞 단계 기록을 정해진 앞 단계 IF_A_PR001과 비교했고, 시작 단계로 기록되어 이상으로 판단했습니다."
+     "관계 규칙은 이 단계가 정해진 앞 단계 IF_A_PR001 없이 시작 단계로 기록되어 이상으로 판단했습니다."
     ],
     "stateWords": [
      "이상"
@@ -1669,7 +1666,7 @@
     "checks": [
      {
       "code": "relation_precedes",
-      "text": "IF_A_PR001 단계 기록이 원천 시스템에 있는지 확인하세요."
+      "text": "정해진 앞 단계 IF_A_PR001의 기록이 원본 로그에 있는지 확인하세요(화면: Process Flow › 선택 노드 원본 정보 DEPENDS_ON)."
      }
     ],
     "contributionStatus": "not_computed",
@@ -1730,11 +1727,11 @@
     "summaryLine": {
      "prefix": "위험",
      "prefixKind": "risk",
-     "text": "정해진 앞 단계 없이 처리되었습니다",
+     "text": "정해진 앞 단계와 다르게 처리되었습니다",
      "kind": "relation_precedes"
     },
     "sentences": [
-     "관계 규칙이 이 단계의 앞 단계 기록을 정해진 앞 단계 IF_A_PR001과 비교했고, 앞 단계 기록이 없어 이상으로 판단했습니다."
+     "관계 규칙은 정해진 앞 단계 IF_A_PR001의 기록이 없어 이상으로 판단했습니다."
     ],
     "stateWords": [
      "이상"
@@ -1761,7 +1758,7 @@
     "checks": [
      {
       "code": "relation_precedes",
-      "text": "IF_A_PR001 단계 기록이 원천 시스템에 있는지 확인하세요."
+      "text": "정해진 앞 단계 IF_A_PR001의 기록이 원본 로그에 있는지 확인하세요(화면: Process Flow › 선택 노드 원본 정보 DEPENDS_ON)."
      }
     ],
     "contributionStatus": "not_computed",
@@ -1875,7 +1872,7 @@
      "kind": "relation_message_handoff"
     },
     "sentences": [
-     "관계 규칙이 IF_A_PR002의 보낸 메시지와 이 단계의 받은 메시지를 비교했고, 맞지 않아 이상으로 판단했습니다."
+     "관계 규칙은 IF_A_PR002가 보낸 메시지와 이 단계가 받은 메시지가 맞지 않아 이상으로 판단했습니다."
     ],
     "stateWords": [
      "이상"
@@ -1902,7 +1899,7 @@
     "checks": [
      {
       "code": "relation_message_handoff",
-      "text": "두 단계의 메시지 ID 기록을 확인하세요."
+      "text": "원본 로그에서 두 단계의 메시지 ID 기록을 확인하세요(화면: Process Flow › 로그 구성의 Message 노드 MESSAGE_ID)."
      }
     ],
     "contributionStatus": "not_computed",
@@ -2011,7 +2008,7 @@
      "kind": "relation_required_step"
     },
     "sentences": [
-     "관계 규칙이 이 거래의 실행 단계를 필수 단계 IF_A_PR009와 비교했고, 없어 이상으로 판단했습니다."
+     "관계 규칙은 이 거래에 필수 단계 IF_A_PR009가 없어 이상으로 판단했습니다."
     ],
     "stateWords": [
      "이상"
@@ -2038,7 +2035,7 @@
     "checks": [
      {
       "code": "relation_required_step",
-      "text": "IF_A_PR009 단계가 이 거래에서 실행되었는지 원천 시스템에서 확인하세요."
+      "text": "필수 단계 IF_A_PR009가 이 거래에서 실행되었는지 원본 로그에서 확인하세요(화면: Process Flow › 로그 구성)."
      }
     ],
     "contributionStatus": "not_computed",
@@ -2098,11 +2095,11 @@
     "summaryLine": {
      "prefix": "주의",
      "prefixKind": "risk",
-     "text": "RETRY_COUNT가 기준(≥)에 해당합니다",
+     "text": "재시도 횟수가 기준을 넘었습니다",
      "kind": "soft_count"
     },
     "sentences": [
-     "이상 징후 규칙이 이번 RETRY_COUNT 값을 기준 값과 비교했고, 기준(≥)에 해당해 이상 징후로 판단했습니다."
+     "이상 징후 규칙은 재시도 횟수(RETRY_COUNT)가 기준을 넘어 이상 징후로 판단했습니다."
     ],
     "stateWords": [
      "이상 징후"
@@ -2112,7 +2109,7 @@
      {
       "kind": "rule",
       "methodId": "soft:retry_count-3f9a2c1d",
-      "condition": "RETRY_COUNT ≥ 3",
+      "condition": "재시도 횟수(RETRY_COUNT) ≥ 3",
       "observed": [
        {
         "name": null,
@@ -2127,7 +2124,7 @@
     "checks": [
      {
       "code": "soft_count",
-      "text": "RETRY_COUNT 기준 값이 지금 운영에 맞는지 규칙 설정에서 확인하세요."
+      "text": "해당 업무 시스템에서 재시도 횟수(RETRY_COUNT)가 나온 경위를 먼저 보고, 그다음 기준이 지금 운영에 맞는지 규칙 설정에서 확인하세요(화면: 위 표 이번 값)."
      }
     ],
     "contributionStatus": "not_computed",
@@ -2187,11 +2184,11 @@
     "summaryLine": {
      "prefix": "주의",
      "prefixKind": "risk",
-     "text": "오류 비율 값이 기준 > 0.1에 해당합니다",
+     "text": "오류 비율이 기준 0.1을 넘었습니다",
      "kind": "soft_value"
     },
     "sentences": [
-     "이상 징후 규칙이 이번 오류 비율 값 0.125를 기준 0.1과 비교했고, 기준(>)에 해당해 이상 징후로 판단했습니다."
+     "이상 징후 규칙은 오류 비율이 0.125로 기준 0.1을 넘어 이상 징후로 판단했습니다."
     ],
     "stateWords": [
      "이상 징후"
@@ -2201,7 +2198,7 @@
      {
       "kind": "rule",
       "methodId": "soft:error_ratio-3f9a2c1d",
-      "condition": "오류 비율 값 > 0.1",
+      "condition": "오류 비율 > 0.1",
       "observed": [
        {
         "name": null,
@@ -2216,7 +2213,7 @@
     "checks": [
      {
       "code": "soft_value",
-      "text": "오류 비율 값 기준 값이 지금 운영에 맞는지 규칙 설정에서 확인하세요."
+      "text": "해당 업무 시스템에서 오류 비율이 나온 경위를 먼저 보고, 그다음 기준이 지금 운영에 맞는지 규칙 설정에서 확인하세요(화면: 위 표 이번 값)."
      }
     ],
     "contributionStatus": "not_computed",
@@ -2320,11 +2317,11 @@
     "summaryLine": {
      "prefix": "이상 징후",
      "prefixKind": "grade",
-     "text": "평소 처리 시간과 비교하여 단축이 확인됩니다",
+     "text": "처리 시간이 평소보다 짧습니다",
      "kind": "ml_elapsed_shorter"
     },
     "sentences": [
-     "머신러닝 모델이 이번 처리 시간 12 ms를 평소 값 800 ms와 비교했고, 더 짧아 판단에 가장 크게 영향을 주었습니다(영향 80%)."
+     "머신러닝 모델 판단에는 평소 800 ms보다 짧은 처리 시간 12 ms가 가장 크게 영향을 주었습니다(80%)."
     ],
     "stateWords": [],
     "valueTokens": [],
@@ -2477,12 +2474,12 @@
     "summaryLine": {
      "prefix": "이상 징후",
      "prefixKind": "grade",
-     "text": "평소와 다른 ERROR_COUNT 값이 확인됩니다",
+     "text": "오류 건수가 평소와 다릅니다",
      "kind": "ml_count"
     },
     "sentences": [
-     "머신러닝 모델이 이번 ERROR_COUNT 값을 평소 값과 비교했고, 달라 판단에 가장 크게 영향을 주었습니다(영향 56%).",
-     "다음으로 RETRY_COUNT가 평소와 달라 영향을 주었습니다."
+     "머신러닝 모델 판단에는 평소와 다른 오류 건수(ERROR_COUNT)가 가장 크게 영향을 주었습니다(56%).",
+     "다음으로 평소와 다른 재시도 횟수(RETRY_COUNT)가 영향을 주었습니다."
     ],
     "stateWords": [],
     "valueTokens": [],
@@ -2494,7 +2491,7 @@
       "impactPercent": "56%",
       "members": [
        {
-        "name": "ERROR_COUNT",
+        "name": "오류 건수(ERROR_COUNT)",
         "actual": "15",
         "usual": "0",
         "unit": null,
@@ -2509,7 +2506,7 @@
       "impactPercent": "—",
       "members": [
        {
-        "name": "RETRY_COUNT",
+        "name": "재시도 횟수(RETRY_COUNT)",
         "actual": "10",
         "usual": "0",
         "unit": null,
@@ -2521,7 +2518,7 @@
     "checks": [
      {
       "code": "ml_count",
-      "text": "원천 시스템에서 ERROR_COUNT 값이 평소와 다른 이유를 확인하세요."
+      "text": "해당 업무 시스템에서 오류 건수(ERROR_COUNT)가 평소와 다른 이유를 확인하세요(화면: 위 표)."
      }
     ],
     "contributionStatus": "computed",
@@ -2625,11 +2622,11 @@
     "summaryLine": {
      "prefix": "이상 징후",
      "prefixKind": "grade",
-     "text": "평소와 다른 오류 비율 값이 확인됩니다",
+     "text": "오류 비율이 평소보다 높습니다",
      "kind": "ml_error_ratio"
     },
     "sentences": [
-     "머신러닝 모델이 이번 오류 비율 값 0.125를 평소 값 0.01과 비교했고, 더 높아 판단에 가장 크게 영향을 주었습니다(영향 70%)."
+     "머신러닝 모델 판단에는 평소 0.01보다 높은 오류 비율 0.125가 가장 크게 영향을 주었습니다(70%)."
     ],
     "stateWords": [],
     "valueTokens": [],
@@ -2641,7 +2638,7 @@
       "impactPercent": "70%",
       "members": [
        {
-        "name": "오류 비율 값",
+        "name": "오류 비율",
         "actual": "0.125",
         "usual": "0.01",
         "unit": null,
@@ -2653,7 +2650,7 @@
     "checks": [
      {
       "code": "ml_error_ratio",
-      "text": "원천 시스템에서 오류 비율 값이 평소와 다른 이유를 확인하세요."
+      "text": "해당 업무 시스템에서 오류 비율이 평소와 다른 이유를 확인하세요(화면: 위 표)."
      }
     ],
     "contributionStatus": "computed",
@@ -2806,12 +2803,12 @@
     "summaryLine": {
      "prefix": "이상 징후",
      "prefixKind": "grade",
-     "text": "평소와 다른 처리량(TOTAL_COUNT)·ERROR_COUNT·오류 비율 값이 확인됩니다",
+     "text": "처리량·오류 건수·오류 비율이 평소와 다릅니다",
      "kind": "ml_group"
     },
     "sentences": [
-     "머신러닝 모델이 이번 처리량(TOTAL_COUNT)·ERROR_COUNT·오류 비율 값을 평소 값과 비교했고, 달라 판단에 가장 크게 영향을 주었습니다(영향 65%).",
-     "다음으로 처리 시간이 평소와 달라 영향을 주었습니다(영향 39%)."
+     "머신러닝 모델 판단에는 평소와 다른 처리량(TOTAL_COUNT)·오류 건수(ERROR_COUNT)·오류 비율이 가장 크게 영향을 주었습니다(65%).",
+     "다음으로 평소와 다른 처리 시간이 영향을 주었습니다(39%)."
     ],
     "stateWords": [],
     "valueTokens": [],
@@ -2830,14 +2827,14 @@
         "unitUnknown": true
        },
        {
-        "name": "ERROR_COUNT",
+        "name": "오류 건수(ERROR_COUNT)",
         "actual": "15",
         "usual": "0",
         "unit": null,
         "unitUnknown": true
        },
        {
-        "name": "오류 비율 값",
+        "name": "오류 비율",
         "actual": "0.125",
         "usual": "0",
         "unit": null,
@@ -2864,7 +2861,7 @@
     "checks": [
      {
       "code": "ml_group",
-      "text": "원천 시스템에서 처리량(TOTAL_COUNT)·ERROR_COUNT·오류 비율 값이 평소와 다른 이유를 확인하세요."
+      "text": "해당 업무 시스템에서 처리량(TOTAL_COUNT)·오류 건수(ERROR_COUNT)·오류 비율이 평소와 다른 이유를 확인하세요(화면: 위 표)."
      }
     ],
     "contributionStatus": "computed",
@@ -2932,7 +2929,7 @@
      "kind": "ml_no_contribution"
     },
     "sentences": [
-     "머신러닝 모델이 이번 값들을 학습 데이터의 평소 값과 비교했고, 판정선을 벗어나 이상 징후로 판단했습니다."
+     "머신러닝 모델은 학습 데이터 기준 원점수가 판정선을 벗어나 이상 징후로 판단했습니다."
     ],
     "stateWords": [
      "이상 징후"
@@ -3000,7 +2997,7 @@
      "kind": "ml_no_contribution"
     },
     "sentences": [
-     "머신러닝 모델이 이번 값들을 학습 데이터의 평소 값과 비교했고, 판정선을 벗어나 이상 징후로 판단했습니다."
+     "머신러닝 모델은 학습 데이터 기준 원점수가 판정선을 벗어나 이상 징후로 판단했습니다."
     ],
     "stateWords": [
      "이상 징후"
@@ -3073,7 +3070,7 @@
      "kind": "ml_no_contribution"
     },
     "sentences": [
-     "머신러닝 모델이 이번 값들을 학습 데이터의 평소 값과 비교했고, 판정선을 벗어나 이상 징후로 판단했습니다."
+     "머신러닝 모델은 학습 데이터 기준 원점수가 판정선을 벗어나 이상 징후로 판단했습니다."
     ],
     "stateWords": [
      "이상 징후"
@@ -3163,12 +3160,12 @@
     "summaryLine": {
      "prefix": "주의",
      "prefixKind": "risk",
-     "text": "RETRY_COUNT가 기준(≥)에 해당합니다",
+     "text": "재시도 횟수가 기준을 넘었습니다",
      "kind": "soft_count"
     },
     "sentences": [
-     "이상 징후 규칙이 이번 RETRY_COUNT 값을 기준 값과 비교했고, 기준(≥)에 해당해 이상 징후로 판단했습니다.",
-     "머신러닝 모델이 이번 값들을 학습 데이터의 평소 값과 비교했고, 판정선을 벗어나 이상 징후로 판단했습니다."
+     "이상 징후 규칙은 재시도 횟수(RETRY_COUNT)가 기준을 넘어 이상 징후로 판단했습니다.",
+     "머신러닝 모델은 학습 데이터 기준 원점수가 판정선을 벗어나 이상 징후로 판단했습니다."
     ],
     "stateWords": [
      "이상 징후",
@@ -3179,7 +3176,7 @@
      {
       "kind": "rule",
       "methodId": "soft:retry_count-3f9a2c1d",
-      "condition": "RETRY_COUNT ≥ 3",
+      "condition": "재시도 횟수(RETRY_COUNT) ≥ 3",
       "observed": [
        {
         "name": null,
@@ -3194,7 +3191,7 @@
     "checks": [
      {
       "code": "soft_count",
-      "text": "RETRY_COUNT 기준 값이 지금 운영에 맞는지 규칙 설정에서 확인하세요."
+      "text": "해당 업무 시스템에서 재시도 횟수(RETRY_COUNT)가 나온 경위를 먼저 보고, 그다음 기준이 지금 운영에 맞는지 규칙 설정에서 확인하세요(화면: 위 표 이번 값)."
      }
     ],
     "contributionStatus": "failed",
@@ -3290,12 +3287,12 @@
     "summaryLine": {
      "prefix": "주의",
      "prefixKind": "risk",
-     "text": "RETRY_COUNT가 기준(≥)에 해당합니다",
+     "text": "재시도 횟수가 기준을 넘었습니다",
      "kind": "soft_count"
     },
     "sentences": [
-     "이상 징후 규칙이 이번 RETRY_COUNT 값을 기준 값과 비교했고, 기준(≥)에 해당해 이상 징후로 판단했습니다.",
-     "일부 검사(머신러닝 모델)는 결과를 내지 못해 평가 불가입니다."
+     "이상 징후 규칙은 재시도 횟수(RETRY_COUNT)가 기준을 넘어 이상 징후로 판단했습니다.",
+     "머신러닝 모델은 결과를 내지 못해 평가 불가입니다."
     ],
     "stateWords": [
      "이상 징후",
@@ -3306,7 +3303,7 @@
      {
       "kind": "rule",
       "methodId": "soft:retry_count-3f9a2c1d",
-      "condition": "RETRY_COUNT ≥ 3",
+      "condition": "재시도 횟수(RETRY_COUNT) ≥ 3",
       "observed": [
        {
         "name": null,
@@ -3335,11 +3332,11 @@
     "checks": [
      {
       "code": "soft_count",
-      "text": "RETRY_COUNT 기준 값이 지금 운영에 맞는지 규칙 설정에서 확인하세요."
+      "text": "해당 업무 시스템에서 재시도 횟수(RETRY_COUNT)가 나온 경위를 먼저 보고, 그다음 기준이 지금 운영에 맞는지 규칙 설정에서 확인하세요(화면: 위 표 이번 값)."
      },
      {
       "code": "unresolved",
-      "text": "결과를 내지 못한 검사(머신러닝 모델)의 입력 수집 상태를 확인하세요."
+      "text": "결과를 내지 못한 머신러닝 모델의 입력 수집 상태를 확인하세요."
      }
     ],
     "contributionStatus": "skipped",
@@ -3456,13 +3453,13 @@
     "summaryLine": {
      "prefix": "위험",
      "prefixKind": "risk",
-     "text": "성공 상태인데 ERROR_COUNT가 기록되었습니다",
+     "text": "성공 상태인데 오류 건수가 기록되었습니다",
      "kind": "hard_success_with_error"
     },
     "sentences": [
-     "이상 규칙이 처리 상태 S와 ERROR_COUNT를 함께 확인했고, 성공 상태인데 ERROR_COUNT가 0보다 커서 이상으로 판단했습니다.",
-     "이상 규칙이 시작 시각 2026-01-01 10:00:09와 종료 시각 2026-01-01 10:00:05를 비교했고, 시작이 더 늦어 이상으로 판단했습니다.",
-     "이상 규칙이 처리량(TOTAL_COUNT)을 SUCCESS_COUNT와 ERROR_COUNT의 합과 비교했고, 두 값이 달라 이상으로 판단했습니다.",
+     "이상 규칙은 처리 상태가 S(성공)인데 오류 건수(ERROR_COUNT)가 0보다 커서 이상으로 판단했습니다.",
+     "이상 규칙은 시작 시각이 종료 시각보다 늦어 이상으로 판단했습니다.",
+     "이상 규칙은 처리량(TOTAL_COUNT)이 성공 건수(SUCCESS_COUNT)와 오류 건수(ERROR_COUNT)의 합과 달라 이상으로 판단했습니다.",
      "그 밖의 근거 1개는 아래 표에 있습니다."
     ],
     "stateWords": [
@@ -3470,10 +3467,7 @@
      "이상",
      "이상"
     ],
-    "valueTokens": [
-     "2026-01-01 10:00:09",
-     "2026-01-01 10:00:05"
-    ],
+    "valueTokens": [],
     "table": [
      {
       "kind": "rule",
@@ -3502,12 +3496,12 @@
       "observed": [
        {
         "name": "상태",
-        "value": "S",
+        "value": "S(성공)",
         "unit": null,
         "unitUnknown": false
        },
        {
-        "name": "ERROR_COUNT",
+        "name": "오류 건수(ERROR_COUNT)",
         "value": "1",
         "unit": null,
         "unitUnknown": true
@@ -3521,19 +3515,19 @@
       "condition": "TOTAL_COUNT ≠ SUCCESS_COUNT + ERROR_COUNT",
       "observed": [
        {
-        "name": "TOTAL_COUNT",
+        "name": "처리량(TOTAL_COUNT)",
         "value": "10",
         "unit": null,
         "unitUnknown": true
        },
        {
-        "name": "SUCCESS_COUNT",
+        "name": "성공 건수(SUCCESS_COUNT)",
         "value": "8",
         "unit": null,
         "unitUnknown": true
        },
        {
-        "name": "ERROR_COUNT",
+        "name": "오류 건수(ERROR_COUNT)",
         "value": "1",
         "unit": null,
         "unitUnknown": true
@@ -3548,7 +3542,7 @@
       "observed": [
        {
         "name": null,
-        "value": "F",
+        "value": "F(실패)",
         "unit": null,
         "unitUnknown": false
        },
@@ -3565,11 +3559,11 @@
     "checks": [
      {
       "code": "hard_success_with_error",
-      "text": "원천 시스템에서 성공 처리에 ERROR_COUNT가 기록된 경위를 확인하세요."
+      "text": "해당 업무 시스템에서 성공 처리에 오류 건수(ERROR_COUNT)가 기록된 경위를 확인하세요(화면: 위 표 이번 값)."
      },
      {
       "code": "hard_negative_duration",
-      "text": "원천 시스템의 시작·종료 시각 기록(시간대 포함)을 확인하세요."
+      "text": "원본 로그의 시작·종료 시각 기록(시간대 포함)을 확인하세요(화면: 위 표 이번 값)."
      }
     ],
     "contributionStatus": "not_computed",
@@ -3675,11 +3669,11 @@
     "summaryLine": {
      "prefix": "이상 징후",
      "prefixKind": "grade",
-     "text": "평소와 다른 처리 시간 값이 확인됩니다",
+     "text": "처리 시간이 평소와 다릅니다",
      "kind": "ml_value"
     },
     "sentences": [
-     "머신러닝 모델이 이번 처리 시간 값을 평소 값과 비교했고, 달라 판단에 가장 크게 영향을 주었습니다(영향 70%)."
+     "머신러닝 모델 판단에는 평소와 다른 처리 시간이 가장 크게 영향을 주었습니다(70%)."
     ],
     "stateWords": [],
     "valueTokens": [],
@@ -3809,11 +3803,11 @@
     "summaryLine": {
      "prefix": "이상 징후",
      "prefixKind": "grade",
-     "text": "평소와 다른 오류 비율 값이 확인됩니다",
+     "text": "오류 비율이 평소와 다릅니다",
      "kind": "ml_value"
     },
     "sentences": [
-     "머신러닝 모델이 이번 오류 비율 값을 평소 값과 비교했고, 달라 판단에 가장 크게 영향을 주었습니다(영향 70%)."
+     "머신러닝 모델 판단에는 평소와 다른 오류 비율이 가장 크게 영향을 주었습니다(70%)."
     ],
     "stateWords": [],
     "valueTokens": [],
@@ -3825,7 +3819,7 @@
       "impactPercent": "70%",
       "members": [
        {
-        "name": "오류 비율 값",
+        "name": "오류 비율",
         "actual": "0.125",
         "usual": "평소와 다름",
         "unit": null,
@@ -3837,7 +3831,7 @@
     "checks": [
      {
       "code": "ml_value",
-      "text": "원천 시스템에서 오류 비율 값이 평소와 다른 이유를 확인하세요."
+      "text": "해당 업무 시스템에서 오류 비율이 평소와 다른 이유를 확인하세요(화면: 위 표)."
      }
     ],
     "contributionStatus": "computed",
@@ -3941,11 +3935,11 @@
     "summaryLine": {
      "prefix": "이상 징후",
      "prefixKind": "grade",
-     "text": "평소와 다른 queue_depth 값이 확인됩니다",
+     "text": "queue_depth가 평소와 다릅니다",
      "kind": "ml_value"
     },
     "sentences": [
-     "머신러닝 모델이 이번 queue_depth 값을 평소 값과 비교했고, 달라 판단에 가장 크게 영향을 주었습니다(영향 70%)."
+     "머신러닝 모델 판단에는 평소와 다른 queue_depth가 가장 크게 영향을 주었습니다(70%)."
     ],
     "stateWords": [],
     "valueTokens": [],
@@ -3969,7 +3963,7 @@
     "checks": [
      {
       "code": "ml_value",
-      "text": "원천 시스템에서 queue_depth 값이 평소와 다른 이유를 확인하세요."
+      "text": "해당 업무 시스템에서 queue_depth가 평소와 다른 이유를 확인하세요(화면: 위 표)."
      }
     ],
     "contributionStatus": "computed",
@@ -4073,11 +4067,11 @@
     "summaryLine": {
      "prefix": "이상 징후",
      "prefixKind": "grade",
-     "text": "평소와 다른 오류 비율 값이 확인됩니다",
+     "text": "오류 비율이 평소보다 낮습니다",
      "kind": "ml_error_ratio"
     },
     "sentences": [
-     "머신러닝 모델이 이번 오류 비율 값 0.3333을 평소 값 0.5와 비교했고, 더 낮아 판단에 가장 크게 영향을 주었습니다(영향 60%)."
+     "머신러닝 모델 판단에는 평소 0.5보다 낮은 오류 비율 0.3333이 가장 크게 영향을 주었습니다(60%)."
     ],
     "stateWords": [],
     "valueTokens": [],
@@ -4089,7 +4083,7 @@
       "impactPercent": "60%",
       "members": [
        {
-        "name": "오류 비율 값",
+        "name": "오류 비율",
         "actual": "0.3333",
         "usual": "0.5",
         "unit": null,
@@ -4101,7 +4095,7 @@
     "checks": [
      {
       "code": "ml_error_ratio",
-      "text": "원천 시스템에서 오류 비율 값이 평소와 다른 이유를 확인하세요."
+      "text": "해당 업무 시스템에서 오류 비율이 평소와 다른 이유를 확인하세요(화면: 위 표)."
      }
     ],
     "contributionStatus": "computed",
@@ -4205,11 +4199,11 @@
     "summaryLine": {
      "prefix": "이상 징후",
      "prefixKind": "grade",
-     "text": "평소 처리 시간과 비교하여 지연이 확인됩니다",
+     "text": "처리 시간이 평소보다 깁니다",
      "kind": "ml_elapsed_longer"
     },
     "sentences": [
-     "머신러닝 모델이 이번 처리 시간 1,234.6 ms를 평소 값 800 ms와 비교했고, 더 길어 판단에 가장 크게 영향을 주었습니다(영향 60%)."
+     "머신러닝 모델 판단에는 평소 800 ms보다 긴 처리 시간 1,234.6 ms가 가장 크게 영향을 주었습니다(60%)."
     ],
     "stateWords": [],
     "valueTokens": [],
@@ -4394,12 +4388,12 @@
     "summaryLine": {
      "prefix": "이상 징후",
      "prefixKind": "grade",
-     "text": "평소 처리 시간과 비교하여 지연이 확인됩니다",
+     "text": "처리 시간이 평소보다 깁니다",
      "kind": "ml_elapsed_longer"
     },
     "sentences": [
-     "머신러닝 모델이 이번 처리 시간 4,200 ms를 평소 값 800 ms와 비교했고, 더 길어 판단에 가장 크게 영향을 주었습니다(영향 62%).",
-     "다음으로 처리량(TOTAL_COUNT)·ERROR_COUNT·오류 비율 값이 평소와 달라 영향을 주었습니다(영향 31%)."
+     "머신러닝 모델 판단에는 평소 800 ms보다 긴 처리 시간 4,200 ms가 가장 크게 영향을 주었습니다(62%).",
+     "다음으로 평소와 다른 처리량(TOTAL_COUNT)·오류 건수(ERROR_COUNT)·오류 비율이 영향을 주었습니다(31%)."
     ],
     "stateWords": [],
     "valueTokens": [],
@@ -4433,14 +4427,14 @@
         "unitUnknown": true
        },
        {
-        "name": "ERROR_COUNT",
+        "name": "오류 건수(ERROR_COUNT)",
         "actual": "15",
         "usual": "0",
         "unit": null,
         "unitUnknown": true
        },
        {
-        "name": "오류 비율 값",
+        "name": "오류 비율",
         "actual": "0.125",
         "usual": "0",
         "unit": null,
@@ -4455,7 +4449,7 @@
       "impactPercent": "7%",
       "members": [
        {
-        "name": "RETRY_COUNT",
+        "name": "재시도 횟수(RETRY_COUNT)",
         "actual": "4",
         "usual": "0",
         "unit": null,
@@ -4524,17 +4518,17 @@
     "summaryLine": {
      "prefix": "위험도 미정",
      "prefixKind": "risk",
-     "text": "처리 상태가 S가 아닌 F로 기록되었습니다",
+     "text": "처리 상태가 F(실패)로 기록되었습니다",
      "kind": "hard_process_status"
     },
     "sentences": [
-     "이상 규칙이 이번 처리 상태 F를 성공 상태 S와 비교했고, 달라 이상으로 판단했습니다."
+     "이상 규칙은 처리 상태가 F(실패)여서 이상으로 판단했습니다."
     ],
     "stateWords": [
      "이상"
     ],
     "valueTokens": [
-     "F"
+     "F(실패)"
     ],
     "table": [
      {
@@ -4544,7 +4538,7 @@
       "observed": [
        {
         "name": null,
-        "value": "F",
+        "value": "F(실패)",
         "unit": null,
         "unitUnknown": false
        }
@@ -4555,7 +4549,7 @@
     "checks": [
      {
       "code": "hard_process_status",
-      "text": "원천 시스템에서 이 처리의 상태 F 기록 내용을 확인하세요."
+      "text": "원본 로그에서 이 처리의 상태 F(실패) 기록을 확인하세요(화면: Process Flow › 선택 노드 원본 정보 STATUS)."
      }
     ],
     "contributionStatus": "not_computed",
@@ -4613,17 +4607,17 @@
     "summaryLine": {
      "prefix": "이상",
      "prefixKind": "grade",
-     "text": "처리 상태가 S가 아닌 F로 기록되었습니다",
+     "text": "처리 상태가 F(실패)로 기록되었습니다",
      "kind": "hard_process_status"
     },
     "sentences": [
-     "이상 규칙이 이번 처리 상태 F를 성공 상태 S와 비교했고, 달라 이상으로 판단했습니다."
+     "이상 규칙은 처리 상태가 F(실패)여서 이상으로 판단했습니다."
     ],
     "stateWords": [
      "이상"
     ],
     "valueTokens": [
-     "F"
+     "F(실패)"
     ],
     "table": [
      {
@@ -4633,7 +4627,7 @@
       "observed": [
        {
         "name": null,
-        "value": "F",
+        "value": "F(실패)",
         "unit": null,
         "unitUnknown": false
        }
@@ -4644,7 +4638,7 @@
     "checks": [
      {
       "code": "hard_process_status",
-      "text": "원천 시스템에서 이 처리의 상태 F 기록 내용을 확인하세요."
+      "text": "원본 로그에서 이 처리의 상태 F(실패) 기록을 확인하세요(화면: Process Flow › 선택 노드 원본 정보 STATUS)."
      }
     ],
     "contributionStatus": "not_computed",
@@ -4704,11 +4698,11 @@
     "summaryLine": {
      "prefix": "주의",
      "prefixKind": "risk",
-     "text": "처리 시간이 기준 ≤ 50 ms에 해당합니다",
+     "text": "처리 시간이 기준 50 ms에 못 미칩니다",
      "kind": "soft_elapsed"
     },
     "sentences": [
-     "이상 징후 규칙이 이번 처리 시간 12 ms를 기준 50 ms와 비교했고, 기준(≤)에 해당해 이상 징후로 판단했습니다."
+     "이상 징후 규칙은 처리 시간이 12 ms로 기준 50 ms에 못 미쳐 이상 징후로 판단했습니다."
     ],
     "stateWords": [
      "이상 징후"
@@ -4733,7 +4727,7 @@
     "checks": [
      {
       "code": "soft_elapsed",
-      "text": "처리 시간 기준 값이 지금 운영에 맞는지 규칙 설정에서 확인하세요."
+      "text": "해당 업무 시스템에서 처리 시간이 나온 경위를 먼저 보고, 그다음 기준이 지금 운영에 맞는지 규칙 설정에서 확인하세요(화면: 위 표 이번 값)."
      }
     ],
     "contributionStatus": "not_computed",
@@ -4793,11 +4787,11 @@
     "summaryLine": {
      "prefix": "주의",
      "prefixKind": "risk",
-     "text": "오류 비율 값이 기준 < 0.5에 해당합니다",
+     "text": "오류 비율이 기준 0.5에 못 미칩니다",
      "kind": "soft_value"
     },
     "sentences": [
-     "이상 징후 규칙이 이번 오류 비율 값 0.125를 기준 0.5와 비교했고, 기준(<)에 해당해 이상 징후로 판단했습니다."
+     "이상 징후 규칙은 오류 비율이 0.125로 기준 0.5에 못 미쳐 이상 징후로 판단했습니다."
     ],
     "stateWords": [
      "이상 징후"
@@ -4807,7 +4801,7 @@
      {
       "kind": "rule",
       "methodId": "soft:error_ratio-3f9a2c1d",
-      "condition": "오류 비율 값 < 0.5",
+      "condition": "오류 비율 < 0.5",
       "observed": [
        {
         "name": null,
@@ -4822,7 +4816,7 @@
     "checks": [
      {
       "code": "soft_value",
-      "text": "오류 비율 값 기준 값이 지금 운영에 맞는지 규칙 설정에서 확인하세요."
+      "text": "해당 업무 시스템에서 오류 비율이 나온 경위를 먼저 보고, 그다음 기준이 지금 운영에 맞는지 규칙 설정에서 확인하세요(화면: 위 표 이번 값)."
      }
     ],
     "contributionStatus": "not_computed",
@@ -4926,11 +4920,11 @@
     "summaryLine": {
      "prefix": "위험",
      "prefixKind": "risk",
-     "text": "정해진 앞 단계 없이 처리되었습니다",
+     "text": "정해진 앞 단계와 다르게 처리되었습니다",
      "kind": "relation_precedes"
     },
     "sentences": [
-     "관계 규칙이 이 단계의 앞 단계 기록을 정해진 앞 단계 IF_A_PR001과 비교했고, 다른 앞 단계여서 이상으로 판단했습니다."
+     "관계 규칙은 이 단계의 앞 단계가 정해진 앞 단계 IF_A_PR001과 달라 이상으로 판단했습니다."
     ],
     "stateWords": [
      "이상"
@@ -4957,7 +4951,7 @@
     "checks": [
      {
       "code": "relation_precedes",
-      "text": "IF_A_PR001 단계 기록이 원천 시스템에 있는지 확인하세요."
+      "text": "정해진 앞 단계 IF_A_PR001의 기록이 원본 로그에 있는지 확인하세요(화면: Process Flow › 선택 노드 원본 정보 DEPENDS_ON)."
      }
     ],
     "contributionStatus": "not_computed",
@@ -5033,12 +5027,12 @@
     "summaryLine": {
      "prefix": "주의",
      "prefixKind": "risk",
-     "text": "RETRY_COUNT가 기준(≥)에 해당합니다",
+     "text": "재시도 횟수가 기준을 넘었습니다",
      "kind": "soft_count"
     },
     "sentences": [
-     "이상 징후 규칙이 이번 RETRY_COUNT 값을 기준 값과 비교했고, 기준(≥)에 해당해 이상 징후로 판단했습니다.",
-     "일부 검사(이상 규칙)는 결과를 내지 못해 평가 불가입니다."
+     "이상 징후 규칙은 재시도 횟수(RETRY_COUNT)가 기준을 넘어 이상 징후로 판단했습니다.",
+     "이상 규칙은 결과를 내지 못해 평가 불가입니다."
     ],
     "stateWords": [
      "이상 징후",
@@ -5049,7 +5043,7 @@
      {
       "kind": "rule",
       "methodId": "soft:retry_count-3f9a2c1d",
-      "condition": "RETRY_COUNT ≥ 3",
+      "condition": "재시도 횟수(RETRY_COUNT) ≥ 3",
       "observed": [
        {
         "name": null,
@@ -5078,11 +5072,11 @@
     "checks": [
      {
       "code": "soft_count",
-      "text": "RETRY_COUNT 기준 값이 지금 운영에 맞는지 규칙 설정에서 확인하세요."
+      "text": "해당 업무 시스템에서 재시도 횟수(RETRY_COUNT)가 나온 경위를 먼저 보고, 그다음 기준이 지금 운영에 맞는지 규칙 설정에서 확인하세요(화면: 위 표 이번 값)."
      },
      {
       "code": "unresolved",
-      "text": "결과를 내지 못한 검사(이상 규칙)의 입력 수집 상태를 확인하세요."
+      "text": "결과를 내지 못한 이상 규칙의 입력 수집 상태를 확인하세요."
      }
     ],
     "contributionStatus": "not_computed",
@@ -5153,11 +5147,11 @@
     "summaryLine": {
      "prefix": "위험",
      "prefixKind": "risk",
-     "text": "성공 상태인데 ERROR_COUNT가 기록되었습니다",
+     "text": "성공 상태인데 오류 건수가 기록되었습니다",
      "kind": "hard_success_with_error"
     },
     "sentences": [
-     "이상 규칙이 처리 상태 S와 ERROR_COUNT를 함께 확인했고, 성공 상태인데 ERROR_COUNT가 0보다 커서 이상으로 판단했습니다."
+     "이상 규칙은 처리 상태가 S(성공)인데 오류 건수(ERROR_COUNT)가 0보다 커서 이상으로 판단했습니다."
     ],
     "stateWords": [
      "이상"
@@ -5171,12 +5165,12 @@
       "observed": [
        {
         "name": "상태",
-        "value": "S",
+        "value": "S(성공)",
         "unit": null,
         "unitUnknown": false
        },
        {
-        "name": "ERROR_COUNT",
+        "name": "오류 건수(ERROR_COUNT)",
         "value": "—",
         "unit": null,
         "unitUnknown": false
@@ -5188,7 +5182,7 @@
     "checks": [
      {
       "code": "hard_success_with_error",
-      "text": "원천 시스템에서 성공 처리에 ERROR_COUNT가 기록된 경위를 확인하세요."
+      "text": "해당 업무 시스템에서 성공 처리에 오류 건수(ERROR_COUNT)가 기록된 경위를 확인하세요(화면: 위 표 이번 값)."
      }
     ],
     "contributionStatus": "not_computed",
@@ -5307,13 +5301,13 @@
     "summaryLine": {
      "prefix": "위험",
      "prefixKind": "risk",
-     "text": "RETRY_COUNT가 기준(≥)에 해당합니다",
+     "text": "재시도 횟수가 기준을 넘었습니다",
      "kind": "soft_count"
     },
     "sentences": [
-     "이상 징후 규칙이 이번 RETRY_COUNT 값을 기준 값과 비교했고, 기준(≥)에 해당해 이상 징후로 판단했습니다.",
-     "이상 규칙이 이번 처리 상태 N을 성공 상태 S와 비교했고, 달라 이상으로 판단했습니다.",
-     "이상 규칙이 시작 시각 2026-01-01 10:00:09와 종료 시각 2026-01-01 10:00:05를 비교했고, 시작이 더 늦어 이상으로 판단했습니다.",
+     "이상 징후 규칙은 재시도 횟수(RETRY_COUNT)가 기준을 넘어 이상 징후로 판단했습니다.",
+     "이상 규칙은 처리 상태가 N(미처리)이어서 이상으로 판단했습니다.",
+     "이상 규칙은 시작 시각이 종료 시각보다 늦어 이상으로 판단했습니다.",
      "그 밖의 근거 1개는 아래 표에 있습니다."
     ],
     "stateWords": [
@@ -5322,9 +5316,7 @@
      "이상"
     ],
     "valueTokens": [
-     "N",
-     "2026-01-01 10:00:09",
-     "2026-01-01 10:00:05"
+     "N(미처리)"
     ],
     "table": [
      {
@@ -5334,7 +5326,7 @@
       "observed": [
        {
         "name": null,
-        "value": "N",
+        "value": "N(미처리)",
         "unit": null,
         "unitUnknown": false
        }
@@ -5367,19 +5359,19 @@
       "condition": "TOTAL_COUNT ≠ SUCCESS_COUNT + ERROR_COUNT",
       "observed": [
        {
-        "name": "TOTAL_COUNT",
+        "name": "처리량(TOTAL_COUNT)",
         "value": "10",
         "unit": null,
         "unitUnknown": true
        },
        {
-        "name": "SUCCESS_COUNT",
+        "name": "성공 건수(SUCCESS_COUNT)",
         "value": "8",
         "unit": null,
         "unitUnknown": true
        },
        {
-        "name": "ERROR_COUNT",
+        "name": "오류 건수(ERROR_COUNT)",
         "value": "1",
         "unit": null,
         "unitUnknown": true
@@ -5390,7 +5382,7 @@
      {
       "kind": "rule",
       "methodId": "soft:retry_count-3f9a2c1d",
-      "condition": "RETRY_COUNT ≥ 3",
+      "condition": "재시도 횟수(RETRY_COUNT) ≥ 3",
       "observed": [
        {
         "name": null,
@@ -5405,11 +5397,11 @@
     "checks": [
      {
       "code": "soft_count",
-      "text": "RETRY_COUNT 기준 값이 지금 운영에 맞는지 규칙 설정에서 확인하세요."
+      "text": "해당 업무 시스템에서 재시도 횟수(RETRY_COUNT)가 나온 경위를 먼저 보고, 그다음 기준이 지금 운영에 맞는지 규칙 설정에서 확인하세요(화면: 위 표 이번 값)."
      },
      {
       "code": "hard_process_status",
-      "text": "원천 시스템에서 이 처리의 상태 N 기록 내용을 확인하세요."
+      "text": "원본 로그에서 이 처리의 상태 N(미처리) 기록을 확인하세요(화면: Process Flow › 선택 노드 원본 정보 STATUS)."
      }
     ],
     "contributionStatus": "not_computed",
@@ -5513,11 +5505,11 @@
     "summaryLine": {
      "prefix": "이상 징후",
      "prefixKind": "grade",
-     "text": "평소와 다른 처리 시간 값이 확인됩니다",
+     "text": "처리 시간이 평소와 다릅니다",
      "kind": "ml_value"
     },
     "sentences": [
-     "머신러닝 모델이 이번 처리 시간 값을 평소 값과 비교했고, 달라 판단에 가장 크게 영향을 주었습니다(영향 70%)."
+     "머신러닝 모델 판단에는 평소와 다른 처리 시간이 가장 크게 영향을 주었습니다(70%)."
     ],
     "stateWords": [],
     "valueTokens": [],
@@ -5645,11 +5637,11 @@
     "summaryLine": {
      "prefix": "이상 징후",
      "prefixKind": "grade",
-     "text": "평소와 다른 오류 비율 값이 확인됩니다",
+     "text": "오류 비율이 평소와 다릅니다",
      "kind": "ml_value"
     },
     "sentences": [
-     "머신러닝 모델이 이번 오류 비율 값을 평소 값과 비교했고, 달라 판단에 가장 크게 영향을 주었습니다(영향 70%)."
+     "머신러닝 모델 판단에는 평소와 다른 오류 비율이 가장 크게 영향을 주었습니다(70%)."
     ],
     "stateWords": [],
     "valueTokens": [],
@@ -5661,7 +5653,7 @@
       "impactPercent": "70%",
       "members": [
        {
-        "name": "오류 비율 값",
+        "name": "오류 비율",
         "actual": "0.1235",
         "usual": "0.1235",
         "unit": null,
@@ -5673,7 +5665,7 @@
     "checks": [
      {
       "code": "ml_value",
-      "text": "원천 시스템에서 오류 비율 값이 평소와 다른 이유를 확인하세요."
+      "text": "해당 업무 시스템에서 오류 비율이 평소와 다른 이유를 확인하세요(화면: 위 표)."
      }
     ],
     "contributionStatus": "computed",
@@ -5825,7 +5817,7 @@
      "kind": "normal_unconfirmed"
     },
     "sentences": [
-     "일부 검사(머신러닝 모델)는 결과를 내지 못해 평가 불가입니다."
+     "머신러닝 모델은 결과를 내지 못해 평가 불가입니다."
     ],
     "stateWords": [
      "평가 불가"
@@ -5850,7 +5842,7 @@
     "checks": [
      {
       "code": "unresolved",
-      "text": "결과를 내지 못한 검사(머신러닝 모델)의 입력 수집 상태를 확인하세요."
+      "text": "결과를 내지 못한 머신러닝 모델의 입력 수집 상태를 확인하세요."
      }
     ],
     "contributionStatus": "not_computed",
@@ -5872,6 +5864,2074 @@
     }
    },
    "expected": null
+  },
+  {
+   "id": "hard_process_status_p_particle",
+   "input": {
+    "evidence": {
+     "schemaVersion": 4,
+     "ruleSetRevision": 7,
+     "observation": {
+      "id": "obs-1",
+      "revisionNo": 1
+     },
+     "composite": {
+      "anomalous": true,
+      "status": "complete",
+      "grade": "anomaly",
+      "basisMethods": [
+       "hard:process-status"
+      ],
+      "risk": {
+       "status": "rated",
+       "level": "warning",
+       "determinedBy": [
+        "hard:process-status"
+       ],
+       "unratedMethods": []
+      }
+     },
+     "methodResults": [
+      {
+       "methodId": "hard:process-status",
+       "category": "hard",
+       "status": "succeeded",
+       "anomalous": true,
+       "code": "PROCESS_STATUS_P",
+       "evidence": [
+        {
+         "observedStatus": "P",
+         "result": "hit"
+        }
+       ]
+      }
+     ]
+    }
+   },
+   "expected": {
+    "summaryLine": {
+     "prefix": "주의",
+     "prefixKind": "risk",
+     "text": "처리 상태가 P(처리중)로 기록되었습니다",
+     "kind": "hard_process_status"
+    },
+    "sentences": [
+     "이상 규칙은 처리 상태가 P(처리중)여서 이상으로 판단했습니다."
+    ],
+    "stateWords": [
+     "이상"
+    ],
+    "valueTokens": [
+     "P(처리중)"
+    ],
+    "table": [
+     {
+      "kind": "rule",
+      "methodId": "hard:process-status",
+      "condition": "STATUS ≠ S",
+      "observed": [
+       {
+        "name": null,
+        "value": "P(처리중)",
+        "unit": null,
+        "unitUnknown": false
+       }
+      ],
+      "result": "이상"
+     }
+    ],
+    "checks": [
+     {
+      "code": "hard_process_status",
+      "text": "원본 로그에서 이 처리의 상태 P(처리중) 기록을 확인하세요(화면: Process Flow › 선택 노드 원본 정보 STATUS)."
+     }
+    ],
+    "contributionStatus": "not_computed",
+    "contributionNote": null
+   }
+  },
+  {
+   "id": "hard_process_status_h_particle",
+   "input": {
+    "evidence": {
+     "schemaVersion": 4,
+     "ruleSetRevision": 7,
+     "observation": {
+      "id": "obs-1",
+      "revisionNo": 1
+     },
+     "composite": {
+      "anomalous": true,
+      "status": "complete",
+      "grade": "anomaly",
+      "basisMethods": [
+       "hard:process-status"
+      ],
+      "risk": {
+       "status": "rated",
+       "level": "warning",
+       "determinedBy": [
+        "hard:process-status"
+       ],
+       "unratedMethods": []
+      }
+     },
+     "methodResults": [
+      {
+       "methodId": "hard:process-status",
+       "category": "hard",
+       "status": "succeeded",
+       "anomalous": true,
+       "code": "PROCESS_STATUS_H",
+       "evidence": [
+        {
+         "observedStatus": "H",
+         "result": "hit"
+        }
+       ]
+      }
+     ]
+    }
+   },
+   "expected": {
+    "summaryLine": {
+     "prefix": "주의",
+     "prefixKind": "risk",
+     "text": "처리 상태가 H(부분성공)로 기록되었습니다",
+     "kind": "hard_process_status"
+    },
+    "sentences": [
+     "이상 규칙은 처리 상태가 H(부분성공)여서 이상으로 판단했습니다."
+    ],
+    "stateWords": [
+     "이상"
+    ],
+    "valueTokens": [
+     "H(부분성공)"
+    ],
+    "table": [
+     {
+      "kind": "rule",
+      "methodId": "hard:process-status",
+      "condition": "STATUS ≠ S",
+      "observed": [
+       {
+        "name": null,
+        "value": "H(부분성공)",
+        "unit": null,
+        "unitUnknown": false
+       }
+      ],
+      "result": "이상"
+     }
+    ],
+    "checks": [
+     {
+      "code": "hard_process_status",
+      "text": "원본 로그에서 이 처리의 상태 H(부분성공) 기록을 확인하세요(화면: Process Flow › 선택 노드 원본 정보 STATUS)."
+     }
+    ],
+    "contributionStatus": "not_computed",
+    "contributionNote": null
+   }
+  },
+  {
+   "id": "hard_transaction_failed_with_meaning",
+   "input": {
+    "evidence": {
+     "schemaVersion": 4,
+     "ruleSetRevision": 7,
+     "observation": {
+      "id": "obs-1",
+      "revisionNo": 1
+     },
+     "composite": {
+      "anomalous": true,
+      "status": "complete",
+      "grade": "anomaly",
+      "basisMethods": [
+       "hard:transaction-failed"
+      ],
+      "risk": {
+       "status": "rated",
+       "level": "warning",
+       "determinedBy": [
+        "hard:transaction-failed"
+       ],
+       "unratedMethods": []
+      }
+     },
+     "methodResults": [
+      {
+       "methodId": "hard:transaction-failed",
+       "category": "hard",
+       "status": "succeeded",
+       "anomalous": true,
+       "code": "HARD_TRANSACTION_FAILED",
+       "evidence": [
+        {
+         "result": "hit",
+         "responseCode": "E101"
+        }
+       ]
+      }
+     ]
+    },
+    "responseCode": {
+     "code": "E101",
+     "message": "예시 뜻"
+    }
+   },
+   "expected": {
+    "summaryLine": {
+     "prefix": "주의",
+     "prefixKind": "risk",
+     "text": "거래가 F(실패), 응답 코드 E101로 기록되었습니다",
+     "kind": "hard_transaction_failed"
+    },
+    "sentences": [
+     "이상 규칙은 거래 상태가 F(실패)이고 응답 코드 E101이 성공 코드가 아니어서 이상으로 판단했습니다."
+    ],
+    "stateWords": [
+     "이상"
+    ],
+    "valueTokens": [
+     "E101"
+    ],
+    "table": [
+     {
+      "kind": "rule",
+      "methodId": "hard:transaction-failed",
+      "condition": "거래 STATUS = F, 응답 코드 ∉ {0000, S, 없음}",
+      "observed": [
+       {
+        "name": null,
+        "value": "F(실패)",
+        "unit": null,
+        "unitUnknown": false
+       },
+       {
+        "name": null,
+        "value": "E101(예시 뜻)",
+        "unit": null,
+        "unitUnknown": false
+       }
+      ],
+      "result": "이상"
+     }
+    ],
+    "checks": [
+     {
+      "code": "hard_transaction_failed",
+      "text": "해당 업무 시스템에서 응답 코드 E101(예시 뜻)이 나온 경위를 확인하세요(화면: 위 표 이번 값)."
+     }
+    ],
+    "contributionStatus": "not_computed",
+    "contributionNote": null
+   }
+  },
+  {
+   "id": "soft_count_total",
+   "input": {
+    "evidence": {
+     "schemaVersion": 4,
+     "ruleSetRevision": 7,
+     "observation": {
+      "id": "obs-1",
+      "revisionNo": 1
+     },
+     "composite": {
+      "anomalous": true,
+      "status": "complete",
+      "grade": "anomaly",
+      "basisMethods": [
+       "soft:total_count-1a2b3c4d"
+      ],
+      "risk": {
+       "status": "rated",
+       "level": "warning",
+       "determinedBy": [
+        "soft:total_count-1a2b3c4d"
+       ],
+       "unratedMethods": []
+      }
+     },
+     "methodResults": [
+      {
+       "methodId": "soft:total_count-1a2b3c4d",
+       "category": "soft",
+       "status": "succeeded",
+       "anomalous": true,
+       "code": null,
+       "evidence": [],
+       "condition": {
+        "field": "total_count",
+        "operator": "gte",
+        "threshold": 100,
+        "unit": "count"
+       },
+       "observedValue": 150
+      }
+     ]
+    }
+   },
+   "expected": {
+    "summaryLine": {
+     "prefix": "주의",
+     "prefixKind": "risk",
+     "text": "처리량이 기준을 넘었습니다",
+     "kind": "soft_count"
+    },
+    "sentences": [
+     "이상 징후 규칙은 처리량(TOTAL_COUNT)이 기준을 넘어 이상 징후로 판단했습니다."
+    ],
+    "stateWords": [
+     "이상 징후"
+    ],
+    "valueTokens": [],
+    "table": [
+     {
+      "kind": "rule",
+      "methodId": "soft:total_count-1a2b3c4d",
+      "condition": "처리량(TOTAL_COUNT) ≥ 100",
+      "observed": [
+       {
+        "name": null,
+        "value": "150",
+        "unit": null,
+        "unitUnknown": true
+       }
+      ],
+      "result": "이상 징후"
+     }
+    ],
+    "checks": [
+     {
+      "code": "soft_count",
+      "text": "해당 업무 시스템에서 처리량(TOTAL_COUNT)이 나온 경위를 먼저 보고, 그다음 기준이 지금 운영에 맞는지 규칙 설정에서 확인하세요(화면: 위 표 이번 값)."
+     }
+    ],
+    "contributionStatus": "not_computed",
+    "contributionNote": null
+   }
+  },
+  {
+   "id": "status_soft_and_ml_three_methods",
+   "input": {
+    "evidence": {
+     "schemaVersion": 4,
+     "ruleSetRevision": 7,
+     "observation": {
+      "id": "obs-1",
+      "revisionNo": 1
+     },
+     "composite": {
+      "anomalous": true,
+      "status": "complete",
+      "grade": "anomaly",
+      "basisMethods": [
+       "hard:process-status",
+       "soft:elapsed_ms-1a2b3c4d",
+       "ml:iforest"
+      ],
+      "risk": {
+       "status": "rated",
+       "level": "warning",
+       "determinedBy": [
+        "hard:process-status"
+       ],
+       "unratedMethods": []
+      }
+     },
+     "methodResults": [
+      {
+       "methodId": "hard:process-status",
+       "category": "hard",
+       "status": "succeeded",
+       "anomalous": true,
+       "code": "PROCESS_STATUS_P",
+       "evidence": [
+        {
+         "observedStatus": "P",
+         "result": "hit"
+        }
+       ]
+      },
+      {
+       "methodId": "soft:elapsed_ms-1a2b3c4d",
+       "category": "soft",
+       "status": "succeeded",
+       "anomalous": true,
+       "code": null,
+       "evidence": [],
+       "condition": {
+        "field": "elapsed_ms",
+        "operator": "gte",
+        "threshold": 3000,
+        "unit": "ms"
+       },
+       "observedValue": 3800
+      },
+      {
+       "methodId": "ml:iforest",
+       "category": "ml",
+       "status": "succeeded",
+       "anomalous": true,
+       "code": null,
+       "evidence": [],
+       "score": 0.71,
+       "scoreDetail": {
+        "raw": 0.71,
+        "threshold": "0.620",
+        "direction": "higher_is_anomaly"
+       },
+       "attribution": {
+        "version": "baseline-shapley-v1",
+        "status": "succeeded",
+        "baselineKind": "train_median_robust_scaler_center",
+        "grouping": "source-field-union-v1",
+        "scoreActual": 0.71,
+        "scoreBaseline": 0.4,
+        "threshold": "0.620",
+        "direction": "higher_is_anomaly",
+        "baselineWarning": false,
+        "efficiencyError": 0,
+        "players": [
+         {
+          "playerId": "error_count-16",
+          "features": [
+           "error_count"
+          ],
+          "actual": {
+           "error_count": "15"
+          },
+          "baseline": {
+           "error_count": 0
+          },
+          "scaleIsUnit": {},
+          "phi": 0.1,
+          "share": 0.4,
+          "thresholdGapShare": null
+         }
+        ],
+        "topK": [
+         "error_count-16"
+        ],
+        "counterfactual": [
+         {
+          "replaced": [
+           "error_count-16"
+          ],
+          "scoreAfter": 0.5,
+          "warningAfterReplacement": false
+         }
+        ],
+        "clearedAtK": 1,
+        "pins": {},
+        "computeMs": 0.5
+       }
+      }
+     ]
+    }
+   },
+   "expected": {
+    "summaryLine": {
+     "prefix": "주의",
+     "prefixKind": "risk",
+     "text": "처리 상태가 P(처리중)로 기록되었습니다",
+     "kind": "hard_process_status"
+    },
+    "sentences": [
+     "이상 규칙은 처리 상태가 P(처리중)여서 이상으로 판단했습니다.",
+     "이상 징후 규칙은 처리 시간이 3,800 ms로 기준 3,000 ms를 넘어 이상 징후로 판단했습니다.",
+     "머신러닝 모델 판단에는 평소와 다른 오류 건수(ERROR_COUNT)가 가장 크게 영향을 주었습니다(40%)."
+    ],
+    "stateWords": [
+     "이상",
+     "이상 징후"
+    ],
+    "valueTokens": [
+     "P(처리중)"
+    ],
+    "table": [
+     {
+      "kind": "rule",
+      "methodId": "hard:process-status",
+      "condition": "STATUS ≠ S",
+      "observed": [
+       {
+        "name": null,
+        "value": "P(처리중)",
+        "unit": null,
+        "unitUnknown": false
+       }
+      ],
+      "result": "이상"
+     },
+     {
+      "kind": "rule",
+      "methodId": "soft:elapsed_ms-1a2b3c4d",
+      "condition": "처리 시간 ≥ 3,000 ms",
+      "observed": [
+       {
+        "name": null,
+        "value": "3,800",
+        "unit": "ms",
+        "unitUnknown": false
+       }
+      ],
+      "result": "이상 징후"
+     },
+     {
+      "kind": "ml",
+      "methodId": "ml:iforest",
+      "playerId": "error_count-16",
+      "impactPercent": "40%",
+      "members": [
+       {
+        "name": "오류 건수(ERROR_COUNT)",
+        "actual": "15",
+        "usual": "0",
+        "unit": null,
+        "unitUnknown": true
+       }
+      ]
+     }
+    ],
+    "checks": [
+     {
+      "code": "hard_process_status",
+      "text": "원본 로그에서 이 처리의 상태 P(처리중) 기록을 확인하세요(화면: Process Flow › 선택 노드 원본 정보 STATUS)."
+     },
+     {
+      "code": "soft_elapsed",
+      "text": "해당 업무 시스템에서 처리 시간이 나온 경위를 먼저 보고, 그다음 기준이 지금 운영에 맞는지 규칙 설정에서 확인하세요(화면: 위 표 이번 값)."
+     }
+    ],
+    "contributionStatus": "computed",
+    "contributionNote": null
+   }
+  },
+  {
+   "id": "relation_precedes_missing_korean_step",
+   "input": {
+    "evidence": {
+     "schemaVersion": 4,
+     "ruleSetRevision": 7,
+     "observation": {
+      "id": "obs-1",
+      "revisionNo": 1
+     },
+     "composite": {
+      "anomalous": true,
+      "status": "complete",
+      "grade": "anomaly",
+      "basisMethods": [
+       "hard:rel-0a1b2c3d"
+      ],
+      "risk": {
+       "status": "rated",
+       "level": "warning",
+       "determinedBy": [
+        "hard:rel-0a1b2c3d"
+       ],
+       "unratedMethods": []
+      }
+     },
+     "methodResults": [
+      {
+       "methodId": "hard:rel-0a1b2c3d",
+       "category": "hard",
+       "status": "succeeded",
+       "anomalous": true,
+       "code": "REL_PRECEDES",
+       "evidence": [
+        {
+         "violation": "predecessor_missing"
+        }
+       ]
+      }
+     ]
+    },
+    "relationRules": [
+     {
+      "id": "hard:rel-0a1b2c3d",
+      "from": {
+       "processId": "주문 접수"
+      },
+      "to": {
+       "processId": "SHIP"
+      }
+     }
+    ]
+   },
+   "expected": {
+    "summaryLine": {
+     "prefix": "주의",
+     "prefixKind": "risk",
+     "text": "정해진 앞 단계와 다르게 처리되었습니다",
+     "kind": "relation_precedes"
+    },
+    "sentences": [
+     "관계 규칙은 정해진 앞 단계 주문 접수의 기록이 없어 이상으로 판단했습니다."
+    ],
+    "stateWords": [
+     "이상"
+    ],
+    "valueTokens": [
+     "주문 접수"
+    ],
+    "table": [
+     {
+      "kind": "rule",
+      "methodId": "hard:rel-0a1b2c3d",
+      "condition": "주문 접수 → SHIP",
+      "observed": [
+       {
+        "name": null,
+        "value": "앞 단계 기록 없음",
+        "unit": null,
+        "unitUnknown": false
+       }
+      ],
+      "result": "이상"
+     }
+    ],
+    "checks": [
+     {
+      "code": "relation_precedes",
+      "text": "정해진 앞 단계 주문 접수의 기록이 원본 로그에 있는지 확인하세요(화면: Process Flow › 선택 노드 원본 정보 DEPENDS_ON)."
+     }
+    ],
+    "contributionStatus": "not_computed",
+    "contributionNote": null
+   }
+  },
+  {
+   "id": "relation_required_step_korean_step",
+   "input": {
+    "evidence": {
+     "schemaVersion": 4,
+     "ruleSetRevision": 7,
+     "observation": {
+      "id": "obs-1",
+      "revisionNo": 1
+     },
+     "composite": {
+      "anomalous": true,
+      "status": "complete",
+      "grade": "anomaly",
+      "basisMethods": [
+       "hard:rel-0a1b2c3d"
+      ],
+      "risk": {
+       "status": "rated",
+       "level": "warning",
+       "determinedBy": [
+        "hard:rel-0a1b2c3d"
+       ],
+       "unratedMethods": []
+      }
+     },
+     "methodResults": [
+      {
+       "methodId": "hard:rel-0a1b2c3d",
+       "category": "hard",
+       "status": "succeeded",
+       "anomalous": true,
+       "code": "REL_REQUIRED_STEP",
+       "evidence": [
+        {}
+       ]
+      }
+     ]
+    },
+    "relationRules": [
+     {
+      "id": "hard:rel-0a1b2c3d",
+      "from": {
+       "processId": "정산 2단계"
+      },
+      "to": {
+       "processId": "END"
+      },
+      "scope": {
+       "interfaceId": "IF-9"
+      }
+     }
+    ]
+   },
+   "expected": {
+    "summaryLine": {
+     "prefix": "주의",
+     "prefixKind": "risk",
+     "text": "필수 단계 정산 2단계가 실행되지 않았습니다",
+     "kind": "relation_required_step"
+    },
+    "sentences": [
+     "관계 규칙은 이 거래에 필수 단계 정산 2단계가 없어 이상으로 판단했습니다."
+    ],
+    "stateWords": [
+     "이상"
+    ],
+    "valueTokens": [
+     "정산 2단계"
+    ],
+    "table": [
+     {
+      "kind": "rule",
+      "methodId": "hard:rel-0a1b2c3d",
+      "condition": "인터페이스 IF-9에 정산 2단계 필요",
+      "observed": [
+       {
+        "name": null,
+        "value": "없음",
+        "unit": null,
+        "unitUnknown": false
+       }
+      ],
+      "result": "이상"
+     }
+    ],
+    "checks": [
+     {
+      "code": "relation_required_step",
+      "text": "필수 단계 정산 2단계가 이 거래에서 실행되었는지 원본 로그에서 확인하세요(화면: Process Flow › 로그 구성)."
+     }
+    ],
+    "contributionStatus": "not_computed",
+    "contributionNote": null
+   }
+  },
+  {
+   "id": "hard_process_status_with_ml_unresolved",
+   "input": {
+    "evidence": {
+     "schemaVersion": 4,
+     "ruleSetRevision": 7,
+     "observation": {
+      "id": "obs-1",
+      "revisionNo": 1
+     },
+     "composite": {
+      "anomalous": true,
+      "status": "complete",
+      "grade": "anomaly",
+      "basisMethods": [
+       "hard:process-status"
+      ],
+      "risk": {
+       "status": "rated",
+       "level": "warning",
+       "determinedBy": [
+        "hard:process-status"
+       ],
+       "unratedMethods": []
+      }
+     },
+     "methodResults": [
+      {
+       "methodId": "hard:process-status",
+       "category": "hard",
+       "status": "succeeded",
+       "anomalous": true,
+       "code": "PROCESS_STATUS_F",
+       "evidence": [
+        {
+         "observedStatus": "F",
+         "result": "hit"
+        }
+       ]
+      },
+      {
+       "methodId": "ml:iforest",
+       "category": "ml",
+       "status": "not_ready",
+       "anomalous": null,
+       "cause": "timeout",
+       "evidence": []
+      }
+     ]
+    }
+   },
+   "expected": {
+    "summaryLine": {
+     "prefix": "주의",
+     "prefixKind": "risk",
+     "text": "처리 상태가 F(실패)로 기록되었습니다",
+     "kind": "hard_process_status"
+    },
+    "sentences": [
+     "이상 규칙은 처리 상태가 F(실패)여서 이상으로 판단했습니다.",
+     "머신러닝 모델은 결과를 내지 못해 평가 불가입니다."
+    ],
+    "stateWords": [
+     "이상",
+     "평가 불가"
+    ],
+    "valueTokens": [
+     "F(실패)"
+    ],
+    "table": [
+     {
+      "kind": "rule",
+      "methodId": "hard:process-status",
+      "condition": "STATUS ≠ S",
+      "observed": [
+       {
+        "name": null,
+        "value": "F(실패)",
+        "unit": null,
+        "unitUnknown": false
+       }
+      ],
+      "result": "이상"
+     },
+     {
+      "kind": "rule",
+      "methodId": "ml:iforest",
+      "condition": "머신러닝 모델",
+      "observed": [
+       {
+        "name": null,
+        "value": "—",
+        "unit": null,
+        "unitUnknown": false
+       }
+      ],
+      "result": "평가 불가"
+     }
+    ],
+    "checks": [
+     {
+      "code": "hard_process_status",
+      "text": "원본 로그에서 이 처리의 상태 F(실패) 기록을 확인하세요(화면: Process Flow › 선택 노드 원본 정보 STATUS)."
+     },
+     {
+      "code": "unresolved",
+      "text": "결과를 내지 못한 머신러닝 모델의 입력 수집 상태를 확인하세요."
+     }
+    ],
+    "contributionStatus": "not_computed",
+    "contributionNote": null
+   }
+  },
+  {
+   "id": "hard_process_status_z_meaning",
+   "input": {
+    "evidence": {
+     "schemaVersion": 4,
+     "ruleSetRevision": 7,
+     "observation": {
+      "id": "obs-1",
+      "revisionNo": 1
+     },
+     "composite": {
+      "anomalous": true,
+      "status": "complete",
+      "grade": "anomaly",
+      "basisMethods": [
+       "hard:process-status"
+      ],
+      "risk": {
+       "status": "rated",
+       "level": "warning",
+       "determinedBy": [
+        "hard:process-status"
+       ],
+       "unratedMethods": []
+      }
+     },
+     "methodResults": [
+      {
+       "methodId": "hard:process-status",
+       "category": "hard",
+       "status": "succeeded",
+       "anomalous": true,
+       "code": "PROCESS_STATUS_Z",
+       "evidence": [
+        {
+         "observedStatus": "Z",
+         "result": "hit"
+        }
+       ]
+      }
+     ]
+    }
+   },
+   "expected": {
+    "summaryLine": {
+     "prefix": "주의",
+     "prefixKind": "risk",
+     "text": "처리 상태가 Z(데이터없음)로 기록되었습니다",
+     "kind": "hard_process_status"
+    },
+    "sentences": [
+     "이상 규칙은 처리 상태가 Z(데이터없음)여서 이상으로 판단했습니다."
+    ],
+    "stateWords": [
+     "이상"
+    ],
+    "valueTokens": [
+     "Z(데이터없음)"
+    ],
+    "table": [
+     {
+      "kind": "rule",
+      "methodId": "hard:process-status",
+      "condition": "STATUS ≠ S",
+      "observed": [
+       {
+        "name": null,
+        "value": "Z(데이터없음)",
+        "unit": null,
+        "unitUnknown": false
+       }
+      ],
+      "result": "이상"
+     }
+    ],
+    "checks": [
+     {
+      "code": "hard_process_status",
+      "text": "원본 로그에서 이 처리의 상태 Z(데이터없음) 기록을 확인하세요(화면: Process Flow › 선택 노드 원본 정보 STATUS)."
+     }
+    ],
+    "contributionStatus": "not_computed",
+    "contributionNote": null
+   }
+  },
+  {
+   "id": "hard_process_status_unknown_code_only",
+   "input": {
+    "evidence": {
+     "schemaVersion": 4,
+     "ruleSetRevision": 7,
+     "observation": {
+      "id": "obs-1",
+      "revisionNo": 1
+     },
+     "composite": {
+      "anomalous": true,
+      "status": "complete",
+      "grade": "anomaly",
+      "basisMethods": [
+       "hard:process-status"
+      ],
+      "risk": {
+       "status": "rated",
+       "level": "warning",
+       "determinedBy": [
+        "hard:process-status"
+       ],
+       "unratedMethods": []
+      }
+     },
+     "methodResults": [
+      {
+       "methodId": "hard:process-status",
+       "category": "hard",
+       "status": "succeeded",
+       "anomalous": true,
+       "code": "PROCESS_STATUS_X",
+       "evidence": [
+        {
+         "observedStatus": "X",
+         "result": "hit"
+        }
+       ]
+      }
+     ]
+    }
+   },
+   "expected": {
+    "summaryLine": {
+     "prefix": "주의",
+     "prefixKind": "risk",
+     "text": "처리 상태가 X로 기록되었습니다",
+     "kind": "hard_process_status"
+    },
+    "sentences": [
+     "이상 규칙은 처리 상태가 X여서 이상으로 판단했습니다."
+    ],
+    "stateWords": [
+     "이상"
+    ],
+    "valueTokens": [
+     "X"
+    ],
+    "table": [
+     {
+      "kind": "rule",
+      "methodId": "hard:process-status",
+      "condition": "STATUS ≠ S",
+      "observed": [
+       {
+        "name": null,
+        "value": "X",
+        "unit": null,
+        "unitUnknown": false
+       }
+      ],
+      "result": "이상"
+     }
+    ],
+    "checks": [
+     {
+      "code": "hard_process_status",
+      "text": "원본 로그에서 이 처리의 상태 X 기록을 확인하세요(화면: Process Flow › 선택 노드 원본 정보 STATUS)."
+     }
+    ],
+    "contributionStatus": "not_computed",
+    "contributionNote": null
+   }
+  },
+  {
+   "id": "hard_process_status_value_missing",
+   "input": {
+    "evidence": {
+     "schemaVersion": 4,
+     "ruleSetRevision": 7,
+     "observation": {
+      "id": "obs-1",
+      "revisionNo": 1
+     },
+     "composite": {
+      "anomalous": true,
+      "status": "complete",
+      "grade": "anomaly",
+      "basisMethods": [
+       "hard:process-status"
+      ],
+      "risk": {
+       "status": "rated",
+       "level": "warning",
+       "determinedBy": [
+        "hard:process-status"
+       ],
+       "unratedMethods": []
+      }
+     },
+     "methodResults": [
+      {
+       "methodId": "hard:process-status",
+       "category": "hard",
+       "status": "succeeded",
+       "anomalous": true,
+       "code": "PROCESS_STATUS_",
+       "evidence": [
+        {
+         "result": "hit"
+        }
+       ]
+      }
+     ]
+    }
+   },
+   "expected": {
+    "summaryLine": {
+     "prefix": "주의",
+     "prefixKind": "risk",
+     "text": "처리 상태가 S(성공)가 아닌 값으로 기록되었습니다",
+     "kind": "hard_process_status"
+    },
+    "sentences": [
+     "이상 규칙은 처리 상태가 S(성공)가 아니어서 이상으로 판단했습니다."
+    ],
+    "stateWords": [
+     "이상"
+    ],
+    "valueTokens": [],
+    "table": [
+     {
+      "kind": "rule",
+      "methodId": "hard:process-status",
+      "condition": "STATUS ≠ S",
+      "observed": [
+       {
+        "name": null,
+        "value": "—",
+        "unit": null,
+        "unitUnknown": false
+       }
+      ],
+      "result": "이상"
+     }
+    ],
+    "checks": [
+     {
+      "code": "hard_process_status",
+      "text": "원본 로그에서 이 처리의 상태 기록을 확인하세요(화면: Process Flow › 선택 노드 원본 정보 STATUS)."
+     }
+    ],
+    "contributionStatus": "not_computed",
+    "contributionNote": null
+   }
+  },
+  {
+   "id": "hard_transaction_failed_long_meaning",
+   "input": {
+    "evidence": {
+     "schemaVersion": 4,
+     "ruleSetRevision": 7,
+     "observation": {
+      "id": "obs-1",
+      "revisionNo": 1
+     },
+     "composite": {
+      "anomalous": true,
+      "status": "complete",
+      "grade": "anomaly",
+      "basisMethods": [
+       "hard:transaction-failed"
+      ],
+      "risk": {
+       "status": "rated",
+       "level": "warning",
+       "determinedBy": [
+        "hard:transaction-failed"
+       ],
+       "unratedMethods": []
+      }
+     },
+     "methodResults": [
+      {
+       "methodId": "hard:transaction-failed",
+       "category": "hard",
+       "status": "succeeded",
+       "anomalous": true,
+       "code": "HARD_TRANSACTION_FAILED",
+       "evidence": [
+        {
+         "result": "hit",
+         "responseCode": "E101"
+        }
+       ]
+      }
+     ]
+    },
+    "responseCode": {
+     "code": "E101",
+     "message": "시험용 가짜 뜻입니다. 이 글은 확인할 것 줄 상한 사십 자를 넘도록 길게 썼습니다"
+    }
+   },
+   "expected": {
+    "summaryLine": {
+     "prefix": "주의",
+     "prefixKind": "risk",
+     "text": "거래가 F(실패), 응답 코드 E101로 기록되었습니다",
+     "kind": "hard_transaction_failed"
+    },
+    "sentences": [
+     "이상 규칙은 거래 상태가 F(실패)이고 응답 코드 E101이 성공 코드가 아니어서 이상으로 판단했습니다."
+    ],
+    "stateWords": [
+     "이상"
+    ],
+    "valueTokens": [
+     "E101"
+    ],
+    "table": [
+     {
+      "kind": "rule",
+      "methodId": "hard:transaction-failed",
+      "condition": "거래 STATUS = F, 응답 코드 ∉ {0000, S, 없음}",
+      "observed": [
+       {
+        "name": null,
+        "value": "F(실패)",
+        "unit": null,
+        "unitUnknown": false
+       },
+       {
+        "name": null,
+        "value": "E101(시험용 가짜 뜻입니다. 이 글은 확인할 것 줄 상한 사십 자를 넘도록 길게 썼습니다)",
+        "unit": null,
+        "unitUnknown": false
+       }
+      ],
+      "result": "이상"
+     }
+    ],
+    "checks": [
+     {
+      "code": "hard_transaction_failed",
+      "text": "해당 업무 시스템에서 응답 코드 E101(시험용 가짜 뜻입니다. 이 글은 확인할 것 줄 상한 사십 자를 넘도록 길…)이 나온 경위를 확인하세요(화면: 위 표 이번 값)."
+     }
+    ],
+    "contributionStatus": "not_computed",
+    "contributionNote": null
+   }
+  },
+  {
+   "id": "hard_transaction_failed_meaning_other_code",
+   "input": {
+    "evidence": {
+     "schemaVersion": 4,
+     "ruleSetRevision": 7,
+     "observation": {
+      "id": "obs-1",
+      "revisionNo": 1
+     },
+     "composite": {
+      "anomalous": true,
+      "status": "complete",
+      "grade": "anomaly",
+      "basisMethods": [
+       "hard:transaction-failed"
+      ],
+      "risk": {
+       "status": "rated",
+       "level": "warning",
+       "determinedBy": [
+        "hard:transaction-failed"
+       ],
+       "unratedMethods": []
+      }
+     },
+     "methodResults": [
+      {
+       "methodId": "hard:transaction-failed",
+       "category": "hard",
+       "status": "succeeded",
+       "anomalous": true,
+       "code": "HARD_TRANSACTION_FAILED",
+       "evidence": [
+        {
+         "result": "hit",
+         "responseCode": "E101"
+        }
+       ]
+      }
+     ]
+    },
+    "responseCode": {
+     "code": "E102",
+     "message": "예시 뜻"
+    }
+   },
+   "expected": {
+    "summaryLine": {
+     "prefix": "주의",
+     "prefixKind": "risk",
+     "text": "거래가 F(실패), 응답 코드 E101로 기록되었습니다",
+     "kind": "hard_transaction_failed"
+    },
+    "sentences": [
+     "이상 규칙은 거래 상태가 F(실패)이고 응답 코드 E101이 성공 코드가 아니어서 이상으로 판단했습니다."
+    ],
+    "stateWords": [
+     "이상"
+    ],
+    "valueTokens": [
+     "E101"
+    ],
+    "table": [
+     {
+      "kind": "rule",
+      "methodId": "hard:transaction-failed",
+      "condition": "거래 STATUS = F, 응답 코드 ∉ {0000, S, 없음}",
+      "observed": [
+       {
+        "name": null,
+        "value": "F(실패)",
+        "unit": null,
+        "unitUnknown": false
+       },
+       {
+        "name": null,
+        "value": "E101",
+        "unit": null,
+        "unitUnknown": false
+       }
+      ],
+      "result": "이상"
+     }
+    ],
+    "checks": [
+     {
+      "code": "hard_transaction_failed",
+      "text": "응답 코드 E101의 의미를 응답 코드 설정에서 확인하세요."
+     }
+    ],
+    "contributionStatus": "not_computed",
+    "contributionNote": null
+   }
+  },
+  {
+   "id": "hard_transaction_failed_meaning_blank",
+   "input": {
+    "evidence": {
+     "schemaVersion": 4,
+     "ruleSetRevision": 7,
+     "observation": {
+      "id": "obs-1",
+      "revisionNo": 1
+     },
+     "composite": {
+      "anomalous": true,
+      "status": "complete",
+      "grade": "anomaly",
+      "basisMethods": [
+       "hard:transaction-failed"
+      ],
+      "risk": {
+       "status": "rated",
+       "level": "warning",
+       "determinedBy": [
+        "hard:transaction-failed"
+       ],
+       "unratedMethods": []
+      }
+     },
+     "methodResults": [
+      {
+       "methodId": "hard:transaction-failed",
+       "category": "hard",
+       "status": "succeeded",
+       "anomalous": true,
+       "code": "HARD_TRANSACTION_FAILED",
+       "evidence": [
+        {
+         "result": "hit",
+         "responseCode": "E101"
+        }
+       ]
+      }
+     ]
+    },
+    "responseCode": {
+     "code": "E101",
+     "message": "  "
+    }
+   },
+   "expected": {
+    "summaryLine": {
+     "prefix": "주의",
+     "prefixKind": "risk",
+     "text": "거래가 F(실패), 응답 코드 E101로 기록되었습니다",
+     "kind": "hard_transaction_failed"
+    },
+    "sentences": [
+     "이상 규칙은 거래 상태가 F(실패)이고 응답 코드 E101이 성공 코드가 아니어서 이상으로 판단했습니다."
+    ],
+    "stateWords": [
+     "이상"
+    ],
+    "valueTokens": [
+     "E101"
+    ],
+    "table": [
+     {
+      "kind": "rule",
+      "methodId": "hard:transaction-failed",
+      "condition": "거래 STATUS = F, 응답 코드 ∉ {0000, S, 없음}",
+      "observed": [
+       {
+        "name": null,
+        "value": "F(실패)",
+        "unit": null,
+        "unitUnknown": false
+       },
+       {
+        "name": null,
+        "value": "E101",
+        "unit": null,
+        "unitUnknown": false
+       }
+      ],
+      "result": "이상"
+     }
+    ],
+    "checks": [
+     {
+      "code": "hard_transaction_failed",
+      "text": "응답 코드 E101의 의미를 응답 코드 설정에서 확인하세요."
+     }
+    ],
+    "contributionStatus": "not_computed",
+    "contributionNote": null
+   }
+  },
+  {
+   "id": "soft_elapsed_gte_equal_reach",
+   "input": {
+    "evidence": {
+     "schemaVersion": 4,
+     "ruleSetRevision": 7,
+     "observation": {
+      "id": "obs-1",
+      "revisionNo": 1
+     },
+     "composite": {
+      "anomalous": true,
+      "status": "complete",
+      "grade": "anomaly",
+      "basisMethods": [
+       "soft:elapsed_ms-1a2b3c4d"
+      ],
+      "risk": {
+       "status": "rated",
+       "level": "warning",
+       "determinedBy": [
+        "soft:elapsed_ms-1a2b3c4d"
+       ],
+       "unratedMethods": []
+      }
+     },
+     "methodResults": [
+      {
+       "methodId": "soft:elapsed_ms-1a2b3c4d",
+       "category": "soft",
+       "status": "succeeded",
+       "anomalous": true,
+       "code": null,
+       "evidence": [],
+       "condition": {
+        "field": "elapsed_ms",
+        "operator": "gte",
+        "threshold": 3000,
+        "unit": "ms"
+       },
+       "observedValue": 3000
+      }
+     ]
+    }
+   },
+   "expected": {
+    "summaryLine": {
+     "prefix": "주의",
+     "prefixKind": "risk",
+     "text": "처리 시간이 기준 3,000 ms에 이르렀습니다",
+     "kind": "soft_elapsed"
+    },
+    "sentences": [
+     "이상 징후 규칙은 처리 시간이 3,000 ms로 기준 3,000 ms에 이르러 이상 징후로 판단했습니다."
+    ],
+    "stateWords": [
+     "이상 징후"
+    ],
+    "valueTokens": [],
+    "table": [
+     {
+      "kind": "rule",
+      "methodId": "soft:elapsed_ms-1a2b3c4d",
+      "condition": "처리 시간 ≥ 3,000 ms",
+      "observed": [
+       {
+        "name": null,
+        "value": "3,000",
+        "unit": "ms",
+        "unitUnknown": false
+       }
+      ],
+      "result": "이상 징후"
+     }
+    ],
+    "checks": [
+     {
+      "code": "soft_elapsed",
+      "text": "해당 업무 시스템에서 처리 시간이 나온 경위를 먼저 보고, 그다음 기준이 지금 운영에 맞는지 규칙 설정에서 확인하세요(화면: 위 표 이번 값)."
+     }
+    ],
+    "contributionStatus": "not_computed",
+    "contributionNote": null
+   }
+  },
+  {
+   "id": "soft_count_lte_equal_reach",
+   "input": {
+    "evidence": {
+     "schemaVersion": 4,
+     "ruleSetRevision": 7,
+     "observation": {
+      "id": "obs-1",
+      "revisionNo": 1
+     },
+     "composite": {
+      "anomalous": true,
+      "status": "complete",
+      "grade": "anomaly",
+      "basisMethods": [
+       "soft:success_count-1a2b3c4d"
+      ],
+      "risk": {
+       "status": "rated",
+       "level": "warning",
+       "determinedBy": [
+        "soft:success_count-1a2b3c4d"
+       ],
+       "unratedMethods": []
+      }
+     },
+     "methodResults": [
+      {
+       "methodId": "soft:success_count-1a2b3c4d",
+       "category": "soft",
+       "status": "succeeded",
+       "anomalous": true,
+       "code": null,
+       "evidence": [],
+       "condition": {
+        "field": "success_count",
+        "operator": "lte",
+        "threshold": "5",
+        "unit": "count"
+       },
+       "observedValue": "5"
+      }
+     ]
+    }
+   },
+   "expected": {
+    "summaryLine": {
+     "prefix": "주의",
+     "prefixKind": "risk",
+     "text": "성공 건수가 기준에 이르렀습니다",
+     "kind": "soft_count"
+    },
+    "sentences": [
+     "이상 징후 규칙은 성공 건수(SUCCESS_COUNT)가 기준에 이르러 이상 징후로 판단했습니다."
+    ],
+    "stateWords": [
+     "이상 징후"
+    ],
+    "valueTokens": [],
+    "table": [
+     {
+      "kind": "rule",
+      "methodId": "soft:success_count-1a2b3c4d",
+      "condition": "성공 건수(SUCCESS_COUNT) ≤ 5",
+      "observed": [
+       {
+        "name": null,
+        "value": "5",
+        "unit": null,
+        "unitUnknown": true
+       }
+      ],
+      "result": "이상 징후"
+     }
+    ],
+    "checks": [
+     {
+      "code": "soft_count",
+      "text": "해당 업무 시스템에서 성공 건수(SUCCESS_COUNT)가 나온 경위를 먼저 보고, 그다음 기준이 지금 운영에 맞는지 규칙 설정에서 확인하세요(화면: 위 표 이번 값)."
+     }
+    ],
+    "contributionStatus": "not_computed",
+    "contributionNote": null
+   }
+  },
+  {
+   "id": "soft_count_lt_under",
+   "input": {
+    "evidence": {
+     "schemaVersion": 4,
+     "ruleSetRevision": 7,
+     "observation": {
+      "id": "obs-1",
+      "revisionNo": 1
+     },
+     "composite": {
+      "anomalous": true,
+      "status": "complete",
+      "grade": "anomaly",
+      "basisMethods": [
+       "soft:success_count-1a2b3c4d"
+      ],
+      "risk": {
+       "status": "rated",
+       "level": "warning",
+       "determinedBy": [
+        "soft:success_count-1a2b3c4d"
+       ],
+       "unratedMethods": []
+      }
+     },
+     "methodResults": [
+      {
+       "methodId": "soft:success_count-1a2b3c4d",
+       "category": "soft",
+       "status": "succeeded",
+       "anomalous": true,
+       "code": null,
+       "evidence": [],
+       "condition": {
+        "field": "success_count",
+        "operator": "lt",
+        "threshold": "5",
+        "unit": "count"
+       },
+       "observedValue": "2"
+      }
+     ]
+    }
+   },
+   "expected": {
+    "summaryLine": {
+     "prefix": "주의",
+     "prefixKind": "risk",
+     "text": "성공 건수가 기준에 못 미칩니다",
+     "kind": "soft_count"
+    },
+    "sentences": [
+     "이상 징후 규칙은 성공 건수(SUCCESS_COUNT)가 기준에 못 미쳐 이상 징후로 판단했습니다."
+    ],
+    "stateWords": [
+     "이상 징후"
+    ],
+    "valueTokens": [],
+    "table": [
+     {
+      "kind": "rule",
+      "methodId": "soft:success_count-1a2b3c4d",
+      "condition": "성공 건수(SUCCESS_COUNT) < 5",
+      "observed": [
+       {
+        "name": null,
+        "value": "2",
+        "unit": null,
+        "unitUnknown": true
+       }
+      ],
+      "result": "이상 징후"
+     }
+    ],
+    "checks": [
+     {
+      "code": "soft_count",
+      "text": "해당 업무 시스템에서 성공 건수(SUCCESS_COUNT)가 나온 경위를 먼저 보고, 그다음 기준이 지금 운영에 맞는지 규칙 설정에서 확인하세요(화면: 위 표 이번 값)."
+     }
+    ],
+    "contributionStatus": "not_computed",
+    "contributionNote": null
+   }
+  },
+  {
+   "id": "soft_elapsed_display_same_raw_over",
+   "input": {
+    "evidence": {
+     "schemaVersion": 4,
+     "ruleSetRevision": 7,
+     "observation": {
+      "id": "obs-1",
+      "revisionNo": 1
+     },
+     "composite": {
+      "anomalous": true,
+      "status": "complete",
+      "grade": "anomaly",
+      "basisMethods": [
+       "soft:elapsed_ms-1a2b3c4d"
+      ],
+      "risk": {
+       "status": "rated",
+       "level": "warning",
+       "determinedBy": [
+        "soft:elapsed_ms-1a2b3c4d"
+       ],
+       "unratedMethods": []
+      }
+     },
+     "methodResults": [
+      {
+       "methodId": "soft:elapsed_ms-1a2b3c4d",
+       "category": "soft",
+       "status": "succeeded",
+       "anomalous": true,
+       "code": null,
+       "evidence": [],
+       "condition": {
+        "field": "elapsed_ms",
+        "operator": "gte",
+        "threshold": 3000,
+        "unit": "ms"
+       },
+       "observedValue": 3000.04
+      }
+     ]
+    }
+   },
+   "expected": {
+    "summaryLine": {
+     "prefix": "주의",
+     "prefixKind": "risk",
+     "text": "처리 시간이 기준 3,000 ms를 넘었습니다",
+     "kind": "soft_elapsed"
+    },
+    "sentences": [
+     "이상 징후 규칙은 처리 시간이 3,000 ms로 기준 3,000 ms를 넘어 이상 징후로 판단했습니다."
+    ],
+    "stateWords": [
+     "이상 징후"
+    ],
+    "valueTokens": [],
+    "table": [
+     {
+      "kind": "rule",
+      "methodId": "soft:elapsed_ms-1a2b3c4d",
+      "condition": "처리 시간 ≥ 3,000 ms",
+      "observed": [
+       {
+        "name": null,
+        "value": "3,000",
+        "unit": "ms",
+        "unitUnknown": false
+       }
+      ],
+      "result": "이상 징후"
+     }
+    ],
+    "checks": [
+     {
+      "code": "soft_elapsed",
+      "text": "해당 업무 시스템에서 처리 시간이 나온 경위를 먼저 보고, 그다음 기준이 지금 운영에 맞는지 규칙 설정에서 확인하세요(화면: 위 표 이번 값)."
+     }
+    ],
+    "contributionStatus": "not_computed",
+    "contributionNote": null
+   }
+  },
+  {
+   "id": "soft_elapsed_value_missing_fallback",
+   "input": {
+    "evidence": {
+     "schemaVersion": 4,
+     "ruleSetRevision": 7,
+     "observation": {
+      "id": "obs-1",
+      "revisionNo": 1
+     },
+     "composite": {
+      "anomalous": true,
+      "status": "complete",
+      "grade": "anomaly",
+      "basisMethods": [
+       "soft:elapsed_ms-1a2b3c4d"
+      ],
+      "risk": {
+       "status": "rated",
+       "level": "warning",
+       "determinedBy": [
+        "soft:elapsed_ms-1a2b3c4d"
+       ],
+       "unratedMethods": []
+      }
+     },
+     "methodResults": [
+      {
+       "methodId": "soft:elapsed_ms-1a2b3c4d",
+       "category": "soft",
+       "status": "succeeded",
+       "anomalous": true,
+       "code": null,
+       "evidence": [],
+       "condition": {
+        "field": "elapsed_ms",
+        "operator": "gte",
+        "threshold": 3000,
+        "unit": "ms"
+       },
+       "observedValue": null
+      }
+     ]
+    }
+   },
+   "expected": {
+    "summaryLine": {
+     "prefix": "주의",
+     "prefixKind": "risk",
+     "text": "처리 시간이 기준(≥ 3,000 ms)에 해당합니다",
+     "kind": "soft_elapsed"
+    },
+    "sentences": [
+     "이상 징후 규칙은 처리 시간이 기준(≥ 3,000 ms)에 해당해 이상 징후로 판단했습니다."
+    ],
+    "stateWords": [
+     "이상 징후"
+    ],
+    "valueTokens": [],
+    "table": [
+     {
+      "kind": "rule",
+      "methodId": "soft:elapsed_ms-1a2b3c4d",
+      "condition": "처리 시간 ≥ 3,000 ms",
+      "observed": [
+       {
+        "name": null,
+        "value": "—",
+        "unit": null,
+        "unitUnknown": false
+       }
+      ],
+      "result": "이상 징후"
+     }
+    ],
+    "checks": [
+     {
+      "code": "soft_elapsed",
+      "text": "해당 업무 시스템에서 처리 시간이 나온 경위를 먼저 보고, 그다음 기준이 지금 운영에 맞는지 규칙 설정에서 확인하세요(화면: 위 표 이번 값)."
+     }
+    ],
+    "contributionStatus": "not_computed",
+    "contributionNote": null
+   }
+  },
+  {
+   "id": "soft_elapsed_unknown_operator_fallback",
+   "input": {
+    "evidence": {
+     "schemaVersion": 4,
+     "ruleSetRevision": 7,
+     "observation": {
+      "id": "obs-1",
+      "revisionNo": 1
+     },
+     "composite": {
+      "anomalous": true,
+      "status": "complete",
+      "grade": "anomaly",
+      "basisMethods": [
+       "soft:elapsed_ms-1a2b3c4d"
+      ],
+      "risk": {
+       "status": "rated",
+       "level": "warning",
+       "determinedBy": [
+        "soft:elapsed_ms-1a2b3c4d"
+       ],
+       "unratedMethods": []
+      }
+     },
+     "methodResults": [
+      {
+       "methodId": "soft:elapsed_ms-1a2b3c4d",
+       "category": "soft",
+       "status": "succeeded",
+       "anomalous": true,
+       "code": null,
+       "evidence": [],
+       "condition": {
+        "field": "elapsed_ms",
+        "operator": "between",
+        "threshold": 3000,
+        "unit": "ms"
+       },
+       "observedValue": 4200
+      }
+     ]
+    }
+   },
+   "expected": {
+    "summaryLine": {
+     "prefix": "주의",
+     "prefixKind": "risk",
+     "text": "처리 시간이 기준에 해당합니다",
+     "kind": "soft_elapsed"
+    },
+    "sentences": [
+     "이상 징후 규칙은 처리 시간이 기준에 해당해 이상 징후로 판단했습니다."
+    ],
+    "stateWords": [
+     "이상 징후"
+    ],
+    "valueTokens": [],
+    "table": [
+     {
+      "kind": "rule",
+      "methodId": "soft:elapsed_ms-1a2b3c4d",
+      "condition": "처리 시간 — 3,000 ms",
+      "observed": [
+       {
+        "name": null,
+        "value": "4,200",
+        "unit": "ms",
+        "unitUnknown": false
+       }
+      ],
+      "result": "이상 징후"
+     }
+    ],
+    "checks": [
+     {
+      "code": "soft_elapsed",
+      "text": "해당 업무 시스템에서 처리 시간이 나온 경위를 먼저 보고, 그다음 기준이 지금 운영에 맞는지 규칙 설정에서 확인하세요(화면: 위 표 이번 값)."
+     }
+    ],
+    "contributionStatus": "not_computed",
+    "contributionNote": null
+   }
+  },
+  {
+   "id": "soft_error_ratio_contradiction_fallback",
+   "input": {
+    "evidence": {
+     "schemaVersion": 4,
+     "ruleSetRevision": 7,
+     "observation": {
+      "id": "obs-1",
+      "revisionNo": 1
+     },
+     "composite": {
+      "anomalous": true,
+      "status": "complete",
+      "grade": "anomaly",
+      "basisMethods": [
+       "soft:error_ratio-1a2b3c4d"
+      ],
+      "risk": {
+       "status": "rated",
+       "level": "warning",
+       "determinedBy": [
+        "soft:error_ratio-1a2b3c4d"
+       ],
+       "unratedMethods": []
+      }
+     },
+     "methodResults": [
+      {
+       "methodId": "soft:error_ratio-1a2b3c4d",
+       "category": "soft",
+       "status": "succeeded",
+       "anomalous": true,
+       "code": null,
+       "evidence": [],
+       "condition": {
+        "field": "error_ratio",
+        "operator": "gt",
+        "threshold": 0.1,
+        "unit": null
+       },
+       "observedValue": 0.05
+      }
+     ]
+    }
+   },
+   "expected": {
+    "summaryLine": {
+     "prefix": "주의",
+     "prefixKind": "risk",
+     "text": "오류 비율이 기준(> 0.1)에 해당합니다",
+     "kind": "soft_value"
+    },
+    "sentences": [
+     "이상 징후 규칙은 오류 비율이 기준(> 0.1)에 해당해 이상 징후로 판단했습니다."
+    ],
+    "stateWords": [
+     "이상 징후"
+    ],
+    "valueTokens": [],
+    "table": [
+     {
+      "kind": "rule",
+      "methodId": "soft:error_ratio-1a2b3c4d",
+      "condition": "오류 비율 > 0.1",
+      "observed": [
+       {
+        "name": null,
+        "value": "0.05",
+        "unit": null,
+        "unitUnknown": false
+       }
+      ],
+      "result": "이상 징후"
+     }
+    ],
+    "checks": [
+     {
+      "code": "soft_value",
+      "text": "해당 업무 시스템에서 오류 비율이 나온 경위를 먼저 보고, 그다음 기준이 지금 운영에 맞는지 규칙 설정에서 확인하세요(화면: 위 표 이번 값)."
+     }
+    ],
+    "contributionStatus": "not_computed",
+    "contributionNote": null
+   }
+  },
+  {
+   "id": "soft_count_contradiction_fallback",
+   "input": {
+    "evidence": {
+     "schemaVersion": 4,
+     "ruleSetRevision": 7,
+     "observation": {
+      "id": "obs-1",
+      "revisionNo": 1
+     },
+     "composite": {
+      "anomalous": true,
+      "status": "complete",
+      "grade": "anomaly",
+      "basisMethods": [
+       "soft:retry_count-1a2b3c4d"
+      ],
+      "risk": {
+       "status": "rated",
+       "level": "warning",
+       "determinedBy": [
+        "soft:retry_count-1a2b3c4d"
+       ],
+       "unratedMethods": []
+      }
+     },
+     "methodResults": [
+      {
+       "methodId": "soft:retry_count-1a2b3c4d",
+       "category": "soft",
+       "status": "succeeded",
+       "anomalous": true,
+       "code": null,
+       "evidence": [],
+       "condition": {
+        "field": "retry_count",
+        "operator": "gte",
+        "threshold": "3",
+        "unit": "count"
+       },
+       "observedValue": "1"
+      }
+     ]
+    }
+   },
+   "expected": {
+    "summaryLine": {
+     "prefix": "주의",
+     "prefixKind": "risk",
+     "text": "재시도 횟수가 기준(≥)에 해당합니다",
+     "kind": "soft_count"
+    },
+    "sentences": [
+     "이상 징후 규칙은 재시도 횟수(RETRY_COUNT)가 기준(≥)에 해당해 이상 징후로 판단했습니다."
+    ],
+    "stateWords": [
+     "이상 징후"
+    ],
+    "valueTokens": [],
+    "table": [
+     {
+      "kind": "rule",
+      "methodId": "soft:retry_count-1a2b3c4d",
+      "condition": "재시도 횟수(RETRY_COUNT) ≥ 3",
+      "observed": [
+       {
+        "name": null,
+        "value": "1",
+        "unit": null,
+        "unitUnknown": true
+       }
+      ],
+      "result": "이상 징후"
+     }
+    ],
+    "checks": [
+     {
+      "code": "soft_count",
+      "text": "해당 업무 시스템에서 재시도 횟수(RETRY_COUNT)가 나온 경위를 먼저 보고, 그다음 기준이 지금 운영에 맞는지 규칙 설정에서 확인하세요(화면: 위 표 이번 값)."
+     }
+    ],
+    "contributionStatus": "not_computed",
+    "contributionNote": null
+   }
   }
  ]
 }

@@ -6,10 +6,15 @@
  * - 예외를 던지지 않는다. v3·형식 어긋남·요약할 근거가 없으면 null(화면은 카드를 그리지 않는다)
  * - 블록 순서: 1 한 줄 요약(앞말 + 문구) · 2 문장(근거 방법 hard → soft → ml 최대 MAX_METHOD_SENTENCES + 넘침 + 미판정) · 3 표 · 4 확인할 것 · 5 고정 안내
  * - 주 근거(블록 1·4 첫 줄) = composite.risk.determinedBy 첫 방법, 없으면 basisMethods 첫 방법(요약할 수 없는 방법이면 다음). 블록 4 둘째 줄 = 미판정 줄, 없으면 다른 근거 방법의 첫 다른 줄
- * - valueTokens = 문장에 끼워 넣은 원천 문자열 값(상태·시각·응답 코드·인터페이스·단계 이름)을 문장에 나온 글자 그대로, 처음 나온 순. 숫자 값은 넣지 않는다
+ * - valueTokens = 문장에 끼워 넣은 원천 문자열 값(상태 `F(실패)` 통째·응답 코드·인터페이스·단계 이름)을 문장에 나온 글자 그대로, 처음 나온 순.
+ *   숫자 값은 넣지 않는다. 시각은 문단에 넣지 않는다(표에만 원문)
  * - stateWords = 문장에서 valueTokens·시각·이름표를 가린 뒤 판정 낱말이 나온 순서열
+ * - 소프트룰 비교 낱말(넘어·이르러·못 미쳐)은 저장 이번 값과 기준의 대소 한 번으로 고른다(새 수치를 만들지 않음). 값이 없거나 연산자를 모르거나
+ *   값과 연산자가 모순이면 기호를 쓰는 대체 문장
+ * - 응답 코드 뜻(사전 `ops_response_codes.message`)은 확인할 것·표 이번 값에만 쓴다(문단 밖 — 다듬기 입력·재사용 키가 바뀌지 않음).
+ *   읽기는 판정 상세가 하고(evidenceSummaryNeeds.responseCode) 여기에는 값으로 넘긴다
  */
-import { displayNumber, expandExponent, percentText, plainNumber } from "./koreanText.js";
+import { NUMBER_TEXT_LIMIT, displayNumber, expandExponent, percentText, plainNumber } from "./koreanText.js";
 import { readAttribution, type Attribution, type AttributionPlayer } from "./mlAttribution.js";
 import * as T from "./evidenceSummaryTemplates.js";
 
@@ -53,6 +58,8 @@ export type EvidenceSummaryInput = {
   relationRules?: unknown;
   /** 판정 항목 인터페이스(프로토콜 근거에 인터페이스가 없을 때만). */
   interfaceId?: string | null;
+  /** 거래 실패 근거 응답 코드의 사전 뜻(evidenceSummaryNeeds.responseCode로 읽은 값). code가 근거 코드와 같고 message가 빈 글이 아닐 때만 쓴다. */
+  responseCode?: { code: unknown; message: unknown } | null;
 };
 
 type Rec = Record<string, unknown>;
@@ -68,7 +75,7 @@ const numberValue = (v: unknown, unit: string | null = null): string => {
 };
 /** 문장·조건 속 값: 숫자 표기 + 단위 한 칸(값이 없으면 단위도 없음). */
 const withUnit = (value: string, unit: string | null) => (unit && value !== T.NO_VALUE ? `${value} ${unit}` : value);
-const label = (field: string): T.FieldLabel => (Object.hasOwn(T.FIELD_LABELS, field) ? T.FIELD_LABELS[field] : { name: field, unitUnknown: false, unit: null });
+const label = (field: string): T.FieldLabel => (Object.hasOwn(T.FIELD_LABELS, field) ? T.FIELD_LABELS[field] : { name: field, short: field, unitUnknown: false, unit: null });
 
 const CATEGORY_RANK: Record<string, number> = { hard: 0, soft: 1, ml: 2 };
 const isRelation = (id: string) => id.startsWith("hard:rel-");
@@ -110,6 +117,13 @@ const observedOf = (input: EvidenceSummaryInput, evidence: Rec): ObservedFields 
   return fields && want !== null && revision(fields.revisionNo) === want ? fields : {};
 };
 
+/** 거래 실패 근거 코드의 사전 뜻: 넘겨받은 코드가 근거 코드와 같고 뜻이 빈 글이 아닐 때만(아니면 null → v1 확인할 것 문장·표는 코드만). */
+const responseMeaningOf = (input: EvidenceSummaryInput, code: string): string | null => {
+  const entry = record(input.responseCode) ? input.responseCode : null;
+  if (!entry || code === T.NO_VALUE || entry.code !== code) return null;
+  return typeof entry.message === "string" && entry.message.trim() !== "" ? entry.message : null;
+};
+
 // ---- 하드룰 ----
 const describeHard = (m: Rec, input: EvidenceSummaryInput, evidence: Rec): Described | null => {
   const id = m.methodId as string;
@@ -119,18 +133,19 @@ const describeHard = (m: Rec, input: EvidenceSummaryInput, evidence: Rec): Descr
   const A = T.RESULT_WORDS.anomaly;
   const N = T.OBSERVED_NAMES;
   if (id === "hard:process-status") {
-    const x = shown(str(first.observedStatus) ?? (code?.startsWith("PROCESS_STATUS_") ? code.slice("PROCESS_STATUS_".length) || null : null));
+    const status = str(first.observedStatus) ?? (code?.startsWith("PROCESS_STATUS_") ? code.slice("PROCESS_STATUS_".length) || null : null);
+    const x = status === null ? T.NO_VALUE : T.statusText(status);
     return fromLines(id, "hard_process_status", T.hard.processStatus.lines(x), [ruleRow(id, T.hard.processStatus.condition, [obs(x)], A)], [x]);
   }
   if (id === "hard:negative-duration") {
     const s = shown(str(observed.startTimeRaw));
     const e = shown(str(observed.endTimeRaw));
-    return fromLines(id, "hard_negative_duration", T.hard.negativeDuration.lines(s, e),
-      [ruleRow(id, T.hard.negativeDuration.condition, [obs(s), obs(e)], A)], [s, e]);
+    return fromLines(id, "hard_negative_duration", T.hard.negativeDuration.lines(),
+      [ruleRow(id, T.hard.negativeDuration.condition, [obs(s), obs(e)], A)]);
   }
   if (id === "hard:success-with-error") {
     return fromLines(id, "hard_success_with_error", T.hard.successWithError.lines(),
-      [ruleRow(id, T.hard.successWithError.condition, [obs("S", N.status), obs(numberValue(observed.errorCount), N.errorCount, null, true)], A)]);
+      [ruleRow(id, T.hard.successWithError.condition, [obs(T.hard.successWithError.success, N.status), obs(numberValue(observed.errorCount), N.errorCount, null, true)], A)]);
   }
   if (id === "hard:count-conservation") {
     const values = [[N.totalCount, observed.totalCount], [N.successCount, observed.successCount], [N.errorCount, observed.errorCount]] as const;
@@ -139,7 +154,10 @@ const describeHard = (m: Rec, input: EvidenceSummaryInput, evidence: Rec): Descr
   }
   if (id === "hard:transaction-failed") {
     const c = shown(str(first.responseCode));
-    return fromLines(id, "hard_transaction_failed", T.hard.transactionFailed.lines(c), [ruleRow(id, T.hard.transactionFailed.condition, [obs("F"), obs(c)], A)], [c]);
+    const meaning = responseMeaningOf(input, c);
+    const t = T.hard.transactionFailed;
+    return fromLines(id, "hard_transaction_failed", t.lines(c, meaning === null ? null : T.shortMeaning(meaning)),
+      [ruleRow(id, t.condition, [obs(t.failed), obs(meaning === null ? c : T.codeWithMeaning(c, meaning))], A)], [c]);
   }
   const review = record(evidence.protocolReview) ? evidence.protocolReview : null;
   const iface = shown(str(review?.interfaceId) ?? str(input.interfaceId));
@@ -161,9 +179,9 @@ const describeHard = (m: Rec, input: EvidenceSummaryInput, evidence: Rec): Descr
     if (code === "REL_PRECEDES") {
       const violation = str(first.violation);
       const words = T.relation.precedes;
-      const reason = violation && Object.hasOwn(words.violationReasons, violation) ? words.violationReasons[violation] : null;
+      const sentence = violation && Object.hasOwn(words.violationSentences, violation) ? words.violationSentences[violation](from) : words.unknownSentence(from);
       const word = violation && Object.hasOwn(words.violationWords, violation) ? words.violationWords[violation] : T.NO_VALUE;
-      return fromLines(id, "relation_precedes", words.lines(from, reason), [ruleRow(id, words.condition(from, to), [obs(word)], A)], [from]);
+      return fromLines(id, "relation_precedes", words.lines(from, sentence), [ruleRow(id, words.condition(from, to), [obs(word)], A)], [from]);
     }
     if (code === "REL_MESSAGE_HANDOFF") {
       const t = T.relation.messageHandoff;
@@ -180,6 +198,36 @@ const describeHard = (m: Rec, input: EvidenceSummaryInput, evidence: Rec): Descr
 };
 
 // ---- 소프트룰 ----
+/** 저장값 → 10진 문자열(지수 펼침). 숫자로 읽을 수 없으면 null. */
+const decimalOf = (v: unknown): string | null => {
+  const raw = typeof v === "number" && Number.isFinite(v) ? plainNumber(v) : typeof v === "string" ? expandExponent(v.trim()) : null;
+  return raw !== null && raw.length <= NUMBER_TEXT_LIMIT && /^[+-]?\d+(\.\d+)?$/.test(raw) ? raw : null;
+};
+/** 두 10진 문자열의 대소(-1·0·1). 소수 자릿수를 맞춰 BigInt로 비교한다(부동소수 반올림 없음). */
+const compareDecimal = (a: string, b: string): number => {
+  const parts = (x: string) => {
+    const [int, frac = ""] = x.replace(/^[+-]/, "").split(".");
+    return { negative: x.startsWith("-"), int, frac };
+  };
+  const [x, y] = [parts(a), parts(b)];
+  const scale = Math.max(x.frac.length, y.frac.length);
+  const big = (p: { negative: boolean; int: string; frac: string }) => (p.negative ? -1n : 1n) * BigInt(p.int + p.frac.padEnd(scale, "0"));
+  const [bx, by] = [big(x), big(y)];
+  return bx === by ? 0 : bx > by ? 1 : -1;
+};
+/** 연산자별로 걸렸을 때 나올 수 있는 관계(그 밖 = 모순). */
+const SOFT_ALLOWED: Record<string, T.SoftCompare[]> = { gt: ["over"], gte: ["over", "reach"], lte: ["under", "reach"], lt: ["under"] };
+/**
+ * 비교 낱말: v > t → 넘어(`>`·`≥`), v = t → 이르러(`≥`·`≤`), v < t → 못 미쳐(`<`·`≤`). 이번 값·기준이 없거나 연산자를 모르거나
+ * 값과 연산자가 모순(걸렸는데 `>`인데 v ≤ t 등)이면 null(대체 문장). 표시 글자가 같아도(반올림) 원값 관계 낱말을 쓴다.
+ */
+const softCompareOf = (operator: string, observed: unknown, threshold: unknown): T.SoftCompare | null => {
+  const [v, t] = [decimalOf(observed), decimalOf(threshold)];
+  if (v === null || t === null || !Object.hasOwn(SOFT_ALLOWED, operator)) return null;
+  const order = compareDecimal(v, t);
+  const word: T.SoftCompare = order > 0 ? "over" : order === 0 ? "reach" : "under";
+  return SOFT_ALLOWED[operator].includes(word) ? word : null;
+};
 const describeSoft = (m: Rec): Described | null => {
   const id = m.methodId as string;
   const condition = record(m.condition) ? m.condition : null;
@@ -193,9 +241,9 @@ const describeSoft = (m: Rec): Described | null => {
   const value = numberValue(m.observedValue, unit);
   const v = withUnit(value, unit);
   const rows = [ruleRow(id, T.soft.condition(l.name, op, t), [obs(value, null, unit, unitUnknown)], T.RESULT_WORDS.sign)];
-  if (unitUnknown) return fromLines(id, "soft_count", T.soft.count(l.name, op), rows);
-  if (field === "elapsed_ms") return fromLines(id, "soft_elapsed", T.soft.elapsed(l.name, op, v, t), rows);
-  return fromLines(id, "soft_value", T.soft.value(l.name, op, v, t), rows);
+  const compare = softCompareOf(String(condition?.operator), m.observedValue, condition?.threshold);
+  if (unitUnknown) return fromLines(id, "soft_count", T.soft.count(l, op, compare), rows);
+  return fromLines(id, field === "elapsed_ms" ? "soft_elapsed" : "soft_value", T.soft.value(l, op, v, t, compare), rows);
 };
 
 // ---- 머신러닝 모델 ----
@@ -204,6 +252,7 @@ const contributionNoteOf = (a: Attribution): string | null => {
   return T.CONTRIBUTION_NOTES[a.status];
 };
 const playerLabel = (p: AttributionPlayer) => T.ml.playerName(p.features.map((f) => label(f).name));
+const playerShort = (p: AttributionPlayer) => T.ml.playerName(p.features.map((f) => label(f).short));
 const impactOf = (p: AttributionPlayer) => (p.share === null ? null : percentText(p.share));
 const describeMl = (m: Rec): Described => {
   const id = m.methodId as string;
@@ -246,7 +295,7 @@ const describeMl = (m: Rec): Described => {
   } else {
     if (first.features.length > 1) kind = "ml_group";
     else if (single && label(single).unitUnknown) kind = "ml_count";
-    lines = T.ml.value(playerLabel(first), impact, single === "elapsed_ms");
+    lines = T.ml.value(playerLabel(first), playerShort(first), impact, single === "elapsed_ms");
   }
   const sentences = [lines.sentence, ...(second ? [T.ml.second(playerLabel(second), impactOf(second))] : [])];
   return { methodId: id, kind, line: lines.line, sentences, check: lines.check, rows, note: null, tokens: [] };
@@ -275,7 +324,7 @@ export const judgmentWords = (text: string, valueTokens: string[]): string[] => 
   let masked = text;
   for (const token of [...valueTokens].sort((a, b) => b.length - a.length)) masked = masked.split(token).join(MASK);
   masked = masked.replace(TIME, MASK);
-  const names = [...Object.values(T.FIELD_LABELS).map((l) => l.name), ...T.MASKED_NAMES].sort((a, b) => b.length - a.length);
+  const names = [...Object.values(T.FIELD_LABELS).map((l) => l.name), ...T.STATUS_LABELS, ...T.MASKED_NAMES].sort((a, b) => b.length - a.length);
   for (const name of names) masked = masked.split(name).join(MASK);
   const found: string[] = [];
   for (let i = 0; i < masked.length; ) {
@@ -391,15 +440,24 @@ export const buildEvidenceSummary = (input: EvidenceSummaryInput): EvidenceSumma
   }
 };
 
-/** 판정 상세 읽기가 추가로 읽을 값: 관측 행(시각·건수 하드룰 근거가 있을 때), 룰 세트 리비전(관계 규칙 근거가 있을 때). */
+/**
+ * 판정 상세 읽기가 추가로 읽을 값: 관측 행(시각·건수 하드룰 근거가 있을 때), 룰 세트 리비전(관계 규칙 근거가 있을 때),
+ * 응답 코드 사전 뜻을 찾을 코드(거래 실패 근거가 있을 때 — 근거 첫 항목의 거래 응답 코드, 사전 PK 1건).
+ */
 const OBSERVED_HARD_RULES = new Set(["hard:negative-duration", "hard:success-with-error", "hard:count-conservation"]);
-export const evidenceSummaryNeeds = (evidence: unknown): { observed: boolean; ruleSetRevision: number | null } => {
-  if (!record(evidence) || evidence.schemaVersion !== 4) return { observed: false, ruleSetRevision: null };
+/** 사전 코드 형식(migration 025 CHECK와 같음: 공백 없는 인쇄 가능 ASCII 1~64자). 형식 밖이면 읽지 않는다(사전에 있을 수 없는 값). */
+const RESPONSE_CODE = /^[\x21-\x7e]{1,64}$/;
+export type EvidenceSummaryNeeds = { observed: boolean; ruleSetRevision: number | null; responseCode: string | null };
+export const evidenceSummaryNeeds = (evidence: unknown): EvidenceSummaryNeeds => {
+  if (!record(evidence) || evidence.schemaVersion !== 4) return { observed: false, ruleSetRevision: null, responseCode: null };
   const hits = records(evidence.methodResults).filter((m) => m.status === "succeeded" && m.anomalous === true && typeof m.methodId === "string");
   const revision = evidence.ruleSetRevision;
   const relation = hits.some((m) => isRelation(m.methodId as string));
+  const failed = hits.find((m) => m.methodId === "hard:transaction-failed");
+  const code = failed ? str((records(failed.evidence)[0] ?? {}).responseCode) : null;
   return {
     observed: hits.some((m) => OBSERVED_HARD_RULES.has(m.methodId as string)),
     ruleSetRevision: relation && typeof revision === "number" && Number.isSafeInteger(revision) && revision >= 0 ? revision : null,
+    responseCode: code !== null && RESPONSE_CODE.test(code) ? code : null,
   };
 };

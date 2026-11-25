@@ -14,7 +14,7 @@ CHECKS = {
     "review_input_completeness": "입력 결측·수집 상태를 확인하세요.",
     "review_rule_threshold": "적중한 Rule의 승인 기준과 입력값을 확인하세요.",
     "review_model_baseline": "모델 기준 기간과 현재 데이터의 분포 차이를 확인하세요.",
-    "review_source_operation": "원천 시스템 운영 로그를 확인하세요. 원인은 아직 확정되지 않았습니다.",
+    "review_source_operation": "원본 로그를 확인하세요. 원인은 아직 확정되지 않았습니다.",
 }
 
 # 다듬기 작업의 llm_spec 고정 값. 다르면 다른 입력 형식·확인 규칙·결과 형식으로 만든 결과를 같은 이름으로 저장하게 된다.

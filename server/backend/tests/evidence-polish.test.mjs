@@ -11,12 +11,12 @@ import {
 import { buildEvidenceSummary } from '../dist/services/evidenceSummary.js';
 
 const DECISION = { sourceId: '00000000-0000-4000-8000-000000000001', decisionId: '00000000-0000-4000-8000-000000000002', configVersionId: null };
-const SENTENCE = '이상 규칙이 이번 처리 상태 F를 성공 상태 S와 비교했고, 달라 이상으로 판단했습니다.';
-const summary = (over = {}) => ({ templateVersion: 'evidence-template-v1', sentences: [SENTENCE], stateWords: ['이상'], valueTokens: ['F'], ...over });
+const SENTENCE = '이상 규칙은 처리 상태가 F(실패)여서 이상으로 판단했습니다.';
+const summary = (over = {}) => ({ templateVersion: 'evidence-template-v2', sentences: [SENTENCE], stateWords: ['이상'], valueTokens: ['F(실패)'], ...over });
 
 test('contract constants', () => {
   assert.deepEqual([POLISH_EVIDENCE_VERSION, POLISH_PROMPT_VERSION, POLISH_OUTPUT_SCHEMA_VERSION, POLISH_FAILURE_COOLDOWN_MINUTES, POLISH_MAX_ATTEMPTS],
-    ['summary-sentences-v1', 'evidence-polish-v1', 'evidence-polish-result-v1', 10, 1]);
+    ['summary-sentences-v1', 'evidence-polish-v2', 'evidence-polish-result-v1', 10, 1]);
   assert.deepEqual(POLISH_LIMITS, { sentences: 8, sentenceLength: 300, totalLength: 1200, valueTokens: 16, valueTokenLength: 120 });
 });
 
@@ -27,26 +27,26 @@ test('canonical JSON: sorted keys (code points), no spaces, non-ASCII as is, und
 
 test('input, hash and reuse key: fixed example, no requester, sourceId outside the hash', () => {
   const input = buildPolishInput(DECISION, summary());
-  assert.deepEqual(input, { kind: 'explain', ...DECISION, templateVersion: 'evidence-template-v1', sentences: [SENTENCE], stateWords: ['이상'], valueTokens: ['F'] });
+  assert.deepEqual(input, { kind: 'explain', ...DECISION, templateVersion: 'evidence-template-v2', sentences: [SENTENCE], stateWords: ['이상'], valueTokens: ['F(실패)'] });
   const spec = polishLlmSpec(input, 'fixture-polish-model');
   assert.deepEqual(spec, {
     evidence_version: 'summary-sentences-v1',
-    input_evidence_hash: 'a6170143ce92e684c1a8d2adefa3e0e5605fba6f11bcf40cd324b90f005391be',
-    model_version: 'fixture-polish-model', prompt_version: 'evidence-polish-v1', output_schema_version: 'evidence-polish-result-v1',
-    reuse_key: 'e8963048ad477df067d6a160c1ea330d1b72c18e101ea5bcdae783345d0ad945',
+    input_evidence_hash: 'b5191d0ab1812eca4491e8ea57e6384d83e6827c46324ffe8445782a3eb68cc7',
+    model_version: 'fixture-polish-model', prompt_version: 'evidence-polish-v2', output_schema_version: 'evidence-polish-result-v1',
+    reuse_key: 'd772c0bc3a08b50c95f7726a5747b95bd744897c45eb0c3432778cb793d3d9f5',
   });
   assert.equal(polishLlmSpec({ ...input, sourceId: '00000000-0000-4000-8000-0000000000ff' }, 'fixture-polish-model').reuse_key, spec.reuse_key, 'sourceId is not in the key');
   assert.equal(polishLlmSpec.length, 2, 'the key has no requester argument');
   assert.notEqual(polishLlmSpec(input, 'other-model').reuse_key, spec.reuse_key, 'model version splits the key');
   assert.equal(polishLlmSpec(input, 'other-model').input_evidence_hash, spec.input_evidence_hash, 'model version is not in the input hash');
-  assert.notEqual(polishEvidenceHash({ ...input, templateVersion: 'evidence-template-v2' }), spec.input_evidence_hash);
+  assert.notEqual(polishEvidenceHash({ ...input, templateVersion: 'evidence-template-v1' }), spec.input_evidence_hash, 'v1 template inputs hash differently (old results are not reused)');
   assert.notEqual(polishEvidenceHash({ ...input, configVersionId: '00000000-0000-4000-8000-000000000003' }), spec.input_evidence_hash);
 });
 
 test('input limits: no sentence, too many/long sentences, value token missing from the text → not accepted', () => {
   const long = '가'.repeat(301);
   for (const over of [{ sentences: [] }, { sentences: Array(9).fill(SENTENCE) }, { sentences: [long] }, { sentences: Array(5).fill('가'.repeat(250)) },
-    { valueTokens: Array(17).fill('F') }, { valueTokens: ['없는값'] }, { valueTokens: [''] }, { valueTokens: ['F'.repeat(121)] }])
+    { valueTokens: Array(17).fill('F(실패)') }, { valueTokens: ['없는값'] }, { valueTokens: [''] }, { valueTokens: ['F'.repeat(121)] }])
     assert.equal(buildPolishInput(DECISION, summary(over)), null, JSON.stringify(over).slice(0, 60));
   assert.ok(buildPolishInput(DECISION, summary({ sentences: Array(4).fill('가'.repeat(300)), valueTokens: [] })), '1,200 code points is the limit');
   // 공용 벡터의 모든 이상 요약은 접수 입력이 된다(상한 안)
@@ -57,15 +57,15 @@ test('input limits: no sentence, too many/long sentences, value token missing fr
   }
 });
 
-test('result reading: new schema, same decision and template only; old fact results are not shown', () => {
-  const expected = { decisionId: DECISION.decisionId, templateVersion: 'evidence-template-v1' };
-  const output = (over = {}) => ({ outputSchemaVersion: 'evidence-polish-result-v1', decisionId: DECISION.decisionId, templateVersion: 'evidence-template-v1',
+test('result reading: new schema, same decision and template only; old fact results and v1-template results are not shown', () => {
+  const expected = { decisionId: DECISION.decisionId, templateVersion: 'evidence-template-v2' };
+  const output = (over = {}) => ({ outputSchemaVersion: 'evidence-polish-result-v1', decisionId: DECISION.decisionId, templateVersion: 'evidence-template-v2',
     codeText: SENTENCE, paragraph: { text: '다듬은 문단입니다.', source: 'llm' }, check: { status: 'passed', code: null }, modelVersion: 'm-1', ...over });
   assert.deepEqual(readPolished(output(), expected), { text: '다듬은 문단입니다.', source: 'llm', check: { status: 'passed', code: null }, modelVersion: 'm-1' });
   assert.deepEqual(readPolished(output({ paragraph: { text: SENTENCE, source: 'code' }, check: { status: 'failed', code: 'polish_number_changed' }, modelVersion: undefined }), expected, 'col-model'),
     { text: SENTENCE, source: 'code', check: { status: 'failed', code: 'polish_number_changed' }, modelVersion: 'col-model' });
   for (const bad of [null, 'x', { facts: [], nextChecks: [] }, output({ outputSchemaVersion: 'fact-ids-checks-v1' }), output({ decisionId: 'other' }),
-    output({ templateVersion: 'evidence-template-v0' }), output({ paragraph: { text: '', source: 'llm' } }), output({ paragraph: { text: 'x', source: 'model' } }), output({ paragraph: 'x' })])
+    output({ templateVersion: 'evidence-template-v1' }), output({ paragraph: { text: '', source: 'llm' } }), output({ paragraph: { text: 'x', source: 'model' } }), output({ paragraph: 'x' })])
     assert.equal(readPolished(bad, expected), null, JSON.stringify(bad)?.slice(0, 60));
 });
 
@@ -88,10 +88,10 @@ test('versions match the worker constants when the worker file is present', (t) 
 
 test('worker-rejected input is filtered before intake (one function for intake and detail)', async () => {
   const { polishInputProblem } = await import('../dist/services/evidencePolish.js');
-  assert.equal(polishInputProblem([SENTENCE], ['F']), null);
+  assert.equal(polishInputProblem([SENTENCE], ['F(실패)']), null);
   for (const [sentences, tokens, code] of [[[], [], 'sentence_count'], [['  '], [], 'sentence_length'], [[`${SENTENCE}\n`], [], 'sentence_character'],
     [['가\u2028나'], [], 'sentence_character'], [['가\u0085나'], [], 'sentence_character'], [['가\u000b나'], [], 'sentence_character'], [['가\uE000나'], [], 'sentence_character'],
-    [['가\uF8FF나'], [], 'sentence_character'], [['\u001F'], [], 'sentence_length'], [['\u001C \u0085'], [], 'sentence_length'], [['앞 문장.', '뒤 문장.'], ['문장. 뒤'], 'value_token'], [[SENTENCE], Array(17).fill('F'), 'value_token_count']])
+    [['가\uF8FF나'], [], 'sentence_character'], [['\u001F'], [], 'sentence_length'], [['\u001C \u0085'], [], 'sentence_length'], [['앞 문장.', '뒤 문장.'], ['문장. 뒤'], 'value_token'], [[SENTENCE], Array(17).fill('F(실패)'), 'value_token_count']])
     assert.equal(polishInputProblem(sentences, tokens), code, JSON.stringify(sentences));
   assert.equal(buildPolishInput(DECISION, summary({ sentences: ['가\uE001나'], stateWords: [], valueTokens: [] })), null);
 });

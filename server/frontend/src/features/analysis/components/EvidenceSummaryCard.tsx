@@ -24,9 +24,10 @@ const withUnit = (value: string, unit: string | null) => (unit && NUMBER_TEXT.te
 const observedText = (entries: EvidenceSummaryObserved[]) => entries.map((o) => `${o.name ? `${o.name} ` : ""}${withUnit(o.value, o.unit)}`).join(", ");
 
 /**
- * 괄호가 붙은 이름(`처리량(TOTAL_COUNT)`)이 중간에서 끊기지 않게 그 이름만 줄바꿈 없는 묶음으로 감싼다. 글자는 바꾸지 않는다.
+ * 괄호가 붙은 이름(`처리량(TOTAL_COUNT)`·`F(실패)`)이 중간에서 끊기지 않게 그 이름만 줄바꿈 없는 묶음으로 감싼다. 글자는 바꾸지 않는다.
+ * 띄어 쓴 건수 계열 이름(`오류 건수(ERROR_COUNT)`·`재시도 횟수(RETRY_COUNT)` — 원본 열 이름 괄호)은 앞 낱말까지 함께 묶는다.
  */
-const NAME_WITH_PARENS = /[^\s·,()]+\([^\s()]+\)/g;
+const NAME_WITH_PARENS = /[가-힣]+ (?:건수|횟수)\([A-Z][A-Z0-9_]*\)|[^\s·,()]+\([^\s()]+\)/g;
 export const keepNames = (text: string): ReactNode => {
   const parts: ReactNode[] = [];
   let last = 0;

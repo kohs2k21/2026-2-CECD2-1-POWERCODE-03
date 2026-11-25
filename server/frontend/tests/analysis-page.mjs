@@ -1154,12 +1154,13 @@ const polishedReads = (id) => requested.filter((r) => r.path === `/api/analysis/
   assert.equal(blockText(card, "paragraph"), mixed.sentences.join(" "), "one paragraph, single spaces");
   const nameSpans = card.findAll((node) => node.type === "span" && String(node.props.className).includes("whitespace-nowrap")).map((node) => text(node.children));
   assert.ok(nameSpans.includes("처리량(TOTAL_COUNT)"), "a name with parentheses is kept on one line");
+  assert.ok(nameSpans.includes("오류 건수(ERROR_COUNT)"), "a spaced count name is kept on one line with its first word");
   assert.deepEqual(tables(card), ["rule", "ml"]);
   const table = (kind) => card.find((node) => node.type === "table" && node.props["data-evidence-summary-table"] === kind);
   const cells = (kind) => table(kind).findAll((node) => node.type === "tr").map((tr) => tr.findAll((node) => node.type === "th" || node.type === "td").map((c) => text(c.children)));
   assert.deepEqual(cells("rule"), [["규칙 조건", "이번 값", "결과"], ["처리 시간 ≥ 3,000 ms", "4,200 ms", "이상 징후"]]);
   assert.deepEqual(cells("ml"), [["모델이 본 변수", "이번 값", "평소 값", "영향"], ["처리 시간", "4,200 ms", "800 ms", "62%"],
-    ["처리량(TOTAL_COUNT)", "120", "100", "31%"], ["ERROR_COUNT", "15", "0"], ["오류 비율 값", "0.125", "0"]], "group members on their own rows, impact once per player");
+    ["처리량(TOTAL_COUNT)", "120", "100", "31%"], ["오류 건수(ERROR_COUNT)", "15", "0"], ["오류 비율", "0.125", "0"]], "group members on their own rows, impact once per player");
   const mlRows = table("ml").findAll((node) => node.type === "tr" && node.props["data-player-id"]);
   assert.deepEqual(mlRows.map((tr) => String(tr.props.className ?? "").includes("border-b-0")), [false, true, true, false], "separators only between players");
   assert.deepEqual(mlRows.map((tr) => String(tr.findAll((node) => node.type === "td")[0].props.className).includes("pl-6")), [false, false, true, true], "second group member onwards indented");
@@ -1176,7 +1177,9 @@ const polishedReads = (id) => requested.filter((r) => r.path === `/api/analysis/
   // 하드룰: 이번 값 칸 = 이름 + 값(여러 개면 `, `), 건수 값은 덧말 없이 칸 툴팁
   const hardRule = await show("d-es6", summaryOf("example_a_hard_success_with_error"), { riskLevel: "critical" });
   const hardCell = cardOf(hardRule)[0].findAll((node) => node.type === "td")[1];
-  assert.deepEqual([text(hardCell.children), hardCell.props.title], ["상태 S, ERROR_COUNT 3", "단위 미확인"]);
+  assert.deepEqual([text(hardCell.children), hardCell.props.title], ["상태 S(성공), 오류 건수(ERROR_COUNT) 3", "단위 미확인"]);
+  const statusSpans = cardOf(hardRule)[0].findAll((node) => node.type === "span" && String(node.props.className).includes("whitespace-nowrap")).map((node) => text(node.children));
+  assert.ok(statusSpans.includes("S(성공)") && statusSpans.includes("오류 건수(ERROR_COUNT)"), `status and count names kept whole: ${statusSpans.join(" / ")}`);
   await hardRule.cleanup();
 
   // scale 1 구성원: 평소 값 칸은 서버 글자(평소와 다름) 그대로, 단위를 붙이지 않는다
@@ -1209,7 +1212,7 @@ const polishedReads = (id) => requested.filter((r) => r.path === `/api/analysis/
 {
   const mixed = summaryOf("example_c_soft_elapsed_and_ml");
   const code = mixed.sentences.join(" ");
-  const polishedText = "머신러닝 모델은 이번 처리 시간 4,200 ms를 평소 값 800 ms와 비교했고, 더 길어서 판단에 가장 크게 영향을 주었습니다(영향 62%).";
+  const polishedText = "머신러닝 모델 판단에는 평소 800 ms보다 긴 처리 시간 4,200 ms가 가장 크게 영향을 주었고(62%), 다음으로 평소와 다른 처리량(TOTAL_COUNT)·오류 건수(ERROR_COUNT)·오류 비율이 영향을 주었습니다(31%).";
   const paragraphOf = (app) => blockText(cardOf(app)[0], "paragraph");
   const requestable = { polishRequestable: true };
 

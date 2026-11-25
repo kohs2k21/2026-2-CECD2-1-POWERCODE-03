@@ -18,6 +18,10 @@ import { ComparisonError, enqueueComparison, parseComparisonRequest } from '../s
 import { idempotencyKeyOf } from './comparisonRoutes.js';
 import { JobReadError, parseJobListQuery, readJobDetail, readJobPage } from '../services/jobReadModel.js';
 import { GENERATION_SERVICE_UNAVAILABLE, LLM_JOB_KINDS, generationAvailability } from '../services/generationAvailability.js';
+import { readEvidenceSummary, resolveItem } from '../services/analysisReadModel.js';
+import { POLISH_FAILURE_COOLDOWN_MINUTES, POLISH_MAX_ATTEMPTS, polishInputFor, polishLlmSpec, type PolishInput } from '../services/evidencePolish.js';
+/** 다듬을 근거 요약이 없는 판정(이상 신호가 없거나 요약·입력을 만들 수 없음)의 설명 요청 거절 코드(409). */
+export const EXPLANATION_NOT_APPLICABLE = 'explanation_not_applicable';
 import { INVALID_PROTOCOL_EXPLANATION_REQUEST, PROTOCOL_EXPLANATION_KIND, parseProtocolExplanationRequest, protocolExplanationDecisionId,
   protocolExplanationLlmSpec, protocolExplanationProblem, type ProtocolExplanationInput, type ProtocolExplanationTarget } from './protocolExplanationContract.js';
 
@@ -51,7 +55,9 @@ function uuid(value: unknown): value is string {
 type JobInput = {
   kind: string; sourceId: string; from?: string; until?: string;
   featureSetId?: string; configVersionId?: string | null; snapshotId?: string;
-  purpose?: string; ruleVersionIds?: string[]; decisionId?: string; savedEvidence?: Record<string, unknown>; savedEvidenceJson?: string;
+  purpose?: string; ruleVersionIds?: string[]; decisionId?: string;
+  /** explain(다듬기) 접수 입력(evidencePolish.ts PolishInput). */
+  templateVersion?: string; sentences?: string[]; stateWords?: string[]; valueTokens?: string[];
   detectionPolicy?: { mode: string; deadlineMs: number; combination: string };
   modelKey?: string;
   parameters?: Record<string, unknown>;
@@ -227,9 +233,10 @@ router.post('/', route(async (req, res) => {
   }
   // LLM 생성 서비스가 꺼져 있으면 LLM 작업은 접수하지 않는다(llm-recommendation-job.md '생성 서비스 가용성' 절).
   // 트랜잭션·멱등 처리보다 먼저 확인해 작업 행·큐 메시지·멱등키를 남기지 않는다(같은 키로 다시 요청할 수 있음).
-  if (LLM_JOB_KINDS.has(input.kind) && !(await generationAvailability().check()).available) {
-    throw new JobRequestError(GENERATION_SERVICE_UNAVAILABLE, 503);
-  }
+  const availability = LLM_JOB_KINDS.has(input.kind) ? await generationAvailability().check() : null;
+  if (availability && !availability.available) throw new JobRequestError(GENERATION_SERVICE_UNAVAILABLE, 503);
+  // 설명(다듬기) 작업은 생성 서비스가 알린 다듬기 모델 id를 계보(model_version)에 넣는다. 모르면 접수하지 않는다(같은 503).
+  if (input.kind === 'explain' && !availability?.polishModel) throw new JobRequestError(GENERATION_SERVICE_UNAVAILABLE, 503);
   const idempotencyKey = header ?? crypto.randomUUID();
   let requestHash = crypto.createHash('sha256').update(JSON.stringify(input)).digest('hex');
   const client = await getDatabasePool().connect();
@@ -292,19 +299,15 @@ router.post('/', route(async (req, res) => {
       }
     }
     if (input.kind === 'explain') {
-      const saved = await client.query(`SELECT d.id,d.config_version_id,d.status,d.rule_status,d.ml_status,
-        d.decision_code,d.anomaly_score,d.evidence,d.input_manifest_hash
-        FROM run_process_decisions d JOIN data_observations o ON o.id=d.process_observation_id
-        WHERE d.id=$1 AND o.source_id=$2`, [input.decisionId,input.sourceId]);
-      if (!saved.rowCount) throw new JobRequestError('decision_not_found',404);
-      const decision = saved.rows[0];
-      input.configVersionId = decision.config_version_id;
-      input.savedEvidence = {decisionId: decision.id, configVersionId: decision.config_version_id,
-        status: decision.status, ruleStatus: decision.rule_status, mlStatus: decision.ml_status,
-        decisionCode: decision.decision_code, anomalyScore: decision.anomaly_score === null ? null : String(decision.anomaly_score),
-        inputManifestHash: decision.input_manifest_hash,
-        rules: decision.evidence.rules ?? [], models: decision.evidence.models ?? []};
-      input.savedEvidenceJson = JSON.stringify(input.savedEvidence);
+      // AI 판정 근거 요약 다듬기(접수 입력 summary-sentences-v1): 판정 상세와 같은 조립 함수로 코드 문장을 다시 만들어 보낸다.
+      // 최종 판정이고 그 원천의 판정이어야 하며(404), 이상 신호가 있고 요약·입력을 만들 수 있어야 접수한다(409).
+      // id 비교는 대소문자 무시(uuid 열 비교와 같음). 작업 입력에는 저장된(소문자) id를 쓴다.
+      const item = await resolveItem(client, input.decisionId!);
+      if (!item || item.kind !== 'final' || String(item.decisionId).toLowerCase() !== input.decisionId!.toLowerCase()
+        || String(item.sourceId).toLowerCase() !== input.sourceId.toLowerCase()) throw new JobRequestError('decision_not_found',404);
+      const polish = polishInputFor(item, item.signal === 'yes' ? await readEvidenceSummary(client, item) : null);
+      if (!polish) throw new JobRequestError(EXPLANATION_NOT_APPLICABLE,409);
+      Object.assign(input, polish);
       requestHash = crypto.createHash('sha256').update(JSON.stringify(input)).digest('hex');
     }
     const protocolExplanation = input.kind === PROTOCOL_EXPLANATION_KIND ? input as ProtocolExplanationInput : null;
@@ -345,16 +348,10 @@ router.post('/', route(async (req, res) => {
     const explanation = input.kind === 'explain';
     // 설명 큐(llm_explanation): explain·explain_protocol(protocol-explanation-job.md 8절).
     const explanationQueue = explanation || protocolExplanation !== null;
-    // 설명의 reuse_key는 폐지 전과 같은 배열([요청자, 입력, null, 'grounded-facts-v1'])이라 기존 작업 재사용이 그대로다.
+    // 설명(다듬기)의 reuse_key는 요청자 없이 판정마다 공유한다(evidencePolish.ts). 이전 형식 작업 행은 그대로 둔다(키가 달라 섞이지 않음).
     const llmSpec = thresholds ? thresholdLlmSpec(input as ThresholdRequest & ThresholdFixedInput, requestHash, req.user!.id, idempotencyKey)
-      : protocolExplanation ? protocolExplanationLlmSpec(protocolExplanation, requestHash, req.user!.id) : explanation ? {
-      evidence_version: 'saved-decision-v1',
-      input_evidence_hash: crypto.createHash('sha256').update(input.savedEvidenceJson!).digest('hex'),
-      model_version: 'qwen-base-6a9e13bd',
-      prompt_version: 'grounded-facts-v1',
-      output_schema_version: 'fact-ids-checks-v1',
-      reuse_key: crypto.createHash('sha256').update(JSON.stringify([req.user!.id, input, null, 'grounded-facts-v1'])).digest('hex'),
-    } : null;
+      : protocolExplanation ? protocolExplanationLlmSpec(protocolExplanation, requestHash, req.user!.id)
+        : explanation ? polishLlmSpec(input as unknown as PolishInput, availability!.polishModel!) : null;
     if (llmSpec) {
       await client.query('SELECT pg_advisory_xact_lock(81734,hashtext($1))',[llmSpec.reuse_key]);
       // Check caller idempotency before evidence-based reuse.
@@ -362,7 +359,14 @@ router.post('/', route(async (req, res) => {
         FROM run_jobs WHERE requested_by_actor_id=$1 AND kind=$2 AND idempotency_key=$3`,
         [req.user!.id,input.kind,idempotencyKey]);
       if (prior.rowCount && prior.rows[0].request_hash !== requestHash) throw new JobRequestError('idempotency_payload_conflict',409);
-      const cached = await client.query(`SELECT id,status,kind,input_spec AS "inputSpec" FROM run_jobs
+      // 설명: 요청자와 무관하게 같은 키의 진행 중·완료 작업, 없으면 쿨다운 안의 실패 작업(새 작업 없음). 그 밖 종류는 요청자별.
+      // 설명 큐(contract_version v03 + queue llm_explanation)로 좁혀 run_jobs_v03_queue_idx(queue,status,…) WHERE contract_version='v03'을 탄다.
+      const cached = explanation ? await client.query(`SELECT id,status,kind,input_spec AS "inputSpec" FROM run_jobs
+        WHERE contract_version='v03' AND queue='llm_explanation' AND status IN ('queued','running','succeeded','failed')
+          AND kind='explain' AND llm_spec->>'reuse_key'=$1
+          AND (status<>'failed' OR finished_at > clock_timestamp() - $2::integer * interval '1 minute')
+        ORDER BY (status='failed'), created_at DESC LIMIT 1`,[llmSpec.reuse_key, POLISH_FAILURE_COOLDOWN_MINUTES])
+        : await client.query(`SELECT id,status,kind,input_spec AS "inputSpec" FROM run_jobs
         WHERE requested_by_actor_id=$1 AND llm_spec->>'reuse_key'=$2 AND status IN ('queued','running','succeeded')
         ORDER BY created_at DESC LIMIT 1`,[req.user!.id,llmSpec.reuse_key]);
       if (cached.rowCount) {
@@ -377,7 +381,7 @@ router.post('/', route(async (req, res) => {
         request_hash, input_config_version_id, input_snapshot_id, input_spec,
         max_attempts, attempt_count, next_run_at, created_at,
         contract_version,queue,producer_kind,producer_key,llm_spec,input_decision_id)
-       VALUES ($1, $2, 'queued', $3, $4, $5, $6, $7, $8, $9::jsonb, 3, 0,
+       VALUES ($1, $2, 'queued', $3, $4, $5, $6, $7, $8, $9::jsonb, $16, 0,
                clock_timestamp(), clock_timestamp(),$10,$11,$12,$13,$14::jsonb,$15)
        ON CONFLICT (requested_by_actor_id, kind, idempotency_key) DO NOTHING
        RETURNING id, status, kind, input_spec AS "inputSpec"`,
@@ -386,7 +390,8 @@ router.post('/', route(async (req, res) => {
         'v03', explanationQueue ? 'llm_explanation' : thresholds ? 'llm_recommendation' : 'training',
         'user', req.user!.id,
         llmSpec ? JSON.stringify(llmSpec) : null,
-        protocolExplanation ? protocolExplanationDecisionId(protocolExplanation) : input.decisionId ?? null],
+        protocolExplanation ? protocolExplanationDecisionId(protocolExplanation) : input.decisionId ?? null,
+        explanation ? POLISH_MAX_ATTEMPTS : 3],
     );
     let row = inserted.rows[0];
     if (!row) {

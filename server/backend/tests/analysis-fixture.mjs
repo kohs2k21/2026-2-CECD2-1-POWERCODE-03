@@ -75,7 +75,8 @@ const mlNormal = { ...mlHit, anomalous: false, code: null, riskLevelReason: null
 export const fixtureWriters = (client, sourceId, configId, out) => {
   let serial = 0;
   /** PROCESS 관측 1건(+ 짝 TRANSACTION). 검색 대상: 거래 ID·프로세스 ID·인터페이스 ID. */
-  const process = async (minutesAgo, label) => {
+  /** values(선택): PROCESS 상태·건수 열 `{status, successCount, errorCount, totalCount}`(근거 요약 값 읽기 시험용). 없으면 이전과 같다. */
+  const process = async (minutesAgo, label, values = null) => {
     serial += 1;
     const tx = `TX-${label}-${serial}`, processId = `P${String(serial % 7).padStart(2, '0')}`, iface = `IF-ORD-${(serial % 3) + 1}`;
     const execution = id(), obs = id(), txObs = id();
@@ -89,8 +90,10 @@ export const fixtureWriters = (client, sourceId, configId, out) => {
       [observation, sourceId, layer, exec, exec ? 1 : null, `${layer}:${observation}`, sha(observation), minutesAgo + 0.5]);
     }
     await client.query(`INSERT INTO data_transactions(observation_id,transaction_id,interface_id,status) VALUES($1,$2,$3,'S')`, [txObs, tx, iface]);
-    await client.query(`INSERT INTO data_processes(observation_id,transaction_observation_id,transaction_id,process_id,channel_id,status,response_code)
-      VALUES($1,$2,$3,$4,'CH-01',$5,$6)`, [obs, txObs, tx, processId, label === 'anomaly' ? 'F' : 'S', label === 'anomaly' ? 'E500' : '0000']);
+    await client.query(`INSERT INTO data_processes(observation_id,transaction_observation_id,transaction_id,process_id,channel_id,status,response_code,
+        success_count,error_count,total_count)
+      VALUES($1,$2,$3,$4,'CH-01',$5,$6,$7,$8,$9)`, [obs, txObs, tx, processId, values?.status ?? (label === 'anomaly' ? 'F' : 'S'), label === 'anomaly' ? 'E500' : '0000',
+      values?.successCount ?? null, values?.errorCount ?? null, values?.totalCount ?? null]);
     return { obs, execution, txObs, tx, processId, iface };
   };
   /** 이전 형식 판정(작업 없음). */
@@ -105,8 +108,8 @@ export const fixtureWriters = (client, sourceId, configId, out) => {
     return decisionId;
   };
   /** detect 작업(시도 없음, queued). v04는 구성 없이 만들고 manifest에 TRANSACTION을 고정하지 않는다(016, detector/jobs.py). */
-  const detectJob = async (name, minutesAgo, contract = 'v03') => {
-    const p = await process(minutesAgo, name);
+  const detectJob = async (name, minutesAgo, contract = 'v03', values = null) => {
+    const p = await process(minutesAgo, name, values);
     const manifest = id(), job = id(), hash = sha(`manifest:${p.obs}`), v04 = contract === 'v04', config = v04 ? null : configId;
     const inputTx = v04 ? null : p.txObs;
     await client.query(`INSERT INTO run_input_manifests(id,source_id,execution_id,process_observation_id,transaction_observation_id,
@@ -152,6 +155,38 @@ export const fixtureWriters = (client, sourceId, configId, out) => {
   };
   return { legacyDecision, detectJob, attempt, interim, jobDecision, failJob };
 };
+
+/**
+ * 근거 요약 값 읽기(판정 관측 행의 건수·revision)를 보는 v04 판정 1건: 성공 상태인데 ERROR_COUNT가 기록된 PROCESS(상태 S, ERROR_COUNT 3).
+ * evidence는 Detector 표본(anomalyComplete)에서 근거 방법만 hard:success-with-error로 바꾼 것이다. 목록 건수를 바꾸므로 건수 단언이 끝난 뒤에 넣는다.
+ * @param {import('pg').Pool} pool
+ * @param {{sourceId: string}} fixture
+ */
+export async function seedSummaryValueDecision(pool, { sourceId }) {
+  const client = await pool.connect();
+  const out = { decisions: {}, jobs: {} };
+  const { detectJob, attempt, jobDecision } = fixtureWriters(client, sourceId, null, out);
+  try {
+    await client.query('BEGIN');
+    const job = await detectJob('summaryValue', 1, 'v04', { status: 'S', successCount: 7, errorCount: 3, totalCount: 10 });
+    const { rows: [{ asOf }] } = await client.query('SELECT input_as_of AS "asOf" FROM run_input_manifests WHERE id=$1', [job.manifest]);
+    const { evidence } = v04Final('anomalyComplete', { sourceId, observationId: job.obs, inputAsOf: asOf.toISOString(), manifestHash: job.hash, modelVersionId: id() });
+    for (const method of evidence.methodResults) {
+      if (method.methodId === 'hard:process-status') Object.assign(method, { anomalous: false, code: null, severity: null, riskLevel: null, evidence: [{ observedStatus: 'S', result: 'no_hit' }] });
+      if (method.methodId === 'hard:success-with-error') Object.assign(method, { anomalous: true, code: 'HARD_SUCCESS_WITH_ERROR', severity: 'critical', riskLevel: 'critical', evidence: [{ result: 'hit' }] });
+    }
+    Object.assign(evidence.composite, { basisMethods: ['hard:success-with-error'] });
+    Object.assign(evidence.composite.risk, { determinedBy: ['hard:success-with-error'] });
+    const decisionId = await jobDecision(job, await attempt(job, 1), 'complete', evidence, 'HARD_SUCCESS_WITH_ERROR');
+    await client.query('COMMIT');
+    return { id: decisionId, jobId: job.id, obs: job.obs };
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+}
 
 /**
  * @param {import('pg').Pool} pool

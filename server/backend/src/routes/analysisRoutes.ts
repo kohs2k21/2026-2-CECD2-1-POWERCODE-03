@@ -1,11 +1,12 @@
 import express, { Router, Request, Response, NextFunction } from 'express';
+import { generationAvailability } from '../services/generationAvailability.js';
 import type { Pool } from 'pg';
 import { getDatabasePool } from '../config/database.js';
 import { authenticateToken, requireAdmin, AuthenticatedRequest } from '../middleware/auth.js';
 import { UserRepository } from '../repository/userRepository.js';
 import {
   ANALYSIS_BASES, ANALYSIS_CATEGORIES, ANALYSIS_COMPLETENESS, ANALYSIS_PAGE_SIZES, ANALYSIS_QUERY_MAX, ANALYSIS_SIGNALS, ANALYSIS_SORTS,
-  isAdminCategory, readDecisionDetail, readDecisionFlow, readDecisionGraph, readDecisionInterims, readDecisionList, type AnalysisListFilter,
+  isAdminCategory, readDecisionDetail, readDecisionFlow, readDecisionPolished, readDecisionGraph, readDecisionInterims, readDecisionList, type AnalysisListFilter,
 } from '../services/analysisReadModel.js';
 import {
   AnalysisRequestError, FEEDBACK_KINDS, FEEDBACK_OUTCOMES, FEEDBACK_REASON_MAX, WORKFLOW_STATES,
@@ -151,7 +152,13 @@ export function createAnalysisRouter(database: () => Pool = getDatabasePool, use
     res.json(await readDecisionList(database(), filter, req.user!.id, admin));
   }));
   router.get('/decisions/:id', route(async (req, res) => {
-    found(res, await readDecisionDetail(database(), idOf(req), req.user!.id));
+    // 다듬기 자동 요청 가능 여부는 생성 서비스의 마지막 확인 값(가용 + 다듬기 모델 id)만 쓴다(이 요청에서 기다리지 않음).
+    const availability = generationAvailability().peek();
+    found(res, await readDecisionDetail(database(), idOf(req), Boolean(availability?.available && availability.polishModel)));
+  }));
+  // AI 판정 근거 요약 다듬은 문단·상태만(판정 상세와 같은 권한). 화면이 polishState=pending 동안 주기적으로 읽는다.
+  router.get('/decisions/:id/polished', route(async (req, res) => {
+    found(res, await readDecisionPolished(database(), idOf(req)));
   }));
   router.get('/decisions/:id/interims', route(async (req, res) => {
     found(res, await readDecisionInterims(database(), idOf(req)));

@@ -6,7 +6,7 @@ import { startFakeLlmHealth } from './fake-llm-health.mjs';
 
 const {
   AVAILABILITY_CACHE_MS, DEFAULT_LLM_HEALTH_URL, GENERATION_SERVICE_UNAVAILABLE, HEALTH_TIMEOUT_MS, LLM_JOB_KINDS,
-  createGenerationAvailability, probeHealth,
+  createGenerationAvailability, probeHealth, probeHealthDetail,
 } = await import('../dist/services/generationAvailability.js');
 
 const health = await startFakeLlmHealth();
@@ -55,14 +55,14 @@ test('both results are cached for 10 s from the check, then checked again', asyn
   health.state.mode = 'ready';
   const hits = health.state.hits;
   const first = await checker.check();
-  assert.deepEqual(first, { available: true, checkedAt: new Date(clock).toISOString() });
+  assert.deepEqual(first, { available: true, checkedAt: new Date(clock).toISOString(), polishModel: 'fixture-polish-model' });
   health.state.mode = 'down';
   clock += AVAILABILITY_CACHE_MS - 1;
   assert.deepEqual(await checker.check(), first, 'cached success inside 10 s');
   assert.equal(health.state.hits, hits + 1);
   clock += 1;
   const second = await checker.check();
-  assert.deepEqual(second, { available: false, checkedAt: new Date(clock).toISOString() }, 'checked again at 10 s');
+  assert.deepEqual(second, { available: false, checkedAt: new Date(clock).toISOString(), polishModel: null }, 'checked again at 10 s');
   assert.equal(health.state.hits, hits + 2);
   health.state.mode = 'ready';
   clock += AVAILABILITY_CACHE_MS - 1;
@@ -90,4 +90,33 @@ test('a probe that throws is treated as unavailable and still cached', async () 
   assert.equal((await checker.check()).available, false);
   assert.equal((await checker.check()).available, false);
   assert.equal(calls, 1);
+});
+
+test('polish model id: read from a ready body only, malformed ids are null', async () => {
+  health.state.mode = 'ready';
+  assert.deepEqual(await probeHealthDetail(health.url, 1500), { available: true, polishModel: 'fixture-polish-model' });
+  for (const [result, expected] of [[{ available: true, polishModel: 'Qwen/Qwen3.5-2B@1a2b3c4d' }, 'Qwen/Qwen3.5-2B@1a2b3c4d'],
+    [{ available: false, polishModel: 'x' }, null], [true, null]]) {
+    const checker = createGenerationAvailability({ url: 'http://unused.test/health', probe: async () => result });
+    assert.equal((await checker.check()).polishModel, expected, JSON.stringify(result));
+  }
+  health.state.mode = 'loading';
+  assert.deepEqual(await probeHealthDetail(health.url, 1500), { available: false, polishModel: null });
+  health.state.mode = 'ready';
+});
+
+test('peek: last known result without waiting, a stale cache starts one background check', async () => {
+  let clock = 1_900_000_000_000, probes = 0;
+  const checker = createGenerationAvailability({ url: 'http://unused.test/health', now: () => clock,
+    probe: async () => { probes += 1; return { available: true, polishModel: `m-${probes}` }; } });
+  assert.equal(checker.peek(), null, 'unknown before the first check');
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(probes, 1, 'peek started a check');
+  assert.equal(checker.peek().polishModel, 'm-1');
+  assert.equal(probes, 1, 'fresh cache: no new check');
+  clock += AVAILABILITY_CACHE_MS;
+  assert.equal(checker.peek().polishModel, 'm-1', 'stale value is returned at once');
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(probes, 2);
+  assert.equal(checker.peek().polishModel, 'm-2');
 });

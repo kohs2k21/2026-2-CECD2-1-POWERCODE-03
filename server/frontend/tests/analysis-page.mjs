@@ -4,7 +4,7 @@ import React from "react";
 import { act, create } from "react-test-renderer";
 
 // 이상 분석 화면 통합(로컬 가짜 fetch만, 외부 요청 없음): 목록·사이드바 건수·검색 주소 반영·SSE 반영·오류 표시,
-// 상세·판정 기록·설명 요청/실패·최종 전 요청 막기·404·작업 ID → 판정 ID 주소 교체, 옛 주소 넘김.
+// 상세·판정 기록·AI 판정 근거 요약 카드·다듬기 자동 요청·404·작업 ID → 판정 ID 주소 교체, 옛 주소 넘김.
 register("./svg-loader.mjs", import.meta.url);
 globalThis.React = React;
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
@@ -359,12 +359,11 @@ const listCalls = () => requested.filter((r) => r.path === "/api/analysis/decisi
   await user.cleanup();
 }
 
-// 4) 상세(최종): 요약·판정 기록·근거, 설명 요청 → 작업 조회, 실패는 그대로 + 다시 요청
+// 4) 상세(최종): 요약·판정 기록·근거. v3 판정은 근거 요약 카드가 없고 다듬기도 요청하지 않는다(옛 설명 패널 없음)
 {
   requested.length = 0;
   const detail = { ...item("d-1", { jobId: "j-1", stage: "replaced" }), configuration: { id: "config-1", createdAt: "2026-11-01T00:00:00Z", detectionMode: "parallel", ruleCount: 1,
-    models: [{ modelKey: "iforest", adapterName: "sklearn-iforest" }] }, job: { id: "j-1", status: "succeeded", attemptCount: 2, maxAttempts: 3, errorCode: null, createdAt: null, finishedAt: null }, explanation: null };
-  let jobStatus = "queued";
+    models: [{ modelKey: "iforest", adapterName: "sklearn-iforest" }] }, job: { id: "j-1", status: "succeeded", attemptCount: 2, maxAttempts: 3, errorCode: null, createdAt: null, finishedAt: null } };
   const workflowPuts = [];
   routes = {
     "GET /api/analysis/decisions": () => json(listBody([item("d-1")])),
@@ -389,8 +388,6 @@ const listCalls = () => requested.filter((r) => r.path === "/api/analysis/decisi
       return workflowPuts.length === 1 ? json({ id: "d-1", workflow: { state: "open", changedAt: "2026-11-03T02:00:00Z" } })
         : json({ code: "workflow_state_conflict" }, 409);
     },
-    "POST /api/jobs": () => json({ id: "explain-1", status: "queued", kind: "explain", inputSpec: {} }, 201),
-    "GET /api/jobs/explain-1": () => json({ id: "explain-1", kind: "explain", status: jobStatus, inputSpec: {}, errorCode: jobStatus === "failed" ? "llm_unavailable" : null }),
   };
   const app = await mount("/analysis/d/d-1?category=anomaly");
   await wait(() => app.shown().includes("판정 요약") && app.shown().includes("시도 1 결과 · 대체됨"), "detail and timeline rendered");
@@ -405,9 +402,9 @@ const listCalls = () => requested.filter((r) => r.path === "/api/analysis/decisi
   assert.ok(!/3000|기한|탐지 모드|당시 룰 수|탐지 작업/.test(shown), "deadline number, policy and non-wireframe rows are not shown");
   assert.ok(!shown.includes("당시 룰 버전"), "rule revision row only when v4 evidence stores it");
   assert.ok(!shown.includes("룰 변경 기록 보기") && !shown.includes("당시 머신러닝 모델") && !app.renderer.root.findAll((node) => node.props["data-admin-links"]).length, "admin links are admin only");
-  // 섹션 이름·아이콘(사용자 11/04): AI 설명 → AI 판정 근거 요약(IconBrain), Process Flow(IconBinaryTree), 위험도 미정이면 판정 요약 아이콘 없음
+  // 섹션 이름·아이콘(사용자 11/04): Process Flow(IconBinaryTree), 위험도 미정이면 판정 요약 아이콘 없음. v3 판정은 근거 요약 카드 없음
   assert.ok(!shown.includes("AI 설명"), "old section name is gone");
-  assert.deepEqual(iconNames(headingOf(app, "AI 판정 근거 요약")), ["brain"]);
+  assert.equal(app.renderer.root.findAll((node) => node.type === "h2" && text(node.children) === "AI 판정 근거 요약").length, 0, "no summary card, no old explanation panel");
   assert.deepEqual(iconNames(headingOf(app, "Process Flow")), ["binary-tree"]);
   assert.deepEqual(iconNames(headingOf(app, "판정 요약")), [], "no risk icon when the risk level is unrated");
   assert.deepEqual(iconNames(headingOf(app, "판정 기록")), [], "no legacy counterpart, no icon");
@@ -506,21 +503,9 @@ const listCalls = () => requested.filter((r) => r.path === "/api/analysis/decisi
   assert.ok(app.shown().includes("업무 분류 실패 · workflow_state_conflict"), "conflict error survives the refetch");
   assert.ok(wfButton("원래 상태로 복원"));
   assert.deepEqual(iconNames(wfButton("원래 상태로 복원")), ["refresh"]);
-  assert.ok(shown.includes("아직 설명을 요청하지 않은 판정입니다."));
   const back = app.renderer.root.findAll((node) => node.type === "a" && text(node.children).includes("목록"))[0];
   assert.equal(back.props.href, "/analysis?category=anomaly", "back link keeps list conditions");
-  const ask = app.renderer.root.findAll((node) => node.type === "button" && text(node.children) === "설명 요청")[0];
-  assert.deepEqual(iconNames(ask), ["brain"], "request button keeps the legacy IconBrain");
-  await act(async () => ask.props.onClick());
-  await wait(() => requested.some((r) => r.path === "/api/jobs/explain-1"), "job read after request");
-  const post = requested.find((r) => r.method === "POST" && r.path === "/api/jobs");
-  assert.deepEqual(JSON.parse(post.body), { kind: "explain", sourceId: "source-1", decisionId: "d-1" });
-  await wait(() => app.shown().includes("요청 중"), "running state");
-  assert.equal(app.renderer.root.findAll((node) => node.type === "button" && /설명 (다시 )?요청/.test(text(node.children))).length, 0, "no duplicate request while queued");
-  jobStatus = "failed";
-  await act(async () => app.client.invalidateQueries({ queryKey: ["analysis-explain-job"] }));
-  await wait(() => app.shown().includes("설명 작업 실패 · llm_unavailable"), "failure shown as is");
-  assert.ok(app.renderer.root.findAll((node) => node.type === "button" && text(node.children) === "설명 다시 요청").length === 1);
+  assert.ok(!requested.some((r) => r.method === "POST" && r.path === "/api/jobs") && !app.shown().includes("설명 요청"), "no explanation request or button");
   await app.cleanup();
 }
 
@@ -611,7 +596,7 @@ const listCalls = () => requested.filter((r) => r.path === "/api/analysis/decisi
 //     처리 중에는 닫히지 않음. 저장된 기록은 판정 기록에 읽기 전용으로. 원래 상태로 복원은 바로.
 {
   requested.length = 0;
-  const detail = { ...item("d-5"), configuration: null, job: null, explanation: null };
+  const detail = { ...item("d-5"), configuration: null, job: null };
   let changedAt = null;
   const feedback = [{ id: "f-1", kind: "action", reason: "재처리 확인", actorId: "admin-1", actorEmail: "admin@example.test", createdAt: "2026-11-03T01:00:00Z" }];
   const puts = [];
@@ -871,7 +856,7 @@ const listCalls = () => requested.filter((r) => r.path === "/api/analysis/decisi
     return dt.parent.findByType("dd");
   };
   for (const [code, shown, title] of [["PROCESS_STATUS_F", "상태 F 실패", "PROCESS_STATUS_F"], ["NEW_CODE", "NEW_CODE", undefined]]) {
-    const detail = { ...item("d-7", { decisionCode: code }), configuration: null, job: null, explanation: null };
+    const detail = { ...item("d-7", { decisionCode: code }), configuration: null, job: null };
     routes = {
       "GET /api/analysis/decisions": () => json(listBody([item("d-7")])),
       "GET /api/analysis/decisions/d-7": () => json(detail),
@@ -934,23 +919,21 @@ const listCalls = () => requested.filter((r) => r.path === "/api/analysis/decisi
   client.clear();
 }
 
-// 5) 상세(최종 전): 설명 요청 막힘, 진행 중 기록 / 404 / 작업 ID로 열었는데 최종 판정이 있으면 판정 ID 주소로 교체
+// 5) 상세(최종 전): 진행 중 기록 / 404 / 작업 ID로 열었는데 최종 판정이 있으면 판정 ID 주소로 교체
 {
   const pendingDetail = { ...item("j-2", { kind: "interim", stage: "updated", signal: "yes", grade: "anomaly_sign", decisionId: null, jobId: "j-2", status: null, ruleStatus: null, mlStatus: null,
     evidence: { schemaVersion: 4, composite: { anomalous: true, grade: "anomaly_sign", basisMethods: ["soft:elapsed_ms-3f9a2c1d"] } }, decidedAt: null }),
-    configuration: null, job: { id: "j-2", status: "running", attemptCount: 1, maxAttempts: 3, errorCode: null, createdAt: null, finishedAt: null }, explanation: null };
+    configuration: null, job: { id: "j-2", status: "running", attemptCount: 1, maxAttempts: 3, errorCode: null, createdAt: null, finishedAt: null } };
   routes = {
     "GET /api/analysis/decisions": () => json(listBody([])),
     "GET /api/analysis/decisions/j-2": () => json(pendingDetail),
     "GET /api/analysis/decisions/j-2/interims": () => json({ id: "j-2", jobId: "j-2", items: [] }),
-    "GET /api/analysis/decisions/j-9": () => json({ ...item("d-9", { jobId: "j-9" }), configuration: null, job: null, explanation: null }),
-    "GET /api/analysis/decisions/d-9": () => json({ ...item("d-9", { jobId: "j-9" }), configuration: null, job: null, explanation: null }),
+    "GET /api/analysis/decisions/j-9": () => json({ ...item("d-9", { jobId: "j-9" }), configuration: null, job: null }),
+    "GET /api/analysis/decisions/d-9": () => json({ ...item("d-9", { jobId: "j-9" }), configuration: null, job: null }),
     "GET /api/analysis/decisions/missing": () => json({ code: "decision_not_found" }, 404),
   };
   const app = await mount("/analysis/d/j-2");
-  await wait(() => app.shown().includes("최종 판정 후 요청할 수 있습니다."), "explain blocked before a final decision");
-  const ask = app.renderer.root.findAll((node) => node.type === "button" && text(node.children) === "설명 요청")[0];
-  assert.equal(ask.props.disabled, true);
+  await wait(() => app.shown().includes("남은 방법 결과 대기"), "interim detail shown");
   assert.ok(app.shown().includes("이상 징후"), "stored v4 grade is shown when present");
   assert.ok(app.shown().includes("남은 방법 결과 대기") && !app.shown().includes("최종 판정 없음"));
   assert.ok(!app.shown().includes("판정 코드") && !app.shown().includes("수행 상태"), "final-only rows are omitted before a final decision");
@@ -970,252 +953,6 @@ const listCalls = () => requested.filter((r) => r.path === "/api/analysis/decisi
   await wait(() => fromAlerts.renderer.root.findAll((n) => n.type === "a" && text(n.children) === "알림으로")[0]?.props.href === "/notifications?view=all",
     "alerts back link after the replace");
   await fromAlerts.cleanup();
-}
-
-// 5b) 설명 작업 blocked: 저장된 상태 그대로, 요청 중 표시·주기 조회 없음
-{
-  requested.length = 0;
-  const detail = { ...item("d-7"), configuration: null, job: null, explanation: { jobId: "explain-7", status: "blocked", errorCode: null, createdAt: null } };
-  routes = {
-    "GET /api/analysis/decisions": () => json(listBody([item("d-7")])),
-    "GET /api/analysis/decisions/d-7": () => json(detail),
-    "GET /api/analysis/decisions/d-7/interims": () => json({ id: "d-7", jobId: null, items: [] }),
-    "GET /api/jobs/explain-7": () => json({ id: "explain-7", kind: "explain", status: "blocked", inputSpec: {}, errorCode: null }),
-  };
-  const app = await mount("/analysis/d/d-7");
-  await wait(() => app.shown().includes("설명 작업 blocked"), "blocked status shown as stored");
-  assert.ok(!app.shown().includes("요청 중"));
-  // 주기 조회 설정을 직접 확인(5초를 기다리지 않음): blocked면 refetchInterval = false
-  const explainQuery = app.client.getQueryCache().findAll({ queryKey: ["analysis-explain-job"] })[0];
-  const interval = explainQuery.observers[0].options.refetchInterval;
-  assert.equal(typeof interval === "function" ? interval(explainQuery) : interval, false, "no polling for blocked");
-  assert.equal(requested.filter((r) => r.path === "/api/jobs/explain-7").length, 1);
-  await app.cleanup();
-}
-
-// 5c) 기존 설명 작업 조회 실패: 오류 그대로, 새 설명 요청 버튼은 막힘(중복 요청 방지)
-{
-  requested.length = 0;
-  const detail = { ...item("d-8"), configuration: null, job: null, explanation: { jobId: "explain-8", status: "queued", errorCode: null, createdAt: null } };
-  routes = {
-    "GET /api/analysis/decisions": () => json(listBody([item("d-8")])),
-    "GET /api/analysis/decisions/d-8": () => json(detail),
-    "GET /api/analysis/decisions/d-8/interims": () => json({ id: "d-8", jobId: null, items: [] }),
-    "GET /api/jobs/explain-8": () => json({ code: "analysis_storage_unavailable" }, 503),
-  };
-  const app = await mount("/analysis/d/d-8");
-  await wait(() => app.shown().includes("설명 작업 미연결"), "lookup error shown");
-  const ask = app.renderer.root.findAll((node) => node.type === "button" && text(node.children) === "설명 요청")[0];
-  assert.equal(ask.props.disabled, true, "no new request while the existing job lookup failed");
-  assert.equal(requested.some((r) => r.method === "POST" && r.path === "/api/jobs"), false);
-  await app.cleanup();
-}
-
-// 5d~5f) 설명 결과 표시: 이미 있던 결과는 바로 전체, 보는 중 도착한 결과는 타자 효과(화면 읽기용 전체 사본 + aria-hidden 사본),
-// 동작 줄이기 설정이면 효과 없이 전체. 결과 형식은 worker/explanation.py validate_output(facts·nextChecks).
-// 근거(facts = 설명 입력 savedEvidence 최상위 키)는 판정 상세 이름표로: 영문 키·JSON 대신 이름표, 배열은 항목마다 한 줄, 모르는 키는 원래 이름 + 축약 값.
-const explainSummary = {
-  decisionId: "d-9",
-  facts: [
-    { id: "fact_0", name: "anomalous", value: true },
-    { id: "fact_1", name: "status", value: "complete" },
-    { id: "fact_2", name: "ruleStatus", value: "succeeded" },
-    { id: "fact_3", name: "mlStatus", value: "skipped" },
-    { id: "fact_4", name: "decisionCode", value: "PROCESS_STATUS_F" },
-    { id: "fact_5", name: "rules", value: [{ reason: null, result: "hit", ruleKey: "process-status", version: "process-status-hr-v1", sourceId: "source-1", observedStatus: "F", severity: "critical" }] },
-    { id: "fact_6", name: "models", value: [{ modelKey: "iforest", anomalous: false }] },
-    { id: "fact_7", name: "extra", value: { mode: "api", note: null, scope: { a: 1 } } },
-    { id: "fact_8", name: "configVersionId", value: "config-1" },
-    { id: "fact_9", name: "inputManifestHash", value: "e".repeat(64) },
-  ],
-  nextChecks: [{ code: "review_rule_threshold", text: "적중한 Rule의 승인 기준과 입력값을 확인하세요." }],
-  causeStatus: "unconfirmed", contributionStatus: "not_computed",
-};
-const explainFull = "anomalous: true검사 완료: 완료수행 상태: Rule 완료수행 상태: ML 꺼짐판정 코드: 상태 F 실패"
-  + "Rule 판정 근거이상 규칙(상태가 S가 아님) · 이상 · 상태 F · 위험도 위험ML 판정 근거iforest · 정상 확인extra: mode api · scope (a 1)"
-  + "확인할 것(원인 후보)적중한 Rule의 승인 기준과 입력값을 확인하세요.";
-const explainRoutes = (id, detail, jobState, summary = explainSummary) => ({
-  "GET /api/analysis/decisions": () => json(listBody([item(id)])),
-  [`GET /api/analysis/decisions/${id}`]: () => json(detail),
-  [`GET /api/analysis/decisions/${id}/interims`]: () => json({ id, jobId: null, items: [] }),
-  "POST /api/jobs": () => json({ id: `explain-${id}`, status: "queued", kind: "explain", inputSpec: {} }, 201),
-  [`GET /api/jobs/explain-${id}`]: () => json({ id: `explain-${id}`, kind: "explain", status: jobState.status, inputSpec: {}, errorCode: null,
-    resultSummary: jobState.status === "succeeded" ? summary : null }),
-});
-const typingNodes = (app) => app.renderer.root.findAll((node) => node.type === "div" && node.props["data-typing"] === "true");
-const srOnlyNodes = (app) => app.renderer.root.findAll((node) => node.type === "div" && node.props.className === "sr-only");
-const explainCard = (app) => app.renderer.root.find((node) => node.type === "div" && node.props["data-slot"] === "section-card" && text(node.children).startsWith("AI 판정 근거 요약"));
-
-// 5c-2) LLM 생성 서비스 꺼짐(GET /api/llm/status available=false, llm-recommendation-job.md '생성 서비스 가용성' 절):
-// 요청 버튼 비활성 + 코드 그대로(새 문장·배지 없음), 화면에 있는 동안 30초 재조회. 이미 요청 중인 작업은 `요청 중`을 두고 같은 줄에 코드.
-// 상태 조회 실패(이 파일의 다른 시험처럼 경로가 없어 503)면 버튼을 막지 않는다(5번 설명 요청).
-{
-  requested.length = 0;
-  const down = () => json({ available: false, checkedAt: "2026-11-14T01:00:00.000Z", errorCode: "generation_service_unavailable" });
-  const fresh = { ...item("d-13"), configuration: null, job: null, explanation: null };
-  routes = { ...explainRoutes("d-13", fresh, { status: "queued" }), "GET /api/llm/status": down };
-  const app = await mount("/analysis/d/d-13");
-  await wait(() => app.shown().includes("설명 요청 · generation_service_unavailable"), "unavailable code shown");
-  const ask = app.renderer.root.findAll((node) => node.type === "button" && text(node.children) === "설명 요청")[0];
-  assert.equal(ask.props.disabled, true, "request button disabled while the generation service is off");
-  const statusQuery = app.client.getQueryCache().findAll({ queryKey: ["llm-status"] })[0];
-  assert.equal(statusQuery.observers[0].options.refetchInterval, 30000, "re-read every 30 s while on the screen");
-  assert.equal(requested.some((r) => r.method === "POST" && r.path === "/api/jobs"), false);
-  // 꺼짐을 받은 뒤 재조회가 실패하면(마지막 data가 남아 있어도) '모름'으로 보고 막지 않는다.
-  routes["GET /api/llm/status"] = () => json({ code: "unavailable" }, 503);
-  await act(async () => app.client.refetchQueries({ queryKey: ["llm-status"] }));
-  await wait(() => !app.shown().includes("generation_service_unavailable"), "code cleared after a failed re-read");
-  assert.equal(app.renderer.root.findAll((node) => node.type === "button" && text(node.children) === "설명 요청")[0].props.disabled, false,
-    "a failed status re-read does not keep the button blocked");
-  await app.cleanup();
-
-  const queued = { ...item("d-14"), configuration: null, job: null, explanation: { jobId: "explain-d-14", status: "queued", errorCode: null, createdAt: null } };
-  routes = { ...explainRoutes("d-14", queued, { status: "queued" }), "GET /api/llm/status": down };
-  const waiting = await mount("/analysis/d/d-14");
-  await wait(() => waiting.shown().includes("설명 작업 대기 · generation_service_unavailable"), "queued job keeps its state with the code");
-  assert.ok(waiting.shown().includes("요청 중"), "the in-progress badge stays");
-  await waiting.cleanup();
-}
-
-// 5d) 처음 열었을 때 이미 완료된 결과: 타자 효과 없이 바로 전체
-{
-  requested.length = 0;
-  const detail = { ...item("d-9"), configuration: null, job: null, explanation: { jobId: "explain-d-9", status: "succeeded", errorCode: null, createdAt: null } };
-  routes = explainRoutes("d-9", detail, { status: "succeeded" });
-  const app = await mount("/analysis/d/d-9");
-  await wait(() => app.shown().includes("설명 작업 완료"), "existing result loaded");
-  assert.equal(typingNodes(app).length, 0, "existing result is not typed");
-  const entrance = app.renderer.root.findAll((node) => node.type === "div" && node.props["data-entrance"]);
-  assert.equal(entrance.length, 1);
-  assert.equal(entrance[0].props["data-entrance"], "none", "existing result has no entrance motion (initial=false)");
-  assert.notEqual(entrance[0].props.style?.opacity, 0, "existing result is not faded in from 0");
-  assert.ok(text(explainCard(app).children).includes(explainFull), "existing result shown in full at once");
-  for (const raw of ["ruleStatus", "succeeded", "PROCESS_STATUS_F", '"ruleKey"', "{", "configVersionId", "config-1", "inputManifestHash", "eeee"]) assert.ok(!text(explainCard(app).children).includes(raw), `no raw ${raw}`);
-  assert.equal(app.renderer.root.findAll((node) => node.type === "li" && node.props.title === "ruleStatus").length, 1, "original key kept as a tooltip");
-  assert.equal(app.renderer.root.findAll((node) => node.type === "li" && /configVersionId|inputManifestHash/.test(node.props.title ?? "")).length, 0, "internal ids not even as tooltips");
-  assert.equal(app.renderer.root.findAll((node) => node.props["data-slot"] === "explain-progress").length, 0);
-  await app.cleanup();
-}
-
-// 5d1) 근거 표시 규칙(explainFacts.ts): v4 판정은 세부 방법별 결과의 방법 이름, 빈 배열·값 없음은 —, 모르는 코드·값은 원래 값
-{
-  const { factView } = await import("../src/features/analysis/explainFacts.ts");
-  const rules = [{ ruleKey: "transaction-failed", version: "transaction-failed-hr-v1", result: "hit", severity: "warning" },
-    { ruleKey: "elapsed_ms-3f9a2c1d", version: 13, result: "no_hit" }, { ruleKey: "process-status", result: "not_applicable", reason: "status_unknown" }];
-  assert.deepEqual(factView({ name: "rules", value: rules }, true), { head: "Rule 판정 근거",
-    items: ["이상 규칙(거래 실패) · 이상 · 위험도 주의", "이상 징후 규칙 · 정상 확인", "이상 규칙(상태가 S가 아님) · 해당 없음 · status_unknown"] });
-  assert.deepEqual(factView({ name: "rules", value: [rules[1]] }, false).items, ["이상 징후 규칙(과거 등록 Rule) · 정상 확인"], "v3 = Rule 판정 근거 표 이름");
-  assert.deepEqual(factView({ name: "models", value: [{ modelKey: "iforest", anomalous: true }, { modelKey: "lof", anomalous: null }] }, true).items,
-    ["머신러닝 모델(iforest) · 이상", "머신러닝 모델(lof) · 미판정"]);
-  assert.deepEqual(factView({ name: "rules", value: [] }, true), { head: "Rule 판정 근거: —", items: [] });
-  assert.equal(factView({ name: "decisionCode", value: "REL_PRECEDES" }, true).head.startsWith("판정 코드: 규약 위반 · "), true);
-  assert.equal(factView({ name: "decisionCode", value: "NEW_CODE" }, true).head, "판정 코드: NEW_CODE");
-  assert.equal(factView({ name: "anomalyScore", value: null }, true).head, "이상 점수: —");
-  assert.equal(factView({ name: "ruleStatus", value: "blocked" }, true).head, "수행 상태: Rule blocked");
-  assert.equal(factView({ name: "status", value: "partial" }, true).head, "검사 완료: 부분");
-  assert.equal(factView({ name: "constructor", value: "x" }, true).head, "constructor: x", "own keys only");
-  assert.equal(factView({ name: "status", value: "toString" }, true).head, "검사 완료: toString");
-  assert.deepEqual(factView({ name: "list", value: [{ a: [1, 2], b: "x" }, 3] }, true).items, ["a (1, 2) · b x", "3"]);
-}
-
-// 5d1b) LLM이 내부 식별자 근거(configVersionId·inputManifestHash)만 고른 결과: 근거 목록 없이 확인할 것만
-{
-  const summary = { ...explainSummary, facts: explainSummary.facts.filter((fact) => ["configVersionId", "inputManifestHash"].includes(fact.name)) };
-  const detail = { ...item("d-9h"), configuration: null, job: null, explanation: { jobId: "explain-d-9h", status: "succeeded", errorCode: null, createdAt: null } };
-  routes = explainRoutes("d-9h", detail, { status: "succeeded" }, summary);
-  const app = await mount("/analysis/d/d-9h");
-  await wait(() => app.shown().includes("설명 작업 완료"), "hidden-only result loaded");
-  const card = text(explainCard(app).children);
-  assert.ok(card.includes("확인할 것(원인 후보)적중한 Rule의 승인 기준과 입력값을 확인하세요."), "only next checks");
-  assert.ok(!card.includes("configVersionId") && !card.includes("inputManifestHash"), "internal ids hidden");
-  assert.equal(explainCard(app).findAll((node) => node.type === "ul" && String(node.props.className).includes("list-disc")).length, 1, "no fact list, only the checks list");
-  await app.cleanup();
-}
-
-// 5d2) v04 판정(구성 없음): 당시 모델 줄만 빠지고 나머지 요약·설명 요청은 같다. 없는 값을 다른 문구로 채우지 않는다.
-{
-  requested.length = 0;
-  const detail = { ...item("d-v04", { jobId: "j-v04", configVersionId: null }), configuration: null,
-    job: { id: "j-v04", status: "succeeded", attemptCount: 1, maxAttempts: 3, errorCode: null, createdAt: null, finishedAt: null }, explanation: null };
-  routes = explainRoutes("d-v04", detail, { status: "queued" });
-  const app = await mount("/analysis/d/d-v04");
-  await wait(() => app.shown().includes("아직 설명을 요청하지 않은 판정입니다."), "detail without a configuration");
-  assert.ok(app.shown().includes("판정 요약") && app.shown().includes("TX-d-v04"), "summary renders");
-  assert.ok(!app.shown().includes("당시 운영 머신러닝 모델"), "no configuration, no model line");
-  await app.cleanup();
-}
-
-// 5e) 보는 중 도착한 결과: 요청 → 대기(진행 막대) → 완료 시 타자 효과, 화면 읽기용 전체 사본, 끝나면 전체 한 벌
-{
-  requested.length = 0;
-  const detail = { ...item("d-10"), configuration: null, job: null, explanation: null };
-  const jobState = { status: "queued" };
-  routes = explainRoutes("d-10", detail, jobState);
-  const app = await mount("/analysis/d/d-10");
-  await wait(() => app.shown().includes("아직 설명을 요청하지 않은 판정입니다."), "not requested yet");
-  const ask = app.renderer.root.findAll((node) => node.type === "button" && text(node.children) === "설명 요청")[0];
-  await act(async () => ask.props.onClick());
-  await wait(() => app.shown().includes("요청 중"), "running state");
-  const bar = app.renderer.root.findAll((node) => node.props["data-slot"] === "explain-progress");
-  assert.equal(bar.length, 1, "progress bar while queued");
-  assert.equal(bar[0].props["aria-hidden"], "true", "progress bar is decorative; status text carries the state");
-  jobState.status = "succeeded";
-  await act(async () => app.client.invalidateQueries({ queryKey: ["analysis-explain-job"] }));
-  await wait(() => typingNodes(app).length === 1, "fresh result starts typing");
-  const typed = typingNodes(app)[0];
-  assert.equal(typed.props["aria-hidden"], "true", "typed copy hidden from screen readers");
-  assert.ok(text(typed.children).length < explainFull.length, "typed copy starts partial");
-  assert.equal(text(srOnlyNodes(app)[0].children), explainFull, "screen readers get the full text at once");
-  assert.equal(app.renderer.root.findAll((node) => node.props["data-slot"] === "explain-progress").length, 0, "progress bar gone when done");
-  await wait(() => typingNodes(app).length === 0, "typing finishes", 400);
-  assert.equal(srOnlyNodes(app).length, 0, "single copy after typing");
-  assert.ok(text(explainCard(app).children).includes(explainFull), "full text after typing");
-  await app.cleanup();
-}
-
-// 5e2) 요청하지 않고 연 화면에서 진행 중(queued)이던 작업이 완료: 이 화면이 진행 중을 본 작업이므로 타자 효과(request.data 경로 아님).
-// 타자 효과 중 재조회가 와도 다시 시작하지 않는다.
-{
-  requested.length = 0;
-  const detail = { ...item("d-12"), configuration: null, job: null, explanation: { jobId: "explain-d-12", status: "queued", errorCode: null, createdAt: null } };
-  const jobState = { status: "queued" };
-  routes = explainRoutes("d-12", detail, jobState);
-  const app = await mount("/analysis/d/d-12");
-  await wait(() => app.shown().includes("요청 중"), "queued job shown on open");
-  assert.equal(requested.some((r) => r.method === "POST" && r.path === "/api/jobs"), false, "no request from this screen");
-  jobState.status = "succeeded";
-  await act(async () => app.client.invalidateQueries({ queryKey: ["analysis-explain-job"] }));
-  await wait(() => typingNodes(app).length === 1, "watched job types when it completes");
-  assert.equal(typingNodes(app)[0].props["aria-hidden"], "true");
-  assert.equal(text(srOnlyNodes(app)[0].children), explainFull, "sr-only full copy while typing");
-  assert.equal(app.renderer.root.findAll((node) => node.type === "div" && node.props["data-entrance"] === "fresh").length, 1, "fresh entrance");
-  const before = text(typingNodes(app)[0].children).length;
-  const reads = requested.filter((r) => r.path === "/api/jobs/explain-d-12").length;
-  await act(async () => app.client.invalidateQueries({ queryKey: ["analysis-explain-job"] }));
-  await wait(() => requested.filter((r) => r.path === "/api/jobs/explain-d-12").length > reads, "refetch during typing");
-  assert.equal(typingNodes(app).length, 1, "still typing after the refetch");
-  assert.ok(text(typingNodes(app)[0].children).length >= before, "refetch does not restart typing");
-  await wait(() => typingNodes(app).length === 0, "typing finishes", 400);
-  assert.ok(text(explainCard(app).children).includes(explainFull));
-  await app.cleanup();
-}
-
-// 5f) 동작 줄이기 설정: 보는 중 도착한 결과도 타자 효과 없이 바로 전체
-{
-  setReducedMotion(true);
-  requested.length = 0;
-  const detail = { ...item("d-11"), configuration: null, job: null, explanation: { jobId: "explain-d-11", status: "queued", errorCode: null, createdAt: null } };
-  const jobState = { status: "queued" };
-  routes = explainRoutes("d-11", detail, jobState);
-  const app = await mount("/analysis/d/d-11");
-  await wait(() => app.shown().includes("요청 중"), "running state on revisit");
-  jobState.status = "succeeded";
-  await act(async () => app.client.invalidateQueries({ queryKey: ["analysis-explain-job"] }));
-  await wait(() => app.shown().includes("설명 작업 완료"), "result arrived");
-  assert.equal(typingNodes(app).length, 0, "no typing with reduced motion");
-  assert.ok(text(explainCard(app).children).includes(explainFull), "full text at once with reduced motion");
-  await app.cleanup();
-  setReducedMotion(false);
 }
 
 // 6) 옛 주소·운영 현황 링크·폐지한 API 미호출
@@ -1298,7 +1035,7 @@ const explainCard = (app) => app.renderer.root.find((node) => node.type === "div
   const review = { version: 1, kind: "path_unmatched", interfaceId: "IF-ORD-1", protocolRuleId: "hard:proto-0000000a", ruleSetRevision: 15,
     routes: [{ channels: ["CH-01", "CH-09"], pathKey: "CH-01:CH-09", matched: false }], routesReason: null, endpoints: { start: "CH-01", end: "CH-09", matchesRoutes: true, ambiguous: false } };
   const protocolDetail = (id, protocolReview) => ({ ...item(id, { evidence: { ...item(id).evidence, ...(protocolReview === undefined ? {} : { protocolReview }) } }),
-    configuration: null, job: null, explanation: null });
+    configuration: null, job: null });
   const summary = { format: "protocol-explanation-v1", target: { kind: "alert", decisionId: "d-p1" }, interfaceId: "IF-ORD-1", ruleSetRevision: 15,
     explanation: "인터페이스 IF-ORD-1의 거래 경로 P1은 버전 15 허용 경로에 없습니다.", reviewPoints: [], paths: { P1: ["CH-01", "CH-09"] },
     facts: { format: "protocol-explain-facts-v1", kind: "alert", sha256: "d".repeat(64) }, check: { passed: true, failures: [], coverage: {} } };
@@ -1326,7 +1063,7 @@ const explainCard = (app) => app.renderer.root.find((node) => node.type === "div
   routes = protocolRoutes("d-p1", protocolDetail("d-p1", review));
   const app = await mount("/analysis/d/d-p1", "admin");
   await wait(() => Boolean(askButton(app)) && !askButton(app).props.disabled, "explain button on a protocol alert decision");
-  assert.ok(decisionCard(app), "decision explain card stays");
+  assert.ok(!decisionCard(app), "no old decision explanation panel (protocol detail has no evidence summary here)");
   await act(async () => askButton(app).props.onClick());
   await wait(() => text(protocolCard(app).children).includes("설명을 만드는 중입니다…"), "running");
   assert.deepEqual(posted.map((p) => p.body), [{ kind: "explain_protocol", sourceId: "source-1", target: { kind: "alert", decisionId: "d-p1" } }], "alert target = decision id");
@@ -1355,7 +1092,7 @@ const explainCard = (app) => app.renderer.root.find((node) => node.type === "div
   requested.length = 0;
   routes = protocolRoutes("d-p3", protocolDetail("d-p3", review));
   const user = await mount("/analysis/d/d-p3", "user");
-  await wait(() => Boolean(decisionCard(user)), "detail shown");
+  await wait(() => user.shown().includes("판정 요약"), "detail shown");
   await tick(30);
   assert.ok(!protocolCard(user) && !askButton(user), "not shown to a non-admin");
   assert.equal(requested.some((r) => r.path === "/api/jobs" && r.method === "GET"), false, "no explanation job lookup as a user");
@@ -1365,10 +1102,197 @@ const explainCard = (app) => app.renderer.root.find((node) => node.type === "div
   for (const [id, protocolReview] of [["d-p4", undefined], ["d-p5", { ...review, version: 2 }], ["d-p6", { ...review, interfaceId: "" }]]) {
     routes = protocolRoutes(id, protocolDetail(id, protocolReview));
     const plain = await mount(`/analysis/d/${id}`, "admin");
-    await wait(() => Boolean(decisionCard(plain)), "detail shown");
+    await wait(() => plain.shown().includes("판정 요약"), "detail shown");
     await tick(30);
     assert.ok(!protocolCard(plain), `no protocol explanation for ${id}`);
     await plain.cleanup();
+  }
+}
+
+// 5g) AI 판정 근거 요약 카드(서버 evidenceSummary): 판정 상세 본문 첫 블록(Process Flow 위), 블록 순서(한 줄 요약 → 문단 → 표 → 확인할 것 → 고정 안내),
+// 문자열 그대로(문단 = 문장을 공백 한 칸으로 이음), 행이 없는 표는 없음, ML 표가 빈 이유 한 줄, 묶음 구성원 들여쓰기·참가자 사이에만 구분선.
+// 응답은 공용 시험 벡터의 기대값 그대로다. 옛 설명 패널(요청 버튼·결과)은 없다.
+const fs = await import("node:fs");
+const vectors = JSON.parse(fs.readFileSync(new URL("../../contracts/evidence-summary-vectors.json", import.meta.url), "utf8"));
+const summaryOf = (id) => ({ templateVersion: vectors.templateVersion, notice: vectors.notice, ...vectors.cases.find((c) => c.id === id).expected });
+const cardOf = (app) => app.renderer.root.findAll((node) => node.type === "div" && node.props["data-slot"] === "section-card"
+  && node.findAll((child) => child.props?.["data-evidence-summary-block"] === "line").length > 0);
+const blocks = (card) => card.findAll((node) => typeof node.props?.["data-evidence-summary-block"] === "string").map((node) => node.props["data-evidence-summary-block"]);
+const blockText = (card, name) => text(card.find((node) => node.props?.["data-evidence-summary-block"] === name).children);
+const tables = (card) => card.findAll((node) => node.type === "table").map((node) => node.props["data-evidence-summary-table"]);
+const summaryRoutes = (id, detail, polishedReads = []) => ({
+  "GET /api/analysis/decisions": () => json(listBody([item(id)])),
+  [`GET /api/analysis/decisions/${id}`]: () => json(detail),
+  [`GET /api/analysis/decisions/${id}/interims`]: () => json({ id, jobId: null, items: [] }),
+  [`GET /api/analysis/decisions/${id}/polished`]: () => json(polishedReads.length > 1 ? polishedReads.shift() : polishedReads[0] ?? { polishState: "none", polished: null }),
+  "POST /api/jobs": () => json({ id: `explain-${id}`, status: "queued", kind: "explain", inputSpec: {} }, 201),
+});
+const summaryDetail = (id, summary, overrides = {}, polish = {}) => ({ ...item(id, { riskStatus: "rated", riskLevel: "warning", ...overrides }), configuration: null, job: null,
+  evidenceSummary: summary, polishState: "none", polished: null, polishRequestable: false, ...polish });
+const show = async (id, summary, overrides = {}, polish = {}, polishedReads = []) => {
+  routes = summaryRoutes(id, summaryDetail(id, summary, overrides, polish), polishedReads);
+  const app = await mount(`/analysis/d/${id}`);
+  await wait(() => app.shown().includes("판정 요약"), "detail shown");
+  return app;
+};
+const posts = (id) => requested.filter((r) => r.method === "POST" && r.path === "/api/jobs" && JSON.parse(r.body).decisionId === id);
+const polishedReads = (id) => requested.filter((r) => r.path === `/api/analysis/decisions/${id}/polished`).length;
+{
+  requested.length = 0;
+  // 혼합(소프트룰 + ML): 규칙 표·ML 표 모두, 확인할 것 2줄. 자동 요청 가능이 아니면(polishRequestable=false) 요청하지 않는다
+  const mixed = summaryOf("example_c_soft_elapsed_and_ml");
+  const app = await show("d-es1", mixed);
+  const [card] = cardOf(app);
+  assert.ok(card, "evidence summary card shown");
+  const headings = app.renderer.root.findAll((node) => node.type === "h2").map((node) => text(node.children));
+  assert.ok(headings.indexOf("AI 판정 근거 요약") < headings.indexOf("Process Flow") && headings.indexOf("Process Flow") < headings.indexOf("판정 요약")
+    && headings.indexOf("판정 요약") < headings.indexOf("판정 근거"), `card is the first block: ${headings.join(" / ")}`);
+  assert.equal(headings.filter((h) => h === "AI 판정 근거 요약").length, 1, "only the new card carries the title (old explanation panel removed)");
+  assert.ok(!app.shown().includes("설명 요청") && !app.shown().includes("아직 설명을 요청하지 않은 판정입니다."), "no request button or old panel text");
+  assert.deepEqual(blocks(card), ["line", "paragraph", "table", "checks", "notice"]);
+  assert.equal(blockText(card, "line"), `${mixed.summaryLine.prefix}${mixed.summaryLine.text}`);
+  assert.equal(blockText(card, "paragraph"), mixed.sentences.join(" "), "one paragraph, single spaces");
+  const nameSpans = card.findAll((node) => node.type === "span" && String(node.props.className).includes("whitespace-nowrap")).map((node) => text(node.children));
+  assert.ok(nameSpans.includes("처리량(TOTAL_COUNT)"), "a name with parentheses is kept on one line");
+  assert.deepEqual(tables(card), ["rule", "ml"]);
+  const table = (kind) => card.find((node) => node.type === "table" && node.props["data-evidence-summary-table"] === kind);
+  const cells = (kind) => table(kind).findAll((node) => node.type === "tr").map((tr) => tr.findAll((node) => node.type === "th" || node.type === "td").map((c) => text(c.children)));
+  assert.deepEqual(cells("rule"), [["규칙 조건", "이번 값", "결과"], ["처리 시간 ≥ 3,000 ms", "4,200 ms", "이상 징후"]]);
+  assert.deepEqual(cells("ml"), [["모델이 본 변수", "이번 값", "평소 값", "영향"], ["처리 시간", "4,200 ms", "800 ms", "62%"],
+    ["처리량(TOTAL_COUNT)", "120", "100", "31%"], ["ERROR_COUNT", "15", "0"], ["오류 비율 값", "0.125", "0"]], "group members on their own rows, impact once per player");
+  const mlRows = table("ml").findAll((node) => node.type === "tr" && node.props["data-player-id"]);
+  assert.deepEqual(mlRows.map((tr) => String(tr.props.className ?? "").includes("border-b-0")), [false, true, true, false], "separators only between players");
+  assert.deepEqual(mlRows.map((tr) => String(tr.findAll((node) => node.type === "td")[0].props.className).includes("pl-6")), [false, false, true, true], "second group member onwards indented");
+  const heads = card.findAll((node) => node.type === "th");
+  assert.equal(heads.find((th) => text(th.children) === "평소 값").props.title, "학습 데이터 중앙값");
+  assert.deepEqual(heads.filter((th) => text(th.children) === "이번 값").map((th) => th.props.title), [undefined, "단위 미확인 값 포함"], "unit note only where count values are shown");
+  assert.deepEqual(card.findAll((node) => node.type === "li").map((li) => text(li.children)), mixed.checks.map((c) => c.text));
+  assert.equal(blockText(card, "notice"), "AI 근거 요약은 참고용이며, 최종 판단은 담당자 확인이 필요합니다.");
+  for (const raw of ["soft:", "ml:", "hard:", "elapsed_ms", "group:", "(단위 미확인)", "Shapley", "phi"]) assert.ok(!text(card.children).includes(raw), `no raw ${raw}`);
+  await tick(30);
+  assert.deepEqual([posts("d-es1").length, polishedReads("d-es1")], [0, 0], "not requestable: no request, no polling");
+  await app.cleanup();
+
+  // 하드룰: 이번 값 칸 = 이름 + 값(여러 개면 `, `), 건수 값은 덧말 없이 칸 툴팁
+  const hardRule = await show("d-es6", summaryOf("example_a_hard_success_with_error"), { riskLevel: "critical" });
+  const hardCell = cardOf(hardRule)[0].findAll((node) => node.type === "td")[1];
+  assert.deepEqual([text(hardCell.children), hardCell.props.title], ["상태 S, ERROR_COUNT 3", "단위 미확인"]);
+  await hardRule.cleanup();
+
+  // scale 1 구성원: 평소 값 칸은 서버 글자(평소와 다름) 그대로, 단위를 붙이지 않는다
+  const scaled = await show("d-es7", summaryOf("ml_value_scale_unit_elapsed"), { riskStatus: "unrated", riskLevel: null, grade: "anomaly_sign" });
+  const scaledCells = cardOf(scaled)[0].findAll((node) => node.type === "td").map((td) => text(td.children));
+  assert.deepEqual(scaledCells, ["처리 시간", "4,200 ms", "평소와 다름", "70%"]);
+  await scaled.cleanup();
+
+  // ML 기여도 없음: 표 없이 상태 낱말 한 줄, 확인할 것 없음
+  const noContribution = await show("d-es2", summaryOf("ml_no_contribution_skipped"), { riskStatus: "unrated", riskLevel: null, grade: "anomaly_sign" });
+  const [plain] = cardOf(noContribution);
+  assert.deepEqual(blocks(plain), ["line", "paragraph", "table", "notice"]);
+  assert.deepEqual(tables(plain), []);
+  assert.equal(blockText(plain, "table"), "기여도 계산 안 함");
+  await noContribution.cleanup();
+
+  // 정상 완료: 표·확인할 것 없음. 요약이 없는 판정(null·형식 어긋남)은 카드 없음
+  const normal = await show("d-es3", summaryOf("normal_complete"), { signal: "no", riskStatus: "not_applicable" });
+  assert.deepEqual(blocks(cardOf(normal)[0]), ["line", "paragraph", "notice"]);
+  await normal.cleanup();
+  for (const [id, summary] of [["d-es4", null], ["d-es5", { summaryLine: { prefix: "주의" }, notice: "x" }]]) {
+    const none = await show(id, summary);
+    assert.equal(cardOf(none).length, 0, `no card for ${id}`);
+    await none.cleanup();
+  }
+}
+
+// 5h) 블록 2 다듬기 자동 요청(버튼 없음): 이상 최종 판정 + polishRequestable + polishState none이면 한 번만 접수(새 Idempotency-Key, 판정 id만),
+// pending 동안 …/polished를 5초마다 읽고 done이면 멈춘다. source=llm이면 문단만 바뀌고, source=code·실패·none이면 코드 문단 그대로(오류·상태 문구 없음).
+{
+  const mixed = summaryOf("example_c_soft_elapsed_and_ml");
+  const code = mixed.sentences.join(" ");
+  const polishedText = "머신러닝 모델은 이번 처리 시간 4,200 ms를 평소 값 800 ms와 비교했고, 더 길어서 판단에 가장 크게 영향을 주었습니다(영향 62%).";
+  const paragraphOf = (app) => blockText(cardOf(app)[0], "paragraph");
+  const requestable = { polishRequestable: true };
+
+  // 요청 → pending 읽기 → done(llm) → 문단 교체·읽기 멈춤. 다른 블록은 그대로
+  requested.length = 0;
+  const reads = [{ polishState: "pending", polished: null }, { polishState: "done", polished: { text: polishedText, source: "llm" } }];
+  const app = await show("d-ep1", mixed, {}, requestable, reads);
+  await wait(() => posts("d-ep1").length === 1, "auto request sent once");
+  const post = posts("d-ep1")[0];
+  assert.deepEqual(JSON.parse(post.body), { kind: "explain", sourceId: "source-1", decisionId: "d-ep1" });
+  assert.match(new Headers(post.headers).get("Idempotency-Key"), /^[0-9a-f-]{36}$/, "a new idempotency key per request");
+  assert.equal(paragraphOf(app), code, "code paragraph while waiting");
+  await wait(() => polishedReads("d-ep1") >= 1, "polished read after the request");
+  // 다른 판정(B)의 상세 쿼리: 무효화돼 있던 상태가 A의 패치로 바뀌지 않아야 한다(신선도·무효화 표시 그대로)
+  const detailQueryA = app.client.getQueryCache().findAll({ queryKey: ["analysis-decision"] }).find((q) => q.state.data?.id === "d-ep1");
+  const keyB = [...detailQueryA.queryKey.slice(0, -1), "d-other"];
+  app.client.setQueryData(keyB, summaryDetail("d-other", mixed));
+  await act(async () => app.client.invalidateQueries({ queryKey: keyB, refetchType: "none" }));
+  const stateB = () => { const q = app.client.getQueryCache().find({ queryKey: keyB, exact: true }); return [q.state.isInvalidated, q.state.dataUpdatedAt]; };
+  const beforeB = stateB();
+  assert.equal(beforeB[0], true, "B starts invalidated");
+  const pollQuery = app.client.getQueryCache().findAll({ queryKey: ["analysis-decision-polished"] })[0];
+  const interval = (query) => { const value = query.observers[0].options.refetchInterval; return typeof value === "function" ? value(query) : value; };
+  assert.equal(interval(pollQuery), 5000, "5 s polling while pending");
+  await act(async () => app.client.invalidateQueries({ queryKey: ["analysis-decision-polished"] }));
+  await wait(() => paragraphOf(app) === polishedText, "paragraph replaced by the polished one");
+  assert.equal(interval(pollQuery), false, "polling stops when done");
+  const cachedDetail = app.client.getQueryCache().findAll({ queryKey: ["analysis-decision"] }).map((q) => q.state.data).find((d) => d?.id === "d-ep1");
+  assert.deepEqual([cachedDetail.polishState, cachedDetail.polished?.text, cachedDetail.polishRequestable], ["done", polishedText, false],
+    "detail cache updated: re-entry shows the polished paragraph at once and sends no request");
+  assert.deepEqual(stateB(), beforeB, "patching decision A leaves decision B's query (isInvalidated, dataUpdatedAt) untouched");
+  assert.equal(blockText(cardOf(app)[0], "line"), `${mixed.summaryLine.prefix}${mixed.summaryLine.text}`, "other blocks unchanged");
+  assert.deepEqual(cardOf(app)[0].findAll((node) => node.type === "li").map((li) => text(li.children)), mixed.checks.map((c) => c.text));
+  await act(async () => app.client.invalidateQueries({ queryKey: ["analysis-decision"] }));
+  await tick(30);
+  assert.equal(posts("d-ep1").length, 1, "no second request on refetch");
+  await app.cleanup();
+
+  // 이미 done(llm)인 판정: 처음부터 다듬은 문단, 요청·읽기 없음. done(code)는 코드 문단
+  requested.length = 0;
+  const done = await show("d-ep2", mixed, {}, { polishState: "done", polished: { text: polishedText, source: "llm" }, polishRequestable: false });
+  assert.equal(paragraphOf(done), polishedText);
+  await tick(30);
+  assert.deepEqual([posts("d-ep2").length, polishedReads("d-ep2")], [0, 0]);
+  await done.cleanup();
+  const codeDone = await show("d-ep3", mixed, {}, { polishState: "done", polished: { text: code, source: "code" } });
+  assert.equal(paragraphOf(codeDone), code);
+  await codeDone.cleanup();
+
+  // 이미 pending: 요청하지 않고 읽기만. 실패로 끝남(none)이면 코드 문단 그대로, 읽기 멈춤
+  requested.length = 0;
+  const pending = await show("d-ep4", mixed, {}, { polishState: "pending" }, [{ polishState: "none", polished: null }]);
+  await wait(() => polishedReads("d-ep4") >= 1, "pending read");
+  await tick(30);
+  assert.equal(posts("d-ep4").length, 0, "pending: no request");
+  assert.equal(paragraphOf(pending), code);
+  assert.ok(!/실패|대기|요청 중|generation_|다듬/.test(text(cardOf(pending)[0].children)), "no status or error text");
+  await pending.cleanup();
+
+  // 요청 실패(503)·읽기 실패는 조용히: 코드 문단 그대로, 다시 요청하지 않음
+  requested.length = 0;
+  routes = summaryRoutes("d-ep5", summaryDetail("d-ep5", mixed, {}, requestable));
+  routes["POST /api/jobs"] = () => json({ code: "generation_service_unavailable" }, 503);
+  const refused = await mount("/analysis/d/d-ep5");
+  await wait(() => posts("d-ep5").length === 1, "request attempted");
+  await tick(50);
+  assert.deepEqual([posts("d-ep5").length, polishedReads("d-ep5")], [1, 0], "no retry, no polling after a refused request");
+  assert.equal(paragraphOf(refused), code);
+  assert.ok(!text(cardOf(refused)[0].children).includes("generation_service_unavailable"), "no error code shown");
+  await refused.cleanup();
+
+  // 요청하지 않는 판정: 정상·이상 아님, 시연 판정, 최종 전(interim), 서버가 요청 불가로 알림
+  requested.length = 0;
+  const cases = [
+    ["d-ep6", summaryOf("normal_complete"), { signal: "no", riskStatus: "not_applicable" }],
+    ["d-ep7", mixed, { evidence: { ...item("x").evidence, demo: { historicalReplay: true, runKey: "demo-1", scope: "demo" } } }],
+    ["d-ep8", mixed, { kind: "interim", stage: "provisional", decisionId: null, jobId: "j-ep8" }],
+  ];
+  for (const [id, summary, overrides] of cases) {
+    const view = await show(id, summary, overrides, requestable);
+    await tick(30);
+    assert.deepEqual([posts(id).length, polishedReads(id)], [0, 0], `${id}: no request`);
+    await view.cleanup();
   }
 }
 
@@ -1376,4 +1300,4 @@ assert.equal(requested.some((r) => r.path.startsWith("/api/anomaly/events/")), f
 assert.ok(requested.every((r) => r.path.startsWith("/api/")), "only same-origin API paths");
 console.log("analysis page QA passed: default risk view, result/risk/workflow sidebar and view switch, admin-only outcome sub items under 완료 and basis select (URL + API), unread dot, risk cell, row links, search URL, SSE cursor with interim events "
   + "and single refetch, error/empty states, detail/timeline/evidence, process flow tree, read mark, workflow transitions and 409, admin 로그 분류하기 dialog (save then change, save failure keeps state, change failure keeps dialog, no double save, no close while pending), records in the timeline, list cause line, "
-  + "v4 method tables, explain request/failure, blocked explain without polling, lookup failure blocks re-request, explain facts with detail-screen labels (no raw keys or JSON), explain result typing only for a result arriving while watching (requested or watched queued job, no restart on refetch, sr-only full copy, existing result without motion, reduced motion = full text), final-only explain, protocol alert explanation (admin + protocolReview only, alert target, result/failure), 404, job→decision redirect, legacy address");
+  + "v4 method tables, evidence summary card first (blocks, tables, group rows, names kept whole), automatic polish request once (pending polling, polished paragraph swap, silent failure, no request for normal/demo/interim/not requestable), protocol alert explanation (admin + protocolReview only, alert target, result/failure), 404, job→decision redirect, legacy address");

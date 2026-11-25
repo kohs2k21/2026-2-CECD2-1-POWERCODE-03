@@ -1,0 +1,5877 @@
+{
+ "templateVersion": "evidence-template-v1",
+ "notice": "AI 근거 요약은 참고용이며, 최종 판단은 담당자 확인이 필요합니다.",
+ "cases": [
+  {
+   "id": "example_a_hard_success_with_error",
+   "input": {
+    "evidence": {
+     "schemaVersion": 4,
+     "ruleSetRevision": 7,
+     "observation": {
+      "id": "obs-1",
+      "revisionNo": 1
+     },
+     "composite": {
+      "anomalous": true,
+      "status": "complete",
+      "grade": "anomaly",
+      "basisMethods": [
+       "hard:success-with-error"
+      ],
+      "risk": {
+       "status": "rated",
+       "level": "critical",
+       "determinedBy": [
+        "hard:success-with-error"
+       ],
+       "unratedMethods": []
+      }
+     },
+     "methodResults": [
+      {
+       "status": "succeeded",
+       "anomalous": true,
+       "code": "HARD_SUCCESS_WITH_ERROR",
+       "severity": "critical",
+       "riskLevel": "critical",
+       "cause": null,
+       "failureCode": null,
+       "evidence": [
+        {
+         "result": "hit"
+        }
+       ],
+       "methodId": "hard:success-with-error",
+       "category": "hard"
+      }
+     ]
+    },
+    "observedFields": {
+     "revisionNo": 1,
+     "status": "S",
+     "errorCount": "3"
+    }
+   },
+   "expected": {
+    "summaryLine": {
+     "prefix": "위험",
+     "prefixKind": "risk",
+     "text": "성공 상태인데 ERROR_COUNT가 기록되었습니다",
+     "kind": "hard_success_with_error"
+    },
+    "sentences": [
+     "이상 규칙이 처리 상태 S와 ERROR_COUNT를 함께 확인했고, 성공 상태인데 ERROR_COUNT가 0보다 커서 이상으로 판단했습니다."
+    ],
+    "stateWords": [
+     "이상"
+    ],
+    "valueTokens": [],
+    "table": [
+     {
+      "kind": "rule",
+      "methodId": "hard:success-with-error",
+      "condition": "STATUS = S, ERROR_COUNT > 0",
+      "observed": [
+       {
+        "name": "상태",
+        "value": "S",
+        "unit": null,
+        "unitUnknown": false
+       },
+       {
+        "name": "ERROR_COUNT",
+        "value": "3",
+        "unit": null,
+        "unitUnknown": true
+       }
+      ],
+      "result": "이상"
+     }
+    ],
+    "checks": [
+     {
+      "code": "hard_success_with_error",
+      "text": "원천 시스템에서 성공 처리에 ERROR_COUNT가 기록된 경위를 확인하세요."
+     }
+    ],
+    "contributionStatus": "not_computed",
+    "contributionNote": null
+   }
+  },
+  {
+   "id": "example_b_ml_elapsed_longer_with_group",
+   "input": {
+    "evidence": {
+     "schemaVersion": 4,
+     "ruleSetRevision": 7,
+     "observation": {
+      "id": "obs-1",
+      "revisionNo": 1
+     },
+     "composite": {
+      "anomalous": true,
+      "status": "complete",
+      "grade": "anomaly_sign",
+      "basisMethods": [
+       "ml:iforest"
+      ],
+      "risk": {
+       "status": "unrated",
+       "level": null,
+       "determinedBy": [],
+       "unratedMethods": [
+        "ml:iforest"
+       ]
+      }
+     },
+     "methodResults": [
+      {
+       "status": "succeeded",
+       "anomalous": true,
+       "code": null,
+       "severity": null,
+       "riskLevel": null,
+       "cause": null,
+       "failureCode": null,
+       "evidence": [],
+       "methodId": "ml:iforest",
+       "category": "ml",
+       "score": 0.71,
+       "scoreDetail": {
+        "raw": 0.71,
+        "threshold": "0.620",
+        "direction": "higher_is_anomaly"
+       },
+       "attribution": {
+        "version": "baseline-shapley-v1",
+        "status": "succeeded",
+        "baselineKind": "train_median_robust_scaler_center",
+        "grouping": "source-field-union-v1",
+        "scoreActual": 0.71,
+        "scoreBaseline": 0.4,
+        "threshold": "0.620",
+        "direction": "higher_is_anomaly",
+        "baselineWarning": false,
+        "efficiencyError": 0,
+        "players": [
+         {
+          "playerId": "elapsed_ms",
+          "features": [
+           "elapsed_ms"
+          ],
+          "actual": {
+           "elapsed_ms": "4200"
+          },
+          "baseline": {
+           "elapsed_ms": 800
+          },
+          "scaleIsUnit": {},
+          "phi": 0.19,
+          "share": 0.62,
+          "thresholdGapShare": null
+         },
+         {
+          "playerId": "group:total_count",
+          "features": [
+           "total_count",
+           "error_count",
+           "error_ratio"
+          ],
+          "actual": {
+           "total_count": "120",
+           "error_count": "15",
+           "error_ratio": "0.125"
+          },
+          "baseline": {
+           "total_count": 100,
+           "error_count": 0,
+           "error_ratio": 0
+          },
+          "scaleIsUnit": {},
+          "phi": 0.1,
+          "share": 0.31,
+          "thresholdGapShare": null
+         }
+        ],
+        "topK": [
+         "elapsed_ms",
+         "group:total_count"
+        ],
+        "counterfactual": [
+         {
+          "replaced": [
+           "elapsed_ms"
+          ],
+          "scoreAfter": 0.5,
+          "warningAfterReplacement": false
+         },
+         {
+          "replaced": [
+           "elapsed_ms",
+           "group:total_count"
+          ],
+          "scoreAfter": 0.5,
+          "warningAfterReplacement": false
+         }
+        ],
+        "clearedAtK": 1,
+        "pins": {},
+        "computeMs": 0.5
+       }
+      }
+     ]
+    }
+   },
+   "expected": {
+    "summaryLine": {
+     "prefix": "이상 징후",
+     "prefixKind": "grade",
+     "text": "평소 처리 시간과 비교하여 지연이 확인됩니다",
+     "kind": "ml_elapsed_longer"
+    },
+    "sentences": [
+     "머신러닝 모델이 이번 처리 시간 4,200 ms를 평소 값 800 ms와 비교했고, 더 길어 판단에 가장 크게 영향을 주었습니다(영향 62%).",
+     "다음으로 처리량(TOTAL_COUNT)·ERROR_COUNT·오류 비율 값이 평소와 달라 영향을 주었습니다(영향 31%)."
+    ],
+    "stateWords": [],
+    "valueTokens": [],
+    "table": [
+     {
+      "kind": "ml",
+      "methodId": "ml:iforest",
+      "playerId": "elapsed_ms",
+      "impactPercent": "62%",
+      "members": [
+       {
+        "name": "처리 시간",
+        "actual": "4,200",
+        "usual": "800",
+        "unit": "ms",
+        "unitUnknown": false
+       }
+      ]
+     },
+     {
+      "kind": "ml",
+      "methodId": "ml:iforest",
+      "playerId": "group:total_count",
+      "impactPercent": "31%",
+      "members": [
+       {
+        "name": "처리량(TOTAL_COUNT)",
+        "actual": "120",
+        "usual": "100",
+        "unit": null,
+        "unitUnknown": true
+       },
+       {
+        "name": "ERROR_COUNT",
+        "actual": "15",
+        "usual": "0",
+        "unit": null,
+        "unitUnknown": true
+       },
+       {
+        "name": "오류 비율 값",
+        "actual": "0.125",
+        "usual": "0",
+        "unit": null,
+        "unitUnknown": false
+       }
+      ]
+     }
+    ],
+    "checks": [
+     {
+      "code": "ml_elapsed_longer",
+      "text": "같은 프로세스의 최근 처리 시간을 함께 확인하세요."
+     }
+    ],
+    "contributionStatus": "computed",
+    "contributionNote": null
+   }
+  },
+  {
+   "id": "example_c_soft_elapsed_and_ml",
+   "input": {
+    "evidence": {
+     "schemaVersion": 4,
+     "ruleSetRevision": 7,
+     "observation": {
+      "id": "obs-1",
+      "revisionNo": 1
+     },
+     "composite": {
+      "anomalous": true,
+      "status": "complete",
+      "grade": "anomaly_sign",
+      "basisMethods": [
+       "soft:elapsed_ms-3f9a2c1d",
+       "ml:iforest"
+      ],
+      "risk": {
+       "status": "rated",
+       "level": "warning",
+       "determinedBy": [
+        "soft:elapsed_ms-3f9a2c1d"
+       ],
+       "unratedMethods": []
+      }
+     },
+     "methodResults": [
+      {
+       "status": "succeeded",
+       "anomalous": true,
+       "code": "SOFT_ELAPSED_MS_3F9A2C1D",
+       "severity": "warning",
+       "riskLevel": "warning",
+       "cause": null,
+       "failureCode": null,
+       "evidence": [],
+       "methodId": "soft:elapsed_ms-3f9a2c1d",
+       "category": "soft",
+       "observedValue": "4200",
+       "condition": {
+        "field": "elapsed_ms",
+        "operator": "gte",
+        "threshold": "3000",
+        "unit": "ms"
+       }
+      },
+      {
+       "status": "succeeded",
+       "anomalous": true,
+       "code": null,
+       "severity": null,
+       "riskLevel": null,
+       "cause": null,
+       "failureCode": null,
+       "evidence": [],
+       "methodId": "ml:iforest",
+       "category": "ml",
+       "score": 0.71,
+       "scoreDetail": {
+        "raw": 0.71,
+        "threshold": "0.620",
+        "direction": "higher_is_anomaly"
+       },
+       "attribution": {
+        "version": "baseline-shapley-v1",
+        "status": "succeeded",
+        "baselineKind": "train_median_robust_scaler_center",
+        "grouping": "source-field-union-v1",
+        "scoreActual": 0.71,
+        "scoreBaseline": 0.4,
+        "threshold": "0.620",
+        "direction": "higher_is_anomaly",
+        "baselineWarning": false,
+        "efficiencyError": 0,
+        "players": [
+         {
+          "playerId": "elapsed_ms",
+          "features": [
+           "elapsed_ms"
+          ],
+          "actual": {
+           "elapsed_ms": "4200"
+          },
+          "baseline": {
+           "elapsed_ms": 800
+          },
+          "scaleIsUnit": {},
+          "phi": 0.19,
+          "share": 0.62,
+          "thresholdGapShare": null
+         },
+         {
+          "playerId": "group:total_count",
+          "features": [
+           "total_count",
+           "error_count",
+           "error_ratio"
+          ],
+          "actual": {
+           "total_count": "120",
+           "error_count": "15",
+           "error_ratio": "0.125"
+          },
+          "baseline": {
+           "total_count": 100,
+           "error_count": 0,
+           "error_ratio": 0
+          },
+          "scaleIsUnit": {},
+          "phi": 0.1,
+          "share": 0.31,
+          "thresholdGapShare": null
+         }
+        ],
+        "topK": [
+         "elapsed_ms",
+         "group:total_count"
+        ],
+        "counterfactual": [
+         {
+          "replaced": [
+           "elapsed_ms"
+          ],
+          "scoreAfter": 0.5,
+          "warningAfterReplacement": false
+         },
+         {
+          "replaced": [
+           "elapsed_ms",
+           "group:total_count"
+          ],
+          "scoreAfter": 0.5,
+          "warningAfterReplacement": false
+         }
+        ],
+        "clearedAtK": 1,
+        "pins": {},
+        "computeMs": 0.5
+       }
+      }
+     ]
+    }
+   },
+   "expected": {
+    "summaryLine": {
+     "prefix": "주의",
+     "prefixKind": "risk",
+     "text": "처리 시간이 기준 ≥ 3,000 ms에 해당합니다",
+     "kind": "soft_elapsed"
+    },
+    "sentences": [
+     "이상 징후 규칙이 이번 처리 시간 4,200 ms를 기준 3,000 ms와 비교했고, 기준(≥)에 해당해 이상 징후로 판단했습니다.",
+     "머신러닝 모델이 이번 처리 시간 4,200 ms를 평소 값 800 ms와 비교했고, 더 길어 판단에 가장 크게 영향을 주었습니다(영향 62%).",
+     "다음으로 처리량(TOTAL_COUNT)·ERROR_COUNT·오류 비율 값이 평소와 달라 영향을 주었습니다(영향 31%)."
+    ],
+    "stateWords": [
+     "이상 징후"
+    ],
+    "valueTokens": [],
+    "table": [
+     {
+      "kind": "rule",
+      "methodId": "soft:elapsed_ms-3f9a2c1d",
+      "condition": "처리 시간 ≥ 3,000 ms",
+      "observed": [
+       {
+        "name": null,
+        "value": "4,200",
+        "unit": "ms",
+        "unitUnknown": false
+       }
+      ],
+      "result": "이상 징후"
+     },
+     {
+      "kind": "ml",
+      "methodId": "ml:iforest",
+      "playerId": "elapsed_ms",
+      "impactPercent": "62%",
+      "members": [
+       {
+        "name": "처리 시간",
+        "actual": "4,200",
+        "usual": "800",
+        "unit": "ms",
+        "unitUnknown": false
+       }
+      ]
+     },
+     {
+      "kind": "ml",
+      "methodId": "ml:iforest",
+      "playerId": "group:total_count",
+      "impactPercent": "31%",
+      "members": [
+       {
+        "name": "처리량(TOTAL_COUNT)",
+        "actual": "120",
+        "usual": "100",
+        "unit": null,
+        "unitUnknown": true
+       },
+       {
+        "name": "ERROR_COUNT",
+        "actual": "15",
+        "usual": "0",
+        "unit": null,
+        "unitUnknown": true
+       },
+       {
+        "name": "오류 비율 값",
+        "actual": "0.125",
+        "usual": "0",
+        "unit": null,
+        "unitUnknown": false
+       }
+      ]
+     }
+    ],
+    "checks": [
+     {
+      "code": "soft_elapsed",
+      "text": "처리 시간 기준 값이 지금 운영에 맞는지 규칙 설정에서 확인하세요."
+     },
+     {
+      "code": "ml_elapsed_longer",
+      "text": "같은 프로세스의 최근 처리 시간을 함께 확인하세요."
+     }
+    ],
+    "contributionStatus": "computed",
+    "contributionNote": null
+   }
+  },
+  {
+   "id": "hard_process_status_f",
+   "input": {
+    "evidence": {
+     "schemaVersion": 4,
+     "ruleSetRevision": 7,
+     "observation": {
+      "id": "obs-1",
+      "revisionNo": 1
+     },
+     "composite": {
+      "anomalous": true,
+      "status": "complete",
+      "grade": "anomaly",
+      "basisMethods": [
+       "hard:process-status"
+      ],
+      "risk": {
+       "status": "rated",
+       "level": "critical",
+       "determinedBy": [
+        "hard:process-status"
+       ],
+       "unratedMethods": []
+      }
+     },
+     "methodResults": [
+      {
+       "status": "succeeded",
+       "anomalous": true,
+       "code": "PROCESS_STATUS_F",
+       "severity": "critical",
+       "riskLevel": "critical",
+       "cause": null,
+       "failureCode": null,
+       "evidence": [
+        {
+         "observedStatus": "F",
+         "result": "hit"
+        }
+       ],
+       "methodId": "hard:process-status",
+       "category": "hard"
+      }
+     ]
+    }
+   },
+   "expected": {
+    "summaryLine": {
+     "prefix": "위험",
+     "prefixKind": "risk",
+     "text": "처리 상태가 S가 아닌 F로 기록되었습니다",
+     "kind": "hard_process_status"
+    },
+    "sentences": [
+     "이상 규칙이 이번 처리 상태 F를 성공 상태 S와 비교했고, 달라 이상으로 판단했습니다."
+    ],
+    "stateWords": [
+     "이상"
+    ],
+    "valueTokens": [
+     "F"
+    ],
+    "table": [
+     {
+      "kind": "rule",
+      "methodId": "hard:process-status",
+      "condition": "STATUS ≠ S",
+      "observed": [
+       {
+        "name": null,
+        "value": "F",
+        "unit": null,
+        "unitUnknown": false
+       }
+      ],
+      "result": "이상"
+     }
+    ],
+    "checks": [
+     {
+      "code": "hard_process_status",
+      "text": "원천 시스템에서 이 처리의 상태 F 기록 내용을 확인하세요."
+     }
+    ],
+    "contributionStatus": "not_computed",
+    "contributionNote": null
+   }
+  },
+  {
+   "id": "hard_process_status_n_particle",
+   "input": {
+    "evidence": {
+     "schemaVersion": 4,
+     "ruleSetRevision": 7,
+     "observation": {
+      "id": "obs-1",
+      "revisionNo": 1
+     },
+     "composite": {
+      "anomalous": true,
+      "status": "complete",
+      "grade": "anomaly",
+      "basisMethods": [
+       "hard:process-status"
+      ],
+      "risk": {
+       "status": "rated",
+       "level": "info",
+       "determinedBy": [
+        "hard:process-status"
+       ],
+       "unratedMethods": []
+      }
+     },
+     "methodResults": [
+      {
+       "status": "succeeded",
+       "anomalous": true,
+       "code": "PROCESS_STATUS_N",
+       "severity": "info",
+       "riskLevel": "info",
+       "cause": null,
+       "failureCode": null,
+       "evidence": [
+        {
+         "observedStatus": "N",
+         "result": "hit"
+        }
+       ],
+       "methodId": "hard:process-status",
+       "category": "hard"
+      }
+     ]
+    }
+   },
+   "expected": {
+    "summaryLine": {
+     "prefix": "참고",
+     "prefixKind": "risk",
+     "text": "처리 상태가 S가 아닌 N으로 기록되었습니다",
+     "kind": "hard_process_status"
+    },
+    "sentences": [
+     "이상 규칙이 이번 처리 상태 N을 성공 상태 S와 비교했고, 달라 이상으로 판단했습니다."
+    ],
+    "stateWords": [
+     "이상"
+    ],
+    "valueTokens": [
+     "N"
+    ],
+    "table": [
+     {
+      "kind": "rule",
+      "methodId": "hard:process-status",
+      "condition": "STATUS ≠ S",
+      "observed": [
+       {
+        "name": null,
+        "value": "N",
+        "unit": null,
+        "unitUnknown": false
+       }
+      ],
+      "result": "이상"
+     }
+    ],
+    "checks": [
+     {
+      "code": "hard_process_status",
+      "text": "원천 시스템에서 이 처리의 상태 N 기록 내용을 확인하세요."
+     }
+    ],
+    "contributionStatus": "not_computed",
+    "contributionNote": null
+   }
+  },
+  {
+   "id": "hard_negative_duration",
+   "input": {
+    "evidence": {
+     "schemaVersion": 4,
+     "ruleSetRevision": 7,
+     "observation": {
+      "id": "obs-1",
+      "revisionNo": 1
+     },
+     "composite": {
+      "anomalous": true,
+      "status": "complete",
+      "grade": "anomaly",
+      "basisMethods": [
+       "hard:negative-duration"
+      ],
+      "risk": {
+       "status": "rated",
+       "level": "critical",
+       "determinedBy": [
+        "hard:negative-duration"
+       ],
+       "unratedMethods": []
+      }
+     },
+     "methodResults": [
+      {
+       "status": "succeeded",
+       "anomalous": true,
+       "code": "HARD_NEGATIVE_DURATION",
+       "severity": "critical",
+       "riskLevel": "critical",
+       "cause": null,
+       "failureCode": null,
+       "evidence": [
+        {
+         "result": "hit"
+        }
+       ],
+       "methodId": "hard:negative-duration",
+       "category": "hard"
+      }
+     ]
+    },
+    "observedFields": {
+     "revisionNo": 1,
+     "startTimeRaw": "2026-01-01 10:00:09",
+     "endTimeRaw": "2026-01-01 10:00:05"
+    }
+   },
+   "expected": {
+    "summaryLine": {
+     "prefix": "위험",
+     "prefixKind": "risk",
+     "text": "시작 시각이 종료 시각보다 늦게 기록되었습니다",
+     "kind": "hard_negative_duration"
+    },
+    "sentences": [
+     "이상 규칙이 시작 시각 2026-01-01 10:00:09와 종료 시각 2026-01-01 10:00:05를 비교했고, 시작이 더 늦어 이상으로 판단했습니다."
+    ],
+    "stateWords": [
+     "이상"
+    ],
+    "valueTokens": [
+     "2026-01-01 10:00:09",
+     "2026-01-01 10:00:05"
+    ],
+    "table": [
+     {
+      "kind": "rule",
+      "methodId": "hard:negative-duration",
+      "condition": "START_TIME > END_TIME",
+      "observed": [
+       {
+        "name": null,
+        "value": "2026-01-01 10:00:09",
+        "unit": null,
+        "unitUnknown": false
+       },
+       {
+        "name": null,
+        "value": "2026-01-01 10:00:05",
+        "unit": null,
+        "unitUnknown": false
+       }
+      ],
+      "result": "이상"
+     }
+    ],
+    "checks": [
+     {
+      "code": "hard_negative_duration",
+      "text": "원천 시스템의 시작·종료 시각 기록(시간대 포함)을 확인하세요."
+     }
+    ],
+    "contributionStatus": "not_computed",
+    "contributionNote": null
+   }
+  },
+  {
+   "id": "hard_negative_duration_value_missing",
+   "input": {
+    "evidence": {
+     "schemaVersion": 4,
+     "ruleSetRevision": 7,
+     "observation": {
+      "id": "obs-1",
+      "revisionNo": 1
+     },
+     "composite": {
+      "anomalous": true,
+      "status": "complete",
+      "grade": "anomaly",
+      "basisMethods": [
+       "hard:negative-duration"
+      ],
+      "risk": {
+       "status": "rated",
+       "level": "critical",
+       "determinedBy": [
+        "hard:negative-duration"
+       ],
+       "unratedMethods": []
+      }
+     },
+     "methodResults": [
+      {
+       "status": "succeeded",
+       "anomalous": true,
+       "code": "HARD_NEGATIVE_DURATION",
+       "severity": "critical",
+       "riskLevel": "critical",
+       "cause": null,
+       "failureCode": null,
+       "evidence": [
+        {
+         "result": "hit"
+        }
+       ],
+       "methodId": "hard:negative-duration",
+       "category": "hard"
+      }
+     ]
+    }
+   },
+   "expected": {
+    "summaryLine": {
+     "prefix": "위험",
+     "prefixKind": "risk",
+     "text": "시작 시각이 종료 시각보다 늦게 기록되었습니다",
+     "kind": "hard_negative_duration"
+    },
+    "sentences": [
+     "이상 규칙이 시작 시각과 종료 시각을 비교했고, 시작이 더 늦어 이상으로 판단했습니다."
+    ],
+    "stateWords": [
+     "이상"
+    ],
+    "valueTokens": [],
+    "table": [
+     {
+      "kind": "rule",
+      "methodId": "hard:negative-duration",
+      "condition": "START_TIME > END_TIME",
+      "observed": [
+       {
+        "name": null,
+        "value": "—",
+        "unit": null,
+        "unitUnknown": false
+       },
+       {
+        "name": null,
+        "value": "—",
+        "unit": null,
+        "unitUnknown": false
+       }
+      ],
+      "result": "이상"
+     }
+    ],
+    "checks": [
+     {
+      "code": "hard_negative_duration",
+      "text": "원천 시스템의 시작·종료 시각 기록(시간대 포함)을 확인하세요."
+     }
+    ],
+    "contributionStatus": "not_computed",
+    "contributionNote": null
+   }
+  },
+  {
+   "id": "hard_negative_duration_revision_mismatch",
+   "input": {
+    "evidence": {
+     "schemaVersion": 4,
+     "ruleSetRevision": 7,
+     "observation": {
+      "id": "obs-1",
+      "revisionNo": 1
+     },
+     "composite": {
+      "anomalous": true,
+      "status": "complete",
+      "grade": "anomaly",
+      "basisMethods": [
+       "hard:negative-duration"
+      ],
+      "risk": {
+       "status": "rated",
+       "level": "critical",
+       "determinedBy": [
+        "hard:negative-duration"
+       ],
+       "unratedMethods": []
+      }
+     },
+     "methodResults": [
+      {
+       "status": "succeeded",
+       "anomalous": true,
+       "code": "HARD_NEGATIVE_DURATION",
+       "severity": "critical",
+       "riskLevel": "critical",
+       "cause": null,
+       "failureCode": null,
+       "evidence": [
+        {
+         "result": "hit"
+        }
+       ],
+       "methodId": "hard:negative-duration",
+       "category": "hard"
+      }
+     ]
+    },
+    "observedFields": {
+     "revisionNo": 2,
+     "startTimeRaw": "2026-01-01 10:00:09",
+     "endTimeRaw": "2026-01-01 10:00:05"
+    }
+   },
+   "expected": {
+    "summaryLine": {
+     "prefix": "위험",
+     "prefixKind": "risk",
+     "text": "시작 시각이 종료 시각보다 늦게 기록되었습니다",
+     "kind": "hard_negative_duration"
+    },
+    "sentences": [
+     "이상 규칙이 시작 시각과 종료 시각을 비교했고, 시작이 더 늦어 이상으로 판단했습니다."
+    ],
+    "stateWords": [
+     "이상"
+    ],
+    "valueTokens": [],
+    "table": [
+     {
+      "kind": "rule",
+      "methodId": "hard:negative-duration",
+      "condition": "START_TIME > END_TIME",
+      "observed": [
+       {
+        "name": null,
+        "value": "—",
+        "unit": null,
+        "unitUnknown": false
+       },
+       {
+        "name": null,
+        "value": "—",
+        "unit": null,
+        "unitUnknown": false
+       }
+      ],
+      "result": "이상"
+     }
+    ],
+    "checks": [
+     {
+      "code": "hard_negative_duration",
+      "text": "원천 시스템의 시작·종료 시각 기록(시간대 포함)을 확인하세요."
+     }
+    ],
+    "contributionStatus": "not_computed",
+    "contributionNote": null
+   }
+  },
+  {
+   "id": "hard_count_conservation",
+   "input": {
+    "evidence": {
+     "schemaVersion": 4,
+     "ruleSetRevision": 7,
+     "observation": {
+      "id": "obs-1",
+      "revisionNo": 1
+     },
+     "composite": {
+      "anomalous": true,
+      "status": "complete",
+      "grade": "anomaly",
+      "basisMethods": [
+       "hard:count-conservation"
+      ],
+      "risk": {
+       "status": "rated",
+       "level": "critical",
+       "determinedBy": [
+        "hard:count-conservation"
+       ],
+       "unratedMethods": []
+      }
+     },
+     "methodResults": [
+      {
+       "status": "succeeded",
+       "anomalous": true,
+       "code": "HARD_COUNT_CONSERVATION",
+       "severity": "critical",
+       "riskLevel": "critical",
+       "cause": null,
+       "failureCode": null,
+       "evidence": [
+        {
+         "result": "hit"
+        }
+       ],
+       "methodId": "hard:count-conservation",
+       "category": "hard"
+      }
+     ]
+    },
+    "observedFields": {
+     "revisionNo": 1,
+     "totalCount": "1200",
+     "successCount": "1000",
+     "errorCount": "150"
+    }
+   },
+   "expected": {
+    "summaryLine": {
+     "prefix": "위험",
+     "prefixKind": "risk",
+     "text": "처리량(TOTAL_COUNT)이 SUCCESS_COUNT와 ERROR_COUNT의 합과 다릅니다",
+     "kind": "hard_count_conservation"
+    },
+    "sentences": [
+     "이상 규칙이 처리량(TOTAL_COUNT)을 SUCCESS_COUNT와 ERROR_COUNT의 합과 비교했고, 두 값이 달라 이상으로 판단했습니다."
+    ],
+    "stateWords": [
+     "이상"
+    ],
+    "valueTokens": [],
+    "table": [
+     {
+      "kind": "rule",
+      "methodId": "hard:count-conservation",
+      "condition": "TOTAL_COUNT ≠ SUCCESS_COUNT + ERROR_COUNT",
+      "observed": [
+       {
+        "name": "TOTAL_COUNT",
+        "value": "1,200",
+        "unit": null,
+        "unitUnknown": true
+       },
+       {
+        "name": "SUCCESS_COUNT",
+        "value": "1,000",
+        "unit": null,
+        "unitUnknown": true
+       },
+       {
+        "name": "ERROR_COUNT",
+        "value": "150",
+        "unit": null,
+        "unitUnknown": true
+       }
+      ],
+      "result": "이상"
+     }
+    ],
+    "checks": [
+     {
+      "code": "hard_count_conservation",
+      "text": "원천 시스템의 TOTAL_COUNT·SUCCESS_COUNT·ERROR_COUNT 집계 방식을 확인하세요."
+     }
+    ],
+    "contributionStatus": "not_computed",
+    "contributionNote": null
+   }
+  },
+  {
+   "id": "hard_transaction_failed",
+   "input": {
+    "evidence": {
+     "schemaVersion": 4,
+     "ruleSetRevision": 7,
+     "observation": {
+      "id": "obs-1",
+      "revisionNo": 1
+     },
+     "composite": {
+      "anomalous": true,
+      "status": "complete",
+      "grade": "anomaly",
+      "basisMethods": [
+       "hard:transaction-failed"
+      ],
+      "risk": {
+       "status": "rated",
+       "level": "warning",
+       "determinedBy": [
+        "hard:transaction-failed"
+       ],
+       "unratedMethods": []
+      }
+     },
+     "methodResults": [
+      {
+       "status": "succeeded",
+       "anomalous": true,
+       "code": "HARD_TRANSACTION_FAILED",
+       "severity": "warning",
+       "riskLevel": "warning",
+       "cause": null,
+       "failureCode": null,
+       "evidence": [
+        {
+         "result": "hit",
+         "responseCode": "E901"
+        }
+       ],
+       "methodId": "hard:transaction-failed",
+       "category": "hard"
+      }
+     ]
+    }
+   },
+   "expected": {
+    "summaryLine": {
+     "prefix": "주의",
+     "prefixKind": "risk",
+     "text": "거래가 실패 상태(F), 응답 코드 E901로 기록되었습니다",
+     "kind": "hard_transaction_failed"
+    },
+    "sentences": [
+     "이상 규칙이 거래 상태 F와 응답 코드 E901을 성공 코드(0000·S)와 비교했고, 성공 코드가 아니어서 이상으로 판단했습니다."
+    ],
+    "stateWords": [
+     "이상"
+    ],
+    "valueTokens": [
+     "E901"
+    ],
+    "table": [
+     {
+      "kind": "rule",
+      "methodId": "hard:transaction-failed",
+      "condition": "거래 STATUS = F, 응답 코드 ∉ {0000, S, 없음}",
+      "observed": [
+       {
+        "name": null,
+        "value": "F",
+        "unit": null,
+        "unitUnknown": false
+       },
+       {
+        "name": null,
+        "value": "E901",
+        "unit": null,
+        "unitUnknown": false
+       }
+      ],
+      "result": "이상"
+     }
+    ],
+    "checks": [
+     {
+      "code": "hard_transaction_failed",
+      "text": "응답 코드 E901의 의미를 응답 코드 설정에서 확인하세요."
+     }
+    ],
+    "contributionStatus": "not_computed",
+    "contributionNote": null
+   }
+  },
+  {
+   "id": "hard_unregistered_interface",
+   "input": {
+    "evidence": {
+     "schemaVersion": 4,
+     "ruleSetRevision": 7,
+     "observation": {
+      "id": "obs-1",
+      "revisionNo": 1
+     },
+     "composite": {
+      "anomalous": true,
+      "status": "complete",
+      "grade": "anomaly",
+      "basisMethods": [
+       "hard:unregistered-interface"
+      ],
+      "risk": {
+       "status": "rated",
+       "level": "critical",
+       "determinedBy": [
+        "hard:unregistered-interface"
+       ],
+       "unratedMethods": []
+      }
+     },
+     "methodResults": [
+      {
+       "status": "succeeded",
+       "anomalous": true,
+       "code": "PROTO_INTERFACE_UNREGISTERED",
+       "severity": "critical",
+       "riskLevel": "critical",
+       "cause": null,
+       "failureCode": null,
+       "evidence": [
+        {
+         "interfaceMatched": false,
+         "routes": []
+        }
+       ],
+       "methodId": "hard:unregistered-interface",
+       "category": "hard"
+      }
+     ],
+     "protocolReview": {
+      "version": 1,
+      "kind": "interface_unregistered",
+      "interfaceId": "IF_NEW",
+      "protocolRuleId": null,
+      "routes": [],
+      "routesReason": "chain_broken"
+     }
+    }
+   },
+   "expected": {
+    "summaryLine": {
+     "prefix": "위험",
+     "prefixKind": "risk",
+     "text": "프로토콜 설정에 없는 인터페이스 IF_NEW의 거래입니다",
+     "kind": "hard_unregistered_interface"
+    },
+    "sentences": [
+     "이상 규칙이 이번 거래의 인터페이스 IF_NEW를 프로토콜 설정 목록과 비교했고, 목록에 없어 이상으로 판단했습니다."
+    ],
+    "stateWords": [
+     "이상"
+    ],
+    "valueTokens": [
+     "IF_NEW"
+    ],
+    "table": [
+     {
+      "kind": "rule",
+      "methodId": "hard:unregistered-interface",
+      "condition": "프로토콜 설정에 없는 인터페이스",
+      "observed": [
+       {
+        "name": null,
+        "value": "IF_NEW",
+        "unit": null,
+        "unitUnknown": false
+       }
+      ],
+      "result": "이상"
+     }
+    ],
+    "checks": [
+     {
+      "code": "hard_unregistered_interface",
+      "text": "인터페이스 IF_NEW가 새로 추가된 것인지 프로토콜 설정에서 확인하세요."
+     }
+    ],
+    "contributionStatus": "not_computed",
+    "contributionNote": null
+   }
+  },
+  {
+   "id": "hard_protocol_path_unmatched",
+   "input": {
+    "evidence": {
+     "schemaVersion": 4,
+     "ruleSetRevision": 7,
+     "observation": {
+      "id": "obs-1",
+      "revisionNo": 1
+     },
+     "composite": {
+      "anomalous": true,
+      "status": "complete",
+      "grade": "anomaly",
+      "basisMethods": [
+       "hard:proto-5c1e9a07"
+      ],
+      "risk": {
+       "status": "rated",
+       "level": "critical",
+       "determinedBy": [
+        "hard:proto-5c1e9a07"
+       ],
+       "unratedMethods": []
+      }
+     },
+     "methodResults": [
+      {
+       "status": "succeeded",
+       "anomalous": true,
+       "code": "PROTO_PATH_UNMATCHED",
+       "severity": "critical",
+       "riskLevel": "critical",
+       "cause": null,
+       "failureCode": null,
+       "evidence": [
+        {
+         "interfaceMatched": true,
+         "routes": []
+        }
+       ],
+       "methodId": "hard:proto-5c1e9a07",
+       "category": "hard"
+      }
+     ],
+     "protocolReview": {
+      "version": 1,
+      "kind": "path_unmatched",
+      "interfaceId": "IF_A",
+      "protocolRuleId": "hard:proto-5c1e9a07",
+      "routes": [
+       {
+        "channels": [
+         "CH_A",
+         "CH_C"
+        ],
+        "pathKey": "CH_A:CH_C",
+        "matched": false
+       },
+       {
+        "channels": [
+         "CH_A",
+         "CH_B"
+        ],
+        "pathKey": "CH_A:CH_B",
+        "matched": true
+       }
+      ],
+      "routesReason": null
+     }
+    }
+   },
+   "expected": {
+    "summaryLine": {
+     "prefix": "위험",
+     "prefixKind": "risk",
+     "text": "처리 경로가 허용 경로와 다릅니다",
+     "kind": "hard_protocol_path"
+    },
+    "sentences": [
+     "이상 규칙이 이번 처리 경로를 인터페이스 IF_A의 허용 경로와 비교했고, 맞는 경로가 없어 이상으로 판단했습니다."
+    ],
+    "stateWords": [
+     "이상"
+    ],
+    "valueTokens": [
+     "IF_A"
+    ],
+    "table": [
+     {
+      "kind": "rule",
+      "methodId": "hard:proto-5c1e9a07",
+      "condition": "허용 경로 중 하나와 일치",
+      "observed": [
+       {
+        "name": null,
+        "value": "CH_A → CH_C",
+        "unit": null,
+        "unitUnknown": false
+       }
+      ],
+      "result": "이상"
+     }
+    ],
+    "checks": [
+     {
+      "code": "hard_protocol_path",
+      "text": "이번 경로가 허용 경로에서 빠진 것인지 프로토콜 설정에서 확인하세요."
+     }
+    ],
+    "contributionStatus": "not_computed",
+    "contributionNote": null
+   }
+  },
+  {
+   "id": "hard_protocol_path_many_unmatched",
+   "input": {
+    "evidence": {
+     "schemaVersion": 4,
+     "ruleSetRevision": 7,
+     "observation": {
+      "id": "obs-1",
+      "revisionNo": 1
+     },
+     "composite": {
+      "anomalous": true,
+      "status": "complete",
+      "grade": "anomaly",
+      "basisMethods": [
+       "hard:proto-5c1e9a07"
+      ],
+      "risk": {
+       "status": "rated",
+       "level": "critical",
+       "determinedBy": [
+        "hard:proto-5c1e9a07"
+       ],
+       "unratedMethods": []
+      }
+     },
+     "methodResults": [
+      {
+       "status": "succeeded",
+       "anomalous": true,
+       "code": "PROTO_PATH_UNMATCHED",
+       "severity": "critical",
+       "riskLevel": "critical",
+       "cause": null,
+       "failureCode": null,
+       "evidence": [
+        {
+         "interfaceMatched": true,
+         "routes": []
+        }
+       ],
+       "methodId": "hard:proto-5c1e9a07",
+       "category": "hard"
+      }
+     ],
+     "protocolReview": {
+      "version": 1,
+      "kind": "path_unmatched",
+      "interfaceId": "IF_A",
+      "protocolRuleId": "hard:proto-5c1e9a07",
+      "routes": [
+       {
+        "channels": [
+         "CH_A",
+         "CH_C"
+        ],
+        "pathKey": "CH_A:CH_C",
+        "matched": false
+       },
+       {
+        "channels": [
+         "CH_A",
+         "CH_D"
+        ],
+        "pathKey": "CH_A:CH_D",
+        "matched": false
+       },
+       {
+        "channels": [
+         "CH_A",
+         "CH_E"
+        ],
+        "pathKey": "CH_A:CH_E",
+        "matched": false
+       },
+       {
+        "channels": [
+         "CH_A",
+         "CH_F"
+        ],
+        "pathKey": "CH_A:CH_F",
+        "matched": false
+       },
+       {
+        "channels": [
+         "CH_A",
+         "CH_G"
+        ],
+        "pathKey": "CH_A:CH_G",
+        "matched": false
+       }
+      ],
+      "routesReason": null
+     }
+    }
+   },
+   "expected": {
+    "summaryLine": {
+     "prefix": "위험",
+     "prefixKind": "risk",
+     "text": "처리 경로가 허용 경로와 다릅니다",
+     "kind": "hard_protocol_path"
+    },
+    "sentences": [
+     "이상 규칙이 이번 처리 경로를 인터페이스 IF_A의 허용 경로와 비교했고, 맞는 경로가 없어 이상으로 판단했습니다."
+    ],
+    "stateWords": [
+     "이상"
+    ],
+    "valueTokens": [
+     "IF_A"
+    ],
+    "table": [
+     {
+      "kind": "rule",
+      "methodId": "hard:proto-5c1e9a07",
+      "condition": "허용 경로 중 하나와 일치",
+      "observed": [
+       {
+        "name": null,
+        "value": "CH_A → CH_C / CH_A → CH_D / CH_A → CH_E 외 2개",
+        "unit": null,
+        "unitUnknown": false
+       }
+      ],
+      "result": "이상"
+     }
+    ],
+    "checks": [
+     {
+      "code": "hard_protocol_path",
+      "text": "이번 경로가 허용 경로에서 빠진 것인지 프로토콜 설정에서 확인하세요."
+     }
+    ],
+    "contributionStatus": "not_computed",
+    "contributionNote": null
+   }
+  },
+  {
+   "id": "relation_precedes_start_recorded",
+   "input": {
+    "evidence": {
+     "schemaVersion": 4,
+     "ruleSetRevision": 7,
+     "observation": {
+      "id": "obs-1",
+      "revisionNo": 1
+     },
+     "composite": {
+      "anomalous": true,
+      "status": "complete",
+      "grade": "anomaly",
+      "basisMethods": [
+       "hard:rel-0a1b2c3d"
+      ],
+      "risk": {
+       "status": "rated",
+       "level": "critical",
+       "determinedBy": [
+        "hard:rel-0a1b2c3d"
+       ],
+       "unratedMethods": []
+      }
+     },
+     "methodResults": [
+      {
+       "status": "succeeded",
+       "anomalous": true,
+       "code": "REL_PRECEDES",
+       "severity": "critical",
+       "riskLevel": "critical",
+       "cause": null,
+       "failureCode": null,
+       "evidence": [
+        {
+         "result": "hit",
+         "violation": "start_recorded",
+         "node": "process:TX1:IF_A_PR002",
+         "edge": null
+        }
+       ],
+       "methodId": "hard:rel-0a1b2c3d",
+       "category": "hard"
+      }
+     ]
+    },
+    "relationRules": [
+     {
+      "id": "hard:rel-0a1b2c3d",
+      "kind": "precedes",
+      "scope": null,
+      "from": {
+       "processId": "IF_A_PR001"
+      },
+      "to": {
+       "processId": "IF_A_PR002"
+      },
+      "match": null,
+      "severity": "critical",
+      "enabled": true
+     },
+     {
+      "id": "hard:rel-1b2c3d4e",
+      "kind": "message_handoff",
+      "scope": null,
+      "from": {
+       "processId": "IF_A_PR002"
+      },
+      "to": {
+       "processId": "IF_A_PR003"
+      },
+      "match": null,
+      "severity": "warning",
+      "enabled": true
+     },
+     {
+      "id": "hard:rel-2c3d4e5f",
+      "kind": "required_step",
+      "scope": {
+       "interfaceId": "IF_A"
+      },
+      "from": {
+       "processId": "IF_A_PR009"
+      },
+      "to": null,
+      "match": null,
+      "severity": "warning",
+      "enabled": true
+     }
+    ]
+   },
+   "expected": {
+    "summaryLine": {
+     "prefix": "위험",
+     "prefixKind": "risk",
+     "text": "정해진 앞 단계 없이 처리되었습니다",
+     "kind": "relation_precedes"
+    },
+    "sentences": [
+     "관계 규칙이 이 단계의 앞 단계 기록을 정해진 앞 단계 IF_A_PR001과 비교했고, 시작 단계로 기록되어 이상으로 판단했습니다."
+    ],
+    "stateWords": [
+     "이상"
+    ],
+    "valueTokens": [
+     "IF_A_PR001"
+    ],
+    "table": [
+     {
+      "kind": "rule",
+      "methodId": "hard:rel-0a1b2c3d",
+      "condition": "IF_A_PR001 → IF_A_PR002",
+      "observed": [
+       {
+        "name": null,
+        "value": "시작 단계로 기록",
+        "unit": null,
+        "unitUnknown": false
+       }
+      ],
+      "result": "이상"
+     }
+    ],
+    "checks": [
+     {
+      "code": "relation_precedes",
+      "text": "IF_A_PR001 단계 기록이 원천 시스템에 있는지 확인하세요."
+     }
+    ],
+    "contributionStatus": "not_computed",
+    "contributionNote": null
+   }
+  },
+  {
+   "id": "relation_precedes_from_evidence_node",
+   "input": {
+    "evidence": {
+     "schemaVersion": 4,
+     "ruleSetRevision": 7,
+     "observation": {
+      "id": "obs-1",
+      "revisionNo": 1
+     },
+     "composite": {
+      "anomalous": true,
+      "status": "complete",
+      "grade": "anomaly",
+      "basisMethods": [
+       "hard:rel-0a1b2c3d"
+      ],
+      "risk": {
+       "status": "rated",
+       "level": "critical",
+       "determinedBy": [
+        "hard:rel-0a1b2c3d"
+       ],
+       "unratedMethods": []
+      }
+     },
+     "methodResults": [
+      {
+       "status": "succeeded",
+       "anomalous": true,
+       "code": "REL_PRECEDES",
+       "severity": "critical",
+       "riskLevel": "critical",
+       "cause": null,
+       "failureCode": null,
+       "evidence": [
+        {
+         "result": "hit",
+         "violation": "predecessor_missing",
+         "node": "process:TX1:IF_A_PR002",
+         "from": "process:TX1:IF_A_PR001",
+         "edge": "precedes:x"
+        }
+       ],
+       "methodId": "hard:rel-0a1b2c3d",
+       "category": "hard"
+      }
+     ]
+    }
+   },
+   "expected": {
+    "summaryLine": {
+     "prefix": "위험",
+     "prefixKind": "risk",
+     "text": "정해진 앞 단계 없이 처리되었습니다",
+     "kind": "relation_precedes"
+    },
+    "sentences": [
+     "관계 규칙이 이 단계의 앞 단계 기록을 정해진 앞 단계 IF_A_PR001과 비교했고, 앞 단계 기록이 없어 이상으로 판단했습니다."
+    ],
+    "stateWords": [
+     "이상"
+    ],
+    "valueTokens": [
+     "IF_A_PR001"
+    ],
+    "table": [
+     {
+      "kind": "rule",
+      "methodId": "hard:rel-0a1b2c3d",
+      "condition": "IF_A_PR001 → IF_A_PR002",
+      "observed": [
+       {
+        "name": null,
+        "value": "앞 단계 기록 없음",
+        "unit": null,
+        "unitUnknown": false
+       }
+      ],
+      "result": "이상"
+     }
+    ],
+    "checks": [
+     {
+      "code": "relation_precedes",
+      "text": "IF_A_PR001 단계 기록이 원천 시스템에 있는지 확인하세요."
+     }
+    ],
+    "contributionStatus": "not_computed",
+    "contributionNote": null
+   }
+  },
+  {
+   "id": "relation_message_handoff",
+   "input": {
+    "evidence": {
+     "schemaVersion": 4,
+     "ruleSetRevision": 7,
+     "observation": {
+      "id": "obs-1",
+      "revisionNo": 1
+     },
+     "composite": {
+      "anomalous": true,
+      "status": "complete",
+      "grade": "anomaly",
+      "basisMethods": [
+       "hard:rel-1b2c3d4e"
+      ],
+      "risk": {
+       "status": "rated",
+       "level": "warning",
+       "determinedBy": [
+        "hard:rel-1b2c3d4e"
+       ],
+       "unratedMethods": []
+      }
+     },
+     "methodResults": [
+      {
+       "status": "succeeded",
+       "anomalous": true,
+       "code": "REL_MESSAGE_HANDOFF",
+       "severity": "critical",
+       "riskLevel": "warning",
+       "cause": null,
+       "failureCode": null,
+       "evidence": [
+        {
+         "result": "hit",
+         "node": "process:TX1:IF_A_PR003",
+         "from": "process:TX1:IF_A_PR002",
+         "edge": "precedes:y",
+         "handoffs": [
+          {
+           "edge": "hands_off:z",
+           "result": "mismatch"
+          }
+         ]
+        }
+       ],
+       "methodId": "hard:rel-1b2c3d4e",
+       "category": "hard"
+      }
+     ]
+    },
+    "relationRules": [
+     {
+      "id": "hard:rel-0a1b2c3d",
+      "kind": "precedes",
+      "scope": null,
+      "from": {
+       "processId": "IF_A_PR001"
+      },
+      "to": {
+       "processId": "IF_A_PR002"
+      },
+      "match": null,
+      "severity": "critical",
+      "enabled": true
+     },
+     {
+      "id": "hard:rel-1b2c3d4e",
+      "kind": "message_handoff",
+      "scope": null,
+      "from": {
+       "processId": "IF_A_PR002"
+      },
+      "to": {
+       "processId": "IF_A_PR003"
+      },
+      "match": null,
+      "severity": "warning",
+      "enabled": true
+     },
+     {
+      "id": "hard:rel-2c3d4e5f",
+      "kind": "required_step",
+      "scope": {
+       "interfaceId": "IF_A"
+      },
+      "from": {
+       "processId": "IF_A_PR009"
+      },
+      "to": null,
+      "match": null,
+      "severity": "warning",
+      "enabled": true
+     }
+    ]
+   },
+   "expected": {
+    "summaryLine": {
+     "prefix": "주의",
+     "prefixKind": "risk",
+     "text": "앞 단계와 메시지 연결이 맞지 않습니다",
+     "kind": "relation_message_handoff"
+    },
+    "sentences": [
+     "관계 규칙이 IF_A_PR002의 보낸 메시지와 이 단계의 받은 메시지를 비교했고, 맞지 않아 이상으로 판단했습니다."
+    ],
+    "stateWords": [
+     "이상"
+    ],
+    "valueTokens": [
+     "IF_A_PR002"
+    ],
+    "table": [
+     {
+      "kind": "rule",
+      "methodId": "hard:rel-1b2c3d4e",
+      "condition": "IF_A_PR002 → IF_A_PR003 메시지 일치",
+      "observed": [
+       {
+        "name": null,
+        "value": "불일치",
+        "unit": null,
+        "unitUnknown": false
+       }
+      ],
+      "result": "이상"
+     }
+    ],
+    "checks": [
+     {
+      "code": "relation_message_handoff",
+      "text": "두 단계의 메시지 ID 기록을 확인하세요."
+     }
+    ],
+    "contributionStatus": "not_computed",
+    "contributionNote": null
+   }
+  },
+  {
+   "id": "relation_required_step",
+   "input": {
+    "evidence": {
+     "schemaVersion": 4,
+     "ruleSetRevision": 7,
+     "observation": {
+      "id": "obs-1",
+      "revisionNo": 1
+     },
+     "composite": {
+      "anomalous": true,
+      "status": "complete",
+      "grade": "anomaly",
+      "basisMethods": [
+       "hard:rel-2c3d4e5f"
+      ],
+      "risk": {
+       "status": "rated",
+       "level": "warning",
+       "determinedBy": [
+        "hard:rel-2c3d4e5f"
+       ],
+       "unratedMethods": []
+      }
+     },
+     "methodResults": [
+      {
+       "status": "succeeded",
+       "anomalous": true,
+       "code": "REL_REQUIRED_STEP",
+       "severity": "critical",
+       "riskLevel": "warning",
+       "cause": null,
+       "failureCode": null,
+       "evidence": [
+        {
+         "result": "hit",
+         "node": "process:TX1:IF_A_PR003",
+         "transaction": "transaction:TX1",
+         "step": "process:TX1:IF_A_PR009",
+         "present": false
+        }
+       ],
+       "methodId": "hard:rel-2c3d4e5f",
+       "category": "hard"
+      }
+     ]
+    },
+    "relationRules": [
+     {
+      "id": "hard:rel-0a1b2c3d",
+      "kind": "precedes",
+      "scope": null,
+      "from": {
+       "processId": "IF_A_PR001"
+      },
+      "to": {
+       "processId": "IF_A_PR002"
+      },
+      "match": null,
+      "severity": "critical",
+      "enabled": true
+     },
+     {
+      "id": "hard:rel-1b2c3d4e",
+      "kind": "message_handoff",
+      "scope": null,
+      "from": {
+       "processId": "IF_A_PR002"
+      },
+      "to": {
+       "processId": "IF_A_PR003"
+      },
+      "match": null,
+      "severity": "warning",
+      "enabled": true
+     },
+     {
+      "id": "hard:rel-2c3d4e5f",
+      "kind": "required_step",
+      "scope": {
+       "interfaceId": "IF_A"
+      },
+      "from": {
+       "processId": "IF_A_PR009"
+      },
+      "to": null,
+      "match": null,
+      "severity": "warning",
+      "enabled": true
+     }
+    ]
+   },
+   "expected": {
+    "summaryLine": {
+     "prefix": "주의",
+     "prefixKind": "risk",
+     "text": "필수 단계 IF_A_PR009가 실행되지 않았습니다",
+     "kind": "relation_required_step"
+    },
+    "sentences": [
+     "관계 규칙이 이 거래의 실행 단계를 필수 단계 IF_A_PR009와 비교했고, 없어 이상으로 판단했습니다."
+    ],
+    "stateWords": [
+     "이상"
+    ],
+    "valueTokens": [
+     "IF_A_PR009"
+    ],
+    "table": [
+     {
+      "kind": "rule",
+      "methodId": "hard:rel-2c3d4e5f",
+      "condition": "인터페이스 IF_A에 IF_A_PR009 필요",
+      "observed": [
+       {
+        "name": null,
+        "value": "없음",
+        "unit": null,
+        "unitUnknown": false
+       }
+      ],
+      "result": "이상"
+     }
+    ],
+    "checks": [
+     {
+      "code": "relation_required_step",
+      "text": "IF_A_PR009 단계가 이 거래에서 실행되었는지 원천 시스템에서 확인하세요."
+     }
+    ],
+    "contributionStatus": "not_computed",
+    "contributionNote": null
+   }
+  },
+  {
+   "id": "soft_count_retry",
+   "input": {
+    "evidence": {
+     "schemaVersion": 4,
+     "ruleSetRevision": 7,
+     "observation": {
+      "id": "obs-1",
+      "revisionNo": 1
+     },
+     "composite": {
+      "anomalous": true,
+      "status": "complete",
+      "grade": "anomaly_sign",
+      "basisMethods": [
+       "soft:retry_count-3f9a2c1d"
+      ],
+      "risk": {
+       "status": "rated",
+       "level": "warning",
+       "determinedBy": [
+        "soft:retry_count-3f9a2c1d"
+       ],
+       "unratedMethods": []
+      }
+     },
+     "methodResults": [
+      {
+       "status": "succeeded",
+       "anomalous": true,
+       "code": "SOFT_RETRY_COUNT_3F9A2C1D",
+       "severity": "warning",
+       "riskLevel": "warning",
+       "cause": null,
+       "failureCode": null,
+       "evidence": [],
+       "methodId": "soft:retry_count-3f9a2c1d",
+       "category": "soft",
+       "observedValue": "4",
+       "condition": {
+        "field": "retry_count",
+        "operator": "gte",
+        "threshold": "3",
+        "unit": "count"
+       }
+      }
+     ]
+    }
+   },
+   "expected": {
+    "summaryLine": {
+     "prefix": "주의",
+     "prefixKind": "risk",
+     "text": "RETRY_COUNT가 기준(≥)에 해당합니다",
+     "kind": "soft_count"
+    },
+    "sentences": [
+     "이상 징후 규칙이 이번 RETRY_COUNT 값을 기준 값과 비교했고, 기준(≥)에 해당해 이상 징후로 판단했습니다."
+    ],
+    "stateWords": [
+     "이상 징후"
+    ],
+    "valueTokens": [],
+    "table": [
+     {
+      "kind": "rule",
+      "methodId": "soft:retry_count-3f9a2c1d",
+      "condition": "RETRY_COUNT ≥ 3",
+      "observed": [
+       {
+        "name": null,
+        "value": "4",
+        "unit": null,
+        "unitUnknown": true
+       }
+      ],
+      "result": "이상 징후"
+     }
+    ],
+    "checks": [
+     {
+      "code": "soft_count",
+      "text": "RETRY_COUNT 기준 값이 지금 운영에 맞는지 규칙 설정에서 확인하세요."
+     }
+    ],
+    "contributionStatus": "not_computed",
+    "contributionNote": null
+   }
+  },
+  {
+   "id": "soft_error_ratio",
+   "input": {
+    "evidence": {
+     "schemaVersion": 4,
+     "ruleSetRevision": 7,
+     "observation": {
+      "id": "obs-1",
+      "revisionNo": 1
+     },
+     "composite": {
+      "anomalous": true,
+      "status": "complete",
+      "grade": "anomaly_sign",
+      "basisMethods": [
+       "soft:error_ratio-3f9a2c1d"
+      ],
+      "risk": {
+       "status": "rated",
+       "level": "warning",
+       "determinedBy": [
+        "soft:error_ratio-3f9a2c1d"
+       ],
+       "unratedMethods": []
+      }
+     },
+     "methodResults": [
+      {
+       "status": "succeeded",
+       "anomalous": true,
+       "code": "SOFT_ERROR_RATIO_3F9A2C1D",
+       "severity": "warning",
+       "riskLevel": "warning",
+       "cause": null,
+       "failureCode": null,
+       "evidence": [],
+       "methodId": "soft:error_ratio-3f9a2c1d",
+       "category": "soft",
+       "observedValue": "0.125",
+       "condition": {
+        "field": "error_ratio",
+        "operator": "gt",
+        "threshold": "0.1",
+        "unit": "ratio"
+       }
+      }
+     ]
+    }
+   },
+   "expected": {
+    "summaryLine": {
+     "prefix": "주의",
+     "prefixKind": "risk",
+     "text": "오류 비율 값이 기준 > 0.1에 해당합니다",
+     "kind": "soft_value"
+    },
+    "sentences": [
+     "이상 징후 규칙이 이번 오류 비율 값 0.125를 기준 0.1과 비교했고, 기준(>)에 해당해 이상 징후로 판단했습니다."
+    ],
+    "stateWords": [
+     "이상 징후"
+    ],
+    "valueTokens": [],
+    "table": [
+     {
+      "kind": "rule",
+      "methodId": "soft:error_ratio-3f9a2c1d",
+      "condition": "오류 비율 값 > 0.1",
+      "observed": [
+       {
+        "name": null,
+        "value": "0.125",
+        "unit": null,
+        "unitUnknown": false
+       }
+      ],
+      "result": "이상 징후"
+     }
+    ],
+    "checks": [
+     {
+      "code": "soft_value",
+      "text": "오류 비율 값 기준 값이 지금 운영에 맞는지 규칙 설정에서 확인하세요."
+     }
+    ],
+    "contributionStatus": "not_computed",
+    "contributionNote": null
+   }
+  },
+  {
+   "id": "ml_elapsed_shorter",
+   "input": {
+    "evidence": {
+     "schemaVersion": 4,
+     "ruleSetRevision": 7,
+     "observation": {
+      "id": "obs-1",
+      "revisionNo": 1
+     },
+     "composite": {
+      "anomalous": true,
+      "status": "complete",
+      "grade": "anomaly_sign",
+      "basisMethods": [
+       "ml:iforest"
+      ],
+      "risk": {
+       "status": "unrated",
+       "level": null,
+       "determinedBy": [],
+       "unratedMethods": [
+        "ml:iforest"
+       ]
+      }
+     },
+     "methodResults": [
+      {
+       "status": "succeeded",
+       "anomalous": true,
+       "code": null,
+       "severity": null,
+       "riskLevel": null,
+       "cause": null,
+       "failureCode": null,
+       "evidence": [],
+       "methodId": "ml:iforest",
+       "category": "ml",
+       "score": 0.71,
+       "scoreDetail": {
+        "raw": 0.71,
+        "threshold": "0.620",
+        "direction": "higher_is_anomaly"
+       },
+       "attribution": {
+        "version": "baseline-shapley-v1",
+        "status": "succeeded",
+        "baselineKind": "train_median_robust_scaler_center",
+        "grouping": "source-field-union-v1",
+        "scoreActual": 0.71,
+        "scoreBaseline": 0.4,
+        "threshold": "0.620",
+        "direction": "higher_is_anomaly",
+        "baselineWarning": false,
+        "efficiencyError": 0,
+        "players": [
+         {
+          "playerId": "elapsed_ms",
+          "features": [
+           "elapsed_ms"
+          ],
+          "actual": {
+           "elapsed_ms": "12"
+          },
+          "baseline": {
+           "elapsed_ms": 800
+          },
+          "scaleIsUnit": {},
+          "phi": 0.2,
+          "share": 0.8,
+          "thresholdGapShare": null
+         }
+        ],
+        "topK": [
+         "elapsed_ms"
+        ],
+        "counterfactual": [
+         {
+          "replaced": [
+           "elapsed_ms"
+          ],
+          "scoreAfter": 0.5,
+          "warningAfterReplacement": false
+         }
+        ],
+        "clearedAtK": 1,
+        "pins": {},
+        "computeMs": 0.5
+       }
+      }
+     ]
+    }
+   },
+   "expected": {
+    "summaryLine": {
+     "prefix": "이상 징후",
+     "prefixKind": "grade",
+     "text": "평소 처리 시간과 비교하여 단축이 확인됩니다",
+     "kind": "ml_elapsed_shorter"
+    },
+    "sentences": [
+     "머신러닝 모델이 이번 처리 시간 12 ms를 평소 값 800 ms와 비교했고, 더 짧아 판단에 가장 크게 영향을 주었습니다(영향 80%)."
+    ],
+    "stateWords": [],
+    "valueTokens": [],
+    "table": [
+     {
+      "kind": "ml",
+      "methodId": "ml:iforest",
+      "playerId": "elapsed_ms",
+      "impactPercent": "80%",
+      "members": [
+       {
+        "name": "처리 시간",
+        "actual": "12",
+        "usual": "800",
+        "unit": "ms",
+        "unitUnknown": false
+       }
+      ]
+     }
+    ],
+    "checks": [
+     {
+      "code": "ml_elapsed_shorter",
+      "text": "같은 프로세스의 최근 처리 시간을 함께 확인하세요."
+     }
+    ],
+    "contributionStatus": "computed",
+    "contributionNote": null
+   }
+  },
+  {
+   "id": "ml_count_single",
+   "input": {
+    "evidence": {
+     "schemaVersion": 4,
+     "ruleSetRevision": 7,
+     "observation": {
+      "id": "obs-1",
+      "revisionNo": 1
+     },
+     "composite": {
+      "anomalous": true,
+      "status": "complete",
+      "grade": "anomaly_sign",
+      "basisMethods": [
+       "ml:iforest"
+      ],
+      "risk": {
+       "status": "unrated",
+       "level": null,
+       "determinedBy": [],
+       "unratedMethods": [
+        "ml:iforest"
+       ]
+      }
+     },
+     "methodResults": [
+      {
+       "status": "succeeded",
+       "anomalous": true,
+       "code": null,
+       "severity": null,
+       "riskLevel": null,
+       "cause": null,
+       "failureCode": null,
+       "evidence": [],
+       "methodId": "ml:iforest",
+       "category": "ml",
+       "score": 0.71,
+       "scoreDetail": {
+        "raw": 0.71,
+        "threshold": "0.620",
+        "direction": "higher_is_anomaly"
+       },
+       "attribution": {
+        "version": "baseline-shapley-v1",
+        "status": "succeeded",
+        "baselineKind": "train_median_robust_scaler_center",
+        "grouping": "source-field-union-v1",
+        "scoreActual": 0.71,
+        "scoreBaseline": 0.4,
+        "threshold": "0.620",
+        "direction": "higher_is_anomaly",
+        "baselineWarning": false,
+        "efficiencyError": 0,
+        "players": [
+         {
+          "playerId": "error_count",
+          "features": [
+           "error_count"
+          ],
+          "actual": {
+           "error_count": "15"
+          },
+          "baseline": {
+           "error_count": 0
+          },
+          "scaleIsUnit": {},
+          "phi": 0.17,
+          "share": 0.5645,
+          "thresholdGapShare": null
+         },
+         {
+          "playerId": "retry_count",
+          "features": [
+           "retry_count"
+          ],
+          "actual": {
+           "retry_count": "1E+1"
+          },
+          "baseline": {
+           "retry_count": 0
+          },
+          "scaleIsUnit": {},
+          "phi": 0.05,
+          "share": null,
+          "thresholdGapShare": null
+         }
+        ],
+        "topK": [
+         "error_count",
+         "retry_count"
+        ],
+        "counterfactual": [
+         {
+          "replaced": [
+           "error_count"
+          ],
+          "scoreAfter": 0.5,
+          "warningAfterReplacement": false
+         },
+         {
+          "replaced": [
+           "error_count",
+           "retry_count"
+          ],
+          "scoreAfter": 0.5,
+          "warningAfterReplacement": false
+         }
+        ],
+        "clearedAtK": 1,
+        "pins": {},
+        "computeMs": 0.5
+       }
+      }
+     ]
+    }
+   },
+   "expected": {
+    "summaryLine": {
+     "prefix": "이상 징후",
+     "prefixKind": "grade",
+     "text": "평소와 다른 ERROR_COUNT 값이 확인됩니다",
+     "kind": "ml_count"
+    },
+    "sentences": [
+     "머신러닝 모델이 이번 ERROR_COUNT 값을 평소 값과 비교했고, 달라 판단에 가장 크게 영향을 주었습니다(영향 56%).",
+     "다음으로 RETRY_COUNT가 평소와 달라 영향을 주었습니다."
+    ],
+    "stateWords": [],
+    "valueTokens": [],
+    "table": [
+     {
+      "kind": "ml",
+      "methodId": "ml:iforest",
+      "playerId": "error_count",
+      "impactPercent": "56%",
+      "members": [
+       {
+        "name": "ERROR_COUNT",
+        "actual": "15",
+        "usual": "0",
+        "unit": null,
+        "unitUnknown": true
+       }
+      ]
+     },
+     {
+      "kind": "ml",
+      "methodId": "ml:iforest",
+      "playerId": "retry_count",
+      "impactPercent": "—",
+      "members": [
+       {
+        "name": "RETRY_COUNT",
+        "actual": "10",
+        "usual": "0",
+        "unit": null,
+        "unitUnknown": true
+       }
+      ]
+     }
+    ],
+    "checks": [
+     {
+      "code": "ml_count",
+      "text": "원천 시스템에서 ERROR_COUNT 값이 평소와 다른 이유를 확인하세요."
+     }
+    ],
+    "contributionStatus": "computed",
+    "contributionNote": null
+   }
+  },
+  {
+   "id": "ml_error_ratio_higher",
+   "input": {
+    "evidence": {
+     "schemaVersion": 4,
+     "ruleSetRevision": 7,
+     "observation": {
+      "id": "obs-1",
+      "revisionNo": 1
+     },
+     "composite": {
+      "anomalous": true,
+      "status": "complete",
+      "grade": "anomaly_sign",
+      "basisMethods": [
+       "ml:iforest"
+      ],
+      "risk": {
+       "status": "unrated",
+       "level": null,
+       "determinedBy": [],
+       "unratedMethods": [
+        "ml:iforest"
+       ]
+      }
+     },
+     "methodResults": [
+      {
+       "status": "succeeded",
+       "anomalous": true,
+       "code": null,
+       "severity": null,
+       "riskLevel": null,
+       "cause": null,
+       "failureCode": null,
+       "evidence": [],
+       "methodId": "ml:iforest",
+       "category": "ml",
+       "score": 0.71,
+       "scoreDetail": {
+        "raw": 0.71,
+        "threshold": "0.620",
+        "direction": "higher_is_anomaly"
+       },
+       "attribution": {
+        "version": "baseline-shapley-v1",
+        "status": "succeeded",
+        "baselineKind": "train_median_robust_scaler_center",
+        "grouping": "source-field-union-v1",
+        "scoreActual": 0.71,
+        "scoreBaseline": 0.4,
+        "threshold": "0.620",
+        "direction": "higher_is_anomaly",
+        "baselineWarning": false,
+        "efficiencyError": 0,
+        "players": [
+         {
+          "playerId": "error_ratio",
+          "features": [
+           "error_ratio"
+          ],
+          "actual": {
+           "error_ratio": "0.125"
+          },
+          "baseline": {
+           "error_ratio": 0.01
+          },
+          "scaleIsUnit": {},
+          "phi": 0.2,
+          "share": 0.7,
+          "thresholdGapShare": null
+         }
+        ],
+        "topK": [
+         "error_ratio"
+        ],
+        "counterfactual": [
+         {
+          "replaced": [
+           "error_ratio"
+          ],
+          "scoreAfter": 0.5,
+          "warningAfterReplacement": false
+         }
+        ],
+        "clearedAtK": 1,
+        "pins": {},
+        "computeMs": 0.5
+       }
+      }
+     ]
+    }
+   },
+   "expected": {
+    "summaryLine": {
+     "prefix": "이상 징후",
+     "prefixKind": "grade",
+     "text": "평소와 다른 오류 비율 값이 확인됩니다",
+     "kind": "ml_error_ratio"
+    },
+    "sentences": [
+     "머신러닝 모델이 이번 오류 비율 값 0.125를 평소 값 0.01과 비교했고, 더 높아 판단에 가장 크게 영향을 주었습니다(영향 70%)."
+    ],
+    "stateWords": [],
+    "valueTokens": [],
+    "table": [
+     {
+      "kind": "ml",
+      "methodId": "ml:iforest",
+      "playerId": "error_ratio",
+      "impactPercent": "70%",
+      "members": [
+       {
+        "name": "오류 비율 값",
+        "actual": "0.125",
+        "usual": "0.01",
+        "unit": null,
+        "unitUnknown": false
+       }
+      ]
+     }
+    ],
+    "checks": [
+     {
+      "code": "ml_error_ratio",
+      "text": "원천 시스템에서 오류 비율 값이 평소와 다른 이유를 확인하세요."
+     }
+    ],
+    "contributionStatus": "computed",
+    "contributionNote": null
+   }
+  },
+  {
+   "id": "ml_group_first_scale_unit",
+   "input": {
+    "evidence": {
+     "schemaVersion": 4,
+     "ruleSetRevision": 7,
+     "observation": {
+      "id": "obs-1",
+      "revisionNo": 1
+     },
+     "composite": {
+      "anomalous": true,
+      "status": "complete",
+      "grade": "anomaly_sign",
+      "basisMethods": [
+       "ml:iforest"
+      ],
+      "risk": {
+       "status": "unrated",
+       "level": null,
+       "determinedBy": [],
+       "unratedMethods": [
+        "ml:iforest"
+       ]
+      }
+     },
+     "methodResults": [
+      {
+       "status": "succeeded",
+       "anomalous": true,
+       "code": null,
+       "severity": null,
+       "riskLevel": null,
+       "cause": null,
+       "failureCode": null,
+       "evidence": [],
+       "methodId": "ml:iforest",
+       "category": "ml",
+       "score": 0.71,
+       "scoreDetail": {
+        "raw": 0.71,
+        "threshold": "0.620",
+        "direction": "higher_is_anomaly"
+       },
+       "attribution": {
+        "version": "baseline-shapley-v1",
+        "status": "succeeded",
+        "baselineKind": "train_median_robust_scaler_center",
+        "grouping": "source-field-union-v1",
+        "scoreActual": 0.71,
+        "scoreBaseline": 0.4,
+        "threshold": "0.620",
+        "direction": "higher_is_anomaly",
+        "baselineWarning": false,
+        "efficiencyError": 0,
+        "players": [
+         {
+          "playerId": "group:total_count",
+          "features": [
+           "total_count",
+           "error_count",
+           "error_ratio"
+          ],
+          "actual": {
+           "total_count": "120",
+           "error_count": "15",
+           "error_ratio": "0.125"
+          },
+          "baseline": {
+           "total_count": 100,
+           "error_count": 0,
+           "error_ratio": 0
+          },
+          "scaleIsUnit": {
+           "total_count": true
+          },
+          "phi": 0.1,
+          "share": 0.6452,
+          "thresholdGapShare": null
+         },
+         {
+          "playerId": "elapsed_ms",
+          "features": [
+           "elapsed_ms"
+          ],
+          "actual": {
+           "elapsed_ms": "4200"
+          },
+          "baseline": {
+           "elapsed_ms": 800
+          },
+          "scaleIsUnit": {},
+          "phi": 0.12,
+          "share": 0.3871,
+          "thresholdGapShare": null
+         },
+         {
+          "playerId": "retry_count",
+          "features": [
+           "retry_count"
+          ],
+          "actual": {
+           "retry_count": "4"
+          },
+          "baseline": {
+           "retry_count": 0
+          },
+          "scaleIsUnit": {},
+          "phi": -0.01,
+          "share": -0.03,
+          "thresholdGapShare": null
+         }
+        ],
+        "topK": [
+         "group:total_count",
+         "elapsed_ms"
+        ],
+        "counterfactual": [
+         {
+          "replaced": [
+           "group:total_count"
+          ],
+          "scoreAfter": 0.5,
+          "warningAfterReplacement": false
+         },
+         {
+          "replaced": [
+           "group:total_count",
+           "elapsed_ms"
+          ],
+          "scoreAfter": 0.5,
+          "warningAfterReplacement": false
+         }
+        ],
+        "clearedAtK": 1,
+        "pins": {},
+        "computeMs": 0.5
+       }
+      }
+     ]
+    }
+   },
+   "expected": {
+    "summaryLine": {
+     "prefix": "이상 징후",
+     "prefixKind": "grade",
+     "text": "평소와 다른 처리량(TOTAL_COUNT)·ERROR_COUNT·오류 비율 값이 확인됩니다",
+     "kind": "ml_group"
+    },
+    "sentences": [
+     "머신러닝 모델이 이번 처리량(TOTAL_COUNT)·ERROR_COUNT·오류 비율 값을 평소 값과 비교했고, 달라 판단에 가장 크게 영향을 주었습니다(영향 65%).",
+     "다음으로 처리 시간이 평소와 달라 영향을 주었습니다(영향 39%)."
+    ],
+    "stateWords": [],
+    "valueTokens": [],
+    "table": [
+     {
+      "kind": "ml",
+      "methodId": "ml:iforest",
+      "playerId": "group:total_count",
+      "impactPercent": "65%",
+      "members": [
+       {
+        "name": "처리량(TOTAL_COUNT)",
+        "actual": "120",
+        "usual": "평소와 다름",
+        "unit": null,
+        "unitUnknown": true
+       },
+       {
+        "name": "ERROR_COUNT",
+        "actual": "15",
+        "usual": "0",
+        "unit": null,
+        "unitUnknown": true
+       },
+       {
+        "name": "오류 비율 값",
+        "actual": "0.125",
+        "usual": "0",
+        "unit": null,
+        "unitUnknown": false
+       }
+      ]
+     },
+     {
+      "kind": "ml",
+      "methodId": "ml:iforest",
+      "playerId": "elapsed_ms",
+      "impactPercent": "39%",
+      "members": [
+       {
+        "name": "처리 시간",
+        "actual": "4,200",
+        "usual": "800",
+        "unit": "ms",
+        "unitUnknown": false
+       }
+      ]
+     }
+    ],
+    "checks": [
+     {
+      "code": "ml_group",
+      "text": "원천 시스템에서 처리량(TOTAL_COUNT)·ERROR_COUNT·오류 비율 값이 평소와 다른 이유를 확인하세요."
+     }
+    ],
+    "contributionStatus": "computed",
+    "contributionNote": null
+   }
+  },
+  {
+   "id": "ml_no_contribution_skipped",
+   "input": {
+    "evidence": {
+     "schemaVersion": 4,
+     "ruleSetRevision": 7,
+     "observation": {
+      "id": "obs-1",
+      "revisionNo": 1
+     },
+     "composite": {
+      "anomalous": true,
+      "status": "complete",
+      "grade": "anomaly_sign",
+      "basisMethods": [
+       "ml:iforest"
+      ],
+      "risk": {
+       "status": "unrated",
+       "level": null,
+       "determinedBy": [],
+       "unratedMethods": [
+        "ml:iforest"
+       ]
+      }
+     },
+     "methodResults": [
+      {
+       "status": "succeeded",
+       "anomalous": true,
+       "code": null,
+       "severity": null,
+       "riskLevel": null,
+       "cause": null,
+       "failureCode": null,
+       "evidence": [],
+       "methodId": "ml:iforest",
+       "category": "ml",
+       "score": 0.71,
+       "scoreDetail": {
+        "raw": 0.71,
+        "threshold": "0.620",
+        "direction": "higher_is_anomaly"
+       },
+       "attribution": {
+        "version": "baseline-shapley-v1",
+        "status": "skipped",
+        "reason": "too_many_players"
+       }
+      }
+     ]
+    }
+   },
+   "expected": {
+    "summaryLine": {
+     "prefix": "이상 징후",
+     "prefixKind": "grade",
+     "text": "머신러닝 모델이 평소와 다른 값을 확인했습니다",
+     "kind": "ml_no_contribution"
+    },
+    "sentences": [
+     "머신러닝 모델이 이번 값들을 학습 데이터의 평소 값과 비교했고, 판정선을 벗어나 이상 징후로 판단했습니다."
+    ],
+    "stateWords": [
+     "이상 징후"
+    ],
+    "valueTokens": [],
+    "table": [],
+    "checks": [],
+    "contributionStatus": "skipped",
+    "contributionNote": "기여도 계산 안 함"
+   }
+  },
+  {
+   "id": "ml_no_contribution_absent",
+   "input": {
+    "evidence": {
+     "schemaVersion": 4,
+     "ruleSetRevision": 7,
+     "observation": {
+      "id": "obs-1",
+      "revisionNo": 1
+     },
+     "composite": {
+      "anomalous": true,
+      "status": "complete",
+      "grade": "anomaly_sign",
+      "basisMethods": [
+       "ml:iforest"
+      ],
+      "risk": {
+       "status": "unrated",
+       "level": null,
+       "determinedBy": [],
+       "unratedMethods": [
+        "ml:iforest"
+       ]
+      }
+     },
+     "methodResults": [
+      {
+       "status": "succeeded",
+       "anomalous": true,
+       "code": null,
+       "severity": null,
+       "riskLevel": null,
+       "cause": null,
+       "failureCode": null,
+       "evidence": [],
+       "methodId": "ml:iforest",
+       "category": "ml",
+       "score": 0.71,
+       "scoreDetail": {
+        "raw": 0.71,
+        "threshold": "0.620",
+        "direction": "higher_is_anomaly"
+       }
+      }
+     ]
+    }
+   },
+   "expected": {
+    "summaryLine": {
+     "prefix": "이상 징후",
+     "prefixKind": "grade",
+     "text": "머신러닝 모델이 평소와 다른 값을 확인했습니다",
+     "kind": "ml_no_contribution"
+    },
+    "sentences": [
+     "머신러닝 모델이 이번 값들을 학습 데이터의 평소 값과 비교했고, 판정선을 벗어나 이상 징후로 판단했습니다."
+    ],
+    "stateWords": [
+     "이상 징후"
+    ],
+    "valueTokens": [],
+    "table": [],
+    "checks": [],
+    "contributionStatus": "not_computed",
+    "contributionNote": "기여도 미계산"
+   }
+  },
+  {
+   "id": "ml_no_contribution_unreadable",
+   "input": {
+    "evidence": {
+     "schemaVersion": 4,
+     "ruleSetRevision": 7,
+     "observation": {
+      "id": "obs-1",
+      "revisionNo": 1
+     },
+     "composite": {
+      "anomalous": true,
+      "status": "complete",
+      "grade": "anomaly_sign",
+      "basisMethods": [
+       "ml:iforest"
+      ],
+      "risk": {
+       "status": "unrated",
+       "level": null,
+       "determinedBy": [],
+       "unratedMethods": [
+        "ml:iforest"
+       ]
+      }
+     },
+     "methodResults": [
+      {
+       "status": "succeeded",
+       "anomalous": true,
+       "code": null,
+       "severity": null,
+       "riskLevel": null,
+       "cause": null,
+       "failureCode": null,
+       "evidence": [],
+       "methodId": "ml:iforest",
+       "category": "ml",
+       "score": 0.71,
+       "scoreDetail": {
+        "raw": 0.71,
+        "threshold": "0.620",
+        "direction": "higher_is_anomaly"
+       },
+       "attribution": {
+        "version": "baseline-shapley-v1",
+        "status": "succeeded",
+        "topK": "x"
+       }
+      }
+     ]
+    }
+   },
+   "expected": {
+    "summaryLine": {
+     "prefix": "이상 징후",
+     "prefixKind": "grade",
+     "text": "머신러닝 모델이 평소와 다른 값을 확인했습니다",
+     "kind": "ml_no_contribution"
+    },
+    "sentences": [
+     "머신러닝 모델이 이번 값들을 학습 데이터의 평소 값과 비교했고, 판정선을 벗어나 이상 징후로 판단했습니다."
+    ],
+    "stateWords": [
+     "이상 징후"
+    ],
+    "valueTokens": [],
+    "table": [],
+    "checks": [],
+    "contributionStatus": "unreadable",
+    "contributionNote": "기여도 표시 불가"
+   }
+  },
+  {
+   "id": "ml_no_contribution_failed_with_soft",
+   "input": {
+    "evidence": {
+     "schemaVersion": 4,
+     "ruleSetRevision": 7,
+     "observation": {
+      "id": "obs-1",
+      "revisionNo": 1
+     },
+     "composite": {
+      "anomalous": true,
+      "status": "complete",
+      "grade": "anomaly_sign",
+      "basisMethods": [
+       "soft:retry_count-3f9a2c1d",
+       "ml:iforest"
+      ],
+      "risk": {
+       "status": "rated",
+       "level": "warning",
+       "determinedBy": [
+        "soft:retry_count-3f9a2c1d"
+       ],
+       "unratedMethods": []
+      }
+     },
+     "methodResults": [
+      {
+       "status": "succeeded",
+       "anomalous": true,
+       "code": "SOFT_RETRY_COUNT_3F9A2C1D",
+       "severity": "warning",
+       "riskLevel": "warning",
+       "cause": null,
+       "failureCode": null,
+       "evidence": [],
+       "methodId": "soft:retry_count-3f9a2c1d",
+       "category": "soft",
+       "observedValue": "4",
+       "condition": {
+        "field": "retry_count",
+        "operator": "gte",
+        "threshold": "3",
+        "unit": "count"
+       }
+      },
+      {
+       "status": "succeeded",
+       "anomalous": true,
+       "code": null,
+       "severity": null,
+       "riskLevel": null,
+       "cause": null,
+       "failureCode": null,
+       "evidence": [],
+       "methodId": "ml:iforest",
+       "category": "ml",
+       "score": 0.71,
+       "scoreDetail": {
+        "raw": 0.71,
+        "threshold": "0.620",
+        "direction": "higher_is_anomaly"
+       },
+       "attribution": {
+        "version": "baseline-shapley-v1",
+        "status": "failed",
+        "failureCode": "score_not_reproduced",
+        "computeMs": 1
+       }
+      }
+     ]
+    }
+   },
+   "expected": {
+    "summaryLine": {
+     "prefix": "주의",
+     "prefixKind": "risk",
+     "text": "RETRY_COUNT가 기준(≥)에 해당합니다",
+     "kind": "soft_count"
+    },
+    "sentences": [
+     "이상 징후 규칙이 이번 RETRY_COUNT 값을 기준 값과 비교했고, 기준(≥)에 해당해 이상 징후로 판단했습니다.",
+     "머신러닝 모델이 이번 값들을 학습 데이터의 평소 값과 비교했고, 판정선을 벗어나 이상 징후로 판단했습니다."
+    ],
+    "stateWords": [
+     "이상 징후",
+     "이상 징후"
+    ],
+    "valueTokens": [],
+    "table": [
+     {
+      "kind": "rule",
+      "methodId": "soft:retry_count-3f9a2c1d",
+      "condition": "RETRY_COUNT ≥ 3",
+      "observed": [
+       {
+        "name": null,
+        "value": "4",
+        "unit": null,
+        "unitUnknown": true
+       }
+      ],
+      "result": "이상 징후"
+     }
+    ],
+    "checks": [
+     {
+      "code": "soft_count",
+      "text": "RETRY_COUNT 기준 값이 지금 운영에 맞는지 규칙 설정에서 확인하세요."
+     }
+    ],
+    "contributionStatus": "failed",
+    "contributionNote": "기여도 계산 실패"
+   }
+  },
+  {
+   "id": "unresolved_ml_timeout_with_soft",
+   "input": {
+    "evidence": {
+     "schemaVersion": 4,
+     "ruleSetRevision": 7,
+     "observation": {
+      "id": "obs-1",
+      "revisionNo": 1
+     },
+     "composite": {
+      "anomalous": true,
+      "status": "partial",
+      "grade": "anomaly_sign",
+      "basisMethods": [
+       "soft:retry_count-3f9a2c1d"
+      ],
+      "risk": {
+       "status": "rated",
+       "level": "warning",
+       "determinedBy": [
+        "soft:retry_count-3f9a2c1d"
+       ],
+       "unratedMethods": []
+      }
+     },
+     "methodResults": [
+      {
+       "status": "succeeded",
+       "anomalous": false,
+       "code": null,
+       "severity": null,
+       "riskLevel": null,
+       "cause": null,
+       "failureCode": null,
+       "evidence": [
+        {
+         "observedStatus": "S",
+         "result": "no_hit"
+        }
+       ],
+       "methodId": "hard:process-status",
+       "category": "hard"
+      },
+      {
+       "status": "succeeded",
+       "anomalous": true,
+       "code": "SOFT_RETRY_COUNT_3F9A2C1D",
+       "severity": "warning",
+       "riskLevel": "warning",
+       "cause": null,
+       "failureCode": null,
+       "evidence": [],
+       "methodId": "soft:retry_count-3f9a2c1d",
+       "category": "soft",
+       "observedValue": "4",
+       "condition": {
+        "field": "retry_count",
+        "operator": "gte",
+        "threshold": "3",
+        "unit": "count"
+       }
+      },
+      {
+       "status": "not_ready",
+       "anomalous": null,
+       "code": null,
+       "severity": null,
+       "riskLevel": null,
+       "cause": "timeout",
+       "failureCode": null,
+       "evidence": [],
+       "methodId": "ml:iforest",
+       "category": "ml",
+       "score": null,
+       "scoreDetail": null,
+       "attribution": {
+        "version": "baseline-shapley-v1",
+        "status": "skipped",
+        "reason": "method_unresolved"
+       }
+      }
+     ]
+    }
+   },
+   "expected": {
+    "summaryLine": {
+     "prefix": "주의",
+     "prefixKind": "risk",
+     "text": "RETRY_COUNT가 기준(≥)에 해당합니다",
+     "kind": "soft_count"
+    },
+    "sentences": [
+     "이상 징후 규칙이 이번 RETRY_COUNT 값을 기준 값과 비교했고, 기준(≥)에 해당해 이상 징후로 판단했습니다.",
+     "일부 검사(머신러닝 모델)는 결과를 내지 못해 평가 불가입니다."
+    ],
+    "stateWords": [
+     "이상 징후",
+     "평가 불가"
+    ],
+    "valueTokens": [],
+    "table": [
+     {
+      "kind": "rule",
+      "methodId": "soft:retry_count-3f9a2c1d",
+      "condition": "RETRY_COUNT ≥ 3",
+      "observed": [
+       {
+        "name": null,
+        "value": "4",
+        "unit": null,
+        "unitUnknown": true
+       }
+      ],
+      "result": "이상 징후"
+     },
+     {
+      "kind": "rule",
+      "methodId": "ml:iforest",
+      "condition": "머신러닝 모델",
+      "observed": [
+       {
+        "name": null,
+        "value": "—",
+        "unit": null,
+        "unitUnknown": false
+       }
+      ],
+      "result": "평가 불가"
+     }
+    ],
+    "checks": [
+     {
+      "code": "soft_count",
+      "text": "RETRY_COUNT 기준 값이 지금 운영에 맞는지 규칙 설정에서 확인하세요."
+     },
+     {
+      "code": "unresolved",
+      "text": "결과를 내지 못한 검사(머신러닝 모델)의 입력 수집 상태를 확인하세요."
+     }
+    ],
+    "contributionStatus": "skipped",
+    "contributionNote": null
+   }
+  },
+  {
+   "id": "overflow_four_rules",
+   "input": {
+    "evidence": {
+     "schemaVersion": 4,
+     "ruleSetRevision": 7,
+     "observation": {
+      "id": "obs-1",
+      "revisionNo": 1
+     },
+     "composite": {
+      "anomalous": true,
+      "status": "complete",
+      "grade": "anomaly",
+      "basisMethods": [
+       "hard:success-with-error",
+       "hard:negative-duration"
+      ],
+      "risk": {
+       "status": "rated",
+       "level": "critical",
+       "determinedBy": [
+        "hard:success-with-error",
+        "hard:negative-duration"
+       ],
+       "unratedMethods": []
+      }
+     },
+     "methodResults": [
+      {
+       "status": "succeeded",
+       "anomalous": true,
+       "code": "HARD_NEGATIVE_DURATION",
+       "severity": "critical",
+       "riskLevel": "critical",
+       "cause": null,
+       "failureCode": null,
+       "evidence": [
+        {
+         "result": "hit"
+        }
+       ],
+       "methodId": "hard:negative-duration",
+       "category": "hard"
+      },
+      {
+       "status": "succeeded",
+       "anomalous": true,
+       "code": "HARD_SUCCESS_WITH_ERROR",
+       "severity": "critical",
+       "riskLevel": "critical",
+       "cause": null,
+       "failureCode": null,
+       "evidence": [
+        {
+         "result": "hit"
+        }
+       ],
+       "methodId": "hard:success-with-error",
+       "category": "hard"
+      },
+      {
+       "status": "succeeded",
+       "anomalous": true,
+       "code": "HARD_COUNT_CONSERVATION",
+       "severity": "critical",
+       "riskLevel": "critical",
+       "cause": null,
+       "failureCode": null,
+       "evidence": [
+        {
+         "result": "hit"
+        }
+       ],
+       "methodId": "hard:count-conservation",
+       "category": "hard"
+      },
+      {
+       "status": "succeeded",
+       "anomalous": true,
+       "code": "HARD_TRANSACTION_FAILED",
+       "severity": "warning",
+       "riskLevel": "warning",
+       "cause": null,
+       "failureCode": null,
+       "evidence": [
+        {
+         "result": "hit",
+         "responseCode": "0100"
+        }
+       ],
+       "methodId": "hard:transaction-failed",
+       "category": "hard"
+      }
+     ]
+    },
+    "observedFields": {
+     "revisionNo": 1,
+     "status": "S",
+     "startTimeRaw": "2026-01-01 10:00:09",
+     "endTimeRaw": "2026-01-01 10:00:05",
+     "totalCount": "10",
+     "successCount": "8",
+     "errorCount": "1"
+    }
+   },
+   "expected": {
+    "summaryLine": {
+     "prefix": "위험",
+     "prefixKind": "risk",
+     "text": "성공 상태인데 ERROR_COUNT가 기록되었습니다",
+     "kind": "hard_success_with_error"
+    },
+    "sentences": [
+     "이상 규칙이 처리 상태 S와 ERROR_COUNT를 함께 확인했고, 성공 상태인데 ERROR_COUNT가 0보다 커서 이상으로 판단했습니다.",
+     "이상 규칙이 시작 시각 2026-01-01 10:00:09와 종료 시각 2026-01-01 10:00:05를 비교했고, 시작이 더 늦어 이상으로 판단했습니다.",
+     "이상 규칙이 처리량(TOTAL_COUNT)을 SUCCESS_COUNT와 ERROR_COUNT의 합과 비교했고, 두 값이 달라 이상으로 판단했습니다.",
+     "그 밖의 근거 1개는 아래 표에 있습니다."
+    ],
+    "stateWords": [
+     "이상",
+     "이상",
+     "이상"
+    ],
+    "valueTokens": [
+     "2026-01-01 10:00:09",
+     "2026-01-01 10:00:05"
+    ],
+    "table": [
+     {
+      "kind": "rule",
+      "methodId": "hard:negative-duration",
+      "condition": "START_TIME > END_TIME",
+      "observed": [
+       {
+        "name": null,
+        "value": "2026-01-01 10:00:09",
+        "unit": null,
+        "unitUnknown": false
+       },
+       {
+        "name": null,
+        "value": "2026-01-01 10:00:05",
+        "unit": null,
+        "unitUnknown": false
+       }
+      ],
+      "result": "이상"
+     },
+     {
+      "kind": "rule",
+      "methodId": "hard:success-with-error",
+      "condition": "STATUS = S, ERROR_COUNT > 0",
+      "observed": [
+       {
+        "name": "상태",
+        "value": "S",
+        "unit": null,
+        "unitUnknown": false
+       },
+       {
+        "name": "ERROR_COUNT",
+        "value": "1",
+        "unit": null,
+        "unitUnknown": true
+       }
+      ],
+      "result": "이상"
+     },
+     {
+      "kind": "rule",
+      "methodId": "hard:count-conservation",
+      "condition": "TOTAL_COUNT ≠ SUCCESS_COUNT + ERROR_COUNT",
+      "observed": [
+       {
+        "name": "TOTAL_COUNT",
+        "value": "10",
+        "unit": null,
+        "unitUnknown": true
+       },
+       {
+        "name": "SUCCESS_COUNT",
+        "value": "8",
+        "unit": null,
+        "unitUnknown": true
+       },
+       {
+        "name": "ERROR_COUNT",
+        "value": "1",
+        "unit": null,
+        "unitUnknown": true
+       }
+      ],
+      "result": "이상"
+     },
+     {
+      "kind": "rule",
+      "methodId": "hard:transaction-failed",
+      "condition": "거래 STATUS = F, 응답 코드 ∉ {0000, S, 없음}",
+      "observed": [
+       {
+        "name": null,
+        "value": "F",
+        "unit": null,
+        "unitUnknown": false
+       },
+       {
+        "name": null,
+        "value": "0100",
+        "unit": null,
+        "unitUnknown": false
+       }
+      ],
+      "result": "이상"
+     }
+    ],
+    "checks": [
+     {
+      "code": "hard_success_with_error",
+      "text": "원천 시스템에서 성공 처리에 ERROR_COUNT가 기록된 경위를 확인하세요."
+     },
+     {
+      "code": "hard_negative_duration",
+      "text": "원천 시스템의 시작·종료 시각 기록(시간대 포함)을 확인하세요."
+     }
+    ],
+    "contributionStatus": "not_computed",
+    "contributionNote": null
+   }
+  },
+  {
+   "id": "ml_value_scale_unit_elapsed",
+   "input": {
+    "evidence": {
+     "schemaVersion": 4,
+     "ruleSetRevision": 7,
+     "observation": {
+      "id": "obs-1",
+      "revisionNo": 1
+     },
+     "composite": {
+      "anomalous": true,
+      "status": "complete",
+      "grade": "anomaly_sign",
+      "basisMethods": [
+       "ml:iforest"
+      ],
+      "risk": {
+       "status": "unrated",
+       "level": null,
+       "determinedBy": [],
+       "unratedMethods": [
+        "ml:iforest"
+       ]
+      }
+     },
+     "methodResults": [
+      {
+       "status": "succeeded",
+       "anomalous": true,
+       "code": null,
+       "severity": null,
+       "riskLevel": null,
+       "cause": null,
+       "failureCode": null,
+       "evidence": [],
+       "methodId": "ml:iforest",
+       "category": "ml",
+       "score": 0.71,
+       "scoreDetail": {
+        "raw": 0.71,
+        "threshold": "0.620",
+        "direction": "higher_is_anomaly"
+       },
+       "attribution": {
+        "version": "baseline-shapley-v1",
+        "status": "succeeded",
+        "baselineKind": "train_median_robust_scaler_center",
+        "grouping": "source-field-union-v1",
+        "scoreActual": 0.71,
+        "scoreBaseline": 0.4,
+        "threshold": "0.620",
+        "direction": "higher_is_anomaly",
+        "baselineWarning": false,
+        "efficiencyError": 0,
+        "players": [
+         {
+          "playerId": "elapsed_ms",
+          "features": [
+           "elapsed_ms"
+          ],
+          "actual": {
+           "elapsed_ms": "4200"
+          },
+          "baseline": {
+           "elapsed_ms": 800
+          },
+          "scaleIsUnit": {
+           "elapsed_ms": true
+          },
+          "phi": 0.2,
+          "share": 0.7,
+          "thresholdGapShare": null
+         }
+        ],
+        "topK": [
+         "elapsed_ms"
+        ],
+        "counterfactual": [
+         {
+          "replaced": [
+           "elapsed_ms"
+          ],
+          "scoreAfter": 0.5,
+          "warningAfterReplacement": false
+         }
+        ],
+        "clearedAtK": 1,
+        "pins": {},
+        "computeMs": 0.5
+       }
+      }
+     ]
+    }
+   },
+   "expected": {
+    "summaryLine": {
+     "prefix": "이상 징후",
+     "prefixKind": "grade",
+     "text": "평소와 다른 처리 시간 값이 확인됩니다",
+     "kind": "ml_value"
+    },
+    "sentences": [
+     "머신러닝 모델이 이번 처리 시간 값을 평소 값과 비교했고, 달라 판단에 가장 크게 영향을 주었습니다(영향 70%)."
+    ],
+    "stateWords": [],
+    "valueTokens": [],
+    "table": [
+     {
+      "kind": "ml",
+      "methodId": "ml:iforest",
+      "playerId": "elapsed_ms",
+      "impactPercent": "70%",
+      "members": [
+       {
+        "name": "처리 시간",
+        "actual": "4,200",
+        "usual": "평소와 다름",
+        "unit": "ms",
+        "unitUnknown": false
+       }
+      ]
+     }
+    ],
+    "checks": [
+     {
+      "code": "ml_value",
+      "text": "같은 프로세스의 최근 처리 시간을 함께 확인하세요."
+     }
+    ],
+    "contributionStatus": "computed",
+    "contributionNote": null
+   }
+  },
+  {
+   "id": "ml_value_scale_unit_error_ratio",
+   "input": {
+    "evidence": {
+     "schemaVersion": 4,
+     "ruleSetRevision": 7,
+     "observation": {
+      "id": "obs-1",
+      "revisionNo": 1
+     },
+     "composite": {
+      "anomalous": true,
+      "status": "complete",
+      "grade": "anomaly_sign",
+      "basisMethods": [
+       "ml:iforest"
+      ],
+      "risk": {
+       "status": "unrated",
+       "level": null,
+       "determinedBy": [],
+       "unratedMethods": [
+        "ml:iforest"
+       ]
+      }
+     },
+     "methodResults": [
+      {
+       "status": "succeeded",
+       "anomalous": true,
+       "code": null,
+       "severity": null,
+       "riskLevel": null,
+       "cause": null,
+       "failureCode": null,
+       "evidence": [],
+       "methodId": "ml:iforest",
+       "category": "ml",
+       "score": 0.71,
+       "scoreDetail": {
+        "raw": 0.71,
+        "threshold": "0.620",
+        "direction": "higher_is_anomaly"
+       },
+       "attribution": {
+        "version": "baseline-shapley-v1",
+        "status": "succeeded",
+        "baselineKind": "train_median_robust_scaler_center",
+        "grouping": "source-field-union-v1",
+        "scoreActual": 0.71,
+        "scoreBaseline": 0.4,
+        "threshold": "0.620",
+        "direction": "higher_is_anomaly",
+        "baselineWarning": false,
+        "efficiencyError": 0,
+        "players": [
+         {
+          "playerId": "error_ratio",
+          "features": [
+           "error_ratio"
+          ],
+          "actual": {
+           "error_ratio": "0.125"
+          },
+          "baseline": {
+           "error_ratio": 0.01
+          },
+          "scaleIsUnit": {
+           "error_ratio": true
+          },
+          "phi": 0.2,
+          "share": 0.7,
+          "thresholdGapShare": null
+         }
+        ],
+        "topK": [
+         "error_ratio"
+        ],
+        "counterfactual": [
+         {
+          "replaced": [
+           "error_ratio"
+          ],
+          "scoreAfter": 0.5,
+          "warningAfterReplacement": false
+         }
+        ],
+        "clearedAtK": 1,
+        "pins": {},
+        "computeMs": 0.5
+       }
+      }
+     ]
+    }
+   },
+   "expected": {
+    "summaryLine": {
+     "prefix": "이상 징후",
+     "prefixKind": "grade",
+     "text": "평소와 다른 오류 비율 값이 확인됩니다",
+     "kind": "ml_value"
+    },
+    "sentences": [
+     "머신러닝 모델이 이번 오류 비율 값을 평소 값과 비교했고, 달라 판단에 가장 크게 영향을 주었습니다(영향 70%)."
+    ],
+    "stateWords": [],
+    "valueTokens": [],
+    "table": [
+     {
+      "kind": "ml",
+      "methodId": "ml:iforest",
+      "playerId": "error_ratio",
+      "impactPercent": "70%",
+      "members": [
+       {
+        "name": "오류 비율 값",
+        "actual": "0.125",
+        "usual": "평소와 다름",
+        "unit": null,
+        "unitUnknown": false
+       }
+      ]
+     }
+    ],
+    "checks": [
+     {
+      "code": "ml_value",
+      "text": "원천 시스템에서 오류 비율 값이 평소와 다른 이유를 확인하세요."
+     }
+    ],
+    "contributionStatus": "computed",
+    "contributionNote": null
+   }
+  },
+  {
+   "id": "ml_value_unlabeled_feature",
+   "input": {
+    "evidence": {
+     "schemaVersion": 4,
+     "ruleSetRevision": 7,
+     "observation": {
+      "id": "obs-1",
+      "revisionNo": 1
+     },
+     "composite": {
+      "anomalous": true,
+      "status": "complete",
+      "grade": "anomaly_sign",
+      "basisMethods": [
+       "ml:iforest"
+      ],
+      "risk": {
+       "status": "unrated",
+       "level": null,
+       "determinedBy": [],
+       "unratedMethods": [
+        "ml:iforest"
+       ]
+      }
+     },
+     "methodResults": [
+      {
+       "status": "succeeded",
+       "anomalous": true,
+       "code": null,
+       "severity": null,
+       "riskLevel": null,
+       "cause": null,
+       "failureCode": null,
+       "evidence": [],
+       "methodId": "ml:iforest",
+       "category": "ml",
+       "score": 0.71,
+       "scoreDetail": {
+        "raw": 0.71,
+        "threshold": "0.620",
+        "direction": "higher_is_anomaly"
+       },
+       "attribution": {
+        "version": "baseline-shapley-v1",
+        "status": "succeeded",
+        "baselineKind": "train_median_robust_scaler_center",
+        "grouping": "source-field-union-v1",
+        "scoreActual": 0.71,
+        "scoreBaseline": 0.4,
+        "threshold": "0.620",
+        "direction": "higher_is_anomaly",
+        "baselineWarning": false,
+        "efficiencyError": 0,
+        "players": [
+         {
+          "playerId": "queue_depth",
+          "features": [
+           "queue_depth"
+          ],
+          "actual": {
+           "queue_depth": "12"
+          },
+          "baseline": {
+           "queue_depth": 3
+          },
+          "scaleIsUnit": {},
+          "phi": 0.2,
+          "share": 0.7,
+          "thresholdGapShare": null
+         }
+        ],
+        "topK": [
+         "queue_depth"
+        ],
+        "counterfactual": [
+         {
+          "replaced": [
+           "queue_depth"
+          ],
+          "scoreAfter": 0.5,
+          "warningAfterReplacement": false
+         }
+        ],
+        "clearedAtK": 1,
+        "pins": {},
+        "computeMs": 0.5
+       }
+      }
+     ]
+    }
+   },
+   "expected": {
+    "summaryLine": {
+     "prefix": "이상 징후",
+     "prefixKind": "grade",
+     "text": "평소와 다른 queue_depth 값이 확인됩니다",
+     "kind": "ml_value"
+    },
+    "sentences": [
+     "머신러닝 모델이 이번 queue_depth 값을 평소 값과 비교했고, 달라 판단에 가장 크게 영향을 주었습니다(영향 70%)."
+    ],
+    "stateWords": [],
+    "valueTokens": [],
+    "table": [
+     {
+      "kind": "ml",
+      "methodId": "ml:iforest",
+      "playerId": "queue_depth",
+      "impactPercent": "70%",
+      "members": [
+       {
+        "name": "queue_depth",
+        "actual": "12",
+        "usual": "3",
+        "unit": null,
+        "unitUnknown": false
+       }
+      ]
+     }
+    ],
+    "checks": [
+     {
+      "code": "ml_value",
+      "text": "원천 시스템에서 queue_depth 값이 평소와 다른 이유를 확인하세요."
+     }
+    ],
+    "contributionStatus": "computed",
+    "contributionNote": null
+   }
+  },
+  {
+   "id": "ml_error_ratio_lower_long_decimals",
+   "input": {
+    "evidence": {
+     "schemaVersion": 4,
+     "ruleSetRevision": 7,
+     "observation": {
+      "id": "obs-1",
+      "revisionNo": 1
+     },
+     "composite": {
+      "anomalous": true,
+      "status": "complete",
+      "grade": "anomaly_sign",
+      "basisMethods": [
+       "ml:iforest"
+      ],
+      "risk": {
+       "status": "unrated",
+       "level": null,
+       "determinedBy": [],
+       "unratedMethods": [
+        "ml:iforest"
+       ]
+      }
+     },
+     "methodResults": [
+      {
+       "status": "succeeded",
+       "anomalous": true,
+       "code": null,
+       "severity": null,
+       "riskLevel": null,
+       "cause": null,
+       "failureCode": null,
+       "evidence": [],
+       "methodId": "ml:iforest",
+       "category": "ml",
+       "score": 0.71,
+       "scoreDetail": {
+        "raw": 0.71,
+        "threshold": "0.620",
+        "direction": "higher_is_anomaly"
+       },
+       "attribution": {
+        "version": "baseline-shapley-v1",
+        "status": "succeeded",
+        "baselineKind": "train_median_robust_scaler_center",
+        "grouping": "source-field-union-v1",
+        "scoreActual": 0.71,
+        "scoreBaseline": 0.4,
+        "threshold": "0.620",
+        "direction": "higher_is_anomaly",
+        "baselineWarning": false,
+        "efficiencyError": 0,
+        "players": [
+         {
+          "playerId": "error_ratio",
+          "features": [
+           "error_ratio"
+          ],
+          "actual": {
+           "error_ratio": "0.3333333333333333333333333333"
+          },
+          "baseline": {
+           "error_ratio": 0.5
+          },
+          "scaleIsUnit": {},
+          "phi": 0.2,
+          "share": 0.6,
+          "thresholdGapShare": null
+         }
+        ],
+        "topK": [
+         "error_ratio"
+        ],
+        "counterfactual": [
+         {
+          "replaced": [
+           "error_ratio"
+          ],
+          "scoreAfter": 0.5,
+          "warningAfterReplacement": false
+         }
+        ],
+        "clearedAtK": 1,
+        "pins": {},
+        "computeMs": 0.5
+       }
+      }
+     ]
+    }
+   },
+   "expected": {
+    "summaryLine": {
+     "prefix": "이상 징후",
+     "prefixKind": "grade",
+     "text": "평소와 다른 오류 비율 값이 확인됩니다",
+     "kind": "ml_error_ratio"
+    },
+    "sentences": [
+     "머신러닝 모델이 이번 오류 비율 값 0.3333을 평소 값 0.5와 비교했고, 더 낮아 판단에 가장 크게 영향을 주었습니다(영향 60%)."
+    ],
+    "stateWords": [],
+    "valueTokens": [],
+    "table": [
+     {
+      "kind": "ml",
+      "methodId": "ml:iforest",
+      "playerId": "error_ratio",
+      "impactPercent": "60%",
+      "members": [
+       {
+        "name": "오류 비율 값",
+        "actual": "0.3333",
+        "usual": "0.5",
+        "unit": null,
+        "unitUnknown": false
+       }
+      ]
+     }
+    ],
+    "checks": [
+     {
+      "code": "ml_error_ratio",
+      "text": "원천 시스템에서 오류 비율 값이 평소와 다른 이유를 확인하세요."
+     }
+    ],
+    "contributionStatus": "computed",
+    "contributionNote": null
+   }
+  },
+  {
+   "id": "ml_elapsed_long_decimals",
+   "input": {
+    "evidence": {
+     "schemaVersion": 4,
+     "ruleSetRevision": 7,
+     "observation": {
+      "id": "obs-1",
+      "revisionNo": 1
+     },
+     "composite": {
+      "anomalous": true,
+      "status": "complete",
+      "grade": "anomaly_sign",
+      "basisMethods": [
+       "ml:iforest"
+      ],
+      "risk": {
+       "status": "unrated",
+       "level": null,
+       "determinedBy": [],
+       "unratedMethods": [
+        "ml:iforest"
+       ]
+      }
+     },
+     "methodResults": [
+      {
+       "status": "succeeded",
+       "anomalous": true,
+       "code": null,
+       "severity": null,
+       "riskLevel": null,
+       "cause": null,
+       "failureCode": null,
+       "evidence": [],
+       "methodId": "ml:iforest",
+       "category": "ml",
+       "score": 0.71,
+       "scoreDetail": {
+        "raw": 0.71,
+        "threshold": "0.620",
+        "direction": "higher_is_anomaly"
+       },
+       "attribution": {
+        "version": "baseline-shapley-v1",
+        "status": "succeeded",
+        "baselineKind": "train_median_robust_scaler_center",
+        "grouping": "source-field-union-v1",
+        "scoreActual": 0.71,
+        "scoreBaseline": 0.4,
+        "threshold": "0.620",
+        "direction": "higher_is_anomaly",
+        "baselineWarning": false,
+        "efficiencyError": 0,
+        "players": [
+         {
+          "playerId": "elapsed_ms",
+          "features": [
+           "elapsed_ms"
+          ],
+          "actual": {
+           "elapsed_ms": "1234.56"
+          },
+          "baseline": {
+           "elapsed_ms": 800.0000000000001
+          },
+          "scaleIsUnit": {},
+          "phi": 0.2,
+          "share": 0.6,
+          "thresholdGapShare": null
+         }
+        ],
+        "topK": [
+         "elapsed_ms"
+        ],
+        "counterfactual": [
+         {
+          "replaced": [
+           "elapsed_ms"
+          ],
+          "scoreAfter": 0.5,
+          "warningAfterReplacement": false
+         }
+        ],
+        "clearedAtK": 1,
+        "pins": {},
+        "computeMs": 0.5
+       }
+      }
+     ]
+    }
+   },
+   "expected": {
+    "summaryLine": {
+     "prefix": "이상 징후",
+     "prefixKind": "grade",
+     "text": "평소 처리 시간과 비교하여 지연이 확인됩니다",
+     "kind": "ml_elapsed_longer"
+    },
+    "sentences": [
+     "머신러닝 모델이 이번 처리 시간 1,234.6 ms를 평소 값 800 ms와 비교했고, 더 길어 판단에 가장 크게 영향을 주었습니다(영향 60%)."
+    ],
+    "stateWords": [],
+    "valueTokens": [],
+    "table": [
+     {
+      "kind": "ml",
+      "methodId": "ml:iforest",
+      "playerId": "elapsed_ms",
+      "impactPercent": "60%",
+      "members": [
+       {
+        "name": "처리 시간",
+        "actual": "1,234.6",
+        "usual": "800",
+        "unit": "ms",
+        "unitUnknown": false
+       }
+      ]
+     }
+    ],
+    "checks": [
+     {
+      "code": "ml_elapsed_longer",
+      "text": "같은 프로세스의 최근 처리 시간을 함께 확인하세요."
+     }
+    ],
+    "contributionStatus": "computed",
+    "contributionNote": null
+   }
+  },
+  {
+   "id": "ml_top_three",
+   "input": {
+    "evidence": {
+     "schemaVersion": 4,
+     "ruleSetRevision": 7,
+     "observation": {
+      "id": "obs-1",
+      "revisionNo": 1
+     },
+     "composite": {
+      "anomalous": true,
+      "status": "complete",
+      "grade": "anomaly_sign",
+      "basisMethods": [
+       "ml:iforest"
+      ],
+      "risk": {
+       "status": "unrated",
+       "level": null,
+       "determinedBy": [],
+       "unratedMethods": [
+        "ml:iforest"
+       ]
+      }
+     },
+     "methodResults": [
+      {
+       "status": "succeeded",
+       "anomalous": true,
+       "code": null,
+       "severity": null,
+       "riskLevel": null,
+       "cause": null,
+       "failureCode": null,
+       "evidence": [],
+       "methodId": "ml:iforest",
+       "category": "ml",
+       "score": 0.71,
+       "scoreDetail": {
+        "raw": 0.71,
+        "threshold": "0.620",
+        "direction": "higher_is_anomaly"
+       },
+       "attribution": {
+        "version": "baseline-shapley-v1",
+        "status": "succeeded",
+        "baselineKind": "train_median_robust_scaler_center",
+        "grouping": "source-field-union-v1",
+        "scoreActual": 0.71,
+        "scoreBaseline": 0.4,
+        "threshold": "0.620",
+        "direction": "higher_is_anomaly",
+        "baselineWarning": false,
+        "efficiencyError": 0,
+        "players": [
+         {
+          "playerId": "elapsed_ms",
+          "features": [
+           "elapsed_ms"
+          ],
+          "actual": {
+           "elapsed_ms": "4200"
+          },
+          "baseline": {
+           "elapsed_ms": 800
+          },
+          "scaleIsUnit": {},
+          "phi": 0.19,
+          "share": 0.62,
+          "thresholdGapShare": null
+         },
+         {
+          "playerId": "group:total_count",
+          "features": [
+           "total_count",
+           "error_count",
+           "error_ratio"
+          ],
+          "actual": {
+           "total_count": "120",
+           "error_count": "15",
+           "error_ratio": "0.125"
+          },
+          "baseline": {
+           "total_count": 100,
+           "error_count": 0,
+           "error_ratio": 0
+          },
+          "scaleIsUnit": {},
+          "phi": 0.1,
+          "share": 0.31,
+          "thresholdGapShare": null
+         },
+         {
+          "playerId": "retry_count",
+          "features": [
+           "retry_count"
+          ],
+          "actual": {
+           "retry_count": "4"
+          },
+          "baseline": {
+           "retry_count": 0
+          },
+          "scaleIsUnit": {},
+          "phi": 0.02,
+          "share": 0.07,
+          "thresholdGapShare": null
+         }
+        ],
+        "topK": [
+         "elapsed_ms",
+         "group:total_count",
+         "retry_count"
+        ],
+        "counterfactual": [
+         {
+          "replaced": [
+           "elapsed_ms"
+          ],
+          "scoreAfter": 0.5,
+          "warningAfterReplacement": false
+         },
+         {
+          "replaced": [
+           "elapsed_ms",
+           "group:total_count"
+          ],
+          "scoreAfter": 0.5,
+          "warningAfterReplacement": false
+         },
+         {
+          "replaced": [
+           "elapsed_ms",
+           "group:total_count",
+           "retry_count"
+          ],
+          "scoreAfter": 0.5,
+          "warningAfterReplacement": false
+         }
+        ],
+        "clearedAtK": 1,
+        "pins": {},
+        "computeMs": 0.5
+       }
+      }
+     ]
+    }
+   },
+   "expected": {
+    "summaryLine": {
+     "prefix": "이상 징후",
+     "prefixKind": "grade",
+     "text": "평소 처리 시간과 비교하여 지연이 확인됩니다",
+     "kind": "ml_elapsed_longer"
+    },
+    "sentences": [
+     "머신러닝 모델이 이번 처리 시간 4,200 ms를 평소 값 800 ms와 비교했고, 더 길어 판단에 가장 크게 영향을 주었습니다(영향 62%).",
+     "다음으로 처리량(TOTAL_COUNT)·ERROR_COUNT·오류 비율 값이 평소와 달라 영향을 주었습니다(영향 31%)."
+    ],
+    "stateWords": [],
+    "valueTokens": [],
+    "table": [
+     {
+      "kind": "ml",
+      "methodId": "ml:iforest",
+      "playerId": "elapsed_ms",
+      "impactPercent": "62%",
+      "members": [
+       {
+        "name": "처리 시간",
+        "actual": "4,200",
+        "usual": "800",
+        "unit": "ms",
+        "unitUnknown": false
+       }
+      ]
+     },
+     {
+      "kind": "ml",
+      "methodId": "ml:iforest",
+      "playerId": "group:total_count",
+      "impactPercent": "31%",
+      "members": [
+       {
+        "name": "처리량(TOTAL_COUNT)",
+        "actual": "120",
+        "usual": "100",
+        "unit": null,
+        "unitUnknown": true
+       },
+       {
+        "name": "ERROR_COUNT",
+        "actual": "15",
+        "usual": "0",
+        "unit": null,
+        "unitUnknown": true
+       },
+       {
+        "name": "오류 비율 값",
+        "actual": "0.125",
+        "usual": "0",
+        "unit": null,
+        "unitUnknown": false
+       }
+      ]
+     },
+     {
+      "kind": "ml",
+      "methodId": "ml:iforest",
+      "playerId": "retry_count",
+      "impactPercent": "7%",
+      "members": [
+       {
+        "name": "RETRY_COUNT",
+        "actual": "4",
+        "usual": "0",
+        "unit": null,
+        "unitUnknown": true
+       }
+      ]
+     }
+    ],
+    "checks": [
+     {
+      "code": "ml_elapsed_longer",
+      "text": "같은 프로세스의 최근 처리 시간을 함께 확인하세요."
+     }
+    ],
+    "contributionStatus": "computed",
+    "contributionNote": null
+   }
+  },
+  {
+   "id": "prefix_unrated",
+   "input": {
+    "evidence": {
+     "schemaVersion": 4,
+     "ruleSetRevision": 7,
+     "observation": {
+      "id": "obs-1",
+      "revisionNo": 1
+     },
+     "composite": {
+      "anomalous": true,
+      "status": "complete",
+      "grade": "unknown_grade",
+      "basisMethods": [
+       "hard:process-status"
+      ],
+      "risk": {
+       "status": "rated",
+       "level": "severe",
+       "determinedBy": [
+        "hard:process-status"
+       ]
+      }
+     },
+     "methodResults": [
+      {
+       "status": "succeeded",
+       "anomalous": true,
+       "code": "PROCESS_STATUS_F",
+       "severity": "critical",
+       "riskLevel": "critical",
+       "cause": null,
+       "failureCode": null,
+       "evidence": [
+        {
+         "observedStatus": "F",
+         "result": "hit"
+        }
+       ],
+       "methodId": "hard:process-status",
+       "category": "hard"
+      }
+     ]
+    }
+   },
+   "expected": {
+    "summaryLine": {
+     "prefix": "위험도 미정",
+     "prefixKind": "risk",
+     "text": "처리 상태가 S가 아닌 F로 기록되었습니다",
+     "kind": "hard_process_status"
+    },
+    "sentences": [
+     "이상 규칙이 이번 처리 상태 F를 성공 상태 S와 비교했고, 달라 이상으로 판단했습니다."
+    ],
+    "stateWords": [
+     "이상"
+    ],
+    "valueTokens": [
+     "F"
+    ],
+    "table": [
+     {
+      "kind": "rule",
+      "methodId": "hard:process-status",
+      "condition": "STATUS ≠ S",
+      "observed": [
+       {
+        "name": null,
+        "value": "F",
+        "unit": null,
+        "unitUnknown": false
+       }
+      ],
+      "result": "이상"
+     }
+    ],
+    "checks": [
+     {
+      "code": "hard_process_status",
+      "text": "원천 시스템에서 이 처리의 상태 F 기록 내용을 확인하세요."
+     }
+    ],
+    "contributionStatus": "not_computed",
+    "contributionNote": null
+   }
+  },
+  {
+   "id": "prefix_grade_anomaly",
+   "input": {
+    "evidence": {
+     "schemaVersion": 4,
+     "ruleSetRevision": 7,
+     "observation": {
+      "id": "obs-1",
+      "revisionNo": 1
+     },
+     "composite": {
+      "anomalous": true,
+      "status": "complete",
+      "grade": "anomaly",
+      "basisMethods": [
+       "hard:process-status"
+      ],
+      "risk": {
+       "status": "unrated",
+       "level": null,
+       "determinedBy": [],
+       "unratedMethods": [
+        "hard:process-status"
+       ]
+      }
+     },
+     "methodResults": [
+      {
+       "status": "succeeded",
+       "anomalous": true,
+       "code": "PROCESS_STATUS_F",
+       "severity": "critical",
+       "riskLevel": null,
+       "cause": null,
+       "failureCode": null,
+       "evidence": [
+        {
+         "observedStatus": "F",
+         "result": "hit"
+        }
+       ],
+       "methodId": "hard:process-status",
+       "category": "hard"
+      }
+     ]
+    }
+   },
+   "expected": {
+    "summaryLine": {
+     "prefix": "이상",
+     "prefixKind": "grade",
+     "text": "처리 상태가 S가 아닌 F로 기록되었습니다",
+     "kind": "hard_process_status"
+    },
+    "sentences": [
+     "이상 규칙이 이번 처리 상태 F를 성공 상태 S와 비교했고, 달라 이상으로 판단했습니다."
+    ],
+    "stateWords": [
+     "이상"
+    ],
+    "valueTokens": [
+     "F"
+    ],
+    "table": [
+     {
+      "kind": "rule",
+      "methodId": "hard:process-status",
+      "condition": "STATUS ≠ S",
+      "observed": [
+       {
+        "name": null,
+        "value": "F",
+        "unit": null,
+        "unitUnknown": false
+       }
+      ],
+      "result": "이상"
+     }
+    ],
+    "checks": [
+     {
+      "code": "hard_process_status",
+      "text": "원천 시스템에서 이 처리의 상태 F 기록 내용을 확인하세요."
+     }
+    ],
+    "contributionStatus": "not_computed",
+    "contributionNote": null
+   }
+  },
+  {
+   "id": "soft_elapsed_lte",
+   "input": {
+    "evidence": {
+     "schemaVersion": 4,
+     "ruleSetRevision": 7,
+     "observation": {
+      "id": "obs-1",
+      "revisionNo": 1
+     },
+     "composite": {
+      "anomalous": true,
+      "status": "complete",
+      "grade": "anomaly_sign",
+      "basisMethods": [
+       "soft:elapsed_ms-3f9a2c1d"
+      ],
+      "risk": {
+       "status": "rated",
+       "level": "warning",
+       "determinedBy": [
+        "soft:elapsed_ms-3f9a2c1d"
+       ],
+       "unratedMethods": []
+      }
+     },
+     "methodResults": [
+      {
+       "status": "succeeded",
+       "anomalous": true,
+       "code": "SOFT_ELAPSED_MS_3F9A2C1D",
+       "severity": "warning",
+       "riskLevel": "warning",
+       "cause": null,
+       "failureCode": null,
+       "evidence": [],
+       "methodId": "soft:elapsed_ms-3f9a2c1d",
+       "category": "soft",
+       "observedValue": "12",
+       "condition": {
+        "field": "elapsed_ms",
+        "operator": "lte",
+        "threshold": "50",
+        "unit": "ms"
+       }
+      }
+     ]
+    }
+   },
+   "expected": {
+    "summaryLine": {
+     "prefix": "주의",
+     "prefixKind": "risk",
+     "text": "처리 시간이 기준 ≤ 50 ms에 해당합니다",
+     "kind": "soft_elapsed"
+    },
+    "sentences": [
+     "이상 징후 규칙이 이번 처리 시간 12 ms를 기준 50 ms와 비교했고, 기준(≤)에 해당해 이상 징후로 판단했습니다."
+    ],
+    "stateWords": [
+     "이상 징후"
+    ],
+    "valueTokens": [],
+    "table": [
+     {
+      "kind": "rule",
+      "methodId": "soft:elapsed_ms-3f9a2c1d",
+      "condition": "처리 시간 ≤ 50 ms",
+      "observed": [
+       {
+        "name": null,
+        "value": "12",
+        "unit": "ms",
+        "unitUnknown": false
+       }
+      ],
+      "result": "이상 징후"
+     }
+    ],
+    "checks": [
+     {
+      "code": "soft_elapsed",
+      "text": "처리 시간 기준 값이 지금 운영에 맞는지 규칙 설정에서 확인하세요."
+     }
+    ],
+    "contributionStatus": "not_computed",
+    "contributionNote": null
+   }
+  },
+  {
+   "id": "soft_error_ratio_lt",
+   "input": {
+    "evidence": {
+     "schemaVersion": 4,
+     "ruleSetRevision": 7,
+     "observation": {
+      "id": "obs-1",
+      "revisionNo": 1
+     },
+     "composite": {
+      "anomalous": true,
+      "status": "complete",
+      "grade": "anomaly_sign",
+      "basisMethods": [
+       "soft:error_ratio-3f9a2c1d"
+      ],
+      "risk": {
+       "status": "rated",
+       "level": "warning",
+       "determinedBy": [
+        "soft:error_ratio-3f9a2c1d"
+       ],
+       "unratedMethods": []
+      }
+     },
+     "methodResults": [
+      {
+       "status": "succeeded",
+       "anomalous": true,
+       "code": "SOFT_ERROR_RATIO_3F9A2C1D",
+       "severity": "warning",
+       "riskLevel": "warning",
+       "cause": null,
+       "failureCode": null,
+       "evidence": [],
+       "methodId": "soft:error_ratio-3f9a2c1d",
+       "category": "soft",
+       "observedValue": "0.125",
+       "condition": {
+        "field": "error_ratio",
+        "operator": "lt",
+        "threshold": "0.5",
+        "unit": "ratio"
+       }
+      }
+     ]
+    }
+   },
+   "expected": {
+    "summaryLine": {
+     "prefix": "주의",
+     "prefixKind": "risk",
+     "text": "오류 비율 값이 기준 < 0.5에 해당합니다",
+     "kind": "soft_value"
+    },
+    "sentences": [
+     "이상 징후 규칙이 이번 오류 비율 값 0.125를 기준 0.5와 비교했고, 기준(<)에 해당해 이상 징후로 판단했습니다."
+    ],
+    "stateWords": [
+     "이상 징후"
+    ],
+    "valueTokens": [],
+    "table": [
+     {
+      "kind": "rule",
+      "methodId": "soft:error_ratio-3f9a2c1d",
+      "condition": "오류 비율 값 < 0.5",
+      "observed": [
+       {
+        "name": null,
+        "value": "0.125",
+        "unit": null,
+        "unitUnknown": false
+       }
+      ],
+      "result": "이상 징후"
+     }
+    ],
+    "checks": [
+     {
+      "code": "soft_value",
+      "text": "오류 비율 값 기준 값이 지금 운영에 맞는지 규칙 설정에서 확인하세요."
+     }
+    ],
+    "contributionStatus": "not_computed",
+    "contributionNote": null
+   }
+  },
+  {
+   "id": "relation_precedes_other_predecessor",
+   "input": {
+    "evidence": {
+     "schemaVersion": 4,
+     "ruleSetRevision": 7,
+     "observation": {
+      "id": "obs-1",
+      "revisionNo": 1
+     },
+     "composite": {
+      "anomalous": true,
+      "status": "complete",
+      "grade": "anomaly",
+      "basisMethods": [
+       "hard:rel-0a1b2c3d"
+      ],
+      "risk": {
+       "status": "rated",
+       "level": "critical",
+       "determinedBy": [
+        "hard:rel-0a1b2c3d"
+       ],
+       "unratedMethods": []
+      }
+     },
+     "methodResults": [
+      {
+       "status": "succeeded",
+       "anomalous": true,
+       "code": "REL_PRECEDES",
+       "severity": "critical",
+       "riskLevel": "critical",
+       "cause": null,
+       "failureCode": null,
+       "evidence": [
+        {
+         "result": "hit",
+         "violation": "other_predecessor",
+         "node": "process:TX1:IF_A_PR002",
+         "edge": null
+        }
+       ],
+       "methodId": "hard:rel-0a1b2c3d",
+       "category": "hard"
+      }
+     ]
+    },
+    "relationRules": [
+     {
+      "id": "hard:rel-0a1b2c3d",
+      "kind": "precedes",
+      "scope": null,
+      "from": {
+       "processId": "IF_A_PR001"
+      },
+      "to": {
+       "processId": "IF_A_PR002"
+      },
+      "match": null,
+      "severity": "critical",
+      "enabled": true
+     },
+     {
+      "id": "hard:rel-1b2c3d4e",
+      "kind": "message_handoff",
+      "scope": null,
+      "from": {
+       "processId": "IF_A_PR002"
+      },
+      "to": {
+       "processId": "IF_A_PR003"
+      },
+      "match": null,
+      "severity": "warning",
+      "enabled": true
+     },
+     {
+      "id": "hard:rel-2c3d4e5f",
+      "kind": "required_step",
+      "scope": {
+       "interfaceId": "IF_A"
+      },
+      "from": {
+       "processId": "IF_A_PR009"
+      },
+      "to": null,
+      "match": null,
+      "severity": "warning",
+      "enabled": true
+     }
+    ]
+   },
+   "expected": {
+    "summaryLine": {
+     "prefix": "위험",
+     "prefixKind": "risk",
+     "text": "정해진 앞 단계 없이 처리되었습니다",
+     "kind": "relation_precedes"
+    },
+    "sentences": [
+     "관계 규칙이 이 단계의 앞 단계 기록을 정해진 앞 단계 IF_A_PR001과 비교했고, 다른 앞 단계여서 이상으로 판단했습니다."
+    ],
+    "stateWords": [
+     "이상"
+    ],
+    "valueTokens": [
+     "IF_A_PR001"
+    ],
+    "table": [
+     {
+      "kind": "rule",
+      "methodId": "hard:rel-0a1b2c3d",
+      "condition": "IF_A_PR001 → IF_A_PR002",
+      "observed": [
+       {
+        "name": null,
+        "value": "다른 앞 단계",
+        "unit": null,
+        "unitUnknown": false
+       }
+      ],
+      "result": "이상"
+     }
+    ],
+    "checks": [
+     {
+      "code": "relation_precedes",
+      "text": "IF_A_PR001 단계 기록이 원천 시스템에 있는지 확인하세요."
+     }
+    ],
+    "contributionStatus": "not_computed",
+    "contributionNote": null
+   }
+  },
+  {
+   "id": "hard_unresolved_row_with_soft",
+   "input": {
+    "evidence": {
+     "schemaVersion": 4,
+     "ruleSetRevision": 7,
+     "observation": {
+      "id": "obs-1",
+      "revisionNo": 1
+     },
+     "composite": {
+      "anomalous": true,
+      "status": "partial",
+      "grade": "anomaly_sign",
+      "basisMethods": [
+       "soft:retry_count-3f9a2c1d"
+      ],
+      "risk": {
+       "status": "rated",
+       "level": "warning",
+       "determinedBy": [
+        "soft:retry_count-3f9a2c1d"
+       ],
+       "unratedMethods": []
+      }
+     },
+     "methodResults": [
+      {
+       "status": "not_ready",
+       "anomalous": null,
+       "code": null,
+       "severity": null,
+       "riskLevel": null,
+       "cause": "input_missing",
+       "failureCode": null,
+       "evidence": [
+        {
+         "result": "unavailable"
+        }
+       ],
+       "methodId": "hard:negative-duration",
+       "category": "hard"
+      },
+      {
+       "status": "succeeded",
+       "anomalous": true,
+       "code": "SOFT_RETRY_COUNT_3F9A2C1D",
+       "severity": "warning",
+       "riskLevel": "warning",
+       "cause": null,
+       "failureCode": null,
+       "evidence": [],
+       "methodId": "soft:retry_count-3f9a2c1d",
+       "category": "soft",
+       "observedValue": "4",
+       "condition": {
+        "field": "retry_count",
+        "operator": "gte",
+        "threshold": "3",
+        "unit": "count"
+       }
+      }
+     ]
+    }
+   },
+   "expected": {
+    "summaryLine": {
+     "prefix": "주의",
+     "prefixKind": "risk",
+     "text": "RETRY_COUNT가 기준(≥)에 해당합니다",
+     "kind": "soft_count"
+    },
+    "sentences": [
+     "이상 징후 규칙이 이번 RETRY_COUNT 값을 기준 값과 비교했고, 기준(≥)에 해당해 이상 징후로 판단했습니다.",
+     "일부 검사(이상 규칙)는 결과를 내지 못해 평가 불가입니다."
+    ],
+    "stateWords": [
+     "이상 징후",
+     "평가 불가"
+    ],
+    "valueTokens": [],
+    "table": [
+     {
+      "kind": "rule",
+      "methodId": "soft:retry_count-3f9a2c1d",
+      "condition": "RETRY_COUNT ≥ 3",
+      "observed": [
+       {
+        "name": null,
+        "value": "4",
+        "unit": null,
+        "unitUnknown": true
+       }
+      ],
+      "result": "이상 징후"
+     },
+     {
+      "kind": "rule",
+      "methodId": "hard:negative-duration",
+      "condition": "START_TIME > END_TIME",
+      "observed": [
+       {
+        "name": null,
+        "value": "—",
+        "unit": null,
+        "unitUnknown": false
+       }
+      ],
+      "result": "평가 불가"
+     }
+    ],
+    "checks": [
+     {
+      "code": "soft_count",
+      "text": "RETRY_COUNT 기준 값이 지금 운영에 맞는지 규칙 설정에서 확인하세요."
+     },
+     {
+      "code": "unresolved",
+      "text": "결과를 내지 못한 검사(이상 규칙)의 입력 수집 상태를 확인하세요."
+     }
+    ],
+    "contributionStatus": "not_computed",
+    "contributionNote": null
+   }
+  },
+  {
+   "id": "interim_payload_pending_ml",
+   "input": {
+    "evidence": {
+     "schemaVersion": 4,
+     "ruleSetRevision": 7,
+     "composite": {
+      "anomalous": true,
+      "status": "partial",
+      "grade": "anomaly",
+      "basisMethods": [
+       "hard:success-with-error"
+      ],
+      "risk": {
+       "status": "rated",
+       "level": "critical",
+       "determinedBy": [
+        "hard:success-with-error"
+       ],
+       "unratedMethods": []
+      }
+     },
+     "methodResults": [
+      {
+       "status": "succeeded",
+       "anomalous": true,
+       "code": "HARD_SUCCESS_WITH_ERROR",
+       "severity": "critical",
+       "riskLevel": "critical",
+       "cause": null,
+       "failureCode": null,
+       "evidence": [
+        {
+         "result": "hit"
+        }
+       ],
+       "methodId": "hard:success-with-error",
+       "category": "hard"
+      },
+      {
+       "status": "not_ready",
+       "anomalous": null,
+       "code": null,
+       "severity": null,
+       "riskLevel": null,
+       "cause": "pending",
+       "failureCode": null,
+       "evidence": [],
+       "methodId": "ml:iforest",
+       "category": "ml",
+       "score": null
+      }
+     ],
+     "elapsedMs": 4
+    },
+    "observedFields": {
+     "revisionNo": 1,
+     "errorCount": "3"
+    }
+   },
+   "expected": {
+    "summaryLine": {
+     "prefix": "위험",
+     "prefixKind": "risk",
+     "text": "성공 상태인데 ERROR_COUNT가 기록되었습니다",
+     "kind": "hard_success_with_error"
+    },
+    "sentences": [
+     "이상 규칙이 처리 상태 S와 ERROR_COUNT를 함께 확인했고, 성공 상태인데 ERROR_COUNT가 0보다 커서 이상으로 판단했습니다."
+    ],
+    "stateWords": [
+     "이상"
+    ],
+    "valueTokens": [],
+    "table": [
+     {
+      "kind": "rule",
+      "methodId": "hard:success-with-error",
+      "condition": "STATUS = S, ERROR_COUNT > 0",
+      "observed": [
+       {
+        "name": "상태",
+        "value": "S",
+        "unit": null,
+        "unitUnknown": false
+       },
+       {
+        "name": "ERROR_COUNT",
+        "value": "—",
+        "unit": null,
+        "unitUnknown": false
+       }
+      ],
+      "result": "이상"
+     }
+    ],
+    "checks": [
+     {
+      "code": "hard_success_with_error",
+      "text": "원천 시스템에서 성공 처리에 ERROR_COUNT가 기록된 경위를 확인하세요."
+     }
+    ],
+    "contributionStatus": "not_computed",
+    "contributionNote": null
+   }
+  },
+  {
+   "id": "primary_first_overflow",
+   "input": {
+    "evidence": {
+     "schemaVersion": 4,
+     "ruleSetRevision": 7,
+     "observation": {
+      "id": "obs-1",
+      "revisionNo": 1
+     },
+     "composite": {
+      "anomalous": true,
+      "status": "complete",
+      "grade": "anomaly",
+      "basisMethods": [
+       "hard:process-status",
+       "hard:negative-duration",
+       "hard:count-conservation",
+       "soft:retry_count-3f9a2c1d"
+      ],
+      "risk": {
+       "status": "rated",
+       "level": "critical",
+       "determinedBy": [
+        "soft:retry_count-3f9a2c1d"
+       ]
+      }
+     },
+     "methodResults": [
+      {
+       "status": "succeeded",
+       "anomalous": true,
+       "code": "PROCESS_STATUS_N",
+       "severity": "critical",
+       "riskLevel": "info",
+       "cause": null,
+       "failureCode": null,
+       "evidence": [
+        {
+         "observedStatus": "N",
+         "result": "hit"
+        }
+       ],
+       "methodId": "hard:process-status",
+       "category": "hard"
+      },
+      {
+       "status": "succeeded",
+       "anomalous": true,
+       "code": "HARD_NEGATIVE_DURATION",
+       "severity": "critical",
+       "riskLevel": "info",
+       "cause": null,
+       "failureCode": null,
+       "evidence": [
+        {
+         "result": "hit"
+        }
+       ],
+       "methodId": "hard:negative-duration",
+       "category": "hard"
+      },
+      {
+       "status": "succeeded",
+       "anomalous": true,
+       "code": "HARD_COUNT_CONSERVATION",
+       "severity": "critical",
+       "riskLevel": "info",
+       "cause": null,
+       "failureCode": null,
+       "evidence": [
+        {
+         "result": "hit"
+        }
+       ],
+       "methodId": "hard:count-conservation",
+       "category": "hard"
+      },
+      {
+       "status": "succeeded",
+       "anomalous": true,
+       "code": "SOFT_RETRY_COUNT_3F9A2C1D",
+       "severity": "critical",
+       "riskLevel": "critical",
+       "cause": null,
+       "failureCode": null,
+       "evidence": [],
+       "methodId": "soft:retry_count-3f9a2c1d",
+       "category": "soft",
+       "observedValue": "4",
+       "condition": {
+        "field": "retry_count",
+        "operator": "gte",
+        "threshold": "3",
+        "unit": "count"
+       }
+      }
+     ]
+    },
+    "observedFields": {
+     "revisionNo": "1",
+     "startTimeRaw": "2026-01-01 10:00:09",
+     "endTimeRaw": "2026-01-01 10:00:05",
+     "totalCount": "10",
+     "successCount": "8",
+     "errorCount": "1"
+    }
+   },
+   "expected": {
+    "summaryLine": {
+     "prefix": "위험",
+     "prefixKind": "risk",
+     "text": "RETRY_COUNT가 기준(≥)에 해당합니다",
+     "kind": "soft_count"
+    },
+    "sentences": [
+     "이상 징후 규칙이 이번 RETRY_COUNT 값을 기준 값과 비교했고, 기준(≥)에 해당해 이상 징후로 판단했습니다.",
+     "이상 규칙이 이번 처리 상태 N을 성공 상태 S와 비교했고, 달라 이상으로 판단했습니다.",
+     "이상 규칙이 시작 시각 2026-01-01 10:00:09와 종료 시각 2026-01-01 10:00:05를 비교했고, 시작이 더 늦어 이상으로 판단했습니다.",
+     "그 밖의 근거 1개는 아래 표에 있습니다."
+    ],
+    "stateWords": [
+     "이상 징후",
+     "이상",
+     "이상"
+    ],
+    "valueTokens": [
+     "N",
+     "2026-01-01 10:00:09",
+     "2026-01-01 10:00:05"
+    ],
+    "table": [
+     {
+      "kind": "rule",
+      "methodId": "hard:process-status",
+      "condition": "STATUS ≠ S",
+      "observed": [
+       {
+        "name": null,
+        "value": "N",
+        "unit": null,
+        "unitUnknown": false
+       }
+      ],
+      "result": "이상"
+     },
+     {
+      "kind": "rule",
+      "methodId": "hard:negative-duration",
+      "condition": "START_TIME > END_TIME",
+      "observed": [
+       {
+        "name": null,
+        "value": "2026-01-01 10:00:09",
+        "unit": null,
+        "unitUnknown": false
+       },
+       {
+        "name": null,
+        "value": "2026-01-01 10:00:05",
+        "unit": null,
+        "unitUnknown": false
+       }
+      ],
+      "result": "이상"
+     },
+     {
+      "kind": "rule",
+      "methodId": "hard:count-conservation",
+      "condition": "TOTAL_COUNT ≠ SUCCESS_COUNT + ERROR_COUNT",
+      "observed": [
+       {
+        "name": "TOTAL_COUNT",
+        "value": "10",
+        "unit": null,
+        "unitUnknown": true
+       },
+       {
+        "name": "SUCCESS_COUNT",
+        "value": "8",
+        "unit": null,
+        "unitUnknown": true
+       },
+       {
+        "name": "ERROR_COUNT",
+        "value": "1",
+        "unit": null,
+        "unitUnknown": true
+       }
+      ],
+      "result": "이상"
+     },
+     {
+      "kind": "rule",
+      "methodId": "soft:retry_count-3f9a2c1d",
+      "condition": "RETRY_COUNT ≥ 3",
+      "observed": [
+       {
+        "name": null,
+        "value": "4",
+        "unit": null,
+        "unitUnknown": true
+       }
+      ],
+      "result": "이상 징후"
+     }
+    ],
+    "checks": [
+     {
+      "code": "soft_count",
+      "text": "RETRY_COUNT 기준 값이 지금 운영에 맞는지 규칙 설정에서 확인하세요."
+     },
+     {
+      "code": "hard_process_status",
+      "text": "원천 시스템에서 이 처리의 상태 N 기록 내용을 확인하세요."
+     }
+    ],
+    "contributionStatus": "not_computed",
+    "contributionNote": null
+   }
+  },
+  {
+   "id": "ml_elapsed_same_display",
+   "input": {
+    "evidence": {
+     "schemaVersion": 4,
+     "ruleSetRevision": 7,
+     "observation": {
+      "id": "obs-1",
+      "revisionNo": 1
+     },
+     "composite": {
+      "anomalous": true,
+      "status": "complete",
+      "grade": "anomaly_sign",
+      "basisMethods": [
+       "ml:iforest"
+      ],
+      "risk": {
+       "status": "unrated",
+       "level": null,
+       "determinedBy": [],
+       "unratedMethods": [
+        "ml:iforest"
+       ]
+      }
+     },
+     "methodResults": [
+      {
+       "status": "succeeded",
+       "anomalous": true,
+       "code": null,
+       "severity": null,
+       "riskLevel": null,
+       "cause": null,
+       "failureCode": null,
+       "evidence": [],
+       "methodId": "ml:iforest",
+       "category": "ml",
+       "score": 0.71,
+       "scoreDetail": {
+        "raw": 0.71,
+        "threshold": "0.620",
+        "direction": "higher_is_anomaly"
+       },
+       "attribution": {
+        "version": "baseline-shapley-v1",
+        "status": "succeeded",
+        "baselineKind": "train_median_robust_scaler_center",
+        "grouping": "source-field-union-v1",
+        "scoreActual": 0.71,
+        "scoreBaseline": 0.4,
+        "threshold": "0.620",
+        "direction": "higher_is_anomaly",
+        "baselineWarning": false,
+        "efficiencyError": 0,
+        "players": [
+         {
+          "playerId": "elapsed_ms",
+          "features": [
+           "elapsed_ms"
+          ],
+          "actual": {
+           "elapsed_ms": "800.04"
+          },
+          "baseline": {
+           "elapsed_ms": 800
+          },
+          "scaleIsUnit": {},
+          "phi": 0.2,
+          "share": 0.7,
+          "thresholdGapShare": null
+         }
+        ],
+        "topK": [
+         "elapsed_ms"
+        ],
+        "counterfactual": [
+         {
+          "replaced": [
+           "elapsed_ms"
+          ],
+          "scoreAfter": 0.5,
+          "warningAfterReplacement": false
+         }
+        ],
+        "clearedAtK": 1,
+        "pins": {},
+        "computeMs": 0.5
+       }
+      }
+     ]
+    }
+   },
+   "expected": {
+    "summaryLine": {
+     "prefix": "이상 징후",
+     "prefixKind": "grade",
+     "text": "평소와 다른 처리 시간 값이 확인됩니다",
+     "kind": "ml_value"
+    },
+    "sentences": [
+     "머신러닝 모델이 이번 처리 시간 값을 평소 값과 비교했고, 달라 판단에 가장 크게 영향을 주었습니다(영향 70%)."
+    ],
+    "stateWords": [],
+    "valueTokens": [],
+    "table": [
+     {
+      "kind": "ml",
+      "methodId": "ml:iforest",
+      "playerId": "elapsed_ms",
+      "impactPercent": "70%",
+      "members": [
+       {
+        "name": "처리 시간",
+        "actual": "800",
+        "usual": "800",
+        "unit": "ms",
+        "unitUnknown": false
+       }
+      ]
+     }
+    ],
+    "checks": [
+     {
+      "code": "ml_value",
+      "text": "같은 프로세스의 최근 처리 시간을 함께 확인하세요."
+     }
+    ],
+    "contributionStatus": "computed",
+    "contributionNote": null
+   }
+  },
+  {
+   "id": "ml_error_ratio_same_display",
+   "input": {
+    "evidence": {
+     "schemaVersion": 4,
+     "ruleSetRevision": 7,
+     "observation": {
+      "id": "obs-1",
+      "revisionNo": 1
+     },
+     "composite": {
+      "anomalous": true,
+      "status": "complete",
+      "grade": "anomaly_sign",
+      "basisMethods": [
+       "ml:iforest"
+      ],
+      "risk": {
+       "status": "unrated",
+       "level": null,
+       "determinedBy": [],
+       "unratedMethods": [
+        "ml:iforest"
+       ]
+      }
+     },
+     "methodResults": [
+      {
+       "status": "succeeded",
+       "anomalous": true,
+       "code": null,
+       "severity": null,
+       "riskLevel": null,
+       "cause": null,
+       "failureCode": null,
+       "evidence": [],
+       "methodId": "ml:iforest",
+       "category": "ml",
+       "score": 0.71,
+       "scoreDetail": {
+        "raw": 0.71,
+        "threshold": "0.620",
+        "direction": "higher_is_anomaly"
+       },
+       "attribution": {
+        "version": "baseline-shapley-v1",
+        "status": "succeeded",
+        "baselineKind": "train_median_robust_scaler_center",
+        "grouping": "source-field-union-v1",
+        "scoreActual": 0.71,
+        "scoreBaseline": 0.4,
+        "threshold": "0.620",
+        "direction": "higher_is_anomaly",
+        "baselineWarning": false,
+        "efficiencyError": 0,
+        "players": [
+         {
+          "playerId": "error_ratio",
+          "features": [
+           "error_ratio"
+          ],
+          "actual": {
+           "error_ratio": "0.12345"
+          },
+          "baseline": {
+           "error_ratio": 0.1235
+          },
+          "scaleIsUnit": {},
+          "phi": 0.2,
+          "share": 0.7,
+          "thresholdGapShare": null
+         }
+        ],
+        "topK": [
+         "error_ratio"
+        ],
+        "counterfactual": [
+         {
+          "replaced": [
+           "error_ratio"
+          ],
+          "scoreAfter": 0.5,
+          "warningAfterReplacement": false
+         }
+        ],
+        "clearedAtK": 1,
+        "pins": {},
+        "computeMs": 0.5
+       }
+      }
+     ]
+    }
+   },
+   "expected": {
+    "summaryLine": {
+     "prefix": "이상 징후",
+     "prefixKind": "grade",
+     "text": "평소와 다른 오류 비율 값이 확인됩니다",
+     "kind": "ml_value"
+    },
+    "sentences": [
+     "머신러닝 모델이 이번 오류 비율 값을 평소 값과 비교했고, 달라 판단에 가장 크게 영향을 주었습니다(영향 70%)."
+    ],
+    "stateWords": [],
+    "valueTokens": [],
+    "table": [
+     {
+      "kind": "ml",
+      "methodId": "ml:iforest",
+      "playerId": "error_ratio",
+      "impactPercent": "70%",
+      "members": [
+       {
+        "name": "오류 비율 값",
+        "actual": "0.1235",
+        "usual": "0.1235",
+        "unit": null,
+        "unitUnknown": false
+       }
+      ]
+     }
+    ],
+    "checks": [
+     {
+      "code": "ml_value",
+      "text": "원천 시스템에서 오류 비율 값이 평소와 다른 이유를 확인하세요."
+     }
+    ],
+    "contributionStatus": "computed",
+    "contributionNote": null
+   }
+  },
+  {
+   "id": "normal_complete",
+   "input": {
+    "evidence": {
+     "schemaVersion": 4,
+     "ruleSetRevision": 7,
+     "observation": {
+      "id": "obs-1",
+      "revisionNo": 1
+     },
+     "composite": {
+      "anomalous": false,
+      "status": "complete",
+      "grade": "normal",
+      "basisMethods": [],
+      "risk": {
+       "status": "not_applicable",
+       "level": null,
+       "determinedBy": [],
+       "unratedMethods": []
+      }
+     },
+     "methodResults": [
+      {
+       "status": "succeeded",
+       "anomalous": false,
+       "code": null,
+       "severity": null,
+       "riskLevel": null,
+       "cause": null,
+       "failureCode": null,
+       "evidence": [
+        {
+         "observedStatus": "S",
+         "result": "no_hit"
+        }
+       ],
+       "methodId": "hard:process-status",
+       "category": "hard"
+      },
+      {
+       "status": "succeeded",
+       "anomalous": false,
+       "code": null,
+       "severity": null,
+       "riskLevel": null,
+       "cause": null,
+       "failureCode": null,
+       "evidence": [],
+       "methodId": "ml:iforest",
+       "category": "ml",
+       "score": 0.3,
+       "attribution": {
+        "version": "baseline-shapley-v1",
+        "status": "skipped",
+        "reason": "not_anomalous"
+       }
+      }
+     ]
+    }
+   },
+   "expected": {
+    "summaryLine": {
+     "prefix": "이상 신호 없음",
+     "prefixKind": "signal",
+     "text": "켠 검사에서 평소와 다른 점이 확인되지 않았습니다",
+     "kind": "normal_complete"
+    },
+    "sentences": [
+     "켠 검사가 모두 정상으로 끝났습니다."
+    ],
+    "stateWords": [
+     "정상"
+    ],
+    "valueTokens": [],
+    "table": [],
+    "checks": [],
+    "contributionStatus": "skipped",
+    "contributionNote": null
+   }
+  },
+  {
+   "id": "normal_unconfirmed",
+   "input": {
+    "evidence": {
+     "schemaVersion": 4,
+     "ruleSetRevision": 7,
+     "observation": {
+      "id": "obs-1",
+      "revisionNo": 1
+     },
+     "composite": {
+      "anomalous": false,
+      "status": "partial",
+      "grade": "undetermined",
+      "basisMethods": [],
+      "risk": {
+       "status": "not_applicable",
+       "level": null,
+       "determinedBy": [],
+       "unratedMethods": []
+      }
+     },
+     "methodResults": [
+      {
+       "status": "succeeded",
+       "anomalous": false,
+       "code": null,
+       "severity": null,
+       "riskLevel": null,
+       "cause": null,
+       "failureCode": null,
+       "evidence": [
+        {
+         "observedStatus": "S",
+         "result": "no_hit"
+        }
+       ],
+       "methodId": "hard:process-status",
+       "category": "hard"
+      },
+      {
+       "status": "failed",
+       "anomalous": null,
+       "code": null,
+       "severity": null,
+       "riskLevel": null,
+       "cause": "failure",
+       "failureCode": "model_error",
+       "evidence": [],
+       "methodId": "ml:iforest",
+       "category": "ml",
+       "score": null
+      }
+     ]
+    }
+   },
+   "expected": {
+    "summaryLine": {
+     "prefix": "정상 여부 미확인",
+     "prefixKind": "signal",
+     "text": "일부 검사 결과가 없어 정상 여부를 확인하지 못했습니다",
+     "kind": "normal_unconfirmed"
+    },
+    "sentences": [
+     "일부 검사(머신러닝 모델)는 결과를 내지 못해 평가 불가입니다."
+    ],
+    "stateWords": [
+     "평가 불가"
+    ],
+    "valueTokens": [],
+    "table": [
+     {
+      "kind": "rule",
+      "methodId": "ml:iforest",
+      "condition": "머신러닝 모델",
+      "observed": [
+       {
+        "name": null,
+        "value": "—",
+        "unit": null,
+        "unitUnknown": false
+       }
+      ],
+      "result": "평가 불가"
+     }
+    ],
+    "checks": [
+     {
+      "code": "unresolved",
+      "text": "결과를 내지 못한 검사(머신러닝 모델)의 입력 수집 상태를 확인하세요."
+     }
+    ],
+    "contributionStatus": "not_computed",
+    "contributionNote": null
+   }
+  },
+  {
+   "id": "v3_evidence_has_no_summary",
+   "input": {
+    "evidence": {
+     "rules": [
+      {
+       "ruleKey": "process-status",
+       "result": "hit",
+       "observedStatus": "F"
+      }
+     ],
+     "models": []
+    }
+   },
+   "expected": null
+  }
+ ]
+}

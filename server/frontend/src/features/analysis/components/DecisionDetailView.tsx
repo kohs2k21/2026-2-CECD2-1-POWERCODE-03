@@ -13,9 +13,9 @@ import { detectionSections, sectionPath } from "@/features/detection/detectionTo
 import { ProtocolExplanationCard } from "@/features/detection/rules/protocols/ProtocolExplanationCard";
 import { EXPLAIN_ALERT_BUTTON, alertRequest, hasProtocolReview } from "@/features/detection/rules/protocols/protocolExplanation";
 import { useAuthSession } from "@/services/auth/AuthSessionProvider";
-import { analysisErrorTitle, type DecisionDetail, type DecisionFlow, type InterimHistory } from "../data/analysisApi";
+import { analysisErrorTitle, type DecisionDetail, type DecisionFlow, type EvidenceSummary, type InterimHistory } from "../data/analysisApi";
 import { evidenceGroupOf, evidenceGroups, readEvidence, readEvidenceV4, type EvidenceV3, type EvidenceV4 } from "../data/evidence";
-import { useDecisionFeedback, useMarkRead } from "../data/useAnalysis";
+import { useDecisionFeedback, useEvidencePolish, useMarkRead } from "../data/useAnalysis";
 import {
   DASH,
   RELATION_HELD,
@@ -39,8 +39,8 @@ import {
 import { riskLevelIconTone, riskLevelIcons } from "../icons";
 import { DecisionDiagnostics } from "./DecisionDiagnostics";
 import { DecisionTimeline, mergeTimeline, recordEntries, timelineEntries } from "./DecisionTimeline";
+import { EvidenceSummaryCard } from "./EvidenceSummaryCard";
 import { FeedbackEditDialog, WorkflowActions } from "./DecisionWorkflow";
-import { ExplainPanel } from "./ExplainPanel";
 import { MethodResults } from "./MethodResults";
 import { ProcessFlowCard } from "./ProcessFlowCard";
 
@@ -75,7 +75,7 @@ const riskNode = (detail: DecisionDetail, v4: EvidenceV4 | null): ReactNode => {
     </>
   );
 };
-/** 판정 코드: AI 판정 근거 요약(explainFacts)과 같은 결과 코드 이름표(`상태 F 실패`), 원래 코드는 툴팁. 이름표가 없는 코드는 원래 코드 그대로. */
+/** 판정 코드: 결과 코드 이름표(`상태 F 실패`), 원래 코드는 툴팁. 이름표가 없는 코드는 원래 코드 그대로. */
 const decisionCodeNode = (code: string): ReactNode => {
   const name = resultCodeLabel(code);
   return name === code ? code : <span title={code}>{name}</span>;
@@ -271,6 +271,12 @@ const LegacyEvidence = ({ rules, models }: { rules: EvidenceV3["rules"]; models:
 
 type Query<T> = { data: T | undefined; isPending: boolean; isError: boolean; error: unknown; refetch: () => unknown };
 
+/** 근거 요약 카드 + 블록 2 다듬기(자동 요청·결과 읽기). 다듬은 문단(source=llm)이 오면 문단만 바꿔 보인다. */
+const EvidenceSummarySection = ({ detail, summary }: { detail: DecisionDetail; summary: EvidenceSummary }) => {
+  const paragraph = useEvidencePolish(detail);
+  return <EvidenceSummaryCard detail={detail} summary={summary} paragraph={paragraph} />;
+};
+
 export const DecisionDetailView = ({
   id,
   query,
@@ -349,16 +355,17 @@ export const DecisionDetailView = ({
           {query.isError && (
             <ErrorState title={`${analysisErrorTitle(query.error, "판정 상세")} · 이전 관측값 표시`} onRetry={() => void query.refetch()} />
           )}
-          <div className="grid gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] xl:items-start">
-            <ProcessFlowCard key={`flow-${detail.id}`} query={flow} decisionId={detail.id} />
-            <div className="grid min-w-0 gap-4">
-              <ExplainPanel key={detail.id} detail={detail} />
-              {/* 프로토콜 알림의 판정(evidence.protocolReview, 알림 목록과 같은 판별) · 관리자 · 최종 판정만(protocol-explanation-job.md 1절 알림 대상). */}
-              {isAdmin && detail.kind === "final" && detail.decisionId && detail.sourceId && hasProtocolReview(detail.evidence) && (
-                <ProtocolExplanationCard key={`protocol-${detail.id}`} request={alertRequest(detail.sourceId, detail.decisionId)} itemLabel="설명" buttonLabel={EXPLAIN_ALERT_BUTTON} />
-              )}
+          {/* AI 판정 근거 요약(서버 evidenceSummary 다섯 블록): 본문 첫 블록·전체 폭. 요약이 없는 판정(v3·판정 전)은 카드 없음. 이상 판정은 블록 2 다듬기를 자동 요청한다. */}
+          {detail.evidenceSummary && <EvidenceSummarySection key={`summary-${detail.id}`} detail={detail} summary={detail.evidenceSummary} />}
+          {/* 프로토콜 알림의 판정(evidence.protocolReview, 알림 목록과 같은 판별) · 관리자 · 최종 판정만(protocol-explanation-job.md 1절 알림 대상). 없으면 Process Flow 전체 폭. */}
+          {isAdmin && detail.kind === "final" && detail.decisionId && detail.sourceId && hasProtocolReview(detail.evidence) ? (
+            <div className="grid gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] xl:items-start">
+              <ProcessFlowCard key={`flow-${detail.id}`} query={flow} decisionId={detail.id} />
+              <ProtocolExplanationCard key={`protocol-${detail.id}`} request={alertRequest(detail.sourceId, detail.decisionId)} itemLabel="설명" buttonLabel={EXPLAIN_ALERT_BUTTON} />
             </div>
-          </div>
+          ) : (
+            <ProcessFlowCard key={`flow-${detail.id}`} query={flow} decisionId={detail.id} />
+          )}
           <SectionCard title="판정 기록" headingLevel={2}>
             {isAdmin && feedback.isError && (
               <ErrorState title={analysisErrorTitle(feedback.error, "조사·조치 기록")} onRetry={() => void feedback.refetch()} />

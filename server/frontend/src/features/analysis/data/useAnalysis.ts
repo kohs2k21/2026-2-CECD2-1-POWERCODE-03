@@ -1,10 +1,11 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { randomUuid } from "@/lib/uuid";
 import { accountQueryKey, useAccountQuery } from "@/lib/query";
 import { useAuthSession } from "@/services/auth/AuthSessionProvider";
 import { getStoredToken } from "@/services/auth/session";
 import { DECISION_STREAM_RETRY_MS, subscribeDecisionStream } from "@/services/api/decision-stream-hub";
-import { createPipelineJob, fetchPipelineJob, type PipelineJob } from "@/services/api/pipeline.api";
+import { createPipelineJob } from "@/services/api/pipeline.api";
 import {
   changeDecisionWorkflow,
   editDecisionFeedback,
@@ -16,19 +17,22 @@ import {
   readDecisionGraph,
   readDecisionInterims,
   readDecisionList,
+  readDecisionPolished,
   saveDecisionFeedback,
   type DecisionDetail,
+  type DecisionPolish,
   type FeedbackKind,
   type FeedbackOutcome,
   type FeedbackRecord,
   type ListParams,
   type WorkflowState,
 } from "./analysisApi";
+import { readEvidence } from "./evidence";
 
 export const listQueryName = "analysis-decisions";
 export const detailQueryName = "analysis-decision";
 export const interimsQueryName = "analysis-decision-interims";
-export const explainJobQueryName = "analysis-explain-job";
+export const polishedQueryName = "analysis-decision-polished";
 export const flowQueryName = "analysis-decision-flow";
 export const graphQueryName = "analysis-decision-graph";
 export const feedbackQueryName = "analysis-decision-feedback";
@@ -195,40 +199,49 @@ export const useDecisionLiveUpdates = (cursor: string | null) => {
   return { status, error, received };
 };
 
-/** 진행 중(주기 조회·요청 중 표시) = queued·running만. blocked 등 그 밖의 상태는 주기 조회 없이 상태 그대로 보인다. */
-export const jobPending = (job: PipelineJob | undefined) => job?.status === "queued" || job?.status === "running";
-
 /**
- * 판정 설명(POST /api/jobs {kind:"explain"}): 최종 판정만. 결과 조회는 진행 중(queued·running)일 때만 5초 주기.
- * 상세 응답의 `explanation`(요청자 본인의 최근 설명 작업)이 있으면 그 작업을 이어서 보여 준다.
+ * AI 판정 근거 요약 블록 2 다듬기(analysis-ui.md): 버튼 없이 자동으로 요청하고, 다듬은 문단이 오면 그 문단을 돌려준다.
+ * - 요청: 서버가 지금 요청해도 된다고 알린(polishRequestable) 이상 신호 최종 판정이고 시연 판정이 아닐 때만, 이 판정에 한 번(새 Idempotency-Key).
+ *   요청 실패(503·409 등)는 조용히 넘긴다(다시 요청하지 않음, 코드 문단 그대로)
+ * - 읽기: 상세가 pending이거나 방금 요청했으면 GET …/polished를 pending인 동안 5초마다. done·none이 되면 멈춘다. 작업(GET /api/jobs/:id)은 읽지 않는다
+ * - 반환: 다듬은 문단(source=llm)이면 그 글자, 아니면 null(코드 문단 그대로)
  */
-export const useExplainJob = (detail: DecisionDetail) => {
-  const { user } = useAuthSession();
+export const useEvidencePolish = (detail: DecisionDetail): string | null => {
+  const demo = Boolean(readEvidence(detail.evidence).demo);
+  const eligible = detail.kind === "final" && detail.signal === "yes" && !demo && Boolean(detail.decisionId && detail.sourceId);
   const cache = useQueryClient();
-  const [requested, setRequested] = useState<string | null>(null);
-  const jobId = requested ?? detail.explanation?.jobId ?? null;
-  const job = useAccountQuery({
-    name: explainJobQueryName,
-    params: [jobId],
-    read: (signal) => fetchPipelineJob(jobId!, signal),
-    enabled: Boolean(jobId),
+  const requested = useRef<string | null>(null);
+  const [sentFor, setSentFor] = useState<string | null>(null);
+  const shouldRequest = eligible && detail.polishRequestable && detail.polishState === "none";
+  const { id, decisionId, sourceId } = detail;
+  // 캐시된 판정 상세(같은 판정, 주소가 작업 id여도)에 다듬기 상태를 반영한다 — 다시 들어왔을 때 다시 요청하거나 코드 문단이 잠깐 보이지 않게.
+  const patchDetail = useCallback((patch: Partial<DecisionDetail>) =>
+    cache.setQueriesData<DecisionDetail>(
+      // predicate로 같은 판정의 쿼리만 고른다(판정 id·작업 id 주소). 다른 판정 상세의 신선도·무효화 표시를 건드리지 않는다
+      { queryKey: [detailQueryName], predicate: (query) => (query.state.data as DecisionDetail | undefined)?.id === id },
+      (old) => (old ? { ...old, ...patch } : old)), [cache, id]);
+  useEffect(() => {
+    if (!shouldRequest || requested.current === id) return;
+    requested.current = id;
+    createPipelineJob({ kind: "explain", sourceId, decisionId }, randomUuid()).then(() => {
+      setSentFor(id);
+      patchDetail({ polishRequestable: false });
+    }, () => patchDetail({ polishRequestable: false }));
+  }, [shouldRequest, id, decisionId, sourceId, patchDetail]);
+  const watching = eligible && (detail.polishState === "pending" || sentFor === id);
+  const polish = useAccountQuery({
+    name: polishedQueryName,
+    params: [id],
+    read: (signal) => readDecisionPolished(id, signal),
+    enabled: watching,
     staleTime: 0,
-    isRunning: jobPending,
+    isRunning: (data: DecisionPolish | undefined) => data?.polishState === "pending",
   });
-  const request = useMutation({
-    mutationFn: async () => {
-      const token = getStoredToken();
-      if (!detail.decisionId || !detail.sourceId) throw new Error("최종 판정 후 요청할 수 있습니다.");
-      const created = await createPipelineJob({ kind: "explain", sourceId: detail.sourceId, decisionId: detail.decisionId });
-      return { created, token };
-    },
-    onSuccess: ({ created, token }) => {
-      if (token !== getStoredToken()) return;
-      cache.setQueryData(accountQueryKey(explainJobQueryName, user?.id, created.id), created);
-      setRequested(created.id);
-      // 설명 작업 연결은 상세 응답에도 반영되도록 다시 조회한다.
-      void cache.invalidateQueries({ queryKey: accountQueryKey(detailQueryName, user?.id, detail.id) });
-    },
-  });
-  return { jobId, job, request };
+  const polledState = polish.data?.polishState;
+  const polledPolished = polish.data?.polished ?? null;
+  useEffect(() => {
+    if (polledState === "done" || polledState === "none") patchDetail({ polishState: polledState, polished: polledPolished, polishRequestable: false });
+  }, [polledState, polledPolished, patchDetail]);
+  const polished = (watching ? polish.data?.polished : null) ?? detail.polished;
+  return polished?.source === "llm" ? polished.text : null;
 };

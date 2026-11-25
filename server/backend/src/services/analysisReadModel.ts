@@ -1,7 +1,7 @@
 import type { Pool } from 'pg';
 import { buildInstanceGraph, GRAPH_ABSENT_SQL, GRAPH_RETRY_LIMIT, graphValueAbsent, pickTransactionRow, type GraphTransactionRow } from './processGraph.js';
 import { mlMethod, softRuleField } from '../ruleset/methodCatalog.js';
-import { buildEvidenceSummary, evidenceSummaryNeeds, type EvidenceSummary, type ObservedFields } from './evidenceSummary.js';
+import { buildEvidenceSummary, evidenceSummaryNeeds, type EvidenceSummary, type EvidenceSummaryInput, type ObservedFields } from './evidenceSummary.js';
 import { POLISH_OUTPUT_SCHEMA_VERSION, POLISH_PROMPT_VERSION, polishEvidenceHash, polishInputFor, polishRequestableOf, polishStateOf, readPolished, type PolishItem, type PolishState, type Polished } from './evidencePolish.js';
 
 /**
@@ -424,24 +424,30 @@ export async function resolveItem(db: Queryable, id: string) {
   return row?.item ?? null;
 }
 
-/** 근거 요약을 위해 더 읽는 값(같은 질의 안): $1 판정 관측 id(시각·건수 하드룰이 근거일 때만), $2 룰 세트 리비전(관계 규칙이 근거일 때만). */
-const SUMMARY_CONTEXT_SQL = (observation: string, revision: string) => `
+/**
+ * 근거 요약을 위해 더 읽는 값(같은 질의 안): $1 판정 관측 id(시각·건수 하드룰이 근거일 때만), $2 룰 세트 리비전(관계 규칙이 근거일 때만),
+ * $3 거래 실패 근거의 응답 코드(그때만 — 사전 ops_response_codes PK 1건, 뜻은 확인할 것·표에만 쓰여 다듬기 입력에 들어가지 않는다).
+ * 값이 null인 하위 질의는 행을 찾지 않는다(PK·고유 색인 등호 조건).
+ */
+const SUMMARY_CONTEXT_SQL = (observation: string, revision: string, responseCode: string) => `
       (SELECT jsonb_build_object('revisionNo',o.revision_no,'status',p.status,'startTimeRaw',p.start_time_raw,'endTimeRaw',p.end_time_raw,
          'totalCount',p.total_count::text,'successCount',p.success_count::text,'errorCount',p.error_count::text,'retryCount',p.retry_count::text)
          FROM data_processes p JOIN data_observations o ON o.id=p.observation_id WHERE p.observation_id=${observation}::uuid) AS observed,
-      (SELECT r.snapshot->'relationRules' FROM ops_rule_set_revisions r WHERE r.revision=${revision}::bigint) AS "relationRules"`;
+      (SELECT r.snapshot->'relationRules' FROM ops_rule_set_revisions r WHERE r.revision=${revision}::bigint) AS "relationRules",
+      (SELECT jsonb_build_object('code',rc.code,'message',rc.message) FROM ops_response_codes rc WHERE rc.code=${responseCode}::text) AS "responseCode"`;
 type SummaryItem = { evidence: unknown; processObservationId: string | null; interfaceId?: string | null };
 const summaryParams = (item: SummaryItem) => {
   const needs = evidenceSummaryNeeds(item.evidence);
-  return [needs.observed ? item.processObservationId : null, needs.ruleSetRevision];
+  return [needs.observed ? item.processObservationId : null, needs.ruleSetRevision, needs.responseCode];
 };
-const summaryOf = (item: SummaryItem, context: { observed?: unknown; relationRules?: unknown }) =>
+const summaryOf = (item: SummaryItem, context: { observed?: unknown; relationRules?: unknown; responseCode?: unknown }) =>
   buildEvidenceSummary({ evidence: item.evidence, observedFields: (context.observed ?? null) as ObservedFields | null,
-    relationRules: context.relationRules ?? null, interfaceId: item.interfaceId ?? null });
-/** 판정 항목(resolveItem 결과) → 근거 요약. 질의 1회(필요한 값이 없으면 두 하위 질의는 비어 있다). */
+    relationRules: context.relationRules ?? null, interfaceId: item.interfaceId ?? null,
+    responseCode: (context.responseCode ?? null) as EvidenceSummaryInput['responseCode'] });
+/** 판정 항목(resolveItem 결과) → 근거 요약. 질의 1회(필요한 값이 없으면 세 하위 질의는 비어 있다). */
 export async function readEvidenceSummary(db: Queryable, item: SummaryItem): Promise<EvidenceSummary | null> {
   if (!buildEvidenceSummary({ evidence: item.evidence })) return null;
-  const { rows: [context] } = await db.query(`SELECT ${SUMMARY_CONTEXT_SQL('$1', '$2')}`, summaryParams(item));
+  const { rows: [context] } = await db.query(`SELECT ${SUMMARY_CONTEXT_SQL('$1', '$2', '$3')}`, summaryParams(item));
   return summaryOf(item, context);
 }
 
@@ -471,7 +477,8 @@ export async function readDecisionPolish(db: Queryable, item: PolishItem, summar
  * GET /api/analysis/decisions/:id: 판정 항목 + 당시 구성 요약 + detect 작업 요약 + AI 판정 근거 요약(evidenceSummary) + 다듬은 문단(polished·polishState)
  * + 자동 요청 가능 여부(polishRequestable).
  * 근거 요약에 필요한 값만 더 읽는다(같은 질의 안): 판정 관측 행의 시각·건수·revision(시각·건수 하드룰이 근거일 때, evidence observation.revisionNo와 같을 때만 쓴다),
- * 고정 룰 세트 리비전의 relationRules(관계 규칙이 근거일 때). 다듬은 문단은 판정마다 공유(요청자 무관)한 결과다. 목록 응답에는 근거 요약이 없다.
+ * 고정 룰 세트 리비전의 relationRules(관계 규칙이 근거일 때), 거래 실패 근거 응답 코드의 사전 뜻(거래 실패가 근거일 때, PK 1건).
+ * 다듬은 문단은 판정마다 공유(요청자 무관)한 결과다. 목록 응답에는 근거 요약이 없다.
  */
 export async function readDecisionDetail(db: Queryable, id: string, polishReady = false) {
   const item = await resolveItem(db, id);
@@ -486,7 +493,7 @@ export async function readDecisionDetail(db: Queryable, id: string, polishReady 
       (SELECT jsonb_build_object('id',j.id,'status',j.status,'attemptCount',j.attempt_count,'maxAttempts',j.max_attempts,
          'errorCode',j.error_code,'createdAt',to_char(j.created_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),
          'finishedAt',to_char(j.finished_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'))
-         FROM run_jobs j WHERE j.id=$2) AS job,${SUMMARY_CONTEXT_SQL('$3', '$4')}`,
+         FROM run_jobs j WHERE j.id=$2) AS job,${SUMMARY_CONTEXT_SQL('$3', '$4', '$5')}`,
   [item.configVersionId, item.jobId, ...summaryParams(item)]);
   const evidenceSummary = summaryOf(item, context);
   const { polishState, polished, input } = await readDecisionPolish(db, item, evidenceSummary);

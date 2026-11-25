@@ -189,6 +189,49 @@ export async function seedSummaryValueDecision(pool, { sourceId }) {
 }
 
 /**
+ * 근거 요약 응답 코드 뜻 읽기(ops_response_codes PK 1건, 거래 실패 근거일 때만)를 보는 v04 판정 2건: 사전에 있는 가짜 코드(withMeaning)·사전에 없는 가짜 코드(withoutMeaning).
+ * 가짜 코드·가짜 뜻만 쓴다(고객 사전 값 아님). 뜻은 확인할 것 줄 상한(40자)을 넘는 길이로 넣어 자르기·표 전체를 함께 본다.
+ * 목록 건수를 바꾸므로 건수 단언이 끝난 뒤에 넣는다.
+ * @param {import('pg').Pool} pool
+ * @param {{sourceId: string}} fixture
+ */
+export async function seedResponseMeaningDecisions(pool, { sourceId }) {
+  const client = await pool.connect();
+  const out = { decisions: {}, jobs: {} };
+  const { detectJob, attempt, jobDecision } = fixtureWriters(client, sourceId, null, out);
+  const suffix = id().slice(0, 8).toUpperCase();
+  // 끝 글자를 1로 고정해 조사(`…(뜻)이`)가 정해진다.
+  const codes = { withMeaning: `FAKE-M${suffix}-1`, withoutMeaning: `FAKE-N${suffix}-1` };
+  const meaning = '시험용 가짜 뜻입니다 '.repeat(4).trim();
+  try {
+    await client.query('BEGIN');
+    await client.query(`INSERT INTO ops_response_codes(code,message,origin,updated_by_actor_id) VALUES($1,$2,'edited','analysis-fixture')`, [codes.withMeaning, meaning]);
+    const ids = {};
+    for (const [name, code] of Object.entries(codes)) {
+      const job = await detectJob(`responseMeaning-${name}`, 1, 'v04');
+      const { rows: [{ asOf }] } = await client.query('SELECT input_as_of AS "asOf" FROM run_input_manifests WHERE id=$1', [job.manifest]);
+      const { evidence } = v04Final('anomalyComplete', { sourceId, observationId: job.obs, inputAsOf: asOf.toISOString(), manifestHash: job.hash, modelVersionId: id() });
+      for (const method of evidence.methodResults) {
+        if (method.methodId === 'hard:process-status') Object.assign(method, { anomalous: false, code: null, severity: null, riskLevel: null, evidence: [{ observedStatus: 'S', result: 'no_hit' }] });
+      }
+      evidence.methodResults.push({ methodId: 'hard:transaction-failed', category: 'hard', methodVersion: 'transaction-failed-v1', status: 'succeeded', anomalous: true,
+        code: 'HARD_TRANSACTION_FAILED', severity: 'warning', riskLevel: 'warning', riskLevelReason: null, cause: null, failureCode: null, elapsedMs: 1,
+        evidence: [{ result: 'hit', responseCode: code }] });
+      Object.assign(evidence.composite, { basisMethods: ['hard:transaction-failed'] });
+      Object.assign(evidence.composite.risk, { determinedBy: ['hard:transaction-failed'] });
+      ids[name] = await jobDecision(job, await attempt(job, 1), 'complete', evidence, 'HARD_TRANSACTION_FAILED');
+    }
+    await client.query('COMMIT');
+    return { ids, codes, meaning };
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+/**
  * @param {import('pg').Pool} pool
  * @param {{key?: string, legacy?: number}} options legacy = 추가로 만들 이전 형식(작업 없는) 정상 판정 수
  */

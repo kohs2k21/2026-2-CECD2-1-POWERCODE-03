@@ -46,3 +46,10 @@ export const motionClasses = {
   press:
     "transition-[color,background-color,border-color,box-shadow,scale] duration-(--motion-duration-fast) ease-motion-standard active:not-disabled:scale-97",
 } as const;
+
+/**
+ * 흘러나오기(ui.md "움직임" 흘러나오기 — AI 판정 근거 요약): 글자를 어절 단위로 앞에서부터 이어 붙이고, 새 조각마다 `slow` 길이로 투명 → 불투명.
+ * word = 어절 간격, row = 표 행·통째 블록 간격, block = 블록 사이 쉼, total = 마지막 조각의 페이드가 끝나는 시각 상한.
+ * 자연 길이가 total을 넘으면 모든 간격을 같은 비율로 줄인다(짧으면 더 빨리 끝남). CSS는 styles.css `.stream-in`.
+ */
+export const STREAM_MS = { word: 45, row: 90, block: 140, total: 3000 } as const;

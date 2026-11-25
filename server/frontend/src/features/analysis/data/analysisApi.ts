@@ -206,7 +206,7 @@ export type DecisionDetail = DecisionItem & {
   /** AI 판정 근거 요약(서버가 저장 근거로 만든 다섯 블록, analysis-ui.md). 만들 수 없는 판정이면 null(카드 없음). */
   evidenceSummary: EvidenceSummary | null;
 } & DecisionPolish & {
-  /** 지금 다듬기를 자동 요청해도 되는지(서버가 판정·결과·생성 서비스 상태로 정함). 모르면 false. */
+  /** 지금 다듬기를 요청해도 되는지(서버가 판정·결과·생성 서비스 상태로 정함, 화면은 [근거 요약 생성]을 누른 뒤 요청). 모르면 false. */
   polishRequestable: boolean;
 };
 /** 블록 2 다듬은 문단(판정마다 공유). source=code면 코드 문단 그대로 쓴다. */

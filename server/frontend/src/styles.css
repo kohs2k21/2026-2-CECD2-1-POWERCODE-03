@@ -156,3 +156,21 @@
     display: none;
   }
 }
+
+/* 흘러나오기(ui.md "움직임", lib/motion.ts STREAM_MS): 새로 붙은 조각(어절·표 행·블록)만 투명 → 불투명. 아직 안 나온 조각은 DOM에 없어 자리를 차지하지 않는다.
+   흐르기가 끝나면 이 클래스가 없는 평소 표시로 바뀐다. 동작 줄이기면 흐르기 자체를 하지 않는다(useTextStream). */
+@layer components {
+  @keyframes stream-in {
+    from {
+      opacity: 0;
+    }
+  }
+  .stream-in {
+    animation: stream-in var(--motion-duration-slow) var(--motion-ease-out) both;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .stream-in {
+      animation: none;
+    }
+  }
+}

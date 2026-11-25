@@ -19,6 +19,7 @@ export const SectionCard = ({
   className,
   headingLevel = 2,
   "aria-label": ariaLabel,
+  "aria-busy": ariaBusy,
 }: {
   id?: string;
   title: ReactNode;
@@ -29,10 +30,12 @@ export const SectionCard = ({
   className?: string;
   headingLevel?: 2 | 3;
   "aria-label"?: string;
+  /** 내용이 아직 채워지는 중(예: 근거 요약 흘러나오기). 보조 기술이 조각마다 읽지 않게 한다. */
+  "aria-busy"?: boolean;
 }) => {
   const Heading = headingLevel === 2 ? "h2" : "h3";
   return (
-    <Card id={id} data-slot="section-card" className={cn("gap-4", className)} aria-label={ariaLabel}>
+    <Card id={id} data-slot="section-card" className={cn("gap-4", className)} aria-label={ariaLabel} aria-busy={ariaBusy || undefined}>
       <CardHeader className={cn(motionClasses.enter, "max-md:px-4")}>
         {icon ? (
           <Heading className="flex min-w-0 items-center gap-2 text-section-title">

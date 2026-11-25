@@ -200,19 +200,20 @@ export const useDecisionLiveUpdates = (cursor: string | null) => {
 };
 
 /**
- * AI 판정 근거 요약 블록 2 다듬기(analysis-ui.md): 버튼 없이 자동으로 요청하고, 다듬은 문단이 오면 그 문단을 돌려준다.
- * - 요청: 서버가 지금 요청해도 된다고 알린(polishRequestable) 이상 신호 최종 판정이고 시연 판정이 아닐 때만, 이 판정에 한 번(새 Idempotency-Key).
+ * AI 판정 근거 요약 블록 2 다듬기(analysis-ui.md): [근거 요약 생성] 버튼을 누른 뒤(requested=true)에만 요청하고, 다듬은 문단이 오면 그 문단을 돌려준다.
+ * 판정 상세를 여는 것만으로는 요청하지 않는다(판정마다 LLM 작업이 생기지 않게).
+ * - 요청: 버튼을 눌렀고, 서버가 지금 요청해도 된다고 알린(polishRequestable) 이상 신호 최종 판정이고 시연 판정이 아닐 때만, 이 판정에 한 번(새 Idempotency-Key).
  *   요청 실패(503·409 등)는 조용히 넘긴다(다시 요청하지 않음, 코드 문단 그대로)
  * - 읽기: 상세가 pending이거나 방금 요청했으면 GET …/polished를 pending인 동안 5초마다. done·none이 되면 멈춘다. 작업(GET /api/jobs/:id)은 읽지 않는다
  * - 반환: 다듬은 문단(source=llm)이면 그 글자, 아니면 null(코드 문단 그대로)
  */
-export const useEvidencePolish = (detail: DecisionDetail): string | null => {
+export const useEvidencePolish = (detail: DecisionDetail, requested = false): string | null => {
   const demo = Boolean(readEvidence(detail.evidence).demo);
   const eligible = detail.kind === "final" && detail.signal === "yes" && !demo && Boolean(detail.decisionId && detail.sourceId);
   const cache = useQueryClient();
-  const requested = useRef<string | null>(null);
+  const requestedFor = useRef<string | null>(null);
   const [sentFor, setSentFor] = useState<string | null>(null);
-  const shouldRequest = eligible && detail.polishRequestable && detail.polishState === "none";
+  const shouldRequest = requested && eligible && detail.polishRequestable && detail.polishState === "none";
   const { id, decisionId, sourceId } = detail;
   // 캐시된 판정 상세(같은 판정, 주소가 작업 id여도)에 다듬기 상태를 반영한다 — 다시 들어왔을 때 다시 요청하거나 코드 문단이 잠깐 보이지 않게.
   const patchDetail = useCallback((patch: Partial<DecisionDetail>) =>
@@ -221,8 +222,8 @@ export const useEvidencePolish = (detail: DecisionDetail): string | null => {
       { queryKey: [detailQueryName], predicate: (query) => (query.state.data as DecisionDetail | undefined)?.id === id },
       (old) => (old ? { ...old, ...patch } : old)), [cache, id]);
   useEffect(() => {
-    if (!shouldRequest || requested.current === id) return;
-    requested.current = id;
+    if (!shouldRequest || requestedFor.current === id) return;
+    requestedFor.current = id;
     createPipelineJob({ kind: "explain", sourceId, decisionId }, randomUuid()).then(() => {
       setSentFor(id);
       patchDetail({ polishRequestable: false });

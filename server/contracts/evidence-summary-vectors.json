@@ -7932,6 +7932,196 @@
     "contributionStatus": "not_computed",
     "contributionNote": null
    }
+  },
+  {
+   "id": "hard_transaction_failed_meaning_cut_inside_parens",
+   "input": {
+    "evidence": {
+     "schemaVersion": 4,
+     "ruleSetRevision": 7,
+     "observation": {
+      "id": "obs-1",
+      "revisionNo": 1
+     },
+     "composite": {
+      "anomalous": true,
+      "status": "complete",
+      "grade": "anomaly",
+      "basisMethods": [
+       "hard:transaction-failed"
+      ],
+      "risk": {
+       "status": "rated",
+       "level": "warning",
+       "determinedBy": [
+        "hard:transaction-failed"
+       ],
+       "unratedMethods": []
+      }
+     },
+     "methodResults": [
+      {
+       "methodId": "hard:transaction-failed",
+       "category": "hard",
+       "status": "succeeded",
+       "anomalous": true,
+       "code": "HARD_TRANSACTION_FAILED",
+       "evidence": [
+        {
+         "result": "hit",
+         "responseCode": "E101"
+        }
+       ]
+      }
+     ]
+    },
+    "responseCode": {
+     "code": "E101",
+     "message": "가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가(서울 지점 상세)"
+    }
+   },
+   "expected": {
+    "summaryLine": {
+     "prefix": "주의",
+     "prefixKind": "risk",
+     "text": "거래가 F(실패), 응답 코드 E101로 기록되었습니다",
+     "kind": "hard_transaction_failed"
+    },
+    "sentences": [
+     "이상 규칙은 거래 상태가 F(실패)이고 응답 코드 E101이 성공 코드가 아니어서 이상으로 판단했습니다."
+    ],
+    "stateWords": [
+     "이상"
+    ],
+    "valueTokens": [
+     "E101"
+    ],
+    "table": [
+     {
+      "kind": "rule",
+      "methodId": "hard:transaction-failed",
+      "condition": "거래 STATUS = F, 응답 코드 ∉ {0000, S, 없음}",
+      "observed": [
+       {
+        "name": null,
+        "value": "F(실패)",
+        "unit": null,
+        "unitUnknown": false
+       },
+       {
+        "name": null,
+        "value": "E101(가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가(서울 지점 상세))",
+        "unit": null,
+        "unitUnknown": false
+       }
+      ],
+      "result": "이상"
+     }
+    ],
+    "checks": [
+     {
+      "code": "hard_transaction_failed",
+      "text": "해당 업무 시스템에서 응답 코드 E101(가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가(서울…)이 나온 경위를 확인하세요(화면: 위 표 이번 값)."
+     }
+    ],
+    "contributionStatus": "not_computed",
+    "contributionNote": null
+   }
+  },
+  {
+   "id": "hard_transaction_failed_meaning_unbalanced_paren",
+   "input": {
+    "evidence": {
+     "schemaVersion": 4,
+     "ruleSetRevision": 7,
+     "observation": {
+      "id": "obs-1",
+      "revisionNo": 1
+     },
+     "composite": {
+      "anomalous": true,
+      "status": "complete",
+      "grade": "anomaly",
+      "basisMethods": [
+       "hard:transaction-failed"
+      ],
+      "risk": {
+       "status": "rated",
+       "level": "warning",
+       "determinedBy": [
+        "hard:transaction-failed"
+       ],
+       "unratedMethods": []
+      }
+     },
+     "methodResults": [
+      {
+       "methodId": "hard:transaction-failed",
+       "category": "hard",
+       "status": "succeeded",
+       "anomalous": true,
+       "code": "HARD_TRANSACTION_FAILED",
+       "evidence": [
+        {
+         "result": "hit",
+         "responseCode": "E101"
+        }
+       ]
+      }
+     ]
+    },
+    "responseCode": {
+     "code": "E101",
+     "message": "오류 (상세"
+    }
+   },
+   "expected": {
+    "summaryLine": {
+     "prefix": "주의",
+     "prefixKind": "risk",
+     "text": "거래가 F(실패), 응답 코드 E101로 기록되었습니다",
+     "kind": "hard_transaction_failed"
+    },
+    "sentences": [
+     "이상 규칙은 거래 상태가 F(실패)이고 응답 코드 E101이 성공 코드가 아니어서 이상으로 판단했습니다."
+    ],
+    "stateWords": [
+     "이상"
+    ],
+    "valueTokens": [
+     "E101"
+    ],
+    "table": [
+     {
+      "kind": "rule",
+      "methodId": "hard:transaction-failed",
+      "condition": "거래 STATUS = F, 응답 코드 ∉ {0000, S, 없음}",
+      "observed": [
+       {
+        "name": null,
+        "value": "F(실패)",
+        "unit": null,
+        "unitUnknown": false
+       },
+       {
+        "name": null,
+        "value": "E101(오류 (상세)",
+        "unit": null,
+        "unitUnknown": false
+       }
+      ],
+      "result": "이상"
+     }
+    ],
+    "checks": [
+     {
+      "code": "hard_transaction_failed",
+      "text": "해당 업무 시스템에서 응답 코드 E101(오류 (상세)이 나온 경위를 확인하세요(화면: 위 표 이번 값)."
+     }
+    ],
+    "contributionStatus": "not_computed",
+    "contributionNote": null
+   }
   }
  ]
 }

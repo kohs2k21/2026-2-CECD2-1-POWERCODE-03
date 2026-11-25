@@ -212,7 +212,7 @@ class ExactShapley(unittest.TestCase):
         self.assertAlmostEqual(share["e"], .175 / .31, places=12)
         self.assertAlmostEqual(gap["e"], .175 / .22, places=12)
         self.assertEqual(result["topK"], ["e", "l", "t"])
-        # 계약 예시 문장의 비율(정수 % half-up): ERROR_COUNT 56%, 처리 시간 39%, 처리량(TOTAL_COUNT) 5%.
+        # 계약 예시 문장의 비율(정수 % half-up): 오류 건수(ERROR_COUNT) 56%, 처리 시간 39%, 처리량(TOTAL_COUNT) 5%.
         self.assertEqual([math.floor(share[key] * 100 + .5) for key in result["topK"]], [56, 39, 5])
         self.assertLessEqual(abs(result["efficiencyError"]), 1e-9)
         self.assertEqual((result["scoreActual"], result["scoreBaseline"]), (.71, .40))

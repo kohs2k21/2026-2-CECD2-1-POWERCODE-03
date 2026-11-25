@@ -241,6 +241,17 @@ test('response code meaning: check line capped at 40 code points with an ellipsi
   assert.deepEqual(meant.table[0].observed.map((o) => o.value), ['F(실패)', `E901(${forty}나)`]);
   assert.deepEqual([meant.sentences, meant.stateWords, meant.valueTokens, meant.summaryLine], [plain.sentences, plain.stateWords, plain.valueTokens, plain.summaryLine],
     'polish input (sentences, state words, value tokens) does not depend on the dictionary');
+  // 조사는 코드 기준: 40자에서 잘린 괄호(`가…가(서울…`)·짝 없는 괄호(`오류 (상세`)가 있어도 뜻 안 글자를 따라가지 않는다(E901·E101 → 이, 9999 → 가)
+  const particleOf = (code, message) => {
+    const input = structuredClone(base);
+    input.evidence.methodResults[0].evidence[0].responseCode = code;
+    const text = buildEvidenceSummary({ ...input, responseCode: { code, message } }).checks[0].text;
+    return /\)(.) 나온 경위/.exec(text)?.[1];
+  };
+  const cut = `${'가'.repeat(37)}(서울 지점 상세)`;
+  assert.equal(shortMeaning(cut), `${'가'.repeat(37)}(서울…`, 'the cap cuts inside the parentheses');
+  assert.deepEqual([particleOf('E901', cut), particleOf('E101', '오류 (상세'), particleOf('9999', '오류 (상세'), particleOf('9999', cut), particleOf('E101', '정상 뜻')],
+    ['이', '이', '가', '가', '이']);
   for (const responseCode of [null, 'x', { code: 'E901', message: null }, { code: 'E901', message: 3 }, { code: 'E902', message: '뜻' }, { code: 'E901', message: '' }])
     assert.equal(buildEvidenceSummary({ ...base, responseCode }).checks[0].text, plain.checks[0].text, JSON.stringify(responseCode));
 });

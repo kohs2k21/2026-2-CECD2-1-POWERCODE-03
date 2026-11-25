@@ -1,7 +1,7 @@
 {
   "promptVersion": "evidence-polish-v2",
   "templateVersion": "evidence-template-v2",
-  "description": "AI 근거 요약 다듬기 확인(4.2) 공용 벡터 (b). 설명용 합성 수치·가짜 값만 쓴다. 코드 문장은 공용 벡터 (a) evidence-summary-vectors.json의 evidence-template-v2 기대 문장에서 가져오고, 가림 경계(시각·식별자·단위)만 v2 문단에 나오지 않는 값으로 본다(확인 규칙은 문장 틀과 무관). expected.stateWords·numbers·orderWords·maskedTokens는 코드 문장 쪽 추출값, source·code는 candidate(다듬은 문단) 확인 결과다. kind: pass / fail / expected_fallback(대체가 맞는 경우).",
+  "description": "AI 근거 요약 다듬기 확인(4.2) 공용 벡터 (b). 설명용 합성 수치·가짜 값만 쓴다. 코드 문장은 공용 벡터 (a) evidence-summary-vectors.json의 evidence-template-v2 기대 문장에서 가져온다. 예외로 note가 있는 사례(시각이 든 문장 3종·`0.1250` 비율 문장·`800 msg` 문단)는 v2 백엔드가 만들지 않는 검사기 견고성용 합성 문장이다(확인 규칙은 문장 틀과 무관하게 같다). expected.stateWords·numbers·orderWords·maskedTokens는 코드 문장 쪽 추출값, source·code는 candidate(다듬은 문단) 확인 결과다. kind: pass / fail / expected_fallback(대체가 맞는 경우).",
   "cases": [
     {
       "id": "pass_ml_two_sentences",
@@ -371,6 +371,7 @@
     {
       "id": "pass_ratio_0_1250_equals_0_125",
       "kind": "pass",
+      "note": "검사기 견고성용 합성 문장 — v2 백엔드는 `0.1250`처럼 끝 0이 붙은 비율을 만들지 않는다(숫자 정규화 확인용)",
       "sentences": [
         "머신러닝 모델 판단에는 평소 0.01보다 높은 오류 비율 0.1250이 가장 크게 영향을 주었습니다(40%)."
       ],
@@ -413,6 +414,7 @@
     {
       "id": "pass_iso_time_digits_not_numbers",
       "kind": "pass",
+      "note": "검사기 견고성용 합성 문장 — v2 백엔드는 문단에 시각을 넣지 않는다(ISO 시각 가림 경계 확인용)",
       "sentences": [
         "이상 규칙은 시작 시각 2026-11-25T09:00:00Z가 종료 시각 2026-11-25T08:59:58Z보다 늦어 이상으로 판단했습니다."
       ],
@@ -1438,6 +1440,7 @@
     {
       "id": "fail_name_iso_time_changed",
       "kind": "fail",
+      "note": "검사기 견고성용 합성 문장 — v2 백엔드는 문단에 시각을 넣지 않는다(ISO 시각 가림 경계 확인용)",
       "sentences": [
         "이상 규칙은 시작 시각 2026-11-25T09:00:00Z가 종료 시각 2026-11-25T08:59:58Z보다 늦어 이상으로 판단했습니다."
       ],
@@ -1892,6 +1895,7 @@
     {
       "id": "fail_direction_higher_to_lower",
       "kind": "fail",
+      "note": "검사기 견고성용 합성 문장 — v2 백엔드는 `0.1250`처럼 끝 0이 붙은 비율을 만들지 않는다(숫자 정규화 확인용)",
       "sentences": [
         "머신러닝 모델 판단에는 평소 0.01보다 높은 오류 비율 0.1250이 가장 크게 영향을 주었습니다(40%)."
       ],
@@ -2606,6 +2610,7 @@
     {
       "id": "fallback_non_iso_time_value_token_changed",
       "kind": "expected_fallback",
+      "note": "검사기 견고성용 합성 문장 — v2 백엔드는 문단에 시각을 넣지 않는다(ISO가 아닌 시각 원천 값 가림 확인용)",
       "sentences": [
         "이상 규칙은 시작 시각 20261125 090000이 종료 시각 20261125 085958보다 늦어 이상으로 판단했습니다."
       ],
@@ -2643,6 +2648,7 @@
     {
       "id": "fallback_ms_followed_by_letters_is_identifier",
       "kind": "expected_fallback",
+      "note": "검사기 견고성용 합성 문장 — 다듬은 문단의 `800 msg`는 v2 백엔드 글자가 아니다(숫자 뒤 `ms` 단위 경계 확인용)",
       "sentences": [
         "머신러닝 모델 판단에는 평소 700 ms보다 긴 처리 시간 800 ms가 가장 크게 영향을 주었습니다(50%)."
       ],

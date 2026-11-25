@@ -6,7 +6,7 @@
  * v2 문장 모양: `{방법 이름}은/는 {관측 사실}{이유 어미} {판정}으로 판단했습니다.` — 비교 대상은 사실 안에 넣고(`기준 3,000 ms를 넘어`),
  * `~와 비교했고,` 구조·`이번`·`값` 같은 군말을 쓰지 않는다. 확인할 것은 끝에 실제 화면 칸 안내 `(화면: …)`를 붙인다.
  */
-import { because, object, subject, toward, topic, withWord } from "./koreanText.js";
+import { because, object, subject, subjectParticle, toward, topic, withWord } from "./koreanText.js";
 
 export const TEMPLATE_VERSION = "evidence-template-v2";
 /** 블록 5 고정 안내(사용자 확정 글자). */
@@ -145,12 +145,16 @@ export const hard = {
   transactionFailed: {
     condition: "거래 STATUS = F, 응답 코드 ∉ {0000, S, 없음}",
     failed: FAILED,
-    /** meaning = 응답 코드 사전 뜻(확인할 것 줄 상한을 적용한 글자), 사전에 없으면 null(v1 확인할 것 문장). */
+    /**
+     * meaning = 응답 코드 사전 뜻(확인할 것 줄 상한을 적용한 글자), 사전에 없으면 null(v1 확인할 것 문장).
+     * `{코드}({뜻})` 뒤 조사는 코드 기준으로 고른다 — 뜻은 사용자 편집 글이라 40자에서 잘린 괄호·짝 없는 괄호가 있으면
+     * 끝 괄호 덧말을 떼는 규칙이 뜻 안의 글자를 따라가기 때문이다(`E101(오류 (상세)` → `이`).
+     */
     lines: (c: string, meaning: string | null): Lines => ({
       line: `거래가 ${FAILED}, 응답 코드 ${toward(c)} 기록되었습니다`,
       sentence: `${HARD} 거래 상태가 ${FAILED}이고 ${subject(slot("응답 코드", c))} 성공 코드가 아니어서 이상으로 판단했습니다.`,
       check: meaning === null || c === NO_VALUE ? `응답 코드 ${c}의 의미를 응답 코드 설정에서 확인하세요.`
-        : withScreen(`해당 업무 시스템에서 응답 코드 ${subject(codeWithMeaning(c, meaning))} 나온 경위를 확인하세요`, SCREEN.observed),
+        : withScreen(`해당 업무 시스템에서 응답 코드 ${codeWithMeaning(c, meaning)}${subjectParticle(c)} 나온 경위를 확인하세요`, SCREEN.observed),
     }),
   },
   unregisteredInterface: {

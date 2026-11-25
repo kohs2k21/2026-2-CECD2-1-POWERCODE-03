@@ -200,7 +200,7 @@ export const useDecisionLiveUpdates = (cursor: string | null) => {
 };
 
 /**
- * AI 판정 근거 요약 블록 2 다듬기(analysis-ui.md): [근거 요약 생성] 버튼을 누른 뒤(requested=true)에만 요청하고, 다듬은 문단이 오면 그 문단을 돌려준다.
+ * AI 판정 근거 요약 블록 2 다듬기(analysis-ui.md): [AI 근거 생성 요청] 버튼을 누른 뒤(requested=true)에만 요청하고, 다듬은 문단이 오면 그 문단을 돌려준다.
  * 판정 상세를 여는 것만으로는 요청하지 않는다(판정마다 LLM 작업이 생기지 않게).
  * - 요청: 버튼을 눌렀고, 서버가 지금 요청해도 된다고 알린(polishRequestable) 이상 신호 최종 판정이고 시연 판정이 아닐 때만, 이 판정에 한 번(새 Idempotency-Key).
  *   요청 실패(503·409 등)는 조용히 넘긴다(다시 요청하지 않음, 코드 문단 그대로)

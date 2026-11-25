@@ -4,7 +4,7 @@ import React from "react";
 import { act, create } from "react-test-renderer";
 
 // 이상 분석 화면 통합(로컬 가짜 fetch만, 외부 요청 없음): 목록·사이드바 건수·검색 주소 반영·SSE 반영·오류 표시,
-// 상세·판정 기록·AI 판정 근거 요약 카드·다듬기 자동 요청·404·작업 ID → 판정 ID 주소 교체, 옛 주소 넘김.
+// 상세·판정 기록·AI 판정 근거 요약 카드·버튼을 누른 뒤 다듬기 요청·404·작업 ID → 판정 ID 주소 교체, 옛 주소 넘김.
 register("./svg-loader.mjs", import.meta.url);
 globalThis.React = React;
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
@@ -1129,7 +1129,7 @@ const summaryRoutes = (id, detail, polishedReads = []) => ({
 });
 const summaryDetail = (id, summary, overrides = {}, polish = {}) => ({ ...item(id, { riskStatus: "rated", riskLevel: "warning", ...overrides }), configuration: null, job: null,
   evidenceSummary: summary, polishState: "none", polished: null, polishRequestable: false, ...polish });
-// [근거 요약 생성] 버튼(접힌 카드): 있으면 누른다(press=false면 누르지 않음). 누르기 전에는 다섯 블록·다듬기 요청이 없다(5i).
+// [AI 근거 생성 요청] 버튼(접힌 카드): 있으면 누른다(press=false면 누르지 않음). 누르기 전에는 다섯 블록·다듬기 요청이 없다(5i).
 const openButton = (app) => app.renderer.root.findAll((node) => node.type === "button" && node.props["data-evidence-summary-open"] === "true")[0];
 const pressOpen = async (app) => {
   const button = openButton(app);
@@ -1156,7 +1156,7 @@ const posts = (id) => requested.filter((r) => r.method === "POST" && r.path === 
 const polishedReads = (id) => requested.filter((r) => r.path === `/api/analysis/decisions/${id}/polished`).length;
 {
   requested.length = 0;
-  // 혼합(소프트룰 + ML): 규칙 표·ML 표 모두, 확인할 것 2줄. 자동 요청 가능이 아니면(polishRequestable=false) 요청하지 않는다
+  // 혼합(소프트룰 + ML): 규칙 표·ML 표 모두, 확인할 것 2줄. 버튼을 눌러도 요청 가능이 아니면(polishRequestable=false) 요청하지 않는다
   const mixed = summaryOf("example_c_soft_elapsed_and_ml");
   const app = await show("d-es1", mixed);
   const [card] = cardOf(app);
@@ -1227,7 +1227,7 @@ const polishedReads = (id) => requested.filter((r) => r.path === `/api/analysis/
   }
 }
 
-// 5h) 블록 2 다듬기 요청([근거 요약 생성]을 누른 뒤, show가 누른다): 이상 최종 판정 + polishRequestable + polishState none이면 한 번만 접수(새 Idempotency-Key, 판정 id만),
+// 5h) 블록 2 다듬기 요청([AI 근거 생성 요청]을 누른 뒤, show가 누른다): 이상 최종 판정 + polishRequestable + polishState none이면 한 번만 접수(새 Idempotency-Key, 판정 id만),
 // pending 동안 …/polished를 5초마다 읽고 done이면 멈춘다. source=llm이면 문단만 바뀌고, source=code·실패·none이면 코드 문단 그대로(오류·상태 문구 없음).
 {
   const mixed = summaryOf("example_c_soft_elapsed_and_ml");
@@ -1324,7 +1324,7 @@ const polishedReads = (id) => requested.filter((r) => r.path === `/api/analysis/
   }
 }
 
-// 5i) [근거 요약 생성] 버튼과 흘러나오기(analysis-ui.md 펼치기, ui.md "움직임" 흘러나오기):
+// 5i) [AI 근거 생성 요청] 버튼과 흘러나오기(analysis-ui.md 펼치기, ui.md "움직임" 흘러나오기):
 // 누르기 전에는 제목 + 버튼만(다섯 블록·다듬기 요청 없음). 누르면 어절·표 행이 앞에서부터 붙으며 자라고(아직 안 나온 조각은 DOM에 없음),
 // 상한(STREAM_MS.total) 안에 끝나며, 끝난 뒤 DOM은 효과 없는 표시와 같다. 같은 판정 재진입·서버 다듬기 pending/done은 버튼 없이 바로. 동작 줄이기는 즉시 전부.
 {
@@ -1400,16 +1400,59 @@ const polishedReads = (id) => requested.filter((r) => r.path === `/api/analysis/
   for (const r of [reducedCard, reducedPlain]) await act(async () => r.unmount());
   setReducedMotion(false);
 
+  // 효과 없는 표시의 클래스는 이전 카드와 같다(cn/tailwind-merge가 break-words를 지우지 않음)
+  {
+    const plain = await render(mixed, false);
+    const card = cardNode(plain);
+    const blockNode = (name) => card.find((node) => node.props?.["data-evidence-summary-block"] === name);
+    assert.deepEqual(
+      [blockNode("paragraph").props.className, blockNode("line").findByType("p").props.className, card.findAllByType("li")[0].props.className, blockNode("notice").props.className],
+      ["break-words break-keep text-sm leading-6", "min-w-0 break-words break-keep font-medium", "break-words break-keep", "text-xs text-muted-foreground"],
+      "plain display classes unchanged",
+    );
+    await act(async () => plain.unmount());
+  }
+
+  // 문단 차례: 접힌 동안 문단이 바뀐 뒤 누르면 누를 때의 문단이 한 줄 요약 뒤에 어절로 흐르고,
+  // 흐르는 도중 다듬은 문단이 일찍 오면 문단 차례 전에는 그리지 않고 차례에 통째로 한 번 페이드한다
+  {
+    const polishedText = "다듬은 문단의 첫째 문장입니다. 처리량(TOTAL_COUNT)이 둘째 문장에 나옵니다.";
+    const cardOf2 = (over) => React.createElement(EvidenceSummaryCard, { detail: detailOf("d-rv0"), summary: mixed, focusOnMount: false, ...over });
+    const para = (renderer) => renderer.root.findAll((node) => node.props?.["data-evidence-summary-block"] === "paragraph")[0];
+    const isBusy = (renderer) => cardNode(renderer).props["aria-busy"] === true;
+    let collapsed;
+    await act(async () => { collapsed = create(cardOf2({ opened: false, paragraph: null })); });
+    await act(async () => collapsed.update(cardOf2({ opened: false, paragraph: polishedText })));
+    await act(async () => collapsed.update(cardOf2({ opened: true, reveal: true, paragraph: polishedText })));
+    assert.ok(isBusy(collapsed) && !para(collapsed), "paragraph waits for its turn after the press");
+    await wait(() => Boolean(para(collapsed)), "paragraph turn reached", 400);
+    assert.ok(!String(para(collapsed).props.className).includes("animate-in")
+      && para(collapsed).findAll((node) => node.props?.className === "stream-in").length >= 1, "paragraph at press time streams as words (not a late swap)");
+    await wait(() => !isBusy(collapsed), "streaming ends", 400);
+    assert.equal(text(para(collapsed).children), polishedText);
+    await act(async () => collapsed.unmount());
+
+    let early;
+    await act(async () => { early = create(cardOf2({ opened: true, reveal: true, paragraph: null })); });
+    await act(async () => early.update(cardOf2({ opened: true, reveal: true, paragraph: polishedText })));
+    assert.ok(isBusy(early) && !para(early), "an early polished paragraph does not jump ahead of the summary line");
+    await wait(() => Boolean(para(early)), "paragraph turn reached", 400);
+    assert.ok(String(para(early).props.className).includes("animate-in"), "an early polished paragraph fades in whole at its turn");
+    assert.equal(text(para(early).children), polishedText);
+    await wait(() => !isBusy(early), "streaming ends", 400);
+    await act(async () => early.unmount());
+  }
+
   // 화면: 누르기 전 제목 + 버튼만, 다섯 블록·다듬기 요청 없음. 새 안내 문장 없음
   requested.length = 0;
   const app = await show("d-rv1", mixed, {}, requestable, [], { press: false, motion: true });
   await tick(30);
   const button = openButton(app);
   assert.ok(button, "open button shown before pressing");
-  assert.equal(text(button.children), "근거 요약 생성");
+  assert.equal(text(button.children), "AI 근거 생성 요청");
   assert.deepEqual(iconNames(button), ["brain"], "button icon");
   const promptCard = app.renderer.root.findAll((node) => node.type === "div" && node.props["data-slot"] === "section-card" && node.findAll((c) => c === button).length > 0)[0];
-  assert.equal(text(promptCard.children), "AI 판정 근거 요약근거 요약 생성", "only the title and the button");
+  assert.equal(text(promptCard.children), "AI 판정 근거 요약AI 근거 생성 요청", "only the title and the button");
   assert.equal(cardOf(app).length, 0, "no blocks before pressing");
   assert.deepEqual([posts("d-rv1").length, polishedReads("d-rv1")], [0, 0], "no polish request before pressing");
 
@@ -1453,8 +1496,30 @@ const polishedReads = (id) => requested.filter((r) => r.path === `/api/analysis/
   assert.ok(cardOf(reduced).length === 1 && !busy(reduced), "reduced motion: blocks shown on press");
   assert.deepEqual(blocks(cardOf(reduced)[0]), ["line", "paragraph", "table", "checks", "notice"]);
   await reduced.cleanup();
+
+  // 누른 판정 기록의 저장소 경로(가짜 sessionStorage): 깨진 값은 없는 것으로, 상한만큼만 저장, 쓰기 실패는 메모리로, 지우면 둘 다 비움
+  {
+    const { wasSummaryOpened, rememberSummaryOpened, clearSummaryOpened, SUMMARY_OPENED_MAX } = await import("../src/services/api/evidence-summary-opened.ts");
+    const key = "esb.evidenceSummary.opened";
+    const store = new Map();
+    window.sessionStorage = { getItem: (k) => store.get(k) ?? null, setItem: (k, v) => store.set(k, v), removeItem: (k) => store.delete(k) };
+    clearSummaryOpened();
+    store.set(key, "{broken");
+    assert.equal(wasSummaryOpened("x"), false, "broken stored value reads as empty");
+    rememberSummaryOpened("x");
+    assert.deepEqual(JSON.parse(store.get(key)), ["x"], "broken value replaced");
+    for (let i = 0; i < SUMMARY_OPENED_MAX + 5; i++) rememberSummaryOpened(`s-${i}`);
+    const stored = JSON.parse(store.get(key));
+    assert.deepEqual([stored.length, stored.at(-1), stored.includes("x")], [SUMMARY_OPENED_MAX, `s-${SUMMARY_OPENED_MAX + 4}`, false], "only the latest ids are stored");
+    window.sessionStorage.setItem = () => { throw new Error("quota"); };
+    rememberSummaryOpened("y");
+    assert.ok(wasSummaryOpened("y") && wasSummaryOpened("x"), "write failure falls back to memory");
+    clearSummaryOpened();
+    assert.ok(!wasSummaryOpened("y") && !wasSummaryOpened("x") && !store.has(key), "clear empties memory and storage");
+    delete window.sessionStorage;
+  }
 }
-console.log("evidence summary stream QA passed: button first (no blocks, no polish request), press -> words/rows stream in top to bottom without placeholders, within the cap (short ends sooner), DOM after streaming = plain display, aria-busy while streaming, no replay (refetch, re-entry), pending/done open at once, reduced motion, unmount mid-stream");
+console.log("evidence summary stream QA passed: plain classes unchanged, paragraph waits its turn (press-time text streams, early polished fades whole), opened-store storage paths, button first (no blocks, no polish request), press -> words/rows stream in top to bottom without placeholders, within the cap (short ends sooner), DOM after streaming = plain display, aria-busy while streaming, no replay (refetch, re-entry), pending/done open at once, reduced motion, unmount mid-stream");
 
 assert.equal(requested.some((r) => r.path.startsWith("/api/anomaly/events/")), false, "removed anomaly detail/feedback API is never called");
 assert.ok(requested.every((r) => r.path.startsWith("/api/")), "only same-origin API paths");

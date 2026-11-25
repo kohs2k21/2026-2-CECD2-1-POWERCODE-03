@@ -35,11 +35,18 @@ forgetJobRequestKey("actor-a", action, keptKey);
 assert.notEqual(jobRequestKey("actor-a", action), keptKey, "the matching key is removed");
 forgetJobRequestKey("actor-a", action);
 assert.notEqual(actionKey, jobRequestKey("actor-a", action));
+// 근거 요약을 누른 판정 기록도 계정이 바뀌면 지운다(메모리 대체 경로 포함 — 저장 실패여도 남지 않는다)
+const summaryOpened = await import("../src/services/api/evidence-summary-opened.ts");
+summaryOpened.rememberSummaryOpened("decision-a");
+assert.ok(summaryOpened.wasSummaryOpened("decision-a") && session.has("esb.evidenceSummary.opened"));
 storeToken("second-session");
 assert.equal(session.size, 0);
+assert.equal(summaryOpened.wasSummaryOpened("decision-a"), false, "opened summaries cleared on account change");
+summaryOpened.rememberSummaryOpened("decision-b");
 assert.notEqual(renewed, jobRequestKey("actor-a", input));
 clearStoredToken();
 assert.equal(session.size, 0);
+assert.equal(summaryOpened.wasSummaryOpened("decision-b"), false, "opened summaries cleared on logout");
 
 let fail = true;
 const headers = [];

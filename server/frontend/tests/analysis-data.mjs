@@ -186,7 +186,7 @@ assert.equal(labels.completenessText({ ...item, status: null, kind: "pending" })
 assert.equal(labels.completenessText({ ...item, status: "unavailable" }), "판정불가");
 assert.equal(labels.stampText(null), "—");
 
-// 다듬은 문단·상태(판정 상세·GET …/polished): 모르는 상태는 none, 문단이 문자열이 아니거나 source가 다르면 null(코드 문단 그대로). 자동 요청 가능은 true일 때만
+// 다듬은 문단·상태(판정 상세·GET …/polished): 모르는 상태는 none, 문단이 문자열이 아니거나 source가 다르면 null(코드 문단 그대로). 요청 가능(버튼을 누른 뒤 요청할지)은 true일 때만
 assert.deepEqual(api.parsePolish({ polishState: "done", polished: { text: "문단", source: "llm", check: { status: "passed" }, modelVersion: "m" } }),
   { polishState: "done", polished: { text: "문단", source: "llm" } });
 for (const bad of [null, {}, { polishState: "running" }, { polishState: "done", polished: { text: 3, source: "llm" } }, { polishState: "done", polished: { text: " ", source: "llm" } },

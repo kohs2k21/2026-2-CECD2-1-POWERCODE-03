@@ -1,3 +1,4 @@
+import { clearSummaryOpened } from "@/services/api/evidence-summary-opened";
 import { clearJobRequestKeys } from "@/services/api/job-idempotency";
 
 const tokenStorageKey = "token";
@@ -22,12 +23,16 @@ export const getStoredToken = (): string | null => {
 };
 
 export const storeToken = (token: string): void => {
-  if (getStoredToken() !== token) clearJobRequestKeys();
+  if (getStoredToken() !== token) {
+    clearJobRequestKeys();
+    clearSummaryOpened();
+  }
   window.localStorage.setItem(tokenStorageKey, token);
 };
 
 export const clearStoredToken = (): void => {
   clearJobRequestKeys();
+  clearSummaryOpened();
   window.localStorage.removeItem(tokenStorageKey);
 };
 

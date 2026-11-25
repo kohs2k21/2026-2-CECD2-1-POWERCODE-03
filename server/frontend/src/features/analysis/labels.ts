@@ -67,7 +67,7 @@ export const riskLevelVariant: Record<RiskLevel, "critical" | "warning" | "secon
 export const evidenceSummaryLabels = {
   title: "AI 판정 근거 요약",
   /** 접힌 카드의 버튼(누르면 다섯 블록 표시 + 블록 2 다듬기 요청). 문구는 사용자 확인 대상 */
-  generate: "근거 요약 생성",
+  generate: "AI 근거 생성 요청",
   ruleCondition: "규칙 조건",
   observed: "이번 값",
   result: "결과",

@@ -273,7 +273,7 @@ const LegacyEvidence = ({ rules, models }: { rules: EvidenceV3["rules"]; models:
 type Query<T> = { data: T | undefined; isPending: boolean; isError: boolean; error: unknown; refetch: () => unknown };
 
 /**
- * 근거 요약 카드 + 블록 2 다듬기. 처음에는 [근거 요약 생성] 버튼만, 누르면 다섯 블록이 흘러나오고 다듬기를 요청한다.
+ * 근거 요약 카드 + 블록 2 다듬기. 처음에는 [AI 근거 생성 요청] 버튼만, 누르면 다섯 블록이 흘러나오고 다듬기를 요청한다.
  * 이미 본 판정(이 세션에서 눌렀음, 서버 다듬기 상태 pending·done)은 버튼 없이 바로(효과 없음). 다듬은 문단(source=llm)이 오면 문단만 바꿔 보인다.
  */
 const EvidenceSummarySection = ({ detail, summary }: { detail: DecisionDetail; summary: EvidenceSummary }) => {
@@ -360,7 +360,7 @@ export const DecisionDetailView = ({
           {query.isError && (
             <ErrorState title={`${analysisErrorTitle(query.error, "판정 상세")} · 이전 관측값 표시`} onRetry={() => void query.refetch()} />
           )}
-          {/* AI 판정 근거 요약(서버 evidenceSummary 다섯 블록): 본문 첫 블록·전체 폭. 요약이 없는 판정(v3·판정 전)은 카드 없음. 처음에는 [근거 요약 생성] 버튼만, 누르면 블록이 나타나고 이상 판정은 블록 2 다듬기를 요청한다. */}
+          {/* AI 판정 근거 요약(서버 evidenceSummary 다섯 블록): 본문 첫 블록·전체 폭. 요약이 없는 판정(v3·판정 전)은 카드 없음. 처음에는 [AI 근거 생성 요청] 버튼만, 누르면 블록이 나타나고 이상 판정은 블록 2 다듬기를 요청한다. */}
           {detail.evidenceSummary && <EvidenceSummarySection key={`summary-${detail.id}`} detail={detail} summary={detail.evidenceSummary} />}
           {/* 프로토콜 알림의 판정(evidence.protocolReview, 알림 목록과 같은 판별) · 관리자 · 최종 판정만(protocol-explanation-job.md 1절 알림 대상). 없으면 Process Flow 전체 폭. */}
           {isAdmin && detail.kind === "final" && detail.decisionId && detail.sourceId && hasProtocolReview(detail.evidence) ? (

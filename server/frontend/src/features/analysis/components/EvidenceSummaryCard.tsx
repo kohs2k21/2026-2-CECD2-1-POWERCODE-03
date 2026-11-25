@@ -98,8 +98,10 @@ const StreamText = ({ text, first, stream }: { text: string; first: number; stre
 const fade = (stream: Stream, className?: string) => cn(className, stream.streaming && "stream-in") || undefined;
 
 /** 블록 2 문단: 이 한 곳에서만 그린다. stream·first가 오면 어절 단위로 흘러나온다. */
+// 고정 클래스는 cn(tailwind-merge) 밖에 둔다 — break-words와 break-keep을 같은 묶음으로 보고 앞의 것을 지우기 때문이다.
+const PARAGRAPH = "break-words break-keep text-sm leading-6";
 export const SummaryParagraph = ({ text, className, stream, first = 0 }: { text: string; className?: string; stream?: Stream; first?: number }) => (
-  <p data-evidence-summary-block="paragraph" className={cn("break-words break-keep text-sm leading-6", className)}>
+  <p data-evidence-summary-block="paragraph" className={className ? `${PARAGRAPH} ${className}` : PARAGRAPH}>
     {stream ? <StreamText text={text} first={first} stream={stream} /> : keepNames(text)}
   </p>
 );
@@ -200,7 +202,7 @@ const streamPlan = (summary: EvidenceSummary, paragraphText: string | null, rule
 
 /**
  * paragraph: 블록 2에 보일 문단(다듬은 문단). 없으면 코드 문단.
- * opened=false: 접힌 카드 — 제목 + [근거 요약 생성](onOpen) 버튼만. 다섯 블록과 블록 2 다듬기 요청은 누른 뒤다. 새 안내 문장은 두지 않는다.
+ * opened=false: 접힌 카드 — 제목 + [AI 근거 생성 요청](onOpen) 버튼만. 다섯 블록과 블록 2 다듬기 요청은 누른 뒤다. 새 안내 문장은 두지 않는다.
  *   펼칠 때 카드(제목 줄)는 그대로 두고 본문만 바꾼다(제목이 다시 나타나는 움직임 없음).
  * reveal: 흘러나오기를 시작할지(부르는 쪽이 정한다). focusOnMount: 누른 버튼이 사라진 자리 대신 첫 블록(한 줄 요약)에 초점을 둔다.
  * 흐르는 동안 카드는 aria-busy(조각마다 읽어 대지 않게, live 영역 아님). 처음 그린 뒤 문단이 바뀌면(다듬은 문단 도착) 그 문단만 한 번 페이드한다.
@@ -211,9 +213,12 @@ export const EvidenceSummaryCard = ({ detail, summary, paragraph, opened = true,
   const ruleRows = summary.table.filter((row): row is EvidenceSummaryRuleRow => row.kind === "rule");
   const mlRows = summary.table.filter((row): row is EvidenceSummaryMlRow => row.kind === "ml");
   const text = paragraph || codeParagraph(summary);
-  const [firstText] = useState(text);
-  const replaced = text !== firstText;
-  const plan = streamPlan(summary, firstText || null, ruleRows, mlRows);
+  // 기준 문단 = 펼친 순간(누름·바로 펼침)의 문단. 접힌 동안 바뀐 문단은 그대로 따라가고, 펼친 뒤 바뀌면(다듬은 문단 도착) 그 문단만 한 번 페이드한다.
+  const [openedText, setOpenedText] = useState<string | null>(opened ? text : null);
+  if (opened && openedText === null) setOpenedText(text);
+  const baseText = openedText ?? text;
+  const replaced = openedText !== null && text !== openedText;
+  const plan = streamPlan(summary, baseText || null, ruleRows, mlRows);
   const stream = useTextStream(reveal, plan.schedule);
   const { visible } = stream;
   const first = useRef<HTMLDivElement>(null);
@@ -247,9 +252,10 @@ export const EvidenceSummaryCard = ({ detail, summary, paragraph, opened = true,
           </p>
         )}
       </div>
-      {text && (replaced
+      {/* 문단은 자기 차례(첫 조각)가 되어야 그린다 — 다듬은 문단이 흐르는 도중 일찍 와도 한 줄 요약 뒤에 나온다 */}
+      {text && (plan.paragraph.length === 0 || visible(plan.paragraph[0])) && (replaced
         ? <SummaryParagraph key={text} text={text} className={motionClasses.enter} />
-        : visible(plan.paragraph[0]) && <SummaryParagraph text={text} stream={stream} first={plan.paragraph[0]} />)}
+        : <SummaryParagraph text={text} stream={stream} first={plan.paragraph[0]} />)}
       {showTable && (
         <div data-evidence-summary-block="table" className="grid min-w-0 gap-3">
           {ruleRows.length > 0 && visible(plan.rule[0]) && <RuleTable rows={ruleRows} lines={plan.rule} stream={stream} />}

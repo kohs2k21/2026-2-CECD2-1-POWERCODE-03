@@ -27,7 +27,7 @@ class Fixtures:
             # AI 근거 요약 다듬기(새 형식): 평문 한 문단, 모델 id·지시문 버전을 함께 돌려준다.
             assert request=={'sentences':[POLISH_SENTENCE]} and report_timeout is True
             return {'truncated':False,'output':POLISH_SENTENCE.replace('S(성공)인데','S(성공)이지만'),'modelVersion':POLISH_MODEL,
-                    'promptVersion':'evidence-polish-v3'}
+                    'promptVersion':'evidence-polish-v4'}
         assert kind=='explain'
         return {'truncated':False,'output':{'factIds':[f['id'] for f in request['facts']],'nextChecks':['review_input_completeness']}}
 
@@ -131,10 +131,10 @@ def main():
         conn.commit()
         # 새 형식(summary-sentences-v1): 재시도 없음(max_attempts 1), 결과 행 계보 = llm_spec, 결과 문단 source=llm.
         polish=uuid.uuid4();polish_input={'kind':'explain','sourceId':str(sid),'decisionId':str(decision_id),
-            'configVersionId':trained['configVersionId'],'templateVersion':'evidence-template-v3','sentences':[POLISH_SENTENCE],
+            'configVersionId':trained['configVersionId'],'templateVersion':'evidence-template-v4','sentences':[POLISH_SENTENCE],
             'stateWords':['이상'],'valueTokens':[]}
         polish_llm={'evidence_version':'summary-sentences-v1','input_evidence_hash':hashlib.sha256(b'polish').hexdigest(),
-            'model_version':POLISH_MODEL,'prompt_version':'evidence-polish-v3','output_schema_version':'evidence-polish-result-v1',
+            'model_version':POLISH_MODEL,'prompt_version':'evidence-polish-v4','output_schema_version':'evidence-polish-result-v1',
             'reuse_key':hashlib.sha256(str(polish).encode()).hexdigest()}
         with conn.cursor() as cur:
             cur.execute("""INSERT INTO run_jobs(id,kind,status,requested_by_actor_id,requester_role,idempotency_key,

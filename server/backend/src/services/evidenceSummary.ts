@@ -86,7 +86,7 @@ const methodName = (m: Rec): string => {
   return T.METHOD_NAMES[m.category as "hard" | "soft" | "ml"];
 };
 
-/** 근거 방법 하나의 요약 재료. sentences 첫 문장은 반드시 있다(추가 문장 = ML 2위). tokens = 문장에 넣은 원천 값 후보. */
+/** 근거 방법 하나의 요약 재료. sentences 첫 문장은 반드시 있다(v4부터 방법마다 한 문장 — ML 2위도 첫 문장 안). tokens = 문장에 넣은 원천 값 후보. */
 type Described = {
   methodId: string; kind: string; line: string; sentences: string[]; check: string | null; rows: (SummaryRuleRow | SummaryMlRow)[]; note: string | null; tokens: string[];
 };
@@ -275,6 +275,7 @@ const describeMl = (m: Rec): Described => {
   }));
   const [first, second] = top;
   const impact = impactOf(first);
+  const next: T.MlNext | null = second ? { name: playerLabel(second), impact: impactOf(second) } : null;
   let kind = "ml_value";
   let lines: T.Lines;
   const single = first.features.length === 1 ? first.features[0] : null;
@@ -288,17 +289,16 @@ const describeMl = (m: Rec): Described => {
   if (single === "elapsed_ms" && comparable) {
     const [av, bv] = [withUnit(numberValue(first.actual[single], "ms"), "ms"), withUnit(numberValue(baseline, "ms"), "ms")];
     kind = actual > baseline ? "ml_elapsed_longer" : "ml_elapsed_shorter";
-    lines = actual > baseline ? T.ml.elapsedLonger(av, bv, impact) : T.ml.elapsedShorter(av, bv, impact);
+    lines = actual > baseline ? T.ml.elapsedLonger(av, bv, impact, next) : T.ml.elapsedShorter(av, bv, impact, next);
   } else if (single === "error_ratio" && comparable) {
     kind = "ml_error_ratio";
-    lines = T.ml.errorRatio(numberValue(first.actual[single]), numberValue(baseline), actual > baseline, impact);
+    lines = T.ml.errorRatio(numberValue(first.actual[single]), numberValue(baseline), actual > baseline, impact, next);
   } else {
     if (first.features.length > 1) kind = "ml_group";
     else if (single && label(single).unitUnknown) kind = "ml_count";
-    lines = T.ml.value(playerLabel(first), playerShort(first), impact, single === "elapsed_ms");
+    lines = T.ml.value(playerLabel(first), playerShort(first), impact, single === "elapsed_ms", next);
   }
-  const sentences = [lines.sentence, ...(second ? [T.ml.second(playerLabel(second), impactOf(second))] : [])];
-  return { methodId: id, kind, line: lines.line, sentences, check: lines.check, rows, note: null, tokens: [] };
+  return { methodId: id, kind, line: lines.line, sentences: [lines.sentence], check: lines.check, rows, note: null, tokens: [] };
 };
 
 const describe = (m: Rec, input: EvidenceSummaryInput, evidence: Rec): Described | null => {

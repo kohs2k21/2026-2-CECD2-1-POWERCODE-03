@@ -732,7 +732,7 @@ try {
   const summary = v04Final.evidenceSummary;
   assert.deepEqual([summary.templateVersion, summary.summaryLine.prefix, summary.summaryLine.kind, summary.sentences.length, summary.checks.map((c) => c.code),
     summary.table.map((row) => [row.kind, row.result]), summary.contributionStatus, summary.stateWords, summary.valueTokens],
-    ['evidence-template-v3', '주의', 'soft_count', 2, ['soft_count', 'unresolved'], [['rule', '이상 징후'], ['rule', '평가 불가']], 'not_computed', ['이상 징후', '평가 불가'], []]);
+    ['evidence-template-v4', '주의', 'soft_count', 2, ['soft_count', 'unresolved'], [['rule', '이상 징후'], ['rule', '평가 불가']], 'not_computed', ['이상 징후', '평가 불가'], []]);
   assert.equal(summary.notice, 'AI 근거 요약은 참고용이며, 최종 판단은 담당자 확인이 필요합니다.');
   assert.ok(!('evidenceSummary' in v04ById.get(D4.final.id)), 'list items carry no evidence summary');
   const v04Normal = (await detail(D4.replaced.id)).body;
@@ -765,7 +765,7 @@ try {
     ['v03', 'llm_explanation', null, D4.final.id, 1]);
   const spec = explainRow.llm_spec;
   assert.deepEqual([spec.evidence_version, spec.model_version, spec.prompt_version, spec.output_schema_version],
-    ['summary-sentences-v1', 'fixture-polish-model', 'evidence-polish-v3', 'evidence-polish-result-v1']);
+    ['summary-sentences-v1', 'fixture-polish-model', 'evidence-polish-v4', 'evidence-polish-result-v1']);
   assert.ok(/^[0-9a-f]{64}$/.test(spec.input_evidence_hash) && /^[0-9a-f]{64}$/.test(spec.reuse_key));
   for (const token of [user, admin]) {
     const reused = await request(base, '/api/jobs', 'POST', token, { kind: 'explain', sourceId: fixture.sourceId, decisionId: D4.final.id });

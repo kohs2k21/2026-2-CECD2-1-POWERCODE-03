@@ -38,17 +38,25 @@ test('vectors cover every summary kind of the template appendix', () => {
   assert.ok(vectors.cases.some((c) => c.expected?.sentences.some((s) => s.startsWith('그 밖의 근거'))), 'overflow case');
 });
 
-test('v3 sentence shape: every method sentence starts with `{method name} - `, follow-up sentences have no prefix', () => {
+test('v4 sentence shape: every method sentence starts with `{method name} - `, follow-up sentences have no prefix, ML top two in one sentence', () => {
   const names = '(?:이상 규칙|관계 규칙|이상 징후 규칙|머신러닝 모델)';
   const prefixed = new RegExp(`^${names}(?:·${names})* - [^\\s]`);
-  const followUp = /^(?:다음으로 |그 밖의 근거 |켠 검사가 )/;
+  const followUp = /^(?:그 밖의 근거 |켠 검사가 )/;
   for (const c of vectors.cases) {
     for (const sentence of c.expected?.sentences ?? []) {
       assert.ok(prefixed.test(sentence) !== followUp.test(sentence), `${c.id}: ${sentence}`);
       assert.ok(!new RegExp(`^${names}(?:·${names})*(?:은|는|이|가|의) `).test(sentence) && !sentence.includes('판단에는'), `${c.id}: no particle after the name (${sentence})`);
       if (prefixed.test(sentence)) assert.ok(/(?:으로|로) 판단했습니다\.$|평가 불가입니다\.$/.test(sentence), `${c.id}: ends with the judgment (${sentence})`);
+      // 머신러닝 모델(기여도 있음): 비율은 `가장 크게(n%)` 자리, 2위는 판정 앞 `, … 그다음으로(n%)` 구절로 같은 문장 안
+      if (sentence.includes(' 가장 크게')) {
+        assert.match(sentence, /^머신러닝 모델 - .+ 가장 크게(?:\(\d+%\))?(?:, 평소와 다른 .+ 그다음으로(?:\(\d+%\))?)? 영향을 주어 이상 징후로 판단했습니다\.$/, `${c.id}: ${sentence}`);
+        assert.ok(!sentence.includes('영향을 주어('), `${c.id}: ratio is not after 영향을 주어 (${sentence})`);
+      }
+      assert.ok(!sentence.startsWith('다음으로') && !sentence.includes('영향을 주었습니다'), `${c.id}: no separate second-player sentence (${sentence})`);
     }
   }
+  assert.ok(vectors.cases.some((c) => c.expected?.sentences.some((s) => s.includes(' 그다음으로('))), 'ML top-two case with impact');
+  assert.ok(vectors.cases.some((c) => c.expected?.sentences.some((s) => / 그다음으로 영향을/.test(s))), 'ML top-two case without second impact');
 });
 
 test('screen words: no internal codes or banned labels in any shown string', () => {

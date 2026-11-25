@@ -1,9 +1,11 @@
-import { useEffect, useRef } from "react";
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { accountQueryKey, useAccountQuery } from "@/lib/query";
 import { useAuthSession } from "@/services/auth/AuthSessionProvider";
 import { getStoredToken } from "@/services/auth/session";
 import { DECISION_STREAM_RETRY_MS, subscribeDecisionStream } from "@/services/api/decision-stream-hub";
+import { createNotificationMonitor, initialNotificationLiveState, type NotificationMonitor, type NotificationLiveState } from "./notificationLive";
+import { NotificationLiveContext } from "./NotificationLiveContext";
 import {
   markNotificationsRead,
   readMySettings,
@@ -26,7 +28,7 @@ export const mySettingsQueryName = "me-settings";
 /** 패널 한 쪽 항목 수. */
 export const NOTIFICATION_PAGE_SIZE = 20;
 /** 새 판정 이벤트가 몰려도 알림 다시 조회는 이 간격에 한 번(이벤트가 있을 때만, 주기 조회 아님). */
-export const NOTIFICATION_REFRESH_MS = 10_000;
+export { NOTIFICATION_REFRESH_MS } from "./notificationLive";
 export const NOTIFICATION_RETRY_MS = DECISION_STREAM_RETRY_MS;
 
 /** 배지 숫자(서버 미확인 수). 화면 이동·패널 열기·새 판정 이벤트 때 다시 조회한다(주기 조회 없음). */
@@ -96,6 +98,7 @@ export const useSaveMySettings = () => {
   const { user } = useAuthSession();
   const cache = useQueryClient();
   const invalidate = useInvalidateNotifications();
+  const live = useContext(NotificationLiveContext);
   return useMutation({
     mutationFn: async (body: { notifications?: NotificationSettings; widgetLayout?: StoredLayout }) => {
       const token = getStoredToken();
@@ -104,47 +107,67 @@ export const useSaveMySettings = () => {
     onSuccess: ({ saved, token, notifications }) => {
       if (token !== getStoredToken()) return;
       cache.setQueryData<MySettings>(accountQueryKey(mySettingsQueryName, user?.id), saved);
-      if (notifications) invalidate();
+      if (notifications) {
+        invalidate();
+        live?.reset();
+      }
     },
   });
 };
 
 /**
- * 새 판정·중간 판정 이벤트가 오면 알림 목록·배지를 다시 조회한다. 기존 SSE(/api/pipeline/events?include=interims)를
- * 배지 응답의 latestSeq 다음부터 받는다(과거 재생 없음). 끊기면 3초 뒤 같은 커서로 재연결, 세션이 바뀌면 멈춘다.
- * 사건 묶음(Detector 주기 작업)은 이벤트가 없으므로 다음 판정 이벤트·화면 이동·패널 열기 때 반영된다.
+ * 알림 연결 1개의 소유자. SSE는 분석 화면과 공유한다. 화면·네트워크 복귀와 연결 복구 때 다시 조회한다.
+ * 배너 후보는 서버 필터가 적용된 미확인 첫 50개에서 확인한다. 전체 신규 알림 개수로 표시하지 않는다.
  */
 export const useNotificationLiveUpdates = (latestSeq: string | undefined) => {
   const { user } = useAuthSession();
   const invalidate = useInvalidateNotifications();
   const invalidateRef = useRef(invalidate);
   invalidateRef.current = invalidate;
-  const startRef = useRef<string | null>(null);
-  startRef.current = startRef.current ?? latestSeq ?? null;
-  const ready = startRef.current !== null;
+  const ready = latestSeq !== undefined;
   const userId = user?.id;
+  const token = getStoredToken();
+  const owner = useMemo(() => ({}), [userId, user?.userType, token]);
+  const ownerRef = useRef(owner);
+  ownerRef.current = owner;
+  const monitorRef = useRef<NotificationMonitor | null>(null);
+  const [result, setResult] = useState<{ owner: object; state: NotificationLiveState } | null>(null);
+  const refresh = useCallback(() => monitorRef.current?.refresh(), []);
+  const reset = useCallback(() => monitorRef.current?.reset(), []);
+  const dismiss = useCallback(() => monitorRef.current?.dismiss(), []);
   useEffect(() => {
     if (!userId || !ready) return;
-    const token = getStoredToken();
-    let stopped = false;
-    let refresh: ReturnType<typeof setTimeout> | undefined;
-    // 이상 분석 목록과 같은 연결을 나눠 쓴다(decision-stream-hub). 연결 실패는 배지·목록 조회 결과로 드러난다(연결 쪽이 3초 뒤 다시 연결만 한다).
-    const unsubscribe = subscribeDecisionStream({
-      after: startRef.current!,
-      onEvent: () => {
-        if (token !== getStoredToken()) return;
-        refresh ??= setTimeout(() => {
-          refresh = undefined;
-          if (!stopped && token === getStoredToken()) invalidateRef.current();
-        }, NOTIFICATION_REFRESH_MS);
-      },
+    const visible = () => typeof document === "undefined" || document.visibilityState !== "hidden";
+    const online = () => typeof navigator === "undefined" || navigator.onLine !== false;
+    const monitor = createNotificationMonitor({
+      after: latestSeq!,
+      current: () => ownerRef.current === owner && token === getStoredToken(),
+      visible,
+      online,
+      read: (signal) => readNotificationList({ view: "unread", cursor: null, limit: 50 }, signal),
+      invalidate: () => invalidateRef.current(),
+      subscribe: (subscriber) => subscribeDecisionStream(subscriber),
+      publish: (state) => setResult({ owner, state }),
     });
+    monitorRef.current = monitor;
+    const resume = () => monitor.resume();
+    window.addEventListener("online", resume);
+    window.addEventListener("offline", resume);
+    window.addEventListener("focus", resume);
+    window.addEventListener("pageshow", resume);
+    if (typeof document !== "undefined") document.addEventListener?.("visibilitychange", resume);
+    monitor.start();
     return () => {
-      stopped = true;
-      unsubscribe();
-      if (refresh) clearTimeout(refresh);
+      window.removeEventListener("online", resume);
+      window.removeEventListener("offline", resume);
+      window.removeEventListener("focus", resume);
+      window.removeEventListener("pageshow", resume);
+      if (typeof document !== "undefined") document.removeEventListener?.("visibilitychange", resume);
+      monitor.stop();
+      if (monitorRef.current === monitor) monitorRef.current = null;
     };
-  }, [ready, userId]);
+  }, [ready, owner]);
+  return { state: result?.owner === owner ? result.state : initialNotificationLiveState(), refresh, reset, dismiss };
 };
 
 /** 작업 상태를 담은 조회(작업 목록·작업 상세·학습 진행·비교 평가 목록·상세). 행마다 [작업 ID, 상태]를 꺼낸다. */
@@ -169,10 +192,12 @@ const FINISHED = new Set(["succeeded", "failed"]);
  * 작업 알림 반영(새 연결 없음): 화면이 이미 다시 읽는 작업 조회(진행 중이면 5초 주기)에서 대기·실행 중이던 작업이 완료·실패로 바뀌면
  * 알림 배지·목록을 다시 조회한다. 그 밖에는 화면 이동·패널 열기 때 반영된다.
  */
-export const useRefreshOnJobFinish = () => {
+export const useRefreshOnJobFinish = (onFinish?: () => void) => {
   const { user } = useAuthSession();
   const cache = useQueryClient();
   const userId = user?.id;
+  const onFinishRef = useRef(onFinish);
+  onFinishRef.current = onFinish;
   useEffect(() => {
     if (!userId) return;
     const seen = new Map<string, string>();
@@ -194,6 +219,7 @@ export const useRefreshOnJobFinish = () => {
         pending = false;
         void cache.invalidateQueries({ queryKey: accountQueryKey(unreadCountQueryName, userId) });
         void cache.invalidateQueries({ queryKey: accountQueryKey(notificationListQueryName, userId) });
+        onFinishRef.current?.();
       });
     });
     return unsubscribe;
@@ -201,15 +227,18 @@ export const useRefreshOnJobFinish = () => {
 };
 
 /** 화면 이동 때 배지를 다시 조회한다(첫 마운트 제외). */
-export const useRefreshOnNavigate = (locationKey: string) => {
+export const useRefreshOnNavigate = (locationKey: string, onNavigate?: () => void) => {
   const { user } = useAuthSession();
   const cache = useQueryClient();
   const first = useRef(true);
+  const onNavigateRef = useRef(onNavigate);
+  onNavigateRef.current = onNavigate;
   useEffect(() => {
     if (first.current) {
       first.current = false;
       return;
     }
     void cache.invalidateQueries({ queryKey: accountQueryKey(unreadCountQueryName, user?.id) });
+    onNavigateRef.current?.();
   }, [cache, locationKey, user?.id]);
 };

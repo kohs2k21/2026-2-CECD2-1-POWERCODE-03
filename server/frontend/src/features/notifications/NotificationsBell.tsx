@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useContext, useEffect, useState } from "react";
 import { IconBell } from "@tabler/icons-react";
 import { Link, useLocation } from "react-router-dom";
 import { paths } from "@/app/routes";
@@ -10,7 +10,9 @@ import { CountBadge } from "./CountBadge";
 import { badgeText, bellLabel } from "./notificationLabels";
 import { KeepConfirmDialog, NotificationPanels } from "./NotificationPanels";
 import type { ProtocolNotification } from "./notificationsApi";
-import { useNotificationLiveUpdates, useRefreshOnJobFinish, useRefreshOnNavigate, useUnreadCount } from "./useNotifications";
+import { useUnreadCount } from "./useNotifications";
+import { NotificationLiveContext } from "./NotificationLiveContext";
+import { NotificationLiveProvider } from "./NotificationLiveProvider";
 
 /**
  * 상단 알림 버튼(와이어프레임 #93 bell): 배지 = 서버 미확인 수(99 초과 99+), 누르면 알림 패널(PC). 알림 페이지 `/notifications`는 휴대폰 첫 화면(navigation.md 휴대폰 폭).
@@ -18,14 +20,18 @@ import { useNotificationLiveUpdates, useRefreshOnJobFinish, useRefreshOnNavigate
  * 휴대폰 폭(useIsMobile)에서는 작은 창 대신 알림 페이지(`/notifications`) 링크다(배지·이름 같음, 그 페이지에서는 aria-current=page).
  */
 export const NotificationsBell = ({ triggerClassName }: { triggerClassName?: string }) => {
+  const live = useContext(NotificationLiveContext);
+  // 분리 렌더·기존 화면 시험도 지원하되, 실제 AppLayout에서는 공통 소유자만 사용한다.
+  return live ? <NotificationsBellContent triggerClassName={triggerClassName} />
+    : <NotificationLiveProvider><NotificationsBellContent triggerClassName={triggerClassName} /></NotificationLiveProvider>;
+};
+
+const NotificationsBellContent = ({ triggerClassName }: { triggerClassName?: string }) => {
   const [open, setOpen] = useState(false);
   // [이상 유지] 확인창은 작은 창 밖에 둔다(확인창을 누르면 작은 창이 닫히므로 그 안에 두면 확인창도 사라진다).
   const [keeping, setKeeping] = useState<ProtocolNotification | null>(null);
   const location = useLocation();
   const unread = useUnreadCount();
-  useNotificationLiveUpdates(unread.data?.latestSeq);
-  useRefreshOnNavigate(location.key);
-  useRefreshOnJobFinish();
   useEffect(() => setOpen(false), [location.key]);
   const close = () => setOpen(false);
   const count = unread.data?.unreadCount;

@@ -10,7 +10,7 @@ import type { EvidenceSummary } from './evidenceSummary.js';
 
 /** 접수 입력 형식·지시문·결과 형식 버전(워커와 같은 값이어야 한다). 바꾸면 재사용 키가 갈려 이전 결과와 섞이지 않는다. */
 export const POLISH_EVIDENCE_VERSION = 'summary-sentences-v1';
-export const POLISH_PROMPT_VERSION = 'evidence-polish-v3';
+export const POLISH_PROMPT_VERSION = 'evidence-polish-v4';
 export const POLISH_OUTPUT_SCHEMA_VERSION = 'evidence-polish-result-v1';
 /** 생성할 수 없어 실패한 작업은 끝난 뒤 이 시간 안에는 다시 만들지 않고 그 실패 작업을 돌려준다. */
 export const POLISH_FAILURE_COOLDOWN_MINUTES = 10;

@@ -1,17 +1,16 @@
 {
-  "promptVersion": "evidence-polish-v3",
-  "templateVersion": "evidence-template-v3",
-  "description": "AI 근거 요약 다듬기 확인(4.2) 공용 벡터 (b). 설명용 합성 수치·가짜 값만 쓴다. 코드 문장은 공용 벡터 (a) evidence-summary-vectors.json의 evidence-template-v3 기대 문장에서 가져온다. 예외로 note가 있는 사례(시각이 든 문장 3종·`0.1250` 비율 문장·`800 msg` 문단)는 v3 백엔드가 만들지 않는 검사기 견고성용 합성 문장이다(확인 규칙은 문장 틀과 무관하게 같다). expected.stateWords·numbers·orderWords·maskedTokens는 코드 문장 쪽 추출값, source·code는 candidate(다듬은 문단) 확인 결과다. kind: pass / fail / expected_fallback(대체가 맞는 경우).",
+  "promptVersion": "evidence-polish-v4",
+  "templateVersion": "evidence-template-v4",
+  "description": "AI 근거 요약 다듬기 확인(4.2) 공용 벡터 (b). 설명용 합성 수치·가짜 값만 쓴다. 코드 문장은 공용 벡터 (a) evidence-summary-vectors.json의 evidence-template-v4 기대 문장에서 가져온다. 예외로 note가 있는 사례(시각이 든 문장 3종·`0.1250` 비율 문장·`800 msg` 문단)는 v4 백엔드가 만들지 않는 검사기 견고성용 합성 문장이다(확인 규칙은 문장 틀과 무관하게 같다). expected.stateWords·numbers·orderWords·maskedTokens는 코드 문장 쪽 추출값, source·code는 candidate(다듬은 문단) 확인 결과다. kind: pass / fail / expected_fallback(대체가 맞는 경우).",
   "cases": [
     {
-      "id": "pass_ml_two_sentences",
+      "id": "pass_ml_top_two_one_sentence",
       "kind": "pass",
       "sentences": [
-        "머신러닝 모델 - 평소 800 ms보다 긴 처리 시간 4,200 ms가 가장 크게 영향을 주어(62%) 이상 징후로 판단했습니다.",
-        "다음으로 평소와 다른 처리량(TOTAL_COUNT)·오류 건수(ERROR_COUNT)·오류 비율이 영향을 주었습니다(31%)."
+        "머신러닝 모델 - 평소 800 ms보다 긴 처리 시간 4,200 ms가 가장 크게(62%), 평소와 다른 처리량(TOTAL_COUNT)·오류 건수(ERROR_COUNT)·오류 비율이 그다음으로(31%) 영향을 주어 이상 징후로 판단했습니다."
       ],
       "valueTokens": [],
-      "candidate": "머신러닝 모델 - 평소 800 ms보다 긴 처리 시간 4,200 ms가 가장 크게 영향을 주어(62%) 이상 징후로 판단했고, 다음으로 평소와 다른 처리량(TOTAL_COUNT)·오류 건수(ERROR_COUNT)·오류 비율이 영향을 주었습니다(31%).",
+      "candidate": "머신러닝 모델 - 평소 800 ms보다 긴 처리 시간 4,200 ms가 가장 크게(62%), 평소와 다른 처리량(TOTAL_COUNT)·오류 건수(ERROR_COUNT)·오류 비율이 그다음으로(31%) 영향을 끼쳐 이상 징후로 판단했습니다.",
       "expected": {
         "source": "llm",
         "code": null,
@@ -39,8 +38,10 @@
         "orderWords": [
           "평소",
           "긴",
+          "가장",
           "평소",
-          "다른"
+          "다른",
+          "다음"
         ],
         "maskedTokens": [
           [
@@ -110,11 +111,10 @@
       "kind": "pass",
       "sentences": [
         "이상 징후 규칙 - 처리 시간이 4,200 ms로 기준 3,000 ms를 넘어 이상 징후로 판단했습니다.",
-        "머신러닝 모델 - 평소 800 ms보다 긴 처리 시간 4,200 ms가 가장 크게 영향을 주어(62%) 이상 징후로 판단했습니다.",
-        "다음으로 평소와 다른 처리량(TOTAL_COUNT)·오류 건수(ERROR_COUNT)·오류 비율이 영향을 주었습니다(31%)."
+        "머신러닝 모델 - 평소 800 ms보다 긴 처리 시간 4,200 ms가 가장 크게(62%), 평소와 다른 처리량(TOTAL_COUNT)·오류 건수(ERROR_COUNT)·오류 비율이 그다음으로(31%) 영향을 주어 이상 징후로 판단했습니다."
       ],
       "valueTokens": [],
-      "candidate": "이상 징후 규칙 - 처리 시간 4,200 ms가 기준 3,000 ms를 넘어 이상 징후로 판단했습니다. 머신러닝 모델 - 평소 800 ms보다 긴 처리 시간 4,200 ms가 가장 크게 영향을 주어(62%) 이상 징후로 판단했고, 다음으로 평소와 다른 처리량(TOTAL_COUNT)·오류 건수(ERROR_COUNT)·오류 비율이 영향을 주었습니다(31%).",
+      "candidate": "이상 징후 규칙 - 처리 시간 4,200 ms가 기준 3,000 ms를 넘어 이상 징후로 판단했습니다. 머신러닝 모델 - 평소 800 ms보다 긴 처리 시간 4,200 ms가 가장 크게(62%), 평소와 다른 처리량(TOTAL_COUNT)·오류 건수(ERROR_COUNT)·오류 비율이 그다음으로(31%) 영향을 끼쳐 이상 징후로 판단했습니다.",
       "expected": {
         "source": "llm",
         "code": null,
@@ -153,8 +153,10 @@
           "넘어",
           "평소",
           "긴",
+          "가장",
           "평소",
-          "다른"
+          "다른",
+          "다음"
         ],
         "maskedTokens": [
           [
@@ -192,11 +194,10 @@
       "id": "pass_number_forms_4200_equal",
       "kind": "pass",
       "sentences": [
-        "머신러닝 모델 - 평소 800 ms보다 긴 처리 시간 4,200 ms가 가장 크게 영향을 주어(62%) 이상 징후로 판단했습니다.",
-        "다음으로 평소와 다른 처리량(TOTAL_COUNT)·오류 건수(ERROR_COUNT)·오류 비율이 영향을 주었습니다(31%)."
+        "머신러닝 모델 - 평소 800 ms보다 긴 처리 시간 4,200 ms가 가장 크게(62%), 평소와 다른 처리량(TOTAL_COUNT)·오류 건수(ERROR_COUNT)·오류 비율이 그다음으로(31%) 영향을 주어 이상 징후로 판단했습니다."
       ],
       "valueTokens": [],
-      "candidate": "머신러닝 모델 - 평소 800 ms보다 긴 처리 시간 4200 ms가 가장 크게 영향을 주어(62%) 이상 징후로 판단했고, 다음으로 평소와 다른 처리량(TOTAL_COUNT)·오류 건수(ERROR_COUNT)·오류 비율이 영향을 주었습니다(31%).",
+      "candidate": "머신러닝 모델 - 평소 800 ms보다 긴 처리 시간 4200 ms가 가장 크게(62%), 평소와 다른 처리량(TOTAL_COUNT)·오류 건수(ERROR_COUNT)·오류 비율이 그다음으로(31%) 영향을 끼쳐 이상 징후로 판단했습니다.",
       "expected": {
         "source": "llm",
         "code": null,
@@ -224,8 +225,10 @@
         "orderWords": [
           "평소",
           "긴",
+          "가장",
           "평소",
-          "다른"
+          "다른",
+          "다음"
         ],
         "maskedTokens": [
           [
@@ -255,11 +258,10 @@
       "id": "pass_number_forms_4200_0_equal",
       "kind": "pass",
       "sentences": [
-        "머신러닝 모델 - 평소 800 ms보다 긴 처리 시간 4,200 ms가 가장 크게 영향을 주어(62%) 이상 징후로 판단했습니다.",
-        "다음으로 평소와 다른 처리량(TOTAL_COUNT)·오류 건수(ERROR_COUNT)·오류 비율이 영향을 주었습니다(31%)."
+        "머신러닝 모델 - 평소 800 ms보다 긴 처리 시간 4,200 ms가 가장 크게(62%), 평소와 다른 처리량(TOTAL_COUNT)·오류 건수(ERROR_COUNT)·오류 비율이 그다음으로(31%) 영향을 주어 이상 징후로 판단했습니다."
       ],
       "valueTokens": [],
-      "candidate": "머신러닝 모델 - 평소 800 ms보다 긴 처리 시간 4200.0 ms가 가장 크게 영향을 주어(62%) 이상 징후로 판단했고, 다음으로 평소와 다른 처리량(TOTAL_COUNT)·오류 건수(ERROR_COUNT)·오류 비율이 영향을 주었습니다(31%).",
+      "candidate": "머신러닝 모델 - 평소 800 ms보다 긴 처리 시간 4200.0 ms가 가장 크게(62%), 평소와 다른 처리량(TOTAL_COUNT)·오류 건수(ERROR_COUNT)·오류 비율이 그다음으로(31%) 영향을 끼쳐 이상 징후로 판단했습니다.",
       "expected": {
         "source": "llm",
         "code": null,
@@ -287,8 +289,10 @@
         "orderWords": [
           "평소",
           "긴",
+          "가장",
           "평소",
-          "다른"
+          "다른",
+          "다음"
         ],
         "maskedTokens": [
           [
@@ -318,11 +322,10 @@
       "id": "pass_ms_without_space_is_unit",
       "kind": "pass",
       "sentences": [
-        "머신러닝 모델 - 평소 800 ms보다 긴 처리 시간 4,200 ms가 가장 크게 영향을 주어(62%) 이상 징후로 판단했습니다.",
-        "다음으로 평소와 다른 처리량(TOTAL_COUNT)·오류 건수(ERROR_COUNT)·오류 비율이 영향을 주었습니다(31%)."
+        "머신러닝 모델 - 평소 800 ms보다 긴 처리 시간 4,200 ms가 가장 크게(62%), 평소와 다른 처리량(TOTAL_COUNT)·오류 건수(ERROR_COUNT)·오류 비율이 그다음으로(31%) 영향을 주어 이상 징후로 판단했습니다."
       ],
       "valueTokens": [],
-      "candidate": "머신러닝 모델 - 평소 800ms보다 긴 처리 시간 4,200 ms가 가장 크게 영향을 주어(62%) 이상 징후로 판단했고, 다음으로 평소와 다른 처리량(TOTAL_COUNT)·오류 건수(ERROR_COUNT)·오류 비율이 영향을 주었습니다(31%).",
+      "candidate": "머신러닝 모델 - 평소 800ms보다 긴 처리 시간 4,200 ms가 가장 크게(62%), 평소와 다른 처리량(TOTAL_COUNT)·오류 건수(ERROR_COUNT)·오류 비율이 그다음으로(31%) 영향을 끼쳐 이상 징후로 판단했습니다.",
       "expected": {
         "source": "llm",
         "code": null,
@@ -350,8 +353,10 @@
         "orderWords": [
           "평소",
           "긴",
+          "가장",
           "평소",
-          "다른"
+          "다른",
+          "다음"
         ],
         "maskedTokens": [
           [
@@ -380,12 +385,12 @@
     {
       "id": "pass_ratio_0_1250_equals_0_125",
       "kind": "pass",
-      "note": "검사기 견고성용 합성 문장 — v3 백엔드는 `0.1250`처럼 끝 0이 붙은 비율을 만들지 않는다(숫자 정규화 확인용)",
+      "note": "검사기 견고성용 합성 문장 — v4 백엔드는 `0.1250`처럼 끝 0이 붙은 비율을 만들지 않는다(숫자 정규화 확인용)",
       "sentences": [
-        "머신러닝 모델 - 평소 0.01보다 높은 오류 비율 0.1250이 가장 크게 영향을 주어(40%) 이상 징후로 판단했습니다."
+        "머신러닝 모델 - 평소 0.01보다 높은 오류 비율 0.1250이 가장 크게(40%) 영향을 주어 이상 징후로 판단했습니다."
       ],
       "valueTokens": [],
-      "candidate": "머신러닝 모델 - 평소 0.01보다 높은 오류 비율 0.125가 가장 크게 영향을 주어(40%) 이상 징후로 판단했습니다.",
+      "candidate": "머신러닝 모델 - 평소 0.01보다 높은 오류 비율 0.125가 가장 크게(40%) 영향을 주어 이상 징후로 판단했습니다.",
       "expected": {
         "source": "llm",
         "code": null,
@@ -408,7 +413,8 @@
         ],
         "orderWords": [
           "평소",
-          "높은"
+          "높은",
+          "가장"
         ],
         "maskedTokens": [
           [
@@ -425,7 +431,7 @@
     {
       "id": "pass_iso_time_digits_not_numbers",
       "kind": "pass",
-      "note": "검사기 견고성용 합성 문장 — v3 백엔드는 문단에 시각을 넣지 않는다(ISO 시각 가림 경계 확인용)",
+      "note": "검사기 견고성용 합성 문장 — v4 백엔드는 문단에 시각을 넣지 않는다(ISO 시각 가림 경계 확인용)",
       "sentences": [
         "이상 규칙 - 시작 시각 2026-11-25T09:00:00Z가 종료 시각 2026-11-25T08:59:58Z보다 늦어 이상으로 판단했습니다."
       ],
@@ -884,11 +890,10 @@
       "id": "fail_multi_paragraph",
       "kind": "fail",
       "sentences": [
-        "머신러닝 모델 - 평소 800 ms보다 긴 처리 시간 4,200 ms가 가장 크게 영향을 주어(62%) 이상 징후로 판단했습니다.",
-        "다음으로 평소와 다른 처리량(TOTAL_COUNT)·오류 건수(ERROR_COUNT)·오류 비율이 영향을 주었습니다(31%)."
+        "머신러닝 모델 - 평소 800 ms보다 긴 처리 시간 4,200 ms가 가장 크게(62%), 평소와 다른 처리량(TOTAL_COUNT)·오류 건수(ERROR_COUNT)·오류 비율이 그다음으로(31%) 영향을 주어 이상 징후로 판단했습니다."
       ],
       "valueTokens": [],
-      "candidate": "머신러닝 모델 - 평소 800 ms보다 긴 처리 시간 4,200 ms가 가장 크게 영향을 주어(62%) 이상 징후로 판단했습니다.\n다음으로 평소와 다른 처리량(TOTAL_COUNT)·오류 건수(ERROR_COUNT)·오류 비율이 영향을 주었습니다(31%).",
+      "candidate": "머신러닝 모델 - 평소 800 ms보다 긴 처리 시간 4,200 ms가 가장 크게(62%),\n평소와 다른 처리량(TOTAL_COUNT)·오류 건수(ERROR_COUNT)·오류 비율이 그다음으로(31%) 영향을 주어 이상 징후로 판단했습니다.",
       "expected": {
         "source": "code",
         "code": "polish_multi_paragraph",
@@ -916,8 +921,10 @@
         "orderWords": [
           "평소",
           "긴",
+          "가장",
           "평소",
-          "다른"
+          "다른",
+          "다음"
         ],
         "maskedTokens": [
           [
@@ -947,11 +954,10 @@
       "id": "fail_multi_paragraph_cr",
       "kind": "fail",
       "sentences": [
-        "머신러닝 모델 - 평소 800 ms보다 긴 처리 시간 4,200 ms가 가장 크게 영향을 주어(62%) 이상 징후로 판단했습니다.",
-        "다음으로 평소와 다른 처리량(TOTAL_COUNT)·오류 건수(ERROR_COUNT)·오류 비율이 영향을 주었습니다(31%)."
+        "머신러닝 모델 - 평소 800 ms보다 긴 처리 시간 4,200 ms가 가장 크게(62%), 평소와 다른 처리량(TOTAL_COUNT)·오류 건수(ERROR_COUNT)·오류 비율이 그다음으로(31%) 영향을 주어 이상 징후로 판단했습니다."
       ],
       "valueTokens": [],
-      "candidate": "머신러닝 모델 - 평소 800 ms보다 긴 처리 시간 4,200 ms가 가장 크게 영향을 주어(62%) 이상 징후로 판단했습니다.\r다음으로 평소와 다른 처리량(TOTAL_COUNT)·오류 건수(ERROR_COUNT)·오류 비율이 영향을 주었습니다(31%).",
+      "candidate": "머신러닝 모델 - 평소 800 ms보다 긴 처리 시간 4,200 ms가 가장 크게(62%),\r평소와 다른 처리량(TOTAL_COUNT)·오류 건수(ERROR_COUNT)·오류 비율이 그다음으로(31%) 영향을 주어 이상 징후로 판단했습니다.",
       "expected": {
         "source": "code",
         "code": "polish_multi_paragraph",
@@ -979,8 +985,10 @@
         "orderWords": [
           "평소",
           "긴",
+          "가장",
           "평소",
-          "다른"
+          "다른",
+          "다음"
         ],
         "maskedTokens": [
           [
@@ -1244,11 +1252,10 @@
       "id": "fail_name_dropped_label",
       "kind": "fail",
       "sentences": [
-        "머신러닝 모델 - 평소 800 ms보다 긴 처리 시간 4,200 ms가 가장 크게 영향을 주어(62%) 이상 징후로 판단했습니다.",
-        "다음으로 평소와 다른 처리량(TOTAL_COUNT)·오류 건수(ERROR_COUNT)·오류 비율이 영향을 주었습니다(31%)."
+        "머신러닝 모델 - 평소 800 ms보다 긴 처리 시간 4,200 ms가 가장 크게(62%), 평소와 다른 처리량(TOTAL_COUNT)·오류 건수(ERROR_COUNT)·오류 비율이 그다음으로(31%) 영향을 주어 이상 징후로 판단했습니다."
       ],
       "valueTokens": [],
-      "candidate": "머신러닝 모델 - 평소 800 ms보다 긴 처리 시간 4,200 ms가 가장 크게 영향을 주어(62%) 이상 징후로 판단했고, 다음으로 평소와 다른 처리량(TOTAL_COUNT)·오류 비율이 영향을 주었습니다(31%).",
+      "candidate": "머신러닝 모델 - 평소 800 ms보다 긴 처리 시간 4,200 ms가 가장 크게(62%), 평소와 다른 처리량(TOTAL_COUNT)·오류 비율이 그다음으로(31%) 영향을 끼쳐 이상 징후로 판단했습니다.",
       "expected": {
         "source": "code",
         "code": "polish_name_changed",
@@ -1276,8 +1283,10 @@
         "orderWords": [
           "평소",
           "긴",
+          "가장",
           "평소",
-          "다른"
+          "다른",
+          "다음"
         ],
         "maskedTokens": [
           [
@@ -1307,11 +1316,10 @@
       "id": "fail_name_changed_label_spacing",
       "kind": "fail",
       "sentences": [
-        "머신러닝 모델 - 평소 800 ms보다 긴 처리 시간 4,200 ms가 가장 크게 영향을 주어(62%) 이상 징후로 판단했습니다.",
-        "다음으로 평소와 다른 처리량(TOTAL_COUNT)·오류 건수(ERROR_COUNT)·오류 비율이 영향을 주었습니다(31%)."
+        "머신러닝 모델 - 평소 800 ms보다 긴 처리 시간 4,200 ms가 가장 크게(62%), 평소와 다른 처리량(TOTAL_COUNT)·오류 건수(ERROR_COUNT)·오류 비율이 그다음으로(31%) 영향을 주어 이상 징후로 판단했습니다."
       ],
       "valueTokens": [],
-      "candidate": "머신러닝 모델 - 평소 800 ms보다 긴 처리시간 4,200 ms가 가장 크게 영향을 주어(62%) 이상 징후로 판단했고, 다음으로 평소와 다른 처리량(TOTAL_COUNT)·오류 건수(ERROR_COUNT)·오류 비율이 영향을 주었습니다(31%).",
+      "candidate": "머신러닝 모델 - 평소 800 ms보다 긴 처리시간 4,200 ms가 가장 크게(62%), 평소와 다른 처리량(TOTAL_COUNT)·오류 건수(ERROR_COUNT)·오류 비율이 그다음으로(31%) 영향을 끼쳐 이상 징후로 판단했습니다.",
       "expected": {
         "source": "code",
         "code": "polish_name_changed",
@@ -1339,8 +1347,10 @@
         "orderWords": [
           "평소",
           "긴",
+          "가장",
           "평소",
-          "다른"
+          "다른",
+          "다음"
         ],
         "maskedTokens": [
           [
@@ -1509,7 +1519,7 @@
     {
       "id": "fail_name_iso_time_changed",
       "kind": "fail",
-      "note": "검사기 견고성용 합성 문장 — v3 백엔드는 문단에 시각을 넣지 않는다(ISO 시각 가림 경계 확인용)",
+      "note": "검사기 견고성용 합성 문장 — v4 백엔드는 문단에 시각을 넣지 않는다(ISO 시각 가림 경계 확인용)",
       "sentences": [
         "이상 규칙 - 시작 시각 2026-11-25T09:00:00Z가 종료 시각 2026-11-25T08:59:58Z보다 늦어 이상으로 판단했습니다."
       ],
@@ -1673,14 +1683,58 @@
       }
     },
     {
+      "id": "fail_name_ml_top_two_swapped",
+      "kind": "fail",
+      "sentences": [
+        "머신러닝 모델 - 평소와 다른 오류 건수(ERROR_COUNT)가 가장 크게(56%), 평소와 다른 재시도 횟수(RETRY_COUNT)가 그다음으로 영향을 주어 이상 징후로 판단했습니다."
+      ],
+      "valueTokens": [],
+      "candidate": "머신러닝 모델 - 평소와 다른 재시도 횟수(RETRY_COUNT)가 가장 크게(56%), 평소와 다른 오류 건수(ERROR_COUNT)가 그다음으로 영향을 끼쳐 이상 징후로 판단했습니다.",
+      "expected": {
+        "source": "code",
+        "code": "polish_name_changed",
+        "stateWords": [
+          "이상 징후"
+        ],
+        "numbers": [
+          [
+            "56",
+            "%"
+          ]
+        ],
+        "orderWords": [
+          "평소",
+          "다른",
+          "가장",
+          "평소",
+          "다른",
+          "다음"
+        ],
+        "maskedTokens": [
+          [
+            "label",
+            "머신러닝 모델"
+          ],
+          [
+            "label",
+            "오류 건수(ERROR_COUNT)"
+          ],
+          [
+            "label",
+            "재시도 횟수(RETRY_COUNT)"
+          ]
+        ]
+      },
+      "note": "머신러닝 모델 1위·2위 이름 자리를 바꿈(이름 다중집합·숫자·순서 낱말은 같음 — 이름 나온 순서로 잡는다)"
+    },
+    {
       "id": "fail_number_unit_ms_to_seconds",
       "kind": "fail",
       "sentences": [
-        "머신러닝 모델 - 평소 800 ms보다 긴 처리 시간 4,200 ms가 가장 크게 영향을 주어(62%) 이상 징후로 판단했습니다.",
-        "다음으로 평소와 다른 처리량(TOTAL_COUNT)·오류 건수(ERROR_COUNT)·오류 비율이 영향을 주었습니다(31%)."
+        "머신러닝 모델 - 평소 800 ms보다 긴 처리 시간 4,200 ms가 가장 크게(62%), 평소와 다른 처리량(TOTAL_COUNT)·오류 건수(ERROR_COUNT)·오류 비율이 그다음으로(31%) 영향을 주어 이상 징후로 판단했습니다."
       ],
       "valueTokens": [],
-      "candidate": "머신러닝 모델 - 평소 800 ms보다 긴 처리 시간 4,200초가 가장 크게 영향을 주어(62%) 이상 징후로 판단했고, 다음으로 평소와 다른 처리량(TOTAL_COUNT)·오류 건수(ERROR_COUNT)·오류 비율이 영향을 주었습니다(31%).",
+      "candidate": "머신러닝 모델 - 평소 800 ms보다 긴 처리 시간 4,200초가 가장 크게(62%), 평소와 다른 처리량(TOTAL_COUNT)·오류 건수(ERROR_COUNT)·오류 비율이 그다음으로(31%) 영향을 끼쳐 이상 징후로 판단했습니다.",
       "expected": {
         "source": "code",
         "code": "polish_number_changed",
@@ -1708,8 +1762,10 @@
         "orderWords": [
           "평소",
           "긴",
+          "가장",
           "평소",
-          "다른"
+          "다른",
+          "다음"
         ],
         "maskedTokens": [
           [
@@ -1739,11 +1795,10 @@
       "id": "fail_number_this_usual_swapped",
       "kind": "fail",
       "sentences": [
-        "머신러닝 모델 - 평소 800 ms보다 긴 처리 시간 4,200 ms가 가장 크게 영향을 주어(62%) 이상 징후로 판단했습니다.",
-        "다음으로 평소와 다른 처리량(TOTAL_COUNT)·오류 건수(ERROR_COUNT)·오류 비율이 영향을 주었습니다(31%)."
+        "머신러닝 모델 - 평소 800 ms보다 긴 처리 시간 4,200 ms가 가장 크게(62%), 평소와 다른 처리량(TOTAL_COUNT)·오류 건수(ERROR_COUNT)·오류 비율이 그다음으로(31%) 영향을 주어 이상 징후로 판단했습니다."
       ],
       "valueTokens": [],
-      "candidate": "머신러닝 모델 - 평소 4,200 ms보다 긴 처리 시간 800 ms가 가장 크게 영향을 주어(62%) 이상 징후로 판단했고, 다음으로 평소와 다른 처리량(TOTAL_COUNT)·오류 건수(ERROR_COUNT)·오류 비율이 영향을 주었습니다(31%).",
+      "candidate": "머신러닝 모델 - 평소 4,200 ms보다 긴 처리 시간 800 ms가 가장 크게(62%), 평소와 다른 처리량(TOTAL_COUNT)·오류 건수(ERROR_COUNT)·오류 비율이 그다음으로(31%) 영향을 끼쳐 이상 징후로 판단했습니다.",
       "expected": {
         "source": "code",
         "code": "polish_number_changed",
@@ -1771,8 +1826,10 @@
         "orderWords": [
           "평소",
           "긴",
+          "가장",
           "평소",
-          "다른"
+          "다른",
+          "다음"
         ],
         "maskedTokens": [
           [
@@ -1999,11 +2056,10 @@
       "id": "fail_direction_longer_to_shorter",
       "kind": "fail",
       "sentences": [
-        "머신러닝 모델 - 평소 800 ms보다 긴 처리 시간 4,200 ms가 가장 크게 영향을 주어(62%) 이상 징후로 판단했습니다.",
-        "다음으로 평소와 다른 처리량(TOTAL_COUNT)·오류 건수(ERROR_COUNT)·오류 비율이 영향을 주었습니다(31%)."
+        "머신러닝 모델 - 평소 800 ms보다 긴 처리 시간 4,200 ms가 가장 크게(62%), 평소와 다른 처리량(TOTAL_COUNT)·오류 건수(ERROR_COUNT)·오류 비율이 그다음으로(31%) 영향을 주어 이상 징후로 판단했습니다."
       ],
       "valueTokens": [],
-      "candidate": "머신러닝 모델 - 평소 800 ms보다 짧은 처리 시간 4,200 ms가 가장 크게 영향을 주어(62%) 이상 징후로 판단했고, 다음으로 평소와 다른 처리량(TOTAL_COUNT)·오류 건수(ERROR_COUNT)·오류 비율이 영향을 주었습니다(31%).",
+      "candidate": "머신러닝 모델 - 평소 800 ms보다 짧은 처리 시간 4,200 ms가 가장 크게(62%), 평소와 다른 처리량(TOTAL_COUNT)·오류 건수(ERROR_COUNT)·오류 비율이 그다음으로(31%) 영향을 끼쳐 이상 징후로 판단했습니다.",
       "expected": {
         "source": "code",
         "code": "polish_direction_changed",
@@ -2031,8 +2087,10 @@
         "orderWords": [
           "평소",
           "긴",
+          "가장",
           "평소",
-          "다른"
+          "다른",
+          "다음"
         ],
         "maskedTokens": [
           [
@@ -2101,12 +2159,12 @@
     {
       "id": "fail_direction_higher_to_lower",
       "kind": "fail",
-      "note": "검사기 견고성용 합성 문장 — v3 백엔드는 `0.1250`처럼 끝 0이 붙은 비율을 만들지 않는다(숫자 정규화 확인용)",
+      "note": "검사기 견고성용 합성 문장 — v4 백엔드는 `0.1250`처럼 끝 0이 붙은 비율을 만들지 않는다(숫자 정규화 확인용)",
       "sentences": [
-        "머신러닝 모델 - 평소 0.01보다 높은 오류 비율 0.1250이 가장 크게 영향을 주어(40%) 이상 징후로 판단했습니다."
+        "머신러닝 모델 - 평소 0.01보다 높은 오류 비율 0.1250이 가장 크게(40%) 영향을 주어 이상 징후로 판단했습니다."
       ],
       "valueTokens": [],
-      "candidate": "머신러닝 모델 - 평소 0.01보다 낮은 오류 비율 0.1250이 가장 크게 영향을 주어(40%) 이상 징후로 판단했습니다.",
+      "candidate": "머신러닝 모델 - 평소 0.01보다 낮은 오류 비율 0.1250이 가장 크게(40%) 영향을 주어 이상 징후로 판단했습니다.",
       "expected": {
         "source": "code",
         "code": "polish_direction_changed",
@@ -2129,7 +2187,8 @@
         ],
         "orderWords": [
           "평소",
-          "높은"
+          "높은",
+          "가장"
         ],
         "maskedTokens": [
           [
@@ -2147,11 +2206,10 @@
       "id": "fail_direction_usual_order",
       "kind": "fail",
       "sentences": [
-        "머신러닝 모델 - 평소 800 ms보다 긴 처리 시간 4,200 ms가 가장 크게 영향을 주어(62%) 이상 징후로 판단했습니다.",
-        "다음으로 평소와 다른 처리량(TOTAL_COUNT)·오류 건수(ERROR_COUNT)·오류 비율이 영향을 주었습니다(31%)."
+        "머신러닝 모델 - 평소 800 ms보다 긴 처리 시간 4,200 ms가 가장 크게(62%), 평소와 다른 처리량(TOTAL_COUNT)·오류 건수(ERROR_COUNT)·오류 비율이 그다음으로(31%) 영향을 주어 이상 징후로 판단했습니다."
       ],
       "valueTokens": [],
-      "candidate": "머신러닝 모델 - 800 ms보다 긴 처리 시간 4,200 ms가 평소 가장 크게 영향을 주어(62%) 이상 징후로 판단했고, 다음으로 평소와 다른 처리량(TOTAL_COUNT)·오류 건수(ERROR_COUNT)·오류 비율이 영향을 주었습니다(31%).",
+      "candidate": "머신러닝 모델 - 800 ms보다 긴 처리 시간 4,200 ms가 평소 가장 크게(62%), 평소와 다른 처리량(TOTAL_COUNT)·오류 건수(ERROR_COUNT)·오류 비율이 그다음으로(31%) 영향을 끼쳐 이상 징후로 판단했습니다.",
       "expected": {
         "source": "code",
         "code": "polish_direction_changed",
@@ -2179,8 +2237,10 @@
         "orderWords": [
           "평소",
           "긴",
+          "가장",
           "평소",
-          "다른"
+          "다른",
+          "다음"
         ],
         "maskedTokens": [
           [
@@ -2205,6 +2265,71 @@
           ]
         ]
       }
+    },
+    {
+      "id": "fail_direction_ml_rank_words_swapped",
+      "kind": "fail",
+      "sentences": [
+        "머신러닝 모델 - 평소 800 ms보다 긴 처리 시간 4,200 ms가 가장 크게(62%), 평소와 다른 처리량(TOTAL_COUNT)·오류 건수(ERROR_COUNT)·오류 비율이 그다음으로(31%) 영향을 주어 이상 징후로 판단했습니다."
+      ],
+      "valueTokens": [],
+      "candidate": "머신러닝 모델 - 평소 800 ms보다 긴 처리 시간 4,200 ms가 그다음으로(62%), 평소와 다른 처리량(TOTAL_COUNT)·오류 건수(ERROR_COUNT)·오류 비율이 가장 크게(31%) 영향을 끼쳐 이상 징후로 판단했습니다.",
+      "expected": {
+        "source": "code",
+        "code": "polish_direction_changed",
+        "stateWords": [
+          "이상 징후"
+        ],
+        "numbers": [
+          [
+            "800",
+            "ms"
+          ],
+          [
+            "4200",
+            "ms"
+          ],
+          [
+            "62",
+            "%"
+          ],
+          [
+            "31",
+            "%"
+          ]
+        ],
+        "orderWords": [
+          "평소",
+          "긴",
+          "가장",
+          "평소",
+          "다른",
+          "다음"
+        ],
+        "maskedTokens": [
+          [
+            "label",
+            "머신러닝 모델"
+          ],
+          [
+            "label",
+            "오류 건수(ERROR_COUNT)"
+          ],
+          [
+            "label",
+            "오류 비율"
+          ],
+          [
+            "label",
+            "처리 시간"
+          ],
+          [
+            "label",
+            "처리량(TOTAL_COUNT)"
+          ]
+        ]
+      },
+      "note": "머신러닝 모델 순위 낱말 `가장`·`그다음으로` 자리를 바꿈(이름·숫자 순서는 같음)"
     },
     {
       "id": "fail_direction_negation_added",
@@ -2437,11 +2562,10 @@
       "id": "fallback_conjugation_long_past",
       "kind": "expected_fallback",
       "sentences": [
-        "머신러닝 모델 - 평소 800 ms보다 긴 처리 시간 4,200 ms가 가장 크게 영향을 주어(62%) 이상 징후로 판단했습니다.",
-        "다음으로 평소와 다른 처리량(TOTAL_COUNT)·오류 건수(ERROR_COUNT)·오류 비율이 영향을 주었습니다(31%)."
+        "머신러닝 모델 - 평소 800 ms보다 긴 처리 시간 4,200 ms가 가장 크게(62%), 평소와 다른 처리량(TOTAL_COUNT)·오류 건수(ERROR_COUNT)·오류 비율이 그다음으로(31%) 영향을 주어 이상 징후로 판단했습니다."
       ],
       "valueTokens": [],
-      "candidate": "머신러닝 모델 - 평소 800 ms보다 길었던 처리 시간 4,200 ms가 가장 크게 영향을 주어(62%) 이상 징후로 판단했고, 다음으로 평소와 다른 처리량(TOTAL_COUNT)·오류 건수(ERROR_COUNT)·오류 비율이 영향을 주었습니다(31%).",
+      "candidate": "머신러닝 모델 - 평소 800 ms보다 길었던 처리 시간 4,200 ms가 가장 크게(62%), 평소와 다른 처리량(TOTAL_COUNT)·오류 건수(ERROR_COUNT)·오류 비율이 그다음으로(31%) 영향을 끼쳐 이상 징후로 판단했습니다.",
       "expected": {
         "source": "code",
         "code": "polish_direction_changed",
@@ -2469,8 +2593,10 @@
         "orderWords": [
           "평소",
           "긴",
+          "가장",
           "평소",
-          "다른"
+          "다른",
+          "다음"
         ],
         "maskedTokens": [
           [
@@ -2500,11 +2626,10 @@
       "id": "fallback_conjugation_long_plain",
       "kind": "expected_fallback",
       "sentences": [
-        "머신러닝 모델 - 평소 800 ms보다 긴 처리 시간 4,200 ms가 가장 크게 영향을 주어(62%) 이상 징후로 판단했습니다.",
-        "다음으로 평소와 다른 처리량(TOTAL_COUNT)·오류 건수(ERROR_COUNT)·오류 비율이 영향을 주었습니다(31%)."
+        "머신러닝 모델 - 평소 800 ms보다 긴 처리 시간 4,200 ms가 가장 크게(62%), 평소와 다른 처리량(TOTAL_COUNT)·오류 건수(ERROR_COUNT)·오류 비율이 그다음으로(31%) 영향을 주어 이상 징후로 판단했습니다."
       ],
       "valueTokens": [],
-      "candidate": "머신러닝 모델 - 평소 800 ms보다 길게 나온 처리 시간 4,200 ms가 가장 크게 영향을 주어(62%) 이상 징후로 판단했고, 다음으로 평소와 다른 처리량(TOTAL_COUNT)·오류 건수(ERROR_COUNT)·오류 비율이 영향을 주었습니다(31%).",
+      "candidate": "머신러닝 모델 - 평소 800 ms보다 길게 나온 처리 시간 4,200 ms가 가장 크게(62%), 평소와 다른 처리량(TOTAL_COUNT)·오류 건수(ERROR_COUNT)·오류 비율이 그다음으로(31%) 영향을 끼쳐 이상 징후로 판단했습니다.",
       "expected": {
         "source": "code",
         "code": "polish_direction_changed",
@@ -2532,8 +2657,10 @@
         "orderWords": [
           "평소",
           "긴",
+          "가장",
           "평소",
-          "다른"
+          "다른",
+          "다음"
         ],
         "maskedTokens": [
           [
@@ -2642,11 +2769,10 @@
       "id": "fallback_adjective_inside_other_word",
       "kind": "expected_fallback",
       "sentences": [
-        "머신러닝 모델 - 평소 800 ms보다 긴 처리 시간 4,200 ms가 가장 크게 영향을 주어(62%) 이상 징후로 판단했습니다.",
-        "다음으로 평소와 다른 처리량(TOTAL_COUNT)·오류 건수(ERROR_COUNT)·오류 비율이 영향을 주었습니다(31%)."
+        "머신러닝 모델 - 평소 800 ms보다 긴 처리 시간 4,200 ms가 가장 크게(62%), 평소와 다른 처리량(TOTAL_COUNT)·오류 건수(ERROR_COUNT)·오류 비율이 그다음으로(31%) 영향을 주어 이상 징후로 판단했습니다."
       ],
       "valueTokens": [],
-      "candidate": "머신러닝 모델 - 평소 800 ms보다 긴 처리 시간 4,200 ms가 가장 크게 영향을 주어(62%) 이상 징후로 판단했고, 다음으로 평소와 다른 처리량(TOTAL_COUNT)·오류 건수(ERROR_COUNT)·오류 비율이 새로 생긴 영향을 주었습니다(31%).",
+      "candidate": "머신러닝 모델 - 평소 800 ms보다 긴 처리 시간 4,200 ms가 가장 크게(62%), 평소와 다른 처리량(TOTAL_COUNT)·오류 건수(ERROR_COUNT)·오류 비율이 그다음으로(31%) 새로 생긴 영향을 끼쳐 이상 징후로 판단했습니다.",
       "expected": {
         "source": "code",
         "code": "polish_direction_changed",
@@ -2674,8 +2800,10 @@
         "orderWords": [
           "평소",
           "긴",
+          "가장",
           "평소",
-          "다른"
+          "다른",
+          "다음"
         ],
         "maskedTokens": [
           [
@@ -2705,14 +2833,13 @@
       "id": "fallback_clause_reorder_two_evidence",
       "kind": "expected_fallback",
       "sentences": [
-        "머신러닝 모델 - 평소 800 ms보다 긴 처리 시간 4,200 ms가 가장 크게 영향을 주어(62%) 이상 징후로 판단했습니다.",
-        "다음으로 평소와 다른 처리량(TOTAL_COUNT)·오류 건수(ERROR_COUNT)·오류 비율이 영향을 주었습니다(31%)."
+        "머신러닝 모델 - 평소 800 ms보다 긴 처리 시간 4,200 ms가 가장 크게(62%), 평소와 다른 처리량(TOTAL_COUNT)·오류 건수(ERROR_COUNT)·오류 비율이 그다음으로(31%) 영향을 주어 이상 징후로 판단했습니다."
       ],
       "valueTokens": [],
-      "candidate": "머신러닝 모델 - 평소와 다른 처리량(TOTAL_COUNT)·오류 건수(ERROR_COUNT)·오류 비율이 영향을 주었고(31%), 평소 800 ms보다 긴 처리 시간 4,200 ms가 가장 크게 영향을 주어(62%) 이상 징후로 판단했습니다.",
+      "candidate": "머신러닝 모델 - 평소와 다른 처리량(TOTAL_COUNT)·오류 건수(ERROR_COUNT)·오류 비율이 그다음으로(31%), 평소 800 ms보다 긴 처리 시간 4,200 ms가 가장 크게(62%) 영향을 끼쳐 이상 징후로 판단했습니다.",
       "expected": {
         "source": "code",
-        "code": "polish_number_changed",
+        "code": "polish_name_changed",
         "stateWords": [
           "이상 징후"
         ],
@@ -2737,8 +2864,10 @@
         "orderWords": [
           "평소",
           "긴",
+          "가장",
           "평소",
-          "다른"
+          "다른",
+          "다음"
         ],
         "maskedTokens": [
           [
@@ -2768,11 +2897,10 @@
       "id": "fallback_clause_reorder_this_usual",
       "kind": "expected_fallback",
       "sentences": [
-        "머신러닝 모델 - 평소 800 ms보다 긴 처리 시간 4,200 ms가 가장 크게 영향을 주어(62%) 이상 징후로 판단했습니다.",
-        "다음으로 평소와 다른 처리량(TOTAL_COUNT)·오류 건수(ERROR_COUNT)·오류 비율이 영향을 주었습니다(31%)."
+        "머신러닝 모델 - 평소 800 ms보다 긴 처리 시간 4,200 ms가 가장 크게(62%), 평소와 다른 처리량(TOTAL_COUNT)·오류 건수(ERROR_COUNT)·오류 비율이 그다음으로(31%) 영향을 주어 이상 징후로 판단했습니다."
       ],
       "valueTokens": [],
-      "candidate": "머신러닝 모델 - 처리 시간 4,200 ms가 평소 800 ms보다 길어 가장 크게 영향을 주어(62%) 이상 징후로 판단했고, 다음으로 평소와 다른 처리량(TOTAL_COUNT)·오류 건수(ERROR_COUNT)·오류 비율이 영향을 주었습니다(31%).",
+      "candidate": "머신러닝 모델 - 처리 시간 4,200 ms가 평소 800 ms보다 길어 가장 크게(62%), 평소와 다른 처리량(TOTAL_COUNT)·오류 건수(ERROR_COUNT)·오류 비율이 그다음으로(31%) 영향을 끼쳐 이상 징후로 판단했습니다.",
       "expected": {
         "source": "code",
         "code": "polish_number_changed",
@@ -2800,8 +2928,10 @@
         "orderWords": [
           "평소",
           "긴",
+          "가장",
           "평소",
-          "다른"
+          "다른",
+          "다음"
         ],
         "maskedTokens": [
           [
@@ -2830,7 +2960,7 @@
     {
       "id": "fallback_non_iso_time_value_token_changed",
       "kind": "expected_fallback",
-      "note": "검사기 견고성용 합성 문장 — v3 백엔드는 문단에 시각을 넣지 않는다(ISO가 아닌 시각 원천 값 가림 확인용)",
+      "note": "검사기 견고성용 합성 문장 — v4 백엔드는 문단에 시각을 넣지 않는다(ISO가 아닌 시각 원천 값 가림 확인용)",
       "sentences": [
         "이상 규칙 - 시작 시각 20261125 090000이 종료 시각 20261125 085958보다 늦어 이상으로 판단했습니다."
       ],
@@ -2868,12 +2998,12 @@
     {
       "id": "fallback_ms_followed_by_letters_is_identifier",
       "kind": "expected_fallback",
-      "note": "검사기 견고성용 합성 문장 — 다듬은 문단의 `800 msg`는 v3 백엔드 글자가 아니다(숫자 뒤 `ms` 단위 경계 확인용)",
+      "note": "검사기 견고성용 합성 문장 — 다듬은 문단의 `800 msg`는 v4 백엔드 글자가 아니다(숫자 뒤 `ms` 단위 경계 확인용)",
       "sentences": [
-        "머신러닝 모델 - 평소 700 ms보다 긴 처리 시간 800 ms가 가장 크게 영향을 주어(50%) 이상 징후로 판단했습니다."
+        "머신러닝 모델 - 평소 700 ms보다 긴 처리 시간 800 ms가 가장 크게(50%) 영향을 주어 이상 징후로 판단했습니다."
       ],
       "valueTokens": [],
-      "candidate": "머신러닝 모델 - 평소 700 ms보다 긴 처리 시간 800 msg가 가장 크게 영향을 주어(50%) 이상 징후로 판단했습니다.",
+      "candidate": "머신러닝 모델 - 평소 700 ms보다 긴 처리 시간 800 msg가 가장 크게(50%) 영향을 주어 이상 징후로 판단했습니다.",
       "expected": {
         "source": "code",
         "code": "polish_name_changed",
@@ -2896,7 +3026,8 @@
         ],
         "orderWords": [
           "평소",
-          "긴"
+          "긴",
+          "가장"
         ],
         "maskedTokens": [
           [

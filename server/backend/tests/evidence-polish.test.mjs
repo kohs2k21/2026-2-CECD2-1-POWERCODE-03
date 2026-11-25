@@ -12,11 +12,11 @@ import { buildEvidenceSummary } from '../dist/services/evidenceSummary.js';
 
 const DECISION = { sourceId: '00000000-0000-4000-8000-000000000001', decisionId: '00000000-0000-4000-8000-000000000002', configVersionId: null };
 const SENTENCE = '이상 규칙 - 처리 상태가 F(실패)여서 이상으로 판단했습니다.';
-const summary = (over = {}) => ({ templateVersion: 'evidence-template-v3', sentences: [SENTENCE], stateWords: ['이상'], valueTokens: ['F(실패)'], ...over });
+const summary = (over = {}) => ({ templateVersion: 'evidence-template-v4', sentences: [SENTENCE], stateWords: ['이상'], valueTokens: ['F(실패)'], ...over });
 
 test('contract constants', () => {
   assert.deepEqual([POLISH_EVIDENCE_VERSION, POLISH_PROMPT_VERSION, POLISH_OUTPUT_SCHEMA_VERSION, POLISH_FAILURE_COOLDOWN_MINUTES, POLISH_MAX_ATTEMPTS],
-    ['summary-sentences-v1', 'evidence-polish-v3', 'evidence-polish-result-v1', 10, 1]);
+    ['summary-sentences-v1', 'evidence-polish-v4', 'evidence-polish-result-v1', 10, 1]);
   assert.deepEqual(POLISH_LIMITS, { sentences: 8, sentenceLength: 300, totalLength: 1200, valueTokens: 16, valueTokenLength: 120 });
 });
 
@@ -27,13 +27,13 @@ test('canonical JSON: sorted keys (code points), no spaces, non-ASCII as is, und
 
 test('input, hash and reuse key: fixed example, no requester, sourceId outside the hash', () => {
   const input = buildPolishInput(DECISION, summary());
-  assert.deepEqual(input, { kind: 'explain', ...DECISION, templateVersion: 'evidence-template-v3', sentences: [SENTENCE], stateWords: ['이상'], valueTokens: ['F(실패)'] });
+  assert.deepEqual(input, { kind: 'explain', ...DECISION, templateVersion: 'evidence-template-v4', sentences: [SENTENCE], stateWords: ['이상'], valueTokens: ['F(실패)'] });
   const spec = polishLlmSpec(input, 'fixture-polish-model');
   assert.deepEqual(spec, {
     evidence_version: 'summary-sentences-v1',
-    input_evidence_hash: '506a1ba98a8cfa1af7316caa327a0e6ae1c8cf88c4f9b46734598241ca5084e8',
-    model_version: 'fixture-polish-model', prompt_version: 'evidence-polish-v3', output_schema_version: 'evidence-polish-result-v1',
-    reuse_key: 'ae56d58410c3255e0b08960772472f0613722fbe90030232c07798b32b506d9d',
+    input_evidence_hash: '70c18c1a63a27a4867058b282fa730ac3a3d7c69d00d1d4fb8f2af2b6f3f3a69',
+    model_version: 'fixture-polish-model', prompt_version: 'evidence-polish-v4', output_schema_version: 'evidence-polish-result-v1',
+    reuse_key: '51f3184ef1a3acf98149c0e2c8b9a8eaf83b11c87f16fdf82824d884d9b02373',
   });
   assert.equal(polishLlmSpec({ ...input, sourceId: '00000000-0000-4000-8000-0000000000ff' }, 'fixture-polish-model').reuse_key, spec.reuse_key, 'sourceId is not in the key');
   assert.equal(polishLlmSpec.length, 2, 'the key has no requester argument');
@@ -59,8 +59,8 @@ test('input limits: no sentence, too many/long sentences, value token missing fr
 });
 
 test('result reading: new schema, same decision and template only; old fact results and v1-template results are not shown', () => {
-  const expected = { decisionId: DECISION.decisionId, templateVersion: 'evidence-template-v3' };
-  const output = (over = {}) => ({ outputSchemaVersion: 'evidence-polish-result-v1', decisionId: DECISION.decisionId, templateVersion: 'evidence-template-v3',
+  const expected = { decisionId: DECISION.decisionId, templateVersion: 'evidence-template-v4' };
+  const output = (over = {}) => ({ outputSchemaVersion: 'evidence-polish-result-v1', decisionId: DECISION.decisionId, templateVersion: 'evidence-template-v4',
     codeText: SENTENCE, paragraph: { text: '다듬은 문단입니다.', source: 'llm' }, check: { status: 'passed', code: null }, modelVersion: 'm-1', ...over });
   assert.deepEqual(readPolished(output(), expected), { text: '다듬은 문단입니다.', source: 'llm', check: { status: 'passed', code: null }, modelVersion: 'm-1' });
   assert.deepEqual(readPolished(output({ paragraph: { text: SENTENCE, source: 'code' }, check: { status: 'failed', code: 'polish_number_changed' }, modelVersion: undefined }), expected, 'col-model'),

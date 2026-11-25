@@ -1215,7 +1215,7 @@ const polishedReads = (id) => requested.filter((r) => r.path === `/api/analysis/
 {
   const mixed = summaryOf("example_c_soft_elapsed_and_ml");
   const code = mixed.sentences.join(" ");
-  const polishedText = "이상 징후 규칙 - 처리 시간이 4,200 ms로 기준 3,000 ms를 넘어 이상 징후로 판단했습니다. 머신러닝 모델 - 평소 800 ms보다 긴 처리 시간 4,200 ms가 가장 크게 영향을 주어(62%) 이상 징후로 판단했고, 다음으로 평소와 다른 처리량(TOTAL_COUNT)·오류 건수(ERROR_COUNT)·오류 비율이 영향을 주었습니다(31%).";
+  const polishedText = "이상 징후 규칙 - 처리 시간이 4,200 ms로 기준 3,000 ms를 넘어 이상 징후로 판단했습니다. 머신러닝 모델 - 평소 800 ms보다 긴 처리 시간 4,200 ms가 가장 크게(62%), 평소와 다른 처리량(TOTAL_COUNT)·오류 건수(ERROR_COUNT)·오류 비율이 그다음으로(31%) 영향을 끼쳐 이상 징후로 판단했습니다.";
   const paragraphOf = (app) => blockText(cardOf(app)[0], "paragraph");
   const requestable = { polishRequestable: true };
 

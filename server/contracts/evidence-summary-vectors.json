@@ -1,5 +1,5 @@
 {
- "templateVersion": "evidence-template-v3",
+ "templateVersion": "evidence-template-v4",
  "notice": "AI 근거 요약은 참고용이며, 최종 판단은 담당자 확인이 필요합니다.",
  "cases": [
   {
@@ -231,8 +231,7 @@
      "kind": "ml_elapsed_longer"
     },
     "sentences": [
-     "머신러닝 모델 - 평소 800 ms보다 긴 처리 시간 4,200 ms가 가장 크게 영향을 주어(62%) 이상 징후로 판단했습니다.",
-     "다음으로 평소와 다른 처리량(TOTAL_COUNT)·오류 건수(ERROR_COUNT)·오류 비율이 영향을 주었습니다(31%)."
+     "머신러닝 모델 - 평소 800 ms보다 긴 처리 시간 4,200 ms가 가장 크게(62%), 평소와 다른 처리량(TOTAL_COUNT)·오류 건수(ERROR_COUNT)·오류 비율이 그다음으로(31%) 영향을 주어 이상 징후로 판단했습니다."
     ],
     "stateWords": [
      "이상 징후"
@@ -447,8 +446,7 @@
     },
     "sentences": [
      "이상 징후 규칙 - 처리 시간이 4,200 ms로 기준 3,000 ms를 넘어 이상 징후로 판단했습니다.",
-     "머신러닝 모델 - 평소 800 ms보다 긴 처리 시간 4,200 ms가 가장 크게 영향을 주어(62%) 이상 징후로 판단했습니다.",
-     "다음으로 평소와 다른 처리량(TOTAL_COUNT)·오류 건수(ERROR_COUNT)·오류 비율이 영향을 주었습니다(31%)."
+     "머신러닝 모델 - 평소 800 ms보다 긴 처리 시간 4,200 ms가 가장 크게(62%), 평소와 다른 처리량(TOTAL_COUNT)·오류 건수(ERROR_COUNT)·오류 비율이 그다음으로(31%) 영향을 주어 이상 징후로 판단했습니다."
     ],
     "stateWords": [
      "이상 징후",
@@ -2324,7 +2322,7 @@
      "kind": "ml_elapsed_shorter"
     },
     "sentences": [
-     "머신러닝 모델 - 평소 800 ms보다 짧은 처리 시간 12 ms가 가장 크게 영향을 주어(80%) 이상 징후로 판단했습니다."
+     "머신러닝 모델 - 평소 800 ms보다 짧은 처리 시간 12 ms가 가장 크게(80%) 영향을 주어 이상 징후로 판단했습니다."
     ],
     "stateWords": [
      "이상 징후"
@@ -2483,8 +2481,7 @@
      "kind": "ml_count"
     },
     "sentences": [
-     "머신러닝 모델 - 평소와 다른 오류 건수(ERROR_COUNT)가 가장 크게 영향을 주어(56%) 이상 징후로 판단했습니다.",
-     "다음으로 평소와 다른 재시도 횟수(RETRY_COUNT)가 영향을 주었습니다."
+     "머신러닝 모델 - 평소와 다른 오류 건수(ERROR_COUNT)가 가장 크게(56%), 평소와 다른 재시도 횟수(RETRY_COUNT)가 그다음으로 영향을 주어 이상 징후로 판단했습니다."
     ],
     "stateWords": [
      "이상 징후"
@@ -2633,7 +2630,7 @@
      "kind": "ml_error_ratio"
     },
     "sentences": [
-     "머신러닝 모델 - 평소 0.01보다 높은 오류 비율 0.125가 가장 크게 영향을 주어(70%) 이상 징후로 판단했습니다."
+     "머신러닝 모델 - 평소 0.01보다 높은 오류 비율 0.125가 가장 크게(70%) 영향을 주어 이상 징후로 판단했습니다."
     ],
     "stateWords": [
      "이상 징후"
@@ -2816,8 +2813,7 @@
      "kind": "ml_group"
     },
     "sentences": [
-     "머신러닝 모델 - 평소와 다른 처리량(TOTAL_COUNT)·오류 건수(ERROR_COUNT)·오류 비율이 가장 크게 영향을 주어(65%) 이상 징후로 판단했습니다.",
-     "다음으로 평소와 다른 처리 시간이 영향을 주었습니다(39%)."
+     "머신러닝 모델 - 평소와 다른 처리량(TOTAL_COUNT)·오류 건수(ERROR_COUNT)·오류 비율이 가장 크게(65%), 평소와 다른 처리 시간이 그다음으로(39%) 영향을 주어 이상 징후로 판단했습니다."
     ],
     "stateWords": [
      "이상 징후"
@@ -3684,7 +3680,7 @@
      "kind": "ml_value"
     },
     "sentences": [
-     "머신러닝 모델 - 평소와 다른 처리 시간이 가장 크게 영향을 주어(70%) 이상 징후로 판단했습니다."
+     "머신러닝 모델 - 평소와 다른 처리 시간이 가장 크게(70%) 영향을 주어 이상 징후로 판단했습니다."
     ],
     "stateWords": [
      "이상 징후"
@@ -3820,7 +3816,7 @@
      "kind": "ml_value"
     },
     "sentences": [
-     "머신러닝 모델 - 평소와 다른 오류 비율이 가장 크게 영향을 주어(70%) 이상 징후로 판단했습니다."
+     "머신러닝 모델 - 평소와 다른 오류 비율이 가장 크게(70%) 영향을 주어 이상 징후로 판단했습니다."
     ],
     "stateWords": [
      "이상 징후"
@@ -3954,7 +3950,7 @@
      "kind": "ml_value"
     },
     "sentences": [
-     "머신러닝 모델 - 평소와 다른 queue_depth가 가장 크게 영향을 주어(70%) 이상 징후로 판단했습니다."
+     "머신러닝 모델 - 평소와 다른 queue_depth가 가장 크게(70%) 영향을 주어 이상 징후로 판단했습니다."
     ],
     "stateWords": [
      "이상 징후"
@@ -4088,7 +4084,7 @@
      "kind": "ml_error_ratio"
     },
     "sentences": [
-     "머신러닝 모델 - 평소 0.5보다 낮은 오류 비율 0.3333이 가장 크게 영향을 주어(60%) 이상 징후로 판단했습니다."
+     "머신러닝 모델 - 평소 0.5보다 낮은 오류 비율 0.3333이 가장 크게(60%) 영향을 주어 이상 징후로 판단했습니다."
     ],
     "stateWords": [
      "이상 징후"
@@ -4222,7 +4218,7 @@
      "kind": "ml_elapsed_longer"
     },
     "sentences": [
-     "머신러닝 모델 - 평소 800 ms보다 긴 처리 시간 1,234.6 ms가 가장 크게 영향을 주어(60%) 이상 징후로 판단했습니다."
+     "머신러닝 모델 - 평소 800 ms보다 긴 처리 시간 1,234.6 ms가 가장 크게(60%) 영향을 주어 이상 징후로 판단했습니다."
     ],
     "stateWords": [
      "이상 징후"
@@ -4413,8 +4409,7 @@
      "kind": "ml_elapsed_longer"
     },
     "sentences": [
-     "머신러닝 모델 - 평소 800 ms보다 긴 처리 시간 4,200 ms가 가장 크게 영향을 주어(62%) 이상 징후로 판단했습니다.",
-     "다음으로 평소와 다른 처리량(TOTAL_COUNT)·오류 건수(ERROR_COUNT)·오류 비율이 영향을 주었습니다(31%)."
+     "머신러닝 모델 - 평소 800 ms보다 긴 처리 시간 4,200 ms가 가장 크게(62%), 평소와 다른 처리량(TOTAL_COUNT)·오류 건수(ERROR_COUNT)·오류 비율이 그다음으로(31%) 영향을 주어 이상 징후로 판단했습니다."
     ],
     "stateWords": [
      "이상 징후"
@@ -5532,7 +5527,7 @@
      "kind": "ml_value"
     },
     "sentences": [
-     "머신러닝 모델 - 평소와 다른 처리 시간이 가장 크게 영향을 주어(70%) 이상 징후로 판단했습니다."
+     "머신러닝 모델 - 평소와 다른 처리 시간이 가장 크게(70%) 영향을 주어 이상 징후로 판단했습니다."
     ],
     "stateWords": [
      "이상 징후"
@@ -5666,7 +5661,7 @@
      "kind": "ml_value"
     },
     "sentences": [
-     "머신러닝 모델 - 평소와 다른 오류 비율이 가장 크게 영향을 주어(70%) 이상 징후로 판단했습니다."
+     "머신러닝 모델 - 평소와 다른 오류 비율이 가장 크게(70%) 영향을 주어 이상 징후로 판단했습니다."
     ],
     "stateWords": [
      "이상 징후"
@@ -6371,7 +6366,7 @@
     "sentences": [
      "이상 규칙 - 처리 상태가 P(처리중)여서 이상으로 판단했습니다.",
      "이상 징후 규칙 - 처리 시간이 3,800 ms로 기준 3,000 ms를 넘어 이상 징후로 판단했습니다.",
-     "머신러닝 모델 - 평소와 다른 오류 건수(ERROR_COUNT)가 가장 크게 영향을 주어(40%) 이상 징후로 판단했습니다."
+     "머신러닝 모델 - 평소와 다른 오류 건수(ERROR_COUNT)가 가장 크게(40%) 영향을 주어 이상 징후로 판단했습니다."
     ],
     "stateWords": [
      "이상",
@@ -6419,6 +6414,244 @@
        {
         "name": "오류 건수(ERROR_COUNT)",
         "actual": "15",
+        "usual": "0",
+        "unit": null,
+        "unitUnknown": true
+       }
+      ]
+     }
+    ],
+    "checks": [
+     {
+      "code": "hard_process_status",
+      "text": "원본 로그에서 이 처리의 상태 P(처리중) 기록을 확인하세요(화면: Process Flow › 선택 노드 원본 정보 STATUS)."
+     },
+     {
+      "code": "soft_elapsed",
+      "text": "해당 업무 시스템에서 처리 시간이 나온 경위를 먼저 보고, 그다음 기준이 지금 운영에 맞는지 규칙 설정에서 확인하세요(화면: 위 표 이번 값)."
+     }
+    ],
+    "contributionStatus": "computed",
+    "contributionNote": null
+   }
+  },
+  {
+   "id": "status_soft_and_ml_top_two_third_method",
+   "input": {
+    "evidence": {
+     "schemaVersion": 4,
+     "ruleSetRevision": 7,
+     "observation": {
+      "id": "obs-1",
+      "revisionNo": 1
+     },
+     "composite": {
+      "anomalous": true,
+      "status": "complete",
+      "grade": "anomaly",
+      "basisMethods": [
+       "hard:process-status",
+       "soft:elapsed_ms-1a2b3c4d",
+       "ml:iforest"
+      ],
+      "risk": {
+       "status": "rated",
+       "level": "warning",
+       "determinedBy": [
+        "hard:process-status"
+       ],
+       "unratedMethods": []
+      }
+     },
+     "methodResults": [
+      {
+       "methodId": "hard:process-status",
+       "category": "hard",
+       "status": "succeeded",
+       "anomalous": true,
+       "code": "PROCESS_STATUS_P",
+       "evidence": [
+        {
+         "observedStatus": "P",
+         "result": "hit"
+        }
+       ]
+      },
+      {
+       "methodId": "soft:elapsed_ms-1a2b3c4d",
+       "category": "soft",
+       "status": "succeeded",
+       "anomalous": true,
+       "code": null,
+       "evidence": [],
+       "condition": {
+        "field": "elapsed_ms",
+        "operator": "gte",
+        "threshold": 3000,
+        "unit": "ms"
+       },
+       "observedValue": 3800
+      },
+      {
+       "methodId": "ml:iforest",
+       "category": "ml",
+       "status": "succeeded",
+       "anomalous": true,
+       "code": null,
+       "evidence": [],
+       "score": 0.71,
+       "scoreDetail": {
+        "raw": 0.71,
+        "threshold": "0.620",
+        "direction": "higher_is_anomaly"
+       },
+       "attribution": {
+        "version": "baseline-shapley-v1",
+        "status": "succeeded",
+        "baselineKind": "train_median_robust_scaler_center",
+        "grouping": "source-field-union-v1",
+        "scoreActual": 0.71,
+        "scoreBaseline": 0.4,
+        "threshold": "0.620",
+        "direction": "higher_is_anomaly",
+        "baselineWarning": false,
+        "efficiencyError": 0,
+        "players": [
+         {
+          "playerId": "error_count-16",
+          "features": [
+           "error_count"
+          ],
+          "actual": {
+           "error_count": "15"
+          },
+          "baseline": {
+           "error_count": 0
+          },
+          "scaleIsUnit": {},
+          "phi": 0.1,
+          "share": 0.4,
+          "thresholdGapShare": null
+         },
+         {
+          "playerId": "retry_count-17",
+          "features": [
+           "retry_count"
+          ],
+          "actual": {
+           "retry_count": "4"
+          },
+          "baseline": {
+           "retry_count": 0
+          },
+          "scaleIsUnit": {},
+          "phi": 0.08,
+          "share": 0.32,
+          "thresholdGapShare": null
+         }
+        ],
+        "topK": [
+         "error_count-16",
+         "retry_count-17"
+        ],
+        "counterfactual": [
+         {
+          "replaced": [
+           "error_count-16"
+          ],
+          "scoreAfter": 0.65,
+          "warningAfterReplacement": true
+         },
+         {
+          "replaced": [
+           "error_count-16",
+           "retry_count-17"
+          ],
+          "scoreAfter": 0.5,
+          "warningAfterReplacement": false
+         }
+        ],
+        "clearedAtK": 2,
+        "pins": {},
+        "computeMs": 0.5
+       }
+      }
+     ]
+    }
+   },
+   "expected": {
+    "summaryLine": {
+     "prefix": "주의",
+     "prefixKind": "risk",
+     "text": "처리 상태가 P(처리중)로 기록되었습니다",
+     "kind": "hard_process_status"
+    },
+    "sentences": [
+     "이상 규칙 - 처리 상태가 P(처리중)여서 이상으로 판단했습니다.",
+     "이상 징후 규칙 - 처리 시간이 3,800 ms로 기준 3,000 ms를 넘어 이상 징후로 판단했습니다.",
+     "머신러닝 모델 - 평소와 다른 오류 건수(ERROR_COUNT)가 가장 크게(40%), 평소와 다른 재시도 횟수(RETRY_COUNT)가 그다음으로(32%) 영향을 주어 이상 징후로 판단했습니다."
+    ],
+    "stateWords": [
+     "이상",
+     "이상 징후",
+     "이상 징후"
+    ],
+    "valueTokens": [
+     "P(처리중)"
+    ],
+    "table": [
+     {
+      "kind": "rule",
+      "methodId": "hard:process-status",
+      "condition": "STATUS ≠ S",
+      "observed": [
+       {
+        "name": null,
+        "value": "P(처리중)",
+        "unit": null,
+        "unitUnknown": false
+       }
+      ],
+      "result": "이상"
+     },
+     {
+      "kind": "rule",
+      "methodId": "soft:elapsed_ms-1a2b3c4d",
+      "condition": "처리 시간 ≥ 3,000 ms",
+      "observed": [
+       {
+        "name": null,
+        "value": "3,800",
+        "unit": "ms",
+        "unitUnknown": false
+       }
+      ],
+      "result": "이상 징후"
+     },
+     {
+      "kind": "ml",
+      "methodId": "ml:iforest",
+      "playerId": "error_count-16",
+      "impactPercent": "40%",
+      "members": [
+       {
+        "name": "오류 건수(ERROR_COUNT)",
+        "actual": "15",
+        "usual": "0",
+        "unit": null,
+        "unitUnknown": true
+       }
+      ]
+     },
+     {
+      "kind": "ml",
+      "methodId": "ml:iforest",
+      "playerId": "retry_count-17",
+      "impactPercent": "32%",
+      "members": [
+       {
+        "name": "재시도 횟수(RETRY_COUNT)",
+        "actual": "4",
         "usual": "0",
         "unit": null,
         "unitUnknown": true

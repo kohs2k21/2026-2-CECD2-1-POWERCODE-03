@@ -6,7 +6,7 @@ import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { buildEvidenceSummary, contributionStatusOf, evidenceSummaryNeeds, judgmentWords } from '../dist/services/evidenceSummary.js';
 import { NOTICE, RESPONSE_MEANING_CHECK_LIMIT, STATUS_LABELS, TEMPLATE_VERSION, shortMeaning, statusText } from '../dist/services/evidenceSummaryTemplates.js';
-import { because, displayNumber, expandExponent, groupDigits, objectParticle, percentText, roundHalfUp, subject, topic, toward, withWord } from '../dist/services/koreanText.js';
+import { because, displayNumber, expandExponent, groupDigits, objectParticle, percentText, roundHalfUp, subject, toward, withWord } from '../dist/services/koreanText.js';
 import { readAttribution } from '../dist/services/mlAttribution.js';
 
 const vectors = JSON.parse(fs.readFileSync(fileURLToPath(new URL('../../contracts/evidence-summary-vectors.json', import.meta.url)), 'utf8'));
@@ -36,6 +36,19 @@ test('vectors cover every summary kind of the template appendix', () => {
     assert.ok(kinds.has(kind), kind);
   assert.ok(vectors.cases.some((c) => c.expected?.checks.some((k) => k.code === 'unresolved')), 'unresolved method case');
   assert.ok(vectors.cases.some((c) => c.expected?.sentences.some((s) => s.startsWith('그 밖의 근거'))), 'overflow case');
+});
+
+test('v3 sentence shape: every method sentence starts with `{method name} - `, follow-up sentences have no prefix', () => {
+  const names = '(?:이상 규칙|관계 규칙|이상 징후 규칙|머신러닝 모델)';
+  const prefixed = new RegExp(`^${names}(?:·${names})* - [^\\s]`);
+  const followUp = /^(?:다음으로 |그 밖의 근거 |켠 검사가 )/;
+  for (const c of vectors.cases) {
+    for (const sentence of c.expected?.sentences ?? []) {
+      assert.ok(prefixed.test(sentence) !== followUp.test(sentence), `${c.id}: ${sentence}`);
+      assert.ok(!new RegExp(`^${names}(?:·${names})*(?:은|는|이|가|의) `).test(sentence) && !sentence.includes('판단에는'), `${c.id}: no particle after the name (${sentence})`);
+      if (prefixed.test(sentence)) assert.ok(/(?:으로|로) 판단했습니다\.$|평가 불가입니다\.$/.test(sentence), `${c.id}: ends with the judgment (${sentence})`);
+    }
+  }
 });
 
 test('screen words: no internal codes or banned labels in any shown string', () => {
@@ -79,6 +92,7 @@ test('judgment words: masked names and value tokens are not judgment words, sequ
   assert.deepEqual(judgmentWords('이상 규칙이 확인했고 이상으로 판단했습니다. 이상 징후 규칙이 이상 징후로 판단했습니다.', []), ['이상', '이상 징후']);
   assert.deepEqual(judgmentWords('관계 규칙이 정상단계와 비교했고 이상으로 판단했습니다.', ['정상단계']), ['이상']);
   assert.deepEqual(judgmentWords('켠 검사가 모두 정상으로 끝났습니다. 일부 검사(머신러닝 모델)는 평가 불가입니다.', []), ['정상', '평가 불가']);
+  assert.deepEqual(judgmentWords('이상 징후 규칙 - 처리 시간이 기준을 넘어 이상 징후로 판단했습니다. 이상 규칙·머신러닝 모델 - 결과를 내지 못해 평가 불가입니다.', []), ['이상 징후', '평가 불가'], 'v3 prefix names are masked');
 });
 
 // ---- 값 표기·조사(이전 화면 유틸을 옮김) ----
@@ -109,8 +123,6 @@ test('particles: final consonant, numbers read aloud, Latin L·M·N·NG, units, 
   assert.deepEqual(['처리 시간', 'IF_NEW', 'IF_A_PR009', '처리량(TOTAL_COUNT)'].map(subject), ['처리 시간이', 'IF_NEW가', 'IF_A_PR009가', '처리량(TOTAL_COUNT)이']);
   assert.deepEqual(['오류 건수(ERROR_COUNT)', '재시도 횟수(RETRY_COUNT)', 'E101(예시 뜻)', '9999(예시 뜻)'].map(subject),
     ['오류 건수(ERROR_COUNT)가', '재시도 횟수(RETRY_COUNT)가', 'E101(예시 뜻)이', '9999(예시 뜻)가'], 'particle follows the word before the parentheses');
-  assert.deepEqual(['이상 규칙', '관계 규칙', '이상 징후 규칙', '머신러닝 모델', '이상 징후 규칙·머신러닝 모델'].map(topic),
-    ['이상 규칙은', '관계 규칙은', '이상 징후 규칙은', '머신러닝 모델은', '이상 징후 규칙·머신러닝 모델은']);
   // 상태 조사는 괄호 앞 코드 기준: F·P·H·Z·X는 받침 없음, N은 받침
   assert.deepEqual(['F', 'P', 'N', 'H', 'Z', 'X'].map((code) => because(statusText(code))),
     ['F(실패)여서', 'P(처리중)여서', 'N(미처리)이어서', 'H(부분성공)여서', 'Z(데이터없음)여서', 'X여서']);
@@ -270,9 +282,9 @@ test('soft rule comparison words: picked once from stored value vs threshold, sy
     ['lte', 1000, '못 미쳐'], ['lte', 3000, '이르러'], ['lte', 3000.1, '해당해'], ['lt', 1000, '못 미쳐'], ['lt', 3000, '해당해'], ['gte', '3.0E+3', '이르러'],
     ['gte', '3000.000', '이르러'], ['gte', null, '해당해'], ['gte', 'abc', '해당해'], ['between', 4200, '해당해']];
   for (const [operator, value, expected] of table) assert.equal(word(soft(operator, value)), expected, `${operator} ${value}`);
-  assert.equal(soft('gte', 3000), '이상 징후 규칙은 처리 시간이 3,000 ms로 기준 3,000 ms에 이르러 이상 징후로 판단했습니다.');
-  assert.equal(soft('gt', 1000), '이상 징후 규칙은 처리 시간이 기준(> 3,000 ms)에 해당해 이상 징후로 판단했습니다.', 'contradiction: symbol fallback');
-  assert.equal(soft('between', 4200), '이상 징후 규칙은 처리 시간이 기준에 해당해 이상 징후로 판단했습니다.', 'unknown operator: no symbol, no threshold');
+  assert.equal(soft('gte', 3000), '이상 징후 규칙 - 처리 시간이 3,000 ms로 기준 3,000 ms에 이르러 이상 징후로 판단했습니다.');
+  assert.equal(soft('gt', 1000), '이상 징후 규칙 - 처리 시간이 기준(> 3,000 ms)에 해당해 이상 징후로 판단했습니다.', 'contradiction: symbol fallback');
+  assert.equal(soft('between', 4200), '이상 징후 규칙 - 처리 시간이 기준에 해당해 이상 징후로 판단했습니다.', 'unknown operator: no symbol, no threshold');
   assert.equal(word(soft('gte', '3000.04')), '넘어', 'same display text, raw value relation decides');
   assert.equal(word(soft('gte', '100000000000000000000000000001', '100000000000000000000000000000')), '넘어', 'exact decimal comparison');
 });

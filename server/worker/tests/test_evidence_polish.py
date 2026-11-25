@@ -24,8 +24,8 @@ from generation_service import (DesignModel, GenerationBusy, GenerationGate, Pol
                                 serve)
 
 VECTORS = Path(__file__).resolve().parents[2] / "contracts" / "evidence-polish-check-vectors.json"
-# evidence-template-v2 코드 문장(공용 벡터 (a) example_a_hard_success_with_error)과 그 다듬은 문단.
-HARD = "이상 규칙은 처리 상태가 S(성공)인데 오류 건수(ERROR_COUNT)가 0보다 커서 이상으로 판단했습니다."
+# evidence-template-v3 코드 문장(공용 벡터 (a) example_a_hard_success_with_error)과 그 다듬은 문단.
+HARD = "이상 규칙 - 처리 상태가 S(성공)인데 오류 건수(ERROR_COUNT)가 0보다 커서 이상으로 판단했습니다."
 HARD_GOOD = HARD.replace("S(성공)인데", "S(성공)이지만")
 MODEL = "Qwen/Qwen3.5-2B@0123abcd"
 
@@ -33,14 +33,14 @@ MODEL = "Qwen/Qwen3.5-2B@0123abcd"
 def spec(sentences=(HARD,), value_tokens=(), **extra):
     sentences = list(sentences)
     value = {"kind": "explain", "sourceId": "src", "decisionId": "dec", "configVersionId": "cfg",
-             "templateVersion": "evidence-template-v2", "sentences": sentences,
+             "templateVersion": "evidence-template-v3", "sentences": sentences,
              "stateWords": ep.Extracted(" ".join(sentences), list(value_tokens)).states, "valueTokens": list(value_tokens)}
     value.update(extra)
     return value
 
 
 def llm_spec(**extra):
-    return {"evidence_version": "summary-sentences-v1", "prompt_version": "evidence-polish-v2",
+    return {"evidence_version": "summary-sentences-v1", "prompt_version": "evidence-polish-v3",
             "output_schema_version": "evidence-polish-result-v1", "model_version": MODEL,
             "input_evidence_hash": "h", "reuse_key": "k", **extra}
 
@@ -148,7 +148,25 @@ class MaskingAndNumberTests(unittest.TestCase):
                          "v1 labels stay so v1 sentences are checked the same way")
         order = ep.Extracted("기준을 넘어, 기준에 이르러, 기준에 못 미쳐, 평소보다 긴·짧은·높은·낮은 값, 평소와 다른 값, 앞 단계 없이", [])
         self.assertEqual(order.order, ["기준", "넘어", "기준", "이르러", "기준", "못", "미쳐", "평소", "긴", "짧은", "높은", "낮은", "평소", "다른", "없이"])
-        self.assertEqual(ep.PROMPT_VERSION, "evidence-polish-v2")
+        self.assertEqual(ep.PROMPT_VERSION, "evidence-polish-v3")
+
+    def test_method_prefixes(self):
+        # v3 앞머리 `{방법 이름} - `: 방법 이름 자리표 + ` - `만, 문장 첫머리(문단 맨 앞·`.` 뒤 공백) 여부와 함께
+        text = ("이상 규칙 - 가. 이상 징후 규칙·머신러닝 모델 - 나, 관계 규칙 - 다. 처리량(TOTAL_COUNT) - 라. "
+                "정상 프로토콜 - 마. 머신러닝 모델은 바.")
+        self.assertEqual(ep.Extracted(text, []).prefixes,
+                         [("이상 규칙", True), ("이상 징후 규칙·머신러닝 모델", True), ("관계 규칙", False)])
+        self.assertEqual(ep.Extracted("이상 규칙 - 가.", ["이상 규칙"]).prefixes, [], "a value token is not a method prefix")
+        plan = ep.parse_input(spec([HARD]))
+        self.assertIsNone(ep.check_candidate(HARD_GOOD, plan))
+        for changed in (HARD_GOOD.replace("이상 규칙 - ", "이상 규칙은 "), HARD_GOOD.replace("이상 규칙 - ", "이상 규칙 -"),
+                        HARD_GOOD.replace("이상 규칙 - ", "이상 규칙: "), "다듬으면 " + HARD_GOOD):
+            with self.subTest(changed):
+                self.assertIn(ep.check_candidate(changed, plan), ("polish_name_changed", "polish_markup"))
+        self.assertEqual(ep.check_candidate("다듬으면 " + HARD_GOOD, plan), "polish_name_changed")
+        # `-`는 코드 문단에 있을 때만 허용 기호(v2 문장처럼 앞머리가 없는 코드 문단에서는 그대로 실패)
+        old = ep.parse_input(spec(["이상 규칙은 처리 상태가 F(실패)여서 이상으로 판단했습니다."]))
+        self.assertEqual(ep.check_candidate("이상 규칙 - 처리 상태가 F(실패)여서 이상으로 판단했습니다.", old), "polish_markup")
 
     def test_length_cap(self):
         self.assertEqual(ep.length_cap("가" * 10), 12)
@@ -175,8 +193,8 @@ class InputTests(unittest.TestCase):
             ep.parse_input(value)
 
     def test_valid_input_and_code_text(self):
-        plan = ep.parse_input(spec([HARD, "머신러닝 모델은 결과를 내지 못해 평가 불가입니다."]))
-        self.assertEqual(plan["codeText"], HARD + " 머신러닝 모델은 결과를 내지 못해 평가 불가입니다.")
+        plan = ep.parse_input(spec([HARD, "머신러닝 모델 - 결과를 내지 못해 평가 불가입니다."]))
+        self.assertEqual(plan["codeText"], HARD + " 머신러닝 모델 - 결과를 내지 못해 평가 불가입니다.")
 
     def test_shape_and_limits(self):
         base = spec()
@@ -201,7 +219,7 @@ class InputTests(unittest.TestCase):
         ep.parse_input(spec(["가" * 300] * 4))
 
     def test_value_tokens(self):
-        sentence = "이상 규칙은 처리 상태가 F(실패)여서 이상으로 판단했습니다."
+        sentence = "이상 규칙 - 처리 상태가 F(실패)여서 이상으로 판단했습니다."
         ep.parse_input(spec([sentence], ["F(실패)"]))
         self.rejected(spec([sentence], ["P(처리중)"]))
         self.rejected(spec([sentence], [""]))
@@ -215,7 +233,7 @@ class InputTests(unittest.TestCase):
         self.rejected({**spec(), "stateWords": ["정상"]})
 
     def test_allowed_numbers_multiset(self):
-        sentences = ["머신러닝 모델 판단에는 평소 800 ms보다 긴 처리 시간 4,200 ms가 가장 크게 영향을 주었습니다(62%)."]
+        sentences = ["머신러닝 모델 - 평소 800 ms보다 긴 처리 시간 4,200 ms가 가장 크게 영향을 주어(62%) 이상 징후로 판단했습니다."]
         ep.parse_input(spec(sentences, allowedNumbers=["800", "4200.0", "62"]))
         ep.parse_input(spec(sentences, allowedNumbers=["62", "4,200", "800"]))
         self.rejected(spec(sentences, allowedNumbers=["4200", "800"]))
@@ -227,7 +245,7 @@ class InputTests(unittest.TestCase):
         plan = ep.parse_input(spec())
         result = ep.build_result(plan, MODEL, HARD_GOOD, True)
         self.assertEqual(result, {"outputSchemaVersion": "evidence-polish-result-v1", "decisionId": "dec",
-                                  "templateVersion": "evidence-template-v2", "codeText": HARD,
+                                  "templateVersion": "evidence-template-v3", "codeText": HARD,
                                   "paragraph": {"text": HARD, "source": "code"},
                                   "check": {"status": "not_run", "code": "generation_incomplete"}, "modelVersion": MODEL})
 
@@ -251,7 +269,7 @@ class ExplainPolishJobTests(unittest.TestCase):
             result = explanation.explain(value or job())
         return result, calls
 
-    def receipt(self, output=HARD_GOOD, truncated=False, model=MODEL, prompt="evidence-polish-v2"):
+    def receipt(self, output=HARD_GOOD, truncated=False, model=MODEL, prompt="evidence-polish-v3"):
         return {"output": output, "truncated": truncated, "modelVersion": model, "promptVersion": prompt}
 
     def test_passed_polish(self):
@@ -360,7 +378,7 @@ class PolishGenerationServiceTests(unittest.TestCase):
         model, tokenizer = self.model()
         receipt = model.generate("polish_explanation", {"sentences": [HARD]})
         self.assertEqual(receipt, {"output": HARD_GOOD, "truncated": False, "modelVersion": MODEL,
-                                   "promptVersion": "evidence-polish-v2"})
+                                   "promptVersion": "evidence-polish-v3"})
         self.assertEqual(tokenizer.messages, ep.build_messages([HARD]))
         self.assertEqual(model.gate.snapshot(), {"running": False, "interactive": 0, "job": 0})
 

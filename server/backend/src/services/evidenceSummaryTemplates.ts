@@ -3,12 +3,13 @@
  * 문구·틀을 바꾸면 TEMPLATE_VERSION을 올린다(설명 작업의 다듬기 결과는 같은 버전일 때만 쓰인다).
  * 조립 순서·값 고르기는 evidenceSummary.ts, 값 표기·조사는 koreanText.ts.
  * 문장 틀 인자는 이미 표기된 문자열(천 단위 쉼표·단위 붙임 완료)이고, 조사는 여기서 붙인다.
- * v2 문장 모양: `{방법 이름}은/는 {관측 사실}{이유 어미} {판정}으로 판단했습니다.` — 비교 대상은 사실 안에 넣고(`기준 3,000 ms를 넘어`),
- * `~와 비교했고,` 구조·`이번`·`값` 같은 군말을 쓰지 않는다. 확인할 것은 끝에 실제 화면 칸 안내 `(화면: …)`를 붙인다.
+ * v3 문장 모양: `{방법 이름} - {관측 사실}{이유 어미} {판정}으로 판단했습니다.` — 방법 이름 뒤에 조사 대신 ` - `를 두고(METHOD_PREFIX),
+ * 비교 대상은 사실 안에 넣고(`기준 3,000 ms를 넘어`), `~와 비교했고,` 구조·`이번`·`값` 같은 군말을 쓰지 않는다.
+ * 확인할 것은 끝에 실제 화면 칸 안내 `(화면: …)`를 붙인다.
  */
-import { because, object, subject, subjectParticle, toward, topic, withWord } from "./koreanText.js";
+import { because, object, subject, subjectParticle, toward, withWord } from "./koreanText.js";
 
-export const TEMPLATE_VERSION = "evidence-template-v2";
+export const TEMPLATE_VERSION = "evidence-template-v3";
 /** 블록 5 고정 안내(사용자 확정 글자). */
 export const NOTICE = "AI 근거 요약은 참고용이며, 최종 판단은 담당자 확인이 필요합니다.";
 /** 값을 구할 수 없는 자리(표·문장 공통). 값을 지어내지 않는다. */
@@ -56,7 +57,7 @@ export const statusText = (code: string) => (Object.hasOwn(STATUS_MEANINGS, code
 export const STATUS_LABELS = Object.keys(STATUS_MEANINGS).map(statusText);
 const SUCCESS = statusText("S");
 const FAILED = statusText("F");
-/** 방법 표시 이름(문장 주어·미판정 문장). */
+/** 방법 표시 이름(문장 앞머리 `{이름} - `·미판정 문장). */
 export const METHOD_NAMES = { hard: "이상 규칙", relation: "관계 규칙", soft: "이상 징후 규칙", ml: "머신러닝 모델" } as const;
 /** 판정 낱말을 뽑기 전에 가리는 이름(방법 표시 이름). */
 export const MASKED_NAMES = ["이상 규칙", "이상 징후 규칙", "관계 규칙", "머신러닝 모델", "정상 프로토콜"] as const;
@@ -95,9 +96,12 @@ const SCREEN = {
 } as const;
 /** `{문장 끝 마침표 앞}(화면: …).` */
 const withScreen = (text: string, place: string) => `${text}(화면: ${place}).`;
-const HARD = topic(METHOD_NAMES.hard);
-const RELATION = topic(METHOD_NAMES.relation);
-const SOFT = topic(METHOD_NAMES.soft);
+/** 문단 문장 앞머리 `{방법 이름} -`(v3, 뒤 한 칸은 문장 틀이 붙인다). 다듬기 확인(워커)도 문장마다 이 앞머리가 그대로인지 본다. */
+const METHOD_PREFIX = (name: string) => `${name} -`;
+const HARD = METHOD_PREFIX(METHOD_NAMES.hard);
+const RELATION = METHOD_PREFIX(METHOD_NAMES.relation);
+const SOFT = METHOD_PREFIX(METHOD_NAMES.soft);
+const ML = METHOD_PREFIX(METHOD_NAMES.ml);
 
 // ---- 블록 하나(한 줄 요약·문장·표·확인할 것) ----
 export type Lines = { line: string; sentence: string; check: string };
@@ -260,34 +264,39 @@ export const soft = {
   }),
 };
 
-/** A.3 머신러닝 모델(기여도 계산 성공, 1위 참가자 종류별). impact = `62%` 또는 null(영향 생략). */
+/**
+ * A.3 머신러닝 모델(기여도 계산 성공, 1위 참가자 종류별). impact = `62%` 또는 null(영향 생략).
+ * 문장 = `머신러닝 모델 - {1위 참가자}가 가장 크게 영향을 주어({impact}) 이상 징후로 판단했습니다.` — 판정 낱말은 기여도 없음 문장과 같은 `이상 징후`
+ * (머신러닝 모델만 이상이면 등급이 이상 징후다).
+ */
+const ML_JUDGED = "이상 징후로 판단했습니다.";
 const impactNote = (impact: string | null) => (impact ? `(${impact})` : "");
+const mlTop = (subjectText: string, impact: string | null) => `${ML} ${subjectText} 가장 크게 영향을 주어${impactNote(impact)} ${ML_JUDGED}`;
 const ML_ELAPSED_CHECK = "같은 프로세스의 최근 처리 시간을 함께 확인하세요.";
 const mlValueCheck = (name: string) => withScreen(`해당 업무 시스템에서 ${subject(name)} 평소와 다른 이유를 확인하세요`, SCREEN.table);
-const ML = `${METHOD_NAMES.ml} 판단에는`;
 export const ml = {
   elapsedLonger: (a: string, b: string, impact: string | null): Lines => ({
     line: `${subject(F.elapsed_ms.short)} 평소보다 깁니다`,
-    sentence: `${ML} 평소 ${b}보다 긴 ${F.elapsed_ms.name} ${subject(a)} 가장 크게 영향을 주었습니다${impactNote(impact)}.`,
+    sentence: mlTop(`평소 ${b}보다 긴 ${F.elapsed_ms.name} ${subject(a)}`, impact),
     check: ML_ELAPSED_CHECK,
   }),
   elapsedShorter: (a: string, b: string, impact: string | null): Lines => ({
     line: `${subject(F.elapsed_ms.short)} 평소보다 짧습니다`,
-    sentence: `${ML} 평소 ${b}보다 짧은 ${F.elapsed_ms.name} ${subject(a)} 가장 크게 영향을 주었습니다${impactNote(impact)}.`,
+    sentence: mlTop(`평소 ${b}보다 짧은 ${F.elapsed_ms.name} ${subject(a)}`, impact),
     check: ML_ELAPSED_CHECK,
   }),
   errorRatio: (a: string, b: string, higher: boolean, impact: string | null): Lines => ({
     line: `${subject(F.error_ratio.short)} 평소보다 ${higher ? "높습니다" : "낮습니다"}`,
-    sentence: `${ML} 평소 ${b}보다 ${higher ? "높은" : "낮은"} ${F.error_ratio.name} ${subject(a)} 가장 크게 영향을 주었습니다${impactNote(impact)}.`,
+    sentence: mlTop(`평소 ${b}보다 ${higher ? "높은" : "낮은"} ${F.error_ratio.name} ${subject(a)}`, impact),
     check: mlValueCheck(F.error_ratio.name),
   }),
   /** 건수 계열 단독·묶음·그 밖(평소 값 숫자를 쓰지 않는 경우). name = 문단 이름, short = 한 줄 요약 이름. 처리 시간이면 처리 시간 확인 줄. */
   value: (name: string, short: string, impact: string | null, elapsed = false): Lines => ({
     line: `${subject(short)} 평소와 다릅니다`,
-    sentence: `${ML} 평소와 다른 ${subject(name)} 가장 크게 영향을 주었습니다${impactNote(impact)}.`,
+    sentence: mlTop(`평소와 다른 ${subject(name)}`, impact),
     check: elapsed ? ML_ELAPSED_CHECK : mlValueCheck(name),
   }),
-  /** 2위 한 문장(3위 이하는 표만). */
+  /** 2위 한 문장(3위 이하는 표만). 앞 문장을 잇는 문장이라 방법 이름 앞머리를 붙이지 않는다. */
   second: (name: string, impact: string | null) => `다음으로 평소와 다른 ${subject(name)} 영향을 주었습니다${impactNote(impact)}.`,
   /** 표 묶음 이름·참가자 이름: 구성원 이름을 `·`로 잇는다. */
   playerName: (names: string[]) => names.join("·"),
@@ -296,12 +305,12 @@ export const ml = {
 /** A.4 기여도 없음·미판정·정상. */
 export const mlNoContribution = {
   line: "머신러닝 모델이 평소와 다른 값을 확인했습니다",
-  sentence: `${topic(METHOD_NAMES.ml)} 학습 데이터 기준 원점수가 판정선을 벗어나 이상 징후로 판단했습니다.`,
+  sentence: `${ML} 학습 데이터 기준 원점수가 판정선을 벗어나 ${ML_JUDGED}`,
 };
 export const unresolved = {
   /** 미판정 방법 표시 이름을 `·`로 잇는다. */
   names: (names: string[]) => names.join("·"),
-  sentence: (names: string) => `${topic(names)} 결과를 내지 못해 평가 불가입니다.`,
+  sentence: (names: string) => `${METHOD_PREFIX(names)} 결과를 내지 못해 평가 불가입니다.`,
   check: (names: string) => `결과를 내지 못한 ${names}의 입력 수집 상태를 확인하세요.`,
 };
 export const normal = {

@@ -1,5 +1,8 @@
 # Python worker 운영 경계
 
+IoT-SFC를 처음 넣어 보는 별도 CPU·PostgreSQL 시험은 [IoT 소량 시험](iot_sfc/README.md)을 따른다.
+기존 ESB 운영·화면 API와 분리된 CLI 프로토타입이며 원본·인증값·payload는 저장하지 않는다.
+
 기본 구조는 **Collector / Detector / Trainer / LLM**이다. web/api 및 기존 PostgreSQL을 포함하면 기획서의 7개 서비스다. [Docker 배포](../infra/DOCKER_DEPLOYMENT.md)를 기준으로 실행한다. 006·007까지의 마이그레이션이 필요하다.
 
 - Collector: 제공된 Bearer 조회 API를 계속 호출하고 설정·안전한 응답 snapshot·요청 실시간성 측정값을 DB에 축적한다. 조회 API의 실행/revision/원천 시각 계약이 미확정이면 탐지용 T/P/M 관측으로 추정하지 않는다.

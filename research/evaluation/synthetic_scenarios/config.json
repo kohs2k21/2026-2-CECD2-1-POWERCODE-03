@@ -1,0 +1,48 @@
+{
+  "seeds": [
+    11,
+    23,
+    37,
+    41,
+    53
+  ],
+  "gutentag_length": 20000,
+  "gutentag_offsets": [
+    0.5,
+    1.0,
+    2.0,
+    4.0
+  ],
+  "interval_lengths": [
+    20,
+    200
+  ],
+  "tsb_add_ms": [
+    1000.0,
+    3000.0,
+    6000.0,
+    12000.0
+  ],
+  "tsb_flip_length": 200,
+  "calibration_quantile": 0.99,
+  "forest_trees": 100,
+  "forest_max_samples": 256,
+  "load_rates": [
+    10,
+    100,
+    1000,
+    5000
+  ],
+  "load_batches": [
+    1,
+    32
+  ],
+  "load_duration_seconds": 8,
+  "load_drain_seconds": 5,
+  "load_queue_capacity": 512,
+  "load_repeats": 2,
+  "latency_budget_ms": 1000,
+  "exploratory_quantiles": [
+    0.95
+  ]
+}

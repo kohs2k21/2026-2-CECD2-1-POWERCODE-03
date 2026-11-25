@@ -1,0 +1,6 @@
+# 시험 이미지에 필요한 코드만 전송한다. .env·원본·샘플·모델·캐시는 제외한다.
+**
+!pg_queue.py
+!iot_sfc/
+!iot_sfc/*.py
+!iot_sfc/requirements.txt

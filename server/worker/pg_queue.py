@@ -7,8 +7,10 @@ import uuid
 from dataclasses import dataclass
 from typing import Any, Literal
 
-QueueName = Literal["feature", "detection", "training", "llm_recommendation", "llm_explanation"]
+QueueName = Literal["feature", "detection", "training", "llm_recommendation", "llm_explanation", "iot_sfc"]
 TABLES = {
+    # IoT 시험 입력은 ESB Detector가 소비하지 않는 별도 큐로 보낸다.
+    "iot_sfc": "powercode_iot.detection_queue",
     "feature": "powercode_queue.feature_observations",
     "detection": "powercode_queue.detection_logs",
     "training": "powercode_queue.training_jobs",
@@ -285,7 +287,7 @@ def reconcile_dead_jobs(conn: Any, queue: QueueName) -> None:
     """Expire exhausted crashed attempts; a dead queue item must not look running forever."""
     # 비용(training·LLM 큐): queued/running 작업(또는 만료된 running 시도) × dead 큐 행 순차 탐색. 큐에 jobId 색인이 없어
     # uuid 비교로 바꿔도 줄지 않는다. detection 큐는 큐 id = jobId라 아래 _reconcile_detection이 pkey로 찾는다.
-    if queue == "feature":
+    if queue in ("feature", "iot_sfc"):
         return
     if queue == "detection":
         _reconcile_detection(conn)

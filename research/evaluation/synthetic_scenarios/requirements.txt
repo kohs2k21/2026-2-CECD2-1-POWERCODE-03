@@ -1,0 +1,11 @@
+# Tested Python 3.12.14. No dependency changes to the production services.
+numpy==2.2.6
+pandas==2.2.3
+scipy==1.14.1
+scikit-learn==1.5.2
+matplotlib==3.10.7
+psutil==7.1.0
+joblib==1.6.0
+threadpoolctl==3.7.0
+timeeval-GutenTAG @ git+https://github.com/TimeEval/GutenTAG.git@0bf06e601d57f1f1e4e2d52cfbfa27871dd6a021
+# TSB-UAD transformer is imported from the separately pinned source checkout.

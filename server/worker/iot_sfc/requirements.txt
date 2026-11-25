@@ -1,0 +1,6 @@
+# IoT 소량 시험 전용 환경. 기존 운영 worker 환경과 별도 venv에서 사용한다.
+numpy==2.4.4
+scikit-learn==1.8.0
+joblib==1.5.3
+psycopg[binary]==3.3.9
+python-dotenv==1.2.4

@@ -1180,6 +1180,9 @@ const polishedReads = (id) => requested.filter((r) => r.path === `/api/analysis/
   assert.deepEqual([text(hardCell.children), hardCell.props.title], ["상태 S(성공), 오류 건수(ERROR_COUNT) 3", "단위 미확인"]);
   const statusSpans = cardOf(hardRule)[0].findAll((node) => node.type === "span" && String(node.props.className).includes("whitespace-nowrap")).map((node) => text(node.children));
   assert.ok(statusSpans.includes("S(성공)") && statusSpans.includes("오류 건수(ERROR_COUNT)"), `status and count names kept whole: ${statusSpans.join(" / ")}`);
+  // v3 앞머리 `이상 규칙 - `는 글자 그대로이고 묶음(줄바꿈 없는 이름)에 들어가지 않는다
+  assert.ok(blockText(cardOf(hardRule)[0], "paragraph").startsWith("이상 규칙 - 처리 상태가 S(성공)인데"), "v3 prefix shown as is");
+  assert.ok(statusSpans.every((span) => !span.includes("-") && !span.includes("이상 규칙")), `prefix is not wrapped: ${statusSpans.join(" / ")}`);
   await hardRule.cleanup();
 
   // scale 1 구성원: 평소 값 칸은 서버 글자(평소와 다름) 그대로, 단위를 붙이지 않는다
@@ -1212,7 +1215,7 @@ const polishedReads = (id) => requested.filter((r) => r.path === `/api/analysis/
 {
   const mixed = summaryOf("example_c_soft_elapsed_and_ml");
   const code = mixed.sentences.join(" ");
-  const polishedText = "머신러닝 모델 판단에는 평소 800 ms보다 긴 처리 시간 4,200 ms가 가장 크게 영향을 주었고(62%), 다음으로 평소와 다른 처리량(TOTAL_COUNT)·오류 건수(ERROR_COUNT)·오류 비율이 영향을 주었습니다(31%).";
+  const polishedText = "이상 징후 규칙 - 처리 시간이 4,200 ms로 기준 3,000 ms를 넘어 이상 징후로 판단했습니다. 머신러닝 모델 - 평소 800 ms보다 긴 처리 시간 4,200 ms가 가장 크게 영향을 주어(62%) 이상 징후로 판단했고, 다음으로 평소와 다른 처리량(TOTAL_COUNT)·오류 건수(ERROR_COUNT)·오류 비율이 영향을 주었습니다(31%).";
   const paragraphOf = (app) => blockText(cardOf(app)[0], "paragraph");
   const requestable = { polishRequestable: true };
 

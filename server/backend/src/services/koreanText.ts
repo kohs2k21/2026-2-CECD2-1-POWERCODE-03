@@ -122,15 +122,12 @@ export const towardParticle = (word: string) => {
 export const subjectParticle = (word: string) => (lastSound(word).batchim ? "이" : "가");
 /** 과/와(조사만) */
 export const withParticle = (word: string) => (lastSound(word).batchim ? "과" : "와");
-/** 은/는(조사만) */
-export const topicParticle = (word: string) => (lastSound(word).batchim ? "은" : "는");
 /** 이어서/여서(서술 `~이다`의 이유형, 조사만) */
 export const becauseParticle = (word: string) => (lastSound(word).batchim ? "이어서" : "여서");
 export const toward = (word: string) => `${word}${towardParticle(word)}`;
 export const object = (word: string) => `${word}${objectParticle(word)}`;
 export const subject = (word: string) => `${word}${subjectParticle(word)}`;
 export const withWord = (word: string) => `${word}${withParticle(word)}`;
-export const topic = (word: string) => `${word}${topicParticle(word)}`;
 /** `{낱말}이어서`·`{낱말}여서`(`F(실패)여서`·`N(미처리)이어서` — 괄호 앞말 기준). */
 export const because = (word: string) => `${word}${becauseParticle(word)}`;
 
